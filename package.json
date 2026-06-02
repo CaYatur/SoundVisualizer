@@ -1,0 +1,102 @@
+{
+  "name": "soundvisualizer",
+  "version": "1.0.0",
+  "description": "CAYADEV — çoklu ekran ve çoklu kaynak destekli ses görselleştirici (Windows + macOS)",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "CAYADEV",
+    "url": "https://cayadev.com"
+  },
+  "homepage": "https://cayadev.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CaYatur/SoundVisualizer.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "dev": "node scripts/start.js --dev",
+    "icons": "node scripts/gen-icons.js",
+    "dist:win": "npm run icons && electron-builder --win --x64",
+    "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
+    "pack:dir": "electron-builder --dir"
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.0.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^26.8.1",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.34.5"
+  },
+  "dependencies": {
+    "audify": "^1.10.1"
+  },
+  "build": {
+    "appId": "com.cayadev.visualizer",
+    "productName": "CAYADEV Visualizer",
+    "npmRebuild": false,
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/audify/**",
+      "src/main/loopback-helper.js"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "CAYADEV Visualizer"
+    },
+    "portable": {
+      "artifactName": "CAYADEV-Visualizer-${version}-portable.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.music",
+      "hardenedRuntime": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "CAYADEV Visualizer"
+    }
+  }
+}

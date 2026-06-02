@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+    <title>Ses Görselleştirici — Yönetici Paneli</title>
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="CAYADEV">
+          <defs>
+            <radialGradient id="lglow" cx="0.5" cy="0.5" r="0.55">
+              <stop offset="0" stop-color="#dc2727" stop-opacity="0.42"/><stop offset="1" stop-color="#dc2727" stop-opacity="0"/>
+            </radialGradient>
+            <clipPath id="lround"><rect x="64" y="64" width="896" height="896" rx="208"/></clipPath>
+          </defs>
+          <rect x="64" y="64" width="896" height="896" rx="208" fill="#111827"/>
+          <g clip-path="url(#lround)" fill="#ffffff" opacity="0.06">
+            <rect x="-120" y="150" width="1264" height="86" rx="43" transform="rotate(-24 512 512)"/>
+            <rect x="-120" y="300" width="1264" height="86" rx="43" transform="rotate(-24 512 512)"/>
+          </g>
+          <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#lglow)"/>
+          <g fill="#dc2727">
+            <rect x="276" y="412" width="72" height="200" rx="36"/>
+            <rect x="388" y="342" width="72" height="340" rx="36"/>
+            <rect x="500" y="277" width="72" height="470" rx="36"/>
+            <rect x="612" y="342" width="72" height="340" rx="36"/>
+            <rect x="724" y="412" width="72" height="200" rx="36"/>
+          </g>
+          <rect x="500" y="486" width="72" height="52" rx="26" fill="#ffffff" opacity="0.92"/>
+        </svg>
+        <div>
+          <h1 class="wordmark"><span class="cw-red">CAYA</span><span class="cw-white">DEV</span></h1>
+          <span class="sub">Ses Görselleştirici · Yönetici Paneli</span>
+        </div>
+      </div>
+
+      <div class="display-controls">
+        <label class="field">
+          <span>Ekran</span>
+          <select id="displaySelect"></select>
+        </label>
+        <button id="openBtn" class="btn primary">▶ Görselleştirmeyi Aç</button>
+        <button id="closeBtn" class="btn ghost" disabled>■ Kapat</button>
+        <div class="status">
+          <span id="statusDot" class="dot off"></span>
+          <span id="statusText">Kapalı</span>
+        </div>
+      </div>
+    </header>
+
+    <div id="banner" class="banner hidden">
+      <span class="bicon">⚠️</span>
+      <div class="btext">
+        <strong>Ses çıkışı yakalanamadı.</strong>
+        <span id="bannerDetail">Çıkış aygıtı yakalanamadı.</span>
+        <div class="bhelp">
+          Farklı bir <b>Çıkış Aygıtı</b> seçmeyi deneyin veya <b>🔄 Aygıtları Yenile</b>'ye basın.
+          Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.
+        </div>
+      </div>
+      <button id="bannerClose" class="btn ghost small">Kapat</button>
+    </div>
+
+    <div class="meter-strip">
+      <div class="meter"><label>Genel</label><div class="bar"><i id="mLevel"></i></div></div>
+      <div class="meter"><label>Bas</label><div class="bar"><i id="mBass"></i></div></div>
+      <div class="meter"><label>Orta</label><div class="bar"><i id="mMid"></i></div></div>
+      <div class="meter"><label>Tiz</label><div class="bar"><i id="mTreble"></i></div></div>
+      <div id="audioState" class="audio-state">Ses bekleniyor…</div>
+    </div>
+
+    <main id="sections" class="sections"></main>
+
+    <footer class="footer">
+      <button id="resetBtn" class="btn ghost small">↺ Varsayılanlara Sıfırla</button>
+      <span class="hint">Görselleştirme ekranında <kbd>ESC</kbd> ile çıkış • Ayarlar otomatik kaydedilir</span>
+    </footer>
+
+    <script src="../shared/defaults.js"></script>
+    <script src="admin.js"></script>
+  </body>
+</html>

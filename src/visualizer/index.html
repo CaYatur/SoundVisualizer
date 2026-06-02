@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+    <title>Görselleştirme</title>
+    <link rel="stylesheet" href="visualizer.css" />
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+    <canvas id="c2d"></canvas>
+    <img id="logo" alt="" />
+    <div id="hint"></div>
+    <div id="error"></div>
+
+    <script src="../shared/defaults.js"></script>
+    <script src="audio.js"></script>
+    <script src="modes/gradient.js"></script>
+    <script src="modes/bars.js"></script>
+    <script src="modes/centerbars.js"></script>
+    <script src="modes/wave.js"></script>
+    <script src="modes/circular.js"></script>
+    <script src="visualizer.js"></script>
+  </body>
+</html>
