@@ -46,6 +46,8 @@
     ],
     "asarUnpack": [
       "node_modules/audify/**",
+      "node_modules/bindings/**",
+      "node_modules/file-uri-to-path/**",
       "src/main/loopback-helper.js"
     ],
     "win": {

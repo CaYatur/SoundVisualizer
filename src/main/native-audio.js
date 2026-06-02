@@ -4,9 +4,22 @@
    - listDevices(): tüm ses aygıtlarını (çıkış + giriş/mikrofon) döndürür
    - startCapture(devices, onFrame, onStatus): bir veya birden fazla aygıtı yakalar */
 
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+
+// Hata ayıklama günlüğü — SV_DEBUG=1 (stderr) veya SV_DEBUG_FILE (dosya) ile açılır.
+// Env çağrı anında okunur (modül yüklenince değil) ki main.js sonradan ayarlayabilsin.
+function dbg(...a) {
+  if (!process.env.SV_DEBUG && !process.env.SV_DEBUG_FILE) return;
+  const line = '[native-audio] ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+  console.error(line);
+  if (process.env.SV_DEBUG_FILE) {
+    try {
+      fs.appendFileSync(process.env.SV_DEBUG_FILE, line + '\n');
+    } catch {}
+  }
+}
 
 // Paketlenmiş (asar) uygulamada helper ve audify, app.asar.unpacked altında bulunur.
 // Harici "node" süreci asar içini okuyamaz; bu yüzden çözülmüş (unpacked) yolu kullan.
@@ -25,20 +38,48 @@ function findNode() {
   if (_nodeCache) return _nodeCache;
   const win = process.platform === 'win32';
   const exe = win ? 'node.exe' : 'node';
+
+  // 1) En güvenilir: işletim sistemine sor (gerçek PATH'i kullanır)
+  try {
+    const cmd = win ? 'where node' : 'command -v node';
+    const found = execSync(cmd, { encoding: 'utf-8' })
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)[0];
+    if (found && fs.existsSync(found)) {
+      _nodeCache = found;
+      return found;
+    }
+  } catch {}
+
   const candidates = [];
-  // PATH üzerindeki dizinler
+  // 2) PATH üzerindeki dizinler
   const PATH = process.env.PATH || process.env.Path || '';
   PATH.split(path.delimiter).forEach((d) => {
     if (d) candidates.push(path.join(d, exe));
   });
-  // Yaygın kurulum konumları
+  // 3) Yaygın kurulum konumları (PATH boşsa / GUI süreci için)
+  const LOCALAPPDATA = process.env.LOCALAPPDATA || '';
   if (win) {
     candidates.push(
       path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'node.exe'),
       path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'nodejs', 'node.exe'),
-      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'nodejs', 'node.exe'),
-      path.join(process.env.APPDATA || '', 'npm', 'node.exe')
+      path.join(LOCALAPPDATA, 'Programs', 'nodejs', 'node.exe'),
+      path.join(process.env.APPDATA || '', 'npm', 'node.exe'),
+      // sürüm yöneticileri: fnm, volta, scoop
+      path.join(LOCALAPPDATA, 'Volta', 'bin', 'node.exe'),
+      path.join(process.env.USERPROFILE || '', 'scoop', 'apps', 'nodejs', 'current', 'node.exe'),
+      path.join(process.env.USERPROFILE || '', 'scoop', 'shims', 'node.exe')
     );
+    // fnm: %LOCALAPPDATA%\fnm_multishells\<...>\node.exe — en yenisini tara
+    try {
+      const fnmRoot = path.join(LOCALAPPDATA, 'fnm', 'node-versions');
+      if (fs.existsSync(fnmRoot)) {
+        for (const v of fs.readdirSync(fnmRoot)) {
+          candidates.push(path.join(fnmRoot, v, 'installation', 'node.exe'));
+        }
+      }
+    } catch {}
   } else {
     candidates.push(
       '/usr/local/bin/node',
@@ -55,6 +96,7 @@ function findNode() {
       }
     } catch {}
   }
+  dbg('findNode: hiçbir aday bulunamadı, "node"a düşülüyor');
   _nodeCache = 'node'; // son çare: PATH'e güven
   return _nodeCache;
 }
@@ -62,18 +104,32 @@ function findNode() {
 function listDevices() {
   return new Promise((resolve) => {
     let out = '';
+    let err = '';
     let child;
+    const node = findNode();
+    dbg('listDevices node=', node, 'HELPER=', HELPER, 'ROOT=', ROOT);
+    dbg('HELPER exists?', fs.existsSync(HELPER), 'ROOT exists?', fs.existsSync(ROOT));
     try {
-      child = spawn(findNode(), [HELPER, '--list'], { cwd: ROOT });
-    } catch {
+      child = spawn(node, [HELPER, '--list'], { cwd: ROOT, windowsHide: true });
+    } catch (e) {
+      dbg('spawn threw:', e.message);
       return resolve([]);
     }
     child.stdout.on('data', (d) => (out += d.toString()));
-    child.on('error', () => resolve([]));
-    child.on('close', () => {
+    child.stderr.on('data', (d) => (err += d.toString()));
+    child.on('error', (e) => {
+      dbg('spawn error event:', e.message);
+      resolve([]);
+    });
+    child.on('close', (code) => {
+      dbg('list close code=', code, 'stdout.len=', out.length, 'stderr=', err.slice(0, 300));
+      dbg('stdout head:', out.slice(0, 200));
       try {
-        resolve(JSON.parse(out));
-      } catch {
+        const parsed = JSON.parse(out);
+        dbg('parsed device count=', Array.isArray(parsed) ? parsed.length : 'not-array');
+        resolve(parsed);
+      } catch (e) {
+        dbg('JSON parse failed:', e.message);
         resolve([]);
       }
     });
@@ -96,8 +152,9 @@ function startCapture(devices, onFrame, onStatus) {
   const arr = Array.isArray(devices) ? devices : [devices || 'default'];
   const arg = JSON.stringify({ devices: arr });
   let child;
+  dbg('startCapture devices=', arr, 'node=', findNode());
   try {
-    child = spawn(findNode(), [HELPER, '--capture', arg], { cwd: ROOT });
+    child = spawn(findNode(), [HELPER, '--capture', arg], { cwd: ROOT, windowsHide: true });
   } catch (e) {
     if (onStatus) onStatus({ type: 'error', message: 'node başlatılamadı: ' + e.message });
     return;

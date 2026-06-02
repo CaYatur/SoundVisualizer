@@ -284,7 +284,37 @@ ipcMain.on('report-audio-devices', (e, devices) => {
 // ----------------------------------------------------------------------------
 // Uygulama yaşam döngüsü
 // ----------------------------------------------------------------------------
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Tanılama modu: paketlenmiş aygıt listeleme yolunu GUI'siz çalıştırır.
+  // Çıktıyı hem konsola hem de %APPDATA%/soundvisualizer/diag.log dosyasına yazar
+  // (portable exe konsol çıktısını geri vermediği için dosya şart).
+  if (process.argv.includes('--diag')) {
+    const logPath = path.join(app.getPath('userData'), 'diag.log');
+    try { fs.mkdirSync(path.dirname(logPath), { recursive: true }); } catch {}
+    if (!process.env.SV_DEBUG_FILE) process.env.SV_DEBUG_FILE = logPath;
+    const lines = [];
+    const L = (...a) => {
+      const s = a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+      lines.push(s);
+      console.log(s);
+    };
+    L('[DIAG] ' + new Date().toISOString());
+    L('[DIAG] platform=', process.platform, 'execPath=', process.execPath);
+    L('[DIAG] resourcesPath=', process.resourcesPath || '(yok)');
+    L('[DIAG] __dirname=', __dirname);
+    L('[DIAG] PATH has node dir?', (process.env.PATH || '').toLowerCase().includes('nodejs'));
+    try {
+      const devs = await nativeAudio.listDevices();
+      L('[DIAG] listDevices count =', Array.isArray(devs) ? devs.length : 'NOT-ARRAY');
+      L('[DIAG] devices =', JSON.stringify(devs));
+    } catch (e) {
+      L('[DIAG] listDevices threw:', (e && e.message) || String(e));
+    }
+    try { fs.writeFileSync(logPath, lines.join('\n') + '\n', { flag: 'a' }); } catch {}
+    app.quit();
+    return;
+  }
+
   currentConfig = loadSettings();
   createAdminWindow();
 

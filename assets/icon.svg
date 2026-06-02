@@ -22,17 +22,17 @@
   <!-- kırmızı parıltı -->
   <rect x="64" y="64" width="896" height="896" rx="224" fill="url(#glow)"/>
 
-  <!-- minimalist ekolayzer — merkezden simetrik açılan pill barlar -->
+  <!-- minimalist ekolayzer — merkezden simetrik açılan pill barlar (yatayda ortalı) -->
   <g fill="#dc2727">
-    <rect x="276" y="412" width="72" height="200" rx="36"/>
-    <rect x="388" y="342" width="72" height="340" rx="36"/>
-    <rect x="500" y="277" width="72" height="470" rx="36"/>
-    <rect x="612" y="342" width="72" height="340" rx="36"/>
-    <rect x="724" y="412" width="72" height="200" rx="36"/>
+    <rect x="252" y="412" width="72" height="200" rx="36"/>
+    <rect x="364" y="342" width="72" height="340" rx="36"/>
+    <rect x="476" y="277" width="72" height="470" rx="36"/>
+    <rect x="588" y="342" width="72" height="340" rx="36"/>
+    <rect x="700" y="412" width="72" height="200" rx="36"/>
   </g>
 
   <!-- ince beyaz çekirdek vurgusu (cayadev iki tonu) -->
-  <rect x="500" y="486" width="72" height="52" rx="26" fill="#ffffff" opacity="0.92"/>
+  <rect x="476" y="486" width="72" height="52" rx="26" fill="#ffffff" opacity="0.92"/>
 
   <!-- ince kenar -->
   <rect x="68" y="68" width="888" height="888" rx="220" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="2"/>
