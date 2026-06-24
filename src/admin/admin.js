@@ -89,6 +89,12 @@
         return colorsCtrl(def);
       case 'presets':
         return presetsCtrl(def);
+      case 'userpresets':
+        return userPresetsCtrl(def);
+      case 'bgio':
+        return bgIoCtrl(def);
+      case 'images':
+        return imagesCtrl(def);
       case 'logofile':
         return logoFileCtrl(def);
       case 'xy':
@@ -264,6 +270,129 @@
       el('label', { class: 'lbl', text: 'Hazır Şablonlar' }),
       grid,
     ]);
+  }
+
+  // --- Kullanıcı renk şablonları (kaydet/yeniden adlandır/güncelle/sil + içe/dışa) ---
+  function userPresetsCtrl() {
+    if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
+    const wrap = el('div', { class: 'ctrl' });
+    wrap.appendChild(el('label', { class: 'lbl', text: 'Kendi Şablonlarım' }));
+
+    const list = el('div', { class: 'user-presets' });
+    if (!cfg.userPresets.length) {
+      list.appendChild(el('div', { class: 'up-empty', text: 'Henüz şablon yok. Aşağıdaki renkleri ayarlayıp “Mevcut Renkleri Kaydet”e basın.' }));
+    }
+    cfg.userPresets.forEach((p) => {
+      const swatch = el('div', { class: 'up-swatch' });
+      swatch.style.background = `linear-gradient(90deg, ${(p.colors || []).join(',')})`;
+      swatch.title = 'Uygula';
+      swatch.addEventListener('click', () => actions.applyUserPreset(p.id));
+
+      const nameInput = el('input', {
+        type: 'text', class: 'up-name', value: p.name || 'Şablon',
+        onchange: (e) => { p.name = e.target.value.trim() || 'Şablon'; push(true); },
+      });
+
+      const applyBtn = el('button', { class: 'btn ghost small', text: 'Uygula', onclick: () => actions.applyUserPreset(p.id) });
+      const updateBtn = el('button', { class: 'btn ghost small', text: '⟳ Güncelle', title: 'Mevcut renklerle güncelle', onclick: () => actions.updateUserPreset(p.id) });
+      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteUserPreset(p.id) });
+
+      const row = el('div', { class: 'up-item' }, [
+        swatch,
+        el('div', { class: 'up-main' }, [nameInput, el('div', { class: 'up-actions' }, [applyBtn, updateBtn, delBtn])]),
+      ]);
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+
+    const saveBtn = el('button', { class: 'btn ghost small', text: '💾 Mevcut Renkleri Kaydet', onclick: () => actions.saveCurrentPreset() });
+    const expBtn = el('button', { class: 'btn ghost small', text: '📤 Dışa Aktar', onclick: () => actions.exportPresets() });
+    const impBtn = el('button', { class: 'btn ghost small', text: '📥 İçe Aktar', onclick: () => actions.importPresets() });
+    const bar = el('div', { class: 'up-toolbar' }, [saveBtn, expBtn, impBtn]);
+    wrap.appendChild(bar);
+    return wrap;
+  }
+
+  // --- Arkaplan ayarlarını içe/dışa aktarma ---
+  function bgIoCtrl() {
+    const expBtn = el('button', { class: 'btn ghost small', text: '📤 Arkaplanı Dışa Aktar', onclick: () => actions.exportBackground() });
+    const impBtn = el('button', { class: 'btn ghost small', text: '📥 Arkaplanı İçe Aktar', onclick: () => actions.importBackground() });
+    return el('div', { class: 'ctrl' }, [
+      el('label', { class: 'lbl', text: 'Arkaplan Ayarları (dosya)' }),
+      el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
+    ]);
+  }
+
+  // --- Ek görsel nesneler / partiküller yöneticisi ---
+  const MOTION_OPTS = [
+    { value: 'static', label: 'Sabit' },
+    { value: 'float', label: 'Süzülme' },
+    { value: 'orbit', label: 'Yörünge' },
+    { value: 'swirl', label: 'Girdap' },
+    { value: 'scatter', label: 'Saçılma (sese)' },
+    { value: 'rise', label: 'Yükselme' },
+    { value: 'fall', label: 'Düşme' },
+  ];
+  const BLEND_OPTS = [
+    { value: 'normal', label: 'Normal' },
+    { value: 'screen', label: 'Ekran (parlak)' },
+    { value: 'add', label: 'Toplama (ışıltı)' },
+  ];
+  const LAYER_OPTS = [
+    { value: 'front', label: 'Önde' },
+    { value: 'back', label: 'Arkada' },
+  ];
+
+  function imagesCtrl() {
+    if (!cfg.images) cfg.images = { enabled: false, items: [] };
+    if (!Array.isArray(cfg.images.items)) cfg.images.items = [];
+    const wrap = el('div', {});
+
+    const items = cfg.images.items;
+    if (!items.length) {
+      wrap.appendChild(el('div', { class: 'up-empty', text: 'Görsel eklemek için aşağıdaki düğmeyi kullanın. Her görsel için çok sayıda kopya (partikül) sahnede gezinir/saçılır.' }));
+    }
+
+    items.forEach((it, idx) => {
+      const base = 'images.items.' + idx + '.';
+      const thumb = el('img', { class: 'img-thumb' });
+      if (it.src) thumb.src = it.src;
+
+      const nameInput = el('input', {
+        type: 'text', class: 'up-name', value: it.name || 'Görsel',
+        onchange: (e) => { it.name = e.target.value.trim() || 'Görsel'; push(true); },
+      });
+      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑 Kaldır', onclick: () => actions.removeImage(it.id) });
+      const replaceBtn = el('button', { class: 'btn ghost small', text: '🖼 Değiştir', onclick: () => actions.replaceImage(it.id) });
+
+      const head = el('div', { class: 'img-head' }, [
+        thumb,
+        el('div', { class: 'img-headmain' }, [nameInput, el('div', { class: 'up-actions' }, [replaceBtn, delBtn])]),
+      ]);
+
+      const body = el('div', { class: 'img-body' });
+      const add = (c) => { const e = buildControl(c); if (e) body.appendChild(e); };
+      add({ type: 'select', path: base + 'motion', label: 'Hareket', options: MOTION_OPTS, rebuild: false });
+      add({ type: 'slider', path: base + 'count', label: 'Kopya Sayısı', min: 1, max: 200, step: 1 });
+      add({ type: 'slider', path: base + 'size', label: 'Boyut', min: 0.01, max: 0.4, step: 0.005, percent: true });
+      add({ type: 'slider', path: base + 'sizeVar', label: 'Boyut Çeşitliliği', min: 0, max: 0.95, step: 0.05, percent: true });
+      add({ type: 'slider', path: base + 'opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true });
+      add({ type: 'slider', path: base + 'spread', label: 'Yayılma / Alan', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'speed', label: 'Hız', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'spin', label: 'Dönüş', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'audioSize', label: 'Ses → Boyut', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'audioSpeed', label: 'Ses → Hız', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 2, step: 0.05 });
+      add({ type: 'slider', path: base + 'glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true });
+      add({ type: 'select', path: base + 'blend', label: 'Karışım', options: BLEND_OPTS });
+      add({ type: 'select', path: base + 'layer', label: 'Katman', options: LAYER_OPTS });
+
+      wrap.appendChild(el('div', { class: 'img-card' }, [head, body]));
+    });
+
+    const addBtn = el('button', { class: 'btn ghost small', text: '➕ Görsel Ekle', onclick: () => actions.addImage() });
+    wrap.appendChild(el('div', { class: 'up-toolbar' }, [addBtn]));
+    return el('div', { class: 'ctrl' }, [wrap]);
   }
 
   function logoFileCtrl() {
@@ -465,6 +594,8 @@
           },
           { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)', show: () => cfg.background.type === 'gradient' },
           { type: 'presets', show: () => cfg.background.type === 'gradient' },
+          { type: 'userpresets', show: () => cfg.background.type === 'gradient' },
+          { type: 'bgio' },
           { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
           { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.background.type === 'gradient' },
           { type: 'slider', path: 'background.gradient.wander', label: 'Gezinme Alanı', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
@@ -530,6 +661,15 @@
         ],
       },
       {
+        icon: '✨',
+        title: 'Görsel Nesneler / Partiküller',
+        desc: 'Bir veya birden fazla resim ekle; sahnede süzülsün, yörünge çizsin, sese göre saçılsın. Boyut, hız, saydamlık, ışıltı ve katman ayarlanır.',
+        controls: [
+          { type: 'toggle', path: 'images.enabled', label: 'Görsel Nesneleri Etkinleştir', rebuild: true },
+          { type: 'images', show: () => cfg.images && cfg.images.enabled },
+        ],
+      },
+      {
         icon: '⚡',
         title: 'Güç / Performans',
         desc: 'Kare hızı, çözünürlük ölçeği ve enerji ayarları.',
@@ -586,6 +726,14 @@
               { value: 'visually-lossless', label: 'Görsel Kayıpsız (en yüksek)' },
               { value: 'high', label: 'Yüksek' },
               { value: 'balanced', label: 'Dengeli (daha küçük dosya)' },
+            ],
+          },
+          {
+            type: 'select', path: 'export.speed', label: 'Hız / Kalite Dengesi',
+            options: [
+              { value: 'fast', label: '⚡ Hızlı (en hızlı dışa aktarım)' },
+              { value: 'balanced', label: 'Dengeli (önerilen)' },
+              { value: 'quality', label: 'Kalite (en yavaş, en iyi sıkıştırma)' },
             ],
           },
           { type: 'exportpanel' },
@@ -665,6 +813,135 @@
   };
 
   // --------------------------------------------------------------------------
+  // Kullanıcı renk şablonları
+  // --------------------------------------------------------------------------
+  function uid(prefix) {
+    return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  function ensurePresets() {
+    if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
+    return cfg.userPresets;
+  }
+
+  actions.saveCurrentPreset = () => {
+    const arr = ensurePresets();
+    const colors = (cfg.background.gradient.colors || []).slice(0, 5);
+    while (colors.length < 5) colors.push(colors[colors.length - 1] || '#000000');
+    arr.push({ id: uid('up_'), name: 'Şablonum ' + (arr.length + 1), colors });
+    push(true);
+    render();
+  };
+  actions.applyUserPreset = (id) => {
+    const p = ensurePresets().find((x) => x.id === id);
+    if (!p) return;
+    cfg.background.gradient.colors = (p.colors || []).slice();
+    push(true);
+    render();
+  };
+  actions.updateUserPreset = (id) => {
+    const p = ensurePresets().find((x) => x.id === id);
+    if (!p) return;
+    p.colors = (cfg.background.gradient.colors || []).slice(0, 5);
+    push(true);
+    render();
+  };
+  actions.deleteUserPreset = (id) => {
+    if (!confirm('Bu şablon silinsin mi?')) return;
+    cfg.userPresets = ensurePresets().filter((x) => x.id !== id);
+    push(true);
+    render();
+  };
+  actions.exportPresets = async () => {
+    const arr = ensurePresets();
+    if (!arr.length) { alert('Dışa aktarılacak şablon yok.'); return; }
+    await window.api.exportJson('renk-sablonlari.json', { type: 'sv-presets', version: 1, presets: arr });
+  };
+  actions.importPresets = async () => {
+    const r = await window.api.importJson('Renk Şablonlarını İçe Aktar');
+    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    const incoming = Array.isArray(r.data) ? r.data : (r.data && r.data.presets) || [];
+    if (!Array.isArray(incoming) || !incoming.length) { alert('Dosyada şablon bulunamadı.'); return; }
+    const arr = ensurePresets();
+    incoming.forEach((p) => {
+      let colors = Array.isArray(p.colors) ? p.colors.slice(0, 5) : [];
+      if (!colors.length) return;
+      while (colors.length < 5) colors.push(colors[colors.length - 1]);
+      arr.push({ id: uid('up_'), name: (p.name || 'İçe Aktarılan').toString(), colors });
+    });
+    push(true);
+    render();
+  };
+
+  // --------------------------------------------------------------------------
+  // Arkaplan ayarları içe/dışa aktarma
+  // --------------------------------------------------------------------------
+  actions.exportBackground = async () => {
+    await window.api.exportJson('arkaplan-ayarlari.json', { type: 'sv-background', version: 1, background: cfg.background });
+  };
+  actions.importBackground = async () => {
+    const r = await window.api.importJson('Arkaplan Ayarlarını İçe Aktar');
+    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    const bg = r.data && (r.data.background || (r.data.type && r.data.gradient ? r.data : null));
+    if (!bg) { alert('Geçerli bir arkaplan dosyası değil.'); return; }
+    const def = window.SV.defaultConfig().background;
+    cfg.background = window.SV.deepMerge(def, bg);
+    push(true);
+    render();
+  };
+
+  // --------------------------------------------------------------------------
+  // Ek görsel nesneler
+  // --------------------------------------------------------------------------
+  function pickImageFile(cb) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => cb(reader.result);
+      reader.readAsDataURL(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  }
+  function ensureImages() {
+    if (!cfg.images) cfg.images = { enabled: false, items: [] };
+    if (!Array.isArray(cfg.images.items)) cfg.images.items = [];
+    return cfg.images;
+  }
+
+  actions.addImage = () => {
+    pickImageFile((dataUrl) => {
+      const imgs = ensureImages();
+      const item = window.SV.imageItem({ src: dataUrl, name: 'Görsel ' + (imgs.items.length + 1) });
+      imgs.items.push(item);
+      imgs.enabled = true;
+      push(true);
+      render();
+    });
+  };
+  actions.replaceImage = (id) => {
+    pickImageFile((dataUrl) => {
+      const imgs = ensureImages();
+      const it = imgs.items.find((x) => x.id === id);
+      if (!it) return;
+      it.src = dataUrl;
+      push(true);
+      render();
+    });
+  };
+  actions.removeImage = (id) => {
+    const imgs = ensureImages();
+    imgs.items = imgs.items.filter((x) => x.id !== id);
+    push(true);
+    render();
+  };
+
+  // --------------------------------------------------------------------------
   // Video dışa aktarma
   // --------------------------------------------------------------------------
   function setExportStatus(text, cls) {
@@ -706,6 +983,7 @@
       fps: cfg.export.fps,
       quality: cfg.export.quality,
       encoder: cfg.export.encoder,
+      speed: cfg.export.speed,
     });
     if (!r || !r.ok) {
       setExportStatus('⚠ ' + ((r && r.error) || 'Başlatılamadı'), 'err');
@@ -719,6 +997,12 @@
   async function init() {
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
+
+    // Eski/eksik görsel nesneleri varsayılan alanlarla tamamla
+    if (cfg.images && Array.isArray(cfg.images.items)) {
+      cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
+    }
+    if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
 
     displays = await window.api.getDisplays();
     audioDevices = (await window.api.getOutputDevices()) || [];

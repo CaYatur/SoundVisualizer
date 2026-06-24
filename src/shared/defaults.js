@@ -72,6 +72,16 @@
       hideCursor: true,
     },
 
+    // Ek görsel nesneler / partiküller. Bir veya birden fazla resim yüklenip
+    // sahnede gezinir, saçılır, yörünge çizer; saydamlık + ses tepkisi ayarlanır.
+    images: {
+      enabled: false,
+      items: [], // imageItem() ile üretilen nesneler
+    },
+
+    // Kullanıcı renk şablonları (arkaplan gradyanı). Kalıcıdır; içe/dışa aktarılabilir.
+    userPresets: [], // { id, name, colors:[5] }
+
     // Video dışa aktarma (MP3/ses -> kayıpsız video). Ekran/ses kaydı değil:
     // her kare offline ve birebir render edilir, ses kaynaktan kopyalanır.
     export: {
@@ -79,8 +89,43 @@
       fps: 60, // 30 | 60
       quality: 'visually-lossless', // 'visually-lossless' | 'high' | 'balanced'
       encoder: 'gpu', // 'gpu' (NVIDIA NVENC, hızlı) | 'cpu' (libx264, en uyumlu)
+      speed: 'balanced', // 'fast' | 'balanced' | 'quality' — hız/kalite dengesi (preset)
     },
   };
+
+  // Ek görsel nesne (partikül emitör) varsayılanları.
+  const IMAGE_DEFAULTS = {
+    name: 'Görsel',
+    src: null, // dataURL
+    count: 14, // kopya / partikül sayısı
+    size: 0.07, // kısa kenara oran
+    sizeVar: 0.45, // boyut rastgeleliği (0..1)
+    opacity: 0.85,
+    motion: 'float', // 'static'|'float'|'orbit'|'swirl'|'scatter'|'rise'|'fall'
+    speed: 0.5,
+    spread: 0.7, // gezinme alanı / yörünge yarıçapı
+    spin: 0.15, // kendi ekseninde dönüş
+    audioSize: 0.45, // bas -> boyut nabzı
+    audioSpeed: 0.35, // seviye -> hareket hızı
+    audioOpacity: 0.0, // bas -> saydamlık nabzı
+    glow: 0.15,
+    blend: 'normal', // 'normal'|'screen'|'add'
+    layer: 'front', // 'front' (görselin önünde) | 'back' (arkasında)
+  };
+
+  // Yeni bir görsel nesne üret (benzersiz id + deterministik seed ile)
+  function imageItem(over) {
+    const seed = ((Date.now() & 0xffffff) ^ ((Math.random() * 0xffffff) | 0)) >>> 0 || 1;
+    return Object.assign({}, IMAGE_DEFAULTS, { id: 'img_' + seed.toString(36), seed }, over || {});
+  }
+
+  // Eksik alanları varsayılanlarla doldur (eski kayıtlar / içe aktarım için)
+  function normalizeImageItem(it) {
+    const out = Object.assign({}, IMAGE_DEFAULTS, it || {});
+    if (out.seed == null) out.seed = ((Math.random() * 0xffffff) | 0) >>> 0 || 1;
+    if (out.id == null) out.id = 'img_' + out.seed.toString(36);
+    return out;
+  }
 
   // Hazır renk şablonları (arkaplan gradyanı)
   const GRADIENT_PRESETS = [
@@ -139,6 +184,9 @@
   window.SV = {
     DEFAULT_CONFIG,
     GRADIENT_PRESETS,
+    IMAGE_DEFAULTS,
+    imageItem,
+    normalizeImageItem,
     defaultConfig,
     deepMerge,
     clone,

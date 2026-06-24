@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('api', {
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),
   updateConfig: (config) => ipcRenderer.send('update-config', config),
 
+  // JSON içe/dışa aktarma (renk şablonları + arkaplan ayarları)
+  exportJson: (name, data) => ipcRenderer.invoke('file:export-json', name, data),
+  importJson: (title) => ipcRenderer.invoke('file:import-json', title),
+
   // Video dışa aktarma
   gpuAvailable: () => ipcRenderer.invoke('export:gpu-available'),
   pickExportAudio: () => ipcRenderer.invoke('export:pick-audio'),
