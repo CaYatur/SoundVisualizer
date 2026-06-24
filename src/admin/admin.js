@@ -386,6 +386,8 @@
       add({ type: 'slider', path: base + 'glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true });
       add({ type: 'select', path: base + 'blend', label: 'Karışım', options: BLEND_OPTS });
       add({ type: 'select', path: base + 'layer', label: 'Katman', options: LAYER_OPTS });
+      add({ type: 'toggle', path: base + 'noOverlap', label: 'Üst Üste Binmeyi Engelle', rebuild: false });
+      add({ type: 'slider', path: base + 'minDist', label: 'Minimum Mesafe (boyut çarpanı)', min: 0.5, max: 3.0, step: 0.05 });
 
       wrap.appendChild(el('div', { class: 'img-card' }, [head, body]));
     });

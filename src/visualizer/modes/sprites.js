@@ -117,6 +117,10 @@
           ctx.shadowColor = 'rgba(255,255,255,0.55)';
         }
 
+        // Tüm partiküllerin normalleştirilmiş konumlarını ve boyutlarını hesapla
+        const pxArr = new Float32Array(it.count);
+        const pyArr = new Float32Array(it.count);
+        const sArr = new Float32Array(it.count);
         for (let i = 0; i < it.count; i++) {
           let px, py;
           switch (c.motion) {
@@ -163,15 +167,47 @@
               break;
             }
           }
+          pxArr[i] = px;
+          pyArr[i] = py;
+          sArr[i] = (c.size || 0.06) * minDim * it.sz[i] * (1 + bass * (c.audioSize || 0));
+        }
 
-          const s = (c.size || 0.06) * minDim * it.sz[i] * (1 + bass * (c.audioSize || 0));
+        // Üst üste binme engeli: partikülleri birbirinden iterek minimum mesafeyi koru
+        if (c.noOverlap) {
+          const minDistFactor = c.minDist != null ? c.minDist : 1.1;
+          const ITERS = 4;
+          for (let iter = 0; iter < ITERS; iter++) {
+            for (let i = 0; i < it.count - 1; i++) {
+              if (sArr[i] < 0.5) continue;
+              for (let j = i + 1; j < it.count; j++) {
+                if (sArr[j] < 0.5) continue;
+                const minPx = (sArr[i] + sArr[j]) * 0.5 * minDistFactor;
+                const dx = (pxArr[j] - pxArr[i]) * W;
+                const dy = (pyArr[j] - pyArr[i]) * H;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+                if (dist < minPx) {
+                  const push = (minPx - dist) * 0.5;
+                  const nx = (dx / dist) * push;
+                  const ny = (dy / dist) * push;
+                  pxArr[i] -= nx / W;
+                  pyArr[i] -= ny / H;
+                  pxArr[j] += nx / W;
+                  pyArr[j] += ny / H;
+                }
+              }
+            }
+          }
+        }
+
+        for (let i = 0; i < it.count; i++) {
+          const s = sArr[i];
           if (s < 0.5) continue;
           const w = s;
           const h = s * ratio;
           let a = (c.opacity != null ? c.opacity : 1) * it.al[i] * (1 + bass * (c.audioOpacity || 0));
           ctx.globalAlpha = clamp(a, 0, 1);
           const rot = it.ph[i] + t * (c.spin || 0) * it.spin[i] * 1.2;
-          ctx.translate(px * W, py * H);
+          ctx.translate(pxArr[i] * W, pyArr[i] * H);
           ctx.rotate(rot);
           ctx.drawImage(img, -w / 2, -h / 2, w, h);
           ctx.setTransform(1, 0, 0, 1, 0, 0);
