@@ -71,6 +71,15 @@
       pauseOnSilence: false,
       hideCursor: true,
     },
+
+    // Video dışa aktarma (MP3/ses -> kayıpsız video). Ekran/ses kaydı değil:
+    // her kare offline ve birebir render edilir, ses kaynaktan kopyalanır.
+    export: {
+      resolution: '1080p', // '720p' | '1080p' | '1440p' | '2160p'
+      fps: 60, // 30 | 60
+      quality: 'visually-lossless', // 'visually-lossless' | 'high' | 'balanced'
+      encoder: 'gpu', // 'gpu' (NVIDIA NVENC, hızlı) | 'cpu' (libx264, en uyumlu)
+    },
   };
 
   // Hazır renk şablonları (arkaplan gradyanı)

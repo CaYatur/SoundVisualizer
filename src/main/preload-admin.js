@@ -14,6 +14,15 @@ contextBridge.exposeInMainWorld('api', {
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),
   updateConfig: (config) => ipcRenderer.send('update-config', config),
 
+  // Video dışa aktarma
+  gpuAvailable: () => ipcRenderer.invoke('export:gpu-available'),
+  pickExportAudio: () => ipcRenderer.invoke('export:pick-audio'),
+  pickExportOutput: (name) => ipcRenderer.invoke('export:pick-output', name),
+  startExport: (opts) => ipcRenderer.invoke('export:start', opts),
+  cancelExport: () => ipcRenderer.invoke('export:cancel'),
+  onExportProgress: (cb) => ipcRenderer.on('export-progress', (e, d) => cb(d)),
+  onExportDone: (cb) => ipcRenderer.on('export-done', (e, d) => cb(d)),
+
   // Olaylar (ana süreç -> admin)
   onVisualizerStatus: (cb) =>
     ipcRenderer.on('visualizer-status', (e, data) => cb(data)),

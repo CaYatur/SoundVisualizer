@@ -1,6 +1,6 @@
 {
   "name": "soundvisualizer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CAYADEV — çoklu ekran ve çoklu kaynak destekli ses görselleştirici (Windows + macOS)",
   "main": "src/main/main.js",
   "author": {
@@ -29,7 +29,8 @@
     "sharp": "^0.34.5"
   },
   "dependencies": {
-    "audify": "^1.10.1"
+    "audify": "^1.10.1",
+    "ffmpeg-static": "^5.3.0"
   },
   "build": {
     "appId": "com.cayadev.visualizer",
@@ -48,6 +49,7 @@
       "node_modules/audify/**",
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
+      "node_modules/ffmpeg-static/**",
       "src/main/loopback-helper.js"
     ],
     "win": {
