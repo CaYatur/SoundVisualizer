@@ -266,6 +266,39 @@ ipcMain.on('update-config', (e, config) => {
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
 ipcMain.handle('request-config', () => currentConfig);
 
+// ----------------------------------------------------------------------------
+// Genel JSON içe/dışa aktarma (renk şablonları + arkaplan ayarları)
+// ----------------------------------------------------------------------------
+ipcMain.handle('file:export-json', async (e, defaultName, data) => {
+  try {
+    const r = await dialog.showSaveDialog(adminWin, {
+      title: 'Dışa Aktar',
+      defaultPath: defaultName || 'disa-aktarim.json',
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+    fs.writeFileSync(r.filePath, JSON.stringify(data, null, 2), 'utf-8');
+    return { ok: true, path: r.filePath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('file:import-json', async (e, title) => {
+  try {
+    const r = await dialog.showOpenDialog(adminWin, {
+      title: title || 'İçe Aktar',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+    const raw = fs.readFileSync(r.filePaths[0], 'utf-8');
+    return { ok: true, data: JSON.parse(raw) };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
 // Görselleştirici -> admin (ses seviyesi göstergesi vb.)
 ipcMain.on('audio-meter', (e, data) => {
   notifyAdmin('audio-meter', data);
@@ -338,20 +371,32 @@ function detectGpuEncoder() {
   });
 }
 
+// NVENC preset/ince ayar tablosu (hız/kalite dengesi). p1=en hızlı … p7=en yavaş.
+// 'fast' düşük gecikme (ll) + lookahead/B-kare yok -> maksimum hız.
+const NVENC_SPEED = {
+  fast: { preset: 'p2', extra: ['-tune', 'ull', '-rc-lookahead', '0', '-bf', '0'] },
+  balanced: { preset: 'p4', extra: ['-tune', 'hq', '-rc-lookahead', '8', '-bf', '2'] },
+  quality: { preset: 'p6', extra: ['-tune', 'hq', '-rc-lookahead', '20', '-bf', '3', '-multipass', 'qres'] },
+};
+// libx264 preset'leri (hız/kalite dengesi).
+const X264_SPEED = { fast: 'veryfast', balanced: 'medium', quality: 'slow' };
+
 // Kodlayıcıya göre video argümanları (GPU = NVENC, CPU = libx264). Her ikisi de
 // yuv420p H.264 üretir; görsel-kayıpsız kalite kademeleri eşlenmiştir.
-function buildVideoArgs(encoder, quality) {
+// quality = sıkıştırma kalitesi (CQ/CRF), speed = hız/kalite preset'i.
+function buildVideoArgs(encoder, quality, speed) {
   if (encoder === 'gpu') {
     const cq = CQ_MAP[quality] != null ? CQ_MAP[quality] : 16;
+    const s = NVENC_SPEED[speed] || NVENC_SPEED.balanced;
     return [
-      // p5 = kalite-dengeli NVENC preset'i; p7'den belirgin hızlı, kalite ~aynı.
-      '-c:v', 'h264_nvenc', '-preset', 'p5', '-tune', 'hq',
+      '-c:v', 'h264_nvenc', '-preset', s.preset, ...s.extra,
       '-rc', 'vbr', '-cq', String(cq), '-b:v', '0',
       '-profile:v', 'high', '-pix_fmt', 'yuv420p',
     ];
   }
   const crf = CRF_MAP[quality] != null ? CRF_MAP[quality] : 14;
-  return ['-c:v', 'libx264', '-preset', 'medium', '-crf', String(crf), '-pix_fmt', 'yuv420p'];
+  const preset = X264_SPEED[speed] || 'medium';
+  return ['-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-threads', '0'];
 }
 
 ipcMain.handle('export:gpu-available', () => detectGpuEncoder());
@@ -393,7 +438,8 @@ ipcMain.handle('export:start', async (e, opts) => {
   // Kodlayıcı seçimi: GPU (NVENC) istendi ama yoksa sessizce CPU'ya düş.
   let encoder = opts.encoder === 'gpu' ? 'gpu' : 'cpu';
   if (encoder === 'gpu' && !(await detectGpuEncoder())) encoder = 'cpu';
-  const videoArgs = buildVideoArgs(encoder, opts.quality);
+  const speed = ['fast', 'balanced', 'quality'].includes(opts.speed) ? opts.speed : 'balanced';
+  const videoArgs = buildVideoArgs(encoder, opts.quality, speed);
 
   // Ses akışını kayıpsız kopyala (mp4 uyumlu kodek). Değilse şeffaf AAC'e dön.
   const ext = path.extname(audioPath).toLowerCase();
@@ -406,6 +452,7 @@ ipcMain.handle('export:start', async (e, opts) => {
     '-pixel_format', 'rgba',
     '-video_size', `${w}x${h}`,
     '-framerate', String(fps),
+    '-thread_queue_size', '1024', // ham kare girişi için geniş kuyruk (boru hattı stall'ını önler)
     '-i', 'pipe:0',
     '-i', audioPath,
     '-map', '0:v:0',

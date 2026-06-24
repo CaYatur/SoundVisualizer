@@ -63,6 +63,7 @@
   let cfg = null;
   let gradient = null;
   let foreground = null;
+  let sprites = null;
   let logo = null;
 
   let pcm = null;
@@ -164,6 +165,13 @@
       if (foreground.resize) foreground.resize();
     }
 
+    // Ek görsel nesneler / partiküller (resimler kare 0'dan önce yüklenir)
+    if (cfg.images && cfg.images.enabled && Array.isArray(cfg.images.items) && cfg.images.items.length) {
+      sprites = new window.SVSprites();
+      sprites.setItems(cfg.images.items);
+      await sprites.whenReady();
+    }
+
     audio.applyConfig(cfg.audio);
 
     if (cfg.logo.enabled && cfg.logo.src) {
@@ -211,11 +219,17 @@
       compCtx.fillRect(0, 0, width, height);
     }
 
+    // Ek görsel nesneler — arka katman (görselin arkasında)
+    if (sprites && sprites.hasLayer('back')) sprites.draw(compCtx, audio, t, width, height, 'back');
+
     // Ön görselleştirici (kendi kanvasını temizleyip çizer)
     if (foreground) {
       foreground.draw(audio, cfg, t, dt);
       compCtx.drawImage(c2d, 0, 0, width, height);
     }
+
+    // Ek görsel nesneler — ön katman (görselin önünde)
+    if (sprites && sprites.hasLayer('front')) sprites.draw(compCtx, audio, t, width, height, 'front');
 
     // Logo
     drawLogo();
@@ -229,16 +243,34 @@
     totalFrames = Math.max(1, Math.ceil(duration * fps));
     window.exp.ready(totalFrames);
 
+    // Boru hattı (pipeline): render, IPC ve ffmpeg kodlaması ÜST ÜSTE çalışsın.
+    // Karelerin tek tek beklenmesi yerine WINDOW kadar kareyi "uçuşta" tutarız;
+    // böylece render ederken ffmpeg de önceki kareleri kodlar. Bu, GPU'da
+    // dışa aktarımı belirgin biçimde hızlandırır (darboğaz = max(render, encode)).
+    // WINDOW, bellek için kare boyutuna göre sınırlanır (~64 MB tampon).
+    const frameBytes = width * height * 4;
+    const WINDOW = Math.max(3, Math.min(12, Math.round((64 * 1024 * 1024) / frameBytes)));
+
     const progStep = Math.max(1, Math.round(fps / 4));
-    for (let i = 0; i < totalFrames; i++) {
+    let cancelled = false;
+    const pending = [];
+
+    for (let i = 0; i < totalFrames && !cancelled; i++) {
       const data = renderFrame(i);
-      // Geri basınç: ana süreç kareyi ffmpeg.stdin'e yazana kadar bekle.
-      const res = await window.exp.sendFrame(data, i);
-      if (res && res.cancel) {
-        window.exp.cancelled();
-        return;
-      }
+      // Geri basınç: ana süreç kareyi ffmpeg.stdin'e yazana kadar bekler; ama
+      // hemen await etmeyip pencereyi dolduruyoruz (render/encode örtüşmesi).
+      const p = window.exp.sendFrame(data, i).then((res) => {
+        if (res && res.cancel) cancelled = true;
+      });
+      pending.push(p);
+      if (pending.length >= WINDOW) await pending.shift();
       if (i % progStep === 0) window.exp.progress(i + 1, totalFrames);
+    }
+
+    await Promise.all(pending);
+    if (cancelled) {
+      window.exp.cancelled();
+      return;
     }
     window.exp.progress(totalFrames, totalFrames);
     window.exp.finish();

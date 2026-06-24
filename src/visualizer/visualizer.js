@@ -4,12 +4,18 @@
 (function () {
   const glCanvas = document.getElementById('gl');
   const c2d = document.getElementById('c2d');
+  const fxBack = document.getElementById('fxBack');
+  const fxFront = document.getElementById('fxFront');
+  const fxBackCtx = fxBack.getContext('2d');
+  const fxFrontCtx = fxFront.getContext('2d');
   const logoImg = document.getElementById('logo');
   const hint = document.getElementById('hint');
   const errBox = document.getElementById('error');
 
   let cfg = window.SV.defaultConfig();
   const audio = new window.SVAudio();
+  const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller
+  let imagesOn = false;
 
   let gradient = null; // WebGL modu
   let foreground = null; // 2D modu örneği
@@ -32,6 +38,14 @@
     c2d.height = Math.round(h * dpr);
     c2d.style.width = w + 'px';
     c2d.style.height = h + 'px';
+
+    // Ek görsel nesne (partikül) katmanları — ön katmanla aynı çözünürlük
+    for (const cv of [fxBack, fxFront]) {
+      cv.width = c2d.width;
+      cv.height = c2d.height;
+      cv.style.width = w + 'px';
+      cv.style.height = h + 'px';
+    }
 
     // WebGL arkaplan: performans için renderScale
     if (gradient) {
@@ -82,6 +96,20 @@
       foreground = new window.SVModes[type](c2d);
     } else {
       c2d.getContext('2d').clearRect(0, 0, c2d.width, c2d.height);
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Ek görsel nesneler / partiküller
+  // --------------------------------------------------------------------------
+  function applyImages() {
+    imagesOn = !!(cfg.images && cfg.images.enabled);
+    sprites.setItems(imagesOn ? cfg.images.items : []);
+    fxBack.style.display = imagesOn ? 'block' : 'none';
+    fxFront.style.display = imagesOn ? 'block' : 'none';
+    if (!imagesOn) {
+      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
+      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
     }
   }
 
@@ -140,6 +168,17 @@
       }
     }
 
+    // ek görsel nesneler / partiküller (arka katman görselin arkasında,
+    // ön katman görselin önünde)
+    if (imagesOn) {
+      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
+      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
+      if (!silent && audio.ready) {
+        if (sprites.hasLayer('back')) sprites.draw(fxBackCtx, audio, t, fxBack.width, fxBack.height, 'back');
+        if (sprites.hasLayer('front')) sprites.draw(fxFrontCtx, audio, t, fxFront.width, fxFront.height, 'front');
+      }
+    }
+
     // logo nabzı
     if (cfg.logo.enabled && cfg.logo.src) {
       const pulse = 1 + audio.bass * cfg.logo.pulse;
@@ -175,6 +214,7 @@
 
     applyBackground();
     applyForeground();
+    applyImages();
     applyLogo();
     document.body.style.cursor = cfg.power.hideCursor ? 'none' : 'default';
 
