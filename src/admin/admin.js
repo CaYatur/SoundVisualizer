@@ -9,6 +9,12 @@
   let audioDevices = [];
   let pushTimer = null;
 
+  // Video dışa aktarma durumu
+  let exportAudioPath = null;
+  let exportAudioName = '';
+  let exporting = false;
+  let gpuAvailable = false;
+
   const $ = (id) => document.getElementById(id);
 
   // --------------------------------------------------------------------------
@@ -91,6 +97,10 @@
         return buttonCtrl(def);
       case 'multisource':
         return multisourceCtrl(def);
+      case 'audiofile':
+        return audioFileCtrl(def);
+      case 'exportpanel':
+        return exportPanelCtrl(def);
       default:
         return null;
     }
@@ -364,6 +374,53 @@
       list,
     ]);
   }
+
+  // --- Video dışa aktarma: ses dosyası seçici ---
+  function audioFileCtrl() {
+    const name = el('div', {
+      class: 'export-filename',
+      id: 'exportAudioName',
+      text: exportAudioName || 'Henüz dosya seçilmedi',
+    });
+    const btn = el('label', { class: 'filebtn', text: '🎵  Ses Dosyası Seç (MP3 / WAV / FLAC)' });
+    btn.addEventListener('click', async () => {
+      if (exporting) return;
+      const p = await window.api.pickExportAudio();
+      if (p) {
+        exportAudioPath = p;
+        exportAudioName = p.split(/[\\/]/).pop();
+        name.textContent = exportAudioName;
+      }
+    });
+    return el('div', { class: 'ctrl' }, [btn, name]);
+  }
+
+  // --- Video dışa aktarma: çalıştır düğmesi + ilerleme ---
+  function exportPanelCtrl() {
+    const runBtn = el('button', {
+      class: 'btn primary', id: 'exportRunBtn', text: '🎬 Videoya Aktar',
+      onclick: () => actions.runExport(),
+    });
+    const cancelBtn = el('button', {
+      class: 'btn ghost small', id: 'exportCancelBtn', text: '■ İptal',
+      onclick: () => window.api.cancelExport(),
+    });
+    cancelBtn.style.display = 'none';
+    cancelBtn.style.marginLeft = '8px';
+
+    const fill = el('i', { id: 'exportProgressFill' });
+    const bar = el('div', { class: 'export-progress', id: 'exportProgressBar' }, [fill]);
+    bar.style.display = 'none';
+
+    const status = el('div', { class: 'export-status', id: 'exportStatus' });
+
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [runBtn, cancelBtn]),
+      bar,
+      status,
+    ]);
+  }
+
   // --------------------------------------------------------------------------
   // Bölüm şeması
   // --------------------------------------------------------------------------
@@ -491,6 +548,49 @@
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle' },
         ],
       },
+      {
+        icon: '🎬',
+        title: 'Video Dışa Aktar (MP3 → Video)',
+        desc: 'Bir ses dosyası seç; yukarıdaki görsel ayarlarla kayıpsız videoya dönüştürülür. Ekran/ses kaydı yapılmaz — her kare birebir render edilir, ses kaynaktan kopyalanır.',
+        controls: [
+          { type: 'audiofile' },
+          {
+            type: 'select', path: 'export.resolution', label: 'Çözünürlük',
+            options: [
+              { value: '720p', label: '720p — 1280×720' },
+              { value: '1080p', label: '1080p — 1920×1080 (Full HD)' },
+              { value: '1440p', label: '1440p — 2560×1440 (2K)' },
+              { value: '2160p', label: '2160p — 3840×2160 (4K)' },
+            ],
+          },
+          {
+            type: 'select', path: 'export.fps', label: 'Kare Hızı (FPS)', numeric: true,
+            options: [
+              { value: 30, label: '30 FPS' },
+              { value: 60, label: '60 FPS (Akıcı)' },
+            ],
+          },
+          {
+            type: 'select', path: 'export.encoder', label: 'Kodlayıcı (Hız)',
+            options: () =>
+              gpuAvailable
+                ? [
+                    { value: 'gpu', label: '⚡ GPU — NVIDIA NVENC (çok hızlı)' },
+                    { value: 'cpu', label: 'CPU — libx264 (en uyumlu, yavaş)' },
+                  ]
+                : [{ value: 'cpu', label: 'CPU — libx264 (GPU bulunamadı)' }],
+          },
+          {
+            type: 'select', path: 'export.quality', label: 'Kalite',
+            options: [
+              { value: 'visually-lossless', label: 'Görsel Kayıpsız (en yüksek)' },
+              { value: 'high', label: 'Yüksek' },
+              { value: 'balanced', label: 'Dengeli (daha küçük dosya)' },
+            ],
+          },
+          { type: 'exportpanel' },
+        ],
+      },
     ];
   }
 
@@ -564,12 +664,71 @@
     render();
   };
 
+  // --------------------------------------------------------------------------
+  // Video dışa aktarma
+  // --------------------------------------------------------------------------
+  function setExportStatus(text, cls) {
+    const s = $('exportStatus');
+    if (!s) return;
+    s.textContent = text || '';
+    s.className = 'export-status' + (cls ? ' ' + cls : '');
+  }
+
+  function setExportUI(active) {
+    const run = $('exportRunBtn');
+    const cancel = $('exportCancelBtn');
+    const bar = $('exportProgressBar');
+    if (run) run.disabled = active;
+    if (cancel) cancel.style.display = active ? 'inline-flex' : 'none';
+    if (bar) bar.style.display = active ? 'block' : 'none';
+    if (!active) {
+      const fill = $('exportProgressFill');
+      if (fill) fill.style.width = '0%';
+    }
+  }
+
+  actions.runExport = async () => {
+    if (exporting) return;
+    if (!exportAudioPath) {
+      setExportStatus('Önce bir ses dosyası seçin.', 'err');
+      return;
+    }
+    const base = (exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
+    const outputPath = await window.api.pickExportOutput(base + '.mp4');
+    if (!outputPath) return;
+
+    push(true); // en güncel görsel ayarları ana sürece gönder
+
+    const r = await window.api.startExport({
+      audioPath: exportAudioPath,
+      outputPath,
+      resolution: cfg.export.resolution,
+      fps: cfg.export.fps,
+      quality: cfg.export.quality,
+      encoder: cfg.export.encoder,
+    });
+    if (!r || !r.ok) {
+      setExportStatus('⚠ ' + ((r && r.error) || 'Başlatılamadı'), 'err');
+      return;
+    }
+    exporting = true;
+    setExportUI(true);
+    setExportStatus('Hazırlanıyor…');
+  };
+
   async function init() {
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
 
     displays = await window.api.getDisplays();
     audioDevices = (await window.api.getOutputDevices()) || [];
+
+    // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
+    try { gpuAvailable = !!(await window.api.gpuAvailable()); } catch { gpuAvailable = false; }
+    if (!gpuAvailable && cfg.export && cfg.export.encoder === 'gpu') {
+      cfg.export.encoder = 'cpu';
+    }
+
     renderDisplays();
     render();
 
@@ -623,6 +782,35 @@
     });
 
     $('bannerClose').addEventListener('click', () => $('banner').classList.add('hidden'));
+
+    // Video dışa aktarma olayları
+    let exportEnc = '';
+    window.api.onExportProgress((d) => {
+      if (d.phase === 'start') {
+        exportEnc = d.encoder === 'gpu' ? 'GPU/NVENC' : 'CPU/libx264';
+        return;
+      }
+      if (d.phase === 'encode') {
+        setExportStatus('Kodlanıyor (' + exportEnc + ')… kareler bitti, video yazılıyor.');
+        return;
+      }
+      const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+      const fill = $('exportProgressFill');
+      if (fill) fill.style.width = pct + '%';
+      setExportStatus('Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)');
+    });
+    window.api.onExportDone((d) => {
+      exporting = false;
+      setExportUI(false);
+      if (d.status === 'done') {
+        const enc = d.encoder === 'gpu' ? 'GPU/NVENC' : 'CPU/libx264';
+        setExportStatus('✅ Tamamlandı (' + enc + ') → ' + d.output, 'ok');
+      } else if (d.status === 'cancelled') {
+        setExportStatus('İptal edildi.');
+      } else {
+        setExportStatus('⚠ Hata: ' + (d.message || 'bilinmeyen hata'), 'err');
+      }
+    });
 
     // Açılışta ana sürece de gönder (kalıcılık + senkron)
     push(true);

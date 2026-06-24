@@ -5,9 +5,10 @@
  * MIT License (bkz. LICENSE)
  */
 
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
 
 // ----------------------------------------------------------------------------
@@ -280,6 +281,269 @@ ipcMain.on('visualizer-message', (e, msg) => {
 ipcMain.on('report-audio-devices', (e, devices) => {
   notifyAdmin('audio-devices', devices);
 });
+
+// ----------------------------------------------------------------------------
+// Video Dışa Aktarma (MP3/ses -> kayıpsız video)
+// Ekran/ses KAYDI yok: gizli bir render penceresi her kareyi offline ve birebir
+// çizer, ham RGBA kareleri buraya akıtır; ffmpeg görsel-kayıpsız H.264 MP4'e kodlar
+// ve kaynak sesi olduğu gibi (yeniden kodlamadan) videoya gömer.
+// ----------------------------------------------------------------------------
+let exportWin = null;
+let ffmpegProc = null;
+let exportState = null; // { outputPath, ffErr } — aktifken dolu, biter bitmez null
+
+// Paketlenmiş ffmpeg (ffmpeg-static); yoksa sistem PATH'indeki "ffmpeg".
+function resolveFfmpeg() {
+  try {
+    let p = require('ffmpeg-static');
+    if (p) {
+      p = p.replace('app.asar' + path.sep, 'app.asar.unpacked' + path.sep);
+      if (fs.existsSync(p)) return p;
+    }
+  } catch {}
+  return 'ffmpeg';
+}
+
+const RES_MAP = {
+  '720p': [1280, 720],
+  '1080p': [1920, 1080],
+  '1440p': [2560, 1440],
+  '2160p': [3840, 2160],
+};
+const CRF_MAP = { 'visually-lossless': 14, high: 18, balanced: 22 }; // libx264 (CPU)
+const CQ_MAP = { 'visually-lossless': 16, high: 20, balanced: 25 }; // h264_nvenc (GPU)
+
+// NVIDIA NVENC donanım kodlayıcısının bu makinede gerçekten çalışıp çalışmadığını
+// fonksiyonel olarak doğrula (kodlayıcının listede olması yetmez — sürücü/GPU şart).
+// Sonuç önbelleğe alınır.
+let _gpuCache = null;
+function detectGpuEncoder() {
+  if (_gpuCache !== null) return Promise.resolve(_gpuCache);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v) => { if (done) return; done = true; _gpuCache = v; resolve(v); };
+    let p;
+    try {
+      p = spawn(resolveFfmpeg(), [
+        '-hide_banner', '-loglevel', 'error',
+        '-f', 'lavfi', '-i', 'testsrc=size=256x256:rate=30:duration=1',
+        '-c:v', 'h264_nvenc', '-preset', 'p7', '-cq', '19', '-f', 'null', '-',
+      ], { windowsHide: true });
+    } catch {
+      return finish(false);
+    }
+    p.on('error', () => finish(false));
+    p.on('exit', (code) => finish(code === 0));
+    setTimeout(() => { try { p.kill(); } catch {} finish(false); }, 10000);
+  });
+}
+
+// Kodlayıcıya göre video argümanları (GPU = NVENC, CPU = libx264). Her ikisi de
+// yuv420p H.264 üretir; görsel-kayıpsız kalite kademeleri eşlenmiştir.
+function buildVideoArgs(encoder, quality) {
+  if (encoder === 'gpu') {
+    const cq = CQ_MAP[quality] != null ? CQ_MAP[quality] : 16;
+    return [
+      // p5 = kalite-dengeli NVENC preset'i; p7'den belirgin hızlı, kalite ~aynı.
+      '-c:v', 'h264_nvenc', '-preset', 'p5', '-tune', 'hq',
+      '-rc', 'vbr', '-cq', String(cq), '-b:v', '0',
+      '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+    ];
+  }
+  const crf = CRF_MAP[quality] != null ? CRF_MAP[quality] : 14;
+  return ['-c:v', 'libx264', '-preset', 'medium', '-crf', String(crf), '-pix_fmt', 'yuv420p'];
+}
+
+ipcMain.handle('export:gpu-available', () => detectGpuEncoder());
+
+ipcMain.handle('export:pick-audio', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: 'Ses Dosyası Seç',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Ses Dosyaları', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'] },
+      { name: 'Tümü', extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return r.filePaths[0];
+});
+
+ipcMain.handle('export:pick-output', async (e, defaultName) => {
+  const r = await dialog.showSaveDialog(adminWin, {
+    title: 'Videoyu Kaydet',
+    defaultPath: defaultName || 'gorsellestirme.mp4',
+    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+  });
+  if (r.canceled || !r.filePath) return null;
+  return r.filePath;
+});
+
+ipcMain.handle('export:start', async (e, opts) => {
+  if (exportState) return { ok: false, error: 'Zaten bir dışa aktarma sürüyor.' };
+  opts = opts || {};
+  const audioPath = opts.audioPath;
+  const outputPath = opts.outputPath;
+  if (!audioPath || !fs.existsSync(audioPath)) return { ok: false, error: 'Ses dosyası bulunamadı.' };
+  if (!outputPath) return { ok: false, error: 'Çıktı yolu seçilmedi.' };
+
+  const [w, h] = RES_MAP[opts.resolution] || RES_MAP['1080p'];
+  const fps = opts.fps === 30 ? 30 : 60;
+
+  // Kodlayıcı seçimi: GPU (NVENC) istendi ama yoksa sessizce CPU'ya düş.
+  let encoder = opts.encoder === 'gpu' ? 'gpu' : 'cpu';
+  if (encoder === 'gpu' && !(await detectGpuEncoder())) encoder = 'cpu';
+  const videoArgs = buildVideoArgs(encoder, opts.quality);
+
+  // Ses akışını kayıpsız kopyala (mp4 uyumlu kodek). Değilse şeffaf AAC'e dön.
+  const ext = path.extname(audioPath).toLowerCase();
+  const audioCopy = ['.mp3', '.m4a', '.aac'].includes(ext);
+  const audioArgs = audioCopy ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '320k'];
+
+  const args = [
+    '-y',
+    '-f', 'rawvideo',
+    '-pixel_format', 'rgba',
+    '-video_size', `${w}x${h}`,
+    '-framerate', String(fps),
+    '-i', 'pipe:0',
+    '-i', audioPath,
+    '-map', '0:v:0',
+    '-map', '1:a:0',
+    ...videoArgs,
+    ...audioArgs,
+    '-movflags', '+faststart',
+    '-shortest',
+    outputPath,
+  ];
+
+  const ff = resolveFfmpeg();
+  let audioBuf;
+  try {
+    audioBuf = fs.readFileSync(audioPath);
+  } catch (err) {
+    return { ok: false, error: 'Ses dosyası okunamadı: ' + err.message };
+  }
+
+  try {
+    ffmpegProc = spawn(ff, args, { windowsHide: true });
+  } catch (err) {
+    return { ok: false, error: 'ffmpeg başlatılamadı: ' + err.message };
+  }
+
+  exportState = { outputPath, ffErr: '', encoder };
+  notifyAdmin('export-progress', { phase: 'start', encoder });
+  ffmpegProc.stderr.on('data', (d) => {
+    if (!exportState) return;
+    exportState.ffErr += d.toString();
+    if (exportState.ffErr.length > 8000) exportState.ffErr = exportState.ffErr.slice(-8000);
+  });
+  ffmpegProc.stdin.on('error', () => {}); // iptal/kapanışta EPIPE'i yut
+  ffmpegProc.on('error', (err) => finalizeExport('error', 'ffmpeg hatası: ' + err.message));
+  ffmpegProc.on('exit', (code) => {
+    // İş bitti (stdin kapandı) ve ffmpeg başarıyla çıktıysa -> tamam.
+    if (!exportState) return; // zaten finalize edilmiş (iptal/hata)
+    if (code === 0) finalizeExport('done');
+    else finalizeExport('error', 'ffmpeg çıkış kodu ' + code + '\n' + (exportState.ffErr || '').slice(-1200));
+  });
+
+  // Gizli render penceresi (offscreen kanvas; ekrana çizilmez)
+  exportWin = new BrowserWindow({
+    width: 320,
+    height: 200,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-exporter.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  attachSmoke(exportWin, 'EXPORT');
+  exportWin.on('closed', () => { exportWin = null; });
+
+  try {
+    await exportWin.loadFile(path.join(__dirname, '..', 'exporter', 'index.html'));
+  } catch (err) {
+    finalizeExport('error', 'Render penceresi yüklenemedi: ' + err.message);
+    return { ok: false, error: 'Render penceresi yüklenemedi.' };
+  }
+
+  const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
+  exportWin.webContents.send('export:job', {
+    audioBuffer: ab,
+    width: w,
+    height: h,
+    fps,
+    cfg: currentConfig || {},
+  });
+
+  return { ok: true };
+});
+
+ipcMain.handle('export:cancel', () => {
+  if (exportState) exportState.cancel = true;
+  return true;
+});
+
+// Bir RGBA kareyi ffmpeg.stdin'e yaz; geri basınç için "drain"i bekle.
+ipcMain.handle('export:frame', async (e, data) => {
+  if (!exportState || exportState.cancel || !ffmpegProc || !ffmpegProc.stdin.writable) {
+    return { cancel: true };
+  }
+  const buf = Buffer.from(data); // RGBA baytları (kopyalanır)
+  const ok = ffmpegProc.stdin.write(buf);
+  if (!ok) {
+    await new Promise((res) => {
+      const s = ffmpegProc && ffmpegProc.stdin;
+      if (!s) return res();
+      s.once('drain', res);
+    });
+  }
+  return { cancel: !!(exportState && exportState.cancel) };
+});
+
+ipcMain.on('export:ready', (e, total) => {
+  notifyAdmin('export-progress', { phase: 'render', done: 0, total });
+});
+ipcMain.on('export:progress', (e, p) => {
+  notifyAdmin('export-progress', { phase: 'render', done: p.done, total: p.total });
+});
+ipcMain.on('export:finish', () => {
+  // Tüm kareler yazıldı: stdin'i kapat -> ffmpeg kalan kodlamayı bitirip 'exit' verir.
+  notifyAdmin('export-progress', { phase: 'encode' });
+  if (ffmpegProc && ffmpegProc.stdin.writable) {
+    try { ffmpegProc.stdin.end(); } catch {}
+  }
+});
+ipcMain.on('export:cancelled', () => finalizeExport('cancelled'));
+ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
+
+function finalizeExport(status, message) {
+  if (!exportState) return; // tek sefer
+  const out = exportState.outputPath;
+  const encoder = exportState.encoder;
+  exportState = null;
+
+  if (status !== 'done' && ffmpegProc) {
+    try { ffmpegProc.stdin.destroy(); } catch {}
+    try { ffmpegProc.kill(); } catch {}
+  }
+  ffmpegProc = null;
+
+  if (exportWin && !exportWin.isDestroyed()) {
+    try { exportWin.destroy(); } catch {}
+  }
+  exportWin = null;
+
+  // Yarım kalan dosyayı temizle (iptal/hata)
+  if (status !== 'done' && out) {
+    setTimeout(() => { try { fs.existsSync(out) && fs.unlinkSync(out); } catch {} }, 200);
+  }
+
+  notifyAdmin('export-done', { status, output: out, message: message || '', encoder });
+}
 
 // ----------------------------------------------------------------------------
 // Uygulama yaşam döngüsü
