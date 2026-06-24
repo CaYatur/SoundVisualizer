@@ -111,6 +111,8 @@
     glow: 0.15,
     blend: 'normal', // 'normal'|'screen'|'add'
     layer: 'front', // 'front' (görselin önünde) | 'back' (arkasında)
+    noOverlap: false, // üst üste binmeyi engelle
+    minDist: 1.1,    // spriteların merkez mesafesi (boyut çarpanı); 1=kenar kenar, >1=boşluk
   };
 
   // Yeni bir görsel nesne üret (benzersiz id + deterministik seed ile)
