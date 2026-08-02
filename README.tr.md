@@ -17,7 +17,7 @@
 
 ---
 
-CaYaDev Visualizer; çalan **sistem sesine** (hoparlör/kulaklık çıkışı) gerçek zamanlı tepki veren,
+CaYaDev Visualizer; **sistem sesine, mikrofonlara ve seçilen diğer ses girişlerine** gerçek zamanlı tepki veren,
 tam ekran görsel efektler üreten bir masaüstü uygulamasıdır. İki panelden oluşur:
 
 - 🎛️ **Yönetici Paneli** — tüm ayarların canlı yapıldığı kontrol ekranı.
@@ -133,7 +133,9 @@ npm run dist:mac   # macOS: DMG + zip  (YALNIZCA bir Mac'te çalışır)
 | Platform | Çıktı | Durum |
 |----------|-------|-------|
 | Windows  | `CaYaDev Visualizer Setup …exe` (kurulum), `…-portable.exe` | ✅ Tam çalışır |
-| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (Mac'te) | ⚠️ Bkz. not |
+| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (Mac'te) | ⚠️ macOS üzerinde derlenir |
+
+> Güncel GitHub sürümü Windows kurulum ve portable paketlerini içerir. macOS paketleri bir Mac üzerinde derlenmelidir.
 
 **macOS native ses notu:** native ses modülü (`audify`) Windows'tan macOS'a **çapraz
 derlenemez**. Windows'ta üretilen macOS `.app` paketlerinde arayüz/görseller çalışır ama
@@ -145,11 +147,12 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 
 ## 🖥️ Kullanım
 
-1. Yönetici paneli açılır. Üstten **Ekran** seçin (varsayılan olarak ikinci monitör seçilir).
+1. Bir **Ekran** ve bir veya daha fazla **ses kaynağı** (sistem çıkışı, mikrofon veya diğer giriş aygıtları) seçin.
 2. **▶ Görselleştirmeyi Aç** ile seçilen ekranda tam ekran görsel başlar.
 3. Sağdaki kartlardan görselleştirme türünü, renkleri, logoyu ve performansı **canlı** olarak
    değiştirin — değişiklikler anında yansır ve otomatik kaydedilir.
-4. Görselleştirme ekranında **ESC** tuşu ile çıkılır.
+4. **Video Dışa Aktarma** ile seçilen ses dosyasını çözünürlük, kare hızı, kalite ve kodlayıcı seçenekleriyle MP4 olarak oluşturun.
+5. Görselleştirme ekranında **ESC** tuşu ile çıkılır.
 
 ---
 
@@ -182,6 +185,11 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 - Çıkış aygıtları WASAPI loopback ile, giriş aygıtları ise native `audify` modülü üzerinden doğrudan yakalanır.
 - Hassasiyet, yumuşatma, bas vurgusu + canlı seviye göstergeleri (genel / bas / orta / tiz).
 
+### Video Dışa Aktarma
+- Seçilen bir ses dosyasını mevcut görselleştirici ayarlarıyla **MP4 video** olarak oluşturur.
+- Çözünürlük, kare hızı, kalite, kodlayıcı ve işleme hızı ayarlanabilir.
+- İlerleme takibi, iptal ve gerektiğinde GPU'dan CPU'ya geçiş desteklenir.
+
 ### Güç / Performans
 - Kare hızı (30/60/120/sınırsız), arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
 
@@ -198,10 +206,12 @@ süreç sesi yakalar, FFT analizini hesaplar ve sonucu ana sürece aktarır.
 
 > Windows yayın paketleri gömülü Node çalışma zamanı içerir; son kullanıcıların ayrıca Node.js kurması gerekmez.
 
-**Aygıt seçimi:** Yönetici panelinde **Çıkış Aygıtı** listesinden hoparlör/kulaklık seçebilirsiniz.
+**Aygıt seçimi:** Yönetici panelinde bir veya daha fazla çıkış ve giriş aygıtı seçebilirsiniz.
 "Varsayılan Çıkış" o an Windows'ta aktif olan çıkışı kullanır. Liste güncel değilse
 **🔄 Aygıtları Yenile**'ye basın. Bir aygıt başka bir uygulama tarafından **özel (exclusive) modda**
 tutuluyorsa yakalama başarısız olabilir; farklı bir aygıt seçin veya o uygulamayı kapatın.
+
+**Sorun giderme:** Ses tanılaması otomatik çalışır, gerektiğinde aygıt taraması yeniden denenir ve anlaşılır hata kodları gösterilir. Gerekli bir çalışma zamanı bileşeni eksikse **Otomatik Onar**, kullanıcı onayından sonra kurulum yapabilir.
 
 ---
 
@@ -212,18 +222,21 @@ src/
   main/                # Electron ana süreç
     main.js            # pencereler, ekran seçimi, IPC, yakalama yaşam döngüsü
     native-audio.js    # loopback-helper alt-sürecini yönetir, kareleri iletir
-    loopback-helper.js # SİSTEM node'unda çalışır: audify WASAPI loopback + FFT
-    preload-admin.js / preload-visualizer.js
+    loopback-helper.js # gömülü/sistem Node çalışma zamanı: audify yakalama + FFT
+    preload-admin.js / preload-visualizer.js / preload-exporter.js
   shared/
     defaults.js        # varsayılan yapılandırma + renk şablonları
+    i18n.js            # İngilizce/Türkçe çeviriler ve dil algılama
   admin/               # Yönetici paneli (kontrol arayüzü)
-    index.html / admin.css / admin.js
+    index.html / admin.css / admin.js / settings.js
+  exporter/            # Çevrimdışı ses dosyasından MP4 oluşturma penceresi
   visualizer/          # Görselleştirme ekranı
     index.html / visualizer.css / audio.js / visualizer.js
     modes/             # gradient.js, bars.js, centerbars.js, wave.js, circular.js
 scripts/
   start.js             # GUI başlatıcı (ELECTRON_RUN_AS_NODE'u temizler)
   gen-icons.js         # SVG -> ikonlar
+  prepare-runtime.js   # Node çalışma zamanını Windows paket kaynaklarına kopyalar
 docs/screenshots/      # README görselleri
 ```
 

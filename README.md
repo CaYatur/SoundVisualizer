@@ -18,7 +18,7 @@
 ---
 
 CaYaDev Visualizer is a desktop application that generates full-screen visual effects that react in real time
-to the playing **system audio** (speaker/headphone output). It consists of two panels:
+to **system audio, microphones, and other selected audio inputs**. It consists of two panels:
 
 - 🎛️ **Admin Panel** — the control screen where all settings are adjusted live.
 - 🖥️ **Visualization Screen** — the audio-reactive visual that opens full-screen on the monitor you select.
@@ -133,7 +133,9 @@ npm run dist:mac   # macOS: DMG + zip (runs ONLY on a Mac)
 | Platform | Output | Status |
 |----------|--------|--------|
 | Windows  | `CaYaDev Visualizer Setup …exe` (installer), `…-portable.exe` | ✅ Fully functional |
-| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (on Mac) | ⚠️ See note |
+| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (on Mac) | ⚠️ Build on macOS |
+
+> The current GitHub release provides Windows installer and portable packages. macOS packages must be built on a Mac.
 
 **macOS native audio note:** the native audio module (`audify`) **cannot be cross-compiled**
 from Windows to macOS. The interface and visuals work in macOS `.app` packages produced on Windows,
@@ -145,11 +147,12 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 
 ## 🖥️ Usage
 
-1. The Admin Panel opens. Select a **Display** at the top (the second monitor is selected by default).
+1. Select a **Display** and one or more **audio sources** (system output, microphone, or other input devices).
 2. Click **▶ Open Visualizer** to start the full-screen visual on the selected display.
 3. Use the cards on the right to change the visualizer type, colors, logo, and performance settings **live** —
    changes are applied immediately and saved automatically.
-4. Press **ESC** on the Visualization Screen to exit.
+4. Use **Video Export** to render a selected audio file as an MP4 with configurable resolution, frame rate, quality, and encoder.
+5. Press **ESC** on the Visualization Screen to exit.
 
 ---
 
@@ -182,6 +185,11 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 - Output devices use WASAPI loopback; input devices use direct capture through the native `audify` module.
 - Sensitivity, smoothing, bass emphasis, and live level meters (overall / bass / mid / treble).
 
+### Video Export
+- Render a selected audio file as an **MP4 video** using the current visualizer settings.
+- Configure resolution, frame rate, quality, encoder, and rendering speed.
+- Includes progress tracking, cancellation, and GPU-to-CPU fallback when needed.
+
 ### Power / Performance
 - Frame rate (30/60/120/unlimited), background resolution scale, pause on silence, and cursor hiding.
 
@@ -198,10 +206,12 @@ calculates the FFT analysis, and sends the result to the main process.
 
 > Windows release packages include a bundled Node runtime, so end users do not need to install Node.js separately.
 
-**Device selection:** In the Admin Panel, select your speakers/headphones from the **Output Device** list.
+**Device selection:** In the Admin Panel, select one or more output and input devices.
 "Default Output" uses the output currently active in Windows. If the list is out of date, press
 **🔄 Refresh Devices**. Capture may fail if another application is holding a device in **exclusive mode**;
 select another device or close that application.
+
+**Troubleshooting:** Audio diagnostics run automatically, device discovery is retried when needed, and clear error codes are shown. If a required runtime component is missing, **Automatic Repair** can install it after user approval.
 
 ---
 
@@ -212,18 +222,21 @@ src/
   main/                # Electron main process
     main.js            # windows, display selection, IPC, capture lifecycle
     native-audio.js    # manages the loopback-helper child process and forwards frames
-    loopback-helper.js # runs in the SYSTEM node process: audify WASAPI loopback + FFT
-    preload-admin.js / preload-visualizer.js
+    loopback-helper.js # runs with the bundled/system Node runtime: audify capture + FFT
+    preload-admin.js / preload-visualizer.js / preload-exporter.js
   shared/
     defaults.js        # default configuration + color presets
+    i18n.js            # English/Turkish translations and language detection
   admin/               # Admin Panel (control interface)
-    index.html / admin.css / admin.js
+    index.html / admin.css / admin.js / settings.js
+  exporter/            # Offline audio-to-MP4 export window
   visualizer/          # Visualization Screen
     index.html / visualizer.css / audio.js / visualizer.js
     modes/             # gradient.js, bars.js, centerbars.js, wave.js, circular.js
 scripts/
   start.js             # GUI launcher (clears ELECTRON_RUN_AS_NODE)
   gen-icons.js         # SVG -> icons
+  prepare-runtime.js   # copies Node into Windows release resources
 docs/screenshots/      # README images
 ```
 
