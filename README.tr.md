@@ -23,8 +23,8 @@ tam ekran görsel efektler üreten bir masaüstü uygulamasıdır. İki panelden
 - 🎛️ **Yönetici Paneli** — tüm ayarların canlı yapıldığı kontrol ekranı.
 - 🖥️ **Görselleştirme Ekranı** — seçtiğiniz monitörde tam ekran açılan, sese tepki veren görsel.
 
-Ses yakalama, native WASAPI/CoreAudio loopback (`audify`) ile **yalnızca çıkış aygıtından** yapılır —
-**mikrofon asla yakalanmaz.**
+Ses; **sistem çıkış aygıtlarından** (hoparlör/kulaklık loopback), **mikrofonlardan/giriş aygıtlarından** veya aynı anda seçilen birden fazla kaynaktan yakalanabilir.
+Seçilen kaynaklar native `audify` modülüyle FFT analizinden önce karıştırılır.
 
 ---
 
@@ -178,8 +178,8 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 - Boyut, saydamlık, parlama, konum (X/Y) ve **sese göre nabız** ayarı.
 
 ### Ses
-- **Yalnızca çıkış sesi (hoparlör/kulaklık) yakalanır — mikrofon DAHİL DEĞİLDİR.**
-- WASAPI loopback ile seçilen **çıkış aygıtının** sesi doğrudan alınır (native modül `audify`).
+- **Sistem çıkış sesi**, **mikrofonlar/giriş aygıtları** veya birden fazla seçili kaynak aynı anda yakalanabilir.
+- Çıkış aygıtları WASAPI loopback ile, giriş aygıtları ise native `audify` modülü üzerinden doğrudan yakalanır.
 - Hassasiyet, yumuşatma, bas vurgusu + canlı seviye göstergeleri (genel / bas / orta / tiz).
 
 ### Güç / Performans
@@ -189,8 +189,8 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 
 ## 🔊 Ses yakalama nasıl çalışır (önemli)
 
-Ses, **çıkış aygıtının WASAPI loopback'i** ile yakalanır — yani hoparlöre/kulaklığa giden ses
-doğrudan alınır. **Mikrofon asla yakalanmaz.**
+Sistem sesi **çıkış aygıtının WASAPI loopback'i** ile, mikrofonlar ve diğer giriş aygıtları ise doğrudan yakalanır.
+Birden fazla seçili kaynak FFT analizinden önce karıştırılabilir.
 
 Bu, `audify` adlı native bir modülle yapılır. Native modül Electron'un ABI'sine hazır gelmediği
 için, yakalama **ayrı bir Node alt-süreci** (`src/main/loopback-helper.js`) ile çalıştırılır; bu

@@ -23,8 +23,8 @@ to the playing **system audio** (speaker/headphone output). It consists of two p
 - 🎛️ **Admin Panel** — the control screen where all settings are adjusted live.
 - 🖥️ **Visualization Screen** — the audio-reactive visual that opens full-screen on the monitor you select.
 
-Audio capture is performed **only from the output device** using native WASAPI/CoreAudio loopback (`audify`) —
-**the microphone is never captured.**
+Audio can be captured from **system output devices** (speaker/headphone loopback), **microphones/input devices**, or multiple selected sources at the same time.
+Selected sources are mixed before FFT analysis using the native `audify` module.
 
 ---
 
@@ -178,8 +178,8 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 - Size, opacity, glow, position (X/Y), and **audio pulse** controls.
 
 ### Audio
-- **Only output audio (speaker/headphones) is captured — the microphone is NOT INCLUDED.**
-- The selected **output device** is captured directly using WASAPI loopback (native `audify` module).
+- Capture **system output audio**, **microphones/input devices**, or multiple selected sources simultaneously.
+- Output devices use WASAPI loopback; input devices use direct capture through the native `audify` module.
 - Sensitivity, smoothing, bass emphasis, and live level meters (overall / bass / mid / treble).
 
 ### Power / Performance
@@ -189,8 +189,8 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 
 ## 🔊 How Audio Capture Works (Important)
 
-Audio is captured using the **output device's WASAPI loopback** — in other words, the signal sent to the
-speakers/headphones is captured directly. **The microphone is never captured.**
+System audio is captured using the **output device's WASAPI loopback**, while microphones and other input devices are captured directly.
+Multiple selected sources can be mixed before FFT analysis.
 
 This is handled by a native module called `audify`. Because the native module is not distributed for Electron's ABI,
 capture runs in a **separate Node child process** (`src/main/loopback-helper.js`). This process captures the audio,
