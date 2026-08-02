@@ -61,7 +61,10 @@
           Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.
         </div>
       </div>
-      <button id="bannerClose" class="btn ghost small">Kapat</button>
+      <div class="banner-actions">
+        <button id="repairAudioBtn" class="btn small">Otomatik Onar</button>
+        <button id="bannerClose" class="btn ghost small">Kapat</button>
+      </div>
     </div>
 
     <div class="meter-strip">
@@ -79,7 +82,28 @@
       <span class="hint">Görselleştirme ekranında <kbd>ESC</kbd> ile çıkış • Ayarlar otomatik kaydedilir</span>
     </footer>
 
+    <button id="settingsBtn" class="settings-fab" type="button" aria-label="Ayarlar" title="Ayarlar">⚙</button>
+    <div id="settingsBackdrop" class="settings-backdrop hidden" aria-hidden="true">
+      <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-head">
+          <h2 id="settingsTitle">Ayarlar</h2>
+          <button id="settingsClose" class="settings-close" type="button" aria-label="Kapat" title="Kapat">×</button>
+        </div>
+        <label class="settings-field" for="languageSelect">
+          <span>Dil</span>
+          <select id="languageSelect">
+            <option value="auto">Otomatik (Sistem dili)</option>
+            <option value="tr">Türkçe</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <p class="settings-note">Dil değişikliği uygulamayı yeniden yükler.</p>
+      </section>
+    </div>
+
     <script src="../shared/defaults.js"></script>
+    <script src="../shared/i18n.js"></script>
+    <script src="settings.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>

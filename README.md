@@ -4,12 +4,12 @@
 
 # CaYaDev Visualizer
 
-### 🎵 Çoklu monitör + çoklu ses kaynağı destekli, sese duyarlı görselleştirme uygulaması
+### 🎵 Audio-reactive visualization application with multi-monitor and multi-audio-source support
 
 **Windows** & **macOS** · Electron + WebGL · Native WASAPI/CoreAudio loopback
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-111827.svg)](#-derleme--dağıtım)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-111827.svg)](#-build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
@@ -17,232 +17,232 @@
 
 ---
 
-CaYaDev Visualizer; çalan **sistem sesine** (hoparlör/kulaklık çıkışı) gerçek zamanlı tepki veren,
-tam ekran görsel efektler üreten bir masaüstü uygulamasıdır. İki panelden oluşur:
+CaYaDev Visualizer is a desktop application that generates full-screen visual effects that react in real time
+to the playing **system audio** (speaker/headphone output). It consists of two panels:
 
-- 🎛️ **Yönetici Paneli** — tüm ayarların canlı yapıldığı kontrol ekranı.
-- 🖥️ **Görselleştirme Ekranı** — seçtiğiniz monitörde tam ekran açılan, sese tepki veren görsel.
+- 🎛️ **Admin Panel** — the control screen where all settings are adjusted live.
+- 🖥️ **Visualization Screen** — the audio-reactive visual that opens full-screen on the monitor you select.
 
-Ses yakalama, native WASAPI/CoreAudio loopback (`audify`) ile **yalnızca çıkış aygıtından** yapılır —
-**mikrofon asla yakalanmaz.**
+Audio capture is performed **only from the output device** using native WASAPI/CoreAudio loopback (`audify`) —
+**the microphone is never captured.**
 
 ---
 
 ## 🎬 Demo
 
-| Ses görselleştirici (canlı) | Frekans barları (canlı) |
+| Audio visualizer (live) | Frequency bars (live) |
 |:---:|:---:|
-| ![Görselleştirici demo](docs/screenshots/demo-visualizer.gif) | ![Bar demo](docs/screenshots/demo-bars.gif) |
+| ![Visualizer demo](docs/screenshots/demo-visualizer.gif) | ![Bars demo](docs/screenshots/demo-bars.gif) |
 
-> Yukarıdaki GIF'ler sentetik bir ses sinyaliyle üretilmiştir; gerçek kullanımda çalan müziğe birebir tepki verir.
+> The GIFs above were generated with a synthetic audio signal; in real use, they react directly to the music being played.
 
 ---
 
-## 🎛️ Arayüz (Yönetici Paneli)
+## 🎛️ Interface (Admin Panel)
 
-Tüm ayarlar tek ekrandan, **canlı** olarak yapılır ve otomatik kaydedilir — ekran seçimi, ses kaynağı,
-arkaplan gradyanı, görselleştirici türü, renkler, logo ve performans.
+All settings are adjusted **live** from a single screen and saved automatically — display selection, audio source,
+background gradient, visualizer type, colors, logo, and performance.
 
 <div align="center">
-  <img src="docs/screenshots/admin-panel.png" alt="Yönetici Paneli" width="820" />
+  <img src="docs/screenshots/admin-panel.png" alt="Admin Panel" width="820" />
 </div>
 
 ---
 
-## ✨ Görselleştirme Modları & Stilleri
+## ✨ Visualization Modes & Styles
 
-Dört ana mod, sayısız renk şablonu, gökkuşağı/tek renk, ayna, alt/orta/tam yerleşim ve
-yumuşak/plazma arkaplan gradyanlarıyla birbirinden farklı görünümler:
+Four main modes, numerous color presets, rainbow/single-color options, mirroring, bottom/center/full layouts,
+and soft/plasma background gradients provide a wide range of visual styles:
 
 <table>
   <tr>
     <td align="center" width="50%">
       <img src="docs/screenshots/visualizer-bars.png" width="400" /><br/>
-      <b>Barlar</b> · alt yerleşim · gökkuşağı · Aurora
+      <b>Bars</b> · bottom layout · rainbow · Aurora
     </td>
     <td align="center" width="50%">
       <img src="docs/screenshots/visualizer-center.png" width="400" /><br/>
-      <b>Merkez Barlar</b> · logo · Neon plazma
+      <b>Center Bars</b> · logo · Neon plasma
     </td>
   </tr>
   <tr>
     <td align="center">
       <img src="docs/screenshots/visualizer-bars-mirror.png" width="400" /><br/>
-      <b>Barlar</b> · ayna (bas ortada) · Okyanus
+      <b>Bars</b> · mirror (bass in the center) · Ocean
     </td>
     <td align="center">
       <img src="docs/screenshots/visualizer-bars-thin.png" width="400" /><br/>
-      <b>Barlar</b> · orta simetrik · Buz
+      <b>Bars</b> · centered symmetry · Ice
     </td>
   </tr>
   <tr>
     <td align="center">
       <img src="docs/screenshots/visualizer-wave.png" width="400" /><br/>
-      <b>Dalga</b> · kalın · ayna · Gün Batımı
+      <b>Wave</b> · thick · mirror · Sunset
     </td>
     <td align="center">
       <img src="docs/screenshots/visualizer-wave-line.png" width="400" /><br/>
-      <b>Dalga</b> · ince çizgi · gökkuşağı · Gece
+      <b>Wave</b> · thin line · rainbow · Night
     </td>
   </tr>
   <tr>
     <td align="center">
       <img src="docs/screenshots/visualizer-circular.png" width="400" /><br/>
-      <b>Çember</b> · logo · Lav plazma
+      <b>Circle</b> · logo · Lava plasma
     </td>
     <td align="center">
       <img src="docs/screenshots/visualizer-circular-rainbow.png" width="400" /><br/>
-      <b>Çember</b> · gökkuşağı · logo · Orman
+      <b>Circle</b> · rainbow · logo · Forest
     </td>
   </tr>
   <tr>
     <td align="center" colspan="2">
       <img src="docs/screenshots/visualizer-solid.png" width="500" /><br/>
-      <b>Düz renk arkaplan</b> · marka kırmızısı barlar
+      <b>Solid-color background</b> · brand-red bars
     </td>
   </tr>
 </table>
 
 ---
 
-## 🚀 Çalıştırma (geliştirme)
+## 🚀 Running in Development
 
 ```bash
-npm install      # bağımlılıkları kurar
-npm start        # uygulamayı başlatır
+npm install      # installs dependencies
+npm start        # starts the application
 ```
 
-> Kurumsal ağ/proxy nedeniyle `npm install` sertifika hatası verirse:
-> PowerShell'de `$env:NODE_OPTIONS="--use-system-ca"` ile tekrar deneyin.
+> If `npm install` returns a certificate error because of a corporate network/proxy,
+> try again in PowerShell with `$env:NODE_OPTIONS="--use-system-ca"`.
 
-Geliştirici modu (DevTools açık): `npm run dev`
+Developer mode (DevTools open): `npm run dev`
 
-> **Gereksinim:** Sistemde **Node.js** kurulu olmalıdır — ses yakalama yardımcı
-> süreci (`src/main/loopback-helper.js`) sistem `node` ile çalışır.
+> **Development requirement:** **Node.js** must be installed to run the project from source.
+> Windows release packages include a bundled Node runtime for the audio capture helper.
 
 ---
 
-## 📦 Derleme / Dağıtım
+## 📦 Build / Distribution
 
 ```bash
-npm run icons      # SVG'den ikonları üretir (build/icon.ico, .icns, .png)
-npm run dist:win   # Windows: NSIS kurulum + portable (dist/ klasörüne)
-npm run dist:mac   # macOS: DMG + zip  (YALNIZCA bir Mac'te çalışır)
+npm run icons      # generates icons from the SVG (build/icon.ico, .icns, .png)
+npm run dist:win   # Windows: NSIS installer + portable build (in the dist/ directory)
+npm run dist:mac   # macOS: DMG + zip (runs ONLY on a Mac)
 ```
 
-| Platform | Çıktı | Durum |
-|----------|-------|-------|
-| Windows  | `CaYaDev Visualizer Setup …exe` (kurulum), `…-portable.exe` | ✅ Tam çalışır |
-| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (Mac'te) | ⚠️ Bkz. not |
+| Platform | Output | Status |
+|----------|--------|--------|
+| Windows  | `CaYaDev Visualizer Setup …exe` (installer), `…-portable.exe` | ✅ Fully functional |
+| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG (on Mac) | ⚠️ See note |
 
-**macOS native ses notu:** native ses modülü (`audify`) Windows'tan macOS'a **çapraz
-derlenemez**. Windows'ta üretilen macOS `.app` paketlerinde arayüz/görseller çalışır ama
-ses yakalama çalışmaz. Tam çalışan macOS sürümü için bir **Mac'te** `npm install && npm run
-dist:mac` çalıştırın. macOS'ta **sistem sesi** yakalamak için **BlackHole** gibi bir sanal
-ses aygıtı gerekir (mikrofon doğrudan çalışır).
-
----
-
-## 🖥️ Kullanım
-
-1. Yönetici paneli açılır. Üstten **Ekran** seçin (varsayılan olarak ikinci monitör seçilir).
-2. **▶ Görselleştirmeyi Aç** ile seçilen ekranda tam ekran görsel başlar.
-3. Sağdaki kartlardan görselleştirme türünü, renkleri, logoyu ve performansı **canlı** olarak
-   değiştirin — değişiklikler anında yansır ve otomatik kaydedilir.
-4. Görselleştirme ekranında **ESC** tuşu ile çıkılır.
+**macOS native audio note:** the native audio module (`audify`) **cannot be cross-compiled**
+from Windows to macOS. The interface and visuals work in macOS `.app` packages produced on Windows,
+but audio capture does not. For a fully functional macOS build, run `npm install && npm run dist:mac`
+on a **Mac**. Capturing **system audio** on macOS requires a virtual audio device such as **BlackHole**
+(the microphone works directly).
 
 ---
 
-## 🎨 Özellikler
+## 🖥️ Usage
 
-### Arkaplan — Akışkan Gradyan (Sis efekti)
-- Her noktadan akan, sese tepki veren mesh-gradyan fon (WebGL shader).
-- **İki stil:** *Yumuşak (Parlamasız)* — pürüzsüz, pastel mesh gradyan; *Plazma (Parlamalı)* —
-  sese göre patlayan, daha canlı/parlak.
-- 5 renk noktası ayrı ayrı seçilebilir; **10 hazır şablon** (Aurora, Gün Batımı, Neon, Lav, Okyanus,
-  Orman, Pastel, Gece, Buz, Tek Renk).
-- Akış hızı, ölçek, bozulma (akışkanlık), **ses tepkisi**, temel parlaklık, gren, vinyet.
-- **Ses Patlaması (Parlaklık)** ve **Ses ile Renk Kayması** ayrı ayrı ayarlanabilir.
-- Alternatif olarak **düz renk** arkaplan.
-
-### Görselleştirici (ön efekt)
-- **Barlar** — her bar bir logaritmik frekans bandı. Bar sayısı, min/max frekans, boşluk,
-  yerleşim (alt/orta/tam), ayna, tepe noktaları.
-- **Merkez** — ekranın ortasından yukarı/aşağı simetrik açılan barlar. Logo ile çok uyumlu.
-- **Dalga** — osiloskop/dalga formu; çizgi kalınlığı, genlik, ayna.
-- **Çember** — merkez logo ile uyumlu radyal spektrum; bas merkez halkasını nabızlandırır.
-- **Gökkuşağı** açılıp kapatılabilir; kapalıyken tek renk seçilir. Hassasiyet ve parlama (glow).
-
-### Logo / Resim
-- Merkeze resim/logo yerleştirilir; **otomatik boyutlandırılır ve konumlandırılır**.
-- Boyut, saydamlık, parlama, konum (X/Y) ve **sese göre nabız** ayarı.
-
-### Ses
-- **Yalnızca çıkış sesi (hoparlör/kulaklık) yakalanır — mikrofon DAHİL DEĞİLDİR.**
-- WASAPI loopback ile seçilen **çıkış aygıtının** sesi doğrudan alınır (native modül `audify`).
-- Hassasiyet, yumuşatma, bas vurgusu + canlı seviye göstergeleri (genel / bas / orta / tiz).
-
-### Güç / Performans
-- Kare hızı (30/60/120/sınırsız), arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
+1. The Admin Panel opens. Select a **Display** at the top (the second monitor is selected by default).
+2. Click **▶ Open Visualizer** to start the full-screen visual on the selected display.
+3. Use the cards on the right to change the visualizer type, colors, logo, and performance settings **live** —
+   changes are applied immediately and saved automatically.
+4. Press **ESC** on the Visualization Screen to exit.
 
 ---
 
-## 🔊 Ses yakalama nasıl çalışır (önemli)
+## 🎨 Features
 
-Ses, **çıkış aygıtının WASAPI loopback'i** ile yakalanır — yani hoparlöre/kulaklığa giden ses
-doğrudan alınır. **Mikrofon asla yakalanmaz.**
+### Background — Fluid Gradient (Fog Effect)
+- Audio-reactive mesh-gradient background flowing from every point (WebGL shader).
+- **Two styles:** *Soft (No Glow)* — smooth, pastel mesh gradient; *Plasma (Glowing)* —
+  more vivid and bright, bursting in response to audio.
+- Five color points can be selected individually; **10 built-in presets** (Aurora, Sunset, Neon, Lava, Ocean,
+  Forest, Pastel, Night, Ice, Single Color).
+- Flow speed, scale, warp (fluidity), **audio reactivity**, base brightness, grain, and vignette.
+- **Audio Burst (Brightness)** and **Audio Hue Shift** can be adjusted independently.
+- A **solid-color** background is also available.
 
-Bu, `audify` adlı native bir modülle yapılır. Native modül Electron'un ABI'sine hazır gelmediği
-için, yakalama **ayrı bir Node alt-süreci** (`src/main/loopback-helper.js`) ile çalıştırılır; bu
-süreç sesi yakalar, FFT analizini hesaplar ve sonucu ana sürece aktarır.
+### Visualizer (Foreground Effect)
+- **Bars** — each bar represents a logarithmic frequency band. Bar count, min/max frequency, gap,
+  position (bottom/center/full), mirror, and peak caps.
+- **Center Bars** — bars expand symmetrically upward and downward from the center of the screen. Works especially well with a logo.
+- **Wave** — oscilloscope/waveform; line width, amplitude, and mirror controls.
+- **Circle** — radial spectrum designed for use with a centered logo; bass pulses the center ring.
+- **Rainbow** can be enabled or disabled; when disabled, a single color is used. Sensitivity and glow controls are included.
 
-> Gereksinim: Sistemde **Node.js** kurulu olmalıdır (yakalama yardımcı süreci `node` ile başlar).
+### Logo / Image
+- Places an image/logo in the center; it is **automatically sized and positioned**.
+- Size, opacity, glow, position (X/Y), and **audio pulse** controls.
 
-**Aygıt seçimi:** Yönetici panelinde **Çıkış Aygıtı** listesinden hoparlör/kulaklık seçebilirsiniz.
-"Varsayılan Çıkış" o an Windows'ta aktif olan çıkışı kullanır. Liste güncel değilse
-**🔄 Aygıtları Yenile**'ye basın. Bir aygıt başka bir uygulama tarafından **özel (exclusive) modda**
-tutuluyorsa yakalama başarısız olabilir; farklı bir aygıt seçin veya o uygulamayı kapatın.
+### Audio
+- **Only output audio (speaker/headphones) is captured — the microphone is NOT INCLUDED.**
+- The selected **output device** is captured directly using WASAPI loopback (native `audify` module).
+- Sensitivity, smoothing, bass emphasis, and live level meters (overall / bass / mid / treble).
+
+### Power / Performance
+- Frame rate (30/60/120/unlimited), background resolution scale, pause on silence, and cursor hiding.
 
 ---
 
-## 📁 Proje yapısı
+## 🔊 How Audio Capture Works (Important)
+
+Audio is captured using the **output device's WASAPI loopback** — in other words, the signal sent to the
+speakers/headphones is captured directly. **The microphone is never captured.**
+
+This is handled by a native module called `audify`. Because the native module is not distributed for Electron's ABI,
+capture runs in a **separate Node child process** (`src/main/loopback-helper.js`). This process captures the audio,
+calculates the FFT analysis, and sends the result to the main process.
+
+> Windows release packages include a bundled Node runtime, so end users do not need to install Node.js separately.
+
+**Device selection:** In the Admin Panel, select your speakers/headphones from the **Output Device** list.
+"Default Output" uses the output currently active in Windows. If the list is out of date, press
+**🔄 Refresh Devices**. Capture may fail if another application is holding a device in **exclusive mode**;
+select another device or close that application.
+
+---
+
+## 📁 Project Structure
 
 ```
 src/
-  main/                # Electron ana süreç
-    main.js            # pencereler, ekran seçimi, IPC, yakalama yaşam döngüsü
-    native-audio.js    # loopback-helper alt-sürecini yönetir, kareleri iletir
-    loopback-helper.js # SİSTEM node'unda çalışır: audify WASAPI loopback + FFT
+  main/                # Electron main process
+    main.js            # windows, display selection, IPC, capture lifecycle
+    native-audio.js    # manages the loopback-helper child process and forwards frames
+    loopback-helper.js # runs in the SYSTEM node process: audify WASAPI loopback + FFT
     preload-admin.js / preload-visualizer.js
   shared/
-    defaults.js        # varsayılan yapılandırma + renk şablonları
-  admin/               # Yönetici paneli (kontrol arayüzü)
+    defaults.js        # default configuration + color presets
+  admin/               # Admin Panel (control interface)
     index.html / admin.css / admin.js
-  visualizer/          # Görselleştirme ekranı
+  visualizer/          # Visualization Screen
     index.html / visualizer.css / audio.js / visualizer.js
     modes/             # gradient.js, bars.js, centerbars.js, wave.js, circular.js
 scripts/
-  start.js             # GUI başlatıcı (ELECTRON_RUN_AS_NODE'u temizler)
-  gen-icons.js         # SVG -> ikonlar
-docs/screenshots/      # README görselleri
+  start.js             # GUI launcher (clears ELECTRON_RUN_AS_NODE)
+  gen-icons.js         # SVG -> icons
+docs/screenshots/      # README images
 ```
 
-Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosyasına kaydedilir.
+Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on Windows.
 
 ---
 
-## ⌨️ Kısayollar
+## ⌨️ Shortcuts
 
-| Tuş | İşlev |
-|-----|-------|
-| `ESC` | Görselleştirme ekranını kapat |
-| Ekrana tıklama | Ses başlatılamadıysa yeniden dene |
+| Key | Action |
+|-----|--------|
+| `ESC` | Close the Visualization Screen |
+| Click the screen | Retry if audio could not be started |
 
 ---
 
-## 📄 Lisans
+## 📄 License
 
-Bu proje **MIT Lisansı** ile lisanslanmıştır — ayrıntılar için [LICENSE](LICENSE) dosyasına bakın.
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE) for details.
 
 ```
 Copyright (c) 2026 CaYaDev — https://cayadev.com
@@ -252,6 +252,6 @@ Copyright (c) 2026 CaYaDev — https://cayadev.com
 
 ---
 
-**[cayadev.com](https://cayadev.com)** tarafından ❤️ ile geliştirildi.
+Developed with ❤️ by **[cayadev.com](https://cayadev.com)**.
 
 </div>

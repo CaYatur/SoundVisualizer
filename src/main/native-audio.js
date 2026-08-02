@@ -39,7 +39,20 @@ function findNode() {
   const win = process.platform === 'win32';
   const exe = win ? 'node.exe' : 'node';
 
-  // 1) En güvenilir: işletim sistemine sor (gerçek PATH'i kullanır)
+  // 1) Paketle birlikte gelen Node çalışma zamanı. Böylece hedef bilgisayarda
+  // ayrıca Node.js kurulu olmasına gerek kalmaz.
+  const bundledCandidates = [
+    path.join(process.resourcesPath || '', 'runtime', exe),
+    path.join(__dirname, '..', '..', 'build', 'runtime', exe),
+  ];
+  for (const candidate of bundledCandidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      _nodeCache = candidate;
+      return candidate;
+    }
+  }
+
+  // 2) En güvenilir harici seçenek: işletim sistemine sor (gerçek PATH'i kullanır)
   try {
     const cmd = win ? 'where node' : 'command -v node';
     const found = execSync(cmd, { encoding: 'utf-8' })
@@ -101,50 +114,104 @@ function findNode() {
   return _nodeCache;
 }
 
-function listDevices() {
+function classifyListError({ code, signal, stderr, spawnError, timedOut, node, helperExists }) {
+  if (!helperExists) return { code: 'HELPER_MISSING', message: 'Audio helper files are missing from the installation.' };
+  if (timedOut) return { code: 'DEVICE_ENUM_TIMEOUT', message: 'Audio device detection timed out.' };
+  if (spawnError && /ENOENT/i.test(spawnError.code || spawnError.message)) {
+    return { code: 'NODE_NOT_FOUND', message: 'Node.js could not be found. Install Node.js or repair its PATH configuration.' };
+  }
+  if (spawnError) return { code: 'PROCESS_START_FAILED', message: `The audio helper could not start: ${spawnError.message}` };
+  if (/Cannot find module ['"].*audify/i.test(stderr)) {
+    return { code: 'AUDIFY_MISSING', message: 'The native audio module is missing. Reinstall or repair the application.' };
+  }
+  if (/was compiled against a different Node\.js version|NODE_MODULE_VERSION|not a valid Win32 application/i.test(stderr)) {
+    return { code: 'NATIVE_ABI_MISMATCH', message: 'The native audio module is incompatible with this Node.js version. Reinstall Node.js LTS and the application.' };
+  }
+  if (/access denied|eperm|eacces/i.test(stderr)) {
+    return { code: 'ACCESS_DENIED', message: 'Windows denied access to the audio subsystem. Restart the application and check audio privacy/security settings.' };
+  }
+  if (code !== 0) return { code: 'HELPER_EXITED', message: `The audio helper exited unexpectedly (code ${code ?? 'unknown'}${signal ? `, signal ${signal}` : ''}).` };
+  return { code: 'NO_DEVICES', message: 'No active audio devices were detected. Check Windows Sound settings and reconnect the device.' };
+}
+
+function listDevicesAttempt(timeoutMs = 6000) {
   return new Promise((resolve) => {
     let out = '';
     let err = '';
-    let child;
+    let settled = false;
+    let spawnError = null;
     const node = findNode();
-    dbg('listDevices node=', node, 'HELPER=', HELPER, 'ROOT=', ROOT);
-    dbg('HELPER exists?', fs.existsSync(HELPER), 'ROOT exists?', fs.existsSync(ROOT));
+    const helperExists = fs.existsSync(HELPER);
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+
+    if (!helperExists) {
+      return resolve({ devices: [], ok: false, node, helper: HELPER, error: classifyListError({ helperExists }) });
+    }
+
+    let child;
     try {
       child = spawn(node, [HELPER, '--list'], { cwd: ROOT, windowsHide: true });
     } catch (e) {
-      dbg('spawn threw:', e.message);
-      return resolve([]);
+      spawnError = e;
+      return resolve({ devices: [], ok: false, node, helper: HELPER, error: classifyListError({ spawnError, node, helperExists }) });
     }
+
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ timedOut: true, node, helperExists }) });
+    }, timeoutMs);
+
     child.stdout.on('data', (d) => (out += d.toString()));
     child.stderr.on('data', (d) => (err += d.toString()));
-    child.on('error', (e) => {
-      dbg('spawn error event:', e.message);
-      resolve([]);
-    });
-    child.on('close', (code) => {
-      dbg('list close code=', code, 'stdout.len=', out.length, 'stderr=', err.slice(0, 300));
-      dbg('stdout head:', out.slice(0, 200));
-      try {
-        const parsed = JSON.parse(out);
-        dbg('parsed device count=', Array.isArray(parsed) ? parsed.length : 'not-array');
-        resolve(parsed);
-      } catch (e) {
-        dbg('JSON parse failed:', e.message);
-        resolve([]);
+    child.on('error', (e) => { spawnError = e; });
+    child.on('close', (code, signal) => {
+      if (spawnError) {
+        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ spawnError, node, helperExists }) });
       }
+      let parsed;
+      try { parsed = JSON.parse(out); } catch (e) {
+        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: { code: 'INVALID_HELPER_OUTPUT', message: `The audio helper returned invalid data: ${e.message}` } });
+      }
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ code, signal, stderr: err, node, helperExists }) });
+      }
+      finish({ devices: parsed, ok: true, node, helper: HELPER, stderr: err.trim(), error: null });
     });
   });
+}
+
+async function diagnoseAudio() {
+  let result = await listDevicesAttempt();
+  if (!result.ok) {
+    _nodeCache = null;
+    await new Promise((r) => setTimeout(r, 350));
+    const retry = await listDevicesAttempt(8000);
+    result = { ...retry, retried: true, firstError: result.error };
+  }
+  return result;
+}
+
+async function listDevices() {
+  const result = await diagnoseAudio();
+  return result.devices || [];
 }
 
 // Geriye dönük uyum takma adı
 const listOutputDevices = listDevices;
 
 let capChild = null;
-let acc = null;
+let acc = Buffer.alloc(0);
 let frameCb = null;
+let captureGeneration = 0;
 
 function startCapture(devices, onFrame, onStatus) {
   stopCapture();
+  const generation = ++captureGeneration;
   frameCb = onFrame;
   acc = Buffer.alloc(0);
 
@@ -162,8 +229,10 @@ function startCapture(devices, onFrame, onStatus) {
   capChild = child;
 
   child.stdout.on('data', (chunk) => {
-    acc = acc.length ? Buffer.concat([acc, chunk]) : chunk;
-    parseFrames();
+    if (generation !== captureGeneration || child !== capChild || !Buffer.isBuffer(chunk)) return;
+    if (!Buffer.isBuffer(acc)) acc = Buffer.alloc(0);
+    acc = acc.length ? Buffer.concat([acc, chunk]) : Buffer.from(chunk);
+    parseFrames(generation);
   });
 
   child.stderr.on('data', (d) => {
@@ -187,7 +256,8 @@ function startCapture(devices, onFrame, onStatus) {
   });
 }
 
-function parseFrames() {
+function parseFrames(generation) {
+  if (generation !== captureGeneration || !Buffer.isBuffer(acc)) return;
   while (acc.length >= FRAME_BYTES) {
     if (acc[0] !== 0xaa || acc[1] !== 0x55) {
       // yeniden hizala
@@ -206,17 +276,20 @@ function parseFrames() {
 }
 
 function stopCapture() {
-  if (capChild) {
-    try {
-      capChild.stdin.end();
-    } catch {}
-    try {
-      capChild.kill();
-    } catch {}
-    capChild = null;
-  }
-  acc = null;
+  captureGeneration++;
+  const child = capChild;
+  capChild = null;
   frameCb = null;
+  acc = Buffer.alloc(0);
+
+  if (child) {
+    try { child.stdout?.removeAllListeners('data'); } catch {}
+    try { child.stderr?.removeAllListeners('data'); } catch {}
+    try { child.stdin?.end(); } catch {}
+    try { child.kill(); } catch {}
+  }
 }
 
-module.exports = { listDevices, listOutputDevices, startCapture, stopCapture };
+function resetNodeCache() { _nodeCache = null; }
+
+module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture };

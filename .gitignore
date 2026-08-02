@@ -5,3 +5,4 @@ assets/logo-256.png
 *.log
 .DS_Store
 .claude
+.caya-agent/

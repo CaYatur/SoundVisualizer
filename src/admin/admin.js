@@ -807,11 +807,83 @@
   }
 
   // --------------------------------------------------------------------------
-  // Başlat
+  // Ses aygıtı tanılama / otomatik kurtarma
   // --------------------------------------------------------------------------
+  function diagnosticText(result) {
+    const code = result?.error?.code || 'UNKNOWN';
+    const english = result?.error?.message || 'Audio device detection failed.';
+    if (window.SVI18n?.locale !== 'tr') {
+      return `${english} [${code}]${result?.retried ? ' Automatic retry was unsuccessful.' : ''}`;
+    }
+    const tr = {
+      NODE_NOT_FOUND: 'Node.js bulunamadı. Node.js LTS kurun veya PATH ayarını onarın.',
+      HELPER_MISSING: 'Ses yardımcı dosyaları kurulumda eksik. Uygulamayı yeniden kurun veya onarın.',
+      AUDIFY_MISSING: 'Native ses modülü eksik. Uygulamayı yeniden kurun veya onarın.',
+      NATIVE_ABI_MISMATCH: 'Native ses modülü bu Node.js sürümüyle uyumsuz. Node.js LTS ve uygulamayı yeniden kurun.',
+      ACCESS_DENIED: 'Windows ses sistemine erişimi engelledi. Ses gizlilik/güvenlik ayarlarını kontrol edip uygulamayı yeniden başlatın.',
+      DEVICE_ENUM_TIMEOUT: 'Ses aygıtı algılama zaman aşımına uğradı. Windows Ses hizmetini ve bağlı aygıtları kontrol edin.',
+      NO_DEVICES: 'Etkin ses aygıtı bulunamadı. Windows Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.',
+      INVALID_HELPER_OUTPUT: 'Ses yardımcı süreci geçersiz veri döndürdü.',
+      HELPER_EXITED: 'Ses yardımcı süreci beklenmedik şekilde kapandı.',
+      PROCESS_START_FAILED: 'Ses yardımcı süreci başlatılamadı.',
+      UNKNOWN: 'Ses aygıtı algılanamadı.'
+    };
+    return `${tr[code] || english} [${code}]${result?.retried ? ' Otomatik yeniden deneme başarısız oldu.' : ''}`;
+  }
+
+  function applyAudioDiagnostic(result, showSuccess = false) {
+    audioDevices = result?.devices || [];
+    if (result?.ok) {
+      if (showSuccess) setAudioState(window.SVI18n?.locale === 'tr' ? `✓ ${audioDevices.length} ses aygıtı bulundu` : `✓ ${audioDevices.length} audio devices detected`, 'ok');
+      $('banner').classList.add('hidden');
+      return;
+    }
+    setAudioState(window.SVI18n?.locale === 'tr' ? '⚠ Ses aygıtı tanılaması başarısız' : '⚠ Audio device diagnostics failed', 'err');
+    $('bannerDetail').textContent = diagnosticText(result);
+    $('banner').classList.remove('hidden');
+  }
+
   actions.refreshDevices = async () => {
-    audioDevices = (await window.api.getOutputDevices()) || [];
+    setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
+    const result = await window.api.diagnoseAudio();
+    applyAudioDiagnostic(result, true);
     render();
+  };
+
+  actions.repairAudio = async () => {
+    const button = $('repairAudioBtn');
+    if (button) {
+      button.disabled = true;
+      button.textContent = window.SVI18n?.locale === 'tr' ? 'Onarılıyor…' : 'Repairing…';
+    }
+    try {
+      const result = await window.api.repairAudio();
+      if (result?.cancelled) return;
+      if (result?.ok) {
+        applyAudioDiagnostic(result.diagnostic, true);
+        render();
+        return;
+      }
+      const diagnostic = result?.diagnostic || {};
+      applyAudioDiagnostic(diagnostic, false);
+      if (result?.repairError) {
+        $('bannerDetail').textContent = `${result.repairError.message} [${result.repairError.code}]`;
+      } else if (result?.requiresManualAction) {
+        const suffix = window.SVI18n?.locale === 'tr'
+          ? ' Bu hata için güvenli otomatik kurulum yok; yukarıdaki öneriyi uygulayın.'
+          : ' No safe automatic installation is available for this error; follow the recommendation above.';
+        $('bannerDetail').textContent = diagnosticText(diagnostic) + suffix;
+      }
+      $('banner').classList.remove('hidden');
+    } catch (error) {
+      $('bannerDetail').textContent = `${window.SVI18n?.locale === 'tr' ? 'Otomatik onarım başlatılamadı' : 'Automatic repair could not start'}: ${error.message}`;
+      $('banner').classList.remove('hidden');
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = window.SVI18n?.locale === 'tr' ? 'Otomatik Onar' : 'Automatic Repair';
+      }
+    }
   };
 
   // --------------------------------------------------------------------------
@@ -1007,7 +1079,8 @@
     if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
 
     displays = await window.api.getDisplays();
-    audioDevices = (await window.api.getOutputDevices()) || [];
+    const audioDiagnostic = await window.api.diagnoseAudio();
+    audioDevices = audioDiagnostic?.devices || [];
 
     // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
     try { gpuAvailable = !!(await window.api.gpuAvailable()); } catch { gpuAvailable = false; }
@@ -1017,6 +1090,7 @@
 
     renderDisplays();
     render();
+    applyAudioDiagnostic(audioDiagnostic, false);
 
     visOpen = await window.api.visualizerIsOpen();
     setStatus(visOpen);
@@ -1067,6 +1141,7 @@
       }
     });
 
+    $('repairAudioBtn').addEventListener('click', actions.repairAudio);
     $('bannerClose').addEventListener('click', () => $('banner').classList.add('hidden'));
 
     // Video dışa aktarma olayları
