@@ -11,6 +11,13 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
 
+// English is the fallback. Turkish is selected only for a Turkish system locale.
+function appLocale() {
+  try { return /^tr(?:-|$)/i.test(app.getLocale()) ? 'tr' : 'en'; }
+  catch { return 'en'; }
+}
+function trUi(tr, en) { return appLocale() === 'tr' ? tr : en; }
+
 // ----------------------------------------------------------------------------
 // Durum
 // ----------------------------------------------------------------------------
@@ -68,7 +75,7 @@ function getDisplayList() {
   return displays.map((d, i) => ({
     id: d.id,
     index: i,
-    label: `Ekran ${i + 1}` + (d.id === primary.id ? ' (Birincil)' : ''),
+    label: `${trUi('Ekran', 'Display')} ${i + 1}` + (d.id === primary.id ? trUi(' (Birincil)', ' (Primary)') : ''),
     bounds: d.bounds,
     size: d.size,
     scaleFactor: d.scaleFactor,
@@ -86,7 +93,7 @@ function createAdminWindow() {
     height: 820,
     minWidth: 940,
     minHeight: 640,
-    title: 'Ses Görselleştirici — Yönetici Paneli',
+    title: trUi('Ses Görselleştirici — Yönetici Paneli', 'Sound Visualizer — Admin Panel'),
     backgroundColor: '#0e0f1a',
     autoHideMenuBar: true,
     webPreferences: {
@@ -137,7 +144,7 @@ function openVisualizer(displayId) {
     show: false,
     fullscreenable: true,
     skipTaskbar: false,
-    title: 'Görselleştirme',
+    title: trUi('Görselleştirme', 'Visualization'),
     webPreferences: {
       preload: path.join(__dirname, 'preload-visualizer.js'),
       contextIsolation: true,
@@ -222,8 +229,86 @@ function notifyAdmin(channel, payload) {
 // ----------------------------------------------------------------------------
 ipcMain.handle('get-displays', () => getDisplayList());
 
-// Tüm ses aygıtları (çıkış + giriş/mikrofon)
+// Tüm ses aygıtları (çıkış + giriş/mikrofon) ve ayrıntılı tanılama
 ipcMain.handle('get-output-devices', () => nativeAudio.listDevices());
+ipcMain.handle('diagnose-audio', () => nativeAudio.diagnoseAudio());
+
+function runProcess(executable, args, timeoutMs = 10 * 60 * 1000) {
+  return new Promise((resolve) => {
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    let child;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    try {
+      child = spawn(executable, args, { windowsHide: false });
+    } catch (error) {
+      return resolve({ ok: false, code: null, stdout, stderr, error: error.message });
+    }
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish({ ok: false, code: null, stdout, stderr, error: 'INSTALL_TIMEOUT' });
+    }, timeoutMs);
+    child.stdout?.on('data', (data) => { stdout += data.toString(); });
+    child.stderr?.on('data', (data) => { stderr += data.toString(); });
+    child.on('error', (error) => finish({ ok: false, code: null, stdout, stderr, error: error.message }));
+    child.on('close', (code) => finish({ ok: code === 0, code, stdout, stderr, error: code === 0 ? null : `EXIT_${code}` }));
+  });
+}
+
+ipcMain.handle('repair-audio', async () => {
+  const before = await nativeAudio.diagnoseAudio();
+  if (before.ok) return { ok: true, repaired: false, diagnostic: before };
+
+  const code = before?.error?.code || 'UNKNOWN';
+  if (code !== 'NODE_NOT_FOUND') {
+    return { ok: false, repaired: false, requiresManualAction: true, diagnostic: before };
+  }
+
+  const choice = await dialog.showMessageBox(adminWin, {
+    type: 'question',
+    title: trUi('Ses Bileşenini Onar', 'Repair Audio Component'),
+    message: trUi('Node.js LTS eksik. Şimdi otomatik kurulsun mu?', 'Node.js LTS is missing. Install it automatically now?'),
+    detail: trUi(
+      'Uygulama Windows Paket Yöneticisi üzerinden resmi Node.js LTS paketini kuracaktır. Yönetici onayı istenebilir.',
+      'The application will install the official Node.js LTS package through Windows Package Manager. Administrator approval may be requested.'
+    ),
+    buttons: [trUi('Kur ve Tekrar Dene', 'Install and Retry'), trUi('İptal', 'Cancel')],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (choice.response !== 0) return { ok: false, cancelled: true, repaired: false, diagnostic: before };
+
+  const install = await runProcess('winget.exe', [
+    'install', '--id', 'OpenJS.NodeJS.LTS', '-e', '--silent',
+    '--accept-source-agreements', '--accept-package-agreements',
+  ]);
+  if (!install.ok) {
+    const wingetMissing = /ENOENT|not found/i.test(install.error || '');
+    return {
+      ok: false,
+      repaired: false,
+      diagnostic: before,
+      repairError: {
+        code: wingetMissing ? 'WINGET_NOT_FOUND' : 'NODE_INSTALL_FAILED',
+        message: wingetMissing
+          ? 'Windows Package Manager is unavailable. Install Node.js LTS manually and restart the application.'
+          : `Node.js installation failed (${install.error || install.code || 'unknown'}).`,
+      },
+    };
+  }
+
+  nativeAudio.resetNodeCache?.();
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  const after = await nativeAudio.diagnoseAudio();
+  return { ok: after.ok, repaired: after.ok, diagnostic: after, install };
+});
 
 ipcMain.handle('get-settings', () => loadSettings());
 
@@ -272,7 +357,7 @@ ipcMain.handle('request-config', () => currentConfig);
 ipcMain.handle('file:export-json', async (e, defaultName, data) => {
   try {
     const r = await dialog.showSaveDialog(adminWin, {
-      title: 'Dışa Aktar',
+      title: trUi('Dışa Aktar', 'Export'),
       defaultPath: defaultName || 'disa-aktarim.json',
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -287,7 +372,9 @@ ipcMain.handle('file:export-json', async (e, defaultName, data) => {
 ipcMain.handle('file:import-json', async (e, title) => {
   try {
     const r = await dialog.showOpenDialog(adminWin, {
-      title: title || 'İçe Aktar',
+      title: appLocale() === 'tr'
+        ? (title || 'İçe Aktar')
+        : ({ 'Renk Şablonlarını İçe Aktar': 'Import Color Presets', 'Arkaplan Ayarlarını İçe Aktar': 'Import Background Settings' }[title] || 'Import'),
       properties: ['openFile'],
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -403,11 +490,11 @@ ipcMain.handle('export:gpu-available', () => detectGpuEncoder());
 
 ipcMain.handle('export:pick-audio', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
-    title: 'Ses Dosyası Seç',
+    title: trUi('Ses Dosyası Seç', 'Choose Audio File'),
     properties: ['openFile'],
     filters: [
-      { name: 'Ses Dosyaları', extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'] },
-      { name: 'Tümü', extensions: ['*'] },
+      { name: trUi('Ses Dosyaları', 'Audio Files'), extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
     ],
   });
   if (r.canceled || !r.filePaths[0]) return null;
@@ -416,7 +503,7 @@ ipcMain.handle('export:pick-audio', async () => {
 
 ipcMain.handle('export:pick-output', async (e, defaultName) => {
   const r = await dialog.showSaveDialog(adminWin, {
-    title: 'Videoyu Kaydet',
+    title: trUi('Videoyu Kaydet', 'Save Video'),
     defaultPath: defaultName || 'gorsellestirme.mp4',
     filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
   });
@@ -666,6 +753,10 @@ app.whenReady().then(async () => {
       app.quit();
     }, 7500);
   }
+});
+
+app.on('before-quit', () => {
+  nativeAudio.stopCapture();
 });
 
 app.on('window-all-closed', () => {

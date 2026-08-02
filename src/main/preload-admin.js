@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('api', {
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   getOutputDevices: () => ipcRenderer.invoke('get-output-devices'),
+  diagnoseAudio: () => ipcRenderer.invoke('diagnose-audio'),
+  repairAudio: () => ipcRenderer.invoke('repair-audio'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   visualizerIsOpen: () => ipcRenderer.invoke('visualizer-is-open'),
 

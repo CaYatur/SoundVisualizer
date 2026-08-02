@@ -1,6 +1,6 @@
 {
   "name": "soundvisualizer",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "CAYADEV — çoklu ekran ve çoklu kaynak destekli ses görselleştirici (Windows + macOS)",
   "main": "src/main/main.js",
   "author": {
@@ -17,7 +17,7 @@
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
     "icons": "node scripts/gen-icons.js",
-    "dist:win": "npm run icons && electron-builder --win --x64",
+    "dist:win": "node scripts/prepare-runtime.js && npm run icons && electron-builder --win --x64",
     "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
     "pack:dir": "electron-builder --dir"
   },
@@ -44,6 +44,12 @@
       "src/**/*",
       "assets/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/runtime/node.exe",
+        "to": "runtime/node.exe"
+      }
     ],
     "asarUnpack": [
       "node_modules/audify/**",
