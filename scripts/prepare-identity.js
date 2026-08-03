@@ -59,9 +59,20 @@ fs.rmSync(manifestDir, { recursive: true, force: true });
 fs.mkdirSync(manifestDir, { recursive: true });
 
 const iconSource = path.join(root, 'assets', 'logo-256.png');
+const packageIconBackground = { r: 17, g: 24, b: 39, alpha: 1 };
 const iconJobs = [
   ['icon.png', 256],
   ['Square44x44Logo.png', 44],
+  ['Square44x44Logo.scale-100.png', 44],
+  ['Square44x44Logo.scale-125.png', 55],
+  ['Square44x44Logo.scale-150.png', 66],
+  ['Square44x44Logo.scale-200.png', 88],
+  ['Square44x44Logo.scale-400.png', 176],
+  ['Square44x44Logo.targetsize-16.png', 16],
+  ['Square44x44Logo.targetsize-24.png', 24],
+  ['Square44x44Logo.targetsize-32.png', 32],
+  ['Square44x44Logo.targetsize-48.png', 48],
+  ['Square44x44Logo.targetsize-256.png', 256],
   ['Square44x44Logo.targetsize-16_altform-unplated.png', 16],
   ['Square44x44Logo.targetsize-24_altform-unplated.png', 24],
   ['Square44x44Logo.targetsize-32_altform-unplated.png', 32],
@@ -69,21 +80,26 @@ const iconJobs = [
   ['Square44x44Logo.targetsize-256_altform-unplated.png', 256],
   ['Square150x150Logo.png', 150],
   ['Square150x150Logo.scale-100.png', 150],
+  ['Square150x150Logo.scale-125.png', 188],
+  ['Square150x150Logo.scale-150.png', 225],
   ['Square150x150Logo.scale-200.png', 300],
+  ['Square150x150Logo.scale-400.png', 600],
 ];
 const iconScript = `
   const sharp = require('sharp');
   const path = require('path');
-  const [source, outputDir, jobsJson] = process.argv.slice(1);
+  const [source, outputDir, jobsJson, backgroundJson] = process.argv.slice(1);
   const jobs = JSON.parse(jobsJson);
+  const background = JSON.parse(backgroundJson);
   Promise.all(jobs.map(([name, size]) =>
     sharp(source)
-      .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .resize(size, size, { fit: 'contain', background })
+      .flatten({ background })
       .png()
       .toFile(path.join(outputDir, name))
   )).catch((error) => { console.error(error); process.exit(1); });
 `;
-run(process.execPath, ['-e', iconScript, iconSource, output, JSON.stringify(iconJobs)]);
+run(process.execPath, ['-e', iconScript, iconSource, output, JSON.stringify(iconJobs), JSON.stringify(packageIconBackground)]);
 
 let password;
 if (fs.existsSync(pfx) && fs.existsSync(cer) && fs.existsSync(passwordFile)) {
@@ -129,7 +145,7 @@ const appxManifest = `<?xml version="1.0" encoding="utf-8"?>
   </Capabilities>
   <Applications>
     <Application Id="${applicationId}" Executable="CAYADEV Visualizer.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
-      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="transparent" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
+      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="#111827" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="com.microsoft.windows.lighting" Id="DynamicLighting" PublicFolder="public" DisplayName="CAYADEV Visualizer" />
