@@ -10,13 +10,18 @@ contextBridge.exposeInMainWorld('api', {
   repairAudio: () => ipcRenderer.invoke('repair-audio'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   visualizerIsOpen: () => ipcRenderer.invoke('visualizer-is-open'),
+  scanLighting: () => ipcRenderer.invoke('lighting:scan'),
+  getLightingAvailability: () => ipcRenderer.invoke('lighting:availability'),
+  applyLighting: (lighting) => ipcRenderer.invoke('lighting:apply', lighting),
+  getLightingIdentityStatus: () => ipcRenderer.invoke('lighting:identity-status'),
+  openDynamicLightingSettings: () => ipcRenderer.invoke('lighting:open-settings'),
 
   // Eylemler
   openVisualizer: (displayId) => ipcRenderer.invoke('open-visualizer', displayId),
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),
   updateConfig: (config) => ipcRenderer.send('update-config', config),
 
-  // JSON içe/dışa aktarma (renk şablonları + arkaplan ayarları)
+  // JSON içe/dışa aktarma (şablonlar, arkaplan ve tüm uygulama ayarları)
   exportJson: (name, data) => ipcRenderer.invoke('file:export-json', name, data),
   importJson: (title) => ipcRenderer.invoke('file:import-json', title),
 

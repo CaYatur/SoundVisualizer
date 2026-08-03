@@ -72,6 +72,66 @@
       hideCursor: true,
     },
 
+    // Windows Dynamic Lighting (LampArray). Varsayılan kapalıdır ve yalnızca
+    // uyumlu aygıt algılandığında yönetici panelinden etkinleştirilebilir.
+    lighting: {
+      enabled: false,
+      mode: 'visualizer-sync',
+      color: '#3aa6ff',
+      color2: '#d24bff',
+      bassColor: '#52ff3f',
+      midColor: '#35b8ff',
+      trebleColor: '#d43cff',
+      brightness: 1.0,
+      intensity: 0.85,
+      smoothing: 0.65,
+      updateRate: 24,
+      layout: 'global', // 'global' | 'per-device' | 'uniform'
+      paletteSource: 'visualizer', // 'visualizer' | 'background' | 'bands' | 'rainbow' | 'custom'
+      colorSpeed: 0.45,
+      spread: 1.0,
+      saturation: 1.0,
+      baseLevel: 0.14,
+      bassGain: 1.15,
+      midGain: 1.0,
+      trebleGain: 1.0,
+      spectrumContrast: 0.82,
+      zoneBlend: 0.55,
+      flashStrength: 0.85,
+      flashThreshold: 0.42,
+      flashDecay: 0.82,
+      triggerBand: 'bass', // 'bass' | 'mid' | 'treble' | 'level' | 'auto'
+      rippleSpeed: 0.8,
+      rippleWidth: 0.16,
+      rippleDirection: 'forward', // 'forward' | 'reverse' | 'alternate'
+      fusionMix: 0.55,
+      flowSpeed: 0.45,
+      audioAcceleration: 0.8,
+      bandResponse: 'instant', // 'instant' | 'punchy' | 'smooth'
+      bandAttack: 0.92,
+      bandRelease: 0.38,
+      bandThreshold: 0.08,
+      bandHardness: 0.78,
+      bandSeparation: 0.72,
+      bandPattern: 'zones', // 'zones' | 'alternate' | 'mirror' | 'dominant'
+      rainbowStyle: 'ordered', // 'ordered' | 'single'
+      rainbowSpeed: 0.5,
+      rainbowAudioBand: 'level',
+      rainbowAudioBrightness: 0.85,
+      rainbowBaseBrightness: 0.2,
+      rainbowSpread: 1.0,
+      thresholdBurstSource: 'bass', // 'bass' | 'mid' | 'treble' | 'level' | 'auto'
+      thresholdBurstThreshold: 0.55,
+      thresholdBurstMode: 'hybrid', // 'pulse' | 'proportional' | 'hybrid'
+      thresholdBurstStrength: 1.0,
+      thresholdBurstDecay: 0.82,
+      thresholdBurstCooldown: 120,
+      thresholdBurstBaseBrightness: 0.04,
+      thresholdBurstColorPosition: 'source', // 'source' | 'center' | 'spread'
+      deviceColors: {},
+      deviceLedColors: {},
+    },
+
     // Ek görsel nesneler / partiküller. Bir veya birden fazla resim yüklenip
     // sahnede gezinir, saçılır, yörünge çizer; saydamlık + ses tepkisi ayarlanır.
     images: {

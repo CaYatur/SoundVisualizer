@@ -193,14 +193,20 @@
       hint.style.display = 'none';
     }
 
-    // seviye göstergesini admin'e bildir (~10 Hz)
-    if (now - meterT > 90) {
+    // seviye göstergesini ve LED spektrumunu ana sürece bildir (~30 Hz)
+    if (now - meterT > 32) {
       meterT = now;
+      const backgroundColors = cfg.background?.type === 'gradient' && typeof gradient?.sampleColors === 'function'
+        ? gradient.sampleColors(48)
+        : [];
       window.api.sendAudioMeter({
         level: audio.level,
         bass: audio.bass,
         mid: audio.mid,
         treble: audio.treble,
+        bars: Array.isArray(audio.bars) ? audio.bars.slice() : [],
+        time: now / 1000,
+        backgroundColors,
         ready: audio.ready,
       });
     }

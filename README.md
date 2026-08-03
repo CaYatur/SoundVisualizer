@@ -190,6 +190,21 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 - Configure resolution, frame rate, quality, encoder, and rendering speed.
 - Includes progress tracking, cancellation, and GPU-to-CPU fallback when needed.
 
+### Windows Dynamic Lighting
+- Disabled by default and available only when compatible Windows Dynamic Lighting devices are detected.
+- Dynamic modes include visualizer color flow, bar-spectrum mapping, advanced bass/mid/treble zones, background-light sync, synchronized beat flashes, frequency ripples, bar + background fusion, cross-device color flow, Rainbow light flow, and threshold-triggered background bursts.
+- Threshold-triggered bursts monitor exactly one selected source (bass, mid, treble, overall level, or the strongest band) and react only after its configured threshold is crossed. Burst brightness scales with the amount above the threshold, while color comes from the real current background pixels.
+- Bass/mid/treble response can use instant/hard, punchy/hard, or smooth/fluid profiles with configurable threshold, hardness, attack/release, and band separation. Rainbow can run sequentially across LEDs or as one shared tone and react in brightness to a selected audio band.
+- Manual modes include one color across all devices, per-device colors, and per-LED/zone colors when exposed by the hardware.
+- Brightness, audio reactivity, smoothing, update rate, LED layout, palette source, per-band colors/sensitivity, flash threshold/strength/decay, ripple speed/direction/width, and color spread are independently configurable.
+- The installer registers the Windows background-lighting identity automatically. The portable build does not install an identity or request UAC; it controls lighting only while CAYADEV Visualizer is focused. Use the installer build when lighting must continue in the background.
+- For background control while another application is focused, place CAYADEV Visualizer near the top of Windows **Dynamic Lighting > Background light control**.
+
+### Settings Backup / Restore
+- Export all application settings to a single JSON file, including audio, visuals, Dynamic Lighting, performance, logo, visual objects, display selection, and video export settings.
+- User-created color presets are intentionally excluded from the backup and remain unchanged when a settings file is imported.
+- Imported settings are merged with current defaults so newer fields remain valid.
+
 ### Power / Performance
 - Frame rate (30/60/120/unlimited), background resolution scale, pause on silence, and cursor hiding.
 

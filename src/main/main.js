@@ -10,6 +10,8 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
+const dynamicLighting = require('./dynamic-lighting');
+const lightingIdentity = require('./lighting-identity');
 
 // English is the fallback. Turkish is selected only for a Turkish system locale.
 function appLocale() {
@@ -87,6 +89,21 @@ function getDisplayList() {
 // ----------------------------------------------------------------------------
 // Pencereler
 // ----------------------------------------------------------------------------
+let portableLightingFocusTimer = null;
+function syncPortableLightingFocus() {
+  if (!lightingIdentity.isPortable()) return;
+  clearTimeout(portableLightingFocusTimer);
+  portableLightingFocusTimer = setTimeout(() => {
+    const lighting = currentConfig?.lighting;
+    if (!lighting?.enabled) return;
+    const focused = BrowserWindow.getAllWindows().some((win) => !win.isDestroyed() && win.isFocused());
+    if (focused) dynamicLighting.setConfig(lighting).catch(() => {});
+    else dynamicLighting.setConfig({ ...lighting, enabled: false }).catch(() => {});
+  }, 120);
+}
+app.on('browser-window-focus', syncPortableLightingFocus);
+app.on('browser-window-blur', syncPortableLightingFocus);
+
 function createAdminWindow() {
   adminWin = new BrowserWindow({
     width: 1180,
@@ -330,6 +347,7 @@ ipcMain.handle('visualizer-is-open', () => {
 ipcMain.on('update-config', (e, config) => {
   currentConfig = config;
   saveSettings(config);
+  dynamicLighting.setConfig(config?.lighting).catch(() => {});
   if (visualizerWin && !visualizerWin.isDestroyed()) {
     visualizerWin.webContents.send('config', config);
     // ses kaynağı değiştiyse yakalamayı yeniden başlat
@@ -350,6 +368,11 @@ ipcMain.on('update-config', (e, config) => {
 
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
 ipcMain.handle('request-config', () => currentConfig);
+ipcMain.handle('lighting:scan', () => dynamicLighting.scan());
+ipcMain.handle('lighting:availability', () => dynamicLighting.availability());
+ipcMain.handle('lighting:apply', (e, lighting) => dynamicLighting.setConfig(lighting));
+ipcMain.handle('lighting:identity-status', () => lightingIdentity.status(dynamicLighting));
+ipcMain.handle('lighting:open-settings', () => lightingIdentity.openDynamicLightingSettings());
 
 // ----------------------------------------------------------------------------
 // Genel JSON içe/dışa aktarma (renk şablonları + arkaplan ayarları)
@@ -389,6 +412,7 @@ ipcMain.handle('file:import-json', async (e, title) => {
 // Görselleştirici -> admin (ses seviyesi göstergesi vb.)
 ipcMain.on('audio-meter', (e, data) => {
   notifyAdmin('audio-meter', data);
+  dynamicLighting.onAudioFrame(data, currentConfig);
 });
 
 // Görselleştirici -> admin (durum/hata bilgisi)
@@ -683,6 +707,16 @@ function finalizeExport(status, message) {
 // Uygulama yaşam döngüsü
 // ----------------------------------------------------------------------------
 app.whenReady().then(async () => {
+  if (process.env.SV_IDENTITY_PROBE_FILE) {
+    const probePath = process.env.SV_IDENTITY_PROBE_FILE;
+    const payload = lightingIdentity.status(dynamicLighting);
+    try {
+      fs.mkdirSync(path.dirname(probePath), { recursive: true });
+      fs.writeFileSync(probePath, JSON.stringify(payload, null, 2), 'utf8');
+    } catch {}
+    app.quit();
+    return;
+  }
   // Tanılama modu: paketlenmiş aygıt listeleme yolunu GUI'siz çalıştırır.
   // Çıktıyı hem konsola hem de %APPDATA%/soundvisualizer/diag.log dosyasına yazar
   // (portable exe konsol çıktısını geri vermediği için dosya şart).
@@ -714,6 +748,9 @@ app.whenReady().then(async () => {
   }
 
   currentConfig = loadSettings();
+  if (currentConfig?.lighting?.enabled) {
+    dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+  }
   createAdminWindow();
 
   // Ekran değişikliklerini admin'e bildir
@@ -756,6 +793,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('before-quit', () => {
+  dynamicLighting.stop().catch(() => {});
   nativeAudio.stopCapture();
 });
 

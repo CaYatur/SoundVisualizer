@@ -190,6 +190,21 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 - Çözünürlük, kare hızı, kalite, kodlayıcı ve işleme hızı ayarlanabilir.
 - İlerleme takibi, iptal ve gerektiğinde GPU'dan CPU'ya geçiş desteklenir.
 
+### Windows Dynamic Lighting
+- Varsayılan olarak kapalıdır ve yalnızca uyumlu Windows Dynamic Lighting aygıtları algılandığında etkinleştirilebilir.
+- Dinamik modlar: görselleştirici renk akışı, bar spektrum eşleme, gelişmiş bas/mid/tiz bölgeleri, arka plan ışık senkronu, eşzamanlı ritim patlaması, frekans ripple dalgası, bar + arka plan füzyonu, aygıtlar arası renk akışı, Rainbow ışık akışı ve eşik tetiklemeli arka plan patlaması.
+- Eşik tetiklemeli patlama modu yalnızca seçilen tek kaynağı (bas, mid, tiz, genel seviye veya en güçlü bant) izler ve ayarlanan eşik aşılınca çalışır. Patlama parlaklığı eşik üstüne çıkma miktarına göre artar; renk arka planın gerçek anlık piksellerinden alınır.
+- Bas/mid/tiz tepkisi anlık/katı, vuruşlu/sert veya yumuşak/akıcı profillerle; eşik, sertlik, saldırı/bırakma ve bant ayrıştırma ayarlarıyla özelleştirilebilir. Rainbow modu LED'lerde sıralı veya tüm LED'lerde tek ton çalışabilir ve seçilen ses bandına göre parlaklık tepkisi verebilir.
+- Manuel modlar: tüm aygıtlarda tek renk, aygıt başına renk ve donanımın sunduğu durumlarda LED/bölge başına renk.
+- Parlaklık, ses tepkisi, yumuşatma, güncelleme hızı, LED yerleşimi, renk kaynağı, frekans renkleri/hassasiyetleri, patlama eşiği/gücü/sönümlemesi, ripple hızı/yönü/genişliği ve renk yayılımı ayrı ayrı ayarlanabilir.
+- Installer, Windows arka plan aydınlatma kimliğini otomatik kaydeder. Portable sürüm kimlik kurmaz ve UAC istemez; yalnızca CAYADEV Visualizer odaktayken aydınlatmayı kontrol eder. Arka planda da kontrol gerekiyorsa installer sürümünü kullanın.
+- Başka bir uygulama odaktayken arka plan kontrolünün sürmesi için Windows **Dynamic Lighting > Arka plan ışık denetimi** bölümünde CAYADEV Visualizer uygulamasını üst sıralara taşıyın.
+
+### Ayarları Yedekleme / Geri Yükleme
+- Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler, ekran seçimi ve video dışa aktarma dahil tüm uygulama ayarları tek JSON dosyasına aktarılabilir.
+- Kullanıcının oluşturduğu renk şablonları yedeğe özellikle dahil edilmez ve ayar dosyası içe aktarılırken değiştirilmez.
+- İçe aktarılan ayarlar güncel varsayılanlarla birleştirilir; böylece yeni sürümlerde eklenen alanlar geçerli kalır.
+
 ### Güç / Performans
 - Kare hızı (30/60/120/sınırsız), arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
 

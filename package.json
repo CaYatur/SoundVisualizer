@@ -1,6 +1,6 @@
 {
   "name": "soundvisualizer",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "CAYADEV — çoklu ekran ve çoklu kaynak destekli ses görselleştirici (Windows + macOS)",
   "main": "src/main/main.js",
   "author": {
@@ -17,7 +17,7 @@
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
     "icons": "node scripts/gen-icons.js",
-    "dist:win": "node scripts/prepare-runtime.js && npm run icons && electron-builder --win --x64",
+    "dist:win": "node scripts/prepare-runtime.js && node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
     "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
     "pack:dir": "electron-builder --dir"
   },
@@ -25,6 +25,7 @@
     "@electron/packager": "^20.0.0",
     "electron": "^33.2.0",
     "electron-builder": "^26.8.1",
+    "node-gyp": "^12.3.0",
     "png2icons": "^2.0.1",
     "sharp": "^0.34.5"
   },
@@ -36,6 +37,7 @@
     "appId": "com.cayadev.visualizer",
     "productName": "CAYADEV Visualizer",
     "npmRebuild": false,
+    "afterPack": "scripts/after-pack.js",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -49,6 +51,20 @@
       {
         "from": "build/runtime/node.exe",
         "to": "runtime/node.exe"
+      },
+      {
+        "from": "native/dynamic-lighting/build/Release/dynamic_lighting.node",
+        "to": "runtime/dynamic_lighting.node"
+      },
+      {
+        "from": "build/identity",
+        "to": "identity",
+        "filter": [
+          "*.msix",
+          "*.cer",
+          "*.ps1",
+          "*.png"
+        ]
       }
     ],
     "asarUnpack": [
@@ -77,11 +93,15 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "CAYADEV Visualizer"
+      "shortcutName": "CAYADEV Visualizer",
+      "include": "scripts/installer.nsh"
     },
     "portable": {
-      "artifactName": "CAYADEV-Visualizer-${version}-portable.exe"
+      "artifactName": "CAYADEV-Visualizer-${version}-portable.exe",
+      "unpackDirName": "CAYADEV-Visualizer-Portable"
     },
     "mac": {
       "target": [

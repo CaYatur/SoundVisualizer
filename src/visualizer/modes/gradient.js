@@ -198,6 +198,8 @@
         vignette: gl.getUniformLocation(prog, 'uVignette'),
       };
       this._colorBuf = new Float32Array(15);
+      this._sampleRows = [0.28, 0.5, 0.72];
+      this._pixelRow = null;
     }
 
     resize(w, h) {
@@ -249,6 +251,39 @@
       gl.uniform1f(this.u.vignette, g.vignette);
 
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    sampleColors(count = 36) {
+      const gl = this.gl;
+      const width = this.canvas.width | 0;
+      const height = this.canvas.height | 0;
+      if (!width || !height || gl.isContextLost()) return [];
+
+      const sampleCount = Math.max(2, Math.min(96, count | 0));
+      const required = width * 4;
+      if (!this._pixelRow || this._pixelRow.length !== required) {
+        this._pixelRow = new Uint8Array(required);
+      }
+
+      const accum = Array.from({ length: sampleCount }, () => [0, 0, 0]);
+      try {
+        for (const rowRatio of this._sampleRows) {
+          const y = Math.max(0, Math.min(height - 1, Math.round((height - 1) * rowRatio)));
+          gl.readPixels(0, y, width, 1, gl.RGBA, gl.UNSIGNED_BYTE, this._pixelRow);
+          for (let index = 0; index < sampleCount; index++) {
+            const x = Math.max(0, Math.min(width - 1, Math.round((width - 1) * index / (sampleCount - 1))));
+            const offset = x * 4;
+            accum[index][0] += this._pixelRow[offset];
+            accum[index][1] += this._pixelRow[offset + 1];
+            accum[index][2] += this._pixelRow[offset + 2];
+          }
+        }
+      } catch {
+        return [];
+      }
+
+      const rows = this._sampleRows.length;
+      return accum.map((rgb) => '#' + rgb.map((value) => Math.round(value / rows).toString(16).padStart(2, '0')).join(''));
     }
 
     dispose() {
