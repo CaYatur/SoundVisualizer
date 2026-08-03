@@ -17,7 +17,7 @@ const manifestDir = path.join(output, 'package');
 const packageName = 'CAYADEV.SoundVisualizer.Identity';
 const applicationId = 'CAYADEVSoundVisualizer';
 const publisher = 'CN=CAYADEV SoundVisualizer';
-const fourPartVersion = `${pkg.version}.0`;
+const fourPartVersion = `${pkg.version}.1`;
 const pfx = path.join(output, 'CAYADEV.SoundVisualizer.Identity.pfx');
 const cer = path.join(output, 'CAYADEV.SoundVisualizer.Identity.cer');
 const passwordFile = path.join(output, '.pfx-password');
@@ -59,7 +59,7 @@ fs.rmSync(manifestDir, { recursive: true, force: true });
 fs.mkdirSync(manifestDir, { recursive: true });
 
 const iconSource = path.join(root, 'assets', 'logo-256.png');
-const packageIconBackground = { r: 17, g: 24, b: 39, alpha: 1 };
+const packageIconBackground = { r: 0, g: 0, b: 0, alpha: 0 };
 const iconJobs = [
   ['icon.png', 256],
   ['Square44x44Logo.png', 44],
@@ -94,7 +94,6 @@ const iconScript = `
   Promise.all(jobs.map(([name, size]) =>
     sharp(source)
       .resize(size, size, { fit: 'contain', background })
-      .flatten({ background })
       .png()
       .toFile(path.join(outputDir, name))
   )).catch((error) => { console.error(error); process.exit(1); });
@@ -145,7 +144,7 @@ const appxManifest = `<?xml version="1.0" encoding="utf-8"?>
   </Capabilities>
   <Applications>
     <Application Id="${applicationId}" Executable="CAYADEV Visualizer.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
-      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="#111827" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
+      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="transparent" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="com.microsoft.windows.lighting" Id="DynamicLighting" PublicFolder="public" DisplayName="CAYADEV Visualizer" />
