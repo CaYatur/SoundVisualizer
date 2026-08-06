@@ -208,6 +208,38 @@
     'Işık Parçacıkları': 'Bokeh Lights',
     'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.': 'A fluid audio-reactive backdrop, wave layers, a starfield, and more.',
 
+    // ---- Uygulama içi onay / bildirim ----
+    'Emin misiniz?': 'Are you sure?',
+    'Vazgeç': 'Cancel',
+    'Evet, devam et': 'Yes, continue',
+    'Bölümü sıfırla': 'Reset section',
+    'Kategoriyi sıfırla': 'Reset category',
+    'Hepsini sıfırla': 'Reset everything',
+    'İçe aktar': 'Import',
+    'Bu bölümdeki ayarlar varsayılana dönecek.': 'The settings in this section will return to their defaults.',
+    'Bu kategorideki tüm ayarlar varsayılana dönecek.': 'All settings in this category will return to their defaults.',
+    'Tüm ayarlar varsayılana dönecek. Renk şablonlarınız ve sahneleriniz korunur.': 'All settings will return to their defaults. Your color presets and scenes are preserved.',
+    'Bu sahne silinecek.': 'This scene will be deleted.',
+    'Bu renk şablonu silinecek.': 'This color preset will be deleted.',
+    'Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak.': 'Current settings will be replaced with the values in the backup. Your color presets and scenes will be preserved.',
+    'Bu ayarı varsayılana döndür': 'Reset this setting to its default',
+
+    // ---- Ayarlar penceresi anahtarları ----
+    'Görselleştirmeyi Her Zaman Üstte Tut': 'Keep Visualization Always on Top',
+    'Başka bir uygulama öne çıksa bile görselleştirme ekranı üstte kalır.': 'The visualization screen stays on top even when another application comes to the foreground.',
+    'Görselleştirme artık her zaman üstte kalacak.': 'The visualization will now stay always on top.',
+    'Her zaman üstte kapatıldı.': 'Always on top turned off.',
+    'Genişletilmiş Ayar Aralıkları': 'Extended Setting Ranges',
+    'Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.': 'Raises the upper limit of the sliders 5×, letting you enter values far above the normal range. Extreme values may reduce performance.',
+    'Genişletilmiş aralıklar açık — kaydırıcılar 5 kat daha yükseğe çıkabilir.': 'Extended ranges on — sliders can now go 5× higher.',
+    'Genişletilmiş aralıklar kapatıldı. Mevcut yüksek değerler korunur.': 'Extended ranges turned off. Existing high values are kept.',
+
+    // ---- Bildirimler ----
+    'Dışa aktarılacak şablon yok.': 'There are no presets to export.',
+    'Dışa aktarılacak sahne yok.': 'There are no scenes to export.',
+    'Dosyada sahne bulunamadı.': 'No scenes found in the file.',
+    'Bu dosya geçerli bir CAYADEV Visualizer ayar yedeği değil.': 'This file is not a valid CAYADEV Visualizer settings backup.',
+
     // ---- Ek arkaplan modları ----
     'Kutup Işıkları': 'Aurora',
     'Dijital Yağmur': 'Digital Rain',
@@ -335,9 +367,7 @@
     'Sahne adı': 'Scene name',
     'Sahne adı:': 'Scene name:',
     'Bu sahne silinsin mi?': 'Delete this scene?',
-    'Dışa aktarılacak sahne yok.': 'There are no scenes to export.',
     'Sahneleri İçe Aktar': 'Import Scenes',
-    'Dosyada sahne bulunamadı.': 'No scenes found in the file.',
     'Nesneler': 'Objects',
 
     // ---- Bölüm başlıkları / açıklamaları ----

@@ -182,7 +182,13 @@ function openVisualizer(displayId) {
     visualizerWin.show();
     setTimeout(() => {
       if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.setFullScreen(true);
+      applyAlwaysOnTop();
     }, 120);
+  });
+
+  // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
+  visualizerWin.on('blur', () => {
+    if (wantsAlwaysOnTop()) raiseVisualizer();
   });
 
   // Pencere yüklenince ses yakalamayı istenen duruma getir. Panel önizlemesi
@@ -201,6 +207,10 @@ function openVisualizer(displayId) {
 
   visualizerWin.on('closed', () => {
     visualizerWin = null;
+    if (onTopTimer) {
+      clearInterval(onTopTimer);
+      onTopTimer = null;
+    }
     // Panel önizlemesi hâlâ kare istiyorsa yakalama kesintisiz sürer, istemiyorsa durur
     syncCapture();
     notifyAdmin('visualizer-status', { open: false, displayId: null });
@@ -266,6 +276,51 @@ function closeVisualizer() {
   if (visualizerWin && !visualizerWin.isDestroyed()) {
     visualizerWin.close();
   }
+}
+
+// ----------------------------------------------------------------------------
+// "Her zaman üstte" — görselleştirme penceresi
+//
+// setAlwaysOnTop tek başına yetmiyor: tam ekran başka bir uygulama öne
+// çıktığında Windows pencereyi arkaya alabiliyor. Bu yüzden pencere odağı
+// kaybettiğinde ve düzenli aralıklarla en üst seviye yeniden uygulanır.
+// ----------------------------------------------------------------------------
+let onTopTimer = null;
+
+function wantsAlwaysOnTop() {
+  return !!(currentConfig && currentConfig.power && currentConfig.power.alwaysOnTop);
+}
+
+function raiseVisualizer() {
+  if (!visualizerWin || visualizerWin.isDestroyed()) return;
+  visualizerWin.setAlwaysOnTop(true, 'screen-saver');
+  visualizerWin.setVisibleOnAllWorkspaces(true);
+  visualizerWin.moveTop();
+}
+
+function applyAlwaysOnTop() {
+  if (onTopTimer) {
+    clearInterval(onTopTimer);
+    onTopTimer = null;
+  }
+  if (!visualizerWin || visualizerWin.isDestroyed()) return;
+
+  if (!wantsAlwaysOnTop()) {
+    visualizerWin.setAlwaysOnTop(false);
+    visualizerWin.setVisibleOnAllWorkspaces(false);
+    return;
+  }
+  raiseVisualizer();
+  // Başka bir uygulama araya girerse geri al
+  onTopTimer = setInterval(() => {
+    if (!visualizerWin || visualizerWin.isDestroyed()) {
+      clearInterval(onTopTimer);
+      onTopTimer = null;
+      return;
+    }
+    if (wantsAlwaysOnTop() && !visualizerWin.isAlwaysOnTop()) raiseVisualizer();
+    else if (wantsAlwaysOnTop()) visualizerWin.moveTop();
+  }, 1200);
 }
 
 function notifyAdmin(channel, payload) {
@@ -383,6 +438,7 @@ ipcMain.on('update-config', (e, config) => {
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
   if (visualizerWin && !visualizerWin.isDestroyed()) {
     visualizerWin.webContents.send('config', config);
+    applyAlwaysOnTop();
   }
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.

@@ -244,6 +244,16 @@ Buz, Tek Renk) ve kendi kaydettiğiniz şablonlar tüm arkaplan türlerinde geç
   *Ekranla Eşitle* önerilir.
 - Arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
 
+### Uygulama Ayarları (⚙ menüsü)
+- **Dil** — Otomatik (sistem dili), Türkçe veya İngilizce.
+- **Görselleştirmeyi Her Zaman Üstte Tut** *(varsayılan kapalı)* — açıldığında görselleştirme
+  ekranı başka bir uygulama öne çıksa bile üstte kalır; pencere odağı kaybettiğinde kendini
+  yeniden en üste taşır.
+- **Genişletilmiş Ayar Aralıkları** *(varsayılan kapalı)* — kaydırıcıların üst sınırını 5 katına
+  çıkarır, normalin çok üstünde değerler girebilirsiniz. Algoritma gereği sınırlı olan birkaç
+  ayar (yumuşatma, arkaplan çözünürlüğü) kapsam dışıdır. Kapatınca girdiğiniz yüksek değerler
+  korunur.
+
 ## 🔊 Ses yakalama nasıl çalışır (önemli)
 
 Sistem sesi **çıkış aygıtının WASAPI loopback'i** ile, mikrofonlar ve diğer giriş aygıtları ise doğrudan yakalanır.

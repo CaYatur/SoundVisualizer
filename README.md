@@ -246,6 +246,16 @@ Ice, Single Color) and your own saved presets apply to every background type.
   *Match Display* is recommended for the smoothest result.
 - Background resolution scale, pause on silence, hide cursor.
 
+### Application Settings (⚙ menu)
+- **Language** — Automatic (system language), Turkish, or English.
+- **Keep Visualization Always on Top** *(off by default)* — when enabled, the visualization screen
+  stays above other windows even if another application comes to the foreground; it re-raises
+  itself whenever it loses focus.
+- **Extended Setting Ranges** *(off by default)* — raises the upper limit of the sliders 5×, so you
+  can enter values far above the normal range. A few settings that are genuinely bounded by the
+  algorithm (smoothing, background resolution) are excluded. Turning it back off keeps any high
+  values you already entered.
+
 ## 🔊 How Audio Capture Works (Important)
 
 System audio is captured using the **output device's WASAPI loopback**, while microphones and other input devices are captured directly.

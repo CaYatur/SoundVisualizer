@@ -20,6 +20,9 @@
   // Önizlemenin gerçek sesi yakalaması kullanıcı isteğine bağlıdır (varsayılan: demo)
   let previewWantsLive = localStorage.getItem('sv-preview-live') === '1';
   let previewReady = false;
+  // Genişletilmiş aralıklar: kaydırıcıların üst sınırını 5 katına çıkarır
+  let extendedRange = localStorage.getItem('sv-extended-range') === '1';
+  const RANGE_FACTOR = 5;
 
   // Etkin sahne vurgusunu kaldır (tam yeniden çizim gerektirmez)
   function clearActiveScene() {
@@ -45,6 +48,9 @@
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    // "Varsayılandan farklı" noktaları ve sayaçları anında güncelle
+    // (kategori değiştirip dönmeyi beklemeden)
+    refreshModifiedMarks();
     if (immediate) {
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = null;
@@ -66,6 +72,67 @@
     let x = o;
     for (let i = 0; i < ks.length - 1; i++) x = x[ks[i]];
     x[ks[ks.length - 1]] = v;
+  }
+
+  // --------------------------------------------------------------------------
+  // Uygulama içi onay ve bildirim
+  //
+  // window.confirm / window.alert renderer iş parçacığını tamamen kilitler:
+  // canlı önizleme durur, panel donar ve çok ekranlı kurulumlarda sistem
+  // penceresi başka bir ekranda ya da pencerenin arkasında açılabildiği için
+  // kullanıcı "uygulama çöktü, işlem de yapılmadı" durumuyla karşılaşır.
+  // Bu yüzden onay ve bildirimler panelin kendi içinde, bloke etmeden gösterilir.
+  // --------------------------------------------------------------------------
+  function svConfirm(message, opts) {
+    return new Promise((resolve) => {
+      const o = opts || {};
+      const close = (value) => {
+        document.removeEventListener('keydown', onKey, true);
+        backdrop.remove();
+        resolve(value);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); close(false); }
+        else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+      };
+
+      const okBtn = el('button', {
+        class: 'btn ' + (o.danger ? 'danger' : 'primary'),
+        type: 'button',
+        text: o.okText || 'Evet, devam et',
+        onclick: () => close(true),
+      });
+      const cancelBtn = el('button', {
+        class: 'btn ghost', type: 'button', text: 'Vazgeç', onclick: () => close(false),
+      });
+
+      const backdrop = el('div', { class: 'ask-backdrop' }, [
+        el('div', { class: 'ask-panel', role: 'dialog', 'aria-modal': 'true' }, [
+          el('div', { class: 'ask-title', text: o.title || 'Emin misiniz?' }),
+          el('div', { class: 'ask-text', text: message }),
+          el('div', { class: 'ask-actions' }, [cancelBtn, okBtn]),
+        ]),
+      ]);
+      backdrop.addEventListener('mousedown', (e) => {
+        if (e.target === backdrop) close(false);
+      });
+      document.body.appendChild(backdrop);
+      document.addEventListener('keydown', onKey, true);
+      okBtn.focus();
+    });
+  }
+
+  let toastTimer = null;
+  function svToast(message, kind) {
+    let host = $('toast');
+    if (!host) {
+      host = el('div', { class: 'toast hidden', id: 'toast' });
+      document.body.appendChild(host);
+    }
+    host.textContent = message;
+    host.className = 'toast' + (kind ? ' ' + kind : '');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => host.classList.add('hidden'), 4200);
   }
 
   // --------------------------------------------------------------------------
@@ -160,15 +227,26 @@
     return el('div', { class: 'ctrl' }, [btn]);
   }
 
+  // Genişletilmiş aralık açıkken üst sınır 5 katına çıkar. Algoritmanın
+  // matematiği tarafından gerçekten sınırlanan ayarlar (noExtend) hariç tutulur;
+  // örneğin yumuşatma 1'e ulaşırsa sinyal tamamen donar.
+  function sliderMax(def) {
+    if (!extendedRange || def.noExtend) return def.max;
+    return def.max * RANGE_FACTOR;
+  }
+
   function sliderCtrl(def) {
     const valSpan = el('span', { class: 'val' });
     const setText = (v) => (valSpan.textContent = fmtVal(def, v));
     const cur = getPath(cfg, def.path);
     setText(cur);
+    const max = sliderMax(def);
     const input = el('input', {
       type: 'range',
       min: def.min,
-      max: def.max,
+      // Kayıtlı değer sınırın üstündeyse (aralık sonradan kapatıldıysa)
+      // kaydırıcı onu kırpmasın
+      max: Math.max(max, typeof cur === 'number' ? cur : max),
       step: def.step,
       value: cur,
       oninput: (e) => {
@@ -1265,7 +1343,7 @@
         desc: 'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.',
         controls: [
           { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', min: 0.2, max: 4, step: 0.05 },
-          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true },
+          { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true , noExtend: true },
           { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', min: 1, max: 4, step: 0.05 },
         ],
       },
@@ -1455,7 +1533,7 @@
             type: 'note',
             text: 'Ekranla Eşitle, her ekran yenilemesinde bir kare çizer; en akıcı sonucu verir. Ekranınızın yenileme hızının tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapabilir.',
           },
-          { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true },
+          { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true , noExtend: true },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
         ],
@@ -1729,9 +1807,78 @@
       if (def.path) {
         c.setAttribute('data-path', def.path);
         if (isModified(def.path)) c.classList.add('modified');
+        // Tek ayarı geri alma: bölümün tamamını sıfırlamaya gerek kalmasın
+        const lbl = c.querySelector('label.lbl');
+        if (lbl && defaultAt(def.path) !== undefined) {
+          lbl.appendChild(
+            el('button', {
+              class: 'ctrl-reset',
+              type: 'button',
+              text: '↺',
+              title: 'Bu ayarı varsayılana döndür',
+              onclick: (e) => {
+                e.preventDefault();
+                resetPath(def.path);
+              },
+            })
+          );
+        }
       }
       host.appendChild(c);
     });
+  }
+
+  // Tek bir ayarı varsayılana döndür (onay istemez — geri alması kolay)
+  function resetPath(path) {
+    const dv = getPath(window.SV.defaultConfig(), path);
+    if (dv === undefined) return;
+    setPath(cfg, path, window.SV.clone(dv));
+    push(true);
+    render();
+  }
+
+  // "Varsayılandan farklı" göstergelerini yeniden çizmeden tazele.
+  // Kaydırıcı sürüklenirken kart yeniden kurulamaz (odak ve sürükleme kopar),
+  // bu yüzden yalnızca noktalar ve sayaçlar güncellenir.
+  function refreshModifiedMarks() {
+    const root = $('sections');
+    if (!root) return;
+    root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
+      node.classList.toggle('modified', isModified(node.getAttribute('data-path')));
+    });
+
+    const sections = sectionSchema().filter((s) => s.category === activeCategory);
+    const cards = root.querySelectorAll('.card');
+    sections.forEach((sec, i) => {
+      const card = cards[i];
+      if (!card) return;
+      const n = countModified(sectionPaths(sec));
+      let chip = card.querySelector('.chip-mod');
+      const acts = card.querySelector('.ch-actions');
+      if (n > 0 && !chip && acts) {
+        // Kart sıfırdan değişikliğe geçtiyse rozet ve sıfırlama düğmesi belirir
+        acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı' }));
+        acts.appendChild(
+          el('button', {
+            class: 'icon-btn small', type: 'button', text: '↺',
+            title: 'Bu bölümü varsayılana döndür',
+            onclick: () => resetSection(sec),
+          })
+        );
+        chip = card.querySelector('.chip-mod');
+      }
+      if (chip) {
+        chip.textContent = String(n);
+        chip.classList.toggle('hidden', n === 0);
+        const btn = card.querySelector('.ch-actions .icon-btn');
+        if (btn) btn.classList.toggle('hidden', n === 0);
+      }
+    });
+
+    renderNav();
+    const resettable = sections.some((s) => countModified(sectionPaths(s)) > 0);
+    const catBtn = $('catResetBtn');
+    if (catBtn) catBtn.classList.toggle('hidden', !resettable);
   }
 
   function setAdvanced(on) {
@@ -1742,10 +1889,11 @@
     render();
   }
 
-  function resetSection(sec) {
+  async function resetSection(sec) {
     const paths = sectionPaths(sec);
     if (!paths.length) return;
-    if (!confirm('Bu bölümdeki ayarlar varsayılana dönecek. Emin misiniz?')) return;
+    const ok = await svConfirm('Bu bölümdeki ayarlar varsayılana dönecek.', { danger: true, okText: 'Bölümü sıfırla' });
+    if (!ok) return;
     const defaults = window.SV.defaultConfig();
     paths.forEach((p) => {
       const dv = getPath(defaults, p);
@@ -1887,10 +2035,11 @@
     });
   }
 
-  function resetCategory(catId) {
+  async function resetCategory(catId) {
     const cat = CATEGORIES.find((c) => c.id === catId);
     if (!cat) return;
-    if (!confirm('Bu kategorideki tüm ayarlar varsayılana dönecek. Emin misiniz?')) return;
+    const ok = await svConfirm('Bu kategorideki tüm ayarlar varsayılana dönecek.', { danger: true, okText: 'Kategoriyi sıfırla' });
+    if (!ok) return;
     const defaults = window.SV.defaultConfig();
     sectionSchema()
       .filter((s) => s.category === catId)
@@ -2066,22 +2215,22 @@
     push(true);
     render();
   };
-  actions.deleteUserPreset = (id) => {
-    if (!confirm('Bu şablon silinsin mi?')) return;
+  actions.deleteUserPreset = async (id) => {
+    if (!(await svConfirm('Bu renk şablonu silinecek.', { danger: true, okText: 'Sil' }))) return;
     cfg.userPresets = ensurePresets().filter((x) => x.id !== id);
     push(true);
     render();
   };
   actions.exportPresets = async () => {
     const arr = ensurePresets();
-    if (!arr.length) { alert('Dışa aktarılacak şablon yok.'); return; }
+    if (!arr.length) { svToast('Dışa aktarılacak şablon yok.', 'warn'); return; }
     await window.api.exportJson('renk-sablonlari.json', { type: 'sv-presets', version: 1, presets: arr });
   };
   actions.importPresets = async () => {
     const r = await window.api.importJson('Renk Şablonlarını İçe Aktar');
-    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    if (!r || !r.ok) { if (r && r.error) svToast('İçe aktarılamadı: ' + r.error, 'err'); return; }
     const incoming = Array.isArray(r.data) ? r.data : (r.data && r.data.presets) || [];
-    if (!Array.isArray(incoming) || !incoming.length) { alert('Dosyada şablon bulunamadı.'); return; }
+    if (!Array.isArray(incoming) || !incoming.length) { svToast('Dosyada şablon bulunamadı.', 'warn'); return; }
     const arr = ensurePresets();
     incoming.forEach((p) => {
       let colors = Array.isArray(p.colors) ? p.colors.slice(0, 5) : [];
@@ -2302,8 +2451,8 @@
     if (activeCategory === 'library') render();
   };
 
-  actions.deleteScene = (id) => {
-    if (!confirm('Bu sahne silinsin mi?')) return;
+  actions.deleteScene = async (id) => {
+    if (!(await svConfirm('Bu sahne silinecek.', { danger: true, okText: 'Sil' }))) return;
     cfg.scenes = ensureScenes().filter((x) => x.id !== id);
     if (activeSceneId === id) activeSceneId = null;
     push(true);
@@ -2313,15 +2462,15 @@
 
   actions.exportScenes = async () => {
     const arr = ensureScenes();
-    if (!arr.length) { alert('Dışa aktarılacak sahne yok.'); return; }
+    if (!arr.length) { svToast('Dışa aktarılacak sahne yok.', 'warn'); return; }
     await window.api.exportJson('sahneler.json', { type: 'sv-scenes', version: 1, scenes: arr });
   };
 
   actions.importScenes = async () => {
     const r = await window.api.importJson('Sahneleri İçe Aktar');
-    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    if (!r || !r.ok) { if (r && r.error) svToast('İçe aktarılamadı: ' + r.error, 'err'); return; }
     const incoming = Array.isArray(r.data) ? r.data : (r.data && r.data.scenes) || [];
-    if (!Array.isArray(incoming) || !incoming.length) { alert('Dosyada sahne bulunamadı.'); return; }
+    if (!Array.isArray(incoming) || !incoming.length) { svToast('Dosyada sahne bulunamadı.', 'warn'); return; }
     const arr = ensureScenes();
     incoming.forEach((s) => {
       if (!s || !s.data) return;
@@ -2391,27 +2540,28 @@
     const result = await window.api.exportJson('cayadev-visualizer-ayarlari.json', {
       type: 'cayadev-visualizer-settings',
       version: 1,
-      appVersion: '1.3.0',
+      appVersion: '1.3.1',
       exportedAt: new Date().toISOString(),
       excludes: USER_CONTENT_KEYS.slice(),
       settings,
     });
-    if (result && result.error) alert('Ayarlar dışa aktarılamadı: ' + result.error);
+    if (result && result.error) svToast('Ayarlar dışa aktarılamadı: ' + result.error, 'err');
   };
 
   actions.importAllSettings = async () => {
     const result = await window.api.importJson('CAYADEV Visualizer Ayarlarını İçe Aktar');
     if (!result || !result.ok) {
-      if (result && result.error) alert('Ayarlar içe aktarılamadı: ' + result.error);
+      if (result && result.error) svToast('Ayarlar içe aktarılamadı: ' + result.error, 'err');
       return;
     }
     const payload = result.data;
     const incoming = payload && payload.type === 'cayadev-visualizer-settings' ? payload.settings : null;
     if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) {
-      alert('Bu dosya geçerli bir CAYADEV Visualizer ayar yedeği değil.');
+      svToast('Bu dosya geçerli bir CAYADEV Visualizer ayar yedeği değil.', 'err');
       return;
     }
-    if (!confirm('Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak. Devam edilsin mi?')) return;
+    const proceed = await svConfirm('Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak.', { okText: 'İçe aktar' });
+    if (!proceed) return;
 
     // Kullanıcı içeriğini yedekten bağımsız olarak koru
     const preservedPresets = Array.isArray(cfg.userPresets) ? cfg.userPresets : [];
@@ -2428,7 +2578,7 @@
     push(true);
     render();
     renderScenes();
-    alert('Ayarlar başarıyla içe aktarıldı. Renk şablonlarınız ve sahneleriniz değiştirilmedi.');
+    svToast('Ayarlar başarıyla içe aktarıldı. Renk şablonlarınız ve sahneleriniz değiştirilmedi.', 'ok');
   };
 
   // --------------------------------------------------------------------------
@@ -2439,9 +2589,9 @@
   };
   actions.importBackground = async () => {
     const r = await window.api.importJson('Arkaplan Ayarlarını İçe Aktar');
-    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    if (!r || !r.ok) { if (r && r.error) svToast('İçe aktarılamadı: ' + r.error, 'err'); return; }
     const bg = r.data && (r.data.background || (r.data.type && r.data.gradient ? r.data : null));
-    if (!bg) { alert('Geçerli bir arkaplan dosyası değil.'); return; }
+    if (!bg) { svToast('Geçerli bir arkaplan dosyası değil.', 'err'); return; }
     const def = window.SV.defaultConfig().background;
     cfg.background = window.SV.deepMerge(def, bg);
     push(true);
@@ -2639,8 +2789,8 @@
       push(true); // en güncel yapılandırmayı gönder
     });
     $('closeBtn').addEventListener('click', () => window.api.closeVisualizer());
-    $('resetBtn').addEventListener('click', () => {
-      if (!confirm('Tüm ayarlar varsayılana dönecek. Emin misiniz?')) return;
+    $('resetBtn').addEventListener('click', async () => {
+      if (!(await svConfirm('Tüm ayarlar varsayılana dönecek. Renk şablonlarınız ve sahneleriniz korunur.', { danger: true, okText: 'Hepsini sıfırla' }))) return;
       const sources = cfg.audio.sources ? cfg.audio.sources.slice() : ['default'];
       // Kullanıcı içeriği (renk şablonları ve sahneler) sıfırlamada korunur
       const presets = Array.isArray(cfg.userPresets) ? cfg.userPresets.slice() : [];
@@ -2654,6 +2804,38 @@
       render();
       renderScenes();
     });
+
+    // Ayarlar penceresindeki uygulama anahtarları
+    const aotBox = $('alwaysOnTopToggle');
+    if (aotBox) {
+      aotBox.checked = !!(cfg.power && cfg.power.alwaysOnTop);
+      aotBox.addEventListener('change', (e) => {
+        cfg.power = cfg.power || {};
+        cfg.power.alwaysOnTop = e.target.checked;
+        push(true);
+        svToast(
+          e.target.checked
+            ? 'Görselleştirme artık her zaman üstte kalacak.'
+            : 'Her zaman üstte kapatıldı.',
+          'ok'
+        );
+      });
+    }
+    const extBox = $('extendedRangeToggle');
+    if (extBox) {
+      extBox.checked = extendedRange;
+      extBox.addEventListener('change', (e) => {
+        extendedRange = e.target.checked;
+        localStorage.setItem('sv-extended-range', extendedRange ? '1' : '0');
+        render();
+        svToast(
+          extendedRange
+            ? 'Genişletilmiş aralıklar açık — kaydırıcılar 5 kat daha yükseğe çıkabilir.'
+            : 'Genişletilmiş aralıklar kapatıldı. Mevcut yüksek değerler korunur.',
+          'ok'
+        );
+      });
+    }
 
     // Gelişmiş ayarlar anahtarı + kategori sıfırlama
     $('advToggle').addEventListener('change', (e) => setAdvanced(e.target.checked));

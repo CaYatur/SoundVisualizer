@@ -22,7 +22,11 @@
       const n = data.length;
       const midY = H / 2;
       const amp = H * 0.42 * (v.thickness || 0.42) * 2 * (v.sensitivity || 1);
-      const step = Math.max(1, Math.floor(n / W) || 1);
+      // Dalga, tampon boyunca ORANSAL örneklenir. Önceden piksel başına bir
+      // örnek ilerleniyordu; tuval zaman tamponundan (2048) genişse (geniş veya
+      // yüksek DPI ekranlar) indis taşıp son örneğe kilitleniyor ve ekranın
+      // kalanında düz bir çizgi bırakıyordu.
+      const PTS = Math.max(2, Math.min(W, 2048));
 
       // gradyan
       let stroke;
@@ -48,16 +52,13 @@
       // Parlama tek geçişte (bloom) uygulanır; çizgi burada düz çizilir.
 
       const path = new Path2D();
-      let first = true;
-      for (let x = 0, i = 0; x < W; x++, i += step) {
-        const s = (data[Math.min(i, n - 1)] - 128) / 128;
+      for (let p = 0; p < PTS; p++) {
+        const u = p / (PTS - 1);
+        const x = u * W;
+        const s = (data[Math.min(n - 1, Math.round(u * (n - 1)))] - 128) / 128;
         const y = midY + s * amp;
-        if (first) {
-          path.moveTo(x, y);
-          first = false;
-        } else {
-          path.lineTo(x, y);
-        }
+        if (p === 0) path.moveTo(x, y);
+        else path.lineTo(x, y);
       }
       ctx.stroke(path);
 

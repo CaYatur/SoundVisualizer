@@ -17,7 +17,7 @@
     background: {
       // 'gradient' (WebGL) | 'solid' | 2D modlar:
       // 'waves' | 'aurora' | 'starfield' | 'grid' | 'bokeh' | 'rain' | 'network' | 'rings'
-      type: 'starfield',
+      type: 'gradient',
       solidColor: '#08080f',
       // Not: 2D arkaplan modları da bu bloğun colors/speed/audioReactivity/
       // brightness/vignette alanlarını okur; böylece renk seçiciler, hazır
@@ -151,6 +151,9 @@
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       pauseOnSilence: false,
       hideCursor: true,
+      // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.
+      // Başka bir uygulama öne çıkarsa pencere kendini yeniden üste taşır.
+      alwaysOnTop: false,
     },
 
     // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici

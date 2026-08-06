@@ -300,6 +300,15 @@ body {
   content: ''; width: 5px; height: 5px; border-radius: 50%;
   background: var(--accent2); box-shadow: 0 0 6px var(--accent2); flex-shrink: 0;
 }
+/* Tek ayarı geri alma düğmesi — yalnızca değişmiş ayarlarda görünür */
+.ctrl-reset {
+  display: none; width: 18px; height: 18px; flex-shrink: 0;
+  align-items: center; justify-content: center;
+  border: none; background: none; padding: 0; cursor: pointer;
+  color: var(--muted2); font-size: 11px; line-height: 1; border-radius: 5px;
+}
+.ctrl.modified .ctrl-reset { display: inline-flex; }
+.ctrl-reset:hover { color: var(--accent2); background: var(--accent-soft); }
 .flash { animation: ctrlFlash 1.6s ease-out; border-radius: var(--radius-sm); }
 @keyframes ctrlFlash {
   0%, 55% { box-shadow: 0 0 0 2px var(--accent2), 0 0 22px rgba(255,77,94,.35); background: rgba(225,29,42,.09); }
@@ -591,6 +600,47 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 .settings-field { display: grid; gap: 7px; font-size: 11.5px; color: var(--muted); }
 .settings-field select { margin-top: 0; }
 .settings-note { margin: 10px 0 0; font-size: 10.5px; color: var(--muted2); }
+.settings-sep { height: 1px; background: var(--line); margin: 16px 0 4px; }
+.settings-toggle {
+  display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;
+  cursor: pointer; border-bottom: 1px solid var(--line);
+}
+.settings-toggle:last-child { border-bottom: none; }
+.settings-toggle .st-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.settings-toggle .st-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.settings-toggle .st-desc { font-size: 10.5px; color: var(--muted2); line-height: 1.5; }
+.settings-toggle .switch { margin-top: 2px; }
+
+/* ================= UYGULAMA İÇİ ONAY + BİLDİRİM =================
+   Sistem confirm/alert pencereleri renderer'ı kilitliyor ve çok ekranlı
+   kurulumda başka ekranda açılabiliyordu; bunlar panelin içinde kalır. */
+.ask-backdrop {
+  position: fixed; inset: 0; z-index: 400; display: grid; place-items: center;
+  background: rgba(3, 3, 8, .62); backdrop-filter: blur(3px);
+  animation: askIn .12s ease-out;
+}
+@keyframes askIn { from { opacity: 0; } to { opacity: 1; } }
+.ask-panel {
+  width: min(420px, calc(100vw - 40px)); padding: 20px;
+  border: 1px solid var(--line2); border-radius: 14px;
+  background: var(--card); box-shadow: 0 28px 80px rgba(0, 0, 0, .6);
+}
+.ask-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%);
+  z-index: 420; max-width: min(620px, calc(100vw - 40px));
+  padding: 11px 16px; border-radius: var(--radius-sm);
+  background: var(--card2); border: 1px solid var(--line2); color: var(--text);
+  font-size: 12.5px; line-height: 1.5; box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  transition: opacity .2s, transform .2s;
+}
+.toast.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(8px); }
+.toast.ok { border-color: rgba(67, 217, 138, .45); color: #9df0c4; }
+.toast.warn { border-color: rgba(255, 196, 77, .45); color: #f3cf82; }
+.toast.err { border-color: rgba(255, 90, 90, .5); color: #ff9d9d; }
 
 /* ============================ DYNAMIC LIGHTING ============================ */
 .lighting-panel { display: grid; gap: 8px; }
