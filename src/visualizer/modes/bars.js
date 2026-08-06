@@ -8,6 +8,7 @@
       this.ctx = canvas.getContext('2d');
       this.peaks = null;
       this.peakVel = null;
+      this.glow = new window.SVGlow();
     }
 
     resize() {}
@@ -40,10 +41,8 @@
       const maxH =
         v.position === 'center' ? H * 0.46 : v.position === 'full' ? H * 0.95 : H * 0.92;
 
+      // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
       ctx.save();
-      if (v.glow > 0) {
-        ctx.shadowBlur = 18 * v.glow;
-      }
 
       for (let i = 0; i < count; i++) {
         // ayna: ortadan dışa
@@ -67,7 +66,6 @@
           col = v.color;
         }
 
-        if (v.glow > 0) ctx.shadowColor = v.rainbow ? col : v.color;
         ctx.fillStyle = col;
 
         if (v.position === 'center') {
@@ -90,14 +88,14 @@
             this.peaks[i] = Math.max(0, this.peaks[i] - this.peakVel[i]);
           }
           const py = baseY - this.peaks[i] - 3;
-          ctx.shadowBlur = 0;
           ctx.fillStyle = v.rainbow ? col : lighten(v.color);
           ctx.fillRect(x, py, bw, 2.5);
           if (v.position === 'center') ctx.fillRect(x, baseY + this.peaks[i] + 1, bw, 2.5);
-          if (v.glow > 0) ctx.shadowBlur = 18 * v.glow;
         }
       }
       ctx.restore();
+
+      this.glow.apply(this.canvas, v.glow, 0.9);
     }
 
     dispose() {}

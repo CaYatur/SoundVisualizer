@@ -104,16 +104,27 @@
         fbm(mp*sc + travel + orbitA),
         fbm(mp*sc + travel*0.72 + vec2(5.2, 1.3) + orbitB)
       );
-      vec2 r = vec2(
-        fbm(mp*sc + q*warp + vec2(1.7, 9.2) + orbitB*0.58 - orbitA*0.20),
-        fbm(mp*sc + q*warp + vec2(8.3, 2.8) - orbitA*0.72 + orbitB*0.25)
-      );
-      float n = fbm(mp*sc + travel*0.24 + r*warp + orbitA*0.18);
-      n = n*0.82 + 0.18*(q.x + r.y)*0.5;
-      float smoothN = fbm(mp*sc*0.55 + q*warp*0.10 + travel*0.10 + orbitA*0.15);
-      smoothN = smoothN*0.70 + 0.30*fbm(mp*sc*0.24 + vec2(3.7, 6.1) + orbitB*0.12 - travel*0.06);
-      smoothN = 0.50 + (smoothN - 0.50)*0.82;
-      n = mix(n, smoothN, hideLines);
+      // İki ayrı gürültü alanı: "detaylı" (damarlı) ve "yumuşak".
+      // Sonuç hideLines ile karıştırılır; uçlarda karışımın bir tarafı tamamen
+      // atıldığı için o dal hiç hesaplanmaz. hideLines bir uniform olduğundan
+      // tüm pikseller aynı dala girer, yani dallanmanın maliyeti yok.
+      // (Varsayılan hideLines=1'de 7 fbm yerine 4 fbm çalışır.)
+      float detailed = 0.0;
+      float smoothed = 0.0;
+      if (hideLines < 0.999) {
+        vec2 r = vec2(
+          fbm(mp*sc + q*warp + vec2(1.7, 9.2) + orbitB*0.58 - orbitA*0.20),
+          fbm(mp*sc + q*warp + vec2(8.3, 2.8) - orbitA*0.72 + orbitB*0.25)
+        );
+        detailed = fbm(mp*sc + travel*0.24 + r*warp + orbitA*0.18);
+        detailed = detailed*0.82 + 0.18*(q.x + r.y)*0.5;
+      }
+      if (hideLines > 0.001) {
+        smoothed = fbm(mp*sc*0.55 + q*warp*0.10 + travel*0.10 + orbitA*0.15);
+        smoothed = smoothed*0.70 + 0.30*fbm(mp*sc*0.24 + vec2(3.7, 6.1) + orbitB*0.12 - travel*0.06);
+        smoothed = 0.50 + (smoothed - 0.50)*0.82;
+      }
+      float n = mix(detailed, smoothed, hideLines);
       n += audio*0.16 + uLevel*uReact*0.10*sin(uTime*0.7);
 
       vec3 col = ramp(n);

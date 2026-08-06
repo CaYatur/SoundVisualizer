@@ -40,25 +40,55 @@ Selected sources are mixed before FFT analysis using the native `audify` module.
 
 ## 🎛️ Interface (Admin Panel)
 
-All settings are adjusted **live** from a single screen and saved automatically — display selection, audio source,
-background gradient, visualizer type, colors, logo, and performance.
+The panel has three columns: a **category rail** on the left, the selected category's setting cards
+in the middle, and a **live preview**, audio meters and scenes on the right.
+
+- **5 categories** — Scene, Audio, Lighting, Output, Library. Every setting belongs to one, and both
+  the card headers and the category rail badge how many settings differ from the defaults.
+- **Basic / Advanced split** — each card shows only a handful of essential settings by default and
+  groups the rest under *Advanced settings*, so the panel does not get crowded as the app grows.
+- **Live preview** — the visualizer's real rendering engine runs inside the panel. With no audio it
+  is driven by a music-like sample signal; click the **Demo** badge to capture real system audio
+  without opening the visualizer at all.
+- **Search (Ctrl+K)** — find any setting across every category from one box; picking a result opens
+  its category and highlights the control.
+- **Scenes** — store background + visualizer + logo + visual objects under a name, restore with one
+  click, export and import.
+- **Section and category resets**, a JSON backup of every setting, and automatic saving.
 
 <div align="center">
-  <img src="docs/screenshots/admin-panel.png" alt="Admin Panel" width="820" />
+  <img src="docs/screenshots/admin-panel.png" alt="Admin Panel" width="900" />
 </div>
 
 ---
 
 ## ✨ Visualization Modes & Styles
 
-Four main modes, numerous color presets, rainbow/single-color options, mirroring, bottom/center/full layouts,
-and soft/plasma background gradients provide a wide range of visual styles:
+**14 visualizer modes** and **10 background types** — all of them share the same color palette,
+built-in presets and your own saved presets, so switching modes never disturbs your colors.
+
+### Visualizer (foreground effect)
+
+<div align="center">
+  <img src="docs/screenshots/modes-visualizer.png" alt="Visualizer modes" width="900" />
+</div>
+
+### Background
+
+Every background type has **its own detailed settings** (star count, horizon height, curtain
+thickness, link distance, ring rate …), collected under *Mode Settings* in the panel.
+
+<div align="center">
+  <img src="docs/screenshots/modes-background.png" alt="Background modes" width="900" />
+</div>
+
+### Examples of the classic looks
 
 <table>
   <tr>
     <td align="center" width="50%">
       <img src="docs/screenshots/visualizer-bars.png" width="400" /><br/>
-      <b>Bars</b> · bottom layout · rainbow · Aurora
+      <b>Bars</b> · bottom · rainbow · Aurora
     </td>
     <td align="center" width="50%">
       <img src="docs/screenshots/visualizer-center.png" width="400" /><br/>
@@ -68,21 +98,11 @@ and soft/plasma background gradients provide a wide range of visual styles:
   <tr>
     <td align="center">
       <img src="docs/screenshots/visualizer-bars-mirror.png" width="400" /><br/>
-      <b>Bars</b> · mirror (bass in the center) · Ocean
+      <b>Bars</b> · mirrored (bass centered) · Ocean
     </td>
-    <td align="center">
-      <img src="docs/screenshots/visualizer-bars-thin.png" width="400" /><br/>
-      <b>Bars</b> · centered symmetry · Ice
-    </td>
-  </tr>
-  <tr>
     <td align="center">
       <img src="docs/screenshots/visualizer-wave.png" width="400" /><br/>
-      <b>Wave</b> · thick · mirror · Sunset
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/visualizer-wave-line.png" width="400" /><br/>
-      <b>Wave</b> · thin line · rainbow · Night
+      <b>Wave</b> · thick · mirrored · Sunset
     </td>
   </tr>
   <tr>
@@ -91,14 +111,8 @@ and soft/plasma background gradients provide a wide range of visual styles:
       <b>Circle</b> · logo · Lava plasma
     </td>
     <td align="center">
-      <img src="docs/screenshots/visualizer-circular-rainbow.png" width="400" /><br/>
-      <b>Circle</b> · rainbow · logo · Forest
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <img src="docs/screenshots/visualizer-solid.png" width="500" /><br/>
-      <b>Solid-color background</b> · brand-red bars
+      <img src="docs/screenshots/visualizer-solid.png" width="400" /><br/>
+      <b>Solid background</b> · brand red bars
     </td>
   </tr>
 </table>
@@ -158,23 +172,43 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 
 ## 🎨 Features
 
-### Background — Fluid Gradient (Fog Effect)
-- Audio-reactive mesh-gradient background flowing from every point (WebGL shader).
-- **Two styles:** *Soft (No Glow)* — smooth, pastel mesh gradient; *Plasma (Glowing)* —
-  more vivid and bright, bursting in response to audio.
-- Five color points can be selected individually; **10 built-in presets** (Aurora, Sunset, Neon, Lava, Ocean,
-  Forest, Pastel, Night, Ice, Single Color).
-- Flow speed, scale, warp (fluidity), **audio reactivity**, base brightness, grain, and vignette.
-- **Audio Burst (Brightness)** and **Audio Hue Shift** can be adjusted independently.
-- A **solid-color** background is also available.
+### Background (10 types)
+- **Fluid Gradient** — an audio-reactive mesh-gradient backdrop (WebGL shader). Two styles: *Soft
+  (No Glow)* and *Plasma (Glowing)*. Flow speed, wander, orbit, swirl, warp, scale, grain, vignette,
+  **Audio Burst (Brightness)** and **Audio Hue Shift**.
+- **Wave Layers** — crests that swell with the audio (layer count, crest height, wave frequency,
+  layer spacing, opacity, bass push).
+- **Aurora** — undulating light curtains (curtain count/thickness, undulation, edge softness,
+  vertical position).
+- **Starfield** — stars streaming out from the center (star count/size, motion trail, depth, twinkle).
+- **Retro Grid** — a perspective grid receding to the horizon (horizon height, row/column counts,
+  line width, horizon glow, sky intensity, spectrum response).
+- **Bokeh Lights** — soft out-of-focus orbs (count, size, size variation, drift, bass pulse).
+- **Digital Rain** — falling luminous streaks (column count, fall speed, trail length, density,
+  thickness).
+- **Network** — drifting nodes with links between the close ones (node count/size, link distance,
+  line width, movement speed).
+- **Pulse Rings** — rings expanding from the center, with extra rings spawned on bass hits (ring
+  rate, expansion speed, thickness, fade).
+- **Solid Color** — a single flat color.
 
-### Visualizer (Foreground Effect)
-- **Bars** — each bar represents a logarithmic frequency band. Bar count, min/max frequency, gap,
-  position (bottom/center/full), mirror, and peak caps.
-- **Center Bars** — bars expand symmetrically upward and downward from the center of the screen. Works especially well with a logo.
-- **Wave** — oscilloscope/waveform; line width, amplitude, and mirror controls.
-- **Circle** — radial spectrum designed for use with a centered logo; bass pulses the center ring.
-- **Rainbow** can be enabled or disabled; when disabled, a single color is used. Sensitivity and glow controls are included.
+Five color stops, **10 built-in presets** (Aurora, Sunset, Neon, Lava, Ocean, Forest, Pastel, Night,
+Ice, Single Color) and your own saved presets apply to every background type.
+
+### Visualizer (14 modes)
+- **Bars** · **Center** · **Segments** (LED equalizer) · **Dot Matrix**
+- **Wave** (oscilloscope) · **Ribbon** (waveform history) · **Terrain** (perspective wireframe landscape)
+- **Circle** · **Radial Wave** · **Rays** · **Tunnel** · **Orb**
+- **Particles** (bursts on bass hits) · **Spectrogram** (scrolling heat map)
+- Bar count, min/max frequency, gap, position, mirror, line width, amplitude, sensitivity and glow
+  are shown whenever they are meaningful for the selected mode.
+- **Rainbow** can be toggled off to pick a single or dual color.
+
+### Scenes
+- Store the whole look — background + visualizer + logo + visual objects — under a name.
+- Restore with one click, update with the current look, export/import as JSON.
+- Scenes and color presets are **excluded** from the general settings backup and are preserved when
+  a backup is imported.
 
 ### Logo / Image
 - Places an image/logo in the center; it is **automatically sized and positioned**.
@@ -202,13 +236,15 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 
 ### Settings Backup / Restore
 - Export all application settings to a single JSON file, including audio, visuals, Dynamic Lighting, performance, logo, visual objects, display selection, and video export settings.
-- User-created color presets are intentionally excluded from the backup and remain unchanged when a settings file is imported.
+- User-created **color presets and scenes** are intentionally excluded from the backup and are preserved when a settings file is imported; each has its own export/import buttons.
 - Imported settings are merged with current defaults so newer fields remain valid.
 
 ### Power / Performance
-- Frame rate (30/60/120/unlimited), background resolution scale, pause on silence, and cursor hiding.
-
----
+- **Frame rate:** *Match Display* (one frame per screen refresh — the smoothest) or up to
+  120 / 60 / 30 FPS. When a limit is not an exact divisor of your refresh rate (such as 60 on a
+  75 Hz screen) the long-run average stays correct but frame intervals become uneven, so
+  *Match Display* is recommended for the smoothest result.
+- Background resolution scale, pause on silence, hide cursor.
 
 ## 🔊 How Audio Capture Works (Important)
 
@@ -244,10 +280,18 @@ src/
     i18n.js            # English/Turkish translations and language detection
   admin/               # Admin Panel (control interface)
     index.html / admin.css / admin.js / settings.js
-  exporter/            # Offline audio-to-MP4 export window
-  visualizer/          # Visualization Screen
+    preview.js         # in-panel live preview (same engine as the visualizer)
+  exporter/            # Offline window that renders an audio file to MP4
+  visualizer/          # Visualization screen
     index.html / visualizer.css / audio.js / visualizer.js
-    modes/             # gradient.js, bars.js, centerbars.js, wave.js, circular.js
+    modes/
+      gradient.js      # WebGL fluid gradient background
+      backgrounds.js   # 2D background modes (waves, aurora, starfield, grid,
+                       #   bokeh, digital rain, network, pulse rings)
+      glow.js          # single-pass bloom helper
+      bars.js centerbars.js blocks.js dots.js wave.js ribbon.js terrain.js
+      circular.js radialwave.js starburst.js tunnel.js orb.js particles.js
+      spectrogram.js sprites.js
 scripts/
   start.js             # GUI launcher (clears ELECTRON_RUN_AS_NODE)
   gen-icons.js         # SVG -> icons
@@ -263,8 +307,10 @@ Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on
 
 | Key | Action |
 |-----|--------|
-| `ESC` | Close the Visualization Screen |
-| Click the screen | Retry if audio could not be started |
+| `Ctrl` + `K` | Search settings in the panel |
+| `ESC` | Close the visualization screen / clear the search |
+| Click the screen | Retry if audio failed to start |
+
 
 ---
 

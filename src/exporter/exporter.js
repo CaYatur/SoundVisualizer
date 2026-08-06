@@ -62,6 +62,7 @@
   const audio = new window.SVAudio();
   let cfg = null;
   let gradient = null;
+  let bgMode = null;
   let foreground = null;
   let sprites = null;
   let logo = null;
@@ -152,10 +153,13 @@
     comp.width = width;
     comp.height = height;
 
-    // Arkaplan (gradyan WebGL). Dışa aktarımda tam çözünürlük (renderScale yok sayılır).
+    // Arkaplan. Dışa aktarımda tam çözünürlük (renderScale yok sayılır).
     if (cfg.background.type === 'gradient') {
       gradient = new window.SVModes.gradient(glCanvas);
       gradient.resize(width, height);
+    } else if (window.SVBackgrounds && window.SVBackgrounds[cfg.background.type]) {
+      // 2D arkaplan modları doğrudan birleştirme tuvaline çizer
+      bgMode = new window.SVBackgrounds[cfg.background.type]();
     }
 
     // Ön görselleştirici
@@ -214,6 +218,8 @@
     if (cfg.background.type === 'gradient' && gradient) {
       gradient.draw(audio, cfg, t);
       compCtx.drawImage(glCanvas, 0, 0, width, height);
+    } else if (bgMode) {
+      bgMode.draw(compCtx, audio, cfg, t, width, height, dt);
     } else {
       compCtx.fillStyle = cfg.background.solidColor;
       compCtx.fillRect(0, 0, width, height);

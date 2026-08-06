@@ -27,6 +27,7 @@ let adminWin = null;
 let visualizerWin = null;
 let currentConfig = null; // son bilinen yapılandırma (admin -> görselleştirici köprüsü)
 let lastCaptureSource = null; // o an yakalanan çıkış aygıtı
+let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare istiyor mu?
 
 const SMOKE = process.argv.includes('--smoke');
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
@@ -106,12 +107,14 @@ app.on('browser-window-blur', syncPortableLightingFocus);
 
 function createAdminWindow() {
   adminWin = new BrowserWindow({
-    width: 1180,
-    height: 820,
-    minWidth: 940,
-    minHeight: 640,
+    // Üç sütunlu düzen (kategori rayı + çalışma alanı + önizleme dock'u) için
+    // daha geniş varsayılan pencere
+    width: 1500,
+    height: 940,
+    minWidth: 1000,
+    minHeight: 680,
     title: trUi('Ses Görselleştirici — Yönetici Paneli', 'Sound Visualizer — Admin Panel'),
-    backgroundColor: '#0e0f1a',
+    backgroundColor: '#0b0910',
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload-admin.js'),
@@ -129,6 +132,7 @@ function createAdminWindow() {
 
   adminWin.on('closed', () => {
     adminWin = null;
+    previewSubscribed = false; // panel gitti, önizleme kare akışı da biter
     if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.close();
   });
 }
@@ -181,9 +185,11 @@ function openVisualizer(displayId) {
     }, 120);
   });
 
-  // Pencere yüklenince ses yakalamayı başlat
+  // Pencere yüklenince ses yakalamayı istenen duruma getir. Panel önizlemesi
+  // nedeniyle yakalama zaten sürüyorsa yeniden başlatılmaz; kare geri çağrısı
+  // hedef pencereyi her seferinde yeniden okuduğu için yeni pencereye de akar.
   visualizerWin.webContents.on('did-finish-load', () => {
-    startVisualizerCapture();
+    syncCapture();
   });
 
   // ESC ile kapat
@@ -195,24 +201,33 @@ function openVisualizer(displayId) {
 
   visualizerWin.on('closed', () => {
     visualizerWin = null;
-    nativeAudio.stopCapture();
-    lastCaptureSource = null;
+    // Panel önizlemesi hâlâ kare istiyorsa yakalama kesintisiz sürer, istemiyorsa durur
+    syncCapture();
     notifyAdmin('visualizer-status', { open: false, displayId: null });
   });
 
   notifyAdmin('visualizer-status', { open: true, displayId });
 }
 
-// Seçili ses kaynak(lar)ının yakalamasını başlat; kareleri görselıeştiricide ilet
-function startVisualizerCapture() {
+// Yapılandırmadan seçili ses kaynaklarını çöz (yeni "sources" dizisi veya eski
+// tek "source" alanı desteklenir)
+function configuredSources() {
   const audio = currentConfig && currentConfig.audio;
-  // Yeni format (sources: dizi) veya eski format (source: string) desteklenir
-  const sources =
-    audio && Array.isArray(audio.sources) && audio.sources.length > 0
-      ? audio.sources
-      : audio && audio.source
-      ? [audio.source]
-      : ['default'];
+  if (audio && Array.isArray(audio.sources) && audio.sources.length > 0) return audio.sources;
+  if (audio && audio.source) return [audio.source];
+  return ['default'];
+}
+
+// Yakalamayı isteyen var mı? Görselleştirici penceresi ya da paneldeki canlı
+// önizleme. İkisi de kapalıysa yakalama durdurulur.
+function captureWanted() {
+  return !!(visualizerWin && !visualizerWin.isDestroyed()) || previewSubscribed;
+}
+
+// Seçili ses kaynak(lar)ının yakalamasını başlat; kareleri hem görselleştiriciye
+// hem de (istendiyse) yönetici panelinin önizlemesine ilet
+function startVisualizerCapture() {
+  const sources = configuredSources();
   lastCaptureSource = sources;
   nativeAudio.startCapture(
     sources,
@@ -221,12 +236,30 @@ function startVisualizerCapture() {
       if (visualizerWin && !visualizerWin.isDestroyed()) {
         visualizerWin.webContents.send('native-audio', frame);
       }
+      if (previewSubscribed) notifyAdmin('native-audio', frame);
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
       notifyAdmin('audio-source-status', status);
     }
   );
+}
+
+// Yakalamayı istenen duruma getir (talep eden yoksa durdur, kaynak değiştiyse
+// yeniden başlat).
+function syncCapture() {
+  const current = Array.isArray(lastCaptureSource) ? lastCaptureSource : null;
+  if (!captureWanted()) {
+    // Zaten durmuşsa dokunma (yapılandırma her değiştiğinde çağrıldığı için)
+    if (current) {
+      nativeAudio.stopCapture();
+      lastCaptureSource = null;
+    }
+    return;
+  }
+  const wanted = configuredSources();
+  if (current && JSON.stringify(current) === JSON.stringify(wanted)) return;
+  startVisualizerCapture();
 }
 
 function closeVisualizer() {
@@ -350,20 +383,19 @@ ipcMain.on('update-config', (e, config) => {
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
   if (visualizerWin && !visualizerWin.isDestroyed()) {
     visualizerWin.webContents.send('config', config);
-    // ses kaynağı değiştiyse yakalamayı yeniden başlat
-    const newAudio = config.audio;
-    const newSources = newAudio
-      ? Array.isArray(newAudio.sources) && newAudio.sources.length > 0
-        ? newAudio.sources
-        : [newAudio.source || 'default']
-      : ['default'];
-    const lastSources = Array.isArray(lastCaptureSource)
-      ? lastCaptureSource
-      : [lastCaptureSource || 'default'];
-    if (JSON.stringify(newSources) !== JSON.stringify(lastSources)) {
-      startVisualizerCapture();
-    }
   }
+  // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
+  // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
+  syncCapture();
+});
+
+// Yönetici panelindeki canlı önizleme kare akışını açıp kapatır. Görselleştirici
+// kapalıyken de yakalamayı ayakta tutabilir; kimse dinlemiyorsa yakalama durur.
+ipcMain.on('preview:subscribe', (e, on) => {
+  const next = !!on;
+  if (next === previewSubscribed) return;
+  previewSubscribed = next;
+  syncCapture();
 });
 
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
@@ -872,9 +904,49 @@ async function runShots() {
     return { freq, time, sampleRate: 48000 };
   };
 
-  // 1) Yönetici paneli ekran görüntüsü
-  await wait(1400);
+  // 1) Yönetici paneli ekran görüntüsü — panel ayar kartlarını çizene kadar bekle
+  // (aygıt tanılama/aydınlatma taraması gecikebildiği için sabit süre yetmiyor)
+  const adminReady = async () => {
+    for (let i = 0; i < 40; i++) {
+      if (!adminWin || adminWin.isDestroyed()) return false;
+      try {
+        const n = await adminWin.webContents.executeJavaScript(
+          "document.getElementById('sections') ? document.getElementById('sections').children.length : 0"
+        );
+        if (n > 0) return true;
+      } catch {}
+      await wait(250);
+    }
+    return false;
+  };
+  if (!(await adminReady())) console.log('[SHOTS] admin panel hazır olmadı, yine de kaydediliyor');
+
+  // Ekran görüntüsü yerel arayüz durumundan bağımsız olsun: "Sahne" kategorisi,
+  // gelişmiş kapalı. Kullanıcının tercihi sonradan geri yüklenir.
+  let uiState = null;
+  if (adminWin && !adminWin.isDestroyed()) {
+    try {
+      uiState = await adminWin.webContents.executeJavaScript(
+        "(function(){var s={c:localStorage.getItem('sv-category'),a:localStorage.getItem('sv-advanced')};" +
+          "localStorage.setItem('sv-category','scene');localStorage.setItem('sv-advanced','0');" +
+          "var t=document.getElementById('advToggle');if(t&&t.checked){t.checked=false;t.dispatchEvent(new Event('change'));}" +
+          "var b=document.querySelectorAll('.nav-item');if(b[0])b[0].click();" +
+          "return JSON.stringify(s)})()"
+      );
+    } catch {}
+  }
+  await wait(900); // yeniden çizim + önizleme/gradyan ilk karesi otursun
   if (adminWin && !adminWin.isDestroyed()) await save(adminWin, 'admin-panel.png');
+  if (uiState && adminWin && !adminWin.isDestroyed()) {
+    try {
+      await adminWin.webContents.executeJavaScript(
+        '(function(){var s=' + uiState + ';' +
+          "if(s.c)localStorage.setItem('sv-category',s.c);else localStorage.removeItem('sv-category');" +
+          "if(s.a)localStorage.setItem('sv-advanced',s.a);else localStorage.removeItem('sv-advanced');" +
+          'return true})()'
+      );
+    } catch {}
+  }
 
   // 2) Görselleştirici penceresi (sabit boyut, tam ekran değil — net görüntü için)
   const vw = new BrowserWindow({

@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld('api', {
   getLightingIdentityStatus: () => ipcRenderer.invoke('lighting:identity-status'),
   openDynamicLightingSettings: () => ipcRenderer.invoke('lighting:open-settings'),
 
+  // Canlı önizleme (panel içi): ses karesi akışını aç/kapat
+  subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
+  onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
+
   // Eylemler
   openVisualizer: (displayId) => ipcRenderer.invoke('open-visualizer', displayId),
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),

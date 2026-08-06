@@ -40,19 +40,49 @@ Seçilen kaynaklar native `audify` modülüyle FFT analizinden önce karıştır
 
 ## 🎛️ Arayüz (Yönetici Paneli)
 
-Tüm ayarlar tek ekrandan, **canlı** olarak yapılır ve otomatik kaydedilir — ekran seçimi, ses kaynağı,
-arkaplan gradyanı, görselleştirici türü, renkler, logo ve performans.
+Panel üç sütundan oluşur: solda **kategori rayı**, ortada seçili kategorinin ayar kartları,
+sağda **canlı önizleme**, ses seviyeleri ve sahneler.
+
+- **5 kategori** — Sahne, Ses, Işık, Çıkış, Kitaplık. Her ayar bir kategoriye ait; kart başlıklarında
+  ve kategori rayında varsayılandan farklı ayar sayısı rozetle gösterilir.
+- **Temel / Gelişmiş ayrımı** — her kart varsayılan olarak yalnızca birkaç temel ayar gösterir,
+  gerisi *Gelişmiş ayarlar* altında gruplanır. Böylece uygulama büyüdükçe panel kalabalıklaşmaz.
+- **Canlı önizleme** — görselleştiricinin gerçek çizim motoru panelin içinde çalışır. Ses yokken
+  müzik benzeri örnek bir sinyalle sürülür; **Demo** rozetine tıklayarak gerçek sistem sesini
+  görselleştiriciyi hiç açmadan yakalatabilirsiniz.
+- **Arama (Ctrl+K)** — tüm kategorilerdeki her ayarı tek kutudan bulun; sonuca tıklayınca ilgili
+  kategori açılır ve kontrol vurgulanır.
+- **Sahneler** — arkaplan + görselleştirici + logo + görsel nesnelerin tamamını isimle kaydedin,
+  tek tıkla geri yükleyin, dışa/içe aktarın.
+- **Bölüm ve kategori sıfırlama**, tüm ayarların JSON yedeği ve otomatik kayıt.
 
 <div align="center">
-  <img src="docs/screenshots/admin-panel.png" alt="Yönetici Paneli" width="820" />
+  <img src="docs/screenshots/admin-panel.png" alt="Yönetici Paneli" width="900" />
 </div>
 
 ---
 
 ## ✨ Görselleştirme Modları & Stilleri
 
-Dört ana mod, sayısız renk şablonu, gökkuşağı/tek renk, ayna, alt/orta/tam yerleşim ve
-yumuşak/plazma arkaplan gradyanlarıyla birbirinden farklı görünümler:
+**14 görselleştirici modu** ve **10 arkaplan türü** — hepsi aynı renk paletini, hazır şablonları ve
+kendi şablonlarınızı kullanır, dolayısıyla mod değiştirmek renklerinizi bozmaz.
+
+### Görselleştirici (ön efekt)
+
+<div align="center">
+  <img src="docs/screenshots/modes-visualizer.png" alt="Görselleştirici modları" width="900" />
+</div>
+
+### Arkaplan
+
+Her arkaplan türünün **kendi ayrıntılı ayarları** vardır (yıldız sayısı, ufuk yüksekliği, perde
+kalınlığı, bağlantı mesafesi, halka sıklığı …) — panelde *Mod Ayarları* başlığı altında toplanır.
+
+<div align="center">
+  <img src="docs/screenshots/modes-background.png" alt="Arkaplan modları" width="900" />
+</div>
+
+### Klasik görünümlerden örnekler
 
 <table>
   <tr>
@@ -71,18 +101,8 @@ yumuşak/plazma arkaplan gradyanlarıyla birbirinden farklı görünümler:
       <b>Barlar</b> · ayna (bas ortada) · Okyanus
     </td>
     <td align="center">
-      <img src="docs/screenshots/visualizer-bars-thin.png" width="400" /><br/>
-      <b>Barlar</b> · orta simetrik · Buz
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
       <img src="docs/screenshots/visualizer-wave.png" width="400" /><br/>
       <b>Dalga</b> · kalın · ayna · Gün Batımı
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/visualizer-wave-line.png" width="400" /><br/>
-      <b>Dalga</b> · ince çizgi · gökkuşağı · Gece
     </td>
   </tr>
   <tr>
@@ -91,13 +111,7 @@ yumuşak/plazma arkaplan gradyanlarıyla birbirinden farklı görünümler:
       <b>Çember</b> · logo · Lav plazma
     </td>
     <td align="center">
-      <img src="docs/screenshots/visualizer-circular-rainbow.png" width="400" /><br/>
-      <b>Çember</b> · gökkuşağı · logo · Orman
-    </td>
-  </tr>
-  <tr>
-    <td align="center" colspan="2">
-      <img src="docs/screenshots/visualizer-solid.png" width="500" /><br/>
+      <img src="docs/screenshots/visualizer-solid.png" width="400" /><br/>
       <b>Düz renk arkaplan</b> · marka kırmızısı barlar
     </td>
   </tr>
@@ -158,23 +172,41 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 
 ## 🎨 Özellikler
 
-### Arkaplan — Akışkan Gradyan (Sis efekti)
-- Her noktadan akan, sese tepki veren mesh-gradyan fon (WebGL shader).
-- **İki stil:** *Yumuşak (Parlamasız)* — pürüzsüz, pastel mesh gradyan; *Plazma (Parlamalı)* —
-  sese göre patlayan, daha canlı/parlak.
-- 5 renk noktası ayrı ayrı seçilebilir; **10 hazır şablon** (Aurora, Gün Batımı, Neon, Lav, Okyanus,
-  Orman, Pastel, Gece, Buz, Tek Renk).
-- Akış hızı, ölçek, bozulma (akışkanlık), **ses tepkisi**, temel parlaklık, gren, vinyet.
-- **Ses Patlaması (Parlaklık)** ve **Ses ile Renk Kayması** ayrı ayrı ayarlanabilir.
-- Alternatif olarak **düz renk** arkaplan.
+### Arkaplan (10 tür)
+- **Akışkan Gradyan** — sese tepki veren mesh-gradyan fon (WebGL shader). İki stil: *Yumuşak
+  (Parlamasız)* ve *Plazma (Parlamalı)*. Akış hızı, gezinme, dolanma, iç dönüş, bozulma, ölçek,
+  gren, vinyet, **Ses Patlaması (Parlaklık)** ve **Ses ile Renk Kayması**.
+- **Dalga Katmanları** — sese göre kabaran tepe katmanları (katman sayısı, tepe yüksekliği,
+  dalga sıklığı, katman aralığı, saydamlık, bas itkisi).
+- **Kutup Işıkları** — dalgalanan ışık perdeleri (perde sayısı/kalınlığı, dalgalanma, kenar
+  yumuşaklığı, dikey konum).
+- **Yıldız Alanı** — merkezden akan yıldızlar (yıldız sayısı/boyutu, hız izi, derinlik, parıldama).
+- **Retro Izgara** — ufka kaçan perspektif ızgara (ufuk yüksekliği, satır/sütun sayısı, çizgi
+  kalınlığı, ufuk parlaması, gökyüzü yoğunluğu, spektrum tepkisi).
+- **Işık Parçacıkları** — yumuşak bokeh topları (sayı, boyut, boyut çeşitliliği, süzülme, bas nabzı).
+- **Dijital Yağmur** — düşen ışıklı izler (sütun sayısı, düşme hızı, iz uzunluğu, yoğunluk, kalınlık).
+- **Ağ** — süzülen düğümler ve aralarındaki bağlantılar (düğüm sayısı/boyutu, bağlantı mesafesi,
+  çizgi kalınlığı, hareket hızı).
+- **Nabız Halkaları** — merkezden açılan halkalar; bas darbelerinde fazladan halka doğar
+  (halka sıklığı, genişleme hızı, kalınlık, sönme).
+- **Düz Renk** — tek renk fon.
 
-### Görselleştirici (ön efekt)
-- **Barlar** — her bar bir logaritmik frekans bandı. Bar sayısı, min/max frekans, boşluk,
-  yerleşim (alt/orta/tam), ayna, tepe noktaları.
-- **Merkez** — ekranın ortasından yukarı/aşağı simetrik açılan barlar. Logo ile çok uyumlu.
-- **Dalga** — osiloskop/dalga formu; çizgi kalınlığı, genlik, ayna.
-- **Çember** — merkez logo ile uyumlu radyal spektrum; bas merkez halkasını nabızlandırır.
-- **Gökkuşağı** açılıp kapatılabilir; kapalıyken tek renk seçilir. Hassasiyet ve parlama (glow).
+5 renk noktası, **10 hazır şablon** (Aurora, Gün Batımı, Neon, Lav, Okyanus, Orman, Pastel, Gece,
+Buz, Tek Renk) ve kendi kaydettiğiniz şablonlar tüm arkaplan türlerinde geçerlidir.
+
+### Görselleştirici (14 mod)
+- **Barlar** · **Merkez** · **Segment** (LED ekolayzır) · **Nokta Matris**
+- **Dalga** (osiloskop) · **Şerit** (dalga geçmişi) · **Arazi** (perspektifli tel kafes manzara)
+- **Çember** · **Dairesel Dalga** · **Işın** · **Tünel** · **Küre**
+- **Parçacık** (bas darbelerinde fışkıran parçacıklar) · **Spektrogram** (kayan ısı haritası)
+- Bar sayısı, min/max frekans, boşluk, yerleşim, ayna, çizgi kalınlığı, genlik, hassasiyet ve
+  parlama (glow) modda anlamlı oldukça gösterilir.
+- **Gökkuşağı** açılıp kapatılabilir; kapalıyken tek/ikili renk seçilir.
+
+### Sahneler
+- Arkaplan + görselleştirici + logo + görsel nesnelerin tamamını isimle kaydeder.
+- Tek tıkla geri yükleme, mevcut görünümle güncelleme, JSON olarak dışa/içe aktarma.
+- Sahneler ve renk şablonları genel ayar yedeğine **dahil edilmez** ve yedek içe aktarılırken korunur.
 
 ### Logo / Resim
 - Merkeze resim/logo yerleştirilir; **otomatik boyutlandırılır ve konumlandırılır**.
@@ -202,13 +234,15 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 
 ### Ayarları Yedekleme / Geri Yükleme
 - Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler, ekran seçimi ve video dışa aktarma dahil tüm uygulama ayarları tek JSON dosyasına aktarılabilir.
-- Kullanıcının oluşturduğu renk şablonları yedeğe özellikle dahil edilmez ve ayar dosyası içe aktarılırken değiştirilmez.
+- Kullanıcının oluşturduğu **renk şablonları ve sahneler** yedeğe özellikle dahil edilmez ve ayar dosyası içe aktarılırken korunur; ikisinin de kendi dışa/içe aktarma düğmeleri vardır.
 - İçe aktarılan ayarlar güncel varsayılanlarla birleştirilir; böylece yeni sürümlerde eklenen alanlar geçerli kalır.
 
 ### Güç / Performans
-- Kare hızı (30/60/120/sınırsız), arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
-
----
+- **Kare hızı:** *Ekranla Eşitle* (her ekran yenilemesinde bir kare — en akıcısı) veya en fazla
+  120 / 60 / 30 FPS. Sınır, ekranın yenileme hızının tam böleni değilse (75 Hz ekranda 60 gibi)
+  uzun vadeli ortalama doğru kalır ama kare aralıkları eşitsizleşir; en pürüzsüz sonuç için
+  *Ekranla Eşitle* önerilir.
+- Arkaplan çözünürlük ölçeği, sessizlikte duraklatma, imleç gizleme.
 
 ## 🔊 Ses yakalama nasıl çalışır (önemli)
 
@@ -244,10 +278,18 @@ src/
     i18n.js            # İngilizce/Türkçe çeviriler ve dil algılama
   admin/               # Yönetici paneli (kontrol arayüzü)
     index.html / admin.css / admin.js / settings.js
+    preview.js         # panel içindeki canlı önizleme (görselleştiriciyle aynı motor)
   exporter/            # Çevrimdışı ses dosyasından MP4 oluşturma penceresi
   visualizer/          # Görselleştirme ekranı
     index.html / visualizer.css / audio.js / visualizer.js
-    modes/             # gradient.js, bars.js, centerbars.js, wave.js, circular.js
+    modes/
+      gradient.js      # WebGL akışkan gradyan arkaplan
+      backgrounds.js   # 2D arkaplan modları (dalga, kutup ışıkları, yıldız, ızgara,
+                       #   bokeh, dijital yağmur, ağ, nabız halkaları)
+      glow.js          # tek geçişli parlama (bloom) yardımcısı
+      bars.js centerbars.js blocks.js dots.js wave.js ribbon.js terrain.js
+      circular.js radialwave.js starburst.js tunnel.js orb.js particles.js
+      spectrogram.js sprites.js
 scripts/
   start.js             # GUI başlatıcı (ELECTRON_RUN_AS_NODE'u temizler)
   gen-icons.js         # SVG -> ikonlar
@@ -263,8 +305,10 @@ Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosy
 
 | Tuş | İşlev |
 |-----|-------|
-| `ESC` | Görselleştirme ekranını kapat |
+| `Ctrl` + `K` | Panelde ayar ara |
+| `ESC` | Görselleştirme ekranını kapat / aramayı temizle |
 | Ekrana tıklama | Ses başlatılamadıysa yeniden dene |
+
 
 ---
 

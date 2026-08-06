@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="admin.css" />
   </head>
   <body>
+    <!-- ================= ÜST ÇUBUK ================= -->
     <header class="topbar">
       <div class="brand">
         <svg class="brand-logo" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" aria-label="CAYADEV">
@@ -31,10 +32,17 @@
           </g>
           <rect x="476" y="486" width="72" height="52" rx="26" fill="#ffffff" opacity="0.92"/>
         </svg>
-        <div>
+        <div class="brand-text">
           <h1 class="wordmark"><span class="cw-red">CAYA</span><span class="cw-white">DEV</span></h1>
           <span class="sub">Ses Görselleştirici · Yönetici Paneli</span>
         </div>
+      </div>
+
+      <div class="topsearch">
+        <span class="ts-icon">🔍</span>
+        <input id="searchInput" type="text" placeholder="Tüm ayarlarda ara…" autocomplete="off" spellcheck="false" />
+        <kbd class="ts-kbd">Ctrl K</kbd>
+        <div id="searchResults" class="search-results hidden"></div>
       </div>
 
       <div class="display-controls">
@@ -48,18 +56,18 @@
           <span id="statusDot" class="dot off"></span>
           <span id="statusText">Kapalı</span>
         </div>
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ayarlar" title="Ayarlar">⚙</button>
       </div>
     </header>
 
+    <!-- ================= UYARI BANDI ================= -->
     <div id="banner" class="banner hidden">
       <span class="bicon">⚠️</span>
       <div class="btext">
         <strong>Ses çıkışı yakalanamadı.</strong>
         <span id="bannerDetail">Çıkış aygıtı yakalanamadı.</span>
-        <div class="bhelp">
-          Farklı bir <b>Çıkış Aygıtı</b> seçmeyi deneyin veya <b>🔄 Aygıtları Yenile</b>'ye basın.
-          Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.
-        </div>
+        <!-- Tek metin düğümü: çeviri tam dizeyle eşleştiği için içeride etiket yok -->
+        <div class="bhelp">Farklı bir Çıkış Aygıtı seçmeyi deneyin veya 🔄 Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.</div>
       </div>
       <div class="banner-actions">
         <button id="repairAudioBtn" class="btn small">Otomatik Onar</button>
@@ -67,22 +75,86 @@
       </div>
     </div>
 
-    <div class="meter-strip">
-      <div class="meter"><label>Genel</label><div class="bar"><i id="mLevel"></i></div></div>
-      <div class="meter"><label>Bas</label><div class="bar"><i id="mBass"></i></div></div>
-      <div class="meter"><label>Orta</label><div class="bar"><i id="mMid"></i></div></div>
-      <div class="meter"><label>Tiz</label><div class="bar"><i id="mTreble"></i></div></div>
-      <div id="audioState" class="audio-state">Ses bekleniyor…</div>
+    <!-- ================= ÇALIŞMA ALANI (3 sütun) ================= -->
+    <div class="workspace">
+      <!-- --- Sol: kategori rayı --- -->
+      <nav id="navRail" class="nav-rail" aria-label="Kategoriler"></nav>
+
+      <!-- --- Orta: seçili kategorinin kartları --- -->
+      <main class="work">
+        <div class="work-head">
+          <div class="wh-main">
+            <h2 id="catTitle">Sahne</h2>
+            <p id="catDesc" class="wh-desc"></p>
+          </div>
+          <div class="wh-actions">
+            <label class="adv-toggle" title="Gelişmiş ayarları göster">
+              <input id="advToggle" type="checkbox" />
+              <span class="track"></span>
+              <span class="adv-label">Gelişmiş</span>
+            </label>
+            <button id="catResetBtn" class="btn ghost small" title="Bu kategoriyi varsayılana döndür">↺ Kategoriyi Sıfırla</button>
+          </div>
+        </div>
+        <div id="sections" class="sections"></div>
+      </main>
+
+      <!-- --- Sağ: canlı önizleme + izleme --- -->
+      <aside class="dock" id="dock">
+        <section class="dock-block">
+          <div class="dock-head">
+            <h3>Canlı Önizleme</h3>
+            <div class="dock-head-actions">
+              <span id="previewSource" class="pill">Demo</span>
+              <button id="previewToggle" class="icon-btn small" type="button" title="Önizlemeyi duraklat/başlat">⏸</button>
+            </div>
+          </div>
+          <div id="previewStage" class="preview-stage">
+            <canvas id="pvGl"></canvas>
+            <canvas id="pvBg2d"></canvas>
+            <canvas id="pvBack"></canvas>
+            <canvas id="pv2d"></canvas>
+            <canvas id="pvFront"></canvas>
+            <img id="pvLogo" alt="" />
+            <span class="preview-badge">16:9</span>
+          </div>
+          <p class="dock-note">Ayarları değiştirdikçe burada anında görürsünüz. Ses yokken örnek bir sinyalle sürülür.</p>
+        </section>
+
+        <section class="dock-block">
+          <div class="dock-head">
+            <h3>Ses Seviyesi</h3>
+            <span id="audioState" class="audio-state">Ses bekleniyor…</span>
+          </div>
+          <div class="meter-strip">
+            <div class="meter"><label>Genel</label><div class="bar"><i id="mLevel"></i></div></div>
+            <div class="meter"><label>Bas</label><div class="bar"><i id="mBass"></i></div></div>
+            <div class="meter"><label>Orta</label><div class="bar"><i id="mMid"></i></div></div>
+            <div class="meter"><label>Tiz</label><div class="bar"><i id="mTreble"></i></div></div>
+          </div>
+        </section>
+
+        <section class="dock-block dock-grow">
+          <div class="dock-head">
+            <h3>Sahneler</h3>
+            <button id="sceneSaveBtn" class="btn small" type="button" title="Mevcut görünümü yeni sahne olarak kaydet">＋ Kaydet</button>
+          </div>
+          <div id="sceneList" class="scene-list"></div>
+          <div class="scene-toolbar">
+            <button id="sceneExportBtn" class="btn ghost small" type="button">📤 Dışa Aktar</button>
+            <button id="sceneImportBtn" class="btn ghost small" type="button">📥 İçe Aktar</button>
+          </div>
+        </section>
+      </aside>
     </div>
 
-    <main id="sections" class="sections"></main>
-
+    <!-- ================= ALT ÇUBUK ================= -->
     <footer class="footer">
       <button id="resetBtn" class="btn ghost small">↺ Varsayılanlara Sıfırla</button>
       <span class="hint">Görselleştirme ekranında <kbd>ESC</kbd> ile çıkış • Ayarlar otomatik kaydedilir</span>
     </footer>
 
-    <button id="settingsBtn" class="settings-fab" type="button" aria-label="Ayarlar" title="Ayarlar">⚙</button>
+    <!-- ================= AYARLAR PENCERESİ ================= -->
     <div id="settingsBackdrop" class="settings-backdrop hidden" aria-hidden="true">
       <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
         <div class="settings-head">
@@ -103,6 +175,26 @@
 
     <script src="../shared/defaults.js"></script>
     <script src="../shared/i18n.js"></script>
+    <script src="../visualizer/audio.js"></script>
+    <script src="../visualizer/modes/glow.js"></script>
+    <script src="../visualizer/modes/gradient.js"></script>
+    <script src="../visualizer/modes/backgrounds.js"></script>
+    <script src="../visualizer/modes/bars.js"></script>
+    <script src="../visualizer/modes/centerbars.js"></script>
+    <script src="../visualizer/modes/wave.js"></script>
+    <script src="../visualizer/modes/circular.js"></script>
+    <script src="../visualizer/modes/blocks.js"></script>
+    <script src="../visualizer/modes/spectrogram.js"></script>
+    <script src="../visualizer/modes/ribbon.js"></script>
+    <script src="../visualizer/modes/orb.js"></script>
+    <script src="../visualizer/modes/starburst.js"></script>
+    <script src="../visualizer/modes/tunnel.js"></script>
+    <script src="../visualizer/modes/dots.js"></script>
+    <script src="../visualizer/modes/radialwave.js"></script>
+    <script src="../visualizer/modes/particles.js"></script>
+    <script src="../visualizer/modes/terrain.js"></script>
+    <script src="../visualizer/modes/sprites.js"></script>
+    <script src="preview.js"></script>
     <script src="settings.js"></script>
     <script src="admin.js"></script>
   </body>

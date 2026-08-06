@@ -6,6 +6,7 @@
     constructor(canvas) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
     }
     resize() {}
 
@@ -26,8 +27,8 @@
       const center = (count - 1) / 2;
       const half = Math.max(1, count / 2);
 
+      // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
       ctx.save();
-      if (v.glow > 0) ctx.shadowBlur = 18 * v.glow;
 
       for (let i = 0; i < count; i++) {
         // baslar ortada: merkeze uzaklık -> frekans bandı
@@ -45,7 +46,6 @@
           col = v.color;
         }
         ctx.fillStyle = col;
-        if (v.glow > 0) ctx.shadowColor = col;
 
         roundRect(ctx, x, midY - bh, bw, bh, bw * 0.4);
         ctx.fill();
@@ -53,6 +53,8 @@
         ctx.fill();
       }
       ctx.restore();
+
+      this.glow.apply(this.canvas, v.glow, 0.9);
     }
     dispose() {}
   }

@@ -12,6 +12,23 @@
   let lightingIdentity = { portable: false, packaged: false, hasIdentity: false, canInstall: false };
   let pushTimer = null;
 
+  // Arayüz durumu (yapılandırmaya değil, yerel depolamaya yazılır)
+  let activeCategory = localStorage.getItem('sv-category') || 'scene';
+  let advancedOn = localStorage.getItem('sv-advanced') === '1';
+  let activeSceneId = null;
+  let sceneActionInFlight = false; // sahne uygula/kaydet sırasındaki push'lar vurguyu silmesin
+  // Önizlemenin gerçek sesi yakalaması kullanıcı isteğine bağlıdır (varsayılan: demo)
+  let previewWantsLive = localStorage.getItem('sv-preview-live') === '1';
+  let previewReady = false;
+
+  // Etkin sahne vurgusunu kaldır (tam yeniden çizim gerektirmez)
+  function clearActiveScene() {
+    activeSceneId = null;
+    document
+      .querySelectorAll('#sceneList .scene-item.active, .up-item.active')
+      .forEach((n) => n.classList.remove('active'));
+  }
+
   // Video dışa aktarma durumu
   let exportAudioPath = null;
   let exportAudioName = '';
@@ -24,6 +41,10 @@
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
   function push(immediate) {
+    // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
+    if (activeSceneId && !sceneActionInFlight) clearActiveScene();
+    // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
+    if (window.SVPreview) window.SVPreview.setConfig(cfg);
     if (immediate) {
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = null;
@@ -114,6 +135,12 @@
         return exportPanelCtrl(def);
       case 'lightingpanel':
         return lightingPanelCtrl(def);
+      case 'note':
+        return el('div', { class: 'ctrl settings-io-note', text: def.text });
+      case 'scenes':
+        return scenesCtrl(def);
+      case 'displaypicker':
+        return displayPickerCtrl(def);
       default:
         return null;
     }
@@ -335,9 +362,115 @@
     const expBtn = el('button', { class: 'btn ghost small', text: '📤 Tüm Ayarları Dışa Aktar', onclick: () => actions.exportAllSettings() });
     const impBtn = el('button', { class: 'btn ghost small', text: '📥 Ayarları İçe Aktar', onclick: () => actions.importAllSettings() });
     return el('div', { class: 'ctrl settings-io-panel' }, [
-      el('div', { class: 'settings-io-note', text: 'Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler ve video dışa aktarma ayarlarını JSON dosyasına kaydeder. Kullanıcı renk şablonları dosyaya dahil edilmez ve içe aktarma sırasında korunur.' }),
+      el('div', { class: 'settings-io-note', text: 'Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler ve video dışa aktarma ayarlarını JSON dosyasına kaydeder. Renk şablonlarınız ve sahneleriniz dosyaya dahil edilmez ve içe aktarma sırasında korunur; onların kendi dışa aktarma düğmeleri vardır.' }),
       el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
     ]);
+  }
+
+  // --- Sahneler (tüm görünümün anlık görüntüsü) ---
+  // Bir sahne yalnızca "görünüm" alanlarını taşır; ses aygıtı, ekran, performans
+  // ve dışa aktarma ayarları sahneden bağımsızdır.
+  const SCENE_KEYS = ['background', 'visualizer', 'logo', 'images'];
+
+  function sceneGradient(scene) {
+    const bg = scene && scene.data && scene.data.background;
+    if (!bg) return 'linear-gradient(135deg,#2a1f2e,#161013)';
+    if (bg.type === 'solid') return bg.solidColor || '#08080f';
+    const cols = (bg.gradient && bg.gradient.colors) || [];
+    if (!cols.length) return 'linear-gradient(135deg,#2a1f2e,#161013)';
+    return 'linear-gradient(135deg,' + cols.join(',') + ')';
+  }
+
+  function sceneSummary(scene) {
+    const d = (scene && scene.data) || {};
+    const type = (d.visualizer && d.visualizer.type) || 'none';
+    const names = {
+      none: 'Kapalı', bars: 'Barlar', centerBars: 'Merkez', blocks: 'Segment',
+      dots: 'Nokta Matris', wave: 'Dalga', ribbon: 'Şerit', terrain: 'Arazi',
+      circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın',
+      tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', spectrogram: 'Spektrogram',
+    };
+    const parts = [names[type] || type];
+    if (d.logo && d.logo.enabled) parts.push('Logo');
+    if (d.images && d.images.enabled && (d.images.items || []).length) parts.push('Nesneler');
+    // Birleştirilmiş metin çeviri gözlemcisiyle eşleşmeyeceği için parçalar
+    // birleştirilmeden önce çevrilir
+    return parts.map(tr).join(' · ');
+  }
+
+  function scenesCtrl() {
+    ensureScenes();
+    const list = el('div', { class: 'user-presets' });
+    if (!cfg.scenes.length) {
+      list.appendChild(
+        el('div', {
+          class: 'up-empty',
+          text: 'Henüz sahne yok. Beğendiğiniz görünümü ayarlayıp “Mevcut Görünümü Kaydet”e basın; daha sonra tek tıkla geri dönersiniz.',
+        })
+      );
+    }
+    cfg.scenes.forEach((sc) => {
+      const swatch = el('div', {
+        class: 'up-swatch',
+        title: 'Bu sahneyi uygula',
+        style: 'background:' + sceneGradient(sc),
+        onclick: () => actions.applyScene(sc.id),
+      });
+      const name = el('input', {
+        class: 'up-name', type: 'text', value: sc.name || 'Sahne', title: 'Sahne adı',
+      });
+      name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
+      const applyBtn = el('button', { class: 'btn small', text: 'Uygula', onclick: () => actions.applyScene(sc.id) });
+      const updBtn = el('button', { class: 'btn ghost small', text: '⟳ Güncelle', title: 'Mevcut görünümle güncelle', onclick: () => actions.updateScene(sc.id) });
+      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteScene(sc.id) });
+      list.appendChild(
+        el('div', { class: 'up-item' + (sc.id === activeSceneId ? ' active' : '') }, [
+          swatch,
+          el('div', { class: 'up-main' }, [
+            name,
+            el('div', { class: 'scene-meta', text: sceneSummary(sc) }),
+            el('div', { class: 'up-actions' }, [applyBtn, updBtn, delBtn]),
+          ]),
+        ])
+      );
+    });
+
+    const toolbar = el('div', { class: 'up-toolbar' }, [
+      el('button', { class: 'btn small', text: '💾 Mevcut Görünümü Kaydet', onclick: () => actions.saveScene() }),
+      el('button', { class: 'btn ghost small', text: '📤 Dışa Aktar', onclick: () => actions.exportScenes() }),
+      el('button', { class: 'btn ghost small', text: '📥 İçe Aktar', onclick: () => actions.importScenes() }),
+    ]);
+
+    return el('div', { class: 'ctrl' }, [list, toolbar]);
+  }
+
+  // --- Ekran seçici (üst çubuktakiyle aynı listeyi kart içinde gösterir) ---
+  function displayPickerCtrl() {
+    const wrap = el('div', { class: 'ctrl' });
+    const list = el('div', { class: 'source-list' });
+    displays.forEach((d) => {
+      const row = el('label', { class: 'source-item' }, [
+        el('input', {
+          type: 'radio', name: 'displayPick',
+          onchange: () => {
+            selectedDisplayId = d.id;
+            cfg.display = cfg.display || {};
+            cfg.display.id = d.id;
+            renderDisplays();
+            push(false);
+          },
+        }),
+        el('span', { class: 'source-icon', text: d.isPrimary ? '🖥️' : '🖵' }),
+        el('span', { class: 'source-name', text: `${d.label} — ${d.size.width}×${d.size.height}` }),
+      ]);
+      if (d.id === selectedDisplayId) row.querySelector('input').checked = true;
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    wrap.appendChild(
+      el('div', { class: 'settings-io-note', style: 'margin-top:10px', text: 'Görselleştirme seçili ekranda tam ekran açılır; ESC ile kapanır.' })
+    );
+    return wrap;
   }
 
   // --- Ek görsel nesneler / partiküller yöneticisi ---
@@ -975,16 +1108,145 @@
     return el('div', { class: 'lighting-panel' }, children);
   }
 
+  // Kategoriler — sol raydaki üst düzey gruplar
+  // --------------------------------------------------------------------------
+  const CATEGORIES = [
+    {
+      id: 'scene', icon: '🎨', title: 'Sahne',
+      desc: 'Ekranda görünen her şey: arkaplan, görselleştirici, logo ve görsel nesneler.',
+    },
+    {
+      id: 'audio', icon: '🔊', title: 'Ses',
+      desc: 'Hangi sesin yakalanacağı ve görüntüye nasıl çevrileceği.',
+    },
+    {
+      id: 'lighting', icon: '💡', title: 'Işık',
+      desc: 'Windows Dynamic Lighting ile uyumlu RGB aygıtlarını müzikle senkronize edin.',
+    },
+    {
+      id: 'output', icon: '📺', title: 'Çıkış',
+      desc: 'Görüntünün nereye ve nasıl gideceği: ekran, performans ve video dosyası.',
+    },
+    {
+      id: 'library', icon: '📚', title: 'Kitaplık',
+      desc: 'Kayıtlı sahneler, renk şablonları ve ayar yedekleri.',
+    },
+  ];
+
+  // Arkaplan modlarına özel ayarlar.
+  // Her mod kendi ayar bloğunu (background.<mod>) taşır; yalnızca o mod
+  // seçiliyken görünür. Yeni bir mod eklemek = buraya bir satır eklemek.
+  // [yol, etiket, min, max, adım, yüzde mi]
+  const BG_MODE_CONTROLS = {
+    starfield: [
+      ['count', 'Yıldız Sayısı', 40, 1200, 10],
+      ['size', 'Yıldız Boyutu', 0.3, 3, 0.05],
+      ['trail', 'Hız İzi', 0, 3, 0.05],
+      ['depth', 'Derinlik', 0.4, 2.5, 0.05],
+      ['twinkle', 'Parıldama', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
+    ],
+    grid: [
+      ['horizon', 'Ufuk Yüksekliği', 0.15, 0.85, 0.01, true],
+      ['rows', 'Yatay Çizgi Sayısı', 4, 60, 1],
+      ['cols', 'Dikey Çizgi Sayısı', 4, 80, 1],
+      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
+      ['horizonGlow', 'Ufuk Parlaması', 0, 2, 0.02],
+      ['skyIntensity', 'Gökyüzü Yoğunluğu', 0, 1.5, 0.02],
+      ['spectrumBars', 'Spektrum Tepkisi', 0, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
+    ],
+    waves: [
+      ['layers', 'Katman Sayısı', 1, 14, 1],
+      ['amplitude', 'Tepe Yüksekliği', 0.2, 3, 0.05],
+      ['frequency', 'Dalga Sıklığı', 0.2, 3, 0.05],
+      ['spread', 'Katman Aralığı', 0.3, 2, 0.05],
+      ['opacity', 'Saydamlık', 0.2, 1.5, 0.02],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    bokeh: [
+      ['count', 'Işık Sayısı', 4, 160, 1],
+      ['size', 'Boyut', 0.2, 3, 0.05],
+      ['sizeVar', 'Boyut Çeşitliliği', 0, 2, 0.05],
+      ['drift', 'Süzülme', 0, 3, 0.05],
+      ['pulse', 'Bas Nabzı', 0, 2, 0.02],
+      ['opacity', 'Saydamlık', 0.2, 2, 0.02],
+    ],
+    rain: [
+      ['columns', 'Sütun Sayısı', 10, 240, 2],
+      ['speed', 'Düşme Hızı', 0.2, 4, 0.05],
+      ['trail', 'İz Uzunluğu', 0.1, 3, 0.05],
+      ['density', 'Yoğunluk', 0.1, 1, 0.02, true],
+      ['thickness', 'Kalınlık', 0.2, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    aurora: [
+      ['bands', 'Perde Sayısı', 1, 12, 1],
+      ['amplitude', 'Dalgalanma', 0.2, 3, 0.05],
+      ['thickness', 'Perde Kalınlığı', 0.2, 3, 0.05],
+      ['softness', 'Kenar Yumuşaklığı', 0.4, 3, 0.05],
+      ['height', 'Dikey Konum', 0.1, 0.9, 0.01, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    network: [
+      ['nodes', 'Düğüm Sayısı', 8, 220, 2],
+      ['linkDist', 'Bağlantı Mesafesi', 0.04, 0.5, 0.01],
+      ['nodeSize', 'Düğüm Boyutu', 0.2, 4, 0.05],
+      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
+      ['speed', 'Hareket Hızı', 0.1, 4, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    rings: [
+      ['rate', 'Halka Sıklığı', 0.2, 10, 0.1],
+      ['speed', 'Genişleme Hızı', 0.2, 4, 0.05],
+      ['thickness', 'Kalınlık', 0.2, 4, 0.05],
+      ['beatSpawn', 'Darbede Halka', 0, 3, 0.05],
+      ['fade', 'Sönme', 0.2, 3, 0.05],
+    ],
+  };
+
+  function bgModeControls() {
+    const out = [];
+    Object.keys(BG_MODE_CONTROLS).forEach((mode) => {
+      BG_MODE_CONTROLS[mode].forEach(([key, label, min, max, step, percent]) => {
+        out.push({
+          type: 'slider',
+          path: 'background.' + mode + '.' + key,
+          label,
+          min, max, step,
+          percent: !!percent,
+          show: () => cfg.background.type === mode,
+          group: 'Mod Ayarları',
+        });
+      });
+    });
+    return out;
+  }
+
   // Bölüm şeması
+  // Her kontrol isteğe bağlı olarak şunları taşır:
+  //   group    — kart içindeki alt başlık
+  //   advanced — "Gelişmiş" kapalıyken gizlenir (yeni ayarların varsayılanı)
   // --------------------------------------------------------------------------
   function sectionSchema() {
     const v = cfg.visualizer;
-    const isBarsLike = v.type === 'bars' || v.type === 'circular' || v.type === 'centerBars';
+    const isGradient = () => cfg.background.type === 'gradient';
+    // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
+    const usesPalette = () => cfg.background.type !== 'solid';
+    // Frekans bandı okuyan ön modlar (bar sayısı / frekans aralığı anlamlı)
+    const usesBands = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'spectrogram', 'starburst', 'terrain', 'orb', 'tunnel'];
+    const isBandMode = () => usesBands.indexOf(v.type) >= 0;
+    // Bar benzeri geometriye sahip modlar (aralarındaki boşluk anlamlı)
+    const hasGap = () => ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'starburst'].indexOf(v.type) >= 0;
+    // Dalga formu çizen modlar (çizgi kalınlığı / genlik anlamlı)
+    const isWaveMode = () => ['wave', 'ribbon', 'radialWave', 'terrain', 'orb'].indexOf(v.type) >= 0;
     return [
       {
-        icon: '🔊',
+        id: 'sources',
+        category: 'audio',
+        icon: '🎙️',
         title: 'Ses Kaynakları',
-        desc: 'Birden fazla kaynak seçilebilir ve karıştırılır. 🔊 Loopback (sistem sesi), 🎤 Mikrofon (giriş aygıtı).',
+        desc: 'Birden fazla kaynak seçilip karıştırılabilir. 🔊 Loopback (sistem sesi), 🎤 Mikrofon.',
         controls: [
           {
             type: 'multisource',
@@ -993,25 +1255,50 @@
             devices: () => audioDevices,
           },
           { type: 'button', label: '🔄 Aygıtları Yenile', action: 'refreshDevices' },
+        ],
+      },
+      {
+        id: 'analysis',
+        category: 'audio',
+        icon: '📈',
+        title: 'Ses Analizi',
+        desc: 'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.',
+        controls: [
           { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', min: 0.2, max: 4, step: 0.05 },
           { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true },
           { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', min: 1, max: 4, step: 0.05 },
         ],
       },
       {
+        id: 'lighting',
+        category: 'lighting',
         icon: '💡',
+        wide: true,
         title: 'Windows Dynamic Lighting',
         desc: 'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.',
         controls: [{ type: 'lightingpanel' }],
       },
       {
+        id: 'background',
+        category: 'scene',
         icon: '🌫️',
-        title: 'Arkaplan (Akışkan Gradyan)',
-        desc: 'Sese tepki veren sisli/akışkan fon. Renkler ve hazır şablonlar.',
+        title: 'Arkaplan',
+        desc: 'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.',
         controls: [
           {
-            type: 'segment', path: 'background.type', label: 'Tür',
-            options: [{ value: 'gradient', label: 'Akışkan Gradyan' }, { value: 'solid', label: 'Düz Renk' }],
+            type: 'segment', path: 'background.type', label: 'Tür', rebuild: true,
+            options: [
+              { value: 'gradient', label: 'Akışkan Gradyan' },
+              { value: 'waves', label: 'Dalga Katmanları' },
+              { value: 'aurora', label: 'Kutup Işıkları' },
+              { value: 'starfield', label: 'Yıldız Alanı' },
+              { value: 'grid', label: 'Retro Izgara' },
+              { value: 'bokeh', label: 'Işık Parçacıkları' },
+              { value: 'rain', label: 'Dijital Yağmur' },
+              { value: 'network', label: 'Ağ' },
+              { value: 'rings', label: 'Nabız Halkaları' },
+              { value: 'solid', label: 'Düz Renk' },
+            ],
           },
           { type: 'color', path: 'background.solidColor', label: 'Düz Renk', show: () => cfg.background.type === 'solid' },
           {
@@ -1022,84 +1309,135 @@
             ],
             show: () => cfg.background.type === 'gradient',
           },
-          { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)', show: () => cfg.background.type === 'gradient' },
-          { type: 'presets', show: () => cfg.background.type === 'gradient' },
-          { type: 'userpresets', show: () => cfg.background.type === 'gradient' },
-          { type: 'bgio' },
-          { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.wander', label: 'Gezinme Alanı', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.orbit', label: 'Dolanma Miktarı', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.swirl', label: 'İç Dönüş (Swirl)', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.scale', label: 'Ölçek (Yoğunluk)', min: 0.4, max: 3, step: 0.05, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.warp', label: 'Bozulma (Akışkanlık)', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi (Dalgalanma)', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.brightness', label: 'Parlaklık (Temel)', min: 0.4, max: 1.6, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.audioBrightness', label: 'Ses Patlaması (Parlaklık)', min: 0, max: 2, step: 0.02, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.audioHue', label: 'Ses ile Renk Kayması', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.background.type === 'gradient' },
-          { type: 'toggle', path: 'background.gradient.hideLines', label: 'Hat Çizgilerini Gizle', show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.grain', label: 'Gren', min: 0, max: 0.2, step: 0.005, show: () => cfg.background.type === 'gradient' },
-          { type: 'slider', path: 'background.gradient.vignette', label: 'Vinyet', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.background.type === 'gradient' },
+          { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)', show: usesPalette },
+          { type: 'presets', show: usesPalette },
+          { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', min: 0, max: 2, step: 0.02, show: usesPalette },
+          { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi', min: 0, max: 2, step: 0.02, show: usesPalette },
+
+          // --- Hareket (gelişmiş) ---
+          { type: 'slider', path: 'background.gradient.drift', label: 'Tek Yönlü Kayma', min: 0, max: 1, step: 0.01, percent: true, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.wander', label: 'Gezinme Alanı', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.orbit', label: 'Dolanma Miktarı', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.swirl', label: 'İç Dönüş (Swirl)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+          { type: 'slider', path: 'background.gradient.warp', label: 'Bozulma (Akışkanlık)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Hareket', advanced: true },
+
+          // --- Görünüm (gelişmiş) ---
+          { type: 'slider', path: 'background.gradient.scale', label: 'Ölçek (Yoğunluk)', min: 0.4, max: 3, step: 0.05, show: isGradient, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.brightness', label: 'Parlaklık (Temel)', min: 0.4, max: 1.6, step: 0.02, show: usesPalette, group: 'Görünüm', advanced: true },
+          { type: 'toggle', path: 'background.gradient.hideLines', label: 'Hat Çizgilerini Gizle', show: isGradient, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.grain', label: 'Gren', min: 0, max: 0.2, step: 0.005, show: isGradient, group: 'Görünüm', advanced: true },
+          { type: 'slider', path: 'background.gradient.vignette', label: 'Vinyet', min: 0, max: 1, step: 0.02, percent: true, show: usesPalette, group: 'Görünüm', advanced: true },
+
+          // --- Ses tepkisi (gelişmiş) ---
+          { type: 'slider', path: 'background.gradient.audioBrightness', label: 'Ses Patlaması (Parlaklık)', min: 0, max: 2, step: 0.02, show: isGradient, group: 'Sese Tepki', advanced: true},
+          { type: 'slider', path: 'background.gradient.audioHue', label: 'Ses ile Renk Kayması', min: 0, max: 1, step: 0.02, percent: true, show: isGradient, group: 'Sese Tepki', advanced: true},
+
+          // --- Seçili arkaplan moduna özel ayarlar ---
+          ...bgModeControls(),
         ],
       },
       {
+        id: 'palettes',
+        category: 'library',
+        icon: '🎨',
+        title: 'Renk Şablonlarım',
+        desc: 'Beğendiğiniz arkaplan renklerini kaydedin; tek tıkla geri yükleyin.',
+        controls: [
+          { type: 'userpresets' },
+          { type: 'bgio' },
+        ],
+      },
+      {
+        id: 'visualizer',
+        category: 'scene',
         icon: '📊',
         title: 'Görselleştirici',
-        desc: 'Sese duyarlı ön efekt. Frekans barları, dalga veya çember.',
+        desc: 'Sese duyarlı ön efekt: barlar, dalga, çember, tünel, spektrogram ve daha fazlası.',
         controls: [
           {
-            type: 'segment', path: 'visualizer.type', label: 'Tür',
+            type: 'segment', path: 'visualizer.type', label: 'Tür', rebuild: true,
             options: [
               { value: 'none', label: 'Kapalı' },
               { value: 'bars', label: 'Barlar' },
               { value: 'centerBars', label: 'Merkez' },
+              { value: 'blocks', label: 'Segment' },
+              { value: 'dots', label: 'Nokta Matris' },
               { value: 'wave', label: 'Dalga' },
+              { value: 'ribbon', label: 'Şerit' },
+              { value: 'terrain', label: 'Arazi' },
               { value: 'circular', label: 'Çember' },
+              { value: 'radialWave', label: 'Dairesel Dalga' },
+              { value: 'starburst', label: 'Işın' },
+              { value: 'tunnel', label: 'Tünel' },
+              { value: 'orb', label: 'Küre' },
+              { value: 'particles', label: 'Parçacık' },
+              { value: 'spectrogram', label: 'Spektrogram' },
             ],
           },
           { type: 'toggle', path: 'visualizer.rainbow', label: 'Gökkuşağı (Rainbow)', rebuild: true, show: () => v.type !== 'none' },
           { type: 'color', path: 'visualizer.color', label: 'Renk', show: () => v.type !== 'none' && !v.rainbow },
-          { type: 'color', path: 'visualizer.color2', label: 'İkincil Renk', show: () => v.type === 'wave' && !v.rainbow },
+          { type: 'color', path: 'visualizer.color2', label: 'İkincil Renk', show: () => !v.rainbow && ['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain'].indexOf(v.type) >= 0 },
           { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
-          { type: 'slider', path: 'visualizer.glow', label: 'Parlama (Glow)', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type !== 'none' },
-          { type: 'slider', path: 'visualizer.barCount', label: 'Bar Sayısı', min: 16, max: 160, step: 1, show: () => isBarsLike },
-          { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: () => isBarsLike },
-          { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', min: 2000, max: 20000, step: 100, show: () => isBarsLike },
-          { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, show: () => isBarsLike },
+          // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
+          { type: 'slider', path: 'visualizer.glow', label: 'Parlama (Glow)', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type !== 'none' && v.type !== 'spectrogram' },
           {
             type: 'segment', path: 'visualizer.position', label: 'Yerleşim',
             options: [{ value: 'bottom', label: 'Alt' }, { value: 'center', label: 'Orta' }, { value: 'full', label: 'Tam' }],
             show: () => v.type === 'bars',
           },
-          { type: 'toggle', path: 'visualizer.mirror', label: 'Ayna (Simetri)', show: () => v.type === 'bars' || v.type === 'wave' },
-          { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: () => v.type === 'wave' },
-          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', min: 0.1, max: 1, step: 0.02, percent: true, show: () => v.type === 'wave' },
+
+          // --- Bar/segment geometrisi (gelişmiş) ---
+          { type: 'slider', path: 'visualizer.barCount', label: 'Bar Sayısı', min: 16, max: 160, step: 1, show: isBandMode, group: 'Bar Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, show: hasGap, group: 'Bar Biçimi', advanced: true },
+          { type: 'toggle', path: 'visualizer.mirror', label: 'Ayna (Simetri)', show: () => ['bars', 'wave', 'radialWave'].indexOf(v.type) >= 0, group: 'Bar Biçimi', advanced: true },
+
+          // --- Dalga / çizgi biçimi (gelişmiş) ---
+          { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', min: 0.1, max: 1, step: 0.02, percent: true, show: () => ['wave', 'ribbon', 'radialWave'].indexOf(v.type) >= 0, group: 'Dalga Biçimi', advanced: true },
+
+          // --- Frekans aralığı (gelişmiş) ---
+          { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
+          { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', min: 2000, max: 20000, step: 100, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
         ],
       },
       {
+        id: 'logo',
+        category: 'scene',
         icon: '🖼️',
         title: 'Logo / Resim',
-        desc: 'Merkeze resim yerleştir; otomatik boyutlandırılır ve nabız atar.',
+        desc: 'Sahneye bir resim yerleştirin; sese göre nabız atar.',
         controls: [
           { type: 'toggle', path: 'logo.enabled', label: 'Logo Göster', rebuild: true },
           { type: 'logofile', show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
-          { type: 'slider', path: 'logo.glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
-          { type: 'xy', show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
+          { type: 'xy', show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
         ],
       },
       {
+        id: 'images',
+        category: 'scene',
         icon: '✨',
-        title: 'Görsel Nesneler / Partiküller',
-        desc: 'Bir veya birden fazla resim ekle; sahnede süzülsün, yörünge çizsin, sese göre saçılsın. Boyut, hız, saydamlık, ışıltı ve katman ayarlanır.',
+        title: 'Görsel Nesneler',
+        desc: 'Resim ekleyin; sahnede süzülsün, yörünge çizsin, sese göre saçılsın.',
         controls: [
           { type: 'toggle', path: 'images.enabled', label: 'Görsel Nesneleri Etkinleştir', rebuild: true },
           { type: 'images', show: () => cfg.images && cfg.images.enabled },
         ],
       },
       {
+        id: 'display',
+        category: 'output',
+        icon: '🖥️',
+        title: 'Ekran',
+        desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
+        controls: [{ type: 'displaypicker' }],
+      },
+      {
+        id: 'power',
+        category: 'output',
         icon: '⚡',
         title: 'Güç / Performans',
         desc: 'Kare hızı, çözünürlük ölçeği ve enerji ayarları.',
@@ -1107,27 +1445,44 @@
           {
             type: 'select', path: 'power.fpsCap', label: 'Kare Hızı (FPS)', numeric: true,
             options: [
-              { value: 30, label: '30 FPS (Düşük güç)' },
-              { value: 60, label: '60 FPS (Dengeli)' },
-              { value: 120, label: '120 FPS (Akıcı)' },
-              { value: 0, label: 'Sınırsız' },
+              { value: 0, label: 'Ekranla Eşitle — en akıcı (önerilen)' },
+              { value: 120, label: 'En fazla 120 FPS' },
+              { value: 60, label: 'En fazla 60 FPS' },
+              { value: 30, label: 'En fazla 30 FPS (düşük güç)' },
             ],
           },
+          {
+            type: 'note',
+            text: 'Ekranla Eşitle, her ekran yenilemesinde bir kare çizer; en akıcı sonucu verir. Ekranınızın yenileme hızının tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapabilir.',
+          },
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true },
-          { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat' },
-          { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle' },
+          { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
+          { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
         ],
       },
       {
+        id: 'scenes',
+        category: 'library',
+        icon: '🎬',
+        title: 'Sahneler',
+        desc: 'Arkaplan + görselleştirici + logo + görsel nesneleri tek isim altında saklayın.',
+        controls: [{ type: 'scenes' }],
+      },
+      {
+        id: 'backup',
+        category: 'library',
         icon: '💾',
         title: 'Ayarları Yedekle / Geri Yükle',
         desc: 'Renk şablonları hariç tüm uygulama ayarlarını tek JSON dosyasında taşıyın.',
         controls: [{ type: 'settingsio' }],
       },
       {
-        icon: '🎬',
+        id: 'export',
+        category: 'output',
+        icon: '🎞️',
+        wide: true,
         title: 'Video Dışa Aktar (MP3 → Video)',
-        desc: 'Bir ses dosyası seç; yukarıdaki görsel ayarlarla kayıpsız videoya dönüştürülür. Ekran/ses kaydı yapılmaz — her kare birebir render edilir, ses kaynaktan kopyalanır.',
+        desc: 'Bir ses dosyası seçin; mevcut sahne ayarlarıyla kayıpsız videoya dönüştürülür. Ekran kaydı değildir — her kare birebir render edilir.',
         controls: [
           { type: 'audiofile' },
           {
@@ -1148,6 +1503,7 @@
           },
           {
             type: 'select', path: 'export.encoder', label: 'Kodlayıcı (Hız)',
+            group: 'Kodlama', advanced: true,
             options: () =>
               gpuAvailable
                 ? [
@@ -1158,6 +1514,7 @@
           },
           {
             type: 'select', path: 'export.quality', label: 'Kalite',
+            group: 'Kodlama', advanced: true,
             options: [
               { value: 'visually-lossless', label: 'Görsel Kayıpsız (en yüksek)' },
               { value: 'high', label: 'Yüksek' },
@@ -1166,36 +1523,385 @@
           },
           {
             type: 'select', path: 'export.speed', label: 'Hız / Kalite Dengesi',
+            group: 'Kodlama', advanced: true,
             options: [
               { value: 'fast', label: '⚡ Hızlı (en hızlı dışa aktarım)' },
               { value: 'balanced', label: 'Dengeli (önerilen)' },
               { value: 'quality', label: 'Kalite (en yavaş, en iyi sıkıştırma)' },
             ],
           },
-          { type: 'exportpanel' },
+          { type: 'exportpanel', tail: true },
         ],
       },
     ];
   }
 
   // --------------------------------------------------------------------------
-  // Render
+  // "Varsayılandan farklı" tespiti
+  // --------------------------------------------------------------------------
+  function defaultAt(path) {
+    return getPath(window.SV.DEFAULT_CONFIG, path);
+  }
+
+  function isModified(path) {
+    if (!path) return false;
+    const cur = getPath(cfg, path);
+    const def = defaultAt(path);
+    if (def === undefined) return false;
+    if (typeof cur === 'object' || typeof def === 'object') {
+      return JSON.stringify(cur) !== JSON.stringify(def);
+    }
+    return cur !== def;
+  }
+
+  // Bir bölümdeki (kart) tüm ayar yolları — görünürlük koşullarından bağımsız
+  function sectionPaths(sec) {
+    const out = [];
+    sec.controls.forEach((c) => {
+      if (c.path && defaultAt(c.path) !== undefined) out.push(c.path);
+    });
+    // Şemada yolu olmayan özel paneller için ek kökler
+    if (sec.id === 'lighting') out.push('lighting');
+    if (sec.id === 'images') out.push('images');
+    return out;
+  }
+
+  function countModified(paths) {
+    return paths.filter(isModified).length;
+  }
+
+  function categoryModifiedCount(catId) {
+    let n = 0;
+    sectionSchema().forEach((sec) => {
+      if (sec.category !== catId) return;
+      n += countModified(sectionPaths(sec));
+    });
+    return n;
+  }
+
+  // --------------------------------------------------------------------------
+  // Sol kategori rayı
+  // --------------------------------------------------------------------------
+  function renderNav() {
+    const rail = $('navRail');
+    rail.innerHTML = '';
+    rail.appendChild(el('div', { class: 'nav-group-label', text: 'Kategoriler' }));
+    CATEGORIES.forEach((cat) => {
+      const n = categoryModifiedCount(cat.id);
+      const item = el(
+        'button',
+        {
+          class: 'nav-item' + (cat.id === activeCategory ? ' active' : ''),
+          type: 'button',
+          title: cat.desc,
+          onclick: () => setCategory(cat.id),
+        },
+        [
+          el('span', { class: 'nav-ico', text: cat.icon }),
+          el('span', { class: 'nav-label', text: cat.title }),
+          n > 0 ? el('span', { class: 'nav-badge', text: String(n), title: 'Varsayılandan farklı ayar sayısı' }) : null,
+        ]
+      );
+      rail.appendChild(item);
+    });
+    rail.appendChild(el('div', { class: 'nav-spacer' }));
+    rail.appendChild(
+      el('div', { class: 'nav-foot', text: 'Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.' })
+    );
+  }
+
+  function setCategory(id) {
+    if (activeCategory === id) return;
+    activeCategory = id;
+    localStorage.setItem('sv-category', id);
+    render();
+  }
+
+  // --------------------------------------------------------------------------
+  // Render — yalnızca seçili kategorinin kartları
   // --------------------------------------------------------------------------
   function render() {
     const root = $('sections');
+    const prevScroll = root.scrollTop;
     root.innerHTML = '';
-    sectionSchema().forEach((sec) => {
-      const card = el('div', { class: 'card' }, [
-        el('h2', {}, [el('span', { class: 'ico', text: sec.icon }), document.createTextNode(' ' + sec.title)]),
-        el('div', { class: 'desc', text: sec.desc }),
-      ]);
-      sec.controls.forEach((def) => {
-        if (def.show && !def.show()) return;
-        const c = buildControl(def);
-        if (c) card.appendChild(c);
-      });
-      root.appendChild(card);
+
+    const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
+    $('catTitle').textContent = cat.title;
+    $('catDesc').textContent = cat.desc;
+
+    const sections = sectionSchema().filter((s) => s.category === cat.id);
+    root.classList.toggle('single', sections.length === 1 || sections.every((s) => s.wide));
+
+    // Sıfırlanacak bir şey yoksa (ör. Kitaplık) düğme boşuna durmasın
+    const resettable = sections.some((s) => countModified(sectionPaths(s)) > 0);
+    $('catResetBtn').classList.toggle('hidden', !resettable);
+
+    sections.forEach((sec) => {
+      const card = buildCard(sec);
+      if (card) root.appendChild(card);
     });
+
+    renderNav();
+    root.scrollTop = prevScroll;
+    if (window.SVPreview) window.SVPreview.setConfig(cfg);
+  }
+
+  // Tek bir kart: başlık + gruplanmış kontroller (+ gelişmiş)
+  function buildCard(sec) {
+    const visible = sec.controls.filter((def) => !def.show || def.show());
+    // tail: eylem panelleri (ör. dışa aktarma düğmesi) en sona, gelişmiş bloğun
+    // da altına yerleşir — ayarların "başlat" düğmesinden sonra gelmemesi için
+    const basics = visible.filter((d) => !d.advanced && !d.tail);
+    const advanced = visible.filter((d) => d.advanced && !d.tail);
+    const tail = visible.filter((d) => d.tail);
+    const showAdvanced = advancedOn;
+
+    const modCount = countModified(sectionPaths(sec));
+    const head = el('div', { class: 'card-head' }, [
+      el('span', { class: 'ico', text: sec.icon }),
+      el('div', { class: 'ch-main' }, [
+        el('h3', { text: sec.title }),
+        sec.desc ? el('div', { class: 'desc', text: sec.desc }) : null,
+      ]),
+      el('div', { class: 'ch-actions' }, [
+        modCount > 0
+          ? el('span', { class: 'chip-mod', text: String(modCount), title: 'Varsayılandan farklı ayar sayısı' })
+          : null,
+        modCount > 0
+          ? el('button', {
+              class: 'icon-btn small',
+              type: 'button',
+              text: '↺',
+              title: 'Bu bölümü varsayılana döndür',
+              onclick: () => resetSection(sec),
+            })
+          : null,
+      ]),
+    ]);
+
+    const card = el('div', { class: 'card' + (sec.wide ? ' wide' : '') }, [head]);
+    appendGrouped(card, basics);
+
+    if (advanced.length) {
+      if (showAdvanced) {
+        appendGrouped(card, advanced, true);
+      } else {
+        card.appendChild(
+          el('button', {
+            class: 'adv-summary',
+            type: 'button',
+            title: 'Gelişmiş ayarları göster',
+            onclick: () => setAdvanced(true),
+            html:
+              '<span class="caret">▶</span><span>Gelişmiş ayarlar</span>' +
+              '<span class="count">' + advanced.length + '</span>',
+          })
+        );
+      }
+    }
+    if (tail.length) appendGrouped(card, tail);
+    return card;
+  }
+
+  // Kontrolleri "group" alanına göre alt başlıklar altında ekle
+  function appendGrouped(card, defs, isAdvanced) {
+    if (!defs.length) return;
+    let currentGroup = null;
+    let host = null;
+
+    const openGroup = (name) => {
+      const wrap = el('div', { class: 'group' });
+      if (name) wrap.appendChild(el('div', { class: 'group-label', text: name }));
+      card.appendChild(wrap);
+      return wrap;
+    };
+
+    defs.forEach((def, i) => {
+      const group = def.group || null;
+      if (i === 0 || group !== currentGroup) {
+        currentGroup = group;
+        // Gelişmiş bloğun ilk grubu adsızsa "Gelişmiş" başlığını taşısın
+        const label = group || (isAdvanced && i === 0 ? 'Gelişmiş' : null);
+        host = openGroup(label);
+      }
+      const c = buildControl(def);
+      if (!c) return;
+      if (def.path) {
+        c.setAttribute('data-path', def.path);
+        if (isModified(def.path)) c.classList.add('modified');
+      }
+      host.appendChild(c);
+    });
+  }
+
+  function setAdvanced(on) {
+    advancedOn = !!on;
+    localStorage.setItem('sv-advanced', advancedOn ? '1' : '0');
+    const box = $('advToggle');
+    if (box) box.checked = advancedOn;
+    render();
+  }
+
+  function resetSection(sec) {
+    const paths = sectionPaths(sec);
+    if (!paths.length) return;
+    if (!confirm('Bu bölümdeki ayarlar varsayılana dönecek. Emin misiniz?')) return;
+    const defaults = window.SV.defaultConfig();
+    paths.forEach((p) => {
+      const dv = getPath(defaults, p);
+      if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
+    });
+    push(true);
+    render();
+  }
+
+  // --------------------------------------------------------------------------
+  // Arama — tüm kategorilerdeki her ayarı tek kutudan bulmak için.
+  // Yeni ayarlar şemaya eklendiğinde otomatik olarak aranabilir olur; arayüzün
+  // büyüdükçe karmaşıklaşmamasının asıl nedeni budur.
+  // --------------------------------------------------------------------------
+  function tr(s) {
+    return (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s) || s;
+  }
+
+  function buildSearchIndex() {
+    const out = [];
+    sectionSchema().forEach((sec) => {
+      const cat = CATEGORIES.find((c) => c.id === sec.category);
+      if (!cat) return;
+      out.push({
+        kind: 'section',
+        icon: sec.icon,
+        label: sec.title,
+        category: sec.category,
+        categoryTitle: cat.title,
+        section: sec.title,
+        path: null,
+        advanced: false,
+      });
+      sec.controls.forEach((def) => {
+        if (!def.label || !def.path) return;
+        out.push({
+          kind: 'control',
+          icon: sec.icon,
+          label: def.label,
+          category: sec.category,
+          categoryTitle: cat.title,
+          section: sec.title,
+          path: def.path,
+          advanced: !!def.advanced,
+        });
+      });
+    });
+    return out;
+  }
+
+  function searchEntries(query) {
+    const q = query.trim().toLocaleLowerCase('tr');
+    if (!q) return [];
+    const score = (e) => {
+      // Hem Türkçe anahtar hem de görüntülenen çeviri üzerinde eşleşme aranır
+      const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)];
+      let best = -1;
+      hay.forEach((h, i) => {
+        const idx = (h || '').toLocaleLowerCase('tr').indexOf(q);
+        if (idx < 0) return;
+        // Etiket eşleşmesi bölüm/kategori eşleşmesinden değerli, baştan eşleşme daha da değerli
+        const weight = i < 2 ? 0 : i < 4 ? 40 : 80;
+        const s = weight + idx;
+        if (best < 0 || s < best) best = s;
+      });
+      return best;
+    };
+    return buildSearchIndex()
+      .map((e) => ({ e, s: score(e) }))
+      .filter((x) => x.s >= 0)
+      .sort((a, b) => a.s - b.s || a.e.label.length - b.e.label.length)
+      .slice(0, 40)
+      .map((x) => x.e);
+  }
+
+  function renderSearchResults(query) {
+    const box = $('searchResults');
+    if (!box) return;
+    const items = searchEntries(query);
+    box.innerHTML = '';
+    if (!query.trim()) {
+      box.classList.add('hidden');
+      return;
+    }
+    box.classList.remove('hidden');
+    if (!items.length) {
+      box.appendChild(el('div', { class: 'sr-empty', text: 'Eşleşen ayar bulunamadı.' }));
+      return;
+    }
+    items.forEach((e, i) => {
+      box.appendChild(
+        el('button', { class: 'sr-item' + (i === 0 ? ' active' : ''), type: 'button', onclick: () => jumpTo(e) }, [
+          el('span', { class: 'sr-ico', text: e.icon }),
+          el('span', { class: 'sr-main' }, [
+            el('div', { class: 'sr-label', text: e.label }),
+            el('div', { class: 'sr-path', text: e.categoryTitle + ' › ' + e.section }),
+          ]),
+          e.advanced ? el('span', { class: 'sr-tag', text: 'Gelişmiş' }) : null,
+        ])
+      );
+    });
+  }
+
+  // Arama sonucuna git: kategoriyi aç, gerekirse gelişmişi göster, kontrolü vurgula
+  function jumpTo(entry) {
+    const input = $('searchInput');
+    if (input) input.value = '';
+    $('searchResults').classList.add('hidden');
+
+    if (entry.advanced && !advancedOn) {
+      advancedOn = true;
+      localStorage.setItem('sv-advanced', '1');
+      const box = $('advToggle');
+      if (box) box.checked = true;
+    }
+    activeCategory = entry.category;
+    localStorage.setItem('sv-category', activeCategory);
+    render();
+
+    requestAnimationFrame(() => {
+      const root = $('sections');
+      let target = null;
+      if (entry.path) target = root.querySelector('[data-path="' + entry.path + '"]');
+      if (!target) {
+        // Bölüm başlığına git
+        const cards = Array.from(root.querySelectorAll('.card'));
+        const card = cards.find((c) => {
+          const h = c.querySelector('h3');
+          return h && (h.textContent === entry.section || h.textContent === tr(entry.section));
+        });
+        target = card;
+      }
+      if (!target) return;
+      target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      target.classList.remove('flash');
+      void target.offsetWidth; // animasyonu yeniden tetikle
+      target.classList.add('flash');
+      setTimeout(() => target.classList.remove('flash'), 1800);
+    });
+  }
+
+  function resetCategory(catId) {
+    const cat = CATEGORIES.find((c) => c.id === catId);
+    if (!cat) return;
+    if (!confirm('Bu kategorideki tüm ayarlar varsayılana dönecek. Emin misiniz?')) return;
+    const defaults = window.SV.defaultConfig();
+    sectionSchema()
+      .filter((s) => s.category === catId)
+      .forEach((sec) => {
+        sectionPaths(sec).forEach((p) => {
+          const dv = getPath(defaults, p);
+          if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
+        });
+      });
+    push(true);
+    render();
   }
 
   // --------------------------------------------------------------------------
@@ -1211,9 +1917,13 @@
       });
       sel.appendChild(opt);
     });
-    if (selectedDisplayId == null && displays.length) {
+    // Kayıtlı ekran artık bağlı değilse seçim boş görünmesin: uygun bir ekrana düş
+    const known = displays.some((d) => d.id === selectedDisplayId);
+    if ((selectedDisplayId == null || !known) && displays.length) {
       const ext = displays.find((d) => !d.isPrimary);
       selectedDisplayId = (ext || displays[0]).id;
+      cfg.display = cfg.display || {};
+      cfg.display.id = selectedDisplayId;
     }
     if (selectedDisplayId != null) sel.value = selectedDisplayId;
   }
@@ -1228,11 +1938,14 @@
     $('openBtn').disabled = open;
     $('closeBtn').disabled = !open;
     $('openBtn').textContent = open ? '▶ Açık' : '▶ Görselleştirmeyi Aç';
+    // Görselleştirici açıkken yakalama zaten sürüyor; önizleme kareleri bedava
+    syncPreviewSubscription();
   }
 
   function setAudioState(text, cls) {
     const a = $('audioState');
     a.textContent = text;
+    a.title = text; // kısaltılan uzun aygıt adları için tam metin
     a.className = 'audio-state' + (cls ? ' ' + cls : '');
   }
 
@@ -1381,24 +2094,306 @@
   };
 
   // --------------------------------------------------------------------------
-  // Tüm ayarları içe/dışa aktarma (kullanıcı renk şablonları hariç)
+  // Canlı önizleme kurulumu
   // --------------------------------------------------------------------------
-  function cloneWithoutPresets(value) {
+  function setupPreview() {
+    if (!window.SVPreview) return;
+    const pill = $('previewSource');
+
+    const setPill = (live) => {
+      if (!pill) return;
+      pill.textContent = live ? 'Canlı' : 'Demo';
+      pill.title = live
+        ? 'Gerçek ses yakalanıyor — demo sinyaline dönmek için tıklayın'
+        : 'Örnek sinyalle sürülüyor — gerçek sesi yakalamak için tıklayın';
+      pill.classList.toggle('live', live);
+      // Gerçek ses kesildiğinde çubuklar donmuş değerde kalmasın
+      if (!live && !visOpen) ['mLevel', 'mBass', 'mMid', 'mTreble'].forEach((id) => setMeter(id, 0));
+    };
+
+    const ok = window.SVPreview.init({ onSourceChange: setPill });
+    if (!ok) return; // önizleme kurulamadı: kare de istemeyiz (bkz. syncPreviewSubscription)
+    previewReady = true;
+    setPill(false);
+    window.SVPreview.setConfig(cfg);
+
+    if (window.api.onNativeAudio) window.api.onNativeAudio((f) => window.SVPreview.ingest(f));
+
+    // Gerçek ses yakalaması yalnızca istendiğinde başlar. Görselleştirici zaten
+    // açıkken yakalama sürdüğü için kareler bedavaya gelir; bu durumda otomatik
+    // olarak açılır.
+    syncPreviewSubscription();
+
+    if (pill) {
+      pill.style.cursor = 'pointer';
+      pill.addEventListener('click', () => {
+        previewWantsLive = !previewWantsLive;
+        localStorage.setItem('sv-preview-live', previewWantsLive ? '1' : '0');
+        syncPreviewSubscription();
+      });
+    }
+
+    // Görselleştirici kapalıyken ana süreçten 'audio-meter' gelmez; önizleme
+    // gerçek ses alıyorsa seviye çubuklarını onun çözümleyicisinden besle.
+    // (Demo sinyalinde çubuklar kasten boş kalır — gerçek ses yok demektir.)
+    setInterval(() => {
+      if (visOpen || !window.SVPreview.isLive() || window.SVPreview.isPaused()) return;
+      const l = window.SVPreview.getLevels();
+      if (!l) return;
+      setMeter('mLevel', l.level);
+      setMeter('mBass', l.bass);
+      setMeter('mMid', l.mid);
+      setMeter('mTreble', l.treble);
+    }, 50);
+
+    const btn = $('previewToggle');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        const next = !window.SVPreview.isPaused();
+        window.SVPreview.setPaused(next);
+        btn.textContent = next ? '▶' : '⏸';
+        btn.title = next ? 'Önizlemeyi başlat' : 'Önizlemeyi duraklat';
+        syncPreviewSubscription();
+      });
+    }
+  }
+
+  // Panelin ana süreçten ses karesi isteyip istemediğini güncelle
+  function syncPreviewSubscription() {
+    if (!window.api.subscribePreview || !window.SVPreview) return;
+    // Önizleme kurulamadıysa kare istemeyiz; aksi halde ana süreç kimsenin
+    // dinlemediği bir yakalama başlatır
+    if (!previewReady) {
+      window.api.subscribePreview(false);
+      return;
+    }
+    const paused = window.SVPreview.isPaused();
+    window.api.subscribePreview(!paused && (previewWantsLive || visOpen));
+  }
+
+  // --------------------------------------------------------------------------
+  // Arama kutusu kurulumu
+  // --------------------------------------------------------------------------
+  function setupSearch() {
+    const input = $('searchInput');
+    const box = $('searchResults');
+    if (!input || !box) return;
+
+    input.addEventListener('input', () => renderSearchResults(input.value));
+    input.addEventListener('focus', () => {
+      if (input.value.trim()) renderSearchResults(input.value);
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        input.value = '';
+        box.classList.add('hidden');
+        input.blur();
+        return;
+      }
+      const items = Array.from(box.querySelectorAll('.sr-item'));
+      if (!items.length) return;
+      const idx = items.findIndex((x) => x.classList.contains('active'));
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = e.key === 'ArrowDown'
+          ? Math.min(items.length - 1, idx + 1)
+          : Math.max(0, idx - 1);
+        items.forEach((x) => x.classList.remove('active'));
+        items[next].classList.add('active');
+        items[next].scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        (items[idx < 0 ? 0 : idx] || items[0]).click();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.topsearch')) box.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Sahneler — tüm görünümün adlandırılmış anlık görüntüsü
+  // --------------------------------------------------------------------------
+  function ensureScenes() {
+    if (!Array.isArray(cfg.scenes)) cfg.scenes = [];
+    return cfg.scenes;
+  }
+
+  function snapshotScene() {
+    const data = {};
+    SCENE_KEYS.forEach((k) => {
+      if (cfg[k] !== undefined) data[k] = window.SV.clone(cfg[k]);
+    });
+    return data;
+  }
+
+  actions.saveScene = () => {
+    const arr = ensureScenes();
+    // Electron window.prompt'u uygulamaz (çağrı sessizce undefined döner), bu
+    // yüzden sahne varsayılan adla oluşturulur ve ad alanı düzenlemeye açılır.
+    const name = 'Sahne ' + (arr.length + 1);
+    const scene = { id: uid('sc_'), name, createdAt: Date.now(), data: snapshotScene() };
+    arr.push(scene);
+    sceneActionInFlight = true;
+    activeSceneId = scene.id;
+    push(true);
+    sceneActionInFlight = false;
+    render();
+    renderScenes();
+    // Adı hemen yazabilmek için yeni sahnenin ad alanını seç
+    requestAnimationFrame(() => {
+      const list = $('sceneList');
+      const item = list && list.querySelector('.scene-item.active .scene-name');
+      if (item) {
+        item.focus();
+        item.select();
+      }
+    });
+  };
+
+  actions.applyScene = (id) => {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc || !sc.data) return;
+    SCENE_KEYS.forEach((k) => {
+      if (sc.data[k] === undefined) return;
+      // Eksik alanlar varsayılanla tamamlanır (eski/dış kaynaklı sahneler için)
+      cfg[k] = window.SV.deepMerge(window.SV.DEFAULT_CONFIG[k], sc.data[k]);
+    });
+    if (cfg.images && Array.isArray(cfg.images.items)) {
+      cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
+    }
+    sceneActionInFlight = true;
+    activeSceneId = id;
+    push(true);
+    sceneActionInFlight = false;
+    render();
+    renderScenes();
+  };
+
+  actions.updateScene = (id) => {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc) return;
+    sc.data = snapshotScene();
+    sceneActionInFlight = true;
+    activeSceneId = id;
+    push(true);
+    sceneActionInFlight = false;
+    render();
+    renderScenes();
+  };
+
+  actions.renameScene = (id, name) => {
+    const sc = ensureScenes().find((x) => x.id === id);
+    if (!sc) return;
+    sc.name = (name || '').trim() || sc.name;
+    sceneActionInFlight = true; // yalnızca ad değişti, görünüm aynı kaldı
+    push(true);
+    sceneActionInFlight = false;
+    renderScenes();
+    // Kitaplık kategorisindeki sahne kartı da aynı adı göstermeli
+    if (activeCategory === 'library') render();
+  };
+
+  actions.deleteScene = (id) => {
+    if (!confirm('Bu sahne silinsin mi?')) return;
+    cfg.scenes = ensureScenes().filter((x) => x.id !== id);
+    if (activeSceneId === id) activeSceneId = null;
+    push(true);
+    render();
+    renderScenes();
+  };
+
+  actions.exportScenes = async () => {
+    const arr = ensureScenes();
+    if (!arr.length) { alert('Dışa aktarılacak sahne yok.'); return; }
+    await window.api.exportJson('sahneler.json', { type: 'sv-scenes', version: 1, scenes: arr });
+  };
+
+  actions.importScenes = async () => {
+    const r = await window.api.importJson('Sahneleri İçe Aktar');
+    if (!r || !r.ok) { if (r && r.error) alert('İçe aktarılamadı: ' + r.error); return; }
+    const incoming = Array.isArray(r.data) ? r.data : (r.data && r.data.scenes) || [];
+    if (!Array.isArray(incoming) || !incoming.length) { alert('Dosyada sahne bulunamadı.'); return; }
+    const arr = ensureScenes();
+    incoming.forEach((s) => {
+      if (!s || !s.data) return;
+      arr.push({
+        id: uid('sc_'),
+        name: (s.name || 'İçe Aktarılan').toString(),
+        createdAt: s.createdAt || Date.now(),
+        data: s.data,
+      });
+    });
+    push(true);
+    render();
+    renderScenes();
+  };
+
+  // Sağ dock'taki sahne listesi
+  function renderScenes() {
+    const host = $('sceneList');
+    if (!host) return;
+    host.innerHTML = '';
+    const arr = ensureScenes();
+    if (!arr.length) {
+      host.appendChild(
+        el('div', { class: 'scene-empty', text: 'Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.' })
+      );
+      return;
+    }
+    arr.forEach((sc) => {
+      const thumb = el('div', {
+        class: 'scene-thumb',
+        title: 'Bu sahneyi uygula',
+        style: 'background:' + sceneGradient(sc),
+        onclick: () => actions.applyScene(sc.id),
+      });
+      const name = el('input', { class: 'scene-name', type: 'text', value: sc.name || 'Sahne', title: 'Sahne adı' });
+      name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
+      host.appendChild(
+        el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
+          thumb,
+          el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
+          el('div', { class: 'scene-acts' }, [
+            el('button', { class: 'icon-btn small', type: 'button', text: '⟳', title: 'Mevcut görünümle güncelle', onclick: () => actions.updateScene(sc.id) }),
+            el('button', { class: 'icon-btn small', type: 'button', text: '🗑', title: 'Sil', onclick: () => actions.deleteScene(sc.id) }),
+          ]),
+        ])
+      );
+    });
+  }
+
+  // --------------------------------------------------------------------------
+  // Tüm ayarları içe/dışa aktarma
+  // Kullanıcının kendi içeriği (renk şablonları ve sahneler) yedeğe DAHİL EDİLMEZ
+  // ve içe aktarma sırasında korunur; ikisinin de kendi dışa aktarımı var.
+  // --------------------------------------------------------------------------
+  const USER_CONTENT_KEYS = ['userPresets', 'scenes'];
+
+  function cloneWithoutUserContent(value) {
     const cloned = JSON.parse(JSON.stringify(value || {}));
-    delete cloned.userPresets;
+    USER_CONTENT_KEYS.forEach((k) => delete cloned[k]);
     return cloned;
   }
 
   actions.exportAllSettings = async () => {
-    const settings = cloneWithoutPresets(cfg);
+    const settings = cloneWithoutUserContent(cfg);
     settings.display = settings.display || {};
     settings.display.id = selectedDisplayId;
     const result = await window.api.exportJson('cayadev-visualizer-ayarlari.json', {
       type: 'cayadev-visualizer-settings',
       version: 1,
-      appVersion: '1.2.0',
+      appVersion: '1.3.0',
       exportedAt: new Date().toISOString(),
-      excludes: ['userPresets'],
+      excludes: USER_CONTENT_KEYS.slice(),
       settings,
     });
     if (result && result.error) alert('Ayarlar dışa aktarılamadı: ' + result.error);
@@ -1416,12 +2411,15 @@
       alert('Bu dosya geçerli bir CAYADEV Visualizer ayar yedeği değil.');
       return;
     }
-    if (!confirm('Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız korunacak. Devam edilsin mi?')) return;
+    if (!confirm('Mevcut ayarlar yedekteki değerlerle değiştirilecek. Renk şablonlarınız ve sahneleriniz korunacak. Devam edilsin mi?')) return;
 
+    // Kullanıcı içeriğini yedekten bağımsız olarak koru
     const preservedPresets = Array.isArray(cfg.userPresets) ? cfg.userPresets : [];
-    const sanitized = cloneWithoutPresets(incoming);
+    const preservedScenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
+    const sanitized = cloneWithoutUserContent(incoming);
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
     cfg.userPresets = preservedPresets;
+    cfg.scenes = preservedScenes;
     if (cfg.images && Array.isArray(cfg.images.items)) {
       cfg.images.items = cfg.images.items.map((item) => window.SV.normalizeImageItem(item));
     }
@@ -1429,7 +2427,8 @@
     renderDisplays();
     push(true);
     render();
-    alert('Ayarlar başarıyla içe aktarıldı. Renk şablonları değiştirilmedi.');
+    renderScenes();
+    alert('Ayarlar başarıyla içe aktarıldı. Renk şablonlarınız ve sahneleriniz değiştirilmedi.');
   };
 
   // --------------------------------------------------------------------------
@@ -1563,6 +2562,7 @@
       cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
     }
     if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
+    if (!Array.isArray(cfg.scenes)) cfg.scenes = [];
 
     displays = await window.api.getDisplays();
     if (cfg.display && cfg.display.id != null) selectedDisplayId = Number(cfg.display.id);
@@ -1593,8 +2593,16 @@
       cfg.export.encoder = 'cpu';
     }
 
+    // Arayüz durumunu geri yükle
+    const advBox = $('advToggle');
+    if (advBox) advBox.checked = advancedOn;
+    if (!CATEGORIES.some((c) => c.id === activeCategory)) activeCategory = CATEGORIES[0].id;
+
     renderDisplays();
     render();
+    renderScenes();
+    setupPreview();
+    setupSearch();
     applyAudioDiagnostic(audioDiagnostic, false);
 
     visOpen = await window.api.visualizerIsOpen();
@@ -1634,11 +2642,27 @@
     $('resetBtn').addEventListener('click', () => {
       if (!confirm('Tüm ayarlar varsayılana dönecek. Emin misiniz?')) return;
       const sources = cfg.audio.sources ? cfg.audio.sources.slice() : ['default'];
+      // Kullanıcı içeriği (renk şablonları ve sahneler) sıfırlamada korunur
+      const presets = Array.isArray(cfg.userPresets) ? cfg.userPresets.slice() : [];
+      const scenes = Array.isArray(cfg.scenes) ? cfg.scenes.slice() : [];
       cfg = window.SV.defaultConfig();
       cfg.audio.sources = sources;
+      cfg.userPresets = presets;
+      cfg.scenes = scenes;
+      activeSceneId = null;
       push(true);
       render();
+      renderScenes();
     });
+
+    // Gelişmiş ayarlar anahtarı + kategori sıfırlama
+    $('advToggle').addEventListener('change', (e) => setAdvanced(e.target.checked));
+    $('catResetBtn').addEventListener('click', () => resetCategory(activeCategory));
+
+    // Sağ dock'taki sahne düğmeleri
+    $('sceneSaveBtn').addEventListener('click', () => actions.saveScene());
+    $('sceneExportBtn').addEventListener('click', () => actions.exportScenes());
+    $('sceneImportBtn').addEventListener('click', () => actions.importScenes());
 
     window.api.onVisualizerStatus((d) => setStatus(d.open));
     window.api.onDisplaysChanged((list) => {
@@ -1704,5 +2728,30 @@
     push(true);
   }
 
-  init();
+  // Başlatma sırasında bir hata olursa panel boş kalmasın: nedeni ekranda göster
+  function showFatal(err) {
+    const msg = (err && (err.stack || err.message)) || String(err);
+    console.error('[admin] init failed', err);
+    const root = $('sections');
+    if (!root) return;
+    root.innerHTML = '';
+    root.classList.add('single');
+    const card = el('div', { class: 'card wide' }, [
+      el('div', { class: 'card-head' }, [
+        el('span', { class: 'ico', text: '⚠️' }),
+        el('div', { class: 'ch-main' }, [
+          el('h3', { text: 'Panel başlatılamadı' }),
+          el('div', { class: 'desc', text: 'Uygulamayı yeniden başlatın. Sorun sürerse aşağıdaki ayrıntıyı bildirin.' }),
+        ]),
+      ]),
+    ]);
+    const pre = el('div', { class: 'settings-io-note' });
+    pre.style.whiteSpace = 'pre-wrap';
+    pre.style.userSelect = 'text';
+    pre.textContent = msg;
+    card.appendChild(pre);
+    root.appendChild(card);
+  }
+
+  init().catch(showFatal);
 })();

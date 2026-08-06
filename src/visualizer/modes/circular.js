@@ -7,6 +7,7 @@
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
       this.rot = 0;
+      this.glow = new window.SVGlow();
     }
     resize() {}
 
@@ -32,7 +33,7 @@
       ctx.rotate(this.rot);
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(2, (Math.PI * 2 * baseR) / count * (1 - v.gap));
-      if (v.glow > 0) ctx.shadowBlur = 16 * v.glow;
+      // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
 
       for (let i = 0; i < count; i++) {
         const val = Math.min(1, bars[i] * (v.sensitivity || 1));
@@ -50,7 +51,6 @@
           col = v.color;
         }
         ctx.strokeStyle = col;
-        if (v.glow > 0) ctx.shadowColor = col;
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
@@ -58,7 +58,6 @@
       }
 
       // merkez halka (bas nabzı)
-      ctx.shadowBlur = 0;
       ctx.lineWidth = 2;
       ctx.strokeStyle = v.rainbow
         ? `hsla(${(t * 30) % 360},80%,65%,0.5)`
@@ -67,6 +66,8 @@
       ctx.arc(0, 0, baseR - 4, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
+
+      this.glow.apply(this.canvas, v.glow, 0.95);
     }
     dispose() {}
   }

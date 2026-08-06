@@ -7,50 +7,128 @@
     display: { id: null },
 
     audio: {
-      sources: ['default'], // seçili ses kaynaklarının adı (birden fazla olabilir)
-      sensitivity: 1.4, // genel kazanç
-      smoothing: 0.65, // zaman yumuşatma (0..0.95)
-      bassBoost: 1.0, // düşük frekans vurgusu
+      // Aygıt adları makineye özeldir; varsayılan her zaman sistem çıkışıdır.
+      sources: ['default'],
+      sensitivity: 0.25, // genel kazanç
+      smoothing: 0.5, // zaman yumuşatma (0..0.95)
+      bassBoost: 2.05, // düşük frekans vurgusu
     },
 
     background: {
-      type: 'gradient', // 'gradient' | 'solid'
+      // 'gradient' (WebGL) | 'solid' | 2D modlar:
+      // 'waves' | 'aurora' | 'starfield' | 'grid' | 'bokeh' | 'rain' | 'network' | 'rings'
+      type: 'starfield',
       solidColor: '#08080f',
+      // Not: 2D arkaplan modları da bu bloğun colors/speed/audioReactivity/
+      // brightness/vignette alanlarını okur; böylece renk seçiciler, hazır
+      // şablonlar ve kullanıcı şablonları tüm arkaplan modlarında geçerli kalır.
       gradient: {
         colors: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'],
-        style: 'soft', // 'soft' = yumuşak/parlamasız (Görsel 1 gibi), 'plasma' = parlamalı
-        speed: 0.45,
-        drift: 0.0, // tek yönlü kayma miktarı
+        style: 'plasma', // 'soft' = yumuşak/parlamasız, 'plasma' = parlamalı
+        speed: 0.5,
+        drift: 0.05, // tek yönlü kayma miktarı
         wander: 0.85, // sınırlı gezinme/dolanma alanı
-        orbit: 0.75, // renk alanlarının yörüngesel hareketi
+        orbit: 1.12, // renk alanlarının yörüngesel hareketi
         swirl: 0.8, // merkez çevresi iç dönüş
         scale: 1.1,
-        warp: 0.85, // bozulma miktarı (akışkanlık)
-        audioReactivity: 0.85, // sese tepki (akış/dalgalanma)
+        warp: 0.58, // bozulma miktarı (akışkanlık)
+        audioReactivity: 0.8, // sese tepki (akış/dalgalanma)
         brightness: 1.0, // temel parlaklık
-        audioBrightness: 0.45, // ses patlaması parlaklığı (ayarlanabilir)
-        audioHue: 0.0, // ses ile renk kayması miktarı (0 = kapalı)
+        audioBrightness: 1.8, // ses patlaması parlaklığı (ayarlanabilir)
+        audioHue: 0.36, // ses ile renk kayması miktarı (0 = kapalı)
         hideLines: true, // belirgin damar/şimşek çizgilerini yumuşat
-        grain: 0.05, // film greni (banding'i gizler)
-        vignette: 0.25,
+        grain: 0.0, // film greni (banding'i gizler)
+        vignette: 0.34,
+      },
+
+      // --- 2D arkaplan modlarının kendi ayarları ---
+      // Ortak alanlar (renkler, akış hızı, ses tepkisi, parlaklık, vinyet)
+      // yukarıdaki gradient bloğundan okunur; aşağıdakiler moda özeldir.
+      starfield: {
+        count: 340, // yıldız sayısı
+        depth: 1.0, // perspektif derinliği
+        size: 1.0, // yıldız boyutu çarpanı
+        trail: 1.0, // hız izi uzunluğu
+        twinkle: 0.35, // parıldama miktarı
+        bassPush: 2.2, // bas darbesinin hızlandırma etkisi
+      },
+      grid: {
+        horizon: 0.52, // ufuk çizgisinin dikey konumu
+        rows: 18, // yatay çizgi sayısı
+        cols: 26, // dikey çizgi sayısı
+        lineWidth: 1.0,
+        horizonGlow: 0.55, // ufuk parlamasının gücü
+        skyIntensity: 0.95, // gökyüzü gradyanının yoğunluğu
+        spectrumBars: 1.0, // dikey çizgilerin spektruma tepkisi
+        bassPush: 1.6,
+      },
+      waves: {
+        layers: 6, // katman sayısı
+        amplitude: 1.0, // tepe yüksekliği
+        frequency: 1.0, // dalga sıklığı
+        spread: 1.0, // katmanlar arası açıklık
+        opacity: 1.0,
+        bassPush: 1.1,
+      },
+      bokeh: {
+        count: 26, // ışık topu sayısı
+        size: 1.0, // boyut çarpanı
+        sizeVar: 1.0, // boyut çeşitliliği
+        drift: 1.0, // süzülme miktarı
+        pulse: 0.5, // bas nabzı
+        opacity: 1.0,
+      },
+      rain: {
+        columns: 68, // sütun sayısı
+        speed: 1.0,
+        trail: 1.0, // damla izinin uzunluğu
+        density: 0.7, // aynı anda düşen sütun oranı
+        thickness: 1.0,
+        bassPush: 1.4,
+      },
+      aurora: {
+        bands: 5, // perde sayısı
+        amplitude: 1.0, // dalgalanma yüksekliği
+        thickness: 1.0, // perde kalınlığı
+        softness: 1.0, // kenar yumuşaklığı
+        height: 0.55, // perdelerin dikey konumu
+        bassPush: 1.2,
+      },
+      network: {
+        nodes: 54, // düğüm sayısı
+        linkDist: 0.18, // bağlantı mesafesi (kısa kenara oran)
+        nodeSize: 1.0,
+        lineWidth: 1.0,
+        speed: 1.0,
+        bassPush: 1.5,
+      },
+      rings: {
+        rate: 2.4, // saniyedeki halka sayısı
+        speed: 1.0, // genişleme hızı
+        thickness: 1.0,
+        beatSpawn: 1.0, // bas darbesinde ek halka doğurma
+        fade: 1.0, // sönme hızı
       },
     },
 
     visualizer: {
-      type: 'bars', // 'none' | 'bars' | 'wave' | 'circular'
+      // 'none' | 'bars' | 'centerBars' | 'blocks' | 'dots' | 'wave' | 'ribbon' |
+      // 'terrain' | 'circular' | 'radialWave' | 'starburst' | 'tunnel' | 'orb' |
+      // 'particles' | 'spectrogram'
+      type: 'bars',
       rainbow: true,
       color: '#3aa6ff',
       color2: '#d24bff',
-      barCount: 72,
-      minFreq: 30,
-      maxFreq: 16000,
-      sensitivity: 1.0,
+      barCount: 160,
+      minFreq: 20,
+      maxFreq: 20000,
+      sensitivity: 0.7,
       mirror: false,
       lineWidth: 3,
       cap: true, // bar tepe noktaları
-      glow: 0.45,
-      gap: 0.28, // barlar arası boşluk oranı
-      position: 'bottom', // 'bottom' | 'center' | 'full' (bars için)
+      glow: 0.46,
+      gap: 0.36, // barlar arası boşluk oranı
+      position: 'center', // 'bottom' | 'center' | 'full' (bars için)
       thickness: 0.42, // dalga/çember için
     },
 
@@ -66,53 +144,56 @@
     },
 
     power: {
-      fpsCap: 60, // 30 | 60 | 120 | 0(sınırsız)
+      // 0 = ekranla eşitle (her yenilemede bir kare). En akıcı sonuç budur:
+      // ekranın yenileme hızının tam böleni olmayan bir sınır (75 Hz'de 60 gibi)
+      // kare aralıklarını eşitsizleştirir.
+      fpsCap: 120, // 0(ekranla eşitle) | 30 | 60 | 120
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       pauseOnSilence: false,
       hideCursor: true,
     },
 
-    // Windows Dynamic Lighting (LampArray). Varsayılan kapalıdır ve yalnızca
-    // uyumlu aygıt algılandığında yönetici panelinden etkinleştirilebilir.
+    // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici
+    // paneli açılışta bunu otomatik olarak kapatır.
     lighting: {
-      enabled: false,
-      mode: 'visualizer-sync',
-      color: '#3aa6ff',
-      color2: '#d24bff',
+      enabled: true,
+      mode: 'beat-pulse',
+      color: '#ff0000',
+      color2: '#f00000',
       bassColor: '#52ff3f',
       midColor: '#35b8ff',
       trebleColor: '#d43cff',
       brightness: 1.0,
-      intensity: 0.85,
-      smoothing: 0.65,
-      updateRate: 24,
+      intensity: 1.0,
+      smoothing: 0.48,
+      updateRate: 5,
       layout: 'global', // 'global' | 'per-device' | 'uniform'
-      paletteSource: 'visualizer', // 'visualizer' | 'background' | 'bands' | 'rainbow' | 'custom'
+      paletteSource: 'background', // 'visualizer' | 'background' | 'bands' | 'rainbow' | 'custom'
       colorSpeed: 0.45,
-      spread: 1.0,
-      saturation: 1.0,
-      baseLevel: 0.14,
-      bassGain: 1.15,
-      midGain: 1.0,
-      trebleGain: 1.0,
+      spread: 2.25,
+      saturation: 0.92,
+      baseLevel: 0.02,
+      bassGain: 1.9,
+      midGain: 1.6,
+      trebleGain: 1.05,
       spectrumContrast: 0.82,
       zoneBlend: 0.55,
-      flashStrength: 0.85,
-      flashThreshold: 0.42,
-      flashDecay: 0.82,
-      triggerBand: 'bass', // 'bass' | 'mid' | 'treble' | 'level' | 'auto'
+      flashStrength: 1.5,
+      flashThreshold: 0.52,
+      flashDecay: 0.87,
+      triggerBand: 'auto', // 'bass' | 'mid' | 'treble' | 'level' | 'auto'
       rippleSpeed: 0.8,
       rippleWidth: 0.16,
       rippleDirection: 'forward', // 'forward' | 'reverse' | 'alternate'
       fusionMix: 0.55,
       flowSpeed: 0.45,
-      audioAcceleration: 0.8,
+      audioAcceleration: 1.3,
       bandResponse: 'instant', // 'instant' | 'punchy' | 'smooth'
       bandAttack: 0.92,
       bandRelease: 0.38,
-      bandThreshold: 0.08,
-      bandHardness: 0.78,
-      bandSeparation: 0.72,
+      bandThreshold: 0.6,
+      bandHardness: 0.63,
+      bandSeparation: 0.78,
       bandPattern: 'zones', // 'zones' | 'alternate' | 'mirror' | 'dominant'
       rainbowStyle: 'ordered', // 'ordered' | 'single'
       rainbowSpeed: 0.5,
@@ -141,6 +222,11 @@
 
     // Kullanıcı renk şablonları (arkaplan gradyanı). Kalıcıdır; içe/dışa aktarılabilir.
     userPresets: [], // { id, name, colors:[5] }
+
+    // Sahneler: tüm görünümün (arkaplan + görselleştirici + logo + görsel nesneler)
+    // adlandırılmış anlık görüntüsü. Tek tıkla geri yüklenir; içe/dışa aktarılabilir.
+    // { id, name, createdAt, data: { background, visualizer, logo, images } }
+    scenes: [],
 
     // Video dışa aktarma (MP3/ses -> kayıpsız video). Ekran/ses kaydı değil:
     // her kare offline ve birebir render edilir, ses kaynaktan kopyalanır.

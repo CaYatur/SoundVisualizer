@@ -8,7 +8,7 @@ html, body {
   cursor: none;
 }
 
-#gl, #c2d, #fxBack, #fxFront {
+#gl, #bg2d, #c2d, #fxBack, #fxFront {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -16,7 +16,9 @@ html, body {
   display: block;
 }
 
+/* gl = WebGL gradyan, bg2d = 2D arkaplan modları (ikisinden biri görünür) */
 #gl { z-index: 1; }
+#bg2d { z-index: 1; }
 #fxBack { z-index: 2; }
 #c2d { z-index: 3; }
 #fxFront { z-index: 4; }

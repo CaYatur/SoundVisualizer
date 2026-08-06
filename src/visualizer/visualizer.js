@@ -3,6 +3,8 @@
    Katmanlar: [WebGL gradyan arkaplan] -> [2D ön görselleştirici] -> [logo] */
 (function () {
   const glCanvas = document.getElementById('gl');
+  const bg2d = document.getElementById('bg2d');
+  const bg2dCtx = bg2d.getContext('2d');
   const c2d = document.getElementById('c2d');
   const fxBack = document.getElementById('fxBack');
   const fxFront = document.getElementById('fxFront');
@@ -18,10 +20,14 @@
   let imagesOn = false;
 
   let gradient = null; // WebGL modu
+  let bgMode = null; // 2D arkaplan modu örneği
+  let bgType = null;
   let foreground = null; // 2D modu örneği
   let foreType = null;
   let raf = 0;
   let lastDraw = 0;
+  let lastRaf = 0;
+  let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
 
@@ -39,8 +45,8 @@
     c2d.style.width = w + 'px';
     c2d.style.height = h + 'px';
 
-    // Ek görsel nesne (partikül) katmanları — ön katmanla aynı çözünürlük
-    for (const cv of [fxBack, fxFront]) {
+    // Ek görsel nesne (partikül) katmanları ve 2D arkaplan — ön katmanla aynı çözünürlük
+    for (const cv of [fxBack, fxFront, bg2d]) {
       cv.width = c2d.width;
       cv.height = c2d.height;
       cv.style.width = w + 'px';
@@ -73,12 +79,23 @@
   }
 
   function applyBackground() {
-    if (cfg.background.type === 'gradient') {
-      glCanvas.style.display = 'block';
+    const type = cfg.background.type;
+    const is2d = !!(window.SVBackgrounds && window.SVBackgrounds[type]);
+
+    if (bgType !== type) {
+      bgType = type;
+      bgMode = is2d ? new window.SVBackgrounds[type]() : null;
+    }
+
+    glCanvas.style.display = type === 'gradient' ? 'block' : 'none';
+    bg2d.style.display = is2d ? 'block' : 'none';
+
+    if (type === 'gradient') {
       document.body.style.background = '#000';
       ensureGradient();
+    } else if (is2d) {
+      document.body.style.background = '#000';
     } else {
-      glCanvas.style.display = 'none';
       document.body.style.background = cfg.background.solidColor;
     }
   }
@@ -144,8 +161,26 @@
   // --------------------------------------------------------------------------
   function frame(now) {
     raf = requestAnimationFrame(frame);
+
+    // Kare hızı sınırlama.
+    // requestAnimationFrame ekranın yenileme hızına kilitlidir; "şu kadar ms
+    // geçti mi" karşılaştırması, sınır yenileme hızının tam böleni değilse
+    // hedefin çok altına düşer (75 Hz ekranda 60 sınırı => 37.5 FPS).
+    // Bunun yerine artan bir sayaç kullanılır: uzun vadeli ortalama tam olarak
+    // istenen kare hızına oturur (75 Hz'de 60 için 5 tikin 4'ünde çizilir).
     const cap = cfg.power.fpsCap;
-    if (cap > 0 && now - lastDraw < 1000 / cap - 0.4) return;
+    const rafDt = lastRaf ? now - lastRaf : 16.7;
+    lastRaf = now;
+    if (cap > 0) {
+      const interval = 1000 / cap;
+      frameAcc += Math.min(rafDt, interval * 2); // sekme sonrası sıçramayı sınırla
+      if (frameAcc < interval) return;
+      frameAcc -= interval;
+      if (frameAcc > interval) frameAcc = interval; // birikmeyi engelle
+    } else {
+      frameAcc = 0;
+    }
+
     const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
     lastDraw = now;
     const t = now / 1000;
@@ -157,6 +192,8 @@
 
     if (cfg.background.type === 'gradient' && gradient && !silent) {
       gradient.draw(audio, cfg, t);
+    } else if (bgMode && !silent) {
+      bgMode.draw(bg2dCtx, audio, cfg, t, bg2d.width, bg2d.height, dt);
     }
 
     if (foreground) {
@@ -196,15 +233,25 @@
     // seviye göstergesini ve LED spektrumunu ana sürece bildir (~30 Hz)
     if (now - meterT > 32) {
       meterT = now;
-      const backgroundColors = cfg.background?.type === 'gradient' && typeof gradient?.sampleColors === 'function'
-        ? gradient.sampleColors(48)
-        : [];
+      // sampleColors() gl.readPixels kullanır ve GPU işlem hattını senkron olarak
+      // bekletir. Yalnızca Dynamic Lighting gerçekten arkaplan renklerini
+      // istediğinde çağrılır; varsayılan yapılandırma bunu hiç kullanmaz.
+      const needsBgColors =
+        !!cfg.lighting?.enabled && cfg.lighting?.paletteSource === 'background';
+      let backgroundColors = [];
+      if (needsBgColors) {
+        if (cfg.background?.type === 'gradient' && typeof gradient?.sampleColors === 'function') {
+          backgroundColors = gradient.sampleColors(48);
+        } else if (bgMode && typeof bgMode.palette === 'function') {
+          // 2D arkaplanlar piksel okumak yerine kendi paletlerini bildirir
+          backgroundColors = bgMode.palette(cfg);
+        }
+      }
       window.api.sendAudioMeter({
         level: audio.level,
         bass: audio.bass,
         mid: audio.mid,
         treble: audio.treble,
-        bars: Array.isArray(audio.bars) ? audio.bars.slice() : [],
         time: now / 1000,
         backgroundColors,
         ready: audio.ready,

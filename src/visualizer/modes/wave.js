@@ -6,6 +6,7 @@
     constructor(canvas) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
     }
     resize() {}
 
@@ -44,10 +45,7 @@
       ctx.lineCap = 'round';
       ctx.lineWidth = v.lineWidth || 3;
       ctx.strokeStyle = stroke;
-      if (v.glow > 0) {
-        ctx.shadowBlur = 16 * v.glow;
-        ctx.shadowColor = v.rainbow ? '#5af' : v.color;
-      }
+      // Parlama tek geçişte (bloom) uygulanır; çizgi burada düz çizilir.
 
       const path = new Path2D();
       let first = true;
@@ -83,6 +81,9 @@
         ctx.fill(fill);
       }
       ctx.restore();
+
+      // İnce çizgi geniş bloom'da kaybolmasın diye biraz daha güçlü
+      this.glow.apply(this.canvas, v.glow, 1.1);
     }
     dispose() {}
   }
