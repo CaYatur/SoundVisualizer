@@ -5,13 +5,24 @@
  * MIT License (bkz. LICENSE)
  */
 
-const { app, BrowserWindow, ipcMain, screen, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const url = require('url');
 const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
 const dynamicLighting = require('./dynamic-lighting');
 const lightingIdentity = require('./lighting-identity');
+const streamServer = require('./stream-server');
+const oscServer = require('./osc-server');
+const presetsStore = require('./presets-store');
+
+// Medya katmanının video dosyalarını okuduğu özel protokol.
+// Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
+// izin vermekle yetinir ve rastgele yerel dosya okuma yolu açılmaz.
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
+]);
 
 // English is the fallback. Turkish is selected only for a Turkish system locale.
 function appLocale() {
@@ -247,6 +258,8 @@ function startVisualizerCapture() {
         visualizerWin.webContents.send('native-audio', frame);
       }
       if (previewSubscribed) notifyAdmin('native-audio', frame);
+      // OBS tarayıcı kaynağı ve diğer web istemcileri
+      streamServer.broadcastAudio(frame);
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
@@ -440,6 +453,9 @@ ipcMain.on('update-config', (e, config) => {
     visualizerWin.webContents.send('config', config);
     applyAlwaysOnTop();
   }
+  streamServer.broadcast({ type: 'config', config });
+  syncStreamServer();
+  syncOscServer();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
@@ -513,6 +529,212 @@ ipcMain.on('visualizer-message', (e, msg) => {
 ipcMain.on('report-audio-devices', (e, devices) => {
   notifyAdmin('audio-devices', devices);
 });
+
+
+// ----------------------------------------------------------------------------
+// Studio presetleri (kullanıcının kendi görselleştirici/arkaplan tasarımları)
+//
+// Presetler settings.json'da DEĞİL, userData/presets/ altında ayrı dosyalarda
+// tutulur; ayar dosyası her kaydırıcı hareketinde baştan yazıldığı için shader
+// kaynağını oraya koymak gereksiz disk trafiği demekti.
+// ----------------------------------------------------------------------------
+function notifyAll(channel, payload) {
+  for (const win of [adminWin, visualizerWin]) {
+    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+  }
+}
+
+function broadcastPresets() {
+  const list = presetsStore.list();
+  notifyAll('presets', list);
+  streamServer.broadcast({ type: 'presets', presets: list });
+  return list;
+}
+
+ipcMain.handle('presets:list', () => presetsStore.list());
+ipcMain.handle('presets:save', (e, preset) => {
+  const r = presetsStore.save(preset);
+  if (r.ok) broadcastPresets();
+  return r;
+});
+ipcMain.handle('presets:delete', (e, id) => {
+  const r = presetsStore.remove(id);
+  if (r.ok) broadcastPresets();
+  return r;
+});
+ipcMain.handle('presets:save-many', (e, list) => {
+  const saved = presetsStore.saveMany(list);
+  if (saved.length) broadcastPresets();
+  return { ok: true, saved };
+});
+ipcMain.handle('presets:open-folder', () => {
+  shell.openPath(presetsStore.dir());
+  return true;
+});
+
+// Metin tabanlı içe aktarma (Shadertoy .glsl / ISF .fs / MilkDrop .milk)
+ipcMain.handle('presets:import-text', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Shader / Preset İçe Aktar', 'Import Shader / Preset'),
+    properties: ['openFile'],
+    filters: [
+      { name: trUi('Shader ve preset dosyaları', 'Shader and preset files'), extensions: ['glsl', 'fs', 'frag', 'txt', 'milk', 'json', 'svpreset', 'svpack'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  const file = r.filePaths[0];
+  try {
+    const stat = fs.statSync(file);
+    if (stat.size > 2 * 1024 * 1024) return { ok: false, error: 'FILE_TOO_LARGE' };
+    return {
+      ok: true,
+      name: path.basename(file, path.extname(file)),
+      ext: path.extname(file).toLowerCase(),
+      text: fs.readFileSync(file, 'utf-8'),
+    };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Yayın sunucusu (OBS tarayıcı kaynağı + mobil kumanda)
+// ----------------------------------------------------------------------------
+
+// Uzaktan kumandanın değiştirmesine izin verilen ayar yolları.
+// Liste kasıtlı olarak dar: yayın sunucusu ayarları, kontrol yüzeyleri ve dosya
+// yolları telefondan değiştirilemez. Gelen mesajlar VERİDİR, komut değil.
+const REMOTE_ALLOWED = [
+  'audio.sensitivity', 'audio.smoothing', 'audio.bassBoost',
+  'visualizer.', 'background.', 'logo.opacity', 'logo.scale', 'logo.pulse',
+  'power.fpsCap', 'power.renderScale', 'power.pauseOnSilence',
+  'custom.visualizerId', 'custom.backgroundId', 'feedback.',
+  'media.opacity', 'media.enabled', 'media.kaleido', 'media.hue',
+];
+
+function remotePathAllowed(p) {
+  if (typeof p !== 'string' || p.length > 120) return false;
+  if (p.includes('__proto__') || p.includes('prototype') || p.includes('constructor')) return false;
+  return REMOTE_ALLOWED.some((pref) => (pref.endsWith('.') ? p.startsWith(pref) : p === pref));
+}
+
+function setConfigPath(obj, p, value) {
+  const keys = p.split('.');
+  let node = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (typeof node[keys[i]] !== 'object' || node[keys[i]] === null) node[keys[i]] = {};
+    node = node[keys[i]];
+  }
+  node[keys[keys.length - 1]] = value;
+}
+
+// Web istemcisinden gelen komut: doğrula, uygula, herkese yay.
+function applyRemoteCommand(msg) {
+  if (!currentConfig) return;
+  if (msg.action === 'openVisualizer') {
+    openVisualizer(currentConfig.display && currentConfig.display.id);
+    return;
+  }
+  if (msg.action === 'closeVisualizer') {
+    closeVisualizer();
+    return;
+  }
+
+  if (msg.action === 'scene') {
+    const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
+    if (!scene || !scene.data) return;
+    for (const key of ['background', 'visualizer', 'logo', 'images', 'custom', 'feedback']) {
+      if (scene.data[key]) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
+    }
+  } else if (msg.action === 'set') {
+    if (!remotePathAllowed(msg.path)) return;
+    const v = msg.value;
+    const okType =
+      typeof v === 'number' ||
+      typeof v === 'boolean' ||
+      (typeof v === 'string' && v.length <= 64) ||
+      (Array.isArray(v) && v.length <= 8 && v.every((x) => typeof x === 'string' && x.length <= 16));
+    if (!okType) return;
+    setConfigPath(currentConfig, msg.path, v);
+  } else {
+    return;
+  }
+
+  saveSettings(currentConfig);
+  if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.webContents.send('config', currentConfig);
+  notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
+  streamServer.broadcast({ type: 'config', config: currentConfig });
+  dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+}
+
+let streamSyncing = false;
+function syncStreamServer() {
+  const s = (currentConfig && currentConfig.stream) || {};
+  if (streamSyncing) return Promise.resolve(streamServer.status());
+  streamSyncing = true;
+  const done = (r) => {
+    streamSyncing = false;
+    return r;
+  };
+  if (!s.enabled) return streamServer.stop().then(() => done(streamServer.status()));
+  return streamServer
+    .start(s, {
+      getConfig: () => currentConfig,
+      getPresets: () => presetsStore.list(),
+      onCommand: (msg) => applyRemoteCommand(msg),
+      onClientsChanged: (list) => notifyAdmin('stream-clients', list),
+    })
+    .then((st) => {
+      notifyAdmin('stream-status', st);
+      return done(st);
+    });
+}
+
+function syncOscServer() {
+  const o = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
+  if (!o.enabled) return oscServer.stop().then(() => oscServer.status());
+  return oscServer.start(o, (m) => notifyAdmin('osc-message', m)).then((st) => {
+    notifyAdmin('osc-status', st);
+    return st;
+  });
+}
+
+ipcMain.handle('stream:status', () => streamServer.status());
+ipcMain.handle('stream:sync', () => syncStreamServer());
+ipcMain.handle('stream:new-token', () => streamServer.newToken());
+ipcMain.handle('stream:lan-address', () => streamServer.lanAddress());
+ipcMain.handle('stream:open', (e, which) => {
+  const u = streamServer.status().urls;
+  const target = which === 'remote' ? u.remote : u.overlay;
+  if (target) shell.openExternal(target);
+  return target || '';
+});
+ipcMain.handle('osc:status', () => oscServer.status());
+ipcMain.handle('osc:sync', () => syncOscServer());
+
+// ----------------------------------------------------------------------------
+// Medya katmanı: video dosyası seçimi
+// ----------------------------------------------------------------------------
+ipcMain.handle('media:pick-video', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Video Dosyası Seç', 'Choose Video File'),
+    properties: ['openFile'],
+    filters: [
+      { name: trUi('Video Dosyaları', 'Video Files'), extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths[0]) return null;
+  return {
+    path: r.filePaths[0],
+    url: 'sv-media://' + encodeURIComponent(r.filePaths[0]),
+    name: path.basename(r.filePaths[0]),
+  };
+});
+
+// Kamera listesi renderer'dan gelir (enumerateDevices)
+ipcMain.on('report-video-devices', (e, devices) => notifyAdmin('video-devices', devices));
 
 // ----------------------------------------------------------------------------
 // Video Dışa Aktarma (MP3/ses -> kayıpsız video)
@@ -839,7 +1061,35 @@ app.whenReady().then(async () => {
   if (currentConfig?.lighting?.enabled) {
     dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
   }
+
+  // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
+  // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
+  // erişimi vermez.
+  protocol.handle('sv-media', (request) => {
+    try {
+      const raw = decodeURIComponent(request.url.replace(/^sv-media:\/\//, ''));
+      const wanted = (currentConfig && currentConfig.media && currentConfig.media.file) || '';
+      const allowed = decodeURIComponent(String(wanted).replace(/^sv-media:\/\//, ''));
+      if (!raw || !allowed || path.resolve(raw) !== path.resolve(allowed)) {
+        return new Response('forbidden', { status: 403 });
+      }
+      return net.fetch(url.pathToFileURL(raw).toString());
+    } catch {
+      return new Response('error', { status: 500 });
+    }
+  });
+
+  // Kamera izni yalnızca kendi pencerelerimize verilir.
+  const sess = require('electron').session.defaultSession;
+  sess.setPermissionRequestHandler((wc, permission, callback) => {
+    const own = BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents === wc);
+    callback(own && (permission === 'media' || permission === 'fullscreen'));
+  });
   createAdminWindow();
+
+  // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
+  syncStreamServer().catch(() => {});
+  syncOscServer().catch(() => {});
 
   // Ekran değişikliklerini admin'e bildir
   screen.on('display-added', () => notifyAdmin('displays-changed', getDisplayList()));
@@ -858,29 +1108,98 @@ app.whenReady().then(async () => {
   }
 
   if (SMOKE) {
-    const sendCfg = (label, c) => {
-      console.log('[SMOKE] -> ' + label);
-      if (visualizerWin && !visualizerWin.isDestroyed())
-        visualizerWin.webContents.send('config', c);
-    };
-    setTimeout(() => {
-      console.log('[SMOKE] opening visualizer on primary display');
-      openVisualizer(screen.getPrimaryDisplay().id);
-    }, 1500);
-    setTimeout(() => sendCfg('centerBars', { visualizer: { type: 'centerBars' } }), 3000);
-    setTimeout(() => sendCfg('wave', { visualizer: { type: 'wave' } }), 4000);
-    setTimeout(() => sendCfg('circular', { visualizer: { type: 'circular', rainbow: false } }), 4800);
-    setTimeout(() => sendCfg('gradient SOFT', { background: { type: 'gradient', gradient: { style: 'soft' } }, visualizer: { type: 'centerBars' } }), 5400);
-    setTimeout(() => sendCfg('gradient PLASMA audioHue+bright', { background: { type: 'gradient', gradient: { style: 'plasma', audioHue: 0.6, audioBrightness: 1.2 } } }), 6100);
-    setTimeout(() => {
-      console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));
-      console.log('[SMOKE] done, quitting');
+    runSmoke().catch((e) => {
+      console.log('[SMOKE] FAIL ' + (e && e.message));
+      process.exitCode = 1;
       app.quit();
-    }, 7500);
+    });
   }
 });
 
+
+// ----------------------------------------------------------------------------
+// Öz test (--smoke)
+//
+// Kayıtlı HER görselleştirici modunu ve HER arkaplanı sırayla açar, konsol
+// hatalarını toplar. Modlar elle <script> etiketiyle yüklendiği için (paketleyici
+// yok), yeni bir modu üç HTML'den birine eklemeyi unutmak sessiz bir hataya yol
+// açardı; bu test onu gürültülü hale getirir.
+// ----------------------------------------------------------------------------
+async function runSmoke() {
+  const errors = [];
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  console.log('[SMOKE] opening visualizer on primary display');
+  openVisualizer(screen.getPrimaryDisplay().id);
+  await wait(2200);
+  if (!visualizerWin || visualizerWin.isDestroyed()) throw new Error('visualizer window did not open');
+
+  const wc = visualizerWin.webContents;
+  wc.on('console-message', (e, level, message) => {
+    if (level >= 2 || /error|hata|failed|undefined is not/i.test(message)) errors.push(message);
+  });
+
+  const modes = await wc.executeJavaScript('Object.keys(window.SVModes || {})');
+  const backgrounds = await wc.executeJavaScript('Object.keys(window.SVBackgrounds || {})');
+  console.log('[SMOKE] registered visualizer modes (' + modes.length + '): ' + modes.join(', '));
+  console.log('[SMOKE] registered backgrounds (' + backgrounds.length + '): ' + backgrounds.join(', '));
+
+  const base = JSON.parse(JSON.stringify(currentConfig || {}));
+  const send = (over) => wc.send('config', Object.assign({}, base, over));
+
+  // Her ön mod (gradient bir arkaplan motorudur, ön mod olarak atlanır)
+  for (const m of modes) {
+    if (m === 'gradient') continue;
+    send({ visualizer: Object.assign({}, base.visualizer, { type: m }), background: { type: 'solid', solidColor: '#101018' } });
+    await wait(260);
+    const st = await wc.executeJavaScript('({ fg: !!document.getElementById("c2d"), w: document.getElementById("c2d").width })');
+    if (!st.w) errors.push('mode ' + m + ': canvas has zero width');
+  }
+  console.log('[SMOKE] visualizer modes drawn: ' + (modes.length - 1));
+
+  // Her arkaplan
+  for (const b of backgrounds) {
+    send({ background: Object.assign({}, base.background, { type: b }), visualizer: Object.assign({}, base.visualizer, { type: 'bars' }) });
+    await wait(240);
+  }
+  send({ background: Object.assign({}, base.background, { type: 'gradient' }) });
+  await wait(300);
+  console.log('[SMOKE] backgrounds drawn: ' + backgrounds.length);
+
+  // Studio shader motoru: yerleşik presetlerin hepsi derleniyor mu?
+  const shaderReport = await wc.executeJavaScript(`(function(){
+    try {
+      var host = new window.SVShaderHost({});
+      host.resize(160, 90);
+      var out = [];
+      for (var i = 0; i < window.SVPresets.BUILTIN.length; i++) {
+        var p = window.SVPresets.BUILTIN[i];
+        var r = host.setSource(p.shader, p.controls);
+        out.push({ id: p.id, ok: !!r.ok, error: r.ok ? null : (r.error && r.error.message) });
+      }
+      host.dispose();
+      return out;
+    } catch (e) { return [{ id: 'HOST', ok: false, error: e.message }]; }
+  })()`);
+  for (const r of shaderReport) {
+    console.log('[SMOKE] shader ' + r.id + ': ' + (r.ok ? 'OK' : 'FAIL — ' + r.error));
+    if (!r.ok) errors.push('shader ' + r.id + ': ' + r.error);
+  }
+
+  console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));
+  if (errors.length) {
+    console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
+    errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));
+    process.exitCode = 1;
+  } else {
+    console.log('[SMOKE] RESULT: PASS');
+  }
+  app.quit();
+}
+
 app.on('before-quit', () => {
+  streamServer.stop().catch(() => {});
+  oscServer.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   nativeAudio.stopCapture();
 });

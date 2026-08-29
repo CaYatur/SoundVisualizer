@@ -109,12 +109,79 @@
         beatSpawn: 1.0, // bas darbesinde ek halka doğurma
         fade: 1.0, // sönme hızı
       },
+      nebula: {
+        clouds: 7, // bulut katmanı sayısı
+        size: 1.0, // bulut yarıçapı çarpanı
+        softness: 1.0, // kenar yumuşaklığı
+        drift: 1.0, // sürüklenme hızı
+        density: 0.75, // yoğunluk / opaklık
+        bassPush: 1.4,
+      },
+      hexgrid: {
+        size: 1.0, // altıgen boyutu
+        gap: 0.14, // hücreler arası boşluk
+        spectrum: 1.0, // spektrumun hücrelere yansıması
+        wave: 0.6, // merkezden yayılan dalga
+        speed: 1.0,
+        bassPush: 1.5,
+      },
+      ink: {
+        blobs: 5, // mürekkep damlası sayısı
+        viscosity: 1.0, // akış yumuşaklığı
+        swirl: 1.0, // burulma miktarı
+        spread: 1.0, // yayılma alanı
+        opacity: 0.9,
+        bassPush: 1.6,
+      },
+      snow: {
+        count: 260, // parçacık sayısı
+        size: 1.0,
+        fall: 1.0, // düşme hızı
+        sway: 1.0, // yanal salınım
+        depth: 1.0, // derinlik katmanları
+        bassPush: 1.2,
+      },
+      city: {
+        buildings: 34, // bina sayısı
+        height: 1.0, // bina yüksekliği çarpanı
+        windows: 1.0, // pencere yoğunluğu
+        skyGlow: 0.8, // gökyüzü parlaması
+        parallax: 1.0, // ikinci katman kayması
+        bassPush: 1.4,
+      },
+      corridor: {
+        rings: 26, // koridor halkası sayısı
+        speed: 1.0, // ilerleme hızı
+        sides: 0, // 0 = daire, 3..12 = çokgen
+        twist: 0.5, // dönüş miktarı
+        lineWidth: 1.0,
+        bassPush: 1.8,
+      },
+      spiral: {
+        arms: 3, // kol sayısı
+        turns: 4.5, // tur sayısı
+        thickness: 1.0,
+        speed: 1.0,
+        taper: 0.7, // uca doğru incelme
+        bassPush: 1.3,
+      },
+      mosaic: {
+        cells: 26, // hücre sayısı (kısa kenar)
+        jitter: 0.55, // hücre düzensizliği
+        borders: 0.35, // hücre kenar kalınlığı
+        response: 1.0, // spektrum tepkisi
+        speed: 0.6,
+        bassPush: 1.2,
+      },
     },
 
     visualizer: {
       // 'none' | 'bars' | 'centerBars' | 'blocks' | 'dots' | 'wave' | 'ribbon' |
       // 'terrain' | 'circular' | 'radialWave' | 'starburst' | 'tunnel' | 'orb' |
-      // 'particles' | 'spectrogram'
+      // 'particles' | 'spectrogram' | 'kaleido' | 'helix' | 'metaball' |
+      // 'fireworks' | 'vortex' | 'mandala' | 'skyline' | 'lightning' |
+      // 'ripplegrid' | 'lissajous' | 'strings' | 'bubbles' | 'wave3d' |
+      // 'arcs' | 'pinwheel' | 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
       type: 'bars',
       rainbow: true,
       color: '#3aa6ff',
@@ -230,6 +297,87 @@
     // adlandırılmış anlık görüntüsü. Tek tıkla geri yüklenir; içe/dışa aktarılabilir.
     // { id, name, createdAt, data: { background, visualizer, logo, images } }
     scenes: [],
+
+    // ------------------------------------------------------------------
+    // Yayın çıkışı (OBS / tarayıcı kaynağı + mobil uzaktan kumanda)
+    //
+    // Uygulama yerel bir HTTP + WebSocket sunucusu açar. OBS'e "Tarayıcı
+    // Kaynağı" olarak eklenen sayfa, görselleştiricinin AYNI motorunu
+    // çalıştırır; ses analizi kareleri WebSocket ile akar. Böylece pencere
+    // yakalamaya, ekran kaydına veya native eklentiye gerek kalmaz.
+    // ------------------------------------------------------------------
+    stream: {
+      enabled: false,
+      port: 8722,
+      lan: false, // true = 0.0.0.0 (telefon/başka makine erişir), false = yalnız 127.0.0.1
+      token: '', // boşsa açılışta üretilir; LAN modunda zorunludur
+      transparent: true, // arkaplanı saydam bırak (OBS'te üst katman olarak)
+      remote: true, // /remote mobil kumanda sayfası açık mı
+      overlayFps: 60, // tarayıcı kaynağının kare hızı sınırı
+      quality: 1.0, // tarayıcı kaynağı çözünürlük ölçeği
+    },
+
+    // ------------------------------------------------------------------
+    // Harici kontrol yüzeyleri (MIDI / OSC)
+    // Eşleme: { id, source:'midi'|'osc', channel, cc, address, path, min, max, mode }
+    // ------------------------------------------------------------------
+    control: {
+      midi: { enabled: false, deviceId: 'all', mappings: [] },
+      osc: { enabled: false, port: 9000, mappings: [] },
+    },
+
+    // ------------------------------------------------------------------
+    // Medya katmanı: web kamerası veya video dosyası sahneye katman olarak
+    // girer; sese göre yakınlaşır, rengi kayar, kaleydoskoba girer.
+    // ------------------------------------------------------------------
+    media: {
+      enabled: false,
+      source: 'webcam', // 'webcam' | 'file'
+      deviceId: '', // boş = varsayılan kamera
+      file: null, // video dosyası (file:// URL)
+      fit: 'cover', // 'cover' | 'contain' | 'stretch'
+      opacity: 0.85,
+      blend: 'normal', // 'normal' | 'screen' | 'add' | 'multiply'
+      layer: 'back', // 'back' (görselin arkasında) | 'front'
+      loop: true,
+      mirror: false,
+      kaleido: 0, // 0 = kapalı, 3..12 = dilim sayısı
+      hue: 0, // renk kayması (0..1)
+      saturate: 1,
+      audioZoom: 0.12, // bas -> yakınlaşma
+      audioOpacity: 0, // bas -> saydamlık nabzı
+    },
+
+    // ------------------------------------------------------------------
+    // Studio: kullanıcının kendi yaptığı görselleştirici/arkaplan presetleri.
+    // Preset İÇERİĞİ burada DEĞİL, userData/presets/*.json altında durur:
+    // ayar dosyası her kaydırıcı hareketinde diske yazılıyor, shader
+    // kaynağını oraya koymak dosyayı gereksiz şişirirdi. Burada yalnızca
+    // seçim ve kullanıcının o presete verdiği parametre değerleri tutulur.
+    // ------------------------------------------------------------------
+    custom: {
+      visualizerId: null, // visualizer.type === 'custom' iken kullanılan preset
+      backgroundId: null, // background.type === 'custom' iken kullanılan preset
+      params: {}, // { presetId: { paramAdı: değer } }
+    },
+
+    // MilkDrop ailesi geri besleme (feedback) motoru ayarları
+    feedback: {
+      zoom: 1.006,
+      rotate: 0.0,
+      warp: 0.55,
+      decay: 0.965,
+      dx: 0.0,
+      dy: 0.0,
+      swirl: 0.35,
+      waveMode: 'line', // 'line' | 'circle' | 'dual' | 'spectrum'
+      waveAmp: 1.0,
+      waveThickness: 1.0,
+      echo: 0.0,
+      bassZoom: 0.05,
+      bassRotate: 0.02,
+      sharpen: 0.25,
+    },
 
     // Video dışa aktarma (MP3/ses -> kayıpsız video). Ekran/ses kaydı değil:
     // her kare offline ve birebir render edilir, ses kaynaktan kopyalanır.

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0910" />
+    <title>CAYADEV Visualizer — Uzaktan Kumanda</title>
+    <style>
+      :root {
+        --bg: #0b0910;
+        --card: #16121d;
+        --card2: #1d1826;
+        --line: #2c2438;
+        --text: #ece8f2;
+        --dim: #9c92ad;
+        --red: #dc2727;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.45 'Segoe UI', -apple-system, system-ui, sans-serif;
+        padding: 14px 14px calc(28px + env(safe-area-inset-bottom));
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+      .logo { width: 34px; height: 34px; border-radius: 9px; background: #111827; display: grid; place-items: center; flex: none; }
+      .logo i { display: block; width: 4px; height: 16px; background: var(--red); border-radius: 2px; box-shadow: 7px 0 0 var(--red), -7px 0 0 var(--red); }
+      h1 { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
+      h1 span { color: var(--red); }
+      .sub { font-size: 11.5px; color: var(--dim); }
+      #dot { margin-left: auto; width: 9px; height: 9px; border-radius: 50%; background: #6b6478; flex: none; }
+      html[data-sv-status='connected'] #dot { background: #3ddc84; box-shadow: 0 0 10px #3ddc8455; }
+      html[data-sv-status='closed'] #dot, html[data-sv-status='error'] #dot { background: var(--red); }
+
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 13px; margin-bottom: 11px; }
+      .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--dim); margin-bottom: 10px; font-weight: 600; }
+
+      .row { display: flex; gap: 8px; }
+      button {
+        font: inherit; color: var(--text); background: var(--card2);
+        border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+        cursor: pointer; flex: 1; touch-action: manipulation;
+      }
+      button:active { transform: scale(.985); }
+      button.primary { background: var(--red); border-color: var(--red); font-weight: 600; }
+      button.on { background: #33243a; border-color: #6b4bd8; color: #fff; }
+
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; }
+      .grid button { padding: 10px 6px; font-size: 13px; }
+
+      .slider { margin-bottom: 12px; }
+      .slider:last-child { margin-bottom: 0; }
+      .slider label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+      .slider label b { color: var(--dim); font-weight: 500; font-variant-numeric: tabular-nums; }
+      input[type=range] { width: 100%; height: 28px; background: transparent; -webkit-appearance: none; appearance: none; }
+      input[type=range]::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; background: #2e2739; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--red); margin-top: -8.5px; border: 2px solid #1a1520; }
+      input[type=range]::-moz-range-track { height: 5px; border-radius: 3px; background: #2e2739; }
+      input[type=range]::-moz-range-thumb { width: 20px; height: 20px; border: 2px solid #1a1520; border-radius: 50%; background: var(--red); }
+
+      .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 7px; }
+      .sw { height: 40px; border-radius: 9px; border: 1px solid var(--line); cursor: pointer; padding: 0; }
+      .meters { display: flex; gap: 6px; }
+      .meter { flex: 1; }
+      .meter i { display: block; height: 4px; border-radius: 2px; background: var(--red); width: 0; transition: width .08s linear; }
+      .meter span { font-size: 10px; color: var(--dim); }
+      .empty { color: var(--dim); font-size: 13px; }
+      footer { text-align: center; color: var(--dim); font-size: 11.5px; margin-top: 16px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo"><i></i></div>
+      <div>
+        <h1><span>CAYA</span>DEV Kumanda</h1>
+        <div class="sub" id="statusText">Bağlanıyor…</div>
+      </div>
+      <div id="dot"></div>
+    </header>
+
+    <div class="card">
+      <h2>Görselleştirme</h2>
+      <div class="row">
+        <button class="primary" data-action="openVisualizer">▶ Aç</button>
+        <button data-action="closeVisualizer">■ Kapat</button>
+        <button id="blackoutBtn" data-action="blackout">🌑 Karart</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Sahneler</h2>
+      <div class="grid" id="scenes"><span class="empty">Kayıtlı sahne yok.</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Görselleştirici</h2>
+      <div class="grid" id="visModes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Arkaplan</h2>
+      <div class="grid" id="bgModes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Renk Şablonu</h2>
+      <div class="swatches" id="palettes"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ses</h2>
+      <div class="slider">
+        <label>Hassasiyet <b id="vSens">—</b></label>
+        <input type="range" id="sens" min="0.2" max="4" step="0.05" />
+      </div>
+      <div class="slider">
+        <label>Yumuşatma <b id="vSmooth">—</b></label>
+        <input type="range" id="smooth" min="0" max="0.95" step="0.01" />
+      </div>
+      <div class="slider">
+        <label>Bas Vurgusu <b id="vBass">—</b></label>
+        <input type="range" id="bass" min="1" max="4" step="0.05" />
+      </div>
+      <div class="slider">
+        <label>Parlama <b id="vGlow">—</b></label>
+        <input type="range" id="glow" min="0" max="1" step="0.02" />
+      </div>
+    </div>
+
+    <footer>CAYADEV Visualizer · cayadev.com</footer>
+
+    <script src="/app/web/web-shim.js"></script>
+    <script src="/app/web/remote.js"></script>
+  </body>
+</html>

@@ -599,6 +599,10 @@
     palette(cfg) { return basePalette(cfg); }
   }
 
+  // Aynı sözleşmeyi kullanan ek arkaplan modları (backgrounds-extra.js) bu
+  // yardımcıları paylaşır; renk/palet mantığı tek yerde kalsın diye dışa verilir.
+  window.SVBgUtil = { colorsOf, rgbOf, rgba, lerpColor, gset, mset, rng, vignette, basePalette };
+
   window.SVBackgrounds = {
     starfield: Starfield,
     grid: RetroGrid,

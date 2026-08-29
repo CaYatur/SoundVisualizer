@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Görselleştirme</title>
     <link rel="stylesheet" href="visualizer.css" />
   </head>
@@ -10,6 +10,7 @@
     <canvas id="gl"></canvas>
     <canvas id="bg2d"></canvas>
     <canvas id="fxBack"></canvas>
+    <canvas id="media"></canvas>
     <canvas id="c2d"></canvas>
     <canvas id="fxFront"></canvas>
     <img id="logo" alt="" />
@@ -37,6 +38,11 @@
     <script src="modes/particles.js"></script>
     <script src="modes/terrain.js"></script>
     <script src="modes/sprites.js"></script>
+    <script src="../shared/presets.js"></script>
+    <script src="modes/extras.js"></script>
+    <script src="modes/backgrounds-extra.js"></script>
+    <script src="modes/shaderhost.js"></script>
+    <script src="modes/media.js"></script>
     <script src="visualizer.js"></script>
   </body>
 </html>

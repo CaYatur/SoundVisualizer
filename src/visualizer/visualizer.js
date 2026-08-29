@@ -10,6 +10,8 @@
   const fxFront = document.getElementById('fxFront');
   const fxBackCtx = fxBack.getContext('2d');
   const fxFrontCtx = fxFront.getContext('2d');
+  const mediaCanvas = document.getElementById('media');
+  const mediaCtx = mediaCanvas.getContext('2d');
   const logoImg = document.getElementById('logo');
   const hint = document.getElementById('hint');
   const errBox = document.getElementById('error');
@@ -17,7 +19,9 @@
   let cfg = window.SV.defaultConfig();
   const audio = new window.SVAudio();
   const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller
+  const media = new window.SVMedia(); // web kamerası / video katmanı
   let imagesOn = false;
+  let mediaOn = false;
 
   let gradient = null; // WebGL modu
   let bgMode = null; // 2D arkaplan modu örneği
@@ -46,7 +50,7 @@
     c2d.style.height = h + 'px';
 
     // Ek görsel nesne (partikül) katmanları ve 2D arkaplan — ön katmanla aynı çözünürlük
-    for (const cv of [fxBack, fxFront, bg2d]) {
+    for (const cv of [fxBack, fxFront, bg2d, mediaCanvas]) {
       cv.width = c2d.width;
       cv.height = c2d.height;
       cv.style.width = w + 'px';
@@ -131,6 +135,25 @@
   }
 
   // --------------------------------------------------------------------------
+  // Medya katmanı (web kamerası / video dosyası)
+  // --------------------------------------------------------------------------
+  function applyMedia() {
+    mediaOn = !!(cfg.media && cfg.media.enabled);
+    media.apply(cfg.media);
+    mediaCanvas.style.display = mediaOn ? 'block' : 'none';
+    mediaCanvas.classList.toggle('front', !!(cfg.media && cfg.media.layer === 'front'));
+    if (!mediaOn) mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
+    bindMediaToShaders();
+  }
+
+  // Shader tabanlı modlar medyayı sv_media (iChannel3) olarak okuyabilir
+  function bindMediaToShaders() {
+    const el = mediaOn ? media.video : null;
+    if (foreground && foreground.host && foreground.host.setMedia) foreground.host.setMedia(el);
+    if (bgMode && bgMode.host && bgMode.host.setMedia) bgMode.host.setMedia(el);
+  }
+
+  // --------------------------------------------------------------------------
   // Logo
   // --------------------------------------------------------------------------
   function applyLogo() {
@@ -205,6 +228,12 @@
       }
     }
 
+    // medya katmanı (kamera / video)
+    if (mediaOn) {
+      mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
+      if (!silent) media.draw(mediaCtx, audio, cfg, mediaCanvas.width, mediaCanvas.height, t);
+    }
+
     // ek görsel nesneler / partiküller (arka katman görselin arkasında,
     // ön katman görselin önünde)
     if (imagesOn) {
@@ -268,6 +297,7 @@
     applyBackground();
     applyForeground();
     applyImages();
+    applyMedia();
     applyLogo();
     document.body.style.cursor = cfg.power.hideCursor ? 'none' : 'default';
 
@@ -290,6 +320,20 @@
   // Başlat
   // --------------------------------------------------------------------------
   async function init() {
+    // Studio presetleri (kullanıcının kendi shader'ları) ana süreçte tutulur
+    try {
+      window.SVPresets.setUser(await window.api.getPresets());
+    } catch { /* preset yoksa yerleşiklerle devam */ }
+    window.api.onPresets((list) => {
+      window.SVPresets.setUser(list);
+      // seçili preset düzenlendiyse motorun kaynağı yenilensin
+      foreType = null;
+      bgType = null;
+      applyBackground();
+      applyForeground();
+      bindMediaToShaders();
+    });
+
     const saved = await window.api.requestConfig();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
 

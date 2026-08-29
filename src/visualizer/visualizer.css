@@ -8,7 +8,7 @@ html, body {
   cursor: none;
 }
 
-#gl, #bg2d, #c2d, #fxBack, #fxFront {
+#gl, #bg2d, #c2d, #fxBack, #fxFront, #media {
   position: fixed;
   inset: 0;
   width: 100%;
@@ -19,13 +19,16 @@ html, body {
 /* gl = WebGL gradyan, bg2d = 2D arkaplan modları (ikisinden biri görünür) */
 #gl { z-index: 1; }
 #bg2d { z-index: 1; }
-#fxBack { z-index: 2; }
-#c2d { z-index: 3; }
-#fxFront { z-index: 4; }
+/* medya katmanı (kamera / video dosyası): arkada 2, önde 6 */
+#media { z-index: 2; display: none; }
+#media.front { z-index: 6; }
+#fxBack { z-index: 3; }
+#c2d { z-index: 4; }
+#fxFront { z-index: 5; }
 
 #logo {
   position: fixed;
-  z-index: 5;
+  z-index: 7;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);

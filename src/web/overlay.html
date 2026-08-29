@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CAYADEV Visualizer — Yayın Katmanı</title>
+    <link rel="stylesheet" href="/app/visualizer/visualizer.css" />
+    <style>
+      /* OBS tarayıcı kaynağı sayfayı saydam bir yüzey üstünde çizer.
+         html'i saydam bırakıyoruz; gövdenin arkaplanını visualizer.js
+         yapılandırmaya göre kendisi ayarlıyor (saydam mod dahil). */
+      html { background: transparent; }
+      body { cursor: none; }
+      #hint, #error { display: none !important; }
+
+      /* Bağlantı yokken küçük bir uyarı: OBS'te siyah ekran görüp
+         "çalışmıyor" sanmak yerine sebebi görünsün. */
+      #link {
+        position: fixed;
+        z-index: 20;
+        left: 50%;
+        bottom: 24px;
+        transform: translateX(-50%);
+        font: 500 14px/1.4 'Segoe UI', system-ui, sans-serif;
+        color: #ffd9d9;
+        background: rgba(120, 12, 12, 0.72);
+        border: 1px solid rgba(255, 120, 120, 0.35);
+        padding: 10px 16px;
+        border-radius: 10px;
+        display: none;
+      }
+      html[data-sv-status='closed'] #link,
+      html[data-sv-status='error'] #link { display: block; }
+    </style>
+  </head>
+  <body>
+    <canvas id="gl"></canvas>
+    <canvas id="bg2d"></canvas>
+    <canvas id="fxBack"></canvas>
+    <canvas id="media"></canvas>
+    <canvas id="c2d"></canvas>
+    <canvas id="fxFront"></canvas>
+    <img id="logo" alt="" />
+    <div id="hint"></div>
+    <div id="error"></div>
+    <div id="link">CAYADEV Visualizer ile bağlantı yok — uygulama açık mı?</div>
+
+    <!-- Masaüstü penceresiyle birebir aynı motor -->
+    <script src="/app/shared/defaults.js"></script>
+    <script src="/app/shared/i18n.js"></script>
+    <script src="/app/visualizer/audio.js"></script>
+    <script src="/app/visualizer/modes/glow.js"></script>
+    <script src="/app/visualizer/modes/gradient.js"></script>
+    <script src="/app/visualizer/modes/backgrounds.js"></script>
+    <script src="/app/visualizer/modes/bars.js"></script>
+    <script src="/app/visualizer/modes/centerbars.js"></script>
+    <script src="/app/visualizer/modes/wave.js"></script>
+    <script src="/app/visualizer/modes/circular.js"></script>
+    <script src="/app/visualizer/modes/blocks.js"></script>
+    <script src="/app/visualizer/modes/spectrogram.js"></script>
+    <script src="/app/visualizer/modes/ribbon.js"></script>
+    <script src="/app/visualizer/modes/orb.js"></script>
+    <script src="/app/visualizer/modes/starburst.js"></script>
+    <script src="/app/visualizer/modes/tunnel.js"></script>
+    <script src="/app/visualizer/modes/dots.js"></script>
+    <script src="/app/visualizer/modes/radialwave.js"></script>
+    <script src="/app/visualizer/modes/particles.js"></script>
+    <script src="/app/visualizer/modes/terrain.js"></script>
+    <script src="/app/visualizer/modes/sprites.js"></script>
+    <script src="/app/shared/presets.js"></script>
+    <script src="/app/visualizer/modes/extras.js"></script>
+    <script src="/app/visualizer/modes/backgrounds-extra.js"></script>
+    <script src="/app/visualizer/modes/shaderhost.js"></script>
+    <script src="/app/visualizer/modes/media.js"></script>
+    <!-- window.api köprüsü visualizer.js'ten ÖNCE tanımlanmalı -->
+    <script src="/app/web/web-shim.js"></script>
+    <script src="/app/visualizer/visualizer.js"></script>
+  </body>
+</html>

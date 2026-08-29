@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Ses Görselleştirici — Yönetici Paneli</title>
     <link rel="stylesheet" href="admin.css" />
   </head>
@@ -112,7 +112,8 @@
           <div id="previewStage" class="preview-stage">
             <canvas id="pvGl"></canvas>
             <canvas id="pvBg2d"></canvas>
-            <canvas id="pvBack"></canvas>
+              <canvas id="pvBack"></canvas>
+              <canvas id="pvMedia"></canvas>
             <canvas id="pv2d"></canvas>
             <canvas id="pvFront"></canvas>
             <img id="pvLogo" alt="" />
@@ -218,6 +219,11 @@
     <script src="../visualizer/modes/particles.js"></script>
     <script src="../visualizer/modes/terrain.js"></script>
     <script src="../visualizer/modes/sprites.js"></script>
+    <script src="../shared/presets.js"></script>
+    <script src="../visualizer/modes/extras.js"></script>
+    <script src="../visualizer/modes/backgrounds-extra.js"></script>
+    <script src="../visualizer/modes/shaderhost.js"></script>
+    <script src="../visualizer/modes/media.js"></script>
     <script src="preview.js"></script>
     <script src="settings.js"></script>
     <script src="admin.js"></script>

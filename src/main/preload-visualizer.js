@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),
+  // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
+  getPresets: () => ipcRenderer.invoke('presets:list'),
+  onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
 });

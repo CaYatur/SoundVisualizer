@@ -38,6 +38,37 @@ contextBridge.exposeInMainWorld('api', {
   onExportProgress: (cb) => ipcRenderer.on('export-progress', (e, d) => cb(d)),
   onExportDone: (cb) => ipcRenderer.on('export-done', (e, d) => cb(d)),
 
+  // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları)
+  listPresets: () => ipcRenderer.invoke('presets:list'),
+  savePreset: (preset) => ipcRenderer.invoke('presets:save', preset),
+  deletePreset: (id) => ipcRenderer.invoke('presets:delete', id),
+  savePresets: (list) => ipcRenderer.invoke('presets:save-many', list),
+  openPresetsFolder: () => ipcRenderer.invoke('presets:open-folder'),
+  importShaderText: () => ipcRenderer.invoke('presets:import-text'),
+  onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
+
+  // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
+  streamStatus: () => ipcRenderer.invoke('stream:status'),
+  streamSync: () => ipcRenderer.invoke('stream:sync'),
+  streamNewToken: () => ipcRenderer.invoke('stream:new-token'),
+  streamLanAddress: () => ipcRenderer.invoke('stream:lan-address'),
+  streamOpen: (which) => ipcRenderer.invoke('stream:open', which),
+  onStreamStatus: (cb) => ipcRenderer.on('stream-status', (e, d) => cb(d)),
+  onStreamClients: (cb) => ipcRenderer.on('stream-clients', (e, d) => cb(d)),
+
+  // OSC alıcısı
+  oscStatus: () => ipcRenderer.invoke('osc:status'),
+  oscSync: () => ipcRenderer.invoke('osc:sync'),
+  onOscMessage: (cb) => ipcRenderer.on('osc-message', (e, m) => cb(m)),
+  onOscStatus: (cb) => ipcRenderer.on('osc-status', (e, d) => cb(d)),
+
+  // Medya katmanı
+  pickVideo: () => ipcRenderer.invoke('media:pick-video'),
+  reportVideoDevices: (devices) => ipcRenderer.send('report-video-devices', devices),
+
+  // Uzaktan kumandadan gelen ayar değişikliği (panel kopyasını tazeler)
+  onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
+
   // Olaylar (ana süreç -> admin)
   onVisualizerStatus: (cb) =>
     ipcRenderer.on('visualizer-status', (e, data) => cb(data)),
