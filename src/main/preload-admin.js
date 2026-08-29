@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('api', {
   openVisualizer: (displayId) => ipcRenderer.invoke('open-visualizer', displayId),
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),
   updateConfig: (config) => ipcRenderer.send('update-config', config),
+  // Arayüz dili: sistem diyalogları ve yayın sayfaları da buna uysun
+  setUiLanguage: (locale) => ipcRenderer.send('ui-language', locale),
 
   // JSON içe/dışa aktarma (şablonlar, arkaplan ve tüm uygulama ayarları)
   exportJson: (name, data) => ipcRenderer.invoke('file:export-json', name, data),

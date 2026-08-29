@@ -54,6 +54,7 @@ let clients = new Set();
 let hooks = {
   getConfig: () => null,
   getPresets: () => [],
+  getLocale: () => 'en',
   onCommand: () => {},
   onClientsChanged: () => {},
 };
@@ -299,15 +300,25 @@ function handleRequest(req, res) {
   res.writeHead(404).end('not found');
 }
 
+/* Sayfayı servis ederken uygulamanın dilini enjekte eder.
+
+   Yayın sayfaları telefonun ya da OBS'in dilini değil, UYGULAMANIN dilini
+   kullanmalı: kullanıcı paneli İngilizce yaptıysa kumanda da İngilizce olsun.
+   i18n.js bu değişkeni localStorage'dan önce okur. */
 function sendPage(res, file) {
-  fs.readFile(file, (err, data) => {
+  fs.readFile(file, 'utf-8', (err, html) => {
     if (err) { res.writeHead(500).end('page missing'); return; }
+    const locale = hooks.getLocale() === 'tr' ? 'tr' : 'en';
+    const injected = html.replace(
+      '<head>',
+      '<head>\n    <script>window.__SV_LOCALE=' + JSON.stringify(locale) + ';</script>'
+    );
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache',
       'X-Content-Type-Options': 'nosniff',
     });
-    res.end(data);
+    res.end(injected);
   });
 }
 

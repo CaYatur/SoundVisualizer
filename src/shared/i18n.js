@@ -3,7 +3,11 @@
    when the operating-system/browser locale starts with "tr". */
 (function () {
   const detected = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
-  const preference = localStorage.getItem('sv-language') || 'auto';
+  /* Dil tercihi. Yayın sunucusu tarafından servis edilen sayfalarda (OBS
+     katmanı ve mobil kumanda) uygulamanın dili sayfaya window.__SV_LOCALE ile
+     enjekte edilir; telefonun kendi dili değil, uygulamanın dili geçerlidir. */
+  const injected = typeof window !== 'undefined' ? window.__SV_LOCALE : null;
+  const preference = injected || localStorage.getItem('sv-language') || 'auto';
   const locale = preference === 'tr' || preference === 'en'
     ? preference
     : (/^tr(?:-|$)/i.test(detected) ? 'tr' : 'en');
@@ -395,7 +399,224 @@
     'Frekans Aralığı': 'Frequency Range',
     'Konum ve Işıltı': 'Position & Glow',
     'Davranış': 'Behavior',
-    'Kodlama': 'Encoding'
+    'Kodlama': 'Encoding',
+
+    // ======================= v2.0 — YENİ ARAYÜZLER =======================
+
+    // ---- Kategoriler ----
+    'Kontrol': 'Control',
+    'Studio': 'Studio',
+    'MIDI denetleyicileri ve OSC ile ayarları canlı sürün.': 'Drive settings live from MIDI controllers and OSC.',
+    'Kendi görselleştiricini ve arkaplanını yap; içe/dışa aktar.': 'Build your own visualizer and background; import and export them.',
+    'Görüntünün nereye ve nasıl gideceği: ekran, yayın, performans ve video dosyası.': 'Where and how the image goes out: display, streaming, performance, and video file.',
+
+    // ---- Üst çubuk / çoklu ekran / karartma ----
+    'Ekranlar': 'Displays',
+    'Ekran seçilmedi': 'No display selected',
+    '▶ Ekranları Uygula': '▶ Apply Displays',
+    '🌑 Karart': '🌑 Blackout',
+    '☀ Karartmayı Kaldır': '☀ Undo Blackout',
+    'Sahneyi karart (tekrar basınca geri gelir)': 'Black out the scene (press again to restore)',
+    'Birden fazla ekran seçerseniz görselleştirme hepsinde aynı anda açılır. ESC hepsini kapatır.': 'If you select more than one display, the visualization opens on all of them at once. ESC closes them all.',
+    'Seçtiğiniz her ekranda ayrı bir tam ekran görselleştirme açılır. ESC hepsini kapatır.': 'A separate full-screen visualization opens on each display you select. ESC closes them all.',
+
+    // ---- Yeni bölüm başlıkları ----
+    'Geri Besleme Motoru': 'Feedback Engine',
+    'MilkDrop ailesi: her kare bir öncekini büker, yakınlaştırır ve söndürür. Sonsuz tünel görünümü buradan gelir.': 'The MilkDrop family: each frame warps, zooms, and fades the previous one. This is where the endless-tunnel look comes from.',
+    'Medya Katmanı': 'Media Layer',
+    'Web kameranızı veya bir video dosyasını sahneye katman olarak koyun; sese göre nabız atsın.': 'Place your webcam or a video file into the scene as a layer that pulses with the audio.',
+    'Yayın Çıkışı (OBS / Web)': 'Streaming Output (OBS / Web)',
+    'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.': 'Publishes a page you can add to OBS and similar apps as a "Browser Source"; the phone remote is opened from here too.',
+    'MIDI Denetleyici': 'MIDI Controller',
+    'MIDI kumandanızın düğme ve faderlarını istediğiniz ayara bağlayın. Öğren düğmesine basıp denetleyiciyi oynatmanız yeterli.': 'Map the buttons and faders of your MIDI controller to any setting. Just press Learn and move the control.',
+    'OSC': 'OSC',
+    'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.': 'Map OSC messages from sources such as TouchOSC, Resolume, Ableton, or QLab to settings.',
+    'Studio — Kendi Görselleştiricin': 'Studio — Your Own Visualizer',
+    'Hazır bir modu kendine göre değiştir ya da sıfırdan shader yaz. Shadertoy, ISF ve MilkDrop dosyaları içe aktarılabilir.': 'Tweak a built-in mode to your taste or write a shader from scratch. Shadertoy, ISF, and MilkDrop files can be imported.',
+    'Sahne Üretici': 'Scene Generator',
+    'Ruh halini yaz, uygulama sana uygun bir sahne kursun. Tamamen çevrimdışı çalışır.': 'Describe a mood and the application builds a matching scene. Runs entirely offline.',
+    'Sese duyarlı ön efekt: barlar, dalga, çember, tünel, spektrogram ve daha fazlası.': 'Audio-reactive foreground effect: bars, wave, circle, tunnel, spectrogram, and more.',
+    'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.': 'An audio-reactive fluid backdrop, wave layers, starfield, and more.',
+
+    // ---- Yeni görselleştirici modları ----
+    'Şehir Silüeti': 'Skyline', '3B Dalga': '3D Wave', 'Lissajous': 'Lissajous', 'Teller': 'Strings',
+    'Yaylar': 'Arcs', 'Fırıldak': 'Pinwheel', 'Mandala': 'Mandala', 'Kaleydoskop': 'Kaleidoscope',
+    'Girdap': 'Vortex', 'Sarmal': 'Helix', 'Havai Fişek': 'Fireworks', 'Şimşek': 'Lightning',
+    'Baloncuk': 'Bubbles', 'Sıvı Damla': 'Liquid Blobs', 'Dalgalı Izgara': 'Ripple Grid',
+    '♾ Geri Besleme': '♾ Feedback', '🧪 Studio': '🧪 Studio',
+
+    // ---- Yeni arkaplanlar ----
+    'Mürekkep': 'Ink', 'Bulutsu': 'Nebula', 'Petek Izgara': 'Hex Grid', 'Mozaik': 'Mosaic',
+    'Koridor': 'Corridor', 'Kar / Kor': 'Snow / Embers', 'Şehir': 'City',
+
+    // ---- Segment grup başlıkları ----
+    'Temel': 'Basic', 'Dalga Formu': 'Waveform', 'Dairesel': 'Radial',
+    'Parçacık ve Olay': 'Particles & Events', 'Gelişmiş Motorlar': 'Advanced Engines',
+    'Akışkan': 'Fluid', 'Geometrik': 'Geometric', 'Atmosfer': 'Atmosphere', 'Diğer': 'Other',
+
+    // ---- Geri besleme ayarları ----
+    'Dalga Biçimi': 'Wave Shape', 'Çizgi': 'Line', 'Çift': 'Dual', 'Çember': 'Circle', 'Spektrum': 'Spectrum',
+    'Yakınlaşma': 'Zoom', 'Sönme': 'Decay', 'Bükülme': 'Warp', 'İç Dönüş': 'Swirl',
+    'Yatay Kayma': 'Horizontal Drift', 'Dikey Kayma': 'Vertical Drift',
+    'Dalga Genliği': 'Wave Amplitude', 'Dalga Kalınlığı': 'Wave Thickness', 'Keskinlik': 'Sharpen',
+    'Bas → Yakınlaşma': 'Bass → Zoom', 'Bas → Dönüş': 'Bass → Rotation', 'Dalga': 'Wave',
+
+    // ---- Studio ----
+    '＋ Shader': '＋ Shader', '＋ Varyasyon': '＋ Variation', '📦 Paket Dışa Aktar': '📦 Export Pack',
+    '📁 Klasör': '📁 Folder', 'Sıfırdan GLSL shader': 'A GLSL shader from scratch',
+    'Şu anki görünümü preset olarak sakla': 'Save the current look as a preset',
+    'Shadertoy / ISF / MilkDrop / .svpreset / .svpack': 'Shadertoy / ISF / MilkDrop / .svpreset / .svpack',
+    'Tüm kendi presetlerini tek dosyada paylaş': 'Share all of your own presets in a single file',
+    'Preset klasörünü aç': 'Open the presets folder',
+    'Görselleştirici': 'Visualizer', 'Arkaplan': 'Background',
+    'Henüz yok.': 'None yet.', 'yerleşik': 'built-in', 'shader': 'shader', 'varyasyon': 'variation',
+    'Soldan bir preset seç ya da yeni bir tane oluştur.': 'Pick a preset on the left or create a new one.',
+    'Varyasyon: şu anki görünümü isimlendirip saklar, kod gerektirmez. Shader: sıfırdan kendi efektini yazarsın.': 'Variation: names and stores the current look, no code required. Shader: you write your own effect from scratch.',
+    'Ad': 'Name', 'Tür': 'Type', 'Açıklama': 'Description',
+    'Preset adı': 'Preset name', 'Kısa açıklama (isteğe bağlı)': 'Short description (optional)',
+    'Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.': 'This is a built-in preset. Saving creates your own copy; the original is preserved.',
+    '⟳ Şu Anki Görünümle Güncelle': '⟳ Update With Current Look',
+    'Varyasyon güncel görünümle tazelendi.': 'The variation was refreshed with the current look.',
+    '✓ Derlendi': '✓ Compiled', 'Derlendi.': 'Compiled.',
+    'Parametreler': 'Parameters', '＋ Parametre Ekle': '＋ Add Parameter',
+    'Parametreyi kaldır': 'Remove parameter', 'Etiket': 'Label',
+    'Kaydırıcı': 'Slider', 'Anahtar': 'Switch', 'Renk': 'Color',
+    'adım': 'step', 'varsayılan': 'default', 'Miktar': 'Amount',
+    '💾 Kaydet': '💾 Save', '▶ Sahnede Kullan': '▶ Use In Scene', '⧉ Çoğalt': '⧉ Duplicate',
+    '🗑 Sil': '🗑 Delete', 'canlı': 'live',
+    'Yeni Görselleştirici': 'New Visualizer', 'Yeni Arkaplan': 'New Background',
+    'Görselleştiricim': 'My Visualizer', 'Arkaplan Varyasyonum': 'My Background Variation',
+    'Studio Preseti': 'Studio Preset',
+    'Henüz Studio preseti yok. Studio sekmesinden bir tane oluşturun.': 'No Studio preset yet. Create one from the Studio tab.',
+    'Preset çok büyük (512 KB üstü).': 'The preset is too large (over 512 KB).',
+    'Dışa aktarılacak preset yok.': 'There is no preset to export.',
+    'Dosyaya yazıldı.': 'Written to file.',
+    'Dosya çok büyük (2 MB üstü).': 'The file is too large (over 2 MB).',
+    'JSON çözümlenemedi.': 'The JSON could not be parsed.',
+    'İçe aktarıldı.': 'Imported.',
+    'WebGL2 kullanılamıyor.': 'WebGL2 is unavailable.',
+    'CAYADEV Preset Paketi': 'CAYADEV Preset Pack',
+    'Kodda mainImage(out vec4 fragColor, in vec2 fragCoord) bulunamadı.': 'mainImage(out vec4 fragColor, in vec2 fragCoord) was not found in the code.',
+    'ISF gövdesinde void main() bulunamadı.': 'void main() was not found in the ISF body.',
+    'Tanınmayan dosya biçimi (svpreset veya svpack bekleniyordu).': 'Unrecognized file format (svpreset or svpack expected).',
+    'Dosya okunamadı.': 'The file could not be read.',
+
+    // ---- Yayın çıkışı ----
+    'Yayın Sunucusunu Aç': 'Start Streaming Server',
+    'Ağa açık': 'Open to network', 'Yalnızca bu bilgisayar': 'This computer only',
+    'Port': 'Port', 'bağlı istemci': 'connected client(s)', 'istemci yok': 'no clients',
+    'dinleniyor': 'listening',
+    'OBS Tarayıcı Kaynağı': 'OBS Browser Source', 'Mobil Kumanda': 'Mobile Remote',
+    'bu adresi OBS\'e yapıştırın': 'paste this address into OBS',
+    'telefondan açın': 'open it on your phone',
+    '⧉ Kopyala': '⧉ Copy', 'Kopyalanamadı.': 'Could not copy.',
+    'OBS kurulumu': 'OBS setup',
+    'OBS → Kaynaklar → ＋ → Tarayıcı (Browser).': 'OBS → Sources → ＋ → Browser.',
+    'URL alanına yukarıdaki adresi yapıştırın.': 'Paste the address above into the URL field.',
+    'Genişlik/Yükseklik: sahne çözünürlüğünüzle aynı (ör. 1920 × 1080).': 'Width/Height: the same as your scene resolution (e.g. 1920 × 1080).',
+    '“Kaynak görünür değilken kapat” seçeneğini KAPALI bırakın; yoksa sahne değişince yeniden bağlanır.': 'Leave "Shutdown source when not visible" OFF; otherwise it reconnects every time you switch scenes.',
+    'Saydam arkaplan açıksa görselleştirici doğrudan üst katman olur; kapatırsanız arkaplan da yayına girer.': 'With a transparent background the visualizer becomes a direct overlay; turn it off and the background goes on stream too.',
+    'Adresin sonuna ?transparent=0 eklerseniz o kaynak arkaplanı da gösterir; ?fps=30 veya ?scale=0.75 ile o kaynağın yükünü ayrıca düşürebilirsiniz.': 'Append ?transparent=0 to the address and that source shows the background as well; ?fps=30 or ?scale=0.75 lowers the load of that source specifically.',
+    'Saydam Arkaplan (üst katman)': 'Transparent Background (overlay)',
+    'Mobil Uzaktan Kumanda': 'Mobile Remote Control',
+    'Yerel Ağa Aç (telefon erişebilsin)': 'Open To Local Network (so your phone can reach it)',
+    'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adres, tahmin edilmesi güç bir jeton içerir ve jeton olmadan hiçbir istek kabul edilmez. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.': 'The streaming page will be reachable by every device on your local network. The address contains a hard-to-guess token and no request is accepted without it. Do not enable this on a public or shared network (café, hotel, conference).',
+    'Ağa aç': 'Open to network',
+    'Erişim Jetonu': 'Access Token', '⟳ Yenile': '⟳ Regenerate',
+    'Yeni jeton üretir; eski adresler geçersiz olur': 'Generates a new token; old addresses stop working',
+    'Tarayıcı Kaynağı Kare Hızı': 'Browser Source Frame Rate',
+    'Tarayıcı Kaynağı Çözünürlük Ölçeği': 'Browser Source Resolution Scale',
+    'Bağlı İstemciler': 'Connected Clients',
+    '📱 Kumanda': '📱 Remote', '📺 Katman': '📺 Overlay',
+    'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.': 'The streaming page runs the same engine as the desktop window; there is no separate renderer, so the two outputs never drift apart. NDI and Spout output are not in this release — for OBS, the browser source already does the same job without installing a plugin.',
+    'Bu port başka bir uygulama tarafından kullanılıyor. Başka bir port deneyin.': 'This port is in use by another application. Try a different port.',
+    'Bu portu açma izni yok. 1024 üstü bir port deneyin.': 'No permission to open this port. Try a port above 1024.',
+    'Ağ adresi kullanılamıyor.': 'The network address is unavailable.',
+
+    // ---- Kontrol yüzeyleri ----
+    'MIDI Etkin': 'MIDI Enabled', 'OSC Etkin': 'OSC Enabled',
+    'Aygıt': 'Device', 'Tüm MIDI aygıtları': 'All MIDI devices',
+    'MIDI girişi bulundu': 'MIDI input(s) found', 'MIDI girişi bulunamadı': 'No MIDI input found',
+    'Bu ortamda Web MIDI kullanılamıyor.': 'Web MIDI is unavailable in this environment.',
+    'sinyal bekleniyor…': 'waiting for a signal…', 'mesaj bekleniyor…': 'waiting for a message…',
+    'UDP Portu': 'UDP Port',
+    'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.': 'Point the OSC sender at this computer\'s IP address and the port above. Values between 0 and 1 are used directly; values up to 127 are scaled automatically.',
+    'Henüz eşleme yok. “＋ Eşleme Ekle” ile başlayın.': 'No mappings yet. Start with "＋ Add Mapping".',
+    '＋ Eşleme Ekle': '＋ Add Mapping', 'Eşlemeyi kaldır': 'Remove mapping',
+    '🎯 Öğren': '🎯 Learn', '● Dinleniyor…': '● Listening…',
+    'Bas, sonra denetleyicideki düğmeyi oynat': 'Press this, then move the control on your device',
+    'Bas, sonra OSC mesajını gönder': 'Press this, then send the OSC message',
+    'Ses · Hassasiyet': 'Audio · Sensitivity', 'Ses · Yumuşatma': 'Audio · Smoothing',
+    'Ses · Bas Vurgusu': 'Audio · Bass Emphasis',
+    'Görselleştirici · Hassasiyet': 'Visualizer · Sensitivity',
+    'Görselleştirici · Parlama': 'Visualizer · Glow',
+    'Görselleştirici · Bar Sayısı': 'Visualizer · Bar Count',
+    'Görselleştirici · Bar Boşluğu': 'Visualizer · Bar Gap',
+    'Görselleştirici · Çizgi Kalınlığı': 'Visualizer · Line Width',
+    'Görselleştirici · Genlik': 'Visualizer · Amplitude',
+    'Arkaplan · Akış Hızı': 'Background · Flow Speed',
+    'Arkaplan · Ses Tepkisi': 'Background · Audio Response',
+    'Arkaplan · Parlaklık': 'Background · Brightness',
+    'Arkaplan · Renk Kayması': 'Background · Hue Shift',
+    'Arkaplan · Vinyet': 'Background · Vignette',
+    'Logo · Saydamlık': 'Logo · Opacity', 'Logo · Boyut': 'Logo · Size',
+    'Geri Besleme · Yakınlaşma': 'Feedback · Zoom', 'Geri Besleme · Sönme': 'Feedback · Decay',
+    'Geri Besleme · Bükülme': 'Feedback · Warp', 'Geri Besleme · Dönüş': 'Feedback · Rotation',
+    'Medya · Saydamlık': 'Media · Opacity', 'Medya · Kaleydoskop': 'Media · Kaleidoscope',
+    '⏭ Eylem · Sonraki Görselleştirici': '⏭ Action · Next Visualizer',
+    '⏮ Eylem · Önceki Görselleştirici': '⏮ Action · Previous Visualizer',
+    '⏭ Eylem · Sonraki Arkaplan': '⏭ Action · Next Background',
+    '⏭ Eylem · Sonraki Sahne': '⏭ Action · Next Scene',
+    '⏭ Eylem · Sonraki Renk Şablonu': '⏭ Action · Next Color Preset',
+    '🌑 Eylem · Karart (aç/kapa)': '🌑 Action · Blackout (toggle)',
+
+    // ---- Medya katmanı ----
+    'Kameranızı veya bir video dosyasını sahneye katman olarak koyar. Kaleydoskop, renk kayması ve sese bağlı yakınlaşma uygulanabilir; Studio shader\'larında sv_media (iChannel3) olarak da okunur.': 'Places your camera or a video file into the scene as a layer. Kaleidoscope, hue shift, and audio-driven zoom can be applied; Studio shaders can also read it as sv_media (iChannel3).',
+    'Kaynak': 'Source', '📷 Kamera': '📷 Camera', '🎞 Video Dosyası': '🎞 Video File',
+    'Kamera': 'Camera', 'Varsayılan kamera': 'Default camera', '🔄 Kameraları Yenile': '🔄 Refresh Cameras',
+    'Video Dosyası': 'Video File', '🎞 Video Seç': '🎞 Choose Video',
+    'seçildi': 'selected', 'seçilmedi': 'not selected', 'Döngüde Oynat': 'Loop Playback',
+    'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
+    'Çarpma': 'Multiply', 'Aynala': 'Mirror',
+    'Kaleydoskop Dilimi': 'Kaleidoscope Slices', 'Renk Kayması': 'Hue Shift', 'Doygunluk': 'Saturation',
+    'Bas → Saydamlık': 'Bass → Opacity',
+
+    // ---- Sahne üretici ----
+    'Ruh Hali': 'Mood',
+    '✨ Sahne Üret': '✨ Generate Scene', '🎲 Karıştır': '🎲 Shuffle',
+    'Aynı ruh hali, farklı yorum': 'Same mood, a different reading',
+    'Sahne kuruldu.': 'Scene created.',
+    'Enerji': 'Energy', 'Sıcaklık': 'Warmth', 'Ton': 'Tone', 'Doku': 'Texture',
+    'sakin': 'calm', 'yüksek': 'high', 'soğuk': 'cold', 'sıcak': 'warm',
+    'aydınlık': 'bright', 'karanlık': 'dark', 'geometrik': 'geometric', 'organik': 'organic',
+    'dengeli': 'balanced',
+    'Tamamen bu bilgisayarda çalışır — hiçbir servise bağlanmaz. Yazdığınız metin enerji, sıcaklık, aydınlık ve doku eksenlerine çevrilir; sahne bu eksenlerden tohumlanmış deterministik bir üreticiyle kurulur. Beğendiğinizi sağdaki Sahneler bölümünden kaydedin.': 'Runs entirely on this computer — it connects to no service. Your text is mapped onto energy, warmth, brightness, and texture axes; the scene is then built by a deterministic generator seeded from those axes. Save the ones you like from the Scenes section on the right.',
+
+    // ---- Mobil uzaktan kumanda (yayın sunucusunun servis ettiği sayfa) ----
+    'CAYADEV Visualizer — Uzaktan Kumanda': 'CAYADEV Visualizer — Remote Control',
+    'CAYADEV Visualizer — Yayın Katmanı': 'CAYADEV Visualizer — Streaming Overlay',
+    'DEV Kumanda': 'DEV Remote',
+    'Bağlanıyor…': 'Connecting…',
+    'Bağlı': 'Connected',
+    'CAYADEV Visualizer ile bağlantı yok — uygulama açık mı?': 'No connection to CAYADEV Visualizer — is the application running?',
+    'Görselleştirme': 'Visualization',
+    '▶ Aç': '▶ Open',
+    'Renk Şablonları': 'Color Presets',
+    'Studio Presetleri': 'Studio Presets',
+    'Önceki sahne': 'Previous scene', 'Sonraki sahne': 'Next scene',
+    'Önceki şablon': 'Previous preset', 'Sonraki şablon': 'Next preset',
+    'Önceki preset': 'Previous preset', 'Sonraki preset': 'Next preset',
+    'sahne yok': 'no scenes', 'şablon': 'preset', 'preset': 'preset',
+    'Kayıtlı sahne yok.': 'No saved scenes.',
+    'Kayıtlı sahne yok. Bilgisayardaki panelden sahne kaydedin.': 'No saved scenes. Save one from the panel on your computer.',
+    'Özel renkler': 'Custom colors', 'şablona uymuyor': 'no preset match',
+
+    // Kumandadaki kısa mod adları
+    'Nokta': 'Dots', 'Damla': 'Blobs', 'Silüet': 'Skyline', 'Kutup': 'Aurora',
+    'Yıldız': 'Starfield', 'Bokeh': 'Bokeh', 'Yağmur': 'Rain', 'Halka': 'Rings',
+    'Petek': 'Hex', 'Düz': 'Solid', 'Izgara': 'Grid', 'Gradyan': 'Gradient',
+    'Kar': 'Snow', 'Geri Besleme': 'Feedback',
+
   };
 
   function normalize(value) { return String(value).replace(/\s+/g, ' ').trim(); }
@@ -428,7 +649,32 @@
       .replace(/Shader hatası:/g, 'Shader error:')
       .replace(/Program hatası:/g, 'Program error:')
       .replace(/İçe aktarılamadı:/g, 'Import failed:')
-      .replace(/Kodlanıyor \(([^)]+)\)… kareler bitti, video yazılıyor\./g, 'Encoding ($1)… frames complete, writing video.');
+      .replace(/Kodlanıyor \(([^)]+)\)… kareler bitti, video yazılıyor\./g, 'Encoding ($1)… frames complete, writing video.')
+      .replace(/^Ekran (\d+) ekran seçili$/g, '$1 displays selected')
+      .replace(/^(\d+) ekran seçili$/g, '$1 displays selected')
+      .replace(/^(\d+) ekranda açık$/g, 'Open on $1 displays')
+      .replace(/^“(.+)” kaydedildi\.$/g, '"$1" saved.')
+      .replace(/^“(.+)” sahneye uygulandı\.$/g, '"$1" applied to the scene.')
+      .replace(/^“(.+)” kalıcı olarak silinecek\.$/g, '"$1" will be permanently deleted.')
+      .replace(/^(\d+) preset içe aktarıldı\.$/g, '$1 preset(s) imported.')
+      .replace(/^Kamera (\d+)$/g, 'Camera $1')
+      .replace(/^Parametre (\d+)$/g, 'Parameter $1')
+      .replace(/^Satır (\d+): /g, 'Line $1: ')
+      .replace(/^(.+) kopyalandı\.$/g, '$1 copied.')
+      .replace(/^Kaydedilemedi: /g, 'Could not save: ')
+      .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
+      .replace(/^(\d+) dilim$/g, '$1 slices')
+      .replace(/^(\d+) FPS$/g, '$1 FPS')
+      .replace(/^(\d+) kayıtlı$/g, '$1 saved')
+      .replace(/^(\d+) sahne$/g, '$1 scenes')
+      .replace(/^(\d+) şablon$/g, '$1 presets')
+      .replace(/^(\d+) preset$/g, '$1 presets')
+      // Dynamic Lighting kontrol durumu (sayı içerdiği için sözlükle eşleşmez)
+      .replace(/✓ Windows (\d+)\/(\d+) aygıt için kontrol verdi/g, '✓ Windows granted control for $1/$2 device(s)')
+      .replace(/⚠ Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, '⚠ Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')
+      .replace(/^CC (\d+)( · k(\d+))?$/g, (m, cc, _s, ch) => 'CC ' + cc + (ch ? ' · ch' + ch : ''))
+      .replace(/^Nota (\d+)( · k(\d+))?$/g, (m, n, _s, ch) => 'Note ' + n + (ch ? ' · ch' + ch : ''))
+      ;
   }
 
   function translateNode(node) {

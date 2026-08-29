@@ -5,6 +5,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Ses Görselleştirici — Yönetici Paneli</title>
     <link rel="stylesheet" href="admin.css" />
+    <link rel="stylesheet" href="studio.css" />
   </head>
   <body>
     <!-- ================= ÜST ÇUBUK ================= -->
@@ -46,12 +47,14 @@
       </div>
 
       <div class="display-controls">
-        <label class="field">
-          <span>Ekran</span>
-          <select id="displaySelect"></select>
-        </label>
+        <div class="field display-field">
+          <span>Ekranlar</span>
+          <button id="displayBtn" class="display-btn" type="button" aria-haspopup="true" aria-expanded="false">Ekran 1</button>
+          <div id="displayMenu" class="display-menu hidden" role="menu"></div>
+        </div>
         <button id="openBtn" class="btn primary">▶ Görselleştirmeyi Aç</button>
         <button id="closeBtn" class="btn ghost" disabled>■ Kapat</button>
+        <button id="blackoutBtn" class="btn ghost" type="button" title="Sahneyi karart (tekrar basınca geri gelir)">🌑 Karart</button>
         <div class="status">
           <span id="statusDot" class="dot off"></span>
           <span id="statusText">Kapalı</span>
@@ -226,6 +229,11 @@
     <script src="../visualizer/modes/media.js"></script>
     <script src="preview.js"></script>
     <script src="settings.js"></script>
+    <script src="studio.js"></script>
+    <script src="stream.js"></script>
+    <script src="control.js"></script>
+    <script src="media-panel.js"></script>
+    <script src="scenegen.js"></script>
     <script src="admin.js"></script>
   </body>
 </html>

@@ -25,6 +25,10 @@
   let foreground = null;
   let foreType = null;
   let imagesOn = false;
+  let mediaCanvas = null;
+  let mediaCtx = null;
+  let media = null;
+  let mediaOn = false;
 
   let raf = 0;
   let lastDraw = 0;
@@ -160,6 +164,18 @@
     return items.map((i) => [i.id, i.src ? i.src.length : 0, i.count, i.sizeVar, i.seed].join(':')).join('|');
   }
 
+  // Medya katmanı (web kamerası / video) — görselleştirici penceresiyle aynı sınıf
+  function applyMedia() {
+    if (!mediaCanvas) return;
+    mediaOn = !!(cfg.media && cfg.media.enabled);
+    media.apply(cfg.media);
+    mediaCanvas.style.display = mediaOn ? 'block' : 'none';
+    mediaCanvas.style.zIndex = cfg.media && cfg.media.layer === 'front' ? '4' : '1';
+    if (!mediaOn) mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
+    if (foreground && foreground.host && foreground.host.setMedia) foreground.host.setMedia(mediaOn ? media.video : null);
+    if (bgMode && bgMode.host && bgMode.host.setMedia) bgMode.host.setMedia(mediaOn ? media.video : null);
+  }
+
   function applyImages() {
     imagesOn = !!(cfg.images && cfg.images.enabled);
     const items = imagesOn ? cfg.images.items || [] : [];
@@ -242,6 +258,11 @@
 
     if (foreground) foreground.draw(audio, cfg, t, dt);
 
+    if (mediaOn && mediaCanvas) {
+      mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
+      media.draw(mediaCtx, audio, cfg, mediaCanvas.width, mediaCanvas.height, t);
+    }
+
     if (imagesOn) {
       fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
       fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
@@ -266,6 +287,11 @@
     c2d = document.getElementById('pv2d');
     fxBack = document.getElementById('pvBack');
     fxFront = document.getElementById('pvFront');
+    mediaCanvas = document.getElementById('pvMedia');
+    if (mediaCanvas) {
+      mediaCtx = mediaCanvas.getContext('2d');
+      media = new window.SVMedia();
+    }
     logoImg = document.getElementById('pvLogo');
     if (!stage || !glCanvas || !c2d || !bg2d) return false;
 
@@ -297,6 +323,7 @@
     applyBackground();
     applyForeground();
     applyImages();
+    if (mediaCanvas) applyMedia();
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);
@@ -324,6 +351,9 @@
   window.SVPreview = {
     init,
     setConfig,
+    // Studio önizlemesi aynı ses motorunu kullanır: panelde iki ayrı analiz
+    // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
+    audioEngine: () => audio,
     ingest,
     setPaused,
     getLevels,

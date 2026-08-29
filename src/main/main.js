@@ -24,18 +24,33 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
 ]);
 
-// English is the fallback. Turkish is selected only for a Turkish system locale.
+/* Arayüz dili.
+
+   Kullanıcı dili yönetici panelinden seçiyor ve seçim tarayıcı tarafında
+   (localStorage) tutuluyor. Ana sürecin de bunu bilmesi gerekir: sistem
+   diyalogları ve yayın sunucusunun servis ettiği sayfalar buna göre
+   dillenir. Panel açılışta ve dil değişince seçimi buraya bildirir;
+   bildirim gelmediyse işletim sistemi diline düşülür. */
+let uiLocaleOverride = null;
+
 function appLocale() {
+  if (uiLocaleOverride === 'tr' || uiLocaleOverride === 'en') return uiLocaleOverride;
   try { return /^tr(?:-|$)/i.test(app.getLocale()) ? 'tr' : 'en'; }
   catch { return 'en'; }
 }
+
+ipcMain.on('ui-language', (e, locale) => {
+  if (locale !== 'tr' && locale !== 'en') return;
+  if (uiLocaleOverride === locale) return;
+  uiLocaleOverride = locale;
+});
 function trUi(tr, en) { return appLocale() === 'tr' ? tr : en; }
 
 // ----------------------------------------------------------------------------
 // Durum
 // ----------------------------------------------------------------------------
 let adminWin = null;
-let visualizerWin = null;
+const visualizerWins = new Map(); // ekran kimliği -> görselleştirme penceresi
 let currentConfig = null; // son bilinen yapılandırma (admin -> görselleştirici köprüsü)
 let lastCaptureSource = null; // o an yakalanan çıkış aygıtı
 let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare istiyor mu?
@@ -60,7 +75,10 @@ const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 // ----------------------------------------------------------------------------
 function loadSettings() {
   try {
-    const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
+    // BOM'u ayıkla: dosya bir metin düzenleyicide açılıp kaydedildiğinde
+    // (Notepad varsayılan olarak ekler) JSON.parse patlar ve kullanıcı tüm
+    // ayarlarını sessizce kaybederdi.
+    const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8').replace(/^﻿/, '');
     const s = JSON.parse(raw);
     // Eski formatı çöz (source: string -> sources: [string])
     if (s && s.audio && s.audio.source && !s.audio.sources) {
@@ -144,29 +162,55 @@ function createAdminWindow() {
   adminWin.on('closed', () => {
     adminWin = null;
     previewSubscribed = false; // panel gitti, önizleme kare akışı da biter
-    if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.close();
+    for (const win of openWindows()) win.close();
   });
 }
 
-function openVisualizer(displayId) {
-  const displays = screen.getAllDisplays();
-  const target = displays.find((d) => d.id === displayId) || screen.getPrimaryDisplay();
-  const b = target.bounds;
+/* Görselleştirme pencereleri — ekran başına bir tane.
 
-  // Var olan pencereyi yeniden konumlandır
-  if (visualizerWin && !visualizerWin.isDestroyed()) {
-    visualizerWin.setBounds(b);
-    visualizerWin.setFullScreen(false);
-    visualizerWin.show();
-    visualizerWin.focus();
-    setTimeout(() => {
-      if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.setFullScreen(true);
-    }, 120);
-    notifyAdmin('visualizer-status', { open: true, displayId });
-    return;
+   Tek pencere yerine bir harita (ekran kimliği -> pencere) tutulur: kullanıcı
+   birden çok ekran seçtiğinde hepsinde AYNI ANDA görselleştirme açılır. Ses
+   kareleri ve yapılandırma tüm pencerelere birden gider; hepsi aynı motoru
+   çalıştırdığı için görüntüler senkron kalır.
+
+   Ses seviyesi bildirimini (Dynamic Lighting'i süren kare) yalnızca İLK pencere
+   gönderir; hepsi gönderseydi ışıklar ekran sayısı kadar hızlı güncellenirdi. */
+function openWindows() {
+  const out = [];
+  for (const [id, win] of visualizerWins) {
+    if (win && !win.isDestroyed()) out.push(win);
+    else visualizerWins.delete(id);
   }
+  return out;
+}
 
-  visualizerWin = new BrowserWindow({
+function anyVisualizerOpen() {
+  return openWindows().length > 0;
+}
+
+// Işık/seviye bildirimini gönderecek pencere (ilk açılan)
+function meterWindow() {
+  const wins = openWindows();
+  return wins.length ? wins[0] : null;
+}
+
+// Tüm görselleştirme pencerelerine mesaj yolla
+function sendToVisualizers(channel, payload) {
+  for (const win of openWindows()) win.webContents.send(channel, payload);
+}
+
+// İstenen ekran kimliklerini çöz (tek sayı, dizi veya boş kabul edilir)
+function resolveDisplayIds(input) {
+  const all = screen.getAllDisplays();
+  const raw = Array.isArray(input) ? input : input == null ? [] : [input];
+  const wanted = raw.map(Number).filter((id) => all.some((d) => d.id === id));
+  if (wanted.length) return Array.from(new Set(wanted));
+  return [screen.getPrimaryDisplay().id];
+}
+
+function createVisualizerWindow(display) {
+  const b = display.bounds;
+  const win = new BrowserWindow({
     x: b.x,
     y: b.y,
     width: b.width,
@@ -184,50 +228,89 @@ function openVisualizer(displayId) {
       backgroundThrottling: false, // arka planda da akıcı kalsın
     },
   });
+  visualizerWins.set(display.id, win);
 
-  visualizerWin.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
-  attachSmoke(visualizerWin, 'VIS');
+  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  attachSmoke(win, 'VIS');
 
-  visualizerWin.once('ready-to-show', () => {
-    visualizerWin.setBounds(b);
-    visualizerWin.show();
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return;
+    win.setBounds(b);
+    win.show();
     setTimeout(() => {
-      if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.setFullScreen(true);
+      if (!win.isDestroyed()) win.setFullScreen(true);
       applyAlwaysOnTop();
     }, 120);
   });
 
   // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
-  visualizerWin.on('blur', () => {
+  win.on('blur', () => {
     if (wantsAlwaysOnTop()) raiseVisualizer();
   });
 
   // Pencere yüklenince ses yakalamayı istenen duruma getir. Panel önizlemesi
-  // nedeniyle yakalama zaten sürüyorsa yeniden başlatılmaz; kare geri çağrısı
-  // hedef pencereyi her seferinde yeniden okuduğu için yeni pencereye de akar.
-  visualizerWin.webContents.on('did-finish-load', () => {
+  // nedeniyle yakalama zaten sürüyorsa yeniden başlatılmaz.
+  win.webContents.on('did-finish-load', () => {
     syncCapture();
+    // Yeni açılan pencereye güncel yapılandırmayı ver (diğerleriyle eşleşsin)
+    if (currentConfig) win.webContents.send('config', currentConfig);
   });
 
-  // ESC ile kapat
-  visualizerWin.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'Escape') {
-      closeVisualizer();
-    }
+  // ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
+  // pencereye kolayca ulaşamayabilir.
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'Escape') closeVisualizer();
   });
 
-  visualizerWin.on('closed', () => {
-    visualizerWin = null;
-    if (onTopTimer) {
+  win.on('closed', () => {
+    visualizerWins.delete(display.id);
+    if (!anyVisualizerOpen() && onTopTimer) {
       clearInterval(onTopTimer);
       onTopTimer = null;
     }
-    // Panel önizlemesi hâlâ kare istiyorsa yakalama kesintisiz sürer, istemiyorsa durur
+    // Panel önizlemesi ya da OBS hâlâ kare istiyorsa yakalama kesintisiz sürer
     syncCapture();
-    notifyAdmin('visualizer-status', { open: false, displayId: null });
+    notifyVisualizerStatus();
   });
 
-  notifyAdmin('visualizer-status', { open: true, displayId });
+  return win;
+}
+
+function notifyVisualizerStatus() {
+  const ids = Array.from(visualizerWins.keys());
+  notifyAdmin('visualizer-status', {
+    open: ids.length > 0,
+    displayIds: ids,
+    displayId: ids.length ? ids[0] : null, // eski alan (geriye dönük uyum)
+  });
+}
+
+function openVisualizer(displayIds) {
+  const wanted = resolveDisplayIds(displayIds);
+  const all = screen.getAllDisplays();
+
+  // Artık seçili olmayan ekranlardaki pencereleri kapat
+  for (const [id, win] of Array.from(visualizerWins)) {
+    if (wanted.indexOf(id) === -1 && win && !win.isDestroyed()) win.close();
+  }
+
+  for (const id of wanted) {
+    const display = all.find((d) => d.id === id) || screen.getPrimaryDisplay();
+    const existing = visualizerWins.get(id);
+    if (existing && !existing.isDestroyed()) {
+      // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
+      existing.setBounds(display.bounds);
+      existing.setFullScreen(false);
+      existing.show();
+      setTimeout(() => {
+        if (!existing.isDestroyed()) existing.setFullScreen(true);
+      }, 120);
+    } else {
+      createVisualizerWindow(display);
+    }
+  }
+
+  notifyVisualizerStatus();
 }
 
 // Yapılandırmadan seçili ses kaynaklarını çöz (yeni "sources" dizisi veya eski
@@ -239,10 +322,19 @@ function configuredSources() {
   return ['default'];
 }
 
-// Yakalamayı isteyen var mı? Görselleştirici penceresi ya da paneldeki canlı
-// önizleme. İkisi de kapalıysa yakalama durdurulur.
+// Yakalamayı isteyen var mı? Görselleştirici penceresi, paneldeki canlı
+// önizleme ya da yayın sunucusuna bağlı bir tarayıcı kaynağı (OBS). Hiçbiri
+// yoksa yakalama durdurulur.
+//
+// OBS katmanı burada mutlaka sayılmalı: kullanıcı görselleştirici penceresini
+// hiç açmadan yalnızca tarayıcı kaynağını kullanabilir — o durumda yakalama
+// başlamazsa OBS'te hareketsiz bir sahne görünürdü.
 function captureWanted() {
-  return !!(visualizerWin && !visualizerWin.isDestroyed()) || previewSubscribed;
+  return (
+    anyVisualizerOpen() ||
+    previewSubscribed ||
+    streamServer.clientCount() > 0
+  );
 }
 
 // Seçili ses kaynak(lar)ının yakalamasını başlat; kareleri hem görselleştiriciye
@@ -254,9 +346,7 @@ function startVisualizerCapture() {
     sources,
     (frame) => {
       if (SMOKE) global.__smokeFrames = (global.__smokeFrames || 0) + 1;
-      if (visualizerWin && !visualizerWin.isDestroyed()) {
-        visualizerWin.webContents.send('native-audio', frame);
-      }
+      sendToVisualizers('native-audio', frame);
       if (previewSubscribed) notifyAdmin('native-audio', frame);
       // OBS tarayıcı kaynağı ve diğer web istemcileri
       streamServer.broadcastAudio(frame);
@@ -285,10 +375,14 @@ function syncCapture() {
   startVisualizerCapture();
 }
 
-function closeVisualizer() {
-  if (visualizerWin && !visualizerWin.isDestroyed()) {
-    visualizerWin.close();
+// displayId verilirse yalnızca o ekrandakini, verilmezse hepsini kapatır
+function closeVisualizer(displayId) {
+  if (displayId != null) {
+    const win = visualizerWins.get(Number(displayId));
+    if (win && !win.isDestroyed()) win.close();
+    return;
   }
+  for (const win of openWindows()) win.close();
 }
 
 // ----------------------------------------------------------------------------
@@ -305,10 +399,11 @@ function wantsAlwaysOnTop() {
 }
 
 function raiseVisualizer() {
-  if (!visualizerWin || visualizerWin.isDestroyed()) return;
-  visualizerWin.setAlwaysOnTop(true, 'screen-saver');
-  visualizerWin.setVisibleOnAllWorkspaces(true);
-  visualizerWin.moveTop();
+  for (const win of openWindows()) {
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.setVisibleOnAllWorkspaces(true);
+    win.moveTop();
+  }
 }
 
 function applyAlwaysOnTop() {
@@ -316,23 +411,27 @@ function applyAlwaysOnTop() {
     clearInterval(onTopTimer);
     onTopTimer = null;
   }
-  if (!visualizerWin || visualizerWin.isDestroyed()) return;
+  if (!anyVisualizerOpen()) return;
 
   if (!wantsAlwaysOnTop()) {
-    visualizerWin.setAlwaysOnTop(false);
-    visualizerWin.setVisibleOnAllWorkspaces(false);
+    for (const win of openWindows()) {
+      win.setAlwaysOnTop(false);
+      win.setVisibleOnAllWorkspaces(false);
+    }
     return;
   }
   raiseVisualizer();
   // Başka bir uygulama araya girerse geri al
   onTopTimer = setInterval(() => {
-    if (!visualizerWin || visualizerWin.isDestroyed()) {
+    if (!anyVisualizerOpen()) {
       clearInterval(onTopTimer);
       onTopTimer = null;
       return;
     }
-    if (wantsAlwaysOnTop() && !visualizerWin.isAlwaysOnTop()) raiseVisualizer();
-    else if (wantsAlwaysOnTop()) visualizerWin.moveTop();
+    if (!wantsAlwaysOnTop()) return;
+    const needsRaise = openWindows().some((w) => !w.isAlwaysOnTop());
+    if (needsRaise) raiseVisualizer();
+    else for (const win of openWindows()) win.moveTop();
   }, 1200);
 }
 
@@ -430,18 +529,20 @@ ipcMain.handle('repair-audio', async () => {
 
 ipcMain.handle('get-settings', () => loadSettings());
 
-ipcMain.handle('open-visualizer', (e, displayId) => {
-  openVisualizer(displayId);
+ipcMain.handle('open-visualizer', (e, displayIds) => {
+  openVisualizer(displayIds);
   return true;
 });
 
-ipcMain.handle('close-visualizer', () => {
-  closeVisualizer();
+ipcMain.handle('close-visualizer', (e, displayId) => {
+  closeVisualizer(displayId);
   return true;
 });
+
+ipcMain.handle('visualizer-open-displays', () => Array.from(visualizerWins.keys()));
 
 ipcMain.handle('visualizer-is-open', () => {
-  return !!(visualizerWin && !visualizerWin.isDestroyed());
+  return anyVisualizerOpen();
 });
 
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
@@ -449,8 +550,8 @@ ipcMain.on('update-config', (e, config) => {
   currentConfig = config;
   saveSettings(config);
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
-  if (visualizerWin && !visualizerWin.isDestroyed()) {
-    visualizerWin.webContents.send('config', config);
+  if (anyVisualizerOpen()) {
+    sendToVisualizers('config', config);
     applyAlwaysOnTop();
   }
   streamServer.broadcast({ type: 'config', config });
@@ -514,7 +615,11 @@ ipcMain.handle('file:import-json', async (e, title) => {
 });
 
 // Görselleştirici -> admin (ses seviyesi göstergesi vb.)
+// Yalnızca ilk pencerenin karesi dinlenir: her ekran ayrı kare gönderirse
+// Dynamic Lighting ekran sayısı kadar hızlı güncellenir ve efektler bozulur.
 ipcMain.on('audio-meter', (e, data) => {
+  const primary = meterWindow();
+  if (primary && e.sender !== primary.webContents) return;
   notifyAdmin('audio-meter', data);
   dynamicLighting.onAudioFrame(data, currentConfig);
 });
@@ -539,9 +644,8 @@ ipcMain.on('report-audio-devices', (e, devices) => {
 // kaynağını oraya koymak gereksiz disk trafiği demekti.
 // ----------------------------------------------------------------------------
 function notifyAll(channel, payload) {
-  for (const win of [adminWin, visualizerWin]) {
-    if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
-  }
+  if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send(channel, payload);
+  sendToVisualizers(channel, payload);
 }
 
 function broadcastPresets() {
@@ -662,7 +766,7 @@ function applyRemoteCommand(msg) {
   }
 
   saveSettings(currentConfig);
-  if (visualizerWin && !visualizerWin.isDestroyed()) visualizerWin.webContents.send('config', currentConfig);
+  sendToVisualizers('config', currentConfig);
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
   dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
@@ -682,8 +786,12 @@ function syncStreamServer() {
     .start(s, {
       getConfig: () => currentConfig,
       getPresets: () => presetsStore.list(),
+      getLocale: () => appLocale(),
       onCommand: (msg) => applyRemoteCommand(msg),
-      onClientsChanged: (list) => notifyAdmin('stream-clients', list),
+      onClientsChanged: (list) => {
+        notifyAdmin('stream-clients', list);
+        syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
+      },
     })
     .then((st) => {
       notifyAdmin('stream-status', st);
@@ -1083,7 +1191,7 @@ app.whenReady().then(async () => {
   const sess = require('electron').session.defaultSession;
   sess.setPermissionRequestHandler((wc, permission, callback) => {
     const own = BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents === wc);
-    callback(own && (permission === 'media' || permission === 'fullscreen'));
+    callback(own && (permission === 'media' || permission === 'midi' || permission === 'midiSysex' || permission === 'fullscreen'));
   });
   createAdminWindow();
 
@@ -1132,9 +1240,9 @@ async function runSmoke() {
   console.log('[SMOKE] opening visualizer on primary display');
   openVisualizer(screen.getPrimaryDisplay().id);
   await wait(2200);
-  if (!visualizerWin || visualizerWin.isDestroyed()) throw new Error('visualizer window did not open');
+  if (!anyVisualizerOpen()) throw new Error('visualizer window did not open');
 
-  const wc = visualizerWin.webContents;
+  const wc = meterWindow().webContents;
   wc.on('console-message', (e, level, message) => {
     if (level >= 2 || /error|hata|failed|undefined is not/i.test(message)) errors.push(message);
   });
@@ -1184,6 +1292,145 @@ async function runSmoke() {
   for (const r of shaderReport) {
     console.log('[SMOKE] shader ' + r.id + ': ' + (r.ok ? 'OK' : 'FAIL — ' + r.error));
     if (!r.ok) errors.push('shader ' + r.id + ': ' + r.error);
+  }
+
+  // --- Yönetici paneli: her kategori hatasız çiziliyor mu? ---
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awc = adminWin.webContents;
+    const adminErrors = [];
+    awc.on('console-message', (e, level, message) => {
+      if (level >= 2) adminErrors.push(message);
+    });
+    const cats = await awc.executeJavaScript(
+      "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
+    );
+    console.log('[SMOKE] admin categories (' + cats.length + '): ' + cats.join(', '));
+    for (let i = 0; i < cats.length; i++) {
+      await awc.executeJavaScript(
+        "(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click(); " +
+        "return document.querySelectorAll('#sections .card').length;})()"
+      );
+      await wait(320);
+      const cards = await awc.executeJavaScript("document.querySelectorAll('#sections .card').length");
+      console.log('[SMOKE]   ' + cats[i] + ' -> ' + cards + ' kart');
+      if (!cards) errors.push('admin category "' + cats[i] + '" rendered 0 cards');
+    }
+    // Studio: yeni shader oluştur, derlensin
+    await awc.executeJavaScript(
+      "(function(){var i=Array.from(document.querySelectorAll('.nav-item .nav-label')).findIndex(function(n){return n.textContent.indexOf('Studio')>=0;});" +
+      "if(i>=0) document.querySelectorAll('.nav-item')[i].click();})()"
+    );
+    await wait(320);
+    const studioProbe = await awc.executeJavaScript(
+      "(function(){var b=Array.from(document.querySelectorAll('.studio-toolbar button')).find(function(x){return x.textContent.indexOf('Shader')>=0;});" +
+      "if(!b) return {ok:false,why:'shader button missing'}; b.click(); return {ok:true};})()"
+    );
+    await wait(600);
+    const studioState = await awc.executeJavaScript(
+      "(function(){var s=document.getElementById('studioStatus');var c=document.getElementById('studioCode');" +
+      "return {status: s?s.textContent:'(yok)', hasEditor: !!c, ok: s? s.className.indexOf('err')<0 : false};})()"
+    );
+    console.log('[SMOKE] studio: ' + JSON.stringify(studioProbe) + ' ' + JSON.stringify(studioState));
+    if (!studioState.hasEditor) errors.push('studio editor did not render');
+    if (!studioState.ok) errors.push('studio starter shader failed to compile: ' + studioState.status);
+
+    // Sahne üretici
+    const genProbe = await awc.executeJavaScript(
+      "(function(){ if(!window.SVSceneGen) return {ok:false}; var r = window.SVSceneGen.generate(); " +
+      "return {ok:true, bg:r.bg, vis:r.vis, colors:r.scene.background.gradient.colors.length};})()"
+    );
+    console.log('[SMOKE] scene generator: ' + JSON.stringify(genProbe));
+    if (!genProbe.ok || genProbe.colors !== 5) errors.push('scene generator failed');
+
+    adminErrors.forEach((m) => errors.push('admin: ' + m));
+  }
+
+  // --- Çoklu ekran: her seçili ekranda ayrı pencere açılıyor mu? ---
+  {
+    const all = screen.getAllDisplays().map((d) => d.id);
+    openVisualizer(all);
+    await wait(1800);
+    const opened = Array.from(visualizerWins.keys());
+    console.log('[SMOKE] displays=' + all.length + ' opened windows=' + opened.length);
+    if (opened.length !== all.length) errors.push('multi-display: ' + opened.length + '/' + all.length + ' windows opened');
+
+    // Tek ekrana dönünce fazlalıklar kapanmalı
+    openVisualizer([all[0]]);
+    await wait(900);
+    const after = Array.from(visualizerWins.keys());
+    console.log('[SMOKE] after narrowing to 1 -> ' + after.length + ' window(s)');
+    if (after.length !== 1) errors.push('multi-display: narrowing left ' + after.length + ' windows');
+  }
+
+  // --- Karartma düğmesi ---
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awc2 = adminWin.webContents;
+    const before = await awc2.executeJavaScript(
+      "(function(){var b=document.getElementById('blackoutBtn'); if(!b) return null; b.click(); return true;})()"
+    );
+    await wait(400);
+    const dark = currentConfig && currentConfig.background.type === 'solid' && currentConfig.visualizer.type === 'none';
+    await awc2.executeJavaScript("document.getElementById('blackoutBtn').click()");
+    await wait(400);
+    const restored = currentConfig && currentConfig.background.type !== 'solid' && currentConfig.visualizer.type !== 'none';
+    console.log('[SMOKE] blackout: karart=' + dark + ' geriyükle=' + restored);
+    if (!before) errors.push('blackout button missing');
+    else if (!dark) errors.push('blackout did not darken the scene');
+    else if (!restored) errors.push('blackout did not restore the scene');
+  }
+
+  /* --- İngilizce arayüz denetimi ---
+     Panel İngilizceye alınır ve tüm kategorilerde ÇEVRİLMEMİŞ Türkçe metin
+     aranır. Modlar ve paneller elle sözlüğe yazıldığı için bir dizeyi
+     unutmak çok kolay; bu tarama onu gürültülü hale getirir.
+     Kullanıcı içeriği (aygıt adları, sahne adları) taramanın dışında. */
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awc3 = adminWin.webContents;
+    await awc3.executeJavaScript("localStorage.setItem('sv-language','en')");
+    awc3.reload();
+    await new Promise((r) => awc3.once('did-finish-load', r));
+    await wait(1800);
+
+    const cats = await awc3.executeJavaScript(
+      "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
+    );
+    console.log('[SMOKE] EN categories: ' + cats.join(', '));
+
+    const scan = [];
+    for (let i = 0; i < cats.length; i++) {
+      await awc3.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
+      await wait(340);
+      const found = await awc3.executeJavaScript(`(function(){
+        var skip = 'source-name,audio-state,scene-name,up-name,si-name,map-signal,url-field,client-addr,gen-pair'.split(',');
+        var out = [];
+        var walker = document.createTreeWalker(document.getElementById('sections'), NodeFilter.SHOW_TEXT);
+        var n;
+        while ((n = walker.nextNode())) {
+          var text = (n.nodeValue || '').trim();
+          if (!text || text.length < 2) continue;
+          if (!/[çğıöşüÇĞİÖŞÜ]/.test(text)) continue;
+          var el = n.parentElement, skipIt = false;
+          while (el && el.id !== 'sections') {
+            for (var k = 0; k < skip.length; k++) if (el.classList && el.classList.contains(skip[k])) skipIt = true;
+            if (el.tagName === 'OPTION' || el.tagName === 'INPUT') skipIt = true;
+            el = el.parentElement;
+          }
+          if (!skipIt) out.push(text.slice(0, 90));
+        }
+        return out;
+      })()`);
+      found.forEach((f) => scan.push(cats[i] + ': ' + f));
+    }
+
+    if (scan.length) {
+      console.log('[SMOKE] ÇEVRİLMEMİŞ (' + scan.length + '):');
+      Array.from(new Set(scan)).slice(0, 40).forEach((s) => console.log('[SMOKE]   ~ ' + s));
+      errors.push(scan.length + ' untranslated string(s) in English UI');
+    } else {
+      console.log('[SMOKE] i18n: İngilizce arayüzde çevrilmemiş metin yok');
+    }
+
+    await awc3.executeJavaScript("localStorage.removeItem('sv-language')");
   }
 
   console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));

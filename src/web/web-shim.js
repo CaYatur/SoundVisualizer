@@ -10,7 +10,9 @@
 (function () {
   const params = new URLSearchParams(location.search);
   const token = params.get('token') || '';
-  const kind = params.get('kind') || 'overlay';
+  // Sayfa türü yoldan anlaşılır: kumanda sayfasının ikili ses karelerine
+  // ihtiyacı yok ve 'overlay' sayılırsa ses yakalamayı boşuna ayakta tutar.
+  const kind = params.get('kind') || (location.pathname.indexOf('/remote') === 0 ? 'remote' : 'overlay');
   // ?transparent=0 -> arkaplanı da göster (tam sahne olarak kullanmak için)
   const forceOpaque = params.get('transparent') === '0';
   const fpsOverride = parseInt(params.get('fps') || '', 10);
@@ -43,6 +45,10 @@
      mevcut kodda hem WebGL hem 2D arkaplanı kapatıp gövdeyi saydam bırakır. */
   function transform(cfg) {
     if (!cfg) return cfg;
+    // Kumanda sayfası GERÇEK yapılandırmayı görmeli: saydamlık ve kare hızı
+    // dönüşümleri yalnızca yayın katmanı içindir. Aksi halde telefonda
+    // arkaplan türü 'transparent' görünür ve hiçbir sahne eşleşmez.
+    if (kind !== 'overlay') return cfg;
     const c = JSON.parse(JSON.stringify(cfg));
     const wantsTransparent = !forceOpaque && !!(c.stream && c.stream.transparent);
     if (wantsTransparent) {
