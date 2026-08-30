@@ -1433,6 +1433,29 @@ async function runSmoke() {
     await awc3.executeJavaScript("localStorage.removeItem('sv-language')");
   }
 
+  /* --- Panel ekran görüntüleri (--smoke-shots) ---
+     Görsel bir gözle bakılmadan "çizildi" demek yetmiyor: kartların taşması,
+     boş kalan bir sütun ya da okunmaz bir kod editörü ancak resimde görünür. */
+  if (process.argv.includes('--smoke-shots') && adminWin && !adminWin.isDestroyed()) {
+    const shotDir = process.env.SV_SHOT_DIR || path.join(app.getPath('userData'), 'smoke-shots');
+    try { fs.mkdirSync(shotDir, { recursive: true }); } catch { /* var */ }
+    const awc4 = adminWin.webContents;
+    const catNames = await awc4.executeJavaScript(
+      "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
+    );
+    for (let i = 0; i < catNames.length; i++) {
+      await awc4.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
+      await wait(1200);
+      // capturePage son SUNULAN kareyi verir; iki rAF bekleyip yeni kareyi zorla
+      await awc4.executeJavaScript(`new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r);});})`);
+      await wait(250);
+      const img = await awc4.capturePage();
+      const file = path.join(shotDir, String(i + 1).padStart(2, '0') + '-' + catNames[i].replace(/[^A-Za-z0-9]+/g, '') + '.png');
+      fs.writeFileSync(file, img.toPNG());
+      console.log('[SMOKE] shot: ' + file);
+    }
+  }
+
   console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');

@@ -18,10 +18,12 @@
 ---
 
 CaYaDev Visualizer; **sistem sesine, mikrofonlara ve seçilen diğer ses girişlerine** gerçek zamanlı tepki veren,
-tam ekran görsel efektler üreten bir masaüstü uygulamasıdır. İki panelden oluşur:
+tam ekran görsel efektler üreten bir masaüstü uygulamasıdır. Üç çıkış yolu vardır:
 
 - 🎛️ **Yönetici Paneli** — tüm ayarların canlı yapıldığı kontrol ekranı.
-- 🖥️ **Görselleştirme Ekranı** — seçtiğiniz monitörde tam ekran açılan, sese tepki veren görsel.
+- 🖥️ **Görselleştirme Ekranı** — seçtiğiniz **her** monitörde tam ekran açılan, sese tepki veren görsel.
+- 📡 **Yayın Sayfası** — OBS'e "Tarayıcı Kaynağı" olarak eklenen, aynı motoru çalıştıran saydam katman
+  (artı telefondan kullanılan uzaktan kumanda sayfası).
 
 Ses; **sistem çıkış aygıtlarından** (hoparlör/kulaklık loopback), **mikrofonlardan/giriş aygıtlarından** veya aynı anda seçilen birden fazla kaynaktan yakalanabilir.
 Seçilen kaynaklar native `audify` modülüyle FFT analizinden önce karıştırılır.
@@ -62,10 +64,121 @@ sağda **canlı önizleme**, ses seviyeleri ve sahneler.
 
 ---
 
+## 📡 Yayın Çıkışı — OBS ve tarayıcı
+
+Uygulama, isteğe bağlı olarak **yerel bir HTTP + WebSocket sunucusu** açar.
+OBS'e "Tarayıcı Kaynağı" olarak verdiğiniz sayfa, masaüstü penceresiyle
+**birebir aynı motoru** çalıştırır: ikinci bir render yoktur, dolayısıyla
+yayındaki görüntü ekrandakinden asla ayrışmaz.
+
+- **Eklenti kurulumu yok.** OBS → Kaynaklar → ＋ → Tarayıcı → adresi yapıştır.
+- **Gerçek saydamlık.** Görselleştirici doğrudan üst katman olur; arkaplanı
+  istersen adrese `?transparent=0` ekleyerek geri getirirsin.
+- **Kaynağa özel ayar.** `?fps=30` veya `?scale=0.75` ile o kaynağın yükünü
+  ayrıca düşürebilirsin.
+- **Pencere yakalamaya gerek yok.** Görselleştirme penceresini hiç açmasan da
+  OBS katmanı çalışır; ses yakalama tarayıcı kaynağı bağlandığında başlar.
+- Sunucu **varsayılan olarak yalnızca 127.0.0.1** dinler. Telefondan erişim
+  için "Yerel Ağa Aç" açılır; o modda her istek tahmin edilmesi güç bir
+  **jeton** ister.
+
+### 📱 Mobil uzaktan kumanda
+
+Aynı sunucu `/remote` adresinde telefona uygun bir kumanda sayfası servis eder.
+
+- Sahneler, renk şablonları ve Studio presetleri **adlarıyla** listelenir;
+  etkin olan işaretlidir ve her liste **◀ ▶ ile sırayla gezilebilir**.
+- Görselleştiriciyi aç/kapat, mod ve arkaplan değiştir, hassasiyet/parlama
+  ayarla, tek düğmeyle **karart**.
+- Sayfa uygulamanın dilini kullanır (telefonun dilini değil).
+
+---
+
+## 🧪 Studio — kendi görselleştiricini yap
+
+İki katmanlı bir editör: kod yazmadan da, sıfırdan da tasarlayabilirsin.
+
+**Varyasyon (kod yok).** Ekranda beğendiğin görünümü isimlendirip saklar.
+Temel mod ve o anki tüm ayarları presete girer; tek tıkla geri gelir.
+
+**Shader (GLSL).** Giriş noktası Shadertoy ile aynıdır — `mainImage(out vec4
+fragColor, in vec2 fragCoord)` — üstüne ses verisi ve kendi kaydırıcıların
+eklenir:
+
+| Değişken | Anlamı |
+|---|---|
+| `sv_time`, `sv_resolution` | süre ve çözünürlük |
+| `sv_level`, `sv_bass`, `sv_mid`, `sv_treble` | ses bantları (0..1) |
+| `sv_beat` | vuruş enerjisi (0..1), her darbede sıçrar |
+| `sv_spec(x)` | 0..1 konumunda logaritmik spektrum değeri |
+| `sv_waveAt(x)` | dalga formu (-1..1) |
+| `sv_col(x)` | senin 5 renkli paletinden renk |
+| `sv_prev` | bir önceki kare (geri besleme efektleri) |
+| `sv_media` | web kamerası / video katmanı |
+
+Editörde satır numaraları, sözdizimi renklendirmesi, **canlı önizleme** ve
+derleyici hatasının **hangi satırda** olduğunu gösteren işaret vardır. Kendi
+parametrelerini (kaydırıcı / anahtar / renk) tanımlarsan panelde otomatik
+olarak kontrol üretilir.
+
+**İçe aktarma:** Shadertoy kodu, ISF dosyası (`INPUTS` kontrollere çevrilir),
+MilkDrop `.milk` parametreleri ve kendi `.svpreset` / `.svpack`
+dosyalarımız. Dönüştürücülerin tamamı bu uygulamanın kodudur — **hiçbir
+servise bağlanılmaz**, hesap ya da API anahtarı istenmez.
+
+**Paylaşım:** Tek preset `.svpreset`, tüm presetlerin `.svpack` olarak dışa
+aktarılır. Presetler ayar dosyasında değil, `%APPDATA%/soundvisualizer/presets/`
+altında ayrı dosyalarda tutulur (ayar dosyası her kaydırıcı hareketinde diske
+yazılıyor; shader kaynağını oraya koymak gereksiz disk trafiği olurdu).
+
+> ♾ **Geri besleme motoru** ayrı bir mod olarak gelir: her kare bir öncekini
+> yakınlaştırıp döndürerek ve söndürerek çizer, üstüne dalga formunu bindirir.
+> MilkDrop'un o klasik "sonsuz tünel" ailesi buradan çıkar.
+
+---
+
+## 🎛️ Kontrol yüzeyleri — MIDI ve OSC
+
+- **MIDI:** Denetleyicinin CC ve nota mesajları herhangi bir ayara ya da eyleme
+  bağlanır. **Öğren**'e basıp düğmeyi oynatman yeterli; kanal ve numara
+  otomatik yazılır.
+- **OSC:** TouchOSC, Resolume, Ableton, QLab… UDP portu dinlenir, adresler
+  ayarlara eşlenir. 0..1 aralığı doğrudan, 0..127 aralığı otomatik ölçeklenir.
+- Eylemler: sonraki/önceki görselleştirici, sonraki arkaplan, sonraki sahne,
+  sonraki renk şablonu, **karart**.
+
+---
+
+## 🎥 Medya katmanı
+
+Web kameranı veya bir video dosyasını sahneye katman olarak koyar.
+
+- Önde ya da arkada, doldur/sığdır/ger, karışım modu, saydamlık
+- Kaleydoskop (3–12 dilim), renk kayması, doygunluk, aynalama
+- Bas → yakınlaşma ve bas → saydamlık nabzı
+- Studio shader'ları aynı görüntüyü `sv_media` (iChannel3) olarak okuyabilir
+
+---
+
+## ✨ Sahne Üretici
+
+Ruh halini yaz, uygulama sana bir sahne kursun: *"karanlık sinematik uzay"*,
+*"enerjik neon techno"*, *"sakin orman sabahı"*…
+
+**Tamamen çevrimdışıdır ve bir sinir ağı değildir.** Metin, ağırlıklı bir
+anahtar kelime sözlüğüyle dört eksene (enerji, sıcaklık, aydınlık, doku)
+indirgenir; arkaplan, görselleştirici ve 5 renkli palet bu eksenlerden
+tohumlanmış deterministik bir üreticiyle seçilir. Aynı metin + aynı tohum her
+zaman aynı sahneyi verir; 🎲 ile aynı ruh halinin farklı bir yorumunu alırsın.
+Türkçe ve İngilizce anahtar kelimeler birlikte tanınır.
+
+---
+
 ## ✨ Görselleştirme Modları & Stilleri
 
-**14 görselleştirici modu** ve **10 arkaplan türü** — hepsi aynı renk paletini, hazır şablonları ve
-kendi şablonlarınızı kullanır, dolayısıyla mod değiştirmek renklerinizi bozmaz.
+**31 görselleştirici modu** ve **19 arkaplan türü** — hepsi aynı renk paletini, hazır şablonları ve
+kendi şablonlarınızı kullanır, dolayısıyla mod değiştirmek renklerinizi bozmaz. Buna Studio'da
+kendi yazdığınız shader'lar da dahildir.
 
 ### Görselleştirici (ön efekt)
 
@@ -161,18 +274,23 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 
 ## 🖥️ Kullanım
 
-1. Bir **Ekran** ve bir veya daha fazla **ses kaynağı** (sistem çıkışı, mikrofon veya diğer giriş aygıtları) seçin.
-2. **▶ Görselleştirmeyi Aç** ile seçilen ekranda tam ekran görsel başlar.
+1. Üst çubuktaki **Ekranlar** menüsünden bir veya **birden fazla** ekran, ardından bir veya daha
+   fazla **ses kaynağı** (sistem çıkışı, mikrofon veya diğer giriş aygıtları) seçin.
+2. **▶ Görselleştirmeyi Aç** ile seçilen **her** ekranda tam ekran görsel başlar.
 3. Sağdaki kartlardan görselleştirme türünü, renkleri, logoyu ve performansı **canlı** olarak
    değiştirin — değişiklikler anında yansır ve otomatik kaydedilir.
-4. **Video Dışa Aktarma** ile seçilen ses dosyasını çözünürlük, kare hızı, kalite ve kodlayıcı seçenekleriyle MP4 olarak oluşturun.
-5. Görselleştirme ekranında **ESC** tuşu ile çıkılır.
+4. Yayın yapıyorsanız **Çıkış → Yayın Çıkışı**'nı açın ve verilen adresi OBS'te bir
+   **Tarayıcı Kaynağı**'na yapıştırın.
+5. Kendi efektinizi yapmak için **Studio**'ya, hazır bir sahne kurdurmak için
+   **Studio → Sahne Üretici**'ye gidin.
+6. **Video Dışa Aktarma** ile seçilen ses dosyasını çözünürlük, kare hızı, kalite ve kodlayıcı seçenekleriyle MP4 olarak oluşturun.
+7. Görselleştirme ekranında **ESC** tuşu tüm ekranlardaki görselleştirmeyi kapatır.
 
 ---
 
 ## 🎨 Özellikler
 
-### Arkaplan (10 tür)
+### Arkaplan (19 tür)
 - **Akışkan Gradyan** — sese tepki veren mesh-gradyan fon (WebGL shader). İki stil: *Yumuşak
   (Parlamasız)* ve *Plazma (Parlamalı)*. Akış hızı, gezinme, dolanma, iç dönüş, bozulma, ölçek,
   gren, vinyet, **Ses Patlaması (Parlaklık)** ve **Ses ile Renk Kayması**.
@@ -189,16 +307,38 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
   çizgi kalınlığı, hareket hızı).
 - **Nabız Halkaları** — merkezden açılan halkalar; bas darbelerinde fazladan halka doğar
   (halka sıklığı, genişleme hızı, kalınlık, sönme).
+- **Mürekkep** — burularak akan sıvı mürekkep damlaları (damla sayısı, akışkanlık, burulma, yayılma).
+- **Bulutsu** — üst üste binen yumuşak gaz bulutları (katman sayısı, boyut, yumuşaklık, yoğunluk).
+- **Petek Izgara** — merkezden yayılan dalga ve spektrumla yanan altıgen hücreler.
+- **Mozaik** — düzensizleştirilmiş hücre ızgarası; her hücre bir frekans bandına bağlı.
+- **Koridor** — izleyiciye doğru gelen halka/çokgen koridoru (halka sayısı, hız, kenar sayısı, burulma).
+- **Sarmal** — dönen çok kollu sarmal (kol sayısı, tur sayısı, incelme).
+- **Kar / Kor** — derinlikli, salınarak düşen parçacıklar.
+- **Şehir** — pencereleri müzikle yanan, iki katmanlı paralaks şehir silüeti.
+- **🧪 Studio** — kendi yazdığın GLSL shader'ı arkaplan olarak kullanır.
 - **Düz Renk** — tek renk fon.
 
 5 renk noktası, **10 hazır şablon** (Aurora, Gün Batımı, Neon, Lav, Okyanus, Orman, Pastel, Gece,
 Buz, Tek Renk) ve kendi kaydettiğiniz şablonlar tüm arkaplan türlerinde geçerlidir.
 
-### Görselleştirici (14 mod)
-- **Barlar** · **Merkez** · **Segment** (LED ekolayzır) · **Nokta Matris**
-- **Dalga** (osiloskop) · **Şerit** (dalga geçmişi) · **Arazi** (perspektifli tel kafes manzara)
-- **Çember** · **Dairesel Dalga** · **Işın** · **Tünel** · **Küre**
-- **Parçacık** (bas darbelerinde fışkıran parçacıklar) · **Spektrogram** (kayan ısı haritası)
+### Görselleştirici (31 mod)
+
+**Temel** — **Barlar** · **Merkez** · **Segment** (LED ekolayzır) · **Nokta Matris** ·
+**Şehir Silüeti** (pencereleri yanan binalar)
+
+**Dalga formu** — **Dalga** (osiloskop) · **Şerit** (dalga geçmişi) ·
+**3B Dalga** (perspektifte yığılan dalga geçmişi) · **Lissajous** (XY osiloskop) ·
+**Teller** (her tel bir bantla titrer) · **Arazi** (perspektifli tel kafes manzara)
+
+**Dairesel** — **Çember** · **Dairesel Dalga** · **Işın** · **Yaylar** (bant başına yay) ·
+**Fırıldak** · **Mandala** (polar gül eğrisi) · **Kaleydoskop** · **Girdap** ·
+**Sarmal** (DNA) · **Tünel** · **Küre**
+
+**Parçacık ve olay** — **Parçacık** · **Havai Fişek** (vuruşta patlama) ·
+**Şimşek** (basta dallanan yıldırım) · **Baloncuk** · **Sıvı Damla** (metaball) ·
+**Dalgalı Izgara** (vuruşta yayılan halkalar) · **Spektrogram**
+
+**Gelişmiş motorlar** — **♾ Geri Besleme** (MilkDrop ailesi) · **🧪 Studio** (kendi shader'ın)
 - Bar sayısı, min/max frekans, boşluk, yerleşim, ayna, çizgi kalınlığı, genlik, hassasiyet ve
   parlama (glow) modda anlamlı oldukça gösterilir.
 - **Gökkuşağı** açılıp kapatılabilir; kapalıyken tek/ikili renk seçilir.
@@ -279,24 +419,43 @@ tutuluyorsa yakalama başarısız olabilir; farklı bir aygıt seçin veya o uyg
 ```
 src/
   main/                # Electron ana süreç
-    main.js            # pencereler, ekran seçimi, IPC, yakalama yaşam döngüsü
+    main.js            # pencereler (ekran başına bir tane), IPC, yakalama yaşam döngüsü
     native-audio.js    # loopback-helper alt-sürecini yönetir, kareleri iletir
     loopback-helper.js # gömülü/sistem Node çalışma zamanı: audify yakalama + FFT
+    stream-server.js   # OBS tarayıcı kaynağı + mobil kumanda (HTTP + WebSocket)
+    osc-server.js      # OSC (UDP) alıcısı — elle yazılmış OSC 1.0 ayrıştırıcı
+    presets-store.js   # Studio presetleri (userData/presets/*.json)
     preload-admin.js / preload-visualizer.js / preload-exporter.js
   shared/
     defaults.js        # varsayılan yapılandırma + renk şablonları
+    presets.js         # preset biçimi, yerleşik shader'lar, Shadertoy/ISF/MilkDrop içe aktarma
     i18n.js            # İngilizce/Türkçe çeviriler ve dil algılama
   admin/               # Yönetici paneli (kontrol arayüzü)
     index.html / admin.css / admin.js / settings.js
+    studio.js / studio.css  # Studio editörü (kod editörü, canlı önizleme, parametreler)
+    stream.js          # yayın çıkışı paneli (adresler, jeton, istemciler)
+    control.js         # MIDI + OSC eşleme motoru ve paneli
+    media-panel.js     # web kamerası / video katmanı paneli
+    scenegen.js        # çevrimdışı sahne üretici
     preview.js         # panel içindeki canlı önizleme (görselleştiriciyle aynı motor)
+  web/                 # Yayın sunucusunun servis ettiği sayfalar
+    overlay.html       # OBS tarayıcı kaynağı — masaüstüyle aynı motor
+    remote.html / remote.js  # mobil uzaktan kumanda
+    web-shim.js        # window.api köprüsü (IPC yerine WebSocket)
   exporter/            # Çevrimdışı ses dosyasından MP4 oluşturma penceresi
   visualizer/          # Görselleştirme ekranı
     index.html / visualizer.css / audio.js / visualizer.js
     modes/
       gradient.js      # WebGL akışkan gradyan arkaplan
-      backgrounds.js   # 2D arkaplan modları (dalga, kutup ışıkları, yıldız, ızgara,
-                       #   bokeh, dijital yağmur, ağ, nabız halkaları)
+      backgrounds.js   # 2D arkaplan modları (dalga, kutup, yıldız, ızgara, bokeh,
+                       #   yağmur, ağ, halkalar)
+      backgrounds-extra.js # bulutsu, petek, mürekkep, kar, şehir, koridor, sarmal, mozaik
+      shaderhost.js    # WebGL2 Studio motoru + geri besleme (MilkDrop ailesi)
+      media.js         # web kamerası / video katmanı
       glow.js          # tek geçişli parlama (bloom) yardımcısı
+      extras.js        # kaleydoskop, sarmal, damla, havai fişek, girdap, mandala,
+                       #   silüet, şimşek, dalgalı ızgara, lissajous, teller,
+                       #   baloncuk, 3B dalga, yaylar, fırıldak
       bars.js centerbars.js blocks.js dots.js wave.js ribbon.js terrain.js
       circular.js radialwave.js starburst.js tunnel.js orb.js particles.js
       spectrogram.js sprites.js
@@ -307,7 +466,20 @@ scripts/
 docs/screenshots/      # README görselleri
 ```
 
-Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosyasına kaydedilir.
+Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosyasına,
+Studio presetleri ise `%APPDATA%/soundvisualizer/presets/` altında ayrı dosyalara kaydedilir.
+
+### Öz test
+
+```bash
+npm start -- --smoke
+```
+
+Kayıtlı **her** görselleştirici modunu ve **her** arkaplanı sırayla açar, yerleşik shader'ların
+tamamını gerçek GPU'da derler, panelin her kategorisini çizer, çoklu ekranı ve karartmayı dener,
+son olarak arayüzü İngilizceye alıp **çevrilmemiş metin** arar. Modlar elle `<script>` etiketiyle
+yüklendiği için (paketleyici yok), yeni bir modu HTML'lerden birine eklemeyi unutmak sessiz bir
+hata olurdu; bu test onu gürültülü hale getirir.
 
 ---
 
@@ -316,9 +488,22 @@ Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosy
 | Tuş | İşlev |
 |-----|-------|
 | `Ctrl` + `K` | Panelde ayar ara |
-| `ESC` | Görselleştirme ekranını kapat / aramayı temizle |
+| `ESC` | Görselleştirmeyi **tüm ekranlarda** kapat / aramayı temizle |
+| `Tab` | Studio kod editöründe girinti ekle |
 | Ekrana tıklama | Ses başlatılamadıysa yeniden dene |
 
+> Panelin üst çubuğundaki 🌑 **Karart** düğmesi sahneyi kapatmadan karartır; tekrar basınca
+> önceki görünüm (arkaplan, görselleştirici, logo, medya) aynen geri gelir. Aynı düğme mobil
+> kumandada ve MIDI/OSC eylemlerinde de vardır.
+
+
+---
+
+## 🗺️ Yol haritası
+
+Projenin rakip uygulamalara göre nerede durduğu, neyin **yapıldığı** ve neyin
+**bilerek yapılmadığı** (NDI/Spout, MilkDrop motorunun tamamı, WebGPU…)
+[ROADMAP.md](ROADMAP.md) dosyasında açıkça yazılıdır.
 
 ---
 

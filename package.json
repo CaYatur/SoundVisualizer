@@ -1,7 +1,7 @@
 {
   "name": "soundvisualizer",
-  "version": "1.3.1",
-  "description": "CAYADEV — çoklu ekran ve çoklu kaynak destekli ses görselleştirici (Windows + macOS)",
+  "version": "2.0.0",
+  "description": "CAYADEV — çoklu ekran, OBS yayın çıkışı ve Studio shader editörü olan ses görselleştirici (Windows + macOS)",
   "main": "src/main/main.js",
   "author": {
     "name": "CAYADEV",

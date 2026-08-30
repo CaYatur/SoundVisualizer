@@ -656,19 +656,21 @@
       .replace(/^“(.+)” kaydedildi\.$/g, '"$1" saved.')
       .replace(/^“(.+)” sahneye uygulandı\.$/g, '"$1" applied to the scene.')
       .replace(/^“(.+)” kalıcı olarak silinecek\.$/g, '"$1" will be permanently deleted.')
-      .replace(/^(\d+) preset içe aktarıldı\.$/g, '$1 preset(s) imported.')
+      .replace(/^(\d+) preset içe aktarıldı\.$/g, (m, n) => n + ' preset' + (Number(n) === 1 ? '' : 's') + ' imported.')
       .replace(/^Kamera (\d+)$/g, 'Camera $1')
       .replace(/^Parametre (\d+)$/g, 'Parameter $1')
       .replace(/^Satır (\d+): /g, 'Line $1: ')
       .replace(/^(.+) kopyalandı\.$/g, '$1 copied.')
       .replace(/^Kaydedilemedi: /g, 'Could not save: ')
       .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
-      .replace(/^(\d+) dilim$/g, '$1 slices')
       .replace(/^(\d+) FPS$/g, '$1 FPS')
       .replace(/^(\d+) kayıtlı$/g, '$1 saved')
-      .replace(/^(\d+) sahne$/g, '$1 scenes')
-      .replace(/^(\d+) şablon$/g, '$1 presets')
-      .replace(/^(\d+) preset$/g, '$1 presets')
+      .replace(/^(\d+) (sahne|şablon|preset|dilim)$/g, (m, n, word) => {
+        const one = { sahne: 'scene', 'şablon': 'preset', preset: 'preset', dilim: 'slice' }[word];
+        return n + ' ' + one + (Number(n) === 1 ? '' : 's');
+      })
+      .replace(/^(\d+) preset\(s\) imported\.$/g, (m, n) =>
+        n + ' preset' + (Number(n) === 1 ? '' : 's') + ' imported.')
       // Dynamic Lighting kontrol durumu (sayı içerdiği için sözlükle eşleşmez)
       .replace(/✓ Windows (\d+)\/(\d+) aygıt için kontrol verdi/g, '✓ Windows granted control for $1/$2 device(s)')
       .replace(/⚠ Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, '⚠ Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')

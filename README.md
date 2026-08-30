@@ -18,10 +18,12 @@
 ---
 
 CaYaDev Visualizer is a desktop application that generates full-screen visual effects that react in real time
-to **system audio, microphones, and other selected audio inputs**. It consists of two panels:
+to **system audio, microphones, and other selected audio inputs**. It has three output paths:
 
 - 🎛️ **Admin Panel** — the control screen where all settings are adjusted live.
-- 🖥️ **Visualization Screen** — the audio-reactive visual that opens full-screen on the monitor you select.
+- 🖥️ **Visualization Screen** — the audio-reactive visual that opens full-screen on **every** monitor you select.
+- 📡 **Streaming Page** — a transparent overlay you add to OBS as a "Browser Source", running the same
+  engine (plus a remote-control page for your phone).
 
 Audio can be captured from **system output devices** (speaker/headphone loopback), **microphones/input devices**, or multiple selected sources at the same time.
 Selected sources are mixed before FFT analysis using the native `audify` module.
@@ -62,10 +64,119 @@ in the middle, and a **live preview**, audio meters and scenes on the right.
 
 ---
 
+## 📡 Streaming Output — OBS and the browser
+
+The application can open a **local HTTP + WebSocket server**. The page you give
+OBS as a "Browser Source" runs **exactly the same engine** as the desktop
+window: there is no second renderer, so the stream never drifts away from what
+is on screen.
+
+- **No plugin to install.** OBS → Sources → ＋ → Browser → paste the address.
+- **Real transparency.** The visualizer becomes a direct overlay; append
+  `?transparent=0` to the address if you want the background on stream too.
+- **Per-source tuning.** `?fps=30` or `?scale=0.75` lowers the load of that
+  one source without touching the rest.
+- **No window capture needed.** The OBS overlay works even if you never open
+  the visualization window; audio capture starts when the browser source connects.
+- The server listens on **127.0.0.1 only** by default. "Open To Local Network"
+  is required for phone access, and in that mode every request must carry a
+  hard-to-guess **token**.
+
+### 📱 Mobile remote control
+
+The same server serves a phone-friendly remote at `/remote`.
+
+- Scenes, color presets, and Studio presets are listed **by name**; the active
+  one is highlighted and every list can be **stepped through in order with ◀ ▶**.
+- Open/close the visualization, switch mode and background, adjust
+  sensitivity/glow, and **black out** with one button.
+- The page follows the application's language, not the phone's.
+
+---
+
+## 🧪 Studio — build your own visualizer
+
+A two-tier editor: design without writing code, or start from a blank shader.
+
+**Variation (no code).** Names and stores the look you like on screen. The base
+mode and all of its current settings go into the preset; one click brings it back.
+
+**Shader (GLSL).** The entry point is the same as Shadertoy — `mainImage(out
+vec4 fragColor, in vec2 fragCoord)` — with audio data and your own sliders on top:
+
+| Variable | Meaning |
+|---|---|
+| `sv_time`, `sv_resolution` | time and resolution |
+| `sv_level`, `sv_bass`, `sv_mid`, `sv_treble` | audio bands (0..1) |
+| `sv_beat` | beat energy (0..1), jumps on every hit |
+| `sv_spec(x)` | logarithmic spectrum value at position 0..1 |
+| `sv_waveAt(x)` | waveform (-1..1) |
+| `sv_col(x)` | a color from your own 5-stop palette |
+| `sv_prev` | the previous frame (feedback effects) |
+| `sv_media` | webcam / video layer |
+
+The editor has line numbers, syntax highlighting, a **live preview**, and a
+marker showing **which line** the compiler error is on. Define your own
+parameters (slider / switch / color) and the panel generates the controls for you.
+
+**Import:** Shadertoy code, ISF files (`INPUTS` become controls), MilkDrop
+`.milk` parameters, and our own `.svpreset` / `.svpack` files. Every converter
+is this application's own code — **no service is contacted**, and no account or
+API key is required.
+
+**Sharing:** Export a single preset as `.svpreset` or all of yours as a
+`.svpack`. Presets live in `%APPDATA%/soundvisualizer/presets/` as separate
+files, not in the settings file (which is rewritten on every slider drag —
+putting shader source there would mean pointless disk traffic).
+
+> ♾ A **feedback engine** ships as its own mode: each frame draws the previous
+> one zoomed, rotated, and faded, with the waveform layered on top. That classic
+> MilkDrop "endless tunnel" family comes from here.
+
+---
+
+## 🎛️ Control surfaces — MIDI and OSC
+
+- **MIDI:** Your controller's CC and note messages map to any setting or action.
+  Press **Learn** and move the control; channel and number are filled in for you.
+- **OSC:** TouchOSC, Resolume, Ableton, QLab… a UDP port is listened on and
+  addresses are mapped to settings. The 0..1 range is used directly; 0..127 is
+  scaled automatically.
+- Actions: next/previous visualizer, next background, next scene, next color
+  preset, **blackout**.
+
+---
+
+## 🎥 Media layer
+
+Places your webcam or a video file into the scene as a layer.
+
+- Front or back, cover/contain/stretch, blend mode, opacity
+- Kaleidoscope (3–12 slices), hue shift, saturation, mirroring
+- Bass → zoom and bass → opacity pulses
+- Studio shaders can read the same image as `sv_media` (iChannel3)
+
+---
+
+## ✨ Scene Generator
+
+Describe a mood and the application builds a scene: *"dark cinematic space"*,
+*"energetic neon techno"*, *"calm forest morning"*…
+
+**It runs entirely offline and is not a neural network.** Your text is reduced
+to four axes (energy, warmth, brightness, texture) through a weighted keyword
+lexicon; the background, visualizer, and 5-stop palette are then chosen by a
+deterministic generator seeded from those axes. The same text plus the same
+seed always produces the same scene; 🎲 gives you a different reading of the
+same mood. Turkish and English keywords are both recognized.
+
+---
+
 ## ✨ Visualization Modes & Styles
 
-**14 visualizer modes** and **10 background types** — all of them share the same color palette,
+**31 visualizer modes** and **19 background types** — all of them share the same color palette,
 built-in presets and your own saved presets, so switching modes never disturbs your colors.
+That count includes the shaders you write yourself in Studio.
 
 ### Visualizer (foreground effect)
 
@@ -161,18 +272,22 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 
 ## 🖥️ Usage
 
-1. Select a **Display** and one or more **audio sources** (system output, microphone, or other input devices).
-2. Click **▶ Open Visualizer** to start the full-screen visual on the selected display.
+1. Pick one or **several** displays from the **Displays** menu in the top bar, then one or more
+   **audio sources** (system output, microphone, or other input devices).
+2. Click **▶ Open Visualizer** to start the full-screen visual on **every** selected display.
 3. Use the cards on the right to change the visualizer type, colors, logo, and performance settings **live** —
    changes are applied immediately and saved automatically.
-4. Use **Video Export** to render a selected audio file as an MP4 with configurable resolution, frame rate, quality, and encoder.
-5. Press **ESC** on the Visualization Screen to exit.
+4. If you are streaming, turn on **Output → Streaming Output** and paste the address it gives you
+   into an OBS **Browser Source**.
+5. Go to **Studio** to build your own effect, or **Studio → Scene Generator** to have one built for you.
+6. Use **Video Export** to render a selected audio file as an MP4 with configurable resolution, frame rate, quality, and encoder.
+7. Press **ESC** on any Visualization Screen to close them all.
 
 ---
 
 ## 🎨 Features
 
-### Background (10 types)
+### Background (19 types)
 - **Fluid Gradient** — an audio-reactive mesh-gradient backdrop (WebGL shader). Two styles: *Soft
   (No Glow)* and *Plasma (Glowing)*. Flow speed, wander, orbit, swirl, warp, scale, grain, vignette,
   **Audio Burst (Brightness)** and **Audio Hue Shift**.
@@ -190,16 +305,38 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
   line width, movement speed).
 - **Pulse Rings** — rings expanding from the center, with extra rings spawned on bass hits (ring
   rate, expansion speed, thickness, fade).
+- **Ink** — liquid ink blobs that swirl as they flow (blob count, viscosity, swirl, spread).
+- **Nebula** — overlapping soft gas clouds (layer count, size, softness, density).
+- **Hex Grid** — hexagonal cells lit by a wave spreading from the center and by the spectrum.
+- **Mosaic** — a jittered cell grid where each cell follows a frequency band.
+- **Corridor** — rings or polygons coming toward the viewer (ring count, speed, sides, twist).
+- **Spiral** — a rotating multi-armed spiral (arms, turns, taper).
+- **Snow / Embers** — swaying particles falling with depth.
+- **City** — a two-layer parallax skyline whose windows light up with the music.
+- **🧪 Studio** — uses a GLSL shader you wrote yourself as the background.
 - **Solid Color** — a single flat color.
 
 Five color stops, **10 built-in presets** (Aurora, Sunset, Neon, Lava, Ocean, Forest, Pastel, Night,
 Ice, Single Color) and your own saved presets apply to every background type.
 
-### Visualizer (14 modes)
-- **Bars** · **Center** · **Segments** (LED equalizer) · **Dot Matrix**
-- **Wave** (oscilloscope) · **Ribbon** (waveform history) · **Terrain** (perspective wireframe landscape)
-- **Circle** · **Radial Wave** · **Rays** · **Tunnel** · **Orb**
-- **Particles** (bursts on bass hits) · **Spectrogram** (scrolling heat map)
+### Visualizer (31 modes)
+
+**Basic** — **Bars** · **Center** · **Segments** (LED equalizer) · **Dot Matrix** ·
+**Skyline** (buildings with lit windows)
+
+**Waveform** — **Wave** (oscilloscope) · **Ribbon** (waveform history) ·
+**3D Wave** (waveform history stacked in perspective) · **Lissajous** (XY oscilloscope) ·
+**Strings** (each string vibrates with its band) · **Terrain** (perspective wireframe landscape)
+
+**Radial** — **Circle** · **Radial Wave** · **Rays** · **Arcs** (one arc per band) ·
+**Pinwheel** · **Mandala** (polar rose curve) · **Kaleidoscope** · **Vortex** ·
+**Helix** (DNA) · **Tunnel** · **Orb**
+
+**Particles & events** — **Particles** · **Fireworks** (bursts on the beat) ·
+**Lightning** (branching bolts on bass) · **Bubbles** · **Liquid Blobs** (metaballs) ·
+**Ripple Grid** (rings spreading on the beat) · **Spectrogram**
+
+**Advanced engines** — **♾ Feedback** (the MilkDrop family) · **🧪 Studio** (your own shader)
 - Bar count, min/max frequency, gap, position, mirror, line width, amplitude, sensitivity and glow
   are shown whenever they are meaningful for the selected mode.
 - **Rainbow** can be toggled off to pick a single or dual color.
@@ -281,16 +418,29 @@ select another device or close that application.
 ```
 src/
   main/                # Electron main process
-    main.js            # windows, display selection, IPC, capture lifecycle
+    main.js            # windows (one per display), IPC, capture lifecycle
     native-audio.js    # manages the loopback-helper child process and forwards frames
     loopback-helper.js # runs with the bundled/system Node runtime: audify capture + FFT
+    stream-server.js   # OBS browser source + mobile remote (HTTP + WebSocket)
+    osc-server.js      # OSC (UDP) receiver — hand-written OSC 1.0 parser
+    presets-store.js   # Studio presets (userData/presets/*.json)
     preload-admin.js / preload-visualizer.js / preload-exporter.js
   shared/
     defaults.js        # default configuration + color presets
+    presets.js         # preset format, built-in shaders, Shadertoy/ISF/MilkDrop import
     i18n.js            # English/Turkish translations and language detection
   admin/               # Admin Panel (control interface)
     index.html / admin.css / admin.js / settings.js
+    studio.js / studio.css  # Studio editor (code editor, live preview, parameters)
+    stream.js          # streaming output panel (addresses, token, clients)
+    control.js         # MIDI + OSC mapping engine and panel
+    media-panel.js     # webcam / video layer panel
+    scenegen.js        # offline scene generator
     preview.js         # in-panel live preview (same engine as the visualizer)
+  web/                 # Pages served by the streaming server
+    overlay.html       # OBS browser source — same engine as the desktop
+    remote.html / remote.js  # mobile remote control
+    web-shim.js        # window.api bridge (WebSocket instead of IPC)
   exporter/            # Offline window that renders an audio file to MP4
   visualizer/          # Visualization screen
     index.html / visualizer.css / audio.js / visualizer.js
@@ -298,7 +448,13 @@ src/
       gradient.js      # WebGL fluid gradient background
       backgrounds.js   # 2D background modes (waves, aurora, starfield, grid,
                        #   bokeh, digital rain, network, pulse rings)
+      backgrounds-extra.js # nebula, hex grid, ink, snow, city, corridor, spiral, mosaic
+      shaderhost.js    # WebGL2 Studio engine + feedback (MilkDrop family)
+      media.js         # webcam / video layer
       glow.js          # single-pass bloom helper
+      extras.js        # kaleidoscope, helix, blobs, fireworks, vortex, mandala,
+                       #   skyline, lightning, ripple grid, lissajous, strings,
+                       #   bubbles, 3D wave, arcs, pinwheel
       bars.js centerbars.js blocks.js dots.js wave.js ribbon.js terrain.js
       circular.js radialwave.js starburst.js tunnel.js orb.js particles.js
       spectrogram.js sprites.js
@@ -309,7 +465,20 @@ scripts/
 docs/screenshots/      # README images
 ```
 
-Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on Windows.
+Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on Windows;
+Studio presets go to `%APPDATA%/soundvisualizer/presets/` as separate files.
+
+### Self-test
+
+```bash
+npm start -- --smoke
+```
+
+Opens **every** registered visualizer mode and **every** background in turn, compiles all built-in
+shaders on the real GPU, renders every panel category, exercises multi-display and blackout, and
+finally switches the interface to English and looks for **untranslated text**. Because modes are
+loaded with manual `<script>` tags (there is no bundler), forgetting to add a new mode to one of
+the HTML files would be a silent failure — this test makes it loud.
 
 ---
 
@@ -318,9 +487,22 @@ Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on
 | Key | Action |
 |-----|--------|
 | `Ctrl` + `K` | Search settings in the panel |
-| `ESC` | Close the visualization screen / clear the search |
+| `ESC` | Close the visualization on **all displays** / clear the search |
+| `Tab` | Indent inside the Studio code editor |
 | Click the screen | Retry if audio failed to start |
 
+> The 🌑 **Blackout** button in the panel's top bar darkens the scene without closing it; press it
+> again and the previous look (background, visualizer, logo, media) comes back exactly as it was.
+> The same button exists on the mobile remote and as a MIDI/OSC action.
+
+
+---
+
+## 🗺️ Roadmap
+
+Where the project stands against comparable applications, what has actually
+**shipped**, and what was **deliberately left out** (NDI/Spout, the full MilkDrop
+engine, WebGPU…) is written out plainly in [ROADMAP.md](ROADMAP.md).
 
 ---
 
