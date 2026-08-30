@@ -142,6 +142,10 @@
 
   async function setup(job) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    // Studio presetleri işin içinde gelir; modlar kurulmadan ÖNCE kaydedilmeli
+    if (window.SVPresets && Array.isArray(job.presets)) window.SVPresets.setUser(job.presets);
+    // Dışa aktarımda her zaman tam çözünürlük çizilir
+    cfg.power = Object.assign({}, cfg.power, { renderScale: 1 });
     width = job.width;
     height = job.height;
     fps = job.fps;

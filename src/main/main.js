@@ -333,7 +333,9 @@ function captureWanted() {
   return (
     anyVisualizerOpen() ||
     previewSubscribed ||
-    streamServer.clientCount() > 0
+    // Yalnızca yayın KATMANI ses karesi tüketir; tek başına bağlı bir mobil
+    // kumanda yakalamayı ayakta tutmamalı (ses aygıtını boşuna meşgul eder).
+    streamServer.overlayCount() > 0
   );
 }
 
@@ -737,7 +739,9 @@ function setConfigPath(obj, p, value) {
 function applyRemoteCommand(msg) {
   if (!currentConfig) return;
   if (msg.action === 'openVisualizer') {
-    openVisualizer(currentConfig.display && currentConfig.display.id);
+    // Kullanıcının seçtiği tüm ekranlar; eski kayıtlarda tek kimlik olabilir
+    const d = currentConfig.display || {};
+    openVisualizer(Array.isArray(d.ids) && d.ids.length ? d.ids : d.id);
     return;
   }
   if (msg.action === 'closeVisualizer') {
@@ -953,7 +957,11 @@ ipcMain.handle('export:pick-output', async (e, defaultName) => {
   return r.filePath;
 });
 
-ipcMain.handle('export:start', async (e, opts) => {
+/* Dışa aktarma işini başlatır. IPC işleyicisinden ayrı bir fonksiyon olmasının
+   sebebi, öz testin (--smoke-export) aynı yolu bir pencere olmadan
+   çağırabilmesi: dışa aktarıcı ayrı bir pencere ve ayrı bir preload kullandığı
+   için orada bozulan bir şey başka hiçbir testte görünmez. */
+async function startExportJob(opts) {
   if (exportState) return { ok: false, error: 'Zaten bir dışa aktarma sürüyor.' };
   opts = opts || {};
   const audioPath = opts.audioPath;
@@ -1048,6 +1056,8 @@ ipcMain.handle('export:start', async (e, opts) => {
 
   const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
   exportWin.webContents.send('export:job', {
+    // Studio presetleri: dışa aktarıcı bunlar olmadan 'custom' modu boş çizerdi
+    presets: presetsStore.list(),
     audioBuffer: ab,
     width: w,
     height: h,
@@ -1056,7 +1066,22 @@ ipcMain.handle('export:start', async (e, opts) => {
   });
 
   return { ok: true };
-});
+}
+
+ipcMain.handle('export:start', (e, opts) => startExportJob(opts));
+
+// Dışa aktarma bitene kadar bekler (yalnızca öz test kullanır)
+function awaitExportDone(timeoutMs) {
+  const limit = Date.now() + (timeoutMs || 120000);
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (!exportState) return resolve(true);
+      if (Date.now() > limit) return resolve(false);
+      setTimeout(tick, 200);
+    };
+    tick();
+  });
+}
 
 ipcMain.handle('export:cancel', () => {
   if (exportState) exportState.cancel = true;
@@ -1472,6 +1497,107 @@ async function runSmoke() {
       const file = path.join(shotDir, String(i + 1).padStart(2, '0') + '-' + catNames[i].replace(/[^A-Za-z0-9]+/g, '') + '.png');
       fs.writeFileSync(file, img.toPNG());
       console.log('[SMOKE] shot: ' + file);
+    }
+  }
+
+  /* --- Video dışa aktarma öz testi (--smoke-export) ---
+     Dışa aktarıcı AYRI bir pencere ve AYRI bir preload kullanır; modlar orada
+     da elle <script> ile yüklenir. Bu yüzden panelde ve görselleştiricide
+     sorunsuz çalışan bir mod, dışa aktarımda sessizce boş render edilebilir.
+     Test kısa bir ses üretir, iki sahneyi gerçekten kodlar ve videonun
+     SİYAH OLMADIĞINI doğrular. */
+  if (process.argv.includes('--smoke-export')) {
+    const outDir = process.env.SV_EXPORT_DIR || path.join(app.getPath('userData'), 'smoke-export');
+    try { fs.mkdirSync(outDir, { recursive: true }); } catch { /* var */ }
+    const wav = path.join(outDir, 'tone.wav');
+    const ffmpegBin = resolveFfmpeg();
+
+    const runFf = (ffArgs) =>
+      new Promise((resolve) => {
+        let err = '';
+        let proc;
+        try { proc = spawn(ffmpegBin, ffArgs, { windowsHide: true }); }
+        catch { return resolve({ ok: false, err: 'spawn failed' }); }
+        proc.stderr.on('data', (d) => { err += d.toString(); });
+        proc.on('error', () => resolve({ ok: false, err: 'spawn failed' }));
+        proc.on('close', (code) => resolve({ ok: code === 0, err }));
+      });
+
+    // 4 saniyelik vuruşlu ton: bas darbeleri olay tabanlı modları da tetikler
+    const gen = await runFf([
+      '-y', '-f', 'lavfi', '-i', 'sine=frequency=60:duration=4',
+      '-f', 'lavfi', '-i', 'sine=frequency=880:duration=4',
+      '-filter_complex', '[0:a]tremolo=f=2:d=0.9[b];[b][1:a]amix=inputs=2:weights=3 1[a]',
+      '-map', '[a]', wav,
+    ]);
+
+    if (!gen.ok) {
+      console.log('[SMOKE] export: test sesi üretilemedi, adım atlandı');
+    } else {
+      // 'custom' yolunu sınamak için geçici bir Studio preseti yaz
+      const tmpPreset = presetsStore.save({
+        id: 'smoke_export_shader',
+        kind: 'visualizer',
+        engine: 'shader',
+        name: 'Smoke Export Test',
+        controls: [],
+        shader:
+          'void mainImage(out vec4 o, in vec2 fc){\n' +
+          '  vec2 uv = fc / sv_resolution;\n' +
+          '  float bar = step(uv.y, 0.25 + sv_spec(uv.x) * 0.7);\n' +
+          '  vec3 col = sv_col(uv.x) * bar + vec3(0.15, 0.05, 0.25);\n' +
+          '  o = vec4(col, 1.0);\n' +
+          '}',
+      });
+
+      const cases = [
+        { name: 'fireworks', over: { visualizer: { type: 'fireworks' }, background: { type: 'corridor' } } },
+        tmpPreset.ok
+          // Arkaplan bilerek DÜZ SİYAH: böylece kareye renk koyabilecek tek şey
+          // Studio shader'ıdır. Shader çizmezse video baştan sona siyah çıkar ve
+          // aşağıdaki blackdetect denetimi bunu yakalar.
+          ? { name: 'studio-shader', over: { visualizer: { type: 'custom' }, background: { type: 'solid', solidColor: '#000000' }, custom: { visualizerId: tmpPreset.preset.id } } }
+          : null,
+      ].filter(Boolean);
+
+      const baseCfg = JSON.parse(JSON.stringify(currentConfig || {}));
+      for (const c of cases) {
+        const out = path.join(outDir, c.name + '.mp4');
+        try { fs.unlinkSync(out); } catch { /* yok */ }
+        currentConfig = Object.assign({}, baseCfg, {
+          visualizer: Object.assign({}, baseCfg.visualizer, c.over.visualizer),
+          background: Object.assign({}, baseCfg.background, c.over.background),
+          custom: Object.assign({}, baseCfg.custom, c.over.custom || {}),
+        });
+
+        const res = await startExportJob({
+          audioPath: wav, outputPath: out,
+          resolution: '720p', fps: 30, quality: 'balanced', encoder: 'cpu', speed: 'fast',
+        });
+        const finished = res && res.ok ? await awaitExportDone(150000) : false;
+        const size = fs.existsSync(out) ? fs.statSync(out).size : 0;
+
+        // Siyah kare taraması: sahne hiç çizilmediyse video baştan sona karanlıktır
+        let blackSpans = 0;
+        if (size > 0) {
+          const probe = await runFf(['-i', out, '-vf', 'blackdetect=d=0.4:pix_th=0.06', '-an', '-f', 'null', '-']);
+          blackSpans = (probe.err.match(/black_duration:[0-9.]+/g) || [])
+            .map((m) => parseFloat(m.split(':')[1]))
+            .reduce((a, b) => a + b, 0);
+        }
+
+        console.log(
+          '[SMOKE] export ' + c.name + ': ' + (finished ? 'bitti' : 'BİTMEDİ') +
+          ' · ' + Math.round(size / 1024) + ' KB · siyah ' + blackSpans.toFixed(1) + ' sn'
+        );
+        if (!res || !res.ok) errors.push('export ' + c.name + ' başlatılamadı: ' + (res && res.error));
+        else if (!finished) errors.push('export ' + c.name + ' zaman aşımına uğradı');
+        else if (size < 20000) errors.push('export ' + c.name + ' çok küçük dosya üretti (' + size + ' B)');
+        else if (blackSpans > 2.5) errors.push('export ' + c.name + ' neredeyse tamamen siyah (' + blackSpans.toFixed(1) + ' sn)');
+      }
+
+      currentConfig = baseCfg;
+      if (tmpPreset.ok) presetsStore.remove(tmpPreset.preset.id);
     }
   }
 

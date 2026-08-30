@@ -481,4 +481,10 @@ module.exports = {
   newToken,
   lanAddress,
   clientCount: () => clients.size,
+  // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
+  overlayCount: () => {
+    let n = 0;
+    for (const c of clients) if (c.kind === 'overlay') n++;
+    return n;
+  },
 };
