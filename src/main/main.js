@@ -1401,8 +1401,15 @@ async function runSmoke() {
       await awc3.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
       await wait(340);
       const found = await awc3.executeJavaScript(`(function(){
-        var skip = 'source-name,audio-state,scene-name,up-name,si-name,map-signal,url-field,client-addr,gen-pair'.split(',');
+        var skip = 'source-name,audio-state,scene-name,up-name,map-signal,url-field,client-addr,gen-pair'.split(',');
         var out = [];
+        // Yer tutucu ve başlık metinleri de taranır: gözle görünür oldukları
+        // halde metin düğümü olmadıkları için kolayca gözden kaçarlar.
+        var attrs = document.querySelectorAll('#sections [placeholder], #sections [title]');
+        for (var ai = 0; ai < attrs.length; ai++) {
+          var av = (attrs[ai].getAttribute('placeholder') || '') + ' ' + (attrs[ai].getAttribute('title') || '');
+          if (/[çğıöşüÇĞİÖŞÜ]/.test(av)) out.push(av.trim().slice(0, 90));
+        }
         var walker = document.createTreeWalker(document.getElementById('sections'), NodeFilter.SHOW_TEXT);
         var n;
         while ((n = walker.nextNode())) {
@@ -1439,6 +1446,13 @@ async function runSmoke() {
   if (process.argv.includes('--smoke-shots') && adminWin && !adminWin.isDestroyed()) {
     const shotDir = process.env.SV_SHOT_DIR || path.join(app.getPath('userData'), 'smoke-shots');
     try { fs.mkdirSync(shotDir, { recursive: true }); } catch { /* var */ }
+    // Tam ekran görselleştirme pencereleri paneli örter; örtülü pencerede
+    // requestAnimationFrame çalışmaz ve kare zorlaması sonsuza kadar bekler.
+    closeVisualizer();
+    await wait(600);
+    adminWin.show();
+    adminWin.focus();
+    await wait(400);
     const awc4 = adminWin.webContents;
     const catNames = await awc4.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
@@ -1446,8 +1460,13 @@ async function runSmoke() {
     for (let i = 0; i < catNames.length; i++) {
       await awc4.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
       await wait(1200);
-      // capturePage son SUNULAN kareyi verir; iki rAF bekleyip yeni kareyi zorla
-      await awc4.executeJavaScript(`new Promise(function(r){requestAnimationFrame(function(){requestAnimationFrame(r);});})`);
+      /* capturePage son SUNULAN kareyi verir; iki rAF bekleyip yeni kareyi zorla.
+         Pencere yine de örtülüyse rAF hiç çalışmaz — bu yüzden zamanlayıcıyla
+         yarıştırılır ve test asla asılı kalmaz. */
+      await awc4.executeJavaScript(
+        'new Promise(function(r){var d=setTimeout(r,800);' +
+          'requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(d);r();});});})'
+      );
       await wait(250);
       const img = await awc4.capturePage();
       const file = path.join(shotDir, String(i + 1).padStart(2, '0') + '-' + catNames[i].replace(/[^A-Za-z0-9]+/g, '') + '.png');

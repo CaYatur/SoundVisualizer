@@ -592,6 +592,25 @@
     'dengeli': 'balanced',
     'Tamamen bu bilgisayarda çalışır — hiçbir servise bağlanmaz. Yazdığınız metin enerji, sıcaklık, aydınlık ve doku eksenlerine çevrilir; sahne bu eksenlerden tohumlanmış deterministik bir üreticiyle kurulur. Beğendiğinizi sağdaki Sahneler bölümünden kaydedin.': 'Runs entirely on this computer — it connects to no service. Your text is mapped onto energy, warmth, brightness, and texture axes; the scene is then built by a deterministic generator seeded from those axes. Save the ones you like from the Scenes section on the right.',
 
+
+    // ---- Yerleşik Studio presetleri (ad + açıklama) ----
+    'Plazma Deniz': 'Plasma Sea',
+    'Klasik plazma: katmanlı sinüsler basla dalgalanır.': 'Classic plasma: layered sines that swell with the bass.',
+    'Frekans Halkaları': 'Frequency Rings',
+    'Merkezden yayılan halkalar; her halka bir frekans bandı.': 'Rings spreading from the center; each ring is a frequency band.',
+    'Sıvı Metal': 'Liquid Metal',
+    'Alan bükümlü gürültü; ağır, akışkan metalik yüzey.': 'Domain-warped noise; a heavy, flowing metallic surface.',
+    'Yıldız Geçidi': 'Star Gate',
+    'Hiper uzay: bas vurdukça hızlanan yıldız akışı.': 'Hyperspace: a star stream that accelerates on every bass hit.',
+    'Dalga Perdesi': 'Wave Curtain',
+    'Dalga formundan üretilen ışık perdesi — saydam üst katman.': 'A curtain of light built from the waveform — a transparent overlay.',
+    'Bas Küresi': 'Bass Orb',
+    'Ortada nabız atan enerji küresi — saydam üst katman.': 'A pulsing orb of energy in the middle — a transparent overlay.',
+
+    // ---- Yer tutucular ----
+    'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"': 'e.g. "dark cinematic space", "energetic neon techno", "calm forest morning"',
+    'uAd': 'uName',
+    '/adres/yolu': '/address/path',
     // ---- Mobil uzaktan kumanda (yayın sunucusunun servis ettiği sayfa) ----
     'CAYADEV Visualizer — Uzaktan Kumanda': 'CAYADEV Visualizer — Remote Control',
     'CAYADEV Visualizer — Yayın Katmanı': 'CAYADEV Visualizer — Streaming Overlay',
