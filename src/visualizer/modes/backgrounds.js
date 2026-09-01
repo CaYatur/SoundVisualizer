@@ -553,7 +553,13 @@
   // ============================ NABIZ HALKALARI ============================
   // Merkezden dışa açılan halkalar; bas darbelerinde fazladan halka doğar.
   class PulseRings {
-    constructor() { this.rings = []; this.acc = 0; this.wasHigh = false; }
+    constructor() {
+      this.rings = [];
+      this.acc = 0;
+      // Mandal yerine artış hızına bakan ortak algılayıcı: art arda gelen bas
+      // vuruşlarında da halka doğar (bkz. src/shared/onset.js)
+      this.onset = new window.SVOnset.Onset({ refractory: 0.12 });
+    }
     draw(ctx, audio, cfg, t, W, H, dt) {
       const g = gset(cfg);
       const m = mset(cfg, 'rings', { rate: 2.4, speed: 1, thickness: 1, beatSpawn: 1, fade: 1 });
@@ -572,12 +578,11 @@
         this.acc -= 1;
         this.rings.push({ r: 0, c: this.rings.length % 5 });
       }
-      // bas eşiği aşıldığında ek halka (her darbede bir kez)
-      const high = audio.bass > 0.45;
-      if (high && !this.wasHigh && m.beatSpawn > 0) {
-        this.rings.push({ r: 0, c: (this.rings.length + 2) % 5, boost: m.beatSpawn });
+      // her bas darbesinde ek halka
+      const hit = this.onset.push(audio.bass, step);
+      if (hit > 0 && m.beatSpawn > 0) {
+        this.rings.push({ r: 0, c: (this.rings.length + 2) % 5, boost: m.beatSpawn * (0.6 + hit * 0.8) });
       }
-      this.wasHigh = high;
       if (this.rings.length > 60) this.rings.splice(0, this.rings.length - 60);
 
       const grow = (0.18 + g.speed * 0.35) * m.speed * (1 + audio.level * g.react * 0.7);

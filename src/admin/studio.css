@@ -229,16 +229,6 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .fold-body.open { display: block; }
 
 /* formül doğruluk rozeti */
-.formula-badge {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--bg2); border: 1px solid var(--line);
-  border-radius: 8px; padding: 6px 9px; font-size: 11px;
-}
-.fb-label { color: var(--muted2); }
-.fb-value { margin-left: auto; font-weight: 600; }
-.fb-value.exact { color: var(--ok); }
-.fb-value.approx { color: var(--warn); }
-.fb-value.visual { color: var(--muted); }
 
 /* ======================== TEMPO / OTOMATİK VJ ======================== */
 .autovj-panel { display: flex; flex-direction: column; gap: 8px; }

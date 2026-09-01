@@ -49,30 +49,28 @@
     };
   }
 
-  /* Vuruş (beat) algılayıcı.
-     Basit eşik yetmiyor: sessiz parçada hiç tetiklenmiyor, gürültülü parçada
-     sürekli tetikleniyor. Bu yüzden basın kayan ortalaması taban alınır ve
-     ani yükseliş oranına bakılır; ayrıca bir bekleme süresi (cooldown) çift
-     tetiklemeyi engeller. */
+  /* Vuruş (beat) algılayıcı — ince bir sarmalayıcı.
+
+     Kararı src/shared/onset.js veriyor: mutlak seviye yerine ARTIŞ HIZINA
+     bakan, kare hızından bağımsız, art arda tetiklenebilen algılayıcı. Eski
+     yerel uygulama basın kayan ortalamasını taban alıyordu; yoğun bir parçada
+     taban vuruşların üstüne çıkıp sonraki vuruşları yutuyor, sahne tek tetikte
+     kalıyordu (bkz. tests/onset.test.js "SÜREKLİ YÜKSEK ZEMİN").
+
+     Sarmalayıcı yalnızca çağrı biçimini koruyor: modlar mutlak zaman (t)
+     veriyor, algılayıcı dt istiyor. */
   class Beat {
     constructor(cooldown) {
-      this.avg = 0;
-      this.last = -999;
-      this.cooldown = cooldown == null ? 0.16 : cooldown;
+      this.det = new window.SVOnset.Onset({ refractory: cooldown == null ? 0.16 : cooldown });
+      this.prevT = null;
       this.energy = 0;
     }
-    // t: saniye. Vuruş varsa vuruş şiddetini (0..1) döndürür, yoksa 0.
     hit(bass, t) {
-      this.avg = this.avg * 0.94 + bass * 0.06;
-      this.energy = Math.max(0, this.energy - 0.06);
-      const over = bass - (this.avg * 1.28 + 0.035);
-      if (over > 0 && t - this.last > this.cooldown) {
-        this.last = t;
-        const strength = Math.min(1, over * 4 + 0.25);
-        this.energy = Math.max(this.energy, strength);
-        return strength;
-      }
-      return 0;
+      const dt = this.prevT == null ? 1 / 60 : Math.min(0.25, Math.max(1 / 240, t - this.prevT));
+      this.prevT = t;
+      const s = this.det.push(bass, dt);
+      this.energy = this.det.energy;
+      return s;
     }
   }
 

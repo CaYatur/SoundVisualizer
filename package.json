@@ -20,7 +20,7 @@
     "dist:win": "node scripts/prepare-runtime.js && node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
     "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
     "pack:dir": "electron-builder --dir",
-    "test": "node --test tests/formulas.test.js tests/tempo.test.js",
+    "test": "node --test \"tests/**/*.test.js\"",
     "smoke": "node scripts/start.js --smoke"
   },
   "devDependencies": {

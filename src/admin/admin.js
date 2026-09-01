@@ -175,6 +175,9 @@
     cfg: () => cfg,
     push,
     rerender: () => render(),
+    // Yeniden çiz ve ardından gönder. Paneller çizim sırasında bağımlı
+    // alanları düzeltebildiği için sıra bu şekilde olmalı.
+    apply: () => { render(); push(true); },
     toast: svToast,
     confirm: svConfirm,
     get: (p) => getPath(cfg, p),
@@ -342,8 +345,11 @@
       type: 'checkbox',
       onchange: (e) => {
         setPath(cfg, def.path, e.target.checked);
-        push(true);
+        // Sıra önemli: render() panel gövdelerinin bağımlı alanları
+        // normalleştirmesine izin verir, push() sonuçta oluşan tutarlı
+        // yapılandırmayı gönderir.
         if (def.rebuild) render();
+        push(true);
       },
     });
     input.checked = !!getPath(cfg, def.path);
@@ -380,8 +386,8 @@
         text: o.label,
         onclick: () => {
           setPath(cfg, def.path, o.value);
-          push(true);
           render();
+          push(true);
         },
       });
       seg.appendChild(b);
@@ -400,8 +406,8 @@
         let v = e.target.value;
         if (def.numeric) v = parseFloat(v);
         setPath(cfg, def.path, v);
-        push(true);
         if (def.rebuild) render();
+        push(true);
       },
     });
     let found = false;

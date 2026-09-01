@@ -162,7 +162,7 @@
     const cfg = P().cfg();
     const nodes = [];
     const list = Array.isArray(cfg.layers) ? cfg.layers : (cfg.layers = []);
-    const rerender = () => { P().push(true); P().rerender(); };
+    const rerender = () => P().apply();
 
     if (!list.length) {
       // Katman listesi boşken sahne eski alanlardan sentezlenir. Kullanıcı
@@ -286,7 +286,7 @@
     const FX = window.SVPostFX;
     const nodes = [];
     const list = Array.isArray(cfg.postfx) ? cfg.postfx : (cfg.postfx = []);
-    const rerender = () => { P().push(true); P().rerender(); };
+    const rerender = () => P().apply();
 
     if (!list.length) {
       nodes.push(el('div', { class: 'studio-note', text: 'Zincir boşken sahne doğrudan kompozit edilir; hiçbir ek maliyet yoktur. Efekt eklediğinizde sahne tek yüzeye birleştirilip GPU\'da işlenir ve efektler dışa aktarımda da aynı sırayla uygulanır.' }));
@@ -365,14 +365,13 @@
   const RENDER_LABELS = [['surface', 'Yüzey'], ['wireframe', 'Tel Kafes'], ['points', 'Nokta']];
   const DEFORM_LABELS = [['normal', 'Normal Yönünde'], ['radial', 'Işınsal'], ['vertical', 'Dikey'], ['collapse', 'Çökme']];
   const COLOR_LABELS = [['palette', 'Palet'], ['depth', 'Derinlik'], ['normal', 'Normal'], ['spectrum', 'Spektrum']];
-  const ACC_LABELS = { exact: 'kapalı form · test edilmiş', approx: 'sayısal yaklaşım', visual: 'görsel amaçlı' };
 
   function geometryPanel() {
     const el = P().el;
     const cfg = P().cfg();
     const g = cfg.geometry;
     const nodes = [];
-    const rerender = () => { P().push(true); P().rerender(); };
+    const rerender = () => P().apply();
 
     nodes.push(
       P().segment('Aile', 'geometry.family', FAMILY_LABELS.map(([v, l]) => ({ value: v, label: l })), { rebuild: true })
@@ -390,12 +389,6 @@
 
     const active = cat.find((e) => e.key === g.formula);
     if (active) {
-      nodes.push(
-        el('div', { class: 'formula-badge' }, [
-          el('span', { class: 'fb-label', text: 'Doğruluk' }),
-          el('span', { class: 'fb-value ' + active.accuracy, text: ACC_LABELS[active.accuracy] || active.accuracy }),
-        ])
-      );
       // Formülün kendi parametreleri — tanımdan otomatik üretilir
       if (active.params.length) {
         g.params = g.params || {};
@@ -436,10 +429,6 @@
         ])
       );
     }
-
-    nodes.push(
-      el('div', { class: 'studio-note dim-hint', text: 'Formüller kanonik matematiktir; kapalı formlu olanların bilinen noktalardaki değerleri "npm test" ile sayısal olarak doğrulanır. Ağ bir kez kurulup GPU\'da kalır, sese bağlı bozulma vertex shader\'da yapılır.' })
-    );
 
     return el('div', { class: 'geo-panel' }, nodes);
   }

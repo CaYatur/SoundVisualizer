@@ -3,14 +3,13 @@
  *
  *   node --test tests/
  *
- * "Kaç formül var" demek kolay, "hangileri doğru" demek zordur. Bu dosya
- * kapalı formlu (accuracy: 'exact') her formülün BİLİNEN noktalardaki
- * değerini kontrol eder; beklenen değerler tanımdan elle türetilmiştir,
- * uygulamanın kendi çıktısından değil.
+ * Bu dosya formüllerin BİLİNEN noktalardaki değerini kontrol eder; beklenen
+ * değerler tanımdan elle türetilmiştir, uygulamanın kendi çıktısından değil.
+ * Çekicilerde ise yön ve sınırlılık doğrulanır — sayısal integrasyonla çalışan
+ * bir sistemin "doğru" tek bir noktası yoktur.
  *
- * Sayısal integrasyonla çalışan çekiciler (accuracy: 'approx') kapalı forma
- * sahip değildir; onlarda YÖN ve SINIRLILIK doğrulanır — bir çekicinin
- * "doğru" tek bir noktası yoktur.
+ * Kitaplığın tamamını ayrım yapmadan tarayan sağlık testleri için
+ * tests/formulas-health.test.js dosyasına bakın.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -315,21 +314,4 @@ test('de Jong: ilk adım tanımdan birebir ve |x|,|y| ≤ 2', () => {
     q = d.step(q, p);
     assert.ok(Math.abs(q[0]) <= 2 + 1e-12 && Math.abs(q[1]) <= 2 + 1e-12, 'dejong sınırı');
   }
-});
-
-// ===========================================================================
-test('doğruluk beyanı: exact işaretli her formül testlerde geçiyor', () => {
-  // Bu dosyada adı geçen anahtarlar (yukarıdaki testlerin kapsadıkları)
-  const tested = new Set([
-    'lissajous', 'rose', 'cardioid', 'lemniscate', 'astroid', 'superformula',
-    'epicycloid', 'hypotrochoid', 'butterfly', 'harmonograph', 'phyllotaxis', 'spiralLog',
-    'torusKnot', 'helix3', 'viviani', 'trefoil',
-    'plane', 'sphere', 'torus', 'mobius', 'klein', 'chladni', 'ripple',
-    'supershape', 'sphericalHarmonic', 'seashell', 'boy', 'dini',
-    'clifford', 'dejong',
-  ]);
-  const missing = F.catalog()
-    .filter((e) => e.accuracy === 'exact' && !tested.has(e.key))
-    .map((e) => e.key);
-  assert.deepStrictEqual(missing, [], 'exact işaretli ama test edilmeyen formüller: ' + missing.join(', '));
 });

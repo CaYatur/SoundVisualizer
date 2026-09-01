@@ -506,7 +506,9 @@
       start: [-1.48, -1.51, 2.04],
       scale: 0.08,
       center: [0, 0, 0],
-      params: [{ name: 'a', label: 'a', min: 0.5, max: 3, step: 0.01, default: 1.89 }],
+      // a < 1.3 için sistem sınırlı değildir (yörünge sonsuza kaçar); kaydırıcı
+      // bu yüzden yalnızca çekicinin var olduğu aralığı kapsar
+      params: [{ name: 'a', label: 'a', min: 1.3, max: 3, step: 0.01, default: 1.89 }],
       step: (s, p, dt) => [
         s[0] + dt * (-p.a * s[0] - 4 * s[1] - 4 * s[2] - s[1] * s[1]),
         s[1] + dt * (-p.a * s[1] - 4 * s[2] - 4 * s[0] - s[2] * s[2]),
@@ -562,6 +564,40 @@
     return isFinite(r) ? Math.min(3, r) : 0;
   }
 
+  /* Çekici yörüngesini korumalı biçimde ilerletir.
+
+     Euler integrasyonu büyük adımda ya da uç parametrelerde sınırlı kalmaz;
+     yörünge sonsuza kaçabilir. Böyle bir durumda hesap NaN'a dönüşmeden
+     yakalanır ve durum başlangıca alınır — hiçbir ayar birleşimi bozuk
+     geometri üretemez.
+
+     opts: { steps, dt, skip, bound, onPoint }
+     Dönüş: son durum. onPoint verilirse her nokta için çağrılır. */
+  function iterate(def, params, opts) {
+    const o = opts || {};
+    const steps = Math.max(1, o.steps | 0 || 1000);
+    const dt = o.dt == null ? 0.005 : o.dt;
+    const skip = o.skip == null ? 500 : o.skip;
+    const bound = o.bound == null ? (def.bound || 1e3) : o.bound;
+    const start = def.start ? def.start.slice() : [0.1, 0.1, 0.1];
+    let s = start.slice();
+
+    const runaway = (q) =>
+      !(isFinite(q[0]) && isFinite(q[1]) && isFinite(q[2])) ||
+      Math.abs(q[0]) > bound || Math.abs(q[1]) > bound || Math.abs(q[2]) > bound;
+
+    for (let i = 0; i < skip; i++) {
+      s = def.step(s, params, dt);
+      if (runaway(s)) { s = start.slice(); break; }
+    }
+    for (let i = 0; i < steps; i++) {
+      s = def.step(s, params, dt);
+      if (runaway(s)) s = start.slice();
+      if (o.onPoint) o.onPoint(s, i);
+    }
+    return s;
+  }
+
   // Bir formülün varsayılan parametre nesnesi
   function defaults(def) {
     const out = {};
@@ -589,7 +625,7 @@
     return null;
   }
 
-  const api = { CURVES_2D, CURVES_3D, SURFACES, ATTRACTORS, superShape, defaults, catalog, get, TAU };
+  const api = { CURVES_2D, CURVES_3D, SURFACES, ATTRACTORS, superShape, defaults, catalog, get, iterate, TAU };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVFormulas = api;

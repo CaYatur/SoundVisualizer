@@ -17,7 +17,11 @@
       this.life = new Float32Array(MAX);
       this.hue = new Float32Array(MAX);
       this.head = 0;
-      this.wasHigh = false;
+      // Eski uygulama "bas eşiği aştı ve önceki karede aşmamıştı" mandalıydı;
+      // yoğun parçalarda bas eşiğin altına hiç inmediği için mandal bir daha
+      // kurulmuyor ve patlama tek seferde kalıyordu. Artık artış hızına bakan
+      // ortak algılayıcı kullanılıyor (bkz. src/shared/onset.js).
+      this.onset = new window.SVOnset.Onset({ refractory: 0.1 });
       this.seed = 1;
     }
     resize() {}
@@ -56,10 +60,9 @@
       const minDim = Math.min(W, H);
       const sens = v.sensitivity || 1;
 
-      // bas eşiği aşıldığında patlama (her darbede bir kez)
-      const high = audio.bass * sens > 0.35;
-      if (high && !this.wasHigh) this._emit(34, 1.0 + audio.bass * sens, t);
-      this.wasHigh = high;
+      // Her bas darbesinde patlama — art arda gelen vuruşlar da sayılır
+      const hit = this.onset.push(audio.bass * sens, step);
+      if (hit > 0) this._emit(Math.round(18 + hit * 34), (0.7 + hit * 0.8) * (1 + audio.bass * sens), t);
       // sürekli akış: sahne sessiz anlarda da tamamen boşalmasın
       if (audio.level * sens > 0.04) this._emit(2, 0.4 + audio.level * sens * 0.9, t);
 

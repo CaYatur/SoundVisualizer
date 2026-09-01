@@ -275,29 +275,27 @@ void main(){
     const pos = new Float32Array(N * 3);
     const nor = new Float32Array(N * 3);
     const uvs = new Float32Array(N * 2);
-    let s = def.start.slice();
     const scale = def.scale || 0.05;
     const c = def.center || [0, 0, 0];
 
-    // Geçici rejimi at: ilk adımlar çekiciye oturana kadar
-    for (let i = 0; i < 500; i++) s = def.step(s, params, dt);
-
-    for (let i = 0; i < N; i++) {
-      s = def.step(s, params, dt);
-      if (!isFinite(s[0]) || !isFinite(s[1]) || !isFinite(s[2])) s = def.start.slice();
-      const x = (s[0] - c[0]) * scale;
-      const y = (s[1] - c[1]) * scale;
-      const z = (s[2] - c[2]) * scale;
-      pos[i * 3] = x;
-      pos[i * 3 + 1] = y;
-      pos[i * 3 + 2] = z;
-      const len = Math.hypot(x, y, z) || 1;
-      nor[i * 3] = x / len;
-      nor[i * 3 + 1] = y / len;
-      nor[i * 3 + 2] = z / len;
-      uvs[i * 2] = i / N;
-      uvs[i * 2 + 1] = 0.5;
-    }
+    // Kaçan yörünge ortak yineleyicide yakalanır (bkz. formulas.js: iterate)
+    window.SVFormulas.iterate(def, params, {
+      steps: N, dt, skip: 500,
+      onPoint: (q, i) => {
+        const x = (q[0] - c[0]) * scale;
+        const y = (q[1] - c[1]) * scale;
+        const z = (q[2] - c[2]) * scale;
+        pos[i * 3] = x;
+        pos[i * 3 + 1] = y;
+        pos[i * 3 + 2] = z;
+        const len = Math.hypot(x, y, z) || 1;
+        nor[i * 3] = x / len;
+        nor[i * 3 + 1] = y / len;
+        nor[i * 3 + 2] = z / len;
+        uvs[i * 2] = i / N;
+        uvs[i * 2 + 1] = 0.5;
+      },
+    });
 
     const lineIdx = new Uint32Array((N - 1) * 2);
     for (let i = 0; i < N - 1; i++) {
