@@ -53,17 +53,22 @@
   }
 
   // ---- Durum ----
-  const glCanvas = document.getElementById('gl');
-  const c2d = document.getElementById('c2d');
+  const stageEl = document.getElementById('stage');
   const comp = document.getElementById('comp');
-  // Her karede getImageData ile geri okuma yapıldığı için willReadFrequently açık.
+  /* Her karede getImageData ile geri okuma yapıldığı için willReadFrequently
+     açık. Bu bayrak Chromium'u YAZILIM rasterizer'a düşürür ve kenar
+     yumuşatma/gradyan dithering'i GPU'dan biraz farklı çıkar.
+
+     Bu yüzden sahne doğrudan buraya çizilmez: katmanlar kendi normal (GPU)
+     tuvallerine çizilip buraya kopyalanır — canlı pencere de tam olarak
+     bunu yapar. Böylece dışa aktarılan video ekranda görülenle eşleşir.
+     (Ölçüm: 'npm start -- --smoke --smoke-raster' iki rasterizer arasındaki
+     farkı sayısal olarak gösterir.) */
   const compCtx = comp.getContext('2d', { willReadFrequently: true });
 
   const audio = new window.SVAudio();
   let cfg = null;
-  let gradient = null;
-  let bgMode = null;
-  let foreground = null;
+  let stack = null;
   let sprites = null;
   let logo = null;
 
@@ -150,35 +155,24 @@
     height = job.height;
     fps = job.fps;
 
-    glCanvas.width = width;
-    glCanvas.height = height;
-    c2d.width = width;
-    c2d.height = height;
     comp.width = width;
     comp.height = height;
 
-    // Arkaplan. Dışa aktarımda tam çözünürlük (renderScale yok sayılır).
-    if (cfg.background.type === 'gradient') {
-      gradient = new window.SVModes.gradient(glCanvas);
-      gradient.resize(width, height);
-    } else if (window.SVBackgrounds && window.SVBackgrounds[cfg.background.type]) {
-      // 2D arkaplan modları doğrudan birleştirme tuvaline çizer
-      bgMode = new window.SVBackgrounds[cfg.background.type]();
-    }
-
-    // Ön görselleştirici
-    const type = cfg.visualizer.type;
-    if (type && type !== 'none' && window.SVModes[type]) {
-      foreground = new window.SVModes[type](c2d);
-      if (foreground.resize) foreground.resize();
-    }
-
+    /* Katman yığını. Canlı pencerelerle AYNI sınıf kullanılır; tek fark,
+       burada tuvaller belgeye eklenmeyip tek bir birleştirme yüzeyine
+       basılmasıdır (drawTo). Böylece dışa aktarımda ekrandakinden farklı
+       bir sahne oluşması mümkün değil. */
     // Ek görsel nesneler / partiküller (resimler kare 0'dan önce yüklenir)
     if (cfg.images && cfg.images.enabled && Array.isArray(cfg.images.items) && cfg.images.items.length) {
       sprites = new window.SVSprites();
       sprites.setItems(cfg.images.items);
       await sprites.whenReady();
     }
+
+    stack = new window.SVLayers.LayerStack(stageEl, {});
+    if (sprites) stack.setSprites(sprites);
+    stack.resize(width, height);
+    stack.setConfig(cfg);
 
     audio.applyConfig(cfg.audio);
 
@@ -218,31 +212,8 @@
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, sampleRate });
     audio.update();
 
-    // Arkaplan
-    if (cfg.background.type === 'gradient' && gradient) {
-      gradient.draw(audio, cfg, t);
-      compCtx.drawImage(glCanvas, 0, 0, width, height);
-    } else if (bgMode) {
-      bgMode.draw(compCtx, audio, cfg, t, width, height, dt);
-    } else {
-      compCtx.fillStyle = cfg.background.solidColor;
-      compCtx.fillRect(0, 0, width, height);
-    }
-
-    // Ek görsel nesneler — arka katman (görselin arkasında)
-    if (sprites && sprites.hasLayer('back')) sprites.draw(compCtx, audio, t, width, height, 'back');
-
-    // Ön görselleştirici (kendi kanvasını temizleyip çizer)
-    if (foreground) {
-      foreground.draw(audio, cfg, t, dt);
-      compCtx.drawImage(c2d, 0, 0, width, height);
-    }
-
-    // Ek görsel nesneler — ön katman (görselin önünde)
-    if (sprites && sprites.hasLayer('front')) sprites.draw(compCtx, audio, t, width, height, 'front');
-
-    // Logo
-    drawLogo();
+    // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
+    stack.drawTo(compCtx, audio, cfg, t, dt, drawLogo);
 
     return compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
   }

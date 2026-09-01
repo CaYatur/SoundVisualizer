@@ -292,6 +292,20 @@
       items: [], // imageItem() ile üretilen nesneler
     },
 
+    // ------------------------------------------------------------------
+    // Katman yığını.
+    //
+    // Boşsa liste eski alanlardan (background / media / images / visualizer /
+    // logo) otomatik SENTEZLENİR; v2.0 ayarları ve sahneleri hiçbir değişiklik
+    // olmadan aynı kareyi verir. Kullanıcı katman eklediği anda bu liste
+    // sahnenin tek kaynağı olur.
+    //
+    // Not: her modun kendi içindeki parlama (glow) yerinde kalır — o, şeklin
+    // kendi görünümünün parçası. Kompozisyon seviyesindeki bloom ayrı bir
+    // son-işlem efektidir ve varsayılan olarak kapalıdır; ikisi toplanır.
+    // ------------------------------------------------------------------
+    layers: [],
+
     // Kullanıcı renk şablonları (arkaplan gradyanı). Kalıcıdır; içe/dışa aktarılabilir.
     userPresets: [], // { id, name, colors:[5] }
 

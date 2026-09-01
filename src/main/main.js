@@ -1285,8 +1285,13 @@ async function runSmoke() {
     if (m === 'gradient') continue;
     send({ visualizer: Object.assign({}, base.visualizer, { type: m }), background: { type: 'solid', solidColor: '#101018' } });
     await wait(260);
-    const st = await wc.executeJavaScript('({ fg: !!document.getElementById("c2d"), w: document.getElementById("c2d").width })');
-    if (!st.w) errors.push('mode ' + m + ': canvas has zero width');
+    // Katman yığını gerçekten tuval üretti mi ve boyutlandı mı?
+    const st = await wc.executeJavaScript(
+      '(function(){var c=document.querySelectorAll("#stage canvas");' +
+      'return { n: c.length, w: c.length ? c[c.length-1].width : 0 };})()'
+    );
+    if (!st.n) errors.push('mode ' + m + ': katman tuvali oluşmadı');
+    else if (!st.w) errors.push('mode ' + m + ': katman tuvalinin genişliği sıfır');
   }
   console.log('[SMOKE] visualizer modes drawn: ' + (modes.length - 1));
 
@@ -1298,6 +1303,46 @@ async function runSmoke() {
   send({ background: Object.assign({}, base.background, { type: 'gradient' }) });
   await wait(300);
   console.log('[SMOKE] backgrounds drawn: ' + backgrounds.length);
+
+
+  /* --- Rasterizer denemesi (--smoke-raster) ---
+     Aynı 2D arkaplanı iki tuvale çizer: biri willReadFrequently (yazılım
+     rasterizer), diğeri normal (GPU). Piksel farkı, katman refactoru
+     sonrası dışa aktarımdaki küçük değişimin kaynağını gösterir. */
+  if (process.argv.includes('--smoke-raster')) {
+    const probe = await wc.executeJavaScript(`(function(){
+      var W = 640, H = 360;
+      function make(readFreq){
+        var c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        return c.getContext('2d', readFreq ? { willReadFrequently: true } : undefined);
+      }
+      var cfg = window.SV.defaultConfig();
+      var out = {};
+      ['corridor','nebula','spiral'].forEach(function(name){
+        var A = make(true), B = make(false);
+        var ma = new window.SVBackgrounds[name]();
+        var mb = new window.SVBackgrounds[name]();
+        var fakeAudio = { level: 0.4, bass: 0.6, mid: 0.3, treble: 0.2, ready: true,
+          getBars: function(n){ var a = new Float32Array(n); for (var i=0;i<n;i++) a[i]=0.5; return a; },
+          timeBytes: new Uint8Array(2048) };
+        ma.draw(A, fakeAudio, cfg, 1.5, W, H, 1/60);
+        mb.draw(B, fakeAudio, cfg, 1.5, W, H, 1/60);
+        var da = A.getImageData(0,0,W,H).data;
+        var db = B.getImageData(0,0,W,H).data;
+        var diff = 0, maxd = 0, n = 0;
+        for (var i=0;i<da.length;i+=4){
+          for (var k=0;k<3;k++){
+            var d = Math.abs(da[i+k]-db[i+k]);
+            if (d) { diff += d; n++; if (d > maxd) maxd = d; }
+          }
+        }
+        out[name] = { farkliKanal: n, ortalamaFark: n ? +(diff/n).toFixed(2) : 0, enBuyukFark: maxd };
+      });
+      return out;
+    })()`);
+    console.log('[SMOKE] rasterizer farkı (yazılım vs GPU): ' + JSON.stringify(probe));
+  }
 
   // Studio shader motoru: yerleşik presetlerin hepsi derleniyor mu?
   const shaderReport = await wc.executeJavaScript(`(function(){

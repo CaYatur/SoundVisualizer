@@ -8,23 +8,21 @@ html, body {
   cursor: none;
 }
 
-#gl, #bg2d, #c2d, #fxBack, #fxFront, #media {
+/* Katman sahnesi. Tuvaller layers.js tarafından eklenir; karıştırma
+   (mix-blend-mode) tarayıcının GPU kompozitörüne bırakılır. isolation
+   sayesinde karışım sayfanın arkaplanına taşmaz. */
+#stage {
   position: fixed;
+  inset: 0;
+  isolation: isolate;
+}
+#stage canvas {
+  position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
 }
-
-/* gl = WebGL gradyan, bg2d = 2D arkaplan modları (ikisinden biri görünür) */
-#gl { z-index: 1; }
-#bg2d { z-index: 1; }
-/* medya katmanı (kamera / video dosyası): arkada 2, önde 6 */
-#media { z-index: 2; display: none; }
-#media.front { z-index: 6; }
-#fxBack { z-index: 3; }
-#c2d { z-index: 4; }
-#fxFront { z-index: 5; }
 
 #logo {
   position: fixed;

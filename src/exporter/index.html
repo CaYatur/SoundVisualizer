@@ -11,10 +11,9 @@
     </style>
   </head>
   <body>
-    <!-- WebGL gradyan arkaplan -->
-    <canvas id="gl"></canvas>
-    <!-- 2D ön görselleştirici (bars/wave/circular/centerBars) -->
-    <canvas id="c2d"></canvas>
+    <!-- Katman tuvalleri buraya eklenir; ekrana çizilmez, yalnızca
+         birleştirme yüzeyine basılır. -->
+    <div id="stage"></div>
     <!-- Birleştirme (composite) yüzeyi — kare baytları buradan okunur -->
     <canvas id="comp"></canvas>
 
@@ -38,6 +37,7 @@
     <script src="../visualizer/modes/particles.js"></script>
     <script src="../visualizer/modes/terrain.js"></script>
     <script src="../visualizer/modes/sprites.js"></script>
+    <script src="../visualizer/layers.js"></script>
     <script src="../shared/presets.js"></script>
     <script src="../visualizer/modes/extras.js"></script>
     <script src="../visualizer/modes/backgrounds-extra.js"></script>

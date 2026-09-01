@@ -1,17 +1,12 @@
 'use strict';
 /* Görselleştirici penceresi kontrolcüsü.
-   Katmanlar: [WebGL gradyan arkaplan] -> [2D ön görselleştirici] -> [logo] */
+
+   Sahne artık sabit bir tuval yığını değil, layers.js'in sürdüğü sıralı bir
+   KATMAN listesidir (bkz. o dosyanın başındaki açıklama). Buradaki iş kare
+   hızı sınırlaması, ses ölçüm bildirimi ve yapılandırmanın katman yığınına
+   aktarılmasından ibarettir. */
 (function () {
-  const glCanvas = document.getElementById('gl');
-  const bg2d = document.getElementById('bg2d');
-  const bg2dCtx = bg2d.getContext('2d');
-  const c2d = document.getElementById('c2d');
-  const fxBack = document.getElementById('fxBack');
-  const fxFront = document.getElementById('fxFront');
-  const fxBackCtx = fxBack.getContext('2d');
-  const fxFrontCtx = fxFront.getContext('2d');
-  const mediaCanvas = document.getElementById('media');
-  const mediaCtx = mediaCanvas.getContext('2d');
+  const stage = document.getElementById('stage');
   const logoImg = document.getElementById('logo');
   const hint = document.getElementById('hint');
   const errBox = document.getElementById('error');
@@ -20,14 +15,12 @@
   const audio = new window.SVAudio();
   const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller
   const media = new window.SVMedia(); // web kamerası / video katmanı
-  let imagesOn = false;
   let mediaOn = false;
 
-  let gradient = null; // WebGL modu
-  let bgMode = null; // 2D arkaplan modu örneği
-  let bgType = null;
-  let foreground = null; // 2D modu örneği
-  let foreType = null;
+  const stack = new window.SVLayers.LayerStack(stage, { logoEl: logoImg });
+  stack.setSprites(sprites);
+  stack.setMedia(media);
+
   let raf = 0;
   let lastDraw = 0;
   let lastRaf = 0;
@@ -42,115 +35,27 @@
     dpr = window.devicePixelRatio || 1;
     const w = window.innerWidth;
     const h = window.innerHeight;
-
-    // 2D ön katman tam çözünürlük
-    c2d.width = Math.round(w * dpr);
-    c2d.height = Math.round(h * dpr);
-    c2d.style.width = w + 'px';
-    c2d.style.height = h + 'px';
-
-    // Ek görsel nesne (partikül) katmanları ve 2D arkaplan — ön katmanla aynı çözünürlük
-    for (const cv of [fxBack, fxFront, bg2d, mediaCanvas]) {
-      cv.width = c2d.width;
-      cv.height = c2d.height;
-      cv.style.width = w + 'px';
-      cv.style.height = h + 'px';
-    }
-
-    // WebGL arkaplan: performans için renderScale
-    if (gradient) {
-      const rs = clamp(cfg.power.renderScale, 0.4, 1);
-      gradient.resize(Math.round(w * dpr * rs), Math.round(h * dpr * rs));
-    }
-    glCanvas.style.width = w + 'px';
-    glCanvas.style.height = h + 'px';
-
+    // Arkaplan çözünürlük ölçeği katman yığınının tamamına uygulanır
+    const rs = clamp(cfg.power.renderScale, 0.4, 1);
+    stack.resize(Math.round(w * dpr * rs), Math.round(h * dpr * rs));
     layoutLogo();
   }
 
   // --------------------------------------------------------------------------
-  // Arkaplan (gradyan / düz renk)
+  // Sahne
   // --------------------------------------------------------------------------
-  function ensureGradient() {
-    if (!gradient) {
-      try {
-        gradient = new window.SVModes.gradient(glCanvas);
-        resize();
-      } catch (e) {
-        showError('WebGL başlatılamadı: ' + e.message);
-      }
-    }
+  function applyScene() {
+    stack.setConfig(cfg);
+    // Saydam yayın modunda gövde arkaplanı da saydam kalmalı
+    const bgType = cfg.background.type;
+    document.body.style.background =
+      bgType === 'transparent' ? 'transparent' : bgType === 'solid' ? cfg.background.solidColor : '#000';
+    stack.bindMedia(mediaOn ? media.video : null);
   }
 
-  function applyBackground() {
-    const type = cfg.background.type;
-    const is2d = !!(window.SVBackgrounds && window.SVBackgrounds[type]);
-
-    if (bgType !== type) {
-      bgType = type;
-      bgMode = is2d ? new window.SVBackgrounds[type]() : null;
-    }
-
-    glCanvas.style.display = type === 'gradient' ? 'block' : 'none';
-    bg2d.style.display = is2d ? 'block' : 'none';
-
-    if (type === 'gradient') {
-      document.body.style.background = '#000';
-      ensureGradient();
-    } else if (is2d) {
-      document.body.style.background = '#000';
-    } else {
-      document.body.style.background = cfg.background.solidColor;
-    }
-  }
-
-  // --------------------------------------------------------------------------
-  // Ön görselleştirici (bars / wave / circular / none)
-  // --------------------------------------------------------------------------
-  function applyForeground() {
-    const type = cfg.visualizer.type;
-    if (type === foreType) return;
-    if (foreground && foreground.dispose) foreground.dispose();
-    foreground = null;
-    foreType = type;
-    if (type && type !== 'none' && window.SVModes[type]) {
-      foreground = new window.SVModes[type](c2d);
-    } else {
-      c2d.getContext('2d').clearRect(0, 0, c2d.width, c2d.height);
-    }
-  }
-
-  // --------------------------------------------------------------------------
-  // Ek görsel nesneler / partiküller
-  // --------------------------------------------------------------------------
-  function applyImages() {
-    imagesOn = !!(cfg.images && cfg.images.enabled);
-    sprites.setItems(imagesOn ? cfg.images.items : []);
-    fxBack.style.display = imagesOn ? 'block' : 'none';
-    fxFront.style.display = imagesOn ? 'block' : 'none';
-    if (!imagesOn) {
-      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
-      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
-    }
-  }
-
-  // --------------------------------------------------------------------------
-  // Medya katmanı (web kamerası / video dosyası)
-  // --------------------------------------------------------------------------
   function applyMedia() {
     mediaOn = !!(cfg.media && cfg.media.enabled);
     media.apply(cfg.media);
-    mediaCanvas.style.display = mediaOn ? 'block' : 'none';
-    mediaCanvas.classList.toggle('front', !!(cfg.media && cfg.media.layer === 'front'));
-    if (!mediaOn) mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
-    bindMediaToShaders();
-  }
-
-  // Shader tabanlı modlar medyayı sv_media (iChannel3) olarak okuyabilir
-  function bindMediaToShaders() {
-    const el = mediaOn ? media.video : null;
-    if (foreground && foreground.host && foreground.host.setMedia) foreground.host.setMedia(el);
-    if (bgMode && bgMode.host && bgMode.host.setMedia) bgMode.host.setMedia(el);
   }
 
   // --------------------------------------------------------------------------
@@ -160,7 +65,6 @@
     const l = cfg.logo;
     if (l.enabled && l.src) {
       if (logoImg.src !== l.src) logoImg.src = l.src;
-      logoImg.style.display = 'block';
       logoImg.style.opacity = l.opacity;
       logoImg.style.filter = l.glow > 0 ? `drop-shadow(0 0 ${l.glow * 40}px rgba(255,255,255,.6))` : 'none';
       layoutLogo();
@@ -212,38 +116,7 @@
 
     // sessizlikte duraklat (güç tasarrufu)
     const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01;
-
-    if (cfg.background.type === 'gradient' && gradient && !silent) {
-      gradient.draw(audio, cfg, t);
-    } else if (bgMode && !silent) {
-      bgMode.draw(bg2dCtx, audio, cfg, t, bg2d.width, bg2d.height, dt);
-    }
-
-    if (foreground) {
-      if (silent || !audio.ready) {
-        // sahneyi temizle (ses yokken çizme)
-        c2d.getContext('2d').clearRect(0, 0, c2d.width, c2d.height);
-      } else {
-        foreground.draw(audio, cfg, t, dt);
-      }
-    }
-
-    // medya katmanı (kamera / video)
-    if (mediaOn) {
-      mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
-      if (!silent) media.draw(mediaCtx, audio, cfg, mediaCanvas.width, mediaCanvas.height, t);
-    }
-
-    // ek görsel nesneler / partiküller (arka katman görselin arkasında,
-    // ön katman görselin önünde)
-    if (imagesOn) {
-      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
-      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
-      if (!silent && audio.ready) {
-        if (sprites.hasLayer('back')) sprites.draw(fxBackCtx, audio, t, fxBack.width, fxBack.height, 'back');
-        if (sprites.hasLayer('front')) sprites.draw(fxFrontCtx, audio, t, fxFront.width, fxFront.height, 'front');
-      }
-    }
+    if (!silent) stack.draw(audio, cfg, t, dt);
 
     // logo nabzı
     if (cfg.logo.enabled && cfg.logo.src) {
@@ -262,27 +135,18 @@
     // seviye göstergesini ve LED spektrumunu ana sürece bildir (~30 Hz)
     if (now - meterT > 32) {
       meterT = now;
-      // sampleColors() gl.readPixels kullanır ve GPU işlem hattını senkron olarak
-      // bekletir. Yalnızca Dynamic Lighting gerçekten arkaplan renklerini
-      // istediğinde çağrılır; varsayılan yapılandırma bunu hiç kullanmaz.
+      // palette() gradyan katmanında gl.readPixels kullanır ve GPU işlem
+      // hattını senkron olarak bekletir. Yalnızca Dynamic Lighting gerçekten
+      // arkaplan renklerini istediğinde çağrılır.
       const needsBgColors =
         !!cfg.lighting?.enabled && cfg.lighting?.paletteSource === 'background';
-      let backgroundColors = [];
-      if (needsBgColors) {
-        if (cfg.background?.type === 'gradient' && typeof gradient?.sampleColors === 'function') {
-          backgroundColors = gradient.sampleColors(48);
-        } else if (bgMode && typeof bgMode.palette === 'function') {
-          // 2D arkaplanlar piksel okumak yerine kendi paletlerini bildirir
-          backgroundColors = bgMode.palette(cfg);
-        }
-      }
       window.api.sendAudioMeter({
         level: audio.level,
         bass: audio.bass,
         mid: audio.mid,
         treble: audio.treble,
         time: now / 1000,
-        backgroundColors,
+        backgroundColors: needsBgColors ? stack.palette(cfg) : [],
         ready: audio.ready,
       });
     }
@@ -294,10 +158,9 @@
   function applyConfig(newCfg) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), newCfg);
 
-    applyBackground();
-    applyForeground();
-    applyImages();
+    sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
     applyMedia();
+    applyScene();
     applyLogo();
     document.body.style.cursor = cfg.power.hideCursor ? 'none' : 'default';
 
@@ -326,12 +189,9 @@
     } catch { /* preset yoksa yerleşiklerle devam */ }
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
-      // seçili preset düzenlendiyse motorun kaynağı yenilensin
-      foreType = null;
-      bgType = null;
-      applyBackground();
-      applyForeground();
-      bindMediaToShaders();
+      // Seçili preset düzenlendiyse motorun kaynağı yenilensin
+      stack.dispose();
+      applyScene();
     });
 
     const saved = await window.api.requestConfig();
@@ -347,5 +207,5 @@
     raf = requestAnimationFrame(frame);
   }
 
-  init();
+  init().catch((e) => showError('Başlatılamadı: ' + (e && e.message ? e.message : e)));
 })();

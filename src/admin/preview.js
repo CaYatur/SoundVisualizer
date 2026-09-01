@@ -1,7 +1,9 @@
 'use strict';
 /* Yönetici panelindeki canlı önizleme.
-   Görselleştirici penceresiyle aynı çizim modüllerini (window.SVModes / SVSprites)
-   küçük bir sahnede çalıştırır; böylece ayarların etkisi tek ekrandan görülür.
+
+   Görselleştirici penceresiyle AYNI katman motorunu (layers.js) küçük bir
+   sahnede çalıştırır; böylece panelde görülen ile ekrana/yayına giden görüntü
+   arasında ikinci bir render yolu oluşmaz.
 
    Ses kaynağı iki türlü olabilir:
      • Gerçek  — ana süreçten gelen native-audio kareleri (yakalama etkinken)
@@ -13,22 +15,12 @@
   const BINS = 1024;
   const TIME_LEN = 2048;
 
-  let stage, glCanvas, bg2d, c2d, fxBack, fxFront, logoImg;
-  let fxBackCtx, fxFrontCtx, c2dCtx, bg2dCtx;
-
+  let stage, layerHost, logoImg;
   let cfg = window.SV.defaultConfig();
   let audio = null;
   let sprites = null;
-  let gradient = null;
-  let bgMode = null;
-  let bgType = null;
-  let foreground = null;
-  let foreType = null;
-  let imagesOn = false;
-  let mediaCanvas = null;
-  let mediaCtx = null;
   let media = null;
-  let mediaOn = false;
+  let stack = null;
 
   let raf = 0;
   let lastDraw = 0;
@@ -87,7 +79,7 @@
   // Boyutlandırma — sahne kutusuna göre (pencereye göre değil)
   // --------------------------------------------------------------------------
   function resize(force) {
-    if (!stage) return;
+    if (!stage || !stack) return;
     const rect = stage.getBoundingClientRect();
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
@@ -100,63 +92,13 @@
     lastH = h;
     // Önizleme küçük olduğu için dpr'ı 2 ile sınırla
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-
-    for (const cv of [c2d, fxBack, fxFront, bg2d]) {
-      cv.width = Math.round(w * dpr);
-      cv.height = Math.round(h * dpr);
-    }
-    if (gradient) gradient.resize(Math.round(w * dpr), Math.round(h * dpr));
+    stack.resize(Math.round(w * dpr), Math.round(h * dpr));
     layoutLogo(w, h);
   }
 
   // --------------------------------------------------------------------------
-  // Katmanlar
+  // Sprite ve medya
   // --------------------------------------------------------------------------
-  function ensureGradient() {
-    if (gradient) return;
-    try {
-      gradient = new window.SVModes.gradient(glCanvas);
-      resize(true);
-    } catch {
-      // WebGL yoksa önizleme düz renge düşer
-      gradient = null;
-      glCanvas.style.display = 'none';
-    }
-  }
-
-  function applyBackground() {
-    const type = cfg.background.type;
-    const is2d = !!(window.SVBackgrounds && window.SVBackgrounds[type]);
-
-    if (bgType !== type) {
-      bgType = type;
-      bgMode = is2d ? new window.SVBackgrounds[type]() : null;
-    }
-    bg2d.style.display = is2d ? 'block' : 'none';
-
-    if (type === 'gradient') {
-      ensureGradient();
-      if (gradient) glCanvas.style.display = 'block';
-      stage.style.background = '#05040a';
-    } else {
-      glCanvas.style.display = 'none';
-      stage.style.background = is2d ? '#05040a' : cfg.background.solidColor;
-    }
-  }
-
-  function applyForeground() {
-    const type = cfg.visualizer.type;
-    if (type === foreType) return;
-    if (foreground && foreground.dispose) foreground.dispose();
-    foreground = null;
-    foreType = type;
-    if (type && type !== 'none' && window.SVModes[type]) {
-      foreground = new window.SVModes[type](c2d);
-    } else {
-      c2dCtx.clearRect(0, 0, c2d.width, c2d.height);
-    }
-  }
-
   // Partikül sabitleri yalnızca bu alanlar değişince yeniden üretilir; diğer
   // parametreler (hız, saydamlık, ışıltı…) doğrudan cfg üzerinden canlı okunur.
   function spriteSignature() {
@@ -164,22 +106,10 @@
     return items.map((i) => [i.id, i.src ? i.src.length : 0, i.count, i.sizeVar, i.seed].join(':')).join('|');
   }
 
-  // Medya katmanı (web kamerası / video) — görselleştirici penceresiyle aynı sınıf
-  function applyMedia() {
-    if (!mediaCanvas) return;
-    mediaOn = !!(cfg.media && cfg.media.enabled);
-    media.apply(cfg.media);
-    mediaCanvas.style.display = mediaOn ? 'block' : 'none';
-    mediaCanvas.style.zIndex = cfg.media && cfg.media.layer === 'front' ? '4' : '1';
-    if (!mediaOn) mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
-    if (foreground && foreground.host && foreground.host.setMedia) foreground.host.setMedia(mediaOn ? media.video : null);
-    if (bgMode && bgMode.host && bgMode.host.setMedia) bgMode.host.setMedia(mediaOn ? media.video : null);
-  }
-
   function applyImages() {
-    imagesOn = !!(cfg.images && cfg.images.enabled);
-    const items = imagesOn ? cfg.images.items || [] : [];
-    const sig = imagesOn ? spriteSignature() : '';
+    const on = !!(cfg.images && cfg.images.enabled);
+    const items = on ? cfg.images.items || [] : [];
+    const sig = on ? spriteSignature() : '';
     if (sig !== lastSpriteSig) {
       lastSpriteSig = sig;
       sprites.setItems(items);
@@ -190,29 +120,32 @@
         if (withSrc[i]) it.cfg = withSrc[i];
       });
     }
-    fxBack.style.display = imagesOn ? 'block' : 'none';
-    fxFront.style.display = imagesOn ? 'block' : 'none';
-    if (!imagesOn) {
-      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
-      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
-    }
   }
 
+  function applyMedia() {
+    if (!media) return;
+    media.apply(cfg.media);
+    stack.bindMedia(cfg.media && cfg.media.enabled ? media.video : null);
+  }
+
+  // --------------------------------------------------------------------------
+  // Logo
+  // --------------------------------------------------------------------------
   function applyLogo() {
+    if (!logoImg) return;
     const l = cfg.logo;
     if (l.enabled && l.src) {
-      if (logoImg.getAttribute('src') !== l.src) logoImg.src = l.src;
+      if (logoImg.src !== l.src) logoImg.src = l.src;
       logoImg.style.display = 'block';
       logoImg.style.opacity = l.opacity;
-      logoImg.style.filter = l.glow > 0 ? `drop-shadow(0 0 ${l.glow * 14}px rgba(255,255,255,.6))` : 'none';
-      const rect = stage.getBoundingClientRect();
-      layoutLogo(rect.width, rect.height);
+      logoImg.style.filter = l.glow > 0 ? `drop-shadow(0 0 ${l.glow * 22}px rgba(255,255,255,.6))` : 'none';
     } else {
       logoImg.style.display = 'none';
     }
   }
 
   function layoutLogo(w, h) {
+    if (!logoImg) return;
     const l = cfg.logo;
     if (!l.enabled || !l.src) return;
     const size = Math.min(w, h) * Math.max(0.03, Math.min(0.9, l.scale));
@@ -252,25 +185,9 @@
     if (!live) audio.ingestFrame(buildSyntheticFrame(t));
 
     audio.update();
+    stack.draw(audio, cfg, t, dt);
 
-    if (cfg.background.type === 'gradient' && gradient) gradient.draw(audio, cfg, t);
-    else if (bgMode) bgMode.draw(bg2dCtx, audio, cfg, t, bg2d.width, bg2d.height, dt);
-
-    if (foreground) foreground.draw(audio, cfg, t, dt);
-
-    if (mediaOn && mediaCanvas) {
-      mediaCtx.clearRect(0, 0, mediaCanvas.width, mediaCanvas.height);
-      media.draw(mediaCtx, audio, cfg, mediaCanvas.width, mediaCanvas.height, t);
-    }
-
-    if (imagesOn) {
-      fxBackCtx.clearRect(0, 0, fxBack.width, fxBack.height);
-      fxFrontCtx.clearRect(0, 0, fxFront.width, fxFront.height);
-      if (sprites.hasLayer('back')) sprites.draw(fxBackCtx, audio, t, fxBack.width, fxBack.height, 'back');
-      if (sprites.hasLayer('front')) sprites.draw(fxFrontCtx, audio, t, fxFront.width, fxFront.height, 'front');
-    }
-
-    if (cfg.logo.enabled && cfg.logo.src) {
+    if (logoImg && cfg.logo.enabled && cfg.logo.src) {
       const pulse = 1 + audio.bass * cfg.logo.pulse;
       logoImg.style.transform = `translate(-50%,-50%) scale(${pulse.toFixed(3)})`;
     }
@@ -282,26 +199,16 @@
   function init(opts) {
     if (started) return true;
     stage = document.getElementById('previewStage');
-    glCanvas = document.getElementById('pvGl');
-    bg2d = document.getElementById('pvBg2d');
-    c2d = document.getElementById('pv2d');
-    fxBack = document.getElementById('pvBack');
-    fxFront = document.getElementById('pvFront');
-    mediaCanvas = document.getElementById('pvMedia');
-    if (mediaCanvas) {
-      mediaCtx = mediaCanvas.getContext('2d');
-      media = new window.SVMedia();
-    }
+    layerHost = document.getElementById('pvStage');
     logoImg = document.getElementById('pvLogo');
-    if (!stage || !glCanvas || !c2d || !bg2d) return false;
-
-    c2dCtx = c2d.getContext('2d');
-    bg2dCtx = bg2d.getContext('2d');
-    fxBackCtx = fxBack.getContext('2d');
-    fxFrontCtx = fxFront.getContext('2d');
+    if (!stage || !layerHost) return false;
 
     audio = new window.SVAudio();
     sprites = new window.SVSprites();
+    media = new window.SVMedia();
+    stack = new window.SVLayers.LayerStack(layerHost, { logoEl: logoImg });
+    stack.setSprites(sprites);
+    stack.setMedia(media);
     onSourceChange = (opts && opts.onSourceChange) || null;
 
     // Demo sinyalinde bile ilk kareden itibaren çizim yapılabilsin
@@ -309,8 +216,8 @@
 
     setConfig(cfg);
 
-    if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
-    window.addEventListener('resize', resize);
+    if (window.ResizeObserver) new ResizeObserver(() => resize()).observe(stage);
+    window.addEventListener('resize', () => resize());
 
     started = true;
     raf = requestAnimationFrame(frame);
@@ -319,15 +226,15 @@
 
   function setConfig(next) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), next);
-    if (!started && !stage) return;
-    applyBackground();
-    applyForeground();
+    if (!stack) return;
     applyImages();
-    if (mediaCanvas) applyMedia();
+    applyMedia();
+    stack.setConfig(cfg);
+    stack.bindMedia(cfg.media && cfg.media.enabled ? media.video : null);
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);
-    resize();
+    resize(true);
   }
 
   function ingest(f) {
