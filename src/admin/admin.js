@@ -445,10 +445,14 @@
 
   function presetsCtrl(def) {
     const grid = el('div', { class: 'presets' });
+    const current = (cfg.background.gradient.colors || []).map((c) => String(c).toLowerCase()).join(',');
     window.SV.GRADIENT_PRESETS.forEach((p) => {
+      // 'group' taşıyan girdi aynı zamanda bir şablondur; başlık onun önüne gelir
+      if (p.group) grid.appendChild(el('div', { class: 'preset-group', text: p.group }));
       const swatch = el('div', { class: 'swatch' });
       swatch.style.background = `linear-gradient(90deg, ${p.colors.join(',')})`;
-      const card = el('div', { class: 'preset', onclick: () => {
+      const active = p.colors.map((c) => String(c).toLowerCase()).join(',') === current;
+      const card = el('div', { class: 'preset' + (active ? ' active' : ''), onclick: () => {
         cfg.background.gradient.colors = p.colors.slice();
         push(true);
         render();

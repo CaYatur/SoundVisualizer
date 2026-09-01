@@ -517,9 +517,14 @@
     return out;
   }
 
-  // Hazır renk şablonları (arkaplan gradyanı)
+  /* Hazır renk şablonları (arkaplan gradyanı).
+
+     Kategorilere ayrıldı; her şablon beş renk noktası taşır ve tüm arkaplan
+     modlarında, 3B geometride ve Studio shader'larında (sv_col) aynı şekilde
+     kullanılır. 'group' alanı yalnızca panelde başlık üretmek içindir. */
   const GRADIENT_PRESETS = [
-    { name: 'Aurora', colors: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'] },
+    // --- Klasikler ---
+    { group: 'Klasikler', name: 'Aurora', colors: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'] },
     { name: 'Gün Batımı', colors: ['#ff5e62', '#ff9966', '#ffcf6b', '#c94b8e', '#5b2c83'] },
     { name: 'Okyanus', colors: ['#0f2027', '#1c92d2', '#2af5d4', '#136a8a', '#0b486b'] },
     { name: 'Neon', colors: ['#ff00cc', '#3333ff', '#00ffe0', '#9d00ff', '#ff0066'] },
@@ -529,6 +534,66 @@
     { name: 'Gece', colors: ['#020111', '#191654', '#43377c', '#7b2ff7', '#22264b'] },
     { name: 'Buz', colors: ['#cfefff', '#74c0ff', '#3a7bd5', '#7ee8fa', '#eaf6ff'] },
     { name: 'Tek Renk', colors: ['#3aa6ff', '#3aa6ff', '#1c4fa0', '#3aa6ff', '#1c4fa0'] },
+
+    // --- Sıcak ---
+    { group: 'Sıcak', name: 'Çöl', colors: ['#3d1a0e', '#8a4b2a', '#d99058', '#f2c98a', '#fff0d1'] },
+    { name: 'Sonbahar', colors: ['#2b1608', '#7a3b12', '#c96a1f', '#e8a33d', '#f5d76e'] },
+    { name: 'Şafak', colors: ['#2b1055', '#7597de', '#ff8f70', '#ffc46b', '#fff3b0'] },
+    { name: 'Kor', colors: ['#0a0000', '#3d0a00', '#992d00', '#ff6b1a', '#ffb703'] },
+    { name: 'Şeftali', colors: ['#5c2a3a', '#a8556b', '#e8899a', '#ffc2b4', '#ffe8d6'] },
+    { name: 'Altın Saat', colors: ['#2e1a05', '#8c5a14', '#d9962b', '#f5c95c', '#fdeaa8'] },
+    { name: 'Bakır', colors: ['#1f0f08', '#5c2d16', '#a85a2e', '#d98c52', '#f0c39b'] },
+    { name: 'Şarap', colors: ['#1a0208', '#4d0a1f', '#8c1839', '#c73659', '#e88b9f'] },
+    { name: 'Mercan', colors: ['#3d0f2b', '#8c1f4d', '#e05263', '#ff8a5c', '#ffd6a5'] },
+    { name: 'Baharat', colors: ['#2b0f00', '#6b2400', '#b34700', '#e07b1a', '#f2b544'] },
+
+    // --- Soğuk ---
+    { group: 'Soğuk', name: 'Kutup', colors: ['#03111f', '#0a3a5c', '#1e7a99', '#5ec4cc', '#c9f2ee'] },
+    { name: 'Derin Deniz', colors: ['#00121f', '#012a4a', '#01497c', '#2a6f97', '#61a5c2'] },
+    { name: 'Nane', colors: ['#04241c', '#0a4a3a', '#16a085', '#5fdba7', '#c8f7dc'] },
+    { name: 'Gökyüzü', colors: ['#0b1d33', '#1c4a80', '#3d84c6', '#7fb3e8', '#cfe4f7'] },
+    { name: 'Kış Sabahı', colors: ['#1a2130', '#3b4a63', '#6e88a6', '#a8c0d6', '#e4eef5'] },
+    { name: 'Turkuaz', colors: ['#02141a', '#04414d', '#0a7c8c', '#26c6c6', '#a8f0ec'] },
+    { name: 'Lavanta', colors: ['#1a1030', '#3d2a63', '#6b52a3', '#a58fd6', '#dfd4f2'] },
+    { name: 'Sis', colors: ['#141a1f', '#2e3a45', '#54666e', '#8fa3a8', '#d1dde0'] },
+    { name: 'Kuzey Işığı', colors: ['#010b14', '#04304a', '#0e8b7a', '#5ce8a8', '#b6f5d8'] },
+    { name: 'Buzul', colors: ['#0a1a26', '#17475c', '#3d87a6', '#82c4d9', '#dff2f7'] },
+
+    // --- Neon ve siber ---
+    { group: 'Neon ve Siber', name: 'Siberpunk', colors: ['#05010f', '#2d0a4e', '#c724b1', '#00f0ff', '#f9f871'] },
+    { name: 'Synthwave', colors: ['#0d0221', '#3a015c', '#ff1f8f', '#ff8c42', '#00e5ff'] },
+    { name: 'Vapor', colors: ['#1a0b2e', '#7b2ff7', '#ff6ec7', '#00e0d3', '#f9f3ff'] },
+    { name: 'Asit', colors: ['#04140a', '#0f4d1a', '#4ade2e', '#b6ff3d', '#f0ffb3'] },
+    { name: 'Ultraviyole', colors: ['#0a0018', '#2e0066', '#6f00ff', '#b14aff', '#e9c6ff'] },
+    { name: 'Matris', colors: ['#000600', '#022c02', '#0a8c14', '#2ee62e', '#b3ffb3'] },
+    { name: 'Gece Kulübü', colors: ['#12002b', '#5b00b5', '#ff007a', '#00e5ff', '#2b0050'] },
+    { name: 'Lazer', colors: ['#0a0014', '#4d0080', '#ff0066', '#ffcc00', '#00ffcc'] },
+    { name: 'Hologram', colors: ['#0f0f2b', '#2e6ee6', '#4ae8d6', '#c78cff', '#ffe0f5'] },
+    { name: 'Devre', colors: ['#02100e', '#053d33', '#0f9e7a', '#6be0a8', '#d0f5e4'] },
+
+    // --- Karanlık ---
+    { group: 'Karanlık', name: 'Kömür', colors: ['#050507', '#141419', '#2b2b33', '#4d4d59', '#8a8a99'] },
+    { name: 'Gotik', colors: ['#08040a', '#210d2b', '#45164d', '#7a2e70', '#b05c96'] },
+    { name: 'Uzay Boşluğu', colors: ['#000208', '#050c26', '#0e1d4d', '#1f3b8c', '#4a6bd6'] },
+    { name: 'Kan Ayı', colors: ['#0a0202', '#2b0505', '#6b0f0f', '#a82626', '#d95c5c'] },
+    { name: 'Zift', colors: ['#020204', '#0a1014', '#14262e', '#26454f', '#3d6b75'] },
+    { name: 'Gölge', colors: ['#060409', '#170f1f', '#2e1f3d', '#4d3a63', '#7a648f'] },
+
+    // --- Aydınlık ---
+    { group: 'Aydınlık', name: 'Kağıt', colors: ['#f5f0e8', '#e0d6c4', '#c4b49a', '#9e8b70', '#6b5c45'] },
+    { name: 'Bahar', colors: ['#eaf7d9', '#b8e6a0', '#7dcf7d', '#4aa89e', '#3d7fb5'] },
+    { name: 'Şeker', colors: ['#fff0f7', '#ffc2e0', '#ff8ac4', '#c78cff', '#8ad4ff'] },
+    { name: 'Limonata', colors: ['#fffbe0', '#fff0a3', '#ffd45c', '#ffab3d', '#ff7a45'] },
+    { name: 'Deniz Köpüğü', colors: ['#f0fffa', '#c2f5e4', '#8adfd0', '#52bfc4', '#2e88a6'] },
+    { name: 'Gündüz', colors: ['#e8f4ff', '#b8dcff', '#7ab8f5', '#4a8fd6', '#2b62a3'] },
+
+    // --- Tek renk aileleri ---
+    { group: 'Tek Renk Aileleri', name: 'Mono Kırmızı', colors: ['#1a0000', '#4d0000', '#990000', '#e60000', '#ff8080'] },
+    { name: 'Mono Mavi', colors: ['#000a1a', '#00234d', '#004799', '#0a7ae6', '#80c4ff'] },
+    { name: 'Mono Yeşil', colors: ['#001a08', '#004d19', '#009933', '#1ae65c', '#8fffb8'] },
+    { name: 'Mono Mor', colors: ['#0f001a', '#2e004d', '#5c0099', '#9a1ae6', '#d18aff'] },
+    { name: 'Mono Turuncu', colors: ['#1a0800', '#4d1c00', '#993800', '#e65c00', '#ffb380'] },
+    { name: 'Gri Tonlama', colors: ['#000000', '#3d3d3d', '#7a7a7a', '#b8b8b8', '#ffffff'] },
   ];
 
   // Derin birleştirme (kaydedilen ayarları varsayılanlarla doldurur)

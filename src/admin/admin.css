@@ -749,3 +749,12 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   border-top: 1px solid var(--line); margin-top: 3px;
 }
 #blackoutBtn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+/* hazır şablon grupları */
+.preset-group {
+  grid-column: 1 / -1;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted2); margin: 7px 0 1px; padding-left: 2px;
+}
+.preset-group:first-child { margin-top: 0; }
+.preset.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft); }

@@ -35,19 +35,10 @@
     ['city', 'Şehir'], ['custom', 'Studio'], ['solid', 'Düz'],
   ];
 
-  // Yerleşik renk şablonları — masaüstündeki listeyle aynı sırada
-  const BUILTIN_PALETTES = [
-    ['Aurora', ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff']],
-    ['Gün Batımı', ['#ff5e62', '#ff9966', '#ffcf6b', '#c94b8e', '#5b2c83']],
-    ['Okyanus', ['#0f2027', '#1c92d2', '#2af5d4', '#136a8a', '#0b486b']],
-    ['Neon', ['#ff00cc', '#3333ff', '#00ffe0', '#9d00ff', '#ff0066']],
-    ['Orman', ['#0b3d2e', '#1e6f5c', '#56c596', '#a3eb9d', '#0f5132']],
-    ['Lav', ['#1a0000', '#7a0000', '#ff2e00', '#ff8a00', '#ffd000']],
-    ['Pastel', ['#a8e6cf', '#dcedc1', '#ffd3b6', '#ffaaa5', '#d7a6ff']],
-    ['Gece', ['#020111', '#191654', '#43377c', '#7b2ff7', '#22264b']],
-    ['Buz', ['#cfefff', '#74c0ff', '#3a7bd5', '#7ee8fa', '#eaf6ff']],
-    ['Tek Renk', ['#3aa6ff', '#3aa6ff', '#1c4fa0', '#3aa6ff', '#1c4fa0']],
-  ];
+  /* Yerleşik renk şablonları masaüstüyle AYNI kaynaktan (shared/defaults.js)
+     okunur; burada ikinci bir kopya tutmak, şablon eklendiğinde telefonun
+     listesinin sessizce eskimesi demekti. */
+  const BUILTIN_PALETTES = ((window.SV && window.SV.GRADIENT_PRESETS) || []).map((p) => [p.name, p.colors]);
 
   function send(action, payload) {
     R.send(Object.assign({ type: 'command', action }, payload || {}));

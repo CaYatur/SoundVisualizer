@@ -746,6 +746,32 @@
     'Kayan Spektrum': 'Rolling Spectrum', 'Tek Renk': 'Single Color',
     'Gönderim Hızı': 'Send Rate',
     'Varsayılan hedef yayın adresidir; ağdaki tüm Art-Net düğümleri paketi alır. Tek bir arayüze göndermek isterseniz onun IP adresini yazın. DMX 44 Hz üstünü zaten taşımaz, bu yüzden gönderim hızı orada sınırlıdır.': 'The default target is the broadcast address, so every Art-Net node on the network receives the packet. Enter a specific IP to target a single interface. DMX cannot carry more than 44 Hz, which is why the send rate is capped there.',
+
+    // ---- Renk şablonu kitaplığı (58 şablon, 7 grup) ----
+    'Klasikler': 'Classics', 'Sıcak': 'Warm', 'Soğuk': 'Cool',
+    'Neon ve Siber': 'Neon & Cyber', 'Karanlık': 'Dark', 'Aydınlık': 'Light',
+    'Tek Renk Aileleri': 'Monochrome Families',
+
+    'Çöl': 'Desert', 'Sonbahar': 'Autumn', 'Şafak': 'Dawn', 'Kor': 'Embers',
+    'Şeftali': 'Peach', 'Altın Saat': 'Golden Hour', 'Bakır': 'Copper',
+    'Şarap': 'Wine', 'Mercan': 'Coral', 'Baharat': 'Spice',
+
+    'Kutup': 'Polar', 'Derin Deniz': 'Deep Sea', 'Nane': 'Mint', 'Gökyüzü': 'Sky',
+    'Kış Sabahı': 'Winter Morning', 'Turkuaz': 'Turquoise', 'Lavanta': 'Lavender',
+    'Sis': 'Mist', 'Kuzey Işığı': 'Northern Light', 'Buzul': 'Glacier',
+
+    'Siberpunk': 'Cyberpunk', 'Synthwave': 'Synthwave', 'Vapor': 'Vapor',
+    'Asit': 'Acid', 'Ultraviyole': 'Ultraviolet', 'Matris': 'Matrix',
+    'Gece Kulübü': 'Nightclub', 'Lazer': 'Laser', 'Hologram': 'Hologram', 'Devre': 'Circuit',
+
+    'Kömür': 'Charcoal', 'Gotik': 'Gothic', 'Uzay Boşluğu': 'Deep Space',
+    'Kan Ayı': 'Blood Moon', 'Zift': 'Pitch', 'Gölge': 'Shadow',
+
+    'Kağıt': 'Paper', 'Bahar': 'Spring', 'Şeker': 'Candy', 'Limonata': 'Lemonade',
+    'Deniz Köpüğü': 'Sea Foam', 'Gündüz': 'Daylight',
+
+    'Mono Kırmızı': 'Mono Red', 'Mono Mavi': 'Mono Blue', 'Mono Yeşil': 'Mono Green',
+    'Mono Mor': 'Mono Purple', 'Mono Turuncu': 'Mono Orange', 'Gri Tonlama': 'Grayscale',
     // ---- Mobil uzaktan kumanda (yayın sunucusunun servis ettiği sayfa) ----
     'CAYADEV Visualizer — Uzaktan Kumanda': 'CAYADEV Visualizer — Remote Control',
     'CAYADEV Visualizer — Yayın Katmanı': 'CAYADEV Visualizer — Streaming Overlay',
