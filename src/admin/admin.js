@@ -267,6 +267,12 @@
         return window.SVSceneGen ? window.SVSceneGen.panel() : null;
       case 'custompicker':
         return window.SVStudio ? window.SVStudio.picker(def.kind) : null;
+      case 'layerspanel':
+        return window.SVScenePanels ? window.SVScenePanels.layersPanel() : null;
+      case 'effectspanel':
+        return window.SVScenePanels ? window.SVScenePanels.effectsPanel() : null;
+      case 'geometrypanel':
+        return window.SVScenePanels ? window.SVScenePanels.geometryPanel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1568,6 +1574,7 @@
               { value: 'ripplegrid', label: 'Dalgalı Izgara' },
               { value: 'spectrogram', label: 'Spektrogram' },
               { group: 'Gelişmiş Motorlar' },
+              { value: 'geometry', label: '◈ 3B Geometri' },
               { value: 'feedback', label: '♾ Geri Besleme' },
               { value: 'custom', label: '🧪 Studio' },
             ],
@@ -1598,6 +1605,34 @@
           { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
           { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', min: 2000, max: 20000, step: 100, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
         ],
+      },
+      {
+        id: 'layers',
+        category: 'scene',
+        icon: '⬗',
+        wide: true,
+        title: 'Katmanlar',
+        desc: 'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.',
+        controls: [{ type: 'layerspanel' }],
+      },
+      {
+        id: 'effects',
+        category: 'scene',
+        icon: '✦',
+        wide: true,
+        title: 'Efekt Zinciri',
+        desc: 'Birleştirilmiş sahneye sırayla uygulanan son-işlem efektleri. Sıra görüntüyü değiştirir; zincir dışa aktarımda da aynen çalışır.',
+        controls: [{ type: 'effectspanel' }],
+      },
+      {
+        id: 'geometry',
+        category: 'scene',
+        icon: '◈',
+        title: '3B Geometri',
+        desc: 'Matematiksel formüllerden gerçek perspektifte geometri: yüzeyler, uzay eğrileri ve çekici sistemler.',
+        show: () => cfg.visualizer.type === 'geometry' ||
+          (Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.type === 'geometry' && l.enabled !== false)),
+        controls: [{ type: 'geometrypanel' }],
       },
       {
         id: 'feedbackengine',

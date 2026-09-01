@@ -201,3 +201,41 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .gen-pair { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; align-items: baseline; }
 .st-num { font-variant-numeric: tabular-nums; }
 .st-sep { opacity: .5; }
+
+/* ==================== KATMAN / EFEKT YIĞINI ==================== */
+.layer-panel, .fx-panel, .geo-panel { display: flex; flex-direction: column; gap: 8px; }
+.stack-item {
+  background: var(--card2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 10px;
+}
+.item-head { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+.item-title {
+  flex: 1; font-size: 12px; font-weight: 600; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.btn.tiny { padding: 3px 7px; font-size: 11px; line-height: 1.1; flex: none; }
+.add-row { display: flex; gap: 5px; flex-wrap: wrap; }
+.add-row .btn { flex: 1 1 auto; }
+
+/* katlanır alt bölüm */
+.fold { margin-top: 4px; }
+.fold-head {
+  width: 100%; text-align: left; background: transparent; border: 0;
+  color: var(--muted); font: inherit; font-size: 11px; font-weight: 600;
+  padding: 4px 2px; cursor: pointer; letter-spacing: .02em;
+}
+.fold-head:hover { color: var(--text); }
+.fold-body { display: none; padding-left: 6px; border-left: 1px solid var(--line); }
+.fold-body.open { display: block; }
+
+/* formül doğruluk rozeti */
+.formula-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 9px; font-size: 11px;
+}
+.fb-label { color: var(--muted2); }
+.fb-value { margin-left: auto; font-weight: 600; }
+.fb-value.exact { color: var(--ok); }
+.fb-value.approx { color: var(--warn); }
+.fb-value.visual { color: var(--muted); }
