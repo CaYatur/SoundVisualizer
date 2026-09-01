@@ -306,6 +306,18 @@
     // ------------------------------------------------------------------
     layers: [],
 
+    // ------------------------------------------------------------------
+    // Son-işlem efekt zinciri. Katmanların BİRLEŞTİRİLMİŞ çıktısına sırayla
+    // uygulanır; sıra kullanıcıya aittir (bloom'dan önce mi sonra mı renk
+    // düzeltmesi yapıldığı görüntüyü değiştirir).
+    //
+    // Zincir boşken sahne CSS ile kompozit edilir (en ucuz yol). İlk efekt
+    // eklendiği anda motor tek bir birleştirme yüzeyine geçer ve zinciri
+    // GPU'da çalıştırır — yani bedeli yalnızca kullanan öder.
+    // { id, type, enabled, params:{}, audio:{param:miktar}, audioBand }
+    // ------------------------------------------------------------------
+    postfx: [],
+
     // Kullanıcı renk şablonları (arkaplan gradyanı). Kalıcıdır; içe/dışa aktarılabilir.
     userPresets: [], // { id, name, colors:[5] }
 

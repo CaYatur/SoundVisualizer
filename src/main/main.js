@@ -1344,6 +1344,73 @@ async function runSmoke() {
     console.log('[SMOKE] rasterizer farkı (yazılım vs GPU): ' + JSON.stringify(probe));
   }
 
+  /* Son-işlem zinciri: her efekt gerçek GPU'da derleniyor ve çıktı üretiyor mu?
+     Kaynak olarak bilinen bir desen verilir; efekt sonrası kare hem SİYAH
+     olmamalı hem de (kimlik efekti olmadığı için) kaynaktan farklı olmalı. */
+  const fxReport = await wc.executeJavaScript(`(function(){
+    if (!window.SVPostFX) return [{ id: 'HOST', ok: false, error: 'SVPostFX yok' }];
+    var W = 160, H = 90;
+    // kaynak: renkli köşegen desen (her efektin ısıracağı yapı)
+    var src = document.createElement('canvas');
+    src.width = W; src.height = H;
+    var c = src.getContext('2d');
+    var g = c.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, '#ff2020'); g.addColorStop(0.5, '#20ff80'); g.addColorStop(1, '#2040ff');
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    c.fillStyle = '#ffffff';
+    for (var i = 0; i < 8; i++) c.fillRect(i * 20, 20 + (i % 3) * 18, 9, 30);
+
+    var read = document.createElement('canvas');
+    read.width = W; read.height = H;
+    var rc = read.getContext('2d', { willReadFrequently: true });
+    function stats(canvas){
+      rc.clearRect(0, 0, W, H);
+      rc.drawImage(canvas, 0, 0, W, H);
+      var d = rc.getImageData(0, 0, W, H).data;
+      var sum = 0, nonzero = 0;
+      for (var i = 0; i < d.length; i += 4) {
+        var v = d[i] + d[i+1] + d[i+2];
+        sum += v;
+        if (v > 12) nonzero++;
+      }
+      return { avg: sum / (d.length / 4) / 3, lit: nonzero / (d.length / 4) };
+    }
+    var srcStats = stats(src);
+
+    var audio = { level: 0.5, bass: 0.7, mid: 0.4, treble: 0.3 };
+    var out = [];
+    var ids = window.SVPostFX.EFFECT_IDS;
+    for (var k = 0; k < ids.length; k++) {
+      var type = ids[k];
+      var fx = new window.SVPostFX.PostFX();
+      try {
+        fx.resize(W, H);
+        var entry = window.SVPostFX.defaultChainEntry(type);
+        fx.setChain([entry]);
+        if (!fx.hasWork()) { out.push({ id: type, ok: false, error: 'zincir boş' }); fx.dispose(); continue; }
+        var ok = fx.render(src, audio, 1.25, 1/60);
+        var s = ok ? stats(fx.canvas) : null;
+        out.push({
+          id: type,
+          ok: !!ok && !!s && s.lit > 0.02,
+          lit: s ? +s.lit.toFixed(3) : 0,
+          avg: s ? +s.avg.toFixed(1) : 0,
+          srcAvg: +srcStats.avg.toFixed(1)
+        });
+      } catch (e) {
+        out.push({ id: type, ok: false, error: e.message });
+      }
+      fx.dispose();
+    }
+    return out;
+  })()`);
+  let fxFail = 0;
+  for (const r of fxReport) {
+    if (!r.ok) { fxFail++; errors.push('postfx ' + r.id + ': ' + (r.error || 'çıktı boş/siyah')); }
+  }
+  console.log('[SMOKE] post-fx: ' + fxReport.length + ' efekt, ' + (fxReport.length - fxFail) + ' çalışıyor');
+  fxReport.forEach((r) => console.log('[SMOKE]   ' + (r.ok ? '✓' : '✗') + ' ' + r.id + (r.ok ? ' (dolu %' + Math.round(r.lit * 100) + ', parlaklık ' + r.avg + ' / kaynak ' + r.srcAvg + ')' : ' — ' + (r.error || 'boş'))));
+
   // Studio shader motoru: yerleşik presetlerin hepsi derleniyor mu?
   const shaderReport = await wc.executeJavaScript(`(function(){
     try {

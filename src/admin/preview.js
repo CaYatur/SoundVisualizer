@@ -230,6 +230,7 @@
     applyImages();
     applyMedia();
     stack.setConfig(cfg);
+    stack.setPostFX(cfg.postfx);
     stack.bindMedia(cfg.media && cfg.media.enabled ? media.video : null);
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)

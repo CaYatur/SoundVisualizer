@@ -46,6 +46,7 @@
   // --------------------------------------------------------------------------
   function applyScene() {
     stack.setConfig(cfg);
+    stack.setPostFX(cfg.postfx);
     // Saydam yayın modunda gövde arkaplanı da saydam kalmalı
     const bgType = cfg.background.type;
     document.body.style.background =

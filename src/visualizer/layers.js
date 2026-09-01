@@ -160,7 +160,76 @@
       this.media = null; // paylaşılan medya katmanı
       this.logoEl = this.opts.logoEl || null;
       this.signature = '';
+      // Son-işlem zinciri (varsa sahne tek yüzeye birleştirilip GPU'ya verilir)
+      this.postfx = null;
+      this.compCanvas = null;
+      this.compCtx = null;
+      this._fxMode = false;
       if (this.container) this.container.style.isolation = 'isolate';
+    }
+
+    /* Efekt zincirini kur. Boş zincir = CSS kompozit yolu (en ucuz).
+       Dolu zincir = tek yüzeye birleştirme + GPU geçişleri. */
+    setPostFX(chain) {
+      const list = Array.isArray(chain) ? chain.filter((f) => f && f.enabled !== false) : [];
+      if (!list.length) {
+        if (this.postfx) this.postfx.setChain([]);
+        return;
+      }
+      if (!this.postfx && window.SVPostFX) this.postfx = new window.SVPostFX.PostFX();
+      if (this.postfx) this.postfx.setChain(list);
+    }
+
+    _ensureComp() {
+      if (this.compCanvas) return;
+      this.compCanvas = document.createElement('canvas');
+      this.compCtx = this.compCanvas.getContext('2d');
+    }
+
+    /* Efekt modu açılıp kapandığında görünür yüzey değişir: ya katman
+       tuvalleri (CSS kompozit) ya da tek bir efekt tuvali. */
+    _setFxMode(on) {
+      this._fxMode = on;
+      if (!this.container) return;
+      for (const e of this.entries) {
+        if (e.canvas) e.canvas.style.display = on ? 'none' : 'block';
+      }
+      const fxCanvas = this.postfx && this.postfx.canvas;
+      if (!fxCanvas) return;
+      if (on) {
+        fxCanvas.style.position = 'absolute';
+        fxCanvas.style.inset = '0';
+        fxCanvas.style.width = '100%';
+        fxCanvas.style.height = '100%';
+        fxCanvas.style.display = 'block';
+        fxCanvas.style.zIndex = '999';
+        if (!fxCanvas.parentNode) this.container.appendChild(fxCanvas);
+      } else if (fxCanvas.parentNode) {
+        fxCanvas.parentNode.removeChild(fxCanvas);
+      }
+    }
+
+    // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
+    // logonun da efektlerden geçmesi için)
+    _drawLogoToCanvas(ctx, cfg, audio) {
+      const img = this.logoEl;
+      const l = cfg.logo;
+      if (!img || !l || !l.enabled || !l.src || !img.naturalWidth) return;
+      const W = this.width;
+      const H = this.height;
+      const minDim = Math.min(W, H);
+      const size = minDim * Math.max(0.03, Math.min(0.9, l.scale));
+      const pulse = 1 + (audio ? audio.bass : 0) * l.pulse;
+      const w = size * pulse;
+      const h = w * (img.naturalHeight / img.naturalWidth);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, l.opacity));
+      if (l.glow > 0) {
+        ctx.shadowColor = 'rgba(255,255,255,0.6)';
+        ctx.shadowBlur = l.glow * 40 * (minDim / 1080);
+      }
+      ctx.drawImage(img, l.x * W - w / 2, l.y * H - h / 2, w, h);
+      ctx.restore();
     }
 
     setSprites(s) { this.sprites = s; }
@@ -226,7 +295,8 @@
         if (this.logoEl) {
           const li = this.entries.findIndex((e) => e.layer.kind === 'logo');
           this.logoEl.style.zIndex = String(li >= 0 ? li + 1 : this.entries.length + 1);
-          this.logoEl.style.display = li >= 0 ? 'block' : 'none';
+          // Efekt modunda logo birleştirme yüzeyine çizilir, DOM'da gizlenir
+          this.logoEl.style.display = li >= 0 && !this._fxMode ? 'block' : 'none';
         }
       }
       this._applyStatic();
@@ -310,6 +380,22 @@
     /* Bir kare çiz (canlı yol). Katmanlar kendi tuvallerine çizer; karıştırma
        ve dönüşüm CSS ile tarayıcının kompozitörüne bırakılır. */
     draw(audio, cfg, t, dt) {
+      const fxOn = !!(this.postfx && this.postfx.hasWork());
+      if (fxOn !== this._fxMode) this._setFxMode(fxOn);
+
+      if (fxOn) {
+        this._ensureComp();
+        if (this.compCanvas.width !== this.width || this.compCanvas.height !== this.height) {
+          this.compCanvas.width = this.width;
+          this.compCanvas.height = this.height;
+        }
+        this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio));
+        if (this.logoEl) this.logoEl.style.display = 'none'; // logo artık yüzeyin içinde
+        this.postfx.resize(this.width, this.height);
+        this.postfx.render(this.compCanvas, audio, t, dt);
+        return;
+      }
+
       for (const e of this.entries) {
         const l = e.layer;
         if (l.kind === 'logo') {
@@ -422,6 +508,7 @@
     dispose() {
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];
+      if (this.postfx) { this.postfx.dispose(); this.postfx = null; }
     }
   }
 

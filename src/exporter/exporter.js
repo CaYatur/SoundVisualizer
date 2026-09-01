@@ -69,6 +69,7 @@
   const audio = new window.SVAudio();
   let cfg = null;
   let stack = null;
+  let postfx = null;
   let sprites = null;
   let logo = null;
 
@@ -173,6 +174,14 @@
     if (sprites) stack.setSprites(sprites);
     stack.resize(width, height);
     stack.setConfig(cfg);
+    // Son-işlem zinciri dışa aktarımda da uygulanır; efektler ekrandakiyle
+    // aynı sırada ve aynı parametrelerle çalışır.
+    if (Array.isArray(cfg.postfx) && cfg.postfx.length && window.SVPostFX) {
+      postfx = new window.SVPostFX.PostFX();
+      postfx.setChain(cfg.postfx);
+      postfx.resize(width, height);
+      if (!postfx.hasWork()) postfx = null;
+    }
 
     audio.applyConfig(cfg.audio);
 
@@ -214,6 +223,17 @@
 
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
     stack.drawTo(compCtx, audio, cfg, t, dt, drawLogo);
+
+    if (postfx) {
+      // Efekt zinciri GPU'da çalışır; sonucu geri okuyabilmek için
+      // birleştirme yüzeyine yazarız.
+      postfx.render(comp, audio, t, dt);
+      compCtx.setTransform(1, 0, 0, 1, 0, 0);
+      compCtx.globalCompositeOperation = 'copy';
+      compCtx.globalAlpha = 1;
+      compCtx.drawImage(postfx.canvas, 0, 0, width, height);
+      compCtx.globalCompositeOperation = 'source-over';
+    }
 
     return compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
   }
