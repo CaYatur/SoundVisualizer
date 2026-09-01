@@ -1411,6 +1411,65 @@ async function runSmoke() {
   console.log('[SMOKE] post-fx: ' + fxReport.length + ' efekt, ' + (fxReport.length - fxFail) + ' çalışıyor');
   fxReport.forEach((r) => console.log('[SMOKE]   ' + (r.ok ? '✓' : '✗') + ' ' + r.id + (r.ok ? ' (dolu %' + Math.round(r.lit * 100) + ', parlaklık ' + r.avg + ' / kaynak ' + r.srcAvg + ')' : ' — ' + (r.error || 'boş'))));
 
+  /* 3B geometri motoru: katalogtaki HER formül ağ kuruyor ve gerçekten
+     çiziliyor mu? Formül sayısı reklam malzemesi olmaya elverişli olduğu
+     için burada tek tek çizdirilip boş olmadıkları ölçülür. */
+  const geoReport = await wc.executeJavaScript(`(function(){
+    if (!window.SVFormulas || !window.SVModes.geometry) return [{ key: 'HOST', ok: false, error: 'motor yok' }];
+    var W = 200, H = 140;
+    var target = document.createElement('canvas');
+    target.width = W; target.height = H;
+    // Okuma AYRI bir tuvalde yapılır; hedefin kendi bağlamında
+    // clearRect yapmak motorun az önce çizdiğini silerdi.
+    var readCv = document.createElement('canvas');
+    readCv.width = W; readCv.height = H;
+    var read = readCv.getContext('2d', { willReadFrequently: true });
+    var geo = new window.SVModes.geometry(target);
+    if (!geo.gl || !geo.prog) return [{ key: 'INIT', family: '-', ok: false, error: 'WebGL2 bağlamı ya da program kurulamadı' }];
+    var audio = {
+      level: 0.5, bass: 0.7, mid: 0.4, treble: 0.3, ready: true,
+      getBars: function(n){ var a = new Float32Array(n); for (var i=0;i<n;i++) a[i] = 0.3 + 0.5*Math.sin(i*0.05); return a; },
+      timeBytes: new Uint8Array(2048)
+    };
+    var out = [];
+    var cat = window.SVFormulas.catalog();
+    for (var i = 0; i < cat.length; i++) {
+      var e = cat[i];
+      var cfg = window.SV.defaultConfig();
+      cfg.geometry.family = e.family;
+      cfg.geometry.formula = e.key;
+      cfg.geometry.params = {};
+      // Aileye uygun çizim modu: yüzeyler tel kafes, eğri/çekici nokta
+      cfg.geometry.render = e.family === 'surface' ? 'wireframe' : 'points';
+      cfg.geometry.attractorPoints = 4000;
+      cfg.geometry.resolution = e.family === 'surface' ? 40 : 24;
+      try {
+        geo.draw(audio, cfg, 1.7, 1/60);
+        read.clearRect(0,0,W,H);
+        read.drawImage(target, 0, 0);
+        var d = read.getImageData(0,0,W,H).data;
+        var lit = 0;
+        for (var k = 0; k < d.length; k += 4) if (d[k+3] > 8 && (d[k]+d[k+1]+d[k+2]) > 12) lit++;
+        var frac = lit / (d.length/4);
+        out.push({ key: e.key, family: e.family, accuracy: e.accuracy, ok: frac > 0.0008, lit: +frac.toFixed(4) });
+      } catch (err) {
+        out.push({ key: e.key, family: e.family, ok: false, error: err.message });
+      }
+    }
+    geo.dispose();
+    return out;
+  })()`);
+  {
+    let bad = geoReport.filter((r) => !r.ok);
+    const byFam = {};
+    geoReport.forEach((r) => { byFam[r.family] = (byFam[r.family] || 0) + 1; });
+    console.log('[SMOKE] 3B geometri: ' + geoReport.length + ' formül (' +
+      Object.keys(byFam).map((k) => k + ':' + byFam[k]).join(', ') + '), ' +
+      (geoReport.length - bad.length) + ' çiziliyor');
+    bad.forEach((r) => console.log('[SMOKE]   ✗ ' + r.family + '/' + r.key + ' — ' + (r.error || 'boş kare')));
+    bad.forEach((r) => errors.push('geometry ' + r.family + '/' + r.key + ': ' + (r.error || 'boş kare')));
+  }
+
   // Studio shader motoru: yerleşik presetlerin hepsi derleniyor mu?
   const shaderReport = await wc.executeJavaScript(`(function(){
     try {

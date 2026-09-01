@@ -183,7 +183,8 @@
       // 'particles' | 'spectrogram' | 'kaleido' | 'helix' | 'metaball' |
       // 'fireworks' | 'vortex' | 'mandala' | 'skyline' | 'lightning' |
       // 'ripplegrid' | 'lissajous' | 'strings' | 'bubbles' | 'wave3d' |
-      // 'arcs' | 'pinwheel' | 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
+      // 'arcs' | 'pinwheel' | 'geometry' (3B parametrik) |
+      // 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
       type: 'bars',
       rainbow: true,
       color: '#3aa6ff',
@@ -387,6 +388,30 @@
       visualizerId: null, // visualizer.type === 'custom' iken kullanılan preset
       backgroundId: null, // background.type === 'custom' iken kullanılan preset
       params: {}, // { presetId: { paramAdı: değer } }
+    },
+
+    // ------------------------------------------------------------------
+    // 3B parametrik geometri motoru (visualizer.type === 'geometry').
+    // Formüller shared/formulas.js'te; kapalı formlu olanlar
+    // tests/formulas.test.js ile sayısal olarak doğrulanır.
+    // ------------------------------------------------------------------
+    geometry: {
+      family: 'surface', // 'surface' | 'curve3d' | 'curve2d' | 'attractor'
+      formula: 'torus',
+      params: {}, // formülün kendi parametreleri (boşsa varsayılanlar)
+      render: 'wireframe', // 'surface' | 'wireframe' | 'points'
+      resolution: 72, // yüzey ızgarası / eğri çözünürlüğü
+      deform: 0.28, // sese bağlı bozulma miktarı
+      deformMode: 'normal', // 'normal' | 'radial' | 'vertical' | 'collapse'
+      spin: 0.18, // kendi ekseninde dönüş hızı
+      tilt: 0.32, // kamera eğimi
+      zoom: 1,
+      cameraAudio: 0.12, // bas -> kamera yakınlaşması
+      pointSize: 2.5,
+      colorMode: 'palette', // 'palette' | 'depth' | 'normal' | 'spectrum'
+      alpha: 1,
+      attractorPoints: 20000, // çekici nokta sayısı
+      attractorStep: 0.006, // integrasyon adımı
     },
 
     // MilkDrop ailesi geri besleme (feedback) motoru ayarları
