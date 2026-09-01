@@ -94,6 +94,82 @@ The same server serves a phone-friendly remote at `/remote`.
 
 ---
 
+## ⬗ Layers and the Effect Chain
+
+The scene is no longer a fixed stack but an **ordered list of layers**. Each
+layer has its own source (background, visualizer, media, visual objects, logo),
+**blend mode**, opacity, transform, audio response, and **its own settings** —
+so one scene can hold two bar layers in different colors, or a mandala laid
+over a shader.
+
+- **17 blend modes** (add, screen, multiply, difference, color dodge, luminosity…)
+- Per-layer scale, rotation, position, mirroring
+- Audio-driven opacity / scale / rotation modulation with band selection
+- With an empty layer list the scene is **synthesized** from the legacy fields,
+  so v2.0 settings, scenes, and preset packs keep working unchanged
+
+The **effect chain** is 15 GPU effects applied in order to the composited
+scene: bloom, chromatic aberration, glitch, film grain, CRT, pixelate,
+kaleidoscope, mirror, color grade, vignette, trails, edge highlight, zoom blur,
+ripple distortion, posterize. The order changes the result, every parameter can
+be bound to audio, and the chain **runs the same way on export**.
+
+> Only users of the feature pay for it: with an empty chain the scene is
+> composited by the browser's GPU compositor; adding the first effect switches
+> the engine to a single merged surface.
+
+---
+
+## ◈ 3D Geometry and Mathematical Formulas
+
+Audio-reactive geometry in true perspective. **35 canonical formulas** in four families:
+
+| Family | Examples |
+|---|---|
+| **Surfaces** (12) | Sphere · Torus · **Klein bottle** · Möbius strip · Supershape (Gielis) · Boy's surface · Dini surface · Seashell · Spherical harmonic · **Chladni pattern** · Ripple surface · Plane |
+| **Plane curves** (12) | Lissajous · Rose curve · Epicycloid · Hypotrochoid (spirograph) · Superformula · Butterfly · Lemniscate · Astroid · Cardioid · **Phyllotaxis** · Logarithmic spiral · Harmonograph |
+| **Space curves** (4) | Torus knot · Helix · Viviani curve · Trefoil knot |
+| **Attractors** (7) | **Lorenz** · Rössler · Thomas · Aizawa · Halvorsen · Clifford · de Jong |
+
+- Surface / wireframe / point rendering · four deformation modes · four coloring modes
+- Each formula's **own parameters** become sliders in the panel automatically
+- Camera spin, tilt, zoom, and bass-driven push
+
+**Accuracy claim.** 30 of the 35 formulas are closed-form, and
+`tests/formulas.test.js` checks every one of them against values **derived by
+hand from the definition**: that the Viviani curve stays on its sphere, the
+torus tube radius, the m↔n antisymmetry of Chladni patterns, the bounds of the
+Clifford and de Jong maps… A catalog test prevents a formula marked "closed
+form" from being added without a test. The remaining 5 are numerically
+integrated attractors and are labeled as such — the badge is visible in the
+panel too.
+
+The engine uses **its own matrix math**; there is no third-party 3D library.
+The mesh is built once and stays on the GPU, and audio deformation happens in
+the vertex shader — so even a 96×96 surface costs nothing per frame on the CPU.
+
+---
+
+## 🥁 Tempo, Auto VJ, and Art-Net
+
+**Tempo:** BPM estimated from a **period histogram** of beats found via
+spectral flux. Instead of converting consecutive intervals straight to BPM,
+every beat pair in the last 8 seconds votes, so a single missed beat cannot
+halve the tempo. Tap tempo and a BPM lock are there too.
+
+_Measured: 90 / 120 / 128 / 140 / 174 BPM → 89.8 / 120.4 / 127.9 / 140.0 / 173.7_
+
+**Auto VJ:** switches scenes, visualizers, or color presets every N bars or
+seconds; in bar mode the transition is **aligned to the beat**.
+
+**Art-Net / DMX:** sends scene colors over the standard protocol (ArtDMX, UDP
+6454) to lighting consoles, DMX interfaces, and software such as QLC+. Four
+color sources, RGB/RGBW fixtures, universe and channel settings. It does not
+replace Windows Dynamic Lighting: that drives consumer devices, this drives
+stage lights.
+
+---
+
 ## 🧪 Studio — build your own visualizer
 
 A two-tier editor: design without writing code, or start from a blank shader.
@@ -174,9 +250,9 @@ same mood. Turkish and English keywords are both recognized.
 
 ## ✨ Visualization Modes & Styles
 
-**31 visualizer modes** and **19 background types** — all of them share the same color palette,
-built-in presets and your own saved presets, so switching modes never disturbs your colors.
-That count includes the shaders you write yourself in Studio.
+**32 visualizer modes**, **19 background types**, and **58 color presets** — all sharing the same
+palette, so switching modes never disturbs your colors. That includes the 3D geometry engine, the
+feedback engine, and the shaders you write yourself in Studio.
 
 ### Visualizer (foreground effect)
 
@@ -316,7 +392,8 @@ on a **Mac**. Capturing **system audio** on macOS requires a virtual audio devic
 - **🧪 Studio** — uses a GLSL shader you wrote yourself as the background.
 - **Solid Color** — a single flat color.
 
-Five color stops, **10 built-in presets** (Aurora, Sunset, Neon, Lava, Ocean, Forest, Pastel, Night,
+Five color stops, **58 built-in presets** (in seven groups: Classics, Warm, Cool, Neon & Cyber,
+Dark, Light, Monochrome Families) (Aurora, Sunset, Neon, Lava, Ocean, Forest, Pastel, Night,
 Ice, Single Color) and your own saved presets apply to every background type.
 
 ### Visualizer (31 modes)
@@ -336,7 +413,8 @@ Ice, Single Color) and your own saved presets apply to every background type.
 **Lightning** (branching bolts on bass) · **Bubbles** · **Liquid Blobs** (metaballs) ·
 **Ripple Grid** (rings spreading on the beat) · **Spectrogram**
 
-**Advanced engines** — **♾ Feedback** (the MilkDrop family) · **🧪 Studio** (your own shader)
+**Advanced engines** — **◈ 3D Geometry** (35 mathematical formulas) · **♾ Feedback**
+(the MilkDrop family) · **🧪 Studio** (your own shader)
 - Bar count, min/max frequency, gap, position, mirror, line width, amplitude, sensitivity and glow
   are shown whenever they are meaningful for the selected mode.
 - **Rainbow** can be toggled off to pick a single or dual color.
@@ -468,11 +546,17 @@ docs/screenshots/      # README images
 Settings are saved automatically to `%APPDATA%/soundvisualizer/settings.json` on Windows;
 Studio presets go to `%APPDATA%/soundvisualizer/presets/` as separate files.
 
-### Self-test
+### Tests
 
 ```bash
-npm start -- --smoke
+npm test               # 41 unit tests (formulas, tempo, Art-Net)
+npm start -- --smoke   # every engine on the real GPU
 ```
+
+`npm test` verifies the mathematical formulas against values derived from their definitions, the
+tempo estimator against synthetic signals of known BPM, and the ArtDMX packet layout byte by byte.
+
+The self-test (`--smoke`):
 
 Opens **every** registered visualizer mode and **every** background in turn, compiles all built-in
 shaders on the real GPU, renders every panel category, exercises multi-display and blackout, and

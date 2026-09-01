@@ -94,6 +94,80 @@ Aynı sunucu `/remote` adresinde telefona uygun bir kumanda sayfası servis eder
 
 ---
 
+## ⬗ Katmanlar ve Efekt Zinciri
+
+Sahne artık sabit bir yığın değil, **sıralı bir katman listesidir**. Her
+katmanın kendi kaynağı (arkaplan, görselleştirici, medya, görsel nesne, logo),
+**karışım modu**, saydamlığı, dönüşümü, sese tepkisi ve **kendi ayarları**
+vardır — aynı sahnede farklı renklerde iki bar katmanı ya da bir shader'ın
+üstüne bindirilmiş bir mandala olabilir.
+
+- **17 karışım modu** (toplama, ekran, çarpma, fark, renk soldurma, parlaklık…)
+- Katman başına ölçek, dönüş, konum, aynalama
+- Sese bağlı saydamlık / ölçek / dönüş modülasyonu, bant seçimiyle
+- Katman listesi boşken sahne eski alanlardan **sentezlenir**; v2.0 ayarları,
+  sahneleri ve preset paketleri hiç değişmeden çalışır
+
+**Efekt zinciri** birleştirilmiş sahneye sırayla uygulanan 15 GPU efektidir:
+bloom, kromatik sapma, glitch, film greni, CRT, pikselleştirme, kaleydoskop,
+ayna, renk düzeltme, vinyet, iz/yankı, kenar vurgusu, merkezden bulanıklık,
+dalga bozulması, posterize. Sıralama görüntüyü değiştirir; her parametre sese
+bağlanabilir ve zincir **dışa aktarımda da aynen çalışır**.
+
+> Maliyet yalnızca kullanana: zincir boşken sahne CSS ile kompozit edilir
+> (tarayıcının GPU kompozitörü), ilk efekt eklendiğinde motor tek bir
+> birleştirme yüzeyine geçer.
+
+---
+
+## ◈ 3B Geometri ve Matematiksel Formüller
+
+Gerçek perspektifte, sese tepki veren geometri. **35 kanonik formül** dört ailede:
+
+| Aile | Örnekler |
+|---|---|
+| **Yüzeyler** (12) | Küre · Simit · **Klein şişesi** · Möbius şeridi · Süperşekil (Gielis) · Boy yüzeyi · Dini yüzeyi · Deniz kabuğu · Küresel harmonik · **Chladni deseni** · Dalga yüzeyi · Düzlem |
+| **Düzlem eğrileri** (12) | Lissajous · Gül eğrisi · Episikloid · Hipotrokoid (spirograf) · Süperformül · Kelebek · Lemniskat · Astroid · Kardiyoid · **Filotaksi** · Logaritmik sarmal · Harmonograf |
+| **Uzay eğrileri** (4) | Simit düğümü · Helis · Viviani eğrisi · Yonca düğümü |
+| **Çekiciler** (7) | **Lorenz** · Rössler · Thomas · Aizawa · Halvorsen · Clifford · de Jong |
+
+- Yüzey / tel kafes / nokta çizimi · dört bozulma kipi · dört renklendirme kipi
+- Her formülün **kendi parametreleri** panelde otomatik kaydırıcıya dönüşür
+- Kamera dönüşü, eğimi, yakınlaşması ve bas ile itilmesi
+
+**Doğruluk beyanı.** 35 formülün 30'u kapalı formludur ve
+`tests/formulas.test.js` her birini **tanımından elle türetilmiş** değerlerle
+sınar: Viviani eğrisinin küre üzerinde kalması, simidin boru yarıçapı,
+Chladni'nin m↔n antisimetrisi, Clifford ve de Jong haritalarının sınırları…
+Katalog testi, "kapalı form" işaretli bir formülün test edilmeden eklenmesini
+engeller. Kalan 5'i sayısal integrasyonla çalışan çekicilerdir ve öyle
+işaretlidir — panelde de bu rozet görünür.
+
+Motor **kendi matris matematiğiyle** çalışır; üçüncü parti 3B kütüphanesi yok.
+Ağ bir kez kurulup GPU'da kalır, sese bağlı bozulma vertex shader'da yapılır —
+96×96'lık bir yüzeyde bile kare başına CPU maliyeti yoktur.
+
+---
+
+## 🥁 Tempo, Otomatik VJ ve Art-Net
+
+**Tempo:** spektral akıdan bulunan vuruşların **periyot histogramıyla** BPM
+kestirimi. Ardışık aralıkları doğrudan BPM'e çevirmek yerine son 8 saniyenin
+tüm vuruş çiftleri oy verir; tek bir kaçan vuruş tempoyu yarıya düşürmez.
+Elle tempoya vurma ve BPM kilidi de vardır.
+
+_Ölçüm: 90 / 120 / 128 / 140 / 174 BPM → 89.8 / 120.4 / 127.9 / 140.0 / 173.7_
+
+**Otomatik VJ:** ölçü ya da saniye başına sahne, görselleştirici veya renk
+şablonu değiştirir; ölçü birimindeyken geçiş **tam vuruşa hizalanır**.
+
+**Art-Net / DMX:** sahne renklerini standart protokolle (ArtDMX, UDP 6454)
+ışık konsollarına, DMX arayüzlerine ve QLC+ gibi yazılımlara yollar. Dört renk
+kaynağı, RGB/RGBW aygıt, evren ve kanal ayarları. Windows Dynamic Lighting'in
+yerine geçmez: o tüketici aygıtlarını, bu sahne ışıklarını sürer.
+
+---
+
 ## 🧪 Studio — kendi görselleştiricini yap
 
 İki katmanlı bir editör: kod yazmadan da, sıfırdan da tasarlayabilirsin.
@@ -176,9 +250,9 @@ Türkçe ve İngilizce anahtar kelimeler birlikte tanınır.
 
 ## ✨ Görselleştirme Modları & Stilleri
 
-**31 görselleştirici modu** ve **19 arkaplan türü** — hepsi aynı renk paletini, hazır şablonları ve
-kendi şablonlarınızı kullanır, dolayısıyla mod değiştirmek renklerinizi bozmaz. Buna Studio'da
-kendi yazdığınız shader'lar da dahildir.
+**32 görselleştirici modu**, **19 arkaplan türü** ve **58 renk şablonu** — hepsi aynı paleti
+paylaşır, dolayısıyla mod değiştirmek renklerinizi bozmaz. Buna 3B geometri motoru, geri besleme
+motoru ve Studio'da kendi yazdığınız shader'lar da dahildir.
 
 ### Görselleştirici (ön efekt)
 
@@ -318,7 +392,8 @@ ses aygıtı gerekir (mikrofon doğrudan çalışır).
 - **🧪 Studio** — kendi yazdığın GLSL shader'ı arkaplan olarak kullanır.
 - **Düz Renk** — tek renk fon.
 
-5 renk noktası, **10 hazır şablon** (Aurora, Gün Batımı, Neon, Lav, Okyanus, Orman, Pastel, Gece,
+5 renk noktası, **58 hazır şablon** (yedi grupta: Klasikler, Sıcak, Soğuk, Neon ve Siber,
+Karanlık, Aydınlık, Tek Renk Aileleri) (Aurora, Gün Batımı, Neon, Lav, Okyanus, Orman, Pastel, Gece,
 Buz, Tek Renk) ve kendi kaydettiğiniz şablonlar tüm arkaplan türlerinde geçerlidir.
 
 ### Görselleştirici (31 mod)
@@ -338,7 +413,8 @@ Buz, Tek Renk) ve kendi kaydettiğiniz şablonlar tüm arkaplan türlerinde geç
 **Şimşek** (basta dallanan yıldırım) · **Baloncuk** · **Sıvı Damla** (metaball) ·
 **Dalgalı Izgara** (vuruşta yayılan halkalar) · **Spektrogram**
 
-**Gelişmiş motorlar** — **♾ Geri Besleme** (MilkDrop ailesi) · **🧪 Studio** (kendi shader'ın)
+**Gelişmiş motorlar** — **◈ 3B Geometri** (35 matematiksel formül) · **♾ Geri Besleme**
+(MilkDrop ailesi) · **🧪 Studio** (kendi shader'ın)
 - Bar sayısı, min/max frekans, boşluk, yerleşim, ayna, çizgi kalınlığı, genlik, hassasiyet ve
   parlama (glow) modda anlamlı oldukça gösterilir.
 - **Gökkuşağı** açılıp kapatılabilir; kapalıyken tek/ikili renk seçilir.
@@ -469,11 +545,17 @@ docs/screenshots/      # README görselleri
 Ayarlar otomatik olarak `%APPDATA%/soundvisualizer/settings.json` (Windows) dosyasına,
 Studio presetleri ise `%APPDATA%/soundvisualizer/presets/` altında ayrı dosyalara kaydedilir.
 
-### Öz test
+### Testler
 
 ```bash
-npm start -- --smoke
+npm test               # 41 birim testi (formüller, tempo, Art-Net)
+npm start -- --smoke   # motorların tamamı gerçek GPU'da
 ```
+
+`npm test` matematiksel formülleri tanımlarından türetilmiş değerlerle, tempo kestirimini bilinen
+tempolu sentetik sinyallerle ve ArtDMX paket düzenini bayt bayt doğrular.
+
+Öz test (`--smoke`):
 
 Kayıtlı **her** görselleştirici modunu ve **her** arkaplanı sırayla açar, yerleşik shader'ların
 tamamını gerçek GPU'da derler, panelin her kategorisini çizer, çoklu ekranı ve karartmayı dener,
