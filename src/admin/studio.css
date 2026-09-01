@@ -239,3 +239,19 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .fb-value.exact { color: var(--ok); }
 .fb-value.approx { color: var(--warn); }
 .fb-value.visual { color: var(--muted); }
+
+/* ======================== TEMPO / OTOMATİK VJ ======================== */
+.autovj-panel { display: flex; flex-direction: column; gap: 8px; }
+.bpm-box {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 9px 11px;
+}
+.beat-dot {
+  width: 11px; height: 11px; border-radius: 50%; flex: none;
+  background: var(--off); transition: background .06s, box-shadow .06s;
+}
+.beat-dot.hit { background: var(--accent2); box-shadow: 0 0 12px var(--accent2); }
+.bpm-value { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 84px; }
+.bpm-conf { flex: 1; height: 4px; background: var(--card2); border-radius: 3px; overflow: hidden; }
+.bpm-conf i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .25s; }

@@ -15,6 +15,7 @@ const dynamicLighting = require('./dynamic-lighting');
 const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
+const artnet = require('./artnet');
 const presetsStore = require('./presets-store');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
@@ -559,6 +560,7 @@ ipcMain.on('update-config', (e, config) => {
   streamServer.broadcast({ type: 'config', config });
   syncStreamServer();
   syncOscServer();
+  syncArtnet();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
@@ -624,6 +626,9 @@ ipcMain.on('audio-meter', (e, data) => {
   if (primary && e.sender !== primary.webContents) return;
   notifyAdmin('audio-meter', data);
   dynamicLighting.onAudioFrame(data, currentConfig);
+  if (currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
+    artnet.send(currentConfig.artnet, data);
+  }
 });
 
 // Görselleştirici -> admin (durum/hata bilgisi)
@@ -803,6 +808,15 @@ function syncStreamServer() {
     });
 }
 
+function syncArtnet() {
+  const a = (currentConfig && currentConfig.artnet) || {};
+  if (!a.enabled) return artnet.stop().then(() => artnet.status());
+  return artnet.start(a).then((st) => {
+    notifyAdmin('artnet-status', st);
+    return st;
+  });
+}
+
 function syncOscServer() {
   const o = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
   if (!o.enabled) return oscServer.stop().then(() => oscServer.status());
@@ -824,6 +838,8 @@ ipcMain.handle('stream:open', (e, which) => {
 });
 ipcMain.handle('osc:status', () => oscServer.status());
 ipcMain.handle('osc:sync', () => syncOscServer());
+ipcMain.handle('artnet:status', () => artnet.status());
+ipcMain.handle('artnet:sync', () => syncArtnet());
 
 // ----------------------------------------------------------------------------
 // Medya katmanı: video dosyası seçimi
@@ -1223,6 +1239,7 @@ app.whenReady().then(async () => {
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
+  syncArtnet().catch(() => {});
 
   // Ekran değişikliklerini admin'e bildir
   screen.on('display-added', () => notifyAdmin('displays-changed', getDisplayList()));
@@ -1798,6 +1815,7 @@ async function runSmoke() {
 app.on('before-quit', () => {
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
+  artnet.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   nativeAudio.stopCapture();
 });

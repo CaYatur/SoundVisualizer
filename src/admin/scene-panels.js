@@ -444,5 +444,99 @@
     return el('div', { class: 'geo-panel' }, nodes);
   }
 
-  window.SVScenePanels = { layersPanel, effectsPanel, geometryPanel };
+  // ==========================================================================
+  // ART-NET / DMX
+  // ==========================================================================
+  const ARTNET_MODES = [
+    ['palette', 'Sahne Paleti'],
+    ['bands', 'Frekans Bantları'],
+    ['spectrum', 'Kayan Spektrum'],
+    ['single', 'Tek Renk'],
+  ];
+
+  let artnetState = { running: false, error: null, packets: 0 };
+  let artnetWatch = false;
+
+  function artnetPanel() {
+    const el = P().el;
+    const cfg = P().cfg();
+    const a = cfg.artnet;
+    const nodes = [];
+
+    if (!artnetWatch) {
+      artnetWatch = true;
+      window.api.onArtnetStatus((s) => { artnetState = s; });
+      window.api.artnetStatus().then((s) => { artnetState = s; }).catch(() => {});
+    }
+
+    const enable = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        a.enabled = e.target.checked;
+        P().push(true);
+        artnetState = await window.api.artnetSync();
+        P().rerender();
+      },
+    });
+    enable.checked = !!a.enabled;
+    nodes.push(P().row('Art-Net Çıkışı', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+
+    // Durum: parçalar ayrı düğümlerde (sayı içeren birleşik metin çevrilemez)
+    const st = el('div', { class: 'studio-status ' + (artnetState.running ? 'ok' : artnetState.error ? 'err' : '') });
+    if (artnetState.running) {
+      st.appendChild(el('span', { text: '✓ ' }));
+      st.appendChild(el('span', { text: 'Yayında' }));
+      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { text: 'Evren' }));
+      st.appendChild(el('span', { class: 'st-num', text: ' ' + artnetState.universe }));
+      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-num', text: String(artnetState.packets || 0) + ' ' }));
+      st.appendChild(el('span', { text: 'paket' }));
+    } else if (artnetState.error) {
+      st.appendChild(el('span', { text: '✕ ' + artnetState.error }));
+    } else {
+      st.appendChild(el('span', { text: 'Kapalı' }));
+    }
+    nodes.push(st);
+
+    if (a.enabled) {
+      nodes.push(
+        P().row(
+          'Hedef Adres',
+          el('input', {
+            class: 'p-in wide', type: 'text', value: a.host,
+            onchange: async (e) => {
+              a.host = (e.target.value || '255.255.255.255').trim().slice(0, 64);
+              P().push(true);
+              artnetState = await window.api.artnetSync();
+            },
+          })
+        )
+      );
+      nodes.push(P().slider('Evren (Universe)', 'artnet.universe', { min: 0, max: 32, step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(P().slider('Başlangıç Kanalı', 'artnet.startChannel', { min: 1, max: 512, step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(P().slider('Aygıt Sayısı', 'artnet.fixtures', { min: 1, max: 64, step: 1, fmt: (v) => String(Math.round(v)) }));
+      nodes.push(
+        P().segment('Aygıt Kanalları', 'artnet.channelsPerFixture', [
+          { value: 3, label: 'RGB' },
+          { value: 4, label: 'RGBW' },
+        ])
+      );
+      nodes.push(miniSelect('Renk Kaynağı', ARTNET_MODES, () => a.mode, (v) => { a.mode = v; }, () => P().rerender()));
+      if (a.mode === 'single') nodes.push(P().color('Renk', 'artnet.color'));
+      nodes.push(P().slider('Parlaklık', 'artnet.brightness', { min: 0, max: 1, step: 0.02, percent: true, noExtend: true }));
+      nodes.push(P().slider('Gönderim Hızı', 'artnet.fps', { min: 1, max: 44, step: 1, fmt: (v) => Math.round(v) + ' Hz' }));
+      nodes.push(
+        el('div', { class: 'studio-note dim-hint', text: 'Varsayılan hedef yayın adresidir; ağdaki tüm Art-Net düğümleri paketi alır. Tek bir arayüze göndermek isterseniz onun IP adresini yazın. DMX 44 Hz üstünü zaten taşımaz, bu yüzden gönderim hızı orada sınırlıdır.' })
+      );
+    } else {
+      nodes.push(
+        el('div', { class: 'studio-note', text: 'Sahne renklerini standart DMX protokolüyle (Art-Net) ışık konsollarına, DMX arayüzlerine ve QLC+ gibi yazılımlara yollar. Windows Dynamic Lighting\'in yerine geçmez; o tüketici aygıtlarını, bu sahne ışıklarını sürer.' })
+      );
+    }
+
+    return el('div', { class: 'artnet-panel' }, nodes);
+  }
+
+  window.SVScenePanels = { layersPanel, effectsPanel, geometryPanel, artnetPanel };
 })();

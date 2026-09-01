@@ -273,6 +273,10 @@
         return window.SVScenePanels ? window.SVScenePanels.effectsPanel() : null;
       case 'geometrypanel':
         return window.SVScenePanels ? window.SVScenePanels.geometryPanel() : null;
+      case 'artnetpanel':
+        return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
+      case 'autovjpanel':
+        return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1681,6 +1685,22 @@
         title: 'Yayın Çıkışı (OBS / Web)',
         desc: 'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.',
         controls: [{ type: 'streampanel' }],
+      },
+      {
+        id: 'tempo',
+        category: 'control',
+        icon: '🥁',
+        title: 'Tempo ve Otomatik VJ',
+        desc: 'Parçanın temposunu bulur; sahneleri, modları veya renkleri ölçüye hizalı olarak kendiliğinden değiştirir.',
+        controls: [{ type: 'autovjpanel' }],
+      },
+      {
+        id: 'artnet',
+        category: 'lighting',
+        icon: '🎚️',
+        title: 'Art-Net / DMX Çıkışı',
+        desc: 'Sahne renklerini standart DMX protokolüyle ışık konsollarına ve arayüzlerine yollar.',
+        controls: [{ type: 'artnetpanel' }],
       },
       {
         id: 'midi',
@@ -3145,6 +3165,8 @@
 
     // Kontrol yüzeyleri (MIDI / OSC)
     if (window.SVControl) window.SVControl.init();
+    // Tempo motoru ve otomatik VJ döngüsü
+    if (window.SVAutoVJ) window.SVAutoVJ.init();
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
     // Kamera listesi (medya katmanı için)

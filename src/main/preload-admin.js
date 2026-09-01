@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld('api', {
   onStreamClients: (cb) => ipcRenderer.on('stream-clients', (e, d) => cb(d)),
 
   // OSC alıcısı
+  artnetStatus: () => ipcRenderer.invoke('artnet:status'),
+  artnetSync: () => ipcRenderer.invoke('artnet:sync'),
+  onArtnetStatus: (cb) => ipcRenderer.on('artnet-status', (e, d) => cb(d)),
   oscStatus: () => ipcRenderer.invoke('osc:status'),
   oscSync: () => ipcRenderer.invoke('osc:sync'),
   onOscMessage: (cb) => ipcRenderer.on('osc-message', (e, m) => cb(m)),

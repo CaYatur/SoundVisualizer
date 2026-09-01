@@ -347,6 +347,44 @@
     },
 
     // ------------------------------------------------------------------
+    // Tempo ve otomatik VJ.
+    //
+    // BPM, spektral akıdan bulunan vuruşların aralık histogramıyla kestirilir
+    // (bkz. shared/tempo.js). Otomatik VJ, ölçü ya da saniye başına sahne,
+    // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
+    // ------------------------------------------------------------------
+    autovj: {
+      enabled: false,
+      source: 'scenes', // 'scenes' | 'visualizers' | 'palettes' | 'all'
+      unit: 'bars', // 'bars' | 'seconds'
+      interval: 8,
+      order: 'sequential', // 'sequential' | 'random'
+      bpmLock: 0, // 0 = otomatik kestirim
+      beatsPerBar: 4,
+    },
+
+    // ------------------------------------------------------------------
+    // Art-Net (DMX over Ethernet) çıkışı.
+    //
+    // Sahne renklerini profesyonel ışık dünyasının standart protokolüyle
+    // yayar. Windows Dynamic Lighting'in tamamlayıcısıdır: o tüketici
+    // aygıtlarını, bu sahne ışıklarını sürer.
+    // ------------------------------------------------------------------
+    artnet: {
+      enabled: false,
+      host: '255.255.255.255', // yayın adresi; tek düğüm için onun IP'si
+      port: 6454,
+      universe: 0,
+      startChannel: 1,
+      fixtures: 8,
+      channelsPerFixture: 3, // 3 = RGB, 4 = RGBW
+      mode: 'palette', // 'palette' | 'bands' | 'spectrum' | 'single'
+      color: '#ff2020', // mode === 'single' için
+      brightness: 1,
+      fps: 30, // DMX zaten 44 Hz üstünü taşımaz
+    },
+
+    // ------------------------------------------------------------------
     // Harici kontrol yüzeyleri (MIDI / OSC)
     // Eşleme: { id, source:'midi'|'osc', channel, cc, address, path, min, max, mode }
     // ------------------------------------------------------------------
