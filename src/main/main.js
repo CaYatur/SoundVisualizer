@@ -1560,14 +1560,26 @@ async function runSmoke() {
           : null,
       ].filter(Boolean);
 
+      /* Yapılandırma TAMAMEN sabit: kullanıcının o anki ayarları miras
+         alınsaydı aynı sahne her koşuda farklı render edilir ve sürümler
+         arası kare karşılaştırması (regresyon ağı) imkânsız olurdu.
+         Dışa aktarıcı bunu zaten varsayılanlarla derin birleştiriyor. */
+      const PINNED = {
+        audio: { sensitivity: 0.25, smoothing: 0.5, bassBoost: 2.05 },
+        power: { fpsCap: 60, renderScale: 1, pauseOnSilence: false, hideCursor: true },
+        logo: { enabled: false },
+        images: { enabled: false, items: [] },
+        media: { enabled: false },
+        lighting: { enabled: false },
+      };
       const baseCfg = JSON.parse(JSON.stringify(currentConfig || {}));
       for (const c of cases) {
         const out = path.join(outDir, c.name + '.mp4');
         try { fs.unlinkSync(out); } catch { /* yok */ }
-        currentConfig = Object.assign({}, baseCfg, {
-          visualizer: Object.assign({}, baseCfg.visualizer, c.over.visualizer),
-          background: Object.assign({}, baseCfg.background, c.over.background),
-          custom: Object.assign({}, baseCfg.custom, c.over.custom || {}),
+        currentConfig = Object.assign({}, JSON.parse(JSON.stringify(PINNED)), {
+          visualizer: Object.assign({ rainbow: true, sensitivity: 0.7, glow: 0.46, barCount: 160, gap: 0.36, position: 'center', thickness: 0.42, lineWidth: 3, cap: true, mirror: false, color: '#3aa6ff', color2: '#d24bff', minFreq: 20, maxFreq: 20000 }, c.over.visualizer),
+          background: Object.assign({ gradient: { colors: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'] } }, c.over.background),
+          custom: Object.assign({ visualizerId: null, backgroundId: null, params: {} }, c.over.custom || {}),
         });
 
         const res = await startExportJob({

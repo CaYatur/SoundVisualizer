@@ -683,6 +683,7 @@
       .replace(/^Kaydedilemedi: /g, 'Could not save: ')
       .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
       .replace(/^(\d+) FPS$/g, '$1 FPS')
+      .replace(/^(.*) \(kopya\)$/, (m, base) => (EN_NORMALIZED[normalize(base)] || base) + ' (copy)')
       .replace(/^(\d+) kayıtlı$/g, '$1 saved')
       .replace(/^(\d+) (sahne|şablon|preset|dilim)$/g, (m, n, word) => {
         const one = { sahne: 'scene', 'şablon': 'preset', preset: 'preset', dilim: 'slice' }[word];
