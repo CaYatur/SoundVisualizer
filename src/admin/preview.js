@@ -187,7 +187,7 @@
     }
     if (!live) audio.ingestFrame(buildSyntheticFrame(t));
 
-    audio.update();
+    audio.update(dt);
     modulator.update(cfg, audio, t, dt);
     const mcfg = modulator.apply(cfg, dt);
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);

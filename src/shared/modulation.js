@@ -28,6 +28,7 @@
    ayarlar modülasyon yüzünden kaymaz. */
 (function () {
   const TAU = Math.PI * 2;
+  const NOTE_LABELS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -127,6 +128,28 @@
       const mc = (m.macros || [])[i];
       out.push({ id: 'macro' + (i + 1), label: (mc && mc.name) || ('Makro ' + (i + 1)), group: 'Makro' });
     }
+    // Derin çözümleme kaynakları
+    const AN = [
+      ['anLoudness', 'Gürlük'], ['anPeak', 'Tepe'], ['anDynamics', 'Dinamik'],
+      ['anCentroid', 'Tayf Merkezi'], ['anRolloff', 'Yuvarlanma'],
+      ['anFlatness', 'Tayf Düzlüğü'], ['anCrest', 'Tepe Faktörü'],
+      ['anFlux', 'Tayf Akısı'], ['anSpread', 'Tayf Yayılımı'],
+      ['anHarmonic', 'Armonik Oran'], ['anPercussive', 'Vurmalı Oran'],
+      ['anWidth', 'Stereo Genişlik'], ['anCorrelation', 'Stereo Korelasyon'],
+      ['anPitch', 'Perde'], ['anChordRoot', 'Akor Kökü'], ['anKeyTonic', 'Tonalite'],
+      ['anKeyConf', 'Tonalite Güveni'], ['anChordConf', 'Akor Güveni'],
+      ['anKick', 'Bas Davul'], ['anSnare', 'Trampet'], ['anHat', 'Hi-Hat'],
+    ];
+    for (const [id, label] of AN) out.push({ id, label, group: 'Çözümleme' });
+    for (let i = 0; i < 12; i++) {
+      out.push({ id: 'chroma' + i, label: 'Nota ' + NOTE_LABELS[i], group: 'Nota Sınıfı' });
+    }
+    out.push(
+      { id: 'kickTrig', label: 'Bas Davul (tetik)', group: 'Çözümleme', trigger: true },
+      { id: 'snareTrig', label: 'Trampet (tetik)', group: 'Çözümleme', trigger: true },
+      { id: 'hatTrig', label: 'Hi-Hat (tetik)', group: 'Çözümleme', trigger: true }
+    );
+
     out.push(
       { id: 'random', label: 'Rastgele (basamaklı)', group: 'Diğer' },
       { id: 'randomSmooth', label: 'Rastgele (yumuşak)', group: 'Diğer' },
@@ -287,6 +310,32 @@
 
       // --- zaman ---
       v.time = (t * (m.timeRate == null ? 0.1 : m.timeRate)) % 1;
+
+      /* --- derin çözümleme ---
+         Ses motoru bir Analyser taşıyorsa onun ürettiği her şey (kroma,
+         tınısal betimleyiciler, gürlük, armonik/vurmalı oranı, davul
+         bantları) doğrudan kaynak olur. Motor yoksa bu kaynaklar 0 kalır ve
+         yönlendirmeler sessizce çalışmaya devam eder. */
+      const an = audio && audio.analysis;
+      if (an) {
+        const s = an.sources();
+        for (const k in s) v[k] = s[k];
+        for (let i = 0; i < 12; i++) v['chroma' + i] = an.chromaSmooth[i] || 0;
+        this.triggers.kickTrig = an.hits.kick || 0;
+        this.triggers.snareTrig = an.hits.snare || 0;
+        this.triggers.hatTrig = an.hits.hat || 0;
+        v.kickTrig = this.triggers.kickTrig > 0 ? 1 : 0;
+        v.snareTrig = this.triggers.snareTrig > 0 ? 1 : 0;
+        v.hatTrig = this.triggers.hatTrig > 0 ? 1 : 0;
+        // Akor kökü ve tonalite toniği: 0..1'e ölçeklenmiş nota sınıfı.
+        // Renk tonuna bağlandığında akor değişimi rengi değiştirir.
+        v.anChordRoot = an.chord.root >= 0 ? an.chord.root / 11 : 0;
+        v.anKeyTonic = an.key.tonic >= 0 ? an.key.tonic / 11 : 0;
+      } else {
+        this.triggers.kickTrig = 0;
+        this.triggers.snareTrig = 0;
+        this.triggers.hatTrig = 0;
+      }
 
       return v;
     }

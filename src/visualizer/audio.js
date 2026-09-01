@@ -26,6 +26,18 @@
       this._barsCache = {};
       this.ready = false;
       this.lastFrameTs = 0;
+
+      /* Derin çözümleme (kroma, tonalite, akor, tınısal betimleyiciler,
+         gürlük, temel frekans, armonik/vurmalı ayrışması). Ayrı bir modülde
+         durur çünkü saf aritmetiktir ve testleri GPU'suz koşar. Buradaki tek
+         iş, kareyi ona iletmek. */
+      this.analysis = window.SVAnalysis ? new window.SVAnalysis.Analyser({
+        sampleRate: this.sampleRate,
+        fftSize: FFT_SIZE,
+      }) : null;
+      // Zaman alanı bayt olarak geliyor (128 merkez); çözümleme -1..1 ister
+      this._timeF = new Float32Array(FFT_SIZE);
+      this._analysisOn = true;
     }
 
     applyConfig(audioCfg) {
@@ -46,8 +58,9 @@
       this.lastFrameTs = performance.now();
     }
 
-    // Her karede çağrılır
-    update() {
+    // Her karede çağrılır. dt saniye cinsinden; çözümlemenin zaman
+    // sabitleri buna dayanır (kare hızından bağımsızlık).
+    update(dt) {
       if (!this.ready) return;
       const sens = this.cfg.sensitivity || 1;
       const boost = this.cfg.bassBoost || 1;
@@ -80,6 +93,27 @@
       this.mid = smooth(this.mid, mid, 0.5, 0.14);
       this.treble = smooth(this.treble, treble, 0.6, 0.2);
       this.level = smooth(this.level, lvl, 0.55, 0.12);
+
+      if (this.analysis && this._analysisOn) {
+        for (let i = 0; i < t.length; i++) this._timeF[i] = (t[i] - 128) / 128;
+        // Yumuşatılmamış tayf verilir: çözümleme kendi zaman sabitlerini
+        // uyguluyor, iki kez yumuşatmak tepkiyi gereksiz körelttirdi
+        this.analysis.update(this.rawSpectrum(), this._timeF, dt || 1 / 60);
+      }
+    }
+
+    /* Ham (yumuşatılmamış, duyarlılık uygulanmamış) 0..1 tayf.
+       Çözümleme buradan okur: kullanıcının duyarlılık ayarı görsel bir
+       tercihtir, ölçüm ondan etkilenmemeli. */
+    rawSpectrum() {
+      if (!this._raw01 || this._raw01.length !== this.bins) this._raw01 = new Float32Array(this.bins);
+      for (let i = 0; i < this.bins; i++) this._raw01[i] = this.freqRaw[i] / 255;
+      return this._raw01;
+    }
+
+    // Çözümlemeyi kapatmak (düşük güç kipinde) — ölçüm maliyeti sıfırlanır
+    setAnalysis(on) {
+      this._analysisOn = !!on;
     }
 
     _bandAvg(f0, f1) {

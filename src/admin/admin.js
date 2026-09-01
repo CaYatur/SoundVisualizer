@@ -282,6 +282,8 @@
         return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
       case 'modulationpanel':
         return window.SVModulationPanel ? window.SVModulationPanel.panel() : null;
+      case 'analysispanel':
+        return window.SVAnalysisPanel ? window.SVAnalysisPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1630,6 +1632,15 @@
         title: 'Katmanlar',
         desc: 'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.',
         controls: [{ type: 'layerspanel' }],
+      },
+      {
+        id: 'analysis',
+        category: 'audio',
+        icon: '📈',
+        wide: true,
+        title: 'Ses Çözümlemesi',
+        desc: 'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.',
+        controls: [{ type: 'analysispanel' }],
       },
       {
         id: 'modulation',

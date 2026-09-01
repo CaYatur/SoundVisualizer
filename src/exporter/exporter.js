@@ -222,7 +222,7 @@
 
     analyzeAt(sampleEnd);
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, sampleRate });
-    audio.update();
+    audio.update(dt);
 
     // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
     // aynı iş iki kez çalıştırıldığında bit bazında aynı sonucu verir.

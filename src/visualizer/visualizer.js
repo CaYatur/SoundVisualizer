@@ -117,7 +117,7 @@
     lastDraw = now;
     const t = now / 1000;
 
-    audio.update();
+    audio.update(dt);
 
     // sessizlikte duraklat (güç tasarrufu)
     const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01;

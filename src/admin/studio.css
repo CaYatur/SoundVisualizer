@@ -303,3 +303,80 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   background: linear-gradient(90deg, var(--accent, #7c5cff), var(--accent2, #21d4fd));
   transition: width 80ms linear;
 }
+
+
+/* ===== Ses çözümlemesi paneli ===== */
+.an-panel { display: flex; flex-direction: column; gap: 10px; }
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.an-col {
+  background: var(--card2, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  padding: 9px 10px;
+}
+.an-col h4 {
+  margin: 0 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted2, rgba(255, 255, 255, 0.45));
+}
+.an-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  font-size: 11.5px;
+}
+.an-lbl { color: var(--muted, rgba(255, 255, 255, 0.65)); white-space: nowrap; }
+.an-val { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.an-bar {
+  margin-left: auto;
+  flex: 1;
+  max-width: 96px;
+  height: 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.an-bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent, #7c5cff), var(--accent2, #21d4fd));
+  transition: width 100ms linear;
+}
+
+.an-chroma {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  margin-top: 6px;
+}
+.an-note { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.an-note-name { font-size: 10px; color: var(--muted2, rgba(255, 255, 255, 0.45)); }
+.an-note-bar {
+  width: 100%;
+  height: 48px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+/* Nota hücreleri aşağıdan yukarı dolar; panel bunlara genişlik yerine
+   yükseklik yazar (bkz. analysis-panel.js: vertical). */
+.an-note-bar i {
+  display: block;
+  width: 100%;
+  height: 0;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--accent2, #21d4fd), var(--accent, #7c5cff));
+  transition: height 100ms linear;
+}
