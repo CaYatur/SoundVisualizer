@@ -767,6 +767,83 @@
 
     'Mono Kırmızı': 'Mono Red', 'Mono Mavi': 'Mono Blue', 'Mono Yeşil': 'Mono Green',
     'Mono Mor': 'Mono Purple', 'Mono Turuncu': 'Mono Orange', 'Gri Tonlama': 'Grayscale',
+    // ---- Modülasyon matrisi ----
+    'Modülasyon Matrisi': 'Modulation Matrix',
+    'Herhangi bir kaynağı (bas, LFO, zarf, makro, rastgele, tempo) herhangi bir sayısal ayara bağlayın. Kaydedilen ayarlar değişmez; modülasyon yalnızca çizim anında uygulanır ve dışa aktarımda da birebir çalışır.':
+      'Connect any source (bass, LFO, envelope, macro, random, tempo) to any numeric setting. Your saved settings are never altered — modulation is applied at draw time only, and works identically on export.',
+    'Modülasyon Etkin': 'Modulation Enabled',
+    'Makrolar': 'Macros',
+    'Bir makroyu birden çok yönlendirmeye bağlayın: tek düğme sahnenin tamamını sürer.':
+      'Assign one macro to several routes: a single knob then drives the whole scene.',
+    'LFO (4)': 'LFOs (4)',
+    'Zarf Takipçileri (2)': 'Envelope Followers (2)',
+    'Rastgele Üreteç': 'Random Generator',
+    'Tempoya Kilitle': 'Lock to Tempo',
+    'Bölüm': 'Division',
+    'Hız (Hz)': 'Rate (Hz)',
+    'Faz': 'Phase',
+    'Darbe Genişliği': 'Pulse Width',
+    'Çift Kutuplu (-1..1)': 'Bipolar (-1..1)',
+    'Kaynak Bant': 'Source Band',
+    'Atak': 'Attack',
+    'Bırakma': 'Release',
+    'Dalga': 'Waveform',
+    'Anlık': 'Live',
+    'Kaynak': 'Source',
+    'Hedef': 'Target',
+    'Kip': 'Mode',
+    'Eğri': 'Curve',
+    'Miktar': 'Amount',
+    'Alt Sınır': 'Lower Bound',
+    'Üst Sınır': 'Upper Bound',
+    'Yumuşatma': 'Smoothing',
+    'Basamak': 'Steps',
+    'Ters Çevir': 'Invert',
+    '+ Yönlendirme Ekle': '+ Add Route',
+    'Hepsini Temizle': 'Clear All',
+    'Tüm yönlendirmeler silinsin mi?': 'Delete every route?',
+    'Henüz yönlendirme yok. "Yönlendirme Ekle" ile bası bir efekt parametresine ya da bir LFO\'yu kameraya bağlayın.':
+      'No routes yet. Use "Add Route" to connect the bass to an effect parameter, or an LFO to the camera.',
+    '— hedef seçin —': '— pick a target —',
+    'sürekli': 'continuous',
+    'yok': 'none',
+
+    // Kaynak grupları ve adları
+    'Vuruş Zarfı': 'Beat Envelope',
+    'Vuruş (tetik)': 'Beat (trigger)',
+    'Spektrum': 'Spectrum',
+    'Bant 1': 'Band 1', 'Bant 2': 'Band 2', 'Bant 3': 'Band 3', 'Bant 4': 'Band 4',
+    'Bant 5': 'Band 5', 'Bant 6': 'Band 6', 'Bant 7': 'Band 7', 'Bant 8': 'Band 8',
+    'Zarf': 'Envelope', 'Zarf 1': 'Envelope 1', 'Zarf 2': 'Envelope 2',
+    'Makro': 'Macro',
+    'Makro 1': 'Macro 1', 'Makro 2': 'Macro 2', 'Makro 3': 'Macro 3', 'Makro 4': 'Macro 4',
+    'Makro 5': 'Macro 5', 'Makro 6': 'Macro 6', 'Makro 7': 'Macro 7', 'Makro 8': 'Macro 8',
+    'Rastgele (basamaklı)': 'Random (stepped)',
+    'Rastgele (yumuşak)': 'Random (smooth)',
+    'Zaman (testere)': 'Time (ramp)',
+    'Vuruş Fazı': 'Beat Phase',
+    'Ölçü Fazı': 'Bar Phase',
+    'Sabit (1.0)': 'Constant (1.0)',
+    'Diğer': 'Other',
+
+    // Dalga biçimleri
+    'Sinüs': 'Sine', 'Üçgen': 'Triangle', 'Testere ↑': 'Saw Up', 'Testere ↓': 'Saw Down',
+    'Kare': 'Square', 'Darbe': 'Pulse',
+
+    // Eğriler ve kipler
+    'Doğrusal': 'Linear', 'Üstel': 'Exponential', 'Üstel (güçlü)': 'Exponential (strong)',
+    'Logaritmik': 'Logarithmic', 'S Eğrisi': 'S-Curve', 'Yumuşak': 'Eased', 'Mutlak': 'Absolute',
+    'Değeri Belirle': 'Set Value', 'Üstüne Ekle': 'Add To', 'Çarp': 'Multiply',
+
+    // Hedef katalogu grupları ve alan adları
+    'Görsel Nesneler': 'Visual Objects',
+    'Aydınlatma': 'Lighting',
+    'Parlama': 'Glow', 'Kalınlık': 'Thickness', 'Boşluk': 'Gap',
+    'Çizgi Kalınlığı': 'Line Width', 'Tepki': 'Response', 'Ölçek': 'Scale',
+    'Bozulma': 'Distortion', 'Nokta Boyutu': 'Point Size', 'Nabız': 'Pulse',
+    'Yatay': 'Horizontal', 'Dikey': 'Vertical', 'Bas Vurgusu': 'Bass Boost',
+    'Şiddet': 'Strength', 'Renk Kayması': 'Hue Shift', 'Karışım': 'Blend',
+
     // ---- Mobil uzaktan kumanda (yayın sunucusunun servis ettiği sayfa) ----
     'CAYADEV Visualizer — Uzaktan Kumanda': 'CAYADEV Visualizer — Remote Control',
     'CAYADEV Visualizer — Yayın Katmanı': 'CAYADEV Visualizer — Streaming Overlay',
@@ -799,9 +876,20 @@
     Object.entries(EN).map(([key, translated]) => [normalize(key), translated])
   );
 
+  /* Katlanır başlıklar metnin başına ▸/▾ işareti koyuyor. Bunları sözlüğe
+     iki ayrı biçimde yazmak yerine, arama sırasında işaret ayrılıp çeviri
+     sonrasında geri konuyor — yeni bir katlanır bölüm eklendiğinde sözlükte
+     ekstra bir girdi gerekmesin diye. */
+  const MARKER = /^([▸▾▴▾►▼]s*)/;
+
   function translate(value) {
     if (locale === 'tr' || value == null) return String(value == null ? '' : value);
     const raw = String(value);
+    const mark = raw.match(MARKER);
+    if (mark) {
+      const rest = translate(raw.slice(mark[1].length));
+      return mark[1] + rest;
+    }
     const compact = normalize(raw);
     const translated = EN_NORMALIZED[compact];
     if (translated) {

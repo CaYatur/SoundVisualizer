@@ -527,5 +527,9 @@
     return el('div', { class: 'artnet-panel' }, nodes);
   }
 
-  window.SVScenePanels = { layersPanel, effectsPanel, geometryPanel, artnetPanel };
+  window.SVScenePanels = {
+    layersPanel, effectsPanel, geometryPanel, artnetPanel,
+    // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
+    miniSlider, miniSelect, miniToggle, foldable, itemHeader, moveItem,
+  };
 })();

@@ -363,6 +363,27 @@
     }
 
     // Katmanın o karedeki dönüşümü ve saydamlığı
+    /* Çizim anındaki katman nesnesi.
+
+       setConfig() sırasında yakalanan kopya durağandır; opaklık, karışım ve
+       dönüşüm alanları modülasyon matrisi tarafından kare kare
+       değiştirilebildiği için çizimde yapılandırmadaki taze nesne kullanılır.
+       Kimlik önbelleği sayesinde değişmeyen katmanda normalleştirme tekrar
+       çalışmaz. */
+    _live(e, cfg) {
+      const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : null;
+      if (!list || !list.length) return e.layer;
+      let src = null;
+      for (let i = 0; i < list.length; i++) {
+        if (list[i] && list[i].id === e.layer.id) { src = list[i]; break; }
+      }
+      if (!src) return e.layer;
+      if (e._liveSrc === src) return e._liveCache;
+      e._liveSrc = src;
+      e._liveCache = normalizeLayer(src);
+      return e._liveCache;
+    }
+
     _dynamics(layer, audio) {
       const t = layer.transform;
       const a = layer.audio;
@@ -397,7 +418,7 @@
       }
 
       for (const e of this.entries) {
-        const l = e.layer;
+        const l = this._live(e, cfg);
         if (l.kind === 'logo') {
           if (this.logoEl) {
             const d = this._dynamics(l, audio);
@@ -405,7 +426,7 @@
           }
           continue;
         }
-        this._drawEntry(e, audio, cfg, t, dt);
+        this._drawEntry(e, audio, cfg, t, dt, l);
 
         if (this.container && e.canvas) {
           const d = this._dynamics(l, audio);
@@ -418,8 +439,8 @@
     }
 
     // Tek bir katmanı kendi tuvaline çizer (her iki yol da bunu kullanır)
-    _drawEntry(e, audio, cfg, t, dt) {
-      const l = e.layer;
+    _drawEntry(e, audio, cfg, t, dt, live) {
+      const l = live || e.layer;
       const lcfg = layerConfig(cfg, l);
       const W = this.width;
       const H = this.height;
@@ -467,9 +488,9 @@
       ctx.restore();
 
       for (const e of this.entries) {
-        const l = e.layer;
+        const l = this._live(e, cfg);
         if (l.kind === 'logo') { if (drawLogo) drawLogo(ctx); continue; }
-        this._drawEntry(e, audio, cfg, t, dt);
+        this._drawEntry(e, audio, cfg, t, dt, l);
         if (!e.canvas) continue;
 
         const d = this._dynamics(l, audio);

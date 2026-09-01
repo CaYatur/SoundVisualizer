@@ -280,6 +280,8 @@
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
       case 'autovjpanel':
         return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
+      case 'modulationpanel':
+        return window.SVModulationPanel ? window.SVModulationPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1628,6 +1630,15 @@
         title: 'Katmanlar',
         desc: 'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.',
         controls: [{ type: 'layerspanel' }],
+      },
+      {
+        id: 'modulation',
+        category: 'scene',
+        icon: '⇄',
+        wide: true,
+        title: 'Modülasyon Matrisi',
+        desc: 'Herhangi bir kaynağı (bas, LFO, zarf, makro, rastgele, tempo) herhangi bir sayısal ayara bağlayın. Kaydedilen ayarlar değişmez; modülasyon yalnızca çizim anında uygulanır ve dışa aktarımda da birebir çalışır.',
+        controls: [{ type: 'modulationpanel' }],
       },
       {
         id: 'effects',

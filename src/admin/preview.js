@@ -21,6 +21,9 @@
   let sprites = null;
   let media = null;
   let stack = null;
+  // Modülasyon matrisi — önizleme de görselleştirici penceresiyle aynı
+  // modüle edilmiş yapılandırmayı görmeli, yoksa panel yalan söyler
+  const modulator = new window.SVModulation.Modulator();
 
   let raf = 0;
   let lastDraw = 0;
@@ -185,7 +188,10 @@
     if (!live) audio.ingestFrame(buildSyntheticFrame(t));
 
     audio.update();
-    stack.draw(audio, cfg, t, dt);
+    modulator.update(cfg, audio, t, dt);
+    const mcfg = modulator.apply(cfg, dt);
+    if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
+    stack.draw(audio, mcfg, t, dt);
 
     if (logoImg && cfg.logo.enabled && cfg.logo.src) {
       const pulse = 1 + audio.bass * cfg.logo.pulse;
@@ -259,6 +265,8 @@
   window.SVPreview = {
     init,
     setConfig,
+    // Panel canlı modülasyon göstergelerini buradan okur
+    modulator: () => modulator,
     // Studio önizlemesi aynı ses motorunu kullanır: panelde iki ayrı analiz
     // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
     audioEngine: () => audio,

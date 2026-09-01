@@ -69,6 +69,9 @@
   const audio = new window.SVAudio();
   let cfg = null;
   let stack = null;
+  // Modülasyon matrisi. Kaynaklar kare saatinden beslendiği için çevrimdışı
+  // render belirlenimli kalır (aynı iş -> bit bazında aynı video).
+  const modulator = new window.SVModulation.Modulator();
   let postfx = null;
   let sprites = null;
   let logo = null;
@@ -221,8 +224,14 @@
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, sampleRate });
     audio.update();
 
+    // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
+    // aynı iş iki kez çalıştırıldığında bit bazında aynı sonucu verir.
+    modulator.update(cfg, audio, t, dt);
+    const mcfg = modulator.apply(cfg, dt);
+    if (postfx && modulator.touches('postfx')) postfx.setChain(mcfg.postfx || []);
+
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
-    stack.drawTo(compCtx, audio, cfg, t, dt, drawLogo);
+    stack.drawTo(compCtx, audio, mcfg, t, dt, drawLogo);
 
     if (postfx) {
       // Efekt zinciri GPU'da çalışır; sonucu geri okuyabilmek için

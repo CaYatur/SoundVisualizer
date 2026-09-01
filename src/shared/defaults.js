@@ -353,6 +353,47 @@
     // (bkz. shared/tempo.js). Otomatik VJ, ölçü ya da saniye başına sahne,
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // Modülasyon matrisi.
+    //
+    // Herhangi bir kaynağı (ses bandı, LFO, zarf, makro, rastgele, tempo)
+    // herhangi bir sayısal ayara bağlar. Motor src/shared/modulation.js'te;
+    // burada yalnızca kullanıcının kurduğu yönlendirmeler saklanır.
+    //
+    // Yönlendirme alanları:
+    //   source  — kaynak kimliği (SVModulation.catalog())
+    //   target  — noktalı yapılandırma yolu, ör. 'postfx.0.params.strength'
+    //   min/max — hedefin süpürüleceği aralık
+    //   mode    — 'set' | 'add' | 'mul'
+    //   curve   — 'linear' | 'exp' | 'exp3' | 'log' | 'scurve' | 'ease' | 'abs'
+    //   amount  — etki miktarı (0..1)
+    //   smooth  — saniye cinsinden yumuşatma
+    //   steps   — 1'den büyükse değeri basamaklandırır
+    // ------------------------------------------------------------------
+    modulation: {
+      enabled: true,
+      routes: [],
+      bpm: 0, // 0 = tempo motorundan al
+      timeRate: 0.1,
+      lfos: [
+        { shape: 'sine', rate: 0.25, sync: false, division: '1/1', phase: 0, width: 0.25, bipolar: false },
+        { shape: 'triangle', rate: 0.5, sync: false, division: '1/2', phase: 0, width: 0.25, bipolar: false },
+        { shape: 'sawUp', rate: 1, sync: false, division: '1/4', phase: 0, width: 0.25, bipolar: false },
+        { shape: 'smoothRandom', rate: 0.6, sync: false, division: '1/4', phase: 0, width: 0.25, bipolar: false },
+      ],
+      envelopes: [
+        { band: 'bass', attack: 0.02, release: 0.3 },
+        { band: 'treble', attack: 0.01, release: 0.15 },
+      ],
+      macros: [
+        { name: 'Makro 1', value: 0 }, { name: 'Makro 2', value: 0 },
+        { name: 'Makro 3', value: 0 }, { name: 'Makro 4', value: 0 },
+        { name: 'Makro 5', value: 0 }, { name: 'Makro 6', value: 0 },
+        { name: 'Makro 7', value: 0 }, { name: 'Makro 8', value: 0 },
+      ],
+      random: { rate: 1, sync: false, division: '1/1' },
+    },
+
     autovj: {
       enabled: false,
       source: 'scenes', // 'scenes' | 'visualizers' | 'palettes' | 'all'

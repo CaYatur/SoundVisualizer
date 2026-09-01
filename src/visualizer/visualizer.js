@@ -17,6 +17,10 @@
   const media = new window.SVMedia(); // web kamerası / video katmanı
   let mediaOn = false;
 
+  // Modülasyon matrisi: kaynakları kare başına hesaplar ve yapılandırmanın
+  // modüle edilmiş bir KOPYASINI üretir; saklanan ayarlar değişmez.
+  const modulator = new window.SVModulation.Modulator();
+
   const stack = new window.SVLayers.LayerStack(stage, { logoEl: logoImg });
   stack.setSprites(sprites);
   stack.setMedia(media);
@@ -117,7 +121,14 @@
 
     // sessizlikte duraklat (güç tasarrufu)
     const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01;
-    if (!silent) stack.draw(audio, cfg, t, dt);
+    if (!silent) {
+      modulator.update(cfg, audio, t, dt);
+      const mcfg = modulator.apply(cfg, dt);
+      // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
+      // parametrelerin ulaşması ancak zincir yeniden verilerek olur
+      if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
+      stack.draw(audio, mcfg, t, dt);
+    }
 
     // logo nabzı
     if (cfg.logo.enabled && cfg.logo.src) {
