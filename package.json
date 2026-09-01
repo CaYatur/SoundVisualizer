@@ -19,7 +19,9 @@
     "icons": "node scripts/gen-icons.js",
     "dist:win": "node scripts/prepare-runtime.js && node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
     "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
-    "pack:dir": "electron-builder --dir"
+    "pack:dir": "electron-builder --dir",
+    "test": "node --test tests/formulas.test.js tests/tempo.test.js",
+    "smoke": "node scripts/start.js --smoke"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

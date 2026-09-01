@@ -21,6 +21,7 @@
   const MIN_BPM = 60;
   const MAX_BPM = 180;
   const MIN_GAP = 0.22; // s — bundan yakın iki vuruş tek sayılır (~270 BPM tavanı)
+  const BUCKET = 0.005; // s — periyot histogramının kova genişliği (5 ms)
 
   class Tempo {
     constructor() {
@@ -118,42 +119,72 @@
       return fired;
     }
 
-    /* Aralık histogramından BPM. Tüm vuruş ÇİFTLERİ (yalnız ardışık olanlar
-       değil) katkı verir; böylece bir vuruş kaçsa bile ikili/üçlü aralıklar
-       doğru tempoyu destekler. */
+    /* Aralık histogramından BPM.
+
+       Histogram BPM uzayında değil, PERİYOT (saniye) uzayında tutulur.
+       Sebebi ölçümle bulundu: kare kuantizasyonu (60 FPS'te ±17 ms) sabit
+       bir ZAMAN sapması yaratır, ama bu sapma BPM'e çevrildiğinde temponun
+       karesiyle büyür. Sabit genişlikli BPM kovalarında 128 BPM'in oyları
+       124–129 arasına yayılırken 64 BPM'inkiler tek kovada toplanıyor ve
+       yarım tempo kazanıyordu. Periyot uzayında yayılma her tempoda aynı.
+
+       Tüm vuruş ÇİFTLERİ katkı verir (yalnız ardışık olanlar değil); bir
+       vuruş kaçsa bile ikili/üçlü aralıklar doğru tempoyu destekler. */
     _estimate() {
       const b = this.beats;
       if (b.length < 4) return;
-      const buckets = new Float64Array(MAX_BPM - MIN_BPM + 1);
+
+      const minP = 60 / MAX_BPM; // en kısa periyot (en hızlı tempo)
+      const maxP = 60 / MIN_BPM;
+      const nB = Math.ceil((maxP - minP) / BUCKET) + 1;
+      const buckets = new Float64Array(nB);
+
+      // Kare kuantizasyonunu tolere eden simetrik yayma çekirdeği (±15 ms)
+      const KERNEL = [0.25, 0.5, 0.85, 1, 0.85, 0.5, 0.25];
+      const KMID = 3;
+
       for (let i = 0; i < b.length; i++) {
         for (let j = i + 1; j < b.length; j++) {
           const gap = b[j] - b[i];
-          if (gap < 0.2 || gap > 4) continue;
-          // Bu aralığın 1, 2, 3, 4 vuruşa denk gelmesi olasılıklarını dene
+          if (gap < minP * 0.9 || gap > 4) continue;
+          // Bu aralığın 1, 2, 3, 4 vuruşa denk gelme olasılıklarını dene
           for (let mult = 1; mult <= 4; mult++) {
-            const bpm = octaveFold((60 * mult) / gap);
-            if (bpm < MIN_BPM || bpm > MAX_BPM) continue;
-            const idx = Math.round(bpm) - MIN_BPM;
-            // Yakın kovalara da yayarak kestirimi yumuşat
-            for (let k = -1; k <= 1; k++) {
-              const q = idx + k;
-              if (q >= 0 && q < buckets.length) buckets[q] += (k === 0 ? 1 : 0.5) / mult;
+            const period = gap / mult;
+            if (period < minP || period > maxP) continue;
+            const idx = Math.round((period - minP) / BUCKET);
+            for (let k = 0; k < KERNEL.length; k++) {
+              const q = idx + k - KMID;
+              if (q >= 0 && q < nB) buckets[q] += KERNEL[k];
             }
           }
         }
       }
-      let best = 0;
+
+      let best = -1;
       let bestVal = 0;
       let total = 0;
-      for (let i = 0; i < buckets.length; i++) {
+      for (let i = 0; i < nB; i++) {
         total += buckets[i];
         if (buckets[i] > bestVal) { bestVal = buckets[i]; best = i; }
       }
-      if (!bestVal) return;
-      const found = best + MIN_BPM;
+      if (best < 0 || !bestVal) return;
+
+      // Tepe noktasının çevresinden ağırlıklı merkez: kova genişliğinin
+      // altında çözünürlük verir (aksi halde BPM 5 ms adımlarla zıplar).
+      let wsum = 0;
+      let psum = 0;
+      for (let k = -3; k <= 3; k++) {
+        const q = best + k;
+        if (q < 0 || q >= nB) continue;
+        wsum += buckets[q];
+        psum += buckets[q] * (minP + q * BUCKET);
+      }
+      const period = wsum > 0 ? psum / wsum : minP + best * BUCKET;
+      const found = 60 / period;
+
       // Yeni kestirimi yumuşat: tempo aniden zıplamasın
       this.bpm = this.bpm ? this.bpm * 0.7 + found * 0.3 : found;
-      this.confidence = Math.max(0, Math.min(1, bestVal / Math.max(1, total) * 6));
+      this.confidence = Math.max(0, Math.min(1, (bestVal / Math.max(1, total)) * 12));
     }
 
     // Bu karede vuruş oldu mu (sahne geçişleri bunu okur)
