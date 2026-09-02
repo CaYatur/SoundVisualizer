@@ -814,7 +814,7 @@ ipcMain.handle('presets:import-text', async () => {
     title: trUi('Shader / Preset İçe Aktar', 'Import Shader / Preset'),
     properties: ['openFile'],
     filters: [
-      { name: trUi('Shader ve preset dosyaları', 'Shader and preset files'), extensions: ['glsl', 'fs', 'frag', 'txt', 'milk', 'json', 'svpreset', 'svpack'] },
+      { name: trUi('Shader, preset ve söz dosyaları', 'Shader, preset and lyrics files'), extensions: ['glsl', 'fs', 'frag', 'txt', 'milk', 'json', 'svpreset', 'svpack', 'lrc', 'srt'] },
       { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
     ],
   });

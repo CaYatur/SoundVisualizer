@@ -359,6 +359,44 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // Metin ve şarkı sözü katmanı.
+    //
+    // Yazı ölçüsü ekranın KISA kenarına orandır: aynı sahne 1080p monitörde
+    // ve 4K projektörde aynı görünsün diye. Piksel vermek çözünürlük
+    // değişince yazıyı kaybettirirdi.
+    // ------------------------------------------------------------------
+    text: {
+      enabled: true,
+      source: 'static', // 'static' | 'lyrics' | 'now'
+      content: 'CAYADEV',
+      font: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+      size: 0.09,       // kısa kenara oran
+      weight: 700,
+      align: 'center',
+      x: 0.5,
+      y: 0.5,
+      opacity: 1,
+      outline: 0.2,
+      shadow: 0.4,
+      useCustomColor: false,
+      color: '#ffffff',
+      colorHighlight: '#ffd23f',
+      animation: 'fade', // 'none' | 'fade' | 'slideUp' | 'slideLeft' | 'scale'
+      animDuration: 0.45,
+      audioScale: 0.12,
+      audioJitter: 0,
+      audioLift: 0.25,
+      perCharacter: false,
+      marquee: false,
+      marqueeSpeed: 0.12,
+      karaoke: true,
+      offset: 0,        // söz senkron düzeltmesi (sn)
+      lyricsSource: '', // LRC/SRT dosya içeriği
+      lyricsName: '',
+      nowPlaying: { title: '', artist: '' },
+    },
+
+    // ------------------------------------------------------------------
     // Canlı kayıt.
     //
     // Çevrimdışı dışa aktarıcıdan farklı: sahneyi yeniden çizmez, ekranda

@@ -519,3 +519,16 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+
+/* ===== Metin paneli ===== */
+.txt-panel { display: flex; flex-direction: column; gap: 8px; }
+.txt-area {
+  width: 100%;
+  resize: vertical;
+  min-height: 46px;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.txt-info { margin-left: auto; font-size: 11px; color: var(--muted, rgba(255,255,255,0.62)); }

@@ -294,6 +294,8 @@
         return window.SVRecordPanel ? window.SVRecordPanel.panel() : null;
       case 'templatepanel':
         return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
+      case 'textpanel':
+        return window.SVTextPanel ? window.SVTextPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1628,6 +1630,8 @@
               { value: 'dna', label: 'DNA Sarmalı' },
               { value: 'isocity', label: 'İzometrik Şehir' },
               { value: 'attractorfield', label: 'Çekici Alanı' },
+              { group: 'Metin' },
+              { value: 'text', label: 'Metin / Şarkı Sözü' },
               { group: 'Ölçüm' },
               { value: 'scope', label: 'Osiloskop (XY)' },
               { value: 'goniometer', label: 'Gonyometre' },
@@ -1709,6 +1713,15 @@
         title: 'Ses Çözümlemesi',
         desc: 'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.',
         controls: [{ type: 'analysispanel' }],
+      },
+      {
+        id: 'text',
+        category: 'scene',
+        icon: '🅣',
+        title: 'Metin ve Şarkı Sözü',
+        desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
+        controls: [{ type: 'textpanel' }],
+        show: () => v.type === 'text',
       },
       {
         id: 'milkdrop',
