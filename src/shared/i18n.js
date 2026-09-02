@@ -767,6 +767,23 @@
 
     'Mono Kırmızı': 'Mono Red', 'Mono Mavi': 'Mono Blue', 'Mono Yeşil': 'Mono Green',
     'Mono Mor': 'Mono Purple', 'Mono Turuncu': 'Mono Orange', 'Gri Tonlama': 'Grayscale',
+    // ---- Üretken arkaplanlar ----
+    'Üretken Zeminler': 'Generative Grounds',
+    'Sıvı Metal': 'Liquid Metal',
+    'Plazma': 'Plasma',
+    'Su Yüzeyi': 'Caustics',
+    'Şeritler': 'Ribbons',
+    'Eşyükselti': 'Contours',
+    'Dalga Alanı': 'Wave Field',
+    'Kıvılcım': 'Embers',
+    'Kum': 'Sand',
+    'Vitray': 'Stained Glass',
+    'Devre Kartı': 'Circuit Board',
+    'Prizma': 'Prism',
+    'Küre Ağı': 'Globe Mesh',
+    'Tel Tüneli': 'Wire Tunnel',
+    'Petek Nabzı': 'Hex Pulse',
+
     // ---- Son-işlem efektleri (ikinci bölüm) ----
     'Bulanıklık (Gauss)': 'Blur (Gaussian)',
     'Işınsal Bulanıklık': 'Radial Blur',

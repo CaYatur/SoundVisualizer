@@ -137,7 +137,13 @@
         ['hexgrid', 'Petek Izgara'], ['mosaic', 'Mozaik'], ['corridor', 'Koridor'],
         ['spiral', 'Sarmal'], ['rings', 'Nabız Halkaları'], ['network', 'Ağ'],
         ['starfield', 'Yıldız Alanı'], ['snow', 'Kar / Kor'], ['bokeh', 'Işık Parçacıkları'],
-        ['rain', 'Dijital Yağmur'], ['city', 'Şehir'], ['custom', 'Studio Preset'], ['solid', 'Düz Renk'],
+        ['rain', 'Dijital Yağmur'], ['city', 'Şehir'],
+        ['liquid', 'Sıvı Metal'], ['plasma', 'Plazma'], ['caustics', 'Su Yüzeyi'],
+        ['ribbons', 'Şeritler'], ['contours', 'Eşyükselti'], ['wavefield', 'Dalga Alanı'],
+        ['embers', 'Kıvılcım'], ['sand', 'Kum'], ['stained', 'Vitray'],
+        ['circuit', 'Devre Kartı'], ['prism', 'Prizma'], ['globe', 'Küre Ağı'],
+        ['wireframe', 'Tel Tüneli'], ['hexpulse', 'Petek Nabzı'],
+        ['custom', 'Studio Preset'], ['solid', 'Düz Renk'],
       ];
     }
     if (kind === 'visualizer') {
