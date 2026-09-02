@@ -60,8 +60,8 @@ covered by a test or by the GPU self-test.
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
 | Automated tests | ❌ | ◐ | ✅ | ✅✅ | **703** unit tests + a GPU self-test over every engine |
-| Timeline | ❌ | ❌ | ❌ | ✅ | Tracks, clips, automation lanes, markers, one shared transport |
-| Clip deck | ❌ | ❌ | ❌ | ✅ | Sparse grid, beat-quantised launch, follow actions, performance view |
+| Timeline | ❌ | ❌ | ❌ | ◐ | Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
+| Clip deck | ❌ | ❌ | ❌ | ◐ | Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ✅ | Recovery and an Esc lock, both off by default |
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
