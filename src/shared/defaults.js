@@ -247,7 +247,7 @@
       // 0 = ekranla eşitle (her yenilemede bir kare). En akıcı sonuç budur:
       // ekranın yenileme hızının tam böleni olmayan bir sınır (75 Hz'de 60 gibi)
       // kare aralıklarını eşitsizleştirir.
-      fpsCap: 120, // 0(ekranla eşitle) | 30 | 60 | 120
+      fpsCap: 0, // 0(ekranla eşitle — varsayılan) | 30 | 60 | 120
       renderScale: 1.0, // arkaplan çözünürlük ölçeği (0.5..1)
       pauseOnSilence: false,
       hideCursor: true,

@@ -465,6 +465,12 @@
     '▶ Ekranları Uygula': '▶ Apply Displays',
     '🌑 Karart': '🌑 Blackout',
     '☀ Karartmayı Kaldır': '☀ Undo Blackout',
+    'Karartma (Blackout) Geçişi': 'Blackout Transition',
+    'Ekranla Eşitle varsayılandır: kare hızı ekranınızdan otomatik gelir, elle ayarlamak gerekmez. Yenileme hızınızın tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapar. Panel önizlemesi ayrıca 45 FPS ile sınırlıdır; akıcılığı görselleştirici penceresinden değerlendirin.': 'Match Display is the default: the frame rate comes from your screen automatically, with nothing to set by hand. A limit that is not an exact divisor of your refresh rate (such as 60 on a 75 Hz screen) makes frame intervals uneven. The panel preview is separately capped at 45 FPS, so judge smoothness from the visualizer window.',
+    'Karartma Süresi': 'Blackout Duration',
+    'Karartma Animasyonu': 'Blackout Animation',
+    'Gökkuşağı': 'Rainbow',
+    'Möbius': 'Mobius',
     'Sahneyi karart (tekrar basınca geri gelir)': 'Black out the scene (press again to restore)',
     'Birden fazla ekran seçerseniz görselleştirme hepsinde aynı anda açılır. ESC hepsini kapatır.': 'If you select more than one display, the visualization opens on all of them at once. ESC closes them all.',
     'Seçtiğiniz her ekranda ayrı bir tam ekran görselleştirme açılır. ESC hepsini kapatır.': 'A separate full-screen visualization opens on each display you select. ESC closes them all.',
@@ -749,7 +755,7 @@
     'Harmonograf': 'Harmonograph', 'Simit Düğümü': 'Torus Knot', 'Sarmal (Helis)': 'Helix',
     'Viviani Eğrisi': 'Viviani Curve', 'Yonca Düğümü': 'Trefoil Knot',
     'Düzlem': 'Plane', 'Küre': 'Sphere', 'Simit (Torus)': 'Torus', 'Klein Şişesi': 'Klein Bottle',
-    'Möbius Şeridi': 'Möbius Strip', 'Süperşekil (3B Gielis)': 'Supershape (3D Gielis)',
+    'Möbius Şeridi': 'Mobius Strip', 'Süperşekil (3B Gielis)': 'Supershape (3D Gielis)',
     'Deniz Kabuğu': 'Seashell', 'Boy Yüzeyi': "Boy's Surface", 'Dini Yüzeyi': 'Dini Surface',
     'Küresel Harmonik': 'Spherical Harmonic', 'Chladni Deseni': 'Chladni Pattern',
     'Dalga Yüzeyi': 'Ripple Surface',
@@ -1566,6 +1572,20 @@
       const trailing = raw.match(/\s*$/)?.[0] || '';
       return `${leading}${translated}${trailing}`;
     }
+
+    /* Birleşik etiketler.
+
+       Katman ve efekt başlıkları çalışma anında parçalardan kuruluyor:
+       "Görselleştirici · Barlar", "＋ Görsel Nesneler", "1. Eşikleme".
+       Bütün birleşimleri sözlüğe yazmak kombinatoryal olurdu; onun yerine
+       ayırıcıdan bölünüp parçalar ayrı ayrı çevriliyor. Sözlükte tam
+       karşılığı olan bir metin buraya hiç gelmez, yukarıda yakalanır. */
+    const seg = raw.match(/^(.+?) · (.+)$/);
+    if (seg) return translate(seg[1]) + ' · ' + translate(seg[2]);
+    const plus = raw.match(/^(＋|\+)\s*(.+)$/);
+    if (plus) return plus[1] + ' ' + translate(plus[2]);
+    const numbered = raw.match(/^(\d+)\.\s+(.+)$/);
+    if (numbered) return numbered[1] + '. ' + translate(numbered[2]);
     return raw
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
@@ -1596,6 +1616,7 @@
       .replace(/^Kaydedilemedi: /g, 'Could not save: ')
       .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
       .replace(/^(\d+) FPS$/g, '$1 FPS')
+      .replace(/^Bulunan ekran hızı: (.+)$/g, 'Detected screen refresh rate: $1')
       .replace(/^(.*) \(kopya\)$/, (m, base) => (EN_NORMALIZED[normalize(base)] || base) + ' (copy)')
       .replace(/^(\d+) kayıtlı$/g, '$1 saved')
       .replace(/^(\d+) (sahne|şablon|preset|dilim)$/g, (m, n, word) => {

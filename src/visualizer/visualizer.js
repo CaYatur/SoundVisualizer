@@ -43,6 +43,7 @@
 
   let raf = 0;
   let lastDraw = 0;
+  let painted = false; // ilk kare ana sürece bildirildi mi
   let lastRaf = 0;
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
@@ -164,8 +165,12 @@
 
     audio.update(dt);
 
-    // sessizlikte duraklat (güç tasarrufu)
-    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01;
+    /* Sessizlikte duraklat (güç tasarrufu).
+
+       Sahne geçişi sürerken duraklamak yok: geçiş ilerlemesini çizim
+       karesi taşıyor. Karartma en çok müzik durduğunda kullanılıyor ve
+       duraklama tam o anda panik düğmesini işlevsiz bırakıyordu. */
+    const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans;
     if (!silent) {
       modulator.update(cfg, audio, t, dt);
       const mcfg = modulator.apply(cfg, dt);
@@ -174,6 +179,15 @@
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       stack.draw(audio, mcfg, t, dt);
       applyMapping(mcfg);
+      /* İlk gerçek kare çizildi. Ana süreç pencereyi ancak şimdi gösterir;
+         boyanmamış bir pencereyi göstermek açılışta beyaz parlamaya yol
+         açıyordu. Bir kare daha bekleniyor ki kompozitör gerçekten sunsun. */
+      if (!painted) {
+        painted = true;
+        requestAnimationFrame(() => {
+          try { window.api.sendMessage({ type: 'painted' }); } catch { /* pencere kapanmış */ }
+        });
+      }
     }
 
     // logo nabzı

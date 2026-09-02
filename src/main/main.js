@@ -117,6 +117,8 @@ function getDisplayList() {
     bounds: d.bounds,
     size: d.size,
     scaleFactor: d.scaleFactor,
+    // Kare hizi ayarinin "Ekranla Esitle" secenegi bunu gosterir
+    refreshRate: Math.round(d.displayFrequency || 0),
     isPrimary: d.id === primary.id,
     isInternal: d.internal,
   }));
@@ -251,12 +253,35 @@ function createVisualizerWindow(display) {
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   attachSmoke(win, 'VIS');
 
-  win.once('ready-to-show', () => {
-    if (win.isDestroyed()) return;
-    win.setBounds(b);
-    win.setFullScreen(true);
+  /* Pencereyi GÖRÜNTÜ HAZIR OLUNCA göster.
+
+     'ready-to-show' yalnızca belgenin hazır olduğunu söyler; sahnenin ilk
+     karesi henüz çizilmiş olmayabilir. Ayrıca pencere zaten tam ekran ve
+     doğru ekranın sınırlarında doğuyor (fullscreen + x/y/width/height);
+     gösterim anında setBounds/setFullScreen çağırmak Windows'ta pencere
+     biçemini yeniden kurar ve boyanmamış tek bir kare beyaz parlar.
+     Bu yüzden o çağrılar yalnızca pencere gerçekten yanlış yerdeyse yapılır.
+
+     Görselleştirici ilk karesini çizince 'painted' bildirir; bildirim
+     gelmezse (ses yok, hata var) kısa bir süre sonra yine de gösterilir —
+     ekranın hiç açılmaması parlamadan kötüdür. */
+  let shown = false;
+  const reveal = () => {
+    if (shown || win.isDestroyed()) return;
+    shown = true;
+    const cur = win.getBounds();
+    if (cur.x !== b.x || cur.y !== b.y || cur.width !== b.width || cur.height !== b.height) {
+      win.setBounds(b);
+    }
+    if (!win.isFullScreen()) win.setFullScreen(true);
     win.show();
     applyAlwaysOnTop();
+  };
+  win.__svReveal = reveal;
+
+  win.once('ready-to-show', () => {
+    if (win.isDestroyed()) return;
+    setTimeout(reveal, 700); // ilk kare gelmezse yine de aç
   });
 
   // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
@@ -315,8 +340,12 @@ function openVisualizer(displayIds) {
     const existing = visualizerWins.get(id);
     if (existing && !existing.isDestroyed()) {
       // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
-      existing.setBounds(display.bounds);
-      existing.setFullScreen(true);
+      const cur = existing.getBounds();
+      const nb = display.bounds;
+      if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
+        existing.setBounds(nb);
+      }
+      if (!existing.isFullScreen()) existing.setFullScreen(true);
       existing.show();
     } else {
       createVisualizerWindow(display);
@@ -646,6 +675,12 @@ ipcMain.on('audio-meter', (e, data) => {
 // Görselleştirici -> admin (durum/hata bilgisi)
 ipcMain.on('visualizer-message', (e, msg) => {
   if (SMOKE) console.log('[VIS-MSG] ' + JSON.stringify(msg));
+  // İlk kare çizildi: pencere ancak şimdi gösterilir (bkz. reveal)
+  if (msg && msg.type === 'painted') {
+    const w = BrowserWindow.fromWebContents(e.sender);
+    if (w && !w.isDestroyed() && typeof w.__svReveal === 'function') w.__svReveal();
+    return;
+  }
   notifyAdmin('visualizer-message', msg);
 });
 
@@ -1954,6 +1989,20 @@ async function runSmoke() {
         errors.push('section roots not in defaults: ' + rootCheck.bad.join(', '));
       }
     }
+
+    /* Mantıksal öznitelikler. el() disabled:false'u disabled="false" diye
+       yazıyordu ve HTML'de bu öznitelik VARLIĞIYLA etki ettiği için Kayıt,
+       Anlık Görüntü ve MilkDrop içe aktarma düğmeleri hep pasif doğuyordu. */
+    const boolCheck = await awc.executeJavaScript(
+      '(function(){ var api = window.SVAdminDebug; if (!api || !api.checkBoolAttrs) return { skip: true };' +
+      'return api.checkBoolAttrs(); })()'
+    );
+    if (boolCheck && !boolCheck.skip) {
+      const ok = boolCheck.offDisabled === false && boolCheck.onDisabled === true &&
+        boolCheck.boxChecked === false && boolCheck.offHasAttr === false;
+      console.log('[SMOKE] mantıksal öznitelikler: ' + (ok ? 'doğru' : JSON.stringify(boolCheck)));
+      if (!ok) errors.push('boolean attributes broken: ' + JSON.stringify(boolCheck));
+    }
     // Studio: yeni shader oluştur, derlensin
     await awc.executeJavaScript(
       "(function(){var i=Array.from(document.querySelectorAll('.nav-item .nav-label')).findIndex(function(n){return n.textContent.indexOf('Studio')>=0;});" +
@@ -2004,15 +2053,30 @@ async function runSmoke() {
   // --- Karartma düğmesi ---
   if (adminWin && !adminWin.isDestroyed()) {
     const awc2 = adminWin.webContents;
+    /* Geri yükleme, sahnenin KARARTMADAN ÖNCEKİ haliyle karşılaştırılır.
+
+       Önceki sürüm "arkaplan artık solid değilse geri gelmiştir" diyordu;
+       oysa öz test bu noktaya düz renk arkaplanlı bir sahneyle geliyor ve
+       doğru çalışan geri yükleme de solid döndürüyordu. Test, uygulamada
+       olmayan bir hatayı bildiriyordu. */
+    const snap = () => (currentConfig
+      ? currentConfig.background.type + '/' + (currentConfig.background.solidColor || '-') +
+        '/' + currentConfig.visualizer.type
+      : 'yok');
+    const pre = snap();
     const before = await awc2.executeJavaScript(
       "(function(){var b=document.getElementById('blackoutBtn'); if(!b) return null; b.click(); return true;})()"
     );
     await wait(400);
-    const dark = currentConfig && currentConfig.background.type === 'solid' && currentConfig.visualizer.type === 'none';
+    const dark = currentConfig && currentConfig.background.type === 'solid' &&
+      currentConfig.background.solidColor === '#000000' && currentConfig.visualizer.type === 'none' &&
+      currentConfig.isBlackout === true;
     await awc2.executeJavaScript("document.getElementById('blackoutBtn').click()");
     await wait(400);
-    const restored = currentConfig && currentConfig.background.type !== 'solid' && currentConfig.visualizer.type !== 'none';
-    console.log('[SMOKE] blackout: karart=' + dark + ' geriyükle=' + restored);
+    const post = snap();
+    const restored = post === pre && currentConfig.isBlackout !== true;
+    console.log('[SMOKE] blackout: karart=' + dark + ' geriyükle=' + restored +
+      ' (' + pre + ' -> ' + post + ')');
     if (!before) errors.push('blackout button missing');
     else if (!dark) errors.push('blackout did not darken the scene');
     else if (!restored) errors.push('blackout did not restore the scene');

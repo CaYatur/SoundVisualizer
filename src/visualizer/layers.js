@@ -409,7 +409,11 @@
         ? (spec && spec.blackoutDuration != null ? spec.blackoutDuration : 0.4)
         : (T ? T.durationSeconds(cfg, this.bpm || (spec && spec.bpm || 0)) : 0.7);
 
-      if (T && spec && spec.enabled !== false && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
+      /* Karartmanın kendi animasyon türü ve süresi var; genel geçiş anahtarı
+         kapalıyken de çalışmalı. Aksi halde “Karartma Animasyonu” ayarı
+         sessizce yok sayılır ve panik düğmesi kesme yapar. */
+      const transOn = isBlackoutTrans || (spec && spec.enabled !== false);
+      if (T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
           this.lastSig && scnSig !== this.lastSig && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
           type: transType,
@@ -899,6 +903,15 @@
       ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = 1;
       ctx.clearRect(0, 0, W, H);
+      /* Çizilecek katman yoksa yüzey SAYDAM kalırdı. Karartma tam bunu
+         üretir: bütün katmanlar kapanır, geçişin varış sahnesi saydam olur
+         ve çapraz geçiş görünürde hiçbir şey yapmaz — süre dolunca sahne
+         birden kararır. Kompozisyonun zemini siyahtır; saydam yayın kipi
+         bunun tek istisnasıdır. */
+      if (!this.entries.length && !(cfg && cfg.background && cfg.background.type === 'transparent')) {
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+      }
       ctx.restore();
 
       for (const e of this.entries) {

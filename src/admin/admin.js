@@ -40,6 +40,21 @@
 
   const $ = (id) => document.getElementById(id);
 
+  /* Ekran yenileme hızı. "Ekranla Eşitle" seçildiğinde hızın nereden
+     geldiği görünmüyordu; kullanıcı ayarın işe yarayıp yaramadığını
+     anlayamıyordu. Bulunan hız hem seçeneğe hem de nota yazılıyor. */
+  function refreshRates() {
+    const ids = selectedDisplayIds && selectedDisplayIds.length ? selectedDisplayIds : null;
+    const use = ids ? displays.filter((d) => ids.includes(Number(d.id))) : displays;
+    const list = (use.length ? use : displays).map((d) => d.refreshRate).filter((r) => r > 0);
+    return Array.from(new Set(list)).sort((a, b) => a - b);
+  }
+  function refreshNote() {
+    const r = refreshRates();
+    if (!r.length) return '';
+    return 'Bulunan ekran hızı: ' + r.join(' Hz, ') + ' Hz.';
+  }
+
   // --------------------------------------------------------------------------
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
@@ -152,6 +167,12 @@
   // --------------------------------------------------------------------------
   // DOM yardımcısı
   // --------------------------------------------------------------------------
+  /* Değer değil VARLIK taşıyan öznitelikler (bkz. el()) */
+  const BOOL_ATTRS = {
+    disabled: 1, checked: 1, selected: 1, readonly: 1, multiple: 1,
+    hidden: 1, required: 1, open: 1, autofocus: 1, novalidate: 1,
+  };
+
   function el(tag, props, kids) {
     const e = document.createElement(tag);
     if (props) {
@@ -161,7 +182,14 @@
         else if (k === 'text') e.textContent = props[k];
         else if (k.startsWith('on') && typeof props[k] === 'function')
           e.addEventListener(k.slice(2), props[k]);
-        else e.setAttribute(k, props[k]);
+        /* Mantıksal öznitelikler: HTML'de VARLIKLARI belirleyicidir, değerleri
+           değil. setAttribute('disabled', false) öğeyi disabled="false" yapar
+           ve düğmeyi KAPATIR. Kayıt/Anlık Görüntü düğmeleri ile MilkDrop içe
+           aktarma düğmesi tam bu yüzden hep pasif kalıyordu. */
+        else if (BOOL_ATTRS[k]) {
+          if (props[k]) e.setAttribute(k, '');
+          else e.removeAttribute(k);
+        } else e.setAttribute(k, props[k]);
       }
     }
     (kids || []).forEach((c) => c && e.appendChild(c));
@@ -315,7 +343,9 @@
       case 'grouppanel':
         return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
       case 'note':
-        return el('div', { class: 'ctrl settings-io-note', text: def.text });
+        // Metin işlev olabilir: içerik çizim anında hesaplanır (ör. ekran hızı)
+        return el('div', { class: 'ctrl settings-io-note',
+          text: typeof def.text === 'function' ? def.text() : def.text });
       case 'scenes':
         return scenesCtrl(def);
       case 'displaypicker':
@@ -2023,7 +2053,13 @@
           },
           {
             type: 'note',
-            text: 'Ekranla Eşitle, her ekran yenilemesinde bir kare çizer; en akıcı sonucu verir. Ekranınızın yenileme hızının tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapabilir.',
+            text: 'Ekranla Eşitle varsayılandır: kare hızı ekranınızdan otomatik gelir, elle ayarlamak gerekmez. Yenileme hızınızın tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapar. Panel önizlemesi ayrıca 45 FPS ile sınırlıdır; akıcılığı görselleştirici penceresinden değerlendirin.',
+          },
+          {
+            // Bulunan hız ayrı not: sözlükte kalıp olarak çevrilir
+            type: 'note',
+            text: () => refreshNote(),
+            show: () => refreshRates().length > 0,
           },
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true , noExtend: true },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
@@ -3651,6 +3687,24 @@
         if (sectionPaths(sec).length) resettable++;
       });
       return { bad, withRoots, resettable };
+    },
+
+    /* Mantıksal öznitelik denetimi.
+
+       el() bir zamanlar setAttribute('disabled', false) çağırıyordu; HTML'de
+       bu özniteliğin VARLIĞI belirleyici olduğu için düğme disabled="false"
+       ile KAPALI doğuyordu. Kayıt, Anlık Görüntü ve MilkDrop içe aktarma
+       düğmeleri hiç çalışmadı. Öz test bunu gerçek DOM'da doğruluyor. */
+    checkBoolAttrs() {
+      const off = el('button', { disabled: false, text: 'x' });
+      const on = el('button', { disabled: true, text: 'x' });
+      const box = el('input', { type: 'checkbox', checked: false });
+      return {
+        offDisabled: off.disabled,   // false olmalı
+        onDisabled: on.disabled,     // true olmalı
+        boxChecked: box.checked,     // false olmalı
+        offHasAttr: off.hasAttribute('disabled'),
+      };
     },
   };
 
