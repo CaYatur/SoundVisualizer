@@ -17,7 +17,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const cols = Math.max(8, v.barCount | 0);
-      const bars = audio.getBars(cols, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(cols, v.minFreq, v.maxFreq, v.spectrum);
       if (!this.peaks || this.peaks.length !== cols) this.peaks = new Float32Array(cols);
       ctx.clearRect(0, 0, W, H);
 

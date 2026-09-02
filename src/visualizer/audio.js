@@ -24,6 +24,8 @@
 
       this.cfg = { sensitivity: 1.4, smoothing: 0.65, bassBoost: 1.0 };
       this._barsCache = {};
+      this._engines = {};
+      this._dt = 1 / 60;
       this.ready = false;
       this.lastFrameTs = 0;
 
@@ -53,6 +55,7 @@
         this.sampleRate = frame.sampleRate;
         this.binHz = this.sampleRate / FFT_SIZE;
         this._barsCache = {};
+        this._engines = {};
       }
       this.ready = true;
       this.lastFrameTs = performance.now();
@@ -62,6 +65,7 @@
     // sabitleri buna dayanır (kare hızından bağımsızlık).
     update(dt) {
       if (!this.ready) return;
+      this._dt = dt > 0 ? dt : 1 / 60;
       const sens = this.cfg.sensitivity || 1;
       const boost = this.cfg.bassBoost || 1;
       const sm = Math.max(0, Math.min(0.95, this.cfg.smoothing));
@@ -94,8 +98,12 @@
       this.treble = smooth(this.treble, treble, 0.6, 0.2);
       this.level = smooth(this.level, lvl, 0.55, 0.12);
 
+      /* Zaman alanı her karede -1..1'e çevriliyor. Eskiden yalnızca derin
+         çözümleme açıkken yapılıyordu; artık bar motorunun Goertzel yolu da
+         buna dayandığı için koşulsuz. Maliyeti 2048 çarpma. */
+      for (let i = 0; i < t.length; i++) this._timeF[i] = (t[i] - 128) / 128;
+
       if (this.analysis && this._analysisOn) {
-        for (let i = 0; i < t.length; i++) this._timeF[i] = (t[i] - 128) / 128;
         // Yumuşatılmamış tayf verilir: çözümleme kendi zaman sabitlerini
         // uyguluyor, iki kez yumuşatmak tepkiyi gereksiz körelttirdi
         this.analysis.update(this.rawSpectrum(), this._timeF, dt || 1 / 60);
@@ -128,12 +136,56 @@
       return c ? Math.min(1, (s / c) * 1.15) : 0;
     }
 
-    // Logaritmik bar dizisi (0..1). Her bar = bir frekans bandı.
-    getBars(count, minFreq, maxFreq) {
+    /* Bar dizisi (0..1). Her bar bir frekans bandını temsil eder.
+
+       Hesap src/shared/spectrum.js'te; buradaki iş yalnızca doğru kaynağı ve
+       ayarları ona vermek. Motor bar düzeni başına ayrı tutuluyor çünkü
+       balistik durumu (her barın o anki yüksekliği) düzene bağlı: aynı motoru
+       farklı bar sayılarıyla paylaşmak barları birbirinin geçmişiyle
+       sürüklerdi. */
+    getBars(count, minFreq, maxFreq, opts) {
+      const S = window.SVSpectrum;
+      const n = Math.max(1, count | 0);
+      if (!S) return this._legacyBars(n, minFreq, maxFreq);
+
+      const o = S.normalise(Object.assign({}, opts, {
+        count: n,
+        minFreq: minFreq,
+        maxFreq: Math.min(maxFreq, this.sampleRate / 2),
+        dt: this._dt || 1 / 60,
+      }));
+      const key = [n, o.minFreq, o.maxFreq, o.scale].join(':');
+      let eng = this._engines[key];
+      if (!eng) {
+        eng = new S.BarEngine();
+        this._engines[key] = eng;
+      }
+      return eng.compute(
+        { spec: this.freq, binHz: this.binHz, time: this._timeF, sampleRate: this.sampleRate },
+        o
+      );
+    }
+
+    /* Tayf modülü yüklenmemişse (yalın gömme senaryoları) eski davranış.
+       Düşük barları kilitleyen kusuru vardır ama hiç bar çizmemekten iyidir. */
+    _legacyBars(count, minFreq, maxFreq) {
       const key = count + ':' + minFreq + ':' + maxFreq;
       let cache = this._barsCache[key];
       if (!cache || cache.out.length !== count) {
-        cache = this._buildBarMap(count, minFreq, maxFreq);
+        const ranges = [];
+        const nyq = this.sampleRate / 2;
+        const lminF = Math.log(Math.max(20, minFreq));
+        const lmaxF = Math.log(Math.min(maxFreq, nyq));
+        for (let b = 0; b < count; b++) {
+          const f0 = Math.exp(lminF + ((lmaxF - lminF) * b) / count);
+          const f1 = Math.exp(lminF + ((lmaxF - lminF) * (b + 1)) / count);
+          let i0 = Math.floor(f0 / this.binHz);
+          let i1 = Math.max(i0, Math.floor(f1 / this.binHz) - 1);
+          i0 = Math.max(0, Math.min(i0, this.freq.length - 1));
+          i1 = Math.max(i0, Math.min(i1, this.freq.length - 1));
+          ranges.push([i0, i1]);
+        }
+        cache = { ranges, out: new Float32Array(count), smoothArr: new Float32Array(count) };
         this._barsCache[key] = cache;
       }
       const { ranges, out, smoothArr } = cache;
@@ -152,27 +204,6 @@
         out[b] = smoothArr[b];
       }
       return out;
-    }
-
-    _buildBarMap(count, minFreq, maxFreq) {
-      const ranges = [];
-      const nyq = this.sampleRate / 2;
-      const lminF = Math.log(Math.max(20, minFreq));
-      const lmaxF = Math.log(Math.min(maxFreq, nyq));
-      for (let b = 0; b < count; b++) {
-        const f0 = Math.exp(lminF + ((lmaxF - lminF) * b) / count);
-        const f1 = Math.exp(lminF + ((lmaxF - lminF) * (b + 1)) / count);
-        let i0 = Math.floor(f0 / this.binHz);
-        let i1 = Math.max(i0, Math.floor(f1 / this.binHz) - 1);
-        i0 = Math.max(0, Math.min(i0, this.freq.length - 1));
-        i1 = Math.max(i0, Math.min(i1, this.freq.length - 1));
-        ranges.push([i0, i1]);
-      }
-      return {
-        ranges,
-        out: new Float32Array(count),
-        smoothArr: new Float32Array(count),
-      };
     }
   }
 

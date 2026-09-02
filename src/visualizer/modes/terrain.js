@@ -30,7 +30,7 @@
       this.acc += (dt || 0.016) * 26;
       if (this.acc >= 1) {
         this.acc -= Math.floor(this.acc);
-        const bars = audio.getBars(COLS, v.minFreq, v.maxFreq);
+        const bars = audio.getBars(COLS, v.minFreq, v.maxFreq, v.spectrum);
         const row = new Float32Array(COLS);
         for (let i = 0; i < COLS; i++) {
           // simetrik: bas ortada, tizler kenarlara

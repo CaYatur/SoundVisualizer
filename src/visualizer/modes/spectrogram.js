@@ -33,7 +33,7 @@
       const v = cfg.visualizer;
       const rows = Math.max(24, Math.min(256, v.barCount | 0 || 96));
       this._ensure(rows);
-      const bars = audio.getBars(rows, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(rows, v.minFreq, v.maxFreq, v.spectrum);
 
       // Kaydırma hızı kare hızından bağımsız olsun diye zamana göre birikir
       this.acc += (dt || 0.016) * 62;

@@ -205,6 +205,22 @@
       gap: 0.36, // barlar arası boşluk oranı
       position: 'center', // 'bottom' | 'center' | 'full' (bars için)
       thickness: 0.42, // dalga/çember için
+
+      /* Tayf ölçümü — bar tabanlı modların hepsi buradan okur.
+
+         Varsayılanlar eski görünüşü korur (log ölçek, doğrusal genlik,
+         yayılım kapalı); değişen tek şey barların artık aynı FFT kutusunu
+         paylaşmaması. Ayrıntı için src/shared/spectrum.js. */
+      spectrum: {
+        scale: 'log', // 'log' | 'linear' | 'mel' | 'bark'
+        amplitude: 'linear', // 'linear' | 'db'
+        floorDb: -60, // dB kipinde taban
+        tilt: 0, // oktav başına dB; tiz ucu kaldırmak için
+        attack: 0.02, // saniye — yükselme zaman sabiti
+        release: 0.16, // saniye — düşme zaman sabiti
+        spread: 0, // komşu yayılımı 0..0.95
+        exact: true, // dar bantlarda Goertzel ile kesin ölçüm
+      },
     },
 
     logo: {

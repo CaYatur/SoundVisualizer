@@ -337,7 +337,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const sens = v.sensitivity || 1;
-      const bars = audio.getBars(this.N, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(this.N, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       // Tohum noktaları yavaşça gezer; bant enerjisi onları merkezden iter
@@ -431,7 +431,7 @@
         }
       }
 
-      const bars = audio.getBars(cols, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(cols, v.minFreq, v.maxFreq, v.spectrum);
       const lw = Math.max(1.5, size * 0.16 * (0.4 + v.thickness));
       ctx.lineCap = 'round';
       for (let r = 0; r < rows; r++) {
@@ -551,7 +551,7 @@
         this.ictx = this.img.getContext('2d');
         this.data = this.ictx.createImageData(w, h);
       }
-      const bars = audio.getBars(this.N, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(this.N, v.minFreq, v.maxFreq, v.spectrum);
       const px = new Float32Array(this.N);
       const py = new Float32Array(this.N);
       const k = new Float32Array(this.N);
@@ -633,7 +633,7 @@
       }
 
       const sens = v.sensitivity || 1;
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       const hit = this.onset.push(audio.bass * sens, step);
       const minDim = Math.min(W, H);
 
@@ -729,7 +729,7 @@
       const minDim = Math.min(W, H);
       const bass = clamp(audio.bass * sens, 0, 1.3);
       const R = minDim * 0.44 * (1 + bass * 0.1);
-      const bars = audio.getBars(16, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(16, v.minFreq, v.maxFreq, v.spectrum);
 
       // Çekirdek
       const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, minDim * (0.05 + bass * 0.08));
@@ -781,7 +781,7 @@
       ctx.clearRect(0, 0, W, H);
 
       const n = clamp(Math.round((v.barCount | 0) * 0.4), 40, 220);
-      const bars = audio.getBars(n, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(n, v.minFreq, v.maxFreq, v.spectrum);
       const minDim = Math.min(W, H);
       const amp = minDim * 0.17 * (0.5 + v.thickness);
       const twist = 5.5;
@@ -862,7 +862,7 @@
       const grid = clamp(Math.round((v.barCount | 0) * 0.08), 5, 18);
       const total = grid * grid;
       if (!this.h || this.h.length !== total) this.h = new Float32Array(total);
-      const bars = audio.getBars(total, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(total, v.minFreq, v.maxFreq, v.spectrum);
 
       const minDim = Math.min(W, H);
       const tile = minDim / (grid * 1.25);

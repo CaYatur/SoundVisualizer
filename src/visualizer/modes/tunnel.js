@@ -47,7 +47,7 @@
         // aynı tarafa düşer). Bantlar harmonik genliğine çevrilirse halka
         // kapalı, pürüzsüz ve yönsüz kalır; yalnızca spektrumun karakterine
         // göre loblanır.
-        const bands = audio.getBars(HARM, v.minFreq, v.maxFreq);
+        const bands = audio.getBars(HARM, v.minFreq, v.maxFreq, v.spectrum);
         const shape = new Float32Array(SEG);
         const ph = t * 0.6;
         for (let s = 0; s < SEG; s++) {

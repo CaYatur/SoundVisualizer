@@ -1670,6 +1670,30 @@
           // --- Frekans aralığı (gelişmiş) ---
           { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
           { type: 'slider', path: 'visualizer.maxFreq', label: 'Max Frekans (Hz)', min: 2000, max: 20000, step: 100, show: isBandMode, group: 'Frekans Aralığı', advanced: true },
+
+          /* --- Tayf ölçümü (gelişmiş) ---
+             Barların NASIL ölçüldüğü. Ölçek bantların frekans ekseninde nasıl
+             dağıldığını, genlik yüksekliğe nasıl çevrildiğini, balistik ise
+             hareketin karakterini belirler. */
+          { type: 'select', path: 'visualizer.spectrum.scale', label: 'Frekans Ölçeği', show: isBandMode, group: 'Tayf Ölçümü', advanced: true,
+            options: [
+              { value: 'log', label: 'Logaritmik (müzikal)' },
+              { value: 'linear', label: 'Doğrusal' },
+              { value: 'mel', label: 'Mel (algısal)' },
+              { value: 'bark', label: 'Bark (kritik bant)' },
+            ] },
+          { type: 'select', path: 'visualizer.spectrum.amplitude', label: 'Genlik Ölçeği', show: isBandMode, group: 'Tayf Ölçümü', advanced: true,
+            options: [
+              { value: 'linear', label: 'Doğrusal' },
+              { value: 'db', label: 'Desibel (sessiz ayrıntıyı görünür kılar)' },
+            ] },
+          { type: 'slider', path: 'visualizer.spectrum.floorDb', label: 'dB Tabanı', min: -96, max: -24, step: 2, group: 'Tayf Ölçümü', advanced: true,
+            show: () => isBandMode() && (v.spectrum || {}).amplitude === 'db' },
+          { type: 'slider', path: 'visualizer.spectrum.attack', label: 'Atak (sn)', min: 0, max: 0.2, step: 0.005, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.release', label: 'Bırakma (sn)', min: 0.01, max: 1.2, step: 0.01, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.spread', label: 'Komşu Yayılımı', min: 0, max: 0.95, step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.tilt', label: 'Eğim (dB/oktav)', min: -6, max: 12, step: 0.5, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'toggle', path: 'visualizer.spectrum.exact', label: 'Dar Bantlarda Kesin Ölçüm', show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
         ],
       },
       {

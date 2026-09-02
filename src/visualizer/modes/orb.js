@@ -35,7 +35,7 @@
       // düşer, o taraf şişer, tiz tarafı çöker. Bunun yerine spektrum bantları
       // birer HARMONİK genliğine çevrilir — yarıçap açının periyodik bir
       // fonksiyonu olur, yani şekil kapalı, pürüzsüz ve yönsüzdür.
-      const bands = audio.getBars(HARM, v.minFreq, v.maxFreq);
+      const bands = audio.getBars(HARM, v.minFreq, v.maxFreq, v.spectrum);
       for (let k = 0; k < HARM; k++) {
         const target = Math.min(1, bands[k] * sens);
         this.amp[k] += (target - this.amp[k]) * 0.22;

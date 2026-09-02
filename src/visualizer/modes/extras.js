@@ -90,7 +90,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(12, Math.min(96, v.barCount | 0));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       // Dilim sayısı bar boşluğundan türetilir: boşluk arttıkça dilim azalır,
@@ -146,7 +146,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(24, Math.min(160, v.barCount | 0));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const cy = H / 2;
@@ -218,7 +218,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const n = Math.max(4, Math.min(28, Math.round(6 + (1 - v.gap) * 14)));
-      const bars = audio.getBars(n, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(n, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const minDim = Math.min(W, H);
@@ -345,7 +345,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(32, Math.min(240, v.barCount | 0));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const cx = W / 2;
@@ -396,7 +396,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(64, Math.min(256, v.barCount | 0));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const cx = W / 2;
@@ -453,7 +453,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(10, Math.min(90, Math.round((v.barCount | 0) * 0.45)));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       if (!this.peaks || this.peaks.length !== count) this.peaks = new Float32Array(count);
       ctx.clearRect(0, 0, W, H);
 
@@ -715,7 +715,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(4, Math.min(32, Math.round(6 + (1 - v.gap) * 18)));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       if (!this.energy || this.energy.length !== count) this.energy = new Float32Array(count);
       ctx.clearRect(0, 0, W, H);
 
@@ -901,7 +901,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(6, Math.min(48, Math.round(8 + (1 - v.gap) * 28)));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const cx = W / 2;
@@ -947,7 +947,7 @@
       const H = this.canvas.height;
       const v = cfg.visualizer;
       const count = Math.max(8, Math.min(128, v.barCount | 0));
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const cx = W / 2;

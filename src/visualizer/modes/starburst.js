@@ -23,7 +23,7 @@
       const cy = H / 2;
       const count = Math.max(12, v.barCount | 0);
       if (!this.len || this.len.length !== count) this.len = new Float32Array(count);
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       const sens = v.sensitivity || 1;
       const maxR = Math.sqrt(cx * cx + cy * cy);
       const inner = Math.min(W, H) * 0.06;

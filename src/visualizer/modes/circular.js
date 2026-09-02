@@ -24,7 +24,7 @@
       const baseR = minDim * 0.18 * (1 + audio.bass * 0.25);
       const maxLen = minDim * 0.28 * (v.sensitivity || 1);
       const count = Math.max(16, v.barCount | 0);
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
 
       this.rot += (dt || 0.016) * 0.15;
 

@@ -494,7 +494,7 @@ void main(){
       // spektrumu GPU'ya ver (deformasyon vertex shader'da yapılır)
       if (audio && audio.getBars) {
         const v = cfg.visualizer || {};
-        const bars = audio.getBars(512, v.minFreq || 20, v.maxFreq || 20000);
+        const bars = audio.getBars(512, v.minFreq || 20, v.maxFreq || 20000, v.spectrum);
         for (let i = 0; i < 512; i++) this.specBuf[i] = Math.min(255, (bars[i] * 255) | 0);
         gl.bindTexture(gl.TEXTURE_2D, this.specTex);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 512, 1, gl.RED, gl.UNSIGNED_BYTE, this.specBuf);

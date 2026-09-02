@@ -28,7 +28,7 @@
       const count = Math.max(8, v.barCount | 0);
       this._ensure(count);
 
-      const bars = audio.getBars(count, v.minFreq, v.maxFreq);
+      const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
       ctx.clearRect(0, 0, W, H);
 
       const mirror = v.mirror;
