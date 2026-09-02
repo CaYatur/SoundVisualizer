@@ -2329,6 +2329,27 @@ async function runSmoke() {
     await new Promise((r) => awc3.once('did-finish-load', r));
     await wait(1800);
 
+    /* Varsayılan olarak KAPALI gelen bölümleri AÇ. Kapalı bir panel
+       yalnızca "şu an kapalı" notunu çizer; içindeki onlarca etiket hiç
+       DOM’a girmez ve tarama onları göremez — çevrilmemiş metnin fark
+       edilmeden yayına çıkmasının en kolay yolu bu.
+
+       Ana süreçteki currentConfig’i değiştirmek YETMEZ: panel yeniden
+       yüklenince ayarları diskteki settings.json’dan okuyor. Bu yüzden
+       anahtar panelin KENDİ yapılandırma nesnesinde çevrilir. */
+    const opened = await awc3.executeJavaScript(`(function(){
+      if (!window.SVPanel) return 'panel yok';
+      var c = window.SVPanel.cfg();
+      if (!c.timeline || !c.clipdeck) return 'bölüm yok';
+      c.timeline.enabled = true;
+      c.clipdeck.enabled = true;
+      window.SVPanel.rerender();
+      return 'açıldı';
+    })()`);
+    console.log('[SMOKE] i18n taraması için çizelge/deste: ' + opened);
+    if (opened !== 'açıldı') errors.push('i18n scan could not open timeline/clipdeck: ' + opened);
+    await wait(900);
+
     const cats = await awc3.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
     );

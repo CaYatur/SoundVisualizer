@@ -800,3 +800,51 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 }
 
 
+
+/* ==========================================================================
+   Zaman çizelgesi ve klip destesi
+   ========================================================================== */
+.tl-transport { display: flex; align-items: center; gap: 6px; padding: 6px 0; flex-wrap: wrap; }
+.tl-btn { min-width: 34px; font-size: 13px; }
+.tl-time, .tl-bars {
+  font-variant-numeric: tabular-nums; /* rakam genişliği sabit: sayaç zıplamasın */
+  font-size: 12px; color: var(--muted); padding: 0 6px;
+}
+.tl-bars { color: var(--text); font-weight: 600; }
+.tl-inline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tl-num { width: 92px; }
+.tl-canvas-wrap { overflow-x: hidden; border: 1px solid var(--line); border-radius: 6px; margin: 8px 0; }
+.tl-canvas { display: block; width: 100%; cursor: crosshair; }
+.tl-tracks { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.tl-track-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.tl-kind { font-size: 10px; color: var(--muted2); min-width: 62px; }
+.tl-trackname { flex: 1; min-width: 90px; }
+.tl-target { flex: 2; min-width: 140px; }
+.tl-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.tl-inspector, .tl-markers { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+.tl-marker-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+
+.cd-grid { display: grid; gap: 4px; margin: 8px 0; }
+.cd-corner { }
+.cd-stop, .cd-rowlaunch {
+  background: var(--card2, rgba(255,255,255,.04)); border: 1px solid var(--line);
+  color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 11px; padding: 4px;
+}
+.cd-rowlaunch { text-align: left; padding-left: 8px; }
+.cd-stop:hover, .cd-rowlaunch:hover { color: var(--text); border-color: var(--accent); }
+.cd-cell {
+  position: relative; min-height: 42px; border-radius: 5px; cursor: pointer;
+  border: 1px dashed var(--line); background: transparent; color: var(--muted2);
+  display: flex; flex-direction: column; justify-content: center; padding: 4px 6px;
+  font-size: 11px; text-align: left; overflow: hidden;
+}
+.cd-cell.filled { border-style: solid; background: rgba(90,140,220,.16); color: var(--text); }
+/* Hazırlanmış: ateşlenmeyi bekliyor. Geri sayım hücrenin köşesinde. */
+.cd-cell.armed { border-color: #f0b429; box-shadow: inset 0 0 0 1px #f0b429; }
+.cd-cell.active { background: rgba(46,160,67,.28); border-color: #2ea043; }
+.cd-cell.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+.cd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-count { position: absolute; right: 4px; bottom: 2px; font-size: 9px; color: #f0b429;
+  font-variant-numeric: tabular-nums; }
+.cd-editor { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
+.cd-editor-head { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }

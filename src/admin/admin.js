@@ -371,6 +371,12 @@
     color(labelText, path) {
       return colorCtrl({ label: labelText, path });
     },
+
+    /* Sahne/şablon eylemleri. Dışarıya AÇILIYOR çünkü zaman çizelgesi ve
+       klip destesi de sahne uygulamak zorunda; kendi kopyalarını yazsalardı
+       karartma durumu, etkin sahne kimliği ve görsel normalleştirmesi
+       ellerinden kaçardı (Otomatik VJ’de olduğu gibi). */
+    actions: () => actions,
   };
 
 
@@ -437,6 +443,10 @@
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
       case 'autovjpanel':
         return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
+      case 'timelinepanel':
+        return window.SVTimelinePanel ? window.SVTimelinePanel.panel() : null;
+      case 'clipdeckpanel':
+        return window.SVClipDeckPanel ? window.SVClipDeckPanel.panel() : null;
       case 'modulationpanel':
         return window.SVModulationPanel ? window.SVModulationPanel.panel() : null;
       case 'analysispanel':
@@ -2064,6 +2074,24 @@
         title: 'Yayın Çıkışı (OBS / Web)',
         desc: 'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.',
         controls: [{ type: 'streampanel' }],
+      },
+      {
+        id: 'timeline',
+        category: 'control',
+        icon: '🎬',
+        wide: true,
+        title: 'Zaman Çizelgesi',
+        desc: 'Sahneleri ve ayar değişimlerini zamana yayın. Ölçüye ya da saniyeye hizalı planlayın; oynatma kafası tüm ekranları birlikte sürer.',
+        controls: [{ type: 'timelinepanel' }],
+      },
+      {
+        id: 'clipdeck',
+        category: 'control',
+        icon: '🎛',
+        wide: true,
+        title: 'Klip Destesi',
+        desc: 'Sahneleri, şablonları ve medyayı bir ızgaraya yerleştirip vuruşa hizalı ateşleyin. Sütun başlatmak satırın tamamını sahne gibi çalıştırır.',
+        controls: [{ type: 'clipdeckpanel' }],
       },
       {
         id: 'tempo',
