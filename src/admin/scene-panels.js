@@ -16,17 +16,22 @@
     return true;
   }
 
-  // Sıra/sil düğmelerinden oluşan başlık çubuğu
-  function itemHeader(list, i, title, onChange, extra) {
+  /* Sıra/sil düğmelerinden oluşan başlık çubuğu.
+
+     `reverse`, listenin ekranda ters sırada gösterildiği yerler içindir
+     (katmanlar). Orada "yukarı", dizide GERİYE değil İLERİYE gitmek demektir;
+     bayrak olmadan oklar kullanıcının gördüğünün tersine çalışırdı. */
+  function itemHeader(list, i, title, onChange, extra, reverse) {
     const el = P().el;
+    const up = reverse ? 1 : -1;
     const kids = [
       el('button', {
         class: 'btn ghost tiny', type: 'button', text: '▲', title: 'Yukarı taşı',
-        onclick: () => { if (moveItem(list, i, -1)) onChange(); },
+        onclick: () => { if (moveItem(list, i, up)) onChange(); },
       }),
       el('button', {
         class: 'btn ghost tiny', type: 'button', text: '▼', title: 'Aşağı taşı',
-        onclick: () => { if (moveItem(list, i, 1)) onChange(); },
+        onclick: () => { if (moveItem(list, i, -up)) onChange(); },
       }),
       el('span', { class: 'item-title', text: title }),
     ];
@@ -178,12 +183,113 @@
     return [];
   }
 
+  /* Bir katmanın kendi kaynağına ait ayarlar.
+
+     Medya ve logo tek bir paylaşılan kaynağı kullanıyor (tek <video>, tek
+     logo görseli); bu yüzden buradaki kontroller genel yapılandırmayı
+     düzenler. Kazanç, ayarların katmanın yanında olması: hangi dosyanın
+     çizildiği artık başka bir karta gitmeden görülüyor. */
+  function layerOwnSettings(l, rerender) {
+    const el = P().el;
+    const cfg = P().cfg();
+    const out = [];
+
+    if (l.kind === 'media') {
+      const m = (cfg.media = cfg.media || {});
+      out.push(miniSelect('Medya Kaynağı', [['webcam', 'Web Kamerası'], ['file', 'Video Dosyası']],
+        () => m.source || 'webcam', (v) => { m.source = v; }, rerender));
+
+      if ((m.source || 'webcam') === 'file') {
+        // Seçili dosyanın adı ve küçük bir ön izlemesi
+        const info = el('div', { class: 'row' }, [
+          el('label', { class: 'lbl', text: 'Dosya' }),
+          el('span', { class: 'dim-hint', text: m.file ? (m.fileName || 'seçildi') : 'seçilmedi' }),
+        ]);
+        out.push(el('div', { class: 'ctrl' }, [info]));
+        if (m.file) {
+          const prev = el('video', { class: 'layer-preview', muted: true, loop: true, autoplay: true, playsinline: true });
+          prev.muted = true;
+          prev.src = m.file;
+          prev.play().catch(() => { /* ön izleme oynatılamazsa satır yine de dursun */ });
+          out.push(prev);
+        }
+        out.push(el('button', {
+          class: 'btn small', type: 'button', text: m.file ? '🎞 Videoyu Değiştir' : '🎞 Video Seç',
+          onclick: async () => {
+            const r = await window.api.pickVideo();
+            if (!r) return;
+            m.file = r.url;
+            m.fileName = r.name;
+            m.enabled = true;
+            P().push(true);
+            rerender();
+          },
+        }));
+        out.push(miniToggle('Döngüde Oynat', () => m.loop !== false, (v) => { m.loop = v; }));
+      }
+      out.push(miniSelect('Sığdırma', [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']],
+        () => m.fit || 'cover', (v) => { m.fit = v; }));
+      out.push(miniToggle('Aynala', () => !!m.mirror, (v) => { m.mirror = v; }));
+      if (!m.enabled) {
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
+      }
+      return out;
+    }
+
+    if (l.kind === 'logo') {
+      const lg = (cfg.logo = cfg.logo || {});
+      const info = el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: 'Görsel' }),
+        el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
+      ]);
+      out.push(el('div', { class: 'ctrl' }, [info]));
+      if (lg.src) out.push(el('img', { class: 'layer-preview', src: lg.src, alt: '' }));
+      out.push(miniSlider('Boyut', () => lg.scale == null ? 0.22 : lg.scale, (v) => { lg.scale = v; },
+        { min: 0.05, max: 0.9, step: 0.01, percent: true }));
+      out.push(miniSlider('Nabız', () => lg.pulse == null ? 0.3 : lg.pulse, (v) => { lg.pulse = v; },
+        { min: 0, max: 1, step: 0.01, percent: true }));
+      return out;
+    }
+
+    return out;
+  }
+
   function layersPanel() {
     const el = P().el;
     const cfg = P().cfg();
     const nodes = [];
     const list = Array.isArray(cfg.layers) ? cfg.layers : (cfg.layers = []);
     const rerender = () => P().apply();
+
+    /* Yığın anahtarı.
+
+       Kapalıyken katman listesi silinmez, yalnızca kullanılmaz: sahne
+       Arkaplan ve Görselleştirici kartlarından sürülür. Böylece yalın
+       deneyimle katmanlı deneyim arasında ayar kaybetmeden gidip gelinir. */
+    if (!cfg.layerStack || typeof cfg.layerStack.enabled !== 'boolean') {
+      cfg.layerStack = { enabled: !!list.length };
+    }
+    const on = cfg.layerStack.enabled;
+    const stackSwitch = el('input', {
+      type: 'checkbox',
+      onchange: (e) => {
+        cfg.layerStack.enabled = e.target.checked;
+        if (e.target.checked && !list.length) cfg.layers = window.SVLayers.synthesize(cfg);
+        P().push(true);
+        rerender();
+      },
+    });
+    stackSwitch.checked = on;
+    nodes.push(P().row('Katman Yığınını Kullan', el('label', { class: 'switch' }, [stackSwitch, el('span', { class: 'track' })])));
+
+    if (!on) {
+      nodes.push(
+        el('div', { class: 'studio-note', text: list.length
+          ? 'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Katman listeniz duruyor; anahtarı açtığınızda aynı düzenle geri gelir.'
+          : 'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Anahtarı açarsanız aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.' })
+      );
+      return el('div', {}, nodes);
+    }
 
     if (!list.length) {
       // Katman listesi boşken sahne eski alanlardan sentezlenir. Kullanıcı
@@ -197,6 +303,7 @@
           class: 'btn primary', type: 'button', text: '⬗ Katmanlara Geç',
           onclick: () => {
             cfg.layers = window.SVLayers.synthesize(cfg);
+            cfg.layerStack.enabled = true;
             rerender();
           },
         })
@@ -204,7 +311,10 @@
       return el('div', {}, nodes);
     }
 
-    list.forEach((raw, i) => {
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.' }));
+
+    for (let i = list.length - 1; i >= 0; i--) {
+      const raw = list[i];
       const l = (list[i] = window.SVLayers.normalizeLayer(raw));
       const typeOpts = typeOptionsFor(l.kind);
       const typeLabel = (typeOpts.find(([v]) => v === l.type) || [null, l.type])[1];
@@ -234,12 +344,12 @@
         el('label', { class: 'switch small', title: 'Katmanı aç/kapat' }, [enable, el('span', { class: 'track' })]),
       ]);
 
-      const kids = [itemHeader(list, i, title, rerender, flags)];
+      const kids = [itemHeader(list, i, title, rerender, flags, true)];
 
       if (l.locked) {
         kids.push(el('div', { class: 'studio-note dim-hint', text: 'Katman kilitli. Düzenlemek için kilidi açın.' }));
         nodes.push(el('div', { class: 'stack-item locked' }, kids));
-        return;
+        continue;
       }
 
       if (typeOpts.length) {
@@ -256,6 +366,15 @@
           kids.push(el('div', { class: 'studio-note', text: 'Henüz Studio preseti yok.' }));
         }
       }
+
+      /* Katmanın kendi ayarları.
+
+         Medya ve logo katmanları eskiden yalnızca bir satır başlıktan
+         ibaretti; ayarları başka kartlarda duruyordu ve katmana bakan
+         kullanıcı neyin çizildiğini göremiyordu. Artık kaynak buradan
+         seçiliyor, seçili dosyanın adı ve küçük bir ön izlemesi burada
+         görünüyor. */
+      kids.push.apply(kids, layerOwnSettings(l, rerender));
 
       if (l.kind !== 'logo') {
         kids.push(miniSelect('Karışım', BLEND_LABELS, () => l.blend, (v) => { l.blend = v; }));
@@ -382,7 +501,7 @@
       ]));
 
       nodes.push(el('div', { class: 'stack-item' }, kids));
-    });
+    }
 
     // Ekleme menüsü
     const addRow = el('div', { class: 'add-row' });

@@ -327,6 +327,10 @@
     // son-işlem efektidir ve varsayılan olarak kapalıdır; ikisi toplanır.
     // ------------------------------------------------------------------
     layers: [],
+    /* Katman yığını anahtarı. Kapalıyken liste korunur ama sahne
+       Arkaplan ve Görselleştirici kartlarından sentezlenir — böylece hem
+       yalın hem katmanlı deneyim tek ayarla değişir. */
+    layerStack: { enabled: false },
 
     // ------------------------------------------------------------------
     // Son-işlem efekt zinciri. Katmanların BİRLEŞTİRİLMİŞ çıktısına sırayla

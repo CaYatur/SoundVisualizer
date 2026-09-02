@@ -758,3 +758,57 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 }
 .preset-group:first-child { margin-top: 0; }
 .preset.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft); }
+
+/* Katman satırındaki küçük medya/logo ön izlemesi. Amaç ayrıntı göstermek
+   değil, hangi dosyanın çizildiğini bir bakışta tanıtmak. */
+.layer-preview {
+  display: block;
+  width: 100%;
+  max-height: 92px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin: 6px 0 2px;
+  background: #0b0b12;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Katlanmış tür seçici. Uzun listeler (31 arkaplan, 48 görselleştirici
+   modu) altlarındaki ayarları ekranın dışına itiyordu; kapalıyken yalnızca
+   seçili tür ile listeyi açan düğme durur. */
+.seg-collapsed {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.seg-collapsed button {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.seg-collapsed button.active {
+  background: var(--accent, #3aa6ff);
+  border-color: transparent;
+  color: #08080f;
+  font-weight: 600;
+}
+.seg-more {
+  flex: 0 0 auto;
+  opacity: 0.8;
+}
+.seg-more.wide {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}

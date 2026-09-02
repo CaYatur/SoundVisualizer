@@ -393,9 +393,21 @@
     ]);
   }
 
+  /* Uzun tür seçicilerin açık kalıp kalmadığı. Kart her yeniden çizildiğinde
+     kapanmaması gerekiyor — kullanıcı listeye bakarken bir kaydırıcıya
+     dokunduğunda liste kapanırsa seçim yapmak imkânsızlaşır. */
+  const segExpanded = {};
+  // Bu sayıdan uzun listeler katlanır: 31 arkaplan türü, altındaki ayarları
+  // ekranın dışına itiyordu
+  const SEG_FOLD_AFTER = 12;
+
   function segmentCtrl(def) {
     const cur = getPath(cfg, def.path);
     const seg = el('div', { class: 'segment' });
+    const choices = def.options.filter((o) => !o.group);
+    const fold = def.fold !== false && choices.length > SEG_FOLD_AFTER;
+    const open = !fold || segExpanded[def.path];
+
     def.options.forEach((o) => {
       // { group: 'Başlık' } girdileri seçenek değil, ayırıcı başlıktır
       if (o.group) { seg.appendChild(el('div', { class: 'seg-group', text: o.group })); return; }
@@ -410,10 +422,27 @@
       });
       seg.appendChild(b);
     });
-    return el('div', { class: 'ctrl' }, [
-      el('label', { class: 'lbl', text: def.label }),
-      seg,
-    ]);
+
+    const kids = [el('label', { class: 'lbl', text: def.label })];
+    if (fold && !open) {
+      /* Kapalıyken yalnızca seçili tür ve açma düğmesi görünür. Böylece
+         asıl ayarlar kartın üstünde kalıyor. */
+      const label = (choices.find((o) => o.value === cur) || {}).label || String(cur || '');
+      kids.push(el('div', { class: 'seg-collapsed' }, [
+        el('button', { class: 'active', type: 'button', text: label, title: 'Seçili tür',
+          onclick: () => { segExpanded[def.path] = true; render(); } }),
+        el('button', { class: 'seg-more', type: 'button', text: 'Tüm türler',
+          title: String(choices.length),
+          onclick: () => { segExpanded[def.path] = true; render(); } }),
+      ]));
+    } else {
+      kids.push(seg);
+      if (fold) {
+        kids.push(el('button', { class: 'seg-more wide', type: 'button', text: 'Listeyi küçült',
+          onclick: () => { segExpanded[def.path] = false; render(); } }));
+      }
+    }
+    return el('div', { class: 'ctrl' }, kids);
   }
 
   function selectCtrl(def) {
@@ -1698,7 +1727,7 @@
       },
       {
         id: 'layers',
-        roots: ['layers', 'layerGroups', 'crossfade'],
+        roots: ['layers', 'layerStack', 'layerGroups', 'crossfade'],
         category: 'scene',
         icon: '⬗',
         wide: true,

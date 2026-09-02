@@ -130,9 +130,23 @@
     return out;
   }
 
+  /* Katman yığını açık mı?
+
+     Kapalıyken katman listesi DURUR ama kullanılmaz: sahne yine Arkaplan ve
+     Görselleştirici kartlarından sentezlenir. Böylece katmanları kapatmak
+     onları silmek anlamına gelmiyor, geri açınca aynı düzen geri geliyor.
+
+     Bayrak hiç yoksa eski davranış: dolu bir liste varsa açık sayılır. Bu,
+     v3.0.0 öncesi ayar dosyalarının sahnesini bozmadan açılmasını sağlıyor. */
+  function stackOn(cfg) {
+    const s = cfg && cfg.layerStack;
+    if (s && typeof s.enabled === 'boolean') return s.enabled;
+    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
+  }
+
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez
   function resolve(cfg) {
-    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    const list = stackOn(cfg) && cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
     const used = list.length ? list.map(normalizeLayer) : synthesize(cfg);
     /* Solo varsa yalnızca solo katmanlar çizilir. Bir kompozitörde solo,
        "diğerlerini kapat" demenin geri alınabilir yoludur; katmanları tek tek
@@ -895,7 +909,7 @@
     }
   }
 
-  window.SVLayers = {
+  const api = {
     LayerStack,
     BLEND_MODES,
     KINDS,
@@ -903,10 +917,15 @@
     newLayerId,
     synthesize,
     resolve,
+    stackOn,
     layerConfig,
     sceneSignature,
     groupGain,
     LAYER_DEFAULTS,
-    LAYER_DEFAULTS,
   };
+  /* Saf yardımcılar (katman çözümleme, sıra, grup kazancı) Node'da test
+     edilebilsin diye ayrıca dışa aktarılıyor; LayerStack sınıfı tuval
+     gerektirdiği için testlerde kullanılmaz. */
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  if (typeof window !== 'undefined') window.SVLayers = api;
 })();

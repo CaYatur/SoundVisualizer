@@ -71,6 +71,20 @@
     'Kapalı': 'Off', 'Barlar': 'Bars', 'Merkez Barlar': 'Center Bars', 'Dalga': 'Wave', 'Çember': 'Circle', 'Gökkuşağı (Rainbow)': 'Rainbow',
     'Renk': 'Color', 'Birincil Renk': 'Primary Color', 'İkincil Renk': 'Secondary Color', 'Ayna': 'Mirror', 'Ayna (Simetri)': 'Mirror (Symmetry)', 'Bar Sayısı': 'Bar Count', 'Tepe Noktaları': 'Peak Caps',
     'Min Frekans (Hz)': 'Min Frequency (Hz)', 'Max Frekans (Hz)': 'Max Frequency (Hz)', 'Parlama (Glow)': 'Glow',
+    // Katman paneli
+    'Katman Yığınını Kullan': 'Use the Layer Stack',
+    'Medya Kaynağı': 'Media Source',
+    'Web Kamerası': 'Webcam',
+    '🎞 Videoyu Değiştir': '🎞 Change Video',
+    'Kapla': 'Cover',
+    'Medya kapalı. Kaynak seçilince açılır.': 'Media is off. Choosing a source turns it on.',
+    'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.': 'The list runs opposite to draw order: the layer at the top is the topmost one in the output.',
+    'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Katman listeniz duruyor; anahtarı açtığınızda aynı düzenle geri gelir.': 'The layer stack is off. The scene is driven by the Background and Visualizer cards. Your layer list is kept; turning the switch back on restores it unchanged.',
+    'Katman yığını kapalı. Sahne Arkaplan ve Görselleştirici kartlarından sürülüyor. Anahtarı açarsanız aynı görünüm katman listesi olarak açılır ve üzerine yenilerini ekleyebilirsiniz.': 'The layer stack is off. The scene is driven by the Background and Visualizer cards. Turning the switch on opens the same look as a layer list you can build on.',
+    // Katlanan tür seçici
+    'Seçili tür': 'Selected type',
+    'Tüm türler': 'All types',
+    'Listeyi küçült': 'Collapse the list',
     // Tayf ölçümü
     'Tayf Ölçümü': 'Spectrum Metering',
     'Frekans Ölçeği': 'Frequency Scale', 'Logaritmik (müzikal)': 'Logarithmic (musical)', 'Doğrusal': 'Linear',
