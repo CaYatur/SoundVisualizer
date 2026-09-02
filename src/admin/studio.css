@@ -380,3 +380,13 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   background: linear-gradient(180deg, var(--accent2, #21d4fd), var(--accent, #7c5cff));
   transition: height 100ms linear;
 }
+
+
+/* ===== Sahne geçişi paneli ===== */
+.tr-panel { display: flex; flex-direction: column; gap: 8px; }
+.tr-params {
+  background: var(--card2, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  padding: 8px 9px;
+}

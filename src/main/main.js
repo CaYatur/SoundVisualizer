@@ -1428,6 +1428,95 @@ async function runSmoke() {
   console.log('[SMOKE] post-fx: ' + fxReport.length + ' efekt, ' + (fxReport.length - fxFail) + ' çalışıyor');
   fxReport.forEach((r) => console.log('[SMOKE]   ' + (r.ok ? '✓' : '✗') + ' ' + r.id + (r.ok ? ' (dolu %' + Math.round(r.lit * 100) + ', parlaklık ' + r.avg + ' / kaynak ' + r.srcAvg + ')' : ' — ' + (r.error || 'boş'))));
 
+
+  /* Sahne geçişleri: her geçiş türü gerçekten iki kareyi birleştiriyor mu?
+
+     Maske matematiği tests/transition.test.js'te ölçülüyor; burada ölçülen
+     şey birleştiricinin TUVAL tarafı: p=0'da çıktı giden karenin, p=1'de
+     gelen karenin aynısı olmalı, arada ise ikisinden de farklı bir şey
+     üretmeli. Bir geçişin sessizce hiçbir şey yapmaması tam olarak bu üçlü
+     kontrolle yakalanır. */
+  const transReport = await wc.executeJavaScript(`(function(){
+    if (!window.SVTransition) return [{ id: 'HOST', ok: false, error: 'modül yok' }];
+    var T = window.SVTransition;
+    var W = 96, H = 64;
+    function solid(rgb) {
+      var c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var x = c.getContext('2d');
+      x.fillStyle = rgb;
+      x.fillRect(0, 0, W, H);
+      return c;
+    }
+    var from = (function () {
+      var c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      var x = c.getContext('2d');
+      var g = x.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#ff2200');
+      g.addColorStop(1, '#220000');
+      x.fillStyle = g;
+      x.fillRect(0, 0, W, H);
+      return c;
+    })();
+    var to = solid('#0044ff');
+    var out = document.createElement('canvas');
+    out.width = W; out.height = H;
+    var octx = out.getContext('2d');
+    var read = document.createElement('canvas');
+    read.width = W; read.height = H;
+    var rctx = read.getContext('2d', { willReadFrequently: true });
+
+    function avg() {
+      rctx.clearRect(0, 0, W, H);
+      rctx.drawImage(out, 0, 0);
+      var d = rctx.getImageData(0, 0, W, H).data;
+      var r = 0, g = 0, b = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
+      return [Math.round(r/n), Math.round(g/n), Math.round(b/n)];
+    }
+
+    // Uçların ölçütü sabit bir eşik değil, kaynakların kendi ortalamaları
+    octx.clearRect(0, 0, W, H); octx.drawImage(from, 0, 0);
+    var avgFrom = avg();
+    octx.clearRect(0, 0, W, H); octx.drawImage(to, 0, 0);
+    var avgTo = avg();
+    function dist(a, b) { return Math.abs(a[0]-b[0]) + Math.abs(a[1]-b[1]) + Math.abs(a[2]-b[2]); }
+
+    var comp = new T.Compositor();
+    var res = [];
+    T.TRANSITION_IDS.forEach(function (id) {
+      try {
+        var def = T.TRANSITIONS[id];
+        var o = {};
+        (def.params || []).forEach(function (p) { o[p.name] = p.default; });
+        comp.compose(octx, from, to, W, H, id, 0, o);
+        var a0 = avg();
+        comp.compose(octx, from, to, W, H, id, 1, o);
+        var a1 = avg();
+        comp.compose(octx, from, to, W, H, id, 0.5, o);
+        var mid = avg();
+        var startOk = dist(a0, avgFrom) < 12;
+        var endOk = dist(a1, avgTo) < 12;
+        // Ortada ikisinden de ayrışmalı (kesme hariç: o zaten sıçrar)
+        var midOk = id === 'cut' ? true : (dist(mid, a0) > 14 && dist(mid, a1) > 14);
+        var why = '';
+        if (!startOk) why = 'p=0 giden kare değil [' + a0.join(' ') + ' yerine ' + avgFrom.join(' ') + ']';
+        else if (!endOk) why = 'p=1 gelen kare değil [' + a1.join(' ') + ' yerine ' + avgTo.join(' ') + ']';
+        else if (!midOk) why = 'orta kare uçlardan ayrışmıyor [' + mid.join(' ') + ']';
+        res.push({ id: id, ok: startOk && endOk && midOk, a0: a0, a1: a1, mid: mid, error: why });
+      } catch (e) {
+        res.push({ id: id, ok: false, error: String(e && e.message || e) });
+      }
+    });
+    return res;
+  })()`);
+  const trFail = transReport.filter((r) => !r.ok).length;
+  if (trFail) errors.push(trFail + ' geçiş çalışmıyor');
+  console.log('[SMOKE] geçişler: ' + transReport.length + ' tür, ' + (transReport.length - trFail) + ' çalışıyor');
+  transReport.filter((r) => !r.ok).forEach((r) =>
+    console.log('[SMOKE]   ✗ ' + r.id + ' — ' + (r.error || 'bilinmiyor')));
+
   /* 3B geometri motoru: katalogtaki HER formül ağ kuruyor ve gerçekten
      çiziliyor mu? Formül sayısı reklam malzemesi olmaya elverişli olduğu
      için burada tek tek çizdirilip boş olmadıkları ölçülür. */

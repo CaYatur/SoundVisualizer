@@ -270,6 +270,7 @@
     // Studio önizlemesi aynı ses motorunu kullanır: panelde iki ayrı analiz
     // çalıştırmak hem israf hem de iki farklı görüntü demek olurdu.
     audioEngine: () => audio,
+    stack: () => stack,
     ingest,
     setPaused,
     getLevels,

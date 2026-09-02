@@ -135,6 +135,27 @@
     return base;
   }
 
+  /* Sahne imzası.
+
+     Geçiş her yapılandırma değişikliğinde değil, SAHNE değiştiğinde
+     tetiklenmeli. Kullanıcı bir kaydırıcıyı sürüklerken geçiş başlatmak
+     paneli kullanılmaz hale getirirdi. İmza yalnızca sahnenin kimliğini
+     belirleyen alanlardan üretilir: mod ve arkaplan türü, Studio preset
+     kimlikleri, katman listesinin yapısı, palet ve 3B formül. Kaydırıcılar
+     imzayı değiştirmez. */
+  function sceneSignature(cfg) {
+    if (!cfg) return '';
+    const v = cfg.visualizer || {};
+    const b = cfg.background || {};
+    const c = cfg.custom || {};
+    const g = cfg.geometry || {};
+    const layers = Array.isArray(cfg.layers)
+      ? cfg.layers.map((l) => (l.kind || '') + '.' + (l.type || '') + '.' + (l.presetId || '')).join(',')
+      : '';
+    const grad = ((b.gradient && b.gradient.colors) || []).join(',');
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad].join('|');
+  }
+
   function bandValue(audio, band) {
     if (!audio) return 0;
     if (band === 'mid') return audio.mid;
@@ -165,6 +186,10 @@
       this.compCanvas = null;
       this.compCtx = null;
       this._fxMode = false;
+      this._surface = null;
+      // Sahne geçişi durumu (bkz. beginTransition)
+      this.trans = null;
+      this.lastSig = '';
       if (this.container) this.container.style.isolation = 'isolate';
     }
 
@@ -186,26 +211,36 @@
       this.compCtx = this.compCanvas.getContext('2d');
     }
 
-    /* Efekt modu açılıp kapandığında görünür yüzey değişir: ya katman
-       tuvalleri (CSS kompozit) ya da tek bir efekt tuvali. */
-    _setFxMode(on) {
-      this._fxMode = on;
+    /* Görünür yüzeyi belirle.
+
+       Normalde her katman kendi tuvaline çizer ve karıştırmayı tarayıcının
+       kompozitörü yapar — en ucuz yol. İki durumda tek bir yüzeye inmek
+       gerekiyor: efekt zinciri doluyken (GPU geçişleri tek dokuya uygulanır)
+       ve sahne geçişi sürerken (iki sahne birleştirilir). İkisi de aynı
+       mekanizmayı kullanır; ayrı kod yollarına gerek yok. */
+    _setSurface(canvas) {
+      if (this._surface === canvas) return;
+      const prev = this._surface;
+      this._surface = canvas || null;
+      this._fxMode = !!canvas;
       if (!this.container) return;
       for (const e of this.entries) {
-        if (e.canvas) e.canvas.style.display = on ? 'none' : 'block';
+        if (e.canvas) e.canvas.style.display = canvas ? 'none' : 'block';
       }
-      const fxCanvas = this.postfx && this.postfx.canvas;
-      if (!fxCanvas) return;
-      if (on) {
-        fxCanvas.style.position = 'absolute';
-        fxCanvas.style.inset = '0';
-        fxCanvas.style.width = '100%';
-        fxCanvas.style.height = '100%';
-        fxCanvas.style.display = 'block';
-        fxCanvas.style.zIndex = '999';
-        if (!fxCanvas.parentNode) this.container.appendChild(fxCanvas);
-      } else if (fxCanvas.parentNode) {
-        fxCanvas.parentNode.removeChild(fxCanvas);
+      if (prev && prev !== canvas && prev.parentNode) prev.parentNode.removeChild(prev);
+      if (canvas) {
+        canvas.style.position = 'absolute';
+        canvas.style.inset = '0';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.display = 'block';
+        canvas.style.zIndex = '999';
+        if (!canvas.parentNode) this.container.appendChild(canvas);
+      }
+      if (this.logoEl) {
+        const li = this.entries.findIndex((e) => e.layer.kind === 'logo');
+        // Tek yüzey kipinde logo yüzeyin içine çizilir, DOM'da gizlenir
+        this.logoEl.style.display = li >= 0 && !canvas ? 'block' : 'none';
       }
     }
 
@@ -263,6 +298,24 @@
        kurulur; sürükleme sırasında her karede WebGL bağlamı yeniden yaratmak
        hem pahalı hem de görsel olarak sıçramalı olurdu. */
     setConfig(cfg) {
+      /* Sahne değiştiyse ve geçiş açıksa, mevcut katmanları giden yığına
+         devret. Bu, aşağıdaki yeniden kurulumdan ÖNCE olmalı — sonrasında
+         eski katmanlar çoktan atılmış olurdu. */
+      const scnSig = sceneSignature(cfg);
+      const T = window.SVTransition;
+      const spec = cfg && cfg.transition;
+      if (T && spec && spec.enabled !== false && spec.type && spec.type !== 'cut' &&
+          this.lastSig && scnSig !== this.lastSig && this.entries.length && this.prevCfg) {
+        this.beginTransition(this.prevCfg, {
+          type: spec.type,
+          duration: T.durationSeconds(cfg, this.bpm || (spec.bpm || 0)),
+          opts: spec.params || {},
+          ease: spec.ease,
+        });
+      }
+      this.lastSig = scnSig;
+      this.prevCfg = cfg;
+
       const wanted = resolve(cfg);
       const sig = wanted.map((l) => this._key(l)).join(';');
       const oldEntries = this.entries;
@@ -398,24 +451,118 @@
       return d.scale !== 1 || d.rotate !== 0 || d.x !== 0 || d.y !== 0 || d.flipX || d.flipY;
     }
 
+    /* Sahne geçişini başlat.
+
+       Giden sahnenin donmuş bir fotoğrafı yerine, KATMANLARI olduğu gibi
+       devralan ikinci bir yığın kuruyoruz: geçiş boyunca eski sahne de canlı
+       kalıyor. Donmuş kare yarım saniyelik bir geçişte açıkça fark edilirdi.
+
+       Devralınan tuvaller DOM'dan çıkarılır; giden yığın container'sız çalışıp
+       yalnızca drawTo() ile çizer. */
+    beginTransition(oldCfg, spec) {
+      if (!this.entries.length) return;
+      const out = new LayerStack(null, this.opts);
+      out.entries = this.entries;
+      out.width = this.width;
+      out.height = this.height;
+      out.sprites = this.sprites;
+      out.media = this.media;
+      for (const e of out.entries) {
+        if (e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
+      }
+      this.entries = [];
+      this.trans = {
+        stack: out,
+        cfg: oldCfg,
+        elapsed: 0,
+        dur: Math.max(0.02, spec.duration),
+        type: spec.type,
+        opts: spec.opts || {},
+        ease: spec.ease || 'smooth',
+      };
+    }
+
+    endTransition() {
+      if (!this.trans) return;
+      const out = this.trans.stack;
+      for (const e of out.entries) out._disposeEntry(e);
+      out.entries = [];
+      this.trans = null;
+    }
+
+    // Geçiş sürüyorsa bu karedeki ilerlemesini döndürür, yoksa null
+    _tickTransition(dt) {
+      const tr = this.trans;
+      if (!tr) return null;
+      tr.elapsed += Math.max(0, dt || 0);
+      const raw = Math.min(1, tr.elapsed / tr.dur);
+      if (raw >= 1) { this.endTransition(); return null; }
+      const T = window.SVTransition;
+      return { p: T ? T.easeOf(tr.ease)(raw) : raw, tr };
+    }
+
+    _ensureTrans() {
+      if (!this.transOut) {
+        this.transOut = document.createElement('canvas');
+        this.transOutCtx = this.transOut.getContext('2d');
+        this.transSurface = document.createElement('canvas');
+        this.transCtx = this.transSurface.getContext('2d');
+        this.compositor = new window.SVTransition.Compositor();
+      }
+      for (const c of [this.transOut, this.transSurface]) {
+        if (c.width !== this.width || c.height !== this.height) {
+          c.width = this.width;
+          c.height = this.height;
+        }
+      }
+    }
+
     /* Bir kare çiz (canlı yol). Katmanlar kendi tuvallerine çizer; karıştırma
        ve dönüşüm CSS ile tarayıcının kompozitörüne bırakılır. */
     draw(audio, cfg, t, dt) {
+      const tick = this._tickTransition(dt);
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      if (fxOn !== this._fxMode) this._setFxMode(fxOn);
+      const single = fxOn || !!tick;
 
-      if (fxOn) {
+      if (single) {
         this._ensureComp();
         if (this.compCanvas.width !== this.width || this.compCanvas.height !== this.height) {
           this.compCanvas.width = this.width;
           this.compCanvas.height = this.height;
         }
         this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio));
-        if (this.logoEl) this.logoEl.style.display = 'none'; // logo artık yüzeyin içinde
-        this.postfx.resize(this.width, this.height);
-        this.postfx.render(this.compCanvas, audio, t, dt);
+
+        let src = this.compCanvas;
+        if (tick) {
+          const tr = tick.tr;
+          this._ensureTrans();
+          tr.stack.width = this.width;
+          tr.stack.height = this.height;
+          for (const e of tr.stack.entries) {
+            if (e.canvas && (e.canvas.width !== this.width || e.canvas.height !== this.height)) {
+              e.canvas.width = this.width;
+              e.canvas.height = this.height;
+              if (e.mode && e.mode.resize) e.mode.resize();
+            }
+          }
+          tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt,
+            (ctx) => tr.stack._drawLogoToCanvas(ctx, tr.cfg, audio));
+          this.compositor.compose(this.transCtx, this.transOut, this.compCanvas,
+            this.width, this.height, tr.type, tick.p, tr.opts);
+          src = this.transSurface;
+        }
+
+        if (fxOn) {
+          this.postfx.resize(this.width, this.height);
+          this.postfx.render(src, audio, t, dt);
+          this._setSurface(this.postfx.canvas);
+        } else {
+          this._setSurface(this.transSurface);
+        }
         return;
       }
+
+      this._setSurface(null);
 
       for (const e of this.entries) {
         const l = this._live(e, cfg);
@@ -509,6 +656,29 @@
       }
     }
 
+    /* Çevrimdışı birleştirme + sahne geçişi.
+
+       Dışa aktarıcı bunu çağırır: drawTo() ham birleştirmeyi yapar, burada
+       üstüne varsa geçiş biner. Geçiş ilerlemesi dt üzerinden hesaplandığı ve
+       dışa aktarıcıda dt = 1/fps olduğu için sonuç kare kare belirlenimlidir. */
+    composeTo(ctx, audio, cfg, t, dt, drawLogo) {
+      const tick = this._tickTransition(dt);
+      if (!tick) { this.drawTo(ctx, audio, cfg, t, dt, drawLogo); return; }
+      const tr = tick.tr;
+      this._ensureComp();
+      if (this.compCanvas.width !== this.width || this.compCanvas.height !== this.height) {
+        this.compCanvas.width = this.width;
+        this.compCanvas.height = this.height;
+      }
+      this.drawTo(this.compCtx, audio, cfg, t, dt, drawLogo);
+      this._ensureTrans();
+      tr.stack.width = this.width;
+      tr.stack.height = this.height;
+      tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt, drawLogo);
+      this.compositor.compose(ctx, this.transOut, this.compCanvas,
+        this.width, this.height, tr.type, tick.p, tr.opts);
+    }
+
     // Shader tabanlı katmanlara medya görüntüsünü bağla (sv_media / iChannel3)
     bindMedia(videoEl) {
       for (const e of this.entries) {
@@ -542,6 +712,7 @@
     synthesize,
     resolve,
     layerConfig,
+    sceneSignature,
     LAYER_DEFAULTS,
   };
 })();

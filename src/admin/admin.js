@@ -284,6 +284,8 @@
         return window.SVModulationPanel ? window.SVModulationPanel.panel() : null;
       case 'analysispanel':
         return window.SVAnalysisPanel ? window.SVAnalysisPanel.panel() : null;
+      case 'transitionpanel':
+        return window.SVTransitionPanel ? window.SVTransitionPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1672,6 +1674,14 @@
         title: 'Ses Çözümlemesi',
         desc: 'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.',
         controls: [{ type: 'analysispanel' }],
+      },
+      {
+        id: 'transition',
+        category: 'scene',
+        icon: '⇋',
+        title: 'Sahne Geçişi',
+        desc: 'Sahne değiştirirken sert kesme yerine geçiş: çapraz geçiş, silme, iris, zum, glitch ve daha fazlası. İstenirse tamamen kapatılabilir.',
+        controls: [{ type: 'transitionpanel' }],
       },
       {
         id: 'modulation',

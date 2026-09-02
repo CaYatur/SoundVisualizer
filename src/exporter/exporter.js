@@ -231,7 +231,7 @@
     if (postfx && modulator.touches('postfx')) postfx.setChain(mcfg.postfx || []);
 
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
-    stack.drawTo(compCtx, audio, mcfg, t, dt, drawLogo);
+    stack.composeTo(compCtx, audio, mcfg, t, dt, drawLogo);
 
     if (postfx) {
       // Efekt zinciri GPU'da çalışır; sonucu geri okuyabilmek için

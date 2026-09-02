@@ -359,6 +359,23 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // Sahne geçişleri.
+    //
+    // Sahne değiştirmek eskiden sert kesmeydi. Geçiş yalnızca SAHNE
+    // değiştiğinde tetiklenir (mod, arkaplan, preset, palet ya da katman
+    // yapısı); kaydırıcı oynatmak geçiş başlatmaz — yoksa panel
+    // kullanılamaz hale gelirdi.
+    // ------------------------------------------------------------------
+    transition: {
+      enabled: true,
+      type: 'crossfade',
+      duration: 0.7,
+      unit: 'seconds', // 'seconds' | 'beats'
+      ease: 'smooth',
+      params: {},
+    },
+
+    // ------------------------------------------------------------------
     // Modülasyon matrisi.
     //
     // Herhangi bir kaynağı (ses bandı, LFO, zarf, makro, rastgele, tempo)
