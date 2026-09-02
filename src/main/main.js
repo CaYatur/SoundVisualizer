@@ -17,6 +17,8 @@ const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const presetsStore = require('./presets-store');
+const mediaUrl = require('../shared/media-url');
+const { serveMediaFile } = require('./media-file');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -58,6 +60,9 @@ let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare is
 
 const SMOKE = process.argv.includes('--smoke');
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
+/* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
+   `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
+const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).toLowerCase();
 function attachSmoke(win, name) {
   if (!SMOKE) return;
   const wc = win.webContents;
@@ -981,7 +986,7 @@ ipcMain.handle('media:pick-video', async () => {
   if (r.canceled || !r.filePaths[0]) return null;
   return {
     path: r.filePaths[0],
-    url: 'sv-media://' + encodeURIComponent(r.filePaths[0]),
+    url: mediaUrl.toMediaUrl(r.filePaths[0]),
     name: path.basename(r.filePaths[0]),
   };
 });
@@ -1341,13 +1346,13 @@ app.whenReady().then(async () => {
   // erişimi vermez.
   protocol.handle('sv-media', (request) => {
     try {
-      const raw = decodeURIComponent(request.url.replace(/^sv-media:\/\//, ''));
+      const raw = mediaUrl.fromMediaUrl(request.url);
       const wanted = (currentConfig && currentConfig.media && currentConfig.media.file) || '';
-      const allowed = decodeURIComponent(String(wanted).replace(/^sv-media:\/\//, ''));
-      if (!raw || !allowed || path.resolve(raw) !== path.resolve(allowed)) {
+      const allowed = mediaUrl.fromMediaUrl(wanted);
+      if (!raw || !allowed || !mediaUrl.samePath(path.resolve(raw), path.resolve(allowed))) {
         return new Response('forbidden', { status: 403 });
       }
-      return net.fetch(url.pathToFileURL(raw).toString());
+      return serveMediaFile(raw, request.headers.get('range'));
     } catch {
       return new Response('error', { status: 500 });
     }
@@ -2283,6 +2288,8 @@ async function runShots() {
 
      Kartın kimliğine göre kaydırma yapılıyor; kategoriyi açıp en üstten
      ekran almak yeni motorları göstermezdi (Sahne kategorisinde on kart var). */
+  const want = (name) => !SHOTS_ONLY || String(name).toLowerCase().includes(SHOTS_ONLY);
+
   const PANELS = [
     ['scene', null, 'panel-scene.png'],
     ['scene', 'modulation', 'panel-modulation.png'],
@@ -2301,6 +2308,7 @@ async function runShots() {
   if (adminWin && !adminWin.isDestroyed()) {
     const awc = adminWin.webContents;
     for (const [cat, cardId, name] of PANELS) {
+      if (!want(name)) continue;
       try {
         await awc.executeJavaScript(
           '(function(){var b=document.querySelector(\'.nav-item[data-cat="' + cat + '"]\');' +
@@ -2395,21 +2403,24 @@ async function runShots() {
   ];
 
   for (const [id, name, settle] of SCENES) {
+    if (!want(name)) continue;
     if (!(await applyTemplate(id))) continue;
     await wait(settle);
     await save(vw, name);
   }
 
   // Metin / şarkı sözü katmanı: ayrı, çünkü şablonlarda yok
-  await applyTemplate('amb-aurora', {
+  if (want('scene-text.png')) await applyTemplate('amb-aurora', {
     visualizer: { type: 'text' },
     text: {
       enabled: true, source: 'static', content: 'CAYADEV',
       size: 0.16, weight: 800, perCharacter: true, audioScale: 0.18, outline: 0.25, shadow: 0.5,
     },
   });
-  await wait(2000);
-  await save(vw, 'scene-text.png');
+  if (want('scene-text.png')) {
+    await wait(2000);
+    await save(vw, 'scene-text.png');
+  }
 
   // ==========================================================================
   // 3) Hareketli demolar
@@ -2421,6 +2432,7 @@ async function runShots() {
     ['amb-flow', 'demo-flowfield.gif', 30, 65, 760],
   ];
   for (const [id, name, frames, delay, width] of GIFS) {
+    if (!want(name)) continue;
     if (!(await applyTemplate(id))) continue;
     await wait(1600);
     await saveGif(vw, name, frames, delay, width);

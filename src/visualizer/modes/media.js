@@ -37,7 +37,7 @@
       if (cfg.source === 'file') {
         if (!cfg.file) return;
         this.video.srcObject = null;
-        this.video.src = cfg.file;
+        this.video.src = this._sourceUrl(cfg.file);
         this.video.play().then(() => { this.ready = true; }).catch((e) => { this.error = e.message; });
       } else {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -57,6 +57,18 @@
           .then(() => { this.ready = true; })
           .catch((e) => { this.error = e && e.message ? e.message : String(e); });
       }
+    }
+
+    /* Aynı yapılandırma iki farklı ortamda açılıyor.
+
+       Masaüstü penceresi sayfayı file:// üzerinden yükler ve videoyu
+       sv-media:// özel protokolünden okur. OBS tarayıcı kaynağı ise sayfayı
+       yayın sunucusundan http:// ile alır; orada özel protokol diye bir şey
+       yoktur, dosyayı sunucunun /media-file yolu servis eder. */
+    _sourceUrl(file) {
+      const http = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
+      if (http) return '/media-file?v=' + encodeURIComponent(file);
+      return file;
     }
 
     stop() {

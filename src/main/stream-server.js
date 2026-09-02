@@ -22,6 +22,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const mediaUrl = require('../shared/media-url');
 
 const ROOT = path.join(__dirname, '..'); // src/
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -246,7 +247,7 @@ function serveMedia(req, res) {
   const cfg = hooks.getConfig();
   const file = cfg && cfg.media && cfg.media.file;
   if (!file) { res.writeHead(404).end('no media'); return; }
-  const local = file.startsWith('sv-media://') ? decodeURIComponent(file.replace('sv-media://', '')) : file;
+  const local = mediaUrl.fromMediaUrl(file);
   let stat;
   try { stat = fs.statSync(local); } catch { res.writeHead(404).end('not found'); return; }
   const ext = path.extname(local).toLowerCase();
