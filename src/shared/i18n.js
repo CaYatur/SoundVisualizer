@@ -406,6 +406,8 @@
     'Henüz renk şablonu yok.': 'No colour presets yet.',
     'Bu tür için seçilebilir bir kaynak yok.': 'There is nothing to pick for this type.',
     'Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi birbirlerinin elinden alır; birini kapatmanız ya da Otomatik VJ kaynağını Renk Şablonları yapmanız daha öngörülebilir olur.': 'Auto VJ changes scenes too. With both running they take the scene from each other; turning one off, or setting Auto VJ\'s source to Colour Presets, is more predictable.',
+    'Bu yuvanın kaynağı seçilmemiş. Aşağıdaki Kaynak listesinden bir sahne, şablon ya da renk şablonu seçin.': 'This slot has no source. Pick a scene, template or colour preset from the Source list below.',
+    'Kaynağı seçilmemiş — tıklayıp seçin': 'No source — click to pick one',
     'Genişletilmiş Ayar Aralıkları': 'Extended Setting Ranges',
     'Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.': 'Raises the upper limit of the sliders 5×, letting you enter values far above the normal range. Extreme values may reduce performance.',
     'Genişletilmiş aralıklar açık — kaydırıcılar 5 kat daha yükseğe çıkabilir.': 'Extended ranges on — sliders can now go 5× higher.',

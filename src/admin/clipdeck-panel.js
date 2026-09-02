@@ -277,7 +277,19 @@
     return tp && tp.transport ? tp.transport().tl.tempo : window.SVTimeline.makeTempoMap([{ t: 0, bpm: 120 }]);
   }
 
+  /* Kaynağı olmayan yuvayı ATEŞLEME. Adı var ama kaynağı boş bir yuva
+     hazırlanır, geri sayar, ateşlenir ve hiçbir şey olmaz — kullanıcı
+     için bu "deste kararsız çalışıyor" demektir. Sebebi söylemek,
+     sessizce hiçbir şey yapmaktan iyi. */
   function launch(row, col) {
+    const deck = CD().makeDeck(deckSpec());
+    const slot = CD().getSlot(deck, row, col);
+    if (slot && !slot.ref) {
+      P().toast('Bu yuvanın kaynağı seçilmemiş. Aşağıdaki Kaynak listesinden bir sahne, şablon ya da renk şablonu seçin.', 'warn');
+      selected = { row, col };
+      P().rerender();
+      return;
+    }
     const e = ensureEngine();
     e.launch(deckSpec().id, row, col, clockNow(), tempoNow());
     if (window.SVTimelinePanel) window.SVTimelinePanel.start();
@@ -285,6 +297,15 @@
   }
 
   function launchRow(row) {
+    const deck = CD().makeDeck(deckSpec());
+    let empty = 0;
+    for (let c = 0; c < deck.cols; c++) {
+      const sl = CD().getSlot(deck, row, c);
+      if (sl && !sl.ref) empty++;
+    }
+    if (empty) {
+      P().toast(empty + ' yuvanın kaynağı seçilmemiş; onlar atlanacak.', 'warn');
+    }
     const e = ensureEngine();
     e.launchRow(deckSpec().id, row, clockNow(), tempoNow());
     if (window.SVTimelinePanel) window.SVTimelinePanel.start();
@@ -392,10 +413,12 @@
       for (let col = 0; col < deck.cols; col++) {
         const slot = CD().getSlot(deck, row, col);
         const cell = el('button', {
-          class: 'cd-cell' + (slot ? ' filled' : ''),
+          class: 'cd-cell' + (slot ? ' filled' : '') + (slot && !slot.ref ? ' noref' : ''),
           type: 'button',
           id: cellId(row, col),
-          title: slot ? (slot.name || slot.ref || slot.type) : 'Boş yuva — düzenlemek için tıklayın',
+          title: slot
+            ? (slot.ref ? (slot.name || slot.ref) : 'Kaynağı seçilmemiş — tıklayıp seçin')
+            : 'Boş yuva — düzenlemek için tıklayın',
         });
         const prev = slotPreview(slot);
         if (prev) cell.appendChild(el('span', { class: 'cd-thumb', style: 'background:' + prev }));

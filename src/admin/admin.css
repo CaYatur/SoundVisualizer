@@ -906,3 +906,7 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 
 /* Çakışma uyarısı — engellemiyoruz ama görünür olmalı. */
 .settings-io-note.warn { color: #f0b429; border-left: 2px solid #f0b429; padding-left: 8px; }
+
+/* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar
+   ve soluk metin bunu ateşlemeden önce belli eder. */
+.cd-cell.filled.noref { border-style: dashed; opacity: .6; }
