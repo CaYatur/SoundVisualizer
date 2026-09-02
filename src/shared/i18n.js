@@ -1015,6 +1015,25 @@
     'Yüksek doygunluk, geniş hareket.': 'High saturation, broad movement.',
     'Hizalama için ızgara ve kontrast.': 'A grid and contrast for alignment.',
 
+    // ---- Katı geometri ----
+    'Katı': 'Solid',
+    'Dörtyüzlü': 'Tetrahedron',
+    'Küp': 'Cube',
+    'Sekizyüzlü': 'Octahedron',
+    'Onikiyüzlü': 'Dodecahedron',
+    'Yirmiyüzlü': 'Icosahedron',
+    'Jeodezik Küre': 'Geodesic Sphere',
+    'Alt Bölünme': 'Subdivision',
+    'L-Sistem Ağaç': 'L-System Tree',
+    'L-Sistem Eğrelti': 'L-System Fern',
+    'Ejderha Eğrisi': 'Dragon Curve',
+    'Hilbert Eğrisi (3B)': 'Hilbert Curve (3D)',
+    'Barnsley Eğreltisi': 'Barnsley Fern',
+    'Sierpinski Dörtyüzlü': 'Sierpinski Tetrahedron',
+    'Sarmal IFS': 'Spiral IFS',
+    'Açı': 'Angle',
+    'Nokta': 'Points',
+
     // ---- Yerleşik shader kitaplığı ----
     'Bulut Katmanları': 'Cloud Layers',
     'Kıvrım Akışı': 'Curl Flow',

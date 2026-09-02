@@ -305,7 +305,32 @@ void main(){
     return { pos, nor, uvs, tri: null, line: lineIdx, count: N };
   }
 
+  /* Katı geometri ailesi.
+
+     Parametrik yüzeyler f(u,v) ile tanımlanıyor; çokyüzlüler, L-sistemler ve
+     yinelemeli fonksiyon sistemleri öyle yazılamaz — kapalı bir parametrik
+     formları yok. Bu yüzden ayrı bir aile ve doğrudan ağ üreten bir yol.
+
+     Çokyüzlülerde tel kafes AYRI bir ağ olarak geliyor: yüzey çiziminde her
+     üçgen kendi köşelerini alıyor (keskin kenarlar için), oysa tel kafes
+     paylaşılan köşeler ister. */
+  function buildSolid(g) {
+    const S = window.SVSolids;
+    if (!S) return null;
+    const def = S.SOLIDS[g.formula];
+    if (!def) return null;
+    const params = Object.assign(S.defaults(def), g.params);
+    let mesh;
+    try { mesh = def.build(params); } catch (e) { return null; }
+    if (!mesh) return null;
+    if (g.render === 'wireframe' && mesh.wire) {
+      return { pos: mesh.wire.pos, nor: mesh.wire.nor, uvs: mesh.wire.uvs, tri: null, line: mesh.wire.line, count: mesh.wire.count };
+    }
+    return mesh;
+  }
+
   function buildMesh(g) {
+    if (g.family === 'solid') return buildSolid(g);
     const def = window.SVFormulas.get(g.family, g.formula);
     if (!def) return null;
     const params = Object.assign(window.SVFormulas.defaults(def), g.params);

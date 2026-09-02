@@ -515,6 +515,7 @@
     ['curve3d', 'Uzay Eğrisi'],
     ['curve2d', 'Düzlem Eğrisi'],
     ['attractor', 'Çekici'],
+    ['solid', 'Katı'],
   ];
   const RENDER_LABELS = [['surface', 'Yüzey'], ['wireframe', 'Tel Kafes'], ['points', 'Nokta']];
   const DEFORM_LABELS = [['normal', 'Normal Yönünde'], ['radial', 'Işınsal'], ['vertical', 'Dikey'], ['collapse', 'Çökme']];
@@ -531,7 +532,11 @@
       P().segment('Aile', 'geometry.family', FAMILY_LABELS.map(([v, l]) => ({ value: v, label: l })), { rebuild: true })
     );
 
-    const cat = window.SVFormulas.catalog().filter((e) => e.family === g.family);
+    /* Katalog iki kaynaktan geliyor: parametrik formüller ve katı geometri
+       ailesi. Panel ikisi arasında ayrım yapmaz. */
+    const full = window.SVFormulas.catalog()
+      .concat(window.SVSolids ? window.SVSolids.catalog() : []);
+    const cat = full.filter((e) => e.family === g.family);
     if (!cat.length) return el('div', { class: 'studio-note', text: 'Bu ailede formül yok.' });
     if (!cat.some((e) => e.key === g.formula)) {
       g.formula = cat[0].key;
@@ -542,6 +547,9 @@
     );
 
     const active = cat.find((e) => e.key === g.formula);
+    if (g.family === 'solid') {
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Katı geometri ağı bir kez kurulup GPU\'da kalır; sese bağlı bozulma vertex shader\'da yapılır. Nokta bulutu üreten şekillerde (IFS) çizim kipi otomatik olarak nokta olur.' }));
+    }
     if (active) {
       // Formülün kendi parametreleri — tanımdan otomatik üretilir
       if (active.params.length) {

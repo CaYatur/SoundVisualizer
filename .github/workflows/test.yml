@@ -36,8 +36,11 @@ jobs:
       # package's dependencies (electron, audify, ffmpeg) are only needed to
       # run or package the application, and installing them here would add
       # minutes and a native build for no benefit.
+      # Not `node --test <glob>`: glob support landed in Node 22, and Node 20
+      # treats the pattern as a filename. scripts/test.js enumerates the files
+      # and passes them individually, which behaves the same on every version.
       - name: Run unit tests
-        run: node --test "tests/**/*.test.js"
+        run: node scripts/test.js
 
   lint:
     name: syntax check

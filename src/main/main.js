@@ -1783,15 +1783,23 @@ async function runSmoke() {
       timeBytes: new Uint8Array(2048)
     };
     var out = [];
-    var cat = window.SVFormulas.catalog();
+    // Katı geometri ailesi de aynı taramadan geçmeli
+    var cat = window.SVFormulas.catalog()
+      .concat(window.SVSolids ? window.SVSolids.catalog() : []);
     for (var i = 0; i < cat.length; i++) {
       var e = cat[i];
       var cfg = window.SV.defaultConfig();
       cfg.geometry.family = e.family;
       cfg.geometry.formula = e.key;
       cfg.geometry.params = {};
-      // Aileye uygun çizim modu: yüzeyler tel kafes, eğri/çekici nokta
-      cfg.geometry.render = e.family === 'surface' ? 'wireframe' : 'points';
+      /* Aileye uygun çizim modu. Katılarda nokta bulutu üretenler (IFS)
+         nokta, ağ üretenler tel kafes ister — yüzey kipinde bir L-sistem
+         çizgisinin üçgeni yok ve ekran boş kalırdı. */
+      if (e.family === 'solid') {
+        cfg.geometry.render = /^ifs/.test(e.key) ? 'points' : 'wireframe';
+      } else {
+        cfg.geometry.render = e.family === 'surface' ? 'wireframe' : 'points';
+      }
       cfg.geometry.attractorPoints = 4000;
       cfg.geometry.resolution = e.family === 'surface' ? 40 : 24;
       try {
