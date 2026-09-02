@@ -368,6 +368,344 @@ The styles the application shipped with, still one click away.
 
 ---
 
+## Everything, in detail
+
+The sections above show what the application looks like. This one lists what is
+actually in it, by name.
+
+### Backgrounds — 31 types
+
+**Fluid** — **Fluid Gradient** (an audio-reactive mesh gradient in a WebGL shader, in *Soft* and
+*Plasma* styles, with flow speed, wander, orbit, swirl, warp, scale, grain, vignette, audio burst
+brightness and audio hue shift) · **Ink** (liquid blobs that swirl as they flow: blob count,
+viscosity, swirl, spread) · **Nebula** (overlapping soft gas clouds: layer count, size, softness,
+density) · **Wave Layers** (crests that swell with the audio: layer count, crest height, wave
+frequency, spacing, opacity) · **Aurora** (undulating light curtains: curtain count, thickness,
+undulation, edge softness, vertical position)
+
+**Geometric** — **Retro Grid** (a perspective grid receding to the horizon: horizon height, row and
+column counts, line width, horizon glow, sky intensity, spectrum response) · **Hex Grid**
+(hexagonal cells lit by a wave spreading from the centre and by the spectrum) · **Mosaic** (a
+jittered cell grid where each cell follows a frequency band) · **Corridor** (rings or polygons
+coming toward the viewer: ring count, speed, sides, twist) · **Helix** (a rotating multi-armed
+spiral: arms, turns, taper) · **Pulse Rings** (rings expanding from the centre, with extra rings
+spawned on bass hits: rate, expansion speed, thickness, fade) · **Network** (drifting nodes linked
+to their close neighbours: node count and size, link distance, line width, speed)
+
+**Atmosphere** — **Starfield** (stars streaming out from the centre: count, size, motion trail,
+depth, twinkle) · **Snow / Embers** (swaying particles falling with depth) · **Bokeh Lights** (soft
+out-of-focus orbs: count, size, size variation, drift, bass pulse) · **Digital Rain** (falling
+luminous streaks: columns, fall speed, trail length, density, thickness) · **City** (a two-layer
+parallax skyline whose windows light up with the music)
+
+**Generative** — **Liquid Metal** · **Plasma** · **Caustics** · **Ribbons** · **Contours** ·
+**Wave Field** · **Embers** · **Sand** · **Stained Glass** · **Circuit Board** · **Prism** ·
+**Globe Mesh** · **Wire Tunnel** · **Hex Pulse**
+
+**Other** — **Studio Preset** (a GLSL shader you wrote yourself) · **Solid Colour**
+
+Five colour stops, **58 built-in palettes** in seven groups (Classics, Warm, Cool, Neon & Cyber,
+Dark, Light, Monochrome Families) and your own saved palettes apply to every background type, to the
+Studio engine and to the 3D engine.
+
+### Visualizer — 48 modes
+
+**Basic** — **Bars** · **Center** · **Segments** (LED equaliser) · **Dot Matrix** · **Skyline**
+(buildings with lit windows)
+
+**Waveform** — **Wave** (oscilloscope) · **Ribbon** (waveform history) · **3D Wave** (history
+stacked in perspective) · **Lissajous** (XY oscilloscope) · **Strings** (each string vibrates with
+its band) · **Terrain** (perspective wireframe landscape)
+
+**Radial** — **Circle** · **Radial Wave** · **Rays** · **Arcs** (one arc per band) · **Pinwheel** ·
+**Mandala** (polar rose curve) · **Kaleidoscope** · **Swirl** · **Helix** · **Tunnel** · **Orb**
+
+**Particles and events** — **Particles** · **Fireworks** (bursts on the beat) · **Lightning**
+(branching bolts on bass) · **Bubbles** · **Liquid Blobs** (metaballs) · **Ripple Grid** (rings
+spreading on the beat) · **Spectrogram**
+
+**Generative** — **Flow Field** (particles steered by a noise field) · **Flock** (boids driven by
+the spectrum) · **Voronoi** · **Truchet** · **Moiré** · **Wave Interference** · **Ropes** (verlet
+physics kicked by onsets) · **Galaxy** · **DNA Helix** · **Isometric City** · **Attractor Field**
+(discrete maps from the formula library with two parameters bound to audio)
+
+**Measurement** — **Oscilloscope (XY)** · **Goniometer** (stereo phase scope) · **Chroma Wheel**
+(pitch classes in circle-of-fifths order, highlighting the detected chord root)
+
+**Engines** — **3D Geometry** · **MilkDrop** · **Feedback** · **Text / Lyrics** · **Studio Preset**
+
+Bar count, min and max frequency, gap, position, mirror, line width, amplitude, sensitivity and
+glow appear whenever they are meaningful for the selected mode. **Rainbow** can be turned off to
+pick a single or dual colour.
+
+### Spectrum metering
+
+- **Frequency scale** — logarithmic, linear, mel or bark.
+- **Amplitude scale** — linear or decibel, with a settable floor from −24 to −96 dB.
+- **Attack and release** as separate time constants, frame-rate independent.
+- **Neighbour spread** (widens peaks without flattening them) and **profile smoothing** (a
+  symmetric neighbour average).
+- **Spectral tilt** in dB per octave, neutral at 1 kHz.
+- **Bar placement** — width, horizontal position, height and baseline, each a fraction of the
+  frame.
+
+### Layers, masks and groups
+
+- Unlimited layers, each with its own source, blend mode, opacity, transform (scale, rotate, X/Y,
+  flip) and audio response (band, opacity, scale, rotate).
+- **17 blend modes** — Normal, Add, Screen, Multiply, Overlay, Darken, Lighten, Colour Dodge,
+  Colour Burn, Hard Light, Soft Light, Difference, Exclusion, Hue, Saturation, Colour, Luminosity.
+- **Masks** — alpha from another layer, plus rectangle, ellipse, linear and radial gradients, with
+  position, size, angle, feather and invert.
+- **Groups** with a single fader, and an **A/B crossfader** on an equal-power curve.
+- **Solo, mute and lock** — solo isolates a layer reversibly, mute hides one without losing its
+  settings, lock prevents accidental edits.
+- **Per-layer effect chains** in addition to the composite chain.
+- Copy, paste and duplicate layers across scenes.
+- The whole stack can be switched off, returning to the plain Background plus Visualizer setup
+  without losing the list.
+
+### Post-processing — 40 effects
+
+**Composition** — Bloom · Glow · Vignette · Trails / Echo · Edge Highlight · Colour Grade
+
+**Blur and focus** — Gaussian Blur · Radial Blur · Directional Blur · Zoom Blur · Tilt-Shift ·
+Depth of Field (Bokeh) · Sharpen · Emboss
+
+**Halftone and pattern** — Dither (Bayer) · Halftone · ASCII Mosaic · Cross-Hatch (Pen) ·
+Oil Paint (Kuwahara) · Pixelate · Posterize / Invert · Threshold · Solarize
+
+**Analogue and damage** — Film Grain · CRT / Scanlines · VHS / Analogue Tape · Glitch (Slice
+Shift) · Datamosh (Block Shift) · Bad Signal · Chromatic Aberration
+
+**Distortion** — Lens Distortion · Twirl · Polar Transform · Ripple Distortion · Slit-Scan ·
+Kaleidoscope · Mirror
+
+**Colour and light** — Gradient Map · Levels & Curve · God Rays · Star Filter
+
+Each is orderable, has its own opacity, can be toggled, and any of its parameters can be driven by
+the modulation matrix.
+
+### Scene transitions — 18
+
+**Cut** · **Crossfade** · **Dissolve** · **Wipe** · **Radial** · **Clock** · **Barn** · **Blinds** ·
+**Stripes** · **Checker** · **Iris** · **Luma** (keyed on the outgoing frame's own luminance,
+normalised to its range) · **Zoom** · **Push** · **Slide** · **Flash** · **Glitch** · **Blur**
+
+Six easing curves — linear, smooth, ease-in, ease-out, ease-in-out and snap — plus a duration in
+seconds or in beats. Transitions can be switched off entirely, and they fire on a change of *scene*
+rather than on a change of any setting, so dragging a slider never starts one.
+
+### Modulation
+
+**Sources** — bass, mid, treble, level, onset envelope and onset trigger · eight spectrum bands ·
+four or more LFOs · two or more envelope followers · sample-and-hold · random · the beat clock ·
+macro knobs · and every deep-analysis measurement.
+
+**LFO shapes** — sine, triangle, saw up, saw down, square, pulse, random ramp and noise, with rate
+in Hz or in beat divisions (1/16 up to 8 bars) locked to the detected tempo, plus phase offset and
+pulse width.
+
+**Routing** — any source to any dotted configuration path, chosen from a live tree of the current
+settings. Each route has a minimum, maximum, an amount, a mode (set or add), a curve (linear,
+exponent, S-curve, quantise, invert), and its own smoothing and slew limiting.
+
+**Macros** — eight assignable knobs, exposed to MIDI learn and to the mobile remote.
+
+Values are applied copy-on-write, so modulation never alters your saved settings, and LFO phase is
+computed from the draw clock rather than accumulated, so offline export is frame-exact.
+
+### Deep audio analysis
+
+Chroma vector (constant-Q Goertzel filterbank), musical key (Krumhansl-Schmuckler profiles), chord
+from templates, harmonic/percussive separation, per-band onsets for kick, snare and hat, spectral
+centroid, rolloff, flatness and crest, loudness, dynamics, true peak, stereo width, correlation,
+mid/side bands, fundamental pitch (YIN), silence detection and auto-gain, plus a rolling spectral
+history buffer. Everything has a live meter and is available as a modulation source.
+
+### 3D geometry — 98 formulas and 13 solids
+
+**Plane curves (30)** — rose curves, lemniscates, cardioids, epicycloids, hypocycloids, spirals,
+roulettes, Lissajous figures, butterfly and superformula curves among them.
+
+**Space curves (12)** — trefoil and torus knots, Viviani's curve, helices, conical spirals and
+similar.
+
+**Surfaces (29)** — torus, Klein bottle, Möbius strip, Boy's surface, Dini's surface, breather,
+superellipsoid, Gielis supershapes, Chladni figures, trefoil tube and more.
+
+**Attractors (27)** — Lorenz, Rössler, Chen, Halvorsen, Thomas, Aizawa, Chua, Dadras, Sprott,
+Clifford, de Jong, Hénon and others, both continuous and discrete.
+
+**Solids (13)** — tetrahedron, cube, octahedron, dodecahedron, icosahedron, a geodesic sphere with
+subdivision control, four L-systems (tree, fern, dragon curve, 3D Hilbert curve) and three iterated
+function systems (Barnsley fern, Sierpinski tetrahedron, spiral).
+
+Render as wireframe, points or shaded, with resolution, deformation, spin, colour mode and audio
+binding on every parameter. The maths is the project's own — no third-party 3D library — and
+framing is measured from each system's real bounding box rather than declared by hand.
+
+### Studio — 42 built-in shaders
+
+**Backgrounds (25)** — Cloud Layers · Curl Flow · Lava Lamp · Ink Bleed · Smoke Rings · Hex Flow ·
+Warped Grid · Truchet Weave · Moiré Interference · Crystal Cave · Mandelbrot Zoom · Julia Set ·
+Burning Ship · Apollonian Gasket · Kaleidoscopic IFS · Menger Sponge · Mandelbulb · Light Tunnel ·
+Star Warp · Aurora Curtain · Liquid Metal · Neon Rain · Reaction Pattern · Water Caustics ·
+Prism Glow
+
+**Visualizers (11)** — Glowing Bars · Spectrum Ring · Wave Field · Beat Burst · Glowing
+Oscilloscope · Frequency Mesh · Note Ring · Particle Flow · Kaleidoscope Spectrum · Pulse Grid ·
+Liquid Bars
+
+**Plus six earlier presets** — Plasma Sea, Frequency Rings, Liquid Metal, Star Gate, Wave Curtain,
+Bass Sphere.
+
+The editor gives you live preview, error line reporting and sliders you declare yourself. Shaders
+receive `sv_resolution`, `sv_time`, `sv_level`, `sv_bass`, `sv_mid`, `sv_treble`, `sv_beat`,
+`sv_spec(x)`, `sv_waveAt(x)`, `sv_col(x)` for the user's palette, and `sv_media` for the camera or
+video layer. Shadertoy and ISF presets import through local converters.
+
+### MilkDrop
+
+The preset language runs for real: a tokeniser, a parser to an AST, compilation to JavaScript
+closures, the variable pool (`q1`–`q32`, `t1`–`t8`, `regNN`), the built-in function library — every
+built-in returns a finite number, including `log(0)` and division by zero — per-frame equations,
+per-pixel equations across the warp mesh, and the feedback renderer. `.milk` files import
+individually or as packs, with compile errors reported per file.
+
+### Text and lyrics
+
+Font, weight, size, alignment, X/Y position, opacity, outline and shadow · animation presets with a
+duration · per-character audio response with scale, jitter and lift · marquee and ticker · karaoke
+highlighting · LRC and SRT import with the format detected from the content and enhanced LRC word
+timings supported · a sync offset that writes back to LRC · now-playing metadata, bindable as a
+combined line or as separate title and artist layers.
+
+### Media layer
+
+Webcam or video file, placed in front of or behind the visualizer, with fit (cover, contain,
+stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode, opacity, and
+audio-driven zoom and opacity. The same frame is readable inside Studio shaders as `sv_media`.
+
+### Scenes, templates and the scene generator
+
+- **Scenes** store the whole look — background, visualizer, layers, logo and visual objects — under
+  a name. Restore with one click, update from the current look, export and import as JSON.
+- **72 templates** in nine groups:
+  - *Club (8)* — Strobe Wall, Hyper Tunnel, Laser Grid, Mandala Drop, Strobe Floor, Fireworks,
+    MilkDrop Flow, Strange Attractor
+  - *Ambient (9)* — Aurora, Ink in Water, Topography, Underwater, Embers, Liquid Metal, Night
+    Globe, Flow Field, Interference
+  - *Streaming (6)* — Corner Bars, Clean Wave, Ring Meter, Scope Overlay, Lower Third, Studio
+    Meters
+  - *Music Video (8)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
+    Frame, Corner Meter, Centre Strip
+  - *Music (6)* — Chroma Wheel, Helix, Silk Ribbons, Strings, Spectrogram, Galaxy
+  - *Screensaver (6)* — Plasma, Stained Glass, Circuit, Wire Tunnel, Dunes, Prism
+  - *3D Geometry (8)* — Klein Bottle, Lorenz, Supershape, Trefoil Tube, Chladni, Rose Curve, Chua
+    Circuit, Möbius
+  - *Genre (16)* — Techno, House, Drum & Bass, Hip-Hop, Lo-Fi, Synthwave, Rock, Metal, Jazz,
+    Classical, Ambient, Pop, Trance, Dubstep, Chiptune, Experimental
+  - *Event (5)* — Minimal Line, Corporate, Gala, Festival, Projection Test
+- **Scene Generator** builds a scene from a description. It is **not** a neural network and is not
+  presented as one: it reduces the text to four axes with a weighted keyword dictionary and seeds a
+  deterministic generator from them. It runs entirely offline.
+- Scenes and colour palettes are **excluded** from the general settings backup and survive a backup
+  import; each has its own export and import.
+
+### Logo, image and visual objects
+
+- **Logo** — an image placed anywhere in the frame, automatically sized, with size, opacity, glow,
+  X/Y position and audio pulse. The logo file survives applying a template; only its placement
+  changes.
+- **Visual objects** — image sprites in front of or behind the visualizer, with count, size, drift,
+  rotation and audio response.
+
+### Audio
+
+- Capture **system output** (loopback), **microphones and input devices**, or several sources at
+  once, mixed before analysis.
+- Output devices use WASAPI loopback on Windows and CoreAudio on macOS; input devices are captured
+  directly through the native `audify` module.
+- Sensitivity, smoothing and bass emphasis, with live meters for overall, bass, mid and treble.
+
+### Recording and video export
+
+- **Live recording** of the output exactly as it appears — with the live audio, modulation,
+  transitions and effects — to MP4 or WebM.
+- **GIF export** with two-pass palette generation, because one pass bands visibly.
+- **PNG snapshot** at up to 4×, on a shortcut.
+- **Aspect-ratio presets** for common targets.
+- **Offline export** renders a selected audio file to MP4 with configurable resolution, frame rate,
+  quality and encoder, with progress, cancellation and a GPU-to-CPU fallback. It is frame-exact and
+  deterministic — the same property the visual regression tests rely on.
+
+### Projection mapping
+
+Corner pin as a true homography · Catmull-Rom mesh warp · per-output crop · per-output colour
+correction · Bézier polygon masks · soft edge blending for multi-projector rigs · alignment grids,
+crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric entry.
+
+### Control surfaces
+
+- **MIDI** — learn a control, then map any CC or note to any setting or action.
+- **OSC** — a UDP listener with a hand-written OSC 1.0 parser.
+- **Art-Net / DMX** — ArtDMX output, packet layout tested byte by byte.
+- **Mobile remote** — scenes, templates and Studio presets from a phone, over the same server that
+  hosts the OBS overlay.
+- **Tempo** — BPM estimation from a period histogram, tap tempo and a BPM lock.
+- **Auto VJ** — bar-aligned changes of scene, mode and palette.
+
+### Windows Dynamic Lighting
+
+- Off by default, and available only when compatible devices are detected.
+- Dynamic modes: visualizer colour flow, bar-spectrum mapping, advanced bass/mid/treble zones,
+  background-light sync, synchronised beat flashes, frequency ripples, bar and background fusion,
+  cross-device colour flow, rainbow flow, and threshold-triggered background bursts.
+- Threshold bursts watch exactly one chosen source (bass, mid, treble, overall level or the
+  strongest band) and fire only after its threshold is crossed. Brightness scales with the amount
+  above the threshold; the colour comes from the real current background pixels.
+- Band response can be instant/hard, punchy/hard or smooth/fluid, with configurable threshold,
+  hardness, attack, release and band separation. Rainbow can run sequentially across LEDs or as one
+  shared tone, and can react in brightness to a chosen band.
+- Manual modes: one colour across all devices, per-device colours, and per-LED or per-zone colours
+  where the hardware exposes them.
+- Brightness, audio reactivity, smoothing, update rate, LED layout, palette source, per-band colours
+  and sensitivity, flash threshold, strength and decay, ripple speed, direction and width, and
+  colour spread are all independently configurable.
+- The installer registers the Windows background-lighting identity automatically. The portable build
+  does not, and controls lighting only while the application is focused — use the installer when
+  lighting must continue in the background, and place the application near the top of Windows
+  **Dynamic Lighting → Background light control**.
+
+### Settings backup and restore
+
+- Export every application setting to a single JSON file: audio, visuals, Dynamic Lighting,
+  performance, logo, visual objects, display selection and video export.
+- User-created **colour palettes and scenes** are deliberately excluded and survive an import; each
+  has its own export and import.
+- Imported settings are merged with the current defaults, so newer fields stay valid. Files written
+  by 1.3 and 2.0 load without losing a value, and a test proves it.
+
+### Power and performance
+
+- **Frame rate** — *Match Display* (one frame per refresh, the smoothest) or a cap of 120, 60 or 30
+  FPS. When a cap is not an exact divisor of the refresh rate — 60 on a 75 Hz screen, say — the
+  long-run average stays correct but the intervals become uneven, so *Match Display* is
+  recommended.
+- Background resolution scale, pause on silence, hide cursor.
+
+### Application settings (⚙ menu)
+
+- **Language** — automatic (system), Turkish or English.
+- **Keep visualization always on top** *(off by default)* — the visualization window re-raises
+  itself whenever it loses focus.
+- **Extended setting ranges** *(off by default)* — raises the upper limit of the sliders 5×. A few
+  settings genuinely bounded by the algorithm (smoothing, background resolution) are excluded.
+  Turning it off again keeps any high values already entered.
+
+---
+
 ## What it is
 
 Three output paths, one engine:
