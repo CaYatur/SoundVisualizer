@@ -26,18 +26,32 @@
     return rec;
   }
 
-  // Kaydedilecek tuval: önizlemenin görünür tek yüzeyi
-  function target() {
+  /* Kaydedilecek tuval: önizlemenin görünür tek yüzeyi.
+
+     Yüzeyi ÇİZİLMİŞ olarak beklemek şart. setForceSingle(true) yalnızca
+     niyeti bildirir; birleştirme tuvali ancak bir sonraki çizim karesinde
+     dolar. Hemen yakalamaya başlanınca MediaRecorder hiç kare göremiyor,
+     ffmpeg de "streams received no packets" diyip boş dosya bırakıyordu.
+     stack.surface() tam olarak ilk tek-yüzey çiziminde dolduğu için
+     beklenecek koşul odur. */
+  function awaitSurface() {
     const prev = window.SVPreview;
     const stack = prev && prev.stack && prev.stack();
-    if (!stack) return null;
+    if (!stack) return Promise.resolve(null);
+    // Duraklatılmış önizleme hiç çizmez; kayıt için sürdürülür
+    if (prev.isPaused && prev.isPaused() && prev.setPaused) prev.setPaused(false);
     stack.setForceSingle(true);
     stack._ensureComp();
-    if (stack.compCanvas.width !== stack.width || stack.compCanvas.height !== stack.height) {
-      stack.compCanvas.width = stack.width;
-      stack.compCanvas.height = stack.height;
-    }
-    return stack.surface() || stack.compCanvas;
+    const deadline = performance.now() + 1500;
+    return new Promise((resolve) => {
+      const look = () => {
+        const cv = stack.surface();
+        if (cv && cv.width > 0 && cv.height > 0) { resolve(cv); return; }
+        if (performance.now() > deadline) { resolve(null); return; }
+        requestAnimationFrame(look);
+      };
+      requestAnimationFrame(look);
+    });
   }
 
   function release() {
@@ -127,10 +141,12 @@
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   }
 
-  function start(cfg) {
+  async function start(cfg) {
     const R = engine();
     if (!R) { status = 'Kayıt motoru yok.'; P().rerender(); return; }
-    const cv = target();
+    status = 'Yüzey hazırlanıyor…';
+    P().rerender();
+    const cv = await awaitSurface();
     if (!cv) { status = 'Önizleme yüzeyi hazır değil; bir an sonra yeniden deneyin.'; P().rerender(); return; }
     const r = cfg.recording || {};
     const res = R.start(cv, {
@@ -158,6 +174,17 @@
 
   async function finish(blob, cfg) {
     release();
+    /* Boş kayıtta kaydetme penceresi AÇILMAZ.
+
+        Kare üretilmemişse ffmpeg'e boş bir kap gidiyor ve kullanıcı, dosya
+        adını seçtikten sonra "streams received no packets" gibi bir kodlayıcı
+        hatasıyla karşılaşıyordu. Hata kaynağında ve anlaşılır dille söylenir. */
+    if (!blob || !blob.size) {
+      busy = false;
+      status = '⚠ Kare yakalanamadı, kayıt boş. Önizleme çiziyor mu bakın ve yeniden deneyin.';
+      P().rerender();
+      return;
+    }
     try {
       const buf = await blob.arrayBuffer();
       const r = cfg.recording || {};
@@ -182,21 +209,18 @@
     P().rerender();
   }
 
+  /* Anlık görüntü, önizlemenin ZATEN çizdiği yüzeyi alır.
+
+     Burada sahne yeniden çiziliyordu ve ses olarak SVPreview.lastAudio ya da
+     window.SVAudioCore veriliyordu — ikisi de bu projede hiç var olmadı.
+     Yani çizim her seferinde audio === undefined ile yapılıyor ve modların
+     çoğu audio.bass okuduğu için hemen hata atıyordu. Yeniden çizmenin bir
+     yararı da yoktu: istenen şey ekranda görünen kare. */
   async function snap(cfg) {
-    const prev = window.SVPreview;
-    const stack = prev && prev.stack && prev.stack();
     const r = cfg.recording || {};
-    let cv = null;
-    if (stack) {
-      stack._ensureComp();
-      if (stack.compCanvas.width !== stack.width || stack.compCanvas.height !== stack.height) {
-        stack.compCanvas.width = stack.width;
-        stack.compCanvas.height = stack.height;
-      }
-      stack.drawTo(stack.compCtx, (prev && prev.lastAudio) || (window.SVAudioCore && window.SVAudioCore.readAnalysis()), cfg, performance.now() / 1000, 0.016);
-      cv = stack.compCanvas;
-    }
-    if (!cv) cv = target();
+    status = 'Yüzey hazırlanıyor…';
+    P().rerender();
+    const cv = await awaitSurface();
     if (!cv) { status = 'Önizleme yüzeyi hazır değil.'; P().rerender(); return; }
 
     busy = true;

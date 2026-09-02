@@ -8,10 +8,6 @@ const png2icons = require('png2icons');
 
 const ROOT = path.join(__dirname, '..');
 const SVG = path.join(ROOT, 'assets', 'icon.svg');
-/* Küçük boylarda ayrıntılı glif okunmuyor (bkz. assets/icon-small.svg).
-   SMALL_MAX ve altındaki her boy sadeleştirilmiş çizimden üretilir. */
-const SVG_SMALL = path.join(ROOT, 'assets', 'icon-small.svg');
-const SMALL_MAX = 48;
 const BUILD = path.join(ROOT, 'build');
 const ASSETS = path.join(ROOT, 'assets');
 
@@ -52,11 +48,10 @@ function bmpEntry(rgba, size) {
   return Buffer.concat([header, xor, and]);
 }
 
-async function buildIco(svg, svgSmall) {
+async function buildIco(svg) {
   const images = [];
   for (const size of ICO_SIZES) {
-    const src = size <= SMALL_MAX ? svgSmall : svg;
-    const png = sharp(src, { density: 384 }).resize(size, size, {
+    const png = sharp(svg, { density: 384 }).resize(size, size, {
       fit: 'contain',
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     });
@@ -104,7 +99,7 @@ async function main() {
   fs.writeFileSync(path.join(ASSETS, 'logo-256.png'), png256);
 
   // ICO (Windows) — her boyut SVG'den ayrı ayrı üretilir; küçükler DIB olur
-  const ico = await buildIco(svg, fs.readFileSync(SVG_SMALL));
+  const ico = await buildIco(svg);
   fs.writeFileSync(path.join(BUILD, 'icon.ico'), ico);
 
   // ICNS (macOS)

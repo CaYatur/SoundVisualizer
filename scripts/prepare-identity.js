@@ -61,14 +61,17 @@ const pkgResources = path.join(manifestDir, 'resources', 'identity');
 fs.mkdirSync(pkgResources, { recursive: true });
 
 const iconSource = path.join(root, 'assets', 'icon.svg');
-/* Kucuk boylarda ayrintili glif okunmuyor: bes bar 24 px'te birbirine
-   karisip kirmizi bir lekeye donuyor. Gorev cubugu tam bu boyutlari
-   (targetsize 16-48, unplated) istiyor; onlar sadelestirilmis cizimden
-   uretilir. Ayrintili cizim 64 px ve uzerinde kalir. */
-const iconSourceSmall = path.join(root, 'assets', 'icon-small.svg');
-const SMALL_MAX = 48;
 const packageIconBackground = { r: 0, g: 0, b: 0, alpha: 0 };
+/* AppxManifest'in doğrudan gösterdiği iki dosya listenin BAŞINDA durmalı.
+
+   Manifest Square44x44Logo ve Square150x150Logo'yu niteleyicisiz adlarıyla
+   gösteriyor; bu iki ad üretim listesinde yoktu ve dosyalar yalnızca eski
+   bir betik sürümünden artakaldıkları için yerinde duruyordu. Temiz bir
+   kopyada hiç üretilmiyorlardı: paket, manifestin işaret ettiği logoyu
+   bulamayınca Windows görev çubuğuna gri yer tutucu koyuyor. */
 const iconJobs = [
+  ['Square44x44Logo.png', 44],
+  ['Square150x150Logo.png', 150],
   ['icon.png', 256],
   ['Square44x44Logo.scale-100.png', 44],
   ['Square44x44Logo.scale-125.png', 55],
@@ -126,26 +129,20 @@ const iconJobs = [
 const iconScript = `
   const sharp = require('sharp');
   const path = require('path');
-  const [source, sourceSmall, smallMax, outputDir1, outputDir2, jobsJson, backgroundJson] = process.argv.slice(1);
+  const [source, outputDir1, outputDir2, jobsJson, backgroundJson] = process.argv.slice(1);
   const jobs = JSON.parse(jobsJson);
   const background = JSON.parse(backgroundJson);
   const outDirs = [outputDir1, outputDir2].filter(Boolean);
   Promise.all(jobs.flatMap(([name, size]) =>
     outDirs.map((dir) =>
-      sharp(size <= Number(smallMax) ? sourceSmall : source, { density: 384 })
+      sharp(source, { density: 384 })
         .resize(size, size, { fit: 'contain', background })
         .png()
         .toFile(path.join(dir, name))
     )
   )).catch((error) => { console.error(error); process.exit(1); });
 `;
-/* Eski surumlerden kalan PNG'ler burada birikiyordu (adlandirma duzeni
-   degistiginde eskiler silinmedi) ve extraResources'un *.png suzgeciyle
-   kuruluma da giriyordu. Her uretimden once temizlenir. */
-for (const f of fs.readdirSync(output)) {
-  if (f.toLowerCase().endsWith('.png')) fs.rmSync(path.join(output, f), { force: true });
-}
-run(process.execPath, ['-e', iconScript, iconSource, iconSourceSmall, String(SMALL_MAX), output, pkgResources, JSON.stringify(iconJobs), JSON.stringify(packageIconBackground)]);
+run(process.execPath, ['-e', iconScript, iconSource, output, pkgResources, JSON.stringify(iconJobs), JSON.stringify(packageIconBackground)]);
 
 let password;
 if (fs.existsSync(pfx) && fs.existsSync(cer) && fs.existsSync(passwordFile)) {
