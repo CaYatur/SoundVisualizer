@@ -460,6 +460,12 @@
       gifFps: 15,
       gifWidth: 640,
       snapshotScale: 1,
+      /* Yakalama çözünürlüğü. Kayıt ve anlık görüntü, önizleme yüzeyinin
+         kendi boyutunda değil, bu boyuttaki sabit bir tuvalde toplanır:
+         önizleme panel yeniden çizilince boyut değiştirebiliyor ve
+         boyutu değişen bir tuvalin akışı kesiliyordu. 0 = önizleme boyutu. */
+      captureWidth: 1920,
+      captureHeight: 1080,
     },
 
     // ------------------------------------------------------------------

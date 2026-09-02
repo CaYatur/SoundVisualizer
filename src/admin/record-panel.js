@@ -21,6 +21,79 @@
 
   const FORMAT_LABELS = [['mp4', 'MP4 (H.264)'], ['webm', 'WebM'], ['gif', 'GIF']];
 
+  const RES_LABELS = [
+    ['1920x1080', '1920 × 1080 (Full HD)'],
+    ['1280x720', '1280 × 720 (HD)'],
+    ['2560x1440', '2560 × 1440 (2K)'],
+    ['3840x2160', '3840 × 2160 (4K)'],
+    ['1080x1920', '1080 × 1920 (Dikey)'],
+    ['1080x1080', '1080 × 1080 (Kare)'],
+    ['0x0', 'Önizleme boyutu'],
+  ];
+
+  /* Yakalama tuvali.
+
+     Kayıt ve anlık görüntü doğrudan önizleme yüzeyinden alınıyordu. İki
+     sorun çıkarıyordu: önizleme panelle birlikte yeniden boyutlanınca
+     yakalanan tuvalin boyutu değişiyor ve captureStream akışı kesiliyor
+     (kayıt kare göremeden bitiyor), ayrıca çıktı önizleme kadar küçük
+     kalıyordu. Sahne artık sabit boyutlu ayrı bir tuvale kopyalanıyor:
+     boyut kayıt boyunca hiç değişmez ve çözünürlük kullanıcının seçtiği
+     değerdir. En-boy oranı korunur; artan yer siyah kalır. */
+  let capCanvas = null;
+  let capCtx = null;
+  let pumpRaf = 0;
+
+  function capSize(r, src) {
+    const w = Math.round(r.captureWidth == null ? 1920 : r.captureWidth);
+    const h = Math.round(r.captureHeight == null ? 1080 : r.captureHeight);
+    if (w > 0 && h > 0) return { w, h };
+    return { w: Math.max(2, src.width), h: Math.max(2, src.height) };
+  }
+
+  function ensureCapture(src, r) {
+    const { w, h } = capSize(r, src);
+    if (!capCanvas) {
+      capCanvas = document.createElement('canvas');
+      capCtx = capCanvas.getContext('2d');
+    }
+    // Boyut YALNIZCA kayıt dışındayken değişir; akış sürerken asla
+    if (capCanvas.width !== w || capCanvas.height !== h) {
+      capCanvas.width = w;
+      capCanvas.height = h;
+    }
+    return capCanvas;
+  }
+
+  // Kaynağı en-boy oranını bozmadan yakalama tuvaline bas
+  function blit(src) {
+    if (!capCtx || !src || !src.width || !src.height) return;
+    const W = capCanvas.width;
+    const H = capCanvas.height;
+    const k = Math.min(W / src.width, H / src.height);
+    const w = src.width * k;
+    const h = src.height * k;
+    capCtx.fillStyle = '#000';
+    capCtx.fillRect(0, 0, W, H);
+    try { capCtx.drawImage(src, (W - w) / 2, (H - h) / 2, w, h); } catch { /* yüzey henüz hazır değil */ }
+  }
+
+  function startPump(src) {
+    stopPump();
+    const step = () => {
+      const prev = window.SVPreview;
+      const stack = prev && prev.stack && prev.stack();
+      blit((stack && stack.surface()) || src);
+      pumpRaf = requestAnimationFrame(step);
+    };
+    step();
+  }
+
+  function stopPump() {
+    if (pumpRaf) cancelAnimationFrame(pumpRaf);
+    pumpRaf = 0;
+  }
+
   function engine() {
     if (!rec && window.SVRecorder) rec = new window.SVRecorder.Recorder();
     return rec;
@@ -103,6 +176,13 @@
     if (status) nodes.push(el('div', { class: 'studio-note rec-status', text: status }));
 
     nodes.push(SP().miniSelect('Biçim', FORMAT_LABELS, () => r.format || 'mp4', (v) => { r.format = v; }, () => P().apply()));
+    nodes.push(SP().miniSelect('Çözünürlük', RES_LABELS,
+      () => (r.captureWidth == null ? 1920 : r.captureWidth) + 'x' + (r.captureHeight == null ? 1080 : r.captureHeight),
+      (v) => {
+        const p = String(v).split('x');
+        r.captureWidth = Number(p[0]) || 0;
+        r.captureHeight = Number(p[1]) || 0;
+      }, () => P().apply()));
     nodes.push(SP().miniSlider('Kare Hızı', () => r.fps || 60, (v) => { r.fps = Math.round(v); }, {
       min: 15, max: 120, step: 1, fmt: (v) => Math.round(v) + ' fps',
     }));
@@ -130,7 +210,7 @@
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Kayıt paneldeki canlı önizlemeden alınır ve o anki sesle birlikte ekranda göründüğü gibi kaydedilir — modülasyon, geçişler, efektler dahil. Bir ses dosyasının tamamını yüksek çözünürlükte işlemek için Video Dışa Aktarma kartını kullanın.',
+      text: 'Kayıt paneldeki canlı önizlemeden alınır ve o anki sesle birlikte ekranda göründüğü gibi kaydedilir — modülasyon, geçişler, efektler dahil. Sahne seçilen çözünürlükte sabit bir tuvale basılır, en-boy oranı korunur. Kaynak önizleme olduğu için büyütmek ayrıntı eklemez; bir ses dosyasının tamamını gerçek yüksek çözünürlükte işlemek için Video Dışa Aktarma kartını kullanın.',
     }));
 
     return el('div', { class: 'rec-panel' }, nodes);
@@ -146,9 +226,12 @@
     if (!R) { status = 'Kayıt motoru yok.'; P().rerender(); return; }
     status = 'Yüzey hazırlanıyor…';
     P().rerender();
-    const cv = await awaitSurface();
-    if (!cv) { status = 'Önizleme yüzeyi hazır değil; bir an sonra yeniden deneyin.'; P().rerender(); return; }
+    const src = await awaitSurface();
+    if (!src) { status = 'Önizleme yüzeyi hazır değil; bir an sonra yeniden deneyin.'; P().rerender(); return; }
     const r = cfg.recording || {};
+    // Sabit boyutlu tuvale kopyala ve AKIŞI ondan al
+    const cv = ensureCapture(src, r);
+    startPump(src);
     const res = R.start(cv, {
       fps: r.fps,
       bitrate: r.bitrate,
@@ -156,6 +239,7 @@
       onStop: (blob) => finish(blob, cfg),
     });
     if (!res.ok) {
+      stopPump();
       release();
       status = 'Kayıt başlatılamadı: ' + res.error;
     } else {
@@ -173,15 +257,21 @@
   }
 
   async function finish(blob, cfg) {
+    stopPump();
     release();
     /* Boş kayıtta kaydetme penceresi AÇILMAZ.
 
         Kare üretilmemişse ffmpeg'e boş bir kap gidiyor ve kullanıcı, dosya
         adını seçtikten sonra "streams received no packets" gibi bir kodlayıcı
         hatasıyla karşılaşıyordu. Hata kaynağında ve anlaşılır dille söylenir. */
-    if (!blob || !blob.size) {
+    /* Çok kısa kayıtta kodlayıcı tek bir kare bile yazamıyor ve ffmpeg
+       "streams received no packets" diyerek boş dosya bırakıyor. Kullanıcıyı
+       dosya adı seçtirdikten sonra bu hatayla karşılaştırmak yerine burada
+       durduruluyor: WebM başlığı tek başına yaklaşık bir kaç yüz bayttır. */
+    if (!blob || blob.size < 2048) {
       busy = false;
-      status = '⚠ Kare yakalanamadı, kayıt boş. Önizleme çiziyor mu bakın ve yeniden deneyin.';
+      status = '⚠ Kayıt çok kısa: kare yazılamadı (' + (blob ? blob.size : 0) +
+        ' bayt). En az bir saniye kaydedin.';
       P().rerender();
       return;
     }
@@ -220,8 +310,11 @@
     const r = cfg.recording || {};
     status = 'Yüzey hazırlanıyor…';
     P().rerender();
-    const cv = await awaitSurface();
-    if (!cv) { status = 'Önizleme yüzeyi hazır değil.'; P().rerender(); return; }
+    const src = await awaitSurface();
+    if (!src) { status = 'Önizleme yüzeyi hazır değil.'; P().rerender(); return; }
+    // Anlık görüntü de seçilen çözünürlükte alınır, önizleme boyutunda değil
+    const cv = ensureCapture(src, r);
+    blit(src);
 
     busy = true;
     status = 'Görüntü kaydediliyor…';
