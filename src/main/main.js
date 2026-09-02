@@ -681,6 +681,36 @@ ipcMain.handle('presets:save-many', (e, list) => {
   if (saved.length) broadcastPresets();
   return { ok: true, saved };
 });
+/* MilkDrop preset paketleri yüzlerce .milk dosyasından oluşur; tek tek
+   almak kullanılmaz olurdu. Bu yüzden çoklu seçim ve klasör seçimi birlikte
+   sunuluyor. Dosya sayısı ve toplam boyut sınırlanır: bir kullanıcının
+   yanlışlıkla on binlerce dosyalık bir klasör seçmesi uygulamayı
+   kilitlememeli. */
+ipcMain.handle('presets:import-milk', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('MilkDrop Preseti İçe Aktar', 'Import MilkDrop Presets'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: trUi('MilkDrop presetleri', 'MilkDrop presets'), extensions: ['milk'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
+  const out = [];
+  let skipped = 0;
+  let total = 0;
+  for (const file of r.filePaths.slice(0, 600)) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > 512 * 1024) { skipped++; continue; }
+      total += stat.size;
+      if (total > 24 * 1024 * 1024) { skipped++; continue; }
+      out.push({ name: path.basename(file, path.extname(file)), text: fs.readFileSync(file, 'utf-8') });
+    } catch { skipped++; }
+  }
+  return { ok: true, files: out, skipped: skipped + Math.max(0, r.filePaths.length - 600) };
+});
+
 ipcMain.handle('presets:open-folder', () => {
   shell.openPath(presetsStore.dir());
   return true;

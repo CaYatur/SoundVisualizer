@@ -288,6 +288,8 @@
         return window.SVTransitionPanel ? window.SVTransitionPanel.panel() : null;
       case 'mappingpanel':
         return window.SVMappingPanel ? window.SVMappingPanel.panel() : null;
+      case 'milkdroppanel':
+        return window.SVMilkdropPanel ? window.SVMilkdropPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1628,6 +1630,7 @@
               { value: 'chromawheel', label: 'Kroma Çemberi' },
               { group: 'Gelişmiş Motorlar' },
               { value: 'geometry', label: '◈ 3B Geometri' },
+              { value: 'milkdrop', label: '🥛 MilkDrop' },
               { value: 'feedback', label: '♾ Geri Besleme' },
               { value: 'custom', label: '🧪 Studio' },
             ],
@@ -1685,6 +1688,16 @@
         title: 'Ses Çözümlemesi',
         desc: 'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.',
         controls: [{ type: 'analysispanel' }],
+      },
+      {
+        id: 'milkdrop',
+        category: 'scene',
+        icon: '🥛',
+        wide: true,
+        title: 'MilkDrop Presetleri',
+        desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
+        controls: [{ type: 'milkdroppanel' }],
+        show: () => v.type === 'milkdrop',
       },
       {
         id: 'transition',
@@ -3252,6 +3265,7 @@
     // Tempo motoru ve otomatik VJ döngüsü
     if (window.SVAutoVJ) window.SVAutoVJ.init();
     if (window.SVMappingPanel) window.SVMappingPanel.init();
+    if (window.SVMilkdropPanel) window.SVMilkdropPanel.init();
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
     // Kamera listesi (medya katmanı için)

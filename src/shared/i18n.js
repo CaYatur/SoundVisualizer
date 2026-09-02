@@ -949,6 +949,37 @@
     'Yırtılma': 'Tearing',
     'Zaman Derinliği': 'Time Depth',
 
+    // ---- MilkDrop motoru ----
+    'Yüklü Preset': 'Loaded Preset',
+    'Yerleşik varsayılan': 'Built-in default',
+    'Adsız': 'Untitled',
+    'Derleme': 'Compilation',
+    '📂 .milk Dosyaları Ekle': '📂 Add .milk Files',
+    'Okunuyor…': 'Reading…',
+    'Varsayılana Dön': 'Back to Default',
+    'İçe aktarma kullanılamıyor.': 'Import is not available.',
+    'Ara': 'Search',
+    'preset adı': 'preset name',
+    'Aramaya uyan preset yok.': 'No preset matches the search.',
+    'Henüz preset yok. Bir MilkDrop paketindeki .milk dosyalarını ekleyin; hepsi bir kerede seçilebilir.':
+      'No presets yet. Add the .milk files from a MilkDrop pack — they can all be selected at once.',
+    '◀ Önceki': '◀ Previous',
+    'Sonraki ▶': 'Next ▶',
+    '🎲 Rastgele': '🎲 Random',
+    'Otomatik Geçiş': 'Auto Advance',
+    'kapalı': 'off',
+    'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
+      'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
+    'Denklem blokları (per_frame, per_pixel) gerçekten çalıştırılır. MilkDrop 2 presetlerindeki HLSL warp ve composite shaderları henüz çevrilmiyor; o presetler denklem hareketiyle çalışır, shader katmanı olmadan.':
+      'The equation blocks (per_frame, per_pixel) really run. The HLSL warp and composite shaders in MilkDrop 2 presets are not translated yet; those presets run on the equation motion, without the shader layer.',
+    'Sil': 'Delete',
+
+
+    'MilkDrop': 'MilkDrop',
+    '🥛 MilkDrop': '🥛 MilkDrop',
+    'MilkDrop Presetleri': 'MilkDrop Presets',
+    'MilkDrop motoru başlatılamadı': 'The MilkDrop engine could not start',
+
     // ---- Üretken görselleştirici modları ----
     'Üretken Sistemler': 'Generative Systems',
     'Ölçüm': 'Metering',

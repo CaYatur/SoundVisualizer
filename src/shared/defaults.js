@@ -359,6 +359,20 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // MilkDrop motoru.
+    //
+    // source: preset metni (.milk dosyasının içeriği). Boşsa yerleşik
+    // varsayılan preset kullanılır. Denklemler src/shared/milkdrop.js
+    // tarafından derlenip çalıştırılır.
+    // ------------------------------------------------------------------
+    milkdrop: {
+      presetId: '',
+      name: '',
+      source: '',
+      autoNext: 0, // 0 = kapalı, >0 = kaç saniyede bir sıradaki presete geç
+    },
+
+    // ------------------------------------------------------------------
     // Projeksiyon haritalaması.
     //
     // Görüntüyü düz bir dikdörtgen olmayan yüzeye oturtmak için: köşe

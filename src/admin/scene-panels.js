@@ -161,7 +161,7 @@
         ['ropes', 'İpler'], ['galaxy', 'Galaksi'], ['dna', 'DNA Sarmalı'],
         ['isocity', 'İzometrik Şehir'], ['attractorfield', 'Çekici Alanı'],
         ['scope', 'Osiloskop (XY)'], ['goniometer', 'Gonyometre'], ['chromawheel', 'Kroma Çemberi'],
-        ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
+        ['milkdrop', 'MilkDrop'], ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
       ];
     }
     if (kind === 'sprites') return [['back', 'Arka Katman'], ['front', 'Ön Katman']];

@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),
+  importMilk: () => ipcRenderer.invoke('presets:import-milk'),
   getOutputDevices: () => ipcRenderer.invoke('get-output-devices'),
   diagnoseAudio: () => ipcRenderer.invoke('diagnose-audio'),
   repairAudio: () => ipcRenderer.invoke('repair-audio'),
