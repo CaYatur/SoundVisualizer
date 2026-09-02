@@ -1735,7 +1735,7 @@
           { type: 'slider', path: 'visualizer.spectrum.release', label: 'Bırakma (sn)', min: 0.01, max: 1.2, step: 0.01, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
           { type: 'slider', path: 'visualizer.spectrum.spread', label: 'Komşu Yayılımı', min: 0, max: 0.95, step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
           { type: 'slider', path: 'visualizer.spectrum.tilt', label: 'Eğim (dB/oktav)', min: -6, max: 12, step: 0.5, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
-          { type: 'toggle', path: 'visualizer.spectrum.exact', label: 'Dar Bantlarda Kesin Ölçüm', show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
+          { type: 'slider', path: 'visualizer.spectrum.smooth', label: 'Profil Yumuşatma', min: 0, max: 1, step: 0.01, percent: true, show: isBandMode, group: 'Tayf Ölçümü', advanced: true },
         ],
       },
       {

@@ -106,8 +106,8 @@ test('ESKİ eşleme düşük barları aynı kutuya düşürüyordu', () => {
 test('YENİ motorda düşük barlar birbirinden farklı değer üretir', () => {
   const eng = new S.BarEngine();
   const out = eng.compute(
-    { spec: makeSpec(), binHz: BIN_HZ, time: makeTone(55, 0.8), sampleRate: SR },
-    { count: 64, minFreq: 30, maxFreq: 14000, attack: 0, release: 0, dt: 1 }
+    { spec: makeSpec(), binHz: BIN_HZ, sampleRate: SR },
+    { count: 64, minFreq: 30, maxFreq: 14000, attack: 0, release: 0, smooth: 0, dt: 1 }
   );
   const bas = Array.from(out.slice(0, 8));
   const benzersiz = new Set(bas.map((v) => v.toFixed(9)));
@@ -118,7 +118,7 @@ test('zaman verisi yoksa da düşük barlar ayrışır (kutu interpolasyonu)', (
   const eng = new S.BarEngine();
   const out = eng.compute(
     { spec: makeSpec(), binHz: BIN_HZ, sampleRate: SR },
-    { count: 64, minFreq: 30, maxFreq: 14000, exact: false, attack: 0, release: 0, dt: 1 }
+    { count: 64, minFreq: 30, maxFreq: 14000, attack: 0, release: 0, smooth: 0, dt: 1 }
   );
   const bas = Array.from(out.slice(0, 8));
   assert.strictEqual(new Set(bas.map((v) => v.toFixed(9))).size, bas.length, bas.join(', '));
@@ -224,13 +224,14 @@ test('bar sayısı değişince motor çöker değil, yeniden kurulur', () => {
 });
 
 test('bozuk ayarlar varsayılana düşer', () => {
-  const o = S.normalise({ scale: 'yok', amplitude: 'x', count: 0, spread: 9, gain: -2, floorDb: 5 });
+  const o = S.normalise({ scale: 'yok', amplitude: 'x', count: 0, spread: 9, gain: -2, floorDb: 5, smooth: 4 });
   assert.strictEqual(o.scale, 'log');
   assert.strictEqual(o.amplitude, 'linear');
   assert.strictEqual(o.count, 1);
   assert.strictEqual(o.spread, 0.95);
   assert.strictEqual(o.gain, 1);
   assert.strictEqual(o.floorDb, -60);
+  assert.strictEqual(o.smooth, 1);
 });
 
 test('boş tayf sıfır bar üretir, istisna atmaz', () => {
@@ -249,7 +250,7 @@ test('tayftaki tepe, o frekansa denk gelen barda çıkar', () => {
   const eng = new S.BarEngine();
   const out = eng.compute(
     { spec, binHz: BIN_HZ, sampleRate: SR },
-    { count: 64, minFreq: 30, maxFreq: 14000, exact: false, attack: 0, release: 0, dt: 1 }
+    { count: 64, minFreq: 30, maxFreq: 14000, attack: 0, release: 0, smooth: 0, dt: 1 }
   );
   const edges = S.bandEdges(64, 30, 14000, 'log');
   let hedef = 0;
@@ -259,15 +260,44 @@ test('tayftaki tepe, o frekansa denk gelen barda çıkar', () => {
   assert.ok(Math.abs(enYuksek - hedef) <= 1, `tepe bar ${enYuksek}, beklenen ${hedef}`);
 });
 
-test('Goertzel yolu ile kutu yolu aynı sinyalde uyumlu okur', () => {
-  // İki yol arasında geçiş yapan barlarda görünür bir basamak olmamalı
-  const win = S.hannWindow(FFT);
-  const tone = makeTone(300, 0.6);
-  const g = S.goertzel(tone, SR, 300, win);
-  // Aynı sinyalin kutu tayfı: 300 Hz kutusunun büyüklüğü
+/* Kırılma testi.
+
+   Goertzel'i dar bantlarda kullanmak görünür bir kusur üretmişti: dar
+   bantlar ham zaman alanından, geniş bantlar işlenmiş tayftan okuyordu ve
+   tam geçiş noktasında bar profili dikey bir basamakla kırılıyordu. Aşağıdaki
+   test o kırılmanın geri gelmediğini ölçüyor: yumuşak bir tayfta komşu barlar
+   arasındaki fark hiçbir yerde sıçramamalı. */
+test('yumuşak tayfta bar profilinde basamak oluşmaz', () => {
   const spec = new Float32Array(BINS);
-  const merkez = Math.round(300 / BIN_HZ);
-  spec[merkez] = g;
-  const kutu = S.sampleBins(spec, BIN_HZ, merkez * BIN_HZ);
-  assert.ok(Math.abs(kutu - g) < 1e-6, `kutu ${kutu} vs goertzel ${g}`);
+  for (let i = 0; i < BINS; i++) spec[i] = 0.6 * Math.exp(-(i * BIN_HZ) / 3000) + 0.1;
+  const out = new S.BarEngine().compute(
+    { spec, binHz: BIN_HZ, sampleRate: SR },
+    { count: 64, minFreq: 30, maxFreq: 14000, attack: 0, release: 0, smooth: 0, dt: 1 }
+  );
+  let enBuyuk = 0;
+  let nerede = -1;
+  for (let b = 1; b < out.length; b++) {
+    const d = Math.abs(out[b] - out[b - 1]);
+    if (d > enBuyuk) { enBuyuk = d; nerede = b; }
+  }
+  // Yumuşak bir tayfta komşu farkı küçük olmalı; kırılma varken bu 0.3'ü aşıyordu
+  assert.ok(enBuyuk < 0.05, 'bar ' + nerede + ' civarında basamak: ' + enBuyuk.toFixed(4));
+});
+
+test('yumuşatma profildeki farkları küçültür', () => {
+  const spec = new Float32Array(BINS);
+  for (let i = 0; i < BINS; i++) spec[i] = (i % 7 < 3 ? 0.8 : 0.2);
+  const src = { spec, binHz: BIN_HZ, sampleRate: SR };
+  const opt = { count: 64, attack: 0, release: 0, dt: 1 };
+  const ham = Array.from(new S.BarEngine().compute(src, Object.assign({}, opt, { smooth: 0 })));
+  const yumusak = Array.from(new S.BarEngine().compute(src, Object.assign({}, opt, { smooth: 0.8 })));
+  const fark = (a) => { let s = 0; for (let i = 1; i < a.length; i++) s += Math.abs(a[i] - a[i - 1]); return s; };
+  assert.ok(fark(yumusak) < fark(ham) * 0.75, `ham ${fark(ham).toFixed(3)} yumuşak ${fark(yumusak).toFixed(3)}`);
+});
+
+test('yumuşatma sıfırken dizi değişmez', () => {
+  const v = new Float32Array([0, 0.3, 1, 0.2, 0]);
+  const kopya = Array.from(v);
+  S.smoothBars(v, 0);
+  assert.deepStrictEqual(Array.from(v), kopya);
 });

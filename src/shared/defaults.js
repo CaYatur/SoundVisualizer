@@ -228,7 +228,7 @@
         attack: 0.02, // saniye — yükselme zaman sabiti
         release: 0.16, // saniye — düşme zaman sabiti
         spread: 0, // komşu yayılımı 0..0.95
-        exact: true, // dar bantlarda Goertzel ile kesin ölçüm
+        smooth: 0.25, // komşu ortalaması — profili yumuşatır 0..1
       },
     },
 

@@ -10,16 +10,22 @@
    Çözüm iki parçalı:
 
      1. Bandı bir kutudan geniş olan barlar eskisi gibi kutuları toplar.
-     2. Bandı bir kutudan DAR olan barlar için tayf, o barın merkez
-        frekansında Goertzel ile doğrudan hesaplanır. Bu, DFT'nin kesirli
-        kutudaki gerçek değeridir; komşu büyüklükleri harmanlamaktan farklı
-        olarak tarak (scalloping) kaybı yoktur ve her bar kendi ölçümünü alır.
+     2. Bandı bir kutudan DAR olan barlar, tayfın o barın merkez frekansındaki
+        INTERPOLE edilmiş değerini alır. Böylece her bar kendi sayısını okur.
 
-   Dürüst sınır: Goertzel çözünürlüğü ARTIRMAZ. 2048 örneklik bir pencereyle
-   30 Hz ile 33 Hz fiziksel olarak ayrılamaz; iki bar ilişkili kalır. Ama artık
-   aynı sayı değildirler ve hareket sürekli olur. Gerçek bas çözünürlüğü daha
-   uzun bir pencere ister ve bu, tepki gecikmesiyle takas edilir — bu yüzden
-   FFT boyu bir ayardır, sabit bir tercih değil.
+   Dürüst sınır: interpolasyon çözünürlüğü ARTIRMAZ. 2048 örneklik bir
+   pencereyle 30 Hz ile 33 Hz fiziksel olarak ayrılamaz; iki bar ilişkili
+   kalır. Ama artık aynı sayı değildirler ve hareket sürekli olur. Gerçek bas
+   çözünürlüğü daha uzun bir pencere ister ve bu, tepki gecikmesiyle takas
+   edilir — bu yüzden FFT boyu bir ayardır, sabit bir tercih değil.
+
+   Goertzel BİLEREK kullanılmıyor. Denendi ve görünür bir kusur üretti: dar
+   bantlar zaman alanından (ham sinyal), geniş bantlar tayftan (duyarlılık,
+   bas vurgusu ve zaman yumuşatması uygulanmış) okuyordu. İki farklı sinyal
+   olduğu için tam geçiş noktasında bar profili dikey bir basamakla kırılıyor,
+   iki bar dibe iniyordu. Kesin ölçüm kazancı, o kırılmanın görsel bedelini
+   karşılamıyor. Fonksiyon doğru ve testli olduğu için dışa aktarılmaya devam
+   ediyor; değer yolunda kullanılmıyor.
 
    Modül saf aritmetiktir: DOM, GPU ve ses aygıtı bilmez, testleri Node'da
    koşar. */
@@ -69,8 +75,9 @@
   }
 
   // ------------------------------------------------------------- örnekleme
-  /* Kutular arası doğrusal örnek. Tamsayı kutuya yuvarlamaya göre iyidir ama
-     yine de büyüklük harmanlamasıdır; dar bantlarda Goertzel tercih edilir. */
+  /* Kutular arası doğrusal örnek. Bandı bir kutudan dar olan barların
+     değeri buradan gelir; tamsayı kutuya yuvarlamanın aksine her bar kendi
+     sayısını okur. */
   function sampleBins(spec, binHz, f) {
     const n = spec.length;
     if (!n) return 0;
@@ -139,6 +146,30 @@
     for (let i = n - 2; i >= 0; i--) {
       const v = values[i + 1] * k;
       if (v > values[i]) values[i] = v;
+    }
+    return values;
+  }
+
+  /* Simetrik komşu ortalaması.
+
+     'spread' tepe yüksekliğini KORUYAN tek yönlü bir yayılımdır; profili
+     yumuşatmaz, yalnızca genişletir. Keskin bar profilini yumuşatmak için
+     gereken şey ağırlıklı ortalamadır: her bar komşularıyla harmanlanır.
+     Miktar arttıkça profil yumuşar, tepe yükseklikleri bir miktar düşer —
+     istenen takas budur. */
+  function smoothBars(values, amount, scratch) {
+    const k = Math.max(0, Math.min(1, amount));
+    if (!k) return values;
+    const n = values.length;
+    if (n < 3) return values;
+    const tmp = scratch && scratch.length === n ? scratch : new Float32Array(n);
+    tmp.set(values);
+    const side = k * 0.5; // komşu ağırlığı
+    for (let i = 0; i < n; i++) {
+      const a = tmp[i > 0 ? i - 1 : 0];
+      const b = tmp[i];
+      const c = tmp[i < n - 1 ? i + 1 : n - 1];
+      values[i] = (a * side + b + c * side) / (1 + side * 2);
     }
     return values;
   }
@@ -229,10 +260,7 @@
       for (let b = 0; b < n; b++) {
         const fc = this._centres[b];
         let v;
-        if (this._narrow[b] && time) {
-          // Dar bant: kesirli kutuda gerçek DFT değeri
-          v = goertzel(time, src.sampleRate || 48000, fc, this._win);
-        } else if (this._narrow[b]) {
+        if (this._narrow[b]) {
           v = sampleBins(spec, binHz, fc);
         } else {
           // Geniş bant: tepe ve ortalama karışımı — tepe atakları korur,
@@ -254,6 +282,12 @@
         out[b] = v > 0 ? v : 0;
       }
 
+      if (o.smooth) {
+        if (!this._smoothTmp || this._smoothTmp.length !== n) this._smoothTmp = new Float32Array(n);
+        // Yumuşatma birden fazla geçişle daha geniş bir çekirdeğe yaklaşır
+        const passes = o.smooth > 0.6 ? 3 : o.smooth > 0.3 ? 2 : 1;
+        for (let p = 0; p < passes; p++) smoothBars(out, o.smooth, this._smoothTmp);
+      }
       if (o.spread) spread(out, o.spread);
 
       const dt = o.dt > 0 ? o.dt : 1 / 60;
@@ -277,8 +311,8 @@
     attack: 0.02,
     release: 0.16,
     spread: 0,
+    smooth: 0.25,
     gain: 1,
-    exact: true,
     dt: 1 / 60,
   };
 
@@ -290,6 +324,7 @@
     o.attack = Math.max(0, Number(o.attack) || 0);
     o.release = Math.max(0, Number(o.release) || 0);
     o.spread = Math.max(0, Math.min(0.95, Number(o.spread) || 0));
+    o.smooth = Math.max(0, Math.min(1, Number(o.smooth) || 0));
     o.gain = Number(o.gain) > 0 ? Number(o.gain) : 1;
     o.tilt = Number(o.tilt) || 0;
     o.floorDb = Number(o.floorDb) < 0 ? Number(o.floorDb) : -60;
@@ -299,7 +334,7 @@
   const api = {
     SCALES: SCALE_LIST, DEFAULTS,
     bandEdges, sampleBins, goertzel, hannWindow,
-    toDbUnit, tiltGain, spread, ballistic, normalise,
+    toDbUnit, tiltGain, spread, smoothBars, ballistic, normalise,
     BarEngine,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

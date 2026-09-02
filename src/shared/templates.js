@@ -212,7 +212,7 @@
           barCount: 64, gap: 0.42, rainbow: false, cap: false, glow: 0.18,
           position: 'bottom', sensitivity: 0.8, mirror: false,
           barSpan: 0.86, barCenterX: 0.5, barHeight: 0.3, baseline: 0.58,
-          spectrum: { scale: 'log', amplitude: 'db', floorDb: -62, attack: 0.012, release: 0.22, spread: 0.35 },
+          spectrum: { scale: 'log', amplitude: 'db', floorDb: -34, attack: 0.012, release: 0.22, spread: 0.2, smooth: 0.3 },
         }, over || {}) },
       });
 

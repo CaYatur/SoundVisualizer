@@ -117,7 +117,7 @@
     'Genlik Ölçeği': 'Amplitude Scale', 'Desibel (sessiz ayrıntıyı görünür kılar)': 'Decibel (makes quiet detail visible)',
     'dB Tabanı': 'dB Floor', 'Atak (sn)': 'Attack (s)', 'Bırakma (sn)': 'Release (s)',
     'Komşu Yayılımı': 'Neighbour Spread', 'Eğim (dB/oktav)': 'Tilt (dB/octave)',
-    'Dar Bantlarda Kesin Ölçüm': 'Exact Metering in Narrow Bands',
+    'Profil Yumuşatma': 'Profile Smoothing',
     'Bar Boşluğu': 'Bar Gap', 'Yerleşim': 'Position', 'Alt': 'Bottom', 'Merkez': 'Center', 'Tam': 'Full', 'Çizgi Kalınlığı': 'Line Width', 'Genlik / Dolgu': 'Amplitude / Fill',
     'Logo / Merkez Görsel': 'Logo / Center Image', 'Logo / Resim': 'Logo / Image', 'Merkeze resim yerleştir; otomatik boyutlandırılır ve nabız atar.': 'Place an image in the center; it is automatically sized and pulses with audio.',
     'Logo Göster': 'Show Logo', 'Ses Nabzı': 'Audio Pulse', 'Konum': 'Position',

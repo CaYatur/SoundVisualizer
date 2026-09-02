@@ -1358,12 +1358,32 @@ app.whenReady().then(async () => {
     }
   });
 
-  // Kamera izni yalnızca kendi pencerelerimize verilir.
+  /* Kamera izni yalnızca kendi pencerelerimize verilir.
+
+     Otomasyon kiplerinde (--smoke, --shots) KAMERA HİÇ AÇILMAZ. Kaydedilmiş
+     ayarlarda medya katmanı açık ve kaynağı web kameraysa, bu araçlar
+     kamerayı gerçekten açıyordu: işletim sistemi kamera göstergesi yanıyor ve
+     kullanıcının odası üretilen görsellere girebiliyordu. Bir test ya da
+     belge aracının sessizce kamera açması kabul edilebilir değil.
+
+     Denetim izin katmanında, çünkü yapılandırmayı tek tek yerlerde kapatmak
+     yetmez: yeni bir kod yolu yine getUserMedia çağırabilir. Burada
+     reddedilince çağrı hangi yoldan gelirse gelsin başarısız olur ve medya
+     katmanı bunu zaten hata olarak karşılıyor. */
   const sess = require('electron').session.defaultSession;
+  const AUTOMATION = SHOTS || process.argv.includes('--smoke');
   sess.setPermissionRequestHandler((wc, permission, callback) => {
     const own = BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents === wc);
+    if (AUTOMATION && permission === 'media') { callback(false); return; }
     callback(own && (permission === 'media' || permission === 'midi' || permission === 'midiSysex' || permission === 'fullscreen'));
   });
+  // Bazı yollar izin isteği yapmadan doğrudan aygıt açmayı dener; o da kapalı
+  if (AUTOMATION && sess.setPermissionCheckHandler) {
+    sess.setPermissionCheckHandler((wc, permission) => permission !== 'media');
+  }
+  if (AUTOMATION && sess.setDevicePermissionHandler) {
+    sess.setDevicePermissionHandler(() => false);
+  }
   createAdminWindow();
 
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
@@ -1409,6 +1429,21 @@ async function runSmoke() {
   const errors = [];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+  /* Kamera gerçekten kapalı mı?
+
+     Bu denetimin sebebi somut: öz test ve ekran görüntüsü üreticisi,
+     kaydedilmiş ayarlarda medya katmanı açıkken kamerayı açıyordu ve
+     işletim sisteminin kamera göstergesi yanıyordu. İzin katmanında
+     kapatmak yetmez, KAPANDIĞINI ölçmek gerekir. */
+  const cameraProbe = async (win) => {
+    const r = await win.webContents.executeJavaScript(
+      "navigator.mediaDevices.getUserMedia({video:true})" +
+      ".then(function(s){s.getTracks().forEach(function(t){t.stop();});return 'AÇILDI';})" +
+      ".catch(function(e){return 'reddedildi: ' + (e && e.name);})"
+    );
+    return r;
+  };
+
   console.log('[SMOKE] opening visualizer on primary display');
   openVisualizer(screen.getPrimaryDisplay().id);
   await wait(2200);
@@ -1419,12 +1454,20 @@ async function runSmoke() {
     if (level >= 2 || /error|hata|failed|undefined is not/i.test(message)) errors.push(message);
   });
 
+  const cam = await cameraProbe(meterWindow());
+  console.log('[SMOKE] kamera: ' + cam);
+  if (cam === 'AÇILDI') errors.push('camera opened during automation - it must stay off');
+
   const modes = await wc.executeJavaScript('Object.keys(window.SVModes || {})');
   const backgrounds = await wc.executeJavaScript('Object.keys(window.SVBackgrounds || {})');
   console.log('[SMOKE] registered visualizer modes (' + modes.length + '): ' + modes.join(', '));
   console.log('[SMOKE] registered backgrounds (' + backgrounds.length + '): ' + backgrounds.join(', '));
 
   const base = JSON.parse(JSON.stringify(currentConfig || {}));
+  /* Medya katmanı kapatılır: izin katmanı zaten kamerayı reddediyor ama
+     yapılandırmayı da kapatmak, testin her karede boşuna aygıt açmaya
+     çalışmasını ve konsolu hata mesajıyla doldurmasını engelliyor. */
+  base.media = Object.assign({}, base.media, { enabled: false, source: 'file' });
   const send = (over) => wc.send('config', Object.assign({}, base, over));
 
   // Her ön mod (gradient bir arkaplan motorudur, ön mod olarak atlanır)
@@ -2382,6 +2425,17 @@ async function runShots() {
   const base = loadSettings() || {};
   // Sahne dışındaki alanlar sabitlensin: güç ayarı ve imleç görüntüyü etkiler
   base.power = Object.assign({}, base.power, { fpsCap: 60, renderScale: 1, pauseOnSilence: false, hideCursor: true });
+
+  /* Medya katmanı KAPATILIR.
+
+     Kaydedilmiş ayarlarda medya açık ve kaynağı web kamerasıysa, ekran
+     görüntüsü üreticisi kamerayı açar: işletim sistemi kamera göstergesini
+     yakar ve kullanıcının odası README görsellerine girebilir. Bir belge
+     aracının sessizce kamera açması kabul edilebilir değil.
+
+     Ayrıca üretilen görüntüyü makineye bağımlı kılardı; aynı komut başka
+     bir bilgisayarda başka bir kare üretirdi. */
+  base.media = Object.assign({}, base.media, { enabled: false, source: 'file' });
 
   /* Şablonu görselleştirici penceresinin İÇİNDE uygula: şablon motoru orada
      zaten yüklü ve aynı kodu iki yerde tutmak gerekmiyor. */
