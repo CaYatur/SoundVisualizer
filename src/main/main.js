@@ -234,7 +234,7 @@ function createVisualizerWindow(display) {
     frame: false,
     backgroundColor: '#000000',
     show: false,
-    fullscreen: true,
+    /* Pencere TAM EKRAN DOĞMAZ. Bu kasıtlı: bkz. reveal(). */
     fullscreenable: true,
     skipTaskbar: false,
     title: trUi('Görselleştirme', 'Visualization'),
@@ -253,29 +253,32 @@ function createVisualizerWindow(display) {
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   attachSmoke(win, 'VIS');
 
-  /* Pencereyi GÖRÜNTÜ HAZIR OLUNCA göster.
+  /* Açılıştaki beyaz parlamanın nedeni GÖSTERİM SIRASIYDI.
 
-     'ready-to-show' yalnızca belgenin hazır olduğunu söyler; sahnenin ilk
-     karesi henüz çizilmiş olmayabilir. Ayrıca pencere zaten tam ekran ve
-     doğru ekranın sınırlarında doğuyor (fullscreen + x/y/width/height);
-     gösterim anında setBounds/setFullScreen çağırmak Windows'ta pencere
-     biçemini yeniden kurar ve boyanmamış tek bir kare beyaz parlar.
-     Bu yüzden o çağrılar yalnızca pencere gerçekten yanlış yerdeyse yapılır.
+     2.1.0'da pencere tam ekran DOĞMUYOR, ekranın sınırlarında sıradan
+     çerçevesiz bir pencere olarak gösteriliyor ve tam ekrana 120 ms SONRA
+     geçiliyordu. Windows'un tam ekran kip geçişi böylece çoktan boyanmış
+     bir yüzey üzerinde oluyordu. 3.0.0'da pencere doğrudan tam ekran
+     doğmaya başlayınca aynı geçiş gösterim anına, yani yüzey daha
+     boyanmamışken çalışmaya başladı: DWM'in sunacak karesi olmuyor ve tek
+     kare beyaz parlıyor. Sıra 2.1.0'daki haline döndürüldü.
 
-     Görselleştirici ilk karesini çizince 'painted' bildirir; bildirim
-     gelmezse (ses yok, hata var) kısa bir süre sonra yine de gösterilir —
-     ekranın hiç açılmaması parlamadan kötüdür. */
+     Üstüne: 'ready-to-show' yalnızca belgenin hazır olduğunu söyler,
+     sahnenin ilk karesi çizilmiş olmayabilir. Görselleştirici ilk karesini
+     çizince 'painted' bildiriyor ve pencere ancak o zaman gösteriliyor.
+     Bildirim gelmezse (ses yok, hata var) kısa süre sonra yine de açılır —
+     ekranın hiç gelmemesi parlamadan kötüdür. */
   let shown = false;
   const reveal = () => {
     if (shown || win.isDestroyed()) return;
     shown = true;
-    const cur = win.getBounds();
-    if (cur.x !== b.x || cur.y !== b.y || cur.width !== b.width || cur.height !== b.height) {
-      win.setBounds(b);
-    }
-    if (!win.isFullScreen()) win.setFullScreen(true);
+    win.setBounds(b);
     win.show();
-    applyAlwaysOnTop();
+    setTimeout(() => {
+      if (win.isDestroyed()) return;
+      win.setFullScreen(true);
+      applyAlwaysOnTop();
+    }, 120);
   };
   win.__svReveal = reveal;
 
@@ -340,13 +343,14 @@ function openVisualizer(displayIds) {
     const existing = visualizerWins.get(id);
     if (existing && !existing.isDestroyed()) {
       // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
-      const cur = existing.getBounds();
+      // Aynı sıra: önce göster, tam ekrana sonra geç (bkz. reveal)
       const nb = display.bounds;
-      if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
-        existing.setBounds(nb);
-      }
-      if (!existing.isFullScreen()) existing.setFullScreen(true);
+      if (existing.isFullScreen()) existing.setFullScreen(false);
+      existing.setBounds(nb);
       existing.show();
+      setTimeout(() => {
+        if (!existing.isDestroyed()) existing.setFullScreen(true);
+      }, 120);
     } else {
       createVisualizerWindow(display);
     }
