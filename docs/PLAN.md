@@ -1,5 +1,5 @@
 
-> **29 / 227** tasks complete.
+> **131 / 227** tasks complete. Every unticked box now carries a milestone: the timeline and clip deck work moved to v3.1.0, and the rest to the backlog. The v3.0.0 milestone is closed with 150 issues.
 
 # CAYADEV Visualizer — 3.0 plan
 
@@ -17,7 +17,7 @@ A box is only ticked when the feature works in the application **and** is covere
 
 ---
 
-## Modulation matrix — any source to any parameter  <sub>10/14</sub>
+## Modulation matrix — any source to any parameter
 
 A routing layer that connects **any modulation source** to **any configuration parameter**.
 
@@ -35,7 +35,7 @@ This is the highest-leverage item in 3.0: it multiplies the value of everything 
   <br><sub>Independent attack and release times in milliseconds, applied to any audio band. Frame-rate independent (exponential coefficients derived from `dt`).</sub>
 - [x] **Sample-and-hold and random sources**
   <br><sub>A stepped random source clocked by beat, by LFO or by a free-running rate, plus a smooth (interpolated) random walk. Seeded so offline export stays deterministic.</sub>
-- [ ] **Macro knobs: 8 assignable controls**
+- [x] **Macro knobs: 8 assignable controls**
   <br><sub>Eight user-named macros, each able to drive several routes at once with individual depth. MIDI-learnable and OSC-addressable, and exposed on the mobile remote.</sub>
 - [x] **Curve shaping: exponent, S-curve, quantise, invert**
   <br><sub>Per-route response shaping so the same source can feel different on different targets: linear, exponential, logarithmic, S-curve, stepped (n steps), inverted, and absolute.</sub>
@@ -45,18 +45,18 @@ This is the highest-leverage item in 3.0: it multiplies the value of everything 
   <br><sub>Routes whose source is a trigger rather than a value: fire a scene change, flash a parameter, advance a palette, launch a clip, or bump a counter. Uses the shared onset detector.</sub>
 - [x] **Modulation panel UI**
   <br><sub>A panel listing routes with add/remove/reorder, a source picker grouped by family, a target picker that browses the live config tree, and a live meter next to each route showing its current value.</sub>
-- [ ] **Right-click any slider to assign modulation**
+- [x] **Right-click any slider to assign modulation**
   <br><sub>The fastest possible assignment path: right-click a control anywhere in the app, pick a source, and a route is created for that path with sensible min/max taken from the slider range.</sub>
 - [x] **Modulation is deterministic under offline export**
   <br><sub>All time-dependent sources (LFOs, random, envelopes) must advance from the exporter frame index, never from `performance.now()`.</sub>
-- [ ] **Modulation depth visualisation on controls**
+- [x] **Modulation depth visualisation on controls**
   <br><sub>A modulated slider shows its base value plus a moving band for the modulated range, so the user can see what a route is doing without opening the matrix.</sub>
 - [x] **Unit tests for the modulation engine**
   <br><sub>Source values, curve shapes, route application, clamping, macro fan-out, and determinism. No GPU needed — the whole engine is plain arithmetic.</sub>
 
 ---
 
-## Deep audio analysis  <sub>12/16</sub>
+## Deep audio analysis
 
 Extract far more from the signal than four bands and a level meter.
 
@@ -86,7 +86,7 @@ Everything here becomes a modulation source (E1) and is unit-tested against synt
   <br><sub>Detect true silence versus a quiet passage, so scenes can fade gracefully instead of freezing, and normalise level so a quiet track still drives the visuals.</sub>
 - [ ] **Transient sharpness and attack time**
   <br><sub>How fast the energy rose into the current onset. Separates a soft mallet from a snare hit and lets one visual respond differently to each.</sub>
-- [ ] **Rolling spectral history buffer for time-based visuals**
+- [x] **Rolling spectral history buffer for time-based visuals**
   <br><sub>A shared ring buffer of the last N spectra, so spectrograms, waterfalls and 3D terrain modes stop each keeping their own copy.</sub>
 - [x] **Audio analysis panel with live meters**
   <br><sub>One place to see everything the analyser produces: bands, chroma wheel, detected key and chord, tempo, loudness, stereo correlation. Also the fastest way to debug a scene that is not reacting.</sub>
@@ -97,7 +97,7 @@ Everything here becomes a modulation source (E1) and is unit-tested against synt
 
 ---
 
-## Visualizer mode expansion (33 to 80+)  <sub>0/30</sub>
+## Visualizer mode expansion (33 to 80+)
 
 Directly requested: more variety, and more creative/interactive modes.
 
@@ -109,61 +109,61 @@ Each mode is its own issue so it can be picked up, drawn and verified independen
 - Uses the shared palette and the standard visualizer settings
 - Turkish label plus an English dictionary entry
 
-- [ ] **Mode: Flow field — particles steered by a noise field**
+- [x] **Mode: Flow field — particles steered by a noise field**
   <br><sub>Thousands of particles advected through a curl-noise field whose scale and rotation follow the spectrum. Bass widens the field, treble adds turbulence. Trails are drawn with a fading buffer rather than cleared each frame.</sub>
-- [ ] **Mode: Reaction-diffusion (Gray-Scott)**
+- [x] **Mode: Reaction-diffusion (Gray-Scott)**
   <br><sub>A Gray-Scott simulation on the GPU where feed and kill rates are modulated by audio bands. Produces coral, fingerprint and mitosis patterns that breathe with the music. Runs at reduced resolution and is upscaled.</sub>
 - [ ] **Mode: Cellular automaton — audio-seeded Life variants**
   <br><sub>A generation-coloured cellular automaton where beats seed new cells and the rule set can be switched (Life, HighLife, Day and Night, Seeds). The population count feeds back into brightness.</sub>
-- [ ] **Mode: Boids — flocking driven by the spectrum**
+- [x] **Mode: Boids — flocking driven by the spectrum**
   <br><sub>Classic separation/alignment/cohesion flocking. Bass increases cohesion, treble increases separation, and onsets scatter the flock. Drawn as oriented triangles with motion trails.</sub>
 - [ ] **Mode: L-system tree that grows with the music**
   <br><sub>An L-system rewriting a string each bar, drawn as a branching structure. Branch angle, length ratio and depth are modulated; onsets trigger new growth. Deterministic for a given seed.</sub>
 - [ ] **Mode: Diffusion-limited aggregation**
   <br><sub>Particles random-walk until they touch the growing cluster and stick. Beats release new walkers. Produces lightning-like dendritic structures that accumulate over a track.</sub>
-- [ ] **Mode: Voronoi cells**
+- [x] **Mode: Voronoi cells**
   <br><sub>A Voronoi diagram whose seed points move with the spectrum. Cell fill can follow the palette, the band energy of the nearest bar, or distance to the seed. Includes an outline-only variant.</sub>
 - [ ] **Mode: Delaunay mesh**
   <br><sub>A triangulated point cloud where vertices are displaced by band energy. Renders as filled facets with per-face shading or as a wireframe. The dual of the Voronoi mode and shares its point generator.</sub>
 - [ ] **Mode: Fluid simulation (stable fluids)**
   <br><sub>A GPU advection/diffusion solver with dye injection on beats and velocity impulses from the bands. The single most "expensive-looking" effect in this class and a direct answer to TouchDesigner demos.</sub>
-- [ ] **Mode: Mandelbrot / Julia zoom**
+- [x] **Mode: Mandelbrot / Julia zoom**
   <br><sub>A continuously zooming escape-time fractal with smooth iteration colouring from the palette. Bass drives zoom speed, treble drives the Julia constant. Includes a Burning Ship variant.</sub>
-- [ ] **Mode: Mandelbulb ray-marcher**
+- [x] **Mode: Mandelbulb ray-marcher**
   <br><sub>A ray-marched 3D distance-field fractal with audio-driven power and orbit-trap colouring. The showpiece 3D mode; needs a resolution scale control to stay real-time.</sub>
-- [ ] **Mode: Menger sponge / Sierpinski ray-marcher**
+- [x] **Mode: Menger sponge / Sierpinski ray-marcher**
   <br><sub>Folded distance-field fractals (Menger sponge, Sierpinski tetrahedron, Kaleidoscopic IFS) with audio-driven fold parameters and camera flight.</sub>
-- [ ] **Mode: Apollonian gasket**
+- [x] **Mode: Apollonian gasket**
   <br><sub>Recursively packed circles where radius levels map to frequency bands, so bass fills the large circles and treble animates the small ones.</sub>
-- [ ] **Mode: Truchet tiles**
+- [x] **Mode: Truchet tiles**
   <br><sub>A tiling of quarter-arc or diagonal tiles whose orientation flips on onsets, producing continuously rewiring maze patterns. Cheap, hypnotic, and very legible on a projector.</sub>
-- [ ] **Mode: Moire interference**
+- [x] **Mode: Moire interference**
   <br><sub>Two or more line/dot grids overlaid with slightly different rotations and scales, animated by the spectrum. Extremely high visual impact per line of code.</sub>
-- [ ] **Mode: Wave interference field**
+- [x] **Mode: Wave interference field**
   <br><sub>Point sources emitting circular waves whose frequency and amplitude come from the bands, summed into an interference pattern. Physical, calm, and good as a background-style visualizer.</sub>
-- [ ] **Mode: Rope / string physics**
+- [x] **Mode: Rope / string physics**
   <br><sub>A verlet-integrated string (or several) pinned at both ends, kicked by onsets and shaped by band energy. Includes a cloth variant on a grid of constraints.</sub>
-- [ ] **Mode: Galaxy spiral**
+- [x] **Mode: Galaxy spiral**
   <br><sub>A differentially rotating particle disc with density waves, a bright core that pulses with bass, and colour by orbital radius.</sub>
-- [ ] **Mode: DNA double helix**
+- [x] **Mode: DNA double helix**
   <br><sub>Two intertwined strands with connecting rungs, where rung length and colour follow the spectrum and the whole structure rotates and stretches with the music.</sub>
 - [ ] **Mode: Audio terrain (scrolling 3D landscape)**
   <br><sub>The rolling spectral history rendered as a lit height field flying towards the camera. Distinct from the existing terrain mode by being true perspective with shading and fog.</sub>
-- [ ] **Mode: Oscilloscope XY vector art**
+- [x] **Mode: Oscilloscope XY vector art**
   <br><sub>Genuine Lissajous rendering from the left/right waveform with phosphor persistence and beam intensity proportional to dwell time — the look of a real vector display.</sub>
-- [ ] **Mode: Goniometer / phase scope**
+- [x] **Mode: Goniometer / phase scope**
   <br><sub>A rotated XY plot showing stereo image, with correlation displayed as a meter. Both a visual and a genuinely useful production tool.</sub>
 - [ ] **Mode: Spectrogram waterfall (3D)**
   <br><sub>A scrolling time-frequency surface in perspective, with a colour ramp from the palette and adjustable time depth.</sub>
-- [ ] **Mode: Chromagram wheel**
+- [x] **Mode: Chromagram wheel**
   <br><sub>The 12 pitch classes arranged in a circle (or in circle-of-fifths order) with energy shown as radius and the detected chord highlighted. Depends on the chroma work in E2.</sub>
 - [ ] **Mode: Piano roll**
   <br><sub>Detected pitches drawn as falling bars against a keyboard, coloured by octave. Reads from the pitch and chroma analysis.</sub>
 - [ ] **Mode: Neon tube grid**
   <br><sub>A grid of glowing tube segments that light up in patterns driven by the spectrum, with a bloom-friendly emissive look and per-segment decay.</sub>
-- [ ] **Mode: Isometric block city**
+- [x] **Mode: Isometric block city**
   <br><sub>An isometric grid of extruded blocks whose heights follow the bars, with lighting and shadow. Reads as architecture rather than as a bar chart.</sub>
-- [ ] **Mode: Particle attractor field**
+- [x] **Mode: Particle attractor field**
   <br><sub>Particles orbiting a strange attractor from the formula library, with the attractor parameters modulated by audio. Bridges the 2D particle system and the 3D formula engine.</sub>
 - [ ] **Mode: Ferrofluid blob**
   <br><sub>A metaball surface with spiky audio-driven displacement along the surface normal, shaded to look like magnetic fluid. Extends the existing metaball mode into something distinct.</sub>
@@ -172,7 +172,7 @@ Each mode is its own issue so it can be picked up, drawn and verified independen
 
 ---
 
-## 3D geometry and formula library (35 to 120+)  <sub>7/18</sub>
+## 3D geometry and formula library (35 to 120+)
 
 Grow the 3D engine from a formula viewer into a full generative geometry system.
 
@@ -190,15 +190,15 @@ Grow the 3D engine from a formula viewer into a full generative geometry system.
   <br><sub>Chen, Chua, Dadras, four-wing, Rabinovich-Fabrikant, Nose-Hoover, Rikitake, Sprott-Linz A, Sprott-Linz B, Lorenz-84, Duffing and Langford.</sub>
 - [x] **Formulas: 8 more discrete maps**
   <br><sub>Henon, Ikeda, Tinkerbell, Gumowski-Mira, Bedhead, Svensson, Hopalong and Standard (Chirikov) map. Discrete maps are closed-form per step and cheap to verify exactly.</sub>
-- [ ] **Geometry: platonic and Archimedean solids**
+- [x] **Geometry: platonic and Archimedean solids**
   <br><sub>Tetrahedron, cube, octahedron, dodecahedron, icosahedron plus a few Archimedean solids, as a new primitive family with the same rendering options as the parametric surfaces.</sub>
-- [ ] **Geometry: geodesic sphere with subdivision control**
+- [x] **Geometry: geodesic sphere with subdivision control**
   <br><sub>An icosphere with adjustable subdivision, so the audio deformation has an even vertex distribution — much better looking than a UV sphere at the poles.</sub>
-- [ ] **Geometry: 3D L-systems**
+- [x] **Geometry: 3D L-systems**
   <br><sub>Turtle graphics in three dimensions producing trees, ferns and space-filling curves, with rule sets exposed as parameters and growth driven by the beat.</sub>
-- [ ] **Geometry: 3D iterated function systems**
+- [x] **Geometry: 3D iterated function systems**
   <br><sub>Barnsley fern in 3D, Sierpinski tetrahedron, fractal flame style transforms, rendered as a point cloud with density colouring.</sub>
-- [ ] **Geometry: tube and ribbon extrusion along any curve**
+- [x] **Geometry: tube and ribbon extrusion along any curve**
   <br><sub>Turn any space curve into a swept tube or twisted ribbon with adjustable radius, sides and twist. Instantly multiplies the value of every curve in the library.</sub>
 - [ ] **Geometry: multiple instances with per-instance offsets**
   <br><sub>Draw N copies of the mesh with position, rotation, scale and colour offsets, each able to take its audio value from a different band — one formula becomes a full composition.</sub>
@@ -215,87 +215,87 @@ Grow the 3D engine from a formula viewer into a full generative geometry system.
 
 ---
 
-## Post-processing chain expansion (15 to 45+)  <sub>0/20</sub>
+## Post-processing chain expansion (15 to 45+)
 
 More GPU effects, better ordering, and effect-level modulation.
 
 Every effect must run identically in the live window and in the offline exporter, and must appear in the `--smoke` effect walk with a measurable difference from the source frame.
 
-- [ ] **Effect: Gaussian blur with separable passes**
+- [x] **Effect: Gaussian blur with separable passes**
   <br><sub>A properly separable two-pass Gaussian with an adjustable radius, which the bloom and depth-of-field effects can also reuse.</sub>
-- [ ] **Effect: Radial and directional motion blur**
+- [x] **Effect: Radial and directional motion blur**
   <br><sub>Blur along a direction or radially from a centre point, with audio-bindable angle, length and centre.</sub>
-- [ ] **Effect: Bokeh depth of field**
+- [x] **Effect: Bokeh depth of field**
   <br><sub>Hexagonal or circular bokeh from a depth or luminance proxy, for the shallow-focus look.</sub>
-- [ ] **Effect: Tilt-shift**
+- [x] **Effect: Tilt-shift**
   <br><sub>A focus band with adjustable position, width and angle, blurring away from it — makes any scene look miniature.</sub>
-- [ ] **Effect: Sharpen and unsharp mask**
+- [x] **Effect: Sharpen and unsharp mask**
   <br><sub>Edge enhancement with an amount and radius, useful to counteract render-scale downsampling.</sub>
-- [ ] **Effect: Emboss and relief**
+- [x] **Effect: Emboss and relief**
   <br><sub>A directional convolution giving an engraved metal look, with adjustable light angle and depth.</sub>
-- [ ] **Effect: Ordered dither and halftone**
+- [x] **Effect: Ordered dither and halftone**
   <br><sub>Bayer-matrix dithering and CMYK-style halftone dots with adjustable angle and cell size — a strong print aesthetic.</sub>
-- [ ] **Effect: ASCII / character mosaic**
+- [x] **Effect: ASCII / character mosaic**
   <br><sub>Map luminance cells to a character atlas rendered into a texture. Distinctive, and a recognisable "hacker" look for stream overlays.</sub>
-- [ ] **Effect: Cross-hatch and stipple**
+- [x] **Effect: Cross-hatch and stipple**
   <br><sub>Line-density shading in several hatch directions, producing a pen-and-ink render of any scene.</sub>
-- [ ] **Effect: Oil paint / kuwahara filter**
+- [x] **Effect: Oil paint / kuwahara filter**
   <br><sub>An anisotropic Kuwahara filter for a painterly look that holds up at projector scale.</sub>
-- [ ] **Effect: VHS / analogue tape**
+- [x] **Effect: VHS / analogue tape**
   <br><sub>Chroma bleed, head-switching noise at the bottom of the frame, tracking wobble and colour-under artefacts.</sub>
-- [ ] **Effect: Datamosh / block displacement**
+- [x] **Effect: Datamosh / block displacement**
   <br><sub>Macroblock displacement driven by onsets, imitating compression breakdown. Beat-reactive by nature.</sub>
-- [ ] **Effect: Slit-scan**
+- [x] **Effect: Slit-scan**
   <br><sub>Each output row (or column) reads from a different point in a frame history buffer, smearing time across space.</sub>
-- [ ] **Effect: Lens distortion family**
+- [x] **Effect: Lens distortion family**
   <br><sub>Barrel, pincushion, fisheye and spherize under one effect with a signed strength and adjustable centre.</sub>
-- [ ] **Effect: Twirl and polar transform**
+- [x] **Effect: Twirl and polar transform**
   <br><sub>Rotate around a centre with radius-dependent angle, plus a rectangular-to-polar and polar-to-rectangular pair.</sub>
 - [ ] **Effect: Displacement map from another layer**
   <br><sub>Use a layer's luminance to displace the composite — the most flexible warp effect there is, and the basis for many looks.</sub>
-- [ ] **Effect: LUT colour grading (.cube import)**
+- [x] **Effect: LUT colour grading (.cube import)**
   <br><sub>Load a standard 3D LUT cube file into a texture and apply it. Lets users bring their own film-grade looks without any service.</sub>
-- [ ] **Effect: Gradient map and duotone**
+- [x] **Effect: Gradient map and duotone**
   <br><sub>Remap luminance through the scene palette or a two-colour ramp. Instant stylistic coherence with the rest of the scene.</sub>
-- [ ] **Effect: Curves and levels**
+- [x] **Effect: Curves and levels**
   <br><sub>Per-channel curve control with black/white points and gamma, the standard colour-correction toolset.</sub>
-- [ ] **Effect: Light leaks, film burn and star filter**
+- [x] **Effect: Light leaks, film burn and star filter**
   <br><sub>Animated organic overlays plus an anamorphic streak/star filter on highlights, all beat-bindable.</sub>
 
 ---
 
-## Layers, masks and scene transitions  <sub>0/12</sub>
+## Layers, masks and scene transitions
 
 The layer stack shipped in 2.1 needs the pieces that make it a compositor rather than a list.
 
-- [ ] **Layer groups with a single fader**
+- [x] **Layer groups with a single fader**
   <br><sub>Fold several layers into a group that composites as one surface, with one opacity, one blend mode and one transform. Essential once scenes get past a handful of layers.</sub>
-- [ ] **Masks: alpha from another layer**
+- [x] **Masks: alpha from another layer**
   <br><sub>Use any layer's luminance or alpha as a mask for another. The single most requested compositing feature and the basis for reveals, text knockouts and shaped visuals.</sub>
-- [ ] **Masks: shapes and gradients**
+- [x] **Masks: shapes and gradients**
   <br><sub>Rectangle, ellipse, polygon and linear/radial gradient masks with feathering, position, rotation and invert, applied per layer.</sub>
-- [ ] **Layer solo, mute and lock**
+- [x] **Layer solo, mute and lock**
   <br><sub>Solo isolates one layer, mute silences it without deleting it, lock prevents accidental edits. Basic, and painful to work without.</sub>
-- [ ] **Scene transitions: crossfade and dissolve**
+- [x] **Scene transitions: crossfade and dissolve**
   <br><sub>Scene changes are currently hard cuts. A timed crossfade between the outgoing and incoming scene, with a curve and a duration in seconds or beats.</sub>
-- [ ] **Scene transitions: wipes and slides**
+- [x] **Scene transitions: wipes and slides**
   <br><sub>Linear wipe at any angle, radial wipe, clock wipe, barn door, blinds, push and slide, all with adjustable softness.</sub>
-- [ ] **Scene transitions: luma wipes from a gradient texture**
+- [x] **Scene transitions: luma wipes from a gradient texture**
   <br><sub>Drive the transition threshold from a greyscale image so any pattern becomes a transition shape. Ship a set of generated ramps and allow user images.</sub>
-- [ ] **Scene transitions: effect-based (glitch, zoom, blur, flash)**
+- [x] **Scene transitions: effect-based (glitch, zoom, blur, flash)**
   <br><sub>Transitions that route through the post-processing chain: a glitch tear, a zoom punch, a defocus, a white flash on the beat.</sub>
-- [ ] **A/B deck crossfader**
+- [x] **A/B deck crossfader**
   <br><sub>Two scene slots and a fader between them, MIDI-mappable, with selectable blend curve. The standard VJ performance control.</sub>
-- [ ] **Per-layer effect chain**
+- [x] **Per-layer effect chain**
   <br><sub>Effects currently apply to the whole composite. Allow a chain on an individual layer so one element can be blurred or graded without touching the rest.</sub>
-- [ ] **Layer copy, paste and duplicate across scenes**
+- [x] **Layer copy, paste and duplicate across scenes**
   <br><sub>Move a configured layer between scenes without rebuilding it. Includes a clipboard that survives a scene switch.</sub>
-- [ ] **Blend mode expansion and per-layer opacity curve**
+- [x] **Blend mode expansion and per-layer opacity curve**
   <br><sub>Add the remaining separable and non-separable blend modes for parity with the compositing standard, and give opacity a response curve so a fader feels right.</sub>
 
 ---
 
-## Clip decks, timeline and setlist  <sub>0/10</sub>
+## Clip decks, timeline and setlist
 
 Trigger scenes like an instrument instead of editing them one at a time.
 
@@ -322,69 +322,69 @@ Trigger scenes like an instrument instead of editing them one at a time.
 
 ---
 
-## Projection mapping and output warping  <sub>0/10</sub>
+## Projection mapping and output warping
 
 Send the output onto surfaces that are not flat rectangles — the feature that separates Resolume Arena from Avenue.
 
-- [ ] **Corner pin (quad warp) per output window**
+- [x] **Corner pin (quad warp) per output window**
   <br><sub>Drag the four corners of an output to fit a surface, implemented as a homography in the shader so straight lines stay straight. Per display, saved with the settings.</sub>
-- [ ] **Bezier mesh warp**
+- [x] **Bezier mesh warp**
   <br><sub>A grid of control points with bezier interpolation for curved surfaces (cylinders, arches, domes). Adjustable grid density and per-point nudging with the arrow keys.</sub>
-- [ ] **Slices: crop a region and place it on an output**
+- [x] **Slices: crop a region and place it on an output**
   <br><sub>Take any rectangle of the composition and map it to any quad on any output. This is what lets one composition feed many differently shaped surfaces.</sub>
-- [ ] **Soft edge blending for multi-projector rigs**
+- [x] **Soft edge blending for multi-projector rigs**
   <br><sub>Per-edge blend width with an adjustable gamma curve, so two projectors overlap into one seamless image. Arena-exclusive in the reference product.</sub>
-- [ ] **Bezier polygon masks per output**
+- [x] **Bezier polygon masks per output**
   <br><sub>Draw arbitrary masks to hide spill outside a mapped surface, with feathering and invert.</sub>
-- [ ] **Alignment grids and test patterns**
+- [x] **Alignment grids and test patterns**
   <br><sub>Grid, crosshair, colour bars, focus chart and a per-output identification number, shown on demand while aligning projectors.</sub>
-- [ ] **Per-output colour correction**
+- [x] **Per-output colour correction**
   <br><sub>Brightness, contrast, gamma and RGB gain per output, so mismatched projectors can be matched.</sub>
 - [ ] **Mapping presets: save, load and switch**
   <br><sub>A venue is a mapping. Store the whole output configuration under a name and recall it, independently of the scene.</sub>
-- [ ] **Mapping editor UI with numeric entry**
+- [x] **Mapping editor UI with numeric entry**
   <br><sub>A dedicated editing surface with zoom, snapping, keyboard nudging and exact numeric coordinates, because dragging alone is not precise enough on site.</sub>
 - [ ] **Mapping applies to the offline exporter as well**
   <br><sub>Warping must be part of the render pipeline, not a window trick, so an exported video matches what the projector shows. Verified by comparing an exported frame against the live output.</sub>
 
 ---
 
-## MilkDrop preset engine  <sub>0/13</sub>
+## MilkDrop preset engine
 
 A real interpreter for the MilkDrop preset language, not a parameter importer.
 
 2.1 shipped a feedback engine that produces the same visual family and imports constants from `.milk` files, and said so honestly. This epic replaces that with an actual evaluator.
 
-- [ ] **MilkDrop: expression tokeniser**
+- [x] **MilkDrop: expression tokeniser**
   <br><sub>Lex the preset expression language: numbers, identifiers, operators, parentheses, commas, assignment and statement separators. Handles the language's quirks (case insensitivity, `//` comments, implicit statement termination).</sub>
-- [ ] **MilkDrop: expression parser to an AST**
+- [x] **MilkDrop: expression parser to an AST**
   <br><sub>Precedence-correct parsing of assignment, comparison, additive, multiplicative and unary operators, plus function calls. Reports the line and column of a syntax error.</sub>
-- [ ] **MilkDrop: built-in function library**
+- [x] **MilkDrop: built-in function library**
   <br><sub>The full set the language provides: `sin cos tan asin acos atan atan2 abs sqr sqrt pow exp log log10 int floor ceil frac min max sign rand bnot bor band equal above below if sigmoid`.</sub>
-- [ ] **MilkDrop: compile the AST to JavaScript closures**
+- [x] **MilkDrop: compile the AST to JavaScript closures**
   <br><sub>Walking an AST per pixel is far too slow. Compile each equation block once into a closure over a flat variable array, so the per-pixel loop is plain arithmetic.</sub>
-- [ ] **MilkDrop: variable pool (q1-q32, t1-t8, regNN)**
+- [x] **MilkDrop: variable pool (q1-q32, t1-t8, regNN)**
   <br><sub>The variable chain that carries values from init to per-frame to per-vertex to the shaders. Registers persist across frames; q variables are copied at the right points in the chain.</sub>
-- [ ] **MilkDrop: per-frame equation execution**
+- [x] **MilkDrop: per-frame equation execution**
   <br><sub>Run the preset's `per_frame` block once per frame with the documented inputs (`time`, `fps`, `bass`, `mid`, `treb`, their attenuated variants, `frame`, `progress`) and apply the resulting motion parameters.</sub>
-- [ ] **MilkDrop: per-pixel equations on the warp mesh**
+- [x] **MilkDrop: per-pixel equations on the warp mesh**
   <br><sub>Evaluate the `per_pixel` block over the warp mesh grid, producing per-vertex offsets for zoom, rotation, warp, dx/dy, sx/sy. This is where the characteristic motion comes from.</sub>
-- [ ] **MilkDrop: warp mesh renderer with feedback**
+- [x] **MilkDrop: warp mesh renderer with feedback**
   <br><sub>Render the previous frame through the displaced mesh with the preset's decay, echo and gamma settings. The visual heart of the format.</sub>
 - [ ] **MilkDrop: waveforms and the built-in wave modes**
   <br><sub>The numbered wave modes drawn from the audio buffer, with the documented thickness, additive and dot options.</sub>
 - [ ] **MilkDrop: custom waves and custom shapes**
   <br><sub>Up to four custom waves and four custom shapes, each with their own init, per-frame and per-point equations.</sub>
-- [ ] **MilkDrop: .milk file parser**
+- [x] **MilkDrop: .milk file parser**
   <br><sub>Parse the INI-style preset file into parameters plus the equation blocks, tolerating the format's inconsistencies (line-numbered equation keys, wrapped lines, mixed case).</sub>
 - [ ] **MilkDrop: best-effort warp and composite shader translation** `3.1`
   <br><sub>MilkDrop 2 presets carry HLSL warp and composite shaders. Translate the common subset to GLSL ES 3.00 and fall back to the equation-only path when translation fails, telling the user which happened.</sub>
-- [ ] **MilkDrop: preset pack import and browsing**
+- [x] **MilkDrop: preset pack import and browsing**
   <br><sub>Import a folder of presets, list them with names and a generated thumbnail, and allow shuffling through them with the existing auto-VJ machinery.</sub>
 
 ---
 
-## Studio shader editor — multi-pass and a real library  <sub>0/9</sub>
+## Studio shader editor — multi-pass and a real library
 
 Take the shader editor from single-pass GLSL to the full ISF feature set.
 
@@ -394,7 +394,7 @@ Take the shader editor from single-pass GLSL to the full ISF feature set.
   <br><sub>Passes marked persistent keep their contents across frames, which is what feedback, trails and simulations need. Ping-pong handling must be automatic.</sub>
 - [ ] **Studio: vertex shader editing**
   <br><sub>Expose the vertex stage so geometry can be displaced, not just pixels. Includes a default pass-through the user can start from.</sub>
-- [ ] **Studio: built-in shader library expanded to 40+**
+- [x] **Studio: built-in shader library expanded to 40+**
   <br><sub>The editor ships with six examples. Write a proper library covering the common families: plasma, tunnels, raymarched primitives, kaleidoscopes, fluid-like flows, voronoi, noise fields, feedback, truchet, moire, warped grids, particles in a fragment shader.</sub>
 - [ ] **Studio: full ISF input type coverage**
   <br><sub>float, bool, long (enumerated), point2D, color, image and audio/audioFFT inputs, each generating the right control automatically.</sub>
@@ -409,30 +409,30 @@ Take the shader editor from single-pass GLSL to the full ISF feature set.
 
 ---
 
-## Text, typography and lyrics  <sub>0/8</sub>
+## Text, typography and lyrics
 
 Named as a gap against Vizzy and Specterr: animated text objects and synchronised lyrics.
 
-- [ ] **Text layer with font, weight and layout controls**
+- [x] **Text layer with font, weight and layout controls**
   <br><sub>A first-class text layer: content, font family, weight, size, letter and line spacing, alignment, colour or palette, outline and shadow.</sub>
 - [ ] **Custom font loading**
   <br><sub>Load a TTF/OTF/WOFF from disk into the renderer and into the offline exporter, so the exported video matches the live output.</sub>
-- [ ] **Text animation presets**
+- [x] **Text animation presets**
   <br><sub>Typewriter, fade in, slide, scale bounce, wave, jitter, per-character stagger, all with beat-synced timing options.</sub>
-- [ ] **Audio-reactive typography**
+- [x] **Audio-reactive typography**
   <br><sub>Per-character scale, weight, offset and colour driven by the spectrum, so the word itself is the visualizer.</sub>
-- [ ] **Lyrics: LRC and SRT import**
+- [x] **Lyrics: LRC and SRT import**
   <br><sub>Parse both formats including enhanced LRC word timings, and show the current line with the elapsed part highlighted.</sub>
-- [ ] **Lyrics: timing editor and nudge**
+- [x] **Lyrics: timing editor and nudge**
   <br><sub>Tap along to set line timings, nudge the whole file by an offset, and save the corrected file back out.</sub>
 - [ ] **Text on a path, marquee and ticker**
   <br><sub>Lay text along any curve from the formula library, plus a scrolling ticker mode for stream overlays.</sub>
-- [ ] **Now-playing metadata from the audio file**
+- [x] **Now-playing metadata from the audio file**
   <br><sub>Read title, artist and album art from a loaded file and expose them as text and image sources for overlays.</sub>
 
 ---
 
-## Media and input sources  <sub>0/8</sub>
+## Media and input sources
 
 More ways to get pixels and sound into the composition.
 
@@ -455,17 +455,17 @@ More ways to get pixels and sound into the composition.
 
 ---
 
-## Output, recording and streaming  <sub>0/9</sub>
+## Output, recording and streaming
 
 Everything that leaves the application.
 
-- [ ] **One-key recording of the live output**
+- [x] **One-key recording of the live output**
   <br><sub>Start and stop a recording of exactly what is on screen with a shortcut, writing WebM or MP4 without going through the offline exporter.</sub>
-- [ ] **Animated GIF and short-loop export**
+- [x] **Animated GIF and short-loop export**
   <br><sub>A length-limited, palette-optimised GIF or looping MP4 for sharing a moment. Requested in the 2.1 roadmap.</sub>
-- [ ] **PNG snapshot with a shortcut**
+- [x] **PNG snapshot with a shortcut**
   <br><sub>Capture the current frame at full or multiplied resolution to a file, with an optional transparent background.</sub>
-- [ ] **Export presets for common aspect ratios**
+- [x] **Export presets for common aspect ratios**
   <br><sub>16:9, 9:16, 1:1, 4:5 and 21:9 with matching resolutions, plus a safe-area overlay while composing.</sub>
 - [ ] **Per-output resolution and frame rate**
   <br><sub>Each visualizer window renders at its own resolution and frame rate, so a 4K projector and a 1080p confidence monitor can coexist.</sub>
@@ -480,7 +480,7 @@ Everything that leaves the application.
 
 ---
 
-## Control surfaces and integration  <sub>0/13</sub>
+## Control surfaces and integration
 
 Play the application from hardware and from other software.
 
@@ -513,11 +513,11 @@ Play the application from hardware and from other software.
 
 ---
 
-## Library, templates and sharing  <sub>0/10</sub>
+## Library, templates and sharing
 
 Make the shipped content discoverable and the user's own content manageable.
 
-- [ ] **60+ ready-made scene templates**
+- [x] **60+ ready-made scene templates**
   <br><sub>Curated starting points grouped by use (club, ambient, podcast overlay, stream corner, lyric video, screensaver) and by genre. This is what makes the app usable in the first five minutes.</sub>
 - [ ] **Preset browser with search, tags and favourites**
   <br><sub>Filter by tag, search by name, mark favourites, sort by recently used. Currently the library is a flat list.</sub>
@@ -529,9 +529,9 @@ Make the shipped content discoverable and the user's own content manageable.
   <br><sub>A single slider that interpolates every numeric parameter between two scenes, with non-numeric fields switching at the midpoint.</sub>
 - [ ] **Pack format v2 with dependencies and versioning**
   <br><sub>Packs should carry their media, fonts and shaders, declare the app version they need, and migrate cleanly when loaded into a newer build.</sub>
-- [ ] **Settings backup and restore**
+- [x] **Settings backup and restore**
   <br><sub>Export everything — settings, scenes, presets, mappings, control assignments — to one file and restore it on another machine.</sub>
-- [ ] **Configuration migration between versions**
+- [x] **Configuration migration between versions**
   <br><sub>A versioned migration chain so a 1.3 or 2.0 settings file opens correctly in 3.0, with tests for each step.</sub>
 - [ ] **Recently used and session history**
   <br><sub>Track what was opened and allow returning to a previous session state, including an undo history for scene edits.</sub>
@@ -540,7 +540,7 @@ Make the shipped content discoverable and the user's own content manageable.
 
 ---
 
-## Performance and rendering quality  <sub>0/9</sub>
+## Performance and rendering quality
 
 Keep frame time flat as the feature surface grows.
 
@@ -565,42 +565,42 @@ Keep frame time flat as the feature surface grows.
 
 ---
 
-## Test coverage and quality gates  <sub>0/10</sub>
+## Test coverage and quality gates
 
 The release claim is "everything works" — that has to be demonstrable, not asserted.
 
 - [ ] **Golden-frame regression tests**
   <br><sub>Use the deterministic offline exporter to render a fixed set of reference scenes and compare against stored frames, so a refactor cannot silently change output. Includes a documented way to review and accept an intended change.</sub>
-- [ ] **Self-test covers every new engine**
+- [x] **Self-test covers every new engine**
   <br><sub>Extend `--smoke` to walk modulation routes, transitions, mapping warps, text layers, MilkDrop presets and multi-pass shaders, not just modes and effects.</sub>
-- [ ] **Config schema validation test**
+- [x] **Config schema validation test**
   <br><sub>Assert that every default has the right type and range, that every panel path exists in the defaults, and that no panel references a removed field.</sub>
-- [ ] **i18n coverage gate for every new string**
+- [x] **i18n coverage gate for every new string**
   <br><sub>The English scan already walks the interface. Extend it to the new panels, the web pages and every dynamically generated label, and fail the build on a gap.</sub>
-- [ ] **GitHub Actions workflow: tests on every push**
+- [x] **GitHub Actions workflow: tests on every push**
   <br><sub>Run the unit suite on Windows and Linux for every push and pull request. The GPU self-test stays local, but everything that can run headless should run in CI.</sub>
 - [ ] **Packaged build verification**
   <br><sub>Automate what was done by hand for 2.1: launch the packaged binary with a temporary profile, confirm every engine file is served from inside the archive, and check the console is clean.</sub>
 - [ ] **Determinism test for the whole render path**
   <br><sub>Render the same scene twice with modulation, transitions and effects active and assert the outputs are byte-identical.</sub>
-- [ ] **Fuzz the preset and pack loaders**
+- [x] **Fuzz the preset and pack loaders**
   <br><sub>Feed truncated, malformed and hostile preset files to the importers and assert they fail with a message rather than crashing or executing anything.</sub>
 - [ ] **Performance regression check in the self-test**
   <br><sub>Record frame time for a fixed reference scene and fail if it regresses beyond a threshold, so features cannot quietly make the app slower.</sub>
-- [ ] **Test the modulation and analysis engines against reference signals**
+- [x] **Test the modulation and analysis engines against reference signals**
   <br><sub>A shared synthetic signal generator (tones, chords, click trains, noise, sweeps) reused across the analysis tests, so every feature is measured against a signal with a known answer.</sub>
 
 ---
 
-## Documentation, screenshots and demos  <sub>0/8</sub>
+## Documentation, screenshots and demos
 
 Requested directly: the README should show the new features, not just list them.
 
-- [ ] **README: screenshots of every major feature**
+- [x] **README: screenshots of every major feature**
   <br><sub>Requested directly. Capture the scene panel, layer stack, effect chain, 3D geometry, modulation matrix, Studio editor, clip grid, mapping editor, audio analysis panel and the mobile remote, in both languages where the interface differs.</sub>
-- [ ] **README: animated demos of the headline engines**
+- [x] **README: animated demos of the headline engines**
   <br><sub>Short looping captures showing modulation, transitions, the MilkDrop engine and the 3D geometry actually moving. Generated with the new recording feature, which also proves that feature works.</sub>
-- [ ] **Feature comparison matrix update**
+- [x] **Feature comparison matrix update**
   <br><sub>Rebuild the ROADMAP status table for 3.0 across every researched competitor, keeping the rule that a row is only marked done when the feature works and is tested.</sub>
 - [ ] **User guide: from install to first show**
   <br><sub>A walkthrough covering audio setup, scenes, layers, effects, control mapping and output, in Turkish and English.</sub>
@@ -608,7 +608,7 @@ Requested directly: the README should show the new features, not just list them.
   <br><sub>Document the uniforms, the multi-pass model, the ISF subset supported and the import paths, with worked examples.</sub>
 - [ ] **Modulation cookbook**
   <br><sub>Recipes people can copy: kick-driven zoom punch, chord-driven palette, LFO camera drift, macro-controlled intensity.</sub>
-- [ ] **Keyboard shortcut reference**
+- [x] **Keyboard shortcut reference**
   <br><sub>A generated reference of every binding, in the app and in the docs, kept in sync with the shortcut table.</sub>
-- [ ] **Honest "not done" section for 3.0**
+- [x] **Honest "not done" section for 3.0**
   <br><sub>Keep the practice from 2.0 and 2.1: state plainly what was not built, why, and what was done instead. Currently expected to cover NDI, Spout/Syphon, Ableton Link and WebGPU.</sub>
