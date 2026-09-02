@@ -556,6 +556,7 @@
        Devralınan tuvaller DOM'dan çıkarılır; giden yığın container'sız çalışıp
        yalnızca drawTo() ile çizer. */
     beginTransition(oldCfg, spec) {
+      if (this.trans) this.endTransition();
       if (!this.entries.length) return;
       const out = new LayerStack(null, this.opts);
       out.entries = this.entries;

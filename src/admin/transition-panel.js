@@ -92,12 +92,14 @@
           const prev = window.SVPreview;
           const stack = prev && prev.stack && prev.stack();
           if (!stack) { P().toast('Önizleme hazır değil.'); return; }
-          stack.beginTransition(window.SV.clone(P().cfg()), {
+          const cfg = P().cfg();
+          stack.beginTransition(window.SV.clone(cfg), {
             type: tr.type,
-            duration: window.SVTransition.durationSeconds(P().cfg(), stack.bpm || 0),
+            duration: window.SVTransition.durationSeconds(cfg, stack.bpm || 0),
             opts: tr.params || {},
             ease: tr.ease,
           });
+          stack.setConfig(cfg);
         },
       }),
     ]));

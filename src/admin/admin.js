@@ -1779,7 +1779,7 @@
         title: 'Metin ve Şarkı Sözü',
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
         controls: [{ type: 'textpanel' }],
-        show: () => v.type === 'text',
+        show: () => v.type === 'text' || !!(cfg.text && cfg.text.enabled) || !!(cfg.layers && cfg.layers.some((l) => l.type === 'text')),
       },
       {
         id: 'milkdrop',

@@ -57,6 +57,8 @@ function run(executable, args, options = {}) {
 
 fs.rmSync(manifestDir, { recursive: true, force: true });
 fs.mkdirSync(manifestDir, { recursive: true });
+const pkgResources = path.join(manifestDir, 'resources', 'identity');
+fs.mkdirSync(pkgResources, { recursive: true });
 
 const iconSource = path.join(root, 'assets', 'logo-256.png');
 const packageIconBackground = { r: 0, g: 0, b: 0, alpha: 0 };
@@ -69,15 +71,75 @@ const iconJobs = [
   ['Square44x44Logo.scale-200.png', 88],
   ['Square44x44Logo.scale-400.png', 176],
   ['Square44x44Logo.targetsize-16.png', 16],
+  ['Square44x44Logo.targetsize-20.png', 20],
   ['Square44x44Logo.targetsize-24.png', 24],
+  ['Square44x44Logo.targetsize-30.png', 30],
   ['Square44x44Logo.targetsize-32.png', 32],
+  ['Square44x44Logo.targetsize-36.png', 36],
+  ['Square44x44Logo.targetsize-40.png', 40],
+  ['Square44x44Logo.targetsize-44.png', 44],
   ['Square44x44Logo.targetsize-48.png', 48],
+  ['Square44x44Logo.targetsize-64.png', 64],
+  ['Square44x44Logo.targetsize-72.png', 72],
+  ['Square44x44Logo.targetsize-80.png', 80],
+  ['Square44x44Logo.targetsize-96.png', 96],
   ['Square44x44Logo.targetsize-256.png', 256],
   ['Square44x44Logo.targetsize-16_altform-unplated.png', 16],
+  ['Square44x44Logo.targetsize-20_altform-unplated.png', 20],
   ['Square44x44Logo.targetsize-24_altform-unplated.png', 24],
+  ['Square44x44Logo.targetsize-30_altform-unplated.png', 30],
   ['Square44x44Logo.targetsize-32_altform-unplated.png', 32],
+  ['Square44x44Logo.targetsize-36_altform-unplated.png', 36],
+  ['Square44x44Logo.targetsize-40_altform-unplated.png', 40],
+  ['Square44x44Logo.targetsize-44_altform-unplated.png', 44],
   ['Square44x44Logo.targetsize-48_altform-unplated.png', 48],
+  ['Square44x44Logo.targetsize-64_altform-unplated.png', 64],
+  ['Square44x44Logo.targetsize-72_altform-unplated.png', 72],
+  ['Square44x44Logo.targetsize-80_altform-unplated.png', 80],
+  ['Square44x44Logo.targetsize-96_altform-unplated.png', 96],
   ['Square44x44Logo.targetsize-256_altform-unplated.png', 256],
+  ['Square44x44Logo.altform-unplated_targetsize-16.png', 16],
+  ['Square44x44Logo.altform-unplated_targetsize-20.png', 20],
+  ['Square44x44Logo.altform-unplated_targetsize-24.png', 24],
+  ['Square44x44Logo.altform-unplated_targetsize-30.png', 30],
+  ['Square44x44Logo.altform-unplated_targetsize-32.png', 32],
+  ['Square44x44Logo.altform-unplated_targetsize-36.png', 36],
+  ['Square44x44Logo.altform-unplated_targetsize-40.png', 40],
+  ['Square44x44Logo.altform-unplated_targetsize-44.png', 44],
+  ['Square44x44Logo.altform-unplated_targetsize-48.png', 48],
+  ['Square44x44Logo.altform-unplated_targetsize-64.png', 64],
+  ['Square44x44Logo.altform-unplated_targetsize-72.png', 72],
+  ['Square44x44Logo.altform-unplated_targetsize-80.png', 80],
+  ['Square44x44Logo.altform-unplated_targetsize-96.png', 96],
+  ['Square44x44Logo.altform-unplated_targetsize-256.png', 256],
+  ['Square44x44Logo.targetsize-16_altform-lightunplated.png', 16],
+  ['Square44x44Logo.targetsize-20_altform-lightunplated.png', 20],
+  ['Square44x44Logo.targetsize-24_altform-lightunplated.png', 24],
+  ['Square44x44Logo.targetsize-30_altform-lightunplated.png', 30],
+  ['Square44x44Logo.targetsize-32_altform-lightunplated.png', 32],
+  ['Square44x44Logo.targetsize-36_altform-lightunplated.png', 36],
+  ['Square44x44Logo.targetsize-40_altform-lightunplated.png', 40],
+  ['Square44x44Logo.targetsize-44_altform-lightunplated.png', 44],
+  ['Square44x44Logo.targetsize-48_altform-lightunplated.png', 48],
+  ['Square44x44Logo.targetsize-64_altform-lightunplated.png', 64],
+  ['Square44x44Logo.targetsize-72_altform-lightunplated.png', 72],
+  ['Square44x44Logo.targetsize-80_altform-lightunplated.png', 80],
+  ['Square44x44Logo.targetsize-96_altform-lightunplated.png', 96],
+  ['Square44x44Logo.targetsize-256_altform-lightunplated.png', 256],
+  ['Square44x44Logo.altform-lightunplated_targetsize-16.png', 16],
+  ['Square44x44Logo.altform-lightunplated_targetsize-20.png', 20],
+  ['Square44x44Logo.altform-lightunplated_targetsize-24.png', 24],
+  ['Square44x44Logo.altform-lightunplated_targetsize-30.png', 30],
+  ['Square44x44Logo.altform-lightunplated_targetsize-32.png', 32],
+  ['Square44x44Logo.altform-lightunplated_targetsize-36.png', 36],
+  ['Square44x44Logo.altform-lightunplated_targetsize-40.png', 40],
+  ['Square44x44Logo.altform-lightunplated_targetsize-44.png', 44],
+  ['Square44x44Logo.altform-lightunplated_targetsize-48.png', 48],
+  ['Square44x44Logo.altform-lightunplated_targetsize-64.png', 64],
+  ['Square44x44Logo.altform-lightunplated_targetsize-72.png', 72],
+  ['Square44x44Logo.altform-lightunplated_targetsize-80.png', 80],
+  ['Square44x44Logo.altform-lightunplated_targetsize-96.png', 96],
+  ['Square44x44Logo.altform-lightunplated_targetsize-256.png', 256],
   ['Square150x150Logo.png', 150],
   ['Square150x150Logo.scale-100.png', 150],
   ['Square150x150Logo.scale-125.png', 188],
@@ -88,17 +150,20 @@ const iconJobs = [
 const iconScript = `
   const sharp = require('sharp');
   const path = require('path');
-  const [source, outputDir, jobsJson, backgroundJson] = process.argv.slice(1);
+  const [source, outputDir1, outputDir2, jobsJson, backgroundJson] = process.argv.slice(1);
   const jobs = JSON.parse(jobsJson);
   const background = JSON.parse(backgroundJson);
-  Promise.all(jobs.map(([name, size]) =>
-    sharp(source)
-      .resize(size, size, { fit: 'contain', background })
-      .png()
-      .toFile(path.join(outputDir, name))
+  const outDirs = [outputDir1, outputDir2].filter(Boolean);
+  Promise.all(jobs.flatMap(([name, size]) =>
+    outDirs.map((dir) =>
+      sharp(source)
+        .resize(size, size, { fit: 'contain', background })
+        .png()
+        .toFile(path.join(dir, name))
+    )
   )).catch((error) => { console.error(error); process.exit(1); });
 `;
-run(process.execPath, ['-e', iconScript, iconSource, output, JSON.stringify(iconJobs), JSON.stringify(packageIconBackground)]);
+run(process.execPath, ['-e', iconScript, iconSource, output, pkgResources, JSON.stringify(iconJobs), JSON.stringify(packageIconBackground)]);
 
 let password;
 if (fs.existsSync(pfx) && fs.existsSync(cer) && fs.existsSync(passwordFile)) {

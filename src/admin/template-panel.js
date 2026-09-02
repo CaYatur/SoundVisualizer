@@ -14,6 +14,7 @@
   let group = null;
   let search = '';
   let lastApplied = '';
+  let gridScroll = 0;
 
   function panel() {
     const el = P().el;
@@ -52,7 +53,10 @@
       return (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(q);
     });
 
-    const grid = el('div', { class: 'tpl-grid' });
+    const grid = el('div', {
+      class: 'tpl-grid',
+      onscroll: (e) => { gridScroll = e.target.scrollTop; },
+    });
     for (const t of list) {
       grid.appendChild(el('button', {
         class: 'tpl-card' + (lastApplied === t.id ? ' active' : ''),
@@ -69,6 +73,14 @@
       grid.appendChild(el('div', { class: 'studio-note', text: 'Aramaya uyan şablon yok.' }));
     }
     nodes.push(grid);
+
+    if (gridScroll > 0) {
+      setTimeout(() => {
+        grid.scrollTop = gridScroll;
+        const active = grid.querySelector('.tpl-card.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      }, 0);
+    }
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
@@ -98,6 +110,8 @@
     /* Yapılandırma nesnesi panelin her yerinde referansla tutuluyor; yerine
        yenisini koymak yerine İÇERİĞİNİ değiştiriyoruz, yoksa açık paneller
        eski nesneye bakmaya devam ederdi. */
+    const gridEl = document.querySelector('.tpl-grid');
+    if (gridEl) gridScroll = gridEl.scrollTop;
     for (const k of Object.keys(cur)) delete cur[k];
     Object.assign(cur, next);
     lastApplied = t.id;

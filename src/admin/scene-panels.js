@@ -94,6 +94,16 @@
     return P().row(label, el('label', { class: 'switch small' }, [inp, el('span', { class: 'track' })]));
   }
 
+  function miniColor(label, get, set) {
+    const el = P().el;
+    const inp = el('input', {
+      type: 'color',
+      value: get() || '#ff0055',
+      oninput: (e) => { set(e.target.value); P().push(false); },
+    });
+    return P().row(label, inp);
+  }
+
   const foldStates = {};
 
   // Katlanır bölüm (dönüşüm / ses gibi ikincil ayarlar için)
@@ -191,12 +201,110 @@
     return [];
   }
 
+  function pickImage(cb) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => cb(reader.result, file.name);
+      reader.readAsDataURL(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  }
+
+  function pickVideoFile(cb) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      cb(url, file.name);
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  }
+
+  const BG_MODE_CONTROLS = {
+    starfield: [
+      ['stars', 'Yıldız Sayısı', 50, 2000, 25],
+      ['speed', 'Hız', 0.1, 5, 0.05],
+      ['colorMode', 'Renk Çeşitliliği', 0, 1, 0.02, true],
+      ['twinkle', 'Parıldama', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
+    ],
+    grid: [
+      ['horizon', 'Ufuk Yüksekliği', 0.15, 0.85, 0.01, true],
+      ['rows', 'Yatay Çizgi Sayısı', 4, 60, 1],
+      ['cols', 'Dikey Çizgi Sayısı', 4, 80, 1],
+      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
+      ['horizonGlow', 'Ufuk Parlaması', 0, 2, 0.02],
+      ['skyIntensity', 'Gökyüzü Yoğunluğu', 0, 1.5, 0.02],
+      ['spectrumBars', 'Spektrum Tepkisi', 0, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
+    ],
+    waves: [
+      ['layers', 'Katman Sayısı', 1, 14, 1],
+      ['amplitude', 'Tepe Yüksekliği', 0.2, 3, 0.05],
+      ['frequency', 'Dalga Sıklığı', 0.2, 3, 0.05],
+      ['spread', 'Katman Aralığı', 0.3, 2, 0.05],
+      ['opacity', 'Saydamlık', 0.2, 1.5, 0.02],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    bokeh: [
+      ['count', 'Işık Sayısı', 4, 160, 1],
+      ['size', 'Boyut', 0.2, 3, 0.05],
+      ['sizeVar', 'Boyut Çeşitliliği', 0, 2, 0.05],
+      ['drift', 'Süzülme', 0, 3, 0.05],
+      ['pulse', 'Bas Nabzı', 0, 2, 0.02],
+      ['opacity', 'Saydamlık', 0.2, 2, 0.02],
+    ],
+    rain: [
+      ['columns', 'Sütun Sayısı', 10, 240, 2],
+      ['speed', 'Düşme Hızı', 0.2, 4, 0.05],
+      ['trail', 'İz Uzunluğu', 0.1, 3, 0.05],
+      ['density', 'Yoğunluk', 0.1, 1, 0.02, true],
+      ['thickness', 'Kalınlık', 0.2, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    aurora: [
+      ['bands', 'Perde Sayısı', 1, 12, 1],
+      ['amplitude', 'Dalgalanma', 0.2, 3, 0.05],
+      ['thickness', 'Perde Kalınlığı', 0.2, 3, 0.05],
+      ['softness', 'Kenar Yumuşaklığı', 0.4, 3, 0.05],
+      ['height', 'Dikey Konum', 0.1, 0.9, 0.01, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    network: [
+      ['nodes', 'Düğüm Sayısı', 8, 220, 2],
+      ['linkDist', 'Bağlantı Mesafesi', 0.04, 0.5, 0.01],
+      ['nodeSize', 'Düğüm Boyutu', 0.2, 4, 0.05],
+      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
+      ['speed', 'Hareket Hızı', 0.1, 4, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ],
+    rings: [
+      ['rate', 'Halka Sıklığı', 0.2, 10, 0.1],
+      ['speed', 'Genişleme Hızı', 0.2, 4, 0.05],
+      ['thickness', 'Kalınlık', 0.2, 4, 0.05],
+      ['beatSpawn', 'Darbede Halka', 0, 3, 0.05],
+      ['fade', 'Sönme', 0.2, 3, 0.05],
+    ],
+  };
+
   /* Bir katmanın kendi kaynağına ait ayarlar.
 
-     Medya ve logo tek bir paylaşılan kaynağı kullanıyor (tek <video>, tek
-     logo görseli); bu yüzden buradaki kontroller genel yapılandırmayı
-     düzenler. Kazanç, ayarların katmanın yanında olması: hangi dosyanın
-     çizildiği artık başka bir karta gitmeden görülüyor. */
+     Her katman eklenen modun (Barlar, Dalga, Çember, Gradyan vb.) kendine
+     has ayarlarını l.settings içinde benzersiz ve bağımsız olarak tutar. */
   function layerOwnSettings(l, rerender) {
     const el = P().el;
     const cfg = P().cfg();
@@ -221,18 +329,39 @@
           prev.play().catch(() => { /* ön izleme oynatılamazsa satır yine de dursun */ });
           out.push(prev);
         }
-        out.push(el('button', {
-          class: 'btn small', type: 'button', text: m.file ? '🎞 Videoyu Değiştir' : '🎞 Video Seç',
-          onclick: async () => {
-            const r = await window.api.pickVideo();
-            if (!r) return;
-            m.file = r.url;
-            m.fileName = r.name;
-            m.enabled = true;
-            P().push(true);
-            rerender();
-          },
-        }));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn small', type: 'button', text: m.file ? '🎞 Videoyu Değiştir' : '🎞 Video Seç',
+            onclick: async () => {
+              if (window.api && window.api.pickVideo) {
+                const r = await window.api.pickVideo();
+                if (!r) return;
+                m.file = r.url;
+                m.fileName = r.name;
+                m.enabled = true;
+                P().push(true);
+                rerender();
+              } else {
+                pickVideoFile((url, name) => {
+                  m.file = url;
+                  m.fileName = name;
+                  m.enabled = true;
+                  P().push(true);
+                  rerender();
+                });
+              }
+            },
+          }),
+          m.file ? el('button', {
+            class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
+            onclick: () => {
+              m.file = '';
+              m.fileName = '';
+              P().push(true);
+              rerender();
+            },
+          }) : null,
+        ].filter(Boolean)));
         out.push(miniToggle('Döngüde Oynat', () => m.loop !== false, (v) => { m.loop = v; }));
       }
       out.push(miniSelect('Sığdırma', [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']],
@@ -247,15 +376,296 @@
     if (l.kind === 'logo') {
       const lg = (cfg.logo = cfg.logo || {});
       const info = el('div', { class: 'row' }, [
-        el('label', { class: 'lbl', text: 'Görsel' }),
+        el('label', { class: 'lbl', text: 'Logo Görseli' }),
         el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
       ]);
       out.push(el('div', { class: 'ctrl' }, [info]));
       if (lg.src) out.push(el('img', { class: 'layer-preview', src: lg.src, alt: '' }));
+      out.push(el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn small', type: 'button', text: lg.src ? '🖼 Logoyu Değiştir' : '🖼 Logo Seç',
+          onclick: () => {
+            pickImage((dataUrl) => {
+              lg.src = dataUrl;
+              lg.enabled = true;
+              P().push(true);
+              rerender();
+            });
+          },
+        }),
+        lg.src ? el('button', {
+          class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
+          onclick: () => {
+            lg.src = null;
+            P().push(true);
+            rerender();
+          },
+        }) : null,
+      ].filter(Boolean)));
       out.push(miniSlider('Boyut', () => lg.scale == null ? 0.22 : lg.scale, (v) => { lg.scale = v; },
         { min: 0.05, max: 0.9, step: 0.01, percent: true }));
       out.push(miniSlider('Nabız', () => lg.pulse == null ? 0.3 : lg.pulse, (v) => { lg.pulse = v; },
         { min: 0, max: 1, step: 0.01, percent: true }));
+      return out;
+    }
+
+    if (l.kind === 'sprites') {
+      const imgs = (cfg.images = cfg.images || { enabled: true, items: [] });
+      if (!Array.isArray(imgs.items)) imgs.items = [];
+      const items = imgs.items;
+
+      const imgList = el('div', { class: 'ctrl' });
+      if (!items.length) {
+        imgList.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Henüz görsel nesne eklenmedi. Aşağıdaki düğmeyle bir görsel seçin.' }));
+      }
+      items.forEach((it, idx) => {
+        const thumb = it.src ? el('img', { class: 'layer-preview', src: it.src, style: 'max-height: 48px; width: auto;' }) : null;
+        const nameInput = el('input', {
+          class: 'p-in', type: 'text', value: it.name || ('Görsel ' + (idx + 1)),
+          onchange: (e) => { it.name = e.target.value.trim() || 'Görsel'; P().push(true); },
+        });
+        const repBtn = el('button', {
+          class: 'btn ghost tiny', type: 'button', text: '🖼 Değiştir',
+          onclick: () => {
+            pickImage((dataUrl) => {
+              it.src = dataUrl;
+              P().push(true);
+              rerender();
+            });
+          },
+        });
+        const delBtn = el('button', {
+          class: 'btn ghost tiny danger', type: 'button', text: '🗑 Sil',
+          onclick: () => {
+            imgs.items.splice(idx, 1);
+            P().push(true);
+            rerender();
+          },
+        });
+        imgList.appendChild(el('div', { class: 'img-head', style: 'margin-bottom: 6px;' }, [
+          thumb,
+          el('div', { class: 'img-headmain' }, [nameInput, el('div', { class: 'up-actions' }, [repBtn, delBtn])]),
+        ]));
+      });
+      out.push(imgList);
+
+      out.push(el('button', {
+        class: 'btn small', type: 'button', text: '➕ Görsel Ekle',
+        onclick: () => {
+          pickImage((dataUrl, fileName) => {
+            imgs.items.push(window.SV.imageItem({ src: dataUrl, name: fileName || ('Görsel ' + (imgs.items.length + 1)) }));
+            imgs.enabled = true;
+            P().push(true);
+            rerender();
+          });
+        },
+      }));
+      return out;
+    }
+
+    if (l.kind === 'visualizer' && l.type === 'text') {
+      const txt = (l.settings && l.settings.text) ? l.settings.text : (l.settings = l.settings || {}, l.settings.text = l.settings.text || Object.assign({}, cfg.text || window.SV.defaultConfig().text));
+      txt.enabled = true;
+      const src = txt.source || 'static';
+
+      out.push(miniSelect('Metin Kaynağı', [['static', 'Sabit Metin'], ['now', 'Çalan Parça'], ['lyrics', 'Şarkı Sözü (LRC / SRT)']],
+        () => src, (v) => { txt.source = v; if (cfg.text) cfg.text.source = v; }, rerender));
+
+      if (src === 'static') {
+        const area = el('textarea', {
+          class: 'p-in txt-area', rows: 2, value: txt.content || '',
+          oninput: (e) => {
+            txt.content = e.target.value;
+            if (cfg.text) cfg.text.content = e.target.value;
+            P().push(false);
+          },
+        });
+        out.push(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı Metni' }), area]));
+        out.push(miniToggle('Kayan Yazı', () => !!txt.marquee, (v) => { txt.marquee = v; }, rerender));
+        if (txt.marquee) {
+          out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01 }));
+        }
+      } else if (src === 'now') {
+        const titleVal = txt.field === 'title' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.title) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.title) || (txt.content || ''));
+        const artistVal = txt.field === 'artist' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.artist) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.artist) || '');
+
+        if (txt.field === 'title') {
+          out.push(P().row('Parça Adı', el('input', {
+            class: 'p-in', type: 'text', value: titleVal,
+            oninput: (e) => {
+              txt.content = e.target.value;
+              txt.nowPlaying = txt.nowPlaying || {};
+              txt.nowPlaying.title = e.target.value;
+              cfg.text = cfg.text || {};
+              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+              cfg.text.nowPlaying.title = e.target.value;
+              P().push(false);
+            },
+          })));
+        } else if (txt.field === 'artist') {
+          out.push(P().row('Sanatçı', el('input', {
+            class: 'p-in', type: 'text', value: artistVal,
+            oninput: (e) => {
+              txt.content = e.target.value;
+              txt.nowPlaying = txt.nowPlaying || {};
+              txt.nowPlaying.artist = e.target.value;
+              cfg.text = cfg.text || {};
+              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+              cfg.text.nowPlaying.artist = e.target.value;
+              P().push(false);
+            },
+          })));
+        } else {
+          out.push(P().row('Parça Adı', el('input', {
+            class: 'p-in', type: 'text', value: titleVal,
+            oninput: (e) => {
+              txt.nowPlaying = txt.nowPlaying || {};
+              txt.nowPlaying.title = e.target.value;
+              cfg.text = cfg.text || {};
+              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+              cfg.text.nowPlaying.title = e.target.value;
+              P().push(false);
+            },
+          })));
+          out.push(P().row('Sanatçı', el('input', {
+            class: 'p-in', type: 'text', value: artistVal,
+            oninput: (e) => {
+              txt.nowPlaying = txt.nowPlaying || {};
+              txt.nowPlaying.artist = e.target.value;
+              cfg.text = cfg.text || {};
+              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+              cfg.text.nowPlaying.artist = e.target.value;
+              P().push(false);
+            },
+          })));
+        }
+      } else {
+        const doc = txt.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(txt.lyricsSource) : null;
+        const info = doc
+          ? doc.lines.length + ' satır · ' + doc.format.toUpperCase()
+          : 'yüklü dosya yok';
+        out.push(P().row('Dosya', el('span', { class: 'txt-info', text: (txt.lyricsName || '') + ' ' + info })));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn small', type: 'button', text: '📂 Söz Dosyası Yükle',
+            onclick: async () => {
+              if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
+              const r = await window.api.importShaderText();
+              if (!r || !r.ok) return;
+              txt.lyricsSource = r.text;
+              txt.lyricsName = r.name || '';
+              if (cfg.text) { cfg.text.lyricsSource = r.text; cfg.text.lyricsName = r.name || ''; }
+              const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
+              rerender();
+              P().toast(d ? (d.lines.length + ' satır okundu') : 'Yüklendi.');
+            },
+          }),
+          el('button', {
+            class: 'btn ghost small', type: 'button', text: 'Temizle',
+            onclick: () => {
+              txt.lyricsSource = '';
+              txt.lyricsName = '';
+              if (cfg.text) { cfg.text.lyricsSource = ''; cfg.text.lyricsName = ''; }
+              rerender();
+            },
+          }),
+        ]));
+      }
+
+      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
+      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; }));
+      return out;
+    }
+
+    if (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom') {
+      l.settings = l.settings || {};
+      const vs = (l.settings.visualizer = l.settings.visualizer || {});
+      const getV = (k, def) => vs[k] !== undefined ? vs[k] : (cfg.visualizer && cfg.visualizer[k] !== undefined ? cfg.visualizer[k] : def);
+      const setV = (k, val) => { vs[k] = val; };
+
+      // Gökkuşağı / Renk
+      out.push(miniToggle('Gökkuşağı', () => getV('rainbow', true) !== false, (v) => { setV('rainbow', v); }, rerender));
+      if (!getV('rainbow', true)) {
+        out.push(miniColor('Renk', () => getV('color', '#ff2d3a'), (v) => setV('color', v)));
+        if (['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].includes(l.type)) {
+          out.push(miniColor('İkincil Renk', () => getV('color2', '#3aa6ff'), (v) => setV('color2', v)));
+        }
+      }
+      out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05 }));
+      if (l.type !== 'spectrogram') {
+        out.push(miniSlider('Parlama (Glow)', () => getV('glow', 0.2), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
+      }
+
+      // Bar / Band ayarları
+      const usesBands = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'spectrogram', 'starburst', 'terrain', 'orb', 'tunnel',
+        'kaleido', 'helix', 'metaball', 'vortex', 'mandala', 'skyline', 'arcs', 'pinwheel', 'strings'];
+      if (usesBands.includes(l.type)) {
+        out.push(miniSlider('Bar Sayısı', () => getV('barCount', 64), (v) => setV('barCount', v), { min: 16, max: 160, step: 1 }));
+      }
+      const hasGap = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'starburst',
+        'kaleido', 'metaball', 'skyline', 'arcs', 'strings', 'ripplegrid'];
+      if (hasGap.includes(l.type)) {
+        out.push(miniSlider('Bar Boşluğu', () => getV('gap', 0.3), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true }));
+      }
+      if (['bars', 'wave', 'radialWave'].includes(l.type)) {
+        out.push(miniToggle('Ayna (Simetri)', () => !!getV('mirror', false), (v) => setV('mirror', v)));
+      }
+
+      if (l.type === 'bars') {
+        out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v)));
+        out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      }
+
+      const isWaveMode = ['wave', 'ribbon', 'radialWave', 'terrain', 'orb',
+        'helix', 'vortex', 'mandala', 'fireworks', 'lightning', 'lissajous', 'strings', 'wave3d', 'bubbles'];
+      if (isWaveMode.includes(l.type)) {
+        out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', 2), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5 }));
+        out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', 0.5), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true }));
+      }
+
+      return out;
+    }
+
+    if (l.kind === 'background') {
+      l.settings = l.settings || {};
+      const bg = (l.settings.background = l.settings.background || {});
+      const getB = (k, def) => bg[k] !== undefined ? bg[k] : (cfg.background && cfg.background[k] !== undefined ? cfg.background[k] : def);
+      const setB = (k, val) => { bg[k] = val; };
+
+      if (l.type === 'solid') {
+        out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => setB('solidColor', v)));
+        return out;
+      }
+
+      if (l.type === 'gradient') {
+        const gr = (bg.gradient = bg.gradient || {});
+        const cfgGr = (cfg.background && cfg.background.gradient) || {};
+        const getGr = (k, def) => gr[k] !== undefined ? gr[k] : (cfgGr[k] !== undefined ? cfgGr[k] : def);
+        const setGr = (k, val) => { gr[k] = val; };
+
+        out.push(miniSelect('Stil', [['soft', 'Yumuşak'], ['plasma', 'Plazma']], () => getGr('style', 'soft'), (v) => setGr('style', v)));
+        out.push(miniSlider('Akış Hızı', () => getGr('speed', 1), (v) => setGr('speed', v), { min: 0, max: 2, step: 0.02 }));
+        out.push(miniSlider('Ses Tepkisi', () => getGr('audioReactivity', 1), (v) => setGr('audioReactivity', v), { min: 0, max: 2, step: 0.02 }));
+        out.push(miniSlider('Ölçek', () => getGr('scale', 1.5), (v) => setGr('scale', v), { min: 0.4, max: 3, step: 0.05 }));
+        out.push(miniSlider('Bozulma (Warp)', () => getGr('warp', 1), (v) => setGr('warp', v), { min: 0, max: 2, step: 0.02 }));
+        out.push(miniSlider('Parlaklık', () => getGr('brightness', 1), (v) => setGr('brightness', v), { min: 0.4, max: 1.6, step: 0.02 }));
+        out.push(miniSlider('Vinyet', () => getGr('vignette', 0.3), (v) => setGr('vignette', v), { min: 0, max: 1, step: 0.02, percent: true }));
+        return out;
+      }
+
+      if (BG_MODE_CONTROLS[l.type]) {
+        const modeObj = (bg[l.type] = bg[l.type] || {});
+        const cfgModeObj = (cfg.background && cfg.background[l.type]) || {};
+        BG_MODE_CONTROLS[l.type].forEach(([key, label, min, max, step, percent]) => {
+          const curVal = () => modeObj[key] !== undefined ? modeObj[key] : (cfgModeObj[key] !== undefined ? cfgModeObj[key] : min);
+          out.push(miniSlider(label, curVal, (v) => { modeObj[key] = v; }, { min, max, step, percent }));
+        });
+        return out;
+      }
+
       return out;
     }
 

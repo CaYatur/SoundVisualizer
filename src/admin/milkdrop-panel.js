@@ -18,6 +18,7 @@
   let presets = [];
   let filter = '';
   let busy = '';
+  let listScroll = 0;
 
   function refresh(cb) {
     if (!window.api || !window.api.listPresets || loading) return;
@@ -140,7 +141,10 @@
     }
 
     // Liste
-    const list = el('div', { class: 'md-list' });
+    const list = el('div', {
+      class: 'md-list',
+      onscroll: (e) => { listScroll = e.target.scrollTop; },
+    });
     const vis = visible();
     if (!vis.length) {
       list.appendChild(el('div', {
@@ -155,7 +159,12 @@
       list.appendChild(el('div', { class: 'md-item' + (active ? ' active' : '') }, [
         el('button', {
           class: 'md-name', type: 'button', text: p.name || p.id,
-          onclick: () => { load(cfg, p); rerender(); },
+          onclick: () => {
+            const listEl = document.querySelector('.md-list');
+            if (listEl) listScroll = listEl.scrollTop;
+            load(cfg, p);
+            rerender();
+          },
         }),
         el('button', {
           class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
@@ -169,6 +178,13 @@
       ]));
     });
     nodes.push(list);
+    if (listScroll > 0) {
+      setTimeout(() => {
+        list.scrollTop = listScroll;
+        const active = list.querySelector('.md-item.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      }, 0);
+    }
     if (vis.length > 400) {
       nodes.push(el('div', { class: 'studio-note dim-hint', text: vis.length + ' presetten ilk 400 gösteriliyor; aramayı daraltın.' }));
     }
