@@ -223,7 +223,8 @@
       : '';
     const grad = ((b.gradient && b.gradient.colors) || []).join(',');
     const stackState = stackOn(cfg) ? 'stack' : 'classic';
-    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState].join('|');
+    const black = cfg.isBlackout ? 'blackout' : '';
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState, black].join('|');
   }
 
   function bandValue(audio, band) {
@@ -648,12 +649,14 @@
       }
     }
 
-    /* Bir kare çiz (canlı yol). Katmanlar kendi tuvallerine çizer; karıştırma
-       ve dönüşüm CSS ile tarayıcının kompozitörüne bırakılır. */
     draw(audio, cfg, t, dt) {
       const tick = this._tickTransition(dt);
+      const isBlackout = !!(cfg && cfg.isBlackout) ||
+        (cfg && cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000' &&
+         cfg.visualizer && cfg.visualizer.type === 'none' &&
+         (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      const single = fxOn || !!tick || this._mapping || this._forceSingle;
+      const single = fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
       if (single) {
         this._ensureComp();
