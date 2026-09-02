@@ -359,6 +359,23 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // Canlı kayıt.
+    //
+    // Çevrimdışı dışa aktarıcıdan farklı: sahneyi yeniden çizmez, ekranda
+    // görüneni yakalar. O anki canlı ses girdisiyle oluşan bir anı kaydetmenin
+    // başka yolu yok.
+    // ------------------------------------------------------------------
+    recording: {
+      format: 'mp4', // 'webm' | 'mp4' | 'gif'
+      fps: 60,
+      bitrate: 16000000,
+      limit: 0, // saniye; 0 = sınırsız
+      gifFps: 15,
+      gifWidth: 640,
+      snapshotScale: 1,
+    },
+
+    // ------------------------------------------------------------------
     // MilkDrop motoru.
     //
     // source: preset metni (.milk dosyasının içeriği). Boşsa yerleşik

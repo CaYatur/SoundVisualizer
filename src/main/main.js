@@ -711,6 +711,98 @@ ipcMain.handle('presets:import-milk', async () => {
   return { ok: true, files: out, skipped: skipped + Math.max(0, r.filePaths.length - 600) };
 });
 
+/* Canlı kayıt sonucu. Tarayıcı WebM üretir; MP4 ve GIF dönüşümünü paketin
+   içindeki ffmpeg yapar.
+
+   GIF için iki geçiş gerekir: önce renk paleti çıkarılır, sonra o paletle
+   kodlanır. Tek geçişte varsayılan 216 renklik web paleti kullanılır ve
+   sonuç gözle görülür biçimde bantlanır. */
+async function saveRecording(buffer, opts) {
+  const o = opts || {};
+  const fmt = o.format === 'mp4' ? 'mp4' : o.format === 'gif' ? 'gif' : 'webm';
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const base = 'cayadev-' + stamp;
+  const r = await dialog.showSaveDialog(adminWin, {
+    title: trUi('Kaydı Kaydet', 'Save Recording'),
+    defaultPath: path.join(app.getPath('videos') || app.getPath('downloads'), base + '.' + fmt),
+    filters: [{ name: fmt.toUpperCase(), extensions: [fmt] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+
+  const tmp = path.join(app.getPath('temp'), base + '.webm');
+  try {
+    fs.writeFileSync(tmp, Buffer.from(buffer));
+  } catch (err) {
+    return { ok: false, error: 'geçici dosya yazılamadı: ' + err.message };
+  }
+  if (fmt === 'webm') {
+    try {
+      fs.copyFileSync(tmp, r.filePath);
+      fs.unlinkSync(tmp);
+      return { ok: true, path: r.filePath };
+    } catch (err) {
+      return { ok: false, error: err.message };
+    }
+  }
+
+  const ff = resolveFfmpeg();
+  const run = (args) => new Promise((resolve) => {
+    let proc;
+    try { proc = spawn(ff, args, { windowsHide: true }); } catch (err) { resolve('ffmpeg başlatılamadı: ' + err.message); return; }
+    let log = '';
+    proc.stderr.on('data', (d) => { log += String(d); });
+    proc.on('error', (err) => resolve(String(err.message)));
+    proc.on('close', (code) => resolve(code === 0 ? '' : (log.split('\n').slice(-4).join(' ') || ('ffmpeg ' + code))));
+  });
+
+  let err = '';
+  if (fmt === 'mp4') {
+    err = await run(['-y', '-i', tmp, '-c:v', 'libx264', '-preset', 'medium', '-crf', '17',
+      '-pix_fmt', 'yuv420p', '-movflags', '+faststart', r.filePath]);
+  } else {
+    const pal = path.join(app.getPath('temp'), base + '-pal.png');
+    const fps = Math.max(5, Math.min(30, o.gifFps || 15));
+    const width = Math.max(120, Math.min(1280, o.gifWidth || 640));
+    const vf = 'fps=' + fps + ',scale=' + width + ':-1:flags=lanczos';
+    err = await run(['-y', '-i', tmp, '-vf', vf + ',palettegen=stats_mode=diff', pal]);
+    if (!err) {
+      err = await run(['-y', '-i', tmp, '-i', pal, '-lavfi',
+        vf + ' [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=3', r.filePath]);
+    }
+    try { fs.unlinkSync(pal); } catch { /* yoksay */ }
+  }
+  try { fs.unlinkSync(tmp); } catch { /* yoksay */ }
+  if (err) return { ok: false, error: err };
+  return { ok: true, path: r.filePath };
+}
+
+ipcMain.handle('record:save', async (e, payload) => {
+  try {
+    return await saveRecording(payload && payload.data, payload && payload.opts);
+  } catch (err) {
+    return { ok: false, error: String(err && err.message || err) };
+  }
+});
+
+ipcMain.handle('record:snapshot', async (e, payload) => {
+  const dataUrl = String((payload && payload.dataUrl) || '');
+  const m = /^data:image\/png;base64,(.+)$/.exec(dataUrl);
+  if (!m) return { ok: false, error: 'PNG verisi geçersiz' };
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const r = await dialog.showSaveDialog(adminWin, {
+    title: trUi('Anlık Görüntüyü Kaydet', 'Save Snapshot'),
+    defaultPath: path.join(app.getPath('pictures') || app.getPath('downloads'), 'cayadev-' + stamp + '.png'),
+    filters: [{ name: 'PNG', extensions: ['png'] }],
+  });
+  if (r.canceled || !r.filePath) return { ok: false, canceled: true };
+  try {
+    fs.writeFileSync(r.filePath, Buffer.from(m[1], 'base64'));
+    return { ok: true, path: r.filePath };
+  } catch (err) {
+    return { ok: false, error: String(err.message) };
+  }
+});
+
 ipcMain.handle('presets:open-folder', () => {
   shell.openPath(presetsStore.dir());
   return true;

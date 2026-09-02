@@ -190,6 +190,7 @@
       // Projeksiyon haritalaması açıkken sahne tek yüzeye inmeli: bükme
       // katman katman değil, birleştirilmiş görüntüye uygulanır
       this._mapping = false;
+      this._forceSingle = false;
       // Sahne geçişi durumu (bkz. beginTransition)
       this.trans = null;
       this.lastSig = '';
@@ -459,6 +460,12 @@
       this._mapping = !!on;
     }
 
+    /* Kayıt da tek yüzey ister: MediaRecorder tek bir tuvalin akışını alır,
+       katman katman CSS kompoziti yakalayamaz. */
+    setForceSingle(on) {
+      this._forceSingle = !!on;
+    }
+
     // Görünür tek yüzey (haritalama aşaması bunu kaynak olarak kullanır)
     surface() {
       return this._surface || null;
@@ -535,7 +542,7 @@
     draw(audio, cfg, t, dt) {
       const tick = this._tickTransition(dt);
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      const single = fxOn || !!tick || this._mapping;
+      const single = fxOn || !!tick || this._mapping || this._forceSingle;
 
       if (single) {
         this._ensureComp();
@@ -572,7 +579,7 @@
         } else if (tick) {
           this._setSurface(this.transSurface);
         } else {
-          // Yalnızca haritalama için tek yüzeye indik
+          // Yalnızca haritalama ya da kayıt için tek yüzeye indik
           this._setSurface(this.compCanvas);
         }
         return;

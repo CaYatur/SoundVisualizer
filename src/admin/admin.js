@@ -290,6 +290,10 @@
         return window.SVMappingPanel ? window.SVMappingPanel.panel() : null;
       case 'milkdroppanel':
         return window.SVMilkdropPanel ? window.SVMilkdropPanel.panel() : null;
+      case 'recordpanel':
+        return window.SVRecordPanel ? window.SVRecordPanel.panel() : null;
+      case 'templatepanel':
+        return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1670,6 +1674,23 @@
         title: 'Katmanlar',
         desc: 'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.',
         controls: [{ type: 'layerspanel' }],
+      },
+      {
+        id: 'templates',
+        category: 'library',
+        icon: '✨',
+        wide: true,
+        title: 'Hazır Şablonlar',
+        desc: 'Kullanıma ve türe göre gruplanmış bitmiş sahneler. Tek tıkla uygulanır; ses, ekran, yayın ve aydınlatma ayarlarınıza dokunmaz.',
+        controls: [{ type: 'templatepanel' }],
+      },
+      {
+        id: 'record',
+        category: 'output',
+        icon: '⏺',
+        title: 'Kayıt ve Anlık Görüntü',
+        desc: 'Ekranda göründüğü gibi kaydedin: canlı sesle, modülasyon, geçiş ve efektler dahil. MP4, WebM, GIF ve PNG.',
+        controls: [{ type: 'recordpanel' }],
       },
       {
         id: 'mapping',

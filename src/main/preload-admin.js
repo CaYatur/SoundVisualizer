@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('api', {
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   importMilk: () => ipcRenderer.invoke('presets:import-milk'),
+  // Canlı kayıt ve anlık görüntü
+  saveRecording: (data, opts) => ipcRenderer.invoke('record:save', { data, opts }),
+  saveSnapshot: (dataUrl) => ipcRenderer.invoke('record:snapshot', { dataUrl }),
   getOutputDevices: () => ipcRenderer.invoke('get-output-devices'),
   diagnoseAudio: () => ipcRenderer.invoke('diagnose-audio'),
   repairAudio: () => ipcRenderer.invoke('repair-audio'),
