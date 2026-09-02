@@ -4,14 +4,14 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.0.0** · **Next release: v3.1.0**
+**Current release: v3.1.0** · **Next release: v3.1.1**
 
 | Release | Theme | State |
 |---|---|:--:|
 | v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | Shipped |
-| **v3.0.0** | **Modulation, deep analysis, MilkDrop language, mapping, transitions, recording** | **Current** |
-| v3.1.0 | Timeline and Clip Deck | Planned |
-| v3.1.1 | Spout and Syphon output · Electron upgrade | Planned |
+| v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions, recording | Shipped |
+| **v3.1.0** | **Timeline, Clip Deck, accidental-close protection, Electron 43** | **Current** |
+| v3.1.1 | Spout and Syphon output | Next |
 | v3.1.2 | Per-application audio capture | Planned |
 | v3.1.3 | Comprehensive video export | Planned |
 | v3.1.4 | Broadcast layout editor | Planned |
@@ -59,9 +59,10 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | **623** unit tests + a GPU self-test over every engine |
-| Timeline | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
-| Clip deck | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | **703** unit tests + a GPU self-test over every engine |
+| Timeline | ❌ | ❌ | ❌ | ✅ | Tracks, clips, automation lanes, markers, one shared transport |
+| Clip deck | ❌ | ❌ | ❌ | ✅ | Sparse grid, beat-quantised launch, follow actions, performance view |
+| Accidental-close protection | ❌ | ❌ | ❌ | ✅ | Recovery and an Esc lock, both off by default |
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
 | NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
@@ -84,7 +85,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **623 unit tests, all passing.** Formulas are checked against values derived
+- **703 unit tests, all passing.** Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
   bounded and landing inside the view volume.
@@ -101,32 +102,93 @@ npm start -- --smoke
 
 ---
 
-## v3.1.0 — Timeline and Clip Deck
+## v3.1.0 — Timeline and Clip Deck · shipped
 
-The two pieces of a show-oriented workflow. Both are performance surfaces, so
-they share one clock and one quantiser.
+Two performance surfaces that share one clock and one quantiser. A deck with
+its own clock would drift from the timeline, and things meant to fire on the
+same beat would visibly separate.
 
 ### Timeline
-An editor that lays clips and effects out along time.
 
-- Plan in advance what happens at a given second or a given musical bar.
-- Built for shows, synchronised performances and fixed-duration sets.
-- Markers, loop regions and snap-to-bar.
-- Automation lanes that write into the same modulation targets the live engine
-  already exposes, so anything modulatable is also automatable.
+- Tracks holding clips, and automation lanes writing into the same targets the
+  modulation engine exposes — anything modulatable is automatable.
+- Transport with play, pause, stop, a loop region and scrubbing that updates
+  the scene immediately, including while paused.
+- A zoomable canvas ruler reading in seconds and in bars, with grid density
+  chosen from the zoom so it never turns into noise.
+- Clip placement by dragging, edge-trimming and snapping to bar, beat, half,
+  quarter or frame, with Alt suspending the snap mid-drag.
+- A keyframe editor reusing the modulation engine’s curve set, so a curve
+  named the same behaves the same in both places.
+- Named markers, jumpable, importable from an LRC or SRT file through the
+  existing lyrics parser.
+
+Seconds are the single source of truth; bars and beats are derived from a
+tempo map. Storing both would let them disagree with no way to tell which was
+right. Conversion accumulates across tempo changes, because multiplying by one
+constant BPM shifts everything after the first change and the error only shows
+during a show. `retimeToTempo()` preserves musical positions across a tempo
+change as an explicit action rather than a silent side effect.
 
 ### Clip Deck
-The grid where a VJ organises clips — video, loops, generative presets, images.
 
-- Multiple decks (A, B, C…), each a grid of rows and columns.
-- Clips are triggered beat-aligned (quantised) and moved between with a fade or
-  a cut.
-- Column launch fires a whole row as a scene.
-- Timeline and deck coexist: the timeline can arm deck slots, and deck activity
-  can be recorded back onto the timeline.
+- A sparse grid: empty slots are not stored, so an 8x8 deck holding one clip
+  writes one record rather than sixty-four.
+- Beat-quantised launching from one frame up to four bars, with a countdown on
+  the armed slot. Launching exactly on a grid line waits for the next one —
+  otherwise hitting the beat squarely makes quantisation look random.
+- A cut is a true cut, with the fade forced to zero rather than left to the
+  drawing side; a fade reuses the existing 18 transitions.
+- Column launch fires a whole row on one frame, aligned to the longest
+  quantisation in that row so nothing staggers.
+- Follow actions: stop, loop, next, random in column, or go to a named slot.
+  They chain, with a per-frame fire cap so a chain of near-zero-duration clips
+  reports an overrun instead of pinning the machine.
+- A performance view with nothing but the deck, transport and blackout: large
+  targets, high contrast, every slot reachable from the keyboard.
+- Deck activity records back onto the timeline as tracks, turning an improvised
+  set into an editable one.
 
-Also in v3.1.0: per-clip trim and speed, deck-wide follow actions, and a
-performance view that hides everything except the deck and the crossfader.
+### Determinism
+
+Offline export is the project’s visual regression net, and it only works
+because every time-dependent source derives from the draw clock. The timeline
+obeys the same rule: automation evaluated at a time is the same value however
+the playhead reached it, and the exporter derives time from the frame index
+alone. The live path uses a separate wall-clock anchor so that several
+visualizer windows compute the same playhead in closed form, without a message
+per frame and without drift between them.
+
+### Also in v3.1.0
+
+**Accidental-close protection.** Two switches in Settings, both off by
+default. With protection on, a visualizer window that closes unexpectedly
+reopens at once; recovery keys off intent, so closing from the panel, from the
+remote or with Esc is never undone. A second switch locks Esc, leaving the
+panel’s Close button and Ctrl+Alt+Shift+Esc as the ways out — a visualizer
+that cannot be closed would be worse than one that closes by accident.
+
+**Electron 43.5.1.** 33.4.11 reached end of life in April 2025 and shipped
+Chromium 130. The upgrade is also the floor for the Spout and Syphon senders
+in v3.1.1, which need Electron 40 or newer.
+
+### Not in v3.1.0
+
+Written down rather than quietly dropped:
+
+- **Multiple decks (A, B, C…).** The data model carries a deck list and every
+  engine call is addressed by deck id, so the work is a deck selector rather
+  than an engine change. One deck is what ships.
+- **Timeline arming deck slots.** The other half of the bridge — recording deck
+  activity onto the timeline — is done; driving the deck from the timeline is
+  not.
+- **Multi-select and numeric nudge on the timeline canvas.** Clips move and trim
+  one at a time; exact positions are typed in the inspector.
+- **Tempo changes mid-show through the interface.** The engine and the tests
+  support a full tempo map; the panel edits a single tempo.
+- **Rendered clip thumbnails.** Slots show the referenced scene’s colours.
+  Capturing a real frame would mean switching the visualizer to that scene —
+  changing the show to draw a preview of it.
 
 ## v3.1.1 — Spout and Syphon output
 
@@ -181,9 +243,8 @@ on top of it.
 
 ### Electron upgrade — a prerequisite, not a side quest
 
-`texture-bridge` requires **Electron 40 or newer**. The application ships
-33.4.11, so the upgrade is not a judgement call about hygiene; it is the floor
-for taking this path at all.
+`texture-bridge` requires **Electron 40 or newer**. This shipped in v3.1.0:
+the application now runs Electron 43.5.1, so the floor is already met.
 
 The target is **43.5.1**. Electron 33.4.11 reached end of life on 29 April
 2025 and carries Chromium 130 against 152 in the current line, which is the

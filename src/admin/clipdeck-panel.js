@@ -90,6 +90,25 @@
     if (e.armed.length) paintCountdowns(now);
   }
 
+  /* Yuva önizlemesi: referans verilen sahnenin renkleri. Sahne dock'unda
+     kullanılan yöntemin aynısı.
+
+     Gerçek bir kare YAKALANMIYOR: bunun için görselleştiriciyi o sahneye
+     geçirmek gerekirdi, yani önizleme uğruna sahneyi değiştirmek. Renk
+     karanlıkta uzaktan da ayırt edilir ve hiçbir şeyi bozmaz. */
+  function slotPreview(slot) {
+    if (!slot || !slot.ref) return '';
+    if (slot.type !== 'scene') return '';
+    const scenes = (P().cfg().scenes || []);
+    const sc = scenes.find((x) => x && x.id === slot.ref);
+    const bg = sc && sc.data && sc.data.background;
+    if (!bg) return '';
+    if (bg.type === 'solid') return bg.solidColor || '';
+    const cols = (bg.gradient && bg.gradient.colors) || [];
+    if (!cols.length) return '';
+    return 'linear-gradient(135deg,' + cols.join(',') + ')';
+  }
+
   // --------------------------------------------------------------------------
   // Izgara boyama
   // --------------------------------------------------------------------------
@@ -232,6 +251,8 @@
           id: cellId(row, col),
           title: slot ? (slot.name || slot.ref || slot.type) : 'Boş yuva — düzenlemek için tıklayın',
         });
+        const prev = slotPreview(slot);
+        if (prev) cell.appendChild(el('span', { class: 'cd-thumb', style: 'background:' + prev }));
         cell.appendChild(el('span', { class: 'cd-name', text: slot ? (slot.name || slot.ref || slot.type) : '' }));
         cell.appendChild(el('span', { class: 'cd-count', text: '' }));
         const rr2 = row;

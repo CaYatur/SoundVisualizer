@@ -894,3 +894,12 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   font-variant-numeric: tabular-nums;
 }
 .perf-hint { color: #56566a; font-size: 12px; text-align: center; }
+
+/* Yuva önizlemesi: sahnenin renkleri, hücrenin arkasında. Metnin okunması
+   önce gelir, o yüzden önizleme soluk ve metin üstünde kalır. */
+.cd-thumb, .perf-thumb {
+  position: absolute; inset: 0; opacity: .40; pointer-events: none; border-radius: inherit;
+}
+.cd-name, .perf-name { position: relative; z-index: 1; }
+.cd-count, .perf-count { z-index: 2; }
+.perf-cell.filled .perf-thumb { opacity: .32; }
