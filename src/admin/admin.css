@@ -539,6 +539,28 @@ select:focus { border-color: var(--accent); }
   display: flex; flex-direction: column; gap: 6px;
 }
 .scene-empty { font-size: 11px; color: var(--muted2); line-height: 1.55; padding: 10px 2px; }
+/* Sürükle tutamağı (sahne ve renk şablonu listeleri).
+   Sürüklenebilir olan satırın tamamı değil bu tutamak: satırlardaki ad
+   kutularında metin seçilebilir kalsın diye. Aynı öğe bir düğme olduğu
+   için ok tuşlarıyla da taşıma yapılabiliyor. */
+.drag-handle {
+  flex-shrink: 0; width: 18px; align-self: stretch; min-height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; padding: 0; cursor: grab;
+  color: var(--muted); font-size: 13px; line-height: 1; border-radius: 5px;
+  font-family: inherit;
+}
+.drag-handle:hover { color: var(--text); background: var(--card); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; color: var(--text); }
+.drag-handle:active { cursor: grabbing; }
+
+/* Sürükleme geri bildirimi: taşınan satır soluklaşır, bırakma yeri çizgiyle
+   gösterilir. Çizgi kenarlıkla değil gölgeyle çiziliyor; kenarlık eklemek
+   satır yüksekliğini oynatır ve liste sürükleme sırasında zıplar. */
+.scene-item.dragging, .up-item.dragging { opacity: .4; }
+.scene-item.drop-before, .up-item.drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
+.scene-item.drop-after, .up-item.drop-after { box-shadow: inset 0 -2px 0 0 var(--accent); }
+
 .scene-item {
   display: flex; align-items: center; gap: 9px; padding: 7px 8px;
   border-radius: var(--radius-sm); background: var(--card2); border: 1px solid var(--line);

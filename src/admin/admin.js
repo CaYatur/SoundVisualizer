@@ -196,6 +196,119 @@
     return e;
   }
 
+  /* Sürükle-bırak ile sıralama.
+
+     Sürüklenebilir olan SATIR değil, satırdaki tutamak. Sahne ve şablon
+     satırlarında ad yazmak için metin kutuları var; draggable bir
+     kapsayıcı Chromium'da o kutularda metin seçmeyi engelliyor.
+
+     Tutamak aynı zamanda bir düğme: odaklanıp yukarı/aşağı ok tuşlarıyla
+     da taşınabiliyor. Sürükle-bırak yalnızca fare ile çalışır ve tek yol
+     olarak bırakılırsa klavyeyle sıralama hiç mümkün olmaz.
+
+     Olaylar tek tek satırlara değil KAPSAYICIYA bağlanır; listeler her
+     çizimde baştan kurulduğu için satır başına dinleyici bağlamak
+     birikirdi. Kapsayıcı yeniden kullanılıyorsa ikinci kez bağlanmaz. */
+  function dragHandle(title) {
+    const h = el('button', {
+      class: 'drag-handle', type: 'button', draggable: 'true',
+      title: title || 'Sürükleyerek ya da yukarı/aşağı ok tuşlarıyla taşıyın',
+      'aria-label': title || 'Taşı',
+      text: '⠿',
+    });
+    return h;
+  }
+
+  function sortableList(host, arr, itemSel, apply) {
+    if (!host || host._svSortable) return;
+    host._svSortable = true;
+    let from = -1;
+
+    const rows = () => Array.from(host.querySelectorAll(itemSel));
+    const clearMarks = () => rows().forEach((r) => {
+      r.classList.remove('drop-before', 'drop-after', 'dragging');
+    });
+    const rowAt = (t) => (t && t.closest ? t.closest(itemSel) : null);
+
+    // Diziyi taşı; to, öğe ÇIKARILMADAN önceki hedef konumdur
+    const move = (fromIdx, to) => {
+      const list = arr();
+      if (fromIdx < 0 || fromIdx >= list.length) return false;
+      let t = to;
+      const item = list[fromIdx];
+      list.splice(fromIdx, 1);
+      if (t > fromIdx) t--;
+      t = Math.max(0, Math.min(list.length, t));
+      if (t === fromIdx) { list.splice(fromIdx, 0, item); return false; }
+      list.splice(t, 0, item);
+      return true;
+    };
+
+    host.addEventListener('dragstart', (e) => {
+      const h = e.target && e.target.closest ? e.target.closest('.drag-handle') : null;
+      if (!h) { e.preventDefault(); return; }
+      const row = rowAt(h);
+      from = rows().indexOf(row);
+      if (from < 0) return;
+      row.classList.add('dragging');
+      if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', String(from)); } catch { /* bazı tarayıcılar */ }
+        if (e.dataTransfer.setDragImage) e.dataTransfer.setDragImage(row, 24, 16);
+      }
+    });
+
+    host.addEventListener('dragover', (e) => {
+      if (from < 0) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      const row = rowAt(e.target);
+      rows().forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+      if (!row) return;
+      const b = row.getBoundingClientRect();
+      row.classList.add(e.clientY < b.top + b.height / 2 ? 'drop-before' : 'drop-after');
+    });
+
+    host.addEventListener('drop', (e) => {
+      if (from < 0) return;
+      e.preventDefault();
+      const row = rowAt(e.target);
+      let to = arr().length;
+      if (row) {
+        to = rows().indexOf(row);
+        const b = row.getBoundingClientRect();
+        if (e.clientY >= b.top + b.height / 2) to++;
+      }
+      const moved = move(from, to);
+      from = -1;
+      clearMarks();
+      if (moved) apply();
+    });
+
+    host.addEventListener('dragend', () => { from = -1; clearMarks(); });
+
+    // Klavye: tutamak odaktayken yukarı/aşağı
+    host.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      const h = e.target && e.target.closest ? e.target.closest('.drag-handle') : null;
+      if (!h) return;
+      const i = rows().indexOf(rowAt(h));
+      if (i < 0) return;
+      e.preventDefault();
+      const to = e.key === 'ArrowUp' ? i - 1 : i + 2; // +2: kendi yerinden sonraki komşunun ardı
+      if (move(i, to)) {
+        apply();
+        // Yeniden çizimden sonra aynı öğenin tutamağına odağı geri ver
+        const ni = e.key === 'ArrowUp' ? i - 1 : i + 1;
+        requestAnimationFrame(() => {
+          const r = rows()[ni];
+          const nh = r && r.querySelector('.drag-handle');
+          if (nh) nh.focus();
+        });
+      }
+    });
+  }
+
   function fmtVal(def, v) {
     if (def.fmt) return def.fmt(v);
     if (def.step && def.step >= 1) return String(Math.round(v));
@@ -568,11 +681,14 @@
       const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteUserPreset(p.id) });
 
       const row = el('div', { class: 'up-item' }, [
+        dragHandle('Şablonu taşı'),
         swatch,
         el('div', { class: 'up-main' }, [nameInput, el('div', { class: 'up-actions' }, [applyBtn, updateBtn, delBtn])]),
       ]);
       list.appendChild(row);
     });
+    // Sıralama sürükle-bırak ya da ok tuşlarıyla
+    sortableList(list, () => cfg.userPresets, '.up-item', () => { push(true); render(); });
     wrap.appendChild(list);
 
     const saveBtn = el('button', { class: 'btn ghost small', text: '💾 Mevcut Renkleri Kaydet', onclick: () => actions.saveCurrentPreset() });
@@ -670,6 +786,7 @@
       const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteScene(sc.id) });
       list.appendChild(
         el('div', { class: 'up-item' + (sc.id === activeSceneId ? ' active' : '') }, [
+          dragHandle('Sahneyi taşı'),
           swatch,
           el('div', { class: 'up-main' }, [
             name,
@@ -679,6 +796,8 @@
         ])
       );
     });
+    // Kitaplıktaki sahne listesi de dock'taki gibi sıralanabilir
+    sortableList(list, ensureScenes, '.up-item', () => { push(true); render(); renderScenes(); });
 
     const toolbar = el('div', { class: 'up-toolbar' }, [
       el('button', { class: 'btn small', text: '💾 Mevcut Görünümü Kaydet', onclick: () => actions.saveScene() }),
@@ -3180,6 +3299,8 @@
     if (!host) return;
     host.innerHTML = '';
     const arr = ensureScenes();
+    // Sıralama sürükle-bırak ya da ok tuşlarıyla; sıra kullanıcının
+    sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
     if (!arr.length) {
       host.appendChild(
         el('div', { class: 'scene-empty', text: 'Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.' })
@@ -3197,6 +3318,7 @@
       name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
       host.appendChild(
         el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
+          dragHandle('Sahneyi taşı'),
           thumb,
           el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
           el('div', { class: 'scene-acts' }, [
