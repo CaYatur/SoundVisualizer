@@ -344,6 +344,19 @@ void main(){
     },
   };
 
+  /* Zincire dışarıdan efekt ekleme.
+
+     Efekt sayısı iki haneyi geçince hepsini tek dosyada tutmak okunmaz hale
+     geldi. postfx-extra.js aynı biçimle yeni efektler kaydeder; zincir,
+     panel ve öz test ikisi arasında ayrım yapmaz. */
+  function register(defs) {
+    for (const k in defs) {
+      if (EFFECTS[k]) throw new Error('efekt kimliği zaten var: ' + k);
+      EFFECTS[k] = defs[k];
+      EFFECT_IDS.push(k);
+    }
+  }
+
   const EFFECT_IDS = Object.keys(EFFECTS);
 
   function defaultChainEntry(type) {
@@ -656,5 +669,5 @@ void main(){
     }
   }
 
-  window.SVPostFX = { PostFX, EFFECTS, EFFECT_IDS, defaultChainEntry };
+  window.SVPostFX = { PostFX, EFFECTS, EFFECT_IDS, defaultChainEntry, register };
 })();
