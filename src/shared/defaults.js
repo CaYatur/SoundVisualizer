@@ -254,6 +254,15 @@
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.
       // Başka bir uygulama öne çıkarsa pencere kendini yeniden üste taşır.
       alwaysOnTop: false,
+
+      /* Kaza koruması. Açıkken görselleştirme penceresi beklenmedik biçimde
+         kapanırsa (çökme, Alt+F4) anında geri açılır. Varsayılan KAPALI:
+         masaüstünde denerken pencereyi kapatamamak sinir bozucu olur. */
+      protect: false,
+      /* ESC ile kapatmayı da engelle. Yalnızca protect açıkken anlamlıdır;
+         bu haldeyken pencere ancak panelden ya da Ctrl+Alt+Shift+Esc ile
+         kapanır. */
+      protectNoEscape: false,
     },
 
     // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici

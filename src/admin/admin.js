@@ -3674,6 +3674,49 @@
         );
       });
     }
+    /* Kaza koruması. İkinci anahtar yalnızca birincisi açıkken anlamlı
+       olduğu için, kapalıyken görsel olarak da devre dışı gösterilir —
+       aksi halde kullanıcı ESC kilidini açıp neden çalışmadığını arardı. */
+    const protBox = $('protectToggle');
+    const protEscBox = $('protectEscToggle');
+    const protEscRow = $('protectEscRow');
+    function syncProtectRow() {
+      if (!protEscRow) return;
+      const on = !!(cfg.power && cfg.power.protect);
+      protEscRow.classList.toggle('disabled', !on);
+      if (protEscBox) protEscBox.disabled = !on;
+    }
+    if (protBox) {
+      protBox.checked = !!(cfg.power && cfg.power.protect);
+      syncProtectRow();
+      protBox.addEventListener('change', (e) => {
+        cfg.power = cfg.power || {};
+        cfg.power.protect = e.target.checked;
+        push(true);
+        syncProtectRow();
+        svToast(
+          e.target.checked
+            ? 'Kaza koruması açık — kapanan görselleştirme penceresi geri açılır.'
+            : 'Kaza koruması kapatıldı.',
+          'ok'
+        );
+      });
+    }
+    if (protEscBox) {
+      protEscBox.checked = !!(cfg.power && cfg.power.protectNoEscape);
+      protEscBox.addEventListener('change', (e) => {
+        cfg.power = cfg.power || {};
+        cfg.power.protectNoEscape = e.target.checked;
+        push(true);
+        svToast(
+          e.target.checked
+            ? 'ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.'
+            : 'ESC ile kapatma yeniden açık.',
+          'ok'
+        );
+      });
+    }
+
     const extBox = $('extendedRangeToggle');
     if (extBox) {
       extBox.checked = extendedRange;
@@ -3703,6 +3746,24 @@
     if (window.api.onRemoteAction) {
       window.api.onRemoteAction((action) => {
         if (action === 'blackout') toggleBlackout();
+      });
+    }
+    /* Kaza koruması geri bildirimi. ESC engellendiğinde kullanıcı tuşa
+       basıp hiçbir şey olmadığını görüyor; ne yapması gerektiğini
+       söylemezsek uygulamayı çökmüş sanır. */
+    if (window.api.onProtectionBlocked) {
+      window.api.onProtectionBlocked(() => {
+        svToast('ESC kapatma kapalı. Kapatmak için Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.', 'warn');
+      });
+    }
+    if (window.api.onProtectionRecovered) {
+      window.api.onProtectionRecovered(() => {
+        svToast('Görselleştirme penceresi beklenmedik biçimde kapandı, kaza koruması geri açtı.', 'ok');
+      });
+    }
+    if (window.api.onProtectionGaveUp) {
+      window.api.onProtectionGaveUp(() => {
+        svToast('Görselleştirme penceresi sürekli kapanıyor; kaza koruması geri açmayı bıraktı.', 'err');
       });
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));

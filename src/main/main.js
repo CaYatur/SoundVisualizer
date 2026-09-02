@@ -210,7 +210,8 @@ function createAdminWindow() {
   adminWin.on('closed', () => {
     adminWin = null;
     previewSubscribed = false; // panel gitti, önizleme kare akışı da biter
-    for (const win of openWindows()) win.close();
+    // Kasıtlı: kaza koruması bunları geri açmamalı
+    closeVisualizer();
   });
 }
 
@@ -321,14 +322,40 @@ function createVisualizerWindow(display) {
     if (currentConfig) win.webContents.send('config', currentConfig);
   });
 
-  // ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
-  // pencereye kolayca ulaşamayabilir.
+  /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
+     pencereye kolayca ulaşamayabilir.
+
+     Kaza koruması ESC’i kilitlediğinde geriye tek bir tuş yolu kalır:
+     Ctrl+Alt+Shift+Esc. Üç değiştirici tuş yanlışlıkla basılamayacak kadar
+     zor bir birleşim; buna karşılık panel kapanmış ya da ulaşılamaz haldeyse
+     kullanıcı ekranına kilitlenmiş olmaz.
+
+     Bu dinleyici pencereye bağlı (before-input-event), globalShortcut DEĞİL:
+     genel kısayol ESC’i tüm sistemde yutardı ve görselleştirme öndeyken
+     bile başka uygulamaları etkilerdi. Yalnızca bu pencere odaktayken çalışır.
+     Aynı sebeple kısayol yalnızca odaktaki pencerede yakalanır, ancak
+     closeVisualizer() hepsini birden kapatır. */
   win.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'Escape') closeVisualizer();
+    if (input.type !== 'keyDown' || input.key !== 'Escape') return;
+    const rescue = input.control && input.alt && input.shift;
+    if (rescue) {
+      event.preventDefault();
+      closeVisualizer();
+      return;
+    }
+    if (escapeLocked()) {
+      event.preventDefault();
+      notifyAdmin('protection-blocked', null);
+      return;
+    }
+    closeVisualizer();
   });
 
   win.on('closed', () => {
     visualizerWins.delete(display.id);
+    // Kapanış kasıtlı mıydı? closeVisualizer() bunu önceden işaretler;
+    // işaret yoksa kapanış çökme ya da Alt+F4 kaynaklıdır.
+    const intentional = intentionalCloses.delete(display.id);
     if (!anyVisualizerOpen() && onTopTimer) {
       clearInterval(onTopTimer);
       onTopTimer = null;
@@ -336,6 +363,7 @@ function createVisualizerWindow(display) {
     // Panel önizlemesi ya da OBS hâlâ kare istiyorsa yakalama kesintisiz sürer
     syncCapture();
     notifyVisualizerStatus();
+    if (!intentional) recoverVisualizer(display.id);
   });
 
   return win;
@@ -354,9 +382,11 @@ function openVisualizer(displayIds) {
   const wanted = resolveDisplayIds(displayIds);
   const all = screen.getAllDisplays();
 
-  // Artık seçili olmayan ekranlardaki pencereleri kapat
-  for (const [id, win] of Array.from(visualizerWins)) {
-    if (wanted.indexOf(id) === -1 && win && !win.isDestroyed()) win.close();
+  /* Artık seçili olmayan ekranlardaki pencereleri kapat. Bu kullanıcının
+     kararı, dolayısıyla KASITLI: closeVisualizer() üzerinden gitmezse kaza
+     koruması ekranı hemen geri açar ve seçim değiştirilemez hale gelirdi. */
+  for (const id of Array.from(visualizerWins.keys())) {
+    if (wanted.indexOf(id) === -1) closeVisualizer(id);
   }
 
   for (const id of wanted) {
@@ -447,13 +477,89 @@ function syncCapture() {
 }
 
 // displayId verilirse yalnızca o ekrandakini, verilmezse hepsini kapatır
-function closeVisualizer(displayId) {
-  if (displayId != null) {
-    const win = visualizerWins.get(Number(displayId));
-    if (win && !win.isDestroyed()) win.close();
+// ----------------------------------------------------------------------------
+// Kaza koruması
+//
+// Açıkken görselleştirme penceresi beklenmedik biçimde kapanırsa (çökme,
+// Alt+F4, sürücü sıfırlaması) anında geri açılır. Varsayılan KAPALI: canlı
+// kullanımda istenen davranış budur, ama masaüstünde denerken pencereyi
+// kapatamamak sinir bozucu olurdu.
+//
+// İki ayrı anahtar var; ikincisi yalnızca birincisi açıkken anlamlı:
+//   power.protect          -> kapanan pencere geri açılır
+//   power.protectNoEscape  -> ESC artık kapatmaz
+// ----------------------------------------------------------------------------
+
+/* closeVisualizer() ile işaretlenen kapanışlar kasıtlıdır ve kurtarılmaz. */
+const intentionalCloses = new Set();
+
+/* Ekran başına son kurtarma zamanları. Çöküp duran bir pencereyi sonsuza
+   kadar geri açmak makineyi kilitler; bu yüzden pencerenin sürekli ölmesi
+   durumunda vazgeçilir ve panele bildirilir. */
+const recoveryTimes = new Map();
+const RECOVERY_WINDOW_MS = 10000;
+const RECOVERY_MAX = 4;
+let quitting = false;
+
+function protectionOn() {
+  return !!(currentConfig && currentConfig.power && currentConfig.power.protect);
+}
+
+/* ESC yalnızca koruma AÇIKKEN ve kilit ayrıca istendiğinde devre dışı kalır.
+   Koruma kapalıyken bu ayarın tek başına bir etkisi yoktur: aksi halde
+   kullanıcı korumayı kapatıp ESC’in neden çalışmadığını anlayamazdı. */
+function escapeLocked() {
+  return protectionOn() && !!currentConfig.power.protectNoEscape;
+}
+
+function recoverVisualizer(displayId) {
+  if (!protectionOn() || quitting) return;
+
+  const now = Date.now();
+  const hits = (recoveryTimes.get(displayId) || []).filter((t) => now - t < RECOVERY_WINDOW_MS);
+  if (hits.length >= RECOVERY_MAX) {
+    // Pencere açılır açılmaz yeniden ölüyor. Döngüyü kır ve kullanıcıya söyle.
+    recoveryTimes.delete(displayId);
+    notifyAdmin('protection-gave-up', displayId);
     return;
   }
-  for (const win of openWindows()) win.close();
+  hits.push(now);
+  recoveryTimes.set(displayId, hits);
+
+  setTimeout(() => {
+    if (!protectionOn() || quitting) return;
+    if (visualizerWins.has(displayId)) return; // bu arada zaten açılmış
+    // Ekran fişten çekilmiş olabilir; olmayan ekrana pencere açmaya çalışma.
+    const display = screen.getAllDisplays().find((d) => d.id === displayId);
+    if (!display) return;
+    try {
+      createVisualizerWindow(display);
+      notifyAdmin('protection-recovered', displayId);
+    } catch (e) {
+      console.error('[koruma] pencere geri açılamadı:', e && e.message);
+    }
+  }, 200);
+}
+
+/* Panelden, uzaktan kumandadan ya da ESC’ten gelen KASITLI kapatma.
+   Kaza koruması yalnızca işaretlenmemiş kapanışları geri açar; aksi halde
+   arayüzdeki "Kapat" düğmesi işe yaramaz hale gelirdi. */
+function closeVisualizer(displayId) {
+  if (displayId != null) {
+    const id = Number(displayId);
+    const win = visualizerWins.get(id);
+    if (win && !win.isDestroyed()) {
+      intentionalCloses.add(id);
+      win.close();
+    }
+    return;
+  }
+  for (const [id, win] of Array.from(visualizerWins)) {
+    if (win && !win.isDestroyed()) {
+      intentionalCloses.add(id);
+      win.close();
+    }
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -2083,6 +2189,89 @@ async function runSmoke() {
     if (after.length !== 1) errors.push('multi-display: narrowing left ' + after.length + ' windows');
   }
 
+  /* --- Kaza koruması ---
+     Dört durumu da gerçek pencerede dener, çünkü mantık ana süreçte yaşıyor
+     ve birim testiyle erişilemiyor. En kritik olan sonuncusu: koruma AÇIK ve
+     ESC KİLİTLİ iken paneldeki Kapat hâlâ çalışmazsa kullanıcı kendi
+     ekranına kilitlenir. */
+  {
+    const prev = {
+      protect: currentConfig.power.protect,
+      noEsc: currentConfig.power.protectNoEscape,
+    };
+    const one = screen.getPrimaryDisplay().id;
+
+    // 1) Koruma KAPALI: beklenmedik kapanış kurtarılmamalı (bugünkü davranış)
+    currentConfig.power.protect = false;
+    openVisualizer([one]);
+    await wait(1200);
+    let w = visualizerWins.get(one);
+    if (w && !w.isDestroyed()) w.close(); // closeVisualizer DEĞİL: kaza taklidi
+    await wait(900);
+    console.log('[SMOKE] koruma kapalı -> pencere ' + (visualizerWins.has(one) ? 'geri açıldı' : 'kapalı kaldı'));
+    if (visualizerWins.has(one)) errors.push('protection: recovered while disabled');
+
+    // 2) Koruma AÇIK: beklenmedik kapanış geri açılmalı
+    currentConfig.power.protect = true;
+    openVisualizer([one]);
+    await wait(1200);
+    w = visualizerWins.get(one);
+    if (w && !w.isDestroyed()) w.close();
+    await wait(1400);
+    console.log('[SMOKE] koruma açık -> pencere ' + (visualizerWins.has(one) ? 'geri açıldı' : 'KAPALI KALDI'));
+    if (!visualizerWins.has(one)) errors.push('protection: did not recover while enabled');
+
+    // 3) Koruma AÇIK ama kapatma KASITLI: geri açılmamalı
+    closeVisualizer(one);
+    await wait(1400);
+    console.log('[SMOKE] kasıtlı kapatma -> pencere ' + (visualizerWins.has(one) ? 'GERİ AÇILDI' : 'kapalı kaldı'));
+    if (visualizerWins.has(one)) errors.push('protection: reopened after an intentional close');
+
+    /* Sentetik ESC. before-input-event yalnızca gerçek giriş olaylarında
+       tetiklendiği için tuşu sendInputEvent ile pencereye göndeririz; JS
+       tarafında KeyboardEvent uydurmak bu dinleyiciyi çalıştırmaz. */
+    const sendEsc = async (win, mods) => {
+      win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape', modifiers: mods || [] });
+      win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape', modifiers: mods || [] });
+      await wait(900);
+    };
+
+    // 4) Koruma AÇIK, ESC serbest: ESC kapatmalı
+    currentConfig.power.protectNoEscape = false;
+    openVisualizer([one]);
+    await wait(1200);
+    await sendEsc(visualizerWins.get(one));
+    console.log('[SMOKE] ESC serbest -> pencere ' + (visualizerWins.has(one) ? 'KAPANMADI' : 'kapandı'));
+    if (visualizerWins.has(one)) errors.push('protection: Esc did not close while it was allowed');
+
+    // 5) Koruma AÇIK, ESC kilitli: ESC kapatmamalı
+    currentConfig.power.protectNoEscape = true;
+    openVisualizer([one]);
+    await wait(1200);
+    await sendEsc(visualizerWins.get(one));
+    console.log('[SMOKE] ESC kilitli -> pencere ' + (visualizerWins.has(one) ? 'açık kaldı' : 'KAPANDI'));
+    if (!visualizerWins.has(one)) errors.push('protection: Esc closed the window while the lock was on');
+
+    // 6) Kurtarma kısayolu Ctrl+Alt+Shift+Esc kilidi aşmalı
+    if (visualizerWins.has(one)) {
+      await sendEsc(visualizerWins.get(one), ['control', 'alt', 'shift']);
+      console.log('[SMOKE] Ctrl+Alt+Shift+Esc -> pencere ' + (visualizerWins.has(one) ? 'KAPANMADI' : 'kapandı'));
+      if (visualizerWins.has(one)) errors.push('protection: rescue shortcut did not close the window');
+    }
+
+    // 7) ESC kilitliyken paneldeki Kapat hâlâ çalışmalı — kilitlenme testi
+    currentConfig.power.protectNoEscape = true;
+    openVisualizer([one]);
+    await wait(1200);
+    closeVisualizer(one);
+    await wait(1400);
+    console.log('[SMOKE] ESC kilitli + panelden kapat -> ' + (visualizerWins.has(one) ? 'KAPANMADI' : 'kapandı'));
+    if (visualizerWins.has(one)) errors.push('protection: panel close blocked while Esc was locked - user can be locked out');
+
+    currentConfig.power.protect = prev.protect;
+    currentConfig.power.protectNoEscape = prev.noEsc;
+  }
+
   // --- Karartma düğmesi ---
   if (adminWin && !adminWin.isDestroyed()) {
     const awc2 = adminWin.webContents;
@@ -2336,6 +2525,8 @@ async function runSmoke() {
 }
 
 app.on('before-quit', () => {
+  // Kapanış sırasında kaza koruması devreye girmemeli
+  quitting = true;
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
   artnet.stop().catch(() => {});
@@ -2660,6 +2851,6 @@ async function runShots() {
 
   clearInterval(pump);
   console.log('[SHOTS] done');
-  if (!vw.isDestroyed()) vw.close();
+  closeVisualizer(); // kasıtlı: koruma geri açmasın
   app.quit();
 }

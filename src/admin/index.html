@@ -186,6 +186,28 @@
 
         <label class="settings-toggle">
           <span class="st-main">
+            <span class="st-title">Kaza Koruması</span>
+            <span class="st-desc">Görselleştirme penceresi beklenmedik biçimde kapanırsa (çökme, Alt+F4) anında geri açılır. Panelden ya da ESC ile kapatmak her zaman çalışır.</span>
+          </span>
+          <span class="switch">
+            <input id="protectToggle" type="checkbox" />
+            <span class="track"></span>
+          </span>
+        </label>
+
+        <label class="settings-toggle" id="protectEscRow">
+          <span class="st-main">
+            <span class="st-title">ESC ile Kapatmayı Devre Dışı Bırak</span>
+            <span class="st-desc">Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Alt+Shift+Esc ile kapanır.</span>
+          </span>
+          <span class="switch">
+            <input id="protectEscToggle" type="checkbox" />
+            <span class="track"></span>
+          </span>
+        </label>
+
+        <label class="settings-toggle">
+          <span class="st-main">
             <span class="st-title">Genişletilmiş Ayar Aralıkları</span>
             <span class="st-desc">Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.</span>
           </span>

@@ -633,6 +633,11 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 .settings-toggle .st-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
 .settings-toggle .st-desc { font-size: 10.5px; color: var(--muted2); line-height: 1.5; }
 .settings-toggle .switch { margin-top: 2px; }
+/* Bağımlı anahtar: üstteki kapalıyken görsel olarak da devre dışı. Yalnızca
+   input’u disabled yapmak yetmiyor; satırın tamamı sönmezse kullanıcı
+   anahtarın neden tepki vermediğini anlamıyor. */
+.settings-toggle.disabled { opacity: .45; }
+.settings-toggle.disabled .switch { cursor: not-allowed; }
 
 /* ================= UYGULAMA İÇİ ONAY + BİLDİRİM =================
    Sistem confirm/alert pencereleri renderer'ı kilitliyor ve çok ekranlı

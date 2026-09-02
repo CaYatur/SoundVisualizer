@@ -206,3 +206,39 @@ test('hexToRgb01 geçerli ve bozuk girdilerde sonlu', () => {
     for (const v of r) assert.ok(isFinite(v), 'sonsuz: ' + bad);
   }
 });
+
+// ===========================================================================
+// Kaza koruması
+//
+// Bu iki anahtarın varsayılanı KAPALI olmak zorunda. Açık gelselerdi,
+// uygulamayı ilk kez açan biri görselleştirme penceresini kapatamaz ve
+// nedenini de bilemezdi. Varsayılanı yanlışlıkla değiştiren bir düzenleme
+// burada yakalanır.
+// ===========================================================================
+test('kaza koruması varsayılan olarak kapalı', () => {
+  const cfg = SV.defaultConfig();
+  assert.strictEqual(cfg.power.protect, false, 'protect açık geliyor');
+  assert.strictEqual(cfg.power.protectNoEscape, false, 'protectNoEscape açık geliyor');
+});
+
+test('eski ayar dosyası kaza koruması alanlarıyla tamamlanır', () => {
+  /* 3.1 öncesinden kalan bir settings.json bu alanları içermez. Eksik
+     kalırlarsa main.js tarafında undefined okunur; !!undefined === false
+     olduğu için davranış doğru olurdu, ama panel anahtarı da boş görünür
+     ve kullanıcı ayarı açtığında hiçbir şey olmaz. */
+  const old = { power: { alwaysOnTop: true, fpsCap: 60 } };
+  const merged = SV.deepMerge(SV.defaultConfig(), old);
+  assert.strictEqual(merged.power.protect, false);
+  assert.strictEqual(merged.power.protectNoEscape, false);
+  assert.strictEqual(merged.power.alwaysOnTop, true, 'kullanıcının ayarı korunmalı');
+  assert.strictEqual(merged.power.fpsCap, 60, 'kullanıcının ayarı korunmalı');
+});
+
+test('kaza koruması ayarları kaydedilip geri yüklenince korunur', () => {
+  const cfg = SV.defaultConfig();
+  cfg.power.protect = true;
+  cfg.power.protectNoEscape = true;
+  const roundTrip = SV.deepMerge(SV.defaultConfig(), JSON.parse(JSON.stringify(cfg)));
+  assert.strictEqual(roundTrip.power.protect, true);
+  assert.strictEqual(roundTrip.power.protectNoEscape, true);
+});

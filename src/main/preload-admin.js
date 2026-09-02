@@ -76,6 +76,11 @@ contextBridge.exposeInMainWorld('api', {
   reportVideoDevices: (devices) => ipcRenderer.send('report-video-devices', devices),
 
   // Uzaktan kumandadan gelen ayar değişikliği (panel kopyasını tazeler)
+  /* Kaza koruması olayları: ESC engellendi / pencere geri açıldı /
+     sürekli çöktüğü için vazgeçildi. */
+  onProtectionBlocked: (cb) => ipcRenderer.on('protection-blocked', () => cb()),
+  onProtectionRecovered: (cb) => ipcRenderer.on('protection-recovered', (e, id) => cb(id)),
+  onProtectionGaveUp: (cb) => ipcRenderer.on('protection-gave-up', (e, id) => cb(id)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 
   // Canlı kayıt ve anlık görüntü
