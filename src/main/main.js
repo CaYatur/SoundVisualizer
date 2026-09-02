@@ -197,6 +197,11 @@ function createAdminWindow() {
       preload: path.join(__dirname, 'preload-admin.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      /* Görselleştirici tam ekran ve "her zaman üstte" olduğu için bu
+         pencereyi örtüyor. Chromium örtülü pencerede zamanlayıcıları ve
+         requestAnimationFrame’i durduruyor; zaman çizelgesi ile klip
+         destesi tam sahnedeyken duruyordu. */
+      backgroundThrottling: false,
     },
   });
 
@@ -2315,6 +2320,116 @@ async function runSmoke() {
     if (!before) errors.push('blackout button missing');
     else if (!dark) errors.push('blackout did not darken the scene');
     else if (!restored) errors.push('blackout did not restore the scene');
+  }
+
+  /* --- Zaman çizelgesi ve klip destesi ---
+     Birim testleri modellerin doğru olduğunu gösteriyor; burada ölçülen
+     şey modellerin UYGULAMAYA BAĞLI olduğu. Bir IPC kanalını, bir script
+     etiketini ya da bir çağrıyı unutmak birim testinden geçer ama üründe
+     hiçbir şey çalışmaz. */
+  /* Bu denetim açık bir görselleştirici penceresi ister: otomasyonun çizim
+     döngüsüne ulaştığı ancak orada ölçülebilir. Önceki koruma denetimi
+     pencereleri kapatarak bitiyor, o yüzden burada yeniden açılır. */
+  if (adminWin && !adminWin.isDestroyed()) {
+    openVisualizer([screen.getPrimaryDisplay().id]);
+    await wait(1500);
+  }
+  if (adminWin && !adminWin.isDestroyed() && anyVisualizerOpen()) {
+    const awc5 = adminWin.webContents;
+    const vwc = meterWindow().webContents;
+
+    // 1) Modüller her iki pencerede de yüklendi mi?
+    const modsAdmin = await awc5.executeJavaScript(
+      "[!!window.SVTimeline, !!window.SVClipDeck, !!window.SVShowClock, !!window.SVTimelinePanel, !!window.SVClipDeckPanel, !!window.SVPerformView].join(',')"
+    );
+    const modsVis = await vwc.executeJavaScript(
+      "[!!window.SVTimeline, !!window.SVShowClock].join(',')"
+    );
+    console.log('[SMOKE] çizelge modülleri panel=' + modsAdmin + ' görselleştirici=' + modsVis);
+    if (modsAdmin.indexOf('false') >= 0) errors.push('timeline: modules missing in admin: ' + modsAdmin);
+    if (modsVis.indexOf('false') >= 0) errors.push('timeline: modules missing in visualizer: ' + modsVis);
+
+    // 2) Otomasyon çizim döngüsüne ULAŞIYOR mu?
+    const setup = await awc5.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.timeline.enabled = true;
+      c.timeline.tempo = [{ t: 0, bpm: 120, beatsPerBar: 4 }];
+      c.timeline.tracks = [{
+        kind: "automation", name: "test",
+        target: "visualizer.sensitivity", min: 0.2, max: 0.9,
+        keys: [{ t: 0, v: 0 }, { t: 8, v: 1 }]
+      }];
+      window.SVPanel.apply();
+      window.SVTimelinePanel.seek(4);
+      window.SVTimelinePanel.play();
+      return "hazır";
+    })()`);
+    console.log('[SMOKE] çizelge kurulumu: ' + setup);
+    await wait(1500);
+
+    const panelState = await awc5.executeJavaScript('JSON.stringify({ t: window.SVTimelinePanel.transport().time, playing: window.SVTimelinePanel.transport().playing })');
+    console.log('[SMOKE] panel taşıma: ' + panelState);
+    const ps = JSON.parse(panelState);
+    /* Panelin kendi oynatma kafası da ilerlemeli. Görselleştirici çıpadan
+       doğru zamanı hesaplarken panel yerinde kalırsa ikisi ayrışır ve
+       operatör ekranda gördüğünden başka bir yeri düzenler. */
+    if (!(ps.t > 4.2)) errors.push('timeline: panel transport did not advance (t=' + ps.t + ')');
+    if (!ps.playing) errors.push('timeline: panel transport is not playing');
+    const dbg = await vwc.executeJavaScript('JSON.stringify(window.SVShowDebug || null)');
+    console.log('[SMOKE] görselleştirici otomasyon durumu: ' + dbg);
+    const st = JSON.parse(dbg || 'null');
+    if (!st) errors.push('timeline: SVShowDebug missing in visualizer');
+    else {
+      if (!st.frames) errors.push('timeline: automation never ran in the visualizer draw loop');
+      if (st.applied < 1) errors.push('timeline: automation applied no targets (wiring lost)');
+      if (st.missing > 0) errors.push('timeline: automation target not found in config');
+      // Oynatma kafası paneldeki taşımayla aynı yerde mi? Çıpa ulaşmazsa 0 kalır.
+      if (!(st.time > 3.5)) errors.push('timeline: show clock anchor did not reach the visualizer (t=' + st.time + ')');
+    }
+
+    // 3) Klip destesi ölçüye hizalı ateşliyor mu?
+    const deckRes = await awc5.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.clipdeck.enabled = true;
+      c.clipdeck.decks = [{ id: "deck", name: "A", rows: 2, cols: 2, rowNames: {},
+        slots: [{ row: 0, col: 0, type: "scene", ref: "yok", quantize: "bar", name: "T" }] }];
+      window.SVPanel.apply();
+      var e = window.SVClipDeckPanel.engine();
+      e.decks = c.clipdeck.decks.map(window.SVClipDeck.makeDeck);
+      var tr = window.SVTimelinePanel.transport();
+      var fired = 0;
+      e.on(function(t){ if (t === "fire") fired++; });
+      e.launch("deck", 0, 0, tr.time, tr.tl.tempo);
+      var armedAt = e.armed.length ? e.armed[0].at : -1;
+      var beat = window.SVTimeline.secondsToBeats(tr.tl.tempo, armedAt);
+      // 120bpm 4/4: ölçü 4 vuruş. Hazırlık tam ölçü sınırına düşmeli.
+      var onBar = Math.abs(beat / 4 - Math.round(beat / 4)) < 1e-6;
+      return JSON.stringify({ armed: e.armed.length, armedAt: armedAt, beat: beat, onBar: onBar });
+    })()`);
+    console.log('[SMOKE] deste hazırlığı: ' + deckRes);
+    const dr = JSON.parse(deckRes);
+    if (dr.armed !== 1) errors.push('clipdeck: launch did not arm a slot');
+    if (!dr.onBar) errors.push('clipdeck: quantised launch did not land on a bar line (beat=' + dr.beat + ')');
+
+    await wait(2600);
+    const fireRes = await awc5.executeJavaScript(
+      'JSON.stringify({ active: window.SVClipDeckPanel.engine().activeSlots().length, armed: window.SVClipDeckPanel.engine().armed.length })'
+    );
+    console.log('[SMOKE] deste ateşleme: ' + fireRes);
+    const fr = JSON.parse(fireRes);
+    if (fr.active < 1) errors.push('clipdeck: armed slot never fired');
+
+    // Kurulumu geri al — sonraki denetimler temiz yapılandırma bekliyor
+    await awc5.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      window.SVClipDeckPanel.engine().stopAll();
+      window.SVTimelinePanel.transport().stop();
+      c.timeline.enabled = false; c.timeline.tracks = [];
+      c.clipdeck.enabled = false;
+      window.SVPanel.apply();
+      return 1;
+    })()`);
+    await wait(400);
   }
 
   /* --- İngilizce arayüz denetimi ---

@@ -50,6 +50,12 @@
     { action: 'nextScene', label: '⏭ Eylem · Sonraki Sahne' },
     { action: 'nextPalette', label: '⏭ Eylem · Sonraki Renk Şablonu' },
     { action: 'blackout', label: '🌑 Eylem · Karart (aç/kapa)' },
+    { action: 'tlPlay', label: '▶ Çizelge · Oynat' },
+    { action: 'tlPause', label: '⏸ Çizelge · Duraklat' },
+    { action: 'tlStop', label: '⏹ Çizelge · Durdur ve Başa Dön' },
+    { action: 'tlNextMarker', label: '⏭ Çizelge · Sonraki İşaret' },
+    { action: 'tlPrevMarker', label: '⏮ Çizelge · Önceki İşaret' },
+    { action: 'deckStopAll', label: '⏹ Deste · Hepsini Durdur' },
   ];
 
   const VIS_CYCLE = ['bars', 'centerBars', 'blocks', 'dots', 'wave', 'ribbon', 'terrain', 'circular',
@@ -61,8 +67,42 @@
 
   let blackoutSaved = null;
 
+  /* Deste yuvaları hedef listesine CANLI eklenir: ızgara büyüyebilir,
+     yuvalar adlandırılabilir. Sabit bir liste tutmak, 6x6 ızgarayı 36
+     ölü satırla doldurur ve kullanıcı ızgarayı büyütünce eskirdi.
+     Yalnızca DOLU yuvalar listelenir; boş hücreyi eşlemek anlamsız. */
+  function deckTargets() {
+    const out = [];
+    const cfg = P() && P().cfg();
+    const cd = cfg && cfg.clipdeck;
+    if (!cd || !cd.enabled || !window.SVClipDeck) return out;
+    const list = Array.isArray(cd.decks) ? cd.decks : [];
+    for (const spec of list) {
+      const deck = window.SVClipDeck.makeDeck(spec);
+      const named = new Set();
+      for (const slot of window.SVClipDeck.slotList(deck)) {
+        out.push({
+          action: 'deckSlot:' + deck.id + ':' + slot.row + ':' + slot.col,
+          label: '🎛 Deste · ' + (slot.name || slot.ref || 'Yuva') + ' (' + (slot.row + 1) + '×' + (slot.col + 1) + ')',
+        });
+        if (!named.has(slot.row)) {
+          named.add(slot.row);
+          out.push({
+            action: 'deckRow:' + deck.id + ':' + slot.row,
+            label: '▶ Deste · Satır ' + (deck.rowNames[slot.row] || slot.row + 1),
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  function allTargets() {
+    return TARGETS.concat(deckTargets());
+  }
+
   function targetFor(key) {
-    return TARGETS.find((t) => (t.path || 'action:' + t.action) === key) || null;
+    return allTargets().find((t) => (t.path || 'action:' + t.action) === key) || null;
   }
 
   // --------------------------------------------------------------------------
@@ -119,7 +159,46 @@
       if (P().toggleBlackout) {
         P().toggleBlackout();
       }
+    } else if (action.indexOf('tl') === 0) {
+      runTimeline(action);
+    } else if (action.indexOf('deck') === 0) {
+      runDeck(action, cfg);
     }
+  }
+
+  /* Taşıma eylemleri panelin KENDİ taşımasını sürer; ayrı bir saat
+     kurmak iki yüzeyi ayrıştırırdı. */
+  function runTimeline(action) {
+    const tp = window.SVTimelinePanel;
+    if (!tp || !tp.transport) return;
+    const tr = tp.transport();
+    if (action === 'tlPlay') tp.play();
+    else if (action === 'tlPause') tp.pause();
+    else if (action === 'tlStop') tp.stop();
+    else if (action === 'tlNextMarker') {
+      const m = window.SVTimeline.markerAfter(tr.tl, tr.time);
+      if (m) tp.seek(m.t);
+    } else if (action === 'tlPrevMarker') {
+      const m = window.SVTimeline.markerBefore(tr.tl, tr.time);
+      tp.seek(m ? m.t : 0);
+    }
+  }
+
+  function runDeck(action, cfg) {
+    const dp = window.SVClipDeckPanel;
+    if (!dp || !dp.engine || !cfg.clipdeck || !cfg.clipdeck.enabled) return;
+    const e = dp.engine();
+    const tp = window.SVTimelinePanel;
+    const now = tp && tp.transport ? tp.transport().time : 0;
+    const tempo = tp && tp.transport ? tp.transport().tl.tempo : window.SVTimeline.makeTempoMap([{ t: 0, bpm: 120 }]);
+    if (action === 'deckStopAll') { e.stopAll(); return; }
+    const parts = action.split(':');
+    if (parts[0] === 'deckSlot' && parts.length === 4) {
+      e.launch(parts[1], Number(parts[2]), Number(parts[3]), now, tempo);
+    } else if (parts[0] === 'deckRow' && parts.length === 3) {
+      e.launchRow(parts[1], Number(parts[2]), now, tempo);
+    }
+    if (tp) tp.start();
   }
 
   function refreshValueChips() {
@@ -290,7 +369,7 @@
         class: 'p-in',
         onchange: (e) => { m.target = e.target.value; m.min = null; m.max = null; P().push(true); P().rerender(); },
       });
-      TARGETS.forEach((tt) => {
+      allTargets().forEach((tt) => {
         const key = tt.path || 'action:' + tt.action;
         const o = el('option', { value: key, text: tt.label });
         if (key === m.target) o.selected = true;
@@ -449,5 +528,5 @@
     try { oscState = await window.api.oscStatus(); } catch { /* servis kapalı */ }
   }
 
-  window.SVControl = { panel, init, TARGETS };
+  window.SVControl = { panel, init, TARGETS, allTargets };
 })();

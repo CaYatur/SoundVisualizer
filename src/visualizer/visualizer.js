@@ -30,6 +30,12 @@
      bildirilen ama sebebi görünmeyen bir hataya dönüşürdü. */
   const warnedTargets = Object.create(null);
 
+  /* Öz test kancası. Otomasyonun çizim döngüsüne gerçekten ulaştığını
+     ölçmek için: birim testi modelin doğru olduğunu gösterir, bu ise
+     modelin uygulamaya BAĞLI olduğunu. İkincisi, bağlamayı unutmakla
+     sessizce kaybedilir. */
+  window.SVShowDebug = { time: 0, applied: 0, missing: 0, frames: 0 };
+
   /* Projeksiyon haritalaması bu pencerenin ekranına ait tanımı kullanır.
      Kimlik dönüşümündeyse hiç devreye girmez — kapalı haritalamanın maliyeti
      sıfır olmalı. */
@@ -191,6 +197,10 @@
         const showT = window.SVShowClock.resolve(showAnchor, Date.now());
         const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
         base = auto.cfg;
+        window.SVShowDebug.time = showT;
+        window.SVShowDebug.applied = auto.applied;
+        window.SVShowDebug.missing = auto.missing ? auto.missing.length : 0;
+        window.SVShowDebug.frames++;
         if (auto.missing) {
           for (const path of auto.missing) {
             if (warnedTargets[path]) continue;

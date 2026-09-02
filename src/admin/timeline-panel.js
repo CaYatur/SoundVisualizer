@@ -55,12 +55,41 @@
     return transport;
   }
 
+  /* Panelin oynatma kafası da ÇIPADAN türetilir, döngüden değil.
+
+     Sebebi: döngü kare hızına bağlı ve kare hızı güvenilir değil — pencere
+     örtülebilir, sistem yavaşlayabilir, sekme arka plana düşebilir. Zaman
+     döngüden taşınsaydı bu durumların hepsinde oynatma kafası geri kalırdı,
+     üstelik görselleştirici pencereleri (kendi hesaplarını çıpadan yaptığı
+     için) doğru zamanı göstermeye devam eder ve panel ile ekran ayrışırdı.
+
+     Döngü artık yalnızca ATEŞLEME ve ÇİZİM için gerekli; zamanı taşımıyor.
+     Çevrimdışı dışa aktarımın kare indeksli yolu bundan etkilenmez: orada
+     Transport.advance() kullanılmaya devam ediyor. */
+  let clockAnchor = null;
+
+  function syncTransportFromAnchor() {
+    const tr = ensureTransport();
+    if (!clockAnchor || !window.SVShowClock) return tr;
+    tr.time = window.SVShowClock.resolve(clockAnchor, Date.now());
+    tr.playing = !!clockAnchor.playing;
+    return tr;
+  }
+
+  /* Taşıma durumu değiştiğinde çıpayı YENİLE ve yolla. */
+  function reanchor() {
+    const tr = ensureTransport();
+    if (window.SVShowClock) clockAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop);
+    pushAnchor(true);
+  }
+
   /* Çıpayı yalnızca DEĞİŞTİĞİNDE yolla. Her karede yollamak IPC'yi boş yere
      doldururdu ve zaten gereksiz: pencereler çıpadan kendileri hesaplıyor. */
   function pushAnchor(force) {
     if (!window.api || !window.api.sendShowClock || !window.SVShowClock) return;
     const tr = ensureTransport();
-    const anchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop);
+    if (!clockAnchor) clockAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl.loop);
+    const anchor = clockAnchor;
     const key = anchor.playing + '|' + anchor.time.toFixed(4) + '|' + anchor.rate +
       '|' + (anchor.loop ? anchor.loop.start + ',' + anchor.loop.end : '-');
     if (!force && key === lastAnchorKey) return;
@@ -109,8 +138,11 @@
      Zaman çizelgesi ise açıkça oynatılır. */
   function loop() {
     raf = requestAnimationFrame(loop);
+    loopBody();
+  }
+
+  function loopBody() {
     const now = performance.now();
-    const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0;
     lastFrame = now;
 
     const full = P() && P().cfg();
@@ -119,12 +151,13 @@
     const deckOn = !!(full.clipdeck && full.clipdeck.enabled);
     if (!tlOn && !deckOn) return;
 
-    const tr = ensureTransport();
-    if (deckOn && !tlOn && !tr.playing) tr.play();
-    if (tr.playing) {
-      tr.advance(dt);
-      if (tlOn) applyClipsAt(tr.time);
+    let tr = ensureTransport();
+    if (deckOn && !tlOn && !(clockAnchor && clockAnchor.playing)) {
+      tr.play();
+      reanchor();
     }
+    tr = syncTransportFromAnchor();
+    if (tr.playing && tlOn) applyClipsAt(tr.time);
     if (deckOn && window.SVClipDeckPanel && window.SVClipDeckPanel.tick) {
       window.SVClipDeckPanel.tick(tr.time, tr.tl.tempo);
     }
@@ -132,12 +165,24 @@
     if (tlOn) draw();
   }
 
+  /* Döngü canlı mı? Örtülmüş bir pencerede bekleyen bir rAF geri çağrısı
+     hiç ateşlenmeyebilir; "raf dolu" kontrolü tek başına yapılırsa döngü
+     bir daha asla kurulamaz. Bu yüzden son tur zamanı da bakılır. */
   function start() {
-    if (!raf) {
-      lastFrame = 0;
-      raf = requestAnimationFrame(loop);
+    const stale = lastFrame && performance.now() - lastFrame > 2000;
+    if (raf && !stale) return;
+    if (raf) cancelAnimationFrame(raf);
+    lastFrame = 0;
+    raf = requestAnimationFrame(loop);
+    /* rAF hiç ateşlenmezse (pencere tamamen gizli) yedek olarak bir
+       zamanlayıcı: ateşleme gecikse de durmaz. */
+    if (!fallbackTimer) {
+      fallbackTimer = setInterval(() => {
+        if (!lastFrame || performance.now() - lastFrame > 500) loopBody();
+      }, 250);
     }
   }
+  let fallbackTimer = 0;
 
   // --------------------------------------------------------------------------
   // Tuval çizimi
@@ -412,7 +457,7 @@
         // Cetvele tıklamak sürüklemedir: duraklatılmışken de sahne güncellenir
         transport.seek(snap(tOf(x), e.altKey));
         applyClipsAt(transport.time);
-        pushAnchor(true);
+        reanchor();
         drag = { kind: 'scrub' };
         draw();
         return;
@@ -447,7 +492,7 @@
       if (drag.kind === 'scrub') {
         transport.seek(snap(tOf(x), e.altKey));
         applyClipsAt(transport.time);
-        pushAnchor(true);
+        reanchor();
       } else if (drag.kind === 'key') {
         const k = tl.tracks[drag.index].keys[drag.ki];
         k.t = snap(tOf(x), e.altKey);
@@ -498,10 +543,39 @@
     }, { passive: false });
   }
 
+  /* Taşıma durumunu değiştiren TEK kapı. transport() nesnesini alıp
+     doğrudan play() çağırmak çıpayı yenilemez; panel düğmeleri reanchor()
+     çağırdığı için çalışır ama MIDI/OSC eşlemeleri ve başka her programlı
+     çağıran sessizce kırılırdı: oynatma kafası yerinde kalır,
+     görselleştiriciler eski çıpaya bakmaya devam ederdi. */
+  function play() {
+    ensureTransport().play();
+    reanchor();
+    start();
+  }
+  function pause() {
+    syncTransportFromAnchor();
+    ensureTransport().pause();
+    reanchor();
+  }
+  function stop() {
+    ensureTransport().stop();
+    lastAppliedClip.clear();
+    reanchor();
+  }
+  function seek(t) {
+    ensureTransport().seek(t);
+    reanchor();
+  }
+
   const api = {
     panel,
     start,
-    transport: () => ensureTransport(),
+    play,
+    pause,
+    stop,
+    seek,
+    transport: () => syncTransportFromAnchor(),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */
     _draw: () => draw(),
   };
@@ -529,7 +603,7 @@
             cfg.enabled = box.checked;
             if (!box.checked) {
               ensureTransport().pause();
-              pushAnchor(true);
+              reanchor();
             }
             p.apply();
           });
@@ -560,30 +634,25 @@
 
     const transportRow = el('div', { class: 'tl-transport' }, [
       btn('▶', 'Oynat', () => {
-        ensureTransport().play();
-        pushAnchor(true);
-        start();
+        play();
       }),
       btn('⏸', 'Duraklat', () => {
-        ensureTransport().pause();
-        pushAnchor(true);
+        pause();
       }),
       btn('⏹', 'Durdur ve başa dön', () => {
-        ensureTransport().stop();
-        lastAppliedClip.clear();
-        pushAnchor(true);
+        stop();
         draw();
       }),
       btn('⏮', 'Önceki işaret', () => {
         const m = TL().markerBefore(ensureTransport().tl, transport.time);
         transport.seek(m ? m.t : 0);
-        pushAnchor(true);
+        reanchor();
         draw();
       }),
       btn('⏭', 'Sonraki işaret', () => {
         const m = TL().markerAfter(ensureTransport().tl, transport.time);
         if (m) transport.seek(m.t);
-        pushAnchor(true);
+        reanchor();
         draw();
       }),
       timeLabel,
@@ -675,7 +744,7 @@
     loopBox.addEventListener('change', () => {
       cfg.loop = Object.assign({}, cfg.loop, { enabled: loopBox.checked });
       p.apply();
-      pushAnchor(true);
+      reanchor();
     });
     host.appendChild(p.row('Döngü Bölgesi', el('label', { class: 'switch' }, [loopBox, el('span', { class: 'track' })])));
     host.appendChild(
@@ -686,12 +755,12 @@
             numInput(tl.loop.start, 0, 1e6, 0.01, (v) => {
               cfg.loop = Object.assign({}, cfg.loop, { start: v });
               p.apply();
-              pushAnchor(true);
+              reanchor();
             }),
             numInput(tl.loop.end, 0, 1e6, 0.01, (v) => {
               cfg.loop = Object.assign({}, cfg.loop, { end: v });
               p.apply();
-              pushAnchor(true);
+              reanchor();
             }),
             (() => {
               const b = el('button', { class: 'btn small', type: 'button', text: 'Kafadan Başlat' });
@@ -936,7 +1005,7 @@
       const go = el('button', { class: 'btn small', type: 'button', text: '→', title: 'Bu işarete git' });
       go.addEventListener('click', () => {
         ensureTransport().seek(m.t);
-        pushAnchor(true);
+        reanchor();
         draw();
       });
       const del = el('button', { class: 'btn small danger', type: 'button', text: '✕' });

@@ -152,7 +152,15 @@
     paintGrid();
   }
 
-  const api = { panel, tick, engine: () => ensureEngine() };
+  /* Performans görünümü aynı motoru ve aynı saati kullanır; kendi
+     ateşleme yolunu kursaydı niceleme iki yerde ayrışırdı. */
+  const api = {
+    panel,
+    tick,
+    engine: () => ensureEngine(),
+    launchSlot: launch,
+    launchRow,
+  };
   if (typeof window !== 'undefined') window.SVClipDeckPanel = api;
 
   // --------------------------------------------------------------------------
@@ -244,12 +252,16 @@
     requestAnimationFrame(paintGrid);
 
     // --- Genel denetimler ---
+    const perf = el('button', { class: 'btn', type: 'button', text: 'Performans Görünümü' });
+    perf.addEventListener('click', () => {
+      if (window.SVPerformView) window.SVPerformView.open();
+    });
     const stopAll = el('button', { class: 'btn danger', type: 'button', text: 'Hepsini Durdur' });
     stopAll.addEventListener('click', () => {
       ensureEngine().stopAll();
       paintGrid();
     });
-    host.appendChild(el('div', { class: 'tl-actions' }, [stopAll]));
+    host.appendChild(el('div', { class: 'tl-actions' }, [perf, stopAll]));
 
     host.appendChild(
       p.row(

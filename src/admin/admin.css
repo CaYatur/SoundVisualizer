@@ -848,3 +848,49 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   font-variant-numeric: tabular-nums; }
 .cd-editor { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .cd-editor-head { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+
+/* ==========================================================================
+   Performans görünümü — karanlık odada, uzaktan, aceleyle kullanılır.
+   Kontrast ve hedef boyutu bilinçli olarak panelin geri kalanından yüksek.
+   ========================================================================== */
+.perf-view {
+  position: fixed; inset: 0; z-index: 900; background: #05050a;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  outline: none;
+}
+.perf-head { display: flex; align-items: center; gap: 10px; }
+.perf-clock {
+  font-size: 30px; font-weight: 700; color: #fff; margin-right: auto;
+  font-variant-numeric: tabular-nums; /* sayaç zıplamasın */
+}
+.perf-btn {
+  background: #17171f; border: 1px solid #33333f; color: #e8e8ec;
+  border-radius: 8px; padding: 12px 18px; font-size: 15px; cursor: pointer;
+}
+.perf-btn:hover { border-color: #6a6a7a; }
+.perf-btn.danger { border-color: #7a2530; color: #ff6b78; }
+.perf-grid { flex: 1; display: grid; gap: 8px; min-height: 0; }
+.perf-corner { }
+.perf-stopcol, .perf-row {
+  background: #12121a; border: 1px solid #2a2a36; color: #9a9aa8;
+  border-radius: 8px; font-size: 15px; cursor: pointer; padding: 8px;
+}
+.perf-row { text-align: left; padding-left: 14px; font-weight: 600; }
+.perf-row.cursor { border-color: #e11d2a; color: #fff; }
+.perf-cell {
+  position: relative; background: #0d0d14; border: 2px solid #24242e;
+  border-radius: 10px; color: #6a6a78; cursor: pointer;
+  font-size: 17px; padding: 10px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.perf-cell.filled { color: #e8e8ec; background: #16203a; border-color: #35507f; }
+.perf-cell.cursor { border-color: #7a7a90; }
+/* Hazırlanmış: ateşlenmeyi bekliyor, köşede geri sayım. */
+.perf-cell.armed { border-color: #f0b429; background: #2a2210; }
+.perf-cell.active { border-color: #2ea043; background: #10301c; color: #fff; }
+.perf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perf-count {
+  position: absolute; right: 8px; bottom: 4px; font-size: 13px; color: #f0b429;
+  font-variant-numeric: tabular-nums;
+}
+.perf-hint { color: #56566a; font-size: 12px; text-align: center; }
