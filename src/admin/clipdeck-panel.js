@@ -57,26 +57,58 @@
     paintGrid();
   }
 
-  /* Ateşlenen yuvayı uygula. Sahne uygulaması panelin KENDİ eylemini çağırır:
-     karartma durumu, etkin sahne kimliği ve görsel normalleştirmesi orada
-     doğru işleniyor. */
+  /* Yuvanın/klibin içeriğini uygula.
+
+     Sahne ve şablon TÜM yapılandırmaya etki eder; ne yapacakları belirsiz
+     değil. Video, görsel ve shader ise BİR KATMANI hedeflemek zorunda; hangi
+     katman olduğu söylenmeden uygulanırsa kullanıcının orada ne varsa üzerine
+     yazılır. Bu yüzden model onları tanıyor ama uygulanmıyorlar — arayüz de
+     bunu açıkça söylüyor. */
+  function applyRef(type, ref) {
+    if (!ref) return false;
+    const actions = P().actions ? P().actions() : null;
+    if (type === 'scene') {
+      if (actions && actions.applyScene) {
+        actions.applyScene(ref);
+        return true;
+      }
+      return false;
+    }
+    if (type === 'preset') {
+      const T = window.SVTemplates;
+      if (!T) return false;
+      const tpl = T.TEMPLATES.find((t) => t.id === ref);
+      if (!tpl) return false;
+      const cur = P().cfg();
+      const next = T.apply(cur, tpl, {
+        defaultConfig: window.SV.defaultConfig,
+        deepMerge: window.SV.deepMerge,
+        clone: window.SV.clone,
+      });
+      /* Yapılandırma nesnesi panelin her yerinde referansla tutuluyor; yerine
+         yenisini koymak yerine İÇERİĞİNİ değiştiriyoruz, yoksa açık paneller
+         eski nesneye bakmaya devam ederdi (template-panel.js ile aynı gerekçe). */
+      for (const k of Object.keys(next)) cur[k] = next[k];
+      P().apply();
+      return true;
+    }
+    return false;
+  }
+
   function applySlot(ev) {
     const slot = ev.slot;
     if (!slot.ref) return;
-    const actions = P().actions ? P().actions() : null;
-    if (slot.type === 'scene' && actions && actions.applyScene) {
-      /* Geçiş süresi ve türü sahne geçiş motoruna verilir; 'cut' gerçek
-         kesmedir, motor tek karelik harman bile yapmaz. */
-      const c = P().cfg();
-      if (c.transition) {
-        c.transition.enabled = ev.fade > 0;
-        if (ev.fade > 0) {
-          c.transition.duration = ev.fade;
-          if (ev.transition) c.transition.type = ev.transition;
-        }
+    /* Geçiş süresi ve türü sahne geçiş motoruna verilir; 'cut' gerçek
+       kesmedir, motor tek karelik harman bile yapmaz. */
+    const c = P().cfg();
+    if (c.transition) {
+      c.transition.enabled = ev.fade > 0;
+      if (ev.fade > 0) {
+        c.transition.duration = ev.fade;
+        if (ev.transition) c.transition.type = ev.transition;
       }
-      actions.applyScene(slot.ref);
     }
+    applyRef(slot.type, slot.ref);
   }
 
   // --------------------------------------------------------------------------
@@ -178,6 +210,7 @@
     tick,
     engine: () => ensureEngine(),
     launchSlot: launch,
+    applyRef,
     launchRow,
   };
   if (typeof window !== 'undefined') window.SVClipDeckPanel = api;
@@ -396,6 +429,14 @@
       ))
     );
     box.appendChild(p.row('Kaynak Kimliği', textInput(spec.ref, (v) => save({ ref: v }), 'ör. sahne kimliği')));
+    if (spec.type !== 'scene' && spec.type !== 'preset') {
+      box.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note',
+          text: 'Bu tür kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde uygulanmaz: bir katmanı hedeflemesi gerekiyor ve hedef söylenmeden uygulamak o katmandaki içeriğin üzerine yazardı. Sahne ve Şablon türleri çalışıyor.',
+        })
+      );
+    }
     box.appendChild(
       p.row('Niceleme', select(
         [

@@ -119,11 +119,14 @@
   /* Sahne uygulaması panelin KENDİ eylemini çağırır, kopyasını değil:
      applyScene karartma durumunu, etkin sahne kimliğini ve görsel
      normalleştirmesini de doğru işliyor. Otomatik VJ bu listeyi elle
-     kopyaladığı için o üçünü kaçırıyor; aynı hatayı tekrarlamıyoruz. */
+     kopyaladığı için o üçünü kaçırıyor; aynı hatayı tekrarlamıyoruz.
+
+     Klip destesiyle AYNI uygulama yolu kullanılır (SVClipDeckPanel.applyRef):
+     iki ayrı kopya zamanla birbirinden ayrılırdı. */
   function fireClip(clip) {
     if (!clip.ref) return;
-    const actions = P().actions ? P().actions() : null;
-    if (clip.type === 'scene' && actions && actions.applyScene) actions.applyScene(clip.ref);
+    const dp = window.SVClipDeckPanel;
+    if (dp && dp.applyRef) dp.applyRef(clip.type, clip.ref);
   }
 
   // --------------------------------------------------------------------------

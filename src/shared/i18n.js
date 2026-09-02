@@ -398,6 +398,7 @@
     '⏮ Çizelge · Önceki İşaret': '⏮ Timeline · Previous Marker',
     '⏹ Deste · Hepsini Durdur': '⏹ Deck · Stop Everything',
     'Yuva': 'Slot',
+    'Bu tür kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde uygulanmaz: bir katmanı hedeflemesi gerekiyor ve hedef söylenmeden uygulamak o katmandaki içeriğin üzerine yazardı. Sahne ve Şablon türleri çalışıyor.': 'This type is stored and recorded onto the timeline, but firing it does not apply anything yet: it has to target a layer, and applying it without naming one would overwrite whatever is on that layer. The Scene and Template types work.',
     'Genişletilmiş Ayar Aralıkları': 'Extended Setting Ranges',
     'Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.': 'Raises the upper limit of the sliders 5×, letting you enter values far above the normal range. Extreme values may reduce performance.',
     'Genişletilmiş aralıklar açık — kaydırıcılar 5 kat daha yükseğe çıkabilir.': 'Extended ranges on — sliders can now go 5× higher.',
