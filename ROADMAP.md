@@ -11,10 +11,11 @@ covered by a test or by the GPU self-test.
 | v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | Shipped |
 | **v3.0.0** | **Modulation, deep analysis, MilkDrop language, mapping, transitions, recording** | **Current** |
 | v3.1.0 | Timeline and Clip Deck | Planned |
-| v3.1.1 | Spout / Syphon / NDI output | Planned |
+| v3.1.1 | Spout and Syphon output · Electron upgrade | Planned |
 | v3.1.2 | Per-application audio capture | Planned |
 | v3.1.3 | Comprehensive video export | Planned |
 | v3.1.4 | Broadcast layout editor | Planned |
+| v3.1.5 | NDI output | Deferred |
 | v3.2.0 | Redundancy, failover and frame sync | Planned |
 
 ---
@@ -61,7 +62,8 @@ covered by a test or by the GPU self-test.
 | Automated tests | ❌ | ◐ | ✅ | ✅✅ | **623** unit tests + a GPU self-test over every engine |
 | Timeline | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
-| Spout / Syphon / NDI | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
+| NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
 | Redundancy / genlock | ❌ | ❌ | ❌ | ❌ | v3.2.0 |
 
@@ -126,19 +128,78 @@ The grid where a VJ organises clips — video, loops, generative presets, images
 Also in v3.1.0: per-clip trim and speed, deck-wide follow actions, and a
 performance view that hides everything except the deck and the crossfader.
 
-## v3.1.1 — Spout, Syphon and NDI
+## v3.1.1 — Spout and Syphon output
 
-Live video output to other applications.
+Live video output to other applications on the same machine, straight over
+the GPU. The visualizer feeds Resolume, OBS or any Spout/Syphon receiver
+without window capture and without a plugin install.
 
-- **Spout (Windows) / Syphon (macOS):** very low latency sharing between
-  programs on the same machine, straight over the GPU. The visualizer feeds
-  Resolume or OBS without window capture.
-- **NDI:** the same thing across a network. One machine runs the visualizer,
-  another running Resolume or a mixing console receives the image over the
-  network. This is the standard in professional live and stage setups.
+NDI was originally part of this release. It moved to v3.1.5 — not because it
+is harder to build, but because it is the only one of the three with a licence
+burden. Spout is BSD 2-Clause and Syphon is Simplified BSD: both need nothing
+more than a copyright notice. The reasoning is under "Not done, and why".
 
-Each requires a native library, so this ships as an optional companion package
-rather than something bundled into the base install.
+### How it works
+
+Chromium keeps the WebGL2 output inside its GPU process, and the D3D11 texture
+handle is not normally reachable from the application. Reading pixels back to
+the CPU would cost roughly 475 MB/s at 1080p60 and would defeat the point of a
+low-latency sender.
+
+Electron exposes the GPU path directly. With
+`webPreferences.offscreen.useSharedTexture`, the `paint` event carries the
+texture itself — a shared `ID3D11Texture2D` handle on Windows, an `IOSurface`
+on macOS — with no CPU copy at any point.
+
+The architecture this slots into already exists. A hidden offscreen window
+loads the same page `src/main/stream-server.js` already serves to OBS as a
+browser source, so audio frames arrive over the WebSocket that is already
+there and the rendering engine needs no changes at all. Spout and Syphon
+become output targets beside "OBS browser source" rather than a parallel
+pipeline.
+
+### Dependencies and the one open question
+
+`@napolab/texture-bridge` covers both platforms in a single MIT dependency:
+Spout over DXGI shared handles on Windows, Syphon over IOSurface and Metal on
+macOS, with prebuilt N-API binaries for `win32-x64-msvc`, `darwin-x64` and
+`darwin-arm64`.
+
+It also ships a **receiver**, which the roadmap had not previously accounted
+for: Resolume or any other Spout/Syphon sender can be read *into* the
+visualizer as an input layer. That arrives free with the same dependency and
+is worth a layer source of its own.
+
+One thing is assumed rather than proven, and it is the first task of the
+release: `audify` runs in a separate Node subprocess precisely because its
+prebuilds target the Node ABI rather than Electron. `texture-bridge` has to
+load **inside the main process**, since that is where `paint` events are
+raised. Node-API is ABI-stable across both runtimes, so it should load without
+`electron-rebuild` — but that is exactly the kind of assumption `audify`
+punished, so it gets verified with a bare `require` before anything is built
+on top of it.
+
+### Electron upgrade — a prerequisite, not a side quest
+
+`texture-bridge` requires **Electron 40 or newer**. The application ships
+33.4.11, so the upgrade is not a judgement call about hygiene; it is the floor
+for taking this path at all.
+
+The target is **43.5.1**. Electron 33.4.11 reached end of life on 29 April
+2025 and carries Chromium 130 against 152 in the current line, which is the
+real security argument on its own. Two smaller reasons pick 43 over 44: 43 has
+had five patch cycles to settle where 44 is days old, and 43 carries
+electron/electron#51287, which removed the white borders frameless fullscreen
+windows had on Windows — this application creates exactly that kind of window.
+Version 44 would cost no extra migration work and buys a longer support
+runway, so it is a reasonable alternative rather than a wrong answer.
+`electron-builder` moves from 26.8.1 to 26.15.x in the same change.
+
+What the upgrade does **not** fix: electron/electron#45774, the white flash on
+the first `show()` of a hidden window, is closed as not planned and untouched
+since August 2025. The workaround — creating the window already visible and
+already fullscreen, never calling `show()` — has to survive the upgrade intact,
+and verifying that it still does is part of the work.
 
 ## v3.1.2 — Per-application audio capture
 
@@ -180,6 +241,22 @@ v3.1.4 turns that from a set of templates into an editor.
   animations.
 - Everything usable live and as an export preset.
 
+## v3.1.5 — NDI output
+
+The same picture across a network: one machine runs the visualizer, another
+running Resolume or a mixing console receives it over IP. This is the standard
+in professional live and stage setups.
+
+NDI inverts the difficulty of Spout and Syphon. It is **technically easier** —
+the send side takes a CPU buffer, so the shared-texture path is not needed and
+the `image` bitmap from the same `paint` event is enough. It is **legally
+harder**: the application EULA has to cover the NDI SDK terms, a link to
+`ndi.video` is required in the application, on the website and in the
+documentation, and the NDI tools may not be redistributed. Placing an
+EULA-bound binary inside an MIT-licensed project is the actual obstacle, which
+is why it ships as a separate optional package. `grandiose` provides the
+bindings.
+
 ## v3.2.0 — Redundancy, failover and frame sync
 
 The release aimed at staged, professional shows. This category is large and
@@ -200,15 +277,20 @@ standard in media servers of that class.
 
 These are deliberate omissions, not oversights.
 
-### Native senders (NDI, Spout, Syphon)
-Both need a third-party native library: the NDI SDK carries its own licence
-acceptance and platform-specific DLLs, and Spout needs a compiled native
-addon. Adding them halfway would produce a menu item that does not work.
+### NDI
+Free to use in commercial products, and no fee is involved — but the licence
+is the whole difficulty. The application EULA must cover the NDI SDK terms, a
+`ndi.video` link is required in the application, on the website and in the
+documentation, and the NDI tools may not be redistributed. An EULA-bound
+binary inside an MIT-licensed project is a packaging problem rather than an
+engineering one, so NDI ships as a separate optional package in v3.1.5.
+
+Spout (BSD 2-Clause) and Syphon (Simplified BSD) carry none of this, which is
+why they go first in v3.1.1.
 
 **What exists instead:** the **browser source** for OBS does the same job with
-no plugin install and real transparency. The architecture is ready for the
-native path — `src/main/stream-server.js` already abstracts the output — and
-it is scheduled for v3.1.1.
+no plugin install and real transparency, and `src/main/stream-server.js`
+already abstracts the output.
 
 ### WebGPU
 The Studio engine is built on WebGL2. WebGPU (WGSL) is more modern, but today

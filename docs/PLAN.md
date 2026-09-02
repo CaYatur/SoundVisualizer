@@ -504,10 +504,10 @@ Play the application from hardware and from other software.
   <br><sub>A stable command and telemetry protocol on the existing server so scripts and other applications can drive the visualizer. Local only, with the same allowlist as the remote.</sub>
 - [ ] **Mobile remote: full parameter control and layout editing**
   <br><sub>Grow the remote from a scene switcher into a real control surface: macro knobs, clip grid, blackout, tempo tap, and a user-arrangeable layout.</sub>
-- [ ] **NDI output** `backlog`
-  <br><sub>Requires the NDI SDK: a separate licence acceptance and platform-specific native libraries, which cannot ship inside a plain Electron build.</sub>
-- [ ] **Spout / Syphon output** `backlog`
-  <br><sub>Both require a compiled native addon per platform. Adding a menu entry that does not work would be worse than not having it.</sub>
+- [ ] **NDI output** `3.1.5`
+  <br><sub>Technically the easiest of the three senders — NDI takes a CPU buffer, so no shared texture is needed. Deferred purely for licensing: the application EULA must cover the NDI SDK terms, `ndi.video` links are required in the app, on the site and in the docs, and an EULA-bound binary inside an MIT project ships as a separate optional package.</sub>
+- [ ] **Spout / Syphon output** `3.1.1`
+  <br><sub>Moved out of the backlog. Electron’s `webPreferences.offscreen.useSharedTexture` exposes the GPU texture on the `paint` event, and `@napolab/texture-bridge` (MIT, N-API prebuilds) covers Spout and Syphon in one dependency. Spout is BSD 2-Clause and Syphon is Simplified BSD, so neither carries a licence burden. Requires Electron 40+, hence the upgrade to 43.5.1.</sub>
 - [ ] **Ableton Link** `backlog`
   <br><sub>Tempo sharing over the network needs a separate protocol stack and discovery service.</sub>
 
