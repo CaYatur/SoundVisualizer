@@ -183,7 +183,12 @@
       // 'particles' | 'spectrogram' | 'kaleido' | 'helix' | 'metaball' |
       // 'fireworks' | 'vortex' | 'mandala' | 'skyline' | 'lightning' |
       // 'ripplegrid' | 'lissajous' | 'strings' | 'bubbles' | 'wave3d' |
-      // 'arcs' | 'pinwheel' | 'geometry' (3B parametrik) |
+      // 'arcs' | 'pinwheel' |
+      // üretken: 'flowfield' | 'flock' | 'voronoi' | 'truchet' | 'moire' |
+      //          'interference' | 'ropes' | 'galaxy' | 'dna' | 'isocity' |
+      //          'attractorfield' |
+      // ölçüm:   'scope' | 'goniometer' | 'chromawheel' |
+      // 'geometry' (3B parametrik) |
       // 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
       type: 'bars',
       rainbow: true,

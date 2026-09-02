@@ -767,6 +767,24 @@
 
     'Mono Kırmızı': 'Mono Red', 'Mono Mavi': 'Mono Blue', 'Mono Yeşil': 'Mono Green',
     'Mono Mor': 'Mono Purple', 'Mono Turuncu': 'Mono Orange', 'Gri Tonlama': 'Grayscale',
+    // ---- Üretken görselleştirici modları ----
+    'Üretken Sistemler': 'Generative Systems',
+    'Ölçüm': 'Metering',
+    'Akış Alanı': 'Flow Field',
+    'Sürü': 'Flock',
+    'Voronoi': 'Voronoi',
+    'Truchet': 'Truchet',
+    'Moiré': 'Moiré',
+    'Dalga Girişimi': 'Wave Interference',
+    'İpler': 'Ropes',
+    'Galaksi': 'Galaxy',
+    'DNA Sarmalı': 'DNA Helix',
+    'İzometrik Şehir': 'Isometric City',
+    'Çekici Alanı': 'Attractor Field',
+    'Osiloskop (XY)': 'Oscilloscope (XY)',
+    'Gonyometre': 'Goniometer',
+    'Kroma Çemberi': 'Chroma Wheel',
+
     // ---- Ses çözümlemesi ----
     'Ses Çözümlemesi': 'Audio Analysis',
     'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.':

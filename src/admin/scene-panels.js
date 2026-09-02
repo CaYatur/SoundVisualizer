@@ -150,6 +150,11 @@
         ['tunnel', 'Tünel'], ['orb', 'Küre'], ['particles', 'Parçacık'], ['fireworks', 'Havai Fişek'],
         ['lightning', 'Şimşek'], ['bubbles', 'Baloncuk'], ['metaball', 'Sıvı Damla'],
         ['ripplegrid', 'Dalgalı Izgara'], ['spectrogram', 'Spektrogram'], ['geometry', '3B Geometri'],
+        ['flowfield', 'Akış Alanı'], ['flock', 'Sürü'], ['voronoi', 'Voronoi'],
+        ['truchet', 'Truchet'], ['moire', 'Moiré'], ['interference', 'Dalga Girişimi'],
+        ['ropes', 'İpler'], ['galaxy', 'Galaksi'], ['dna', 'DNA Sarmalı'],
+        ['isocity', 'İzometrik Şehir'], ['attractorfield', 'Çekici Alanı'],
+        ['scope', 'Osiloskop (XY)'], ['goniometer', 'Gonyometre'], ['chromawheel', 'Kroma Çemberi'],
         ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
       ];
     }
