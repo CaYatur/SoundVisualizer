@@ -154,9 +154,12 @@
     // ---------------------------------------------------------------- makro
     const macroBox = el('div', { class: 'mod-macros' });
     for (let i = 0; i < 8; i++) {
-      const mc = m.macros[i] || (m.macros[i] = { name: 'Makro ' + (i + 1), value: 0 });
+      const mc = m.macros[i] || (m.macros[i] = { name: '', value: 0 });
       const nameIn = el('input', {
         class: 'p-in tiny', type: 'text', value: mc.name || '',
+        // Yer tutucu arayüz metni olduğu için çevrilir; ad ise kullanıcının
+        // yazdığı veridir ve olduğu gibi kalır
+        placeholder: 'Makro ' + (i + 1),
         oninput: (e) => { mc.name = e.target.value; P().push(false); },
       });
       const val = el('span', { class: 'val', text: Math.round((mc.value || 0) * 100) + '%' });

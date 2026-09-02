@@ -275,8 +275,40 @@ void main(){
     const pos = new Float32Array(N * 3);
     const nor = new Float32Array(N * 3);
     const uvs = new Float32Array(N * 2);
-    const scale = def.scale || 0.05;
-    const c = def.center || [0, 0, 0];
+
+    /* Çerçeveleme ÖLÇÜLEREK yapılır, elle yazılmaz.
+
+       Her çekicinin tanımında bir `scale` ve `center` alanı vardı ve bunlar
+       elle giriliyordu. Elle girilen bir çerçeve kaçınılmaz olarak yanlış
+       olur: Lorenz'in merkezi [0,0,-25] yazılmıştı, gerçek ağırlık merkezi
+       ise [0,0,+26] — işaret ters olduğu için şekil iki katı kaydırılıp
+       ekranın kenarına itiliyordu. Chen'in ölçeği ise yörüngesinden kırk kat
+       küçüktü.
+
+       Kısa bir ölçüm geçişi bunu kökünden çözer ve her yeni çekici için
+       kendiliğinden doğru çalışır: yörünge önce örneklenir, sınır kutusu
+       bulunur, sonra şekil birim kutuya oturtulur. Parametre değiştiğinde
+       çerçeve de birlikte güncellenir — sabit bir ölçek bunu yapamazdı. */
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    const probe = Math.min(N, 6000);
+    window.SVFormulas.iterate(def, params, {
+      steps: probe, dt, skip: 500,
+      onPoint: (q) => {
+        for (let k = 0; k < 3; k++) {
+          if (q[k] < lo[k]) lo[k] = q[k];
+          if (q[k] > hi[k]) hi[k] = q[k];
+        }
+      },
+    });
+    const c = [0, 1, 2].map((k) => (isFinite(lo[k]) && isFinite(hi[k]) ? (lo[k] + hi[k]) / 2 : 0));
+    let span = 0;
+    for (let k = 0; k < 3; k++) {
+      const d = hi[k] - lo[k];
+      if (isFinite(d) && d > span) span = d;
+    }
+    // Birim kutunun biraz içine otursun; kenara değen bir şekil kesik görünür
+    const scale = span > 1e-6 ? 1.7 / span : (def.scale || 0.05);
 
     // Kaçan yörünge ortak yineleyicide yakalanır (bkz. formulas.js: iterate)
     window.SVFormulas.iterate(def, params, {

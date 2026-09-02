@@ -2071,6 +2071,8 @@
         {
           class: 'nav-item' + (cat.id === activeCategory ? ' active' : ''),
           type: 'button',
+          // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
+          'data-cat': cat.id,
           title: cat.desc,
           onclick: () => setCategory(cat.id),
         },
@@ -2157,7 +2159,7 @@
       ]),
     ]);
 
-    const card = el('div', { class: 'card' + (sec.wide ? ' wide' : '') }, [head]);
+    const card = el('div', { class: 'card' + (sec.wide ? ' wide' : ''), 'data-card': sec.id }, [head]);
     appendGrouped(card, basics);
 
     if (advanced.length) {

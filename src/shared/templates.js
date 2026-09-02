@@ -60,9 +60,10 @@
 
     T('club-tunnel', 'Kulüp', 'Hyper Tunnel', 'Basla nefes alan sonsuz tünel.',
       merge(
-        B('corridor'), V('tunnel', { glow: 0.7, thickness: 0.55, rainbow: true }),
-        pal('#120024', '#5b2bff', '#00d4ff', '#ff00a0'),
-        { postfx: [fx('bloom', { intensity: 1.1 }), fx('zoomblur', { strength: 0.18 })] },
+        B('corridor', { gradient: { brightness: 1.35, audioReactivity: 1.1, speed: 0.8 } }),
+        V('tunnel', { glow: 0.85, thickness: 0.7, rainbow: true, barCount: 140 }),
+        pal('#1a0033', '#7c3aed', '#00e5ff', '#ff2d95', '#ffe066'),
+        { postfx: [fx('bloom', { threshold: 0.35, intensity: 1.5 }), fx('zoomblur', { strength: 0.18 })] },
         { modulation: { routes: [mod('bass', 'postfx.1.params.strength', 0, 0.45, { curve: 'exp' })] } },
         { transition: { type: 'zoom', duration: 0.5 } }
       )),
@@ -242,7 +243,7 @@
 
     T('geo-lorenz', '3B Geometri', 'Lorenz', 'Kelebek çekicisi.',
       merge(B('solid', { solidColor: '#03030a' }), V('geometry'),
-        { geometry: { family: 'attractor', formula: 'lorenz', render: 'points', attractorPoints: 60000, colorMode: 'depth', spin: 0.2 } },
+        { geometry: { family: 'attractor', formula: 'lorenz', render: 'points', attractorPoints: 90000, colorMode: 'depth', spin: 0.18, tilt: 0.45, zoom: 1.15, pointSize: 1.6, alpha: 0.85 } },
         pal('#00e5ff', '#7c5cff', '#ff2d95'),
         { postfx: [fx('bloom', { intensity: 1.2 })] })),
 

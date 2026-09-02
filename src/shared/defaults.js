@@ -505,11 +505,14 @@
         { band: 'bass', attack: 0.02, release: 0.3 },
         { band: 'treble', attack: 0.01, release: 0.15 },
       ],
+      /* Adlar boş başlar. Bir ad yapılandırmada saklanan DEĞERdir, arayüz
+         metni değil; içine Türkçe yazmak İngilizce arayüzde çevrilemeyen bir
+         dize bırakırdı. Panel boş adı çevrilmiş bir yer tutucuyla gösterir. */
       macros: [
-        { name: 'Makro 1', value: 0 }, { name: 'Makro 2', value: 0 },
-        { name: 'Makro 3', value: 0 }, { name: 'Makro 4', value: 0 },
-        { name: 'Makro 5', value: 0 }, { name: 'Makro 6', value: 0 },
-        { name: 'Makro 7', value: 0 }, { name: 'Makro 8', value: 0 },
+        { name: '', value: 0 }, { name: '', value: 0 },
+        { name: '', value: 0 }, { name: '', value: 0 },
+        { name: '', value: 0 }, { name: '', value: 0 },
+        { name: '', value: 0 }, { name: '', value: 0 },
       ],
       random: { rate: 1, sync: false, division: '1/1' },
     },

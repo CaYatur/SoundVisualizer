@@ -1128,11 +1128,11 @@
           ctx.lineWidth = Math.max(1, minDim / 500);
           ctx.stroke();
         }
-        // Nota adı
+        // Nota adı — iç çemberin hemen içinde, akor adına yer bırakacak kadar dışta
         const mid = (a0 + a1) / 2;
-        const tr = inner * 0.72;
+        const tr = inner * 0.86;
         ctx.fillStyle = rgba(c, 0.55 + e * 0.45);
-        ctx.font = Math.round(minDim * 0.035) + 'px system-ui, sans-serif';
+        ctx.font = Math.round(minDim * 0.028) + 'px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(NAMES[pc], cx + Math.cos(mid) * tr, cy + Math.sin(mid) * tr);
@@ -1142,7 +1142,8 @@
       if (an && an.chord.confidence > 0.55) {
         const c = tone(v, cfg, 0.5, t);
         ctx.fillStyle = rgba(c, 0.9);
-        ctx.font = '600 ' + Math.round(minDim * 0.085) + 'px system-ui, sans-serif';
+        // Akor adı iç çemberin içine sığmalı; nota halkasıyla çakışmasın
+        ctx.font = '600 ' + Math.round(minDim * 0.05) + 'px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(an.chord.name, cx, cy);

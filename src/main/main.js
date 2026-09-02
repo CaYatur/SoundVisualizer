@@ -2175,7 +2175,17 @@ async function runShots() {
   const shotsDir = path.join(__dirname, '..', '..', 'docs', 'screenshots');
   fs.mkdirSync(shotsDir, { recursive: true });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
   const save = async (win, name) => {
+    /* capturePage son SUNULAN kareyi verir. İki rAF bekleyip taze kareyi
+       zorluyoruz; pencere örtülüyse rAF hiç çalışmayacağı için zamanlayıcıyla
+       yarıştırılır ve üretici asla asılı kalmaz. */
+    try {
+      await win.webContents.executeJavaScript(
+        'new Promise(function(r){var d=setTimeout(r,600);' +
+          'requestAnimationFrame(function(){requestAnimationFrame(function(){clearTimeout(d);r();});});})'
+      );
+    } catch (e) { /* pencere kapanmış olabilir */ }
     const img = await win.webContents.capturePage();
     fs.writeFileSync(path.join(shotsDir, name), img.toPNG());
     console.log('[SHOTS] saved ' + name);
@@ -2184,14 +2194,12 @@ async function runShots() {
   // Hareketli demo (animasyonlu GIF) — kareleri yakalayıp sharp ile birleştirir
   const saveGif = async (win, name, frames, delayMs, width) => {
     let sharp;
-    try {
-      sharp = require('sharp');
-    } catch {
-      console.log('[SHOTS] sharp yok, GIF atlandı');
+    try { sharp = require('sharp'); } catch (e) {
+      console.log('[SHOTS] sharp yok, GIF atlandı: ' + name);
       return;
     }
     const bufs = [];
-    for (let i = 0; i < frames; i++) {
+    for (let k = 0; k < frames; k++) {
       const img = await win.webContents.capturePage();
       bufs.push(await sharp(img.toPNG()).resize(width).png().toBuffer());
       await wait(delayMs);
@@ -2202,86 +2210,122 @@ async function runShots() {
     console.log('[SHOTS] saved ' + name);
   };
 
-  // Logoyu dataURL olarak yükle (görselleştirici merkez logosu için)
-  let logoSrc = null;
-  try {
-    const logoPath = path.join(__dirname, '..', '..', 'assets', 'logo-256.png');
-    logoSrc = 'data:image/png;base64,' + fs.readFileSync(logoPath).toString('base64');
-  } catch {}
+  /* Sentetik ses karesi.
 
-  // Sentetik FFT karesi: bas vurgulu, hareketli tepeli spektrum + dalga formu
+     Gerçek ses yakalanmıyor: ekran görüntüleri her makinede, her seferinde
+     aynı görünmeli ve o an ne çalıyorsa ona bağlı olmamalı. Sinyal müzikal
+     olacak biçimde kuruluyor — 120 BPM'lik bir vuruş, bas ağırlıklı bir taban,
+     spektrumda gezinen tepe noktaları ve stereo bir dalga formu. Böylece
+     hiçbir kare "sessiz" yakalanmıyor. */
   const makeFrame = (t) => {
     const freq = new Uint8Array(1024);
-    const beat = 0.4 + 0.6 * Math.pow(Math.max(0, Math.sin(t * 3.4)), 1.6);
-    for (let i = 0; i < 1024; i++) {
-      // bas ağırlıklı, hızlı düşen taban (sağdaki yüksek frekanslar kısa kalsın)
-      const decay = Math.pow(1 - i / 1024, 2.8);
-      // hareketli tepe noktaları (spektrumda gezinen tek tük yüksek barlar)
-      const p1 = Math.exp(-Math.pow((i - 24 - 14 * Math.sin(t * 1.5)) / 10, 2));
-      const p2 = 0.7 * Math.exp(-Math.pow((i - 90 - 50 * Math.sin(t * 0.8)) / 22, 2));
-      const p3 = 0.55 * Math.exp(-Math.pow((i - 240 - 120 * Math.sin(t * 1.1)) / 30, 2));
-      const p4 = 0.4 * Math.exp(-Math.pow((i - 520 - 200 * Math.sin(t * 0.6 + 1)) / 26, 2));
-      // mikro dalgalanma (her bar biraz farklı yüksek/alçak olsun)
-      const ripple = 0.12 * (0.5 + 0.5 * Math.sin(i * 0.6 + t * 5));
-      let v = decay * (0.3 + 0.5 * beat) + (p1 * beat + p2 + p3 + p4) * 0.7 + ripple * decay;
-      v += Math.random() * 0.03;
-      freq[i] = Math.max(0, Math.min(255, v * 150));
+    const beatPhase = (t * 2) % 1;               // 120 BPM
+    const beat = Math.pow(Math.max(0, 1 - beatPhase * 2.2), 2);
+    const bar = Math.floor(t * 2 / 4) % 4;
+    for (let k = 0; k < 1024; k++) {
+      const decay = Math.pow(1 - k / 1024, 2.6);
+      const kick = 1.15 * beat * Math.exp(-Math.pow((k - 8) / 12, 2));
+      const bass = 0.75 * Math.exp(-Math.pow((k - 26 - 10 * Math.sin(t * 1.1)) / 14, 2));
+      const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
+      const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
+      const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
+      const hat = 0.35 * (((t * 8) % 1) < 0.12 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
+      const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
+      let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
+      freq[k] = Math.max(0, Math.min(255, v * 148));
     }
     const time = new Uint8Array(2048);
-    for (let i = 0; i < 2048; i++) {
+    for (let k = 0; k < 2048; k++) {
+      const u = k / 2048;
       const s =
-        Math.sin((i / 2048) * Math.PI * 2 * 5 + t * 6) * 0.42 * beat +
-        Math.sin((i / 2048) * Math.PI * 2 * 2 + t * 2) * 0.3;
-      time[i] = Math.max(0, Math.min(255, 128 + s * 120));
+        Math.sin(u * Math.PI * 2 * 4 + t * 5.2) * 0.40 * (0.4 + beat) +
+        Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1) * 0.22 +
+        Math.sin(u * Math.PI * 2 * 12 + t * 9) * 0.10;
+      time[k] = Math.max(0, Math.min(255, 128 + s * 118));
     }
     return { freq, time, sampleRate: 48000 };
   };
 
-  // 1) Yönetici paneli ekran görüntüsü — panel ayar kartlarını çizene kadar bekle
-  // (aygıt tanılama/aydınlatma taraması gecikebildiği için sabit süre yetmiyor)
+  // ==========================================================================
+  // 1) Yönetici paneli — İNGİLİZCE arayüzle
+  // ==========================================================================
   const adminReady = async () => {
-    for (let i = 0; i < 40; i++) {
+    for (let k = 0; k < 60; k++) {
       if (!adminWin || adminWin.isDestroyed()) return false;
       try {
         const n = await adminWin.webContents.executeJavaScript(
           "document.getElementById('sections') ? document.getElementById('sections').children.length : 0"
         );
         if (n > 0) return true;
-      } catch {}
+      } catch (e) { /* henüz yüklenmedi */ }
       await wait(250);
     }
     return false;
   };
-  if (!(await adminReady())) console.log('[SHOTS] admin panel hazır olmadı, yine de kaydediliyor');
 
-  // Ekran görüntüsü yerel arayüz durumundan bağımsız olsun: "Sahne" kategorisi,
-  // gelişmiş kapalı. Kullanıcının tercihi sonradan geri yüklenir.
   let uiState = null;
   if (adminWin && !adminWin.isDestroyed()) {
+    // Dili İngilizceye alıp yeniden yükle: README uluslararası okuyucuya hitap
+    // ediyor ve görüntülerdeki arayüzün de İngilizce olması gerekiyor.
     try {
       uiState = await adminWin.webContents.executeJavaScript(
-        "(function(){var s={c:localStorage.getItem('sv-category'),a:localStorage.getItem('sv-advanced')};" +
-          "localStorage.setItem('sv-category','scene');localStorage.setItem('sv-advanced','0');" +
-          "var t=document.getElementById('advToggle');if(t&&t.checked){t.checked=false;t.dispatchEvent(new Event('change'));}" +
-          "var b=document.querySelectorAll('.nav-item');if(b[0])b[0].click();" +
-          "return JSON.stringify(s)})()"
+        "(function(){var s={lang:localStorage.getItem('sv-language'),c:localStorage.getItem('sv-category'),a:localStorage.getItem('sv-advanced')};" +
+          "localStorage.setItem('sv-language','en');localStorage.setItem('sv-advanced','0');" +
+          'return JSON.stringify(s)})()'
       );
-    } catch {}
-  }
-  await wait(900); // yeniden çizim + önizleme/gradyan ilk karesi otursun
-  if (adminWin && !adminWin.isDestroyed()) await save(adminWin, 'admin-panel.png');
-  if (uiState && adminWin && !adminWin.isDestroyed()) {
-    try {
-      await adminWin.webContents.executeJavaScript(
-        '(function(){var s=' + uiState + ';' +
-          "if(s.c)localStorage.setItem('sv-category',s.c);else localStorage.removeItem('sv-category');" +
-          "if(s.a)localStorage.setItem('sv-advanced',s.a);else localStorage.removeItem('sv-advanced');" +
-          'return true})()'
-      );
-    } catch {}
+      adminWin.reload();
+    } catch (e) { /* yoksay */ }
+    await wait(1500);
+    if (!(await adminReady())) console.log('[SHOTS] panel hazır olmadı, yine de kaydediliyor');
   }
 
-  // 2) Görselleştirici penceresi (sabit boyut, tam ekran değil — net görüntü için)
+  /* Panel görüntüleri: kategori + o kategoride öne çıkan kart.
+
+     Kartın kimliğine göre kaydırma yapılıyor; kategoriyi açıp en üstten
+     ekran almak yeni motorları göstermezdi (Sahne kategorisinde on kart var). */
+  const PANELS = [
+    ['scene', null, 'panel-scene.png'],
+    ['scene', 'modulation', 'panel-modulation.png'],
+    ['scene', 'transition', 'panel-transition.png'],
+    ['scene', 'layers', 'panel-layers.png'],
+    ['scene', 'effects', 'panel-effects.png'],
+    ['scene', 'geometry', 'panel-geometry.png'],
+    ['audio', 'deepanalysis', 'panel-analysis.png'],
+    ['output', 'mapping', 'panel-mapping.png'],
+    ['output', 'record', 'panel-record.png'],
+    ['library', 'templates', 'panel-templates.png'],
+    ['studio', null, 'panel-studio.png'],
+    ['control', null, 'panel-control.png'],
+  ];
+
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awc = adminWin.webContents;
+    for (const [cat, cardId, name] of PANELS) {
+      try {
+        await awc.executeJavaScript(
+          '(function(){var b=document.querySelector(\'.nav-item[data-cat="' + cat + '"]\');' +
+            "if(!b){var all=document.querySelectorAll('.nav-item');for(var i=0;i<all.length;i++){if(all[i].dataset&&all[i].dataset.cat==='" + cat + "'){b=all[i];break;}}}" +
+            'if(b)b.click();return !!b})()'
+        );
+        await wait(900);
+        if (cardId) {
+          await awc.executeJavaScript(
+            "(function(){var c=document.querySelector('#sections .card[data-card=\"" + cardId + "\"]');" +
+              "if(!c){var cards=document.querySelectorAll('#sections .card');for(var i=0;i<cards.length;i++){if(cards[i].id==='card-" + cardId + "'){c=cards[i];break;}}}" +
+              "if(c)c.scrollIntoView({block:'start'});return !!c})()"
+          );
+          await wait(500);
+        }
+        await save(adminWin, name);
+      } catch (e) {
+        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
+      }
+    }
+  }
+
+  // ==========================================================================
+  // 2) Sahneler — hazır şablonlardan, canlı sinyalle
+  // ==========================================================================
   const vw = new BrowserWindow({
     width: 1600,
     height: 900,
@@ -2296,98 +2340,104 @@ async function runShots() {
     },
   });
   await vw.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  await wait(1200);
+
+  const t0 = Date.now();
+  const pump = setInterval(() => {
+    const frame = makeFrame((Date.now() - t0) / 1000);
+    if (!vw.isDestroyed()) vw.webContents.send('native-audio', frame);
+    // Panelin canlı önizlemesi ve seviye ölçerleri de dolu görünsün
+    if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('native-audio', frame);
+  }, 25);
 
   const base = loadSettings() || {};
-  const cfgFor = (over) =>
-    Object.assign(
-      {},
-      base,
-      {
-        background: { type: 'gradient', gradient: { style: 'soft', audioBrightness: 0.6, audioHue: 0.25 } },
-        logo: logoSrc ? { enabled: true, src: logoSrc, scale: 0.2, glow: 0.35, opacity: 1, pulse: 0.3, x: 0.5, y: 0.5 } : { enabled: false },
-        power: { fpsCap: 60, renderScale: 1.0, pauseOnSilence: false, hideCursor: true },
-      },
-      over
+  // Sahne dışındaki alanlar sabitlensin: güç ayarı ve imleç görüntüyü etkiler
+  base.power = Object.assign({}, base.power, { fpsCap: 60, renderScale: 1, pauseOnSilence: false, hideCursor: true });
+
+  /* Şablonu görselleştirici penceresinin İÇİNDE uygula: şablon motoru orada
+     zaten yüklü ve aynı kodu iki yerde tutmak gerekmiyor. */
+  const applyTemplate = async (id, over) => {
+    const cfg = await vw.webContents.executeJavaScript(
+      '(function(){' +
+        'var base=' + JSON.stringify(base) + ';' +
+        'var t=(window.SVTemplates.TEMPLATES||[]).filter(function(x){return x.id===' + JSON.stringify(id) + ';})[0];' +
+        'if(!t) return null;' +
+        'var out=window.SVTemplates.apply(base,t,{defaultConfig:window.SV.defaultConfig,deepMerge:window.SV.deepMerge,clone:window.SV.clone});' +
+        'var over=' + JSON.stringify(over || {}) + ';' +
+        'return window.SV.deepMerge(out, over);' +
+      '})()'
     );
-  const sendCfg = (over) => vw.webContents.send('config', cfgFor(over));
-
-  // Sahte ses karelerini pompala
-  let t0 = Date.now();
-  const pump = setInterval(() => {
-    if (vw.isDestroyed()) return;
-    vw.webContents.send('native-audio', makeFrame((Date.now() - t0) / 1000));
-  }, 30);
-
-  const presets = {
-    aurora: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'],
-    neon: ['#ff00cc', '#3333ff', '#00ffe0', '#9d00ff', '#ff0066'],
-    sunset: ['#ff5e62', '#ff9966', '#ffcf6b', '#c94b8e', '#5b2c83'],
-    lava: ['#1a0000', '#7a0000', '#ff2e00', '#ff8a00', '#ffd000'],
-    ocean: ['#0f2027', '#1c92d2', '#2af5d4', '#136a8a', '#0b486b'],
-    ice: ['#cfefff', '#74c0ff', '#3a7bd5', '#7ee8fa', '#eaf6ff'],
-    night: ['#020111', '#191654', '#43377c', '#7b2ff7', '#22264b'],
-    forest: ['#0b3d2e', '#1e6f5c', '#56c596', '#a3eb9d', '#0f5132'],
+    if (!cfg) { console.log('[SHOTS] şablon yok: ' + id); return false; }
+    vw.webContents.send('config', cfg);
+    return true;
   };
-  const grad = (style, colors, b, h) => ({ type: 'gradient', gradient: { style, colors, audioBrightness: b, audioHue: h } });
-  const noLogo = { enabled: false };
 
-  // 1) Barlar (alt) + gökkuşağı — Aurora yumuşak
-  sendCfg({ visualizer: { type: 'bars', rainbow: true, position: 'bottom', barCount: 76, gap: 0.28, cap: true, glow: 0.5 },
-            background: grad('soft', presets.aurora, 0.55, 0.08) });
-  await wait(1500); await save(vw, 'visualizer-bars.png');
+  /* README için seçilen sahneler. Hepsi kullanıcının Kitaplık > Hazır
+     Şablonlar kartından tek tıkla ulaşabileceği şeyler; görüntüdeki şeyin
+     ulaşılabilir olması, ulaşılamaz bir şeyi göstermekten iyidir. */
+  const SCENES = [
+    ['club-strobe', 'scene-club-strobe.png', 2200],
+    ['club-tunnel', 'scene-tunnel.png', 2200],
+    ['club-milkdrop', 'scene-milkdrop.png', 3200],
+    ['club-attractor', 'scene-attractor.png', 2600],
+    ['geo-lorenz', 'scene-lorenz.png', 2600],
+    ['geo-klein', 'scene-klein.png', 2400],
+    ['geo-supershape', 'scene-supershape.png', 2400],
+    ['gen-synthwave', 'scene-synthwave.png', 2200],
+    ['gen-dnb', 'scene-dnb.png', 2200],
+    ['amb-aurora', 'scene-aurora.png', 2400],
+    ['amb-caustics', 'scene-caustics.png', 2400],
+    ['amb-flow', 'scene-flowfield.png', 3000],
+    ['mus-chroma', 'scene-chroma.png', 2600],
+    ['mus-galaxy', 'scene-galaxy.png', 2600],
+    ['scr-plasma', 'scene-plasma.png', 2200],
+    ['evt-gala', 'scene-gala.png', 2200],
+  ];
 
-  // 2) Barlar (alt) + ayna (bas ortada) — Okyanus plazma
-  sendCfg({ visualizer: { type: 'bars', rainbow: true, position: 'bottom', mirror: true, barCount: 72, gap: 0.32, cap: true, glow: 0.6 },
-            background: grad('plasma', presets.ocean, 0.85, 0.05), logo: noLogo });
-  await wait(1400); await save(vw, 'visualizer-bars-mirror.png');
+  for (const [id, name, settle] of SCENES) {
+    if (!(await applyTemplate(id))) continue;
+    await wait(settle);
+    await save(vw, name);
+  }
 
-  // 3) Barlar (orta, simetrik) + gökkuşağı — Buz yumuşak
-  sendCfg({ visualizer: { type: 'bars', rainbow: true, position: 'center', barCount: 84, gap: 0.34, cap: true, glow: 0.45 },
-            background: grad('soft', presets.ice, 0.5, 0.0), logo: noLogo });
-  await wait(1400); await save(vw, 'visualizer-bars-thin.png');
+  // Metin / şarkı sözü katmanı: ayrı, çünkü şablonlarda yok
+  await applyTemplate('amb-aurora', {
+    visualizer: { type: 'text' },
+    text: {
+      enabled: true, source: 'static', content: 'CAYADEV',
+      size: 0.16, weight: 800, perCharacter: true, audioScale: 0.18, outline: 0.25, shadow: 0.5,
+    },
+  });
+  await wait(2000);
+  await save(vw, 'scene-text.png');
 
-  // 4) Merkez barlar + logo — Neon plazma
-  sendCfg({ visualizer: { type: 'centerBars', rainbow: true, barCount: 84, gap: 0.2, glow: 0.55 },
-            background: grad('plasma', presets.neon, 0.9, 0.12) });
-  await wait(1400); await save(vw, 'visualizer-center.png');
+  // ==========================================================================
+  // 3) Hareketli demolar
+  // ==========================================================================
+  const GIFS = [
+    ['club-tunnel', 'demo-tunnel.gif', 34, 60, 760],
+    ['club-milkdrop', 'demo-milkdrop.gif', 34, 60, 760],
+    ['geo-lorenz', 'demo-geometry.gif', 30, 65, 760],
+    ['amb-flow', 'demo-flowfield.gif', 30, 65, 760],
+  ];
+  for (const [id, name, frames, delay, width] of GIFS) {
+    if (!(await applyTemplate(id))) continue;
+    await wait(1600);
+    await saveGif(vw, name, frames, delay, width);
+  }
 
-  // 5) Dalga (kalın, ayna) + logo — Gün batımı yumuşak
-  sendCfg({ visualizer: { type: 'wave', rainbow: false, color: '#ffd3b6', thickness: 0.55, lineWidth: 4, glow: 0.5, mirror: true },
-            background: grad('soft', presets.sunset, 0.6, 0.06) });
-  await wait(1400); await save(vw, 'visualizer-wave.png');
-
-  // 6) Dalga (ince çizgi) + gökkuşağı — Gece plazma
-  sendCfg({ visualizer: { type: 'wave', rainbow: true, thickness: 0.32, lineWidth: 3, glow: 0.7, mirror: false },
-            background: grad('plasma', presets.night, 1.0, 0.15), logo: noLogo });
-  await wait(1400); await save(vw, 'visualizer-wave-line.png');
-
-  // 7) Çember + logo — Lav plazma
-  sendCfg({ visualizer: { type: 'circular', rainbow: false, color: '#ff8a00', barCount: 96, glow: 0.6 },
-            background: grad('plasma', presets.lava, 0.85, 0.05) });
-  await wait(1400); await save(vw, 'visualizer-circular.png');
-
-  // 8) Çember + gökkuşağı + logo — Orman yumuşak
-  sendCfg({ visualizer: { type: 'circular', rainbow: true, barCount: 120, gap: 0.1, glow: 0.55 },
-            background: grad('soft', presets.forest, 0.6, 0.1) });
-  await wait(1400); await save(vw, 'visualizer-circular-rainbow.png');
-
-  // 9) Düz renk arkaplan + marka kırmızısı barlar
-  sendCfg({ visualizer: { type: 'bars', rainbow: false, color: '#dc2727', position: 'bottom', barCount: 88, gap: 0.3, cap: true, glow: 0.4 },
-            background: { type: 'solid', solidColor: '#0b0c14' }, logo: noLogo });
-  await wait(1400); await save(vw, 'visualizer-solid.png');
-
-  // --- Hareketli demolar (animasyonlu GIF) ---
-  // Merkez barlar (gökkuşağı) — ses demosu
-  sendCfg({ visualizer: { type: 'centerBars', rainbow: true, barCount: 84, gap: 0.2, glow: 0.55 },
-            background: grad('plasma', presets.neon, 0.9, 0.12) });
-  await wait(600);
-  await saveGif(vw, 'demo-visualizer.gif', 30, 55, 700);
-
-  // Barlar (alt, gökkuşağı) — ses demosu
-  sendCfg({ visualizer: { type: 'bars', rainbow: true, position: 'bottom', barCount: 72, gap: 0.28, cap: true, glow: 0.5 },
-            background: grad('soft', presets.aurora, 0.6, 0.1), logo: noLogo });
-  await wait(600);
-  await saveGif(vw, 'demo-bars.gif', 28, 55, 700);
+  // Kullanıcının arayüz tercihini geri yükle
+  if (uiState && adminWin && !adminWin.isDestroyed()) {
+    try {
+      await adminWin.webContents.executeJavaScript(
+        '(function(){var s=' + uiState + ';' +
+          "if(s.lang)localStorage.setItem('sv-language',s.lang);else localStorage.removeItem('sv-language');" +
+          "if(s.c)localStorage.setItem('sv-category',s.c);else localStorage.removeItem('sv-category');" +
+          "if(s.a)localStorage.setItem('sv-advanced',s.a);else localStorage.removeItem('sv-advanced');" +
+          'return true})()'
+      );
+    } catch (e) { /* yoksay */ }
+  }
 
   clearInterval(pump);
   console.log('[SHOTS] done');

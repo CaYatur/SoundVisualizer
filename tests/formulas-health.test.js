@@ -151,3 +151,46 @@ for (const entry of catalog) {
     });
   }
 }
+
+// ===========================================================================
+// Çerçeveleme
+// ===========================================================================
+test('her çekicinin yörüngesi birim kutuya oturtulabiliyor', () => {
+  /* 3B motoru çekiciyi ekrana yerleştirirken çerçeveyi ÖLÇEREK buluyor
+     (bkz. geometry3d.js: buildAttractor). Bu testin ölçtüğü şey aynı
+     hesabın kendisi: yörüngenin sonlu bir sınır kutusu olmalı ve o kutu
+     yozlaşmamalı, yoksa ölçek sıfıra ya da sonsuza giderdi.
+
+     Elle yazılmış çerçeve alanları tam olarak burada yanlıştı: Lorenz'in
+     merkezi ters işaretle, Chen'in ölçeği kırk kat küçük yazılmıştı. */
+  for (const entry of catalog.filter((e) => e.family === 'attractor')) {
+    const def = F.get('attractor', entry.key);
+    const p = F.defaults(def);
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    F.iterate(def, p, {
+      steps: 8000, dt: 0.006, skip: 500,
+      onPoint: (q) => {
+        for (let k = 0; k < 3; k++) {
+          if (q[k] < lo[k]) lo[k] = q[k];
+          if (q[k] > hi[k]) hi[k] = q[k];
+        }
+      },
+    });
+    let span = 0;
+    for (let k = 0; k < 3; k++) {
+      assert.ok(isFinite(lo[k]) && isFinite(hi[k]), entry.key + ': sınır kutusu sonlu değil');
+      span = Math.max(span, hi[k] - lo[k]);
+    }
+    assert.ok(span > 1e-3, entry.key + ': yörünge yozlaşmış (yayılım ' + span + ')');
+    assert.ok(span < 1e5, entry.key + ': yörünge aşırı büyük (yayılım ' + span + ')');
+
+    // Ölçeklenip merkezlendiğinde birim kutuya sığmalı
+    const c = [0, 1, 2].map((k) => (lo[k] + hi[k]) / 2);
+    const scale = 1.7 / span;
+    for (let k = 0; k < 3; k++) {
+      const half = Math.max(Math.abs(lo[k] - c[k]), Math.abs(hi[k] - c[k])) * scale;
+      assert.ok(half <= 0.86, entry.key + ': eksen ' + k + ' kutuya sığmıyor (' + half.toFixed(3) + ')');
+    }
+  }
+});

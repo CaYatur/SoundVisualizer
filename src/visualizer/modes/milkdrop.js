@@ -393,8 +393,8 @@ void main(){ outColor = vCol; }`;
       const cr = r || 1;
       const cg = g || 1;
       const cb = b || 1;
-      const ca = a > 0 ? Math.min(1, a) : 0.65;
-      const amp = 0.4;
+      const ca = a > 0 ? Math.min(1, a) : 0.4;
+      const amp = 0.38;
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1);
         const s = (wave[Math.floor((i * wave.length) / N)] - 128) / 128;
@@ -451,21 +451,24 @@ void main(){ outColor = vCol; }`;
      çalıştığında akan bir tünel üretiyor. Bir `.milk` dosyası yüklenmediğinde
      sahne boş kalmasın diye var. */
   const DEFAULT_PRESET = [
-    'decay=0.960',
-    'fGammaAdj=1.400',
-    'wave_r=0.85',
-    'wave_g=0.60',
-    'wave_b=1.00',
-    'wave_a=0.70',
+    'decay=0.972',
+    'fGammaAdj=1.020',
+    'wave_r=0.95',
+    'wave_g=0.45',
+    'wave_b=0.85',
+    'wave_a=0.16',
     'per_frame_1=q1 = bass_att;',
     'per_frame_2=q2 = treb_att;',
-    'per_frame_3=zoom = 1.008 + 0.010*sin(time*0.61) + q1*0.010;',
-    'per_frame_4=rot = 0.012*sin(time*0.31) + q2*0.004;',
-    'per_frame_5=warp = 0.30 + q1*0.55;',
+    'per_frame_3=zoom = 1.018 + 0.012*sin(time*0.61) + q1*0.014;',
+    'per_frame_4=rot = 0.040 + 0.014*sin(time*0.31) + q2*0.014;',
+    'per_frame_5=warp = 0.55 + q1*0.80;',
     'per_frame_6=cx = 0.5 + 0.04*sin(time*0.23);',
     'per_frame_7=cy = 0.5 + 0.04*cos(time*0.19);',
-    'per_pixel_1=zoom = zoom + 0.020*sin(rad*7.0 - time*1.7);',
-    'per_pixel_2=rot = rot + 0.020*sin(ang*3.0 + time*0.5)*rad;',
+    'per_frame_8=wave_r = 0.55 + 0.45*sin(time*0.70);',
+    'per_frame_9=wave_g = 0.55 + 0.45*sin(time*0.70 + 2.09);',
+    'per_frame_10=wave_b = 0.55 + 0.45*sin(time*0.70 + 4.19);',
+    'per_pixel_1=zoom = zoom + 0.030*sin(rad*7.0 - time*1.7);',
+    'per_pixel_2=rot = rot + 0.045*sin(ang*3.0 + time*0.5)*rad;',
     'per_pixel_3=dx = 0.0016*cos(ang*5.0 + time*0.9);',
     'per_pixel_4=dy = 0.0016*sin(ang*4.0 - time*0.7);',
   ].join('\n');
