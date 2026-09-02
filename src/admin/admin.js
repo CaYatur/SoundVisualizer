@@ -1486,6 +1486,19 @@
         controls: [{ type: 'lightingpanel' }],
       },
       {
+        id: 'colorPresets',
+        category: 'scene',
+        icon: '🎨',
+        wide: true,
+        title: 'Renkler ve Hazır Şablonlar',
+        desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
+        show: usesPalette,
+        controls: [
+          { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)' },
+          { type: 'presets' },
+        ],
+      },
+      {
         id: 'background',
         category: 'scene',
         icon: '🌫️',
@@ -1545,8 +1558,6 @@
             ],
             show: () => cfg.background.type === 'gradient',
           },
-          { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)', show: usesPalette },
-          { type: 'presets', show: usesPalette },
           { type: 'slider', path: 'background.gradient.speed', label: 'Akış Hızı', min: 0, max: 2, step: 0.02, show: usesPalette },
           { type: 'slider', path: 'background.gradient.audioReactivity', label: 'Ses Tepkisi', min: 0, max: 2, step: 0.02, show: usesPalette },
 

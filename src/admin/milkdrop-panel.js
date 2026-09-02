@@ -13,16 +13,24 @@
   const P = () => window.SVPanel;
   const SP = () => window.SVScenePanels;
 
+  let loaded = false;
+  let loading = false;
   let presets = [];
   let filter = '';
   let busy = '';
 
   function refresh(cb) {
-    if (!window.api || !window.api.listPresets) return;
+    if (!window.api || !window.api.listPresets || loading) return;
+    loading = true;
     window.api.listPresets().then((list) => {
+      loading = false;
+      loaded = true;
       presets = (list || []).filter((p) => p.kind === 'milkdrop');
       if (cb) cb();
-    }).catch(() => {});
+    }).catch(() => {
+      loading = false;
+      loaded = true;
+    });
   }
 
   function visible() {
@@ -47,7 +55,9 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    if (!presets.length) refresh(() => P().rerender());
+    if (!loaded && !loading) {
+      refresh(() => P().rerender());
+    }
 
     // Durum
     const current = md.name || (md.source ? 'Adsız' : 'Yerleşik varsayılan');

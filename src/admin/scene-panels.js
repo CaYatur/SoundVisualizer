@@ -94,20 +94,28 @@
     return P().row(label, el('label', { class: 'switch small' }, [inp, el('span', { class: 'track' })]));
   }
 
+  const foldStates = {};
+
   // Katlanır bölüm (dönüşüm / ses gibi ikincil ayarlar için)
-  function foldable(title, buildKids) {
+  function foldable(title, buildKids, key) {
+    const k = key || title;
     const el = P().el;
     const body = el('div', { class: 'fold-body' });
-    let open = false;
+    let open = !!foldStates[k];
     const head = el('button', {
-      class: 'fold-head', type: 'button', text: '▸ ' + title,
+      class: 'fold-head', type: 'button', text: (open ? '▾ ' : '▸ ') + title,
       onclick: () => {
         open = !open;
+        foldStates[k] = open;
         head.textContent = (open ? '▾ ' : '▸ ') + title;
         body.classList.toggle('open', open);
         if (open && !body.childElementCount) buildKids().forEach((n) => n && body.appendChild(n));
       },
     });
+    if (open) {
+      body.classList.add('open');
+      buildKids().forEach((n) => n && body.appendChild(n));
+    }
     return el('div', { class: 'fold' }, [head, body]);
   }
 
@@ -389,7 +397,7 @@
           miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true }),
           miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }),
           miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; }),
-        ])
+        ], (l.id || i) + '_transform')
       );
 
       kids.push(
@@ -398,7 +406,7 @@
           miniSlider('Ses → Saydamlık', () => l.audio.opacity, (v) => { l.audio.opacity = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
           miniSlider('Ses → Ölçek', () => l.audio.scale, (v) => { l.audio.scale = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
           miniSlider('Ses → Dönüş', () => l.audio.rotate, (v) => { l.audio.rotate = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
-        ])
+        ], (l.id || i) + '_audio')
       );
 
       // ---- Maske ----
@@ -426,7 +434,7 @@
         }
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Maske katmanın kendi tuvaline uygulanır; dönüşümle birlikte hareket etmez ve karışım modundan bağımsızdır. Shader tabanlı katmanlarda (Studio, gradyan) 2B maske uygulanamaz.' }));
         return out;
-      }));
+      }, (l.id || i) + '_mask'));
 
       // ---- Katmana özel efekt zinciri ----
       kids.push(foldable('Katman Efektleri', () => {
@@ -464,7 +472,7 @@
         out.push(P().row('Ekle', sel));
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.' }));
         return out;
-      }));
+      }, (l.id || i) + '_fx'));
 
       // ---- Grup ve opaklık eğrisi ----
       kids.push(foldable('Grup ve Fader', () => [
@@ -475,7 +483,7 @@
         miniSelect('Fader Eğrisi', [['linear', 'Doğrusal'], ['exp', 'Üstel'], ['log', 'Logaritmik']],
           () => l.opacityCurve || 'linear', (v) => { l.opacityCurve = v; }),
         el('div', { class: 'studio-note dim-hint', text: 'Aynı gruptaki katmanlar Katman Grupları kartındaki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.' }),
-      ]));
+      ], (l.id || i) + '_group'));
 
       // ---- Kopyala / çoğalt ----
       kids.push(el('div', { class: 'row' }, [

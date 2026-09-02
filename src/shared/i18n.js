@@ -61,6 +61,8 @@
     'Ses Kaynakları': 'Audio Sources',
     'Birden fazla kaynak seçilebilir ve karıştırılır. 🔊 Loopback (sistem sesi), 🎤 Mikrofon (giriş aygıtı).': 'Multiple sources can be selected and mixed. 🔊 Loopback (system audio), 🎤 Microphone (input device).',
     'Hassasiyet': 'Sensitivity', 'Yumuşatma': 'Smoothing', 'Bas Güçlendirme': 'Bass Boost', 'Bas Vurgusu': 'Bass Emphasis',
+    'Renkler ve Hazır Şablonlar': 'Colors and Built-in Presets',
+    'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.': 'Color sequence and built-in themes for fluid gradient and palette-driven backgrounds.',
     'Arkaplan (Akışkan Gradyan)': 'Background (Fluid Gradient)', 'Sese tepki veren sisli/akışkan fon. Renkler ve hazır şablonlar.': 'A misty, fluid background that reacts to audio. Includes colors and built-in presets.',
     'Tür': 'Type', 'Stil': 'Style', 'Akışkan Gradyan': 'Fluid Gradient', 'Düz Renk': 'Solid Color', 'Yumuşak (Parlamasız)': 'Soft (No Glow)', 'Plazma (Parlamalı)': 'Plasma (Glowing)',
     'Renkler': 'Colors', 'Renkler (5 nokta)': 'Colors (5 points)', 'Akış Hızı': 'Flow Speed', 'Tek Yönlü Kayma': 'Directional Drift', 'Gezinme Alanı': 'Wander Area', 'Dolanma Miktarı': 'Orbit Amount',
