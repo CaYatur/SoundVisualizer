@@ -242,3 +242,50 @@ test('kaza koruması ayarları kaydedilip geri yüklenince korunur', () => {
   assert.strictEqual(roundTrip.power.protect, true);
   assert.strictEqual(roundTrip.power.protectNoEscape, true);
 });
+
+// ===========================================================================
+// Gösteri verisi sahneye ait DEĞİLDİR
+//
+// Bir sahneyi uygulamak, o sahnede saklanan her anahtarı yapılandırmaya
+// yazar. Zaman çizelgesi ve klip destesi bu listeye girerse, kullanıcı bir
+// sahneye tıkladığında bütün gösterisini kaybeder ve geri alma yolu olmaz.
+// Bu testin varlık sebebi tek: o listeye yanlışlıkla eklenmelerini yakalamak.
+// ===========================================================================
+test('zaman çizelgesi ve klip destesi sahne anahtarlarında YER ALMAZ', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
+  const m = src.match(/const SCENE_KEYS = \[([\s\S]*?)\];/);
+  assert.ok(m, 'SCENE_KEYS bulunamadı — test güncellenmeli');
+  const keys = m[1].split(/[,\s]+/).map((x) => x.replace(/['\"]/g, '').trim()).filter(Boolean);
+  assert.ok(keys.indexOf('timeline') === -1, 'timeline sahne anahtarı olmamalı');
+  assert.ok(keys.indexOf('clipdeck') === -1, 'clipdeck sahne anahtarı olmamalı');
+  assert.ok(keys.indexOf('visualizer') >= 0, 'test kendini doğruluyor: visualizer listede olmalı');
+});
+
+test('v3.0.0 ayar dosyası gösteri alanlarıyla tamamlanır, sahneler bozulmaz', () => {
+  /* Kullanıcının kaydettiği dosyada timeline/clipdeck YOKTUR. Eksik alanlar
+     varsayılanla dolarken kullanıcının sahnelerine dokunulmamalı. */
+  const saved = {
+    scenes: [{ id: 's1', name: 'Kulüp', data: { visualizer: { type: 'bars' } } }],
+    background: { type: 'solid', solidColor: '#123456' },
+  };
+  const merged = SV.deepMerge(SV.defaultConfig(), saved);
+  assert.ok(merged.timeline, 'timeline eklenmeli');
+  assert.ok(merged.clipdeck, 'clipdeck eklenmeli');
+  assert.strictEqual(merged.timeline.enabled, false);
+  assert.strictEqual(merged.clipdeck.enabled, false);
+  assert.strictEqual(merged.scenes.length, 1, 'sahneler korunmalı');
+  assert.strictEqual(merged.scenes[0].name, 'Kulüp');
+  assert.strictEqual(merged.background.solidColor, '#123456', 'kullanıcının rengi korunmalı');
+});
+
+test('gösteri verisi JSON turundan sağ çıkar', () => {
+  const cfg = SV.defaultConfig();
+  cfg.timeline.enabled = true;
+  cfg.timeline.tracks = [{ kind: 'clip', clips: [{ start: 1, dur: 2 }] }];
+  cfg.clipdeck.decks[0].slots = [{ row: 0, col: 0, type: 'scene', ref: 's1' }];
+  const back = SV.deepMerge(SV.defaultConfig(), JSON.parse(JSON.stringify(cfg)));
+  assert.strictEqual(back.timeline.enabled, true);
+  assert.strictEqual(back.timeline.tracks.length, 1);
+  assert.strictEqual(back.clipdeck.decks[0].slots.length, 1);
+  assert.strictEqual(back.clipdeck.decks[0].slots[0].ref, 's1');
+});

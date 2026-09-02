@@ -483,6 +483,50 @@
       .sort((a, b) => a.t - b.t);
   }
 
+  // ==========================================================================
+  // Otomasyonun yapılandırmaya uygulanması
+  //
+  // Sıra ÖNEMLİ ve bilinçli: önce otomasyon TABANI yazar, sonra canlı
+  // modülasyon onun üstüne biner. Çizilmiş bir eğri değeri belirler, ona
+  // atanmış bir LFO da o değerin etrafında salınır — ses masalarında ve
+  // ses yazılımlarında beklenen davranış budur. Ters sıra, çizilen eğriyi
+  // görünmez kılardı.
+  //
+  // Yazma modülasyonun setIn’iyle yapılır: kopyala-yaz, yani kullanıcının
+  // kayıtlı ayarına DOKUNULMAZ, yalnızca o karenin kopyası değişir.
+  // ==========================================================================
+  function modOf() {
+    if (typeof window !== 'undefined' && window.SVModulation) return window.SVModulation;
+    return tryRequireModulation();
+  }
+
+  /* Dönüş: { cfg, applied, missing }.
+     `missing`, yapılandırmada KARŞILIĞI OLMAYAN hedeflerin listesi. setIn
+     var olmayan bir yola sessizce yazmaz; bu sessizlik bildirilmezse
+     kullanıcı "otomasyon çalışmıyor" der ve sebebini kimse bulamaz. */
+  function applyAutomation(cfg, tl, t) {
+    const out = { cfg, applied: 0, missing: null };
+    if (!cfg || !tl || !tl.tracks || !tl.tracks.length) return out;
+    const mod = modOf();
+    if (!mod || !mod.setIn || !mod.getIn) return out;
+
+    const values = automationAt(tl, t);
+    const paths = Object.keys(values);
+    if (!paths.length) return out;
+
+    let next = cfg;
+    for (const path of paths) {
+      if (mod.getIn(next, path) === undefined) {
+        (out.missing || (out.missing = [])).push(path);
+        continue;
+      }
+      next = mod.setIn(next, path, values[path]);
+      out.applied++;
+    }
+    out.cfg = next;
+    return out;
+  }
+
   const api = {
     makeTempoMap,
     secondsToBeats,
@@ -501,6 +545,7 @@
     timelineLength,
     clipsAt,
     automationAt,
+    applyAutomation,
     retimeToTempo,
     markerAfter,
     markerBefore,

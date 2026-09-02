@@ -320,6 +320,9 @@ function createVisualizerWindow(display) {
     syncCapture();
     // Yeni açılan pencereye güncel yapılandırmayı ver (diğerleriyle eşleşsin)
     if (currentConfig) win.webContents.send('config', currentConfig);
+    /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
+       bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
+    if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
   });
 
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
@@ -714,6 +717,16 @@ ipcMain.handle('open-visualizer', (e, displayIds) => {
 ipcMain.handle('close-visualizer', (e, displayId) => {
   closeVisualizer(displayId);
   return true;
+});
+
+/* Gösteri saati çıpası. Panel taşımayı her oynattığında/durdurduğunda/
+   sardığında BİR KEZ yollar; zaman her karede yollanmaz. Pencereler çıpadan
+   kapalı formülle hesapladığı için aralarında kayma olmaz.
+   (bkz. src/shared/showclock.js) */
+let showClockAnchor = null;
+ipcMain.on('show-clock', (e, anchor) => {
+  showClockAnchor = anchor || null;
+  sendToVisualizers('show-clock', showClockAnchor);
 });
 
 ipcMain.handle('visualizer-open-displays', () => Array.from(visualizerWins.keys()));

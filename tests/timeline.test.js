@@ -365,3 +365,87 @@ test('sonu başından önce olan döngü kendini kapatır', () => {
   const tl = TL.makeTimeline({ loop: { enabled: true, start: 8, end: 2 } });
   assert.strictEqual(tl.loop.enabled, false, 'geçersiz döngü açık kalmamalı');
 });
+
+// ===========================================================================
+// Çevrimdışı işleme determinizmi (#493)
+//
+// Çevrimdışı dışa aktarım bu projenin görsel regresyon ağı. Ancak zamana
+// bağlı her kaynak ÇİZİM SAATİNDEN türediği sürece işe yarar. Zaman
+// çizelgesi aynı kurala uymak zorunda: aynı gösteri iki kez işlendiğinde
+// kare kare aynı çıkmalı, kare atlanması otomasyonu kaydırmamalı.
+// ===========================================================================
+test('aynı gösteri kare indeksinden iki kez işlenince aynı çıkar', () => {
+  const build = () =>
+    TL.makeTimeline({
+      tracks: [
+        {
+          kind: 'automation',
+          target: 'a.b',
+          keys: [
+            { t: 0, v: 0 },
+            { t: 2, v: 1, curve: 'scurve' },
+            { t: 5, v: 0.3, curve: 'exp' },
+          ],
+        },
+      ],
+    });
+
+  const render = (tl, fps, frames) => {
+    const out = [];
+    for (let i = 0; i < frames; i++) out.push(TL.automationAt(tl, i / fps)['a.b']);
+    return out;
+  };
+
+  const a = render(build(), 60, 400);
+  const b = render(build(), 60, 400);
+  assert.deepStrictEqual(a, b, 'iki koşu bit bazında aynı olmalı');
+});
+
+test('kare atlaması otomasyonu KAYDIRMAZ', () => {
+  /* Duvar saatine dayalı bir çözümde atlanan kare, sonraki tüm değerleri
+     kaydırırdı. Zaman kare indeksinden geldiği için 30. karenin değeri,
+     ona kaç karede ulaşıldığından bağımsızdır. */
+  const tl = TL.makeTimeline({
+    tracks: [{ kind: 'automation', target: 'x', keys: [{ t: 0, v: 0 }, { t: 4, v: 1 }] }],
+  });
+  const fps = 60;
+  const dense = TL.automationAt(tl, 30 / fps).x;
+  // Her ikinci kareyi atlayarak aynı indekse gel
+  let sparse = null;
+  for (let i = 0; i <= 30; i += 2) sparse = TL.automationAt(tl, Math.min(i, 30) / fps).x;
+  near(sparse, dense, 1e-12, 'atlanan karelerle:');
+});
+
+test('otomasyon kopyala-yaz — kullanıcının ayarı bozulmaz', () => {
+  const cfg = { postfx: [{ params: { strength: 0.1 } }] };
+  const tl = TL.makeTimeline({
+    tracks: [{ kind: 'automation', target: 'postfx.0.params.strength', min: 0, max: 1, keys: [{ t: 0, v: 0 }, { t: 2, v: 1 }] }],
+  });
+  const r = TL.applyAutomation(cfg, tl, 1);
+  near(r.cfg.postfx[0].params.strength, 0.5, 1e-9, 'yeni değer:');
+  assert.strictEqual(cfg.postfx[0].params.strength, 0.1, 'ORİJİNAL yapılandırma değişmemeli');
+  assert.notStrictEqual(r.cfg, cfg, 'yeni kök dönmeli');
+});
+
+test('karşılığı olmayan otomasyon hedefi SESSİZCE yutulmaz', () => {
+  /* setIn var olmayan bir yola yazmaz. Bu sessizlik bildirilmezse kullanıcı
+     "otomasyon çalışmıyor" der ve sebebi hiçbir yerde görünmez. */
+  const cfg = { a: { b: 1 } };
+  const tl = TL.makeTimeline({
+    tracks: [
+      { kind: 'automation', target: 'a.b', keys: [{ t: 0, v: 1 }] },
+      { kind: 'automation', target: 'yok.olan.yol', keys: [{ t: 0, v: 1 }] },
+    ],
+  });
+  const r = TL.applyAutomation(cfg, tl, 0);
+  assert.strictEqual(r.applied, 1, 'var olan hedef uygulanmalı');
+  assert.ok(Array.isArray(r.missing), 'eksik hedefler bildirilmeli');
+  assert.deepStrictEqual(r.missing, ['yok.olan.yol']);
+});
+
+test('otomasyonsuz çizelge yapılandırmayı hiç kopyalamaz', () => {
+  const cfg = { a: 1 };
+  const r = TL.applyAutomation(cfg, TL.makeTimeline({}), 0);
+  assert.strictEqual(r.cfg, cfg, 'gereksiz kopya çıkarılmamalı');
+  assert.strictEqual(r.applied, 0);
+});

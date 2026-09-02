@@ -81,6 +81,9 @@ contextBridge.exposeInMainWorld('api', {
   onProtectionBlocked: (cb) => ipcRenderer.on('protection-blocked', () => cb()),
   onProtectionRecovered: (cb) => ipcRenderer.on('protection-recovered', (e, id) => cb(id)),
   onProtectionGaveUp: (cb) => ipcRenderer.on('protection-gave-up', (e, id) => cb(id)),
+  /* Gösteri saati çıpasını tüm görselleştirici pencerelerine yolla.
+     Yalnızca taşıma durumu değiştiğinde çağrılır. */
+  sendShowClock: (anchor) => ipcRenderer.send('show-clock', anchor),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 
   // Canlı kayıt ve anlık görüntü

@@ -570,6 +570,46 @@
       random: { rate: 1, sync: false, division: '1/1' },
     },
 
+    /* ------------------------------------------------------------------
+       Zaman çizelgesi (gösteri). SAHNEYE AİT DEĞİLDİR: SCENE_KEYS içinde
+       yer almaz, çünkü bir sahneyi uygulamak gösterinin tamamını silerdi.
+       Zamanın tek kaynağı saniyedir; ölçü/vuruş tempo haritasından
+       türetilir (bkz. shared/timeline.js).
+       ------------------------------------------------------------------ */
+    timeline: {
+      enabled: false,
+      /* Oynatma kafası panelde yaşar ve tüm görselleştirici pencereleri
+         aynı değeri okur; her pencere kendi saatini tutsaydı ekranlar
+         arasında kayma görünürdü. */
+      tempo: [{ t: 0, bpm: 120, beatsPerBar: 4 }],
+      tracks: [],
+      markers: [],
+      loop: { enabled: false, start: 0, end: 0 },
+      snap: 'bar', // off | bar | beat | half | quarter | frame
+      fps: 60, // yalnızca kare yakalaması için
+      /* Görünüm durumu: yakınlaştırma saniye başına piksel. */
+      zoom: 60,
+      scroll: 0,
+      ruler: 'both', // time | bars | both
+      followPlayhead: true,
+    },
+
+    /* ------------------------------------------------------------------
+       Klip destesi. Zaman çizelgesiyle AYNI saati ve niceleyiciyi kullanır.
+       Boş yuvalar saklanmaz; 8x8 bir deste tek klip içeriyorsa dosyada tek
+       kayıt olur (bkz. shared/clipdeck.js).
+       ------------------------------------------------------------------ */
+    clipdeck: {
+      enabled: false,
+      decks: [{ id: 'deck', name: 'A', rows: 6, cols: 6, slots: [], rowNames: {} }],
+      activeDeck: 'deck',
+      defaultQuantize: 'bar',
+      /* Ateşlenen yuvaları çizelgeye kaydet: doğaçlanan set düzenlenebilir
+         hale gelsin diye. Varsayılan kapalı — kayıt beklenmedik biçimde
+         çizelgeye parça eklemez. */
+      recording: false,
+    },
+
     autovj: {
       enabled: false,
       source: 'scenes', // 'scenes' | 'visualizers' | 'palettes' | 'all'

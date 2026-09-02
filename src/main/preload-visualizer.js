@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('SV_DISPLAY_ID',
 contextBridge.exposeInMainWorld('api', {
   requestConfig: () => ipcRenderer.invoke('request-config'),
   onConfig: (cb) => ipcRenderer.on('config', (e, config) => cb(config)),
+  /* Gösteri saati çıpası. Yalnızca DURUM DEĞİŞTİĞİNDE gelir; zaman her
+     karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
+  onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),

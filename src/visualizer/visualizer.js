@@ -21,6 +21,15 @@
   // modüle edilmiş bir KOPYASINI üretir; saklanan ayarlar değişmez.
   const modulator = new window.SVModulation.Modulator();
 
+  /* Gösteri saati. Panel yalnızca durum değiştiğinde çıpa yollar; buradaki
+     zaman o çıpadan kapalı formülle hesaplanır, böylece tüm ekranlar aynı
+     kareyi gösterir ve kare başına IPC gerekmez. */
+  let showAnchor = window.SVShowClock ? window.SVShowClock.idle() : null;
+  /* Karşılığı olmayan otomasyon hedefleri bir kez bildirilir. Her karede
+     yazmak konsolu boğardı; hiç yazmamak da "otomasyon çalışmıyor" diye
+     bildirilen ama sebebi görünmeyen bir hataya dönüşürdü. */
+  const warnedTargets = Object.create(null);
+
   /* Projeksiyon haritalaması bu pencerenin ekranına ait tanımı kullanır.
      Kimlik dönüşümündeyse hiç devreye girmez — kapalı haritalamanın maliyeti
      sıfır olmalı. */
@@ -171,8 +180,27 @@
        duraklama tam o anda panik düğmesini işlevsiz bırakıyordu. */
     const silent = cfg.power.pauseOnSilence && audio.level < 0.008 && audio.bass < 0.01 && !stack.trans;
     if (!silent) {
-      modulator.update(cfg, audio, t, dt);
-      const mcfg = modulator.apply(cfg, dt);
+      /* SIRA BİLİNÇLİ: önce zaman çizelgesi otomasyonu TABANI yazar,
+         sonra canlı modülasyon onun üstüne biner. Çizilmiş bir eğri
+         değeri belirler, ona atanmış bir LFO da o değerin etrafında
+         salınır — ses yazılımlarında beklenen davranış budur. Ters sıra
+         çizilen eğriyi görünmez kılardı.
+         Yazma kopyala-yaz: kullanıcının kayıtlı ayarına dokunulmaz. */
+      let base = cfg;
+      if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
+        const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+        const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
+        base = auto.cfg;
+        if (auto.missing) {
+          for (const path of auto.missing) {
+            if (warnedTargets[path]) continue;
+            warnedTargets[path] = 1;
+            console.warn('[çizelge] otomasyon hedefi yapılandırmada yok: ' + path);
+          }
+        }
+      }
+      modulator.update(base, audio, t, dt);
+      const mcfg = modulator.apply(base, dt);
       // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
@@ -264,6 +292,7 @@
     // Ana süreçten gelen ses karelerini al
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
     window.api.onConfig((c) => applyConfig(c));
+    if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
     window.addEventListener('resize', resize);
 
     raf = requestAnimationFrame(frame);

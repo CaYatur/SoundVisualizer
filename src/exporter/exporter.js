@@ -224,10 +224,20 @@
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, sampleRate });
     audio.update(dt);
 
+    /* Zaman çizelgesi otomasyonu. Gösteri saati (showclock.js) BURADA
+       KULLANILMAZ: o duvar saatine dayanır ve aynı işi iki kez
+       çalıştırdığında farklı kareler üretirdi. Çevrimdışı işlemede zaman
+       yalnızca KARE İNDEKSİNDEN gelir — dışa aktarımın regresyon ağı
+       olma özelliği buna bağlı. */
+    let base = cfg;
+    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline) {
+      base = window.SVTimeline.applyAutomation(cfg, cfg.timeline, t).cfg;
+    }
+
     // Modülasyon: kaynaklar kare saatinden (t = kare/fps) beslendiği için
     // aynı iş iki kez çalıştırıldığında bit bazında aynı sonucu verir.
-    modulator.update(cfg, audio, t, dt);
-    const mcfg = modulator.apply(cfg, dt);
+    modulator.update(base, audio, t, dt);
+    const mcfg = modulator.apply(base, dt);
     if (postfx && modulator.touches('postfx')) postfx.setChain(mcfg.postfx || []);
 
     // Tüm katmanlar tek birleştirme yüzeyine (logo dahil, kendi sırasında)
