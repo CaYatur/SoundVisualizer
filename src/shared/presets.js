@@ -227,6 +227,21 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 
   const BUILTIN_LIST = builtins();
 
+  /* Yerleşik listeyi dışarıdan genişletme.
+
+     Kitaplık kırk shader'a çıkınca hepsini tek dosyada tutmak okunmaz hale
+     geldi. presets-shaders.js aynı biçimle kayıt yapar; listeyi kullanan
+     yerler (panel, katman seçicisi, öz test) ikisi arasında ayrım yapmaz. */
+  function registerBuiltin(list) {
+    for (const p of (Array.isArray(list) ? list : [])) {
+      if (!p || !p.id) continue;
+      if (BUILTIN_LIST.some((x) => x.id === p.id)) {
+        throw new Error('yerleşik preset kimliği zaten var: ' + p.id);
+      }
+      BUILTIN_LIST.push(normalize(p));
+    }
+  }
+
   function setUser(list) {
     userPresets = (Array.isArray(list) ? list : []).map(normalize);
   }
@@ -478,6 +493,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     PACK_FORMAT,
     VERSION,
     BUILTIN: BUILTIN_LIST,
+    registerBuiltin,
     normalize,
     newId,
     setUser,
