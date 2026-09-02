@@ -70,6 +70,19 @@ const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').sli
    Ikisini de okuyoruz: boylece kod hem yukseltme oncesi hem sonrasi dogru
    calisir ve "level >= 2" karsilastirmasi metin gelince sessizce false
    donup hatalari gizlemez. */
+/* Chromium, CSP’de script-src yazılmadığında her pencere yüklenişinde bu
+   notu basar. Gerçek bir ihlal mesajı ("Refused to...") eşlik etmiyor —
+   arandı, yok. Üç ekran açılınca üç not geliyor ve hata listesini
+   dolduruyor; bu yüzden süzülür. Gerçek ihlaller süzgeçten geçmez. */
+const CONSOLE_NOISE = [
+  /Note that 'script-src' was not explicitly set/i,
+];
+
+function isConsoleNoise(msg) {
+  for (const re of CONSOLE_NOISE) if (re.test(msg)) return true;
+  return false;
+}
+
 function consoleInfo(e, level, message) {
   const lvl = e && e.level !== undefined ? e.level : level;
   const msg = e && e.message !== undefined ? e.message : message;
@@ -84,7 +97,9 @@ function attachSmoke(win, name) {
   if (!SMOKE) return;
   const wc = win.webContents;
   wc.on('console-message', (e, level, message) => {
-    console.log(`[${name}] ${consoleInfo(e, level, message).message}`);
+    const c = consoleInfo(e, level, message);
+    if (isConsoleNoise(c.message)) return;
+    console.log(`[${name}] ${c.message}`);
   });
   wc.on('render-process-gone', (e, d) => console.log(`[${name}] CRASH ${d.reason}`));
   wc.on('did-fail-load', (e, code, desc) => console.log(`[${name}] FAIL-LOAD ${code} ${desc}`));
@@ -1657,6 +1672,7 @@ async function runSmoke() {
   const wc = meterWindow().webContents;
   wc.on('console-message', (e, level, message) => {
     const c = consoleInfo(e, level, message);
+    if (isConsoleNoise(c.message)) return;
     if (c.warnOrWorse || /error|hata|failed|undefined is not/i.test(c.message)) errors.push(c.message);
   });
 
@@ -2109,6 +2125,7 @@ async function runSmoke() {
     const adminErrors = [];
     awc.on('console-message', (e, level, message) => {
       const c = consoleInfo(e, level, message);
+      if (isConsoleNoise(c.message)) return;
       if (c.warnOrWorse) adminErrors.push(c.message);
     });
     const cats = await awc.executeJavaScript(
@@ -2387,6 +2404,84 @@ async function runSmoke() {
       if (!(st.time > 3.5)) errors.push('timeline: show clock anchor did not reach the visualizer (t=' + st.time + ')');
     }
 
+    /* 2b) Paneldeki düğmeler gerçekten iş yapıyor mu?
+
+       Kullanıcı "＋ Klip Parçası"nın hiçbir şey yapmadığını bildirdi ve
+       haklıydı: model her karede yeniden kuruluyor, eklenen parça bir
+       sonraki karede atılıyordu. Model doğruydu, panelin o modele
+       TUTUNMASI yanlıştı — hiçbir birim testi bunu yakalayamazdı.
+
+       Bu yüzden burada gerçek düğmeye tıklanır ve sonucun YAPILANDIRMAYA
+       yazıldığı doğrulanır. */
+    const btnRes = await awc5.executeJavaScript(`(function(){
+      function clickByText(txt) {
+        var all = document.querySelectorAll("#sections button");
+        for (var i = 0; i < all.length; i++) {
+          if ((all[i].textContent || "").indexOf(txt) >= 0) { all[i].click(); return true; }
+        }
+        return false;
+      }
+      var c = window.SVPanel.cfg();
+      c.timeline.tracks = [];
+      c.timeline.markers = [];
+      /* Düğmeler yalnızca GÖRÜNEN kategoride DOM’dadır. Zaman çizelgesi
+         Kontrol kategorisinde; oraya geçmeden düğme aranırsa bulunamaz. */
+      var navs = document.querySelectorAll(".nav-item");
+      for (var n = 0; n < navs.length; n++) {
+        var lbl = navs[n].querySelector(".nav-label");
+        var txt = lbl ? (lbl.textContent || "") : "";
+        if (txt.indexOf("Kontrol") >= 0 || txt.indexOf("Control") >= 0) { navs[n].click(); break; }
+      }
+      window.SVPanel.rerender();
+
+      var out = { clipBtn: false, autoBtn: false, markBtn: false, tracks: 0, autos: 0, marks: 0 };
+      out.clipBtn = clickByText("Klip Parçası");
+      out.autoBtn = clickByText("Otomasyon Parçası");
+      out.markBtn = clickByText("Kafada İşaret");
+      var t = window.SVPanel.cfg().timeline;
+      out.tracks = (t.tracks || []).length;
+      out.autos = (t.tracks || []).filter(function(x){ return x.kind === "automation"; }).length;
+      out.marks = (t.markers || []).length;
+      return JSON.stringify(out);
+    })()`);
+    console.log('[SMOKE] panel düğmeleri: ' + btnRes);
+    const br = JSON.parse(btnRes);
+    if (!br.clipBtn) errors.push('timeline: the add-clip-track button was not found');
+    if (!br.autoBtn) errors.push('timeline: the add-automation-track button was not found');
+    if (!br.markBtn) errors.push('timeline: the add-marker button was not found');
+    if (br.tracks !== 2) errors.push('timeline: add-track buttons did not persist tracks (got ' + br.tracks + ', expected 2)');
+    if (br.autos !== 1) errors.push('timeline: the automation track was not created');
+    if (br.marks !== 1) errors.push('timeline: the add-marker button did not persist a marker');
+
+    /* 2c) Kaynak seçici var olan sahneleri listeliyor mu?
+       Kullanıcının sahne kimliği ezberlemesi gerekmemeli. */
+    const pickRes = await awc5.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.scenes = [{ id: "sc_test", name: "Deneme Sahnesi", data: {} }];
+      c.clipdeck.enabled = true;
+      c.clipdeck.decks = [{ id: "deck", name: "A", rows: 2, cols: 2, rowNames: {},
+        slots: [{ row: 0, col: 0, type: "scene", ref: "", name: "T" }] }];
+      window.SVPanel.rerender();
+      var opts = window.SVClipDeckPanel && window.SVClipDeckPanel.refOptions
+        ? window.SVClipDeckPanel.refOptions("scene") : null;
+      var pal = window.SVClipDeckPanel && window.SVClipDeckPanel.refOptions
+        ? window.SVClipDeckPanel.refOptions("palette") : null;
+      var tpl = window.SVClipDeckPanel && window.SVClipDeckPanel.refOptions
+        ? window.SVClipDeckPanel.refOptions("preset") : null;
+      return JSON.stringify({
+        scenes: opts ? opts.length : -1,
+        sceneLabel: opts && opts.length ? opts[0][1] : "",
+        palettes: pal ? pal.length : -1,
+        templates: tpl ? tpl.length : -1
+      });
+    })()`);
+    console.log('[SMOKE] kaynak seçici: ' + pickRes);
+    const pk = JSON.parse(pickRes);
+    if (pk.scenes !== 1) errors.push('source picker: saved scenes are not listed (got ' + pk.scenes + ')');
+    if (pk.sceneLabel !== 'Deneme Sahnesi') errors.push('source picker: scene is listed by id rather than by name');
+    if (!(pk.palettes > 10)) errors.push('source picker: colour presets are not listed (got ' + pk.palettes + ')');
+    if (!(pk.templates > 10)) errors.push('source picker: templates are not listed (got ' + pk.templates + ')');
+
     // 3) Klip destesi ölçüye hizalı ateşliyor mu?
     const deckRes = await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
@@ -2419,12 +2514,39 @@ async function runSmoke() {
     const fr = JSON.parse(fireRes);
     if (fr.active < 1) errors.push('clipdeck: armed slot never fired');
 
+    /* 4) Deste, kullanıcının geçiş ayarını KALICI olarak ezmiyor mu?
+       Bir "Kesme" yuvası ateşlemek transition.enabled değerini false yapıp
+       orada bıraksaydı kullanıcının sahne geçişleri bir daha çalışmazdı ve
+       sebebi hiçbir yerde görünmezdi. */
+    const transRes = await awc5.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.transition.enabled = true;
+      c.transition.duration = 1.75;
+      var before = { enabled: c.transition.enabled, duration: c.transition.duration };
+      var dp = window.SVClipDeckPanel;
+      dp.engine().emit("fire", { deckId: "deck", slot: { type: "scene", ref: "sc_test", row: 0, col: 0 }, fade: 0, transition: "cut", at: 0 });
+      var during = { enabled: c.transition.enabled };
+      return JSON.stringify({ before: before, during: during });
+    })()`);
+    /* Geri verme geçiş tamamlandıktan sonra zamanlayıcıyla oluyor; bekle. */
+    await wait(700);
+    const afterRes = await awc5.executeJavaScript(
+      'JSON.stringify({ enabled: window.SVPanel.cfg().transition.enabled, duration: window.SVPanel.cfg().transition.duration })'
+    );
+    console.log('[SMOKE] geçiş ayarı koruması: ' + transRes + ' -> ' + afterRes);
+    const tx = JSON.parse(transRes);
+    const ax = JSON.parse(afterRes);
+    if (tx.during.enabled !== false) errors.push('clipdeck: a cut slot did not take over the transition');
+    if (ax.enabled !== true) errors.push('clipdeck: the user transition setting was NOT restored after the fade');
+    if (Math.abs(ax.duration - 1.75) > 1e-6) errors.push('clipdeck: the user transition duration was not restored (got ' + ax.duration + ')');
+
     // Kurulumu geri al — sonraki denetimler temiz yapılandırma bekliyor
     await awc5.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
       window.SVClipDeckPanel.engine().stopAll();
       window.SVTimelinePanel.transport().stop();
-      c.timeline.enabled = false; c.timeline.tracks = [];
+      c.timeline.enabled = false; c.timeline.tracks = []; c.timeline.markers = [];
+      c.scenes = [];
       c.clipdeck.enabled = false;
       window.SVPanel.apply();
       return 1;

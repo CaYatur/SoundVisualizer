@@ -30,21 +30,37 @@
     return list.find((d) => d.id === c.activeDeck) || list[0];
   }
 
+  /* Motorun desteleri yapılandırmadan türetilir. İmza değişmedikçe yeniden
+     kurulmaz: her karede kurmak, çalan ve hazırlanan yuvaların tuttuğu
+     nesneleri her karede değiştirir ve deste kararsız görünürdü. */
+  let deckSig = null;
+
+  function signature(list) {
+    try {
+      return JSON.stringify(list);
+    } catch (e) {
+      return String(Math.random());
+    }
+  }
+
   function ensureEngine() {
     const c = cfg();
     if (!engine) {
       engine = new (CD().Engine)({ decks: c.decks });
       engine.on(onEngineEvent);
+      deckSig = signature(c.decks);
+      return engine;
+    }
+    const sig = signature(c.decks);
+    if (sig !== deckSig) {
+      engine.decks = (c.decks || []).map(CD().makeDeck);
+      deckSig = sig;
     }
     return engine;
   }
 
-  /* Motorun destelerini yapılandırmadan yeniden kur. Yuva düzenlendiğinde
-     çağrılır; çalan/hazırlanan durum korunur, yoksa bir adı değiştirmek
-     çalan klibi düşürürdü. */
   function syncEngine() {
-    const e = ensureEngine();
-    e.decks = (cfg().decks || []).map(CD().makeDeck);
+    ensureEngine();
   }
 
   function onEngineEvent(type, payload) {
@@ -74,6 +90,15 @@
       }
       return false;
     }
+    if (type === 'palette') {
+      const list = (window.SV.GRADIENT_PRESETS || []).concat(P().cfg().userPresets || []);
+      const pal = list.find((x) => x && x.name === ref);
+      if (!pal || !Array.isArray(pal.colors)) return false;
+      const cur = P().cfg();
+      cur.background.gradient.colors = pal.colors.slice();
+      P().apply();
+      return true;
+    }
     if (type === 'preset') {
       const T = window.SVTemplates;
       if (!T) return false;
@@ -95,20 +120,83 @@
     return false;
   }
 
+  /* Yuva ateşlerken geçiş ayarını GEÇİCİ olarak devralırız.
+
+     Önce doğrudan yazılıyordu ve bu kalıcı hasar veriyordu: bir "Kesme"
+     yuvası ateşlemek transition.enabled değerini false yapıp orada
+     bırakıyordu, yani kullanıcının sahne geçişleri bir daha çalışmıyor ve
+     sebebi hiçbir yerde görünmüyordu.
+
+     Artık ilk devralmada kullanıcının ayarı saklanır; deste kapatıldığında
+     ya da her şey durdurulduğunda geri konur. Deste açıkken geçişi destenin
+     sürmesi doğru davranış — kalıcı olarak elinden alması değil. */
+  let savedTransition = null;
+
+  /* Kullanıcının ayarını BİR KEZ sakla. */
+  function stashTransition() {
+    const c = P().cfg();
+    if (c.transition && !savedTransition) savedTransition = window.SV.clone(c.transition);
+  }
+
+  function overrideTransition(ev) {
+    const c = P().cfg();
+    if (!c.transition) return;
+    c.transition.enabled = ev.fade > 0;
+    if (ev.fade > 0) {
+      c.transition.duration = ev.fade;
+      if (ev.transition && ev.transition !== 'cut') c.transition.type = ev.transition;
+    }
+  }
+
+  let releaseTimer = 0;
+
+  /* Geri verme ÇİZİME BAĞLI DEĞİL. Önce panel yeniden çizildiğinde
+     yapılıyordu, ama panel o kategoride değilse ya da hiç çizilmiyorsa
+     geri verme hiç olmuyor ve kullanıcının geçişleri kapalı kalıyordu.
+     Artık geçiş tamamlandıktan hemen sonra bir zamanlayıcı geri veriyor:
+     destenin ayarı o sahne değişimini yönetir, sonra kullanıcınınki döner. */
+  function scheduleRelease(fade) {
+    if (releaseTimer) clearTimeout(releaseTimer);
+    const ms = Math.max(120, (Number(fade) || 0) * 1000 + 120);
+    releaseTimer = setTimeout(() => {
+      releaseTimer = 0;
+      releaseTransition();
+    }, ms);
+  }
+
+  function releaseTransition() {
+    if (releaseTimer) {
+      clearTimeout(releaseTimer);
+      releaseTimer = 0;
+    }
+    if (!savedTransition) return;
+    const c = P().cfg();
+    if (c.transition) {
+      c.transition.enabled = savedTransition.enabled;
+      c.transition.duration = savedTransition.duration;
+      c.transition.type = savedTransition.type;
+    }
+    savedTransition = null;
+    P().push(true);
+  }
+
+  /* SIRA ÖNEMLİ ve öz testle bulundu: applyScene, transition’ı SCENE_KEYS
+     listesinde taşıdığı için sahne verisinden yeniden yazar — sahnede
+     transition yoksa VARSAYILANA döner. Destenin geçişini sahneden ÖNCE
+     yazmak bu yüzden hiçbir işe yaramıyordu: yuvanın "Kesme" seçimi yok
+     sayılıyor, üstelik kullanıcının süresi de kayboluyordu.
+
+     Doğru sıra: kullanıcının ayarını sakla → sahneyi uygula → destenin
+     ayarını yaz → yeniden gönder. İkinci gönderim aynı tık içinde olduğu
+     için çizim tarafı ikisini de bir sonraki kareden önce işler. */
   function applySlot(ev) {
     const slot = ev.slot;
     if (!slot.ref) return;
-    /* Geçiş süresi ve türü sahne geçiş motoruna verilir; 'cut' gerçek
-       kesmedir, motor tek karelik harman bile yapmaz. */
-    const c = P().cfg();
-    if (c.transition) {
-      c.transition.enabled = ev.fade > 0;
-      if (ev.fade > 0) {
-        c.transition.duration = ev.fade;
-        if (ev.transition) c.transition.type = ev.transition;
-      }
-    }
+    stashTransition();
     applyRef(slot.type, slot.ref);
+    overrideTransition(ev);
+    P().push(true);
+    scheduleRelease(ev.fade);
   }
 
   // --------------------------------------------------------------------------
@@ -211,6 +299,8 @@
     engine: () => ensureEngine(),
     launchSlot: launch,
     applyRef,
+    /* Öz testin kaynak listelerini doğrulayabilmesi için. */
+    refOptions: (t) => refOptions(t),
     launchRow,
   };
   if (typeof window !== 'undefined') window.SVClipDeckPanel = api;
@@ -232,6 +322,10 @@
           box.checked = !!c.enabled;
           box.addEventListener('change', () => {
             c.enabled = box.checked;
+            if (!box.checked) {
+              ensureEngine().stopAll();
+              releaseTransition(); // kullanıcının geçiş ayarını geri ver
+            }
             p.apply();
             if (box.checked && window.SVTimelinePanel) window.SVTimelinePanel.start();
           });
@@ -241,6 +335,11 @@
     );
 
     if (!c.enabled) {
+      /* Deste kapalıysa kullanıcının geçiş ayarını geri ver. Yalnızca
+         anahtara basıldığında geri vermek yetmiyordu: yapılandırma başka
+         yollardan da kapanabiliyor (ayar dosyası yükleme, dış yapılandırma)
+         ve o durumda kullanıcının geçişleri kapalı kalırdı. */
+      releaseTransition();
       host.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',
@@ -248,6 +347,20 @@
         })
       );
       return host;
+    }
+
+    /* Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi
+       birbirlerinin elinden alırlar. Engellemiyoruz — kullanıcı Otomatik
+       VJ'yi renk için, desteyi sahne için kullanmak isteyebilir — ama
+       söylemezsek "deste kararsız çalışıyor" diye görünür. */
+    const av = p.cfg().autovj;
+    if (av && av.enabled && (av.source === 'scenes' || av.source === 'all')) {
+      host.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note warn',
+          text: 'Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi birbirlerinin elinden alır; birini kapatmanız ya da Otomatik VJ kaynağını Renk Şablonları yapmanız daha öngörülebilir olur.',
+        })
+      );
     }
 
     syncEngine();
@@ -313,6 +426,8 @@
     const stopAll = el('button', { class: 'btn danger', type: 'button', text: 'Hepsini Durdur' });
     stopAll.addEventListener('click', () => {
       ensureEngine().stopAll();
+      releaseTransition();
+      p.apply();
       paintGrid();
     });
     host.appendChild(el('div', { class: 'tl-actions' }, [perf, stopAll]));
@@ -400,6 +515,50 @@
     return i;
   }
 
+  /* Kaynak seçici — zaman çizelgesindekiyle aynı gerekçe: kullanıcı sahne
+     kimliği ezberlemek zorunda kalmamalı. Hiç kayıt yoksa boş liste yerine
+     bunu söyleyen bir not gösterilir. */
+  function refOptions(type) {
+    const c = P().cfg();
+    if (type === 'scene') return (c.scenes || []).map((sc) => [sc.id, sc.name || sc.id]);
+    if (type === 'preset') {
+      const T = window.SVTemplates;
+      if (!T) return [];
+      return T.TEMPLATES.map((t) => [t.id, (t.group ? t.group + ' · ' : '') + t.name]);
+    }
+    if (type === 'palette') {
+      return (window.SV.GRADIENT_PRESETS || [])
+        .map((g) => [g.name, g.name])
+        .concat((c.userPresets || []).map((g) => [g.name, g.name]));
+    }
+    return null;
+  }
+
+  function refPicker(type, value, onChange) {
+    const el = P().el;
+    const opts = refOptions(type);
+    if (opts === null) {
+      const i = el('input', { class: 'txt', type: 'text', value: value || '', placeholder: 'dosya yolu ya da kimlik' });
+      i.addEventListener('change', () => onChange(i.value.trim()));
+      return i;
+    }
+    if (!opts.length) {
+      const t = type === 'scene'
+        ? 'Henüz kayıtlı sahne yok. Sahne bölümünden bir sahne kaydedin.'
+        : 'Bu tür için seçilebilir bir kaynak yok.';
+      return el('div', { class: 'ctrl settings-io-note', text: t });
+    }
+    const sel = el('select', { class: 'sel' });
+    sel.appendChild(el('option', { value: '', text: '— seçin —' }));
+    for (const [v, label] of opts) {
+      const o = el('option', { value: v, text: label });
+      if (v === value) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
+  }
+
   function slotEditor(deck) {
     const p = P();
     const el = p.el;
@@ -423,13 +582,15 @@
     box.appendChild(p.row('Ad', textInput(spec.name, (v) => save({ name: v }))));
     box.appendChild(
       p.row('Tür', select(
-        [['scene', 'Sahne'], ['preset', 'Şablon'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
+        [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
         spec.type,
-        (v) => save({ type: v, fade: CD().DEFAULT_FADE[v] })
+        /* Tür değişince kaynak listesi de değişir; eskisini temizle,
+           yoksa sahne kimliği şablon alanında kalır. */
+        (v) => save({ type: v, ref: '', fade: CD().DEFAULT_FADE[v] })
       ))
     );
-    box.appendChild(p.row('Kaynak Kimliği', textInput(spec.ref, (v) => save({ ref: v }), 'ör. sahne kimliği')));
-    if (spec.type !== 'scene' && spec.type !== 'preset') {
+    box.appendChild(p.row('Kaynak', refPicker(spec.type, spec.ref, (v) => save({ ref: v }))));
+    if (spec.type !== 'scene' && spec.type !== 'preset' && spec.type !== 'palette') {
       box.appendChild(
         el('div', {
           class: 'ctrl settings-io-note',

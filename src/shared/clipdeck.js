@@ -78,12 +78,12 @@
   // ==========================================================================
   // Yuva (slot)
   // ==========================================================================
-  const CLIP_TYPES = ['scene', 'preset', 'video', 'image', 'shader', 'action'];
+  const CLIP_TYPES = ['scene', 'preset', 'palette', 'video', 'image', 'shader', 'action'];
 
   /* Tür başına makul varsayılan geçiş süresi. Video ve görüntü sert kesildiğinde
      rahatsız edici olduğu için kısa bir geçiş alır; sahne değişimi zaten kendi
      geçiş motorunu kullandığından 0 gelir ve oradaki ayar geçerli olur. */
-  const DEFAULT_FADE = { scene: 0, preset: 0.25, video: 0.35, image: 0.35, shader: 0.25, action: 0 };
+  const DEFAULT_FADE = { scene: 0, preset: 0.25, palette: 0.25, video: 0.35, image: 0.35, shader: 0.25, action: 0 };
 
   const FOLLOW_ACTIONS = ['stop', 'loop', 'next', 'random', 'goto', 'none'];
 

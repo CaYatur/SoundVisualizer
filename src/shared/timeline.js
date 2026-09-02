@@ -248,7 +248,7 @@
   // ==========================================================================
   // Klip ve parça
   // ==========================================================================
-  const CLIP_TYPES = ['scene', 'preset', 'video', 'image', 'shader', 'action'];
+  const CLIP_TYPES = ['scene', 'preset', 'palette', 'video', 'image', 'shader', 'action'];
 
   function makeClip(spec) {
     const s = spec || {};

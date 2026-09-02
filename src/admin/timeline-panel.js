@@ -49,9 +49,31 @@
     return TL().makeTimeline(tlCfg());
   }
 
+  /* Model YALNIZCA gerektiğinde yeniden kurulur.
+
+     Önceden her çağrıda kuruluyordu ve döngü bunu her karede çağırıyor.
+     Sonuç: panel çizilirken yakalanan model nesnesi, kullanıcı bir düğmeye
+     bastığı anda çoktan atılmış oluyordu. Yeni parça eski nesneye
+     ekleniyor, commit() ise taze nesneyi yapılandırmaya yazıyordu — yani
+     "＋ Klip Parçası" hiçbir şey yapmıyor, üstelik hata da vermiyordu.
+
+     Artık yeniden kurma iki yerde tetikleniyor: panel her çizildiğinde
+     (yapılandırma dışarıdan değişmiş olabilir) ve yapılandırma yazıldıktan
+     sonra. Aradaki düzenlemeler tek ve yaşayan bir nesne üzerinde. */
+  let modelDirty = true;
+
+  function invalidateModel() {
+    modelDirty = true;
+  }
+
   function ensureTransport() {
-    if (!transport) transport = new (TL().Transport)(tlModel());
-    transport.tl = tlModel();
+    if (!transport) {
+      transport = new (TL().Transport)(tlModel());
+      modelDirty = false;
+    } else if (modelDirty) {
+      transport.tl = tlModel();
+      modelDirty = false;
+    }
     return transport;
   }
 
@@ -435,14 +457,16 @@
     return Math.max(0, TL().snapSeconds(ensureTransport().tl.tempo, t, cfg.snap, cfg.fps));
   }
 
+  /* Modelden yapılandırmaya geri yaz. Yazdıktan sonra model ile
+     yapılandırma aynı; yeniden kurmaya gerek yok ve kurmak, üzerinde
+     çalışılan nesneyi kullanıcının elinden alırdı. */
   function commit() {
-    /* Modelden yapılandırmaya geri yaz. Model her çizimde yeniden kurulduğu
-       için kaynak veriyi güncellemeden hiçbir değişiklik kalıcı olmaz. */
-    const tl = transport.tl;
+    const tl = ensureTransport().tl;
     const cfg = tlCfg();
     cfg.tracks = tl.tracks;
     cfg.markers = tl.markers;
     cfg.loop = tl.loop;
+    modelDirty = false;
     P().push(true);
   }
 
@@ -592,6 +616,9 @@
     const p = P();
     const el = p.el;
     const cfg = tlCfg();
+    /* Panel yeniden çizilirken yapılandırma dışarıdan değişmiş olabilir
+       (sahne uygulandı, ayar dosyası yüklendi). Modeli tazele. */
+    invalidateModel();
     const tl = ensureTransport().tl;
     const host = el('div', { class: 'tl-panel' });
 
@@ -623,6 +650,18 @@
         })
       );
       return host;
+    }
+
+    /* Otomatik VJ de sahne değiştiriyor; ikisi aynı anda açıkken sahneyi
+       birbirlerinin elinden alırlar. */
+    const av = p.cfg().autovj;
+    if (av && av.enabled && (av.source === 'scenes' || av.source === 'all')) {
+      host.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note warn',
+          text: 'Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi birbirlerinin elinden alır; birini kapatmanız ya da Otomatik VJ kaynağını Renk Şablonları yapmanız daha öngörülebilir olur.',
+        })
+      );
     }
 
     // --- Taşıma ---
@@ -930,12 +969,14 @@
       box.appendChild(p.row('Klip Adı', textInput(c.name, (v) => { c.name = v; commit(); })));
       box.appendChild(
         p.row('Tür', select(
-          [['scene', 'Sahne'], ['preset', 'Şablon'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
+          [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
           c.type,
-          (v) => { c.type = v; commit(); }
+          /* Tür değişince kaynak listesi de değişir; yeniden çiz. Eski
+             kaynağı temizle, yoksa sahne kimliği şablon alanında kalır. */
+          (v) => { c.type = v; c.ref = ''; commit(); p.rerender(); }
         ))
       );
-      box.appendChild(p.row('Kaynak Kimliği', textInput(c.ref, (v) => { c.ref = v; commit(); })));
+      box.appendChild(p.row('Kaynak', refPicker(c.type, c.ref, (v) => { c.ref = v; commit(); p.rerender(); })));
       box.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; commit(); })));
       box.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); })));
       box.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
@@ -985,6 +1026,60 @@
       scurve: 'S Eğrisi', ease: 'Yumuşak', abs: 'Mutlak',
     };
     return map[id] || id;
+  }
+
+  // --------------------------------------------------------------------------
+  // Kaynak seçici
+  //
+  // Kullanıcının sahne kimliğini ezberlemesini beklemek kullanılabilir değildi.
+  // Var olanlar listelenir; hiç yoksa panel bunu SÖYLER, boş bir açılır liste
+  // bırakmaz — boş liste "bozuk" gibi görünüyor.
+  // --------------------------------------------------------------------------
+  function refOptions(type) {
+    const cfg = P().cfg();
+    if (type === 'scene') {
+      return (cfg.scenes || []).map((sc) => [sc.id, sc.name || sc.id]);
+    }
+    if (type === 'preset') {
+      const T = window.SVTemplates;
+      if (!T) return [];
+      return T.TEMPLATES.map((t) => [t.id, (t.group ? t.group + ' · ' : '') + t.name]);
+    }
+    if (type === 'palette') {
+      const built = (window.SV.GRADIENT_PRESETS || []).map((g) => [g.name, g.name]);
+      const user = (cfg.userPresets || []).map((g) => [g.name, g.name]);
+      return built.concat(user);
+    }
+    return null; // bu tür için seçilebilir bir liste yok
+  }
+
+  function emptyHint(type) {
+    if (type === 'scene') return 'Henüz kayıtlı sahne yok. Sahne bölümünden bir sahne kaydedin.';
+    if (type === 'palette') return 'Henüz renk şablonu yok.';
+    return 'Bu tür için seçilebilir bir kaynak yok.';
+  }
+
+  function refPicker(type, value, onChange) {
+    const el = P().el;
+    const opts = refOptions(type);
+    if (opts === null) {
+      /* Video/görsel/shader dosya yolu ister; liste üretilemez. */
+      const i = el('input', { class: 'txt', type: 'text', value: value || '', placeholder: 'dosya yolu ya da kimlik' });
+      i.addEventListener('change', () => onChange(i.value.trim()));
+      return i;
+    }
+    if (!opts.length) {
+      return el('div', { class: 'ctrl settings-io-note', text: emptyHint(type) });
+    }
+    const sel = el('select', { class: 'sel' });
+    sel.appendChild(el('option', { value: '', text: '— seçin —' }));
+    for (const [v, label] of opts) {
+      const o = el('option', { value: v, text: label });
+      if (v === value) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.addEventListener('change', () => onChange(sel.value));
+    return sel;
   }
 
   function textInput(value, onChange) {

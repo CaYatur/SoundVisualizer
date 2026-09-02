@@ -903,3 +903,6 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 .cd-name, .perf-name { position: relative; z-index: 1; }
 .cd-count, .perf-count { z-index: 2; }
 .perf-cell.filled .perf-thumb { opacity: .32; }
+
+/* Çakışma uyarısı — engellemiyoruz ama görünür olmalı. */
+.settings-io-note.warn { color: #f0b429; border-left: 2px solid #f0b429; padding-left: 8px; }
