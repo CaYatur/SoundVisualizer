@@ -625,7 +625,25 @@
     return null;
   }
 
-  const api = { CURVES_2D, CURVES_3D, SURFACES, ATTRACTORS, superShape, defaults, catalog, get, iterate, TAU };
+  /* Kitaplığı dışarıdan genişletme.
+
+     Formül sayısı üç haneye yaklaştığı için hepsini tek dosyada tutmak
+     okunmaz hale geliyordu. formulas-extra.js aynı sözleşmeyle yeni aileler
+     ekler; katalog, get() ve testler ayrım yapmaz. */
+  function extend(family, defs) {
+    const target =
+      family === 'curve2d' ? CURVES_2D :
+      family === 'curve3d' ? CURVES_3D :
+      family === 'surface' ? SURFACES :
+      family === 'attractor' ? ATTRACTORS : null;
+    if (!target) throw new Error('bilinmeyen aile: ' + family);
+    for (const k in defs) {
+      if (target[k]) throw new Error('formül anahtarı zaten var: ' + family + '/' + k);
+      target[k] = defs[k];
+    }
+  }
+
+  const api = { CURVES_2D, CURVES_3D, SURFACES, ATTRACTORS, superShape, defaults, catalog, get, iterate, extend, TAU };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVFormulas = api;

@@ -17,6 +17,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const F = require('../src/shared/formulas.js');
+require('../src/shared/formulas-extra.js'); // ikinci bölüm de taranmalı
 
 // Çizim uzayı normalize edilmiş kabul edilir; buradaki sınır cömerttir ve
 // yalnızca "patlamış" formülü yakalamayı amaçlar.
@@ -88,7 +89,7 @@ const ATTRACTOR_STEPS = [0.0005, 0.006, 0.02];
 const catalog = F.catalog();
 
 test('kitaplık boş değil ve her girdi eksiksiz', () => {
-  assert.ok(catalog.length >= 35, 'formül sayısı: ' + catalog.length);
+  assert.ok(catalog.length >= 95, 'formül sayısı: ' + catalog.length);
   const seen = new Set();
   for (const e of catalog) {
     const id = e.family + ':' + e.key;

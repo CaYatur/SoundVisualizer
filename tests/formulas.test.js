@@ -14,6 +14,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const F = require('../src/shared/formulas.js');
+require('../src/shared/formulas-extra.js');
 
 const EPS = 1e-12;
 
