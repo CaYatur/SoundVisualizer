@@ -63,8 +63,8 @@ covered by a test or by the GPU self-test.
 | Timeline | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
-| NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
+| NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
 | Redundancy / genlock | ❌ | ❌ | ❌ | ❌ | v3.2.0 |
 
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
