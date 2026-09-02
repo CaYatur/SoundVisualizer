@@ -54,7 +54,7 @@
     const nodes = [];
 
     const recording = !!(R && R.recording);
-    if (!recording && busy && !status.includes('yazılıyor')) {
+    if (!recording) {
       busy = false;
     }
     const timeLbl = el('span', { class: 'rec-time', text: recording ? fmt(R.elapsed) : '00:00' });
@@ -64,12 +64,12 @@
         class: 'btn ' + (recording ? 'danger' : 'primary'),
         type: 'button',
         text: busy ? 'Kaydediliyor…' : (recording ? '■ Durdur' : '● Kayda Başla'),
-        disabled: busy,
+        disabled: busy && !recording,
         onclick: () => (recording ? stop() : start(cfg)),
       }),
       el('button', {
         class: 'btn ghost', type: 'button', text: '📷 Anlık Görüntü',
-        disabled: busy,
+        disabled: busy || recording,
         onclick: () => snap(cfg),
       }),
       timeLbl,

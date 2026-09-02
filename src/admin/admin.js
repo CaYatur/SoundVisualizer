@@ -44,6 +44,20 @@
   // Yapılandırma gönderimi (debounce)
   // --------------------------------------------------------------------------
   function push(immediate) {
+    if (isBlackedOut()) {
+      cfg.isBlackout = true;
+      cfg.background = Object.assign({}, cfg.background, { type: 'solid', solidColor: '#000000' });
+      cfg.visualizer = Object.assign({}, cfg.visualizer, { type: 'none' });
+      if (cfg.images) cfg.images.enabled = false;
+      if (cfg.media) cfg.media.enabled = false;
+      if (cfg.logo) cfg.logo.enabled = false;
+      if (cfg.text) cfg.text.enabled = false;
+      if (Array.isArray(cfg.layers)) {
+        cfg.layers = cfg.layers.map((l) => Object.assign({}, l, { enabled: false }));
+      }
+    } else {
+      cfg.isBlackout = false;
+    }
     // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
@@ -175,6 +189,8 @@
     cfg: () => cfg,
     push,
     rerender: () => render(),
+    isBlackedOut: () => isBlackedOut(),
+    toggleBlackout,
     // Yeniden çiz ve ardından gönder. Paneller çizim sırasında bağımlı
     // alanları düzeltebildiği için sıra bu şekilde olmalı.
     apply: () => { render(); push(true); },
@@ -3026,21 +3042,34 @@
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
     const def = window.SV.DEFAULT_CONFIG;
+    const blacked = isBlackedOut();
     SCENE_KEYS.forEach((k) => {
+      let val;
       if (sc.data[k] === undefined) {
-        if (def[k] !== undefined) cfg[k] = window.SV.clone(def[k]);
-        return;
-      }
-      if (Array.isArray(sc.data[k])) {
-        cfg[k] = sc.data[k].map((item) => window.SV.clone(item));
+        val = def[k] !== undefined ? window.SV.clone(def[k]) : undefined;
+      } else if (Array.isArray(sc.data[k])) {
+        val = sc.data[k].map((item) => window.SV.clone(item));
       } else if (sc.data[k] && typeof sc.data[k] === 'object') {
-        cfg[k] = window.SV.deepMerge(window.SV.clone(def[k] || {}), window.SV.clone(sc.data[k]));
+        val = window.SV.deepMerge(window.SV.clone(def[k] || {}), window.SV.clone(sc.data[k]));
       } else {
-        cfg[k] = sc.data[k];
+        val = sc.data[k];
+      }
+      if (blacked && blackoutSaved) {
+        if (k === 'background') blackoutSaved.bg = val;
+        else if (k === 'visualizer') blackoutSaved.vis = val;
+        else blackoutSaved[k] = val;
+      } else {
+        cfg[k] = val;
       }
     });
-    if (cfg.images && Array.isArray(cfg.images.items)) {
-      cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
+    if (blacked && blackoutSaved) {
+      if (blackoutSaved.images && Array.isArray(blackoutSaved.images.items)) {
+        blackoutSaved.images.items = blackoutSaved.images.items.map((it) => window.SV.normalizeImageItem(it));
+      }
+    } else {
+      if (cfg.images && Array.isArray(cfg.images.items)) {
+        cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
+      }
     }
     sceneActionInFlight = true;
     activeSceneId = id;

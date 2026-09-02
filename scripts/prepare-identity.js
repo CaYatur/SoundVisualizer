@@ -60,7 +60,7 @@ fs.mkdirSync(manifestDir, { recursive: true });
 const pkgResources = path.join(manifestDir, 'resources', 'identity');
 fs.mkdirSync(pkgResources, { recursive: true });
 
-const iconSource = path.join(root, 'assets', 'logo-256.png');
+const iconSource = path.join(root, 'assets', 'icon.svg');
 const packageIconBackground = { r: 0, g: 0, b: 0, alpha: 0 };
 const iconJobs = [
   ['icon.png', 256],
@@ -126,7 +126,7 @@ const iconScript = `
   const outDirs = [outputDir1, outputDir2].filter(Boolean);
   Promise.all(jobs.flatMap(([name, size]) =>
     outDirs.map((dir) =>
-      sharp(source)
+      sharp(source, { density: 384 })
         .resize(size, size, { fit: 'contain', background })
         .png()
         .toFile(path.join(dir, name))
@@ -179,7 +179,7 @@ const appxManifest = `<?xml version="1.0" encoding="utf-8"?>
   </Capabilities>
   <Applications>
     <Application Id="${applicationId}" Executable="CAYADEV Visualizer.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
-      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="#111827" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
+      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="transparent" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="com.microsoft.windows.lighting" Id="DynamicLighting" PublicFolder="public" DisplayName="CAYADEV Visualizer" />

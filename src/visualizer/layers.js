@@ -394,21 +394,22 @@
          cfg.visualizer && cfg.visualizer.type === 'none' &&
          (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
 
-      const wasBlackout = this.prevCfg && (
+      const wasBlackout = !!(this.prevCfg && (
         this.prevCfg.isBlackout ||
         (this.prevCfg.background && this.prevCfg.background.type === 'solid' && this.prevCfg.background.solidColor === '#000000' &&
          this.prevCfg.visualizer && this.prevCfg.visualizer.type === 'none' &&
          (!this.prevCfg.layers || this.prevCfg.layers.every((l) => !l.enabled)))
-      );
+      ));
 
-      const isBlackoutTrans = isBlackoutNow || wasBlackout;
+      const bothBlackout = isBlackoutNow && wasBlackout;
+      const isBlackoutTrans = isBlackoutNow !== wasBlackout;
       const transType = isBlackoutTrans ? (spec && spec.blackoutType || 'crossfade') : (spec && spec.type || 'crossfade');
       const transDur = isBlackoutTrans
         ? (spec && spec.blackoutDuration != null ? spec.blackoutDuration : 0.4)
         : (T ? T.durationSeconds(cfg, this.bpm || (spec && spec.bpm || 0)) : 0.7);
 
-      if (T && spec && spec.enabled !== false && transType && transType !== 'cut' && transDur > 0 &&
-          this.lastSig && scnSig !== this.lastSig && this.entries.length && this.prevCfg) {
+      if (T && spec && spec.enabled !== false && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
+          this.lastSig && scnSig !== this.lastSig && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
           type: transType,
           duration: transDur,
@@ -591,9 +592,8 @@
        yalnızca drawTo() ile çizer. */
     beginTransition(oldCfg, spec) {
       if (this.trans) this.endTransition();
-      if (!this.entries.length) return;
       const out = new LayerStack(null, this.opts);
-      out.entries = this.entries;
+      out.entries = this.entries || [];
       out.width = this.width;
       out.height = this.height;
       out.sprites = this.sprites;

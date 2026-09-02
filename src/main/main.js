@@ -233,6 +233,9 @@ function createVisualizerWindow(display) {
     backgroundColor: '#000000',
     show: false,
     fullscreenable: true,
+    enableLargerThanScreen: true,
+    resizable: false,
+    movable: false,
     skipTaskbar: false,
     title: trUi('Görselleştirme', 'Visualization'),
     webPreferences: {
@@ -253,7 +256,6 @@ function createVisualizerWindow(display) {
   win.once('ready-to-show', () => {
     if (win.isDestroyed()) return;
     win.setBounds(b);
-    win.setFullScreen(true);
     win.show();
     applyAlwaysOnTop();
   });
@@ -315,7 +317,6 @@ function openVisualizer(displayIds) {
     if (existing && !existing.isDestroyed()) {
       // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
       existing.setBounds(display.bounds);
-      existing.setFullScreen(true);
       existing.show();
     } else {
       createVisualizerWindow(display);
