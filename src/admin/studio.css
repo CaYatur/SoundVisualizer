@@ -390,3 +390,40 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   border-radius: 9px;
   padding: 8px 9px;
 }
+
+
+/* ===== Projeksiyon haritalama ===== */
+.map-panel { display: flex; flex-direction: column; gap: 9px; }
+.map-edit {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 10px;
+  padding: 6px;
+  overflow: hidden;
+}
+.map-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.map-canvas:focus { box-shadow: 0 0 0 2px var(--accent, #7c5cff) inset; }
+
+.map-nums { display: flex; flex-direction: column; gap: 5px; }
+.map-num { display: flex; align-items: center; gap: 6px; }
+.map-num-lbl {
+  flex: 0 0 70px;
+  font-size: 11px;
+  color: var(--muted, rgba(255, 255, 255, 0.65));
+}
+.map-num input { flex: 1; min-width: 0; }
+
+.map-masks { display: flex; flex-direction: column; gap: 4px; }
+.btn.tiny.active {
+  background: var(--accent, #7c5cff);
+  color: #fff;
+  border-color: transparent;
+}

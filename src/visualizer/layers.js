@@ -187,6 +187,9 @@
       this.compCtx = null;
       this._fxMode = false;
       this._surface = null;
+      // Projeksiyon haritalaması açıkken sahne tek yüzeye inmeli: bükme
+      // katman katman değil, birleştirilmiş görüntüye uygulanır
+      this._mapping = false;
       // Sahne geçişi durumu (bkz. beginTransition)
       this.trans = null;
       this.lastSig = '';
@@ -451,6 +454,16 @@
       return d.scale !== 1 || d.rotate !== 0 || d.x !== 0 || d.y !== 0 || d.flipX || d.flipY;
     }
 
+    // Haritalama aşaması tek yüzey ister; görselleştirici bunu bildirir
+    setMapping(on) {
+      this._mapping = !!on;
+    }
+
+    // Görünür tek yüzey (haritalama aşaması bunu kaynak olarak kullanır)
+    surface() {
+      return this._surface || null;
+    }
+
     /* Sahne geçişini başlat.
 
        Giden sahnenin donmuş bir fotoğrafı yerine, KATMANLARI olduğu gibi
@@ -522,7 +535,7 @@
     draw(audio, cfg, t, dt) {
       const tick = this._tickTransition(dt);
       const fxOn = !!(this.postfx && this.postfx.hasWork());
-      const single = fxOn || !!tick;
+      const single = fxOn || !!tick || this._mapping;
 
       if (single) {
         this._ensureComp();
@@ -556,8 +569,11 @@
           this.postfx.resize(this.width, this.height);
           this.postfx.render(src, audio, t, dt);
           this._setSurface(this.postfx.canvas);
-        } else {
+        } else if (tick) {
           this._setSurface(this.transSurface);
+        } else {
+          // Yalnızca haritalama için tek yüzeye indik
+          this._setSurface(this.compCanvas);
         }
         return;
       }

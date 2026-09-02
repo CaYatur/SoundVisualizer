@@ -2,6 +2,12 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Bu pencerenin ekran kimliği (ana süreç komut satırında veriyor).
+// Projeksiyon haritalaması ekran başına tanımlandığı için gerekli.
+const displayArg = process.argv.find((a) => a.startsWith('--sv-display-id='));
+contextBridge.exposeInMainWorld('SV_DISPLAY_ID',
+  displayArg ? Number(displayArg.split('=')[1]) : null);
+
 contextBridge.exposeInMainWorld('api', {
   requestConfig: () => ipcRenderer.invoke('request-config'),
   onConfig: (cb) => ipcRenderer.on('config', (e, config) => cb(config)),

@@ -286,6 +286,8 @@
         return window.SVAnalysisPanel ? window.SVAnalysisPanel.panel() : null;
       case 'transitionpanel':
         return window.SVTransitionPanel ? window.SVTransitionPanel.panel() : null;
+      case 'mappingpanel':
+        return window.SVMappingPanel ? window.SVMappingPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1667,7 +1669,16 @@
         controls: [{ type: 'layerspanel' }],
       },
       {
-        id: 'analysis',
+        id: 'mapping',
+        category: 'output',
+        icon: '⧉',
+        wide: true,
+        title: 'Projeksiyon Haritalama',
+        desc: 'Görüntüyü düz olmayan yüzeylere oturtun: köşe düzeltme, bükme ızgarası, kırpma, kenar harmanlama, ekran başına renk düzeltme, maske ve hizalama desenleri.',
+        controls: [{ type: 'mappingpanel' }],
+      },
+      {
+        id: 'deepanalysis',
         category: 'audio',
         icon: '📈',
         wide: true,
@@ -3240,6 +3251,7 @@
     if (window.SVControl) window.SVControl.init();
     // Tempo motoru ve otomatik VJ döngüsü
     if (window.SVAutoVJ) window.SVAutoVJ.init();
+    if (window.SVMappingPanel) window.SVMappingPanel.init();
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
     // Kamera listesi (medya katmanı için)

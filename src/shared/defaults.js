@@ -359,6 +359,22 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // Projeksiyon haritalaması.
+    //
+    // Görüntüyü düz bir dikdörtgen olmayan yüzeye oturtmak için: köşe
+    // düzeltme (homografi), ağ bükme, kırpma, kenar harmanlama, ekran başına
+    // renk düzeltme, maske ve hizalama desenleri.
+    //
+    // outputs: ekran kimliği -> çıkış tanımı (bkz. src/shared/warp.js
+    // defaultOutput). Boş bırakılırsa haritalama tamamen atlanır ve
+    // ölçülebilir bir maliyeti olmaz.
+    // ------------------------------------------------------------------
+    mapping: {
+      enabled: false,
+      outputs: {},
+    },
+
+    // ------------------------------------------------------------------
     // Sahne geçişleri.
     //
     // Sahne değiştirmek eskiden sert kesmeydi. Geçiş yalnızca SAHNE

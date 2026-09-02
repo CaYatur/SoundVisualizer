@@ -21,6 +21,22 @@
   // modüle edilmiş bir KOPYASINI üretir; saklanan ayarlar değişmez.
   const modulator = new window.SVModulation.Modulator();
 
+  /* Projeksiyon haritalaması bu pencerenin ekranına ait tanımı kullanır.
+     Kimlik dönüşümündeyse hiç devreye girmez — kapalı haritalamanın maliyeti
+     sıfır olmalı. */
+  const mapper = new window.SVMapper.Mapper();
+  const displayId = window.SV_DISPLAY_ID;
+  let mapCanvas = null;
+
+  function outputDef(c) {
+    const m = c && c.mapping;
+    if (!m || m.enabled === false) return null;
+    const outs = m.outputs || {};
+    const own = (displayId != null && outs[displayId]) || outs.default || null;
+    if (!own || window.SVWarp.isIdentity(own)) return null;
+    return own;
+  }
+
   const stack = new window.SVLayers.LayerStack(stage, { logoEl: logoImg });
   stack.setSprites(sprites);
   stack.setMedia(media);
@@ -56,6 +72,35 @@
     document.body.style.background =
       bgType === 'transparent' ? 'transparent' : bgType === 'solid' ? cfg.background.solidColor : '#000';
     stack.bindMedia(mediaOn ? media.video : null);
+  }
+
+  /* Haritalama aşaması.
+
+     Katman yığınının ürettiği görünür yüzeyi alır, büker ve kendi tuvalini
+     sahneye koyar. Yığın CSS kompozit yolundayken (tek yüzey yok) tek yüzeye
+     inmek gerekir; bunu yığından isteriz. */
+  function applyMapping(c) {
+    const out = outputDef(c);
+    if (!out) {
+      if (mapCanvas && mapCanvas.parentNode) mapCanvas.parentNode.removeChild(mapCanvas);
+      mapCanvas = null;
+      stack.setMapping(false);
+      return;
+    }
+    stack.setMapping(true);
+    const src = stack.surface();
+    if (!src) return;
+    mapper.resize(src.width, src.height);
+    if (!mapper.render(src, out)) return;
+    if (mapCanvas !== mapper.canvas) {
+      mapCanvas = mapper.canvas;
+      mapCanvas.style.position = 'absolute';
+      mapCanvas.style.inset = '0';
+      mapCanvas.style.width = '100%';
+      mapCanvas.style.height = '100%';
+      mapCanvas.style.zIndex = '1000';
+      if (!mapCanvas.parentNode) stage.appendChild(mapCanvas);
+    }
   }
 
   function applyMedia() {
@@ -128,6 +173,7 @@
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       stack.draw(audio, mcfg, t, dt);
+      applyMapping(mcfg);
     }
 
     // logo nabzı

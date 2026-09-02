@@ -767,6 +767,50 @@
 
     'Mono Kırmızı': 'Mono Red', 'Mono Mavi': 'Mono Blue', 'Mono Yeşil': 'Mono Green',
     'Mono Mor': 'Mono Purple', 'Mono Turuncu': 'Mono Orange', 'Gri Tonlama': 'Grayscale',
+    // ---- Projeksiyon haritalama ----
+    'Projeksiyon Haritalama': 'Projection Mapping',
+    'Görüntüyü düz olmayan yüzeylere oturtun: köşe düzeltme, bükme ızgarası, kırpma, kenar harmanlama, ekran başına renk düzeltme, maske ve hizalama desenleri.':
+      'Fit the image onto surfaces that are not flat: corner pin, warp mesh, crop, edge blending, per-display colour correction, masks and alignment patterns.',
+    'Haritalama Etkin': 'Mapping Enabled',
+    'Haritalama kapalı: görüntü ekrana olduğu gibi gider ve bu aşamanın ölçülebilir bir maliyeti yoktur.':
+      'Mapping is off: the image goes to the screen unchanged, and this stage costs nothing measurable.',
+    'Düzenlenen Çıkış': 'Editing Output',
+    'Tüm Ekranlar (varsayılan)': 'All Displays (default)',
+    'Düzenleme': 'Editing',
+    'Köşeler': 'Corners',
+    'Bükme Izgarası': 'Warp Mesh',
+    'Maske': 'Mask',
+    'Sol Üst': 'Top Left', 'Sağ Üst': 'Top Right', 'Sağ Alt': 'Bottom Right', 'Sol Alt': 'Bottom Left',
+    'Köşeleri Sıfırla': 'Reset Corners',
+    'Izgara': 'Grid',
+    'Izgarayı Sıfırla': 'Reset Mesh',
+    'Bir noktayı sürükleyin; ok tuşlarıyla ince ayar yapın (Shift ile büyük adım). Eğri kontrol noktalarından geçer, yani nokta nereye giderse görüntü de oraya gider.':
+      'Drag a point; fine-tune with the arrow keys (Shift for a larger step). The curve passes through the control points, so the image goes exactly where the point goes.',
+    '+ Dörtgen Maske': '+ Rectangle Mask',
+    '+ Altıgen Maske': '+ Hexagon Mask',
+    'Maskeler görüntünün dışına taşan alanı gizler. Çokgenin içi karartılır.':
+      'Masks hide areas the image should not reach. The inside of the polygon is blacked out.',
+    'Kenar Harmanlama': 'Edge Blending',
+    'Sol': 'Left', 'Sağ': 'Right', 'Üst': 'Top', 'Alt': 'Bottom',
+    'Işık Eğrisi (gama)': 'Light Curve (gamma)',
+    'İki projektör üst üste bindiğinde her ikisinin de kendi kenarını karartması gerekir. Eğriler toplandığında tam ışık verecek biçimde tasarlandı; gama projektörün ışık eğrisine göre ayarlanır.':
+      'Where two projectors overlap, each has to darken its own edge. The curves are designed to sum to full light; the gamma matches the projector\'s own light curve.',
+    'Kırpma': 'Crop',
+    'Genişlik': 'Width',
+    'Yükseklik': 'Height',
+    'Kompozisyonun bir bölgesini alıp bu çıkışa yayar. Tek bir sahneyi birden çok yüzeye bölmenin yolu budur.':
+      'Takes a region of the composition and fills this output with it. This is how one scene is split across several surfaces.',
+    'Renk Düzeltme': 'Colour Correction',
+    'Kırmızı': 'Red', 'Yeşil': 'Green', 'Mavi': 'Blue',
+    'Yan yana duran iki projektörün rengi hiçbir zaman birebir aynı olmaz; bu ayarlar onları eşleştirmek içindir.':
+      'Two projectors side by side never match exactly; these controls are for matching them.',
+    'Hizalama Deseni': 'Alignment Pattern',
+    'Artı ve Çember': 'Cross & Circle',
+    'Renk Barları': 'Colour Bars',
+    'Odak Çemberleri': 'Focus Rings',
+    'Bu Çıkışı Sıfırla': 'Reset This Output',
+    'Bu çıkışın tüm haritalama ayarları sıfırlansın mı?': 'Reset every mapping setting for this output?',
+
     // ---- Sahne geçişleri ----
     'Sahne Geçişi': 'Scene Transition',
     'Sahne değiştirirken sert kesme yerine geçiş: çapraz geçiş, silme, iris, zum, glitch ve daha fazlası. İstenirse tamamen kapatılabilir.':

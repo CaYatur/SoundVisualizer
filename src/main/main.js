@@ -227,6 +227,9 @@ function createVisualizerWindow(display) {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false, // arka planda da akıcı kalsın
+      // Projeksiyon haritalaması ekran başına saklanıyor; pencere hangi
+      // ekranda olduğunu bilmeli
+      additionalArguments: ['--sv-display-id=' + display.id],
     },
   });
   visualizerWins.set(display.id, win);
@@ -1517,6 +1520,126 @@ async function runSmoke() {
   transReport.filter((r) => !r.ok).forEach((r) =>
     console.log('[SMOKE]   ✗ ' + r.id + ' — ' + (r.error || 'bilinmiyor')));
 
+  /* Projeksiyon haritalaması: bükme, kırpma, kenar harmanlama, renk
+     düzeltme ve hizalama desenleri GPU'da gerçekten çalışıyor mu?
+
+     Matematiği tests/warp.test.js ölçüyor. Burada ölçülen şey shader
+     tarafı: kimlik ayarında çıktı kaynağın aynısı olmalı (haritalama
+     kapalıyken görüntü bozulmamalı), köşe çekildiğinde görüntü küçülüp
+     kenarlarda siyah kalmalı, kenar harmanlama kenarı karartmalı ve test
+     deseni görüntüyü değiştirmeli. */
+  const mapReport = await wc.executeJavaScript(`(function(){
+    if (!window.SVMapper || !window.SVWarp) return [{ id: 'HOST', ok: false, error: 'modül yok' }];
+    var W = 128, H = 96;
+    var src = document.createElement('canvas');
+    src.width = W; src.height = H;
+    var sx = src.getContext('2d');
+    sx.fillStyle = '#ffffff'; sx.fillRect(0, 0, W, H);
+    sx.fillStyle = '#ff4400'; sx.fillRect(W * 0.25, H * 0.25, W * 0.5, H * 0.5);
+
+    var read = document.createElement('canvas');
+    read.width = W; read.height = H;
+    var rctx = read.getContext('2d', { willReadFrequently: true });
+    function stats(cv) {
+      rctx.clearRect(0, 0, W, H);
+      rctx.drawImage(cv, 0, 0, W, H);
+      var d = rctx.getImageData(0, 0, W, H).data;
+      var sum = 0, lit = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4) {
+        var l = (d[i] + d[i+1] + d[i+2]) / 3;
+        sum += l; if (l > 8) lit++; n++;
+      }
+      return { avg: Math.round(sum / n), lit: lit / n };
+    }
+
+    var m = new window.SVMapper.Mapper();
+    m.resize(W, H);
+    var base = stats(src);
+    var res = [];
+    function check(id, build, verify) {
+      try {
+        var out = window.SVWarp.defaultOutput();
+        out.enabled = true;
+        build(out);
+        var drew = m.render(src, out);
+        if (!drew) { res.push({ id: id, ok: false, error: 'render atlandı (kimlik sayıldı?)' }); return; }
+        var st = stats(m.canvas);
+        var why = verify(st, base);
+        res.push({ id: id, ok: !why, error: why || '', avg: st.avg, lit: Math.round(st.lit * 100) });
+      } catch (e) {
+        res.push({ id: id, ok: false, error: String(e && e.message || e) });
+      }
+    }
+
+    // Kimlik: render() hiç çalışmamalı, çağıran kaynağı doğrudan kullanır
+    try {
+      var idOut = window.SVWarp.defaultOutput();
+      idOut.enabled = true;
+      var skipped = m.render(src, idOut) === false;
+      res.push({ id: 'kimlik-atlanır', ok: skipped, error: skipped ? '' : 'kimlik ayarda gereksiz render' });
+    } catch (e) { res.push({ id: 'kimlik-atlanır', ok: false, error: String(e) }); }
+
+    check('köşe-düzeltme', function (o) {
+      o.corners = [[0.15, 0.1], [0.9, 0.05], [0.85, 0.95], [0.1, 0.85]];
+    }, function (st, b) {
+      // Dörtgen küçüldü: kenarlarda siyah kalmalı, dolu oran düşmeli
+      if (st.lit >= b.lit - 0.05) return 'görüntü küçülmedi (dolu %' + Math.round(st.lit * 100) + ')';
+      if (st.lit < 0.3) return 'görüntü kayboldu';
+      return '';
+    });
+
+    check('ağ-bükme', function (o) {
+      o.mesh = window.SVWarp.identityGrid(3, 3);
+      o.mesh.pts[(1 * 3 + 1) * 2 + 1] = 0.75;  // orta noktayı aşağı çek
+    }, function (st) {
+      if (st.lit < 0.5) return 'bükmede görüntü kayboldu';
+      return '';
+    });
+
+    check('kenar-harmanlama', function (o) {
+      o.edges = { left: 0.3, right: 0.3, top: 0.3, bottom: 0.3, gamma: 1 };
+    }, function (st, b) {
+      if (st.avg >= b.avg - 12) return 'kenarlar kararmadı (' + st.avg + ' / ' + b.avg + ')';
+      return '';
+    });
+
+    check('renk-düzeltme', function (o) {
+      o.color = { brightness: 0.45, contrast: 1, gamma: 1, r: 1, g: 1, b: 1 };
+    }, function (st, b) {
+      if (st.avg >= b.avg - 30) return 'parlaklık uygulanmadı (' + st.avg + ' / ' + b.avg + ')';
+      return '';
+    });
+
+    check('kırpma', function (o) {
+      o.crop = { x: 0.25, y: 0.25, w: 0.5, h: 0.5 };
+    }, function (st) {
+      // Yalnızca turuncu kare kalmalı: ortalama belirgin değişir
+      if (st.lit < 0.9) return 'kırpma sonrası boşluk var';
+      return '';
+    });
+
+    check('maske', function (o) {
+      o.masks = [[[0.0, 0.0], [0.5, 0.0], [0.5, 1.0], [0.0, 1.0]]];
+    }, function (st, b) {
+      if (st.lit > b.lit - 0.3) return 'maske uygulanmadı (dolu %' + Math.round(st.lit * 100) + ')';
+      return '';
+    });
+
+    ['grid', 'cross', 'bars', 'circle'].forEach(function (pat) {
+      check('desen-' + pat, function (o) { o.testPattern = pat; }, function (st, b) {
+        if (Math.abs(st.avg - b.avg) < 6) return 'desen görüntüyü değiştirmedi';
+        return '';
+      });
+    });
+
+    m.dispose();
+    return res;
+  })()`);
+  const mapFail = mapReport.filter((r) => !r.ok).length;
+  if (mapFail) errors.push(mapFail + ' haritalama kontrolü başarısız');
+  console.log('[SMOKE] haritalama: ' + mapReport.length + ' kontrol, ' + (mapReport.length - mapFail) + ' geçti');
+  mapReport.filter((r) => !r.ok).forEach((r) =>
+    console.log('[SMOKE]   ✗ ' + r.id + ' — ' + (r.error || 'bilinmiyor')));
   /* 3B geometri motoru: katalogtaki HER formül ağ kuruyor ve gerçekten
      çiziliyor mu? Formül sayısı reklam malzemesi olmaya elverişli olduğu
      için burada tek tek çizdirilip boş olmadıkları ölçülür. */
