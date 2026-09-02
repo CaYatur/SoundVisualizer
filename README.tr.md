@@ -404,8 +404,8 @@ müzikle yanan iki katmanlı paralaks silüet)
 
 **Diğer** — **Studio Preseti** (kendi yazdığınız GLSL shader) · **Düz Renk**
 
-Beş renk durağı, yedi grupta **58 yerleşik palet** (Klasikler, Sıcak, Soğuk, Neon ve Siber, Koyu,
-Açık, Tek Renk Aileleri) ve kendi kaydettiğiniz paletler her arkaplan türünde, Studio motorunda ve
+Beş renk durağı, yedi grupta **58 yerleşik palet** (Klasikler, Sıcak, Soğuk, Neon ve Siber, Karanlık,
+Aydınlık, Tek Renk Aileleri) ve kendi kaydettiğiniz paletler her arkaplan türünde, Studio motorunda ve
 3B motorda geçerlidir.
 
 ### Görselleştirici — 48 mod
