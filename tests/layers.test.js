@@ -9,6 +9,7 @@
 global.window = global.window || {};
 const test = require('node:test');
 const assert = require('node:assert');
+require('../src/shared/defaults.js'); // window.SV — birleştirme testleri için
 const L = require('../src/visualizer/layers.js');
 
 const baseCfg = () => ({
@@ -72,6 +73,36 @@ test('anahtar hiç yoksa dolu liste açık sayılır (eski ayar dosyaları)', ()
   delete cfg.layerStack;
   assert.strictEqual(L.stackOn(cfg), true);
   assert.strictEqual(L.resolve(cfg)[0].id, 'a');
+});
+
+/* Bu test gerçek yükleme yolunu taklit ediyor.
+
+   Panel kaydedilmiş ayarları deepMerge(defaultConfig(), saved) ile açıyor,
+   yani eksik anahtarlar VARSAYILANDAN dolar. Varsayılan `enabled: false`
+   olsaydı v3.0.0 öncesi her ayar dosyası açıkça false alır ve dolu bir
+   katman listesi olan kullanıcının sahnesi sessizce arkaplan+görselleştirici
+   ikilisine dönerdi. Anahtarı yalnızca silerek test etmek bu yolu HİÇ
+   denemiyordu; aşağıdaki birleştirme onu deniyor. */
+test('v3.0.0 öncesi ayar dosyası varsayılanlarla birleşince katmanlarını korur', () => {
+  const SV = global.window.SV || require('../src/shared/defaults.js');
+  const kaydedilmis = {
+    background: { type: 'gradient' },
+    visualizer: { type: 'bars' },
+    layers: [
+      { id: 'a', kind: 'visualizer', type: 'wave' },
+      { id: 'b', kind: 'background', type: 'nebula' },
+    ],
+  };
+  const cfg = SV.deepMerge(SV.defaultConfig(), kaydedilmis);
+  assert.strictEqual(L.stackOn(cfg), true, 'yığın açık kalmalı');
+  assert.deepStrictEqual(L.resolve(cfg).map((l) => l.id), ['a', 'b']);
+});
+
+test('katmanı olmayan eski ayar dosyası yalın sahnede kalır', () => {
+  const SV = global.window.SV || require('../src/shared/defaults.js');
+  const cfg = SV.deepMerge(SV.defaultConfig(), { background: { type: 'gradient' }, visualizer: { type: 'bars' } });
+  assert.strictEqual(L.stackOn(cfg), false);
+  assert.deepStrictEqual(L.resolve(cfg).map((l) => l.kind), ['background', 'visualizer']);
 });
 
 test('anahtar hiç yoksa boş liste kapalı sayılır', () => {

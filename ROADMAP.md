@@ -30,6 +30,8 @@ covered by a test or by the GPU self-test.
 | Layer masks | ❌ | ❌ | ❌ | ✅ | Alpha from another layer, plus shape and gradient masks |
 | Post-FX | ❌ | ❌ | ✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
 | Visualizer modes | 14 | 31 | 32 | **48** | Includes 14 new generative modes |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | Bar placement, logo beside the bars, track and artist text |
 | Backgrounds | 10 | 19 | 19 | **31** | All share the palette and template system |
 | Colour presets | 10 | 10 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
 | Formulas | ❌ | ❌ | 35 | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
@@ -43,7 +45,7 @@ covered by a test or by the GPU self-test.
 | Live shader editor | ❌ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
 | Built-in shaders | ❌ | 5 | 5 | **42** | All compile on the GPU in the self-test |
 | Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **64** | Eight groups, each verified not to damage a working setup |
+| Scene templates | ❌ | ❌ | ❌ | **72** | Nine groups, each verified not to damage a working setup |
 | Text and lyrics | ❌ | ❌ | ❌ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
 | MIDI | ❌ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
 | OSC | ❌ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
@@ -56,7 +58,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | **564** unit tests + a GPU self-test over every engine |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | **623** unit tests + a GPU self-test over every engine |
 | Timeline | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | v3.1.0 |
 | Spout / Syphon / NDI | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
@@ -80,7 +82,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **564 unit tests, all passing.** Formulas are checked against values derived
+- **623 unit tests, all passing.** Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
   bounded and landing inside the view volume.
@@ -92,7 +94,8 @@ npm start -- --smoke
 - **The GPU self-test** draws every registered mode, background, post-FX
   effect, shader, formula and transition on a real GPU and measures that the
   result is not blank; it then switches the interface to English and scans for
-  untranslated strings.
+  untranslated strings. It also asserts that automation never opens the
+  camera, after the screenshot generator was caught doing exactly that.
 
 ---
 
