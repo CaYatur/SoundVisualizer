@@ -312,7 +312,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
 
     const controls = [];
     const notes = [];
-    for (const inp of meta.INPUTS || []) {
+    // ISF başlığı kullanıcı dosyasından geliyor; alanların türü garanti değil
+    const arr = (v) => (Array.isArray(v) ? v : []);
+    for (const inp of arr(meta.INPUTS)) {
       if (!inp || !inp.NAME || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(inp.NAME)) continue;
       const label = inp.LABEL || inp.NAME;
       if (inp.TYPE === 'float' || inp.TYPE === 'long') {
@@ -336,13 +338,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         controls.push({ name: inp.NAME + '_y', label: label + ' Y', type: 'slider', min: 0, max: 1, step: 0.01, default: +d[1] });
       }
     }
-    if ((meta.PASSES || []).length > 1) {
+    if (arr(meta.PASSES).length > 1) {
       notes.push('Çok geçişli (PASSES) ISF shader\'ı tek geçişe indirgendi; sonuç farklı görünebilir.');
     }
 
     // main() -> isf_main(); gl_FragColor bizim çıkışımıza yönlendirilir
     const renamed = body.replace(/\bvoid\s+main\s*\(\s*(void)?\s*\)/, 'void isf_main()');
-    const point2Ds = (meta.INPUTS || [])
+    const point2Ds = arr(meta.INPUTS)
       .filter((i) => i && i.TYPE === 'point2D' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(i.NAME))
       .map((i) => `vec2 ${i.NAME} = vec2(${i.NAME}_x, ${i.NAME}_y);`)
       .join('\n');

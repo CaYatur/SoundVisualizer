@@ -1,0 +1,76 @@
+name: tests
+
+# The unit suite is pure arithmetic — formulas, tempo, onset detection,
+# modulation, audio analysis, transitions, warp geometry, the MilkDrop
+# language, lyrics timing, templates, config migration and the import fuzzers.
+# None of it needs a GPU or an audio device, so it runs on every push.
+#
+# The GPU self-test (`npm start -- --smoke`) is deliberately NOT here: it opens
+# real windows, compiles every shader on a real driver and captures frames.
+# A software rasteriser in CI would report failures that do not exist on a
+# user's machine and hide the ones that do, so it stays a local gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No install step: the test suite has no dependencies of its own. The
+      # package's dependencies (electron, audify, ffmpeg) are only needed to
+      # run or package the application, and installing them here would add
+      # minutes and a native build for no benefit.
+      - name: Run unit tests
+        run: node --test "tests/**/*.test.js"
+
+  lint:
+    name: syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Every browser-side file is loaded with a plain <script> tag, so a
+      # syntax error only shows up at runtime — and often silently, as a
+      # missing global rather than an error. Parsing each file here catches
+      # that before it reaches a window.
+      - name: Parse every source file
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const bad = [];
+            const walk = (dir) => {
+              for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+                const p = path.join(dir, e.name);
+                if (e.isDirectory()) walk(p);
+                else if (e.name.endsWith(".js")) {
+                  try { new Function(fs.readFileSync(p, "utf8")); }
+                  catch (err) { bad.push(p + ": " + err.message); }
+                }
+              }
+            };
+            walk("src");
+            walk("tests");
+            walk("scripts");
+            if (bad.length) { console.error(bad.join("\n")); process.exit(1); }
+            console.log("all files parse");
+          '

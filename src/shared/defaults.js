@@ -787,13 +787,17 @@
     return clone(DEFAULT_CONFIG);
   }
 
-  // Hex -> [r,g,b] 0..1
+  /* Hex -> [r,g,b] 0..1
+
+     Girdi her zaman geçerli olmayabilir: renkler preset dosyalarından,
+     şablonlardan ve eski ayar dosyalarından geliyor ve eksik ya da bozuk
+     olabiliyor. Böyle bir durumda çökmek yerine beyaz döndürülür — bir
+     karenin yanlış renkte çizilmesi, o karenin hiç çizilmemesinden iyidir. */
   function hexToRgb01(hex) {
-    const h = hex.replace('#', '');
-    const n = parseInt(
-      h.length === 3 ? h.split('').map((c) => c + c).join('') : h,
-      16
-    );
+    const h = String(hex == null ? '' : hex).trim().replace(/^#/, '');
+    const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) return [1, 1, 1];
+    const n = parseInt(full, 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
