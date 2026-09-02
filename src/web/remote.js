@@ -13,7 +13,6 @@
   const $ = (id) => document.getElementById(id);
   let cfg = null;
   let presets = [];
-  let blackoutSaved = null;
 
   const VIS_MODES = [
     ['none', 'Kapalı'], ['bars', 'Barlar'], ['centerBars', 'Merkez'], ['blocks', 'Segment'],
@@ -277,6 +276,8 @@
   // --------------------------------------------------------------------------
   function syncFromConfig(c) {
     cfg = c;
+    // Karartma durumu paneldedir; düğme onu yansıtır
+    $('blackoutBtn').classList.toggle('on', c.isBlackout === true);
     markActive($('visModes'), c.visualizer && c.visualizer.type);
     markActive($('bgModes'), c.background && c.background.type);
     renderScenes();
@@ -303,22 +304,17 @@
     b.addEventListener('click', () => send(b.dataset.action));
   });
 
-  // Karartma: yayında "panik" düğmesi — sahneyi kapatmadan karartır
+  /* Karartma: yayında "panik" düğmesi — sahneyi kapatmadan karartır.
+
+     Eskiden burada arkaplan ve görselleştirici türü doğrudan
+     değiştiriliyordu; katman yığını açıkken sahne katmanlardan
+     çizildiği için ekran hiç kararmıyordu. Artık panele bir EYLEM
+     gönderiliyor: karartmanın tek uygulaması orada, geri yükleme
+     durumu da orada tutuluyor. Düğmenin görünümü gelen
+     yapılandırmadan okunuyor (bkz. syncFromConfig). */
   $('blackoutBtn').addEventListener('click', () => {
     if (!cfg) return;
-    const btn = $('blackoutBtn');
-    if (blackoutSaved) {
-      setPath('background.type', blackoutSaved.bg);
-      setPath('visualizer.type', blackoutSaved.vis);
-      blackoutSaved = null;
-      btn.classList.remove('on');
-    } else {
-      blackoutSaved = { bg: cfg.background.type, vis: cfg.visualizer.type };
-      setPath('background.type', 'solid');
-      setPath('background.solidColor', '#000000');
-      setPath('visualizer.type', 'none');
-      btn.classList.add('on');
-    }
+    send('blackout');
   });
 
   buildGrid($('visModes'), VIS_MODES, 'visualizer.type');

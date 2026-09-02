@@ -940,6 +940,17 @@ function applyRemoteCommand(msg) {
     for (const key of SCENE_KEYS) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
     }
+  } else if (msg.action === 'blackout') {
+    /* Karartmayı PANEL yapar, telefon değil.
+
+       Telefon yalnızca arkaplan ve görselleştirici türünü değiştirebiliyordu;
+       katman yığını açıkken sahne katmanlardan çizildiği için ekran hiç
+       kararmıyordu — panik düğmesi tam ihtiyaç anında işe yaramıyordu.
+       Katman listesini uzaktan yazılabilir yapmak yerine (izinli yollar
+       kasıtlı olarak dar) paneldeki tek gerçek uygulamaya devrediliyor;
+       böylece geri yükleme durumu da tek yerde kalıyor. */
+    notifyAdmin('remote-action', 'blackout');
+    return;
   } else if (msg.action === 'set') {
     if (!remotePathAllowed(msg.path)) return;
     const v = msg.value;

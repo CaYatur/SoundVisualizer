@@ -3577,6 +3577,12 @@
     $('sceneExportBtn').addEventListener('click', () => actions.exportScenes());
     $('sceneImportBtn').addEventListener('click', () => actions.importScenes());
 
+    // Telefondan gelen eylemler paneldeki gerçek uygulamayı çağırır
+    if (window.api.onRemoteAction) {
+      window.api.onRemoteAction((action) => {
+        if (action === 'blackout') toggleBlackout();
+      });
+    }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));
     window.api.onDisplaysChanged((list) => {
       displays = list;
