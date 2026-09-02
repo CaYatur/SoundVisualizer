@@ -2404,6 +2404,21 @@ async function runShots() {
   /* README için seçilen sahneler. Hepsi kullanıcının Kitaplık > Hazır
      Şablonlar kartından tek tıkla ulaşabileceği şeyler; görüntüdeki şeyin
      ulaşılabilir olması, ulaşılamaz bir şeyi göstermekten iyidir. */
+  /* Müzik videosu şablonları logo ve parça bilgisi ister; ekran görüntüsü
+     bunlarsız yarım görünürdü. Logo, dosyaya bağımlı kalmamak için burada
+     üretiliyor. */
+  const SHOT_LOGO = 'data:image/svg+xml;base64,' + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">' +
+    '<rect width="256" height="256" rx="26" fill="#ffffff"/>' +
+    '<path d="M60 176V80h30c26 0 42 18 42 48s-16 48-42 48H60zm30-24h6c11 0 18-9 18-24s-7-24-18-24h-6v48z" fill="#111"/>' +
+    '<circle cx="176" cy="104" r="20" fill="#111"/><rect x="160" y="128" width="32" height="48" rx="8" fill="#111"/>' +
+    '</svg>'
+  ).toString('base64');
+  const NOW_PLAYING = {
+    logo: { enabled: true, src: SHOT_LOGO },
+    text: { nowPlaying: { title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA' } },
+  };
+
   const SCENES = [
     ['club-strobe', 'scene-club-strobe.png', 2200],
     ['club-tunnel', 'scene-tunnel.png', 2200],
@@ -2421,11 +2436,16 @@ async function runShots() {
     ['mus-galaxy', 'scene-galaxy.png', 2600],
     ['scr-plasma', 'scene-plasma.png', 2200],
     ['evt-gala', 'scene-gala.png', 2200],
+    // Müzik videosu düzeni: sınırlı bar, logo yanda, altında parça bilgisi
+    ['bc-label', 'scene-broadcast-label.png', 2600, NOW_PLAYING],
+    ['bc-line', 'scene-broadcast-line.png', 2600, NOW_PLAYING],
+    ['bc-minimal', 'scene-broadcast-minimal.png', 2600, NOW_PLAYING],
+    ['bc-amber', 'scene-broadcast-amber.png', 2600, NOW_PLAYING],
   ];
 
-  for (const [id, name, settle] of SCENES) {
+  for (const [id, name, settle, over] of SCENES) {
     if (!want(name)) continue;
-    if (!(await applyTemplate(id))) continue;
+    if (!(await applyTemplate(id, over))) continue;
     await wait(settle);
     await save(vw, name);
   }

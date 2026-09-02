@@ -334,7 +334,12 @@
   function sliderCtrl(def) {
     const valSpan = el('span', { class: 'val' });
     const setText = (v) => (valSpan.textContent = fmtVal(def, v));
-    const cur = getPath(cfg, def.path);
+    /* nullable: değer null iken ayar "moda bırakılmış" demektir ve
+       kaydırıcı o modun kendi varsayılanını gösterir. Bar yerleşimi
+       böyle: dokunulmadığı sürece eski davranış aynen sürer, kaydırıcıya
+       dokunulduğu anda somut bir değere geçer. */
+    const raw = getPath(cfg, def.path);
+    const cur = raw == null && def.nullable != null ? def.nullable : raw;
     setText(cur);
     const max = sliderMax(def);
     const input = el('input', {
@@ -1691,6 +1696,14 @@
           { type: 'slider', path: 'visualizer.barCount', label: 'Bar Sayısı', min: 16, max: 160, step: 1, show: isBandMode, group: 'Bar Biçimi', advanced: true },
           { type: 'slider', path: 'visualizer.gap', label: 'Bar Boşluğu', min: 0, max: 0.8, step: 0.02, percent: true, show: hasGap, group: 'Bar Biçimi', advanced: true },
           { type: 'toggle', path: 'visualizer.mirror', label: 'Ayna (Simetri)', show: () => ['bars', 'wave', 'radialWave'].indexOf(v.type) >= 0, group: 'Bar Biçimi', advanced: true },
+
+          /* --- Bar yerleşimi ---
+             Yayın ve müzik videosu düzenlerinde bar bloğu kadranın tamamını
+             kaplamaz: köşede, ortada ya da ince bir şerit olarak durur. */
+          { type: 'slider', path: 'visualizer.barSpan', label: 'Bar Genişliği', min: 0.1, max: 1, step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barCenterX', label: 'Yatay Konum', min: 0, max: 1, step: 0.01, percent: true, nullable: 0.5, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.barHeight', label: 'Bar Yüksekliği', min: 0.05, max: 1, step: 0.01, percent: true, nullable: 0.92, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.baseline', label: 'Taban Çizgisi', min: 0, max: 1, step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
 
           // --- Dalga / çizgi biçimi (gelişmiş) ---
           { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },

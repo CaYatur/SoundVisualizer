@@ -2,6 +2,8 @@
 /* Frekans spektrumu barları (2D canvas).
    Her bar = logaritmik bir frekans bandı. Rainbow / tek renk, ayna, tepe noktaları. */
 (function () {
+  const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
   class BarsMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -32,14 +34,27 @@
       ctx.clearRect(0, 0, W, H);
 
       const mirror = v.mirror;
-      const slot = W / count;
+
+      /* Yerleşim.
+
+         Yayın düzeninde barlar kadranın tamamını doldurmaz: belli bir
+         genişlikte bir şerit olarak, belli bir yüksekliğe kadar, seçilen bir
+         taban çizgisinin üstünde durur. Bunu katman dönüşümüyle yapmak
+         barları yatayda da küçültüyordu; ölçüler bu yüzden modun kendi
+         ayarları. Varsayılanlar eski davranışı birebir korur. */
+      const span = clamp01(v.barSpan == null ? 1 : v.barSpan);
+      const cxFrac = clamp01(v.barCenterX == null ? 0.5 : v.barCenterX);
+      const areaW = W * span;
+      const areaX = W * cxFrac - areaW / 2;
+
+      const slot = areaW / count;
       const gap = slot * Math.min(0.8, Math.max(0, v.gap));
       const bw = Math.max(1, slot - gap);
 
-      const baseY =
-        v.position === 'bottom' ? H : v.position === 'center' ? H / 2 : H;
-      const maxH =
-        v.position === 'center' ? H * 0.46 : v.position === 'full' ? H * 0.95 : H * 0.92;
+      const defBase = v.position === 'center' ? 0.5 : 1;
+      const baseY = H * (v.baseline == null ? defBase : clamp01(v.baseline));
+      const defH = v.position === 'center' ? 0.46 : v.position === 'full' ? 0.95 : 0.92;
+      const maxH = H * (v.barHeight == null ? defH : clamp01(v.barHeight));
 
       // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
       ctx.save();
@@ -55,7 +70,7 @@
         val = Math.min(1, val);
         const bh = Math.max(1, val * maxH);
 
-        const x = i * slot + (slot - bw) / 2;
+        const x = areaX + i * slot + (slot - bw) / 2;
 
         // renk
         let col;

@@ -99,7 +99,10 @@
         }
       } else if (src === 'now') {
         const n = T.nowPlaying || {};
-        content = [n.title, n.artist].filter(Boolean).join(' — ') || (T.content || '');
+        const field = T.field || 'both';
+        if (field === 'title') content = n.title || T.content || '';
+        else if (field === 'artist') content = n.artist || T.content || '';
+        else content = [n.title, n.artist].filter(Boolean).join(' — ') || (T.content || '');
         this.lineAge += step;
       } else {
         content = T.content || '';
@@ -107,7 +110,8 @@
       }
       if (!content) return;
 
-      const cx = T.align === 'left' ? W * 0.06 : T.align === 'right' ? W * 0.94 : W * (T.x == null ? 0.5 : T.x);
+      const defX = T.align === 'left' ? 0.06 : T.align === 'right' ? 0.94 : 0.5;
+      const cx = W * (T.x == null ? defX : T.x);
       const cy = H * (T.y == null ? 0.5 : T.y);
 
       // Giriş canlandırması

@@ -206,6 +206,15 @@
       position: 'center', // 'bottom' | 'center' | 'full' (bars için)
       thickness: 0.42, // dalga/çember için
 
+      /* Bar yerleşimi (yayın/müzik videosu düzenleri için).
+         null = eski davranış: tam genişlik, position alanının verdiği taban
+         ve yükseklik. Değer verilince bar bloğu kadranın belli bir yerine
+         oturur — köşeye, ortaya, ince bir şerit halinde. */
+      barSpan: null, // genişlik oranı 0..1
+      barCenterX: null, // yatay merkez 0..1
+      barHeight: null, // en yüksek barın kadrandaki oranı 0..1
+      baseline: null, // taban çizgisinin dikey konumu 0..1
+
       /* Tayf ölçümü — bar tabanlı modların hepsi buradan okur.
 
          Varsayılanlar eski görünüşü korur (log ölçek, doğrusal genlik,
