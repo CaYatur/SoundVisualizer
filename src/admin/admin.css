@@ -779,21 +779,26 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   display: flex;
   gap: 6px;
   align-items: stretch;
+  margin-top: 7px;
 }
 .seg-collapsed button {
   flex: 1;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: inherit;
-  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
+  transition: .14s;
 }
+.seg-collapsed button:hover { color: var(--text); border-color: var(--line2); }
 .seg-collapsed button.active {
-  background: var(--accent, #3aa6ff);
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
   border-color: transparent;
-  color: #08080f;
+  color: #fff;
   font-weight: 600;
 }
 .seg-more {
@@ -806,9 +811,13 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   margin-top: 6px;
   padding: 6px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.03);
-  color: inherit;
-  font: inherit;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
+  transition: .14s;
 }
+.seg-more.wide:hover { color: var(--text); border-color: var(--line2); }

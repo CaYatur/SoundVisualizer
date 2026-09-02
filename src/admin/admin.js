@@ -421,6 +421,9 @@
         text: o.label,
         onclick: () => {
           setPath(cfg, def.path, o.value);
+          // Katlanabilir listede seçim yapılınca listeyi kapat — kullanıcı
+          // yeni türü gördüğünde altındaki ayarlar da hemen görünür olsun.
+          if (fold) segExpanded[def.path] = false;
           render();
           push(true);
         },
