@@ -1875,6 +1875,27 @@ async function runSmoke() {
       console.log('[SMOKE]   ' + cats[i] + ' -> ' + cards + ' kart');
       if (!cards) errors.push('admin category "' + cats[i] + '" rendered 0 cards');
     }
+
+    /* Her bölüm varsayılana döndürülebilmeli.
+
+       Özel paneller kontrollerini kendi modüllerinde kuruyor ve bir zamanlar
+       hiçbir yapılandırma kökü bildirmiyorlardı; kök olmayınca sıfırlama
+       düğmesi de çıkmıyordu. Burada bildirilen köklerin gerçekten
+       varsayılanlarda karşılığı olup olmadığı denetleniyor — yanlış yazılmış
+       bir kök sessizce yok sayılır ve düğme yine kaybolurdu. */
+    const rootCheck = await awc.executeJavaScript(
+      '(function(){ var api = window.SVAdminDebug; if (!api) return { skip: true };' +
+      'return api.checkSectionRoots(); })()'
+    );
+    if (rootCheck && rootCheck.skip) {
+      console.log('[SMOKE] section roots: denetim arayüzü yok');
+    } else if (rootCheck) {
+      console.log('[SMOKE] section roots: ' + rootCheck.withRoots + ' bölüm kök bildiriyor, ' +
+        rootCheck.resettable + ' bölüm sıfırlanabilir');
+      if (rootCheck.bad && rootCheck.bad.length) {
+        errors.push('section roots not in defaults: ' + rootCheck.bad.join(', '));
+      }
+    }
     // Studio: yeni shader oluştur, derlensin
     await awc.executeJavaScript(
       "(function(){var i=Array.from(document.querySelectorAll('.nav-item .nav-label')).findIndex(function(n){return n.textContent.indexOf('Studio')>=0;});" +

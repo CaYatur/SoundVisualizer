@@ -1698,6 +1698,7 @@
       },
       {
         id: 'layers',
+        roots: ['layers', 'layerGroups', 'crossfade'],
         category: 'scene',
         icon: '⬗',
         wide: true,
@@ -1707,6 +1708,7 @@
       },
       {
         id: 'templates',
+        roots: ['visualizer', 'background', 'postfx'],
         category: 'library',
         icon: '✨',
         wide: true,
@@ -1716,6 +1718,7 @@
       },
       {
         id: 'record',
+        roots: ['recording'],
         category: 'output',
         icon: '⏺',
         title: 'Kayıt ve Anlık Görüntü',
@@ -1724,6 +1727,7 @@
       },
       {
         id: 'mapping',
+        roots: ['mapping'],
         category: 'output',
         icon: '⧉',
         wide: true,
@@ -1733,6 +1737,7 @@
       },
       {
         id: 'deepanalysis',
+        roots: [],
         category: 'audio',
         icon: '📈',
         wide: true,
@@ -1742,6 +1747,7 @@
       },
       {
         id: 'text',
+        roots: ['text'],
         category: 'scene',
         icon: '🅣',
         title: 'Metin ve Şarkı Sözü',
@@ -1751,6 +1757,7 @@
       },
       {
         id: 'milkdrop',
+        roots: ['milkdrop'],
         category: 'scene',
         icon: '🥛',
         wide: true,
@@ -1761,6 +1768,7 @@
       },
       {
         id: 'transition',
+        roots: ['transition'],
         category: 'scene',
         icon: '⇋',
         title: 'Sahne Geçişi',
@@ -1769,6 +1777,7 @@
       },
       {
         id: 'modulation',
+        roots: ['modulation'],
         category: 'scene',
         icon: '⇄',
         wide: true,
@@ -1778,6 +1787,7 @@
       },
       {
         id: 'groups',
+        roots: ['layerGroups'],
         category: 'scene',
         icon: '⧉',
         title: 'Katman Grupları ve A/B',
@@ -1786,6 +1796,7 @@
       },
       {
         id: 'effects',
+        roots: ['postfx'],
         category: 'scene',
         icon: '✦',
         wide: true,
@@ -1795,6 +1806,7 @@
       },
       {
         id: 'geometry',
+        roots: ['geometry'],
         category: 'scene',
         icon: '◈',
         title: '3B Geometri',
@@ -1805,6 +1817,7 @@
       },
       {
         id: 'feedbackengine',
+        roots: ['feedback'],
         category: 'scene',
         icon: '♾',
         title: 'Geri Besleme Motoru',
@@ -1836,6 +1849,7 @@
       },
       {
         id: 'media',
+        roots: ['media'],
         category: 'scene',
         icon: '🎥',
         title: 'Medya Katmanı',
@@ -1896,6 +1910,7 @@
       },
       {
         id: 'scenegen',
+        roots: [],
         category: 'studio',
         icon: '✨',
         title: 'Sahne Üretici',
@@ -1904,6 +1919,7 @@
       },
       {
         id: 'logo',
+        roots: ['logo'],
         category: 'scene',
         icon: '🖼️',
         title: 'Logo / Resim',
@@ -1920,6 +1936,7 @@
       },
       {
         id: 'images',
+        roots: ['images'],
         category: 'scene',
         icon: '✨',
         title: 'Görsel Nesneler',
@@ -2057,14 +2074,23 @@
   }
 
   // Bir bölümdeki (kart) tüm ayar yolları — görünürlük koşullarından bağımsız
+  /* Bir bölümün dokunduğu yapılandırma yolları.
+
+     Bildirimsel kontroller yollarını kendileri taşıyor. Özel paneller
+     (modülasyon, geçiş, haritalama, MilkDrop, kayıt, şablon, metin, 3B
+     geometri, derin çözümleme, gruplar) kontrollerini kendi modüllerinde
+     kuruyor ve buraya hiçbir yol bildirmiyorlardı; yol olmayınca da başlıkta
+     ne değişiklik rozeti ne sıfırlama düğmesi çıkıyordu. Artık her bölüm
+     kendi köklerini `roots` ile bildiriyor. */
   function sectionPaths(sec) {
     const out = [];
     sec.controls.forEach((c) => {
       if (c.path && defaultAt(c.path) !== undefined) out.push(c.path);
     });
-    // Şemada yolu olmayan özel paneller için ek kökler
     if (sec.id === 'lighting') out.push('lighting');
-    if (sec.id === 'images') out.push('images');
+    (sec.roots || []).forEach((r) => {
+      if (defaultAt(r) !== undefined && out.indexOf(r) < 0) out.push(r);
+    });
     return out;
   }
 
@@ -3523,6 +3549,30 @@
     card.appendChild(pre);
     root.appendChild(card);
   }
+
+  /* Öz test için küçük bir denetim yüzeyi.
+
+     Yalnızca ölçüm yapar, hiçbir şeyi değiştirmez. Buradaki tek amaç,
+     bölümlerin bildirdiği yapılandırma köklerinin gerçekten varsayılanlarda
+     karşılığı olduğunu doğrulamak: yanlış yazılmış bir kök sessizce yok
+     sayılır ve o bölümün sıfırlama düğmesi hiç görünmezdi. */
+  window.SVAdminDebug = {
+    checkSectionRoots() {
+      const bad = [];
+      let withRoots = 0;
+      let resettable = 0;
+      sectionSchema().forEach((sec) => {
+        if (sec.roots && sec.roots.length) {
+          withRoots++;
+          sec.roots.forEach((r) => {
+            if (defaultAt(r) === undefined) bad.push(sec.id + '.' + r);
+          });
+        }
+        if (sectionPaths(sec).length) resettable++;
+      });
+      return { bad, withRoots, resettable };
+    },
+  };
 
   init().catch(showFatal);
 })();
