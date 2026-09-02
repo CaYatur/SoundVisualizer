@@ -43,7 +43,6 @@
 
   let raf = 0;
   let lastDraw = 0;
-  let painted = false; // ilk kare ana sürece bildirildi mi
   let lastRaf = 0;
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
@@ -179,15 +178,6 @@
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       stack.draw(audio, mcfg, t, dt);
       applyMapping(mcfg);
-      /* İlk gerçek kare çizildi. Ana süreç pencereyi ancak şimdi gösterir;
-         boyanmamış bir pencereyi göstermek açılışta beyaz parlamaya yol
-         açıyordu. Bir kare daha bekleniyor ki kompozitör gerçekten sunsun. */
-      if (!painted) {
-        painted = true;
-        requestAnimationFrame(() => {
-          try { window.api.sendMessage({ type: 'painted' }); } catch { /* pencere kapanmış */ }
-        });
-      }
     }
 
     // logo nabzı

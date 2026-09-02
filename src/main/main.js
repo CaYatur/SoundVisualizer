@@ -232,9 +232,11 @@ function createVisualizerWindow(display) {
     height: b.height,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     frame: false,
+    /* Pencere DOĞRUDAN GÖRÜNÜR ve tam ekran doğar; sonradan show()
+       çağrılmaz. Gerekçe hemen aşağıda. */
     backgroundColor: '#000000',
-    show: false,
-    /* Pencere TAM EKRAN DOĞMAZ. Bu kasıtlı: bkz. reveal(). */
+    show: true,
+    fullscreen: true,
     fullscreenable: true,
     skipTaskbar: false,
     title: trUi('Görselleştirme', 'Visualization'),
@@ -253,39 +255,24 @@ function createVisualizerWindow(display) {
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   attachSmoke(win, 'VIS');
 
-  /* Açılıştaki beyaz parlamanın nedeni GÖSTERİM SIRASIYDI.
+  /* Beyaz parlama: show:false + show() Electron hatası.
 
-     2.1.0'da pencere tam ekran DOĞMUYOR, ekranın sınırlarında sıradan
-     çerçevesiz bir pencere olarak gösteriliyor ve tam ekrana 120 ms SONRA
-     geçiliyordu. Windows'un tam ekran kip geçişi böylece çoktan boyanmış
-     bir yüzey üzerinde oluyordu. 3.0.0'da pencere doğrudan tam ekran
-     doğmaya başlayınca aynı geçiş gösterim anına, yani yüzey daha
-     boyanmamışken çalışmaya başladı: DWM'in sunacak karesi olmuyor ve tek
-     kare beyaz parlıyor. Sıra 2.1.0'daki haline döndürüldü.
+     electron/electron#45774 — Windows 11'de, 28.x ile 34.x arasındaki
+     sürümlerde, gizli doğan bir pencerenin İLK show() çağrısı beyaz
+     parlıyor. Sonraki göster/gizle çevrimleri temiz. Bu proje 33.4.11
+     kullanıyor ve hata "not planned" olarak kapatıldı; yani bu sürümde
+     yukarı akıştan bir düzeltme gelmeyecek.
 
-     Üstüne: 'ready-to-show' yalnızca belgenin hazır olduğunu söyler,
-     sahnenin ilk karesi çizilmiş olmayabilir. Görselleştirici ilk karesini
-     çizince 'painted' bildiriyor ve pencere ancak o zaman gösteriliyor.
-     Bildirim gelmezse (ses yok, hata var) kısa süre sonra yine de açılır —
-     ekranın hiç gelmemesi parlamadan kötüdür. */
-  let shown = false;
-  const reveal = () => {
-    if (shown || win.isDestroyed()) return;
-    shown = true;
-    win.setBounds(b);
-    win.show();
-    setTimeout(() => {
-      if (win.isDestroyed()) return;
-      win.setFullScreen(true);
-      applyAlwaysOnTop();
-    }, 120);
-  };
-  win.__svReveal = reveal;
+     Electron'un kendi belgelerindeki diğer yol izleniyor: pencereyi
+     GİZLEMEDEN, arkaplan rengiyle birlikte doğrudan açmak. Pencere ilk
+     karesinden itibaren backgroundColor ile, yani siyah görünür ve sahne
+     hazır olunca üstüne çizilir. show:false -> show() geçişi hiç
+     olmadığı için hatanın tetikleyicisi de ortadan kalkar.
 
-  win.once('ready-to-show', () => {
-    if (win.isDestroyed()) return;
-    setTimeout(reveal, 700); // ilk kare gelmezse yine de aç
-  });
+     Gösterim anında setBounds/setFullScreen ÇAĞRILMAZ: pencere zaten
+     doğru ekranın sınırlarında ve tam ekran doğuyor. Bunları sonradan
+     çağırmak, pencerenin bir an ekran dışına taşmasına yol açıyordu. */
+  applyAlwaysOnTop();
 
   // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
   win.on('blur', () => {
@@ -343,14 +330,16 @@ function openVisualizer(displayIds) {
     const existing = visualizerWins.get(id);
     if (existing && !existing.isDestroyed()) {
       // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
-      // Aynı sıra: önce göster, tam ekrana sonra geç (bkz. reveal)
+      /* Yalnızca gerçekten yanlış ekrandaysa yerleştir. Doğru yerdeki bir
+         pencereye setBounds/setFullScreen uygulamak, bir an ekran dışına
+         taşmasına yol açıyordu. */
       const nb = display.bounds;
-      if (existing.isFullScreen()) existing.setFullScreen(false);
-      existing.setBounds(nb);
+      const cur = existing.getBounds();
+      if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
+        existing.setBounds(nb);
+        if (!existing.isFullScreen()) existing.setFullScreen(true);
+      }
       existing.show();
-      setTimeout(() => {
-        if (!existing.isDestroyed()) existing.setFullScreen(true);
-      }, 120);
     } else {
       createVisualizerWindow(display);
     }
@@ -679,12 +668,6 @@ ipcMain.on('audio-meter', (e, data) => {
 // Görselleştirici -> admin (durum/hata bilgisi)
 ipcMain.on('visualizer-message', (e, msg) => {
   if (SMOKE) console.log('[VIS-MSG] ' + JSON.stringify(msg));
-  // İlk kare çizildi: pencere ancak şimdi gösterilir (bkz. reveal)
-  if (msg && msg.type === 'painted') {
-    const w = BrowserWindow.fromWebContents(e.sender);
-    if (w && !w.isDestroyed() && typeof w.__svReveal === 'function') w.__svReveal();
-    return;
-  }
   notifyAdmin('visualizer-message', msg);
 });
 
