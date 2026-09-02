@@ -532,3 +532,28 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   line-height: 1.4;
 }
 .txt-info { margin-left: auto; font-size: 11px; color: var(--muted, rgba(255,255,255,0.62)); }
+
+
+/* ===== Katman bayrakları, gruplar, A/B ===== */
+.layer-flags { display: flex; align-items: center; gap: 3px; margin-left: auto; }
+.btn.tiny.flagbtn { min-width: 24px; padding: 2px 5px; font-size: 10px; font-weight: 700; }
+.btn.tiny.flagbtn.on.solo { background: #f5a524; color: #1a1a1a; border-color: transparent; }
+.btn.tiny.flagbtn.on.mute { background: #e5484d; color: #fff; border-color: transparent; }
+.btn.tiny.flagbtn.on.lock { background: #6e56cf; color: #fff; border-color: transparent; }
+.stack-item.locked { opacity: 0.6; }
+
+.grp-panel { display: flex; flex-direction: column; gap: 8px; }
+.grp-item {
+  background: var(--card2, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 9px;
+  padding: 7px 9px;
+}
+.grp-count { margin-left: auto; font-size: 11px; color: var(--muted2, rgba(255, 255, 255, 0.45)); }
+.btn.tiny.on.mute { background: #e5484d; color: #fff; border-color: transparent; }
+
+.xf-box { background: var(--card2, rgba(255,255,255,0.03)); border: 1px solid var(--line, rgba(255,255,255,0.08)); border-radius: 9px; padding: 8px 9px; }
+.xf-tag { font-weight: 700; font-size: 13px; }
+.xf-tag.dim { opacity: 0.35; }
+.xf-val { margin: 0 auto; font-variant-numeric: tabular-nums; font-size: 12px; }
+.xf-slider { width: 100%; margin: 6px 0; }

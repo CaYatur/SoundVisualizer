@@ -1066,6 +1066,55 @@
     'Anlık görüntü kaydedildi.': 'Snapshot saved.',
     'Kaydetme iptal edildi.': 'Saving cancelled.',
 
+    // ---- Katman grupları, maskeler, bayraklar ----
+    'Katman Grupları ve A/B': 'Layer Groups & A/B',
+    'Birden çok katmanı tek fader ile yönetin; "A" ve "B" grupları arasında eşit güç eğrisiyle çapraz geçiş yapın.':
+      'Drive several layers with one fader, and crossfade between the "A" and "B" groups on an equal-power curve.',
+    'A/B Çapraz Geçiş Etkin': 'A/B Crossfade Enabled',
+    'Orta': 'Centre',
+    'Fader': 'Fader',
+    'Fader Eğrisi': 'Fader Curve',
+    'Grup': 'Group',
+    'Grup ve Fader': 'Group & Fader',
+    'grup adı (boş = gruplanmamış)': 'group name (empty = ungrouped)',
+    'Henüz grup yok. Katman kartındaki Grup ve Fader bölümünden bir grup adı yazın.':
+      'No groups yet. Type a group name in the Group & Fader section of a layer card.',
+    'Fader "A" ve "B" gruplarına atanmış katmanları karşılıklı kısar. Katman kartındaki Grup ve Fader bölümünden bir katmana A ya da B yazın.':
+      'The fader trades off layers assigned to the "A" and "B" groups. Put A or B in the Group & Fader section of a layer card.',
+    'Grup faderı katman saydamlığıyla çarpılır; katmanın kendi ayarı korunur.':
+      'The group fader multiplies layer opacity; the layer keeps its own setting.',
+    'Aynı gruptaki katmanlar Katman Grupları kartındaki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.':
+      'Layers in the same group are driven together by the single fader on the Layer Groups card. A linear fader does not look linear; the exponential curve gives a real sense of fading.',
+    'Grubu sustur': 'Mute group',
+    'katman': 'layers',
+    'Solo — yalnızca solo katmanlar çizilir': 'Solo — only soloed layers are drawn',
+    'Sessiz — katmanı ayarlarını kaybetmeden gizler': 'Mute — hides the layer without losing its settings',
+    'Kilit — kazara düzenlemeyi engeller': 'Lock — prevents accidental edits',
+    'Katman kilitli. Düzenlemek için kilidi açın.': 'Layer is locked. Unlock it to edit.',
+    'Maske': 'Mask',
+    'Şekil': 'Shape',
+    'Dikdörtgen': 'Rectangle',
+    'Elips': 'Ellipse',
+    'Doğrusal Gradyan': 'Linear Gradient',
+    'Işınsal Gradyan': 'Radial Gradient',
+    'Başka Katman': 'Another Layer',
+    'Kaynak Katman': 'Source Layer',
+    'Maske için başka katman yok.': 'There is no other layer to use as a mask.',
+    'Tersine Çevir': 'Invert',
+    'Maske katmanın kendi tuvaline uygulanır; dönüşümle birlikte hareket etmez ve karışım modundan bağımsızdır. Shader tabanlı katmanlarda (Studio, gradyan) 2B maske uygulanamaz.':
+      'The mask is applied to the canvas of the layer itself, so it does not move with the transform and is independent of the blend mode. A 2D mask cannot be applied to shader-based layers (Studio, gradient).',
+    'Katman Efektleri': 'Layer Effects',
+    '— efekt ekle —': '— add effect —',
+    'Ekle': 'Add',
+    'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.':
+      'This chain applies to this layer only, independently of the scene-wide Effect Chain card.',
+    '⧉ Çoğalt': '⧉ Duplicate',
+    '⧉ Kopyala': '⧉ Copy',
+    '📋 Yapıştır': '📋 Paste',
+    'Katmanı panoya al; başka bir sahnede yapıştırılabilir': 'Copy the layer to the clipboard; it can be pasted into another scene',
+    'Katman kopyalandı.': 'Layer copied.',
+    'Logaritmik': 'Logarithmic',
+
     // ---- Metin ve şarkı sözü ----
     'Metin ve Şarkı Sözü': 'Text & Lyrics',
     'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.':

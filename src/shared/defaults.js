@@ -359,6 +359,19 @@
     // görselleştirici veya renk şablonu değiştirir; geçiş vuruşa hizalanır.
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
+    // Katman grupları ve A/B çapraz geçişi.
+    //
+    // layerGroups: grup adı -> { opacity, muted }. Aynı gruptaki katmanlar
+    // tek fader ile birlikte kısılır.
+    //
+    // "A" ve "B" adlı gruplar özel: crossfade.value ikisi arasında eşit güç
+    // eğrisiyle geçiş yapar — doğrusal karışımda ortada toplam parlaklık
+    // düşerdi.
+    // ------------------------------------------------------------------
+    layerGroups: {},
+    crossfade: { enabled: true, value: 0 },
+
+    // ------------------------------------------------------------------
     // Metin ve şarkı sözü katmanı.
     //
     // Yazı ölçüsü ekranın KISA kenarına orandır: aynı sahne 1080p monitörde

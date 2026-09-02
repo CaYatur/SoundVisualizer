@@ -128,6 +128,15 @@
 
   const BAND_LABELS = [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Genel']];
 
+  const MASK_LABELS = [
+    ['none', 'Yok'], ['rect', 'Dikdörtgen'], ['ellipse', 'Elips'],
+    ['linear', 'Doğrusal Gradyan'], ['radial', 'Işınsal Gradyan'], ['layer', 'Başka Katman'],
+  ];
+
+  /* Katman panosu. Sahneler arasında katman taşımanın yolu bu; oturum
+     boyunca bellekte durur, ayar dosyasına yazılmaz. */
+  let clipboard = null;
+
   // Katman türüne göre seçilebilir mod listesi
   function typeOptionsFor(kind) {
     if (kind === 'background') {
@@ -207,9 +216,31 @@
         onchange: (e) => { l.enabled = e.target.checked; rerender(); },
       });
       enable.checked = l.enabled !== false;
-      const enableBox = el('label', { class: 'switch small', title: 'Katmanı aç/kapat' }, [enable, el('span', { class: 'track' })]);
 
-      const kids = [itemHeader(list, i, title, rerender, enableBox)];
+      /* Solo / sessiz / kilit üçlüsü.
+
+         Üçü de bir kompozitörde beklenen ama farklı işler yapan davranışlar:
+         solo diğerlerini geri alınabilir biçimde susturur, sessiz katmanı
+         ayarlarını kaybetmeden gizler, kilit kazara düzenlemeyi engeller. */
+      const flagBtn = (key, label, title, cls) => el('button', {
+        class: 'btn ghost tiny flagbtn' + (l[key] ? ' on ' + cls : ''),
+        type: 'button', text: label, title,
+        onclick: () => { l[key] = !l[key]; rerender(); },
+      });
+      const flags = el('span', { class: 'layer-flags' }, [
+        flagBtn('solo', 'S', 'Solo — yalnızca solo katmanlar çizilir', 'solo'),
+        flagBtn('muted', 'M', 'Sessiz — katmanı ayarlarını kaybetmeden gizler', 'mute'),
+        flagBtn('locked', '🔒', 'Kilit — kazara düzenlemeyi engeller', 'lock'),
+        el('label', { class: 'switch small', title: 'Katmanı aç/kapat' }, [enable, el('span', { class: 'track' })]),
+      ]);
+
+      const kids = [itemHeader(list, i, title, rerender, flags)];
+
+      if (l.locked) {
+        kids.push(el('div', { class: 'studio-note dim-hint', text: 'Katman kilitli. Düzenlemek için kilidi açın.' }));
+        nodes.push(el('div', { class: 'stack-item locked' }, kids));
+        return;
+      }
 
       if (typeOpts.length) {
         kids.push(miniSelect('Kaynak', typeOpts, () => l.type, (v) => { l.type = v; }, rerender));
@@ -251,6 +282,105 @@
         ])
       );
 
+      // ---- Maske ----
+      kids.push(foldable('Maske', () => {
+        l.mask = l.mask || { type: 'none' };
+        const m = l.mask;
+        const out = [miniSelect('Şekil', MASK_LABELS, () => m.type || 'none', (v) => { m.type = v; }, rerender)];
+        if (m.type && m.type !== 'none') {
+          if (m.type === 'layer') {
+            const others = list.filter((x, j) => j !== i && x.id).map((x) => [x.id, x.name || x.kind]);
+            out.push(others.length
+              ? miniSelect('Kaynak Katman', others, () => m.from || others[0][0], (v) => { m.from = v; })
+              : el('div', { class: 'studio-note', text: 'Maske için başka katman yok.' }));
+          } else {
+            out.push(miniSlider('Yatay', () => m.x == null ? 0.5 : m.x, (v) => { m.x = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true }));
+            out.push(miniSlider('Dikey', () => m.y == null ? 0.5 : m.y, (v) => { m.y = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true }));
+            out.push(miniSlider('Genişlik', () => m.w == null ? 0.6 : m.w, (v) => { m.w = v; }, { min: 0.02, max: 2, step: 0.01, percent: true }));
+            out.push(miniSlider('Yükseklik', () => m.h == null ? 0.6 : m.h, (v) => { m.h = v; }, { min: 0.02, max: 2, step: 0.01, percent: true }));
+            if (m.type === 'linear') {
+              out.push(miniSlider('Açı', () => m.angle || 0, (v) => { m.angle = v; }, { min: 0, max: 1, step: 0.005 }));
+            }
+          }
+          out.push(miniSlider('Yumuşaklık', () => m.feather == null ? 0.1 : m.feather, (v) => { m.feather = v; }, { min: 0, max: 1, step: 0.01, percent: true }));
+          out.push(miniToggle('Tersine Çevir', () => !!m.invert, (v) => { m.invert = v; }));
+        }
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Maske katmanın kendi tuvaline uygulanır; dönüşümle birlikte hareket etmez ve karışım modundan bağımsızdır. Shader tabanlı katmanlarda (Studio, gradyan) 2B maske uygulanamaz.' }));
+        return out;
+      }));
+
+      // ---- Katmana özel efekt zinciri ----
+      kids.push(foldable('Katman Efektleri', () => {
+        l.postfx = Array.isArray(l.postfx) ? l.postfx : [];
+        const FX = window.SVPostFX;
+        const out = [];
+        l.postfx.forEach((f, fi) => {
+          const def = FX && FX.EFFECTS[f.type];
+          out.push(el('div', { class: 'row' }, [
+            el('span', { class: 'lbl', text: (fi + 1) + '. ' + (def ? def.label : f.type) }),
+            el('button', {
+              class: 'btn ghost tiny danger', type: 'button', text: '✕',
+              onclick: () => { l.postfx.splice(fi, 1); rerender(); },
+            }),
+          ]));
+          if (def) {
+            for (const p of def.params || []) {
+              f.params = f.params || {};
+              if (f.params[p.name] == null) f.params[p.name] = p.default;
+              out.push(miniSlider(p.label, () => f.params[p.name], (v) => { f.params[p.name] = v; }, {
+                min: p.min, max: p.max, step: p.step,
+              }));
+            }
+          }
+        });
+        const sel = el('select', { class: 'p-in' });
+        sel.appendChild(el('option', { value: '', text: '— efekt ekle —' }));
+        if (FX) FX.EFFECT_IDS.forEach((id) => sel.appendChild(el('option', { value: id, text: FX.EFFECTS[id].label })));
+        sel.onchange = (ev) => {
+          const id = ev.target.value;
+          if (!id) return;
+          l.postfx.push(FX.defaultChainEntry(id));
+          rerender();
+        };
+        out.push(P().row('Ekle', sel));
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.' }));
+        return out;
+      }));
+
+      // ---- Grup ve opaklık eğrisi ----
+      kids.push(foldable('Grup ve Fader', () => [
+        P().row('Grup', el('input', {
+          class: 'p-in', type: 'text', value: l.group || '', placeholder: 'grup adı (boş = gruplanmamış)',
+          oninput: (ev) => { l.group = ev.target.value; P().push(false); },
+        })),
+        miniSelect('Fader Eğrisi', [['linear', 'Doğrusal'], ['exp', 'Üstel'], ['log', 'Logaritmik']],
+          () => l.opacityCurve || 'linear', (v) => { l.opacityCurve = v; }),
+        el('div', { class: 'studio-note dim-hint', text: 'Aynı gruptaki katmanlar Katman Grupları kartındaki tek fader ile birlikte kısılır. Doğrusal bir fader görsel olarak doğrusal davranmaz; üstel eğri gerçek bir kısma hissi verir.' }),
+      ]));
+
+      // ---- Kopyala / çoğalt ----
+      kids.push(el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn ghost tiny', type: 'button', text: '⧉ Çoğalt',
+          onclick: () => {
+            const copy = JSON.parse(JSON.stringify(l));
+            copy.id = null;
+            copy.name = (l.name || l.kind) + ' (kopya)';
+            copy.solo = false;
+            list.splice(i + 1, 0, window.SVLayers.normalizeLayer(copy));
+            rerender();
+          },
+        }),
+        el('button', {
+          class: 'btn ghost tiny', type: 'button', text: '⧉ Kopyala',
+          title: 'Katmanı panoya al; başka bir sahnede yapıştırılabilir',
+          onclick: () => {
+            clipboard = JSON.parse(JSON.stringify(l));
+            P().toast('Katman kopyalandı.');
+          },
+        }),
+      ]));
+
       nodes.push(el('div', { class: 'stack-item' }, kids));
     });
 
@@ -272,6 +402,18 @@
         })
       );
     });
+    if (clipboard) {
+      addRow.appendChild(el('button', {
+        class: 'btn ghost small', type: 'button', text: '📋 Yapıştır',
+        onclick: () => {
+          const copy = JSON.parse(JSON.stringify(clipboard));
+          copy.id = null;
+          copy.solo = false;
+          list.push(window.SVLayers.normalizeLayer(copy));
+          rerender();
+        },
+      }));
+    }
     nodes.push(addRow);
 
     nodes.push(

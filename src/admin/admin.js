@@ -296,6 +296,8 @@
         return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
       case 'textpanel':
         return window.SVTextPanel ? window.SVTextPanel.panel() : null;
+      case 'grouppanel':
+        return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
       case 'note':
         return el('div', { class: 'ctrl settings-io-note', text: def.text });
       case 'scenes':
@@ -1749,6 +1751,14 @@
         title: 'Modülasyon Matrisi',
         desc: 'Herhangi bir kaynağı (bas, LFO, zarf, makro, rastgele, tempo) herhangi bir sayısal ayara bağlayın. Kaydedilen ayarlar değişmez; modülasyon yalnızca çizim anında uygulanır ve dışa aktarımda da birebir çalışır.',
         controls: [{ type: 'modulationpanel' }],
+      },
+      {
+        id: 'groups',
+        category: 'scene',
+        icon: '⧉',
+        title: 'Katman Grupları ve A/B',
+        desc: 'Birden çok katmanı tek fader ile yönetin; "A" ve "B" grupları arasında eşit güç eğrisiyle çapraz geçiş yapın.',
+        controls: [{ type: 'grouppanel' }],
       },
       {
         id: 'effects',

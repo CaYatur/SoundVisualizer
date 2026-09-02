@@ -54,12 +54,37 @@
     audio: { band: 'bass', opacity: 0, scale: 0, rotate: 0 },
     // Katmana özel ayar geçersiz kılmaları (genel yapılandırmanın üstüne biner)
     settings: {},
+
+    /* Solo / sessiz / kilit.
+
+       Üçü de farklı sorunu çözüyor ve üçü de bir kompozitörde beklenen
+       davranışlar: solo bir katmanı yalnız bırakır (diğerlerini silmeden),
+       sessiz katmanı ayarlarını kaybetmeden gizler, kilit ise kazara
+       düzenlemeyi engeller. */
+    solo: false,
+    muted: false,
+    locked: false,
+
+    // Katman grubu adı. Aynı gruptaki katmanlar tek fader'la yönetilir.
+    group: '',
+
+    /* Maske. Katmanın hangi bölgesinin görüneceğini belirler.
+         type: 'none' | 'rect' | 'ellipse' | 'linear' | 'radial' | 'layer'
+         invert: maskeyi tersine çevirir
+         feather: kenar yumuşaklığı (0..1)
+         from: type === 'layer' iken maske olarak kullanılacak katmanın kimliği */
+    mask: { type: 'none', x: 0.5, y: 0.5, w: 0.6, h: 0.6, angle: 0, feather: 0.1, invert: false, from: '' },
+
+    // Katmana özel efekt zinciri (bileşik zincirden ayrı)
+    postfx: [],
   };
 
   function normalizeLayer(l) {
     const out = Object.assign({}, LAYER_DEFAULTS, l || {});
     out.transform = Object.assign({}, LAYER_DEFAULTS.transform, (l && l.transform) || {});
     out.audio = Object.assign({}, LAYER_DEFAULTS.audio, (l && l.audio) || {});
+    out.mask = Object.assign({}, LAYER_DEFAULTS.mask, (l && l.mask) || {});
+    out.postfx = Array.isArray(l && l.postfx) ? l.postfx : [];
     out.settings = (l && l.settings) || {};
     if (KINDS.indexOf(out.kind) < 0) out.kind = 'visualizer';
     if (!out.id) out.id = newLayerId();
@@ -109,7 +134,37 @@
   function resolve(cfg) {
     const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
     const used = list.length ? list.map(normalizeLayer) : synthesize(cfg);
-    return used.filter((l) => l.enabled !== false);
+    /* Solo varsa yalnızca solo katmanlar çizilir. Bir kompozitörde solo,
+       "diğerlerini kapat" demenin geri alınabilir yoludur; katmanları tek tek
+       kapatıp sonra geri açmak zorunda kalmamak için var. */
+    const soloed = used.filter((l) => l.solo);
+    const visible = soloed.length ? soloed : used;
+    return visible.filter((l) => l.enabled !== false && !l.muted);
+  }
+
+  /* Grup çarpanı: katman opaklığı, ait olduğu grubun fader'ıyla çarpılır.
+     Gruplar yapılandırmada cfg.layerGroups altında adla saklanır. */
+  function groupGain(cfg, layer) {
+    if (!layer || !layer.group) return 1;
+    let gain = 1;
+    const groups = (cfg && cfg.layerGroups) || {};
+    const g = groups[layer.group];
+    if (g) {
+      if (g.muted) return 0;
+      gain = g.opacity == null ? 1 : Math.max(0, Math.min(1, g.opacity));
+    }
+    /* A/B çapraz geçiş.
+
+       "A" ve "B" adlı gruplar özel: aralarındaki fader klasik VJ
+       çapraz geçişidir. Eşit güç eğrisi kullanılıyor — doğrusal karışımda
+       ortada toplam parlaklık düşer ve geçişin ortasında görüntü sönük
+       görünür; kök-kosinüs çifti bunu önler. */
+    const x = cfg && cfg.crossfade;
+    if (x && x.enabled !== false && (layer.group === 'A' || layer.group === 'B')) {
+      const v = Math.max(0, Math.min(1, x.value == null ? 0.5 : x.value));
+      gain *= layer.group === 'A' ? Math.cos(v * Math.PI / 2) : Math.sin(v * Math.PI / 2);
+    }
+    return gain;
   }
 
   /* Katmanın gördüğü yapılandırma: genel ayarların üstüne katmanın kendi
@@ -441,11 +496,18 @@
       return e._liveCache;
     }
 
-    _dynamics(layer, audio) {
+    _dynamics(layer, audio, cfg) {
       const t = layer.transform;
       const a = layer.audio;
       const band = bandValue(audio, a.band);
-      const opacity = Math.max(0, Math.min(1, layer.opacity * (1 + (a.opacity || 0) * (band * 2 - 1))));
+      /* Opaklık eğrisi: fader'ın hissini belirler. Doğrusal bir fader
+         görsel olarak doğrusal davranmaz — algı yaklaşık karesel olduğu için
+         üstel seçenek gerçek bir kısma hissi verir. */
+      let base = Math.max(0, Math.min(1, layer.opacity));
+      if (layer.opacityCurve === 'exp') base = base * base;
+      else if (layer.opacityCurve === 'log') base = Math.sqrt(base);
+      base *= groupGain(cfg, layer);
+      const opacity = Math.max(0, Math.min(1, base * (1 + (a.opacity || 0) * (band * 2 - 1))));
       const scale = t.scale * (1 + (a.scale || 0) * band);
       const rotate = t.rotate + (a.rotate || 0) * band * 180;
       return { opacity, scale, rotate, x: t.x, y: t.y, flipX: t.flipX, flipY: t.flipY };
@@ -591,7 +653,7 @@
         const l = this._live(e, cfg);
         if (l.kind === 'logo') {
           if (this.logoEl) {
-            const d = this._dynamics(l, audio);
+            const d = this._dynamics(l, audio, cfg);
             this.logoEl.style.opacity = String(d.opacity * (cfg.logo ? cfg.logo.opacity : 1));
           }
           continue;
@@ -599,7 +661,7 @@
         this._drawEntry(e, audio, cfg, t, dt, l);
 
         if (this.container && e.canvas) {
-          const d = this._dynamics(l, audio);
+          const d = this._dynamics(l, audio, cfg);
           e.canvas.style.opacity = d.opacity === 1 ? '' : d.opacity.toFixed(3);
           e.canvas.style.transform = this._hasTransform(d)
             ? `translate(${d.x * 100}%, ${d.y * 100}%) rotate(${d.rotate}deg) scale(${d.flipX ? -d.scale : d.scale}, ${d.flipY ? -d.scale : d.scale})`
@@ -608,8 +670,115 @@
       }
     }
 
-    // Tek bir katmanı kendi tuvaline çizer (her iki yol da bunu kullanır)
+    /* Maskeyi katmanın kendi tuvaline uygular.
+
+       Maskeleme kompozit aşamasında değil KATMANDA yapılıyor: böylece maske
+       katmanın dönüşümüyle birlikte hareket etmiyor (ekranda sabit kalıyor)
+       ve karışım modundan bağımsız çalışıyor. Alternatif, maskeyi kompozit
+       sırasında uygulamak olurdu ama o zaman her katman için ayrı bir ara
+       yüzey gerekirdi. */
+    _applyMask(e, l) {
+      const m = l.mask;
+      if (!m || !m.type || m.type === 'none' || !e.ctx) return;
+      const W = this.width;
+      const H = this.height;
+      const ctx = e.ctx;
+      const feather = Math.max(0.001, m.feather == null ? 0.1 : m.feather);
+      ctx.save();
+      ctx.globalCompositeOperation = m.invert ? 'destination-out' : 'destination-in';
+      const cx = (m.x == null ? 0.5 : m.x) * W;
+      const cy = (m.y == null ? 0.5 : m.y) * H;
+      const w = (m.w == null ? 0.6 : m.w) * W;
+      const h = (m.h == null ? 0.6 : m.h) * H;
+
+      if (m.type === 'rect') {
+        const fx = feather * Math.min(w, h);
+        const g = ctx.createLinearGradient(cx - w / 2, 0, cx - w / 2 + fx, 0);
+        // Dikdörtgen maskede yumuşama dört kenardan gelir; en ucuz yol
+        // kenarları ayrı ayrı silmek yerine gölge kullanmak
+        ctx.shadowColor = '#fff';
+        ctx.shadowBlur = fx;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(cx - w / 2 + fx / 2, cy - h / 2 + fx / 2, Math.max(1, w - fx), Math.max(1, h - fx));
+        ctx.shadowBlur = 0;
+        void g;
+      } else if (m.type === 'ellipse') {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) / 2);
+        g.addColorStop(Math.max(0, 1 - feather), 'rgba(255,255,255,1)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(1, h / Math.max(1, w));
+        ctx.translate(-cx, -cy);
+        ctx.beginPath();
+        ctx.arc(cx, cy, Math.max(w, h) / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (m.type === 'linear') {
+        const a = (m.angle || 0) * Math.PI * 2;
+        const dx = Math.cos(a) * W;
+        const dy = Math.sin(a) * H;
+        const g = ctx.createLinearGradient(cx - dx / 2, cy - dy / 2, cx + dx / 2, cy + dy / 2);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(Math.min(1, feather * 2), 'rgba(255,255,255,1)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      } else if (m.type === 'radial') {
+        const r = Math.max(w, h) / 2;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(Math.max(0, 1 - feather), 'rgba(255,255,255,1)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      } else if (m.type === 'layer' && m.from) {
+        // Başka bir katmanın parlaklığı maske olur
+        const src = this.entries.find((x) => x.layer.id === m.from);
+        if (src && src.canvas) ctx.drawImage(src.canvas, 0, 0, W, H);
+      }
+      ctx.restore();
+    }
+
+    /* Katmanı çizer, ardından maskesini ve varsa kendi efekt zincirini
+       uygular.
+
+       Çizim gövdesi ayrı bir metotta çünkü içinde birden çok erken `return`
+       var; maskeyi her birinin sonrasına ayrı ayrı eklemek yerine sarmalamak
+       hem kısa hem de yeni bir katman türü eklendiğinde unutulamaz. */
     _drawEntry(e, audio, cfg, t, dt, live) {
+      const l = live || e.layer;
+      this._drawEntryRaw(e, audio, cfg, t, dt, l);
+      this._applyMask(e, l);
+      this._applyLayerFX(e, l, audio, t, dt);
+    }
+
+    /* Katmana özel efekt zinciri.
+
+       Tek bir paylaşılan PostFX örneği sırayla kullanılıyor: katman başına
+       ayrı bir WebGL bağlamı açmak, on katmanlı bir sahnede on bağlam demek
+       olurdu ve tarayıcılar eşzamanlı bağlam sayısını sınırlıyor. */
+    _applyLayerFX(e, l, audio, t, dt) {
+      const chain = Array.isArray(l.postfx) ? l.postfx.filter((f) => f && f.enabled !== false) : [];
+      if (!chain.length || !e.canvas || !window.SVPostFX) return;
+      if (!this.layerFx) this.layerFx = new window.SVPostFX.PostFX();
+      const fx = this.layerFx;
+      fx.setChain(chain);
+      if (!fx.hasWork()) return;
+      fx.resize(this.width, this.height);
+      if (!fx.render(e.canvas, audio, t, dt)) return;
+      const ctx = e.ctx || (e.canvas.getContext ? e.canvas.getContext('2d') : null);
+      if (!ctx) return;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'copy';
+      ctx.globalAlpha = 1;
+      ctx.drawImage(fx.canvas, 0, 0, this.width, this.height);
+      ctx.restore();
+    }
+
+    // Katmanı kendi tuvaline çizer (her iki yol da bunu kullanır)
+    _drawEntryRaw(e, audio, cfg, t, dt, live) {
       const l = live || e.layer;
       const lcfg = layerConfig(cfg, l);
       const W = this.width;
@@ -663,7 +832,7 @@
         this._drawEntry(e, audio, cfg, t, dt, l);
         if (!e.canvas) continue;
 
-        const d = this._dynamics(l, audio);
+        const d = this._dynamics(l, audio, cfg);
         ctx.save();
         ctx.globalCompositeOperation = CANVAS_BLEND(l.blend);
         ctx.globalAlpha = d.opacity;
@@ -736,6 +905,8 @@
     resolve,
     layerConfig,
     sceneSignature,
+    groupGain,
+    LAYER_DEFAULTS,
     LAYER_DEFAULTS,
   };
 })();
