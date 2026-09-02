@@ -84,7 +84,15 @@
      (Panelde ayrıca bir kimlik tutuluyor ama o kimlik telefona gelmiyor.) */
   function sceneMatches(s) {
     const d = (s && s.data) || {};
-    if (!cfg || !d.background || !d.visualizer) return false;
+    if (!cfg) return false;
+    if (d.layerStack && d.layerStack.enabled) {
+      if (!cfg.layerStack || !cfg.layerStack.enabled) return false;
+      const dl = Array.isArray(d.layers) ? d.layers : [];
+      const cl = Array.isArray(cfg.layers) ? cfg.layers : [];
+      if (dl.length !== cl.length) return false;
+      return dl.every((l, i) => l.kind === cl[i].kind && l.type === cl[i].type && l.enabled === cl[i].enabled);
+    }
+    if (!d.background || !d.visualizer) return false;
     if (d.background.type !== cfg.background.type) return false;
     if (d.visualizer.type !== cfg.visualizer.type) return false;
     const sc = d.background.gradient && d.background.gradient.colors;

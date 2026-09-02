@@ -560,7 +560,11 @@
   // --- Sahneler (tüm görünümün anlık görüntüsü) ---
   // Bir sahne yalnızca "görünüm" alanlarını taşır; ses aygıtı, ekran, performans
   // ve dışa aktarma ayarları sahneden bağımsızdır.
-  const SCENE_KEYS = ['background', 'visualizer', 'logo', 'images'];
+  const SCENE_KEYS = [
+    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
+    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
+    'transition', 'custom', 'milkdrop', 'feedback',
+  ];
 
   function sceneGradient(scene) {
     const bg = scene && scene.data && scene.data.background;
@@ -573,18 +577,23 @@
 
   function sceneSummary(scene) {
     const d = (scene && scene.data) || {};
-    const type = (d.visualizer && d.visualizer.type) || 'none';
-    const names = {
-      none: 'Kapalı', bars: 'Barlar', centerBars: 'Merkez', blocks: 'Segment',
-      dots: 'Nokta Matris', wave: 'Dalga', ribbon: 'Şerit', terrain: 'Arazi',
-      circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın',
-      tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', spectrogram: 'Spektrogram',
-    };
-    const parts = [names[type] || type];
+    const parts = [];
+    if (d.layerStack && d.layerStack.enabled && Array.isArray(d.layers) && d.layers.length) {
+      parts.push(d.layers.length + ' Katman');
+    } else {
+      const type = (d.visualizer && d.visualizer.type) || 'none';
+      const names = {
+        none: 'Kapalı', bars: 'Barlar', centerBars: 'Merkez', blocks: 'Segment',
+        dots: 'Nokta Matris', wave: 'Dalga', ribbon: 'Şerit', terrain: 'Arazi',
+        circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın',
+        tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', spectrogram: 'Spektrogram',
+      };
+      parts.push(names[type] || type);
+    }
     if (d.logo && d.logo.enabled) parts.push('Logo');
     if (d.images && d.images.enabled && (d.images.items || []).length) parts.push('Nesneler');
-    // Birleştirilmiş metin çeviri gözlemcisiyle eşleşmeyeceği için parçalar
-    // birleştirilmeden önce çevrilir
+    if (d.media && d.media.enabled) parts.push('Medya');
+    if (d.text && d.text.enabled && d.text.content) parts.push('Metin');
     return parts.map(tr).join(' · ');
   }
 
@@ -3016,10 +3025,19 @@
   actions.applyScene = (id) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
+    const def = window.SV.DEFAULT_CONFIG;
     SCENE_KEYS.forEach((k) => {
-      if (sc.data[k] === undefined) return;
-      // Eksik alanlar varsayılanla tamamlanır (eski/dış kaynaklı sahneler için)
-      cfg[k] = window.SV.deepMerge(window.SV.DEFAULT_CONFIG[k], sc.data[k]);
+      if (sc.data[k] === undefined) {
+        if (def[k] !== undefined) cfg[k] = window.SV.clone(def[k]);
+        return;
+      }
+      if (Array.isArray(sc.data[k])) {
+        cfg[k] = sc.data[k].map((item) => window.SV.clone(item));
+      } else if (sc.data[k] && typeof sc.data[k] === 'object') {
+        cfg[k] = window.SV.deepMerge(window.SV.clone(def[k] || {}), window.SV.clone(sc.data[k]));
+      } else {
+        cfg[k] = sc.data[k];
+      }
     });
     if (cfg.images && Array.isArray(cfg.images.items)) {
       cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));

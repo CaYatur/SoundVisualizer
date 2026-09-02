@@ -253,11 +253,9 @@ function createVisualizerWindow(display) {
   win.once('ready-to-show', () => {
     if (win.isDestroyed()) return;
     win.setBounds(b);
+    win.setFullScreen(true);
     win.show();
-    setTimeout(() => {
-      if (!win.isDestroyed()) win.setFullScreen(true);
-      applyAlwaysOnTop();
-    }, 120);
+    applyAlwaysOnTop();
   });
 
   // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
@@ -317,11 +315,8 @@ function openVisualizer(displayIds) {
     if (existing && !existing.isDestroyed()) {
       // Var olan pencereyi ekranına yeniden otur (çözünürlük değişmiş olabilir)
       existing.setBounds(display.bounds);
-      existing.setFullScreen(false);
+      existing.setFullScreen(true);
       existing.show();
-      setTimeout(() => {
-        if (!existing.isDestroyed()) existing.setFullScreen(true);
-      }, 120);
     } else {
       createVisualizerWindow(display);
     }
@@ -905,8 +900,9 @@ function applyRemoteCommand(msg) {
   if (msg.action === 'scene') {
     const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
     if (!scene || !scene.data) return;
-    for (const key of ['background', 'visualizer', 'logo', 'images', 'custom', 'feedback']) {
-      if (scene.data[key]) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
+    const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
+    for (const key of SCENE_KEYS) {
+      if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
     }
   } else if (msg.action === 'set') {
     if (!remotePathAllowed(msg.path)) return;

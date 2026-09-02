@@ -507,6 +507,8 @@
       unit: 'seconds', // 'seconds' | 'beats'
       ease: 'smooth',
       params: {},
+      blackoutType: 'crossfade', // 'crossfade' | 'cut' | 'dissolve'
+      blackoutDuration: 0.4,
     },
 
     // ------------------------------------------------------------------

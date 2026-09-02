@@ -106,8 +106,9 @@
       if (!list.length) return;
       const idx = (runAction._scene = ((runAction._scene || 0) + 1) % list.length);
       const data = list[idx].data || {};
-      for (const key of ['background', 'visualizer', 'logo', 'images', 'custom', 'feedback']) {
-        if (data[key]) cfg[key] = JSON.parse(JSON.stringify(data[key]));
+      const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
+      for (const key of SCENE_KEYS) {
+        if (data[key] !== undefined) cfg[key] = JSON.parse(JSON.stringify(data[key]));
       }
     } else if (action === 'nextPalette') {
       const list = (window.SV.GRADIENT_PRESETS || []).concat(cfg.userPresets || []);

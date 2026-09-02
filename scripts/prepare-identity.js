@@ -179,7 +179,7 @@ const appxManifest = `<?xml version="1.0" encoding="utf-8"?>
   </Capabilities>
   <Applications>
     <Application Id="${applicationId}" Executable="CAYADEV Visualizer.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
-      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="transparent" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
+      <uap:VisualElements AppListEntry="none" DisplayName="CAYADEV Visualizer" Description="Audio-reactive visualizer and Dynamic Lighting controller" BackgroundColor="#111827" Square150x150Logo="resources\\identity\\Square150x150Logo.png" Square44x44Logo="resources\\identity\\Square44x44Logo.png" />
       <Extensions>
         <uap3:Extension Category="windows.appExtension">
           <uap3:AppExtension Name="com.microsoft.windows.lighting" Id="DynamicLighting" PublicFolder="public" DisplayName="CAYADEV Visualizer" />

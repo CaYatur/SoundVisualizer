@@ -64,8 +64,9 @@
       const i = pickIndex(list.length, a.order);
       if (i < 0) return false;
       const data = list[i].data || {};
-      for (const key of ['background', 'visualizer', 'logo', 'images', 'custom', 'feedback', 'layers', 'postfx', 'geometry']) {
-        if (data[key]) cfg[key] = JSON.parse(JSON.stringify(data[key]));
+      const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
+      for (const key of SCENE_KEYS) {
+        if (data[key] !== undefined) cfg[key] = JSON.parse(JSON.stringify(data[key]));
       }
       return true;
     }

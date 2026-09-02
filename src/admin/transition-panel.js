@@ -80,6 +80,20 @@
       nodes.push(el('div', { class: 'tr-params' }, kids));
     }
 
+    // --------------------------------------------------- karartma geçişi
+    const BLACKOUT_OPTS = [
+      ['crossfade', 'Sönümleme (Yumuşak Karart)'],
+      ['cut', 'Anında Kes (Animasyonsuz)'],
+      ['dissolve', 'Erime'],
+    ];
+    nodes.push(el('div', { class: 'studio-subheading', text: 'Karartma (Blackout) Geçişi' }));
+    nodes.push(SP().miniSelect('Karartma Animasyonu', BLACKOUT_OPTS, () => tr.blackoutType || 'crossfade', (v) => { tr.blackoutType = v; }, rerender));
+    if ((tr.blackoutType || 'crossfade') !== 'cut') {
+      nodes.push(SP().miniSlider('Karartma Süresi', () => (tr.blackoutDuration == null ? 0.4 : tr.blackoutDuration), (v) => { tr.blackoutDuration = v; }, {
+        min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
+      }));
+    }
+
     // ------------------------------------------------------------- deneme
     nodes.push(el('div', { class: 'row' }, [
       el('button', {

@@ -23,55 +23,86 @@
     if (!T) return el('div', { class: 'studio-note', text: 'Şablon kitaplığı yüklenemedi.' });
 
     const groups = T.groups();
-    if (!group || groups.indexOf(group) < 0) group = groups[0];
-
-    // Grup sekmeleri
-    const tabs = el('div', { class: 'tpl-tabs' });
-    tabs.appendChild(el('button', {
-      class: 'btn ghost tiny' + (group === '*' ? ' active' : ''),
-      type: 'button', text: 'Tümü',
-      onclick: () => { group = '*'; P().rerender(); },
-    }));
-    for (const g of groups) {
-      tabs.appendChild(el('button', {
-        class: 'btn ghost tiny' + (group === g ? ' active' : ''),
-        type: 'button', text: g,
-        onclick: () => { group = g; P().rerender(); },
-      }));
-    }
-    nodes.push(tabs);
-
-    nodes.push(P().row('Ara', el('input', {
-      class: 'p-in', type: 'search', value: search, placeholder: 'şablon adı ya da açıklaması',
-      oninput: (e) => { search = e.target.value; P().rerender(); },
-    })));
-
-    const q = search.trim().toLowerCase();
-    const list = T.TEMPLATES.filter((t) => {
-      if (group !== '*' && t.group !== group) return false;
-      if (!q) return true;
-      return (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(q);
-    });
+    if (!group || (group !== '*' && groups.indexOf(group) < 0)) group = '*';
 
     const grid = el('div', {
       class: 'tpl-grid',
       onscroll: (e) => { gridScroll = e.target.scrollTop; },
     });
-    for (const t of list) {
-      grid.appendChild(el('button', {
-        class: 'tpl-card' + (lastApplied === t.id ? ' active' : ''),
-        type: 'button',
-        onclick: () => applyTemplate(t),
-      }, [
-        el('span', { class: 'tpl-swatch', style: swatch(t) }),
-        el('span', { class: 'tpl-name', text: t.name }),
-        el('span', { class: 'tpl-desc', text: t.desc }),
-        el('span', { class: 'tpl-group', text: t.group }),
-      ]));
+
+    function renderCards() {
+      grid.innerHTML = '';
+      const q = search.trim().toLowerCase();
+      const list = T.TEMPLATES.filter((t) => {
+        if (group !== '*' && t.group !== group) return false;
+        if (!q) return true;
+        return (t.name + ' ' + t.desc + ' ' + t.group).toLowerCase().includes(q);
+      });
+
+      for (const t of list) {
+        grid.appendChild(el('button', {
+          class: 'tpl-card' + (lastApplied === t.id ? ' active' : ''),
+          type: 'button',
+          onclick: () => applyTemplate(t),
+        }, [
+          el('span', { class: 'tpl-swatch', style: swatch(t) }),
+          el('span', { class: 'tpl-name', text: t.name }),
+          el('span', { class: 'tpl-desc', text: t.desc }),
+          el('span', { class: 'tpl-group', text: t.group }),
+        ]));
+      }
+      if (!list.length) {
+        grid.appendChild(el('div', { class: 'studio-note', text: 'Aramaya uyan şablon yok.' }));
+      }
     }
-    if (!list.length) {
-      grid.appendChild(el('div', { class: 'studio-note', text: 'Aramaya uyan şablon yok.' }));
+
+    // Grup sekmeleri
+    const tabs = el('div', { class: 'tpl-tabs' });
+    const allBtn = el('button', {
+      class: 'btn ghost tiny' + (group === '*' ? ' active' : ''),
+      type: 'button', text: 'Tümü',
+      onclick: () => {
+        group = '*';
+        updateTabs();
+        renderCards();
+      },
+    });
+    tabs.appendChild(allBtn);
+
+    const groupBtns = [];
+    for (const g of groups) {
+      const b = el('button', {
+        class: 'btn ghost tiny' + (group === g ? ' active' : ''),
+        type: 'button', text: g,
+        onclick: () => {
+          group = g;
+          updateTabs();
+          renderCards();
+        },
+      });
+      groupBtns.push({ btn: b, name: g });
+      tabs.appendChild(b);
     }
+
+    function updateTabs() {
+      allBtn.classList.toggle('active', group === '*');
+      for (const item of groupBtns) {
+        item.btn.classList.toggle('active', group === item.name);
+      }
+    }
+
+    nodes.push(tabs);
+
+    const searchInput = el('input', {
+      class: 'p-in', type: 'search', value: search, placeholder: 'şablon adı ya da açıklaması',
+      oninput: (e) => {
+        search = e.target.value;
+        renderCards();
+      },
+    });
+    nodes.push(P().row('Ara', searchInput));
+
+    renderCards();
     nodes.push(grid);
 
     if (gridScroll > 0) {

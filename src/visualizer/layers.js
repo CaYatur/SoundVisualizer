@@ -219,10 +219,11 @@
     const c = cfg.custom || {};
     const g = cfg.geometry || {};
     const layers = Array.isArray(cfg.layers)
-      ? cfg.layers.map((l) => (l.kind || '') + '.' + (l.type || '') + '.' + (l.presetId || '')).join(',')
+      ? cfg.layers.map((l) => (l.kind || '') + '.' + (l.type || '') + '.' + (l.presetId || '') + '.' + (l.enabled !== false ? '1' : '0')).join(',')
       : '';
     const grad = ((b.gradient && b.gradient.colors) || []).join(',');
-    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad].join('|');
+    const stackState = stackOn(cfg) ? 'stack' : 'classic';
+    return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState].join('|');
   }
 
   function bandValue(audio, band) {
@@ -387,13 +388,32 @@
       const scnSig = sceneSignature(cfg);
       const T = window.SVTransition;
       const spec = cfg && cfg.transition;
-      if (T && spec && spec.enabled !== false && spec.type && spec.type !== 'cut' &&
+
+      const isBlackoutNow = !!(cfg && cfg.isBlackout) ||
+        (cfg && cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000' &&
+         cfg.visualizer && cfg.visualizer.type === 'none' &&
+         (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
+
+      const wasBlackout = this.prevCfg && (
+        this.prevCfg.isBlackout ||
+        (this.prevCfg.background && this.prevCfg.background.type === 'solid' && this.prevCfg.background.solidColor === '#000000' &&
+         this.prevCfg.visualizer && this.prevCfg.visualizer.type === 'none' &&
+         (!this.prevCfg.layers || this.prevCfg.layers.every((l) => !l.enabled)))
+      );
+
+      const isBlackoutTrans = isBlackoutNow || wasBlackout;
+      const transType = isBlackoutTrans ? (spec && spec.blackoutType || 'crossfade') : (spec && spec.type || 'crossfade');
+      const transDur = isBlackoutTrans
+        ? (spec && spec.blackoutDuration != null ? spec.blackoutDuration : 0.4)
+        : (T ? T.durationSeconds(cfg, this.bpm || (spec && spec.bpm || 0)) : 0.7);
+
+      if (T && spec && spec.enabled !== false && transType && transType !== 'cut' && transDur > 0 &&
           this.lastSig && scnSig !== this.lastSig && this.entries.length && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
-          type: spec.type,
-          duration: T.durationSeconds(cfg, this.bpm || (spec.bpm || 0)),
-          opts: spec.params || {},
-          ease: spec.ease,
+          type: transType,
+          duration: transDur,
+          opts: isBlackoutTrans ? {} : (spec.params || {}),
+          ease: isBlackoutTrans ? 'smooth' : (spec.ease || 'smooth'),
         });
       }
       this.lastSig = scnSig;

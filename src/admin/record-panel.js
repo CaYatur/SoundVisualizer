@@ -54,6 +54,9 @@
     const nodes = [];
 
     const recording = !!(R && R.recording);
+    if (!recording && busy && !status.includes('yazılıyor')) {
+      busy = false;
+    }
     const timeLbl = el('span', { class: 'rec-time', text: recording ? fmt(R.elapsed) : '00:00' });
 
     nodes.push(el('div', { class: 'row rec-row' }, [
