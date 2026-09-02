@@ -63,16 +63,50 @@ const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü ü
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
 const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).toLowerCase();
+/* Electron 35, console-message olayinin imzasini degistirdi: eskiden
+   (event, level, message, line, sourceId) geliyordu ve level bir sayiydi
+   (0 verbose, 1 info, 2 warning, 3 error); artik tum alanlar olay nesnesinin
+   uzerinde ve level bir metin ("debug" | "info" | "warning" | "error").
+   Ikisini de okuyoruz: boylece kod hem yukseltme oncesi hem sonrasi dogru
+   calisir ve "level >= 2" karsilastirmasi metin gelince sessizce false
+   donup hatalari gizlemez. */
+function consoleInfo(e, level, message) {
+  const lvl = e && e.level !== undefined ? e.level : level;
+  const msg = e && e.message !== undefined ? e.message : message;
+  const warnOrWorse =
+    typeof lvl === 'string'
+      ? lvl === 'warning' || lvl === 'error'
+      : typeof lvl === 'number' && lvl >= 2;
+  return { level: lvl, message: String(msg == null ? '' : msg), warnOrWorse };
+}
+
 function attachSmoke(win, name) {
   if (!SMOKE) return;
   const wc = win.webContents;
-  wc.on('console-message', (e, level, message, line, src) => {
-    console.log(`[${name}] ${message}`);
+  wc.on('console-message', (e, level, message) => {
+    console.log(`[${name}] ${consoleInfo(e, level, message).message}`);
   });
   wc.on('render-process-gone', (e, d) => console.log(`[${name}] CRASH ${d.reason}`));
   wc.on('did-fail-load', (e, code, desc) => console.log(`[${name}] FAIL-LOAD ${code} ${desc}`));
   wc.on('preload-error', (e, p, err) => console.log(`[${name}] PRELOAD-ERR ${err}`));
 }
+
+/* app.quit() Node'un process.exitCode degerini DIKKATE ALMAZ: tarayici sureci
+   normal kapanis dizisini isletip 0 ile cikar. Bu yuzden "RESULT: FAIL" yazan
+   bir oz test bile kabukta basarili gorunuyordu ve hicbir otomasyon bozuk bir
+   derlemeyi yakalayamazdi.
+   Cozum: kodu sakla, app.quit() ile normal kapanisi (before-quit temizligi:
+   yayin sunucusu, OSC, Art-Net, ses yakalama) calistir, sonra will-quit
+   asamasinda app.exit() ile kodu gercekten uygula. */
+let pendingExitCode = 0;
+function failAndQuit(code) {
+  pendingExitCode = code;
+  process.exitCode = code;
+  app.quit();
+}
+app.on('will-quit', () => {
+  if (pendingExitCode) app.exit(pendingExitCode);
+});
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 
@@ -1458,8 +1492,7 @@ app.whenReady().then(async () => {
   if (SMOKE) {
     runSmoke().catch((e) => {
       console.log('[SMOKE] FAIL ' + (e && e.message));
-      process.exitCode = 1;
-      app.quit();
+      failAndQuit(1);
     });
   }
 });
@@ -1499,7 +1532,8 @@ async function runSmoke() {
 
   const wc = meterWindow().webContents;
   wc.on('console-message', (e, level, message) => {
-    if (level >= 2 || /error|hata|failed|undefined is not/i.test(message)) errors.push(message);
+    const c = consoleInfo(e, level, message);
+    if (c.warnOrWorse || /error|hata|failed|undefined is not/i.test(c.message)) errors.push(c.message);
   });
 
   const cam = await cameraProbe(meterWindow());
@@ -1950,7 +1984,8 @@ async function runSmoke() {
     const awc = adminWin.webContents;
     const adminErrors = [];
     awc.on('console-message', (e, level, message) => {
-      if (level >= 2) adminErrors.push(message);
+      const c = consoleInfo(e, level, message);
+      if (c.warnOrWorse) adminErrors.push(c.message);
     });
     const cats = await awc.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
@@ -2293,10 +2328,10 @@ async function runSmoke() {
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
     errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));
-    process.exitCode = 1;
-  } else {
-    console.log('[SMOKE] RESULT: PASS');
+    failAndQuit(1);
+    return;
   }
+  console.log('[SMOKE] RESULT: PASS');
   app.quit();
 }
 
