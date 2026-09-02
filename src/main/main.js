@@ -140,7 +140,12 @@ function syncPortableLightingFocus() {
 app.on('browser-window-focus', syncPortableLightingFocus);
 app.on('browser-window-blur', syncPortableLightingFocus);
 
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.cayadev.visualizer');
+}
+
 function createAdminWindow() {
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   adminWin = new BrowserWindow({
     // Üç sütunlu düzen (kategori rayı + çalışma alanı + önizleme dock'u) için
     // daha geniş varsayılan pencere
@@ -148,6 +153,7 @@ function createAdminWindow() {
     height: 940,
     minWidth: 1000,
     minHeight: 680,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: trUi('Ses Görselleştirici — Yönetici Paneli', 'Sound Visualizer — Admin Panel'),
     backgroundColor: '#0b0910',
     autoHideMenuBar: true,
@@ -215,12 +221,14 @@ function resolveDisplayIds(input) {
 }
 
 function createVisualizerWindow(display) {
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = display.bounds;
   const win = new BrowserWindow({
     x: b.x,
     y: b.y,
     width: b.width,
     height: b.height,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     frame: false,
     backgroundColor: '#000000',
     show: false,
@@ -781,23 +789,25 @@ async function saveRecording(buffer, opts) {
   return { ok: true, path: r.filePath };
 }
 
-ipcMain.handle('record:save', async (e, payload) => {
+ipcMain.handle('record:save', async (e, a1, a2) => {
+  const buffer = (a1 && (a1.data || a1.buffer)) ? (a1.data || a1.buffer) : a1;
+  const opts = (a1 && a1.opts) ? a1.opts : a2;
   try {
-    return await saveRecording(payload && payload.data, payload && payload.opts);
+    return await saveRecording(buffer, opts);
   } catch (err) {
     return { ok: false, error: String(err && err.message || err) };
   }
 });
 
-ipcMain.handle('record:snapshot', async (e, payload) => {
-  const dataUrl = String((payload && payload.dataUrl) || '');
-  const m = /^data:image\/png;base64,(.+)$/.exec(dataUrl);
+async function handleSnapshotSave(dataUrl) {
+  const raw = String(dataUrl || '');
+  const m = /^data:image\/\w+;base64,(.+)$/.exec(raw);
   if (!m) return { ok: false, error: 'PNG verisi geçersiz' };
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const r = await dialog.showSaveDialog(adminWin, {
+  const r = await dialog.showSaveDialog(adminWin || BrowserWindow.getFocusedWindow(), {
     title: trUi('Anlık Görüntüyü Kaydet', 'Save Snapshot'),
     defaultPath: path.join(app.getPath('pictures') || app.getPath('downloads'), 'cayadev-' + stamp + '.png'),
-    filters: [{ name: 'PNG', extensions: ['png'] }],
+    filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'Tüm Dosyalar', extensions: ['*'] }],
   });
   if (r.canceled || !r.filePath) return { ok: false, canceled: true };
   try {
@@ -806,6 +816,14 @@ ipcMain.handle('record:snapshot', async (e, payload) => {
   } catch (err) {
     return { ok: false, error: String(err.message) };
   }
+}
+
+ipcMain.handle('record:snapshot', async (e, payload) => {
+  return await handleSnapshotSave((payload && payload.dataUrl) ? payload.dataUrl : payload);
+});
+
+ipcMain.handle('snapshot:save', async (e, payload) => {
+  return await handleSnapshotSave((payload && payload.dataUrl) ? payload.dataUrl : payload);
 });
 
 ipcMain.handle('presets:open-folder', () => {

@@ -374,7 +374,11 @@
     }
 
     if (l.kind === 'logo') {
-      const lg = (cfg.logo = cfg.logo || {});
+      l.settings = l.settings || {};
+      const lg = (l.settings.logo = l.settings.logo || (l.id === 'ly_logo' && cfg.logo ? Object.assign({}, cfg.logo) : { enabled: true, src: (cfg.logo && cfg.logo.src) || '', scale: 0.22, pulse: 0.3, opacity: 1, glow: 0, x: 0.5, y: 0.5 }));
+      const getL = (k, def) => lg[k] !== undefined ? lg[k] : (cfg.logo && cfg.logo[k] !== undefined ? cfg.logo[k] : def);
+      const setL = (k, val) => { lg[k] = val; };
+
       const info = el('div', { class: 'row' }, [
         el('label', { class: 'lbl', text: 'Logo Görseli' }),
         el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
@@ -388,6 +392,7 @@
             pickImage((dataUrl) => {
               lg.src = dataUrl;
               lg.enabled = true;
+              if (l.id === 'ly_logo' && cfg.logo) cfg.logo.src = dataUrl;
               P().push(true);
               rerender();
             });
@@ -396,16 +401,19 @@
         lg.src ? el('button', {
           class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
           onclick: () => {
-            lg.src = null;
+            lg.src = '';
+            if (l.id === 'ly_logo' && cfg.logo) cfg.logo.src = '';
             P().push(true);
             rerender();
           },
         }) : null,
       ].filter(Boolean)));
-      out.push(miniSlider('Boyut', () => lg.scale == null ? 0.22 : lg.scale, (v) => { lg.scale = v; },
-        { min: 0.05, max: 0.9, step: 0.01, percent: true }));
-      out.push(miniSlider('Nabız', () => lg.pulse == null ? 0.3 : lg.pulse, (v) => { lg.pulse = v; },
-        { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Yatay Konum (X)', () => getL('x', 0.5), (v) => setL('x', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true }));
+      out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
+      out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
       return out;
     }
 

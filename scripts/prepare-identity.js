@@ -64,7 +64,6 @@ const iconSource = path.join(root, 'assets', 'logo-256.png');
 const packageIconBackground = { r: 0, g: 0, b: 0, alpha: 0 };
 const iconJobs = [
   ['icon.png', 256],
-  ['Square44x44Logo.png', 44],
   ['Square44x44Logo.scale-100.png', 44],
   ['Square44x44Logo.scale-125.png', 55],
   ['Square44x44Logo.scale-150.png', 66],
@@ -98,20 +97,6 @@ const iconJobs = [
   ['Square44x44Logo.targetsize-80_altform-unplated.png', 80],
   ['Square44x44Logo.targetsize-96_altform-unplated.png', 96],
   ['Square44x44Logo.targetsize-256_altform-unplated.png', 256],
-  ['Square44x44Logo.altform-unplated_targetsize-16.png', 16],
-  ['Square44x44Logo.altform-unplated_targetsize-20.png', 20],
-  ['Square44x44Logo.altform-unplated_targetsize-24.png', 24],
-  ['Square44x44Logo.altform-unplated_targetsize-30.png', 30],
-  ['Square44x44Logo.altform-unplated_targetsize-32.png', 32],
-  ['Square44x44Logo.altform-unplated_targetsize-36.png', 36],
-  ['Square44x44Logo.altform-unplated_targetsize-40.png', 40],
-  ['Square44x44Logo.altform-unplated_targetsize-44.png', 44],
-  ['Square44x44Logo.altform-unplated_targetsize-48.png', 48],
-  ['Square44x44Logo.altform-unplated_targetsize-64.png', 64],
-  ['Square44x44Logo.altform-unplated_targetsize-72.png', 72],
-  ['Square44x44Logo.altform-unplated_targetsize-80.png', 80],
-  ['Square44x44Logo.altform-unplated_targetsize-96.png', 96],
-  ['Square44x44Logo.altform-unplated_targetsize-256.png', 256],
   ['Square44x44Logo.targetsize-16_altform-lightunplated.png', 16],
   ['Square44x44Logo.targetsize-20_altform-lightunplated.png', 20],
   ['Square44x44Logo.targetsize-24_altform-lightunplated.png', 24],
@@ -126,21 +111,6 @@ const iconJobs = [
   ['Square44x44Logo.targetsize-80_altform-lightunplated.png', 80],
   ['Square44x44Logo.targetsize-96_altform-lightunplated.png', 96],
   ['Square44x44Logo.targetsize-256_altform-lightunplated.png', 256],
-  ['Square44x44Logo.altform-lightunplated_targetsize-16.png', 16],
-  ['Square44x44Logo.altform-lightunplated_targetsize-20.png', 20],
-  ['Square44x44Logo.altform-lightunplated_targetsize-24.png', 24],
-  ['Square44x44Logo.altform-lightunplated_targetsize-30.png', 30],
-  ['Square44x44Logo.altform-lightunplated_targetsize-32.png', 32],
-  ['Square44x44Logo.altform-lightunplated_targetsize-36.png', 36],
-  ['Square44x44Logo.altform-lightunplated_targetsize-40.png', 40],
-  ['Square44x44Logo.altform-lightunplated_targetsize-44.png', 44],
-  ['Square44x44Logo.altform-lightunplated_targetsize-48.png', 48],
-  ['Square44x44Logo.altform-lightunplated_targetsize-64.png', 64],
-  ['Square44x44Logo.altform-lightunplated_targetsize-72.png', 72],
-  ['Square44x44Logo.altform-lightunplated_targetsize-80.png', 80],
-  ['Square44x44Logo.altform-lightunplated_targetsize-96.png', 96],
-  ['Square44x44Logo.altform-lightunplated_targetsize-256.png', 256],
-  ['Square150x150Logo.png', 150],
   ['Square150x150Logo.scale-100.png', 150],
   ['Square150x150Logo.scale-125.png', 188],
   ['Square150x150Logo.scale-150.png', 225],
@@ -293,6 +263,11 @@ foreach ($store in @(
 }
 `;
 fs.writeFileSync(path.join(output, 'uninstall-identity.ps1'), uninstallScript);
+
+const makePri = findSdkTool('makepri.exe');
+const priConfig = path.join(output, 'priconfig.xml');
+run(makePri, ['createconfig', '/cf', priConfig, '/dq', 'lang-en-US', '/pv', '10.0.0', '/o']);
+run(makePri, ['new', '/pr', manifestDir, '/cf', priConfig, '/of', path.join(manifestDir, 'resources.pri'), '/o']);
 
 const makeAppx = findSdkTool('makeappx.exe');
 const signTool = findSdkTool('signtool.exe');

@@ -78,6 +78,10 @@ contextBridge.exposeInMainWorld('api', {
   // Uzaktan kumandadan gelen ayar değişikliği (panel kopyasını tazeler)
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 
+  // Canlı kayıt ve anlık görüntü
+  saveRecording: (bytes, opts) => ipcRenderer.invoke('record:save', bytes, opts),
+  saveSnapshot: (dataUrl) => ipcRenderer.invoke('snapshot:save', dataUrl),
+
   // Olaylar (ana süreç -> admin)
   onVisualizerStatus: (cb) =>
     ipcRenderer.on('visualizer-status', (e, data) => cb(data)),

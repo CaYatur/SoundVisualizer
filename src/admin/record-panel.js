@@ -32,7 +32,12 @@
     const stack = prev && prev.stack && prev.stack();
     if (!stack) return null;
     stack.setForceSingle(true);
-    return stack.surface();
+    stack._ensureComp();
+    if (stack.compCanvas.width !== stack.width || stack.compCanvas.height !== stack.height) {
+      stack.compCanvas.width = stack.width;
+      stack.compCanvas.height = stack.height;
+    }
+    return stack.surface() || stack.compCanvas;
   }
 
   function release() {
@@ -124,7 +129,7 @@
     if (!R) { status = 'Kayıt motoru yok.'; P().rerender(); return; }
     const cv = target();
     if (!cv) { status = 'Önizleme yüzeyi hazır değil; bir an sonra yeniden deneyin.'; P().rerender(); return; }
-    const r = cfg.recording;
+    const r = cfg.recording || {};
     const res = R.start(cv, {
       fps: r.fps,
       bitrate: r.bitrate,
@@ -175,20 +180,46 @@
   }
 
   async function snap(cfg) {
-    const cv = target();
-    if (!cv) { status = 'Önizleme yüzeyi hazır değil.'; P().rerender(); return; }
+    const prev = window.SVPreview;
+    const stack = prev && prev.stack && prev.stack();
     const r = cfg.recording || {};
-    const url = window.SVRecorder.snapshot(cv, r.snapshotScale || 1);
-    release();
-    if (!url) { status = 'Görüntü alınamadı.'; P().rerender(); return; }
-    const out = await window.api.saveSnapshot(url);
-    if (out && out.ok) {
-      status = '✓ Görüntü kaydedildi: ' + out.path;
-      P().toast('Anlık görüntü kaydedildi.');
-    } else if (out && out.canceled) {
-      status = '';
-    } else {
-      status = '⚠ ' + ((out && out.error) || 'yazılamadı');
+    let cv = null;
+    if (stack) {
+      stack._ensureComp();
+      if (stack.compCanvas.width !== stack.width || stack.compCanvas.height !== stack.height) {
+        stack.compCanvas.width = stack.width;
+        stack.compCanvas.height = stack.height;
+      }
+      stack.drawTo(stack.compCtx, (prev && prev.lastAudio) || (window.SVAudioCore && window.SVAudioCore.readAnalysis()), cfg, performance.now() / 1000, 0.016);
+      cv = stack.compCanvas;
+    }
+    if (!cv) cv = target();
+    if (!cv) { status = 'Önizleme yüzeyi hazır değil.'; P().rerender(); return; }
+
+    busy = true;
+    status = 'Görüntü kaydediliyor…';
+    P().rerender();
+
+    try {
+      const url = window.SVRecorder.snapshot(cv, r.snapshotScale || 1);
+      release();
+      if (!url) { status = 'Görüntü alınamadı.'; busy = false; P().rerender(); return; }
+      const saver = (window.api && window.api.saveSnapshot) || (window.api && window.api.saveRecording);
+      if (!saver) { status = 'Kaydetme API\'si hazır değil.'; busy = false; P().rerender(); return; }
+      const out = await (window.api.saveSnapshot ? window.api.saveSnapshot(url) : window.api.saveRecording(url, { isSnapshot: true }));
+      busy = false;
+      if (out && out.ok) {
+        status = '✓ Görüntü kaydedildi: ' + out.path;
+        P().toast('Anlık görüntü kaydedildi.');
+      } else if (out && out.canceled) {
+        status = '';
+      } else {
+        status = '⚠ ' + ((out && out.error) || 'yazılamadı');
+      }
+    } catch (e) {
+      busy = false;
+      release();
+      status = '⚠ ' + (e && e.message ? e.message : String(e));
     }
     P().rerender();
   }

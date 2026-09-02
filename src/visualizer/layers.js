@@ -249,6 +249,7 @@
       this.sprites = null; // paylaşılan sprite motoru
       this.media = null; // paylaşılan medya katmanı
       this.logoEl = this.opts.logoEl || null;
+      this._imageCache = {};
       this.signature = '';
       // Son-işlem zinciri (varsa sahne tek yüzeye birleştirilip GPU'ya verilir)
       this.postfx = null;
@@ -264,6 +265,15 @@
       this.trans = null;
       this.lastSig = '';
       if (this.container) this.container.style.isolation = 'isolate';
+    }
+
+    _getImage(src) {
+      if (!src) return null;
+      if (this._imageCache[src]) return this._imageCache[src];
+      const img = new Image();
+      img.src = src;
+      this._imageCache[src] = img;
+      return img;
     }
 
     /* Efekt zincirini kur. Boş zincir = CSS kompozit yolu (en ucuz).
@@ -430,10 +440,14 @@
 
     _create(layer, key, cfg) {
       const e = { layer, key, canvas: null, ctx: null, mode: null };
-      if (layer.kind === 'logo') return e; // logo bir <img>, tuval değil
-
       e.canvas = this._makeCanvas();
       if (this.container) this.container.appendChild(e.canvas);
+
+      if (layer.kind === 'logo') {
+        e.ctx = e.canvas.getContext('2d');
+        this._sizeEntry(e);
+        return e;
+      }
 
       const lcfg = layerConfig(cfg, layer);
       if (layer.kind === 'background') {
@@ -663,16 +677,10 @@
       }
 
       this._setSurface(null);
+      if (this.logoEl) this.logoEl.style.display = 'none';
 
       for (const e of this.entries) {
         const l = this._live(e, cfg);
-        if (l.kind === 'logo') {
-          if (this.logoEl) {
-            const d = this._dynamics(l, audio, cfg);
-            this.logoEl.style.opacity = String(d.opacity * (cfg.logo ? cfg.logo.opacity : 1));
-          }
-          continue;
-        }
         this._drawEntry(e, audio, cfg, t, dt, l);
 
         if (this.container && e.canvas) {
@@ -826,6 +834,35 @@
         if (this.sprites && audio && audio.ready && this.sprites.hasLayer(l.type)) {
           this.sprites.draw(e.ctx, audio, t, W, H, l.type);
         }
+        return;
+      }
+
+      if (l.kind === 'logo') {
+        e.ctx.clearRect(0, 0, W, H);
+        const lg = (l.settings && l.settings.logo) || cfg.logo;
+        if (!lg || !lg.src) return;
+        const img = this._getImage(lg.src);
+        if (!img || !img.naturalWidth) return;
+        const minDim = Math.min(W, H);
+        const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));
+        const pulse = 1 + (audio ? audio.bass : 0) * (lg.pulse == null ? 0.3 : lg.pulse);
+        const size = minDim * scale * pulse;
+        const aspect = img.naturalHeight / img.naturalWidth;
+        const w = size;
+        const h = w * aspect;
+        const x = (lg.x == null ? 0.5 : lg.x) * W;
+        const y = (lg.y == null ? 0.5 : lg.y) * H;
+        const opacity = Math.max(0, Math.min(1, lg.opacity == null ? 1 : lg.opacity));
+
+        e.ctx.save();
+        e.ctx.globalAlpha = opacity;
+        if (lg.glow && lg.glow > 0) {
+          e.ctx.shadowColor = 'rgba(255,255,255,0.7)';
+          e.ctx.shadowBlur = lg.glow * 40 * (minDim / 1080);
+        }
+        e.ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
+        e.ctx.restore();
+        return;
       }
     }
 
@@ -843,7 +880,6 @@
 
       for (const e of this.entries) {
         const l = this._live(e, cfg);
-        if (l.kind === 'logo') { if (drawLogo) drawLogo(ctx); continue; }
         this._drawEntry(e, audio, cfg, t, dt, l);
         if (!e.canvas) continue;
 

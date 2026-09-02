@@ -116,14 +116,35 @@
       cfg.background.gradient.colors = list[idx].colors.slice();
     } else if (action === 'blackout') {
       if (blackoutSaved) {
-        cfg.background.type = blackoutSaved.bg;
-        cfg.visualizer.type = blackoutSaved.vis;
+        cfg.background = blackoutSaved.bg;
+        cfg.visualizer = blackoutSaved.vis;
+        cfg.images = blackoutSaved.images;
+        cfg.media = blackoutSaved.media;
+        cfg.logo = blackoutSaved.logo;
+        cfg.text = blackoutSaved.text;
+        cfg.layerStack = blackoutSaved.layerStack;
+        cfg.layers = blackoutSaved.layers;
         blackoutSaved = null;
       } else {
-        blackoutSaved = { bg: cfg.background.type, vis: cfg.visualizer.type };
-        cfg.background.type = 'solid';
-        cfg.background.solidColor = '#000000';
-        cfg.visualizer.type = 'none';
+        blackoutSaved = {
+          bg: JSON.parse(JSON.stringify(cfg.background || {})),
+          vis: JSON.parse(JSON.stringify(cfg.visualizer || {})),
+          images: JSON.parse(JSON.stringify(cfg.images || {})),
+          media: JSON.parse(JSON.stringify(cfg.media || {})),
+          logo: JSON.parse(JSON.stringify(cfg.logo || {})),
+          text: JSON.parse(JSON.stringify(cfg.text || {})),
+          layerStack: JSON.parse(JSON.stringify(cfg.layerStack || {})),
+          layers: JSON.parse(JSON.stringify(cfg.layers || [])),
+        };
+        cfg.background = Object.assign({}, cfg.background, { type: 'solid', solidColor: '#000000' });
+        cfg.visualizer = Object.assign({}, cfg.visualizer, { type: 'none' });
+        if (cfg.images) cfg.images.enabled = false;
+        if (cfg.media) cfg.media.enabled = false;
+        if (cfg.logo) cfg.logo.enabled = false;
+        if (cfg.text) cfg.text.enabled = false;
+        if (Array.isArray(cfg.layers)) {
+          cfg.layers = cfg.layers.map((l) => Object.assign({}, l, { enabled: false }));
+        }
       }
     }
   }
