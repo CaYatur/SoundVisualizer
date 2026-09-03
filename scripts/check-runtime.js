@@ -72,4 +72,24 @@ devices.slice(0, 8).forEach((d) => {
   console.log('           ' + (d.loopback ? '*' : ' ') + ' ' + d.kind.padEnd(6) + ' ' + d.name);
 });
 if (err) console.log('stderr   : ' + err.slice(0, 400));
+
+/* Ne doğrulandı, ne doğrulanmadı — AÇIKÇA söyle.
+   Sıfır aygıt bir arıza değildir: koşucuda ses kartı olmayabilir. Ama o
+   durumda aygıt sayımı da SINANMAMIŞ olur ve buna "her şey yolunda" demek
+   yanıltıcıdır. Denetimin geçmesi tek bir şeyi kanıtlar: native ses motoru
+   bu platformda yükleniyor ve uygulamanın kendi ikilisi node kipinde
+   çalışıyor. Paket üretmek için gereken de budur. */
+const backendFailed = /LIST-FAIL/.test(err);
+console.log('');
+console.log('doğrulandı      : native ses motoru yükleniyor · uygulama ikilisi node kipinde koşuyor');
+if (backendFailed) {
+  console.log('DOĞRULANMADI    : ses arka ucu bu makinede oluşturulamadı (ses sunucusu yok)');
+  console.log('                  aygıt sayımı ve yakalama sınanmadı');
+} else if (!devices.length) {
+  console.log('DOĞRULANMADI    : aygıt bulunamadı — bu makinede ses donanımı yok');
+  console.log('                  aygıt sayımı ve yakalama sınanmadı');
+} else if (!loopback.length) {
+  console.log('not             : sistem sesini veren aygıt yok. macOS için bu BEKLENEN');
+  console.log('                  durumdur (sanal aygıt gerekir); diğer platformlarda değildir');
+}
 console.log('SONUÇ: ses çalışma zamanı bu platformda ayakta');
