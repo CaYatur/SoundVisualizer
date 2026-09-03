@@ -6,73 +6,86 @@ covered by a test or by the GPU self-test.
 
 **Current release: v3.1.0** · **Next release: v3.1.1**
 
-| Release | Theme | State |
-|---|---|:--:|
-| v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | Shipped |
-| v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions, recording | Shipped |
-| **v3.1.0** | **Timeline, Clip Deck, accidental-close protection, Electron 43** | **Current** |
-| v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | Next |
-| v3.1.2 | Per-application audio capture | Planned |
-| v3.1.3 | Comprehensive video export | Planned |
-| v3.1.4 | Broadcast layout editor | Planned |
-| v3.1.5 | NDI output | Deferred |
-| v3.2.0 | Redundancy, failover and frame sync | Planned |
+| Release | Theme | Released | State |
+|---|---|:--:|:--:|
+| v1.3.1 | Modes, backgrounds, recording | 2026-08-06 | Shipped |
+| v2.0.0 | Shader editor, MIDI, OSC, OBS source, offline render | 2026-08-30 | Shipped |
+| v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | 2026-09-01 | Shipped |
+| v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions | 2026-09-02 | Shipped |
+| **v3.1.0** | **Timeline, Clip Deck, accidental-close protection, Electron 43** | **2026-09-02** | **Current** |
+| v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | — | In progress |
+| v3.1.2 | Per-application audio capture | — | Planned |
+| v3.1.3 | Comprehensive video export | — | Planned |
+| v3.1.4 | Broadcast layout editor | — | Planned |
+| v3.1.5 | NDI output | — | Deferred |
+| v3.2.0 | Redundancy, failover and frame sync | — | Planned |
 
 ---
 
 ## Status table
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | **v3.0.0** | Note |
-|---|:--:|:--:|:--:|:--:|---|
-| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
-| System audio | ✅ | ✅ | ✅ | ✅ | WASAPI loopback |
-| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
-| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
-| Layer masks | ❌ | ❌ | ❌ | ✅ | Alpha from another layer, plus shape and gradient masks |
-| Post-FX | ❌ | ❌ | ✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
-| Visualizer modes | 14 | 31 | 32 | **48** | Includes 14 new generative modes |
-| Spectrum metering | ❌ | ❌ | ◐ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
-| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | Bar placement, logo beside the bars, track and artist text |
-| Backgrounds | 10 | 19 | 19 | **31** | All share the palette and template system |
-| Colour presets | 10 | 10 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
-| Formulas | ❌ | ❌ | 35 | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
-| 3D solids | ❌ | ❌ | ❌ | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
-| True 3D | ❌ | ◐ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
-| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
-| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
-| Scene transitions | ❌ | ❌ | ❌ | ✅ | 18 transitions, switchable off |
-| Projection mapping | ❌ | ❌ | ❌ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| MilkDrop | ❌ | ◐ | ◐ | ✅ | Full expression language, warp mesh, `.milk` import |
-| Live shader editor | ❌ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
-| Built-in shaders | ❌ | 5 | 5 | **42** | All compile on the GPU in the self-test |
-| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **72** | Nine groups, each verified not to damage a working setup |
-| Text and lyrics | ❌ | ❌ | ❌ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
-| MIDI | ❌ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
-| OSC | ❌ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
-| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
-| BPM / tempo | ❌ | ❌ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
-| Auto VJ | ❌ | ❌ | ✅ | ✅ | Bar-aligned scene, mode and palette changes |
-| Recording | ◐ | ✅ | ✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
-| Video / webcam input | ❌ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
-| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
-| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
-| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
-| Mobile remote | ❌ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | **703** unit tests + a GPU self-test over every engine |
-| Timeline | ❌ | ❌ | ❌ | ◐ | Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
-| Clip deck | ❌ | ❌ | ❌ | ◐ | Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
-| Accidental-close protection | ❌ | ❌ | ❌ | ✅ | Recovery and an Esc lock, both off by default |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 — Windows and macOS only; Linux has no equivalent |
-| Windows build | ✅ | ✅ | ✅ | ✅ | The only platform shipped so far |
-| macOS build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — Apple Silicon only, unsigned, system audio needs a virtual device |
-| Linux build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — AppImage and deb |
-| OpenRGB | ❌ | ❌ | ❌ | ❌ | v3.1.1 — all three platforms |
-| Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
-| NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
-| Redundancy / genlock | ❌ | ❌ | ❌ | ❌ | v3.2.0 |
-
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | **v3.1.0** | Note |
+|---|:--:|:--:|:--:|:--:|:--:|---|
+| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
+| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | WASAPI loopback |
+| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
+| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
+| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
+| Visualizer modes | 14 | 31 | 32 | **48** | **48** | Includes 14 new generative modes |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
+| Backgrounds | 10 | 19 | 19 | **31** | **31** | All share the palette and template system |
+| Colour presets | 10 | 10 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
+| Formulas | ❌ | ❌ | 35 | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
+| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
+| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
+| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
+| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
+| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | 18 transitions, switchable off |
+| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
+| MilkDrop | ❌ | ◐ | ◐ | ✅ | ✅ | Full expression language, warp mesh, `.milk` import |
+| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
+| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | All compile on the GPU in the self-test |
+| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
+| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | Nine groups, each verified not to damage a working setup |
+| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
+| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
+| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
+| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
+| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
+| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | Bar-aligned scene, mode and palette changes |
+| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
+| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
+| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
+| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
+| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
+| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | **792** unit tests + a GPU self-test over every engine |
+| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
+| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
+| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
+| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
+| Electron | 33 | 33 | 33 | 33 | **43** | 33.4.11 reached end of life in April 2025 |
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
+
+### Not shipped yet
+
+Kept separate from the table above on purpose: that one records what has
+actually been released, this one records intent. Nothing here is in a user’s
+hands, and a row only moves up once it ships.
+
+| Feature | Target | State today |
+|---|:--:|---|
+| macOS build | v3.1.1 | Built in CI and verified structurally — Apple Silicon only, unsigned, and system audio needs a virtual device such as BlackHole. Not yet run on a Mac |
+| Linux build | v3.1.1 | AppImage and deb built in CI. The audio engine loads there; device enumeration is still unverified on a real desktop |
+| OpenRGB | v3.1.1 | Works and is covered by tests against a protocol-level server. Not yet driven against real hardware |
+| Spout / Syphon | v3.1.1 | Not started. Windows and macOS only — Linux has no equivalent and will not be offered a switch that does nothing |
+| Per-app audio capture | v3.1.2 | Not started. Needs a native module on both Windows and macOS; the same API family gives macOS its missing system-audio loopback |
+| Comprehensive video export | v3.1.3 | Not started |
+| Broadcast layout editor | v3.1.4 | Not started |
+| NDI | v3.1.5 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
+| Redundancy / genlock | v3.2.0 | Not started |
 
 ---
 
