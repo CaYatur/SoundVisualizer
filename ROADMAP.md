@@ -80,7 +80,7 @@ hands, and a row only moves up once it ships.
 | macOS build | v3.1.1 | Built in CI and verified structurally — Apple Silicon only, unsigned, and system audio needs a virtual device such as BlackHole. Not yet run on a Mac |
 | Linux build | v3.1.1 | AppImage and deb built in CI. The audio engine loads there; device enumeration is still unverified on a real desktop |
 | OpenRGB | v3.1.1 | Works and is covered by tests against a protocol-level server. Not yet driven against real hardware |
-| Spout / Syphon | v3.1.1 | Not started. Windows and macOS only — Linux has no equivalent and will not be offered a switch that does nothing |
+| Spout / Syphon | v3.1.1 | Sending, and verified end to end on Windows: the sender registers with Spout, 30 frames a second with none dropped, and deregisters on stop. Syphon shares the same code path but has never been run on a Mac. Not offered on Linux |
 | Per-app audio capture | v3.1.2 | Not started. Needs a native module on both Windows and macOS; the same API family gives macOS its missing system-audio loopback |
 | Comprehensive video export | v3.1.3 | Not started |
 | Broadcast layout editor | v3.1.4 | Not started |

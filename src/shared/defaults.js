@@ -627,6 +627,18 @@
     // yayar. Windows Dynamic Lighting'in tamamlayıcısıdır: o tüketici
     // aygıtlarını, bu sahne ışıklarını sürer.
     // ------------------------------------------------------------------
+    // Spout (Windows) / Syphon (macOS): görüntüyü aynı makinedeki başka bir
+    // uygulamaya GPU üzerinden verir — Resolume, OBS, TouchDesigner. Pencere
+    // yakalama yok, eklenti yok, CPU kopyası yok. Linux'ta YOKTUR: Spout bir
+    // Windows, Syphon bir macOS teknolojisi ve Linux'ta yerleşik eşdeğeri yok.
+    textureShare: {
+      enabled: false,
+      name: 'CAYADEV Visualizer', // alıcıda görünecek kaynak adı
+      width: 1920,
+      height: 1080,
+      fps: 60,
+    },
+
     // OpenRGB: ayrı çalışan bir sunucuya bağlanır (kullanıcı kurar ve
     // Settings > General > Enable SDK Server ile açar). Windows Dynamic
     // Lighting'in YERİNE geçmez, yanına eklenir — LampArray'in tanımadığı

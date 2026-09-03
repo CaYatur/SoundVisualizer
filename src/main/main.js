@@ -17,6 +17,7 @@ const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const openrgb = require('./openrgb');
+const textureShare = require('./texture-share');
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
 const { serveMediaFile } = require('./media-file');
@@ -267,6 +268,11 @@ function meterWindow() {
 // Tüm görselleştirme pencerelerine mesaj yolla
 function sendToVisualizers(channel, payload) {
   for (const win of openWindows()) win.webContents.send(channel, payload);
+  /* Spout/Syphon penceresi görünmez ve visualizerWins içinde DEĞİL
+     (orası ekranlara ait). Ama aynı yapılandırmayı ve aynı ses
+     karelerini alması gerekiyor, yoksa donmuş bir kare yayınlar. */
+  const ts = textureShare.window();
+  if (ts) ts.webContents.send(channel, payload);
 }
 
 // İstenen ekran kimliklerini çöz (tek sayı, dizi veya boş kabul edilir)
@@ -456,6 +462,9 @@ function captureWanted() {
   return (
     anyVisualizerOpen() ||
     previewSubscribed ||
+    /* Hiçbir ekranda pencere olmasa bile Spout/Syphon çıkışı sesi
+       istiyor: aksi halde alıcı sessiz bir görüntü alır. */
+    !!textureShare.window() ||
     // Yalnızca yayın KATMANI ses karesi tüketir; tek başına bağlı bir mobil
     // kumanda yakalamayı ayakta tutmamalı (ses aygıtını boşuna meşgul eder).
     streamServer.overlayCount() > 0
@@ -770,6 +779,7 @@ ipcMain.on('update-config', (e, config) => {
   syncOscServer();
   syncArtnet();
   syncOpenRgb();
+  syncTextureShare();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
@@ -1176,6 +1186,22 @@ function syncArtnet() {
   });
 }
 
+function syncTextureShare() {
+  const t = (currentConfig && currentConfig.textureShare) || {};
+  if (!t.enabled) {
+    return textureShare.stop().then((st) => {
+      syncCapture();
+      return st;
+    });
+  }
+  return textureShare.start(t).then((st) => {
+    notifyAdmin('texture-share-status', st);
+    /* Pencere yeni açıldıysa yakalama gerekiyor olabilir. */
+    syncCapture();
+    return st;
+  });
+}
+
 function syncOpenRgb() {
   const o = (currentConfig && currentConfig.openrgb) || {};
   if (!o.enabled) return openrgb.stop().then(() => openrgb.status());
@@ -1211,6 +1237,9 @@ ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('openrgb:status', () => openrgb.status());
 ipcMain.handle('openrgb:sync', () => syncOpenRgb());
 ipcMain.handle('openrgb:rescan', () => openrgb.rescan());
+ipcMain.handle('texture:status', () => textureShare.status());
+ipcMain.handle('texture:sync', () => syncTextureShare());
+ipcMain.handle('texture:senders', () => textureShare.listSenders());
 
 // ----------------------------------------------------------------------------
 // Medya katmanı: video dosyası seçimi
@@ -1632,6 +1661,7 @@ app.whenReady().then(async () => {
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
   syncOpenRgb().catch(() => {});
+  syncTextureShare().catch(() => {});
 
   // Ekran değişikliklerini admin'e bildir
   screen.on('display-added', () => notifyAdmin('displays-changed', getDisplayList()));
@@ -2634,6 +2664,10 @@ async function runSmoke() {
       /* OpenRGB de varsayılan kapalı: açılmazsa panelin bütün etiketleri
          DOM'a hiç girmez ve çevrilmemiş metin fark edilmeden çıkar. */
       c.openrgb.enabled = true;
+      /* Spout/Syphon paneli de varsayilan kapali. Linux'ta bu anahtar
+         hicbir sey yapmaz ama panel yine cizilir (orada NEDEN olmadigini
+         anlatan metin var) ve o metnin de cevrilmis olmasi gerekir. */
+      if (c.textureShare) c.textureShare.enabled = true;
       window.SVPanel.rerender();
       return 'açıldı';
     })()`);
@@ -2835,6 +2869,63 @@ async function runSmoke() {
 
       currentConfig = baseCfg;
       if (tmpPreset.ok) presetsStore.remove(tmpPreset.preset.id);
+    }
+  }
+
+  /* Spout/Syphon paneli ciziliyor mu? Panel dizi dondurse ya da
+     yuklenmese kart tumuyle kaybolur ve konsolda tek satir hata kalir. */
+  const texPanel = await adminWin.webContents.executeJavaScript(`(function(){
+    if (!window.SVTexturePanel || !window.SVPanel) return JSON.stringify({ hata: 'panel yok' });
+    var c = window.SVPanel.cfg();
+    if (c.textureShare) c.textureShare.enabled = true;
+    window.SVPanel.rerender();
+    var n = window.SVTexturePanel.panel();
+    return JSON.stringify({
+      düğümTürü: (n && n.nodeType) || 0,
+      çocuk: (n && n.childNodes) ? n.childNodes.length : -1,
+      protokol: window.SVTexturePanel.protocolName(),
+    });
+  })()`);
+  console.log('[SMOKE] Spout/Syphon paneli: ' + texPanel);
+  {
+    const t = JSON.parse(texPanel);
+    if (t.hata) errors.push('texture-share: ' + t.hata);
+    else {
+      if (t.düğümTürü !== 1) errors.push('texture-share: the panel did not return a single element node');
+      if (!(t.çocuk > 2)) errors.push('texture-share: the panel drew almost nothing (' + t.çocuk + ' children)');
+      if (!/^(Spout|Syphon)/.test(t.protokol)) errors.push('texture-share: protocol name is wrong for this platform: ' + t.protokol);
+    }
+  }
+
+  /* Spout/Syphon: gerçekten yayında mı ve kare AKIYOR mu?
+     Gönderici kaydı görünüp kare akmazsa alıcı donmuş bir görüntü
+     alır ve her şey yolunda sanır — sessizce yanlış olan durum bu. */
+  {
+    const av = textureShare.available();
+    if (!av.ok) {
+      console.log('[SMOKE] Spout/Syphon: bu platformda yok (' + av.reason + ')');
+    } else {
+      currentConfig.textureShare = Object.assign({}, currentConfig.textureShare, {
+        enabled: true, name: 'CAYADEV Smoke', width: 640, height: 360, fps: 30,
+      });
+      await syncTextureShare();
+      await wait(3000);
+      const ts = textureShare.status();
+      const senders = textureShare.listSenders().map((x) => x.name);
+      const mine = senders.indexOf('CAYADEV Smoke') >= 0;
+      console.log('[SMOKE] Spout/Syphon: ' + JSON.stringify({
+        protokol: ts.protocol, kare: ts.frames, düşen: ts.dropped,
+        boyut: ts.width + 'x' + ts.height, kayıt: mine, hata: ts.error,
+      }));
+      if (!ts.running) errors.push('texture-share: did not start');
+      if (!mine) errors.push('texture-share: the sender is not registered with ' + ts.protocol);
+      if (!(ts.frames > 20)) errors.push('texture-share: only ' + ts.frames + ' frames in 3s — the receiver would see a frozen image');
+      if (ts.dropped > ts.frames / 10) errors.push('texture-share: dropped ' + ts.dropped + ' of ' + (ts.frames + ts.dropped) + ' frames');
+      const stopped = await textureShare.stop();
+      const after = textureShare.listSenders().map((x) => x.name);
+      if (after.indexOf('CAYADEV Smoke') >= 0) errors.push('texture-share: the sender stayed registered after stop');
+      if (stopped.running) errors.push('texture-share: still running after stop');
+      currentConfig.textureShare.enabled = false;
     }
   }
 

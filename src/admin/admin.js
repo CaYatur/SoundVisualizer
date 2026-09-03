@@ -444,6 +444,8 @@
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
       case 'openrgbpanel':
         return window.SVOpenRGBPanel ? window.SVOpenRGBPanel.panel() : null;
+      case 'texturepanel':
+        return window.SVTexturePanel ? window.SVTexturePanel.panel() : null;
       case 'autovjpanel':
         return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
       case 'timelinepanel':
@@ -2104,6 +2106,19 @@
         title: 'Windows Dynamic Lighting bu sistemde yok',
         desc: 'Ayarlarınızda açık görünüyor ama Windows Dynamic Lighting yalnızca Windows üzerinde çalışır. Bu sistemde RGB aygıtları için OpenRGB veya Art-Net/DMX kullanın.',
         controls: [],
+      },
+      {
+        /* Spout (Windows) / Syphon (macOS): goruntuyu ayni makinedeki
+           baska bir uygulamaya GPU uzerinden verir. Linux'ta yok, ama
+           kart yine cizilir: orada NEDEN olmadigini ve yerine ne
+           kullanilacagini soylemek, olmayan bir ayari aratmaktan iyidir. */
+        id: 'textureShare',
+        category: 'output',
+        icon: '🎬',
+        wide: true,
+        title: 'Spout / Syphon Çıkışı',
+        desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: Resolume, OBS, TouchDesigner. Pencere yakalama ve eklenti gerekmez.',
+        controls: [{ type: 'texturepanel' }],
       },
       {
         /* Windows'ta Dynamic Lighting'in YERINE degil YANINA: LampArray
