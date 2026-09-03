@@ -6,12 +6,12 @@
 
 ### Audio-reactive visuals for every screen you own
 
-**Windows** & **macOS** · Electron + WebGL2 · Native WASAPI / CoreAudio loopback
+**Windows** · **macOS** · **Linux** · Electron + WebGL2 · Native WASAPI / CoreAudio / PulseAudio capture
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-111827.svg)](#-build--distribution)
-[![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-703%20passing-2ea043.svg)](#tests)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111827.svg)](#build--distribution)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
+[![Tests](https://img.shields.io/badge/tests-808%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -342,6 +342,22 @@ OSC control surfaces.
 
 ---
 
+## GPU output — Spout and Syphon
+
+The picture can be handed to another application on the same machine **over the GPU**: no window
+capture, no plugin, no CPU copy.
+
+- **Spout** on Windows, **Syphon** on macOS. Receivers include Resolume, OBS, TouchDesigner,
+  MadMapper — anything that speaks either protocol.
+- Pick the **source name** receivers will look for, plus resolution and frame rate.
+- It renders into its own hidden window, so the feed keeps running even when no visualization
+  window is open on any display.
+- **Not available on Linux.** Spout is a Windows technology and Syphon a macOS one, and Linux has
+  no built-in equivalent. The panel says so and points at the OBS browser source, which works
+  everywhere.
+
+---
+
 ## The classic looks
 
 The styles the application shipped with, still one click away.
@@ -625,8 +641,9 @@ audio-driven zoom and opacity. The same frame is readable inside Studio shaders 
 
 - Capture **system output** (loopback), **microphones and input devices**, or several sources at
   once, mixed before analysis.
-- Output devices use WASAPI loopback on Windows and CoreAudio on macOS; input devices are captured
-  directly through the native `audify` module.
+- Output devices use WASAPI loopback on Windows and CoreAudio on macOS; on Linux the PulseAudio
+  or PipeWire **monitor** source carries the same signal. Input devices are captured directly
+  through the native `audify` module.
 - Sensitivity, smoothing and bass emphasis, with live meters for overall, bass, mid and treble.
 
 ### Recording and video export
@@ -678,6 +695,21 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
   lighting must continue in the background, and place the application near the top of Windows
   **Dynamic Lighting → Background light control**.
 
+### RGB lighting everywhere else — OpenRGB
+
+Dynamic Lighting is a Windows service, so on macOS and Linux that card is replaced by a note saying
+as much. **OpenRGB** is the answer on those platforms, and an extra option on Windows:
+
+- Talks to a running **OpenRGB** server over its own protocol (TCP, port 6742 by default) — no
+  vendor software, no driver, and the server may sit on another machine.
+- Drives every device OpenRGB exposes, per-LED where the hardware allows, using the **same modes and
+  the same colour maths** as Windows Dynamic Lighting. Both paths share one renderer, so a scene
+  looks the same through either.
+- Devices are listed with their LED counts, and one that will not take direct control says so
+  instead of silently swallowing the colours.
+- Off by default, and only useful while the OpenRGB server is running — the panel reports the
+  connection state rather than failing quietly.
+
 ### Settings backup and restore
 
 - Export every application setting to a single JSON file: audio, visuals, Dynamic Lighting,
@@ -708,11 +740,13 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
 
 ## What it is
 
-Three output paths, one engine:
+Four output paths, one engine:
 
 - **Admin panel** — the control screen where every setting is adjusted live.
 - **Visualization windows** — full-screen on *every* display you select.
 - **Streaming page** — a transparent overlay for OBS, plus a remote for your phone.
+- **Spout / Syphon** — the frame handed straight to another application on the GPU
+  (Windows and macOS).
 
 Audio comes from **system output devices** (speaker or headphone loopback), **microphones and input
 devices**, or several sources at once, mixed before FFT analysis through the native `audify`
@@ -723,14 +757,16 @@ module.
 ## How audio capture works
 
 Capture runs in the **main process**, not in the browser window. The native module reads the chosen
-device with WASAPI loopback on Windows and CoreAudio on macOS, computes the FFT, and sends frames
-to the renderer.
+device — WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio or PipeWire on Linux —
+computes the FFT, and sends frames to the renderer.
 
 - **System audio** is captured from the output device directly — no "stereo mix" required.
 - **Microphones and line inputs** are captured the same way.
 - **Several sources at once** are mixed before analysis.
 - On **macOS**, capturing system audio needs a virtual device such as **BlackHole**; microphones
-  work directly.
+  work directly. macOS has no loopback of its own, so there is no way around this.
+- On **Linux**, system audio is the PulseAudio or PipeWire **monitor** of your output device.
+  It is an *input* device; the application marks it as loopback and prefers it by default.
 
 ---
 
@@ -753,8 +789,9 @@ npm run dev
 > If `npm install` fails with a certificate error behind a corporate proxy, try again with
 > `$env:NODE_OPTIONS="--use-system-ca"` in PowerShell.
 
-> **Node.js** must be installed to run from source. Windows release packages bundle a Node runtime
-> for the audio capture helper.
+> **Node.js** is needed to run from **source**. Release packages are not: the audio helper runs
+> under Electron's own binary (`ELECTRON_RUN_AS_NODE`), so nothing has to be installed alongside
+> them on any of the three platforms.
 
 ---
 
@@ -769,17 +806,31 @@ npm run dist:win
 ```
 
 ```bash
-npm run dist:mac
+npm run dist:mac:arm64
 ```
 
-| Platform | Output | Status |
-|----------|--------|--------|
-| Windows  | `CAYADEV Visualizer Setup ….exe` (installer), `…-portable.exe` | ✅ Fully functional |
-| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), DMG on a Mac | ⚠️ Build on macOS |
+```bash
+npm run dist:linux
+```
 
-**macOS native audio note:** `audify` **cannot be cross-compiled** from Windows to macOS. The
-interface and visuals work in macOS `.app` packages produced on Windows, but audio capture does
-not. For a fully functional macOS build, run `npm install && npm run dist:mac` on a **Mac**.
+| Platform | Output | Built on |
+|----------|--------|----------|
+| Windows | `CAYADEV Visualizer Setup ….exe` (installer), `…-portable.exe` | Windows |
+| macOS | `….dmg` and `….zip` (the `.app` inside) — Apple Silicon | macOS |
+| Linux | `….AppImage` and `….deb` — x64 | Linux |
+
+**Every platform builds on itself.** `audify` is a native module and **cannot be cross-compiled**:
+a macOS package produced on Windows shows the interface but captures no audio. The GitHub Actions
+workflow therefore builds macOS on `macos-latest` and Linux on `ubuntu-latest`. Windows is built
+locally instead of in CI, because the installer registers the Dynamic Lighting identity and that
+needs a certificate the runner does not have — a CI-built installer would be a different product.
+
+**macOS packages are unsigned** and not notarised, so Gatekeeper refuses the first launch: open the
+app once from its right-click menu to allow it. Capturing system audio there also needs a virtual
+device such as **BlackHole**.
+
+**Linux** needs PulseAudio or PipeWire. The `.deb` declares `libpulse0` among its dependencies; the
+AppImage expects the same library to already be present.
 
 ---
 
@@ -808,7 +859,7 @@ npm test
 npm start -- --smoke
 ```
 
-**703 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**808 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
@@ -861,10 +912,10 @@ Shared engines are plain arithmetic with no DOM, GPU or audio device, so their t
 ## Roadmap
 
 [ROADMAP.md](ROADMAP.md) records what has actually shipped and what each planned release is for —
-Timeline and Clip Deck in v3.1.0, native senders in v3.1.1, per-application audio capture in
-v3.1.2, a far broader and much faster video export in v3.1.3, the broadcast layout editor in
-v3.1.4, and redundancy with frame sync in v3.2.0. It also keeps an honest list of what is *not*
-done, and why.
+Timeline and Clip Deck in v3.1.0, cross-platform builds with OpenRGB and Spout/Syphon in v3.1.1,
+per-application audio capture in v3.1.2, a far broader and much faster video export in v3.1.3, the
+broadcast layout editor in v3.1.4, and redundancy with frame sync in v3.2.0. It also keeps an
+honest list of what is *not* done, and why.
 
 ---
 

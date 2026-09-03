@@ -6,12 +6,12 @@
 
 ### Sahip olduğunuz her ekran için sese tepki veren görseller
 
-**Windows** & **macOS** · Electron + WebGL2 · Yerel WASAPI / CoreAudio loopback
+**Windows** · **macOS** · **Linux** · Electron + WebGL2 · Yerel WASAPI / CoreAudio / PulseAudio yakalama
 
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS-111827.svg)](#-paketleme--dağıtım)
-[![Electron](https://img.shields.io/badge/Electron-33-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-703%20geçiyor-2ea043.svg)](#testler)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111827.svg)](#paketleme--dağıtım)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
+[![Test](https://img.shields.io/badge/test-808%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -342,6 +342,21 @@ barındırıyor; yanında MIDI ve OSC kontrol yüzeyleri.
 
 ---
 
+## GPU çıkışı — Spout ve Syphon
+
+Görüntü, aynı makinedeki başka bir uygulamaya **GPU üzerinden** verilebilir: pencere yakalama yok,
+eklenti yok, CPU kopyası yok.
+
+- Windows'ta **Spout**, macOS'ta **Syphon**. Alıcılar arasında Resolume, OBS, TouchDesigner,
+  MadMapper — bu protokollerden birini konuşan her şey var.
+- Alıcıların arayacağı **kaynak adını**, çözünürlüğü ve kare hızını siz seçersiniz.
+- Kendi gizli penceresinde çizer; bu yüzden hiçbir ekranda görselleştirme penceresi açık olmasa da
+  yayın sürer.
+- **Linux'ta yoktur.** Spout bir Windows, Syphon bir macOS teknolojisi ve Linux'ta yerleşik bir
+  eşdeğeri yok. Panel bunu söyler ve her platformda çalışan OBS tarayıcı kaynağına yönlendirir.
+
+---
+
 ## Klasik görünüşler
 
 Uygulamanın ilk günden beri gelen biçimleri, hâlâ tek tık uzakta.
@@ -630,7 +645,8 @@ okunabilir.
 
 - **Sistem çıkışı** (loopback), **mikrofon ve giriş aygıtları** ya da aynı anda birden çok kaynak;
   çözümlemeden önce karıştırılır.
-- Çıkış aygıtları Windows'ta WASAPI loopback, macOS'ta CoreAudio ile; giriş aygıtları yerel `audify`
+- Çıkış aygıtları Windows'ta WASAPI loopback, macOS'ta CoreAudio ile; Linux'ta aynı sinyali
+  PulseAudio ya da PipeWire **monitor** kaynağı taşır. Giriş aygıtları yerel `audify`
   modülüyle doğrudan yakalanır.
 - Duyarlılık, yumuşatma ve bas vurgusu; genel, bas, orta ve tiz için canlı ölçerler.
 
@@ -684,6 +700,21 @@ sayısal giriş.
   kurulum paketini kullanın ve uygulamayı Windows **Dynamic Lighting → Arkaplan ışık denetimi**
   listesinde üst sıralara alın.
 
+### Diğer platformlarda RGB aydınlatma — OpenRGB
+
+Dynamic Lighting bir Windows hizmeti; bu yüzden macOS ve Linux'ta o kart yerine bunu söyleyen bir
+not çıkıyor. O platformlarda cevap **OpenRGB**, Windows'ta ise ek bir seçenek:
+
+- Çalışan bir **OpenRGB** sunucusuyla kendi protokolü üzerinden konuşur (öntanımlı TCP 6742) — üretici
+  yazılımı yok, sürücü yok, sunucu başka bir makinede bile olabilir.
+- OpenRGB'nin gösterdiği her aygıtı, donanım izin verdiğinde LED başına sürer; **Windows Dynamic
+  Lighting ile aynı modları ve aynı renk matematiğini** kullanır. İkisi tek bir çizici paylaşıyor,
+  yani bir sahne hangi yoldan geçerse geçsin aynı görünür.
+- Aygıtlar LED sayılarıyla listelenir; doğrudan denetimi kabul etmeyen bir aygıt, renkleri sessizce
+  yutmak yerine bunu söyler.
+- Öntanımlı olarak kapalı ve yalnızca OpenRGB sunucusu çalışırken işe yarar — panel, sessizce
+  başarısız olmak yerine bağlantı durumunu bildirir.
+
 ### Ayar yedeği ve geri yükleme
 
 - Tüm uygulama ayarlarını tek bir JSON dosyasına aktarır: ses, görseller, Dynamic Lighting,
@@ -713,11 +744,13 @@ sayısal giriş.
 
 ## Nedir
 
-Tek motor, üç çıkış yolu:
+Tek motor, dört çıkış yolu:
 
 - **Yönetici paneli** — her ayarın canlı değiştirildiği kontrol ekranı.
 - **Görselleştirme pencereleri** — seçtiğiniz *her* ekranda tam ekran.
 - **Yayın sayfası** — OBS için saydam bir katman, artı telefonunuz için kumanda.
+- **Spout / Syphon** — karenin GPU üzerinden doğrudan başka bir uygulamaya verilmesi
+  (Windows ve macOS).
 
 Ses; **sistem çıkış aygıtlarından** (hoparlör veya kulaklık loopback), **mikrofon ve giriş
 aygıtlarından** ya da aynı anda birden çok kaynaktan gelir ve yerel `audify` modülüyle FFT
@@ -728,14 +761,16 @@ aygıtlarından** ya da aynı anda birden çok kaynaktan gelir ve yerel `audify`
 ## Ses yakalama nasıl çalışır
 
 Yakalama tarayıcı penceresinde değil, **ana süreçte** çalışır. Yerel modül seçilen aygıtı
-Windows'ta WASAPI loopback, macOS'ta CoreAudio ile okur, FFT'yi hesaplar ve kareleri arayüze
-gönderir.
+— Windows'ta WASAPI loopback, macOS'ta CoreAudio, Linux'ta PulseAudio ya da PipeWire ile —
+okur, FFT'yi hesaplar ve kareleri arayüze gönderir.
 
 - **Sistem sesi** doğrudan çıkış aygıtından yakalanır — "stereo mix" gerekmez.
 - **Mikrofon ve hat girişleri** aynı yolla yakalanır.
 - **Birden çok kaynak** çözümlemeden önce karıştırılır.
 - **macOS'ta** sistem sesini yakalamak için **BlackHole** gibi sanal bir aygıt gerekir; mikrofon
-  doğrudan çalışır.
+  doğrudan çalışır. macOS'un kendi loopback'i yok, bunun etrafından dolaşmanın yolu da yok.
+- **Linux'ta** sistem sesi, çıkış aygıtınızın PulseAudio ya da PipeWire **monitor**'üdür. Bu bir
+  *giriş* aygıtıdır; uygulama onu loopback olarak işaretler ve öntanımlı olarak tercih eder.
 
 ---
 
@@ -758,8 +793,9 @@ npm run dev
 > `npm install` kurumsal ağ/proxy yüzünden sertifika hatası verirse PowerShell'de
 > `$env:NODE_OPTIONS="--use-system-ca"` ile yeniden deneyin.
 
-> Kaynaktan çalıştırmak için **Node.js** kurulu olmalı. Windows sürüm paketleri, ses yakalama
-> yardımcısı için bir Node çalışma zamanıyla birlikte gelir.
+> **Kaynaktan** çalıştırmak için **Node.js** gerekir. Sürüm paketleri için gerekmez: ses yardımcısı
+> Electron'un kendi ikilisi altında çalışır (`ELECTRON_RUN_AS_NODE`), bu yüzden üç platformun
+> hiçbirinde yanına bir şey kurmak gerekmez.
 
 ---
 
@@ -774,17 +810,31 @@ npm run dist:win
 ```
 
 ```bash
-npm run dist:mac
+npm run dist:mac:arm64
 ```
 
-| Platform | Çıktı | Durum |
-|----------|-------|-------|
-| Windows  | `CAYADEV Visualizer Setup ….exe` (kurulum), `…-portable.exe` | ✅ Tam çalışır |
-| macOS    | `…-darwin-arm64/`, `…-darwin-x64/` (.app), Mac'te DMG | ⚠️ macOS'ta paketleyin |
+```bash
+npm run dist:linux
+```
 
-**macOS yerel ses notu:** `audify` Windows'tan macOS'a **çapraz derlenemez**. Windows'ta üretilen
-macOS `.app` paketlerinde arayüz ve görseller çalışır ama ses yakalama çalışmaz. Tam çalışan bir
-macOS paketi için `npm install && npm run dist:mac` komutunu bir **Mac**'te çalıştırın.
+| Platform | Çıktı | Nerede paketlenir |
+|----------|-------|-------------------|
+| Windows | `CAYADEV Visualizer Setup ….exe` (kurulum), `…-portable.exe` | Windows |
+| macOS | `….dmg` ve `….zip` (içinde `.app`) — Apple Silicon | macOS |
+| Linux | `….AppImage` ve `….deb` — x64 | Linux |
+
+**Her platform kendi üzerinde paketlenir.** `audify` yerel bir modül ve **çapraz derlenemez**:
+Windows'ta üretilen bir macOS paketinde arayüz görünür ama ses yakalanmaz. Bu yüzden GitHub Actions
+iş akışı macOS'u `macos-latest`, Linux'u `ubuntu-latest` üzerinde paketliyor. Windows ise CI'da
+değil, yerelde paketleniyor: kurulum Dynamic Lighting kimliğini kaydediyor ve bu, koşucuda olmayan
+bir sertifika istiyor — CI'da üretilmiş bir kurulum başka bir ürün olurdu.
+
+**macOS paketleri imzasızdır** ve noter onayı yoktur; Gatekeeper ilk açılışı reddeder — izin vermek
+için uygulamayı bir kez sağ tık menüsünden açın. Orada sistem sesini yakalamak için ayrıca
+**BlackHole** gibi sanal bir aygıt gerekir.
+
+**Linux** PulseAudio ya da PipeWire ister. `.deb` bağımlılıkları arasında `libpulse0` bildiriliyor;
+AppImage de aynı kitaplığın halihazırda kurulu olmasını bekliyor.
 
 ---
 
@@ -814,7 +864,7 @@ npm test
 npm start -- --smoke
 ```
 
-**703 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**808 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
@@ -868,10 +918,10 @@ Ortak motorlar DOM, GPU ve ses aygıtı bilmeyen saf aritmetiktir; testleri Node
 ## Yol haritası
 
 [ROADMAP.md](ROADMAP.md) neyin gerçekten yapıldığını ve planlanan her sürümün neye ayrıldığını
-kaydediyor — v3.1.0'da Timeline ve Clip Deck, v3.1.1'de yerel göndericiler, v3.1.2'de uygulama
-başına ses yakalama, v3.1.3'te çok daha geniş ve çok daha hızlı video dışa aktarımı, v3.1.4'te
-yayın düzeni editörü, v3.2.0'da yedeklilik ve kare senkronu. Ayrıca neyin **yapılmadığını** ve
-nedenini de dürüstçe listeliyor.
+kaydediyor — v3.1.0'da Timeline ve Clip Deck, v3.1.1'de çoklu platform paketleri ile OpenRGB ve
+Spout/Syphon, v3.1.2'de uygulama başına ses yakalama, v3.1.3'te çok daha geniş ve çok daha hızlı
+video dışa aktarımı, v3.1.4'te yayın düzeni editörü, v3.2.0'da yedeklilik ve kare senkronu.
+Ayrıca neyin **yapılmadığını** ve nedenini de dürüstçe listeliyor.
 
 ---
 

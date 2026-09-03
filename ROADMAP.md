@@ -61,7 +61,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | **792** unit tests + a GPU self-test over every engine |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | **703** unit tests + a GPU self-test over every engine |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -102,7 +102,8 @@ npm test
 npm start -- --smoke
 ```
 
-- **703 unit tests, all passing.** Formulas are checked against values derived
+- **808 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+  the rest came with v3.1.1. Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
   bounded and landing inside the view volume.

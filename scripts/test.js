@@ -12,6 +12,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { spawn } = require('child_process');
 
 const root = path.join(__dirname, '..');
@@ -33,9 +34,66 @@ if (!files.length) {
   process.exit(1);
 }
 
-const args = ['--test'].concat(process.argv.slice(2)).concat(files);
+/* Belgelerdeki test sayısı iddiaları.
+ *
+ * Bu sayı üç kez yanlış yazıldı: bir kez commit iletisinde, bir kez ROADMAP'in
+ * "yayınlandı" hücresinde ve bir kez de rozetlerde. Hiçbiri testleri kırmadığı
+ * için hiçbiri yakalanmadı — okuyan biri fark edene kadar yanlış duruyorlar.
+ *
+ * Gerçek sayıyı bilen tek yer koşunun kendisi; o yüzden denetim burada.
+ * ROADMAP'in durum tablosundaki 703, v3.1.0'ın YAYINLANDIĞI andaki sayı ve
+ * bilerek sabit — desenler yalnızca "şu an main'de" diyen cümleleri tutuyor. */
+const CLAIMS = [
+  ['README.md', /tests-(\d+)%20passing/, 'test rozeti'],
+  ['README.md', /\*\*(\d+) unit tests, all passing\.\*\*/, 'Tests bölümü'],
+  ['README.tr.md', /test-(\d+)%20geçiyor/, 'test rozeti'],
+  ['README.tr.md', /\*\*(\d+) birim testi, hepsi geçiyor\.\*\*/, 'Testler bölümü'],
+  ['ROADMAP.md', /\*\*(\d+) unit tests, all passing\*\* on `main`/, 'Verifiability'],
+];
+
+function checkClaims(total) {
+  const bad = [];
+  for (const [file, re, where] of CLAIMS) {
+    const p = path.join(root, file);
+    let text;
+    try { text = fs.readFileSync(p, 'utf8'); } catch { continue; }
+    const m = text.match(re);
+    if (!m) bad.push(file + ' -> ' + where + ': iddia bulunamadı (desen değişmiş olabilir)');
+    else if (Number(m[1]) !== total) bad.push(file + ' -> ' + where + ': ' + m[1] + ', gerçek ' + total);
+  }
+  if (!bad.length) return true;
+  console.error('');
+  console.error('Belgelerdeki test sayısı gerçekle uyuşmuyor:');
+  for (const b of bad) console.error('  ' + b);
+  console.error('Gerçek sayı: ' + total);
+  console.error('');
+  return false;
+}
+
+/* Tam koşu değilse (süzgeç verilmişse) sayı zaten eksik olur; denetlemeyiz. */
+const extra = process.argv.slice(2);
+const tap = extra.length ? null : path.join(os.tmpdir(), 'sv-test-' + process.pid + '.tap');
+
+const args = ['--test'].concat(extra);
+if (tap) {
+  args.push('--test-reporter=' + (process.stdout.isTTY ? 'spec' : 'tap'), '--test-reporter-destination=stdout',
+            '--test-reporter=tap', '--test-reporter-destination=' + tap);
+}
+args.push(...files);
+
 const child = spawn(process.execPath, args, { stdio: 'inherit', cwd: root });
 child.on('exit', (code, signal) => {
   if (signal) process.kill(process.pid, signal);
-  else process.exit(code == null ? 1 : code);
+  let exit = code == null ? 1 : code;
+  if (tap) {
+    let total = null;
+    try {
+      const m = fs.readFileSync(tap, 'utf8').match(/^# tests (\d+)$/m);
+      if (m) total = Number(m[1]);
+    } catch {}
+    try { fs.unlinkSync(tap); } catch {}
+    /* Testler zaten kırmızıysa sayı anlamsız; üstüne ikinci bir hata basmayız. */
+    if (exit === 0 && total !== null && !checkClaims(total)) exit = 1;
+  }
+  process.exit(exit);
 });
