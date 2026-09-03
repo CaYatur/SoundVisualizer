@@ -100,10 +100,11 @@
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "CAYADEV Visualizer",
-      "include": "scripts/installer.nsh"
+      "include": "scripts/installer.nsh",
+      "artifactName": "CAYADEV-Visualizer-${version}-windows-setup.exe"
     },
     "portable": {
-      "artifactName": "CAYADEV-Visualizer-${version}-portable.exe",
+      "artifactName": "CAYADEV-Visualizer-${version}-windows-portable.exe",
       "unpackDirName": "CAYADEV-Visualizer-Portable"
     },
     "mac": {
@@ -127,10 +128,12 @@
       "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source."
-      }
+      },
+      "artifactName": "CAYADEV-Visualizer-${version}-macos-${arch}.${ext}"
     },
     "dmg": {
-      "title": "CAYADEV Visualizer"
+      "title": "CAYADEV Visualizer",
+      "artifactName": "CAYADEV-Visualizer-${version}-macos-${arch}.dmg"
     },
     "linux": {
       "target": [
@@ -165,7 +168,11 @@
         "libatspi2.0-0",
         "libsecret-1-0"
       ],
-      "maintainer": "CAYADEV <contact@cayadev.com>"
+      "maintainer": "CAYADEV <contact@cayadev.com>",
+      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb"
+    },
+    "appImage": {
+      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.AppImage"
     }
   }
 }
