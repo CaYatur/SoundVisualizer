@@ -58,9 +58,31 @@ test('macOS mikrofon izni açıklaması var', () => {
     'Apple genel/boş açıklamaları reddeder');
 });
 
-test('mac ve linux ikonları mevcut', () => {
-  assert.ok(fs.existsSync(path.join(root, build.mac.icon)), build.mac.icon + ' yok');
-  assert.ok(fs.existsSync(path.join(root, build.linux.icon)), build.linux.icon + ' yok');
+test('her platformun ikonu üreteciyle eşleşiyor', () => {
+  /* İkonlar build/ altında ÜRETİLİR ve depoya girmez, o yüzden burada
+     "dosya var mı" diye sorulamaz — temiz bir çıkarımda hiçbiri yoktur.
+     Korunması gereken şey zaten farklı: paketleme yapılandırmasının,
+     üretecin gerçekten yazdığı dosyaları göstermesi. Biri diğerinden
+     kopunca derleme ancak o platformda, paketleme anında patlar. */
+  const gen = read('scripts/gen-icons.js');
+  const icons = {
+    win: build.win.icon,
+    mac: build.mac.icon,
+    linux: build.linux.icon,
+  };
+  for (const [platform, p] of Object.entries(icons)) {
+    assert.ok(p, platform + ' için ikon belirtilmemiş');
+    assert.match(p, /^build\//, platform + ' ikonu build/ altında olmalı: ' + p);
+    const base = path.basename(p);
+    assert.ok(gen.includes(base), platform + ' ikonunu (' + base + ') üreten yok');
+  }
+  /* Yerelde üretilmişse yolların doğruluğu ayrıca doğrulanır. */
+  for (const p of Object.values(icons)) {
+    const full = path.join(root, p);
+    if (fs.existsSync(path.dirname(full))) {
+      assert.ok(fs.existsSync(full), p + ' üretilmiş olmalıydı');
+    }
+  }
 });
 
 test('arayüze platform bilgisi veriliyor', () => {
