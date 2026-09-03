@@ -17,14 +17,12 @@
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
     "icons": "node scripts/gen-icons.js",
-    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
-    "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
+    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
-    "dist:linux": "npm run icons && electron-builder --linux --x64",
-    "dist:mac:x64": "npm run icons && electron-builder --mac --x64",
-    "dist:mac:arm64": "npm run icons && electron-builder --mac --arm64",
+    "dist:linux": "npm run icons && electron-builder --linux --x64 --publish never",
+    "dist:mac:arm64": "npm run icons && electron-builder --mac --arm64 --publish never",
     "check:runtime": "node scripts/check-runtime.js"
   },
   "devDependencies": {
@@ -111,14 +109,12 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
             "arm64"
           ]
         }
@@ -152,7 +148,24 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Multi-monitor audio visualizer",
-      "description": "Desktop audio visualizer that reacts to system audio in real time."
+      "description": "Desktop audio visualizer that reacts to system audio in real time.",
+      "desktop": {
+        "Categories": "AudioVideo;Audio;Player;"
+      }
+    },
+    "deb": {
+      "depends": [
+        "libpulse0",
+        "libasound2t64 | libasound2",
+        "libgtk-3-0",
+        "libnotify4",
+        "libnss3",
+        "libxss1",
+        "libxtst6",
+        "xdg-utils",
+        "libatspi2.0-0",
+        "libsecret-1-0"
+      ]
     }
   }
 }

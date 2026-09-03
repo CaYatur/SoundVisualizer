@@ -1,22 +1,25 @@
 name: build
 
-# Üç platformun kurulum dosyalarını üretir.
+# macOS ve Linux kurulum dosyalarını üretir.
 #
-# Neden CI: macOS derlemesi YALNIZCA macOS'ta yapılabilir (electron-builder
-# bunu kendisi reddediyor), yani .dmg başka türlü hiç çıkamaz. Linux için de
-# aynı şey geçerli değil ama aynı yerde üretmek tutarlılığı kolaylaştırıyor.
+# Neden CI: macOS derlemesi YALNIZCA macOS'ta yapılabilir — electron-builder
+# bunu Windows'ta açıkça reddediyor. Yani .dmg başka türlü hiç çıkamaz. Linux
+# aynı zorunlulukta değil ama aynı yerde üretmek tutarlı.
 #
-# Neden mimari başına ayrı koşucu: npmRebuild kapalı, yani audify'ın native
-# ikilisi `npm ci`ın koştuğu MİMARİYE göre iniyor. Apple Silicon üzerinde x64
-# paket üretmek, içine arm64 ikilisi koymak demek olurdu; ses o pakette hiç
-# çalışmazdı ve bunu ancak bir Intel Mac kullanıcısı fark ederdi.
+# Neden Windows burada PAKETLENMİYOR: Windows kurulumu, Dynamic Lighting'in
+# arka plan kimliği için kendi imzaladığı bir sertifika üretiyor
+# (scripts/prepare-identity.js). Koşucunun PowerShell'i 'Cert:' sürücüsünü
+# açamıyor, dolayısıyla burada üretilen bir Windows kurulumu o kimlikten
+# YOKSUN olurdu — yerelde üretilenden farklı bir ürün. Windows'un zaten
+# çalışan ve GPU öz testiyle doğrulanan bir yerel derleme yolu var; burada
+# yalnız denetimleri koşuyoruz.
 #
-# GPU öz testi burada YOK — sebebi tests.yml'de yazıyor: yazılım rasterleştirici
-# olmayan hatalar bildirir, olanları gizler. Onun yerine GPU gerektirmeyen ama
-# mac/linux için asıl bilinmezi ölçen bir denetim var: audify'ın native ikilisi
-# o platformda yükleniyor mu, ve uygulamanın kendi ikilisi node kipinde koşuyor
-# mu? Cevap hayırsa o platformda ses hiç çalışmaz ve paketi yayımlamanın anlamı
-# kalmaz.
+# GPU öz testi CI'da YOK — gerekçesi tests.yml'de. Yerine GPU gerektirmeyen
+# ama mac/linux için asıl bilinmezi ölçen bir denetim var: audify'ın native
+# ikilisi o platformda yükleniyor mu?
+#
+# Intel Mac (x64) bu sürümde yok: Apple geçişi tamamladı ve GitHub'ın Intel
+# koşucuları saatlerce kuyrukta bekliyor. ROADMAP'te gerekçesiyle yazılı.
 
 on:
   workflow_dispatch:
@@ -24,57 +27,76 @@ on:
     tags: ['v*']
 
 jobs:
-  package:
-    name: ${{ matrix.label }}
+  checks:
+    name: checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - label: windows-x64
-            os: windows-latest
-            script: dist:win
-          - label: macos-arm64
-            os: macos-latest
-            script: dist:mac:arm64
-          - label: macos-x64
-            os: macos-13
-            script: dist:mac:x64
-          - label: linux-x64
-            os: ubuntu-latest
-            script: dist:linux
-
+        os: [windows-latest, macos-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
 
-      # AppImage'ın içindekileri paketlemesi için bsdtar gerekiyor; deb için
-      # dpkg ve fakeroot zaten kurulu geliyor.
-      - name: Linux packaging dependencies
+      # audify'ın librtaudio'su bu paylaşımlı kütüphanelere bağlanıyor.
+      # Masaüstü kurulumlarında zaten varlar; koşucu imajında yoklar.
+      - name: Linux audio libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpulse0 libarchive-tools
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
       - name: Install
         run: npm ci
 
-      # macOS ve Linux için asıl bilinmez bu. Paketi üretmeden önce sor:
-      # ses motoru bu platformda yükleniyor mu?
+      # macOS ve Linux için asıl bilinmez bu: ses motoru orada yükleniyor mu?
       - name: Audio runtime check
         run: npm run check:runtime
 
       - name: Unit tests
         run: node scripts/test.js
 
+  package:
+    name: ${{ matrix.label }}
+    needs: checks
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-arm64
+            os: macos-latest
+            script: dist:mac:arm64
+          - label: linux-x64
+            os: ubuntu-latest
+            script: dist:linux
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpulse0 libarchive-tools
+          sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
+
+      - name: Install
+        run: npm ci
+
       - name: Package
         run: npm run ${{ matrix.script }}
         env:
           # İmzasız çıkıyoruz (Apple Developer Program alınmadı). Bu değişken
-          # olmadan electron-builder anahtarlıkta sertifika arar ve koşucuda
-          # bulamayınca derlemeyi durdurur.
+          # olmadan electron-builder anahtarlıkta olmayan bir sertifika arar.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Collect installers
@@ -82,8 +104,7 @@ jobs:
         run: |
           mkdir -p out
           find dist -maxdepth 1 -type f \
-            \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \
-               -o -name '*.AppImage' -o -name '*.deb' \) \
+            \( -name '*.dmg' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.deb' \) \
             -exec cp {} out/ \;
           ls -la out
 

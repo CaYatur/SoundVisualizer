@@ -65,7 +65,7 @@ covered by a test or by the GPU self-test.
 | Accidental-close protection | ❌ | ❌ | ❌ | ✅ | Recovery and an Esc lock, both off by default |
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 — Windows and macOS only; Linux has no equivalent |
 | Windows build | ✅ | ✅ | ✅ | ✅ | The only platform shipped so far |
-| macOS build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — unsigned, and system audio needs a virtual device |
+| macOS build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — Apple Silicon only, unsigned, system audio needs a virtual device |
 | Linux build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — AppImage and deb |
 | OpenRGB | ❌ | ❌ | ❌ | ❌ | v3.1.1 — all three platforms |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
@@ -258,6 +258,14 @@ Written plainly rather than discovered after downloading:
   above.
 - **Windows Dynamic Lighting is absent.** OpenRGB and Art-Net/DMX are the RGB
   paths on macOS.
+- **Apple Silicon only.** Apple finished the Intel transition: the last Intel
+  Macs left sale in mid-2023, and macOS Tahoe 26 was announced as the final
+  release supporting them. An arm64 .dmg will not launch on an Intel Mac at
+  all, so this is a real if shrinking exclusion rather than a degraded
+  experience. A universal binary would cover both, at the cost of carrying two
+  sets of native binaries in one package, and it is not worth that here. The
+  GitHub Intel runners also sat queued for over fifteen minutes without ever
+  starting, on two separate attempts.
 
 ### OpenRGB — RGB on all three platforms
 
