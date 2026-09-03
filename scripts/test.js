@@ -93,7 +93,20 @@ child.on('exit', (code, signal) => {
     } catch {}
     try { fs.unlinkSync(tap); } catch {}
     /* Testler zaten kırmızıysa sayı anlamsız; üstüne ikinci bir hata basmayız. */
-    if (exit === 0 && total !== null && !checkClaims(total)) exit = 1;
+    if (exit === 0) {
+      /* Sayı okunamadıysa denetim HİÇ çalışmamıştır. Bunu sessizce geçmek,
+         korumayı olmayan bir korumaya çevirir: yeşil görünür, hiçbir şey
+         bakmaz. Node sürümleri arasında çift raportör desteği değişebildiği
+         için bu gerçek bir olasılık, o yüzden bağırıyor. */
+      if (total === null) {
+        console.error('');
+        console.error('Test sayısı okunamadı; belgelerdeki iddialar DENETLENMEDİ.');
+        console.error('');
+        exit = 1;
+      } else if (!checkClaims(total)) {
+        exit = 1;
+      }
+    }
   }
   process.exit(exit);
 });
