@@ -11,7 +11,7 @@ covered by a test or by the GPU self-test.
 | v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | Shipped |
 | v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions, recording | Shipped |
 | **v3.1.0** | **Timeline, Clip Deck, accidental-close protection, Electron 43** | **Current** |
-| v3.1.1 | Spout and Syphon output | Next |
+| v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | Next |
 | v3.1.2 | Per-application audio capture | Planned |
 | v3.1.3 | Comprehensive video export | Planned |
 | v3.1.4 | Broadcast layout editor | Planned |
@@ -63,7 +63,11 @@ covered by a test or by the GPU self-test.
 | Timeline | ❌ | ❌ | ❌ | ◐ | Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ◐ | Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ✅ | Recovery and an Esc lock, both off by default |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | v3.1.1 — Windows and macOS only; Linux has no equivalent |
+| Windows build | ✅ | ✅ | ✅ | ✅ | The only platform shipped so far |
+| macOS build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — unsigned, and system audio needs a virtual device |
+| Linux build | ❌ | ❌ | ❌ | ❌ | v3.1.1 — AppImage and deb |
+| OpenRGB | ❌ | ❌ | ❌ | ❌ | v3.1.1 — all three platforms |
 | Per-app audio capture | ❌ | ❌ | ❌ | ❌ | v3.1.2 |
 | NDI | ❌ | ❌ | ❌ | ❌ | v3.1.5 — deferred, see below |
 | Redundancy / genlock | ❌ | ❌ | ❌ | ❌ | v3.2.0 |
@@ -190,11 +194,81 @@ Written down rather than quietly dropped:
   Capturing a real frame would mean switching the visualizer to that scene —
   changing the show to draw a preview of it.
 
-## v3.1.1 — Spout and Syphon output
+## v3.1.1 — Cross-platform builds, OpenRGB, Spout and Syphon
 
 Live video output to other applications on the same machine, straight over
 the GPU. The visualizer feeds Resolume, OBS or any Spout/Syphon receiver
 without window capture and without a plugin install.
+
+The release grew beyond that, and not by accident: **Syphon needs a macOS
+build**, and there has never been one. Nine releases have claimed Windows and
+macOS support while shipping only `.exe` files. So the platform work is not
+scope creep around Spout and Syphon — it is their precondition, and Linux comes
+along with the same CI job.
+
+### Running on three platforms
+
+The application assumed Windows in four places that would each have broken a
+macOS or Linux build on its own.
+
+**The audio helper had no runtime.** It ran on a system Node, and the Windows
+build carried a 93 MB `node.exe` so that users would not have to install one.
+The other two platforms got neither. Electron is itself a Node runtime:
+`ELECTRON_RUN_AS_NODE=1` makes the application's own binary behave as one, and
+`audify` loads under it because it is N-API. That removes the bundled `node.exe`
+entirely, and the download shrinks with it.
+
+**Packaging demanded Windows files unconditionally.** `extraResources` listed
+`node.exe` and the Dynamic Lighting native module with no platform condition, so
+a macOS or Linux build failed before it started.
+
+**Capturing system audio works differently on each platform**, and only the
+Windows case existed:
+
+| | How the system's own audio is captured |
+|---|---|
+| Windows | An output device is opened for capture — WASAPI loopback |
+| Linux | The PulseAudio/PipeWire **monitor**, which is an *input* device |
+| macOS | Not possible. CoreAudio has no loopback at all |
+
+The old code looked for an output device on every platform. On Linux that picks
+the speakers and tries to capture them, which PulseAudio will not do. On macOS
+nothing would have worked at all. That rule now lives in a pure module, so the
+two platforms that cannot be run here are still covered by tests.
+
+macOS therefore needs a virtual audio device — BlackHole is free — and when
+there is none the application says so and names it, rather than falling back to
+the microphone and letting someone visualise the wrong source without noticing.
+The real fix is CoreAudio's process taps (`AudioHardwareCreateProcessTap`,
+macOS 14.2+), which is the same API family as Windows' process loopback, so it
+belongs with v3.1.2 rather than here.
+
+**Windows Dynamic Lighting is a Windows API.** Its card is now hidden off
+Windows instead of being shown saying only that it is unsupported. A settings
+file carried over from Windows explains why the setting is inactive.
+
+### What macOS users have to accept in this release
+
+Written plainly rather than discovered after downloading:
+
+- **The build is unsigned.** No Apple Developer Program membership was bought,
+  so macOS reports the app as damaged and it has to be cleared by hand. This is
+  a cost decision and can be reversed at any time.
+- **System audio needs BlackHole** or another virtual device, per the table
+  above.
+- **Windows Dynamic Lighting is absent.** OpenRGB and Art-Net/DMX are the RGB
+  paths on macOS.
+
+### OpenRGB — RGB on all three platforms
+
+Dynamic Lighting leaving with Windows would have left macOS and Linux with no
+consumer RGB support at all. OpenRGB is cross-platform, supports far more
+devices than Windows' LampArray, and speaks a documented TCP protocol — the same
+shape as the Art-Net/DMX output that already exists, so it slots in beside it
+rather than replacing anything.
+
+On Windows it is an **addition, not a replacement**: Dynamic Lighting stays, and
+the two can be used separately or together.
 
 NDI was originally part of this release. It moved to v3.1.5 — not because it
 is harder to build, but because it is the only one of the three with a licence
@@ -219,6 +293,14 @@ browser source, so audio frames arrive over the WebSocket that is already
 there and the rendering engine needs no changes at all. Spout and Syphon
 become output targets beside "OBS browser source" rather than a parallel
 pipeline.
+
+### Linux gets no texture sharing, and there is no way around it
+
+Spout is a Windows technology and Syphon is a macOS one. `texture-bridge` ships
+prebuilt binaries for `win32-x64-msvc`, `darwin-x64` and `darwin-arm64` and none
+for Linux, and Linux has no established equivalent to port to. The option is not
+offered there at all rather than shown as a switch that does nothing; Linux
+keeps the OBS browser source, which already works.
 
 ### Dependencies and the one open question
 
