@@ -183,6 +183,16 @@
     }
     tr = syncTransportFromAnchor();
     if (tr.playing && tlOn) applyClipsAt(tr.time);
+    /* Oynatma kafasını görüş alanında tut. Yapılandırmada bu ayar vardı
+       ama hiç uygulanmamıştı: oynatınca kafa sağdan çıkıp kayboluyor ve
+       çizelge donmuş gibi görünüyordu. */
+    if (tr.playing && tlOn && full.timeline.followPlayhead && canvas && canvas.clientWidth) {
+      const v = view();
+      const span = canvas.clientWidth / v.zoom;
+      if (tr.time < v.scroll || tr.time > v.scroll + span * 0.85) {
+        full.timeline.scroll = Math.max(0, tr.time - span * 0.15);
+      }
+    }
     if (deckOn && window.SVClipDeckPanel && window.SVClipDeckPanel.tick) {
       window.SVClipDeckPanel.tick(tr.time, tr.tl.tempo);
     }
@@ -499,6 +509,15 @@
       } else if (h.kind === 'key') {
         selection = { trackIndex: h.index, keyIndex: h.ki };
         drag = { kind: 'key', index: h.index, ki: h.ki, top: RULER_H + h.index * TRACK_H + 5, bot: RULER_H + (h.index + 1) * TRACK_H - 6 };
+      } else if (h.kind === 'track' && e.detail === 2) {
+        /* Boş bir yere çift tıklamak klip ekler — otomasyon parçasında
+           anahtar kare için zaten böyleydi, klip parçasında yoktu. */
+        const at = snap(tOf(x), e.altKey);
+        trk.clips.push(TL().makeClip({ start: at, dur: 4 }));
+        trk.clips.sort((a, b) => a.start - b.start);
+        selection = { trackIndex: h.index, clipIndex: trk.clips.findIndex((c) => c.start === at) };
+        commit();
+        P().rerender();
       } else if (h.kind === 'autotrack' && e.detail === 2) {
         // Çift tıklama otomasyon parçasına anahtar ekler
         const v = Math.max(0, Math.min(1, (h.bot - y) / (h.bot - h.top)));
@@ -763,6 +782,20 @@
     );
     host.appendChild(
       p.row(
+        'Oynatma Kafasını Takip Et',
+        (() => {
+          const box = el('input', { type: 'checkbox' });
+          box.checked = cfg.followPlayhead !== false;
+          box.addEventListener('change', () => {
+            cfg.followPlayhead = box.checked;
+            p.push(true);
+          });
+          return el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]);
+        })()
+      )
+    );
+    host.appendChild(
+      p.row(
         'Cetvel',
         select(
           [
@@ -789,6 +822,14 @@
       reanchor();
     });
     host.appendChild(p.row('Döngü Bölgesi', el('label', { class: 'switch' }, [loopBox, el('span', { class: 'track' })])));
+    if (loopBox.checked && !(tl.loop.end > tl.loop.start)) {
+      host.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note warn',
+          text: 'Döngü sonu başından büyük olmadığı için döngü çalışmıyor. “Sonu Kafaya Al” ile bir bitiş belirleyin.',
+        })
+      );
+    }
     host.appendChild(
       el('div', { class: 'ctrl' }, [
         el('div', { class: 'row' }, [
@@ -805,10 +846,22 @@
               reanchor();
             }),
             (() => {
-              const b = el('button', { class: 'btn small', type: 'button', text: 'Kafadan Başlat' });
+              const b = el('button', { class: 'btn small', type: 'button', text: 'Başı Kafaya Al' });
               b.addEventListener('click', () => {
                 cfg.loop = Object.assign({}, cfg.loop, { start: ensureTransport().time });
                 p.apply();
+              });
+              return b;
+            })(),
+            /* Sonu da düğmeyle alınabilmeli: son<baş olduğunda döngü
+               SESSİZCE kapanıyor ve kullanıcı neden çalışmadığını
+               anlamıyordu. */
+            (() => {
+              const b = el('button', { class: 'btn small', type: 'button', text: 'Sonu Kafaya Al' });
+              b.addEventListener('click', () => {
+                cfg.loop = Object.assign({}, cfg.loop, { end: ensureTransport().time });
+                p.apply();
+                reanchor();
               });
               return b;
             })(),
@@ -827,6 +880,24 @@
       draw();
       start();
     });
+
+    /* Boş çizelgede ne yapılacağını SÖYLE. Önce yalnızca boş bir cetvel
+       görünüyordu ve kullanıcı orada tıkanıyordu. */
+    if (!tl.tracks.length) {
+      host.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note',
+          text: '1) Aşağıdan “＋ Klip Parçası” ekleyin. 2) Parçanın yanındaki “＋ Klip” düğmesiyle oynatma kafasının bulunduğu yere klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.',
+        })
+      );
+    } else if (tl.tracks.some((t) => t.kind === 'clip' && !t.clips.length)) {
+      host.appendChild(
+        el('div', {
+          class: 'ctrl settings-io-note',
+          text: 'Parça boş. Parçanın yanındaki “＋ Klip” düğmesiyle oynatma kafasının bulunduğu yere klip koyun; sonra klibe tıklayıp sahnesini seçin.',
+        })
+      );
+    }
 
     // --- Parça listesi ---
     host.appendChild(trackList());
@@ -904,6 +975,24 @@
         p.rerender();
       });
 
+      /* Klip parçasına klip eklemenin YOLU BURASI. Önce yalnızca
+         denetçide, üstelik yalnızca zaten seçili bir klip varken
+         vardı — yani ilk klip hiç oluşturulamıyordu. */
+      const addClipHere = el('button', {
+        class: 'btn small',
+        type: 'button',
+        text: '＋ Klip',
+        title: 'Oynatma kafasının bulunduğu yere klip ekle',
+      });
+      addClipHere.addEventListener('click', () => {
+        const at = snap(ensureTransport().time, false);
+        trk.clips.push(TL().makeClip({ start: at, dur: 4 }));
+        trk.clips.sort((a, b) => a.start - b.start);
+        selection = { trackIndex: i, clipIndex: trk.clips.findIndex((c) => c.start === at) };
+        commit();
+        p.rerender();
+      });
+
       const row = el('div', { class: 'tl-track-row' }, [
         el('span', { class: 'tl-kind', text: trk.kind === 'clip' ? 'Klip' : 'Otomasyon' }),
         name,
@@ -911,6 +1000,7 @@
         lock,
         del,
       ]);
+      if (trk.kind === 'clip') row.insertBefore(addClipHere, mute);
 
       if (trk.kind === 'automation') {
         const target = el('input', { class: 'txt tl-target', type: 'text', value: trk.target, placeholder: 'ör. postfx.0.params.strength' });

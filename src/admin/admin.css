@@ -910,3 +910,8 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 /* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar
    ve soluk metin bunu ateşlemeden önce belli eder. */
 .cd-cell.filled.noref { border-style: dashed; opacity: .6; }
+
+/* Tuvalin en az bir kaç parça yüksekliğinde görünmesi: tek parçalı bir
+   çizelge ince bir şerit gibi durunca "bozuk" izlenimi veriyordu. */
+.tl-canvas-wrap { min-height: 120px; background: rgba(255,255,255,.015); }
+.tl-track-row .btn.small { flex: 0 0 auto; }

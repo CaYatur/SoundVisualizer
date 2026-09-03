@@ -2453,6 +2453,36 @@ async function runSmoke() {
     if (br.autos !== 1) errors.push('timeline: the automation track was not created');
     if (br.marks !== 1) errors.push('timeline: the add-marker button did not persist a marker');
 
+    /* 2b-2) BOŞ bir parçaya klip eklenebiliyor mu?
+
+       Kullanıcı "zaman çizelgesi böyle mi çalışmalı?" diye sordu ve haklıydı:
+       ilk klibi oluşturmanın hiçbir yolu yoktu. Klip ekleme düğmesi yalnızca
+       ZATEN SEÇİLİ bir klip varken çiziliyordu, boş parçada panel "bir klip
+       seçin" diyordu ve seçilecek klip yoktu. Çizelge bu haliyle kullanılamaz
+       durumdaydı. */
+    const clipRes = await awc5.executeJavaScript(`(function(){
+      var rows = document.querySelectorAll("#sections .tl-track-row");
+      var found = null;
+      for (var i = 0; i < rows.length; i++) {
+        var bs = rows[i].querySelectorAll("button");
+        for (var j = 0; j < bs.length; j++) {
+          if ((bs[j].textContent || "").indexOf("Klip") >= 0 && bs[j].title) { found = bs[j]; break; }
+        }
+        if (found) break;
+      }
+      if (!found) return JSON.stringify({ button: false, clips: -1 });
+      found.click();
+      var t = window.SVPanel.cfg().timeline;
+      var clipTracks = (t.tracks || []).filter(function(x){ return x.kind === "clip"; });
+      var n = 0;
+      for (var k = 0; k < clipTracks.length; k++) n += (clipTracks[k].clips || []).length;
+      return JSON.stringify({ button: true, clips: n });
+    })()`);
+    console.log('[SMOKE] boş parçaya klip: ' + clipRes);
+    const cr = JSON.parse(clipRes);
+    if (!cr.button) errors.push('timeline: no way to add a clip to an empty track - the timeline is unusable');
+    if (cr.clips < 1) errors.push('timeline: the add-clip button did not create a clip (got ' + cr.clips + ')');
+
     /* 2c) Kaynak seçici var olan sahneleri listeliyor mu?
        Kullanıcının sahne kimliği ezberlemesi gerekmemeli. */
     const pickRes = await awc5.executeJavaScript(`(function(){
