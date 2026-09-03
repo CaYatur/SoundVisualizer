@@ -829,9 +829,16 @@ iş akışı macOS'u `macos-latest`, Linux'u `ubuntu-latest` üzerinde paketliyo
 değil, yerelde paketleniyor: kurulum Dynamic Lighting kimliğini kaydediyor ve bu, koşucuda olmayan
 bir sertifika istiyor — CI'da üretilmiş bir kurulum başka bir ürün olurdu.
 
-**macOS paketleri imzasızdır** ve noter onayı yoktur; Gatekeeper ilk açılışı reddeder — izin vermek
-için uygulamayı bir kez sağ tık menüsünden açın. Orada sistem sesini yakalamak için ayrıca
-**BlackHole** gibi sanal bir aygıt gerekir.
+**macOS paketleri imzasızdır** ve noter onayı yoktur. macOS, imzasız indirmeleri karantinaya alıp
+*hasarlı ve açılamıyor* diye bildirir; macOS 15 ve sonrasında sağ tık → **Aç** bunu temizlemez.
+Uygulamayı Applications klasörüne sürükleyin ve bayrağı bir kez kaldırın:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/CAYADEV Visualizer.app"
+```
+
+Sonrasında her seferinde normal açılır. Orada sistem sesini yakalamak için ayrıca **BlackHole**
+gibi sanal bir aygıt gerekir.
 
 **Linux** PulseAudio ya da PipeWire ister. `.deb` bağımlılıkları arasında `libpulse0` bildiriliyor;
 AppImage de aynı kitaplığın halihazırda kurulu olmasını bekliyor.

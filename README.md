@@ -825,9 +825,16 @@ workflow therefore builds macOS on `macos-latest` and Linux on `ubuntu-latest`. 
 locally instead of in CI, because the installer registers the Dynamic Lighting identity and that
 needs a certificate the runner does not have — a CI-built installer would be a different product.
 
-**macOS packages are unsigned** and not notarised, so Gatekeeper refuses the first launch: open the
-app once from its right-click menu to allow it. Capturing system audio there also needs a virtual
-device such as **BlackHole**.
+**macOS packages are unsigned** and not notarised. macOS quarantines unsigned downloads and reports
+them as *damaged and can’t be opened*; right-clicking and choosing **Open** does not clear that on
+macOS 15 or later. Drag the app to Applications and remove the flag once:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/CAYADEV Visualizer.app"
+```
+
+It then opens normally every time. Capturing system audio there also needs a virtual device such
+as **BlackHole**.
 
 **Linux** needs PulseAudio or PipeWire. The `.deb` declares `libpulse0` among its dependencies; the
 AppImage expects the same library to already be present.
