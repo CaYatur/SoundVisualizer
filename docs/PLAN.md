@@ -1,4 +1,4 @@
-> **v3.1.0 shipped.** The timeline and clip deck engines, both panels, the performance view, MIDI/OSC show actions and accidental-close protection are in, on Electron 43.5.1. What was deliberately left out of v3.1.0 is listed under "Not in v3.1.0" in ROADMAP.md rather than dropped quietly. Next: v3.1.1 (Spout and Syphon).
+> **v3.1.0 shipped.** The timeline and clip deck engines, both panels, the performance view, MIDI/OSC show actions and accidental-close protection are in, on Electron 43.5.1. What was deliberately left out of v3.1.0 is listed under "Not in v3.1.0" in ROADMAP.md rather than dropped quietly. Next: v3.1.1 — macOS and Linux builds, OpenRGB, and Spout/Syphon output.
 
 > **131 / 227** tasks complete. Every unticked box now carries a milestone: the timeline and clip deck work moved to v3.1.0, and the rest to the backlog. The v3.0.0 milestone is closed with 150 issues.
 
