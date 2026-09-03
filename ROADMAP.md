@@ -68,7 +68,7 @@ covered by a test or by the GPU self-test.
 | Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
 | macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
 | Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
-| Runs without a Node install | ❌ | ❌ | ❌ | ❌ | ❌ | ✅✅ | Windows used to ship a 93 MB `node.exe` and the other platforms nothing. The helper now runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
+| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
 | OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
 | Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
 | Electron | 33 | 33 | 33 | 33 | **43** | **43** | 33.4.11 reached end of life in April 2025 |
