@@ -17,11 +17,12 @@
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
     "icons": "node scripts/gen-icons.js",
-    "dist:win": "node scripts/prepare-runtime.js && node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
+    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64",
     "dist:mac": "npm run icons && electron-builder --mac --x64 --arm64",
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
-    "smoke": "node scripts/start.js --smoke"
+    "smoke": "node scripts/start.js --smoke",
+    "dist:linux": "npm run icons && electron-builder --linux --x64"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",
@@ -49,31 +50,12 @@
       "assets/**/*",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "build/runtime/node.exe",
-        "to": "runtime/node.exe"
-      },
-      {
-        "from": "native/dynamic-lighting/build/Release/dynamic_lighting.node",
-        "to": "runtime/dynamic_lighting.node"
-      },
-      {
-        "from": "build/identity",
-        "to": "identity",
-        "filter": [
-          "*.msix",
-          "*.cer",
-          "*.ps1",
-          "*.png"
-        ]
-      }
-    ],
     "asarUnpack": [
       "node_modules/audify/**",
       "node_modules/bindings/**",
       "node_modules/file-uri-to-path/**",
       "node_modules/ffmpeg-static/**",
+      "src/shared/audio-devices.js",
       "src/main/loopback-helper.js"
     ],
     "win": {
@@ -91,7 +73,23 @@
           ]
         }
       ],
-      "icon": "build/icon.ico"
+      "icon": "build/icon.ico",
+      "extraResources": [
+        {
+          "from": "native/dynamic-lighting/build/Release/dynamic_lighting.node",
+          "to": "runtime/dynamic_lighting.node"
+        },
+        {
+          "from": "build/identity",
+          "to": "identity",
+          "filter": [
+            "*.msix",
+            "*.cer",
+            "*.ps1",
+            "*.png"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -125,10 +123,33 @@
       "icon": "build/icon.icns",
       "category": "public.app-category.music",
       "hardenedRuntime": false,
-      "identity": null
+      "identity": null,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "CAYADEV Visualizer reads audio so the visuals can react to it. To visualize what your computer is playing, select a loopback input (for example BlackHole) as the source."
+      }
     },
     "dmg": {
       "title": "CAYADEV Visualizer"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "AudioVideo",
+      "synopsis": "Multi-monitor audio visualizer",
+      "description": "Desktop audio visualizer that reacts to system audio in real time."
     }
   }
 }

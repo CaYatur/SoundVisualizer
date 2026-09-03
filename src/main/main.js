@@ -2814,6 +2814,24 @@ async function runSmoke() {
     }
   }
 
+  /* Ses yardımcısını UYGULAMANIN KENDİ ikilisi mi çalıştırıyor?
+     Harici node'a düşmek burada görünmez: bu makinede node kurulu.
+     Kullanıcının makinesinde ise ses tümüyle ölür. Ölç. */
+  const audioDiag = await nativeAudio.diagnoseAudio();
+  console.log('[SMOKE] ses çalıştırıcısı: ' + JSON.stringify({
+    ok: audioDiag.ok,
+    runner: audioDiag.runner || null,
+    devices: (audioDiag.devices || []).length,
+  }));
+  if (!audioDiag.ok) {
+    errors.push('audio: device enumeration failed (' + ((audioDiag.error && audioDiag.error.code) || 'unknown') + ')');
+  } else if (audioDiag.runner !== 'self') {
+    errors.push(
+      'audio: the helper fell back to an external Node (' + audioDiag.runner +
+        ") — a packaged build must run it with the application's own binary"
+    );
+  }
+
   console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');

@@ -1,6 +1,9 @@
 'use strict';
-/* Ana süreçte çalışır. loopback-helper.js'i SİSTEM node'u ile alt-süreç olarak
-   çalıştırır (audify Electron ABI'sine değil node ABI'sine hazır olduğu için).
+/* Ana süreçte çalışır. loopback-helper.js'i alt-süreç olarak çalıştırır.
+   Çalıştırıcı, uygulamanın KENDİ ikilisidir: Electron ELECTRON_RUN_AS_NODE=1
+   ile node gibi davranır, audify de N-API olduğu için sorunsuz yüklenir.
+   Böylece üç platformda da ayrıca Node kurulmasına ya da paketle birlikte
+   node ikilisi gönderilmesine gerek kalmaz. Sistemdeki node yalnız yedektir.
    - listDevices(): tüm ses aygıtlarını (çıkış + giriş/mikrofon) döndürür
    - startCapture(devices, onFrame, onStatus): bir veya birden fazla aygıtı yakalar */
 
@@ -114,15 +117,51 @@ function findNode() {
   return _nodeCache;
 }
 
-function classifyListError({ code, signal, stderr, spawnError, timedOut, node, helperExists }) {
+/* --- Yardımcıyı çalıştıracak süreç ------------------------------------
+   selfRunner: uygulamanın kendi ikilisi, node kipinde. Paketlenmiş
+   uygulamada HER ZAMAN vardır; kurulum gerektirmez, indirme büyütmez.
+   externalRunner: sistemdeki node. Yalnızca yedek. */
+function selfRunner() {
+  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' });
+  /* Alt süreç bir pencere açmaya çalışmasın. */
+  delete env.ELECTRON_NO_ATTACH_CONSOLE;
+  return { exe: process.execPath, env, kind: 'self' };
+}
+
+function externalRunner() {
+  const env = Object.assign({}, process.env);
+  delete env.ELECTRON_RUN_AS_NODE;
+  return { exe: findNode(), env, kind: 'external' };
+}
+
+/* Son başarılı çalıştırıcı — yakalama da onu kullanır ki liste ile
+   yakalama farklı süreçlerle çalışmasın. */
+let _runner = null;
+
+function runnerOrder() {
+  return [selfRunner(), externalRunner()];
+}
+
+function classifyListError({ code, signal, stderr, spawnError, timedOut, node, helperExists, runner }) {
   if (!helperExists) return { code: 'HELPER_MISSING', message: 'Audio helper files are missing from the installation.' };
   if (timedOut) return { code: 'DEVICE_ENUM_TIMEOUT', message: 'Audio device detection timed out.' };
   if (spawnError && /ENOENT/i.test(spawnError.code || spawnError.message)) {
-    return { code: 'NODE_NOT_FOUND', message: 'Node.js could not be found. Install Node.js or repair its PATH configuration.' };
+    /* Kendi ikilimiz bulunamadıysa bu bir kurulum bozulmasıdır, kullanıcının
+       Node kurmasıyla ilgisi yok. Harici yedekte ise gerçekten node yoktur. */
+    return runner && runner.kind === 'self'
+      ? { code: 'RUNTIME_MISSING', message: 'The application runtime could not be started. The installation looks damaged — reinstall the application.' }
+      : { code: 'NODE_NOT_FOUND', message: 'Node.js could not be found. Install Node.js or repair its PATH configuration.' };
   }
   if (spawnError) return { code: 'PROCESS_START_FAILED', message: `The audio helper could not start: ${spawnError.message}` };
+  const where = process.platform + "-" + process.arch;
   if (/Cannot find module ['"].*audify/i.test(stderr)) {
-    return { code: 'AUDIFY_MISSING', message: 'The native audio module is missing. Reinstall or repair the application.' };
+    return { code: 'AUDIFY_MISSING', message: `The native audio engine is missing for this platform (${where}). Reinstall or repair the application.` };
+  }
+  /* Native ikili var ama yüklenemiyor: yanlış mimari, eksik paylaşımlı
+     kütüphane (macOS .dylib / Linux .so) ya da imza/karantina. Platformu
+     adıyla söyle, yoksa kullanıcı neyi bildireceğini bilemez. */
+  if (/dlopen|\.dylib|\.so[.\d]*:|image not found|libc|GLIBC|code signature|not permitted/i.test(stderr)) {
+    return { code: 'AUDIFY_LOAD_FAILED', message: `The native audio engine could not be loaded on ${where}. Report this with the details below.` };
   }
   if (/was compiled against a different Node\.js version|NODE_MODULE_VERSION|not a valid Win32 application/i.test(stderr)) {
     return { code: 'NATIVE_ABI_MISMATCH', message: 'The native audio module is incompatible with this Node.js version. Reinstall Node.js LTS and the application.' };
@@ -134,13 +173,13 @@ function classifyListError({ code, signal, stderr, spawnError, timedOut, node, h
   return { code: 'NO_DEVICES', message: 'No active audio devices were detected. Check Windows Sound settings and reconnect the device.' };
 }
 
-function listDevicesAttempt(timeoutMs = 6000) {
+function listDevicesAttempt(timeoutMs = 6000, runner = selfRunner()) {
   return new Promise((resolve) => {
     let out = '';
     let err = '';
     let settled = false;
     let spawnError = null;
-    const node = findNode();
+    const node = runner.exe;
     const helperExists = fs.existsSync(HELPER);
     const finish = (result) => {
       if (settled) return;
@@ -150,20 +189,20 @@ function listDevicesAttempt(timeoutMs = 6000) {
     };
 
     if (!helperExists) {
-      return resolve({ devices: [], ok: false, node, helper: HELPER, error: classifyListError({ helperExists }) });
+      return resolve({ devices: [], ok: false, node, runner: runner.kind, helper: HELPER, error: classifyListError({ helperExists, runner }) });
     }
 
     let child;
     try {
-      child = spawn(node, [HELPER, '--list'], { cwd: ROOT, windowsHide: true });
+      child = spawn(node, [HELPER, '--list'], { cwd: ROOT, windowsHide: true, env: runner.env });
     } catch (e) {
       spawnError = e;
-      return resolve({ devices: [], ok: false, node, helper: HELPER, error: classifyListError({ spawnError, node, helperExists }) });
+      return resolve({ devices: [], ok: false, node, helper: HELPER, error: classifyListError({ spawnError, node, helperExists, runner }) });
     }
 
     const timer = setTimeout(() => {
       try { child.kill(); } catch {}
-      finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ timedOut: true, node, helperExists }) });
+      finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ timedOut: true, node, helperExists, runner }) });
     }, timeoutMs);
 
     child.stdout.on('data', (d) => (out += d.toString()));
@@ -171,29 +210,38 @@ function listDevicesAttempt(timeoutMs = 6000) {
     child.on('error', (e) => { spawnError = e; });
     child.on('close', (code, signal) => {
       if (spawnError) {
-        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ spawnError, node, helperExists }) });
+        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ spawnError, node, helperExists, runner }) });
       }
       let parsed;
       try { parsed = JSON.parse(out); } catch (e) {
         return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: { code: 'INVALID_HELPER_OUTPUT', message: `The audio helper returned invalid data: ${e.message}` } });
       }
       if (!Array.isArray(parsed) || parsed.length === 0) {
-        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ code, signal, stderr: err, node, helperExists }) });
+        return finish({ devices: [], ok: false, node, helper: HELPER, stderr: err.trim(), error: classifyListError({ code, signal, stderr: err, node, helperExists, runner }) });
       }
-      finish({ devices: parsed, ok: true, node, helper: HELPER, stderr: err.trim(), error: null });
+      finish({ devices: parsed, ok: true, node, runner: runner.kind, helper: HELPER, stderr: err.trim(), error: null });
     });
   });
 }
 
+/* Önce kendi ikilimizle, olmazsa sistemdeki node ile dene. Çalışan
+   yol saklanır ki yakalama aynı süreçle yapılsın. */
 async function diagnoseAudio() {
-  let result = await listDevicesAttempt();
-  if (!result.ok) {
+  let firstError = null;
+  for (const runner of runnerOrder()) {
+    const res = await listDevicesAttempt(6000, runner);
+    if (res.ok) {
+      _runner = runner;
+      return firstError ? { ...res, retried: true, firstError } : res;
+    }
+    if (!firstError) firstError = res.error;
     _nodeCache = null;
-    await new Promise((r) => setTimeout(r, 350));
-    const retry = await listDevicesAttempt(8000);
-    result = { ...retry, retried: true, firstError: result.error };
+    await new Promise((r) => setTimeout(r, 250));
   }
-  return result;
+  /* İkisi de olmadı: son bir kez, daha geniş süreyle kendi ikilimiz. */
+  const last = await listDevicesAttempt(8000, selfRunner());
+  if (last.ok) _runner = selfRunner();
+  return { ...last, retried: true, firstError };
 }
 
 async function listDevices() {
@@ -219,11 +267,13 @@ function startCapture(devices, onFrame, onStatus) {
   const arr = Array.isArray(devices) ? devices : [devices || 'default'];
   const arg = JSON.stringify({ devices: arr });
   let child;
-  dbg('startCapture devices=', arr, 'node=', findNode());
+  /* Listeleme hangi çalıştırıcıyla başardıysa yakalama da onunla olsun. */
+  const runner = _runner || selfRunner();
+  dbg('startCapture devices=', arr, 'runner=', runner.kind, runner.exe);
   try {
-    child = spawn(findNode(), [HELPER, '--capture', arg], { cwd: ROOT, windowsHide: true });
+    child = spawn(runner.exe, [HELPER, '--capture', arg], { cwd: ROOT, windowsHide: true, env: runner.env });
   } catch (e) {
-    if (onStatus) onStatus({ type: 'error', message: 'node başlatılamadı: ' + e.message });
+    if (onStatus) onStatus({ type: 'error', message: 'ses yardımcısı başlatılamadı: ' + e.message });
     return;
   }
   capChild = child;
@@ -241,6 +291,18 @@ function startCapture(devices, onFrame, onStatus) {
     if (s.includes('CAPTURE-START')) {
       const name = s.replace(/^CAPTURE-START\s*/, '').split(' sr=')[0];
       if (onStatus) onStatus({ type: 'started', device: name });
+    } else if (s.includes('NO-LOOPBACK')) {
+      /* Bu platformda sistem sesini veren bir aygıt yok. Hata değil bir
+         eksik: macOS'ta normaldir ve kullanıcının bir sanal aygıt kurması
+         gerekir. Yakalama devam eder ama kullanıcı NEDENİNİ görmeli. */
+      const m = /NO-LOOPBACK\s+(\S+)\s*([\s\S]*)/.exec(s);
+      if (onStatus) {
+        onStatus({
+          type: 'no-loopback',
+          code: (m && m[1]) || 'NO_LOOPBACK',
+          message: (m && m[2].trim()) || s,
+        });
+      }
     } else if (s.includes('START-FAIL') || s.includes('NO-OUTPUT')) {
       if (onStatus) onStatus({ type: 'error', message: s });
     } else {
@@ -249,7 +311,7 @@ function startCapture(devices, onFrame, onStatus) {
   });
 
   child.on('error', (e) => {
-    if (onStatus) onStatus({ type: 'error', message: 'node bulunamadı / çalıştırılamadı (' + e.message + ')' });
+    if (onStatus) onStatus({ type: 'error', message: 'ses yardımcısı çalıştırılamadı (' + e.message + ')' });
   });
   child.on('exit', (code) => {
     if (child === capChild) capChild = null;
@@ -290,6 +352,9 @@ function stopCapture() {
   }
 }
 
-function resetNodeCache() { _nodeCache = null; }
+function resetNodeCache() {
+  _nodeCache = null;
+  _runner = null;
+}
 
-module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture };
+module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture, selfRunner, externalRunner, runnerOrder, classifyListError };

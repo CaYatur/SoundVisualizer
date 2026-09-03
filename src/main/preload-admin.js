@@ -2,6 +2,16 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+/* Arayüzün platformu bilmesi gerekiyor: Windows Dynamic Lighting yalnız
+   Windows'ta anlamlı, Spout yalnız Windows'ta, Syphon yalnız macOS'ta.
+   IPC'ye gerek yok; preload zaten ana süreç tarafında çalışıyor. */
+contextBridge.exposeInMainWorld('SV_PLATFORM', {
+  os: process.platform,
+  isWindows: process.platform === 'win32',
+  isMac: process.platform === 'darwin',
+  isLinux: process.platform === 'linux',
+});
+
 contextBridge.exposeInMainWorld('api', {
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),

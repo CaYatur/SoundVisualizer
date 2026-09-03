@@ -1665,6 +1665,10 @@
         category: 'lighting',
         icon: '💡',
         wide: true,
+        /* Yalnız Windows: LampArray bir Windows API'si. Diğer
+           platformlarda kart hiç çizilmez — devre dışı bir kart
+           göstermek her açılışta gürültü olurdu. */
+        show: isWindows,
         title: 'Windows Dynamic Lighting',
         desc: 'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.',
         controls: [{ type: 'lightingpanel' }],
@@ -2100,6 +2104,19 @@
         title: 'Tempo ve Otomatik VJ',
         desc: 'Parçanın temposunu bulur; sahneleri, modları veya renkleri ölçüye hizalı olarak kendiliğinden değiştirir.',
         controls: [{ type: 'autovjpanel' }],
+      },
+      {
+        /* Kullanıcı Windows'ta yaptığı ayarı buraya taşıdıysa
+           lighting.enabled açık gelir ama hiçbir şey olmaz. Sessiz
+           kalmak yerine nedenini söyle. */
+        id: 'lightingUnavailable',
+        category: 'lighting',
+        icon: '💡',
+        wide: true,
+        show: () => !isWindows() && !!(cfg.lighting && cfg.lighting.enabled),
+        title: 'Windows Dynamic Lighting bu sistemde yok',
+        desc: 'Ayarlarınızda açık görünüyor ama Windows Dynamic Lighting yalnızca Windows üzerinde çalışır. Bu sistemde RGB aygıtları için OpenRGB veya Art-Net/DMX kullanın.',
+        controls: [],
       },
       {
         id: 'artnet',
@@ -2598,11 +2615,21 @@
     return (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s) || s;
   }
 
+  /* Platform. Tarayıcı bağlamında process yok; preload veriyor.
+     Yedek olarak Windows varsayılır: bu dosya yalnız uygulamanın
+     içinde koşar ve tarihsel olarak tek platform Windows idi. */
+  const PLATFORM = (typeof window !== 'undefined' && window.SV_PLATFORM) ||
+    { os: 'win32', isWindows: true, isMac: false, isLinux: false };
+  const isWindows = () => !!PLATFORM.isWindows;
+
   function buildSearchIndex() {
     const out = [];
     sectionSchema().forEach((sec) => {
       const cat = CATEGORIES.find((c) => c.id === sec.category);
       if (!cat) return;
+      /* Gizli bölüm aranabilir OLMAMALI: bulunup tıklanınca hiçbir yere
+         gitmeyen bir sonuç, hiç çıkmamasından kötüdür. */
+      if (sec.show && !sec.show()) return;
       out.push({
         kind: 'section',
         icon: sec.icon,
@@ -3815,6 +3842,15 @@
           const anyMissing = devNames.some((n) => n !== 'default' && !audioDevices.some((d) => d.name === n));
           if (anyMissing) actions.refreshDevices();
         }
+      } else if (s.type === 'no-loopback') {
+        /* Bu platformda sistem sesini veren bir aygıt yok. Hata değil,
+           eksik bir kurulum: macOS'ta CoreAudio loopback vermez ve
+           kullanıcının BlackHole gibi sanal bir aygıt kurması gerekir.
+           Sessiz kalmak, kullanıcının neden hiçbir şey görmediğini
+           anlamaması demek olurdu. */
+        setAudioState('⚠ Sistem sesi yakalanamıyor', 'err');
+        $('bannerDetail').textContent = s.message || 'Bu sistemde sistem sesini veren bir aygıt bulunamadı.';
+        $('banner').classList.remove('hidden');
       } else if (s.type === 'error') {
         setAudioState('⚠ Ses yakalanamadı', 'err');
         $('bannerDetail').textContent = s.message || 'Çıkış aygıtı yakalanamadı.';

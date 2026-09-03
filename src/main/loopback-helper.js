@@ -1,8 +1,13 @@
 'use strict';
-/* Sistem Node altında çalışır (Electron DEĞİL — audify yalnızca node ABI ile hazır).
-   Seçilen ÇIKIŞ aygıtının (hoparlör/kulaklık) sesini WASAPI loopback ile yakalar,
-   FFT analizini hesaplar ve ikili kareler halinde stdout'a yazar.
-   Mikrofon ASLA yakalanmaz.
+/* Ayrı bir süreçte çalışır; onu uygulamanın kendi ikilisi node kipinde
+   başlatır (ELECTRON_RUN_AS_NODE). Böylece üç platformda da ayrıca Node
+   kurulması gerekmez. Ayrı süreç olmasının sebebi yalıtım: native ses geri
+   çağrısında bir çökme tüm uygulamayı götürmesin.
+
+   Sistem sesini veren aygıtı yakalar, FFT analizini hesaplar ve ikili kareler
+   halinde stdout'a yazar. O aygıtın hangisi olduğu platforma göre değişir
+   (bkz. src/shared/audio-devices.js). Varsayılan seçimde mikrofon ASLA
+   yakalanmaz; mikrofon yalnızca kullanıcı adıyla seçerse kullanılır.
 
    Kullanım:
      node loopback-helper.js --list            -> JSON aygıt listesi (metin) yazar, çıkar
@@ -37,19 +42,25 @@ function makeRt() {
   return new RtAudio();
 }
 
+/* Hangi aygıtın sistem sesini verdiği platforma göre değişir; kural saf bir
+   modülde tutulur ki çalıştıramadığımız platformlar da sınanabilsin. */
+const devices = require('../shared/audio-devices.js');
+
 // Hem çıkış (hoparlör -> loopback) hem giriş (mikrofon -> kayıt) aygıtları
 function listAll(rt) {
-  return rt.getDevices().map((d) => {
-    const isOut = d.outputChannels > 0;
-    return {
-      id: d.id,
-      name: d.name,
-      kind: isOut ? 'output' : 'input',
-      channels: isOut ? d.outputChannels : d.inputChannels,
-      isDefault: isOut ? !!d.isDefaultOutput : !!d.isDefaultInput,
-      sampleRate: d.preferredSampleRate || 48000,
-    };
-  });
+  return devices.markLoopback(
+    rt.getDevices().map((d) => {
+      const isOut = d.outputChannels > 0;
+      return {
+        id: d.id,
+        name: d.name,
+        kind: isOut ? 'output' : 'input',
+        channels: isOut ? d.outputChannels : d.inputChannels,
+        isDefault: isOut ? !!d.isDefaultOutput : !!d.isDefaultInput,
+        sampleRate: d.preferredSampleRate || 48000,
+      };
+    })
+  );
 }
 
 // ---- Komut: liste ----
@@ -85,9 +96,7 @@ const rtList = makeRt();
 const all = listAll(rtList);
 
 function resolveDevice(name) {
-  if (name === 'default') {
-    return all.find((d) => d.kind === 'output' && d.isDefault) || all.find((d) => d.kind === 'output') || all[0];
-  }
+  if (name === 'default') return devices.pickDefault(all);
   return all.find((d) => d.name === name);
 }
 
@@ -103,6 +112,16 @@ for (const name of wanted) {
 if (resolved.length === 0) {
   process.stderr.write('NO-DEVICE');
   process.exit(2);
+}
+
+/* Varsayılan istendi ama bu platformda sistem sesini veren bir aygıt yoksa,
+   çalışmaya devam etmek yerine NEDENİNİ söyle. macOS'ta bu normaldir:
+   CoreAudio loopback vermez, kullanıcının sanal bir aygıt kurması gerekir.
+   Sessizce mikrofonu dinlemek, kullanıcının saatlerce yanlış kaynağı
+   dinlemesi demek olurdu. */
+if (wanted.length === 1 && wanted[0] === 'default') {
+  const advice = devices.loopbackAdvice(all);
+  if (advice) process.stderr.write('NO-LOOPBACK ' + advice.code + ' ' + advice.message + '\n');
 }
 
 // FFT hazırlığı
