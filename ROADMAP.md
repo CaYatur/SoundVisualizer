@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.0** · **Next release: v3.1.1**
+**Current release: v3.1.1** · **Next release: v3.1.2**
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -12,9 +12,9 @@ covered by a test or by the GPU self-test.
 | v2.0.0 | Shader editor, MIDI, OSC, OBS source, offline render | 2026-08-30 | Shipped |
 | v2.1.0 | Layers, post-FX, 3D geometry, Art-Net, Auto VJ | 2026-09-01 | Shipped |
 | v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions | 2026-09-02 | Shipped |
-| **v3.1.0** | **Timeline, Clip Deck, accidental-close protection, Electron 43** | **2026-09-02** | **Current** |
-| v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | — | In progress |
-| v3.1.2 | Per-application audio capture | — | Planned |
+| v3.1.0 | Timeline, Clip Deck, accidental-close protection, Electron 43 | 2026-09-02 | Shipped |
+| **v3.1.1** | **Cross-platform builds, OpenRGB, Spout and Syphon** | **2026-09-04** | **Current** |
+| v3.1.2 | Per-application audio capture | — | Next |
 | v3.1.3 | Comprehensive video export | — | Planned |
 | v3.1.4 | Broadcast layout editor | — | Planned |
 | v3.1.5 | NDI output | — | Deferred |
@@ -24,49 +24,54 @@ covered by a test or by the GPU self-test.
 
 ## Status table
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | **v3.1.0** | Note |
-|---|:--:|:--:|:--:|:--:|:--:|---|
-| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
-| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | WASAPI loopback |
-| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
-| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
-| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
-| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
-| Visualizer modes | 14 | 31 | 32 | **48** | **48** | Includes 14 new generative modes |
-| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
-| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
-| Backgrounds | 10 | 19 | 19 | **31** | **31** | All share the palette and template system |
-| Colour presets | 10 | 10 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
-| Formulas | ❌ | ❌ | 35 | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
-| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
-| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
-| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
-| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
-| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | 18 transitions, switchable off |
-| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| MilkDrop | ❌ | ◐ | ◐ | ✅ | ✅ | Full expression language, warp mesh, `.milk` import |
-| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
-| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | All compile on the GPU in the self-test |
-| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | Nine groups, each verified not to damage a working setup |
-| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
-| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
-| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
-| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
-| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
-| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | Bar-aligned scene, mode and palette changes |
-| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
-| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
-| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
-| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
-| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class |
-| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | **703** unit tests + a GPU self-test over every engine |
-| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
-| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
-| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
-| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
-| Electron | 33 | 33 | 33 | 33 | **43** | 33.4.11 reached end of life in April 2025 |
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | **v3.1.1** | Note |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|---|
+| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
+| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
+| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
+| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
+| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
+| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | Includes 14 new generative modes |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
+| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | All share the palette and template system |
+| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
+| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
+| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
+| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
+| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
+| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
+| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
+| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
+| MilkDrop | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | Full expression language, warp mesh, `.milk` import |
+| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
+| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | All compile on the GPU in the self-test |
+| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
+| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | Nine groups, each verified not to damage a working setup |
+| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
+| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
+| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
+| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
+| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
+| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Bar-aligned scene, mode and palette changes |
+| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
+| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
+| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
+| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
+| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
+| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **808** unit tests + a GPU self-test over every engine (703 at v3.1.0) |
+| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
+| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
+| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
+| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
+| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
+| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
+| Runs without a Node install | ❌ | ❌ | ❌ | ❌ | ❌ | ✅✅ | Windows used to ship a 93 MB `node.exe` and the other platforms nothing. The helper now runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
+| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
+| Electron | 33 | 33 | 33 | 33 | **43** | **43** | 33.4.11 reached end of life in April 2025 |
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 
 ### Not shipped yet
@@ -77,15 +82,27 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| macOS build | v3.1.1 | Built in CI and verified structurally — Apple Silicon only, unsigned, and system audio needs a virtual device such as BlackHole. Not yet run on a Mac |
-| Linux build | v3.1.1 | AppImage and deb built in CI. The audio engine loads there; device enumeration is still unverified on a real desktop |
-| OpenRGB | v3.1.1 | Works and is covered by tests against a protocol-level server. Not yet driven against real hardware |
-| Spout / Syphon | v3.1.1 | Sending, and verified end to end on Windows: the sender registers with Spout, 30 frames a second with none dropped, and deregisters on stop. Syphon shares the same code path but has never been run on a Mac. Not offered on Linux |
 | Per-app audio capture | v3.1.2 | Not started. Needs a native module on both Windows and macOS; the same API family gives macOS its missing system-audio loopback |
 | Comprehensive video export | v3.1.3 | Not started |
 | Broadcast layout editor | v3.1.4 | Not started |
 | NDI | v3.1.5 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
+
+### Shipped, but never run on real hardware
+
+Four things went out in v3.1.1 that this machine cannot verify. They pass
+their tests and they are in users’ hands, so they belong in the table above
+rather than in "not shipped" — but calling them proven would be a lie.
+
+| What | Verified | Not verified |
+|---|---|---|
+| macOS build | Builds on a macOS runner; arm64 Mach-O binaries confirmed inside the `.dmg`, and `NSMicrophoneUsageDescription` is present | Never launched on a Mac. Gatekeeper behaviour, BlackHole capture and CoreAudio enumeration are all unobserved |
+| Linux build | Builds on a Linux runner; `audify` loads there in CI, and the `.deb` declares `libpulse0` | Never launched on a desktop. Monitor-source enumeration is untested against a real PulseAudio or PipeWire server |
+| OpenRGB | Protocol encoded and decoded against a server implementing the wire format, 38 tests | Never driven a physical LED. Vendor quirks and per-device direct-mode support are unknown |
+| Syphon | Shares the whole code path with Spout, which was measured end to end on Windows. The macOS handle conversion is unit-tested | Never run on a Mac. The IOSurface path has never touched a real GPU |
+
+This table shrinks as the hardware becomes available; nothing is moved out of
+it on the strength of an argument.
 
 ---
 
@@ -208,7 +225,7 @@ Written down rather than quietly dropped:
   Capturing a real frame would mean switching the visualizer to that scene —
   changing the show to draw a preview of it.
 
-## v3.1.1 — Cross-platform builds, OpenRGB, Spout and Syphon
+## v3.1.1 — Cross-platform builds, OpenRGB, Spout and Syphon · shipped
 
 Live video output to other applications on the same machine, straight over
 the GPU. The visualizer feeds Resolume, OBS or any Spout/Syphon receiver
@@ -324,7 +341,7 @@ for Linux, and Linux has no established equivalent to port to. The option is not
 offered there at all rather than shown as a switch that does nothing; Linux
 keeps the OBS browser source, which already works.
 
-### Dependencies and the one open question
+### Dependencies, and the question that is now answered
 
 `@napolab/texture-bridge` covers both platforms in a single MIT dependency:
 Spout over DXGI shared handles on Windows, Syphon over IOSurface and Metal on
@@ -336,14 +353,19 @@ for: Resolume or any other Spout/Syphon sender can be read *into* the
 visualizer as an input layer. That arrives free with the same dependency and
 is worth a layer source of its own.
 
-One thing is assumed rather than proven, and it is the first task of the
-release: `audify` runs in a separate Node subprocess precisely because its
-prebuilds target the Node ABI rather than Electron. `texture-bridge` has to
-load **inside the main process**, since that is where `paint` events are
-raised. Node-API is ABI-stable across both runtimes, so it should load without
-`electron-rebuild` — but that is exactly the kind of assumption `audify`
-punished, so it gets verified with a bare `require` before anything is built
-on top of it.
+One thing was assumed rather than proven, and it was checked before anything
+was built on top of it: `audify` runs in a separate Node subprocess precisely
+because its prebuilds target the Node ABI rather than Electron.
+`texture-bridge` has to load **inside the main process**, since that is where
+`paint` events are raised. Node-API is ABI-stable across both runtimes, so it
+should load without `electron-rebuild` — but that is exactly the kind of
+assumption `audify` punished.
+
+It held. A bare `require` in the main process succeeded, and so did the second
+assumption underneath it: that Electron’s offscreen renderer really hands over
+a GPU texture rather than falling back to a CPU copy. Measured at 60 fps with a
+texture on every frame. Both were proven before the sender was written, which
+is why the sender itself worked the first time it ran.
 
 ### Electron upgrade — a prerequisite, not a side quest
 

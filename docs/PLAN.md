@@ -1,4 +1,4 @@
-> **v3.1.0 shipped.** The timeline and clip deck engines, both panels, the performance view, MIDI/OSC show actions and accidental-close protection are in, on Electron 43.5.1. What was deliberately left out of v3.1.0 is listed under "Not in v3.1.0" in ROADMAP.md rather than dropped quietly. Next: v3.1.1 — macOS and Linux builds, OpenRGB, and Spout/Syphon output.
+> **v3.1.1 shipped.** The application now has macOS and Linux packages, RGB lighting on all three platforms through OpenRGB, and Spout/Syphon output over the GPU. The audio helper no longer needs a Node.js beside it anywhere. Four of those features have never run on real hardware, and ROADMAP.md says which under "Shipped, but never run on real hardware" rather than leaving it to be discovered. Next: v3.1.2 — per-application audio capture.
 
 > **131 / 227** tasks complete. Every unticked box now carries a milestone: the timeline and clip deck work moved to v3.1.0, and the rest to the backlog. The v3.0.0 milestone is closed with 150 issues.
 
