@@ -22,7 +22,10 @@
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
-    "dist:linux": "npm run icons && electron-builder --linux --x64"
+    "dist:linux": "npm run icons && electron-builder --linux --x64",
+    "dist:mac:x64": "npm run icons && electron-builder --mac --x64",
+    "dist:mac:arm64": "npm run icons && electron-builder --mac --arm64",
+    "check:runtime": "node scripts/check-runtime.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

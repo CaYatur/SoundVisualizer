@@ -1,0 +1,95 @@
+name: build
+
+# Üç platformun kurulum dosyalarını üretir.
+#
+# Neden CI: macOS derlemesi YALNIZCA macOS'ta yapılabilir (electron-builder
+# bunu kendisi reddediyor), yani .dmg başka türlü hiç çıkamaz. Linux için de
+# aynı şey geçerli değil ama aynı yerde üretmek tutarlılığı kolaylaştırıyor.
+#
+# Neden mimari başına ayrı koşucu: npmRebuild kapalı, yani audify'ın native
+# ikilisi `npm ci`ın koştuğu MİMARİYE göre iniyor. Apple Silicon üzerinde x64
+# paket üretmek, içine arm64 ikilisi koymak demek olurdu; ses o pakette hiç
+# çalışmazdı ve bunu ancak bir Intel Mac kullanıcısı fark ederdi.
+#
+# GPU öz testi burada YOK — sebebi tests.yml'de yazıyor: yazılım rasterleştirici
+# olmayan hatalar bildirir, olanları gizler. Onun yerine GPU gerektirmeyen ama
+# mac/linux için asıl bilinmezi ölçen bir denetim var: audify'ın native ikilisi
+# o platformda yükleniyor mu, ve uygulamanın kendi ikilisi node kipinde koşuyor
+# mu? Cevap hayırsa o platformda ses hiç çalışmaz ve paketi yayımlamanın anlamı
+# kalmaz.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  package:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: windows-x64
+            os: windows-latest
+            script: dist:win
+          - label: macos-arm64
+            os: macos-latest
+            script: dist:mac:arm64
+          - label: macos-x64
+            os: macos-13
+            script: dist:mac:x64
+          - label: linux-x64
+            os: ubuntu-latest
+            script: dist:linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # AppImage'ın içindekileri paketlemesi için bsdtar gerekiyor; deb için
+      # dpkg ve fakeroot zaten kurulu geliyor.
+      - name: Linux packaging dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
+
+      - name: Install
+        run: npm ci
+
+      # macOS ve Linux için asıl bilinmez bu. Paketi üretmeden önce sor:
+      # ses motoru bu platformda yükleniyor mu?
+      - name: Audio runtime check
+        run: npm run check:runtime
+
+      - name: Unit tests
+        run: node scripts/test.js
+
+      - name: Package
+        run: npm run ${{ matrix.script }}
+        env:
+          # İmzasız çıkıyoruz (Apple Developer Program alınmadı). Bu değişken
+          # olmadan electron-builder anahtarlıkta sertifika arar ve koşucuda
+          # bulamayınca derlemeyi durdurur.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Collect installers
+        shell: bash
+        run: |
+          mkdir -p out
+          find dist -maxdepth 1 -type f \
+            \( -name '*.exe' -o -name '*.dmg' -o -name '*.zip' \
+               -o -name '*.AppImage' -o -name '*.deb' \) \
+            -exec cp {} out/ \;
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: out/*
+          if-no-files-found: error
+          retention-days: 14
