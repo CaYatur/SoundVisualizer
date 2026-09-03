@@ -118,3 +118,34 @@ test('Dynamic Lighting arka ucu her platformda güvenli', () => {
   const guards = (dl.match(/process\.platform\s*!==\s*'win32'/g) || []).length;
   assert.ok(guards >= 5, 'beklenen platform koruması sayısı düştü: ' + guards);
 });
+
+test('paketleme yapılandırması electron-builder şemasına uyuyor', (t) => {
+  /* Bu denetimin sebebi somut: linux.desktop yanlış biçimde yazılmıştı ve
+     hata ancak CI'da, üç koşucu da paketleme adımına geldikten sonra ortaya
+     çıktı. Şema doğrulaması yerelde milisaniyeler sürüyor; aynı sınıf hata
+     bir daha tam bir CI turu harcamasın.
+
+     Bağımlılıklar kurulu değilse atlanır: birim testi iş akışı bilerek
+     kurulum yapmıyor (tests.yml'deki gerekçeye bakınız). */
+  let Ajv, scheme;
+  try {
+    Ajv = require('ajv');
+    scheme = require('../node_modules/app-builder-lib/scheme.json');
+  } catch {
+    t.skip('electron-builder şeması kurulu değil');
+    return;
+  }
+  const ajv = new Ajv({ strict: false, allErrors: true, allowUnionTypes: true, validateFormats: false });
+  const validate = ajv.compile(scheme);
+
+  assert.ok(
+    validate(build),
+    'yapılandırma şemaya uymuyor: ' + JSON.stringify((validate.errors || []).slice(0, 4))
+  );
+
+  /* Doğrulayıcının gerçekten doğruladığını da göster: geçen ama hiçbir şeyi
+     denetlemeyen bir denetim, denetim değildir. */
+  const broken = JSON.parse(JSON.stringify(build));
+  broken.linux.desktop = { Categories: 'AudioVideo;' };
+  assert.ok(!validate(broken), 'şema doğrulayıcı bilinen bozuk değeri kabul etti');
+});

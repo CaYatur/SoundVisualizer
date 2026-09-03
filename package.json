@@ -148,10 +148,7 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Multi-monitor audio visualizer",
-      "description": "Desktop audio visualizer that reacts to system audio in real time.",
-      "desktop": {
-        "Categories": "AudioVideo;Audio;Player;"
-      }
+      "description": "Desktop audio visualizer that reacts to system audio in real time."
     },
     "deb": {
       "depends": [
