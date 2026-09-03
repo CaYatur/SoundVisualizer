@@ -377,6 +377,7 @@
        karartma durumu, etkin sahne kimliği ve görsel normalleştirmesi
        ellerinden kaçardı (Otomatik VJ’de olduğu gibi). */
     actions: () => actions,
+    lightingModes: () => MODE_OPTIONS,
   };
 
 
@@ -441,6 +442,8 @@
         return window.SVScenePanels ? window.SVScenePanels.geometryPanel() : null;
       case 'artnetpanel':
         return window.SVScenePanels ? window.SVScenePanels.artnetPanel() : null;
+      case 'openrgbpanel':
+        return window.SVOpenRGBPanel ? window.SVOpenRGBPanel.panel() : null;
       case 'autovjpanel':
         return window.SVAutoVJ ? window.SVAutoVJ.panel() : null;
       case 'timelinepanel':
@@ -1178,22 +1181,6 @@
       el('div', { class: 'ctrl lighting-actions' }, [refreshBtn, settingsBtn]),
     ];
     if (!available || !lighting.enabled) return el('div', { class: 'lighting-panel' }, children);
-
-    const MODE_OPTIONS = [
-      { value: 'visualizer-sync', label: 'Görselleştirici Renk Akışı', desc: 'Görselleştiricinin bar renklerini aygıt ve LED’lere yayar.' },
-      { value: 'spectrum-bars', label: 'Bar Spektrum Eşleme', desc: 'Her LED’i karşılık gelen frekans barının rengi ve yüksekliğiyle sürer.' },
-      { value: 'band-zones', label: 'Bas · Mid · Tiz Bölgeleri', desc: 'Bas, orta ve tiz frekanslarını ayrı renk bölgelerine böler.' },
-      { value: 'background-sync', label: 'Arka Plan Işık Senkronu', desc: 'Arka plan gradyanının renk, akış ve ses tepkisini ışıklara taşır.' },
-      { value: 'beat-pulse', label: 'Eşzamanlı Ritim Patlaması', desc: 'Seçilen frekans vuruşunda tüm aygıtları aynı tonda parlatır.' },
-      { value: 'ripple', label: 'Frekans Dalga / Ripple', desc: 'Vuruşları LED dizileri boyunca hareket eden renk dalgalarına dönüştürür.' },
-      { value: 'ambient-fusion', label: 'Bar + Arka Plan Füzyonu', desc: 'Bar spektrumu ile arka plan ışıklarını aynı anda karıştırır.' },
-      { value: 'device-flow', label: 'Aygıtlar Arası Renk Akışı', desc: 'Renkleri tüm aygıt ve LED’ler boyunca kesintisiz dolaştırır.' },
-      { value: 'rainbow', label: 'Rainbow Işık Akışı', desc: 'Gökkuşağı renklerini sıralı veya tüm LED’lerde tek ton olarak dolaştırır.' },
-      { value: 'threshold-background-burst', label: 'Eşik Tetiklemeli Arka Plan Patlaması', desc: 'Yalnızca seçilen ses kaynağı eşiği geçtiğinde arka planın gerçek anlık rengiyle ışık darbesi üretir.' },
-      { value: 'single-color', label: 'Tüm Aygıtlarda Tek Renk', desc: 'Bütün ışıklara tek sabit renk uygular.' },
-      { value: 'per-device', label: 'Aygıt Başına Renk', desc: 'Her aydınlatma aygıtına ayrı renk atar.' },
-      { value: 'per-led', label: 'LED / Bölge Başına Renk', desc: 'Her LED veya bölgeyi tek tek ayarlamanızı sağlar.' },
-    ];
 
     const themedDropdown = (label, value, options, onChange, description = true) => {
       const selected = options.find((option) => String(option.value) === String(value)) || options[0];
@@ -2119,6 +2106,18 @@
         controls: [],
       },
       {
+        /* Windows'ta Dynamic Lighting'in YERINE degil YANINA: LampArray
+           yalniz Windows'un tanidigi aygitlari surer, OpenRGB cok daha
+           fazlasini. macOS ve Linux'ta RGB'nin tek yolu budur. */
+        id: 'openrgb',
+        category: 'lighting',
+        icon: '🌈',
+        wide: true,
+        title: 'OpenRGB',
+        desc: 'Ayrı çalışan OpenRGB sunucusuna bağlanır ve RGB aygıtlarını müzikle sürer. Windows, macOS ve Linux.',
+        controls: [{ type: 'openrgbpanel' }],
+      },
+      {
         id: 'artnet',
         category: 'lighting',
         icon: '🎚️',
@@ -2621,6 +2620,24 @@
   const PLATFORM = (typeof window !== 'undefined' && window.SV_PLATFORM) ||
     { os: 'win32', isWindows: true, isMac: false, isLinux: false };
   const isWindows = () => !!PLATFORM.isWindows;
+
+  /* Işık modlarının TEK listesi. OpenRGB paneli de bunu kullanır; iki ayrı
+     liste olsaydı aynı mod iki kartta iki farklı adla görünürdü. */
+  const MODE_OPTIONS = [
+    { value: 'visualizer-sync', label: 'Görselleştirici Renk Akışı', desc: 'Görselleştiricinin bar renklerini aygıt ve LED’lere yayar.' },
+    { value: 'spectrum-bars', label: 'Bar Spektrum Eşleme', desc: 'Her LED’i karşılık gelen frekans barının rengi ve yüksekliğiyle sürer.' },
+    { value: 'band-zones', label: 'Bas · Mid · Tiz Bölgeleri', desc: 'Bas, orta ve tiz frekanslarını ayrı renk bölgelerine böler.' },
+    { value: 'background-sync', label: 'Arka Plan Işık Senkronu', desc: 'Arka plan gradyanının renk, akış ve ses tepkisini ışıklara taşır.' },
+    { value: 'beat-pulse', label: 'Eşzamanlı Ritim Patlaması', desc: 'Seçilen frekans vuruşunda tüm aygıtları aynı tonda parlatır.' },
+    { value: 'ripple', label: 'Frekans Dalga / Ripple', desc: 'Vuruşları LED dizileri boyunca hareket eden renk dalgalarına dönüştürür.' },
+    { value: 'ambient-fusion', label: 'Bar + Arka Plan Füzyonu', desc: 'Bar spektrumu ile arka plan ışıklarını aynı anda karıştırır.' },
+    { value: 'device-flow', label: 'Aygıtlar Arası Renk Akışı', desc: 'Renkleri tüm aygıt ve LED’ler boyunca kesintisiz dolaştırır.' },
+    { value: 'rainbow', label: 'Rainbow Işık Akışı', desc: 'Gökkuşağı renklerini sıralı veya tüm LED’lerde tek ton olarak dolaştırır.' },
+    { value: 'threshold-background-burst', label: 'Eşik Tetiklemeli Arka Plan Patlaması', desc: 'Yalnızca seçilen ses kaynağı eşiği geçtiğinde arka planın gerçek anlık rengiyle ışık darbesi üretir.' },
+    { value: 'single-color', label: 'Tüm Aygıtlarda Tek Renk', desc: 'Bütün ışıklara tek sabit renk uygular.' },
+    { value: 'per-device', label: 'Aygıt Başına Renk', desc: 'Her aydınlatma aygıtına ayrı renk atar.' },
+    { value: 'per-led', label: 'LED / Bölge Başına Renk', desc: 'Her LED veya bölgeyi tek tek ayarlamanızı sağlar.' },
+  ];
 
   function buildSearchIndex() {
     const out = [];

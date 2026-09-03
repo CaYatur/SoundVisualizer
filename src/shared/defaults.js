@@ -627,6 +627,21 @@
     // yayar. Windows Dynamic Lighting'in tamamlayıcısıdır: o tüketici
     // aygıtlarını, bu sahne ışıklarını sürer.
     // ------------------------------------------------------------------
+    // OpenRGB: ayrı çalışan bir sunucuya bağlanır (kullanıcı kurar ve
+    // Settings > General > Enable SDK Server ile açar). Windows Dynamic
+    // Lighting'in YERİNE geçmez, yanına eklenir — LampArray'in tanımadığı
+    // aygıtları sürer ve macOS ile Linux'ta RGB'nin tek yoludur.
+    // Görünüm ayarları (mod, yoğunluk, düzen) lighting ile ORTAKTIR;
+    // ayrı olsaydı aynı masada iki farklı renk yanardı.
+    openrgb: {
+      enabled: false,
+      host: '127.0.0.1',
+      port: 6742,
+      fps: 30,
+      brightness: 1,
+      devices: [], // boş = bulunan bütün sürülebilir aygıtlar
+    },
+
     artnet: {
       enabled: false,
       host: '255.255.255.255', // yayın adresi; tek düğüm için onun IP'si

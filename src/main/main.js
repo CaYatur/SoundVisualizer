@@ -16,6 +16,7 @@ const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
+const openrgb = require('./openrgb');
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
 const { serveMediaFile } = require('./media-file');
@@ -768,6 +769,7 @@ ipcMain.on('update-config', (e, config) => {
   syncStreamServer();
   syncOscServer();
   syncArtnet();
+  syncOpenRgb();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
@@ -835,6 +837,12 @@ ipcMain.on('audio-meter', (e, data) => {
   dynamicLighting.onAudioFrame(data, currentConfig);
   if (currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
+  }
+  /* OpenRGB, Dynamic Lighting ile AYNI görünüm ayarlarını kullanır
+     (cfg.lighting): iki ayrı ayar olsaydı aynı masadaki iki aygıt iki
+     farklı renk yakardı. Windows'ta ikisi birlikte de çalışabilir. */
+  if (currentConfig && currentConfig.openrgb && currentConfig.openrgb.enabled) {
+    openrgb.send(currentConfig.openrgb, currentConfig.lighting, data, currentConfig);
   }
 });
 
@@ -1168,6 +1176,15 @@ function syncArtnet() {
   });
 }
 
+function syncOpenRgb() {
+  const o = (currentConfig && currentConfig.openrgb) || {};
+  if (!o.enabled) return openrgb.stop().then(() => openrgb.status());
+  return openrgb.start(o).then((st) => {
+    notifyAdmin('openrgb-status', st);
+    return st;
+  });
+}
+
 function syncOscServer() {
   const o = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
   if (!o.enabled) return oscServer.stop().then(() => oscServer.status());
@@ -1191,6 +1208,9 @@ ipcMain.handle('osc:status', () => oscServer.status());
 ipcMain.handle('osc:sync', () => syncOscServer());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
+ipcMain.handle('openrgb:status', () => openrgb.status());
+ipcMain.handle('openrgb:sync', () => syncOpenRgb());
+ipcMain.handle('openrgb:rescan', () => openrgb.rescan());
 
 // ----------------------------------------------------------------------------
 // Medya katmanı: video dosyası seçimi
@@ -1611,6 +1631,7 @@ app.whenReady().then(async () => {
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
+  syncOpenRgb().catch(() => {});
 
   // Ekran değişikliklerini admin'e bildir
   screen.on('display-added', () => notifyAdmin('displays-changed', getDisplayList()));
@@ -2607,9 +2628,12 @@ async function runSmoke() {
     const opened = await awc3.executeJavaScript(`(function(){
       if (!window.SVPanel) return 'panel yok';
       var c = window.SVPanel.cfg();
-      if (!c.timeline || !c.clipdeck) return 'bölüm yok';
+      if (!c.timeline || !c.clipdeck || !c.openrgb) return 'bölüm yok';
       c.timeline.enabled = true;
       c.clipdeck.enabled = true;
+      /* OpenRGB de varsayılan kapalı: açılmazsa panelin bütün etiketleri
+         DOM'a hiç girmez ve çevrilmemiş metin fark edilmeden çıkar. */
+      c.openrgb.enabled = true;
       window.SVPanel.rerender();
       return 'açıldı';
     })()`);
@@ -2811,6 +2835,42 @@ async function runSmoke() {
 
       currentConfig = baseCfg;
       if (tmpPreset.ok) presetsStore.remove(tmpPreset.preset.id);
+    }
+  }
+
+  /* OpenRGB paneli gerçekten çiziliyor mu ve mod listesini Dynamic
+     Lighting ile PAYLAŞIYOR mu? İki ayrı liste olsaydı aynı mod iki
+     kartta iki farklı adla görünürdü ve bunu kimse fark etmezdi. */
+  const orgb = await adminWin.webContents.executeJavaScript(`(function(){
+    if (!window.SVOpenRGBPanel || !window.SVPanel) return JSON.stringify({ hata: 'panel yok' });
+    var c = window.SVPanel.cfg();
+    c.openrgb.enabled = true;
+    window.SVPanel.rerender();
+    var nodes = window.SVOpenRGBPanel.panel();
+    var modes = window.SVOpenRGBPanel.modes();
+    var shared = window.SVPanel.lightingModes ? window.SVPanel.lightingModes() : [];
+    return JSON.stringify({
+      düğümTürü: (nodes && nodes.nodeType) || 0,
+      düğüm: (nodes && nodes.childNodes) ? nodes.childNodes.length : -1,
+      mod: modes.length,
+      ortakListe: shared.length > 0 && modes.every(function(m){
+        return shared.some(function(x){ return x.value === m.value && x.label === m.label; });
+      }),
+      statikYok: modes.every(function(m){ return m.value !== 'single-color'; }),
+    });
+  })()`);
+  console.log('[SMOKE] OpenRGB paneli: ' + orgb);
+  {
+    const o = JSON.parse(orgb);
+    if (o.hata) errors.push('openrgb: ' + o.hata);
+    else {
+      /* Çerçeve appendChild ile ekliyor: dizi dönmek paneli tümüyle
+         görünmez yapar ve konsola tek satır hata bırakır. */
+      if (o.düğümTürü !== 1) errors.push('openrgb: the panel did not return a single element node');
+      if (!(o.düğüm > 4)) errors.push('openrgb: the panel drew almost nothing (' + o.düğüm + ' children)');
+      if (!(o.mod > 4)) errors.push('openrgb: no lighting modes are offered');
+      if (!o.ortakListe) errors.push('openrgb: the mode list is a second copy, not the shared one');
+      if (!o.statikYok) errors.push('openrgb: static modes are offered but cannot be driven');
     }
   }
 

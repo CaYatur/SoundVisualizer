@@ -915,3 +915,13 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
    çizelge ince bir şerit gibi durunca "bozuk" izlenimi veriyordu. */
 .tl-canvas-wrap { min-height: 120px; background: rgba(255,255,255,.015); }
 .tl-track-row .btn.small { flex: 0 0 auto; }
+
+/* OpenRGB aygıt listesi. Sürülemeyen aygıtlar sönük çizilir: renk kabul
+   etmeyen bir aygıta anahtar sunmak, çalışmayan bir düğme sunmaktır. */
+.orgb-devices { display: flex; flex-direction: column; gap: 4px; padding: 4px 0; }
+.orgb-device { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,.03); }
+.orgb-device.dim { opacity: .5; }
+.orgb-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orgb-meta { flex: 0 0 auto; opacity: .7; font-variant-numeric: tabular-nums; }
+.orgb-warn { flex: 0 0 auto; font-size: 11px; opacity: .8; }
+.link-note { display: inline-block; padding: 2px 0 8px; font-size: 12px; opacity: .85; }
