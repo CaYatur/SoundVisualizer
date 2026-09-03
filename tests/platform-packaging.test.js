@@ -149,3 +149,12 @@ test('paketleme yapılandırması electron-builder şemasına uyuyor', (t) => {
   broken.linux.desktop = { Categories: 'AudioVideo;' };
   assert.ok(!validate(broken), 'şema doğrulayıcı bilinen bozuk değeri kabul etti');
 });
+
+test('.deb bakımcı adresi tanımlı', () => {
+  /* electron-builder .deb üretirken bunu ŞART koşuyor ve yokluğunda derlemeyi
+     durduruyor. Windows ve macOS derlemesi bundan etkilenmediği için, alan
+     kaldırılırsa yalnız Linux sessizce kırılırdı. */
+  const m = (build.deb && build.deb.maintainer) || '';
+  const email = (pkg.author && pkg.author.email) || '';
+  assert.ok(/@/.test(m) || /@/.test(email), 'ne deb.maintainer ne author.email var');
+});

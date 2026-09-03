@@ -5,6 +5,7 @@
   "main": "src/main/main.js",
   "author": {
     "name": "CAYADEV",
+    "email": "contact@cayadev.com",
     "url": "https://cayadev.com"
   },
   "homepage": "https://cayadev.com",
@@ -162,7 +163,8 @@
         "xdg-utils",
         "libatspi2.0-0",
         "libsecret-1-0"
-      ]
+      ],
+      "maintainer": "CAYADEV <contact@cayadev.com>"
     }
   }
 }
