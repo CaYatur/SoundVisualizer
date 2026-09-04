@@ -190,9 +190,27 @@ test('atama: for başlığına dokunmaz', () => {
   assert.match(r, /for\(float i=0\.0;i<4\.0;i\+\+\)/);
 });
 
-/* const ilk değeri SABİT ifade olmalı; fonksiyon çağrısı olamaz. */
-test('atama: const bildirimini sarmalamaz', () => {
-  assert.strictEqual(T.rewrite('const float k = 0.0;'), 'const float k = 0.0;');
+/* GLSL const'un ilk değerinin SABİT ifade olmasını istiyor, HLSL istemiyor:
+   presetler `const float sw = rand_preset.x >= .4;` gibi satırlar yazıyor ve
+   o shader'lar yalnızca bu yüzden derlenmiyordu. Niteleyiciyi düşürmek
+   satırı sıradan bir yerel değişkene çeviriyor; const'un burada koruduğu
+   hiçbir şey yok, çünkü bu gövdeler tek geçişte koşuyor. */
+test('const niteleyicisi düşürülür, ilk değer sabit olmak zorunda kalmaz', () => {
+  assert.strictEqual(T.rewrite('const float k = 0.0;'), 'float k = toF(0.0);');
+  assert.doesNotMatch(T.rewrite('const float sw = rand_preset.x >= .4;'), /const/);
+});
+
+/* HLSL karşılaştırmayı 0/1 diye okur; GLSL okumaz ve bool'u float'a atamaz. */
+test('atama: karşılaştırma sonucu sayıya çevrilir', () => {
+  assert.match(T.rewrite('float m = (z1 < 1.3);'), /toF\(\(z1 < 1\.3\)\)/);
+});
+
+/* HLSL'de serbest olan bu adlar GLSL ES'te ayrılmış; presetler bunları
+   değişken adı yapıyor ve shader yalnızca bu yüzden derlenmiyordu. */
+test('GLSL ayrılmış sözcükleri değişken adı olarak kullanılabilir', () => {
+  const r = T.rewrite('float3 output = tex2D(sampler_main, uv).xyz;');
+  assert.doesNotMatch(r, /\boutput\b/);
+  assert.match(r, /vec3 output_v/);
 });
 
 /* Yalnızca ilk adı çizelgeye yazmak `float zv, zw;` durumunda ikinciyi

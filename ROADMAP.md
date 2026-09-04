@@ -119,7 +119,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **900 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **902 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   the rest came with v3.1.1. Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
