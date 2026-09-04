@@ -238,18 +238,30 @@ void main(){ outColor = vCol; }`;
       this.time += step;
       this.frameNo++;
 
+      /* MilkDrop bantları MUTLAK genlik olarak değil, uzun dönem ortalamaya
+         ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek. Eskiden buraya
+         çözümleyicinin 0..1 genliği doğrudan veriliyordu; tipik müzikte 0,3
+         civarında gezdiği için presetler sürekli "neredeyse sessiz" okuyup
+         kıpırdamıyordu. `_att` de anlık değere eşitlenmişti, yani presetlerin
+         bilerek kurduğu ani/yavaş karşıtlığı hiç yoktu. */
+      if (!this._audioNorm) this._audioNorm = new window.SVMilkdropAudio.MilkdropAudio();
+      const a = this._audioNorm.update(step, {
+        bass: audio.bass, mid: audio.mid, treb: audio.treble,
+      });
+
+      /* Duyarlılık oranı doğrudan ÇARPAMAZ: girdiyi ölçeklemek ortalamayı da
+         ölçekler ve oran değişmeden kalır. Bunun yerine normalden SAPMA
+         büyütülüyor, böylece 1,0 = normal sözleşmesi bozulmuyor. */
       const sens = (cfg.visualizer && cfg.visualizer.sensitivity) || 1;
-      const bass = Math.min(4, audio.bass * sens * 2);
-      const mid = Math.min(4, audio.mid * sens * 2);
-      const treb = Math.min(4, audio.treble * sens * 2);
+      const gain = (r) => Math.max(0, 1 + (r - 1) * sens);
 
       // Kare geneli hareket
       this.preset.frame({
         time: this.time,
         frame: this.frameNo,
         fps: 1 / Math.max(1e-3, step),
-        bass, mid, treb,
-        bass_att: bass, mid_att: mid, treb_att: treb,
+        bass: gain(a.bass), mid: gain(a.mid), treb: gain(a.treb),
+        bass_att: gain(a.bass_att), mid_att: gain(a.mid_att), treb_att: gain(a.treb_att),
         progress: (this.time * 0.1) % 1,
         meshx: MESH_X, meshy: MESH_Y,
         aspectx: 1, aspecty: GH / GW,

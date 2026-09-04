@@ -146,9 +146,24 @@
     // Arama
     if (presets.length > 6) {
       nodes.push(P().row('Ara', el('input', {
-        class: 'p-in', type: 'search', value: filter,
+        class: 'p-in md-search', type: 'search', value: filter,
         placeholder: 'preset adı',
-        oninput: (e) => { filter = e.target.value; P().rerender(); },
+        /* Filtre paneli baştan çiziyor, yani bu girdi düğümü siliniyor ve
+           yerine yenisi geliyor. Odak da onunla birlikte gidiyordu: kullanıcı
+           her harften sonra kutuya yeniden tıklamak zorunda kalıyordu.
+           Yeni düğümü bulup odağı ve imleç yerini geri koyuyoruz. */
+        oninput: (e) => {
+          filter = e.target.value;
+          const caret = e.target.selectionStart;
+          P().rerender();
+          // Yalnızca panellerin çizildiği kökte ara: belge geneli, ileride
+          // ikinci bir örnek çizilirse yanlış kutuya odaklanırdı
+          const root = document.getElementById('sections') || document;
+          const again = root.querySelector('.md-search');
+          if (!again) return;
+          again.focus();
+          try { again.setSelectionRange(caret, caret); } catch (_) { /* desteklemeyen tarayıcı */ }
+        },
       })));
     }
 
