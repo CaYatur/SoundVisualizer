@@ -227,7 +227,10 @@ test('translate: tam bir GLSL ES 3.00 shader üretir', () => {
   assert.strictEqual(r.empty, false);
   assert.match(r.glsl, /^#version 300 es/);
   assert.match(r.glsl, /void main\(\) \{/);
-  assert.match(r.glsl, /outColor = vec4\(ret, 1\.0\);/);
+  /* Çıkış kırpılıyor: MilkDrop'un tamponu 0..1'de doyuyor ve presetler o
+     doyuma güveniyor. Yarım kayan noktalı tamponda kırpma olmayınca
+     değerler geri beslemede sınırsız büyüyüp ekranı tek renge boğuyordu. */
+  assert.match(r.glsl, /outColor = vec4\(clamp\(ret, 0\.0, 1\.0\), 1\.0\);/);
 });
 
 test('translate: boş kaynağı boş olarak işaretler', () => {

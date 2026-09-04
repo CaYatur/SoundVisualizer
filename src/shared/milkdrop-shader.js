@@ -835,7 +835,13 @@
       // presetin küresel ilk değerleri: uniform okuyabilsinler diye burada
       .concat(hoisted.prologue, hoisted.prologue.length ? [''] : [])
       .concat(body.split('\n').map((l) => '  ' + l))
-      .concat(['', '  outColor = vec4(ret, 1.0);', '}']);
+      .concat(['', /* Çıkış KIRPILIYOR. MilkDrop'un tamponları tamsayı ve 0..1 aralığında
+         doyuyor; presetler bu doyuma güvenerek `ret *= 5` gibi satırlar
+         yazıyor. Bizde tampon yarım kayan noktaya geçince o doyum ortadan
+         kalktı ve değerler geri besleme döngüsünde sınırsız büyüyüp ekranı
+         tek renge boğdu. Kırpma, kayan noktanın ince adımlarını korurken
+         taşmayı geri engelliyor. */
+      '  outColor = vec4(clamp(ret, 0.0, 1.0), 1.0);', '}']);
 
     return {
       glsl: head.concat(mid, main).join('\n'),
