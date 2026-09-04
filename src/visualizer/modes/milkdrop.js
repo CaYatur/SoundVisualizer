@@ -29,6 +29,10 @@
    Bağlanmadıklarında shader hatasız derleniyor ama siyah örnekliyor —
    yani preset "çalışıyor" görünüp bambaşka bir görüntü veriyor. */
 (function () {
+  /* MilkDrop presetlerinin yazildigi referans kare hizi. decay gibi kare
+     basina uygulanan sayilar buna gore olcekleniyor. */
+  const REF_FPS = 30;
+
   const MESH_X = 48;
   const MESH_Y = 36;
   // düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1)
@@ -92,6 +96,7 @@ uniform float uGamma;
 uniform float uEchoAlpha;
 uniform float uEchoZoom;
 uniform int uEchoOrient;
+uniform vec4 uFx;          // brighten, darken, solarize, invert
 void main(){
   vec3 c = texture(uSrc, vUV).rgb;
   if (uEchoAlpha > 0.001) {
@@ -101,6 +106,14 @@ void main(){
     c = mix(c, texture(uSrc, e).rgb, uEchoAlpha);
   }
   c *= uGamma;
+  c = clamp(c, 0.0, 1.0);
+  /* MilkDrop'un MD1 donemi sabit efektleri. Bunlar shader'dan onceki
+     surumlerden kalma ama eski presetlerin cogu hala kullaniyor; yoklugunda
+     o presetler yazarinin istedigi kontrasti hic gostermiyordu. */
+  if (uFx.x > 0.5) c = sqrt(c);
+  if (uFx.y > 0.5) c = c * c;
+  if (uFx.z > 0.5) c = c * (1.0 - c) * 4.0;
+  if (uFx.w > 0.5) c = 1.0 - c;
   outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
@@ -238,6 +251,7 @@ void main(){ outColor = vCol; }`;
           uEchoAlpha: gl.getUniformLocation(this.compFixed, 'uEchoAlpha'),
           uEchoZoom: gl.getUniformLocation(this.compFixed, 'uEchoZoom'),
           uEchoOrient: gl.getUniformLocation(this.compFixed, 'uEchoOrient'),
+          uFx: gl.getUniformLocation(this.compFixed, 'uFx'),
         };
         this.locBlur = {
           uSrc: gl.getUniformLocation(this.blurProg, 'uSrc'),
@@ -659,8 +673,19 @@ void main(){ outColor = vCol; }`;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, src.tex);
         gl.uniform1i(this.locWarpFixed.uPrev, 0);
+        /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
+           0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
+
+           KARE HIZI DUZELTMESI: MilkDrop decay'i kare BASINA uyguluyor ve
+           kare hizina gore duzeltmiyor. Presetler de o donemin ~30 fps'inde
+           yazilmis. 60 fps'te ayni sayiyi kullanmak saniyede iki kat sondurup
+           goruntuyu presetin istediginden cok daha karanlik birakiyor —
+           olcerek gorduk. Ussu kare suresiyle olceklemek, saniyedeki sonme
+           miktarini kare hizindan bagimsiz kiliyor. */
         const decay = this.preset.get('decay');
-        gl.uniform1f(this.locWarpFixed.uDecay, decay > 0 ? Math.min(1, decay) : 0.98);
+        const raw = decay > 0 ? Math.min(1, decay) : 0.98;
+        const fps = 1 / Math.max(1e-3, step);
+        gl.uniform1f(this.locWarpFixed.uDecay, Math.pow(raw, REF_FPS / Math.max(1, fps)));
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts);
@@ -668,15 +693,24 @@ void main(){ outColor = vCol; }`;
       gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
       gl.bindVertexArray(null);
 
-      /* --- 4. Çizimler, warp'ın üstüne. MilkDrop'un sırası: önce şekiller,
+      /* --- 4. BLUR ZİNCİRİ, çizimlerden ÖNCE.
+
+         MilkDrop bulanık kopyaları warp'ın hemen ardından, şekiller ve
+         dalgalar çizilmeden alıyor: GetBlur akan görüntünün bulanık hali
+         demek, üstüne çizilmiş parlak şekillerin değil. Sonraya bırakmak
+         şekilleri de bulanığa karıştırıyor ve GetBlur okuyan presetlerde
+         (yüzde 85,5'i) görünür bir fark yaratıyor. */
+      this._buildBlur(dst.tex);
+
+      /* --- 5. Çizimler, warp'ın üstüne. MilkDrop'un sırası: önce şekiller,
          sonra custom dalgalar, en son varsayılan dalga formu. Sıra görünür:
          toplamalı bir şekil kendinden sonra çizilen dalgayı yıkamaz. */
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+      gl.viewport(0, 0, GW, GH);
+      this._waveSamples(audio, this.preset.get('wave_scale'));
       this._drawShapes(gl, GW, GH);
       this._drawCustomWaves(gl, audio);
-      this._drawWave(gl, audio, base);
-
-      // --- 5. BLUR ZİNCİRİ
-      this._buildBlur(dst.tex);
+      this._drawWaveModes(gl, GW, GH);
 
       // --- 6. COMP GEÇİŞİ, doğrudan ekrana
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -691,11 +725,15 @@ void main(){ outColor = vCol; }`;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, dst.tex);
         gl.uniform1i(this.locComp.uSrc, 0);
-        const gamma = this.preset.get('fgammaadj') || this.preset.get('gamma') || 1;
+        const Pp = this.preset;
+        const gamma = Pp.get('gamma') || 1;
         gl.uniform1f(this.locComp.uGamma, gamma > 0 ? gamma : 1);
-        gl.uniform1f(this.locComp.uEchoAlpha, this.preset.get('fvideoechoalpha') || 0);
-        gl.uniform1f(this.locComp.uEchoZoom, this.preset.get('fvideoechozoom') || 1);
-        gl.uniform1i(this.locComp.uEchoOrient, Math.round(this.preset.get('nvideoechoorientation') || 0));
+        gl.uniform1f(this.locComp.uEchoAlpha, Pp.get('echo_alpha') || 0);
+        gl.uniform1f(this.locComp.uEchoZoom, Pp.get('echo_zoom') || 1);
+        gl.uniform1i(this.locComp.uEchoOrient, Math.round(Pp.get('echo_orient') || 0));
+        gl.uniform4f(this.locComp.uFx,
+          Pp.get('brighten') ? 1 : 0, Pp.get('darken') ? 1 : 0,
+          Pp.get('solarize') ? 1 : 0, Pp.get('invert') ? 1 : 0);
       }
       gl.bindVertexArray(this.quadVao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -817,8 +855,16 @@ void main(){ outColor = vCol; }`;
       const P = this.preset;
       if (!P || !P.shapes || !P.shapes.length) return;
       const d = this.lineData;
-      // Çemberin çember kalması için: kırpma uzayında x ve y aynı ölçekte değil
-      const ry = GW / Math.max(1, GH);
+      /* En-boy düzeltmesi X'E uygulanıyor, Y'ye değil — MilkDrop da öyle.
+         Y'yi büyütmek de çemberi çember yapar ama yarıçapın anlamını
+         değiştirir: MilkDrop'ta `rad` ekran YÜKSEKLİĞİNİN oranı, ve
+         presetler değerlerini ona göre seçmiş. Y'den ölçeklersek geniş
+         ekranda bütün şekiller olduğundan büyük çıkıyor. */
+      const aspY = GW > GH ? GH / GW : 1;
+      /* MilkDrop çokgeni çeyrek tur döndürerek başlatıyor. Dört kenarlı bir
+         şekil bu yüzden kare değil BAKLAVA görünür; kaldırırsak düşük
+         kenarlı bütün şekiller 45 derece dönmüş olur. */
+      const ANG0 = Math.PI * 0.25;
       const out = this._shapeOut || (this._shapeOut = {});
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
@@ -842,10 +888,10 @@ void main(){ outColor = vCol; }`;
           d[0] = cxp; d[1] = cyp;
           d[2] = c1[0]; d[3] = c1[1]; d[4] = c1[2]; d[5] = c1[3];
           for (let i = 0; i <= n; i++) {
-            const th = ang0 + (i / n) * Math.PI * 2;
+            const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
             const k = (i + 1) * 6;
-            d[k] = cxp + Math.cos(th) * rad;
-            d[k + 1] = cyp + Math.sin(th) * rad * ry;
+            d[k] = cxp + Math.cos(th) * rad * aspY;
+            d[k + 1] = cyp + Math.sin(th) * rad;
             d[k + 2] = c2[0]; d[k + 3] = c2[1]; d[k + 4] = c2[2]; d[k + 5] = c2[3];
           }
           this._blend(gl, s.additive);
@@ -857,10 +903,10 @@ void main(){ outColor = vCol; }`;
           const ba = Math.max(0, Math.min(1, +o.border_a || 0));
           if (ba > 0.002) {
             for (let i = 0; i < n; i++) {
-              const th = ang0 + (i / n) * Math.PI * 2;
+              const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
               const k = i * 6;
-              d[k] = cxp + Math.cos(th) * rad;
-              d[k + 1] = cyp + Math.sin(th) * rad * ry;
+              d[k] = cxp + Math.cos(th) * rad * aspY;
+              d[k + 1] = cyp + Math.sin(th) * rad;
               d[k + 2] = cl(o.border_r); d[k + 3] = cl(o.border_g);
               d[k + 4] = cl(o.border_b); d[k + 5] = ba;
             }
@@ -922,48 +968,206 @@ void main(){ outColor = vCol; }`;
       gl.disable(gl.BLEND);
     }
 
-    _drawWave(gl, audio, base) {
-      const wave = audio.timeBytes;
-      if (!wave || wave.length < 8) return;
-      const P = this.preset;
-      const N = Math.min(512, wave.length);
-      const d = this.lineData;
-      /* Kırpma motorda (SVMilkdrop.clampColor): kural MilkDrop'un kuralı ve
-         burada iki kez yanlış yazıldı — `x || 1` geçerli sıfırı 1 yapıyordu,
-         üst sınır ise yoktu. */
-      const cl = window.SVMilkdrop.clampColor;
-      const cr = cl(P.get('wave_r'));
-      const cg = cl(P.get('wave_g'));
-      const cb = cl(P.get('wave_b'));
-      /* wave_a SIFIR olabilir ve bu "çizme" demek — custom dalga kullanan
-         presetler varsayılan dalgayı tam olarak böyle kapatıyor. Eskiden
-         sıfır "belirtilmemiş" sayılıp 0,4'e çekiliyordu, yani kapatılmış
-         dalga yine de çiziliyordu. Havuz varsayılanı zaten 1. */
-      const av = P.get('wave_a');
-      const ca = Math.max(0, Math.min(1, isFinite(av) ? av : 1));
-      if (ca <= 0.002) return;
-      const amp = 0.38;
-      for (let i = 0; i < N; i++) {
-        const f = i / (N - 1);
-        const s = (wave[Math.floor((i * wave.length) / N)] - 128) / 128;
-        const o = i * 6;
-        d[o] = f * 2 - 1;
-        d[o + 1] = s * amp;
-        d[o + 2] = cr;
-        d[o + 3] = cg;
-        d[o + 4] = cb;
-        d[o + 5] = ca;
+    /* MilkDrop'un dalga örnekleri: iki kanal, kabaca -1..1, wave_scale ile
+       ölçekli. NUM_WAVEFORM_SAMPLES 512, diziler 576 çünkü bazı modlar
+       ileriye 64 örnek bakıyor (`fL[i+32]` gibi).
+
+       BİLEREK YAKLAŞIK: elimizdeki zaman verisi TEK KANAL. MilkDrop'un 2, 3
+       ve 5 numaralı modları gerçek stereodan Lissajous şekli çiziyor; aynı
+       diziyi iki kanal saymak onları düz bir köşegene indirirdi. Bu yüzden
+       sağ kanal 128 örnek kaydırılmış halinden türetiliyor: faz farkı gerçek
+       bir iki boyutlu şekil veriyor, ama gerçek stereo değil. */
+    _waveSamples(audio, scale) {
+      const tb = audio.timeBytes;
+      if (!tb || tb.length < 8) return false;
+      if (!this._fL) { this._fL = new Float32Array(576); this._fR = new Float32Array(576); }
+      const L = this._fL, R = this._fR;
+      const n = tb.length;
+      const s = isFinite(scale) && scale !== 0 ? scale : 1;
+      for (let i = 0; i < 576; i++) {
+        L[i] = ((tb[i % n] - 128) / 128) * s;
+        R[i] = ((tb[(i + 128) % n] - 128) / 128) * s;
       }
+      return true;
+    }
+
+    /* MilkDrop'un varsayılan dalga formu — SEKİZ ayrı biçim.
+
+       Eskiden burada tek bir düz yatay çizgi vardı ve her preset onu
+       çiziyordu. Oysa `nWaveMode` presetin en görünür ayarlarından biri:
+       0 bir çember, 1 dönen bir yumak, 2/3 Lissajous, 4 yumuşatılmış yatay
+       çizgi, 5 döndürülmüş sekiz, 6/7 açılı çift çizgi. Tek biçim çizmek,
+       presetlerin çoğunu yazarının çizdiğinden bambaşka gösteriyordu.
+
+       Formüller BeatDrop/MilkDrop2'nin DrawWave'inden alındı; sabitler
+       (0.4, 0.53, 1.57, 2.3 ...) oradaki değerlerin aynısı — yuvarlarsak
+       biçim gözle görülür şekilde kayıyor. */
+    _drawWaveModes(gl, GW, GH) {
+      const P = this.preset;
+      const cl = window.SVMilkdrop.clampColor;
+      let alpha = P.get('wave_a');
+      alpha = Math.max(0, Math.min(1, isFinite(alpha) ? alpha : 1));
+      if (alpha <= 0.002) return;
+
+      const L = this._fL, R = this._fR;
+      const d = this.lineData;
+      const mode = ((Math.round(P.get('wave_mode')) % 8) + 8) % 8;
+      const posX = (P.get('wave_x') || 0) * 2 - 1;
+      /* wave_y'de ÇEVİRME YOK. Şekillerde var (`y*-2+1`), dalgada yok —
+         MilkDrop kaynağı bunu "orijinalinde tersti, öyle bırakıyoruz" diye
+         işaretliyor. İkisini aynı sanmak dalgayı ekranın yanlış yarısına
+         koyuyor. */
+      const posY = (P.get('wave_y') || 0) * 2 - 1;
+      let myst = P.get('wave_mystery') || 0;
+      if ((mode === 0 || mode === 1 || mode === 4) && (myst < -1 || myst > 1)) {
+        myst = myst * 0.5 + 0.5;
+        myst -= Math.floor(myst);
+        myst = Math.abs(myst) * 2 - 1;
+      }
+      // MilkDrop: kısa kenar 1, uzun kenar oranla küçültülür
+      const aspX = GH > GW ? GW / GH : 1;
+      const aspY = GW > GH ? GH / GW : 1;
+
+      let cr = cl(P.get('wave_r')), cg = cl(P.get('wave_g')), cb = cl(P.get('wave_b'));
+      // wave_brighten: en parlak kanalı 1'e çekip rengi doyurur
+      if (P.get('wave_brighten')) {
+        const mx = Math.max(cr, cg, cb);
+        if (mx > 0.01) { cr /= mx; cg /= mx; cb /= mx; }
+      }
+
+      const SAMPLES = 512;
+      let n = SAMPLES;
+      let off = 0;
+      let breakAt = -1;
+      const put = (i, x, y) => {
+        const k = i * 6;
+        d[k] = x; d[k + 1] = y;
+        d[k + 2] = cr; d[k + 3] = cg; d[k + 4] = cb; d[k + 5] = alpha;
+      };
+
+      if (mode === 0) {
+        n = SAMPLES / 2;
+        off = (SAMPLES - n) / 2;
+        const inv = 1 / (n - 1);
+        for (let i = 0; i < n; i++) {
+          let rad = 0.5 + 0.4 * (L[i + off] + R[i + off]) * 0.5 + myst;
+          const ang = i * inv * 6.28 + this.time * 0.2;
+          // İlk %10 ikinci okumaya harmanlanıyor: çember kapanırken sıçramasın
+          if (i < n / 10) {
+            let mix = i / (n * 0.1);
+            mix = 0.5 - 0.5 * Math.cos(mix * 3.1416);
+            const rad2 = 0.5 + 0.4 * (L[i + n + off] + R[i + n + off]) * 0.5 + myst;
+            rad = rad2 * (1 - mix) + rad * mix;
+          }
+          put(i, rad * Math.cos(ang) * aspY + posX, rad * Math.sin(ang) * aspX + posY);
+        }
+        put(n, d[0], d[1]);
+        n++;
+      } else if (mode === 1) {
+        alpha = Math.min(1, alpha * 1.25);
+        n = SAMPLES / 2;
+        for (let i = 0; i < n; i++) {
+          const rad = 0.53 + 0.43 * R[i] + myst;
+          const ang = L[i + 32] * 1.57 + this.time * 2.3;
+          put(i, rad * Math.cos(ang) * aspY + posX, rad * Math.sin(ang) * aspX + posY);
+        }
+      } else if (mode === 2 || mode === 3) {
+        // MilkDrop 512'lik tamponda 2 numaralı modu belirgin şekilde soluklaştırıyor
+        alpha = Math.min(1, mode === 2 ? alpha * 0.09 : alpha * 1.3);
+        for (let i = 0; i < n; i++) {
+          put(i, R[i] * aspY + posX, L[i + 32] * aspX + posY);
+        }
+      } else if (mode === 4) {
+        off = 0;
+        const w1 = 0.45 + 0.5 * (myst * 0.5 + 0.5);
+        const w2 = 1 - w1;
+        const inv = 1 / n;
+        let px1 = 0, py1 = 0, px2 = 0, py2 = 0;
+        for (let i = 0; i < n; i++) {
+          let x = -1 + 2 * (i * inv) + posX + R[i + 25] * 0.44;
+          let y = 0.5 * (L[i] + R[i]) * 0.47 + posY;
+          // Kendi geçmişine bakan yumuşatma: çizgiyi akıcı bir şeride çeviriyor
+          if (i > 1) {
+            x = x * w2 + w1 * (px1 * 2 - px2);
+            y = y * w2 + w1 * (py1 * 2 - py2);
+          }
+          put(i, x, y);
+          px2 = px1; py2 = py1; px1 = x; py1 = y;
+        }
+      } else if (mode === 5) {
+        const c = Math.cos(this.time * 0.3);
+        const s = Math.sin(this.time * 0.3);
+        for (let i = 0; i < n; i++) {
+          const x0 = R[i] * L[i + 32] + L[i] * R[i + 32];
+          const y0 = R[i] * R[i] - L[i + 32] * L[i + 32];
+          put(i, (x0 * c - y0 * s) * aspY + posX, (x0 * s + y0 * c) * aspX + posY);
+        }
+      } else {
+        // 6 ve 7: açılı çift çizgi, aralarındaki mesafe wave_y'den
+        const half = SAMPLES / 2;
+        off = (SAMPLES - half) / 2;
+        const ang = 1.57 * myst;
+        const dx = Math.cos(ang), dy = Math.sin(ang);
+        const ex = posX * Math.cos(ang + 1.57) - dx * 3;
+        const ey = posX * Math.sin(ang + 1.57) - dy * 3;
+        const stepX = (dx * 6) / half;
+        const stepY = (dy * 6) / half;
+        const pdx = -dy, pdy = dx;
+        const sep = Math.pow(posY * 0.5 + 0.5, 2);
+        for (let i = 0; i < half; i++) {
+          const f = 0.25 * L[i + off] + sep;
+          put(i, ex + stepX * i + pdx * f, ey + stepY * i + pdy * f);
+        }
+        for (let i = 0; i < half; i++) {
+          const f = 0.25 * R[i + off] - sep;
+          put(half + i, ex + stepX * i + pdx * f, ey + stepY * i + pdy * f);
+        }
+        breakAt = half;
+        n = half * 2;
+      }
+
+      if (n < 2) return;
+      // Renk/alfa yukarıda değişmiş olabilir; tepe verisine yeniden yaz
+      for (let i = 0; i < n; i++) {
+        const k = i * 6;
+        d[k + 2] = cr; d[k + 3] = cg; d[k + 4] = cb; d[k + 5] = alpha;
+      }
+
+      this._blend(gl, !!P.get('wave_additive'));
       gl.useProgram(this.lineProg);
-      gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, d);
       gl.bindVertexArray(this.lineVao);
-      gl.drawArrays(gl.LINE_STRIP, 0, N);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+      const kind = P.get('wave_usedots') ? gl.POINTS : gl.LINE_STRIP;
+      /* İki çizgili modlarda tek bir şerit çizmek ikisini birbirine bağlayan
+         yapay bir çapraz üretiyor; bu yüzden ayrı ayrı çiziliyor. */
+      if (breakAt > 0) {
+        gl.drawArrays(kind, 0, breakAt);
+        gl.drawArrays(kind, breakAt, n - breakAt);
+      } else {
+        gl.drawArrays(kind, 0, n);
+      }
+      /* wave_thick: MilkDrop çizgiyi bir piksel kaydırıp tekrar çiziyor.
+         Gerçek kalın çizgi WebGL'de yok (lineWidth çoğu sürücüde 1'de sabit),
+         bu yüzden aynı yol izleniyor. */
+      if (P.get('wave_thick') && kind === gl.LINE_STRIP) {
+        const ox = 2 / GW, oy = 2 / GH;
+        for (const [sx, sy] of [[ox, 0], [0, oy], [ox, oy]]) {
+          for (let i = 0; i < n; i++) { d[i * 6] += sx; d[i * 6 + 1] += sy; }
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+          if (breakAt > 0) {
+            gl.drawArrays(kind, 0, breakAt);
+            gl.drawArrays(kind, breakAt, n - breakAt);
+          } else {
+            gl.drawArrays(kind, 0, n);
+          }
+          for (let i = 0; i < n; i++) { d[i * 6] -= sx; d[i * 6 + 1] -= sy; }
+        }
+      }
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
     }
+
 
     // Motor kurulamazsa sahne boş kalmasın
     _fallback(W, H) {

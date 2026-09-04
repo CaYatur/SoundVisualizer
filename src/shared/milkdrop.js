@@ -844,6 +844,40 @@
   /* Custom dalga/şekil havuzlarına taşınan kare geneli girdiler. Liste tek
      yerde duruyor: taşınmayan bir ad alt blokta sessizce sıfır kalır ve
      preset hiç kıpırdamaz — hata da vermez. */
+  /* Preset başlığındaki ad -> denklemlerdeki ad. MilkDrop bu ikisini ayrı
+     tutuyor ve presetler ikisini de kullanıyor: başlıkta `nWaveMode=2`,
+     per_frame içinde `wave_mode = 3`. */
+  const PARAM_ALIAS = [
+    /* Kare geneli görüntü ayarları. `fDecay` gözden kaçtığında sonuç sessiz
+       ama büyük: motor `decay` adını bulamayıp 0,98'lik kendi varsayılanına
+       düşüyordu, oysa preset 0,5 yazmıştı. Görüntü sönmek yerine birikiyor
+       ve birkaç saniyede beyaza doyuyordu. */
+    ['fdecay', 'decay'],
+    ['fgammaadj', 'gamma'],
+    ['fvideoechoalpha', 'echo_alpha'],
+    ['fvideoechozoom', 'echo_zoom'],
+    ['nvideoechoorientation', 'echo_orient'],
+    ['bdarkencenter', 'darken_center'],
+    ['bbrighten', 'brighten'],
+    ['bdarken', 'darken'],
+    ['bsolarize', 'solarize'],
+    ['binvert', 'invert'],
+    ['fwarpanimspeed', 'warpanimspeed'],
+    ['fwarpscale', 'warpscale'],
+    ['fshader', 'fshader'],
+    ['nwavemode', 'wave_mode'],
+    ['bwavedots', 'wave_usedots'],
+    ['bwavethick', 'wave_thick'],
+    ['badditivewaves', 'wave_additive'],
+    ['bmaximizewavecolor', 'wave_brighten'],
+    ['fwavealpha', 'wave_a'],
+    ['fwavescale', 'wave_scale'],
+    ['fwavesmoothing', 'wave_smoothing'],
+    ['bmodwavealphabyvolume', 'wave_modalpha'],
+    ['fmodwavealphastart', 'wave_modalpha_start'],
+    ['fmodwavealphaend', 'wave_modalpha_end'],
+  ];
+
   const SHARED_VARS = [
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
@@ -865,10 +899,27 @@
       this.pool.set('wave_g', 1);
       this.pool.set('wave_b', 1);
       this.pool.set('wave_a', 1);
+      /* Dalganın EKRANDAKİ YERİ. Havuzun doğal başlangıcı 0 ve 0, MilkDrop'ta
+         sol/alt kenar demek: dalga ekranın dışına kayardı. MilkDrop'un
+         varsayılanı ortadır. */
+      this.pool.set('wave_x', 0.5);
+      this.pool.set('wave_y', 0.5);
+      this.pool.set('wave_brighten', 1);
+      this.pool.set('wave_scale', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer
       for (const k in this.file.params) {
         const v = this.file.params[k];
         if (typeof v === 'number') this.pool.set(k, v);
+      }
+
+      /* Dosya adları ile DENKLEM adları farklı: preset başlığında `nWaveMode`
+         yazıyor ama per_frame içinde aynı şey `wave_mode` diye okunuyor ve
+         yazılıyor. Eşlemeyi kurmazsak dosyadaki dalga biçimi, kalınlığı ve
+         toplamalı çizim ayarı motora hiç ulaşmıyor — hepsi sıfır kalıyor,
+         yani her preset aynı ince tek çizgiyi çiziyor. */
+      for (const [from, to] of PARAM_ALIAS) {
+        const v = this.file.params[from];
+        if (typeof v === 'number') this.pool.set(to, v);
       }
 
       /* Döngü bütçesi bloğun KAÇ KEZ koştuğuna göre veriliyor: init bir kez,
