@@ -1531,6 +1531,63 @@
     'Metin': 'Text',
     'Metin / Şarkı Sözü': 'Text / Lyrics',
 
+    // ---- Çalan Parça (Now Playing) ve Şeffaf Arkaplan ----
+    'Çalan Parça': 'Now Playing',
+    'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.':
+      'Brings the currently playing track to the screen: title, artist, elapsed and remaining time, progress bar. Can stay visible continuously or appear with an animation only on track change.',
+    'Şeffaf Arkaplan': 'Transparent Background',
+    'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür ve düz renk arkaplan boyanmaz. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için değişiklik görselleştirici kapatılıp yeniden açılınca geçerli olur.':
+      'When transparent background is enabled, the desktop behind the visualizer window is visible and solid color background is not painted. Because window transparency can only be set at launch, the change takes effect when the visualizer is closed and reopened.',
+    'Sistemden Oku': 'Read from System',
+    'Elle Yaz': 'Manual Entry',
+    'Sürekli Görünsün': 'Always Visible',
+    'Parça Değişince': 'On Track Change',
+    'Hızlı': 'Fast',
+    'Yavaş': 'Slow',
+    'Modern': 'Modern',
+    'OG (Klasik)': 'OG (Classic)',
+    'Yok': 'None',
+    'Daktilo': 'Typewriter',
+    'Metin Katmanıyla Aynı': 'Same as Text Layer',
+    'Sistemden okunamıyor': 'Cannot read from system',
+    'Sistemden okuma yalnızca Windows’ta çalışıyor': 'System reading is only supported on Windows',
+    'Şu anda bir şey çalmıyor': 'Nothing is currently playing',
+    '(adsız)': '(untitled)',
+    'okunuyor…': 'reading…',
+    'Bilgi işletim sisteminin medya oturumundan okunur; Spotify, YouTube Music, tarayıcı ve çoğu oynatıcı desteklenir. Okunan bilgi bu bilgisayardan dışarı çıkmaz.':
+      'Information is read from the operating system media session; Spotify, YouTube Music, browsers, and most media players are supported. Read data never leaves this machine.',
+    'Albüm': 'Album',
+    'Görünürlük': 'Visibility',
+    'Ne Zaman': 'When',
+    'Sabit durmak yerine yalnızca yeni parçaya geçince belirir, bir süre kalır ve söner.':
+      'Instead of staying static, appears only when advancing to a new track, stays for a duration, then fades out.',
+    'Ekranda Kalma': 'Hold Duration',
+    'Gösterilecek Alanlar': 'Fields to Display',
+    'Oynatıcı Adı': 'Player App Name',
+    'Geçen Süre': 'Elapsed Time',
+    'Kalan Süre': 'Remaining Time',
+    'Toplam Süre': 'Total Duration',
+    'İlerleme Çubuğu': 'Progress Bar',
+    'Parça ve Sanatçı Tek Satırda': 'Track and Artist on One Line',
+    'Ayırıcı': 'Separator',
+    'Süre Ayırıcı': 'Time Separator',
+    'Her alan tek tek kapatılabilir: yalnızca parça adı, yalnızca süre ya da yalnızca çubuk gösterilebilir.':
+      'Each field can be toggled individually: show only the track name, only the time, or only the progress bar.',
+    'Yazı ve Yerleşim': 'Typography & Layout',
+    'Kalıp': 'Preset Style',
+    'Büyük Harf': 'Uppercase',
+    'Satır Aralığı': 'Line Gap',
+    'En Fazla Genişlik': 'Maximum Width',
+    'Uzun Adları Kaydır': 'Scroll Long Titles',
+    'Bölme Sayısı': 'Segment Count',
+    'kesintisiz': 'continuous',
+    'Yazıyla Arası': 'Gap from Text',
+    'Zemin Koyuluğu': 'Background Darkness',
+    'Kendi Renklerim': 'Custom Colours',
+    'İkincil Yazı': 'Secondary Text',
+    'Çubuk': 'Progress Bar',
+    'Etkin': 'Enabled',
+
     // ---- MilkDrop motoru ----
     'Yüklü Preset': 'Loaded Preset',
     'Yerleşik varsayılan': 'Built-in default',
@@ -1814,6 +1871,10 @@
       .replace(/⚠ Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, '⚠ Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')
       .replace(/^CC (\d+)( · k(\d+))?$/g, (m, cc, _s, ch) => 'CC ' + cc + (ch ? ' · ch' + ch : ''))
       .replace(/^Nota (\d+)( · k(\d+))?$/g, (m, n, _s, ch) => 'Note ' + n + (ch ? ' · ch' + ch : ''))
+      // Çalan parça dinamik metinleri
+      .replace(/^([\d.]+) sn$/g, '$1 s')
+      .replace(/^(\d+) bölme$/g, '$1 segments')
+      .replace(/^Sistemden okunamıyor — (.+)$/g, 'Cannot read from system — $1')
       ;
   }
 
