@@ -788,7 +788,12 @@
        Shader'lar satır yapısını korur ve yorumları kendi derleyicisine
        bırakır. */
     const joinShader = (arr) => (arr || []).slice()
-      .sort((a, b) => a.idx - b.idx).map((x) => String(x.value)).join('\n');
+      .sort((a, b) => a.idx - b.idx)
+      /* MilkDrop her shader satırını ters tırnakla yazar: warp_1=`ret = ...
+         Ters tırnak satırın parçası değil, MilkDrop'un satır başı işareti;
+         soyulmazsa GLSL derleyicisine geçersiz bir simge olarak gider. */
+      .map((x) => String(x.value).replace(/^`/, ''))
+      .join('\n');
     const join = (arr) => {
       const glued = joinWith(arr, '');
       if (!arr || arr.length < 2 || parses(glued)) return glued;
