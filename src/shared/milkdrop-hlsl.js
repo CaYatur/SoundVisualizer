@@ -271,6 +271,17 @@
 
      Yamalar konumla toplanıp SONDAN BAŞA uygulanıyor; baştan uygulamak
      sonraki konumları kaydırırdı. */
+  /* Argümanlarının tipleri BİRBİRİYLE uyuşmak zorunda olan yerleşikler.
+     HLSL burada da sessizce kırpıyor: `lerp(float3, float2, t)` orada
+     geçerli, GLSL'de "no matching overloaded function" — derleme kapısında
+     kalan en büyük kova buydu. Skaler argümanlar dokunulmadan geçiyor,
+     çünkü GLSL zaten `mix(vec3, vec3, float)` biçimini tanıyor. */
+  const MATCH_ARGS = {
+    mix: 1, lerp: 1, min: 1, max: 1, clamp: 1, mdPow: 1, pow: 1,
+    mod: 1, fmod: 1, dot: 1, distance: 1, cross: 1, step: 1,
+    smoothstep: 1, atan: 1, reflect: 1,
+  };
+
   function collect(node, env, patches) {
     if (!node) return;
     switch (node.k) {
@@ -282,12 +293,38 @@
         if (node.op !== '!' && typeOf(node.a, env) === 'bool') {
           patches.push({ s: node.a.s, e: node.a.e, wrap: 'float' });
         }
+        /* `!x` HLSL'de sayıda da geçerli (sıfırsa doğru). GLSL'de yalnızca
+           bool alıyor, o yüzden karşılaştırmaya çevriliyor. */
+        if (node.op === '!' && node.a && typeOf(node.a, env) !== 'bool') {
+          patches.push({ s: node.s, e: node.e, notZero: true, inner: [node.a.s, node.a.e] });
+        }
         return;
-      case 'member': collect(node.a, env, patches); return;
+      case 'member': {
+        collect(node.a, env, patches);
+        /* `lum(ret).x` HLSL'de geçerli: skalerin bileşeni yine kendisi,
+           `.xxx` ise üçe yayılması demek. GLSL ikisini de reddediyor. */
+        if (SWIZZLE.test(node.name) && typeOf(node.a, env) === 'float') {
+          const n = node.name.length;
+          patches.push({ s: node.s, e: node.e, scalarSwz: n, inner: [node.a.s, node.a.e] });
+        }
+        return;
+      }
       case 'index': collect(node.a, env, patches); collect(node.i, env, patches); return;
-      case 'call':
+      case 'call': {
         for (const a of node.args) collect(a, env, patches);
+        if (!MATCH_ARGS[node.name] || node.args.length < 2) return;
+        let keep = 5;
+        for (const a of node.args) {
+          const w = WIDTH[typeOf(a, env)] || 0;
+          if (w > 1 && w < keep) keep = w;
+        }
+        if (keep > 4) return;
+        for (const a of node.args) {
+          const w = WIDTH[typeOf(a, env)] || 0;
+          if (w > keep) patches.push({ s: a.s, e: a.e, swz: '.' + 'xyzw'.slice(0, keep) });
+        }
         return;
+      }
       case 'sel':
         collect(node.c, env, patches);
         collect(node.a, env, patches);
@@ -297,7 +334,19 @@
         collect(node.a, env, patches);
         collect(node.b, env, patches);
         const cmp = ['==', '!=', '<', '>', '<=', '>=', '&&', '||'].indexOf(node.op) >= 0;
-        if (cmp) return;
+        if (cmp) {
+          /* HLSL vektörleri karşılaştırıp sonucu tek bir doğruluk değerine
+             indirebiliyor; GLSL'de karşılaştırma yalnızca skalerlerde var.
+             İlk bileşene indirgeniyor — YAKLAŞIK: HLSL'in kuralı bütün
+             bileşenlere bakmak, ama bu presetlerde karşılaştırmalar zaten
+             tek bir eşik denetimi. */
+          const wa = WIDTH[typeOf(node.a, env)] || 0;
+          const wb = WIDTH[typeOf(node.b, env)] || 0;
+          // Bir taraf vektörse yeter: GLSL'de karşılaştırma yalnızca skalerlerde
+          if (wa > 1) patches.push({ s: node.a.s, e: node.a.e, swz: '.x' });
+          if (wb > 1) patches.push({ s: node.b.s, e: node.b.e, swz: '.x' });
+          return;
+        }
         const a = typeOf(node.a, env);
         const b = typeOf(node.b, env);
         // Aritmetikte bool sayıya çevrilir
@@ -323,7 +372,25 @@
      OLDUĞU GİBİ dönüyor: yarım anlaşılmış bir ifadeye dokunmak, hiç
      dokunmamaktan kötü. */
   function narrowExpr(text, env) {
-    if (!text || text.indexOf('(') < 0 && !/[-+*/]/.test(text)) return text;
+    /* ÇOK GEÇİŞ. Yamalar iç içe olabiliyor: `(!sw)*ret` içeride `!`i
+       karşılaştırmaya çeviriyor, dışarıda sonucu sayıya. Tek geçişte
+       ikisini birden uygulamak konumları kaydırırdı, bu yüzden her geçişte
+       yalnızca iç içe OLMAYAN yamalar uygulanıp metin yeniden ayrıştırılıyor.
+       Dört geçiş fazlasıyla yetiyor; sınır sonsuz döngüye karşı. */
+    let out = text;
+    for (let pass = 0; pass < 4; pass++) {
+      const next = narrowOnce(out, env);
+      if (next === out) break;
+      out = next;
+    }
+    return out;
+  }
+
+  function narrowOnce(text, env) {
+    /* Hızlı çıkış: dönüşüm gerektirebilecek hiçbir işaret yoksa ayrıştırma.
+       Nokta da sayılıyor — `rad.xxx` gibi yalnızca swizzle içeren bir ifade
+       de dönüşüm istiyor ve önce bu denetimden kaçıyordu. */
+    if (!text || (text.indexOf('(') < 0 && !/[-+*/!.]/.test(text))) return text;
     let root;
     try { root = parse(tokenize(text)); } catch (e) { return text; }
     if (!root) return text;
@@ -337,7 +404,13 @@
       // İç içe geçen yamalarda dıştakini atla: konumlar kayardı
       if (p.e > lastS) continue;
       const seg = out.slice(p.s, p.e);
-      const rep = p.wrap ? p.wrap + '(' + seg + ')' : '(' + seg + ')' + p.swz;
+      let rep;
+      if (p.notZero) rep = '(' + out.slice(p.inner[0], p.inner[1]) + ' == 0.0)';
+      else if (p.wrap) rep = p.wrap + '(' + seg + ')';
+      else if (p.scalarSwz) {
+        const base = out.slice(p.inner[0], p.inner[1]);
+        rep = p.scalarSwz === 1 ? '(' + base + ')' : 'vec' + p.scalarSwz + '(' + base + ')';
+      } else rep = '(' + seg + ')' + p.swz;
       out = out.slice(0, p.s) + rep + out.slice(p.e);
       lastS = p.s;
     }

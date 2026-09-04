@@ -481,6 +481,11 @@
       if (!rhs.trim()) return st;
       const t = targetType(lhs, types);
       if (!t || !CAST[t]) return st;
+      /* Üst düzey virgül varsa dokunma. `trad = q5, srad = sqrt(trad)` bir
+         atama DİZİSİ; tek bir sarmalayıcıya almak `toF(a, b)` gibi geçersiz
+         bir çağrı üretiyordu ve o shader'lar yalnızca bunun yüzünden
+         derlenmiyordu — kendi eklediğim hataydı. */
+      if (hasTopComma(rhs)) return st;
       /* Sağ tarafı önce tip çıkarımından geçir: HLSL iki farklı genişlikteki
          vektörü sessizce kırpar, GLSL kırpmaz. Bu, derleme kapısında kalan
          hataların çoğunluğuydu ve metinle çözülemiyordu — hangi tarafın
@@ -499,6 +504,19 @@
      Sol taraf SONDAN okunuyor, baştan değil: `if (a==b) ret = 0.0;` gibi
      süslü parantezsiz gövdelerde deyimin başında koşul duruyor ve baştan
      eşleştiren bir kalıp bunları hiç yakalamıyordu. */
+  /* İfadede parantez dışında virgül var mı. Fonksiyon çağrılarının içindeki
+     virgüller sayılmamalı, o yüzden derinlik izleniyor. */
+  function hasTopComma(text) {
+    let d = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '(' || c === '[') d++;
+      else if (c === ')' || c === ']') d--;
+      else if (c === ',' && d === 0) return true;
+    }
+    return false;
+  }
+
   function targetType(lhs, types) {
     const m = /((?:float|vec2|vec3|vec4)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\.\s*([xyzwrgba]{1,4}))?\s*$/
       .exec(lhs);
@@ -595,7 +613,9 @@
        metninde tarif ediyor. GLSL'de bunun karşılığı doku nesnesinin
        kendisinde; blok olduğu gibi atılıyor. */
     s = s.replace(/\bsampler\w*\s+sampler_[A-Za-z0-9_]+\s*=\s*sampler_state\s*\{[^}]*\}\s*;?/g, '');
-    s = s.replace(/\bsampler(2D|3D|CUBE)?\s+sampler_[A-Za-z0-9_]+\s*;/g, '');
+    /* Ad `sampler_` ile başlamak zorunda değil: gerçek koddan `sampler MYSAMP;`.
+       Bildirimi bırakmak GLSL'de sözdizimi hatası. */
+    s = s.replace(/\bsampler(2D|3D|CUBE)?\s+[A-Za-z_][A-Za-z0-9_]*\s*;/g, '');
     // HLSL'in `static` niteleyicisi GLSL'de ayrılmış sözcük (%3)
     s = s.replace(/\bstatic\b/g, ' ');
     /* GLSL ES'in ayrılmış sözcükleri. HLSL'de serbest oldukları için presetler
