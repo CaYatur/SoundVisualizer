@@ -853,6 +853,11 @@
        düşüyordu, oysa preset 0,5 yazmıştı. Görüntü sönmek yerine birikiyor
        ve birkaç saniyede beyaza doyuyordu. */
     ['fdecay', 'decay'],
+    /* bTexWrap: warp geçişinin doku adresleme kipi. MilkDrop'un varsayılanı
+       AÇIK ve referans pakette presetlerin %61'i açık kullanıyor. Kapalıyken
+       kenardan çıkan görüntü geri girmiyor, ekran boşalıyor ve preset
+       "bitmiş" gibi görünüyor. */
+    ['btexwrap', 'wrap'],
     ['fgammaadj', 'gamma'],
     ['fvideoechoalpha', 'echo_alpha'],
     ['fvideoechozoom', 'echo_zoom'],
@@ -906,6 +911,8 @@
       this.pool.set('wave_y', 0.5);
       this.pool.set('wave_brighten', 1);
       this.pool.set('wave_scale', 1);
+      // MilkDrop'un varsayılanı sarma AÇIK
+      this.pool.set('wrap', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer
       for (const k in this.file.params) {
         const v = this.file.params[k];

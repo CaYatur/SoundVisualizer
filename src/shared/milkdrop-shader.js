@@ -407,8 +407,34 @@
       ['rad', 'float'], ['ang', 'float'],
     ]);
     for (let i = 1; i <= Q_COUNT; i++) m.set('q' + i, 'float');
+    /* MilkDrop'un verdiği uniform'lar. Tip çıkarımı bunları bilmeden
+       çalışamaz: `uv*.3 + .01*rand_frame` ifadesinde rand_frame'in vec4
+       olduğunu bilmezsek daraltılması gerektiğini de göremeyiz. */
+    for (const n of ['texsize', 'aspect', 'texsize_noise_lq', 'texsize_noise_mq',
+      'texsize_noise_hq', 'texsize_noise_lq_lite', 'texsize_noisevol_lq',
+      'texsize_noisevol_hq', 'rand_frame', 'roam_cos', 'roam_sin',
+      'slow_roam_cos', 'slow_roam_sin', '_qa', '_qb', '_qc', '_qd',
+      '_qe', '_qf', '_qg', '_qh']) m.set(n, 'vec4');
+    for (const n of ['rand_preset', 'hue_shader', 'blur1_min', 'blur1_max',
+      'blur2_min', 'blur2_max', 'blur3_min', 'blur3_max']) m.set(n, 'vec3');
+    for (const n of ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb',
+      'vol', 'bass_att', 'mid_att', 'treb_att', 'vol_att']) m.set(n, 'float');
     return m;
   })();
+
+  /* İfade ayrıştırıcısı ayrı bir dosyada. Tarayıcıda betik sırasına bağlı
+     olmamak için tembel çözülüyor: bu modül yüklenirken diğeri henüz
+     tanımlı olmayabilir. */
+  let _hl;
+  function hl() {
+    if (_hl !== undefined) return _hl;
+    _hl = null;
+    try {
+      if (typeof window !== 'undefined' && window.SVMilkdropHLSL) _hl = window.SVMilkdropHLSL;
+      else if (typeof require === 'function') _hl = require('./milkdrop-hlsl.js');
+    } catch (e) { _hl = null; }
+    return _hl;
+  }
 
   const CAST = { float: 'toF', vec2: 'toV2', vec3: 'toV3', vec4: 'toV4' };
 
@@ -455,7 +481,13 @@
       if (!rhs.trim()) return st;
       const t = targetType(lhs, types);
       if (!t || !CAST[t]) return st;
-      return st.slice(0, i + 1) + ' ' + CAST[t] + '(' + rhs.trim() + ')';
+      /* Sağ tarafı önce tip çıkarımından geçir: HLSL iki farklı genişlikteki
+         vektörü sessizce kırpar, GLSL kırpmaz. Bu, derleme kapısında kalan
+         hataların çoğunluğuydu ve metinle çözülemiyordu — hangi tarafın
+         geniş olduğunu bilmek ifadenin tipini bilmeyi gerektiriyor. */
+      const H = hl();
+      const body = H ? H.narrowExpr(rhs.trim(), types) : rhs.trim();
+      return st.slice(0, i + 1) + ' ' + CAST[t] + '(' + body + ')';
     }
     return st;
   }

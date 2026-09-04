@@ -604,13 +604,29 @@ void main(){ outColor = vCol; }`;
       }
     }
 
+    /* Warp geçişinin kaynak dokusunu presetin `wrap` ayarına göre bağlar.
+
+       MilkDrop'ta bu varsayılan olarak AÇIK ve presetlerin çoğu açık
+       kullanıyor: kenardan çıkan görüntü karşı kenardan geri giriyor.
+       Kapalı bıraktığımızda içerik ekrandan akıp gidiyor, geriye tek sıra
+       piksel bulaşması kalıyor ve preset birkaç saniyede "bitmiş" gibi
+       görünüyordu — kullanıcının bildirdiği hata buydu. */
+    _bindMain(tex) {
+      const gl = this.gl;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      const w = this.preset && this.preset.get('wrap') > 0.5 ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, w);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, w);
+    }
+
     _bindTextures(mainTex) {
       const gl = this.gl;
       const bind = (unit, tex) => {
         gl.activeTexture(gl.TEXTURE0 + unit);
         gl.bindTexture(gl.TEXTURE_2D, tex);
       };
-      bind(0, mainTex);
+      this._bindMain(mainTex);
       bind(1, this.blur[0].out.tex);
       bind(2, this.blur[1].out.tex);
       bind(3, this.blur[2].out.tex);
@@ -705,8 +721,7 @@ void main(){ outColor = vCol; }`;
         this._setPresetUniforms(this.warpPreset.locs, ctx);
       } else {
         gl.useProgram(this.warpFixed);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, src.tex);
+        this._bindMain(src.tex);
         gl.uniform1i(this.locWarpFixed.uPrev, 0);
         /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
            0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
@@ -1208,7 +1223,11 @@ void main(){ outColor = vCol; }`;
       };
       draw();
       if (kind !== gl.LINE_STRIP) return;
-      const weight = Math.max(1, Math.min(4, Math.round(GW / 512) * (thickMul || 1)));
+      /* Referans 320: presetlerin yazıldığı dönemin tipik iç tamponu bu
+         genişlikteydi ve çizgi ağırlığı ona göre seçilmiş. 512'yi referans
+         alınca 640'lık bir tamponda telafi hiç devreye girmiyor ve preset
+         gözle görülür biçimde sönük kalıyordu — parlaklık izinde ölçtük. */
+      const weight = Math.max(1, Math.min(5, Math.round(GW / 320) * (thickMul || 1)));
       if (weight < 2) return;
       const ox = 2 / GW, oy = 2 / GH;
       const offsets = [[ox, 0], [0, oy], [ox, oy], [-ox, 0], [0, -oy], [-ox, -oy]];

@@ -226,6 +226,54 @@ test('şekil havuzu q değişkenlerini görür', () => {
   assert.ok(Math.abs(p.shapeFrame(p.shapes[0], 0, {}).x - 0.6) < 1e-9);
 });
 
+// ------------------------------------------------- başlık adı / denklem adı
+
+/* Preset başlığında `fDecay`, denklemlerde `decay` yazıyor; MilkDrop ikisini
+   eşliyor. Bu eşleme iki kez unutuldu ve iki kez sessiz ama büyük hataya yol
+   açtı: decay bulunamayınca motor kendi varsayılanına düşüp görüntüyü
+   biriktiriyordu, bTexWrap bulunamayınca kenardan çıkan içerik geri girmiyor
+   ve preset birkaç saniyede bitmiş gibi görünüyordu. */
+test('başlıktaki fDecay denklemlerdeki decay olur', () => {
+  const p = preset(['fDecay=0.5']);
+  assert.strictEqual(p.get('decay'), 0.5);
+});
+
+test('başlıktaki bTexWrap denklemlerdeki wrap olur', () => {
+  assert.strictEqual(preset(['bTexWrap=0']).get('wrap'), 0);
+  assert.strictEqual(preset(['bTexWrap=1']).get('wrap'), 1);
+});
+
+// MilkDrop'un varsayılanı sarma AÇIK; belirtilmemiş preset de öyle davranmalı
+test('wrap belirtilmemişse açık kabul edilir', () => {
+  assert.strictEqual(preset(['per_frame_1=zoom=1;']).get('wrap'), 1);
+});
+
+test('dalga ayarları da başlıktan denklemlere taşınır', () => {
+  const p = preset([
+    'nWaveMode=6', 'bWaveThick=1', 'bAdditiveWaves=1',
+    'fWaveAlpha=0.75', 'bMaximizeWaveColor=0',
+  ]);
+  assert.strictEqual(p.get('wave_mode'), 6);
+  assert.strictEqual(p.get('wave_thick'), 1);
+  assert.strictEqual(p.get('wave_additive'), 1);
+  assert.strictEqual(p.get('wave_a'), 0.75);
+  assert.strictEqual(p.get('wave_brighten'), 0);
+});
+
+/* Dalganın yeri havuzun doğal başlangıcı olan 0'da kalırsa sol/alt kenara
+   yapışıyor; MilkDrop'un varsayılanı ekranın ortası. */
+test('dalganın yeri varsayılan olarak ekranın ortası', () => {
+  const p = preset(['per_frame_1=zoom=1;']);
+  assert.strictEqual(p.get('wave_x'), 0.5);
+  assert.strictEqual(p.get('wave_y'), 0.5);
+});
+
+test('per_frame başlıktaki değeri ezebilir', () => {
+  const p = preset(['fDecay=0.5', 'per_frame_1=decay = 0.9;']);
+  p.frame(INPUTS);
+  assert.strictEqual(p.get('decay'), 0.9);
+});
+
 test('blok taşımayan preset boş diziler verir', () => {
   const p = preset(['per_frame_1=zoom = 1.01;']);
   assert.deepStrictEqual(p.waves, []);
