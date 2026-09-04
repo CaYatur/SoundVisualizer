@@ -33,8 +33,13 @@
      basina uygulanan sayilar buna gore olcekleniyor. */
   const REF_FPS = 30;
 
-  const MESH_X = 48;
-  const MESH_Y = 36;
+  /* Warp ağının sıklığı. MilkDrop'un varsayılanı 32x24, "yüksek kalite"
+     ayarı 48x36. Ağ seyrek olduğunda bozulma düğümler arasında doğrusal
+     interpolasyonla dolduruluyor ve kıvrımlı warp'larda köşeli görünüyor.
+     64x48 bunu gözle görülür biçimde düzeltiyor; maliyeti per_pixel'in
+     düğüm sayısı kadar artması. */
+  const MESH_X = 64;
+  const MESH_Y = 48;
   // düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1)
   const VSTRIDE = 8;
 
@@ -290,11 +295,31 @@ void main(){ outColor = vCol; }`;
       return true;
     }
 
+    /* Geri besleme tamponunun biçimi.
+
+       8 bit tamsayı bu döngüde yetmiyor: her kare bir öncekini okuyup
+       yeniden yazıyor, yani niceleme hatası KARE BAŞINA birikiyor. decay
+       0,97 gibi bir değerde 8 bitlik bir adım birkaç karede yutuluyor ve
+       koyu tonlarda gözle görülür şeritler kalıyor. Yarım kayan nokta bunu
+       tümden ortadan kaldırıyor. Eklenti yoksa 8 bite düşülüyor —
+       görüntü eskisi kadar iyi olur, daha kötü değil. */
+    _colorFormat() {
+      if (this._fmt) return this._fmt;
+      const gl = this.gl;
+      const ok = gl.getExtension('EXT_color_buffer_float')
+        || gl.getExtension('EXT_color_buffer_half_float');
+      this._fmt = ok
+        ? { internal: gl.RGBA16F, type: gl.HALF_FLOAT }
+        : { internal: gl.RGBA8, type: gl.UNSIGNED_BYTE };
+      return this._fmt;
+    }
+
     _makeTarget(w, h) {
       const gl = this.gl;
+      const f = this._colorFormat();
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, gl.RGBA, f.type, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -602,10 +627,20 @@ void main(){ outColor = vCol; }`;
     draw(audio, cfg, t, dt) {
       const W = this.canvas.width;
       const H = this.canvas.height;
-      /* Geri besleme yüzeyi tam çözünürlükte gerekmiyor; yarı çözünürlük hem
-         daha hızlı hem de MilkDrop'un yumuşak görüntüsüne daha yakın. */
-      const GW = Math.max(64, Math.min(1280, Math.round(W * 0.5)));
-      const GH = Math.max(64, Math.min(720, Math.round(H * 0.5)));
+      /* Geri besleme yüzeyi TUVAL BOYUTUNDA.
+
+         Kaynağa bakarak doğrulandı: MilkDrop'un iç doku boyutu ayarı
+         varsayılan olarak -1, yani "otomatik = pencereyle aynı". Önce yarı
+         çözünürlük kullanıyorduk (her kenarı bulanıklaştırıyor ve bulanıklık
+         geri besleme döngüsünde birikiyordu), sonra sabit 1024 denedim —
+         ikisi de MilkDrop'un yaptığı şey değil.
+
+         Üst sınır yalnızca başarım için: per_pixel ağı ve altı ek render
+         hedefi çözünürlükle pahalılaşıyor. */
+      const cap = (cfg.milkdrop && cfg.milkdrop.maxSize) || 1920;
+      const sc = Math.min(1, cap / Math.max(1, Math.max(W, H)));
+      const GW = Math.max(64, Math.round(W * sc));
+      const GH = Math.max(64, Math.round(H * sc));
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
@@ -962,7 +997,9 @@ void main(){ outColor = vCol; }`;
         this._blend(gl, w.additive);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
-        gl.drawArrays(w.useDots ? gl.POINTS : gl.LINE_STRIP, 0, count);
+        const gw = this.gl2.width, gh = this.gl2.height;
+        this._strip(gl, w.useDots ? gl.POINTS : gl.LINE_STRIP, d, count, -1,
+          gw, gh, w.thick ? 2 : 1);
       }
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
@@ -1139,33 +1176,49 @@ void main(){ outColor = vCol; }`;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
       const kind = P.get('wave_usedots') ? gl.POINTS : gl.LINE_STRIP;
-      /* İki çizgili modlarda tek bir şerit çizmek ikisini birbirine bağlayan
-         yapay bir çapraz üretiyor; bu yüzden ayrı ayrı çiziliyor. */
-      if (breakAt > 0) {
-        gl.drawArrays(kind, 0, breakAt);
-        gl.drawArrays(kind, breakAt, n - breakAt);
-      } else {
-        gl.drawArrays(kind, 0, n);
-      }
-      /* wave_thick: MilkDrop çizgiyi bir piksel kaydırıp tekrar çiziyor.
-         Gerçek kalın çizgi WebGL'de yok (lineWidth çoğu sürücüde 1'de sabit),
-         bu yüzden aynı yol izleniyor. */
-      if (P.get('wave_thick') && kind === gl.LINE_STRIP) {
-        const ox = 2 / GW, oy = 2 / GH;
-        for (const [sx, sy] of [[ox, 0], [0, oy], [ox, oy]]) {
-          for (let i = 0; i < n; i++) { d[i * 6] += sx; d[i * 6 + 1] += sy; }
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
-          if (breakAt > 0) {
-            gl.drawArrays(kind, 0, breakAt);
-            gl.drawArrays(kind, breakAt, n - breakAt);
-          } else {
-            gl.drawArrays(kind, 0, n);
-          }
-          for (let i = 0; i < n; i++) { d[i * 6] -= sx; d[i * 6 + 1] -= sy; }
-        }
-      }
+      this._strip(gl, kind, d, n, breakAt, GW, GH, P.get('wave_thick') ? 2 : 1);
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
+    }
+
+    /* Bir şeridi çizer; gerekirse kaydırılmış kopyalarıyla kalınlaştırır.
+
+       İKİ AYRI SEBEPLE KALINLAŞTIRMA VAR:
+
+       1) `wave_thick` — presetin kendi isteği. MilkDrop da çizgiyi bir texel
+          kaydırıp tekrar çiziyor, çünkü gerçek kalın çizgi yok (WebGL'de de
+          `lineWidth` çoğu sürücüde 1'e sabit).
+
+       2) ÇÖZÜNÜRLÜK TELAFİSİ. Çizgiler bir texel kalınlığında, yani iç tampon
+          büyüdükçe aynı çizgi oransal olarak daha az alan kaplıyor ve geri
+          beslemeye daha az ışık bırakıyor. Ölçtük: tampon 320'den 1024'e
+          çıkınca aynı presetin parlaklığı yirmide bire indi. Preset yazarı
+          ağırlığı o dönemin ~512'lik tamponuna göre seçmiş; ağırlığı tampon
+          boyutuyla orantılı tutmak, presetin amacını her çözünürlükte
+          koruyor. Bilinçli bir sapma: MilkDrop bunu yapmıyor, ama MilkDrop
+          da tamponu sabit tutuyordu. */
+    _strip(gl, kind, d, n, breakAt, GW, GH, thickMul) {
+      const draw = () => {
+        if (breakAt > 0) {
+          gl.drawArrays(kind, 0, breakAt);
+          gl.drawArrays(kind, breakAt, n - breakAt);
+        } else {
+          gl.drawArrays(kind, 0, n);
+        }
+      };
+      draw();
+      if (kind !== gl.LINE_STRIP) return;
+      const weight = Math.max(1, Math.min(4, Math.round(GW / 512) * (thickMul || 1)));
+      if (weight < 2) return;
+      const ox = 2 / GW, oy = 2 / GH;
+      const offsets = [[ox, 0], [0, oy], [ox, oy], [-ox, 0], [0, -oy], [-ox, -oy]];
+      for (let k = 0; k < Math.min(offsets.length, (weight - 1) * 3); k++) {
+        const sx = offsets[k][0], sy = offsets[k][1];
+        for (let i = 0; i < n; i++) { d[i * 6] += sx; d[i * 6 + 1] += sy; }
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+        draw();
+        for (let i = 0; i < n; i++) { d[i * 6] -= sx; d[i * 6 + 1] -= sy; }
+      }
     }
 
 

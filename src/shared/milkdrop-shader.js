@@ -136,6 +136,10 @@
      sampler_fw_main (filtered+wrap), sampler_pc_main (point+clamp) gibi.
      Doku aynı doku; bu yüzden ön ek soyulup tek kaynağa bağlanıyor.
      Presetlerin %30'u bu türevleri kullanıyor. */
+  /* GLSL ES 3.00'ın ayrılmış sözcüklerinden korpusta değişken adı olarak
+     gerçekten karşımıza çıkanlar. Tamamını listelemek gereksiz. */
+  const RESERVED = /\b(output|input|filter|common|active|this|union|template|namespace|public|external|inline|volatile|short|long|unsigned|cast|class|enum|typedef|using|goto|asm|resource|partition|superp|varying|attribute|row_major|sizeof|restrict)\b/g;
+
   const SAMPLER_PREFIX = /^sampler_(fw|pw|fc|pc)_/;
   const KNOWN_SAMPLERS = [
     'sampler_main', 'sampler_blur1', 'sampler_blur2', 'sampler_blur3',
@@ -373,6 +377,11 @@
        bildirimden BİLİNİYOR. Sağ tarafın tipini bilmek gerekmiyor, çünkü
        aşağıdaki aşırı yüklemeler onu derleyiciye çözdürüyor. Yani tip
        çıkarımı bize değil GLSL'e ait. */
+    // HLSL karşılaştırmayı 0/1 diye okur, GLSL okumaz: bool da sarmalanmalı
+    'float toF(bool b){ return b ? 1.0 : 0.0; }',
+    'vec2 toV2(bool b){ return vec2(b ? 1.0 : 0.0); }',
+    'vec3 toV3(bool b){ return vec3(b ? 1.0 : 0.0); }',
+    'vec4 toV4(bool b){ return vec4(b ? 1.0 : 0.0); }',
     'float toF(float x){ return x; }',
     'float toF(vec2 v){ return v.x; }',
     'float toF(vec3 v){ return v.x; }',
@@ -557,6 +566,14 @@
     s = s.replace(/\bsampler(2D|3D|CUBE)?\s+sampler_[A-Za-z0-9_]+\s*;/g, '');
     // HLSL'in `static` niteleyicisi GLSL'de ayrılmış sözcük (%3)
     s = s.replace(/\bstatic\b/g, ' ');
+    /* GLSL ES'in ayrılmış sözcükleri. HLSL'de serbest oldukları için presetler
+       bunları değişken adı yapıyor: gerçek koddan `float3 output = ...`.
+       Adı tutarlı biçimde değiştirmek zararsız, bırakmak derlemeyi kırıyor. */
+    s = s.replace(RESERVED, function (w) { return w + '_v'; });
+    /* `const` niteleyicisi düşürülüyor. GLSL const'un ilk değerinin SABİT
+       ifade olmasını istiyor; preset ise oraya rahatça bir uniform ya da
+       karşılaştırma yazıyor: `const float sw = rand_preset.x >= .4;`. */
+    s = s.replace(/\bconst\s+/g, '');
     // Matris kurucuları tip eşlemesinden ÖNCE, yoksa float3x3( -> mat3( olur
     s = s.replace(/\bfloat2x2\s*\(/g, 'hmat2(')
       .replace(/\bfloat3x3\s*\(/g, 'hmat3(')
