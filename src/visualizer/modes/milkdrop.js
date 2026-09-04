@@ -390,9 +390,13 @@ void main(){ outColor = vCol; }`;
       const g = P.get('wave_g');
       const b = P.get('wave_b');
       const a = P.get('wave_a');
-      const cr = r || 1;
-      const cg = g || 1;
-      const cb = b || 1;
+      /* Kırpma motorda (SVMilkdrop.clampColor): kural MilkDrop'un kuralı ve
+         burada iki kez yanlış yazıldı — `x || 1` geçerli sıfırı 1 yapıyordu,
+         üst sınır ise yoktu. */
+      const cl = window.SVMilkdrop.clampColor;
+      const cr = cl(r);
+      const cg = cl(g);
+      const cb = cl(b);
       const ca = a > 0 ? Math.min(1, a) : 0.4;
       const amp = 0.38;
       for (let i = 0; i < N; i++) {

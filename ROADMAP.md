@@ -44,7 +44,7 @@ covered by a test or by the GPU self-test.
 | Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
 | Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
 | Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| MilkDrop | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | Full expression language, warp mesh, `.milk` import |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | The ticks here were never true. The expression compiler used `new Function`, which every window's CSP blocked, so **no preset has ever run in a packaged build** (#559). Fixed after v3.1.1; see below |
 | Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
 | Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | All compile on the GPU in the self-test |
 | Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
@@ -119,7 +119,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **808 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **826 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   the rest came with v3.1.1. Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

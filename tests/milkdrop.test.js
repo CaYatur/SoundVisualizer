@@ -426,3 +426,165 @@ test('aynı preset aynı girdilerle aynı çıktıyı verir', () => {
   };
   assert.deepStrictEqual(runOnce(), runOnce(), 'belirlenimli değil');
 });
+
+// ==========================================================================
+// ns-eel dil özellikleri — #559'da 10.347 gerçek preset ölçülerek eklendi
+// ==========================================================================
+/* Bu bloktaki her şey, gerçek preset paketlerinde SAYILARAK bulundu:
+   megabuf/gmegabuf 425 preseti, loop 406'sını, bileşik atama 65'ini,
+   deyim dizileri 83'ünü, exec2/exec3 81'ini, while 34'ünü tek başına
+   engelliyordu. Hiçbiri tahminle eklenmedi. */
+
+const run1 = (src, opts) => {
+  const p = new M.Pool();
+  const c = M.compile(src, p, opts);
+  c.run();
+  return { c, g: (n) => p.values[p.id(n)] };
+};
+
+test('megabuf: yazılır, okunur ve preset içinde kalır', () => {
+  const { c, g } = run1('megabuf(5) = 42; x = megabuf(5); y = megabuf(6);');
+  assert.strictEqual(c.error, '');
+  assert.strictEqual(g('x'), 42);
+  assert.strictEqual(g('y'), 0, 'yazılmamış göz 0 olmalı');
+});
+
+test('megabuf: sınır dışı indeks çökmez, 0 döner', () => {
+  const { g } = run1('a = megabuf(-1); b = megabuf(99999999); megabuf(-3) = 7; c = megabuf(-3);');
+  assert.deepStrictEqual([g('a'), g('b'), g('c')], [0, 0, 0]);
+});
+
+test('gmegabuf presetler ARASINDA ortaktır, megabuf değildir', () => {
+  /* MilkDrop'ta ayrım tam olarak budur ve presetler buna güvenerek
+     birbirine veri bırakır. */
+  run1('gmegabuf(11) = 5; megabuf(11) = 5;');
+  const { g } = run1('a = gmegabuf(11); b = megabuf(11);');
+  assert.strictEqual(g('a'), 5, 'gmegabuf ortak olmalı');
+  assert.strictEqual(g('b'), 0, 'megabuf presete özel olmalı');
+});
+
+test('bileşik atama: değişkende ve bellekte', () => {
+  const { c, g } = run1('z = 1; z -= 0.25; a = 2; a *= 3; b = 10; b /= 4; d = 7; d += 1;'
+    + ' megabuf(1) = 10; megabuf(1) *= 4; m = megabuf(1);');
+  assert.strictEqual(c.error, '');
+  assert.deepStrictEqual([g('z'), g('a'), g('b'), g('d'), g('m')], [0.75, 6, 2.5, 8, 40]);
+});
+
+test('bileşik atamada bellek indeksi BİR KEZ hesaplanır', () => {
+  /* `megabuf(n = n + 1) *= 2` indeksi iki kez hesaplasaydı bir gözü okuyup
+     BAŞKA bir göze yazardı ve hata hiç fark edilmezdi. */
+  const { g } = run1('n = 0; megabuf(1) = 5; megabuf(n = n + 1) *= 3; x = megabuf(1); y = n;');
+  assert.strictEqual(g('x'), 15);
+  assert.strictEqual(g('y'), 1, 'indeks yan etkisi iki kez çalışmış');
+});
+
+test('loop: sayaç kadar döner, iç içe olabilir', () => {
+  const { c, g } = run1('n = 0; loop(3, n = n + 1;); m = 0; loop(2, loop(4, m = m + 1;););');
+  assert.strictEqual(c.error, '');
+  assert.strictEqual(g('n'), 3);
+  assert.strictEqual(g('m'), 8);
+});
+
+test('loop bütçesi sonsuz döngüyü keser', () => {
+  /* Bütçe olmasaydı per_pixel içindeki bir loop(10000,…) ağın 1271
+     düğümünde 60 fps ile uygulamayı dondururdu. */
+  const { g } = run1('n = 0; loop(1000000, n = n + 1;);', { loopBudget: 250 });
+  assert.strictEqual(g('n'), 250);
+});
+
+test('while: koşul sıfırlanana kadar döner ve bütçeyle sınırlıdır', () => {
+  const a = run1('n = 0; while( exec2(n = n + 1, below(n, 5)) );', { loopBudget: 1000 });
+  assert.strictEqual(a.g('n'), 5);
+  const b = run1('k = 0; while( exec2(k = k + 1, 1) );', { loopBudget: 300 });
+  assert.strictEqual(b.g('k'), 300, 'durmayan döngü kesilmedi');
+});
+
+test('exec2 / exec3 hepsini çalıştırır, SONUNCUYU döner', () => {
+  const { g } = run1('a = 0; b = 0; c = 0; x = exec2(a = 1, b = 2); y = exec3(a = 3, b = 4, c = 5);');
+  assert.deepStrictEqual([g('x'), g('y'), g('a'), g('c')], [2, 5, 3, 5]);
+});
+
+test('parantez içinde noktalı virgül deyim dizisi kurar', () => {
+  /* `if (c, a = 1; b = 2, …)` biçimi gerçek presetlerde yaygın; dizi
+     desteklenmezse if'in argüman sayısı tutmaz ve preset reddedilir. */
+  const { c, g } = run1('q = 0; r = 0; x = if(1, q = 5; r = 6, q = 9);');
+  assert.strictEqual(c.error, '');
+  assert.deepStrictEqual([g('q'), g('r'), g('x')], [5, 6, 6]);
+});
+
+test('ard arda noktalı virgül boş deyimdir', () => {
+  const { c, g } = run1('n = 0; loop(2, n = n + 1;; n = n + 1;); x = if(1, n; ;, 0);');
+  assert.strictEqual(c.error, '');
+  assert.strictEqual(g('n'), 4);
+});
+
+test('assign(x, v) atamanın çağrı biçimidir', () => {
+  const { c, g } = run1('assign(d, 9); e = d * 2;');
+  assert.strictEqual(c.error, '');
+  assert.deepStrictEqual([g('d'), g('e')], [9, 18]);
+});
+
+test('bozuk deyim ATLANIR, kalanı çalışır ve atlama BİLDİRİLİR', () => {
+  /* Tek bozuk satır yüzünden presetin tamamını kaybetmek doğru değil; ama
+     sessizce atlamak, yanlış görünen bir sahnenin sebebini saklardı. */
+  const { c, g } = run1('a = 1; 0 = 5; b = 2; c2 = bilinmeyenfn(3); d = 4;');
+  assert.strictEqual(c.skipped, 2, 'atlanan deyim sayısı');
+  assert.ok(c.error, 'atlama bildirilmedi');
+  assert.ok(/bilinmeyen fonksiyon/.test(c.error), 'sebep yazılmamış: ' + c.error);
+  assert.deepStrictEqual([g('a'), g('b'), g('d')], [1, 2, 4], 'sağlam deyimler çalışmalı');
+});
+
+test('renk kanalı 0..1 aralığına kırpılır ve SIFIR geçerli bir değerdir', () => {
+  /* Bu ikisi ekranda bulundu, testte değil: `wave_r=1 wave_g=1 wave_b=0`
+     diyen sarı bir preset beyaz çıkıyordu, çünkü çizici `b || 1` yazıyordu.
+     Ayrıca üst sınır yoktu; 13 gibi bir değer beyaza doyuyordu. */
+  assert.strictEqual(M.clampColor(0), 0, 'sıfır geçerli bir kanal değeri');
+  assert.strictEqual(M.clampColor(1), 1);
+  assert.strictEqual(M.clampColor(0.5), 0.5);
+  assert.strictEqual(M.clampColor(13.9), 1, 'üst sınır');
+  assert.strictEqual(M.clampColor(-4), 0, 'alt sınır');
+  // Belirtilmemiş / anlamsız değerlerde MilkDrop varsayılanı beyazdır
+  for (const bad of [undefined, null, NaN, Infinity, 'x']) {
+    assert.strictEqual(M.clampColor(bad), 1, 'varsayılan beyaz: ' + String(bad));
+  }
+});
+
+test('dalga rengi belirtilmezse beyaz, belirtilirse aynen korunur', () => {
+  const mk = (lines) => new M.Preset(['[preset00]'].concat(lines, ['']).join(EOL));
+  const bare = mk([]);
+  assert.deepStrictEqual(
+    ['wave_r', 'wave_g', 'wave_b'].map((k) => bare.get(k)), [1, 1, 1],
+    'belirtilmeyen renk MilkDrop varsayılanı olan beyaz olmalı'
+  );
+  const yellow = mk(['wave_r=1', 'wave_g=1', 'wave_b=0']);
+  assert.deepStrictEqual(
+    ['wave_r', 'wave_g', 'wave_b'].map((k) => yellow.get(k)), [1, 1, 0],
+    'dosyadaki sıfır kanalı korunmalı'
+  );
+});
+
+test('shader blokları SATIR YAPISINI korur, denklemler gibi bitiştirilmez', () => {
+  /* Denklem blokları bitiştirilerek birleşiyor (bölünmüş simgeleri onarmak
+     için). Shader blokları HLSL'dir ve aynı işleme SOKULAMAZ: denklem
+     ayrıştırıcısı HLSL'i hiçbir zaman kabul etmeyeceğinden her seferinde
+     bitiştirilmiş biçim seçilir ve satırlar kaynaşırdı. Ölçüldü — bu hata
+     8500 presetin shader'ını 46 satırdan 2 satıra indirmişti. */
+  const src = [
+    '[preset00]',
+    'warp_1=shader_body {',
+    'warp_2=   float3 c = tex2D(sampler_main, uv).xyz;',
+    'warp_3=   ret = c * 0.98;',
+    'warp_4=}',
+    'comp_1=shader_body {',
+    'comp_2=   ret = tex2D(sampler_main, uv).xyz;',
+    'comp_3=}',
+    '',
+  ].join(EOL);
+  const f = M.parseMilk(src);
+  assert.strictEqual(f.warpShader.split(EOL).length, 4, 'warp satırları kaynaşmış: ' + JSON.stringify(f.warpShader));
+  assert.strictEqual(f.compShader.split(EOL).length, 3, 'comp satırları kaynaşmış');
+  assert.ok(/float3 c = tex2D/.test(f.warpShader), 'shader gövdesi bozulmuş');
+  // Denklem tarafı bitiştirmeye devam etmeli — iki davranış ayrı kalsın
+  const eq = M.parseMilk(['[preset00]', 'per_frame_1=x = above(bass,t', 'per_frame_2=reb_att);', ''].join(EOL));
+  assert.ok(/treb_att/.test(eq.perFrame), 'denklem bitiştirmesi bozulmuş');
+});

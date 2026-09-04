@@ -30,8 +30,43 @@
   // ==========================================================================
   // Sözcükleyici
   // ==========================================================================
+  /* megabuf/gmegabuf: MilkDrop'un karalama bellekleri.
+
+     MilkDrop bunları 1.048.576 girdilik sabit bir dizi olarak tutar. Burada
+     4096'dan başlayıp ikiye katlayarak büyütüyoruz: yönetici paneli her
+     çizimde presetin derlemesini doğrulamak için yeni bir Preset kuruyor ve
+     preset başına 8 MB ayırmak kabul edilemezdi. Yazılmamış girdi 0'dır,
+     dolayısıyla dizinin kısa olması okumayı değiştirmiyor. */
+  const MEM_MAX = 1048576;
+  function makeMem() {
+    let a = new Float64Array(4096);
+    return {
+      get(i) {
+        const k = i | 0;
+        return k >= 0 && k < a.length ? a[k] : 0;
+      },
+      set(i, v) {
+        const k = i | 0;
+        if (k < 0 || k >= MEM_MAX) return v;
+        if (k >= a.length) {
+          let n = a.length;
+          while (n <= k) n *= 2;
+          if (n > MEM_MAX) n = MEM_MAX;
+          const b = new Float64Array(n);
+          b.set(a);
+          a = b;
+        }
+        a[k] = v;
+        return v;
+      },
+    };
+  }
+  // gmegabuf presetler arasında ORTAK: MilkDrop'ta da öyle.
+  const GMEM = makeMem();
+
   const PUNCT = [
     '<<', '>>', '<=', '>=', '==', '!=', '&&', '||',
+    '+=', '-=', '*=', '/=', '%=',
     '+', '-', '*', '/', '%', '^', '(', ')', ',', ';', '=', '<', '>', '&', '|', '!',
   ];
 
@@ -129,6 +164,12 @@
     max: [2, (a, b) => (a > b ? a : b)],
     sign: [1, (a) => (a > 0 ? 1 : a < 0 ? -1 : 0)],
     rand: [1, null],     // durum taşır, derleyicide özel
+    while: [1, null],    // ifade sıfır dönene kadar tekrar; bütçeyle sınırlı
+    exec2: [2, null],    // ikisini de çalıştırır, İKİNCİNİN değerini döner
+    exec3: [3, null],    // üçünü de çalıştırır, ÜÇÜNCÜNÜN değerini döner
+    assign: [2, null],   // assign(değişken, değer) — atamanın çağrı biçimi
+    megabuf: [1, null],  // karalama bellek, derleyicide özel (yazılabilir)
+    gmegabuf: [1, null], // aynısı, ama presetler arasında ortak
     bnot: [1, (a) => (a === 0 ? 1 : 0)],
     bor: [2, (a, b) => (a !== 0 || b !== 0 ? 1 : 0)],
     band: [2, (a, b) => (a !== 0 && b !== 0 ? 1 : 0)],
@@ -168,7 +209,7 @@
       if (tk.t === 'num') { pos++; return { k: 'num', v: tk.v }; }
       if (tk.t === 'op' && tk.v === '(') {
         pos++;
-        const e = expr();
+        const e = seqExpr();
         expect(')');
         return e;
       }
@@ -182,11 +223,36 @@
         pos++;
         if (isOp('(')) {
           pos++;
+          /* loop(sayı, deyim; deyim; …) — ns-eel'in döngü biçimi. Gövde
+             virgülle DEĞİL noktalı virgülle ayrılıyor ve parantezle bitiyor,
+             yani sıradan bir çağrı gibi ayrıştırılamaz. */
+          if (tk.v === 'loop') {
+            const n = expr();
+            if (!eat(',')) {
+              throw new SyntaxError(`'loop' için ',' bekleniyordu (satır ${peek().line})`);
+            }
+            const body = [];
+            while (!isOp(')') && peek().t !== 'eof') {
+              if (eat(';') || eat(',')) continue;
+              const before = pos;
+              body.push(expr());
+              // expr() ilerlemediyse sonsuz döngüye girerdik
+              if (pos === before) break;
+            }
+            expect(')');
+            return { k: 'loop', n, body };
+          }
           const args = [];
           if (!isOp(')')) {
-            do { args.push(expr()); } while (eat(','));
+            do { args.push(seqExpr()); } while (eat(','));
           }
           expect(')');
+          /* assign(x, v) atamanın çağrı biçimi. Sol taraf bir değişken
+             olmalı; başka bir şeyse sıradan çağrı gibi ele alınır ve arity
+             denetimine takılır. */
+          if (tk.v === 'assign' && args.length === 2 && args[0] && args[0].k === 'var') {
+            return { k: 'assign', name: args[0].name, v: args[1] };
+          }
           const def = FUNCS[tk.v];
           if (!def) throw new SyntaxError(`bilinmeyen fonksiyon '${tk.v}' (satır ${tk.line})`);
           if (def[0] !== args.length) {
@@ -225,9 +291,56 @@
       return left;
     }
 
+    /* Parantez içinde ';' bir DEYİM DİZİSİ kurar; hepsi çalışır, sonuncunun
+       değeri döner. ns-eel'de olağan: `if (c, a = 1; b = 2, ...)` gibi bir
+       dalın içinde birden çok atama olabiliyor. Bunu desteklemeyen bir
+       ayrıştırıcı gerçek presetlerin önemli bir bölümünü reddediyor. */
+    function seqExpr() {
+      const list = [expr()];
+      while (isOp(';')) {
+        // Ard arda gelen ';' boş deyimdir; gerçek presetlerde sık.
+        while (eat(';')) { /* boş */ }
+        if (isOp(')') || isOp(',') || peek().t === 'eof') break;
+        const before = pos;
+        list.push(expr());
+        if (pos === before) break;
+      }
+      return list.length === 1 ? list[0] : { k: 'seq', list };
+    }
+
     function expr() {
-      // Atama: sol taraf tek bir değişken olmalı
       const start = pos;
+      /* Bellek yazması: megabuf(i) = ifade
+         MilkDrop'un ifade dilinde megabuf() bir GÖSTERGE döndürür, dolayısıyla
+         atamanın sol tarafında durabilir. Dilin geri kalanında çağrıya atama
+         yoktur; bu yüzden yalnızca bu iki ad için açılıyor. */
+      if (peek().t === 'id' && (peek().v === 'megabuf' || peek().v === 'gmegabuf')
+          && toks[pos + 1] && toks[pos + 1].t === 'op' && toks[pos + 1].v === '(') {
+        const buf = peek().v;
+        pos += 2;
+        const idx = expr();
+        const nxt = toks[pos + 1];
+        const COMP = ['+=', '-=', '*=', '/=', '%='];
+        if (isOp(')') && nxt && nxt.t === 'op' && (nxt.v === '=' || COMP.indexOf(nxt.v) >= 0)) {
+          const op = nxt.v;
+          pos += 2;
+          // Belleğe de bileşik atama yapılabiliyor: gmegabuf(n+1) *= 0.9
+          return { k: 'bufset', buf, i: idx, compound: op === '=' ? '' : op[0], v: expr() };
+        }
+        // Atama değilmiş: sıradan bir okuma çağrısı olarak yeniden ayrıştır
+        pos = start;
+      }
+      /* Bileşik atama: `zoom -= 0.03` ==> `zoom = zoom - 0.03`
+         Ayrı bir düğüm türü gerekmiyor; sağ tarafı ikili işleme sarmak
+         yeterli ve geri kalan her şey (guard, kapanış üretimi) aynen çalışır. */
+      if (peek().t === 'id' && toks[pos + 1] && toks[pos + 1].t === 'op'
+          && ['+=', '-=', '*=', '/=', '%='].indexOf(toks[pos + 1].v) >= 0) {
+        const name = peek().v;
+        const op = toks[pos + 1].v[0];
+        pos += 2;
+        return { k: 'assign', name, v: { k: 'bin', op, a: { k: 'var', name }, b: expr() } };
+      }
+      // Atama: sol taraf tek bir değişken olmalı
       if (peek().t === 'id' && toks[pos + 1] && toks[pos + 1].t === 'op' && toks[pos + 1].v === '=') {
         const name = peek().v;
         pos += 2;
@@ -237,10 +350,33 @@
       return binary(0);
     }
 
+    /* Deyim düzeyinde hata kurtarma.
+       Tek bozuk satır yüzünden presetin TAMAMINI kaybetmek doğru değil;
+       elde 10.347 gerçek preset var ve bozuk olanların hepsi elle düzenleme
+       kalıntısı (`0 = 0.01*rand(..)`, işleçle başlayan deyim, iç içe girmiş
+       iki anahtar satırı). Bozuk deyim atlanır, kalanı çalışır — ama hata
+       YUTULMAZ: `errors` üzerinden derleyiciye, oradan panele taşınır. */
     const stmts = [];
+    const errors = [];
     while (peek().t !== 'eof') {
       if (eat(';')) continue;
-      stmts.push(expr());
+      const before = pos;
+      try {
+        stmts.push(expr());
+      } catch (e) {
+        errors.push(String((e && e.message) || e));
+        if (pos === before) pos++;   // ilerlemeyi garanti et
+        // Bozuk deyimi atla: derinlik 0'daki bir sonraki ';' ya da dosya sonu
+        let depth = 0;
+        while (peek().t !== 'eof') {
+          const t = peek();
+          if (t.t === 'op' && t.v === '(') depth++;
+          else if (t.t === 'op' && t.v === ')') depth = Math.max(0, depth - 1);
+          else if (t.t === 'op' && t.v === ';' && depth === 0) { pos++; break; }
+          pos++;
+        }
+        continue;
+      }
       if (!eat(';') && peek().t !== 'eof') {
         /* MilkDrop presetlerinde ';' sık sık unutulur ve orijinal
            yorumlayıcı buna izin verir. Katı davranmak, gerçek dünyadaki
@@ -248,6 +384,7 @@
         continue;
       }
     }
+    stmts.errors = errors;
     return stmts;
   }
 
@@ -263,6 +400,10 @@
       this.index = new Map();
       this.names = [];
       this.values = new Float64Array(0);
+      /* megabuf presetin KENDİNE ait. Havuzda duruyor çünkü init, per_frame
+         ve per_pixel ayrı ayrı derleniyor ama aynı belleği paylaşmaları
+         gerekiyor — MilkDrop'ta da öyle. */
+      this.mem = makeMem();
       // Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur
       this.persistent = new Set();
       for (let i = 0; i < 100; i++) {
@@ -343,6 +484,55 @@
         if (node.op === '!') return (P) => (a(P) === 0 ? 1 : 0);
         return a;
       }
+      case 'seq': {
+        const list = node.list.map((x) => emit(x, pool, cx));
+        const n = list.length;
+        return (P) => {
+          let v = 0;
+          for (let i = 0; i < n; i++) v = list[i](P);
+          return v;
+        };
+      }
+      case 'loop': {
+        const n = emit(node.n, pool, cx);
+        const body = node.body.map((b) => emit(b, pool, cx));
+        const budget = cx.budget;
+        const len = body.length;
+        /* Bütçe: bir preset per_pixel içinde loop(10000, …) yazabilir. Ağın
+           1271 düğümünde 60 fps ile bu kare başına 762 milyon işlem demek —
+           uygulama donar. Bütçe her run() çağrısında sıfırlanıyor ve bloğun
+           KAÇ KEZ koştuğuna göre veriliyor (bkz. Preset). Aşılırsa döngü
+           kesilir; preset yanlış görünür ama uygulama yaşar. */
+        return (P) => {
+          let k = n(P) | 0;
+          if (k < 0) k = 0;
+          for (let i = 0; i < k; i++) {
+            if (--budget.n < 0) break;
+            for (let j = 0; j < len; j++) body[j](P);
+          }
+          return 0;
+        };
+      }
+      case 'bufset': {
+        const mem = node.buf === 'gmegabuf' ? GMEM : pool.mem;
+        const i = emit(node.i, pool, cx);
+        const v = emit(node.v, pool, cx);
+        const F = cx.F;
+        if (!node.compound) return (P) => mem.set(i(P), F(v(P)));
+        /* Bileşik atamada indeks BİR KEZ değerlendirilir: `megabuf(n=n+1) *= 2`
+           gibi yan etkili bir indeks iki kez çalışsaydı iki farklı gözü
+           okuyup yazardı. İşleç de burada, derleme anında seçiliyor. */
+        const D = cx.D, MM = cx.M, op = node.compound;
+        const apply = op === '+' ? (a, b) => a + b
+          : op === '-' ? (a, b) => a - b
+            : op === '*' ? (a, b) => a * b
+              : op === '/' ? (a, b) => D(a, b)
+                : (a, b) => MM(a, b);
+        return (P) => {
+          const k = i(P);
+          return mem.set(k, F(apply(mem.get(k), v(P))));
+        };
+      }
       case 'bin':
         return binExpr(node, pool, cx);
       case 'call':
@@ -398,6 +588,34 @@
       const R = cx.R, n = a[0];
       return (P) => R(n(P));
     }
+    if (name === 'while') {
+      /* ns-eel'in while'ı: ifadeyi çalıştırır, SIFIR DÖNENE KADAR tekrarlar.
+         Sonlanacağının hiçbir garantisi yok — durma problemi. Bütçe burada
+         süs değil, uygulamanın donmamasının tek sebebi. */
+      const body = a[0];
+      const budget = cx.budget;
+      return (P) => {
+        for (;;) {
+          if (--budget.n < 0) break;
+          if (body(P) === 0) break;
+        }
+        return 0;
+      };
+    }
+    if (name === 'exec2' || name === 'exec3') {
+      // Hepsi çalışır, SONUNCUNUN değeri döner — dizi ifadesiyle aynı anlam
+      const n = a.length;
+      return (P) => {
+        let v = 0;
+        for (let i = 0; i < n; i++) v = a[i](P);
+        return v;
+      };
+    }
+    if (name === 'megabuf' || name === 'gmegabuf') {
+      const mem = name === 'gmegabuf' ? GMEM : pool.mem;
+      const i = a[0];
+      return (P) => mem.get(i(P));
+    }
     /* Ayrıştırıcı adı zaten beyaz listeye karşı doğruladı (bilinmeyen ad
        SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
        anında ad üzerinden arama yok. */
@@ -425,6 +643,10 @@
     } catch (e) {
       return { run: () => {}, pool: p, error: String(e.message || e), statements: 0 };
     }
+    /* Atlanan deyimler hata olarak bildirilir — preset yine de çalışır ama
+       panel bunu göstersin diye. Sessizce çalıştırmak, kullanıcıya yanlış
+       görünen bir sahnenin sebebini saklardı. */
+    const skipped = (stmts.errors || []).slice();
     // Yardımcılar kapanışa dışarıdan verilir; üretilen kodda serbest
     // tanımlayıcı yoktur.
     const F = (v) => (isFinite(v) ? v : 0);
@@ -444,7 +666,9 @@
 
     /* Yardımcılar kapanışlara buradan verilir. R tohumu dışarıda tuttuğu
        için resetSeed sonradan da çalışır. */
-    const cx = { F, D, M, R };
+    const budget = { n: 0 };
+    const cx = { F, D, M, R, budget };
+    const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
 
     let prog;
     try {
@@ -455,11 +679,15 @@
 
     return {
       pool: p,
-      error: '',
+      error: skipped.length
+        ? skipped.length + ' deyim atlandı: ' + skipped.join(' | ')
+        : '',
+      skipped: skipped.length,
       statements: stmts.length,
       resetSeed: (sd) => { seed = (sd || 12345) >>> 0; },
       run: (P) => {
         const V = P || p.values;
+        budget.n = LOOP_BUDGET;
         try {
           for (let i = 0; i < prog.length; i++) prog[i](V);
         } catch (e) { /* çalışma anı hatası kareyi düşürmesin */ }
@@ -535,14 +763,38 @@
        satır sonu koymak o simgeyi ikiye böler ve preset ayrıştırılamaz.
        Deyimleri `;` ayırdığı, satır sonu ise yalnızca boşluk sayıldığı
        için bu birleştirme başka hiçbir şeyi değiştirmiyor. */
-    const join = (arr) => (arr || []).slice().sort((a, b) => a.idx - b.idx)
-      /* Satır yorumu ÖNCE ve satır satır atılır. Bitiştirmeden sonra atmak
-         mümkün değil: tek bir `//` kendinden sonraki bütün anahtarları
-         yutar ve denklem bloğu tümüyle boşalır. Ölçüldü — yorum
-         temizlenmeden bitiştirince 10.347 presetin 630'u sessizce
-         boş kalıyordu; hata vermeden, sadece hiçbir şey yapmayarak. */
+    /* Numaralı satırların birleştirilmesi iki YÖNDE de bozulabilir ve iki
+       durum sözcük düzeyinde ayırt edilemiyor:
+
+         bitiştir  -> `...above(Treb,t` + `reb_Att)` = `treb_Att`   DOĞRU
+         bitiştir  -> `...bass_att` + `chng=sin(..)` = `bass_attchng` YANLIŞ
+
+       Ayırt eden şey sonucu: doğru olan ayrıştırılır, yanlış olan
+       ayrıştırılamaz. Bu yüzden önce bitiştirilir, ayrıştırılamazsa satır
+       sonuyla birleştirilmiş biçim denenir. İkisi de olmuyorsa bitiştirilmiş
+       biçim döner; hata mesajı birincil yoruma ait olsun. */
+    const joinWith = (arr, sep) => (arr || []).slice().sort((a, b) => a.idx - b.idx)
+      /* Satır yorumu ÖNCE ve satır satır atılır: bitiştirmeden sonra tek bir
+         `//` kendinden sonraki bütün anahtarları yutar ve blok sessizce
+         boşalır. Ölçüldü — 10.347 presetin 630'u böyle boşalıyordu. */
       .map((x) => String(x.value).replace(/\/\/.*$/, ''))
-      .join('');
+      .join(sep);
+    /* parse artık atmıyor (deyim düzeyinde kurtarma var), bu yüzden
+       birleştirme seçimi hata SAYISINA bakıyor. */
+    const parses = (t) => { try { return parse(t).errors.length === 0; } catch (e) { return false; } };
+    /* Shader blokları HLSL'dir, denklem değil. Yukarıdaki birleştirme onlara
+       UYGULANAMAZ: denklem ayrıştırıcısı HLSL'i hiçbir zaman kabul etmeyeceği
+       için her seferinde bitiştirilmiş biçim seçilir ve satırlar kaynaşır.
+       Shader'lar satır yapısını korur ve yorumları kendi derleyicisine
+       bırakır. */
+    const joinShader = (arr) => (arr || []).slice()
+      .sort((a, b) => a.idx - b.idx).map((x) => String(x.value)).join('\n');
+    const join = (arr) => {
+      const glued = joinWith(arr, '');
+      if (!arr || arr.length < 2 || parses(glued)) return glued;
+      const lined = joinWith(arr, '\n');
+      return parses(lined) ? lined : glued;
+    };
     const joinBlocks = (map) => {
       const out = {};
       for (const k in map) out[k] = join(map[k]);
@@ -559,8 +811,8 @@
       init: join(blocks.per_frame_init),
       perFrame: join(blocks.per_frame),
       perPixel: join(blocks.per_pixel),
-      warpShader: join(warpShader),
-      compShader: join(compShader),
+      warpShader: joinShader(warpShader),
+      compShader: joinShader(compShader),
       waves: wavesOut,
       shapes: shapesOut,
     };
@@ -579,15 +831,26 @@
       this.errors = [];
       this.name = o.name || this.file.params.psetname || '';
 
+      /* MilkDrop varsayılanları. Dosya bunları belirtmeyebilir ve havuzun
+         doğal başlangıcı 0; kırpma sonrası 0 SİYAH demek olurdu. MilkDrop'ta
+         belirtilmemiş dalga rengi beyazdır. */
+      this.pool.set('wave_r', 1);
+      this.pool.set('wave_g', 1);
+      this.pool.set('wave_b', 1);
+      this.pool.set('wave_a', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer
       for (const k in this.file.params) {
         const v = this.file.params[k];
         if (typeof v === 'number') this.pool.set(k, v);
       }
 
-      this.cInit = compile(this.file.init, this.pool, { seed: o.seed });
-      this.cFrame = compile(this.file.perFrame, this.pool, { seed: o.seed });
-      this.cPixel = compile(this.file.perPixel, this.pool, { seed: o.seed });
+      /* Döngü bütçesi bloğun KAÇ KEZ koştuğuna göre veriliyor: init bir kez,
+         per_frame saniyede 60 kez, per_pixel ise ağın 1271 düğümünde yani
+         saniyede ~76 bin kez. Tek bir sabit bütçe ya init'i boğardı ya da
+         per_pixel'de uygulamayı dondururdu. */
+      this.cInit = compile(this.file.init, this.pool, { seed: o.seed, loopBudget: 1048576 });
+      this.cFrame = compile(this.file.perFrame, this.pool, { seed: o.seed, loopBudget: 65536 });
+      this.cPixel = compile(this.file.perPixel, this.pool, { seed: o.seed, loopBudget: 1024 });
       for (const c of [this.cInit, this.cFrame, this.cPixel]) {
         if (c.error) this.errors.push(c.error);
       }
@@ -665,7 +928,19 @@
     }
   }
 
-  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset };
+  /* Renk kanalını çizilebilir aralığa indirger.
+
+     Ayrı bir işlev, çünkü kuralı MilkDrop koyuyor, çizici değil — ve burada
+     iki kez hata yapıldı: `v || 1` geçerli bir SIFIRI "belirtilmemiş" sanıp
+     1'e çeviriyordu (sarı bir preset beyaz çıkıyordu), üst sınır ise hiç
+     yoktu (13 gibi bir değer beyaza doyuyordu). İkisi de yalnız ekrana
+     bakınca görülür; bu yüzden kural test edilebilir bir yerde duruyor. */
+  function clampColor(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return 1;
+    return v < 0 ? 0 : v > 1 ? 1 : v;
+  }
+
+  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset, clampColor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

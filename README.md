@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111827.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-808%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-826%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -208,10 +208,16 @@ that asserts the bar profile has no step in it.
 </div>
 
 - **The preset language actually runs** — tokeniser, parser, and compilation to JavaScript
-  closures. `per_frame` and `per_pixel` equations drive a real warp mesh with feedback.
+  closures. `per_frame` and `per_pixel` equations drive a real warp mesh with feedback, including
+  `megabuf`/`gmegabuf`, `loop`, `while`, `exec2`/`exec3` and compound assignment.
+- **Measured against 10,347 real presets** from the projectM original and cream-of-the-crop packs:
+  every one loads and runs, 10,344 of them with no skipped statement at all.
 - **`.milk` import**, including multi-file packs with per-file compile errors reported.
-- **No preset text is copied into generated code.** Identifiers become pool indices, so a preset
-  cannot smuggle JavaScript. A fuzz test asserts it.
+- **No preset text is copied into generated code.** There is no `eval` and no generated source:
+  each node becomes a closure, identifiers become pool indices, and function names are resolved
+  against a fixed table at compile time.
+- **HLSL pixel shaders are not implemented.** 82% of real presets carry one. Those presets load and
+  their motion is correct, but the colouring and texturing their shader would add is missing.
 
 ---
 
@@ -866,7 +872,7 @@ npm test
 npm start -- --smoke
 ```
 
-**808 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**826 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
