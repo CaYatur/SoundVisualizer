@@ -468,6 +468,8 @@
         return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
       case 'textpanel':
         return window.SVTextPanel ? window.SVTextPanel.panel() : null;
+      case 'nowplayingpanel':
+        return window.SVNowPlayingPanel ? window.SVNowPlayingPanel.panel() : null;
       case 'grouppanel':
         return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
       case 'note':
@@ -1727,6 +1729,12 @@
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
           { type: 'color', path: 'background.solidColor', label: 'Düz Renk', show: () => cfg.background.type === 'solid' },
+          { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan' },
+          {
+            type: 'note',
+            text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür ve düz renk arkaplan boyanmaz. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için değişiklik görselleştirici kapatılıp yeniden açılınca geçerli olur.',
+            show: () => !!cfg.background.transparent,
+          },
           {
             type: 'segment', path: 'background.gradient.style', label: 'Stil',
             options: [
@@ -1957,6 +1965,16 @@
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
         controls: [{ type: 'textpanel' }],
         show: () => v.type === 'text' || !!(cfg.text && cfg.text.enabled) || !!(cfg.layers && cfg.layers.some((l) => l.type === 'text')),
+      },
+      {
+        id: 'nowplaying',
+        roots: ['nowplaying'],
+        category: 'scene',
+        icon: '🎵',
+        title: 'Çalan Parça',
+        desc: 'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.',
+        controls: [{ type: 'nowplayingpanel' }],
+        show: () => v.type === 'nowplaying' || !!(cfg.layers && cfg.layers.some((l) => l.type === 'nowplaying')),
       },
       {
         id: 'milkdrop',

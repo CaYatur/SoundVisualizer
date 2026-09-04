@@ -263,6 +263,10 @@
     applyScene();
     applyLogo();
     document.body.style.cursor = cfg.power.hideCursor ? 'none' : 'default';
+    /* Sayfanın zemini de kalkmalı; pencere şeffaf doğsa bile body siyah
+       boyadığı sürece arkasındaki masaüstü görünmez. */
+    document.documentElement.classList.toggle('sv-transparent',
+      !!(cfg.background && cfg.background.transparent));
 
     audio.applyConfig(cfg.audio);
     resize();
@@ -303,6 +307,11 @@
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
     window.api.onConfig((c) => applyConfig(c));
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    /* Çalan parça çıpası. Her kare gelmez — kaynak konumu ancak ara sıra
+       günceller — aradaki değeri katmanlar SVNowPlaying ile hesaplar. */
+    if (window.api.onNowPlaying) {
+      window.api.onNowPlaying((st) => { window.SVNowLive.state = st; });
+    }
     window.addEventListener('resize', resize);
 
     raf = requestAnimationFrame(frame);

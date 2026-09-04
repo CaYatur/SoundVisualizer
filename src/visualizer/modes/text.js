@@ -44,6 +44,7 @@
       this.docKey = '';
       this.t0 = 0;
       this.lastLine = -1;
+      this.lastNow = '';
       this.lineAge = 0;
       this.marquee = 0;
     }
@@ -98,12 +99,21 @@
           else this.lineAge += step;
         }
       } else if (src === 'now') {
-        const n = T.nowPlaying || {};
+        /* Sistemden okunan parça varsa o kazanır; yoksa elle yazılana düşer.
+           Böylece hiçbir oynatıcı açık değilken alan boş kalmıyor. */
+        const live = (T.nowSource || 'system') === 'system'
+          && window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has
+          ? window.SVNowLive.state : null;
+        const n = live || T.nowPlaying || {};
         const field = T.field || 'both';
         if (field === 'title') content = n.title || T.content || '';
         else if (field === 'artist') content = n.artist || T.content || '';
         else content = [n.title, n.artist].filter(Boolean).join(' — ') || (T.content || '');
-        this.lineAge += step;
+        /* Parça değişince giriş canlandırması yeniden oynasın; sabit yazı
+           gibi durmasın. Söz satırlarındaki mantığın aynısı. */
+        const key = (n.title || '') + ' ' + (n.artist || '');
+        if (key !== this.lastNow) { this.lastNow = key; this.lineAge = 0; }
+        else this.lineAge += step;
       } else {
         content = T.content || '';
         this.lineAge += step;

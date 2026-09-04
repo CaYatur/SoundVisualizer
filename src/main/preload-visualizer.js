@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('api', {
   /* Gösteri saati çıpası. Yalnızca DURUM DEĞİŞTİĞİNDE gelir; zaman her
      karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
+  /* Çalan parça çıpası. Konum HER KARE gelmez; kaynak ancak ara sıra
+     güncelliyor, aradaki değeri pencere kendisi hesaplıyor.
+     (bkz. src/shared/nowplaying.js) */
+  onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),

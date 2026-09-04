@@ -532,6 +532,12 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   line-height: 1.4;
 }
 .txt-info { margin-left: auto; font-size: 11px; color: var(--muted, rgba(255,255,255,0.62)); }
+/* Çalan parça durum satırı. Renk üç durumu ayırt ediyor: okunuyor ve bir şey
+   çalıyor (yeşil), okuma çalışıyor ama sessiz (sönük), okunamıyor (kırmızı).
+   Sebep görünmezse kullanıcı ayarlarda boşuna dolaşır. */
+.np-status { font-variant-numeric: tabular-nums; }
+.np-status.ok { color: var(--ok, #5fd38d); }
+.np-status.bad { color: var(--bad, #ff7a7a); }
 
 
 /* ===== Katman bayrakları, gruplar, A/B ===== */

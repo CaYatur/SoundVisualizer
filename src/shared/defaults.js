@@ -21,6 +21,12 @@
       // 'waves' | 'aurora' | 'starfield' | 'grid' | 'bokeh' | 'rain' | 'network' | 'rings'
       type: 'gradient',
       solidColor: '#08080f',
+      /* Şeffaf arkaplan. Açıkken görselleştirici penceresi arkasındaki
+         masaüstünü gösterir ve düz renk arkaplan boyanmaz.
+         DİKKAT: pencerenin şeffaflığı Electron'da yalnızca OLUŞTURULURKEN
+         verilebiliyor; bu yüzden değişiklik ancak görselleştirici yeniden
+         açılınca geçerli olur (panel de bunu yazıyor). */
+      transparent: false,
       // Not: 2D arkaplan modları da bu bloğun colors/speed/audioReactivity/
       // brightness/vignette alanlarını okur; böylece renk seçiciler, hazır
       // şablonlar ve kullanıcı şablonları tüm arkaplan modlarında geçerli kalır.
@@ -452,6 +458,71 @@
       lyricsSource: '', // LRC/SRT dosya içeriği
       lyricsName: '',
       nowPlaying: { title: '', artist: '' },
+      nowSource: 'system', // 'system' = sistemden oku | 'manual' = elle yazılan
+    },
+
+    // ------------------------------------------------------------------
+    // Çalan parça katmanı.
+    //
+    // Bilgiyi işletim sisteminin medya oturumundan alır; hangi oynatıcı
+    // olduğu fark etmez. Konum SÜREKLİ gelmez — kaynak ancak ara sıra
+    // güncelliyor — o yüzden gelen her örnek bir çıpadır ve aradaki değer
+    // yerelde hesaplanır (bkz. src/shared/nowplaying.js).
+    //
+    // Yazı ölçüsü, metin katmanında olduğu gibi, ekranın KISA kenarına
+    // orandır: aynı sahne 1080p monitörde ve 4K projektörde aynı görünsün.
+    // ------------------------------------------------------------------
+    nowplaying: {
+      enabled: true,
+      source: 'system',   // 'system' | 'manual'
+      manual: { title: '', artist: '', album: '' },
+
+      // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi
+      mode: 'always',     // 'always' | 'onChange'
+      speed: 'normal',    // 'fast' | 'normal' | 'slow'
+      animDuration: null, // null = hız kademesinden
+      holdSeconds: null,  // null = hız kademesinden
+      animation: 'slideUp', // 'none'|'fade'|'slideUp'|'slideLeft'|'scale'|'typewriter'|'wipe'
+      style: 'modern',    // 'modern' | 'og'
+
+      // Hangi alanlar görünsün (her biri tek tek kapatılabilir)
+      show: {
+        title: true, artist: true, album: false, appName: false,
+        elapsed: true, remaining: false, total: true, bar: true,
+      },
+      separator: ' — ',
+      timeSeparator: ' / ',
+      uppercase: null,    // null = kalıptan
+      oneLine: false,     // parça ve sanatçıyı tek satırda birleştir
+
+      // Yerleşim
+      x: 0.5,
+      y: 0.86,
+      align: 'center',
+      size: 0.042,        // kısa kenara oran
+      weight: null,       // null = kalıptan
+      font: '',           // boş = metin katmanıyla aynı yazı tipi
+      lineGap: 0.32,      // satır aralığı (yazı ölçüsüne oran)
+      opacity: 1,
+      maxWidth: 0.8,      // uzun başlıklar bu genişliğe sığdırılır
+      scrollLongTitles: true,
+
+      // İlerleme çubuğu
+      barWidth: 0.42,
+      barHeight: null,    // null = kalıptan
+      barSegments: null,  // null = kalıptan (OG kalıbı bölmeli çizer)
+      barRadius: null,
+      barBackOpacity: null,
+      barGap: 0.5,        // çubuk ile yazı arası (yazı ölçüsüne oran)
+
+      // Renk
+      useCustomColor: false,
+      color: '#ffffff',
+      colorDim: '#b9b9cc',
+      colorBar: '#7c5cff',
+      outline: null,      // null = kalıptan
+      shadow: null,
+      audioScale: 0.04,   // sese göre hafif nabız
     },
 
     // ------------------------------------------------------------------

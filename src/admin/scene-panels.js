@@ -193,7 +193,7 @@
         ['ropes', 'İpler'], ['galaxy', 'Galaksi'], ['dna', 'DNA Sarmalı'],
         ['isocity', 'İzometrik Şehir'], ['attractorfield', 'Çekici Alanı'],
         ['scope', 'Osiloskop (XY)'], ['goniometer', 'Gonyometre'], ['chromawheel', 'Kroma Çemberi'],
-        ['text', 'Metin / Şarkı Sözü'],
+        ['text', 'Metin / Şarkı Sözü'], ['nowplaying', 'Çalan Parça'],
         ['milkdrop', 'MilkDrop'], ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
       ];
     }

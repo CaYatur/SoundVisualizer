@@ -8,6 +8,10 @@ html, body {
   cursor: none;
 }
 
+/* Şeffaf arkaplan. Sayfanın kendi siyah zemini de kalkmak zorunda: pencere
+   şeffaf doğsa bile body siyah boyadığı sürece arkası görünmezdi. */
+.sv-transparent, .sv-transparent body { background: transparent; }
+
 /* Katman sahnesi. Tuvaller layers.js tarafından eklenir; karıştırma
    (mix-blend-mode) tarayıcının GPU kompozitörüne bırakılır. isolation
    sayesinde karışım sayfanın arkaplanına taşmaz. */

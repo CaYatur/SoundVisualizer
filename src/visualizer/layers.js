@@ -837,6 +837,12 @@
       if (l.kind === 'background') {
         if (e.gl && e.mode) { e.mode.draw(audio, lcfg, t); return; }
         if (e.mode) { e.mode.draw(e.ctx, audio, lcfg, t, W, H, dt); return; }
+        /* Şeffaf arkaplanda düz renk BOYANMAZ; boyasaydık pencerenin
+           şeffaflığı bir işe yaramaz, altındaki masaüstü görünmezdi. */
+        if (lcfg.background && lcfg.background.transparent) {
+          e.ctx.clearRect(0, 0, W, H);
+          return;
+        }
         // düz renk
         e.ctx.fillStyle = (lcfg.background && lcfg.background.solidColor) || '#000000';
         e.ctx.fillRect(0, 0, W, H);

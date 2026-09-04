@@ -21,6 +21,7 @@ const textureShare = require('./texture-share');
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
 const { serveMediaFile } = require('./media-file');
+const { MediaSession } = require('./media-session');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -232,6 +233,10 @@ function createAdminWindow() {
   adminWin.on('closed', () => {
     adminWin = null;
     previewSubscribed = false; // panel gitti, önizleme kare akışı da biter
+    /* Panel gitti: onun için ayakta tutulan medya oturumu okuması da bitsin.
+       Yapılandırma zaten kullanıyorsa syncNowPlaying yeniden başlatır. */
+    adminWantsNowPlaying = false;
+    syncNowPlaying();
     // Kasıtlı: kaza koruması bunları geri açmamalı
     closeVisualizer();
   });
@@ -266,6 +271,12 @@ function meterWindow() {
 }
 
 // Tüm görselleştirme pencerelerine mesaj yolla
+/* Şeffaf arkaplan isteniyor mu? Pencere oluşturulurken okunur. */
+function wantsTransparent() {
+  const cfg = currentConfig || loadSettings();
+  return !!(cfg && cfg.background && cfg.background.transparent);
+}
+
 function sendToVisualizers(channel, payload) {
   for (const win of openWindows()) win.webContents.send(channel, payload);
   /* Spout/Syphon penceresi görünmez ve visualizerWins içinde DEĞİL
@@ -296,7 +307,10 @@ function createVisualizerWindow(display) {
     frame: false,
     /* Pencere DOĞRUDAN GÖRÜNÜR ve tam ekran doğar; sonradan show()
        çağrılmaz. Gerekçe hemen aşağıda. */
-    backgroundColor: '#000000',
+    /* Şeffaflık pencere DOĞARKEN belirlenmek zorunda; Electron sonradan
+       değiştirmeye izin vermiyor. Ayar değişince pencere yeniden açılmalı. */
+    transparent: wantsTransparent(),
+    backgroundColor: wantsTransparent() ? '#00000000' : '#000000',
     show: true,
     fullscreen: true,
     fullscreenable: true,
@@ -350,6 +364,9 @@ function createVisualizerWindow(display) {
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    /* Calan parca durumu da hemen gitmeli. Kaynak konumu ancak on saniyede
+       bir guncelliyor; beklersek yeni acilan ekran o kadar sure bos kalirdi. */
+    if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
   });
 
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
@@ -780,6 +797,7 @@ ipcMain.on('update-config', (e, config) => {
   syncArtnet();
   syncOpenRgb();
   syncTextureShare();
+  syncNowPlaying();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
@@ -1220,6 +1238,55 @@ function syncOscServer() {
   });
 }
 
+/* ---------------------------------------------------------------- calan parca
+
+   Sistemin medya oturumu YALNIZCA ozellik acikken okunur. Kullanicinin ne
+   dinledigi hassas bir bilgi; kimse istemeden dinlenmesin diye surec ancak
+   ekranda gosterilecekse baslatiliyor. Okunan bilgi bu makinedeki
+   pencerelerin disina cikmiyor. (bkz. src/main/media-session.js) */
+const mediaSession = new MediaSession();
+let adminWantsNowPlaying = false;
+
+mediaSession.subscribe((st) => {
+  sendToVisualizers('now-playing', st);
+  notifyAdmin('now-playing', st);
+});
+
+// Yapilandirmanin herhangi bir yerinde sistemden okuyan bir kullanim var mi?
+function wantsNowPlaying(cfg) {
+  if (!cfg) return false;
+  const systemNow = (n) => !!n && n.enabled !== false && (n.source || 'system') === 'system';
+  const systemText = (t) => !!t && t.enabled !== false && t.source === 'now' && (t.nowSource || 'system') === 'system';
+
+  if (cfg.visualizer && cfg.visualizer.type === 'nowplaying' && systemNow(cfg.nowplaying)) return true;
+  if (cfg.visualizer && cfg.visualizer.type === 'text' && systemText(cfg.text)) return true;
+
+  const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
+  for (const l of layers) {
+    if (!l || l.enabled === false) continue;
+    const over = l.settings || {};
+    if (l.type === 'nowplaying' && systemNow(over.nowplaying || cfg.nowplaying)) return true;
+    if (l.type === 'text' && systemText(over.text || cfg.text)) return true;
+  }
+  return false;
+}
+
+function syncNowPlaying() {
+  const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig);
+  if (want) mediaSession.start();
+  else mediaSession.stop();
+}
+
+/* Panel kendi onizlemesi icin okumayi acik tutabilir; panel kapaninca
+   ozellik kullanilmiyorsa okuma da duruyor. */
+ipcMain.on('nowplaying:subscribe', (e, on) => {
+  adminWantsNowPlaying = !!on;
+  syncNowPlaying();
+  if (on && mediaSession.current().has) notifyAdmin('now-playing', mediaSession.current());
+});
+ipcMain.handle('nowplaying:status', () => mediaSession.status());
+ipcMain.handle('nowplaying:current', () => mediaSession.current());
+
 ipcMain.handle('stream:status', () => streamServer.status());
 ipcMain.handle('stream:sync', () => syncStreamServer());
 ipcMain.handle('stream:new-token', () => streamServer.newToken());
@@ -1610,6 +1677,7 @@ app.whenReady().then(async () => {
   if (currentConfig?.lighting?.enabled) {
     dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
   }
+  syncNowPlaying();
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
@@ -3041,6 +3109,7 @@ app.on('before-quit', () => {
   oscServer.stop().catch(() => {});
   artnet.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
+  mediaSession.stop();
   nativeAudio.stopCapture();
 });
 

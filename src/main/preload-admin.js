@@ -102,6 +102,11 @@ contextBridge.exposeInMainWorld('api', {
   /* Gösteri saati çıpasını tüm görselleştirici pencerelerine yolla.
      Yalnızca taşıma durumu değiştiğinde çağrılır. */
   sendShowClock: (anchor) => ipcRenderer.send('show-clock', anchor),
+  // Çalan parça: panel önizlemesi açıkken okumayı ayakta tutar
+  nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
+  nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
+  nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
+  onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 
   // Canlı kayıt ve anlık görüntü
