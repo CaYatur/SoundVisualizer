@@ -2965,6 +2965,46 @@ async function runSmoke() {
     }
   }
 
+  /* MilkDrop denklemleri ARAYÜZDE gerçekten derleniyor mu?
+     Birim testler bunu göremez: Node'da CSP yok, `new Function` orada her
+     zaman çalışır. Tarayıcı bağlamında ise sayfanın Content-Security-Policy
+     başlığı onu engelleyebilir ve preset sessizce ölü doğar — kullanıcı
+     yalnızca "derleme hatası" görür, sebebini görmez.
+
+     Sadece hata yokluğuna bakmak yetmez: yanlış kod üreten bir derleyici de
+     hatasız görünür. Bu yüzden SONUÇ ölçülüyor. */
+  const milk = await adminWin.webContents.executeJavaScript(`(function(){
+    if (!window.SVMilkdrop) return JSON.stringify({ hata: 'SVMilkdrop yüklenmedi' });
+    try {
+      var m = window.SVMilkdrop;
+      var pool = new m.Pool();
+      var c = m.compile('x = 2 + 3; y = x * 5; z = sqrt(y); w = if(above(y,10), 7, 9); v = 10 % 3; u = 2 ^ 3; t = 1/0;', pool);
+      c.run();
+      return JSON.stringify({
+        hata: '',
+        derlemeHatasi: c.error || '',
+        d: ['x', 'y', 'z', 'w', 'v', 'u', 't'].map(function (k) { return pool.values[pool.id(k)]; }).join(','),
+      });
+    } catch (e) {
+      return JSON.stringify({ hata: String((e && e.message) || e) });
+    }
+  })()`);
+  console.log('[SMOKE] MilkDrop derlemesi: ' + milk);
+  {
+    const mk = JSON.parse(milk);
+    if (mk.hata) {
+      errors.push('milkdrop: ' + mk.hata);
+    } else if (mk.derlemeHatasi) {
+      /* En muhtemel sebep budur ve mesajı kullanıcıya bir şey anlatmıyor. */
+      errors.push('milkdrop: the expression compiler failed in the renderer (' + mk.derlemeHatasi + ')');
+    } else if (mk.d !== '5,25,5,7,1,8,0') {
+      /* Yalnızca "hata yok" demek yetmez: yanlış kod üreten bir derleyici de
+         hatasız görünür. Bu yedi değer aritmetiği, sqrt'ı, if()'in kısa
+         devresini, modülüsü, üssü ve sıfıra bölmeyi birlikte ölçüyor. */
+      errors.push('milkdrop: compiled but produced the wrong values (' + mk.d + ', expected 5,25,5,7,1,8,0)');
+    }
+  }
+
   /* Ses yardımcısını UYGULAMANIN KENDİ ikilisi mi çalıştırıyor?
      Harici node'a düşmek burada görünmez: bu makinede node kurulu.
      Kullanıcının makinesinde ise ses tümüyle ölür. Ölç. */

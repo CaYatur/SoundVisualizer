@@ -68,12 +68,24 @@
     if (md.source && window.SVMilkdrop) {
       try {
         const p = new window.SVMilkdrop.Preset(md.source);
-        const stat = p.errors.length
-          ? '⚠ ' + p.errors.length + ' hata'
-          : '✓ ' + (p.cFrame.statements + p.cPixel.statements + p.cInit.statements) + ' deyim derlendi';
-        nodes.push(P().row('Derleme', el('span', {
-          class: p.errors.length ? 'md-err' : 'md-ok', text: stat,
-        })));
+        /* Sayı ve metin AYRI düğümlerde. i18n sözlüğü metin düğümlerini
+           birebir eşleştiriyor, dolayısıyla '3 hata' gibi birleşik bir metin
+           hiçbir zaman eşleşmez ve İngilizce arayüzde Türkçe kalırdı —
+           #559'daki ekran görüntüsünde tam olarak bu görünüyor. */
+        const st = el('span', { class: p.errors.length ? 'md-err' : 'md-ok' });
+        if (p.errors.length) {
+          st.appendChild(el('span', { text: '⚠ ' }));
+          st.appendChild(el('span', { class: 'md-num', text: String(p.errors.length) + ' ' }));
+          st.appendChild(el('span', { text: 'hata' }));
+        } else {
+          st.appendChild(el('span', { text: '✓ ' }));
+          st.appendChild(el('span', {
+            class: 'md-num',
+            text: String(p.cFrame.statements + p.cPixel.statements + p.cInit.statements) + ' ',
+          }));
+          st.appendChild(el('span', { text: 'deyim derlendi' }));
+        }
+        nodes.push(P().row('Derleme', st));
         if (p.errors.length) {
           nodes.push(el('div', { class: 'studio-note md-errbox', text: p.errors.join('\n') }));
         }

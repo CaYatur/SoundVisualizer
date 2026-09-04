@@ -6,6 +6,9 @@
  * dörttür" denebiliyor. Bu dosya bunu yapıyor: öncelik kuralları, birleşme
  * yönleri, yerleşik fonksiyonların tanımları, uç durumlar ve gerçek preset
  * dosyalarının ayrıştırılması. */
+
+/* Satır sonu: kaçış dizisi yazmadan. */
+const EOL = String.fromCharCode(10);
 const test = require('node:test');
 const assert = require('node:assert');
 const M = require('../src/shared/milkdrop.js');
@@ -276,12 +279,40 @@ test('.milk: sayısal ve metinsel parametreler okunur', () => {
 
 test('.milk: numaralandırılmış denklem satırları SIRAYLA birleşir', () => {
   const f = M.parseMilk(SAMPLE);
-  const lines = f.perFrame.split('\n');
+  const at = (t) => f.perFrame.indexOf(t);
   // 1, 2, 3, 10 sırasında olmalı — dosyada 10 üçüncü sırada yazılmıştı
-  assert.ok(lines[0].includes('q1 = bass'), 'satır 1: ' + lines[0]);
-  assert.ok(lines[1].includes('q2 = treb'), 'satır 2: ' + lines[1]);
-  assert.ok(lines[2].includes('zoom = zoom + q1'), 'satır 3: ' + lines[2]);
-  assert.ok(lines[3].includes('rot = rot + 0.01'), 'satır 10 en sonda olmalı: ' + lines[3]);
+  for (const t of ['q1 = bass', 'q2 = treb', 'zoom = zoom + q1', 'rot = rot + 0.01']) {
+    assert.ok(at(t) >= 0, 'eksik: ' + t);
+  }
+  assert.ok(at('q1 = bass') < at('q2 = treb'), '1 < 2');
+  assert.ok(at('q2 = treb') < at('zoom = zoom + q1'), '2 < 3');
+  assert.ok(at('zoom = zoom + q1') < at('rot = rot + 0.01'), '10 en sonda olmalı');
+});
+
+test('.milk: bir simgenin ORTASINDAN bölünmüş satırlar onarılır', () => {
+  /* Gerçek presetlerde görülen durum: uzun bir denklem numaralı anahtarlara
+     bölünürken kesik `treb_att` simgesinin ortasından geçmiş. Araya satır
+     sonu koyan bir birleştirme onu iki ayrı simgeye böler ve preset hiç
+     ayrıştırılamaz. */
+  const src = ['[preset00]', 'per_pixel_1=rot = rot * above(bass,t', 'per_pixel_2=reb_att);', ''].join(EOL);
+  const f = M.parseMilk(src);
+  assert.ok(/treb_att/.test(f.perPixel), 'bölünmüş simge birleşmedi: ' + f.perPixel);
+  assert.strictEqual(M.compile(f.perPixel, new M.Pool()).error, '');
+});
+
+test('.milk: satır yorumu YALNIZCA kendi anahtarını yutar', () => {
+  /* Bitiştirerek birleştirmenin bedeli: `//` satır sonuna kadar sürdüğü için,
+     satır sonu kalkınca tek bir yorum kendinden sonraki bütün anahtarları
+     yutabilir. Blok hata vermez — sessizce boşalır, ki bu daha kötüsüdür.
+     Ölçüldü: yorumlar temizlenmeden 10.347 presetin 630'u böyle boşalıyordu. */
+  const src = ['[preset00]', 'per_frame_1=a = 1; // yorum', 'per_frame_2=b = 2;', ''].join(EOL);
+  const f = M.parseMilk(src);
+  const pool = new M.Pool();
+  const c = M.compile(f.perFrame, pool);
+  assert.strictEqual(c.error, '', 'derleme hatası: ' + c.error);
+  c.run();
+  assert.strictEqual(pool.get('a'), 1);
+  assert.strictEqual(pool.get('b'), 2, 'yorum sonraki anahtarı yuttu');
 });
 
 test('.milk: büyük harfli anahtarlar da tanınır', () => {

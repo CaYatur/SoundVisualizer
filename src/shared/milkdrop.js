@@ -305,70 +305,110 @@
     }
   }
 
-  const num = (v) => {
-    if (!isFinite(v)) return '0';
-    // Tam sayılar da ondalık yazılır ki JS'te tamsayı bölmesi sürprizi olmasın
-    return Number.isInteger(v) ? v.toFixed(1) : String(v);
-  };
+  /* Bir düğümü, çağrıldığında değerini veren bir KAPANIŞA çevirir.
 
-  function emit(node, pool) {
+     Neden metin değil de kapanış: eskiden burada JavaScript kaynağı üretilip
+     `new Function` ile derleniyordu. Sayfanın Content-Security-Policy'si
+     `unsafe-eval` içermediği için tarayıcı bunu engelliyordu ve HİÇBİR preset
+     çalışmıyordu (#559). CSP'yi gevşetmek yerine eval'i tümden kaldırdık.
+
+     İkinci ve daha sinsi kazanç: eski `callExpr` fonksiyon adını üretilen
+     metne yapıştırıyordu. Kod enjeksiyonunu ayrıştırıcıdaki beyaz liste
+     engelliyordu, ama `FUNCS['constructor']` gibi miras alınan özellikler
+     oraya sızabiliyordu; onları da yalnızca argüman sayısı denetiminin
+     tesadüfen elemesi kurtarıyordu. Kapanışta yapıştırılacak metin yok.
+
+     Hız: dallanma DERLEME anında bir kez yapılır, her karede değil. per_pixel
+     40x30'luk ağın her düğümünde koşuyor — 60 fps'te saniyede ~76 bin
+     değerlendirme; switch'i içeride bırakmak buranın en pahalı hatası olurdu. */
+  function emit(node, pool, cx) {
     switch (node.k) {
-      case 'num':
-        return num(node.v);
-      case 'var':
-        return 'P[' + pool.id(node.name) + ']';
-      case 'assign':
-        return '(P[' + pool.id(node.name) + '] = ' + guard(emit(node.v, pool)) + ')';
-      case 'un':
-        if (node.op === '-') return '(-' + emit(node.a, pool) + ')';
-        if (node.op === '!') return '((' + emit(node.a, pool) + ') === 0 ? 1 : 0)';
-        return emit(node.a, pool);
+      case 'num': {
+        const v = isFinite(node.v) ? node.v : 0;
+        return () => v;
+      }
+      case 'var': {
+        const i = pool.id(node.name);
+        return (P) => P[i];
+      }
+      case 'assign': {
+        const i = pool.id(node.name);
+        const rhs = emit(node.v, pool, cx);
+        const F = cx.F;
+        return (P) => (P[i] = F(rhs(P)));
+      }
+      case 'un': {
+        const a = emit(node.a, pool, cx);
+        if (node.op === '-') return (P) => -a(P);
+        if (node.op === '!') return (P) => (a(P) === 0 ? 1 : 0);
+        return a;
+      }
       case 'bin':
-        return binExpr(node, pool);
+        return binExpr(node, pool, cx);
       case 'call':
-        return callExpr(node, pool);
+        return callExpr(node, pool, cx);
       default:
-        return '0';
+        return () => 0;
     }
   }
 
   // Bölme ve benzeri işlemler sonsuz üretebilir; sonuç her zaman sonlu tutulur
-  const guard = (js) => '(F(' + js + '))';
+  const guard = (fn, F) => (P) => F(fn(P));
 
-  function binExpr(node, pool) {
-    const a = emit(node.a, pool);
-    const b = emit(node.b, pool);
+  function binExpr(node, pool, cx) {
+    const a = emit(node.a, pool, cx);
+    const b = emit(node.b, pool, cx);
+    const F = cx.F;
     switch (node.op) {
-      case '+': return '(' + a + ' + ' + b + ')';
-      case '-': return '(' + a + ' - ' + b + ')';
-      case '*': return '(' + a + ' * ' + b + ')';
+      case '+': return (P) => a(P) + b(P);
+      case '-': return (P) => a(P) - b(P);
+      case '*': return (P) => a(P) * b(P);
       // Sıfıra bölme MilkDrop'ta hata değil: sonuç 0 kabul edilir
-      case '/': return '(D(' + a + ', ' + b + '))';
-      case '%': return '(M(' + a + ', ' + b + '))';
-      case '^': return '(F(Math.pow(' + a + ', ' + b + ')))';
-      case '==': return '((' + a + ' === ' + b + ') ? 1 : 0)';
-      case '!=': return '((' + a + ' !== ' + b + ') ? 1 : 0)';
-      case '<': return '((' + a + ' < ' + b + ') ? 1 : 0)';
-      case '>': return '((' + a + ' > ' + b + ') ? 1 : 0)';
-      case '<=': return '((' + a + ' <= ' + b + ') ? 1 : 0)';
-      case '>=': return '((' + a + ' >= ' + b + ') ? 1 : 0)';
-      case '&&': return '(((' + a + ') !== 0 && (' + b + ') !== 0) ? 1 : 0)';
-      case '||': return '(((' + a + ') !== 0 || (' + b + ') !== 0) ? 1 : 0)';
+      case '/': { const D = cx.D; return (P) => D(a(P), b(P)); }
+      case '%': { const M = cx.M; return (P) => M(a(P), b(P)); }
+      case '^': return (P) => F(Math.pow(a(P), b(P)));
+      case '==': return (P) => (a(P) === b(P) ? 1 : 0);
+      case '!=': return (P) => (a(P) !== b(P) ? 1 : 0);
+      case '<': return (P) => (a(P) < b(P) ? 1 : 0);
+      case '>': return (P) => (a(P) > b(P) ? 1 : 0);
+      case '<=': return (P) => (a(P) <= b(P) ? 1 : 0);
+      case '>=': return (P) => (a(P) >= b(P) ? 1 : 0);
+      /* && ve || JavaScript'te olduğu gibi kısa devre yapar: sağ taraf
+         gerekmedikçe ÇAĞRILMAZ. Eski üretilen kod da öyleydi; atama içeren
+         bir sağ taraf iki davranış arasında fark yaratırdı. */
+      case '&&': return (P) => (a(P) !== 0 && b(P) !== 0 ? 1 : 0);
+      case '||': return (P) => (a(P) !== 0 || b(P) !== 0 ? 1 : 0);
       // Bit işleçleri tam sayıya yuvarlar
-      case '&': return '((' + a + ' | 0) & (' + b + ' | 0))';
-      case '|': return '((' + a + ' | 0) | (' + b + ' | 0))';
-      default: return '0';
+      case '&': return (P) => (a(P) | 0) & (b(P) | 0);
+      case '|': return (P) => (a(P) | 0) | (b(P) | 0);
+      default: return () => 0;
     }
   }
 
-  function callExpr(node, pool) {
+  function callExpr(node, pool, cx) {
     const name = node.name;
-    const a = node.args.map((x) => emit(x, pool));
+    const a = node.args.map((x) => emit(x, pool, cx));
     // if() kısa devre yapmalı: her iki dalı da hesaplamak yan etkileri
     // (atamaları) yanlışlıkla çalıştırırdı
-    if (name === 'if') return '(((' + a[0] + ') !== 0) ? (' + a[1] + ') : (' + a[2] + '))';
-    if (name === 'rand') return '(R(' + a[0] + '))';
-    return '(FN.' + name + '(' + a.join(', ') + '))';
+    if (name === 'if') {
+      const c = a[0], t = a[1], f = a[2];
+      return (P) => (c(P) !== 0 ? t(P) : f(P));
+    }
+    if (name === 'rand') {
+      const R = cx.R, n = a[0];
+      return (P) => R(n(P));
+    }
+    /* Ayrıştırıcı adı zaten beyaz listeye karşı doğruladı (bilinmeyen ad
+       SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
+       anında ad üzerinden arama yok. */
+    const def = FUNCS[name];
+    const f = def && def[1];
+    if (!f) return () => 0;
+    // Argüman sayısına göre özelleşiyoruz: apply/yayılım her çağrıda dizi ayırır
+    if (a.length === 1) { const x = a[0]; return (P) => f(x(P)); }
+    if (a.length === 2) { const x = a[0], y = a[1]; return (P) => f(x(P), y(P)); }
+    if (a.length === 3) { const x = a[0], y = a[1], z = a[2]; return (P) => f(x(P), y(P), z(P)); }
+    return (P) => f.apply(null, a.map((g) => g(P)));
   }
 
   /* Bir denklem bloğunu derler.
@@ -385,8 +425,6 @@
     } catch (e) {
       return { run: () => {}, pool: p, error: String(e.message || e), statements: 0 };
     }
-    const body = stmts.map((s) => guard(emit(s, p)) + ';').join('\n');
-
     // Yardımcılar kapanışa dışarıdan verilir; üretilen kodda serbest
     // tanımlayıcı yoktur.
     const F = (v) => (isFinite(v) ? v : 0);
@@ -404,23 +442,27 @@
       return (seed / 4294967296) * k | 0;
     };
 
-    let fn;
+    /* Yardımcılar kapanışlara buradan verilir. R tohumu dışarıda tuttuğu
+       için resetSeed sonradan da çalışır. */
+    const cx = { F, D, M, R };
+
+    let prog;
     try {
-      // eslint-disable-next-line no-new-func
-      fn = new Function('P', 'FN', 'F', 'D', 'M', 'R', body);
+      prog = stmts.map((st) => guard(emit(st, p, cx), F));
     } catch (e) {
       return { run: () => {}, pool: p, error: 'derleme: ' + String(e.message || e), statements: 0 };
     }
-    const funcs = {};
-    for (const k in FUNCS) if (FUNCS[k][1]) funcs[k] = FUNCS[k][1];
+
     return {
       pool: p,
       error: '',
       statements: stmts.length,
-      source: body,
-      resetSeed: (s) => { seed = (s || 12345) >>> 0; },
+      resetSeed: (sd) => { seed = (sd || 12345) >>> 0; },
       run: (P) => {
-        try { fn(P || p.values, funcs, F, D, M, R); } catch (e) { /* çalışma anı hatası kareyi düşürmesin */ }
+        const V = P || p.values;
+        try {
+          for (let i = 0; i < prog.length; i++) prog[i](V);
+        } catch (e) { /* çalışma anı hatası kareyi düşürmesin */ }
       },
     };
   }
@@ -487,7 +529,20 @@
       params[key] = isFinite(n) && /^[\s\-+.0-9eE]+$/.test(value) ? n : value.trim();
     }
 
-    const join = (arr) => (arr || []).slice().sort((a, b) => a.idx - b.idx).map((x) => x.value).join('\n');
+    /* Numaralı satırlar ARAYA HİÇBİR ŞEY KOYMADAN birleşir. MilkDrop uzun
+       denklemleri sabit bir karakter sınırında keser ve kesik simgenin
+       ortasından geçebilir: `...above(Treb,t` + `reb_Att))))...`. Araya
+       satır sonu koymak o simgeyi ikiye böler ve preset ayrıştırılamaz.
+       Deyimleri `;` ayırdığı, satır sonu ise yalnızca boşluk sayıldığı
+       için bu birleştirme başka hiçbir şeyi değiştirmiyor. */
+    const join = (arr) => (arr || []).slice().sort((a, b) => a.idx - b.idx)
+      /* Satır yorumu ÖNCE ve satır satır atılır. Bitiştirmeden sonra atmak
+         mümkün değil: tek bir `//` kendinden sonraki bütün anahtarları
+         yutar ve denklem bloğu tümüyle boşalır. Ölçüldü — yorum
+         temizlenmeden bitiştirince 10.347 presetin 630'u sessizce
+         boş kalıyordu; hata vermeden, sadece hiçbir şey yapmayarak. */
+      .map((x) => String(x.value).replace(/\/\/.*$/, ''))
+      .join('');
     const joinBlocks = (map) => {
       const out = {};
       for (const k in map) out[k] = join(map[k]);

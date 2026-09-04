@@ -445,6 +445,8 @@
     'Kaynak Adı': 'Source Name',
     'Hata': 'Error',
     'düşen': 'dropped',
+    'hata': 'errors',
+    'deyim derlendi': 'statements compiled',
     'kare': 'frames',
     'Spout / Syphon Çıkışı ': 'Spout / Syphon Output ',
     'Syphon Çıkışı': 'Syphon Output',
