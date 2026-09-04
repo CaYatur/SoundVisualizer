@@ -1,57 +1,129 @@
 'use strict';
-/* MilkDrop motoru — warp ağı ve geri besleme.
+/* MilkDrop motoru — warp ağı, preset shader'ları, blur zinciri ve birleştirme.
 
-   src/shared/milkdrop.js preset dilini çalıştırıyor; burada onun ürettiği
-   hareket değişkenleri gerçek piksellere dönüşüyor.
+   src/shared/milkdrop.js preset DİLİNİ çalıştırıyor, src/shared/milkdrop-shader.js
+   preset SHADER'LARINI GLSL'e çeviriyor; burada ikisi gerçek piksellere
+   dönüşüyor.
 
-   Çalışma biçimi, orijinaliyle aynı fikirde:
+   MilkDrop'un kare sırası — sıra önemli, başka bir sırada aynı preset
+   bambaşka görünür:
 
-     1. `per_frame` kare başına bir kez koşar ve kare geneli hareketi belirler
-        (zoom, rot, warp, dx/dy, cx/cy, sx/sy).
-     2. `per_pixel` warp ağının HER DÜĞÜMÜNDE koşar; her düğüm için o
-        noktanın bir önceki kareden nereyi örnekleyeceği hesaplanır.
-     3. Önceki kare bu bozulmuş ağdan geçirilerek yeniden çizilir, biraz
-        karartılır (decay) ve üstüne dalga formu çizilir.
-     4. Sonuç bir sonraki karenin girdisi olur.
+     1. `per_frame` bir kez koşar: kare geneli hareket (zoom, rot, warp, dx...).
+     2. `per_pixel` warp ağının HER DÜĞÜMÜNDE koşar; düğümün bir önceki
+        kareden nereyi örnekleyeceği çıkar.
+     3. WARP GEÇİŞİ: önceki kare bu bozuk ağdan geçirilir. Preset bir warp
+        shader'ı taşıyorsa renk oradan gelir; taşımıyorsa sabit yol yalnızca
+        karartma (decay) uygular.
+     4. Dalga formu ve çizimler bu tamponun üstüne gider.
+     5. BLUR ZİNCİRİ: tampondan üç kademe bulanık kopya üretilir.
+     6. COMP GEÇİŞİ: tam ekran. Preset comp shader'ı varsa son görüntüyü o
+        belirler; yoksa sabit yol gama, parlaklık ve video echo uygular.
 
-   Görüntünün "akması" bu geri beslemeden gelir: her kare bir öncekinin hafif
-   bozulmuş halidir ve bozulma birikir.
+   Görüntünün "akması" 3. adımdaki geri beslemeden geliyor: her kare bir
+   öncekinin hafif bozulmuş hali ve bozulma birikiyor. Bu yüzden iki doku
+   arasında gidip geliniyor (ping-pong) — bir dokudan okurken aynı dokuya
+   yazmak tanımsız davranıştır.
 
-   İki doku arasında gidip gelinir (ping-pong): bir dokudan okurken aynı
-   dokuya yazmak tanımsız davranıştır. */
+   NEDEN BLUR ZİNCİRİ AYRI BİR MASRAF: presetlerin %85,5'i `GetBlur1..3`
+   çağırıyor. Bunlar fonksiyon değil, ayrı ayrı bulanıklaştırılmış DOKULAR.
+   Bağlanmadıklarında shader hatasız derleniyor ama siyah örnekliyor —
+   yani preset "çalışıyor" görünüp bambaşka bir görüntü veriyor. */
 (function () {
-  const MESH_X = 40;
-  const MESH_Y = 30;
+  const MESH_X = 48;
+  const MESH_Y = 36;
+  // düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1)
+  const VSTRIDE = 8;
 
-  const VERT = `#version 300 es
+  /* Ağ vertex shader'ı. Konumlar layout(location=) ile sabitlendi: aynı VAO
+     hem sabit yolun hem de presetin derlenmiş warp programının altında
+     kullanılıyor ve öznitelik konumları programdan programa kaymamalı. */
+  const MESH_VERT = `#version 300 es
 precision highp float;
-in vec2 aPos;   // ekran konumu, kırpma uzayında
-in vec2 aUV;    // önceki kareden örneklenecek nokta
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in vec2 aUVOrig;
+layout(location=3) in float aRad;
+layout(location=4) in float aAng;
 out vec2 vUV;
+out vec2 vUVOrig;
+out float vRad;
+out float vAng;
 void main(){
   vUV = aUV;
+  vUVOrig = aUVOrig;
+  vRad = aRad;
+  vAng = aAng;
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
-  const FRAG = `#version 300 es
+  // Sabit warp yolu: preset shader taşımıyorsa (MD1 presetleri) yalnızca karartma
+  const WARP_FIXED_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
+in vec2 vUVOrig;
+in float vRad;
+in float vAng;
 out vec4 outColor;
 uniform sampler2D uPrev;
 uniform float uDecay;
-uniform vec3 uSolarize;   // gamma, echo, brighten
 void main(){
-  vec3 c = texture(uPrev, vUV).rgb;
-  c *= uDecay;
-  // Gama: preseti n fGammaAdj alanı görüntüyü parlatır
-  c = pow(max(c, vec3(0.0)), vec3(1.0 / max(0.05, uSolarize.x)));
+  outColor = vec4(texture(uPrev, vUV).rgb * uDecay, 1.0);
+}`;
+
+  const QUAD_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+out vec2 vUV;
+void main(){
+  vUV = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+  /* Sabit birleştirme yolu. MilkDrop'ta fGammaAdj bir ÜS değil ÇARPAN:
+     preset yazarları 1.6 gibi değerleri görüntüyü parlatmak için koyuyor.
+     Eskiden burada pow(c, 1/gamma) vardı; parlatıyordu ama eğrisi başkaydı
+     ve koyu tonları presetin istemediği kadar açıyordu. */
+  const COMP_FIXED_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 outColor;
+uniform sampler2D uSrc;
+uniform float uGamma;
+uniform float uEchoAlpha;
+uniform float uEchoZoom;
+uniform int uEchoOrient;
+void main(){
+  vec3 c = texture(uSrc, vUV).rgb;
+  if (uEchoAlpha > 0.001) {
+    vec2 e = (vUV - 0.5) / max(0.001, uEchoZoom) + 0.5;
+    if (uEchoOrient == 1 || uEchoOrient == 3) e.x = 1.0 - e.x;
+    if (uEchoOrient == 2 || uEchoOrient == 3) e.y = 1.0 - e.y;
+    c = mix(c, texture(uSrc, e).rgb, uEchoAlpha);
+  }
+  c *= uGamma;
+  outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+  // Ayrılabilir Gauss: yatay ve dikey iki geçiş, doğrusal örneklemeli 5 vuruş
+  const BLUR_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 outColor;
+uniform sampler2D uSrc;
+uniform vec2 uStep;
+void main(){
+  vec3 c = texture(uSrc, vUV).rgb * 0.2270270270;
+  c += (texture(uSrc, vUV + uStep * 1.3846153846).rgb
+      + texture(uSrc, vUV - uStep * 1.3846153846).rgb) * 0.3162162162;
+  c += (texture(uSrc, vUV + uStep * 3.2307692308).rgb
+      + texture(uSrc, vUV - uStep * 3.2307692308).rgb) * 0.0702702703;
   outColor = vec4(c, 1.0);
 }`;
 
   const LINE_VERT = `#version 300 es
 precision highp float;
-in vec2 aPos;
-in vec4 aCol;
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec4 aCol;
 out vec4 vCol;
 void main(){
   vCol = aCol;
@@ -64,6 +136,22 @@ in vec4 vCol;
 out vec4 outColor;
 void main(){ outColor = vCol; }`;
 
+  /* Presetin shader'ına verilen değişkenler. Tek yerde duruyor çünkü hem
+     konum önbelleği hem yükleme bu listeden türüyor; ikiye bölmek birinde
+     unutulan bir adın sessizce sıfır kalmasına yol açardı. */
+  const SAMPLER_UNITS = [
+    ['sampler_main', 0],
+    ['sampler_blur1', 1],
+    ['sampler_blur2', 2],
+    ['sampler_blur3', 3],
+    ['sampler_noise_lq', 4],
+    ['sampler_noise_lq_lite', 5],
+    ['sampler_noise_mq', 6],
+    ['sampler_noise_hq', 7],
+    ['sampler_noisevol_lq', 8],
+    ['sampler_noisevol_hq', 9],
+  ];
+
   class MilkdropMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -73,99 +161,93 @@ void main(){ outColor = vCol; }`;
       this.preset = null;
       this.presetKey = '';
       this.error = '';
+      this.shaderNote = '';
       this.time = 0;
       this.frameNo = 0;
+      this.presetTime = 0;
       this._pix = {};
-      this._built = false;
+      this._progCache = new Map();
     }
 
     resize() {}
 
     // ----------------------------------------------------------------- GL
+    _compile(type, src) {
+      const gl = this.gl;
+      const o = gl.createShader(type);
+      gl.shaderSource(o, src);
+      gl.compileShader(o);
+      if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(o) || 'shader';
+        gl.deleteShader(o);
+        return { ok: false, log };
+      }
+      return { ok: true, sh: o };
+    }
+
+    _link(vs, fs) {
+      const gl = this.gl;
+      const a = this._compile(gl.VERTEX_SHADER, vs);
+      if (!a.ok) return { ok: false, log: a.log };
+      const b = this._compile(gl.FRAGMENT_SHADER, fs);
+      if (!b.ok) { gl.deleteShader(a.sh); return { ok: false, log: b.log }; }
+      const p = gl.createProgram();
+      gl.attachShader(p, a.sh);
+      gl.attachShader(p, b.sh);
+      gl.linkProgram(p);
+      gl.deleteShader(a.sh);
+      gl.deleteShader(b.sh);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(p) || 'link';
+        gl.deleteProgram(p);
+        return { ok: false, log };
+      }
+      return { ok: true, prog: p };
+    }
+
     _initGL(W, H) {
-      if (this.gl && this.gl2.width === W && this.gl2.height === H) return !!this.prog;
       if (!this.gl) {
         this.gl2.width = W;
         this.gl2.height = H;
-        const gl = this.gl2.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: true });
+        const gl = this.gl2.getContext('webgl2', {
+          alpha: false, antialias: false, preserveDrawingBuffer: true,
+        });
         if (!gl) { this.error = 'WebGL2 yok'; return false; }
         this.gl = gl;
-        const mk = (vs, fs) => {
-          const c = (t, s) => {
-            const o = gl.createShader(t);
-            gl.shaderSource(o, s);
-            gl.compileShader(o);
-            if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) {
-              this.error = gl.getShaderInfoLog(o) || 'shader';
-              return null;
-            }
-            return o;
-          };
-          const a = c(gl.VERTEX_SHADER, vs);
-          const b = c(gl.FRAGMENT_SHADER, fs);
-          if (!a || !b) return null;
-          const p = gl.createProgram();
-          gl.attachShader(p, a);
-          gl.attachShader(p, b);
-          gl.linkProgram(p);
-          if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { this.error = gl.getProgramInfoLog(p) || 'link'; return null; }
-          return p;
-        };
-        this.prog = mk(VERT, FRAG);
-        this.lineProg = mk(LINE_VERT, LINE_FRAG);
-        if (!this.prog || !this.lineProg) return false;
 
-        this.loc = {
-          aPos: gl.getAttribLocation(this.prog, 'aPos'),
-          aUV: gl.getAttribLocation(this.prog, 'aUV'),
-          uPrev: gl.getUniformLocation(this.prog, 'uPrev'),
-          uDecay: gl.getUniformLocation(this.prog, 'uDecay'),
-          uSolarize: gl.getUniformLocation(this.prog, 'uSolarize'),
-        };
-        this.lineLoc = {
-          aPos: gl.getAttribLocation(this.lineProg, 'aPos'),
-          aCol: gl.getAttribLocation(this.lineProg, 'aCol'),
-        };
-
-        // Warp ağı
-        this.vao = gl.createVertexArray();
-        this.vbo = gl.createBuffer();
-        this.ibo = gl.createBuffer();
-        this.verts = new Float32Array((MESH_X + 1) * (MESH_Y + 1) * 4);
-        const idx = new Uint32Array(MESH_X * MESH_Y * 6);
-        let k = 0;
-        const n = MESH_X + 1;
-        for (let j = 0; j < MESH_Y; j++) {
-          for (let i = 0; i < MESH_X; i++) {
-            const a = j * n + i;
-            idx[k++] = a; idx[k++] = a + 1; idx[k++] = a + n;
-            idx[k++] = a + 1; idx[k++] = a + n + 1; idx[k++] = a + n;
-          }
+        const warp = this._link(MESH_VERT, WARP_FIXED_FRAG);
+        const comp = this._link(QUAD_VERT, COMP_FIXED_FRAG);
+        const blur = this._link(QUAD_VERT, BLUR_FRAG);
+        const line = this._link(LINE_VERT, LINE_FRAG);
+        if (!warp.ok || !comp.ok || !blur.ok || !line.ok) {
+          this.error = (warp.log || comp.log || blur.log || line.log || 'shader');
+          return false;
         }
-        this.indexCount = idx.length;
-        gl.bindVertexArray(this.vao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-        gl.bufferData(gl.ARRAY_BUFFER, this.verts, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(this.loc.aPos);
-        gl.vertexAttribPointer(this.loc.aPos, 2, gl.FLOAT, false, 16, 0);
-        gl.enableVertexAttribArray(this.loc.aUV);
-        gl.vertexAttribPointer(this.loc.aUV, 2, gl.FLOAT, false, 16, 8);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
-        gl.bindVertexArray(null);
+        this.warpFixed = warp.prog;
+        this.compFixed = comp.prog;
+        this.blurProg = blur.prog;
+        this.lineProg = line.prog;
 
-        // Dalga formu
-        this.lineVao = gl.createVertexArray();
-        this.lineVbo = gl.createBuffer();
-        this.lineData = new Float32Array(512 * 6);
-        gl.bindVertexArray(this.lineVao);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-        gl.bufferData(gl.ARRAY_BUFFER, this.lineData, gl.DYNAMIC_DRAW);
-        gl.enableVertexAttribArray(this.lineLoc.aPos);
-        gl.vertexAttribPointer(this.lineLoc.aPos, 2, gl.FLOAT, false, 24, 0);
-        gl.enableVertexAttribArray(this.lineLoc.aCol);
-        gl.vertexAttribPointer(this.lineLoc.aCol, 4, gl.FLOAT, false, 24, 8);
-        gl.bindVertexArray(null);
+        this.locWarpFixed = {
+          uPrev: gl.getUniformLocation(this.warpFixed, 'uPrev'),
+          uDecay: gl.getUniformLocation(this.warpFixed, 'uDecay'),
+        };
+        this.locComp = {
+          uSrc: gl.getUniformLocation(this.compFixed, 'uSrc'),
+          uGamma: gl.getUniformLocation(this.compFixed, 'uGamma'),
+          uEchoAlpha: gl.getUniformLocation(this.compFixed, 'uEchoAlpha'),
+          uEchoZoom: gl.getUniformLocation(this.compFixed, 'uEchoZoom'),
+          uEchoOrient: gl.getUniformLocation(this.compFixed, 'uEchoOrient'),
+        };
+        this.locBlur = {
+          uSrc: gl.getUniformLocation(this.blurProg, 'uSrc'),
+          uStep: gl.getUniformLocation(this.blurProg, 'uStep'),
+        };
+
+        this._buildMesh();
+        this._buildQuad();
+        this._buildLine();
+        this._buildNoise();
       }
 
       const gl = this.gl;
@@ -175,36 +257,168 @@ void main(){ outColor = vCol; }`;
         this._disposeTargets();
       }
       if (!this.targets) {
-        this.targets = [];
-        for (let i = 0; i < 2; i++) {
-          const tex = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, tex);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-          const fb = gl.createFramebuffer();
-          gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
-          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
-          gl.clearColor(0, 0, 0, 1);
-          gl.clear(gl.COLOR_BUFFER_BIT);
-          this.targets.push({ tex, fb });
-        }
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        this.targets = [this._makeTarget(W, H), this._makeTarget(W, H)];
         this.cur = 0;
+        /* Blur kademeleri giderek küçülüyor: MilkDrop'ta da öyle. Küçültmek
+           hem ucuz hem de tek geçişle daha geniş bir bulanıklık veriyor. */
+        this.blur = [];
+        let bw = W, bh = H;
+        for (let i = 0; i < 3; i++) {
+          bw = Math.max(4, bw >> 1);
+          bh = Math.max(4, bh >> 1);
+          this.blur.push({
+            w: bw, h: bh,
+            out: this._makeTarget(bw, bh),
+            tmp: this._makeTarget(bw, bh),
+          });
+        }
       }
       return true;
     }
 
+    _makeTarget(w, h) {
+      const gl = this.gl;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { tex, fb, w, h };
+    }
+
+    _buildMesh() {
+      const gl = this.gl;
+      const n = MESH_X + 1;
+      this.vao = gl.createVertexArray();
+      this.vbo = gl.createBuffer();
+      this.ibo = gl.createBuffer();
+      this.verts = new Float32Array(n * (MESH_Y + 1) * VSTRIDE);
+      const idx = new Uint32Array(MESH_X * MESH_Y * 6);
+      let k = 0;
+      for (let j = 0; j < MESH_Y; j++) {
+        for (let i = 0; i < MESH_X; i++) {
+          const a = j * n + i;
+          idx[k++] = a; idx[k++] = a + 1; idx[k++] = a + n;
+          idx[k++] = a + 1; idx[k++] = a + n + 1; idx[k++] = a + n;
+        }
+      }
+      this.indexCount = idx.length;
+      const S = VSTRIDE * 4;
+      gl.bindVertexArray(this.vao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, this.verts, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, S, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, S, 8);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 16);
+      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 24);
+      gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 1, gl.FLOAT, false, S, 28);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+      gl.bindVertexArray(null);
+    }
+
+    _buildQuad() {
+      const gl = this.gl;
+      this.quadVao = gl.createVertexArray();
+      this.quadVbo = gl.createBuffer();
+      const d = new Float32Array([-1, -1, 3, -1, -1, 3]);   // tek büyük üçgen
+      gl.bindVertexArray(this.quadVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, d, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
+      gl.bindVertexArray(null);
+    }
+
+    _buildLine() {
+      const gl = this.gl;
+      this.lineVao = gl.createVertexArray();
+      this.lineVbo = gl.createBuffer();
+      this.lineData = new Float32Array(512 * 6);
+      gl.bindVertexArray(this.lineVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, this.lineData, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
+      gl.bindVertexArray(null);
+    }
+
+    /* Gürültü dokuları. Presetlerin %61'i istiyor.
+
+       BİLEREK YAKLAŞIK: MilkDrop kendi kurulumuyla belirli gürültü resimleri
+       dağıtıyor; onlar bizde yok ve dağıtamayız. Burada tohumlu bir üreteçle
+       aynı ÖLÇEKTE ve aynı yapıda dokular üretiliyor. Deseni birebir aynı
+       değil, ama bağlanmamış (siyah) bir dokudan çok daha yakın — ve tohum
+       sabit olduğu için her açılışta aynı sonucu veriyor. */
+    _buildNoise() {
+      const gl = this.gl;
+      let seed = 0x9e3779b9;
+      const rnd = () => {
+        seed ^= seed << 13; seed >>>= 0;
+        seed ^= seed >> 17;
+        seed ^= seed << 5; seed >>>= 0;
+        return (seed >>> 8) / 16777216;
+      };
+      const make = (size, smooth) => {
+        const px = new Uint8Array(size * size * 4);
+        for (let i = 0; i < size * size; i++) {
+          for (let c = 0; c < 4; c++) px[i * 4 + c] = Math.floor(rnd() * 256);
+        }
+        if (smooth) {
+          // Komşu ortalaması: yüksek frekansı düşürüp MilkDrop'un mq/hq
+          // dokularının yumuşak karakterine yaklaştırır
+          const src = px.slice();
+          for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+              for (let c = 0; c < 4; c++) {
+                let s = 0;
+                for (let dy = -1; dy <= 1; dy++) {
+                  for (let dx = -1; dx <= 1; dx++) {
+                    const xx = (x + dx + size) % size;
+                    const yy = (y + dy + size) % size;
+                    s += src[(yy * size + xx) * 4 + c];
+                  }
+                }
+                px[(y * size + x) * 4 + c] = s / 9;
+              }
+            }
+          }
+        }
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        // Gürültü dokuları TEKRARLI örnekleniyor; kenara kenetlemek presetin
+        // deseninde görünür bir sınır bırakırdı
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        return { tex, size };
+      };
+      this.noise = {
+        lq: make(256, false),
+        lqLite: make(32, false),
+        mq: make(256, true),
+        hq: make(256, true),
+        volLq: make(64, false),
+        volHq: make(64, true),
+      };
+    }
+
     _disposeTargets() {
       const gl = this.gl;
-      if (!gl || !this.targets) return;
-      for (const t of this.targets) {
-        gl.deleteTexture(t.tex);
-        gl.deleteFramebuffer(t.fb);
-      }
-      this.targets = null;
+      if (!gl) return;
+      const kill = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } };
+      if (this.targets) { this.targets.forEach(kill); this.targets = null; }
+      if (this.blur) { this.blur.forEach((b) => { kill(b.out); kill(b.tmp); }); this.blur = null; }
     }
 
     // ------------------------------------------------------------- preset
@@ -219,14 +433,163 @@ void main(){ outColor = vCol; }`;
       this.preset = new M.Preset(src, { seed: 1234 });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
+      this.presetTime = 0;
+      this.randPreset = [Math.random(), Math.random(), Math.random()];
+      this._buildPresetShaders(src);
+    }
+
+    /* Presetin warp/comp shader'larını çevirip derler.
+
+       Derlenmeyen bir aşama SABİT YOLA düşüyor, preset tümden reddedilmiyor:
+       comp'u derlenmeyen bir preset warp'ıyla hâlâ doğru akıyor. Sebep
+       `shaderNote`ta duruyor, çünkü sessizce sabit yola düşmek "çalışıyor"
+       görünüp bambaşka bir görüntü vermek demek. */
+    _buildPresetShaders(src) {
+      const gl = this.gl;
+      const T = window.SVMilkdropShader;
+      this._releasePresetProgs();
+      this.warpPreset = null;
+      this.compPreset = null;
+      this.shaderNote = '';
+      if (!gl || !T || !this.preset) return;
+
+      const notes = [];
+      const M = window.SVMilkdrop;
+      const fl = M.parseMilk(src);
+      const build = (text, stage) => {
+        if (!text || !text.trim()) return null;
+        let r;
+        try { r = T.translate(text, { stage }); } catch (e) { notes.push(stage + ': çeviri hatası'); return null; }
+        if (r.empty) return null;
+        if (r.hard.length) { notes.push(stage + ': ' + r.hard.join(', ')); return null; }
+        const lk = this._link(stage === 'warp' ? MESH_VERT : QUAD_VERT, r.glsl);
+        if (!lk.ok) {
+          notes.push(stage + ': derlenmedi');
+          return null;
+        }
+        if (r.soft.length) notes.push(stage + ': ' + r.soft.length + ' doku yaklaşık');
+        return { prog: lk.prog, locs: this._presetLocs(lk.prog, r.extraSamplers), extra: r.extraSamplers };
+      };
+      this.warpPreset = build(fl.warpShader, 'warp');
+      this.compPreset = build(fl.compShader, 'comp');
+      this.shaderNote = notes.join(' | ');
+    }
+
+    _presetLocs(prog, extra) {
+      const gl = this.gl;
+      const L = {};
+      const u = (n) => gl.getUniformLocation(prog, n);
+      for (const s of SAMPLER_UNITS) L[s[0]] = u(s[0]);
+      L._extra = (extra || []).map((n) => u(n));
+      for (const n of [
+        'texsize', 'aspect', 'texsize_noise_lq', 'texsize_noise_mq', 'texsize_noise_hq',
+        'texsize_noise_lq_lite', 'texsize_noisevol_lq', 'texsize_noisevol_hq',
+        'time', 'fps', 'frame', 'progress',
+        'bass', 'mid', 'treb', 'vol', 'bass_att', 'mid_att', 'treb_att', 'vol_att',
+        'rand_frame', 'rand_preset', 'roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin',
+        'hue_shader', 'blur1_min', 'blur1_max', 'blur2_min', 'blur2_max', 'blur3_min', 'blur3_max',
+        '_qa', '_qb', '_qc', '_qd', '_qe', '_qf', '_qg', '_qh',
+      ]) L[n] = u(n);
+      return L;
+    }
+
+    _releasePresetProgs() {
+      const gl = this.gl;
+      if (!gl) return;
+      if (this.warpPreset && this.warpPreset.prog) gl.deleteProgram(this.warpPreset.prog);
+      if (this.compPreset && this.compPreset.prog) gl.deleteProgram(this.compPreset.prog);
+    }
+
+    /* Presetin shader'ına bütün MilkDrop değişkenlerini yükler.
+
+       Kullanılmayan uniform'un konumu null geliyor ve gl.uniform* null'da
+       sessizce hiçbir şey yapmıyor; bu yüzden hangi presetin neyi kullandığını
+       aramaya gerek yok. */
+    _setPresetUniforms(L, ctx) {
+      const gl = this.gl;
+      for (const s of SAMPLER_UNITS) if (L[s[0]]) gl.uniform1i(L[s[0]], s[1]);
+      /* Bilinmeyen dokular gürültüye bağlanıyor — presetin dosyası bizde yok.
+         Hepsi AYNI birime gidiyor: ayrı birim ayırmak doku birimi sınırını
+         gereksiz yere zorlardı. */
+      for (const loc of L._extra) if (loc) gl.uniform1i(loc, 4);
+
+      const set4 = (n, a, b, c, d) => { if (L[n]) gl.uniform4f(L[n], a, b, c, d); };
+      const set3 = (n, a, b, c) => { if (L[n]) gl.uniform3f(L[n], a, b, c); };
+      const set1 = (n, a) => { if (L[n]) gl.uniform1f(L[n], a); };
+
+      set4('texsize', ctx.w, ctx.h, 1 / ctx.w, 1 / ctx.h);
+      set4('aspect', ctx.aspectx, ctx.aspecty, 1 / ctx.aspectx, 1 / ctx.aspecty);
+      const nz = (o, n) => set4(n, o.size, o.size, 1 / o.size, 1 / o.size);
+      nz(this.noise.lq, 'texsize_noise_lq');
+      nz(this.noise.mq, 'texsize_noise_mq');
+      nz(this.noise.hq, 'texsize_noise_hq');
+      nz(this.noise.lqLite, 'texsize_noise_lq_lite');
+      nz(this.noise.volLq, 'texsize_noisevol_lq');
+      nz(this.noise.volHq, 'texsize_noisevol_hq');
+
+      set1('time', ctx.time);
+      set1('fps', ctx.fps);
+      set1('frame', ctx.frame);
+      set1('progress', ctx.progress);
+      set1('bass', ctx.bass); set1('mid', ctx.mid); set1('treb', ctx.treb);
+      set1('bass_att', ctx.bass_att); set1('mid_att', ctx.mid_att); set1('treb_att', ctx.treb_att);
+      set1('vol', ctx.vol); set1('vol_att', ctx.vol_att);
+      set4('rand_frame', Math.random(), Math.random(), Math.random(), Math.random());
+      set3('rand_preset', this.randPreset[0], this.randPreset[1], this.randPreset[2]);
+
+      /* roam/hue: MilkDrop bunları kendi iç gezinme salınımlarından üretiyor.
+         Buradaki karşılıkları aynı KARAKTERDE (yavaş, ilişkisiz dört faz)
+         ama birebir aynı değil. */
+      const t = ctx.time;
+      set4('roam_cos', Math.cos(t * 0.3), Math.cos(t * 0.7), Math.cos(t * 1.1), Math.cos(t * 1.5));
+      set4('roam_sin', Math.sin(t * 0.3), Math.sin(t * 0.7), Math.sin(t * 1.1), Math.sin(t * 1.5));
+      set4('slow_roam_cos', Math.cos(t * 0.05), Math.cos(t * 0.09), Math.cos(t * 0.13), Math.cos(t * 0.17));
+      set4('slow_roam_sin', Math.sin(t * 0.05), Math.sin(t * 0.09), Math.sin(t * 0.13), Math.sin(t * 0.17));
+      set3('hue_shader',
+        0.5 + 0.5 * Math.sin(t * 0.31),
+        0.5 + 0.5 * Math.sin(t * 0.31 + 2.09),
+        0.5 + 0.5 * Math.sin(t * 0.31 + 4.19));
+
+      /* Bulanık kopyalar RGBA8'de zaten 0..1 aralığında saklanıyor, yani
+         MilkDrop'un sıkıştırma ölçeğine gerek yok: çözme çarpanı 1, kaydırma 0. */
+      for (let i = 1; i <= 3; i++) {
+        set3('blur' + i + '_min', 0, 0, 0);
+        set3('blur' + i + '_max', 1, 1, 1);
+      }
+
+      const P = this.preset;
+      const q = (i) => P.get('q' + i) || 0;
+      const packs = ['_qa', '_qb', '_qc', '_qd', '_qe', '_qf', '_qg', '_qh'];
+      for (let p = 0; p < 8; p++) {
+        set4(packs[p], q(p * 4 + 1), q(p * 4 + 2), q(p * 4 + 3), q(p * 4 + 4));
+      }
+    }
+
+    _bindTextures(mainTex) {
+      const gl = this.gl;
+      const bind = (unit, tex) => {
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+      };
+      bind(0, mainTex);
+      bind(1, this.blur[0].out.tex);
+      bind(2, this.blur[1].out.tex);
+      bind(3, this.blur[2].out.tex);
+      bind(4, this.noise.lq.tex);
+      bind(5, this.noise.lqLite.tex);
+      bind(6, this.noise.mq.tex);
+      bind(7, this.noise.hq.tex);
+      bind(8, this.noise.volLq.tex);
+      bind(9, this.noise.volHq.tex);
+      gl.activeTexture(gl.TEXTURE0);
     }
 
     // ----------------------------------------------------------------- çiz
     draw(audio, cfg, t, dt) {
       const W = this.canvas.width;
       const H = this.canvas.height;
-      // Geri besleme yüzeyi tam çözünürlükte gerekmiyor; yarı çözünürlük
-      // hem daha hızlı hem de MilkDrop'un yumuşak görüntüsüne daha yakın
+      /* Geri besleme yüzeyi tam çözünürlükte gerekmiyor; yarı çözünürlük hem
+         daha hızlı hem de MilkDrop'un yumuşak görüntüsüne daha yakın. */
       const GW = Math.max(64, Math.min(1280, Math.round(W * 0.5)));
       const GH = Math.max(64, Math.min(720, Math.round(H * 0.5)));
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
@@ -236,14 +599,11 @@ void main(){ outColor = vCol; }`;
       const gl = this.gl;
       const step = Math.min(0.05, dt || 0.016);
       this.time += step;
+      this.presetTime += step;
       this.frameNo++;
 
       /* MilkDrop bantları MUTLAK genlik olarak değil, uzun dönem ortalamaya
-         ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek. Eskiden buraya
-         çözümleyicinin 0..1 genliği doğrudan veriliyordu; tipik müzikte 0,3
-         civarında gezdiği için presetler sürekli "neredeyse sessiz" okuyup
-         kıpırdamıyordu. `_att` de anlık değere eşitlenmişti, yani presetlerin
-         bilerek kurduğu ani/yavaş karşıtlığı hiç yoktu. */
+         ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek. */
       if (!this._audioNorm) this._audioNorm = new window.SVMilkdropAudio.MilkdropAudio();
       const a = this._audioNorm.update(step, {
         bass: audio.bass, mid: audio.mid, treb: audio.treble,
@@ -254,21 +614,102 @@ void main(){ outColor = vCol; }`;
          büyütülüyor, böylece 1,0 = normal sözleşmesi bozulmuyor. */
       const sens = (cfg.visualizer && cfg.visualizer.sensitivity) || 1;
       const gain = (r) => Math.max(0, 1 + (r - 1) * sens);
+      const bass = gain(a.bass), mid = gain(a.mid), treb = gain(a.treb);
+      const bassA = gain(a.bass_att), midA = gain(a.mid_att), trebA = gain(a.treb_att);
 
-      // Kare geneli hareket
+      const aspectx = GW >= GH ? GW / GH : 1;
+      const aspecty = GW >= GH ? 1 : GH / GW;
+
       this.preset.frame({
         time: this.time,
         frame: this.frameNo,
         fps: 1 / Math.max(1e-3, step),
-        bass: gain(a.bass), mid: gain(a.mid), treb: gain(a.treb),
-        bass_att: gain(a.bass_att), mid_att: gain(a.mid_att), treb_att: gain(a.treb_att),
-        progress: (this.time * 0.1) % 1,
+        bass, mid, treb,
+        bass_att: bassA, mid_att: midA, treb_att: trebA,
+        progress: (this.presetTime * 0.1) % 1,
         meshx: MESH_X, meshy: MESH_Y,
-        aspectx: 1, aspecty: GH / GW,
+        aspectx, aspecty,
       });
       const base = this.preset.captureBase();
 
-      // Warp ağı: her düğümde per_pixel
+      this._buildWarpMesh();
+
+      const src = this.targets[this.cur];
+      const dst = this.targets[1 - this.cur];
+      this.cur = 1 - this.cur;
+
+      const ctx = {
+        w: GW, h: GH, aspectx, aspecty,
+        time: this.time, fps: 1 / Math.max(1e-3, step), frame: this.frameNo,
+        progress: (this.presetTime * 0.1) % 1,
+        bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
+        vol: (bass + mid + treb) / 3, vol_att: (bassA + midA + trebA) / 3,
+      };
+
+      // --- 3. WARP GEÇİŞİ
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+      gl.viewport(0, 0, GW, GH);
+      gl.disable(gl.BLEND);
+      if (this.warpPreset) {
+        gl.useProgram(this.warpPreset.prog);
+        this._bindTextures(src.tex);
+        this._setPresetUniforms(this.warpPreset.locs, ctx);
+      } else {
+        gl.useProgram(this.warpFixed);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, src.tex);
+        gl.uniform1i(this.locWarpFixed.uPrev, 0);
+        const decay = this.preset.get('decay');
+        gl.uniform1f(this.locWarpFixed.uDecay, decay > 0 ? Math.min(1, decay) : 0.98);
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts);
+      gl.bindVertexArray(this.vao);
+      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
+
+      /* --- 4. Çizimler, warp'ın üstüne. MilkDrop'un sırası: önce şekiller,
+         sonra custom dalgalar, en son varsayılan dalga formu. Sıra görünür:
+         toplamalı bir şekil kendinden sonra çizilen dalgayı yıkamaz. */
+      this._drawShapes(gl, GW, GH);
+      this._drawCustomWaves(gl, audio);
+      this._drawWave(gl, audio, base);
+
+      // --- 5. BLUR ZİNCİRİ
+      this._buildBlur(dst.tex);
+
+      // --- 6. COMP GEÇİŞİ, doğrudan ekrana
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, GW, GH);
+      gl.disable(gl.BLEND);
+      if (this.compPreset) {
+        gl.useProgram(this.compPreset.prog);
+        this._bindTextures(dst.tex);
+        this._setPresetUniforms(this.compPreset.locs, ctx);
+      } else {
+        gl.useProgram(this.compFixed);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, dst.tex);
+        gl.uniform1i(this.locComp.uSrc, 0);
+        const gamma = this.preset.get('fgammaadj') || this.preset.get('gamma') || 1;
+        gl.uniform1f(this.locComp.uGamma, gamma > 0 ? gamma : 1);
+        gl.uniform1f(this.locComp.uEchoAlpha, this.preset.get('fvideoechoalpha') || 0);
+        gl.uniform1f(this.locComp.uEchoZoom, this.preset.get('fvideoechozoom') || 1);
+        gl.uniform1i(this.locComp.uEchoOrient, Math.round(this.preset.get('nvideoechoorientation') || 0));
+      }
+      gl.bindVertexArray(this.quadVao);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+
+      const c = this.ctx;
+      c.clearRect(0, 0, W, H);
+      c.imageSmoothingEnabled = true;
+      c.drawImage(this.gl2, 0, 0, W, H);
+    }
+
+    /* Warp ağı: her düğümde per_pixel koşuyor ve düğümün önceki kareden
+       nereyi örnekleyeceği çıkıyor. */
+    _buildWarpMesh() {
       const n = MESH_X + 1;
       const v = this.verts;
       const warpTime = this.time;
@@ -295,22 +736,18 @@ void main(){ outColor = vCol; }`;
           const cy = p.cy;
           let su = (u - cx) / z + cx;
           let sv = (w - cy) / z + cy;
-          // Dönme
           const ca = Math.cos(p.rot);
           const sa = Math.sin(p.rot);
           const du = su - cx;
           const dv = sv - cy;
           su = du * ca - dv * sa + cx;
           sv = du * sa + dv * ca + cy;
-          // Gerdirme
           const sx = p.sx === 0 ? 1 : p.sx;
           const sy = p.sy === 0 ? 1 : p.sy;
           su = (su - cx) / sx + cx;
           sv = (sv - cy) / sy + cy;
-          // Öteleme
           su -= p.dx;
           sv -= p.dy;
-          // Warp titreşimi: MilkDrop'un dört sinüsten oluşan deseni
           const wr = p.warp * 0.0035;
           if (wr !== 0) {
             su += wr * Math.sin(warpTime * 0.333 + (u * 2 - 1) * 5 + (w * 2 - 1) * 3);
@@ -319,97 +756,192 @@ void main(){ outColor = vCol; }`;
             sv += wr * Math.sin(warpTime * 0.825 + (u * 2 - 1) * 2 - (w * 2 - 1) * 4);
           }
 
-          const o = (j * n + i) * 4;
+          const o = (j * n + i) * VSTRIDE;
           v[o] = u * 2 - 1;
           v[o + 1] = w * 2 - 1;
           v[o + 2] = isFinite(su) ? su : u;
           v[o + 3] = isFinite(sv) ? sv : w;
+          v[o + 4] = u;
+          v[o + 5] = w;
+          v[o + 6] = rad;
+          v[o + 7] = ang;
         }
       }
-
-      const src = this.targets[this.cur];
-      const dst = this.targets[1 - this.cur];
-      this.cur = 1 - this.cur;
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
-      gl.viewport(0, 0, GW, GH);
-      gl.disable(gl.BLEND);
-      gl.useProgram(this.prog);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, src.tex);
-      gl.uniform1i(this.loc.uPrev, 0);
-      const decay = this.preset.get('decay');
-      gl.uniform1f(this.loc.uDecay, decay > 0 ? Math.min(1, decay) : 0.98);
-      const gamma = this.preset.get('fgammaadj') || this.preset.get('gamma') || 1;
-      gl.uniform3f(this.loc.uSolarize, gamma, 0, 0);
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, v);
-      gl.bindVertexArray(this.vao);
-      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
-      gl.bindVertexArray(null);
-
-      // Dalga formu
-      this._drawWave(gl, audio, cfg, base);
-
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
-      // Sonucu ekrana: dst dokusunu 2B tuvale taşımak için tam ekran çizim
-      gl.viewport(0, 0, GW, GH);
-      gl.useProgram(this.prog);
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, dst.tex);
-      gl.uniform1f(this.loc.uDecay, 1);
-      gl.uniform3f(this.loc.uSolarize, 1, 0, 0);
-      this._blitIdentity(gl);
-
-      const c = this.ctx;
-      c.clearRect(0, 0, W, H);
-      c.imageSmoothingEnabled = true;
-      c.drawImage(this.gl2, 0, 0, W, H);
     }
 
-    // Kimlik ağıyla tam ekran çizim (ekrana aktarım için)
-    _blitIdentity(gl) {
-      if (!this._idVerts) {
-        const n = MESH_X + 1;
-        this._idVerts = new Float32Array(n * (MESH_Y + 1) * 4);
-        for (let j = 0; j <= MESH_Y; j++) {
-          for (let i = 0; i <= MESH_X; i++) {
-            const o = (j * n + i) * 4;
-            const u = i / MESH_X;
-            const w = j / MESH_Y;
-            this._idVerts[o] = u * 2 - 1;
-            this._idVerts[o + 1] = w * 2 - 1;
-            this._idVerts[o + 2] = u;
-            this._idVerts[o + 3] = w;
+    /* Üç kademe bulanık kopya. Her kademe bir öncekinin yarısı boyutunda ve
+       yatay+dikey iki geçişten geçiyor: ayrılabilir Gauss iki geçişte
+       tek geçişli bir çekirdeğin karesi kadar iş yapıyor. */
+    _buildBlur(srcTex) {
+      const gl = this.gl;
+      gl.useProgram(this.blurProg);
+      gl.uniform1i(this.locBlur.uSrc, 0);
+      gl.bindVertexArray(this.quadVao);
+      gl.activeTexture(gl.TEXTURE0);
+      let input = srcTex;
+      for (const b of this.blur) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, b.tmp.fb);
+        gl.viewport(0, 0, b.w, b.h);
+        gl.bindTexture(gl.TEXTURE_2D, input);
+        gl.uniform2f(this.locBlur.uStep, 1 / b.w, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, b.out.fb);
+        gl.bindTexture(gl.TEXTURE_2D, b.tmp.tex);
+        gl.uniform2f(this.locBlur.uStep, 0, 1 / b.h);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        input = b.out.tex;
+      }
+      gl.bindVertexArray(null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    /* MilkDrop'un ekran koordinatı: x,y 0..1 ve y AŞAĞI doğru artıyor.
+       GL'de y yukarı; çevirmezsek her şekil yatay eksende aynalanır ve
+       simetrik olmayan presetler ters görünür. */
+    _toClipY(y) { return 1 - 2 * y; }
+
+    _blend(gl, additive) {
+      gl.enable(gl.BLEND);
+      if (additive) gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
+      else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
+
+    /* Custom şekiller. Referans preset paketinde %48'i bunları kullanıyor.
+
+       Her şekil bir üçgen yelpazesi: merkez rengi (r,g,b,a), kenar rengi
+       (r2,g2,b2,a2). Bu iki renk MilkDrop'ta bilerek ayrı — çoğu preset
+       merkezi opak, kenarı saydam bırakıp yumuşak bir leke elde ediyor.
+       İkisini eşitlemek şekilleri düz disklere çevirirdi. */
+    _drawShapes(gl, GW, GH) {
+      const P = this.preset;
+      if (!P || !P.shapes || !P.shapes.length) return;
+      const d = this.lineData;
+      // Çemberin çember kalması için: kırpma uzayında x ve y aynı ölçekte değil
+      const ry = GW / Math.max(1, GH);
+      const out = this._shapeOut || (this._shapeOut = {});
+      gl.useProgram(this.lineProg);
+      gl.bindVertexArray(this.lineVao);
+      for (const s of P.shapes) {
+        if (!s.enabled) continue;
+        for (let inst = 0; inst < s.instances; inst++) {
+          const o = P.shapeFrame(s, inst, out);
+          if (!o) continue;
+          const rad = +o.rad;
+          if (!isFinite(rad) || rad <= 0) continue;
+          const cxp = +o.x * 2 - 1;
+          const cyp = this._toClipY(+o.y);
+          if (!isFinite(cxp) || !isFinite(cyp)) continue;
+          const ang0 = +o.ang || 0;
+          const n = s.sides;
+          const cl = window.SVMilkdrop.clampColor;
+          const c1 = [cl(o.r), cl(o.g), cl(o.b), Math.max(0, Math.min(1, +o.a || 0))];
+          const c2 = [cl(o.r2), cl(o.g2), cl(o.b2), Math.max(0, Math.min(1, +o.a2 || 0))];
+
+          // merkez + n kenar noktası + kapanış = yelpaze
+          d[0] = cxp; d[1] = cyp;
+          d[2] = c1[0]; d[3] = c1[1]; d[4] = c1[2]; d[5] = c1[3];
+          for (let i = 0; i <= n; i++) {
+            const th = ang0 + (i / n) * Math.PI * 2;
+            const k = (i + 1) * 6;
+            d[k] = cxp + Math.cos(th) * rad;
+            d[k + 1] = cyp + Math.sin(th) * rad * ry;
+            d[k + 2] = c2[0]; d[k + 3] = c2[1]; d[k + 4] = c2[2]; d[k + 5] = c2[3];
+          }
+          this._blend(gl, s.additive);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, (n + 2) * 6);
+          gl.drawArrays(gl.TRIANGLE_FAN, 0, n + 2);
+
+          // Kenar çizgisi: MilkDrop border_* renkleriyle ayrı bir geçiş
+          const ba = Math.max(0, Math.min(1, +o.border_a || 0));
+          if (ba > 0.002) {
+            for (let i = 0; i < n; i++) {
+              const th = ang0 + (i / n) * Math.PI * 2;
+              const k = i * 6;
+              d[k] = cxp + Math.cos(th) * rad;
+              d[k + 1] = cyp + Math.sin(th) * rad * ry;
+              d[k + 2] = cl(o.border_r); d[k + 3] = cl(o.border_g);
+              d[k + 4] = cl(o.border_b); d[k + 5] = ba;
+            }
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+            gl.drawArrays(gl.LINE_LOOP, 0, n);
           }
         }
       }
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this._idVerts);
-      gl.bindVertexArray(this.vao);
-      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
       gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
     }
 
-    _drawWave(gl, audio, cfg, base) {
+    /* Custom dalgalar. Referans pakette %32'si kullanıyor.
+
+       Her nokta için per_point koşuyor ve x/y/renk oradan geliyor; yani
+       bunlar "dalga formu" değil, presetin ses verisiyle çizdiği serbest
+       eğriler. Sabit bir çizgi çizmek bu presetlerin tamamını kaybettiriyordu. */
+    _drawCustomWaves(gl, audio) {
+      const P = this.preset;
+      if (!P || !P.waves || !P.waves.length) return;
+      const tb = audio.timeBytes;
+      if (!tb || tb.length < 8) return;
+      const d = this.lineData;
+      const out = this._waveOut || (this._waveOut = {});
+      const cl = window.SVMilkdrop.clampColor;
+      gl.useProgram(this.lineProg);
+      gl.bindVertexArray(this.lineVao);
+      for (const w of P.waves) {
+        if (!P.waveFrame(w)) continue;
+        const N = Math.min(512, w.samples);
+        let count = 0;
+        for (let i = 0; i < N; i++) {
+          const sample = N > 1 ? i / (N - 1) : 0;
+          const i0 = Math.min(tb.length - 1, Math.floor(sample * (tb.length - 1)));
+          /* value1/value2 MilkDrop'ta sol ve sağ kanal. Elimizdeki zaman
+             verisi tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış
+             aynı veriden alınıyor — presetin iki kanalı ayırdığı yerlerde
+             faz farkı korunuyor, ama gerçek stereo değil. */
+          const i1 = Math.min(tb.length - 1, i0 + w.sep);
+          const v1 = ((tb[i0] - 128) / 128) * w.scaling;
+          const v2 = ((tb[i1] - 128) / 128) * w.scaling;
+          const o = P.wavePoint(w, sample, v1, v2, out);
+          const x = +o.x, y = +o.y;
+          if (!isFinite(x) || !isFinite(y)) continue;
+          const k = count * 6;
+          d[k] = x * 2 - 1;
+          d[k + 1] = this._toClipY(y);
+          d[k + 2] = cl(o.r); d[k + 3] = cl(o.g); d[k + 4] = cl(o.b);
+          d[k + 5] = Math.max(0, Math.min(1, +o.a || 0));
+          count++;
+        }
+        if (count < 2) continue;
+        this._blend(gl, w.additive);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
+        gl.drawArrays(w.useDots ? gl.POINTS : gl.LINE_STRIP, 0, count);
+      }
+      gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
+    }
+
+    _drawWave(gl, audio, base) {
       const wave = audio.timeBytes;
       if (!wave || wave.length < 8) return;
       const P = this.preset;
       const N = Math.min(512, wave.length);
       const d = this.lineData;
-      const r = P.get('wave_r');
-      const g = P.get('wave_g');
-      const b = P.get('wave_b');
-      const a = P.get('wave_a');
       /* Kırpma motorda (SVMilkdrop.clampColor): kural MilkDrop'un kuralı ve
          burada iki kez yanlış yazıldı — `x || 1` geçerli sıfırı 1 yapıyordu,
          üst sınır ise yoktu. */
       const cl = window.SVMilkdrop.clampColor;
-      const cr = cl(r);
-      const cg = cl(g);
-      const cb = cl(b);
-      const ca = a > 0 ? Math.min(1, a) : 0.4;
+      const cr = cl(P.get('wave_r'));
+      const cg = cl(P.get('wave_g'));
+      const cb = cl(P.get('wave_b'));
+      /* wave_a SIFIR olabilir ve bu "çizme" demek — custom dalga kullanan
+         presetler varsayılan dalgayı tam olarak böyle kapatıyor. Eskiden
+         sıfır "belirtilmemiş" sayılıp 0,4'e çekiliyordu, yani kapatılmış
+         dalga yine de çiziliyordu. Havuz varsayılanı zaten 1. */
+      const av = P.get('wave_a');
+      const ca = Math.max(0, Math.min(1, isFinite(av) ? av : 1));
+      if (ca <= 0.002) return;
       const amp = 0.38;
       for (let i = 0; i < N; i++) {
         const f = i / (N - 1);
@@ -447,13 +979,19 @@ void main(){ outColor = vCol; }`;
       this._disposeTargets();
       const gl = this.gl;
       if (gl) {
+        this._releasePresetProgs();
         if (this.vbo) gl.deleteBuffer(this.vbo);
         if (this.ibo) gl.deleteBuffer(this.ibo);
         if (this.vao) gl.deleteVertexArray(this.vao);
+        if (this.quadVbo) gl.deleteBuffer(this.quadVbo);
+        if (this.quadVao) gl.deleteVertexArray(this.quadVao);
         if (this.lineVbo) gl.deleteBuffer(this.lineVbo);
         if (this.lineVao) gl.deleteVertexArray(this.lineVao);
-        if (this.prog) gl.deleteProgram(this.prog);
+        if (this.warpFixed) gl.deleteProgram(this.warpFixed);
+        if (this.compFixed) gl.deleteProgram(this.compFixed);
+        if (this.blurProg) gl.deleteProgram(this.blurProg);
         if (this.lineProg) gl.deleteProgram(this.lineProg);
+        if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);
       }
       this.gl = null;
       this.preset = null;

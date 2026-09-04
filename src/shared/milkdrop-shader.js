@@ -182,7 +182,6 @@
     '#version 300 es',
     'precision highp float;',
     '',
-    'in vec2 vUV;',
     'out vec4 outColor;',
     '',
     'uniform sampler2D sampler_main;',
@@ -726,18 +725,39 @@
     const hoisted = gRaw ? hoistGlobals(coerce(gRaw, types)) : { decls: '', prologue: [] };
     const body = coerce(bRaw, types);
 
+    /* İki aşamanın girdileri AYNI DEĞİL ve karıştırmak sessizce yanlış
+       görüntü verir:
+
+       warp  ağ üzerinde çiziliyor. `uv` düğümün BOZULMUŞ koordinatı,
+             `uv_orig` bozulmamış hali, rad/ang de düğümden interpolasyonla
+             geliyor. Bunları parça shader'ında uv'den yeniden hesaplamak
+             bozulmayı görmezden gelmek olurdu.
+       comp  tam ekran dörtgeni. Orada rad/ang iki üçgen üzerinden
+             interpolasyona uygun değil (yarıçap doğrusal değil), bu yüzden
+             piksel başına hesaplanıyor. */
+    const stage = o.stage === 'warp' ? 'warp' : 'comp';
+    const ins = stage === 'warp'
+      ? ['in vec2 vUV;', 'in vec2 vUVOrig;', 'in float vRad;', 'in float vAng;', '']
+      : ['in vec2 vUV;', ''];
     const decl = extraSamplers.map((n) => 'uniform sampler2D ' + n + ';');
     const head = PREAMBLE
+      .concat(ins)
       .concat(decl, decl.length ? [''] : [])
       .concat(globalDecls(), HELPERS, ['']);
     const mid = hoisted.decls ? hoisted.decls.split('\n').concat(['']) : [];
     const main = ['void main() {']
-      .concat(qAssigns(), [
+      .concat(qAssigns(), stage === 'warp' ? [
+        '  uv = vUV;',
+        '  uv_orig = vUVOrig;',
+        '  rad = vRad;',
+        '  ang = vAng;',
+        '  ret = vec3(0.0);',
+        '',
+      ] : [
         '  uv = vUV;',
         '  uv_orig = vUV;',
         /* rad/ang MilkDrop'ta merkeze göre kutupsal koordinat. En-boy
-           düzeltmesi uygulanıyor, yoksa geniş ekranda çemberler elips olur.
-           MilkDrop'un tam ölçeğiyle birebir aynı olduğu doğrulanmadı. */
+           düzeltmesi uygulanıyor, yoksa geniş ekranda çemberler elips olur. */
         '  rad = length((uv - 0.5) * aspect.xy) * 2.0;',
         '  ang = atan(uv.y - 0.5, uv.x - 0.5);',
         '  ret = vec3(0.0);',
@@ -754,7 +774,7 @@
       soft,
       extraSamplers,
       empty: false,
-      stage: o.stage || 'comp',
+      stage: stage,
     };
   }
 

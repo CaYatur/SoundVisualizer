@@ -806,10 +806,22 @@
       return out;
     };
 
+    /* Blok NUMARASI korunuyor. Preset yalnızca 0 ve 3 numaralı dalgayı
+       tanımlayabiliyor; diziye sırayla koyup dizideki konumu numara saymak,
+       o dalganın `wavecode_3_*` parametrelerini `wavecode_1_*` ile
+       eşleştirirdi — renk ve örnek sayısı başka bir dalgadan gelirdi. */
     const wavesOut = [];
-    for (const k of Object.keys(waves).sort((a, b) => a - b)) wavesOut.push(joinBlocks(waves[k]));
+    for (const k of Object.keys(waves).sort((a, b) => a - b)) {
+      const o = joinBlocks(waves[k]);
+      o.index = +k;
+      wavesOut.push(o);
+    }
     const shapesOut = [];
-    for (const k of Object.keys(shapes).sort((a, b) => a - b)) shapesOut.push(joinBlocks(shapes[k]));
+    for (const k of Object.keys(shapes).sort((a, b) => a - b)) {
+      const o = joinBlocks(shapes[k]);
+      o.index = +k;
+      shapesOut.push(o);
+    }
 
     return {
       params,
@@ -828,6 +840,16 @@
      Preset yüklendiğinde blokları derler, kare başına per_frame'i bir kez,
      per_pixel'i ağ düğümü başına bir kez koşturur ve sonuçları okunabilir
      bir yapıda döndürür. */
+
+  /* Custom dalga/şekil havuzlarına taşınan kare geneli girdiler. Liste tek
+     yerde duruyor: taşınmayan bir ad alt blokta sessizce sıfır kalır ve
+     preset hiç kıpırdamaz — hata da vermez. */
+  const SHARED_VARS = [
+    'time', 'frame', 'fps', 'progress',
+    'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
+    'vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty',
+  ];
+
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
@@ -860,6 +882,162 @@
         if (c.error) this.errors.push(c.error);
       }
       this.initialised = false;
+
+      /* Custom dalgalar ve şekiller. Referans preset paketinde şekillerin
+         %48'i, dalgaların %32'si kullanılıyor: motorun bunları çizmemesi,
+         o presetlerin ekranda bambaşka görünmesinin en büyük tek sebebiydi.
+         Ayrıştırıcı blokları zaten çıkarıyordu, derleyen kimse yoktu. */
+      this.waves = this._collect('wavecode', this.file.waves).map((w) => this._buildWave(w, o));
+      this.shapes = this._collect('shapecode', this.file.shapes).map((s) => this._buildShape(s, o));
+    }
+
+    /* Blok numaralarını DENKLEMLERDEN ve PARAMETRELERDEN birlikte toplar.
+
+       Yalnızca denklem bloklarına bakmak yetmiyor: bir şekil tamamen
+       `shapecode_0_*` parametreleriyle tanımlanabiliyor ve tek bir denklem
+       satırı taşımayabiliyor. MilkDrop onu yine çiziyor — sabit bir çokgen
+       olarak. Denklemden türetmek bu şekilleri tümden düşürüyordu. */
+    _collect(prefix, blocks) {
+      const byIdx = new Map();
+      for (const b of (blocks || [])) byIdx.set(b.index || 0, b);
+      const re = new RegExp('^' + prefix + '_(\\d+)_');
+      for (const k in this.file.params) {
+        const m = re.exec(k);
+        if (!m) continue;
+        const i = +m[1];
+        if (!byIdx.has(i)) byIdx.set(i, { index: i });
+      }
+      return Array.from(byIdx.keys()).sort((a, b) => a - b).map((i) => byIdx.get(i));
+    }
+
+    /* Blok parametrelerini okumak için: `wavecode_2_r` gibi adlar presetin
+       düz parametre sözlüğünde duruyor. */
+    _sub(prefix, idx, name, dflt) {
+      const v = this.file.params[prefix + '_' + idx + '_' + name];
+      return typeof v === 'number' ? v : dflt;
+    }
+
+    _buildWave(w, o) {
+      const i = w.index || 0;
+      const g = (n, d) => this._sub('wavecode', i, n, d);
+      const pool = new Pool();
+      const wave = {
+        index: i,
+        enabled: g('enabled', 0) !== 0,
+        // MilkDrop 512 örnekle sınırlı; daha fazlası ne dosyada var ne anlamlı
+        samples: Math.max(2, Math.min(512, Math.round(g('samples', 512)))),
+        sep: Math.max(0, Math.round(g('sep', 0))),
+        spectrum: g('bspectrum', 0) !== 0,
+        useDots: g('busedots', 0) !== 0,
+        thick: g('bdrawthick', 0) !== 0,
+        additive: g('badditive', 0) !== 0,
+        scaling: g('scaling', 1),
+        smoothing: g('smoothing', 0.5),
+        r: g('r', 1), g: g('g', 1), b: g('b', 1), a: g('a', 1),
+        pool,
+        initialised: false,
+      };
+      /* per_point saniyede samples×60 kez koşuyor; bütçe per_pixel'inkiyle
+         aynı mantıkta, blok başına veriliyor. */
+      wave.cInit = compile(w.init || '', pool, { seed: o.seed, loopBudget: 65536 });
+      wave.cFrame = compile(w.per_frame || '', pool, { seed: o.seed, loopBudget: 65536 });
+      wave.cPoint = compile(w.per_point || '', pool, { seed: o.seed, loopBudget: 1024 });
+      for (const c of [wave.cInit, wave.cFrame, wave.cPoint]) {
+        if (c.error) this.errors.push('wave ' + i + ': ' + c.error);
+      }
+      return wave;
+    }
+
+    _buildShape(s, o) {
+      const i = s.index || 0;
+      const g = (n, d) => this._sub('shapecode', i, n, d);
+      const pool = new Pool();
+      const shape = {
+        index: i,
+        enabled: g('enabled', 0) !== 0,
+        // MilkDrop kenar sayısını 3..100 arasında tutuyor
+        sides: Math.max(3, Math.min(100, Math.round(g('sides', 4)))),
+        additive: g('additive', 0) !== 0,
+        thickOutline: g('thickoutline', 0) !== 0,
+        textured: g('textured', 0) !== 0,
+        instances: Math.max(1, Math.min(1024, Math.round(g('num_inst', 1)))),
+        base: {
+          x: g('x', 0.5), y: g('y', 0.5), rad: g('rad', 0.1), ang: g('ang', 0),
+          tex_ang: g('tex_ang', 0), tex_zoom: g('tex_zoom', 1),
+          r: g('r', 1), g: g('g', 1), b: g('b', 1), a: g('a', 1),
+          r2: g('r2', 0), g2: g('g2', 0), b2: g('b2', 0), a2: g('a2', 0),
+          border_r: g('border_r', 1), border_g: g('border_g', 1),
+          border_b: g('border_b', 1), border_a: g('border_a', 0.1),
+        },
+        pool,
+        initialised: false,
+      };
+      shape.cInit = compile(s.init || '', pool, { seed: o.seed, loopBudget: 65536 });
+      shape.cFrame = compile(s.per_frame || '', pool, { seed: o.seed, loopBudget: 65536 });
+      for (const c of [shape.cInit, shape.cFrame]) {
+        if (c.error) this.errors.push('shape ' + i + ': ' + c.error);
+      }
+      return shape;
+    }
+
+    /* Ana havuzdaki kare geneli girdileri alt bloğun havuzuna taşır.
+
+       NEDEN AYRI HAVUZ: MilkDrop'ta her dalganın ve şeklin kendi t1..t8'i
+       var; tek havuz kullanmak iki dalganın birbirinin ara değişkenini
+       ezmesine yol açardı. NEDEN KOPYALAMA: presetler dalgayı q
+       değişkenleri ve ses girdileriyle sürüyor, o yüzden bunlar paylaşılmalı. */
+    _shareInto(pool) {
+      const P = this.pool;
+      for (const k of SHARED_VARS) pool.set(k, P.get(k));
+      for (let i = 1; i <= 32; i++) pool.set('q' + i, P.get('q' + i));
+    }
+
+    // Bir custom dalganın kare denklemlerini koşturur. false: çizilmeyecek.
+    waveFrame(w) {
+      if (!w || !w.enabled) return false;
+      const P = w.pool;
+      this._shareInto(P);
+      P.set('r', w.r); P.set('g', w.g); P.set('b', w.b); P.set('a', w.a);
+      if (!w.initialised) { w.cInit.run(P.values); w.initialised = true; }
+      w.cFrame.run(P.values);
+      return true;
+    }
+
+    /* Dalganın tek bir noktası. sample 0..1; value1/value2 sol ve sağ kanal.
+       `out` her çağrıda YENİDEN KULLANILIYOR: 512 nokta için kare başına
+       512 nesne ayırmak kabul edilemezdi. */
+    wavePoint(w, sample, v1, v2, out) {
+      const P = w.pool;
+      P.set('sample', sample);
+      P.set('value1', v1);
+      P.set('value2', v2);
+      /* x/y tohumlanıyor: per_point bunları yazmayan bir preset varsa
+         ekranın ortasında düz bir çizgi çıksın, tanımsız değer değil. */
+      P.set('x', sample);
+      P.set('y', 0.5);
+      w.cPoint.run(P.values);
+      const o = out || {};
+      o.x = P.get('x'); o.y = P.get('y');
+      o.r = P.get('r'); o.g = P.get('g'); o.b = P.get('b'); o.a = P.get('a');
+      return o;
+    }
+
+    /* Bir şeklin tek örneğinin kare denklemleri. MilkDrop num_inst kez
+       koşturuyor ve her koşuda `instance` değişiyor; şekiller bu sayede
+       tek blokla bir halka ya da ızgara kurabiliyor. */
+    shapeFrame(s, instance, out) {
+      if (!s || !s.enabled) return null;
+      const P = s.pool;
+      this._shareInto(P);
+      const b = s.base;
+      for (const k in b) P.set(k, b[k]);
+      P.set('instance', instance);
+      P.set('num_inst', s.instances);
+      if (!s.initialised) { s.cInit.run(P.values); s.initialised = true; }
+      s.cFrame.run(P.values);
+      const o = out || {};
+      for (const k in b) o[k] = P.get(k);
+      return o;
     }
 
     // Havuzdaki değişkenlere kısayol
