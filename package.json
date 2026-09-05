@@ -18,7 +18,8 @@
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
     "icons": "node scripts/gen-icons.js",
-    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
+    "prepare:smtc": "node scripts/prepare-smtc.js",
+    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-smtc.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
@@ -78,6 +79,10 @@
       ],
       "icon": "build/icon.ico",
       "extraResources": [
+        {
+          "from": "native/smtc-helper/bin/Release/net8.0-windows10.0.19041.0/win-x64/publish/smtc-helper.exe",
+          "to": "bin/smtc-helper.exe"
+        },
         {
           "from": "native/dynamic-lighting/build/Release/dynamic_lighting.node",
           "to": "runtime/dynamic_lighting.node"

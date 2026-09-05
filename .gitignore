@@ -8,3 +8,5 @@ assets/logo-256.png
 .claude
 .caya-agent/
 native/dynamic-lighting/build/
+native/smtc-helper/bin/
+native/smtc-helper/obj/

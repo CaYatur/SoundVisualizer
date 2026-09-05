@@ -22,7 +22,23 @@
  * bildirilir, uygulama çalışmaya devam eder.
  */
 
+const fs = require('fs');
+const path = require('path');
 const { spawn } = require('child_process');
+
+/* Windows SMTC için yerel C# ikilisini (smtc-helper.exe) bulur.
+   Windows-to-Android-Bridge'deki MediaProvider.cs gibi doğrudan WinRT
+   olaylarına abone olur; sıfır yoklama (0% CPU) ve 3 MB RAM ile çalışır. */
+function getNativeHelperPath() {
+  if (process.platform !== 'win32') return null;
+  // 1. Paketlenmiş uygulama yolu (extraResources altındaki bin/)
+  const packaged = path.join(process.resourcesPath || '', 'bin', 'smtc-helper.exe');
+  if (fs.existsSync(packaged)) return packaged;
+  // 2. Yerel geliştirme / derleme yolu
+  const local = path.join(__dirname, '..', '..', 'native', 'smtc-helper', 'bin', 'Release', 'net8.0-windows10.0.19041.0', 'win-x64', 'publish', 'smtc-helper.exe');
+  if (fs.existsSync(local)) return local;
+  return null;
+}
 
 const POLL_MS = 1000;
 // İlk satır bu süre içinde gelmezse ortam desteklemiyor sayılır
@@ -117,6 +133,7 @@ class MediaSession {
     this.onState = null;
     this.proc = null;
     this.want = false;
+    this.backend = 'none';
     this.state = Object.assign({}, EMPTY);
     this.supported = process.platform === 'win32';
     this.failures = 0;
@@ -135,6 +152,7 @@ class MediaSession {
     return {
       supported: this.supported,
       running: !!this.proc,
+      backend: this.backend,
       error: this.lastError,
       platform: process.platform,
     };
@@ -167,7 +185,9 @@ class MediaSession {
   _kill() {
     const p = this.proc;
     this.proc = null;
+    this.backend = 'none';
     if (!p) return;
+    try { if (p.stdin && !p.stdin.destroyed) p.stdin.end(); } catch (_) { /* zaten kapalı */ }
     try { p.stdout.removeAllListeners(); } catch (_) { /* zaten kapalı */ }
     try { p.kill(); } catch (_) { /* zaten öldü */ }
   }
@@ -179,6 +199,24 @@ class MediaSession {
   }
 
   _spawn() {
+    this._clearTimers();
+    this.buf = '';
+    const nativePath = getNativeHelperPath();
+    if (nativePath) {
+      try {
+        const proc = spawn(nativePath, [], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+        this.proc = proc;
+        this.backend = 'native';
+        this._wireProc(proc, true);
+        return;
+      } catch (_) {
+        // Yerel ikili başlatılamadıysa PowerShell fallback'e geç
+      }
+    }
+    this._spawnFallbackPowerShell();
+  }
+
+  _spawnFallbackPowerShell() {
     this._clearTimers();
     this.buf = '';
     let proc;
@@ -193,12 +231,20 @@ class MediaSession {
       return;
     }
     this.proc = proc;
+    this.backend = 'powershell';
+    this._wireProc(proc, false);
+  }
 
-    /* Betik hiç konuşmazsa (WinRT yok, ilke engelliyor) burada anlaşılır.
+  _wireProc(proc, isNative) {
+    /* Betik veya yerel ikili hiç konuşmazsa (WinRT yok, ilke engelliyor) burada anlaşılır.
        Yoksa süreç sessizce ayakta kalır ve özellik hiç çalışmaz. */
     this.firstLineTimer = setTimeout(() => {
       this.lastError = 'medya oturumu yanıt vermedi';
       this._kill();
+      if (isNative) {
+        this._spawnFallbackPowerShell();
+        return;
+      }
       this._fail();
     }, FIRST_LINE_TIMEOUT_MS);
 
@@ -208,11 +254,19 @@ class MediaSession {
     proc.on('error', (e) => {
       this.lastError = e && e.message ? e.message : String(e);
       this._kill();
+      if (isNative) {
+        this._spawnFallbackPowerShell();
+        return;
+      }
       this._fail();
     });
     proc.on('exit', () => {
       if (this.proc !== proc) return; // biz öldürdük
       this.proc = null;
+      if (isNative && this.failures === 0) {
+        this._spawnFallbackPowerShell();
+        return;
+      }
       this._fail();
     });
   }
@@ -285,4 +339,4 @@ class MediaSession {
   }
 }
 
-module.exports = { MediaSession, EMPTY, differs, SCRIPT };
+module.exports = { MediaSession, EMPTY, differs, SCRIPT, getNativeHelperPath };
