@@ -73,6 +73,15 @@
     } else {
       cfg.isBlackout = false;
     }
+    if (cfg.logo && Array.isArray(cfg.layers)) {
+      for (const l of cfg.layers) {
+        if (l && l.kind === 'logo') {
+          l.settings = l.settings || {};
+          l.settings.logo = l.settings.logo || {};
+          Object.assign(l.settings.logo, cfg.logo);
+        }
+      }
+    }
     // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
@@ -1964,7 +1973,6 @@
         title: 'Metin ve Şarkı Sözü',
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
         controls: [{ type: 'textpanel' }],
-        show: () => v.type === 'text' || !!(cfg.text && cfg.text.enabled) || !!(cfg.layers && cfg.layers.some((l) => l.type === 'text')),
       },
       {
         id: 'nowplaying',

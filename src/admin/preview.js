@@ -137,24 +137,15 @@
   function applyLogo() {
     if (!logoImg) return;
     const l = cfg.logo;
-    if (l.enabled && l.src) {
+    if (l && l.enabled && l.src) {
       if (logoImg.src !== l.src) logoImg.src = l.src;
-      logoImg.style.display = 'block';
-      logoImg.style.opacity = l.opacity;
-      logoImg.style.filter = l.glow > 0 ? `drop-shadow(0 0 ${l.glow * 22}px rgba(255,255,255,.6))` : 'none';
-    } else {
-      logoImg.style.display = 'none';
     }
+    logoImg.style.display = 'none';
   }
 
   function layoutLogo(w, h) {
-    if (!logoImg) return;
-    const l = cfg.logo;
-    if (!l.enabled || !l.src) return;
-    const size = Math.min(w, h) * Math.max(0.03, Math.min(0.9, l.scale));
-    logoImg.style.width = size + 'px';
-    logoImg.style.left = l.x * 100 + '%';
-    logoImg.style.top = l.y * 100 + '%';
+    // Logo yerleşimi ve ölçeklemesi LayerStack tuvali tarafından yönetilir
+    if (logoImg) logoImg.style.display = 'none';
   }
 
   // --------------------------------------------------------------------------
@@ -187,15 +178,35 @@
     }
     if (!live) audio.ingestFrame(buildSyntheticFrame(t));
 
+    let base = cfg;
+    if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
+      let showAnchor = null;
+      if (window.SVTimelinePanel && typeof window.SVTimelinePanel.anchor === 'function') {
+        showAnchor = window.SVTimelinePanel.anchor();
+      }
+      if (!showAnchor && window.SVTimelinePanel && typeof window.SVTimelinePanel.transport === 'function') {
+        const tr = window.SVTimelinePanel.transport();
+        if (tr && window.SVShowClock) {
+          showAnchor = window.SVShowClock.anchorFrom(tr, Date.now(), tr.tl && tr.tl.loop);
+        }
+      }
+      if (!showAnchor) {
+        showAnchor = window.SVShowClock.idle();
+      }
+      const showT = window.SVShowClock.resolve(showAnchor, Date.now());
+      const auto = window.SVTimeline.applyAutomation(cfg, cfg.timeline, showT);
+      base = auto.cfg;
+    }
+
     audio.update(dt);
-    modulator.update(cfg, audio, t, dt);
-    const mcfg = modulator.apply(cfg, dt);
+    modulator.update(base, audio, t, dt);
+    const mcfg = modulator.apply(base, dt);
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
     stack.draw(audio, mcfg, t, dt);
 
-    if (logoImg && cfg.logo.enabled && cfg.logo.src) {
-      const pulse = 1 + audio.bass * cfg.logo.pulse;
-      logoImg.style.transform = `translate(-50%,-50%) scale(${pulse.toFixed(3)})`;
+    // logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli kalır
+    if (logoImg && logoImg.style.display !== 'none') {
+      logoImg.style.display = 'none';
     }
   }
 
@@ -208,6 +219,18 @@
     layerHost = document.getElementById('pvStage');
     logoImg = document.getElementById('pvLogo');
     if (!stage || !layerHost) return false;
+
+    window.SVNowLive = window.SVNowLive || { state: null };
+    if (window.api && window.api.onNowPlaying) {
+      window.api.onNowPlaying((st) => {
+        window.SVNowLive.state = st;
+      });
+    }
+    if (window.api && window.api.nowPlayingCurrent) {
+      window.api.nowPlayingCurrent().then((st) => {
+        if (st) window.SVNowLive.state = st;
+      }).catch(() => {});
+    }
 
     audio = new window.SVAudio();
     sprites = new window.SVSprites();

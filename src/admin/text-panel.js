@@ -31,19 +31,58 @@
     ['"Trebuchet MS", "Segoe UI", sans-serif', 'Yuvarlak'],
   ];
 
+  function syncToLayers(cfg, T) {
+    if (!cfg || !Array.isArray(cfg.layers)) return;
+    for (const l of cfg.layers) {
+      if (l.type === 'text') {
+        l.settings = l.settings || {};
+        l.settings.text = Object.assign({}, l.settings.text || {}, T);
+      }
+    }
+  }
+
+  let wiredLive = false;
+  function ensureLive() {
+    if (wiredLive) return;
+    wiredLive = true;
+    window.SVNowLive = window.SVNowLive || { state: null };
+    if (window.api && window.api.onNowPlaying) {
+      window.api.onNowPlaying((st) => {
+        window.SVNowLive.state = st;
+      });
+    }
+    if (window.api && window.api.nowPlayingCurrent) {
+      window.api.nowPlayingCurrent().then((st) => {
+        window.SVNowLive.state = st;
+      }).catch(() => {});
+    }
+  }
+
+  function isWindowsPlatform() {
+    if (SP() && typeof SP().isWindows === 'function') return SP().isWindows();
+    if (typeof window !== 'undefined' && window.SV_PLATFORM && typeof window.SV_PLATFORM.isWindows === 'boolean') {
+      return window.SV_PLATFORM.isWindows;
+    }
+    if (typeof process !== 'undefined' && process.platform) {
+      return process.platform === 'win32';
+    }
+    return false;
+  }
+
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
     const T = cfg.text || (cfg.text = window.SV.defaultConfig().text);
     const rerender = () => P().apply();
+    const sync = () => syncToLayers(cfg, T);
     const nodes = [];
 
-    nodes.push(SP().miniToggle('Metin Etkin', () => T.enabled !== false, (v) => { T.enabled = v; }, rerender));
+    nodes.push(SP().miniToggle('Metin Etkin', () => !!T.enabled, (v) => { T.enabled = v; sync(); }, rerender));
     if (T.enabled === false) {
       return el('div', { class: 'txt-panel' }, nodes);
     }
 
-    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { T.source = v; }, rerender));
+    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { T.source = v; sync(); }, rerender));
 
     // ------------------------------------------------------------- kaynak
     if ((T.source || 'static') === 'static') {
@@ -51,25 +90,172 @@
         el('label', { class: 'lbl', text: 'Metin' }),
         el('textarea', {
           class: 'p-in txt-area', rows: 2, value: T.content || '',
-          oninput: (e) => { T.content = e.target.value; P().push(false); },
+          oninput: (e) => { T.content = e.target.value; sync(); P().push(false); },
         }),
       ]));
-      nodes.push(SP().miniToggle('Kayan Yazı', () => !!T.marquee, (v) => { T.marquee = v; }, rerender));
+      nodes.push(SP().miniToggle('Kayan Yazı', () => !!T.marquee, (v) => { T.marquee = v; sync(); }, rerender));
       if (T.marquee) {
-        nodes.push(SP().miniSlider('Kayma Hızı', () => T.marqueeSpeed || 0.12, (v) => { T.marqueeSpeed = v; }, {
+        nodes.push(SP().miniSlider('Kayma Hızı', () => T.marqueeSpeed || 0.12, (v) => { T.marqueeSpeed = v; sync(); }, {
           min: 0.02, max: 0.6, step: 0.01,
         }));
       }
     } else if (T.source === 'now') {
-      nodes.push(P().row('Başlık', el('input', {
-        class: 'p-in', type: 'text', value: (T.nowPlaying && T.nowPlaying.title) || '',
-        oninput: (e) => { T.nowPlaying = T.nowPlaying || {}; T.nowPlaying.title = e.target.value; P().push(false); },
-      })));
-      nodes.push(P().row('Sanatçı', el('input', {
-        class: 'p-in', type: 'text', value: (T.nowPlaying && T.nowPlaying.artist) || '',
-        oninput: (e) => { T.nowPlaying = T.nowPlaying || {}; T.nowPlaying.artist = e.target.value; P().push(false); },
-      })));
-    } else {
+      ensureLive();
+      const isWin = isWindowsPlatform();
+      if (!isWin && T.nowSource === 'system') {
+        T.nowSource = 'manual';
+        sync();
+      }
+      const isAuto = isWin && (T.nowSource || 'system') === 'system';
+
+      if (isWin) {
+        if (isAuto && window.api && window.api.nowPlayingSubscribe) {
+          window.api.nowPlayingSubscribe(true);
+        }
+        nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
+          T.nowSource = v ? 'system' : 'manual';
+          sync();
+          if (v && window.api && window.api.nowPlayingSubscribe) {
+            window.api.nowPlayingSubscribe(true);
+          }
+          P().push(true);
+        }, rerender));
+
+        if (isAuto) {
+          const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+            ? window.SVNowLive.state : null;
+          const statusText = live
+            ? (live.playing ? '▶ ' : '❚❚ ') + ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
+            : 'Şu anda sistemde çalan parça algılanmadı (yedek kullanılır)';
+          const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
+          nodes.push(P().row('Canlı Medya', el('span', { class: statusClass, text: statusText })));
+
+          nodes.push(el('div', { class: 'row' }, [
+            el('button', {
+              class: 'btn small ghost',
+              type: 'button',
+              text: '📥 Çalan Şarkıyı Alanlara Doldur',
+              title: 'Şu an sistemde çalan parçanın başlık ve sanatçısını aşağıdaki yedek kutularına yazar.',
+              onclick: () => {
+                const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+                  ? window.SVNowLive.state : null;
+                if (!cur || (!cur.title && !cur.artist)) {
+                  P().toast('Sistemde çalan aktif parça bulunamadı.');
+                  return;
+                }
+                T.nowPlaying = T.nowPlaying || {};
+                if (cur.title) T.nowPlaying.title = cur.title;
+                if (cur.artist) T.nowPlaying.artist = cur.artist;
+                sync();
+                P().push(true);
+                rerender();
+                P().toast('Çalan parça bilgileri yedek alanlara aktarıldı.');
+              },
+            }),
+          ]));
+
+          nodes.push(P().row('Yedek Başlık', el('input', {
+            class: 'p-in', type: 'text', placeholder: 'Sistemde şarkı yokken gösterilecek başlık',
+            value: (T.nowPlaying && T.nowPlaying.title) || '',
+            oninput: (e) => {
+              T.nowPlaying = T.nowPlaying || {};
+              T.nowPlaying.title = e.target.value;
+              sync();
+              P().push(false);
+            },
+          })));
+          nodes.push(P().row('Yedek Sanatçı', el('input', {
+            class: 'p-in', type: 'text', placeholder: 'Sistemde şarkı yokken gösterilecek sanatçı',
+            value: (T.nowPlaying && T.nowPlaying.artist) || '',
+            oninput: (e) => {
+              T.nowPlaying = T.nowPlaying || {};
+              T.nowPlaying.artist = e.target.value;
+              sync();
+              P().push(false);
+            },
+          })));
+          nodes.push(el('div', {
+            class: 'studio-note dim-hint',
+            text: 'Sistem medya oturumundan (Spotify, YouTube, tarayıcı vb.) çalan parça otomatik okunur. Çalan bir şey olmadığında yukarıdaki yedek bilgiler gösterilir.',
+          }));
+        } else {
+          // Windows, manual mode
+          const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+            ? window.SVNowLive.state : null;
+          if (cur && (cur.title || cur.artist)) {
+            nodes.push(el('div', { class: 'row' }, [
+              el('button', {
+                class: 'btn small ghost',
+                type: 'button',
+                text: '📥 Çalan Şarkıyı Alanlara Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
+                onclick: () => {
+                  T.nowPlaying = T.nowPlaying || {};
+                  if (cur.title) T.nowPlaying.title = cur.title;
+                  if (cur.artist) T.nowPlaying.artist = cur.artist;
+                  sync();
+                  P().push(true);
+                  rerender();
+                  P().toast('Şarkı bilgileri alanlara yazıldı.');
+                },
+              }),
+            ]));
+          }
+
+          nodes.push(P().row('Başlık', el('input', {
+            class: 'p-in', type: 'text', placeholder: 'Örn: Bohemian Rhapsody',
+            value: (T.nowPlaying && T.nowPlaying.title) || '',
+            oninput: (e) => {
+              T.nowPlaying = T.nowPlaying || {};
+              T.nowPlaying.title = e.target.value;
+              sync();
+              P().push(false);
+            },
+          })));
+          nodes.push(P().row('Sanatçı', el('input', {
+            class: 'p-in', type: 'text', placeholder: 'Örn: Queen',
+            value: (T.nowPlaying && T.nowPlaying.artist) || '',
+            oninput: (e) => {
+              T.nowPlaying = T.nowPlaying || {};
+              T.nowPlaying.artist = e.target.value;
+              sync();
+              P().push(false);
+            },
+          })));
+        }
+      } else {
+        // macOS / Linux
+        nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => false, () => {}, null, {
+          disabled: true,
+          badge: 'Yalnızca Windows',
+          title: 'Bu özellik şu anda yalnızca Windows (SMTC) üzerinde desteklenmektedir.',
+        }));
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Sistem medya oturumunu (SMTC) otomatik okuma şu anda yalnızca Windows’ta desteklenmektedir. Başlık ve sanatçı bilgilerini aşağıdan elle girebilirsiniz.',
+        }));
+        nodes.push(P().row('Başlık', el('input', {
+          class: 'p-in', type: 'text', placeholder: 'Örn: Şarkı Başlığı',
+          value: (T.nowPlaying && T.nowPlaying.title) || '',
+          oninput: (e) => {
+            T.nowPlaying = T.nowPlaying || {};
+            T.nowPlaying.title = e.target.value;
+            sync();
+            P().push(false);
+          },
+        })));
+        nodes.push(P().row('Sanatçı', el('input', {
+          class: 'p-in', type: 'text', placeholder: 'Örn: Sanatçı Adı',
+          value: (T.nowPlaying && T.nowPlaying.artist) || '',
+          oninput: (e) => {
+            T.nowPlaying = T.nowPlaying || {};
+            T.nowPlaying.artist = e.target.value;
+            sync();
+            P().push(false);
+          },
+        })));
+      }
+    }
+ else {
       // ------------------------------------------------------------ söz
       const doc = T.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(T.lyricsSource) : null;
       const info = doc
@@ -87,6 +273,8 @@
             if (!r || !r.ok) return;
             T.lyricsSource = r.text;
             T.lyricsName = r.name || '';
+            sync();
+            P().push(true);
             const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
             rerender();
             P().toast(d ? (d.lines.length + ' satır okundu (' + d.format.toUpperCase() + ')') : 'Yüklendi.');
@@ -94,36 +282,42 @@
         }),
         el('button', {
           class: 'btn ghost', type: 'button', text: 'Temizle',
-          onclick: () => { T.lyricsSource = ''; T.lyricsName = ''; rerender(); },
+          onclick: () => {
+            T.lyricsSource = '';
+            T.lyricsName = '';
+            sync();
+            P().push(true);
+            rerender();
+          },
         }),
       ]));
 
-      nodes.push(SP().miniSlider('Senkron Kayması', () => T.offset || 0, (v) => { T.offset = v; }, {
+      nodes.push(SP().miniSlider('Senkron Kayması', () => T.offset || 0, (v) => { T.offset = v; sync(); }, {
         min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
       }));
-      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; }));
+      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }));
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.' }));
     }
 
     // ------------------------------------------------------------- görünüm
     nodes.push(SP().foldable('Yazı', () => [
-      SP().miniSelect('Yazı Tipi', FONT_LABELS, () => T.font, (v) => { T.font = v; }),
-      SP().miniSlider('Boyut', () => T.size == null ? 0.09 : T.size, (v) => { T.size = v; }, {
+      SP().miniSelect('Yazı Tipi', FONT_LABELS, () => T.font, (v) => { T.font = v; sync(); }),
+      SP().miniSlider('Boyut', () => T.size == null ? 0.09 : T.size, (v) => { T.size = v; sync(); }, {
         min: 0.02, max: 0.35, step: 0.005, fmt: (v) => Math.round(v * 100) + '%',
       }),
-      SP().miniSlider('Kalınlık', () => T.weight || 700, (v) => { T.weight = Math.round(v / 100) * 100; }, {
+      SP().miniSlider('Kalınlık', () => T.weight || 700, (v) => { T.weight = Math.round(v / 100) * 100; sync(); }, {
         min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100),
       }),
-      SP().miniSelect('Hizalama', ALIGN_LABELS, () => T.align || 'center', (v) => { T.align = v; }),
-      SP().miniSlider('Yatay', () => T.x == null ? 0.5 : T.x, (v) => { T.x = v; }, { min: 0, max: 1, step: 0.005, percent: true }),
-      SP().miniSlider('Dikey', () => T.y == null ? 0.5 : T.y, (v) => { T.y = v; }, { min: 0, max: 1, step: 0.005, percent: true }),
-      SP().miniSlider('Saydamlık', () => T.opacity == null ? 1 : T.opacity, (v) => { T.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true }),
-      SP().miniSlider('Kontur', () => T.outline || 0, (v) => { T.outline = v; }, { min: 0, max: 1, step: 0.02 }),
-      SP().miniSlider('Gölge', () => T.shadow || 0, (v) => { T.shadow = v; }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniSelect('Hizalama', ALIGN_LABELS, () => T.align || 'center', (v) => { T.align = v; sync(); }),
+      SP().miniSlider('Yatay', () => T.x == null ? 0.5 : T.x, (v) => { T.x = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
+      SP().miniSlider('Dikey', () => T.y == null ? 0.5 : T.y, (v) => { T.y = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
+      SP().miniSlider('Saydamlık', () => T.opacity == null ? 1 : T.opacity, (v) => { T.opacity = v; sync(); }, { min: 0, max: 1, step: 0.01, percent: true }),
+      SP().miniSlider('Kontur', () => T.outline || 0, (v) => { T.outline = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniSlider('Gölge', () => T.shadow || 0, (v) => { T.shadow = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
     ]));
 
     nodes.push(SP().foldable('Renk', () => {
-      const kids = [SP().miniToggle('Kendi Rengim', () => !!T.useCustomColor, (v) => { T.useCustomColor = v; }, rerender)];
+      const kids = [SP().miniToggle('Kendi Rengim', () => !!T.useCustomColor, (v) => { T.useCustomColor = v; sync(); }, rerender)];
       if (T.useCustomColor) {
         kids.push(P().color('Metin Rengi', 'text.color'));
         kids.push(P().color('Vurgu Rengi', 'text.colorHighlight'));
@@ -134,17 +328,17 @@
     }));
 
     nodes.push(SP().foldable('Hareket ve Ses', () => [
-      SP().miniSelect('Giriş', ANIM_LABELS, () => T.animation || 'fade', (v) => { T.animation = v; }),
-      SP().miniSlider('Giriş Süresi', () => T.animDuration == null ? 0.45 : T.animDuration, (v) => { T.animDuration = v; }, {
+      SP().miniSelect('Giriş', ANIM_LABELS, () => T.animation || 'fade', (v) => { T.animation = v; sync(); }),
+      SP().miniSlider('Giriş Süresi', () => T.animDuration == null ? 0.45 : T.animDuration, (v) => { T.animDuration = v; sync(); }, {
         min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
       }),
-      SP().miniSlider('Basla Nabız', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; }, {
+      SP().miniSlider('Basla Nabız', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; sync(); }, {
         min: 0, max: 0.6, step: 0.01,
       }),
-      SP().miniSlider('Titreşim', () => T.audioJitter || 0, (v) => { T.audioJitter = v; }, { min: 0, max: 1, step: 0.02 }),
-      SP().miniToggle('Harf Harf Tepki', () => !!T.perCharacter, (v) => { T.perCharacter = v; }, rerender),
+      SP().miniSlider('Titreşim', () => T.audioJitter || 0, (v) => { T.audioJitter = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniToggle('Harf Harf Tepki', () => !!T.perCharacter, (v) => { T.perCharacter = v; sync(); }, rerender),
       T.perCharacter
-        ? SP().miniSlider('Harf Yükselmesi', () => T.audioLift == null ? 0.25 : T.audioLift, (v) => { T.audioLift = v; }, { min: 0, max: 1, step: 0.02 })
+        ? SP().miniSlider('Harf Yükselmesi', () => T.audioLift == null ? 0.25 : T.audioLift, (v) => { T.audioLift = v; sync(); }, { min: 0, max: 1, step: 0.02 })
         : null,
     ].filter(Boolean)));
 

@@ -124,6 +124,9 @@
     if (media.enabled && media.layer === 'front') {
       out.push(normalizeLayer({ id: 'ly_media', name: 'Medya', kind: 'media', blend: media.blend || 'normal' }));
     }
+    if (cfg.text && cfg.text.enabled && visType !== 'text') {
+      out.push(normalizeLayer({ id: 'ly_text', name: 'Metin', kind: 'visualizer', type: 'text' }));
+    }
     if (cfg.logo && cfg.logo.enabled && cfg.logo.src) {
       out.push(normalizeLayer({ id: 'ly_logo', name: 'Logo', kind: 'logo' }));
     }
@@ -251,6 +254,7 @@
       this.sprites = null; // paylaşılan sprite motoru
       this.media = null; // paylaşılan medya katmanı
       this.logoEl = this.opts.logoEl || null;
+      if (this.logoEl) this.logoEl.style.display = 'none';
       this._imageCache = {};
       this.signature = '';
       // Son-işlem zinciri (varsa sahne tek yüzeye birleştirilip GPU'ya verilir)
@@ -323,32 +327,38 @@
         if (!canvas.parentNode) this.container.appendChild(canvas);
       }
       if (this.logoEl) {
-        const li = this.entries.findIndex((e) => e.layer.kind === 'logo');
-        // Tek yüzey kipinde logo yüzeyin içine çizilir, DOM'da gizlenir
-        this.logoEl.style.display = li >= 0 && !canvas ? 'block' : 'none';
+        this.logoEl.style.display = 'none';
       }
     }
 
     // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
     // logonun da efektlerden geçmesi için)
     _drawLogoToCanvas(ctx, cfg, audio) {
-      const img = this.logoEl;
-      const l = cfg.logo;
-      if (!img || !l || !l.enabled || !l.src || !img.naturalWidth) return;
+      const l = cfg && cfg.logo;
+      if (!l || !l.enabled || !l.src) return;
+      const img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === l.src)
+        ? this.logoEl
+        : this._getImage(l.src);
+      if (!img || !img.naturalWidth) return;
       const W = this.width;
       const H = this.height;
       const minDim = Math.min(W, H);
-      const size = minDim * Math.max(0.03, Math.min(0.9, l.scale));
-      const pulse = 1 + (audio ? audio.bass : 0) * l.pulse;
-      const w = size * pulse;
-      const h = w * (img.naturalHeight / img.naturalWidth);
+      const scale = Math.max(0.02, Math.min(1.5, l.scale == null ? 0.22 : l.scale));
+      const pulse = 1 + (audio ? audio.bass : 0) * (l.pulse == null ? 0.3 : l.pulse);
+      const size = minDim * scale * pulse;
+      const aspect = img.naturalHeight / img.naturalWidth;
+      const w = size;
+      const h = w * aspect;
+      const lx = l.x == null ? 0.5 : l.x;
+      const ly = l.y == null ? 0.5 : l.y;
+      const opacity = Math.max(0, Math.min(1, l.opacity == null ? 1 : l.opacity));
       ctx.save();
-      ctx.globalAlpha = Math.max(0, Math.min(1, l.opacity));
-      if (l.glow > 0) {
-        ctx.shadowColor = 'rgba(255,255,255,0.6)';
+      ctx.globalAlpha = opacity;
+      if (l.glow && l.glow > 0) {
+        ctx.shadowColor = 'rgba(255,255,255,0.7)';
         ctx.shadowBlur = l.glow * 40 * (minDim / 1080);
       }
-      ctx.drawImage(img, l.x * W - w / 2, l.y * H - h / 2, w, h);
+      ctx.drawImage(img, lx * W - w / 2, ly * H - h / 2, w, h);
       ctx.restore();
     }
 
@@ -455,10 +465,8 @@
           if (!e.canvas.parentNode) this.container.appendChild(e.canvas);
         });
         if (this.logoEl) {
-          const li = this.entries.findIndex((e) => e.layer.kind === 'logo');
-          this.logoEl.style.zIndex = String(li >= 0 ? li + 1 : this.entries.length + 1);
-          // Efekt modunda logo birleştirme yüzeyine çizilir, DOM'da gizlenir
-          this.logoEl.style.display = li >= 0 && !this._fxMode ? 'block' : 'none';
+          // Logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli tutulur
+          this.logoEl.style.display = 'none';
         }
       }
       this._applyStatic();
@@ -872,9 +880,11 @@
 
       if (l.kind === 'logo') {
         e.ctx.clearRect(0, 0, W, H);
-        const lg = (l.settings && l.settings.logo) || cfg.logo;
+        const lg = (l.settings && l.settings.logo) || (cfg && cfg.logo);
         if (!lg || !lg.src) return;
-        const img = this._getImage(lg.src);
+        const img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === lg.src)
+          ? this.logoEl
+          : this._getImage(lg.src);
         if (!img || !img.naturalWidth) return;
         const minDim = Math.min(W, H);
         const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));

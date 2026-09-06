@@ -64,7 +64,8 @@
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
       const T = cfg.text || {};
-      if (T.enabled === false) return;
+      const isStandaloneText = cfg.visualizer && cfg.visualizer.type === 'text';
+      if (!isStandaloneText && T.enabled === false) return;
 
       const minDim = Math.min(W, H);
       const size = Math.max(8, (T.size == null ? 0.09 : T.size) * minDim);

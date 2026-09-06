@@ -622,6 +622,7 @@
     stop,
     seek,
     transport: () => syncTransportFromAnchor(),
+    anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */
     _draw: () => draw(),
   };

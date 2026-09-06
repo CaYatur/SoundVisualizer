@@ -128,24 +128,15 @@
   // --------------------------------------------------------------------------
   function applyLogo() {
     const l = cfg.logo;
-    if (l.enabled && l.src) {
+    if (l && l.enabled && l.src) {
       if (logoImg.src !== l.src) logoImg.src = l.src;
-      logoImg.style.opacity = l.opacity;
-      logoImg.style.filter = l.glow > 0 ? `drop-shadow(0 0 ${l.glow * 40}px rgba(255,255,255,.6))` : 'none';
-      layoutLogo();
-    } else {
-      logoImg.style.display = 'none';
     }
+    logoImg.style.display = 'none';
   }
 
   function layoutLogo() {
-    const l = cfg.logo;
-    if (!l.enabled || !l.src) return;
-    const minDim = Math.min(window.innerWidth, window.innerHeight);
-    const size = minDim * clamp(l.scale, 0.03, 0.9);
-    logoImg.style.width = size + 'px';
-    logoImg.style.left = l.x * 100 + '%';
-    logoImg.style.top = l.y * 100 + '%';
+    // Logo yerleşimi ve ölçeklemesi LayerStack tuval katmanı tarafından yürütülür
+    if (logoImg) logoImg.style.display = 'none';
   }
 
   // --------------------------------------------------------------------------
@@ -218,10 +209,9 @@
       applyMapping(mcfg);
     }
 
-    // logo nabzı
-    if (cfg.logo.enabled && cfg.logo.src) {
-      const pulse = 1 + audio.bass * cfg.logo.pulse;
-      logoImg.style.transform = `translate(-50%,-50%) scale(${pulse.toFixed(3)})`;
+    // logo LayerStack tuval katmanı tarafından çizilir; DOM öğesi gizli kalır
+    if (logoImg && logoImg.style.display !== 'none') {
+      logoImg.style.display = 'none';
     }
 
     // ses gelmiyorsa ipucu göster

@@ -600,16 +600,27 @@
     const { defaultConfig, deepMerge, clone } = env;
     const out = clone(cfg);
     const def = defaultConfig();
-    /* Logo GÖRSELİ kullanıcının kendi içeriği, sahnenin parçası değil.
-       Yerleşimi ve boyutu şablonla değişebilir ama dosyanın kendisi
-       korunur — yoksa başka bir şablon denemek kullanıcının logosunu
-       silerdi. */
+    /* Logo GÖRSELİ ve etkin durumu kullanıcının kendi çalışma alanı içeriğidir.
+       Yerleşimi ve boyutu şablonla değişebilir ama dosyanın kendisi ve
+       kullanıcının açıp kapama tercihleri şablonda açıkça belirtilmedikçe
+       korunur — yoksa başka bir şablon denemek kullanıcının logosunu ya da
+       katman yığını düzenini kapatırdı. */
     const logoSrc = (cfg.logo && cfg.logo.src) || null;
+    const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
+    const layerStackEnabled = cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : null;
     for (const k of SCENE_KEYS) {
       if (def[k] !== undefined) out[k] = clone(def[k]);
     }
     if (logoSrc) out.logo.src = logoSrc;
     const merged = deepMerge(out, tpl.patch);
+    if (logoEnabled !== null && (!tpl.patch.logo || tpl.patch.logo.enabled === undefined)) {
+      merged.logo = merged.logo || {};
+      merged.logo.enabled = logoEnabled;
+    }
+    if (layerStackEnabled !== null && (!tpl.patch.layerStack || tpl.patch.layerStack.enabled === undefined)) {
+      merged.layerStack = merged.layerStack || {};
+      merged.layerStack.enabled = layerStackEnabled;
+    }
     /* Listeler doğrudan geçer. deepMerge dizileri birleştirmez ve bu
        bilinçli: bir şablonun efekt zinciri öncekinin ÜSTÜNE eklenmemeli,
        onun YERİNE geçmeli. */

@@ -69,9 +69,18 @@
   function ensureLive() {
     if (wired || !window.api || !window.api.onNowPlaying) return;
     wired = true;
-    window.api.onNowPlaying((st) => { live = st; paintStatus(); });
+    window.SVNowLive = window.SVNowLive || { state: null };
+    window.api.onNowPlaying((st) => {
+      live = st;
+      window.SVNowLive.state = st;
+      paintStatus();
+    });
     if (window.api.nowPlayingCurrent) {
-      window.api.nowPlayingCurrent().then((st) => { live = st; paintStatus(); }).catch(() => {});
+      window.api.nowPlayingCurrent().then((st) => {
+        live = st;
+        window.SVNowLive.state = st;
+        paintStatus();
+      }).catch(() => {});
     }
     if (window.api.nowPlayingStatus) {
       window.api.nowPlayingStatus().then((s) => { status = s; paintStatus(); }).catch(() => {});

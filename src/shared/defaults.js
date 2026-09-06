@@ -430,7 +430,7 @@
     // değişince yazıyı kaybettirirdi.
     // ------------------------------------------------------------------
     text: {
-      enabled: true,
+      enabled: false,
       source: 'static', // 'static' | 'lyrics' | 'now'
       content: 'CAYADEV',
       font: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',

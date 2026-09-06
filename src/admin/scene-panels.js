@@ -84,14 +84,47 @@
     return P().row(label, sel);
   }
 
-  function miniToggle(label, get, set, onAfter) {
+  function isWindowsPlatform() {
+    if (typeof window !== 'undefined' && window.SV_PLATFORM && typeof window.SV_PLATFORM.isWindows === 'boolean') {
+      return window.SV_PLATFORM.isWindows;
+    }
+    if (typeof process !== 'undefined' && process.platform) {
+      return process.platform === 'win32';
+    }
+    return false;
+  }
+
+  function miniToggle(label, get, set, onAfter, opts) {
     const el = P().el;
+    const disabled = !!(opts && opts.disabled);
     const inp = el('input', {
       type: 'checkbox',
-      onchange: (e) => { set(e.target.checked); P().push(true); if (onAfter) onAfter(); },
+      disabled,
+      onchange: (e) => {
+        if (disabled) return;
+        set(e.target.checked);
+        P().push(true);
+        if (onAfter) onAfter();
+      },
     });
-    inp.checked = !!get();
-    return P().row(label, el('label', { class: 'switch small' }, [inp, el('span', { class: 'track' })]));
+    inp.checked = !disabled && !!get();
+    const switchEl = el('label', {
+      class: 'switch small' + (disabled ? ' disabled' : ''),
+      title: (opts && opts.title) || '',
+    }, [inp, el('span', { class: 'track' })]);
+    if (disabled && switchEl && switchEl.style) {
+      switchEl.style.cursor = 'not-allowed';
+      switchEl.style.opacity = '0.45';
+      switchEl.style.pointerEvents = 'none';
+    }
+    let labelEl = label;
+    if (opts && opts.badge) {
+      labelEl = el('span', {}, [
+        label + ' ',
+        el('span', { class: 'pill', text: opts.badge }),
+      ]);
+    }
+    return P().row(labelEl, switchEl);
   }
 
   function miniColor(label, get, set) {
@@ -377,7 +410,10 @@
       l.settings = l.settings || {};
       const lg = (l.settings.logo = l.settings.logo || (l.id === 'ly_logo' && cfg.logo ? Object.assign({}, cfg.logo) : { enabled: true, src: (cfg.logo && cfg.logo.src) || '', scale: 0.22, pulse: 0.3, opacity: 1, glow: 0, x: 0.5, y: 0.5 }));
       const getL = (k, def) => lg[k] !== undefined ? lg[k] : (cfg.logo && cfg.logo[k] !== undefined ? cfg.logo[k] : def);
-      const setL = (k, val) => { lg[k] = val; };
+      const setL = (k, val) => {
+        lg[k] = val;
+        if (cfg.logo) cfg.logo[k] = val;
+      };
 
       const info = el('div', { class: 'row' }, [
         el('label', { class: 'lbl', text: 'Logo Görseli' }),
@@ -392,7 +428,10 @@
             pickImage((dataUrl) => {
               lg.src = dataUrl;
               lg.enabled = true;
-              if (l.id === 'ly_logo' && cfg.logo) cfg.logo.src = dataUrl;
+              if (cfg.logo) {
+                cfg.logo.src = dataUrl;
+                cfg.logo.enabled = true;
+              }
               P().push(true);
               rerender();
             });
@@ -402,7 +441,7 @@
           class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
           onclick: () => {
             lg.src = '';
-            if (l.id === 'ly_logo' && cfg.logo) cfg.logo.src = '';
+            if (cfg.logo) cfg.logo.src = '';
             P().push(true);
             rerender();
           },
@@ -494,12 +533,114 @@
           out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01 }));
         }
       } else if (src === 'now') {
+        const isWin = isWindowsPlatform();
+        if (!isWin && txt.nowSource === 'system') {
+          txt.nowSource = 'manual';
+          if (cfg.text) cfg.text.nowSource = 'manual';
+        }
+        const isAuto = isWin && (txt.nowSource || 'system') === 'system';
+
+        if (isWin) {
+          if (isAuto && window.api && window.api.nowPlayingSubscribe) {
+            window.api.nowPlayingSubscribe(true);
+          }
+          out.push(miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
+            txt.nowSource = v ? 'system' : 'manual';
+            if (cfg.text) cfg.text.nowSource = txt.nowSource;
+            if (v && window.api && window.api.nowPlayingSubscribe) {
+              window.api.nowPlayingSubscribe(true);
+            }
+          }, rerender));
+
+          if (isAuto) {
+            const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+              ? window.SVNowLive.state : null;
+            const statusText = live
+              ? (live.playing ? '▶ ' : '❚❚ ') + ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
+              : 'Şu anda sistemde çalan parça yok (yedek kullanılır)';
+            const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
+            out.push(P().row('Canlı Medya', el('span', { class: statusClass, text: statusText })));
+
+            out.push(el('div', { class: 'row' }, [
+              el('button', {
+                class: 'btn small ghost',
+                type: 'button',
+                text: '📥 Çalan Şarkıyı Alanlara Doldur',
+                title: 'Çalan parçanın adını ve sanatçısını aşağıdaki yedek kutularına aktarır.',
+                onclick: () => {
+                  const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+                    ? window.SVNowLive.state : null;
+                  if (!cur || (!cur.title && !cur.artist)) {
+                    P().toast('Sistemde çalan aktif parça bulunamadı.');
+                    return;
+                  }
+                  txt.nowPlaying = txt.nowPlaying || {};
+                  if (cur.title) txt.nowPlaying.title = cur.title;
+                  if (cur.artist) txt.nowPlaying.artist = cur.artist;
+                  if (cfg.text) {
+                    cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+                    if (cur.title) cfg.text.nowPlaying.title = cur.title;
+                    if (cur.artist) cfg.text.nowPlaying.artist = cur.artist;
+                  }
+                  P().push(true);
+                  rerender();
+                  P().toast('Çalan parça bilgileri yedek alanlara aktarıldı.');
+                },
+              }),
+            ]));
+
+            out.push(el('div', {
+              class: 'studio-note dim-hint',
+              text: 'Sistem medya oturumundan (Spotify, YouTube vb.) çalan parça otomatik okunur. Çalmadığında aşağıdaki yedek bilgiler gösterilir.',
+            }));
+          } else {
+            const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+              ? window.SVNowLive.state : null;
+            if (cur && (cur.title || cur.artist)) {
+              out.push(el('div', { class: 'row' }, [
+                el('button', {
+                  class: 'btn small ghost',
+                  type: 'button',
+                  text: '📥 Çalan Şarkıyı Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
+                  onclick: () => {
+                    txt.nowPlaying = txt.nowPlaying || {};
+                    if (cur.title) txt.nowPlaying.title = cur.title;
+                    if (cur.artist) txt.nowPlaying.artist = cur.artist;
+                    if (cfg.text) {
+                      cfg.text.nowPlaying = cfg.text.nowPlaying || {};
+                      if (cur.title) cfg.text.nowPlaying.title = cur.title;
+                      if (cur.artist) cfg.text.nowPlaying.artist = cur.artist;
+                    }
+                    P().push(true);
+                    rerender();
+                    P().toast('Şarkı bilgileri alanlara yazıldı.');
+                  },
+                }),
+              ]));
+            }
+          }
+        } else {
+          // macOS / Linux
+          out.push(miniToggle('Sistemden Otomatik Doldur', () => false, () => {}, null, {
+            disabled: true,
+            badge: 'Yalnızca Windows',
+            title: 'Bu özellik şu anda yalnızca Windows (SMTC) üzerinde desteklenmektedir.',
+          }));
+          out.push(el('div', {
+            class: 'studio-note dim-hint',
+            text: 'Sistem medya oturumunu (SMTC) otomatik okuma şu anda yalnızca Windows’ta desteklenmektedir. Başlık ve sanatçı bilgilerini aşağıdan elle girebilirsiniz.',
+          }));
+        }
+
+        const titleLabel = isAuto ? 'Yedek Parça Adı' : 'Parça Adı';
+        const artistLabel = isAuto ? 'Yedek Sanatçı' : 'Sanatçı';
         const titleVal = txt.field === 'title' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.title) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.title) || (txt.content || ''));
         const artistVal = txt.field === 'artist' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.artist) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.artist) || '');
 
         if (txt.field === 'title') {
-          out.push(P().row('Parça Adı', el('input', {
+          out.push(P().row(titleLabel, el('input', {
             class: 'p-in', type: 'text', value: titleVal,
+            placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek başlık' : 'Örn: Şarkı Adı',
             oninput: (e) => {
               txt.content = e.target.value;
               txt.nowPlaying = txt.nowPlaying || {};
@@ -511,8 +652,9 @@
             },
           })));
         } else if (txt.field === 'artist') {
-          out.push(P().row('Sanatçı', el('input', {
+          out.push(P().row(artistLabel, el('input', {
             class: 'p-in', type: 'text', value: artistVal,
+            placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek sanatçı' : 'Örn: Sanatçı Adı',
             oninput: (e) => {
               txt.content = e.target.value;
               txt.nowPlaying = txt.nowPlaying || {};
@@ -524,8 +666,9 @@
             },
           })));
         } else {
-          out.push(P().row('Parça Adı', el('input', {
+          out.push(P().row(titleLabel, el('input', {
             class: 'p-in', type: 'text', value: titleVal,
+            placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek başlık' : 'Örn: Şarkı Adı',
             oninput: (e) => {
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.title = e.target.value;
@@ -535,8 +678,9 @@
               P().push(false);
             },
           })));
-          out.push(P().row('Sanatçı', el('input', {
+          out.push(P().row(artistLabel, el('input', {
             class: 'p-in', type: 'text', value: artistVal,
+            placeholder: isAuto ? 'Sistemde şarkı yokken gösterilecek sanatçı' : 'Örn: Sanatçı Adı',
             oninput: (e) => {
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.artist = e.target.value;
@@ -563,6 +707,7 @@
               txt.lyricsSource = r.text;
               txt.lyricsName = r.name || '';
               if (cfg.text) { cfg.text.lyricsSource = r.text; cfg.text.lyricsName = r.name || ''; }
+              P().push(true);
               const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
               rerender();
               P().toast(d ? (d.lines.length + ' satır okundu') : 'Yüklendi.');
@@ -574,14 +719,15 @@
               txt.lyricsSource = '';
               txt.lyricsName = '';
               if (cfg.text) { cfg.text.lyricsSource = ''; cfg.text.lyricsName = ''; }
+              P().push(true);
               rerender();
             },
           }),
         ]));
       }
 
-      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
-      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; }));
+      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; if (cfg.text) cfg.text.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
+      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; if (cfg.text) cfg.text.align = v; }));
       return out;
     }
 
@@ -1238,5 +1384,6 @@
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniToggle, foldable, itemHeader, moveItem,
+    isWindows: isWindowsPlatform,
   };
 })();

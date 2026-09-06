@@ -181,4 +181,30 @@ test('her şablon uygulandığında tam ve geçerli bir yapılandırma verir', (
     // JSON'a yazılabilir olmalı (ayar dosyasına gidiyor)
     assert.doesNotThrow(() => JSON.stringify(out), tpl.id + ': serileştirilemiyor');
   }
+
+  // Kullanıcının logo ve katman yığını etkin durumu korunur
+  const userCfg = SV.defaultConfig();
+  userCfg.logo.enabled = true;
+  userCfg.logo.src = 'data:image/png;base64,abc';
+  userCfg.layerStack.enabled = true;
+
+  const tpl = T.TEMPLATES.find((t) => t.id === 'club-strobe');
+  const outUser = T.apply(userCfg, tpl, env);
+  assert.strictEqual(outUser.logo.enabled, true, 'logo.enabled korunmalı');
+  assert.strictEqual(outUser.logo.src, 'data:image/png;base64,abc', 'logo.src korunmalı');
+  assert.strictEqual(outUser.layerStack.enabled, true, 'layerStack.enabled korunmalı');
+
+  // Şablonda açıkça logo veya katman yığını belirtilmişse o tercih edilir
+  const customTpl = {
+    id: 'test-custom',
+    name: 'Test',
+    patch: {
+      logo: { enabled: false },
+      layerStack: { enabled: false },
+    },
+  };
+  const outCustom = T.apply(userCfg, customTpl, env);
+  assert.strictEqual(outCustom.logo.enabled, false, 'şablondaki açık logo tercihi uygulanmalı');
+  assert.strictEqual(outCustom.layerStack.enabled, false, 'şablondaki açık layerStack tercihi uygulanmalı');
 });
+

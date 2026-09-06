@@ -45,6 +45,30 @@ test('medya katmanı arkada kaldığında görselleştiricinin altında kalır',
   cfg.media = { enabled: true, layer: 'back' };
   const kinds = L.synthesize(cfg).map((l) => l.kind);
   assert.ok(kinds.indexOf('media') < kinds.indexOf('visualizer'), kinds.join(' > '));
+
+  // Metin katmanı sentezi
+  const cfgText = baseCfg();
+  cfgText.logo = { enabled: true, src: 'data:,x' };
+  cfgText.text = { enabled: true, content: 'Test Metni' };
+  const out = L.synthesize(cfgText);
+  assert.deepStrictEqual(out.map((l) => l.id), ['ly_bg', 'ly_vis', 'ly_text', 'ly_logo']);
+  const txt = out.find((l) => l.id === 'ly_text');
+  assert.strictEqual(txt.kind, 'visualizer');
+  assert.strictEqual(txt.type, 'text');
+
+  // Ana görselleştirici "text" ise fazladan metin katmanı sentezlenmez
+  const cfgTextVis = baseCfg();
+  cfgTextVis.visualizer = { type: 'text' };
+  cfgTextVis.text = { enabled: true, content: 'Test Metni' };
+  const outVis = L.synthesize(cfgTextVis);
+  const textLayers = outVis.filter((l) => l.type === 'text');
+  assert.strictEqual(textLayers.length, 1);
+  assert.strictEqual(textLayers[0].id, 'ly_vis');
+
+  // Metin kapalıyken sentezlenen listede yer almaz
+  const cfgOff = baseCfg();
+  cfgOff.text = { enabled: false, content: 'Test Metni' };
+  assert.ok(!L.synthesize(cfgOff).some((l) => l.id === 'ly_text'));
 });
 
 // ---------------------------------------------------------- yığın anahtarı
@@ -163,4 +187,98 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   const cfg = baseCfg();
   cfg.layerGroups = { alt: { opacity: 0, muted: true } };
   assert.strictEqual(L.groupGain(cfg, L.normalizeLayer({ kind: 'visualizer' })), 1);
+
+  // Logo koordinatları ve fallback değerleri güvenle hesaplanır
+  const fakeLogo = { naturalWidth: 100, naturalHeight: 100, src: 'logo.png', style: { display: 'block' } };
+  const drawn = [];
+  const fakeCtx = {
+    save() {}, restore() {},
+    drawImage(...args) { drawn.push(args); },
+  };
+  const stack = new L.LayerStack(null, { logoEl: fakeLogo });
+  stack.width = 1000;
+  stack.height = 1000;
+
+  const cfgLogo = { logo: { enabled: true, src: 'logo.png' } };
+  stack._drawLogoToCanvas(fakeCtx, cfgLogo, { bass: 0 });
+  assert.strictEqual(drawn.length, 1);
+  const [img, dx, dy, dw, dh] = drawn[0];
+  assert.strictEqual(img, fakeLogo);
+  assert.strictEqual(dw, 220);
+  assert.strictEqual(dh, 220);
+  assert.strictEqual(dx, 390);
+  assert.strictEqual(dy, 390);
+
+  // LogoEl DOM elemanı LayerStack devredeyken gizli kalır
+  stack._setSurface(null);
+  assert.strictEqual(fakeLogo.style.display, 'none');
+
+  // Metin çalan parça kaynakları (system, manual, fallback)
+  require('../src/visualizer/modes/text.js');
+  const TextMode = global.window.SVModes.text;
+  function makeTextTestContext() {
+    let filledText = '';
+    const ctx = {
+      save() {}, restore() {}, beginPath() {}, rect() {}, clip() {},
+      clearRect() {}, translate() {}, scale() {},
+      fillText(txt) { filledText = txt; }, strokeText() {},
+      measureText() { return { width: 50 }; },
+    };
+    const canvas = { width: 800, height: 600, getContext: () => ctx };
+    return { canvas, getFilled: () => filledText };
+  }
+
+  // 1) nowSource: system canlı parçayı okur
+  const t1 = makeTextTestContext();
+  const m1 = new TextMode(t1.canvas);
+  global.window.SVNowLive = {
+    state: { has: true, playing: true, title: 'Live Song', artist: 'Live Artist' },
+  };
+  m1.draw({ level: 0, bass: 0 }, {
+    visualizer: { type: 'text' },
+    text: { enabled: true, source: 'now', nowSource: 'system', nowPlaying: { title: 'Manual Title', artist: 'Manual Artist' } },
+  }, 0, 0.016);
+  assert.strictEqual(t1.getFilled(), 'Live Song — Live Artist');
+
+  // 2) nowSource: manual canlı parça olsa bile elle girileni kullanır
+  const t2 = makeTextTestContext();
+  const m2 = new TextMode(t2.canvas);
+  m2.draw({ level: 0, bass: 0 }, {
+    visualizer: { type: 'text' },
+    text: { enabled: true, source: 'now', nowSource: 'manual', nowPlaying: { title: 'Manual Title', artist: 'Manual Artist' } },
+  }, 0, 0.016);
+  assert.strictEqual(t2.getFilled(), 'Manual Title — Manual Artist');
+
+  // 3) nowSource: system canlı parça yoksa elle girilene düşer
+  const t3 = makeTextTestContext();
+  const m3 = new TextMode(t3.canvas);
+  global.window.SVNowLive = { state: null };
+  m3.draw({ level: 0, bass: 0 }, {
+    visualizer: { type: 'text' },
+    text: { enabled: true, source: 'now', nowSource: 'system', nowPlaying: { title: 'Fallback Title', artist: 'Fallback Artist' } },
+  }, 0, 0.016);
+  assert.strictEqual(t3.getFilled(), 'Fallback Title — Fallback Artist');
+
+  // 4) Platform kısıtlaması (macOS/Linux'ta otomatik okuma devre dışı ve kilitli)
+  global.window.SVPanel = {
+    el(tag, attrs, children) { return { tag, attrs: attrs || {}, children: children || [] }; },
+    row(label, ctrl) { return { type: 'row', label, ctrl }; },
+    push() {},
+  };
+  delete require.cache[require.resolve('../src/admin/scene-panels.js')];
+  global.window.SV_PLATFORM = { isWindows: false, isMac: true };
+  require('../src/admin/scene-panels.js');
+  const SP = global.window.SVScenePanels;
+  assert.strictEqual(SP.isWindows(), false, 'macOS üzerinde isWindows false olmalı');
+
+  let checked = false;
+  const row = SP.miniToggle('Sistemden Otomatik Doldur', () => checked, (v) => { checked = v; }, null, {
+    disabled: true,
+    badge: 'Yalnızca Windows',
+  });
+  assert.strictEqual(row.type, 'row');
+  assert.ok(row.label.children.some((c) => c.attrs && c.attrs.text === 'Yalnızca Windows'));
+  assert.ok(row.ctrl.attrs.class.includes('disabled'));
+  assert.strictEqual(row.ctrl.children[0].attrs.disabled, true);
 });
+
