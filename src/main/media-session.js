@@ -96,6 +96,8 @@ while ($true) {
       if ($curTrackKey -ne $lastTrackKey) {
         $lastTrackKey = $curTrackKey
         $lastArtwork = ''
+      }
+      if (-not $lastArtwork -and -not [string]::IsNullOrWhiteSpace([string]$p.Title)) {
         if ($null -ne $p.Thumbnail) {
           try {
             $tStream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime])

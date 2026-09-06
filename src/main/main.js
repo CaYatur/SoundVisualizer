@@ -1258,9 +1258,11 @@ function wantsNowPlaying(cfg) {
   const systemNow = (n) => !!n && n.enabled !== false && (n.source || 'system') === 'system';
   const systemText = (t) => !!t && t.enabled !== false && t.source === 'now' && (t.nowSource || 'system') === 'system';
   const wantsLogoArtwork = (lg) => !!lg && lg.enabled !== false && (lg.source === 'auto' || lg.source === 'track');
+  const wantsTrackLogoArtwork = (lg) => !!lg && lg.enabled !== false && lg.source === 'track';
 
   if (cfg.visualizer && cfg.visualizer.type === 'nowplaying' && systemNow(cfg.nowplaying)) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'text' && systemText(cfg.text)) return true;
+  if (wantsTrackLogoArtwork(cfg.logo)) return true;
 
   const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
   for (const l of layers) {
@@ -1268,6 +1270,7 @@ function wantsNowPlaying(cfg) {
     const over = l.settings || {};
     if (l.type === 'nowplaying' && systemNow(over.nowplaying || cfg.nowplaying)) return true;
     if (l.type === 'text' && systemText(over.text || cfg.text)) return true;
+    if (l.kind === 'logo' && wantsTrackLogoArtwork((l.settings && l.settings.logo) || cfg.logo)) return true;
   }
 
   const hasLyricsOrText = (cfg.text && cfg.text.enabled !== false && (cfg.text.source === 'now' || cfg.text.source === 'lyrics'))

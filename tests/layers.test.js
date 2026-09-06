@@ -305,6 +305,7 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
 
   // e) track mod: kapak varsa kapağı döndürür, yoksa null döner (asla logoya düşmez)
   assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), 'data:image/png;base64,ARTWORK123');
+  assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, {}), 'data:image/png;base64,ARTWORK123');
   global.window.SVNowLive = { state: null };
   assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), null);
 
@@ -322,4 +323,3 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   const synthManual = L.synthesize({ logo: { enabled: true, source: 'manual', src: '' } });
   assert.strictEqual(synthManual.some((l) => l.kind === 'logo'), false, 'manual modda src boşken logo katmanı sentezlenmemeli');
 });
-

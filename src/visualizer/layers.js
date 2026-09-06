@@ -456,13 +456,11 @@
       }
     }
 
-    const hasTrackArtwork = !!(lyricsOrTextActive && showArtworkAllowed && trackArtwork);
-
     if (mode === 'track') {
-      return hasTrackArtwork ? trackArtwork : null;
+      return showArtworkAllowed && trackArtwork ? trackArtwork : null;
     }
     // 'auto'
-    if (hasTrackArtwork) {
+    if (lyricsOrTextActive && showArtworkAllowed && trackArtwork) {
       return trackArtwork;
     }
     return lg.src || null;
@@ -572,19 +570,21 @@
       const effectiveSrc = resolveLogoSrc(l, cfg);
       if (!effectiveSrc) {
         this._lastLogoImg = null;
+        this._lastLogoSrc = '';
         return;
       }
       let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
         ? this.logoEl
         : this._getImage(effectiveSrc);
       if (!img || !img.naturalWidth) {
-        if (this._lastLogoImg && this._lastLogoImg.naturalWidth) {
+        if (this._lastLogoSrc === effectiveSrc && this._lastLogoImg && this._lastLogoImg.naturalWidth) {
           img = this._lastLogoImg;
         } else {
           return;
         }
       } else {
         this._lastLogoImg = img;
+        this._lastLogoSrc = effectiveSrc;
       }
       const W = this.width;
       const H = this.height;
@@ -1152,19 +1152,21 @@
         const effectiveSrc = resolveLogoSrc(lg, cfg);
         if (!effectiveSrc) {
           e._lastImg = null;
+          e._lastImgSrc = '';
           return;
         }
         let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
           ? this.logoEl
           : this._getImage(effectiveSrc);
         if (!img || !img.naturalWidth) {
-          if (e._lastImg && e._lastImg.naturalWidth) {
+          if (e._lastImgSrc === effectiveSrc && e._lastImg && e._lastImg.naturalWidth) {
             img = e._lastImg;
           } else {
             return;
           }
         } else {
           e._lastImg = img;
+          e._lastImgSrc = effectiveSrc;
         }
         const minDim = Math.min(W, H);
         const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));

@@ -2017,7 +2017,6 @@
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
         controls: [{ type: 'milkdroppanel' }],
-        show: () => notStack() && v.type === 'milkdrop',
       },
       {
         id: 'transition',
