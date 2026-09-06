@@ -45,6 +45,12 @@ test('differs: özdeş durumlarda false döner', () => {
   assert.strictEqual(differs(a, b), false);
 });
 
+test('differs: kapak görseli değişince true döner', () => {
+  const a = Object.assign({}, EMPTY, { has: true, title: 'A', artist: 'B', artwork: 'data:image/jpeg;base64,OLD', updated: 500 });
+  const b = Object.assign({}, EMPTY, { has: true, title: 'A', artist: 'B', artwork: 'data:image/jpeg;base64,NEW', updated: 500 });
+  assert.strictEqual(differs(a, b), true);
+});
+
 test('getNativeHelperPath: platforma göre uygun değer döner', () => {
   const p = getNativeHelperPath();
   if (process.platform === 'win32') {
@@ -90,6 +96,23 @@ test('MediaSession._onLine: geçerli oturum JSON verisini doğru ayrıştırır'
   assert.strictEqual(emitted.artist, 'Test Artist');
   assert.strictEqual(emitted.app, 'spotify.exe');
   assert.strictEqual(emitted.position, 45.2);
+});
+
+test('MediaSession._onLine: aynı parçada kapak sonradan gelince yayınlar', () => {
+  const s = new MediaSession();
+  const emitted = [];
+  s.subscribe((state) => { emitted.push(state.artwork); });
+
+  const base = {
+    ok: true, has: true, app: 'spotify.exe', title: 'Test Song', artist: 'Test Artist',
+    album: 'Test Album', position: 1, duration: 180, updated: 1700000000000, status: 'Playing',
+  };
+  s._onLine(JSON.stringify(Object.assign({}, base, { artwork: '' })));
+  s._onLine(JSON.stringify(Object.assign({}, base, { artwork: 'data:image/jpeg;base64,NEWCOVER' })));
+
+  assert.strictEqual(emitted.length, 2);
+  assert.strictEqual(emitted[0], '');
+  assert.strictEqual(emitted[1], 'data:image/jpeg;base64,NEWCOVER');
 });
 
 test('MediaSession._onLine: has=false durumunda boş duruma geçer', () => {

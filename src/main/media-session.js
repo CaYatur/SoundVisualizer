@@ -81,12 +81,24 @@ try {
 $epoch = [datetime]'1970-01-01T00:00:00Z'
 $lastTrackKey = ''
 $lastArtwork = ''
+$lastArtworkHash = ''
+$prevArtworkHash = ''
+$artworkConfirmed = $false
+$sameAsPrevStreak = 0
+$candidateArtwork = ''
+$candidateHash = ''
 while ($true) {
   try {
     $s = $mgr.GetCurrentSession()
     if ($null -eq $s) {
       $lastTrackKey = ''
       $lastArtwork = ''
+      $lastArtworkHash = ''
+      $prevArtworkHash = ''
+      $artworkConfirmed = $false
+      $sameAsPrevStreak = 0
+      $candidateArtwork = ''
+      $candidateHash = ''
       $o = @{ ok = $true; has = $false }
     } else {
       $p = Await ($s.TryGetMediaPropertiesAsync()) ($PROP_T)
@@ -95,9 +107,15 @@ while ($true) {
       $curTrackKey = "$($p.Title)|$($p.Artist)|$($p.AlbumTitle)"
       if ($curTrackKey -ne $lastTrackKey) {
         $lastTrackKey = $curTrackKey
+        $prevArtworkHash = $lastArtworkHash
         $lastArtwork = ''
+        $lastArtworkHash = ''
+        $artworkConfirmed = $false
+        $sameAsPrevStreak = 0
+        $candidateArtwork = ''
+        $candidateHash = ''
       }
-      if (-not $lastArtwork -and -not [string]::IsNullOrWhiteSpace([string]$p.Title)) {
+      if (-not [string]::IsNullOrWhiteSpace([string]$p.Title) -and $null -ne $p.Thumbnail -and (-not $artworkConfirmed -or $true)) {
         if ($null -ne $p.Thumbnail) {
           try {
             $tStream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime])
@@ -110,7 +128,28 @@ while ($true) {
               $netStream.Dispose()
               $tStream.Dispose()
               if ($bytes.Length -gt 0) {
-                $lastArtwork = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($bytes)
+                $sha = [System.Security.Cryptography.SHA256]::Create()
+                $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+                $sha.Dispose()
+                $art = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($bytes)
+                $sameAsPrev = ($prevArtworkHash -ne '' -and $hash -eq $prevArtworkHash)
+                if ($sameAsPrev) {
+                  $candidateArtwork = $art
+                  $candidateHash = $hash
+                  $sameAsPrevStreak++
+                  if (-not $lastArtwork -and $sameAsPrevStreak -ge 2) {
+                    $lastArtwork = $candidateArtwork
+                    $lastArtworkHash = $candidateHash
+                  }
+                  if ($sameAsPrevStreak -ge 10) { $artworkConfirmed = $true }
+                } else {
+                  if ($hash -ne $lastArtworkHash) {
+                    $lastArtwork = $art
+                    $lastArtworkHash = $hash
+                  }
+                  $artworkConfirmed = $true
+                  $sameAsPrevStreak = 0
+                }
               }
             }
           } catch {}

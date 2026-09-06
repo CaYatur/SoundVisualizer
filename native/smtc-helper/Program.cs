@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -44,7 +45,13 @@ public static class Program
     private static bool _isPlaying;
     private static string? _lastTrackKey;
     private static string? _lastArtwork;
+    private static string? _lastArtworkHash;
+    private static string? _prevTrackArtworkHash;
     private static string? _artworkTrackKey;
+    private static bool _artworkConfirmed;
+    private static int _artworkSchedules;
+    private static int _artworkFetchBusy;
+    private static volatile int _artworkRecheckPending;
     private static volatile int _artworkPendingVersion;
     private static volatile int _pendingEmits;
 
@@ -81,12 +88,12 @@ public static class Program
             // İlk durumu hemen yay
             RequestEmit();
 
-            // Şarkı çalarken veya kapak resmi beklenirken düzenli kontrol zamanlayıcısı (1sn)
+            // Şarkı çalarken veya kapak henüz doğrulanmamışken düzenli kontrol (1sn)
             _periodicTimer = new Timer(_ =>
             {
                 try
                 {
-                    if (_isPlaying || _lastArtwork is null)
+                    if (_isPlaying || _lastArtwork is null || !_artworkConfirmed)
                     {
                         RequestEmit();
                     }
@@ -125,7 +132,7 @@ public static class Program
                 _session = _manager?.GetCurrentSession();
                 if (_session is null) return;
 
-                _session.MediaPropertiesChanged += OnSessionEvent;
+                _session.MediaPropertiesChanged += OnMediaPropertiesChanged;
                 _session.PlaybackInfoChanged += OnSessionEvent;
                 _session.TimelinePropertiesChanged += OnSessionEvent;
             }
@@ -141,21 +148,38 @@ public static class Program
         if (_session is null) return;
         try
         {
-            _session.MediaPropertiesChanged -= OnSessionEvent;
+            _session.MediaPropertiesChanged -= OnMediaPropertiesChanged;
             _session.PlaybackInfoChanged -= OnSessionEvent;
             _session.TimelinePropertiesChanged -= OnSessionEvent;
         }
         catch { }
         _session = null;
         _lastTrackKey = null;
-        _lastArtwork = null;
-        _artworkTrackKey = null;
+        ResetArtworkState(clearPrevious: true);
         Interlocked.Increment(ref _artworkPendingVersion);
     }
 
     private static void OnSessionEvent(object? sender, object? args)
     {
         RequestEmit();
+    }
+
+    /* SMTC kapak akışını başlık/sanatçıdan sonra günceller. İlk okuma çoğu
+       zaman önceki parçanın görseli olduğu için, özellik olayı gelince
+       kapağı yeniden oku; kilitli “aynı albüm” kabulünü boz. */
+    private static void OnMediaPropertiesChanged(object? sender, object? args)
+    {
+        RequestEmit();
+        RequestArtworkRecheck();
+    }
+
+    private static void RequestArtworkRecheck()
+    {
+        GlobalSystemMediaTransportControlsSession? session;
+        string? key;
+        lock (_sessionLock) { session = _session; key = _lastTrackKey; }
+        if (session is null || string.IsNullOrWhiteSpace(key) || key == "||") return;
+        StartArtworkFetch(session, key, isRecheck: true);
     }
 
     /* Olayları birleştirerek (coalesce) çalıştırır.
@@ -191,8 +215,7 @@ public static class Program
         {
             _isPlaying = false;
             _lastTrackKey = null;
-            _lastArtwork = null;
-            _artworkTrackKey = null;
+            ResetArtworkState(clearPrevious: true);
             Interlocked.Increment(ref _artworkPendingVersion);
             EmitJson(new SmtcPayload { ok = true, has = false });
             return;
@@ -223,14 +246,18 @@ public static class Program
             if (trackKey != _lastTrackKey)
             {
                 _lastTrackKey = trackKey;
+                _prevTrackArtworkHash = _lastArtworkHash;
                 _lastArtwork = null;
+                _lastArtworkHash = null;
                 _artworkTrackKey = null;
-                // Şarkı değiştiğinde eski arka plan kapak yükleyicisini iptal et ve yenisini başlat
+                _artworkConfirmed = false;
+                _artworkSchedules = 0;
+                // Şarkı değiştiğinde eski yükleyiciyi iptal et; ilk okuma çoğu zaman ESKİ kapağı verir
                 StartArtworkFetch(session, trackKey);
             }
-            else if (_lastArtwork is null && !string.IsNullOrWhiteSpace(title) && _artworkTrackKey != trackKey)
+            else if (!_artworkConfirmed && !string.IsNullOrWhiteSpace(title) && Volatile.Read(ref _artworkFetchBusy) == 0)
             {
-                // Aynı şarkı ama henüz kapak resmi bulunamadıysa arka plan araması başlat
+                // Pencere bitti ama kapak hâlâ yok / doğrulanmadıysa kısa aralıklarla yeniden dene
                 StartArtworkFetch(session, trackKey);
             }
 
@@ -258,62 +285,130 @@ public static class Program
         }
     }
 
-    private static void StartArtworkFetch(GlobalSystemMediaTransportControlsSession session, string expectedTrackKey)
+    private static void ResetArtworkState(bool clearPrevious)
+    {
+        _lastArtwork = null;
+        _lastArtworkHash = null;
+        _artworkTrackKey = null;
+        _artworkConfirmed = false;
+        _artworkSchedules = 0;
+        Interlocked.Exchange(ref _artworkFetchBusy, 0);
+        if (clearPrevious) _prevTrackArtworkHash = null;
+    }Interlocked.Exchange(ref _artworkRecheckPending, 0);
+        if (clearPrevious) _prevTrackArtworkHash = null;
+    }
+
+    private static void StartArtworkFetch(GlobalSystemMediaTransportControlsSession session, string expectedTrackKey, bool isRecheck = false)
     {
         if (string.IsNullOrWhiteSpace(expectedTrackKey) || expectedTrackKey == "||") return;
+        if (!isRecheck && _artworkConfirmed) return;
+        if (!isRecheck && _artworkSchedules >= 8)
+        {
+            // Uzun süre yalnızca önceki kapak geldiyse aynı albüm olabilir; yine de
+            // MediaPropertiesChanged ile yeniden kontrol açık kalır (isRecheck).
+            _artworkConfirmed = _lastArtwork is not null;
+            return;
+        }
 
         var myVersion = Interlocked.Increment(ref _artworkPendingVersion);
         _artworkTrackKey = expectedTrackKey;
+        if (!isRecheck) _artworkSchedules++;
+        Interlocked.Exchange(ref _artworkFetchBusy, 1);
 
         _ = Task.Run(async () =>
         {
-            // Hızlı şarkı geçişlerinde Windows SMTC ve oynatıcıların (Spotify, YouTube Music vb.)
-            // kapak akışını hazır hale getirme gecikmelerine (10ms - 2sn) uygun kademeli bekleme
-            int[] delays = [0, 60, 150, 300, 600, 1000, 1500, 2200];
-
-            foreach (var delay in delays)
+            try
             {
-                if (delay > 0)
-                {
-                    await Task.Delay(delay);
-                }
-
-                if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey)
-                {
-                    return; // Şarkı tekrar değişti, bu denemeyi terk et
-                }
-
-                if (_lastArtwork is not null)
-                {
-                    return; // Kapak zaten başarıyla alındı
-                }
-
-                try
-                {
-                    var p = await session.TryGetMediaPropertiesAsync();
-                    if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
-                    if (p?.Thumbnail is null) continue;
-
-                    var art = await TryReadThumbnailAsync(p.Thumbnail);
-                    if (!string.IsNullOrEmpty(art))
+                // Hızlı atlamada SMTC ilk OpenRead'de çoğu zaman ÖNCEKİ kapağı verir.
+                // Farklı hash = gerçek kapak, hemen yayınla. Aynı hash = şüpheli gecikme;
+                // geçici göster, kilitleme. Gecikmeli gerçek kapak gelince üzerine yaz.
+                int[] delays = isRecheck
+                    ? [0, 80, 200, 450]
+                    : _artworkSchedules switch
                     {
-                        if (_artworkPendingVersion == myVersion && _lastTrackKey == expectedTrackKey)
+                        1 => [0, 40, 80, 140, 220, 350, 500, 800, 1200],
+                        2 => [250, 600, 1100],
+                        3 => [400, 900, 1500],
+                        _ => [800, 1600],
+                    };
+                string? candidateArt = null;
+                string? candidateHash = null;
+
+                foreach (var delay in delays)
+                {
+                    if (delay > 0) await Task.Delay(delay);
+                    if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
+
+                    try
+                    {
+                        var p = await session.TryGetMediaPropertiesAsync();
+                        if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
+                        if (p?.Thumbnail is null) continue;
+
+                        var read = await TryReadThumbnailAsync(p.Thumbnail);
+                        if (read is null) continue;
+                        if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
+
+                        var hash = HashBytes(read.Value.Bytes);
+                        var art = ToDataUrl(read.Value.Bytes, read.Value.ContentType);
+                        var sameAsPrev = _prevTrackArtworkHash is not null && hash == _prevTrackArtworkHash;
+
+                        if (sameAsPrev)
+                        {
+                            candidateArt = art;
+                            candidateHash = hash;
+                            continue;
+                        }
+
+                        if (_lastArtworkHash != hash)
                         {
                             _lastArtwork = art;
+                            _lastArtworkHash = hash;
                             RequestEmit();
                         }
+                        _artworkConfirmed = true;
                         return;
                     }
+                    catch
+                    {
+                        // COM veya akış meşgul, sonraki gecikmede tekrar dene
+                    }
                 }
-                catch
+
+                if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
+
+                // Önceki kapağın aynısı: ekranı boş bırakmamak için geçici yayınla, kilitleme.
+                if (candidateArt is not null && candidateHash is not null && _lastArtworkHash is null)
                 {
-                    // COM veya akış meşgul, sonraki gecikmede tekrar dene
+                    _lastArtwork = candidateArt;
+                    _lastArtworkHash = candidateHash;
+                    RequestEmit();
                 }
+            }
+            finally
+            {
+                if (_artworkPendingVersion == myVersion)
+                {
+                    Interlocked.Exchange(ref _artworkFetchBusy, 0);
+                    if (Interlocked.Exchange(ref _artworkRecheckPending, 0) == 1
+                        && _lastTrackKey == expectedTrackKey)
+                    {
+                        StartArtworkFetch(session, expectedTrackKey, isRecheck: true);
+                    }
+                }
+                else
+                {
+                    Interlocked.Exchange(ref _artworkRecheckPending, 1
             }
         });
     }
 
-    private static async Task<string?> TryReadThumbnailAsync(IRandomAccessStreamReference thumbRef)
+    private static string HashBytes(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
+
+    private static string ToDataUrl(byte[] bytes, string contentType)
+        => $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+
+    private static async Task<(byte[] Bytes, string ContentType)?> TryReadThumbnailAsync(IRandomAccessStreamReference thumbRef)
     {
         try
         {
@@ -330,7 +425,7 @@ public static class Program
                 if (bytes.Length == 0) return null;
 
                 var ct = string.IsNullOrEmpty(stream.ContentType) ? "image/jpeg" : stream.ContentType;
-                return $"data:{ct};base64,{Convert.ToBase64String(bytes)}";
+                return (bytes, ct);
             }
         }
         catch
