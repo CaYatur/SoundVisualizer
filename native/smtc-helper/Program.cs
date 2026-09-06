@@ -44,7 +44,8 @@ public static class Program
     private static bool _isPlaying;
     private static string? _lastTrackKey;
     private static string? _lastArtwork;
-    private static int _artworkAttempts;
+    private static string? _artworkTrackKey;
+    private static volatile int _artworkPendingVersion;
     private static volatile int _pendingEmits;
 
     public static async Task Main(string[] args)
@@ -148,7 +149,8 @@ public static class Program
         _session = null;
         _lastTrackKey = null;
         _lastArtwork = null;
-        _artworkAttempts = 0;
+        _artworkTrackKey = null;
+        Interlocked.Increment(ref _artworkPendingVersion);
     }
 
     private static void OnSessionEvent(object? sender, object? args)
@@ -190,7 +192,8 @@ public static class Program
             _isPlaying = false;
             _lastTrackKey = null;
             _lastArtwork = null;
-            _artworkAttempts = 0;
+            _artworkTrackKey = null;
+            Interlocked.Increment(ref _artworkPendingVersion);
             EmitJson(new SmtcPayload { ok = true, has = false });
             return;
         }
@@ -221,31 +224,14 @@ public static class Program
             {
                 _lastTrackKey = trackKey;
                 _lastArtwork = null;
-                _artworkAttempts = 0;
+                _artworkTrackKey = null;
+                // Şarkı değiştiğinde eski arka plan kapak yükleyicisini iptal et ve yenisini başlat
+                StartArtworkFetch(session, trackKey);
             }
-
-            // Kapak görseli okuma ve hızlı şarkı geçişlerinde yeniden deneme
-            if (_lastArtwork is null && !string.IsNullOrWhiteSpace(title))
+            else if (_lastArtwork is null && !string.IsNullOrWhiteSpace(title) && _artworkTrackKey != trackKey)
             {
-                if (props?.Thumbnail is not null)
-                {
-                    _lastArtwork = await TryReadThumbnailAsync(props.Thumbnail);
-                }
-
-                // Spotify veya oynatıcı başlığı verip kapak akışını birkaç yüz ms sonra açıyorsa:
-                if (_lastArtwork is null && _artworkAttempts < 6)
-                {
-                    _artworkAttempts++;
-                    var delayMs = _artworkAttempts switch
-                    {
-                        1 => 120,
-                        2 => 260,
-                        3 => 500,
-                        4 => 900,
-                        _ => 1500
-                    };
-                    _ = Task.Delay(delayMs).ContinueWith(_ => RequestEmit());
-                }
+                // Aynı şarkı ama henüz kapak resmi bulunamadıysa arka plan araması başlat
+                StartArtworkFetch(session, trackKey);
             }
 
             var payload = new SmtcPayload
@@ -270,6 +256,61 @@ public static class Program
             _isPlaying = false;
             EmitJson(new SmtcPayload { ok = true, has = false });
         }
+    }
+
+    private static void StartArtworkFetch(GlobalSystemMediaTransportControlsSession session, string expectedTrackKey)
+    {
+        if (string.IsNullOrWhiteSpace(expectedTrackKey) || expectedTrackKey == "||") return;
+
+        var myVersion = Interlocked.Increment(ref _artworkPendingVersion);
+        _artworkTrackKey = expectedTrackKey;
+
+        _ = Task.Run(async () =>
+        {
+            // Hızlı şarkı geçişlerinde Windows SMTC ve oynatıcıların (Spotify, YouTube Music vb.)
+            // kapak akışını hazır hale getirme gecikmelerine (10ms - 2sn) uygun kademeli bekleme
+            int[] delays = [0, 60, 150, 300, 600, 1000, 1500, 2200];
+
+            foreach (var delay in delays)
+            {
+                if (delay > 0)
+                {
+                    await Task.Delay(delay);
+                }
+
+                if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey)
+                {
+                    return; // Şarkı tekrar değişti, bu denemeyi terk et
+                }
+
+                if (_lastArtwork is not null)
+                {
+                    return; // Kapak zaten başarıyla alındı
+                }
+
+                try
+                {
+                    var p = await session.TryGetMediaPropertiesAsync();
+                    if (_artworkPendingVersion != myVersion || _lastTrackKey != expectedTrackKey) return;
+                    if (p?.Thumbnail is null) continue;
+
+                    var art = await TryReadThumbnailAsync(p.Thumbnail);
+                    if (!string.IsNullOrEmpty(art))
+                    {
+                        if (_artworkPendingVersion == myVersion && _lastTrackKey == expectedTrackKey)
+                        {
+                            _lastArtwork = art;
+                            RequestEmit();
+                        }
+                        return;
+                    }
+                }
+                catch
+                {
+                    // COM veya akış meşgul, sonraki gecikmede tekrar dene
+                }
+            }
+        });
     }
 
     private static async Task<string?> TryReadThumbnailAsync(IRandomAccessStreamReference thumbRef)
