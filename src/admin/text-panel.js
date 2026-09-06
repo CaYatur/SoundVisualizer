@@ -33,6 +33,7 @@
 
   function syncToLayers(cfg, T) {
     if (!cfg || !Array.isArray(cfg.layers)) return;
+    if (window.SVLayers && window.SVLayers.stackOn(cfg)) return;
     for (const l of cfg.layers) {
       if (l.type === 'text') {
         l.settings = l.settings || {};
@@ -121,6 +122,12 @@
           P().push(true);
         }, rerender));
 
+        nodes.push(SP().miniToggle('Şarkı Resmini Göster', () => T.showArtwork !== false, (v) => {
+          T.showArtwork = v;
+          sync();
+          P().push(true);
+        }, rerender));
+
         if (isAuto) {
           const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
             ? window.SVNowLive.state : null;
@@ -146,6 +153,7 @@
                 T.nowPlaying = T.nowPlaying || {};
                 if (cur.title) T.nowPlaying.title = cur.title;
                 if (cur.artist) T.nowPlaying.artist = cur.artist;
+                if (cur.artwork) T.nowPlaying.artwork = cur.artwork;
                 sync();
                 P().push(true);
                 rerender();
@@ -192,6 +200,7 @@
                   T.nowPlaying = T.nowPlaying || {};
                   if (cur.title) T.nowPlaying.title = cur.title;
                   if (cur.artist) T.nowPlaying.artist = cur.artist;
+                  if (cur.artwork) T.nowPlaying.artwork = cur.artwork;
                   sync();
                   P().push(true);
                   rerender();

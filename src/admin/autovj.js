@@ -73,7 +73,10 @@
 
     if (what === 'visualizers') {
       const i = pickIndex(VIS_CYCLE.length, a.order);
-      cfg.visualizer.type = VIS_CYCLE[i];
+      const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+      if (!isStack) {
+        cfg.visualizer.type = VIS_CYCLE[i];
+      }
       // Katman listesi kullanılıyorsa ilk görselleştirici katmanını değiştir
       if (Array.isArray(cfg.layers) && cfg.layers.length) {
         const ly = cfg.layers.find((l) => l && l.kind === 'visualizer');

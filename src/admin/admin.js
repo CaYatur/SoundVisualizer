@@ -73,15 +73,6 @@
     } else {
       cfg.isBlackout = false;
     }
-    if (cfg.logo && Array.isArray(cfg.layers)) {
-      for (const l of cfg.layers) {
-        if (l && l.kind === 'logo') {
-          l.settings = l.settings || {};
-          l.settings.logo = l.settings.logo || {};
-          Object.assign(l.settings.logo, cfg.logo);
-        }
-      }
-    }
     // Görünüm sahneden uzaklaştıysa "etkin sahne" vurgusu yanıltıcı olur, kaldır
     if (activeSceneId && !sceneActionInFlight) clearActiveScene();
     // Her yapılandırma değişikliği paneldeki canlı önizlemeye de yansır
@@ -972,14 +963,35 @@
     });
     removeBtn.style.marginLeft = '8px';
 
+    const mode = cfg.logo.source || 'auto';
+    if (mode === 'track') {
+      const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
+      const note = el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Yalnızca çalan şarkının albüm kapağı/resmi gösterilir. Şarkı sözü / çalan parça sistemi aktifken parça çalınca otomatik devreye girer.',
+      });
+      const kids = [note];
+      if (live && live.artwork) {
+        const livePre = el('img', { class: 'logo-preview', src: live.artwork, style: 'display: block;' });
+        kids.push(livePre);
+      }
+      return el('div', { class: 'ctrl' }, kids);
+    }
+
     const preview = el('img', { class: 'logo-preview' });
     if (cfg.logo.src) {
       preview.src = cfg.logo.src;
       preview.style.display = 'block';
     }
+    const hintText = mode === 'auto'
+      ? 'Otomatik mod: Çalan şarkının kapağı varsa gösterilir; parça çalmıyorsa veya kapağı yoksa bu özel resim gösterilir.'
+      : 'Özel resim modu: Şarkı çalsa dahi her zaman bu özel görsel gösterilir.';
+    const hint = el('div', { class: 'studio-note dim-hint', style: 'margin-top: 6px;', text: hintText });
+
     return el('div', { class: 'ctrl' }, [
       el('div', { class: 'row' }, [btn, removeBtn]),
       preview,
+      hint,
     ]);
   }
 
@@ -1618,6 +1630,15 @@
   // --------------------------------------------------------------------------
   function sectionSchema() {
     const v = cfg.visualizer;
+    const isStackOn = () => {
+      if (window.SVLayers && typeof window.SVLayers.stackOn === 'function') {
+        return window.SVLayers.stackOn(cfg);
+      }
+      const s = cfg && cfg.layerStack;
+      if (s && typeof s.enabled === 'boolean') return s.enabled;
+      return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
+    };
+    const notStack = () => !isStackOn();
     const isGradient = () => cfg.background.type === 'gradient';
     // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
     const usesPalette = () => cfg.background.type !== 'solid';
@@ -1680,7 +1701,7 @@
         wide: true,
         title: 'Renkler ve Hazır Şablonlar',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
-        show: usesPalette,
+        show: () => isStackOn() || usesPalette(),
         controls: [
           { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)' },
           { type: 'presets' },
@@ -1692,6 +1713,7 @@
         icon: '🌫️',
         title: 'Arkaplan',
         desc: 'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.',
+        show: notStack,
         controls: [
           {
             type: 'segment', path: 'background.type', label: 'Tür', rebuild: true, grouped: true,
@@ -1794,6 +1816,7 @@
         icon: '📊',
         title: 'Görselleştirici',
         desc: 'Sese duyarlı ön efekt: barlar, dalga, çember, tünel, spektrogram ve daha fazlası.',
+        show: notStack,
         controls: [
           {
             type: 'segment', path: 'visualizer.type', label: 'Tür', rebuild: true, grouped: true,
@@ -1972,6 +1995,7 @@
         icon: '🅣',
         title: 'Metin ve Şarkı Sözü',
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
+        show: notStack,
         controls: [{ type: 'textpanel' }],
       },
       {
@@ -1982,7 +2006,7 @@
         title: 'Çalan Parça',
         desc: 'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.',
         controls: [{ type: 'nowplayingpanel' }],
-        show: () => v.type === 'nowplaying' || !!(cfg.layers && cfg.layers.some((l) => l.type === 'nowplaying')),
+        show: () => notStack() && v.type === 'nowplaying',
       },
       {
         id: 'milkdrop',
@@ -1993,7 +2017,7 @@
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
         controls: [{ type: 'milkdroppanel' }],
-        show: () => v.type === 'milkdrop',
+        show: () => notStack() && v.type === 'milkdrop',
       },
       {
         id: 'transition',
@@ -2040,8 +2064,7 @@
         icon: '◈',
         title: '3B Geometri',
         desc: 'Matematiksel formüllerden gerçek perspektifte geometri: yüzeyler, uzay eğrileri ve çekici sistemler.',
-        show: () => cfg.visualizer.type === 'geometry' ||
-          (Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.type === 'geometry' && l.enabled !== false)),
+        show: () => notStack() && cfg.visualizer.type === 'geometry',
         controls: [{ type: 'geometrypanel' }],
       },
       {
@@ -2051,7 +2074,7 @@
         icon: '♾',
         title: 'Geri Besleme Motoru',
         desc: 'MilkDrop ailesi: her kare bir öncekini büker, yakınlaştırır ve söndürür. Sonsuz tünel görünümü buradan gelir.',
-        show: () => cfg.visualizer.type === 'feedback',
+        show: () => notStack() && cfg.visualizer.type === 'feedback',
         controls: [
           {
             type: 'segment', path: 'feedback.waveMode', label: 'Dalga Biçimi',
@@ -2083,6 +2106,7 @@
         icon: '🎥',
         title: 'Medya Katmanı',
         desc: 'Web kameranızı veya bir video dosyasını sahneye katman olarak koyun; sese göre nabız atsın.',
+        show: notStack,
         controls: [{ type: 'mediapanel' }],
       },
       {
@@ -2209,8 +2233,21 @@
         icon: '🖼️',
         title: 'Logo / Resim',
         desc: 'Sahneye bir resim yerleştirin; sese göre nabız atar.',
+        show: notStack,
         controls: [
           { type: 'toggle', path: 'logo.enabled', label: 'Logo Göster', rebuild: true },
+          {
+            type: 'select',
+            path: 'logo.source',
+            label: 'Resim Kaynağı',
+            options: [
+              { value: 'auto', label: 'Otomatik (Şarkı resmi varsa göster, yoksa özel)' },
+              { value: 'manual', label: 'Özel Resim (Yalnızca seçilen dosya)' },
+              { value: 'track', label: 'Sadece Çalan Şarkı Resmi' },
+            ],
+            show: () => cfg.logo.enabled,
+            rebuild: true,
+          },
           { type: 'logofile', show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
@@ -2226,6 +2263,7 @@
         icon: '✨',
         title: 'Görsel Nesneler',
         desc: 'Resim ekleyin; sahnede süzülsün, yörünge çizsin, sese göre saçılsın.',
+        show: notStack,
         controls: [
           { type: 'toggle', path: 'images.enabled', label: 'Görsel Nesneleri Etkinleştir', rebuild: true },
           { type: 'images', show: () => cfg.images && cfg.images.enabled },
@@ -2393,6 +2431,7 @@
     let n = 0;
     sectionSchema().forEach((sec) => {
       if (sec.category !== catId) return;
+      if (sec.show && !sec.show()) return;
       n += countModified(sectionPaths(sec));
     });
     return n;
@@ -2813,7 +2852,7 @@
     if (!ok) return;
     const defaults = window.SV.defaultConfig();
     sectionSchema()
-      .filter((s) => s.category === catId)
+      .filter((s) => s.category === catId && (!s.show || s.show()))
       .forEach((sec) => {
         sectionPaths(sec).forEach((p) => {
           const dv = getPath(defaults, p);
@@ -3339,6 +3378,9 @@
         cfg.images.items = cfg.images.items.map((it) => window.SV.normalizeImageItem(it));
       }
     }
+    if (window.SVLayers && window.SVLayers.syncStackState) {
+      window.SVLayers.syncStackState(cfg);
+    }
     sceneActionInFlight = true;
     activeSceneId = id;
     push(true);
@@ -3636,6 +3678,9 @@
   async function init() {
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
+    if (window.SVLayers && window.SVLayers.syncStackState) {
+      window.SVLayers.syncStackState(cfg);
+    }
 
     // Eski/eksik görsel nesneleri varsayılan alanlarla tamamla
     if (cfg.images && Array.isArray(cfg.images.items)) {
@@ -3877,6 +3922,12 @@
     if (window.api.onProtectionGaveUp) {
       window.api.onProtectionGaveUp(() => {
         svToast('Görselleştirme penceresi sürekli kapanıyor; kaza koruması geri açmayı bıraktı.', 'err');
+      });
+    }
+    if (window.api.onNowPlaying) {
+      window.api.onNowPlaying((st) => {
+        window.SVNowLive = window.SVNowLive || { state: null };
+        window.SVNowLive.state = st;
       });
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));

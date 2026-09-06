@@ -341,10 +341,13 @@
   function layerOwnSettings(l, rerender) {
     const el = P().el;
     const cfg = P().cfg();
+    const def = (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : {};
     const out = [];
 
     if (l.kind === 'media') {
-      const m = (cfg.media = cfg.media || {});
+      l.settings = l.settings || {};
+      const defMedia = def.media || { source: 'webcam', fit: 'cover', loop: true, mirror: false };
+      const m = (l.settings.media = l.settings.media || (l.id === 'ly_media' && cfg.media ? Object.assign({}, cfg.media, { enabled: true }) : Object.assign({}, defMedia, { enabled: true })));
       out.push(miniSelect('Medya Kaynağı', [['webcam', 'Web Kamerası'], ['file', 'Video Dosyası']],
         () => m.source || 'webcam', (v) => { m.source = v; }, rerender));
 
@@ -408,47 +411,86 @@
 
     if (l.kind === 'logo') {
       l.settings = l.settings || {};
-      const lg = (l.settings.logo = l.settings.logo || (l.id === 'ly_logo' && cfg.logo ? Object.assign({}, cfg.logo) : { enabled: true, src: (cfg.logo && cfg.logo.src) || '', scale: 0.22, pulse: 0.3, opacity: 1, glow: 0, x: 0.5, y: 0.5 }));
-      const getL = (k, def) => lg[k] !== undefined ? lg[k] : (cfg.logo && cfg.logo[k] !== undefined ? cfg.logo[k] : def);
+      const defLogo = def.logo || { scale: 0.22, pulse: 0.3, opacity: 1, glow: 0, x: 0.5, y: 0.5 };
+      const baseLogo = (cfg.logo && (cfg.logo.src || cfg.logo.x !== undefined || cfg.logo.y !== undefined)) ? cfg.logo : defLogo;
+      const lg = (l.settings.logo = l.settings.logo || Object.assign({ enabled: true, src: (cfg.logo && cfg.logo.src) || '' }, baseLogo, { enabled: true }));
+      if (cfg.logo && cfg.logo.src && !lg.src) lg.src = cfg.logo.src;
+      if (lg.x === undefined) lg.x = (cfg.logo && cfg.logo.x !== undefined) ? cfg.logo.x : 0.5;
+      if (lg.y === undefined) lg.y = (cfg.logo && cfg.logo.y !== undefined) ? cfg.logo.y : 0.5;
+      if (lg.scale === undefined) lg.scale = (cfg.logo && cfg.logo.scale !== undefined) ? cfg.logo.scale : 0.22;
+      const getL = (k, fallback) => lg[k] !== undefined ? lg[k] : (defLogo[k] !== undefined ? defLogo[k] : fallback);
       const setL = (k, val) => {
         lg[k] = val;
-        if (cfg.logo) cfg.logo[k] = val;
       };
 
-      const info = el('div', { class: 'row' }, [
-        el('label', { class: 'lbl', text: 'Logo Görseli' }),
-        el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
-      ]);
-      out.push(el('div', { class: 'ctrl' }, [info]));
-      if (lg.src) out.push(el('img', { class: 'layer-preview', src: lg.src, alt: '' }));
-      out.push(el('div', { class: 'row' }, [
-        el('button', {
-          class: 'btn small', type: 'button', text: lg.src ? '🖼 Logoyu Değiştir' : '🖼 Logo Seç',
-          onclick: () => {
-            pickImage((dataUrl) => {
-              lg.src = dataUrl;
-              lg.enabled = true;
-              if (cfg.logo) {
-                cfg.logo.src = dataUrl;
-                cfg.logo.enabled = true;
-              }
+      out.push(miniSelect('Resim Kaynağı', [
+        ['auto', 'Otomatik (Şarkı resmi varsa göster, yoksa özel)'],
+        ['manual', 'Özel Resim (Yalnızca seçilen dosya)'],
+        ['track', 'Sadece Çalan Şarkı Resmi'],
+      ], () => lg.source || 'auto', (v) => {
+        lg.source = v;
+        P().push(true);
+        rerender();
+      }));
+
+      const mode = lg.source || 'auto';
+      if (mode === 'track') {
+        const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
+        out.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Yalnızca çalan şarkının albüm kapağı/resmi gösterilir. Şarkı sözü / çalan parça sistemi aktifken şarkı çalınca otomatik devreye girer.',
+        }));
+        if (live && live.artwork) {
+          out.push(el('img', { class: 'layer-preview', src: live.artwork, alt: 'Çalan Şarkı Kapağı' }));
+        }
+      } else {
+        const info = el('div', { class: 'row' }, [
+          el('label', { class: 'lbl', text: 'Özel Logo Görseli' }),
+          el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
+        ]);
+        out.push(el('div', { class: 'ctrl' }, [info]));
+        if (lg.src) out.push(el('img', { class: 'layer-preview', src: lg.src, alt: '' }));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn small', type: 'button', text: lg.src ? '🖼 Logoyu Değiştir' : '🖼 Logo Seç',
+            onclick: () => {
+              pickImage((dataUrl) => {
+                lg.src = dataUrl;
+                lg.enabled = true;
+                P().push(true);
+                rerender();
+              });
+            },
+          }),
+          lg.src ? el('button', {
+            class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
+            onclick: () => {
+              lg.src = '';
               P().push(true);
               rerender();
-            });
-          },
-        }),
-        lg.src ? el('button', {
-          class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
+            },
+          }) : null,
+        ].filter(Boolean)));
+        if (mode === 'auto') {
+          out.push(el('div', {
+            class: 'studio-note dim-hint',
+            text: 'Otomatik mod: Çalan şarkının kapağı varsa gösterilir; parça çalmıyorsa veya kapağı yoksa bu özel resim gösterilir.',
+          }));
+        }
+      }
+      out.push(miniSlider('Yatay Konum (X)', () => getL('x', 0.5), (v) => setL('x', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(el('div', { class: 'row', style: 'margin-bottom: 6px;' }, [
+        el('button', {
+          class: 'btn ghost tiny', type: 'button', text: '⌖ Otomatik Ortala (50%)',
           onclick: () => {
-            lg.src = '';
-            if (cfg.logo) cfg.logo.src = '';
+            lg.x = 0.5;
+            lg.y = 0.5;
             P().push(true);
             rerender();
           },
-        }) : null,
-      ].filter(Boolean)));
-      out.push(miniSlider('Yatay Konum (X)', () => getL('x', 0.5), (v) => setL('x', v), { min: 0, max: 1, step: 0.01, percent: true }));
-      out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        }),
+      ]));
       out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true }));
       out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true }));
       out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
@@ -457,7 +499,13 @@
     }
 
     if (l.kind === 'sprites') {
-      const imgs = (cfg.images = cfg.images || { enabled: true, items: [] });
+      l.settings = l.settings || {};
+      const imgs = (l.settings.images = l.settings.images || {
+        enabled: true,
+        items: (l.id && l.id.startsWith('ly_spr') && cfg.images && Array.isArray(cfg.images.items) && cfg.images.items.length)
+          ? JSON.parse(JSON.stringify(cfg.images.items))
+          : [],
+      });
       if (!Array.isArray(imgs.items)) imgs.items = [];
       const items = imgs.items;
 
@@ -511,19 +559,24 @@
     }
 
     if (l.kind === 'visualizer' && l.type === 'text') {
-      const txt = (l.settings && l.settings.text) ? l.settings.text : (l.settings = l.settings || {}, l.settings.text = l.settings.text || Object.assign({}, cfg.text || window.SV.defaultConfig().text));
+      l.settings = l.settings || {};
+      const defText = def.text || {
+        source: 'static', content: '', size: 0.08, align: 'center', nowSource: 'system',
+      };
+      const txt = (l.settings.text = l.settings.text || (l.id === 'ly_text' && cfg.text
+        ? Object.assign({}, defText, JSON.parse(JSON.stringify(cfg.text)), { enabled: true })
+        : Object.assign({}, defText, { enabled: true })));
       txt.enabled = true;
       const src = txt.source || 'static';
 
       out.push(miniSelect('Metin Kaynağı', [['static', 'Sabit Metin'], ['now', 'Çalan Parça'], ['lyrics', 'Şarkı Sözü (LRC / SRT)']],
-        () => src, (v) => { txt.source = v; if (cfg.text) cfg.text.source = v; }, rerender));
+        () => src, (v) => { txt.source = v; }, rerender));
 
       if (src === 'static') {
         const area = el('textarea', {
           class: 'p-in txt-area', rows: 2, value: txt.content || '',
           oninput: (e) => {
             txt.content = e.target.value;
-            if (cfg.text) cfg.text.content = e.target.value;
             P().push(false);
           },
         });
@@ -536,7 +589,6 @@
         const isWin = isWindowsPlatform();
         if (!isWin && txt.nowSource === 'system') {
           txt.nowSource = 'manual';
-          if (cfg.text) cfg.text.nowSource = 'manual';
         }
         const isAuto = isWin && (txt.nowSource || 'system') === 'system';
 
@@ -546,10 +598,14 @@
           }
           out.push(miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
             txt.nowSource = v ? 'system' : 'manual';
-            if (cfg.text) cfg.text.nowSource = txt.nowSource;
             if (v && window.api && window.api.nowPlayingSubscribe) {
               window.api.nowPlayingSubscribe(true);
             }
+          }, rerender));
+
+          out.push(miniToggle('Şarkı Resmini Göster', () => txt.showArtwork !== false, (v) => {
+            txt.showArtwork = v;
+            P().push(true);
           }, rerender));
 
           if (isAuto) {
@@ -577,11 +633,7 @@
                   txt.nowPlaying = txt.nowPlaying || {};
                   if (cur.title) txt.nowPlaying.title = cur.title;
                   if (cur.artist) txt.nowPlaying.artist = cur.artist;
-                  if (cfg.text) {
-                    cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-                    if (cur.title) cfg.text.nowPlaying.title = cur.title;
-                    if (cur.artist) cfg.text.nowPlaying.artist = cur.artist;
-                  }
+                  if (cur.artwork) txt.nowPlaying.artwork = cur.artwork;
                   P().push(true);
                   rerender();
                   P().toast('Çalan parça bilgileri yedek alanlara aktarıldı.');
@@ -606,11 +658,7 @@
                     txt.nowPlaying = txt.nowPlaying || {};
                     if (cur.title) txt.nowPlaying.title = cur.title;
                     if (cur.artist) txt.nowPlaying.artist = cur.artist;
-                    if (cfg.text) {
-                      cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-                      if (cur.title) cfg.text.nowPlaying.title = cur.title;
-                      if (cur.artist) cfg.text.nowPlaying.artist = cur.artist;
-                    }
+                    if (cur.artwork) txt.nowPlaying.artwork = cur.artwork;
                     P().push(true);
                     rerender();
                     P().toast('Şarkı bilgileri alanlara yazıldı.');
@@ -634,8 +682,8 @@
 
         const titleLabel = isAuto ? 'Yedek Parça Adı' : 'Parça Adı';
         const artistLabel = isAuto ? 'Yedek Sanatçı' : 'Sanatçı';
-        const titleVal = txt.field === 'title' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.title) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.title) || (txt.content || ''));
-        const artistVal = txt.field === 'artist' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.artist) || (cfg.text && cfg.text.nowPlaying && cfg.text.nowPlaying.artist) || '');
+        const titleVal = txt.field === 'title' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.title) || (txt.content || ''));
+        const artistVal = txt.field === 'artist' ? (txt.content || '') : ((txt.nowPlaying && txt.nowPlaying.artist) || '');
 
         if (txt.field === 'title') {
           out.push(P().row(titleLabel, el('input', {
@@ -645,9 +693,6 @@
               txt.content = e.target.value;
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.title = e.target.value;
-              cfg.text = cfg.text || {};
-              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-              cfg.text.nowPlaying.title = e.target.value;
               P().push(false);
             },
           })));
@@ -659,9 +704,6 @@
               txt.content = e.target.value;
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.artist = e.target.value;
-              cfg.text = cfg.text || {};
-              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-              cfg.text.nowPlaying.artist = e.target.value;
               P().push(false);
             },
           })));
@@ -672,9 +714,6 @@
             oninput: (e) => {
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.title = e.target.value;
-              cfg.text = cfg.text || {};
-              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-              cfg.text.nowPlaying.title = e.target.value;
               P().push(false);
             },
           })));
@@ -684,9 +723,6 @@
             oninput: (e) => {
               txt.nowPlaying = txt.nowPlaying || {};
               txt.nowPlaying.artist = e.target.value;
-              cfg.text = cfg.text || {};
-              cfg.text.nowPlaying = cfg.text.nowPlaying || {};
-              cfg.text.nowPlaying.artist = e.target.value;
               P().push(false);
             },
           })));
@@ -706,7 +742,6 @@
               if (!r || !r.ok) return;
               txt.lyricsSource = r.text;
               txt.lyricsName = r.name || '';
-              if (cfg.text) { cfg.text.lyricsSource = r.text; cfg.text.lyricsName = r.name || ''; }
               P().push(true);
               const d = window.SVLyrics ? window.SVLyrics.parse(r.text) : null;
               rerender();
@@ -718,7 +753,6 @@
             onclick: () => {
               txt.lyricsSource = '';
               txt.lyricsName = '';
-              if (cfg.text) { cfg.text.lyricsSource = ''; cfg.text.lyricsName = ''; }
               P().push(true);
               rerender();
             },
@@ -726,15 +760,16 @@
         ]));
       }
 
-      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; if (cfg.text) cfg.text.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
-      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; if (cfg.text) cfg.text.align = v; }));
+      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
+      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; }));
       return out;
     }
 
     if (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom') {
       l.settings = l.settings || {};
+      const defVis = def.visualizer || {};
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
-      const getV = (k, def) => vs[k] !== undefined ? vs[k] : (cfg.visualizer && cfg.visualizer[k] !== undefined ? cfg.visualizer[k] : def);
+      const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
       const setV = (k, val) => { vs[k] = val; };
 
       // Gökkuşağı / Renk
@@ -785,8 +820,9 @@
 
     if (l.kind === 'background') {
       l.settings = l.settings || {};
+      const defBg = def.background || {};
       const bg = (l.settings.background = l.settings.background || {});
-      const getB = (k, def) => bg[k] !== undefined ? bg[k] : (cfg.background && cfg.background[k] !== undefined ? cfg.background[k] : def);
+      const getB = (k, fallback) => bg[k] !== undefined ? bg[k] : (defBg[k] !== undefined ? defBg[k] : fallback);
       const setB = (k, val) => { bg[k] = val; };
 
       if (l.type === 'solid') {
@@ -796,8 +832,8 @@
 
       if (l.type === 'gradient') {
         const gr = (bg.gradient = bg.gradient || {});
-        const cfgGr = (cfg.background && cfg.background.gradient) || {};
-        const getGr = (k, def) => gr[k] !== undefined ? gr[k] : (cfgGr[k] !== undefined ? cfgGr[k] : def);
+        const defGr = defBg.gradient || {};
+        const getGr = (k, fallback) => gr[k] !== undefined ? gr[k] : (defGr[k] !== undefined ? defGr[k] : fallback);
         const setGr = (k, val) => { gr[k] = val; };
 
         out.push(miniSelect('Stil', [['soft', 'Yumuşak'], ['plasma', 'Plazma']], () => getGr('style', 'soft'), (v) => setGr('style', v)));
@@ -812,9 +848,9 @@
 
       if (BG_MODE_CONTROLS[l.type]) {
         const modeObj = (bg[l.type] = bg[l.type] || {});
-        const cfgModeObj = (cfg.background && cfg.background[l.type]) || {};
+        const defModeObj = defBg[l.type] || {};
         BG_MODE_CONTROLS[l.type].forEach(([key, label, min, max, step, percent]) => {
-          const curVal = () => modeObj[key] !== undefined ? modeObj[key] : (cfgModeObj[key] !== undefined ? cfgModeObj[key] : min);
+          const curVal = () => modeObj[key] !== undefined ? modeObj[key] : (defModeObj[key] !== undefined ? defModeObj[key] : min);
           out.push(miniSlider(label, curVal, (v) => { modeObj[key] = v; }, { min, max, step, percent }));
         });
         return out;
@@ -845,8 +881,12 @@
     const stackSwitch = el('input', {
       type: 'checkbox',
       onchange: (e) => {
-        cfg.layerStack.enabled = e.target.checked;
-        if (e.target.checked && !list.length) cfg.layers = window.SVLayers.synthesize(cfg);
+        if (window.SVLayers && window.SVLayers.setStackEnabled) {
+          window.SVLayers.setStackEnabled(cfg, e.target.checked);
+        } else {
+          cfg.layerStack.enabled = e.target.checked;
+          if (e.target.checked && !list.length) cfg.layers = window.SVLayers.synthesize(cfg);
+        }
         P().push(true);
         rerender();
       },
@@ -874,8 +914,12 @@
         el('button', {
           class: 'btn primary', type: 'button', text: '⬗ Katmanlara Geç',
           onclick: () => {
-            cfg.layers = window.SVLayers.synthesize(cfg);
-            cfg.layerStack.enabled = true;
+            if (window.SVLayers && window.SVLayers.setStackEnabled) {
+              window.SVLayers.setStackEnabled(cfg, true);
+            } else {
+              cfg.layers = window.SVLayers.synthesize(cfg);
+              cfg.layerStack.enabled = true;
+            }
             rerender();
           },
         })
@@ -950,18 +994,27 @@
 
       if (l.kind !== 'logo') {
         kids.push(miniSelect('Karışım', BLEND_LABELS, () => l.blend, (v) => { l.blend = v; }));
+        kids.push(miniSlider('Saydamlık', () => l.opacity, (v) => { l.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true }));
       }
-      kids.push(miniSlider('Saydamlık', () => l.opacity, (v) => { l.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true }));
 
       kids.push(
-        foldable('Dönüşüm', () => [
-          miniSlider('Ölçek', () => l.transform.scale, (v) => { l.transform.scale = v; }, { min: 0.2, max: 3, step: 0.01 }),
-          miniSlider('Dönüş', () => l.transform.rotate, (v) => { l.transform.rotate = v; }, { min: -180, max: 180, step: 1, fmt: (v) => Math.round(v) + '°' }),
-          miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true }),
-          miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true }),
-          miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }),
-          miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; }),
-        ], (l.id || i) + '_transform')
+        foldable('Dönüşüm', () => {
+          const transKids = [
+            miniSlider('Ölçek', () => l.transform.scale, (v) => { l.transform.scale = v; }, { min: 0.2, max: 3, step: 0.01 }),
+            miniSlider('Dönüş', () => l.transform.rotate, (v) => { l.transform.rotate = v; }, { min: -180, max: 180, step: 1, fmt: (v) => Math.round(v) + '°' }),
+          ];
+          if (l.kind !== 'logo') {
+            transKids.push(
+              miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true }),
+              miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true })
+            );
+          }
+          transKids.push(
+            miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }),
+            miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; })
+          );
+          return transKids;
+        }, (l.id || i) + '_transform')
       );
 
       kids.push(

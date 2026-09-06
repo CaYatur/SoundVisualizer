@@ -145,6 +145,9 @@
     if (gridEl) gridScroll = gridEl.scrollTop;
     for (const k of Object.keys(cur)) delete cur[k];
     Object.assign(cur, next);
+    if (cur.layerStack && cur.layerStack.enabled && window.SVLayers && window.SVLayers.syncStackState) {
+      window.SVLayers.syncStackState(cur);
+    }
     lastApplied = t.id;
     P().apply();
     P().toast('"' + t.name + '" uygulandı.');

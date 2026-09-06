@@ -102,33 +102,53 @@
       out.push(normalizeLayer({
         id: 'ly_bg', name: 'Arkaplan', kind: 'background',
         type: bgType, presetId: cfg.custom && cfg.custom.backgroundId,
+        settings: { background: JSON.parse(JSON.stringify(cfg.background || {})) },
       }));
     }
     const media = cfg.media || {};
     if (media.enabled && media.layer !== 'front') {
-      out.push(normalizeLayer({ id: 'ly_media', name: 'Medya', kind: 'media', blend: media.blend || 'normal' }));
+      out.push(normalizeLayer({
+        id: 'ly_media', name: 'Medya', kind: 'media', blend: media.blend || 'normal',
+        settings: { media: JSON.parse(JSON.stringify(media)) },
+      }));
     }
     if (cfg.images && cfg.images.enabled) {
-      out.push(normalizeLayer({ id: 'ly_spr_back', name: 'Görsel Nesneler (arka)', kind: 'sprites', type: 'back' }));
+      out.push(normalizeLayer({
+        id: 'ly_spr_back', name: 'Görsel Nesneler (arka)', kind: 'sprites', type: 'back',
+        settings: { images: JSON.parse(JSON.stringify(cfg.images)) },
+      }));
     }
     const visType = cfg.visualizer && cfg.visualizer.type;
     if (visType && visType !== 'none') {
       out.push(normalizeLayer({
         id: 'ly_vis', name: 'Görselleştirici', kind: 'visualizer',
         type: visType, presetId: cfg.custom && cfg.custom.visualizerId,
+        settings: { visualizer: JSON.parse(JSON.stringify(cfg.visualizer || {})) },
       }));
     }
     if (cfg.images && cfg.images.enabled) {
-      out.push(normalizeLayer({ id: 'ly_spr_front', name: 'Görsel Nesneler (ön)', kind: 'sprites', type: 'front' }));
+      out.push(normalizeLayer({
+        id: 'ly_spr_front', name: 'Görsel Nesneler (ön)', kind: 'sprites', type: 'front',
+        settings: { images: JSON.parse(JSON.stringify(cfg.images)) },
+      }));
     }
     if (media.enabled && media.layer === 'front') {
-      out.push(normalizeLayer({ id: 'ly_media', name: 'Medya', kind: 'media', blend: media.blend || 'normal' }));
+      out.push(normalizeLayer({
+        id: 'ly_media', name: 'Medya', kind: 'media', blend: media.blend || 'normal',
+        settings: { media: JSON.parse(JSON.stringify(media)) },
+      }));
     }
     if (cfg.text && cfg.text.enabled && visType !== 'text') {
-      out.push(normalizeLayer({ id: 'ly_text', name: 'Metin', kind: 'visualizer', type: 'text' }));
+      out.push(normalizeLayer({
+        id: 'ly_text', name: 'Metin', kind: 'visualizer', type: 'text',
+        settings: { text: JSON.parse(JSON.stringify(cfg.text || {})) },
+      }));
     }
-    if (cfg.logo && cfg.logo.enabled && cfg.logo.src) {
-      out.push(normalizeLayer({ id: 'ly_logo', name: 'Logo', kind: 'logo' }));
+    if (cfg.logo && cfg.logo.enabled && (cfg.logo.src || (cfg.logo.source || 'auto') !== 'manual')) {
+      out.push(normalizeLayer({
+        id: 'ly_logo', name: 'Logo', kind: 'logo',
+        settings: { logo: JSON.parse(JSON.stringify(cfg.logo || {})) },
+      }));
     }
     return out;
   }
@@ -145,6 +165,117 @@
     const s = cfg && cfg.layerStack;
     if (s && typeof s.enabled === 'boolean') return s.enabled;
     return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
+  }
+
+  /* Katman yığını anahtarını ve bağımlı klasik kök alanları yönetir.
+     Katmanlar açıldığında (enabled = true):
+       1. Henüz katman listesi yoksa mevcut klasik ayarlardan sentezlenir.
+       2. Klasik alanlar (visualizer, logo, images, media, text) aktif ise
+          yedeklenir ve devre dışı (pasif) bırakılır. Böylece arka planda
+          çakışma ve gereksiz render/kaynak tüketimi olmaz.
+     Katmanlar kapatıldığında (enabled = false):
+       Klasik alanlar önceki aktif durumlarına geri yüklenir. */
+  function setStackEnabled(cfg, enabled) {
+    if (!cfg) return;
+    cfg.layerStack = cfg.layerStack || {};
+    const on = !!enabled;
+    if (on) {
+      if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
+        cfg.layers = synthesize(cfg);
+      }
+      const curVis = cfg.visualizer && cfg.visualizer.type;
+      const curLogo = !!(cfg.logo && cfg.logo.enabled);
+      const curImgs = !!(cfg.images && cfg.images.enabled);
+      const curMedia = !!(cfg.media && cfg.media.enabled);
+      const curText = !!(cfg.text && cfg.text.enabled);
+
+      if (!cfg.layerStack.classicBackup) {
+        cfg.layerStack.classicBackup = {
+          visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
+          logoEnabled: curLogo,
+          imagesEnabled: curImgs,
+          mediaEnabled: curMedia,
+          textEnabled: curText,
+        };
+      } else {
+        const b = cfg.layerStack.classicBackup;
+        if (curVis && curVis !== 'none') b.visualizerType = curVis;
+        if (curLogo) b.logoEnabled = true;
+        if (curImgs) b.imagesEnabled = true;
+        if (curMedia) b.mediaEnabled = true;
+        if (curText) b.textEnabled = true;
+      }
+
+      // Klasik kök alanları devre dışı (pasif) bırak
+      if (cfg.visualizer) cfg.visualizer.type = 'none';
+      if (cfg.logo) cfg.logo.enabled = false;
+      if (cfg.images) cfg.images.enabled = false;
+      if (cfg.media) cfg.media.enabled = false;
+      if (cfg.text) cfg.text.enabled = false;
+      cfg.layerStack.enabled = true;
+    } else {
+      cfg.layerStack.enabled = false;
+      const b = cfg.layerStack.classicBackup;
+      if (b) {
+        if (cfg.visualizer && b.visualizerType) cfg.visualizer.type = b.visualizerType;
+        if (cfg.logo && b.logoEnabled !== undefined) cfg.logo.enabled = b.logoEnabled;
+        if (cfg.images && b.imagesEnabled !== undefined) cfg.images.enabled = b.imagesEnabled;
+        if (cfg.media && b.mediaEnabled !== undefined) cfg.media.enabled = b.mediaEnabled;
+        if (cfg.text && b.textEnabled !== undefined) cfg.text.enabled = b.textEnabled;
+      } else {
+        const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+        const vis = list.find((l) => l.kind === 'visualizer' && l.type !== 'text');
+        if (cfg.visualizer && cfg.visualizer.type === 'none') {
+          cfg.visualizer.type = vis ? vis.type : 'bars';
+        }
+        if (cfg.logo && !cfg.logo.enabled && list.some((l) => l.kind === 'logo')) {
+          cfg.logo.enabled = true;
+        }
+        if (cfg.images && !cfg.images.enabled && list.some((l) => l.kind === 'sprites')) {
+          cfg.images.enabled = true;
+        }
+        if (cfg.media && !cfg.media.enabled && list.some((l) => l.kind === 'media')) {
+          cfg.media.enabled = true;
+        }
+        if (cfg.text && !cfg.text.enabled && list.some((l) => l.kind === 'visualizer' && l.type === 'text')) {
+          cfg.text.enabled = true;
+        }
+      }
+    }
+  }
+
+  function syncStackState(cfg) {
+    if (!cfg || !cfg.layerStack || !cfg.layerStack.enabled) return;
+    const curVis = cfg.visualizer && cfg.visualizer.type;
+    const curLogo = !!(cfg.logo && cfg.logo.enabled);
+    const curImgs = !!(cfg.images && cfg.images.enabled);
+    const curMedia = !!(cfg.media && cfg.media.enabled);
+    const curText = !!(cfg.text && cfg.text.enabled);
+
+    const hasActive = (curVis && curVis !== 'none') || curLogo || curImgs || curMedia || curText;
+    if (hasActive) {
+      if (!cfg.layerStack.classicBackup) {
+        cfg.layerStack.classicBackup = {
+          visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
+          logoEnabled: curLogo,
+          imagesEnabled: curImgs,
+          mediaEnabled: curMedia,
+          textEnabled: curText,
+        };
+      } else {
+        const b = cfg.layerStack.classicBackup;
+        if (curVis && curVis !== 'none') b.visualizerType = curVis;
+        if (curLogo) b.logoEnabled = true;
+        if (curImgs) b.imagesEnabled = true;
+        if (curMedia) b.mediaEnabled = true;
+        if (curText) b.textEnabled = true;
+      }
+      if (cfg.visualizer) cfg.visualizer.type = 'none';
+      if (cfg.logo) cfg.logo.enabled = false;
+      if (cfg.images) cfg.images.enabled = false;
+      if (cfg.media) cfg.media.enabled = false;
+      if (cfg.text) cfg.text.enabled = false;
+    }
   }
 
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez
@@ -191,19 +322,53 @@
     const over = layer.settings;
     const hasOverrides = over && Object.keys(over).length;
     const base = hasOverrides ? window.SV.deepMerge(cfg, over) : cfg;
-    // Katmanın kendi mod seçimi genel alandan önce gelir
+    const def = (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : null;
+
     if (layer.kind === 'background') {
+      const defBg = def ? def.background : {};
+      const bgSettings = (layer.settings && layer.settings.background) || {};
+      const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (defBg.gradient && defBg.gradient.colors);
+      const mergedBg = window.SV.deepMerge(defBg, bgSettings);
+      if (mergedBg.gradient) {
+        mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
+      }
+      mergedBg.type = layer.type;
       return Object.assign({}, base, {
-        background: Object.assign({}, base.background, { type: layer.type }),
+        background: mergedBg,
         custom: Object.assign({}, base.custom, { backgroundId: layer.presetId || (base.custom && base.custom.backgroundId) }),
       });
     }
+
     if (layer.kind === 'visualizer') {
-      return Object.assign({}, base, {
-        visualizer: Object.assign({}, base.visualizer, { type: layer.type }),
+      const defVis = def ? def.visualizer : {};
+      const visSettings = (layer.settings && layer.settings.visualizer) || {};
+      const mergedVis = window.SV.deepMerge(defVis, visSettings);
+      mergedVis.type = layer.type;
+      const res = Object.assign({}, base, {
+        visualizer: mergedVis,
         custom: Object.assign({}, base.custom, { visualizerId: layer.presetId || (base.custom && base.custom.visualizerId) }),
       });
+      if (layer.type === 'text') {
+        const textSettings = (layer.settings && layer.settings.text) || {};
+        const defText = def ? def.text : {};
+        res.text = Object.assign({}, defText, base.text, textSettings, { enabled: layer.enabled !== false });
+      }
+      if (layer.type === 'nowplaying') {
+        const npSettings = (layer.settings && layer.settings.nowplaying) || {};
+        const defNp = def ? def.nowplaying : {};
+        res.nowplaying = Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false });
+      }
+      return res;
     }
+
+    if (layer.kind === 'media') {
+      const defMedia = def ? def.media : {};
+      const mediaSettings = (layer.settings && layer.settings.media) || {};
+      return Object.assign({}, base, {
+        media: Object.assign({}, defMedia, base.media, mediaSettings, { enabled: layer.enabled !== false }),
+      });
+    }
+
     return base;
   }
 
@@ -236,6 +401,71 @@
     if (band === 'treble') return audio.treble;
     if (band === 'level') return audio.level;
     return audio.bass;
+  }
+
+  /* Logo / Resim katmanı için etkin görsel kaynağını belirler.
+     - 'manual': Yalnızca kullanıcının seçtiği resim (lg.src).
+     - 'track': Yalnızca çalan şarkının resmi (varsa).
+     - 'auto' (varsayılan): Şarkı sözü / çalan parça sistemi açıksa ve şarkı resmi varsa
+       şarkı resmi kullanılır; şarkı çalmıyorsa, sistem kapalıysa veya şarkı resmi
+       yoksa kullanıcının seçtiği logo/özel resim (lg.src) kullanılır. */
+  function resolveLogoSrc(lg, cfg) {
+    if (!lg) return null;
+    const mode = lg.source || 'auto';
+    if (mode === 'manual') return lg.src || null;
+
+    const live = (typeof window !== 'undefined' && window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
+      ? window.SVNowLive.state : null;
+
+    let lyricsOrTextActive = false;
+    let showArtworkAllowed = true;
+    let trackArtwork = (live && live.artwork) || null;
+
+    if (cfg) {
+      if (cfg.text && cfg.text.enabled !== false && (cfg.text.source === 'now' || cfg.text.source === 'lyrics')) {
+        lyricsOrTextActive = true;
+        if (cfg.text.showArtwork === false) showArtworkAllowed = false;
+        if (!trackArtwork && cfg.text.nowPlaying && cfg.text.nowPlaying.artwork) {
+          trackArtwork = cfg.text.nowPlaying.artwork;
+        }
+      }
+      if (cfg.visualizer && (cfg.visualizer.type === 'text' || cfg.visualizer.type === 'nowplaying')) {
+        lyricsOrTextActive = true;
+      }
+      if (Array.isArray(cfg.layers)) {
+        for (const l of cfg.layers) {
+          if (!l || l.enabled === false) continue;
+          if (l.type === 'text') {
+            const t = (l.settings && l.settings.text) || cfg.text;
+            if (t && t.enabled !== false && (t.source === 'now' || t.source === 'lyrics')) {
+              lyricsOrTextActive = true;
+              if (t.showArtwork === false) showArtworkAllowed = false;
+              if (!trackArtwork && t.nowPlaying && t.nowPlaying.artwork) {
+                trackArtwork = t.nowPlaying.artwork;
+              }
+            }
+          } else if (l.type === 'nowplaying') {
+            lyricsOrTextActive = true;
+            const np = (l.settings && l.settings.nowplaying) || cfg.nowplaying;
+            if (np && np.showArtwork === false) showArtworkAllowed = false;
+          }
+        }
+      }
+      if (!trackArtwork && cfg.nowplaying && cfg.nowplaying.enabled && cfg.nowplaying.manual && cfg.nowplaying.manual.artwork) {
+        trackArtwork = cfg.nowplaying.manual.artwork;
+      }
+    }
+
+    const hasTrackArtwork = !!(lyricsOrTextActive && showArtworkAllowed && trackArtwork);
+
+    if (mode === 'track') {
+      return hasTrackArtwork ? trackArtwork : null;
+    }
+    // 'auto'
+    if (hasTrackArtwork) {
+      return trackArtwork;
+    }
+    return lg.src || null;
   }
 
   // ==========================================================================
@@ -279,6 +509,8 @@
       const img = new Image();
       img.src = src;
       this._imageCache[src] = img;
+      const keys = Object.keys(this._imageCache);
+      if (keys.length > 30) delete this._imageCache[keys[0]];
       return img;
     }
 
@@ -334,12 +566,26 @@
     // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
     // logonun da efektlerden geçmesi için)
     _drawLogoToCanvas(ctx, cfg, audio) {
+      if (stackOn(cfg)) return;
       const l = cfg && cfg.logo;
-      if (!l || !l.enabled || !l.src) return;
-      const img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === l.src)
+      if (!l || !l.enabled) return;
+      const effectiveSrc = resolveLogoSrc(l, cfg);
+      if (!effectiveSrc) {
+        this._lastLogoImg = null;
+        return;
+      }
+      let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
         ? this.logoEl
-        : this._getImage(l.src);
-      if (!img || !img.naturalWidth) return;
+        : this._getImage(effectiveSrc);
+      if (!img || !img.naturalWidth) {
+        if (this._lastLogoImg && this._lastLogoImg.naturalWidth) {
+          img = this._lastLogoImg;
+        } else {
+          return;
+        }
+      } else {
+        this._lastLogoImg = img;
+      }
       const W = this.width;
       const H = this.height;
       const minDim = Math.min(W, H);
@@ -552,7 +798,15 @@
         if (list[i] && list[i].id === e.layer.id) { src = list[i]; break; }
       }
       if (!src) return e.layer;
-      if (e._liveSrc === src) return e._liveCache;
+      if (e._liveSrc === src && e._liveCache) {
+        if (src.transform) Object.assign(e._liveCache.transform, src.transform);
+        if (src.audio) Object.assign(e._liveCache.audio, src.audio);
+        if (src.mask) Object.assign(e._liveCache.mask, src.mask);
+        if (src.opacity !== undefined) e._liveCache.opacity = src.opacity;
+        if (src.settings) e._liveCache.settings = src.settings;
+        if (src.enabled !== undefined) e._liveCache.enabled = src.enabled;
+        return e._liveCache;
+      }
       e._liveSrc = src;
       e._liveCache = normalizeLayer(src);
       return e._liveCache;
@@ -872,20 +1126,46 @@
 
       if (l.kind === 'sprites') {
         e.ctx.clearRect(0, 0, W, H);
-        if (this.sprites && audio && audio.ready && this.sprites.hasLayer(l.type)) {
-          this.sprites.draw(e.ctx, audio, t, W, H, l.type);
+        if (l.enabled === false) return;
+        if (!e.sprites && window.SVSprites) e.sprites = new window.SVSprites();
+        const spr = e.sprites || this.sprites;
+        if (spr && audio && audio.ready) {
+          const sImgs = (l.settings && l.settings.images) || (cfg && cfg.images);
+          const items = (sImgs && sImgs.items) || [];
+          if (items.length) {
+            const mapped = items.map((it) => Object.assign({}, it, { layer: l.type }));
+            spr.setItems(mapped);
+            spr.draw(e.ctx, audio, t, W, H, l.type);
+          } else if (this.sprites && this.sprites.hasLayer(l.type)) {
+            this.sprites.draw(e.ctx, audio, t, W, H, l.type);
+          }
         }
         return;
       }
 
       if (l.kind === 'logo') {
         e.ctx.clearRect(0, 0, W, H);
+        if (l.enabled === false) return;
         const lg = (l.settings && l.settings.logo) || (cfg && cfg.logo);
-        if (!lg || !lg.src) return;
-        const img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === lg.src)
+        if (!lg) return;
+        if (l.settings && l.settings.logo && l.settings.logo.enabled === false) return;
+        const effectiveSrc = resolveLogoSrc(lg, cfg);
+        if (!effectiveSrc) {
+          e._lastImg = null;
+          return;
+        }
+        let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
           ? this.logoEl
-          : this._getImage(lg.src);
-        if (!img || !img.naturalWidth) return;
+          : this._getImage(effectiveSrc);
+        if (!img || !img.naturalWidth) {
+          if (e._lastImg && e._lastImg.naturalWidth) {
+            img = e._lastImg;
+          } else {
+            return;
+          }
+        } else {
+          e._lastImg = img;
+        }
         const minDim = Math.min(W, H);
         const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));
         const pulse = 1 + (audio ? audio.bass : 0) * (lg.pulse == null ? 0.3 : lg.pulse);
@@ -1007,10 +1287,13 @@
     synthesize,
     resolve,
     stackOn,
+    setStackEnabled,
+    syncStackState,
     layerConfig,
     sceneSignature,
     groupGain,
     LAYER_DEFAULTS,
+    resolveLogoSrc,
   };
   /* Saf yardımcılar (katman çözümleme, sıra, grup kazancı) Node'da test
      edilebilsin diye ayrıca dışa aktarılıyor; LayerStack sınıfı tuval

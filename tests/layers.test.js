@@ -280,5 +280,46 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   assert.ok(row.label.children.some((c) => c.attrs && c.attrs.text === 'Yalnızca Windows'));
   assert.ok(row.ctrl.attrs.class.includes('disabled'));
   assert.strictEqual(row.ctrl.children[0].attrs.disabled, true);
+
+  // 5) Logo ve Şarkı Kapağı / Logo Source testleri (auto, manual, track)
+  const defaults = window.SV ? window.SV.defaultConfig() : require('../src/shared/defaults.js');
+  assert.strictEqual(defaults.logo.source, 'auto', 'Varsayılan logo kaynağı auto olmalı');
+  assert.strictEqual(defaults.text.showArtwork, true, 'Varsayılan metin kapak gösterme açık olmalı');
+
+  // a) auto mod: şarkı kapağı varsa kapağı döndürür
+  global.window.SVNowLive = { state: { has: true, artwork: 'data:image/png;base64,ARTWORK123' } };
+  const autoCfgWithText = { text: { enabled: true, source: 'now', showArtwork: true } };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'auto', src: 'fallback.png' }, autoCfgWithText), 'data:image/png;base64,ARTWORK123');
+
+  // b) auto mod: showArtwork kapalıysa yedek logoya (src) döner
+  const autoCfgNoArt = { text: { enabled: true, source: 'now', showArtwork: false } };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'auto', src: 'fallback.png' }, autoCfgNoArt), 'fallback.png');
+
+  // c) auto mod: canlı şarkı yoksa yedek logoya döner
+  global.window.SVNowLive = { state: null };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'auto', src: 'fallback.png' }, autoCfgWithText), 'fallback.png');
+
+  // d) manual mod: canlı kapak olsa dahi her zaman logoyu (src) döndürür
+  global.window.SVNowLive = { state: { has: true, artwork: 'data:image/png;base64,ARTWORK123' } };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'manual', src: 'manual.png' }, autoCfgWithText), 'manual.png');
+
+  // e) track mod: kapak varsa kapağı döndürür, yoksa null döner (asla logoya düşmez)
+  assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), 'data:image/png;base64,ARTWORK123');
+  global.window.SVNowLive = { state: null };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), null);
+
+  // f) katmanlar (layers) dizisinde metin katmanı kapak bilgisi
+  const cfgWithLayerArt = {
+    layers: [
+      { id: 'ly_txt', enabled: true, type: 'text', settings: { text: { enabled: true, source: 'now', showArtwork: true, nowPlaying: { artwork: 'data:image/png;base64,LAYERART' } } } }
+    ]
+  };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'auto', src: 'fallback.png' }, cfgWithLayerArt), 'data:image/png;base64,LAYERART');
+
+  // g) katman sentezi: source auto ise src boş olsa bile logo katmanı oluşturulabilir
+  const synthAuto = L.synthesize({ logo: { enabled: true, source: 'auto', src: '' } });
+  assert.ok(synthAuto.some((l) => l.kind === 'logo'), 'auto modda logo katmanı sentezlenmeli');
+  const synthManual = L.synthesize({ logo: { enabled: true, source: 'manual', src: '' } });
+  assert.strictEqual(synthManual.some((l) => l.kind === 'logo'), false, 'manual modda src boşken logo katmanı sentezlenmemeli');
 });
 

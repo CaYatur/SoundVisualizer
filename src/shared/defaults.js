@@ -240,6 +240,7 @@
 
     logo: {
       enabled: false,
+      source: 'auto', // 'auto' | 'manual' | 'track'
       src: null, // dataURL
       scale: 0.22, // ekranın kısa kenarına oran
       opacity: 1,
@@ -459,6 +460,7 @@
       lyricsName: '',
       nowPlaying: { title: '', artist: '' },
       nowSource: 'system', // 'system' = sistemden oku | 'manual' = elle yazılan
+      showArtwork: true, // Şarkı çaldığında albüm kapağını/resmini logo katmanında göster
     },
 
     // ------------------------------------------------------------------
@@ -475,6 +477,7 @@
     nowplaying: {
       enabled: true,
       source: 'system',   // 'system' | 'manual'
+      showArtwork: true,
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi

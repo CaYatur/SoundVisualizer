@@ -1257,6 +1257,7 @@ function wantsNowPlaying(cfg) {
   if (!cfg) return false;
   const systemNow = (n) => !!n && n.enabled !== false && (n.source || 'system') === 'system';
   const systemText = (t) => !!t && t.enabled !== false && t.source === 'now' && (t.nowSource || 'system') === 'system';
+  const wantsLogoArtwork = (lg) => !!lg && lg.enabled !== false && (lg.source === 'auto' || lg.source === 'track');
 
   if (cfg.visualizer && cfg.visualizer.type === 'nowplaying' && systemNow(cfg.nowplaying)) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'text' && systemText(cfg.text)) return true;
@@ -1268,6 +1269,19 @@ function wantsNowPlaying(cfg) {
     if (l.type === 'nowplaying' && systemNow(over.nowplaying || cfg.nowplaying)) return true;
     if (l.type === 'text' && systemText(over.text || cfg.text)) return true;
   }
+
+  const hasLyricsOrText = (cfg.text && cfg.text.enabled !== false && (cfg.text.source === 'now' || cfg.text.source === 'lyrics'))
+    || layers.some((l) => l && l.enabled !== false && ((l.type === 'text' && ((l.settings && l.settings.text && l.settings.text.enabled !== false) || (!l.settings && cfg.text && cfg.text.enabled !== false))) || l.type === 'nowplaying'));
+
+  if (hasLyricsOrText) {
+    if (wantsLogoArtwork(cfg.logo)) return true;
+    for (const l of layers) {
+      if (l && l.enabled !== false && l.kind === 'logo' && wantsLogoArtwork((l.settings && l.settings.logo) || cfg.logo)) {
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 

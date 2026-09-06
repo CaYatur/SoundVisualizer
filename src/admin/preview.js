@@ -110,6 +110,8 @@
   }
 
   function applyImages() {
+    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+    if (isStack) return;
     const on = !!(cfg.images && cfg.images.enabled);
     const items = on ? cfg.images.items || [] : [];
     const sig = on ? spriteSignature() : '';
@@ -127,8 +129,19 @@
 
   function applyMedia() {
     if (!media) return;
-    media.apply(cfg.media);
-    stack.bindMedia(cfg.media && cfg.media.enabled ? media.video : null);
+    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+      && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
+    const mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
+    let m = Object.assign({}, cfg.media, { enabled: mediaOn });
+    if (hasMediaLayer) {
+      const ml = cfg.layers.find((l) => l && l.kind === 'media' && l.enabled !== false);
+      if (ml && ml.settings && ml.settings.media) {
+        m = Object.assign({}, m, ml.settings.media, { enabled: true });
+      }
+    }
+    media.apply(m);
+    stack.bindMedia(mediaOn ? media.video : null);
   }
 
   // --------------------------------------------------------------------------

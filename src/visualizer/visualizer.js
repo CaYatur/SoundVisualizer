@@ -119,8 +119,18 @@
   }
 
   function applyMedia() {
-    mediaOn = !!(cfg.media && cfg.media.enabled);
-    media.apply(cfg.media);
+    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+      && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
+    mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
+    let m = Object.assign({}, cfg.media, { enabled: mediaOn });
+    if (hasMediaLayer) {
+      const ml = cfg.layers.find((l) => l && l.kind === 'media' && l.enabled !== false);
+      if (ml && ml.settings && ml.settings.media) {
+        m = Object.assign({}, m, ml.settings.media, { enabled: true });
+      }
+    }
+    media.apply(m);
   }
 
   // --------------------------------------------------------------------------
@@ -248,7 +258,9 @@
   function applyConfig(newCfg) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), newCfg);
 
-    sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
+    if (!window.SVLayers || !window.SVLayers.stackOn(cfg)) {
+      sprites.setItems(cfg.images && cfg.images.enabled ? cfg.images.items : []);
+    }
     applyMedia();
     applyScene();
     applyLogo();

@@ -227,10 +227,14 @@
         }, over || {}) },
       });
 
-      const logoLayer = (id) => ({ id, name: 'Logo', kind: 'logo' });
-      const logoAt = (over) => ({ logo: Object.assign({
+      const logoDef = {
         enabled: true, scale: 0.11, x: 0.1, y: 0.79, pulse: 0.06, glow: 0, opacity: 1,
-      }, over || {}) });
+      };
+      const logoLayer = (id, over) => ({
+        id, name: 'Logo', kind: 'logo',
+        settings: { logo: Object.assign({}, logoDef, over || {}) },
+      });
+      const logoAt = (over) => ({ logo: Object.assign({}, logoDef, over || {}) });
 
       const stack = (...layers) => ({ layerStack: { enabled: true }, layers });
 
@@ -260,7 +264,7 @@
             stack(
               { id: 'bca_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bca_bars', { color: '#ff4757', barCount: 72, barHeight: 0.26, baseline: 0.52 }),
-              logoLayer('bca_logo'),
+              logoLayer('bca_logo', { scale: 0.17, x: 0.115, y: 0.755 }),
               textLayer('bca_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.07, x: 0.225, y: 0.735 }),
               textLayer('bca_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.034, weight: 500, x: 0.225, y: 0.81 })
             ),
@@ -276,7 +280,7 @@
             stack(
               { id: 'bcn_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcn_bars', { color: '#ff2d95', barCount: 96, gap: 0.3, glow: 0.32, barSpan: 0.92, barHeight: 0.24, baseline: 0.45 }),
-              logoLayer('bcn_logo'),
+              logoLayer('bcn_logo', { scale: 0.13, x: 0.095, y: 0.75 }),
               textLayer('bcn_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.085, weight: 800, x: 0.2, y: 0.72 }),
               textLayer('bcn_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.038, weight: 600, x: 0.2, y: 0.81 })
             ),
@@ -292,7 +296,7 @@
             stack(
               { id: 'bcm_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcm_bars', { color: '#e8d21a', barCount: 60, gap: 0.45, barHeight: 0.3, baseline: 0.56 }),
-              logoLayer('bcm_logo'),
+              logoLayer('bcm_logo', { scale: 0.115, x: 0.1, y: 0.8 }),
               textLayer('bcm_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.06, y: 0.775 }),
               textLayer('bcm_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.031, weight: 500, y: 0.835 })
             ),
@@ -308,7 +312,7 @@
             stack(
               { id: 'bcw_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcw_bars', { color: '#ffffff', barCount: 80, gap: 0.5, glow: 0.05, barSpan: 0.88, barHeight: 0.2, baseline: 0.5 }),
-              logoLayer('bcw_logo'),
+              logoLayer('bcw_logo', { scale: 0.1, x: 0.095, y: 0.79 }),
               textLayer('bcw_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.055, y: 0.765 }),
               textLayer('bcw_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.028, weight: 500, y: 0.825 })
             ),
@@ -325,7 +329,7 @@
               { id: 'bcq_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcq_bars', { color: '#ffffff', barCount: 44, gap: 0.55, glow: 0.04,
                 barSpan: 0.26, barCenterX: 0.18, barHeight: 0.12, baseline: 0.72 }),
-              logoLayer('bcq_logo'),
+              logoLayer('bcq_logo', { scale: 0.085, x: 0.075, y: 0.87 }),
               textLayer('bcq_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.042, x: 0.15, y: 0.855 }),
               textLayer('bcq_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.024, weight: 500, x: 0.15, y: 0.9 })
             ),
@@ -342,7 +346,7 @@
               { id: 'bcc_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcc_bars', { color: '#38bdf8', barCount: 52, gap: 0.4,
                 barSpan: 0.3, barCenterX: 0.8, barHeight: 0.16, baseline: 0.85 }),
-              logoLayer('bcc_logo'),
+              logoLayer('bcc_logo', { scale: 0.1, x: 0.08, y: 0.86 }),
               textLayer('bcc_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.048, x: 0.155, y: 0.845 }),
               textLayer('bcc_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.026, weight: 500, x: 0.155, y: 0.895 })
             ),
@@ -363,7 +367,7 @@
                 { size: 0.058, align: 'center', x: 0.5, y: 0.3 }),
               textLayer('bcs_artist', 'Sanatçı', 'artist', 'ARTIST NAME',
                 { size: 0.03, weight: 500, align: 'center', x: 0.5, y: 0.37 }),
-              logoLayer('bcs_logo')
+              logoLayer('bcs_logo', { scale: 0.09, x: 0.5, y: 0.84 })
             ),
             { postfx: [fx('bloom', { threshold: 0.72, intensity: 0.35 })] }
           )),
@@ -595,6 +599,15 @@
      sızar ve kullanıcı "şablon bozuk" sanır.
 
      env: { defaultConfig, deepMerge, clone } — window.SV'nin karşılıkları. */
+  function getLayersApi(env) {
+    if (env && env.layers) return env.layers;
+    if (typeof window !== 'undefined' && window.SVLayers) return window.SVLayers;
+    if (typeof require !== 'undefined') {
+      try { return require('../visualizer/layers.js'); } catch { }
+    }
+    return null;
+  }
+
   function apply(cfg, tpl, env) {
     if (!cfg || !tpl || !env) return cfg;
     const { defaultConfig, deepMerge, clone } = env;
@@ -606,16 +619,31 @@
        korunur — yoksa başka bir şablon denemek kullanıcının logosunu ya da
        katman yığını düzenini kapatırdı. */
     const logoSrc = (cfg.logo && cfg.logo.src) || null;
+    const logoSource = (cfg.logo && cfg.logo.source) || null;
     const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
     const layerStackEnabled = cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : null;
+    const userLogo = (cfg.logo && typeof cfg.logo === 'object') ? clone(cfg.logo) : null;
     for (const k of SCENE_KEYS) {
       if (def[k] !== undefined) out[k] = clone(def[k]);
     }
     if (logoSrc) out.logo.src = logoSrc;
+    if (logoSource) out.logo.source = logoSource;
     const merged = deepMerge(out, tpl.patch);
-    if (logoEnabled !== null && (!tpl.patch.logo || tpl.patch.logo.enabled === undefined)) {
-      merged.logo = merged.logo || {};
-      merged.logo.enabled = logoEnabled;
+    if (!tpl.patch.logo && userLogo) {
+      merged.logo = Object.assign({}, userLogo);
+    } else {
+      if (logoEnabled !== null && (!tpl.patch.logo || tpl.patch.logo.enabled === undefined)) {
+        merged.logo = merged.logo || {};
+        merged.logo.enabled = logoEnabled;
+      }
+      if (logoSrc) {
+        merged.logo = merged.logo || {};
+        merged.logo.src = logoSrc;
+      }
+      if (logoSource) {
+        merged.logo = merged.logo || {};
+        merged.logo.source = logoSource;
+      }
     }
     if (layerStackEnabled !== null && (!tpl.patch.layerStack || tpl.patch.layerStack.enabled === undefined)) {
       merged.layerStack = merged.layerStack || {};
@@ -625,7 +653,30 @@
        bilinçli: bir şablonun efekt zinciri öncekinin ÜSTÜNE eklenmemeli,
        onun YERİNE geçmeli. */
     if (tpl.patch.postfx) merged.postfx = clone(tpl.patch.postfx);
-    if (tpl.patch.layers) merged.layers = clone(tpl.patch.layers);
+    const layersApi = getLayersApi(env);
+    if (tpl.patch.layers) {
+      merged.layers = clone(tpl.patch.layers);
+      merged.layers.forEach((ly) => {
+        if (ly && ly.kind === 'logo') {
+          ly.settings = ly.settings || {};
+          ly.settings.logo = ly.settings.logo || {};
+          if (logoSrc) ly.settings.logo.src = logoSrc;
+          if (logoSource) ly.settings.logo.source = logoSource;
+        }
+      });
+    } else if (layerStackEnabled) {
+      // Şablonda açık katman listesi yoksa ve katman yığını açıksa,
+      // önceki şablondan kalan eski katmanların (metinler, eski logolar,
+      // önceki görselleştiriciler) üst üste binmesini önlemek için
+      // yeni şablonun temiz sahnesinden katmanlar yeniden sentezlenir.
+      if (layersApi && typeof layersApi.synthesize === 'function') {
+        merged.layers = layersApi.synthesize(merged);
+      } else {
+        merged.layers = [];
+      }
+    } else {
+      merged.layers = [];
+    }
     if (tpl.patch.modulation && tpl.patch.modulation.routes) {
       merged.modulation = merged.modulation || clone(def.modulation);
       merged.modulation.routes = clone(tpl.patch.modulation.routes);

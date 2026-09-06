@@ -79,20 +79,48 @@ try {
   exit 1
 }
 $epoch = [datetime]'1970-01-01T00:00:00Z'
+$lastTrackKey = ''
+$lastArtwork = ''
 while ($true) {
   try {
     $s = $mgr.GetCurrentSession()
-    if ($null -eq $s) { $o = @{ ok = $true; has = $false } }
-    else {
+    if ($null -eq $s) {
+      $lastTrackKey = ''
+      $lastArtwork = ''
+      $o = @{ ok = $true; has = $false }
+    } else {
       $p = Await ($s.TryGetMediaPropertiesAsync()) ($PROP_T)
       $tl = $s.GetTimelineProperties()
       $pi = $s.GetPlaybackInfo()
+      $curTrackKey = "$($p.Title)|$($p.Artist)|$($p.AlbumTitle)"
+      if ($curTrackKey -ne $lastTrackKey) {
+        $lastTrackKey = $curTrackKey
+        $lastArtwork = ''
+        if ($null -ne $p.Thumbnail) {
+          try {
+            $tStream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime])
+            if ($null -ne $tStream -and $tStream.Size -gt 0) {
+              $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($tStream)
+              $ms = New-Object System.IO.MemoryStream
+              $netStream.CopyTo($ms)
+              $bytes = $ms.ToArray()
+              $ms.Dispose()
+              $netStream.Dispose()
+              $tStream.Dispose()
+              if ($bytes.Length -gt 0) {
+                $lastArtwork = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($bytes)
+              }
+            }
+          } catch {}
+        }
+      }
       $o = @{
         ok = $true; has = $true
         app = [string]$s.SourceAppUserModelId
         title = [string]$p.Title
         artist = [string]$p.Artist
         album = [string]$p.AlbumTitle
+        artwork = $lastArtwork
         position = $tl.Position.TotalSeconds
         duration = $tl.EndTime.TotalSeconds
         updated = [math]::Round(($tl.LastUpdatedTime.UtcDateTime - $epoch).TotalMilliseconds)
@@ -109,7 +137,7 @@ while ($true) {
 `;
 
 const EMPTY = {
-  has: false, playing: false, title: '', artist: '', album: '', app: '',
+  has: false, playing: false, title: '', artist: '', album: '', artwork: '', app: '',
   position: 0, duration: 0, updated: 0, received: 0,
 };
 
@@ -123,6 +151,7 @@ function differs(a, b) {
     || a.title !== b.title
     || a.artist !== b.artist
     || a.album !== b.album
+    || a.artwork !== b.artwork
     || a.app !== b.app
     || a.updated !== b.updated
     || Math.abs(a.duration - b.duration) > 0.5;
@@ -263,7 +292,12 @@ class MediaSession {
     proc.on('exit', () => {
       if (this.proc !== proc) return; // biz öldürdük
       this.proc = null;
-      if (isNative && this.failures === 0) {
+      if (isNative && this.failures < 2) {
+        this.failures++;
+        this.timer = setTimeout(() => { this.timer = null; if (this.want) this._spawn(); }, 1000);
+        return;
+      }
+      if (isNative) {
         this._spawnFallbackPowerShell();
         return;
       }
@@ -280,7 +314,7 @@ class MediaSession {
       if (line) this._onLine(line);
     }
     // Bir satır anormal uzunsa tamponu boşalt (bozuk çıktıda şişmesin)
-    if (this.buf.length > 65536) this.buf = '';
+    if (this.buf.length > 2097152) this.buf = '';
   }
 
   _onLine(line) {
@@ -308,6 +342,7 @@ class MediaSession {
         title: String(o.title || ''),
         artist: String(o.artist || ''),
         album: String(o.album || ''),
+        artwork: String(o.artwork || ''),
         app: String(o.app || ''),
         position: Number(o.position) || 0,
         duration: Number(o.duration) || 0,
@@ -321,16 +356,17 @@ class MediaSession {
     this._emit();
   }
 
-  /* Yeniden deneme. Geri çekilerek; sürekli başarısız olursa pes eder ki
-     kullanıcının makinesinde saniyede bir süreç doğmasın. */
+  /* Yeniden deneme. Geri çekilerek; sürekli başarısız olursa pes etmek yerine
+     aralığı açar ve arka planda çalışmaya devam eder. */
   _fail() {
     if (!this.want) return;
     this.failures++;
     if (this.failures >= MAX_FAILURES) {
-      this.supported = false;
-      this.want = false;
       if (!this.lastError) this.lastError = 'medya oturumu açılamadı';
       if (this.state.has) { this.state = Object.assign({}, EMPTY); this._emit(); }
+      this.failures = 0;
+      this._clearTimers();
+      this.timer = setTimeout(() => { this.timer = null; if (this.want) this._spawn(); }, 20000);
       return;
     }
     const wait = BACKOFF_MS[Math.min(this.failures - 1, BACKOFF_MS.length - 1)];
