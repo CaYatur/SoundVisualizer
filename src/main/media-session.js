@@ -83,6 +83,8 @@ $lastTrackKey = ''
 $lastArtwork = ''
 $lastArtworkHash = ''
 $prevArtworkHash = ''
+$staleHashes = New-Object 'System.Collections.Generic.HashSet[string]'
+$currentHashes = New-Object 'System.Collections.Generic.HashSet[string]'
 $artworkConfirmed = $false
 $sameAsPrevStreak = 0
 $candidateArtwork = ''
@@ -95,6 +97,8 @@ while ($true) {
       $lastArtwork = ''
       $lastArtworkHash = ''
       $prevArtworkHash = ''
+      $staleHashes.Clear()
+      $currentHashes.Clear()
       $artworkConfirmed = $false
       $sameAsPrevStreak = 0
       $candidateArtwork = ''
@@ -107,6 +111,11 @@ while ($true) {
       $curTrackKey = "$($p.Title)|$($p.Artist)|$($p.AlbumTitle)"
       if ($curTrackKey -ne $lastTrackKey) {
         $lastTrackKey = $curTrackKey
+        $staleHashes.Clear()
+        foreach ($h in $currentHashes) { [void]$staleHashes.Add($h) }
+        if ($lastArtworkHash -ne '') { [void]$staleHashes.Add($lastArtworkHash) }
+        if ($prevArtworkHash -ne '') { [void]$staleHashes.Add($prevArtworkHash) }
+        $currentHashes.Clear()
         $prevArtworkHash = $lastArtworkHash
         $lastArtwork = ''
         $lastArtworkHash = ''
@@ -115,45 +124,43 @@ while ($true) {
         $candidateArtwork = ''
         $candidateHash = ''
       }
-      if (-not [string]::IsNullOrWhiteSpace([string]$p.Title) -and $null -ne $p.Thumbnail -and (-not $artworkConfirmed -or $true)) {
-        if ($null -ne $p.Thumbnail) {
-          try {
-            $tStream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime])
-            if ($null -ne $tStream -and $tStream.Size -gt 0) {
-              $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($tStream)
-              $ms = New-Object System.IO.MemoryStream
-              $netStream.CopyTo($ms)
-              $bytes = $ms.ToArray()
-              $ms.Dispose()
-              $netStream.Dispose()
-              $tStream.Dispose()
-              if ($bytes.Length -gt 0) {
-                $sha = [System.Security.Cryptography.SHA256]::Create()
-                $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
-                $sha.Dispose()
-                $art = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($bytes)
-                $sameAsPrev = ($prevArtworkHash -ne '' -and $hash -eq $prevArtworkHash)
-                if ($sameAsPrev) {
-                  $candidateArtwork = $art
-                  $candidateHash = $hash
-                  $sameAsPrevStreak++
-                  if (-not $lastArtwork -and $sameAsPrevStreak -ge 2) {
-                    $lastArtwork = $candidateArtwork
-                    $lastArtworkHash = $candidateHash
-                  }
-                  if ($sameAsPrevStreak -ge 10) { $artworkConfirmed = $true }
-                } else {
-                  if ($hash -ne $lastArtworkHash) {
-                    $lastArtwork = $art
-                    $lastArtworkHash = $hash
-                  }
-                  $artworkConfirmed = $true
-                  $sameAsPrevStreak = 0
+      if (-not $artworkConfirmed -and -not [string]::IsNullOrWhiteSpace([string]$p.Title) -and $null -ne $p.Thumbnail) {
+        try {
+          $tStream = Await ($p.Thumbnail.OpenReadAsync()) ([Windows.Storage.Streams.IRandomAccessStreamWithContentType, Windows.Storage.Streams, ContentType = WindowsRuntime])
+          if ($null -ne $tStream -and $tStream.Size -gt 0) {
+            $netStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($tStream)
+            $ms = New-Object System.IO.MemoryStream
+            $netStream.CopyTo($ms)
+            $bytes = $ms.ToArray()
+            $ms.Dispose()
+            $netStream.Dispose()
+            $tStream.Dispose()
+            if ($bytes.Length -gt 0) {
+              $sha = [System.Security.Cryptography.SHA256]::Create()
+              $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+              $sha.Dispose()
+              $art = 'data:image/jpeg;base64,' + [Convert]::ToBase64String($bytes)
+              [void]$currentHashes.Add($hash)
+              $sameAsPrev = (($prevArtworkHash -ne '' -and $hash -eq $prevArtworkHash) -or $staleHashes.Contains($hash))
+              if ($sameAsPrev) {
+                $candidateArtwork = $art
+                $candidateHash = $hash
+                $sameAsPrevStreak++
+                if (-not $lastArtwork -and $sameAsPrevStreak -ge 2) {
+                  $lastArtwork = $candidateArtwork
+                  $lastArtworkHash = $candidateHash
                 }
+              } else {
+                if ($hash -ne $lastArtworkHash) {
+                  $lastArtwork = $art
+                  $lastArtworkHash = $hash
+                }
+                $artworkConfirmed = $true
+                $sameAsPrevStreak = 0
               }
             }
-          } catch {}
-        }
+          }
+        } catch {}
       }
       $o = @{
         ok = $true; has = $true

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -47,6 +48,9 @@ public static class Program
     private static string? _lastArtwork;
     private static string? _lastArtworkHash;
     private static string? _prevTrackArtworkHash;
+    private static readonly object _hashLock = new();
+    private static readonly HashSet<string> _staleArtworkHashes = new();
+    private static readonly HashSet<string> _currentTrackHashes = new();
     private static string? _artworkTrackKey;
     private static bool _artworkConfirmed;
     private static int _artworkSchedules;
@@ -169,12 +173,18 @@ public static class Program
        kapağı yeniden oku; kilitli “aynı albüm” kabulünü boz. */
     private static void OnMediaPropertiesChanged(object? sender, object? args)
     {
+        _artworkConfirmed = false;
         RequestEmit();
         RequestArtworkRecheck();
     }
 
     private static void RequestArtworkRecheck()
     {
+        if (Volatile.Read(ref _artworkFetchBusy) == 1)
+        {
+            Interlocked.Exchange(ref _artworkRecheckPending, 1);
+            return;
+        }
         GlobalSystemMediaTransportControlsSession? session;
         string? key;
         lock (_sessionLock) { session = _session; key = _lastTrackKey; }
@@ -246,6 +256,7 @@ public static class Program
             if (trackKey != _lastTrackKey)
             {
                 _lastTrackKey = trackKey;
+                RememberStaleHashes();
                 _prevTrackArtworkHash = _lastArtworkHash;
                 _lastArtwork = null;
                 _lastArtworkHash = null;
@@ -285,6 +296,32 @@ public static class Program
         }
     }
 
+    private static void RememberStaleHashes()
+    {
+        lock (_hashLock)
+        {
+            _staleArtworkHashes.Clear();
+            foreach (var h in _currentTrackHashes) _staleArtworkHashes.Add(h);
+            if (!string.IsNullOrEmpty(_lastArtworkHash)) _staleArtworkHashes.Add(_lastArtworkHash);
+            if (!string.IsNullOrEmpty(_prevTrackArtworkHash)) _staleArtworkHashes.Add(_prevTrackArtworkHash);
+            _currentTrackHashes.Clear();
+        }
+    }
+
+    private static bool IsStaleHash(string hash)
+    {
+        lock (_hashLock)
+        {
+            return (!string.IsNullOrEmpty(_prevTrackArtworkHash) && hash == _prevTrackArtworkHash)
+                   || _staleArtworkHashes.Contains(hash);
+        }
+    }
+
+    private static void NoteCurrentHash(string hash)
+    {
+        lock (_hashLock) { _currentTrackHashes.Add(hash); }
+    }
+
     private static void ResetArtworkState(bool clearPrevious)
     {
         _lastArtwork = null;
@@ -293,9 +330,16 @@ public static class Program
         _artworkConfirmed = false;
         _artworkSchedules = 0;
         Interlocked.Exchange(ref _artworkFetchBusy, 0);
-        if (clearPrevious) _prevTrackArtworkHash = null;
-    }Interlocked.Exchange(ref _artworkRecheckPending, 0);
-        if (clearPrevious) _prevTrackArtworkHash = null;
+        Interlocked.Exchange(ref _artworkRecheckPending, 0);
+        lock (_hashLock)
+        {
+            _currentTrackHashes.Clear();
+            if (clearPrevious)
+            {
+                _prevTrackArtworkHash = null;
+                _staleArtworkHashes.Clear();
+            }
+        }
     }
 
     private static void StartArtworkFetch(GlobalSystemMediaTransportControlsSession session, string expectedTrackKey, bool isRecheck = false)
@@ -304,9 +348,8 @@ public static class Program
         if (!isRecheck && _artworkConfirmed) return;
         if (!isRecheck && _artworkSchedules >= 8)
         {
-            // Uzun süre yalnızca önceki kapak geldiyse aynı albüm olabilir; yine de
-            // MediaPropertiesChanged ile yeniden kontrol açık kalır (isRecheck).
-            _artworkConfirmed = _lastArtwork is not null;
+            // Uzun süre yalnızca önceki kapak geldiyse yoklamayı kes; SMTC
+            // MediaPropertiesChanged ile gecikmeli gerçek kapağı bildirince yeniden okunur.
             return;
         }
 
@@ -351,9 +394,9 @@ public static class Program
 
                         var hash = HashBytes(read.Value.Bytes);
                         var art = ToDataUrl(read.Value.Bytes, read.Value.ContentType);
-                        var sameAsPrev = _prevTrackArtworkHash is not null && hash == _prevTrackArtworkHash;
+                        NoteCurrentHash(hash);
 
-                        if (sameAsPrev)
+                        if (IsStaleHash(hash))
                         {
                             candidateArt = art;
                             candidateHash = hash;
@@ -398,7 +441,8 @@ public static class Program
                 }
                 else
                 {
-                    Interlocked.Exchange(ref _artworkRecheckPending, 1
+                    Interlocked.Exchange(ref _artworkRecheckPending, 1);
+                }
             }
         });
     }
