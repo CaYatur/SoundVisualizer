@@ -71,6 +71,13 @@
      yuvalar adlandırılabilir. Sabit bir liste tutmak, 6x6 ızgarayı 36
      ölü satırla doldurur ve kullanıcı ızgarayı büyütünce eskirdi.
      Yalnızca DOLU yuvalar listelenir; boş hücreyi eşlemek anlamsız. */
+  /* Deste etiketleri kullanıcının verdiği adlarla BİRLEŞTİRİLİYOR. Çeviri
+     tam dize eşleşmesiyle çalıştığı için "Yuva (1×1)" ya da "Satır Intro"
+     gibi birleşimler sözlükte bulunamıyordu ve İngilizce arayüzde Türkçe
+     kalıyorlardı. Sabit kelimeyi burada çevirip kullanıcının adına
+     dokunmuyoruz. */
+  const T = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+
   function deckTargets() {
     const out = [];
     const cfg = P() && P().cfg();
@@ -83,13 +90,13 @@
       for (const slot of window.SVClipDeck.slotList(deck)) {
         out.push({
           action: 'deckSlot:' + deck.id + ':' + slot.row + ':' + slot.col,
-          label: '🎛 Deste · ' + (slot.name || slot.ref || 'Yuva') + ' (' + (slot.row + 1) + '×' + (slot.col + 1) + ')',
+          label: '🎛 Deste · ' + (slot.name || slot.ref || T('Yuva')) + ' (' + (slot.row + 1) + '×' + (slot.col + 1) + ')',
         });
         if (!named.has(slot.row)) {
           named.add(slot.row);
           out.push({
             action: 'deckRow:' + deck.id + ':' + slot.row,
-            label: '▶ Deste · Satır ' + (deck.rowNames[slot.row] || slot.row + 1),
+            label: '▶ Deste · ' + T('Satır') + ' ' + (deck.rowNames[slot.row] || slot.row + 1),
           });
         }
       }

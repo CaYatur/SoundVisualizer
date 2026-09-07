@@ -151,6 +151,8 @@
         h, s, l,
         weight: bkt.weight,
         isNeutral: i >= BUCKET_COUNT,
+        // Kapaktan GERÇEKTEN ölçülen renk; aşağıdaki dolgulardan ayırt edilmeli
+        derived: false,
       });
     }
 
@@ -167,20 +169,30 @@
       }
     }
 
-    // Yeterli renk bulunamadıysa armonik türevler ekle
+    /* Hiçbir kova üç piksele ulaşamadıysa (çok küçük ya da çok dağınık bir
+       görsel) elimizdeki tek bilgi piksel ortalaması. Tonu ORTALAMADAN
+       okunmalı: sabit bir ton yazılırsa aşağıdaki dolgular o sabit tondan
+       türeyip kapakla ilgisi olmayan bir palet üretir — kırmızı bir kapak
+       mor bir tema verirdi. */
     if (selected.length === 0) {
       const avgR = Math.round(dominantR / sampledCount);
       const avgG = Math.round(dominantG / sampledCount);
       const avgB = Math.round(dominantB / sampledCount);
+      const [avgH, avgS, avgL] = rgbToHsl(avgR, avgG, avgB);
       selected.push({
         rgb: [avgR, avgG, avgB],
-        hex: hslToHex(...rgbToHsl(avgR, avgG, avgB)),
-        h: 210, s: 0.6, l: 0.5, weight: 1,
+        hex: hslToHex(avgH, avgS, avgL),
+        h: avgH, s: avgS, l: avgL,
+        weight: 1,
+        derived: false,
       });
     }
 
+    /* Beşe tamamlarken ölçülen renkler SIRAYLA taban alınır. Hepsini ilk
+       renkten türetmek paleti tek bir tona bağlardı. */
+    const measured = selected.length;
     while (selected.length < count) {
-      const base = selected[selected.length % selected.length];
+      const base = selected[(selected.length - measured) % measured];
       const offset = (selected.length * 35) % 360;
       const newH = (base.h + offset) % 360;
       const newL = clamp(base.l + (selected.length % 2 === 0 ? 0.18 : -0.18), 0.15, 0.85);
@@ -189,7 +201,9 @@
       selected.push({
         rgb: hexToRgb(hex),
         hex,
-        h: newH, s: newS, l: newL, weight: base.weight * 0.5,
+        h: newH, s: newS, l: newL,
+        weight: base.weight * 0.5,
+        derived: true,
       });
     }
 
@@ -198,8 +212,22 @@
 
     const colors = selected.slice(0, count).map((s) => s.hex);
 
-    // En canlı vurgu rengini görselleştirici ana rengi yap
-    const vibrant = selected.slice().sort((a, b) => (b.s * 1.5 + b.l) - (a.s * 1.5 + a.l));
+    /* Görselleştirici ana rengi: en canlı olan.
+
+       Ama önce KAPAKTA GERÇEKTEN OLAN renkler geliyor. Dolgu renkleri
+       doygunluğu 0.95'e kıstırılıp aydınlığı 0.68'e itilerek üretiliyor;
+       canlılık puanı (s*1.5 + l) bir dolguya 2.105, saf kırmızıya 2.0
+       veriyordu. Yani tek renkli bir kapakta ana renk, kapakta HİÇ
+       BULUNMAYAN bir renk oluyordu — düz kırmızı bir görselden sarı-yeşil.
+       Oysa özelliğin tamamı "rengi kapaktan al" demek.
+
+       Kullanılabilirlik önce bakılıyor: siyaha yakın bir kapağın kendi
+       renkleri sadık ama görselleştiricide görünmez olurdu, orada dolguya
+       düşmek doğru. */
+    const usable = (c) => c.l >= 0.2 && c.l <= 0.9;
+    const rank = (c) => (usable(c) ? 0 : 2) + (c.derived ? 1 : 0);
+    const vibrancy = (c) => c.s * 1.5 + c.l;
+    const vibrant = selected.slice().sort((a, b) => rank(a) - rank(b) || vibrancy(b) - vibrancy(a));
     const primaryColor = vibrant[0] ? vibrant[0].hex : colors[2] || '#3aa6ff';
     const secondaryColor = vibrant[1] ? vibrant[1].hex : colors[4] || '#d24bff';
 
@@ -384,13 +412,13 @@
     [['neon', 'light', 'bright', 'cyber', 'future', 'electric', 'star', 'glow'], 175, 0.95, 0.58],
   ];
 
-  function generateMoodPalette(title, artist, randFunc) {
+  /* Palet parçadan DETERMİNİSTİK olarak türetilir: aynı şarkı her çalışında
+     aynı rengi alsın diye. Burada rastgelelik yok — daha önce imzada bir
+     `randFunc` parametresi vardı ama gövde onu hiç çağırmıyordu, yani
+     verilen fonksiyon sessizce yok sayılıyordu. Kaldırıldı. */
+  function generateMoodPalette(title, artist) {
     const text = ((title || '') + ' ' + (artist || '')).toLowerCase();
     const seed = hashString(text);
-    const rand = typeof randFunc === 'function' ? randFunc : function () {
-      let s = (seed ^ (seed << 13)) >>> 0;
-      return (s % 1000) / 1000;
-    };
 
     let targetHue = -1;
     let targetSat = 0.7;

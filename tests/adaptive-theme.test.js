@@ -176,6 +176,39 @@ test('üç pikselden az kovada ortalama renk paletin içinde kalır', () => {
   assert.ok(res.colors.includes(ort), 'ortalama renk yok: ' + res.colors.join(','));
 });
 
+/* Ana renk KAPAKTAN gelmeli.
+   Dolgu renkleri doygunluğu 0.95'e kıstırılıp aydınlığı 0.68'e itilerek
+   üretiliyor; canlılık puanı (s*1.5 + l) bir dolguya 2.105, saf kırmızıya
+   2.0 veriyordu. Yani tek renkli bir kapakta ana renk kapakta HİÇ
+   BULUNMAYAN bir renk oluyordu — düz kırmızıdan sarı-yeşil çıkıyordu. */
+test('tek renkli kapakta ana renk kapağın kendi rengi', () => {
+  const res = A.extractPaletteFromPixels(solid(255, 0, 0, 400), 20, 20);
+  assert.strictEqual(res.color, '#ff0000');
+});
+
+test('ana renk her zaman paletin içinden seçilir', () => {
+  const kapaklar = [
+    solid(255, 0, 0, 400),
+    solid(40, 90, 200, 400),
+    solid(128, 128, 128, 400),
+  ];
+  for (const px of kapaklar) {
+    const res = A.extractPaletteFromPixels(px, 20, 20);
+    assert.ok(res.colors.includes(res.color), 'ana renk palette yok: ' + res.color);
+    assert.ok(res.colors.includes(res.color2), 'ikincil renk palette yok: ' + res.color2);
+  }
+});
+
+/* Sadakatin sınırı: siyaha yakın bir kapağın KENDİ renkleri sadık olurdu
+   ama görselleştiricide görünmezdi. Orada kullanılabilirlik öne geçip
+   türetilmiş, daha açık bir renk seçiliyor. Bu kasıtlı. */
+test('çok koyu kapakta ana renk görünür olacak kadar açık seçilir', () => {
+  const res = A.extractPaletteFromPixels(solid(6, 6, 9, 400), 20, 20);
+  const [r, g, b] = A.hexToRgb(res.color);
+  const l = A.rgbToHsl(r, g, b)[2];
+  assert.ok(l >= 0.2, 'ana renk görünmeyecek kadar koyu: ' + res.color + ' (l=' + l.toFixed(3) + ')');
+});
+
 test('istenen renk sayısı değiştirilebilir', () => {
   const res = A.extractPaletteFromPixels(solid(100, 160, 40, 400), 20, 20, { count: 3 });
   assert.strictEqual(res.colors.length, 3);
