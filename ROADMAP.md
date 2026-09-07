@@ -451,12 +451,23 @@ whatever the system is mixing.
   13+, Linux needs PipeWire or PulseAudio. **Neither has been verified on
   real hardware.**
 
-Measured on Windows 11 build 28020: capturing a browser playing music gave
-299 packets / 143,520 frames in 3 s at 48 kHz, peak amplitude 0.21; excluding
-that same browser gave peak 0.0000, as did targeting an application that was
-not playing. End to end through the analysis pipeline, one application gave a
-peak bin of 236/255, and mixing two applications with the default output
-device gave 255.
+Measured on Windows 11 build 28020, against the packaged build — the helper
+resolved from `resources/bin`, the path that only exists on a user machine:
+a browser playing music gave 299 packets / 143,520 frames in 3 s at 48 kHz,
+peak amplitude 0.21. End to end through the analysis pipeline, one
+application gave a peak bin of 236/255, and mixing two applications with the
+default output device gave 255.
+
+Exclude took two measurements rather than one, because a single one cannot
+tell filtering apart from a dead stream. Excluding the browser that was
+playing gave peak 0; excluding a *different*, silent application gave peak
+247. The second is what carries the claim: the stream is alive and passes
+everything else through, and it is the named application that disappears
+from it.
+
+Only applications with a live audio session can be picked from the list —
+that is where the list comes from. A saved target outlives the session: it
+is stored by name, so closing and reopening the application re-attaches it.
 
 ### Also landed in this release
 
