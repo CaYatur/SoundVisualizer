@@ -91,6 +91,50 @@
     return out;
   }
 
+  /* Metin katmanı fabrikası.
+
+     Metin bir kind değil, visualizer türünün bir alt tipi. Katman ekleme
+     sırası yalnızca kind düğmeleri ürettiği için yazı / şarkı sözü /
+     sanatçı adı şablon dışında eklenemiyordu. Panel bu yardımcıyı
+     kullanır; şablonlardaki textLayer() ile aynı kaynak sözleşmesini
+     üretir (settings.text.enabled + source/field). */
+  function makeTextLayer(spec) {
+    const s = spec || {};
+    const source = s.source || 'static';
+    const align = s.align || (source === 'now' ? 'left' : 'center');
+    const text = {
+      enabled: true,
+      source,
+      content: s.content != null ? s.content : (source === 'static' ? 'CAYADEV' : ''),
+      size: s.size == null ? (source === 'static' ? 0.09 : source === 'lyrics' ? 0.07 : 0.06) : s.size,
+      align,
+      x: s.x == null ? (align === 'left' ? 0.2 : 0.5) : s.x,
+      y: s.y == null ? (source === 'static' ? 0.5 : source === 'lyrics' ? 0.82 : 0.78) : s.y,
+      weight: s.weight == null ? (source === 'now' ? 800 : 700) : s.weight,
+      animation: s.animation || 'fade',
+      audioScale: s.audioScale == null ? (source === 'now' ? 0 : 0.12) : s.audioScale,
+    };
+    if (source === 'now') {
+      text.field = s.field || 'both';
+      text.nowSource = s.nowSource || 'system';
+      text.nowPlaying = { title: '', artist: '' };
+      text.showArtwork = s.showArtwork !== false;
+      if (text.field === 'title') text.nowPlaying.title = text.content;
+      if (text.field === 'artist') text.nowPlaying.artist = text.content;
+    }
+    if (source === 'lyrics') {
+      text.lyricsSource = '';
+      text.lyricsName = '';
+      text.karaoke = true;
+    }
+    return normalizeLayer({
+      name: s.name || 'Metin',
+      kind: 'visualizer',
+      type: 'text',
+      settings: { text },
+    });
+  }
+
   /* Eski (katmansız) yapılandırmadan katman listesi üretir.
      Sıra, v2.0'daki z-index yığınının birebir aynısıdır:
        arkaplan → (medya arkada) → sprite arka → görselleştirici →
@@ -1285,6 +1329,7 @@
     BLEND_MODES,
     KINDS,
     normalizeLayer,
+    makeTextLayer,
     newLayerId,
     synthesize,
     resolve,

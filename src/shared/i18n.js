@@ -869,6 +869,10 @@
     'Bant': 'Band', 'Ses → Saydamlık': 'Audio → Opacity', 'Ses → Ölçek': 'Audio → Scale', 'Ses → Dönüş': 'Audio → Rotation',
     'Görsel Nesneler': 'Visual Objects', 'Arka Katman': 'Back Layer', 'Ön Katman': 'Front Layer',
     'Henüz Studio preseti yok.': 'No Studio preset yet.',
+    'Şarkı Sözü': 'Lyrics',
+    'Sanatçı Adı': 'Artist Name',
+    'Gösterilen Alan': 'Displayed Field',
+    'Parça ve Sanatçı': 'Track and Artist',
 
     // Karışım modları
     'Toplama': 'Add', 'Ekran': 'Screen', 'Kaplama': 'Overlay',
@@ -1272,6 +1276,8 @@
     'Sarmal IFS': 'Spiral IFS',
     'Açı': 'Angle',
     'Nokta': 'Points',
+    'Katı geometri ağı bir kez kurulup GPU\'da kalır; sese bağlı bozulma vertex shader\'da yapılır. Nokta bulutu üreten şekillerde (IFS) çizim kipi otomatik olarak nokta olur.':
+      'The solid geometry mesh is built once and stays on the GPU; audio-driven deformation is done in the vertex shader. In shapes that generate point clouds (IFS), the draw mode automatically becomes points.',
 
     // ---- Yerleşik shader kitaplığı ----
     'Bulut Katmanları': 'Cloud Layers',
@@ -1493,6 +1499,8 @@
     'Karaoke Vurgusu': 'Karaoke Highlight',
     'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC dosyasındaki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.':
       'LRC and SRT are both supported, and the format is detected from the file contents. If enhanced LRC word timings are present the karaoke highlight moves word by word; otherwise it sweeps evenly across the line.',
+    'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.':
+      'LRC and SRT are supported; format is detected from file content. If word timings exist in enhanced LRC, karaoke highlighting advances word-by-word, otherwise it flows smoothly across the line.',
     'Yazı': 'Type',
     'Yazı Tipi': 'Typeface',
     'Sistem': 'System',
@@ -1530,6 +1538,14 @@
 
     'Metin': 'Text',
     'Metin / Şarkı Sözü': 'Text / Lyrics',
+    'Metin Kaynağı': 'Text Source',
+    'Yazı Metni': 'Text Content',
+    'Yazı Boyutu': 'Font Size',
+    'Örn: Bohemian Rhapsody': 'e.g. Bohemian Rhapsody',
+    'Örn: Queen': 'e.g. Queen',
+    'Örn: Sanatçı Adı': 'e.g. Artist Name',
+    'Örn: Şarkı Başlığı': 'e.g. Song Title',
+    'Örn: Şarkı Adı': 'e.g. Song Name',
 
     // ---- Çalan Parça (Now Playing) ve Şeffaf Arkaplan ----
     'Çalan Parça': 'Now Playing',
@@ -1587,6 +1603,50 @@
     'İkincil Yazı': 'Secondary Text',
     'Çubuk': 'Progress Bar',
     'Etkin': 'Enabled',
+    'Canlı Medya': 'Live Media',
+    'Yedek Başlık': 'Fallback Title',
+    'Yedek Sanatçı': 'Fallback Artist',
+    'Yedek Parça Adı': 'Fallback Track Title',
+    'Sistemden Otomatik Doldur': 'Auto Fill from System',
+    'Yalnızca Windows': 'Windows Only',
+    'Bu özellik şu anda yalnızca Windows (SMTC) üzerinde desteklenmektedir.':
+      'This feature is currently only supported on Windows (SMTC).',
+    'Sistem medya oturumunu (SMTC) otomatik okuma şu anda yalnızca Windows’ta desteklenmektedir. Başlık ve sanatçı bilgilerini aşağıdan elle girebilirsiniz.':
+      'Automatic reading of the system media session (SMTC) is currently only supported on Windows. You can manually enter title and artist details below.',
+    'Sistem medya oturumundan (Spotify, YouTube vb.) çalan parça otomatik okunur. Çalmadığında aşağıdaki yedek bilgiler gösterilir.':
+      'The playing track is automatically read from the system media session (Spotify, YouTube, etc.). When nothing is playing, the fallback details below are shown.',
+    'Sistem medya oturumundan (Spotify, YouTube, tarayıcı vb.) çalan parça otomatik okunur. Çalan bir şey olmadığında yukarıdaki yedek bilgiler gösterilir.':
+      'The playing track is automatically read from the system media session (Spotify, YouTube, browser, etc.). When nothing is playing, the fallback details above are shown.',
+    'Sistemde çalan aktif parça bulunamadı.': 'No active playing track found on the system.',
+    'Sistemde şarkı yokken gösterilecek başlık': 'Title to display when no song is playing on the system',
+    'Sistemde şarkı yokken gösterilecek sanatçı': 'Artist to display when no song is playing on the system',
+    'Şu an sistemde çalan parçanın başlık ve sanatçısını aşağıdaki yedek kutularına yazar.':
+      'Writes the title and artist of the currently playing track into the fallback boxes below.',
+    'Çalan parçanın adını ve sanatçısını aşağıdaki yedek kutularına aktarır.':
+      'Transfers the title and artist of the playing track to the fallback boxes below.',
+    'Çalan parça bilgileri yedek alanlara aktarıldı.': 'Playing track details transferred to fallback fields.',
+    'Şarkı bilgileri alanlara yazıldı.': 'Song details written to fields.',
+    'Şarkı Resmini Göster': 'Show Song Artwork',
+    'Resim Kaynağı': 'Image Source',
+    'Özel Logo Görseli': 'Custom Logo Image',
+    'Otomatik mod: Çalan şarkının kapağı varsa gösterilir; parça çalmıyorsa veya kapağı yoksa bu özel resim gösterilir.':
+      'Auto mode: Shows playing track\'s cover art if available; if not playing or has no cover, this custom image is shown.',
+    'Yalnızca çalan şarkının albüm kapağı/resmi gösterilir. Şarkı sözü / çalan parça sistemi aktifken şarkı çalınca otomatik devreye girer.':
+      'Only the album cover/artwork of the playing track is shown. Automatically activates when a song plays while the lyrics / now-playing system is active.',
+    '⌖ Otomatik Ortala (50%)': '⌖ Auto Center (50%)',
+    'Henüz görsel nesne eklenmedi. Aşağıdaki düğmeyle bir görsel seçin.':
+      'No visual objects added yet. Choose an image using the button below.',
+    'Yatay Konum (X)': 'Horizontal Position (X)',
+    'Dikey Konum (Y)': 'Vertical Position (Y)',
+    '📥 Çalan Şarkıyı Alanlara Doldur': '📥 Fill Fields with Playing Track',
+    '📥 Çalan Şarkıyı Doldur (': '📥 Fill Playing Track (',
+    '📥 Çalan Şarkıyı Alanlara Doldur (': '📥 Fill Fields with Playing Track (',
+    'Renkler sahne paletinden alınır; palet değişince yazı da değişir.':
+      'Colours come from the scene palette, so changing the palette changes the text too.',
+    'Şu anda sistemde çalan parça yok (yedek kullanılır)':
+      'No track currently playing on system (using fallback)',
+    'Şu anda sistemde çalan parça algılanmadı (yedek kullanılır)':
+      'No track currently detected on system (using fallback)',
 
     // ---- MilkDrop motoru ----
     'Yüklü Preset': 'Loaded Preset',
@@ -1875,6 +1935,8 @@
       .replace(/^([\d.]+) sn$/g, '$1 s')
       .replace(/^(\d+) bölme$/g, '$1 segments')
       .replace(/^Sistemden okunamıyor — (.+)$/g, 'Cannot read from system — $1')
+      .replace(/^📥 Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, '📥 Fill Fields with Playing Track ($1)')
+      .replace(/^📥 Çalan Şarkıyı Doldur \((.+)\)$/g, '📥 Fill Playing Track ($1)')
       ;
   }
 

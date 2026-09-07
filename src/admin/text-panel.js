@@ -102,6 +102,11 @@
       }
     } else if (T.source === 'now') {
       ensureLive();
+      nodes.push(SP().miniSelect('Gösterilen Alan', [
+        ['title', 'Parça Adı'],
+        ['artist', 'Sanatçı Adı'],
+        ['both', 'Parça ve Sanatçı'],
+      ], () => T.field || 'both', (v) => { T.field = v; sync(); }, rerender));
       const isWin = isWindowsPlatform();
       if (!isWin && T.nowSource === 'system') {
         T.nowSource = 'manual';

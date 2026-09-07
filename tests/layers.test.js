@@ -82,6 +82,53 @@ test('yığın kapalıyken liste korunur ama sahne sentezlenir', () => {
   assert.deepStrictEqual(out.map((l) => l.kind), ['background', 'visualizer']);
 });
 
+test('makeTextLayer sabit yazı katmanı üretir', () => {
+  const l = L.makeTextLayer({ name: 'Metin', source: 'static' });
+  assert.strictEqual(l.kind, 'visualizer');
+  assert.strictEqual(l.type, 'text');
+  assert.strictEqual(l.name, 'Metin');
+  assert.ok(l.id);
+  const t = l.settings.text;
+  assert.strictEqual(t.enabled, true);
+  assert.strictEqual(t.source, 'static');
+  assert.strictEqual(t.content, 'CAYADEV');
+  assert.strictEqual(t.align, 'center');
+});
+
+test('makeTextLayer şarkı sözü katmanı üretir', () => {
+  const l = L.makeTextLayer({ name: 'Şarkı Sözü', source: 'lyrics' });
+  assert.strictEqual(l.kind, 'visualizer');
+  assert.strictEqual(l.type, 'text');
+  const t = l.settings.text;
+  assert.strictEqual(t.enabled, true);
+  assert.strictEqual(t.source, 'lyrics');
+  assert.strictEqual(t.karaoke, true);
+  assert.strictEqual(t.align, 'center');
+});
+
+test('makeTextLayer çalan parça katmanında alan varsayılanı both', () => {
+  const l = L.makeTextLayer({ name: 'Metin', source: 'now' });
+  assert.strictEqual(l.settings.text.source, 'now');
+  assert.strictEqual(l.settings.text.field, 'both');
+});
+
+test('makeTextLayer sanatçı adı katmanı üretir', () => {
+  const l = L.makeTextLayer({
+    name: 'Sanatçı Adı', source: 'now', field: 'artist',
+    content: 'ARTIST NAME', size: 0.032, weight: 500, y: 0.83,
+  });
+  assert.strictEqual(l.kind, 'visualizer');
+  assert.strictEqual(l.type, 'text');
+  const t = l.settings.text;
+  assert.strictEqual(t.enabled, true);
+  assert.strictEqual(t.source, 'now');
+  assert.strictEqual(t.field, 'artist');
+  assert.strictEqual(t.content, 'ARTIST NAME');
+  assert.strictEqual(t.nowPlaying.artist, 'ARTIST NAME');
+  assert.strictEqual(t.size, 0.032);
+  assert.strictEqual(t.align, 'left');
+});
+
 test('yığın açıkken kullanıcı listesi kullanılır', () => {
   const cfg = baseCfg();
   cfg.layers = [{ id: 'a', kind: 'visualizer', type: 'wave' }];

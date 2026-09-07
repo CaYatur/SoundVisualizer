@@ -173,6 +173,21 @@
     ['logo', 'Logo'],
   ];
 
+  /* Metin bir kind değil; görselleştirici türünün alt tipi. Ayrı düğmeler
+     olmadan yalnızca şablon uygulayınca ya da türü sonradan değiştirince
+     eklenebiliyordu. */
+  const TEXT_ADD_PRESETS = [
+    { label: 'Metin', spec: { name: 'Metin', source: 'static' } },
+    { label: 'Şarkı Sözü', spec: { name: 'Şarkı Sözü', source: 'lyrics' } },
+    {
+      label: 'Sanatçı Adı',
+      spec: {
+        name: 'Sanatçı Adı', source: 'now', field: 'artist',
+        content: 'ARTIST NAME', size: 0.032, weight: 500, y: 0.83,
+      },
+    },
+  ];
+
   const BLEND_LABELS = [
     ['normal', 'Normal'], ['add', 'Toplama'], ['screen', 'Ekran'], ['multiply', 'Çarpma'],
     ['overlay', 'Kaplama'], ['darken', 'Koyulaştır'], ['lighten', 'Açıklaştır'],
@@ -591,6 +606,12 @@
           txt.nowSource = 'manual';
         }
         const isAuto = isWin && (txt.nowSource || 'system') === 'system';
+
+        out.push(miniSelect('Gösterilen Alan', [
+          ['title', 'Parça Adı'],
+          ['artist', 'Sanatçı Adı'],
+          ['both', 'Parça ve Sanatçı'],
+        ], () => txt.field || 'both', (v) => { txt.field = v; }, rerender));
 
         if (isWin) {
           if (isAuto && window.api && window.api.nowPlayingSubscribe) {
@@ -1141,6 +1162,27 @@
               name: label,
               type: opts.length ? opts[0][0] : 'back',
             }));
+            rerender();
+          },
+        })
+      );
+    });
+    TEXT_ADD_PRESETS.forEach((preset) => {
+      addRow.appendChild(
+        el('button', {
+          class: 'btn ghost small', type: 'button', text: '＋ ' + preset.label,
+          onclick: () => {
+            const layer = window.SVLayers.makeTextLayer
+              ? window.SVLayers.makeTextLayer(preset.spec)
+              : window.SVLayers.normalizeLayer({
+                name: preset.spec.name,
+                kind: 'visualizer',
+                type: 'text',
+                settings: {
+                  text: Object.assign({ enabled: true }, preset.spec, { name: undefined }),
+                },
+              });
+            list.push(layer);
             rerender();
           },
         })

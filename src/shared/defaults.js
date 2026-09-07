@@ -433,6 +433,7 @@
     text: {
       enabled: false,
       source: 'static', // 'static' | 'lyrics' | 'now'
+      field: 'both',    // 'title' | 'artist' | 'both' — source === 'now' iken çizilen alan
       content: 'CAYADEV',
       font: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
       size: 0.09,       // kısa kenara oran
