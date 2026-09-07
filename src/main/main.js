@@ -879,9 +879,9 @@ ipcMain.on('update-config', (e, config) => {
   currentConfig = config;
   saveSettings(config);
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
-  if (anyVisualizerOpen()) {
+  if (anyVisualizerOpen() || textureShare.window()) {
     sendToVisualizers('config', config);
-    applyAlwaysOnTop();
+    if (anyVisualizerOpen()) applyAlwaysOnTop();
   }
   streamServer.broadcast({ type: 'config', config });
   syncStreamServer();
@@ -1184,6 +1184,7 @@ ipcMain.handle('presets:import-text', async () => {
 // Liste kasıtlı olarak dar: yayın sunucusu ayarları, kontrol yüzeyleri ve dosya
 // yolları telefondan değiştirilemez. Gelen mesajlar VERİDİR, komut değil.
 const REMOTE_ALLOWED = [
+  '_activeSceneId',
   'audio.sensitivity', 'audio.smoothing', 'audio.bassBoost',
   'visualizer.', 'background.', 'logo.opacity', 'logo.scale', 'logo.pulse',
   'power.fpsCap', 'power.renderScale', 'power.pauseOnSilence',
@@ -1208,8 +1209,9 @@ function setConfigPath(obj, p, value) {
 }
 
 // Web istemcisinden gelen komut: doğrula, uygula, herkese yay.
-function applyRemoteCommand(msg) {
+function applyRemoteCommand(msg, client) {
   if (!currentConfig) return;
+  if (client && client.kind !== 'remote') return;
   if (msg.action === 'openVisualizer') {
     // Kullanıcının seçtiği tüm ekranlar; eski kayıtlarda tek kimlik olabilir
     const d = currentConfig.display || {};
@@ -1224,6 +1226,7 @@ function applyRemoteCommand(msg) {
   if (msg.action === 'scene') {
     const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
     if (!scene || !scene.data) return;
+    currentConfig._activeSceneId = scene.id;
     const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
     for (const key of SCENE_KEYS) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
@@ -1270,15 +1273,19 @@ function syncStreamServer() {
     return r;
   };
   if (!s.enabled) return streamServer.stop().then(() => done(streamServer.status()));
+  if (!s.token) s.token = streamServer.newToken();
+  if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = streamServer.newToken();
   return streamServer
     .start(s, {
       getConfig: () => currentConfig,
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
-      onCommand: (msg) => applyRemoteCommand(msg),
+      getNowPlaying: () => mediaSession.current(),
+      onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
         syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
+        syncNowPlaying(); // Web istemcisi bağlanınca çalan parça oturumunu senkronize et
       },
     })
     .then((st) => {
@@ -1304,7 +1311,14 @@ function syncTextureShare() {
       return st;
     });
   }
-  return textureShare.start(t).then((st) => {
+  return textureShare.start(t, {
+    onReady: (w) => {
+      if (!w || w.isDestroyed()) return;
+      if (currentConfig) w.webContents.send('config', currentConfig);
+      if (showClockAnchor) w.webContents.send('show-clock', showClockAnchor);
+      if (mediaSession.current().has) w.webContents.send('now-playing', mediaSession.current());
+    },
+  }).then((st) => {
     notifyAdmin('texture-share-status', st);
     /* Pencere yeni açıldıysa yakalama gerekiyor olabilir. */
     syncCapture();
@@ -1342,6 +1356,9 @@ let adminWantsNowPlaying = false;
 mediaSession.subscribe((st) => {
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
+  if (typeof streamServer.broadcastNowPlaying === 'function') {
+    streamServer.broadcastNowPlaying(st);
+  }
 });
 
 // Yapilandirmanin herhangi bir yerinde sistemden okuyan bir kullanim var mi?
@@ -1352,6 +1369,7 @@ function wantsNowPlaying(cfg) {
   const wantsLogoArtwork = (lg) => !!lg && lg.enabled !== false && (lg.source === 'auto' || lg.source === 'track');
   const wantsTrackLogoArtwork = (lg) => !!lg && lg.enabled !== false && lg.source === 'track';
 
+  if (cfg.dynamicTheme && cfg.dynamicTheme.enabled) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'nowplaying' && systemNow(cfg.nowplaying)) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'text' && systemText(cfg.text)) return true;
   if (wantsTrackLogoArtwork(cfg.logo)) return true;
@@ -1381,7 +1399,8 @@ function wantsNowPlaying(cfg) {
 }
 
 function syncNowPlaying() {
-  const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig);
+  const streamWants = streamServer.status && streamServer.status().running && typeof streamServer.clientCount === 'function' && streamServer.clientCount() > 0;
+  const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig) || streamWants;
   if (want) mediaSession.start();
   else mediaSession.stop();
 }

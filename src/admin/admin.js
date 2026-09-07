@@ -428,6 +428,8 @@
         return exportPanelCtrl(def);
       case 'lightingpanel':
         return lightingPanelCtrl(def);
+      case 'dynamictheme':
+        return dynamicThemeCtrl(def);
       case 'streampanel':
         return window.SVStream ? window.SVStream.panel() : null;
       case 'studiopanel':
@@ -601,18 +603,24 @@
   }
 
   function segmentCtrl(def) {
-    const cur = getPath(cfg, def.path);
+    let cur = getPath(cfg, def.path);
+    if (def.path === 'visualizer.colorMode' && !cur) {
+      cur = cfg.visualizer && cfg.visualizer.rainbow ? 'rainbow' : 'custom';
+    }
     const seg = el('div', { class: 'segment' });
 
     def.options.forEach((o) => {
       // { group: 'Başlık' } girdileri seçenek değil, ayırıcı başlıktır
-      if (o.group) { seg.appendChild(el('div', { class: 'seg-group', text: o.group })); return; }
+      if (o.group) { seg.appendChild(el('div', { class: 'seg-group', text: tr(o.group) })); return; }
       const b = el('button', {
         class: cur === o.value ? 'active' : '',
-        text: o.label,
+        text: tr(o.label),
         onclick: () => {
           setPath(cfg, def.path, o.value);
-          render();
+          if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
+            cfg.visualizer.rainbow = (o.value === 'rainbow');
+          }
+          if (def.rebuild) render();
           push(true);
         },
       });
@@ -620,7 +628,7 @@
     });
 
     return el('div', { class: 'ctrl' }, [
-      el('label', { class: 'lbl', text: def.label }),
+      el('label', { class: 'lbl', text: tr(def.label) }),
       seg,
     ]);
   }
@@ -1526,6 +1534,312 @@
     return el('div', { class: 'lighting-panel' }, children);
   }
 
+  // --- Dinamik / Olay Temelli Renk Teması Kontrolü (Windows SMTC) ---
+  let lastDynamicTrackKey = '';
+  let lastDynamicArtwork = '';
+  let dynamicArtworkWaitTimer = null;
+  let pendingDynamicTrackState = null;
+
+  function clearDynamicArtworkTimer() {
+    if (dynamicArtworkWaitTimer) {
+      clearTimeout(dynamicArtworkWaitTimer);
+      dynamicArtworkWaitTimer = null;
+    }
+    pendingDynamicTrackState = null;
+  }
+
+  function applyResolvedTheme(res, isManual) {
+    if (!res || !res.colors || !res.colors.length) return;
+    const dt = cfg.dynamicTheme || {};
+
+    if (dt.applyToBackground !== false && cfg.background && cfg.background.gradient) {
+      cfg.background.gradient.colors = res.colors.slice(0, 5);
+    }
+    if (dt.applyToVisualizer !== false && cfg.visualizer) {
+      cfg.visualizer.color = res.color || res.colors[2] || '#3aa6ff';
+      cfg.visualizer.color2 = res.color2 || res.colors[4] || '#d24bff';
+    }
+    if (res.nextCycleIdx !== undefined) {
+      dt._cycleIdx = res.nextCycleIdx;
+    }
+    push(true);
+
+    if (isManual) {
+      render();
+    } else {
+      const bar = document.querySelector('.dynamic-theme-swatch');
+      if (bar) {
+        bar.style.background = `linear-gradient(90deg, ${res.colors.slice(0, 5).join(',')})`;
+      }
+    }
+  }
+
+  function resolveAndApplyDynamicTheme(st, expectedTrackKey) {
+    if (!window.SV || !window.SV.AdaptiveTheme) return;
+    const presets = (window.SV.GRADIENT_PRESETS || []).concat(cfg.userPresets || []);
+
+    window.SV.AdaptiveTheme.resolveDynamicTheme(st, cfg.dynamicTheme, presets, (res) => {
+      // Asenkron görsel çözümlemesi sırasında başka şarkıya geçildiyse eski şarkının renklerini uygulama
+      if (expectedTrackKey && expectedTrackKey !== lastDynamicTrackKey) return;
+      if (res && res.colors) {
+        applyResolvedTheme(res, false);
+      }
+    });
+  }
+
+  function applyDynamicThemeNow() {
+    clearDynamicArtworkTimer();
+    if (!window.SV || !window.SV.AdaptiveTheme) return;
+    const dt = cfg.dynamicTheme;
+    if (!dt) return;
+    const live = (window.SVNowLive && window.SVNowLive.state) ? window.SVNowLive.state : null;
+    const presets = (window.SV.GRADIENT_PRESETS || []).concat(cfg.userPresets || []);
+
+    window.SV.AdaptiveTheme.resolveDynamicTheme(live, dt, presets, (res) => {
+      if (!res || !res.colors) {
+        svToast(tr('Uygulanacak renk teması bulunamadı.'), 'warn');
+        return;
+      }
+      applyResolvedTheme(res, true);
+      const modeLabel = res.modeUsed === 'artwork' ? tr('Albüm Kapağı') : (res.style || res.track || tr('Başarılı'));
+      svToast(tr('Dinamik renk teması uygulandı: ') + modeLabel, 'ok');
+    });
+  }
+
+  function handleDynamicThemeTrackUpdate(st) {
+    if (!cfg.dynamicTheme || !cfg.dynamicTheme.enabled) return;
+    if (!window.SV_PLATFORM || !window.SV_PLATFORM.isWindows) return;
+    if (!st || !st.has) return;
+
+    const title = (st.title || '').trim();
+    // Şarkı geçiş aralığında başlık boş/geçici gelebilir; önceki renkleri aynen koru
+    if (!title) return;
+
+    const trackKey = `${title}|${(st.artist || '').trim()}|${(st.album || '').trim()}`;
+    const hasArtwork = !!(st.artwork && typeof st.artwork === 'string' && st.artwork.length > 20);
+    const artworkKey = hasArtwork ? st.artwork.slice(0, 120) : '';
+
+    const mode = (cfg.dynamicTheme && cfg.dynamicTheme.mode) || 'artworkOrRandom';
+    const usesArtwork = (mode === 'artwork' || mode === 'artworkOrRandom');
+
+    const isTrackChange = (trackKey !== lastDynamicTrackKey && trackKey !== '||');
+    const isNewArtwork = hasArtwork && (artworkKey !== lastDynamicArtwork);
+
+    if (!isTrackChange && !isNewArtwork) return;
+
+    if (isTrackChange) {
+      lastDynamicTrackKey = trackKey;
+      lastDynamicArtwork = ''; // Yeni parça için kapak anahtarını sıfırla, kapak geldiğinde hemen tanınsın
+      clearDynamicArtworkTimer();
+
+      if (usesArtwork) {
+        if (hasArtwork) {
+          lastDynamicArtwork = artworkKey;
+          resolveAndApplyDynamicTheme(st, trackKey);
+        } else {
+          // Şarkı geçiş aralığı: Kapak henüz SMTC'den yüklenmemiş.
+          // Bu bekleme süresince önceki şarkının renkleri AYNEN KORUNUR (farklı/rastgele renkler araya girmez).
+          pendingDynamicTrackState = st;
+          dynamicArtworkWaitTimer = setTimeout(() => {
+            dynamicArtworkWaitTimer = null;
+            // Bekleme süresi dolduğunda hâlâ kapak gelmemişse (kapağı olmayan parça) fallback devreye girer
+            if (pendingDynamicTrackState && pendingDynamicTrackState === st) {
+              if (mode === 'artworkOrRandom') {
+                resolveAndApplyDynamicTheme(pendingDynamicTrackState, trackKey);
+              }
+              pendingDynamicTrackState = null;
+            }
+          }, 2500);
+        }
+        return;
+      }
+
+      // Kapağa dayanmayan modlar (random, energyMood, presetRandom, presetCycle):
+      // Şarkı değiştiğinde yalnızca bir kez çözülür
+      resolveAndApplyDynamicTheme(st, trackKey);
+      return;
+    }
+
+    if (isNewArtwork) {
+      if (!usesArtwork) return;
+      lastDynamicArtwork = artworkKey;
+      clearDynamicArtworkTimer();
+      resolveAndApplyDynamicTheme(st, trackKey);
+      return;
+    }
+  }
+
+  function dynamicThemeCtrl() {
+    if (!cfg.dynamicTheme) {
+      cfg.dynamicTheme = {
+        enabled: false,
+        mode: 'artworkOrRandom',
+        applyToBackground: true,
+        applyToVisualizer: true,
+      };
+    }
+    const dt = cfg.dynamicTheme;
+    const isWindows = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
+
+    const wrap = el('div', { class: 'dynamic-theme-panel' });
+
+    if (!isWindows) {
+      const banner = el('div', { class: 'studio-note' }, [
+        el('div', { style: 'font-weight: 600; color: var(--accent);', text: tr('Yalnızca Windows Desteklenir') }),
+        el('div', { class: 'dim-hint', style: 'margin-top: 4px;', text: tr('Dinamik renk teması modu, Windows Medya Taşıma Denetimleri (SMTC) oturumundan gelen çalan parça ve albüm kapağı verileriyle çalışır. Bu platformda kullanılamaz.') }),
+      ]);
+      wrap.appendChild(banner);
+      return el('div', { class: 'ctrl' }, [wrap]);
+    }
+
+    // 1. Canlı Şarkı Durum Başlığı
+    const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
+    const statusRow = el('div', { class: 'studio-note', style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;' });
+    const statusInfo = el('div', { style: 'flex: 1; min-width: 0;' });
+    if (live && live.title) {
+      statusInfo.appendChild(el('div', { style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', text: `🎵 ${live.title} — ${live.artist || ''}` }));
+      statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: live.artwork ? tr('🖼️ Albüm kapağı algılandı') : tr('ℹ️ Albüm kapağı yok (parça bilgisi mevcut)') }));
+    } else {
+      statusInfo.appendChild(el('div', { style: 'font-weight: 600;', text: tr('🎵 Windows Medya Oturumu Hazır') }));
+      statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: tr('Müzik çaldığında (Spotify, Apple Music, YouTube vb.) renkler otomatik güncellenir.') }));
+    }
+    statusRow.appendChild(statusInfo);
+
+    if (live && live.artwork) {
+      const artThumb = el('img', {
+        src: live.artwork,
+        style: 'width: 42px; height: 42px; border-radius: 7px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0;',
+        title: tr('Çalan Parça Kapağı'),
+      });
+      statusRow.appendChild(artThumb);
+    }
+    wrap.appendChild(statusRow);
+
+    // 2. Ana Etkinleştirme Switch'i (Uygulamanın standart switch bileşeni)
+    const mainSwitchInput = el('input', {
+      type: 'checkbox',
+      checked: !!dt.enabled,
+      onchange: (e) => {
+        dt.enabled = e.target.checked;
+        if (!dt.enabled) clearDynamicArtworkTimer();
+        push(true);
+        render();
+      },
+    });
+    const mainSwitch = el('label', { class: 'switch' }, [mainSwitchInput, el('span', { class: 'track' })]);
+    const mainRow = el('div', { class: 'row' }, [
+      el('label', { class: 'lbl', text: tr('Dinamik Renk Temasını Etkinleştir') }),
+      mainSwitch,
+    ]);
+    const mainCtrl = el('div', { class: 'ctrl' }, [
+      mainRow,
+      el('div', { class: 'dim-hint', text: tr('Şarkı değiştiğinde veya yeni kapak geldiğinde renkleri otomatik uyarla.') }),
+    ]);
+    wrap.appendChild(mainCtrl);
+
+    if (dt.enabled) {
+      const sub = el('div', { class: 'subctrls' });
+
+      // 3. Çalışma Modu Seçimi
+      const MODES = [
+        ['artworkOrRandom', tr('🖼️🎲 Albüm Kapağı (Yoksa Rastgele)')],
+        ['artwork', tr('🖼️ Yalnızca Albüm Kapağı')],
+        ['random', tr('🎲 Rastgele Renk Teması (Stüdyo Üreticisi)')],
+        ['energyMood', tr('🎶 Parça Adı & Ruh Hali Analizi')],
+        ['presetCycle', tr('📑 Hazır Şablon Döngüsü')],
+        ['presetRandom', tr('🔀 Hazır Şablon Rastgele')],
+      ];
+
+      const sel = el('select', {
+        onchange: (e) => {
+          dt.mode = e.target.value;
+          push(true);
+          render();
+        },
+      });
+      MODES.forEach(([val, lbl]) => {
+        const opt = el('option', { value: val, text: lbl });
+        if (dt.mode === val) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      const MODE_DESCS = {
+        artworkOrRandom: tr('Çalan şarkının albüm kapağı varsa renklerini çıkarıp miksler; kapak yoksa stüdyo armonisiyle rastgele bir renk teması üretir.'),
+        artwork: tr('Yalnızca çalan şarkının albüm kapağındaki renkleri çıkarır ve miksler. Kapak yoksa mevcut renkleri korur.'),
+        random: tr('Her şarkı değişiminde stüdyo renk teorisi ve armonik yayılımla (analogous, cyberpunk, sunset vb.) sıfırdan yepyeni 5 renkli bir palet üretir.'),
+        energyMood: tr('Şarkı ve sanatçı adındaki anahtar kelimeleri ve duyguyu analiz ederek parçanın hissine özel renk paleti kurar.'),
+        presetCycle: tr('Her yeni şarkıda uygulamadaki yerleşik hazır renk şablonlarını sırayla uygular.'),
+        presetRandom: tr('Her yeni şarkıda yerleşik hazır renk şablonlarından rastgele birini seçip uygular.'),
+      };
+
+      const modeCtrl = el('div', { class: 'ctrl' }, [
+        el('label', { class: 'lbl', text: tr('Çalışma Modu') }),
+        sel,
+        el('div', { class: 'dim-hint', style: 'margin-top: 5px;', text: MODE_DESCS[dt.mode] || '' }),
+      ]);
+      sub.appendChild(modeCtrl);
+
+      // 4. Uygulama Hedefleri Switch'leri (Check-box yerine tam uyumlu switch)
+      const makeSwitchControl = (label, isChecked, onToggle) => {
+        const input = el('input', {
+          type: 'checkbox',
+          checked: !!isChecked,
+          onchange: (e) => onToggle(e.target.checked),
+        });
+        const sw = el('label', { class: 'switch' }, [input, el('span', { class: 'track' })]);
+        const row = el('div', { class: 'row' }, [
+          el('label', { class: 'lbl', text: label }),
+          sw,
+        ]);
+        return el('div', { class: 'ctrl' }, [row]);
+      };
+
+      sub.appendChild(makeSwitchControl(
+        tr('Arkaplan 5 Noktalı Gradyan Paletine Uygula'),
+        dt.applyToBackground !== false,
+        (val) => { dt.applyToBackground = val; push(true); }
+      ));
+
+      sub.appendChild(makeSwitchControl(
+        tr('Görselleştirici Ana ve İkincil Renklerine Uygula'),
+        dt.applyToVisualizer !== false,
+        (val) => { dt.applyToVisualizer = val; push(true); }
+      ));
+
+      // 5. Canlı Renk Paleti ve Test Butonu
+      const currentColors = cfg.background && cfg.background.gradient && cfg.background.gradient.colors
+        ? cfg.background.gradient.colors
+        : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+
+      const swatchBar = el('div', {
+        class: 'swatch dynamic-theme-swatch',
+        style: `height: 28px; border-radius: 8px; background: linear-gradient(90deg, ${currentColors.join(',')}); border: 1px solid var(--line); margin-top: 6px;`,
+        title: tr('Mevcut Aktif Renk Paleti'),
+      });
+
+      const testBtn = el('button', {
+        class: 'btn',
+        type: 'button',
+        style: 'width: 100%; justify-content: center; margin-top: 8px;',
+        text: tr('⚡ Şimdi Test Et / Renkleri Uygula'),
+        onclick: () => {
+          applyDynamicThemeNow();
+        },
+      });
+
+      const swatchCtrl = el('div', { class: 'ctrl' }, [
+        el('label', { class: 'lbl', text: tr('Aktif Renk Paleti') }),
+        swatchBar,
+        testBtn,
+      ]);
+      sub.appendChild(swatchCtrl);
+
+      wrap.appendChild(sub);
+    }
+
+    return wrap;
+  }
+
   // Kategoriler — sol raydaki üst düzey gruplar
   // --------------------------------------------------------------------------
   const CATEGORIES = [
@@ -1913,9 +2227,30 @@
             ],
           },
           { type: 'custompicker', kind: 'visualizer', show: () => v.type === 'custom' },
-          { type: 'toggle', path: 'visualizer.rainbow', label: 'Gökkuşağı (Rainbow)', rebuild: true, show: () => v.type !== 'none' },
-          { type: 'color', path: 'visualizer.color', label: 'Renk', show: () => v.type !== 'none' && !v.rainbow },
-          { type: 'color', path: 'visualizer.color2', label: 'İkincil Renk', show: () => !v.rainbow && ['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].indexOf(v.type) >= 0 },
+          {
+            type: 'segment',
+            path: 'visualizer.colorMode',
+            label: 'Renk Modu',
+            rebuild: true,
+            options: [
+              { value: 'custom', label: 'Sabit Renk' },
+              { value: 'theme', label: 'Renk Teması' },
+              { value: 'rainbow', label: 'Gökkuşağı' },
+            ],
+            show: () => v.type !== 'none',
+          },
+          {
+            type: 'color',
+            path: 'visualizer.color',
+            label: 'Renk',
+            show: () => v.type !== 'none' && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'color',
+            path: 'visualizer.color2',
+            label: 'İkincil Renk',
+            show: () => (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom' && ['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].indexOf(v.type) >= 0,
+          },
           { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
           // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
           { type: 'slider', path: 'visualizer.glow', label: 'Parlama (Glow)', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type !== 'none' && v.type !== 'spectrogram' },
@@ -2029,6 +2364,16 @@
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
         show: notStack,
         controls: [{ type: 'textpanel' }],
+      },
+      {
+        id: 'dynamicTheme',
+        roots: ['dynamicTheme'],
+        category: 'scene',
+        icon: '🪩',
+        wide: true,
+        title: 'Dinamik Renk Teması (Windows)',
+        desc: 'Çalan şarkının albüm kapağına veya şarkı geçişlerine göre renk temasını otomatik değiştirin.',
+        controls: [{ type: 'dynamictheme' }],
       },
       {
         id: 'nowplaying',
@@ -3425,6 +3770,7 @@
     }
     sceneActionInFlight = true;
     activeSceneId = id;
+    cfg._activeSceneId = id;
     push(true);
     sceneActionInFlight = false;
     render();
@@ -3437,6 +3783,7 @@
     sc.data = snapshotScene();
     sceneActionInFlight = true;
     activeSceneId = id;
+    cfg._activeSceneId = id;
     push(true);
     sceneActionInFlight = false;
     render();
@@ -4028,6 +4375,7 @@
       window.api.onNowPlaying((st) => {
         window.SVNowLive = window.SVNowLive || { state: null };
         window.SVNowLive.state = st;
+        handleDynamicThemeTrackUpdate(st);
       });
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));

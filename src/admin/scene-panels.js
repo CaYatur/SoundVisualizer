@@ -85,6 +85,30 @@
     return P().row(tr(label), sel);
   }
 
+  function miniSegment(label, options, get, set, onAfter) {
+    const el = P().el;
+    const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+    const cur = get();
+    const seg = el('div', { class: 'segment' });
+    for (const [v, t] of options) {
+      const b = el('button', {
+        type: 'button',
+        class: cur === v ? 'active' : '',
+        text: tr(t),
+        onclick: () => {
+          set(v);
+          P().push(true);
+          if (onAfter) onAfter();
+        },
+      });
+      seg.appendChild(b);
+    }
+    return el('div', { class: 'ctrl' }, [
+      el('label', { class: 'lbl', text: tr(label) }),
+      seg,
+    ]);
+  }
+
   function isWindowsPlatform() {
     if (typeof window !== 'undefined' && window.SV_PLATFORM && typeof window.SV_PLATFORM.isWindows === 'boolean') {
       return window.SV_PLATFORM.isWindows;
@@ -794,9 +818,26 @@
       const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
       const setV = (k, val) => { vs[k] = val; };
 
-      // Gökkuşağı / Renk
-      out.push(miniToggle('Gökkuşağı', () => getV('rainbow', true) !== false, (v) => { setV('rainbow', v); }, rerender));
-      if (!getV('rainbow', true)) {
+      // Renk Modu: Sabit Renk · Renk Teması · Gökkuşağı
+      const getColorMode = () => {
+        if (vs.colorMode) return vs.colorMode;
+        if (vs.rainbow !== undefined) return vs.rainbow ? 'rainbow' : 'custom';
+        if (defVis.colorMode) return defVis.colorMode;
+        return defVis.rainbow ? 'rainbow' : 'custom';
+      };
+
+      const setColorMode = (m) => {
+        vs.colorMode = m;
+        vs.rainbow = (m === 'rainbow');
+      };
+
+      out.push(miniSegment('Renk Modu', [
+        ['custom', 'Sabit Renk'],
+        ['theme', 'Renk Teması'],
+        ['rainbow', 'Gökkuşağı'],
+      ], getColorMode, setColorMode, rerender));
+
+      if (getColorMode() === 'custom') {
         out.push(miniColor('Renk', () => getV('color', '#ff2d3a'), (v) => setV('color', v)));
         if (['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].includes(l.type)) {
           out.push(miniColor('İkincil Renk', () => getV('color2', '#3aa6ff'), (v) => setV('color2', v)));

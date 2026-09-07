@@ -198,6 +198,7 @@
       // 'geometry' (3B parametrik) |
       // 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
       type: 'bars',
+      colorMode: 'rainbow', // 'custom' | 'theme' | 'rainbow'
       rainbow: true,
       color: '#3aa6ff',
       color2: '#d24bff',
@@ -274,6 +275,17 @@
       /* Yanlışlıkla kapatmayı önleme. Açıkken ve görselleştirici herhangi bir
          ekranda etkinken uygulama kapatılmak istenirse onay penceresi açılır. */
       confirmClose: false,
+    },
+
+    /* Dinamik / Olay Temelli Renk Teması (yalnızca Windows SMTC).
+       Çalan parçanın albüm kapağındaki renkleri miksleyerek veya şarkı
+       geçişlerinde stüdyo tarzı rastgele / armonik renkler üreterek
+       sahne ve görselleştirici renklerini otomatik günceller. */
+    dynamicTheme: {
+      enabled: false,
+      mode: 'artworkOrRandom', // 'artwork' | 'artworkOrRandom' | 'random' | 'energyMood' | 'presetCycle' | 'presetRandom'
+      applyToBackground: true,
+      applyToVisualizer: true,
     },
 
     // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici
@@ -400,7 +412,8 @@
       enabled: false,
       port: 8722,
       lan: false, // true = 0.0.0.0 (telefon/başka makine erişir), false = yalnız 127.0.0.1
-      token: '', // boşsa açılışta üretilir; LAN modunda zorunludur
+      token: '', // görselleştirici (OBS / Web) jetonu
+      remoteToken: '', // mobil uzaktan kumanda jetonu (ayrı güvenlik jetonu)
       transparent: true, // arkaplanı saydam bırak (OBS'te üst katman olarak)
       remote: true, // /remote mobil kumanda sayfası açık mı
       overlayFps: 60, // tarayıcı kaynağının kare hızı sınırı
@@ -976,6 +989,17 @@
           if (!(k in out)) out[k] = override[k];
         }
       }
+      // Eski yapılandırmalarda visualizer.colorMode yoksa ve rainbow tanımlıysa colorMode'u rainbow'a göre senkronize et
+      if ('colorMode' in base && 'rainbow' in base) {
+        if (override && override.colorMode !== undefined) {
+          out.colorMode = override.colorMode;
+          if (override.rainbow === undefined) {
+            out.rainbow = (override.colorMode === 'rainbow');
+          }
+        } else if (override && override.colorMode === undefined && override.rainbow !== undefined) {
+          out.colorMode = override.rainbow ? 'rainbow' : 'custom';
+        }
+      }
       return out;
     }
     return override === undefined ? base : override;
@@ -996,11 +1020,50 @@
      olabiliyor. Böyle bir durumda çökmek yerine beyaz döndürülür — bir
      karenin yanlış renkte çizilmesi, o karenin hiç çizilmemesinden iyidir. */
   function hexToRgb01(hex) {
-    const h = String(hex == null ? '' : hex).trim().replace(/^#/, '');
+    const raw = String(hex == null ? '' : hex).trim();
+    if (raw.startsWith('rgb')) {
+      const m = raw.match(/[\d.]+/g);
+      if (m && m.length >= 3) {
+        return [+m[0] / 255, +m[1] / 255, +m[2] / 255];
+      }
+    }
+    const h = raw.replace(/^#/, '');
     const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
     if (!/^[0-9a-fA-F]{6}$/.test(full)) return [1, 1, 1];
     const n = parseInt(full, 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+
+  /* 5 noktalı arkaplan gradyanı / renk temasından oran (0..1) boyunca renk örnekleme */
+  function sampleThemeColor(cfg, pos) {
+    const cols = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
+    const list = cols.length ? cols : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+    const p = Math.max(0, Math.min(0.9999, ((Number(pos || 0) % 1) + 1) % 1));
+    const x = p * (list.length - 1);
+    const i = Math.floor(x);
+    const f = x - i;
+    const a = hexToRgb01(list[i]);
+    const b = hexToRgb01(list[Math.min(list.length - 1, i + 1)]);
+    const r = Math.round((a[0] + (b[0] - a[0]) * f) * 255);
+    const g = Math.round((a[1] + (b[1] - a[1]) * f) * 255);
+    const bl = Math.round((a[2] + (b[2] - a[2]) * f) * 255);
+    return `rgb(${r},${g},${bl})`;
+  }
+
+  function sampleThemeColorRgb(cfg, pos) {
+    const cols = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
+    const list = cols.length ? cols : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+    const p = Math.max(0, Math.min(0.9999, ((Number(pos || 0) % 1) + 1) % 1));
+    const x = p * (list.length - 1);
+    const i = Math.floor(x);
+    const f = x - i;
+    const a = hexToRgb01(list[i]);
+    const b = hexToRgb01(list[Math.min(list.length - 1, i + 1)]);
+    return [
+      Math.round((a[0] + (b[0] - a[0]) * f) * 255),
+      Math.round((a[1] + (b[1] - a[1]) * f) * 255),
+      Math.round((a[2] + (b[2] - a[2]) * f) * 255),
+    ];
   }
 
   window.SV = {
@@ -1013,5 +1076,7 @@
     deepMerge,
     clone,
     hexToRgb01,
+    sampleThemeColor,
+    sampleThemeColorRgb,
   };
 })();
