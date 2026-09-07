@@ -30,7 +30,15 @@
 
       // gradyan
       let stroke;
-      if (v.rainbow) {
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      if (colorMode === 'theme') {
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        const themeCols = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+        for (let s = 0; s < themeCols.length; s++) {
+          grad.addColorStop(s / (themeCols.length - 1), themeCols[s]);
+        }
+        stroke = grad;
+      } else if (colorMode === 'rainbow') {
         const grad = ctx.createLinearGradient(0, 0, W, 0);
         for (let s = 0; s <= 6; s++) {
           const hue = ((s / 6) * 320 + t * 20) % 360;

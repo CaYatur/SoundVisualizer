@@ -39,7 +39,10 @@
         const x = i * slot + (slot - bw) / 2;
 
         let col;
-        if (v.rainbow) {
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        if (colorMode === 'theme') {
+          col = window.SV.sampleThemeColor(cfg, bandIdx / count);
+        } else if (colorMode === 'rainbow') {
           const hue = ((bandIdx / count) * 300 + t * 14) % 360;
           col = `hsl(${hue}, 85%, ${56 + val * 12}%)`;
         } else {

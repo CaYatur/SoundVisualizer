@@ -39,7 +39,15 @@
       ctx.lineCap = 'round';
       ctx.lineWidth = Math.max(1.5, v.lineWidth || 3);
 
-      if (v.rainbow) {
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      if (colorMode === 'theme') {
+        const grad = ctx.createLinearGradient(-baseR, -baseR, baseR, baseR);
+        const themeCols = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+        for (let s = 0; s < themeCols.length; s++) {
+          grad.addColorStop(s / (themeCols.length - 1), themeCols[s]);
+        }
+        ctx.strokeStyle = grad;
+      } else if (colorMode === 'rainbow') {
         const grad = ctx.createLinearGradient(-baseR, -baseR, baseR, baseR);
         for (let s = 0; s <= 5; s++) {
           grad.addColorStop(s / 5, `hsl(${((s / 5) * 320 + t * 22) % 360}, 90%, 62%)`);

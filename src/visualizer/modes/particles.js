@@ -82,9 +82,10 @@
 
         const a = Math.min(1, this.life[i]);
         const r = Math.max(1, minDim * 0.006 * a * (1 + audio.bass * 0.5));
-        ctx.fillStyle = v.rainbow
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        ctx.fillStyle = (colorMode === 'rainbow')
           ? `hsla(${this.hue[i]}, 92%, 64%, ${a})`
-          : hexA(v.color, a);
+          : (colorMode === 'theme' ? rgbaOf(window.SV.sampleThemeColorRgb(cfg, i / COUNT), a) : hexA(v.color, a));
         ctx.beginPath();
         ctx.arc(this.px[i] * minDim * 0.5, this.py[i] * minDim * 0.5, r, 0, Math.PI * 2);
         ctx.fill();
@@ -99,6 +100,10 @@
   function hexA(hex, a) {
     const c = window.SV.hexToRgb01(hex);
     return `rgba(${(c[0] * 255) | 0},${(c[1] * 255) | 0},${(c[2] * 255) | 0},${a})`;
+  }
+
+  function rgbaOf(rgb, a) {
+    return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})`;
   }
 
   window.SVModes = window.SVModes || {};

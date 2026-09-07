@@ -79,12 +79,10 @@
         if (a < 0.02) continue;
 
         ctx.globalAlpha = a;
-        ctx.lineWidth = Math.max(1, minDim * 0.004 * persp);
-        ctx.strokeStyle = v.rainbow
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        ctx.strokeStyle = (colorMode === 'rainbow')
           ? `hsl(${(ring.hue + ring.z * 120) % 360}, 90%, ${60 - ring.z * 12}%)`
-          : ring.z > 0.5
-          ? v.color
-          : v.color2 || v.color;
+          : (colorMode === 'theme' ? window.SV.sampleThemeColor(cfg, ring.z) : (ring.z > 0.5 ? v.color : v.color2 || v.color));
 
         ctx.beginPath();
         for (let s = 0; s <= SEG; s++) {

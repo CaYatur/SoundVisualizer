@@ -50,7 +50,7 @@
         // en sağa yeni sütun
         for (let r = 0; r < rows; r++) {
           const val = Math.min(1, bars[r] * (v.sensitivity || 1));
-          h.fillStyle = colorFor(val, v, t);
+          h.fillStyle = colorFor(val, v, t, cfg);
           // düşük frekans altta olsun diye ters çevrilir
           h.fillRect(HIST_W - 1, rows - 1 - r, 1, 1);
         }
@@ -67,9 +67,15 @@
   }
 
   // Yoğunluk -> renk. Rainbow'da klasik ısı haritası, tek renkte parlaklık rampası.
-  function colorFor(val, v, t) {
+  function colorFor(val, v, t, cfg) {
     if (val < 0.012) return 'rgba(0,0,0,0)';
-    if (v.rainbow) {
+    const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+    if (colorMode === 'theme') {
+      const rgb = window.SV.sampleThemeColorRgb(cfg, Math.pow(val, 0.75));
+      const k = Math.pow(val, 0.6);
+      return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${k.toFixed(3)})`;
+    }
+    if (colorMode === 'rainbow') {
       // 250 (mor/mavi) -> 0 (kırmızı): düşük enerji koyu mavi, yüksek enerji kırmızı
       const hue = 250 - Math.pow(val, 0.75) * 250;
       const light = 12 + Math.pow(val, 0.6) * 52;

@@ -48,7 +48,10 @@
         const sa = Math.sin(ang);
 
         let col;
-        if (v.rainbow) {
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        if (colorMode === 'theme') {
+          col = window.SV.sampleThemeColor(cfg, i / count);
+        } else if (colorMode === 'rainbow') {
           col = `hsl(${((i / count) * 360 + t * 18) % 360}, 92%, ${58 + this.len[i] * 10}%)`;
         } else {
           col = v.color;

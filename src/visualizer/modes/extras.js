@@ -13,10 +13,17 @@
   // Ortak yardımcılar
   // ==========================================================================
 
+  let currentCfg = null;
+
   // Bar indeksine göre renk: gökkuşağı açıksa spektrum boyunca kayar,
-  // kapalıysa kullanıcının seçtiği renk kullanılır.
-  function barColor(v, i, count, t, val) {
-    if (v.rainbow) {
+  // renk teması açıksa 5 noktalı gradyandan örneklenir, kapalıysa kullanıcının seçtiği renk kullanılır.
+  function barColor(v, i, count, t, val, cfg) {
+    const c = cfg || currentCfg;
+    const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+    if (colorMode === 'theme') {
+      return window.SV.sampleThemeColor(c, i / Math.max(1, count));
+    }
+    if (colorMode === 'rainbow') {
       const hue = ((i / Math.max(1, count)) * 320 + t * 12) % 360;
       return `hsl(${hue}, 85%, ${55 + (val || 0) * 12}%)`;
     }
@@ -24,8 +31,13 @@
   }
 
   // İki renk arasında geçiş (gökkuşağı kapalıyken çift renkli modlar için)
-  function duoColor(v, f, t) {
-    if (v.rainbow) return `hsl(${((f * 300 + t * 20) % 360 + 360) % 360}, 88%, 62%)`;
+  function duoColor(v, f, t, cfg) {
+    const c = cfg || currentCfg;
+    const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+    if (colorMode === 'theme') {
+      return window.SV.sampleThemeColor(c, f);
+    }
+    if (colorMode === 'rainbow') return `hsl(${((f * 300 + t * 20) % 360 + 360) % 360}, 88%, 62%)`;
     const a = window.SV.hexToRgb01(v.color);
     const b = window.SV.hexToRgb01(v.color2 || v.color);
     const k = Math.max(0, Math.min(1, f));
@@ -33,6 +45,9 @@
   }
 
   function rgbaOf(hex, alpha) {
+    if (typeof hex === 'string' && hex.startsWith('rgb(')) {
+      return hex.replace('rgb(', 'rgba(').replace(')', `,${alpha})`);
+    }
     const c = window.SV.hexToRgb01(hex || '#ffffff');
     return `rgba(${(c[0] * 255) | 0},${(c[1] * 255) | 0},${(c[2] * 255) | 0},${alpha})`;
   }
@@ -88,6 +103,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(12, Math.min(96, v.barCount | 0));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -144,6 +160,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(24, Math.min(160, v.barCount | 0));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -184,7 +201,8 @@
       ctx.lineWidth = lw;
       ctx.lineJoin = 'round';
       for (let s = 0; s < 2; s++) {
-        ctx.strokeStyle = v.rainbow ? barColor(v, s * count * 0.5, count, t, 0.6) : (s ? (v.color2 || v.color) : v.color);
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        ctx.strokeStyle = (colorMode === 'rainbow') ? barColor(v, s * count * 0.5, count, t, 0.6) : (colorMode === 'theme' ? window.SV.sampleThemeColor(currentCfg, s * 0.5) : (s ? (v.color2 || v.color) : v.color));
         ctx.beginPath();
         pts[s].forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
         ctx.stroke();
@@ -216,6 +234,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const n = Math.max(4, Math.min(28, Math.round(6 + (1 - v.gap) * 14)));
       const bars = audio.getBars(n, v.minFreq, v.maxFreq, v.spectrum);
@@ -270,6 +289,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
@@ -313,9 +333,10 @@
           this.parts.splice(i, 1);
           continue;
         }
-        ctx.strokeStyle = v.rainbow
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        ctx.strokeStyle = (colorMode === 'rainbow')
           ? `hsl(${p.hue % 360}, 92%, ${50 + p.life * 28}%)`
-          : rgbaOf(v.color, Math.min(1, p.life));
+          : (colorMode === 'theme' ? rgbaOf(window.SV.sampleThemeColor(currentCfg, (p.hue % 360) / 360), Math.min(1, p.life)) : rgbaOf(v.color, Math.min(1, p.life)));
         ctx.globalAlpha = Math.min(1, p.life);
         ctx.lineWidth = lw * (0.4 + p.life * 0.9);
         ctx.beginPath();
@@ -343,6 +364,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(32, Math.min(240, v.barCount | 0));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -394,6 +416,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(64, Math.min(256, v.barCount | 0));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -451,6 +474,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(10, Math.min(90, Math.round((v.barCount | 0) * 0.45)));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -545,6 +569,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
@@ -562,7 +587,10 @@
         b.life -= step * 3.4;
         if (b.life <= 0) { this.bolts.splice(i, 1); continue; }
         const alpha = Math.max(0, b.life) * (0.4 + b.strength * 0.6);
-        ctx.strokeStyle = v.rainbow ? `hsl(${(t * 60 + i * 40) % 360}, 90%, 70%)` : v.color;
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        ctx.strokeStyle = (colorMode === 'rainbow')
+          ? `hsl(${(t * 60 + i * 40) % 360}, 90%, 70%)`
+          : (colorMode === 'theme' ? window.SV.sampleThemeColor(currentCfg, (i * 0.25 + t * 0.1) % 1) : v.color);
         ctx.globalAlpha = alpha;
         ctx.lineWidth = lw * (0.6 + b.strength);
         ctx.beginPath();
@@ -599,6 +627,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
@@ -660,6 +689,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       ctx.clearRect(0, 0, W, H);
 
@@ -688,9 +718,10 @@
         if (k) ctx.lineTo(x, y);
         else ctx.moveTo(x, y);
       }
-      ctx.strokeStyle = v.rainbow
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      ctx.strokeStyle = (colorMode === 'rainbow')
         ? `hsl(${(t * 26) % 360}, 92%, ${58 + audio.level * 16}%)`
-        : v.color;
+        : (colorMode === 'theme' ? window.SV.sampleThemeColor(currentCfg, (t * 0.1) % 1) : v.color);
       ctx.stroke();
       ctx.restore();
       this.glow.apply(this.canvas, v.glow, 1.0);
@@ -713,6 +744,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(4, Math.min(32, Math.round(6 + (1 - v.gap) * 18)));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -772,6 +804,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
@@ -800,7 +833,10 @@
         const x = b.x + Math.sin(b.w) * b.r * 1.4;
         const r = b.r * (1 + audio.bass * 0.5);
         if (b.y + r < 0) { this.items.splice(i, 1); continue; }
-        const col = v.rainbow ? `hsl(${b.hue % 360}, 88%, 64%)` : v.color;
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        const col = (colorMode === 'rainbow')
+          ? `hsl(${b.hue % 360}, 88%, 64%)`
+          : (colorMode === 'theme' ? window.SV.sampleThemeColor(currentCfg, (b.hue % 360) / 360) : v.color);
         ctx.strokeStyle = col;
         ctx.globalAlpha = 0.18 + audio.level * 0.5;
         ctx.lineWidth = lw * 1.6;
@@ -838,6 +874,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       ctx.clearRect(0, 0, W, H);
 
@@ -899,6 +936,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(6, Math.min(48, Math.round(8 + (1 - v.gap) * 28)));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);
@@ -945,6 +983,7 @@
       const ctx = this.ctx;
       const W = this.canvas.width;
       const H = this.canvas.height;
+      currentCfg = cfg;
       const v = cfg.visualizer;
       const count = Math.max(8, Math.min(128, v.barCount | 0));
       const bars = audio.getBars(count, v.minFreq, v.maxFreq, v.spectrum);

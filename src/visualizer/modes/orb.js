@@ -65,7 +65,13 @@
       // ve kenarda tamamen saydamlaşmamalı; aksi halde uzak loblar kararıp
       // gövdeden kopmuş gibi görünüyor.
       const grad = ctx.createRadialGradient(0, 0, base * 0.2, 0, 0, base * 1.45);
-      if (v.rainbow) {
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      if (colorMode === 'theme') {
+        const themeCols = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+        grad.addColorStop(0, hexA(themeCols[0], 0.98));
+        grad.addColorStop(0.55, hexA(themeCols[2] || themeCols[0], 0.78));
+        grad.addColorStop(1, hexA(themeCols[4] || themeCols[themeCols.length - 1], 0.42));
+      } else if (colorMode === 'rainbow') {
         const hue = (t * 26) % 360;
         grad.addColorStop(0, `hsla(${hue}, 92%, 70%, 0.98)`);
         grad.addColorStop(0.55, `hsla(${(hue + 60) % 360}, 88%, 60%, 0.80)`);
@@ -92,9 +98,9 @@
 
       // Kenar çizgisi
       ctx.lineWidth = Math.max(1.5, (v.lineWidth || 3) * 0.8);
-      ctx.strokeStyle = v.rainbow
+      ctx.strokeStyle = (colorMode === 'rainbow')
         ? `hsla(${(t * 26 + 30) % 360}, 95%, 74%, 0.9)`
-        : hexA(v.color, 0.9);
+        : (colorMode === 'theme' ? hexA(((cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [])[1] || v.color, 0.9) : hexA(v.color, 0.9));
       ctx.stroke();
       ctx.restore();
 

@@ -74,7 +74,10 @@
 
         // renk
         let col;
-        if (v.rainbow) {
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        if (colorMode === 'theme') {
+          col = window.SV.sampleThemeColor(cfg, i / count);
+        } else if (colorMode === 'rainbow') {
           const hue = (i / count) * 320 + t * 12;
           col = `hsl(${hue % 360}, 85%, ${55 + val * 12}%)`;
         } else {
@@ -103,7 +106,7 @@
             this.peaks[i] = Math.max(0, this.peaks[i] - this.peakVel[i]);
           }
           const py = baseY - this.peaks[i] - 3;
-          ctx.fillStyle = v.rainbow ? col : lighten(v.color);
+          ctx.fillStyle = (colorMode === 'rainbow') ? col : (colorMode === 'theme' ? lighten(col) : lighten(v.color));
           ctx.fillRect(x, py, bw, 2.5);
           if (v.position === 'center') ctx.fillRect(x, baseY + this.peaks[i] + 1, bw, 2.5);
         }
@@ -128,6 +131,12 @@
   }
 
   function lighten(hex) {
+    if (typeof hex === 'string' && hex.startsWith('rgb')) {
+      const m = hex.match(/[\d.]+/g);
+      if (m && m.length >= 3) {
+        return `rgb(${Math.min(255, +m[0] + 60)},${Math.min(255, +m[1] + 60)},${Math.min(255, +m[2] + 60)})`;
+      }
+    }
     const c = window.SV.hexToRgb01(hex);
     return `rgb(${Math.min(255, c[0] * 255 + 60) | 0},${Math.min(255, c[1] * 255 + 60) | 0},${Math.min(255, c[2] * 255 + 60) | 0})`;
   }

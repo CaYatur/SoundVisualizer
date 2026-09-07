@@ -45,7 +45,10 @@
         const y1 = Math.sin(ang) * (baseR + len);
 
         let col;
-        if (v.rainbow) {
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        if (colorMode === 'theme') {
+          col = window.SV.sampleThemeColor(cfg, i / count);
+        } else if (colorMode === 'rainbow') {
           col = `hsl(${((i / count) * 360 + t * 20) % 360}, 85%, ${55 + val * 12}%)`;
         } else {
           col = v.color;
@@ -59,9 +62,10 @@
 
       // merkez halka (bas nabzı)
       ctx.lineWidth = 2;
-      ctx.strokeStyle = v.rainbow
+      const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+      ctx.strokeStyle = (colorMode === 'rainbow')
         ? `hsla(${(t * 30) % 360},80%,65%,0.5)`
-        : hexA(v.color, 0.45);
+        : (colorMode === 'theme' ? window.SV.sampleThemeColor(cfg, 0.5) : hexA(v.color, 0.45));
       ctx.beginPath();
       ctx.arc(0, 0, baseR - 4, 0, Math.PI * 2);
       ctx.stroke();

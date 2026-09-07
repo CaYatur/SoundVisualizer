@@ -62,7 +62,10 @@
 
         ctx.globalAlpha = a;
         ctx.lineWidth = Math.max(1, (v.lineWidth || 3) * (1 - k * 0.55));
-        if (v.rainbow) {
+        const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+        if (colorMode === 'theme') {
+          ctx.strokeStyle = window.SV.sampleThemeColor(cfg, 1 - k);
+        } else if (colorMode === 'rainbow') {
           const hue = ((1 - k) * 260 + t * 26) % 360;
           ctx.strokeStyle = `hsl(${hue}, 88%, ${58 - k * 14}%)`;
         } else {

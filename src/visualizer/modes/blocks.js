@@ -49,7 +49,11 @@
         for (let s = 0; s < segs; s++) {
           const ratio = s / (segs - 1);
           const on = s < lit;
-          if (v.rainbow) {
+          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+          if (colorMode === 'theme') {
+            const themeCol = window.SV.sampleThemeColor(cfg, (i / count) * 0.7 + ratio * 0.3);
+            ctx.fillStyle = on ? themeCol : 'rgba(255,255,255,0.06)';
+          } else if (colorMode === 'rainbow') {
             // Yükseklikle yeşil -> sarı -> kırmızı (klasik VU renklendirmesi)
             const hue = 130 - ratio * 130;
             ctx.fillStyle = on
@@ -73,7 +77,8 @@
         }
         const ps = Math.min(segs - 1, Math.max(0, Math.floor(this.peaks[i])));
         if (this.peaks[i] > 0.4) {
-          ctx.fillStyle = v.rainbow ? '#ffffff' : lighten(v.color);
+          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+          ctx.fillStyle = (colorMode === 'rainbow' || colorMode === 'theme') ? '#ffffff' : lighten(v.color);
           const py = baseY - (ps + 1) * segH + segGap * 0.5;
           ctx.fillRect(x, py, bw, Math.max(1.5, blockH * 0.28));
         }
@@ -86,6 +91,12 @@
   }
 
   function lighten(hex) {
+    if (typeof hex === 'string' && hex.startsWith('rgb')) {
+      const m = hex.match(/[\d.]+/g);
+      if (m && m.length >= 3) {
+        return `rgb(${Math.min(255, +m[0] + 70)},${Math.min(255, +m[1] + 70)},${Math.min(255, +m[2] + 70)})`;
+      }
+    }
     const c = window.SV.hexToRgb01(hex);
     return `rgb(${Math.min(255, c[0] * 255 + 70) | 0},${Math.min(255, c[1] * 255 + 70) | 0},${Math.min(255, c[2] * 255 + 70) | 0})`;
   }

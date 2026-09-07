@@ -54,8 +54,28 @@
   /* Renk seçimi: gökkuşağı açıksa spektrum boyunca kayar, kapalıysa
      kullanıcının iki rengi arasında geçilir. Tüm modlar aynı kuralı izler ki
      palet değiştirince sahnenin tamamı birlikte değişsin. */
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = (h % 360) / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r1 = 0, g1 = 0, b1 = 0;
+    if (hp >= 0 && hp < 1) { r1 = c; g1 = x; }
+    else if (hp >= 1 && hp < 2) { r1 = x; g1 = c; }
+    else if (hp >= 2 && hp < 3) { g1 = c; b1 = x; }
+    else if (hp >= 3 && hp < 4) { g1 = x; b1 = c; }
+    else if (hp >= 4 && hp < 5) { r1 = x; b1 = c; }
+    else if (hp >= 5 && hp < 6) { r1 = c; b1 = x; }
+    const m = l - c / 2;
+    return [((r1 + m) * 255) | 0, ((g1 + m) * 255) | 0, ((b1 + m) * 255) | 0];
+  }
+
   function tone(v, cfg, f, t) {
-    if (v.rainbow) return paletteAt(cfg, (f + t * 0.03) % 1);
+    const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+    if (colorMode === 'rainbow') {
+      const hue = ((f * 300 + t * 20) % 360 + 360) % 360;
+      return hslToRgb(hue, 0.88, 0.62);
+    }
+    if (colorMode === 'theme') return paletteAt(cfg, (f + t * 0.03) % 1);
     const a = window.SV.hexToRgb01(v.color);
     const b = window.SV.hexToRgb01(v.color2 || v.color);
     const k = clamp(f, 0, 1);

@@ -37,7 +37,11 @@
           const on = s < lit;
           const ratio = s / (rows - 1);
           const cy = baseY - (s + 0.5) * slotY;
-          if (v.rainbow) {
+          const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
+          if (colorMode === 'theme') {
+            const themeCol = window.SV.sampleThemeColor(cfg, (i / cols) * 0.7 + ratio * 0.3);
+            ctx.fillStyle = on ? themeCol : 'rgba(255,255,255,0.06)';
+          } else if (colorMode === 'rainbow') {
             const hue = ((i / cols) * 300 + t * 14) % 360;
             ctx.fillStyle = on
               ? `hsl(${hue}, 90%, ${52 + ratio * 14}%)`
