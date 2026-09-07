@@ -262,7 +262,7 @@
     ribbon: 'Şerit', wave3d: '3B Dalga', lissajous: 'Lissajous', strings: 'Teller', terrain: 'Arazi',
     circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın', arcs: 'Yaylar',
     pinwheel: 'Fırıldak', mandala: 'Mandala', kaleido: 'Kaleydoskop', vortex: 'Girdap',
-    helix: 'Sarmal', tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', fireworks: 'Havai Fişek',
+    helix: 'Helis', tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', fireworks: 'Havai Fişek',
     lightning: 'Şimşek', bubbles: 'Baloncuk', metaball: 'Sıvı Damla', ripplegrid: 'Dalgalı Izgara',
     skyline: 'Şehir Silüeti', spectrogram: 'Spektrogram', feedback: 'Geri Besleme',
   };

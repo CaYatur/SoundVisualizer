@@ -868,7 +868,7 @@
     'Genişlik': 'Width',
     'Kompozisyonun bir bölgesini alıp bu çıkışa yayar. Tek bir sahneyi birden çok yüzeye bölmenin yolu budur.':
       'Takes a region of the composition and fills this output with it. This is how one scene is split across several surfaces.',
-    'Renk Düzeltme': 'Colour Correction',
+    'Renk Düzeltme': 'Color Correction',
     'Kırmızı': 'Red', 'Yeşil': 'Green', 'Mavi': 'Blue',
     'Yan yana duran iki projektörün rengi hiçbir zaman birebir aynı olmaz; bu ayarlar onları eşleştirmek içindir.':
       'Two projectors side by side never match exactly; these controls are for matching them.',
@@ -1085,7 +1085,7 @@
     // ---- Yerleşik shader kitaplığı ----
 
     // ---- Hazır şablonlar ----
-    'Hazır Şablonlar': 'Ready-Made Templates',
+    'Hazır Şablonlar': 'Built-in Presets',
     'Kullanıma ve türe göre gruplanmış bitmiş sahneler. Tek tıkla uygulanır; ses, ekran, yayın ve aydınlatma ayarlarınıza dokunmaz.':
       'Finished scenes grouped by use and by genre. One click applies them, and your audio, display, streaming and lighting settings are left alone.',
     'Şablon kitaplığı yüklenemedi.': 'The template library could not be loaded.',
@@ -1099,7 +1099,7 @@
     'Yayın': 'Streaming',
     'Müzik': 'Music',
     'Ekran Koruyucu': 'Screensaver',
-    'Tür': 'Genre',
+    'Tür': 'Type',
     'Etkinlik': 'Event',
 
     // ---- Kayıt ----
@@ -1520,7 +1520,7 @@
     'Özel renkler': 'Custom colors', 'şablona uymuyor': 'no preset match',
 
     // Kumandadaki kısa mod adları
-    'Nokta': 'Dots', 'Silüet': 'Skyline', 'Kutup': 'Aurora',
+    'Nokta': 'Dots', 'Silüet': 'Skyline', 'Kutup': 'Polar', 'Helis': 'Helix',
     'Yıldız': 'Starfield', 'Bokeh': 'Bokeh', 'Yağmur': 'Rain',
     'Petek': 'Hex', 'Düz': 'Solid', 'Izgara': 'Grid', 'Gradyan': 'Gradient',
     'Kar': 'Snow',
@@ -1637,7 +1637,7 @@
     'Sütun': 'Column',
     'Kuyruk': 'Tail',
     'Dilim': 'Slice',
-    'Sönüm': 'Decay',
+    'Sönüm': 'Damping',
     'Bar': 'Bar',
     'Kayma': 'Shift',
     'Yuvarlaklık': 'Roundness',
@@ -1708,7 +1708,7 @@
     'İntegrasyon Adımı': 'Integration Step',
     'Renk Kayması': 'Hue Shift',
     'Doygunluk': 'Saturation',
-    'Karışım': 'Mix',
+    'Karışım': 'Blend',
 
     // Modülasyon Paneli Arayüzü
     '+ Yönlendirme Ekle': '+ Add Route',
@@ -1744,7 +1744,7 @@
     'Değeri Belirle': 'Set Value',
     'Üstüne Ekle': 'Add',
     'Çarp': 'Multiply',
-    'Genel': 'Master',
+    'Genel': 'Overall',
     'Bas': 'Bass',
     'Orta': 'Mid',
     'Tiz': 'Treble',
@@ -1868,7 +1868,7 @@
     'Ekran seçilmedi': 'No display selected',
     'Ekran': 'Display',
     'Açık': 'Open',
-    'Kapalı': 'Closed',
+    'Kapalı': 'Off',
     '▶ Ekranları Uygula': '▶ Apply Displays',
     '▶ Görselleştirmeyi Aç': '▶ Open Visualizer',
     '● Yakalanıyor: çıkış': '● Capturing: output',
@@ -1921,7 +1921,7 @@
     'Teller': 'Strings',
     'Arazi': 'Terrain',
     'Çember': 'Circle',
-    'Dairesel Dalga': 'Circular Wave',
+    'Dairesel Dalga': 'Radial Wave',
     'Yaylar': 'Arcs',
     'Fırıldak': 'Pinwheel',
     'Mandala': 'Mandala',
@@ -1949,7 +1949,7 @@
     'Karaoke Vurgusu': 'Karaoke Highlight',
     'Sabit Metin': 'Static Text',
     'Şarkı Sözü (LRC / SRT)': 'Lyrics (LRC / SRT)',
-    'Çalan Parça': 'Playing Track',
+    'Çalan Parça': 'Now Playing',
     'Yok': 'None',
     'Belirme': 'Fade',
     'Yukarı Kayma': 'Slide Up',

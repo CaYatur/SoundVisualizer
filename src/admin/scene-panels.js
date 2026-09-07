@@ -257,7 +257,7 @@
         ['skyline', 'Şehir Silüeti'], ['wave', 'Dalga'], ['ribbon', 'Şerit'], ['wave3d', '3B Dalga'],
         ['lissajous', 'Lissajous'], ['strings', 'Teller'], ['terrain', 'Arazi'], ['circular', 'Çember'],
         ['radialWave', 'Dairesel Dalga'], ['starburst', 'Işın'], ['arcs', 'Yaylar'], ['pinwheel', 'Fırıldak'],
-        ['mandala', 'Mandala'], ['kaleido', 'Kaleydoskop'], ['vortex', 'Girdap'], ['helix', 'Sarmal'],
+        ['mandala', 'Mandala'], ['kaleido', 'Kaleydoskop'], ['vortex', 'Girdap'], ['helix', 'Helis'],
         ['tunnel', 'Tünel'], ['orb', 'Küre'], ['particles', 'Parçacık'], ['fireworks', 'Havai Fişek'],
         ['lightning', 'Şimşek'], ['bubbles', 'Baloncuk'], ['metaball', 'Sıvı Damla'],
         ['ripplegrid', 'Dalgalı Izgara'], ['spectrogram', 'Spektrogram'], ['geometry', '3B Geometri'],

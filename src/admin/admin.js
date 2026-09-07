@@ -2190,7 +2190,7 @@
               { value: 'mandala', label: 'Mandala' },
               { value: 'kaleido', label: 'Kaleydoskop' },
               { value: 'vortex', label: 'Girdap' },
-              { value: 'helix', label: 'Sarmal' },
+              { value: 'helix', label: 'Helis' },
               { value: 'tunnel', label: 'Tünel' },
               { value: 'orb', label: 'Küre' },
               { group: 'Parçacık ve Olay' },

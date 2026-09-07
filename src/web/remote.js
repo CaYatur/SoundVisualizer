@@ -20,7 +20,7 @@
     ['dots', 'Nokta'], ['wave', 'Dalga'], ['ribbon', 'Şerit'], ['terrain', 'Arazi'],
     ['circular', 'Çember'], ['radialWave', 'Dairesel'], ['starburst', 'Işın'], ['tunnel', 'Tünel'],
     ['orb', 'Küre'], ['particles', 'Parçacık'], ['spectrogram', 'Spektrogram'],
-    ['kaleido', 'Kaleydoskop'], ['helix', 'Sarmal'], ['metaball', 'Damla'], ['fireworks', 'Havai Fişek'],
+    ['kaleido', 'Kaleydoskop'], ['helix', 'Helis'], ['metaball', 'Damla'], ['fireworks', 'Havai Fişek'],
     ['vortex', 'Girdap'], ['mandala', 'Mandala'], ['skyline', 'Silüet'], ['lightning', 'Şimşek'],
     ['ripplegrid', 'Dalgalı Izgara'], ['lissajous', 'Lissajous'], ['strings', 'Teller'],
     ['bubbles', 'Baloncuk'], ['wave3d', '3B Dalga'], ['arcs', 'Yaylar'], ['pinwheel', 'Fırıldak'],
@@ -29,7 +29,7 @@
 
   const BG_MODES = [
     ['gradient', 'Gradyan'], ['ink', 'Mürekkep'], ['nebula', 'Bulutsu'], ['waves', 'Dalga'],
-    ['aurora', 'Kutup'], ['grid', 'Izgara'], ['hexgrid', 'Petek'], ['mosaic', 'Mozaik'],
+    ['aurora', 'Kutup Işıkları'], ['grid', 'Izgara'], ['hexgrid', 'Petek'], ['mosaic', 'Mozaik'],
     ['corridor', 'Koridor'], ['spiral', 'Sarmal'], ['rings', 'Halka'], ['network', 'Ağ'],
     ['starfield', 'Yıldız'], ['snow', 'Kar'], ['bokeh', 'Bokeh'], ['rain', 'Yağmur'],
     ['city', 'Şehir'], ['custom', 'Studio'], ['solid', 'Düz'],

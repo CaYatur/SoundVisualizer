@@ -152,6 +152,53 @@ test('kırpılmış anahtarların karşılığı geçerli', () => {
   assert.strictEqual(t('Sahne'), 'Scene');
 });
 
+/* Yinelenen anahtarlar temizlenirken hangi karşılığın kalacağına karar
+   verildi. Bunlar kullanım yerine bakılarak seçildi — sözlükte kazanan
+   karşılık birkaçında yanlıştı:
+     'Tür'      background.type / visualizer.type / geçiş türü → "Genre" değil
+     'Karışım'  katman ve post-FX karışım modları → "Mix" değil
+     'Kapalı'   açma/kapama durumları → "Closed" değil
+     'Genel'    Bas/Orta/Tiz/Genel bant seçicisi → "Master" değil
+     'Sönüm'    formüllerdeki sönümleme; 'Sönme' ile ikisi de "Decay" idi */
+test('bağlama göre seçilen terimler', () => {
+  const t = loadEnglish().t;
+  const beklenen = {
+    'Tür': 'Type',
+    'Karışım': 'Blend',
+    'Kapalı': 'Off',
+    'Genel': 'Overall',
+    'Sönüm': 'Damping',
+    'Sönme': 'Decay',
+    'Dairesel Dalga': 'Radial Wave',
+    'Renk Düzeltme': 'Color Correction',
+    'Çalan Parça': 'Now Playing',
+    'Hazır Şablonlar': 'Built-in Presets',
+  };
+  for (const [tr, en] of Object.entries(beklenen)) {
+    assert.strictEqual(t(tr), en, JSON.stringify(tr) + ' yanlış çevriliyor');
+  }
+});
+
+/* 'Sarmal' hem spiral arkaplanına hem helix moduna verilmişti; İngilizcede
+   helix modu "Spiral" okunuyordu. Düz sözlük ikisini ayıramaz, o yüzden
+   helix modunun Türkçe adı 'Helis' yapıldı. Aynı şekilde 'Kutup' hem soğuk
+   renk şablonunun adı hem uzaktan kumandada aurora arkaplanıydı. */
+test('aynı adı paylaşan iki ayrı öge kaynağında ayrıldı', () => {
+  const t = loadEnglish().t;
+  assert.strictEqual(t('Sarmal'), 'Spiral');
+  assert.strictEqual(t('Helis'), 'Helix');
+  assert.strictEqual(t('Kutup'), 'Polar');
+  assert.strictEqual(t('Kutup Işıkları'), 'Northern Lights');
+
+  const root = path.join(__dirname, '..', 'src');
+  const read = (p) => fs.readFileSync(path.join(root, p), 'utf-8');
+  for (const f of ['admin/admin.js', 'admin/scene-panels.js', 'admin/scenegen.js', 'web/remote.js']) {
+    const txt = read(f);
+    assert.ok(!/helix['"]?\s*[:,]\s*['"]Sarmal['"]/.test(txt) && !/\['helix', 'Sarmal'\]/.test(txt),
+      f + ' hâlâ helix için Sarmal kullanıyor');
+  }
+});
+
 /* Klip Destesi etiketleri kullanıcının verdiği adla BİRLEŞTİRİLİYOR, o
    yüzden tam dize olarak sözlükte bulunamıyorlar. control.js sabit kelimeyi
    önce çevirip birleştiriyor; sonuçta Türkçe kelime kalmamalı. */

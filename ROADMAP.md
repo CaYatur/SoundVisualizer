@@ -62,7 +62,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1033** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1035** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -126,8 +126,8 @@ npm test
 npm start -- --smoke
 ```
 
-- **1033 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2; 73 have come with v3.1.3 so far.
+- **1035 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+  105 came with v3.1.1; 152 came with v3.1.2; 75 have come with v3.1.3 so far.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -471,7 +471,7 @@ here so the release notes match what shipped rather than what was planned.
 
 ### Verification
 
-1033 unit tests pass on `main` (73 of them added during v3.1.3). The GPU smoke
+1035 unit tests pass on `main` (75 of them added during v3.1.3). The GPU smoke
 test passes. The packaged build still needs to be rebuilt before release; the
 newest binary in `dist/` is v3.1.2.
 
