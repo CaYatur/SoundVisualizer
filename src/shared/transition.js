@@ -294,9 +294,60 @@
       if (def.draw === 'flash') return this._flash(ctx, from, to, W, H, p, o);
       if (def.draw === 'blur') return this._blur(ctx, from, to, W, H, p, o);
       if (type === 'crossfade' || type === 'cut') {
+        if (type === 'cut') {
+          const showTo = p >= 1;
+          if (!showTo && from) ctx.drawImage(from, 0, 0, W, H);
+          else if (showTo && to) ctx.drawImage(to, 0, 0, W, H);
+          ctx.restore();
+          return;
+        }
+        if (o.blackoutDirection === 'out') {
+          ctx.globalAlpha = 1 - p;
+          if (from) ctx.drawImage(from, 0, 0, W, H);
+          if (to) {
+            ctx.globalAlpha = p;
+            ctx.drawImage(to, 0, 0, W, H);
+          }
+          ctx.restore();
+          return;
+        }
+        if (o.blackoutDirection === 'in') {
+          if (from) {
+            ctx.globalAlpha = 1 - p;
+            ctx.drawImage(from, 0, 0, W, H);
+          }
+          ctx.globalAlpha = p;
+          if (to) ctx.drawImage(to, 0, 0, W, H);
+          ctx.restore();
+          return;
+        }
         if (from) ctx.drawImage(from, 0, 0, W, H);
-        ctx.globalAlpha = type === 'cut' ? (p >= 1 ? 1 : 0) : p;
+        ctx.globalAlpha = p;
         if (to) ctx.drawImage(to, 0, 0, W, H);
+        ctx.restore();
+        return;
+      }
+
+      // Karartmaya geçişte (blackoutDirection === 'out'):
+      // Gelen hedef sahne (to) saydam veya siyah zemindir. Standart maskelemede
+      // 'to' maskelenip 'from' üzerine çizildiğinde 'to' saydamsa 'from' hiç
+      // silinmez ve sahne süre bitene kadar tam parlak kalıp aniden keserdi.
+      // Burada maske 'destination-out' ile 'from' sahnesini aşındırır/siler;
+      // varsa 'to' zemin olarak arkaya ('destination-over') basılır.
+      if (o.blackoutDirection === 'out') {
+        this._buildMask(def, W, H, p, o, from);
+        if (from) ctx.drawImage(from, 0, 0, W, H);
+        ctx.save();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(this.maskCanvas, 0, 0, W, H);
+        ctx.restore();
+        if (to) {
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-over';
+          ctx.drawImage(to, 0, 0, W, H);
+          ctx.restore();
+        }
         ctx.restore();
         return;
       }
@@ -421,7 +472,7 @@
       const dy = Math.sin(a) * H;
       ctx.globalAlpha = 1;
       if (from) {
-        if (push) ctx.drawImage(from, -dx * p, -dy * p, W, H);
+        if (push || o.blackoutDirection === 'out') ctx.drawImage(from, -dx * p, -dy * p, W, H);
         else ctx.drawImage(from, 0, 0, W, H);
       }
       if (to) ctx.drawImage(to, dx * (1 - p), dy * (1 - p), W, H);

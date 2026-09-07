@@ -370,13 +370,14 @@
 
     if (layer.kind === 'background') {
       const defBg = def ? def.background : {};
+      const baseBg = (cfg && cfg.background) || defBg;
       const bgSettings = (layer.settings && layer.settings.background) || {};
-      const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (defBg.gradient && defBg.gradient.colors);
-      const mergedBg = window.SV.deepMerge(defBg, bgSettings);
+      const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (baseBg.gradient && baseBg.gradient.colors);
+      const mergedBg = window.SV.deepMerge(baseBg, bgSettings);
       if (mergedBg.gradient) {
         mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
       }
-      mergedBg.type = layer.type;
+      mergedBg.type = layer.type || (cfg && cfg.background && cfg.background.type) || 'solid';
       return Object.assign({}, base, {
         background: mergedBg,
         custom: Object.assign({}, base.custom, { backgroundId: layer.presetId || (base.custom && base.custom.backgroundId) }),
@@ -385,28 +386,29 @@
 
     if (layer.kind === 'visualizer') {
       const defVis = def ? def.visualizer : {};
+      const baseVis = (cfg && cfg.visualizer) || defVis;
       const visSettings = (layer.settings && layer.settings.visualizer) || {};
-      const mergedVis = window.SV.deepMerge(defVis, visSettings);
-      mergedVis.type = layer.type;
+      const mergedVis = window.SV.deepMerge(baseVis, visSettings);
+      mergedVis.type = layer.type || (cfg && cfg.visualizer && cfg.visualizer.type) || 'bars';
       const res = Object.assign({}, base, {
         visualizer: mergedVis,
         custom: Object.assign({}, base.custom, { visualizerId: layer.presetId || (base.custom && base.custom.visualizerId) }),
       });
       if (layer.type === 'text') {
         const textSettings = (layer.settings && layer.settings.text) || {};
-        const defText = def ? def.text : {};
+        const defText = (cfg && cfg.text) || (def ? def.text : {});
         res.text = Object.assign({}, defText, base.text, textSettings, { enabled: layer.enabled !== false });
       }
       if (layer.type === 'nowplaying') {
         const npSettings = (layer.settings && layer.settings.nowplaying) || {};
-        const defNp = def ? def.nowplaying : {};
+        const defNp = (cfg && cfg.nowplaying) || (def ? def.nowplaying : {});
         res.nowplaying = Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false });
       }
       return res;
     }
 
     if (layer.kind === 'media') {
-      const defMedia = def ? def.media : {};
+      const defMedia = (cfg && cfg.media) || (def ? def.media : {});
       const mediaSettings = (layer.settings && layer.settings.media) || {};
       return Object.assign({}, base, {
         media: Object.assign({}, defMedia, base.media, mediaSettings, { enabled: layer.enabled !== false }),
@@ -435,7 +437,12 @@
       : '';
     const grad = ((b.gradient && b.gradient.colors) || []).join(',');
     const stackState = stackOn(cfg) ? 'stack' : 'classic';
-    const black = cfg.isBlackout ? 'blackout' : '';
+    const black = (cfg.isBlackout === true || (cfg.isBlackout !== false && (
+      cfg.background &&
+      (cfg.background.type === 'transparent' || (cfg.background.type === 'solid' && cfg.background.solidColor === '#000000')) &&
+      cfg.visualizer && cfg.visualizer.type === 'none' &&
+      (!cfg.layers || cfg.layers.every((l) => !l.enabled))
+    ))) ? 'blackout' : '';
     return [v.type, b.type, c.visualizerId, c.backgroundId, g.family, g.formula, layers, grad, stackState, black].join('|');
   }
 
@@ -690,16 +697,23 @@
       const T = window.SVTransition;
       const spec = cfg && cfg.transition;
 
-      const isBlackoutNow = !!(cfg && cfg.isBlackout) ||
-        (cfg && cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000' &&
-         cfg.visualizer && cfg.visualizer.type === 'none' &&
-         (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
+      const isBlackoutNow = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
+        (
+          (cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000') ||
+          (cfg.background && cfg.background.type === 'transparent')
+        ) &&
+        cfg.visualizer && cfg.visualizer.type === 'none' &&
+        (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
 
       const wasBlackout = !!(this.prevCfg && (
-        this.prevCfg.isBlackout ||
-        (this.prevCfg.background && this.prevCfg.background.type === 'solid' && this.prevCfg.background.solidColor === '#000000' &&
-         this.prevCfg.visualizer && this.prevCfg.visualizer.type === 'none' &&
-         (!this.prevCfg.layers || this.prevCfg.layers.every((l) => !l.enabled)))
+        this.prevCfg.isBlackout === true || (this.prevCfg.isBlackout !== false && (
+          this.prevCfg.background && (
+            (this.prevCfg.background.type === 'solid' && this.prevCfg.background.solidColor === '#000000') ||
+            (this.prevCfg.background.type === 'transparent')
+          ) &&
+          this.prevCfg.visualizer && this.prevCfg.visualizer.type === 'none' &&
+          (!this.prevCfg.layers || this.prevCfg.layers.every((l) => !l.enabled))
+        ))
       ));
 
       const bothBlackout = isBlackoutNow && wasBlackout;
@@ -718,7 +732,9 @@
         this.beginTransition(this.prevCfg, {
           type: transType,
           duration: transDur,
-          opts: isBlackoutTrans ? {} : (spec.params || {}),
+          opts: isBlackoutTrans
+            ? Object.assign({}, spec.params || {}, { isBlackout: true, blackoutDirection: isBlackoutNow ? 'out' : 'in' })
+            : (spec.params || {}),
           ease: isBlackoutTrans ? 'smooth' : (spec.ease || 'smooth'),
         });
       }
@@ -835,6 +851,22 @@
        Kimlik önbelleği sayesinde değişmeyen katmanda normalleştirme tekrar
        çalışmaz. */
     _live(e, cfg) {
+      if (!stackOn(cfg)) {
+        if (e.layer && e.layer.id === 'ly_vis' && cfg && cfg.visualizer) {
+          e.layer.settings = e.layer.settings || {};
+          e.layer.settings.visualizer = cfg.visualizer;
+          if (cfg.visualizer.type && cfg.visualizer.type !== 'none') {
+            e.layer.type = cfg.visualizer.type;
+          }
+        } else if (e.layer && e.layer.id === 'ly_bg' && cfg && cfg.background) {
+          e.layer.settings = e.layer.settings || {};
+          e.layer.settings.background = cfg.background;
+          if (cfg.background.type) {
+            e.layer.type = cfg.background.type;
+          }
+        }
+        return e.layer;
+      }
       const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : null;
       if (!list || !list.length) return e.layer;
       let src = null;
@@ -961,10 +993,13 @@
 
     draw(audio, cfg, t, dt) {
       const tick = this._tickTransition(dt);
-      const isBlackout = !!(cfg && cfg.isBlackout) ||
-        (cfg && cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000' &&
-         cfg.visualizer && cfg.visualizer.type === 'none' &&
-         (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
+      const isBlackout = cfg.isBlackout === true || (cfg.isBlackout !== false && cfg &&
+        (
+          (cfg.background && cfg.background.type === 'solid' && cfg.background.solidColor === '#000000') ||
+          (cfg.background && cfg.background.type === 'transparent')
+        ) &&
+        cfg.visualizer && cfg.visualizer.type === 'none' &&
+        (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
       const fxOn = !!(this.postfx && this.postfx.hasWork());
       const single = fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
