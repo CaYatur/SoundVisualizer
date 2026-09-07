@@ -141,8 +141,9 @@ function onPaint(e) {
   }
 }
 
-function start(cfg) {
+function start(cfg, hooks) {
   const c = Object.assign({}, DEFAULTS, cfg || {});
+  const hks = hooks || {};
   const av = available();
   if (!av.ok) {
     state = Object.assign({}, state, {
@@ -151,15 +152,33 @@ function start(cfg) {
     return Promise.resolve(snapshot());
   }
 
+  const targetW = Math.max(64, Number(c.width) || DEFAULTS.width);
+  const targetH = Math.max(64, Number(c.height) || DEFAULTS.height);
+
   wanted = true;
   state = Object.assign({}, state, {
     supported: true, protocol: av.protocol, reason: null,
-    name: c.name || DEFAULTS.name, frames: 0, dropped: 0, error: null,
+    name: c.name || DEFAULTS.name, width: targetW, height: targetH, frames: 0, dropped: 0, error: null,
   });
 
   if (win && !win.isDestroyed()) {
-    win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
+    try {
+      const [currentW, currentH] = win.getSize();
+      if (currentW !== targetW || currentH !== targetH) {
+        win.setSize(targetW, targetH);
+        destroySender();
+      }
+    } catch {}
+    try {
+      win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
+      if (typeof win.webContents.startPainting === 'function' && (!win.webContents.isPainting || !win.webContents.isPainting())) {
+        win.webContents.startPainting();
+      }
+    } catch {}
     state = Object.assign({}, state, { running: true });
+    if (typeof hks.onReady === 'function') {
+      try { hks.onReady(win); } catch {}
+    }
     return Promise.resolve(snapshot());
   }
 
@@ -171,8 +190,8 @@ function start(cfg) {
 
   win = new BrowserWindow({
     show: false,
-    width: Math.max(64, Number(c.width) || DEFAULTS.width),
-    height: Math.max(64, Number(c.height) || DEFAULTS.height),
+    width: targetW,
+    height: targetH,
     webPreferences: {
       preload: path.join(__dirname, 'preload-visualizer.js'),
       contextIsolation: true,
@@ -190,6 +209,18 @@ function start(cfg) {
     state = Object.assign({}, state, { running: false });
   });
   win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
+  if (typeof win.webContents.startPainting === 'function') {
+    try { win.webContents.startPainting(); } catch {}
+  }
+
+  win.webContents.on('did-finish-load', () => {
+    if (typeof win.webContents.startPainting === 'function') {
+      try { win.webContents.startPainting(); } catch {}
+    }
+    if (typeof hks.onReady === 'function') {
+      try { hks.onReady(win); } catch {}
+    }
+  });
 
   const p = win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   state = Object.assign({}, state, { running: true });
@@ -203,6 +234,9 @@ function stop() {
   wanted = false;
   destroySender();
   if (win && !win.isDestroyed()) {
+    try {
+      if (typeof win.webContents.stopPainting === 'function') win.webContents.stopPainting();
+    } catch {}
     win.webContents.removeListener('paint', onPaint);
     win.destroy();
   }
