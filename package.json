@@ -61,6 +61,8 @@
       "node_modules/file-uri-to-path/**",
       "node_modules/ffmpeg-static/**",
       "src/shared/audio-devices.js",
+      "src/shared/app-audio.js",
+      "src/main/app-capture.js",
       "src/main/loopback-helper.js"
     ],
     "win": {

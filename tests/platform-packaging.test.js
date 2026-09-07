@@ -158,3 +158,42 @@ test('.deb bakımcı adresi tanımlı', () => {
   const email = (pkg.author && pkg.author.email) || '';
   assert.ok(/@/.test(m) || /@/.test(email), 'ne deb.maintainer ne author.email var');
 });
+
+/* Ses yardımcısı asar'ın DIŞINDA çalışıyor: onu uygulamanın kendi ikilisi
+   node kipinde başlatıyor ve harici bir süreç asar arşivinin içini okuyamıyor.
+   Bu yüzden yardımcının require ettiği her yerel dosya asarUnpack'te olmak
+   zorunda.
+ 
+   Bu gerçekten yaşandı: uygulama başına ses yakalama eklendiğinde yardımcı
+   iki yeni modül require etti, ikisi de asar içinde kaldı ve PAKETLENMİŞ
+   derlemede yardımcı sessizce çöktü. Geliştirmede her şey çalışıyordu; tek
+   belirti paketlenmiş öz testte "frames received from helper = 0" satırıydı. */
+test('ses yardımcısının bağımlılıkları asar dışına çıkarılıyor', () => {
+  const unpack = build.asarUnpack || [];
+  const covered = (rel) => unpack.some((pat) => {
+    const p = String(pat);
+    if (p === rel) return true;
+    const star = p.indexOf('/**');
+    return star > 0 && rel.startsWith(p.slice(0, star + 1));
+  });
+
+  const seen = new Set();
+  const eksik = [];
+  (function walk(rel) {
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    if (!covered(rel)) eksik.push(rel);
+    let src;
+    try { src = read(rel); } catch { return; }
+    const re = /require\(\s*'(\.[^']+)'\s*\)/g;
+    let m;
+    while ((m = re.exec(src))) {
+      let next = path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1]));
+      if (!/\.js$/.test(next)) next += '.js';
+      if (fs.existsSync(path.join(root, next))) walk(next);
+    }
+  })('src/main/loopback-helper.js');
+
+  assert.deepStrictEqual(eksik, [],
+    'asarUnpack dışında kalan yardımcı bağımlılığı: ' + eksik.join(', '));
+});
