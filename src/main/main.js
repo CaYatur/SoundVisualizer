@@ -198,6 +198,55 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('com.cayadev.visualizer');
 }
 
+let forceQuitApp = false;
+let isConfirmingClose = false;
+
+ipcMain.on('confirm-close-approved', () => {
+  forceQuitApp = true;
+  if (adminWin && !adminWin.isDestroyed()) adminWin.close();
+  else app.quit();
+});
+
+async function confirmCloseIfNeeded(parentWin) {
+  if (forceQuitApp || SMOKE) return true;
+  const cfg = currentConfig || loadSettings();
+  const confirmClose = !!(cfg && cfg.power && cfg.power.confirmClose);
+  if (!confirmClose || !anyVisualizerOpen()) return true;
+  if (isConfirmingClose) return false;
+  isConfirmingClose = true;
+
+  try {
+    const win = (parentWin && !parentWin.isDestroyed()) ? parentWin : (adminWin && !adminWin.isDestroyed() ? adminWin : null);
+    const boxOpts = {
+      type: 'none', // Sahne esnasında kesinlikle sistem bildirim sesi çalmaz
+      title: trUi('Uygulamayı Kapat', 'Close Application'),
+      message: trUi(
+        'Görselleştirici açıkken uygulamayı kapatmak istediğinizden emin misiniz?',
+        'Are you sure you want to close the application while the visualizer is active?'
+      ),
+      detail: trUi(
+        'Görselleştirici ekranları ve yönetici paneli sonlandırılacak.',
+        'Visualizer displays and the admin panel will be closed.'
+      ),
+      buttons: [
+        trUi('Uygulamayı Kapat', 'Close Application'),
+        trUi('İptal', 'Cancel'),
+      ],
+      defaultId: 1, // Yanlışlıkla basmalara karşı İptal varsayılan odaktadır
+      cancelId: 1,
+      noLink: true,
+    };
+    const choice = win ? await dialog.showMessageBox(win, boxOpts) : await dialog.showMessageBox(boxOpts);
+    if (choice.response === 0) {
+      forceQuitApp = true;
+      return true;
+    }
+    return false;
+  } finally {
+    isConfirmingClose = false;
+  }
+}
+
 function createAdminWindow() {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   adminWin = new BrowserWindow({
@@ -229,6 +278,17 @@ function createAdminWindow() {
   if (process.argv.includes('--dev')) {
     adminWin.webContents.openDevTools({ mode: 'detach' });
   }
+
+  adminWin.on('close', (e) => {
+    if (forceQuitApp || SMOKE) return;
+    const cfg = currentConfig || loadSettings();
+    if (cfg?.power?.confirmClose && anyVisualizerOpen()) {
+      e.preventDefault();
+      if (adminWin.isMinimized()) adminWin.restore();
+      adminWin.focus();
+      adminWin.webContents.send('request-confirm-close');
+    }
+  });
 
   adminWin.on('closed', () => {
     adminWin = null;
@@ -327,6 +387,7 @@ function createVisualizerWindow(display) {
     },
   });
   visualizerWins.set(display.id, win);
+  notifyVisualizerStatus();
 
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   attachSmoke(win, 'VIS');
@@ -359,6 +420,7 @@ function createVisualizerWindow(display) {
   // nedeniyle yakalama zaten sürüyorsa yeniden başlatılmaz.
   win.webContents.on('did-finish-load', () => {
     syncCapture();
+    notifyVisualizerStatus();
     // Yeni açılan pencereye güncel yapılandırmayı ver (diğerleriyle eşleşsin)
     if (currentConfig) win.webContents.send('config', currentConfig);
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
@@ -372,30 +434,40 @@ function createVisualizerWindow(display) {
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
      pencereye kolayca ulaşamayabilir.
 
-     Kaza koruması ESC’i kilitlediğinde geriye tek bir tuş yolu kalır:
-     Ctrl+Alt+Shift+Esc. Üç değiştirici tuş yanlışlıkla basılamayacak kadar
-     zor bir birleşim; buna karşılık panel kapanmış ya da ulaşılamaz haldeyse
-     kullanıcı ekranına kilitlenmiş olmaz.
+     Kaza koruması ESC’i kilitlediğinde acil çıkış için sistem tarafından
+     rezerve edilmemiş boşta duran bir kombinasyon gerekir. Windows'ta
+     Ctrl+Shift+Esc doğrudan Görev Yöneticisi'ne ayrıldığı için, işletim sisteminin
+     yakalamadığı Ctrl+Shift+Q (veya Ctrl+Shift+Alt+Q) ve Ctrl+Shift+Backspace
+     kullanılır. Geriye dönük uyum için Ctrl+Alt+Shift+Esc de desteklenir.
 
-     Bu dinleyici pencereye bağlı (before-input-event), globalShortcut DEĞİL:
-     genel kısayol ESC’i tüm sistemde yutardı ve görselleştirme öndeyken
-     bile başka uygulamaları etkilerdi. Yalnızca bu pencere odaktayken çalışır.
-     Aynı sebeple kısayol yalnızca odaktaki pencerede yakalanır, ancak
-     closeVisualizer() hepsini birden kapatır. */
+     Bu dinleyici pencereye bağlı (before-input-event), globalShortcut DEĞİL. */
   win.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.key !== 'Escape') return;
-    const rescue = input.control && input.alt && input.shift;
-    if (rescue) {
+    if (input.type !== 'keyDown') return;
+
+    const key = (input.key || '').toLowerCase();
+    const isEsc = key === 'escape';
+    const isQ = key === 'q';
+    const isBackspace = key === 'backspace';
+
+    const isRescue =
+      (isQ && input.control && input.shift) ||
+      (isBackspace && input.control && input.shift) ||
+      (isEsc && input.control && input.alt && input.shift);
+
+    if (isRescue) {
       event.preventDefault();
       closeVisualizer();
       return;
     }
-    if (escapeLocked()) {
-      event.preventDefault();
-      notifyAdmin('protection-blocked', null);
-      return;
+
+    if (isEsc) {
+      if (escapeLocked()) {
+        event.preventDefault();
+        notifyAdmin('protection-blocked', null);
+        return;
+      }
+      closeVisualizer();
     }
-    closeVisualizer();
   });
 
   win.on('closed', () => {
@@ -578,15 +650,23 @@ function recoverVisualizer(displayId) {
 
   setTimeout(() => {
     if (!protectionOn() || quitting) return;
-    if (visualizerWins.has(displayId)) return; // bu arada zaten açılmış
+    if (visualizerWins.has(displayId)) {
+      notifyVisualizerStatus();
+      return;
+    }
     // Ekran fişten çekilmiş olabilir; olmayan ekrana pencere açmaya çalışma.
     const display = screen.getAllDisplays().find((d) => d.id === displayId);
-    if (!display) return;
+    if (!display) {
+      notifyVisualizerStatus();
+      return;
+    }
     try {
       createVisualizerWindow(display);
+      notifyVisualizerStatus();
       notifyAdmin('protection-recovered', displayId);
     } catch (e) {
       console.error('[koruma] pencere geri açılamadı:', e && e.message);
+      notifyVisualizerStatus();
     }
   }, 200);
 }
@@ -780,6 +860,18 @@ ipcMain.handle('visualizer-open-displays', () => Array.from(visualizerWins.keys(
 
 ipcMain.handle('visualizer-is-open', () => {
   return anyVisualizerOpen();
+});
+
+ipcMain.handle('get-visualizer-status', () => {
+  const ids = Array.from(visualizerWins.keys()).filter((id) => {
+    const w = visualizerWins.get(id);
+    return w && !w.isDestroyed();
+  });
+  return {
+    open: ids.length > 0,
+    displayIds: ids,
+    displayId: ids.length ? ids[0] : null,
+  };
 });
 
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
@@ -3119,7 +3211,28 @@ async function runSmoke() {
   app.quit();
 }
 
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
+  if (forceQuitApp || SMOKE) {
+    quitting = true;
+    streamServer.stop().catch(() => {});
+    oscServer.stop().catch(() => {});
+    artnet.stop().catch(() => {});
+    dynamicLighting.stop().catch(() => {});
+    mediaSession.stop();
+    nativeAudio.stopCapture();
+    return;
+  }
+  const cfg = currentConfig || loadSettings();
+  if (cfg?.power?.confirmClose && anyVisualizerOpen()) {
+    e.preventDefault();
+    confirmCloseIfNeeded(adminWin).then((confirmed) => {
+      if (confirmed) {
+        forceQuitApp = true;
+        app.quit();
+      }
+    });
+    return;
+  }
   // Kapanış sırasında kaza koruması devreye girmemeli
   quitting = true;
   streamServer.stop().catch(() => {});

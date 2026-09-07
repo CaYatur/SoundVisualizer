@@ -122,22 +122,26 @@
       };
       const onKey = (e) => {
         if (e.key === 'Escape') { e.preventDefault(); close(false); }
-        else if (e.key === 'Enter') { e.preventDefault(); close(true); }
+        else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (document.activeElement === cancelBtn) close(false);
+          else close(true);
+        }
       };
 
       const okBtn = el('button', {
         class: 'btn ' + (o.danger ? 'danger' : 'primary'),
         type: 'button',
-        text: o.okText || 'Evet, devam et',
+        text: o.okText || tr('Evet, devam et'),
         onclick: () => close(true),
       });
       const cancelBtn = el('button', {
-        class: 'btn ghost', type: 'button', text: 'Vazgeç', onclick: () => close(false),
+        class: 'btn ghost', type: 'button', text: o.cancelText || tr('Vazgeç'), onclick: () => close(false),
       });
 
       const backdrop = el('div', { class: 'ask-backdrop' }, [
         el('div', { class: 'ask-panel', role: 'dialog', 'aria-modal': 'true' }, [
-          el('div', { class: 'ask-title', text: o.title || 'Emin misiniz?' }),
+          el('div', { class: 'ask-title', text: o.title || tr('Emin misiniz?') }),
           el('div', { class: 'ask-text', text: message }),
           el('div', { class: 'ask-actions' }, [cancelBtn, okBtn]),
         ]),
@@ -147,7 +151,8 @@
       });
       document.body.appendChild(backdrop);
       document.addEventListener('keydown', onKey, true);
-      okBtn.focus();
+      if (o.defaultCancel) cancelBtn.focus();
+      else okBtn.focus();
     });
   }
 
@@ -339,6 +344,7 @@
     confirm: svConfirm,
     get: (p) => getPath(cfg, p),
     set: (p, v) => setPath(cfg, p, v),
+    syncToggles: (p, v) => syncToggleInputs(p, v),
 
     // Sık kullanılan satır üreticileri — panellerin görünümü kartlarla aynı kalsın
     row(labelText, node) {
@@ -539,11 +545,28 @@
     ]);
   }
 
+  function syncToggleInputs(path, val) {
+    document.querySelectorAll(`input[type="checkbox"][data-path="${path}"]`).forEach((box) => {
+      if (box.checked !== !!val) box.checked = !!val;
+    });
+  }
+
   function toggleCtrl(def) {
     const input = el('input', {
       type: 'checkbox',
+      'data-path': def.path,
       onchange: (e) => {
-        setPath(cfg, def.path, e.target.checked);
+        const val = e.target.checked;
+        setPath(cfg, def.path, val);
+        if (def.path === 'audio.humGuard') {
+          const prev = window.SVPreview;
+          const eng = prev && prev.audioEngine && prev.audioEngine();
+          if (eng) {
+            if (eng.cfg) eng.cfg.humGuard = val;
+            if (eng.analysis) eng.analysis.humGuard = val;
+          }
+        }
+        syncToggleInputs(def.path, val);
         // Sıra önemli: render() panel gövdelerinin bağımlı alanları
         // normalleştirmesine izin verir, push() sonuçta oluşan tutarlı
         // yapılandırmayı gönderir.
@@ -552,12 +575,15 @@
       },
     });
     input.checked = !!getPath(cfg, def.path);
-    return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [
-        el('label', { class: 'lbl', text: def.label }),
-        el('label', { class: 'switch' }, [input, el('span', { class: 'track' })]),
-      ]),
-    ]);
+    const rowChildren = [
+      el('label', { class: 'lbl', text: tr(def.label) }),
+      el('label', { class: 'switch' }, [input, el('span', { class: 'track' })]),
+    ];
+    const ctrlChildren = [el('div', { class: 'row' }, rowChildren)];
+    if (def.hint) {
+      ctrlChildren.push(el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }));
+    }
+    return el('div', { class: 'ctrl' }, ctrlChildren);
   }
 
   function colorCtrl(def) {
@@ -758,7 +784,7 @@
     const d = (scene && scene.data) || {};
     const parts = [];
     if (d.layerStack && d.layerStack.enabled && Array.isArray(d.layers) && d.layers.length) {
-      parts.push(d.layers.length + ' Katman');
+      parts.push(d.layers.length + ' ' + (d.layers.length === 1 ? tr('Katman') : tr('Katmanlar')));
     } else {
       const type = (d.visualizer && d.visualizer.type) || 'none';
       const names = {
@@ -795,7 +821,7 @@
         onclick: () => actions.applyScene(sc.id),
       });
       const name = el('input', {
-        class: 'up-name', type: 'text', value: sc.name || 'Sahne', title: 'Sahne adı',
+        class: 'up-name', type: 'text', value: tr(sc.name || 'Sahne'), title: tr('Sahne adı'),
       });
       name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
       const applyBtn = el('button', { class: 'btn small', text: 'Uygula', onclick: () => actions.applyScene(sc.id) });
@@ -1679,6 +1705,12 @@
           { type: 'slider', path: 'audio.sensitivity', label: 'Hassasiyet', min: 0.2, max: 4, step: 0.05 },
           { type: 'slider', path: 'audio.smoothing', label: 'Yumuşatma', min: 0, max: 0.95, step: 0.01, percent: true , noExtend: true },
           { type: 'slider', path: 'audio.bassBoost', label: 'Bas Vurgusu', min: 1, max: 4, step: 0.05 },
+          {
+            type: 'toggle',
+            path: 'audio.humGuard',
+            label: 'Akıllı Sessizlik Filtresi',
+            hint: 'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).',
+          },
         ],
       },
       {
@@ -2305,6 +2337,14 @@
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true , noExtend: true },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
+          {
+            type: 'toggle',
+            path: 'power.confirmClose',
+            label: 'Yanlışlıkla Kapatmayı Önle',
+            group: 'Davranış',
+            advanced: true,
+            hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
+          },
         ],
       },
       {
@@ -2442,7 +2482,7 @@
   function renderNav() {
     const rail = $('navRail');
     rail.innerHTML = '';
-    rail.appendChild(el('div', { class: 'nav-group-label', text: 'Kategoriler' }));
+    rail.appendChild(el('div', { class: 'nav-group-label', text: tr('Kategoriler') }));
     CATEGORIES.forEach((cat) => {
       const n = categoryModifiedCount(cat.id);
       const item = el(
@@ -2452,20 +2492,20 @@
           type: 'button',
           // Otomasyon kartı/kategoriyi sıraya göre değil kimliğe göre bulsun
           'data-cat': cat.id,
-          title: cat.desc,
+          title: tr(cat.desc),
           onclick: () => setCategory(cat.id),
         },
         [
           el('span', { class: 'nav-ico', text: cat.icon }),
-          el('span', { class: 'nav-label', text: cat.title }),
-          n > 0 ? el('span', { class: 'nav-badge', text: String(n), title: 'Varsayılandan farklı ayar sayısı' }) : null,
+          el('span', { class: 'nav-label', text: tr(cat.title) }),
+          n > 0 ? el('span', { class: 'nav-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
         ]
       );
       rail.appendChild(item);
     });
     rail.appendChild(el('div', { class: 'nav-spacer' }));
     rail.appendChild(
-      el('div', { class: 'nav-foot', text: 'Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.' })
+      el('div', { class: 'nav-foot', text: tr('Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.') })
     );
   }
 
@@ -2485,8 +2525,8 @@
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
-    $('catTitle').textContent = cat.title;
-    $('catDesc').textContent = cat.desc;
+    $('catTitle').textContent = tr(cat.title);
+    $('catDesc').textContent = tr(cat.desc);
 
     const sections = sectionSchema().filter((s) => s.category === cat.id && (!s.show || s.show()));
     root.classList.toggle('single', sections.length === 1 || sections.every((s) => s.wide));
@@ -2519,19 +2559,19 @@
     const head = el('div', { class: 'card-head' }, [
       el('span', { class: 'ico', text: sec.icon }),
       el('div', { class: 'ch-main' }, [
-        el('h3', { text: sec.title }),
-        sec.desc ? el('div', { class: 'desc', text: sec.desc }) : null,
+        el('h3', { text: tr(sec.title) }),
+        sec.desc ? el('div', { class: 'desc', text: tr(sec.desc) }) : null,
       ]),
       el('div', { class: 'ch-actions' }, [
         modCount > 0
-          ? el('span', { class: 'chip-mod', text: String(modCount), title: 'Varsayılandan farklı ayar sayısı' })
+          ? el('span', { class: 'chip-mod', text: String(modCount), title: tr('Varsayılandan farklı ayar sayısı') })
           : null,
         modCount > 0
           ? el('button', {
               class: 'icon-btn small',
               type: 'button',
               text: '↺',
-              title: 'Bu bölümü varsayılana döndür',
+              title: tr('Bu bölümü varsayılana döndür'),
               onclick: () => resetSection(sec),
             })
           : null,
@@ -2789,7 +2829,7 @@
     }
     box.classList.remove('hidden');
     if (!items.length) {
-      box.appendChild(el('div', { class: 'sr-empty', text: 'Eşleşen ayar bulunamadı.' }));
+      box.appendChild(el('div', { class: 'sr-empty', text: tr('Eşleşen ayar bulunamadı.') }));
       return;
     }
     items.forEach((e, i) => {
@@ -2797,10 +2837,10 @@
         el('button', { class: 'sr-item' + (i === 0 ? ' active' : ''), type: 'button', onclick: () => jumpTo(e) }, [
           el('span', { class: 'sr-ico', text: e.icon }),
           el('span', { class: 'sr-main' }, [
-            el('div', { class: 'sr-label', text: e.label }),
-            el('div', { class: 'sr-path', text: e.categoryTitle + ' › ' + e.section }),
+            el('div', { class: 'sr-label', text: tr(e.label) }),
+            el('div', { class: 'sr-path', text: tr(e.categoryTitle) + ' › ' + tr(e.section) }),
           ]),
-          e.advanced ? el('span', { class: 'sr-tag', text: 'Gelişmiş' }) : null,
+          e.advanced ? el('span', { class: 'sr-tag', text: tr('Gelişmiş') }) : null,
         ])
       );
     });
@@ -3253,8 +3293,11 @@
       return;
     }
     const paused = window.SVPreview.isPaused();
-    window.api.subscribePreview(!paused && (previewWantsLive || visOpen));
+    const hasAnalysis = !!document.querySelector('.an-panel');
+    window.api.subscribePreview(!paused && (previewWantsLive || visOpen || hasAnalysis));
   }
+  window.SVAdmin = window.SVAdmin || {};
+  window.SVAdmin.syncPreviewSubscription = syncPreviewSubscription;
 
   // --------------------------------------------------------------------------
   // Arama kutusu kurulumu
@@ -3324,7 +3367,7 @@
     const arr = ensureScenes();
     // Electron window.prompt'u uygulamaz (çağrı sessizce undefined döner), bu
     // yüzden sahne varsayılan adla oluşturulur ve ad alanı düzenlemeye açılır.
-    const name = 'Sahne ' + (arr.length + 1);
+    const name = tr('Sahne ') + (arr.length + 1);
     const scene = { id: uid('sc_'), name, createdAt: Date.now(), data: snapshotScene() };
     arr.push(scene);
     sceneActionInFlight = true;
@@ -3457,27 +3500,27 @@
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
     if (!arr.length) {
       host.appendChild(
-        el('div', { class: 'scene-empty', text: 'Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.' })
+        el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.') })
       );
       return;
     }
     arr.forEach((sc) => {
       const thumb = el('div', {
         class: 'scene-thumb',
-        title: 'Bu sahneyi uygula',
+        title: tr('Bu sahneyi uygula'),
         style: 'background:' + sceneGradient(sc),
         onclick: () => actions.applyScene(sc.id),
       });
-      const name = el('input', { class: 'scene-name', type: 'text', value: sc.name || 'Sahne', title: 'Sahne adı' });
+      const name = el('input', { class: 'scene-name', type: 'text', value: tr(sc.name || 'Sahne'), title: tr('Sahne adı') });
       name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
       host.appendChild(
         el('div', { class: 'scene-item' + (sc.id === activeSceneId ? ' active' : '') }, [
-          dragHandle('Sahneyi taşı'),
+          dragHandle(tr('Sahneyi taşı')),
           thumb,
           el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
           el('div', { class: 'scene-acts' }, [
-            el('button', { class: 'icon-btn small', type: 'button', text: '⟳', title: 'Mevcut görünümle güncelle', onclick: () => actions.updateScene(sc.id) }),
-            el('button', { class: 'icon-btn small', type: 'button', text: '🗑', title: 'Sil', onclick: () => actions.deleteScene(sc.id) }),
+            el('button', { class: 'icon-btn small', type: 'button', text: '⟳', title: tr('Mevcut görünümle güncelle'), onclick: () => actions.updateScene(sc.id) }),
+            el('button', { class: 'icon-btn small', type: 'button', text: '🗑', title: tr('Sil'), onclick: () => actions.deleteScene(sc.id) }),
           ]),
         ])
       );
@@ -3867,11 +3910,43 @@
         push(true);
         svToast(
           e.target.checked
-            ? 'ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.'
-            : 'ESC ile kapatma yeniden açık.',
+            ? tr('ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Shift+Q kullanın.')
+            : tr('ESC ile kapatma yeniden açık.'),
           'ok'
         );
       });
+    }
+
+    const confirmCloseBox = $('confirmCloseToggle');
+    if (confirmCloseBox) {
+      confirmCloseBox.checked = !!(cfg.power && cfg.power.confirmClose);
+      confirmCloseBox.addEventListener('change', (e) => {
+        cfg.power = cfg.power || {};
+        cfg.power.confirmClose = e.target.checked;
+        push(true);
+        svToast(
+          e.target.checked
+            ? 'Yanlışlıkla kapatma koruması açık — görselleştirici açıkken onay istenir.'
+            : 'Yanlışlıkla kapatma koruması kapatıldı.',
+          'ok'
+        );
+      });
+    }
+
+    function syncSettingsCheckboxes() {
+      const aot = $('alwaysOnTopToggle');
+      if (aot) aot.checked = !!(cfg.power && cfg.power.alwaysOnTop);
+      const prot = $('protectToggle');
+      if (prot) prot.checked = !!(cfg.power && cfg.power.protect);
+      const protEsc = $('protectEscToggle');
+      if (protEsc) protEsc.checked = !!(cfg.power && cfg.power.protectNoEscape);
+      const cc = $('confirmCloseToggle');
+      if (cc) cc.checked = !!(cfg.power && cfg.power.confirmClose);
+      syncProtectRow();
+    }
+    const settingsBtn = $('settingsBtn');
+    if (settingsBtn) {
+      settingsBtn.addEventListener('click', syncSettingsCheckboxes);
     }
 
     const extBox = $('extendedRangeToggle');
@@ -3910,17 +3985,43 @@
        söylemezsek uygulamayı çökmüş sanır. */
     if (window.api.onProtectionBlocked) {
       window.api.onProtectionBlocked(() => {
-        svToast('ESC kapatma kapalı. Kapatmak için Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.', 'warn');
+        svToast(tr('ESC kapatma kapalı. Kapatmak için Kapat düğmesini ya da Ctrl+Shift+Q kullanın.'), 'warn');
       });
     }
     if (window.api.onProtectionRecovered) {
-      window.api.onProtectionRecovered(() => {
-        svToast('Görselleştirme penceresi beklenmedik biçimde kapandı, kaza koruması geri açtı.', 'ok');
+      window.api.onProtectionRecovered((id) => {
+        svToast(tr('Görselleştirme penceresi beklenmedik biçimde kapandı, kaza koruması geri açtı.'), 'ok');
+        // Kaza koruması pencereyi geri açtığında butonları derhal aktif et ve durumu sorgula
+        if (window.api.getVisualizerStatus) {
+          window.api.getVisualizerStatus().then((d) => {
+            if (d && typeof d.open === 'boolean') setStatus(d.open, d.displayIds);
+          }).catch(() => setStatus(true, id != null ? [id] : null));
+        } else {
+          setStatus(true, id != null ? [id] : null);
+        }
       });
     }
     if (window.api.onProtectionGaveUp) {
       window.api.onProtectionGaveUp(() => {
-        svToast('Görselleştirme penceresi sürekli kapanıyor; kaza koruması geri açmayı bıraktı.', 'err');
+        svToast(tr('Görselleştirme penceresi sürekli kapanıyor; kaza koruması geri açmayı bıraktı.'), 'err');
+      });
+    }
+    if (window.api.onRequestConfirmClose) {
+      window.api.onRequestConfirmClose(async () => {
+        if (document.querySelector('.ask-backdrop')) return;
+        const confirmed = await svConfirm(
+          tr('Görselleştirici açıkken uygulamayı kapatmak istediğinizden emin misiniz? Görselleştirici ekranları ve yönetici paneli sonlandırılacak.'),
+          {
+            title: tr('Uygulamayı Kapat'),
+            okText: tr('Uygulamayı Kapat'),
+            cancelText: tr('İptal'),
+            danger: true,
+            defaultCancel: true,
+          }
+        );
+        if (confirmed && window.api.confirmCloseApproved) {
+          window.api.confirmCloseApproved();
+        }
       });
     }
     if (window.api.onNowPlaying) {
@@ -3930,6 +4031,32 @@
       });
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));
+
+    // Farklı kontrol sistemi (Heartbeat / Durum Güvencesi):
+    // Kaza korumasıyla pencere geri açıldığında, çökme anında veya IPC gecikmelerinde
+    // buton durumunun ve görselleştirici durumunun gerçekle %100 uyuşmasını garanti eder.
+    const syncVisualizerStatusFromMain = async () => {
+      if (!window.api || !window.api.getVisualizerStatus) return;
+      try {
+        const st = await window.api.getVisualizerStatus();
+        if (st && typeof st.open === 'boolean') {
+          const closeBtn = $('closeBtn');
+          const isMismatched = (st.open !== visOpen) || (closeBtn && closeBtn.disabled === st.open);
+          if (isMismatched) {
+            setStatus(st.open, st.displayIds);
+          }
+        }
+      } catch {}
+    };
+
+    setInterval(() => {
+      if (!document.hidden) syncVisualizerStatusFromMain();
+    }, 1000);
+
+    window.addEventListener('focus', syncVisualizerStatusFromMain);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncVisualizerStatusFromMain();
+    });
     window.api.onDisplaysChanged((list) => {
       displays = list;
       renderDisplays();

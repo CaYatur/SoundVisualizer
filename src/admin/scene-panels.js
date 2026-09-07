@@ -72,16 +72,17 @@
 
   function miniSelect(label, options, get, set, onAfter) {
     const el = P().el;
+    const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
     const sel = el('select', {
       class: 'p-in',
       onchange: (e) => { set(e.target.value); P().push(true); if (onAfter) onAfter(); },
     });
     for (const [v, t] of options) {
-      const o = el('option', { value: v, text: t });
+      const o = el('option', { value: v, text: tr(t) });
       if (String(get()) === String(v)) o.selected = true;
       sel.appendChild(o);
     }
-    return P().row(label, sel);
+    return P().row(tr(label), sel);
   }
 
   function isWindowsPlatform() {

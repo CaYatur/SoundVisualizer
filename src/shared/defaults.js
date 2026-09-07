@@ -14,6 +14,7 @@
       sensitivity: 0.25, // genel kazanç
       smoothing: 0.5, // zaman yumuşatma (0..0.95)
       bassBoost: 2.05, // düşük frekans vurgusu
+      humGuard: true, // 50/60 Hz şebeke uğultusu ve dip gürültüsü filtresi (akıllı sessizlik)
     },
 
     background: {
@@ -267,9 +268,12 @@
          masaüstünde denerken pencereyi kapatamamak sinir bozucu olur. */
       protect: false,
       /* ESC ile kapatmayı da engelle. Yalnızca protect açıkken anlamlıdır;
-         bu haldeyken pencere ancak panelden ya da Ctrl+Alt+Shift+Esc ile
-         kapanır. */
+         bu haldeyken pencere ancak panelden ya da Ctrl+Shift+Q (veya
+         Ctrl+Alt+Shift+Q) ile kapanır. */
       protectNoEscape: false,
+      /* Yanlışlıkla kapatmayı önleme. Açıkken ve görselleştirici herhangi bir
+         ekranda etkinken uygulama kapatılmak istenirse onay penceresi açılır. */
+      confirmClose: false,
     },
 
     // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici

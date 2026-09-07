@@ -238,7 +238,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
       if (BUILTIN_LIST.some((x) => x.id === p.id)) {
         throw new Error('yerleşik preset kimliği zaten var: ' + p.id);
       }
-      BUILTIN_LIST.push(normalize(p));
+      BUILTIN_LIST.push(normalize(Object.assign({ builtin: true, engine: 'shader', author: 'CAYADEV' }, p)));
     }
   }
 

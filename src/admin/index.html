@@ -198,10 +198,21 @@
         <label class="settings-toggle" id="protectEscRow">
           <span class="st-main">
             <span class="st-title">ESC ile Kapatmayı Devre Dışı Bırak</span>
-            <span class="st-desc">Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Alt+Shift+Esc ile kapanır.</span>
+            <span class="st-desc">Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Shift+Q (veya Ctrl+Alt+Shift+Q) ile kapanır.</span>
           </span>
           <span class="switch">
             <input id="protectEscToggle" type="checkbox" />
+            <span class="track"></span>
+          </span>
+        </label>
+
+        <label class="settings-toggle">
+          <span class="st-main">
+            <span class="st-title">Yanlışlıkla Kapatmayı Önle</span>
+            <span class="st-desc">Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.</span>
+          </span>
+          <span class="switch">
+            <input id="confirmCloseToggle" type="checkbox" />
             <span class="track"></span>
           </span>
         </label>

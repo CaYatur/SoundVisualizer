@@ -189,7 +189,9 @@
       liveSource = live;
       if (onSourceChange) onSourceChange(live);
     }
-    if (!live) audio.ingestFrame(buildSyntheticFrame(t));
+    if (!live) {
+      audio.ingestFrame(buildSyntheticFrame(t));
+    }
 
     let base = cfg;
     if (cfg.timeline && cfg.timeline.enabled && window.SVTimeline && window.SVShowClock) {
@@ -212,6 +214,10 @@
     }
 
     audio.update(dt);
+    if (!live && audio.analysis) {
+      audio.analysis.reset();
+      audio.analysis.silent = true;
+    }
     modulator.update(base, audio, t, dt);
     const mcfg = modulator.apply(base, dt);
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);

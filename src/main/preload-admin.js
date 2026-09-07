@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   repairAudio: () => ipcRenderer.invoke('repair-audio'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   visualizerIsOpen: () => ipcRenderer.invoke('visualizer-is-open'),
+  getVisualizerStatus: () => ipcRenderer.invoke('get-visualizer-status'),
   scanLighting: () => ipcRenderer.invoke('lighting:scan'),
   getLightingAvailability: () => ipcRenderer.invoke('lighting:availability'),
   openrgbStatus: () => ipcRenderer.invoke('openrgb:status'),
@@ -123,4 +124,6 @@ contextBridge.exposeInMainWorld('api', {
   onAudioSourceStatus: (cb) => ipcRenderer.on('audio-source-status', (e, data) => cb(data)),
   onVisualizerMessage: (cb) =>
     ipcRenderer.on('visualizer-message', (e, msg) => cb(msg)),
+  onRequestConfirmClose: (cb) => ipcRenderer.on('request-confirm-close', () => cb()),
+  confirmCloseApproved: () => ipcRenderer.send('confirm-close-approved'),
 });

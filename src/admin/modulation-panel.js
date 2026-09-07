@@ -258,6 +258,7 @@
           rerender();
         },
       });
+      const trTgt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
       tgtSel.appendChild(P().el('option', { value: '', text: '— hedef seçin —' }));
       let tGroup = null;
       let optGroup = null;
@@ -265,10 +266,10 @@
         if (c.group !== tGroup) {
           tGroup = c.group;
           optGroup = P().el('optgroup');
-          optGroup.label = c.group;
+          optGroup.label = trTgt(c.group);
           tgtSel.appendChild(optGroup);
         }
-        const o = P().el('option', { value: c.path, text: c.label });
+        const o = P().el('option', { value: c.path, text: trTgt(c.label) });
         if (c.path === r.target) o.selected = true;
         optGroup.appendChild(o);
       }
@@ -286,8 +287,8 @@
           let g = null;
           let og = null;
           for (const [v, t] of srcOpts) {
-            if (v === null) { og = P().el('optgroup'); og.label = t; sel.appendChild(og); g = t; continue; }
-            const o = P().el('option', { value: v, text: t });
+            if (v === null) { og = P().el('optgroup'); og.label = trTgt(t); sel.appendChild(og); g = t; continue; }
+            const o = P().el('option', { value: v, text: trTgt(t) });
             if (v === r.source) o.selected = true;
             (og || sel).appendChild(o);
           }

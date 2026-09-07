@@ -285,14 +285,25 @@
     'Kaza Koruması': 'Accidental-Close Protection',
     'Görselleştirme penceresi beklenmedik biçimde kapanırsa (çökme, Alt+F4) anında geri açılır. Panelden ya da ESC ile kapatmak her zaman çalışır.': 'If the visualizer window closes unexpectedly (a crash, Alt+F4) it reopens immediately. Closing from the panel or with Esc always works.',
     'ESC ile Kapatmayı Devre Dışı Bırak': 'Disable Closing with Esc',
+    'Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Shift+Q (veya Ctrl+Alt+Shift+Q) ile kapanır.': 'Only applies while Accidental-Close Protection is on. The visualizer then closes only from the panel’s Close button, or with Ctrl+Shift+Q (or Ctrl+Alt+Shift+Q) while the window has focus.',
     'Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Alt+Shift+Esc ile kapanır.': 'Only applies while Accidental-Close Protection is on. The visualizer then closes only from the panel’s Close button, or with Ctrl+Alt+Shift+Esc while the window has focus.',
     'Kaza koruması açık — kapanan görselleştirme penceresi geri açılır.': 'Accidental-close protection is on — a closed visualizer window will reopen.',
     'Kaza koruması kapatıldı.': 'Accidental-close protection turned off.',
+    'ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Shift+Q kullanın.': 'Esc no longer closes. Use the panel’s Close button or Ctrl+Shift+Q instead.',
     'ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.': 'Esc no longer closes. Use the panel’s Close button or Ctrl+Alt+Shift+Esc instead.',
     'ESC ile kapatma yeniden açık.': 'Closing with Esc is enabled again.',
+    'ESC kapatma kapalı. Kapatmak için Kapat düğmesini ya da Ctrl+Shift+Q kullanın.': 'Closing with Esc is off. Use the Close button or Ctrl+Shift+Q.',
     'ESC kapatma kapalı. Kapatmak için Kapat düğmesini ya da Ctrl+Alt+Shift+Esc kullanın.': 'Closing with Esc is off. Use the Close button or Ctrl+Alt+Shift+Esc.',
     'Görselleştirme penceresi beklenmedik biçimde kapandı, kaza koruması geri açtı.': 'The visualizer window closed unexpectedly; accidental-close protection reopened it.',
     'Görselleştirme penceresi sürekli kapanıyor; kaza koruması geri açmayı bıraktı.': 'The visualizer window keeps closing; accidental-close protection has stopped reopening it.',
+    'Yanlışlıkla Kapatmayı Önle': 'Prevent Accidental Close',
+    'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.': 'Prevents the application from accidentally closing while the visualizer is active; asks for confirmation before exiting.',
+    'Yanlışlıkla kapatma koruması açık — görselleştirici açıkken onay istenir.': 'Accidental-close protection is on — confirmation will be requested while the visualizer is active.',
+    'Yanlışlıkla kapatma koruması kapatıldı.': 'Accidental-close protection turned off.',
+    'Görselleştirici açıkken uygulamayı kapatmak istediğinizden emin misiniz?': 'Are you sure you want to close the application while the visualizer is active?',
+    'Görselleştirici ekranları ve yönetici paneli sonlandırılacak.': 'Visualizer displays and the admin panel will be closed.',
+    'Uygulamayı Kapat': 'Close Application',
+    'İptal': 'Cancel',
     'Zaman Çizelgesi': 'Timeline',
     'Sahneleri ve ayar değişimlerini zamana yayın. Ölçüye ya da saniyeye hizalı planlayın; oynatma kafası tüm ekranları birlikte sürer.': 'Lay scenes and setting changes out along time. Plan to the bar or to the second; the playhead drives every screen together.',
     'Klip Destesi': 'Clip Deck',
@@ -952,6 +963,30 @@
     'Boru Kalınlığı': 'Tube Thickness', 'Genişlik': 'Width', 'Tur': 'Turns', 'Burulma': 'Twist',
     'Faz': 'Phase', 'Açı (derece)': 'Angle (degrees)', 'Yayılma': 'Spread', 'Sönüm': 'Damping',
     'Üs': 'Exponent', 'Yükseklik': 'Height',
+    'Enneper Yüzeyi': 'Enneper Surface', 'Katenoid': 'Catenoid', 'Helikoid': 'Helicoid',
+    'Roma Yüzeyi (Steiner)': 'Roman Surface (Steiner)', 'Çapraz Başlık': 'Cross-Cap',
+    'Hiperboloit (tek kanatlı)': 'Hyperboloid (one-sheeted)', 'Eliptik Paraboloit': 'Elliptic Paraboloid',
+    'Maymun Eyeri': 'Monkey Saddle', 'Yumurta Kolisi': 'Egg Carton', 'Sinüs Yüzeyi': 'Sine Surface',
+    'Sözde Küre': 'Pseudosphere', 'Kuen Yüzeyi': 'Kuen Surface', 'Breather Yüzeyi': 'Breather Surface',
+    'Süperelipsoit': 'Superellipsoid', 'Gielis Süperşekli (3B)': 'Gielis Supershape (3D)',
+    'Bükülü Simit': 'Twisted Torus', 'Yonca Boru': 'Trefoil Tube', 'Epitrokoid': 'Epitrochoid',
+    'Hiposikloid': 'Hypocycloid', 'Deltoit': 'Deltoid', 'Nefroit': 'Nephroid',
+    'Limaçon (Pascal Salyangozu)': 'Limaçon (Pascal Snail)', 'Diocles Sissoidi': 'Cissoid of Diocles',
+    'Descartes Yaprağı': 'Folium of Descartes', 'Strofoit': 'Strophoid',
+    'Konkoit (Nikomedes)': 'Conchoid (Nicomedes)', 'Kokleoit': 'Cochleoid',
+    'Fermat Sarmalı': 'Fermat Spiral', 'Hiperbolik Sarmal': 'Hyperbolic Spiral',
+    'Arşimet Sarmalı': 'Archimedean Spiral', 'Lituus': 'Lituus', 'Çember Evolventi': 'Circle Involute',
+    'Sikloit': 'Cycloid', 'Trokoit': 'Trochoid', 'Maurer Gülü': 'Maurer Rose',
+    'Lissajous Düğümü': 'Lissajous Knot', 'Küresel Sarmal': 'Spherical Spiral',
+    'Konik Sarmal': 'Conical Spiral', 'Seiffert Sarmalı': 'Seiffert Spiral',
+    'Büyükanne Düğümü': 'Granny Knot', 'Sekiz Düğümü': 'Figure-Eight Knot',
+    'Solenoit': 'Solenoid', 'Simit Halkası (p,q)': 'Torus Knot (p,q)',
+    'Chua Devresi': 'Chua Circuit', 'Dört Kanat': 'Four-Wing',
+    'Rikitake Dinamosu': 'Rikitake Dynamo', 'Langford (Aizawa varyantı)': 'Langford (Aizawa variant)',
+    'Duffing Salınıcısı': 'Duffing Oscillator', 'Standart Harita (Chirikov)': 'Standard Map (Chirikov)',
+    'Hopalong (Barry Martin)': 'Hopalong (Barry Martin)',
+    'Yarıçap': 'Radius', 'Boyun': 'Neck', 'Dönüşler': 'Turns', 'Basamak': 'Steps',
+    'Halka': 'Ring', 'Boru': 'Tube',
 
     // ---- Tempo ve otomatik VJ ----
     'Tempo ve Otomatik VJ': 'Tempo & Auto VJ',
@@ -1647,6 +1682,107 @@
       'No track currently playing on system (using fallback)',
     'Şu anda sistemde çalan parça algılanmadı (yedek kullanılır)':
       'No track currently detected on system (using fallback)',
+    'Otomatik (Şarkı resmi varsa göster, yoksa özel)':
+      'Auto (Show track artwork if available, otherwise custom)',
+    'Özel Resim (Yalnızca seçilen dosya)':
+      'Custom Image (Selected file only)',
+    'Sadece Çalan Şarkı Resmi':
+      'Track Artwork Only',
+    '🖼 Logo Seç': '🖼 Choose Logo',
+    '🖼 Logoyu Değiştir': '🖼 Change Logo',
+    'Çalan Şarkı Kapağı': 'Playing Track Artwork',
+    'Özel resim modu: Şarkı çalsa dahi her zaman bu özel görsel gösterilir.':
+      'Custom image mode: This custom image is always shown even if a track is playing.',
+    'Yalnızca çalan şarkının albüm kapağı/resmi gösterilir. Şarkı sözü / çalan parça sistemi aktifken parça çalınca otomatik devreye girer.':
+      'Only the album cover/artwork of the playing track is shown. Automatically activates when a song plays while the lyrics / now-playing system is active.',
+    'Arka plan kontrol durumu, Dynamic Lighting etkinleştirildiğinde izlenir.':
+      'Background control status is monitored when Dynamic Lighting is enabled.',
+    'Renk Çeşitliliği': 'Color Variety',
+    'Sıfırla': 'Reset',
+    'Yüklendi.': 'Loaded.',
+    'Medya': 'Media',
+    'Logo': 'Logo',
+    'Studio Preset': 'Studio Preset',
+    'Çıkışı': 'Output',
+    'Ekranla Eşitle': 'Sync to Display',
+    'CAYADEV Visualizer Ayarlarını İçe Aktar': 'Import CAYADEV Visualizer Settings',
+    'Ayarlar dışa aktarılamadı:': 'Could not export settings:',
+    'Ayarlar içe aktarılamadı:': 'Could not import settings:',
+    'Panel başlatılamadı': 'Could not initialize panel',
+    'Uygulamayı yeniden başlatın. Sorun sürerse aşağıdaki ayrıntıyı bildirin.':
+      'Restart the application. If the issue persists, report the details below.',
+    'Varsayılandan farklı': 'Modified from default',
+    'Ses aygıtları tanılanıyor…': 'Diagnosing audio devices…',
+    'Ses aygıtı algılanamadı.': 'Audio device could not be detected.',
+    'Ses aygıtı algılama zaman aşımına uğradı. Windows Ses hizmetini ve bağlı aygıtları kontrol edin.':
+      'Audio device detection timed out. Check Windows Audio service and connected devices.',
+    'Etkin ses aygıtı bulunamadı. Windows Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.':
+      'No active audio device found. Check Windows Audio settings and reconnect the device.',
+    'Windows ses sistemine erişimi engelledi. Ses gizlilik/güvenlik ayarlarını kontrol edip uygulamayı yeniden başlatın.':
+      'Windows blocked access to audio system. Check audio privacy/security settings and restart the application.',
+    'Ses yardımcı dosyaları kurulumda eksik. Uygulamayı yeniden kurun veya onarın.':
+      'Audio helper files missing from installation. Reinstall or repair the application.',
+    'Ses yardımcı süreci başlatılamadı.': 'Could not start audio helper process.',
+    'Ses yardımcı süreci beklenmedik şekilde kapandı.': 'Audio helper process exited unexpectedly.',
+    'Ses yardımcı süreci geçersiz veri döndürdü.': 'Audio helper process returned invalid data.',
+    'Native ses modülü eksik. Uygulamayı yeniden kurun veya onarın.':
+      'Native audio module missing. Reinstall or repair the application.',
+    'Native ses modülü bu Node.js sürümüyle uyumsuz. Node.js LTS ve uygulamayı yeniden kurun.':
+      'Native audio module incompatible with this Node.js version. Install Node.js LTS and reinstall the application.',
+    'Node.js bulunamadı. Node.js LTS kurun veya PATH ayarını onarın.':
+      'Node.js not found. Install Node.js LTS or fix PATH environment variable.',
+    'Otomatik onarım başlatılamadı': 'Automatic repair could not start',
+    'Otomatik yeniden deneme başarısız oldu.': 'Automatic retry failed.',
+    'Bu hata için güvenli otomatik kurulum yok; yukarıdaki öneriyi uygulayın.':
+      'No safe automatic installation for this error; apply the suggestion above.',
+    '⚠ Ses aygıtı tanılaması başarısız': '⚠ Audio device diagnosis failed',
+    'Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini kullanır. Bas solda, tiz sağda ilerler.':
+      'Each LED uses the color and height of the corresponding bar in the visualizer. Bass on left, treble on right.',
+    'LED dizisinin ilk kısmı bas, ortası mid ve son kısmı tiz frekanslarına ayrılır.':
+      'The first part of the LED array is assigned to bass, middle to mid, and end to treble frequencies.',
+    'Arka planın seçili renk şablonu, akış hızı ve ses tepkisi aynı anda ışıklara taşınır.':
+      'The background’s selected color preset, flow speed, and audio response are transferred to lights simultaneously.',
+    'Anında Kes (Animasyonsuz)': 'Instant Cut (No Animation)',
+    'Sönümleme (Yumuşak Karart)': 'Crossfade (Smooth Blackout)',
+    'Duyarlılık': 'Sensitivity',
+    'Görüntü kaydediliyor…': 'Recording video…',
+    'Kaydetme API\'si hazır değil.': 'Recording API is not ready.',
+    'Kayıt başlatılamadı:': 'Could not start recording:',
+    'Yüzey hazırlanıyor…': 'Preparing surface…',
+    'arkaplan katmanları': 'background layers',
+    'ön katmanlar': 'foreground layers',
+    'deste kararsız çalışıyor': 'deck is unstable',
+    'parça zaman çizelgesine eklendi.': 'track added to timeline.',
+    'yuvanın kaynağı seçilmemiş; onlar atlanacak.': 'slot source not selected; they will be skipped.',
+    'dosya atlandı': 'files skipped',
+    'presetten ilk 400 gösteriliyor; aramayı daraltın.': 'Showing first 400 presets; narrow your search.',
+    'tanesinde derleme uyarısı var)': 'have compilation warnings)',
+    'aynı vuruşta': 'on the same beat',
+    'işaret üretildi.': 'markers generated.',
+    'İşaret': 'Marker',
+    '· karaoke zamanlı': '· karaoke timed',
+    'karaoke zamanlı': 'karaoke timed',
+    'Görsel Nesneler (arka)': 'Visual Objects (back)',
+    'Görsel Nesneler (ön)': 'Visual Objects (front)',
+    'Halka Sayısı': 'Ring Count',
+    'Halka Kalınlığı': 'Ring Thickness',
+    'Akış': 'Flow',
+    '4:5 (Gönderi)': '4:5 (Post)',
+    'Nota Sınıfı': 'Pitch Class',
+    'Sessiz': 'Muted',
+    'Sustur': 'Mute',
+    'Preset çok büyük (512 KB üstü).': 'Preset is too large (over 512 KB).',
+    'Kamera erişimi bu ortamda kullanılamıyor.': 'Camera access is not available in this environment.',
+    'WebGL2 kullanılamıyor. Sürücü güncellemesi gerekebilir.': 'WebGL2 unavailable. Driver update may be required.',
+    'WebGL2 kullanılamıyor': 'WebGL2 unavailable',
+    'bilinmeyen derleme hatası': 'unknown compile error',
+    'bağlama hatası': 'link error',
+    'Derleme hatası': 'Compilation error',
+    'shader hatası': 'shader error',
+    'link hatası': 'link error',
+    'yazılamadı': 'could not be written',
+    'Sürüklerken Alt tuşu yakalamayı geçici olarak kapatır. Tekerlek kaydırır, Ctrl+tekerlek yakınlaştırır.':
+      'Holding Alt while dragging temporarily disables snapping. Wheel scrolls, Ctrl+wheel zooms.',
 
     // ---- MilkDrop motoru ----
     'Yüklü Preset': 'Loaded Preset',
@@ -1742,6 +1878,16 @@
     'Nota C': 'Note C', 'Nota C#': 'Note C#', 'Nota D': 'Note D', 'Nota D#': 'Note D#',
     'Nota E': 'Note E', 'Nota F': 'Note F', 'Nota F#': 'Note F#', 'Nota G': 'Note G',
     'Nota G#': 'Note G#', 'Nota A': 'Note A', 'Nota A#': 'Note A#', 'Nota B': 'Note B',
+    'Akıllı Sessizlik Filtresi': 'Smart Silence Filter',
+    '50/60 Hz donanım uğultusu ve boşta dip gürültüsünü filtreler': 'Filters 50/60 Hz hardware hum and idle noise floor',
+    '⚡ Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.':
+      '⚡ Hardware noise floor / mains hum detected (50/60 Hz). You can enable the Smart Silence Filter to switch to corrected mode.',
+    'Filtreyi Aç': 'Enable Filter',
+    'Akıllı Sessizlik Filtresi etkinleştirildi.': 'Smart Silence Filter enabled.',
+    'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).':
+      'When enabled, 50/60 Hz hardware hum and idle noise floor are treated as silence. Can be disabled for raw analysis on clean studio hardware (no loss in music; only affects ultra-quiet pure test signals).',
+    'Buradaki her ölçüm modülasyon matrisinde kaynak olarak kullanılabilir. Sahne sese tepki vermiyorsa önce buraya bakın: sinyal geliyor mu, tek kanal mı, sessizlik eşiğinin altında mı? Akıllı Sessizlik Filtresi müzikte hiçbir kayba yol açmaz (yalnızca 115 Hz altı aşırı kısık saf test sinyalleri hariç). Temiz stüdyo donanımlarında ham analiz için filtre kapatılabilir.':
+      'Every measurement here can be used as a source in the modulation matrix. If a scene does not react to audio, check here first: is signal coming through, single channel, or below silence threshold? Smart Silence Filter causes no loss in music (except ultra-quiet pure test signals below 115 Hz). Can be disabled for raw analysis on clean studio hardware.',
 
     // ---- Modülasyon matrisi ----
     'Modülasyon Matrisi': 'Modulation Matrix',
@@ -1844,6 +1990,560 @@
     'Yıldız': 'Starfield', 'Bokeh': 'Bokeh', 'Yağmur': 'Rain', 'Halka': 'Rings',
     'Petek': 'Hex', 'Düz': 'Solid', 'Izgara': 'Grid', 'Gradyan': 'Gradient',
     'Kar': 'Snow', 'Geri Besleme': 'Feedback',
+    'Merkez': 'Center', 'Segment': 'Blocks', 'Nokta Matris': 'Dot Matrix', 'Işın': 'Starburst',
+    'Nesneler': 'Objects', 'Sahne ': 'Scene ', 'Sahne': 'Scene', 'Katman': 'Layer', 'katman': 'layer',
+
+    // ---- Studio Shader Presets & Parameter Labels ----
+    'Bulut Katmanları': 'Cloud Layers',
+    'Katmanlı fbm gürültüsü; bas alt katmanları şişirir.': 'Layered FBM noise; bass swells lower layers.',
+    'Kıvrım Akışı': 'Curl Flow',
+    'Curl gürültüsünde sürüklenen çizgiler.': 'Lines drifting through curl noise.',
+    'Lav Lambası': 'Lava Lamp',
+    'Yavaş yükselen metabol damlalar.': 'Slowly rising metaball blobs.',
+    'Mürekkep Yayılması': 'Ink Diffusion',
+    'Suya damlayan mürekkep; vuruşta yeni damla.': 'Ink dropping into water; new drop on beat.',
+    'Duman Halkaları': 'Smoke Rings',
+    'Kameraya doğru akan halkalar.': 'Rings flowing toward the camera.',
+    'Petek Akışı': 'Hex Flow',
+    'Altıgen ızgara; her hücre bir frekans bandına bağlı.': 'Hexagonal grid; each cell bound to a frequency band.',
+    'Bükülmüş Izgara': 'Warped Grid',
+    'Perspektif ızgara; bas yüzeyi büker.': 'Perspective grid; bass warps the surface.',
+    'Truchet Örgü': 'Truchet Weave',
+    'Vuruşta yön değiştiren çeyrek yaylar.': 'Quarter arcs reversing direction on beat.',
+    'Moiré Girişimi': 'Moiré Interference',
+    'Hafifçe farklı açılarda üst üste binen ızgaralar.': 'Grids overlapping at slightly different angles.',
+    'Kristal Mağara': 'Crystal Cave',
+    'Voronoi hücreleri, kristal kenarlarıyla.': 'Voronoi cells with crystalline edges.',
+    'Mandelbrot Yakınlaşması': 'Mandelbrot Zoom',
+    'Sonsuz yakınlaşan kaçış-zamanı fraktalı.': 'Infinitely zooming escape-time fractal.',
+    'Julia Kümesi': 'Julia Set',
+    'Tiz sesle şekil değiştiren Julia kümesi.': 'Julia set morphing with high frequencies.',
+    'Yanan Gemi': 'Burning Ship',
+    'Mandelbrot ailesinin mutlak değerli akrabası.': 'Absolute-value relative of the Mandelbrot family.',
+    'Apollonius Çemberleri': 'Apollonian Circles',
+    'Yinelemeli olarak paketlenmiş çemberler.': 'Recursively packed circles.',
+    'Kaleydoskopik IFS': 'Kaleidoscopic IFS',
+    'Katlanan uzay; her katlama simetriyi artırır.': 'Folding space; each fold increases symmetry.',
+    'Menger Süngeri': 'Menger Sponge',
+    'Işın yürüyüşüyle çizilen üç boyutlu fraktal.': '3D fractal rendered with ray marching.',
+    'Mandelbulb': 'Mandelbulb',
+    'Üç boyutlu fraktal; kuvveti sese bağlı.': '3D fractal; power responds to audio.',
+    'Işık Tüneli': 'Light Tunnel',
+    'Kutupsal tünel; duvar dokusu spektrumdan.': 'Polar tunnel; wall texture driven by spectrum.',
+    'Yıldız Sıçraması': 'Star Warp',
+    'Işık hızına geçen yıldız alanı.': 'Starfield jumping to lightspeed.',
+    'Kutup Perdesi': 'Aurora Curtain',
+    'Dikey perdeler halinde akan ışık.': 'Light flowing in vertical curtains.',
+    'Sıvı Metal': 'Liquid Metal',
+    'Eşyükselti bantlarıyla metalik yüzey.': 'Metallic surface with contour bands.',
+    'Neon Yağmur': 'Neon Rain',
+    'Düşen ışık çizgileri.': 'Falling streaks of light.',
+    'Reaksiyon Deseni': 'Reaction Pattern',
+    'Gray-Scott görünümlü organik desen.': 'Gray-Scott style organic pattern.',
+    'Su Kostikleri': 'Water Caustics',
+    'Su yüzeyinden kırılan ışık çizgileri.': 'Rays of light refracting through water surface.',
+    'Prizma Işıması': 'Prism Radiance',
+    'Işınsal prizma dilimleri; her dilim bir bant.': 'Radial prism slices; each slice a frequency band.',
+    'Işıyan Barlar': 'Glowing Bars',
+    'Spektrum barları, yumuşak parlamayla.': 'Spectrum bars with soft glow.',
+    'Spektrum Halkası': 'Spectrum Ring',
+    'Dairesel spektrum; yarıçap frekansa göre.': 'Circular spectrum; radius responds to frequency.',
+    'Dalga Alanı': 'Wave Field',
+    'Dalga formunun kendisinden üretilen yüzey.': 'Surface generated from the waveform itself.',
+    'Vuruş Patlaması': 'Beat Burst',
+    'Her vuruşta dışa açılan halka.': 'Ring expanding outward on every beat.',
+    'Parlayan Osiloskop': 'Glowing Oscilloscope',
+    'Dalga formu, fosfor parlamasıyla.': 'Waveform with phosphor glow.',
+    'Frekans Ağı': 'Frequency Mesh',
+    'Perspektifte kayan spektrum ağı.': 'Spectrum mesh scrolling in perspective.',
+    'Nota Çemberi': 'Note Ring',
+    'On iki dilim; her dilim bir nota sınıfı bölgesi.': 'Twelve slices; each slice a pitch class zone.',
+    'Parçacık Akışı': 'Particle Flow',
+    'Gürültü alanında sürüklenen ışık noktaları.': 'Points of light drifting in noise field.',
+    'Kaleydoskop Spektrum': 'Kaleidoscope Spectrum',
+    'Tek dilime çizilen spektrum, N kez aynalanır.': 'Spectrum drawn on a single slice, mirrored N times.',
+    'Nabız Izgarası': 'Pulse Grid',
+    'Hücre ızgarası; her hücre bir bant.': 'Cell grid; each cell a frequency band.',
+    'Sıvı Barlar': 'Liquid Bars',
+    'Barlar arası yumuşak geçişle akışkan tepe çizgisi.': 'Fluid peak line with smooth interpolation between bars.',
+
+    // Parametre etiketleri
+    'Yarıçap': 'Radius',
+    'İç Yarıçap': 'Inner Radius',
+    'Dış Yarıçap': 'Outer Radius',
+    'Genlik': 'Amplitude',
+    'Keskinlik': 'Sharpness',
+    'Çizgi Sıklığı': 'Line Frequency',
+    'Damla': 'Drop',
+    'Yumuşaklık': 'Softness',
+    'Kontrast': 'Contrast',
+    'Halka': 'Ring',
+    'Hücre Boyutu': 'Cell Size',
+    'Çizgi': 'Line',
+    'Bükülme': 'Warp',
+    'Karo': 'Tile',
+    'Değişim': 'Change',
+    'Sıklık': 'Frequency',
+    'Açı Farkı': 'Angle Offset',
+    'Dönme': 'Rotation',
+    'Kenar': 'Edge',
+    'Yakınlaşma Hızı': 'Zoom Speed',
+    'Yineleme': 'Iterations',
+    'Merkez X': 'Center X',
+    'Merkez Y': 'Center Y',
+    'Ses Etkisi': 'Audio Influence',
+    'Katlama': 'Folds',
+    'Yakınlık': 'Proximity',
+    'Kuvvet': 'Power',
+    'Dönüş': 'Rotation',
+    'Burgu': 'Twist',
+    'Yoğunluk': 'Density',
+    'Uzama': 'Stretch',
+    'Yükseklik': 'Height',
+    'Bant': 'Band',
+    'Sütun': 'Column',
+    'Kuyruk': 'Tail',
+    'Dilim': 'Slice',
+    'Sönüm': 'Decay',
+    'Bar': 'Bar',
+    'Satır': 'Row',
+    'Kayma': 'Shift',
+    'Yuvarlaklık': 'Roundness',
+    'Duyarlılık': 'Sensitivity',
+    'İntegrasyon Adımı': 'Integration Step',
+    'Dönüş Hızı': 'Spin Speed',
+    'Bas → Kamera': 'Bass → Camera',
+    'Zamanlama': 'Timing',
+    'Sönme': 'Decay',
+    'İç Dönüş': 'Swirl',
+    'Yatay Kayma': 'Horizontal Shift',
+    'Dikey Kayma': 'Vertical Shift',
+    'Dalga Genliği': 'Wave Amplitude',
+    'Dalga Kalınlığı': 'Wave Thickness',
+    'Bas → Yakınlaşma': 'Bass → Zoom',
+    'Bas → Dönüş': 'Bass → Rotate',
+    'Kaydırıcı': 'Slider',
+    'Anahtar': 'Toggle',
+    'Renk': 'Color',
+    'adım': 'step',
+    'varsayılan': 'default',
+    'Etiket': 'Label',
+    'uAd': 'uName',
+    '＋ Parametre Ekle': '＋ Add Parameter',
+    'Parametreyi kaldır': 'Remove parameter',
+    'Kısa açıklama (isteğe bağlı)': 'Short description (optional)',
+    'Soldan bir preset seç ya da yeni bir tane oluştur.': 'Select a preset from the left or create a new one.',
+    'Varyasyon: şu anki görünümü isimlendirip saklar, kod gerektirmez. Shader: sıfırdan kendi efektini yazarsın.': 'Variation: names and saves the current look, no code required. Shader: write your own effect from scratch.',
+    'Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.': 'This is a built-in preset. Saving creates your own copy; the original is preserved.',
+    '⟳ Şu Anki Görünümle Güncelle': '⟳ Update with Current Look',
+    '✓ Derlendi': '✓ Compiled',
+
+    // Modülasyon Matrisi Kökleri ve Grupları
+    'Görselleştirici': 'Visualizer',
+    'Arkaplan': 'Background',
+    'Arka Plan': 'Background',
+    '3B Geometri': '3D Geometry',
+    'Görsel Nesneler': 'Visual Objects',
+    'Kromatik Sapma': 'Chromatic Aberration',
+    'Aydınlatma': 'Lighting',
+    'Ses': 'Audio',
+    'Logo': 'Logo',
+    'Zarf': 'Envelope',
+    'Makro': 'Macro',
+    'Çözümleme': 'Analysis',
+    'Nota Sınıfı': 'Pitch Class',
+    'Diğer': 'Other',
+    'Tempo': 'Tempo',
+
+    // Modülasyon ve Alan Etiketleri
+    'Parlama': 'Glow',
+    'Saydamlık': 'Opacity',
+    'Kalınlık': 'Thickness',
+    'Boşluk': 'Gap',
+    'Duyarlılık': 'Sensitivity',
+    'Çizgi Kalınlığı': 'Line Width',
+    'Yumuşatma': 'Smoothing',
+    'Hız': 'Speed',
+    'Parlaklık': 'Brightness',
+    'Tepki': 'Reaction',
+    'Ölçek': 'Scale',
+    'Dönüş': 'Rotation',
+    'Dönüş Hızı': 'Spin Speed',
+    'Eğim': 'Tilt',
+    'Yakınlaşma': 'Zoom',
+    'Bozulma': 'Deformation',
+    'Nokta Boyutu': 'Point Size',
+    'Çözünürlük': 'Resolution',
+    'Bas → Kamera': 'Bass → Camera',
+    'Nabız': 'Pulse',
+    'Yatay': 'Horizontal',
+    'Dikey': 'Vertical',
+    'Bas Vurgusu': 'Bass Boost',
+    'Şiddet': 'Intensity',
+    'Miktar': 'Amount',
+    'Boyut': 'Size',
+    'İntegrasyon Adımı': 'Integration Step',
+    'Renk Kayması': 'Hue Shift',
+    'Doygunluk': 'Saturation',
+    'Karışım': 'Mix',
+
+    // Modülasyon Paneli Arayüzü
+    '+ Yönlendirme Ekle': '+ Add Route',
+    'Hepsini Temizle': 'Clear All',
+    'Tüm yönlendirmeler silinsin mi?': 'Delete all routings?',
+    'Modülasyon Etkin': 'Modulation Enabled',
+    'Makrolar': 'Macros',
+    'LFO (4)': 'LFOs (4)',
+    'Zarf Takipçileri (2)': 'Envelope Followers (2)',
+    'Rastgele Üreteç': 'Random Generator',
+    'Kaynak Bant': 'Source Band',
+    'Atak': 'Attack',
+    'Bırakma': 'Release',
+    'Tempoya Kilitle': 'Sync to Tempo',
+    'Darbe Genişliği': 'Pulse Width',
+    'Çift Kutuplu (-1..1)': 'Bipolar (-1..1)',
+    'Bir makroyu birden çok yönlendirmeye bağlayın: tek düğme sahnenin tamamını sürer.': 'Connect a macro to multiple routes: a single knob drives the entire scene.',
+    'Henüz yönlendirme yok. "Yönlendirme Ekle" ile bası bir efekt parametresine ya da bir LFO\'yu kameraya bağlayın.': 'No routing yet. Connect bass to an effect parameter or an LFO to camera using "Add Route".',
+    'Sinüs': 'Sine',
+    'Üçgen': 'Triangle',
+    'Testere ↑': 'Saw ↑',
+    'Testere ↓': 'Saw ↓',
+    'Kare': 'Square',
+    'Darbe': 'Pulse',
+    'Rastgele (basamaklı)': 'Random (stepped)',
+    'Rastgele (yumuşak)': 'Random (smooth)',
+    'Doğrusal': 'Linear',
+    'Üstel': 'Exponential',
+    'Üstel (güçlü)': 'Exponential (strong)',
+    'Logaritmik': 'Logarithmic',
+    'S Eğrisi': 'S-Curve',
+    'Mutlak': 'Absolute',
+    'Değeri Belirle': 'Set Value',
+    'Üstüne Ekle': 'Add',
+    'Çarp': 'Multiply',
+    'Genel': 'Master',
+    'Bas': 'Bass',
+    'Orta': 'Mid',
+    'Tiz': 'Treble',
+    'Alt Sınır': 'Min',
+    'Üst Sınır': 'Max',
+    'Basamak': 'Steps',
+    'Ters Çevir': 'Invert',
+    'sürekli': 'continuous',
+    'yok': 'none',
+    'Hedef': 'Target',
+    'Kaynak': 'Source',
+    'Eğri': 'Curve',
+    'Kip': 'Mode',
+    'Anlık': 'Live',
+    '— hedef seçin —': '— pick a target —',
+    'Akor Kökü': 'Chord Root',
+    'Tonalite Güveni': 'Key Confidence',
+    'Tepe Faktörü': 'Crest Factor',
+    'Tayf Yayılımı': 'Spectral Spread',
+    'Bas Davul (tetik)': 'Bass Drum (trigger)',
+    'Trampet (tetik)': 'Snare (trigger)',
+    'Hi-Hat (tetik)': 'Hi-Hat (trigger)',
+    'Zaman (testere)': 'Time (saw)',
+    'Vuruş Fazı': 'Beat Phase',
+    'Ölçü Fazı': 'Bar Phase',
+    'Sabit (1.0)': 'Constant (1.0)',
+
+    // Ses Çözümleme Paneli (Audio Analysis)
+    'Müzikal': 'Musical',
+    'Tonalite': 'Key',
+    'Akor': 'Chord',
+    'Perde': 'Pitch',
+    'Akor Güveni': 'Chord Confidence',
+    'Seviye': 'Level',
+    'Gürlük': 'Loudness',
+    'Tepe': 'Peak',
+    'Dinamik': 'Dynamics',
+    'Durum': 'Status',
+    'sessiz': 'silent',
+    'sinyal var': 'signal present',
+    'Tını': 'Timbre',
+    'Tayf Merkezi': 'Spectral Centroid',
+    'Tayf Düzlüğü': 'Spectral Flatness',
+    'Yuvarlanma': 'Spectral Rolloff',
+    'Tayf Akısı': 'Spectral Flux',
+    'Yapı': 'Structure',
+    'Armonik Oran': 'Harmonic Ratio',
+    'Vurmalı Oran': 'Percussive Ratio',
+    'Stereo Genişlik': 'Stereo Width',
+    'Stereo Korelasyon': 'Stereo Correlation',
+    'Davul': 'Drums',
+    'Bas Davul': 'Bass Drum',
+    'Trampet': 'Snare',
+    'Hi-Hat': 'Hi-Hat',
+    'Nota Sınıfları': 'Pitch Classes',
+    'Buradaki her ölçüm modülasyon matrisinde kaynak olarak kullanılabilir. Sahne sese tepki vermiyorsa önce buraya bakın: sinyal geliyor mu, tek kanal mı, sessizlik eşiğinin altında mı?': 'Every metric here can be used as a source in the modulation matrix. If the scene does not react to audio, check here first: is signal coming in, single channel, or below silence threshold?',
+
+    // Harici Kontrol (MIDI / OSC)
+    'Öğren': 'Learn',
+    'Ses · Hassasiyet': 'Audio · Sensitivity',
+    'Ses · Yumuşatma': 'Audio · Smoothing',
+    'Ses · Bas Vurgusu': 'Audio · Bass Boost',
+    'Görselleştirici · Hassasiyet': 'Visualizer · Sensitivity',
+    'Görselleştirici · Parlama': 'Visualizer · Glow',
+    'Görselleştirici · Bar Sayısı': 'Visualizer · Bar Count',
+    'Görselleştirici · Bar Boşluğu': 'Visualizer · Bar Gap',
+    'Görselleştirici · Çizgi Kalınlığı': 'Visualizer · Line Width',
+    'Görselleştirici · Genlik': 'Visualizer · Amplitude',
+    'Arkaplan · Akış Hızı': 'Background · Flow Speed',
+    'Arkaplan · Ses Tepkisi': 'Background · Audio Reactivity',
+    'Arkaplan · Parlaklık': 'Background · Brightness',
+    'Arkaplan · Renk Kayması': 'Background · Hue Shift',
+    'Arkaplan · Vinyet': 'Background · Vignette',
+    'Logo · Saydamlık': 'Logo · Opacity',
+    'Logo · Boyut': 'Logo · Size',
+    'Geri Besleme · Yakınlaşma': 'Feedback · Zoom',
+    'Geri Besleme · Sönme': 'Feedback · Decay',
+    'Geri Besleme · Bükülme': 'Feedback · Warp',
+    'Geri Besleme · Dönüş': 'Feedback · Rotation',
+    'Medya · Saydamlık': 'Media · Opacity',
+    'Medya · Kaleydoskop': 'Media · Kaleidoscope',
+    '⏭ Eylem · Sonraki Görselleştirici': '⏭ Action · Next Visualizer',
+    '⏮ Eylem · Önceki Görselleştirici': '⏮ Action · Previous Visualizer',
+    '⏭ Eylem · Sonraki Arkaplan': '⏭ Action · Next Background',
+    '⏭ Eylem · Sonraki Sahne': '⏭ Action · Next Scene',
+    '⏭ Eylem · Sonraki Renk Şablonu': '⏭ Action · Next Color Preset',
+    '🌑 Eylem · Karart (aç/kapa)': '🌑 Action · Blackout (toggle)',
+    '▶ Çizelge · Oynat': '▶ Timeline · Play',
+    '⏸ Çizelge · Duraklat': '⏸ Timeline · Pause',
+    '⏹ Çizelge · Durdur ve Başa Dön': '⏹ Timeline · Stop and Rewind',
+    '⏭ Çizelge · Sonraki İşaret': '⏭ Timeline · Next Marker',
+    '⏮ Çizelge · Önceki İşaret': '⏮ Timeline · Previous Marker',
+    '⏹ Deste · Hepsini Durdur': '⏹ Deck · Stop All',
+
+    // Sahne Panelleri, Aydınlatma ve Arayüz
+    'Zincir boşken sahne doğrudan kompozit edilir; hiçbir ek maliyet yoktur. Efekt eklediğinizde sahne tek yüzeye birleştirilip GPU\'da işlenir ve efektler dışa aktarımda da aynı sırayla uygulanır.': 'When chain is empty, scene is directly composited with no overhead. When you add effects, scene is rendered to a single surface on the GPU and effects are applied in the same order during export.',
+    'Katı geometri ağı bir kez kurulup GPU\'da kalır; sese bağlı bozulma vertex shader\'da yapılır. Nokta bulutu üreten şekillerde (IFS) çizim kipi otomatik olarak nokta olur.': 'Solid geometry mesh is built once and stays on the GPU; audio-driven deformation is computed in the vertex shader. Shapes generating point clouds (IFS) automatically use points drawing mode.',
+    'Sahne renklerini standart DMX protokolüyle (Art-Net) ışık konsollarına, DMX arayüzlerine ve QLC+ gibi yazılımlara yollar. Windows Dynamic Lighting\'in yerine geçmez; o tüketici aygıtlarını, bu sahne ışıklarını sürer.': 'Sends scene colors via standard DMX protocol (Art-Net) to lighting consoles, DMX interfaces, and software like QLC+. Does not replace Windows Dynamic Lighting; that drives consumer devices, this drives stage fixtures.',
+    'Varsayılan hedef yayın adresidir; ağdaki tüm Art-Net düğümleri paketi alır. Tek bir arayüze göndermek isterseniz onun IP adresini yazın. DMX 44 Hz üstünü zaten taşımaz, bu yüzden gönderim hızı orada sınırlıdır.': 'Default destination is broadcast address; all Art-Net nodes on network receive packet. If you want to send to a single interface, enter its IP address. DMX does not carry above 44 Hz, so transmission rate is limited there.',
+    'Yukarı taşı': 'Move up',
+    'Aşağı taşı': 'Move down',
+    'Kaldır': 'Remove',
+    'Gönderim Hızı': 'Send Rate',
+    'Kaynakları Listele': 'List Sources',
+    'Bu Makinedeki Kaynaklar': 'Sources on This Machine',
+    'Bu bölümü varsayılana döndür': 'Reset this section to default',
+    'Gelişmiş ayarlar': 'Advanced settings',
+    'Gelişmiş ayarları göster': 'Show advanced settings',
+    'Gelişmiş ayarları gizle': 'Hide advanced settings',
+    'Katman Grupları ve A/B': 'Layer Groups & A/B',
+    'Birden çok katmanı tek fader ile yönetin; "A" ve "B" grupları arasında eşit güç eğrisiyle çapraz geçiş yapın.': 'Manage multiple layers with a single fader; crossfade between "A" and "B" groups with an equal-power curve.',
+    'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.': 'Serves a page that can be added as a "Browser Source" in OBS and similar programs; smartphone remote control is also launched here.',
+    'Henüz görsel nesne eklenmedi. Aşağıdaki düğmeyle bir görsel seçin.': 'No image objects added yet. Select an image using the button below.',
+    'Otomatik mod: Çalan şarkının kapağı varsa gösterilir; parça çalmıyorsa veya kapağı yoksa bu özel resim gösterilir.': 'Auto mode: Displayed if playing track has cover art; if nothing is playing or no cover art, this custom image is shown.',
+    'Özel Logo Görseli': 'Custom Logo Image',
+    'Şarkı Resmini Göster': 'Show Track Artwork',
+    'Şarkı bilgileri alanlara yazıldı.': 'Track information filled into fields.',
+    '⌖ Otomatik Ortala (50%)': '⌖ Auto Center (50%)',
+    'Bu Windows sürümünde Dynamic Lighting desteklenmiyor.': 'Dynamic Lighting is not supported on this Windows version.',
+    'Uyumlu Dynamic Lighting aygıtı bulunamadı.': 'No compatible Dynamic Lighting devices found.',
+    'Windows Dynamic Lighting Etkin': 'Windows Dynamic Lighting Enabled',
+    '⚙ Windows Dynamic Lighting Ayarları': '⚙ Windows Dynamic Lighting Settings',
+    'Ekran seçilmedi': 'No display selected',
+    'Ekran': 'Display',
+    'Açık': 'Open',
+    'Kapalı': 'Closed',
+    '▶ Ekranları Uygula': '▶ Apply Displays',
+    '▶ Görselleştirmeyi Aç': '▶ Open Visualizer',
+    '● Yakalanıyor: çıkış': '● Capturing: output',
+    '⚠ Sistem sesi yakalanamıyor': '⚠ System audio cannot be captured',
+    'Bu sistemde sistem sesini veren bir aygıt bulunamadı.': 'No audio output device found on this system.',
+    '⚠ Ses yakalanamadı': '⚠ Could not capture audio',
+    'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
+    'İptal edildi.': 'Cancelled.',
+    'Shadertoy kodundan içe aktarıldı.': 'Imported from Shadertoy code.',
+    'ISF dosyasından içe aktarıldı.': 'Imported from ISF file.',
+    '.milk dosyasından içe aktarılan geri besleme ayarları.': 'Feedback settings imported from .milk file.',
+
+    // Sahne Üretici (SceneGen)
+    'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"': 'e.g. "dark cinematic space", "energetic neon techno", "calm forest morning"',
+    'Ruh Hali': 'Mood',
+    '✨ Sahne Üret': '✨ Generate Scene',
+    '🎲 Karıştır': '🎲 Shuffle',
+    'Aynı ruh hali, farklı yorum': 'Same mood, different interpretation',
+    'Sahne kuruldu.': 'Scene generated.',
+    'Tamamen bu bilgisayarda çalışır — hiçbir servise bağlanmaz. Yazdığınız metin enerji, sıcaklık, aydınlık ve doku eksenlerine çevrilir; sahne bu eksenlerden tohumlanmış deterministik bir üreticiyle kurulur. Beğendiğinizi sağdaki Sahneler bölümünden kaydedin.': 'Runs entirely on this computer — connects to no external service. Your text is translated into energy, temperature, brightness and texture axes; the scene is built with a deterministic generator seeded from these axes. Save the ones you like in the Scenes section on the right.',
+    'Enerji': 'Energy',
+    'Sıcaklık': 'Temperature',
+    'Ton': 'Tone',
+    'Doku': 'Texture',
+    'dengeli': 'balanced',
+    'yüksek': 'high',
+    'sakin': 'calm',
+    'soğuk': 'cool',
+    'sıcak': 'warm',
+    'aydınlık': 'bright',
+    'karanlık': 'dark',
+    'geometrik': 'geometric',
+    'organik': 'organic',
+    'Akışkan Gradyan': 'Fluid Gradient',
+    'Mürekkep': 'Ink',
+    'Bulutsu': 'Nebula',
+    'Dalga Katmanları': 'Wave Layers',
+    'Kutup Işıkları': 'Northern Lights',
+    'Retro Izgara': 'Retro Grid',
+    'Petek Izgara': 'Honeycomb Grid',
+    'Mozaik': 'Mosaic',
+    'Koridor': 'Corridor',
+    'Sarmal': 'Spiral',
+    'Nabız Halkaları': 'Pulse Rings',
+    'Ağ': 'Network',
+    'Yıldız Alanı': 'Starfield',
+    'Kar / Kor': 'Snow / Embers',
+    'Işık Parçacıkları': 'Light Particles',
+    'Dijital Yağmur': 'Digital Rain',
+    'Şehir': 'City',
+    'Düz Renk': 'Solid Color',
+    'Barlar': 'Bars',
+    'Dalga': 'Wave',
+    'Şerit': 'Ribbon',
+    '3B Dalga': '3D Wave',
+    'Lissajous': 'Lissajous',
+    'Teller': 'Strings',
+    'Arazi': 'Terrain',
+    'Çember': 'Circle',
+    'Dairesel Dalga': 'Circular Wave',
+    'Yaylar': 'Arcs',
+    'Fırıldak': 'Pinwheel',
+    'Mandala': 'Mandala',
+    'Kaleydoskop': 'Kaleidoscope',
+    'Girdap': 'Vortex',
+    'Tünel': 'Tunnel',
+    'Küre': 'Orb',
+    'Parçacık': 'Particle',
+    'Havai Fişek': 'Fireworks',
+    'Şimşek': 'Lightning',
+    'Baloncuk': 'Bubbles',
+    'Sıvı Damla': 'Liquid Drop',
+    'Dalgalı Izgara': 'Ripple Grid',
+    'Şehir Silüeti': 'City Skyline',
+    'Spektrogram': 'Spectrogram',
+    'Geri Besleme': 'Feedback',
+
+    // Tipografi & Metin Paneli
+    'Yazı': 'Typography',
+    'Yazı Tipi': 'Font',
+    'Hizalama': 'Alignment',
+    'Kontur': 'Outline',
+    'Gölge': 'Shadow',
+    'Senkron Kayması': 'Sync Offset',
+    'Karaoke Vurgusu': 'Karaoke Highlight',
+    'Sabit Metin': 'Static Text',
+    'Şarkı Sözü (LRC / SRT)': 'Lyrics (LRC / SRT)',
+    'Çalan Parça': 'Playing Track',
+    'Yok': 'None',
+    'Belirme': 'Fade',
+    'Yukarı Kayma': 'Slide Up',
+    'Yana Kayma': 'Slide Left',
+    'Büyüme': 'Zoom',
+    'Sola': 'Left',
+    'Ortaya': 'Center',
+    'Sağa': 'Right',
+
+    // Stüdyo İşlemleri ve Varsayılan Adlar
+    'Yeni Arkaplan': 'New Background',
+    'Yeni Görselleştirici': 'New Visualizer',
+    'Arkaplan Varyasyonum': 'My Background Variation',
+    'Görselleştiricim': 'My Visualizer',
+    'Dışa aktarılacak preset yok.': 'No presets to export.',
+    'CAYADEV Preset Paketi': 'CAYADEV Preset Pack',
+    'Dosyaya yazıldı.': 'Written to file.',
+    'Dosya çok büyük (2 MB üstü).': 'File too large (over 2 MB).',
+    'JSON çözümlenemedi.': 'JSON could not be parsed.',
+    'İçe aktarıldı.': 'Imported.',
+    'WebGL2 kullanılamıyor.': 'WebGL2 unavailable.',
+    'Derlendi.': 'Compiled.',
+    'Deste': 'Deck',
+    'Satır': 'Row',
+    'Yuva': 'Slot',
+
+    // Katmanlar & Sahneler
+    'Katman': 'Layer',
+    'Katmanlar': 'Layers',
+    'katman': 'layer',
+    'katmanlar': 'layers',
+    '1 Katman': '1 Layer',
+    '2 Katman': '2 Layers',
+    'Katman Sayısı': 'Layer Count',
+    'Katman Aralığı': 'Layer Spacing',
+    'Katman kopyalandı.': 'Layer copied.',
+    'Katman kilitli. Düzenlemek için kilidi açın.': 'Layer locked. Unlock to edit.',
+    'Katman Efektleri': 'Layer Effects',
+    'Katman Yığınını Kullan': 'Use Layer Stack',
+    'Kaynak Katman': 'Source Layer',
+    'Arka Katman': 'Back Layer',
+    'Ön Katman': 'Front Layer',
+    'Başka Katman': 'Other Layer',
+    'Dalga Katmanları': 'Wave Layers',
+    '⬗ Katmanlara Geç': '⬗ Switch to Layers',
+    '↺ Katmanları Sıfırla': '↺ Reset Layers',
+    'Katman Grupları ve A/B': 'Layer Groups and A/B',
+    'Medya Katmanı': 'Media Layer',
+    'Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.': 'No saved scenes. Save the current view with "＋ Save".',
+    'Sahne': 'Scene',
+    'Sahne adı': 'Scene name',
+    'Sahneyi taşı': 'Move scene',
+    'Bu sahneyi uygula': 'Apply this scene',
+    'Mevcut görünümle güncelle': 'Update with current view',
+    'Mevcut Görünümü Kaydet': 'Save Current View',
+    '💾 Mevcut Görünümü Kaydet': '💾 Save Current View',
+    'Kategoriler': 'Categories',
+    'çıkış': 'output',
+    'Eşleşen ayar bulunamadı.': 'No matching settings found.',
+
+    // Stüdyo Detayları
+    'Sıfırdan GLSL shader': 'GLSL shader from scratch',
+    'Şu anki görünümü preset olarak sakla': 'Save current view as preset',
+    'Shadertoy / ISF / MilkDrop / .svpreset / .svpack': 'Shadertoy / ISF / MilkDrop / .svpreset / .svpack',
+    'Tüm kendi presetlerini tek dosyada paylaş': 'Share all your presets in a single file',
+    'Preset klasörünü aç': 'Open presets folder',
+    '＋ Shader': '＋ Shader',
+    '＋ Varyasyon': '＋ Variation',
+    '📦 Paket Dışa Aktar': '📦 Export Pack',
+    '📁 Klasör': '📁 Folder',
+    'Varyasyon güncel görünümle tazelendi.': 'Variation updated with current view.',
+    'Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.': 'This is a built-in preset. Saving creates your own copy; the original is preserved.',
+    '⟳ Şu Anki Görünümle Güncelle': '⟳ Update with Current View',
+    'Temel Mod': 'Base Mode',
+    'Parametreler': 'Parameters',
+    'Shader Kodu (GLSL)': 'Shader Code (GLSL)',
+    '＋ Parametre Ekle': '＋ Add Parameter',
+    'Parametreyi kaldır': 'Remove parameter',
+    'canlı': 'live',
+    '✓ Derlendi': '✓ Compiled',
+    'Satır ': 'Line ',
+    'Studio Preseti': 'Studio Preset',
+    'Henüz yok.': 'None yet.',
+    'Shader içinde uniform olarak tanımladığın kaydırıcıları buraya ekle. Ad (ör. uSpeed) GLSL kodundakiyle tam aynı olmalı.': 'Add sliders here that you define as uniforms in the shader. The name (e.g. uSpeed) must exactly match the GLSL code.',
+    'void mainImage(out vec4 fragColor, in vec2 fragCoord) fonksiyonunu yazın. sv_... değişkenleri ses ve zamanı taşır.': 'Write the void mainImage(out vec4 fragColor, in vec2 fragCoord) function. sv_... variables carry audio and time.',
+
+    // Arama & Navigasyon
+    'Ses Analizi': 'Audio Analysis',
+    'Ses Kaynakları': 'Audio Sources',
+    'Ses Çözümlemesi': 'Audio Analysis',
+    'Aktif Kaynaklar': 'Active Sources',
+    'Art-Net / DMX Output': 'Art-Net / DMX Output',
+    'Güç / Performans': 'Power / Performance',
+    'Arkaplan Çözünürlüğü': 'Background Resolution',
+    'Ayarları Yedekle / Geri Yükle': 'Back Up / Restore Settings',
+    'Video Dışa Aktar (MP3 → Video)': 'Video Export (MP3 → Video)',
+    'Gelişmiş': 'Advanced',
+    'Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.': 'Red dots and numbers show settings that differ from defaults.',
+    'Varsayılandan farklı ayar sayısı': 'Number of settings differing from defaults',
+    'Bu bölümü varsayılana döndür': 'Reset this section to defaults',
+    'Bu bölümdeki ayarlar varsayılana dönecek.': 'Settings in this section will return to defaults.',
+    'Bölümü sıfırla': 'Reset section',
+    'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"': 'e.g. "dark cinematic space", "energetic neon techno", "calm forest morning"',
+    'Ruh Hali': 'Mood',
+    '✨ Sahne Üret': '✨ Generate Scene',
+    '🎲 Karıştır': '🎲 Shuffle',
+    'Aynı ruh hali, farklı yorum': 'Same mood, different interpretation',
+    'Sahne kuruldu.': 'Scene generated.',
 
   };
 
@@ -1856,7 +2556,7 @@
      iki ayrı biçimde yazmak yerine, arama sırasında işaret ayrılıp çeviri
      sonrasında geri konuyor — yeni bir katlanır bölüm eklendiğinde sözlükte
      ekstra bir girdi gerekmesin diye. */
-  const MARKER = /^([▸▾▴▾►▼]s*)/;
+  const MARKER = /^([▸▾▴▾►▼]\s*)/;
 
   function translate(value) {
     if (locale === 'tr' || value == null) return String(value == null ? '' : value);
@@ -1883,10 +2583,22 @@
        karşılığı olan bir metin buraya hiç gelmez, yukarıda yakalanır. */
     const seg = raw.match(/^(.+?) · (.+)$/);
     if (seg) return translate(seg[1]) + ' · ' + translate(seg[2]);
+    const breadcrumb = raw.match(/^(.+?)\s+›\s+(.+)$/);
+    if (breadcrumb) return translate(breadcrumb[1]) + ' › ' + translate(breadcrumb[2]);
+    const arrow = raw.match(/^(.+?)\s+→\s+(.+)$/);
+    if (arrow) return translate(arrow[1]) + ' → ' + translate(arrow[2]);
+    const layersMatch = raw.match(/^(\d+)\s+Katman$/);
+    if (layersMatch) return `${layersMatch[1]} ${Number(layersMatch[1]) === 1 ? 'Layer' : 'Layers'}`;
+    const layerMatch = raw.match(/^Katman\s+(\d+)$/);
+    if (layerMatch) return `Layer ${layerMatch[1]}`;
+    const sceneMatch = raw.match(/^Sahne\s+(\d+)$/);
+    if (sceneMatch) return `Scene ${sceneMatch[1]}`;
     const plus = raw.match(/^(＋|\+)\s*(.+)$/);
     if (plus) return plus[1] + ' ' + translate(plus[2]);
     const numbered = raw.match(/^(\d+)\.\s+(.+)$/);
     if (numbered) return numbered[1] + '. ' + translate(numbered[2]);
+    const icon = raw.match(/^(🎛|[▶⏭⏮⏹⏸🌑✨🎲])\s+(.+)$/);
+    if (icon) return icon[1] + ' ' + translate(icon[2]);
     return raw
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
@@ -1913,6 +2625,9 @@
       .replace(/^Kamera (\d+)$/g, 'Camera $1')
       .replace(/^Parametre (\d+)$/g, 'Parameter $1')
       .replace(/^Satır (\d+): /g, 'Line $1: ')
+      .replace(/^Satır (\d+)$/g, 'Row $1')
+      .replace(/^▶ Deste · Satır (\d+)$/g, '▶ Deck · Row $1')
+      .replace(/^🎛 Deste · (.+)$/g, (m, rest) => `🎛 Deck · ${translate(rest)}`)
       .replace(/^(.+) kopyalandı\.$/g, '$1 copied.')
       .replace(/^Kaydedilemedi: /g, 'Could not save: ')
       .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
@@ -1920,10 +2635,14 @@
       .replace(/^Bulunan ekran hızı: (.+)$/g, 'Detected screen refresh rate: $1')
       .replace(/^(.*) \(kopya\)$/, (m, base) => (EN_NORMALIZED[normalize(base)] || base) + ' (copy)')
       .replace(/^(\d+) kayıtlı$/g, '$1 saved')
-      .replace(/^(\d+) (sahne|şablon|preset|dilim)$/g, (m, n, word) => {
-        const one = { sahne: 'scene', 'şablon': 'preset', preset: 'preset', dilim: 'slice' }[word];
-        return n + ' ' + one + (Number(n) === 1 ? '' : 's');
+      .replace(/^(\d+) (sahne|şablon|preset|dilim|[Kk]atman)$/g, (m, n, word) => {
+        const w = word.toLowerCase();
+        const one = { sahne: 'scene', 'şablon': 'preset', preset: 'preset', dilim: 'slice', katman: 'layer' }[w];
+        return n + ' ' + (w === 'katman' ? (Number(n) === 1 ? 'Layer' : 'Layers') : (one + (Number(n) === 1 ? '' : 's')));
       })
+      .replace(/^Sahne (\d+)$/g, 'Scene $1')
+      .replace(/^Katman (\d+)$/g, 'Layer $1')
+      .replace(/^Katman (\d+) · (.+)$/g, (m, n, rest) => `Layer ${n} · ${translate(rest)}`)
       .replace(/^(\d+) preset\(s\) imported\.$/g, (m, n) =>
         n + ' preset' + (Number(n) === 1 ? '' : 's') + ' imported.')
       // Dynamic Lighting kontrol durumu (sayı içerdiği için sözlükle eşleşmez)
@@ -1937,6 +2656,49 @@
       .replace(/^Sistemden okunamıyor — (.+)$/g, 'Cannot read from system — $1')
       .replace(/^📥 Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, '📥 Fill Fields with Playing Track ($1)')
       .replace(/^📥 Çalan Şarkıyı Doldur \((.+)\)$/g, '📥 Fill Playing Track ($1)')
+      // MilkDrop list count
+      .replace(/^(\d+) presetten ilk (\d+) gösteriliyor; aramayı daraltın\.$/g, 'Showing first $2 of $1 presets; narrow your search.')
+      // Metin ve söz satır/format çıktıları
+      .replace(/^(\d+) satır$/g, '$1 lines')
+      .replace(/^(\d+) satır okundu( \([^)]+\))?$/g, '$1 lines read$2')
+      .replace(/^(\d+) satır · (.+)$/g, (m, n, rest) => `${n} lines · ${translate(rest)}`)
+      // Vuruş ve tempo
+      .replace(/^([\d.]+) vuruş$/g, '$1 beats')
+      // Zaman çizelgesi parça ve işaretleri
+      .replace(/^Parça (\d+)$/g, 'Track $1')
+      .replace(/^İşaret (\d+)$/g, 'Marker $1')
+      .replace(/^(\d+) işaret üretildi\.$/g, '$1 markers generated.')
+      // Dışa aktarım ve protokol çıkışları
+      .replace(/^(.+) Çıkışı$/g, (m, p) => `${translate(p)} Output`)
+      .replace(/^[“"](.+)[”"] silinsin mi\?$/g, (_, name) => `Delete "${translate(name)}"?`)
+      .replace(/^[“"](.+)[”"] uygulandı\.$/g, (_, name) => `"${translate(name)}" applied.`)
+      .replace(/^[“"](.+)[”"] sahneye uygulandı\.$/g, (_, name) => `"${translate(name)}" applied to scene.`)
+      .replace(/^[“"](.+)[”"] kalıcı olarak silinecek\.$/g, (_, name) => `"${translate(name)}" will be permanently deleted.`)
+      .replace(/^Bu bir varyasyon presetidir: temel mod [“"](.+)[”"] ve o anki tüm ayarları saklanır\. ?$/g,
+        (_, base) => `This is a variation preset: base mode "${translate(base)}" and all current settings are saved.`)
+      .replace(/^Başlatılamadı: (.+)$/g, (_, err) => `Could not start: ${translate(err)}`)
+      .replace(/^Kayıt başlatılamadı: (.+)$/g, (_, err) => `Could not start recording: ${translate(err)}`)
+      .replace(/^Kaydedilemedi: (.+)$/g, (_, err) => `Could not save: ${translate(err)}`)
+      .replace(/^Ayarlar dışa aktarılamadı: (.+)$/g, (_, err) => `Could not export settings: ${translate(err)}`)
+      .replace(/^Ayarlar içe aktarılamadı: (.+)$/g, (_, err) => `Could not import settings: ${translate(err)}`)
+      .replace(/^Panel başlatılamadı: (.+)$/g, (_, err) => `Could not initialize panel: ${translate(err)}`)
+      .replace(/^✓ Görüntü kaydedildi: (.+)$/g, '✓ Image saved: $1')
+      .replace(/^⚠ Kayıt çok kısa: kare yazılamadı \((.+)\)$/g, '⚠ Recording too short: frame could not be written ($1)')
+      .replace(/^(\d+) ekran seçili$/g, '$1 displays selected')
+      .replace(/^(\d+) ekranda açık$/g, 'Open on $1 displays')
+      .replace(/^✓ (\d+) uyumlu aydınlatma aygıtı bulundu$/g, '✓ $1 compatible lighting device(s) found')
+      .replace(/^✓ (\d+) ses aygıtı bulundu$/g, '✓ $1 audio device(s) found')
+      .replace(/^(\d+) preset içe aktarıldı\.$/g, '$1 presets imported.')
+      .replace(/^● Yakalanıyor: (.+)$/g, (m, dev) => `● Capturing: ${translate(dev)}`)
+      .replace(/^Kodlanıyor \((.+)\)… kareler bitti, video yazılıyor\.$/g, 'Encoding ($1)… frames finished, writing video.')
+      .replace(/^Render ediliyor \[(.+)\]… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Rendering [$1]… $2% ($3 / $4 frames)')
+      .replace(/^✅ Tamamlandı \((.+)\) → (.+)$/g, '✅ Completed ($1) → $2')
+      .replace(/^✅ Tamamlandı \((.+)\)$/g, '✅ Completed ($1)')
+      .replace(/^⚠ Hata: (.+)$/g, '⚠ Error: $1')
+      .replace(/^▶ Deste · Satır (\d+)$/g, '▶ Deck · Row $1')
+      .replace(/^🎛 Deste · (.+)$/g, '🎛 Deck · $1')
+      .replace(/^Şablonum (\d+)$/g, 'My Template $1')
+      .replace(/^⚠ Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\.$/g, '⚠ Portable version only controls while app is in focus ($1/$2).')
       ;
   }
 
@@ -1947,7 +2709,7 @@
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
-    for (const attr of ['title', 'placeholder', 'aria-label']) {
+    for (const attr of ['title', 'placeholder', 'aria-label', 'label']) {
       if (!node.hasAttribute(attr)) continue;
       const current = node.getAttribute(attr);
       const next = translate(current);
@@ -1975,7 +2737,7 @@
           if (mutation.type === 'attributes') translateNode(mutation.target);
         }
       }
-    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label'] });
+    }).observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['title', 'placeholder', 'aria-label', 'label'] });
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
