@@ -138,6 +138,9 @@
       this.width = 0;      // stereo genişliği (kanal verilirse)
       this.correlation = 1;
 
+      this.humGuard = o.humGuard !== undefined ? !!o.humGuard : true;
+      this.humDetected = false; // 50/60 Hz şebeke uğultusu veya dip gürültüsü algılandı mı
+
       this.bands = { kick: 0, snare: 0, hat: 0 };
       this.hits = { kick: 0, snare: 0, hat: 0 };
 
@@ -228,10 +231,37 @@
       this._chord();
       this._key(step);
       this._hpss(spec);
-      this._levels(time, step);
+      this._levels(time, step, spec);
       this._pitchTrack(time);
       this._drums(spec, step);
       if (stereo) this._stereo(stereo);
+      if (this.silent) {
+        this.pitch = { hz: 0, note: '—', midi: 0, cents: 0, confidence: 0 };
+        this.chord = { root: -1, quality: 'maj', name: '—', confidence: 0 };
+        this.key = { tonic: -1, mode: 'major', name: '—', confidence: 0 };
+        this._keyAcc.fill(0);
+        this.chroma.fill(0);
+        this.chromaSmooth.fill(0);
+        this.bands.kick = 0;
+        this.bands.snare = 0;
+        this.bands.hat = 0;
+        this.hits = { kick: 0, snare: 0, hat: 0 };
+        this.centroid = 0;
+        this.flatness = 0;
+        this.rolloff = 0;
+        this.flux = 0;
+        this.harmonic = 0;
+        this.percussive = 0;
+        this.loudness = 0;
+        this.peak = 0;
+        this.dynamics = 0;
+        this.correlation = 0;
+        this.width = 0;
+        this.crest = 0;
+        this.spread = 0;
+        this._loudFast = 0;
+        this._loudSlow = 0;
+      }
       return this;
     }
 
@@ -391,7 +421,8 @@
           c[note.pc] += w;
           total += w;
         }
-        if (total > 1e-12) {
+        const minChromaEnergy = (this.humGuard !== false) ? 1e-4 : 1e-12;
+        if (total > minChromaEnergy) {
           for (let k = 0; k < 12; k++) c[k] /= total;
           this._cqNever = false;
         } else {
@@ -436,7 +467,8 @@
         c[pc] += w;
         total += w;
       }
-      if (total > 1e-12) for (let k = 0; k < 12; k++) c[k] /= total;
+      const minChromaEnergy = (this.humGuard !== false) ? 1e-4 : 1e-12;
+      if (total > minChromaEnergy) for (let k = 0; k < 12; k++) c[k] /= total;
     }
 
     // --------------------------------------------------------------- akor
@@ -543,26 +575,73 @@
     }
 
     // ------------------------------------------------------------- gürlük
-    _levels(time, dt) {
+    _levels(time, dt, spec) {
       let rms = 0;
       let peak = 0;
-      if (time && time.length) {
-        for (let i = 0; i < time.length; i++) {
-          const s = time[i];
-          rms += s * s;
-          const a = Math.abs(s);
-          if (a > peak) peak = a;
+
+      if (this.humGuard !== false) {
+        // Akıllı filtre modu (Varsayılan): DC sıfırlama + şebeke uğultusu ve dip gürültüsünü filtreleme
+        if (time && time.length) {
+          let sum = 0;
+          for (let i = 0; i < time.length; i++) sum += time[i];
+          const mean = sum / time.length;
+          let varSum = 0;
+          for (let i = 0; i < time.length; i++) {
+            const s = time[i] - mean;
+            varSum += s * s;
+            const a = Math.abs(s);
+            if (a > peak) peak = a;
+          }
+          rms = Math.sqrt(varSum / time.length);
         }
-        rms = Math.sqrt(rms / time.length);
+        this.peak = clamp01(peak);
+        // Anlık (400 ms) ve kısa vadeli (3 s) gürlük
+        this._loudFast += (rms - this._loudFast) * alphaFor(dt, 0.4);
+        this._loudSlow += (rms - this._loudSlow) * alphaFor(dt, 3);
+        this.loudness = clamp01(this._loudFast * 2.5);
+        this.dynamics = this._loudFast > 1e-5 ? clamp01(peak / (this._loudFast * 6)) : 0;
+
+        let specMax = 0;
+        let specMaxMid = 0;
+        // 115 Hz üstü (müzikal frekanslar — 50/60 Hz şebeke uğultusunun ve DC sızıntısının ötesi)
+        const binCutoff = Math.max(1, Math.ceil(115 / this.binHz));
+        if (spec && spec.length) {
+          for (let i = 0; i < spec.length; i++) {
+            const v = spec[i];
+            if (v > specMax) specMax = v;
+            if (i >= binCutoff && v > specMaxMid) specMaxMid = v;
+          }
+        }
+
+        const isMainsHumOrIdleNoise = (rms < 0.02 && peak < 0.045 && specMaxMid < 0.04);
+        const isPureSilence = (rms < 0.004 && peak < 0.012);
+        const isSpecSilence = (specMax < 0.015 && rms < 0.015);
+        this.silent = (!time || !time.length) ? (specMax < 0.015) : (isPureSilence || isMainsHumOrIdleNoise || isSpecSilence);
+        this.humDetected = isMainsHumOrIdleNoise;
+      } else {
+        // Ham / Filtresiz mod (Temiz stüdyo donanımı için - Orijinal mantık):
+        // DC çıkarma yok, ham RMS ve tepe hesaplanır. Uğultu varsa görünür ve tespit edilir.
+        if (time && time.length) {
+          for (let i = 0; i < time.length; i++) {
+            const s = time[i];
+            rms += s * s;
+            const a = Math.abs(s);
+            if (a > peak) peak = a;
+          }
+          rms = Math.sqrt(rms / time.length);
+        }
+        this.peak = clamp01(peak);
+        // Anlık (400 ms) ve kısa vadeli (3 s) gürlük
+        this._loudFast += (rms - this._loudFast) * alphaFor(dt, 0.4);
+        this._loudSlow += (rms - this._loudSlow) * alphaFor(dt, 3);
+        this.loudness = clamp01(this._loudFast * 2.5);
+        this.dynamics = this._loudFast > 1e-5 ? clamp01(peak / (this._loudFast * 6)) : 0;
+
+        // Orijinal eşik: -60 dBFS altı
+        this.silent = rms < 0.001 && peak < 0.004;
+        // Donanım dip gürültüsü/şebeke uğultusu algılama (uyarı bandını tetikler)
+        this.humDetected = !this.silent && (rms < 0.025 && peak < 0.05);
       }
-      this.peak = clamp01(peak);
-      // Anlık (400 ms) ve kısa vadeli (3 s) gürlük
-      this._loudFast += (rms - this._loudFast) * alphaFor(dt, 0.4);
-      this._loudSlow += (rms - this._loudSlow) * alphaFor(dt, 3);
-      this.loudness = clamp01(this._loudFast * 2.5);
-      this.dynamics = this._loudFast > 1e-5 ? clamp01(peak / (this._loudFast * 6)) : 0;
-      // Sessizlik: -60 dBFS altı
-      this.silent = rms < 0.001 && peak < 0.004;
     }
 
     // ------------------------------------------------------ temel frekans
@@ -580,7 +659,8 @@
 
       let energy = 0;
       for (let i = 0; i < n; i++) energy += time[i] * time[i];
-      if (energy < 1e-6 || maxTau <= minTau) {
+      const minEnergy = (this.humGuard !== false) ? 0.1 : 1e-6;
+      if (this.silent || energy < minEnergy || maxTau <= minTau) {
         this.pitch = { hz: 0, note: '—', midi: 0, cents: 0, confidence: 0 };
         return;
       }

@@ -22,7 +22,7 @@
       this.treble = 0;
       this.level = 0;
 
-      this.cfg = { sensitivity: 1.4, smoothing: 0.65, bassBoost: 1.0 };
+      this.cfg = { sensitivity: 1.4, smoothing: 0.65, bassBoost: 1.0, humGuard: true };
       this._barsCache = {};
       this._engines = {};
       this._dt = 1 / 60;
@@ -36,6 +36,7 @@
       this.analysis = window.SVAnalysis ? new window.SVAnalysis.Analyser({
         sampleRate: this.sampleRate,
         fftSize: FFT_SIZE,
+        humGuard: this.cfg.humGuard !== false,
       }) : null;
       // Zaman alanı bayt olarak geliyor (128 merkez); çözümleme -1..1 ister
       this._timeF = new Float32Array(FFT_SIZE);
@@ -44,6 +45,9 @@
 
     applyConfig(audioCfg) {
       this.cfg = Object.assign({}, this.cfg, audioCfg || {});
+      if (this.analysis) {
+        this.analysis.humGuard = this.cfg.humGuard !== false;
+      }
     }
 
     // Ana süreçten gelen kare

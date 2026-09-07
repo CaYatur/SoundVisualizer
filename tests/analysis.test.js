@@ -301,6 +301,25 @@ test('gürlük sessizlikte sıfır, sinyalde artar ve sessizlik bayrağı doğru
   assert.ok(quiet.silent, 'sessizlik algılanmadı');
   assert.ok(quiet.loudness < 0.01, 'sessizlikte gürlük: ' + quiet.loudness);
 
+  // 50/60 Hz şebeke uğultusu veya dither: Akıllı filtre açıkken sessizlik sayılmalı ve humDetected bayrağı set edilmeli
+  const hum = mk();
+  const humSpec = new Float32Array(BINS);
+  humSpec[2] = 0.6; humSpec[3] = 0.3;
+  const humTime = new Float32Array(2048);
+  for (let i = 0; i < 2048; i++) humTime[i] = 0.01 * Math.sin(2 * Math.PI * 60 * i / SR);
+  feed(hum, humSpec, humTime, 30);
+  assert.ok(hum.silent, 'şebeke uğultusu sessiz sayılmadı');
+  assert.ok(hum.humDetected, 'şebeke uğultusu algılanmadı');
+  assert.strictEqual(hum.loudness, 0, 'uğultuda gürlük sıfır olmalı');
+  assert.strictEqual(hum.peak, 0, 'uğultuda tepe sıfır olmalı');
+  assert.strictEqual(hum.dynamics, 0, 'uğultuda dinamik sıfır olmalı');
+
+  // Ham mod (humGuard: false): Uğultu sessizlik sayılmaz ama humDetected tespit edilir
+  const rawHum = new A.Analyser({ sampleRate: SR, fftSize: FFT, humGuard: false });
+  feed(rawHum, humSpec, humTime, 30);
+  assert.strictEqual(rawHum.silent, false, 'ham modda filtre uygulanmamalı');
+  assert.ok(rawHum.humDetected, 'ham modda uğultu bayrağı yanmalı');
+
   const loud = mk();
   feed(loud, spectrumOf([[440, 1]]), waveOf([440], 2048, 0.9), 60);
   assert.ok(!loud.silent, 'sinyal sessiz sayıldı');
@@ -346,6 +365,15 @@ test('perde takibi sessizlikte sıfır döner', () => {
   an.update(new Float32Array(BINS), new Float32Array(2048), 1 / 60);
   assert.strictEqual(an.pitch.hz, 0);
   assert.strictEqual(an.pitch.confidence, 0);
+
+  const humPitch = mk();
+  const humPitchSpec = new Float32Array(BINS);
+  humPitchSpec[2] = 0.6;
+  const humPitchTime = new Float32Array(2048);
+  for (let i = 0; i < 2048; i++) humPitchTime[i] = 0.01 * Math.sin(2 * Math.PI * 60 * i / SR);
+  humPitch.update(humPitchSpec, humPitchTime, 1 / 60);
+  assert.strictEqual(humPitch.pitch.hz, 0, 'uğultuda perde sıfır olmalı');
+  assert.strictEqual(humPitch.pitch.confidence, 0, 'uğultuda perde güveni sıfır olmalı');
 });
 
 // ===========================================================================
