@@ -9,7 +9,13 @@
     display: { id: null, ids: [] },
 
     audio: {
-      // Aygıt adları makineye özeldir; varsayılan her zaman sistem çıkışıdır.
+      /* Aygıt adları makineye özeldir; varsayılan her zaman sistem çıkışıdır.
+         Liste iki tür kaynak taşıyabilir ve hepsi FFT'den önce karışır:
+           'default' | '<aygıt adı>'              — çıkış (loopback) ya da mikrofon
+           { kind:'app', match:'<exe adı>', mode } — tek bir uygulamanın sesi
+         Uygulama hedefinde SÜREÇ KİMLİĞİ saklanmaz: uygulama kapanıp
+         açıldığında kimlik değişir, ada göre yeniden bulunur.
+         (bkz. src/shared/app-audio.js) */
       sources: ['default'],
       sensitivity: 0.25, // genel kazanç
       smoothing: 0.5, // zaman yumuşatma (0..0.95)

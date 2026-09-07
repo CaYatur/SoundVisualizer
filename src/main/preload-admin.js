@@ -114,6 +114,9 @@ contextBridge.exposeInMainWorld('api', {
      Yalnızca taşıma durumu değiştiğinde çağrılır. */
   sendShowClock: (anchor) => ipcRenderer.send('show-clock', anchor),
   // Çalan parça: panel önizlemesi açıkken okumayı ayakta tutar
+  // Uygulama başına ses yakalama: o an ses oturumu olan uygulamalar
+  listAudioApps: () => ipcRenderer.invoke('app-audio:list'),
+  appAudioStatus: () => ipcRenderer.invoke('app-audio:status'),
   nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),

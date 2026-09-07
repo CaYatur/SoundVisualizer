@@ -30,6 +30,7 @@ covered by a test or by the GPU self-test.
 | Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
 | System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
 | Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | Landing in v3.1.3: WASAPI process loopback on Windows; macOS and Linux report why they cannot yet |
 | Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
 | Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
 | Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
@@ -62,7 +63,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1035** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1069** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -126,8 +127,8 @@ npm test
 npm start -- --smoke
 ```
 
-- **1035 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2; 75 have come with v3.1.3 so far.
+- **1069 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+  105 came with v3.1.1; 152 came with v3.1.2; 109 have come with v3.1.3 so far.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -418,14 +419,46 @@ and verifying that it still does is part of the work.
 
 ## v3.1.3 — Per-application audio capture · in development
 
-**The headline feature is not built yet.** Pick which application's audio is
-analysed. Separate a game or a voice chat from the music, so the visualizer
-follows only Spotify or the DAW instead of whatever the system is mixing.
+Pick which application's audio is analysed. Separate a game or a voice chat
+from the music, so the visualizer follows only Spotify or the DAW instead of
+whatever the system is mixing.
 
-The work below has already landed on `main` for this release. It is recorded
-here so the release notes match what shipped rather than what was planned.
+### Per-application audio capture
 
-### Landed so far
+- **Windows**: WASAPI process loopback — `ActivateAudioInterfaceAsync` with
+  `VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK`, in a self-contained .NET helper
+  (`native/app-audio-helper`) because the API is COM-only and cannot be
+  reached from Node. Chosen over a native node addon so it does not have to
+  be rebuilt against every Electron ABI bump. Requires Windows build 20348.
+- **A source kind, not a mode.** An application target sits in the same
+  `audio.sources` list as devices and mixes into the same buffer before the
+  FFT, so "Spotify + microphone" is one selection rather than a special case.
+  Several applications can be captured at once.
+- **Include or exclude.** Capture only the chosen applications, or everything
+  *except* one. Exclude is limited to a single application: the OS interface
+  takes one process id, and two exclusion streams would each carry the other
+  application's audio and double-count it when mixed.
+- **Targets are stored by executable name, not process id.** A pid changes
+  every time the user restarts the application; a source bound to one would
+  silently fall to silence. The saved target is re-resolved on each start,
+  preferring a process that is actually producing audio.
+- **Reattaches on its own.** Choosing an application that is not running yet
+  is normal — the capture stays alive, silent, and attaches when the
+  application appears. It also survives that application being restarted.
+- **macOS and Linux**: the platform rules are implemented and tested
+  (`src/shared/app-audio.js`), but no capture backend exists yet. Both report
+  clearly why rather than failing silently. macOS needs ScreenCaptureKit on
+  13+, Linux needs PipeWire or PulseAudio. **Neither has been verified on
+  real hardware.**
+
+Measured on Windows 11 build 28020: capturing a browser playing music gave
+299 packets / 143,520 frames in 3 s at 48 kHz, peak amplitude 0.21; excluding
+that same browser gave peak 0.0000, as did targeting an application that was
+not playing. End to end through the analysis pipeline, one application gave a
+peak bin of 236/255, and mixing two applications with the default output
+device gave 255.
+
+### Also landed in this release
 
 - **Adaptive colour theme engine** (`src/shared/adaptive-theme.js`):
   - Derives the 5-point background gradient and the visualizer primary and
@@ -471,9 +504,9 @@ here so the release notes match what shipped rather than what was planned.
 
 ### Verification
 
-1035 unit tests pass on `main` (75 of them added during v3.1.3). The GPU smoke
-test passes. The packaged build still needs to be rebuilt before release; the
-newest binary in `dist/` is v3.1.2.
+1069 unit tests pass on `main` (109 of them added during v3.1.3). The GPU smoke
+test passes, and the packaged build passes its own self-test; `dist/` holds
+v3.1.3 artifacts.
 
 ## v3.1.4 — Comprehensive video export
 

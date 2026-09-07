@@ -22,6 +22,7 @@ const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
 const { serveMediaFile } = require('./media-file');
 const { MediaSession } = require('./media-session');
+const appCapture = require('./app-capture');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -755,6 +756,17 @@ ipcMain.handle('get-displays', () => getDisplayList());
 
 // Tüm ses aygıtları (çıkış + giriş/mikrofon) ve ayrıntılı tanılama
 ipcMain.handle('get-output-devices', () => nativeAudio.listDevices());
+
+/* Uygulama başına ses yakalama. Liste ANLIK: hangi uygulamanın ses oturumu
+   olduğu sürekli değişiyor, o yüzden önbelleğe alınmıyor. */
+ipcMain.handle('app-audio:list', () => {
+  try { return appCapture.list(); } catch (_) { return []; }
+});
+ipcMain.handle('app-audio:status', () => {
+  try { return appCapture.availability(); } catch (e) {
+    return { available: false, code: 'ERROR', message: (e && e.message) || String(e) };
+  }
+});
 ipcMain.handle('diagnose-audio', () => nativeAudio.diagnoseAudio());
 
 function runProcess(executable, args, timeoutMs = 10 * 60 * 1000) {

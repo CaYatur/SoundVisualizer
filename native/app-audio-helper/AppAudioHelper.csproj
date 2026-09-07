@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <!-- Kırpma yerleşik COM birlikte çalışmasını KAPATIYOR. Bu yardımcının
+         tamamı COM üzerine kurulu (ActivateAudioInterfaceAsync, oturum
+         listeleme), o yüzden açık tutulmak zorunda. Kapalıyken yayımlanmış
+         ikili "Built-in COM has been disabled via a feature switch" deyip
+         boş liste döndürüyordu — derleme başarılı görünüyor, çalışma anında
+         sessizce hiçbir şey yapmıyordu. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <AssemblyName>app-audio-helper</AssemblyName>
+  </PropertyGroup>
+
+</Project>

@@ -7,6 +7,8 @@
   let selectedDisplayIds = []; // görselleştirmenin açılacağı ekranlar (çoklu)
   let visOpen = false;
   let audioDevices = [];
+  let audioApps = [];              // o an ses oturumu olan uygulamalar
+  let appAudioStatus = null;       // özellik bu makinede kullanılabilir mi
   let lightingInfo = { ok: true, supported: false, devices: [] };
   let lightingAvailability = { ok: true, devices: [], availableCount: 0, totalCount: 0 };
   let lightingIdentity = { portable: false, packaged: false, hasIdentity: false, canInstall: false };
@@ -1046,40 +1048,76 @@
   }
   function multisourceCtrl(def) {
     const checkboxes = new Map();
+    const AA = window.SVAppAudio;
+
+    /* Kaynaklar iki türlü: aygıt adı (metin) ve uygulama hedefi (nesne).
+       İkisi aynı listede duruyor çünkü karışım zaten çoklu kaynak
+       destekliyor — "Spotify + mikrofon" tek bir seçim kümesi. */
+    const keyOf = (s) => (AA && AA.isAppSource(s)
+      ? 'app:' + AA.baseName(s.match)
+      : String(s));
 
     function getCur() {
       const v = getPath(cfg, def.path);
       return Array.isArray(v) ? v : (v ? [v] : ['default']);
     }
 
-    function toggle(value) {
+    function appMode() {
+      const cur = getCur().filter((s) => AA && AA.isAppSource(s));
+      return cur.length && cur[0].mode === 'exclude' ? 'exclude' : 'include';
+    }
+
+    function toggle(entry) {
+      const key = keyOf(entry);
       let arr = getCur().slice();
-      if (arr.includes(value)) {
-        arr = arr.filter((v) => v !== value);
-        if (arr.length === 0) arr = ['default']; // en az bir kaynak her zaman seçili
+      if (arr.some((s) => keyOf(s) === key)) {
+        arr = arr.filter((s) => keyOf(s) !== key);
       } else {
-        arr.push(value);
+        const add = AA && AA.isAppSource(entry)
+          ? Object.assign({}, entry, { mode: appMode() })
+          : entry;
+        /* Hariç tutma tek uygulamayla sınırlı (bkz. shared/app-audio.js):
+           iki hariç-tutma akışı birbirinin sesini taşır ve karıştırılınca
+           o ses iki kez sayılırdı. */
+        if (AA && AA.isAppSource(add) && add.mode === 'exclude') {
+          arr = arr.filter((s) => !(AA && AA.isAppSource(s)));
+        }
+        arr.push(add);
       }
+      if (arr.length === 0) arr = ['default']; // en az bir kaynak her zaman seçili
       setPath(cfg, def.path, arr);
-      updateChecks();
       push(true);
+      render();
+    }
+
+    function setAppMode(mode) {
+      let arr = getCur().slice();
+      const apps = arr.filter((s) => AA && AA.isAppSource(s));
+      arr = arr.filter((s) => !(AA && AA.isAppSource(s)));
+      const kept = mode === 'exclude' ? apps.slice(0, 1) : apps;
+      for (const a of kept) arr.push(Object.assign({}, a, { mode }));
+      if (arr.length === 0) arr = ['default'];
+      setPath(cfg, def.path, arr);
+      push(true);
+      render();
     }
 
     function updateChecks() {
-      const cur = getCur();
-      checkboxes.forEach((cb, val) => { cb.checked = cur.includes(val); });
+      const cur = getCur().map(keyOf);
+      checkboxes.forEach((cb, k) => { cb.checked = cur.includes(k); });
     }
 
-    function makeRow(value, icon, label) {
+    function makeRow(entry, icon, label, extra) {
       const cb = el('input', { type: 'checkbox' });
-      checkboxes.set(value, cb);
-      cb.addEventListener('change', () => toggle(value));
-      const row = el('label', { class: 'source-item' }, [
+      checkboxes.set(keyOf(entry), cb);
+      cb.addEventListener('change', () => toggle(entry));
+      const kids = [
         cb,
         el('span', { class: 'source-icon', text: icon }),
         el('span', { class: 'source-name', text: label }),
-      ]);
-      return row;
+      ];
+      if (extra) kids.push(el('span', { class: 'source-note', text: extra }));
+      return el('label', { class: 'source-item' }, kids);
     }
 
     const devices = typeof def.devices === 'function' ? def.devices() : (def.devices || []);
@@ -1089,13 +1127,71 @@
       const suffix = d.isDefault ? ' (★)' : '';
       rows.push(makeRow(d.name, icon, d.name + suffix));
     });
-    updateChecks();
-
-    const list = el('div', { class: 'source-list' }, rows);
-    return el('div', { class: 'ctrl' }, [
+    const kids = [
       el('label', { class: 'lbl', text: def.label }),
-      list,
-    ]);
+      el('div', { class: 'source-list' }, rows),
+    ];
+
+    // --------------------------------------------- uygulama başına yakalama
+    const apps = typeof def.apps === 'function' ? def.apps() : (def.apps || []);
+    const status = typeof def.appStatus === 'function' ? def.appStatus() : null;
+    const selectedApps = getCur().filter((s) => AA && AA.isAppSource(s));
+
+    kids.push(el('label', { class: 'lbl', text: 'Uygulama Sesi' }));
+    if (!AA || (status && status.available === false)) {
+      kids.push(el('div', { class: 'studio-note dim-hint',
+        text: (status && status.message) || 'Uygulama başına ses yakalama kullanılamıyor.' }));
+    } else {
+      const appRows = [];
+      const shown = new Set();
+      for (const a of apps) {
+        shown.add(AA.baseName(a.match));
+        appRows.push(makeRow(
+          { kind: 'app', match: a.match, label: a.label },
+          a.audible ? '🎵' : '🔇',
+          a.label,
+          a.count > 1 ? a.count + ' süreç' : ''
+        ));
+      }
+      /* Seçili ama şu an çalışmayan uygulama listeden DÜŞMEMELİ; aksi halde
+         kullanıcı seçimini kaybeder ve neden kaybettiğini göremez. Yakalama
+         tarafı da uygulama açılınca kendiliğinden bağlanıyor. */
+      for (const s of selectedApps) {
+        if (shown.has(AA.baseName(s.match))) continue;
+        appRows.push(makeRow(
+          { kind: 'app', match: s.match, label: s.label },
+          '⏸', s.label || s.match, 'çalışmıyor'
+        ));
+      }
+      if (!appRows.length) {
+        kids.push(el('div', { class: 'studio-note dim-hint',
+          text: 'Şu anda ses çalan bir uygulama yok. Bir şey çaldırıp Aygıtları Yenile’ye basın.' }));
+      } else {
+        kids.push(el('div', { class: 'source-list' }, appRows));
+      }
+
+      if (selectedApps.length) {
+        const mode = appMode();
+        const seg = el('div', { class: 'segment' });
+        for (const opt of [['include', 'Yalnızca Seçilenler'], ['exclude', 'Seçilen Hariç']]) {
+          const b = el('button', {
+            class: mode === opt[0] ? 'active' : '', type: 'button', text: tr(opt[1]),
+          });
+          b.addEventListener('click', () => setAppMode(opt[0]));
+          seg.appendChild(b);
+        }
+        kids.push(el('div', { class: 'ctrl' }, [
+          el('label', { class: 'lbl', text: 'Uygulama Kipi' }), seg,
+        ]));
+        if (mode === 'exclude') {
+          kids.push(el('div', { class: 'studio-note dim-hint',
+            text: 'Seçilen uygulama hariç sistemdeki her şey dinlenir. Bu kipte tek uygulama seçilebilir.' }));
+        }
+      }
+    }
+
+    updateChecks();
+    return el('div', { class: 'ctrl' }, kids);
   }
 
   // --- Video dışa aktarma: ses dosyası seçici ---
@@ -1998,13 +2094,15 @@
         category: 'audio',
         icon: '🎙️',
         title: 'Ses Kaynakları',
-        desc: 'Birden fazla kaynak seçilip karıştırılabilir. 🔊 Loopback (sistem sesi), 🎤 Mikrofon.',
+        desc: 'Birden fazla kaynak seçilip karıştırılabilir: 🔊 sistem sesi, 🎤 mikrofon ve 🎵 tek tek uygulamalar.',
         controls: [
           {
             type: 'multisource',
             path: 'audio.sources',
             label: 'Aktif Kaynaklar',
             devices: () => audioDevices,
+            apps: () => (window.SVAppAudio ? window.SVAppAudio.candidates(audioApps) : []),
+            appStatus: () => appAudioStatus,
           },
           { type: 'button', label: '🔄 Aygıtları Yenile', action: 'refreshDevices' },
         ],
@@ -3460,10 +3558,21 @@
     $('banner').classList.remove('hidden');
   }
 
+  /* Uygulama listesi ANLIK: hangi uygulamanın ses oturumu olduğu sürekli
+     değişiyor, önbelleğe almak yanıltıcı olurdu. */
+  async function refreshAudioApps() {
+    if (!window.api || !window.api.listAudioApps) return;
+    try {
+      audioApps = (await window.api.listAudioApps()) || [];
+      if (window.api.appAudioStatus) appAudioStatus = await window.api.appAudioStatus();
+    } catch (_) { audioApps = []; }
+  }
+
   actions.refreshDevices = async () => {
     setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
     const result = await window.api.diagnoseAudio();
     applyAudioDiagnostic(result, true);
+    await refreshAudioApps();
     render();
   };
 
@@ -4088,6 +4197,7 @@
     }
     const audioDiagnostic = await window.api.diagnoseAudio();
     audioDevices = audioDiagnostic?.devices || [];
+    await refreshAudioApps();
     try {
       lightingIdentity = await window.api.getLightingIdentityStatus();
     } catch {

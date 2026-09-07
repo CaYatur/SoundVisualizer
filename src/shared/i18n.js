@@ -2134,6 +2134,29 @@
        sondaki boşluk zaten kırpılıyor; ama karşılığın sonundaki boşluk
        korunup çağıranın kendi boşluğuna EKLENİYOR ve çift boşluk çıkıyordu
        ("Dynamic color theme applied:  Album Art"). */
+    // ---- Uygulama başına ses yakalama ----
+    'Uygulama Sesi': 'Application Audio',
+    'Uygulama Kipi': 'Application Mode',
+    'Yalnızca Seçilenler': 'Selected Only',
+    'Seçilen Hariç': 'Except Selected',
+    'çalışmıyor': 'not running',
+    'Birden fazla kaynak seçilip karıştırılabilir: 🔊 sistem sesi, 🎤 mikrofon ve 🎵 tek tek uygulamalar.':
+      'Several sources can be selected and mixed: 🔊 system audio, 🎤 microphone and 🎵 individual applications.',
+    'Şu anda ses çalan bir uygulama yok. Bir şey çaldırıp Aygıtları Yenile’ye basın.':
+      'No application is playing audio right now. Start something and press Refresh Devices.',
+    'Seçilen uygulama hariç sistemdeki her şey dinlenir. Bu kipte tek uygulama seçilebilir.':
+      'Everything on the system is captured except the selected application. Only one application can be selected in this mode.',
+    'Uygulama başına ses yakalama kullanılamıyor.': 'Per-application audio capture is unavailable.',
+    'Uygulama başına ses yakalama şimdilik yalnızca Windows üzerinde çalışıyor.':
+      'Per-application audio capture currently works on Windows only.',
+    'Ses yakalama yardımcısı bulunamadı; bu paket .NET olmadan derlenmiş olabilir.':
+      'The audio capture helper was not found; this build may have been made without .NET.',
+    'Uygulama başına ses yakalama macOS 13 ve üstünü gerektiriyor (ScreenCaptureKit).':
+      'Per-application audio capture requires macOS 13 or newer (ScreenCaptureKit).',
+    'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.':
+      'Per-application audio capture requires PipeWire or PulseAudio.',
+    'Bu işletim sisteminde uygulama başına ses yakalama yok.':
+      'This operating system has no per-application audio capture.',
     'Dinamik renk teması uygulandı:': 'Dynamic color theme applied:',
     'Albüm Kapağı': 'Album Artwork',
     'Rastgele Armoni': 'Random Harmony',
@@ -2201,6 +2224,9 @@
     if (icon) return icon[1] + ' ' + translate(icon[2]);
     return raw
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
+      .replace(/^(\d+) süreç$/g, (_, n) => n + (Number(n) === 1 ? ' process' : ' processes'))
+      .replace(/^Uygulama başına ses yakalama Windows yapı (\d+) ve üstünü gerektiriyor; bu bilgisayarda yapı (\d+)\.$/g,
+        'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
       .replace(/Görsel (\d+)/g, 'Image $1')
       .replace(/✓ (\d+) uyumlu aydınlatma aygıtı bulundu/g, '✓ $1 compatible lighting device(s) found')

@@ -10,3 +10,5 @@ assets/logo-256.png
 native/dynamic-lighting/build/
 native/smtc-helper/bin/
 native/smtc-helper/obj/
+native/app-audio-helper/bin/
+native/app-audio-helper/obj/

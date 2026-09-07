@@ -85,12 +85,25 @@ if (capIdx >= 0 && process.argv[capIdx + 1]) {
 }
 
 // Birden çok kaynak desteklenir. Geriye dönük uyum: tek "device" da kabul edilir.
-let wanted = Array.isArray(opts.devices)
+let requested = Array.isArray(opts.devices)
   ? opts.devices
   : opts.device
   ? [opts.device]
   : ['default'];
-if (wanted.length === 0) wanted = ['default'];
+if (requested.length === 0) requested = ['default'];
+
+/* Kaynak listesi hem aygıt adı (metin) hem uygulama hedefi (nesne)
+   taşıyabiliyor. İkisi aynı karışıma yazıyor, o yüzden burada yalnızca
+   ayrıştırılıyorlar. (bkz. src/shared/app-audio.js) */
+const appAudio = require('../shared/app-audio.js');
+const appCapture = require('./app-capture.js');
+const split = appAudio.splitSources(requested);
+let wanted = split.devices;
+const wantedApps = split.apps;
+/* Yalnızca uygulama seçildiyse hiçbir aygıt açılmamalı. Aksi halde
+   varsayılan çıkış da karışıma girer ve kullanıcı "yalnızca şu uygulama"
+   dediği halde sistemin tamamını duyar. */
+if (wanted.length === 0 && wantedApps.length === 0) wanted = ['default'];
 
 const rtList = makeRt();
 const all = listAll(rtList);
@@ -109,7 +122,7 @@ for (const name of wanted) {
     resolved.push(d);
   }
 }
-if (resolved.length === 0) {
+if (resolved.length === 0 && wantedApps.length === 0) {
   process.stderr.write('NO-DEVICE');
   process.exit(2);
 }
@@ -246,8 +259,124 @@ for (const d of resolved) {
   }
 }
 
-if (instances.length === 0) {
-  process.stderr.write('START-FAIL hicbir aygit acilamadi');
+/* ---------------------------------------------- uygulama başına yakalama
+
+   Aygıt akışlarıyla aynı karışıma yazar: her uygulama kendi mono tamponunu
+   alır ve aşağıdaki zamanlayıcı hepsini birlikte karıştırır. Böylece
+   "yalnızca Spotify" da, "Spotify + mikrofon" da aynı yolla çalışıyor.
+
+   PCM ayrı bir süreçten geliyor (bkz. native/app-audio-helper): WASAPI'nin
+   süreç loopback'i COM üzerinden ve Node'dan çağrılamıyor. */
+const appProcs = [];
+/* Her uygulama kaynağı için bir mono tampon AYRILIR, süreç sonradan bağlansa
+   bile karışımdaki yeri sabit kalsın diye. */
+const appRings = wantedApps.map(() => {
+  const r = new Float32Array(FFT_SIZE);
+  rings.push(r);
+  return r;
+});
+
+/* Seçilen uygulamayı yakalamaya bağlar. Bağlanamazsa (uygulama henüz açık
+   değil) sessiz kalır ve aşağıdaki zamanlayıcı yeniden dener.
+
+   Yeniden deneme şart: kullanıcı "Spotify'ı dinle" deyip Spotify'ı sonra
+   açıyor. Tek seferlik bir denemede yakalama ölür ve uygulama açıldığında
+   kendiliğinden gelmezdi; kullanıcı da sebebini göremezdi. */
+function attachApp(app, index) {
+  if (appProcs[index]) return true;
+  let target;
+  try {
+    target = appCapture.resolve(app);
+  } catch (e) {
+    process.stderr.write('APP-FAIL ' + app.match + ' ' + e.message + '\n');
+    return false;
+  }
+  if (!target) return false;
+
+  const child = appCapture.spawn(target.pid, app.mode);
+  if (!child) return false;
+  appProcs[index] = child;
+  const ringR = appRings[index];
+
+  /* stdout ham float32 stereo akıtıyor. Parçalar kare sınırına düşmek zorunda
+     değil, o yüzden artan baytlar bir sonraki parçaya taşınıyor; taşımasaydık
+     kanallar kayar ve ses bozulurdu. */
+  let carry = Buffer.alloc(0);
+  child.stdout.on('data', (chunk) => {
+    const buf = carry.length ? Buffer.concat([carry, chunk]) : chunk;
+    const frames = Math.floor(buf.length / 8); // 2 kanal x float32
+    if (frames > 0) {
+      const usable = frames * 8;
+      ringR.copyWithin(0, frames);
+      let w = FFT_SIZE - frames;
+      if (w < 0) w = 0;
+      /* readFloatLE ile okunuyor, Float32Array görünümüyle değil: Node'un
+         havuzdan verdiği tamponun byteOffset'i 4'ün katı olmak zorunda değil
+         ve hizalanmamış bir görünüm RangeError atardı. */
+      for (let i = 0, off = 0; i < frames; i++, off += 8) {
+        if (w + i < FFT_SIZE) {
+          ringR[w + i] = (buf.readFloatLE(off) + buf.readFloatLE(off + 4)) * 0.5;
+        }
+      }
+      carry = Buffer.from(buf.subarray(usable));
+    } else {
+      carry = Buffer.from(buf);
+    }
+    if (carry.length > 65536) carry = Buffer.alloc(0); // bozuk akışta şişmesin
+  });
+  child.stderr.on('data', (d) => {
+    const t = String(d).trim();
+    if (t) process.stderr.write(t + '\n');
+  });
+  child.on('error', (e) => process.stderr.write('APP-SPAWN-FAIL ' + e.message + '\n'));
+  /* Hedef uygulama kapanırsa yardımcı da biter. Tamponu sıfırlayıp yeniden
+     denemeye bırakıyoruz; kullanıcı uygulamayı yeniden açtığında bağlanır. */
+  child.on('exit', () => {
+    if (appProcs[index] === child) {
+      appProcs[index] = null;
+      ringR.fill(0);
+      process.stderr.write('APP-DETACHED ' + app.match + '\n');
+    }
+  });
+
+  process.stderr.write('APP-ATTACHED ' + app.match + ' pid=' + target.pid
+    + ' (' + target.matched + ')\n');
+  return true;
+}
+
+wantedApps.forEach((app, i) => {
+  appProcs[i] = null;
+  if (!attachApp(app, i)) {
+    process.stderr.write('APP-NOT-RUNNING ' + app.match + '\n');
+  }
+  started.push(app.label || app.match);
+});
+
+/* Bağlanamamış uygulamalar için düşük sıklıkta yeniden deneme. Süreç listesi
+   almak ucuz değil, o yüzden yalnızca eksik varken ve seyrek çalışıyor. */
+const retryTimer = wantedApps.length ? setInterval(() => {
+  for (let i = 0; i < wantedApps.length; i++) {
+    if (!appProcs[i]) attachApp(wantedApps[i], i);
+  }
+}, 3000) : null;
+if (retryTimer && retryTimer.unref) retryTimer.unref();
+
+/* Yardımcı süreçler bizimle birlikte ölmeli; yoksa görselleştirici
+   kapandıktan sonra arka planda ses yakalamaya devam ederler. */
+function killApps() {
+  if (retryTimer) clearInterval(retryTimer);
+  for (const c of appProcs) {
+    if (!c) continue;
+    try { c.kill(); } catch { /* zaten öldü */ }
+  }
+}
+process.on('exit', killApps);
+process.on('SIGTERM', () => { killApps(); process.exit(0); });
+
+/* Uygulama seçilmişse henüz bağlanmamış olsa bile çıkmıyoruz: yeniden
+   deneme zamanlayıcısı uygulama açılınca bağlayacak. */
+if (instances.length === 0 && wantedApps.length === 0) {
+  process.stderr.write('START-FAIL hicbir kaynak acilamadi');
   process.exit(3);
 }
 
@@ -255,7 +384,12 @@ outBuf.writeUInt32LE(startedSr, 2);
 process.stderr.write('CAPTURE-START ' + started.join(' + ') + '\n');
 
 // Kaynakları karıştır + yayınla (~70 Hz)
-const norm = 1 / Math.sqrt(instances.length);
+/* Normalleştirme KARIŞTIRILAN kaynak sayısına göre olmalı, açılan aygıt
+   sayısına göre değil. Uygulama yakalama geldiğinde bunlar ayrıştı: yalnızca
+   bir uygulama seçilince aygıt sayısı sıfır oluyordu ve 1/sqrt(0) = Infinity
+   karışımı NaN'a düşürüyordu — kareler akmaya devam ediyor ama hepsi sıfır
+   çıkıyordu, yani sessiz bir görselleştirici ve görünür bir hata yok. */
+const norm = 1 / Math.sqrt(Math.max(1, rings.length));
 const timer = setInterval(() => {
   if (backpressure) return;
   const count = rings.length;
