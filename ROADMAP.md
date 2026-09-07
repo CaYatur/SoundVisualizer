@@ -15,7 +15,7 @@ covered by a test or by the GPU self-test.
 | v3.1.0 | Timeline, Clip Deck, accidental-close protection, Electron 43 | 2026-09-02 | Shipped |
 | v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | 2026-09-04 | Shipped |
 | **v3.1.2** | **MilkDrop shader engine, Now Playing overlay, transparent visualizer** | **2026-09-05** | **Current** |
-| v3.1.3 | Per-application audio capture | — | Next |
+| v3.1.3 | Per-application audio capture | — | In development |
 | v3.1.4 | Comprehensive video export | — | Planned |
 | v3.1.5 | Broadcast layout editor | — | Planned |
 | v3.1.6 | NDI output | — | Deferred |
@@ -62,7 +62,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1021** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -126,8 +126,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **960 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2. Formulas are checked against values derived
+- **1021 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+  105 came with v3.1.1; 152 came with v3.1.2; 61 have come with v3.1.3 so far.
+  Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
   bounded and landing inside the view volume.
@@ -406,20 +407,73 @@ and verifying that it still does is part of the work.
   - Aligned audio scale and decay mappings (`bass/mid/treb` normalized to long-term average, `fDecay` header mapped to per-frame decay).
   - *Deferred to Phase 2 (quality pass)*: User sprite textures (`img.ini`), motion vectors, preset crossfade blending, and mouse interaction.
 - **Now Playing overlay**:
-  - Live system media integration via Windows SMTC (GlobalSystemMediaTransportControlsSessionManager) through a persistent PowerShell 5.1 helper (0–1 ms steady-state overhead).
+  - Live system media integration via Windows SMTC (GlobalSystemMediaTransportControlsSessionManager) through an event-driven native C# helper, with a persistent PowerShell 5.1 helper as fallback (0–1 ms steady-state overhead).
   - Anchor-based time extrapolation (`positionAt` / `anchorMs`) to provide smooth elapsed/remaining progress between sparse OS timeline updates.
   - 7 entrance animations (`fade`, `slideUp`, `slideLeft`, `scale`, `typewriter`, `wipe`), marquee scrolling for long titles, and audio-reactive bass pulse.
   - Modern and Classic OG Winamp styles with continuous or 40-segment progress bars.
   - Full admin configuration panel with live playback status indicator (green/dim/red).
 - **Transparent visualizer window (Addendum 4.0)**:
   - Support for `background.transparent` toggle, creating an Electron window with `transparent: true` and `#00000000` background, clearing canvases with `clearRect`, and removing body background to run overlays directly above the desktop or game capture.
-- **Verification**: 960 unit tests pass on `main`. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
+- **Verification**: 960 unit tests passed at release. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
 
-## v3.1.3 — Per-application audio capture
+## v3.1.3 — Per-application audio capture · in development
 
-Pick which application's audio is analysed. Separate a game or a voice chat
-from the music, so the visualizer follows only Spotify or the DAW instead of
-whatever the system is mixing.
+**The headline feature is not built yet.** Pick which application's audio is
+analysed. Separate a game or a voice chat from the music, so the visualizer
+follows only Spotify or the DAW instead of whatever the system is mixing.
+
+The work below has already landed on `main` for this release. It is recorded
+here so the release notes match what shipped rather than what was planned.
+
+### Landed so far
+
+- **Adaptive colour theme engine** (`src/shared/adaptive-theme.js`):
+  - Derives the 5-point background gradient and the visualizer primary and
+    secondary colours from the playing track. Six modes: `artwork`,
+    `artworkOrRandom`, `random`, `energyMood`, `presetRandom`, `presetCycle`.
+  - Album-cover extraction bins pixels into 16 hue buckets plus three neutral
+    buckets, weights saturated mid-tones higher, and rejects candidates closer
+    than 36 in luminance-weighted colour distance so the gradient stays legible.
+  - `random` draws from eight harmony styles (analogous, complementary, triadic,
+    cyberpunk, warm sunset, deep ocean, synthwave, aurora); `energyMood` maps
+    the track title and artist through a six-family lexicon, falling back to a
+    deterministic hash of the text so the same track always gets the same palette.
+  - Off by default (`dynamicTheme.enabled: false`), with separate
+    `applyToBackground` and `applyToVisualizer` switches.
+- **`theme` colour mode across every visualizer mode**: `visualizer.colorMode`
+  is now `'custom' | 'theme' | 'rainbow'`, and `theme` samples the 5-point
+  gradient by position, so a mode's colours follow the scene palette instead of
+  a fixed hue ramp. Old configurations that only carried `rainbow` are migrated.
+- **Windows SMTC hardening (#561)**: replaced the blocking artwork retry loop
+  with a cancellable staged fetch, and added SHA-256 hash tracking of previous
+  covers so a late-arriving thumbnail from the previous track cannot overwrite
+  the current one on rapid skips.
+- **Album artwork as a logo source**: `logo.source` gained `'track'`, so the
+  logo layer can display the cover of the playing track.
+- **Stream server**: overlay and mobile-remote tokens are now separate, with
+  cookie-backed sessions, an explicit token-enforcement switch, and a hardened
+  shutdown path. A native clipboard bridge replaces the browser copy fallback.
+- **Web surfaces**: the mobile remote gained a live now-playing card; the OBS
+  overlay is wired to the show clock and the colour theme.
+- **Spout / Syphon output** (`texture-share`): dynamic resizing, paint-loop
+  triggers and an `onReady` lifecycle hook. Verified working on Windows.
+- **Transitions**: dissolve now composites with `destination-out` on blackout
+  and detects transparent backgrounds, so a transition over the transparent
+  visualizer window no longer flashes a black rectangle.
+- **Layer fixes (#561)**: stale layers no longer persist across template
+  switches, and layer synthesis, logo coordinates and preview synchronisation
+  were corrected.
+- **Audio**: the smart silence filter gained a dual mode with 50/60 Hz mains-hum
+  detection (`audio.humGuard`), so a quiet room is not mistaken for signal.
+- **Power**: a silent accidental-close confirmation (`power.confirmClose`), a
+  crash-recovery status watchdog, and a Ctrl+Shift+Q rescue shortcut for when
+  the visualizer window cannot be reached.
+
+### Verification
+
+1021 unit tests pass on `main` (61 of them added during v3.1.3). The GPU smoke
+test passes. The packaged build still needs to be rebuilt before release; the
+newest binary in `dist/` is v3.1.2.
 
 ## v3.1.4 — Comprehensive video export
 
