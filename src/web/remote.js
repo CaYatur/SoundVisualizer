@@ -13,6 +13,7 @@
   const $ = (id) => document.getElementById(id);
   let cfg = null;
   let presets = [];
+  let selectedSceneId = null;
 
   const VIS_MODES = [
     ['none', 'Kapalı'], ['bars', 'Barlar'], ['centerBars', 'Merkez'], ['blocks', 'Segment'],
@@ -98,6 +99,14 @@
     return !sc || sameColors(sc, currentColors());
   }
   function activeSceneIndex() {
+    if (selectedSceneId) {
+      const idx = scenes().findIndex((s) => s.id === selectedSceneId);
+      if (idx !== -1) return idx;
+    }
+    if (cfg && cfg._activeSceneId) {
+      const idx = scenes().findIndex((s) => s.id === cfg._activeSceneId);
+      if (idx !== -1) return idx;
+    }
     return scenes().findIndex(sceneMatches);
   }
 
@@ -116,6 +125,9 @@
     const list = scenes();
     if (!list.length) return;
     const s = list[((i % list.length) + list.length) % list.length];
+    selectedSceneId = s.id;
+    if (cfg) cfg._activeSceneId = s.id;
+    renderScenes();
     send('scene', { id: s.id });
   }
   function applyPalette(i) {
@@ -198,7 +210,7 @@
       const b = document.createElement('button');
       b.textContent = s.name || 'Sahne ' + (i + 1);
       if (i === active) b.classList.add('on');
-      b.addEventListener('click', () => send('scene', { id: s.id }));
+      b.addEventListener('click', () => applyScene(i));
       host.appendChild(b);
     });
   }
@@ -276,6 +288,9 @@
   // --------------------------------------------------------------------------
   function syncFromConfig(c) {
     cfg = c;
+    if (c && c._activeSceneId) {
+      selectedSceneId = c._activeSceneId;
+    }
     // Karartma durumu paneldedir; düğme onu yansıtır
     $('blackoutBtn').classList.toggle('on', c.isBlackout === true);
     markActive($('visModes'), c.visualizer && c.visualizer.type);
@@ -300,6 +315,32 @@
     st.appendChild(modeSpan);
   }
 
+  function updateNowPlaying(st) {
+    const card = $('nowPlayingCard');
+    if (!card) return;
+    if (!st || !st.has || !st.title) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'block';
+    const titleEl = $('nowPlayingTitle');
+    const artistEl = $('nowPlayingArtist');
+    const artEl = $('nowPlayingArt');
+    const appEl = $('nowPlayingApp');
+    if (titleEl) titleEl.textContent = st.title || '—';
+    if (artistEl) artistEl.textContent = [st.artist, st.album].filter(Boolean).join(' · ') || '—';
+    if (appEl) appEl.textContent = st.app ? st.app.replace(/\.exe$/i, '') : '';
+    if (artEl) {
+      if (st.artwork) {
+        artEl.src = st.artwork;
+        artEl.style.display = 'block';
+      } else {
+        artEl.style.display = 'none';
+        artEl.src = '';
+      }
+    }
+  }
+
   document.querySelectorAll('[data-action]').forEach((b) => {
     b.addEventListener('click', () => send(b.dataset.action));
   });
@@ -319,6 +360,10 @@
 
   buildGrid($('visModes'), VIS_MODES, 'visualizer.type');
   buildGrid($('bgModes'), BG_MODES, 'background.type');
+
+  if (R && typeof R.onNowPlaying === 'function') {
+    R.onNowPlaying((st) => updateNowPlaying(st));
+  }
 
   R.ready.then(syncFromConfig);
   R.onConfig(syncFromConfig);

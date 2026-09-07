@@ -18,7 +18,7 @@
   const fpsOverride = parseInt(params.get('fps') || '', 10);
   const scaleOverride = parseFloat(params.get('scale') || '');
 
-  const handlers = { config: [], audio: [], presets: [], status: [] };
+  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [] };
   let ws = null;
   let retry = 0;
   let firstConfig = null;
@@ -51,7 +51,9 @@
     if (kind !== 'overlay') return cfg;
     const c = JSON.parse(JSON.stringify(cfg));
     const wantsTransparent = !forceOpaque && !!(c.stream && c.stream.transparent);
-    if (wantsTransparent) {
+    // Karartma aktifken saydam mod devre dışı: siyah arkaplan görünür olmalı,
+    // aksi halde OBS'te "saydam siyah" → görünmez olur ve animasyon kaybolur.
+    if (wantsTransparent && !c.isBlackout) {
       c.background = Object.assign({}, c.background, { type: 'transparent', solidColor: 'transparent' });
     }
     c.power = Object.assign({}, c.power, {
@@ -91,6 +93,12 @@
         const list = msg.presets || [];
         if (!firstPresets) { firstPresets = list; resolvePresets(list); }
         handlers.presets.forEach((h) => h(list));
+      } else if (msg.type === 'now-playing') {
+        if (window.SVNowLive) window.SVNowLive.state = msg.state;
+        else window.SVNowLive = { state: msg.state };
+        handlers.nowPlaying.forEach((h) => h(msg.state));
+      } else if (msg.type === 'show-clock') {
+        handlers.showClock.forEach((h) => h(msg.anchor));
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -138,6 +146,8 @@
     onNativeAudio: (cb) => handlers.audio.push(cb),
     getPresets: () => presetsReady,
     onPresets: (cb) => handlers.presets.push(cb),
+    onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
+    onShowClock: (cb) => handlers.showClock.push(cb),
     sendAudioMeter: () => {}, // tarayıcı tarafında ışık senkronu yok
     sendMessage: () => {},
   };
@@ -148,6 +158,7 @@
     onConfig: (cb) => handlers.config.push(cb),
     onPresets: (cb) => handlers.presets.push(cb),
     onStatus: (cb) => handlers.status.push(cb),
+    onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     ready: configReady,
     presetsReady,
     raw: () => firstConfig,

@@ -79,6 +79,13 @@
       .sw.on { border-color: #6b4bd8; }
       .sw.on .nm { color: #fff; background: #33243a; }
 
+      /* çalan parça & albüm kapağı */
+      .now-playing-box { display: flex; align-items: center; gap: 12px; }
+      .now-art { width: 54px; height: 54px; border-radius: 9px; object-fit: cover; background: var(--card2); border: 1px solid var(--line); flex: none; }
+      .now-info { flex: 1; min-width: 0; }
+      .now-title { font-size: 14px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+      .now-artist { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
       .empty { color: var(--dim); font-size: 13px; }
       footer { text-align: center; color: var(--dim); font-size: 11.5px; margin-top: 16px; }
     </style>
@@ -92,6 +99,17 @@
       </div>
       <div id="dot"></div>
     </header>
+
+    <div class="card" id="nowPlayingCard" style="display: none;">
+      <h2><span id="nowPlayingHeading">Çalan Parça</span><b id="nowPlayingApp"></b></h2>
+      <div class="now-playing-box">
+        <img id="nowPlayingArt" src="" alt="" class="now-art" style="display: none;" />
+        <div class="now-info">
+          <div class="now-title" id="nowPlayingTitle">—</div>
+          <div class="now-artist" id="nowPlayingArtist">—</div>
+        </div>
+      </div>
+    </div>
 
     <div class="card">
       <h2>Görselleştirme</h2>
