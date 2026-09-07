@@ -1,6 +1,6 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
 /* Arayüzün platformu bilmesi gerekiyor: Windows Dynamic Lighting yalnız
    Windows'ta anlamlı, Spout yalnız Windows'ta, Syphon yalnız macOS'ta.
@@ -13,6 +13,16 @@ contextBridge.exposeInMainWorld('SV_PLATFORM', {
 });
 
 contextBridge.exposeInMainWorld('api', {
+  // Pano (yerel Electron API güvencesi)
+  copyToClipboard: (text) => {
+    try {
+      clipboard.writeText(String(text || ''));
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   importMilk: () => ipcRenderer.invoke('presets:import-milk'),

@@ -20,10 +20,37 @@
   }
 
   function copy(text, label) {
-    navigator.clipboard.writeText(text).then(
-      () => P().toast(label + ' kopyalandı.', 'ok'),
-      () => P().toast('Kopyalanamadı.', 'err')
-    );
+    if (window.api && typeof window.api.copyToClipboard === 'function' && window.api.copyToClipboard(text)) {
+      P().toast(label + ' kopyalandı.', 'ok');
+      return;
+    }
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(text).then(
+        () => P().toast(label + ' kopyalandı.', 'ok'),
+        () => fallbackCopy(text, label)
+      );
+      return;
+    }
+    fallbackCopy(text, label);
+  }
+
+  function fallbackCopy(text, label) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        P().toast(label + ' kopyalandı.', 'ok');
+        return;
+      }
+    } catch {}
+    P().toast('Kopyalanamadı.', 'err');
   }
 
   function urlRow(label, url, hint) {
@@ -54,7 +81,10 @@
       type: 'checkbox',
       onchange: async (e) => {
         s.enabled = e.target.checked;
-        if (s.enabled && !s.token) s.token = await window.api.streamNewToken();
+        if (s.enabled) {
+          if (!s.token) s.token = await window.api.streamNewToken();
+          if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+        }
         P().push(true);
         await sync();
       },
@@ -131,7 +161,14 @@
 
       const remote = el('input', {
         type: 'checkbox',
-        onchange: async (e) => { s.remote = e.target.checked; P().push(true); await sync(); },
+        onchange: async (e) => {
+          s.remote = e.target.checked;
+          if (s.remote && (!s.remoteToken || s.remoteToken === s.token)) {
+            s.remoteToken = await window.api.streamNewToken();
+          }
+          P().push(true);
+          await sync();
+        },
       });
       remote.checked = !!s.remote;
       nodes.push(P().row('Mobil Uzaktan Kumanda', el('label', { class: 'switch' }, [remote, el('span', { class: 'track' })])));
@@ -140,12 +177,13 @@
         type: 'checkbox',
         onchange: async (e) => {
           if (e.target.checked) {
-            const ok = await P().confirm(
-              'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adres, tahmin edilmesi güç bir jeton içerir ve jeton olmadan hiçbir istek kabul edilmez. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.',
-              { okText: 'Ağa aç' }
-            );
+            const lanMsg = s.requireToken
+              ? 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adresler, tahmin edilmesi güç iki ayrı güvenlik jetonu içerir. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.'
+              : 'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Token Koruması kapalı olduğundan URL bilinen herkes erişebilir — güvenilir bir ev/ofis ağı dışında kullanmayın.';
+            const ok = await P().confirm(lanMsg, { okText: 'Ağa aç' });
             if (!ok) { e.target.checked = false; return; }
             if (!s.token) s.token = await window.api.streamNewToken();
+            if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
           }
           s.lan = e.target.checked;
           P().push(true);
@@ -155,16 +193,38 @@
       lan.checked = !!s.lan;
       nodes.push(P().row('Yerel Ağa Aç (telefon erişebilsin)', el('label', { class: 'switch' }, [lan, el('span', { class: 'track' })])));
 
-      if (s.lan) {
+      // --- token koruması ---
+      const tokenProtection = el('input', {
+        type: 'checkbox',
+        onchange: async (e) => {
+          s.requireToken = e.target.checked;
+          if (s.requireToken) {
+            // Token koruma açıldığında tokenlar yoksa üret
+            if (!s.token) s.token = await window.api.streamNewToken();
+            if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+          }
+          P().push(true);
+          await sync();
+        },
+      });
+      tokenProtection.checked = !!s.requireToken;
+      nodes.push(P().row(
+        'Token Koruması',
+        el('label', { class: 'switch' }, [tokenProtection, el('span', { class: 'track' })])
+      ));
+      nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: s.requireToken ? 'Açık: URL\'de ?token= zorunlu.' : 'Kapalı: adresler token olmadan açılır (yerel kullanım için önerilir).' }));
+
+      if (s.requireToken) {
         nodes.push(
           el('div', { class: 'ctrl' }, [
             el('div', { class: 'row' }, [
-              el('label', { class: 'lbl', text: 'Erişim Jetonu' }),
+              el('label', { class: 'lbl', text: 'Görselleştirici Jetonu (OBS / Web)' }),
               el('button', {
                 class: 'btn ghost small', type: 'button', text: '⟳ Yenile',
-                title: 'Yeni jeton üretir; eski adresler geçersiz olur',
+                title: 'Görselleştirici için yeni jeton üretir; eski OBS adresi geçersiz olur',
                 onclick: async () => {
                   s.token = await window.api.streamNewToken();
+                  while (s.token === s.remoteToken) s.token = await window.api.streamNewToken();
                   P().push(true);
                   await sync();
                 },
@@ -173,6 +233,27 @@
             el('input', { class: 'p-in wide', type: 'text', value: s.token || '', readonly: 'readonly' }),
           ])
         );
+
+        if (s.remote) {
+          nodes.push(
+            el('div', { class: 'ctrl' }, [
+              el('div', { class: 'row' }, [
+                el('label', { class: 'lbl', text: 'Mobil Kumanda Jetonu' }),
+                el('button', {
+                  class: 'btn ghost small', type: 'button', text: '⟳ Yenile',
+                  title: 'Mobil kumanda için yeni jeton üretir; eski kumanda adresi geçersiz olur',
+                  onclick: async () => {
+                    s.remoteToken = await window.api.streamNewToken();
+                    while (s.remoteToken === s.token) s.remoteToken = await window.api.streamNewToken();
+                    P().push(true);
+                    await sync();
+                  },
+                }),
+              ]),
+              el('input', { class: 'p-in wide', type: 'text', value: s.remoteToken || '', readonly: 'readonly' }),
+            ])
+          );
+        }
       }
 
       nodes.push(P().slider('Tarayıcı Kaynağı Kare Hızı', 'stream.overlayFps', { min: 24, max: 120, step: 1, fmt: (v) => Math.round(v) + ' FPS' }));
