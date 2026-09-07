@@ -1867,7 +1867,7 @@
     '⚙ Windows Dynamic Lighting Ayarları': '⚙ Windows Dynamic Lighting Settings',
     'Ekran seçilmedi': 'No display selected',
     'Ekran': 'Display',
-    'Açık': 'Open',
+    'Açık': 'On',
     'Kapalı': 'Off',
     '▶ Ekranları Uygula': '▶ Apply Displays',
     '▶ Görselleştirmeyi Aç': '▶ Open Visualizer',

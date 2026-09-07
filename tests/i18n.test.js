@@ -173,6 +173,10 @@ test('bağlama göre seçilen terimler', () => {
     'Renk Düzeltme': 'Color Correction',
     'Çalan Parça': 'Now Playing',
     'Hazır Şablonlar': 'Built-in Presets',
+    /* Durum noktasının on/off sınıflarıyla eşleşen çift. 'Açık' iki yerde
+       geçiyor — görselleştirici durumu ve zaman çizelgesindeki sustur
+       düğmesi (Sessiz/Açık) — ve "Open" ikincisinde yanlıştı. */
+    'Açık': 'On',
   };
   for (const [tr, en] of Object.entries(beklenen)) {
     assert.strictEqual(t(tr), en, JSON.stringify(tr) + ' yanlış çevriliyor');
