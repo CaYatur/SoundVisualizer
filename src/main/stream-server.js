@@ -44,11 +44,15 @@ const MIME = {
 };
 
 let server = null;
+let httpSockets = new Set();
+let lastNowPlaying = null;
 let state = {
   running: false,
   port: 0,
   host: '127.0.0.1',
   token: '',
+  remoteToken: '',
+  requireToken: false, // varsayılan: yerel kullanımda token zorunlu değil
   error: null,
 };
 let clients = new Set();
@@ -205,16 +209,35 @@ function broadcastAudio(frame) {
   }
 }
 
+function broadcastNowPlaying(st) {
+  lastNowPlaying = st;
+  broadcast({ type: 'now-playing', state: st });
+}
+
 // ----------------------------------------------------------------------------
 // HTTP
 // ----------------------------------------------------------------------------
-function tokenOk(reqUrl, headers) {
-  if (state.host === '127.0.0.1') return true; // yalnız yerel: jeton zorunlu değil
-  if (!state.token) return false;
-  const given = reqUrl.searchParams.get('token') || headers['x-sv-token'] || '';
-  // Sabit süreli karşılaştırma: jeton uzunluğu sızdırılmasın
+function extractCookieToken(cookieHeader, name) {
+  if (!cookieHeader) return '';
+  const n = name || 'sv_token';
+  const match = String(cookieHeader).match(new RegExp('(?:^|;\\s*)' + n + '=([^;]+)'));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function extractRefererToken(referer) {
+  if (!referer) return '';
+  try {
+    const refUrl = new URL(referer);
+    return refUrl.searchParams.get('token') || '';
+  } catch {
+    return '';
+  }
+}
+
+function safeCompare(given, expected) {
+  if (!given || !expected) return false;
   const a = Buffer.from(String(given));
-  const b = Buffer.from(state.token);
+  const b = Buffer.from(String(expected));
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
@@ -274,39 +297,70 @@ function handleRequest(req, res) {
   let url;
   try { url = new URL(req.url, 'http://localhost'); } catch { res.writeHead(400).end('bad'); return; }
   const p = url.pathname;
+  const hdrs = req.headers || {};
 
-  if (!tokenOk(url, req.headers)) {
-    res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end('Gecersiz veya eksik jeton. URL sonuna ?token=... ekleyin.');
-    return;
-  }
-
-  if (p === '/' || p === '/overlay' || p === '/overlay.html') {
-    sendPage(res, path.join(ROOT, 'web', 'overlay.html'));
-    return;
-  }
-  if (p === '/remote' || p === '/remote.html') {
-    const cfg = hooks.getConfig();
-    if (cfg && cfg.stream && cfg.stream.remote === false) { res.writeHead(404).end('remote disabled'); return; }
-    sendPage(res, path.join(ROOT, 'web', 'remote.html'));
-    return;
-  }
-  if (p === '/media-file') { serveMedia(req, res); return; }
+  // 1. Health check her zaman açık
   if (p === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ok: true, app: 'CAYADEV Visualizer', clients: clients.size }));
     return;
   }
+
+  // 2. Sayfa giriş noktaları: / (overlay) ve /remote
+  // Token zorunluluğu kapalıysa doğrulama atlanır; açıksa URL veya başlıktan token beklenir.
+  const urlToken = url.searchParams.get('token') || hdrs['x-sv-token'] || '';
+
+  if (p === '/' || p === '/overlay' || p === '/overlay.html') {
+    const expected = state.token;
+    if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
+      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Gecersiz veya eksik jeton. URL sonuna ?token=... ekleyin.');
+      return;
+    }
+    sendPage(res, path.join(ROOT, 'web', 'overlay.html'), state.requireToken ? 'sv_token' : null, state.requireToken ? expected : null);
+    return;
+  }
+
+  if (p === '/remote' || p === '/remote.html') {
+    const cfg = hooks.getConfig();
+    if (cfg && cfg.stream && cfg.stream.remote === false) { res.writeHead(404).end('remote disabled'); return; }
+    const expected = state.remoteToken || state.token;
+    if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
+      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Gecersiz veya eksik jeton. URL sonuna ?token=... ekleyin.');
+      return;
+    }
+    sendPage(res, path.join(ROOT, 'web', 'remote.html'), state.requireToken ? 'sv_remote_token' : null, state.requireToken ? expected : null);
+    return;
+  }
+
+  // 3. Alt kaynaklar: /app/... ve /media-file
+  // Token zorunluluğu kapalıysa serbestçe servis edilir; açıksa çerez/URL/Referer'dan doğrulama yapılır.
+  if (state.requireToken) {
+    const cookieOverlay = extractCookieToken(hdrs['cookie'], 'sv_token');
+    const cookieRemote = extractCookieToken(hdrs['cookie'], 'sv_remote_token');
+    const refererToken = extractRefererToken(hdrs['referer']);
+    const candidates = [urlToken, cookieOverlay, cookieRemote, refererToken].filter(Boolean);
+
+    const subresourceOk = candidates.some(
+      (t) => (state.token && safeCompare(t, state.token)) || (state.remoteToken && safeCompare(t, state.remoteToken))
+    );
+
+    if (!subresourceOk) {
+      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Gecersiz veya eksik jeton.');
+      return;
+    }
+  }
+
+  if (p === '/media-file') { serveMedia(req, res); return; }
   if (p.startsWith('/app/')) { serveStatic(res, p); return; }
   res.writeHead(404).end('not found');
 }
 
-/* Sayfayı servis ederken uygulamanın dilini enjekte eder.
-
-   Yayın sayfaları telefonun ya da OBS'in dilini değil, UYGULAMANIN dilini
-   kullanmalı: kullanıcı paneli İngilizce yaptıysa kumanda da İngilizce olsun.
-   i18n.js bu değişkeni localStorage'dan önce okur. */
-function sendPage(res, file) {
+/* Sayfayı servis ederken uygulamanın dilini enjekte eder ve alt kaynaklar
+   için güvenli oturum çerezini tanımlar. */
+function sendPage(res, file, cookieName, tokenVal) {
   fs.readFile(file, 'utf-8', (err, html) => {
     if (err) { res.writeHead(500).end('page missing'); return; }
     const locale = hooks.getLocale() === 'tr' ? 'tr' : 'en';
@@ -314,11 +368,15 @@ function sendPage(res, file) {
       '<head>',
       '<head>\n    <script>window.__SV_LOCALE=' + JSON.stringify(locale) + ';</script>'
     );
-    res.writeHead(200, {
+    const respHeaders = {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache',
       'X-Content-Type-Options': 'nosniff',
-    });
+    };
+    if (cookieName && tokenVal) {
+      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; SameSite=Lax`;
+    }
+    res.writeHead(200, respHeaders);
     res.end(injected);
   });
 }
@@ -329,10 +387,24 @@ function sendPage(res, file) {
 function handleUpgrade(req, socket) {
   let url;
   try { url = new URL(req.url, 'http://localhost'); } catch { socket.destroy(); return; }
-  if (!tokenOk(url, req.headers)) {
-    socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    return;
+  const hdrs = req.headers || {};
+  const kind = url.searchParams.get('kind') === 'remote' ? 'remote' : 'overlay';
+  const expected = kind === 'remote' ? (state.remoteToken || state.token) : state.token;
+
+  const urlToken = url.searchParams.get('token') || hdrs['x-sv-token'] || '';
+  const cookieName = kind === 'remote' ? 'sv_remote_token' : 'sv_token';
+  const cookieToken = extractCookieToken(hdrs['cookie'], cookieName);
+  const refererToken = extractRefererToken(hdrs['referer']);
+  const candidates = [urlToken, cookieToken, refererToken].filter(Boolean);
+
+  if (state.requireToken) {
+    const ok = expected && candidates.some((t) => safeCompare(t, expected));
+    if (!ok) {
+      socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      return;
+    }
   }
+
   const key = req.headers['sec-websocket-key'];
   if (!key || (req.headers.upgrade || '').toLowerCase() !== 'websocket') { socket.destroy(); return; }
 
@@ -347,7 +419,7 @@ function handleUpgrade(req, socket) {
 
   const client = {
     socket,
-    kind: url.searchParams.get('kind') === 'remote' ? 'remote' : 'overlay',
+    kind,
     since: Date.now(),
     address: socket.remoteAddress || '',
     buf: Buffer.alloc(0),
@@ -362,6 +434,10 @@ function handleUpgrade(req, socket) {
   sendJson(client, { type: 'hello', app: 'CAYADEV Visualizer', kind: client.kind });
   sendJson(client, { type: 'config', config: hooks.getConfig() });
   sendJson(client, { type: 'presets', presets: hooks.getPresets() });
+  const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
+  if (np && np.has) {
+    sendJson(client, { type: 'now-playing', state: np });
+  }
 
   socket.on('data', (chunk) => {
     client.buf = Buffer.concat([client.buf, chunk]);
@@ -372,7 +448,8 @@ function handleUpgrade(req, socket) {
         let msg;
         try { msg = JSON.parse(payload.toString('utf-8')); } catch { return; }
         if (!msg || typeof msg.type !== 'string') return;
-        // Komutlar veri olarak ele alınır; ana süreç ne yapacağına kendi karar verir.
+        // Yalnızca mobil kumanda istemcisi komut gönderebilir; overlay asla komut çalıştıramaz
+        if (client.kind !== 'remote') return;
         hooks.onCommand(msg, client);
       },
       () => dropClient(client)
@@ -390,10 +467,29 @@ function start(cfgStream, newHooks) {
   const cfg = cfgStream || {};
   const port = Math.max(1024, Math.min(65535, cfg.port | 0 || 8722));
   const host = cfg.lan ? '0.0.0.0' : '127.0.0.1';
-  const token = cfg.token || '';
+  let token = cfg.token || '';
+  let remoteToken = cfg.remoteToken || '';
+  const requireToken = !!cfg.requireToken; // varsayılan false
   overlayFps = cfg.overlayFps || 60;
 
-  if (state.running && state.port === port && state.host === host && state.token === token) {
+  if (!token && cfg.enabled) token = newToken();
+  if (!remoteToken && cfg.enabled) remoteToken = newToken();
+  while (remoteToken && token && remoteToken === token) {
+    remoteToken = newToken();
+  }
+  cfg.token = token;
+  cfg.remoteToken = remoteToken;
+
+  // requireToken değiştiğinde sunucu yeniden başlatılmasına gerek yok;
+  // sadece state güncellenerek sonraki isteklerden itibaren etki eder.
+  if (
+    state.running &&
+    state.port === port &&
+    state.host === host &&
+    state.token === token &&
+    state.remoteToken === remoteToken
+  ) {
+    state.requireToken = requireToken;
     return Promise.resolve(status());
   }
 
@@ -401,6 +497,10 @@ function start(cfgStream, newHooks) {
     () =>
       new Promise((resolve) => {
         server = http.createServer(handleRequest);
+        server.on('connection', (sock) => {
+          httpSockets.add(sock);
+          sock.on('close', () => httpSockets.delete(sock));
+        });
         server.on('upgrade', handleUpgrade);
         server.on('error', (err) => {
           state = {
@@ -408,13 +508,15 @@ function start(cfgStream, newHooks) {
             port,
             host,
             token,
+            remoteToken,
+            requireToken,
             error: err.code === 'EADDRINUSE' ? 'PORT_IN_USE' : err.code || err.message,
           };
           server = null;
           resolve(status());
         });
         server.listen(port, host, () => {
-          state = { running: true, port, host, token, error: null };
+          state = { running: true, port, host, token, remoteToken, requireToken, error: null };
           resolve(status());
         });
       })
@@ -433,8 +535,15 @@ function stop() {
     const s = server;
     server = null;
     state.running = false;
+    if (typeof s.closeAllConnections === 'function') {
+      try { s.closeAllConnections(); } catch {}
+    }
+    for (const sock of httpSockets) {
+      try { sock.destroy(); } catch {}
+    }
+    httpSockets.clear();
     try { s.close(() => resolve()); } catch { resolve(); }
-    setTimeout(resolve, 400); // kapanmayı beklemede takılma
+    setTimeout(resolve, 200); // kapanmayı beklemede takılma
   });
 }
 
@@ -445,6 +554,8 @@ function status() {
     host: state.host,
     lan: state.host === '0.0.0.0',
     token: state.token,
+    remoteToken: state.remoteToken,
+    requireToken: state.requireToken,
     error: state.error,
     clients: clientInfo(),
     urls: urls(),
@@ -453,18 +564,50 @@ function status() {
 
 function urls() {
   if (!state.running) return { overlay: '', remote: '' };
-  const q = state.host === '0.0.0.0' && state.token ? '?token=' + encodeURIComponent(state.token) : '';
   const base = 'http://' + (state.host === '0.0.0.0' ? lanAddress() : '127.0.0.1') + ':' + state.port;
-  return { overlay: base + '/' + q, remote: base + '/remote' + q, local: 'http://127.0.0.1:' + state.port + '/' };
+  // Token zorunlu değilse URL'e ?token= eklenmez; zorunluysa eklenir.
+  const qOverlay = (state.requireToken && state.token) ? '?token=' + encodeURIComponent(state.token) : '';
+  const qRemote = state.requireToken
+    ? (state.remoteToken
+        ? '?token=' + encodeURIComponent(state.remoteToken)
+        : (state.token ? '?token=' + encodeURIComponent(state.token) : ''))
+    : '';
+  return {
+    overlay: base + '/' + qOverlay,
+    remote: base + '/remote' + qRemote,
+    local: 'http://127.0.0.1:' + state.port + '/' + qOverlay,
+  };
 }
 
 function lanAddress() {
   const os = require('os');
   const nets = os.networkInterfaces();
+  const candidates = [];
+  const VIRTUAL_NAME_REGEX = /vethernet|virtual|vbox|vmware|wsl|hyper-v|tap|tun|docker|tailscale|zerotier/i;
+
   for (const name of Object.keys(nets)) {
+    const isVirtual = VIRTUAL_NAME_REGEX.test(name);
     for (const n of nets[name] || []) {
-      if (n.family === 'IPv4' && !n.internal) return n.address;
+      if (n.family !== 'IPv4' || n.internal) continue;
+      const addr = n.address;
+      if (!addr || addr.startsWith('127.') || addr.startsWith('169.254.')) continue;
+
+      let score = 0;
+      if (!isVirtual) score += 10;
+      if (/wi-fi|wifi|wlan/i.test(name)) score += 8;
+      else if (/ethernet|eth|en/i.test(name)) score += 5;
+
+      if (addr.startsWith('192.168.')) score += 4;
+      else if (addr.startsWith('10.')) score += 3;
+      else if (/^172\.(1[6-9]|2\d|3[01])\./.test(addr)) score += 2;
+
+      candidates.push({ address: addr, score });
     }
+  }
+
+  if (candidates.length) {
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0].address;
   }
   return '127.0.0.1';
 }
@@ -479,6 +622,7 @@ module.exports = {
   status,
   broadcast,
   broadcastAudio,
+  broadcastNowPlaying,
   newToken,
   lanAddress,
   clientCount: () => clients.size,
