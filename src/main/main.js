@@ -2907,9 +2907,53 @@ async function runSmoke() {
     }
     if (asp.calib < 1) errors.push('aspect: the calibration pattern was not drawn');
 
+    /* Basıklık düzeltmesi + projeksiyon haritalaması BİRLİKTE.
+
+       İkisinin temiz beste yaptığı akıl yürütmeyle biliniyordu: haritalama
+       koordinatları normalleştirilmiş, ağ da tamamen normalleştirilmiş
+       uzayda kuruluyor (mapper.js _buildMesh), dolayısıyla kaynak tuvalin
+       boyutu değişse de hizalama kaymaz. Ama ağ önbelleğinin imzası kaynak
+       boyutunu İÇERMİYOR; yanlış olsaydı belirti tam da burada, boyut
+       değişince eskimiş bir ağın kullanılması olurdu. Akıl yürütmek yerine
+       ölçülüyor. */
+    await awc6.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.aspect = { enabled: true, outputs: { default: {
+        enabled: true, par: ${PAR}, quality: 'quality', pattern: 'none'
+      } } };
+      c.mapping = { enabled: true, outputs: { default: Object.assign(
+        window.SVWarp.defaultOutput(),
+        { enabled: true, corners: [[0.05, 0.02], [0.97, 0], [1, 0.95], [0, 1]] }
+      ) } };
+      window.SVPanel.apply();
+      return 1;
+    })()`);
+    await wait(1200);
+
+    const both = await vwc6.executeJavaScript(`(function(){
+      var src = document.querySelector('#stage canvas');
+      var map = Array.from(document.querySelectorAll('#stage canvas'))
+        .filter(function(c){ return c.style.zIndex === '1000'; })[0] || null;
+      return JSON.stringify({
+        src: src ? [src.width, src.height] : null,
+        map: map ? [map.width, map.height] : null
+      });
+    })()`);
+    console.log('[SMOKE] basıklık + haritalama: ' + both);
+    const bt = JSON.parse(both);
+    if (!bt.map) {
+      errors.push('aspect+mapping: the mapper canvas is missing when both stages are on');
+    } else if (!bt.src || bt.map[0] !== bt.src[0] || bt.map[1] !== bt.src[1]) {
+      /* Haritalayıcı kaynak tuvalin DÜZELTİLMİŞ boyutunu almalı. Eski
+         boyutta kalsaydı görüntü haritalama aşamasında yeniden ezilirdi. */
+      errors.push('aspect+mapping: the mapper did not follow the corrected canvas size (src '
+        + JSON.stringify(bt.src) + ', mapper ' + JSON.stringify(bt.map) + ')');
+    }
+
     await awc6.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
       c.aspect = { enabled: false, outputs: {} };
+      c.mapping = { enabled: false, outputs: {} };
       window.SVPanel.apply();
       return 1;
     })()`);
@@ -3304,7 +3348,23 @@ async function runSmoke() {
     );
   }
 
-  console.log('[SMOKE] frames received from helper = ' + (global.__smokeFrames || 0));
+  /* Ses yardımcısından gelen kare sayısı YAZILMAKLA kalmamalı, DENETLENMELİ.
+
+     Bunun sebebi somut: uygulama başına ses yakalama eklendiğinde yardımcının
+     iki yeni modülü asar arşivinin içinde kaldı, paketlenmiş derlemede
+     yardımcı sessizce çöktü ve bu satır "frames received from helper = 0"
+     yazdı — ama öz test yine de PASS verdi. Hata yalnızca sayının önceki
+     çalıştırmadan hatırlanması sayesinde fark edildi; bir dahakine
+     hatırlanmayabilirdi.
+
+     Eşik bilerek düşük: burada ölçülen "ses hattı yaşıyor mu", akıcılık
+     değil. Birkaç saniyelik bir öz testte onlarca kare gelir; sıfıra yakın
+     bir sayı hattın koptuğu anlamına gelir. */
+  const smokeFrames = global.__smokeFrames || 0;
+  console.log('[SMOKE] frames received from helper = ' + smokeFrames);
+  if (smokeFrames < 30) {
+    errors.push('audio: only ' + smokeFrames + ' frames arrived from the helper — the audio path is broken');
+  }
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
     errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));

@@ -2142,6 +2142,10 @@
     'Düzeltme kapalı: görüntü ekrana olduğu gibi gider ve bu aşamanın ölçülebilir bir maliyeti yoktur.':
       'Correction is off: the image goes to the display untouched and this stage has no measurable cost.',
     'Düzeltilen Çıkış': 'Corrected Output',
+    'Önce elle gerdiğiniz görselleri özgün hâlleriyle değiştirin. O dosyalar telafiyi zaten içerdiği için bir kez daha düzeltilir ve ters yöne bozulur.':
+      'First replace any images you stretched by hand with their originals. Those files already carry the compensation, so they would be corrected a second time and end up distorted the other way.',
+    'Ölçüyü aldıktan sonra o görseli özgün hâliyle değiştirmeyi unutmayın.':
+      'Once you have the measurement, remember to swap that image back to its original.',
     'Deseni açın ve düzeltilen ekrana bakın; daire yuvarlak görünene kadar kaydırıcıyı oynatın. Ölçü almanız gerekmez.':
       'Turn on a pattern and look at the corrected display; move the slider until the circle looks round. You do not need to measure anything.',
     'Kalibrasyon Deseni': 'Calibration Pattern',

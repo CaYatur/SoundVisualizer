@@ -123,6 +123,20 @@
 
     const out = ensureOutput(cfg, editTarget);
 
+    /* ÖNEMLİ UYARI, ve yeri kasıtlı olarak burası — kalibrasyona başlamadan
+       önce görülmeli.
+
+       Basıklığı olan kullanıcının bulduğu ilk çare, görseli başka bir
+       programda gerip öyle yüklemek oluyor. O dosyalar telafiyi ZATEN
+       içeriyor. Düzeltme açılınca bir kez daha düzeltilirler ve ters yöne,
+       aynı oranda bozulurlar; kullanıcı da başladığı yerden daha kötü bir
+       sahneyle kalır. Panelin "tek ayarla hepsi düzelir" sözü yeni içerik
+       için doğru, elle onarılmış dosyalar için değil. */
+    nodes.push(el('div', {
+      class: 'studio-note',
+      text: 'Önce elle gerdiğiniz görselleri özgün hâlleriyle değiştirin. O dosyalar telafiyi zaten içerdiği için bir kez daha düzeltilir ve ters yöne bozulur.',
+    }));
+
     // ---------------------------------------------------------- kalibrasyon
     nodes.push(el('div', { class: 'studio-note', text: 'Deseni açın ve düzeltilen ekrana bakın; daire yuvarlak görünene kadar kaydırıcıyı oynatın. Ölçü almanız gerekmez.' }));
 
@@ -227,7 +241,11 @@
 
     /* 3) Kullanıcının kendi çözümünden. Basıklığı olan çoğu kişi çareyi bir
        görseli başka programda gerip yüklemekte buluyor; o dosya PAR'ı zaten
-       ölçmüş oluyor. Elde hazır bir cevap varken yeniden ölçtürmek gereksiz. */
+       ölçmüş oluyor. Elde hazır bir cevap varken yeniden ölçtürmek gereksiz.
+
+       Bu alanın hemen ardından gelen uyarı şart: buraya ölçüyü giren kişi
+       elinde gerilmiş bir dosya olduğunu söylemiş oluyor, yani düzeltme
+       açılınca çifte telafiye düşecek olan tam olarak o kişi. */
     nodes.push(el('div', { class: 'map-num' }, [
       el('span', { class: 'map-num-lbl', text: 'Elle Gerdiğiniz Görselin Ölçüsü' }),
       numBox('srcW', 'genişlik', () => {}),
@@ -237,6 +255,10 @@
         onclick: () => applyPar(A().parFromStretchedSource(scratch.srcW, scratch.srcH)),
       }),
     ]));
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'Ölçüyü aldıktan sonra o görseli özgün hâliyle değiştirmeyi unutmayın.',
+    }));
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
