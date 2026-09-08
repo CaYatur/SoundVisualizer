@@ -2843,6 +2843,79 @@ async function runSmoke() {
     await wait(400);
   }
 
+  /* --- Basıklık düzeltmesi ---
+     Matematiği birim testleri kanıtlıyor (tests/aspect.test.js). Burada
+     kanıtlanan başka bir şey: ayarın GERÇEKTEN çizim tuvaline ulaştığı.
+     Düzeltme, katman yığınının mantıksal boyutunu değiştirerek çalışıyor;
+     yapılandırma yolu bir yerde kopsa birim testleri yine geçer, ekranda
+     hiçbir şey değişmezdi. Ölçülen şey tuvalin oranı: pencerenin oranı
+     çarpı PAR olmalı. */
+  if (adminWin && !adminWin.isDestroyed() && anyVisualizerOpen()) {
+    const awc6 = adminWin.webContents;
+    const vwc6 = meterWindow().webContents;
+    const PAR = 1.681;
+
+    await awc6.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.aspect = { enabled: true, outputs: { default: {
+        enabled: true, par: ${PAR}, quality: 'quality', pattern: 'circle'
+      } } };
+      window.SVPanel.apply();
+      return 1;
+    })()`);
+    await wait(900);
+
+    const shot = await vwc6.executeJavaScript(`(function(){
+      var cv = document.querySelector('#stage canvas');
+      var calib = Array.from(document.querySelectorAll('#stage canvas'))
+        .filter(function(c){ return c.style.zIndex === '1001'; }).length;
+      return JSON.stringify({
+        win: [window.innerWidth, window.innerHeight],
+        canvas: cv ? [cv.width, cv.height] : null,
+        calib: calib
+      });
+    })()`);
+    console.log('[SMOKE] basıklık düzeltmesi: ' + shot);
+    const asp = JSON.parse(shot);
+    if (!asp.canvas) {
+      errors.push('aspect: no layer canvas in the visualizer');
+    } else {
+      const want = (asp.win[0] / asp.win[1]) * PAR;
+      const got = asp.canvas[0] / asp.canvas[1];
+      const off = Math.abs(got - want) / want;
+      console.log('[SMOKE] basıklık oranı: beklenen ' + want.toFixed(4) + ', ölçülen ' + got.toFixed(4));
+      if (off > 0.02) {
+        errors.push('aspect: logical canvas is not reshaped (want ' + want.toFixed(4) + ', got ' + got.toFixed(4) + ')');
+      }
+      /* Kapalıyken tuval pencereyle aynı oranda olmalı: aksi hâlde yukarıdaki
+         ölçüm "her zaman doğru" olur ve hiçbir şey kanıtlamaz. */
+      await awc6.executeJavaScript(`(function(){
+        var c = window.SVPanel.cfg();
+        c.aspect.enabled = false;
+        window.SVPanel.apply();
+        return 1;
+      })()`);
+      await wait(700);
+      const off2 = await vwc6.executeJavaScript(`(function(){
+        var cv = document.querySelector('#stage canvas');
+        return cv ? (cv.width / cv.height) / (window.innerWidth / window.innerHeight) : 0;
+      })()`);
+      console.log('[SMOKE] basıklık kapalı oranı: ' + Number(off2).toFixed(4));
+      if (Math.abs(off2 - 1) > 0.02) {
+        errors.push('aspect: canvas is still reshaped after switching the correction off (' + off2 + ')');
+      }
+    }
+    if (asp.calib < 1) errors.push('aspect: the calibration pattern was not drawn');
+
+    await awc6.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.aspect = { enabled: false, outputs: {} };
+      window.SVPanel.apply();
+      return 1;
+    })()`);
+    await wait(400);
+  }
+
   /* --- İngilizce arayüz denetimi ---
      Panel İngilizceye alınır ve tüm kategorilerde ÇEVRİLMEMİŞ Türkçe metin
      aranır. Modlar ve paneller elle sözlüğe yazıldığı için bir dizeyi
