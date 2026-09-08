@@ -386,6 +386,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this._buildQuad();
         this._buildLine();
         this._buildNoise();
+        this._buildSamplers();
       }
 
       const gl = this.gl;
@@ -585,6 +586,44 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       };
     }
 
+    /* Süzme/sarma türevleri için sampler NESNELERİ.
+
+       Neden doku parametresi değil: aynı doku (çoğunlukla `sampler_main`)
+       aynı karede hem noktasal hem süzülmüş okunmak isteniyor. Doku
+       nesnesinin kendi `texParameteri` durumu tek; iki farklı okuma için
+       iki farklı doku kopyası gerekirdi. Sampler nesnesi BİRİME bağlanıyor,
+       yani tek doku iki birimden iki ayrı ayarla okunabiliyor.
+
+       DİKKAT: birime bağlı bir sampler nesnesi o birimde dokunun kendi
+       parametrelerini EZER. Bu yüzden 0. birime hiç bağlanmıyor —
+       `_bindMain` orada sarmayı presetin `wrap` ayarından kuruyor ve
+       sessizce ölürdü. */
+    _buildSamplers() {
+      const gl = this.gl;
+      const make = (filter, wrap) => {
+        const s = gl.createSampler();
+        const f = filter === 'nearest' ? gl.NEAREST : gl.LINEAR;
+        const w = wrap === 'clamp' ? gl.CLAMP_TO_EDGE : gl.REPEAT;
+        gl.samplerParameteri(s, gl.TEXTURE_MIN_FILTER, f);
+        gl.samplerParameteri(s, gl.TEXTURE_MAG_FILTER, f);
+        gl.samplerParameteri(s, gl.TEXTURE_WRAP_S, w);
+        gl.samplerParameteri(s, gl.TEXTURE_WRAP_T, w);
+        return s;
+      };
+      this.samplers = {
+        'linear|repeat': make('linear', 'repeat'),
+        'linear|clamp': make('linear', 'clamp'),
+        'nearest|repeat': make('nearest', 'repeat'),
+        'nearest|clamp': make('nearest', 'clamp'),
+      };
+      /* Ayrılabilir birim aralığı. 0–9 yerleşiklerin sabit birimleri.
+         Ölçüm: bir preset en fazla altı türev istiyor, yani 10–15 yetiyor
+         ve WebGL2'nin asgari garantisi olan 16'ya tam oturuyor. Sınır yine
+         de sürücüden soruluyor — asgariden düşük bir sürücü olamaz ama
+         yüksek olan varsa fazlası kullanılır. */
+      this.unitMax = Math.min(32, gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 16);
+    }
+
     _disposeTargets() {
       const gl = this.gl;
       if (!gl) return;
@@ -651,10 +690,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           return null;
         }
         if (r.soft.length) notes.push(stage + ': ' + r.soft.length + ' doku yaklaşık');
+        const plan = this._assignUnits(r.samplerPlan);
         return {
           prog: lk.prog,
-          locs: this._presetLocs(lk.prog, r.extraSamplers, r.rotUniforms),
-          extra: r.extraSamplers,
+          locs: this._presetLocs(lk.prog, plan, r.rotUniforms),
+          plan,
           rot: r.rotUniforms || [],
         };
       };
@@ -783,12 +823,35 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return buf;
     }
 
-    _presetLocs(prog, extra, rot) {
+    /* Plandaki her yazıma bir doku birimi verir.
+
+       Türevler 10'dan başlıyor. Birim biterse KANONİK birime düşülüyor —
+       yani eski davranış: doku doğru, süzme yaklaşık. Bağlanmamış bırakmak
+       olmaz: bağlanmamış bir sampler 0. birimi (`sampler_main`) okur,
+       derlenir, makul bir şey çizer ve hata vermez. */
+    _assignUnits(plan) {
+      const canonUnit = {};
+      for (const s of SAMPLER_UNITS) canonUnit[s[0]] = s[1];
+      let next = SAMPLER_UNITS.length;
+      const max = this.unitMax || 16;
+      return (plan || []).map((p) => {
+        let unit;
+        if (next < max) unit = next++;
+        // Kullanıcı dokusunun kanonik karşılığı yok: gürültü birimine düşüyor.
+        else unit = canonUnit[p.canon] !== undefined ? canonUnit[p.canon] : 4;
+        return { name: p.name, canon: p.canon, filter: p.filter, wrap: p.wrap, user: p.user, unit };
+      });
+    }
+
+    _presetLocs(prog, plan, rot) {
       const gl = this.gl;
       const L = {};
       const u = (n) => gl.getUniformLocation(prog, n);
       for (const s of SAMPLER_UNITS) L[s[0]] = u(s[0]);
-      L._extra = (extra || []).map((n) => u(n));
+      /* Konum listesi ile bağlama listesi AYNI liste. Ayrı tutulsaydı
+         birinde unutulan bir yazım 0. birimi okuyup sessizce yanlış
+         çizerdi. */
+      L._plan = (plan || []).map((p) => ({ p, loc: u(p.name) }));
       /* Dizi uniformunun konumu ILK ELEMANIN adiyla alinir. */
       L._rot = (rot || []).map((n) => ({ name: n, loc: u(n + '[0]') }));
       for (const n of [
@@ -818,10 +881,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _setPresetUniforms(L, ctx) {
       const gl = this.gl;
       for (const s of SAMPLER_UNITS) if (L[s[0]]) gl.uniform1i(L[s[0]], s[1]);
-      /* Bilinmeyen dokular gürültüye bağlanıyor — presetin dosyası bizde yok.
-         Hepsi AYNI birime gidiyor: ayrı birim ayırmak doku birimi sınırını
-         gereksiz yere zorlardı. */
-      for (const loc of L._extra) if (loc) gl.uniform1i(loc, 4);
+      /* Süzme türevleri ve kullanıcı dokuları kendi birimlerini alıyor.
+         Bu döngü `_bindTextures`taki döngüyle AYNI listeyi geziyor: bir
+         yazımın konumu ayarlanıp dokusu bağlanmasaydı (ya da tersi) o
+         sampler 0. birimi okur, derlenir ve sessizce yanlış çizerdi. */
+      for (const e of L._plan) if (e.loc) gl.uniform1i(e.loc, e.p.unit);
       /* Dönme matrisleri: her biri dört vec3 satır. */
       for (const r of (L._rot || [])) {
         if (r.loc) gl.uniform3fv(r.loc, this._rotRows(r.name));
@@ -907,7 +971,26 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, w);
     }
 
-    _bindTextures(mainTex) {
+    /* Kanonik sampler adından o adın okuduğu dokuya. Kullanıcı dokusunun
+       dosyası henüz yoksa gürültüye düşüyor — çeviri bunu `soft` notu
+       olarak zaten bildiriyor. */
+    _texFor(canon, mainTex) {
+      switch (canon) {
+        case 'sampler_main': return mainTex;
+        case 'sampler_blur1': return this.blur[0].out.tex;
+        case 'sampler_blur2': return this.blur[1].out.tex;
+        case 'sampler_blur3': return this.blur[2].out.tex;
+        case 'sampler_noise_lq': return this.noise.lq.tex;
+        case 'sampler_noise_lq_lite': return this.noise.lqLite.tex;
+        case 'sampler_noise_mq': return this.noise.mq.tex;
+        case 'sampler_noise_hq': return this.noise.hq.tex;
+        case 'sampler_noisevol_lq': return this.noise.volLq.tex;
+        case 'sampler_noisevol_hq': return this.noise.volHq.tex;
+        default: return this.noise.lq.tex;
+      }
+    }
+
+    _bindTextures(mainTex, L) {
       const gl = this.gl;
       const bind = (unit, tex) => {
         gl.activeTexture(gl.TEXTURE0 + unit);
@@ -923,6 +1006,23 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       bind(7, this.noise.hq.tex);
       bind(8, this.noise.volLq.tex);
       bind(9, this.noise.volHq.tex);
+
+      /* Süzme türevleri ve kullanıcı dokuları. Sampler nesnesi BİRİME
+         bağlı ve bağlı kaldığı sürece o birimdeki her dokuyu etkiliyor;
+         bu yüzden ayrılabilir aralık her karede önce TEMİZLENİYOR. Bir
+         önceki presetten kalan bağ, yeni presetin aynı birimi başka bir
+         ayarla kullanmasında sessizce yanlış örnekleme verirdi. */
+      const plan = (L && L._plan) || [];
+      for (let unit = SAMPLER_UNITS.length; unit < (this.unitMax || 16); unit++) {
+        gl.bindSampler(unit, null);
+      }
+      for (const e of plan) {
+        // Kanonik birime düşmüş türevde sampler nesnesi bağlanmıyor: o birim
+        // yerleşiğin kendi birimi ve orada ezmek diğer okumayı bozardı.
+        if (e.p.unit < SAMPLER_UNITS.length) continue;
+        bind(e.p.unit, this._texFor(e.p.canon, mainTex));
+        gl.bindSampler(e.p.unit, this.samplers[e.p.filter + '|' + e.p.wrap] || null);
+      }
       gl.activeTexture(gl.TEXTURE0);
     }
 
@@ -1015,7 +1115,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.disable(gl.BLEND);
       if (this.warpPreset) {
         gl.useProgram(this.warpPreset.prog);
-        this._bindTextures(src.tex);
+        this._bindTextures(src.tex, this.warpPreset.locs);
         this._setPresetUniforms(this.warpPreset.locs, ctx);
       } else {
         gl.useProgram(this.warpFixed);
@@ -1073,7 +1173,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.disable(gl.BLEND);
       if (this.compPreset) {
         gl.useProgram(this.compPreset.prog);
-        this._bindTextures(dst.tex);
+        this._bindTextures(dst.tex, this.compPreset.locs);
         this._setPresetUniforms(this.compPreset.locs, ctx);
       } else {
         gl.useProgram(this.compFixed);

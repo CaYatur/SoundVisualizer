@@ -1196,7 +1196,11 @@
       .replace(/\bhalf2x2\s*\(/g, 'hmat2(')
       .replace(/\bhalf3x3\s*\(/g, 'hmat3(')
       .replace(/\bhalf4x4\s*\(/g, 'hmat4(');
-    s = s.replace(/\bsampler_(fw|pw|fc|pc)_/g, 'sampler_');
+    /* Süzme ön eki BURADA SOYULMUYOR. Eskiden soyuluyordu ve `sampler_pw_main`
+       ile `sampler_main` aynı uniform'a düşüyordu; korpusun %22,7'si aynı
+       dokuyu iki farklı ön ekle okuyup ikisinde de aynı sonucu alıyordu.
+       Artık her yazım kendi uniform'u (bkz. translate içindeki sampler
+       planı) ve kendi doku birimi. */
     for (const t of TYPES) s = s.replace(new RegExp('\\b' + t[0] + '\\b', 'g'), t[1]);
     /* Presetler yerleşiklerin adını bazen küçük harfle yazıyor (`tex2d`).
        HLSL derleyicisi bunu kabul ediyordu; 42 preset yalnızca bu yüzden
@@ -1514,15 +1518,59 @@
        yaklaşıklandı; bu yüzden `soft`ta duruyor. */
     if (rotUniforms.length) soft.push('dönme matrisi yaklaşık: ' + rotUniforms.join(', '));
 
-    const seen = new Set();
+    /* SAMPLER PLANI — her YAZIM kendi uniform'unu alıyor, kanonik adı değil.
+
+       MilkDrop aynı dokuyu farklı süzme/sarma ayarlarıyla ayrı adlarla
+       sunuyor: `sampler_fw_main` süzülmüş+tekrarlı, `sampler_pc_main`
+       noktasal+kenetli. Önceden ön ek soyuluyor ve hepsi TEK uniform'a
+       bağlanıyordu.
+
+       Ölçüm bunun ne kadar geniş olduğunu gösterdi: korpusun **%22,7'si**
+       aynı dokuyu FARKLI ön eklerle okuyor — yani o presetler iki ayrı
+       örnekleme yazıp ikisinde de aynı sonucu alıyordu. Tek başına
+       `sampler_pw_main` 6.310 yerde geçiyor ve noktasal örnekleme
+       istiyordu; süzülmüş olarak veriliyordu.
+
+       Ölçülen üst sınır: bir preset en fazla ALTI ayrı birim istiyor
+       (10.332 preset içinde üç tane). 0–9 yerleşiklerin sabit birimleri,
+       10–15 buraya kalıyor; WebGL2'nin asgari garantisi olan 16 birime
+       tam oturuyor. Çizim tarafı yine de sınırı çalışma anında sorup
+       aşarsa kanonik birime düşüyor. */
+    const samplerPlan = [];
+    const planSeen = new Set();
+    const userSeen = new Set();
     const re = /\bsampler_[A-Za-z0-9_]+/g;
     let m;
-    while ((m = re.exec(all)) !== null) seen.add(canonSampler(m[0]));
-    for (const n of seen) {
-      if (KNOWN_SAMPLERS.indexOf(n) < 0) {
-        soft.push('doku yerine gürültü: ' + n);
-        extraSamplers.push(n);
+    while ((m = re.exec(all)) !== null) {
+      const name = m[0];
+      if (planSeen.has(name)) continue;
+      planSeen.add(name);
+      const canon = canonSampler(name);
+      const user = KNOWN_SAMPLERS.indexOf(canon) < 0;
+      /* Bilinmeyen dokular: preset kendi resim dosyasını istiyor. Kullanıcı
+         bir doku paketi göstermediyse yerine gürültü bağlanıyor — shader'ı
+         hiç koşturmamak yerine, çünkü presetin blur zinciri, q ile sürülen
+         renk matematiği ve geri kalan her satırı çalışmaya devam ediyor.
+         Desen yanlış, yapı doğru — ve bu `soft`ta yazılı olduğu için
+         görünür. */
+      if (user && !userSeen.has(canon)) {
+        userSeen.add(canon);
+        soft.push('doku yerine gürültü: ' + canon);
+        extraSamplers.push(canon);
       }
+      const pm = SAMPLER_PREFIX.exec(name);
+      // Ön eksiz yerleşik: kendi sabit birimini kullanıyor, plana girmiyor.
+      if (!pm && !user) continue;
+      samplerPlan.push({
+        name,
+        canon,
+        /* Ön ekin ilk harfi süzme (p=noktasal, f=süzülmüş), ikincisi sarma
+           (w=tekrarlı, c=kenetli). Ön ek yoksa MilkDrop'un varsayılanı:
+           süzülmüş + tekrarlı. */
+        filter: pm ? (pm[1][0] === 'p' ? 'nearest' : 'linear') : 'linear',
+        wrap: pm ? (pm[1][1] === 'w' ? 'repeat' : 'clamp') : 'repeat',
+        user,
+      });
     }
 
     const pair = [parts.globals ? rewriteText(parts.globals) : '', rewriteText(parts.body)];
@@ -1585,7 +1633,10 @@
     const ins = stage === 'warp'
       ? ['in vec2 vUV;', 'in vec2 vUVOrig;', 'in float vRad;', 'in float vAng;', '']
       : ['in vec2 vUV;', ''];
-    const decl = extraSamplers.map((n) => 'uniform sampler2D ' + n + ';');
+    /* Plandaki her yazım kendi uniform'u olarak bildiriliyor. Yerleşiklerin
+       ön eksiz hâlleri PREAMBLE'da zaten var; burada yalnız türevler ve
+       kullanıcı dokuları çıkıyor. */
+    const decl = samplerPlan.map((p) => 'uniform sampler2D ' + p.name + ';');
     /* DÖNME MATRİSLERİ (rot_s/d/f/vf/uf/rand 1..4).
 
        MilkDrop bunları `float4x3` olarak veriyor: üç satır bir dönme
@@ -1647,6 +1698,7 @@
       hard,
       soft,
       extraSamplers,
+      samplerPlan,
       rotUniforms,
       empty: false,
       stage: stage,

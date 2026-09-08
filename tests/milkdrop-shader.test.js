@@ -300,9 +300,65 @@ test('translate: bilinen dokular yumuşak uyarı üretmez', () => {
   assert.deepStrictEqual(r.extraSamplers, []);
 });
 
-test('translate: sampler süzme türevlerini tek kaynağa indirir', () => {
+/* Süzme türevi KENDİ uniform'unu alıyor, kanonik ada indirgenmiyor.
+
+   Eskiden indirgeniyordu: `sampler_pw_main` (noktasal+tekrarlı) ile
+   `sampler_main` aynı uniform'a düşüyor ve aynı örneklemeyi alıyordu.
+   Korpusun %22,7'si aynı dokuyu iki farklı ön ekle okuyor — o presetler
+   iki ayrı sonuç bekleyip tek sonuç alıyordu. */
+test('translate: süzme türevi kendi uniform ve doku birimini alır', () => {
   const r = T.translate('shader_body { ret = tex2D(sampler_pw_main, uv); }');
-  assert.match(r.glsl, /tex2D\(sampler_main, uv\)/);
+  assert.match(r.glsl, /tex2D\(sampler_pw_main, uv\)/);
+  assert.match(r.glsl, /uniform sampler2D sampler_pw_main;/);
+  assert.deepStrictEqual(r.samplerPlan, [{
+    name: 'sampler_pw_main', canon: 'sampler_main',
+    filter: 'nearest', wrap: 'repeat', user: false,
+  }]);
+});
+
+test('translate: ön ek harfleri süzme ve sarmayı ayrı ayrı belirler', () => {
+  const one = (s) => T.translate('shader_body { ret = tex2D(' + s + ', uv); }').samplerPlan[0];
+  assert.deepStrictEqual(
+    { f: one('sampler_fc_main').filter, w: one('sampler_fc_main').wrap },
+    { f: 'linear', w: 'clamp' });
+  assert.deepStrictEqual(
+    { f: one('sampler_pw_main').filter, w: one('sampler_pw_main').wrap },
+    { f: 'nearest', w: 'repeat' });
+  assert.deepStrictEqual(
+    { f: one('sampler_pc_main').filter, w: one('sampler_pc_main').wrap },
+    { f: 'nearest', w: 'clamp' });
+  assert.deepStrictEqual(
+    { f: one('sampler_fw_main').filter, w: one('sampler_fw_main').wrap },
+    { f: 'linear', w: 'repeat' });
+});
+
+/* Ön eksiz yerleşik plana GİRMİYOR: kendi sabit birimini kullanıyor.
+   Girseydi her preset gereksiz yere bir doku birimi harcardı. */
+test('translate: ön eksiz yerleşik sampler plana girmez', () => {
+  const r = T.translate('shader_body { ret = tex2D(sampler_main, uv) + GetBlur1(uv); }');
+  assert.deepStrictEqual(r.samplerPlan, []);
+});
+
+/* Aynı dokunun iki farklı ön ekle okunması korpusun %22,7'si — ikisi de
+   ayrı plan girdisi olmalı, yoksa biri diğerinin ayarını alır. */
+test('translate: aynı doku iki ön ekle okunursa iki ayrı girdi olur', () => {
+  const r = T.translate(
+    'shader_body { ret = tex2D(sampler_pc_main, uv) + tex2D(sampler_fw_main, uv); }');
+  assert.strictEqual(r.samplerPlan.length, 2);
+  assert.deepStrictEqual(r.samplerPlan.map((p) => p.name).sort(),
+    ['sampler_fw_main', 'sampler_pc_main']);
+  // İkisi de aynı dokuyu okuyor, farklı ayarla
+  assert.deepStrictEqual(r.samplerPlan.map((p) => p.canon), ['sampler_main', 'sampler_main']);
+});
+
+/* Kullanıcı dokusu ön eksiz de olsa plana giriyor: yerleşiklerin sabit
+   birimlerinden birini kullanamaz, kendi birimi olmak zorunda. */
+test('translate: kullanıcı dokusu ön eksiz de plana girer', () => {
+  const r = T.translate('shader_body { ret = tex2D(sampler_worms, uv); }');
+  assert.deepStrictEqual(r.samplerPlan, [{
+    name: 'sampler_worms', canon: 'sampler_worms',
+    filter: 'linear', wrap: 'repeat', user: true,
+  }]);
 });
 
 /* MilkDrop'ta M_PI_2, pi/2 DEĞİL 2*pi. Yarısını yazmak açıyı ikiye böler

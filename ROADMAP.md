@@ -47,7 +47,7 @@ covered by a test or by the GPU self-test.
 | Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
 | Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
 | Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (99.2% stage compile across a 10,332-preset corpus, 100% on the 505-preset original set, measured by scripts/milkdrop-compile-rate.js; 93.0% of presets render a live image, measured by scripts/milkdrop-render-rate.js), 8 wave modes, repeat wrap, feedback clamp. Phase 2 (#560): textured shapes, motion vectors, rotation matrices, mesh density and internal resolution settings, mouse input and preset transitions shipped; user textures (img.ini) and MilkDrop's dual-pipeline blend not built |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (99.2% stage compile across a 10,332-preset corpus, 100% on the 505-preset original set, measured by scripts/milkdrop-compile-rate.js; 93.0% of presets render a live image, measured by scripts/milkdrop-render-rate.js), 8 wave modes, repeat wrap, feedback clamp. Phase 2 (#560): textured shapes, motion vectors, rotation matrices, mesh density and internal resolution settings, mouse input, preset transitions and per-sampler filtering and wrapping shipped; user textures (img.ini) and MilkDrop's dual-pipeline blend not built |
 | Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
 | Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
 | Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
@@ -126,8 +126,10 @@ npm test
 npm start -- --smoke
 ```
 
-- **1199 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3.
+- **1212 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+  105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3 — 1128 at
+  that tag. The remaining 84 have come after it, from the MilkDrop work that
+  is on `main` but not in any release yet.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
