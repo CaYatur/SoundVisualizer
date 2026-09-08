@@ -140,3 +140,21 @@ test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
   assert.strictEqual(d.get('b3x'), 1);
   assert.match(CODE, /this\.preset\.get\(bkey\[i\] \+ 'n'\)/);
 });
+
+test('göç: yeni anahtarları taşımayan eski ayar dosyası varsayılanları alıyor', () => {
+  /* Mevcut kullanıcıların settings.json dosyasında mesh/renderScale/
+     blendTime YOK — bu kural dışı değil, herkes için normal durum. Ayarlar
+     varsayılanların üstüne birleştirilerek yükleniyor (admin.js), yani
+     anahtarlar oradan geliyor. Birleştirme kaldırılırsa motora undefined
+     ulaşır ve ayarlar ilk yükseltmede çalışmaz. */
+  const SVw = global.window.SV;
+  const eski = {
+    milkdrop: { presetId: 'x', name: 'n', source: 's', autoNext: 0 },
+    visualizer: { type: 'milkdrop' },
+  };
+  const merged = SVw.deepMerge(SVw.defaultConfig(), eski);
+  assert.strictEqual(merged.milkdrop.mesh, 64);
+  assert.strictEqual(merged.milkdrop.renderScale, 1);
+  assert.strictEqual(merged.milkdrop.blendTime, 0);
+  assert.strictEqual(merged.milkdrop.presetId, 'x', 'kullanıcının değeri korunmalı');
+});
