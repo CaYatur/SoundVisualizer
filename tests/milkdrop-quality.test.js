@@ -84,3 +84,43 @@ test('fare: dinleyiciler tuvale bağlanıyor, pencereye değil', () => {
   assert.match(CODE, /c\.addEventListener\('mousemove'/);
   assert.match(CODE, /getBoundingClientRect/);
 });
+
+/* --- Preset geçişi (#560, madde 4) ------------------------------------- */
+
+test('varsayılanlar: preset geçişi kapalı başlıyor', () => {
+  /* Geçiş, eski görüntüyü DONMUŞ bir kare olarak eritiyor; MilkDrop'un iki
+     preseti birden koşturan geçişi değil. Varsayılan kapalı, çünkü uzun
+     geçişlerde bu fark görünür. */
+  const d = (SV.defaultConfig ? SV.defaultConfig() : global.window.SV.defaultConfig());
+  assert.strictEqual(d.milkdrop.blendTime, 0);
+});
+
+test('motor: geçiş süresi 3 saniyeyle sınırlanıyor', () => {
+  assert.match(CODE, /Math\.max\(0, Math\.min\(3, \+[^)]*blendTime/);
+});
+
+test('motor: ilk yüklemede geçiş başlamıyor', () => {
+  /* Önceki kare yokken donmuş siyah bir kareyi karıştırmak açılışı
+     karartırdı. */
+  assert.match(CODE, /if \(this\.presetKey && this\.preset && bt > 0 && this\.snapReady\)/);
+});
+
+test('motor: anlık görüntü yalnız geçiş açıkken alınıyor', () => {
+  /* Her karede tam ekran bir doku kopyası, özelliği kullanmayan kullanıcıya
+     bedava olmayan bir maliyet olurdu. */
+  assert.match(CODE, /if \(bt <= 0\) \{ this\.snapReady = false;/);
+});
+
+test('motor: anlık görüntü dokusu RGB8 — varsayılan tamponla aynı biçim', () => {
+  /* Tuval `alpha: false` ile açılıyor, yani varsayılan tamponda alfa kanalı
+     yok. RGBA8 bir hedefe kopyalamak INVALID_OPERATION veriyor ve hata
+     SESSİZ: doku boş kalıyor, geçiş ekranı karartıyordu. */
+  assert.match(CODE, /gl\.RGB8, GW, GH, 0,\s*\n?\s*gl\.RGB, gl\.UNSIGNED_BYTE, null/);
+  assert.match(CODE, /copyTexSubImage2D/);
+  assert.ok(!/copyTexImage2D\(/.test(CODE), 'biçimsiz kopya kullanılmamalı');
+});
+
+test('motor: geçiş dokusu ve programı serbest bırakılıyor', () => {
+  assert.match(CODE, /deleteTexture\(this\.snapTex\)/);
+  assert.match(CODE, /deleteProgram\(this\.fadeProg\)/);
+});

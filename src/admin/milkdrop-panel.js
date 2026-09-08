@@ -165,6 +165,19 @@
       [2, '2x (en keskin)'],
     ], md.renderScale == null ? 1 : md.renderScale, (v) => { md.renderScale = Number(v); })));
 
+    nodes.push(P().row('Preset Geçişi', selOf([
+      [0, 'Kapalı (sert kesme)'],
+      [0.4, '0,4 saniye'],
+      [0.8, '0,8 saniye'],
+      [1.5, '1,5 saniye'],
+      [3, '3 saniye'],
+    ], md.blendTime == null ? 0 : md.blendTime, (v) => { md.blendTime = Number(v); })));
+
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.',
+    }));
+
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'İç çözünürlüğün maliyeti çarpanın karesi kadar artar: 2x seçildiğinde dört katı piksel işlenir. Ağ sıklığının maliyeti doğrusaldır ama her düğümde preset denklemleri yeniden koşar.',

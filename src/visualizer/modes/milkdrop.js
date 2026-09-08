@@ -168,6 +168,28 @@ void main(){ outColor = vCol; }`;
      merkez dokunun ortasına, yarıçap da tex_zoom'a göre ölçeklenmiş bir
      yarıçapa denk geliyor; tex_ang örneklemeyi döndürüyor. Sonuç şeklin
      kendi rengiyle çarpılıyor. */
+  /* PRESET GECISI (#560, madde 4).
+
+     NE YAPIYOR: preset degistiginde onceki presetin SON KARESI bir dokuda
+     tutuluyor ve yeni presetin uzerine, alfası sıfıra inen bir kaplama
+     olarak ciziliyor. Sert kesme kayboluyor.
+
+     NE YAPMIYOR: MilkDrop'un cift boru hatlı gecisi degil. MilkDrop iki
+     preseti AYNI ANDA kosturup warp aglarını ve birlestirme gecislerini
+     harmanlıyor; burada eski goruntu donmus bir kare. Kısa gecislerde
+     (0,3-1 sn) fark gorunmuyor, uzun gecislerde eski goruntunun donuk
+     kalması fark ediliyor. Bu yuzden varsayılan KAPALI ve ust sınır 3 sn.
+
+     Cift boru hattı bu motorda iki preset nesnesi, iki shader takımı, iki
+     hedef cifti ve iki blur zinciri demek; burada yapılmadı. */
+  const FADE_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 outColor;
+uniform sampler2D uSrc;
+uniform float uAlpha;
+void main(){ outColor = vec4(texture(uSrc, vUV).rgb, uAlpha); }`;
+
   const SHAPE_TEX_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -229,6 +251,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          yazdıgı presetlerde. */
       this.mouse = { x: 0.5, y: 0.5, down: 0 };
       this._mouseBound = false;
+      this.blendLeft = 0;
+      this.blendTotal = 0;
+      this.snapReady = false;
     }
 
     /* Dinleyiciler TUVALE baglanıyor, pencereye degil: gorsellestirici
@@ -324,10 +349,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
         const line = this._link(LINE_VERT, LINE_FRAG);
         const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
-        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok) {
-          this.error = (warp.log || comp.log || blur.log || line.log || shtex.log || 'shader');
+        const fade = this._link(QUAD_VERT, FADE_FRAG);
+        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok || !fade.ok) {
+          this.error = (warp.log || comp.log || blur.log || line.log ||
+                        shtex.log || fade.log || 'shader');
           return false;
         }
+        this.fadeProg = fade.prog;
+        this.locFadeSrc = gl.getUniformLocation(fade.prog, 'uSrc');
+        this.locFadeAlpha = gl.getUniformLocation(fade.prog, 'uAlpha');
         this.shapeTexProg = shtex.prog;
         this.locShapeTexSrc = gl.getUniformLocation(shtex.prog, 'uSrc');
         this.warpFixed = warp.prog;
@@ -568,6 +598,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const c = cfg.milkdrop || {};
       const key = (c.presetId || '') + '|' + (c.source || '').length;
       if (key === this.presetKey && this.preset) return;
+      /* Gecis yalnız GERCEK bir degisimde baslıyor: ilk yuklemede onceki
+         kare diye bir sey yok ve donmus siyah bir kareyi karıstırmak
+         acılısı karartırdı. */
+      const bt = Math.max(0, Math.min(3, +c.blendTime || 0));
+      if (this.presetKey && this.preset && bt > 0 && this.snapReady) {
+        this.blendTotal = bt;
+        this.blendLeft = bt;
+      }
       this.presetKey = key;
       const M = window.SVMilkdrop;
       if (!M) { this.error = 'motor yok'; this.preset = null; return; }
@@ -623,6 +661,67 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.warpPreset = build(fl.warpShader, 'warp');
       this.compPreset = build(fl.compShader, 'comp');
       this.shaderNote = notes.join(' | ');
+    }
+
+    /* Gecis kaplaması ve anlık goruntu bakımı. Comp'tan SONRA cagrılıyor:
+       o noktada varsayılan tampon birlestirilmis kareyi tutuyor ve
+       copyTexImage2D oradan kopyalıyor.
+
+       Anlık goruntu yalnız gecis ACIKKEN guncelleniyor: her karede tam ekran
+       bir doku kopyası, ozelligi kullanmayan kullanıcıya bedava olmayan bir
+       maliyet olurdu. */
+    _blendOver(gl, GW, GH, cfg, step) {
+      const bt = Math.max(0, Math.min(3, +((cfg.milkdrop && cfg.milkdrop.blendTime) || 0)));
+      if (bt <= 0) { this.snapReady = false; this.blendLeft = 0; return; }
+
+      if (!this.snapTex || this.snapW !== GW || this.snapH !== GH) {
+        if (this.snapTex) gl.deleteTexture(this.snapTex);
+        this.snapTex = gl.createTexture();
+        this.snapW = GW;
+        this.snapH = GH;
+        this.snapReady = false;
+        gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        /* Depo ONCEDEN ayrılıyor ve sonra yalnız icerik kopyalanıyor.
+           copyTexImage2D'yi bicimsiz gl.RGBA ile cagırmak WebGL2'de
+           INVALID_OPERATION veriyordu. Bicim de RGB8: tuval `alpha: false`
+           ile acılıyor, yani varsayılan tamponda ALFA KANALI YOK ve RGBA8
+           bir hedefe kopyalamak gecersiz — kopya hedefin bilesenleri
+           kaynagın alt kumesi olmalı. Hata sessiz: doku bos kalıyor ve
+           gecis ekranı KARARTIYORDU, duzeltmesi gereken seyi bozarak. */
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, GW, GH, 0,
+          gl.RGB, gl.UNSIGNED_BYTE, null);
+      }
+
+      if (this.blendLeft > 0 && this.snapReady && this.fadeProg) {
+        /* Alfa dogrusal inmiyor: dogrusal bir karısımda gecisin ortasında
+           iki goruntu de yarı parlaklıkta gorunup toplam sonuk kalıyor.
+           Kok-kosinus egrisi ortadaki cokusu kapatıyor — katman capraz
+           gecisinde de aynı gerekce var. */
+        const t = Math.max(0, Math.min(1, this.blendLeft / this.blendTotal));
+        const alpha = Math.sin(t * Math.PI / 2);
+        gl.useProgram(this.fadeProg);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
+        gl.uniform1i(this.locFadeSrc, 0);
+        gl.uniform1f(this.locFadeAlpha, alpha);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.bindVertexArray(this.quadVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.bindVertexArray(null);
+        gl.disable(gl.BLEND);
+        this.blendLeft -= step;
+        return;
+      }
+
+      // Gecis yokken: ekrandaki kareyi anlık goruntuye al.
+      gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, GW, GH);
+      this.snapReady = true;
     }
 
     /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
@@ -982,6 +1081,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindVertexArray(this.quadVao);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.bindVertexArray(null);
+
+      this._blendOver(gl, GW, GH, cfg, step);
 
       const c = this.ctx;
       c.clearRect(0, 0, W, H);
@@ -1599,6 +1700,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.compFixed) gl.deleteProgram(this.compFixed);
         if (this.blurProg) gl.deleteProgram(this.blurProg);
         if (this.lineProg) gl.deleteProgram(this.lineProg);
+        if (this.shapeTexProg) gl.deleteProgram(this.shapeTexProg);
+        if (this.fadeProg) gl.deleteProgram(this.fadeProg);
+        if (this.snapTex) { gl.deleteTexture(this.snapTex); this.snapTex = null; }
         if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);
       }
       this.gl = null;

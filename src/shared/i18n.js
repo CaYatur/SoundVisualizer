@@ -1445,6 +1445,13 @@
     '1,5x': '1.5x',
     '2x (en keskin)': '2x (sharpest)',
     'İç çözünürlüğün maliyeti çarpanın karesi kadar artar: 2x seçildiğinde dört katı piksel işlenir. Ağ sıklığının maliyeti doğrusaldır ama her düğümde preset denklemleri yeniden koşar.': 'The cost of the internal resolution grows with the square of the factor: at 2x, four times the pixels are processed. The mesh density costs linearly, but the preset equations run again at every node.',
+    'Preset Geçişi': 'Preset Transition',
+    'Kapalı (sert kesme)': 'Off (hard cut)',
+    '0,4 saniye': '0.4 seconds',
+    '0,8 saniye': '0.8 seconds',
+    '1,5 saniye': '1.5 seconds',
+    '3 saniye': '3 seconds',
+    'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.': 'The transition dissolves the last frame of the previous preset over the new one. MilkDrop runs both presets at once and blends them; here the old picture is a frozen frame, which is noticeable on long transitions.',
     'Sil': 'Delete',
 
 

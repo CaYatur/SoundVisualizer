@@ -9,9 +9,9 @@
 **Windows** · **macOS** · **Linux** · Electron + WebGL2 · Native WASAPI / CoreAudio / PulseAudio capture
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111917.svg)](#build--distribution)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111977.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1191%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1197%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -922,7 +922,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1191 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1197 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
