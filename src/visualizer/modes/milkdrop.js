@@ -38,8 +38,11 @@
      interpolasyonla dolduruluyor ve kıvrımlı warp'larda köşeli görünüyor.
      64x48 bunu gözle görülür biçimde düzeltiyor; maliyeti per_pixel'in
      düğüm sayısı kadar artması. */
-  const MESH_X = 64;
-  const MESH_Y = 48;
+  const MESH_X_DEFAULT = 64;
+  const MESH_Y_DEFAULT = 48;
+  /* Ayardan gelebilecek ag sıklıkları. MilkDrop'un kendi listesi de
+     boyle: en-boy 4:3 sabit, yalnız yogunluk degisiyor. */
+  const MESH_STEPS = [24, 32, 48, 64, 96, 128];
   // düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1)
   const VSTRIDE = 8;
 
@@ -217,6 +220,57 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.presetTime = 0;
       this._pix = {};
       this._progCache = new Map();
+      this.meshX = MESH_X_DEFAULT;
+      this.meshY = MESH_Y_DEFAULT;
+      /* Fare durumu (#560, madde 5). MilkDrop denklemlere mouse_x/mouse_y
+         (0..1) ve mouse_down veriyor; preset yazarları etkilesimli sahneler
+         icin kullanıyor. Korpustaki hazır presetlerin HICBIRI okumuyor,
+         yani buradan gorunur bir kazanc gelmiyor; deger, kullanıcının KENDI
+         yazdıgı presetlerde. */
+      this.mouse = { x: 0.5, y: 0.5, down: 0 };
+      this._mouseBound = false;
+    }
+
+    /* Dinleyiciler TUVALE baglanıyor, pencereye degil: gorsellestirici
+       tuvali tam ekran da olsa bir katman icinde de olabiliyor ve pencere
+       koordinatı ikinci durumda yanlıs olurdu. */
+    _bindMouse() {
+      if (this._mouseBound || !this.canvas || !this.canvas.addEventListener) return;
+      this._mouseBound = true;
+      const c = this.canvas;
+      const at = (e) => {
+        const r = c.getBoundingClientRect ? c.getBoundingClientRect() : null;
+        if (!r || !r.width || !r.height) return;
+        this.mouse.x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+        /* MilkDrop'un ekran koordinatında y ASAGI artıyor; tarayıcının da
+           oyle, bu yuzden cevirme yok. */
+        this.mouse.y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
+      };
+      c.addEventListener('mousemove', at);
+      c.addEventListener('mousedown', (e) => { at(e); this.mouse.down = 1; });
+      c.addEventListener('mouseup', () => { this.mouse.down = 0; });
+      c.addEventListener('mouseleave', () => { this.mouse.down = 0; });
+    }
+
+    /* Ag sıklıgı ayardan geliyor. Degistiginde koseler, indis tamponu ve
+       vertex dizisi YENIDEN kurulmalı: hepsinin boyutu ag sayısından
+       tureniyor ve eskisini kullanmaya devam etmek diziyi tasırırdı. */
+    _applyMesh(cfg) {
+      const want = (cfg && cfg.milkdrop && cfg.milkdrop.mesh) || MESH_X_DEFAULT;
+      let mx = MESH_STEPS.indexOf(Math.round(want)) >= 0 ? Math.round(want) : MESH_X_DEFAULT;
+      const my = Math.max(4, Math.round(mx * 0.75));
+      if (mx === this.meshX && my === this.meshY) return false;
+      this.meshX = mx;
+      this.meshY = my;
+      if (this.gl && this.vao) {
+        const gl = this.gl;
+        gl.deleteVertexArray(this.vao);
+        gl.deleteBuffer(this.vbo);
+        gl.deleteBuffer(this.ibo);
+        this.vao = null;
+        this._buildMesh();
+      }
+      return true;
     }
 
     resize() {}
@@ -370,15 +424,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
     _buildMesh() {
       const gl = this.gl;
-      const n = MESH_X + 1;
+      const n = this.meshX + 1;
       this.vao = gl.createVertexArray();
       this.vbo = gl.createBuffer();
       this.ibo = gl.createBuffer();
-      this.verts = new Float32Array(n * (MESH_Y + 1) * VSTRIDE);
-      const idx = new Uint32Array(MESH_X * MESH_Y * 6);
+      this.verts = new Float32Array(n * (this.meshY + 1) * VSTRIDE);
+      const idx = new Uint32Array(this.meshX * this.meshY * 6);
       let k = 0;
-      for (let j = 0; j < MESH_Y; j++) {
-        for (let i = 0; i < MESH_X; i++) {
+      for (let j = 0; j < this.meshY; j++) {
+        for (let i = 0; i < this.meshX; i++) {
           const a = j * n + i;
           idx[k++] = a; idx[k++] = a + 1; idx[k++] = a + n;
           idx[k++] = a + 1; idx[k++] = a + n + 1; idx[k++] = a + n;
@@ -776,9 +830,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          Üst sınır yalnızca başarım için: per_pixel ağı ve altı ek render
          hedefi çözünürlükle pahalılaşıyor. */
       const cap = (cfg.milkdrop && cfg.milkdrop.maxSize) || 1920;
-      const sc = Math.min(1, cap / Math.max(1, Math.max(W, H)));
-      const GW = Math.max(64, Math.round(W * sc));
-      const GH = Math.max(64, Math.round(H * sc));
+      /* IC COZUNURLUK CARPANI (#560, madde 1). 1'in ustunde once buyuk
+         render edilip tuvale kuculterek yazılıyor; kenarlar ve ince sekiller
+         1440p/4K ekranlarda belirginlesiyor. Maliyet carpanın KARESI kadar,
+         bu yuzden ust sınır maxSize'da kalıyor: carpan buyuk bir ekranda
+         sınırı asarsa asagıdaki sc zaten geri kısıyor. */
+      const rs = Math.max(0.5, Math.min(2, +(cfg.milkdrop && cfg.milkdrop.renderScale) || 1));
+      const RW = W * rs;
+      const RH = H * rs;
+      const sc = Math.min(1, cap / Math.max(1, Math.max(RW, RH)));
+      const GW = Math.max(64, Math.round(RW * sc));
+      const GH = Math.max(64, Math.round(RH * sc));
+      this._applyMesh(cfg);
+      this._bindMouse();
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
@@ -814,7 +878,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         bass, mid, treb,
         bass_att: bassA, mid_att: midA, treb_att: trebA,
         progress: (this.presetTime * 0.1) % 1,
-        meshx: MESH_X, meshy: MESH_Y,
+        meshx: this.meshX, meshy: this.meshY,
+        mouse_x: this.mouse.x, mouse_y: this.mouse.y, mouse_down: this.mouse.down,
         aspectx, aspecty,
       });
       const base = this.preset.captureBase();
@@ -960,15 +1025,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const L = isFinite(len) ? len : 1;
 
       const v = this.verts;
-      const n = MESH_X + 1;
+      const n = this.meshX + 1;
       /* Izgara noktasındaki warp'ı ağdan iki doğrusal ara değerle okuyor.
          En yakın düğümü almak, ağdan seyrek ızgaralarda vektörleri
          basamaklı gösteriyor. */
       const sampleUV = (x, y, out) => {
-        const fx = Math.max(0, Math.min(MESH_X, x * MESH_X));
-        const fy = Math.max(0, Math.min(MESH_Y, y * MESH_Y));
-        const i0 = Math.min(MESH_X - 1, Math.floor(fx));
-        const j0 = Math.min(MESH_Y - 1, Math.floor(fy));
+        const fx = Math.max(0, Math.min(this.meshX, x * this.meshX));
+        const fy = Math.max(0, Math.min(this.meshY, y * this.meshY));
+        const i0 = Math.min(this.meshX - 1, Math.floor(fx));
+        const j0 = Math.min(this.meshY - 1, Math.floor(fy));
         const tx = fx - i0, ty = fy - j0;
         const o00 = (j0 * n + i0) * VSTRIDE;
         const o10 = (j0 * n + i0 + 1) * VSTRIDE;
@@ -1029,13 +1094,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     /* Warp ağı: her düğümde per_pixel koşuyor ve düğümün önceki kareden
        nereyi örnekleyeceği çıkıyor. */
     _buildWarpMesh() {
-      const n = MESH_X + 1;
+      const n = this.meshX + 1;
       const v = this.verts;
       const warpTime = this.time;
-      for (let j = 0; j <= MESH_Y; j++) {
-        for (let i = 0; i <= MESH_X; i++) {
-          const u = i / MESH_X;
-          const w = j / MESH_Y;
+      for (let j = 0; j <= this.meshY; j++) {
+        for (let i = 0; i <= this.meshX; i++) {
+          const u = i / this.meshX;
+          const w = j / this.meshY;
           const cx0 = u * 2 - 1;
           const cy0 = w * 2 - 1;
           const rad = Math.min(1, Math.hypot(cx0, cy0) * 0.7071);

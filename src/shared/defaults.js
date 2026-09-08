@@ -587,6 +587,19 @@
       name: '',
       source: '',
       autoNext: 0, // 0 = kapalı, >0 = kaç saniyede bir sıradaki presete geç
+      /* Warp agi siklıgı. MilkDrop'un varsayılanı 32x24, "yuksek kalite"
+         ayarı 48x36. Ag seyrek oldugunda bozulma dugumler arasında dogrusal
+         interpolasyonla doluyor ve kıvrımlı warp'larda koseli gorunuyor;
+         maliyeti per_pixel'in dugum sayısı kadar artması, yani 96x72 ag
+         32x24'un dokuz katı denklem kosturuyor. */
+      mesh: 64,
+      /* Ic cozunurluk carpanı. 1 = tuval boyutu. 1'in ustunde once buyuk
+         render edilip tuvale kuculterek yazılıyor: kenarlar ve ince sekiller
+         1440p/4K ekranlarda belirginlesiyor. Maliyet carpanın KARESI kadar.
+         Ust sınırı maxSize kesiyor. */
+      renderScale: 1,
+      /* Preset gecisi suresi (saniye). 0 = sert kesme. */
+      blendTime: 0,
     },
 
     // ------------------------------------------------------------------

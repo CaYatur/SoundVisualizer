@@ -894,6 +894,10 @@
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
     'vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty',
+    /* Fare durumu alt bloklara da taşınıyor: MilkDrop kare geneli
+       değişkenleri custom dalga ve şekil havuzlarına paylaştırıyor ve
+       taşınmayan bir ad orada sessizce sıfır kalır. */
+    'mouse_x', 'mouse_y', 'mouse_down',
   ];
 
   class Preset {

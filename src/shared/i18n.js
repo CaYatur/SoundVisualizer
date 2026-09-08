@@ -1432,6 +1432,19 @@
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
     'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpusta shader derleme oranı %99,2. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları gürültüyle ikame edilir.':
       'The equation blocks (per_frame, per_pixel) and the HLSL warp/composite shaders of MilkDrop 2 presets really run: 99.2% of shader stages compile across a 10,332-preset corpus. Shapes, waves, the blur chain and motion vectors are drawn; user textures, which preset files do not ship, are substituted with noise.',
+    'Ağ Sıklığı': 'Mesh Density',
+    '24x18 (en hızlı)': '24x18 (fastest)',
+    '32x24 (MilkDrop varsayılanı)': '32x24 (MilkDrop default)',
+    '48x36': '48x36',
+    '64x48 (önerilen)': '64x48 (recommended)',
+    '96x72': '96x72',
+    '128x96 (en pürüzsüz)': '128x96 (smoothest)',
+    'İç Çözünürlük': 'Internal Resolution',
+    '0,75x (düşük güçlü makine)': '0.75x (low-powered machine)',
+    '1x (tuval boyutu)': '1x (canvas size)',
+    '1,5x': '1.5x',
+    '2x (en keskin)': '2x (sharpest)',
+    'İç çözünürlüğün maliyeti çarpanın karesi kadar artar: 2x seçildiğinde dört katı piksel işlenir. Ağ sıklığının maliyeti doğrusaldır ama her düğümde preset denklemleri yeniden koşar.': 'The cost of the internal resolution grows with the square of the factor: at 2x, four times the pixels are processed. The mesh density costs linearly, but the preset equations run again at every node.',
     'Sil': 'Delete',
 
 

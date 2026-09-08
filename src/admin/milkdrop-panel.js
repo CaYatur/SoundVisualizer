@@ -134,6 +134,42 @@
       }
     }
 
+    /* KALITE AYARLARI (#560, madde 1 ve 7). Ikisi de gorunur bir denge:
+       ag sıklıgı kıvrımlı warp'ların koseliligini, ic cozunurluk ise ince
+       sekillerin keskinligini belirliyor. Maliyetleri farklı buyuyor — ag
+       dogrusal, cozunurluk KARESEL — bu yuzden ayrı ayrı ayarlanıyorlar. */
+    const selOf = (pairs, value, onChange) => {
+      const sel = el('select', { class: 'sel' });
+      for (const [v, label] of pairs) {
+        const o = el('option', { value: String(v), text: label });
+        if (String(v) === String(value)) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.addEventListener('change', () => { onChange(sel.value); rerender(); });
+      return sel;
+    };
+
+    nodes.push(P().row('Ağ Sıklığı', selOf([
+      [24, '24x18 (en hızlı)'],
+      [32, '32x24 (MilkDrop varsayılanı)'],
+      [48, '48x36'],
+      [64, '64x48 (önerilen)'],
+      [96, '96x72'],
+      [128, '128x96 (en pürüzsüz)'],
+    ], md.mesh || 64, (v) => { md.mesh = Number(v); })));
+
+    nodes.push(P().row('İç Çözünürlük', selOf([
+      [0.75, '0,75x (düşük güçlü makine)'],
+      [1, '1x (tuval boyutu)'],
+      [1.5, '1,5x'],
+      [2, '2x (en keskin)'],
+    ], md.renderScale == null ? 1 : md.renderScale, (v) => { md.renderScale = Number(v); })));
+
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'İç çözünürlüğün maliyeti çarpanın karesi kadar artar: 2x seçildiğinde dört katı piksel işlenir. Ağ sıklığının maliyeti doğrusaldır ama her düğümde preset denklemleri yeniden koşar.',
+    }));
+
     // İçe aktarma
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
