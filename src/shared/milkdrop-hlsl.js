@@ -196,6 +196,7 @@
     float: 'float', vec2: 'vec2', vec3: 'vec3', vec4: 'vec4',
     toF: 'float', toV2: 'vec2', toV3: 'vec3', toV4: 'vec4',
     hmat2: 'mat2', hmat3: 'mat3', hmat4: 'mat4',
+    hmat2x3: 'mat3x2', hmat3x2: 'mat2x3',
     mul: 'mul',
     mat2: 'mat2', mat3: 'mat3', mat4: 'mat4',
     abs: 'same', normalize: 'same', saturate: 'same', frac: 'same', fract: 'same',
@@ -249,8 +250,16 @@
           const ma = typeOf(node.args[0], env);
           const mb = typeOf(node.args[1], env);
           const isMat = (t) => typeof t === 'string' && t.indexOf('mat') === 0;
-          if (isMat(ma) && !isMat(mb)) return mb;
-          if (isMat(mb) && !isMat(ma)) return ma;
+          /* matCxR * vecC -> vecR. Kare matriste C=R olduğu için vektörün
+             tipi değişmiyor, ama mat3x2 * vec3 SONUÇ OLARAK vec2 veriyor ve
+             bunu vec3 sanmak daraltmayı yanlış yere koyardı. */
+          const rows = (t) => {
+            const m = /^mat(\d)(?:x(\d))?$/.exec(t);
+            if (!m) return 0;
+            return Number(m[2] || m[1]);
+          };
+          if (isMat(ma) && !isMat(mb)) return BY_WIDTH[rows(ma)] || mb;
+          if (isMat(mb) && !isMat(ma)) return ma; // vec * mat: satır vektörü, genişliği korunur
           if (isMat(ma) && isMat(mb)) return ma;
           return 'float';
         }

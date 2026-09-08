@@ -423,3 +423,37 @@ test('translate: matris değişkeni tip çizelgesine giriyor', () => {
   assert.match(r.glsl, /GetBlur1\(uv\)\)\.xy|GetBlur1\(uv\)\.xy/,
     'vec3 taraf .xy ile daraltılmalı:\n' + r.glsl.split('\n').filter((l) => /GetBlur1/.test(l)).join('\n'));
 });
+
+test('translate: kare olmayan matris devrik olarak eşleniyor', () => {
+  /* HLSL floatRxC "satır x sütun", GLSL matCxR "sütun x satır". float2x3
+     (2 satır, 3 sütun) şekil olarak mat3x2'ye denk. Adı devirmeden eşlemek
+     DERLENEN ama yanlış çizen bir shader verirdi — hiç derlenmemesinden
+     kötü, çünkü hata görünmez olurdu. */
+  const r = T.translate(
+    'shader_body { float3 a=float3(1,0,0); float3 b=float3(0,1,0);' +
+    ' float2x3 ts = float2x3(a,b); ret.xy = mul(ts, float3(1,2,3)); }');
+  assert.match(r.glsl, /mat3x2 hmat2x3\(vec3 r0, vec3 r1\)/);
+  assert.match(r.glsl, /vec2 mul\(mat3x2 m, vec3 v\)/);
+  assert.match(r.glsl, /hmat2x3\(a, ?b\)/, 'kurucu yönlendirilmeli');
+});
+
+test('translate: sayısal koşul karşılaştırmaya çevriliyor', () => {
+  /* HLSL `if (x)` sayı kabul ediyor (sıfır değilse doğru), GLSL yalnız bool.
+     Zaten bool olan koşula DOKUNULMAMALI, yoksa yeni hata üretir. */
+  const r = T.translate('shader_body { float m = 1.0; if (m) { ret = vec3(1.0); } }');
+  assert.match(r.glsl, /if \(\(m\) != 0\.0\)/);
+  const b = T.translate('shader_body { float m = 1.0; if (m > 0.5) { ret = vec3(1.0); } }');
+  assert.match(b.glsl, /if \(m > 0\.5\)/);
+  assert.ok(!/!= 0\.0/.test(b.glsl), 'bool koşul sarılmamalı');
+});
+
+test('translate: aynı ad yeniden bildirilince gölgeleme konuma bağlı', () => {
+  /* "fractal descent" dış kapsamda `float c;` bildirip gövdede ona atıyor,
+     DAHA SONRA gövdede `float2 c` bildiriyor. Tek bir tip seçmek iki
+     taraftan birini bozuyordu; bildirim görüldüğü andan itibaren geçerli. */
+  const r = T.translate(
+    'float c;\nshader_body { c = 0.5; float2 c = float2(1,2); ret.xy = c; }');
+  const line = r.glsl.split('\n').find((l) => /c = toF|c = toV2|\bc = 0\.5/.test(l)) || '';
+  assert.match(r.glsl, /c = toF\(0\.5\)/,
+    'ilk atama float olarak sarılmalı:\n' + line);
+});

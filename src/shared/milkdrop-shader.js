@@ -157,6 +157,13 @@
      yoksa mat3'ün yerine vec3x3 gibi bir şey çıkar. */
   const TYPES = [
     ['float4x4', 'mat4'], ['float3x3', 'mat3'], ['float2x2', 'mat2'],
+    /* Kare OLMAYAN matrisler. HLSL floatRxC "satır x sütun" yazıyor, GLSL
+       matCxR "sütun x satır". Yani HLSL float2x3 (2 satır, 3 sütun) şekil
+       olarak GLSL mat3x2'ye denk — adı devirmeden eşlemek derlenen ama
+       YANLIŞ çizen bir shader verirdi, ki bu düpedüz daha kötü. */
+    ['float2x3', 'mat3x2'], ['float3x2', 'mat2x3'],
+    ['float2x4', 'mat4x2'], ['float4x2', 'mat2x4'],
+    ['float3x4', 'mat4x3'], ['float4x3', 'mat3x4'],
     ['half4x4', 'mat4'], ['half3x3', 'mat3'], ['half2x2', 'mat2'],
     ['float4', 'vec4'], ['float3', 'vec3'], ['float2', 'vec2'], ['float1', 'float'],
     ['half4', 'vec4'], ['half3', 'vec3'], ['half2', 'vec2'], ['half1', 'float'],
@@ -403,6 +410,13 @@
        matrisi ters yöne döner ve bunu yalnız ekrana bakınca görürsünüz —
        derleyici tek kelime etmez. Presetlerin %8,4'ü matris kuruyor, bu
        yüzden kurucular ayrı bir işlevden geçiyor. */
+    /* HLSL float2x3(r0, r1) iki float3 SATIR alıyor; GLSL mat3x2 üç vec2
+       SÜTUN. Dönüşüm burada yapılıyor. mul(m, float3) -> float2 ikisinde de
+       aynı sonucu verdiği için çağrı tarafı hiç değişmiyor. */
+    'mat3x2 hmat2x3(vec3 r0, vec3 r1){ return mat3x2(vec2(r0.x, r1.x), vec2(r0.y, r1.y), vec2(r0.z, r1.z)); }',
+    'mat2x3 hmat3x2(vec2 r0, vec2 r1, vec2 r2){ return mat2x3(vec3(r0.x, r1.x, r2.x), vec3(r0.y, r1.y, r2.y)); }',
+    'vec2 mul(mat3x2 m, vec3 v){ return m * v; }',
+    'vec3 mul(mat2x3 m, vec2 v){ return m * v; }',
     'mat2 hmat2(float a, float b, float c, float d){ return mat2(a, c, b, d); }',
     'mat2 hmat2(vec2 r0, vec2 r1){ return mat2(r0.x, r1.x, r0.y, r1.y); }',
     'mat2 hmat2(vec4 v){ return mat2(v.x, v.z, v.y, v.w); }',
@@ -509,17 +523,68 @@
      Deyimlere ayırırken parantez derinliği izleniyor: `for (i=0; i<n; i++)`
      içindeki noktalı virgüller deyim sonu DEĞİL, ve oradaki `i=0`
      sarmalanmamalı. Süslü parantezler de sınır sayılıyor. */
+  /* `if (x)` / `while (x)` koşulunda HLSL sayı kabul ediyor (sıfır değilse
+     doğru), GLSL yalnızca bool alıyor. Gerçek koddan: "funky illusions"
+     `mask1 = ...; if (mask1) { ... }` yazıyor ve GLSL "boolean expression
+     expected" diyerek shader'ı hiç derlemiyor.
+
+     Tip BİLİNMİYORSA dokunulmuyor: zaten bool olan bir koşulu `!= 0.0` ile
+     sarmak yeni bir hata üretirdi. */
+  function boolConds(s, types) {
+    const re = /\b(if|while)\s*\(/g;
+    let out = '';
+    let last = 0;
+    let m;
+    const H = hl();
+    if (!H) return s;
+    while ((m = re.exec(s)) !== null) {
+      let depth = 1;
+      let i = re.lastIndex;
+      for (; i < s.length && depth > 0; i++) {
+        if (s[i] === '(') depth++;
+        else if (s[i] === ')') depth--;
+      }
+      if (depth !== 0) break;
+      const cond = s.slice(re.lastIndex, i - 1);
+      let t = 'unknown';
+      try { t = H.typeOf(H.parse(H.tokenize(cond)), types); } catch (e) { t = 'unknown'; }
+      if (t === 'bool' || t === 'unknown') { re.lastIndex = i; continue; }
+      out += s.slice(last, m.index) + m[1] + ' ((' + cond + ') != 0.0)';
+      last = i;
+      re.lastIndex = i;
+    }
+    return last ? out + s.slice(last) : s;
+  }
+
   function coerce(s, types) {
     const out = [];
     let depth = 0;
     let start = 0;
+    /* KONUMA BAĞLI GÖLGELEME.
+
+       Çizelge tüm metin önceden taranarak kuruluyor, yani bir adın tipi
+       metnin tamamı için tek. Ama preset aynı adı ORTA YERDE yeniden
+       bildirebiliyor: "fractal descent" dış kapsamda `float c;` bildirip
+       gövdede ona atıyor, DAHA SONRA gövdede `float2 c` bildiriyor. Tek bir
+       tip seçmek iki taraftan birini bozuyordu — hangisini seçersem
+       seçeyim, ölçüm ikisini de gösterdi.
+
+       Deyimler zaten sırayla geziliyor; bildirim görüldüğü ANDAN itibaren
+       geçerli sayılıyor. Öncesindeki deyimler eski tipi görüyor. */
+    let live = types;
     for (let i = 0; i <= s.length; i++) {
       const c = s[i];
       if (c === '(' || c === '[') depth++;
       else if (c === ')' || c === ']') depth--;
       const boundary = i === s.length || (depth === 0 && (c === ';' || c === '{' || c === '}'));
       if (!boundary) continue;
-      out.push(fixStatement(s.slice(start, i), types) + (i < s.length ? c : ''));
+      const st = s.slice(start, i);
+      out.push(fixStatement(st, live) + (i < s.length ? c : ''));
+      const d = /^\s*(?:const\s+)?(float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|$)/.exec(st);
+      if (d && live.get(d[2]) !== d[1]) {
+        if (live === types) { live = new Map(types); live.ambiguous = types.ambiguous; }
+        live.set(d[2], d[1]);
+      }
       start = i + 1;
     }
     return out.join('');
@@ -786,7 +851,9 @@
        karşılaştırma yazıyor: `const float sw = rand_preset.x >= .4;`. */
     s = s.replace(/\bconst\s+/g, '');
     // Matris kurucuları tip eşlemesinden ÖNCE, yoksa float3x3( -> mat3( olur
-    s = s.replace(/\bfloat2x2\s*\(/g, 'hmat2(')
+    s = s.replace(/\bfloat2x3\s*\(/g, 'hmat2x3(')
+      .replace(/\bfloat3x2\s*\(/g, 'hmat3x2(')
+      .replace(/\bfloat2x2\s*\(/g, 'hmat2(')
       .replace(/\bfloat3x3\s*\(/g, 'hmat3(')
       .replace(/\bfloat4x4\s*\(/g, 'hmat4(')
       .replace(/\bhalf2x2\s*\(/g, 'hmat2(')
@@ -836,16 +903,27 @@
      baktığımda gövdedeki `ret1 = 0.0;` tipsiz kalıyor ve onarılmıyordu. */
   function typesOf(text) {
     const types = new Map(BUILTIN_TYPES);
+    /* Ad -> bildirildigi susulu parantez derinligi. Cakismada dis kapsam
+       kazansin diye tutuluyor; gerekcesi asagida. */
+    const depths = new Map();
     /* Matris bildirimleri de çizelgeye giriyor. Girmezlerse `float2x2 rot`
        tipsiz kalıyor, `mul(uv, rot)` de tipsiz oluyor ve ikili daraltma hiç
        çalışmıyor: ORB presetlerinde `mul(...) + GetBlur1(...)` ifadesi
        vec2 + vec3 olarak GLSL'e gidiyordu. */
-    const dre = /\b(float|vec2|vec3|vec4|mat2|mat3|mat4)\s+/g;
+    const dre = /\b(float|vec2|vec3|vec4|mat[234]x[234]|mat2|mat3|mat4)\s+/g;
     let dm;
     while ((dm = dre.exec(text)) !== null) {
       /* Bildirimin sonuna kadar oku ve virgülle ayrılmış HER adı çizelgeye
          yaz. Yalnızca ilk adı almak `float zv, zw;` yazan presetlerde
          ikinciyi tipsiz bırakıyordu ve o satırlar onarılmadan geçiyordu. */
+      /* Bu bildirimin bulundugu derinlik: metnin basindan buraya kadar
+         acilan/kapanan susulu parantezleri say. */
+      let declDepth = 0;
+      for (let k = 0; k < dm.index; k++) {
+        if (text[k] === '{') declDepth++;
+        else if (text[k] === '}') declDepth--;
+      }
+      if (declDepth < 0) declDepth = 0;
       let i = dre.lastIndex;
       let d = 0;
       const names = [];
@@ -871,6 +949,20 @@
            diyordu. Tipi hiç bilmemek burada bilmekten iyi: bilinmeyen ad
            daraltmaya uğramıyor ve ifade olduğu gibi, doğru biçimde kalıyor. */
         if (/^\s*[A-Za-z_][A-Za-z0-9_]*\s*\[/.test(part)) continue;
+        /* Çakışmada DIŞ kapsamdaki bildirim kazanıyor.
+
+           Tam kapsam çözümlemesi yok, ama süslü parantez derinliği ucuz bir
+           yaklaşım: bir fonksiyonun İÇİNDE bildirilen ad, dışarıda aynı adla
+           bildirilmiş olanı gölgelememeli. "fractal descent" dış kapsamda
+           `float c;` bildirip kullanıyor, bir yardımcı fonksiyonun içinde de
+           `float2 c` bildiriyor; içerideki kazanınca dışarıdaki atama toV2
+           ile sarılıp boyut uyuşmazlığı veriyordu.
+
+           Ölçüldü: "sonuncu kazansın" %99,9, "ilki kazansın" %99,4 — yani
+           sırayla değil, DERİNLİKLE karar vermek gerekiyor. */
+        const prevDepth = depths.get(nm[1]);
+        if (prevDepth !== undefined && prevDepth < declDepth) continue;
+        depths.set(nm[1], declDepth);
         types.set(nm[1], dm[1]);
       }
     }
@@ -1021,6 +1113,11 @@
     const gRaw = pair[0];
     const bRaw = pair[1];
     const types = typesOf(gRaw + '\n' + bRaw);
+    /* Çakışmada DIŞ bölümün bildirimi taban alınıyor: gövde aynı adı yeniden
+       bildirirse coerce onu gördüğü yerden itibaren zaten geçerli kılıyor.
+       Önceden taranan çizelgede gövdenin kazanması, gövdedeki DAHA ÖNCEKİ
+       atamaları yanlış tiple sarıyordu. */
+    if (gRaw) for (const [k, v] of typesOf(gRaw)) if (!BUILTIN_TYPES.has(k)) types.set(k, v);
     /* Takma adın tipi çizelgeye elle giriyor: bildirimi metinde değil `mid`
        içinde duruyor, dolayısıyla typesOf onu göremez. Görmezse atamanın sağ
        tarafı kırpılmıyor ve `rand_preset_w = vec4(...)` "dimension mismatch"
@@ -1029,8 +1126,8 @@
       const g = /^(\w+)\s+(\w+);$/.exec(d);
       if (g) types.set(g[2], g[1]);
     }
-    const hoisted = gRaw ? hoistGlobals(coerce(gRaw, types)) : { decls: '', prologue: [] };
-    const body = coerce(bRaw, types);
+    const hoisted = gRaw ? hoistGlobals(boolConds(coerce(gRaw, types), types)) : { decls: '', prologue: [] };
+    const body = boolConds(coerce(bRaw, types), types);
 
     /* İki aşamanın girdileri AYNI DEĞİL ve karıştırmak sessizce yanlış
        görüntü verir:
