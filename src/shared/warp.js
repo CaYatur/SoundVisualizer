@@ -5,13 +5,15 @@
    oturtmaktır: eğimli bir duvar, bir kubbe, bir sahne dekoru ya da yan yana
    iki projektörün üst üste binen alanı.
 
-   Bu dosyada yalnızca MATEMATİK var — tuval, WebGL, DOM yok. Bunun iki
-   sebebi var: birincisi, homografi çözümü ve kenar harmanlama eğrisi gibi
-   şeyler sayısal olarak doğrulanabilir ve tests/warp.test.js bunu doğrudan
-   yapıyor; ikincisi, aynı matematik hem canlı pencerede hem çevrimdışı
-   dışa aktarımda kullanılıyor — haritalama bir pencere hilesi değil, render
-   hattının parçası, yoksa dışa aktarılan video projektörde görünenle
-   eşleşmezdi. */
+   Bu dosyada yalnızca MATEMATİK var — tuval, WebGL, DOM yok. Sebebi,
+   homografi çözümü ve kenar harmanlama eğrisi gibi şeylerin sayısal olarak
+   doğrulanabilmesi; tests/warp.test.js bunu doğrudan yapıyor.
+
+   DIŞA AKTARIMDA HENÜZ KULLANILMIYOR. Burada eskiden "aynı matematik hem
+   canlı pencerede hem çevrimdışı dışa aktarımda kullanılıyor" yazıyordu ve
+   bu doğru değildi: src/exporter/index.html bu dosyayı yüklüyor ama
+   exporter.js onu hiç çağırmıyor. Dolayısıyla dışa aktarılan video, bir
+   projektöre haritalanmış canlı çıkışla EŞLEŞMEZ. Eksik olan iş #386'da. */
 (function () {
   const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
