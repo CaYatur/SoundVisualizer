@@ -154,6 +154,38 @@ in vec4 vCol;
 out vec4 outColor;
 void main(){ outColor = vCol; }`;
 
+  /* DOKULU ŞEKİLLER (shapecode_N_textured=1).
+
+     Presetlerin %40,3'ü kullanıyor ve %12,1'inde şekil ekranı kaplayacak
+     kadar büyük. Dokusuz çizmek bu şekilleri DÜZ RENK bir dörtgene
+     çeviriyordu: rengi çoğunlukla beyaz olduğu için ekran bembeyaz
+     kalıyordu ve ölçümde "patlamış" sınıfının tamamı buydu.
+
+     MilkDrop şekli önceki karenin üstünde bir PENCERE gibi kullanıyor:
+     merkez dokunun ortasına, yarıçap da tex_zoom'a göre ölçeklenmiş bir
+     yarıçapa denk geliyor; tex_ang örneklemeyi döndürüyor. Sonuç şeklin
+     kendi rengiyle çarpılıyor. */
+  const SHAPE_TEX_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec4 aCol;
+layout(location=2) in vec2 aUV;
+out vec4 vCol;
+out vec2 vUV;
+void main(){
+  vCol = aCol;
+  vUV = aUV;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+  const SHAPE_TEX_FRAG = `#version 300 es
+precision highp float;
+in vec4 vCol;
+in vec2 vUV;
+out vec4 outColor;
+uniform sampler2D uSrc;
+void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
+
   /* Presetin shader'ına verilen değişkenler. Tek yerde duruyor çünkü hem
      konum önbelleği hem yükleme bu listeden türüyor; ikiye bölmek birinde
      unutulan bir adın sessizce sıfır kalmasına yol açardı. */
@@ -237,10 +269,13 @@ void main(){ outColor = vCol; }`;
         const comp = this._link(QUAD_VERT, COMP_FIXED_FRAG);
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
         const line = this._link(LINE_VERT, LINE_FRAG);
-        if (!warp.ok || !comp.ok || !blur.ok || !line.ok) {
-          this.error = (warp.log || comp.log || blur.log || line.log || 'shader');
+        const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
+        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok) {
+          this.error = (warp.log || comp.log || blur.log || line.log || shtex.log || 'shader');
           return false;
         }
+        this.shapeTexProg = shtex.prog;
+        this.locShapeTexSrc = gl.getUniformLocation(shtex.prog, 'uSrc');
         this.warpFixed = warp.prog;
         this.compFixed = comp.prog;
         this.blurProg = blur.prog;
@@ -387,6 +422,20 @@ void main(){ outColor = vCol; }`;
       gl.bufferData(gl.ARRAY_BUFFER, this.lineData, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
+      gl.bindVertexArray(null);
+
+      /* Dokulu sekiller icin AYRI tampon: dugum basina pos(2) col(4) uv(2).
+         Ayni tamponu paylasmak adim genisligini degistirmeyi gerektirirdi ve
+         her sekil turunde yeniden bildirim yapmak gerekirdi. */
+      this.shapeTexVao = gl.createVertexArray();
+      this.shapeTexVbo = gl.createBuffer();
+      this.shapeTexData = new Float32Array(512 * 8);
+      gl.bindVertexArray(this.shapeTexVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.shapeTexVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, this.shapeTexData, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 8);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
       gl.bindVertexArray(null);
     }
 
@@ -831,6 +880,11 @@ void main(){ outColor = vCol; }`;
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
       gl.viewport(0, 0, GW, GH);
       this._waveSamples(audio, this.preset.get('wave_scale'));
+      /* Dokulu şekiller ÖNCEKİ kareyi örnekliyor. Şu an yazdığımız hedefi
+         okumak tanımsız davranış: aynı dokudan okurken aynı dokuya yazmak
+         sürücüye göre değişen çöp verir. MilkDrop da şekli sampler_main
+         üzerinden, yani warp'a girdi olan kareden besliyor. */
+      this._shapeSrcTex = src.tex;
       this._drawShapes(gl, GW, GH);
       this._drawCustomWaves(gl, audio);
       this._drawWaveModes(gl, GW, GH);
@@ -1007,20 +1061,56 @@ void main(){ outColor = vCol; }`;
           const c1 = [cl(o.r), cl(o.g), cl(o.b), Math.max(0, Math.min(1, +o.a || 0))];
           const c2 = [cl(o.r2), cl(o.g2), cl(o.b2), Math.max(0, Math.min(1, +o.a2 || 0))];
 
-          // merkez + n kenar noktası + kapanış = yelpaze
-          d[0] = cxp; d[1] = cyp;
-          d[2] = c1[0]; d[3] = c1[1]; d[4] = c1[2]; d[5] = c1[3];
-          for (let i = 0; i <= n; i++) {
-            const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
-            const k = (i + 1) * 6;
-            d[k] = cxp + Math.cos(th) * rad * aspY;
-            d[k + 1] = cyp + Math.sin(th) * rad;
-            d[k + 2] = c2[0]; d[k + 3] = c2[1]; d[k + 4] = c2[2]; d[k + 5] = c2[3];
+          if (s.textured) {
+            /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez
+               dokunun ortasına oturuyor, kenar noktaları tex_zoom'a göre
+               ölçekli bir yarıçapa; tex_ang örneklemeyi döndürüyor. Renk
+               dokuyla ÇARPILIYOR, onun yerine geçmiyor. */
+            const td = this.shapeTexData;
+            const tz = Math.abs(+o.tex_zoom) > 1e-4 ? +o.tex_zoom : 1;
+            const ta = +o.tex_ang || 0;
+            td[0] = cxp; td[1] = cyp;
+            td[2] = c1[0]; td[3] = c1[1]; td[4] = c1[2]; td[5] = c1[3];
+            td[6] = 0.5; td[7] = 0.5;
+            for (let i = 0; i <= n; i++) {
+              const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
+              const k = (i + 1) * 8;
+              td[k] = cxp + Math.cos(th) * rad * aspY;
+              td[k + 1] = cyp + Math.sin(th) * rad;
+              td[k + 2] = c2[0]; td[k + 3] = c2[1]; td[k + 4] = c2[2]; td[k + 5] = c2[3];
+              /* Doku y ekseni AŞAĞI artıyor (MilkDrop ekran koordinatı),
+                 konumun y'si ise yukarı — işaret bu yüzden ters. */
+              td[k + 6] = 0.5 + 0.5 * Math.cos(th + ta) / tz;
+              td[k + 7] = 0.5 - 0.5 * Math.sin(th + ta) / tz;
+            }
+            this._blend(gl, s.additive);
+            gl.useProgram(this.shapeTexProg);
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, this._shapeSrcTex);
+            gl.uniform1i(this.locShapeTexSrc, 0);
+            gl.bindVertexArray(this.shapeTexVao);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.shapeTexVbo);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, td, 0, (n + 2) * 8);
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, n + 2);
+            // Kenar çizgisi düz renk: programa geri dönülüyor.
+            gl.useProgram(this.lineProg);
+            gl.bindVertexArray(this.lineVao);
+          } else {
+            // merkez + n kenar noktası + kapanış = yelpaze
+            d[0] = cxp; d[1] = cyp;
+            d[2] = c1[0]; d[3] = c1[1]; d[4] = c1[2]; d[5] = c1[3];
+            for (let i = 0; i <= n; i++) {
+              const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
+              const k = (i + 1) * 6;
+              d[k] = cxp + Math.cos(th) * rad * aspY;
+              d[k + 1] = cyp + Math.sin(th) * rad;
+              d[k + 2] = c2[0]; d[k + 3] = c2[1]; d[k + 4] = c2[2]; d[k + 5] = c2[3];
+            }
+            this._blend(gl, s.additive);
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+            gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, (n + 2) * 6);
+            gl.drawArrays(gl.TRIANGLE_FAN, 0, n + 2);
           }
-          this._blend(gl, s.additive);
-          gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, (n + 2) * 6);
-          gl.drawArrays(gl.TRIANGLE_FAN, 0, n + 2);
 
           // Kenar çizgisi: MilkDrop border_* renkleriyle ayrı bir geçiş
           const ba = Math.max(0, Math.min(1, +o.border_a || 0));
