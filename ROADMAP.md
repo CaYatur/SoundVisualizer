@@ -47,7 +47,7 @@ covered by a test or by the GPU self-test.
 | Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
 | Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
 | Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (99.2% stage compile across a 10,332-preset corpus, 100% on the 505-preset original set, measured by scripts/milkdrop-compile-rate.js; 92.1% of presets render a live image, measured by scripts/milkdrop-render-rate.js), 8 wave modes, repeat wrap, feedback clamp. Phase 2 quality pass scheduled |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (99.2% stage compile across a 10,332-preset corpus, 100% on the 505-preset original set, measured by scripts/milkdrop-compile-rate.js; 93.0% of presets render a live image, measured by scripts/milkdrop-render-rate.js), 8 wave modes, repeat wrap, feedback clamp. Phase 2 quality pass scheduled |
 | Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
 | Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
 | Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
@@ -64,7 +64,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1170** unit tests at v3.1.3 + a GPU self-test over every engine (960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1176** unit tests at v3.1.3 + a GPU self-test over every engine (960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -126,7 +126,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **1170 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1176 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -617,7 +617,7 @@ rebuilt the panel zero times.
 
 ### Verification
 
-1170 unit tests pass at v3.1.3 (168 added during this release). The GPU smoke
+1176 unit tests pass at v3.1.3 (168 added during this release). The GPU smoke
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 

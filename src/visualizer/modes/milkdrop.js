@@ -888,6 +888,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._drawShapes(gl, GW, GH);
       this._drawCustomWaves(gl, audio);
       this._drawWaveModes(gl, GW, GH);
+      // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
+      this._drawMotionVectors(gl);
 
       // --- 6. COMP GEÇİŞİ, doğrudan ekrana
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -920,6 +922,108 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       c.clearRect(0, 0, W, H);
       c.imageSmoothingEnabled = true;
       c.drawImage(this.gl2, 0, 0, W, H);
+    }
+
+    /* HAREKET VEKTÖRLERİ (nMotionVectorsX/Y + mv_*).
+
+       MilkDrop warp alanını gösteren küçük çizgilerden bir ızgara çiziyor:
+       her ızgara noktasından, o noktanın önceki kareden ÖRNEKLEDİĞİ yere
+       doğru bir çizgi. Akışı görünür kılan bu çizgiler bazı presetlerin
+       görsel imzası.
+
+       Korpusta presetlerin %92'sinde ızgara açık, ama görünürlüğü `mv_a`
+       belirliyor: %8,6'sı dosyada sıfırdan büyük alfa yazıyor, %5,7'si de
+       per_frame içinde açıp kapıyor. Motorda hiç çizilmiyorlardı.
+
+       Sıra: çizimlerden SONRA, birleştirmeden ÖNCE — MilkDrop'ta da öyle,
+       yani vektörler geri besleme tamponuna giriyor ve sonraki karelerde
+       akıp sönüyorlar. Birleştirmeden sonra çizmek onları geri beslemenin
+       dışında bırakır ve iz bırakmadan yanıp sönerlerdi. */
+    _drawMotionVectors(gl) {
+      const P = this.preset;
+      if (!P) return;
+      const a = +P.get('mv_a');
+      if (!isFinite(a) || a <= 0.002) return;
+      const nx = Math.round(+P.get('mv_x'));
+      const ny = Math.round(+P.get('mv_y'));
+      if (!(nx >= 1) || !(ny >= 1)) return;
+      /* Üst sınır: preset per_frame içinde saçma bir sayı yazabiliyor ve
+         çizgi tamponu 512 düğümlük. */
+      const NX = Math.min(64, nx);
+      const NY = Math.min(64, ny);
+      const len = +P.get('mv_l');
+      const dx0 = +P.get('mv_dx') || 0;
+      const dy0 = +P.get('mv_dy') || 0;
+      const cl = window.SVMilkdrop.clampColor;
+      const r = cl(P.get('mv_r')), g = cl(P.get('mv_g')), b = cl(P.get('mv_b'));
+      const al = Math.max(0, Math.min(1, a));
+      const L = isFinite(len) ? len : 1;
+
+      const v = this.verts;
+      const n = MESH_X + 1;
+      /* Izgara noktasındaki warp'ı ağdan iki doğrusal ara değerle okuyor.
+         En yakın düğümü almak, ağdan seyrek ızgaralarda vektörleri
+         basamaklı gösteriyor. */
+      const sampleUV = (x, y, out) => {
+        const fx = Math.max(0, Math.min(MESH_X, x * MESH_X));
+        const fy = Math.max(0, Math.min(MESH_Y, y * MESH_Y));
+        const i0 = Math.min(MESH_X - 1, Math.floor(fx));
+        const j0 = Math.min(MESH_Y - 1, Math.floor(fy));
+        const tx = fx - i0, ty = fy - j0;
+        const o00 = (j0 * n + i0) * VSTRIDE;
+        const o10 = (j0 * n + i0 + 1) * VSTRIDE;
+        const o01 = ((j0 + 1) * n + i0) * VSTRIDE;
+        const o11 = ((j0 + 1) * n + i0 + 1) * VSTRIDE;
+        const mix = (p, q, t) => p + (q - p) * t;
+        out[0] = mix(mix(v[o00 + 2], v[o10 + 2], tx), mix(v[o01 + 2], v[o11 + 2], tx), ty);
+        out[1] = mix(mix(v[o00 + 3], v[o10 + 3], tx), mix(v[o01 + 3], v[o11 + 3], tx), ty);
+      };
+
+      const d = this.lineData;
+      const uv = this._mvUV || (this._mvUV = [0, 0]);
+      let count = 0;
+      const push = (x, y) => {
+        const k = count * 6;
+        d[k] = x * 2 - 1;
+        d[k + 1] = this._toClipY(y);
+        d[k + 2] = r; d[k + 3] = g; d[k + 4] = b; d[k + 5] = al;
+        count++;
+      };
+
+      gl.useProgram(this.lineProg);
+      gl.bindVertexArray(this.lineVao);
+      this._blend(gl, false);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+      /* Tampon dolunca BOŞALTILIYOR, kesilmiyor: 64x48'lik bir ızgara 3072
+         vektör demek ve çizgi tamponu 512 düğümlük. Kesmek ızgaranın
+         yalnızca üst şeridini çizerdi. */
+      const flush = () => {
+        if (count < 2) { count = 0; return; }
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
+        gl.drawArrays(gl.LINES, 0, count);
+        count = 0;
+      };
+      for (let j = 0; j < NY; j++) {
+        for (let i = 0; i < NX; i++) {
+          const x = (i + 0.5) / NX + dx0;
+          const y = (j + 0.5) / NY + dy0;
+          if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+          sampleUV(x, y, uv);
+          if (!isFinite(uv[0]) || !isFinite(uv[1])) continue;
+          /* Vektör, noktanın örneklediği yerden noktanın KENDİSİNE doğru:
+             görüntünün aktığı yönü gösteriyor. Ters çizmek akışı geriye
+             akıyormuş gibi gösterirdi. */
+          const ex = x + (x - uv[0]) * L;
+          const ey = y + (y - uv[1]) * L;
+          if (!isFinite(ex) || !isFinite(ey)) continue;
+          if (count + 2 > 512) flush();
+          push(x, y);
+          push(ex, ey);
+        }
+      }
+      flush();
+      gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
     }
 
     /* Warp ağı: her düğümde per_pixel koşuyor ve düğümün önceki kareden

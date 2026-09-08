@@ -881,6 +881,13 @@
     ['bmodwavealphabyvolume', 'wave_modalpha'],
     ['fmodwavealphastart', 'wave_modalpha_start'],
     ['fmodwavealphaend', 'wave_modalpha_end'],
+    /* HAREKET VEKTÖRLERİ. Korpustaki presetlerin %92'sinde ızgara açık ama
+       görünürlüğü `mv_a` belirliyor: %8,6'sı dosyada sıfırdan büyük bir
+       alfa yazıyor, %5,7'si de per_frame içinde açıp kapıyor. Başlıktaki ad
+       ile denklemlerdeki ad burada da farklı — nMotionVectorsX / mv_x. */
+    ['nmotionvectorsx', 'mv_x'],
+    ['nmotionvectorsy', 'mv_y'],
+    ['bmotionvectorson', 'mv_on'],
   ];
 
   const SHARED_VARS = [
@@ -911,6 +918,17 @@
       this.pool.set('wave_y', 0.5);
       this.pool.set('wave_brighten', 1);
       this.pool.set('wave_scale', 1);
+      /* Hareket vektörleri. Uzunluk çarpanı belirtilmezse 1: MilkDrop'un
+         varsayılanı da bu ve 0 kalsaydı vektörler sıfır uzunlukta çizilip
+         hiç görünmezdi. Renk beyaz, alfa 0 — yani preset açıkça istemedikçe
+         görünmüyorlar, MilkDrop'ta olduğu gibi. */
+      this.pool.set('mv_l', 1);
+      this.pool.set('mv_r', 1);
+      this.pool.set('mv_g', 1);
+      this.pool.set('mv_b', 1);
+      this.pool.set('mv_a', 0);
+      this.pool.set('mv_x', 16);
+      this.pool.set('mv_y', 12);
       // MilkDrop'un varsayılanı sarma AÇIK
       this.pool.set('wrap', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer
