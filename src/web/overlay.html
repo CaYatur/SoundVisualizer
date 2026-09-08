@@ -72,6 +72,17 @@
     <script src="/app/shared/transition.js"></script>
     <script src="/app/shared/warp.js"></script>
     <script src="/app/shared/milkdrop.js"></script>
+    <!-- MilkDrop'un ÜÇ parçası daha var ve üçü de zorunlu: audio bant
+         normalizasyonunu, hlsl+shader ise preset shader'larının GLSL'e
+         çevrilmesini yapıyor. Yalnız milkdrop.js yüklendiğinde mod
+         `new window.SVMilkdropAudio.MilkdropAudio()` satırında her karede
+         istisna atıyor ve web'de MilkDrop hiç görünmüyordu. -->
+    <script src="/app/shared/milkdrop-audio.js"></script>
+    <script src="/app/shared/milkdrop-hlsl.js"></script>
+    <script src="/app/shared/milkdrop-shader.js"></script>
+    <script src="/app/shared/aspect.js"></script>
+    <script src="/app/shared/timeline.js"></script>
+    <script src="/app/shared/clipdeck.js"></script>
     <script src="/app/shared/recorder.js"></script>
     <script src="/app/shared/templates.js"></script>
     <script src="/app/shared/lyrics.js"></script>
@@ -85,6 +96,7 @@
     <script src="/app/visualizer/modes/generative.js"></script>
     <script src="/app/visualizer/modes/milkdrop.js"></script>
     <script src="/app/visualizer/modes/text.js"></script>
+    <script src="/app/visualizer/modes/nowplaying.js"></script>
     <script src="/app/visualizer/modes/backgrounds-extra.js"></script>
     <script src="/app/visualizer/modes/backgrounds-gen.js"></script>
     <script src="/app/visualizer/modes/shaderhost.js"></script>
