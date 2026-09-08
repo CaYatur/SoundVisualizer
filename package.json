@@ -26,7 +26,8 @@
     "smoke": "node scripts/start.js --smoke",
     "dist:linux": "npm run icons && electron-builder --linux --x64 --publish never",
     "dist:mac:arm64": "npm run icons && electron-builder --mac --arm64 --publish never",
-    "check:runtime": "node scripts/check-runtime.js"
+    "check:runtime": "node scripts/check-runtime.js",
+    "release:assets": "node scripts/release-assets.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

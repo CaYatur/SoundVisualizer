@@ -879,6 +879,22 @@ as **BlackHole**.
 **Linux** needs PulseAudio or PipeWire. The `.deb` declares `libpulse0` among its dependencies; the
 AppImage expects the same library to already be present.
 
+### Publishing the files to a release
+
+The description next to each file in a release's asset list (`(Windows — installer)` and so on) is
+written by hand with `gh release upload file#label`, and in v3.1.3 it was forgotten — all six files
+went out unlabelled. The table now lives in a script:
+
+```bash
+npm run release:assets -- v3.1.3 --dir=<the folder CI artifacts were downloaded into>
+```
+
+It looks for every expected file in `dist/` and in the folders given with `--dir` (nested one level,
+which is how `gh run download` lays artifacts out), refuses to upload anything unless all six are
+present, and re-reads the release afterwards to confirm each label was actually written. Add
+`--dry-run` to see what would be uploaded, `--check` to audit a release that is already published,
+and `--partial` when a partial upload really is intended.
+
 ---
 
 ## Usage

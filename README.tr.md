@@ -878,6 +878,22 @@ gibi sanal bir aygıt gerekir.
 **Linux** PulseAudio ya da PipeWire ister. `.deb` bağımlılıkları arasında `libpulse0` bildiriliyor;
 AppImage de aynı kitaplığın halihazırda kurulu olmasını bekliyor.
 
+### Dosyaları sürüme yükleme
+
+Sürümün varlık listesinde her dosyanın yanında görünen açıklama (`(Windows — installer)` gibi)
+`gh release upload dosya#etiket` biçimiyle elle yazılıyordu ve v3.1.3'te unutuldu — altı dosya da
+etiketsiz yayımlandı. Tablo artık bir betikte:
+
+```bash
+npm run release:assets -- v3.1.3 --dir=<CI çıktılarının indirildiği klasör>
+```
+
+Beklenen dosyaları `dist/` altında ve `--dir` ile verilen klasörlerde arıyor (bir seviye alt klasör
+dahil; `gh run download` çıktıları böyle yerleştiriyor), altısı birden bulunmazsa hiçbirini
+yüklemiyor ve yüklemeden sonra sürümü yeniden okuyup etiketlerin gerçekten yazıldığını doğruluyor.
+`--dry-run` ne yükleneceğini gösterir, `--check` yayımlanmış bir sürümü denetler, `--partial` ise
+eksik yüklemenin bilerek yapıldığı durumlar içindir.
+
 ---
 
 ## Kullanım

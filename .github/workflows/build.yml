@@ -50,8 +50,20 @@ jobs:
           sudo apt-get install -y libpulse0 libarchive-tools
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
+      # ffmpeg-static kurulum sonrasi kendi ikilisini GitHub'dan indiriyor ve o
+      # uc ara sira 500 donuyor; npm ci o zaman dusuyor. v3.1.3 etiketinde tam
+      # olarak bu oldu: ayni is bir saat once ayni koddan gecmisti. Kodla ilgisi
+      # yok, bu yuzden tekrar deniyoruz -- gercek bir kurulum hatasi ucunde de
+      # duser ve is yine kirmiziya doner.
       - name: Install
-        run: npm ci
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            npm ci && exit 0
+            echo "npm ci basarisiz (deneme $i/3) - 20 sn sonra tekrar"
+            sleep 20
+          done
+          exit 1
 
       # macOS ve Linux için asıl bilinmez bu: ses motoru orada yükleniyor mu?
       - name: Audio runtime check
@@ -89,8 +101,20 @@ jobs:
           sudo apt-get install -y libpulse0 libarchive-tools
           sudo apt-get install -y libasound2t64 || sudo apt-get install -y libasound2
 
+      # ffmpeg-static kurulum sonrasi kendi ikilisini GitHub'dan indiriyor ve o
+      # uc ara sira 500 donuyor; npm ci o zaman dusuyor. v3.1.3 etiketinde tam
+      # olarak bu oldu: ayni is bir saat once ayni koddan gecmisti. Kodla ilgisi
+      # yok, bu yuzden tekrar deniyoruz -- gercek bir kurulum hatasi ucunde de
+      # duser ve is yine kirmiziya doner.
       - name: Install
-        run: npm ci
+        shell: bash
+        run: |
+          for i in 1 2 3; do
+            npm ci && exit 0
+            echo "npm ci basarisiz (deneme $i/3) - 20 sn sonra tekrar"
+            sleep 20
+          done
+          exit 1
 
       - name: Package
         run: npm run ${{ matrix.script }}
