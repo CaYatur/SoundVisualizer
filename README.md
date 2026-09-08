@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111827.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1121%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1123%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -234,6 +234,30 @@ that asserts the bar profile has no step in it.
 - **GLSL editor** with live preview, error line reporting and your own sliders.
 - **42 built-in shaders**, all compiled on a real GPU by the self-test.
 - **Shadertoy and ISF import** through local converters. No service is contacted.
+
+---
+
+## Aspect correction
+
+A display's reported resolution does not always match its physical shape. A panel driven at
+1920x1080 that is really about 3:1 — a stage LED wall, a bar display, an anamorphic projector, a TV
+forced into a stretched mode — draws every circle as an ellipse. Logos come out squashed, and so
+does everything else: text, effects, the background.
+
+- **The frame is never stretched.** Scaling a finished frame up crops it and scaling it down leaves
+  bars. Instead the scene is drawn on a square-pixel canvas matching the panel's real shape and
+  squeezed linearly into the framebuffer, where the panel's own distortion undoes the squeeze.
+  Nothing is cropped and nothing is pushed off the edge.
+- **One setting corrects everything** — background, visualizer, logo, text and sprites share the
+  same logical space, so pre-stretching each image by hand stops being necessary.
+- **Calibrated by eye.** Nobody can measure the LED wall behind the stage, but anyone can see
+  whether a circle is round: turn on a circle, square or grid and move the slider until it looks
+  right. Panel size, true aspect ratio and the dimensions of an already-stretched image are
+  secondary paths to the same number.
+- **Per screen or all screens**, and it composes with projection mapping without moving an existing
+  corner calibration.
+- **A property of the physical output, not of the scene** — exported video, the stream and the web
+  overlay are left alone.
 
 ---
 
@@ -663,6 +687,13 @@ audio-driven zoom and opacity. The same frame is readable inside Studio shaders 
   quality and encoder, with progress, cancellation and a GPU-to-CPU fallback. It is frame-exact and
   deterministic — the same property the visual regression tests rely on.
 
+### Aspect correction
+
+Corrects displays whose pixels are not square · draws the scene at the panel's real proportions
+instead of stretching the finished frame, so nothing is cropped or letterboxed · corrects
+background, visualizer, logo and text together · calibrated by eye with a circle, square or grid ·
+per screen or all screens · Windows, macOS and Linux.
+
 ### Projection mapping
 
 Corner pin as a true homography · Catmull-Rom mesh warp · per-output crop · per-output colour
@@ -677,7 +708,10 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
 - **Mobile remote** — scenes, templates and Studio presets from a phone, over the same server that
   hosts the OBS overlay.
 - **Tempo** — BPM estimation from a period histogram, tap tempo and a BPM lock.
-- **Auto VJ** — bar-aligned changes of scene, mode and palette.
+- **Auto VJ** — bar-aligned changes of scene, visualizer or palette. Pick exactly which ones
+  cycle, or leave it empty for all; limit colour presets to built-in or your own; give each
+  visualizer layer its own mode. A status line says what changed, what is next, and why nothing
+  can happen when a source is empty.
 
 ### Windows Dynamic Lighting
 
@@ -872,7 +906,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1121 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1123 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

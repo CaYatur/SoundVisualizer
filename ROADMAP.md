@@ -15,7 +15,7 @@ covered by a test or by the GPU self-test.
 | v3.1.0 | Timeline, Clip Deck, accidental-close protection, Electron 43 | 2026-09-02 | Shipped |
 | v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | 2026-09-04 | Shipped |
 | **v3.1.2** | **MilkDrop shader engine, Now Playing overlay, transparent visualizer** | **2026-09-05** | **Current** |
-| v3.1.3 | Per-application audio capture | — | In development |
+| v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | — | In development |
 | v3.1.4 | Comprehensive video export | — | Planned |
 | v3.1.5 | Broadcast layout editor | — | Planned |
 | v3.1.6 | NDI output | — | Deferred |
@@ -25,61 +25,58 @@ covered by a test or by the GPU self-test.
 
 ## Status table
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | **v3.1.2** | Note |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|---|
-| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
-| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
-| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
-| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | Landing in v3.1.3: WASAPI process loopback on Windows; macOS and Linux report why they cannot yet |
-| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
-| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
-| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
-| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | Includes 14 generative modes, nowplaying and geometry |
-| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
-| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
-| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | All share the palette and template system |
-| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
-| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
-| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
-| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
-| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
-| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
-| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
-| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (91.7% stage compile), 8 wave modes, repeat wrap, feedback clamp. Phase 2 quality pass scheduled |
-| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
-| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
-| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | Nine groups, each verified not to damage a working setup |
-| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
-| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
-| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
-| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
-| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
-| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Bar-aligned scene, mode and palette changes |
-| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
-| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
-| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
-| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
-| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
-| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1121** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
-| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
-| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
-| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
-| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
-| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
-| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
-| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
-| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
-| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles |
-| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.2. Full window and canvas transparency for desktop overlay use |
-| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | 33.4.11 reached end of life in April 2025 |
-| Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent_NODE`) |
-| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
-| Electron | 33 | 33 | 33 | 33 | **43** | **43** | 33.4.11 reached end of life in April 2025 |
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | **v3.1.3** | Note |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|---|
+| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
+| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
+| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.3 on Windows: WASAPI process loopback, include or exclude, several applications at once, targets stored by name and re-attached. macOS and Linux report why they cannot |
+| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
+| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
+| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
+| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | **50** | Includes 14 generative modes, nowplaying and geometry |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
+| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | **31** | All share the palette and template system |
+| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
+| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
+| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
+| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
+| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
+| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
+| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
+| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
+| Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (91.7% stage compile), 8 wave modes, repeat wrap, feedback clamp. Phase 2 quality pass scheduled |
+| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
+| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
+| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
+| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | **72** | Nine groups, each verified not to damage a working setup |
+| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
+| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
+| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
+| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
+| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
+| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Rebuilt in v3.1.3: pick exactly which scenes, visualizers or presets cycle, all 46 visualizer modes, per-layer variety, and a status line saying what changed and why nothing can |
+| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
+| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
+| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency |
+| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
+| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
+| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **960** unit tests at v3.1.2, **1123** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
+| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
+| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
+| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
+| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
+| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
+| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
+| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
+| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles |
+| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.2. Full window and canvas transparency for desktop overlay use |
+| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | **43** | 33.4.11 reached end of life in April 2025 |
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 
 ### Not shipped yet
@@ -90,17 +87,18 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Per-app audio capture | v3.1.2 | Not started. Needs a native module on both Windows and macOS; the same API family gives macOS its missing system-audio loopback |
-| Comprehensive video export | v3.1.3 | Not started |
-| Broadcast layout editor | v3.1.4 | Not started |
-| NDI | v3.1.5 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
+| Per-app audio capture on macOS and Linux | v3.1.4 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
+| Live level meter per application | v3.1.4 | The picker lists and remembers applications but shows an audible/silent icon, not a moving level |
+| Comprehensive video export | v3.1.4 | Not started |
+| Broadcast layout editor | v3.1.5 | Not started |
+| NDI | v3.1.6 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
 
 ### Shipped, but never run on real hardware
 
-Four things went out in v3.1.1 that this machine cannot verify. They pass
-their tests and they are in users’ hands, so they belong in the table above
-rather than in "not shipped" — but calling them proven would be a lie.
+Some things pass their tests and are in users’ hands, but this machine
+cannot verify them. They belong in the table above rather than in "not
+shipped" — but calling them proven would be a lie.
 
 | What | Verified | Not verified |
 |---|---|---|
@@ -108,6 +106,7 @@ rather than in "not shipped" — but calling them proven would be a lie.
 | Linux build | Builds on a Linux runner; `audify` loads there in CI, and the `.deb` declares `libpulse0` | Never launched on a desktop. Monitor-source enumeration is untested against a real PulseAudio or PipeWire server |
 | OpenRGB | Protocol encoded and decoded against a server implementing the wire format, 38 tests | Never driven a physical LED. Vendor quirks and per-device direct-mode support are unknown |
 | Syphon | Shares the whole code path with Spout, which was measured end to end on Windows. The macOS handle conversion is unit-tested | Never run on a Mac. The IOSurface path has never touched a real GPU |
+| Per-app audio capture on macOS and Linux | The platform rules are a pure module with 36 tests: Windows build 20348, macOS 13 via ScreenCaptureKit, Linux via PipeWire or PulseAudio, and each unsupported case reports its own reason | Neither has a capture backend at all. Nothing has been run on a Mac or a Linux desktop |
 
 This table shrinks as the hardware becomes available; nothing is moved out of
 it on the strength of an argument.
@@ -127,7 +126,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **1121 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1123 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 152 came with v3.1.2; 110 have come with v3.1.3 so far.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -417,7 +416,7 @@ and verifying that it still does is part of the work.
   - Support for `background.transparent` toggle, creating an Electron window with `transparent: true` and `#00000000` background, clearing canvases with `clearRect`, and removing body background to run overlays directly above the desktop or game capture.
 - **Verification**: 960 unit tests passed at release. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
 
-## v3.1.3 — Per-application audio capture · in development
+## v3.1.3 — Per-application audio capture and aspect correction · in development
 
 Pick which application's audio is analysed. Separate a game or a voice chat
 from the music, so the visualizer follows only Spotify or the DAW instead of
@@ -469,6 +468,100 @@ Only applications with a live audio session can be picked from the list —
 that is where the list comes from. A saved target outlives the session: it
 is stored by name, so closing and reopening the application re-attaches it.
 
+### Aspect correction
+
+A display's reported resolution does not always match its physical shape. A
+panel driven at 1920x1080 that is really about 3:1 — a stage LED wall, a bar
+display, an anamorphic projector, a TV forced into a stretched mode — draws
+every circle as an ellipse. Logos come out squashed, and so does everything
+else: text, effects, the background. The operating system does not know, and
+the application cannot see it: the window is 1920x1080 and the rest is behind
+the glass.
+
+- **The frame is not stretched.** Scaling a finished frame up crops it and
+  scaling it down leaves bars; both lose picture. Instead the scene is drawn
+  onto a square-pixel canvas whose proportions match the panel's real shape,
+  and that canvas is squeezed linearly into the framebuffer. The panel's own
+  distortion undoes the squeeze. No cropping, no bars, nothing pushed off the
+  edge.
+- **One setting corrects everything.** Background, visualizer, logo, text and
+  sprites all share the same logical space, so they are corrected together —
+  which is the point, since the usual workaround (pre-stretching an image in
+  another program) fixes the logo and nothing else. The panel says to swap
+  such images back to their originals, because they already carry the
+  compensation and would otherwise be corrected twice.
+- **Calibration is by eye.** Nobody can measure the LED wall behind the stage,
+  but anyone can see whether a circle is round. Turn on a circle, square or
+  grid pattern and move a logarithmic slider until it looks right. Entering
+  the panel size, its true aspect ratio, or the dimensions of an image already
+  stretched by hand are secondary paths to the same number.
+- **Per screen or all screens**, keyed the same way as projection mapping.
+- **Full resolution by default.** Splitting the difference between the axes
+  keeps the pixel count identical but, at a real pixel ratio of 1.68, renders
+  833 rows and stretches them over the panel's 1080 — throwing away
+  resolution the display can actually show. The default keeps every axis at or
+  above the framebuffer instead; the cost is stated in the panel and capped so
+  an extreme ratio on a 4K panel cannot stall the render.
+- **Cross-platform.** This is canvas geometry, not native code: it works on
+  Windows, macOS and Linux alike.
+- **A property of a physical output, not of the scene.** It applies only to
+  the visualizer window on that display. Exported video, the stream and the
+  web overlay are left alone — they are watched on other screens, where the
+  correction would itself be the distortion.
+- **Composes with projection mapping**, which stays a separate stage for a
+  different problem: mapping fits the image to an uneven surface, this repairs
+  the panel's pixel geometry. Mapping coordinates are normalized and the
+  squeeze is linear, so an existing corner calibration does not move.
+
+Measured on Windows 11 build 28020: on a 1920x1080 window with a pixel ratio
+of 1.681 the logical canvas becomes 3228x1080, and a shape drawn 1:1 comes out
+at 0.9999 — round. With the correction switched off the same measurement
+reports 1.68, so it distinguishes the two cases rather than always agreeing.
+With projection mapping enabled at the same time, the mapper canvas follows
+the corrected source exactly.
+
+### Tempo and Auto VJ
+
+Auto VJ was reported as not working. It had been working the whole time; it
+had no way to say so, and four other faults were silent.
+
+- **The silent failure.** The default source was Scenes, and with no saved
+  scenes — every new install — the switch failed and returned false. Nothing
+  changed, nothing was printed, and the feature was indistinguishable from a
+  broken one. The default is now Visualizers, which is never empty, and a
+  status line reports what changed, what is next, and why nothing can happen
+  when a source is empty.
+- **Clicks were being dropped.** The panel rebuilt itself on every switch, so
+  a click landing during the rebuild hit a node that was being replaced. This
+  is why the source buttons appeared dead. The status line now updates in
+  place and the panel is not rebuilt while running.
+- **Text layers were destroyed.** A text layer carries `kind: 'visualizer'`
+  with `type: 'text'`. Auto VJ took the first match and overwrote its type,
+  turning a configured text layer into a spectrum analyzer with no undo.
+- **Two visualizers collapsed into one.** Every targeted layer was given the
+  same type. Each layer now draws its own, distinct within a switch.
+- **One cursor drove two rotations** — which item comes next, and in All mode
+  which kind comes next — so they interfered. Cursors are now per source.
+- **Colour presets did nothing visible** unless the background happened to be
+  in gradient mode; they now drive the visualizer colours as well.
+- **Scenes bled into each other**, and the copy of the scene loader that Auto
+  VJ carried was missing blackout protection, image normalization and layer
+  stack sync. With the output blacked out, switching a scene would have lifted
+  the blackout on stage. There is now one loader.
+- **Comprehensiveness.** Each source takes an optional list of exactly which
+  scenes, visualizers or presets to cycle, empty meaning all; colour presets
+  can be limited to built-in or user-made; the rotation covers all 46
+  visualizers the type picker offers rather than the 30 that were hard-coded —
+  spectrogram, flowfield, galaxy, dna and milkdrop among those it had never
+  once reached. A test compares the two lists so they cannot drift apart.
+- Random no longer repeats the item it just showed, which read as the feature
+  having stopped.
+
+Rules live in `src/shared/autovj.js` with 23 tests. Measured in the packaged
+build: with two visualizer layers and one text layer, three switches in 2.6 s
+produced different types per layer, left the text layer untouched, and
+rebuilt the panel zero times.
+
 ### Also landed in this release
 
 - **Adaptive colour theme engine** (`src/shared/adaptive-theme.js`):
@@ -515,7 +608,7 @@ is stored by name, so closing and reopening the application re-attaches it.
 
 ### Verification
 
-1121 unit tests pass on `main` (161 of them added during v3.1.3). The GPU smoke
+1123 unit tests pass on `main` (163 of them added during v3.1.3). The GPU smoke
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 

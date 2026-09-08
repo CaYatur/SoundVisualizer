@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111827.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1121%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1123%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -226,6 +226,30 @@ profilinde basamak olmadığını doğruluyor.
 - **GLSL düzenleyici**; canlı önizleme, hata satırı bildirimi ve kendi kaydırıcılarınız.
 - **42 yerleşik shader**, hepsi öz testte gerçek GPU'da derleniyor.
 - **Shadertoy ve ISF içe aktarma**, yerel dönüştürücülerle. Hiçbir servise bağlanılmıyor.
+
+---
+
+## Basıklık düzeltme
+
+Bir ekranın bildirdiği çözünürlük fiziksel şekliyle her zaman uyuşmaz. 1920x1080 beslenen ama
+gerçekte yaklaşık 3:1 olan bir panelde — sahne LED duvarı, bar tipi ekran, anamorfik lensli
+projektör, gerilmiş moda zorlanmış televizyon — her daire elips çıkar. Logo ezik görünür; yazı,
+efektler ve arkaplan da öyle.
+
+- **Görüntü gerilmez.** Hazır bir kareyi büyütmek kırpar, küçültmek siyah bant bırakır. Bunun
+  yerine sahne, panelin gerçek şekline eşit oranlı kare pikselli bir tuvale çizilir ve çerçeveye
+  doğrusal olarak sıkıştırılır; panelin kendi çarpıklığı sıkıştırmayı geri alır. Kırpma olmaz,
+  hiçbir şey kenardan taşmaz.
+- **Tek ayar hepsini düzeltir** — arkaplan, görselleştirici, logo, yazı ve görsel nesneler aynı
+  mantıksal uzayı paylaşır; görselleri tek tek önceden germek gerekmez.
+- **Gözle kalibre edilir.** Sahnenin arkasındaki LED duvarı kimse ölçemez ama bir dairenin
+  yuvarlak olup olmadığını herkes görür: daire, kare ya da ızgara desenini açıp kaydırıcıyı
+  düzgün görünene kadar oynatın. Panel ölçüsü, gerçek en boy oranı ve elle gerilmiş bir görselin
+  boyutu aynı sayıya götüren yardımcı yollardır.
+- **Ekran başına ya da tüm ekranlar için**, ve projeksiyon haritalamasıyla birlikte çalışır:
+  kurulmuş bir köşe kalibrasyonu yerinden oynamaz.
+- **Sahnenin değil fiziksel çıkışın özelliğidir** — dışa aktarılan video, yayın ve web kaplaması
+  düzeltilmez.
 
 ---
 
@@ -661,6 +685,13 @@ okunabilir.
   kodlayıcıyla MP4'e render eder; ilerleme, iptal ve GPU'dan CPU'ya geri düşüşle. Kare kare kesin ve
   deterministiktir — görsel regresyon testlerinin dayandığı özellik de bu.
 
+### Basıklık düzeltme
+
+Pikselleri kare olmayan ekranları düzeltir · hazır kareyi germek yerine sahneyi panelin gerçek
+oranında çizer, böylece kırpma ve siyah bant oluşmaz · arkaplan, görselleştirici, logo ve yazıyı
+birlikte düzeltir · daire, kare ya da ızgara deseniyle gözle kalibre edilir · ekran başına ya da
+tüm ekranlar · Windows, macOS ve Linux.
+
 ### Projeksiyon haritalama
 
 Gerçek homografi olarak köşe düzeltme · Catmull-Rom ağ bükme · ekran başına kırpma · ekran başına
@@ -676,7 +707,11 @@ sayısal giriş.
 - **Mobil kumanda** — OBS katmanını barındıran aynı sunucudan, telefonla sahneler, şablonlar ve
   Studio presetleri.
 - **Tempo** — periyot histogramından BPM kestirimi, elle tempoya vurma ve BPM kilidi.
-- **Otomatik VJ** — ölçüye hizalı sahne, mod ve palet değişimleri.
+- **Otomatik VJ** — ölçüye hizalı sahne, görselleştirici ve palet değişimleri. Hangilerinin
+  dolaşacağını tek tek seçebilir ya da boş bırakıp hepsini kullanabilirsiniz; renk şablonlarını
+  hazır olanlarla ya da kendi yaptıklarınızla sınırlayabilir, her görselleştirici katmanına ayrı
+  mod verebilirsiniz. Durum satırı ne değiştiğini, sıradakini ve kaynak boşsa neden hiçbir şey
+  olamayacağını yazar.
 
 ### Windows Dynamic Lighting
 
@@ -871,7 +906,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1121 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1123 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

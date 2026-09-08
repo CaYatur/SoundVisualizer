@@ -278,3 +278,42 @@ test('varsayılan kaynak listesi hâlâ aygıt', () => {
   assert.deepStrictEqual(devices, ['default']);
   assert.strictEqual(apps.length, 0);
 });
+
+/* Set ortasında aygıt değişimi.
+
+   Kaynak seçicisinin göründüğünden çok durumu var ve bunlardan biri canlı
+   gösteride gerçekten oluyor: seçili çıkış aygıtı kayboluyor (kablo çıkıyor,
+   arayüz uykuya dalıyor, Windows varsayılanı değiştiriyor). Uygulama
+   kaynağının bundan ETKİLENMEMESİ gerekir — o aygıta değil sürece bağlı. */
+test('aygıt kaybolunca uygulama kaynağı ayakta kalır', () => {
+  const sources = ['Kaybolan Arayüz', { kind: 'app', match: 'spotify.exe', mode: 'include' }];
+  const before = A.splitSources(sources);
+  assert.deepStrictEqual(before.devices, ['Kaybolan Arayüz']);
+  assert.strictEqual(before.apps.length, 1);
+
+  /* Aygıt listeden düştü; kaynak listesi aynı kaldı. Uygulama hedefi hâlâ
+     çözülebilmeli, çünkü aygıtla ilgisi yok. */
+  const after = A.splitSources(sources.filter((s) => typeof s !== 'string'));
+  assert.deepStrictEqual(after.devices, []);
+  assert.strictEqual(after.apps.length, 1);
+  assert.strictEqual(after.apps[0].match, 'spotify.exe');
+
+  const target = A.resolveTarget(after.apps[0], [
+    { pid: 900, name: 'spotify.exe', audible: true },
+  ]);
+  assert.strictEqual(target.pid, 900, 'aygıt değişimi uygulama hedefini düşürdü');
+});
+
+test('aygıt değişiminde yeni varsayılan seçilebiliyor', () => {
+  /* Seçicinin öteki yarısı: aygıt gidince yerine geçecek olanı bulmak.
+     İkisi birlikte "set ortasında aygıt değişti" durumunu kapatıyor. */
+  const devices = require('../src/shared/audio-devices.js');
+  const before = devices.pickDefault(
+    [{ name: 'Kaybolan Arayüz', isDefault: true }, { name: 'Hoparlör' }], 'win32'
+  );
+  assert.ok(before, 'başlangıçta aygıt seçilemedi');
+
+  const after = devices.pickDefault([{ name: 'Hoparlör' }], 'win32');
+  assert.ok(after, 'aygıt kaybolunca yerine geçecek bulunamadı');
+  assert.notStrictEqual(after.name, 'Kaybolan Arayüz');
+});
