@@ -627,6 +627,99 @@
      uygulanmalı, yoksa fonksiyon tanımı ile çağrısı farklı dillerde olur.
      Atama sarmalayıcısı burada DEĞİL: o, iki bölümden birlikte çıkarılan
      tip çizelgesini gerektiriyor. */
+  /* HLSL'in dizi ilk değeri:  float4 samples[4] = { a,b,c,d, e,f,g,h, ... };
+     GLSL ES 3.00'da bu sözdizimi yok; kurucu gerekiyor:
+        vec4 samples[4] = vec4[4]( vec4(a,b,c,d), vec4(e,f,g,h), ... )
+     HLSL listeyi DÜZ yazmayı serbest bırakıyor — 4 adet float4 için 16
+     skaler — ve ORB presetleri tam olarak böyle yazıyor. Bu yüzden varsa iç
+     süslü parantezler atılıp liste bileşen sayısına göre yeniden gruplanıyor.
+
+     Sayı tutmuyorsa metne DOKUNULMUYOR: tanımadığımız bir biçimi yarım
+     çevirmek, hiç çevirmemekten daha kötü bir hata verir. */
+  function arrayInit(s) {
+    const names = [];
+    const re = /\b(float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(\d+)\s*\]\s*=\s*\{/g;
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = re.exec(s)) !== null) {
+      // Açılan süslü parantezin eşini say: iç içe liste de olabiliyor.
+      let depth = 1;
+      let i = re.lastIndex;
+      for (; i < s.length && depth > 0; i++) {
+        if (s[i] === '{') depth++;
+        else if (s[i] === '}') depth--;
+      }
+      if (depth !== 0) break; // kapanmamış: dokunma
+      const inner = s.slice(re.lastIndex, i - 1);
+      const type = m[1];
+      const count = Number(m[3]);
+      const width = type === 'float' ? 1 : Number(type.slice(3));
+      const items = inner.replace(/[{}]/g, ' ').split(',')
+        .map((x) => x.trim()).filter((x) => x.length);
+      if (items.length !== width * count) { re.lastIndex = i; continue; }
+      const groups = [];
+      for (let k = 0; k < count; k++) {
+        const g = items.slice(k * width, (k + 1) * width);
+        groups.push(width === 1 ? g[0] : type + '(' + g.join(', ') + ')');
+      }
+      out += s.slice(last, m.index) +
+        type + ' ' + m[2] + '[' + count + '] = ' + type + '[' + count + '](' + groups.join(', ') + ')';
+      last = i;
+      re.lastIndex = i;
+      names.push(m[2]);
+    }
+    s = last ? out + s.slice(last) : s;
+    return names.length ? arrayIndex(s, names) : s;
+  }
+
+  /* Dizi indeksi GLSL'de TAM SAYI olmak zorunda. HLSL'de değil, ve presetler
+     döngü değişkenini float yazıyor: ORB'nin üç preseti
+     `for(float i=0;i<4;i++) samples[i]` diyor. Sayılar zaten float'a
+     çekildiği için indeks de float oluyor ve derleyici "integer expression
+     required" veriyor.
+
+     Düz tam sayı sabitine dokunulmuyor: hem gereksiz, hem de bildirimin
+     kendisi (`samples[4] = ...`) o biçimde ve sarılmamalı. */
+  /* Metindeki dizi bildirimlerinin adları.
+
+     Ayrı bir geçiş olmak zorunda: bildirim `shader_body`den ÖNCE, kullanım
+     gövdede olabiliyor ve rewriteText ikisine AYRI AYRI uygulanıyor. Yalnız
+     arrayInit'in kendi metnine bakmak, ORB presetlerinde adı hiç görmüyordu
+     — dizi doğru kuruluyor, indeksi float kalıyordu. */
+  function arrayNames(text) {
+    const out = [];
+    const re = /\b(?:float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*\d+\s*\]/g;
+    let m;
+    while ((m = re.exec(text)) !== null) if (out.indexOf(m[1]) < 0) out.push(m[1]);
+    return out;
+  }
+
+  function arrayIndex(s, names) {
+    for (const n of names) {
+      const re = new RegExp('\\b' + n + '\\s*\\[', 'g');
+      let out = '';
+      let last = 0;
+      let m;
+      while ((m = re.exec(s)) !== null) {
+        let depth = 1;
+        let i = re.lastIndex;
+        for (; i < s.length && depth > 0; i++) {
+          if (s[i] === '[') depth++;
+          else if (s[i] === ']') depth--;
+        }
+        if (depth !== 0) break;
+        const idx = s.slice(re.lastIndex, i - 1).trim();
+        if (/^\d+$/.test(idx) || /^int\s*\(/.test(idx)) { re.lastIndex = i; continue; }
+        out += s.slice(last, m.index) + n + '[int(' + idx + ')]';
+        last = i;
+        re.lastIndex = i;
+      }
+      if (last) s = out + s.slice(last);
+    }
+    return s;
+  }
+
   function rewriteText(s) {
     /* Presetlerin %25,9'u kendi doku değişkenini bildiriyor
        (`sampler2D sampler_lichen;`). Bunu biz uniform olarak zaten
@@ -674,6 +767,7 @@
       function (all, t, name, args) {
         return t + ' ' + name + ' = hmat' + t.slice(3) + '(' + args.trim().replace(/,\s*$/, '') + ')';
       });
+    s = arrayInit(s);
     s = floatify(s);
     s = modFix(s);
     s = s.replace(/\bpow\s*\(/g, 'mdPow(');
@@ -717,7 +811,18 @@
       }
       for (const part of names) {
         const nm = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:$|=|\[)/.exec(part);
-        if (nm) types.set(nm[1], dm[1]);
+        if (!nm) continue;
+        /* DİZİ ise çizelgeye YAZILMIYOR.
+
+           `vec4 samples[4]` adı vec4 diye kaydedilirse `samples[i]` bir
+           BİLEŞEN erişimi sanılıyor, sonuç float çıkıyor ve daraltma
+           `samples[i].x` içindeki `.x`i skaler swizzle diye siliyor. ORB'nin
+           üç preseti tam olarak böyle bozuluyordu: `vec2(samples[i]*a,
+           samples[i]*b)` sekiz bileşen veriyor ve "too many arguments"
+           diyordu. Tipi hiç bilmemek burada bilmekten iyi: bilinmeyen ad
+           daraltmaya uğramıyor ve ifade olduğu gibi, doğru biçimde kalıyor. */
+        if (/^\s*[A-Za-z_][A-Za-z0-9_]*\s*\[/.test(part)) continue;
+        types.set(nm[1], dm[1]);
       }
     }
     return types;
@@ -855,6 +960,14 @@
     }
 
     const pair = [parts.globals ? rewriteText(parts.globals) : '', rewriteText(parts.body)];
+    /* Dizi indeksleri iki parça BİRLİKTE bilinerek sarılıyor: bildirim
+       globals'ta, kullanım gövdede olabiliyor. Zaten sarılmış olan yeniden
+       sarılmaz (arrayIndex `int(` görürse dokunmuyor). */
+    const arrays = arrayNames(pair[0] + '\n' + pair[1]);
+    if (arrays.length) {
+      pair[0] = arrayIndex(pair[0], arrays);
+      pair[1] = arrayIndex(pair[1], arrays);
+    }
     const alias = aliasWrittenUniforms(pair);
     const gRaw = pair[0];
     const bRaw = pair[1];

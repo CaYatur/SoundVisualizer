@@ -363,3 +363,33 @@ test('translate: rand_preset float4', () => {
   assert.ok(!/^\s*ret = ret \* rand_preset;/m.test(s.glsl),
     'vec3 * vec4 daraltılmadan geçmemeli');
 });
+
+test('translate: HLSL dizi ilk değerini GLSL kurucusuna çevirir', () => {
+  /* ORB presetleri `const float4 samples[4] = { 16 skaler };` yazıyor —
+     HLSL listeyi DÜZ yazmayı serbest bırakıyor. GLSL ES'te bu sözdizimi
+     yok; kurucu gerekiyor ve liste bileşen sayısına göre gruplanmalı. */
+  const r = T.translate(
+    'const float4 s[2] = { 1,2,3,4, 5,6,7,8 };\nshader_body { ret = s[0].xyz; }');
+  assert.match(r.glsl, /vec4 s\[2\] = vec4\[2\]\(vec4\(1\.0, 2\.0, 3\.0, 4\.0\), vec4\(5\.0, 6\.0, 7\.0, 8\.0\)\)/);
+});
+
+test('translate: dizi indeksi tam sayıya çevriliyor', () => {
+  /* `for(float i=...) s[i]` GLSL'de "integer expression required" veriyor.
+     Bildirim gövdeden AYRI yerde olabildiği için ad iki parçadan birlikte
+     toplanıyor; yalnız kendi metnine bakan bir geçiş bunu kaçırıyordu. */
+  const r = T.translate(
+    'float s[2] = { 1, 2 };\nshader_body { for(float i=0;i<2;i++) ret += s[i]; }');
+  assert.match(r.glsl, /s\[int\(i\)\]/);
+  assert.ok(!/s\[int\(int\(/.test(r.glsl), 'iki kez sarılmamalı');
+  assert.match(r.glsl, /float s\[2\]/, 'bildirimdeki boyut sarılmamalı');
+});
+
+test('translate: dizi adı tip çizelgesine yazılmıyor', () => {
+  /* Yazılırsa `s[i]` bileşen erişimi sanılıp `s[i].x` içindeki `.x`
+     siliniyor; ORB presetlerinde bu `vec2(...)` çağrısına sekiz bileşen
+     verip "too many arguments" hatası üretiyordu. */
+  const r = T.translate(
+    'float4 s[2] = { 1,2,3,4, 5,6,7,8 };\nshader_body { ret.xy = vec2(s[0].x, s[0].y); }');
+  assert.match(r.glsl, /s\[0\]\.x/, 'swizzle korunmalı');
+  assert.match(r.glsl, /s\[0\]\.y/);
+});
