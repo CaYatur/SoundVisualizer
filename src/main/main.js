@@ -2925,8 +2925,12 @@ async function runSmoke() {
     if (av.a === 'bars' || av.b === 'wave') {
       errors.push('autovj: a visualizer layer never changed (a=' + av.a + ', b=' + av.b + ')');
     }
-    if (av.a !== av.b) {
-      errors.push('autovj: visualizer layers drifted apart (a=' + av.a + ', b=' + av.b + ')');
+    /* İki katman FARKLI tür almalı. Aynı türü almaları, iki
+       görselleştiriciyi tek görselleştiricinin iki kopyasına çevirir ve
+       kullanıcının kurduğu katman düzenini görsel olarak yok eder. */
+    if (av.a === av.b) {
+      errors.push('autovj: both visualizer layers got the same type ('
+        + av.a + ') — a two-layer stack collapses into one');
     }
     /* Panel her değişimde yeniden kurulmamalı: kurulursa kullanıcının o anda
        yaptığı tıklama, yerinden kaldırılmış bir düğüme gider ve düşer. Eski

@@ -95,50 +95,40 @@
   // Değişimi uygula
   // --------------------------------------------------------------------------
 
-  /* Sahne anahtarları. Bir sahnede olmayan anahtar SİLİNİR, önceki sahneden
-     kalanla bırakılmaz: eskiden kalıyordu ve sahneler birbirine karışıyordu
-     (bir sahnenin logosu, kendisinde logo tanımı olmayan sonraki sahnede de
-     görünmeye devam ediyordu). */
-  const SCENE_KEYS = [
-    'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
-    'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
-    'transition', 'custom', 'milkdrop', 'feedback',
-  ];
+  /* Sahne uygulama KOPYALANMIYOR.
 
-  function applyScene(cfg, sceneItem) {
-    const list = cfg.scenes || [];
-    const found = list.find((s, i) => {
-      const id = String((s && (s.id != null ? s.id : s.name)) != null
-        ? (s.id != null ? s.id : s.name) : i);
-      return id === String(sceneItem.id);
-    });
-    if (!found) return false;
-    const data = found.data || {};
-    const base = window.SV.defaultConfig();
-    for (const key of SCENE_KEYS) {
-      if (data[key] !== undefined) {
-        cfg[key] = JSON.parse(JSON.stringify(data[key]));
-      } else if (base[key] !== undefined) {
-        // Sahnede yoksa VARSAYILANA dön — önceki sahneden sızmasın
-        cfg[key] = JSON.parse(JSON.stringify(base[key]));
-      }
-    }
+     Burada 17 anahtarı elle kopyalayan bir sürüm vardı ve üç şeyi
+     kaçırıyordu: karartma koruması (karartma açıkken sahne doğrudan
+     yazılınca sahnedeki karartma kalkıyordu), görsel nesnelerin
+     normalleştirilmesi ve katman yığını durumunun eşitlenmesi. Bunların
+     hepsi panelin kendi sahne yükleyicisinde zaten var; ikinci bir kopya
+     tutmak yalnızca ikisinin ayrışmasını beklemek olurdu.
+
+     Yükleyici kendi push()'unu ve render()'ını yapıyor: sahne değişimi
+     panelde görünen her şeyi değiştirdiği için yeniden çizim burada
+     istenen davranış. */
+  function applyScene(sceneItem) {
+    if (!P().applyScene) return false;
+    P().applyScene(String(sceneItem.id));
     return true;
   }
 
-  function applyVisualizer(cfg, type, targets) {
+  /* Katman başına AYRI görselleştirici.
+
+     Tüm katmanlara aynı türü yazmak iki görselleştiriciyi tek
+     görselleştiricinin iki kopyasına çevirirdi; kullanıcının kurduğu katman
+     düzeni görsel olarak yok olurdu. Her katman kendi çekimini alıyor. */
+  function applyVisualizer(cfg, items, targets) {
     const layers = R().visualizerLayers(cfg.layers);
     const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
 
     if (layers.length) {
-      /* Tüm görselleştirici katmanları ya da yalnızca ilki. Metin katmanları
-         listeye hiç girmiyor (kural modülü ayıklıyor). */
       const hit = targets === 'first' ? layers.slice(0, 1) : layers;
-      for (const l of hit) l.type = type;
-      if (!isStack && cfg.visualizer) cfg.visualizer.type = type;
+      hit.forEach((l, i) => { l.type = items[i % items.length].id; });
+      if (!isStack && cfg.visualizer) cfg.visualizer.type = items[0].id;
       return true;
     }
-    if (cfg.visualizer) { cfg.visualizer.type = type; return true; }
+    if (cfg.visualizer) { cfg.visualizer.type = items[0].id; return true; }
     return false;
   }
 
@@ -162,12 +152,19 @@
     return touched;
   }
 
-  /* Bir değişim uygula. Dönüş: { ok, kind, label } ya da { ok:false, code } */
+  /* Bir değişim uygula.
+     Dönüş: { ok, kind, pushed } ya da { ok:false, code, kind } */
   function applySwitch() {
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const ctx = ctxOf(cfg);
-    const res = R().plan(cfg.autovj, ctx, rules);
+
+    /* Kaç farklı tür gerekiyor: her görselleştirici katmanı kendi çekimini
+       alacak. Diğer kaynaklarda tek öğe yeter. */
+    const layerCount = a.visualizerTargets === 'first'
+      ? 1 : Math.max(1, R().visualizerLayers(cfg.layers).length);
+
+    const res = R().plan(cfg.autovj, ctx, rules, layerCount);
     if (!res.ok) {
       lastFailure = { code: res.code, kind: res.kind };
       lastResult = null;
@@ -176,8 +173,9 @@
     rules = res.state;
 
     let done = false;
-    if (res.kind === 'scenes') done = applyScene(cfg, res.item);
-    else if (res.kind === 'visualizers') done = applyVisualizer(cfg, res.item.id, a.visualizerTargets);
+    let pushed = false;
+    if (res.kind === 'scenes') { done = applyScene(res.item); pushed = done; }
+    else if (res.kind === 'visualizers') done = applyVisualizer(cfg, res.items, a.visualizerTargets);
     else if (res.kind === 'palettes') done = applyPalette(cfg, res.item);
 
     if (!done) {
@@ -189,9 +187,11 @@
     switchCount++;
     lastResult = {
       kind: res.kind,
-      label: res.kind === 'visualizers' ? visLabel(res.item.id) : res.item.label,
+      label: res.kind === 'visualizers'
+        ? res.items.map((x) => visLabel(x.id)).join(' + ')
+        : res.item.label,
     };
-    return { ok: true, kind: res.kind };
+    return { ok: true, kind: res.kind, pushed };
   }
 
   // --------------------------------------------------------------------------
@@ -286,11 +286,10 @@
     lastSwitch = now;
     barsSince = 0;
     const res = applySwitch();
-    if (res.ok) {
-      /* SADECE gönder, yeniden çizme. Panelin yeniden kurulması kullanıcının
-         o anda yaptığı tıklamayı düşürüyordu. */
-      P().push(true);
-    }
+    /* SADECE gönder, yeniden çizme — panelin yeniden kurulması kullanıcının o
+       anda yaptığı tıklamayı düşürüyordu. Sahne yükleyicisi kendi push'unu
+       yaptığı için orada tekrar gönderilmiyor. */
+    if (res.ok && !res.pushed) P().push(true);
   }
 
   /* Zamanlayıcıyı sıfırla. Kullanıcı bir ayarı değiştirdiğinde çağrılır:
@@ -468,7 +467,7 @@
           onclick: () => {
             restartTiming();
             const res = applySwitch();
-            if (res.ok) { P().push(true); }
+            if (res.ok && !res.pushed) P().push(true);
             const st = document.getElementById('autovjStatus');
             if (st) st.textContent = statusText(R().normalize(raw), ctxOf(P().cfg()));
           },

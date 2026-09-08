@@ -184,6 +184,45 @@ test('rastgele aynı öğeyi üst üste vermiyor', () => {
   assert.strictEqual(A.nextIndex(0, 'random', -1, null), -1);
 });
 
+test('tek değişimde birden fazla FARKLI öğe çekiliyor', () => {
+  /* İki görselleştirici katmanına aynı türü yazmak, iki görselleştiriciyi
+     tek görselleştiricinin iki kopyasına çevirirdi: kullanıcının kurduğu
+     katman düzeni görsel olarak yok olurdu. */
+  for (const order of ['sequential', 'random']) {
+    const d = A.drawMany(10, order, -1, null, 3);
+    assert.strictEqual(d.indices.length, 3, order + ': 3 öğe gelmedi');
+    assert.strictEqual(new Set(d.indices).size, 3, order + ': aynı öğe iki kez çekildi');
+  }
+});
+
+test('liste istenenden kısaysa taşmıyor', () => {
+  /* Üç katman ama iki seçili görselleştirici: iki farklı tür verilir,
+     üçüncü katman baştan döner. Çökme ya da tekrar eden dizin olmaz. */
+  const d = A.drawMany(2, 'sequential', -1, null, 5);
+  assert.strictEqual(d.indices.length, 2);
+  assert.strictEqual(new Set(d.indices).size, 2);
+});
+
+test('çoklu çekim imleci doğru bırakıyor', () => {
+  /* Sonraki tur, çekilen son öğeden devam etmeli; yoksa aynı türler
+     tekrar tekrar gelir. */
+  const first = A.drawMany(6, 'sequential', -1, null, 2);
+  assert.deepStrictEqual(first.indices, [0, 1]);
+  const second = A.drawMany(6, 'sequential', first.cursor, first.previous, 2);
+  assert.deepStrictEqual(second.indices, [2, 3]);
+});
+
+test('plan görselleştiricide katman sayısı kadar öğe veriyor', () => {
+  const r = A.plan({ source: 'visualizers' }, ctx, null, 3);
+  assert.ok(r.ok);
+  assert.strictEqual(r.items.length, 3);
+  assert.strictEqual(new Set(r.items.map((x) => x.id)).size, 3);
+  // Tek öğe bekleyen eski çağrılar bozulmasın
+  assert.strictEqual(r.item, r.items[0]);
+  // Sahne ve palet tek öğe alır: onlar sahnenin tamamını değiştirir
+  assert.strictEqual(A.plan({ source: 'scenes' }, ctx, null, 3).items.length, 1);
+});
+
 test('Hepsi kipinde boş türler atlanıyor', () => {
   /* Sahnesi olmayan kullanıcıda "Hepsi" her üç turdan birini boşa
      harcamamalı. */

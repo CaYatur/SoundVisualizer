@@ -359,6 +359,12 @@
       }
       return out;
     },
+    /* Sahne uygulama TEK yerde. Otomatik VJ ve klip destesi kendi
+       kopyalarını taşıyordu ve kopyalar eksikti: karartma koruması, görsel
+       normalleştirme ve katman yığını eşitlemesi yalnızca buradaydı.
+       Karartma açıkken kopyanın sahneyi doğrudan yazması, sahnedeki
+       karartmayı kaldırırdı. */
+    applyScene: (id) => actions.applyScene(id),
     get: (p) => getPath(cfg, p),
     set: (p, v) => setPath(cfg, p, v),
     syncToggles: (p, v) => syncToggleInputs(p, v),

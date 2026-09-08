@@ -190,6 +190,33 @@
     return (c + 1) % len;
   }
 
+  /* Tek bir değişimde BİRDEN FAZLA farklı öğe çek.
+
+     Sebebi somut: iki görselleştirici katmanı olan bir sahnede her ikisine
+     de AYNI türü yazmak, iki görselleştiriciyi tek görselleştiricinin iki
+     kopyasına çevirir — kullanıcının kurduğu katman düzeni görsel olarak
+     yok olur. Her katman kendi çekimini almalı.
+
+     Dönüş: { indices, cursor, previous } — imleç ve son değer, sıradaki
+     turun kaldığı yerden devam etmesi için geri veriliyor. */
+  function drawMany(len, order, cursor, previous, count) {
+    const n = Math.max(1, Math.min(Math.round(count) || 1, len));
+    const indices = [];
+    let cur = Number.isFinite(cursor) ? cursor : -1;
+    let prev = previous;
+    for (let k = 0; k < n && indices.length < len; k++) {
+      let i = nextIndex(len, order, cur, prev);
+      // Aynı turda tekrar olmasın: sıradaki boş dizini bul
+      let guard = 0;
+      while (indices.indexOf(i) >= 0 && guard++ < len) i = (i + 1) % len;
+      if (indices.indexOf(i) >= 0) break;
+      indices.push(i);
+      cur = i;
+      prev = i;
+    }
+    return { indices, cursor: cur, previous: prev };
+  }
+
   /* 'all' kipinde sıradaki TÜR. Boş türler atlanır: kayıtlı sahnesi olmayan
      bir kullanıcıda "Hepsi" seçiliyken her üç turdan biri boşa gitmemeli.
 
@@ -214,7 +241,7 @@
        { ok: true, kind, index, item, state }
        { ok: false, code, kind }   code: 'DISABLED' | 'EMPTY' | 'NO_SOURCE'
      Sebep kodu arayüze gider; sessiz başarısızlık kalmaz. */
-  function plan(a, ctx, state) {
+  function plan(a, ctx, state, count) {
     const cfg = normalize(a);
     const st = state && typeof state === 'object' ? state : {};
     const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, all: -1 }, st.cursors);
@@ -229,12 +256,18 @@
     const list = selected(kind, cfg, ctx);
     if (!list.length) return { ok: false, code: 'EMPTY', kind };
 
-    const i = nextIndex(list.length, cfg.order, cursors[kind], last[kind]);
-    if (i < 0) return { ok: false, code: 'EMPTY', kind };
-    cursors[kind] = i;
-    last[kind] = i;
+    const want = kind === 'visualizers' ? Math.max(1, Math.round(count) || 1) : 1;
+    const draw = drawMany(list.length, cfg.order, cursors[kind], last[kind], want);
+    if (!draw.indices.length) return { ok: false, code: 'EMPTY', kind };
+    cursors[kind] = draw.cursor;
+    last[kind] = draw.previous;
 
-    return { ok: true, kind, index: i, item: list[i], state: { cursors, last } };
+    const items = draw.indices.map((i) => list[i]);
+    return {
+      ok: true, kind,
+      index: draw.indices[0], item: items[0], items,
+      state: { cursors, last },
+    };
   }
 
   /* Kullanıcının seçtiği kaynak hiç çalışabilir mi? Arayüz bunu ÖNCEDEN
@@ -262,7 +295,7 @@
     SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS,
     defaults, normalize,
     isTextLayer, visualizerLayers,
-    catalog, selected, nextIndex, nextKind, plan, diagnose,
+    catalog, selected, nextIndex, drawMany, nextKind, plan, diagnose,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
