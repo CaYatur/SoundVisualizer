@@ -582,7 +582,7 @@
       out.push(fixStatement(st, live) + (i < s.length ? c : ''));
       const d = /^\s*(?:const\s+)?(float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|$)/.exec(st);
       if (d && live.get(d[2]) !== d[1]) {
-        if (live === types) { live = new Map(types); live.ambiguous = types.ambiguous; }
+        if (live === types) live = new Map(types);
         live.set(d[2], d[1]);
       }
       start = i + 1;
