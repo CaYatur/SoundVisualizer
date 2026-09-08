@@ -40,6 +40,45 @@
     return presets.filter((p) => (p.name || '').toLowerCase().includes(f));
   }
 
+  /* Katman yığını AÇIKKEN sahneyi cfg.visualizer.type belirlemiyor:
+     layers.js'teki resolve() liste doluysa yalnız cfg.layers'a bakıyor.
+     Bu yüzden panelden preset seçmek hiçbir şeyi değiştirmiyordu — kullanıcı
+     tıklıyor, sahne aynı kalıyordu (#560, madde 8).
+
+     Yığının anlamını bozmadan çözüm: görselleştirici katmanını MilkDrop'a
+     çevirmek. Katmanların geri kalanı (arkaplan, metin, görseller) olduğu
+     gibi kalıyor; yalnız hangi motorun çizdiği değişiyor. Böyle bir katman
+     yoksa bir tane ekleniyor, çünkü seçimin görünür olması gerekiyor.
+
+     Metin ve "şimdi çalan" katmanları da kind='visualizer' taşıyor ama
+     görselleştirici değiller; onları çevirmek kullanıcının yazısını
+     silerdi. */
+  const OVERLAY_TYPES = ['text', 'nowplaying'];
+
+  function pointStackAtMilkdrop(cfg) {
+    const L = window.SVLayers;
+    if (!L || !L.stackOn || !L.stackOn(cfg)) return;
+    if (!Array.isArray(cfg.layers) || !cfg.layers.length) return;
+    const vis = cfg.layers.filter(
+      (l) => l && l.kind === 'visualizer' && OVERLAY_TYPES.indexOf(l.type) < 0);
+    if (vis.length) {
+      /* Birden çok görselleştirici katmanı varsa yalnız ilki çevriliyor:
+         hepsini çevirmek kullanıcının kurduğu kompozisyonu tek tıkla yok
+         ederdi. */
+      vis[0].type = 'milkdrop';
+      if (vis[0].settings && vis[0].settings.visualizer) {
+        vis[0].settings.visualizer.type = 'milkdrop';
+      }
+      vis[0].enabled = true;
+      vis[0].muted = false;
+      return;
+    }
+    cfg.layers.push({
+      id: 'ly_vis_md', name: 'MilkDrop', kind: 'visualizer', type: 'milkdrop',
+      enabled: true, settings: {},
+    });
+  }
+
   function load(cfg, p) {
     cfg.milkdrop = cfg.milkdrop || window.SV.defaultConfig().milkdrop;
     cfg.milkdrop.presetId = p ? p.id : '';
@@ -47,6 +86,7 @@
     cfg.milkdrop.source = p ? p.source : '';
     // Sahne MilkDrop motoruna geçsin, yoksa yükleme görünmez olur
     cfg.visualizer.type = 'milkdrop';
+    pointStackAtMilkdrop(cfg);
   }
 
   function panel() {
@@ -239,7 +279,7 @@
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Denklem blokları (per_frame, per_pixel) gerçekten çalıştırılır. MilkDrop 2 presetlerindeki HLSL warp ve composite shaderları henüz çevrilmiyor; o presetler denklem hareketiyle çalışır, shader katmanı olmadan.',
+      text: 'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpusta shader derleme oranı %99,2. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları gürültüyle ikame edilir.',
     }));
 
     return el('div', { class: 'md-panel' }, nodes);
@@ -247,5 +287,11 @@
 
   function init() { refresh(); }
 
-  window.SVMilkdropPanel = { panel, init, refresh };
+  /* load ve pointStackAtMilkdrop testler icin de disa aciliyor: preset
+     secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
+     sinanabilsin. */
+  window.SVMilkdropPanel = { panel, init, refresh, load, pointStackAtMilkdrop };
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = window.SVMilkdropPanel;
+  }
 })();

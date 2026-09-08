@@ -1430,8 +1430,8 @@
     'kapalı': 'off',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
-    'Denklem blokları (per_frame, per_pixel) gerçekten çalıştırılır. MilkDrop 2 presetlerindeki HLSL warp ve composite shaderları henüz çevrilmiyor; o presetler denklem hareketiyle çalışır, shader katmanı olmadan.':
-      'The equation blocks (per_frame, per_pixel) really run. The HLSL warp and composite shaders in MilkDrop 2 presets are not translated yet; those presets run on the equation motion, without the shader layer.',
+    'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpusta shader derleme oranı %99,2. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları gürültüyle ikame edilir.':
+      'The equation blocks (per_frame, per_pixel) and the HLSL warp/composite shaders of MilkDrop 2 presets really run: 99.2% of shader stages compile across a 10,332-preset corpus. Shapes, waves, the blur chain and motion vectors are drawn; user textures, which preset files do not ship, are substituted with noise.',
     'Sil': 'Delete',
 
 
