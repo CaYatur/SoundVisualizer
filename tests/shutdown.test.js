@@ -40,23 +40,29 @@ const main = () => stripComments(read('src/main/main.js'));
    Liste bilerek elle tutuluyor: yeni bir gizli pencere ekleyen kişi buraya da
    yazmak zorunda kalsın, yani "kapanışta ne olacak?" sorusunu atlayamasın. */
 const HIDDEN_WINDOW_SITES = [
-  { file: 'src/main/texture-share.js', teardown: 'textureShare.stop()' },
-  { file: 'src/main/main.js', teardown: "finalizeExport('cancelled')" },
+  { file: 'src/main/texture-share.js', count: 1, teardown: 'textureShare.stop()' },
+  { file: 'src/main/main.js', count: 1, teardown: "finalizeExport('cancelled')" },
 ];
 
-/* Ana süreçte gizli pencere açan dosyaları kaynaktan bulur. */
-function filesCreatingHiddenWindows() {
+/* Ana süreçte gizli pencere açan yerleri sayar: dosya -> adet.
+
+   ADET de tutuluyor, yalnızca dosya adı değil. Sebebi: main.js zaten kayıtlı
+   (dışa aktarma penceresi), dolayısıyla yalnız dosyaya baksaydık main.js'e
+   eklenen İKİNCİ bir gizli pencere sessizce geçerdi — ki gerçekte en olası
+   durum bu. Yeni dosya eklemek daha nadir. */
+function hiddenWindowSites() {
   const dir = path.join(root, 'src', 'main');
-  const out = [];
+  const out = {};
+  const re = /new BrowserWindow\(\{[\s\S]{0,600}?show:\s*false/g;
   for (const name of fs.readdirSync(dir)) {
     if (!name.endsWith('.js')) continue;
     const rel = 'src/main/' + name;
-    const src = read(rel);
     // Yorumları ayıkla: örnek/açıklama metni yanlış pozitif üretmesin.
-    const code = stripComments(src);
-    if (/new BrowserWindow\(\{[\s\S]{0,600}?show:\s*false/.test(code)) out.push(rel);
+    const code = stripComments(read(rel));
+    const n = (code.match(re) || []).length;
+    if (n > 0) out[rel] = n;
   }
-  return out.sort();
+  return out;
 }
 
 /* Bir fonksiyonun gövdesini kaynaktan çıkarır (süslü parantez sayarak). */
@@ -75,15 +81,16 @@ function functionBody(src, name) {
   assert.fail(name + '() gövdesi kapanmıyor');
 }
 
-test('gizli pencere açan her dosya kayıtlı', () => {
+test('gizli pencere açan her yer kayıtlı', () => {
   /* Yeni bir gizli pencere eklenip listeye yazılmazsa burada düşer —
      asıl korunan şey bu: hatanın sınıfı, tek tek örnekleri değil. */
-  const found = filesCreatingHiddenWindows();
-  const known = HIDDEN_WINDOW_SITES.map((s) => s.file).sort();
+  const found = hiddenWindowSites();
+  const known = {};
+  for (const s of HIDDEN_WINDOW_SITES) known[s.file] = s.count;
   assert.deepStrictEqual(found, known,
-    'gizli pencere açan dosyalar değişmiş.\n' +
-    '  bulunan: ' + found.join(', ') + '\n' +
-    '  kayıtlı: ' + known.join(', ') + '\n' +
+    'gizli pencere açan yerler değişmiş.\n' +
+    '  bulunan: ' + JSON.stringify(found) + '\n' +
+    '  kayıtlı: ' + JSON.stringify(known) + '\n' +
     '  Yeni bir gizli pencere eklediyseniz closeHelperWindows() içinde\n' +
     '  kapatın ve HIDDEN_WINDOW_SITES listesine ekleyin; aksi halde\n' +
     "  'window-all-closed' tetiklenmez ve uygulama arka planda asılı kalır.");
