@@ -3366,17 +3366,40 @@ async function runSmoke() {
         enabled: true, name: 'CAYADEV Smoke', width: 640, height: 360, fps: 30,
       });
       await syncTextureShare();
-      await wait(3000);
+
+      /* Sabit bekleme yerine YOKLAMA. Spout'un gönderici kaydı paylaşılan bir
+         defterde oluşuyor ve bunun ne kadar süreceği makineye göre değişiyor;
+         3 saniyelik sabit bekleme koşuların bir kısmında yetmiyor ve öz test
+         ürün sağlamken "sender is not registered" diye düşüyordu. Ölçüldü:
+         aynı derlemede arka arkaya FAIL, PASS, PASS.
+
+         Denetim zayıflamıyor — kayıt hiç oluşmazsa süre dolduğunda yine
+         düşüyor; yalnızca zamanlamaya duyarlılığı kalkıyor. */
+      let senders = [];
+      let mine = false;
+      for (let k = 0; k < 20 && !mine; k++) {
+        await wait(300);
+        senders = textureShare.listSenders().map((x) => x.name);
+        mine = senders.indexOf('CAYADEV Smoke') >= 0;
+      }
+      /* Kayıt göründükten SONRA sabit bir ölçüm penceresi. Kayıt var ama kare
+         akmıyorsa alıcı donmuş bir görüntü alır ve her şey yolunda sanır;
+         ölçülen şey o. Pencere sabit tutuluyor ki eşik anlamını korusun —
+         yoklama süresi makineye göre değiştiği için ona yaslanamaz. */
+      const MEASURE_MS = 2000;
+      await wait(MEASURE_MS);
       const ts = textureShare.status();
-      const senders = textureShare.listSenders().map((x) => x.name);
-      const mine = senders.indexOf('CAYADEV Smoke') >= 0;
       console.log('[SMOKE] Spout/Syphon: ' + JSON.stringify({
         protokol: ts.protocol, kare: ts.frames, düşen: ts.dropped,
         boyut: ts.width + 'x' + ts.height, kayıt: mine, hata: ts.error,
       }));
       if (!ts.running) errors.push('texture-share: did not start');
       if (!mine) errors.push('texture-share: the sender is not registered with ' + ts.protocol);
-      if (!(ts.frames > 20)) errors.push('texture-share: only ' + ts.frames + ' frames in 3s — the receiver would see a frozen image');
+      /* 30 fps ayarında 2 saniye ~60 kare demek; eşik 20'de üç kat pay var. */
+      if (!(ts.frames > 20)) {
+        errors.push('texture-share: only ' + ts.frames + ' frames in '
+          + (MEASURE_MS / 1000) + 's — the receiver would see a frozen image');
+      }
       if (ts.dropped > ts.frames / 10) errors.push('texture-share: dropped ' + ts.dropped + ' of ' + (ts.frames + ts.dropped) + ' frames');
       const stopped = await textureShare.stop();
       const after = textureShare.listSenders().map((x) => x.name);
