@@ -1452,6 +1452,17 @@
     '1,5 saniye': '1.5 seconds',
     '3 saniye': '3 seconds',
     'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.': 'The transition dissolves the last frame of the previous preset over the new one. MilkDrop runs both presets at once and blends them; here the old picture is a frozen frame, which is noticeable on long transitions.',
+    // ---- Doku paketi (#560 madde 2) ----
+    'Doku Paketi': 'Texture Pack',
+    '🖼 Doku Klasörü Seç': '🖼 Choose Texture Folder',
+    // ('Kaldır' aşağıda zaten var — sözlükte her anahtar bir kez yazılır)
+    'Doku klasörü seçimi kullanılamıyor.': 'Choosing a texture folder is not available.',
+    'Seçilmedi — presetin kendi dokusu yerine gürültü kullanılıyor':
+      'Not chosen — noise is used in place of the preset’s own texture',
+    'Bu klasörde görsel dosyası yok': 'There are no image files in this folder',
+    'görsel bulundu': 'images found',
+    'MilkDrop presetleri dokularını ada göre ister: sampler_worms yazan bir preset klasörde worms.jpg arar. Bu görseller preset paketleriyle gelmez; MilkDrop kurulumunuzdaki textures klasörünü gösterin. Klasör seçilmezse preset yine çalışır, yalnız o dokunun yerine gürültü kullanılır.':
+      'MilkDrop presets ask for their textures by name: a preset writing sampler_worms looks for worms.jpg in the folder. Preset packs do not ship these images; point this at the textures folder of your MilkDrop installation. Without a folder the preset still runs, only that texture is replaced with noise.',
     'Sil': 'Delete',
 
 

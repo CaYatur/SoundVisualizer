@@ -600,6 +600,15 @@
       renderScale: 1,
       /* Preset gecisi suresi (saniye). 0 = sert kesme. */
       blendTime: 0,
+      /* MilkDrop DOKU PAKETININ klasoru (`sampler_worms`, `sampler_clouds`
+         gibi adlarla aranan gorseller).
+
+         Bos birakilirsa preset kendi dokusunu isteyince yerine gurultu
+         baglaniyor — yani eski davranis. Olculdu: korpustaki presetlerin
+         %16,9'u en az bir kullanici dokusu istiyor, 66 ayri ad. Preset
+         paketleri bu gorselleri GETIRMIYOR; kullanicinin MilkDrop kurulumundaki
+         `textures` klasorunu gostermesi gerekiyor. */
+      textureDir: '',
     },
 
     // ------------------------------------------------------------------

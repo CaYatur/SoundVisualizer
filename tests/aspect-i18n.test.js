@@ -67,7 +67,14 @@ const PATTERN_PARTS = [' · çizim ', ' ölçü'];
 
 /* Denetlenen paneller. Kural bütün arayüz için geçerli ama tek tek dosya
    taramak tüm kaynağı taramaktan çok daha az yanlış pozitif üretiyor. */
-const PANELS = ['src/admin/aspect-panel.js', 'src/admin/autovj.js'];
+const PANELS = [
+  'src/admin/aspect-panel.js',
+  'src/admin/autovj.js',
+  /* MilkDrop paneli #560 boyunca büyüdü: kalite ayarları, preset geçişi ve
+     doku paketi. Duman testinin tarayabilmesi için panelin AÇIK olması
+     gerekiyor; kaynaktan denetlemek o koşula bağlı değil. */
+  'src/admin/milkdrop-panel.js',
+];
 
 for (const file of PANELS) {
   const name = file.split('/').pop();

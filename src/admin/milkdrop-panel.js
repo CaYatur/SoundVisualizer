@@ -19,6 +19,11 @@
   let filter = '';
   let busy = '';
   let listScroll = 0;
+  /* Doku klasöründe kaç görsel bulunduğu. null = henüz sorulmadı.
+     Yol tek başına yeterli değil: kullanıcı klasörü doğru seçip yanlış
+     klasörü göstermiş olabilir ve sayı bunu anında ele veriyor. */
+  let texCount = null;
+  let texAsked = false;
 
   function refresh(cb) {
     if (!window.api || !window.api.listPresets || loading) return;
@@ -181,6 +186,72 @@
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'İç çözünürlüğün maliyeti çarpanın karesi kadar artar: 2x seçildiğinde dört katı piksel işlenir. Ağ sıklığının maliyeti doğrusaldır ama her düğümde preset denklemleri yeniden koşar.',
+    }));
+
+    /* DOKU PAKETİ (#560 madde 2). Presetler kendi görsellerini ada göre
+       istiyor; preset paketleri o görselleri getirmiyor. Klasör
+       gösterilmezse yerine gürültü bağlanıyor — preset çalışır ama deseni
+       yanlış olur. */
+    if (md.textureDir && !texAsked && window.api && window.api.milkdropTextures) {
+      texAsked = true;
+      window.api.milkdropTextures().then((r) => {
+        texCount = (r && Array.isArray(r.names)) ? r.names.length : 0;
+        P().rerender();
+      }).catch(() => { texCount = 0; });
+    }
+    /* Düz bir kapsayıcı: `P().row` zaten kendi `.row`unu kuruyor, ikincisi
+       flex kuralını miras alıp iki düğmeyi iki uca iterdi. */
+    const texRow = el('span', {}, [
+      el('button', {
+        class: 'btn', type: 'button', text: '🖼 Doku Klasörü Seç',
+        onclick: async () => {
+          if (!window.api || !window.api.pickMilkdropTextures) {
+            P().toast('Doku klasörü seçimi kullanılamıyor.');
+            return;
+          }
+          const r = await window.api.pickMilkdropTextures();
+          if (!r || !r.ok) return;
+          md.textureDir = r.dir;
+          texCount = r.count;
+          texAsked = true;
+          rerender();
+          P().rerender();
+        },
+      }),
+    ]);
+    if (md.textureDir) {
+      texRow.appendChild(el('button', {
+        class: 'btn', type: 'button', text: 'Kaldır',
+        onclick: () => {
+          md.textureDir = '';
+          texCount = null;
+          texAsked = false;
+          rerender();
+          P().rerender();
+        },
+      }));
+    }
+    nodes.push(P().row('Doku Paketi', texRow));
+    {
+      /* Sayı ve metin AYRI düğümlerde: i18n sözlüğü metin düğümlerini birebir
+         eşleştiriyor, birleşik bir metin İngilizce arayüzde Türkçe kalırdı. */
+      const st = el('span', { class: md.textureDir ? 'md-ok' : 'md-err' });
+      if (!md.textureDir) {
+        st.appendChild(el('span', { text: 'Seçilmedi — presetin kendi dokusu yerine gürültü kullanılıyor' }));
+      } else if (texCount === null) {
+        st.appendChild(el('span', { text: 'Okunuyor…' }));
+      } else if (texCount === 0) {
+        st.className = 'md-err';
+        st.appendChild(el('span', { text: 'Bu klasörde görsel dosyası yok' }));
+      } else {
+        st.appendChild(el('span', { class: 'md-num', text: String(texCount) + ' ' }));
+        st.appendChild(el('span', { text: 'görsel bulundu' }));
+      }
+      nodes.push(P().row('Durum', st));
+    }
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'MilkDrop presetleri dokularını ada göre ister: sampler_worms yazan bir preset klasörde worms.jpg arar. Bu görseller preset paketleriyle gelmez; MilkDrop kurulumunuzdaki textures klasörünü gösterin. Klasör seçilmezse preset yine çalışır, yalnız o dokunun yerine gürültü kullanılır.',
     }));
 
     // İçe aktarma

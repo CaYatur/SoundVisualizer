@@ -693,7 +693,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const plan = this._assignUnits(r.samplerPlan);
         return {
           prog: lk.prog,
-          locs: this._presetLocs(lk.prog, plan, r.rotUniforms),
+          locs: this._presetLocs(lk.prog, plan, r.rotUniforms, r.texSizeNames),
           plan,
           rot: r.rotUniforms || [],
         };
@@ -843,7 +843,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       });
     }
 
-    _presetLocs(prog, plan, rot) {
+    _presetLocs(prog, plan, rot, texSizes) {
       const gl = this.gl;
       const L = {};
       const u = (n) => gl.getUniformLocation(prog, n);
@@ -852,6 +852,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          birinde unutulan bir yazım 0. birimi okuyup sessizce yanlış
          çizerdi. */
       L._plan = (plan || []).map((p) => ({ p, loc: u(p.name) }));
+      // Kullanıcı dokusu boyutları (`texsize_worms` gibi)
+      L._texSize = (texSizes || []).map((n) => ({ name: n, loc: u(n) }));
       /* Dizi uniformunun konumu ILK ELEMANIN adiyla alinir. */
       L._rot = (rot || []).map((n) => ({ name: n, loc: u(n + '[0]') }));
       for (const n of [
@@ -886,6 +888,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          yazımın konumu ayarlanıp dokusu bağlanmasaydı (ya da tersi) o
          sampler 0. birimi okur, derlenir ve sessizce yanlış çizerdi. */
       for (const e of L._plan) if (e.loc) gl.uniform1i(e.loc, e.p.unit);
+      /* Kullanıcı dokusunun boyutu. Presetin kendi `float4 texsize_x;`
+         satırı çeviride siliniyor; kalsaydı burada yazdığımız değeri
+         gölgeleyen, sıfır kalan bir global olurdu. */
+      for (const e of (L._texSize || [])) {
+        if (!e.loc) continue;
+        const s = this._texSizeFor(e.name);
+        gl.uniform4f(e.loc, s[0], s[1], s[2], s[3]);
+      }
       /* Dönme matrisleri: her biri dört vec3 satır. */
       for (const r of (L._rot || [])) {
         if (r.loc) gl.uniform3fv(r.loc, this._rotRows(r.name));
@@ -971,6 +981,135 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, w);
     }
 
+    /* KULLANICI DOKULARI (#560 madde 2).
+
+       Preset kendi görselini ADA göre istiyor: `sampler_worms` doku
+       klasöründe `worms.jpg` arıyor. Preset paketleri o görselleri
+       getirmiyor (korpusta tek bir resim dosyası yok), kullanıcının kendi
+       MilkDrop kurulumundaki `textures` klasörünü göstermesi gerekiyor.
+
+       Yükleme ASENKRON ve çizim döngüsü bekleyemez: doku gelene kadar
+       gürültü bağlı kalıyor, geldiğinde sessizce yerine geçiyor. Dosya yoksa
+       gürültüde kalıyor — eski davranış. Bu önemli: sert başarısızlık,
+       bugün yanlış-ama-çalışan 1.748 preseti siyaha çevirirdi. */
+    _ensureTextureLib(cfg) {
+      const dir = (cfg.milkdrop && cfg.milkdrop.textureDir) || '';
+      if (dir === this._texDir) return;
+      this._texDir = dir;
+      this._texNames = [];
+      /* Jeton her klasör değişiminde artıyor: uçuşta olan istekler geri
+         döndüğünde artık geçersiz oldukları buradan anlaşılıyor. Klasörü
+         değiştirip eskisinden gelen bir görselin yerleşmesi sessiz bir
+         karışıklık olurdu. */
+      const token = (this._texToken = (this._texToken || 0) + 1);
+      this._dropUserTextures();
+      const api = typeof window !== 'undefined' ? window.api : null;
+      if (!dir || !api || !api.milkdropTextures) return;
+      Promise.resolve(api.milkdropTextures()).then((r) => {
+        // Klasör bu arada değiştiyse gelen liste eskimiştir.
+        if (token !== this._texToken) return;
+        this._texNames = (r && Array.isArray(r.names)) ? r.names : [];
+        /* Liste gelmeden çizilen kareler "dosya yok" diye önbelleğe null
+           yazmış olabilir; o kayıtlar artık yanlış. Temizlenmezse doku
+           klasörü seçilmiş olmasına rağmen preset gürültüde kalırdı. */
+        this._dropUserTextures();
+      }).catch(() => {});
+    }
+
+    _dropUserTextures() {
+      const gl = this.gl;
+      if (this.userTex && gl) {
+        for (const k in this.userTex) {
+          const t = this.userTex[k];
+          if (t && t.tex) gl.deleteTexture(t.tex);
+        }
+      }
+      this.userTex = {};
+    }
+
+    /* Preset adını klasördeki dosyaya eşler. MilkDrop uzantı yazmıyor ve
+       büyük/küçük harf ayırmıyor. */
+    _texFileFor(base) {
+      const want = String(base || '').toLowerCase();
+      for (const f of (this._texNames || [])) {
+        const dot = f.lastIndexOf('.');
+        if ((dot < 0 ? f : f.slice(0, dot)).toLowerCase() === want) return f;
+      }
+      return '';
+    }
+
+    /* `sampler_rand00` … `rand15`: MilkDrop bunları klasörden RASTGELE
+       seçilmiş bir dokuya bağlıyor. Ölçüldü: korpusta 242 preset kullanıyor.
+
+       Seçim preset ve yuva başına belirleniyor, kare başına değil — kare
+       başına seçmek her karede başka bir görsel demek olurdu. Adın son
+       ekleri MilkDrop'ta uygunluk süzgeci (`rand00_smalltiled` yalnız
+       `smalltiled` ile başlayanlardan seçer); o da uygulanıyor. */
+    _randomTextureFor(slot) {
+      const names = this._texNames || [];
+      if (!names.length) return '';
+      const m = /^rand(\d\d)(?:_(.+))?$/.exec(slot);
+      if (!m) return '';
+      const pref = (m[2] || '').toLowerCase();
+      const pool = pref
+        ? names.filter((f) => f.toLowerCase().startsWith(pref))
+        : names.slice();
+      if (!pool.length) return '';
+      /* Tohum preset kimliği + yuva numarası: aynı preset her açılışta aynı
+         dokuyu alıyor, farklı yuvalar farklı doku. */
+      let h = 2166136261;
+      const key = (this.presetKey || '') + '|' + slot;
+      for (let i = 0; i < key.length; i++) {
+        h ^= key.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+      }
+      return pool[h % pool.length];
+    }
+
+    /* Kullanıcı dokusunu ister ve önbelleğe koyar. Dönen değer O ANKİ
+       durum: doku hazırsa kendisi, değilse null (çağıran gürültüye düşer). */
+    _userTexture(canon) {
+      const base = canon.slice('sampler_'.length);
+      if (!this.userTex) this.userTex = {};
+      const hit = this.userTex[base];
+      if (hit !== undefined) return hit;
+      this.userTex[base] = null;              // istek gönderildi, bekliyor
+      const api = typeof window !== 'undefined' ? window.api : null;
+      if (!api || !api.milkdropTexture) return null;
+      const file = this._texFileFor(base) || this._randomTextureFor(base);
+      if (!file) return null;
+      const token = this._texToken;
+      Promise.resolve(api.milkdropTexture(file)).then((r) => {
+        if (!r || !r.dataUrl || token !== this._texToken || !this.gl) return;
+        const img = new Image();
+        img.onload = () => {
+          const gl = this.gl;
+          if (!gl || token !== this._texToken) return;
+          const tex = gl.createTexture();
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          /* Doku nesnesinin kendi parametreleri: süzme/sarma zaten birime
+             bağlı sampler nesnesinden geliyor, bunlar yalnız makul bir
+             başlangıç. */
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          /* Aynı doku için ikinci bir istek uçuşta olabilir: önbellek
+             liste geldiğinde temizleniyor ve bekleyen bir istek "gelmedi"
+             kaydını silinmiş buluyor. İkincisi kazanırsa birincinin
+             dokusu haritadan düşer ama GPU'da kalırdı. */
+          if (this.userTex[base] && this.userTex[base].tex) { gl.deleteTexture(tex); return; }
+          this.userTex[base] = { tex, w: img.naturalWidth, h: img.naturalHeight };
+        };
+        img.onerror = () => {};
+        img.src = r.dataUrl;
+      }).catch(() => {});
+      return null;
+    }
+
     /* Kanonik sampler adından o adın okuduğu dokuya. Kullanıcı dokusunun
        dosyası henüz yoksa gürültüye düşüyor — çeviri bunu `soft` notu
        olarak zaten bildiriyor. */
@@ -986,8 +1125,24 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         case 'sampler_noise_hq': return this.noise.hq.tex;
         case 'sampler_noisevol_lq': return this.noise.volLq.tex;
         case 'sampler_noisevol_hq': return this.noise.volHq.tex;
-        default: return this.noise.lq.tex;
+        default: {
+          const u = this._userTexture(canon);
+          return u ? u.tex : this.noise.lq.tex;
+        }
       }
+    }
+
+    /* `texsize_<ad>` için (genişlik, yükseklik, 1/g, 1/y). Preset bunu
+       okuyup dokuyu teksel hassasiyetinde adresliyor; GERÇEKTEN bağlı olan
+       dokunun boyutu verilmeli. Gürültüye düşülmüşse gürültünün boyutu
+       doğru cevaptır — görselin boyutunu vermek presetin var olmayan
+       tekselleri adreslemesine yol açardı. */
+    _texSizeFor(name) {
+      const base = name.slice('texsize_'.length);
+      const u = this.userTex ? this.userTex[base] : null;
+      const w = (u && u.w) ? u.w : this.noise.lq.size;
+      const h = (u && u.h) ? u.h : this.noise.lq.size;
+      return [w, h, 1 / w, 1 / h];
     }
 
     _bindTextures(mainTex, L) {
@@ -1055,6 +1210,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._applyMesh(cfg);
       this._bindMouse();
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
+      this._ensureTextureLib(cfg);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
 
@@ -1815,6 +1971,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.shapeTexProg) gl.deleteProgram(this.shapeTexProg);
         if (this.fadeProg) gl.deleteProgram(this.fadeProg);
         if (this.snapTex) { gl.deleteTexture(this.snapTex); this.snapTex = null; }
+        this._dropUserTextures();
+        if (this.samplers) for (const k in this.samplers) gl.deleteSampler(this.samplers[k]);
         if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);
       }
       this.gl = null;

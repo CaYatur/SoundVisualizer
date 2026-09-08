@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld('api', {
   // Sorgular
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   importMilk: () => ipcRenderer.invoke('presets:import-milk'),
+  /* MilkDrop doku paketi klasörü. Seçim panelde, okuma görselleştiricide;
+     ikisi de yalnızca seçili klasörü görüyor. */
+  pickMilkdropTextures: () => ipcRenderer.invoke('milkdrop:pick-textures'),
+  milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   // Canlı kayıt ve anlık görüntü
   saveRecording: (data, opts) => ipcRenderer.invoke('record:save', { data, opts }),
   saveSnapshot: (dataUrl) => ipcRenderer.invoke('record:snapshot', { dataUrl }),

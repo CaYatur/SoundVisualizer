@@ -1573,7 +1573,36 @@
       });
     }
 
+    /* KULLANICI DOKUSUNUN BOYUTU (`texsize_<ad>`).
+
+       MilkDrop presetin kendi satırını bağlıyor; presetler de tam olarak
+       böyle yazıyor — gerçek koddan:
+         `float4 texsize_lichen;   // auto-binds; .xy = (w,h); .zw = (1/w,1/h)`
+
+       Bizde bu satır sıradan bir global kalıyordu, yani değeri SIFIRDI.
+       Ölçüldü: korpusta `texsize_lichen` 74 yerde, toplam ~180 kullanıcı
+       dokusu boyutu okuması var. Sıfırla bölen ya da sıfırla ölçekleyen bir
+       preset hata vermiyor, sessizce yanlış çiziyor — derleme ölçümü de bunu
+       göremiyor, çünkü bildirim geçerli GLSL.
+
+       Presetin kendi bildirimi siliniyor ve yerine uniform konuyor: kalırsa
+       uniform'u gölgeleyen bir global olur ve değer yine sıfır kalırdı. */
+    const texSizeNames = [];
+    for (const p of samplerPlan) {
+      if (!p.user) continue;
+      const nm = 'texsize_' + p.canon.slice('sampler_'.length);
+      if (texSizeNames.indexOf(nm) >= 0) continue;
+      if (!new RegExp('\\b' + nm + '\\b').test(all)) continue;
+      texSizeNames.push(nm);
+    }
+
     const pair = [parts.globals ? rewriteText(parts.globals) : '', rewriteText(parts.body)];
+    if (texSizeNames.length) {
+      const dropDecl = new RegExp(
+        '\\b(?:vec4|vec3|vec2|float)\\s+(?:' + texSizeNames.join('|') + ')\\s*;', 'g');
+      pair[0] = pair[0].replace(dropDecl, '');
+      pair[1] = pair[1].replace(dropDecl, '');
+    }
     /* Dizi indeksleri iki parça BİRLİKTE bilinerek sarılıyor: bildirim
        globals'ta, kullanım gövdede olabiliyor. Zaten sarılmış olan yeniden
        sarılmaz (arrayIndex `int(` görürse dokunmuyor). */
@@ -1616,6 +1645,10 @@
       const g = /^(\w+)\s+(\w+);$/.exec(d);
       if (g) types.set(g[2], g[1]);
     }
+    /* Kullanıcı dokusu boyutları da çizelgeye elle giriyor: bildirimlerini
+       az önce sildik, dolayısıyla typesOf onları göremez. Görmezse
+       `uv * texsize_lichen.zw` gibi bir ifadede daraltma yapılmaz. */
+    for (const n of texSizeNames) types.set(n, 'vec4');
     const hoisted = gRaw ? hoistGlobals(boolConds(coerce(gRaw, types), types)) : { decls: '', prologue: [] };
     const body = boolConds(coerce(bRaw, types), types);
 
@@ -1636,7 +1669,8 @@
     /* Plandaki her yazım kendi uniform'u olarak bildiriliyor. Yerleşiklerin
        ön eksiz hâlleri PREAMBLE'da zaten var; burada yalnız türevler ve
        kullanıcı dokuları çıkıyor. */
-    const decl = samplerPlan.map((p) => 'uniform sampler2D ' + p.name + ';');
+    const decl = samplerPlan.map((p) => 'uniform sampler2D ' + p.name + ';')
+      .concat(texSizeNames.map((n) => 'uniform vec4 ' + n + ';'));
     /* DÖNME MATRİSLERİ (rot_s/d/f/vf/uf/rand 1..4).
 
        MilkDrop bunları `float4x3` olarak veriyor: üç satır bir dönme
@@ -1699,6 +1733,7 @@
       soft,
       extraSamplers,
       samplerPlan,
+      texSizeNames,
       rotUniforms,
       empty: false,
       stage: stage,

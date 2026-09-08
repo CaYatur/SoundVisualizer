@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1212%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1231%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -210,6 +210,21 @@ profilinde basamak olmadığını doğruluyor.
 - **`.milk` içe aktarma**, çok dosyalı paketler dahil; derleme hataları dosya dosya bildiriliyor.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
   dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir fuzz testi bunu doğruluyor.
+- **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
+  bağlamında, 10.332 presetlik korpusta ölçüldü: **shader aşamalarının %99,2'si derleniyor**,
+  presetlerin %98,5'inde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
+  pikselleri okuyor — derlenen bir shader siyah da çizebilir: **%93'ü canlı görüntü üretiyor.**
+  İki düzenek de `scripts/` altında, yani sayılar inanılacak değil tekrar üretilecek şey.
+- **Dokulu şekiller, hareket vektörleri, dönme matrisleri, ağ sıklığı, iç çözünürlük, fare girdisi
+  ve preset geçişleri** uygulandı; her sampler adının istediği süzme ve sarma ile okunuyor
+  (`sampler_pw_main` noktasal, `sampler_fc_main` süzülmüş+kenetli — presetlerin %22,7'si aynı
+  dokuyu iki farklı ön ekle okuyor).
+- **Kullanıcı dokuları kendi doku klasörünüzden yükleniyor.** Presetlerin %16,9'u görselini ada
+  göre istiyor — `sampler_worms`, `worms.jpg` arıyor. Preset paketleri bu dosyaları getirmiyor;
+  MilkDrop › Doku Paketi'ni bir MilkDrop kurulumundaki `textures` klasörüne yöneltin. Klasör
+  yoksa preset yine çalışır, o dokunun yerine gürültü kullanılır.
+- **Yapılmadı: MilkDrop'un iki hatlı harmanı.** Preset geçişi önceki presetin son karesini
+  eritiyor; MilkDrop iki preseti aynı anda koşturuyor. Bir saniyenin altında fark görünmüyor.
 
 ---
 
@@ -922,7 +937,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1212 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1231 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

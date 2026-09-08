@@ -1479,6 +1479,73 @@ ipcMain.handle('texture:sync', () => syncTextureShare());
 ipcMain.handle('texture:senders', () => textureShare.listSenders());
 
 // ----------------------------------------------------------------------------
+// MilkDrop doku paketi (#560 madde 2)
+//
+// Presetler kendi görsellerini ada göre istiyor: `sampler_worms` diyen bir
+// preset doku klasöründe `worms.jpg` arıyor. Preset paketleri bu görselleri
+// getirmiyor, kullanıcının kendi MilkDrop kurulumundaki `textures` klasörünü
+// göstermesi gerekiyor.
+//
+// Dosyalar renderer'a VERİ olarak gidiyor (data URL), yeni bir protokol
+// açılmıyor: bir preset en fazla altı doku istiyor ve doku paketindeki
+// görseller küçük. Kapsam, `sv-media`daki ilkeyle aynı — yalnızca
+// yapılandırmada SEÇİLİ klasörün içi; sayfaya genel dosya sistemi erişimi yok.
+// ----------------------------------------------------------------------------
+const mdTex = require('./milkdrop-textures');
+const TEX_MAX_BYTES = 8 * 1024 * 1024;
+
+/* Yapılandırmadaki doku klasörü. Ayarlanmamışsa boş dize döner ve okuma
+   yolları da boş döner — kaynak "klasör yok"la "dosya yok"u ayırmıyor,
+   ikisinde de gürültüye düşüyor. */
+function textureDir() {
+  const d = currentConfig && currentConfig.milkdrop && currentConfig.milkdrop.textureDir;
+  return typeof d === 'string' ? d : '';
+}
+
+ipcMain.handle('milkdrop:pick-textures', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('MilkDrop Doku Klasörü Seç', 'Choose MilkDrop Texture Folder'),
+    properties: ['openDirectory'],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  const dir = r.filePaths[0];
+  try {
+    return { ok: true, dir, count: fs.readdirSync(dir).filter(mdTex.isTextureFile).length };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+/* Klasördeki görsel dosyalarının adları. Preset `sampler_worms` derken
+   uzantıyı yazmıyor; eşleme renderer'da yapılıyor. */
+ipcMain.handle('milkdrop:textures', () => {
+  const dir = textureDir();
+  if (!dir) return { dir: '', names: [] };
+  try {
+    return { dir, names: fs.readdirSync(dir).filter(mdTex.isTextureFile) };
+  } catch {
+    return { dir, names: [], error: 'READ_FAILED' };
+  }
+});
+
+ipcMain.handle('milkdrop:texture', (e, name) => {
+  const file = mdTex.resolveTexture(textureDir(), name);
+  if (!file) return null;
+  try {
+    const st = fs.statSync(file);
+    if (!st.isFile() || st.size > TEX_MAX_BYTES) return null;
+    const mime = mdTex.mimeFor(file);
+    if (!mime) return null;
+    return {
+      name,
+      dataUrl: 'data:' + mime + ';base64,' + fs.readFileSync(file).toString('base64'),
+    };
+  } catch {
+    return null;
+  }
+});
+
+// ----------------------------------------------------------------------------
 // Medya katmanı: video dosyası seçimi
 // ----------------------------------------------------------------------------
 ipcMain.handle('media:pick-video', async () => {

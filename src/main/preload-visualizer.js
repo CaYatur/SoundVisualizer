@@ -24,4 +24,9 @@ contextBridge.exposeInMainWorld('api', {
   // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
   getPresets: () => ipcRenderer.invoke('presets:list'),
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
+  /* MilkDrop doku paketi: preset kendi görselini ada göre istiyor
+     (`sampler_worms` -> `worms.jpg`). Yalnızca yapılandırmada seçili
+     klasörün içi okunuyor; kapsam denetimi ana süreçte. */
+  milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
+  milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
 });

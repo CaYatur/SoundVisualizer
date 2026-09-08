@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1212%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1231%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -216,8 +216,21 @@ that asserts the bar profile has no step in it.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
   against a fixed table at compile time.
-- **HLSL pixel shaders are not implemented.** 82% of real presets carry one. Those presets load and
-  their motion is correct, but the colouring and texturing their shader would add is missing.
+- **The HLSL warp and composite shaders are translated to GLSL and run on the GPU.** Measured in a
+  real WebGL2 context over the 10,332-preset corpus: **99.2% of shader stages compile** and 98.5% of
+  presets have every stage clean. A separate harness renders each preset and reads the pixels back,
+  because a shader that compiles can still draw black: **93% produce a live image.** Both harnesses
+  are in `scripts/`, so the numbers can be reproduced rather than believed.
+- **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
+  mouse input and preset transitions** are all implemented, and each sampler is read with the
+  filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is
+  filtered and clamped — 22.7% of presets read one texture through two different prefixes).
+- **User textures load from your own texture folder.** 16.9% of presets ask for an image by name —
+  `sampler_worms` looks for `worms.jpg`. Preset packs do not ship these files, so point
+  MilkDrop › Texture Pack at the `textures` folder of a MilkDrop installation. Without one the
+  preset still runs, with noise in place of that texture.
+- **Not built: MilkDrop's dual-pipeline blend.** Preset transitions dissolve the previous preset's
+  last frame; MilkDrop runs both presets at once. Under about a second the difference is invisible.
 
 ---
 
@@ -922,7 +935,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1212 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1231 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
