@@ -1076,6 +1076,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.userTex[base] = null;              // istek gönderildi, bekliyor
       const api = typeof window !== 'undefined' ? window.api : null;
       if (!api || !api.milkdropTexture) return null;
+      /* Önce ADI birebir eşleşen dosya, sonra rastgele yuva. Sıra bilinçli:
+         klasörde gerçekten `rand00.png` diye bir dosya varsa o kazanıyor,
+         yuva rastgele seçim yapmıyor. Açık dosya, örtük seçimi yenmeli. */
       const file = this._texFileFor(base) || this._randomTextureFor(base);
       if (!file) return null;
       const token = this._texToken;

@@ -1731,6 +1731,11 @@
       glsl: head.concat(mid, main).join('\n'),
       hard,
       soft,
+      /* `extraSamplers` YALNIZ bildirim amaçlı: hangi kullanıcı dokularının
+         istendiğini söylüyor (panel notu, ölçüm sayacı). Bağlama tümüyle
+         `samplerPlan` üzerinden — orada aynı dokular `user: true` ile
+         zaten var, üstelik yazımları ve süzme ayarlarıyla birlikte. İkisi
+         de bağlasaydı hangisinin yetkili olduğu belirsiz kalırdı. */
       extraSamplers,
       samplerPlan,
       texSizeNames,
