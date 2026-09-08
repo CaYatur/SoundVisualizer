@@ -41,6 +41,13 @@
   let rules = null; // { cursors, last }
   let lastResult = null; // { kind, label } — durum satırı için
   let lastFailure = null; // { code, kind }
+  /* Sayaçlar yalnızca ölçüm için. Eski kod her değişimde paneli yeniden
+     kuruyordu; duman testi bunu "yeniden kurulum sayısı değişim sayısına
+     yaklaşmıyor" diye sınıyor. Mutlak sıfır iddia edilemez: ışık aygıtı
+     sayısı değişince admin zaten tüm paneli yeniden çiziyor (nadir, ama
+     gerçek). */
+  let panelRenders = 0;
+  let switchCount = 0;
 
   const SOURCE_LABELS = [
     ['scenes', 'Sahneler'],
@@ -179,6 +186,7 @@
       return { ok: false, code: 'EMPTY', kind: res.kind };
     }
     lastFailure = null;
+    switchCount++;
     lastResult = {
       kind: res.kind,
       label: res.kind === 'visualizers' ? visLabel(res.item.id) : res.item.label,
@@ -355,6 +363,7 @@
   // Panel
   // --------------------------------------------------------------------------
   function panel() {
+    panelRenders++;
     const el = P().el;
     const cfg = P().cfg();
     if (!cfg.autovj) cfg.autovj = window.SV.defaultConfig().autovj;
@@ -478,5 +487,9 @@
     raf = requestAnimationFrame(loop);
   }
 
-  window.SVAutoVJ = { panel, init, tempoOf: () => tempo, applySwitch, statusOf: () => ({ lastResult, lastFailure }) };
+  window.SVAutoVJ = {
+    panel, init, tempoOf: () => tempo, applySwitch,
+    statusOf: () => ({ lastResult, lastFailure }),
+    counters: () => ({ panelRenders, switchCount }),
+  };
 })();

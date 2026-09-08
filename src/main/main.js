@@ -2843,6 +2843,117 @@ async function runSmoke() {
     await wait(400);
   }
 
+  /* --- Otomatik VJ ---
+     Birim testleri seçim ve sıra kurallarını kanıtlıyor. Burada kanıtlanan
+     üç şey onların ulaşamadığı yerde: panelin gerçekten uyarı YAZDIĞI,
+     değişimin yapılandırmaya ULAŞTIĞI ve metin katmanının SAĞ KALDIĞI.
+
+     Üçü de daha önce sessizce bozuktu ve hiçbiri birim testiyle görülemezdi:
+     kayıtlı sahnesi olmayan kullanıcıda özellik hiçbir şey yapmıyor, hiçbir
+     şey söylemiyordu; metin katmanı ise spektrum çizerine dönüşüyordu. */
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awj = adminWin.webContents;
+
+    // Tempo bölümünü ekrana getir (durum satırı ancak çizilince var olur)
+    const shown = await awj.executeJavaScript(`(async function(){
+      var items = document.querySelectorAll('.nav-item');
+      for (var i = 0; i < items.length; i++) {
+        items[i].click();
+        await new Promise(function(r){ setTimeout(r, 120); });
+        if (document.getElementById('autovjStatus')) return i;
+      }
+      return -1;
+    })()`);
+    if (shown < 0) errors.push('autovj: the status line was never rendered');
+
+    /* 1) SESSİZ KALMIYOR: sahne yokken sebebini yazıyor. */
+    const warn = await awj.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.scenes = [];
+      c.autovj = Object.assign({}, c.autovj, { enabled: true, source: 'scenes' });
+      window.SVPanel.apply();
+      var el = document.getElementById('autovjStatus');
+      return el ? el.textContent : '';
+    })()`);
+    console.log('[SMOKE] otomatik VJ boş kaynak uyarısı: ' + JSON.stringify(warn));
+    if (!warn || warn.indexOf('⚠') < 0) {
+      errors.push('autovj: no warning shown when the chosen source is empty (silent failure is back)');
+    }
+
+    /* 2) METİN KATMANI SAĞ KALIYOR ve TÜM görselleştirici katmanları değişiyor. */
+    await awj.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.layerStack = Object.assign({}, c.layerStack, { enabled: true });
+      c.layers = [
+        { id: 'ly_txt', kind: 'visualizer', type: 'text', enabled: true, settings: {} },
+        { id: 'ly_a', kind: 'visualizer', type: 'bars', enabled: true, settings: {} },
+        { id: 'ly_b', kind: 'visualizer', type: 'wave', enabled: true, settings: {} }
+      ];
+      c.autovj = Object.assign({}, c.autovj, {
+        enabled: true, source: 'visualizers', unit: 'seconds', interval: 1,
+        order: 'sequential', visualizerTargets: 'all'
+      });
+      window.SVPanel.apply();
+      // Panelin yeniden kurulup kurulmadığını anlamak için işaret bırak
+      var st = document.getElementById('autovjStatus');
+      if (st) st.dataset.svMark = 'kalici';
+      window.__svBase = window.SVAutoVJ.counters();
+      return 1;
+    })()`);
+    await wait(2600);
+
+    const after = await awj.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      var byId = {};
+      (c.layers || []).forEach(function(l){ byId[l.id] = l.type; });
+      var st = document.getElementById('autovjStatus');
+      return JSON.stringify({
+        text: byId.ly_txt,
+        a: byId.ly_a,
+        b: byId.ly_b,
+        status: st ? st.textContent.slice(0, 70) : null,
+        switches: window.SVAutoVJ.counters().switchCount - window.__svBase.switchCount,
+        renders: window.SVAutoVJ.counters().panelRenders - window.__svBase.panelRenders
+      });
+    })()`);
+    console.log('[SMOKE] otomatik VJ katman sonucu: ' + after);
+    const av = JSON.parse(after);
+
+    if (av.text !== 'text') {
+      errors.push('autovj: the text layer was overwritten (type is now ' + av.text + ')');
+    }
+    if (av.a === 'bars' || av.b === 'wave') {
+      errors.push('autovj: a visualizer layer never changed (a=' + av.a + ', b=' + av.b + ')');
+    }
+    if (av.a !== av.b) {
+      errors.push('autovj: visualizer layers drifted apart (a=' + av.a + ', b=' + av.b + ')');
+    }
+    /* Panel her değişimde yeniden kurulmamalı: kurulursa kullanıcının o anda
+       yaptığı tıklama, yerinden kaldırılmış bir düğüme gider ve düşer. Eski
+       kod tam olarak bunu yapıyordu (değişim başına bir render).
+
+       Mutlak sıfır iddia EDİLEMEZ: ışık aygıtı sayısı değişince admin zaten
+       tüm paneli yeniden çiziyor. Sınanan şey oran: değişimler yeniden
+       kurulumdan çok olmalı. Eski davranışta ikisi eşitti. */
+    if (av.switches < 2) {
+      errors.push('autovj: only ' + av.switches + ' switch(es) in 2.6s — the loop is not running');
+    } else if (av.renders >= av.switches) {
+      errors.push('autovj: the panel is rebuilt on every switch again ('
+        + av.renders + ' rebuilds for ' + av.switches + ' switches) — clicks will be dropped');
+    }
+    if (!av.status) errors.push('autovj: the status line went blank while running');
+
+    await awj.executeJavaScript(`(function(){
+      var c = window.SVPanel.cfg();
+      c.autovj.enabled = false;
+      c.layers = [];
+      c.layerStack = Object.assign({}, c.layerStack, { enabled: false });
+      window.SVPanel.apply();
+      return 1;
+    })()`);
+    await wait(400);
+  }
+
   /* --- Basıklık düzeltmesi ---
      Matematiği birim testleri kanıtlıyor (tests/aspect.test.js). Burada
      kanıtlanan başka bir şey: ayarın GERÇEKTEN çizim tuvaline ulaştığı.
