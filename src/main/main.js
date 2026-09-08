@@ -2900,7 +2900,20 @@ async function runSmoke() {
       window.__svBase = window.SVAutoVJ.counters();
       return 1;
     })()`);
-    await wait(2600);
+    await wait(1300);
+    /* İKİ ÖRNEK, arada zaman var.
+
+       Önce "katman hâlâ başlangıç türünde mi" diye bakılıyordu ve bu YANLIŞ
+       bir denetimdi: başlangıç türleri (bars, wave) dolaşım listesinin
+       kendisinde de var, dolayısıyla rotasyon oraya denk geldiğinde test
+       ürün sağlamken düşüyordu. Paketlenmiş öz test bunu yakaladı.
+       Doğru soru "değer şu mu" değil, "ZAMAN İÇİNDE DEĞİŞİYOR MU". */
+    const sample1 = await awj.executeJavaScript(`(function(){
+      var t = {};
+      (window.SVPanel.cfg().layers || []).forEach(function(l){ t[l.id] = l.type; });
+      return t.ly_a + '|' + t.ly_b;
+    })()`);
+    await wait(1300);
 
     const after = await awj.executeJavaScript(`(function(){
       var c = window.SVPanel.cfg();
@@ -2912,6 +2925,7 @@ async function runSmoke() {
         a: byId.ly_a,
         b: byId.ly_b,
         status: st ? st.textContent.slice(0, 70) : null,
+        pair: byId.ly_a + '|' + byId.ly_b,
         switches: window.SVAutoVJ.counters().switchCount - window.__svBase.switchCount,
         renders: window.SVAutoVJ.counters().panelRenders - window.__svBase.panelRenders
       });
@@ -2922,8 +2936,11 @@ async function runSmoke() {
     if (av.text !== 'text') {
       errors.push('autovj: the text layer was overwritten (type is now ' + av.text + ')');
     }
-    if (av.a === 'bars' || av.b === 'wave') {
-      errors.push('autovj: a visualizer layer never changed (a=' + av.a + ', b=' + av.b + ')');
+    /* Değerin ne olduğu değil, DEĞİŞTİĞİ sınanıyor: sıralı kipte iki örnek
+       arası mutlaka ilerlemeli. */
+    if (av.pair === sample1) {
+      errors.push('autovj: the visualizer layers did not change between two samples ('
+        + sample1 + ') — the switch never reaches the config');
     }
     /* İki katman FARKLI tür almalı. Aynı türü almaları, iki
        görselleştiriciyi tek görselleştiricinin iki kopyasına çevirir ve
