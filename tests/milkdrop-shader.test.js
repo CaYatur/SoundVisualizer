@@ -312,3 +312,54 @@ test('translate: MilkDrop matematik sabitlerini doğru değerlerle verir', () =>
   assert.match(r.glsl, /#define M_PI_2 6\.28318530718/);
   assert.match(r.glsl, /#define M_PI 3\.14159265359/);
 });
+
+/* Aşağıdakilerin hepsi resmi preset paketinden ölçümle çıktı:
+   scripts/milkdrop-compile-rate.js her birini gerçek bir WebGL2 bağlamında
+   derlenmezken buldu. Birim testi olarak da duruyorlar ki ileride bir
+   yeniden düzenleme birini sessizce geri almasın — korpus depoda değil,
+   yani ölçüm her ortamda koşamıyor. */
+
+test('translate: lum float2 ile de çağrılabiliyor', () => {
+  /* "Aqua Lumens" lum(uv_orig) yazıyor. HLSL'de dar vektörden genişe geçiş
+     normalde yasak ama fxc'nin eski kipi sıfırla dolduruyor; biz de. */
+  const r = T.translate('shader_body { ret = lum(uv_orig); }');
+  assert.match(r.glsl, /float lum\(vec2 v\)/);
+});
+
+test('translate: GetPixel/GetBlur float3 ve skaler koordinat alıyor', () => {
+  /* GetPixel(GetBlur1(uv)+...) gerçek kodda var: GetBlur1 float3 döndürüyor.
+     GetPixel(0.5) de var. HLSL kırpar ve yayar. */
+  const r = T.translate('shader_body { ret = GetPixel(GetBlur1(uv)) + GetBlur3(0.5); }');
+  assert.match(r.glsl, /vec3 GetPixel\(vec3 u\)/);
+  assert.match(r.glsl, /vec3 GetBlur3\(float u\)/);
+});
+
+test('translate: uniforma yazan preset yerel kopya alıyor', () => {
+  /* "Flowercraft" hue_shader'a atıyor. GLSL'de uniform salt okunur, atama
+     shader'ın tamamını düşürüyordu. */
+  const r = T.translate('shader_body { hue_shader = hue_shader * 2.0; ret = hue_shader; }');
+  assert.match(r.glsl, /uniform vec3 hue_shader;/, 'uniform yerinde kalmalı');
+  assert.match(r.glsl, /vec3 hue_shader_w;/, 'yerel kopya bildirilmeli');
+  assert.match(r.glsl, /hue_shader_w = hue_shader;/, 'kopya tohumlanmalı');
+  assert.ok(!/\bhue_shader\s*=\s*hue_shader\s*\*/.test(r.glsl), 'atama uniforma gitmemeli');
+});
+
+test('translate: yalnız okunan uniform takma ad almıyor', () => {
+  /* Aksi halde her preset gereksiz bir kopya taşırdı ve karşılaştırma yazan
+     presetler (rand_preset.x >= .4) da yanlışlıkla yakalanırdı. */
+  const a = T.translate('shader_body { ret = hue_shader; }');
+  assert.ok(!/hue_shader_w/.test(a.glsl));
+  const b = T.translate('shader_body { if (rand_preset.x >= 0.4) ret = vec3(1.0); }');
+  assert.ok(!/rand_preset_w/.test(b.glsl));
+});
+
+test('translate: rand_preset float4', () => {
+  /* MilkDrop'ta float4 ve presetler .w okuyor. vec3 bırakmak "vector field
+     selection out of range" veriyordu. Tip çizelgesinde de vec4 olmalı,
+     yoksa aritmetiği daraltılmaz ve bu sefer operand tipi patlar. */
+  const r = T.translate('shader_body { ret = vec3(rand_preset.w); }');
+  assert.match(r.glsl, /uniform vec4 rand_preset;/);
+  const s = T.translate('shader_body { ret = ret * rand_preset; }');
+  assert.ok(!/^\s*ret = ret \* rand_preset;/m.test(s.glsl),
+    'vec3 * vec4 daraltılmadan geçmemeli');
+});

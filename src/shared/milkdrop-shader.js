@@ -215,7 +215,8 @@
     'uniform float bass, mid, treb, vol;',
     'uniform float bass_att, mid_att, treb_att, vol_att;',
     'uniform vec4 rand_frame;',
-    'uniform vec3 rand_preset;',
+    /* float4, vec3 degil: presetler rand_preset.w okuyor. */
+    'uniform vec4 rand_preset;',
     'uniform vec4 roam_cos, roam_sin, slow_roam_cos, slow_roam_sin;',
     // MilkDrop'un shader'a verdiği hazır renk tonu vektörü
     'uniform vec3 hue_shader;',
@@ -337,6 +338,13 @@
     'float lum(vec3 v){ return dot(v, vec3(0.32, 0.49, 0.29)); }',
     'float lum(vec4 v){ return dot(v.xyz, vec3(0.32, 0.49, 0.29)); }',
     'float lum(float v){ return v; }',
+    /* lum(float2) resmi preset paketinde GERÇEKTEN var — "Aqua Lumens"
+       lum(uv_orig) ve lum(uv2*aspect.xy), "tiling the tube" lum(ret1.yx)
+       yazıyor. HLSL'de dar vektörden genişe geçiş normalde yasak; fxc'nin
+       eski D3DX kipinde sıfırla dolduruluyor ve bu presetler o yüzden
+       derleniyor. Aynısını yapıyoruz: mavi bileşen 0 kabul ediliyor.
+       Alternatif, presetin tamamının hiç çalışmamasıydı. */
+    'float lum(vec2 v){ return dot(vec3(v, 0.0), vec3(0.32, 0.49, 0.29)); }',
     'vec3 mul(mat3 m, vec3 v){ return m * v; }',
     'vec3 mul(vec3 v, mat3 m){ return v * m; }',
     'vec2 mul(mat2 m, vec2 v){ return m * v; }',
@@ -367,6 +375,21 @@
     'vec3 GetBlur3(vec2 u){ return texture(sampler_blur3, u).xyz * blur3_max + blur3_min; }',
     'vec3 GetBlur0(vec2 u){ return texture(sampler_main, u).xyz; }',
     'vec3 GetPixel(vec2 u){ return texture(sampler_main, u).xyz; }',
+    /* Bu beşi koordinatı float3 ya da skaler olarak da alıyor: presetler
+       GetPixel(GetBlur1(uv)+...) yazıyor — GetBlur1 float3 döndürdüğü için
+       argüman float3 oluyor — ve GetPixel(0.5) yazıyor. İkisi de sıradan
+       HLSL: geniş vektör KIRPILIR, skaler YAYILIR. Uydurma yok, HLSL'in
+       kendi dönüşüm kuralları. */
+    'vec3 GetBlur1(vec3 u){ return GetBlur1(u.xy); }',
+    'vec3 GetBlur2(vec3 u){ return GetBlur2(u.xy); }',
+    'vec3 GetBlur3(vec3 u){ return GetBlur3(u.xy); }',
+    'vec3 GetBlur0(vec3 u){ return GetBlur0(u.xy); }',
+    'vec3 GetPixel(vec3 u){ return GetPixel(u.xy); }',
+    'vec3 GetBlur1(float u){ return GetBlur1(vec2(u, u)); }',
+    'vec3 GetBlur2(float u){ return GetBlur2(vec2(u, u)); }',
+    'vec3 GetBlur3(float u){ return GetBlur3(vec2(u, u)); }',
+    'vec3 GetBlur0(float u){ return GetBlur0(vec2(u, u)); }',
+    'vec3 GetPixel(float u){ return GetPixel(vec2(u, u)); }',
     /* HLSL atamada sessizce KIRPAR ve YAYAR: `float3 c = tex2D(...)` float4'ü
        üçe indirir, `float2 v = 0` sıfırı ikiye yayar. GLSL ikisini de
        yapmaz ve shader hiç derlenmez — derleme kapısındaki en büyük iki
@@ -414,8 +437,8 @@
       'texsize_noise_hq', 'texsize_noise_lq_lite', 'texsize_noisevol_lq',
       'texsize_noisevol_hq', 'rand_frame', 'roam_cos', 'roam_sin',
       'slow_roam_cos', 'slow_roam_sin', '_qa', '_qb', '_qc', '_qd',
-      '_qe', '_qf', '_qg', '_qh']) m.set(n, 'vec4');
-    for (const n of ['rand_preset', 'hue_shader', 'blur1_min', 'blur1_max',
+      '_qe', '_qf', '_qg', '_qh', 'rand_preset']) m.set(n, 'vec4');
+    for (const n of ['hue_shader', 'blur1_min', 'blur1_max',
       'blur2_min', 'blur2_max', 'blur3_min', 'blur3_max']) m.set(n, 'vec3');
     for (const n of ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb',
       'vol', 'bass_att', 'mid_att', 'treb_att', 'vol_att']) m.set(n, 'float');
@@ -705,6 +728,49 @@
      GLSL ES küresel bir ilk değerin SABİT ifade olmasını istiyor; preset ise
      `float2 sunpos = float2(sin(time), 0);` yazıyor — time bir uniform.
      Bildirim yerinde kalıyor, hesap main'e taşınıyor. */
+  /* PREAMBLE'daki uniform'ların adı -> tipi. Kaynaktan okunuyor ki listeyi
+     ikinci bir yerde elle tutmak gerekmesin. */
+  const UNIFORM_TYPES = (function () {
+    const m = {};
+    for (const line of PREAMBLE) {
+      const g = /^uniform\s+(\w+)\s+(\w+)\s*;/.exec(line);
+      if (g && g[1].indexOf('sampler') !== 0) m[g[2]] = g[1];
+    }
+    return m;
+  })();
+
+  /* Presetler uniform'a YAZIYOR.
+
+     MilkDrop'ta rand_preset, hue_shader gibi değerler shader'a sabit olarak
+     geliyor ama HLSL global'e atamayı serbest bırakıyor ve presetler bunu
+     kullanıyor: "Flowercraft" hue_shader = (hue_shader*4.0)-2.8 yazıyor,
+     "gimme color (Bubble Spinner Mix)" rand_preset'e atıyor. GLSL'de uniform
+     salt okunur, atama satırı derlemeyi tümüyle düşürüyordu — preset hiç
+     görünmüyordu.
+
+     Uniform'un ADI DEĞİŞTİRİLMİYOR: motor onları ada göre bağlıyor
+     (getUniformLocation), ad değişirse değer hiç ulaşmaz ve shader derlenir
+     ama yanlış çizer — sessiz hata. Bunun yerine gövdedeki ad yerel bir
+     kopyayla değiştiriliyor, kopya da uniform'dan tohumlanıyor. Uniform
+     olduğu gibi duruyor, atama artık yerel değişkene gidiyor. */
+  function aliasWrittenUniforms(texts) {
+    const decls = [];
+    const seed = [];
+    const joined = texts.join('\n');
+    for (const name of Object.keys(UNIFORM_TYPES)) {
+      /* Atama mı? `x = `, `x += `, `x.rgb = ` sayılır; `x == `, `x >= `,
+         `x != ` sayılmaz — karşılaştırma yazan preset çok daha fazla. */
+      const write = new RegExp('\\b' + name + '\\b\\s*(?:\\.[xyzwrgba]+\\s*)?(?:[-+*/]?=)(?!=)');
+      if (!write.test(joined)) continue;
+      const local = name + '_w';
+      decls.push(UNIFORM_TYPES[name] + ' ' + local + ';');
+      seed.push('  ' + local + ' = ' + name + ';');
+      const every = new RegExp('\\b' + name + '\\b', 'g');
+      for (let i = 0; i < texts.length; i++) texts[i] = texts[i].replace(every, local);
+    }
+    return { decls, seed };
+  }
+
   function hoistGlobals(text) {
     const decls = [];
     const prologue = [];
@@ -788,9 +854,19 @@
       }
     }
 
-    const gRaw = parts.globals ? rewriteText(parts.globals) : '';
-    const bRaw = rewriteText(parts.body);
+    const pair = [parts.globals ? rewriteText(parts.globals) : '', rewriteText(parts.body)];
+    const alias = aliasWrittenUniforms(pair);
+    const gRaw = pair[0];
+    const bRaw = pair[1];
     const types = typesOf(gRaw + '\n' + bRaw);
+    /* Takma adın tipi çizelgeye elle giriyor: bildirimi metinde değil `mid`
+       içinde duruyor, dolayısıyla typesOf onu göremez. Görmezse atamanın sağ
+       tarafı kırpılmıyor ve `rand_preset_w = vec4(...)` "dimension mismatch"
+       veriyor — uniform hatasını çözerken bir sonraki hataya çarpmak. */
+    for (const d of alias.decls) {
+      const g = /^(\w+)\s+(\w+);$/.exec(d);
+      if (g) types.set(g[2], g[1]);
+    }
     const hoisted = gRaw ? hoistGlobals(coerce(gRaw, types)) : { decls: '', prologue: [] };
     const body = coerce(bRaw, types);
 
@@ -813,7 +889,8 @@
       .concat(ins)
       .concat(decl, decl.length ? [''] : [])
       .concat(globalDecls(), HELPERS, ['']);
-    const mid = hoisted.decls ? hoisted.decls.split('\n').concat(['']) : [];
+    const mid = alias.decls.concat(alias.decls.length ? [''] : [])
+      .concat(hoisted.decls ? hoisted.decls.split('\n').concat(['']) : []);
     const main = ['void main() {']
       .concat(qAssigns(), stage === 'warp' ? [
         '  uv = vUV;',
@@ -833,6 +910,9 @@
         '',
       ])
       // presetin küresel ilk değerleri: uniform okuyabilsinler diye burada
+      /* Uniform kopyaları her şeyden önce tohumlanmalı: hem presetin kendi
+         globalleri hem de gövde onları okuyabiliyor. */
+      .concat(alias.seed, alias.seed.length ? [''] : [])
       .concat(hoisted.prologue, hoisted.prologue.length ? [''] : [])
       .concat(body.split('\n').map((l) => '  ' + l))
       .concat(['', /* Çıkış KIRPILIYOR. MilkDrop'un tamponları tamsayı ve 0..1 aralığında

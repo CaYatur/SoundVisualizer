@@ -473,7 +473,10 @@ void main(){ outColor = vCol; }`;
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
       this.presetTime = 0;
-      this.randPreset = [Math.random(), Math.random(), Math.random()];
+      /* MilkDrop'ta rand_preset float4: preset basina sabit DORT rastgele
+         sayi. Uc tutmak `rand_preset.w` okuyan presetlerde derlemeyi
+         dusuruyordu ("vector field selection out of range"). */
+      this.randPreset = [Math.random(), Math.random(), Math.random(), Math.random()];
       this._buildPresetShaders(src);
     }
 
@@ -574,7 +577,7 @@ void main(){ outColor = vCol; }`;
       set1('bass_att', ctx.bass_att); set1('mid_att', ctx.mid_att); set1('treb_att', ctx.treb_att);
       set1('vol', ctx.vol); set1('vol_att', ctx.vol_att);
       set4('rand_frame', Math.random(), Math.random(), Math.random(), Math.random());
-      set3('rand_preset', this.randPreset[0], this.randPreset[1], this.randPreset[2]);
+      set4('rand_preset', this.randPreset[0], this.randPreset[1], this.randPreset[2], this.randPreset[3]);
 
       /* roam/hue: MilkDrop bunları kendi iç gezinme salınımlarından üretiyor.
          Buradaki karşılıkları aynı KARAKTERDE (yavaş, ilişkisiz dört faz)

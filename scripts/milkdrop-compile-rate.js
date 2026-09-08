@@ -77,7 +77,24 @@ function listPresets(dir) {
   };
   walk(dir);
   out.sort();
-  return LIMIT ? out.slice(0, LIMIT) : out;
+
+  /* AYNI preset iki kez sayılmasın. İndirilen paketlerde iç içe kopya
+     klasörler oluyor (bu korpusta 574 preset, 1126 dosya olarak görünüyordu)
+     ve yüzde bozulmasa bile mutlak sayılar iki katına çıkıyor, "56 hata"
+     gerçekte 28 ayrı preset demek oluyordu. İçeriğe göre elenir: aynı
+     presetin farklı adla duran kopyası da yakalanır. */
+  const crypto = require('crypto');
+  const seenHash = new Set();
+  const uniq = [];
+  for (const p of out) {
+    let h;
+    try { h = crypto.createHash('sha1').update(fs.readFileSync(p)).digest('hex'); }
+    catch (e) { continue; }
+    if (seenHash.has(h)) continue;
+    seenHash.add(h);
+    uniq.push(p);
+  }
+  return LIMIT ? uniq.slice(0, LIMIT) : uniq;
 }
 
 /* Sürücü hatasını gruplanabilir bir imzaya indirger.
