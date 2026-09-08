@@ -510,19 +510,85 @@ void main(){ outColor = vCol; }`;
           return null;
         }
         if (r.soft.length) notes.push(stage + ': ' + r.soft.length + ' doku yaklaşık');
-        return { prog: lk.prog, locs: this._presetLocs(lk.prog, r.extraSamplers), extra: r.extraSamplers };
+        return {
+          prog: lk.prog,
+          locs: this._presetLocs(lk.prog, r.extraSamplers, r.rotUniforms),
+          extra: r.extraSamplers,
+          rot: r.rotUniforms || [],
+        };
       };
       this.warpPreset = build(fl.warpShader, 'warp');
       this.compPreset = build(fl.compShader, 'comp');
       this.shaderNote = notes.join(' | ');
     }
 
-    _presetLocs(prog, extra) {
+    /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
+
+       MilkDrop bunları `float4x3` veriyor — üç satır bir dönme matrisi,
+       dördüncü satır rastgele bir öteleme. Presetler neredeyse yalnız
+       satır olarak okuyor (`rot_d1[1].x`), yani yumuşak değişen bir
+       rastgele sayı kaynağı olarak kullanıyorlar.
+
+       Sınıf adı DÖNME HIZINI söylüyor: s sabit, d yavaş sürükleniyor,
+       f/vf/uf gittikçe hızlanıyor, rand her karede yeniden rastgele.
+       Hızlar MilkDrop kaynağından ölçülmedi, sınıf adının anlattığı
+       büyüklük sırasına göre seçildi — bu yüzden çeviri bunu `soft` notu
+       olarak bildiriyor.
+
+       Tohum PRESET BAŞINA sabit: aynı preset her açılışta aynı matrisleri
+       görsün diye. Kare başına yeniden rastgeleleyen tek sınıf `rand`. */
+    _rotRows(name) {
+      if (!this._rotBuf) this._rotBuf = new Map();
+      let buf = this._rotBuf.get(name);
+      if (!buf) { buf = new Float32Array(12); this._rotBuf.set(name, buf); }
+
+      const cls = /^rot_([a-z]+)[1-4]$/.exec(name);
+      const kind = cls ? cls[1] : 'd';
+      const SPEED = { s: 0, d: 0.07, f: 0.4, vf: 1.1, uf: 2.7, rand: 0 };
+      const speed = SPEED[kind] !== undefined ? SPEED[kind] : 0.07;
+
+      /* Ad + preset tohumundan türeyen sabit bir başlangıç açısı üçlüsü.
+         Rastgeleliğin ADA bağlı olması gerekiyor: rot_d1 ile rot_d2 aynı
+         değerleri verirse presetin iki ayrı rastgele kaynağı tek kaynağa
+         düşer ve desen tekrar eder. */
+      let h = (this.randPreset && this.randPreset[0] ? this.randPreset[0] * 4096 : 1) | 0;
+      for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+      const frac = (x) => x - Math.floor(x);
+      const seed = (k) => frac(Math.abs(Math.sin(h * 0.0001 + k * 12.9898)) * 43758.5453);
+
+      const t = kind === 'rand' ? Math.random() * 1000 : this.time * speed;
+      const ax = seed(1) * 6.2831853 + t;
+      const ay = seed(2) * 6.2831853 + t * 0.83;
+      const az = seed(3) * 6.2831853 + t * 1.17;
+
+      const cx = Math.cos(ax), sx = Math.sin(ax);
+      const cy = Math.cos(ay), sy = Math.sin(ay);
+      const cz = Math.cos(az), sz = Math.sin(az);
+      // Z * Y * X sırasıyla birleşik dönme; satır satır yazılıyor.
+      buf[0] = cy * cz;
+      buf[1] = cz * sx * sy - cx * sz;
+      buf[2] = cx * cz * sy + sx * sz;
+      buf[3] = cy * sz;
+      buf[4] = cx * cz + sx * sy * sz;
+      buf[5] = -cz * sx + cx * sy * sz;
+      buf[6] = -sy;
+      buf[7] = cy * sx;
+      buf[8] = cx * cy;
+      // Dördüncü satır: MilkDrop'ta öteleme, presetler rastgele sayı diye okuyor.
+      buf[9] = seed(4);
+      buf[10] = seed(5);
+      buf[11] = seed(6);
+      return buf;
+    }
+
+    _presetLocs(prog, extra, rot) {
       const gl = this.gl;
       const L = {};
       const u = (n) => gl.getUniformLocation(prog, n);
       for (const s of SAMPLER_UNITS) L[s[0]] = u(s[0]);
       L._extra = (extra || []).map((n) => u(n));
+      /* Dizi uniformunun konumu ILK ELEMANIN adiyla alinir. */
+      L._rot = (rot || []).map((n) => ({ name: n, loc: u(n + '[0]') }));
       for (const n of [
         'texsize', 'aspect', 'texsize_noise_lq', 'texsize_noise_mq', 'texsize_noise_hq',
         'texsize_noise_lq_lite', 'texsize_noisevol_lq', 'texsize_noisevol_hq',
@@ -554,6 +620,10 @@ void main(){ outColor = vCol; }`;
          Hepsi AYNI birime gidiyor: ayrı birim ayırmak doku birimi sınırını
          gereksiz yere zorlardı. */
       for (const loc of L._extra) if (loc) gl.uniform1i(loc, 4);
+      /* Dönme matrisleri: her biri dört vec3 satır. */
+      for (const r of (L._rot || [])) {
+        if (r.loc) gl.uniform3fv(r.loc, this._rotRows(r.name));
+      }
 
       const set4 = (n, a, b, c, d) => { if (L[n]) gl.uniform4f(L[n], a, b, c, d); };
       const set3 = (n, a, b, c) => { if (L[n]) gl.uniform3f(L[n], a, b, c); };

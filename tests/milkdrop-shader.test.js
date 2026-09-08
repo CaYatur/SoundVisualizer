@@ -534,8 +534,11 @@ test('translate: global çoklu bildirim ayrıştırılıyor (50 stage)', () => {
   const r = T.translate('float quality = 3.0, depth = 7.0;\nshader_body { ret = vec3(quality + depth); }');
   assert.match(r.glsl, /float quality;/);
   assert.match(r.glsl, /float depth;/);
-  assert.match(r.glsl, /quality = 3\.0;/);
-  assert.match(r.glsl, /depth = 7\.0;/);
+  /* İlk değerler main'in başına taşınıyor ve her biri KENDİ hedef tipine
+     çevriliyor — virgüllü listede ikinci bildiricinin de sarılması, bu
+     testin yazılmasına yol açan hatanın tam karşılığı. */
+  assert.match(r.glsl, /quality = toF\(3\.0\);/);
+  assert.match(r.glsl, /depth = toF\(7\.0\);/);
 });
 
 test('translate: global başlatıcı hoist edilirken geniş tipler de kapsanıyor', () => {
@@ -549,4 +552,67 @@ test('translate: global başlatıcı hoist edilirken geniş tipler de kapsanıyo
 test('translate: log10 tanımlanıyor', () => {
   const r = T.translate('shader_body { ret = log10(1.25 * ret); }');
   assert.match(r.glsl, /float log10\(float x\)/);
+});
+
+test('translate: gövde içi çoklu bildirimin HER bildiricisi sarılıyor (221 stage)', () => {
+  /* `float3 ret = tex2D(...).x, other = 1.0;` HLSL'de geçerli: her bildirici
+     kendi başına örtük dönüşümden geçiyor. Deyimin tamamına bakıp üst düzey
+     virgül görünce dokunmamak, korpustaki en büyük ikinci kovaydı. */
+  const r = T.translate('shader_body { float3 a = GetBlur1(uv).x, b = 1.0; ret = a + b; }');
+  assert.match(r.glsl, /a = toV3\(/);
+  assert.match(r.glsl, /b = toV3\(1\.0\)/);
+});
+
+test('translate: virgül işleçli atama dizisi de sarılıyor', () => {
+  const r = T.translate('shader_body { float t; float u; t = uv, u = 2.0; ret = vec3(t+u); }');
+  assert.match(r.glsl, /t = toF\(uv\)/);
+  assert.match(r.glsl, /u = toF\(2\.0\)/);
+});
+
+test('translate: fonksiyon parametresi genel tip çizelgesini bozmuyor (45 stage)', () => {
+  /* Parametreler süslü parantezlerin DIŞINDA duruyor, yani derinlik
+     hesabında global bildirim gibi görünüyorlardı: `float2 f(float uv)`
+     yazan bir preset `uv`nin tipini metnin tamamı için float yapıyor ve
+     gövdedeki her uv ataması toF ile sarılıyordu. */
+  const r = T.translate(
+    'float2 f(float uv) { return float2(uv, uv); }\nshader_body { uv = uv * 0.5; ret = vec3(f(0.3), 0.0); }');
+  assert.match(r.glsl, /uv = toV2\(/, 'uv yerleşik tipini (vec2) korumalı');
+});
+
+test('translate: if koşulunun İÇİ de daraltılıyor', () => {
+  /* `!` sayı üzerinde HLSL'de sıfıra karşılaştırma; GLSL reddediyor.
+     Daraltma yalnız atamalara uygulanıyordu, koşullara değil. */
+  const r = T.translate('float first;\nshader_body { if (!first) { ret = vec3(1.0); } }');
+  assert.ok(!/if \(!first\)/.test(r.glsl), 'çıplak ! kalmamalı: ' +
+    (r.glsl.split('\n').find((l) => /first/.test(l) && /if/.test(l)) || ''));
+});
+
+test('translate: bool vektör tipleri eşleniyor', () => {
+  const r = T.translate('bool3 hexgrid(float2 d) { return bool3(d.x>0.0, d.y>0.0, true); }\n' +
+    'shader_body { ret = vec3(1.0); }');
+  assert.match(r.glsl, /bvec3 hexgrid/);
+});
+
+test('translate: süslü parantezli vektör ilk değeri kurucuya çevriliyor', () => {
+  const r = T.translate('shader_body { float2 center = { 0.41, 0.5}; ret.xy = center; }');
+  // Atama sarmalayıcısı ayrıca toV2 ekliyor; aranan, süslü parantezin gitmesi.
+  assert.match(r.glsl, /vec2 center = toV2\(vec2\( ?0\.41, ?0\.5\)\)/);
+});
+
+test('translate: kullanılan dönme matrisleri bildiriliyor, kullanılmayanlar değil', () => {
+  /* Yirmi dördünü birden bildirmek 96 vec3 uniform demek; WebGL2'nin alt
+     sınırı 224 vektör ve düşük seviyeli bir GPU'da hiçbir preset
+     derlenmezdi. Bu yüzden yalnız geçenler bildiriliyor. */
+  const r = T.translate('shader_body { ret = vec3(rot_d1[1].x, rot_s2[0].y, 0.0); }');
+  assert.deepStrictEqual(r.rotUniforms, ['rot_d1', 'rot_s2']);
+  assert.match(r.glsl, /uniform vec3 rot_d1\[4\];/);
+  assert.ok(!/rot_f1/.test(r.glsl), 'kullanılmayan matris bildirilmemeli');
+  assert.ok(r.soft.some((x) => /dönme matrisi yaklaşık/.test(x)),
+    'yaklaşıklık soft notunda görünmeli');
+});
+
+test('translate: bool döndüren preset fonksiyonu sayı dönüşüne izin veriyor', () => {
+  const r = T.translate('bool inside(float x) { return (x>1.0)*(x<7.0); }\n' +
+    'shader_body { if (inside(uv.x)) ret = vec3(1.0); }');
+  assert.match(r.glsl, /return toB\(/);
 });

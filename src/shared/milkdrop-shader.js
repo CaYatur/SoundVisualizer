@@ -213,6 +213,9 @@
        karşılıkları da float vektör; `int2 k = ...` yazan 18 preset yalnızca
        bu bildirim yüzünden derlenmiyordu. */
     ['double4', 'vec4'], ['double3', 'vec3'], ['double2', 'vec2'], ['double', 'float'],
+    /* HLSL'in bool vektörleri. Eşlenmezlerse `bool3 f(...)` bildiren preset
+       "syntax error" veriyor — tip adı GLSL'de hiç yok. */
+    ['bool4', 'bvec4'], ['bool3', 'bvec3'], ['bool2', 'bvec2'],
     ['int4', 'vec4'], ['int3', 'vec3'], ['int2', 'vec2'],
     ['uint4', 'vec4'], ['uint3', 'vec3'], ['uint2', 'vec2'], ['uint', 'float'],
     /* int -> float: HLSL sayıları serbestçe karıştırır, GLSL ES karıştırmaz.
@@ -586,7 +589,22 @@
        aşağıdaki aşırı yüklemeler onu derleyiciye çözdürüyor. Yani tip
        çıkarımı bize değil GLSL'e ait. */
     // HLSL karşılaştırmayı 0/1 diye okur, GLSL okumaz: bool da sarmalanmalı
+    /* HLSL bool ile sayı arasında serbestçe gidip geliyor; GLSL hiç
+       çevirmiyor. Preset fonksiyonlarının parametre/dönüş dönüşümleri de
+       bunları kullanıyor. */
+    'bool toB(bool b){ return b; }',
+    'bool toB(float x){ return x != 0.0; }',
+    'bool toB(vec2 v){ return v.x != 0.0; }',
+    'bool toB(vec3 v){ return v.x != 0.0; }',
+    'bool toB(vec4 v){ return v.x != 0.0; }',
+    'int toI(int i){ return i; }',
+    'int toI(bool b){ return b ? 1 : 0; }',
+    'int toI(float x){ return int(x); }',
+    'int toI(vec2 v){ return int(v.x); }',
+    'int toI(vec3 v){ return int(v.x); }',
+    'int toI(vec4 v){ return int(v.x); }',
     'float toF(bool b){ return b ? 1.0 : 0.0; }',
+    'float toF(int i){ return float(i); }',
     'vec2 toV2(bool b){ return vec2(b ? 1.0 : 0.0); }',
     'vec3 toV3(bool b){ return vec3(b ? 1.0 : 0.0); }',
     'vec4 toV4(bool b){ return vec4(b ? 1.0 : 0.0); }',
@@ -676,8 +694,22 @@
       const cond = s.slice(re.lastIndex, i - 1);
       let t = 'unknown';
       try { t = H.typeOf(H.parse(H.tokenize(cond)), types); } catch (e) { t = 'unknown'; }
-      if (t === 'bool' || t === 'unknown') { re.lastIndex = i; continue; }
-      out += s.slice(last, m.index) + m[1] + ' ((' + cond + ') != 0.0)';
+      /* KOŞUL DA DARALTILIYOR. Daraltma yalnız atamalara ve return'e
+         uygulanıyordu; oysa HLSL'in kuralları koşulun içinde de geçerli:
+         `if (!first)` — first bir sayı, HLSL `!` ile sıfıra karşılaştırıyor,
+         GLSL "no operation '!' exists that takes an operand of type float"
+         diyor. Sarmalama yapılmayan (zaten bool olan) koşullar da bundan
+         yararlanıyor, çünkü sorun sarmalamada değil koşulun İÇİNDE. */
+      let fixed = cond;
+      try { fixed = H.narrowExpr(cond, types); } catch (e) { fixed = cond; }
+      if (t === 'bool' || t === 'unknown') {
+        if (fixed === cond) { re.lastIndex = i; continue; }
+        out += s.slice(last, m.index) + m[1] + ' (' + fixed + ')';
+        last = i;
+        re.lastIndex = i;
+        continue;
+      }
+      out += s.slice(last, m.index) + m[1] + ' ((' + fixed + ') != 0.0)';
       last = i;
       re.lastIndex = i;
     }
@@ -718,11 +750,67 @@
     return out.join('');
   }
 
+  /* Üst düzey virgüllerden böler; parantez/köşeli parantez içindekiler
+     argüman ayırıcıdır ve bölünmez. */
+  function splitTopCommas(text) {
+    const out = [];
+    let d = 0, last = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '(' || c === '[') d++;
+      else if (c === ')' || c === ']') d--;
+      else if (c === ',' && d === 0) { out.push(text.slice(last, i)); last = i + 1; }
+    }
+    out.push(text.slice(last));
+    return out;
+  }
+
+  const DECL_HEAD = /^(\s*(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234])\s+)([\s\S]*)$/;
+
   function fixStatement(st, types) {
     if (!st.trim() || /(^|\n)\s*#/.test(st)) return st;
     /* `const float k = 0.0;` sarmalanmamalı: GLSL const'un ilk değerinin
        SABİT ifade olmasını istiyor, `toF(...)` ise bir fonksiyon çağrısı. */
     if (/^\s*const\b/.test(st)) return st;
+
+    /* ÇOKLU BİLDİRİM ve VİRGÜL İŞLEÇLİ ATAMA DİZİSİ.
+
+       `float3 ret = tex2D(sampler_main, uv).x, other = 1.0;` HLSL'de
+       geçerli: her bildirici kendi başına örtük dönüşümden geçiyor. Burada
+       ise deyimin tamamına bakılıyordu ve üst düzey virgül görülünce hiç
+       dokunulmuyordu — tek bir sarmalayıcıya almak `toF(a, b)` gibi
+       geçersiz bir çağrı ürettiği için o kaçış doğruydu, ama eksikti:
+       ölçümde 221 stage yalnızca bu yüzden derlenmiyordu.
+
+       Doğrusu bölüp HER BİRİNİ ayrı sarmak. Bildirimlerde tip öneki her
+       parçaya geçici olarak takılıyor, çünkü hedef tipi o belirliyor. */
+    /* `return` da daraltılıyor. Daraltma yalnız ATAMALARA uygulanıyordu;
+       oysa HLSL'in örtük kuralları return ifadesinin İÇİNDE de geçerli:
+       `return res * (res > 0.02);` bool'u sayı gibi kullanıyor ve GLSL
+       "wrong operand types" diyor. Dönüş tipine çevirmek (coerceUserReturns)
+       dış katmanı düzeltiyor, ifadenin içi burada düzeliyor. */
+    const rt = /^(\s*return\b)([\s\S]+)$/.exec(st);
+    if (rt && rt[2].trim()) {
+      const H = hl();
+      if (!H) return st;
+      return rt[1] + ' ' + H.narrowExpr(rt[2].trim(), types);
+    }
+
+    const parts = splitTopCommas(st);
+    if (parts.length > 1) {
+      const decl = DECL_HEAD.exec(st);
+      if (decl) {
+        const head = decl[1];
+        const done = splitTopCommas(decl[2]).map((one) => {
+          const fixed = fixStatement(head + one.trim(), types);
+          return fixed.slice(head.length);
+        });
+        return head + done.join(', ');
+      }
+      /* Tip yoksa virgül İŞLECİ: `trad = q5, srad = sqrt(trad)`. Her atama
+         kendi hedef tipini çizelgeden buluyor. */
+      return parts.map((p) => fixStatement(p, types)).join(',');
+    }
     // üst düzey atama işlecini bul
     let d = 0;
     for (let i = 0; i < st.length; i++) {
@@ -938,7 +1026,9 @@
      dönüştürücüler `return` için de kullanılıyor, çünkü HLSL orada da
      dönüştürüyor ("function return is not matching type").
      --------------------------------------------------------------------- */
-  const CONV = { float: 'toF', vec2: 'toV2', vec3: 'toV3', vec4: 'toV4' };
+  /* bool ve int de burada: HLSL `bool f(...) { return (x>1.0)*(x<7.0); }`
+     yazmayı kabul ediyor — çarpım sayı, dönüş bool ve dönüşüm örtük. */
+  const CONV = { float: 'toF', vec2: 'toV2', vec3: 'toV3', vec4: 'toV4', bool: 'toB', int: 'toI' };
   const FN_DEF = /\b(float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234])\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)\s*\{/g;
   const DECL_ARG = /^\s*(?:in|out|inout)?\s*(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234]|sampler\w*)\s+[A-Za-z_]/;
 
@@ -1124,6 +1214,14 @@
       function (all, t, name, args) {
         return t + ' ' + name + ' = hmat' + t.slice(3) + '(' + args.trim().replace(/,\s*$/, '') + ')';
       });
+    /* Aynı biçim VEKTÖRLERDE de var: `float2 center = { 0.41, 0.5 };`.
+       Matris kuralının yanında bunun eksik olması o satırları sözdizimi
+       hatası bırakıyordu. Vektörde satır/sütun sorunu yok, kurucu doğrudan
+       aynı sırayı alıyor. */
+    s = s.replace(/\b(vec[234])\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\{([^{}]*)\}/g,
+      function (all, t, name, args) {
+        return t + ' ' + name + ' = ' + t + '(' + args.trim().replace(/,\s*$/, '') + ')';
+      });
     s = arrayInit(s);
     s = floatify(s);
     s = modFix(s);
@@ -1160,6 +1258,11 @@
     /* Ad -> bildirildigi susulu parantez derinligi. Cakismada dis kapsam
        kazansin diye tutuluyor; gerekcesi asagida. */
     const depths = new Map();
+    /* Yerleşikler de en dış kapsamda sayılıyor. Sayılmazsa derinlik kuralı
+       onlara hiç uygulanmıyor ve fonksiyon içindeki bir yerel ad `uv`,
+       `ret`, `rad` gibi motorun kendi değişkenlerinin tipini metnin
+       TAMAMI için değiştirebiliyor. */
+    for (const k of BUILTIN_TYPES.keys()) depths.set(k, 0);
     /* Matris bildirimleri de çizelgeye giriyor. Girmezlerse `float2x2 rot`
        tipsiz kalıyor, `mul(uv, rot)` de tipsiz oluyor ve ikili daraltma hiç
        çalışmıyor: ORB presetlerinde `mul(...) + GetBlur1(...)` ifadesi
@@ -1173,11 +1276,22 @@
       /* Bu bildirimin bulundugu derinlik: metnin basindan buraya kadar
          acilan/kapanan susulu parantezleri say. */
       let declDepth = 0;
+      let parenDepth = 0;
       for (let k = 0; k < dm.index; k++) {
-        if (text[k] === '{') declDepth++;
-        else if (text[k] === '}') declDepth--;
+        const ch = text[k];
+        if (ch === '{') declDepth++;
+        else if (ch === '}') declDepth--;
+        else if (ch === '(') parenDepth++;
+        else if (ch === ')') parenDepth--;
       }
       if (declDepth < 0) declDepth = 0;
+      /* PARANTEZ İÇİNDEKİ bildirim bir FONKSİYON PARAMETRESİ (ya da for
+         başlığı): metinde süslü parantezlerin dışında duruyor, yani derinliği
+         0 çıkıyor ve global bir bildirimmiş gibi davranıyor. Gerçekte
+         fonksiyonun İÇİNE ait. Düzeltilmezse `float2 f(float uv)` yazan bir
+         preset `uv`nin genel tipini float yapıyor ve gövdedeki HER `uv`
+         ataması toF ile sarılıp "dimension mismatch" veriyordu. */
+      if (parenDepth > 0) declDepth += 1;
       let i = dre.lastIndex;
       let d = 0;
       const names = [];
@@ -1385,6 +1499,21 @@
        blur zinciri, q ile sürülen renk matematiği ve geri kalan her satırı
        çalışmaya devam ediyor. Desen yanlış, yapı doğru — ve bu `soft`ta
        yazılı olduğu için görünür. */
+    /* Presetin kullandığı dönme matrisleri. Hepsi değil, yalnız geçenler
+       bildiriliyor (gerekçe bildirim yerinde). */
+    const rotUniforms = [];
+    const rotSeen = new Set();
+    const rotRe = /\brot_(?:s|d|f|vf|uf|rand)[1-4]\b/g;
+    let rm;
+    while ((rm = rotRe.exec(all)) !== null) {
+      if (rotSeen.has(rm[0])) continue;
+      rotSeen.add(rm[0]);
+      rotUniforms.push(rm[0]);
+    }
+    /* Dönme hızları MilkDrop'un kaynağından ölçülmedi, sınıfa göre
+       yaklaşıklandı; bu yüzden `soft`ta duruyor. */
+    if (rotUniforms.length) soft.push('dönme matrisi yaklaşık: ' + rotUniforms.join(', '));
+
     const seen = new Set();
     const re = /\bsampler_[A-Za-z0-9_]+/g;
     let m;
@@ -1457,9 +1586,27 @@
       ? ['in vec2 vUV;', 'in vec2 vUVOrig;', 'in float vRad;', 'in float vAng;', '']
       : ['in vec2 vUV;', ''];
     const decl = extraSamplers.map((n) => 'uniform sampler2D ' + n + ';');
+    /* DÖNME MATRİSLERİ (rot_s/d/f/vf/uf/rand 1..4).
+
+       MilkDrop bunları `float4x3` olarak veriyor: üç satır bir dönme
+       matrisi, dördüncü satır rastgele bir öteleme. Presetler neredeyse
+       yalnız SATIR olarak okuyor — `rot_d1[1].x` gibi, yumuşak değişen bir
+       rastgele sayı kaynağı olarak.
+
+       Bu yüzden matris değil `vec3[4]` bildiriliyor: GLSL'de `m[i]` bir
+       SÜTUN verir, HLSL'de ise satır. mat3x4 bildirmek shader'ı derletirdi
+       ama `[1].x` başka bir bileşeni okur ve hata vermez — sessizce yanlış
+       görüntü. Dizi biçiminde indeksleme HLSL ile birebir aynı.
+
+       Yalnız KULLANILAN adlar bildiriliyor: yirmi dördünü birden bildirmek
+       96 vec3 uniform demek ve WebGL2'nin alt sınırına (224 vektör)
+       tehlikeli biçimde yaklaşıyor — düşük seviyeli bir GPU'da HİÇBİR
+       preset derlenmezdi. */
+    const rotDecl = rotUniforms.map((n) => 'uniform vec3 ' + n + '[4];');
     const head = PREAMBLE
       .concat(ins)
       .concat(decl, decl.length ? [''] : [])
+      .concat(rotDecl, rotDecl.length ? [''] : [])
       .concat(globalDecls(), HELPERS, ['']);
     const mid = alias.decls.concat(alias.decls.length ? [''] : [])
       .concat(hoisted.decls ? hoisted.decls.split('\n').concat(['']) : []);
@@ -1500,6 +1647,7 @@
       hard,
       soft,
       extraSamplers,
+      rotUniforms,
       empty: false,
       stage: stage,
     };
