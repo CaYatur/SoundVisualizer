@@ -344,6 +344,21 @@
     apply: () => { render(); push(true); },
     toast: svToast,
     confirm: svConfirm,
+    /* Görselleştirici tür etiketleri, TEK kaynaktan: bölüm şemasındaki tür
+       seçicisi. Otomatik VJ paneli bunları kendi listesinde tekrar etseydi
+       yeni bir tür eklenince iki liste sessizce ayrışırdı. */
+    visualizerLabels: () => {
+      const out = {};
+      const secs = sectionSchema();
+      for (const sec of secs) {
+        for (const c of (sec.controls || [])) {
+          if (c && c.path === 'visualizer.type' && Array.isArray(c.options)) {
+            for (const o of c.options) if (o && o.value) out[o.value] = o.label;
+          }
+        }
+      }
+      return out;
+    },
     get: (p) => getPath(cfg, p),
     set: (p, v) => setPath(cfg, p, v),
     syncToggles: (p, v) => syncToggleInputs(p, v),
@@ -374,7 +389,7 @@
     },
     segment(labelText, path, options, opts) {
       const o = opts || {};
-      return segmentCtrl({ label: labelText, path, options, rebuild: o.rebuild });
+      return segmentCtrl({ label: labelText, path, options, rebuild: o.rebuild, onChange: o.onChange });
     },
     color(labelText, path) {
       return colorCtrl({ label: labelText, path });
@@ -624,6 +639,10 @@
           if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
             cfg.visualizer.rainbow = (o.value === 'rainbow');
           }
+          /* Değeri yazdıktan SONRA, yeniden çizimden ÖNCE: çağıran taraf
+             yeni değere göre kendi durumunu düzeltebilsin (Otomatik VJ
+             zamanlayıcısını sıfırlamak gibi). */
+          if (typeof def.onChange === 'function') def.onChange(o.value);
           if (def.rebuild) render();
           push(true);
         },

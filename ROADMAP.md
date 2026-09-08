@@ -63,7 +63,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1096** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **960** unit tests at v3.1.2, **1117** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -127,7 +127,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **1096 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1117 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 152 came with v3.1.2; 110 have come with v3.1.3 so far.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -515,7 +515,7 @@ is stored by name, so closing and reopening the application re-attaches it.
 
 ### Verification
 
-1096 unit tests pass on `main` (136 of them added during v3.1.3). The GPU smoke
+1117 unit tests pass on `main` (157 of them added during v3.1.3). The GPU smoke
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 

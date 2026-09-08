@@ -2134,6 +2134,29 @@
        sondaki boşluk zaten kırpılıyor; ama karşılığın sonundaki boşluk
        korunup çağıranın kendi boşluğuna EKLENİYOR ve çift boşluk çıkıyordu
        ("Dynamic color theme applied:  Album Art"). */
+    // ---- Otomatik VJ ----
+    'Hazır': 'Built-in',
+    'Kendi Yaptıklarım': 'My Own',
+    'Tüm Görselleştirici Katmanları': 'All Visualizer Layers',
+    'Yalnızca İlki': 'Only the First',
+    'Şablon Kaynağı': 'Preset Source',
+    'Hangi Katmanlar': 'Which Layers',
+    'Otomatik VJ kapalı.': 'Auto VJ is off.',
+    '⚠ Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.':
+      '⚠ No saved scenes. Save one under Library › Scenes first, or pick a different source.',
+    '⚠ Seçilen kaynakta renk şablonu yok.': '⚠ The selected source has no color presets.',
+    '⚠ Bu kaynakta değiştirilecek bir şey yok.': '⚠ There is nothing to switch in this source.',
+    'Son değişim': 'Last change',
+    'Son deneme başarısız': 'Last attempt failed',
+    'sıradaki': 'next',
+    'ölçü': 'bars',
+    'atlanan': 'skipped',
+    'Hangileri': 'Which ones',
+    'hepsi': 'all',
+    'Hiçbiri seçili değilse hepsi kullanılır.': 'If none are ticked, all of them are used.',
+    'Hepsini Seç': 'Select All',
+    'Seçimi Temizle': 'Clear Selection',
+
     // ---- Basıklık (piksel en boy oranı) düzeltme ----
     'Basıklık Düzeltme': 'Aspect Correction',
     'Ekranın bildirdiği çözünürlük fiziksel şekliyle uyuşmuyorsa daireler elips, logo ve yazılar basık çıkar. Tek ayarla arkaplan, görselleştirici, logo ve yazıların hepsi birden düzelir; kırpma ya da siyah bant oluşmaz.':
@@ -2268,6 +2291,10 @@
          yazılamaz: yukarıdaki ' · ' ayırıcı kuralı metni parçalara bölüp
          her parçayı ayrı ayrı buraya gönderiyor, dolayısıyla bütün satırı
          eşleyen bir desen hiçbir zaman denenmez. Parça başına kural. */
+      /* Otomatik VJ aralik kaydiricisinin degeri. Kaydirici yalnizca
+         Otomatik VJ ACIKKEN ciziliyor, bu yuzden duman testinin taramasi
+         onu hic gormemisti ve kural bugune kadar eksik kalmisti. */
+      .replace(/^(\d+) ölçü$/g, (_, n) => n + (Number(n) === 1 ? ' bar' : ' bars'))
       .replace(/^ekran (\d+)×(\d+)$/g, 'screen $1×$2')
       .replace(/^çizim (\d+)×(\d+)$/g, 'drawing $1×$2')
       .replace(/^([\d.]+) kat piksel$/g, '$1× the pixels')

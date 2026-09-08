@@ -59,29 +59,47 @@ test('sözlük ayrıştırılabiliyor', () => {
   assert.ok(d.size > 1000, 'sözlük beklenenden küçük: ' + d.size);
 });
 
-/* Maliyet satırının parçaları. İçlerinde sayı olduğu için sözlük anahtarı
-   olamıyorlar; satırın tamamı i18n.js'te düzenli ifade kuralıyla çevriliyor
-   ve bunu aşağıdaki 'maliyet satırı kalıbı' testi ayrıca doğruluyor.
+/* Kalıp olarak çevrilen parçalar. İçlerinde sayı olduğu için sözlük anahtarı
+   olamıyorlar; i18n.js'te düzenli ifade kuralıyla çevriliyorlar ve bunu
+   aşağıdaki 'maliyet satırı kalıbı' testi ayrıca doğruluyor.
    Liste bilerek DAR: yeni bir metin buraya eklenmeden istisna kazanamaz. */
-const PATTERN_PARTS = [' · çizim '];
+const PATTERN_PARTS = [' · çizim ', ' ölçü'];
 
-test('basıklık panelindeki her Türkçe metin sözlükte var', () => {
-  const dict = dictionary();
-  const missing = [];
-  for (const s of uiStrings('src/admin/aspect-panel.js')) {
-    if (PATTERN_PARTS.indexOf(s) >= 0) continue;
-    if (!dict.has(norm(s))) missing.push(s);
-  }
-  assert.deepStrictEqual(missing, [],
-    'sözlüğe eklenmemiş metin:\n  ' + missing.join('\n  '));
-});
+/* Denetlenen paneller. Kural bütün arayüz için geçerli ama tek tek dosya
+   taramak tüm kaynağı taramaktan çok daha az yanlış pozitif üretiyor. */
+const PANELS = ['src/admin/aspect-panel.js', 'src/admin/autovj.js'];
+
+for (const file of PANELS) {
+  const name = file.split('/').pop();
+
+  test(name + ' içindeki her Türkçe metin sözlükte var', () => {
+    const dict = dictionary();
+    const missing = [];
+    for (const s of uiStrings(file)) {
+      if (PATTERN_PARTS.indexOf(s) >= 0) continue;
+      if (!dict.has(norm(s))) missing.push(s);
+    }
+    assert.deepStrictEqual(missing, [],
+      'sözlüğe eklenmemiş metin:\n  ' + missing.join('\n  '));
+  });
+
+  test(name + ' çevirilerinde Türkçe kalmamış', () => {
+    const dict = dictionary();
+    const bad = [];
+    for (const s of uiStrings(file)) {
+      const v = dict.get(norm(s));
+      if (v && TR.test(v)) bad.push(s + ' -> ' + v);
+    }
+    assert.deepStrictEqual(bad, [], 'çevirisi hâlâ Türkçe: ' + bad.join(', '));
+  });
+}
 
 test('kalıp istisnaları gerçekten kullanılıyor', () => {
   /* Ölü bir istisna, ileride gerçek bir metni sessizce affedebilir. */
-  const panel = read('src/admin/aspect-panel.js');
+  const src = PANELS.map(read).join('\n');
   for (const s of PATTERN_PARTS) {
-    assert.ok(panel.indexOf("'" + s + "'") >= 0,
-      'panelde artık geçmeyen istisna: ' + s);
+    assert.ok(src.indexOf("'" + s + "'") >= 0,
+      'hiçbir panelde geçmeyen istisna: ' + s);
   }
 });
 
@@ -102,15 +120,6 @@ test('basıklık bölümünün başlık ve açıklaması sözlükte var', () => 
   }
 });
 
-test('çeviriler İngilizce (Türkçe karakter kalmamış)', () => {
-  const dict = dictionary();
-  const bad = [];
-  for (const s of uiStrings('src/admin/aspect-panel.js')) {
-    const v = dict.get(norm(s));
-    if (v && TR.test(v)) bad.push(s + ' -> ' + v);
-  }
-  assert.deepStrictEqual(bad, [], 'çevirisi hâlâ Türkçe: ' + bad.join(', '));
-});
 
 test('maliyet satırı PARÇA PARÇA çevriliyor', () => {
   /* Satırdaki sayılar değişken olduğu için sözlük anahtarı olamıyor;

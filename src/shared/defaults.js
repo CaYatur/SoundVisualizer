@@ -727,12 +727,22 @@
 
     autovj: {
       enabled: false,
-      source: 'scenes', // 'scenes' | 'visualizers' | 'palettes' | 'all'
+      /* Varsayılan kaynak SAHNELER DEĞİL.
+         Sahneler varsayılandı ve kayıtlı sahnesi olmayan kullanıcıda —
+         yani her yeni kullanıcıda — Otomatik VJ açılıyor, hiçbir şey
+         yapmıyor ve sebebini de söylemiyordu. Görselleştiriciler her zaman
+         doludur, dolayısıyla ilk denemede çalışır. */
+      source: 'visualizers', // 'scenes' | 'visualizers' | 'palettes' | 'all'
       unit: 'bars', // 'bars' | 'seconds'
       interval: 8,
       order: 'sequential', // 'sequential' | 'random'
       bpmLock: 0, // 0 = otomatik kestirim
       beatsPerBar: 4,
+      /* Dolaşıma girecek öğeler. Boş liste "hepsi" demektir; kullanıcı
+         belirli sahneleri ya da birkaç görselleştiriciyi seçebilir. */
+      picks: { scenes: [], visualizers: [], palettes: [] },
+      paletteSource: 'both', // 'both' | 'builtin' | 'user'
+      visualizerTargets: 'all', // 'all' | 'first' — kaç katman değişsin
     },
 
     // ------------------------------------------------------------------
