@@ -59,8 +59,14 @@ body {
 }
 .brand-text { display: flex; flex-direction: column; gap: 1px; }
 .wordmark { font-size: 18px; font-weight: 800; letter-spacing: 1.4px; line-height: 1; }
-.wordmark .cw-red { color: var(--accent); text-shadow: 0 0 14px rgba(225,29,42,.5); }
-.wordmark .cw-white { color: #ffffff; }
+/* Yazı işareti artık metin değil SVG. Yükseklik 16px: SVG'nin kutusu tam
+   büyük harf yüksekliği olduğu için 18px'te eski yazıdan belirgin biçimde
+   iri görünüyordu (18px yazının büyük harfi ~13px). */
+.wordmark-svg { display: block; height: 16px; width: auto; }
+.wordmark-svg .wm-red { fill: var(--accent); }
+.wordmark-svg .wm-white { fill: #ffffff; }
+/* Eski metnin text-shadow'unun karşılığı; kırmızı kısım aynı parlaklığı korusun */
+.wordmark-svg .wm-red { filter: drop-shadow(0 0 7px rgba(225,29,42,.5)); }
 .brand .sub { font-size: 10.5px; color: var(--muted2); letter-spacing: .25px; white-space: nowrap; }
 
 /* --- arama --- */
