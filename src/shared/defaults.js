@@ -606,6 +606,23 @@
     },
 
     // ------------------------------------------------------------------
+    // Piksel en boy oranı düzeltmesi ("basıklık").
+    //
+    // Bildirdiği çözünürlükle fiziksel şekli uyuşmayan paneller için:
+    // 1920x1080 besleyip gerçekte 3:1 olan bir sahne ekranında daire elips,
+    // logo ve yazı basık çıkar. Düzeltme, sahneyi panelin GERÇEK şeklinde
+    // bir tuvale çizip çerçeveye sıkıştırır; kırpma ve bant olmaz ve tek
+    // ayarla arkaplan, görselleştirici, logo, yazı hep birden düzelir.
+    //
+    // Haritalamayla (mapping) aynı biçim: ekran kimliği başına tanım,
+    // 'default' hepsi için. Matematik src/shared/aspect.js'te.
+    // ------------------------------------------------------------------
+    aspect: {
+      enabled: false,
+      outputs: {},
+    },
+
+    // ------------------------------------------------------------------
     // Sahne geçişleri.
     //
     // Sahne değiştirmek eskiden sert kesmeydi. Geçiş yalnızca SAHNE

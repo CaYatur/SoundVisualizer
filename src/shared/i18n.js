@@ -2134,6 +2134,41 @@
        sondaki boşluk zaten kırpılıyor; ama karşılığın sonundaki boşluk
        korunup çağıranın kendi boşluğuna EKLENİYOR ve çift boşluk çıkıyordu
        ("Dynamic color theme applied:  Album Art"). */
+    // ---- Basıklık (piksel en boy oranı) düzeltme ----
+    'Basıklık Düzeltme': 'Aspect Correction',
+    'Ekranın bildirdiği çözünürlük fiziksel şekliyle uyuşmuyorsa daireler elips, logo ve yazılar basık çıkar. Tek ayarla arkaplan, görselleştirici, logo ve yazıların hepsi birden düzelir; kırpma ya da siyah bant oluşmaz.':
+      'When a display’s reported resolution does not match its physical shape, circles come out as ellipses and logos and text look squashed. One setting corrects the background, visualizer, logo and text together, with no cropping and no black bars.',
+    'Basıklık Düzeltme Etkin': 'Aspect Correction On',
+    'Düzeltme kapalı: görüntü ekrana olduğu gibi gider ve bu aşamanın ölçülebilir bir maliyeti yoktur.':
+      'Correction is off: the image goes to the display untouched and this stage has no measurable cost.',
+    'Düzeltilen Çıkış': 'Corrected Output',
+    'Deseni açın ve düzeltilen ekrana bakın; daire yuvarlak görünene kadar kaydırıcıyı oynatın. Ölçü almanız gerekmez.':
+      'Turn on a pattern and look at the corrected display; move the slider until the circle looks round. You do not need to measure anything.',
+    'Kalibrasyon Deseni': 'Calibration Pattern',
+    'Daire': 'Circle',
+    'Izgara ve Daire': 'Grid and Circle',
+    'Piksel Oranı': 'Pixel Ratio',
+    'düzeltme yok': 'no correction',
+    'içerik dikey gerilir': 'content is stretched vertically',
+    'içerik yatay gerilir': 'content is stretched horizontally',
+    '− İnce': '− Fine',
+    '+ İnce': '+ Fine',
+    'Çözünürlük Bütçesi': 'Resolution Budget',
+    'Kalite — çözünürlük kaybı yok': 'Quality — no resolution lost',
+    'Dengeli — piksel sayısı değişmez': 'Balanced — same pixel count',
+    'Performans — en az piksel': 'Performance — fewest pixels',
+    'Piksel tavanına ulaşıldı: düzeltme doğru kalır ama görüntü bir miktar yumuşar. Çözünürlük bütçesini düşürmek burada kayıp getirmez.':
+      'The pixel ceiling was reached: the correction stays accurate but the image softens a little. Lowering the resolution budget costs nothing here.',
+    'Ölçüyü biliyorsanız doğrudan girebilirsiniz; kaydırıcıya dokunmanız gerekmez.':
+      'If you know the measurement you can enter it directly; you do not have to touch the slider.',
+    'Panel Ölçüsü (en × boy)': 'Panel Size (width × height)',
+    'Gerçek En Boy Oranı': 'True Aspect Ratio',
+    'Elle Gerdiğiniz Görselin Ölçüsü': 'Size of the Image You Stretched by Hand',
+    'genişlik': 'width',
+    'yükseklik': 'height',
+    'Düzeltme yalnızca bu ekrandaki görselleştirici penceresine uygulanır. Dışa aktarılan video, yayın ve web kaplaması düzeltilmez: onlar başka ekranlarda izlenir ve orada düzeltme bozukluk olurdu.':
+      'The correction applies only to the visualizer window on this display. Exported video, the stream and the web overlay are left alone: they are watched on other screens, where the correction would itself be the distortion.',
+
     // ---- Uygulama başına ses yakalama ----
     'Uygulama Sesi': 'Application Audio',
     'Uygulama Kipi': 'Application Mode',
@@ -2225,6 +2260,13 @@
     return raw
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/^(\d+) süreç$/g, (_, n) => n + (Number(n) === 1 ? ' process' : ' processes'))
+      /* Basıklık panelinin maliyet satırı. Satırın TAMAMI için tek kural
+         yazılamaz: yukarıdaki ' · ' ayırıcı kuralı metni parçalara bölüp
+         her parçayı ayrı ayrı buraya gönderiyor, dolayısıyla bütün satırı
+         eşleyen bir desen hiçbir zaman denenmez. Parça başına kural. */
+      .replace(/^ekran (\d+)×(\d+)$/g, 'screen $1×$2')
+      .replace(/^çizim (\d+)×(\d+)$/g, 'drawing $1×$2')
+      .replace(/^([\d.]+) kat piksel$/g, '$1× the pixels')
       .replace(/^Uygulama başına ses yakalama Windows yapı (\d+) ve üstünü gerektiriyor; bu bilgisayarda yapı (\d+)\.$/g,
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')

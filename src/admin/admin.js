@@ -468,6 +468,8 @@
         return window.SVAnalysisPanel ? window.SVAnalysisPanel.panel() : null;
       case 'transitionpanel':
         return window.SVTransitionPanel ? window.SVTransitionPanel.panel() : null;
+      case 'aspectpanel':
+        return window.SVAspectPanel ? window.SVAspectPanel.panel() : null;
       case 'mappingpanel':
         return window.SVMappingPanel ? window.SVMappingPanel.panel() : null;
       case 'milkdroppanel':
@@ -2434,6 +2436,19 @@
         controls: [{ type: 'recordpanel' }],
       },
       {
+        /* Haritalamadan ÖNCE geliyor ve sırası kasıtlı: önce panelin piksel
+           geometrisi düzeltilir, sonra görüntü yüzeye oturtulur. Ters sırada
+           kullanıcı köşeleri basık bir görüntüye göre hizalar ve düzeltmeyi
+           sonradan açınca hizalamayı baştan yapması gerekirdi. */
+        id: 'aspect',
+        roots: ['aspect'],
+        category: 'output',
+        icon: '⬭',
+        title: 'Basıklık Düzeltme',
+        desc: 'Ekranın bildirdiği çözünürlük fiziksel şekliyle uyuşmuyorsa daireler elips, logo ve yazılar basık çıkar. Tek ayarla arkaplan, görselleştirici, logo ve yazıların hepsi birden düzelir; kırpma ya da siyah bant oluşmaz.',
+        controls: [{ type: 'aspectpanel' }],
+      },
+      {
         id: 'mapping',
         roots: ['mapping'],
         category: 'output',
@@ -4255,6 +4270,7 @@
     if (window.SVControl) window.SVControl.init();
     // Tempo motoru ve otomatik VJ döngüsü
     if (window.SVAutoVJ) window.SVAutoVJ.init();
+    if (window.SVAspectPanel) window.SVAspectPanel.init();
     if (window.SVMappingPanel) window.SVMappingPanel.init();
     if (window.SVMilkdropPanel) window.SVMilkdropPanel.init();
     // Yayın sunucusu durumu

@@ -66,14 +66,120 @@
   // --------------------------------------------------------------------------
   // Boyutlandırma
   // --------------------------------------------------------------------------
+  /* Bu ekranın basıklık düzeltmesi. Haritalamayla aynı örüntü: ekran
+     kimliğine özel tanım varsa o, yoksa 'default' (hepsi için). */
+  function aspectDef(c) {
+    return window.SVAspect.resolve(c && c.aspect, displayId);
+  }
+
   function resize() {
     dpr = window.devicePixelRatio || 1;
     const w = window.innerWidth;
     const h = window.innerHeight;
     // Arkaplan çözünürlük ölçeği katman yığınının tamamına uygulanır
     const rs = clamp(cfg.power.renderScale, 0.4, 1);
-    stack.resize(Math.round(w * dpr * rs), Math.round(h * dpr * rs));
+    const fw = Math.round(w * dpr * rs);
+    const fh = Math.round(h * dpr * rs);
+
+    /* Basıklık düzeltmesi görüntüyü GERMEZ; tuvalin ŞEKLİNİ değiştirir.
+       Sahne, panelin gerçek fiziksel oranında bir tuvale çizilir; tuval CSS
+       ile %100'e gerildiği için sıkıştırmayı tarayıcı yapar. Bu yüzden
+       kırpma da bant da oluşmaz.
+
+       Kritik olan, bunun KATMAN YIĞININA uygulanması: arkaplan,
+       görselleştirici, logo, yazı ve görsel nesnelerin hepsi aynı mantıksal
+       uzayda çizildiği için tek ayarla hepsi birden düzelir. Görselleri tek
+       tek önceden germek gereken durum tam olarak budur ve böylece ortadan
+       kalkar. */
+    const r = window.SVAspect.renderSize(fw, fh, aspectDef(cfg));
+    stack.resize(r.w, r.h);
+    layoutCalib(r);
     layoutLogo();
+  }
+
+  // --------------------------------------------------------------------------
+  // Kalibrasyon deseni
+  //
+  // Paneli ölçmek çoğu zaman mümkün değil; ama bir dairenin yuvarlak olup
+  // olmadığı gözle görülür. Desen, sahneyle AYNI mantıksal tuvale çizilir ve
+  // aynı sıkıştırmadan geçer — dolayısıyla daire ekranda yuvarlak göründüğü
+  // anda düzeltme doğrudur. Kullanıcının tek yapması gereken kaydırıcıyı
+  // oynatmak.
+  // --------------------------------------------------------------------------
+  let calibCanvas = null;
+
+  function layoutCalib(r) {
+    const def = aspectDef(cfg);
+    const pattern = def.pattern || 'none';
+    if (pattern === 'none') {
+      if (calibCanvas && calibCanvas.parentNode) calibCanvas.parentNode.removeChild(calibCanvas);
+      calibCanvas = null;
+      return;
+    }
+    if (!calibCanvas) {
+      calibCanvas = document.createElement('canvas');
+      calibCanvas.style.position = 'absolute';
+      calibCanvas.style.inset = '0';
+      calibCanvas.style.width = '100%';
+      calibCanvas.style.height = '100%';
+      calibCanvas.style.pointerEvents = 'none';
+      /* Haritalama tuvali 1000'de; desen onun da üstünde durmalı. Basıklık
+         önce ayarlanır, yüzey haritalaması sonra — desen haritalamadan
+         geçseydi hangi çarpıklığın hangisinden geldiği anlaşılmazdı. */
+      calibCanvas.style.zIndex = '1001';
+      stage.appendChild(calibCanvas);
+    }
+    if (calibCanvas.width !== r.w) calibCanvas.width = r.w;
+    if (calibCanvas.height !== r.h) calibCanvas.height = r.h;
+    drawCalib(calibCanvas, pattern);
+  }
+
+  function drawCalib(canvas, pattern) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const unit = Math.min(w, h);
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineWidth = Math.max(2, Math.round(unit * 0.004));
+    ctx.strokeStyle = '#00ff66';
+    ctx.globalAlpha = 0.95;
+
+    if (pattern === 'grid') {
+      /* Izgara: tek bir daire yalnızca merkezi anlatır, ızgara ise
+         çarpıklığın ekranın her yerinde aynı olup olmadığını gösterir —
+         değilse sorun basıklık değil, mercek ya da yüzey geometrisidir ve
+         çözümü projeksiyon haritalaması olur. */
+      const step = unit / 8;
+      ctx.beginPath();
+      for (let x = w / 2; x < w; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+      for (let x = w / 2 - step; x > 0; x -= step) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+      for (let y = h / 2; y < h; y += step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+      for (let y = h / 2 - step; y > 0; y -= step) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+      ctx.stroke();
+      // Izgaranın karesi kare mi: ortaya bir referans daire
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, step * 2, 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    }
+
+    const size = unit * 0.6;
+    ctx.beginPath();
+    if (pattern === 'square') {
+      ctx.rect((w - size) / 2, (h - size) / 2, size, size);
+    } else {
+      ctx.arc(w / 2, h / 2, size / 2, 0, Math.PI * 2);
+    }
+    ctx.stroke();
+
+    /* Artı işareti: gözle "yuvarlak mı" demek zor olabiliyor, ama iki kolun
+       eşit uzunlukta görünüp görünmediği daha kolay seçiliyor. */
+    ctx.beginPath();
+    ctx.moveTo(w / 2 - size / 2, h / 2);
+    ctx.lineTo(w / 2 + size / 2, h / 2);
+    ctx.moveTo(w / 2, h / 2 - size / 2);
+    ctx.lineTo(w / 2, h / 2 + size / 2);
+    ctx.stroke();
   }
 
   // --------------------------------------------------------------------------
