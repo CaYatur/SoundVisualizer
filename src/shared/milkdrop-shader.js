@@ -138,7 +138,48 @@
      Presetlerin %30'u bu türevleri kullanıyor. */
   /* GLSL ES 3.00'ın ayrılmış sözcüklerinden korpusta değişken adı olarak
      gerçekten karşımıza çıkanlar. Tamamını listelemek gereksiz. */
-  const RESERVED = /\b(output|input|filter|common|active|this|union|template|namespace|public|external|inline|volatile|short|long|unsigned|cast|class|enum|typedef|using|goto|asm|resource|partition|superp|varying|attribute|row_major|sizeof|restrict)\b/g;
+  const RESERVED = /\b(output|input|filter|common|active|this|union|template|namespace|public|external|inline|volatile|short|long|unsigned|cast|class|enum|typedef|using|goto|asm|resource|partition|superp|varying|attribute|row_major|sizeof|restrict|sample|buffer|shared|coherent|readonly|writeonly|patch|precise|subroutine|packed|centroid|noperspective|invariant|layout|hvec2|hvec3|hvec4|fvec2|fvec3|fvec4|dvec2|dvec3|dvec4)\b/g;
+
+  /* GLSL'in YERLEŞİK FONKSİYON adları. Ayrılmış sözcük değiller, ama presetin
+     aynı adda bir DEĞİŞKEN bildirmesi çağrıyla çakışıyor: `float2 mod = ...`
+     sonrası `mod.x` "field selection requires structure, vector..." veriyor,
+     çünkü derleyici adı hâlâ fonksiyon sanıyor. Toptan yeniden adlandırmak
+     olmaz — `mod(a,b)` çağrılarını da bozar; yalnız BİLDİRİLMİŞ olanlar
+     değiştiriliyor. */
+  const SHADOWABLE = [
+    'mod', 'length', 'distance', 'normalize', 'fract', 'sign',
+    'floor', 'ceil', 'round', 'trunc', 'radians', 'degrees', 'texture',
+    'transpose', 'determinant', 'inverse', 'equal', 'faceforward', 'refract',
+    'smoothstep', 'clamp', 'step', 'mix', 'matrixCompMult', 'outerProduct',
+  ];
+
+  const SHADOW_TYPE = '(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234])';
+
+  /* Metinde DEĞİŞKEN olarak bildirilmiş yerleşik adları bulur. Ardından `(`
+     gelmemeli — gelirse o bir fonksiyon TANIMI ve dokunulmamalı. */
+  function shadowedNames(text) {
+    const out = [];
+    for (const name of SHADOWABLE) {
+      const decl = new RegExp('\\b' + SHADOW_TYPE + '\\s+' + name + '\\b(?!\\s*\\()');
+      if (decl.test(text)) out.push(name);
+    }
+    return out;
+  }
+
+  /* Adları yeniden adlandırır. Çağrı biçimi (ad + parantez) korunuyor, geri
+     kalan her geçiş değişiyor — böylece `mod(a,b)` çağrısı bozulmadan
+     `mod` DEĞİŞKENİ `mod_v` oluyor.
+
+     Ad listesi DIŞARIDAN geliyor, çünkü bildirim globals'ta, kullanım
+     gövdede olabiliyor ve rewriteText iki bölümü ayrı ayrı işliyor: bölüm
+     başına karar verilince globals'taki bildirim değişip gövdedeki kullanım
+     olduğu gibi kalıyor ve ad "undeclared identifier" oluyordu. */
+  function renameShadowed(s, names) {
+    for (const name of names || []) {
+      s = s.replace(new RegExp('\\b' + name + '\\b(?!\\s*\\()', 'g'), name + '_v');
+    }
+    return s;
+  }
 
   const SAMPLER_PREFIX = /^sampler_(fw|pw|fc|pc)_/;
   const KNOWN_SAMPLERS = [
@@ -321,6 +362,19 @@
     'vec2 lerp(float a, float b, vec2 t){ return mix(vec2(a), vec2(b), t); }',
     'vec3 lerp(float a, float b, vec3 t){ return mix(vec3(a), vec3(b), t); }',
     'vec4 lerp(float a, float b, vec4 t){ return mix(vec4(a), vec4(b), t); }',
+    /* KARIŞIM ORANI KOŞUL: `lerp(uv.x, 1.0, uv.x > 1.0)` gerçek presetlerde
+       var. HLSL bool'u 1.0/0.0'a çeviriyor, GLSL çevirmiyor ve hiçbir aşırı
+       yükleme eşleşmiyordu. Koşullu seçim mix'in bool karşılığı. */
+    'float lerp(float a, float b, bool t){ return t ? b : a; }',
+    'vec2 lerp(vec2 a, vec2 b, bool t){ return t ? b : a; }',
+    'vec3 lerp(vec3 a, vec3 b, bool t){ return t ? b : a; }',
+    'vec4 lerp(vec4 a, vec4 b, bool t){ return t ? b : a; }',
+    'vec2 lerp(vec2 a, float b, bool t){ return t ? vec2(b) : a; }',
+    'vec3 lerp(vec3 a, float b, bool t){ return t ? vec3(b) : a; }',
+    'vec4 lerp(vec4 a, float b, bool t){ return t ? vec4(b) : a; }',
+    'vec2 lerp(float a, vec2 b, bool t){ return t ? b : vec2(a); }',
+    'vec3 lerp(float a, vec3 b, bool t){ return t ? b : vec3(a); }',
+    'vec4 lerp(float a, vec4 b, bool t){ return t ? b : vec4(a); }',
     'float mdPow(float a, float b){ return pow(abs(a) + 1e-9, b); }',
     'vec2 mdPow(vec2 a, vec2 b){ return pow(abs(a) + 1e-9, b); }',
     'vec3 mdPow(vec3 a, vec3 b){ return pow(abs(a) + 1e-9, b); }',
@@ -328,6 +382,12 @@
     'vec2 mdPow(vec2 a, float b){ return pow(abs(a) + 1e-9, vec2(b)); }',
     'vec3 mdPow(vec3 a, float b){ return pow(abs(a) + 1e-9, vec3(b)); }',
     'vec4 mdPow(vec4 a, float b){ return pow(abs(a) + 1e-9, vec4(b)); }',
+    /* TABAN skaler, ÜS vektör: `pow(lum(ret), float3(0.3,1.0,1.8))` korpusta
+       sık. HLSL tabanı yayıyor; yalnız (vektör, skaler) yönünü tutmak bu
+       çağrıları eşleşmez bırakıyordu. */
+    'vec2 mdPow(float a, vec2 b){ return pow(vec2(abs(a) + 1e-9), b); }',
+    'vec3 mdPow(float a, vec3 b){ return pow(vec3(abs(a) + 1e-9), b); }',
+    'vec4 mdPow(float a, vec4 b){ return pow(vec4(abs(a) + 1e-9), b); }',
     /* min/max KENDİ adıyla aşırı yüklenemiyor: GLSL ES yerleşik bir
        fonksiyonun yeniden bildirilmesini yasaklıyor ("Name of a built-in
        function cannot be redeclared as function") ve denediğimde derleme
@@ -417,6 +477,74 @@
     'mat2x3 hmat3x2(vec2 r0, vec2 r1, vec2 r2){ return mat2x3(vec3(r0.x, r1.x, r2.x), vec3(r0.y, r1.y, r2.y)); }',
     'vec2 mul(mat3x2 m, vec3 v){ return m * v; }',
     'vec3 mul(mat2x3 m, vec2 v){ return m * v; }',
+    /* mul(vektör, skaler) HLSL'de SKALER ÇARPIM. Yalnız eşit genişlikli
+       aşırı yüklemeler bulunduğu için `mul(uv-0.5, 1.0)` eşleşmiyordu; iç
+       çarpım aşırı yüklemesine düşmesi de yanlış olurdu (vec2 bekleniyor,
+       float dönerdi). */
+    'vec2 mul(vec2 a, float b){ return a * b; }',
+    'vec3 mul(vec3 a, float b){ return a * b; }',
+    'vec4 mul(vec4 a, float b){ return a * b; }',
+    'vec2 mul(float a, vec2 b){ return a * b; }',
+    'vec3 mul(float a, vec3 b){ return a * b; }',
+    'vec4 mul(float a, vec4 b){ return a * b; }',
+
+    /* YERLEŞİK ADLAR: dot/all/any/cross/reflect GLSL'de yeniden
+       tanımlanamıyor ("Name of a built-in function cannot be redeclared as
+       function" — min/max'ı aşırı yüklemeye çalışmak derleme oranını bir
+       kerede %0'a düşürmüştü). Çevirici çağrıları md* karşılıklarına
+       yönlendiriyor, aşırı yükleme burada yapılıyor. */
+    'float mdDot(float a, float b){ return a * b; }',
+    'float mdDot(vec2 a, vec2 b){ return dot(a, b); }',
+    'float mdDot(vec3 a, vec3 b){ return dot(a, b); }',
+    'float mdDot(vec4 a, vec4 b){ return dot(a, b); }',
+    'float mdDot(vec2 a, float b){ return dot(a, vec2(b)); }',
+    'float mdDot(vec3 a, float b){ return dot(a, vec3(b)); }',
+    'float mdDot(vec4 a, float b){ return dot(a, vec4(b)); }',
+    'float mdDot(float a, vec2 b){ return dot(vec2(a), b); }',
+    'float mdDot(float a, vec3 b){ return dot(vec3(a), b); }',
+    'float mdDot(float a, vec4 b){ return dot(vec4(a), b); }',
+    /* Farklı genişlik: HLSL geniş olanı DARALTIYOR (sessizce). */
+    'float mdDot(vec3 a, vec2 b){ return dot(a.xy, b); }',
+    'float mdDot(vec2 a, vec3 b){ return dot(a, b.xy); }',
+    'float mdDot(vec4 a, vec3 b){ return dot(a.xyz, b); }',
+    'float mdDot(vec3 a, vec4 b){ return dot(a, b.xyz); }',
+    'float mdDot(vec4 a, vec2 b){ return dot(a.xy, b); }',
+    'float mdDot(vec2 a, vec4 b){ return dot(a, b.xy); }',
+
+    /* HLSL'de all/any HER tipte çalışıyor ve "sıfırdan farklı" anlamına
+       geliyor; GLSL'inkiler yalnız bvec alıyor. */
+    'bool mdAll(bool a){ return a; }',
+    'bool mdAll(float a){ return a != 0.0; }',
+    'bool mdAll(vec2 v){ return v.x != 0.0 && v.y != 0.0; }',
+    'bool mdAll(vec3 v){ return v.x != 0.0 && v.y != 0.0 && v.z != 0.0; }',
+    'bool mdAll(vec4 v){ return v.x != 0.0 && v.y != 0.0 && v.z != 0.0 && v.w != 0.0; }',
+    'bool mdAll(bvec2 v){ return v.x && v.y; }',
+    'bool mdAll(bvec3 v){ return v.x && v.y && v.z; }',
+    'bool mdAll(bvec4 v){ return v.x && v.y && v.z && v.w; }',
+    'bool mdAny(bool a){ return a; }',
+    'bool mdAny(float a){ return a != 0.0; }',
+    'bool mdAny(vec2 v){ return v.x != 0.0 || v.y != 0.0; }',
+    'bool mdAny(vec3 v){ return v.x != 0.0 || v.y != 0.0 || v.z != 0.0; }',
+    'bool mdAny(vec4 v){ return v.x != 0.0 || v.y != 0.0 || v.z != 0.0 || v.w != 0.0; }',
+    'bool mdAny(bvec2 v){ return v.x || v.y; }',
+    'bool mdAny(bvec3 v){ return v.x || v.y || v.z; }',
+    'bool mdAny(bvec4 v){ return v.x || v.y || v.z || v.w; }',
+
+    'vec3 mdCross(vec3 a, vec3 b){ return cross(a, b); }',
+    'vec3 mdCross(vec3 a, float b){ return cross(a, vec3(b)); }',
+    'vec3 mdCross(float a, vec3 b){ return cross(vec3(a), b); }',
+    'vec3 mdReflect(vec3 a, vec3 b){ return reflect(a, b); }',
+    'vec3 mdReflect(vec3 a, float b){ return reflect(a, vec3(b)); }',
+    'vec2 mdReflect(vec2 a, vec2 b){ return reflect(a, b); }',
+    'vec2 mdReflect(vec2 a, float b){ return reflect(a, vec2(b)); }',
+    'float mdReflect(float a, float b){ return reflect(a, b); }',
+
+    /* log10 GLSL'de YOK — yerleşik olmadığı için doğrudan tanımlanabiliyor,
+       yönlendirmeye gerek kalmıyor. */
+    'float log10(float x){ return log(x) * 0.4342944819; }',
+    'vec2 log10(vec2 x){ return log(x) * 0.4342944819; }',
+    'vec3 log10(vec3 x){ return log(x) * 0.4342944819; }',
+    'vec4 log10(vec4 x){ return log(x) * 0.4342944819; }',
     'mat2 hmat2(float a, float b, float c, float d){ return mat2(a, c, b, d); }',
     'mat2 hmat2(vec2 r0, vec2 r1){ return mat2(r0.x, r1.x, r0.y, r1.y); }',
     'mat2 hmat2(vec4 v){ return mat2(v.x, v.z, v.y, v.w); }',
@@ -795,6 +923,125 @@
      gövdede olabiliyor ve rewriteText ikisine AYRI AYRI uygulanıyor. Yalnız
      arrayInit'in kendi metnine bakmak, ORB presetlerinde adı hiç görmüyordu
      — dizi doğru kuruluyor, indeksi float kalıyordu. */
+  /* ---------------------------------------------------------------------
+     PRESETİN KENDİ FONKSİYONLARI
+
+     HLSL çağrı yerinde de örtük dönüşüm yapıyor: parametre `float2 center`
+     iken `f(uv, 0.5, ...)` yazmak geçerli, skaler yayılıyor. GLSL'de aşırı
+     yükleme aranıyor ve bulunamıyor. Korpustaki EN BÜYÜK tek hata kovası
+     buydu — tek bir şablon fonksiyonu (`uv_polar_logarithmic`) 154 stage'i
+     düşürüyordu.
+
+     Yerleşiklerde çözüm aşırı yükleme eklemekti; burada olamaz, fonksiyonu
+     preset yazıyor. Bunun yerine ÇAĞRI YERİ düzeltiliyor: her argüman
+     bildirilen parametre tipine toF/toV2/toV3/toV4 ile çevriliyor. Aynı
+     dönüştürücüler `return` için de kullanılıyor, çünkü HLSL orada da
+     dönüştürüyor ("function return is not matching type").
+     --------------------------------------------------------------------- */
+  const CONV = { float: 'toF', vec2: 'toV2', vec3: 'toV3', vec4: 'toV4' };
+  const FN_DEF = /\b(float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234])\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^()]*)\)\s*\{/g;
+  const DECL_ARG = /^\s*(?:in|out|inout)?\s*(?:float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat[234]x[234]|sampler\w*)\s+[A-Za-z_]/;
+
+  /* Metindeki fonksiyon TANIMLARINDAN imza çizelgesi çıkarır. */
+  function userFnSigs(text) {
+    const sigs = new Map();
+    FN_DEF.lastIndex = 0;
+    let m;
+    while ((m = FN_DEF.exec(text)) !== null) {
+      const params = m[3].split(',').map((p) => p.trim()).filter(Boolean).map((p) => {
+        const q = p.replace(/^(?:in|out|inout)\s+/, '');
+        const t = /^([A-Za-z_][A-Za-z0-9_]*)\s+/.exec(q);
+        return t ? t[1] : '';
+      });
+      /* Tanımadığımız bir parametre tipi varsa o fonksiyona hiç
+         dokunulmuyor: yanlış dönüştürücü sarmak sessizce yanlış görüntü
+         verir, derlenmemek ise en azından görünür. */
+      if (params.some((t) => !CONV[t])) continue;
+      sigs.set(m[2], { ret: m[1], params: params });
+    }
+    return sigs;
+  }
+
+  /* Çağrı argümanlarını parametre tipine çevirir. İç içe çağrılar önce
+     işleniyor (özyineleme), zaten sarılmış argümana ikinci kez dokunulmuyor. */
+  function coerceUserCalls(s, sigs) {
+    if (!sigs || !sigs.size) return s;
+    const IDCH = /[A-Za-z0-9_]/;
+    let out = '';
+    let i = 0;
+    while (i < s.length) {
+      if (!/[A-Za-z_]/.test(s[i])) { out += s[i]; i++; continue; }
+      let j = i;
+      while (j < s.length && IDCH.test(s[j])) j++;
+      const name = s.slice(i, j);
+      const sig = sigs.get(name);
+      let k = j;
+      while (k < s.length && /\s/.test(s[k])) k++;
+      if (!sig || s[k] !== '(') { out += name; i = j; continue; }
+
+      let d = 0, p = k, last = k + 1, closed = -1;
+      const args = [];
+      for (; p < s.length; p++) {
+        const c = s[p];
+        if (c === '(' || c === '[') d++;
+        else if (c === ')' || c === ']') {
+          d--;
+          if (d === 0) { args.push(s.slice(last, p)); closed = p; break; }
+        } else if (c === ',' && d === 1) { args.push(s.slice(last, p)); last = p + 1; }
+      }
+      if (closed < 0 || args.length !== sig.params.length) { out += name; i = j; continue; }
+      // Tanımın kendisi: argümanlar "tip ad" biçiminde. Dokunulmuyor.
+      if (args.some((a) => DECL_ARG.test(a))) { out += s.slice(i, closed + 1); i = closed + 1; continue; }
+
+      const wrapped = args.map((a, n) => {
+        const inner = coerceUserCalls(a, sigs).trim();
+        const conv = CONV[sig.params[n]];
+        if (!conv || !inner) return inner;
+        if (inner.indexOf(conv + '(') === 0) return inner;
+        return conv + '(' + inner + ')';
+      });
+      out += name + '(' + wrapped.join(', ') + ')';
+      i = closed + 1;
+    }
+    return out;
+  }
+
+  /* `return` ifadelerini fonksiyonun bildirilen dönüş tipine çevirir. */
+  function coerceUserReturns(s, sigs) {
+    if (!sigs || !sigs.size) return s;
+    const edits = [];
+    FN_DEF.lastIndex = 0;
+    let m;
+    while ((m = FN_DEF.exec(s)) !== null) {
+      const sig = sigs.get(m[2]);
+      const conv = sig && CONV[sig.ret];
+      if (!conv) continue;
+      const open = m.index + m[0].length - 1;   // gövdenin '{' konumu
+      let d = 0, end = -1;
+      for (let i = open; i < s.length; i++) {
+        if (s[i] === '{') d++;
+        else if (s[i] === '}') { d--; if (d === 0) { end = i; break; } }
+      }
+      if (end < 0) continue;
+      const body = s.slice(open, end);
+      const rr = /\breturn\b([^;]*);/g;
+      let r;
+      while ((r = rr.exec(body)) !== null) {
+        const expr = r[1].trim();
+        if (!expr || expr.indexOf(conv + '(') === 0) continue;
+        edits.push({
+          at: open + r.index,
+          len: r[0].length,
+          text: 'return ' + conv + '(' + expr + ');',
+        });
+      }
+    }
+    // Sondan başa uygulanıyor: önceki düzenlemeler konumları kaydırmasın.
+    edits.sort((a, b) => b.at - a.at);
+    for (const e of edits) s = s.slice(0, e.at) + e.text + s.slice(e.at + e.len);
+    return s;
+  }
+
   function arrayNames(text) {
     const out = [];
     const re = /\b(?:float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*\d+\s*\]/g;
@@ -883,6 +1130,13 @@
     s = s.replace(/\bpow\s*\(/g, 'mdPow(');
     // Gerekçe HELPERS içindeki mdMin/mdMax bloğunda.
     s = s.replace(/\bmin\s*\(/g, 'mdMin(').replace(/\bmax\s*\(/g, 'mdMax(');
+    /* Aynı gerekçe: bu adlar da yerleşik ve GLSL'de aşırı yüklenemiyor.
+       HLSL hepsinde skaleri yayıp geniş vektörü daraltıyor. */
+    s = s.replace(/\bdot\s*\(/g, 'mdDot(')
+      .replace(/\ball\s*\(/g, 'mdAll(')
+      .replace(/\bany\s*\(/g, 'mdAny(')
+      .replace(/\bcross\s*\(/g, 'mdCross(')
+      .replace(/\breflect\s*\(/g, 'mdReflect(');
     /* `float4 c = tex2D(...)` için önce iki özel kural denedim: sağ tarafı
        vec4 ile sarmak, sonra değişkenin tipini vec3'e çekmek. İkisi de
        derleme kapısında yeni hata üretti — ikincisi `c.zw` okuyan presetleri
@@ -1023,15 +1277,56 @@
     let depth = 0;
     let paren = 0;
     let start = 0;
+    /* Üst düzey virgüllerden böler. `float a = f(x,y), b = 2.0;` iki AYRI
+       bildirim; parantez içindeki virgüller argüman ayırıcı, burada
+       bölünürlerse ifade ortadan ikiye ayrılır. */
+    const splitDeclarators = (s) => {
+      const out = [];
+      let d = 0, last = 0;
+      for (let i = 0; i < s.length; i++) {
+        const c = s[i];
+        if (c === '(' || c === '[') d++;
+        else if (c === ')' || c === ']') d--;
+        else if (c === ',' && d === 0) { out.push(s.slice(last, i)); last = i + 1; }
+      }
+      out.push(s.slice(last));
+      return out;
+    };
+
     const flush = (chunk, end) => {
       const st = chunk.trim();
       if (!st) return;
-      const m = /^(float|vec2|vec3|vec4|mat[234])\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/.exec(st);
-      if (depth === 0 && end === ';' && m && !/[,()]/.test(m[2])) {
-        decls.push(m[1] + ' ' + m[2] + ';');
-        prologue.push('  ' + m[2] + ' = ' + m[3].trim() + ';');
-      } else {
+      /* Tip listesi dar tutulursa dar kalan bildirimler global kapsamda
+         sabit olmayan ilk değerle kalıyor ve GLSL bunu reddediyor:
+         `mat3x2 tst = hmat2x3(ts,t);` gerçek koddan. */
+      const head = /^(float|int|bool|vec2|vec3|vec4|mat2|mat3|mat4|mat2x3|mat3x2|mat2x4|mat4x2|mat3x4|mat4x3)\s+([\s\S]+)$/
+        .exec(st);
+      if (depth !== 0 || end !== ';' || !head) {
         decls.push(st + (end || ''));
+        return;
+      }
+      const type = head[1];
+      const parts = splitDeclarators(head[2]);
+      const made = [];
+      for (const p of parts) {
+        const one = p.trim();
+        if (!one) continue;
+        /* Dizi bildirimi (`arr[4] = ...`) olduğu gibi bırakılıyor: adı
+           bölmek indeksi bozar, hoist da gerekmiyor. */
+        const dm = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/.exec(one);
+        if (dm) { made.push({ name: dm[1], init: dm[2].trim() }); continue; }
+        const nm = /^([A-Za-z_][A-Za-z0-9_]*)$/.exec(one);
+        if (nm) { made.push({ name: nm[1], init: '' }); continue; }
+        made.length = 0;               // tanımadığımız biçim: dokunma
+        break;
+      }
+      if (!made.length) { decls.push(st + (end || '')); return; }
+      /* ÇOKLU BİLDİRİM AYRIŞTIRILMAZSA: eskiden yalnız ilk ad bildiriliyor,
+         kalanı prologue'a atama olarak düşüyordu — `float a = 1.0, b = q1;`
+         b'yi "undeclared identifier" yapıyordu. */
+      for (const v of made) {
+        decls.push(type + ' ' + v.name + ';');
+        if (v.init) prologue.push('  ' + v.name + ' = ' + v.init + ';');
       }
     };
     for (let i = 0; i <= text.length; i++) {
@@ -1052,7 +1347,8 @@
 
   // Testler ve tek parçalık kullanım için: dönüştür, sonra atamaları sarmala
   function rewrite(s) {
-    const t = rewriteText(s);
+    let t = rewriteText(s);
+    t = renameShadowed(t, shadowedNames(t));
     return coerce(t, typesOf(t));
   }
 
@@ -1104,6 +1400,23 @@
     /* Dizi indeksleri iki parça BİRLİKTE bilinerek sarılıyor: bildirim
        globals'ta, kullanım gövdede olabiliyor. Zaten sarılmış olan yeniden
        sarılmaz (arrayIndex `int(` görürse dokunmuyor). */
+    /* Gölgelenen yerleşik adlar İKİ BÖLÜM BİRLİKTE taranarak bulunuyor:
+       bildirim globals'ta, kullanım gövdede olabiliyor. Bölüm başına karar
+       verilince globals'taki bildirim değişip gövdedeki kullanım olduğu gibi
+       kalıyor ve ad "undeclared identifier" oluyordu — ölçüm bunu 50 yeni
+       hata olarak gösterdi. */
+    const shadow = shadowedNames(pair[0] + '\n' + pair[1]);
+    if (shadow.length) {
+      pair[0] = renameShadowed(pair[0], shadow);
+      pair[1] = renameShadowed(pair[1], shadow);
+    }
+    /* Preset fonksiyonlarının imzaları da İKİ BÖLÜM BİRLİKTE toplanıyor:
+       tanım globals'ta, çağrı gövdede. */
+    const sigs = userFnSigs(pair[0] + '\n' + pair[1]);
+    if (sigs.size) {
+      pair[0] = coerceUserReturns(coerceUserCalls(pair[0], sigs), sigs);
+      pair[1] = coerceUserReturns(coerceUserCalls(pair[1], sigs), sigs);
+    }
     const arrays = arrayNames(pair[0] + '\n' + pair[1]);
     if (arrays.length) {
       pair[0] = arrayIndex(pair[0], arrays);

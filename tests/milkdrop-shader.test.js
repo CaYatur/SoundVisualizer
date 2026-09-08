@@ -444,7 +444,10 @@ test('translate: sayısal koşul karşılaştırmaya çevriliyor', () => {
   assert.match(r.glsl, /if \(\(m\) != 0\.0\)/);
   const b = T.translate('shader_body { float m = 1.0; if (m > 0.5) { ret = vec3(1.0); } }');
   assert.match(b.glsl, /if \(m > 0\.5\)/);
-  assert.ok(!/!= 0\.0/.test(b.glsl), 'bool koşul sarılmamalı');
+  /* KOŞULUN KENDİSİNE bakılıyor. Önceden tüm shader metninde `!= 0.0`
+     aranıyordu; mdAll/mdAny yardımcıları gövdelerinde bu karşılaştırmayı
+     kullandığı için testi onlar düşürüyordu — sınanan davranış değil. */
+  assert.ok(!/if \([^)]*!= 0\.0/.test(b.glsl), 'bool koşul sarılmamalı');
 });
 
 test('translate: aynı ad yeniden bildirilince gölgeleme konuma bağlı', () => {
@@ -456,4 +459,94 @@ test('translate: aynı ad yeniden bildirilince gölgeleme konuma bağlı', () =>
   const line = r.glsl.split('\n').find((l) => /c = toF|c = toV2|\bc = 0\.5/.test(l)) || '';
   assert.match(r.glsl, /c = toF\(0\.5\)/,
     'ilk atama float olarak sarılmalı:\n' + line);
+});
+
+/* --- Tam korpus ölçümünden çıkan hata sınıfları -------------------------
+   Aşağıdakilerin hepsi 10.332 presetlik korpusta ÖLÇÜLMÜŞ başarısızlıklara
+   karşılık geliyor; her testin başındaki sayı o sınıfın kaç stage'i
+   düşürdüğü. Ölçüm scripts/milkdrop-compile-rate.js ile tekrarlanabilir. */
+
+test('translate: preset fonksiyonunun çağrısında skaler yayılıyor (154 stage)', () => {
+  /* HLSL çağrı yerinde de örtük dönüşüm yapıyor: parametre float2 iken
+     0.5 yazmak geçerli. Korpustaki en büyük tek kova buydu. */
+  const r = T.translate(
+    'float2 f(float2 domain, float2 center) { return domain - center; }\n' +
+    'shader_body { ret.xy = f(uv, 0.5); }');
+  assert.match(r.glsl, /f\(toV2\(uv\), toV2\(0\.5\)\)/, 'argümanlar parametre tipine çevrilmeli');
+});
+
+test('translate: preset fonksiyonunun return değeri dönüş tipine çevriliyor', () => {
+  const r = T.translate(
+    'float2 g(float2 a) { return a.x; }\nshader_body { ret.xy = g(uv); }');
+  assert.match(r.glsl, /return toV2\(a\.x\)/);
+});
+
+test('translate: fonksiyon TANIMINA dokunulmuyor', () => {
+  /* Tanımın argümanları "tip ad" biçiminde; sarmak sözdizimini bozardı. */
+  const r = T.translate(
+    'float2 h(float2 a, float b) { return a * b; }\nshader_body { ret.xy = h(uv, 2.0); }');
+  assert.match(r.glsl, /vec2 h\(vec2 a, float b\)/, 'tanım olduğu gibi kalmalı');
+  assert.match(r.glsl, /h\(toV2\(uv\), toF\(2\.0\)\)/);
+});
+
+test('translate: yerleşik adlar md* karşılıklarına yönlendiriliyor', () => {
+  /* GLSL yerleşik adları yeniden tanımlanamıyor; min/max'ı aşırı yüklemeye
+     çalışmak derleme oranını bir kerede %0'a düşürmüştü. */
+  const r = T.translate('shader_body { float d = dot(ret, 0.33); if (all(uv)) ret = vec3(d); }');
+  assert.match(r.glsl, /mdDot\(/);
+  assert.match(r.glsl, /mdAll\(/);
+  assert.ok(!/[^d]\bdot\s*\(/.test(r.glsl.split('void main')[1] || ''), 'gövdede çıplak dot kalmamalı');
+});
+
+test('translate: mul(vektör, skaler) skaler çarpım olarak kalıyor (35 stage)', () => {
+  /* Yalnız eşit genişlikli aşırı yüklemeler varken iç çarpıma düşüyor,
+     sonuç float oluyor ve vec2 bekleyen yer "dimension mismatch" veriyordu. */
+  const r = T.translate('shader_body { ret.xy = mul(uv - 0.5, 1.0) + 0.5; }');
+  assert.match(r.glsl, /vec2 mul\(vec2 a, float b\)/);
+});
+
+test('translate: taban skaler üs vektör olan pow çevriliyor (52 stage)', () => {
+  const r = T.translate('shader_body { ret = pow(lum(ret), float3(0.3, 1.0, 1.8)); }');
+  assert.match(r.glsl, /vec3 mdPow\(float a, vec3 b\)/);
+});
+
+test('translate: lerp koşul karışım oranı kabul ediyor', () => {
+  const r = T.translate('shader_body { ret.x = lerp(uv.x, 1.0, uv.x > 1.0); }');
+  assert.match(r.glsl, /float lerp\(float a, float b, bool t\)/);
+});
+
+test('translate: bildirilmiş yerleşik ad yeniden adlandırılıyor (28 stage)', () => {
+  /* `float2 mod = ...` sonrası `mod.x` "field selection requires structure"
+     veriyordu; çağrı biçimi ise korunmalı. */
+  const r = T.translate('float2 mod;\nshader_body { mod = uv; if (mod.x > 0.0) ret = vec3(1.0); }');
+  assert.match(r.glsl, /mod_v/);
+  assert.ok(!/\bmod\.x/.test(r.glsl), 'değişken kullanımı yeniden adlandırılmalı');
+});
+
+test('translate: ayrılmış sözcük "sample" değişken adı olabiliyor (17 stage)', () => {
+  const r = T.translate('shader_body { float3 sample = tex2D(sampler_main, uv); ret = sample; }');
+  assert.ok(!/\bsample\b(?!_v)/.test(r.glsl), 'ayrılmış sözcük kalmamalı');
+});
+
+test('translate: global çoklu bildirim ayrıştırılıyor (50 stage)', () => {
+  /* Eskiden yalnız ilk ad bildiriliyor, kalanı prologue'a atama olarak
+     düşüyordu — ikinci ad "undeclared identifier" oluyordu. */
+  const r = T.translate('float quality = 3.0, depth = 7.0;\nshader_body { ret = vec3(quality + depth); }');
+  assert.match(r.glsl, /float quality;/);
+  assert.match(r.glsl, /float depth;/);
+  assert.match(r.glsl, /quality = 3\.0;/);
+  assert.match(r.glsl, /depth = 7\.0;/);
+});
+
+test('translate: global başlatıcı hoist edilirken geniş tipler de kapsanıyor', () => {
+  /* mat3x2 listeye girmediği için global kapsamda sabit olmayan ilk değerle
+     kalıyor ve GLSL bunu reddediyordu. */
+  const r = T.translate('float2x3 tst = float2x3(1,2,3,4,5,6);\nshader_body { ret.xy = mul(tst, float3(1,2,3)); }');
+  assert.match(r.glsl, /mat3x2 tst;/);
+  assert.match(r.glsl, /tst = hmat2x3\(/);
+});
+
+test('translate: log10 tanımlanıyor', () => {
+  const r = T.translate('shader_body { ret = log10(1.25 * ret); }');
+  assert.match(r.glsl, /float log10\(float x\)/);
 });

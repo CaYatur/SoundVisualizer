@@ -211,6 +211,13 @@
     step: 'arg2', smoothstep: 'arg3',
     ddx: 'same', ddy: 'same', dFdx: 'same', dFdy: 'same',
     cross: 'vec3', reflect: 'same', refract: 'same',
+    /* Yerleşik adları GLSL'de yeniden tanımlanamıyor; çevirici bu çağrıları
+       md* karşılıklarına yönlendiriyor (gerekçe milkdrop-shader.js'te).
+       Çizelgeye girmezlerse sonuç tipleri "unknown" kalır ve daraltma
+       körleşir — min/max'ta yaşanan hatanın aynısı. */
+    mdDot: 'float', mdAll: 'bool', mdAny: 'bool',
+    mdCross: 'vec3', mdReflect: 'same',
+    log10: 'same',
   };
 
   const SWIZZLE = /^[xyzwrgbastpq]+$/;
@@ -261,6 +268,11 @@
           if (isMat(ma) && !isMat(mb)) return BY_WIDTH[rows(ma)] || mb;
           if (isMat(mb) && !isMat(ma)) return ma; // vec * mat: satır vektörü, genişliği korunur
           if (isMat(ma) && isMat(mb)) return ma;
+          /* Skaler taraf: HLSL'de mul(v, k) SKALER ÇARPIM, iç çarpım değil.
+             Sonuç vektör kalıyor; 'float' demek `mul(uv, 1.0)` sonucunu
+             daraltıp "dimension mismatch" üretiyordu. */
+          if (ma === 'float' && mb !== 'float' && mb !== 'unknown') return mb;
+          if (mb === 'float' && ma !== 'float' && ma !== 'unknown') return ma;
           return 'float';
         }
         if (r === 'same') return typeOf(node.args[0], env);
