@@ -196,12 +196,16 @@
     float: 'float', vec2: 'vec2', vec3: 'vec3', vec4: 'vec4',
     toF: 'float', toV2: 'vec2', toV3: 'vec3', toV4: 'vec4',
     hmat2: 'mat2', hmat3: 'mat3', hmat4: 'mat4',
+    mul: 'mul',
     mat2: 'mat2', mat3: 'mat3', mat4: 'mat4',
     abs: 'same', normalize: 'same', saturate: 'same', frac: 'same', fract: 'same',
     floor: 'same', ceil: 'same', sqrt: 'same', exp: 'same', log: 'same',
     exp2: 'same', log2: 'same', sign: 'same',
     sin: 'same', cos: 'same', tan: 'same', asin: 'same', acos: 'same', atan: 'same',
     mix: 'same', lerp: 'same', clamp: 'same', min: 'same', max: 'same',
+    /* Çevirici min/max çağrılarını bunlara yönlendiriyor (gerekçe orada);
+       çizelgeye girmezlerse sonuçları tipsiz kalır ve daraltma körleşir. */
+    mdMin: 'same', mdMax: 'same',
     mdPow: 'same', pow: 'same', mod: 'same', fmod: 'same',
     step: 'arg2', smoothstep: 'arg3',
     ddx: 'same', ddy: 'same', dFdx: 'same', dFdy: 'same',
@@ -233,6 +237,23 @@
       case 'call': {
         const r = FN[node.name];
         if (!r) return 'unknown';
+        /* mul'un dönüş tipi argümanlara bağlı, sabit değil:
+             mul(mat, vec) / mul(vec, mat) -> o vektörün tipi
+             mul(vec, vec)                 -> float (nokta çarpım)
+             mul(float, float)             -> float
+           Çizelgeye 'unknown' olarak girmesi ORB presetlerini bozuyordu:
+           `mul(...) + GetBlur1(...)` ifadesinde sol taraf tipsiz kalınca
+           ikili daraltma hiç çalışmıyor ve vec2 + vec3 GLSL'e olduğu gibi
+           gidiyordu. */
+        if (r === 'mul') {
+          const ma = typeOf(node.args[0], env);
+          const mb = typeOf(node.args[1], env);
+          const isMat = (t) => typeof t === 'string' && t.indexOf('mat') === 0;
+          if (isMat(ma) && !isMat(mb)) return mb;
+          if (isMat(mb) && !isMat(ma)) return ma;
+          if (isMat(ma) && isMat(mb)) return ma;
+          return 'float';
+        }
         if (r === 'same') return typeOf(node.args[0], env);
         if (r === 'arg2') return typeOf(node.args[1], env);
         if (r === 'arg3') return typeOf(node.args[2], env);
@@ -277,7 +298,7 @@
      kalan en büyük kova buydu. Skaler argümanlar dokunulmadan geçiyor,
      çünkü GLSL zaten `mix(vec3, vec3, float)` biçimini tanıyor. */
   const MATCH_ARGS = {
-    mix: 1, lerp: 1, min: 1, max: 1, clamp: 1, mdPow: 1, pow: 1,
+    mix: 1, lerp: 1, min: 1, max: 1, mdMin: 1, mdMax: 1, clamp: 1, mdPow: 1, pow: 1,
     mod: 1, fmod: 1, dot: 1, distance: 1, cross: 1, step: 1,
     smoothstep: 1, atan: 1, reflect: 1,
   };

@@ -302,6 +302,18 @@
     'vec2 lerp(float a, vec2 b, float t){ return mix(vec2(a), b, t); }',
     'vec3 lerp(float a, vec3 b, float t){ return mix(vec3(a), b, t); }',
     'vec4 lerp(float a, vec4 b, float t){ return mix(vec4(a), b, t); }',
+    /* Karışım oranı da vektör olabiliyor ve o zaman skaler uç YAYILIYOR.
+       Korpustaki en büyük tek hata kovası buydu: `lerp(ret, 1.0, k)` — ret
+       float3, 1.0 skaler, k float3. HLSL üçünü de birbirine uyduruyor. */
+    'vec2 lerp(vec2 a, float b, vec2 t){ return mix(a, vec2(b), t); }',
+    'vec3 lerp(vec3 a, float b, vec3 t){ return mix(a, vec3(b), t); }',
+    'vec4 lerp(vec4 a, float b, vec4 t){ return mix(a, vec4(b), t); }',
+    'vec2 lerp(float a, vec2 b, vec2 t){ return mix(vec2(a), b, t); }',
+    'vec3 lerp(float a, vec3 b, vec3 t){ return mix(vec3(a), b, t); }',
+    'vec4 lerp(float a, vec4 b, vec4 t){ return mix(vec4(a), b, t); }',
+    'vec2 lerp(float a, float b, vec2 t){ return mix(vec2(a), vec2(b), t); }',
+    'vec3 lerp(float a, float b, vec3 t){ return mix(vec3(a), vec3(b), t); }',
+    'vec4 lerp(float a, float b, vec4 t){ return mix(vec4(a), vec4(b), t); }',
     'float mdPow(float a, float b){ return pow(abs(a) + 1e-9, b); }',
     'vec2 mdPow(vec2 a, vec2 b){ return pow(abs(a) + 1e-9, b); }',
     'vec3 mdPow(vec3 a, vec3 b){ return pow(abs(a) + 1e-9, b); }',
@@ -309,6 +321,35 @@
     'vec2 mdPow(vec2 a, float b){ return pow(abs(a) + 1e-9, vec2(b)); }',
     'vec3 mdPow(vec3 a, float b){ return pow(abs(a) + 1e-9, vec3(b)); }',
     'vec4 mdPow(vec4 a, float b){ return pow(abs(a) + 1e-9, vec4(b)); }',
+    /* min/max KENDİ adıyla aşırı yüklenemiyor: GLSL ES yerleşik bir
+       fonksiyonun yeniden bildirilmesini yasaklıyor ("Name of a built-in
+       function cannot be redeclared as function") ve denediğimde derleme
+       oranı %94,3'ten %0'a düştü. Bu yüzden çağrılar mdMin/mdMax'e
+       yönlendiriliyor — pow'un mdPow'a yönlendirilmesiyle aynı kalıp.
+
+       Eksik olan asıl şey argüman SIRASI: GLSL min(genType, float) veriyor
+       ama min(float, genType) vermiyor; HLSL ikisini de kabul ediyor ve
+       presetler `min(.1, _qa.xyz)` yazıyor. */
+    'float mdMin(float a, float b){ return min(a, b); }',
+    'vec2 mdMin(vec2 a, vec2 b){ return min(a, b); }',
+    'vec3 mdMin(vec3 a, vec3 b){ return min(a, b); }',
+    'vec4 mdMin(vec4 a, vec4 b){ return min(a, b); }',
+    'vec2 mdMin(vec2 a, float b){ return min(a, b); }',
+    'vec3 mdMin(vec3 a, float b){ return min(a, b); }',
+    'vec4 mdMin(vec4 a, float b){ return min(a, b); }',
+    'vec2 mdMin(float a, vec2 b){ return min(b, a); }',
+    'vec3 mdMin(float a, vec3 b){ return min(b, a); }',
+    'vec4 mdMin(float a, vec4 b){ return min(b, a); }',
+    'float mdMax(float a, float b){ return max(a, b); }',
+    'vec2 mdMax(vec2 a, vec2 b){ return max(a, b); }',
+    'vec3 mdMax(vec3 a, vec3 b){ return max(a, b); }',
+    'vec4 mdMax(vec4 a, vec4 b){ return max(a, b); }',
+    'vec2 mdMax(vec2 a, float b){ return max(a, b); }',
+    'vec3 mdMax(vec3 a, float b){ return max(a, b); }',
+    'vec4 mdMax(vec4 a, float b){ return max(a, b); }',
+    'vec2 mdMax(float a, vec2 b){ return max(b, a); }',
+    'vec3 mdMax(float a, vec3 b){ return max(b, a); }',
+    'vec4 mdMax(float a, vec4 b){ return max(b, a); }',
     'float atan2(float y, float x){ return atan(y, x); }',
     'float rsqrt(float x){ return inversesqrt(max(x, 1e-9)); }',
     'float fmod(float a, float b){ return mod(a, b); }',
@@ -330,6 +371,8 @@
     // HLSL skaleri vektöre yayar: tex2D(s, uv.x*1.5) gerçek kodda var
     'vec3 tex2D(sampler2D s, float u){ return texture(s, vec2(u, u)).xyz; }',
     'vec3 tex2D(sampler2D s, vec3 uv2){ return texture(s, uv2.xy).xyz; }',
+    // float4 koordinat da geçiyor; HLSL fazlasını kırpar.
+    'vec3 tex2D(sampler2D s, vec4 uv2){ return texture(s, uv2.xy).xyz; }',
     'vec3 tex2Dlod(sampler2D s, vec4 uv2){ return textureLod(s, uv2.xy, uv2.w).xyz; }',
     'vec3 tex2Dbias(sampler2D s, vec4 uv2){ return texture(s, uv2.xy, uv2.w).xyz; }',
     'vec3 tex3D(sampler2D s, vec3 uv2){ return texture(s, uv2.xy).xyz; }',
@@ -771,6 +814,8 @@
     s = floatify(s);
     s = modFix(s);
     s = s.replace(/\bpow\s*\(/g, 'mdPow(');
+    // Gerekçe HELPERS içindeki mdMin/mdMax bloğunda.
+    s = s.replace(/\bmin\s*\(/g, 'mdMin(').replace(/\bmax\s*\(/g, 'mdMax(');
     /* `float4 c = tex2D(...)` için önce iki özel kural denedim: sağ tarafı
        vec4 ile sarmak, sonra değişkenin tipini vec3'e çekmek. İkisi de
        derleme kapısında yeni hata üretti — ikincisi `c.zw` okuyan presetleri
@@ -791,7 +836,11 @@
      baktığımda gövdedeki `ret1 = 0.0;` tipsiz kalıyor ve onarılmıyordu. */
   function typesOf(text) {
     const types = new Map(BUILTIN_TYPES);
-    const dre = /\b(float|vec2|vec3|vec4)\s+/g;
+    /* Matris bildirimleri de çizelgeye giriyor. Girmezlerse `float2x2 rot`
+       tipsiz kalıyor, `mul(uv, rot)` de tipsiz oluyor ve ikili daraltma hiç
+       çalışmıyor: ORB presetlerinde `mul(...) + GetBlur1(...)` ifadesi
+       vec2 + vec3 olarak GLSL'e gidiyordu. */
+    const dre = /\b(float|vec2|vec3|vec4|mat2|mat3|mat4)\s+/g;
     let dm;
     while ((dm = dre.exec(text)) !== null) {
       /* Bildirimin sonuna kadar oku ve virgülle ayrılmış HER adı çizelgeye

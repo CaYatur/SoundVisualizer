@@ -393,3 +393,33 @@ test('translate: dizi adı tip çizelgesine yazılmıyor', () => {
   assert.match(r.glsl, /s\[0\]\.x/, 'swizzle korunmalı');
   assert.match(r.glsl, /s\[0\]\.y/);
 });
+
+test('translate: lerp karışım oranı vektör olabiliyor', () => {
+  /* Korpustaki en büyük tek hata kovası: `lerp(ret, 1.0, k)` — float3,
+     skaler, float3. HLSL üçünü birbirine uyduruyor, GLSL uydurmuyor. */
+  const r = T.translate('shader_body { ret = lerp(ret, 1.0, ret*0.5); }');
+  assert.match(r.glsl, /vec3 lerp\(vec3 a, float b, vec3 t\)/);
+  assert.match(r.glsl, /vec3 lerp\(float a, float b, vec3 t\)/);
+});
+
+test('translate: min ve max mdMin/mdMax üzerinden geçiyor', () => {
+  /* GLSL ES yerleşik bir fonksiyonun yeniden bildirilmesini yasaklıyor;
+     kendi adıyla aşırı yüklemeyi denediğimde derleme oranı %0'a düştü.
+     Asıl eksik olan argüman sırası: min(float, genType) GLSL'de yok. */
+  const r = T.translate('shader_body { ret = min(0.1, ret) + max(0.2, ret); }');
+  assert.match(r.glsl, /mdMin\(0\.1, ret\)/);
+  assert.match(r.glsl, /mdMax\(0\.2, ret\)/);
+  assert.match(r.glsl, /vec3 mdMin\(float a, vec3 b\)/);
+  assert.ok(!/^float min\(|^vec3 min\(/m.test(r.glsl), 'yerleşik min yeniden bildirilmemeli');
+});
+
+test('translate: matris değişkeni tip çizelgesine giriyor', () => {
+  /* `float2x2 rot` tipsiz kalırsa `mul(uv, rot)` de tipsiz oluyor ve ikili
+     daraltma körleşiyor: ORB presetlerinde `mul(...) + GetBlur1(...)`
+     ifadesi vec2 + vec3 olarak GLSL'e gidiyordu. */
+  const r = T.translate(
+    'shader_body { float2x2 rot = float2x2(1,0,0,1); ret.xy = mul(uv, rot) + GetBlur1(uv); }');
+  // Daraltma vec3 tarafını ikiye indirmeli
+  assert.match(r.glsl, /GetBlur1\(uv\)\)\.xy|GetBlur1\(uv\)\.xy/,
+    'vec3 taraf .xy ile daraltılmalı:\n' + r.glsl.split('\n').filter((l) => /GetBlur1/.test(l)).join('\n'));
+});
