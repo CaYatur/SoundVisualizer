@@ -300,6 +300,10 @@ function createAdminWindow() {
     syncNowPlaying();
     // Kasıtlı: kaza koruması bunları geri açmamalı
     closeVisualizer();
+    /* Gizli yardımcı pencereler de kapanmalı. Biri bile ayakta kalırsa
+       'window-all-closed' HİÇ tetiklenmez ve uygulama görünmez biçimde arka
+       planda asılı kalır — ayrıntılı gerekçe closeHelperWindows() başında. */
+    closeHelperWindows();
   });
 }
 
@@ -691,6 +695,32 @@ function closeVisualizer(displayId) {
       win.close();
     }
   }
+}
+
+/* Kullanıcıya GÖRÜNMEYEN yardımcı pencereleri kapatır.
+
+   Neden gerekli: Electron'un 'window-all-closed' olayı gizli pencereleri de
+   sayar. show:false olan tek bir pencere ayakta kaldığı sürece olay hiç
+   tetiklenmez, dolayısıyla app.quit() çağrılmaz, before-quit temizliği
+   çalışmaz ve uygulama görünür hiçbir penceresi olmadan arka planda yaşamaya
+   devam eder; kullanıcının onu Görev Yöneticisi'nden sonlandırması gerekir.
+   Ampirik olarak doğrulandı: gizli pencere yokken olay tetikleniyor, tek bir
+   gizli pencere varken tetiklenmiyor.
+
+   İki gizli pencere var:
+   - Spout/Syphon paylaşımı: ayar kayıtlıysa AÇILIŞTA oluşuyor (syncTextureShare),
+     yani kullanıcı hiçbir şey yapmadan tuzak kurulmuş oluyor. v3.1.3'te
+     bildirilen "kapattım ama arka planda açık kalıyor" hatasının nedeni buydu.
+   - Dışa aktarma render penceresi: normalde finalizeExport() yok eder, ama
+     dışa aktarma sürerken panel kapatılırsa geride kalır ve aynı sonucu verir.
+
+   Panel kapandığında gösteri biter — closeVisualizer() de aynı yerde çağrılıyor —
+   bu yüzden bu ikisinin ayakta kalması için bir sebep yok. */
+function closeHelperWindows() {
+  textureShare.stop().catch(() => {});
+  /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
+     yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
+  finalizeExport('cancelled');
 }
 
 // ----------------------------------------------------------------------------
@@ -3530,15 +3560,27 @@ async function runSmoke() {
   app.quit();
 }
 
+/* Kapanış temizliği.
+
+   Tek yerde duruyor çünkü before-quit'in İKİ dalı da aynı listeyi çalıştırmak
+   zorunda ve liste kopyalandığında sürükleniyordu: textureShare ile openrgb
+   her iki dalda da eksikti. textureShare'inki görünür bir hataya yol açıyordu —
+   Spout göndericisi uygulama kapandıktan sonra da kayıtlı kalıyordu. */
+function shutdownCleanup() {
+  quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
+  streamServer.stop().catch(() => {});
+  oscServer.stop().catch(() => {});
+  artnet.stop().catch(() => {});
+  dynamicLighting.stop().catch(() => {});
+  openrgb.stop().catch(() => {});
+  textureShare.stop().catch(() => {});
+  mediaSession.stop();
+  nativeAudio.stopCapture();
+}
+
 app.on('before-quit', (e) => {
   if (forceQuitApp || SMOKE) {
-    quitting = true;
-    streamServer.stop().catch(() => {});
-    oscServer.stop().catch(() => {});
-    artnet.stop().catch(() => {});
-    dynamicLighting.stop().catch(() => {});
-    mediaSession.stop();
-    nativeAudio.stopCapture();
+    shutdownCleanup();
     return;
   }
   const cfg = currentConfig || loadSettings();
@@ -3552,14 +3594,7 @@ app.on('before-quit', (e) => {
     });
     return;
   }
-  // Kapanış sırasında kaza koruması devreye girmemeli
-  quitting = true;
-  streamServer.stop().catch(() => {});
-  oscServer.stop().catch(() => {});
-  artnet.stop().catch(() => {});
-  dynamicLighting.stop().catch(() => {});
-  mediaSession.stop();
-  nativeAudio.stopCapture();
+  shutdownCleanup();
 });
 
 app.on('window-all-closed', () => {
