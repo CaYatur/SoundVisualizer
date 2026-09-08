@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.2** · **Next release: v3.1.3**
+**Current release: v3.1.3** · **Next release: v3.1.4**
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -14,8 +14,8 @@ covered by a test or by the GPU self-test.
 | v3.0.0 | Modulation, deep analysis, MilkDrop language, mapping, transitions | 2026-09-02 | Shipped |
 | v3.1.0 | Timeline, Clip Deck, accidental-close protection, Electron 43 | 2026-09-02 | Shipped |
 | v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | 2026-09-04 | Shipped |
-| **v3.1.2** | **MilkDrop shader engine, Now Playing overlay, transparent visualizer** | **2026-09-05** | **Current** |
-| v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | — | In development |
+| v3.1.2 | MilkDrop shader engine, Now Playing overlay, transparent visualizer | 2026-09-05 | Shipped |
+| **v3.1.3** | **Per-application audio capture, aspect correction, Auto VJ rebuild** | **2026-09-08** | **Current** |
 | v3.1.4 | Comprehensive video export | — | Planned |
 | v3.1.5 | Broadcast layout editor | — | Planned |
 | v3.1.6 | NDI output | — | Deferred |
@@ -64,7 +64,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **960** unit tests at v3.1.2, **1123** on `main` + a GPU self-test over every engine (808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1123** unit tests at v3.1.3 + a GPU self-test over every engine (960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -127,7 +127,7 @@ npm start -- --smoke
 ```
 
 - **1123 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2; 110 have come with v3.1.3 so far.
+  105 came with v3.1.1; 152 came with v3.1.2; 163 came with v3.1.3.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -416,7 +416,7 @@ and verifying that it still does is part of the work.
   - Support for `background.transparent` toggle, creating an Electron window with `transparent: true` and `#00000000` background, clearing canvases with `clearRect`, and removing body background to run overlays directly above the desktop or game capture.
 - **Verification**: 960 unit tests passed at release. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
 
-## v3.1.3 — Per-application audio capture and aspect correction · in development
+## v3.1.3 — Per-application audio capture and aspect correction · shipped
 
 Pick which application's audio is analysed. Separate a game or a voice chat
 from the music, so the visualizer follows only Spotify or the DAW instead of
@@ -608,7 +608,7 @@ rebuilt the panel zero times.
 
 ### Verification
 
-1123 unit tests pass on `main` (163 of them added during v3.1.3). The GPU smoke
+1123 unit tests pass at v3.1.3 (163 added during this release). The GPU smoke
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 
