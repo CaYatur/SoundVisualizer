@@ -933,6 +933,14 @@
       this.pool.set('mv_a', 0);
       this.pool.set('mv_x', 16);
       this.pool.set('mv_y', 12);
+      /* Blur ölçekleri. MilkDrop'un varsayılanı 0 ve 1; havuzun doğal
+         başlangıcı ikisi için de 0 ve `b1x = 0` demek "bulanık kopyayı
+         sıfırla çarp", yani presetin shader'ında GetBlur okuyan her satır
+         siyaha düşer. Yazmayan preset varsayılanı görmeli. */
+      for (const b of ['b1', 'b2', 'b3']) {
+        this.pool.set(b + 'n', 0);
+        this.pool.set(b + 'x', 1);
+      }
       // MilkDrop'un varsayılanı sarma AÇIK
       this.pool.set('wrap', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer

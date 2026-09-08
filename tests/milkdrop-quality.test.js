@@ -124,3 +124,19 @@ test('motor: geçiş dokusu ve programı serbest bırakılıyor', () => {
   assert.match(CODE, /deleteTexture\(this\.snapTex\)/);
   assert.match(CODE, /deleteProgram\(this\.fadeProg\)/);
 });
+
+test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
+  /* Preset `b1n`/`b1x` yazıp shader'ında `blur1_min`/`blur1_max` diye geri
+     okuyabiliyor. Sabit 0/1 vermek ona kendi yazdığından başka bir sayı
+     döndürüyordu. Havuzun doğal başlangıcı ise ikisi için de 0 ve
+     `b1x = 0` "bulanık kopyayı sıfırla çarp" demek: GetBlur okuyan her
+     satır siyaha düşerdi. */
+  const w = new MD.Preset('b1n=0.400\nb1x=0.700\n', { seed: 1 });
+  assert.strictEqual(w.get('b1n'), 0.4);
+  assert.strictEqual(w.get('b1x'), 0.7);
+  const d = new MD.Preset('fDecay=0.9\n', { seed: 1 });
+  assert.strictEqual(d.get('b1n'), 0);
+  assert.strictEqual(d.get('b1x'), 1);
+  assert.strictEqual(d.get('b3x'), 1);
+  assert.match(CODE, /this\.preset\.get\(bkey\[i\] \+ 'n'\)/);
+});

@@ -865,10 +865,22 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         0.5 + 0.5 * Math.sin(t * 0.31 + 4.19));
 
       /* Bulanık kopyalar RGBA8'de zaten 0..1 aralığında saklanıyor, yani
-         MilkDrop'un sıkıştırma ölçeğine gerek yok: çözme çarpanı 1, kaydırma 0. */
+         MilkDrop'un sıkıştırma ölçeğine gerek yok: GetBlur okuduğu değeri
+         olduğu gibi veriyor.
+
+         Ama presetin KENDİSİ bu uniform'ları okuyabiliyor (`b1n`/`b1x`
+         olarak yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı
+         preset böyle yapıyor). Sabit 0/1 vermek onlara kendi yazdıklarından
+         başka bir sayı döndürüyordu. Preset yazmadıysa MilkDrop'un
+         varsayılanları zaten 0 ve 1. */
+      const bkey = ['', 'b1', 'b2', 'b3'];
       for (let i = 1; i <= 3; i++) {
-        set3('blur' + i + '_min', 0, 0, 0);
-        set3('blur' + i + '_max', 1, 1, 1);
+        const mn = this.preset.get(bkey[i] + 'n');
+        const mx = this.preset.get(bkey[i] + 'x');
+        const lo = isFinite(mn) ? mn : 0;
+        const hi = isFinite(mx) ? mx : 1;
+        set3('blur' + i + '_min', lo, lo, lo);
+        set3('blur' + i + '_max', hi, hi, hi);
       }
 
       const P = this.preset;
