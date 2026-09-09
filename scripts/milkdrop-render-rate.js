@@ -26,6 +26,13 @@
  *   node scripts/milkdrop-render-rate.js <preset klasörü>
  *   node scripts/milkdrop-render-rate.js <klasör> --frames=24 --json=rapor.json
  *   node scripts/milkdrop-render-rate.js <klasör> --limit=50 --show=5
+ *   node scripts/milkdrop-render-rate.js <klasör> --textures=<doku klasörü>
+ *   node scripts/milkdrop-render-rate.js <klasör> --legacy
+ *
+ * `--textures` verilmezse kullanıcı dokusu isteyen presetler gürültüyle
+ * ikame edilir — ölçümün bugüne kadarki hâli. Verilirse doku paketi sayfaya
+ * yükleniyor ve o presetler GERÇEK görsellerle render ediliyor; ikisi
+ * arasındaki fark doku yükleyicinin korpus ölçeğinde ne kazandırdığıdır.
  */
 const path = require('path');
 const fs = require('fs');
@@ -43,6 +50,11 @@ const FRAMES = Number(flag('frames', 20)) || 20;
 const JSON_OUT = flag('json', '');
 const WIDTH = Number(flag('width', 240)) || 240;
 const HEIGHT = Number(flag('height', 180)) || 180;
+const TEXDIR = flag('textures', '');
+/* `--legacy` "MilkDrop uyumu" anahtarini KAPATIYOR. Anahtarin kapali hali
+   de olculebilir olmali: kullaniciya sunulan bir yol, olculmemis bir yol
+   olmamali. */
+const LEGACY = argv.indexOf('--legacy') >= 0;
 
 if (!corpus) {
   console.error('Preset klasörü verilmedi.\n' +
@@ -131,6 +143,8 @@ function pageHarness() {
   return `
     (function () {
       var W = ${WIDTH}, H = ${HEIGHT}, N = ${FRAMES};
+      var TEXDIR = ${JSON.stringify(TEXDIR)};
+      var ACCURATE = ${LEGACY ? 'false' : 'true'};
 
       /* Tohumlu rastgelelik: rand_preset ve preset içi rastgele değerler her
          koşuda AYNI olsun, yoksa ölçüm koşudan koşuya oynar ve "değişiklik
@@ -181,9 +195,71 @@ function pageHarness() {
         return { mean: sum / n, max: mx, nonblack: nonblack / n, sig: sig / n };
       };
 
+      /* Doku paketini ÖLÇÜM BAŞLAMADAN önce sıcak hâle getirir.
+
+         Neden ölçüm döngüsünden önce: doku yükleme asenkron, çizim döngüsü
+         bekleyemiyor. Ölçüm sırasında ısıtsaydık ilk kareler gürültüyle,
+         sonrakiler görselle çizilirdi — kareler arası fark yapay olarak
+         büyür ve "donmuş" sınıfı olduğundan az görünürdü.
+
+         Neden ısıtma karesi ÇİZMİYORUZ: çizmek geri besleme tamponunu
+         doldurur ve ölçülen ilk karenin başlangıç durumunu değiştirirdi;
+         o zaman '--textures' olan ve olmayan koşular karşılaştırılamazdı.
+         Bunun yerine motorun GERÇEK yükleme yolu '_userTexture' doğrudan
+         çağrılıyor, tamponlara dokunulmadan. */
+      window.__warmTextures = function () {
+        var m = window.__mode;
+        if (!TEXDIR) return Promise.resolve({ names: 0, ready: 0 });
+        // GL bağlamı olmadan doku yüklenemez; ölçümdeki ilk çizim de aynı
+        // boyutla açacaktı, dolayısıyla erken açmak durumu değiştirmiyor.
+        if (!m._initGL(W, H)) return Promise.resolve({ names: 0, ready: 0 });
+        m._ensureTextureLib({ milkdrop: { textureDir: TEXDIR } });
+        var wait = function (ms) {
+          return new Promise(function (r) { setTimeout(r, ms); });
+        };
+        return wait(0).then(function () {
+          var names = m._texNames || [];
+          for (var i = 0; i < names.length; i++) {
+            var f = names[i], dot = f.lastIndexOf('.');
+            m._userTexture('sampler_' + (dot < 0 ? f : f.slice(0, dot)));
+          }
+          return new Promise(function (done) {
+            var tries = 0;
+            (function tick() {
+              var ready = 0;
+              for (var k in m.userTex) if (m.userTex[k]) ready++;
+              // 100 deneme = ~2 sn. Çözülemeyen dosya sonsuza kadar null
+              // kalır, bu yüzden bekleme sınırlı.
+              if (ready >= names.length || ++tries > 100) {
+                return done({ names: names.length, ready: ready });
+              }
+              setTimeout(tick, 20);
+            })();
+          });
+        });
+      };
+
+      /* NEDEN geri besleme tamponlari presetler ARASINDA temizlenmiyor.
+
+         Denendi ve OLCULDU: her presetten once tamponlari siyaha
+         temizlemek 900 preseti %93,1'den %85,8'e dusurdu ve "siyah"
+         sinifini 14'ten 81'e cikardi. Cunku bircok preset yalniz VAR OLAN
+         goruntuyu bozup akitiyor; bos bir tampondan 20 karede gorunur
+         piksel uretemiyor.
+
+         Tasima gercege de uygun: uygulamada da, MilkDrop'ta da yeni preset
+         onceki goruntuyu devralir. Bedeli, bir presetin sinifinin bir
+         oncekinin son karesine bagli olmasi — kod degisince bu bag kucuk
+         farklari sinif atlamasina cevirebiliyor. Olculdu: buyuk bir motor
+         degisiminde 900 presette 4 atlama (%0,4). O yuzden iki kosu
+         karsilastirilirken yuzdeye degil, preset preset FARKA bakiliyor.
+      */
       window.__run = function (source, id) {
         var cfg = {
-          milkdrop: { presetId: id, source: source, maxSize: 1920 },
+          milkdrop: {
+            presetId: id, source: source, maxSize: 1920, textureDir: TEXDIR,
+            accurate: ACCURATE,
+          },
           visualizer: { sensitivity: 1 },
         };
         var frames = [], err = '';
@@ -196,7 +272,28 @@ function pageHarness() {
           }
           frames.push(window.__stat());
         }
+        /* Bu preset kaç kullanıcı dokusu İSTEDİ ve kaçını GERÇEKTEN aldı.
+           Çevirinin "doku yerine gürültü" notu istemi bildiriyor ama dosya
+           bulunup bulunmadığını bilmiyor; karşılanma oranı ancak burada,
+           çizimden sonra motorun önbelleğine bakarak ölçülebiliyor. */
+        var want = {}, texWant = 0, texHit = 0;
+        var plans = [];
+        var wp = window.__mode.warpPreset, cp = window.__mode.compPreset;
+        if (wp && wp.locs && wp.locs._plan) plans.push(wp.locs._plan);
+        if (cp && cp.locs && cp.locs._plan) plans.push(cp.locs._plan);
+        for (var pi = 0; pi < plans.length; pi++) {
+          for (var ei = 0; ei < plans[pi].length; ei++) {
+            var pe = plans[pi][ei];
+            if (pe.p && pe.p.user) want[pe.p.canon] = 1;
+          }
+        }
+        for (var cn in want) {
+          texWant++;
+          var b = cn.slice('sampler_'.length);
+          if (window.__mode.userTex && window.__mode.userTex[b]) texHit++;
+        }
         return {
+          texWant: texWant, texHit: texHit,
           err: err,
           modeError: window.__mode.error || '',
           note: window.__mode.shaderNote || '',
@@ -267,6 +364,46 @@ async function main() {
   }
   await win.webContents.executeJavaScript(pageHarness());
 
+  /* Doku paketi sayfaya taşınıyor. Ölçüm sayfasının preload'ı yok, yani
+     `window.api` yok; motorun çağırdığı iki köprü burada gerçek dosyalarla
+     taklit ediliyor. Taklit edilen yalnız KÖPRÜ: dosya seçimi, rastgele
+     yuva, kod çözme ve GPU'ya yükleme motorun kendi kodunda kalıyor. */
+  if (TEXDIR) {
+    const mdTex = require(path.join(root, 'src/main/milkdrop-textures.js'));
+    let names;
+    try {
+      names = fs.readdirSync(TEXDIR).filter((f) => mdTex.isTextureFile(f)).sort();
+    } catch (e) {
+      console.error('Doku klasörü okunamadı: ' + TEXDIR);
+      app.exit(2);
+      return;
+    }
+    await win.webContents.executeJavaScript('window.__texlib = {};0;');
+    let bytes = 0;
+    for (const n of names) {
+      const file = mdTex.resolveTexture(TEXDIR, n);
+      if (!file) continue;
+      const buf = fs.readFileSync(file);
+      bytes += buf.length;
+      const url = 'data:' + mdTex.mimeFor(n) + ';base64,' + buf.toString('base64');
+      await win.webContents.executeJavaScript(
+        'window.__texlib[' + JSON.stringify(n) + ']=' + JSON.stringify(url) + ';0;');
+    }
+    await win.webContents.executeJavaScript(`
+      window.api = {
+        milkdropTextures: function () {
+          return Promise.resolve({ names: Object.keys(window.__texlib) });
+        },
+        milkdropTexture: function (f) {
+          return Promise.resolve({ dataUrl: window.__texlib[f] || '' });
+        },
+      };0;`);
+    const warm = await win.webContents.executeJavaScript('window.__warmTextures()');
+    console.log('doku paketi     : ' + TEXDIR);
+    console.log('  yüklenen      : ' + warm.ready + ' / ' + names.length +
+      '  (' + (bytes / 1048576).toFixed(1) + ' MB)');
+  }
+
   const results = [];
   let done = 0;
   process.stdout.write('render ediliyor: ' + files.length + ' preset');
@@ -292,6 +429,7 @@ async function main() {
       file, cls: c.cls, why: c.why, note: r.note || '',
       modeError: r.modeError || '', fixed,
       warpProg: r.warpProg, compProg: r.compProg,
+      texWant: r.texWant || 0, texHit: r.texHit || 0,
     });
     if (++done % 20 === 0) process.stdout.write('.');
   }
@@ -312,11 +450,23 @@ async function main() {
   console.log('');
   console.log('korpus          : ' + corpus);
   console.log('preset          : ' + results.length + '   kare/preset: ' + FRAMES +
-    '   çözünürlük: ' + WIDTH + 'x' + HEIGHT);
+    '   çözünürlük: ' + WIDTH + 'x' + HEIGHT +
+    '   MilkDrop uyumu: ' + (LEGACY ? 'KAPALI' : 'açık'));
   console.log('');
   console.log('GÖRÜNTÜ ÜRETEN  : ' + clean + ' / ' + results.length + '  -> ' + pct(clean, results.length) + '%');
   console.log('sabit yola düşen: ' + fixedPath + '  (shader derlenmedi, motorun genel yolu çizdi)');
   console.log('doku yaklaşık   : ' + soft + '  (preset dokusu yok, gürültüyle ikame edildi)');
+  /* `soft` ÇEVİRİ zamanında sayılıyor: preset doku istedi mi, evet. Aşağısı
+     ÇİZİM zamanında sayılıyor: istenen doku gerçekten bulundu mu. İkisi
+     ayrı sayılar ve `--textures` yalnız ikincisini değiştirir. */
+  const texAsk = results.filter((r) => r.texWant > 0);
+  if (texAsk.length) {
+    const full = texAsk.filter((r) => r.texHit >= r.texWant).length;
+    const some = texAsk.filter((r) => r.texHit > 0 && r.texHit < r.texWant).length;
+    console.log('doku isteyen    : ' + texAsk.length +
+      '   tamamı karşılanan: ' + full + ' (' + pct(full, texAsk.length) + '%)' +
+      '   kısmen: ' + some);
+  }
   console.log('');
   console.log('SINIFLARA GÖRE');
   for (const [cls, e] of Array.from(byCls.entries()).sort((a, b) => b[1].n - a[1].n)) {
