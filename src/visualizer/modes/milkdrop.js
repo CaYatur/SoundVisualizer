@@ -1173,7 +1173,23 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       nz(this.noise.volLq, 'texsize_noisevol_lq');
       nz(this.noise.volHq, 'texsize_noisevol_hq');
 
-      set1('time', ctx.time);
+      /* SHADER ZAMANI denklem zamanindan FARKLI.
+
+         Denklem dilinde `time` uygulamanin acilisindan beri geciyor ve
+         oyle kaliyor. Shader'da ise MilkDrop presetin basindan beri geceni
+         veriyor ve 10.000'de sariyor. Motor ikisine de uygulama zamanini
+         veriyordu.
+
+         Iki sonucu var. Birincisi faz: `sin(time)` yazan bir preset
+         MilkDrop'ta her acilista ayni yerden basliyor, bizde uygulamanin
+         kac saattir acik oldugune bagli bir yerden. Ikincisi kesinlik:
+         shader'daki `float` buyuk sayilarda cozunurluk kaybediyor, bir gun
+         acik kalmis bir kurulumda animasyon basamakli hale geliyordu.
+         Sarma tam da bunun icin var. */
+      const shTime = accurate
+        ? this.presetTime - Math.floor(this.presetTime / 10000) * 10000
+        : ctx.time;
+      set1('time', shTime);
       set1('fps', ctx.fps);
       set1('frame', ctx.frame);
       set1('progress', ctx.progress);

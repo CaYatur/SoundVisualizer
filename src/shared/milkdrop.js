@@ -981,6 +981,22 @@
         if (typeof v === 'number') this.pool.set(to, v);
       }
 
+      /* bMotionVectorsOn ESKİ presetler için bir uyumluluk anahtarı, ayrı bir
+         çalışma zamanı bayrağı değil: MilkDrop onu yükleme anında `mv_a`ya
+         çeviriyor (0 ise 0, değilse 1) ve dosyada ayrıca `mv_a` varsa o
+         eziyor. Motor onu `mv_on` diye ayrı bir ada koyuyor ve kimse
+         okumuyordu.
+
+         Korpusta 86 preset taşıyor ve HİÇBİRİNDE `mv_a` yok — yani o 86'sı
+         için tek kaynak bu. 82'si kapalı (bizim 0 varsayılanımızla zaten
+         doğruydu), 4'ü AÇIK ve onlarda hareket vektörleri hiç çizilmiyordu.
+
+         Sıra önemli: dosyanın kendi `mv_a`sı varsa ona dokunulmuyor. */
+      if (typeof this.file.params.bmotionvectorson === 'number'
+        && typeof this.file.params.mv_a !== 'number') {
+        this.pool.set('mv_a', this.file.params.bmotionvectorson === 0 ? 0 : 1);
+      }
+
       /* Döngü bütçesi bloğun KAÇ KEZ koştuğuna göre veriliyor: init bir kez,
          per_frame saniyede 60 kez, per_pixel ise ağın 1271 düğümünde yani
          saniyede ~76 bin kez. Tek bir sabit bütçe ya init'i boğardı ya da
