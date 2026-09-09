@@ -1625,7 +1625,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          toplamalı bir şekil kendinden sonra çizilen dalgayı yıkamaz. */
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
       gl.viewport(0, 0, GW, GH);
-      this._waveSamples(audio, this.preset.get('wave_scale'));
+      this._waveSamples(audio, this.preset.get('wave_scale'),
+        this.preset.get('wave_smoothing'));
       /* Dokulu şekiller ÖNCEKİ kareyi örnekliyor. Şu an yazdığımız hedefi
          okumak tanımsız davranış: aynı dokudan okurken aynı dokuya yazmak
          sürücüye göre değişen çöp verir. MilkDrop da şekli sampler_main
@@ -2137,18 +2138,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       for (const w of P.waves) {
         if (!P.waveFrame(w)) continue;
         const N = Math.min(512, w.samples);
+        this._customWaveSamples(tb, N, w);
+        const cw1 = this._cw1, cw2 = this._cw2;
         let count = 0;
         for (let i = 0; i < N; i++) {
           const sample = N > 1 ? i / (N - 1) : 0;
-          const i0 = Math.min(tb.length - 1, Math.floor(sample * (tb.length - 1)));
-          /* value1/value2 MilkDrop'ta sol ve sağ kanal. Elimizdeki zaman
-             verisi tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış
-             aynı veriden alınıyor — presetin iki kanalı ayırdığı yerlerde
-             faz farkı korunuyor, ama gerçek stereo değil. */
-          const i1 = Math.min(tb.length - 1, i0 + w.sep);
-          const v1 = ((tb[i0] - 128) / 128) * w.scaling;
-          const v2 = ((tb[i1] - 128) / 128) * w.scaling;
-          const o = P.wavePoint(w, sample, v1, v2, out);
+          const o = P.wavePoint(w, sample, cw1[i], cw2[i], out);
           const x = +o.x, y = +o.y;
           if (!isFinite(x) || !isFinite(y)) continue;
           const k = count * 6;
@@ -2170,6 +2165,58 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.disable(gl.BLEND);
     }
 
+    /* Özel dalganın kendi örnekleri — KENDİ yumuşatmasıyla.
+
+       Her özel dalga bloğunun `smoothing` değişkeni var ve varsayılanı 0,5,
+       yani preset hiç yazmasa bile yumuşatma İSTENİYOR. Motor bu değeri
+       ayrıştırıyor ama hiç kullanmıyordu: özel dalgaların hepsi ham örnekle
+       çiziliyordu. Korpusta presetlerin %32'si özel dalga kullanıyor.
+
+       Filtre kare dalganın filtresinden FARKLI ve bu bilinçli: karışım
+       oranı `sqrt(smoothing * 0,98)` ve iki geçiş var — önce ileri, sonra
+       geri. Çift geçiş faz kaymasını götürüyor, yani eğri kaymadan
+       yumuşuyor. Tek geçiş kullanmak eğriyi bir uçtan öbürüne kaydırırdı.
+
+       Ölçek yumuşatmadan SONRA uygulanıyor; önce uygulansaydı sonuç aynı
+       olurdu ama MilkDrop'un sırası bu ve sayılar burada kayan noktada
+       tutuluyor.
+
+       value1/value2 MilkDrop'ta sol ve sağ kanal. Elimizdeki zaman verisi
+       tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış aynı veriden
+       alınıyor — presetin iki kanalı ayırdığı yerlerde faz farkı korunuyor,
+       ama gerçek stereo değil. */
+    _customWaveSamples(tb, N, w) {
+      if (!this._cw1 || this._cw1.length < N) {
+        this._cw1 = new Float32Array(Math.max(512, N));
+        this._cw2 = new Float32Array(Math.max(512, N));
+      }
+      const a = this._cw1, b = this._cw2;
+      const last = tb.length - 1;
+      for (let i = 0; i < N; i++) {
+        const sample = N > 1 ? i / (N - 1) : 0;
+        const i0 = Math.min(last, Math.floor(sample * last));
+        const i1 = Math.min(last, i0 + w.sep);
+        a[i] = (tb[i0] - 128) / 128;
+        b[i] = (tb[i1] - 128) / 128;
+      }
+      let sm = this._wantAcc !== false && isFinite(w.smoothing) ? w.smoothing : 0;
+      if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
+      if (sm > 0) {
+        const m1 = Math.sqrt(sm * 0.98);
+        const m2 = 1 - m1;
+        for (let i = 1; i < N; i++) {
+          a[i] = a[i] * m2 + a[i - 1] * m1;
+          b[i] = b[i] * m2 + b[i - 1] * m1;
+        }
+        for (let i = N - 2; i >= 0; i--) {
+          a[i] = a[i] * m2 + a[i + 1] * m1;
+          b[i] = b[i] * m2 + b[i + 1] * m1;
+        }
+      }
+      const sc = w.scaling;
+      for (let i = 0; i < N; i++) { a[i] *= sc; b[i] *= sc; }
+    }
+
     /* MilkDrop'un dalga örnekleri: iki kanal, kabaca -1..1, wave_scale ile
        ölçekli. NUM_WAVEFORM_SAMPLES 512, diziler 576 çünkü bazı modlar
        ileriye 64 örnek bakıyor (`fL[i+32]` gibi).
@@ -2179,16 +2226,65 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        diziyi iki kanal saymak onları düz bir köşegene indirirdi. Bu yüzden
        sağ kanal 128 örnek kaydırılmış halinden türetiliyor: faz farkı gerçek
        bir iki boyutlu şekil veriyor, ama gerçek stereo değil. */
-    _waveSamples(audio, scale) {
+    /* `bModWaveAlphaByVolume`: dalganın saydamlığını SESİN ŞİDDETİ sürüyor.
+
+       Korpusta 4.027 preset (%38,9) açık bırakıyor ve motor bunu hiç
+       okumuyordu — o presetlerde dalga sessizken de aynı parlaklıkta
+       duruyor, yani müzikle bağı kopuyordu.
+
+       Ses ölçüsü havuzdaki `bass/mid/treb` ortalaması, `vol` DEĞİL:
+       presetlerin %37,9'u `vol`ü kendi denklemlerinde başka bir şey için
+       yeniden yazıyor ve o değer buraya girseydi alfa preset yazarının
+       hesabına göre değil, rastgele oynardı.
+
+       Aralık ters yazılmış olabiliyor (başlangıç > bitiş); bölme sıfıra
+       düşerse alfa sonsuz olur, o yüzden aralık korunuyor. */
+    _waveVolAlpha(a) {
+      let alpha = isFinite(a) ? a : 1;
+      const P = this.preset;
+      if (this._wantAcc !== false && P && P.get('wave_modalpha') > 0) {
+        const vol = ((P.get('bass') || 0) + (P.get('mid') || 0) + (P.get('treb') || 0)) / 3;
+        const a0 = P.get('wave_modalpha_start') || 0;
+        const a1 = P.get('wave_modalpha_end') || 0;
+        const d = a1 - a0;
+        if (Math.abs(d) > 1e-6) alpha *= (vol - a0) / d;
+      }
+      return Math.max(0, Math.min(1, isFinite(alpha) ? alpha : 1));
+    }
+
+    /* Ses örneklerini dalga biçimine hazırlar.
+
+       `fWaveSmoothing` burada uygulanıyor ve UYGULANMIYORDU: örnek dizisi
+       olduğu gibi çiziliyordu. Korpusta 8.171 preset (%79,0) sıfırdan
+       büyük bir yumuşatma yazıyor, 4.007'si (%38,7) 0,75 ve üstü — yani
+       yumuşatma istisna değil, presetlerin çoğunun beklediği normal hâl.
+       Uygulanmayınca dalga olması gerekenden çok daha dişli çıkıyor ve
+       yüksek yumuşatma isteyen presetlerde ince bir kıvrım yerine gürültü
+       görünüyordu.
+
+       Filtre TEK KUTUPLU ve TEK YÖNLÜ: her örnek bir öncekinin
+       yumuşatılmış hâliyle karışıyor. Simetrik (ileri+geri) bir filtre
+       daha "doğru" görünürdü ama MilkDrop'unki bu değil ve fark gözle
+       görülüyor: tek yönlü filtre dalgayı hafifçe SAĞA kaydırıyor.
+
+       Ölçek de karışıma giriyor (`s * (1 - sm)`), yoksa yumuşatma arttıkça
+       genlik büyürdü. */
+    _waveSamples(audio, scale, smoothing) {
       const tb = audio.timeBytes;
       if (!tb || tb.length < 8) return false;
       if (!this._fL) { this._fL = new Float32Array(576); this._fR = new Float32Array(576); }
       const L = this._fL, R = this._fR;
       const n = tb.length;
       const s = isFinite(scale) && scale !== 0 ? scale : 1;
-      for (let i = 0; i < 576; i++) {
-        L[i] = ((tb[i % n] - 128) / 128) * s;
-        R[i] = ((tb[(i + 128) % n] - 128) / 128) * s;
+      const raw = (k) => (tb[k % n] - 128) / 128;
+      let sm = this._wantAcc !== false && isFinite(smoothing) ? smoothing : 0;
+      if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
+      const s2 = s * (1 - sm);
+      L[0] = raw(0) * s;
+      R[0] = raw(128) * s;
+      for (let i = 1; i < 576; i++) {
+        L[i] = raw(i) * s2 + L[i - 1] * sm;
+        R[i] = raw(i + 128) * s2 + R[i - 1] * sm;
       }
       return true;
     }
@@ -2208,7 +2304,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const P = this.preset;
       const cl = window.SVMilkdrop.clampColor;
       let alpha = P.get('wave_a');
-      alpha = Math.max(0, Math.min(1, isFinite(alpha) ? alpha : 1));
+      alpha = this._waveVolAlpha(alpha);
       if (alpha <= 0.002) return;
 
       const L = this._fL, R = this._fR;
