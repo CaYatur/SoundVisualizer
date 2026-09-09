@@ -31,9 +31,33 @@ const CODE = fs.readFileSync(
 
 // ------------------------------------------------------------------ roam
 
-test('roam: MilkDrop frekansları ve yavaş eşleri', () => {
-  assert.match(CODE, /const RO = accurate \? \[0\.3, 1\.3, 5\.0, 20\.0\]/);
-  assert.match(CODE, /const SRO = accurate \? \[0\.005, 0\.008, 0\.013, 0\.022\]/);
+/* Frekanslar ve FAZLAR MilkDrop'un kendi sayıları — kaynak koddan, shader
+   başlığındaki yuvarlanmış yorumdan değil. İlk yazılışlarında o yorumdan
+   ("~0.3, ~1.3, ~5, ~20") alınmışlardı ve faz hiç yoktu. */
+test('roam: MilkDrop frekansları, yavaş eşleri ve fazları', () => {
+  assert.match(CODE, /const RO = accurate \? \[0\.329, 1\.293, 5\.070, 20\.051\]/);
+  assert.match(CODE, /const ROP = accurate \? \[1\.2, 3\.9, 2\.5, 5\.4\]/);
+  assert.match(CODE, /const SRO = accurate \? \[0\.0050, 0\.0085, 0\.0133, 0\.0217\]/);
+  assert.match(CODE, /const SROP = accurate \? \[2\.7, 5\.3, 4\.5, 3\.8\]/);
+});
+
+/* Fazın kendisi ayrı bir testte, çünkü asıl işi t=0'da görünüyor: fazsız
+   dört bileşenin dördü de 1 çıkar ve "yavaşı hızlıyla karıştır" diye
+   yazılmış bir preset ilk karede düz bir sayı görür. */
+test('roam: fazlar bileşenleri birbirinden ayırıyor', () => {
+  const pick = (n) => {
+    const m = new RegExp('const ' + n + ' = accurate \\? \\[([^\\]]+)\\]').exec(CODE);
+    assert.ok(m, n + ' bulunamadı');
+    return m[1].split(',').map(Number);
+  };
+  const RO = pick('RO'), ROP = pick('ROP');
+  const at0 = RO.map((f, i) => 0.5 + 0.5 * Math.cos(0 * f + ROP[i]));
+  for (let i = 0; i < 4; i++) {
+    for (let j = i + 1; j < 4; j++) {
+      assert.ok(Math.abs(at0[i] - at0[j]) > 0.02,
+        't=0 anında ' + i + ' ile ' + j + ' ayrışmıyor');
+    }
+  }
 });
 
 /* Aralık haritalaması ayrı bir testte: frekanslar doğru olup aralık
@@ -41,9 +65,13 @@ test('roam: MilkDrop frekansları ve yavaş eşleri', () => {
    ters dönerdi. */
 test('roam: değerler 0..1 aralığına haritalanıyor', () => {
   assert.match(CODE, /const half = \(f\) => \(accurate \? 0\.5 \+ 0\.5 \* f : f\)/);
-  for (const n of ['roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin']) {
-    assert.match(CODE, new RegExp("set4\\('" + n + "', half\\("),
+  for (const n of ['rc', 'rs', 'sc', 'ss']) {
+    assert.match(CODE, new RegExp('const ' + n + ' = \\(i\\) => half\\('),
       n + ' half() üzerinden geçmeli');
+  }
+  for (const n of ['roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin']) {
+    assert.match(CODE, new RegExp("set4\\('" + n + "', [a-z]{2}\\(0\\)"),
+      n + ' yardımcı üzerinden yazılmalı');
   }
 });
 

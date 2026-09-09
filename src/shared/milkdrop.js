@@ -906,7 +906,7 @@
   const SHARED_VARS = [
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
-    'vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty',
+    'vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty', 'pixelsx', 'pixelsy',
     /* Fare durumu alt bloklara da taşınıyor: MilkDrop kare geneli
        değişkenleri custom dalga ve şekil havuzlarına paylaştırıyor ve
        taşınmayan bir ad orada sessizce sıfır kalır. */

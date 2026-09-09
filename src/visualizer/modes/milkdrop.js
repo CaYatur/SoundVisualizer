@@ -1149,7 +1149,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const set1 = (n, a) => { if (L[n]) gl.uniform1f(L[n], a); };
 
       set4('texsize', ctx.w, ctx.h, 1 / ctx.w, 1 / ctx.h);
-      set4('aspect', ctx.aspectx, ctx.aspecty, 1 / ctx.aspectx, 1 / ctx.aspecty);
+      /* `aspect.xy` MilkDrop'un İÇ çifti (≤ 1), `.zw` tersleri. Denklem
+         dilindeki `aspectx` bunun tersi olduğu için ikisini aynı sanmak
+         shader'da hem takas hem ters çevirme yapıyordu. */
+      set4('aspect', ctx.aspX, ctx.aspY, 1 / ctx.aspX, 1 / ctx.aspY);
       const nz = (o, n) => set4(n, o.size, o.size, 1 / o.size, 1 / o.size);
       nz(this.noise.lq, 'texsize_noise_lq');
       nz(this.noise.mq, 'texsize_noise_mq');
@@ -1180,17 +1183,24 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
          Aralik da yanlisti: MilkDrop 0..1 veriyor, biz -1..1. Isareti
          degisen bir carpan presetin yonunu tersine cevirebiliyordu. */
-      const RO = accurate ? [0.3, 1.3, 5.0, 20.0] : [0.3, 0.7, 1.1, 1.5];
-      const SRO = accurate ? [0.005, 0.008, 0.013, 0.022] : [0.05, 0.09, 0.13, 0.17];
+      /* Frekanslar ve FAZLAR MilkDrop'un kendi sayıları. Önceki turda
+         bunlar shader başlığındaki YORUM satırından alınmıştı ("~0.3,
+         ~1.3, ~5, ~20") — yaklaşık değerler, üstelik faz hiç yoktu.
+         Fazsız dört bileşen t=0'da dördü birden 1 veriyor; MilkDrop'ta
+         dördü ayrı yerden başlıyor ve presetler bu farkla yazılmış. */
+      const RO = accurate ? [0.329, 1.293, 5.070, 20.051] : [0.3, 0.7, 1.1, 1.5];
+      const ROP = accurate ? [1.2, 3.9, 2.5, 5.4] : [0, 0, 0, 0];
+      const SRO = accurate ? [0.0050, 0.0085, 0.0133, 0.0217] : [0.05, 0.09, 0.13, 0.17];
+      const SROP = accurate ? [2.7, 5.3, 4.5, 3.8] : [0, 0, 0, 0];
       const half = (f) => (accurate ? 0.5 + 0.5 * f : f);
-      set4('roam_cos', half(Math.cos(t * RO[0])), half(Math.cos(t * RO[1])),
-        half(Math.cos(t * RO[2])), half(Math.cos(t * RO[3])));
-      set4('roam_sin', half(Math.sin(t * RO[0])), half(Math.sin(t * RO[1])),
-        half(Math.sin(t * RO[2])), half(Math.sin(t * RO[3])));
-      set4('slow_roam_cos', half(Math.cos(t * SRO[0])), half(Math.cos(t * SRO[1])),
-        half(Math.cos(t * SRO[2])), half(Math.cos(t * SRO[3])));
-      set4('slow_roam_sin', half(Math.sin(t * SRO[0])), half(Math.sin(t * SRO[1])),
-        half(Math.sin(t * SRO[2])), half(Math.sin(t * SRO[3])));
+      const rc = (i) => half(Math.cos(t * RO[i] + ROP[i]));
+      const rs = (i) => half(Math.sin(t * RO[i] + ROP[i]));
+      const sc = (i) => half(Math.cos(t * SRO[i] + SROP[i]));
+      const ss = (i) => half(Math.sin(t * SRO[i] + SROP[i]));
+      set4('roam_cos', rc(0), rc(1), rc(2), rc(3));
+      set4('roam_sin', rs(0), rs(1), rs(2), rs(3));
+      set4('slow_roam_cos', sc(0), sc(1), sc(2), sc(3));
+      set4('slow_roam_sin', ss(0), ss(1), ss(2), ss(3));
 
       /* HUE_SHADER dort kose rengi. Ekran boyunca degisiyor; eskiden tek
          renkti ve `ret *= hue_shader` yazan preset butun ekrani ayni tonda
@@ -1549,8 +1559,26 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const bass = gain(a.bass), mid = gain(a.mid), treb = gain(a.treb);
       const bassA = gain(a.bass_att), midA = gain(a.mid_att), trebA = gain(a.treb_att);
 
-      const aspectx = GW >= GH ? GW / GH : 1;
-      const aspecty = GW >= GH ? 1 : GH / GW;
+      /* EN-BOY. MilkDrop bunu İKİ AYRI biçimde tutuyor ve ikisi de lazım.
+
+         İçeride kullandığı çift her zaman 1 ya da altında: geniş ekranda
+         `aspX = 1`, `aspY = H/W`. Ağın koordinatları, `rad` ve `ang` bu
+         çiftle hesaplanıyor. Shader'a giden `aspect` de bu çift artı
+         tersleri (`.zw`).
+
+         Denklem dilindeki `aspectx`/`aspecty` ise bunların TERSİ — MilkDrop
+         kaynağında `var_pf_aspectx = m_fInvAspectX` diye yazıyor. Yani
+         geniş ekranda preset `aspectx = 1`, `aspecty = W/H` görüyor.
+
+         Bizde ikisi YER DEĞİŞTİRMİŞTİ: büyük olan sayı `aspectx`e
+         veriliyordu. Ters değil, takas — `aspectx * x` yazan bir preset
+         düzeltmeyi yanlış eksene uyguluyordu. Korpusta %11,2'si denklemde,
+         %25,7'si shader'da en-boy okuyor. */
+      const aspX = GH > GW ? GW / GH : 1;
+      const aspY = GW > GH ? GH / GW : 1;
+      const accAsp = this._wantAcc !== false;
+      const aspectx = accAsp ? 1 / aspX : (GW >= GH ? GW / GH : 1);
+      const aspecty = accAsp ? 1 / aspY : (GW >= GH ? 1 : GH / GW);
 
       this.preset.frame({
         time: this.time,
@@ -1562,6 +1590,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         meshx: this.meshX, meshy: this.meshY,
         mouse_x: this.mouse.x, mouse_y: this.mouse.y, mouse_down: this.mouse.down,
         aspectx, aspecty,
+        /* pixelsx/pixelsy: çıkışın piksel ölçüsü. Havuzda yoktu, yani
+           okuyan preset sıfır görüyordu — bir piksele bölmek isteyen
+           satır sonsuza gidiyordu. Korpusta 178 preset (%1,7) okuyor. */
+        pixelsx: GW, pixelsy: GH,
       });
       const base = this.preset.captureBase();
 
@@ -1572,7 +1604,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.cur = 1 - this.cur;
 
       const ctx = {
-        w: GW, h: GH, aspectx, aspecty,
+        w: GW, h: GH, aspectx, aspecty, aspX, aspY,
         time: this.time, fps: 1 / Math.max(1e-3, step), frame: this.frameNo,
         progress: (this.presetTime * 0.1) % 1,
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
