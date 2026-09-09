@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1318%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1347%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -213,7 +213,7 @@ profilinde basamak olmadığını doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
   bağlamında, 10.332 presetlik korpusta ölçüldü: **shader aşamalarının %99,2'si derleniyor**,
   presetlerin %98,5'inde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
-  pikselleri okuyor — derlenen bir shader siyah da çizebilir: **%96,2'si canlı görüntü üretiyor.**
+  pikselleri okuyor — derlenen bir shader siyah da çizebilir: **%95,7'si canlı görüntü üretiyor.**
   İki düzenek de `scripts/` altında, yani sayılar inanılacak değil tekrar üretilecek şey.
 - **Görüntü MilkDrop'un kendi değerlerini kullanıyor, yaklaşığını değil.** Her biri korpusu motorun
   gerçekten okuduğu adlarla karşılaştırarak bulundu ve her biri ölçüldü: iki başlık ayarı
@@ -224,6 +224,13 @@ profilinde basamak olmadığını doğruluyor.
   özel dalganın kendi `smoothing`'ini ve `bModWaveAlphaByVolume`'u (%38,9) yok sayıyordu; dış/iç
   kenarlıklar (%37,8) ile merkez karartma (%6,9) ise hiç çizilmiyordu. **MilkDrop Uyumu** anahtarı
   motorun eski görüntüsünü geri veriyor.
+- **Ağın dönüşümü MilkDrop'un kendi dönüşümü — MilkDrop 2 kaynağından okundu.** `rad` MilkDrop'ta
+  olduğu gibi ölçeklenmemiş, `ang` `(-π, π]` aralığında ve merkez düğümü sabit, en-boy dönüşümün
+  başında uygulanıp sonunda geri alınıyor (geniş ekranda daire daire kalıyor), adımlar da MilkDrop
+  sırasıyla: ekran ortasında zum, sonra gerdirme, warp, dönme, öteleme. `aspectx` ile `aspecty` yer
+  değiştirmişti, yani geniş ekran düzeltmesi yanlış eksene uygulanıyordu. Bulanık kopya kenarında
+  karartılıyor (`b1ed`, %68,6'sı istiyor), özel dalgalar MilkDrop genliğinde çiziliyor ve tayf
+  isteyen dalga tayfı okuyor (%23,2).
 - **Dokulu şekiller, hareket vektörleri, dönme matrisleri, ağ sıklığı, iç çözünürlük, fare girdisi
   ve preset geçişleri** uygulandı; her sampler adının istediği süzme ve sarma ile okunuyor
   (`sampler_pw_main` noktasal, `sampler_fc_main` süzülmüş+kenetli — presetlerin %22,7'si aynı
@@ -946,7 +953,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1318 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1347 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
