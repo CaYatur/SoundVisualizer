@@ -867,6 +867,13 @@
     ['bdarken', 'darken'],
     ['bsolarize', 'solarize'],
     ['binvert', 'invert'],
+    /* fZoomExponent: yakınlaştırmanın YARIÇAPA GÖRE üssü. Motorun ağ
+       dönüşümünün tam ortasında duruyor — `pow(zoom, pow(zoomexp, rad*2-1))`.
+       Eşleme yoktu: dosyada `fZoomExponent` yazıyor, denklem dili ise
+       `zoomexp` diye okuyor. Ulaşmayan değer `captureBase`in `|| 1`
+       yedeğine düşüyor, yani zum merkezden kenara doğru HİÇ değişmiyordu.
+       Korpusta 3.826 preset (%37,0) varsayılandan farklı bir üs yazıyor. */
+    ['fzoomexponent', 'zoomexp'],
     ['fwarpanimspeed', 'warpanimspeed'],
     ['fwarpscale', 'warpscale'],
     ['fshader', 'fshader'],
@@ -877,6 +884,12 @@
     ['bmaximizewavecolor', 'wave_brighten'],
     ['fwavealpha', 'wave_a'],
     ['fwavescale', 'wave_scale'],
+    /* fWaveParam: dalga biçimlerinin ikinci parametresi — denklem dilindeki
+       adı `wave_mystery`. Motor `wave_mystery`yi zaten OKUYOR, dosyadan
+       gelen değer ona hiç bağlanmamıştı. 1/2/3/5. dalga biçimlerinde bu
+       sayı biçimin kendisini değiştiriyor; 3.484 preset (%33,7) sıfırdan
+       farklı bir değer yazıyor. */
+    ['fwaveparam', 'wave_mystery'],
     ['fwavesmoothing', 'wave_smoothing'],
     ['bmodwavealphabyvolume', 'wave_modalpha'],
     ['fmodwavealphastart', 'wave_modalpha_start'],
