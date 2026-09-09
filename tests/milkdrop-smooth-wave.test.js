@@ -227,6 +227,27 @@ test('bölünmüş dalgada iki parça AYRI yumuşatılıyor', () => {
   assert.strictEqual(smoothWave(src, 2, dst, 0, 0), 2 * (2 - 1) + 1);
 });
 
+test('mod 6-7\'nin gerçek sayıları: 256+256 -> 511+511 = 1022', () => {
+  /* GPU'da doğrulandı (512 ve 1024 iç çözünürlükte): `_strip` 1022 nokta
+     ve 511 kırılmasıyla çağrılıyor, GL hatası yok. Sayılar buraya
+     yazılıyor çünkü hatanın belirtisi iki şeridi birleştiren ve ekranı
+     boydan boya kesen bir çizgi — canlılık ölçümü onu "daha değişken"
+     sayar, yani korpus sayısı bu hatayı ASLA göstermez. */
+  const n = 512, half = n / 2;
+  const xs = [], ys = [];
+  for (let i = 0; i < n; i++) { xs.push(i * 0.01); ys.push(0); }
+  const src = strip(xs, ys);
+  const dst = new Float32Array(2048 * S);
+  const b1 = smoothWave(src, half, dst, 0, 0);
+  const toplam = b1 + smoothWave(src, n - half, dst, half, b1);
+  assert.strictEqual(b1, 511, 'kırılma noktası 511 olmalı');
+  assert.strictEqual(toplam, 1022, 'toplam 1022 nokta olmalı');
+  assert.ok(toplam <= +MAXN[1], 'toplam SMOOTH_MAX içinde kalmalı');
+  // İkinci şerit kendi ilk noktasından başlıyor, birincinin sonundan değil
+  assert.ok(Math.abs(dst[b1 * S] - xs[half]) < 1e-6,
+    'ikinci şerit yanlış noktadan başlıyor — araya çizgi girer');
+});
+
 test('özel dalga nokta kipinde yumuşatılmıyor', () => {
   /* milkdropfs.cpp:2508 — `if (!bUseDots)`. Nokta kipinde ara noktalar
      çizgiyi yumuşatmaz, sadece iki katı nokta basar. */
