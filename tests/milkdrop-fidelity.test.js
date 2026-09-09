@@ -149,7 +149,7 @@ test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
 /* `rand_start` MilkDrop'ta preset başına dört rastgele sayı; bizde
    `randPreset`. Kullanılmazsa her preset aynı renk döngüsünü alır. */
 test('motor: köşe renkleri preset rastgeleliğini kullanıyor', () => {
-  assert.match(CODE, /const rs = this\.randPreset \|\| \[0, 0, 0, 0\]/);
+  assert.match(CODE, /const rand = ctx\.rand \|\| this\.randPreset \|\| \[0, 0, 0, 0\]/);
   assert.match(CODE, /\+ rs\[3\]\)/);
   assert.match(CODE, /\+ rs\[1\]\)/);
   assert.match(CODE, /\+ rs\[2\]\)/);

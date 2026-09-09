@@ -25,7 +25,7 @@ const CODE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
 const BODY = CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const BASIC = /_waveSamples\(audio, scale, smoothing\) \{[\s\S]*?\n    \}/.exec(BODY);
-const CUSTOM = /_customWaveSamples\(tb, N, w, audio\) \{[\s\S]*?\n    \}/.exec(BODY);
+const CUSTOM = /_customWaveSamples\(tb, N, w, audio, preset\) \{[\s\S]*?\n    \}/.exec(BODY);
 const ALPHA = /_waveVolAlpha\(a\) \{[\s\S]*?\n    \}/.exec(BODY);
 
 // ------------------------------------------------------------ kare dalgası
@@ -114,7 +114,7 @@ test('özel dalga: ölçek yumuşatmadan sonra uygulanıyor', () => {
    kullanıyordu: özel dalgaların hepsi olması gerekenin yaklaşık iki katı
    büyüklükte çiziliyor ve `wave_scale` onlara hiç ulaşmıyordu. */
 test('özel dalga: MilkDrop genliği ve wave_scale', () => {
-  assert.match(CUSTOM[0], /this\.preset\.get\('wave_scale'\)/);
+  assert.match(CUSTOM[0], /WP\.get\('wave_scale'\)/);
   const m = /const sc = acc \? \(fq \? ([\d.]+) : ([\d.]+)\) \* w\.scaling \* ws/
     .exec(CUSTOM[0]);
   assert.ok(m, 'ölçek satırı bulunamadı');
@@ -138,7 +138,7 @@ test('özel dalga: tayf kare başına bir kez hesaplanıyor', () => {
      koşsaydı aynı sonuç için birkaç kez hesaplanırdı. Hiç tayf dalgası
      yoksa hiç koşmuyor. */
   assert.match(BODY, /P\.waves\.some\(\(w\) => w\.enabled && w\.spectrum\)/);
-  const draw = /_drawCustomWaves\(gl, audio\) \{[\s\S]*?\n    \}/.exec(BODY)[0];
+  const draw = /_drawCustomWaves\(gl, audio, preset, am\) \{[\s\S]*?\n    \}/.exec(BODY)[0];
   const inLoop = draw.slice(draw.indexOf('for (const w of P.waves)'));
   assert.ok(!/MilkdropSpectrum/.test(inLoop), 'FFT döngünün İÇİNDE olmamalı');
 });
@@ -155,7 +155,7 @@ test('özel dalga: iki yolun indislemesi MilkDrop ile aynı', () => {
 });
 
 test('özel dalga: çizim yumuşatılmış diziyi kullanıyor', () => {
-  assert.match(BODY, /this\._customWaveSamples\(tb, N, w, audio\);/);
+  assert.match(BODY, /this\._customWaveSamples\(tb, N, w, audio, P\);/);
   assert.match(BODY, /P\.wavePoint\(w, sample, cw1\[i\], cw2\[i\], out\)/);
 });
 

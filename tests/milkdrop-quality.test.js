@@ -87,42 +87,50 @@ test('fare: dinleyiciler tuvale bağlanıyor, pencereye değil', () => {
 
 /* --- Preset geçişi (#560, madde 4) ------------------------------------- */
 
-test('varsayılanlar: preset geçişi kapalı başlıyor', () => {
-  /* Geçiş, eski görüntüyü DONMUŞ bir kare olarak eritiyor; MilkDrop'un iki
-     preseti birden koşturan geçişi değil. Varsayılan kapalı, çünkü uzun
-     geçişlerde bu fark görünür. */
+test('varsayılanlar: preset geçişi MilkDrop süresiyle açık', () => {
+  /* Geçiş artık MilkDrop'un kendi çift boru hattı: eski preset donmuş bir
+     kare değil, kendi denklemleri ve shader'larıyla koşmaya devam ediyor.
+     Donmuş karenin kapalı tutulma sebebi bu yüzden ortadan kalktı.
+     1,7 saniye MilkDrop'un `fBlendTimeUser` varsayılanı. */
   const d = (SV.defaultConfig ? SV.defaultConfig() : global.window.SV.defaultConfig());
-  assert.strictEqual(d.milkdrop.blendTime, 0);
+  assert.strictEqual(d.milkdrop.blendTime, 1.7);
 });
 
-test('motor: geçiş süresi 3 saniyeyle sınırlanıyor', () => {
-  assert.match(CODE, /Math\.max\(0, Math\.min\(3, \+[^)]*blendTime/);
+test('motor: geçiş süresi 5 saniyeyle sınırlanıyor', () => {
+  /* MilkDrop'un varsayılanları 1,7 ve 2,7 sn; ini dosyasından daha uzunu
+     da verilebiliyor. Sınır var, çünkü geçiş boyunca İKİ presetin
+     denklemleri koşuyor. */
+  assert.match(CODE, /const BLEND_MAX = 5;/);
+  assert.match(CODE, /Math\.max\(0, Math\.min\(BLEND_MAX, \+c\.blendTime/);
 });
 
 test('motor: ilk yüklemede geçiş başlamıyor', () => {
-  /* Önceki kare yokken donmuş siyah bir kareyi karıştırmak açılışı
-     karartırdı. */
-  assert.match(CODE, /if \(this\.presetKey && this\.preset && bt > 0 && this\.snapReady\)/);
+  /* İlk yüklemede önceki preset diye bir şey yok. */
+  assert.match(CODE, /if \(this\.presetKey && this\.preset && bt > 0\) \{/);
 });
 
-test('motor: anlık görüntü yalnız geçiş açıkken alınıyor', () => {
-  /* Her karede tam ekran bir doku kopyası, özelliği kullanmayan kullanıcıya
-     bedava olmayan bir maliyet olurdu. */
-  assert.match(CODE, /if \(bt <= 0\) \{ this\.snapReady = false;/);
+test('motor: eski presetin shader\'ları geçiş boyunca yaşıyor', () => {
+  /* `_buildPresetShaders` yalnız YENİ yuvayı serbest bırakıyor; eski
+     yuvanın programları geçişin sonunda `_dropOld` ile siliniyor. Taşıma
+     yeni preset kurulmadan önce olmalı, sonra olsaydı eski preset
+     kaybolurdu. */
+  assert.match(CODE, /this\.oldWarpPreset = this\.warpPreset;/);
+  assert.match(CODE, /this\.oldCompPreset = this\.compPreset;/);
+  const drop = /_dropOld\(\) \{[\s\S]*?\n    \}/.exec(CODE)[0];
+  assert.match(drop, /deleteProgram\(this\.oldWarpPreset\.prog\)/);
+  assert.match(drop, /deleteProgram\(this\.oldCompPreset\.prog\)/);
+  const rel = /_releasePresetProgs\(\) \{[\s\S]*?\n    \}/.exec(CODE)[0];
+  assert.ok(!/oldWarpPreset|oldCompPreset/.test(rel),
+    'yeni yuvayı bırakan işlev eski yuvaya dokunmamalı');
 });
 
-test('motor: anlık görüntü dokusu RGB8 — varsayılan tamponla aynı biçim', () => {
-  /* Tuval `alpha: false` ile açılıyor, yani varsayılan tamponda alfa kanalı
-     yok. RGBA8 bir hedefe kopyalamak INVALID_OPERATION veriyor ve hata
-     SESSİZ: doku boş kalıyor, geçiş ekranı karartıyordu. */
-  assert.match(CODE, /gl\.RGB8, GW, GH, 0,\s*\n?\s*gl\.RGB, gl\.UNSIGNED_BYTE, null/);
-  assert.match(CODE, /copyTexSubImage2D/);
-  assert.ok(!/copyTexImage2D\(/.test(CODE), 'biçimsiz kopya kullanılmamalı');
-});
-
-test('motor: geçiş dokusu ve programı serbest bırakılıyor', () => {
-  assert.match(CODE, /deleteTexture\(this\.snapTex\)/);
-  assert.match(CODE, /deleteProgram\(this\.fadeProg\)/);
+test('motor: donmuş kare eritmesi tümüyle kaldırıldı', () => {
+  /* Eski geçiş önceki presetin SON KARESİNİ bir dokuya alıp üstüne
+     soluyordu. Artık eski preset gerçekten koşuyor; anlık görüntü dokusu,
+     onun programı ve kopyalama çağrısı geride kalmamalı. */
+  for (const dead of ['snapTex', 'snapReady', 'fadeProg', 'copyTexSubImage2D', 'FADE_FRAG']) {
+    assert.ok(!CODE.includes(dead), dead + ' geride kalmış');
+  }
 });
 
 test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
@@ -138,7 +146,7 @@ test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
   assert.strictEqual(d.get('b1n'), 0);
   assert.strictEqual(d.get('b1x'), 1);
   assert.strictEqual(d.get('b3x'), 1);
-  assert.match(CODE, /this\.preset\.get\(bkey\[i\] \+ 'n'\)/);
+  assert.match(CODE, /P\.get\(bkey\[i\] \+ 'n'\)/);
 });
 
 test('göç: yeni anahtarları taşımayan eski ayar dosyası varsayılanları alıyor', () => {
@@ -155,6 +163,6 @@ test('göç: yeni anahtarları taşımayan eski ayar dosyası varsayılanları a
   const merged = SVw.deepMerge(SVw.defaultConfig(), eski);
   assert.strictEqual(merged.milkdrop.mesh, 64);
   assert.strictEqual(merged.milkdrop.renderScale, 1);
-  assert.strictEqual(merged.milkdrop.blendTime, 0);
+  assert.strictEqual(merged.milkdrop.blendTime, 1.7);
   assert.strictEqual(merged.milkdrop.presetId, 'x', 'kullanıcının değeri korunmalı');
 });

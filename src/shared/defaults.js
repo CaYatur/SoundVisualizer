@@ -598,8 +598,15 @@
          1440p/4K ekranlarda belirginlesiyor. Maliyet carpanın KARESI kadar.
          Ust sınırı maxSize kesiyor. */
       renderScale: 1,
-      /* Preset gecisi suresi (saniye). 0 = sert kesme. */
-      blendTime: 0,
+      /* Preset gecisi suresi (saniye). 0 = sert kesme.
+
+         1,7 MilkDrop'un kendi varsayilani (`fBlendTimeUser`; kendi kendine
+         gecerken 2,7 kullaniyor). Gecis artik MilkDrop'un cift boru hatti:
+         eski preset donmus bir kare degil, kendi denklemleri ve
+         shader'lariyla kosmaya devam ediyor ve iki ag dugum dugum
+         karisiyor. Varsayilanin kapali olma sebebi donmus karenin uzun
+         gecislerde belli olmasiydi; o sebep kalmadi. */
+      blendTime: 1.7,
       /* MilkDrop DOKU PAKETININ klasoru (`sampler_worms`, `sampler_clouds`
          gibi adlarla aranan gorseller).
 

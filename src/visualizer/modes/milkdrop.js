@@ -43,8 +43,48 @@
   /* Ayardan gelebilecek ag sıklıkları. MilkDrop'un kendi listesi de
      boyle: en-boy 4:3 sabit, yalnız yogunluk degisiyor. */
   const MESH_STEPS = [24, 32, 48, 64, 96, 128];
-  // düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1)
-  const VSTRIDE = 8;
+  /* düğüm başına: aPos(2) aUV(2) aUVOrig(2) aRad(1) aAng(1) aBlend(1)
+     `aBlend` preset geçişinin düğüm başına alfası; geçiş yokken 1. */
+  const VSTRIDE = 9;
+
+  /* PRESET GEÇİŞİNİN ÜST SINIRI. MilkDrop'un kendi varsayılanları 1,7 sn
+     (kullanıcı değiştirdiğinde) ve 2,7 sn (kendi kendine geçtiğinde); ini
+     dosyasından daha uzunu da verilebiliyor. 5 sn hem o aralığı kapsıyor
+     hem de geçiş boyunca İKİ presetin denklemleri koştuğu için ödenen
+     bedeli sınırlıyor. */
+  const BLEND_MAX = 5;
+
+  /* GEÇİŞTE SAYISAL OLARAK KARIŞTIRILAN kare değişkenleri.
+
+     MilkDrop geçişte iki presetin per_frame'ini de koşturuyor, sonra
+     PİKSEL HAREKETİNİ ETKİLEMEYEN her değişkeni kosinüs eğrisiyle
+     karıştırıp yeni presetin havuzuna yazıyor. Hareketi etkileyenler
+     (zoom, rot, cx, dx, sx, warp...) burada YOK: onlar iki ayrı UV ağı
+     üretiyor ve karışım ağ düzeyinde oluyor — sayıları karıştırmak
+     bambaşka bir hareket verirdi.
+
+     Liste MilkDrop'un kendi gövdesinden alındı (`RunPerFrameEquations`).
+     Havuzdaki adları bizimkiler: blur aralıkları b1n/b1x, kenar karartma
+     b1ed. */
+  const BLEND_LERP = [
+    'decay', 'wave_a', 'wave_r', 'wave_g', 'wave_b', 'wave_x', 'wave_y',
+    'wave_mystery',
+    'ob_size', 'ob_r', 'ob_g', 'ob_b', 'ob_a',
+    'ib_size', 'ib_r', 'ib_g', 'ib_b', 'ib_a',
+    'mv_x', 'mv_y', 'mv_dx', 'mv_dy', 'mv_l', 'mv_r', 'mv_g', 'mv_b', 'mv_a',
+    'echo_zoom', 'echo_alpha', 'gamma',
+    'b1n', 'b2n', 'b3n', 'b1x', 'b2x', 'b3x', 'b1ed',
+  ];
+
+  /* GEÇİŞTE ATLAYAN değişkenler: mantıksal ya da tam sayı oldukları için
+     ara değerleri anlamsız. Yarı yolda (`snap`) eskiden yeniye geçiyorlar.
+     `wave_mode` MilkDrop'ta listede hiç yok — ne karışıyor ne atlıyor,
+     doğrudan yeni presetinki geçerli. */
+  const BLEND_SNAP = [
+    'echo_orient', 'wave_usedots', 'wave_thick', 'wave_additive',
+    'wave_brighten', 'darken_center', 'wrap', 'invert', 'brighten',
+    'darken', 'solarize',
+  ];
 
   /* Ağ vertex shader'ı. Konumlar layout(location=) ile sabitlendi: aynı VAO
      hem sabit yolun hem de presetin derlenmiş warp programının altında
@@ -56,15 +96,44 @@ layout(location=1) in vec2 aUV;
 layout(location=2) in vec2 aUVOrig;
 layout(location=3) in float aRad;
 layout(location=4) in float aAng;
+layout(location=5) in float aBlend;
 out vec2 vUV;
 out vec2 vUVOrig;
 out float vRad;
 out float vAng;
+out float vBlend;
 void main(){
   vUV = aUV;
   vUVOrig = aUVOrig;
   vRad = aRad;
   vAng = aAng;
+  vBlend = aBlend;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+  /* BIRLESTIRME AGI (#560, madde 4).
+
+     Birlestirme gecisi eskiden tek bir tam ekran ucgeniydi. Preset gecisi
+     icin ekranin FARKLI YERLERINDE farkli bir karisim orani gerekiyor ve
+     tek ucgende dugum basina degisen bir deger tasinamiyor.
+
+     Ag WARP AGININ TA KENDISI: ayni VAO, ayni tampon, ayni dizin — yeni
+     bir tampon yok. Fark yalnizca hangi ozniteligin ne anlama geldigi:
+     burada konum icin bozulmamis koordinat (`aUVOrig`) kullaniliyor, yani
+     ekran uzayinda duz bir izgara. MilkDrop da birlestirmeyi 32x24'luk bir
+     izgara uzerinde ciziyor ve gecis alfasini warp agindan iki dogrusal
+     ara degerle okuyor; ayni agi kullanmak o ara degerlemeyi tumden
+     gereksiz kiliyor — alfa zaten dugumun kendisinde. */
+  const COMP_MESH_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+layout(location=2) in vec2 aUVOrig;
+layout(location=5) in float aBlend;
+out vec2 vUV;
+out float vBlend;
+void main(){
+  vUV = aUVOrig;
+  vBlend = aBlend;
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
@@ -75,11 +144,12 @@ in vec2 vUV;
 in vec2 vUVOrig;
 in float vRad;
 in float vAng;
+in float vBlend;
 out vec4 outColor;
 uniform sampler2D uPrev;
 uniform float uDecay;
 void main(){
-  outColor = vec4(texture(uPrev, vUV).rgb * uDecay, 1.0);
+  outColor = vec4(texture(uPrev, vUV).rgb * uDecay, vBlend);
 }`;
 
   const QUAD_VERT = `#version 300 es
@@ -98,6 +168,7 @@ void main(){
   const COMP_FIXED_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
+in float vBlend;
 out vec4 outColor;
 uniform sampler2D uSrc;
 uniform float uGamma;
@@ -122,7 +193,7 @@ void main(){
   if (uFx.y > 0.5) c = c * c;
   if (uFx.z > 0.5) c = c * (1.0 - c) * 4.0;
   if (uFx.w > 0.5) c = 1.0 - c;
-  outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+  outColor = vec4(clamp(c, 0.0, 1.0), vBlend);
 }`;
 
   // Ayrılabilir Gauss: yatay ve dikey iki geçiş, doğrusal örneklemeli 5 vuruş
@@ -247,28 +318,27 @@ void main(){ outColor = vCol; }`;
      merkez dokunun ortasına, yarıçap da tex_zoom'a göre ölçeklenmiş bir
      yarıçapa denk geliyor; tex_ang örneklemeyi döndürüyor. Sonuç şeklin
      kendi rengiyle çarpılıyor. */
-  /* PRESET GECISI (#560, madde 4).
+  /* PRESET GECISI (#560, madde 4) — MilkDrop'un CIFT BORU HATTI.
 
-     NE YAPIYOR: preset degistiginde onceki presetin SON KARESI bir dokuda
-     tutuluyor ve yeni presetin uzerine, alfası sıfıra inen bir kaplama
-     olarak ciziliyor. Sert kesme kayboluyor.
+     Preset degistiginde eski preset olmuyor: nesnesi, derlenmis warp ve
+     birlestirme shader'lari ve kendi saati gecis boyunca yasiyor. Her
+     karede IKI presetin de per_frame'i ve per_vertex'i kosuyor, iki UV
+     agi cikiyor ve o agi dugum basina bir rampayla karistiriliyor. Ayni
+     rampa dugumun ALFASI oluyor; iki presetin shader'lari ayni hedefe
+     ust uste, o alfayla ciziliyor.
 
-     NE YAPMIYOR: MilkDrop'un cift boru hatlı gecisi degil. MilkDrop iki
-     preseti AYNI ANDA kosturup warp aglarını ve birlestirme gecislerini
-     harmanlıyor; burada eski goruntu donmus bir kare. Kısa gecislerde
-     (0,3-1 sn) fark gorunmuyor, uzun gecislerde eski goruntunun donuk
-     kalması fark ediliyor. Bu yuzden varsayılan KAPALI ve ust sınır 3 sn.
+     ONEMLI OLAN NE DEGIL: ikinci bir geri besleme tamponu ve ikinci bir
+     bulaniklik zinciri. Buradaki eski not "cift boru hatti iki hedef
+     cifti ve iki blur zinciri demek" diyordu — kaynak bunun tersini
+     soyluyor, MilkDrop'ta tampon TEK. Gecisde iki olan sey denklemler ve
+     shader'lar.
 
-     Cift boru hattı bu motorda iki preset nesnesi, iki shader takımı, iki
-     hedef cifti ve iki blur zinciri demek; burada yapılmadı. */
-  const FADE_FRAG = `#version 300 es
-precision highp float;
-in vec2 vUV;
-out vec4 outColor;
-uniform sampler2D uSrc;
-uniform float uAlpha;
-void main(){ outColor = vec4(texture(uSrc, vUV).rgb, uAlpha); }`;
+     Eskiden burada donmus bir kare vardi: onceki presetin son goruntusu
+     bir dokuya alinip ustune soluyordu. Kisa gecislerde ayirt edilmiyordu
+     ama uzun gecislerde eski goruntu duruyordu, cunku gercekten duruyordu.
 
+     Uc ayri egri var: sayisal degiskenler kosinus, ag ve alfa HAM
+     ilerleme, sekil/dalga alfa carpani da ham ilerleme. */
   const SHAPE_TEX_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -330,9 +400,20 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          yazdıgı presetlerde. */
       this.mouse = { x: 0.5, y: 0.5, down: 0 };
       this._mouseBound = false;
-      this.blendLeft = 0;
-      this.blendTotal = 0;
-      this.snapReady = false;
+      /* PRESET GECISI. Eski preset kendi nesnesi, kendi shader'ları ve
+         kendi saatiyle geçiş boyunca YAŞAMAYA devam ediyor; geri besleme
+         tamponu ise TEK — MilkDrop'ta da öyle. */
+      this.oldPreset = null;
+      this.oldWarpPreset = null;
+      this.oldCompPreset = null;
+      this.oldRandPreset = null;
+      this.oldTime = 0;
+      this.oldPresetTime = 0;
+      this.blendProg = 0;
+      this.blendDur = 0;
+      this.blendA = null;
+      this.blendC = null;
+      this.blendDirty = false;
     }
 
     /* Dinleyiciler TUVALE baglanıyor, pencereye degil: gorsellestirici
@@ -428,19 +509,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this.gl = gl;
 
         const warp = this._link(MESH_VERT, WARP_FIXED_FRAG);
-        const comp = this._link(QUAD_VERT, COMP_FIXED_FRAG);
+        const comp = this._link(COMP_MESH_VERT, COMP_FIXED_FRAG);
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
         const line = this._link(LINE_VERT, LINE_FRAG);
         const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
-        const fade = this._link(QUAD_VERT, FADE_FRAG);
-        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok || !fade.ok) {
+        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok) {
           this.error = (warp.log || comp.log || blur.log || line.log ||
-                        shtex.log || fade.log || 'shader');
+                        shtex.log || 'shader');
           return false;
         }
-        this.fadeProg = fade.prog;
-        this.locFadeSrc = gl.getUniformLocation(fade.prog, 'uSrc');
-        this.locFadeAlpha = gl.getUniformLocation(fade.prog, 'uAlpha');
         this.shapeTexProg = shtex.prog;
         this.locShapeTexSrc = gl.getUniformLocation(shtex.prog, 'uSrc');
         this.warpFixed = warp.prog;
@@ -605,6 +682,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 16);
       gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 24);
       gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 1, gl.FLOAT, false, S, 28);
+      gl.enableVertexAttribArray(5); gl.vertexAttribPointer(5, 1, gl.FLOAT, false, S, 32);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
       gl.bindVertexArray(null);
@@ -887,13 +965,25 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const c = cfg.milkdrop || {};
       const key = (c.presetId || '') + '|' + (c.source || '').length;
       if (key === this.presetKey && this.preset) return;
-      /* Gecis yalnız GERCEK bir degisimde baslıyor: ilk yuklemede onceki
-         kare diye bir sey yok ve donmus siyah bir kareyi karıstırmak
-         acılısı karartırdı. */
-      const bt = Math.max(0, Math.min(3, +c.blendTime || 0));
-      if (this.presetKey && this.preset && bt > 0 && this.snapReady) {
-        this.blendTotal = bt;
-        this.blendLeft = bt;
+      /* GECIS yalnız GERCEK bir degisimde baslıyor: ilk yuklemede onceki
+         preset diye bir sey yok.
+
+         Onceki preset ve onun DERLENMIS shader'ları eski yuvaya taşınıyor;
+         `_buildPresetShaders` yalnız yeni yuvayı serbest bıraktığı için
+         eski programlar geçiş boyunca yaşıyor. Taşıma yeni preset
+         kurulmadan ONCE olmalı — sonra olsaydı eski preset kaybolurdu. */
+      const bt = Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
+      this._dropOld();
+      if (this.presetKey && this.preset && bt > 0) {
+        this.oldPreset = this.preset;
+        this.oldWarpPreset = this.warpPreset;
+        this.oldCompPreset = this.compPreset;
+        this.oldRandPreset = this.randPreset;
+        this.oldTime = this.time;
+        this.oldPresetTime = this.presetTime;
+        this.blendProg = 0;
+        this.blendDur = bt;
+        this.blendDirty = true;
       }
       this.presetKey = key;
       const M = window.SVMilkdrop;
@@ -908,6 +998,22 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          dusuruyordu ("vector field selection out of range"). */
       this.randPreset = [Math.random(), Math.random(), Math.random(), Math.random()];
       this._buildPresetShaders(src);
+    }
+
+    /* Geçişi bitirir ve eski presetin programlarını serbest bırakır.
+       Programlar burada siliniyor, `_buildPresetShaders`ta değil: orası
+       yalnız YENİ yuvaya bakıyor ve eski yuva geçiş boyunca çiziliyor. */
+    _dropOld() {
+      const gl = this.gl;
+      if (gl) {
+        if (this.oldWarpPreset && this.oldWarpPreset.prog) gl.deleteProgram(this.oldWarpPreset.prog);
+        if (this.oldCompPreset && this.oldCompPreset.prog) gl.deleteProgram(this.oldCompPreset.prog);
+      }
+      this.oldPreset = null;
+      this.oldWarpPreset = null;
+      this.oldCompPreset = null;
+      this.oldRandPreset = null;
+      this.blendProg = 0;
     }
 
     /* Presetin warp/comp shader'larını çevirip derler.
@@ -934,7 +1040,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         try { r = T.translate(text, { stage }); } catch (e) { notes.push(stage + ': çeviri hatası'); return null; }
         if (r.empty) return null;
         if (r.hard.length) { notes.push(stage + ': ' + r.hard.join(', ')); return null; }
-        const lk = this._link(stage === 'warp' ? MESH_VERT : QUAD_VERT, r.glsl);
+        const lk = this._link(stage === 'warp' ? MESH_VERT : COMP_MESH_VERT, r.glsl);
         if (!lk.ok) {
           notes.push(stage + ': derlenmedi');
           return null;
@@ -953,65 +1059,42 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.shaderNote = notes.join(' | ');
     }
 
-    /* Gecis kaplaması ve anlık goruntu bakımı. Comp'tan SONRA cagrılıyor:
-       o noktada varsayılan tampon birlestirilmis kareyi tutuyor ve
-       copyTexImage2D oradan kopyalıyor.
+    /* GEÇİŞİN KOSİNÜS EĞRİSİ (MilkDrop: CosineInterp).
 
-       Anlık goruntu yalnız gecis ACIKKEN guncelleniyor: her karede tam ekran
-       bir doku kopyası, ozelligi kullanmayan kullanıcıya bedava olmayan bir
-       maliyet olurdu. */
-    _blendOver(gl, GW, GH, cfg, step) {
-      const bt = Math.max(0, Math.min(3, +((cfg.milkdrop && cfg.milkdrop.blendTime) || 0)));
-      if (bt <= 0) { this.snapReady = false; this.blendLeft = 0; return; }
+       Doğrusal bir ilerleme geçişin başında ve sonunda bir sıçrama
+       bırakıyor; kosinüs eğrisi iki uçta da türevi sıfırlıyor, yani geçiş
+       başlarken ve biterken yumuşuyor.
 
-      if (!this.snapTex || this.snapW !== GW || this.snapH !== GH) {
-        if (this.snapTex) gl.deleteTexture(this.snapTex);
-        this.snapTex = gl.createTexture();
-        this.snapW = GW;
-        this.snapH = GH;
-        this.snapReady = false;
-        gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        /* Depo ONCEDEN ayrılıyor ve sonra yalnız icerik kopyalanıyor.
-           copyTexImage2D'yi bicimsiz gl.RGBA ile cagırmak WebGL2'de
-           INVALID_OPERATION veriyordu. Bicim de RGB8: tuval `alpha: false`
-           ile acılıyor, yani varsayılan tamponda ALFA KANALI YOK ve RGBA8
-           bir hedefe kopyalamak gecersiz — kopya hedefin bilesenleri
-           kaynagın alt kumesi olmalı. Hata sessiz: doku bos kalıyor ve
-           gecis ekranı KARARTIYORDU, duzeltmesi gereken seyi bozarak. */
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, GW, GH, 0,
-          gl.RGB, gl.UNSIGNED_BYTE, null);
-      }
+       ÜÇ AYRI EĞRİ var ve karıştırılmamaları gerekiyor: sayısal
+       değişkenler bu eğriyi, ağın UV/alfa karışımı HAM ilerlemeyi, şekil
+       ve dalgaların alfa çarpanı da yine ham ilerlemeyi kullanıyor.
+       MilkDrop'ta da böyle. */
+    _cosMix() {
+      return 0.5 - 0.5 * Math.cos(Math.PI * this.blendProg);
+    }
 
-      if (this.blendLeft > 0 && this.snapReady && this.fadeProg) {
-        /* Alfa dogrusal inmiyor: dogrusal bir karısımda gecisin ortasında
-           iki goruntu de yarı parlaklıkta gorunup toplam sonuk kalıyor.
-           Kok-kosinus egrisi ortadaki cokusu kapatıyor — katman capraz
-           gecisinde de aynı gerekce var. */
-        const t = Math.max(0, Math.min(1, this.blendLeft / this.blendTotal));
-        const alpha = Math.sin(t * Math.PI / 2);
-        gl.useProgram(this.fadeProg);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
-        gl.uniform1i(this.locFadeSrc, 0);
-        gl.uniform1f(this.locFadeAlpha, alpha);
-        gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.bindVertexArray(this.quadVao);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-        gl.bindVertexArray(null);
-        gl.disable(gl.BLEND);
-        this.blendLeft -= step;
-        return;
-      }
+    /* Piksel hareketini ETKİLEMEYEN kare değişkenlerini karıştırır ve
+       yeni presetin havuzuna yazar. MilkDrop birebir bunu yapıyor; havuza
+       yazmak güvenli, çünkü her kare başında yerleşik adlar dosyadaki
+       değerlerine geri dönüyor.
 
-      // Gecis yokken: ekrandaki kareyi anlık goruntuye al.
-      gl.bindTexture(gl.TEXTURE_2D, this.snapTex);
-      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, GW, GH);
-      this.snapReady = true;
+       Mantıksal olanlar karışmıyor, ATLIYOR. Atlama noktası normalde
+       0,5 ama yalnız BİR TARAFIN birleştirme shader'ı varsa kayıyor:
+       shader'ı olan taraf o mantıksal etkileri zaten kendi içinde
+       uyguluyor, o yüzden sabit yolun anahtarları geçişin tamamı boyunca
+       diğer tarafta kalmalı. */
+    _blendScalars() {
+      const P = this.preset, O = this.oldPreset;
+      if (!P || !O) return;
+      const mix = this._cosMix();
+      const inv = 1 - mix;
+      for (const k of BLEND_LERP) P.set(k, mix * P.get(k) + inv * O.get(k));
+      const newComp = !!this.compPreset;
+      const oldComp = !!this.oldCompPreset;
+      let snap = 0.5;
+      if (oldComp && !newComp) snap = -0.01;
+      else if (!oldComp && newComp) snap = 1.01;
+      if (mix < snap) for (const k of BLEND_SNAP) P.set(k, O.get(k));
     }
 
     /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
@@ -1186,8 +1269,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          shader'daki `float` buyuk sayilarda cozunurluk kaybediyor, bir gun
          acik kalmis bir kurulumda animasyon basamakli hale geliyordu.
          Sarma tam da bunun icin var. */
+      /* Saat CTX'ten geliyor, `this`ten degil: gecis sirasinda eski
+         presetin shader'i da ciziliyor ve onun saati kendi baslangicindan
+         sayiyor. `this.presetTime` kullanmak eski presetin fazini yeni
+         presetin yasina baglardi. */
+      const pTime = ctx.presetTime;
+      const P = ctx.P || this.preset;
+      const rand = ctx.rand || this.randPreset || [0, 0, 0, 0];
       const shTime = accurate
-        ? this.presetTime - Math.floor(this.presetTime / 10000) * 10000
+        ? pTime - Math.floor(pTime / 10000) * 10000
         : ctx.time;
       set1('time', shTime);
       set1('fps', ctx.fps);
@@ -1197,7 +1287,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       set1('bass_att', ctx.bass_att); set1('mid_att', ctx.mid_att); set1('treb_att', ctx.treb_att);
       set1('vol', ctx.vol); set1('vol_att', ctx.vol_att);
       set4('rand_frame', Math.random(), Math.random(), Math.random(), Math.random());
-      set4('rand_preset', this.randPreset[0], this.randPreset[1], this.randPreset[2], this.randPreset[3]);
+      set4('rand_preset', rand[0], rand[1], rand[2], rand[3]);
 
       /* roam/hue: MilkDrop bunları kendi iç gezinme salınımlarından üretiyor.
          Buradaki karşılıkları aynı KARAKTERDE (yavaş, ilişkisiz dört faz)
@@ -1241,7 +1331,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          motorun eski tek-renk davranisini veriyor. */
       if (L.hue_corner) {
         const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
-        const rs = this.randPreset || [0, 0, 0, 0];
+        const rs = rand;
         for (let i = 0; i < 4; i++) {
           let r, g, b;
           if (accurate) {
@@ -1277,8 +1367,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          bırakıyor ve motorun eski `* max + min` okuması korunuyor. */
       const bkey = ['', 'b1', 'b2', 'b3'];
       for (let i = 1; i <= 3; i++) {
-        const mn = this.preset.get(bkey[i] + 'n');
-        const mx = this.preset.get(bkey[i] + 'x');
+        const mn = P.get(bkey[i] + 'n');
+        const mx = P.get(bkey[i] + 'x');
         const lo = isFinite(mn) ? mn : 0;
         const hi = isFinite(mx) ? mx : 1;
         set3('blur' + i + '_min', lo, lo, lo);
@@ -1287,7 +1377,6 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         set3('blur' + i + '_scale', sc, sc, sc);
       }
 
-      const P = this.preset;
       const q = (i) => P.get('q' + i) || 0;
       const packs = ['_qa', '_qb', '_qc', '_qd', '_qe', '_qf', '_qg', '_qh'];
       for (let p = 0; p < 8; p++) {
@@ -1609,10 +1698,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const aspectx = accAsp ? 1 / aspX : (GW >= GH ? GW / GH : 1);
       const aspecty = accAsp ? 1 / aspY : (GW >= GH ? 1 : GH / GW);
 
-      this.preset.frame({
+      const fpsNow = 1 / Math.max(1e-3, step);
+      const inputs = {
         time: this.time,
         frame: this.frameNo,
-        fps: 1 / Math.max(1e-3, step),
+        fps: fpsNow,
         bass, mid, treb,
         bass_att: bassA, mid_att: midA, treb_att: trebA,
         progress: (this.presetTime * 0.1) % 1,
@@ -1623,8 +1713,31 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            okuyan preset sıfır görüyordu — bir piksele bölmek isteyen
            satır sonsuza gidiyordu. Korpusta 178 preset (%1,7) okuyor. */
         pixelsx: GW, pixelsy: GH,
-      });
+      };
+      this.preset.frame(inputs);
       const base = this.preset.captureBase();
+
+      /* GEÇİŞ: eski presetin kare denklemleri de koşuyor. Kendi zamanı ve
+         kendi ilerlemesiyle — MilkDrop da iki durumu ayrı saatlerle
+         besliyor. Sonra hareket ETMEYEN değişkenler karıştırılıp yeni
+         presetin havuzuna yazılıyor; hareket edenler ağ düzeyinde
+         karışıyor. */
+      if (this.oldPreset) {
+        this.oldTime += step;
+        this.oldPresetTime += step;
+        this.blendProg += step / Math.max(1e-3, this.blendDur);
+        if (this.blendProg >= 1) {
+          this._dropOld();
+        } else {
+          const oi = Object.assign({}, inputs, {
+            time: this.oldTime,
+            progress: (this.oldPresetTime * 0.1) % 1,
+          });
+          this.oldPreset.frame(oi);
+          this.oldPreset.captureBase();
+          this._blendScalars();
+        }
+      }
 
       this._buildWarpMesh();
 
@@ -1634,43 +1747,43 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
       const ctx = {
         w: GW, h: GH, aspectx, aspecty, aspX, aspY,
-        time: this.time, fps: 1 / Math.max(1e-3, step), frame: this.frameNo,
+        time: this.time, fps: fpsNow, frame: this.frameNo,
         progress: (this.presetTime * 0.1) % 1,
+        presetTime: this.presetTime, P: this.preset, rand: this.randPreset,
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
         vol: (bass + mid + treb) / 3, vol_att: (bassA + midA + trebA) / 3,
       };
+      const oldCtx = this.oldPreset ? Object.assign({}, ctx, {
+        time: this.oldTime,
+        progress: (this.oldPresetTime * 0.1) % 1,
+        presetTime: this.oldPresetTime,
+        P: this.oldPreset,
+        rand: this.oldRandPreset || this.randPreset,
+      }) : null;
 
       // --- 3. WARP GEÇİŞİ
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts);
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
       gl.viewport(0, 0, GW, GH);
       gl.disable(gl.BLEND);
-      if (this.warpPreset) {
-        gl.useProgram(this.warpPreset.prog);
-        this._bindTextures(src.tex, this.warpPreset.locs);
-        this._setPresetUniforms(this.warpPreset.locs, ctx);
-      } else {
-        gl.useProgram(this.warpFixed);
-        this._bindMain(src.tex);
-        gl.uniform1i(this.locWarpFixed.uPrev, 0);
-        /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
-           0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
+      /* GECISTE IKI CIZIM: once eski preset MAT, sonra yeni preset dugum
+         alfasiyla ustune. Sonuc `eski*(1-a) + yeni*a`.
 
-           KARE HIZI DUZELTMESI: MilkDrop decay'i kare BASINA uyguluyor ve
-           kare hizina gore duzeltmiyor. Presetler de o donemin ~30 fps'inde
-           yazilmis. 60 fps'te ayni sayiyi kullanmak saniyede iki kat sondurup
-           goruntuyu presetin istediginden cok daha karanlik birakiyor —
-           olcerek gorduk. Ussu kare suresiyle olceklemek, saniyedeki sonme
-           miktarini kare hizindan bagimsiz kiliyor. */
-        const decay = this.preset.get('decay');
-        const raw = decay > 0 ? Math.min(1, decay) : 0.98;
-        const fps = 1 / Math.max(1e-3, step);
-        gl.uniform1f(this.locWarpFixed.uDecay, Math.pow(raw, REF_FPS / Math.max(1, fps)));
+         MilkDrop'un dort durumlu dali burada da aynen var ve iki durumda
+         IKINCI CIZIM HIC YOK: ikisinin de warp shader'i yoksa karisim
+         zaten agin UV'lerinde olup bitiyor, ustune ikinci bir mat cizim
+         yapmak sadece israf olurdu. */
+      const bothFixed = !this.warpPreset && (!oldCtx || !this.oldWarpPreset);
+      if (oldCtx && !bothFixed) {
+        this._drawWarpPass(gl, src, this.oldWarpPreset, oldCtx, step);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        this._drawWarpPass(gl, src, this.warpPreset, ctx, step);
+        gl.disable(gl.BLEND);
+      } else {
+        this._drawWarpPass(gl, src, this.warpPreset, ctx, step);
       }
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.verts);
-      gl.bindVertexArray(this.vao);
-      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
-      gl.bindVertexArray(null);
 
       /* --- 4. BLUR ZİNCİRİ, çizimlerden ÖNCE.
 
@@ -1693,8 +1806,29 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          sürücüye göre değişen çöp verir. MilkDrop da şekli sampler_main
          üzerinden, yani warp'a girdi olan kareden besliyor. */
       this._shapeSrcTex = src.tex;
-      this._drawShapes(gl, GW, GH);
-      this._drawCustomWaves(gl, audio);
+      /* ŞEKİLLER ve DALGALAR geçişte İKİ presetten de çiziliyor, alfaları
+         ilerlemeyle ölçeklenerek: yeni preset `ilerleme`, eski preset
+         `1 - ilerleme`. MilkDrop'ta da `alpha_mult` tam olarak bu ve HAM
+         ilerlemeyi kullanıyor, kosinüs eğrisini değil.
+
+         Sıra eski-önce: geçişin sonunda yeni presetin şekilleri üstte
+         kalıyor. */
+      if (oldCtx) {
+        this._drawShapes(gl, GW, GH, this.oldPreset, 1 - this.blendProg);
+        this._drawCustomWaves(gl, audio, this.oldPreset, 1 - this.blendProg);
+      }
+      this._drawShapes(gl, GW, GH, this.preset, oldCtx ? this.blendProg : 1);
+      this._drawCustomWaves(gl, audio, this.preset, oldCtx ? this.blendProg : 1);
+      /* VARSAYILAN DALGA geçişte de TEK kez çiziliyor ve bu MilkDrop'un
+         kendi davranışı: rengi, alfası, konumu ve gizemi zaten
+         karıştırılmış değerler, `wave_mode` ise karışmıyor.
+
+         BİLEREK EKSİK: MilkDrop iki presetin dalga MODU farklıysa iki
+         şekli düğüm düğüm birbirine dönüştürüyor (`its = 2`, v2'yi v1'in
+         nokta sayısına yeniden örnekleyip konumları karıştırıyor). Onu
+         yapmıyoruz — modlar farklıysa geçiş boyunca yeni presetin modu
+         görünüyor. Ölçüsü: yalnız iki presetin dalga modu farklıysa ve
+         yalnız geçiş süresince. */
       this._drawWaveModes(gl, GW, GH);
       // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
       this._drawMotionVectors(gl);
@@ -1707,15 +1841,82 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, GW, GH);
       gl.disable(gl.BLEND);
-      if (this.compPreset) {
-        gl.useProgram(this.compPreset.prog);
-        this._bindTextures(dst.tex, this.compPreset.locs);
-        this._setPresetUniforms(this.compPreset.locs, ctx);
+      /* Warp'takinin aynısı: ikisinin de birleştirme shader'ı yoksa tek
+         çizim yetiyor, çünkü sabit yolun bütün girdileri (gamma, eko,
+         parlatma anahtarları) zaten karıştırılmış değerler. */
+      const compBothFixed = !this.compPreset && (!oldCtx || !this.oldCompPreset);
+      if (oldCtx && !compBothFixed) {
+        this._drawCompPass(gl, dst, this.oldCompPreset, oldCtx);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        this._drawCompPass(gl, dst, this.compPreset, ctx);
+        gl.disable(gl.BLEND);
+      } else {
+        this._drawCompPass(gl, dst, this.compPreset, ctx);
+      }
+
+      const c = this.ctx;
+      c.clearRect(0, 0, W, H);
+      c.imageSmoothingEnabled = true;
+      c.drawImage(this.gl2, 0, 0, W, H);
+    }
+
+    /* Tek bir warp çizimi. Presetin shader'ı varsa onunla, yoksa sabit
+       yolla — geçişte bu ikisi karışık da olabiliyor (eski presetin
+       shader'ı var, yeninin yok gibi) ve MilkDrop'ta da öyle.
+
+       Ağ tamponu ÇAĞIRAN tarafından yüklendi: iki çizim de aynı düğümleri
+       kullanıyor, çünkü UV'ler zaten karıştırılmış hâlde duruyor. */
+    _drawWarpPass(gl, src, prog, ctx, step) {
+      if (prog) {
+        gl.useProgram(prog.prog);
+        this._bindTextures(src.tex, prog.locs);
+        this._setPresetUniforms(prog.locs, ctx);
+      } else {
+        gl.useProgram(this.warpFixed);
+        this._bindMain(src.tex);
+        gl.uniform1i(this.locWarpFixed.uPrev, 0);
+        /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
+           0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
+
+           KARE HIZI DUZELTMESI: MilkDrop decay'i kare BASINA uyguluyor ve
+           kare hizina gore duzeltmiyor. Presetler de o donemin ~30 fps'inde
+           yazilmis. 60 fps'te ayni sayiyi kullanmak saniyede iki kat sondurup
+           goruntuyu presetin istediginden cok daha karanlik birakiyor —
+           olcerek gorduk. Ussu kare suresiyle olceklemek, saniyedeki sonme
+           miktarini kare hizindan bagimsiz kiliyor.
+
+           GECISTE decay HER ZAMAN yeni presetin havuzundan okunuyor: orada
+           duran deger zaten iki presetin karisimi (MilkDrop da tek bir
+           karistirilmis decay kullaniyor). */
+        const decay = this.preset.get('decay');
+        const raw = decay > 0 ? Math.min(1, decay) : 0.98;
+        const fps = 1 / Math.max(1e-3, step);
+        gl.uniform1f(this.locWarpFixed.uDecay, Math.pow(raw, REF_FPS / Math.max(1, fps)));
+      }
+      gl.bindVertexArray(this.vao);
+      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
+    }
+
+    /* Tek bir birleştirme çizimi. Tam ekran üçgeni yerine WARP AĞI
+       kullanılıyor: geçişin karışım oranı düğüm başına değişiyor ve tek
+       üçgende taşınamaz. Geçiş yokken bütün düğümlerin alfası 1, yani
+       sonuç eskisiyle birebir aynı — sadece üç köşe yerine ağ kadar
+       üçgen çiziliyor. */
+    _drawCompPass(gl, dst, prog, ctx) {
+      if (prog) {
+        gl.useProgram(prog.prog);
+        this._bindTextures(dst.tex, prog.locs);
+        this._setPresetUniforms(prog.locs, ctx);
       } else {
         gl.useProgram(this.compFixed);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, dst.tex);
         gl.uniform1i(this.locComp.uSrc, 0);
+        /* Sabit yolun girdileri geçişte de YENİ presetin havuzundan
+           geliyor; oradaki değerler `_blendScalars` tarafından zaten
+           karıştırılmış ya da atlatılmış durumda. */
         const Pp = this.preset;
         const gamma = Pp.get('gamma') || 1;
         gl.uniform1f(this.locComp.uGamma, gamma > 0 ? gamma : 1);
@@ -1726,16 +1927,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           Pp.get('brighten') ? 1 : 0, Pp.get('darken') ? 1 : 0,
           Pp.get('solarize') ? 1 : 0, Pp.get('invert') ? 1 : 0);
       }
-      gl.bindVertexArray(this.quadVao);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(this.vao);
+      gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);
       gl.bindVertexArray(null);
-
-      this._blendOver(gl, GW, GH, cfg, step);
-
-      const c = this.ctx;
-      c.clearRect(0, 0, W, H);
-      c.imageSmoothingEnabled = true;
-      c.drawImage(this.gl2, 0, 0, W, H);
     }
 
     /* HAREKET VEKTÖRLERİ (nMotionVectorsX/Y + mv_*).
@@ -1972,10 +2166,32 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        geçtikten sonra zaten doğru uzayda çalışıyor. Şekiller, dalgalar ve
        hareket vektörleri bu eksende ZATEN doğruydu (`_toClipY`); ters olan
        yalnız ağdı. */
+    /* Ağı KURAR — geçiş varsa iki kez.
+
+       MilkDrop geçiş sırasında per_vertex denklemlerini İKİ PRESET için de
+       koşturuyor, iki UV ağı üretiyor ve o ağları düğüm başına karıştırıyor
+       (`ComputeGridAlphaValues`). Karışım oranı düğümün kendi rampasından
+       geliyor: `mix2 = a * ilerleme + c`, 0..1'e kenetli. Aynı oran düğümün
+       ALFASI olarak da yazılıyor ve iki presetin shader'ları o alfayla üst
+       üste çiziliyor.
+
+       Bu yüzden ikinci bir geri besleme tamponu ya da ikinci bir bulanıklık
+       zinciri YOK: MilkDrop'ta da tek tampon var. Geçişte iki olan şey
+       denklemler ve shader'lar, hedefler değil. */
     _buildWarpMesh() {
+      this._warpMeshPass(this.preset, this.time, 0);
+      if (this.oldPreset) {
+        this._ensureBlendPattern();
+        this._warpMeshPass(this.oldPreset, this.oldTime, 1);
+      }
+    }
+
+    _warpMeshPass(P, clock, rep) {
       const n = this.meshX + 1;
       const v = this.verts;
       const acc = this._wantAcc !== false;
+      const bA = this.blendA, bC = this.blendC;
+      const prog = this.blendProg;
 
       /* WARP TITRESIMI — MilkDrop'un kendi katsayilari.
 
@@ -1993,10 +2209,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
          Sifira bolme korunuyor: `fWarpScale = 0` yazan bir preset var
          olabilir ve sonsuz bir frekans butun agi katlardi. */
-      const wSpeed = acc ? (this.preset.get('warpanimspeed') || 1) : 1;
-      const wScaleRaw = acc ? (this.preset.get('warpscale') || 1) : 1;
+      const wSpeed = acc ? (P.get('warpanimspeed') || 1) : 1;
+      const wScaleRaw = acc ? (P.get('warpscale') || 1) : 1;
       const wScale = Math.abs(wScaleRaw) < 1e-4 ? 1e-4 : wScaleRaw;
-      const warpTime = this.time * wSpeed;
+      const warpTime = clock * wSpeed;
       const wsi = 1 / wScale;
       const wf0 = 11.68 + 4.0 * Math.cos(warpTime * 1.413 + 10);
       const wf1 = 8.77 + 3.0 * Math.cos(warpTime * 1.113 + 7);
@@ -2043,7 +2259,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
             ang = (i === (this.meshX >> 1) && j === (this.meshY >> 1))
               ? 0 : Math.atan2(cy0 * ay, cx0 * ax);
 
-            const p = this.preset.pixel(cx0 * 0.5 * ax + 0.5, cy0 * -0.5 * ay + 0.5,
+            const p = P.pixel(cx0 * 0.5 * ax + 0.5, cy0 * -0.5 * ay + 0.5,
               rad, ang, this._pix);
 
             const zoomExp = p.zoomexp === 0 ? 1 : p.zoomexp;
@@ -2091,7 +2307,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
             rad = Math.min(1, Math.hypot(cx0, cy0) * 0.7071);
             ang = Math.atan2(cy0, cx0);
             if (ang < 0) ang += Math.PI * 2;
-            const p = this.preset.pixel(u, w, rad, ang, this._pix);
+            const p = P.pixel(u, w, rad, ang, this._pix);
             const zoomExp = p.zoomexp === 0 ? 1 : p.zoomexp;
             const zoom = p.zoom === 0 ? 1 : p.zoom;
             const z = Math.pow(zoom, Math.pow(zoomExp, rad * 2 - 1)) || 1;
@@ -2121,16 +2337,152 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
             fv = sv;
           }
 
-          const o = (j * n + i) * VSTRIDE;
-          v[o] = cx0;
-          v[o + 1] = cy0;
-          v[o + 2] = isFinite(su) ? su : u;
-          v[o + 3] = isFinite(fv) ? fv : w;
-          v[o + 4] = u;
-          v[o + 5] = w;
-          v[o + 6] = rad;
-          v[o + 7] = ang;
+          const nv = j * n + i;
+          const o = nv * VSTRIDE;
+          const su2 = isFinite(su) ? su : u;
+          const fv2 = isFinite(fv) ? fv : w;
+          if (rep === 0) {
+            v[o] = cx0;
+            v[o + 1] = cy0;
+            v[o + 2] = su2;
+            v[o + 3] = fv2;
+            v[o + 4] = u;
+            v[o + 5] = w;
+            v[o + 6] = rad;
+            v[o + 7] = ang;
+            v[o + 8] = 1;
+          } else {
+            /* İkinci geçiş ESKİ preseti hesaplıyor ve YENİNİN üstüne
+               karıştırıyor. `mix2` 0 iken düğüm tümüyle eski presetin
+               ağında, 1 iken yeninin; rampanın eğimini ve kaymasını
+               `blendA`/`blendC` veriyor, yani geçişin deseni.
+
+               rad/ang karıştırılmıyor: ikisi de düğümün GEOMETRİSİ,
+               presetten bağımsız. MilkDrop da onları bir kez hesaplayıp
+               iki geçişte de aynısını kullanıyor. */
+            let m2 = bA[nv] * prog + bC[nv];
+            m2 = m2 < 0 ? 0 : m2 > 1 ? 1 : m2;
+            v[o + 2] = v[o + 2] * m2 + su2 * (1 - m2);
+            v[o + 3] = v[o + 3] * m2 + fv2 * (1 - m2);
+            v[o + 8] = m2;
+          }
         }
+      }
+    }
+
+    /* GEÇİŞ DESENİ (MilkDrop: RandomizeBlendPattern).
+
+       Geçiş her yerde aynı anda olmuyor: ekranın bir bölgesi diğerinden
+       önce yeni presete dönüyor ve MilkDrop'un geçişini tanınır kılan şey
+       bu. Düğüm başına iki sayı tutuluyor — eğim `a` ve kayma `c` — ve
+       karışım `a * ilerleme + c` olarak çıkıyor.
+
+       Üç desen var ve DÖRDÜNCÜSÜ (her yerde aynı anda) MilkDrop'ta
+       BİLEREK seçilemez: kaynaktaki not, tekdüze bir karışımın iki
+       shader'ı da her pikselde koşturduğu için yarı hızda olduğunu
+       söylüyor. `1 + rastgele%3` yazması bu yüzden.
+
+       `band` desenin GEÇİŞ BÖLGESİNİN genişliği: küçük olursa keskin bir
+       sınır, büyük olursa yumuşak bir geçiş. */
+    _ensureBlendPattern() {
+      const n = (this.meshX + 1) * (this.meshY + 1);
+      if (!this.blendDirty && this.blendA && this.blendA.length === n) return;
+      this.blendDirty = false;
+      if (!this.blendA || this.blendA.length !== n) {
+        this.blendA = new Float32Array(n);
+        this.blendC = new Float32Array(n);
+      }
+      const A = this.blendA, C = this.blendC;
+      const gx = this.meshX, gy = this.meshY;
+      const ax = this._aspX || 1, ay = this._aspY || 1;
+      const R = Math.random;
+      const type = 1 + Math.floor(R() * 3);
+      if (type === 1) {
+        // Yönlü silme: rastgele bir açıda ilerleyen bir bant
+        const ang = R() * 6.28;
+        const vx = Math.cos(ang), vy = Math.sin(ang);
+        const band = 0.1 + 0.2 * R();
+        const inv = 1 / band;
+        let k = 0;
+        for (let y = 0; y <= gy; y++) {
+          const fy = (y / gy) * ay;
+          for (let x = 0; x <= gx; x++) {
+            const fx = (x / gx) * ax;
+            let t = (fx - 0.5) * vx + (fy - 0.5) * vy + 0.5;
+            t = (t - 0.5) / Math.SQRT2 + 0.5;
+            A[k] = inv * (1 + band);
+            C[k] = -inv + inv * t;
+            k++;
+          }
+        }
+      } else if (type === 2) {
+        // Plazma: orta nokta yer değiştirmesiyle üretilen düzensiz bir alan
+        const band = 0.12 + 0.13 * R();
+        const inv = 1 / band;
+        C.fill(0);
+        C[0] = R();
+        C[gx] = R();
+        C[gy * (gx + 1)] = R();
+        C[gy * (gx + 1) + gx] = R();
+        this._genPlasma(0, gx, 0, gy, 0.25);
+        let mn = C[0], mx = C[0];
+        for (let i = 0; i < n; i++) { if (C[i] < mn) mn = C[i]; if (C[i] > mx) mx = C[i]; }
+        const mul = mx > mn ? 1 / (mx - mn) : 1;
+        for (let i = 0; i < n; i++) {
+          const t = (C[i] - mn) * mul;
+          A[i] = inv * (1 + band);
+          C[i] = -inv + inv * t;
+        }
+      } else {
+        // Dairesel: içten dışa ya da dıştan içe
+        const band = 0.02 + 0.14 * R() + 0.34 * R();
+        const inv = 1 / band;
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        let k = 0;
+        for (let y = 0; y <= gy; y++) {
+          const dy = (y / gy - 0.5) * ay;
+          for (let x = 0; x <= gx; x++) {
+            const dx = (x / gx - 0.5) * ax;
+            let t = Math.sqrt(dx * dx + dy * dy) * 1.41421;
+            if (dir === -1) t = 1 - t;
+            A[k] = inv * (1 + band);
+            C[k] = -inv + inv * t;
+            k++;
+          }
+        }
+      }
+    }
+
+    /* Elmas-kare (orta nokta yer değiştirmesi). Köşelerden başlayıp her
+       adımda ikiye bölüyor ve orta noktalara azalan genlikte gürültü
+       ekliyor; MilkDrop'un plazma geçişinin kaynağı bu. */
+    _genPlasma(x0, x1, y0, y1, dt) {
+      const C = this.blendC;
+      const n = this.meshX + 1;
+      const ax = this._aspX || 1, ay = this._aspY || 1;
+      const midx = (x0 + x1) >> 1, midy = (y0 + y1) >> 1;
+      let t00 = C[y0 * n + x0], t01 = C[y0 * n + x1];
+      let t10 = C[y1 * n + x0], t11 = C[y1 * n + x1];
+      const jit = (m) => (Math.random() * 2 - 1) * dt * m;
+      if (y1 - y0 >= 2) {
+        if (x0 === 0) C[midy * n + x0] = 0.5 * (t00 + t10) + jit(ay);
+        C[midy * n + x1] = 0.5 * (t01 + t11) + jit(ay);
+      }
+      if (x1 - x0 >= 2) {
+        if (y0 === 0) C[y0 * n + midx] = 0.5 * (t00 + t01) + jit(ax);
+        C[y1 * n + midx] = 0.5 * (t10 + t11) + jit(ax);
+      }
+      if (y1 - y0 >= 2 && x1 - x0 >= 2) {
+        t00 = C[midy * n + x0];
+        t01 = C[midy * n + x1];
+        t10 = C[y0 * n + midx];
+        t11 = C[y1 * n + midx];
+        C[midy * n + midx] = 0.25 * (t00 + t01 + t10 + t11) + jit(1);
+        const d = dt * 0.5;
+        this._genPlasma(x0, midx, y0, midy, d);
+        this._genPlasma(midx, x1, y0, midy, d);
+        this._genPlasma(x0, midx, midy, y1, d);
+        this._genPlasma(midx, x1, midy, y1, d);
       }
     }
 
@@ -2269,9 +2621,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        (r2,g2,b2,a2). Bu iki renk MilkDrop'ta bilerek ayrı — çoğu preset
        merkezi opak, kenarı saydam bırakıp yumuşak bir leke elde ediyor.
        İkisini eşitlemek şekilleri düz disklere çevirirdi. */
-    _drawShapes(gl, GW, GH) {
-      const P = this.preset;
+    /* `P` hangi presetin şekilleri, `am` de alfa çarpanı: geçiş sırasında
+       iki presetin şekilleri de çiziliyor ve hangisinin ne kadar
+       görüneceğini bu çarpan söylüyor (MilkDrop: `alpha_mult`). Geçiş
+       yokken 1, yani çarpan görünmez. */
+    _drawShapes(gl, GW, GH, preset, am) {
+      const P = preset || this.preset;
       if (!P || !P.shapes || !P.shapes.length) return;
+      const aMul = typeof am === 'number' ? Math.max(0, Math.min(1, am)) : 1;
+      if (aMul <= 0.002) return;
       const d = this.lineData;
       /* En-boy düzeltmesi X'E uygulanıyor, Y'ye değil — MilkDrop da öyle.
          Y'yi büyütmek de çemberi çember yapar ama yarıçapın anlamını
@@ -2299,8 +2657,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const ang0 = +o.ang || 0;
           const n = s.sides;
           const cl = window.SVMilkdrop.clampColor;
-          const c1 = [cl(o.r), cl(o.g), cl(o.b), Math.max(0, Math.min(1, +o.a || 0))];
-          const c2 = [cl(o.r2), cl(o.g2), cl(o.b2), Math.max(0, Math.min(1, +o.a2 || 0))];
+          const c1 = [cl(o.r), cl(o.g), cl(o.b), Math.max(0, Math.min(1, +o.a || 0)) * aMul];
+          const c2 = [cl(o.r2), cl(o.g2), cl(o.b2), Math.max(0, Math.min(1, +o.a2 || 0)) * aMul];
 
           if (s.textured) {
             /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez
@@ -2354,7 +2712,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           }
 
           // Kenar çizgisi: MilkDrop border_* renkleriyle ayrı bir geçiş
-          const ba = Math.max(0, Math.min(1, +o.border_a || 0));
+          const ba = Math.max(0, Math.min(1, +o.border_a || 0)) * aMul;
           if (ba > 0.002) {
             for (let i = 0; i < n; i++) {
               const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
@@ -2378,11 +2736,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        Her nokta için per_point koşuyor ve x/y/renk oradan geliyor; yani
        bunlar "dalga formu" değil, presetin ses verisiyle çizdiği serbest
        eğriler. Sabit bir çizgi çizmek bu presetlerin tamamını kaybettiriyordu. */
-    _drawCustomWaves(gl, audio) {
-      const P = this.preset;
+    /* `P` ve `am`: şekillerdeki gibi — geçişte iki presetin dalgaları da
+       çiziliyor ve alfa çarpanı hangisinin ne kadar göründüğünü veriyor. */
+    _drawCustomWaves(gl, audio, preset, am) {
+      const P = preset || this.preset;
       if (!P || !P.waves || !P.waves.length) return;
       const tb = audio.timeBytes;
       if (!tb || tb.length < 8) return;
+      const aMul = typeof am === 'number' ? Math.max(0, Math.min(1, am)) : 1;
+      if (aMul <= 0.002) return;
       const d = this.lineData;
       const out = this._waveOut || (this._waveOut = {});
       const cl = window.SVMilkdrop.clampColor;
@@ -2403,7 +2765,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       for (const w of P.waves) {
         if (!P.waveFrame(w)) continue;
         const N = Math.min(512, w.samples);
-        this._customWaveSamples(tb, N, w, audio);
+        this._customWaveSamples(tb, N, w, audio, P);
         const cw1 = this._cw1, cw2 = this._cw2;
         let count = 0;
         for (let i = 0; i < N; i++) {
@@ -2415,7 +2777,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           d[k] = x * 2 - 1;
           d[k + 1] = this._toClipY(y);
           d[k + 2] = cl(o.r); d[k + 3] = cl(o.g); d[k + 4] = cl(o.b);
-          d[k + 5] = Math.max(0, Math.min(1, +o.a || 0));
+          d[k + 5] = Math.max(0, Math.min(1, +o.a || 0)) * aMul;
           count++;
         }
         if (count < 2) continue;
@@ -2450,7 +2812,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış aynı veriden
        alınıyor — presetin iki kanalı ayırdığı yerlerde faz farkı korunuyor,
        ama gerçek stereo değil. */
-    _customWaveSamples(tb, N, w, audio) {
+    _customWaveSamples(tb, N, w, audio, preset) {
+      const WP = preset || this.preset;
       if (!this._cw1 || this._cw1.length < N) {
         this._cw1 = new Float32Array(Math.max(512, N));
         this._cw2 = new Float32Array(Math.max(512, N));
@@ -2518,7 +2881,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          dalgalarin hepsi olmasi gerekenin iki kati buyuklukteydi ve
          `wave_scale` onlara hic ulasmiyordu. Artik iki yol da MilkDrop'un
          carpanini KENDI biriminde kullaniyor. */
-      const ws = acc ? (this.preset.get('wave_scale') || 1) : 1;
+      const ws = acc ? (WP.get('wave_scale') || 1) : 1;
       const sc = acc ? (fq ? 0.15 : 0.004) * w.scaling * ws : w.scaling / 128;
       for (let i = 0; i < N; i++) { a[i] *= sc; b[i] *= sc; }
     }
@@ -2809,6 +3172,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const gl = this.gl;
       if (gl) {
         this._releasePresetProgs();
+        this._dropOld();
         if (this.vbo) gl.deleteBuffer(this.vbo);
         if (this.ibo) gl.deleteBuffer(this.ibo);
         if (this.vao) gl.deleteVertexArray(this.vao);
@@ -2821,8 +3185,6 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.blurProg) gl.deleteProgram(this.blurProg);
         if (this.lineProg) gl.deleteProgram(this.lineProg);
         if (this.shapeTexProg) gl.deleteProgram(this.shapeTexProg);
-        if (this.fadeProg) gl.deleteProgram(this.fadeProg);
-        if (this.snapTex) { gl.deleteTexture(this.snapTex); this.snapTex = null; }
         this._dropUserTextures();
         if (this.samplers) for (const k in this.samplers) gl.deleteSampler(this.samplers[k]);
         if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);

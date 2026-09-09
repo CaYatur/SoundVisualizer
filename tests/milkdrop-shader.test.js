@@ -230,7 +230,19 @@ test('translate: tam bir GLSL ES 3.00 shader üretir', () => {
   /* Çıkış kırpılıyor: MilkDrop'un tamponu 0..1'de doyuyor ve presetler o
      doyuma güveniyor. Yarım kayan noktalı tamponda kırpma olmayınca
      değerler geri beslemede sınırsız büyüyüp ekranı tek renge boğuyordu. */
-  assert.match(r.glsl, /outColor = vec4\(clamp\(ret, 0\.0, 1\.0\), 1\.0\);/);
+  assert.match(r.glsl, /outColor = vec4\(clamp\(ret, 0\.0, 1\.0\), vBlend\);/);
+});
+
+/* GEÇİŞ ALFASI. Preset geçişinde iki preset aynı hedefe üst üste
+   çiziliyor ve hangi pikselde hangisinin görüneceğini düğümden gelen bu
+   alfa söylüyor. Sabit 1 yazmak geçişi tümden görünmez kılardı; geçiş
+   yokken düğümlerin hepsi 1 taşıyor, yani çıktı eskisiyle aynı. */
+test('translate: geçiş alfası iki aşamada da bildiriliyor', () => {
+  for (const stage of ['warp', 'comp']) {
+    const r = T.translate('shader_body { ret = float3(1,1,1); }', { stage });
+    assert.match(r.glsl, /in float vBlend;/, stage);
+    assert.match(r.glsl, /outColor = vec4\(clamp\(ret, 0\.0, 1\.0\), vBlend\);/, stage);
+  }
 });
 
 test('translate: boş kaynağı boş olarak işaretler', () => {

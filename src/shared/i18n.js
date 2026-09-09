@@ -1451,7 +1451,10 @@
     '0,8 saniye': '0.8 seconds',
     '1,5 saniye': '1.5 seconds',
     '3 saniye': '3 seconds',
-    'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.': 'The transition dissolves the last frame of the previous preset over the new one. MilkDrop runs both presets at once and blends them; here the old picture is a frozen frame, which is noticeable on long transitions.',
+    '1,7 saniye (MilkDrop)': '1.7 seconds (MilkDrop)',
+    '2,7 saniye (MilkDrop otomatik)': '2.7 seconds (MilkDrop automatic)',
+    '5 saniye': '5 seconds',
+    'Geçişte iki preset de çalışır: kare denklemleri, warp ağları ve shader\'ları aynı anda koşar ve ekranın farklı yerleri farklı zamanda yeni presete döner. Süresince iki presetin denklemleri birden koştuğu için işlem yükü geçici olarak artar.': 'Both presets run during a transition: their frame equations, warp meshes and shaders all run at once, and different parts of the screen turn over to the new preset at different times. The load rises for its duration, because two sets of equations run instead of one.',
     // ---- MilkDrop uyumu ----
     'MilkDrop Uyumu': 'MilkDrop Fidelity',
     'Açık (MilkDrop değerleri)': 'On (MilkDrop values)',

@@ -1711,9 +1711,18 @@
              interpolasyona uygun değil (yarıçap doğrusal değil), bu yüzden
              piksel başına hesaplanıyor. */
     const stage = o.stage === 'warp' ? 'warp' : 'comp';
+    /* `vBlend` PRESET GEÇİŞİNİN düğüm başına alfası (#560, madde 4).
+       MilkDrop geçiş sırasında iki preseti aynı ağ üzerinde ÜST ÜSTE
+       çiziyor ve hangi pikselde hangisinin görüneceğini bu alfa
+       söylüyor. Geçiş yokken 1, yani çıkış tümüyle mat.
+
+       İki aşamada da var: warp ağdan, comp da aynı ağın düğümlerinden
+       alıyor. Yalnız warp'a koymak geçişi yarım bırakırdı — birleştirme
+       shader'ı taşıyan preset (%85'i) yine sert kesilirdi. */
     const ins = stage === 'warp'
-      ? ['in vec2 vUV;', 'in vec2 vUVOrig;', 'in float vRad;', 'in float vAng;', '']
-      : ['in vec2 vUV;', ''];
+      ? ['in vec2 vUV;', 'in vec2 vUVOrig;', 'in float vRad;', 'in float vAng;',
+        'in float vBlend;', '']
+      : ['in vec2 vUV;', 'in float vBlend;', ''];
     /* Plandaki her yazım kendi uniform'u olarak bildiriliyor. Yerleşiklerin
        ön eksiz hâlleri PREAMBLE'da zaten var; burada yalnız türevler ve
        kullanıcı dokuları çıkıyor. */
@@ -1777,7 +1786,11 @@
          kalktı ve değerler geri besleme döngüsünde sınırsız büyüyüp ekranı
          tek renge boğdu. Kırpma, kayan noktanın ince adımlarını korurken
          taşmayı geri engelliyor. */
-      '  outColor = vec4(clamp(ret, 0.0, 1.0), 1.0);', '}']);
+      /* ALFA düğümden geliyor, sabit 1'den değil: preset geçişinde iki
+         preset aynı hedefin üstüne çiziliyor ve karışımı bu alfa
+         sürüyor. Geçiş yokken düğümlerin hepsi 1 taşıyor, yani sonuç
+         eskisiyle birebir aynı. */
+      '  outColor = vec4(clamp(ret, 0.0, 1.0), vBlend);', '}']);
 
     return {
       glsl: head.concat(mid, main).join('\n'),

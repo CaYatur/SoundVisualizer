@@ -25,14 +25,14 @@ const path = require('path');
 const CODE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
 const BODY = CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-const MESH = /_buildWarpMesh\(\) \{[\s\S]*?\n    \}/.exec(BODY);
+const MESH = /_warpMeshPass\(P, clock, rep\) \{[\s\S]*?\n    \}/.exec(BODY);
 
 test('warp: iki preset ayarı okunuyor', () => {
-  assert.ok(MESH, '_buildWarpMesh bulunamadı');
-  assert.match(MESH[0], /this\.preset\.get\('warpanimspeed'\)/);
-  assert.match(MESH[0], /this\.preset\.get\('warpscale'\)/);
+  assert.ok(MESH, '_warpMeshPass bulunamadı');
+  assert.match(MESH[0], /P\.get\('warpanimspeed'\)/);
+  assert.match(MESH[0], /P\.get\('warpscale'\)/);
   // Hız zamanı çarpıyor, ölçek tersiyle giriyor
-  assert.match(MESH[0], /const warpTime = this\.time \* wSpeed;/);
+  assert.match(MESH[0], /const warpTime = clock \* wSpeed;/);
   assert.match(MESH[0], /const wsi = 1 \/ wScale;/);
 });
 
@@ -100,8 +100,8 @@ test('warp: genlik çarpanı 0.0035 değişmedi', () => {
 test('warp: anahtar kapalıyken eski desen ve eski hız duruyor', () => {
   /* Eski davranış bir uyum değil ama kullanıcıların izlediği görüntü.
      Kapalıyken hız ve ölçek 1, terimler de eski sabitleriyle. */
-  assert.match(MESH[0], /const wSpeed = acc \? \(this\.preset\.get\('warpanimspeed'\) \|\| 1\) : 1;/);
-  assert.match(MESH[0], /const wScaleRaw = acc \? \(this\.preset\.get\('warpscale'\) \|\| 1\) : 1;/);
+  assert.match(MESH[0], /const wSpeed = acc \? \(P\.get\('warpanimspeed'\) \|\| 1\) : 1;/);
+  assert.match(MESH[0], /const wScaleRaw = acc \? \(P\.get\('warpscale'\) \|\| 1\) : 1;/);
   /* Eski desen artık ayrı bir kod yolunda duruyor (dönüşümün sırası da
      farklı olduğu için tek bir `if` ile ayrılamıyordu). */
   assert.match(MESH[0], /su \+= wr \* Math\.sin\(warpTime \* 0\.333 \+ cx0 \* 5 \+ cy0 \* 3\);/);

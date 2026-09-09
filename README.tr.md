@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1376%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1399%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -239,8 +239,27 @@ profilinde basamak olmadığını doğruluyor.
   göre istiyor — `sampler_worms`, `worms.jpg` arıyor. Preset paketleri bu dosyaları getirmiyor;
   MilkDrop › Doku Paketi'ni bir MilkDrop kurulumundaki `textures` klasörüne yöneltin. Klasör
   yoksa preset yine çalışır, o dokunun yerine gürültü kullanılır.
-- **Yapılmadı: MilkDrop'un iki hatlı harmanı.** Preset geçişi önceki presetin son karesini
-  eritiyor; MilkDrop iki preseti aynı anda koşturuyor. Bir saniyenin altında fark görünmüyor.
+- **Preset geçişi MilkDrop'un çift boru hattı.** Yeni preset yüklenince eskisi durmuyor: kendi
+  nesnesi, kendi derlenmiş shader'ları ve kendi saatiyle yaşamaya devam ediyor ve her karede iki
+  presetin de kare ve düğüm denklemleri koşuyor. İki warp ağı düğüm düğüm bir rampa boyunca
+  karışıyor — yönlü silme, plazma ya da dairesel, MilkDrop nasıl seçiyorsa öyle rastgele — yani
+  ekranın bir bölgesi diğerinden önce dönüyor; aynı rampa iki presetin shader'larının çizildiği
+  düğüm alfası oluyor. Geri besleme tamponu ve bulanıklık zinciri **tek**, MilkDrop'ta da öyle.
+  Pikselleri hareket ettirmeyen değerler (sönme, dalga ve kenarlık renkleri, blur aralıkları,
+  gama) kosinüs eğrisiyle sayısal olarak karışıyor; mantıksal olanlar atlıyor. Varsayılan 1,7 sn,
+  MilkDrop'un kendi değeri. *Yaklaşık:* iki presetin dalga modu farklıysa MilkDrop bir şekli
+  ötekine dönüştürüyor; burada geçiş boyunca yeni presetin modu görünüyor.
+- **Kare değişkenleri her karede sıfırlanıyor, MilkDrop nasıl sıfırlıyorsa.** MilkDrop `per_frame`
+  koşmadan önce bütün yerleşik kare değişkenlerini preset dosyasından yeniden yüklüyor ve
+  `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun
+  %19,5'inin yazdığı `q1 = q1 + x` her karede aynı sonucu vermek yerine sınırsız büyüyordu. Preset
+  yazarının kendi değişkenleri MilkDrop'ta olduğu gibi kalıcı kalmaya devam ediyor.
+- **Tayf dalgası MilkDrop'un tayfını MilkDrop'un ölçeğinde alıyor.** MilkDrop'taki `0,15` çarpanı
+  kendi FFT'sinin ürettiği büyüklüğe göre seçilmiş, yani 0..1'e normalleştirilmiş bir dizi doğru
+  biçimi yanlış boyutta çizer. Zincir kaynaktan yeniden kuruldu: ±128 örnek birimi, iki katsayılı
+  yumuşatma, 576'lık Hann penceresi, normalleştirilmemiş 1024 noktalı FFT ve
+  `-0,02·ln((512-i)/512)` eşitleyicisi. *Yaklaşık:* göz–frekans ekseni, çünkü bizim örneklerimiz
+  MilkDrop'un kaynak hızında değil AudioContext hızında geliyor.
 
 ---
 
@@ -953,7 +972,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1376 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1399 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

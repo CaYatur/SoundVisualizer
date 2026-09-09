@@ -25,12 +25,12 @@ const path = require('path');
 const CODE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
 const BODY = CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-const MESH = /_buildWarpMesh\(\) \{[\s\S]*?\n    \}/.exec(BODY);
+const MESH = /_warpMeshPass\(P, clock, rep\) \{[\s\S]*?\n    \}/.exec(BODY);
 const ACC = MESH && /if \(acc\) \{([\s\S]*?)\n          \} else \{/.exec(MESH[0]);
 const LEG = MESH && /\n          \} else \{([\s\S]*?)\n          \}/.exec(MESH[0]);
 
 test('ağ: uyumlu ve eski yol ayrı ayrı duruyor', () => {
-  assert.ok(MESH, '_buildWarpMesh bulunamadı');
+  assert.ok(MESH, '_warpMeshPass bulunamadı');
   assert.ok(ACC, 'uyumlu yol bulunamadı');
   assert.ok(LEG, 'eski yol bulunamadı');
   assert.match(MESH[0], /const acc = this\._wantAcc !== false;/);
@@ -144,7 +144,7 @@ test('anahtar kapalıyken eski sıra ve eski desen aynen duruyor', () => {
   /* Eski davranış bir uyum değil ama kullanıcıların aylardır izlediği
      görüntü. Yeni yola bakarak "sadeleştirmek" iki yolu birbirine
      yaklaştırır ve anahtarın anlamını götürür. */
-  assert.match(LEG[1], /this\.preset\.pixel\(u, w, rad, ang, this\._pix\)/);
+  assert.match(LEG[1], /P\.pixel\(u, w, rad, ang, this\._pix\)/);
   assert.match(LEG[1], /su \+= wr \* Math\.sin\(warpTime \* 0\.333 \+ cx0 \* 5 \+ cy0 \* 3\);/);
   const legRot = LEG[1].indexOf('su = du * ca - dv * sa + cx;');
   const legStretch = LEG[1].indexOf('su = (su - cx) / sx + cx;');

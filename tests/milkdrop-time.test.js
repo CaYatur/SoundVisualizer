@@ -25,7 +25,7 @@ const CODE = fs.readFileSync(
   .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
 test('shader zamanı: preset başından, uygulamadan değil', () => {
-  assert.match(CODE, /const shTime = accurate\s*\?\s*this\.presetTime - Math\.floor\(this\.presetTime \/ 10000\) \* 10000\s*:\s*ctx\.time;/);
+  assert.match(CODE, /const shTime = accurate\s*\?\s*pTime - Math\.floor\(pTime \/ 10000\) \* 10000\s*:\s*ctx\.time;/);
   assert.match(CODE, /set1\('time', shTime\);/);
 });
 

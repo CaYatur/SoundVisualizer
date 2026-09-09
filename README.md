@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1376%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1399%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -246,8 +246,27 @@ that asserts the bar profile has no step in it.
   `sampler_worms` looks for `worms.jpg`. Preset packs do not ship these files, so point
   MilkDrop › Texture Pack at the `textures` folder of a MilkDrop installation. Without one the
   preset still runs, with noise in place of that texture.
-- **Not built: MilkDrop's dual-pipeline blend.** Preset transitions dissolve the previous preset's
-  last frame; MilkDrop runs both presets at once. Under about a second the difference is invisible.
+- **Preset transitions are MilkDrop's dual pipeline.** The previous preset does not stop when a new
+  one loads: it keeps its own object, its own compiled shaders and its own clock, and both presets
+  run their frame and vertex equations every frame. The two warp meshes are blended per node along a
+  ramp — a directional wipe, a plasma or a radial sweep, picked at random as MilkDrop picks it — so
+  one part of the screen turns over before another, and the same ramp is the per-node alpha the two
+  presets' shaders are drawn with. There is still **one** feedback buffer and one blur chain, which
+  is what MilkDrop has. Values that do not move pixels (decay, wave and border colours, blur ranges,
+  gamma) are blended numerically on a cosine curve; the boolean ones snap. Default 1.7s, MilkDrop's
+  own. *Approximate:* if the two presets use different waveform modes, MilkDrop morphs one shape
+  into the other; here the new preset's mode is shown for the transition.
+- **The per-frame variables reset every frame, as MilkDrop resets them.** MilkDrop re-seeds every
+  built-in per-frame variable from the preset file before `per_frame` runs and returns `q1..q32` to
+  what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the
+  corpus — grew without bound instead of giving the same answer each frame. Preset authors' own
+  variables still persist, as they do in MilkDrop.
+- **A spectrum wave gets MilkDrop's spectrum at MilkDrop's scale.** The `0.15` multiplier in
+  MilkDrop was chosen for the magnitude its own FFT produces, so a normalised 0..1 array draws the
+  right shape at the wrong size. The chain is rebuilt from the source: ±128 sample units, the
+  two-tap damping, a 576-point Hann envelope, an unnormalised 1024-point FFT and the
+  `-0.02·ln((512-i)/512)` equaliser. *Approximate:* the bin-to-frequency axis, because our samples
+  arrive at the AudioContext rate rather than MilkDrop's.
 
 ---
 
@@ -952,7 +971,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1376 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1399 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

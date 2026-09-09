@@ -170,13 +170,17 @@
       [2, '2x (en keskin)'],
     ], md.renderScale == null ? 1 : md.renderScale, (v) => { md.renderScale = Number(v); })));
 
+    /* Geçiş MilkDrop'un çift boru hattı: eski preset donmuş bir kare değil,
+       kendi denklemleri ve shader'larıyla koşmaya devam ediyor. 1,7 ve 2,7
+       MilkDrop'un kendi varsayılanları (kullanıcı geçişi / kendiliğinden
+       geçiş). */
     nodes.push(P().row('Preset Geçişi', selOf([
       [0, 'Kapalı (sert kesme)'],
-      [0.4, '0,4 saniye'],
       [0.8, '0,8 saniye'],
-      [1.5, '1,5 saniye'],
-      [3, '3 saniye'],
-    ], md.blendTime == null ? 0 : md.blendTime, (v) => { md.blendTime = Number(v); })));
+      [1.7, '1,7 saniye (MilkDrop)'],
+      [2.7, '2,7 saniye (MilkDrop otomatik)'],
+      [5, '5 saniye'],
+    ], md.blendTime == null ? 1.7 : md.blendTime, (v) => { md.blendTime = Number(v); })));
 
     /* MILKDROP UYUMLULUĞU. Motorun ölçülebilir uyum hataları düzeltildi ve
        düzeltilmiş değerler varsayılan. Anahtar yalnızca DEĞERLERİ geri
@@ -194,7 +198,7 @@
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.',
+      text: 'Geçişte iki preset de çalışır: kare denklemleri, warp ağları ve shader\'ları aynı anda koşar ve ekranın farklı yerleri farklı zamanda yeni presete döner. Süresince iki presetin denklemleri birden koştuğu için işlem yükü geçici olarak artar.',
     }));
 
     nodes.push(el('div', {
