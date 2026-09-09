@@ -24,7 +24,7 @@
    arasında gidip geliniyor (ping-pong) — bir dokudan okurken aynı dokuya
    yazmak tanımsız davranıştır.
 
-   NEDEN BLUR ZİNCİRİ AYRI BİR MASRAF: presetlerin %85,5'i `GetBlur1..3`
+   NEDEN BLUR ZİNCİRİ AYRI BİR MASRAF: korpusun %71,3'ü `GetBlur1..3`
    çağırıyor. Bunlar fonksiyon değil, ayrı ayrı bulanıklaştırılmış DOKULAR.
    Bağlanmadıklarında shader hatasız derleniyor ama siyah örnekliyor —
    yani preset "çalışıyor" görünüp bambaşka bir görüntü veriyor. */
@@ -1797,14 +1797,32 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this._drawWarpPass(gl, src, this.warpPreset, ctx, step);
       }
 
-      /* --- 4. BLUR ZİNCİRİ, çizimlerden ÖNCE.
+      /* --- 4. BLUR ZİNCİRİ: kaynağı `src`, yani ÖNCEKİ karenin tamamlanmış
+         görüntüsü — warp'ın üstüne o karede çizilmiş şekiller, dalgalar ve
+         kenarlıklar dâhil.
 
-         MilkDrop bulanık kopyaları warp'ın hemen ardından, şekiller ve
-         dalgalar çizilmeden alıyor: GetBlur akan görüntünün bulanık hali
-         demek, üstüne çizilmiş parlak şekillerin değil. Sonraya bırakmak
-         şekilleri de bulanığa karıştırıyor ve GetBlur okuyan presetlerde
-         (yüzde 85,5'i) görünür bir fark yaratıyor. */
-      this._buildBlur(dst.tex);
+         MilkDrop `BlurPasses()`i warp'tan sonra çağırıyor ama kaynak olarak
+         warp'ın ÇIKTISINI değil GİRDİSİNİ veriyor; kendi yorumu da bunu
+         söylüyor (milkdropfs.cpp:1479-1481):
+             // Note: Warped blit just rendered from VS0 to VS1.
+             SetTexture(0, (i == 0) ? m_lpVS[0] : m_lpBlur[i - 1]);
+         Tamponlar kare SONUNDA takas ediliyor (1149-1151), dolayısıyla
+         `m_lpVS[0]` bir önceki karenin son hâli. Bizde `this.cur` her
+         karede dönüyor, yani `src` tam olarak o tampon — dokulu şekillerin
+         beslendiği kaynağın (`_shapeSrcTex`) aynısı.
+
+         Daha önce `dst.tex` veriyorduk: içerik aynı şekilleri taşıyor ama
+         bir kez FAZLA warp'lanmış oluyordu. Sonucu, güçlü zoom ya da dönüş
+         taşıyan presetlerde bloom'un yerinde durmayıp akış boyunca
+         sürüklenmesi ve decay kadar sönmesiydi. Korpusun %71,3'ü GetBlur
+         okuduğu için etki geniş.
+
+         Konum değişmiyor ve değişmemeli: warp geçişi bu satırdan ÖNCE
+         olduğu için warp shader'ı bir önceki karede üretilmiş bulanık
+         dokuları örnekliyor, comp shader'ı ise bu karede üretilenleri.
+         MilkDrop'ta da gecikme aynen böyle (1021 warp, 1058 blur, 1099
+         comp). */
+      this._buildBlur(src.tex);
 
       /* --- 5. Çizimler, warp'ın üstüne. MilkDrop'un sırası: önce şekiller,
          sonra custom dalgalar, en son varsayılan dalga formu. Sıra görünür:

@@ -284,8 +284,11 @@ test('ikisinin de shader\'ı yoksa ikinci çizim hiç yapılmıyor', () => {
 });
 
 test('karışım blur zincirinden ÖNCE hedefe iniyor', () => {
-  /* GetBlur akan görüntünün bulanık hâli; yarı karışmış bir görüntüyü
-     bulanıklaştırmak presetlerin %85,5\'inde görünür. */
+  /* Sıra MilkDrop'un sırası: warp (1021), blur (1058), comp (1099). Blur
+     zinciri kaynağını `src`ten alsa da KONUMU önemli — warp shader'ı bu
+     satırdan önce çizdiği için bir önceki karenin bulanık dokularını,
+     comp shader'ı ise bu karede üretilenleri örnekliyor. Geçişte iki warp
+     çizimi de blur'dan önce inmeli, yoksa gecikme presete göre kayar. */
   const draw = BODY.slice(BODY.indexOf('draw(audio, cfg, t, dt)'));
   const mix = draw.indexOf('_drawWarpPass');
   const blur = draw.indexOf('_buildBlur');

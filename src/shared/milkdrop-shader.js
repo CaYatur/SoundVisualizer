@@ -594,7 +594,8 @@
     'mat3 hmat3(vec3 r0, vec3 r1, vec3 r2){ return mat3(r0.x, r1.x, r2.x, r0.y, r1.y, r2.y, r0.z, r1.z, r2.z); }',
     'mat4 hmat4(vec4 r0, vec4 r1, vec4 r2, vec4 r3){ return mat4(r0.x, r1.x, r2.x, r3.x, r0.y, r1.y, r2.y, r3.y, r0.z, r1.z, r2.z, r3.z, r0.w, r1.w, r2.w, r3.w); }',
     /* GetBlur*: MilkDrop'ta fonksiyon gibi yazılır ama aslında ayrı ayrı
-       bulanıklaştırılmış kopyalardır — presetlerin %85,5'i istiyor. Gerçekten
+       bulanıklaştırılmış kopyalardır — korpusun %71,3'ü (7.379 preset; shader
+       taşıyanların %86,8'i) istiyor. Gerçekten
        üç ek doku gerekiyor; onları üretmek çizim tarafının işi, burada
        yalnızca okunuyorlar. Ölçek/kaydırma blurN_min/max ile geri açılıyor. */
     /* Bulanik kopya dokuya presetin b1n/b1x araligina SIKISTIRILARAK
