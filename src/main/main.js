@@ -3239,7 +3239,7 @@ async function runSmoke() {
       await awc3.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
       await wait(340);
       const found = await awc3.executeJavaScript(`(function(){
-        var skip = 'source-name,audio-state,scene-name,up-name,map-signal,url-field,client-addr,gen-pair'.split(',');
+        var skip = 'source-name,audio-state,scene-name,up-name,map-signal,url-field,client-addr,gen-pair,np-live'.split(',');
         var out = [];
         // Yer tutucu ve başlık metinleri de taranır: gözle görünür oldukları
         // halde metin düğümü olmadıkları için kolayca gözden kaçarlar.

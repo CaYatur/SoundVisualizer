@@ -226,3 +226,24 @@ test('kullanıcının verdiği ad olduğu gibi kalır', () => {
   const t = loadEnglish().t;
   assert.match(t('\u{1F39B} Deste · Davul (2×3)'), /Davul/);
 });
+
+/* ÇALAN PARÇANIN ADI bir çeviri yüzeyi değil.
+
+   İngilizce arayüz taraması (smoke) Türkçe metin arıyor ve canlı şarkı
+   başlığını da okuyordu: Türkçe adlı bir parça çalarken sürüm kapısı
+   düşüyordu. Kapının sonucu o an ne dinlendiğine bağlı olamaz. Aynı
+   ayrım kaynak adı, sahne adı ve URL alanı için zaten yapılmıştı; canlı
+   parça başlığı listede yoktu. */
+test('canlı parça başlığı i18n taramasının dışında', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf-8');
+  const main = read('src/main/main.js');
+  const admin = read('src/admin/admin.js');
+  const skip = /var skip = '([^']+)'\.split\(','\)/.exec(main);
+  assert.ok(skip, 'tarama atlama listesi bulunamadı');
+  assert.ok(skip[1].split(',').indexOf('np-live') >= 0,
+    'np-live atlama listesinde değil: ' + skip[1]);
+  // Sınıf gerçekten canlı başlığa veriliyor mu
+  assert.match(admin, /class: 'np-live'[^}]*\$\{live\.title\}/);
+});

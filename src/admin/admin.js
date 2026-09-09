@@ -1820,7 +1820,11 @@
     const statusRow = el('div', { class: 'studio-note', style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;' });
     const statusInfo = el('div', { style: 'flex: 1; min-width: 0;' });
     if (live && live.title) {
-      statusInfo.appendChild(el('div', { style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', text: `🎵 ${live.title} — ${live.artist || ''}` }));
+      /* `np-live`: içerik ÇALAN PARÇANIN adı, yani çeviri yüzeyi değil.
+         Sınıf olmadan i18n taraması bunu "çevrilmemiş Türkçe" sayıyor ve
+         Türkçe bir şarkı çalarken sürüm kapısı düşüyordu — kapının sonucu
+         o an ne dinlendiğine bağlı olamaz. */
+      statusInfo.appendChild(el('div', { class: 'np-live', style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', text: `🎵 ${live.title} — ${live.artist || ''}` }));
       statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: live.artwork ? tr('🖼️ Albüm kapağı algılandı') : tr('ℹ️ Albüm kapağı yok (parça bilgisi mevcut)') }));
     } else {
       statusInfo.appendChild(el('div', { style: 'font-weight: 600;', text: tr('🎵 Windows Medya Oturumu Hazır') }));
