@@ -1637,6 +1637,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._drawWaveModes(gl, GW, GH);
       // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
       this._drawMotionVectors(gl);
+      /* Merkez karartma ve kenarlıklar EN SON: MilkDrop'ta da sıra bu.
+         Daha önce çizilseler dalga ve şekiller üstlerini kapatırdı. */
+      this._drawDarkenCenter(gl, GW, GH);
+      this._drawBorders(gl);
 
       // --- 6. COMP GEÇİŞİ, doğrudan ekrana
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1688,6 +1692,114 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        yani vektörler geri besleme tamponuna giriyor ve sonraki karelerde
        akıp sönüyorlar. Birleştirmeden sonra çizmek onları geri beslemenin
        dışında bırakır ve iz bırakmadan yanıp sönerlerdi. */
+    /* bDarkenCenter — ekranın TAM ORTASINI hafifçe karartır.
+
+       Korpusta 711 preset (%6,9) açık bırakıyor ve motor bunu hiç
+       okumuyordu. İşi küçük ama belirli: merkeze doğru yakınlaşan
+       presetlerde görüntü ortada birikip beyaza doyuyor, bu karartma o
+       birikmeyi geri alıyor. Açık olan presetlerde eksikliği "orta nokta
+       fazla parlak" diye görünür.
+
+       Biçim MilkDrop'un kendi biçimi: yarım boyu 0,05 olan bir baklava,
+       merkezde alfa 3/32 siyah, dört köşesinde alfa 0. Yani sert bir
+       leke değil, merkezden dışa sönen bir gölge. En-boy düzeltmesi X'e
+       uygulanıyor ki geniş ekranda yamulmasın. */
+    _drawDarkenCenter(gl, GW, GH) {
+      const P = this.preset;
+      if (!P || this._wantAcc === false) return;
+      if (!(P.get('darken_center') > 0)) return;
+      const aspY = GW > GH ? GH / GW : 1;
+      const h = 0.05;
+      const d = this.lineData;
+      // merkez + dört köşe + ilk köşeye dönüş = altı düğümlü yelpaze
+      const pts = [[0, 0], [-h * aspY, 0], [0, -h], [h * aspY, 0], [0, h], [-h * aspY, 0]];
+      for (let i = 0; i < pts.length; i++) {
+        const k = i * 6;
+        d[k] = pts[i][0]; d[k + 1] = pts[i][1];
+        d[k + 2] = 0; d[k + 3] = 0; d[k + 4] = 0;
+        d[k + 5] = i === 0 ? 3 / 32 : 0;
+      }
+      gl.useProgram(this.lineProg);
+      gl.bindVertexArray(this.lineVao);
+      this._blend(gl, false);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, pts.length * 6);
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, pts.length);
+      gl.bindVertexArray(null);
+      gl.disable(gl.BLEND);
+    }
+
+    /* DIŞ ve İÇ KENARLIK — `ob_*` ve `ib_*`.
+
+       Presetlerin %99,7'si bu değerleri dosyasında taşıyor; 3.100'ü
+       (%30,0) görünür bir dış, 1.575'i (%15,2) görünür bir iç kenarlık
+       istiyor, per_frame'den sürenlerle birlikte 3.906 preset (%37,8).
+       Motor hiç çizmiyordu.
+
+       Halka DÖRT ŞERİT olarak çiziliyor, tek bir büyük dikdörtgenin
+       üstüne küçüğü değil: saydam bir kenarlıkta üst üste binen köşeler
+       iki kez harmanlanır ve dört köşe gövdeden koyu çıkardı. Sol ve sağ
+       şeritler bu yüzden dikeyde kenarlık kalınlığı kadar içeri
+       çekiliyor.
+
+       İç kenarlık dıştakinin BİTTİĞİ yerden başlıyor (`prev`): ikisi de
+       kenardan ölçseydi iç kenarlık dışın altına gizlenirdi.
+
+       Kalınlık her eksende ekranın kendi oranı — MilkDrop da böyle. Geniş
+       ekranda yan şeritler üst/alttakinden fiziksel olarak daha kalın
+       görünür; en-boy düzeltmesi eklemek burada MilkDrop'tan ayrılmak
+       olurdu. */
+    _drawBorders(gl) {
+      const P = this.preset;
+      if (!P || this._wantAcc === false) return;
+      const cl = window.SVMilkdrop.clampColor;
+      const a01 = (v) => Math.max(0, Math.min(1, isFinite(v) ? v : 0));
+      const rings = [
+        { size: P.get('ob_size'), prev: 0,
+          c: [cl(P.get('ob_r')), cl(P.get('ob_g')), cl(P.get('ob_b')), a01(P.get('ob_a'))] },
+        { size: P.get('ib_size'), prev: P.get('ob_size'),
+          c: [cl(P.get('ib_r')), cl(P.get('ib_g')), cl(P.get('ib_b')), a01(P.get('ib_a'))] },
+      ];
+      let used = false;
+      const d = this.lineData;
+      for (const r of rings) {
+        const size = isFinite(r.size) ? r.size : 0;
+        const prev = isFinite(r.prev) && r.prev > 0 ? r.prev : 0;
+        if (!(size > 0) || !(r.c[3] > 0.002)) continue;
+        const p0 = prev;
+        const p1 = Math.min(1, size + prev);
+        const quads = [
+          [-1 + p0, -1 + p1, -1 + p1, 1 - p1],   // sol
+          [1 - p1, 1 - p0, -1 + p1, 1 - p1],     // sağ
+          [-1 + p0, 1 - p0, -1 + p0, -1 + p1],   // alt
+          [-1 + p0, 1 - p0, 1 - p1, 1 - p0],     // üst
+        ];
+        let n = 0;
+        for (const [x0, x1, y0, y1] of quads) {
+          const v = [[x0, y0], [x1, y0], [x1, y1], [x0, y0], [x1, y1], [x0, y1]];
+          for (const [x, y] of v) {
+            const k = n * 6;
+            d[k] = x; d[k + 1] = y;
+            d[k + 2] = r.c[0]; d[k + 3] = r.c[1]; d[k + 4] = r.c[2]; d[k + 5] = r.c[3];
+            n++;
+          }
+        }
+        if (!used) {
+          gl.useProgram(this.lineProg);
+          gl.bindVertexArray(this.lineVao);
+          this._blend(gl, false);
+          used = true;
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+        gl.drawArrays(gl.TRIANGLES, 0, n);
+      }
+      if (used) {
+        gl.bindVertexArray(null);
+        gl.disable(gl.BLEND);
+      }
+    }
+
     _drawMotionVectors(gl) {
       const P = this.preset;
       if (!P) return;
