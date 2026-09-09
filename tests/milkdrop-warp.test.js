@@ -102,6 +102,7 @@ test('warp: anahtar kapalıyken eski desen ve eski hız duruyor', () => {
      Kapalıyken hız ve ölçek 1, terimler de eski sabitleriyle. */
   assert.match(MESH[0], /const wSpeed = acc \? \(this\.preset\.get\('warpanimspeed'\) \|\| 1\) : 1;/);
   assert.match(MESH[0], /const wScaleRaw = acc \? \(this\.preset\.get\('warpscale'\) \|\| 1\) : 1;/);
-  assert.match(MESH[0], /\} else if \(wr !== 0\) \{/);
+  /* Eski desen artık ayrı bir kod yolunda duruyor (dönüşümün sırası da
+     farklı olduğu için tek bir `if` ile ayrılamıyordu). */
   assert.match(MESH[0], /su \+= wr \* Math\.sin\(warpTime \* 0\.333 \+ cx0 \* 5 \+ cy0 \* 3\);/);
 });

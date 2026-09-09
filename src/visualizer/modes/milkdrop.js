@@ -1576,6 +1576,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          %25,7'si shader'da en-boy okuyor. */
       const aspX = GH > GW ? GW / GH : 1;
       const aspY = GW > GH ? GH / GW : 1;
+      this._aspX = aspX; this._aspY = aspY;
       const accAsp = this._wantAcc !== false;
       const aspectx = accAsp ? 1 / aspX : (GW >= GH ? GW / GH : 1);
       const aspecty = accAsp ? 1 / aspY : (GW >= GH ? 1 : GH / GW);
@@ -1979,56 +1980,122 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const w = j / this.meshY;
           const cx0 = u * 2 - 1;
           const cy0 = w * 2 - 1;
-          const rad = Math.min(1, Math.hypot(cx0, cy0) * 0.7071);
-          let ang = Math.atan2(cy0, cx0);
-          if (ang < 0) ang += Math.PI * 2;
+          let rad, ang, su, sv, fv;
 
-          // Denklem dilindeki `y`: MilkDrop'ta 0 = ÜST
-          const my = acc ? 1 - w : w;
-          const p = this.preset.pixel(u, my, rad, ang, this._pix);
+          if (acc) {
+            /* MilkDrop'un düğüm dönüşümü, kendi sırasıyla.
 
-          /* MilkDrop'un düğüm dönüşümü. Sıra önemli: önce zum (yarıçapa
-             bağlı üstel), sonra dönme, sonra gerdirme, sonra öteleme, en
-             sonra warp titreşimi. Başka bir sırada aynı preset bambaşka
-             görünür. */
-          const zoomExp = p.zoomexp === 0 ? 1 : p.zoomexp;
-          const zoom = p.zoom === 0 ? 1 : p.zoom;
-          const z = Math.pow(zoom, Math.pow(zoomExp, rad * 2 - 1)) || 1;
-          const cx = p.cx;
-          const cy = p.cy;
-          let su = (u - cx) / z + cx;
-          let sv = (my - cy) / z + cy;
-          const ca = Math.cos(p.rot);
-          const sa = Math.sin(p.rot);
-          const du = su - cx;
-          const dv = sv - cy;
-          su = du * ca - dv * sa + cx;
-          sv = du * sa + dv * ca + cy;
-          const sx = p.sx === 0 ? 1 : p.sx;
-          const sy = p.sy === 0 ? 1 : p.sy;
-          su = (su - cx) / sx + cx;
-          sv = (sv - cy) / sy + cy;
-          su -= p.dx;
-          sv -= p.dy;
-          const wr = p.warp * 0.0035;
-          if (wr !== 0 && acc) {
-            su += wr * Math.sin(warpTime * 0.333 + wsi * (cx0 * wf0 - cy0 * wf3));
-            sv += wr * Math.cos(warpTime * 0.375 - wsi * (cx0 * wf2 + cy0 * wf1));
-            su += wr * Math.cos(warpTime * 0.753 - wsi * (cx0 * wf1 - cy0 * wf2));
-            sv += wr * Math.sin(warpTime * 0.825 + wsi * (cx0 * wf0 + cy0 * wf3));
-          } else if (wr !== 0) {
-            su += wr * Math.sin(warpTime * 0.333 + cx0 * 5 + cy0 * 3);
-            sv += wr * Math.cos(warpTime * 0.375 - cx0 * 3 + cy0 * 5);
-            su += wr * Math.cos(warpTime * 0.753 - cx0 * 4 - cy0 * 2);
-            sv += wr * Math.sin(warpTime * 0.825 + cx0 * 2 - cy0 * 4);
+               `rad` ÖLÇEKLENMİYOR: MilkDrop'ta köşede 1'i aşıyor (kare
+               ekranda √2'ye kadar). Bizde 0,7071 ile çarpılıp 1'e
+               kenetleniyordu, yani `pow(zoom, pow(zoomexp, rad*2-1))`
+               üssünün üst yarısı hiç kullanılmıyordu — zumun kenara doğru
+               açılması olduğundan zayıf kalıyordu. `ang` de (-π, π]
+               aralığında kalıyor; 0..2π'ye kaydırmak `ang`i tamsayı
+               olmayan bir çarpanla kullanan presetleri kaydırıyordu.
+               Tam merkezdeki düğüm 0 sabitleniyor, yoksa atan2 orada
+               ızgara sıklığına göre rastgele bir yön veriyor.
+
+               EN-BOY dönüşümün İÇİNDE: başta uygulanıp sonunda geri
+               alınıyor. Aradaki adımlar (gerdirme, warp, dönme, öteleme)
+               bu yüzden kare bir uzayda çalışıyor ve geniş ekranda daire
+               daire kalıyor. Motorda en-boy ağa hiç girmiyordu.
+
+               SIRA da farklıydı: zum merkez etrafında değil EKRAN
+               ORTASINDA, ardından gerdirme, warp, dönme, öteleme.
+               Motorda zum ile dönme yer değiştirmiş, warp da en sona
+               atılmıştı — `rot` ve `cx/cy` birlikte kullanan presetlerde
+               sonuç bambaşka çıkıyordu.
+
+               Dikey çevirme artık formülün kendisinde (`-y`), ayrı bir
+               `1 - w` adımı YOK; ikisi birden olsaydı çevirme iki kez
+               uygulanır ve görüntü baş aşağı dönerdi. */
+            const ax = this._aspX || 1;
+            const ay = this._aspY || 1;
+            rad = Math.sqrt(cx0 * cx0 * ax * ax + cy0 * cy0 * ay * ay);
+            ang = (i === (this.meshX >> 1) && j === (this.meshY >> 1))
+              ? 0 : Math.atan2(cy0 * ay, cx0 * ax);
+
+            const p = this.preset.pixel(cx0 * 0.5 * ax + 0.5, cy0 * -0.5 * ay + 0.5,
+              rad, ang, this._pix);
+
+            const zoomExp = p.zoomexp === 0 ? 1 : p.zoomexp;
+            const zoom = p.zoom === 0 ? 1 : p.zoom;
+            const z = Math.pow(zoom, Math.pow(zoomExp, rad * 2 - 1)) || 1;
+            const zi = 1 / z;
+            const cx = p.cx;
+            const cy = p.cy;
+            su = cx0 * ax * 0.5 * zi + 0.5;
+            sv = cy0 * -ay * 0.5 * zi + 0.5;
+
+            const sx = p.sx === 0 ? 1 : p.sx;
+            const sy = p.sy === 0 ? 1 : p.sy;
+            su = (su - cx) / sx + cx;
+            sv = (sv - cy) / sy + cy;
+
+            const wr = p.warp * 0.0035;
+            if (wr !== 0) {
+              su += wr * Math.sin(warpTime * 0.333 + wsi * (cx0 * wf0 - cy0 * wf3));
+              sv += wr * Math.cos(warpTime * 0.375 - wsi * (cx0 * wf2 + cy0 * wf1));
+              su += wr * Math.cos(warpTime * 0.753 - wsi * (cx0 * wf1 - cy0 * wf2));
+              sv += wr * Math.sin(warpTime * 0.825 + wsi * (cx0 * wf0 + cy0 * wf3));
+            }
+
+            const du = su - cx;
+            const dv = sv - cy;
+            const ca = Math.cos(p.rot);
+            const sa = Math.sin(p.rot);
+            su = du * ca - dv * sa + cx;
+            sv = du * sa + dv * ca + cy;
+
+            su -= p.dx;
+            sv -= p.dy;
+
+            // en-boyu geri al
+            su = (su - 0.5) / ax + 0.5;
+            sv = (sv - 0.5) / ay + 0.5;
+
+            // MilkDrop'un v ekseni yukarıdan aşağı, bizimki aşağıdan yukarı
+            fv = 1 - sv;
+          } else {
+            /* Motorun eski yaklaşımı — anahtar kapalıyken satır satır
+               eskisi. Yeni yola bakarak "sadeleştirmek" iki yolu
+               birbirine yaklaştırır ve anahtarın anlamını götürür. */
+            rad = Math.min(1, Math.hypot(cx0, cy0) * 0.7071);
+            ang = Math.atan2(cy0, cx0);
+            if (ang < 0) ang += Math.PI * 2;
+            const p = this.preset.pixel(u, w, rad, ang, this._pix);
+            const zoomExp = p.zoomexp === 0 ? 1 : p.zoomexp;
+            const zoom = p.zoom === 0 ? 1 : p.zoom;
+            const z = Math.pow(zoom, Math.pow(zoomExp, rad * 2 - 1)) || 1;
+            const cx = p.cx;
+            const cy = p.cy;
+            su = (u - cx) / z + cx;
+            sv = (w - cy) / z + cy;
+            const ca = Math.cos(p.rot);
+            const sa = Math.sin(p.rot);
+            const du = su - cx;
+            const dv = sv - cy;
+            su = du * ca - dv * sa + cx;
+            sv = du * sa + dv * ca + cy;
+            const sx = p.sx === 0 ? 1 : p.sx;
+            const sy = p.sy === 0 ? 1 : p.sy;
+            su = (su - cx) / sx + cx;
+            sv = (sv - cy) / sy + cy;
+            su -= p.dx;
+            sv -= p.dy;
+            const wr = p.warp * 0.0035;
+            if (wr !== 0) {
+              su += wr * Math.sin(warpTime * 0.333 + cx0 * 5 + cy0 * 3);
+              sv += wr * Math.cos(warpTime * 0.375 - cx0 * 3 + cy0 * 5);
+              su += wr * Math.cos(warpTime * 0.753 - cx0 * 4 - cy0 * 2);
+              sv += wr * Math.sin(warpTime * 0.825 + cx0 * 2 - cy0 * 4);
+            }
+            fv = sv;
           }
 
-          // MilkDrop uzayından dokunun kendi eksenine geri
-          const fv = acc ? 1 - sv : sv;
-
           const o = (j * n + i) * VSTRIDE;
-          v[o] = u * 2 - 1;
-          v[o + 1] = w * 2 - 1;
+          v[o] = cx0;
+          v[o + 1] = cy0;
           v[o + 2] = isFinite(su) ? su : u;
           v[o + 3] = isFinite(fv) ? fv : w;
           v[o + 4] = u;
