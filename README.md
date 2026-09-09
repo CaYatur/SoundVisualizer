@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1275%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1318%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -219,8 +219,17 @@ that asserts the bar profile has no step in it.
 - **The HLSL warp and composite shaders are translated to GLSL and run on the GPU.** Measured in a
   real WebGL2 context over the 10,332-preset corpus: **99.2% of shader stages compile** and 98.5% of
   presets have every stage clean. A separate harness renders each preset and reads the pixels back,
-  because a shader that compiles can still draw black: **93% produce a live image.** Both harnesses
-  are in `scripts/`, so the numbers can be reproduced rather than believed.
+  because a shader that compiles can still draw black: **96.2% produce a live image.** Both
+  harnesses are in `scripts/`, so the numbers can be reproduced rather than believed.
+- **The picture uses MilkDrop's own values, not an approximation of them.** Each of these was found
+  by diffing the corpus against what the engine actually reads, and each is measured: two header
+  settings never reached the equations at all (`fZoomExponent` and `fWaveParam`, one of which
+  66.6% of presets rely on); the warp mesh ran in a vertically mirrored space, so `dy`, `cy` and the
+  direction of rotation were flipped (48.8% use `dy` or `cy`); the warp ripple used invented
+  constants and ignored `fWarpScale` and `fWarpAnimSpeed` (79.9% and 44.0%); the waveform ignored
+  `fWaveSmoothing` (79.0%), a custom wave's own `smoothing`, and `bModWaveAlphaByVolume` (38.9%);
+  and the outer/inner borders (37.8%) and the centre darkening (6.9%) were never drawn at all.
+  A **MilkDrop Fidelity** switch restores the engine's earlier look.
 - **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
   mouse input and preset transitions** are all implemented, and each sampler is read with the
   filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is
@@ -935,7 +944,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1275 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1318 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

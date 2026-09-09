@@ -251,7 +251,11 @@ function pageHarness() {
          onceki goruntuyu devralir. Bedeli, bir presetin sinifinin bir
          oncekinin son karesine bagli olmasi — kod degisince bu bag kucuk
          farklari sinif atlamasina cevirebiliyor. Olculdu: buyuk bir motor
-         degisiminde 900 presette 4 atlama (%0,4). O yuzden iki kosu
+         degisiminde 900 presette 4 atlama (%0,4). Sonraki bir uyum turunda
+         daha yakindan olculdu: bes adimda sinif degistiren 17 presetin
+         13'u TEK BASINA render edildiginde anahtarin iki durumunda da ayni
+         cikti — yani atlamanin sebebi degisiklik degil, devralinan
+         goruntuydu. O yuzden iki kosu
          karsilastirilirken yuzdeye degil, preset preset FARKA bakiliyor.
       */
       window.__run = function (source, id) {
