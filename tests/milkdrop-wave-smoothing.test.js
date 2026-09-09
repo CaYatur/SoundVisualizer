@@ -25,7 +25,7 @@ const CODE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
 const BODY = CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const BASIC = /_waveSamples\(audio, scale, smoothing\) \{[\s\S]*?\n    \}/.exec(BODY);
-const CUSTOM = /_customWaveSamples\(tb, N, w\) \{[\s\S]*?\n    \}/.exec(BODY);
+const CUSTOM = /_customWaveSamples\(tb, N, w, audio\) \{[\s\S]*?\n    \}/.exec(BODY);
 const ALPHA = /_waveVolAlpha\(a\) \{[\s\S]*?\n    \}/.exec(BODY);
 
 // ------------------------------------------------------------ kare dalgası
@@ -106,11 +106,41 @@ test('özel dalga: çift geçiş tepeyi kaydırmıyor', () => {
 });
 
 test('özel dalga: ölçek yumuşatmadan sonra uygulanıyor', () => {
-  assert.match(CUSTOM[0], /const sc = w\.scaling;[\s\S]{0,120}a\[i\] \*= sc; b\[i\] \*= sc;/);
+  assert.match(CUSTOM[0], /const sc = acc \?[\s\S]{0,160}a\[i\] \*= sc; b\[i\] \*= sc;/);
+});
+
+/* GENLİK. MilkDrop örneği `0,004 * scaling * wave_scale` ile çarpıyor ve
+   örnek ±128 birimde duruyor, yani ±1'e indirgenmiş bir örnekte çarpan
+   0,512. Motor 1 kullanıyordu: özel dalgaların hepsi olması gerekenin
+   yaklaşık iki katı büyüklükte çiziliyor ve `wave_scale` onlara hiç
+   ulaşmıyordu. */
+test('özel dalga: MilkDrop genliği ve wave_scale', () => {
+  assert.match(CUSTOM[0], /0\.004 \* 128/);
+  assert.match(CUSTOM[0], /this\.preset\.get\('wave_scale'\)/);
+  const m = /const sc = acc \? \(fq \? ([\d.]+) : ([\d.]+ \* \d+)\) \* w\.scaling \* ws : w\.scaling;/
+    .exec(CUSTOM[0]);
+  assert.ok(m, 'ölçek satırı bulunamadı');
+  assert.strictEqual(Number(m[1]), 0.15, 'tayf çarpanı');
+  // eslint-disable-next-line no-eval
+  assert.ok(Math.abs(Function('return ' + m[2])() - 0.512) < 1e-12, 'zaman çarpanı 0,512');
+});
+
+/* `spectrum = 1` yazan dalga TAYFI istiyor. Motor ikisine de zaman verisi
+   veriyordu: preset frekans dağılımı çizdiğini sanarken bir kıvrım
+   görüyordu. 2.398 preset (%23,2) en az bir tayf dalgası taşıyor. */
+test('özel dalga: tayf isteyen dalga frekans verisini alıyor', () => {
+  assert.match(CUSTOM[0], /w\.spectrum && audio && audio\.freq/);
+  assert.match(CUSTOM[0], /a\[i\] = fq \? fq\[i0\] : \(tb\[i0\] - 128\) \/ 128;/);
+});
+
+test('özel dalga: tayf yoksa zaman verisine düşülüyor', () => {
+  /* Eksik veri yüzünden preseti hiç çizmemektense yanlış kaynaktan
+     çizmek yeğ; ses açılmadan önceki ilk kareler de bu yola düşüyor. */
+  assert.match(CUSTOM[0], /audio\.freq\.length > 8[\s\S]{0,40}: null;/);
 });
 
 test('özel dalga: çizim yumuşatılmış diziyi kullanıyor', () => {
-  assert.match(BODY, /this\._customWaveSamples\(tb, N, w\);/);
+  assert.match(BODY, /this\._customWaveSamples\(tb, N, w, audio\);/);
   assert.match(BODY, /P\.wavePoint\(w, sample, cw1\[i\], cw2\[i\], out\)/);
 });
 

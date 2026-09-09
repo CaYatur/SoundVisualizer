@@ -189,11 +189,23 @@ function pageHarness() {
                   Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1) * 0.22;
           time[k] = Math.max(0, Math.min(255, 128 + s * 118));
         }
+        /* Sentetik TAYF. 'spectrum = 1' yazan ozel dalgalar frekans
+           verisi okuyor; vermezsek o yol olcumde hic calismaz ve
+           degisikligi gorunmez olur. Bas agirlikli, vurusla oynayan
+           ve kare indisine bagli — sesin kendisi gibi deterministik. */
+        var freq = new Float32Array(512);
+        for (var q = 0; q < 512; q++) {
+          var fu = q / 512;
+          freq[q] = Math.max(0, Math.min(1,
+            (1 - fu) * (0.35 + 0.5 * beat) +
+            0.15 * Math.abs(Math.sin(fu * 22 + t * 2.1))));
+        }
         return {
           bass: 0.45 + 0.45 * beat,
           mid: 0.35 + 0.25 * Math.abs(Math.sin(t * 0.7)),
           treble: 0.25 + 0.2 * Math.abs(Math.sin(t * 1.3)),
           timeBytes: time,
+          freq: freq,
         };
       };
 

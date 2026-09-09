@@ -2375,7 +2375,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       for (const w of P.waves) {
         if (!P.waveFrame(w)) continue;
         const N = Math.min(512, w.samples);
-        this._customWaveSamples(tb, N, w);
+        this._customWaveSamples(tb, N, w, audio);
         const cw1 = this._cw1, cw2 = this._cw2;
         let count = 0;
         for (let i = 0; i < N; i++) {
@@ -2422,19 +2422,30 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış aynı veriden
        alınıyor — presetin iki kanalı ayırdığı yerlerde faz farkı korunuyor,
        ama gerçek stereo değil. */
-    _customWaveSamples(tb, N, w) {
+    _customWaveSamples(tb, N, w, audio) {
       if (!this._cw1 || this._cw1.length < N) {
         this._cw1 = new Float32Array(Math.max(512, N));
         this._cw2 = new Float32Array(Math.max(512, N));
       }
       const a = this._cw1, b = this._cw2;
-      const last = tb.length - 1;
+      const acc = this._wantAcc !== false;
+      /* `spectrum = 1` yazan dalga TAYFI istiyor, dalga biçimini değil.
+         Motor ikisine de zaman verisi veriyordu: preset frekans dağılımı
+         çizdiğini sanarken bir kıvrım görüyordu. Korpusta 2.398 preset
+         (%23,2) en az bir tayf dalgası taşıyor.
+
+         Tayf yoksa (ölçüm ortamı, ses açılmamış) zaman verisine düşülüyor
+         — eksik veri yüzünden preset hiç çizilmemesindense yanlış
+         kaynaktan çizilmesi yeğ. */
+      const fq = acc && w.spectrum && audio && audio.freq && audio.freq.length > 8
+        ? audio.freq : null;
+      const last = (fq ? fq.length : tb.length) - 1;
       for (let i = 0; i < N; i++) {
         const sample = N > 1 ? i / (N - 1) : 0;
         const i0 = Math.min(last, Math.floor(sample * last));
         const i1 = Math.min(last, i0 + w.sep);
-        a[i] = (tb[i0] - 128) / 128;
-        b[i] = (tb[i1] - 128) / 128;
+        a[i] = fq ? fq[i0] : (tb[i0] - 128) / 128;
+        b[i] = fq ? fq[i1] : (tb[i1] - 128) / 128;
       }
       let sm = this._wantAcc !== false && isFinite(w.smoothing) ? w.smoothing : 0;
       if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
@@ -2450,7 +2461,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           b[i] = b[i] * m2 + b[i + 1] * m1;
         }
       }
-      const sc = w.scaling;
+      /* GENLİK. MilkDrop örneği `0,004 * scaling * wave_scale` ile
+         çarpıyor ve örnek ±128 birimde duruyor, yani ±1'e indirgenmiş
+         bir örnekte çarpan `0,004 * 128 = 0,512`. Motor bunun yerine 1
+         kullanıyordu: özel dalgaların hepsi olması gerekenin yaklaşık iki
+         katı büyüklükte çiziliyor ve `wave_scale` onlara hiç
+         ulaşmıyordu. Tayf yolunun kendi çarpanı var (0,15).
+
+         Bizim tayfımız MilkDrop'unkiyle aynı ölçekte DEĞİL (bizimki
+         0..1'e normalleştirilmiş), dolayısıyla tayf dalgalarının
+         büyüklüğü yaklaşık — ama kaynağı artık doğru. */
+      const ws = acc ? (this.preset.get('wave_scale') || 1) : 1;
+      const sc = acc ? (fq ? 0.15 : 0.004 * 128) * w.scaling * ws : w.scaling;
       for (let i = 0; i < N; i++) { a[i] *= sc; b[i] *= sc; }
     }
 
