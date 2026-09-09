@@ -253,9 +253,17 @@ that asserts the bar profile has no step in it.
   one part of the screen turns over before another, and the same ramp is the per-node alpha the two
   presets' shaders are drawn with. There is still **one** feedback buffer and one blur chain, which
   is what MilkDrop has. Values that do not move pixels (decay, wave and border colours, blur ranges,
-  gamma) are blended numerically on a cosine curve; the boolean ones snap. Default 1.7s, MilkDrop's
-  own. *Approximate:* if the two presets use different waveform modes, MilkDrop morphs one shape
-  into the other; here the new preset's mode is shown for the transition.
+  gamma) are blended numerically on a cosine curve; the boolean ones snap. *Approximate:* if the two
+  presets use different waveform modes, MilkDrop morphs one shape into the other; here the new
+  preset's mode is shown for the transition.
+- **What a transition costs, measured.** Running two presets is close to exactly twice the work, so
+  the default is only defensible with a number behind it. At 1280×720 against a 60 fps budget of
+  16.67 ms, the median frame goes 2.70 ms → 5.20 ms at the default mesh of 64 (**31% of the
+  budget**), 0.90 → 1.70 ms at mesh 32, and 5.80 → 11.10 ms at the densest mesh of 96 (67%).
+  Separately, the first frame of *any* preset change compiles the new preset's shaders — 9.10 ms at
+  mesh 64 with a hard cut, 12.10 ms with a transition; at mesh 96 that one frame goes 12.00 → 18.00
+  ms and drops a frame. So the default is 1.7s, MilkDrop's own `fBlendTimeUser`, and automatic
+  preset advance stays off by default, which means a transition only ever runs when you ask for one.
 - **The per-frame variables reset every frame, as MilkDrop resets them.** MilkDrop re-seeds every
   built-in per-frame variable from the preset file before `per_frame` runs and returns `q1..q32` to
   what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the

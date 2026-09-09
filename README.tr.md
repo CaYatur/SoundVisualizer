@@ -246,9 +246,18 @@ profilinde basamak olmadığını doğruluyor.
   ekranın bir bölgesi diğerinden önce dönüyor; aynı rampa iki presetin shader'larının çizildiği
   düğüm alfası oluyor. Geri besleme tamponu ve bulanıklık zinciri **tek**, MilkDrop'ta da öyle.
   Pikselleri hareket ettirmeyen değerler (sönme, dalga ve kenarlık renkleri, blur aralıkları,
-  gama) kosinüs eğrisiyle sayısal olarak karışıyor; mantıksal olanlar atlıyor. Varsayılan 1,7 sn,
-  MilkDrop'un kendi değeri. *Yaklaşık:* iki presetin dalga modu farklıysa MilkDrop bir şekli
-  ötekine dönüştürüyor; burada geçiş boyunca yeni presetin modu görünüyor.
+  gama) kosinüs eğrisiyle sayısal olarak karışıyor; mantıksal olanlar atlıyor. *Yaklaşık:* iki
+  presetin dalga modu farklıysa MilkDrop bir şekli ötekine dönüştürüyor; burada geçiş boyunca yeni
+  presetin modu görünüyor.
+- **Geçişin maliyeti, ölçülmüş.** İki preseti birden koşturmak neredeyse tam iki katı iş demek, o
+  yüzden varsayılanın açık olması ancak arkasında bir sayı varsa savunulabilir. 1280×720'de,
+  60 fps'in 16,67 ms'lik bütçesine karşı ortanca kare süresi varsayılan 64'lük ağda
+  2,70 ms → 5,20 ms (**bütçenin %31'i**), 32'lik ağda 0,90 → 1,70 ms, en yoğun 96'lık ağda ise
+  5,80 → 11,10 ms (%67). Ayrıca *her* preset değişiminin ilk karesi yeni presetin shader'larını
+  derliyor: 64'lük ağda sert kesmede 9,10 ms, geçişle 12,10 ms; 96'lık ağda o tek kare
+  12,00 → 18,00 ms'ye çıkıp bir kare düşürüyor. Bu yüzden varsayılan 1,7 sn — MilkDrop'un kendi
+  `fBlendTimeUser` değeri — ve otomatik preset geçişi varsayılan olarak kapalı, yani geçiş yalnız
+  siz istediğinizde koşuyor.
 - **Kare değişkenleri her karede sıfırlanıyor, MilkDrop nasıl sıfırlıyorsa.** MilkDrop `per_frame`
   koşmadan önce bütün yerleşik kare değişkenlerini preset dosyasından yeniden yüklüyor ve
   `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun

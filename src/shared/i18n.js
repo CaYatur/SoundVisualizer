@@ -1454,7 +1454,7 @@
     '1,7 saniye (MilkDrop)': '1.7 seconds (MilkDrop)',
     '2,7 saniye (MilkDrop otomatik)': '2.7 seconds (MilkDrop automatic)',
     '5 saniye': '5 seconds',
-    'Geçişte iki preset de çalışır: kare denklemleri, warp ağları ve shader\'ları aynı anda koşar ve ekranın farklı yerleri farklı zamanda yeni presete döner. Süresince iki presetin denklemleri birden koştuğu için işlem yükü geçici olarak artar.': 'Both presets run during a transition: their frame equations, warp meshes and shaders all run at once, and different parts of the screen turn over to the new preset at different times. The load rises for its duration, because two sets of equations run instead of one.',
+    'Geçişte iki preset de çalışır: kare denklemleri, warp ağları ve shader\'ları aynı anda koşar ve ekranın farklı yerleri farklı zamanda yeni presete döner. Maliyeti neredeyse tam iki katı: 1280×720\'de ve varsayılan 64\'lük ağda kare süresi 2,7 ms\'den 5,2 ms\'ye çıkıyor, yani 60 fps bütçesinin %31\'i. En yoğun ağda (96) bu oran %67 oluyor.': 'Both presets run during a transition: their frame equations, warp meshes and shaders all run at once, and different parts of the screen turn over to the new preset at different times. It costs close to exactly twice as much: at 1280x720 with the default mesh of 64 the frame goes from 2.7 ms to 5.2 ms, which is 31% of a 60 fps budget. At the densest mesh (96) it is 67%.',
     // ---- MilkDrop uyumu ----
     'MilkDrop Uyumu': 'MilkDrop Fidelity',
     'Açık (MilkDrop değerleri)': 'On (MilkDrop values)',
