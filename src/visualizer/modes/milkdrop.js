@@ -1801,8 +1801,33 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _buildWarpMesh() {
       const n = this.meshX + 1;
       const v = this.verts;
-      const warpTime = this.time;
       const acc = this._wantAcc !== false;
+
+      /* WARP TITRESIMI — MilkDrop'un kendi katsayilari.
+
+         Burada dort sabit vardi (5, 3, 4, 2) ve preset dosyasindaki iki
+         ayar hic okunmuyordu. MilkDrop'ta desenin frekanslari SABIT
+         DEGIL: dordu de kendi hizlarinda salinan kosinuslerle suruluyor,
+         yani desen zamanla kendini yeniden dokuyor. Sabit katsayilarla
+         cikan sey duran tek bir dalga desenidir.
+
+         `fWarpScale` desenin BOYUTUNU verir (tersiyle carpiliyor: buyuk
+         olcek = seyrek dalga), `fWarpAnimSpeed` de zamanini. Korpusta
+         8.265 preset (%79,9) varsayilandan farkli bir olcek, 4.556'si
+         (%44,0) farkli bir hiz yaziyor — yani ikisi de istisna degil,
+         kural.
+
+         Sifira bolme korunuyor: `fWarpScale = 0` yazan bir preset var
+         olabilir ve sonsuz bir frekans butun agi katlardi. */
+      const wSpeed = acc ? (this.preset.get('warpanimspeed') || 1) : 1;
+      const wScaleRaw = acc ? (this.preset.get('warpscale') || 1) : 1;
+      const wScale = Math.abs(wScaleRaw) < 1e-4 ? 1e-4 : wScaleRaw;
+      const warpTime = this.time * wSpeed;
+      const wsi = 1 / wScale;
+      const wf0 = 11.68 + 4.0 * Math.cos(warpTime * 1.413 + 10);
+      const wf1 = 8.77 + 3.0 * Math.cos(warpTime * 1.113 + 7);
+      const wf2 = 10.54 + 3.0 * Math.cos(warpTime * 1.233 + 3);
+      const wf3 = 11.49 + 4.0 * Math.cos(warpTime * 0.933 + 5);
       for (let j = 0; j <= this.meshY; j++) {
         for (let i = 0; i <= this.meshX; i++) {
           const u = i / this.meshX;
@@ -1841,11 +1866,16 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           su -= p.dx;
           sv -= p.dy;
           const wr = p.warp * 0.0035;
-          if (wr !== 0) {
-            su += wr * Math.sin(warpTime * 0.333 + (u * 2 - 1) * 5 + (w * 2 - 1) * 3);
-            sv += wr * Math.cos(warpTime * 0.375 - (u * 2 - 1) * 3 + (w * 2 - 1) * 5);
-            su += wr * Math.cos(warpTime * 0.753 - (u * 2 - 1) * 4 - (w * 2 - 1) * 2);
-            sv += wr * Math.sin(warpTime * 0.825 + (u * 2 - 1) * 2 - (w * 2 - 1) * 4);
+          if (wr !== 0 && acc) {
+            su += wr * Math.sin(warpTime * 0.333 + wsi * (cx0 * wf0 - cy0 * wf3));
+            sv += wr * Math.cos(warpTime * 0.375 - wsi * (cx0 * wf2 + cy0 * wf1));
+            su += wr * Math.cos(warpTime * 0.753 - wsi * (cx0 * wf1 - cy0 * wf2));
+            sv += wr * Math.sin(warpTime * 0.825 + wsi * (cx0 * wf0 + cy0 * wf3));
+          } else if (wr !== 0) {
+            su += wr * Math.sin(warpTime * 0.333 + cx0 * 5 + cy0 * 3);
+            sv += wr * Math.cos(warpTime * 0.375 - cx0 * 3 + cy0 * 5);
+            su += wr * Math.cos(warpTime * 0.753 - cx0 * 4 - cy0 * 2);
+            sv += wr * Math.sin(warpTime * 0.825 + cx0 * 2 - cy0 * 4);
           }
 
           // MilkDrop uzayından dokunun kendi eksenine geri
