@@ -110,18 +110,24 @@ test('motor: ilk yüklemede geçiş başlamıyor', () => {
 });
 
 test('motor: eski presetin shader\'ları geçiş boyunca yaşıyor', () => {
-  /* `_buildPresetShaders` yalnız YENİ yuvayı serbest bırakıyor; eski
-     yuvanın programları geçişin sonunda `_dropOld` ile siliniyor. Taşıma
-     yeni preset kurulmadan önce olmalı, sonra olsaydı eski preset
-     kaybolurdu. */
-  assert.match(CODE, /this\.oldWarpPreset = this\.warpPreset;/);
-  assert.match(CODE, /this\.oldCompPreset = this\.compPreset;/);
+  /* İki alan AYNI nesneyi gösteriyor. `_buildPresetShaders` ilk iş olarak
+     `_releasePresetProgs()` çağırıp `this.warpPreset.prog`u siliyor, yani
+     yeni yuva boşaltılmazsa eski presetin programları geçişin ta başında
+     ölür. `useProgram` silinmiş programda INVALID_OPERATION verip hiçbir
+     şey bağlamıyor: eski presetin çizimi o an bağlı olan başka bir
+     programla yapılır ve ekranda görünen renk shader'dan değil geri
+     besleme izinden gelir — yani gözle bakınca ÇALIŞIYOR görünür.
+
+     Bu yüzden burada "eski yuvanın adı geçmiyor" değil, YENİ YUVANIN
+     BOŞALTILDIĞI sınanıyor; ilki bu hatayı yakalamıyordu. */
+  const branch = /if \(this\.presetKey && this\.preset && bt > 0\) \{[\s\S]*?\n      \}/.exec(CODE)[0];
+  assert.match(branch, /this\.oldWarpPreset = this\.warpPreset;/);
+  assert.match(branch, /this\.oldCompPreset = this\.compPreset;/);
+  assert.match(branch, /this\.warpPreset = null;/, 'yeni yuva boşaltılmalı');
+  assert.match(branch, /this\.compPreset = null;/, 'yeni yuva boşaltılmalı');
   const drop = /_dropOld\(\) \{[\s\S]*?\n    \}/.exec(CODE)[0];
   assert.match(drop, /deleteProgram\(this\.oldWarpPreset\.prog\)/);
   assert.match(drop, /deleteProgram\(this\.oldCompPreset\.prog\)/);
-  const rel = /_releasePresetProgs\(\) \{[\s\S]*?\n    \}/.exec(CODE)[0];
-  assert.ok(!/oldWarpPreset|oldCompPreset/.test(rel),
-    'yeni yuvayı bırakan işlev eski yuvaya dokunmamalı');
 });
 
 test('motor: donmuş kare eritmesi tümüyle kaldırıldı', () => {

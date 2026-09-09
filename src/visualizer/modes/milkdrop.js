@@ -969,15 +969,27 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          preset diye bir sey yok.
 
          Onceki preset ve onun DERLENMIS shader'ları eski yuvaya taşınıyor;
-         `_buildPresetShaders` yalnız yeni yuvayı serbest bıraktığı için
-         eski programlar geçiş boyunca yaşıyor. Taşıma yeni preset
-         kurulmadan ONCE olmalı — sonra olsaydı eski preset kaybolurdu. */
+         eski programlar geçiş boyunca yaşıyor ve ancak `_dropOld` onları
+         siliyor. Taşıma yeni preset kurulmadan ONCE olmalı — sonra
+         olsaydı eski preset kaybolurdu.
+
+         YENI YUVA HEMEN BOSALTILIYOR ve bu şart: iki alan AYNI nesneyi
+         gösteriyor, `_buildPresetShaders` ise ilk iş olarak
+         `_releasePresetProgs()` çağırıp `this.warpPreset.prog`u siliyor.
+         Boşaltmasaydık geçişin ta başında eski presetin programları
+         silinirdi; `useProgram` silinmiş bir programda INVALID_OPERATION
+         verip HİÇBİR ŞEY bağlamıyor, yani eski presetin çizimi o an
+         bağlı olan başka bir programla yapılırdı. Ekranda eski presetin
+         rengi yine görünürdü — ama shader'ından değil, geri besleme
+         tamponunda kalan izden. */
       const bt = Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;
         this.oldWarpPreset = this.warpPreset;
         this.oldCompPreset = this.compPreset;
+        this.warpPreset = null;
+        this.compPreset = null;
         this.oldRandPreset = this.randPreset;
         this.oldTime = this.time;
         this.oldPresetTime = this.presetTime;
