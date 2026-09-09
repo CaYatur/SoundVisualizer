@@ -178,6 +178,20 @@
       [3, '3 saniye'],
     ], md.blendTime == null ? 0 : md.blendTime, (v) => { md.blendTime = Number(v); })));
 
+    /* MILKDROP UYUMLULUĞU. Motorun ölçülebilir uyum hataları düzeltildi ve
+       düzeltilmiş değerler varsayılan. Anahtar yalnızca DEĞERLERİ geri
+       alıyor — shader'lar, dokular ve doku birimleri iki durumda da aynı;
+       böylece tek kod yolu ve tek test yüzeyi kalıyor. */
+    nodes.push(P().row('MilkDrop Uyumu', selOf([
+      [1, 'Açık (MilkDrop değerleri)'],
+      [0, 'Kapalı (motorun eski yaklaşımı)'],
+    ], md.accurate === false ? 0 : 1, (v) => { md.accurate = Number(v) === 1; })));
+
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'Açıkken gürültü dokuları MilkDrop\'un kafes ölçekleriyle üretilir, hacim gürültüsü gerçekten üç boyutludur, ekran boyunca değişen renk kayması ve bulanıklığın doğru ölçeği kullanılır. Kapalı hâl motorun daha önceki yaklaşık değerlerini geri verir; presetler iki durumda da çalışır, yalnız görüntü farklıdır.',
+    }));
+
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.',

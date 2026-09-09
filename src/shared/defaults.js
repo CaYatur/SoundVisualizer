@@ -609,6 +609,18 @@
          paketleri bu gorselleri GETIRMIYOR; kullanicinin MilkDrop kurulumundaki
          `textures` klasorunu gostermesi gerekiyor. */
       textureDir: '',
+      /* "MilkDrop uyumlu" anahtari. ACIK (varsayilan) olculebilir uyum
+         hatalarini duzeltilmis degerlerle kosuyor: gurultu dokularinin
+         kafes olcekleri, gercek 3B hacim gurultusu, MilkDrop'un roam
+         frekanslari, ekran boyunca degisen `hue_shader` ve bulanikligin
+         dogru olcegi.
+
+         KAPALI motorun onceki yaklasik degerlerini geri veriyor. Anahtar
+         yalnizca DEGERLERI degistiriyor, yapiyi degil: ayni shader,
+         ayni dokular, ayni birimler. Boylece tek kod yolu ve tek test
+         yuzeyi kaliyor — iki ayri boru hatti bakim maliyetini ikiye
+         katlardi. */
+      accurate: true,
     },
 
     // ------------------------------------------------------------------

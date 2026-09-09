@@ -391,20 +391,36 @@ test('translate: GetPixel/GetBlur float3 ve skaler koordinat alıyor', () => {
 });
 
 test('translate: uniforma yazan preset yerel kopya alıyor', () => {
-  /* "Flowercraft" hue_shader'a atıyor. GLSL'de uniform salt okunur, atama
-     shader'ın tamamını düşürüyordu. */
+  /* "gimme color (Bubble Spinner Mix)" rand_preset'e atıyor. GLSL'de
+     uniform salt okunur, atama shader'ın tamamını düşürüyordu. */
+  const r = T.translate('shader_body { rand_preset = rand_preset * 2.0; ret = rand_preset.xyz; }');
+  assert.match(r.glsl, /uniform vec4 rand_preset;/, 'uniform yerinde kalmalı');
+  assert.match(r.glsl, /vec4 rand_preset_w;/, 'yerel kopya bildirilmeli');
+  assert.match(r.glsl, /rand_preset_w = rand_preset;/, 'kopya tohumlanmalı');
+  assert.ok(!/rand_preset_w = rand_preset_w/.test(r.glsl), 'tohum kendini okumamalı');
+});
+
+/* `hue_shader` ARTIK UNIFORM DEĞIL: ekran boyunca değiştiği için dört
+   köşe renginden her pikselde hesaplanıyor ve dosya kapsamında bir
+   değişken olarak duruyor. Bu yüzden ona yazan preset takma ada da
+   ihtiyaç duymuyor — atama doğrudan değişkene gidiyor.
+
+   "Flowercraft" hue_shader'a atıyor; bu testin koruduğu şey o satırın
+   hâlâ derlenmesi. */
+test('translate: hue_shader yazılabilir bir değişken, uniform değil', () => {
   const r = T.translate('shader_body { hue_shader = hue_shader * 2.0; ret = hue_shader; }');
-  assert.match(r.glsl, /uniform vec3 hue_shader;/, 'uniform yerinde kalmalı');
-  assert.match(r.glsl, /vec3 hue_shader_w;/, 'yerel kopya bildirilmeli');
-  assert.match(r.glsl, /hue_shader_w = hue_shader;/, 'kopya tohumlanmalı');
-  assert.ok(!/\bhue_shader\s*=\s*hue_shader\s*\*/.test(r.glsl), 'atama uniforma gitmemeli');
+  assert.ok(!/uniform vec3 hue_shader;/.test(r.glsl), 'uniform olmamalı');
+  assert.match(r.glsl, /vec3 hue_shader;/, 'dosya kapsamında bildirilmeli');
+  assert.ok(!/hue_shader_w/.test(r.glsl), 'takma ada gerek yok');
+  assert.match(r.glsl, /hue_shader = hueAt/, 'köşelerden hesaplanmalı');
+  assert.match(r.glsl, /uniform vec3 hue_corner/);
 });
 
 test('translate: yalnız okunan uniform takma ad almıyor', () => {
   /* Aksi halde her preset gereksiz bir kopya taşırdı ve karşılaştırma yazan
      presetler (rand_preset.x >= .4) da yanlışlıkla yakalanırdı. */
-  const a = T.translate('shader_body { ret = hue_shader; }');
-  assert.ok(!/hue_shader_w/.test(a.glsl));
+  const a = T.translate('shader_body { ret = vec3(rand_frame.x); }');
+  assert.ok(!/rand_frame_w/.test(a.glsl));
   const b = T.translate('shader_body { if (rand_preset.x >= 0.4) ret = vec3(1.0); }');
   assert.ok(!/rand_preset_w/.test(b.glsl));
 });

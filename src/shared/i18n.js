@@ -1452,6 +1452,11 @@
     '1,5 saniye': '1.5 seconds',
     '3 saniye': '3 seconds',
     'Geçiş, önceki presetin son karesini yeni presetin üzerine eriterek yapılır. MilkDrop iki preseti aynı anda çalıştırıp harmanlar; burada eski görüntü donmuş bir karedir, bu yüzden uzun geçişlerde fark edilir.': 'The transition dissolves the last frame of the previous preset over the new one. MilkDrop runs both presets at once and blends them; here the old picture is a frozen frame, which is noticeable on long transitions.',
+    // ---- MilkDrop uyumu ----
+    'MilkDrop Uyumu': 'MilkDrop Fidelity',
+    'Açık (MilkDrop değerleri)': 'On (MilkDrop values)',
+    'Kapalı (motorun eski yaklaşımı)': 'Off (the engine’s earlier approximation)',
+    'Açıkken gürültü dokuları MilkDrop\'un kafes ölçekleriyle üretilir, hacim gürültüsü gerçekten üç boyutludur, ekran boyunca değişen renk kayması ve bulanıklığın doğru ölçeği kullanılır. Kapalı hâl motorun daha önceki yaklaşık değerlerini geri verir; presetler iki durumda da çalışır, yalnız görüntü farklıdır.': 'When on, the noise textures are generated at MilkDrop’s lattice scales, the volume noise really is three-dimensional, and the hue shift that varies across the screen and the correct blur scale are used. Off restores the engine’s earlier approximate values; presets run either way, only the picture differs.',
     // ---- Doku paketi (#560 madde 2) ----
     'Doku Paketi': 'Texture Pack',
     '🖼 Doku Klasörü Seç': '🖼 Choose Texture Folder',

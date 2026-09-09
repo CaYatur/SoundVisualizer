@@ -187,6 +187,11 @@
     'sampler_noise_lq', 'sampler_noise_lq_lite', 'sampler_noise_mq',
     'sampler_noise_hq', 'sampler_noisevol_lq', 'sampler_noisevol_hq',
   ];
+  /* Bunlar `sampler3D` bildiriliyor. Ön ekli türevleri de (örn.
+     `sampler_pw_noisevol_hq`, korpusta 65 kullanım) aynı türü almalı;
+     `sampler2D` bildirilirse `tex3D` çağrısı aşırı yükleme çözümünde
+     sessizce 2B sürüme düşer ve z yine yok sayılırdı. */
+  const VOLUME_SAMPLERS = ['sampler_noisevol_lq', 'sampler_noisevol_hq'];
 
   function canonSampler(name) {
     return name.replace(SAMPLER_PREFIX, 'sampler_');
@@ -236,6 +241,11 @@
   const PREAMBLE = [
     '#version 300 es',
     'precision highp float;',
+    /* GLSL ES 3.00'da parça shader'ının `sampler2D` için ÖRTÜK bir kesinliği
+       var ama `sampler3D` için YOK: bildirilmezse "No precision specified"
+       ile derleme düşüyor. Ölçüldü — bu satır eklenmeden hacim gürültüsünü
+       okuyan her aşama başarısız oluyordu. */
+    'precision highp sampler3D;',
     '',
     'out vec4 outColor;',
     '',
@@ -247,8 +257,11 @@
     'uniform sampler2D sampler_noise_lq_lite;',
     'uniform sampler2D sampler_noise_mq;',
     'uniform sampler2D sampler_noise_hq;',
-    'uniform sampler2D sampler_noisevol_lq;',
-    'uniform sampler2D sampler_noisevol_hq;',
+    /* Hacim gürültüsü GERÇEKTEN üç boyutlu. Daha önce `sampler2D` idi ve
+       `tex3D` z'yi atıyordu: preset hacmin içinde ilerlediğini sanırken hep
+       aynı dilimi okuyordu. Korpusta 4.287 çağrı bunu kullanıyor. */
+    'uniform sampler3D sampler_noisevol_lq;',
+    'uniform sampler3D sampler_noisevol_hq;',
     '',
     'uniform vec4 texsize;',
     'uniform vec4 aspect;',
@@ -270,8 +283,23 @@
     'uniform vec4 rand_preset;',
     'uniform vec4 roam_cos, roam_sin, slow_roam_cos, slow_roam_sin;',
     // MilkDrop'un shader'a verdiği hazır renk tonu vektörü
-    'uniform vec3 hue_shader;',
+    /* `hue_shader` MilkDrop'ta EKRAN BOYUNCA DEĞİŞİYOR: dört köşeye dört
+       ayrı renk hesaplanıyor ve arası çift doğrusal karışıyor. Bizde tek
+       bir renkti, yani ekranın her yeri aynı tonu alıyordu.
+
+       Köşeler uniform olarak geliyor, karışım parça shader'ında yapılıyor.
+       Bu, köşe renklerini üçgen ağa yayıp donanıma bıraktığımızdan DAHA
+       doğru: tam ekran tek üçgenle çizildiği için ağ enterpolasyonu zaten
+       yok, kapalı biçim ise her pikselde tam sonucu veriyor.
+
+       `hue_shader` uniform DEĞİL, dosya kapsamında bir değişken: presetler
+       ona atama yapıyor (`hue_shader = hue_shader*4.0 - 2.8`) ve bazıları
+       gövde dışında okuyor. Uniform olsaydı atama derlemeyi düşürürdü. */
+    'uniform vec3 hue_corner[4];',
+    'vec3 hue_shader;',
     'uniform vec3 blur1_min, blur1_max, blur2_min, blur2_max, blur3_min, blur3_max;',
+    // GetBlurN'in geri acma carpani; motor yazan gecisle ayni degeri koyuyor
+    'uniform vec3 blur1_scale, blur2_scale, blur3_scale;',
     // q1..q32 MilkDrop'ta sekiz vec4 içinde taşınıyor; aynı paketleme korunuyor.
     'uniform vec4 _qa, _qb, _qc, _qd, _qe, _qf, _qg, _qh;',
     '',
@@ -445,6 +473,17 @@
     'vec3 tex2D(sampler2D s, vec4 uv2){ return texture(s, uv2.xy).xyz; }',
     'vec3 tex2Dlod(sampler2D s, vec4 uv2){ return textureLod(s, uv2.xy, uv2.w).xyz; }',
     'vec3 tex2Dbias(sampler2D s, vec4 uv2){ return texture(s, uv2.xy, uv2.w).xyz; }',
+    /* Üç boyutlu okuma z'yi KULLANIYOR. Korpustaki 4.322 `tex3D` çağrısının
+       tamamı hacim gürültüsünü veriyor; iki boyutlu aşırı yükleme yine de
+       duruyor, çünkü korpus dışında bir preset 2B sampler geçirirse eskiden
+       derlenen shader birden derlenmez olurdu. */
+    /* Dort kose renginin cift dogrusal karisimi. MilkDrop'un tarama sirasi
+       ekranin USTUNDEN baslıyor, bizim `uv.y` ise altta sifir: bu yuzden y
+       ters cevriliyor. Ters cevrilmezse renk gecisi dikeyde aynalanirdi. */
+    'vec3 hueAt(vec2 p){ float x = p.x; float y = 1.0 - p.y;' +
+      ' return hue_corner[0] * x * y + hue_corner[1] * (1.0 - x) * y' +
+      ' + hue_corner[2] * x * (1.0 - y) + hue_corner[3] * (1.0 - x) * (1.0 - y); }',
+    'vec3 tex3D(sampler3D s, vec3 uv2){ return texture(s, uv2).xyz; }',
     'vec3 tex3D(sampler2D s, vec3 uv2){ return texture(s, uv2.xy).xyz; }',
     /* lum: MilkDrop'un parlaklık yardımcısı, presetlerin %40,8'i çağırıyor.
        Ağırlıklar MilkDrop'un kendi değerleri. */
@@ -558,9 +597,18 @@
        bulanıklaştırılmış kopyalardır — presetlerin %85,5'i istiyor. Gerçekten
        üç ek doku gerekiyor; onları üretmek çizim tarafının işi, burada
        yalnızca okunuyorlar. Ölçek/kaydırma blurN_min/max ile geri açılıyor. */
-    'vec3 GetBlur1(vec2 u){ return texture(sampler_blur1, u).xyz * blur1_max + blur1_min; }',
-    'vec3 GetBlur2(vec2 u){ return texture(sampler_blur2, u).xyz * blur2_max + blur2_min; }',
-    'vec3 GetBlur3(vec2 u){ return texture(sampler_blur3, u).xyz * blur3_max + blur3_min; }',
+    /* Bulanik kopya dokuya presetin b1n/b1x araligina SIKISTIRILARAK
+       yaziliyor; burada ayni aralik geri aciliyor. Olcek uniform, cunku
+       yazan gecisle okuyan bu satirin ayni sayiyi kullanmasi sart:
+       carpani burada hesaplasaydik "MilkDrop uyumu" kapatildiginda ikisi
+       birbirini tutmaz, bulanik kopya kayik parlaklikta okunurdu.
+
+       Eskiden `* blurN_max + blurN_min` yaziyordu. b1n=0, b1x=1 iken
+       (varsayilan) dogru sonucu veriyordu, ama araligi daraltan preset
+       kendi yazdigindan baska bir sayi geri aliyordu. */
+    'vec3 GetBlur1(vec2 u){ return texture(sampler_blur1, u).xyz * blur1_scale + blur1_min; }',
+    'vec3 GetBlur2(vec2 u){ return texture(sampler_blur2, u).xyz * blur2_scale + blur2_min; }',
+    'vec3 GetBlur3(vec2 u){ return texture(sampler_blur3, u).xyz * blur3_scale + blur3_min; }',
     'vec3 GetBlur0(vec2 u){ return texture(sampler_main, u).xyz; }',
     'vec3 GetPixel(vec2 u){ return texture(sampler_main, u).xyz; }',
     /* Bu beşi koordinatı float3 ya da skaler olarak da alıyor: presetler
@@ -1669,7 +1717,9 @@
     /* Plandaki her yazım kendi uniform'u olarak bildiriliyor. Yerleşiklerin
        ön eksiz hâlleri PREAMBLE'da zaten var; burada yalnız türevler ve
        kullanıcı dokuları çıkıyor. */
-    const decl = samplerPlan.map((p) => 'uniform sampler2D ' + p.name + ';')
+    const decl = samplerPlan
+      .map((p) => 'uniform ' + (VOLUME_SAMPLERS.indexOf(p.canon) >= 0 ? 'sampler3D' : 'sampler2D') +
+        ' ' + p.name + ';')
       .concat(texSizeNames.map((n) => 'uniform vec4 ' + n + ';'));
     /* DÖNME MATRİSLERİ (rot_s/d/f/vf/uf/rand 1..4).
 
@@ -1701,6 +1751,7 @@
         '  uv_orig = vUVOrig;',
         '  rad = vRad;',
         '  ang = vAng;',
+        '  hue_shader = hueAt(uv);',
         '  ret = vec3(0.0);',
         '',
       ] : [
@@ -1710,6 +1761,7 @@
            düzeltmesi uygulanıyor, yoksa geniş ekranda çemberler elips olur. */
         '  rad = length((uv - 0.5) * aspect.xy) * 2.0;',
         '  ang = atan(uv.y - 0.5, uv.x - 0.5);',
+        '  hue_shader = hueAt(uv);',
         '  ret = vec3(0.0);',
         '',
       ])

@@ -126,20 +126,88 @@ void main(){
 }`;
 
   // Ayrılabilir Gauss: yatay ve dikey iki geçiş, doğrusal örneklemeli 5 vuruş
+  /* BULANIKLIK CEKIRDEGI ARTIK UNIFORM.
+
+     Once burada sabit bes tapli dar bir Gauss vardi. MilkDrop'un cekirdegi
+     hem daha genis hem de yatay/dikey gecislerde FARKLI: yatay dort cift
+     tap, dikey iki cift. Cekirdegi uniform'a tasimak iki seyi birden
+     cozuyor — gecise gore farkli tap kullanabiliyoruz ve "MilkDrop uyumu"
+     anahtari shader'i degil yalnizca DEGERLERI degistiriyor.
+
+     `uScale`/`uBias` presetin b1n/b1x araligini dokuya sigdiriyor; okurken
+     `GetBlurN` ayni araligi geri aciyor. Tek gecise (dikey) uygulaniyor:
+     olcekleme dogrusal oldugu icin bulaniklikla yer degistirebiliyor ve
+     ara sonucu kirpmadan gecmek daha az bilgi kaybediyor. */
   const BLUR_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
 out vec4 outColor;
 uniform sampler2D uSrc;
 uniform vec2 uStep;
+uniform vec4 uW;         // dort cift tapin agirligi
+uniform vec4 uD;         // dort cift tapin uzakligi (kaynak teksel)
+uniform float uCenter;   // merkez tapin agirligi (MilkDrop'ta 0)
+uniform float uNorm;     // toplami 1'e getiren bolen
+uniform float uScale;
+uniform float uBias;
 void main(){
-  vec3 c = texture(uSrc, vUV).rgb * 0.2270270270;
-  c += (texture(uSrc, vUV + uStep * 1.3846153846).rgb
-      + texture(uSrc, vUV - uStep * 1.3846153846).rgb) * 0.3162162162;
-  c += (texture(uSrc, vUV + uStep * 3.2307692308).rgb
-      + texture(uSrc, vUV - uStep * 3.2307692308).rgb) * 0.0702702703;
-  outColor = vec4(c, 1.0);
+  vec3 c = texture(uSrc, vUV).rgb * uCenter;
+  for (int i = 0; i < 4; i++) {
+    vec2 o = uStep * uD[i];
+    c += (texture(uSrc, vUV + o).rgb + texture(uSrc, vUV - o).rgb) * uW[i];
+  }
+  outColor = vec4(c * uNorm * uScale + uBias, 1.0);
 }`;
+
+  /* MilkDrop'un sekiz agirlikli simetrik cekirdegi, cift cift toplanmis.
+
+     Neden cift: iki komsu teksel tek bir dogrusal-suzulmus okumayla
+     alinabiliyor; uzaklik agirlik oraniyla kayiyor. Sekiz agirlik dort
+     okumaya iniyor, sonuc ayni.
+
+     Yatay gecis dort cifti de kullaniyor, dikey iki cifti — MilkDrop'ta da
+     oyle. Ikisinin boleni ayni sayiya cikiyor (0,5/18,3 = 1/36,6); bu bir
+     rastlanti degil, ayni agirlik toplaminin iki farkli gruplanmasi. */
+  const BLUR_KERNEL = (() => {
+    const w = [4.0, 3.8, 3.5, 2.9, 1.9, 1.2, 0.7, 0.3];
+    const pair = (a, b) => w[a] + w[b];
+    const hW = [pair(0, 1), pair(2, 3), pair(4, 5), pair(6, 7)];
+    const hD = [
+      0 + (2 * w[1]) / hW[0],
+      2 + (2 * w[3]) / hW[1],
+      4 + (2 * w[5]) / hW[2],
+      6 + (2 * w[7]) / hW[3],
+    ];
+    const v1 = w[0] + w[1] + w[2] + w[3];
+    const v2 = w[4] + w[5] + w[6] + w[7];
+    return {
+      h: {
+        w: hW, d: hD, center: 0,
+        norm: 0.5 / (hW[0] + hW[1] + hW[2] + hW[3]),
+      },
+      v: {
+        w: [v1, v2, 0, 0],
+        d: [0 + (2 * (w[2] + w[3])) / v1, 2 + (2 * (w[6] + w[7])) / v2, 0, 0],
+        center: 0,
+        norm: 1 / ((v1 + v2) * 2),
+      },
+      /* Motorun onceki dar Gauss'u, ayni bicimde yazilmis. Anahtar
+         kapaliyken iki gecis de bunu kullaniyor — eskiden de oyleydi. */
+      legacy: {
+        w: [0.3162162162, 0.0702702703, 0, 0],
+        d: [1.3846153846, 3.2307692308, 0, 0],
+        center: 0.2270270270,
+        norm: 1,
+      },
+    };
+  })();
+
+  /* Bulanik kademelerin boyut oranlari. Her kademede yatay ve dikey gecis
+     AYRI boyuta yaziyor: ilk kademede yatay yariya, dikey ceyrege iniyor.
+     Bizde ikisi de yariydi, yani ilk kademe MilkDrop'un iki kati coz-
+     unurlukte kaliyordu ve "bulanik" kopya yeterince bulanik degildi. */
+  const BLUR_RATIOS = [[0.5, 0.25], [0.125, 0.125], [0.0625, 0.0625]];
+  const BLUR_RATIOS_LEGACY = [[0.5, 0.5], [0.25, 0.25], [0.125, 0.125]];
 
   const LINE_VERT = `#version 300 es
 precision highp float;
@@ -335,6 +403,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
 
     _initGL(W, H) {
+      /* "MilkDrop uyumlu" anahtari. Varsayilan ACIK; bilinmiyorsa (olcum
+         harness'i gibi cagiranlarda) yine acik sayiliyor, cunku dogru olan
+         o. Kapali hal motorun onceki yaklasik degerlerini geri veriyor. */
+      const acc = this._wantAcc !== false;
       if (!this.gl) {
         this.gl2.width = W;
         this.gl2.height = H;
@@ -380,12 +452,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this.locBlur = {
           uSrc: gl.getUniformLocation(this.blurProg, 'uSrc'),
           uStep: gl.getUniformLocation(this.blurProg, 'uStep'),
+          uW: gl.getUniformLocation(this.blurProg, 'uW'),
+          uD: gl.getUniformLocation(this.blurProg, 'uD'),
+          uCenter: gl.getUniformLocation(this.blurProg, 'uCenter'),
+          uNorm: gl.getUniformLocation(this.blurProg, 'uNorm'),
+          uScale: gl.getUniformLocation(this.blurProg, 'uScale'),
+          uBias: gl.getUniformLocation(this.blurProg, 'uBias'),
         };
 
         this._buildMesh();
         this._buildQuad();
         this._buildLine();
-        this._buildNoise();
+        this._buildNoise(acc);
         this._buildSamplers();
       }
 
@@ -395,22 +473,58 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this.gl2.height = H;
         this._disposeTargets();
       }
+      /* Anahtar degistiyse bulanik kademelerin BOYUTU degisiyor; boyut
+         degisimi hedefleri yeniden kurmayi gerektiriyor. */
+      if (this.blur && this._blurAcc !== acc) this._disposeTargets();
       if (!this.targets) {
         this.targets = [this._makeTarget(W, H), this._makeTarget(W, H)];
         this.cur = 0;
         /* Blur kademeleri giderek küçülüyor: MilkDrop'ta da öyle. Küçültmek
-           hem ucuz hem de tek geçişle daha geniş bir bulanıklık veriyor. */
+           hem ucuz hem de tek geçişle daha geniş bir bulanıklık veriyor.
+
+           Yatay ve dikey geçiş AYRI boyuta yazıyor (`tmp` yatayın, `out`
+           dikeyin hedefi). İlk kademede yatay yarıya, dikey çeyreğe
+           iniyor; eşit tutmak o kademeyi MilkDrop'un iki katı çözünürlükte
+           bırakıyordu.
+
+           Boyutlar 16'nın (x) ve 4'ün (y) katına yuvarlanıyor: MilkDrop'un
+           kendi hizalaması. Anahtar kapalıyken oranlar eski üç yarılamaya
+           dönüyor — hizalama ikisinde de var, birkaç pikselden ibaret. */
         this.blur = [];
-        let bw = W, bh = H;
+        const ratios = acc ? BLUR_RATIOS : BLUR_RATIOS_LEGACY;
+        const bsize = (r) => {
+          const x = Math.floor((Math.max(W * r, 16) + 3) / 16) * 16;
+          const y = Math.floor((Math.max(H * r, 16) + 3) / 4) * 4;
+          return [x, y];
+        };
         for (let i = 0; i < 3; i++) {
-          bw = Math.max(4, bw >> 1);
-          bh = Math.max(4, bh >> 1);
+          const hs = bsize(ratios[i][0]);
+          const vs = bsize(ratios[i][1]);
           this.blur.push({
-            w: bw, h: bh,
-            out: this._makeTarget(bw, bh),
-            tmp: this._makeTarget(bw, bh),
+            w: vs[0], h: vs[1],           // presetin gördüğü kademe boyutu
+            hw: hs[0], hh: hs[1],
+            tmp: this._makeTarget(hs[0], hs[1]),
+            out: this._makeTarget(vs[0], vs[1]),
           });
         }
+        this._blurAcc = acc;
+        /* MIPMAP + ANIZOTROPIK SUZME bulanik kademelerde. Preset bu
+           dokulari kendi warp agina yayarak okuyor; tek kademeli bir doku
+           uzaklasan yuzeylerde cizirdiyor. Mipmap her karede yeniden
+           uretiliyor (`_buildBlur` sonunda), yoksa doku EKSIK kalir ve
+           siyah okunur — bu yuzden bayrak ile birlikte gidiyor. */
+        const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+        this._blurMip = true;
+        for (const b of this.blur) {
+          gl.bindTexture(gl.TEXTURE_2D, b.out.tex);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+          if (aniso) {
+            gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+              gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+          }
+          gl.generateMipmap(gl.TEXTURE_2D);
+        }
+        gl.bindTexture(gl.TEXTURE_2D, null);
       }
       return true;
     }
@@ -531,8 +645,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        aynı ÖLÇEKTE ve aynı yapıda dokular üretiliyor. Deseni birebir aynı
        değil, ama bağlanmamış (siyah) bir dokudan çok daha yakın — ve tohum
        sabit olduğu için her açılışta aynı sonucu veriyor. */
-    _buildNoise() {
+    _buildNoise(accurate) {
       const gl = this.gl;
+      this._dropNoise();
       let seed = 0x9e3779b9;
       const rnd = () => {
         seed ^= seed << 13; seed >>>= 0;
@@ -540,50 +655,173 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         seed ^= seed << 5; seed >>>= 0;
         return (seed >>> 8) / 16777216;
       };
-      const make = (size, smooth) => {
-        const px = new Uint8Array(size * size * 4);
-        for (let i = 0; i < size * size; i++) {
-          for (let c = 0; c < 4; c++) px[i * 4 + c] = Math.floor(rnd() * 256);
+
+      /* Tek eksende kafes noktalarının ARASINI dolduruyor.
+
+         `step` doldurulacak eksende bir tekselin indeks adımı, `n` o
+         eksendeki teksel sayısı, `lines` ise eksene dik kalan her hattın
+         başlangıç indeksi. Üç eksen aynı gövdeyi çağırıyor: eksen başına
+         kopyalamak, aynı hatayı üç yerde düzeltmek demek olurdu.
+
+         Doğrusal değil KÜBİK ara değer: doğrusal olan kafes noktalarında
+         türevi kırar ve büyütülmüş gürültüde o kırıklar ızgara deseni
+         olarak görünür. */
+      const interpAxis = (px, step, n, zoom, lines) => {
+        const row = new Float32Array(n * 4);
+        for (const start of lines) {
+          /* Hat önce kopyalanıyor: yerinde yazarken kaynak kafes noktaları
+             bozulmasaydı bile, doldurulan teksel bir sonraki ara değerin
+             girdisi olurdu. */
+          for (let i = 0; i < n; i++) {
+            for (let c = 0; c < 4; c++) row[i * 4 + c] = px[(start + i * step) * 4 + c] / 255;
+          }
+          for (let i = 0; i < n; i++) {
+            const f = i % zoom;
+            if (f === 0) continue;
+            const g = i - f;                       // alttaki kafes noktası
+            const t = f / zoom;
+            for (let c = 0; c < 4; c++) {
+              const y0 = row[((g - zoom + n) % n) * 4 + c];
+              const y1 = row[(g % n) * 4 + c];
+              const y2 = row[((g + zoom) % n) * 4 + c];
+              const y3 = row[((g + zoom * 2) % n) * 4 + c];
+              const a0 = y3 - y2 - y0 + y1;
+              const a1 = y0 - y1 - a0;
+              const a2 = y2 - y0;
+              const v = ((a0 * t + a1) * t + a2) * t + y1;
+              px[(start + i * step) * 4 + c] = (v < 0 ? 0 : (v > 1 ? 1 : v)) * 255;
+            }
+          }
         }
-        if (smooth) {
-          // Komşu ortalaması: yüksek frekansı düşürüp MilkDrop'un mq/hq
-          // dokularının yumuşak karakterine yaklaştırır
-          const src = px.slice();
-          for (let y = 0; y < size; y++) {
-            for (let x = 0; x < size; x++) {
+      };
+
+      /* Kafes gürültüsü: `zoom` teksellik aralıklarla rastgele noktalar,
+         araları kübik ara değerle. `zoom=1` saf rastgele demek.
+
+         Değer aralığı MilkDrop'un kendi aralığı: yakınlaştırılmış
+         dokularda 216, diğerinde 256, ve üstüne aralığın yarısı ekleniyor.
+         Toplam 255'i aşabiliyor ve bayta yazılırken sarıyor — bu bir
+         gözden kaçma değil, MilkDrop'un davranışı; presetler o dağılıma
+         göre yazılmış. */
+      const lattice = (nx, ny, nz, zoom) => {
+        const px = new Uint8Array(nx * ny * nz * 4);
+        const range = zoom > 1 ? 216 : 256;
+        const half = range >> 1;
+        for (let i = 0; i < px.length; i++) px[i] = Math.floor(rnd() * range) + half;
+        if (zoom > 1) {
+          const lines = [];
+          // X: kafes y ve z hatları boyunca
+          for (let z = 0; z < nz; z += zoom) {
+            for (let y = 0; y < ny; y += zoom) lines.push((z * ny + y) * nx);
+          }
+          interpAxis(px, 1, nx, zoom, lines);
+          // Y: kafes z dilimlerinde, artık dolu olan her x sütunu boyunca
+          lines.length = 0;
+          for (let z = 0; z < nz; z += zoom) {
+            for (let x = 0; x < nx; x++) lines.push(z * ny * nx + x);
+          }
+          interpAxis(px, nx, ny, zoom, lines);
+          if (nz > 1) {
+            lines.length = 0;
+            for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) lines.push(y * nx + x);
+            interpAxis(px, nx * ny, nz, zoom, lines);
+          }
+        }
+        return px;
+      };
+
+      /* ESKİ üretici — "MilkDrop uyumlu" kapalıyken. Düzgün dağılmış
+         rastgelelik, `smooth` ise 3x3 komşu ortalaması. Kafes yapısı yok,
+         bu yüzden mq ve hq birbirinin AYNISI oluyordu; anahtarın kapalı
+         hâli o günkü görüntüyü geri veriyor. */
+      const boxed = (nx, ny, nz, smooth) => {
+        const px = new Uint8Array(nx * ny * nz * 4);
+        for (let i = 0; i < px.length; i++) px[i] = Math.floor(rnd() * 256);
+        if (!smooth) return px;
+        const src = px.slice();
+        const at = (x, y, z) => (((z + nz) % nz * ny + (y + ny) % ny) * nx + (x + nx) % nx) * 4;
+        for (let z = 0; z < nz; z++) {
+          for (let y = 0; y < ny; y++) {
+            for (let x = 0; x < nx; x++) {
               for (let c = 0; c < 4; c++) {
-                let s = 0;
-                for (let dy = -1; dy <= 1; dy++) {
-                  for (let dx = -1; dx <= 1; dx++) {
-                    const xx = (x + dx + size) % size;
-                    const yy = (y + dy + size) % size;
-                    s += src[(yy * size + xx) * 4 + c];
+                let s = 0, n = 0;
+                for (let dz = (nz > 1 ? -1 : 0); dz <= (nz > 1 ? 1 : 0); dz++) {
+                  for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                      s += src[at(x + dx, y + dy, z + dz) + c];
+                      n++;
+                    }
                   }
                 }
-                px[(y * size + x) * 4 + c] = s / 9;
+                px[((z * ny + y) * nx + x) * 4 + c] = s / n;
               }
             }
           }
         }
+        return px;
+      };
+
+      const aniso = gl.getExtension('EXT_texture_filter_anisotropic');
+      const upload = (size, depth, px) => {
         const tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        const tgt = depth > 1 ? gl.TEXTURE_3D : gl.TEXTURE_2D;
+        gl.bindTexture(tgt, tex);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        if (depth > 1) {
+          gl.texImage3D(tgt, 0, gl.RGBA8, size, size, depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        } else {
+          gl.texImage2D(tgt, 0, gl.RGBA8, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        }
+        /* MIPMAP + ANİZOTROPİK SÜZME (#560, madde 1). Gürültü dokuları
+           uzaklaşan bir ağın üstüne düşürüldüğünde teksel başına birden çok
+           örnek gerekiyor; mipmap olmadan uzak bölgeler cızırdıyor. Maliyet
+           yalnızca kuruluşta: dokular bir kez üretiliyor. */
+        gl.generateMipmap(tgt);
+        gl.texParameteri(tgt, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(tgt, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         // Gürültü dokuları TEKRARLI örnekleniyor; kenara kenetlemek presetin
         // deseninde görünür bir sınır bırakırdı
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-        return { tex, size };
+        gl.texParameteri(tgt, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(tgt, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        if (depth > 1) gl.texParameteri(tgt, gl.TEXTURE_WRAP_R, gl.REPEAT);
+        if (aniso) {
+          gl.texParameterf(tgt, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
+            gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+        }
+        gl.bindTexture(tgt, null);
+        return { tex, size, target: tgt };
       };
+
+      /* Ölçekler MilkDrop'un kendi ölçekleri. Önceden mq ile hq AYNI
+         parametrelerle üretiliyordu; iki ayrı doku isteyen preset ikisinden
+         de aynı deseni alıyordu. */
+      const two = (size, zoom, smooth) =>
+        upload(size, 1, accurate ? lattice(size, size, 1, zoom) : boxed(size, size, 1, smooth));
+      /* Hacim gürültüsü her iki kipte de GERÇEK 3B: anahtar değerleri
+         değiştiriyor, yapıyı değil. Eskiden 64x64 iki boyutluydu ve
+         `tex3D` z'yi atıyordu. */
+      const three = (size, zoom, smooth) =>
+        upload(size, size, accurate ? lattice(size, size, size, zoom) : boxed(size, size, size, smooth));
+
       this.noise = {
-        lq: make(256, false),
-        lqLite: make(32, false),
-        mq: make(256, true),
-        hq: make(256, true),
-        volLq: make(64, false),
-        volHq: make(64, true),
+        lq: two(256, 1, false),
+        lqLite: two(32, 1, false),
+        mq: two(256, 4, true),
+        hq: two(256, 8, true),
+        volLq: three(32, 1, false),
+        volHq: three(32, 4, true),
       };
+      this._noiseAcc = !!accurate;
+    }
+
+    _dropNoise() {
+      const gl = this.gl;
+      if (!this.noise || !gl) { this.noise = null; return; }
+      for (const k in this.noise) {
+        const n = this.noise[k];
+        if (n && n.tex) gl.deleteTexture(n.tex);
+      }
+      this.noise = null;
     }
 
     /* Süzme/sarma türevleri için sampler NESNELERİ.
@@ -856,13 +1094,16 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       L._texSize = (texSizes || []).map((n) => ({ name: n, loc: u(n) }));
       /* Dizi uniformunun konumu ILK ELEMANIN adiyla alinir. */
       L._rot = (rot || []).map((n) => ({ name: n, loc: u(n + '[0]') }));
+      // Dort kose rengi; `hue_shader` artik uniform degil, bunlardan hesaplaniyor.
+      L.hue_corner = u('hue_corner[0]');
       for (const n of [
         'texsize', 'aspect', 'texsize_noise_lq', 'texsize_noise_mq', 'texsize_noise_hq',
         'texsize_noise_lq_lite', 'texsize_noisevol_lq', 'texsize_noisevol_hq',
         'time', 'fps', 'frame', 'progress',
         'bass', 'mid', 'treb', 'vol', 'bass_att', 'mid_att', 'treb_att', 'vol_att',
         'rand_frame', 'rand_preset', 'roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin',
-        'hue_shader', 'blur1_min', 'blur1_max', 'blur2_min', 'blur2_max', 'blur3_min', 'blur3_max',
+        'blur1_min', 'blur1_max', 'blur2_min', 'blur2_max', 'blur3_min', 'blur3_max',
+        'blur1_scale', 'blur2_scale', 'blur3_scale',
         '_qa', '_qb', '_qc', '_qd', '_qe', '_qf', '_qg', '_qh',
       ]) L[n] = u(n);
       return L;
@@ -882,6 +1123,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        aramaya gerek yok. */
     _setPresetUniforms(L, ctx) {
       const gl = this.gl;
+      // "MilkDrop uyumu" anahtari; asagida yalnizca DEGERLERI seciyor.
+      const accurate = this._wantAcc !== false;
       for (const s of SAMPLER_UNITS) if (L[s[0]]) gl.uniform1i(L[s[0]], s[1]);
       /* Süzme türevleri ve kullanıcı dokuları kendi birimlerini alıyor.
          Bu döngü `_bindTextures`taki döngüyle AYNI listeyi geziyor: bir
@@ -929,24 +1172,71 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          Buradaki karşılıkları aynı KARAKTERDE (yavaş, ilişkisiz dört faz)
          ama birebir aynı değil. */
       const t = ctx.time;
-      set4('roam_cos', Math.cos(t * 0.3), Math.cos(t * 0.7), Math.cos(t * 1.1), Math.cos(t * 1.5));
-      set4('roam_sin', Math.sin(t * 0.3), Math.sin(t * 0.7), Math.sin(t * 1.1), Math.sin(t * 1.5));
-      set4('slow_roam_cos', Math.cos(t * 0.05), Math.cos(t * 0.09), Math.cos(t * 0.13), Math.cos(t * 0.17));
-      set4('slow_roam_sin', Math.sin(t * 0.05), Math.sin(t * 0.09), Math.sin(t * 0.13), Math.sin(t * 0.17));
-      set3('hue_shader',
-        0.5 + 0.5 * Math.sin(t * 0.31),
-        0.5 + 0.5 * Math.sin(t * 0.31 + 2.09),
-        0.5 + 0.5 * Math.sin(t * 0.31 + 4.19));
+      /* ROAM. Dort bilesen dort AYRI hizda dolasiyor ve presetler bu hiz
+         farkina gore yaziyor: `roam_cos.x` yavas bir salinim, `.w` hizli
+         bir titresim. Bizde frekanslar 0,3/0,7/1,1/1,5 idi — birbirine
+         cok yakin, yani dordu de neredeyse ayni sayiyi veriyordu ve
+         "yavas ile hizliyi karistir" diye yazilmis presetler duz cikiyordu.
 
-      /* Bulanık kopyalar RGBA8'de zaten 0..1 aralığında saklanıyor, yani
-         MilkDrop'un sıkıştırma ölçeğine gerek yok: GetBlur okuduğu değeri
-         olduğu gibi veriyor.
+         Aralik da yanlisti: MilkDrop 0..1 veriyor, biz -1..1. Isareti
+         degisen bir carpan presetin yonunu tersine cevirebiliyordu. */
+      const RO = accurate ? [0.3, 1.3, 5.0, 20.0] : [0.3, 0.7, 1.1, 1.5];
+      const SRO = accurate ? [0.005, 0.008, 0.013, 0.022] : [0.05, 0.09, 0.13, 0.17];
+      const half = (f) => (accurate ? 0.5 + 0.5 * f : f);
+      set4('roam_cos', half(Math.cos(t * RO[0])), half(Math.cos(t * RO[1])),
+        half(Math.cos(t * RO[2])), half(Math.cos(t * RO[3])));
+      set4('roam_sin', half(Math.sin(t * RO[0])), half(Math.sin(t * RO[1])),
+        half(Math.sin(t * RO[2])), half(Math.sin(t * RO[3])));
+      set4('slow_roam_cos', half(Math.cos(t * SRO[0])), half(Math.cos(t * SRO[1])),
+        half(Math.cos(t * SRO[2])), half(Math.cos(t * SRO[3])));
+      set4('slow_roam_sin', half(Math.sin(t * SRO[0])), half(Math.sin(t * SRO[1])),
+        half(Math.sin(t * SRO[2])), half(Math.sin(t * SRO[3])));
 
-         Ama presetin KENDİSİ bu uniform'ları okuyabiliyor (`b1n`/`b1x`
-         olarak yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı
-         preset böyle yapıyor). Sabit 0/1 vermek onlara kendi yazdıklarından
-         başka bir sayı döndürüyordu. Preset yazmadıysa MilkDrop'un
-         varsayılanları zaten 0 ve 1. */
+      /* HUE_SHADER dort kose rengi. Ekran boyunca degisiyor; eskiden tek
+         renkti ve `ret *= hue_shader` yazan preset butun ekrani ayni tonda
+         boyuyordu. Kose basina ayri faz (i*21, i*13, i*9) koseleri
+         birbirinden ayiriyor, en buyuk bilesene bolme ise rengi doyuruyor
+         — bolmezsek dordu de gri-beyaza yaklasirdi.
+
+         Anahtar KAPALIYKEN dort koseye de AYNI renk gidiyor: yapi ayni
+         kaliyor (yine dort kose, yine ayni shader), yalnizca degerler
+         motorun eski tek-renk davranisini veriyor. */
+      if (L.hue_corner) {
+        const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
+        const rs = this.randPreset || [0, 0, 0, 0];
+        for (let i = 0; i < 4; i++) {
+          let r, g, b;
+          if (accurate) {
+            const k = i;
+            r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
+            g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
+            b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
+          } else {
+            r = 0.5 + 0.5 * Math.sin(t * 0.31);
+            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
+            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
+          }
+          if (accurate) {
+            const mx = Math.max(r, g, b) || 1;
+            r = 0.5 + 0.5 * (r / mx);
+            g = 0.5 + 0.5 * (g / mx);
+            b = 0.5 + 0.5 * (b / mx);
+          }
+          hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
+        }
+        gl.uniform3fv(L.hue_corner, hc);
+      }
+
+      /* Presetin kendisi bu uniform'ları okuyabiliyor (`b1n`/`b1x` olarak
+         yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı preset
+         böyle yapıyor). Preset yazmadıysa MilkDrop'un varsayılanları
+         zaten 0 ve 1.
+
+         `blurN_scale` GetBlurN'in geri açma çarpanı. Uyum AÇIKKEN yazan
+         geçiş değeri aralığa sıkıştırıyor, burada aynı aralık geri
+         açılıyor — gidiş dönüş birim, kazanç RGBA8'in tam çözünürlüğünün
+         dar bir aralıkta kullanılması. KAPALIYKEN yazan geçiş ham değer
+         bırakıyor ve motorun eski `* max + min` okuması korunuyor. */
       const bkey = ['', 'b1', 'b2', 'b3'];
       for (let i = 1; i <= 3; i++) {
         const mn = this.preset.get(bkey[i] + 'n');
@@ -955,6 +1245,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const hi = isFinite(mx) ? mx : 1;
         set3('blur' + i + '_min', lo, lo, lo);
         set3('blur' + i + '_max', hi, hi, hi);
+        const sc = accurate ? hi - lo : hi;
+        set3('blur' + i + '_scale', sc, sc, sc);
       }
 
       const P = this.preset;
@@ -1135,6 +1427,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
     }
 
+    /* Kanonik adın doku HEDEFİ. Hacim gürültüsü 3B, gerisi 2B. Yanlış
+       hedefe bağlamak sessizce çalışıyor gibi görünüp o birimde boş doku
+       okuturdu — hata değil, siyah. */
+    _targetFor(canon) {
+      const gl = this.gl;
+      return (canon === 'sampler_noisevol_lq' || canon === 'sampler_noisevol_hq')
+        ? gl.TEXTURE_3D : gl.TEXTURE_2D;
+    }
+
     /* `texsize_<ad>` için (genişlik, yükseklik, 1/g, 1/y). Preset bunu
        okuyup dokuyu teksel hassasiyetinde adresliyor; GERÇEKTEN bağlı olan
        dokunun boyutu verilmeli. Gürültüye düşülmüşse gürültünün boyutu
@@ -1150,9 +1451,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
     _bindTextures(mainTex, L) {
       const gl = this.gl;
-      const bind = (unit, tex) => {
+      const bind = (unit, tex, target) => {
         gl.activeTexture(gl.TEXTURE0 + unit);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.bindTexture(target || gl.TEXTURE_2D, tex);
       };
       this._bindMain(mainTex);
       bind(1, this.blur[0].out.tex);
@@ -1162,8 +1463,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       bind(5, this.noise.lqLite.tex);
       bind(6, this.noise.mq.tex);
       bind(7, this.noise.hq.tex);
-      bind(8, this.noise.volLq.tex);
-      bind(9, this.noise.volHq.tex);
+      bind(8, this.noise.volLq.tex, gl.TEXTURE_3D);
+      bind(9, this.noise.volHq.tex, gl.TEXTURE_3D);
 
       /* Süzme türevleri ve kullanıcı dokuları. Sampler nesnesi BİRİME
          bağlı ve bağlı kaldığı sürece o birimdeki her dokuyu etkiliyor;
@@ -1173,12 +1474,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const plan = (L && L._plan) || [];
       for (let unit = SAMPLER_UNITS.length; unit < (this.unitMax || 16); unit++) {
         gl.bindSampler(unit, null);
+        /* Iki hedef de birakiliyor. Bir onceki preset bu birime hacim
+           gurultusu bagladiysa ve simdi ayni birim iki boyutlu okunuyorsa,
+           eski 3B bag birimde asili kalirdi. */
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindTexture(gl.TEXTURE_3D, null);
       }
       for (const e of plan) {
         // Kanonik birime düşmüş türevde sampler nesnesi bağlanmıyor: o birim
         // yerleşiğin kendi birimi ve orada ezmek diğer okumayı bozardı.
         if (e.p.unit < SAMPLER_UNITS.length) continue;
-        bind(e.p.unit, this._texFor(e.p.canon, mainTex));
+        bind(e.p.unit, this._texFor(e.p.canon, mainTex), this._targetFor(e.p.canon));
         gl.bindSampler(e.p.unit, this.samplers[e.p.filter + '|' + e.p.wrap] || null);
       }
       gl.activeTexture(gl.TEXTURE0);
@@ -1212,7 +1519,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const GH = Math.max(64, Math.round(RH * sc));
       this._applyMesh(cfg);
       this._bindMouse();
+      this._wantAcc = !(cfg.milkdrop && cfg.milkdrop.accurate === false);
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
+      /* Anahtar cizim sirasinda degistiyse gurultu dokulari yeniden
+         uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
+      if (this.noise && this._noiseAcc !== this._wantAcc) this._buildNoise(this._wantAcc);
       this._ensureTextureLib(cfg);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
@@ -1528,28 +1839,105 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     /* Üç kademe bulanık kopya. Her kademe bir öncekinin yarısı boyutunda ve
        yatay+dikey iki geçişten geçiyor: ayrılabilir Gauss iki geçişte
        tek geçişli bir çekirdeğin karesi kadar iş yapıyor. */
+    /* Kademe basina yaz-oku olcegi.
+
+       MilkDrop bulanik kopyayi presetin b1n/b1x araligina sikistirarak
+       sakliyor: 8 bitlik dokunun tamami dar bir aralikta kullaniliyor.
+       Ikinci ve ucuncu kademenin araligi BIR ONCEKI kademenin araligina
+       gore veriliyor, cunku girdisi zaten sikistirilmis olan o doku.
+
+       Sifira bolme korunuyor: b1n ile b1x'i esit yazan bir preset var
+       olabilir ve sonsuz bir olcek butun kareyi beyaza cevirirdi. */
+    _blurScaleBias(acc) {
+      const out = [[1, 0], [1, 0], [1, 0]];
+      if (!acc || !this.preset) return out;
+      const key = ['b1', 'b2', 'b3'];
+      const mn = [], mx = [];
+      for (let i = 0; i < 3; i++) {
+        const a = this.preset.get(key[i] + 'n');
+        const b = this.preset.get(key[i] + 'x');
+        mn.push(isFinite(a) ? a : 0);
+        mx.push(isFinite(b) ? b : 1);
+      }
+      const safe = (d) => (Math.abs(d) < 1e-6 ? 1e-6 : d);
+      let sc = 1 / safe(mx[0] - mn[0]);
+      out[0] = [sc, -mn[0] * sc];
+      for (let i = 1; i < 3; i++) {
+        const span = safe(mx[i - 1] - mn[i - 1]);
+        const lo = (mn[i] - mn[i - 1]) / span;
+        const hi = (mx[i] - mn[i - 1]) / span;
+        sc = 1 / safe(hi - lo);
+        out[i] = [sc, -lo * sc];
+      }
+      return out;
+    }
+
     _buildBlur(srcTex) {
       const gl = this.gl;
+      const acc = this._wantAcc !== false;
       gl.useProgram(this.blurProg);
       gl.uniform1i(this.locBlur.uSrc, 0);
       gl.bindVertexArray(this.quadVao);
       gl.activeTexture(gl.TEXTURE0);
+      const L = this.locBlur;
+      const setK = (k) => {
+        gl.uniform4f(L.uW, k.w[0], k.w[1], k.w[2], k.w[3]);
+        gl.uniform4f(L.uD, k.d[0], k.d[1], k.d[2], k.d[3]);
+        gl.uniform1f(L.uCenter, k.center);
+        gl.uniform1f(L.uNorm, k.norm);
+      };
+      const setSB = (sc, bi) => {
+        gl.uniform1f(L.uScale, sc);
+        gl.uniform1f(L.uBias, bi);
+      };
+      const sb = this._blurScaleBias(acc);
+      const kH = acc ? BLUR_KERNEL.h : BLUR_KERNEL.legacy;
+      const kV = acc ? BLUR_KERNEL.v : BLUR_KERNEL.legacy;
+      /* Tap uzakliklari KAYNAK dokunun tekseli cinsinden. Yatay ve dikey
+         hedefler artik farkli boyutta oldugu icin adim hedefe gore
+         hesaplanamaz: hedefin tekseliyle carpmak cekirdegi kademe basina
+         sessizce genisletir ya da daraltirdi. */
+      const t0 = this.targets ? this.targets[0] : null;
       let input = srcTex;
-      for (const b of this.blur) {
+      let iw = (t0 && t0.w) || 1;
+      for (let i = 0; i < this.blur.length; i++) {
+        const b = this.blur[i];
         gl.bindFramebuffer(gl.FRAMEBUFFER, b.tmp.fb);
-        gl.viewport(0, 0, b.w, b.h);
+        gl.viewport(0, 0, b.hw, b.hh);
         gl.bindTexture(gl.TEXTURE_2D, input);
-        gl.uniform2f(this.locBlur.uStep, 1 / b.w, 0);
+        gl.uniform2f(L.uStep, 1 / iw, 0);
+        setK(kH);
+        setSB(1, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, b.out.fb);
+        gl.viewport(0, 0, b.w, b.h);
         gl.bindTexture(gl.TEXTURE_2D, b.tmp.tex);
-        gl.uniform2f(this.locBlur.uStep, 0, 1 / b.h);
+        gl.uniform2f(L.uStep, 0, 1 / b.hh);
+        setK(kV);
+        /* Olcek yalnizca IKINCI gecise uygulaniyor. Olcekleme dogrusal
+           oldugu icin bulaniklikla yer degistirebiliyor; ara sonucu
+           kirpmadan gecirmek daha az bilgi kaybediyor. */
+        setSB(sb[i][0], sb[i][1]);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+
         input = b.out.tex;
+        iw = b.w;
       }
       gl.bindVertexArray(null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      /* MIPMAP (#560, madde 1). Cerceve tamponu birakildiktan SONRA
+         uretiliyor: doku hala bagli bir hedefe iliskiliyken mipmap
+         uretmek surucu basina degisen bir gri alan. Yalnizca `out`
+         kademeleri — presetin okudugu dokular onlar; `tmp` ara sonuc ve
+         yalnizca tam cozunurlukte bir kez okunuyor. */
+      if (this._blurMip) {
+        for (const b of this.blur) {
+          gl.bindTexture(gl.TEXTURE_2D, b.out.tex);
+          gl.generateMipmap(gl.TEXTURE_2D);
+        }
+        gl.bindTexture(gl.TEXTURE_2D, null);
+      }
     }
 
     /* MilkDrop'un ekran koordinatı: x,y 0..1 ve y AŞAĞI doğru artıyor.
