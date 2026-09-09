@@ -232,7 +232,7 @@ test('bulanıklık: adım kaynağın tekseline göre', () => {
 });
 
 test('bulanıklık: ölçek yalnız ikinci geçişe uygulanıyor', () => {
-  const fn = /_buildBlur\(srcTex\) \{[\s\S]*?\n    \}/.exec(CODE);
+  const fn = /_buildBlur\(srcTex, need\) \{[\s\S]*?\n    \}/.exec(CODE);
   assert.ok(fn, '_buildBlur bulunamadı');
   assert.match(fn[0], /setSB\(1, 0\);/, 'yatay geçiş birim ölçek almalı');
   assert.match(fn[0], /setSB\(sb\[i\]\[0\], sb\[i\]\[1\]\)/, 'dikey geçiş gerçek ölçeği almalı');
@@ -267,7 +267,7 @@ test('bulanıklık: çarpan açıkken aralık, kapalıyken eski davranış', () 
    üretilmeli: eksik bir mipmap zinciri dokuyu tamamlanmamış yapar ve
    siyah okutur. */
 test('bulanıklık: mipmap tampon bırakıldıktan sonra üretiliyor', () => {
-  const fn = /_buildBlur\(srcTex\) \{[\s\S]*?\n    \}/.exec(CODE);
+  const fn = /_buildBlur\(srcTex, need\) \{[\s\S]*?\n    \}/.exec(CODE);
   const unbind = fn[0].indexOf('gl.bindFramebuffer(gl.FRAMEBUFFER, null)');
   const mip = fn[0].indexOf('generateMipmap');
   assert.ok(unbind >= 0 && mip > unbind, 'mipmap tampon bırakıldıktan sonra gelmeli');

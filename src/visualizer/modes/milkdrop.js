@@ -428,6 +428,48 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
   /* Presetin shader'ına verilen değişkenler. Tek yerde duruyor çünkü hem
      konum önbelleği hem yükleme bu listeden türüyor; ikiye bölmek birinde
      unutulan bir adın sessizce sıfır kalmasına yol açardı. */
+  /* PRESETİN GERÇEKTEN OKUDUĞU EN YÜKSEK BLUR KADEMESİ.
+
+     MilkDrop bulanık kopyaların hepsini üretmiyor; yalnızca o karede bir
+     shader'ın bağladığı en yüksek kademeye kadar gidiyor:
+
+         int passes = std::min(NUM_BLUR_TEX, m_nHighestBlurTexUsedThisFrame * 2);
+
+     (milkdropfs.cpp:1410. Kademe başına iki geçiş var — yatay ve dikey —
+     `*2` oradan geliyor. Sayaç bir shader blur dokusu bağladığında
+     yükseliyor (3695) ve `BlurPasses()` sonunda sıfırlanıyor (1568).)
+
+     Biz üç kademenin altı geçişini her karede koşuyorduk. Korpusun
+     %28,7'si hiç `GetBlur` okumuyor, yani onlarda altı geçişin altısı da
+     boşa gidiyor; toplamda 62.082 geçişin 29.168'i (%47,0) gereksiz.
+
+     ARAMA PRESETİN KENDİ METNİNDE, çevrilmiş GLSL'de değil: `GetBlur1..3`
+     yardımcıları her zaman ön hazırlıkta duruyor, yani çıktıda
+     `sampler_blur1` her preset için görünürdü ve eleme hiç devreye
+     girmezdi. Doku adının kendisi de aranıyor çünkü preset `GetBlurN`
+     yerine dokuyu doğrudan örnekleyebiliyor.
+
+     KADEME KASKAT: 3'ü okuyan bir preset 1 ve 2'yi de üretmek zorunda,
+     çünkü her kademe bir öncekinden türüyor. Bu yüzden dönen sayı EN
+     YÜKSEK kademe ve o kademeye kadar hepsi üretiliyor — MilkDrop'un
+     `highest * 2`si de tam olarak bunu söylüyor.
+
+     ÖN EKLİ AD DA SAYILIYOR (`sampler_pw_blur3`): çeviri onu kanonik
+     `sampler_blur3`e indirgiyor, yani doku gerçekten okunuyor. Korpusta
+     hiç örneği yok ama kaçırmanın bedeli üretilmemiş bir kademeyi
+     örneklemek, yani siyah — sessiz ve bulunması zor bir hata. */
+  const BLUR_REF = /(?:getblur|sampler_(?:(?:fw|pw|fc|pc)_)?blur)([123])/gi;
+  function blurLevelOf(text) {
+    if (!text) return 0;
+    let hi = 0, m;
+    BLUR_REF.lastIndex = 0;
+    while ((m = BLUR_REF.exec(text)) !== null) {
+      const lv = +m[1];
+      if (lv > hi) hi = lv;
+    }
+    return hi;
+  }
+
   const SAMPLER_UNITS = [
     ['sampler_main', 0],
     ['sampler_blur1', 1],
@@ -1138,6 +1180,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           locs: this._presetLocs(lk.prog, plan, r.rotUniforms, r.texSizeNames),
           plan,
           rot: r.rotUniforms || [],
+          blurLevel: blurLevelOf(text),
         };
       };
       this.warpPreset = build(fl.warpShader, 'warp');
@@ -1895,8 +1938,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          olduğu için warp shader'ı bir önceki karede üretilmiş bulanık
          dokuları örnekliyor, comp shader'ı ise bu karede üretilenleri.
          MilkDrop'ta da gecikme aynen böyle (1021 warp, 1058 blur, 1099
-         comp). */
-      this._buildBlur(src.tex);
+         comp).
+
+         KAÇ KADEME: yalnızca yaşayan shader'ların okuduğu kadar. MilkDrop
+         sayacı warp'ın BU kareki, comp'un BİR ÖNCEKİ kareki kullanımının
+         birleşimini taşıyor; tek preset koşarken ikisi aynı preset olduğu
+         için bu `max(warp, comp)` demek. Geçişte dört aşama da yaşıyor,
+         hepsi hesaba katılıyor. */
+      this._buildBlur(src.tex, this._blurNeed());
 
       /* --- 5. Çizimler, warp'ın üstüne. MilkDrop'un sırası: önce şekiller,
          sonra custom dalgalar, en son varsayılan dalga formu. Sıra görünür:
@@ -2626,9 +2675,22 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return out;
     }
 
-    _buildBlur(srcTex) {
+    /* Bu karede üretilmesi gereken kademe sayısı. Geçiş sırasında eski
+       presetin aşamaları da çiziyor, onlar da sayılıyor. */
+    _blurNeed() {
+      const lv = (p) => (p && p.blurLevel) || 0;
+      return Math.max(lv(this.warpPreset), lv(this.compPreset),
+        lv(this.oldWarpPreset), lv(this.oldCompPreset));
+    }
+
+    _buildBlur(srcTex, need) {
       const gl = this.gl;
       const acc = this._wantAcc !== false;
+      /* `need` verilmediyse hepsi — çağıranı unutmak sessizce YANLIŞ
+         görüntü değil, yalnızca eski maliyet demek. */
+      const levels = typeof need === 'number'
+        ? Math.max(0, Math.min(this.blur.length, need)) : this.blur.length;
+      if (levels === 0) return;
       gl.useProgram(this.blurProg);
       gl.uniform1i(this.locBlur.uSrc, 0);
       gl.bindVertexArray(this.quadVao);
@@ -2666,7 +2728,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const t0 = this.targets ? this.targets[0] : null;
       let input = srcTex;
       let iw = (t0 && t0.w) || 1;
-      for (let i = 0; i < this.blur.length; i++) {
+      for (let i = 0; i < levels; i++) {
         const b = this.blur[i];
         gl.bindFramebuffer(gl.FRAMEBUFFER, b.tmp.fb);
         gl.viewport(0, 0, b.hw, b.hh);
@@ -2700,8 +2762,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          kademeleri — presetin okudugu dokular onlar; `tmp` ara sonuc ve
          yalnizca tam cozunurlukte bir kez okunuyor. */
       if (this._blurMip) {
-        for (const b of this.blur) {
-          gl.bindTexture(gl.TEXTURE_2D, b.out.tex);
+        // Üretilmeyen kademenin mipmapı da gereksiz: kimse okumuyor.
+        for (let i = 0; i < levels; i++) {
+          gl.bindTexture(gl.TEXTURE_2D, this.blur[i].out.tex);
           gl.generateMipmap(gl.TEXTURE_2D);
         }
         gl.bindTexture(gl.TEXTURE_2D, null);

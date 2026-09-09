@@ -41,9 +41,9 @@ const DRAW = BARE.slice(BARE.indexOf('draw(audio, cfg, t, dt)'));
 // ------------------------------------------------------------------ kaynak
 
 test('blur kaynağı warp GİRDİSİ (src), çıktısı (dst) değil', () => {
-  assert.match(DRAW, /this\._buildBlur\(src\.tex\)/,
+  assert.match(DRAW, /this\._buildBlur\(src\.tex[,)]/,
     '_buildBlur src.tex ile çağrılmalı — MilkDrop m_lpVS[0]');
-  assert.doesNotMatch(DRAW, /this\._buildBlur\(dst\.tex\)/,
+  assert.doesNotMatch(DRAW, /this\._buildBlur\(dst\.tex[,)]/,
     'dst.tex bir kez fazla warp\'lanmış görüntü');
 });
 
@@ -51,7 +51,7 @@ test('blur ve dokulu şekiller AYNI tampondan besleniyor', () => {
   /* MilkDrop\'ta ikisi de `m_lpVS[0]`: dokulu şekil `sampler_main`
      üzerinden, blur zinciri doğrudan. Biri değişip diğeri kalırsa kaynak
      ikiye ayrılır ve fark sessizce sürüklenir. */
-  const blur = /this\._buildBlur\(([a-z]+)\.tex\)/.exec(DRAW);
+  const blur = /this\._buildBlur\(([a-z]+)\.tex[,)]/.exec(DRAW);
   const shape = /this\._shapeSrcTex = ([a-z]+)\.tex/.exec(DRAW);
   assert.ok(blur, '_buildBlur çağrısı bulunamadı');
   assert.ok(shape, '_shapeSrcTex ataması bulunamadı');

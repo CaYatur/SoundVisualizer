@@ -21,7 +21,7 @@ const MD = require('../src/shared/milkdrop.js');
 const CODE = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
 const FRAG = /const BLUR_FRAG = `([\s\S]*?)`;/.exec(CODE);
-const BUILD = /_buildBlur\(srcTex\) \{[\s\S]*?\n    \}/
+const BUILD = /_buildBlur\(srcTex, need\) \{[\s\S]*?\n    \}/
   .exec(CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 '));
 
 // --------------------------------------------------------------- varsayılan
