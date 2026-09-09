@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1403%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1419%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -213,7 +213,7 @@ profilinde basamak olmadığını doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
   bağlamında, 10.332 presetlik korpusta ölçüldü: **shader aşamalarının %99,2'si derleniyor**,
   presetlerin %98,5'inde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
-  pikselleri okuyor — derlenen bir shader siyah da çizebilir: **%96,1'i canlı görüntü üretiyor.**
+  pikselleri okuyor — derlenen bir shader siyah da çizebilir: **%96,0'ı canlı görüntü üretiyor.**
   İki düzenek de `scripts/` altında, yani sayılar inanılacak değil tekrar üretilecek şey.
 - **Görüntü MilkDrop'un kendi değerlerini kullanıyor, yaklaşığını değil.** Her biri korpusu motorun
   gerçekten okuduğu adlarla karşılaştırarak bulundu ve her biri ölçüldü: iki başlık ayarı
@@ -981,7 +981,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1403 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1419 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

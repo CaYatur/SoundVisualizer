@@ -291,6 +291,71 @@ void main(){
   const BLUR_RATIOS = [[0.5, 0.25], [0.125, 0.125], [0.0625, 0.0625]];
   const BLUR_RATIOS_LEGACY = [[0.5, 0.5], [0.25, 0.25], [0.125, 0.125]];
 
+  /* DALGA YUMUŞATMA — MilkDrop'un `SmoothWave`i (milkdropfs.cpp:2341).
+
+     Çizmeden hemen önce dalgayı bir kez daha örnekliyor: ardışık her nokta
+     çiftinin ARASINA bir nokta koyuyor, yani nokta sayısı ikiye katlanıyor.
+     Ara noktanın yeri dört komşunun ağırlıklı ortalaması:
+
+         (-0,15 · p[i-1] + 1,15 · p[i] + 1,15 · p[i+1] - 0,15 · p[i+2]) / 2
+
+     Ağırlıklar toplamı 2, bölen de o. UÇLARDAKİ NEGATİF KATSAYILAR ÖNEMLİ:
+     bu bir ortalama değil, hafif keskinleştiren bir interpolasyon —
+     Catmull-Rom'un yaptığı gibi eğrinin virajını koruyor. Düz ortalama
+     (0, 0,5, 0,5, 0) alsaydık dalga yumuşarken sönerdi.
+
+     Motorda hiç yoktu: dalgaları presetin verdiği ham noktalarla
+     çiziyorduk, bu yüzden kırık çizgi gibi görünüyorlardı. Korpusta 11.884
+     etkin özel dalga bloğunun 7.798'i (%65,6) ve varsayılan dalga çizen
+     4.654 preset (%45,0) etkileniyor.
+
+     Uçlar KOPYALANIYOR, uzatılmıyor: `i_below` ilk noktada 0'da,
+     `i_above2` son noktada n-1'de kilitleniyor. Kapalı bir çemberde bile
+     MilkDrop sarmıyor — dalga modu 0'ın kendi harmanlaması o işi zaten
+     yapıyor.
+
+     Renk interpole EDİLMİYOR: ara nokta soldaki komşunun rengini aynen
+     alıyor (`COPY_COLOR(vo[j+1], vi[i])`). Renk zaten nokta başına
+     değişiyorsa bu bir kademe yaratıyor, ama MilkDrop'un yaptığı bu.
+
+     `src` ve `dst` AYRI diziler olmalı — okuma ileriye bakıyor. */
+  const SMOOTH_C = [-0.15, 1.15, 1.15, -0.15];
+  /* 512 ham nokta -> 2*(512-1)+1 = 1023. Bölünmüş dalgada (mod 6-7) iki
+     parça ayrı ayrı yumuşatılıyor ve toplam daha KÜÇÜK oluyor, yani bu
+     sınır her durumu kapsıyor. */
+  const SMOOTH_MAX = 1023;
+  const SMOOTH_INV = 1 / (SMOOTH_C[0] + SMOOTH_C[1] + SMOOTH_C[2] + SMOOTH_C[3]);
+  const VSTRIDE_LINE = 6;   // x, y, r, g, b, a
+  function smoothWave(src, n, dst, srcOff, dstOff) {
+    const S = VSTRIDE_LINE;
+    const so = (srcOff || 0) * S, dof = (dstOff || 0) * S;
+    if (n < 2) {
+      for (let k = 0; k < n * S; k++) dst[dof + k] = src[so + k];
+      return n;
+    }
+    const c1 = SMOOTH_C[0], c2 = SMOOTH_C[1], c3 = SMOOTH_C[2], c4 = SMOOTH_C[3];
+    let j = 0, iBelow = 0;
+    for (let i = 0; i < n - 1; i++) {
+      const iAbove = i + 1;
+      const iAbove2 = Math.min(n - 1, i + 2);
+      const a = so + iBelow * S, b = so + i * S;
+      const c = so + iAbove * S, e = so + iAbove2 * S;
+      const o = dof + j * S;
+      // Nokta i olduğu gibi
+      for (let k = 0; k < S; k++) dst[o + k] = src[b + k];
+      // Araya konan nokta: yer ağırlıklı, renk soldaki komşudan
+      dst[o + S] = (c1 * src[a] + c2 * src[b] + c3 * src[c] + c4 * src[e]) * SMOOTH_INV;
+      dst[o + S + 1] = (c1 * src[a + 1] + c2 * src[b + 1] +
+        c3 * src[c + 1] + c4 * src[e + 1]) * SMOOTH_INV;
+      for (let k = 2; k < S; k++) dst[o + S + k] = src[b + k];
+      iBelow = i;
+      j += 2;
+    }
+    const last = so + (n - 1) * S, o = dof + j * S;
+    for (let k = 0; k < S; k++) dst[o + k] = src[last + k];
+    return j + 1;
+  }
+
   const LINE_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -706,9 +771,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.lineVao = gl.createVertexArray();
       this.lineVbo = gl.createBuffer();
       this.lineData = new Float32Array(512 * 6);
+      /* YUMUŞATILMIŞ ÇIKTI AYRI DİZİDE ve İKİ KAT BÜYÜK: `smoothWave` her
+         çiftin arasına bir nokta koyduğu için 512 nokta 1023'e çıkıyor.
+         Kaynak ve hedefin ayrı olması zorunlu — okuma iki nokta ileriye
+         bakıyor, yerinde yazsaydık henüz okunmamış noktaları ezerdi. */
+      this.waveData = new Float32Array(SMOOTH_MAX * 6);
       gl.bindVertexArray(this.lineVao);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-      gl.bufferData(gl.ARRAY_BUFFER, this.lineData, gl.DYNAMIC_DRAW);
+      /* VBO en BÜYÜK olasılığa göre ayrılıyor. `lineData`ya göre ayırmak
+         sessiz bir hata olurdu: kapasitesini aşan bir `bufferSubData`
+         sürücüye göre ya hiç yazmıyor ya INVALID_VALUE veriyor, ikisinde de
+         ekranda yalnızca KISA bir dalga görünüyor — hata gibi görünmüyor. */
+      gl.bufferData(gl.ARRAY_BUFFER, this.waveData, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
       gl.bindVertexArray(null);
@@ -2811,11 +2885,23 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           count++;
         }
         if (count < 2) continue;
+        /* YUMUŞATMA, nokta kipi HARİÇ. Varsayılan dalganın aksine burada
+           MilkDrop koşula bağlıyor (milkdropfs.cpp:2508):
+               if (!pState->m_wave[i].bUseDots)
+                   nSamples = SmoothWave(v, nSamples, v3);
+           Mantıklı: nokta kipinde ara noktalar çizgiyi yumuşatmaz, sadece
+           iki katı nokta basar. Korpusta 11.884 etkin dalga bloğunun
+           4.086'sı nokta kipinde. */
+        let vd = d, vn = count;
+        if (this._wantAcc !== false && !w.useDots) {
+          vd = this.waveData;
+          vn = smoothWave(d, count, vd, 0, 0);
+        }
         this._blend(gl, w.additive);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, vd, 0, vn * 6);
         const gw = this.gl2.width, gh = this.gl2.height;
-        this._strip(gl, w.useDots ? gl.POINTS : gl.LINE_STRIP, d, count, -1,
+        this._strip(gl, w.useDots ? gl.POINTS : gl.LINE_STRIP, vd, vn, -1,
           gw, gh, w.thick ? 2 : 1);
       }
       gl.bindVertexArray(null);
@@ -3131,13 +3217,32 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         d[k + 2] = cr; d[k + 3] = cg; d[k + 4] = cb; d[k + 5] = alpha;
       }
 
+      /* YUMUŞATMA. Varsayılan dalgada MilkDrop bunu KOŞULSUZ yapıyor —
+         kaynakta `if (1)` yazıyor (milkdropfs.cpp:3117) — yani nokta
+         kipinde bile, ki o zaman iki kat nokta çiziliyor.
+
+         Bölünmüş dalga (mod 6 ve 7) iki parçayı AYRI AYRI yumuşatıyor;
+         tek parça sayılsaydı iki şeridin arasına ekranı boydan boya kesen
+         bir çizgi girerdi. Yeni kırılma noktası 2*(eski-1)+1, 2*eski
+         değil. */
+      let vd = d, vn = n, vbreak = breakAt;
+      if (this._wantAcc !== false) {
+        vd = this.waveData;
+        if (breakAt > 0) {
+          vbreak = smoothWave(d, breakAt, vd, 0, 0);
+          vn = vbreak + smoothWave(d, n - breakAt, vd, breakAt, vbreak);
+        } else {
+          vn = smoothWave(d, n, vd, 0, 0);
+        }
+      }
+
       this._blend(gl, !!P.get('wave_additive'));
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, vd, 0, vn * 6);
       const kind = P.get('wave_usedots') ? gl.POINTS : gl.LINE_STRIP;
-      this._strip(gl, kind, d, n, breakAt, GW, GH, P.get('wave_thick') ? 2 : 1);
+      this._strip(gl, kind, vd, vn, vbreak, GW, GH, P.get('wave_thick') ? 2 : 1);
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
     }
