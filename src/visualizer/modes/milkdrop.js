@@ -1776,10 +1776,33 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
     /* Warp ağı: her düğümde per_pixel koşuyor ve düğümün önceki kareden
        nereyi örnekleyeceği çıkıyor. */
+    /* MilkDrop'un DİKEY EKSENİ ile bizimki ters.
+
+       MilkDrop düğüm dönüşümünü v ekseni YUKARIDAN AŞAĞI akan bir uzayda
+       yapıyor: `y = 0` ekranın üstü. Bizim doku eksenimiz OpenGL'in kendi
+       eksenidir, `v = 0` altta. İki uzay da kendi içinde tutarlı olduğu
+       için hiçbir hata çıkmıyordu — yalnız `dy`, `cy` ve dönme yönü
+       aynadan bakıyordu.
+
+       ÖLÇÜLDÜ: merkezde sabit bir şekil, `dy = +0,02`, başka hiçbir
+       hareket yok. Motorumuzda izin ağırlık merkezi 0,294'e (yukarı),
+       `dy = -0,02` ile 0,602'ye (aşağı) gidiyordu. MilkDrop'un cebri
+       tersini söylüyor: örnek noktası `v -= dy` ile kayıyor ve v yukarıdan
+       aşağı olduğu için pozitif `dy` görüntüyü AŞAĞI taşır.
+
+       Korpusta presetlerin %48,8'i `dy` ya da `cy` kullanıyor, %49,5'i de
+       sıfırdan farklı bir `rot` yazıyor — ayna dönmenin yönünü de çeviriyor.
+
+       Düzeltme iki SINIRDA duruyor: denklemlere giren `y` ve dokuya çıkan
+       `v`. Aradaki dönüşüm olduğu gibi kalıyor, çünkü MilkDrop uzayına
+       geçtikten sonra zaten doğru uzayda çalışıyor. Şekiller, dalgalar ve
+       hareket vektörleri bu eksende ZATEN doğruydu (`_toClipY`); ters olan
+       yalnız ağdı. */
     _buildWarpMesh() {
       const n = this.meshX + 1;
       const v = this.verts;
       const warpTime = this.time;
+      const acc = this._wantAcc !== false;
       for (let j = 0; j <= this.meshY; j++) {
         for (let i = 0; i <= this.meshX; i++) {
           const u = i / this.meshX;
@@ -1790,7 +1813,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           let ang = Math.atan2(cy0, cx0);
           if (ang < 0) ang += Math.PI * 2;
 
-          const p = this.preset.pixel(u, w, rad, ang, this._pix);
+          // Denklem dilindeki `y`: MilkDrop'ta 0 = ÜST
+          const my = acc ? 1 - w : w;
+          const p = this.preset.pixel(u, my, rad, ang, this._pix);
 
           /* MilkDrop'un düğüm dönüşümü. Sıra önemli: önce zum (yarıçapa
              bağlı üstel), sonra dönme, sonra gerdirme, sonra öteleme, en
@@ -1802,7 +1827,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const cx = p.cx;
           const cy = p.cy;
           let su = (u - cx) / z + cx;
-          let sv = (w - cy) / z + cy;
+          let sv = (my - cy) / z + cy;
           const ca = Math.cos(p.rot);
           const sa = Math.sin(p.rot);
           const du = su - cx;
@@ -1823,11 +1848,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
             sv += wr * Math.sin(warpTime * 0.825 + (u * 2 - 1) * 2 - (w * 2 - 1) * 4);
           }
 
+          // MilkDrop uzayından dokunun kendi eksenine geri
+          const fv = acc ? 1 - sv : sv;
+
           const o = (j * n + i) * VSTRIDE;
           v[o] = u * 2 - 1;
           v[o + 1] = w * 2 - 1;
           v[o + 2] = isFinite(su) ? su : u;
-          v[o + 3] = isFinite(sv) ? sv : w;
+          v[o + 3] = isFinite(fv) ? fv : w;
           v[o + 4] = u;
           v[o + 5] = w;
           v[o + 6] = rad;
