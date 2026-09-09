@@ -2386,6 +2386,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const d = this.lineData;
       const out = this._waveOut || (this._waveOut = {});
       const cl = window.SVMilkdrop.clampColor;
+      /* Tayf KARE BASINA BIR KEZ. Bir presette birden fazla tayf dalgasi
+         olabiliyor; her biri icin 1024 noktali FFT kosturmak bedava degil.
+         Hic tayf dalgasi yoksa hic hesaplanmiyor. */
+      let spec = null;
+      if (this._wantAcc !== false && P.waves.some((w) => w.enabled && w.spectrum)) {
+        const S = window.SVMilkdropAudio;
+        if (S && S.MilkdropSpectrum) {
+          if (!this._spec) this._spec = new S.MilkdropSpectrum();
+          spec = this._spec.update(tb);
+        }
+      }
+      this._specData = spec;
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
       for (const w of P.waves) {
@@ -2445,25 +2457,49 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
       const a = this._cw1, b = this._cw2;
       const acc = this._wantAcc !== false;
-      /* `spectrum = 1` yazan dalga TAYFI istiyor, dalga biçimini değil.
-         Motor ikisine de zaman verisi veriyordu: preset frekans dağılımı
-         çizdiğini sanarken bir kıvrım görüyordu. Korpusta 2.398 preset
-         (%23,2) en az bir tayf dalgası taşıyor.
+      /* `spectrum = 1` yazan dalga TAYFI istiyor, dalga bicimini degil.
+         Korpusta 2.398 preset (%23,2) en az bir tayf dalgasi tasiyor.
 
-         Tayf yoksa (ölçüm ortamı, ses açılmamış) zaman verisine düşülüyor
-         — eksik veri yüzünden preset hiç çizilmemesindense yanlış
-         kaynaktan çizilmesi yeğ. */
-      const fq = acc && w.spectrum && audio && audio.freq && audio.freq.length > 8
-        ? audio.freq : null;
-      const last = (fq ? fq.length : tb.length) - 1;
+         Tayf artik MilkDrop'un KENDI boru hattindan geliyor
+         (`SVMilkdropAudio.MilkdropSpectrum`): ayni ±128 birimi, ayni Hann
+         penceresi, ayni normallestirilmemis 1024 noktali FFT, ayni esitleyici.
+         Eskiden gorsellestiricinin 0..1'e normallestirilmis `freq` dizisi
+         veriliyordu: KAYNAK dogruydu ama OLCEK degildi, yani dalga dogru
+         bicimde yanlis buyuklukte ciziliyordu — `0,15 * scaling * wave_scale`
+         carpani MilkDrop'takinden bambaska bir sey uretiyordu.
+
+         Tayf yoksa (olcum ortami, ses acilmamis) zaman verisine dusuluyor. */
+      const fq = acc && w.spectrum && this._specData ? this._specData : null;
+      const n = tb.length;
+
+      /* INDISLEME MilkDrop'un indislemesi, ve iki yolda FARKLI.
+
+         Tayfta: iki kanal da SIFIRDAN basliyor (`j0 = j1 = 0`) ve adim
+         `t = (512 - sep) / N` — yani `sep` kanallari kaydirmiyor,
+         gozler arasi ADIMI degistiriyor.
+
+         Dalga biciminde: N ornek ARKA ARKAYA okunuyor, 480 orneklik
+         tamponun ortasindan, iki kanal `sep/2` kadar ters yone kaydirilmis.
+         Motor bunun yerine butun tamponu (2048 ornek) N'e sikistiriyordu:
+         64 ornekli bir dalgada bu 32:1 seyreltme demek, yani ekranda
+         gorunen sey dalganin kendisi degil ortusme gurultusu. */
+      const SPEC_BINS = 512;
+      const WAVE_MAX = 480; // NUM_WAVEFORM_SAMPLES
+      const step = fq ? (SPEC_BINS - w.sep) / Math.max(1, N) : 1;
+      const mid = fq ? 0 : Math.max(0, Math.floor((WAVE_MAX - N) / 2));
+      const j0 = fq ? 0 : mid - (w.sep >> 1);
+      const j1 = fq ? 0 : mid + (w.sep >> 1);
       for (let i = 0; i < N; i++) {
-        const sample = N > 1 ? i / (N - 1) : 0;
-        const i0 = Math.min(last, Math.floor(sample * last));
-        const i1 = Math.min(last, i0 + w.sep);
-        a[i] = fq ? fq[i0] : (tb[i0] - 128) / 128;
-        b[i] = fq ? fq[i1] : (tb[i1] - 128) / 128;
+        const k = Math.floor(i * step);
+        if (fq) {
+          a[i] = fq[Math.min(SPEC_BINS - 1, Math.max(0, k + j0))];
+          b[i] = fq[Math.min(SPEC_BINS - 1, Math.max(0, k + j1))];
+        } else {
+          a[i] = tb[(((k + j0) % n) + n) % n] - 128;
+          b[i] = tb[(((k + j1) % n) + n) % n] - 128;
+        }
       }
-      let sm = this._wantAcc !== false && isFinite(w.smoothing) ? w.smoothing : 0;
+      let sm = acc && isFinite(w.smoothing) ? w.smoothing : 0;
       if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
       if (sm > 0) {
         const m1 = Math.sqrt(sm * 0.98);
@@ -2477,20 +2513,16 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           b[i] = b[i] * m2 + b[i + 1] * m1;
         }
       }
-      /* GENLİK. MilkDrop örneği `0,004 * scaling * wave_scale` ile
-         çarpıyor ve örnek ±128 birimde duruyor, yani ±1'e indirgenmiş
-         bir örnekte çarpan `0,004 * 128 = 0,512`. Motor bunun yerine 1
-         kullanıyordu: özel dalgaların hepsi olması gerekenin yaklaşık iki
-         katı büyüklükte çiziliyor ve `wave_scale` onlara hiç
-         ulaşmıyordu. Tayf yolunun kendi çarpanı var (0,15).
-
-         Bizim tayfımız MilkDrop'unkiyle aynı ölçekte DEĞİL (bizimki
-         0..1'e normalleştirilmiş), dolayısıyla tayf dalgalarının
-         büyüklüğü yaklaşık — ama kaynağı artık doğru. */
+      /* GENLIK. MilkDrop: `(tayf ? 0,15 : 0,004) * scaling * wave_scale`,
+         ornekler ±128 biriminde. Motor bir ara 1 kullaniyordu — ozel
+         dalgalarin hepsi olmasi gerekenin iki kati buyuklukteydi ve
+         `wave_scale` onlara hic ulasmiyordu. Artik iki yol da MilkDrop'un
+         carpanini KENDI biriminde kullaniyor. */
       const ws = acc ? (this.preset.get('wave_scale') || 1) : 1;
-      const sc = acc ? (fq ? 0.15 : 0.004 * 128) * w.scaling * ws : w.scaling;
+      const sc = acc ? (fq ? 0.15 : 0.004) * w.scaling * ws : w.scaling / 128;
       for (let i = 0; i < N; i++) { a[i] *= sc; b[i] *= sc; }
     }
+
 
     /* MilkDrop'un dalga örnekleri: iki kanal, kabaca -1..1, wave_scale ile
        ölçekli. NUM_WAVEFORM_SAMPLES 512, diziler 576 çünkü bazı modlar

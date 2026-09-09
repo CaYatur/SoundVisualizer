@@ -109,34 +109,49 @@ test('özel dalga: ölçek yumuşatmadan sonra uygulanıyor', () => {
   assert.match(CUSTOM[0], /const sc = acc \?[\s\S]{0,160}a\[i\] \*= sc; b\[i\] \*= sc;/);
 });
 
-/* GENLİK. MilkDrop örneği `0,004 * scaling * wave_scale` ile çarpıyor ve
-   örnek ±128 birimde duruyor, yani ±1'e indirgenmiş bir örnekte çarpan
-   0,512. Motor 1 kullanıyordu: özel dalgaların hepsi olması gerekenin
-   yaklaşık iki katı büyüklükte çiziliyor ve `wave_scale` onlara hiç
-   ulaşmıyordu. */
+/* GENLİK. MilkDrop örneği `(tayf ? 0,15 : 0,004) * scaling * wave_scale`
+   ile çarpıyor ve örnek ±128 birimde duruyor. Motor bir ara 1
+   kullanıyordu: özel dalgaların hepsi olması gerekenin yaklaşık iki katı
+   büyüklükte çiziliyor ve `wave_scale` onlara hiç ulaşmıyordu. */
 test('özel dalga: MilkDrop genliği ve wave_scale', () => {
-  assert.match(CUSTOM[0], /0\.004 \* 128/);
   assert.match(CUSTOM[0], /this\.preset\.get\('wave_scale'\)/);
-  const m = /const sc = acc \? \(fq \? ([\d.]+) : ([\d.]+ \* \d+)\) \* w\.scaling \* ws : w\.scaling;/
+  const m = /const sc = acc \? \(fq \? ([\d.]+) : ([\d.]+)\) \* w\.scaling \* ws/
     .exec(CUSTOM[0]);
   assert.ok(m, 'ölçek satırı bulunamadı');
   assert.strictEqual(Number(m[1]), 0.15, 'tayf çarpanı');
-  // eslint-disable-next-line no-eval
-  assert.ok(Math.abs(Function('return ' + m[2])() - 0.512) < 1e-12, 'zaman çarpanı 0,512');
+  assert.strictEqual(Number(m[2]), 0.004, 'zaman çarpanı');
+  assert.match(CUSTOM[0], /tb\[\(\(\(k \+ j0\) % n\) \+ n\) % n\] - 128/, '±128 birimi');
 });
 
-/* `spectrum = 1` yazan dalga TAYFI istiyor. Motor ikisine de zaman verisi
-   veriyordu: preset frekans dağılımı çizdiğini sanarken bir kıvrım
-   görüyordu. 2.398 preset (%23,2) en az bir tayf dalgası taşıyor. */
-test('özel dalga: tayf isteyen dalga frekans verisini alıyor', () => {
-  assert.match(CUSTOM[0], /w\.spectrum && audio && audio\.freq/);
-  assert.match(CUSTOM[0], /a\[i\] = fq \? fq\[i0\] : \(tb\[i0\] - 128\) \/ 128;/);
+/* `spectrum = 1` yazan dalga TAYFI istiyor, ve tayfın MilkDrop ile aynı
+   ÖLÇEKTE olması gerekiyor: 0..1 arasına normalleştirilmiş bir dizi doğru
+   kaynaktan gelse bile yanlış büyüklükte bir dalga çizer. 2.398 preset
+   (%23,2) en az bir tayf dalgası taşıyor. */
+test('özel dalga: tayfın kaynağı MilkDrop FFT', () => {
+  assert.match(CUSTOM[0], /const fq = acc && w\.spectrum && this\._specData/);
+  assert.match(BODY, /new S\.MilkdropSpectrum\(\)/);
+  assert.match(BODY, /spec = this\._spec\.update\(tb\)/);
 });
 
-test('özel dalga: tayf yoksa zaman verisine düşülüyor', () => {
-  /* Eksik veri yüzünden preseti hiç çizmemektense yanlış kaynaktan
-     çizmek yeğ; ses açılmadan önceki ilk kareler de bu yola düşüyor. */
-  assert.match(CUSTOM[0], /audio\.freq\.length > 8[\s\S]{0,40}: null;/);
+test('özel dalga: tayf kare başına bir kez hesaplanıyor', () => {
+  /* Bir presette birden fazla tayf dalgası olabiliyor; FFT dalga başına
+     koşsaydı aynı sonuç için birkaç kez hesaplanırdı. Hiç tayf dalgası
+     yoksa hiç koşmuyor. */
+  assert.match(BODY, /P\.waves\.some\(\(w\) => w\.enabled && w\.spectrum\)/);
+  const draw = /_drawCustomWaves\(gl, audio\) \{[\s\S]*?\n    \}/.exec(BODY)[0];
+  const inLoop = draw.slice(draw.indexOf('for (const w of P.waves)'));
+  assert.ok(!/MilkdropSpectrum/.test(inLoop), 'FFT döngünün İÇİNDE olmamalı');
+});
+
+test('özel dalga: iki yolun indislemesi MilkDrop ile aynı', () => {
+  /* Tayfta iki kanal da sıfırdan başlıyor ve adımı `sep` belirliyor;
+     dalga biçiminde N örnek arka arkaya, tamponun ortasından, iki kanal
+     `sep/2` kadar ters yöne kaydırılmış. Motor bütün tamponu N kadar
+     örneğe sıkıştırıyordu: 64 örnekli bir dalgada 32:1 seyreltme. */
+  assert.match(CUSTOM[0], /const step = fq \? \(SPEC_BINS - w\.sep\) \/ Math\.max\(1, N\) : 1;/);
+  assert.match(CUSTOM[0], /const mid = fq \? 0 : Math\.max\(0, Math\.floor\(\(WAVE_MAX - N\) \/ 2\)\);/);
+  assert.match(CUSTOM[0], /const j0 = fq \? 0 : mid - \(w\.sep >> 1\);/);
+  assert.match(CUSTOM[0], /const j1 = fq \? 0 : mid \+ \(w\.sep >> 1\);/);
 });
 
 test('özel dalga: çizim yumuşatılmış diziyi kullanıyor', () => {
