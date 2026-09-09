@@ -607,6 +607,16 @@
          karisiyor. Varsayilanin kapali olma sebebi donmus karenin uzun
          gecislerde belli olmasiydi; o sebep kalmadi. */
       blendTime: 1.7,
+      /* CIZGI CIZIMI. Dalgalar tek tekselllik `LINE_STRIP` ile
+         ciziliyordu ve tirtikli goruniyordu; motor bunu kaydirilmis
+         kopyalarla kalinlastiriyordu, ki kenari duzeltmiyor.
+
+           'smooth'   — kenar yumusatmali serit, ESKI YOLUN biraktigi isigi
+                        koruyor (olculdu: ±%12 icinde). Varsayilan.
+           'thin'     — kenar yumusatmali ama gercek kalinlik; isik korumasi
+                        yok, dalga tasiyan presetler sonukleseiyor.
+           'milkdrop' — MilkDrop'un kendi kaydirmali kalinlastirmasi. */
+      lineStyle: 'smooth',
       /* MilkDrop DOKU PAKETININ klasoru (`sampler_worms`, `sampler_clouds`
          gibi adlarla aranan gorseller).
 

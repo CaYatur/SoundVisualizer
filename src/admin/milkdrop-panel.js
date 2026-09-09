@@ -182,6 +182,19 @@
       [5, '5 saniye'],
     ], md.blendTime == null ? 1.7 : md.blendTime, (v) => { md.blendTime = Number(v); })));
 
+    /* ÇİZGİ ÇİZİMİ. MilkDrop çizgiyi kaydırılmış kopyalarıyla
+       kalınlaştırıyor; kalınlık oluyor ama kenar merdiven kalıyor.
+       Yumuşatılmış yol çizgiyi şerit olarak çizip kenarı bir teksel
+       içinde söndürüyor. "Işık korumalı" seçeneği eski yolun bıraktığı
+       ışığı hedefliyor (ölçüldü: ±%12), yani presetlerin parlaklığı
+       yerinde kalıyor. "Gerçek kalınlık" fiziksel olarak doğru ama
+       dalga taşıyan presetler gözle görülür biçimde sönükleşiyor. */
+    nodes.push(P().row('Çizgi Çizimi', selOf([
+      ['smooth', 'Yumuşatılmış (ışık korumalı)'],
+      ['thin', 'Yumuşatılmış (gerçek kalınlık)'],
+      ['milkdrop', 'MilkDrop (kaydırmalı kalınlaştırma)'],
+    ], md.lineStyle || 'smooth', (v) => { md.lineStyle = String(v); })));
+
     /* MILKDROP UYUMLULUĞU. Motorun ölçülebilir uyum hataları düzeltildi ve
        düzeltilmiş değerler varsayılan. Anahtar yalnızca DEĞERLERİ geri
        alıyor — shader'lar, dokular ve doku birimleri iki durumda da aynı;

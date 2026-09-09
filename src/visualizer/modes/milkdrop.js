@@ -372,6 +372,76 @@ in vec4 vCol;
 out vec4 outColor;
 void main(){ outColor = vCol; }`;
 
+  /* KENAR YUMUŞATMALI ÇİZGİ.
+
+     `gl.LINE_STRIP` her sürücüde tek teksellik ve tırtıklı çiziyor;
+     `lineWidth` WebGL'de çoğu sürücüde 1'e sabit. Motor bu yüzden çizgiyi
+     kaydırılmış kopyalarıyla kalınlaştırıyordu — kalınlık oluyor ama kenar
+     hâlâ merdiven, ve toplamalı karışımda her kopya bir kat daha ışık
+     bırakıyor.
+
+     Buradaki yol çizgiyi ŞERİT olarak çiziyor: her noktadan iki yana
+     yarı-genişlik kadar açılmış bir üçgen şeridi, ve parça gölgelendirici
+     merkez çizgiye olan uzaklığa göre kapsama hesaplıyor. Kenar bir teksel
+     içinde sönüyor, yani gerçek kenar yumuşatma — çoklu örnekleme
+     gerektirmeden, hedef tampon çok örneklemeli olmadığı için.
+
+     `vSide` şeridin karşısında -1..+1. Uzaklık `|vSide| * uExt` teksel;
+     kapsama `uHalf - uzaklık + 0,5` ile 0..1'e kenetleniyor.
+
+     ŞERİT YARI GENİŞLİKTEN BİR TEKSEL DAHA GENİŞ (`uExt = uHalf + 1`) ve
+     bu zorunlu: tam yarı genişlikte bitseydi kapsama kenarda 0,5'te sert
+     kesilirdi — hem yumuşama olmazdı hem de bırakılan ışık eksik kalırdı.
+     Bir teksellik pay yumuşamaya yer açıyor ve kapsamanın integralini tam
+     `2 * uHalf` yapıyor, ki ışık koruma hesabı buna dayanıyor.
+
+     Yarı genişlik 0,5'in altına inemiyor: inseydi çizgi tamamen
+     kaybolurdu, oysa MilkDrop'un tek tekselllik çizgisi de en az bir
+     teksel bırakıyor.
+
+     `uGain` IŞIK KORUMA çarpanı. Eski yol N kez çizip N kat ışık
+     bırakıyordu; şerit ise genişliği kadar bırakıyor. İkisini eşitlemek
+     için gölgelendirici alfayı `N / genişlik` ile çarpıyor. Bu olmadan
+     dalga taşıyan her preset gözle görülür biçimde sönerdi.
+
+     Toplamalı karışımda alfa 1'i AŞABİLİYOR ve aşmalı: hedef yarı kayan
+     nokta, `SRC_ALPHA, ONE` de kenetlemiyor. Saydam karışımda ise 1'i
+     aşan alfa `ONE_MINUS_SRC_ALPHA`yı negatife düşürüp altındaki
+     görüntüyü çıkarırdı, o yüzden orada kenetleniyor — `uMax` bu iki
+     durumu ayırıyor. */
+  /* Işık koruma katsayısının ölçülmüş düzeltmesi. Gerekçesi ve ölçüm
+     sayıları `_aaStrip` içinde, kullanıldığı yerde. */
+  const AA_TRIM = 0.86;
+
+  const AALINE_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+layout(location=1) in float aSide;
+layout(location=2) in vec4 aCol;
+out float vSide;
+out vec4 vCol;
+void main(){
+  vSide = aSide;
+  vCol = aCol;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+  const AALINE_FRAG = `#version 300 es
+precision highp float;
+uniform float uHalf;
+uniform float uExt;
+uniform float uGain;
+uniform float uMax;
+in float vSide;
+in vec4 vCol;
+out vec4 outColor;
+void main(){
+  float d = abs(vSide) * uExt;
+  float cov = clamp(uHalf - d + 0.5, 0.0, 1.0);
+  float a = vCol.a * cov * uGain;
+  outColor = vec4(vCol.rgb, clamp(a, 0.0, uMax));
+}`;
+
   /* DOKULU ŞEKİLLER (shapecode_N_textured=1).
 
      Presetlerin %40,3'ü kullanıyor ve %12,1'inde şekil ekranı kaplayacak
@@ -619,12 +689,20 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const comp = this._link(COMP_MESH_VERT, COMP_FIXED_FRAG);
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
         const line = this._link(LINE_VERT, LINE_FRAG);
+        const aal = this._link(AALINE_VERT, AALINE_FRAG);
         const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
-        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !shtex.ok) {
+        if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !aal.ok || !shtex.ok) {
           this.error = (warp.log || comp.log || blur.log || line.log ||
-                        shtex.log || 'shader');
+                        aal.log || shtex.log || 'shader');
           return false;
         }
+        this.aaProg = aal.prog;
+        this.locAA = {
+          uHalf: gl.getUniformLocation(aal.prog, 'uHalf'),
+          uExt: gl.getUniformLocation(aal.prog, 'uExt'),
+          uGain: gl.getUniformLocation(aal.prog, 'uGain'),
+          uMax: gl.getUniformLocation(aal.prog, 'uMax'),
+        };
         this.shapeTexProg = shtex.prog;
         this.locShapeTexSrc = gl.getUniformLocation(shtex.prog, 'uSrc');
         this.warpFixed = warp.prog;
@@ -827,6 +905,21 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bufferData(gl.ARRAY_BUFFER, this.waveData, gl.DYNAMIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 24, 0);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 24, 8);
+      gl.bindVertexArray(null);
+
+      /* KENAR YUMUŞATMALI ŞERİT için AYRI tampon: nokta başına İKİ tepe
+         (iki yana açılmış), tepe başına pos(2) side(1) col(4) = 7 kayan
+         nokta. En kötü durum yumuşatılmış kapalı bir eğri: SMOOTH_MAX
+         nokta artı şeridi kapatmak için bir nokta daha. */
+      this.aaVao = gl.createVertexArray();
+      this.aaVbo = gl.createBuffer();
+      this.aaData = new Float32Array((SMOOTH_MAX + 1) * 2 * 7);
+      gl.bindVertexArray(this.aaVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.aaVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, this.aaData, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 28, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 28, 8);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 28, 12);
       gl.bindVertexArray(null);
 
       /* Dokulu sekiller icin AYRI tampon: dugum basina pos(2) col(4) uv(2).
@@ -1776,6 +1869,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._applyMesh(cfg);
       this._bindMouse();
       this._wantAcc = !(cfg.milkdrop && cfg.milkdrop.accurate === false);
+      /* ÇİZGİ ÇİZİMİ. `smooth` kenar yumuşatmalı ve eski yolun bıraktığı
+         ışığı koruyor; `thin` gerçek kalınlık, ışık koruması yok;
+         `milkdrop` MilkDrop'un kendi kaydırmalı kalınlaştırması.
+         Tanınmayan değer varsayılana düşüyor — ayardaki bir yazım hatası
+         çizgileri yok etmemeli. */
+      const ls = cfg.milkdrop && cfg.milkdrop.lineStyle;
+      this._lineStyle = (ls === 'thin' || ls === 'milkdrop') ? ls : 'smooth';
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
       /* Anahtar cizim sirasinda degistiyse gurultu dokulari yeniden
          uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
@@ -2777,6 +2877,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _toClipY(y) { return 1 - 2 * y; }
 
     _blend(gl, additive) {
+      /* Kenar yumuşatmalı yol alfa tavanını buna göre seçiyor: toplamalı
+         karışımda 1 aşılabilir, saydam karışımda aşılamaz. */
+      this._aaAdditive = !!additive;
       gl.enable(gl.BLEND);
       if (additive) gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
       else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -3333,7 +3436,171 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           boyutuyla orantılı tutmak, presetin amacını her çözünürlükte
           koruyor. Bilinçli bir sapma: MilkDrop bunu yapmıyor, ama MilkDrop
           da tamponu sabit tutuyordu. */
+    /* ÇİZGİ AĞIRLIĞI — eski yolun kaç kez çizdiği.
+
+       Tek bir yerde duruyor çünkü hem eski yol bunu kullanıyor hem de
+       kenar yumuşatmalı yolun ışık koruma çarpanı buna göre hesaplanıyor.
+       İkisi ayrışırsa AA açıkken presetlerin parlaklığı sessizce kayar. */
+    _lineDraws(GW, thickMul) {
+      /* Referans 320: presetlerin yazıldığı dönemin tipik iç tamponu bu
+         genişlikteydi ve çizgi ağırlığı ona göre seçilmiş. */
+      const weight = Math.max(1, Math.min(5, Math.round(GW / 320) * (thickMul || 1)));
+      // Eski yol: bir asıl çizim + en fazla altı kaydırılmış kopya.
+      return 1 + Math.min(6, Math.max(0, (weight - 1) * 3));
+    }
+
+    /* ŞERİT GEOMETRİSİ. Poli-çizgiyi iki yana açıp üçgen şeridine çevirir.
+
+       Açılma TEKSEL uzayında yapılıyor, kırpma uzayında değil: kırpma
+       uzayında sabit bir açılma en-boy oranı yüzünden yatay ve dikeyde
+       farklı kalınlık verirdi — dikey çizgiler ince, yataylar kalın.
+
+       BİRLEŞİM NOKTALARI GÖNYE (miter): her düğümde iki komşu segmentin
+       normalleri toplanıp normalleniyor ve `1/cos(yarı açı)` ile
+       uzatılıyor. Böylece şerit kesintisiz kalıyor ve segmentler ÜST ÜSTE
+       BİNMİYOR — binseydi toplamalı karışımda birleşim noktaları iki kat
+       parlak birer nokta olurdu, ki eski yolun görünür kusurlarından
+       biriydi.
+
+       GÖNYE SINIRI 4: keskin dönüşlerde `1/cos` sonsuza gidiyor ve şerit
+       ekranın dışına fırlıyor. Sınırı aşınca düğümün kendi segment
+       normaline düşülüyor; birleşimde küçük bir çentik kalıyor ama
+       geometri sınırlı kalıyor. */
+    _ribbon(d, n, closed, extPx, GW, GH, lenCorr) {
+      const out = this.aaData;
+      const sx = GW * 0.5, sy = GH * 0.5;
+      const N = closed ? n + 1 : n;
+      let w = 0;
+      let pdx = 0, pdy = 0, hasPrev = false;
+      for (let k = 0; k < N; k++) {
+        const i = k % n;
+        const px = d[i * 6] * sx, py = d[i * 6 + 1] * sy;
+        // Bu düğümden SONRAKİ segmentin yönü
+        let dx = 0, dy = 0;
+        const j = closed ? (i + 1) % n : i + 1;
+        if (closed || i + 1 < n) {
+          dx = d[j * 6] * sx - px; dy = d[j * 6 + 1] * sy - py;
+          const L = Math.sqrt(dx * dx + dy * dy);
+          if (L > 1e-9) { dx /= L; dy /= L; } else { dx = pdx; dy = pdy; }
+        } else { dx = pdx; dy = pdy; }
+        if (!hasPrev) { pdx = dx; pdy = dy; hasPrev = true; }
+        /* Gönye: iki normalin ortalaması. Normal = yönün dik çevrimi. */
+        let mx = -(pdy + dy), my = (pdx + dx);
+        const ml = Math.sqrt(mx * mx + my * my);
+        let scale = 1;
+        if (ml > 1e-9) {
+          mx /= ml; my /= ml;
+          const c = mx * -dy + my * dx;      // gönyenin segment normaline izdüşümü
+          scale = Math.abs(c) > 0.25 ? 1 / c : 0;
+        }
+        if (!scale) { mx = -dy; my = dx; scale = 1; }   // gönye sınırı: düz normal
+        const ox = mx * extPx * scale, oy = my * extPx * scale;
+        /* UZUNLUK TELAFİSİ — eski yolla aynı ışığı bırakmak için.
+
+           `gl.LINE_STRIP` elmas-çıkış kuralıyla tarıyor: bir segment için
+           BASKIN eksende bir piksel basıyor, yani 45 derecelik bir çizgi
+           birim uzunluk başına 1/√2 piksel alıyor. Şerit ise gerçek
+           uzunluğu kaplıyor. Telafi olmadan çapraz ağırlıklı bir dalga
+           %41'e kadar parlıyordu; ölçüldü, `Benski - Atom Smasher` tek
+           başına 0,884'ten 1,000'e çıkmıştı.
+
+           `max(|dx|, |dy|)` yön birimken tam olarak o oranı veriyor.
+           Düğüm iki segmentin ortak noktası olduğu için ikisinin ortalaması
+           alınıyor. `ince` kipte telafi YOK: orada amaç eski yolu taklit
+           etmek değil, fiziksel olarak doğru çizgi. */
+        let corr = 1;
+        if (lenCorr) {
+          corr = 0.5 * (Math.max(Math.abs(pdx), Math.abs(pdy)) +
+                        Math.max(Math.abs(dx), Math.abs(dy)));
+        }
+        for (const side of [-1, 1]) {
+          const o = w * 7;
+          out[o] = (px + ox * side) / sx;
+          out[o + 1] = (py + oy * side) / sy;
+          out[o + 2] = side;
+          out[o + 3] = d[i * 6 + 2]; out[o + 4] = d[i * 6 + 3];
+          out[o + 5] = d[i * 6 + 4]; out[o + 6] = d[i * 6 + 5] * corr;
+          w++;
+        }
+        pdx = dx; pdy = dy;
+      }
+      return w;
+    }
+
+    /* Kenar yumuşatmalı çizim. `d` şerit verisi, `n` nokta sayısı. */
+    _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed) {
+      if (n < 2) return;
+      const draws = this._lineDraws(GW, thickMul);
+      /* GENİŞLİK: 320'lik referansta bir teksel, yukarısında oranla. Eski
+         yolun kademeli ağırlığından farklı olarak sürekli — 640'ta 2, 1024'te
+         3,2, 1920'de 6 teksel. Görünen kalınlık çözünürlükten bağımsız
+         kalıyor, ki presetin amacı buydu.
+
+         `ince` kipinde referans 512: MilkDrop'un kendi çizgisi o boyuttaki
+         tamponda bir tekseldi, yani bu GERÇEK kalınlık. Işık koruma yok,
+         dolayısıyla dalga taşıyan presetler sönükleşiyor — kullanıcı bunu
+         bilerek seçiyor. */
+      const ref = this._lineStyle === 'thin' ? 512 : 320;
+      const wPx = Math.max(1, (GW / ref) * (thickMul || 1));
+      const half = Math.max(0.5, wPx * 0.5);
+      /* IŞIK KORUMA: şerit `2*half` teksel boyunca ışık bırakıyor, eski yol
+         `draws` kez bir teksel. Oran ikisini eşitliyor. İnce kipte 1.
+
+         AA_TRIM ÖLÇÜLMÜŞ BİR KALİBRASYON, türetilmiş değil. Kâğıt üstünde
+         oran yeterli olmalıydı; ölçünce şerit tutarlı biçimde daha fazla
+         ışık bıraktı. Sebebi `gl.LINE_STRIP`in tarama kuralı: her segmentin
+         yalnızca baskın eksende piksel basıyor ve segment sonlarını
+         düşürüyor, yani GL'nin çizdiği "uzunluk" gerçek uzunluktan kısa.
+         Segment başına bir etki olduğu için tek bir sayıyla tam
+         kapatılamıyor.
+
+         Ölçüm (512x384, `decay=0`, shader yok — yani yalnızca o karenin
+         bıraktığı ışık, döngünün kazancı karışmadan; dalga modu 0/1/2/4/7):
+         katsayısız +19,3 / +22,0 / +3,0 / +18,8 / +20,6 yüzde;
+         0,86 ile   +3,9 / +12,2 / -9,3 / +3,4 / +4,8.
+         Tam sıfır olmuyor ve olamaz: sapma segment SAYISINA bağlı, tek bir
+         çarpanla kapatılamaz. Mod 2 en kısa çizgiyi çiziyor, GL'nin segment
+         başına fazladan pikseli orada oransal olarak ağır basıyor. */
+      const gain = this._lineStyle === 'thin' ? 1 : AA_TRIM * draws / (2 * half);
+      const L = this.locAA;
+      gl.useProgram(this.aaProg);
+      /* Şerit yarı genişlikten BİR TEKSEL daha geniş: yumuşama oraya
+         sığınıyor ve kapsamanın integrali tam `2 * half` oluyor, ki ışık
+         koruma hesabı buna dayanıyor. */
+      const ext = half + 1;
+      gl.uniform1f(L.uHalf, half);
+      gl.uniform1f(L.uExt, ext);
+      gl.uniform1f(L.uGain, gain);
+      /* Toplamalı karışımda alfa 1'i aşabiliyor; saydam karışımda aşarsa
+         `ONE_MINUS_SRC_ALPHA` negatife düşüp altındaki görüntüyü çıkarır. */
+      gl.uniform1f(L.uMax, this._aaAdditive ? 64 : 1);
+      gl.bindVertexArray(this.aaVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.aaVbo);
+      const seg = (off, cnt) => {
+        if (cnt < 2) return;
+        const v = this._ribbon(d.subarray(off * 6, (off + cnt) * 6), cnt,
+          closed, ext, GW, GH, this._lineStyle !== 'thin');
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.aaData, 0, v * 7);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, v);
+      };
+      if (breakAt > 0) { seg(0, breakAt); seg(breakAt, n - breakAt); }
+      else seg(0, n);
+      gl.bindVertexArray(null);
+    }
+
     _strip(gl, kind, d, n, breakAt, GW, GH, thickMul) {
+      /* KENAR YUMUŞATMALI YOL yalnızca ÇİZGİ için. Nokta kipinde şerit
+         diye bir şey yok; noktalar eski yoldan çiziliyor. */
+      if (kind === gl.LINE_STRIP && this._lineStyle !== 'milkdrop' && this.aaProg) {
+        this._aaStrip(gl, d, n, breakAt, GW, GH, thickMul, false);
+        /* Çağıran `lineProg`/`lineVao`yu bağlı bırakmıştı; AA yolu ikisini
+           de değiştirdi. Sıradaki çizim kendi programını bağlamazsa yanlış
+           gölgelendiriciyle çizerdi. */
+        gl.useProgram(this.lineProg);
+        gl.bindVertexArray(this.lineVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+        return;
+      }
       const draw = () => {
         if (breakAt > 0) {
           gl.drawArrays(kind, 0, breakAt);
@@ -3385,10 +3652,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.quadVao) gl.deleteVertexArray(this.quadVao);
         if (this.lineVbo) gl.deleteBuffer(this.lineVbo);
         if (this.lineVao) gl.deleteVertexArray(this.lineVao);
+        if (this.aaVao) gl.deleteVertexArray(this.aaVao);
+        if (this.aaVbo) gl.deleteBuffer(this.aaVbo);
         if (this.warpFixed) gl.deleteProgram(this.warpFixed);
         if (this.compFixed) gl.deleteProgram(this.compFixed);
         if (this.blurProg) gl.deleteProgram(this.blurProg);
         if (this.lineProg) gl.deleteProgram(this.lineProg);
+        if (this.aaProg) gl.deleteProgram(this.aaProg);
         if (this.shapeTexProg) gl.deleteProgram(this.shapeTexProg);
         this._dropUserTextures();
         if (this.samplers) for (const k in this.samplers) gl.deleteSampler(this.samplers[k]);
