@@ -957,6 +957,47 @@
 
   const NUM_Q = 32;
 
+  /* t1..t8 — DALGA VE ŞEKİL BLOKLARININ KENDİ ARA DEĞİŞKENLERİ.
+
+     q1..q32 için düzelttiğimiz hatanın (bkz. PF_RESET) bir kat aşağıdaki
+     eşi. MilkDrop her karede, dalganın/şeklin `per_frame` bloğunu
+     koşturmadan HEMEN ÖNCE t1..t8'i `per_init`in bıraktığı değere geri
+     yazıyor:
+
+         for (int vi = 0; vi < NUM_T_VAR; vi++)
+             *var_pf_t[vi] = m_wave[i].t_values_after_init_code[vi];
+
+     (milkdropfs.cpp:2331 dalga için, 2288 şekil için.)
+
+     Biz taşımaya devam ediyorduk. Fark yalnızca kendi kendine biriken
+     yazımlarda görünüyor — `t3 = t3 + 0.01` gibi — ve orada büyük: değer
+     her karede bir öncekinin üstüne binerek sınırsız büyüyor, MilkDrop'ta
+     ise her kare aynı yerden başlıyor. Korpusta 1.805 preset (%17,4) dalga
+     bloğunda, 1.139'u (%11,0) şekil bloğunda t yazıyor; 149'u (%1,4)
+     birikmeli yazıyor.
+
+     ŞEKİLLERDE ÖRNEK BAŞINA sıfırlanıyor, kare başına değil: MilkDrop
+     yükleyiciyi `instance` parametresiyle her örnek için ayrı çağırıyor
+     (milkdropfs.cpp:2150). Yani bir örnek bir öncekinin ara değerini
+     devralmıyor.
+
+     per_point tarafı ayrıca sıfırlanmıyor ve sıfırlanmamalı: MilkDrop
+     `var_pp_t`yi kare başına BİR KEZ `var_pf_t`den tohumluyor (2421), yani
+     t noktalar boyunca birikiyor. Bizde ikisi zaten aynı havuz, dolayısıyla
+     bu davranış kendiliğinden doğru — yalnızca kareler arası sızıntıyı
+     kapatmak gerekiyordu. */
+  const NUM_T = 8;
+  const T_NAMES = ['t1', 't2', 't3', 't4', 't5', 't6', 't7', 't8'];
+  const captureT = (pool) => {
+    const out = new Array(NUM_T);
+    for (let i = 0; i < NUM_T; i++) out[i] = pool.get(T_NAMES[i]) || 0;
+    return out;
+  };
+  const restoreT = (pool, base) => {
+    if (!base) return;
+    for (let i = 0; i < NUM_T; i++) pool.set(T_NAMES[i], base[i]);
+  };
+
   const SHARED_VARS = [
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
@@ -1181,8 +1222,28 @@
       const P = w.pool;
       this._shareInto(P);
       P.set('r', w.r); P.set('g', w.g); P.set('b', w.b); P.set('a', w.a);
-      if (!w.initialised) { w.cInit.run(P.values); w.initialised = true; }
+      /* `samples` de her karede dosyadaki değere dönüyor
+         (milkdropfs.cpp:2338). Yazılabilir bir giriş: preset per_frame'de
+         nokta sayısını sesle oynatabiliyor, ama başlangıcı hep dosya. */
+      P.set('samples', w.samples);
+      if (!w.initialised) {
+        w.cInit.run(P.values);
+        w.initialised = true;
+        w._tInit = captureT(P);
+      }
+      restoreT(P, w._tInit);
       w.cFrame.run(P.values);
+      /* NOKTA SAYISI per_frame'den SONRA okunuyor. MilkDrop:
+             nSamples = (int)*var_pf_samples;
+             nSamples = std::min(512, nSamples);
+         (milkdropfs.cpp:2424). Öncesinde okumak presetin yazdığı değeri
+         görmezden gelirdi; korpusta 196 preset (%1,9) bunu yazıyor.
+
+         Alt sınır KIRPILMIYOR, çizim aşamasında eleniyor — MilkDrop da
+         öyle: `nSamples >= 2`, nokta kipinde `>= 1`. Burada 2'ye
+         yuvarlamak "hiç çizme" diyen bir preseti çizdirirdi. */
+      const n = Math.floor(P.get('samples'));
+      w.frameSamples = isFinite(n) ? Math.min(512, Math.max(0, n)) : 0;
       return true;
     }
 
@@ -1216,7 +1277,12 @@
       for (const k in b) P.set(k, b[k]);
       P.set('instance', instance);
       P.set('num_inst', s.instances);
-      if (!s.initialised) { s.cInit.run(P.values); s.initialised = true; }
+      if (!s.initialised) {
+        s.cInit.run(P.values);
+        s.initialised = true;
+        s._tInit = captureT(P);
+      }
+      restoreT(P, s._tInit);
       s.cFrame.run(P.values);
       const o = out || {};
       for (const k in b) o[k] = P.get(k);

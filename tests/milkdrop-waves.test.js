@@ -126,18 +126,23 @@ test('iki dalga birbirinin ara değişkenini ezmez', () => {
 });
 
 test('dalga init bloğu yalnızca bir kez koşar', () => {
+  /* Sayaç `t2` DEĞİL, kendi adı: t1..t8 artık her karede `per_init`in
+     bıraktığı değere dönüyor (MilkDrop'un yaptığı; bkz.
+     milkdrop-block-reset.test.js). Ad rezerve olmadığı için havuzda
+     kalıyor ve init ikinci kez koşsaydı 5'e geri dönerdi. */
   const p = preset([
     'wavecode_0_enabled=1',
-    'wave_0_init1=t2 = 5;',
-    'wave_0_per_frame1=t2 = t2 + 1;',
-    'wave_0_per_point1=x = t2;',
+    'wave_0_init1=sayac = 5;',
+    'wave_0_per_frame1=sayac = sayac + 1;',
+    'wave_0_per_point1=x = sayac;',
   ]);
   p.frame(INPUTS);
   p.waveFrame(p.waves[0]);
   assert.strictEqual(p.wavePoint(p.waves[0], 0, 0, 0, {}).x, 6);
   p.frame(INPUTS);
   p.waveFrame(p.waves[0]);
-  assert.strictEqual(p.wavePoint(p.waves[0], 0, 0, 0, {}).x, 7);
+  assert.strictEqual(p.wavePoint(p.waves[0], 0, 0, 0, {}).x, 7,
+    'init ikinci kez koştuysa sayaç 6\'ya döner');
 });
 
 // ------------------------------------------------------------------ şekiller

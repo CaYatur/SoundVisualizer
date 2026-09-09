@@ -2868,7 +2868,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindVertexArray(this.lineVao);
       for (const w of P.waves) {
         if (!P.waveFrame(w)) continue;
-        const N = Math.min(512, w.samples);
+        /* Nokta sayısı per_frame'den SONRA okunuyor: preset onu sesle
+           oynatabiliyor. `waveFrame` değeri kırpıp `frameSamples`a koyuyor.
+           Eşik MilkDrop'unki: normalde 2, nokta kipinde 1 — tek nokta bir
+           çizgi kuramaz ama bir nokta kurar. */
+        const N = w.frameSamples;
+        if (N < (w.useDots ? 1 : 2)) continue;
         this._customWaveSamples(tb, N, w, audio, P);
         const cw1 = this._cw1, cw2 = this._cw2;
         let count = 0;
@@ -2884,7 +2889,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           d[k + 5] = Math.max(0, Math.min(1, +o.a || 0)) * aMul;
           count++;
         }
-        if (count < 2) continue;
+        /* Sonlu olmayan noktalar elendikten SONRA da eşik aynı kalmalı:
+           çizgi iki nokta ister, nokta kipi bir. */
+        if (count < (w.useDots ? 1 : 2)) continue;
         /* YUMUŞATMA, nokta kipi HARİÇ. Varsayılan dalganın aksine burada
            MilkDrop koşula bağlıyor (milkdropfs.cpp:2508):
                if (!pState->m_wave[i].bUseDots)
