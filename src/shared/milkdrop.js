@@ -907,6 +907,56 @@
     ['bmotionvectorson', 'mv_on'],
   ];
 
+  /* KARE BASINA SIFIRLANAN YERLESIK ADLAR.
+
+     MilkDrop her karede per_frame'i kosturmadan ONCE butun yerlesik kare
+     degiskenlerini preset DOSYASINDAN yeniden yukluyor
+     (`LoadPerFrameEvallibVars`). Yani per_frame'in `zoom`a yazdigi deger
+     o karenin sonunda atiliyor; sonraki kare yine dosyadaki degerle
+     basliyor.
+
+     Bizde havuz kalici oldugu icin bu hic olmuyordu: `zoom = zoom*1,01`
+     yazan bir preset her karede bir oncekinin uzerine biniyor ve zum
+     ussel olarak kaciyordu.
+
+     Etkisi en buyuk olan yer q degiskenleri: MilkDrop q1..q32'yi her
+     karede per_frame_init'in biraktigi degere geri aliyor, cunku q'lar
+     kare geneli ile per_pixel/sekil/dalga arasindaki HABERLESME kanali,
+     kalici depo degil (kalici depo `reg00..reg99`). Korpusta 2.015
+     preset (%19,5) per_frame icinde `q1 = q1 + ...` gibi bir birikme
+     yaziyor: MilkDrop'ta bu her karede AYNI sonucu verir, bizde ise
+     sinirsiz buyuyordu. Karsilastirma: `reg` kullanan yalnizca 193
+     preset (%1,9) — yani birikmeyi q ile yazan preset onu MilkDrop'un
+     sifirladigini varsayarak yaziyor.
+
+     Liste MilkDrop'un kendi `LoadPerFrameEvallibVars` govdesinden
+     birebir alindi; preset YAZARININ kendi degiskenleri (atime, beat, zm
+     gibi) listede YOK ve sifirlanmiyor — MilkDrop'ta da kaliciar.
+
+     `monitor` bilerek disarida: MilkDrop onu her per_frame sonrasi
+     yeniden yakalayip sonraki kareye tasiyor, yani havuzun dogal
+     davranisi zaten dogru. */
+  const PF_RESET = [
+    // 1. Piksel hareketini etkileyenler
+    'zoom', 'zoomexp', 'rot', 'warp', 'cx', 'cy', 'dx', 'dy', 'sx', 'sy',
+    // 2. Etkilemeyenler
+    'decay', 'wave_a', 'wave_r', 'wave_g', 'wave_b', 'wave_x', 'wave_y',
+    'wave_mystery', 'wave_mode',
+    'ob_size', 'ob_r', 'ob_g', 'ob_b', 'ob_a',
+    'ib_size', 'ib_r', 'ib_g', 'ib_b', 'ib_a',
+    'mv_x', 'mv_y', 'mv_dx', 'mv_dy', 'mv_l', 'mv_r', 'mv_g', 'mv_b', 'mv_a',
+    'echo_zoom', 'echo_alpha', 'echo_orient',
+    'wave_usedots', 'wave_thick', 'wave_additive', 'wave_brighten',
+    'darken_center', 'gamma', 'wrap', 'invert', 'brighten', 'darken', 'solarize',
+    /* MilkDrop'un denklem adlari blur1_min/blur1_max; bizim havuzdaki
+       karsiliklari b1n/b1x (dosya anahtarlari da oyle). Korpusta bu adlari
+       denklemde yazan tek bir preset var, o yuzden ayrica ad esleme
+       kurulmadi — ama sifirlama listesine havuzdaki adiyla giriyorlar. */
+    'b1n', 'b1x', 'b2n', 'b2x', 'b3n', 'b3x', 'b1ed',
+  ];
+
+  const NUM_Q = 32;
+
   const SHARED_VARS = [
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
@@ -1008,6 +1058,13 @@
         if (c.error) this.errors.push(c.error);
       }
       this.initialised = false;
+
+      /* Sifirlama tabani: havuz dosyadan ve varsayilanlardan doldurulduktan
+         SONRA, init kosmadan once alINIyor. MilkDrop'ta da init'in bu adlara
+         yazdigi sey ilk karede zaten uzerine yaziliyor. */
+      this._pfBase = {};
+      for (const k of PF_RESET) this._pfBase[k] = this.pool.get(k);
+      this._qInit = null;
 
       /* Custom dalgalar ve şekiller. Referans preset paketinde şekillerin
          %48'i, dalgaların %32'si kullanılıyor: motorun bunları çizmemesi,
@@ -1178,7 +1235,17 @@
       if (!this.initialised) {
         this.cInit.run(P.values);
         this.initialised = true;
+        /* q'larin "init sonrasi" degeri: her karenin basladigi nokta.
+           MilkDrop init kodunu preset yuklenirken bir kez kosturup
+           q1..q32'yi tam burada saklıyor. */
+        this._qInit = new Array(NUM_Q);
+        for (let i = 0; i < NUM_Q; i++) this._qInit[i] = P.get('q' + (i + 1)) || 0;
       }
+      /* Yerlesik kare degiskenleri her karede dosyadaki degere donuyor —
+         ilk kare dahil, cunku MilkDrop init'ten sonra da yeniden yukluyor.
+         Ayrintili gerekce PF_RESET'in yaninda. */
+      for (const k of PF_RESET) P.set(k, this._pfBase[k]);
+      if (this._qInit) for (let i = 0; i < NUM_Q; i++) P.set('q' + (i + 1), this._qInit[i]);
       this.cFrame.run(P.values);
       return P;
     }
