@@ -858,6 +858,10 @@
        kenardan çıkan görüntü geri girmiyor, ekran boşalıyor ve preset
        "bitmiş" gibi görünüyor. */
     ['btexwrap', 'wrap'],
+    /* Dosyada `b1ed`, denklem dilinde `blur1_edge_darken`. Korpusta hiçbir
+       preset denklemden yazmıyor, ama okuyan bir preset ikisini de
+       bulmalı — MilkDrop ikisini aynı değişkene bağlıyor. */
+    ['b1ed', 'blur1_edge_darken'],
     ['fgammaadj', 'gamma'],
     ['fvideoechoalpha', 'echo_alpha'],
     ['fvideoechozoom', 'echo_zoom'],
@@ -954,6 +958,11 @@
         this.pool.set(b + 'n', 0);
         this.pool.set(b + 'x', 1);
       }
+      /* KENAR KARARTMA. MilkDrop'un varsayılanı 0,25 ve korpusta 1.544
+         preset (%14,9) bu anahtarı hiç yazmıyor — havuzun doğal
+         başlangıcı 0 olsaydı o presetlerde karartma hiç olmazdı, oysa
+         yazarları varsayılanı görüyordu. */
+      this.pool.set('b1ed', 0.25);
       // MilkDrop'un varsayılanı sarma AÇIK
       this.pool.set('wrap', 1);
       // Presetin sabit parametreleri havuza başlangıç değeri olarak girer

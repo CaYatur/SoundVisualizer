@@ -83,6 +83,22 @@ if (!process.versions.electron) {
 const { app, BrowserWindow } = require('electron');
 const crypto = require('crypto');
 
+/* ILERLEME CIKTISI OLCUMU DUSUREMEZ.
+
+   Harness ilerlemeyi stdout'a nokta nokta yaziyor. Cagiran taraf boruyu
+   kapatirsa (kabuk cikti, log dosyasi kapandi, kullanici pencereyi
+   kapatti) bu yazma EPIPE atiyor ve Electron ana surecte yakalanmamis
+   istisnayi MODAL BIR HATA KUTUSUYLA gosteriyor — ekranin ortasinda,
+   olcum de yarida kaliyor.
+
+   Ilerleme noktasi sustuklu bir sey: yazilamamasi olcumun sonucunu
+   degistirmiyor. Bu yuzden hem akisin hata olayi yutuluyor hem de her
+   yazma denemesi kendi icinde korunuyor. */
+process.stdout.on('error', (e) => { if (!e || e.code !== 'EPIPE') throw e; });
+process.stderr.on('error', (e) => { if (!e || e.code !== 'EPIPE') throw e; });
+const emit = (t) => { try { process.stdout.write(t); } catch (e) { /* boru kapali */ } };
+const say = (t) => emit(t + '\n');
+
 function listPresets(dir) {
   const out = [];
   const walk = (d) => {
@@ -403,14 +419,14 @@ async function main() {
         },
       };0;`);
     const warm = await win.webContents.executeJavaScript('window.__warmTextures()');
-    console.log('doku paketi     : ' + TEXDIR);
-    console.log('  yüklenen      : ' + warm.ready + ' / ' + names.length +
+    say('doku paketi     : ' + TEXDIR);
+    say('  yüklenen      : ' + warm.ready + ' / ' + names.length +
       '  (' + (bytes / 1048576).toFixed(1) + ' MB)');
   }
 
   const results = [];
   let done = 0;
-  process.stdout.write('render ediliyor: ' + files.length + ' preset');
+  emit('render ediliyor: ' + files.length + ' preset');
   for (const file of files) {
     let text;
     try { text = fs.readFileSync(file, 'latin1'); } catch (e) {
@@ -435,9 +451,9 @@ async function main() {
       warpProg: r.warpProg, compProg: r.compProg,
       texWant: r.texWant || 0, texHit: r.texHit || 0,
     });
-    if (++done % 20 === 0) process.stdout.write('.');
+    if (++done % 20 === 0) emit('.');
   }
-  process.stdout.write('\n');
+  emit('\n');
 
   const byCls = new Map();
   for (const r of results) {
@@ -451,15 +467,15 @@ async function main() {
   const soft = results.filter((r) => /yaklaşık/.test(r.note)).length;
   const pct = (a, b) => (b ? (a * 100 / b).toFixed(1) : '0.0');
 
-  console.log('');
-  console.log('korpus          : ' + corpus);
-  console.log('preset          : ' + results.length + '   kare/preset: ' + FRAMES +
+  say('');
+  say('korpus          : ' + corpus);
+  say('preset          : ' + results.length + '   kare/preset: ' + FRAMES +
     '   çözünürlük: ' + WIDTH + 'x' + HEIGHT +
     '   MilkDrop uyumu: ' + (LEGACY ? 'KAPALI' : 'açık'));
-  console.log('');
-  console.log('GÖRÜNTÜ ÜRETEN  : ' + clean + ' / ' + results.length + '  -> ' + pct(clean, results.length) + '%');
-  console.log('sabit yola düşen: ' + fixedPath + '  (shader derlenmedi, motorun genel yolu çizdi)');
-  console.log('doku yaklaşık   : ' + soft + '  (preset dokusu yok, gürültüyle ikame edildi)');
+  say('');
+  say('GÖRÜNTÜ ÜRETEN  : ' + clean + ' / ' + results.length + '  -> ' + pct(clean, results.length) + '%');
+  say('sabit yola düşen: ' + fixedPath + '  (shader derlenmedi, motorun genel yolu çizdi)');
+  say('doku yaklaşık   : ' + soft + '  (preset dokusu yok, gürültüyle ikame edildi)');
   /* `soft` ÇEVİRİ zamanında sayılıyor: preset doku istedi mi, evet. Aşağısı
      ÇİZİM zamanında sayılıyor: istenen doku gerçekten bulundu mu. İkisi
      ayrı sayılar ve `--textures` yalnız ikincisini değiştirir. */
@@ -467,15 +483,15 @@ async function main() {
   if (texAsk.length) {
     const full = texAsk.filter((r) => r.texHit >= r.texWant).length;
     const some = texAsk.filter((r) => r.texHit > 0 && r.texHit < r.texWant).length;
-    console.log('doku isteyen    : ' + texAsk.length +
+    say('doku isteyen    : ' + texAsk.length +
       '   tamamı karşılanan: ' + full + ' (' + pct(full, texAsk.length) + '%)' +
       '   kısmen: ' + some);
   }
-  console.log('');
-  console.log('SINIFLARA GÖRE');
+  say('');
+  say('SINIFLARA GÖRE');
   for (const [cls, e] of Array.from(byCls.entries()).sort((a, b) => b[1].n - a[1].n)) {
-    console.log('  ' + String(e.n).padStart(5) + '  ' + cls);
-    for (const x of e.ex) console.log('           · ' + x);
+    say('  ' + String(e.n).padStart(5) + '  ' + cls);
+    for (const x of e.ex) say('           · ' + x);
   }
 
   if (JSON_OUT) {
@@ -486,7 +502,7 @@ async function main() {
       classes: Array.from(byCls.entries()).map(([cls, e]) => ({ cls, count: e.n })),
       results,
     }, null, 1), 'utf-8');
-    console.log('\nJSON: ' + JSON_OUT);
+    say('\nJSON: ' + JSON_OUT);
   }
 
   app.exit(0);

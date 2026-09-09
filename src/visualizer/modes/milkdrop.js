@@ -150,13 +150,24 @@ uniform float uCenter;   // merkez tapin agirligi (MilkDrop'ta 0)
 uniform float uNorm;     // toplami 1'e getiren bolen
 uniform float uScale;
 uniform float uBias;
+uniform vec3 uEdge;      // kenar karartma: (1-b1ed, b1ed, 5.0); kapaliyken (1,0,5)
 void main(){
   vec3 c = texture(uSrc, vUV).rgb * uCenter;
   for (int i = 0; i < 4; i++) {
     vec2 o = uStep * uD[i];
     c += (texture(uSrc, vUV + o).rgb + texture(uSrc, vUV - o).rgb) * uW[i];
   }
-  outColor = vec4(c * uNorm * uScale + uBias, 1.0);
+  /* KENAR KARARTMA. Bulaniklik kenarda kendi disindan ornek almak
+     zorunda ve orada kenetlenmis teksel duruyor: kenar cizgisi
+     oldugundan parlak cikiyor ve bir kare parlar. MilkDrop kenara olan
+     uzakligin KAREKOKUYLE soneen bir carpan uyguluyor — karekok
+     karartmayi kenara sikistiriyor, dogrusal bir egri butun kareyi
+     karartirdi. uEdge.z (5,0) karartmanin ne kadar ice girdigini
+     belirliyor: t*5 birden buyukse carpan 1 kaliyor. */
+  float e = min(min(vUV.x, vUV.y), 1.0 - max(vUV.x, vUV.y));
+  e = sqrt(max(e, 0.0));
+  e = uEdge.x + uEdge.y * clamp(e * uEdge.z, 0.0, 1.0);
+  outColor = vec4((c * uNorm * uScale + uBias) * e, 1.0);
 }`;
 
   /* MilkDrop'un sekiz agirlikli simetrik cekirdegi, cift cift toplanmis.
@@ -458,6 +469,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           uNorm: gl.getUniformLocation(this.blurProg, 'uNorm'),
           uScale: gl.getUniformLocation(this.blurProg, 'uScale'),
           uBias: gl.getUniformLocation(this.blurProg, 'uBias'),
+          uEdge: gl.getUniformLocation(this.blurProg, 'uEdge'),
         };
 
         this._buildMesh();
@@ -2160,6 +2172,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         gl.uniform1f(L.uScale, sc);
         gl.uniform1f(L.uBias, bi);
       };
+      /* Karartma YALNIZ ILK dikey gecise uygulaniyor — MilkDrop kaynagi
+         bunu ayrica not ediyor: her kademede tekrarlanirsa cok bulanik
+         kademelerin ust ve sol kenarinda kalin siyah cizgiler cikiyor.
+         Korpusta 7.094 preset (%68,6) sifirdan buyuk bir deger yaziyor,
+         1.544'u de (%14,9) hic yazmayip varsayilan 0,25'i aliyor. */
+      const ed = acc ? Math.max(0, Math.min(1,
+        this.preset ? (this.preset.get('b1ed') || 0) : 0)) : 0;
+      const setEdge = (on) => {
+        if (!L.uEdge) return;
+        if (on) gl.uniform3f(L.uEdge, 1 - ed, ed, 5.0);
+        else gl.uniform3f(L.uEdge, 1, 0, 5.0);
+      };
       const sb = this._blurScaleBias(acc);
       const kH = acc ? BLUR_KERNEL.h : BLUR_KERNEL.legacy;
       const kV = acc ? BLUR_KERNEL.v : BLUR_KERNEL.legacy;
@@ -2178,6 +2202,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         gl.uniform2f(L.uStep, 1 / iw, 0);
         setK(kH);
         setSB(1, 0);
+        setEdge(false);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, b.out.fb);
@@ -2189,6 +2214,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            oldugu icin bulaniklikla yer degistirebiliyor; ara sonucu
            kirpmadan gecirmek daha az bilgi kaybediyor. */
         setSB(sb[i][0], sb[i][1]);
+        setEdge(i === 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
         input = b.out.tex;
