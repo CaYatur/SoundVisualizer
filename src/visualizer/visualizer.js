@@ -354,6 +354,10 @@
         time: now / 1000,
         backgroundColors: needsBgColors ? stack.palette(cfg) : [],
         ready: audio.ready,
+        /* MilkDrop presetinin `monitor` değişkeni. Yeni bir IPC kanalı
+           açmak yerine bu ~30 Hz mesaja biniyor: değer yazar aracı, kare
+           başına doğruluk gerekmiyor ve ek kanal ek bakım demek. */
+        mdMonitor: stack.milkdropMonitor(),
       });
     }
   }

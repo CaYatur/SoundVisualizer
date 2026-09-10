@@ -131,6 +131,18 @@
           st.appendChild(el('span', { text: 'deyim derlendi' }));
         }
         nodes.push(P().row('Derleme', st));
+        /* `monitor` — presetin kendi hata ayıklama probu. Render girdisi
+           değil; yazar denklemine koyup değerini görmek istiyor. Korpusta
+           4.489 preset (%43,4) yazıyor ve okunmadığı sürece o satırlar
+           ölüydü. Kimlik sabit, değeri ses ölçer mesajı ~30 Hz yazıyor —
+           panel yeniden çizilmiyor, yoksa ayar alanlarındaki odak
+           kaybolurdu. "—" yazması "preset hiç yazmadı" demek; 0 yazan bir
+           preset 0.0000 gösterir. */
+        const mval = window.SVMdMonitor;
+        nodes.push(P().row('monitor', el('span', {
+          id: 'mdMonitorVal', class: 'md-num',
+          text: (mval === null || mval === undefined) ? '—' : Number(mval).toFixed(4),
+        })));
         if (p.errors.length) {
           nodes.push(el('div', { class: 'studio-note md-errbox', text: p.errors.join('\n') }));
         }

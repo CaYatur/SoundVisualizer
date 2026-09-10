@@ -3709,6 +3709,24 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       c.fillText(this.error || 'MilkDrop motoru başlatılamadı', W / 2, H / 2);
     }
 
+    /* `monitor` — presetin kendi hata ayıklama probu.
+
+       Preset dili kare başına yazılabilen bir `monitor` değişkeni
+       tanımlıyor; render girdisi DEĞİL, yalnızca yazarın bakması için.
+       Motor değeri havuzda tutuyordu ama hiçbir yere çıkarmıyordu, yani
+       korpustaki 4.489 presetin (%43,4) o satırları ölüydü. projectM'in
+       #664'ü aynı isteği yıllardır açık tutuyor.
+
+       Preset yoksa ya da `monitor` hiç yazılmamışsa `null` dönüyor —
+       0 dönmek "preset sıfır yazdı" ile "kimse yazmadı"yı aynı gösterirdi
+       ve panelde ikisi çok farklı şeyler. */
+    monitorValue() {
+      const P = this.preset;
+      if (!P || !P.pool.has('monitor')) return null;
+      const v = P.get('monitor');
+      return typeof v === 'number' && isFinite(v) ? v : null;
+    }
+
     dispose() {
       this._disposeTargets();
       const gl = this.gl;

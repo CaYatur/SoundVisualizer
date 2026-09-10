@@ -427,6 +427,12 @@
       const i = this.index.get(name);
       return i === undefined ? 0 : this.values[i];
     }
+    /* Ada HİÇ dokunuldu mu. `get` bilinmeyen adda 0 dönüyor ve bu denklem
+       koşarken doğru olan davranış — MilkDrop'ta da tanımsız değişken
+       sıfırdır. Ama "preset sıfır yazdı" ile "preset hiç yazmadı"yı ayırmak
+       gereken yerler var: `monitor` göstergesi bunlardan biri, boş
+       gösterilmesi gereken yerde 0 göstermek yanlış bilgi olurdu. */
+    has(name) { return this.index.has(name); }
     set(name, v) {
       /* İndis ÖNCE alınmalı.
 

@@ -1352,6 +1352,27 @@
       return [];
     }
 
+    /* MilkDrop presetinin `monitor` değişkeni — YAZAR ARACI.
+
+       Preset dili kare başına yazılabilen bir `monitor` değişkeni
+       tanımlıyor ve tek işi bu: yazarın kendi denklemine koyduğu hata
+       ayıklama probu. Render girdisi değil, yani okunmadığı sürece o
+       satırlar ölü. Korpusta 4.489 preset (%43,4) yazıyor.
+
+       Yığın üstünde duruyor çünkü değeri motor biliyor ama panel motora
+       erişemiyor; `palette()` ile aynı desen. İlk MilkDrop katmanı
+       kazanıyor: birden fazla varsa hangisinin izlendiği belirsiz kalırdı,
+       ve pratikte yığında bir tane oluyor. */
+    milkdropMonitor() {
+      for (const e of this.entries) {
+        if (e.mode && typeof e.mode.monitorValue === 'function') {
+          const v = e.mode.monitorValue();
+          if (v !== null) return v;
+        }
+      }
+      return null;
+    }
+
     dispose() {
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];

@@ -4565,6 +4565,15 @@
       renderDisplays();
     });
     window.api.onAudioMeter((d) => {
+      /* MilkDrop `monitor` değeri doğrudan DOM'a yazılıyor, paneli yeniden
+         çizerek değil: panel her karede yeniden çizilseydi ayar
+         alanlarındaki odak ve imleç konumu kaybolurdu. */
+      window.SVMdMonitor = d.mdMonitor;
+      const mv = document.getElementById('mdMonitorVal');
+      if (mv) {
+        mv.textContent = (d.mdMonitor === null || d.mdMonitor === undefined)
+          ? '—' : Number(d.mdMonitor).toFixed(4);
+      }
       setMeter('mLevel', d.level);
       setMeter('mBass', d.bass);
       setMeter('mMid', d.mid);
