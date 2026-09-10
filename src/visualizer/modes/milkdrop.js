@@ -811,15 +811,62 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        koyu tonlarda gözle görülür şeritler kalıyor. Yarım kayan nokta bunu
        tümden ortadan kaldırıyor. Eklenti yoksa 8 bite düşülüyor —
        görüntü eskisi kadar iyi olur, daha kötü değil. */
+    /* GERİ BESLEME TAMPONUNUN FORMATI — ve neden KAYAN NOKTA DEĞİL.
+
+       MilkDrop'un tamponu 8 bit tamsayı, yani her yazım [0,1] aralığına
+       KENETLENİYOR. Bütün motoru bunun üstüne kurulu: blur zinciri
+       aralığı ölçek/bias ile [0,1]'e sığdırıp `GetBlurN` ile geri açıyor,
+       `decay` her karede o kenetlenmiş değeri çarpıyor.
+
+       Biz RGBA16F kullanıyorduk — daha az bantlanma için. Ama yarı kayan
+       nokta KENETLEMİYOR ve toplamalı karışımla çizilen şekiller sınırsız
+       birikiyor. Ölçtük: geri besleme tamponunun ham değerleri 40 karede
+       65504'e, yani yarı kayan noktanın tavanına çıkıyordu
+       (`Stahlregen & Geiss - Witchcraft`, `EVET - Daydreamer`). Ondan
+       sonra `sampler_main` okuyan her shader astronomik sayılarla
+       çalışıyor ve preset patlıyor. Aşamaları teker teker kapatarak
+       bulundu: kaynak ŞEKİL çizimi, şekilleri kapatınca en büyük değer
+       1,0'a iniyor.
+
+       RGB10_A2 normalize edilmiş: MilkDrop gibi kenetliyor, ama kanal
+       başına 8 değil 10 bit veriyor — yani MilkDrop'un dört katı
+       hassasiyet. Bantlanma gerekçesi karşılanıyor, kenetleme semantiği
+       geri geliyor. projectM'in #895'i tam olarak bunu istiyor.
+
+       ALFA 2 BİT ve bu sorun değil: karışım işlevlerimiz kaynak alfasını
+       kullanıyor (`SRC_ALPHA`), hedefinkini değil. Tamponun alfa kanalını
+       okuyan bir yer yok.
+
+       Sürücü RGB10_A2'yi çerçeve tamponu olarak kabul etmezse RGBA8'e
+       düşülüyor — MilkDrop'un kendi derinliği, yani en kötü durum onunla
+       eşitlenmek. */
     _colorFormat() {
       if (this._fmt) return this._fmt;
       const gl = this.gl;
-      const ok = gl.getExtension('EXT_color_buffer_float')
-        || gl.getExtension('EXT_color_buffer_half_float');
-      this._fmt = ok
-        ? { internal: gl.RGBA16F, type: gl.HALF_FLOAT }
+      this._fmt = this._fmtWorks(gl.RGB10_A2, gl.UNSIGNED_INT_2_10_10_10_REV)
+        ? { internal: gl.RGB10_A2, type: gl.UNSIGNED_INT_2_10_10_10_REV }
         : { internal: gl.RGBA8, type: gl.UNSIGNED_BYTE };
       return this._fmt;
+    }
+
+    /* Format gerçekten çizilebilir mi. Yalnızca `texImage2D` başarılı diye
+       varsaymak yetmiyor: doku oluşuyor ama çerçeve tamponu eksik kalıyor
+       ve ekran sessizce siyah çıkıyor. */
+    _fmtWorks(internal, type) {
+      const gl = this.gl;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, internal, 4, 4, 0, gl.RGBA, type, null);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE
+        && gl.getError() === gl.NO_ERROR;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.deleteFramebuffer(fb);
+      gl.deleteTexture(tex);
+      return ok;
     }
 
     _makeTarget(w, h) {
