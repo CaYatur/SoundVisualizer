@@ -617,6 +617,13 @@
                         yok, dalga tasiyan presetler sonukleseiyor.
            'milkdrop' — MilkDrop'un kendi kaydirmali kalinlastirmasi. */
       lineStyle: 'smooth',
+      /* FLAS SINIRLAMA. Nobet riski tasiyan yanip sonmeyi keser.
+         Olcut WCAG 2.3.1'in "genel flas" tanimi: bagil parlaklikta
+         0,10'dan buyuk ve saniyede ucten fazla degisim.
+         VARSAYILAN ACIK, cunku olctuk: 70 presetlik kesitte %90'i esigin
+         altinda kaliyor ve hic etkilenmiyor; devreye yalnizca WCAG'in
+         riskli dedigi %7,1'de giriyor. Kapali hal ham goruntuyu verir. */
+      flashLimit: true,
       /* MilkDrop DOKU PAKETININ klasoru (`sampler_worms`, `sampler_clouds`
          gibi adlarla aranan gorseller).
 

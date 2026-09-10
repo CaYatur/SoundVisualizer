@@ -203,3 +203,28 @@ test('şekil: dosya değerleri de her örnekte geri geliyor', () => {
       (f + 1) + '. karede rad taşınmış');
   }
 });
+
+// ------------------------------------------------------------------ decay
+
+test('decay: SIFIR geçerli bir değer, "bulunamadı" değil', () => {
+  /* Motorda `decay > 0 ? decay : 0.98` vardı ve sıfırı "bulunamadı" sayıp
+     ağır bir ize çeviriyordu — oysa `fDecay=0` "iz bırakma" demek.
+     Havuzun `has`i ikisini ayırıyor. Ölçüldü: korpusta decay'i HİÇ
+     yazmayan 1 preset var (varsayılan 0,98 onun hakkı), sonunda sıfıra
+     inen 225 preset (%2,17) var ve onlar istemedikleri izi alıyordu. */
+  const sifir = preset(['fDecay=0.000']);
+  assert.strictEqual(sifir.pool.has('decay'), true);
+  assert.strictEqual(sifir.get('decay'), 0);
+
+  const yok = preset(['zoom=1.000']);
+  assert.strictEqual(yok.pool.has('decay'), false, 'yazılmamış decay havuza girmemeli');
+});
+
+test('decay çizim tarafında `has` ile ayrılıyor', () => {
+  const CODE = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
+  assert.match(CODE, /const yazdi = this\.preset\.pool\.has\('decay'\);/);
+  assert.match(CODE, /const raw = yazdi \? Math\.max\(0, Math\.min\(1, decay\)\) : 0\.98;/);
+  assert.doesNotMatch(CODE, /decay > 0 \? Math\.min\(1, decay\) : 0\.98/,
+    'sıfırı "bulunamadı" sayan eski dal geri gelmiş');
+});

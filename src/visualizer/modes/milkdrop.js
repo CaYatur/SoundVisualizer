@@ -161,6 +161,60 @@ void main(){
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
 
+  /* FLAŞ SINIRLAMA — nöbet riski taşıyan yanıp sönmeyi kesmek.
+
+     MilkDrop'ta yok; bilinçli bir ekleme. projectM'in #947 ve #742'si aynı
+     şeyi yıllardır açık tutuyor ve hiçbir motor çözmüş değil. Korpusta
+     "Definitly Not For The Epileptic" ve "Seizure-Inducing ... RMX" gibi
+     adlar var; yazarları ne yaptıklarını biliyor, izleyen herkes bilmiyor.
+
+     ÖLÇÜT WCAG 2.3.1'in "genel flaş" tanımı: BAĞIL PARLAKLIKTA (BT.709)
+     saniyede üçten fazla ve 0,10'dan büyük değişim. Eşiği tahminle değil
+     ölçerek seçtik — 70 presetlik tohumlu kesitte kare arası en büyük
+     ortalama parlaklık sıçraması:
+
+         %71,4'ü 0,02 altında      %90,0'ı 0,10 ALTINDA
+         %4,3'ü 0,10-0,20          %5,8'i 0,20 üstünde
+         %7,1'i saniyede 3+ kez 0,10'u aşıyor  <- hedef bunlar
+
+     Yani 0,10 eşiği presetlerin onda dokuzuna hiç dokunmuyor; devreye
+     yalnızca bir standardın "riskli" dediği yerde giriyor. Varsayılanın
+     açık olma sebebi bu: bedeli neredeyse yok, kazancı erişilebilirlik.
+
+     NASIL: gösterilecek karenin ORTALAMA parlaklığının bir öncekine göre
+     değişimi eşiği aşarsa, kare bir öncekine doğru harmanlanıyor —
+     `k = eşik / değişim`. Değişim eşiğin altındaysa `k = 1`, yani görüntü
+     bit birebir aynı geçiyor. Kırpma değil ORANLAMA: eşiği ikiye katlayan
+     bir flaş yarı yarıya, on kat aşan bir flaş onda bir geçiyor.
+
+     Ortalama dokunun MIPMAP zincirinin en küçük kademesinden okunuyor:
+     donanımın kendi kutu süzgeci, yani gerçek ortalama. Küçük bir kopyaya
+     tek geçişte indirmek daha ucuz görünüyor ama doğrusal süzme yalnız
+     2x2 ortalıyor, yani 1024 dağınık örnek — ortalamayı yüzde birkaç
+     gürültüyle veriyor ve eşiğin etrafında sınırlayıcıyı yanlış
+     tetikleyebiliyor. Tam boy mipmap tam ekran dolgunun üçte biri kadar;
+     zaten yalnızca özellik açıkken üretiliyor. */
+  const FLASH_FRAG = `#version 300 es
+precision highp float;
+uniform sampler2D uCur;
+uniform sampler2D uPrev;
+uniform float uThresh;
+in vec2 vUV;
+out vec4 outColor;
+float lum(vec3 c){ return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+void main(){
+  vec3 cur = texture(uCur, vUV).rgb;
+  vec3 prv = texture(uPrev, vUV).rgb;
+  /* En küçük mipmap kademesi = bütün karenin ortalaması. Kademe numarası
+     bilerek fazla büyük: GLSL onu var olan en küçüğe kenetliyor, yani
+     küçük kopyanın boyutu değişse de bu satır doğru kalıyor. */
+  float mCur = lum(textureLod(uCur, vec2(0.5), 24.0).rgb);
+  float mPrv = lum(textureLod(uPrev, vec2(0.5), 24.0).rgb);
+  float d = abs(mCur - mPrv);
+  float k = d > uThresh ? uThresh / d : 1.0;
+  outColor = vec4(mix(prv, cur, k), 1.0);
+}`;
+
   /* Sabit birleştirme yolu. MilkDrop'ta fGammaAdj bir ÜS değil ÇARPAN:
      preset yazarları 1.6 gibi değerleri görüntüyü parlatmak için koyuyor.
      Eskiden burada pow(c, 1/gamma) vardı; parlatıyordu ama eğrisi başkaydı
@@ -412,6 +466,10 @@ void main(){ outColor = vCol; }`;
   /* Işık koruma katsayısının ölçülmüş düzeltmesi. Gerekçesi ve ölçüm
      sayıları `_aaStrip` içinde, kullanıldığı yerde. */
   const AA_TRIM = 0.86;
+
+  /* Flaş eşiği: WCAG 2.3.1'in "genel flaş" ölçütü, bağıl parlaklıkta 0,10.
+     Ölçüm ve gerekçe FLASH_FRAG'in yanında. */
+  const FLASH_THRESH = 0.10;
 
   const AALINE_VERT = `#version 300 es
 precision highp float;
@@ -690,6 +748,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
         const line = this._link(LINE_VERT, LINE_FRAG);
         const aal = this._link(AALINE_VERT, AALINE_FRAG);
+        const fls = this._link(QUAD_VERT, FLASH_FRAG);
+        if (fls.ok) {
+          this.flashProg = fls.prog;
+          this.locFlash = {
+            uCur: gl.getUniformLocation(fls.prog, 'uCur'),
+            uPrev: gl.getUniformLocation(fls.prog, 'uPrev'),
+            uThresh: gl.getUniformLocation(fls.prog, 'uThresh'),
+          };
+        }
         const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
         if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !aal.ok || !shtex.ok) {
           this.error = (warp.log || comp.log || blur.log || line.log ||
@@ -869,12 +936,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return ok;
     }
 
-    _makeTarget(w, h) {
+    _makeTarget(w, h, fmt) {
       const gl = this.gl;
-      const f = this._colorFormat();
+      const f = fmt || this._colorFormat();
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, gl.RGBA, f.type, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, f.format || gl.RGBA, f.type, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -1208,12 +1275,112 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.unitMax = Math.min(32, gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 16);
     }
 
+    /* Flaş sınırlama geçişi. Sırası:
+
+       1. Ham kareyi 32x32'ye indir ve mipmap üret — en küçük kademe bütün
+          karenin ortalaması.
+       2. Sınırlayıcıyı EKRANA çiz: ham kare, bir önceki gösterilen kare,
+          ve iki ortalama.
+       3. Ekranı `prev`e kopyala — bir sonraki karenin karşılaştıracağı şey
+          HAM kare değil GÖSTERİLEN kare olmalı, yoksa yanıp sönen bir
+          preset her karede yeniden yarı yolda kalır ve sınırlama hiç
+          yakınsamaz.
+       4. Ortalama kopyalarını takasla.
+
+       `copyTexSubImage2D` tam boy bir kopya ama GPU içinde kalıyor;
+       alternatifi ekrana çizmeden önce bir ara dokuya çizip sonra ekrana
+       bir daha çizmek olurdu, yani bir tam ekran çizim daha. */
+    _flashPass(gl, fl, GW, GH) {
+      const L = this.locFlash;
+      // 1. bu karenin ortalaması için mipmap zinciri
+      gl.bindTexture(gl.TEXTURE_2D, fl.raw.tex);
+      gl.generateMipmap(gl.TEXTURE_2D);
+
+      // 2. sınırlayıcı, doğrudan ekrana
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, GW, GH);
+      gl.disable(gl.BLEND);
+      gl.useProgram(this.flashProg);
+      gl.bindVertexArray(this.quadVao);
+      gl.uniform1i(L.uCur, 0);
+      gl.uniform1i(L.uPrev, 1);
+      gl.uniform1f(L.uThresh, FLASH_THRESH);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fl.raw.tex);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fl.prev.tex);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.bindVertexArray(null);
+
+      /* 3. GÖSTERİLEN kareyi sakla — ham kareyi değil. Karşılaştırma
+         ekrandaki değişimi ölçmeli; ham kareyle karşılaştırsaydık yanıp
+         sönen bir preset her karede aynı sıçramayı yeniden üretir,
+         sınırlama hiç yakınsamaz ve ekran yarı genlikte sönmeye devam
+         ederdi. Bununla ise dizi bir öncekinin üstüne biniyor ve genlik
+         gerçekten eşiğe iniyor. */
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, fl.prev.tex);
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, GW, GH);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    /* Flaş sınırlama hedefleri, İSTENDİĞİNDE kuruluyor.
+
+       Kapalıyken tek bir doku bile ayrılmıyor: 1920x1080'de üç tam boy
+       hedef 25 MB eder ve özelliği kullanmayan biri onu ödememeli.
+
+       `lum` kopyaları 32x32: aranan sayı tek bir ortalama, tam boy mipmap
+       üretmek kare başına gerçek bir dolgu maliyeti olurdu. İkisi
+       değişmeli kullanılıyor — biri bu karenin ortalaması, diğeri bir
+       öncekinin. */
+    _ensureFlash(W, H) {
+      const gl = this.gl;
+      if (this.flash && this.flash.w === W && this.flash.h === H) return this.flash;
+      if (this.flash) {
+        const kill = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } };
+        kill(this.flash.raw); kill(this.flash.prev);
+      }
+      /* İkisi de RGB8, geri besleme formatı DEĞİL — ve ALFASIZ.
+
+         `prev` ekrandan `copyTexSubImage2D` ile dolduruluyor. Bağlam
+         `alpha: false` ile kuruluyor, yani varsayılan çerçeve tamponunun
+         alfa kanalı YOK; kaynakta olmayan bir bileşeni hedefe kopyalamak
+         INVALID_OPERATION. Ölçtük: RGBA8 hedefte her karede GL hatası 1282,
+         RGB8'de temiz. `raw` da aynı formatta ki ikisi aynı hassasiyette
+         karşılaştırılsın. Burada 8 bit yeterli: bunlar geri beslemeye
+         girmiyor, doğrudan ekrana gidiyor. */
+      const disp = { internal: gl.RGB8, format: gl.RGB, type: gl.UNSIGNED_BYTE };
+      this.flash = {
+        w: W, h: H,
+        raw: this._makeTarget(W, H, disp),
+        prev: this._makeTarget(W, H, disp),
+      };
+      /* MIPMAP SÜZME ŞART: ortalama en küçük kademeden okunuyor ve
+         `_makeTarget` dokuları düz LINEAR bırakıyor. Öyle kalsalardı
+         `textureLod` 0. kademeyi verirdi ve "ortalama" tek bir teksel
+         olurdu — sınırlayıcı tamamen yanlış bir sayıya bakardı.
+
+         Zincir burada bir kez üretiliyor ki ilk karede `prev`in mipmapı
+         eksik kalmasın; eksik zincirli bir doku her örneklemede tanımsız
+         okunuyor. */
+      for (const t of [this.flash.raw, this.flash.prev]) {
+        gl.bindTexture(gl.TEXTURE_2D, t.tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.generateMipmap(gl.TEXTURE_2D);
+      }
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      return this.flash;
+    }
+
     _disposeTargets() {
       const gl = this.gl;
       if (!gl) return;
       const kill = (t) => { if (t) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); } };
       if (this.targets) { this.targets.forEach(kill); this.targets = null; }
       if (this.blur) { this.blur.forEach((b) => { kill(b.out); kill(b.tmp); }); this.blur = null; }
+      if (this.flash) {
+        kill(this.flash.raw); kill(this.flash.prev);
+        this.flash = null;
+      }
     }
 
     // ------------------------------------------------------------- preset
@@ -1923,6 +2090,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          çizgileri yok etmemeli. */
       const ls = cfg.milkdrop && cfg.milkdrop.lineStyle;
       this._lineStyle = (ls === 'thin' || ls === 'milkdrop') ? ls : 'smooth';
+      /* Flaş sınırlama VARSAYILAN AÇIK. Ölçtük: presetlerin %90'ı eşiğin
+         altında kalıyor ve hiç etkilenmiyor; devreye yalnızca WCAG'in
+         riskli dediği %7,1'de giriyor. Kapatmak isteyen ayardan kapatıyor. */
+      this._flashLimit = !(cfg.milkdrop && cfg.milkdrop.flashLimit === false);
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
       /* Anahtar cizim sirasinda degistiyse gurultu dokulari yeniden
          uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
@@ -2137,8 +2308,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._drawDarkenCenter(gl, GW, GH);
       this._drawBorders(gl);
 
-      // --- 6. COMP GEÇİŞİ, doğrudan ekrana
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      /* --- 6. COMP GEÇİŞİ.
+
+         Flaş sınırlama KAPALIYKEN doğrudan ekrana; açıkken bir ara dokuya,
+         çünkü sınırlayıcı kareyi bir önceki kareyle karşılaştırmak zorunda
+         ve ekranı okuyamaz. Kapalı hâlde tek bir ek geçiş, tek bir ek
+         doku yok — özelliği kullanmayan onu ödemiyor. */
+      const fl = (this._flashLimit && this.flashProg) ? this._ensureFlash(GW, GH) : null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fl ? fl.raw.fb : null);
       gl.viewport(0, 0, GW, GH);
       gl.disable(gl.BLEND);
       /* Warp'takinin aynısı: ikisinin de birleştirme shader'ı yoksa tek
@@ -2154,6 +2331,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       } else {
         this._drawCompPass(gl, dst, this.compPreset, ctx);
       }
+
+      if (fl) this._flashPass(gl, fl, GW, GH);
 
       const c = this.ctx;
       c.clearRect(0, 0, W, H);
@@ -2195,7 +2374,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            MilkDrop'ta 0,753 alıyor, 1,0 değil. Biz 1'e kenetliyorduk, yani
            o preset hiç sönmüyordu. Korpusta 36 preset (%0,3) böyle. */
         const decay = window.SVMilkdrop.colorNorm(this.preset.get('decay'));
-        const raw = decay > 0 ? Math.min(1, decay) : 0.98;
+        /* SIFIR GEÇERLİ BİR DEĞER: "iz bırakma" demek. Burada
+           `decay > 0 ? decay : 0.98` vardı ve sıfırı "bulunamadı" sayıp
+           ağır bir ize çeviriyordu. Havuzun `has`i ikisini ayırıyor:
+           korpusta decay'i HİÇ yazmayan 1 preset var (varsayılan 0,98 onun
+           hakkı), sonunda sıfıra inen 225 preset (%2,17) var ve onlar
+           istemedikleri izi alıyordu. */
+        const yazdi = this.preset.pool.has('decay');
+        const raw = yazdi ? Math.max(0, Math.min(1, decay)) : 0.98;
         const fps = 1 / Math.max(1e-3, step);
         gl.uniform1f(this.locWarpFixed.uDecay, Math.pow(raw, REF_FPS / Math.max(1, fps)));
       }

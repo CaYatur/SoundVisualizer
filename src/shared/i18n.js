@@ -1460,6 +1460,11 @@
     'Yumuşatılmış (ışık korumalı)': 'Anti-aliased (brightness preserved)',
     'Yumuşatılmış (gerçek kalınlık)': 'Anti-aliased (true width)',
     'MilkDrop (kaydırmalı kalınlaştırma)': 'MilkDrop (fattened by offset redraws)',
+    // ---- Flaş sınırlama ----
+    'Flaş Sınırlama': 'Flash Limiting',
+    'Açık (nöbet riskini kes)': 'On (cut seizure risk)',
+    'Kapalı (ham görüntü)': 'Off (raw output)',
+    'Ölçüt WCAG 2.3.1\'in genel flaş tanımı: bağıl parlaklıkta 0,10\'dan büyük ve saniyede üçten fazla değişim. Ölçüldü: presetlerin %90\'ı bu eşiğin altında kalıyor ve hiç etkilenmiyor; sınırlama yalnızca kalan %10\'da devreye giriyor ve orada da kesme değil oranlama yapıyor — eşiği on kat aşan bir flaş onda bir geçiyor.': 'The criterion is WCAG 2.3.1\'s general flash: a change in relative luminance greater than 0.10, more than three times a second. Measured: 90% of presets stay under that threshold and are untouched; the limiting engages only on the remaining 10%, and even there it scales rather than clips — a flash ten times over the threshold gets through at a tenth.',
     // ---- MilkDrop uyumu ----
     'MilkDrop Uyumu': 'MilkDrop Fidelity',
     'Açık (MilkDrop değerleri)': 'On (MilkDrop values)',

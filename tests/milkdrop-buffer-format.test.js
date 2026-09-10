@@ -64,8 +64,14 @@ test('hedefler ve bulanık kopyalar AYNI formatı kullanıyor', () => {
   /* MilkDrop\'ta blur dokuları da 8 bit ve blur\'un ölçek/bias mekanizması
      tam olarak kenetlenen bir hedefe göre tasarlanmış. İkisini ayırmak o
      mekanizmayı yarım bırakırdı. */
-  const mk = /_makeTarget\(w, h\) \{[\s\S]*?\n    \}/.exec(BARE);
+  const mk = /_makeTarget\(w, h, fmt\) \{[\s\S]*?\n    \}/.exec(BARE);
   assert.ok(mk, '_makeTarget bulunamadı');
-  assert.match(mk[0], /const f = this\._colorFormat\(\);/);
-  assert.match(mk[0], /f\.internal, w, h, 0, gl\.RGBA, f\.type/);
+  /* Açık bir format verilmediğinde motorun kendi formatına düşmeli.
+     Flaş sınırlayıcı hedefleri açıkça RGBA8 istiyor — ekrandan
+     kopyalanıyorlar ve varsayılan çerçeve tamponu o. */
+  assert.match(mk[0], /const f = fmt \|\| this\._colorFormat\(\);/);
+  /* Yükleme formatı da açık verilebilmeli: flaş sınırlayıcı hedefleri
+     ALFASIZ (RGB8), çünkü bağlam `alpha: false` ile kuruluyor ve ekrandan
+     kopyalanan bir dokuda olmayan bir bileşen olamaz. */
+  assert.match(mk[0], /f\.internal, w, h, 0, f\.format \|\| gl\.RGBA, f\.type/);
 });

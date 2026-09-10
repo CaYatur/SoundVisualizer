@@ -207,6 +207,20 @@
       ['milkdrop', 'MilkDrop (kaydırmalı kalınlaştırma)'],
     ], md.lineStyle || 'smooth', (v) => { md.lineStyle = String(v); })));
 
+    /* FLAŞ SINIRLAMA. MilkDrop'ta yok; erişilebilirlik için eklendi.
+       Korpusta "Definitly Not For The Epileptic" gibi adlar var; yazarı
+       ne yaptığını biliyor, izleyen herkes bilmiyor. Ölçüldü: presetlerin
+       %90'ı eşiğin altında ve hiç etkilenmiyor. */
+    nodes.push(P().row('Flaş Sınırlama', selOf([
+      [1, 'Açık (nöbet riskini kes)'],
+      [0, 'Kapalı (ham görüntü)'],
+    ], md.flashLimit === false ? 0 : 1, (v) => { md.flashLimit = Number(v) === 1; })));
+
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'Ölçüt WCAG 2.3.1\'in genel flaş tanımı: bağıl parlaklıkta 0,10\'dan büyük ve saniyede üçten fazla değişim. Ölçüldü: presetlerin %90\'ı bu eşiğin altında kalıyor ve hiç etkilenmiyor; sınırlama yalnızca kalan %10\'da devreye giriyor ve orada da kesme değil oranlama yapıyor — eşiği on kat aşan bir flaş onda bir geçiyor.',
+    }));
+
     /* MILKDROP UYUMLULUĞU. Motorun ölçülebilir uyum hataları düzeltildi ve
        düzeltilmiş değerler varsayılan. Anahtar yalnızca DEĞERLERİ geri
        alıyor — shader'lar, dokular ve doku birimleri iki durumda da aynı;

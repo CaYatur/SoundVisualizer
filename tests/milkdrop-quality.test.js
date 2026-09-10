@@ -134,9 +134,19 @@ test('motor: donmuş kare eritmesi tümüyle kaldırıldı', () => {
   /* Eski geçiş önceki presetin SON KARESİNİ bir dokuya alıp üstüne
      soluyordu. Artık eski preset gerçekten koşuyor; anlık görüntü dokusu,
      onun programı ve kopyalama çağrısı geride kalmamalı. */
-  for (const dead of ['snapTex', 'snapReady', 'fadeProg', 'copyTexSubImage2D', 'FADE_FRAG']) {
+  for (const dead of ['snapTex', 'snapReady', 'fadeProg', 'FADE_FRAG']) {
     assert.ok(!CODE.includes(dead), dead + ' geride kalmış');
   }
+  /* `copyTexSubImage2D` bu listede DEĞİL ve olmamalı: genel bir GL çağrısı,
+     eski geçişe ait bir ad değil. Flaş sınırlayıcı gösterilen kareyi
+     saklamak için onu kullanıyor. Yasaklamak, adı geçen mekanizmayı değil
+     çağrının kendisini yasaklamak olurdu. Asıl güvence yukarıdaki dört ad;
+     onlar durdukça donmuş kare yolu geri gelemez. */
+  const kopya = (CODE.match(/copyTexSubImage2D/g) || []).length;
+  assert.ok(kopya <= 1, 'copyTexSubImage2D yalnız flaş sınırlayıcıda olmalı');
+  const fl = /_flashPass\(gl, fl, GW, GH\) \{[\s\S]*?\n    \}/.exec(CODE);
+  assert.ok(fl && fl[0].includes('copyTexSubImage2D'),
+    'tek kullanım flaş sınırlayıcıda değilse geçiş yolu geri gelmiş olabilir');
 });
 
 test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
