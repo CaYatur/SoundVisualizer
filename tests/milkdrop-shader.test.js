@@ -671,10 +671,31 @@ test('translate: if koşulunun İÇİ de daraltılıyor', () => {
     (r.glsl.split('\n').find((l) => /first/.test(l) && /if/.test(l)) || ''));
 });
 
-test('translate: bool vektör tipleri eşleniyor', () => {
+test('translate: bool vektör tipleri SAYI vektörüne eşleniyor', () => {
+  /* Eskiden `bvec3`e eşleniyordu. Tip adını geçerli kılıyordu ama presetin
+     o değerle YAPTIĞI şeyi geçersiz bırakıyordu: gerçek koddan
+     `tile1 = hex(domain) + hex(domain + .5);` — GLSL'de bool'un toplamı yok.
+     HLSL bool'u aritmetikte serbestçe sayıya çeviriyor ve presetler bool'u
+     bir tip olarak değil "0 ya da 1 tutan sayı" olarak kullanıyor.
+
+     Ölçüldü: korpusta 46 aşama yalnız bu yüzden derlenmiyordu, yani en
+     büyük tek kova. Kurucu bool argümanını kendisi çeviriyor, o yüzden
+     `vec3(d.x>0.0, ...)` geçerli GLSL. */
   const r = T.translate('bool3 hexgrid(float2 d) { return bool3(d.x>0.0, d.y>0.0, true); }\n' +
     'shader_body { ret = vec3(1.0); }');
-  assert.match(r.glsl, /bvec3 hexgrid/);
+  assert.match(r.glsl, /vec3 hexgrid/);
+  assert.doesNotMatch(r.glsl, /bvec3 hexgrid/);
+});
+
+test('translate: bool DEĞİŞKENİ aritmetikte kullanılabiliyor', () => {
+  /* Gerçek koddan (propre hypno): `bool mask = cone>0;` ardından
+     `!mask*domain + mask*refrac_uv`. Üç ayrı şey gerekiyor ve üçü de
+     olmalı: bildirimin sayıya dönmesi, `!`in karşılaştırmaya dönmesi,
+     çarpımın geçerli kalması. */
+  const r = T.translate('shader_body { bool mask = rad>0.5; ret = vec3(!mask*0.5 + mask*uv.x); }');
+  assert.match(r.glsl, /float mask/);
+  assert.doesNotMatch(r.glsl, /bool mask/);
+  assert.match(r.glsl, /mask == 0\.0/, '`!mask` karşılaştırmaya dönmeli');
 });
 
 test('translate: süslü parantezli vektör ilk değeri kurucuya çevriliyor', () => {
@@ -696,7 +717,16 @@ test('translate: kullanılan dönme matrisleri bildiriliyor, kullanılmayanlar d
 });
 
 test('translate: bool döndüren preset fonksiyonu sayı dönüşüne izin veriyor', () => {
+  /* `bool` artık `float`a eşlendiği için dönüş de sayı. Sınanan şey
+     mekanizma değil DAVRANIŞ: iki karşılaştırmanın ÇARPIMI geçerli kalmalı
+     (GLSL'de bool*bool yok) ve sonuç `if` koşulunda kullanılabilmeli
+     (GLSL'de sayı koşul olamaz). */
   const r = T.translate('bool inside(float x) { return (x>1.0)*(x<7.0); }\n' +
     'shader_body { if (inside(uv.x)) ret = vec3(1.0); }');
-  assert.match(r.glsl, /return toB\(/);
+  assert.match(r.glsl, /float inside\(/);
+  assert.match(r.glsl, /float\(\(x>1\.0\)\) ?\* ?float\(\(x<7\.0\)\)/,
+    'karşılaştırmalar çarpım için sayıya çevrilmeli');
+  // Argüman ayrıca `toF` ile sarılıyor; aranan, koşulun karşılaştırmaya dönmesi.
+  assert.match(r.glsl, /if \(\(inside\([\s\S]*?\)\) != 0\.0\)/,
+    'sayı dönüş koşulda karşılaştırmaya dönmeli');
 });

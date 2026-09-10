@@ -159,9 +159,16 @@
      gelmemeli — gelirse o bir fonksiyon TANIMI ve dokunulmamalı. */
   function shadowedNames(text) {
     const out = [];
+    /* ÇOKLU BİLDİRİMDEKİ adlar da sayılıyor. Tipin hemen ardını aramak
+       yalnız listenin İLK adını yakalıyordu; gerçek koddan
+       `float3 neon, neons, col, noise, mod, mod2, stars, lg;` — `mod`
+       beşinci sırada ve gözden kaçıyordu, ardından `mod.z` "function name
+       expected" veriyordu. `typesOf` bildirim listesini zaten sonuna kadar
+       okuyor. */
+    const declared = typesOf(text);
     for (const name of SHADOWABLE) {
       const decl = new RegExp('\\b' + SHADOW_TYPE + '\\s+' + name + '\\b(?!\\s*\\()');
-      if (decl.test(text)) out.push(name);
+      if (decl.test(text) || (declared.has(name) && !BUILTIN_TYPES.has(name))) out.push(name);
     }
     return out;
   }
@@ -218,9 +225,22 @@
        karşılıkları da float vektör; `int2 k = ...` yazan 18 preset yalnızca
        bu bildirim yüzünden derlenmiyordu. */
     ['double4', 'vec4'], ['double3', 'vec3'], ['double2', 'vec2'], ['double', 'float'],
-    /* HLSL'in bool vektörleri. Eşlenmezlerse `bool3 f(...)` bildiren preset
-       "syntax error" veriyor — tip adı GLSL'de hiç yok. */
-    ['bool4', 'bvec4'], ['bool3', 'bvec3'], ['bool2', 'bvec2'],
+    /* HLSL'in bool'u ve bool vektörleri FLOAT'a çevriliyor, bvec'e değil.
+
+       Presetler bool'u bir tip olarak değil, "0 ya da 1 tutan sayı" olarak
+       kullanıyor — HLSL bool'u aritmetikte serbestçe sayıya çeviriyor.
+       Gerçek koddan: `bool mask = cone>0;` ardından `!mask*domain +
+       mask*refrac_uv`. GLSL'de bool'un ne çarpımı ne toplamı var; bvec'e
+       eşlemek tip adını geçerli kılıyor ama HER kullanımı hatalı
+       bırakıyordu. Ölçüldü: korpustaki başarısız aşamaların 46'sı, yani
+       en büyük kova, tek başına buydu.
+
+       Float'a çevirmek motorun geri kalanıyla da tutarlı: `int` de float'a
+       çevriliyor, sayıların hepsi float. Karşılaştırma sonucunu float'a
+       taşımak için `toF(bool)` aşırı yüklemesi var; `!x`, `x && y`,
+       `x ? a : b` gibi gerçekten mantıksal olan yerleri daraltma geçişi
+       zaten sayıya/bool'a çeviriyor. */
+    ['bool4', 'vec4'], ['bool3', 'vec3'], ['bool2', 'vec2'], ['bool', 'float'],
     ['int4', 'vec4'], ['int3', 'vec3'], ['int2', 'vec2'],
     ['uint4', 'vec4'], ['uint3', 'vec3'], ['uint2', 'vec2'], ['uint', 'float'],
     /* int -> float: HLSL sayıları serbestçe karıştırır, GLSL ES karıştırmaz.
@@ -449,6 +469,12 @@
     'vec3 mdMax(float a, vec3 b){ return max(b, a); }',
     'vec4 mdMax(float a, vec4 b){ return max(b, a); }',
     'float atan2(float y, float x){ return atan(y, x); }',
+    /* HLSL'in atan2'si genType: presetler vektör geçiyor. Gerçek koddan
+       `ang1 = atan2(uvx,uvy)` — ikisi de float3. Yalnız skaler sürüm varken
+       "no matching overloaded function found" oluyordu. */
+    'vec2 atan2(vec2 y, vec2 x){ return atan(y, x); }',
+    'vec3 atan2(vec3 y, vec3 x){ return atan(y, x); }',
+    'vec4 atan2(vec4 y, vec4 x){ return atan(y, x); }',
     'float rsqrt(float x){ return inversesqrt(max(x, 1e-9)); }',
     'float fmod(float a, float b){ return mod(a, b); }',
     'vec2 fmod(vec2 a, vec2 b){ return mod(a, b); }',
@@ -653,6 +679,18 @@
     'int toI(vec3 v){ return int(v.x); }',
     'int toI(vec4 v){ return int(v.x); }',
     'float toF(bool b){ return b ? 1.0 : 0.0; }',
+    /* DÖNME MATRİSİ SAYI YERİNE. Gerçek koddan: `ret.x -= rot_f3;`. HLSL
+       matrisi skalere kırparken [0][0]'ı alıyor. Matrisler `vec3[4]` olarak
+       bildiriliyor (gerekçesi translate içinde: HLSL satır indeksleme). */
+    'float toF(vec3 m[4]){ return m[0].x; }',
+    /* DÖNME MATRİSİYLE ÇARPIM. MilkDrop bunları `float4x3` veriyor: üç satır
+       dönme, dördüncüsü öteleme. HLSL'de `mul(vector, matrix)` boyut
+       tutmadığında matrisi KIRPIYOR, o yüzden vec2 de vec3 de geçerli bir
+       çağrı — gerçek koddan `mul(adjuv, rot_d2)` (adjuv float2).
+       Satırlar dizi olarak durduğu için çarpım satır satır toplam. */
+    'vec3 mul(vec2 v, vec3 m[4]){ return v.x*m[0] + v.y*m[1]; }',
+    'vec3 mul(vec3 v, vec3 m[4]){ return v.x*m[0] + v.y*m[1] + v.z*m[2]; }',
+    'vec3 mul(vec4 v, vec3 m[4]){ return v.x*m[0] + v.y*m[1] + v.z*m[2] + v.w*m[3]; }',
     'float toF(int i){ return float(i); }',
     'vec2 toV2(bool b){ return vec2(b ? 1.0 : 0.0); }',
     'vec3 toV3(bool b){ return vec3(b ? 1.0 : 0.0); }',
@@ -674,6 +712,88 @@
     'vec4 toV4(vec3 v){ return vec4(v, 1.0); }',
     'vec4 toV4(vec4 v){ return v; }',
   ];
+
+  /* BİZİM ÜRETTİĞİMİZ ADLAR. Preset aynı adı kendisi tanımlarsa iki tanım
+     çakışıyor ve shader hiç derlenmiyor. İki ayrı biçim var, ikisi de
+     korpusta gerçekten karşımıza çıktı:
+
+       `#define main sampler_pw_main`  — makro bizim `void main()`imizi de
+       açıyor, sonuç "redefinition of a function" (9 aşama);
+       `float3 GetBlur0 (float2 uvi) {...}` — preset yardımcımızı yeniden
+       tanımlıyor, "function already has a body" (1 aşama).
+
+     Çözüm presetin adını değiştirmek: kendi tanımını kendi çağrıları
+     kullanmaya devam ediyor, yani presetin niyeti korunuyor. Bizimkini
+     değiştirmek olmazdı — motor kendi ürettiği koddan onları çağırıyor. */
+  const HELPER_NAMES = (function () {
+    const set = new Set(['main', 'outColor']);
+    for (const line of HELPERS) {
+      const g = /^\s*\w+(?:\s*\[\s*\d*\s*\])?\s+([A-Za-z_]\w*)\s*\(/.exec(line);
+      if (g) set.add(g[1]);
+    }
+    return set;
+  })();
+
+  /* Presetin ürettiğimiz adlarla çakışan TANIMLARINI yeniden adlandırır.
+     `renameShadowed` bu işi yapamıyor: onun kalıbı `(?!\s*\()` ile ÇAĞRI
+     biçimini bilerek atlıyor, oysa burada değiştirilmesi gereken tam olarak
+     çağrı biçimindeki tanım. */
+  function collidingNames(text) {
+    const out = [];
+    const seen = new Set();
+    /* Makro adı: açılım her yerde geçerli, bizim ürettiğimiz kodda bile. */
+    const mre = /^[ \t]*#[ \t]*define[ \t]+([A-Za-z_]\w*)/gm;
+    let m;
+    while ((m = mre.exec(text)) !== null) {
+      if (HELPER_NAMES.has(m[1]) && !seen.has(m[1])) { seen.add(m[1]); out.push(m[1]); }
+    }
+    /* Fonksiyon tanımı: yalnız yardımcılarımızla çakışanlar. */
+    const fre = /\b(?:float|vec[234]|mat[234](?:x[234])?|void)\s+([A-Za-z_]\w*)\s*\([^()]*\)\s*\{/g;
+    while ((m = fre.exec(text)) !== null) {
+      if (HELPER_NAMES.has(m[1]) && !seen.has(m[1])) { seen.add(m[1]); out.push(m[1]); }
+    }
+    return out;
+  }
+
+  function renameColliding(s, names) {
+    for (const name of names || []) {
+      s = s.replace(new RegExp('\\b' + name + '\\b', 'g'), name + '_p');
+    }
+    return s;
+  }
+
+  /* GÖVDESİNDE HİÇ `return` OLMAYAN fonksiyona bir tane ekler.
+
+     Gerçek koddan: `float2 rsp (float2 uv_in) {\n}` — preset fonksiyonu
+     yazmaya başlamış, içini boş bırakmış. HLSL derleyicisi bunu uyarıyla
+     geçiyor, GLSL ES "Function does not return a value" deyip shader'ı
+     tümden düşürüyor.
+
+     Denetim BİLEREK dar: "hiç `return` yok". "Her yoldan dönüyor mu"
+     sorusunu çözmek bir akış çözümlemesi ister ve yanlış cevabı çalışan bir
+     shader'a satır ekler. */
+  function defaultReturns(text) {
+    const re = /\b(float|vec[234]|mat[234](?:x[234])?)\s+([A-Za-z_]\w*)\s*\(([^()]*)\)\s*\{/g;
+    let out = '';
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      let depth = 1;
+      let i = re.lastIndex;
+      for (; i < text.length && depth > 0; i++) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') depth--;
+      }
+      if (depth !== 0) break;                       // kapanmıyor: dokunma
+      const body = text.slice(re.lastIndex, i - 1);
+      re.lastIndex = i;
+      if (/\breturn\b/.test(body)) continue;
+      const zero = m[1] === 'float' ? '0.0' : m[1] + '(0.0)';
+      out += text.slice(last, i - 1) + ' return ' + zero + '; ';
+      last = i - 1;
+    }
+    return last ? out + text.slice(last) : text;
+  }
 
   // MilkDrop'un shader'a verdiği ve presetin yazabildiği değişkenlerin tipleri
   const BUILTIN_TYPES = (function () {
@@ -781,6 +901,14 @@
        Deyimler zaten sırayla geziliyor; bildirim görüldüğü ANDAN itibaren
        geçerli sayılıyor. Öncesindeki deyimler eski tipi görüyor. */
     let live = types;
+    /* BLOK KAPSAMI. Konuma bağlı çizelge fonksiyondan ÇIKARKEN geri
+       alınmazsa bir yardımcının yereli metnin geri kalanını zehirliyor:
+       "fractal descent" dış kapsamda `float2 c` kullanıyor, bir yardımcı
+       fonksiyonun içinde de `float c` bildiriyor. Ölçüldü — geri alma
+       olmadan 31 aşama bu yüzden bozuldu, üstelik hepsi ÖNCEDEN
+       derleniyordu. Süslü parantez açılırken çizelge yığına, kapanırken
+       geri alınıyor. */
+    const kapsam = [];
     for (let i = 0; i <= s.length; i++) {
       const c = s[i];
       if (c === '(' || c === '[') depth++;
@@ -789,11 +917,54 @@
       if (!boundary) continue;
       const st = s.slice(start, i);
       out.push(fixStatement(st, live) + (i < s.length ? c : ''));
-      const d = /^\s*(?:const\s+)?(float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:=|$)/.exec(st);
-      if (d && live.get(d[2]) !== d[1]) {
-        if (live === types) live = new Map(types);
-        live.set(d[2], d[1]);
+      /* ÇOKLU BİLDİRİM de konumdan itibaren geçerli oluyor.
+
+         Önceden yalnız `float x = ...` biçimi çizelgeyi tazeliyordu; oysa
+         presetler fonksiyon başlarında `float tmp, li;` yazıyor. Aynı ad
+         AYRI FONKSİYONLARDA ayrı tiple bildirilebiliyor — gerçek koddan,
+         tek presette üç kez: `float2 tmp`, `float tmp`, `float tmp`. Önceden
+         taranan çizelge tek bir tip tutmak zorunda ve süslü parantez
+         derinliği üçünü de aynı derinlikte gördüğü için sonuncusu
+         kazanıyordu; öteki ikisinin gövdesi yanlış tiple sarılıp
+         "dimension mismatch" veriyordu. Korpusta 16 aşama.
+
+         Bildirim kullanımından ÖNCE geldiği için konuma bağlı çizelge burada
+         doğru cevabı veriyor. */
+      const dh = /^\s*(?:const\s+)?(float|vec2|vec3|vec4)\s+([\s\S]+)$/.exec(st);
+      /* FONKSİYON İMZASI bildirim değil: `float2 f(float2 x)` da tipe
+         benziyor ama `f` bir değişken değil. Ayıran şey adın hemen
+         ardından parantez gelmesi — ilk değerdeki parantezi (`c =
+         (uv2-0.5)*2.0`) reddetmek tek adlı bildirimleri de kırıyordu ve
+         ölçüm bunu 33 bozulan aşama olarak gösterdi. */
+      const imza = dh && (/^\s*[A-Za-z_]\w*\s*\(/.test(dh[2]) || /[{}]/.test(dh[2]));
+      if (dh && !imza) {
+        for (const one of splitTopCommas(dh[2])) {
+          const nm = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?:=[\s\S]*)?$/.exec(one);
+          if (!nm || live.get(nm[1]) === dh[1]) continue;
+          if (live === types) live = new Map(types);
+          live.set(nm[1], dh[1]);
+        }
       }
+      if (c === '{') {
+        kapsam.push(live);
+        live = new Map(live);
+        /* FONKSİYON PARAMETRELERİ o fonksiyonun kapsamına yazılıyor.
+
+           Preset AYNI ADI iki ayrı imzayla tanımlayabiliyor; gerçek koddan
+           (martin - massif central): `noise3(float3 uvi, float3 mod)` ve
+           `noise3(float2 uvi, float3 mod)`. Önceden taranan çizelgede `uvi`
+           tek bir tip tutuyor ve sonuncusu kazanıyordu, yani öteki
+           gövdedeki her `uvi` ataması yanlış tiple sarılıyordu. Blok
+           kapsamı bunu doğal olarak çözüyor — yeter ki parametreler
+           kapsama girsin. */
+        const fs = /([A-Za-z_]\w*)\s*\(([^()]*)\)\s*$/.exec(st);
+        if (fs) {
+          for (const p of fs[2].split(',')) {
+            const pm = /^\s*(?:in|out|inout\s+)?(float|vec2|vec3|vec4)\s+([A-Za-z_]\w*)\s*$/.exec(p);
+            if (pm) live.set(pm[2], pm[1]);
+          }
+        }
+      } else if (c === '}') live = kapsam.length ? kapsam.pop() : types;
       start = i + 1;
     }
     return out.join('');
@@ -872,9 +1043,28 @@
       if (p === '=' || p === '!' || p === '<' || p === '>') return st;
       const compound = (p === '+' || p === '-' || p === '*' || p === '/');
       const lhsEnd = compound ? i - 1 : i;
-      const lhs = st.slice(0, lhsEnd).trim();
+      let lhs = st.slice(0, lhsEnd).trim();
       const rhs = st.slice(i + 1);
       if (!rhs.trim()) return st;
+      /* SKALERİN SOL TARAFTAKİ SWIZZLE'I atılıyor.
+
+         HLSL'de skalerin de bileşeni var: `float i; i.x *= k;` geçerli ve
+         `i *= k` demek. GLSL "field selection requires structure, vector,
+         or interface block" diyor. Sağ tarafta bu zaten daraltma geçişinde
+         çözülüyordu (`lum(ret).x`), solda çözülmüyordu — çünkü daraltma
+         yalnız ifadelere uygulanıyor, atamanın hedefine değil.
+
+         Yalnız TEK bileşen atılıyor: `i.xy = ...` skalere iki bileşen
+         yazmak demek, HLSL'de de geçersiz; sessizce düzeltmek yanlış
+         görüntü üretirdi. */
+      const head = st.slice(0, lhsEnd);
+      const swz = /^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*[xyzwrgba](\s*)$/.exec(head);
+      if (swz && types.get(swz[2]) === 'float') {
+        const yeni = swz[1] + swz[2] + swz[3];
+        st = yeni + st.slice(lhsEnd);
+        i -= head.length - yeni.length;
+        lhs = swz[2];
+      }
       const t = targetType(lhs, types);
       if (!t || !CAST[t]) return st;
       /* Üst düzey virgül varsa dokunma. `trad = q5, srad = sqrt(trad)` bir
@@ -914,6 +1104,19 @@
   }
 
   function targetType(lhs, types) {
+    /* DİZİ ELEMANINA ATAMA. `vals[0] = Intrinisic(...)` — sol taraf köşeli
+       parantezle bitiyor ve aşağıdaki kalıp adı sonda arıyor, yani hiç
+       eşleşmiyordu: atama sarmalanmadan geçiyor ve `float vals[8]`e vec3
+       yazılıyordu. Dizinin ELEMAN TİPİ çizelgeye `[] <ad>` anahtarıyla
+       giriyor — sıradan bir ad değil, aynı adlı bir değişkenle çakışmasın. */
+    /* BİLDİRİMİN kendisi değil. `vec4 s[2] = { ... }` sol tarafı da köşeli
+       parantezle bitiyor ama orada sarmalanacak bir eleman yok — dizinin
+       TAMAMI atanıyor ve `toV4(vec4[2](...))` geçersiz GLSL. Tiple başlıyorsa
+       bildirimdir. */
+    const bildirim = /^\s*(?:const\s+)?(?:float|vec2|vec3|vec4|mat[234](?:x[234])?)\s/.test(lhs);
+    const dizi = bildirim ? null
+      : /(?:^|[^.\w])([A-Za-z_][A-Za-z0-9_]*)\s*\[[\s\S]*\]\s*$/.exec(lhs);
+    if (dizi) return types.get('[] ' + dizi[1]) || null;
     const m = /((?:float|vec2|vec3|vec4)\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?:\.\s*([xyzwrgba]{1,4}))?\s*$/
       .exec(lhs);
     if (!m) return null;
@@ -1205,7 +1408,14 @@
         if (depth !== 0) break;
         const idx = s.slice(re.lastIndex, i - 1).trim();
         if (/^\d+$/.test(idx) || /^int\s*\(/.test(idx)) { re.lastIndex = i; continue; }
-        out += s.slice(last, m.index) + n + '[int(' + idx + ')]';
+        /* İndeks ONDALIKLAŞTIRILIYOR. `floatify` köşeli parantezin içini
+           bilerek atlıyor — `h[0]` bozulmasın diye. Ama indeks artık
+           `int(...)` içine giriyor ve orada tamsayı sabiti float'la
+           karışıyor: gerçek koddan `d[i+1]` -> `int(i+1)`, GLSL "no
+           operation '+' exists ... and a right operand of type 'const int'".
+           Düz sayısal indeks yukarıda zaten elenmiş olduğu için `h[0]`
+           buraya hiç gelmiyor. */
+        out += s.slice(last, m.index) + n + '[int(' + floatifyLine(idx) + ')]';
         last = i;
         re.lastIndex = i;
       }
@@ -1226,6 +1436,22 @@
     /* Ad `sampler_` ile başlamak zorunda değil: gerçek koddan `sampler MYSAMP;`.
        Bildirimi bırakmak GLSL'de sözdizimi hatası. */
     s = s.replace(/\bsampler(2D|3D|CUBE)?\s+[A-Za-z_][A-Za-z0-9_]*\s*;/g, '');
+    /* `#define` GÖVDESİNİN SONUNDAKİ NOKTALI VİRGÜL ATILIYOR.
+
+       Gerçek koddan: `#define texx tex2D(sampler_manyfish,uv);` ve ardından
+       `float3 add=texx;`. HLSL'de açılım `...);;` veriyor — fazladan boş
+       deyim, zararsız. Bizde ise atamanın sağ tarafı daraltma sarmalayıcısına
+       giriyor (`toV3(texx)`) ve noktalı virgül parantezin İÇİNDE kalıyor:
+       `toV3(tex2D(...););` — sözdizimi hatası.
+
+       Noktalı virgülü makronun gövdesinden almak iki kullanımda da doğru:
+       deyim olarak kullanılırsa çağrı yerindeki `;` zaten duruyor.
+
+       SIRA ÖNEMLİ — doku bildirimi temizliğinden SONRA geliyor. Aynı preset
+       `#define smp sampler sampler_manyfish;` de yazıyor, yani bildirimin
+       kendisi makronun içinde. Noktalı virgül önce alınırsa yukarıdaki
+       temizlik onu artık tanımıyor ve `sampler` sözcüğü koda sızıyor. */
+    s = s.replace(/^([ \t]*#[ \t]*define\b[^\n]*?);[ \t]*$/gm, '$1');
     // HLSL'in `static` niteleyicisi GLSL'de ayrılmış sözcük (%3)
     s = s.replace(/\bstatic\b/g, ' ');
     /* GLSL ES'in ayrılmış sözcükleri. HLSL'de serbest oldukları için presetler
@@ -1236,6 +1462,15 @@
        ifade olmasını istiyor; preset ise oraya rahatça bir uniform ya da
        karşılaştırma yazıyor: `const float sw = rand_preset.x >= .4;`. */
     s = s.replace(/\bconst\s+/g, '');
+    /* DÖNME MATRİSİNİN EKSİSİ çarpımın dışına alınıyor.
+
+       Gerçek koddan: `mul(sp, -rot_d2)`. Matrisler `vec3[4]` olarak
+       bildiriliyor (gerekçesi translate içinde) ve GLSL'de bir dizinin
+       eksisi yok — işleç aşırı yüklemesi de yok, yani yardımcı eklenerek
+       çözülemiyor. Çarpım matriste DOĞRUSAL olduğu için işareti dışarı
+       almak birebir aynı sonucu veriyor. */
+    s = s.replace(/\bmul\s*\(([^,()]+),\s*-\s*(rot_[A-Za-z0-9_]+)\s*\)/g, '(-mul($1, $2))')
+      .replace(/\bmul\s*\(\s*-\s*(rot_[A-Za-z0-9_]+)\s*,([^,()]+)\)/g, '(-mul($1, $2))');
     // Matris kurucuları tip eşlemesinden ÖNCE, yoksa float3x3( -> mat3( olur
     s = s.replace(/\bfloat2x3\s*\(/g, 'hmat2x3(')
       .replace(/\bfloat3x2\s*\(/g, 'hmat3x2(')
@@ -1250,6 +1485,19 @@
        dokuyu iki farklı ön ekle okuyup ikisinde de aynı sonucu alıyordu.
        Artık her yazım kendi uniform'u (bkz. translate içindeki sampler
        planı) ve kendi doku birimi. */
+    /* `int(x)` bir TİP ADI DEĞİL, bir DÖNÜŞTÜRME. Aşağıdaki tip eşlemesi
+       `int`i `float`a çeviriyor ve bu çağrıyı da `float(x)` yapıyordu —
+       yani kırpma tümüyle kayboluyordu. Ölçüldü: `retish[int(bass*...)]`
+       yazan preset `retish[float(...)]` üretiyor ve GLSL "integer expression
+       required" diyordu; korpusta 11 aşama yalnız bunun yüzünden düşüyordu.
+
+       Karşılığı `int(` değil `trunc(`: motorun her yerinde sayılar float ve
+       araya tamsayı tipli bir ifade sokmak `float x = int(y)` gibi satırları
+       (GLSL'de örtük dönüşüm yok) kırardı. `trunc` HLSL'in tamsayı
+       dönüşümüyle aynı şeyi yapıyor — sıfıra doğru kırpıyor — ama float
+       kalıyor. İndeks olarak kullanılan yerleri `arrayIndex` zaten `int()`
+       ile sarıyor. */
+    s = s.replace(/\bint\s*\(/g, 'trunc(');
     for (const t of TYPES) s = s.replace(new RegExp('\\b' + t[0] + '\\b', 'g'), t[1]);
     /* Presetler yerleşiklerin adını bazen küçük harfle yazıyor (`tex2d`).
        HLSL derleyicisi bunu kabul ediyordu; 42 preset yalnızca bu yüzden
@@ -1354,6 +1602,20 @@
         if (c === '(' || c === '[') d++;
         else if (c === ')' || c === ']') d--;
         if (d === 0 && (c === ',' || c === ';')) { names.push(cur); cur = ''; if (c === ';') break; continue; }
+        /* SATIR SONU listeyi bitirmiyorsa geçilir.
+
+           Bildirim listesi sarabiliyor; gerçek koddan:
+             `float2 rs0, rs, rs1, dz, rsk, dz1, uv4,`
+             `       Kugel1, Kugel2, Kugel3;`
+           Satır sonunda koşulsuz durmak `Kugel1..3`ü TİPSİZ bırakıyordu ve
+           tipsiz operand daraltılmıyor: `(Kugel1+Kugel2+Kugel3)*.25 + ret2/4`
+           GLSL'e vec2 + vec3 olarak gidiyordu. Korpusta 20 aşama.
+
+           Durma koşulu KALIYOR, yalnız daraltıldı: virgülden hemen sonra
+           gelen satır sonu (yani `cur` boşken) geçiliyor. Aksi hâlde
+           noktalı virgülü olmayan bir satır tarayıcıyı metnin sonuna kadar
+           sürükler ve `float2 f(float2 x)` gibi bir imza bildirim sanılırdı. */
+        if (d === 0 && c === '\n' && !cur.trim() && names.length) continue;
         if (d === 0 && (c === '{' || c === '}' || c === '\n')) { names.push(cur); break; }
         cur += c;
       }
@@ -1502,7 +1764,21 @@
       else if (c === ')' || c === ']') paren--;
       else if (c === '{') { depth++; continue; }
       else if (c === '}') { depth--; }
-      const boundary = i === text.length ||
+      /* ÖNİŞLEMCİ SATIRI KENDİ BAŞINA BİR PARÇA.
+
+         `#define` noktalı virgülle bitmiyor, dolayısıyla tarayıcı onu bir
+         SONRAKİ bildirimle aynı parçaya katıyordu. Birleşik parça artık
+         "tiple başlıyor" kalıbına uymuyor ve bildirim hoist EDİLMİYOR:
+         gerçek koddan `#define sat saturate` + `static const float2 pix =
+         texsize.zw;` — ikisi birleşince `pix` küresel kapsamda uniform
+         okuyan bir ilk değerle kalıyor ve GLSL "global variable initializers
+         must be constant expressions" diyor. Korpusta 19 aşama tam olarak
+         bu yüzden düşüyordu.
+
+         Satır sonu da sınır sayılıyor; parça `#` ile başlıyorsa. */
+      const preproc = paren === 0 && depth === 0 && c === '\n' &&
+        text.slice(start, i).trim().charAt(0) === '#';
+      const boundary = i === text.length || preproc ||
         (paren === 0 && depth === 0 && c === ';') ||
         (paren === 0 && depth === 0 && c === '}');
       if (!boundary) continue;
@@ -1660,6 +1936,17 @@
        verilince globals'taki bildirim değişip gövdedeki kullanım olduğu gibi
        kalıyor ve ad "undeclared identifier" oluyordu — ölçüm bunu 50 yeni
        hata olarak gösterdi. */
+    /* Ürettiğimiz adlarla ÇAKIŞAN preset tanımları (makro ya da fonksiyon)
+       yeniden adlandırılıyor; gerekçesi `collidingNames` yerinde. İki bölüm
+       birlikte taranıyor: tanım globals'ta, kullanım gövdede. */
+    const collide = collidingNames(pair[0] + '\n' + pair[1]);
+    if (collide.length) {
+      pair[0] = renameColliding(pair[0], collide);
+      pair[1] = renameColliding(pair[1], collide);
+    }
+    // Gövdesi boş bırakılmış preset fonksiyonlarına dönüş ekleniyor.
+    pair[0] = defaultReturns(pair[0]);
+    pair[1] = defaultReturns(pair[1]);
     const shadow = shadowedNames(pair[0] + '\n' + pair[1]);
     if (shadow.length) {
       pair[0] = renameShadowed(pair[0], shadow);
@@ -1672,7 +1959,16 @@
       pair[0] = coerceUserReturns(coerceUserCalls(pair[0], sigs), sigs);
       pair[1] = coerceUserReturns(coerceUserCalls(pair[1], sigs), sigs);
     }
-    const arrays = arrayNames(pair[0] + '\n' + pair[1]);
+    /* VEKTÖR BİLEŞENİ de tamsayı indeks istiyor. `retish[i]` HLSL'de `i`
+       float olsa da çalışıyor, GLSL'de çalışmıyor — ve bu bir DİZİ değil,
+       bir vec3. Dizi adlarının yanına vektör/matris adları da giriyor;
+       `arrayIndex` sayısal ve zaten `int(` olan indekse dokunmadığı için
+       `ret.x` gibi olağan kullanım etkilenmiyor. */
+    const vecNames = [];
+    for (const [k, v] of typesOf(pair[0] + '\n' + pair[1])) {
+      if (/^(?:vec[234]|mat[234](?:x[234])?)$/.test(v) && !BUILTIN_TYPES.has(k)) vecNames.push(k);
+    }
+    const arrays = arrayNames(pair[0] + '\n' + pair[1]).concat(vecNames);
     if (arrays.length) {
       pair[0] = arrayIndex(pair[0], arrays);
       pair[1] = arrayIndex(pair[1], arrays);
@@ -1698,6 +1994,26 @@
        az önce sildik, dolayısıyla typesOf onları göremez. Görmezse
        `uv * texsize_lichen.zw` gibi bir ifadede daraltma yapılmaz. */
     for (const n of texSizeNames) types.set(n, 'vec4');
+    /* Presetin kendi fonksiyonlarının DÖNÜŞ TİPİ de çizelgeye giriyor,
+       `fn <ad>` anahtarıyla — sıradan bir ad değil, yoksa aynı adlı bir
+       değişkenle çakışırdı. Tip çıkarımı bunları bilmezse `if (inside(x))`
+       gibi bir koşulda dönüşün sayı olduğunu göremiyor ve daraltma
+       yapılmıyor. */
+    for (const [name, sig] of sigs) types.set('fn ' + name, sig.ret);
+    /* DÖNME MATRİSLERİ tip çıkarımına MATRİS olarak giriyor. Bildirimleri
+       `vec3 rot_d2[4]` — HLSL'in `float4x3`ü, yani üç sütun dört satır.
+       Çizelgede yoksa `mul(adjuv, rot_d2)` tipsiz kalıyor ve sonucun vec3
+       olduğu görülmüyor: `mul(...)*aspect.xy` daraltılmadan geçiyor. */
+    for (const n of rotUniforms) types.set(n, 'mat3x4');
+    /* Dizilerin ELEMAN TİPİ de `[] <ad>` anahtarıyla giriyor; `targetType`
+       dizi elemanına atamayı bununla çözüyor. Adın KENDİSİ çizelgeye
+       girmiyor — gerekçesi `typesOf` içinde: `samples[i]` bir bileşen
+       erişimi sanılırdı. */
+    {
+      const dre2 = /\b(float|vec2|vec3|vec4)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*\d+\s*\]/g;
+      let am;
+      while ((am = dre2.exec(gRaw + '\n' + bRaw)) !== null) types.set('[] ' + am[2], am[1]);
+    }
     const hoisted = gRaw ? hoistGlobals(boolConds(coerce(gRaw, types), types)) : { decls: '', prologue: [] };
     const body = boolConds(coerce(bRaw, types), types);
 

@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1493%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1521%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -211,8 +211,8 @@ profilinde basamak olmadığını doğruluyor.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
   dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir fuzz testi bunu doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
-  bağlamında, 10.332 presetlik korpusta ölçüldü: **shader aşamalarının %99,2'si derleniyor**,
-  presetlerin %98,5'inde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
+  bağlamında, 10.332 presetlik korpusta ölçüldü: **16.346 shader aşamasının tamamı derleniyor**,
+  shader taşıyan 8.485 presetin hepsinde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
   pikselleri okuyor — derlenen bir shader siyah da çizebilir: **yaklaşık %98'i canlı görüntü üretiyor.** Tohumlu kesit bir preset kadar oynayabiliyor: harness geri besleme tamponunu presetler arasında bilerek temizlemiyor, dolayısıyla sınıf eşiğine oturmuş tek bir preset motorda hiçbir şey değişmeden son basamağı kaydırabiliyor.
   İki düzenek de `scripts/` altında, yani sayılar inanılacak değil tekrar üretilecek şey.
 - **Görüntü MilkDrop'un kendi değerlerini kullanıyor, yaklaşığını değil.** Her biri korpusu motorun
@@ -981,7 +981,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1493 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1521 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

@@ -244,7 +244,16 @@
       }
       case 'call': {
         const r = FN[node.name];
-        if (!r) return 'unknown';
+        /* PRESETİN KENDİ FONKSİYONU. Yerleşik çizelgede yok; çağıran taraf
+           imzaları `fn <ad>` anahtarıyla ortama koyuyor.
+
+           Bilmemek sessiz bir hataya yol açıyordu: `bool inside(...)` artık
+           float döndürüyor ve `if (inside(x))` GLSL'de geçersiz — ama tip
+           "unknown" olduğu için koşul daraltması dokunmadan geçiyordu. */
+        if (!r) {
+          const u = env.get('fn ' + node.name);
+          return u || 'unknown';
+        }
         /* mul'un dönüş tipi argümanlara bağlı, sabit değil:
              mul(mat, vec) / mul(vec, mat) -> o vektörün tipi
              mul(vec, vec)                 -> float (nokta çarpım)
@@ -265,8 +274,21 @@
             if (!m) return 0;
             return Number(m[2] || m[1]);
           };
+          const cols = (t) => {
+            const m = /^mat(\d)(?:x(\d))?$/.exec(t);
+            return m ? Number(m[1]) : 0;
+          };
           if (isMat(ma) && !isMat(mb)) return BY_WIDTH[rows(ma)] || mb;
-          if (isMat(mb) && !isMat(ma)) return ma; // vec * mat: satır vektörü, genişliği korunur
+          if (isMat(mb) && !isMat(ma)) {
+            /* vec * matCxR -> vecC. Kare matriste C=R olduğu için sonuç
+               vektörün genişliğiyle aynı ve eski davranış korunuyor. KARE
+               OLMAYANDA değişiyor: gerçek koddan `mul(adjuv, rot_d2)` —
+               adjuv vec2, dönme matrisi 3 sütun, sonuç vec3. Eskiden vec2
+               sanılıyor ve `* aspect.xy` daraltılmadan GLSL'e gidiyordu. */
+            const c = cols(mb);
+            const r = rows(mb);
+            return (c && r && c !== r) ? (BY_WIDTH[c] || ma) : ma;
+          }
           if (isMat(ma) && isMat(mb)) return ma;
           /* Skaler taraf: HLSL'de mul(v, k) SKALER ÇARPIM, iç çarpım değil.
              Sonuç vektör kalıyor; 'float' demek `mul(uv, 1.0)` sonucunu
@@ -318,6 +340,14 @@
      geçerli, GLSL'de "no matching overloaded function" — derleme kapısında
      kalan en büyük kova buydu. Skaler argümanlar dokunulmadan geçiyor,
      çünkü GLSL zaten `mix(vec3, vec3, float)` biçimini tanıyor. */
+  /* bool argümanı SORUNSUZ alan çağrılar: dönüştürücüler, kurucular ve bool
+     aşırı yüklemesi bulunan yardımcılar. */
+  const BOOL_OK = {
+    float: 1, vec2: 1, vec3: 1, vec4: 1, bool: 1, bvec2: 1, bvec3: 1, bvec4: 1,
+    toF: 1, toV2: 1, toV3: 1, toV4: 1, toB: 1, toI: 1,
+    lerp: 1, mix: 1, mdAll: 1, mdAny: 1, all: 1, any: 1,
+  };
+
   const MATCH_ARGS = {
     mix: 1, lerp: 1, min: 1, max: 1, mdMin: 1, mdMax: 1, clamp: 1, mdPow: 1, pow: 1,
     mod: 1, fmod: 1, dot: 1, distance: 1, cross: 1, step: 1,
@@ -349,11 +379,49 @@
           const n = node.name.length;
           patches.push({ s: node.s, e: node.e, scalarSwz: n, inner: [node.a.s, node.a.e] });
         }
+        /* DÖRDÜNCÜ BİLEŞEN vec3'ten isteniyor.
+
+           `tex2D` bilerek vec3 döndürüyor (gerekçesi milkdrop-shader.js'te,
+           ölçümle seçildi): HLSL float4 döndürüp float3'e sessizce kırpıyor
+           ve presetlerin ezici çoğunluğu üç bileşen bekliyor. Kalan azınlık
+           `tex2D(...).ag` yazıyor ve GLSL "vector field selection out of
+           range" diyor.
+
+           Alfa 1,0 ile karşılanıyor. Motorun bütün dokuları RGB: bağlam
+           `alpha: false` ile kuruluyor, geri besleme hedefinin alfası
+           preset geçişinin karışım değeri, gürültü dokularının alfası yok.
+           Yani kırpılan bileşenin GERÇEK karşılığı 1,0 — uydurma değil. */
+        if (SWIZZLE.test(node.name) && typeOf(node.a, env) === 'vec3' &&
+            /[aw]/.test(node.name)) {
+          patches.push({ s: node.s, e: node.e, alfa: node.name, inner: [node.a.s, node.a.e] });
+        }
         return;
       }
       case 'index': collect(node.a, env, patches); collect(node.i, env, patches); return;
       case 'call': {
         for (const a of node.args) collect(a, env, patches);
+        /* bool ARGÜMAN sayıya çevriliyor. HLSL karşılaştırmayı doğrudan bir
+           sayısal fonksiyona geçirebiliyor; gerçek koddan
+           `saturate(mask == 1)`. GLSL'de o aşırı yükleme yok ve hata
+           "no matching overloaded function found" oluyor — hangi
+           fonksiyonun kastedildiği anlaşılmadığı için de en yanıltıcı
+           hatalardan biri.
+
+           BOOL'U ZATEN KABUL EDEN çağrılar dışarıda kalıyor: `float(x<y)`
+           kendi argümanını yeniden sarıp her geçişte bir katman ekliyor
+           (`float(float(float(...)))`), dört geçişlik bütçeyi tüketiyor ve
+           GERÇEKTEN gereken daraltmayı aç bırakıyordu — "fed's colorworms"
+           tam olarak böyle bozuldu, ölçüm bunu tek bozulan aşama olarak
+           gösterdi. `lerp`in de bool alan aşırı yüklemeleri var; sarmak
+           onları erişilemez kılardı. `toB` ise float sürümüne düşüyor,
+           yani sonuç değişmiyor. */
+        if (!BOOL_OK[node.name]) {
+          for (const a of node.args) {
+            if (a && typeOf(a, env) === 'bool') {
+              patches.push({ s: a.s, e: a.e, wrap: 'float' });
+            }
+          }
+        }
         if (!MATCH_ARGS[node.name] || node.args.length < 2) return;
         let keep = 5;
         for (const a of node.args) {
@@ -367,11 +435,21 @@
         }
         return;
       }
-      case 'sel':
+      case 'sel': {
         collect(node.c, env, patches);
         collect(node.a, env, patches);
         collect(node.b, env, patches);
+        /* `?:` koşulu da GLSL'de bool olmak zorunda. HLSL sayı kabul ediyor
+           ve presetler `mask ? a : b` yazıyor. */
+        const tc = node.c ? typeOf(node.c, env) : 'unknown';
+        if (node.c && tc !== 'bool' && tc !== 'unknown') {
+          patches.push({
+            s: node.c.s, e: node.c.e, isTrue: true,
+            swz: (WIDTH[tc] || 0) > 1 ? '.x' : '',
+          });
+        }
         return;
+      }
       case 'bin': {
         collect(node.a, env, patches);
         collect(node.b, env, patches);
@@ -382,11 +460,35 @@
              İlk bileşene indirgeniyor — YAKLAŞIK: HLSL'in kuralı bütün
              bileşenlere bakmak, ama bu presetlerde karşılaştırmalar zaten
              tek bir eşik denetimi. */
-          const wa = WIDTH[typeOf(node.a, env)] || 0;
-          const wb = WIDTH[typeOf(node.b, env)] || 0;
+          const ta = typeOf(node.a, env);
+          const tb = typeOf(node.b, env);
+          const wa = WIDTH[ta] || 0;
+          const wb = WIDTH[tb] || 0;
+          /* `&&` ve `||` GLSL'de YALNIZCA bool alıyor; HLSL sayıyı da kabul
+             ediyor (sıfır değilse doğru). Gerçek koddan `gmask = gmask ||
+             mask1;` — ikisi de sayı. Sayıya çevirme geçişi bunları görmüyordu
+             ve `bool`u float'a taşımak bu kovayı BÜYÜTÜRDÜ: bool olan her
+             değişken artık sayı. İkisi aynı değişiklikte çözülüyor. */
+          if (node.op === '&&' || node.op === '||') {
+            if (ta !== 'bool' && ta !== 'unknown') {
+              patches.push({ s: node.a.s, e: node.a.e, isTrue: true, swz: wa > 1 ? '.x' : '' });
+            }
+            if (tb !== 'bool' && tb !== 'unknown') {
+              patches.push({ s: node.b.s, e: node.b.e, isTrue: true, swz: wb > 1 ? '.x' : '' });
+            }
+            return;
+          }
           // Bir taraf vektörse yeter: GLSL'de karşılaştırma yalnızca skalerlerde
           if (wa > 1) patches.push({ s: node.a.s, e: node.a.e, swz: '.x' });
           if (wb > 1) patches.push({ s: node.b.s, e: node.b.e, swz: '.x' });
+          /* bool'un sayıyla karşılaştırılması: `(a>b) == 1.0`. HLSL bool'u
+             sayıya çeviriyor, GLSL "wrong operand types" diyor. */
+          if (ta === 'bool' && tb !== 'bool' && tb !== 'unknown') {
+            patches.push({ s: node.a.s, e: node.a.e, wrap: 'float' });
+          }
+          if (tb === 'bool' && ta !== 'bool' && ta !== 'unknown') {
+            patches.push({ s: node.b.s, e: node.b.e, wrap: 'float' });
+          }
           return;
         }
         const a = typeOf(node.a, env);
@@ -432,7 +534,11 @@
     /* Hızlı çıkış: dönüşüm gerektirebilecek hiçbir işaret yoksa ayrıştırma.
        Nokta da sayılıyor — `rad.xxx` gibi yalnızca swizzle içeren bir ifade
        de dönüşüm istiyor ve önce bu denetimden kaçıyordu. */
-    if (!text || (text.indexOf('(') < 0 && !/[-+*/!.]/.test(text))) return text;
+    /* MANTIKSAL VE KARŞILAŞTIRMA İŞLEÇLERİ de dönüşüm gerektiriyor.
+       Önceden yalnız aritmetik işaretler aranıyordu ve `gmask || mask1`
+       (gerçek koddan) hızlı çıkıştan geçip hiç ayrıştırılmıyordu — GLSL
+       `||`ı yalnız bool'da tanıyor, iki taraf da sayıydı. */
+    if (!text || (text.indexOf('(') < 0 && !/[-+*/!.|&?<>=]/.test(text))) return text;
     let root;
     try { root = parse(tokenize(text)); } catch (e) { return text; }
     if (!root) return text;
@@ -448,8 +554,16 @@
       const seg = out.slice(p.s, p.e);
       let rep;
       if (p.notZero) rep = '(' + out.slice(p.inner[0], p.inner[1]) + ' == 0.0)';
+      // Sayıyı doğruluk değerine çevirir: `&&`, `||` ve `?:` bool istiyor.
+      else if (p.isTrue) rep = '((' + seg + ')' + (p.swz || '') + ' != 0.0)';
       else if (p.wrap) rep = p.wrap + '(' + seg + ')';
-      else if (p.scalarSwz) {
+      else if (p.alfa) {
+        const base = out.slice(p.inner[0], p.inner[1]);
+        const bir = (ch) => (ch === 'a' || ch === 'w' ? '1.0' : '(' + base + ').' + ch);
+        rep = p.alfa.length === 1 ? bir(p.alfa)
+          : 'vec' + p.alfa.length + '(' +
+            p.alfa.split('').map(bir).join(', ') + ')';
+      } else if (p.scalarSwz) {
         const base = out.slice(p.inner[0], p.inner[1]);
         rep = p.scalarSwz === 1 ? '(' + base + ')' : 'vec' + p.scalarSwz + '(' + base + ')';
       } else rep = '(' + seg + ')' + p.swz;
