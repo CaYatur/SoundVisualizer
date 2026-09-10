@@ -2142,7 +2142,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            GECISTE decay HER ZAMAN yeni presetin havuzundan okunuyor: orada
            duran deger zaten iki presetin karisimi (MilkDrop da tek bir
            karistirilmis decay kullaniyor). */
-        const decay = this.preset.get('decay');
+        /* `decay` de COLOR_NORM'dan geçiyor (milkdropfs.cpp:1795) — bir
+           tepe rengi olarak taşındığı için. Kenetlemiyor, SARIYOR:
+           `decay = 50,95` yazan `Syst3mFailur - satanic ring V2`
+           MilkDrop'ta 0,753 alıyor, 1,0 değil. Biz 1'e kenetliyorduk, yani
+           o preset hiç sönmüyordu. Korpusta 36 preset (%0,3) böyle. */
+        const decay = window.SVMilkdrop.colorNorm(this.preset.get('decay'));
         const raw = decay > 0 ? Math.min(1, decay) : 0.98;
         const fps = 1 / Math.max(1e-3, step);
         gl.uniform1f(this.locWarpFixed.uDecay, Math.pow(raw, REF_FPS / Math.max(1, fps)));
@@ -2260,13 +2265,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _drawBorders(gl) {
       const P = this.preset;
       if (!P || this._wantAcc === false) return;
-      const cl = window.SVMilkdrop.clampColor;
-      const a01 = (v) => Math.max(0, Math.min(1, isFinite(v) ? v : 0));
+      /* Kenarlık rengi de COLOR_NORM'dan geçiyor (milkdropfs.cpp:3245-3248):
+         kenetleme değil, 256'ya göre sarma. */
+      const cn = window.SVMilkdrop.colorNorm;
       const rings = [
         { size: P.get('ob_size'), prev: 0,
-          c: [cl(P.get('ob_r')), cl(P.get('ob_g')), cl(P.get('ob_b')), a01(P.get('ob_a'))] },
+          c: [cn(P.get('ob_r')), cn(P.get('ob_g')), cn(P.get('ob_b')), cn(P.get('ob_a'))] },
         { size: P.get('ib_size'), prev: P.get('ob_size'),
-          c: [cl(P.get('ib_r')), cl(P.get('ib_g')), cl(P.get('ib_b')), a01(P.get('ib_a'))] },
+          c: [cn(P.get('ib_r')), cn(P.get('ib_g')), cn(P.get('ib_b')), cn(P.get('ib_a'))] },
       ];
       let used = false;
       const d = this.lineData;
@@ -2323,9 +2329,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const len = +P.get('mv_l');
       const dx0 = +P.get('mv_dx') || 0;
       const dy0 = +P.get('mv_dy') || 0;
-      const cl = window.SVMilkdrop.clampColor;
-      const r = cl(P.get('mv_r')), g = cl(P.get('mv_g')), b = cl(P.get('mv_b'));
-      const al = Math.max(0, Math.min(1, a));
+      /* milkdropfs.cpp:1235-1238 — hareket vektörünün dört kanalı da
+         COLOR_NORM'dan geçiyor. */
+      const cn = window.SVMilkdrop.colorNorm;
+      const r = cn(P.get('mv_r')), g = cn(P.get('mv_g')), b = cn(P.get('mv_b'));
+      const al = cn(a);
       const L = isFinite(len) ? len : 1;
 
       const v = this.verts;
@@ -2926,9 +2934,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           if (!isFinite(cxp) || !isFinite(cyp)) continue;
           const ang0 = +o.ang || 0;
           const n = s.sides;
-          const cl = window.SVMilkdrop.clampColor;
-          const c1 = [cl(o.r), cl(o.g), cl(o.b), Math.max(0, Math.min(1, +o.a || 0)) * aMul];
-          const c2 = [cl(o.r2), cl(o.g2), cl(o.b2), Math.max(0, Math.min(1, +o.a2 || 0)) * aMul];
+          /* milkdropfs.cpp:2185-2192. `alpha_mult` COLOR_NORM'un İÇİNDE:
+             önce çarpılıyor, sonra 8 bite iniyor. Dışında yapmak geçiş
+             sırasında başka bir alfa verirdi. */
+          const cn = window.SVMilkdrop.colorNorm;
+          const c1 = [cn(o.r), cn(o.g), cn(o.b), cn((+o.a || 0) * aMul)];
+          const c2 = [cn(o.r2), cn(o.g2), cn(o.b2), cn((+o.a2 || 0) * aMul)];
 
           if (s.textured) {
             /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez
@@ -2982,15 +2993,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           }
 
           // Kenar çizgisi: MilkDrop border_* renkleriyle ayrı bir geçiş
-          const ba = Math.max(0, Math.min(1, +o.border_a || 0)) * aMul;
+          const ba = cn((+o.border_a || 0) * aMul);   // milkdropfs.cpp:2235-2238
           if (ba > 0.002) {
             for (let i = 0; i < n; i++) {
               const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
               const k = i * 6;
               d[k] = cxp + Math.cos(th) * rad * aspY;
               d[k + 1] = cyp + Math.sin(th) * rad;
-              d[k + 2] = cl(o.border_r); d[k + 3] = cl(o.border_g);
-              d[k + 4] = cl(o.border_b); d[k + 5] = ba;
+              d[k + 2] = cn(o.border_r); d[k + 3] = cn(o.border_g);
+              d[k + 4] = cn(o.border_b); d[k + 5] = ba;
             }
             gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
             gl.drawArrays(gl.LINE_LOOP, 0, n);
@@ -3017,7 +3028,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       if (aMul <= 0.002) return;
       const d = this.lineData;
       const out = this._waveOut || (this._waveOut = {});
-      const cl = window.SVMilkdrop.clampColor;
+      const cn = window.SVMilkdrop.colorNorm;
       /* Tayf KARE BASINA BIR KEZ. Bir presette birden fazla tayf dalgasi
          olabiliyor; her biri icin 1024 noktali FFT kosturmak bedava degil.
          Hic tayf dalgasi yoksa hic hesaplanmiyor. */
@@ -3051,8 +3062,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const k = count * 6;
           d[k] = x * 2 - 1;
           d[k + 1] = this._toClipY(y);
-          d[k + 2] = cl(o.r); d[k + 3] = cl(o.g); d[k + 4] = cl(o.b);
-          d[k + 5] = Math.max(0, Math.min(1, +o.a || 0)) * aMul;
+          /* milkdropfs.cpp:2487-2490 — nokta başına COLOR_NORM, ve
+             `alpha_mult` yine içeride. */
+          d[k + 2] = cn(o.r); d[k + 3] = cn(o.g); d[k + 4] = cn(o.b);
+          d[k + 5] = cn((+o.a || 0) * aMul);
           count++;
         }
         /* Sonlu olmayan noktalar elendikten SONRA da eşik aynı kalmalı:
@@ -3285,12 +3298,22 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const aspX = GH > GW ? GW / GH : 1;
       const aspY = GW > GH ? GH / GW : 1;
 
+      /* VARSAYILAN DALGA renk yolunda bir istisna var: MilkDrop burada
+         COLOR_NORM'dan ÖNCE ayrıca KENETLİYOR (milkdropfs.cpp:2623-2628),
+         yani rengi sarmıyor — şekil ve özel dalgada sarıyor. Sıra:
+         kenetle, parlat, sonra 8 bite indir. Alfa kenetlenmiyor, o sarıyor. */
       let cr = cl(P.get('wave_r')), cg = cl(P.get('wave_g')), cb = cl(P.get('wave_b'));
       // wave_brighten: en parlak kanalı 1'e çekip rengi doyurur
       if (P.get('wave_brighten')) {
         const mx = Math.max(cr, cg, cb);
         if (mx > 0.01) { cr /= mx; cg /= mx; cb /= mx; }
       }
+      /* 8 bitlik tepe rengi, parlatmadan SONRA. Alfa kenetlenmediği için
+         burada gerçekten sarabiliyor: `wave_a = 1,5` yazan bir preset
+         MilkDrop'ta yarı saydam çiziliyor, bizde opak çiziliyordu. */
+      const cn = window.SVMilkdrop.colorNorm;
+      cr = cn(cr); cg = cn(cg); cb = cn(cb);
+      alpha = cn(alpha);
 
       const SAMPLES = 512;
       let n = SAMPLES;

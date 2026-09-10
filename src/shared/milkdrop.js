@@ -1382,7 +1382,36 @@
     return v < 0 ? 0 : v > 1 ? 1 : v;
   }
 
-  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset, clampColor };
+  /* MilkDrop'un TEPE RENGİ dönüşümü — `COLOR_NORM` (milkdropfs.cpp:37):
+
+         #define COLOR_NORM(x) (((int)(x * 255) & 0xFF) / 255.0f)
+
+     KENETLEMİYOR, 256'ya göre SARIYOR. Denklemi 1,5 üreten bir preset
+     MilkDrop'ta 0,494 çiziyor, 1,0 değil; 2,0 üreten 0,996 çiziyor.
+     Negatifler de sarıyor: `(int)` sıfıra doğru kırpıyor ve `& 0xFF` iki
+     tümleyen sonucu veriyor, yani −0,5 → 0,506.
+
+     Motor kenetliyordu. Fark yalnızca [0,1) dışına çıkan değerlerde ama
+     orada büyük: taşan bir renk MilkDrop'ta BAŞKA BİR RENGE dönüyor,
+     bizde beyaza gidiyordu. Ölçüldü — 10.347 presetin 3.818'i (%36,9)
+     en az bir kez kenetlemeden anlamlı biçimde farklı bir değer üretiyor,
+     2.055'i (%19,9) 1,4'ün üstüne çıkıyor.
+
+     `(int)` yerine `Math.trunc`: JavaScript'te `|0` da sıfıra doğru
+     kırpıyor ama 2^31'i aşan girdilerde sarıyor, `Math.trunc` ise
+     aşmıyor — sonra `& 0xFF` zaten daraltıyor.
+
+     NEREYE UYGULANIR: MilkDrop'un tepe rengi yazdığı her yer — şekil
+     dolgusu ve kenar çizgisi, özel dalga, varsayılan dalga, hareket
+     vektörleri ve `decay`. Shader'ların ürettiği renge UYGULANMAZ; onlar
+     8 bitlik tepe rengi yolundan geçmiyor. */
+  function colorNorm(v) {
+    if (typeof v !== 'number' || !isFinite(v)) return 1;
+    return ((Math.trunc(v * 255) & 0xFF)) / 255;
+  }
+
+  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
+    clampColor, colorNorm };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();
