@@ -1384,9 +1384,73 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
 
     // ------------------------------------------------------------- preset
+    /* OTOMATİK GEÇİŞ. Kurallar `shared/milkdrop-cycle.js`te ve sınanabilir;
+       burada yalnızca listeyi ve saati vermek var.
+
+       Seçim AYARA YAZILMIYOR. Yazsaydı her geçiş bir yapılandırma gönderimi,
+       her gönderim de settings.json'ın senkron yeniden yazımı olurdu —
+       `.milk` kaynağıyla birlikte, iki saniyede bir. Ayardaki preset
+       kullanıcının en son ELLE seçtiği olarak kalıyor; motor o an neyi
+       çizdiğini `presetName()` ile söylüyor ve panel onu gösteriyor. */
+    _autoCycle(cfg, step) {
+      const C = typeof window !== 'undefined' && window.SVMilkdropCycle;
+      const PR = typeof window !== 'undefined' && window.SVPresets;
+      if (!C || !PR || !PR.byKind) return;
+      if (!this.cycle) this.cycle = new C.Cycle();
+      /* Liste YALNIZ gerektiğinde kuruluyor: `byKind` her çağrıda tüm
+         presetleri kopyalayıp süzüyor ve tek bir MilkDrop paketi yüzlerce
+         preset getiriyor. Otomatik geçiş kapalıyken — varsayılan bu — her
+         kare boşuna yüzlerce öğelik bir dizi kurulurdu. */
+      const listOf = () => PR.byKind('milkdrop');
+      /* PANEL ÖNİZLEMESİ GÖRSELLEŞTİRİCİYİ İZLİYOR. İkisi ayrı sayaç
+         koştursaydı rastgele sırada farklı presetler gösterirlerdi ve panel
+         hangisinin canlı olduğunu söyleyemezdi. Görselleştirici açıkken
+         ~30 Hz ölçer mesajı onun seçimini taşıyor (admin.js `SVMdFollow`);
+         mesaj kesilince önizleme kendi sayacına dönüyor. Görselleştirici
+         penceresinde bu değişken hiç yazılmıyor.
+
+         `base` eşleşmesi şart: elle seçimden hemen sonra yolda eski bir
+         mesaj olabilir. Onu izlemek yeni preseti eskisine geri harmanlar,
+         bir sonraki mesaj da tekrar yeniye — ekranda iki geçiş üst üste.
+         Yalnız AYNI elle seçimin üstünde yapılmış bir seçim izleniyor. */
+      const FOLLOW_MS = 1500;
+      const F = typeof window !== 'undefined' && window.SVMdFollow;
+      if (F && F.base === (this._manualKey || '') && (performance.now() - F.at) < FOLLOW_MS) {
+        this.cycle.reset();
+        if (!F.id) { this.autoPick = null; return; }
+        if (this.autoPick && this.autoPick.id === F.id) return;
+        const f = listOf().find((x) => x && x.id === F.id);
+        if (f) this.autoPick = { id: f.id, name: f.name || '', source: f.source || '' };
+        return;
+      }
+      const list = C.normalize(cfg.milkdrop).seconds > 0 ? listOf() : [];
+      const cur = this.autoPick ? this.autoPick.id : ((cfg.milkdrop && cfg.milkdrop.presetId) || '');
+      const p = this.cycle.step(step, cfg.milkdrop, list, cur);
+      if (p) this.autoPick = { id: p.id, name: p.name || '', source: p.source || '' };
+    }
+
+    /* O an çizilen preset. `id: null` = otomatik geçiş bir şey seçmemiş,
+       ayardaki (elle seçilen) preset çiziliyor. `base` hangi elle seçimin
+       üstünde olduğumuz — önizleme bununla bayat mesajı ayırt ediyor. */
+    livePreset() {
+      const a = this.autoPick;
+      return { id: a ? a.id : null, name: a ? (a.name || '') : null, base: this._manualKey || '' };
+    }
+
     _ensurePreset(cfg) {
       const c = cfg.milkdrop || {};
-      const key = (c.presetId || '') + '|' + (c.source || '').length;
+      /* ELLE SEÇİM OTOMATİĞİ EZER. Kullanıcı listeden bir preset seçtiğinde
+         ayardaki kimlik değişiyor; o an otomatik seçim bırakılıyor ve sayaç
+         sıfırlanıyor, yoksa seçtiği preset bir sonraki tik'e kadar bile
+         durmayabilirdi. */
+      const man = (c.presetId || '') + '|' + (c.source || '').length;
+      if (man !== this._manualKey) {
+        this._manualKey = man;
+        this.autoPick = null;
+        if (this.cycle) this.cycle.reset();
+      }
+      const a = this.autoPick;
+      const key = a ? (a.id + '|' + a.source.length) : man;
       if (key === this.presetKey && this.preset) return;
       /* GECIS yalnız GERCEK bir degisimde baslıyor: ilk yuklemede onceki
          preset diye bir sey yok.
@@ -1423,7 +1487,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.presetKey = key;
       const M = window.SVMilkdrop;
       if (!M) { this.error = 'motor yok'; this.preset = null; return; }
-      const src = c.source || DEFAULT_PRESET;
+      const src = (a ? a.source : c.source) || DEFAULT_PRESET;
       this.preset = new M.Preset(src, { seed: 1234 });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
@@ -2099,11 +2163,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
       if (this.noise && this._noiseAcc !== this._wantAcc) this._buildNoise(this._wantAcc);
       this._ensureTextureLib(cfg);
+      const step = Math.min(0.05, dt || 0.016);
+      /* Otomatik geçiş `_ensurePreset`ten ÖNCE: seçimi o kare yapılan
+         preset aynı karede yüklensin, yoksa geçiş bir kare gecikirdi. */
+      this._autoCycle(cfg, step);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
 
       const gl = this.gl;
-      const step = Math.min(0.05, dt || 0.016);
       this.time += step;
       this.presetTime += step;
       this.frameNo++;

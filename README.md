@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1535%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1556%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -264,6 +264,14 @@ that asserts the bar profile has no step in it.
   mesh 64 with a hard cut, 12.10 ms with a transition; at mesh 96 that one frame goes 12.00 → 18.00
   ms and drops a frame. So the default is 1.7s, MilkDrop's own `fBlendTimeUser`, and automatic
   preset advance stays off by default, which means a transition only ever runs when you ask for one.
+- **Auto advance advances.** The panel's Auto Advance slider had been there since the engine landed
+  and nothing ever read it: set to two seconds, the same preset stayed on screen (measured in the
+  running app — nine seconds, no change). It now moves on every *n* seconds, in order or at random,
+  and random never picks the preset already showing, since a "transition" to the same preset changes
+  nothing on screen. The visualizer does the switching on its own frame clock, so it keeps going
+  while the panel is closed or covered, and the preset it moves to is not written into the settings
+  file, which is rewritten in full on every change. The panel's Loaded Preset row shows what is on
+  screen, and the panel preview follows the visualizer instead of running a sequence of its own.
 - **The per-frame variables reset every frame, as MilkDrop resets them.** MilkDrop re-seeds every
   built-in per-frame variable from the preset file before `per_frame` runs and returns `q1..q32` to
   what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the
@@ -979,7 +987,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1535 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1556 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

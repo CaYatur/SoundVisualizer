@@ -1373,6 +1373,18 @@
       return null;
     }
 
+    /* O an çizilen MilkDrop preseti. Otomatik geçiş seçimini AYARA
+       yazmıyor (bkz. milkdrop-cycle.js), yani panel yalnız yapılandırmaya
+       bakarak ekranda ne olduğunu bilemez. `milkdropMonitor` ile aynı
+       desen ve aynı ~30 Hz mesaja biniyor. null = yığında MilkDrop yok;
+       `id: null` = MilkDrop var ama ayardaki preseti çiziyor. */
+    milkdropPreset() {
+      for (const e of this.entries) {
+        if (e.mode && typeof e.mode.livePreset === 'function') return e.mode.livePreset();
+      }
+      return null;
+    }
+
     dispose() {
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];

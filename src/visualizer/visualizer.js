@@ -358,6 +358,10 @@
            açmak yerine bu ~30 Hz mesaja biniyor: değer yazar aracı, kare
            başına doğruluk gerekmiyor ve ek kanal ek bakım demek. */
         mdMonitor: stack.milkdropMonitor(),
+        /* O an çizilen MilkDrop preseti. Otomatik geçiş seçimini ayara
+           yazmıyor; panel ekranda ne olduğunu, önizleme de neyi izleyeceğini
+           buradan öğreniyor. */
+        mdPreset: stack.milkdropPreset(),
       });
     }
   }

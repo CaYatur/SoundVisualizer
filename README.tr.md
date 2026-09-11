@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1535%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1556%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -258,6 +258,14 @@ profilinde basamak olmadığını doğruluyor.
   12,00 → 18,00 ms'ye çıkıp bir kare düşürüyor. Bu yüzden varsayılan 1,7 sn — MilkDrop'un kendi
   `fBlendTimeUser` değeri — ve otomatik preset geçişi varsayılan olarak kapalı, yani geçiş yalnız
   siz istediğinizde koşuyor.
+- **Otomatik geçiş artık geçiyor.** Paneldeki Otomatik Geçiş kaydırıcısı motor geldiğinden beri
+  oradaydı ve hiçbir yer onu okumuyordu: iki saniyeye ayarlanınca aynı preset ekranda kalıyordu
+  (çalışan uygulamada ölçüldü — dokuz saniye, değişim yok). Artık her *n* saniyede, sırayla ya da
+  rastgele geçiyor; rastgelede o an ekrandaki preset hiç seçilmiyor, çünkü aynı presete "geçmek"
+  ekranda hiçbir şeyi değiştirmez. Geçişi görselleştirici kendi kare saatiyle yapıyor, yani panel
+  kapalıyken ya da örtülüyken de durmuyor; geçilen preset ayar dosyasına yazılmıyor, o dosya her
+  değişiklikte baştan yazılıyor. Panelin Yüklü Preset satırı ekrandakini gösteriyor, panel
+  önizlemesi de kendi sırasını koşturmak yerine görselleştiriciyi izliyor.
 - **Kare değişkenleri her karede sıfırlanıyor, MilkDrop nasıl sıfırlıyorsa.** MilkDrop `per_frame`
   koşmadan önce bütün yerleşik kare değişkenlerini preset dosyasından yeniden yüklüyor ve
   `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun
@@ -981,7 +989,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1535 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1556 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

@@ -1427,11 +1427,15 @@
     'Sonraki ▶': 'Next ▶',
     '🎲 Rastgele': '🎲 Random',
     'Otomatik Geçiş': 'Auto Advance',
+    'Geçiş Sırası': 'Advance Order',
+    'Otomatik geçiş görselleştiricinin kendi saatiyle çalışır: panel kapalıyken ya da görselleştirici paneli örterken de durmaz. Geçilen preset ayarlara yazılmaz; Yüklü Preset satırı o an ekranda olanı gösterir. Rastgele sırada o an çizilen preset hiç seçilmez. Her geçişin süresi yukarıdaki Preset Geçişi ayarından gelir.':
+      'Auto advance runs on the visualizer\'s own clock: it keeps going while the panel is closed or covered by the visualizer. The preset it moves to is not written to the settings; the Loaded Preset row shows what is on screen right now. In random order the preset currently showing is never picked. Each transition takes as long as the Preset Transition setting above.',
     'kapalı': 'off',
+    'sn': 's',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
-    'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpusta shader derleme oranı %99,2. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları gürültüyle ikame edilir.':
-      'The equation blocks (per_frame, per_pixel) and the HLSL warp/composite shaders of MilkDrop 2 presets really run: 99.2% of shader stages compile across a 10,332-preset corpus. Shapes, waves, the blur chain and motion vectors are drawn; user textures, which preset files do not ship, are substituted with noise.',
+    'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.':
+      'The equation blocks (per_frame, per_pixel) and the HLSL warp/composite shaders of MilkDrop 2 presets really run: all 16,346 shader stages in a 10,332-preset corpus compile. Shapes, waves, the blur chain and motion vectors are drawn; user textures, which preset files do not ship, are substituted with noise unless a texture pack is chosen.',
     'Ağ Sıklığı': 'Mesh Density',
     '24x18 (en hızlı)': '24x18 (fastest)',
     '32x24 (MilkDrop varsayılanı)': '32x24 (MilkDrop default)',

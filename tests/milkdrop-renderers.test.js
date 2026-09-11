@@ -17,7 +17,7 @@ const path = require('path');
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf-8');
 
 const NEED = ['milkdrop.js', 'milkdrop-audio.js', 'milkdrop-hlsl.js',
-  'milkdrop-shader.js'];
+  'milkdrop-shader.js', 'milkdrop-cycle.js'];
 const PAGES = ['src/visualizer/index.html', 'src/admin/index.html',
   'src/exporter/index.html', 'src/web/overlay.html'];
 

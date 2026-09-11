@@ -106,8 +106,18 @@
     }
 
     // Durum
-    const current = md.name || (md.source ? 'Adsız' : 'Yerleşik varsayılan');
-    nodes.push(P().row('Yüklü Preset', el('span', { class: 'md-cur', text: current })));
+    /* Otomatik geçiş açıkken ekrandaki preset AYARDAKİ DEĞİL: seçim ayara
+       yazılmıyor (shared/milkdrop-cycle.js). Ad, görselleştiricinin ~30 Hz
+       ölçer mesajıyla yerinde güncelleniyor (admin.js); `data-cfg` o mesaj
+       "ayardaki preset çiziliyor" dediğinde dönülecek ad. Metinler burada
+       çevriliyor çünkü güncelleme DOM çevirmeninden sonra geliyor. */
+    const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+    const current = md.name || tt(md.source ? 'Adsız' : 'Yerleşik varsayılan');
+    const lf = window.SVMdFollow;
+    const live = lf && lf.id && (performance.now() - lf.at) < 1500 ? (lf.name || tt('Adsız')) : null;
+    nodes.push(P().row('Yüklü Preset', el('span', {
+      id: 'mdLiveName', class: 'md-cur', 'data-cfg': current, text: live || current,
+    })));
 
     // Doğrulama: yüklü presetin derleme durumu
     if (md.source && window.SVMilkdrop) {
@@ -454,13 +464,21 @@
         }),
       ]));
       nodes.push(SP().miniSlider('Otomatik Geçiş', () => md.autoNext || 0, (v) => { md.autoNext = Math.round(v); }, {
-        min: 0, max: 120, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' sn' : 'kapalı'),
+        min: 0, max: 120, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' ' + tt('sn') : tt('kapalı')),
+      }));
+      nodes.push(P().row('Geçiş Sırası', selOf([
+        ['sequential', 'Sırayla'],
+        ['random', 'Rastgele'],
+      ], md.autoOrder === 'random' ? 'random' : 'sequential', (v) => { md.autoOrder = String(v); })));
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Otomatik geçiş görselleştiricinin kendi saatiyle çalışır: panel kapalıyken ya da görselleştirici paneli örterken de durmaz. Geçilen preset ayarlara yazılmaz; Yüklü Preset satırı o an ekranda olanı gösterir. Rastgele sırada o an çizilen preset hiç seçilmez. Her geçişin süresi yukarıdaki Preset Geçişi ayarından gelir.',
       }));
     }
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpusta shader derleme oranı %99,2. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları gürültüyle ikame edilir.',
+      text: 'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.',
     }));
 
     return el('div', { class: 'md-panel' }, nodes);

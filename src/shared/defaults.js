@@ -586,7 +586,11 @@
       presetId: '',
       name: '',
       source: '',
-      autoNext: 0, // 0 = kapalı, >0 = kaç saniyede bir sıradaki presete geç
+      autoNext: 0, // 0 = kapalı, >0 = kaç saniyede bir başka presete geç
+      /* 'sequential' | 'random'. Rastgelede o an çizilen preset HİÇ
+         seçilmiyor: aynı presete "geçmek" ekranda hiçbir şey değiştirmez ve
+         kullanıcı onu geçiş değil arıza diye okur (shared/milkdrop-cycle.js). */
+      autoOrder: 'sequential',
       /* Warp agi siklıgı. MilkDrop'un varsayılanı 32x24, "yuksek kalite"
          ayarı 48x36. Ag seyrek oldugunda bozulma dugumler arasında dogrusal
          interpolasyonla doluyor ve kıvrımlı warp'larda koseli gorunuyor;
