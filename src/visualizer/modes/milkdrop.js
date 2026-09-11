@@ -2180,15 +2180,35 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.frameNo++;
 
       /* MilkDrop bantları MUTLAK genlik olarak değil, uzun dönem ortalamaya
-         ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek. */
-      if (!this._audioNorm) this._audioNorm = new window.SVMilkdropAudio.MilkdropAudio();
-      const a = this._audioNorm.update(step, {
-        bass: audio.bass, mid: audio.mid, treb: audio.treble,
-      });
+         ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek.
+
+         "MilkDrop uyumu" açıkken oranlar MilkDrop'un KENDİ zincirinden
+         geliyor (`MilkdropBands`: ham dalga biçimi, kendi FFT'si, kendi
+         bantları ve ortalamaları). Kapalıyken ya da zaman verisi yoksa eski
+         yol: görselleştiricinin bantları `MilkdropAudio` ile orana
+         çevriliyor. Kullanılmayan yolun durumu atılıyor; anahtar yeniden
+         açılınca dakikalar önceki ortalamalarla değil, yeniden tohumlanarak
+         başlasın. */
+      const MDA = window.SVMilkdropAudio;
+      const tbA = audio.timeBytes;
+      let a;
+      if (this._wantAcc !== false && tbA && tbA.length >= MDA.SPEC_IN) {
+        this._audioNorm = null;
+        if (!this._bands) this._bands = new MDA.MilkdropBands();
+        a = this._bands.update(step, tbA);
+      } else {
+        this._bands = null;
+        if (!this._audioNorm) this._audioNorm = new MDA.MilkdropAudio();
+        a = this._audioNorm.update(step, {
+          bass: audio.bass, mid: audio.mid, treb: audio.treble,
+        });
+      }
 
       /* Duyarlılık oranı doğrudan ÇARPAMAZ: girdiyi ölçeklemek ortalamayı da
          ölçekler ve oran değişmeden kalır. Bunun yerine normalden SAPMA
-         büyütülüyor, böylece 1,0 = normal sözleşmesi bozulmuyor. */
+         büyütülüyor, böylece 1,0 = normal sözleşmesi bozulmuyor.
+         Varsayılan 0,7'de MilkDrop'un sapmaları %30 küçük çıkıyor;
+         MilkDrop'un kendi tepkisi 1'de. */
       const sens = (cfg.visualizer && cfg.visualizer.sensitivity) || 1;
       const gain = (r) => Math.max(0, 1 + (r - 1) * sens);
       const bass = gain(a.bass), mid = gain(a.mid), treb = gain(a.treb);

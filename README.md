@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1565%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1579%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -281,6 +281,21 @@ that asserts the bar profile has no step in it.
   running while the layers around it cross-fade. Measured in the running app, one run, the same
   palette change: without the fix a new instance appeared on the hand-picked preset, with it the same
   instance kept the preset it was showing.
+- **Presets hear the music the way MilkDrop hears it.** MilkDrop computes `bass`, `mid`, `treb` and
+  their `_att` versions with a chain of its own, and presets are written against how that chain
+  behaves. We were deriving them from the visualizer's bands — smoothed twice and divided by a
+  six-second average — and, fed the same synthetic drum track, that put `bass` *lower* just after a
+  kick than between kicks (0.93×, where MilkDrop gives 2.45×), while the `_att` values did not rise
+  on a hit at all. With MilkDrop Fidelity on, all six now come from MilkDrop's own chain: the newest
+  576 samples, a Hann-windowed 1024-point FFT with MilkDrop's equaliser, three bands summed across
+  the lower half of the spectrum, a fast asymmetric average for `_att` and a four-second one to
+  divide by. It matches an independent reference implementation to within 3.2e-6. Two differences
+  are deliberate and measured: the averages start from the first frame that has sound in it rather
+  than from zero (MilkDrop's own start throws every value to about 250 for a moment when the layer
+  was created in silence), and values are capped at 30 — on the test track the music itself peaks
+  at 11.2 and a drop after an eight-second breakdown at 18.6, so the cap only touches the first
+  frames back from a long silence, where MilkDrop reaches 234. The Sensitivity slider still scales
+  how far the values move away from 1: its default of 0.7 is 30% less than MilkDrop, 1 is MilkDrop.
 - **The per-frame variables reset every frame, as MilkDrop resets them.** MilkDrop re-seeds every
   built-in per-frame variable from the preset file before `per_frame` runs and returns `q1..q32` to
   what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the
@@ -996,7 +1011,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1565 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1579 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

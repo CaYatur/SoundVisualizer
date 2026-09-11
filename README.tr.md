@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1565%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1579%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -275,6 +275,22 @@ profilinde basamak olmadığını doğruluyor.
   katmanlar geçiş yapıyor. Çalışan uygulamada, tek koşuda, aynı palet değişimiyle ölçüldü:
   düzeltme yokken elle seçilen presette yeni bir örnek doğdu, düzeltmeyle aynı örnek gösterdiği
   presette kaldı.
+- **Presetler müziği MilkDrop'un duyduğu gibi duyuyor.** MilkDrop `bass`, `mid`, `treb` ve `_att`
+  sürümlerini kendi zinciriyle hesaplıyor ve presetler o zincirin davranışına göre yazılmış. Biz
+  bunları görselleştiricinin bantlarından türetiyorduk — iki kez yumuşatıp altı saniyelik bir
+  ortalamaya bölerek — ve aynı sentetik davul parçasıyla ölçüldüğünde `bass` bir kick'ten hemen
+  sonra vuruşlar arasındakinden *düşük* çıkıyordu (0,93 kat; MilkDrop 2,45 kat), `_att` değerleri
+  vuruşta hiç yükselmiyordu. MilkDrop Uyumu açıkken altısı da artık MilkDrop'un kendi zincirinden
+  geliyor: en yeni 576 örnek, Hann pencereli 1024 noktalı FFT ve MilkDrop'un eşitleyicisi, tayfın
+  alt yarısında toplanan üç bant, `_att` için hızlı ve asimetrik bir ortalama, bölen olarak da dört
+  saniyelik bir ortalama. Bağımsız bir referans uygulamayla 3,2e-6 içinde tutuyor. Bilerek farklı
+  iki şey var, ikisi de ölçüldü: ortalamalar sıfırdan değil, içinde ses olan ilk kareden başlıyor
+  (katman sessizlikte kurulduysa MilkDrop'un kendi başlangıcı her değeri bir an ~250'ye
+  fırlatıyor); ve değerler 30'da kesiliyor — test parçasında müziğin kendisi en çok 11,2'ye,
+  sekiz saniyelik bir breakdown'dan sonraki drop 18,6'ya çıkıyor, yani tavan yalnız uzun bir
+  sessizlikten dönüşün ilk karelerine değiyor, MilkDrop'un orada 234'e çıktığı yerde. Hassasiyet
+  kaydırıcısı değerlerin 1'den ne kadar uzaklaştığını ölçeklemeye devam ediyor: varsayılan 0,7
+  MilkDrop'tan %30 az, 1 MilkDrop'un kendisi.
 - **Kare değişkenleri her karede sıfırlanıyor, MilkDrop nasıl sıfırlıyorsa.** MilkDrop `per_frame`
   koşmadan önce bütün yerleşik kare değişkenlerini preset dosyasından yeniden yüklüyor ve
   `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun
@@ -998,7 +1014,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1565 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1579 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
