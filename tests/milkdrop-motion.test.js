@@ -51,7 +51,7 @@ test('motor: hareket vektörleri BİRLEŞTİRMEDEN ÖNCE çiziliyor', () => {
   /* Sıralama draw() GÖVDESİ içinde aranıyor: bindFramebuffer(..., null)
      blur zincirinde de geçiyor ve metnin tamamında ilk bulunan o oluyor. */
   const body = CODE.slice(CODE.indexOf('draw(audio, cfg, t, dt)'));
-  const call = body.indexOf('this._drawMotionVectors(gl)');
+  const call = body.indexOf('this._drawMotionVectors(gl');
   const comp = body.indexOf('this.compPreset');
   assert.ok(call > 0, 'çizim çağrısı draw() içinde olmalı');
   assert.ok(comp > 0, 'comp geçişi bulunmalı');

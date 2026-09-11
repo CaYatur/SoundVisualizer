@@ -1198,6 +1198,16 @@
           r2: g('r2', 0), g2: g('g2', 0), b2: g('b2', 0), a2: g('a2', 0),
           border_r: g('border_r', 1), border_g: g('border_g', 1),
           border_b: g('border_b', 1), border_a: g('border_a', 0.1),
+          /* `thick` KENARLIĞIN KALINLIĞI ve MilkDrop'ta GİRDİ-ÇIKTI:
+             state.cpp:496 onu `var_pf_thick ... // i/o` diye kaydediyor,
+             yani şeklin per_frame kodu da yazabiliyor (korpusta 15 preset
+             yazıyor). Dosyadaki `thickOutline` yalnız BAŞLANGIÇ değeri.
+
+             `base` içinde durmasının sebebi bu: shapeFrame base'i havuza
+             yazıp per_frame'den sonra geri okuyor, yani girdi-çıktı
+             davranışı buradan bedavaya geliyor. Başlıkta bırakmak 15
+             preseti yanlış çizerdi. */
+          thick: g('thickoutline', 0) !== 0 ? 1 : 0,
         },
         pool,
         initialised: false,

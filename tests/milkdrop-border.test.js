@@ -25,7 +25,7 @@ const DARK = /_drawDarkenCenter\(gl, GW, GH\) \{[\s\S]*?\n    \}/.exec(BODY);
 test('sıra: kenarlıklar çizimlerin EN SONUNDA', () => {
   /* MilkDrop'ta da sıra bu. Daha önce çizilseler dalga, şekil ve hareket
      vektörleri kenarlığın üstünü kapatırdı. */
-  assert.match(BODY, /_drawMotionVectors\(gl\);\s*this\._drawDarkenCenter\(gl, GW, GH\);\s*this\._drawBorders\(gl\);/);
+  assert.match(BODY, /_drawMotionVectors\(gl[^)]*\);\s*this\._drawDarkenCenter\(gl, GW, GH\);\s*this\._drawBorders\(gl\);/);
 });
 
 test('kenarlık: iki halka da kendi renk ve boyunu okuyor', () => {

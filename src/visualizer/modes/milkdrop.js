@@ -2302,7 +2302,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          yalnız geçiş süresince. */
       this._drawWaveModes(gl, GW, GH);
       // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
-      this._drawMotionVectors(gl);
+      this._drawMotionVectors(gl, GW, GH);
       /* Merkez karartma ve kenarlıklar EN SON: MilkDrop'ta da sıra bu.
          Daha önce çizilseler dalga ve şekiller üstlerini kapatırdı. */
       this._drawDarkenCenter(gl, GW, GH);
@@ -2547,7 +2547,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
     }
 
-    _drawMotionVectors(gl) {
+    _drawMotionVectors(gl, GW, GH) {
       const P = this.preset;
       if (!P) return;
       const a = +P.get('mv_a');
@@ -2610,7 +2610,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const flush = () => {
         if (count < 2) { count = 0; return; }
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
-        gl.drawArrays(gl.LINES, 0, count);
+        /* Vektörler de şişiriliyor. MilkDrop onları KALINLAŞTIRMIYOR
+           (milkdropfs.cpp:1314, tek bir LINELIST çizimi), ama kendi
+           tamponunda bir teksel olan çizgi bizim tamponumuzda yine bir
+           PİKSEL kalıyordu — 1920 genişlikte MilkDrop'un gördüğünün dörtte
+           biri. Telafi çözünürlük içindir, `thick` için değil; çarpan 1.
+           Korpusta 884 preset (%8,6) hareket vektörü çiziyor. */
+        this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1);
         count = 0;
       };
       for (let j = 0; j < NY; j++) {
@@ -3237,7 +3243,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
               d[k + 4] = cn(o.border_b); d[k + 5] = ba;
             }
             gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
-            gl.drawArrays(gl.LINE_LOOP, 0, n);
+            /* KENARLIK ARTIK ŞİŞİRİLİYOR. MilkDrop kenarlığı da dalga gibi
+               kalınlaştırıyor (milkdropfs.cpp:2247-2259): `its = thick ? 4 : 1`
+               ve dört çizim bir teksellik 2x2 karenin köşelerine kayıyor,
+               yani doğrusal kalınlık iki katı — çarpan 4 değil 2.
+
+               Bizde `thick` motora hiç ulaşmıyordu: kenarlık her zaman tek
+               çizim, üstelik çözünürlük telafisi de yoktu. 1920 genişlikte
+               MilkDrop'un 512'lik tamponunda bir teksel olan çizgi bizde
+               dörtte bir kalınlıkta çiziliyordu. Korpusta 2.961 şekil bloğu
+               (1.821 preset, %17,6) kenarlık çiziyor; bunların 425'i
+               (309 preset, %3,0) `thickOutline` da istiyor. */
+            this._strip(gl, gl.LINE_LOOP, d, n, -1, GW, GH, o.thick ? 2 : 1);
           }
         }
       }
@@ -3866,7 +3883,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         }
       };
       draw();
-      if (kind !== gl.LINE_STRIP) return;
+      /* ŞİŞİRME çizgi biçimlerinin hepsinde: dalga şeridi (LINE_STRIP),
+         şekil kenarlığı (LINE_LOOP) ve hareket vektörleri (LINES). MilkDrop
+         üçünü de kendi tamponunda bir teksel çiziyor ve bizim tamponumuz
+         çok daha büyük — telafi edilmezse üçü de oranla incelip sönükleşir.
+         Nokta kipi (POINTS) dışarıda: orada çizgi yok. */
+      if (kind !== gl.LINE_STRIP && kind !== gl.LINE_LOOP && kind !== gl.LINES) return;
       /* Referans 320: presetlerin yazıldığı dönemin tipik iç tamponu bu
          genişlikteydi ve çizgi ağırlığı ona göre seçilmiş. 512'yi referans
          alınca 640'lık bir tamponda telafi hiç devreye girmiyor ve preset
