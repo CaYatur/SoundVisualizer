@@ -3719,7 +3719,25 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          genişlikteydi ve çizgi ağırlığı ona göre seçilmiş. */
       const weight = Math.max(1, Math.min(5, Math.round(GW / 320) * (thickMul || 1)));
       // Eski yol: bir asıl çizim + en fazla altı kaydırılmış kopya.
-      return 1 + Math.min(6, Math.max(0, (weight - 1) * 3));
+      const n = 1 + Math.min(6, Math.max(0, (weight - 1) * 3));
+      /* ÇAKIŞMA DÜZELTMESİ. Çizim SAYISI bırakılan ışığın iyi bir vekili
+         değil: kaydırılmış kopyalar birbirinin üstüne biniyor ve ışık
+         doğrusal artmıyor. Kaydırma listesi dolduğunda (yedi çizim) sapma
+         ölçülebilir hâle geliyor.
+
+         ÖLÇÜLDÜ (512x384, decay=0, shader yok): ağırlık 2'den 4'e çıkınca
+         ÇİZİM oranı 7/4 = 1,75, IŞIK oranı ise dalga modu 0/1/2/4/7'de
+         1,58 / 1,58 / 1,76 / 1,53 / 1,59 ve şekil kenarlığında 1,41 —
+         ortalama 1,58. Vekili düzeltmeden şerit o kadar fazla ışık
+         bırakıyordu: aynı ölçümde dalga +16,0 / +33,7 / -9,6 / +19,0 /
+         +17,1 yüzde sapıyordu.
+
+         Katsayı 1,58/1,75 = 0,90. YALNIZCA liste dolduğunda uygulanıyor,
+         yani `AA_TRIM`in kalibre edildiği ağırlık 2 durumu bit birebir
+         aynı kalıyor. Sapma sıfırlanmıyor ve sıfırlanamaz — gerekçesi
+         `_aaSetup` içinde: kayma segment SAYISINA bağlı, tek bir çarpanla
+         kapatılamaz. Mod 1 ve 2 bu yüzden hâlâ uçta. */
+      return n >= 7 ? n * 0.90 : n;
     }
 
     /* ŞERİT GEOMETRİSİ. Poli-çizgiyi iki yana açıp üçgen şeridine çevirir.
@@ -3800,9 +3818,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return w;
     }
 
-    /* Kenar yumuşatmalı çizim. `d` şerit verisi, `n` nokta sayısı. */
-    _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed) {
-      if (n < 2) return;
+    /* Şeridin GENİŞLİĞİ, KAZANCI ve tek seferlik GL kurulumu.
+
+       Şerit yolu iki yerden çağrılıyor — bağlı çizgi (dalga, şekil
+       kenarlığı) ve bağımsız parçalar (hareket vektörleri) — ve ikisinin de
+       AYNI kalibrasyonu kullanması gerekiyor. İki yere kopyalanmış bir
+       genişlik hesabı, biri güncellenip öteki unutulduğunda sessizce iki
+       farklı kalınlık çizerdi. */
+    _aaSetup(gl, GW, thickMul) {
       const draws = this._lineDraws(GW, thickMul);
       /* GENİŞLİK: 320'lik referansta bir teksel, yukarısında oranla. Eski
          yolun kademeli ağırlığından farklı olarak sürekli — 640'ta 2, 1024'te
@@ -3849,6 +3872,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.uniform1f(L.uMax, this._aaAdditive ? 64 : 1);
       gl.bindVertexArray(this.aaVao);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.aaVbo);
+      return ext;
+    }
+
+    /* Kenar yumuşatmalı çizim. `d` şerit verisi, `n` nokta sayısı. */
+    _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed) {
+      if (n < 2) return;
+      const ext = this._aaSetup(gl, GW, thickMul);
       const seg = (off, cnt) => {
         if (cnt < 2) return;
         const v = this._ribbon(d.subarray(off * 6, (off + cnt) * 6), cnt,
@@ -3861,11 +3891,90 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindVertexArray(null);
     }
 
+    /* BAĞIMSIZ PARÇALAR (hareket vektörleri). `gl.LINES` gibi: her iki nokta
+       kendi çizgisi, aralarında süreklilik yok.
+
+       Hepsi TEK bir üçgen şeridinde çiziliyor, parça başına bir çizim
+       çağrısıyla değil: 64x48'lik bir ızgara 3072 vektör demek ve o kadar
+       çizim çağrısı kareyi tek başına yerdi. Parçalar arasına DEJENERE
+       bağlantı konuyor — sıfır alanlı üçgen hiç parça üretmiyor, dolayısıyla
+       aradaki `side` değeri hiç örneklenmiyor. */
+    _aaSegments(gl, d, n, GW, GH, thickMul) {
+      if (n < 2) return;
+      const ext = this._aaSetup(gl, GW, thickMul);
+      const out = this.aaData;
+      const sx = GW * 0.5, sy = GH * 0.5;
+      const lenCorr = this._lineStyle !== 'thin';
+      let w = 0;
+      /* Tampon sınırı: parça başına en çok altı tepe (dört köşe + iki
+         dejenere). Sığmayan parça çizilmiyor değil, o noktada boşaltılıyor. */
+      const kapasite = Math.floor(out.length / 7);
+      const bosalt = () => {
+        if (w >= 4) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, out, 0, w * 7);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, w);
+        }
+        w = 0;
+      };
+      const yaz = (px, py, side, o, corr) => {
+        const k = w * 7;
+        out[k] = px / sx; out[k + 1] = py / sy; out[k + 2] = side;
+        out[k + 3] = d[o + 2]; out[k + 4] = d[o + 3];
+        out[k + 5] = d[o + 4]; out[k + 6] = d[o + 5] * corr;
+        w++;
+      };
+      for (let i = 0; i + 1 < n; i += 2) {
+        if (w + 6 > kapasite) bosalt();
+        const a = i * 6, b = (i + 1) * 6;
+        const x0 = d[a] * sx, y0 = d[a + 1] * sy;
+        const x1 = d[b] * sx, y1 = d[b + 1] * sy;
+        let dx = x1 - x0, dy = y1 - y0;
+        const L = Math.sqrt(dx * dx + dy * dy);
+        if (L < 1e-9) continue;                    // sıfır uzunluk: çizilecek bir şey yok
+        dx /= L; dy /= L;
+        const ox = -dy * ext, oy = dx * ext;
+        /* Uzunluk telafisi şeritteki ile aynı gerekçeyle: `gl.LINES` de
+           elmas-çıkış kuralıyla tarıyor, yani çapraz bir parça birim uzunluk
+           başına 1/√2 piksel alıyor. */
+        const corr = lenCorr ? Math.max(Math.abs(dx), Math.abs(dy)) : 1;
+        /* DEJENERE BAĞLANTI: bir öncekinin son tepesi ile yeninin ilk tepesi
+           birer kez daha yazılıyor. İkisi ekleniyor, biri değil — tek tepe
+           sarım yönünü ters çevirir ve sonraki parça arkaya bakan üçgenlere
+           dönerdi. Önceki tepe olduğu gibi kopyalanıyor: üçgen sıfır alanlı
+           olduğu için rengi zaten örneklenmiyor, ama kopyalamak "hangi renk
+           doğru" sorusunu tümden ortadan kaldırıyor. */
+        if (w > 0) {
+          const k = (w - 1) * 7;
+          for (let c = 0; c < 7; c++) out[w * 7 + c] = out[k + c];
+          w++;
+          yaz(x0 - ox, y0 - oy, -1, a, corr);
+        }
+        yaz(x0 - ox, y0 - oy, -1, a, corr);
+        yaz(x0 + ox, y0 + oy, 1, a, corr);
+        yaz(x1 - ox, y1 - oy, -1, b, corr);
+        yaz(x1 + ox, y1 + oy, 1, b, corr);
+      }
+      bosalt();
+      gl.bindVertexArray(null);
+    }
+
     _strip(gl, kind, d, n, breakAt, GW, GH, thickMul) {
       /* KENAR YUMUŞATMALI YOL yalnızca ÇİZGİ için. Nokta kipinde şerit
          diye bir şey yok; noktalar eski yoldan çiziliyor. */
-      if (kind === gl.LINE_STRIP && this._lineStyle !== 'milkdrop' && this.aaProg) {
-        this._aaStrip(gl, d, n, breakAt, GW, GH, thickMul, false);
+      /* KENAR YUMUŞATMALI YOL artık üç çizgi biçiminde de: dalga şeridi,
+         şekil kenarlığı (kapalı şerit) ve hareket vektörleri (bağımsız
+         parçalar). Aynı `lineStyle` ayarı üçünü birden sürüyor — biri
+         yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı. */
+      const aa = this._lineStyle !== 'milkdrop' && this.aaProg;
+      if (aa && kind === gl.LINES) {
+        this._aaSegments(gl, d, n, GW, GH, thickMul);
+        gl.useProgram(this.lineProg);
+        gl.bindVertexArray(this.lineVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
+        return;
+      }
+      if (aa && (kind === gl.LINE_STRIP || kind === gl.LINE_LOOP)) {
+        this._aaStrip(gl, d, n, breakAt, GW, GH, thickMul, kind === gl.LINE_LOOP);
         /* Çağıran `lineProg`/`lineVao`yu bağlı bırakmıştı; AA yolu ikisini
            de değiştirdi. Sıradaki çizim kendi programını bağlamazsa yanlış
            gölgelendiriciyle çizerdi. */

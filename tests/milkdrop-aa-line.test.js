@@ -61,9 +61,14 @@ test('eski yolun çizim sayısı tek yerden geliyor', () => {
   assert.strictEqual(lineDraws(320, 1), 1, '320\'de telafi devreye girmiyor');
   assert.strictEqual(lineDraws(512, 1), 4);
   assert.strictEqual(lineDraws(640, 1), 4);
-  assert.strictEqual(lineDraws(1024, 1), 7);
-  assert.strictEqual(lineDraws(1920, 1), 7, 'ağırlık 5\'te, kopya 6\'da tavan yapıyor');
   assert.strictEqual(lineDraws(320, 2), 4, 'wave_thick ağırlığı ikiye katlıyor');
+  /* Kaydırma listesi dolduğunda (yedi çizim) ÇAKIŞMA DÜZELTMESİ giriyor:
+     kopyalar birbirinin üstüne biniyor ve ışık çizim sayısıyla doğrusal
+     artmıyor. Ölçüldü — ağırlık 2'den 4'e çıkınca çizim oranı 1,75, ışık
+     oranı ortalama 1,58; katsayı 0,90. Ayrıntısı `_lineDraws` yerinde. */
+  assert.strictEqual(lineDraws(1024, 1), 6.3);
+  assert.strictEqual(lineDraws(1920, 1), 6.3, 'ağırlık 5\'te, kopya 6\'da tavan yapıyor');
+  assert.strictEqual(lineDraws(512, 2), 6.3, 'kalın çizgi de tavana çarpıyor');
 });
 
 // -------------------------------------------------------------- geometri
@@ -165,7 +170,12 @@ test('telafi kapalıyken alfa dokunulmadan geçiyor', () => {
 test('nokta kipi eski yoldan çiziliyor', () => {
   /* Nokta kipinde şerit diye bir şey yok; `gl.POINTS` AA yoluna girmemeli. */
   const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul)'));
-  assert.match(fn, /kind === gl\.LINE_STRIP && this\._lineStyle !== 'milkdrop'/);
+  /* Yönlendirme ÜÇ çizgi biçimini sayıyor ve POINTS hiçbirinde yok; yani
+     nokta kipi eski yola düşüyor. */
+  assert.match(fn, /if \(aa && kind === gl\.LINES\)/);
+  assert.match(fn, /if \(aa && \(kind === gl\.LINE_STRIP \|\| kind === gl\.LINE_LOOP\)\)/);
+  assert.doesNotMatch(fn.slice(0, fn.indexOf('const draw =')), /gl\.POINTS/,
+    'POINTS AA yoluna girmemeli');
 });
 
 test('AA yolundan sonra program ve VAO geri bağlanıyor', () => {
@@ -201,7 +211,10 @@ test('alfa tavanı karışım kipine bağlı', () => {
 });
 
 test('ince kipte ışık koruma yok, yumuşatılmışta var', () => {
-  const fn = BARE.slice(BARE.indexOf('_aaStrip(gl, d, n, breakAt'));
+  /* Genişlik ve kazanç `_aaSetup` içinde: şerit yolu iki yerden çağrılıyor
+     (bağlı çizgi ve bağımsız parçalar) ve ikisi de aynı kalibrasyonu
+     kullanmak zorunda. */
+  const fn = BARE.slice(BARE.indexOf('_aaSetup(gl, GW, thickMul)'));
   assert.match(fn, /const ref = this\._lineStyle === 'thin' \? 512 : 320;/);
   assert.match(fn, /this\._lineStyle === 'thin' \? 1 : AA_TRIM \* draws \/ \(2 \* half\)/);
 });

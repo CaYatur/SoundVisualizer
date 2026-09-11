@@ -200,7 +200,11 @@
        içinde söndürüyor. "Işık korumalı" seçeneği eski yolun bıraktığı
        ışığı hedefliyor (ölçüldü: ±%12), yani presetlerin parlaklığı
        yerinde kalıyor. "Gerçek kalınlık" fiziksel olarak doğru ama
-       dalga taşıyan presetler gözle görülür biçimde sönükleşiyor. */
+       dalga taşıyan presetler gözle görülür biçimde sönükleşiyor.
+
+       Ayar ÜÇ çizgiyi birden sürüyor: dalga, şekil kenarlığı ve hareket
+       vektörleri. Yalnız dalgaya uygulansaydı aynı karede yumuşak bir
+       dalga ile tırtıklı bir kenarlık yan yana dururdu. */
     nodes.push(P().row('Çizgi Çizimi', selOf([
       ['smooth', 'Yumuşatılmış (ışık korumalı)'],
       ['thin', 'Yumuşatılmış (gerçek kalınlık)'],

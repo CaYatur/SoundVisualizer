@@ -122,11 +122,25 @@ test('şişirme çizgi biçimlerinin HEPSİNDE, noktalarda değil', () => {
     /if \(kind !== gl\.LINE_STRIP && kind !== gl\.LINE_LOOP && kind !== gl\.LINES\) return;/);
 });
 
-test('kenar yumuşatma yolu bu adımda YALNIZ dalgada', () => {
-  /* Şerit yolu ayrı bir adım: onun kazancı `AA_TRIM * draws / (2*half)` ile
-     ŞİŞİRİLMİŞ yolun bıraktığı ışığa göre ayarlanıyor. Aynı commit'te hem
-     tabanı değiştirip hem ona göre ayar yapmak iki değişkeni tek ölçümle
-     kalibre etmek olurdu. */
-  const fn = /_strip\(gl, kind, d, n, breakAt, GW, GH, thickMul\) \{[\s\S]*?\n    \}/.exec(BARE);
-  assert.match(fn[0], /if \(kind === gl\.LINE_STRIP && this\._lineStyle !== 'milkdrop'/);
+test('kenar yumuşatma üç çizgi biçiminde de aynı ayardan sürülüyor', () => {
+  /* `lineStyle` dalgada, şekil kenarlığında ve hareket vektörlerinde aynı
+     anda geçerli: biri yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı.
+     Kenarlık KAPALI şerit (`closed`), vektörler bağımsız parçalar. */
+  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul)'));
+  assert.match(fn, /const aa = this\._lineStyle !== 'milkdrop' && this\.aaProg;/);
+  assert.match(fn, /this\._aaSegments\(gl, d, n, GW, GH, thickMul\);/);
+  assert.match(fn, /this\._aaStrip\(gl, d, n, breakAt, GW, GH, thickMul, kind === gl\.LINE_LOOP\);/);
+});
+
+test('bağımsız parçalar TEK şeritte, parça başına çizim çağrısıyla değil', () => {
+  /* 64x48'lik bir ızgara 3072 vektör demek; parça başına bir çizim çağrısı
+     kareyi tek başına yerdi. Dejenere bağlantı sıfır alanlı üçgen üretiyor,
+     yani aradaki `side` değeri hiç örneklenmiyor. */
+  const fn = /_aaSegments\(gl, d, n, GW, GH, thickMul\) \{[\s\S]*?\n    \}/.exec(BARE);
+  assert.ok(fn, '_aaSegments bulunamadı');
+  assert.strictEqual((fn[0].match(/drawArrays/g) || []).length, 1,
+    'tek bir çizim çağrısı olmalı');
+  assert.match(fn[0], /gl\.TRIANGLE_STRIP/);
+  assert.match(fn[0], /if \(w \+ 6 > kapasite\) bosalt\(\);/,
+    'tampon dolunca boşaltılmalı — parça başına altı tepe');
 });
