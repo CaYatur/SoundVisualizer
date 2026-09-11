@@ -178,16 +178,63 @@ function pageHarness() {
       window.__ctx = canvas.getContext('2d');
 
       /* Sentetik ses — 120 BPM'lik vuruş, kare indisine bağlı, deterministik.
-         Sessiz girdi çoğu preseti hareketsiz bırakıp "donmuş" gösterirdi. */
+         Sessiz girdi çoğu preseti hareketsiz bırakıp "donmuş" gösterirdi.
+
+         ZAMAN VERİSİ GENİŞ BANTLI: kick, snare, hi-hat, bas hattı ve ped,
+         48 kHz'de, kronolojik sırada (en yeni örnek sonda) — yakalama
+         yardımcısının verdiği biçim. Eskiden iki alçak sinüstü (2048
+         örnekte 4 ve 6,03 devir, ~94 ve ~141 Hz): MilkDrop'un 1024 noktalı
+         tayfında yalnız 2. ve 3. göze düşüyordu. Tayf dalgaları bu veriden
+         hesaplanıyor ve orta ya da tiz bantta hiçbir şey görmüyorlardı.
+         'bass/mid/treble/freq' alanları DEĞİŞMEDİ: "uyum kapalı" yolu
+         onları okuyor ve o yolun ölçümü kaymasın. (Bu metin bir şablon
+         dizgisinin içinde: ters tırnak kullanılamaz.) */
+      var SR = 48000, BEAT = 0.5;
+      var NOTES = [55, 55, 73.4, 82.4];
+      /* Örnek indisine bağlı gürültü: aynı örnek her koşuda aynı değeri
+         alıyor; komşu örneklerin farkı yüksek geçiren gürültü veriyor. */
+      var noise = function (j) {
+        var h = Math.imul(j ^ 0x5bd1e995, 0x27d4eb2d);
+        h = Math.imul(h ^ (h >>> 15), 0x165667b1);
+        h ^= h >>> 13;
+        return (h >>> 0) / 2147483648 - 1;
+      };
+      var sampleAt = function (j) {
+        var tt = j / SR;
+        var b = Math.floor(tt / BEAT), tb = tt - b * BEAT;
+        var s = 0;
+        if (tb < 0.4) {
+          // kick: 110 Hz'den 45 Hz'e düşen sinüs
+          s += 0.9 * Math.exp(-tb / 0.16) *
+            Math.sin(2 * Math.PI * (45 * tb + 2.275 * (1 - Math.exp(-tb / 0.035))));
+        }
+        if (b % 2 === 1 && tb < 0.25) {
+          // snare: farkı bir kez alınmış gürültü
+          s += 0.175 * (noise(j) - noise(j - 1)) * Math.exp(-tb / 0.06);
+        }
+        var th = tt - Math.floor(tt / (BEAT / 2)) * (BEAT / 2);
+        if (th < 0.08) {
+          // hi-hat: farkı üç kez alınmış gürültü
+          s += 0.0225 * (noise(j) - 3 * noise(j - 1) + 3 * noise(j - 2) - noise(j - 3)) *
+            Math.exp(-th / 0.02);
+        }
+        var note = NOTES[Math.floor(tt / (BEAT * 2)) % 4];
+        if ((tt / (BEAT / 2)) % 1 < 0.7) s += 0.25 * Math.sin(2 * Math.PI * note * tt);
+        s += 0.05 * (Math.sin(2 * Math.PI * 220 * tt) + Math.sin(2 * Math.PI * 277.2 * tt) +
+          Math.sin(2 * Math.PI * 329.6 * tt));
+        return s * 0.5;
+      };
       window.__audio = function (i) {
         var t = i / 30;
         var beat = Math.pow(Math.max(0, 1 - ((t * 2) % 1) * 2.2), 2);
+        /* Parça 1. saniyeden başlıyor: pencerenin ilk örnekleri eksi
+           zamana düşmesin. */
+        var end = Math.floor((1 + t) * SR);
         var time = new Uint8Array(2048);
         for (var k = 0; k < 2048; k++) {
-          var u = k / 2048;
-          var s = Math.sin(u * Math.PI * 2 * 4 + t * 5.2) * 0.40 * (0.4 + beat) +
-                  Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1) * 0.22;
-          time[k] = Math.max(0, Math.min(255, 128 + s * 118));
+          var s = sampleAt(end - 2047 + k);
+          s = s < -1 ? -1 : s > 1 ? 1 : s;
+          time[k] = (128 + s * 127) | 0;
         }
         /* Sentetik TAYF. 'spectrum = 1' yazan ozel dalgalar frekans
            verisi okuyor; vermezsek o yol olcumde hic calismaz ve
