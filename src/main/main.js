@@ -121,6 +121,7 @@ let pendingExitCode = 0;
 function failAndQuit(code) {
   pendingExitCode = code;
   process.exitCode = code;
+  restoreSmokeSettings();
   app.quit();
 }
 app.on('will-quit', () => {
@@ -128,6 +129,31 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+
+/* ÖZ TEST KULLANICININ AYARLARINA DOKUNMAMALI.
+
+   Öz test gerçek kullanıcı klasörüyle koşuyor ve panelin kendi yolundan
+   (`SVPanel.apply()` → update-config → saveSettings) onlarca deneme
+   yapılandırması gönderiyor: `sc_test` diye bir deneme sahnesi, bir
+   saniyelik Otomatik VJ, dinamik tema, Spout, OpenRGB... Ölçüldü:
+   `--smoke-export` eklenmiş iki koşudan sonra settings.json fabrika
+   ayarları artı bu deneme değerlerinden ibaretti — kullanıcının altı
+   katmanı, sekiz sahnesi ve efekt zinciri gitmişti. Hangi adımın en son
+   yazdığını kovalamak yerine kural tek yerde: dosya açılışta okunuyor,
+   kapanışta aynen geri yazılıyor ve o andan sonra hiçbir yazım kabul
+   edilmiyor. */
+const SMOKE_SETTINGS = SMOKE && fs.existsSync(SETTINGS_PATH) ? fs.readFileSync(SETTINGS_PATH) : null;
+let settingsFrozen = false;
+function restoreSmokeSettings() {
+  if (!SMOKE || settingsFrozen) return;
+  settingsFrozen = true;
+  if (!SMOKE_SETTINGS) return;
+  try {
+    fs.writeFileSync(SETTINGS_PATH, SMOKE_SETTINGS);
+  } catch (e) {
+    console.error('[SMOKE] ayarlar geri yazılamadı:', e);
+  }
+}
 
 // ----------------------------------------------------------------------------
 // Ayar kalıcılığı
@@ -150,6 +176,7 @@ function loadSettings() {
 }
 
 function saveSettings(config) {
+  if (settingsFrozen) return;
   try {
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(config, null, 2), 'utf-8');
   } catch (e) {
@@ -3624,6 +3651,7 @@ async function runSmoke() {
     return;
   }
   console.log('[SMOKE] RESULT: PASS');
+  restoreSmokeSettings();
   app.quit();
 }
 
