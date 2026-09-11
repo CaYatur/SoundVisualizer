@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1556%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1565%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -272,6 +272,15 @@ that asserts the bar profile has no step in it.
   while the panel is closed or covered, and the preset it moves to is not written into the settings
   file, which is rewritten in full on every change. The panel's Loaded Preset row shows what is on
   screen, and the panel preview follows the visualizer instead of running a sequence of its own.
+- **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
+  the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
+  vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
+  changes the palette on every track and the palette counts as a scene change, so with both switched
+  on this happened on every track — for colours MilkDrop never reads. The layer now stays in the
+  arriving scene and the leaving one shows the same canvas through a proxy, so MilkDrop keeps
+  running while the layers around it cross-fade. Measured in the running app, one run, the same
+  palette change: without the fix a new instance appeared on the hand-picked preset, with it the same
+  instance kept the preset it was showing.
 - **The per-frame variables reset every frame, as MilkDrop resets them.** MilkDrop re-seeds every
   built-in per-frame variable from the preset file before `per_frame` runs and returns `q1..q32` to
   what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the
@@ -987,7 +996,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1556 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1565 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

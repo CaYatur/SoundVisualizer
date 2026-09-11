@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1556%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1565%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -266,6 +266,15 @@ profilinde basamak olmadığını doğruluyor.
   kapalıyken ya da örtülüyken de durmuyor; geçilen preset ayar dosyasına yazılmıyor, o dosya her
   değişiklikte baştan yazılıyor. Panelin Yüklü Preset satırı ekrandakini gösteriyor, panel
   önizlemesi de kendi sırasını koşturmak yerine görselleştiriciyi izliyor.
+- **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
+  katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
+  silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
+  parçada paleti değiştiriyor ve palet sahne değişimi sayılıyor; ikisi açıkken bu her parçada
+  oluyordu — MilkDrop'un hiç okumadığı renkler için. Katman artık varış sahnesinde kalıyor, giden
+  sahne aynı tuvali bir vekil üzerinden gösteriyor: MilkDrop koşmaya devam ederken çevresindeki
+  katmanlar geçiş yapıyor. Çalışan uygulamada, tek koşuda, aynı palet değişimiyle ölçüldü:
+  düzeltme yokken elle seçilen presette yeni bir örnek doğdu, düzeltmeyle aynı örnek gösterdiği
+  presette kaldı.
 - **Kare değişkenleri her karede sıfırlanıyor, MilkDrop nasıl sıfırlıyorsa.** MilkDrop `per_frame`
   koşmadan önce bütün yerleşik kare değişkenlerini preset dosyasından yeniden yüklüyor ve
   `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun
@@ -989,7 +998,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1556 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1565 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

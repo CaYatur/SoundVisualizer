@@ -680,6 +680,8 @@
     }
 
     _disposeEntry(e) {
+      // Vekilin tuvali canlı bir katmanın tuvali; ona dokunmak onu silerdi
+      if (e.proxyOf) return;
       if (e.mode && e.mode.dispose) {
         try { e.mode.dispose(); } catch { /* motor zaten kapanmış */ }
       }
@@ -727,6 +729,10 @@
          kapalıyken de çalışmalı. Aksi halde “Karartma Animasyonu” ayarı
          sessizce yok sayılır ve panik düğmesi kesme yapar. */
       const transOn = isBlackoutTrans || (spec && spec.enabled !== false);
+      /* Varış sahnesinin katmanları geçişten ÖNCE çözülüyor: hangi katmanın
+         iki sahnede de durduğunu geçiş bilmek zorunda (beginTransition). */
+      const wanted = resolve(cfg);
+      const wantedKeys = new Set(wanted.map((l) => this._key(l)));
       if (T && spec && transOn && !bothBlackout && transType && transType !== 'cut' && transDur > 0 &&
           this.lastSig && scnSig !== this.lastSig && this.prevCfg) {
         this.beginTransition(this.prevCfg, {
@@ -736,12 +742,11 @@
             ? Object.assign({}, spec.params || {}, { isBlackout: true, blackoutDirection: isBlackoutNow ? 'out' : 'in' })
             : (spec.params || {}),
           ease: isBlackoutTrans ? 'smooth' : (spec.ease || 'smooth'),
-        });
+        }, wantedKeys);
       }
       this.lastSig = scnSig;
       this.prevCfg = cfg;
 
-      const wanted = resolve(cfg);
       const sig = wanted.map((l) => this._key(l)).join(';');
       const oldEntries = this.entries;
       const next = [];
@@ -933,18 +938,45 @@
 
        Devralınan tuvaller DOM'dan çıkarılır; giden yığın container'sız çalışıp
        yalnızca drawTo() ile çizer. */
-    beginTransition(oldCfg, spec) {
+    /* SÜREKLİ KATMANLAR GEÇİŞTE YENİDEN DOĞMUYOR.
+
+       Geçiş eski sahnenin katmanlarını giden yığına devrediyor ve varış
+       sahnesinin hepsini SIFIRDAN kuruyordu. Çoğu mod için fark etmez;
+       MilkDrop için yıkım: o bir simülasyon — geri besleme izi, çalışan
+       preset, otomatik geçiş sayacı. Yeniden kurulunca preset baştan
+       başlıyor, iz siliniyor, otomatik geçiş elle seçilen presete geri
+       dönüyordu. Dinamik renk teması her parça değişiminde paleti
+       değiştiriyor ve palet sahne imzasında; yani dinamik tema açık bir
+       kullanıcıda bu HER PARÇADA oluyordu — oysa MilkDrop o renkleri hiç
+       okumuyor.
+
+       Mod `keepAcrossTransitions` diyorsa ve katman varış sahnesinde de
+       duruyorsa (`keep`), örnek varış yığınında KALIYOR. Giden yığına bir
+       VEKİL gidiyor: modu yok, aynı tuvali gösteriyor. Varış yığını önce
+       çiziliyor, yani vekil aynı karede yeni çizilmiş tuvali bileşime
+       katıyor; iki bileşimde de aynı görüntü var ve katman kesintisiz
+       akarken çevresindekiler geçiş yapıyor. Geçiş bitince vekil atılırken
+       tuvale dokunulmuyor. Katman varış sahnesinde yoksa eskisi gibi giden
+       yığına gidip sönüyor. */
+    beginTransition(oldCfg, spec, keep) {
       if (this.trans) this.endTransition();
       const out = new LayerStack(null, this.opts);
-      out.entries = this.entries || [];
+      const kept = [];
+      out.entries = (this.entries || []).map((e) => {
+        if (keep && keep.has(e.key) && e.mode && e.mode.keepAcrossTransitions) {
+          kept.push(e);
+          return { layer: e.layer, key: e.key, canvas: e.canvas, ctx: e.ctx, mode: null, proxyOf: e };
+        }
+        return e;
+      });
       out.width = this.width;
       out.height = this.height;
       out.sprites = this.sprites;
       out.media = this.media;
       for (const e of out.entries) {
-        if (e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
+        if (!e.proxyOf && e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
       }
-      this.entries = [];
+      this.entries = kept;
       this.trans = {
         stack: out,
         cfg: oldCfg,
@@ -959,7 +991,7 @@
     endTransition() {
       if (!this.trans) return;
       const out = this.trans.stack;
-      for (const e of out.entries) out._disposeEntry(e);
+      for (const e of out.entries) if (!e.proxyOf) out._disposeEntry(e);
       out.entries = [];
       this.trans = null;
     }
@@ -1138,6 +1170,10 @@
        var; maskeyi her birinin sonrasına ayrı ayrı eklemek yerine sarmalamak
        hem kısa hem de yeni bir katman türü eklendiğinde unutulamaz. */
     _drawEntry(e, audio, cfg, t, dt, live) {
+      /* Vekil çizilmiyor: tuvalini bu karede varış yığını zaten çizdi.
+         Maske ve katman efekti de uygulanmıyor — uygulansaydı eski sahnenin
+         efekti canlı tuvalin üstüne İKİNCİ kez binerdi. */
+      if (e.proxyOf) return;
       const l = live || e.layer;
       this._drawEntryRaw(e, audio, cfg, t, dt, l);
       this._applyMask(e, l);

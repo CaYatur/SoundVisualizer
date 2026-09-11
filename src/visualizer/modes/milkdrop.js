@@ -615,6 +615,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     constructor(canvas) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
+      /* Sahne geçişinde yeniden KURULMA (layers.js beginTransition). Bu bir
+         simülasyon: geri besleme izi, çalışan preset ve otomatik geçiş
+         sayacı yeni bir örnekte sıfırdan başlar. */
+      this.keepAcrossTransitions = true;
       this.gl2 = document.createElement('canvas');
       this.gl = null;
       this.preset = null;
