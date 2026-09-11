@@ -3392,6 +3392,11 @@ async function runSmoke() {
 
       const cases = [
         { name: 'fireworks', over: { visualizer: { type: 'fireworks' }, background: { type: 'corridor' } } },
+        /* MilkDrop da DÜZ SİYAH üstünde. Dışa aktarıcının HTML'inde motorun
+           ses, HLSL ve shader parçaları yoktu; hiçbir dışa aktarma durumu
+           MilkDrop'u kapsamadığı için bu görünmedi. Motor çizmezse video
+           siyah kalır ve aşağıdaki blackdetect denetimi yakalar. */
+        { name: 'milkdrop', over: { visualizer: { type: 'milkdrop' }, background: { type: 'solid', solidColor: '#000000' } } },
         tmpPreset.ok
           // Arkaplan bilerek DÜZ SİYAH: böylece kareye renk koyabilecek tek şey
           // Studio shader'ıdır. Shader çizmezse video baştan sona siyah çıkar ve
