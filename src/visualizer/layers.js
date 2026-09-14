@@ -211,6 +211,61 @@
     return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
   }
 
+  /* SAYDAM MOD — "şeffaf arkaplan".
+
+     İki ayrı saydamlık var ve ikisi de aynı şeyi istiyor: katmanların
+     arkasında hiçbir şey boyanmasın.
+       - `background.type === 'transparent'`: yayın katmanı (web-shim) ve
+         saydam şablonlar; arkaplan katmanı hiç kurulmuyor.
+       - `background.transparent`: masaüstünde "Şeffaf Arkaplan"; pencere
+         şeffaf doğuyor. Karartma sürerken siyah kalıyor — yayın katmanında
+         da öyle; saydam bir karartma ekranı söndürmek yerine masaüstünü
+         gösterirdi. */
+  function seeThrough(cfg) {
+    const bg = cfg && cfg.background;
+    if (!bg) return false;
+    if (bg.type === 'transparent') return true;
+    return !!bg.transparent && cfg.isBlackout !== true;
+  }
+
+  /* Sayfanın (body) zemini.
+
+     Saydam modda boyanmamalı. Masaüstünde boyanıyordu: `.sv-transparent body`
+     kuralı vardı ama görselleştirici body'ye SATIR İÇİ renk yazıyordu (düz
+     renk ya da siyah) ve satır içi stil her kuralı ezer. Pencere şeffaf doğsa
+     bile arkası hiçbir sürümde görünmüyordu, ve her ayar değişikliği rengi
+     yeniden yazıyordu. */
+  function pageBackground(cfg) {
+    if (seeThrough(cfg)) return 'transparent';
+    const bg = (cfg && cfg.background) || {};
+    return bg.type === 'solid' ? (bg.solidColor || '#000') : '#000';
+  }
+
+  /* ARKAPLAN EFEKTİNİN KOYU YERLERİ SAYDAM.
+
+     Şeffaf arkaplan açıkken bir arkaplan efekti (sıvı metal, nebula...)
+     pencerenin her pikselini boyuyor, masaüstü hiç görünmüyordu. Artık
+     efektin koyu yerleri saydamlaşıyor:
+         görünürlük = parlaklık / eşik   (0..1'e kırpılmış)
+     Eşiğin üstü tam görünür, siyah tam saydam; eşik 0'da bile saf siyah
+     saydam kalıyor (alt sınır 1/255).
+
+     Parlaklık üç kanalın ORTALAMASI: süzgeç bir SVG renk matrisi ve doğrusal
+     olmak zorunda (en büyük kanal alınamıyor); Rec.709 ağırlıkları ise
+     doygun maviyi neredeyse görünmez yapardı (0,07). */
+  const KEY_DEFAULT = 0.2;
+  const KEY_MIN = 1 / 255;
+  function keyThreshold(cfg) {
+    const v = Number(cfg && cfg.background && cfg.background.transparentKey);
+    return Math.max(KEY_MIN, Math.min(1, isFinite(v) ? v : KEY_DEFAULT));
+  }
+
+  // feColorMatrix değerleri: renk aynen, alfa = (r + g + b) / (3 * eşik)
+  function keyMatrix(cfg) {
+    const w = +(1 / (3 * keyThreshold(cfg))).toFixed(6);
+    return '1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 ' + w + ' ' + w + ' ' + w + ' 0 0';
+  }
+
   /* Katman yığını anahtarını ve bağımlı klasik kök alanları yönetir.
      Katmanlar açıldığında (enabled = true):
        1. Henüz katman listesi yoksa mevcut klasik ayarlardan sentezlenir.
@@ -786,6 +841,9 @@
     _create(layer, key, cfg) {
       const e = { layer, key, canvas: null, ctx: null, mode: null };
       e.canvas = this._makeCanvas();
+      /* Arkaplan tuvali işaretli: şeffaf arkaplanda koyu yerleri saydamlaşan
+         yalnız o (visualizer.css, `.sv-bgkey`). */
+      if (layer.kind === 'background') e.canvas.classList.add('sv-bg');
       if (this.container) this.container.appendChild(e.canvas);
 
       if (layer.kind === 'logo') {
@@ -914,6 +972,14 @@
       return d.scale !== 1 || d.rotate !== 0 || d.x !== 0 || d.y !== 0 || d.flipX || d.flipY;
     }
 
+    /* Şeffaf arkaplanda arkaplan katmanlarına uygulanacak süzgeç
+       ('url(#sv-bg-key)') ya da null. Yalnız görselleştirici penceresi
+       veriyor — süzgeç o sayfada tanımlı; önizleme ve dışa aktarıcı
+       vermiyor, onlarda hiçbir şey değişmiyor. */
+    setKeyFilter(f) {
+      this.keyFilter = f || null;
+    }
+
     // Haritalama aşaması tek yüzey ister; görselleştirici bunu bildirir
     setMapping(on) {
       this._mapping = !!on;
@@ -973,6 +1039,8 @@
       out.height = this.height;
       out.sprites = this.sprites;
       out.media = this.media;
+      // Giden sahnenin arkaplanı da geçiş boyunca aynı süzgeçle saydamlaşsın
+      out.keyFilter = this.keyFilter;
       for (const e of out.entries) {
         if (!e.proxyOf && e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
       }
@@ -1065,7 +1133,7 @@
 
         if (fxOn) {
           this.postfx.resize(this.width, this.height);
-          this.postfx.render(src, audio, t, dt);
+          this.postfx.render(src, audio, t, dt, seeThrough(cfg));
           this._setSurface(this.postfx.canvas);
         } else if (tick) {
           this._setSurface(this.transSurface);
@@ -1319,9 +1387,9 @@
       /* Çizilecek katman yoksa yüzey SAYDAM kalırdı. Karartma tam bunu
          üretir: bütün katmanlar kapanır, geçişin varış sahnesi saydam olur
          ve çapraz geçiş görünürde hiçbir şey yapmaz — süre dolunca sahne
-         birden kararır. Kompozisyonun zemini siyahtır; saydam yayın kipi
-         bunun tek istisnasıdır. */
-      if (!this.entries.length && !(cfg && cfg.background && cfg.background.type === 'transparent')) {
+         birden kararır. Kompozisyonun zemini siyahtır; saydam mod (yayın
+         katmanı ya da şeffaf arkaplan) bunun tek istisnasıdır. */
+      if (!this.entries.length && !seeThrough(cfg)) {
         ctx.fillStyle = '#000';
         ctx.fillRect(0, 0, W, H);
       }
@@ -1336,6 +1404,10 @@
         ctx.save();
         ctx.globalCompositeOperation = CANVAS_BLEND(l.blend);
         ctx.globalAlpha = d.opacity;
+        /* Tek yüzey yolunda (efekt zinciri, sahne geçişi) katman tuvalleri
+           gizli, CSS süzgeci onlara ulaşmıyor: arkaplanın koyu yerleri burada,
+           çizerken saydamlaşıyor — aynı süzgeç, aynı görüntü. */
+        if (this.keyFilter && l.kind === 'background') ctx.filter = this.keyFilter;
         if (this._hasTransform(d)) {
           ctx.translate(W / 2 + d.x * W, H / 2 + d.y * H);
           ctx.rotate((d.rotate * Math.PI) / 180);
@@ -1445,6 +1517,10 @@
     groupGain,
     LAYER_DEFAULTS,
     resolveLogoSrc,
+    seeThrough,
+    pageBackground,
+    keyThreshold,
+    keyMatrix,
   };
   /* Saf yardımcılar (katman çözümleme, sıra, grup kazancı) Node'da test
      edilebilsin diye ayrıca dışa aktarılıyor; LayerStack sınıfı tuval

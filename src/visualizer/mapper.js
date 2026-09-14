@@ -47,6 +47,9 @@ uniform float uBright, uContrast, uGamma;
 uniform int uPattern;      // 0 yok, 1 ızgara, 2 artı, 3 bar, 4 çember
 uniform float uHasMask;
 uniform vec2 uRes;
+// Saydam mod: kaynak ön-çarpımlı; kenar harmanlama ve maske ışığı azaltıyor,
+// saydamlık da parlaklıktan geri kazanılıyor (postfx.js ile aynı yol)
+uniform float uSee;
 
 // warp.js'teki edgeBlend ile aynı eğri: f(x) + f(1-x) = 1
 float blend(float pos, float w, float g){
@@ -107,7 +110,13 @@ void main(){
 
   if (uHasMask > 0.5) c *= texture(uMask, vUV).r;
 
-  outColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+  c = clamp(c, 0.0, 1.0);
+  if (uSee > 0.5) {
+    float a = max(max(c.r, c.g), c.b);
+    outColor = a > 0.0 ? vec4(c / a, a) : vec4(0.0);
+  } else {
+    outColor = vec4(c, 1.0);
+  }
 }`;
 
   class Mapper {
@@ -168,6 +177,7 @@ void main(){
         uPattern: gl.getUniformLocation(p, 'uPattern'),
         uHasMask: gl.getUniformLocation(p, 'uHasMask'),
         uRes: gl.getUniformLocation(p, 'uRes'),
+        uSee: gl.getUniformLocation(p, 'uSee'),
       };
       this.vao = gl.createVertexArray();
       this.vbo = gl.createBuffer();
@@ -311,7 +321,11 @@ void main(){
     /* Kaynağı haritalayarak kendi tuvaline çizer. Dönüş: başarılıysa true.
        Haritalama kimlikse hiçbir şey yapılmaz — çağıran kaynağı doğrudan
        kullanmalıdır. */
-    render(source, out) {
+    /* see: saydam mod. Kaynak ön-çarpımlı yükleniyor, bükülmüş yüzeyin dışı
+       saydam kalıyor, saydamlık parlaklıktan geri kazanılıyor — postfx.js'teki
+       _resolveAlpha ile aynı yol. Aksi halde haritalama açıkken şeffaf pencere
+       yine opak bir dikdörtgen olurdu. */
+    render(source, out, see) {
       if (!source || !out) return false;
       if (W().isIdentity(out)) return false;
       if (!this._init()) return false;
@@ -322,12 +336,15 @@ void main(){
 
       gl.bindTexture(gl.TEXTURE_2D, this.tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !!see);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 
       gl.viewport(0, 0, this.width, this.height);
-      gl.clearColor(0, 0, 0, 1);
+      gl.clearColor(0, 0, 0, see ? 0 : 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(this.prog);
+      gl.uniform1f(this.loc.uSee, see ? 1 : 0);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.tex);

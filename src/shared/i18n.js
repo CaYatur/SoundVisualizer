@@ -1224,8 +1224,11 @@
     'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.':
       'Brings the currently playing track to the screen: title, artist, elapsed and remaining time, progress bar. Can stay visible continuously or appear with an animation only on track change.',
     'Şeffaf Arkaplan': 'Transparent Background',
-    'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür ve düz renk arkaplan boyanmaz. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için değişiklik görselleştirici kapatılıp yeniden açılınca geçerli olur.':
-      'When transparent background is enabled, the desktop behind the visualizer window is visible and solid color background is not painted. Because window transparency can only be set at launch, the change takes effect when the visualizer is closed and reopened.',
+    'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için açıp kapatmak görselleştirici kapatılıp yeniden açılınca geçerli olur.':
+      'When transparent background is on, the desktop behind the visualizer window shows through: a solid colour background is not painted, and the dark parts of background effects turn transparent. Window transparency can only be set when the window opens, so switching it on or off takes effect when the visualizer is closed and reopened.',
+    'Saydamlık Eşiği': 'Transparency Threshold',
+    'Arkaplan efektinin bu parlaklığın altında kalan yerleri masaüstünü gösterir: siyah tamamen saydam, eşiğin üstü tamamen görünür. Canlı uygulanır.':
+      'Parts of the background effect darker than this show the desktop: black is fully transparent, anything above the threshold fully visible. Applies live.',
     'Sistemden Oku': 'Read from System',
     'Elle Yaz': 'Manual Entry',
     'Sürekli Görünsün': 'Always Visible',

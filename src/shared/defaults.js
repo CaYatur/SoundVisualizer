@@ -34,6 +34,10 @@
          verilebiliyor; bu yüzden değişiklik ancak görselleştirici yeniden
          açılınca geçerli olur (panel de bunu yazıyor). */
       transparent: false,
+      /* Şeffaf arkaplanda arkaplan EFEKTİNİN saydamlık eşiği (0..1):
+         parlaklığı bunun altında kalan yerler masaüstünü gösterir, siyah
+         tamamen saydam. Bkz. SVLayers.keyMatrix. */
+      transparentKey: 0.2,
       // Not: 2D arkaplan modları da bu bloğun colors/speed/audioReactivity/
       // brightness/vignette alanlarını okur; böylece renk seçiciler, hazır
       // şablonlar ve kullanıcı şablonları tüm arkaplan modlarında geçerli kalır.

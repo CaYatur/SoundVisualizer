@@ -12,6 +12,12 @@ html, body {
    şeffaf doğsa bile body siyah boyadığı sürece arkası görünmezdi. */
 .sv-transparent, .sv-transparent body { background: transparent; }
 
+/* Şeffaf arkaplanda arkaplan EFEKTİNİN koyu yerleri de saydam: süzgeç
+   parlaklığı görünürlüğe çeviriyor (#sv-bg-key, visualizer.js kuruyor;
+   eşik SVLayers.keyMatrix). Yalnız arkaplan tuvalleri — görselleştiriciler
+   zaten kendi saydamlıklarıyla çiziyor. */
+.sv-bgkey #stage canvas.sv-bg { filter: url(#sv-bg-key); }
+
 /* Katman sahnesi. Tuvaller layers.js tarafından eklenir; karıştırma
    (mix-blend-mode) tarayıcının GPU kompozitörüne bırakılır. isolation
    sayesinde karışım sayfanın arkaplanına taşmaz. */

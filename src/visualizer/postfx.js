@@ -535,11 +535,25 @@ void main(){
     }
 
     /* Kaynağı işleyip this.canvas'a yazar.
-       source: birleştirilmiş sahnenin bulunduğu tuval */
-    render(source, audio, t, dt) {
+       source: birleştirilmiş sahnenin bulunduğu tuval
+       seeThrough: saydam mod (şeffaf arkaplan ya da yayın katmanı).
+
+       SAYDAM MODDA SAYDAMLIK ZİNCİRDEN SAĞ ÇIKMALI. Efektlerin hepsi alfayı
+       1 yazıyor; zincirde tek bir efekt açıkken bile yüzey tümüyle opak
+       oluyor, şeffaf pencere de OBS katmanı da siyah bir dikdörtgene
+       dönüyordu. Her efekte ayrı alfa mantığı yazmak yerine:
+         1. kaynak ÖN-ÇARPIMLI yükleniyor — saydam yerler siyah, efektler
+            sahneyi siyah üstüne çizilmiş gibi işliyor (parlama siyaha
+            doğru yayılıyor, doğrusu da bu);
+         2. son efekt ekrana değil ara hedefe çiziliyor;
+         3. saydamlık parlaklıktan geri kazanılıyor: a = en büyük kanal,
+            renk a'ya bölünüyor (_resolveAlpha).
+       Saydam olmayan modda hiçbir şey değişmiyor. */
+    render(source, audio, t, dt, seeThrough) {
       const gl = this.gl;
       if (!gl || !this.chain.length) return false;
       if (!this.fbo[0]) this._allocate();
+      const toScreen = !seeThrough;
 
       // vuruş enerjisi (efektlerin sese bağlanmasında kullanılır)
       const bass = audio ? audio.bass : 0;
@@ -548,13 +562,18 @@ void main(){
       const over = bass - (this._beatAvg * 1.25 + 0.03);
       if (over > 0) this._beat = Math.min(1, Math.max(this._beat, over * 4 + 0.25));
 
-      // kaynağı dokuya yükle
+      // kaynağı dokuya yükle (saydam modda ön-çarpımlı; yukarıya bkz.)
       gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !toScreen);
+      const unpack = () => {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      };
       try {
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-      } catch { gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); return false; }
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      } catch { unpack(); return false; }
+      unpack();
 
       gl.bindBuffer(gl.ARRAY_BUFFER, this._quad);
       gl.enableVertexAttribArray(0);
@@ -574,7 +593,7 @@ void main(){
         const last = i === n - 1;
 
         gl.useProgram(entry.prog);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, last ? null : this.fbo[write]);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, last && toScreen ? null : this.fbo[write]);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, inputTex);
@@ -604,11 +623,13 @@ void main(){
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-        if (!last) {
+        if (!last || !toScreen) {
           inputTex = this.tex[write];
           write = 1 - write;
         }
       }
+
+      if (!toScreen) this._resolveAlpha(inputTex);
 
       /* İz efekti bir sonraki karede önceki sonucu okur. Ekran tamponundan
          kopyalamak yerine son ara hedefi saklamak yeterli; zincirin sonunda
@@ -632,8 +653,37 @@ void main(){
     }
 
     _makeCopy() {
+      return this._makeProgram('__copy', 'void main(){ outColor = vec4(texture(uTex, vUV).rgb, 1.0); }');
+    }
+
+    /* SAYDAM MOD, zincirin sonu. Sonuç siyah üstüne çizilmiş (kaynak
+       ön-çarpımlı yüklendi); saydamlık parlaklıktan geri kazanılıyor:
+       a = en büyük kanal, renk a'ya bölünüyor. Siyah tam saydam; bir parlama
+       saydam bir alana yayılırsa parlaklığı kadar görünür. Tuval
+       premultipliedAlpha: false, yani bileşimci rengi yeniden a ile çarpıyor
+       ve ekrana düşen ışık zincirin çizdiğiyle aynı.
+       Bedeli: koyu ama opak bir içerik koyuluğu kadar saydamlaşıyor — saydam
+       modda koyu yerlerin masaüstünü göstermesi zaten istenen şey. */
+    _resolveAlpha(tex) {
       const gl = this.gl;
-      const fs = HEAD + 'void main(){ outColor = vec4(texture(uTex, vUV).rgb, 1.0); }';
+      const e = this.programs.__resolve || this._makeProgram('__resolve',
+        'void main(){ vec3 c = texture(uTex, vUV).rgb; float a = max(max(c.r, c.g), c.b);' +
+        ' outColor = a > 0.0 ? vec4(c / a, a) : vec4(0.0); }');
+      if (!e) return;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, this.width, this.height);
+      gl.useProgram(e.prog);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.uniform1i(this._u(e, 'uTex'), 0);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    _makeProgram(name, body) {
+      const gl = this.gl;
+      const fs = HEAD + body;
       const mk = (kind, src) => {
         const s = gl.createShader(kind);
         gl.shaderSource(s, src);
@@ -653,7 +703,7 @@ void main(){
       gl.deleteShader(f);
       if (!gl.getProgramParameter(p, gl.LINK_STATUS)) { gl.deleteProgram(p); return null; }
       const entry = { prog: p, loc: {} };
-      this.programs.__copy = entry;
+      this.programs[name] = entry;
       return entry;
     }
 

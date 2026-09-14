@@ -3614,6 +3614,51 @@ async function runSmoke() {
     }
   }
 
+  /* SAYDAMLIK EFEKT ZİNCİRİNDEN SAĞ ÇIKIYOR MU?
+
+     Zincirin her geçişi alfayı 1 yazıyordu: tek bir efekt açıkken şeffaf
+     pencere de OBS katmanı da opak bir dikdörtgendi. Saydam zemin üstünde
+     beyaz bir kare, parlamayla birlikte işleniyor ve PİKSELLER okunuyor:
+     saydam modda boş köşe saydam, kare görünür; saydam olmayan modda köşe
+     eskisi gibi opak kalmalı. */
+  const alphaProbe = await meterWindow().webContents.executeJavaScript(`(function () {
+    try {
+      var src = document.createElement('canvas');
+      src.width = 64; src.height = 64;
+      var g = src.getContext('2d');
+      g.clearRect(0, 0, 64, 64);
+      g.fillStyle = '#ffffff';
+      g.fillRect(24, 24, 16, 16);
+      var fx = new window.SVPostFX.PostFX();
+      if (!fx.gl) return JSON.stringify({ hata: fx.error || 'WebGL2 yok' });
+      fx.setChain([{ type: 'bloom', enabled: true }]);
+      fx.resize(64, 64);
+      var out = {};
+      [false, true].forEach(function (see) {
+        fx.render(src, null, 0, 0.016, see);
+        var gl = fx.gl, px = new Uint8Array(4);
+        gl.readPixels(2, 2, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        var corner = px[3];
+        gl.readPixels(32, 32, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        out[see ? 'saydam' : 'opak'] = { köşe: corner, merkez: px[3] };
+      });
+      fx.dispose();
+      return JSON.stringify(out);
+    } catch (e) {
+      return JSON.stringify({ hata: String((e && e.message) || e) });
+    }
+  })()`);
+  console.log('[SMOKE] efekt zincirinde saydamlık: ' + alphaProbe);
+  {
+    const a = JSON.parse(alphaProbe);
+    if (a.hata) errors.push('postfx alpha: ' + a.hata);
+    else {
+      if (a.opak.köşe !== 255) errors.push('postfx alpha: the opaque path changed (corner alpha ' + a.opak.köşe + ', expected 255)');
+      if (a.saydam.köşe !== 0) errors.push('postfx alpha: an empty corner is not transparent in see-through mode (alpha ' + a.saydam.köşe + ')');
+      if (a.saydam.merkez !== 255) errors.push('postfx alpha: the drawn square lost its opacity in see-through mode (alpha ' + a.saydam.merkez + ')');
+    }
+  }
+
   /* Ses yardımcısını UYGULAMANIN KENDİ ikilisi mi çalıştırıyor?
      Harici node'a düşmek burada görünmez: bu makinede node kurulu.
      Kullanıcının makinesinde ise ses tümüyle ölür. Ölç. */

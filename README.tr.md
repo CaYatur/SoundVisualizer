@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1580%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1591%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -446,6 +446,15 @@ efektler ve arkaplan da öyle.
 - OBS'ye **Tarayıcı Kaynağı** olarak ekleyin. Eklenti yok, gerçek saydamlık var.
 - Katman sayfası masaüstü penceresiyle **aynı motoru** çalıştırır; gördüğünüz şey yayına giden şeydir.
 - Ağ üzerinden çalışır, yani görselleştirici bir bilgisayarda, OBS başka birinde olabilir.
+- **Görselleştirici penceresinin kendisi de üst katman olabilir.** **Arkaplan → Şeffaf Arkaplan**'ı
+  açın, pencerenin arkasındaki masaüstü görünür: düz renk boyanmaz, bir arkaplan efektinin koyu
+  yerleri **Saydamlık Eşiği**'nin altında saydamlaşır — siyah her zaman, parlak yerler kalır.
+  v3.1.4'e kadar bu anahtar görünürde hiçbir şey yapmıyordu: pencere şeffaf doğuyor ama sayfa kendi
+  arkaplan rengini satır içi olarak üstüne boyuyordu.
+- **Saydamlık son işlemden sağ çıkıyor.** Efekt zincirinin her geçişi opak alfa yazıyordu; tek bir
+  efekt açıkken saydam yayın katmanı da şeffaf pencere de siyah bir dikdörtgene dönüyordu. Saydam
+  modda sahne zincire artık ön-çarpımlı giriyor ve saydamlık sonda parlaklıktan geri kazanılıyor;
+  bir parlama arkadaki her neyse onun üstüne yayılıyor.
 
 ### Mobil kumanda
 
@@ -1016,7 +1025,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1580 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1591 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

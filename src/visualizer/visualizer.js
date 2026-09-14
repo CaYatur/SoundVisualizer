@@ -188,10 +188,10 @@
   function applyScene() {
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
-    // Saydam yayın modunda gövde arkaplanı da saydam kalmalı
-    const bgType = cfg.background.type;
-    document.body.style.background =
-      bgType === 'transparent' ? 'transparent' : bgType === 'solid' ? cfg.background.solidColor : '#000';
+    /* Gövdenin zemini: saydam modda (yayın katmanı ya da "Şeffaf Arkaplan")
+       boyanmaz. Bkz. SVLayers.pageBackground — satır içi renk sınıf
+       kuralını ezdiği için masaüstü penceresi hiç saydamlaşmıyordu. */
+    document.body.style.background = window.SVLayers.pageBackground(cfg);
     stack.bindMedia(mediaOn ? media.video : null);
   }
 
@@ -212,7 +212,7 @@
     const src = stack.surface();
     if (!src) return;
     mapper.resize(src.width, src.height);
-    if (!mapper.render(src, out)) return;
+    if (!mapper.render(src, out, window.SVLayers.seeThrough(c))) return;
     if (mapCanvas !== mapper.canvas) {
       mapCanvas = mapper.canvas;
       mapCanvas.style.position = 'absolute';
@@ -383,9 +383,40 @@
        boyadığı sürece arkasındaki masaüstü görünmez. */
     document.documentElement.classList.toggle('sv-transparent',
       !!(cfg.background && cfg.background.transparent));
+    applyBackgroundKey(cfg);
 
     audio.applyConfig(cfg.audio);
     resize();
+  }
+
+  /* Şeffaf arkaplanda arkaplan efektinin koyu yerleri saydamlaşır.
+     Süzgeç tek bir SVG renk matrisi (eşik: SVLayers.keyMatrix). CSS kompozit
+     yolunda arkaplan tuvaline CSS ile (visualizer.css, `.sv-bgkey`), tek
+     yüzey yolunda (efekt zinciri, sahne geçişi) çizim sırasında aynı
+     süzgeçle uygulanıyor; iki yol aynı görüntüyü veriyor. */
+  let keyMatrixEl = null;
+  function applyBackgroundKey(c) {
+    const L = window.SVLayers;
+    const on = !!(c.background && c.background.transparent) && L.seeThrough(c);
+    if (on && !keyMatrixEl) {
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', '0');
+      svg.setAttribute('height', '0');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.style.position = 'absolute';
+      const filter = document.createElementNS(NS, 'filter');
+      filter.setAttribute('id', 'sv-bg-key');
+      filter.setAttribute('color-interpolation-filters', 'sRGB');
+      keyMatrixEl = document.createElementNS(NS, 'feColorMatrix');
+      keyMatrixEl.setAttribute('type', 'matrix');
+      filter.appendChild(keyMatrixEl);
+      svg.appendChild(filter);
+      document.body.appendChild(svg);
+    }
+    if (keyMatrixEl) keyMatrixEl.setAttribute('values', L.keyMatrix(c));
+    document.documentElement.classList.toggle('sv-bgkey', on);
+    stack.setKeyFilter(on ? 'url(#sv-bg-key)' : null);
   }
 
   // --------------------------------------------------------------------------

@@ -2238,8 +2238,18 @@
           { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan' },
           {
             type: 'note',
-            text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür ve düz renk arkaplan boyanmaz. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için değişiklik görselleştirici kapatılıp yeniden açılınca geçerli olur.',
+            text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için açıp kapatmak görselleştirici kapatılıp yeniden açılınca geçerli olur.',
             show: () => !!cfg.background.transparent,
+          },
+          {
+            type: 'slider', path: 'background.transparentKey', label: 'Saydamlık Eşiği',
+            min: 0, max: 1, step: 0.01, percent: true,
+            show: () => !!cfg.background.transparent && cfg.background.type !== 'solid',
+          },
+          {
+            type: 'note',
+            text: 'Arkaplan efektinin bu parlaklığın altında kalan yerleri masaüstünü gösterir: siyah tamamen saydam, eşiğin üstü tamamen görünür. Canlı uygulanır.',
+            show: () => !!cfg.background.transparent && cfg.background.type !== 'solid',
           },
           {
             type: 'segment', path: 'background.gradient.style', label: 'Stil',
