@@ -147,13 +147,27 @@ test('büyüklük ±128 biriminde — pencere toplamına göre', () => {
 });
 
 test('iki katsayılı yumuşatma: ilk örnek kendisiyle ortalanıyor', () => {
-  /* MilkDrop old_i'yi sıfırdan başlatıyor, yani w[0] değişmeden geçiyor. */
+  /* MilkDrop old_i'yi sıfırdan başlatıyor, yani w[0] değişmeden geçiyor.
+     Pencerenin ilk örneği en yeni 576'nın ilki: 2048 - 576. */
   const s = new A.MilkdropSpectrum();
   const tb = new Uint8Array(2048).fill(128);
-  tb[0] = 228; tb[1] = 128;
+  tb[2048 - IN] = 228; tb[2048 - IN + 1] = 128;
   s.update(tb);
   assert.strictEqual(s._w[0], 100, 'ilk örnek 0,5*(100+100)');
   assert.strictEqual(s._w[1], 50, 'ikinci örnek 0,5*(0+100)');
+});
+
+/* MilkDrop'un `fWaveform`ı o anki son 576 örnek. 2048'lik tamponun
+   başından okumak ~30 ms eski sesin tayfını çizmek demekti. */
+test('en yeni 576 örnek okunuyor, eskiler değil', () => {
+  const s = new A.MilkdropSpectrum();
+  const LAST = 2048 - IN;
+  const old = s.update(bytes((i) => (i < LAST ? 80 * Math.sin(i * 0.4) : 0)));
+  for (let i = 0; i < OUT; i++) assert.ok(Math.abs(old[i]) === 0, 'eski ses, göz ' + i + ': ' + old[i]);
+  const now = s.update(bytes((i) => (i >= LAST ? 80 * Math.sin(i * 0.4) : 0)));
+  let mx = 0;
+  for (let i = 1; i < OUT; i++) mx = Math.max(mx, now[i]);
+  assert.ok(mx > 1, 'yeni ses görünmüyor: ' + mx);
 });
 
 test('çıkış tamponu yeniden kullanılıyor', () => {

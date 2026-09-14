@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1579%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1580%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -300,8 +300,10 @@ profilinde basamak olmadığını doğruluyor.
   kendi FFT'sinin ürettiği büyüklüğe göre seçilmiş, yani 0..1'e normalleştirilmiş bir dizi doğru
   biçimi yanlış boyutta çizer. Zincir kaynaktan yeniden kuruldu: ±128 örnek birimi, iki katsayılı
   yumuşatma, 576'lık Hann penceresi, normalleştirilmemiş 1024 noktalı FFT ve
-  `-0,02·ln((512-i)/512)` eşitleyicisi. *Yaklaşık:* göz–frekans ekseni, çünkü bizim örneklerimiz
-  MilkDrop'un kaynak hızında değil AudioContext hızında geliyor.
+  `-0,02·ln((512-i)/512)` eşitleyicisi; MilkDrop gibi en yeni 576 örnek üzerinde — 2048
+  örneklik tamponun en eski 576 örneğini okuyordu, sesin ~30 ms gerisinden. *Yaklaşık:*
+  göz–frekans ekseni, çünkü bizim örneklerimiz MilkDrop'un kaynak hızında değil AudioContext
+  hızında geliyor.
 
 ---
 
@@ -1014,7 +1016,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1579 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1580 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

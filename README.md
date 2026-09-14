@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1579%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1580%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -305,8 +305,10 @@ that asserts the bar profile has no step in it.
   MilkDrop was chosen for the magnitude its own FFT produces, so a normalised 0..1 array draws the
   right shape at the wrong size. The chain is rebuilt from the source: ±128 sample units, the
   two-tap damping, a 576-point Hann envelope, an unnormalised 1024-point FFT and the
-  `-0.02·ln((512-i)/512)` equaliser. *Approximate:* the bin-to-frequency axis, because our samples
-  arrive at the AudioContext rate rather than MilkDrop's.
+  `-0.02·ln((512-i)/512)` equaliser, over the newest 576 samples as MilkDrop takes them — it had
+  been reading the oldest 576 of the 2048-sample buffer, about 30 ms behind the sound.
+  *Approximate:* the bin-to-frequency axis, because our samples arrive at the AudioContext rate
+  rather than MilkDrop's.
 
 ---
 
@@ -1011,7 +1013,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1579 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1580 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

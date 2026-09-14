@@ -223,19 +223,25 @@
       this._rev = this._t.rev;
     }
 
-    /* timeBytes: 128 merkezli isaretsiz bayt dizisi (en az 576 uzunlukta).
-       Donus: MilkDrop olceginde 512 gozluk buyukluk dizisi. */
+    /* timeBytes: 128 merkezli isaretsiz bayt dizisi, kronolojik (en yeni
+       ornek sonda). Donus: MilkDrop olceginde 512 gozluk buyukluk dizisi.
+
+       EN YENI 576 ORNEK. MilkDrop'un `fWaveform`i o anki son 576 ornek;
+       burada 2048'lik tamponun BASINDAN, yani en eski 576 ornekten
+       okunuyordu — sesin ~30 ms (48 kHz'de 1472 ornek) gerisinden. 576'dan
+       kisa bir tampon, onceki gibi basa sararak okunuyor. */
     update(timeBytes) {
       const out = this.out;
       const n = timeBytes ? timeBytes.length : 0;
       if (n < 8) { out.fill(0); return out; }
       const w = this._w;
+      const off = n > SPEC_IN ? n - SPEC_IN : 0;
       /* Ikili yumusatma. `prev` ilk adimda ornegin KENDISI: MilkDrop'ta
          `old_i` sifirdan basliyor, yani ilk ornek kendisiyle ortalaniyor
          ve degismeden geciyor. */
-      let prev = (timeBytes[0] | 0) - 128;
+      let prev = (timeBytes[off] | 0) - 128;
       for (let i = 0; i < SPEC_IN; i++) {
-        const cur = (timeBytes[i % n] | 0) - 128;
+        const cur = (timeBytes[(off + i) % n] | 0) - 128;
         w[i] = 0.5 * (cur + prev);
         prev = cur;
       }
