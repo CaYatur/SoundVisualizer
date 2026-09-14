@@ -72,3 +72,17 @@ test('web overlay: bağımlılıklar modu KULLANAN betikten önce geliyor', () =
   assert.ok(at('src/shared/milkdrop-hlsl.js') < at('src/shared/milkdrop-shader.js'),
     'milkdrop-shader, milkdrop-hlsl\'e bakıyor; sonra yüklenmeli');
 });
+
+/* #563: v3.1.3'te sayfa açılışta çöküyordu (`aspect.js` yüklenmiyordu) ve
+   hata metni #error kutusundaydı — ama kutu CSS ile gizliydi ve konsola da
+   yazılmıyordu. Yayın boş kalıyor, sebebi hiçbir yerde görünmüyordu.
+   Ölçüldü: kurulu v3.1.3'ün katman sayfasında kutunun metni "Başlatılamadı:
+   Cannot read properties of undefined (reading 'renderSize')". */
+test('web overlay: başlatma hatası gizlenmiyor ve konsola yazılıyor', () => {
+  const css = webHtml.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/#error[^{}]*\{[^}]*display:\s*none/.test(css), 'overlay.html #error kutusunu gizliyor');
+  const vis = fs.readFileSync(path.join(root, 'src', 'visualizer', 'visualizer.js'), 'utf-8');
+  const i = vis.indexOf('function showError(');
+  assert.ok(i > 0, 'showError bulunamadı');
+  assert.match(vis.slice(i, i + 600), /console\.error\(/, 'showError konsola yazmıyor');
+});

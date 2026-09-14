@@ -11,7 +11,12 @@
          yapılandırmaya göre kendisi ayarlıyor (saydam mod dahil). */
       html { background: transparent; }
       body { cursor: none; }
-      #hint, #error { display: none !important; }
+      /* İpucu ("ses alınamıyor") yayında görünmesin. Başlatma HATASI ise
+         görünmeli: v3.1.3'te sayfa açılışta çöküyordu ve hata metni bu
+         kutudaydı, ama kutu gizli olduğu için yayın boş bir sayfaydı —
+         kullanıcı da biz de sebebi göremiyorduk. Hata kutusu yalnız
+         görselleştirici başlatılamazsa dolduruluyor. */
+      #hint { display: none !important; }
 
       /* Bağlantı yokken küçük bir uyarı: OBS'te siyah ekran görüp
          "çalışmıyor" sanmak yerine sebebi görünsün. */

@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1591%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1592%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -449,6 +449,10 @@ Turn on **Output → Streaming Output** and the application serves a transparent
 - Add it to OBS as a **Browser Source**. No plugin, and real transparency.
 - The overlay runs the **same engine** as the desktop window, so what you see is what streams.
 - Works across the network, so the visualizer can run on one machine and OBS on another.
+- **When the overlay cannot start, it says so.** In v3.1.3 the overlay page crashed on load — it
+  never loaded `aspect.js` — and the error sat in a hidden box, so OBS and the browser showed an
+  empty page with nothing in the console (#563). The page now shows the error and logs it, and the
+  self-test loads the overlay from the real stream server on every run, packaged builds included.
 - **The visualizer window itself can be the overlay.** Turn on **Background → Transparent
   Background** and the desktop shows through the window: a solid colour is not painted, and a
   background effect's dark parts turn transparent below the **Transparency Threshold** — black
@@ -1022,7 +1026,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1591 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1592 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

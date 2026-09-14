@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1591%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1592%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -446,6 +446,11 @@ efektler ve arkaplan da öyle.
 - OBS'ye **Tarayıcı Kaynağı** olarak ekleyin. Eklenti yok, gerçek saydamlık var.
 - Katman sayfası masaüstü penceresiyle **aynı motoru** çalıştırır; gördüğünüz şey yayına giden şeydir.
 - Ağ üzerinden çalışır, yani görselleştirici bir bilgisayarda, OBS başka birinde olabilir.
+- **Katman sayfası başlayamazsa bunu söylüyor.** v3.1.3'te sayfa açılışta çöküyordu —
+  `aspect.js`i hiç yüklemiyordu — ve hata gizli bir kutuda kalıyordu; OBS de tarayıcı da konsolda
+  tek satır olmadan boş bir sayfa gösteriyordu (#563). Sayfa artık hatayı gösteriyor ve konsola
+  yazıyor; öz test de katman sayfasını her çalıştırmada gerçek yayın sunucusundan açıyor, paketlenmiş
+  derlemeler dahil.
 - **Görselleştirici penceresinin kendisi de üst katman olabilir.** **Arkaplan → Şeffaf Arkaplan**'ı
   açın, pencerenin arkasındaki masaüstü görünür: düz renk boyanmaz, bir arkaplan efektinin koyu
   yerleri **Saydamlık Eşiği**'nin altında saydamlaşır — siyah her zaman, parlak yerler kalır.
@@ -1025,7 +1030,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1591 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1592 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

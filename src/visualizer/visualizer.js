@@ -428,6 +428,9 @@
   function showError(msg) {
     errBox.textContent = msg;
     errBox.style.display = 'block';
+    /* Konsola da yazılıyor: yayın katmanında DevTools açan kullanıcı sebebi
+       orada arıyor. v3.1.3'te hata yalnız gizli bir kutudaydı. */
+    console.error('[görselleştirici] ' + msg);
   }
 
   // --------------------------------------------------------------------------

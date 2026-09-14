@@ -3614,6 +3614,76 @@ async function runSmoke() {
     }
   }
 
+  /* YAYIN KATMANI GERÇEKTEN AÇILIYOR MU? (#563)
+
+     v3.1.3'te OBS/tarayıcı katmanı her açılışta boş kaldı: overlay.html
+     görselleştiricinin yeni bağımlılığı `aspect.js`i yüklemiyordu, sayfa
+     başlatılırken çöktü ve hata metni gizli bir kutuda kaldı. Birim testi
+     (tests/web-overlay.test.js) betik listelerini karşılaştırıyor; bu adım
+     sayfayı GERÇEK yayın sunucusundan açıp başlatmanın bittiğini ölçüyor.
+     Paketlenmiş derlemenin öz testi de aynı yoldan geçtiği için asar içinden
+     servis edilen dosyalar da sınanmış oluyor. Kullanıcının kendi yayın
+     portuna dokunulmuyor: boş bir port seçiliyor, iş bitince ayar geri
+     alınıyor ve sunucu eski hâline getiriliyor. */
+  const smokeOverlay = async () => {
+    const port = await new Promise((resolve, reject) => {
+      const s = require('net').createServer();
+      s.on('error', reject);
+      s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); });
+    });
+    const prevStream = currentConfig.stream;
+    currentConfig.stream = Object.assign({}, prevStream, { enabled: true, port, lan: false, requireToken: false });
+    let win = null;
+    try {
+      const st = await syncStreamServer();
+      if (!st || !st.running) return { hata: 'stream server did not start on port ' + port + ' (' + (st && st.error) + ')' };
+      /* GÖRÜNÜR küçük bir pencere, gizli değil: gizli pencere 'window-all-closed'
+         olayını engelleyen hata sınıfıdır (tests/shutdown.test.js) ve ayrıca
+         gizli sayfada kareler çizilmez — kare başına atılan bir istisna da
+         ancak görünür sayfada konsola düşer. */
+      win = new BrowserWindow({
+        show: true, width: 640, height: 360, focusable: false, skipTaskbar: true,
+        webPreferences: { backgroundThrottling: false },
+      });
+      const konsol = [];
+      win.webContents.on('console-message', (e, level, message) => {
+        const c = consoleInfo(e, level, message);
+        if (isConsoleNoise(c.message)) return;
+        if (c.level === 3 || c.level === 'error') konsol.push(c.message.slice(0, 200));
+      });
+      await win.loadURL('http://127.0.0.1:' + port + '/?transparent=0');
+      let r = null;
+      for (let i = 0; i < 40; i++) {
+        await wait(250);
+        r = await win.webContents.executeJavaScript(`(function () {
+          var e = document.getElementById('error');
+          var max = 0;
+          document.querySelectorAll('#stage canvas').forEach(function (c) {
+            max = Math.max(max, Math.min(c.width, c.height));
+          });
+          return { status: document.documentElement.getAttribute('data-sv-status'),
+                   err: e ? e.textContent : '', canvasMax: max };
+        })()`);
+        if (r.err || (r.status === 'connected' && r.canvasMax > 16)) break;
+      }
+      return Object.assign({ port }, r, { konsol });
+    } finally {
+      if (win && !win.isDestroyed()) win.destroy();
+      currentConfig.stream = prevStream;
+      await syncStreamServer().catch(() => {});
+    }
+  };
+  const overlayRes = await smokeOverlay();
+  console.log('[SMOKE] yayın katmanı: ' + JSON.stringify(overlayRes));
+  if (overlayRes.hata) {
+    errors.push('overlay: ' + overlayRes.hata);
+  } else {
+    if (overlayRes.err) errors.push('overlay: the page failed to start (' + overlayRes.err + ')');
+    else if (overlayRes.status !== 'connected') errors.push('overlay: never connected to the stream server (' + overlayRes.status + ')');
+    else if (!(overlayRes.canvasMax > 16)) errors.push('overlay: the stage never got a size - the page did not start');
+    if (overlayRes.konsol && overlayRes.konsol.length) errors.push('overlay: console errors: ' + overlayRes.konsol.join(' | '));
+  }
+
   /* SAYDAMLIK EFEKT ZİNCİRİNDEN SAĞ ÇIKIYOR MU?
 
      Zincirin her geçişi alfayı 1 yazıyordu: tek bir efekt açıkken şeffaf
