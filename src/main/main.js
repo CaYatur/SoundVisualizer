@@ -363,10 +363,51 @@ function meterWindow() {
 }
 
 // Tüm görselleştirme pencerelerine mesaj yolla
-/* Şeffaf arkaplan isteniyor mu? Pencere oluşturulurken okunur. */
+/* Şeffaf arkaplan isteniyor mu? Pencere oluşturulurken okunur.
+   Kök bayrak ya da (yığın açıkken) bir arkaplan katmanının kendi bayrağı. */
 function wantsTransparent() {
   const cfg = currentConfig || loadSettings();
-  return !!(cfg && cfg.background && cfg.background.transparent);
+  if (!cfg || !cfg.background) return false;
+  if (cfg.background.type === 'transparent') return true;
+  if (cfg.background.transparent) return true;
+  const stack = cfg.layerStack;
+  const stackOn = stack && typeof stack.enabled === 'boolean'
+    ? stack.enabled
+    : !!(cfg.layers && cfg.layers.length);
+  if (stackOn && Array.isArray(cfg.layers)) {
+    for (let i = 0; i < cfg.layers.length; i++) {
+      const l = cfg.layers[i];
+      if (l && l.kind === 'background' && l.enabled !== false && !l.muted
+          && l.settings && l.settings.background && l.settings.background.transparent) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/* Spout/Syphon GPU dokusu alfa taşımıyor (alıcıda siyah, CPU yolu da
+   yayını düşürüyordu). Yakalamaya giden yapılandırmada şeffaflık kapalı:
+   sahne opak basılır. Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır. */
+function configForTextureShare(cfg) {
+  if (!cfg) return cfg;
+  const c = JSON.parse(JSON.stringify(cfg));
+  if (c.background) {
+    c.background.transparent = false;
+    if (c.background.type === 'transparent') {
+      c.background.type = 'solid';
+      c.background.solidColor = c.background.solidColor && c.background.solidColor !== 'transparent'
+        ? c.background.solidColor
+        : '#000000';
+    }
+  }
+  if (Array.isArray(c.layers)) {
+    for (let i = 0; i < c.layers.length; i++) {
+      const l = c.layers[i];
+      if (l && l.settings && l.settings.background) l.settings.background.transparent = false;
+    }
+  }
+  return c;
 }
 
 function sendToVisualizers(channel, payload) {
@@ -375,7 +416,7 @@ function sendToVisualizers(channel, payload) {
      (orası ekranlara ait). Ama aynı yapılandırmayı ve aynı ses
      karelerini alması gerekiyor, yoksa donmuş bir kare yayınlar. */
   const ts = textureShare.window();
-  if (ts) ts.webContents.send(channel, payload);
+  if (ts) ts.webContents.send(channel, channel === 'config' ? configForTextureShare(payload) : payload);
 }
 
 // İstenen ekran kimliklerini çöz (tek sayı, dizi veya boş kabul edilir)
@@ -390,23 +431,29 @@ function resolveDisplayIds(input) {
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
   const b = display.bounds;
-  const win = new BrowserWindow({
+  const see = wantsTransparent();
+  /* Şeffaflık pencere DOĞARKEN belirlenmek zorunda; Electron sonradan
+     değiştirmeye izin vermiyor. Ayar değişince pencereler yeniden kurulur.
+
+     Windows + tam ekran: DWM per-piksel alfa tam ekran (exclusive /
+     fullscreen) pencerede çalışmaz, şeffaf yerler SİYAH kalır. OBS/web
+     katmanı tarayıcı kaynağı olduğu için orada sorun görünmez. Şeffaf
+     modda tam ekran yerine ekranı kaplayan çerçevesiz pencere kullanılır.
+     Electron belgesi: şeffaf pencerede resizable da bozabilir. */
+  const opts = {
     x: b.x,
     y: b.y,
     width: b.width,
     height: b.height,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     frame: false,
-    /* Pencere DOĞRUDAN GÖRÜNÜR ve tam ekran doğar; sonradan show()
-       çağrılmaz. Gerekçe hemen aşağıda. */
-    /* Şeffaflık pencere DOĞARKEN belirlenmek zorunda; Electron sonradan
-       değiştirmeye izin vermiyor. Ayar değişince pencere yeniden açılmalı. */
-    transparent: wantsTransparent(),
-    backgroundColor: wantsTransparent() ? '#00000000' : '#000000',
+    transparent: see,
+    backgroundColor: see ? '#00000000' : '#000000',
     show: true,
-    fullscreen: true,
-    fullscreenable: true,
+    fullscreen: !see,
+    fullscreenable: !see,
     skipTaskbar: false,
+    hasShadow: !see,
     title: trUi('Görselleştirme', 'Visualization'),
     webPreferences: {
       preload: path.join(__dirname, 'preload-visualizer.js'),
@@ -417,7 +464,12 @@ function createVisualizerWindow(display) {
       // ekranda olduğunu bilmeli
       additionalArguments: ['--sv-display-id=' + display.id],
     },
-  });
+  };
+  if (see) {
+    opts.resizable = false;
+    if (process.platform === 'win32') opts.thickFrame = false;
+  }
+  const win = new BrowserWindow(opts);
   visualizerWins.set(display.id, win);
   notifyVisualizerStatus();
 
@@ -552,7 +604,7 @@ function openVisualizer(displayIds) {
       const cur = existing.getBounds();
       if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
         existing.setBounds(nb);
-        if (!existing.isFullScreen()) existing.setFullScreen(true);
+        if (!wantsTransparent() && !existing.isFullScreen()) existing.setFullScreen(true);
       }
       existing.show();
     } else {
@@ -943,14 +995,46 @@ ipcMain.handle('get-visualizer-status', () => {
   };
 });
 
+/* Şeffaflık pencere doğarken kilitlenir. Bayrak değiştiyse açık
+   görselleştirici pencerelerini aynı ekranlarda yeniden kur — kullanıcı
+   kapatıp açmak zorunda kalmasın, Windows'ta siyah zemin kalmasın. */
+let recreateTimer = null;
+function recreateVisualizerWindows() {
+  const ids = Array.from(visualizerWins.keys()).filter((id) => {
+    const w = visualizerWins.get(id);
+    return w && !w.isDestroyed();
+  });
+  if (!ids.length) return;
+  for (const id of ids) {
+    const w = visualizerWins.get(id);
+    intentionalCloses.add(id);
+    try { w.destroy(); } catch { /* zaten kapanmış */ }
+    visualizerWins.delete(id);
+  }
+  openVisualizer(ids);
+}
+
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
 ipcMain.on('update-config', (e, config) => {
+  const prevSee = wantsTransparent();
   currentConfig = config;
   saveSettings(config);
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
+  const nowSee = wantsTransparent();
+  /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
+     pencere yeniden kurulacaksa bile önce canlı pencere yeni sahneyi
+     çizsin — aksi halde şarkı çalarken sahne değişimi pencere yüklenene
+     (veya bir sonraki parça olayına) kadar donmuş kalıyordu. */
   if (anyVisualizerOpen() || textureShare.window()) {
     sendToVisualizers('config', config);
     if (anyVisualizerOpen()) applyAlwaysOnTop();
+  }
+  if (prevSee !== nowSee && anyVisualizerOpen()) {
+    if (recreateTimer) clearTimeout(recreateTimer);
+    recreateTimer = setTimeout(() => {
+      recreateTimer = null;
+      if (anyVisualizerOpen()) recreateVisualizerWindows();
+    }, 40);
   }
   streamServer.broadcast({ type: 'config', config });
   syncStreamServer();
@@ -1296,9 +1380,15 @@ function applyRemoteCommand(msg, client) {
     const scene = (currentConfig.scenes || []).find((s) => s.id === msg.id);
     if (!scene || !scene.data) return;
     currentConfig._activeSceneId = scene.id;
+    const keepTransparent = !!(currentConfig.background && currentConfig.background.transparent);
+    const keepKey = currentConfig.background && currentConfig.background.transparentKey;
     const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
     for (const key of SCENE_KEYS) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
+    }
+    if (currentConfig.background) {
+      currentConfig.background.transparent = keepTransparent;
+      if (keepKey != null) currentConfig.background.transparentKey = keepKey;
     }
   } else if (msg.action === 'blackout') {
     /* Karartmayı PANEL yapar, telefon değil.
@@ -1383,7 +1473,7 @@ function syncTextureShare() {
   return textureShare.start(t, {
     onReady: (w) => {
       if (!w || w.isDestroyed()) return;
-      if (currentConfig) w.webContents.send('config', currentConfig);
+      if (currentConfig) w.webContents.send('config', configForTextureShare(currentConfig));
       if (showClockAnchor) w.webContents.send('show-clock', showClockAnchor);
       if (mediaSession.current().has) w.webContents.send('now-playing', mediaSession.current());
     },

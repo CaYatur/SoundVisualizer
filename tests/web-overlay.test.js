@@ -78,6 +78,16 @@ test('web overlay: bağımlılıklar modu KULLANAN betikten önce geliyor', () =
    yazılmıyordu. Yayın boş kalıyor, sebebi hiçbir yerde görünmüyordu.
    Ölçüldü: kurulu v3.1.3'ün katman sayfasında kutunun metni "Başlatılamadı:
    Cannot read properties of undefined (reading 'renderSize')". */
+test('web overlay: arkaplan türünü transparent yapmıyor, uygulama ayarını izliyor', () => {
+  const shim = fs.readFileSync(path.join(root, 'src', 'web', 'web-shim.js'), 'utf-8');
+  assert.ok(!/type:\s*'transparent'/.test(shim), 'web-shim hâlâ background.type = transparent yazıyor');
+  assert.match(shim, /background\.transparent/);
+  assert.match(shim, /params\.get\('transparent'\) === '1'/);
+  assert.match(shim, /forceOpaque/);
+  const def = fs.readFileSync(path.join(root, 'src', 'shared', 'defaults.js'), 'utf-8');
+  assert.match(def, /stream:\s*\{[\s\S]*?transparent:\s*false/);
+});
+
 test('web overlay: başlatma hatası gizlenmiyor ve konsola yazılıyor', () => {
   const css = webHtml.replace(/<!--[\s\S]*?-->/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/#error[^{}]*\{[^}]*display:\s*none/.test(css), 'overlay.html #error kutusunu gizliyor');

@@ -618,6 +618,8 @@
        kullanıcının açıp kapama tercihleri şablonda açıkça belirtilmedikçe
        korunur — yoksa başka bir şablon denemek kullanıcının logosunu ya da
        katman yığını düzenini kapatırdı. */
+    const keepTransparent = !!(cfg.background && cfg.background.transparent);
+    const keepKey = cfg.background && cfg.background.transparentKey;
     const logoSrc = (cfg.logo && cfg.logo.src) || null;
     const logoSource = (cfg.logo && cfg.logo.source) || null;
     const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
@@ -680,6 +682,10 @@
     if (tpl.patch.modulation && tpl.patch.modulation.routes) {
       merged.modulation = merged.modulation || clone(def.modulation);
       merged.modulation.routes = clone(tpl.patch.modulation.routes);
+    }
+    if (merged.background) {
+      merged.background.transparent = keepTransparent;
+      if (keepKey != null) merged.background.transparentKey = keepKey;
     }
     return merged;
   }

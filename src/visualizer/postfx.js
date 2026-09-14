@@ -38,6 +38,7 @@ uniform float uLevel, uBass, uMid, uTreble, uBeat;
   const EFFECTS = {
     bloom: {
       label: 'Bloom (Kompozisyon Parlaması)',
+      spreads: true,
       params: [
         { name: 'threshold', label: 'Eşik', min: 0, max: 1, step: 0.01, default: 0.55 },
         { name: 'intensity', label: 'Şiddet', min: 0, max: 3, step: 0.02, default: 0.9 },
@@ -65,6 +66,7 @@ void main(){
 
     chroma: {
       label: 'Renk Sapması (Kromatik)',
+      displaces: true,
       params: [
         { name: 'amount', label: 'Miktar', min: 0, max: 0.05, step: 0.0005, default: 0.004 },
         { name: 'falloff', label: 'Merkezden Uzaklık', min: 0, max: 4, step: 0.05, default: 1.6 },
@@ -85,6 +87,7 @@ void main(){
 
     glitch: {
       label: 'Glitch (Dilim Kayması)',
+      displaces: true,
       params: [
         { name: 'amount', label: 'Miktar', min: 0, max: 1, step: 0.01, default: 0.35 },
         { name: 'slices', label: 'Dilim Sayısı', min: 2, max: 60, step: 1, default: 18 },
@@ -125,6 +128,7 @@ void main(){
 
     crt: {
       label: 'CRT / Tarama Çizgileri',
+      displaces: true,
       params: [
         { name: 'scan', label: 'Çizgi Şiddeti', min: 0, max: 1, step: 0.02, default: 0.35 },
         { name: 'curve', label: 'Ekran Eğriliği', min: 0, max: 0.6, step: 0.01, default: 0.12 },
@@ -147,6 +151,7 @@ void main(){
 
     pixelate: {
       label: 'Pikselleştir',
+      displaces: true,
       params: [
         { name: 'size', label: 'Piksel Boyutu', min: 1, max: 80, step: 1, default: 8 },
       ],
@@ -161,6 +166,7 @@ void main(){
 
     kaleido: {
       label: 'Kaleydoskop',
+      displaces: true,
       params: [
         { name: 'slices', label: 'Dilim', min: 2, max: 24, step: 1, default: 6 },
         { name: 'spin', label: 'Dönüş', min: -2, max: 2, step: 0.01, default: 0.1 },
@@ -183,6 +189,7 @@ void main(){
 
     mirror: {
       label: 'Ayna',
+      displaces: true,
       params: [
         { name: 'mode', label: 'Biçim (0 yatay · 1 dikey · 2 dörtlü)', min: 0, max: 2, step: 1, default: 0 },
       ],
@@ -290,6 +297,7 @@ void main(){
 
     zoomblur: {
       label: 'Merkezden Bulanıklık',
+      spreads: true,
       params: [
         { name: 'amount', label: 'Miktar', min: 0, max: 0.3, step: 0.002, default: 0.06 },
         { name: 'samples', label: 'Örnek', min: 4, max: 24, step: 1, default: 12 },
@@ -311,6 +319,7 @@ void main(){
 
     ripple: {
       label: 'Dalga Bozulması',
+      displaces: true,
       params: [
         { name: 'amount', label: 'Miktar', min: 0, max: 0.1, step: 0.001, default: 0.012 },
         { name: 'frequency', label: 'Sıklık', min: 1, max: 60, step: 0.5, default: 14 },
@@ -380,6 +389,21 @@ void main(){
     if (band === 'treble') return audio.treble;
     if (band === 'level') return audio.level;
     return audio.bass;
+  }
+
+  /* Saydam modda parlama örtüsü yalnız YAYILAN efektlerde (bloom, blur…).
+     Kaydıran efekt (glitch, kroma) boş piksele renk yazınca onu örtü
+     saymak hayalet kopya üretiyordu. */
+  function chainSpreads(chain) {
+    let spread = false;
+    let displace = false;
+    for (let i = 0; i < chain.length; i++) {
+      const def = EFFECTS[chain[i].type];
+      if (!def) continue;
+      if (def.spreads) spread = true;
+      if (def.displaces) displace = true;
+    }
+    return spread && !displace;
   }
 
   // ==========================================================================
@@ -546,8 +570,10 @@ void main(){
             sahneyi siyah üstüne çizilmiş gibi işliyor (parlama siyaha
             doğru yayılıyor, doğrusu da bu);
          2. son efekt ekrana değil ara hedefe çiziliyor;
-         3. saydamlık parlaklıktan geri kazanılıyor: a = en büyük kanal,
-            renk a'ya bölünüyor (_resolveAlpha).
+         3. örtü kaynak alfadan gelir; bloom gibi yayılan efektlerde boş
+            alana eklenen parlama da örtüye katılır. Kaydıran efektlerin
+            boş piksele yazdığı renk örtü SAYILMAZ — aksi halde asıl şekil
+            ile kaymış kopya üst üste biner.
        Saydam olmayan modda hiçbir şey değişmiyor. */
     render(source, audio, t, dt, seeThrough) {
       const gl = this.gl;
@@ -629,7 +655,7 @@ void main(){
         }
       }
 
-      if (!toScreen) this._resolveAlpha(inputTex);
+      if (!toScreen) this._resolveAlpha(inputTex, chainSpreads(this.chain));
 
       /* İz efekti bir sonraki karede önceki sonucu okur. Ekran tamponundan
          kopyalamak yerine son ara hedefi saklamak yeterli; zincirin sonunda
@@ -653,22 +679,27 @@ void main(){
     }
 
     _makeCopy() {
-      return this._makeProgram('__copy', 'void main(){ outColor = vec4(texture(uTex, vUV).rgb, 1.0); }');
+      return this._makeProgram('__copy', 'void main(){ outColor = texture(uTex, vUV); }');
     }
 
-    /* SAYDAM MOD, zincirin sonu. Sonuç siyah üstüne çizilmiş (kaynak
-       ön-çarpımlı yüklendi); saydamlık parlaklıktan geri kazanılıyor:
-       a = en büyük kanal, renk a'ya bölünüyor. Siyah tam saydam; bir parlama
-       saydam bir alana yayılırsa parlaklığı kadar görünür. Tuval
-       premultipliedAlpha: false, yani bileşimci rengi yeniden a ile çarpıyor
-       ve ekrana düşen ışık zincirin çizdiğiyle aynı.
-       Bedeli: koyu ama opak bir içerik koyuluğu kadar saydamlaşıyor — saydam
-       modda koyu yerlerin masaüstünü göstermesi zaten istenen şey. */
-    _resolveAlpha(tex) {
+    /* SAYDAM MOD, zincirin sonu. Örtü her zaman kaynak alfadan gelir.
+       Bloom/bulanıklık gibi YAYILAN efektlerde boş alana eklenen parlama
+       da örtüye katılır. Kaydıran efektlerde (glitch, kroma, ayna…)
+       parlaklıktan örtü üretmek hayalet/çift kopya yapıyordu — onlar
+       yalnız siluetin içinde renk değiştirir, boş pikseli doldurmaz.
+       Tuval premultipliedAlpha: false; bileşimci rengi a ile çarpar. */
+    _resolveAlpha(tex, spread) {
       const gl = this.gl;
       const e = this.programs.__resolve || this._makeProgram('__resolve',
-        'void main(){ vec3 c = texture(uTex, vUV).rgb; float a = max(max(c.r, c.g), c.b);' +
-        ' outColor = a > 0.0 ? vec4(c / a, a) : vec4(0.0); }');
+        'uniform float uSpread;\n' +
+        'void main(){\n' +
+        '  vec4 src = texture(uPrev, vUV);\n' +
+        '  vec3 c = texture(uTex, vUV).rgb;\n' +
+        '  vec3 added = max(c - src.rgb, 0.0);\n' +
+        '  float glow = uSpread * max(max(added.r, added.g), added.b);\n' +
+        '  float a = max(src.a, glow);\n' +
+        '  outColor = a > 0.0 ? vec4(clamp(c / a, 0.0, 1.0), a) : vec4(0.0);\n' +
+        '}');
       if (!e) return;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, this.width, this.height);
@@ -676,6 +707,10 @@ void main(){
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.uniform1i(this._u(e, 'uTex'), 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
+      gl.uniform1i(this._u(e, 'uPrev'), 1);
+      gl.uniform1f(this._u(e, 'uSpread'), spread ? 1 : 0);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);

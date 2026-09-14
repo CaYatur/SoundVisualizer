@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1592%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1597%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -1026,7 +1026,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1592 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1597 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
@@ -1080,8 +1080,10 @@ Shared engines are plain arithmetic with no DOM, GPU or audio device, so their t
 
 [ROADMAP.md](ROADMAP.md) records what has actually shipped and what each planned release is for —
 Timeline and Clip Deck in v3.1.0, cross-platform builds with OpenRGB and Spout/Syphon in v3.1.1,
-per-application audio capture in v3.1.2, a far broader and much faster video export in v3.1.3, the
-broadcast layout editor in v3.1.4, and redundancy with frame sync in v3.2.0. It also keeps an
+the MilkDrop shader engine in v3.1.2, per-application audio capture and aspect correction in
+v3.1.3, and the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4. Next are
+MilkDrop and streaming refinements in v3.1.5, a far broader and much faster video export in v3.1.6,
+the broadcast layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps an
 honest list of what is *not* done, and why.
 
 ---

@@ -87,7 +87,8 @@ test('renk matrisi: siyah saydam, eşiğin üstü tam görünür, renk değişmi
 
 test('görselleştirici: gövdenin zeminini pageBackground veriyor', () => {
   const src = read('src/visualizer/visualizer.js');
-  assert.match(src, /document\.body\.style\.background = window\.SVLayers\.pageBackground\(cfg\)/);
+  assert.match(src, /document\.body\.style\.background = pageBg/);
+  assert.match(src, /document\.documentElement\.style\.background = pageBg/);
   assert.ok(!/bgType === 'transparent' \? 'transparent'/.test(src), 'eski satır içi ifade geri gelmiş');
 });
 
@@ -98,11 +99,12 @@ test('görselleştirici: arkaplan süzgeci kuruluyor ve iki yola da veriliyor', 
   assert.match(src, /keyMatrixEl\.setAttribute\('values', L\.keyMatrix\(c\)\)/);
   assert.match(src, /stack\.setKeyFilter\(on \? 'url\(#sv-bg-key\)' : null\)/);
   // CSS kompozit yolu
-  assert.match(read('src/visualizer/visualizer.css'), /\.sv-bgkey #stage canvas\.sv-bg \{ filter: url\(#sv-bg-key\); \}/);
+  assert.match(read('src/visualizer/visualizer.css'), /url\(#sv-bg-key\)/);
+  assert.match(read('src/visualizer/visualizer.css'), /canvas\.sv-bgkey/);
   // tek yüzey yolu (efekt zinciri, geçiş) ve giden sahne
   const layers = read('src/visualizer/layers.js');
   assert.match(layers, /classList\.add\('sv-bg'\)/);
-  assert.match(layers, /if \(this\.keyFilter && l\.kind === 'background'\) ctx\.filter = this\.keyFilter;/);
+  assert.match(layers, /if \(this\.keyFilter && layerWantsKey\(l, cfg\)\) ctx\.filter = this\.keyFilter;/);
   assert.match(layers, /out\.keyFilter = this\.keyFilter;/);
 });
 
@@ -111,9 +113,60 @@ test('efekt zinciri: saydam modda alfa geri kazanılıyor', () => {
   assert.match(src, /render\(source, audio, t, dt, seeThrough\)/);
   assert.match(src, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, !toScreen/);
   assert.match(src, /gl\.bindFramebuffer\(gl\.FRAMEBUFFER, last && toScreen \? null : this\.fbo\[write\]\)/);
-  assert.match(src, /if \(!toScreen\) this\._resolveAlpha\(inputTex\);/);
-  assert.match(src, /float a = max\(max\(c\.r, c\.g\), c\.b\);/);
+  assert.match(src, /if \(!toScreen\) this\._resolveAlpha\(inputTex, chainSpreads\(this\.chain\)\)/);
+  assert.match(src, /float a = max\(src\.a, glow\)/);
+  assert.match(src, /uSpread/);
+  assert.match(src, /texture\(uPrev, vUV\)/);
+  assert.match(src, /def\.displaces/);
+  assert.match(src, /def\.spreads/);
   assert.match(read('src/visualizer/layers.js'), /this\.postfx\.render\(src, audio, t, dt, seeThrough\(cfg\)\)/);
+});
+
+test('yığın: arkaplan katmanının şeffaflığı seeThrough sayılır', () => {
+  const stacked = {
+    background: { type: 'liquid', transparent: false },
+    layerStack: { enabled: true },
+    layers: [{
+      id: 'ly_bg', kind: 'background', type: 'liquid', enabled: true,
+      settings: { background: { transparent: true } },
+    }],
+  };
+  assert.strictEqual(L.seeThrough(stacked), true);
+  assert.strictEqual(L.layerWantsKey(stacked.layers[0], stacked), true);
+  stacked.layers[0].settings.background.transparent = false;
+  assert.strictEqual(L.seeThrough(stacked), false);
+  assert.strictEqual(L.layerWantsKey(stacked.layers[0], stacked), false);
+});
+
+test('katman panosu: yığın açıkken en üstte tek şeffaf arkaplan anahtarı', () => {
+  const src = read('src/admin/scene-panels.js');
+  const i = src.indexOf('function layersPanel(');
+  assert.ok(i > 0, 'layersPanel bulunamadı');
+  const end = src.indexOf('function effectsPanel(', i);
+  const body = src.slice(i, end > i ? end : i + 8000);
+  const stackRow = body.indexOf("P().row('Katman Yığınını Kullan'");
+  const transRow = body.indexOf("P().row('Şeffaf Arkaplan'");
+  assert.ok(stackRow > 0, 'yığın anahtarı yok');
+  assert.ok(transRow > stackRow, 'şeffaf arkaplan anahtarı yığın anahtarından sonra, listenin üstünde olmalı');
+  const assign = body.indexOf('cfg.background.transparent = v');
+  assert.ok(assign > stackRow, 'anahtar kök background.transparent yazmıyor');
+});
+
+test('Spout/Syphon şeffaf arkaplanı kapalı tutar, GPU yayını bozulmaz', () => {
+  const share = read('src/main/texture-share.js');
+  assert.match(share, /offscreen: \{ useSharedTexture: true \}/);
+  assert.ok(!/sendRgbaBuffer/.test(share), 'CPU bitmap yolu Spout yayını düşürüyordu');
+  const main = read('src/main/main.js');
+  assert.match(main, /function configForTextureShare\(/);
+  assert.match(main, /c\.background\.transparent = false/);
+  assert.match(main, /configForTextureShare\(payload\)/);
+});
+
+test('Windows şeffaf pencere tam ekran kullanmıyor', () => {
+  const src = read('src/main/main.js');
+  assert.match(src, /fullscreen: !see/);
+  assert.match(src, /opts\.resizable = false/);
+  assert.match(src, /function recreateVisualizerWindows\(/);
 });
 
 test('haritalama: saydam modda alfa geri kazanılıyor', () => {

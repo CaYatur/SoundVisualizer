@@ -38,11 +38,13 @@
     return `${proto}//${location.host}/ws?${q.toString()}`;
   }
 
-  /* Saydamlık: OBS'te sadece görselleştiriciyi üst katman olarak isteyen
-     kullanıcı için arkaplan katmanları kapatılır. Bunu visualizer.js'e
-     dokunmadan yapmanın temiz yolu, yapılandırmayı ona vermeden önce
-     dönüştürmek: bilinmeyen bir arkaplan türü + 'transparent' düz renk,
-     mevcut kodda hem WebGL hem 2D arkaplanı kapatıp gövdeyi saydam bırakır. */
+  /* Saydamlık yayın katmanında uygulama penceresiyle AYNI ayardır
+     (`background.transparent` ve katmanlardaki karşılığı). Eski yol
+     `stream.transparent` açıkken arkaplan türünü 'transparent' yapıp
+     efektleri düşürüyor, yazıyı parlaklık-alfaya sokuyordu — pencere
+     kapalı olsa bile OBS her zaman şeffaf çiziyordu.
+     URL `?transparent=0` opak, `?transparent=1` şeffaf zorlar (kaynak
+     bazında kaçış). Karartma sürerken şeffaflık yok. */
   function transform(cfg) {
     if (!cfg) return cfg;
     // Kumanda sayfası GERÇEK yapılandırmayı görmeli: saydamlık ve kare hızı
@@ -50,11 +52,20 @@
     // arkaplan türü 'transparent' görünür ve hiçbir sahne eşleşmez.
     if (kind !== 'overlay') return cfg;
     const c = JSON.parse(JSON.stringify(cfg));
-    const wantsTransparent = !forceOpaque && !!(c.stream && c.stream.transparent);
-    // Karartma aktifken saydam mod devre dışı: siyah arkaplan görünür olmalı,
-    // aksi halde OBS'te "saydam siyah" → görünmez olur ve animasyon kaybolur.
-    if (wantsTransparent && !c.isBlackout) {
-      c.background = Object.assign({}, c.background, { type: 'transparent', solidColor: 'transparent' });
+    if (c.isBlackout) {
+      /* karartma: şeffaflığa dokunma, siyah kalsın */
+    } else if (forceOpaque) {
+      c.background = Object.assign({}, c.background, { transparent: false });
+      if (Array.isArray(c.layers)) {
+        for (let i = 0; i < c.layers.length; i++) {
+          const l = c.layers[i];
+          if (l && l.settings && l.settings.background) {
+            l.settings.background = Object.assign({}, l.settings.background, { transparent: false });
+          }
+        }
+      }
+    } else if (params.get('transparent') === '1') {
+      c.background = Object.assign({}, c.background, { transparent: true });
     }
     c.power = Object.assign({}, c.power, {
       hideCursor: true,

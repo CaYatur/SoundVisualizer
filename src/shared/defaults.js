@@ -424,7 +424,7 @@
       lan: false, // true = 0.0.0.0 (telefon/başka makine erişir), false = yalnız 127.0.0.1
       token: '', // görselleştirici (OBS / Web) jetonu
       remoteToken: '', // mobil uzaktan kumanda jetonu (ayrı güvenlik jetonu)
-      transparent: true, // arkaplanı saydam bırak (OBS'te üst katman olarak)
+      transparent: false, // artık kullanılmıyor; şeffaflık background.transparent ile aynı
       remote: true, // /remote mobil kumanda sayfası açık mı
       overlayFps: 60, // tarayıcı kaynağının kare hızı sınırı
       quality: 1.0, // tarayıcı kaynağı çözünürlük ölçeği

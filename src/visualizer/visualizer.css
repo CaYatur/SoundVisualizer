@@ -16,7 +16,8 @@ html, body {
    parlaklığı görünürlüğe çeviriyor (#sv-bg-key, visualizer.js kuruyor;
    eşik SVLayers.keyMatrix). Yalnız arkaplan tuvalleri — görselleştiriciler
    zaten kendi saydamlıklarıyla çiziyor. */
-.sv-bgkey #stage canvas.sv-bg { filter: url(#sv-bg-key); }
+.sv-bgkey #stage canvas.sv-bg,
+#stage canvas.sv-bgkey { filter: url(#sv-bg-key); }
 
 /* Katman sahnesi. Tuvaller layers.js tarafından eklenir; karıştırma
    (mix-blend-mode) tarayıcının GPU kompozitörüne bırakılır. isolation

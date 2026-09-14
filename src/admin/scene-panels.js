@@ -888,6 +888,30 @@
       const getB = (k, fallback) => bg[k] !== undefined ? bg[k] : (defBg[k] !== undefined ? defBg[k] : fallback);
       const setB = (k, val) => { bg[k] = val; };
 
+      /* Yığın açıkken Arkaplan kartı gizli; şeffaflık burada açılır.
+         Kök `background.transparent` pencere / yayın / Spout için de gerekir. */
+      out.push(miniToggle('Şeffaf Arkaplan', () => !!getB('transparent', false), (v) => {
+        setB('transparent', v);
+        const list = cfg.layers || [];
+        const any = list.some((x) => x && x.kind === 'background' && x.enabled !== false
+          && x.settings && x.settings.background && x.settings.background.transparent);
+        cfg.background = cfg.background || {};
+        cfg.background.transparent = any;
+      }, rerender));
+      if (getB('transparent', false)) {
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Şeffaf arkaplan bu katmanın koyu yerlerini saydamlar. Görselleştirici penceresi, yayın ve Spout aynı ayarı paylaşır; açık pencereler bu anahtarla yeniden kurulur.' }));
+        if (l.type !== 'solid') {
+          out.push(miniSlider('Saydamlık Eşiği', () => {
+            const v = getB('transparentKey', cfg.background && cfg.background.transparentKey);
+            return v == null ? 0.2 : v;
+          }, (v) => {
+            setB('transparentKey', v);
+            cfg.background = cfg.background || {};
+            cfg.background.transparentKey = v;
+          }, { min: 0, max: 1, step: 0.01, percent: true }));
+        }
+      }
+
       if (l.type === 'solid') {
         out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => setB('solidColor', v)));
         return out;
@@ -956,6 +980,48 @@
     });
     stackSwitch.checked = on;
     nodes.push(P().row('Katman Yığınını Kullan', el('label', { class: 'switch' }, [stackSwitch, el('span', { class: 'track' })])));
+
+    if (on) {
+      /* Arkaplan kartı yığın açıkken gizli; şeffaflık burada, listenin
+         en üstünde tek bir anahtar. Pencere / yayın / Spout aynı ayarı
+         kullanır ve tüm arkaplan katmanlarına işlenir. */
+      const transparent = el('input', {
+        type: 'checkbox',
+        onchange: (e) => {
+          const v = e.target.checked;
+          cfg.background = cfg.background || {};
+          cfg.background.transparent = v;
+          (cfg.layers || []).forEach((ly) => {
+            if (ly && ly.kind === 'background') {
+              ly.settings = ly.settings || {};
+              ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparent: v });
+            }
+          });
+          P().push(true);
+          rerender();
+        },
+      });
+      transparent.checked = !!(cfg.background && cfg.background.transparent);
+      nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
+      if (transparent.checked) {
+        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
+        if (!cfg.background || cfg.background.type !== 'solid') {
+          nodes.push(miniSlider('Saydamlık Eşiği', () => {
+            const v = cfg.background && cfg.background.transparentKey;
+            return v == null ? 0.2 : v;
+          }, (v) => {
+            cfg.background = cfg.background || {};
+            cfg.background.transparentKey = v;
+            (cfg.layers || []).forEach((ly) => {
+              if (ly && ly.kind === 'background') {
+                ly.settings = ly.settings || {};
+                ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparentKey: v });
+              }
+            });
+          }, { min: 0, max: 1, step: 0.01, percent: true }));
+        }
+      }
+    }
 
     if (!on) {
       nodes.push(

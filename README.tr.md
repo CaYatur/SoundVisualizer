@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1592%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1597%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -1030,7 +1030,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1592 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1597 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
@@ -1085,9 +1085,11 @@ Ortak motorlar DOM, GPU ve ses aygıtı bilmeyen saf aritmetiktir; testleri Node
 
 [ROADMAP.md](ROADMAP.md) neyin gerçekten yapıldığını ve planlanan her sürümün neye ayrıldığını
 kaydediyor — v3.1.0'da Timeline ve Clip Deck, v3.1.1'de çoklu platform paketleri ile OpenRGB ve
-Spout/Syphon, v3.1.2'de uygulama başına ses yakalama, v3.1.3'te çok daha geniş ve çok daha hızlı
-video dışa aktarımı, v3.1.4'te yayın düzeni editörü, v3.2.0'da yedeklilik ve kare senkronu.
-Ayrıca neyin **yapılmadığını** ve nedenini de dürüstçe listeliyor.
+Spout/Syphon, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başına ses yakalama ve basıklık
+düzeltmesi, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle birlikte MilkDrop sadakati.
+Sırada v3.1.5'te MilkDrop ve yayın iyileştirmeleri, v3.1.6'da çok daha geniş ve çok daha hızlı video
+dışa aktarımı, v3.1.7'de yayın düzeni editörü, v3.2.0'da yedeklilik ve kare senkronu var. Ayrıca
+neyin **yapılmadığını** ve nedenini de dürüstçe listeliyor.
 
 ---
 

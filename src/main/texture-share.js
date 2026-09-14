@@ -113,7 +113,11 @@ function destroySender() {
 
 /* Bir paint olayını göndericiye aktarır.
    Doku HER YOLDA serbest bırakılmalı: bırakılmayan her kare bir GPU
-   kaynağı sızdırır ve birkaç dakikada belleği tüketir. */
+   kaynağı sızdırır ve birkaç dakikada belleği tüketir.
+
+   Şeffaf arkaplan Spout/Syphon'da YOK: GPU paylaşılan doku alfaı alıcıda
+   siyah basıyor, CPU bitmap yolu da yayını düşürüyordu. Şeffaflık yalnız
+   yerel pencere ve OBS tarayıcı kaynağında çalışır. */
 function onPaint(e) {
   const tex = e && e.texture;
   if (!tex) return;
@@ -192,6 +196,7 @@ function start(cfg, hooks) {
     show: false,
     width: targetW,
     height: targetH,
+    backgroundColor: '#000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload-visualizer.js'),
       contextIsolation: true,
@@ -220,6 +225,7 @@ function start(cfg, hooks) {
     if (typeof hks.onReady === 'function') {
       try { hks.onReady(win); } catch {}
     }
+    try { win.webContents.invalidate(); } catch {}
   });
 
   const p = win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));

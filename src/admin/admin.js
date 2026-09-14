@@ -2238,7 +2238,7 @@
           { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan' },
           {
             type: 'note',
-            text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için açıp kapatmak görselleştirici kapatılıp yeniden açılınca geçerli olur.',
+            text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Yayın katmanı (OBS) ve Spout/Syphon aynı ayarı kullanır. Pencere şeffaflığı doğuşta kilitlendiği için açık görselleştirici pencereleri bu anahtarla yeniden kurulur.',
             show: () => !!cfg.background.transparent,
           },
           {
@@ -3900,6 +3900,8 @@
     if (!sc || !sc.data) return;
     const def = window.SV.DEFAULT_CONFIG;
     const blacked = isBlackedOut();
+    const keepTransparent = !!(cfg.background && cfg.background.transparent);
+    const keepKey = cfg.background && cfg.background.transparentKey;
     SCENE_KEYS.forEach((k) => {
       let val;
       if (sc.data[k] === undefined) {
@@ -3930,6 +3932,12 @@
     }
     if (window.SVLayers && window.SVLayers.syncStackState) {
       window.SVLayers.syncStackState(cfg);
+    }
+    /* Şeffaf arkaplan çıkış ayarıdır; sahne görünümünü değiştirmek onu
+       kapatıp pencereyi yeniden kurdurmamalı. */
+    if (cfg.background) {
+      cfg.background.transparent = keepTransparent;
+      if (keepKey != null) cfg.background.transparentKey = keepKey;
     }
     sceneActionInFlight = true;
     activeSceneId = id;

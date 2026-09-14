@@ -125,6 +125,10 @@
       onchange: () => { P().push(true); window.api.textureSync().catch(() => {}); },
     })));
 
+    if (cfg.background && cfg.background.transparent) {
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Şeffaf arkaplan Spout/Syphon çıkışına uygulanmaz (GPU dokusu alfa taşımıyor). Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır; bu çıkış sahneyi opak basar.' }));
+    }
+
     /* Aynı makinedeki kaynaklar: kullanıcının kendi göndericisini alıcı
        tarafta göremediğinde ilk sorduğu şey "gerçekten yayında mı?" */
     const refresh = el('button', { class: 'btn small', type: 'button', text: 'Kaynakları Listele' });

@@ -25,6 +25,7 @@
     // ------------------------------------------------------------------ blur
     blur: {
       label: 'Bulanıklık (Gauss)',
+      spreads: true,
       params: [p('radius', 'Yarıçap', 0, 12, 0.1, 3)],
       audio: ['radius'],
       frag: `uniform float radius;
@@ -47,6 +48,7 @@ void main(){
 
     radialblur: {
       label: 'Işınsal Bulanıklık',
+      spreads: true,
       params: [
         p('strength', 'Şiddet', 0, 0.2, 0.002, 0.05),
         p('cx', 'Merkez X', 0, 1, 0.01, 0.5),
@@ -68,6 +70,7 @@ void main(){
 
     motionblur: {
       label: 'Yönlü Bulanıklık',
+      spreads: true,
       params: [
         p('len', 'Uzunluk', 0, 0.1, 0.001, 0.02),
         p('angle', 'Açı', 0, 1, 0.005, 0),
@@ -87,6 +90,7 @@ void main(){
 
     tiltshift: {
       label: 'Tilt-Shift',
+      spreads: true,
       params: [
         p('center', 'Odak Konumu', 0, 1, 0.01, 0.5),
         p('width', 'Odak Genişliği', 0.02, 0.8, 0.01, 0.2),
@@ -117,6 +121,7 @@ void main(){
 
     dof: {
       label: 'Alan Derinliği (Bokeh)',
+      spreads: true,
       params: [
         p('focus', 'Odak Parlaklığı', 0, 1, 0.01, 0.5),
         p('range', 'Odak Aralığı', 0.02, 1, 0.01, 0.3),
@@ -321,6 +326,7 @@ void main(){
     // ------------------------------------------------------------- analog
     vhs: {
       label: 'VHS / Analog Bant',
+      displaces: true,
       params: [
         p('bleed', 'Renk Taşması', 0, 0.03, 0.0005, 0.008),
         p('noise', 'Gürültü', 0, 1, 0.01, 0.25),
@@ -352,6 +358,7 @@ void main(){
 
     datamosh: {
       label: 'Datamosh (Blok Kayması)',
+      displaces: true,
       params: [
         p('blocks', 'Blok Boyutu', 4, 80, 1, 24),
         p('amount', 'Kayma', 0, 0.4, 0.005, 0.08),
@@ -380,6 +387,7 @@ void main(){
 
     slitscan: {
       label: 'Yarık Tarama',
+      displaces: true,
       params: [p('depth', 'Zaman Derinliği', 0, 1, 0.01, 0.7), p('axis', 'Eksen', 0, 1, 1, 0)],
       audio: ['depth'],
       needsPrev: true,
@@ -398,6 +406,7 @@ void main(){
     // ------------------------------------------------------------ bozunum
     lens: {
       label: 'Lens Bozunumu',
+      displaces: true,
       params: [p('k1', 'Fıçı / Yastık', -0.6, 0.6, 0.005, 0.22), p('zoom', 'Yakınlaşma', 0.6, 1.6, 0.01, 1)],
       audio: ['k1', 'zoom'],
       frag: `uniform float k1, zoom;
@@ -412,6 +421,7 @@ void main(){
 
     twirl: {
       label: 'Burgu',
+      displaces: true,
       params: [p('angle', 'Açı', -4, 4, 0.02, 1.6), p('radius', 'Yarıçap', 0.05, 1, 0.01, 0.55)],
       audio: ['angle', 'radius'],
       frag: `uniform float angle, radius;
@@ -429,6 +439,7 @@ void main(){
 
     polar: {
       label: 'Kutupsal Dönüşüm',
+      displaces: true,
       params: [p('mode', 'Yön', 0, 1, 1, 0), p('spin', 'Dönme', -2, 2, 0.01, 0.1), p('zoom', 'Ölçek', 0.3, 3, 0.01, 1)],
       audio: ['spin', 'zoom'],
       frag: `uniform float mode, spin, zoom;
@@ -524,6 +535,7 @@ void main(){
 
     godrays: {
       label: 'Işık Huzmeleri',
+      spreads: true,
       params: [
         p('cx', 'Kaynak X', 0, 1, 0.01, 0.5),
         p('cy', 'Kaynak Y', 0, 1, 0.01, 0.35),
@@ -554,6 +566,7 @@ void main(){
 
     badtv: {
       label: 'Bozuk Sinyal',
+      displaces: true,
       params: [
         p('roll', 'Kayma Hızı', 0, 2, 0.01, 0.25),
         p('tear', 'Yırtılma', 0, 0.3, 0.005, 0.06),
@@ -576,6 +589,7 @@ void main(){
 
     starfilter: {
       label: 'Yıldız Süzgeci',
+      spreads: true,
       params: [p('threshold', 'Eşik', 0, 1, 0.01, 0.6), p('len', 'Uzunluk', 0, 0.2, 0.002, 0.05), p('points', 'Kol', 2, 8, 1, 4)],
       audio: ['len', 'threshold'],
       frag: `uniform float threshold, len, points;

@@ -1224,8 +1224,20 @@
     'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.':
       'Brings the currently playing track to the screen: title, artist, elapsed and remaining time, progress bar. Can stay visible continuously or appear with an animation only on track change.',
     'Şeffaf Arkaplan': 'Transparent Background',
-    'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Pencerenin şeffaflığı yalnızca açılış anında belirlenebildiği için açıp kapatmak görselleştirici kapatılıp yeniden açılınca geçerli olur.':
-      'When transparent background is on, the desktop behind the visualizer window shows through: a solid colour background is not painted, and the dark parts of background effects turn transparent. Window transparency can only be set when the window opens, so switching it on or off takes effect when the visualizer is closed and reopened.',
+    'Şeffaf arkaplan açık: doku alfa kanalı ile gider. Alıcıda (OBS Spout Kaynağı, Resolume) ön-çarpımlı alfa / şeffaf zemin seçeneğini açın; aksi halde siyah zemin görünür.':
+      'Transparent background is on: the texture includes an alpha channel. In the receiver (OBS Spout Source, Resolume) enable premultiplied alpha / transparent background, otherwise you will see a black fill.',
+    'Şeffaf arkaplan Spout/Syphon çıkışına uygulanmaz (GPU dokusu alfa taşımıyor). Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır; bu çıkış sahneyi opak basar.':
+      'Transparent background is not applied to Spout/Syphon (the GPU texture cannot carry alpha). The local window and OBS browser source stay transparent; this output paints the scene opaque.',
+    'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Yayın katmanı (OBS) ve Spout/Syphon aynı ayarı kullanır. Pencere şeffaflığı doğuşta kilitlendiği için açık görselleştirici pencereleri bu anahtarla yeniden kurulur.':
+      'When transparent background is on, the desktop behind the visualizer window shows through: a solid colour background is not painted, and the dark parts of background effects turn transparent. The streaming overlay (OBS) and Spout/Syphon use the same setting. Window transparency is locked at creation, so open visualizer windows are recreated when you toggle this.',
+    'Şeffaf arkaplan bu katmanın koyu yerlerini saydamlar. Görselleştirici penceresi, yayın ve Spout aynı ayarı paylaşır; açık pencereler bu anahtarla yeniden kurulur.':
+      'Transparent background keys out this layer’s dark areas. The visualizer window, streaming overlay and Spout share the same setting; open windows are recreated when you toggle this.',
+    'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.':
+      'The visualizer window, streaming overlay and Spout/Syphon share this switch. If a visualizer is open, its windows are recreated to match.',
+    'Şeffaf arkaplan uygulama ayarıyla aynıdır: açıksa düz zemin boyanmaz, efektlerin koyu yerleri saydamlaşır; kapalıysa sahne olduğu gibi yayına girer.':
+      'Transparent background is the same app setting: when on, a solid fill is not painted and dark parts of effects turn transparent; when off, the scene streams as you see it.',
+    'Tek bir kaynak için adrese ?transparent=0 (opak) veya ?transparent=1 (şeffaf) ekleyebilirsiniz; ?fps=30 veya ?scale=0.75 ile o kaynağın yükünü ayrıca düşürebilirsiniz.':
+      'For a single source you can add ?transparent=0 (opaque) or ?transparent=1 (transparent) to the address; use ?fps=30 or ?scale=0.75 to reduce that source’s load.',
     'Saydamlık Eşiği': 'Transparency Threshold',
     'Arkaplan efektinin bu parlaklığın altında kalan yerleri masaüstünü gösterir: siyah tamamen saydam, eşiğin üstü tamamen görünür. Canlı uygulanır.':
       'Parts of the background effect darker than this show the desktop: black is fully transparent, anything above the threshold fully visible. Applies live.',

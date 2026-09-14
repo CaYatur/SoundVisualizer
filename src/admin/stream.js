@@ -131,9 +131,9 @@
             el('li', { text: 'URL alanına yukarıdaki adresi yapıştırın.' }),
             el('li', { text: 'Genişlik/Yükseklik: sahne çözünürlüğünüzle aynı (ör. 1920 × 1080).' }),
             el('li', { text: '“Kaynak görünür değilken kapat” seçeneğini KAPALI bırakın; yoksa sahne değişince yeniden bağlanır.' }),
-            el('li', { text: 'Saydam arkaplan açıksa görselleştirici doğrudan üst katman olur; kapatırsanız arkaplan da yayına girer.' }),
+            el('li', { text: 'Şeffaf arkaplan uygulama ayarıyla aynıdır: açıksa düz zemin boyanmaz, efektlerin koyu yerleri saydamlaşır; kapalıysa sahne olduğu gibi yayına girer.' }),
           ]),
-          el('div', { class: 'dim-hint', text: 'Adresin sonuna ?transparent=0 eklerseniz o kaynak arkaplanı da gösterir; ?fps=30 veya ?scale=0.75 ile o kaynağın yükünü ayrıca düşürebilirsiniz.' }),
+          el('div', { class: 'dim-hint', text: 'Tek bir kaynak için adrese ?transparent=0 (opak) veya ?transparent=1 (şeffaf) ekleyebilirsiniz; ?fps=30 veya ?scale=0.75 ile o kaynağın yükünü ayrıca düşürebilirsiniz.' }),
         ])
       );
 
@@ -154,10 +154,23 @@
 
       const transparent = el('input', {
         type: 'checkbox',
-        onchange: (e) => { s.transparent = e.target.checked; P().push(true); },
+        onchange: (e) => {
+          const on = e.target.checked;
+          cfg.background = cfg.background || {};
+          cfg.background.transparent = on;
+          s.transparent = on;
+          (cfg.layers || []).forEach((l) => {
+            if (l && l.kind === 'background') {
+              l.settings = l.settings || {};
+              l.settings.background = Object.assign({}, l.settings.background || {}, { transparent: on });
+            }
+          });
+          P().push(true);
+        },
       });
-      transparent.checked = !!s.transparent;
-      nodes.push(P().row('Saydam Arkaplan (üst katman)', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
+      transparent.checked = !!(cfg.background && cfg.background.transparent);
+      nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
+      nodes.push(el('div', { class: 'dim-hint', style: 'margin-top:-8px', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
 
       const remote = el('input', {
         type: 'checkbox',

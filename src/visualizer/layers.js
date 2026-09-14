@@ -215,17 +215,41 @@
 
      İki ayrı saydamlık var ve ikisi de aynı şeyi istiyor: katmanların
      arkasında hiçbir şey boyanmasın.
-       - `background.type === 'transparent'`: yayın katmanı (web-shim) ve
-         saydam şablonlar; arkaplan katmanı hiç kurulmuyor.
-       - `background.transparent`: masaüstünde "Şeffaf Arkaplan"; pencere
-         şeffaf doğuyor. Karartma sürerken siyah kalıyor — yayın katmanında
-         da öyle; saydam bir karartma ekranı söndürmek yerine masaüstünü
-         gösterirdi. */
+       - `background.type === 'transparent'`: saydam şablonlar; arkaplan
+         katmanı hiç kurulmuyor.
+       - `background.transparent`: "Şeffaf Arkaplan"; pencere şeffaf doğuyor.
+         Yayın katmanı (OBS) ve Spout/Syphon AYNI bayrağı kullanır.
+       - Katman yığınında bir arkaplan katmanının `settings.background.transparent`
+         bayrağı da yeter: yığın açıkken kök kart gizli olduğu için ayar
+         katmandan açılır.
+     Karartma sürerken siyah kalıyor — saydam bir karartma ekranı söndürmek
+     yerine masaüstünü gösterirdi. */
   function seeThrough(cfg) {
     const bg = cfg && cfg.background;
     if (!bg) return false;
     if (bg.type === 'transparent') return true;
-    return !!bg.transparent && cfg.isBlackout !== true;
+    if (cfg.isBlackout === true) return false;
+    if (bg.transparent) return true;
+    if (stackOn(cfg) && Array.isArray(cfg.layers)) {
+      for (let i = 0; i < cfg.layers.length; i++) {
+        const l = cfg.layers[i];
+        if (l && l.kind === 'background' && l.enabled !== false && !l.muted
+            && l.settings && l.settings.background && l.settings.background.transparent) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /* Bu arkaplan katmanının koyu yerleri saydamlaşsın mı?
+     Yığın açıkken katmanın kendi bayrağı, klasik yolda kök ayar. */
+  function layerWantsKey(layer, cfg) {
+    if (!layer || layer.kind !== 'background') return false;
+    if (cfg && cfg.isBlackout === true) return false;
+    const s = layer.settings && layer.settings.background;
+    if (s && typeof s.transparent === 'boolean') return !!s.transparent;
+    return !!(cfg && cfg.background && cfg.background.transparent);
   }
 
   /* Sayfanın (body) zemini.
@@ -644,14 +668,17 @@
        ve sahne geçişi sürerken (iki sahne birleştirilir). İkisi de aynı
        mekanizmayı kullanır; ayrı kod yollarına gerek yok. */
     _setSurface(canvas) {
-      if (this._surface === canvas) return;
       const prev = this._surface;
       this._surface = canvas || null;
       this._fxMode = !!canvas;
       if (!this.container) return;
+      /* Görünürlük her çağrıda senkron: setConfig yeni tuval eklediğinde
+         _surface aynı kalsa bile katman tuvali + birleşik yüzey birlikte
+         dururdu (çift çizim). */
       for (const e of this.entries) {
         if (e.canvas) e.canvas.style.display = canvas ? 'none' : 'block';
       }
+      if (prev === canvas) return;
       if (prev && prev !== canvas && prev.parentNode) prev.parentNode.removeChild(prev);
       if (canvas) {
         canvas.style.position = 'absolute';
@@ -828,6 +855,7 @@
         this.entries.forEach((e, i) => {
           if (!e.canvas) return;
           e.canvas.style.zIndex = String(i + 1);
+          if (this._fxMode) e.canvas.style.display = 'none';
           if (!e.canvas.parentNode) this.container.appendChild(e.canvas);
         });
         if (this.logoEl) {
@@ -899,9 +927,13 @@
     // Sese bağlı OLMAYAN stil (karışım modu) — yalnızca yapılandırma değişince
     _applyStatic() {
       if (!this.container) return;
+      const cfg = this.prevCfg;
       for (const e of this.entries) {
         if (!e.canvas) continue;
         e.canvas.style.mixBlendMode = CSS_BLEND(e.layer.blend);
+        if (e.layer.kind === 'background') {
+          e.canvas.classList.toggle('sv-bgkey', !!(this.keyFilter && layerWantsKey(e.layer, cfg)));
+        }
       }
     }
 
@@ -1157,6 +1189,9 @@
           e.canvas.style.transform = this._hasTransform(d)
             ? `translate(${d.x * 100}%, ${d.y * 100}%) rotate(${d.rotate}deg) scale(${d.flipX ? -d.scale : d.scale}, ${d.flipY ? -d.scale : d.scale})`
             : '';
+          if (l.kind === 'background') {
+            e.canvas.classList.toggle('sv-bgkey', !!(this.keyFilter && layerWantsKey(l, cfg)));
+          }
         }
       }
     }
@@ -1245,7 +1280,7 @@
       const l = live || e.layer;
       this._drawEntryRaw(e, audio, cfg, t, dt, l);
       this._applyMask(e, l);
-      this._applyLayerFX(e, l, audio, t, dt);
+      this._applyLayerFX(e, l, audio, t, dt, seeThrough(cfg));
     }
 
     /* Katmana özel efekt zinciri.
@@ -1253,7 +1288,7 @@
        Tek bir paylaşılan PostFX örneği sırayla kullanılıyor: katman başına
        ayrı bir WebGL bağlamı açmak, on katmanlı bir sahnede on bağlam demek
        olurdu ve tarayıcılar eşzamanlı bağlam sayısını sınırlıyor. */
-    _applyLayerFX(e, l, audio, t, dt) {
+    _applyLayerFX(e, l, audio, t, dt, see) {
       const chain = Array.isArray(l.postfx) ? l.postfx.filter((f) => f && f.enabled !== false) : [];
       if (!chain.length || !e.canvas || !window.SVPostFX) return;
       if (!this.layerFx) this.layerFx = new window.SVPostFX.PostFX();
@@ -1261,7 +1296,7 @@
       fx.setChain(chain);
       if (!fx.hasWork()) return;
       fx.resize(this.width, this.height);
-      if (!fx.render(e.canvas, audio, t, dt)) return;
+      if (!fx.render(e.canvas, audio, t, dt, !!see)) return;
       const ctx = e.ctx || (e.canvas.getContext ? e.canvas.getContext('2d') : null);
       if (!ctx) return;
       ctx.save();
@@ -1407,7 +1442,7 @@
         /* Tek yüzey yolunda (efekt zinciri, sahne geçişi) katman tuvalleri
            gizli, CSS süzgeci onlara ulaşmıyor: arkaplanın koyu yerleri burada,
            çizerken saydamlaşıyor — aynı süzgeç, aynı görüntü. */
-        if (this.keyFilter && l.kind === 'background') ctx.filter = this.keyFilter;
+        if (this.keyFilter && layerWantsKey(l, cfg)) ctx.filter = this.keyFilter;
         if (this._hasTransform(d)) {
           ctx.translate(W / 2 + d.x * W, H / 2 + d.y * H);
           ctx.rotate((d.rotate * Math.PI) / 180);
@@ -1518,6 +1553,7 @@
     LAYER_DEFAULTS,
     resolveLogoSrc,
     seeThrough,
+    layerWantsKey,
     pageBackground,
     keyThreshold,
     keyMatrix,

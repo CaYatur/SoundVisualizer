@@ -6,6 +6,15 @@
    hızı sınırlaması, ses ölçüm bildirimi ve yapılandırmanın katman yığınına
    aktarılmasından ibarettir. */
 (function () {
+  /* Spout/Syphon yakalama penceresi (?svCapture=1): kompozitör şeffaf
+     doğuyor; sayfa da ilk boyamada siyah basmamalı yoksa doku opak kalır.
+     Asıl sahne applyConfig ile gelir — opak istenirse o zaman siyah dolar. */
+  if (typeof location !== 'undefined' && /(?:\?|&)svCapture=1(?:&|$)/.test(location.search)) {
+    document.documentElement.classList.add('sv-transparent');
+    document.documentElement.style.background = 'transparent';
+    if (document.body) document.body.style.background = 'transparent';
+  }
+
   const stage = document.getElementById('stage');
   const logoImg = document.getElementById('logo');
   const hint = document.getElementById('hint');
@@ -191,7 +200,9 @@
     /* Gövdenin zemini: saydam modda (yayın katmanı ya da "Şeffaf Arkaplan")
        boyanmaz. Bkz. SVLayers.pageBackground — satır içi renk sınıf
        kuralını ezdiği için masaüstü penceresi hiç saydamlaşmıyordu. */
-    document.body.style.background = window.SVLayers.pageBackground(cfg);
+    const pageBg = window.SVLayers.pageBackground(cfg);
+    document.body.style.background = pageBg;
+    document.documentElement.style.background = pageBg;
     stack.bindMedia(mediaOn ? media.video : null);
   }
 
@@ -382,7 +393,7 @@
     /* Sayfanın zemini de kalkmalı; pencere şeffaf doğsa bile body siyah
        boyadığı sürece arkasındaki masaüstü görünmez. */
     document.documentElement.classList.toggle('sv-transparent',
-      !!(cfg.background && cfg.background.transparent));
+      window.SVLayers.seeThrough(cfg));
     applyBackgroundKey(cfg);
 
     audio.applyConfig(cfg.audio);
@@ -397,7 +408,7 @@
   let keyMatrixEl = null;
   function applyBackgroundKey(c) {
     const L = window.SVLayers;
-    const on = !!(c.background && c.background.transparent) && L.seeThrough(c);
+    const on = L.seeThrough(c);
     if (on && !keyMatrixEl) {
       const NS = 'http://www.w3.org/2000/svg';
       const svg = document.createElementNS(NS, 'svg');

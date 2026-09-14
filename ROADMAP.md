@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.3** · **Next release: v3.1.4**
+**Current release: v3.1.4** · **Next release: v3.1.5**
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -15,10 +15,12 @@ covered by a test or by the GPU self-test.
 | v3.1.0 | Timeline, Clip Deck, accidental-close protection, Electron 43 | 2026-09-02 | Shipped |
 | v3.1.1 | Cross-platform builds, OpenRGB, Spout and Syphon | 2026-09-04 | Shipped |
 | v3.1.2 | MilkDrop shader engine, Now Playing overlay, transparent visualizer | 2026-09-05 | Shipped |
-| **v3.1.3** | **Per-application audio capture, aspect correction, Auto VJ rebuild** | **2026-09-08** | **Current** |
-| v3.1.4 | Comprehensive video export | — | Planned |
-| v3.1.5 | Broadcast layout editor | — | Planned |
-| v3.1.6 | NDI output | — | Deferred |
+| v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | 2026-09-08 | Shipped |
+| **v3.1.4** | **Streaming overlay and transparency fixes, MilkDrop fidelity** | **2026-09-15** | **Current** |
+| v3.1.5 | MilkDrop and streaming refinements | — | Planned |
+| v3.1.6 | Comprehensive video export | — | Planned |
+| v3.1.7 | Broadcast layout editor | — | Planned |
+| v3.1.8 | NDI output | — | Deferred |
 | v3.2.0 | Redundancy, failover and frame sync | — | Planned |
 
 ---
@@ -64,7 +66,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1128** unit tests at v3.1.3 + a GPU self-test over every engine (960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0). 1592 on `main` today |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1597** unit tests at v3.1.4 + a GPU self-test over every engine (1128 at v3.1.3, 960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -87,11 +89,12 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Per-app audio capture on macOS and Linux | v3.1.4 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
-| Live level meter per application | v3.1.4 | The picker lists and remembers applications but shows an audible/silent icon, not a moving level |
-| Comprehensive video export | v3.1.4 | Not started |
-| Broadcast layout editor | v3.1.5 | Not started |
-| NDI | v3.1.6 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
+| Per-app audio capture on macOS and Linux | v3.1.6 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
+| Live level meter per application | v3.1.6 | The picker lists and remembers applications but shows an audible/silent icon, not a moving level |
+| MilkDrop and streaming refinements | v3.1.5 | Eight items found during v3.1.4, listed under v3.1.5 below |
+| Comprehensive video export | v3.1.6 | Not started |
+| Broadcast layout editor | v3.1.7 | Not started |
+| NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
 
 ### Shipped, but never run on real hardware
@@ -126,10 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1592 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1597 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3 — 1128 at
-  that tag. The remaining 464 have come after it, from the MilkDrop work that
-  is on `main` but not in any release yet.
+  that tag — and 464 more with v3.1.4, most of them from the MilkDrop work.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -319,7 +321,7 @@ rather than replacing anything.
 On Windows it is an **addition, not a replacement**: Dynamic Lighting stays, and
 the two can be used separately or together.
 
-NDI was originally part of this release. It moved to v3.1.5 — not because it
+NDI was originally part of this release. It moved to v3.1.8 — not because it
 is harder to build, but because it is the only one of the three with a licence
 burden. Spout is BSD 2-Clause and Syphon is Simplified BSD: both need nothing
 more than a copyright notice. The reasoning is under "Not done, and why".
@@ -623,7 +625,77 @@ rebuilt the panel zero times.
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 
-## v3.1.4 — Comprehensive video export
+## v3.1.4 — Streaming overlay, transparency and MilkDrop fidelity · shipped
+
+An interim release. v3.1.3's streaming overlay was blank for everyone who used
+it, and the transparent background had never worked; both are fixed, and the
+MilkDrop work that had been on `main` since v3.1.3 ships with them. The
+refinements this work turned up are planned for v3.1.5 rather than rushed in.
+
+- **Streaming overlay (#563).** The overlay page crashed on load in v3.1.3:
+  aspect correction made the visualizer call `SVAspect`, and `overlay.html`
+  never loaded `aspect.js`. The error sat in a hidden box, so OBS and the
+  browser showed an empty page with nothing in the console. The page now shows
+  the error and logs it, and the self-test opens the overlay from the real
+  stream server on every run, the packaged build's self-test included —
+  verified by removing the script tag and watching it fail with v3.1.3's exact
+  error.
+- **Transparent background.** The desktop window was created transparent, but
+  the page painted an inline background colour over it, and every post-FX pass
+  wrote opaque alpha, so neither the window nor the overlay was ever
+  see-through. The page now stays clear, alpha survives post-FX and projection
+  mapping, and a background effect keys out its dark areas below a threshold.
+  The overlay follows the same switch as the app (it no longer forces a
+  transparent type that dropped effects and broke text); post-FX keeps source
+  coverage so dark glyphs and outlines stay intact; Windows no longer uses
+  exclusive fullscreen when transparent; the layer stack exposes the switch
+  at the top of the list. Spout/Syphon stays opaque — the GPU texture cannot
+  carry alpha without dropping the sender.
+- **MilkDrop (#560).** Every shader stage in the 10,332-preset corpus compiles;
+  textured shapes, motion vectors, preset transitions as MilkDrop's dual
+  pipeline, user textures and a long list of fidelity fixes taken from
+  Nullsoft's own source; presets hear the music through MilkDrop's own band
+  chain; auto advance works; a MilkDrop layer survives scene transitions and a
+  MilkDrop scene exports to video.
+
+### Verification
+
+1597 unit tests pass at v3.1.4 (469 added since v3.1.3). The GPU smoke test
+passes, and the packaged build passes its own self-test. 881 of 900 sampled
+presets render a live image.
+
+## v3.1.5 — MilkDrop and streaming refinements
+
+What the v3.1.4 work turned up, done carefully rather than rushed into an
+interim release.
+
+MilkDrop (#560):
+- **Waveforms read the newest audio.** The default and custom waves still read
+  the oldest 576 samples of the 2048-sample buffer, ~30 ms behind the sound;
+  the bands and spectrum waves already read the newest. The 128-sample offset
+  that stands in for the right channel has to be redesigned with it.
+- **The layer releases its WebGL context when it closes**, as the other GPU
+  modes already do, instead of leaving it to garbage collection while Auto VJ
+  switches scenes.
+- **The panel preview's demo signal gets broadband audio.** With MilkDrop's own
+  band chain, the demo's three low sines move little more than `bass` when no
+  live audio reaches the panel.
+- **Shader `vol` and `vol_att` as MilkDrop computes them**, once the shader
+  header's mapping is confirmed from the source.
+
+Streaming and transparency:
+- **The overlay can keep a background effect** and key out its dark areas, as
+  the desktop window now does, instead of removing the background entirely.
+- **Switching Transparent Background re-creates an open visualizer window.**
+  Electron sets window transparency only at creation, so today the switch waits
+  for the window to be closed and reopened.
+- **A warning when two copies of the application run at once.** Development,
+  installed and portable builds share one settings folder with no lock, and two
+  copies overwrite each other's settings.
+- **An overlay diagnostics card** (`?debug=1`): connection, whether the
+  configuration arrived, audio frames per second and the last error.
+
+## v3.1.6 — Comprehensive video export
 
 Faster export, more formats, and enough presets that a content creator never
 has to think about encoder settings. Cutting export time is a first-class goal
@@ -642,12 +714,12 @@ of this release, not a side effect.
 | Frame sequence | PNG/EXR sequences for post — slow but lossless |
 | Two render modes | (1) realtime encode that follows the playhead, (2) offline maximum-speed render. They stay separate modes |
 
-## v3.1.5 — Broadcast layout editor
+## v3.1.7 — Broadcast layout editor
 
 v3.0.0 already ships the broadcast template group: a restrained bar
 visualizer, corner or centre placement, a logo beside the bars rather than
 behind them, track and artist text, and a still or calm video background.
-v3.1.5 turns that from a set of templates into an editor.
+v3.1.7 turns that from a set of templates into an editor.
 
 - Free placement of the logo, text and bar block, with snapping and safe areas.
 - Logo swapping driven by time, beat, bass or a random interval — the same
@@ -657,7 +729,7 @@ v3.1.5 turns that from a set of templates into an editor.
   animations.
 - Everything usable live and as an export preset.
 
-## v3.1.6 — NDI output
+## v3.1.8 — NDI output
 
 The same picture across a network: one machine runs the visualizer, another
 running Resolume or a mixing console receives it over IP. This is the standard
@@ -699,7 +771,7 @@ is the whole difficulty. The application EULA must cover the NDI SDK terms, a
 `ndi.video` link is required in the application, on the website and in the
 documentation, and the NDI tools may not be redistributed. An EULA-bound
 binary inside an MIT-licensed project is a packaging problem rather than an
-engineering one, so NDI ships as a separate optional package in v3.1.5.
+engineering one, so NDI ships as a separate optional package in v3.1.8.
 
 Spout (BSD 2-Clause) and Syphon (Simplified BSD) carry none of this, which is
 why they go first in v3.1.1.

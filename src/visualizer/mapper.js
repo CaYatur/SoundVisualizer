@@ -92,7 +92,8 @@ vec3 pattern(vec2 uv, vec3 c){
 
 void main(){
   vec2 uv = uCrop.xy + vUV * uCrop.zw;
-  vec3 c = texture(uTex, uv).rgb;
+  vec4 src = texture(uTex, uv);
+  vec3 c = src.rgb;
   c = pattern(vUV, c);
 
   // Renk düzeltme: gama, kontrast, parlaklık, kanal kazancı
@@ -106,13 +107,12 @@ void main(){
     blend(1.0 - vUV.x, uEdges.y, uEdgeGamma) *
     blend(vUV.y, uEdges.z, uEdgeGamma) *
     blend(1.0 - vUV.y, uEdges.w, uEdgeGamma);
-  c *= b;
-
-  if (uHasMask > 0.5) c *= texture(uMask, vUV).r;
+  float m = uHasMask > 0.5 ? texture(uMask, vUV).r : 1.0;
+  c *= b * m;
 
   c = clamp(c, 0.0, 1.0);
   if (uSee > 0.5) {
-    float a = max(max(c.r, c.g), c.b);
+    float a = max(src.a * b * m, max(max(c.r, c.g), c.b));
     outColor = a > 0.0 ? vec4(c / a, a) : vec4(0.0);
   } else {
     outColor = vec4(c, 1.0);
