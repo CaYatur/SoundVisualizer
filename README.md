@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1644%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1651%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -301,6 +301,16 @@ that asserts the bar profile has no step in it.
   what `per_frame_init` left. Our pool persisted instead, so `q1 = q1 + x` — written by 19.5% of the
   corpus — grew without bound instead of giving the same answer each frame. Preset authors' own
   variables still persist, as they do in MilkDrop.
+- **`vol` and `vol_att` are what MilkDrop hands a shader, bug included.** MilkDrop's shader header
+  makes them the fourth component of the bass/mid/treb constants, and the line that fills it reads
+  `0.3333f * (imm_rel[0], imm_rel[1], imm_rel[2])` — a comma operator, so the value is a third of
+  `treb`, not the average of the three bands the engine passed. 96 presets (0.93%) read them in a
+  shader and were tuned against MilkDrop's value. In the equations MilkDrop has no `vol` at all, and
+  a custom wave or shape sees only the inputs MilkDrop registers for it: the engine also copied
+  `vol`, `vol_att`, the mesh size, the aspect pair and the pixel size into every wave and shape. Run
+  through the equations with the switch on and off, 19 presets (0.18%) draw a wave or shape
+  differently, all for one reason — the per-frame code assigns `vol` as its own variable and a shape
+  reads it, where MilkDrop gives that shape its own zero. Both follow the MilkDrop Fidelity switch.
 - **A spectrum wave gets MilkDrop's spectrum at MilkDrop's scale.** The `0.15` multiplier in
   MilkDrop was chosen for the magnitude its own FFT produces, so a normalised 0..1 array draws the
   right shape at the wrong size. The chain is rebuilt from the source: ±128 sample units, the
@@ -1058,7 +1068,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1644 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1651 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

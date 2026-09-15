@@ -1004,15 +1004,36 @@
     for (let i = 0; i < NUM_T; i++) pool.set(T_NAMES[i], base[i]);
   };
 
+  /* ALT BLOKLARA (özel dalga ve şekil) kare başına taşınan girdiler.
+
+     MilkDrop 2'de her dalganın ve şeklin KENDİ sanal makinesi var ve oraya
+     yalnız kaydedilen adlar giriyor (state.cpp:405-500): zaman, kare, fps,
+     ilerleme, üç bant ve üç ortalama — artı bloğun kendi değişkenleri ile
+     q1..q32. `vol`, `vol_att`, `meshx/meshy`, `aspectx/aspecty` ve
+     `pixelsx/pixelsy` orada KAYITLI DEĞİL: bir dalga bunları okursa kendi
+     makinesindeki değeri görür — atamadıysa 0, atadıysa kareler arası
+     kendi değerini.
+
+     Motor bunları ana kare havuzundan her karede kopyalıyordu. Metin
+     taraması bir dalga ya da şekilde `vol`'ü atamadan okuyan 47 preset
+     sayıyor, ama okuma ile atamanın sırasını bilmiyor. Korpusun tamamı bu
+     denklem makinesiyle anahtar açık ve kapalı koşturulup dalga ve şekil
+     çıktıları kare kare karşılaştırıldığında GERÇEKTEN değişen 19 preset
+     (%0,18) kalıyor ve hepsinde sebep aynı: kare denklemleri `vol`'ü kendi
+     değişkeni olarak atıyor (`vol = (bass+mid+treb)*0.55`), şekil onu
+     atamadan okuyor (`rad = sin(bass+vol)`). MilkDrop'ta şekil kendi
+     makinesindeki 0'ı görüyor, bizde kare denklemlerinin değerini
+     görüyordu. Diğer adların korpusta alt bloklarda görünür etkisi yok.
+     Uyum kapalıyken eski davranış: SHARED_LEGACY de taşınıyor. */
   const SHARED_VARS = [
     'time', 'frame', 'fps', 'progress',
     'bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att',
-    'vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty', 'pixelsx', 'pixelsy',
-    /* Fare durumu alt bloklara da taşınıyor: MilkDrop kare geneli
-       değişkenleri custom dalga ve şekil havuzlarına paylaştırıyor ve
-       taşınmayan bir ad orada sessizce sıfır kalır. */
+    /* Fare bizim eklentimiz — MilkDrop 2'de fare yok, dolayısıyla uyulacak
+       bir davranış da yok. Alt bloklara taşınıyor ki fareyle çizen bir
+       dalga yazılabilsin. */
     'mouse_x', 'mouse_y', 'mouse_down',
   ];
+  const SHARED_LEGACY = ['vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty', 'pixelsx', 'pixelsy'];
 
   class Preset {
     constructor(text, opts) {
@@ -1021,6 +1042,10 @@
       this.pool = new Pool();
       this.errors = [];
       this.name = o.name || this.file.params.psetname || '';
+      /* "MilkDrop uyumu" anahtarı. Görselleştirici her kare kendi ayarını
+         buraya yazıyor; alt blokların hangi kare değişkenlerini gördüğünü
+         seçiyor (bkz. SHARED_LEGACY). */
+      this.accurate = o.accurate !== false;
 
       /* MilkDrop varsayılanları. Dosya bunları belirtmeyebilir ve havuzun
          doğal başlangıcı 0; kırpma sonrası 0 SİYAH demek olurdu. MilkDrop'ta
@@ -1229,6 +1254,7 @@
     _shareInto(pool) {
       const P = this.pool;
       for (const k of SHARED_VARS) pool.set(k, P.get(k));
+      if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
       for (let i = 1; i <= 32; i++) pool.set('q' + i, P.get('q' + i));
     }
 

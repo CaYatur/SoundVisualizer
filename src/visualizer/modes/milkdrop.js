@@ -2173,6 +2173,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._autoCycle(cfg, step);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
+      /* Uyum anahtarı alt blokların hangi kare değişkenlerini gördüğünü de
+         seçiyor (shared/milkdrop.js, SHARED_LEGACY). Her kare yazılıyor:
+         anahtar çizim sürerken değişebiliyor ve geçişteki eski preset de
+         aynı kurala uymalı. */
+      this.preset.accurate = this._wantAcc !== false;
+      if (this.oldPreset) this.oldPreset.accurate = this.preset.accurate;
 
       const gl = this.gl;
       this.time += step;
@@ -2289,7 +2295,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         progress: (this.presetTime * 0.1) % 1,
         presetTime: this.presetTime, P: this.preset, rand: this.randPreset,
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
-        vol: (bass + mid + treb) / 3, vol_att: (bassA + midA + trebA) / 3,
+        /* SHADER'DAKİ `vol` ve `vol_att`. include.fx:62 ve :66 bunları
+           `_c3.w` ve `_c4.w` diye tanımlıyor; milkdropfs.cpp:3732-3733 o
+           bileşeni şöyle dolduruyor:
+               0.3333f * (mdsound.imm_rel[0], mdsound.imm_rel[1], mdsound.imm_rel[2])
+           Parantezin içi bir VİRGÜL İŞLECİ ve yalnız son terimi veriyor: yani
+           MilkDrop'ta shader `vol`ü 0,3333 × treb, `vol_att`ı 0,3333 ×
+           treb_att — üç bandın ortalaması değil. Bir hata, ama presetler bu
+           değere göre yazılıp ayarlandı: korpusta 96 preset (%0,93) shader'da
+           `vol` ya da `vol_att` okuyor. Uyum açıkken birebir o; kapalıyken
+           eski ortalama. Denklem dilinde `vol` MilkDrop'ta hiç yok — orada
+           yazarın kendi değişkeni. */
+        vol: this._wantAcc !== false ? 0.3333 * treb : (bass + mid + treb) / 3,
+        vol_att: this._wantAcc !== false ? 0.3333 * trebA : (bassA + midA + trebA) / 3,
       };
       const oldCtx = this.oldPreset ? Object.assign({}, ctx, {
         time: this.oldTime,

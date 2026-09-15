@@ -96,11 +96,17 @@ test('pixelsx/pixelsy: havuza yazılıyor', () => {
   assert.match(CODE, /pixelsx: GW, pixelsy: GH,/);
 });
 
-test('pixelsx/pixelsy: şekil ve dalga bloklarına da taşınıyor', () => {
-  /* MilkDrop kare geneli değişkenleri alt havuzlara paylaştırıyor;
-     taşınmayan bir ad orada sessizce sıfır kalır. */
-  const m = /const SHARED_VARS = \[([\s\S]*?)\];/.exec(SHARED);
-  assert.ok(m, 'SHARED_VARS bulunamadı');
-  assert.match(m[1], /'pixelsx'/);
-  assert.match(m[1], /'pixelsy'/);
+test('pixelsx/pixelsy: şekil ve dalga bloklarına yalnız uyum kapalıyken taşınıyor', () => {
+  /* Bu test önce "MilkDrop kare geneli değişkenleri alt havuzlara
+     paylaştırıyor" diye yazılmıştı. Kaynak öyle demiyor: pixelsx/pixelsy
+     per_frame ve per_pixel makinelerinde kayıtlı, dalga ve şekil
+     makinelerinde DEĞİL (state.cpp:405-500). Korpusta bir dalga ya da
+     şekilde okuyan preset yok. Uyum açıkken taşınmıyor, kapalıyken eski yol
+     (#560, tests/milkdrop-vol.test.js). */
+  const shared = /const SHARED_VARS = \[([\s\S]*?)\];/.exec(SHARED);
+  const legacy = /const SHARED_LEGACY = \[([\s\S]*?)\];/.exec(SHARED);
+  assert.ok(shared && legacy, 'SHARED_VARS / SHARED_LEGACY bulunamadı');
+  assert.doesNotMatch(shared[1].replace(/\/\*[\s\S]*?\*\//g, ''), /'pixels[xy]'/);
+  assert.match(legacy[1], /'pixelsx'/);
+  assert.match(legacy[1], /'pixelsy'/);
 });

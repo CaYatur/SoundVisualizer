@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1644%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1651%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -296,6 +296,16 @@ profilinde basamak olmadığını doğruluyor.
   `q1..q32`yi `per_frame_init`in bıraktığı değere döndürüyor. Bizim havuz kalıcıydı: korpusun
   %19,5'inin yazdığı `q1 = q1 + x` her karede aynı sonucu vermek yerine sınırsız büyüyordu. Preset
   yazarının kendi değişkenleri MilkDrop'ta olduğu gibi kalıcı kalmaya devam ediyor.
+- **`vol` ve `vol_att`, MilkDrop shader'a ne veriyorsa o — hatasıyla birlikte.** MilkDrop'un shader
+  başlığı bunları bass/mid/treb sabitlerinin dördüncü bileşeni yapıyor ve o bileşeni dolduran satır
+  `0.3333f * (imm_rel[0], imm_rel[1], imm_rel[2])` diyor — bir virgül işleci, yani değer `treb`in üçte
+  biri; motorun verdiği üç bandın ortalaması değil. 96 preset (%0,93) bunları shader'da okuyor ve
+  MilkDrop'un değerine göre ayarlandı. Denklemlerde MilkDrop'ta `vol` hiç yok; özel dalga ve şekil de
+  yalnız MilkDrop'un onlar için kaydettiği girdileri görüyor: motor `vol`, `vol_att`, ağ boyutu,
+  en-boy çifti ve piksel ölçüsünü de her dalga ve şekle kopyalıyordu. Denklemler anahtar açık ve
+  kapalı koşturulduğunda 19 preset (%0,18) bir dalgayı ya da şekli farklı çiziyor, hepsi aynı
+  sebeple: kare denklemleri `vol`'ü kendi değişkeni olarak atıyor ve bir şekil onu okuyor; MilkDrop o
+  şekle kendi sıfırını veriyor. İkisi de MilkDrop Uyumu anahtarına bağlı.
 - **Tayf dalgası MilkDrop'un tayfını MilkDrop'un ölçeğinde alıyor.** MilkDrop'taki `0,15` çarpanı
   kendi FFT'sinin ürettiği büyüklüğe göre seçilmiş, yani 0..1'e normalleştirilmiş bir dizi doğru
   biçimi yanlış boyutta çizer. Zincir kaynaktan yeniden kuruldu: ±128 örnek birimi, iki katsayılı
@@ -1059,7 +1069,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1644 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1651 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
