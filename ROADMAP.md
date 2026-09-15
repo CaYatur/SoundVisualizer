@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1686 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1690 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 89
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 93
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -707,9 +707,17 @@ MilkDrop (#560):
   clip their line to the screen and spread their points over what remains;
   mode 3's alpha follows the treble; and the mode number is truncated, not
   rounded. 96.5% of the corpus draws the default wave.
-- **The layer releases its WebGL context when it closes**, as the other GPU
-  modes already do, instead of leaving it to garbage collection while Auto VJ
-  switches scenes.
+- **The layer releases its WebGL context when it closes** · done on `main`.
+  It deleted its GL objects one by one but left the context to garbage
+  collection, and until then Chromium counts it as active; past the limit it
+  drops the oldest context, which belongs to a layer or effect chain still on
+  screen. Measured in an Electron page with one live WebGL2 context open while
+  the layer was created, drew two frames and was disposed 40 times: before,
+  the warning "Too many active WebGL contexts" came on the 16th and the live
+  context was lost; now there is no warning, the live context survives, and
+  all 40 disposed contexts are released at once. A disposed layer no longer
+  draws, and three GL objects missing from its clean-up list — the textured
+  shape buffers and the flash-limit program — are deleted too.
 - **The panel preview's demo signal gets broadband audio.** With MilkDrop's own
   band chain, the demo's three low sines move little more than `bass` when no
   live audio reaches the panel.

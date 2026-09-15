@@ -2124,6 +2124,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
     // ----------------------------------------------------------------- çiz
     draw(audio, cfg, t, dt) {
+      if (this._disposed) return;
       const W = this.canvas.width;
       const H = this.canvas.height;
       /* Geri besleme yüzeyi TUVAL BOYUTUNDA.
@@ -4227,6 +4228,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.lineVao) gl.deleteVertexArray(this.lineVao);
         if (this.aaVao) gl.deleteVertexArray(this.aaVao);
         if (this.aaVbo) gl.deleteBuffer(this.aaVbo);
+        // Bunlar listede yoktu: dokulu şekil tamponu ve flaş sınırlama programı
+        if (this.shapeTexVao) gl.deleteVertexArray(this.shapeTexVao);
+        if (this.shapeTexVbo) gl.deleteBuffer(this.shapeTexVbo);
+        if (this.flashProg) gl.deleteProgram(this.flashProg);
         if (this.warpFixed) gl.deleteProgram(this.warpFixed);
         if (this.compFixed) gl.deleteProgram(this.compFixed);
         if (this.blurProg) gl.deleteProgram(this.blurProg);
@@ -4236,9 +4241,24 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this._dropUserTextures();
         if (this.samplers) for (const k in this.samplers) gl.deleteSampler(this.samplers[k]);
         if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);
+        /* BAĞLAMIN KENDİSİ. Nesneleri tek tek silmek bağlamı bırakmıyor:
+           tarayıcı onu ancak tuval çöp toplandığında bırakıyor ve o ana
+           kadar ETKİN sayıyor. Chromium etkin bağlam sayısı sınırı aşılınca
+           en eski bağlamı kaybettiriyor — atılmış bir MilkDrop'unkini değil,
+           hâlâ çizen bir katmanın ya da efekt zincirinin bağlamını.
+           Ölçüldü: canlı bir bağlam açıkken katman 40 kez kurulup atıldı;
+           16. atımda "Too many active WebGL contexts" uyarısı geldi ve canlı
+           bağlam kayboldu. Otomatik VJ her sahne değişiminde bunu yapıyor.
+           Diğer GPU modları (gradient, geometry, shaderhost, postfx) bağlamı
+           zaten böyle bırakıyor. */
+        const lose = gl.getExtension('WEBGL_lose_context');
+        if (lose) lose.loseContext();
       }
       this.gl = null;
       this.preset = null;
+      /* Atılan örnek bir daha çizmiyor: `_initGL` aynı tuvalden bağlam
+         isteseydi kaybedilmiş bağlamı geri alır ve sessizce siyah çizerdi. */
+      this._disposed = true;
     }
   }
 
