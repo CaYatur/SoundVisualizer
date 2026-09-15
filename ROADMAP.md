@@ -129,9 +129,10 @@ npm test
 npm start -- --smoke
 ```
 
-- **1597 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1632 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3 — 1128 at
-  that tag — and 464 more with v3.1.4, most of them from the MilkDrop work.
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 35
+  on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -684,15 +685,19 @@ MilkDrop (#560):
   header's mapping is confirmed from the source.
 
 Streaming and transparency:
-- **The overlay can keep a background effect** and key out its dark areas, as
-  the desktop window now does, instead of removing the background entirely.
-- **Switching Transparent Background re-creates an open visualizer window.**
-  Electron sets window transparency only at creation, so today the switch waits
-  for the window to be closed and reopened.
-- **A warning when two copies of the application run at once.** Development,
-  installed and portable builds share one settings folder with no lock, and two
-  copies overwrite each other's settings.
-- **An overlay diagnostics card** (`?debug=1`): connection, whether the
+- *Shipped early, in v3.1.4:* the overlay keeps a background effect and keys
+  out its dark areas, following the app's Transparent Background switch, and
+  switching it re-creates open visualizer windows.
+- **Two copies at once (#564)** · done on `main`. Development, installed and
+  portable builds share one settings folder with no lock, and two copies
+  overwrote each other's settings. A second copy now asks at start-up and names
+  the copy already running; while more than one runs, every copy's panel says
+  so; and a copy that finds `settings.json` changed by someone else stops
+  writing over it and asks whether to load that file or keep its own — which
+  also covers older versions and hand edits. Verified with three copies on one
+  isolated profile: 30 of 30 checks, from the start-up question to the load and
+  keep choices and the warning clearing when a copy closes.
+- **An overlay diagnostics card** (`?debug=1`, #565): connection, whether the
   configuration arrived, audio frames per second and the last error.
 
 ## v3.1.6 — Comprehensive video export

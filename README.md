@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1597%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1632%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -863,6 +863,22 @@ as much. **OpenRGB** is the answer on those platforms, and an extra option on Wi
 - Imported settings are merged with the current defaults, so newer fields stay valid. Files written
   by 1.3 and 2.0 load without losing a value, and a test proves it.
 
+### Two copies at once
+
+The development, installed and portable builds all keep their settings in one folder. Running two
+of them used to mean that whichever saved last silently replaced the other's settings.
+
+- **A second copy asks at start-up.** It names the copy that is already running — installed,
+  portable or development, its version, when it started and where it lives — and offers to switch
+  to it, which brings that copy's panel to the front, or to open anyway.
+- **While more than one copy runs, every copy's panel says so**, and the warning goes away when
+  the other copy closes. A self-test running against the same folder is shown as a self-test.
+- **A copy never silently writes over settings someone else changed.** If `settings.json` no longer
+  matches what this copy last read or wrote, it stops saving and asks: load the settings from disk,
+  or save its own over them. That also covers older versions, which take no part in the start-up
+  check, and hand edits of the file. Touching the file without changing it — a backup tool, or
+  the self-test putting the same content back — does not count as a change.
+
 ### Power and performance
 
 - **Frame rate** — *Match Display* (one frame per refresh, the smoothest) or a cap of 120, 60 or 30
@@ -1026,7 +1042,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1597 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1632 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

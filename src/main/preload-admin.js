@@ -143,4 +143,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('visualizer-message', (e, msg) => cb(msg)),
   onRequestConfirmClose: (cb) => ipcRenderer.on('request-confirm-close', () => cb()),
   confirmCloseApproved: () => ipcRenderer.send('confirm-close-approved'),
+
+  /* Aynı ayar klasörünü kullanan başka kopyalar ve ayar dosyası çakışması
+     (#564). choice: 'keep' (bu kopyadakileri kaydet) | 'load' (diskteki
+     ayarları yükle). */
+  instanceStatus: () => ipcRenderer.invoke('instances:status'),
+  onInstanceStatus: (cb) => ipcRenderer.on('instance-status', (e, st) => cb(st)),
+  resolveSettingsConflict: (choice) => ipcRenderer.invoke('settings-conflict:resolve', choice),
 });

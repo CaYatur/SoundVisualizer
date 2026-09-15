@@ -28,6 +28,24 @@
     'Çıkış Aygıtı': 'Output Device',
     '🔄 Aygıtları Yenile': '🔄 Refresh Devices',
     'Otomatik Onar': 'Automatic Repair',
+    // Aynı ayar klasörünü kullanan başka kopya ve ayar dosyası çakışması (#564)
+    'Uygulamanın başka bir kopyası da çalışıyor.': 'Another copy of the application is running.',
+    'İki kopya aynı ayar klasörünü kullanır; birinin kaydettiği ayarlar diğerininkini ezebilir.':
+      'Both copies use the same settings folder, so settings saved by one can overwrite the other’s.',
+    'kurulu': 'installed',
+    'taşınabilir': 'portable',
+    'geliştirme': 'development',
+    'öz test': 'self-test',
+    'ekran görüntüsü aracı': 'screenshot tool',
+    'açılış': 'started',
+    'Ayar dosyası bu kopyanın dışında değişti.': 'The settings file was changed outside this copy.',
+    'Üstüne yazmamak için bu kopya ayarları kaydetmeyi durdurdu.': 'This copy has stopped saving settings so that it does not write over that change.',
+    'Diskteki ayarları yükleyebilir ya da bu kopyadaki ayarları kaydedip diskteki değişikliğin üstüne yazabilirsiniz.':
+      'You can load the settings from disk, or save this copy’s settings over the change on disk.',
+    'Ayar dosyası okunamadı ya da bozuk; bu kopyadaki ayarlar yerinde duruyor.':
+      'The settings file could not be read or is damaged; this copy’s settings are unchanged.',
+    'Diskteki Ayarları Yükle': 'Load Settings from Disk',
+    'Bu Kopyadakileri Kaydet': 'Save This Copy’s Settings',
     'Onarılıyor…': 'Repairing…',
     'Ses bekleniyor…': 'Waiting for audio…',
     '↺ Varsayılanlara Sıfırla': '↺ Reset to Defaults',

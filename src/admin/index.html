@@ -101,6 +101,36 @@
       </div>
     </div>
 
+    <!-- ============ BAŞKA KOPYA (#564): aynı ayar klasörünü kullanan ============ -->
+    <div id="copiesBanner" class="banner hidden" role="status">
+      <span class="bicon">⚠️</span>
+      <div class="btext">
+        <strong>Uygulamanın başka bir kopyası da çalışıyor.</strong>
+        <span>İki kopya aynı ayar klasörünü kullanır; birinin kaydettiği ayarlar diğerininkini ezebilir.</span>
+        <!-- Satırlar admin.js'te kuruluyor: sabit sözcükler ve değerler ayrı
+             düğümlerde, çünkü çeviri tam dizeyle eşleşiyor -->
+        <ul id="copiesList" class="bhelp copies-list"></ul>
+      </div>
+      <div class="banner-actions">
+        <button id="copiesClose" class="btn ghost small">Kapat</button>
+      </div>
+    </div>
+
+    <!-- ============ AYAR DOSYASI ÇAKIŞMASI (#564) ============ -->
+    <div id="conflictBanner" class="banner hidden" role="alert">
+      <span class="bicon">⚠️</span>
+      <div class="btext">
+        <strong>Ayar dosyası bu kopyanın dışında değişti.</strong>
+        <span>Üstüne yazmamak için bu kopya ayarları kaydetmeyi durdurdu.</span>
+        <div class="bhelp">Diskteki ayarları yükleyebilir ya da bu kopyadaki ayarları kaydedip diskteki değişikliğin üstüne yazabilirsiniz.</div>
+        <div id="conflictError" class="bhelp hidden">Ayar dosyası okunamadı ya da bozuk; bu kopyadaki ayarlar yerinde duruyor.</div>
+      </div>
+      <div class="banner-actions">
+        <button id="conflictLoadBtn" class="btn small">Diskteki Ayarları Yükle</button>
+        <button id="conflictKeepBtn" class="btn ghost small">Bu Kopyadakileri Kaydet</button>
+      </div>
+    </div>
+
     <!-- ================= ÇALIŞMA ALANI (3 sütun) ================= -->
     <div class="workspace">
       <!-- --- Sol: kategori rayı --- -->

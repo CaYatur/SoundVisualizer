@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1597%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1632%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -867,6 +867,22 @@ not çıkıyor. O platformlarda cevap **OpenRGB**, Windows'ta ise ek bir seçene
 - İçe aktarılan ayarlar güncel varsayılanlarla birleştirilir, böylece yeni alanlar geçerli kalır.
   1.3 ve 2.0 ile yazılmış dosyalar tek bir değer kaybetmeden açılır ve bunu bir test kanıtlar.
 
+### Aynı anda iki kopya
+
+Geliştirme, kurulu ve taşınabilir (portable) derlemelerin hepsi ayarlarını tek bir klasörde tutar.
+İkisini birlikte çalıştırmak, en son kaydedenin öbürünün ayarlarını sessizce değiştirmesi demekti.
+
+- **İkinci kopya açılışta sorar.** Zaten çalışan kopyayı tanıtır — kurulu, taşınabilir ya da
+  geliştirme; sürümü, ne zaman açıldığı ve nerede durduğu — ve ona geçmeyi (o kopyanın paneli öne
+  gelir) ya da yine de açmayı önerir.
+- **Birden fazla kopya çalışırken her kopyanın paneli bunu söyler**; öbür kopya kapanınca uyarı
+  kalkar. Aynı klasörde koşan bir öz test, öz test olarak görünür.
+- **Bir kopya, başkasının değiştirdiği ayarların üstüne sessizce yazmaz.** `settings.json` bu
+  kopyanın son okuduğu ya da yazdığı hâlden farklıysa kaydetmeyi durdurur ve sorar: diskteki
+  ayarları yükle ya da kendi ayarlarını onların üstüne kaydet. Başlangıç denetimine hiç katılmayan
+  eski sürümler ve dosyanın elle düzenlenmesi de buna dahildir. Dosyaya içeriğini değiştirmeden
+  dokunmak — bir yedekleme aracı ya da aynı içeriği geri yazan öz test — değişiklik sayılmaz.
+
 ### Güç ve performans
 
 - **Kare hızı** — *Ekranla Eşle* (tazeleme başına bir kare, en akıcısı) ya da 120, 60, 30 FPS sınırı.
@@ -1030,7 +1046,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1597 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1632 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

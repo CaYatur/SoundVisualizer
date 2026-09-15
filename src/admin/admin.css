@@ -158,6 +158,10 @@ body {
 .banner .btext strong { color: #ffe; }
 .banner .bhelp { margin-top: 4px; color: #e9d3b0; font-size: 11px; }
 .banner-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Başka kopyaların listesi (#564): yol uzun olabiliyor, satırı taşırmasın */
+.banner .copies-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.banner .copies-list li + li { margin-top: 4px; }
+.banner .copy-path { color: #cdb99a; font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; word-break: break-all; }
 
 /* ============================ ÇALIŞMA ALANI ============================ */
 .workspace {

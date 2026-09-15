@@ -3612,6 +3612,78 @@
     $('banner').classList.remove('hidden');
   }
 
+  /* BAŞKA KOPYA VE AYAR ÇAKIŞMASI (#564).
+
+     Ana süreç iki şey bildiriyor: aynı ayar klasörünü kullanan diğer kopyalar
+     (kayıt defteri) ve settings.json'ın bu kopyanın dışında değiştiği
+     (dosya bekçisi). İkisi ayrı bant, çünkü biri bilgi, öteki karar istiyor.
+
+     Kopya satırı parçalı kuruluyor: "kurulu", "açılış" gibi sabit sözcükler
+     ayrı düğümde, sürüm ve yol ayrı düğümde — sözlük tam dizeyle eşleştiği
+     için birleşik bir metin hiç çevrilmezdi. */
+  const COPY_KIND = { installed: 'kurulu', portable: 'taşınabilir', dev: 'geliştirme' };
+  const COPY_ROLE = { selftest: 'öz test', screenshots: 'ekran görüntüsü aracı' };
+  let copiesDismissed = '';
+  let lastInstanceStatus = null;
+
+  function copiesKey(list) {
+    return (list || []).map((o) => o.pid + ':' + o.startedAt).sort().join(',');
+  }
+
+  function renderInstanceStatus(st) {
+    lastInstanceStatus = st || null;
+    const others = st && Array.isArray(st.others) ? st.others : [];
+    const list = $('copiesList');
+    if (list) {
+      list.textContent = '';
+      for (const o of others) {
+        const at = new Date(o.startedAt || Date.now());
+        const hhmm = String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0');
+        list.appendChild(el('li', null, [
+          el('span', { text: COPY_ROLE[o.role] || COPY_KIND[o.kind] || String(o.kind || '') }),
+          el('span', { text: ' · ' }),
+          el('span', { class: 'copy-ver', text: 'v' + (o.version || '?') }),
+          el('span', { text: ' · ' }),
+          el('span', { text: 'açılış' }),
+          el('span', { class: 'copy-time', text: ' ' + hhmm }),
+          o.exe ? el('div', { class: 'copy-path', text: o.exe }) : null,
+        ]));
+      }
+    }
+    /* Kapatılan uyarı, kopya kümesi DEĞİŞİNCE geri gelir: yeni açılan bir
+       kopya eski bir "kapat" ile gizlenmemeli. */
+    const key = copiesKey(others);
+    if (!others.length) copiesDismissed = '';
+    $('copiesBanner').classList.toggle('hidden', !others.length || key === copiesDismissed);
+    const conflict = !!(st && st.conflict);
+    $('conflictBanner').classList.toggle('hidden', !conflict);
+    if (!conflict) $('conflictError').classList.add('hidden');
+  }
+
+  function initInstanceBanners() {
+    if (!window.api.instanceStatus) return;
+    window.api.onInstanceStatus(renderInstanceStatus);
+    window.api.instanceStatus().then(renderInstanceStatus).catch(() => {});
+    $('copiesClose').addEventListener('click', () => {
+      copiesDismissed = copiesKey(lastInstanceStatus && lastInstanceStatus.others);
+      $('copiesBanner').classList.add('hidden');
+    });
+    const resolve = async (choice) => {
+      const buttons = [$('conflictLoadBtn'), $('conflictKeepBtn')];
+      buttons.forEach((b) => { b.disabled = true; });
+      try {
+        const r = await window.api.resolveSettingsConflict(choice);
+        $('conflictError').classList.toggle('hidden', !!(r && r.ok));
+      } catch {
+        $('conflictError').classList.remove('hidden');
+      } finally {
+        buttons.forEach((b) => { b.disabled = false; });
+      }
+    };
+    $('conflictLoadBtn').addEventListener('click', () => resolve('load'));
+    $('conflictKeepBtn').addEventListener('click', () => resolve('keep'));
+  }
+
   /* Uygulama listesi ANLIK: hangi uygulamanın ses oturumu olduğu sürekli
      değişiyor, önbelleğe almak yanıltıcı olurdu. */
   async function refreshAudioApps() {
@@ -4312,6 +4384,9 @@
       renderScenes();
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
+
+    // Aynı ayar klasörünü kullanan başka kopyalar ve ayar çakışması (#564)
+    initInstanceBanners();
 
     // Kontrol yüzeyleri (MIDI / OSC)
     if (window.SVControl) window.SVControl.init();

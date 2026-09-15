@@ -23,6 +23,8 @@ const mediaUrl = require('../shared/media-url');
 const { serveMediaFile } = require('./media-file');
 const { MediaSession } = require('./media-session');
 const appCapture = require('./app-capture');
+const instances = require('./instances');
+const { SettingsGuard } = require('./settings-guard');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -67,6 +69,11 @@ const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü ü
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
 const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7).toLowerCase();
+/* Otomasyon koşuları (öz test, ekran görüntüleri, tanılama, kimlik yoklaması)
+   başka bir kopya açık diye kullanıcıya SORU SORMAZ ve ayar dosyasının
+   bekçisini açmaz (#564): bir sürüm kapısı o an masada ne açık olduğuna
+   bağlı olamaz. */
+const AUTOMATION_RUN = SMOKE || SHOTS || process.argv.includes('--diag') || !!process.env.SV_IDENTITY_PROBE_FILE;
 /* Electron 35, console-message olayinin imzasini degistirdi: eskiden
    (event, level, message, line, sourceId) geliyordu ve level bir sayiydi
    (0 verbose, 1 info, 2 warning, 3 error); artik tum alanlar olay nesnesinin
@@ -125,6 +132,10 @@ function failAndQuit(code) {
   app.quit();
 }
 app.on('will-quit', () => {
+  /* Kayıt defterinden çıkış app.exit()'ten ÖNCE: başarısız bir öz test de
+     kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
+     der. */
+  stopInstanceRegistry();
   if (pendingExitCode) app.exit(pendingExitCode);
 });
 
@@ -160,16 +171,12 @@ function restoreSmokeSettings() {
 // ----------------------------------------------------------------------------
 function loadSettings() {
   try {
-    // BOM'u ayıkla: dosya bir metin düzenleyicide açılıp kaydedildiğinde
-    // (Notepad varsayılan olarak ekler) JSON.parse patlar ve kullanıcı tüm
-    // ayarlarını sessizce kaybederdi.
-    const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8').replace(/^﻿/, '');
-    const s = JSON.parse(raw);
-    // Eski formatı çöz (source: string -> sources: [string])
-    if (s && s.audio && s.audio.source && !s.audio.sources) {
-      s.audio.sources = [s.audio.source];
-    }
-    return s;
+    /* Çözümleme SettingsGuard.parse'ta, çünkü çakışmada "diskteki ayarları
+       yükle" de aynı yoldan okuyor. BOM'u ayıklıyor: dosya bir metin
+       düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
+       JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
+       biçimi de çözüyor (source: string -> sources: [string]). */
+    return SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH));
   } catch {
     return null;
   }
@@ -177,11 +184,191 @@ function loadSettings() {
 
 function saveSettings(config) {
   if (settingsFrozen) return;
+  const text = JSON.stringify(config, null, 2);
+  /* Başkası dosyayı bu kopya en son bıraktıktan sonra değiştirdiyse ÜSTÜNE
+     YAZILMAZ (#564): yapılandırma bellekte kalır, kullanıcıya sorulur. */
+  if (settingsGuardOn) {
+    if (!settingsConflict && settingsGuard.changed() === true) raiseSettingsConflict();
+    if (settingsConflict) {
+      pendingSettings = text;
+      return;
+    }
+  }
+  writeSettingsText(text);
+}
+
+function writeSettingsText(text) {
   try {
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(config, null, 2), 'utf-8');
+    fs.writeFileSync(SETTINGS_PATH, text, 'utf-8');
+    if (settingsGuardOn) settingsGuard.remember(text);
+    return true;
   } catch (e) {
     console.error('Ayarlar kaydedilemedi:', e);
+    return false;
   }
+}
+
+// ----------------------------------------------------------------------------
+// Aynı ayar klasörünü kullanan kopyalar (#564)
+//
+// Geliştirme, kurulu ve portable derlemeler tek bir kullanıcı klasörünü
+// paylaşıyor ve hiçbiri diğerini beklemiyordu: iki kopya açıkken son yazan
+// kazanıyor, ikisi de fark etmiyordu. Üç parça:
+//   - açılışta başka bir kopya çalışıyorsa sor (checkOtherCopies);
+//   - çalışırken diğer kopyaları panelde göster (kayıt defteri, instances.js);
+//   - başkası settings.json'ı değiştirdiyse üstüne yazma (settings-guard.js).
+// Üçüncüsü eski sürümleri ve dosyayı elle düzenleyeni de kapsıyor; onlar
+// kayıt defterine hiç yazmıyor.
+// ----------------------------------------------------------------------------
+const INSTANCES_DIR = path.join(app.getPath('userData'), 'instances');
+const INSTANCE_KIND = instances.kindOf(process.env, app.isPackaged);
+const selfInstance = {
+  pid: process.pid,
+  version: app.getVersion(),
+  kind: INSTANCE_KIND,
+  role: SMOKE ? 'selftest' : SHOTS ? 'screenshots' : 'app',
+  exe: instances.exeFor(INSTANCE_KIND, { env: process.env, appPath: app.getAppPath(), execPath: process.execPath }),
+  startedAt: Date.now(),
+};
+/* Kayıt defteri denetimi saniyede bir: odak isteği için. Kaydı tazelemek ve
+   diğerlerini okumak her dört denetimde bir, dosya bekçisi iki denetimde bir. */
+const INSTANCE_TICK_MS = 1000;
+let instanceTimer = null;
+let instanceTicks = 0;
+let otherInstances = [];
+let otherInstancesSig = '';
+
+const settingsGuard = new SettingsGuard(SETTINGS_PATH);
+let settingsGuardOn = false; // otomasyonda kapalı — öz testin kendi kuralı var
+let settingsConflict = null; // { since } — sürerken dosyaya yazılmaz
+let pendingSettings = null; // çakışma sürerken yazılamayan son yapılandırma (metin)
+
+function instanceStatus() {
+  const pub = (o) => ({ pid: o.pid, version: o.version, kind: o.kind, role: o.role, exe: o.exe, startedAt: o.startedAt });
+  return {
+    self: pub(selfInstance),
+    others: otherInstances.map(pub),
+    conflict: settingsConflict ? { since: settingsConflict.since } : null,
+  };
+}
+
+function notifyInstanceStatus() {
+  notifyAdmin('instance-status', instanceStatus());
+}
+
+function raiseSettingsConflict() {
+  if (settingsConflict) return;
+  settingsConflict = { since: Date.now() };
+  console.warn('[ayarlar] settings.json bu kopyanın dışında değişti; üstüne yazılmıyor');
+  notifyInstanceStatus();
+}
+
+function pollSettingsGuard() {
+  if (!settingsGuardOn) return;
+  const changed = settingsGuard.changed();
+  if (changed === null) return; // şu an okunamadı, sonraki denetim karar verir
+  if (changed && !settingsConflict) {
+    raiseSettingsConflict();
+  } else if (!changed && settingsConflict) {
+    /* Dosya bu kopyanın bıraktığı hâle döndü — örneğin öz test kapanırken
+       aynı içeriği geri yazdı. Çakışma kendiliğinden bitti; bekleyen
+       değişiklik varsa şimdi yazılır. */
+    settingsConflict = null;
+    if (pendingSettings != null) {
+      const text = pendingSettings;
+      pendingSettings = null;
+      writeSettingsText(text);
+    }
+    notifyInstanceStatus();
+  }
+}
+
+/* Başka bir kopya "çalışan kopyaya geç" dediyse paneli öne getir. Windows
+   arka plandaki bir sürecin pencereyi öne almasına izin vermeyebiliyor;
+   kısa süreli "her zaman üstte" bu kısıtı aşmanın bilinen yolu. */
+function takeFocusRequest() {
+  const file = path.join(INSTANCES_DIR, process.pid + '.focus');
+  if (!fs.existsSync(file)) return;
+  try { fs.unlinkSync(file); } catch { /* başkası sildi */ }
+  if (!adminWin || adminWin.isDestroyed()) return;
+  if (adminWin.isMinimized()) adminWin.restore();
+  adminWin.show();
+  adminWin.setAlwaysOnTop(true);
+  adminWin.focus();
+  adminWin.setAlwaysOnTop(false);
+}
+
+function instanceTick() {
+  const n = instanceTicks++;
+  if (selfInstance.role === 'app') takeFocusRequest();
+  if (n % 4 === 0) {
+    selfInstance.updatedAt = Date.now();
+    selfInstance.locale = appLocale();
+    instances.write(INSTANCES_DIR, selfInstance);
+    const others = instances.live(INSTANCES_DIR, { selfPid: process.pid });
+    const sig = instances.signature(others);
+    if (sig !== otherInstancesSig) {
+      otherInstancesSig = sig;
+      otherInstances = others;
+      if (SMOKE && others.length) {
+        console.log('[SMOKE] aynı ayar klasöründe başka kopya: ' +
+          others.map((o) => o.role + ' ' + o.kind + ' v' + o.version + ' pid ' + o.pid).join(', '));
+      }
+      notifyInstanceStatus();
+    }
+  }
+  if (n % 2 === 0) pollSettingsGuard();
+}
+
+function startInstanceRegistry() {
+  if (instanceTimer) return;
+  instanceTick();
+  instanceTimer = setInterval(instanceTick, INSTANCE_TICK_MS);
+}
+
+function stopInstanceRegistry() {
+  if (instanceTimer) {
+    clearInterval(instanceTimer);
+    instanceTimer = null;
+  }
+  instances.remove(INSTANCES_DIR, process.pid);
+  try { fs.unlinkSync(path.join(INSTANCES_DIR, process.pid + '.focus')); } catch { /* yoktu */ }
+}
+
+/* Açılışta: aynı klasörü kullanan başka bir kopya açıksa sor.
+   true — bu kopya açılsın. false — kullanıcı çalışan kopyaya geçti, bu kopya
+   kapanıyor. Yalnız UYGULAMA kopyaları sorulur; çalışan bir öz test sorulmaz,
+   onun yazdıkları dosya bekçisine takılır. */
+async function checkOtherCopies() {
+  const running = instances.live(INSTANCES_DIR, { selfPid: process.pid }).filter((o) => o.role === 'app');
+  if (!running.length) return true;
+  /* Panel dili henüz bildirilmedi; çalışan kopyanın dili kullanıcının
+     seçtiği dildir (ikisi aynı tarayıcı depolamasını paylaşıyor). */
+  if (!uiLocaleOverride && running[0].locale) uiLocaleOverride = running[0].locale;
+  const kindName = (k) => (k === 'installed' ? trUi('kurulu', 'installed')
+    : k === 'portable' ? trUi('taşınabilir', 'portable') : trUi('geliştirme', 'development'));
+  const clock = (ms) => new Date(ms).toLocaleTimeString(appLocale() === 'tr' ? 'tr-TR' : 'en-GB', { hour: '2-digit', minute: '2-digit' });
+  const lines = running.map((o) => '• ' + kindName(o.kind) + ' v' + o.version + ' — ' + trUi('açılış', 'started') + ' ' + clock(o.startedAt) + '\n  ' + o.exe);
+  const choice = await dialog.showMessageBox({
+    type: 'warning',
+    title: trUi('CAYADEV Visualizer zaten açık', 'CAYADEV Visualizer is already running'),
+    message: trUi('Uygulamanın başka bir kopyası çalışıyor.', 'Another copy of the application is running.'),
+    detail: lines.join('\n') + '\n\n' + trUi(
+      'İki kopya aynı ayar klasörünü kullanır; birinin kaydettiği ayarlar diğerininkini ezer. Yine de açarsanız bu kopya, ayar dosyası başka biri tarafından değiştirildiğinde üstüne yazmaz ve size sorar.',
+      'Both copies use the same settings folder, and settings saved by one overwrite the other’s. If you open this copy anyway, it will not write over the settings file when someone else has changed it, and will ask you instead.'
+    ),
+    buttons: [trUi('Çalışan Kopyaya Geç', 'Switch to the Running Copy'), trUi('Yine de Aç', 'Open Anyway')],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+  });
+  if (choice.response === 1) return true;
+  /* Birden çok kopya açıksa en eskisi öne gelir: "çalışan kopya" odur. */
+  try {
+    fs.writeFileSync(path.join(INSTANCES_DIR, running[0].pid + '.focus'), String(process.pid), 'utf8');
+  } catch { /* odak isteği gitmezse de bu kopya kapanır */ }
+  app.quit();
+  return false;
 }
 
 // ----------------------------------------------------------------------------
@@ -1015,10 +1202,16 @@ function recreateVisualizerWindows() {
 }
 
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
-ipcMain.on('update-config', (e, config) => {
+ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
+
+/* Yeni yapılandırmayı her yere uygular. Panelden gelen yapılandırma
+   kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
+   zaten diskte olduğu için kaydedilmez. */
+function applyIncomingConfig(config, opts) {
+  const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
   currentConfig = config;
-  saveSettings(config);
+  if (save) saveSettings(config);
   dynamicLighting.setConfig(config?.lighting).catch(() => {});
   const nowSee = wantsTransparent();
   /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
@@ -1046,6 +1239,47 @@ ipcMain.on('update-config', (e, config) => {
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
+}
+
+// Aynı ayar klasörünü kullanan kopyalar ve ayar dosyası çakışması (#564)
+ipcMain.handle('instances:status', () => instanceStatus());
+
+/* Çakışmanın iki çıkışı:
+     'keep' — bu kopyadaki ayarlar diske yazılır, diskteki değişikliğin üstüne;
+     'load' — diskteki dosya okunur ve bu kopyada her yere uygulanır.
+   Diskteki dosya okunamıyor ya da çözülemiyorsa çakışma SÜRER: bozuk bir
+   dosyayı "yüklemek" kullanıcının bu kopyadaki ayarlarını da kaybettirir. */
+ipcMain.handle('settings-conflict:resolve', (e, choice) => {
+  if (!settingsConflict) return { ok: true };
+  if (choice === 'keep') {
+    const text = pendingSettings != null
+      ? pendingSettings
+      : currentConfig ? JSON.stringify(currentConfig, null, 2) : null;
+    if (text == null || !writeSettingsText(text)) return { ok: false, error: 'write' };
+    pendingSettings = null;
+    settingsConflict = null;
+    notifyInstanceStatus();
+    return { ok: true };
+  }
+  if (choice === 'load') {
+    let buf;
+    let loaded;
+    try {
+      buf = fs.readFileSync(SETTINGS_PATH);
+      loaded = SettingsGuard.parse(buf);
+    } catch {
+      return { ok: false, error: 'read' };
+    }
+    if (!loaded || typeof loaded !== 'object') return { ok: false, error: 'read' };
+    settingsGuard.remember(buf);
+    pendingSettings = null;
+    settingsConflict = null;
+    applyIncomingConfig(loaded, { save: false });
+    notifyAdmin('external-config', loaded); // panel kendi kopyasını tazelesin
+    notifyInstanceStatus();
+    return { ok: true };
+  }
+  return { ok: false, error: 'choice' };
 });
 
 // Yönetici panelindeki canlı önizleme kare akışını açıp kapatır. Görselleştirici
@@ -2027,7 +2261,27 @@ app.whenReady().then(async () => {
     return;
   }
 
-  currentConfig = loadSettings();
+  /* Aynı ayar klasörünü kullanan başka bir kopya (#564). Soru her şeyden
+     ÖNCE: kullanıcı çalışan kopyaya geçerse bu kopya hiçbir şey başlatmadan,
+     hiçbir şey yazmadan kapanmalı. */
+  if (!AUTOMATION_RUN && !(await checkOtherCopies())) return;
+
+  /* Dosya BİR KEZ okunuyor: hem yapılandırma hem bekçinin öğrendiği hâl
+     aynı baytlardan gelsin. Arada başka bir kopya yazarsa ikisi ayrışır ve
+     bekçi, bu kopyanın hiç görmediği bir içeriği "bizimki" sanardı. */
+  let startupSettings = null;
+  try { startupSettings = fs.readFileSync(SETTINGS_PATH); } catch { startupSettings = null; }
+  if (!AUTOMATION_RUN) {
+    settingsGuard.remember(startupSettings);
+    settingsGuardOn = true;
+  }
+  startInstanceRegistry();
+
+  try {
+    currentConfig = startupSettings ? SettingsGuard.parse(startupSettings) : null;
+  } catch {
+    currentConfig = null;
+  }
   if (currentConfig?.lighting?.enabled) {
     dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
   }
@@ -3384,6 +3638,28 @@ async function runSmoke() {
       found.forEach((f) => scan.push(cats[i] + ': ' + f));
     }
 
+    /* Üst uyarı bantları #sections'ın DIŞINDA ve tarama onları hiç görmüyordu.
+       Gizli olsalar da metinleri DOM'da; göründükleri an İngilizce olmalılar
+       (#564 iki bant ekledi). Değişken içerik atlanır: ses tanılamasının
+       ayrıntısı ve başka kopyanın yolu — yol kullanıcının klasör adıdır. */
+    const bannerFound = await awc3.executeJavaScript(`(function(){
+      var out = [];
+      var boxes = document.querySelectorAll('.banner');
+      for (var b = 0; b < boxes.length; b++) {
+        var walker = document.createTreeWalker(boxes[b], NodeFilter.SHOW_TEXT);
+        var n;
+        while ((n = walker.nextNode())) {
+          var text = (n.nodeValue || '').trim();
+          if (text.length < 2 || !/[çğıöşüÇĞİÖŞÜ]/.test(text)) continue;
+          var p = n.parentElement;
+          if (p && (p.id === 'bannerDetail' || p.classList.contains('copy-path'))) continue;
+          out.push(text.slice(0, 90));
+        }
+      }
+      return out;
+    })()`);
+    bannerFound.forEach((f) => scan.push('bant: ' + f));
+
     if (scan.length) {
       console.log('[SMOKE] ÇEVRİLMEMİŞ (' + scan.length + '):');
       Array.from(new Set(scan)).slice(0, 40).forEach((s) => console.log('[SMOKE]   ~ ' + s));
@@ -3835,6 +4111,21 @@ async function runSmoke() {
       'audio: the helper fell back to an external Node (' + audioDiag.runner +
         ") — a packaged build must run it with the application's own binary"
     );
+  }
+
+  /* Kopya kayıt defteri (#564). Öz test kendini "öz test" diye kaydetmeli —
+     aynı klasörü kullanan bir kullanıcı kopyası bunu paneline yazıyor — ve
+     ayar dosyasının bekçisi KAPALI kalmalı: öz test ayarları kendi kuralıyla
+     geri yazıyor, bekçi o yazımları çakışma sayıp durdurmamalı. */
+  {
+    let own = null;
+    try { own = JSON.parse(fs.readFileSync(instances.fileFor(INSTANCES_DIR, process.pid), 'utf8')); } catch { own = null; }
+    console.log('[SMOKE] kopya kaydı: ' + JSON.stringify(own
+      ? { role: own.role, kind: own.kind, version: own.version, others: otherInstances.length, bekçi: settingsGuardOn }
+      : null));
+    if (!own) errors.push('instance registry: the self-test did not register itself');
+    else if (own.role !== 'selftest') errors.push('instance registry: the self-test registered as ' + own.role);
+    if (settingsGuardOn) errors.push('settings guard: must stay off in the self-test');
   }
 
   /* Ses yardımcısından gelen kare sayısı YAZILMAKLA kalmamalı, DENETLENMELİ.
