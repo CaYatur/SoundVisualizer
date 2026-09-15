@@ -706,7 +706,9 @@ Audio:
   Each frame now carries the left and right channels next to the mono mix,
   which is computed exactly as before, so the spectrum, the bands and MilkDrop
   see the same numbers; the analyser gets both channels and the Goniometer
-  draws left against right. The web overlay receives them appended after its
+  draws left against right. MilkDrop's waveforms do not read them yet: they
+  still build their second channel from the mono buffer until the waveform item
+  above lands. The web overlay receives them appended after its
   existing payload, so a page from an older build still reads its frame; the
   exporter decodes both channels of the file; screenshot mode and the MilkDrop
   render harness send a stereo signal whose mid channel is the old mono one.
