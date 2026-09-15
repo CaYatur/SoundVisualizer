@@ -249,6 +249,238 @@
     }
   }
 
+  /* MILKDROP'UN DALGA ÖRNEKLERİ — iki kanal, en yeni ses, hizalanmış.
+
+     NEDEN: varsayılan dalga ve özel dalgalar 2048'lik tamponun BAŞINDAN,
+     yani en eski örneklerden okuyordu — sesin ~30 ms gerisinden; bantlar ve
+     tayf dalgaları çoktan en yeniyi okuyordu. Sağ kanal diye aynı tek
+     kanalın 128 örnek kaydırılmışı çiziliyordu. Ve MilkDrop'un dalgayı
+     ekranda yerinde tutan hizalaması hiç yoktu: her kare pencerenin
+     başladığı yer rastgele düştüğü için dalga yatayda titriyordu.
+
+     MilkDrop'ta bir karenin dalga verisi (pluginshell.cpp:834-835
+     AnalyzeNewSound + AlignWaves, plugin.cpp:6875 DoCustomSoundAnalysis):
+       1. Kanal başına en yeni 576 örnek, ±128 biriminde (`fWaveform`).
+       2. Tayf (`fSpectrum`) BU ham örneklerden, hizalamadan ÖNCE. Tayf
+          dalgaları bu yüzden hizalanmamış veriyi görüyor; burası yalnız
+          dalga biçimini veriyor.
+       3. HİZALAMA (pluginshell.cpp:1526-1667). 576 örneğin yalnız 480'i
+          çizim için geçerli (NUM_WAVEFORM_SAMPLES), aradaki 96 örnek
+          kaydırma payı. Yeni pencere, bir önceki karenin çizilen 480
+          örneğiyle karşılaştırılıyor ve 0-95 arasındaki kaydırmalardan
+          ağırlıklı mutlak farkı en küçük olanı seçiliyor. Periyodik bir
+          ses ekranda böylece kareden kareye aynı yerde duruyor.
+       4. Kaydırma 0'dan büyükse ilk 480 örnek o kadar ileri alınıyor ve
+          480-576 arası SIFIRLANIYOR; kaynağın yorumu: "örneklerin artık
+          sahte olduğu görünsün". 0 ise dizi olduğu gibi kalıyor.
+       5. Varsayılan dalga ve özel dalgalar hizalanmış diziyi okuyor.
+
+     Arama kaba-inceye: pencere ve önceki kare altı kez yarıya indiriliyor
+     (576, 288, ... 18 örnek; kaydırma payı 96, 48, ... 3), en kaba katta
+     üç kaydırmanın hepsi deneniyor, her ince katta bir üsttekinin
+     sonucunun ±1-2 çevresi. Karşılaştırmada ortası 1, kenarları 0 olan bir
+     ağırlık var: pencere ortasının eşleşmesi kenarlardan çok daha önemli
+     sayılıyor.
+
+     Önceki kare olarak HİZALANMAMIŞ pencere ve bulunan kaydırma saklanıyor
+     ve karşılaştırma ikisinden okunuyor — sonuç aynı, kaynak da öyle.
+
+     Aritmetik 32 bitlik kayan noktada (`Math.fround`), kaynaktaki `float`
+     gibi: seçim en küçük hataya bakıyor ve eşitliğe yakın durumlarda
+     64 bitlik toplam başka bir kaydırma seçebilirdi.
+
+     BİLEREK YAKLAŞIK OLAN — dizinin DIŞINI okumak. Özel dalga `samples`
+     480'den büyükse MilkDrop dizinin önünden okuyor (N = 512 için -16'dan
+     başlıyor); korpusun %33,1'inde en az bir böyle dalga var. C'de bu
+     tanımsız davranış ve okunan şey belleğin komşusu. Burada o komşuluğun
+     SES OLAN kısmı birebir: iki kanal bellekte arka arkaya duruyor, yani
+     sağ kanalın -16'sı sol kanalın 560'ı, sol kanalın 576'sı sağın 0'ı.
+     Onun dışı 0: sol kanalın önünde kabuğun kendi bant ortalamaları
+     duruyor (uzun dönem ortalaması 1 olan değerler, ±128 birimindeki sesin
+     yanında sıfıra yakın), sağ kanalın arkasında tayfın deposu. Kenar
+     örneğini tekrarlamak 16 noktayı gerçek bir ses değerinde düz tutardı;
+     MilkDrop'ta orası sıfır çizgisine yakın. */
+  const WAVE_BUF = 576;   // NUM_AUDIO_BUFFER_SAMPLES
+  const WAVE_VALID = 480; // NUM_WAVEFORM_SAMPLES
+  /* Kaba-inceye aramanın kat sayısı: floor(log2(576 - 480)) = 6. Kaynak
+     4'ün altında hizalamayı hiç yapmıyor; bu iki sabitle hep 6. */
+  const ALIGN_LEVELS = 6;
+
+  /* Katların boyu ve kaydırma payı, karşılaştırma ağırlıkları. Kaynakta
+     ağırlıklar ilk karede bir kez hesaplanıp saklanıyor; kat sayısı sabit
+     olduğu için modül yüklenirken bir kez hesaplamak aynı şey. */
+  const ALIGN = (function () {
+    const f = Math.fround;
+    const K = f(0.8);
+    const size = [WAVE_BUF], slack = [WAVE_BUF - WAVE_VALID];
+    for (let o = 1; o < ALIGN_LEVELS; o++) {
+      size.push(size[o - 1] >> 1);
+      slack.push(slack[o - 1] >> 1);
+    }
+    const weight = [], first = [], last = [];
+    for (let o = 0; o < ALIGN_LEVELS; o++) {
+      const cs = size[o] - slack[o];
+      const w = new Float32Array(cs);
+      const half = (cs / 2) | 0; // C'de tam sayı bölmesi: 15 için 7
+      for (let n = 0; n < cs; n++) {
+        // Ortada 1, kenarlarda 0 olan üçgen...
+        let v = f((n < half ? n * 2 : (cs - 1 - n) * 2) / cs);
+        // ...ortanın ağırlığı keskinleştirilip [0, 1]'e kırpılıyor
+        v = f(f(f(v - K) * 5) + K);
+        w[n] = v > 1 ? 1 : v < 0 ? 0 : v;
+      }
+      let p = 0;
+      while (p < cs && w[p] === 0) p++;
+      first.push(p);
+      p = cs - 1;
+      while (p >= 0 && w[p] === 0) p--;
+      last.push(p);
+      weight.push(w);
+    }
+    return { size, slack, weight, first, last };
+  })();
+
+  class MilkdropWaves {
+    constructor() {
+      /* İki kanal TEK dizide arka arkaya: [sol 576][sağ 576]. MilkDrop'un
+         `fWaveform[2][576]`ı da bellekte böyle ve dizinin dışını okuyan
+         özel dalgalar tam bu komşuluğu görüyor (`at`). */
+      this.data = new Float32Array(2 * WAVE_BUF);
+      this.left = this.data.subarray(0, WAVE_BUF);
+      this.right = this.data.subarray(WAVE_BUF);
+      // Son karede bulunan kaydırma, kanal başına
+      this.offset = [0, 0];
+      this._old = [new Float32Array(WAVE_BUF), new Float32Array(WAVE_BUF)];
+      this._prev = [0, 0];
+      this._newPyr = ALIGN.size.map((n) => new Float32Array(n));
+      this._oldPyr = ALIGN.size.map((n) => new Float32Array(n));
+    }
+
+    /* left/right: 128 merkezli işaretsiz bayt dizileri, kronolojik (en
+       yeni örnek sonda). Tek kanal için ikisine aynı dizi verilir —
+       MilkDrop da mono kaynakta sağ kanala solu kopyalıyor. 576'dan kısa
+       bir dizinin eksik eski örnekleri sessizlik sayılıyor. */
+    update(leftBytes, rightBytes) {
+      readNewest(this.left, leftBytes);
+      readNewest(this.right, rightBytes || leftBytes);
+      const chans = [this.left, this.right];
+      const found = [0, 0];
+      for (let ch = 0; ch < 2; ch++) found[ch] = this._search(chans[ch], ch);
+      // Sonraki kare için HİZALANMAMIŞ pencere ve kaydırma
+      for (let ch = 0; ch < 2; ch++) {
+        this._old[ch].set(chans[ch]);
+        this._prev[ch] = found[ch];
+        this.offset[ch] = found[ch];
+      }
+      for (let ch = 0; ch < 2; ch++) {
+        const k = found[ch];
+        if (k > 0) {
+          chans[ch].copyWithin(0, k, k + WAVE_VALID);
+          chans[ch].fill(0, WAVE_VALID);
+        }
+      }
+      return this;
+    }
+
+    /* Kanalın i. örneği, bellekteki komşulukla: sağ kanalın önü sol
+       kanalın sonu, sol kanalın arkası sağ kanalın başı; iki kanalın dışı
+       0. Gerekçesi sınıfın üstünde. */
+    at(ch, i) {
+      const g = ch * WAVE_BUF + i;
+      return g >= 0 && g < 2 * WAVE_BUF ? this.data[g] : 0;
+    }
+
+    /* Varsayılan dalganın dizileri (milkdropfs.cpp:908-918): ölçek
+       `wave_scale / 128`, ilk örnek yalnız ölçekleniyor, sonrakiler tek
+       kutuplu ve tek yönlü bir süzgeçle bir öncekinin SÜZÜLMÜŞ hâline
+       karışıyor. 576 örneğin hepsi — sıfırlanan kuyruk da, süzgeç ona
+       yavaşça sönerek giriyor. `scale` ve `smoothing` çağıranda
+       denetleniyor. */
+    scaled(scale, smoothing, outL, outR) {
+      const k0 = scale / 128;
+      const k1 = k0 * (1 - smoothing);
+      const L = this.left, R = this.right;
+      outL[0] = L[0] * k0;
+      outR[0] = R[0] * k0;
+      for (let i = 1; i < WAVE_BUF; i++) {
+        outL[i] = L[i] * k1 + outL[i - 1] * smoothing;
+        outR[i] = R[i] * k1 + outR[i - 1] * smoothing;
+      }
+      return true;
+    }
+
+    /* Özel dalganın ham örnekleri, ±128 biriminde, yumuşatmadan ve
+       ölçekten ÖNCE (milkdropfs.cpp:2395-2436). N örnek arka arkaya,
+       480'lik geçerli bölümün ortasından; iki kanal `sep/2` kadar ters
+       yöne kayık. Bölmeler C'deki gibi sıfıra doğru kesiliyor: N = 511
+       için (480 - 511) / 2 = -15, -16 değil. */
+    custom(N, sep, outA, outB) {
+      const mid = Math.trunc((WAVE_VALID - N) / 2);
+      const half = Math.trunc((sep | 0) / 2);
+      const j0 = mid - half, j1 = mid + half;
+      for (let i = 0; i < N; i++) {
+        outA[i] = this.at(0, i + j0);
+        outB[i] = this.at(1, i + j1);
+      }
+    }
+
+    /* Bir kanalın kaydırması. `cur` yeni pencere (576), karşılaştırma
+       önceki karenin çizilen 480 örneğiyle. */
+    _search(cur, ch) {
+      const f = Math.fround;
+      const NP = this._newPyr, OP = this._oldPyr;
+      const { size, slack, weight, first, last } = ALIGN;
+      NP[0].set(cur);
+      /* Kaynak önceki pencereden yalnız 480 örnek kopyalıyor ve 480-576
+         arası başlatılmamış kalıyor. Ağırlıkların sıfır olmayan aralığı
+         (ilk katta 154-325) oraya hiçbir katta uzanmıyor — test bunu
+         doğruluyor — yani ne yazıldığı fark etmiyor. */
+      OP[0].fill(0);
+      OP[0].set(this._old[ch].subarray(this._prev[ch], this._prev[ch] + WAVE_VALID));
+      for (let o = 1; o < ALIGN_LEVELS; o++) {
+        const a = NP[o - 1], b = OP[o - 1], na = NP[o], nb = OP[o];
+        for (let n = 0; n < size[o]; n++) {
+          na[n] = 0.5 * f(a[n * 2] + a[n * 2 + 1]);
+          nb[n] = 0.5 * f(b[n * 2] + b[n * 2 + 1]);
+        }
+      }
+      let n1 = 0, n2 = slack[ALIGN_LEVELS - 1], best = 0;
+      for (let o = ALIGN_LEVELS - 1; o >= 0; o--) {
+        const a = NP[o], b = OP[o], w = weight[o];
+        const i0 = first[o], i1 = last[o];
+        let bestErr = 0;
+        best = -1;
+        for (let n = n1; n < n2; n++) {
+          let err = 0;
+          for (let i = i0; i <= i1; i++) {
+            const x = f(f(a[i + n] - b[i]) * w[i]);
+            err = f(err + (x > 0 ? x : -x));
+          }
+          // Katı `<`: eşitlikte ilk (en küçük) kaydırma kalıyor
+          if (best === -1 || err < bestErr) { best = n; bestErr = err; }
+        }
+        if (o > 0) {
+          // Bir ince katta bulunan kaydırmanın iki katı, ±1-2 çevresiyle
+          n1 = best * 2 - 1;
+          n2 = best * 2 + 3;
+          if (n1 < 0) n1 = 0;
+          if (n2 > slack[o - 1]) n2 = slack[o - 1];
+        }
+      }
+      return best;
+    }
+  }
+
+  // Bayt dizisinin en yeni 576 örneği, ±128 biriminde
+  function readNewest(out, bytes) {
+    const n = bytes ? bytes.length : 0;
+    const off = n - WAVE_BUF;
+    for (let i = 0; i < WAVE_BUF; i++) {
+      const k = off + i;
+      out[i] = k >= 0 ? (bytes[k] | 0) - 128 : 0;
+    }
+  }
+
   /* MILKDROP'UN KENDİ BANTLARI — `bass`, `mid`, `treb` ve `_att`leri.
 
      NEDEN: MilkDrop bu altı değeri kendi zincirinden üretiyor ve presetler
@@ -281,12 +513,12 @@
      hızına uyarlanıyor: `r ^ (30 * dt)`.
 
      BİLEREK FARKLI OLANLAR:
-       - Kanal: MilkDrop sol kanalı okuyor; bizim zaman verimiz iki kanalın
-         ortalaması.
+       - Kanal: MilkDrop sol kanalı okuyor; bantların burada okuduğu zaman
+         verisi iki kanalın ortalaması.
        - Örnekleme hızı: 576 örnek MilkDrop'ta 44,1 kHz'de 13 ms, bizde
          48 kHz'de 12 ms; bant sınırları frekansta ~%9 yukarıda.
        - Hizalama: MilkDrop dalga biçimini çizim için hizaladıktan SONRA
-         çözümlüyor (en fazla 96 örnek kaydırma, kalan kuyruk sıfır); bu,
+         çözümlüyor (en fazla 95 örnek kaydırma, kalan kuyruk sıfır); bu,
          pencerenin zaten sıfıra inen ucunda kalıyor.
        - Tohumlama: MilkDrop ortalamaları sıfırdan başlatıyor ve açılışta
          oranlar bir an 10-20 katına fırlıyor. Burada ortalamalar İLK SESLİ
@@ -401,6 +633,7 @@
   const api = {
     MilkdropAudio, approach, TAU_LONG, TAU_ATT, FLOOR, MAX,
     MilkdropSpectrum, SPEC_IN, SPEC_N, SPEC_OUT,
+    MilkdropWaves, WAVE_BUF, WAVE_VALID, ALIGN_LEVELS, WAVE_ALIGN: ALIGN,
     MilkdropBands, BAND_EDGES, BAND_MAX, BAND_GUARD, FAST_FRAMES,
     RATE_ATT_UP, RATE_ATT_DOWN, RATE_LONG_FAST, RATE_LONG,
   };

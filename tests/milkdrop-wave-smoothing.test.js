@@ -120,7 +120,9 @@ test('özel dalga: MilkDrop genliği ve wave_scale', () => {
   assert.ok(m, 'ölçek satırı bulunamadı');
   assert.strictEqual(Number(m[1]), 0.15, 'tayf çarpanı');
   assert.strictEqual(Number(m[2]), 0.004, 'zaman çarpanı');
-  assert.match(CUSTOM[0], /tb\[\(\(\(k \+ j0\) % n\) \+ n\) % n\] - 128/, '±128 birimi');
+  // ±128 birimi: eski yolda baytın kendisi, uyum açıkken MilkdropWaves'in dizisi
+  assert.match(CUSTOM[0], /tb\[\(\(\(i \+ j0\) % n\) \+ n\) % n\] - 128/, '±128 birimi');
+  assert.match(CUSTOM[0], /this\._waves\.custom\(N, w\.sep, a, b\)/);
 });
 
 /* `spectrum = 1` yazan dalga TAYFI istiyor, ve tayfın MilkDrop ile aynı
@@ -130,7 +132,10 @@ test('özel dalga: MilkDrop genliği ve wave_scale', () => {
 test('özel dalga: tayfın kaynağı MilkDrop FFT', () => {
   assert.match(CUSTOM[0], /const fq = acc && w\.spectrum && this\._specData/);
   assert.match(BODY, /new S\.MilkdropSpectrum\(\)/);
-  assert.match(BODY, /spec = this\._spec\.update\(tb\)/);
+  /* Kanal başına: value1 sol kanalın, value2 sağ kanalın tayfı. Kanal
+     verisi olmayan bir kaynakta ikisi de tek kanaldan. */
+  assert.match(BODY, /this\._specL\.update\(audio\.timeL \|\| tb\)/);
+  assert.match(BODY, /this\._specR\.update\(audio\.timeR \|\| tb\)/);
 });
 
 test('özel dalga: tayf kare başına bir kez hesaplanıyor', () => {
@@ -148,10 +153,15 @@ test('özel dalga: iki yolun indislemesi MilkDrop ile aynı', () => {
      dalga biçiminde N örnek arka arkaya, tamponun ortasından, iki kanal
      `sep/2` kadar ters yöne kaydırılmış. Motor bütün tamponu N kadar
      örneğe sıkıştırıyordu: 64 örnekli bir dalgada 32:1 seyreltme. */
-  assert.match(CUSTOM[0], /const step = fq \? \(SPEC_BINS - w\.sep\) \/ Math\.max\(1, N\) : 1;/);
-  assert.match(CUSTOM[0], /const mid = fq \? 0 : Math\.max\(0, Math\.floor\(\(WAVE_MAX - N\) \/ 2\)\);/);
-  assert.match(CUSTOM[0], /const j0 = fq \? 0 : mid - \(w\.sep >> 1\);/);
-  assert.match(CUSTOM[0], /const j1 = fq \? 0 : mid \+ \(w\.sep >> 1\);/);
+  assert.match(CUSTOM[0], /const step = \(SPEC_BINS - w\.sep\) \/ Math\.max\(1, N\);/);
+  assert.match(CUSTOM[0], /a\[i\] = fq\.left\[k\];\s*b\[i\] = fq\.right\[k\];/);
+  /* Uyum açıkken dalga biçiminin indislemesi MilkdropWaves.custom'da ve
+     orada çalıştırılarak sınanıyor (milkdrop-wave-align.test.js). Eski
+     yol olduğu gibi. */
+  assert.match(CUSTOM[0], /\} else if \(acc && this\._waves\) \{\s*this\._waves\.custom\(N, w\.sep, a, b\);/);
+  assert.match(CUSTOM[0], /const mid = Math\.max\(0, Math\.floor\(\(WAVE_MAX - N\) \/ 2\)\);/);
+  assert.match(CUSTOM[0], /const j0 = mid - \(w\.sep >> 1\);/);
+  assert.match(CUSTOM[0], /const j1 = mid \+ \(w\.sep >> 1\);/);
 });
 
 test('özel dalga: çizim yumuşatılmış diziyi kullanıyor', () => {

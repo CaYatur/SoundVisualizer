@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1666%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1686%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -319,6 +319,18 @@ that asserts the bar profile has no step in it.
   been reading the oldest 576 of the 2048-sample buffer, about 30 ms behind the sound.
   *Approximate:* the bin-to-frequency axis, because our samples arrive at the AudioContext rate
   rather than MilkDrop's.
+- **Waves read the newest audio, from both channels, aligned the way MilkDrop aligns them.** The
+  default and custom waves were reading the oldest 576 samples of the 2048-sample buffer, about
+  30 ms behind the sound, with the same mono buffer 128 samples further on standing in for the
+  right channel. With MilkDrop Fidelity on, each channel's newest 576 samples now go through
+  MilkDrop's alignment: the window is compared with the previous frame's, coarse to fine over six
+  halvings, and shifted by up to 95 samples, so a steady tone stands still on screen instead of
+  starting wherever the window happened to fall. The 96 samples past the 480 that are drawn are
+  zeroed, as MilkDrop does, and the default wave's vertex counts start from those 480 rather
+  than 512. A spectrum wave's two values are now the left and right spectra. A third of the
+  corpus (33.1%) has a custom wave with more than 480 samples, which in MilkDrop reads before the
+  start of its array; where that read lands on the other channel it is reproduced exactly, and
+  beyond both channels it reads zero.
 
 ---
 
@@ -1073,7 +1085,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1666 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1686 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1666%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1686%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -314,6 +314,17 @@ profilinde basamak olmadığını doğruluyor.
   örneklik tamponun en eski 576 örneğini okuyordu, sesin ~30 ms gerisinden. *Yaklaşık:*
   göz–frekans ekseni, çünkü bizim örneklerimiz MilkDrop'un kaynak hızında değil AudioContext
   hızında geliyor.
+- **Dalgalar en yeni sesi, iki kanaldan, MilkDrop'un hizaladığı gibi hizalanmış okuyor.**
+  Varsayılan dalga ve özel dalgalar 2048 örneklik tamponun en eski 576 örneğini okuyordu, sesin
+  ~30 ms gerisinden; sağ kanal yerine aynı tek kanalın 128 örnek ötesi çiziliyordu. MilkDrop Uyumu
+  açıkken her kanalın en yeni 576 örneği artık MilkDrop'un hizalamasından geçiyor: pencere önceki
+  karenin penceresiyle altı yarılamada kabadan inceye karşılaştırılıyor ve en fazla 95 örnek
+  kaydırılıyor; sabit bir ton, pencerenin o kare nereye düştüğüne göre kaymak yerine ekranda
+  yerinde duruyor. Çizilen 480 örneğin ötesindeki 96 örnek MilkDrop'taki gibi sıfırlanıyor ve
+  varsayılan dalganın nokta sayıları 512'den değil bu 480'den başlıyor. Tayf dalgasının iki
+  değeri artık sol ve sağ kanalın tayfı. Korpusun üçte birinde (%33,1) 480'den fazla örnekli bir
+  özel dalga var ve MilkDrop'ta bu, dizinin başlangıcının önünden okuyor; okumanın öbür kanala
+  düştüğü yer birebir, iki kanalın ötesi sıfır.
 
 ---
 
@@ -1074,7 +1085,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1666 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1686 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

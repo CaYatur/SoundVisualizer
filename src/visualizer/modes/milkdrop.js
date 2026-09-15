@@ -2379,6 +2379,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          toplamalı bir şekil kendinden sonra çizilen dalgayı yıkamaz. */
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
       gl.viewport(0, 0, GW, GH);
+      /* Dalga örnekleri kare başına BİR KEZ, çizimlerden önce: özel
+         dalgalar geçişte iki preset için iki kez çiziliyor ve hizalama her
+         karede tam bir adım ilerlemeli. */
+      this._frameWaves(audio);
       this._waveSamples(audio, this.preset.get('wave_scale'),
         this.preset.get('wave_smoothing'));
       /* Dokulu şekiller ÖNCEKİ kareyi örnekliyor. Şu an yazdığımız hedefi
@@ -3388,15 +3392,30 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const d = this.lineData;
       const out = this._waveOut || (this._waveOut = {});
       const cn = window.SVMilkdrop.colorNorm;
-      /* Tayf KARE BASINA BIR KEZ. Bir presette birden fazla tayf dalgasi
-         olabiliyor; her biri icin 1024 noktali FFT kosturmak bedava degil.
-         Hic tayf dalgasi yoksa hic hesaplanmiyor. */
+      /* Tayf KARE BASINA BIR KEZ ve KANAL BASINA. Bir presette birden
+         fazla tayf dalgasi olabiliyor ve geciste iki presetin dalgalari
+         ciziliyor; her biri icin 1024 noktali FFT kosturmak bedava degil.
+         Hic tayf dalgasi yoksa hic hesaplanmiyor.
+
+         MilkDrop'ta `value1` sol kanalin, `value2` sag kanalin tayfi, ve
+         ikisi de HIZALANMAMIS ornekten (hizalama tayftan sonra koşuyor,
+         pluginshell.cpp:834-835). `MilkdropSpectrum` en yeni 576 ornegi
+         kendisi okuyor, yani kanalin ham bayt dizisi tam o. */
       let spec = null;
       if (this._wantAcc !== false && P.waves.some((w) => w.enabled && w.spectrum)) {
         const S = window.SVMilkdropAudio;
         if (S && S.MilkdropSpectrum) {
-          if (!this._spec) this._spec = new S.MilkdropSpectrum();
-          spec = this._spec.update(tb);
+          if (!this._specL) {
+            this._specL = new S.MilkdropSpectrum();
+            this._specR = new S.MilkdropSpectrum();
+            this._specPair = { left: this._specL.out, right: this._specR.out };
+          }
+          if (this._specStale) {
+            this._specL.update(audio.timeL || tb);
+            this._specR.update(audio.timeR || tb);
+            this._specStale = false;
+          }
+          spec = this._specPair;
         }
       }
       this._specData = spec;
@@ -3469,10 +3488,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        olurdu ama MilkDrop'un sırası bu ve sayılar burada kayan noktada
        tutuluyor.
 
-       value1/value2 MilkDrop'ta sol ve sağ kanal. Elimizdeki zaman verisi
-       tek kanal, bu yüzden ikincisi `sep` kadar kaydırılmış aynı veriden
-       alınıyor — presetin iki kanalı ayırdığı yerlerde faz farkı korunuyor,
-       ama gerçek stereo değil. */
+       value1/value2 MilkDrop'ta sol ve sağ kanal, ve "MilkDrop uyumu"
+       açıkken burada da öyle: hizalanmış iki kanal (`SVMilkdropAudio.
+       MilkdropWaves`), tayf dalgasında iki kanalın ayrı tayfı. Kapalıyken
+       eski yol: tek kanalın `sep` kadar kaydırılmış iki okuması. */
     _customWaveSamples(tb, N, w, audio, preset) {
       const WP = preset || this.preset;
       if (!this._cw1 || this._cw1.length < N) {
@@ -3506,21 +3525,32 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          tamponun ortasindan, iki kanal `sep/2` kadar ters yone kaydirilmis.
          Motor bunun yerine butun tamponu (2048 ornek) N'e sikistiriyordu:
          64 ornekli bir dalgada bu 32:1 seyreltme demek, yani ekranda
-         gorunen sey dalganin kendisi degil ortusme gurultusu. */
+         gorunen sey dalganin kendisi degil ortusme gurultusu.
+
+         Uyum acikken dalga bicimi `MilkdropWaves.custom`dan geliyor:
+         hizalanmis iki kanal, C'nin tam sayi bolmesi ve dizinin disi
+         MilkDrop'taki komsulukla. N = 512 icin okuma -16'dan basliyor —
+         korpusun %33,1'inde en az bir boyle dalga var. Eski yol baslangici
+         0'a kirpiyor (N = 512'de dalga 16 ornek kayik) ve dizinin disini
+         2048'lik tamponun obur ucundan okuyor. */
       const SPEC_BINS = 512;
       const WAVE_MAX = 480; // NUM_WAVEFORM_SAMPLES
-      const step = fq ? (SPEC_BINS - w.sep) / Math.max(1, N) : 1;
-      const mid = fq ? 0 : Math.max(0, Math.floor((WAVE_MAX - N) / 2));
-      const j0 = fq ? 0 : mid - (w.sep >> 1);
-      const j1 = fq ? 0 : mid + (w.sep >> 1);
-      for (let i = 0; i < N; i++) {
-        const k = Math.floor(i * step);
-        if (fq) {
-          a[i] = fq[Math.min(SPEC_BINS - 1, Math.max(0, k + j0))];
-          b[i] = fq[Math.min(SPEC_BINS - 1, Math.max(0, k + j1))];
-        } else {
-          a[i] = tb[(((k + j0) % n) + n) % n] - 128;
-          b[i] = tb[(((k + j1) % n) + n) % n] - 128;
+      if (fq) {
+        const step = (SPEC_BINS - w.sep) / Math.max(1, N);
+        for (let i = 0; i < N; i++) {
+          const k = Math.min(SPEC_BINS - 1, Math.max(0, Math.floor(i * step)));
+          a[i] = fq.left[k];
+          b[i] = fq.right[k];
+        }
+      } else if (acc && this._waves) {
+        this._waves.custom(N, w.sep, a, b);
+      } else {
+        const mid = Math.max(0, Math.floor((WAVE_MAX - N) / 2));
+        const j0 = mid - (w.sep >> 1);
+        const j1 = mid + (w.sep >> 1);
+        for (let i = 0; i < N; i++) {
+          a[i] = tb[(((i + j0) % n) + n) % n] - 128;
+          b[i] = tb[(((i + j1) % n) + n) % n] - 128;
         }
       }
       let sm = acc && isFinite(w.smoothing) ? w.smoothing : 0;
@@ -3549,14 +3579,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
 
     /* MilkDrop'un dalga örnekleri: iki kanal, kabaca -1..1, wave_scale ile
-       ölçekli. NUM_WAVEFORM_SAMPLES 512, diziler 576 çünkü bazı modlar
-       ileriye 64 örnek bakıyor (`fL[i+32]` gibi).
+       ölçekli. Diziler 576 örnek ama çizim için geçerli olan 480'i
+       (NUM_WAVEFORM_SAMPLES, defines.h:152): hizalama pencereyi en fazla
+       95 örnek kaydırıp kuyruğu sıfırlıyor. Modlar ileriye bakabiliyor
+       (`fL[i+32]` gibi) ve MilkDrop'ta da sıfırlanan kuyruğa uzanıyor.
 
-       BİLEREK YAKLAŞIK: elimizdeki zaman verisi TEK KANAL. MilkDrop'un 2, 3
-       ve 5 numaralı modları gerçek stereodan Lissajous şekli çiziyor; aynı
-       diziyi iki kanal saymak onları düz bir köşegene indirirdi. Bu yüzden
-       sağ kanal 128 örnek kaydırılmış halinden türetiliyor: faz farkı gerçek
-       bir iki boyutlu şekil veriyor, ama gerçek stereo değil. */
+       "MilkDrop uyumu" açıkken iki kanal gerçek sol ve sağ kanal, en yeni
+       576 örnek, MilkDrop'un hizalamasıyla (`SVMilkdropAudio.MilkdropWaves`).
+       Mono bir kaynakta iki kanal aynı ve 2, 3 ve 5 numaralı Lissajous
+       modları bir köşegen çiziyor — MilkDrop'ta da öyle.
+
+       Kapalıyken eski yol: tek kanalın 2048'lik tamponun başından okunan
+       örnekleri, sağ kanal yerine aynı dizinin 128 örnek ötesi. */
     /* `bModWaveAlphaByVolume`: dalganın saydamlığını SESİN ŞİDDETİ sürüyor.
 
        Korpusta 4.027 preset (%38,9) açık bırakıyor ve motor bunu hiç
@@ -3583,6 +3617,23 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return Math.max(0, Math.min(1, isFinite(alpha) ? alpha : 1));
     }
 
+    /* Karenin dalga verisi, kare başına bir kez: "MilkDrop uyumu" açıkken
+       iki kanalın en yeni 576 örneği hizalanıyor; kanal verisi yoksa
+       (eski bir kaynak) iki kanal da tek kanaldan. Kapalıyken ya da zaman
+       verisi yokken durum atılıyor — anahtar yeniden açıldığında hizalama
+       dakikalar önceki bir pencereyle değil sıfırdan başlasın. Tayf da
+       yeni karede bir kez yeniden hesaplanacak. */
+    _frameWaves(audio) {
+      this._specStale = true;
+      const tb = audio.timeBytes;
+      if (this._wantAcc === false || !tb || tb.length < 8) {
+        this._waves = null;
+        return;
+      }
+      if (!this._waves) this._waves = new window.SVMilkdropAudio.MilkdropWaves();
+      this._waves.update(audio.timeL || tb, audio.timeR || tb);
+    }
+
     /* Ses örneklerini dalga biçimine hazırlar.
 
        `fWaveSmoothing` burada uygulanıyor ve UYGULANMIYORDU: örnek dizisi
@@ -3607,9 +3658,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const L = this._fL, R = this._fR;
       const n = tb.length;
       const s = isFinite(scale) && scale !== 0 ? scale : 1;
-      const raw = (k) => (tb[k % n] - 128) / 128;
       let sm = this._wantAcc !== false && isFinite(smoothing) ? smoothing : 0;
       if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
+      // Uyum açıkken hizalanmış iki kanal, aynı süzgeçle
+      if (this._wantAcc !== false && this._waves) return this._waves.scaled(s, sm, L, R);
+      const raw = (k) => (tb[k % n] - 128) / 128;
       const s2 = s * (1 - sm);
       L[0] = raw(0) * s;
       R[0] = raw(128) * s;
@@ -3674,7 +3727,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       cr = cn(cr); cg = cn(cg); cb = cn(cb);
       alpha = cn(alpha);
 
-      const SAMPLES = 512;
+      /* Nokta sayısının çıkış noktası geçerli örnek sayısı: MilkDrop'ta
+         480 (`nVerts = NUM_WAVEFORM_SAMPLES`, milkdropfs.cpp:2666). Motor
+         512 kullanıyordu; hizalama kuyruğu sıfırladığından beri bu,
+         Lissajous modlarında fazladan 32 noktanın merkeze çökmesi demek.
+         Kapalıyken eski sayı. */
+      const acc = this._wantAcc !== false;
+      const SAMPLES = acc ? 480 : 512;
       let n = SAMPLES;
       let off = 0;
       let breakAt = -1;
