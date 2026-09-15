@@ -441,11 +441,15 @@ efektler ve arkaplan da öyle.
 
 ## Yayın çıkışı — OBS ve tarayıcı
 
-**Çıkış → Yayın Çıkışı**'nı açın; uygulama saydam bir katman sayfası servis eder.
+**Çıkış → Yayın Çıkışı**'nı açın; uygulama bir katman sayfası servis eder.
 
 - OBS'ye **Tarayıcı Kaynağı** olarak ekleyin. Eklenti yok, gerçek saydamlık var.
 - Katman sayfası masaüstü penceresiyle **aynı motoru** çalıştırır; gördüğünüz şey yayına giden şeydir.
 - Ağ üzerinden çalışır, yani görselleştirici bir bilgisayarda, OBS başka birinde olabilir.
+- **Saydamlık uygulamanın kendi anahtarıdır.** **Arkaplan → Şeffaf Arkaplan** açıkken katman OBS'te,
+  pencerenin masaüstünde olduğu gibi şeffaftır; kapalıyken sahne gördüğünüz gibi yayına girer. Tek bir
+  kaynağı zorlamak için adresine `?transparent=0` ya da `?transparent=1` ekleyin. Spout ve Syphon opak
+  kalır: paylaşılan GPU dokusu göndericiyi düşürmeden alfa taşıyamıyor.
 - **Katman sayfası başlayamazsa bunu söylüyor.** v3.1.3'te sayfa açılışta çöküyordu —
   `aspect.js`i hiç yüklemiyordu — ve hata gizli bir kutuda kalıyordu; OBS de tarayıcı da konsolda
   tek satır olmadan boş bir sayfa gösteriyordu (#563). Sayfa artık hatayı gösteriyor ve konsola
@@ -455,11 +459,14 @@ efektler ve arkaplan da öyle.
   açın, pencerenin arkasındaki masaüstü görünür: düz renk boyanmaz, bir arkaplan efektinin koyu
   yerleri **Saydamlık Eşiği**'nin altında saydamlaşır — siyah her zaman, parlak yerler kalır.
   v3.1.4'e kadar bu anahtar görünürde hiçbir şey yapmıyordu: pencere şeffaf doğuyor ama sayfa kendi
-  arkaplan rengini satır içi olarak üstüne boyuyordu.
+  arkaplan rengini satır içi olarak üstüne boyuyordu. Anahtarı değiştirmek açık görselleştirici
+  penceresini yeniden kurar, çünkü bir pencerenin şeffaflığı doğduğu anda sabitlenir.
 - **Saydamlık son işlemden sağ çıkıyor.** Efekt zincirinin her geçişi opak alfa yazıyordu; tek bir
   efekt açıkken saydam yayın katmanı da şeffaf pencere de siyah bir dikdörtgene dönüyordu. Saydam
-  modda sahne zincire artık ön-çarpımlı giriyor ve saydamlık sonda parlaklıktan geri kazanılıyor;
-  bir parlama arkadaki her neyse onun üstüne yayılıyor.
+  modda sahne zincire artık ön-çarpımlı giriyor ve örtü sahnenin kendi alfasından geliyor; koyu
+  yazılar, dış çizgiler ve gölgeler dolu kalıyor. Işık yayan efektler — bloom, bulanıklık — boş
+  piksellere parlamalarını ekliyor; zincir görüntüyü ayrıca kaydırıyorsa (glitch, kromatik sapma,
+  ayna) örtü sahnenin kendisinde kalıyor ve kaymış bir kopya boş alanda hayalet olarak belirmiyor.
 
 ### Mobil kumanda
 

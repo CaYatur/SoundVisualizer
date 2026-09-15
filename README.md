@@ -444,11 +444,16 @@ does everything else: text, effects, the background.
 
 ## Streaming output — OBS and the browser
 
-Turn on **Output → Streaming Output** and the application serves a transparent overlay page.
+Turn on **Output → Streaming Output** and the application serves an overlay page.
 
 - Add it to OBS as a **Browser Source**. No plugin, and real transparency.
 - The overlay runs the **same engine** as the desktop window, so what you see is what streams.
 - Works across the network, so the visualizer can run on one machine and OBS on another.
+- **Transparency is the app's own switch.** With **Background → Transparent Background** on, the
+  overlay is transparent in OBS just as the window is on the desktop; with it off, the scene streams
+  as you see it. Add `?transparent=0` or `?transparent=1` to one source's address to force it either
+  way. Spout and Syphon stay opaque: a shared GPU texture cannot carry alpha without dropping the
+  sender.
 - **When the overlay cannot start, it says so.** In v3.1.3 the overlay page crashed on load — it
   never loaded `aspect.js` — and the error sat in a hidden box, so OBS and the browser showed an
   empty page with nothing in the console (#563). The page now shows the error and logs it, and the
@@ -457,11 +462,15 @@ Turn on **Output → Streaming Output** and the application serves a transparent
   Background** and the desktop shows through the window: a solid colour is not painted, and a
   background effect's dark parts turn transparent below the **Transparency Threshold** — black
   always, brighter areas stay. Until v3.1.4 the switch did nothing visible: the window was created
-  transparent, but the page painted its own background colour inline on top of it.
+  transparent, but the page painted its own background colour inline on top of it. Switching it
+  re-creates an open visualizer window, because a window's transparency is fixed when it is created.
 - **Transparency survives post-processing.** Every post-FX pass wrote an opaque alpha, so one
   enabled effect turned the transparent overlay — and the transparent window — into a black
-  rectangle. In transparent mode the scene now goes through the effect chain premultiplied and its
-  alpha is recovered from brightness at the end, so a glow spreads over whatever is behind it.
+  rectangle. In transparent mode the scene now goes through the effect chain premultiplied, and
+  coverage comes from the scene's own alpha, so dark text, outlines and shadows stay solid. Effects
+  that spread light — bloom, blur — add their glow over empty pixels; when the chain also moves the
+  image (glitch, chromatic aberration, mirror), coverage stays the scene's own, so a shifted copy
+  never lands as a ghost in empty space.
 
 ### Mobile remote
 
