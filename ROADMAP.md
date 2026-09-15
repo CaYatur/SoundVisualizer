@@ -66,7 +66,7 @@ covered by a test or by the GPU self-test.
 | Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
 | Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
 | Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1597** unit tests at v3.1.4 + a GPU self-test over every engine (1128 at v3.1.3, 960 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1597** unit tests at v3.1.4 + a GPU self-test over every engine (1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
 | Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
 | Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
 | Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
@@ -130,7 +130,7 @@ npm start -- --smoke
 ```
 
 - **1632 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
-  105 came with v3.1.1; 152 came with v3.1.2; 168 came with v3.1.3 — 1128 at
+  105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 35
   on `main` since.
   Formulas are checked against values derived
@@ -419,7 +419,7 @@ and verifying that it still does is part of the work.
   - Full admin configuration panel with live playback status indicator (green/dim/red).
 - **Transparent visualizer window (Addendum 4.0)**:
   - Support for `background.transparent` toggle, creating an Electron window with `transparent: true` and `#00000000` background, clearing canvases with `clearRect`, and removing body background to run overlays directly above the desktop or game capture.
-- **Verification**: 960 unit tests passed at release. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
+- **Verification**: 971 unit tests passed at release. Automated GPU smoke test verifies all 50 modes, 31 backgrounds, 40 post-fx, and zero untranslated UI strings.
 
 ## v3.1.3 — Per-application audio capture and aspect correction · shipped
 
@@ -622,7 +622,7 @@ rebuilt the panel zero times.
 
 ### Verification
 
-1199 unit tests pass at v3.1.3 (168 added during this release). The GPU smoke
+1128 unit tests pass at v3.1.3 (157 added during this release). The GPU smoke
 test passes, and the packaged build passes its own self-test; `dist/` holds
 v3.1.3 artifacts.
 
