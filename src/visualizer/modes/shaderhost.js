@@ -558,6 +558,13 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       const c = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
       return c.slice();
     }
+    /* Bu sınıfta dispose YOKTU: layers.js arka planı atarken `dispose`
+       varsa çağırıyor, yoksa geçiyor — shader sunucusunun WebGL bağlamı
+       çöp toplanana kadar etkin kalıyordu. Chromium sınırı aşılınca en
+       eski bağlamı, yani ekranda çizen bir katmanınkini kaybettiriyor.
+       Ölçüldü: canlı bir bağlam açıkken bu arka plan 40 kez kurulup
+       atıldı; 16. atımda canlı bağlam kayboldu. */
+    dispose() { this.host.dispose(); }
   }
 
   // ==========================================================================

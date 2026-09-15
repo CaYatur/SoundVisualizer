@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1690 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1692 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 93
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 95
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -717,7 +717,10 @@ MilkDrop (#560):
   context was lost; now there is no warning, the live context survives, and
   all 40 disposed contexts are released at once. A disposed layer no longer
   draws, and three GL objects missing from its clean-up list — the textured
-  shape buffers and the flash-limit program — are deleted too.
+  shape buffers and the flash-limit program — are deleted too. Checking the
+  other WebGL layers turned up the same gap in the Studio shader background,
+  which had no `dispose` at all: the same measurement lost the live context on
+  the 16th cycle, and now it releases its context like the rest.
 - **The panel preview's demo signal gets broadband audio.** With MilkDrop's own
   band chain, the demo's three low sines move little more than `bass` when no
   live audio reaches the panel.
