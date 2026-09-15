@@ -30,6 +30,8 @@
 
   const freqBuf = new Uint8Array(1024);
   const timeBuf = new Uint8Array(2048);
+  const leftBuf = new Uint8Array(2048);
+  const rightBuf = new Uint8Array(2048);
 
   /* Sayfanın durumu (#565). Sayaçlar HER ZAMAN tutuluyor — ileti başına bir
      artırma; `?debug=1` ile açılan tanı kartı (overlay-diag.js) bunları
@@ -182,6 +184,19 @@
     freqBuf.set(f.subarray(0, Math.min(f.length, freqBuf.length)));
     timeBuf.set(t.subarray(0, Math.min(t.length, timeBuf.length)));
     const frame = { freq: freqBuf, time: timeBuf, sampleRate };
+    /* Sol ve sağ kanal (#566): sunucu onları mono dizinin ardına, aynı
+       uzunlukta ekliyor. İleti taşımıyorsa kare mono kalıyor ve ses motoru
+       iki kanalı mono diziden kuruyor. */
+    if (12 + fLen + 3 * tLen <= buffer.byteLength) {
+      const l = new Uint8Array(buffer, 12 + fLen + tLen, tLen);
+      const r = new Uint8Array(buffer, 12 + fLen + 2 * tLen, tLen);
+      leftBuf.fill(128);
+      rightBuf.fill(128);
+      leftBuf.set(l.subarray(0, Math.min(l.length, leftBuf.length)));
+      rightBuf.set(r.subarray(0, Math.min(r.length, rightBuf.length)));
+      frame.left = leftBuf;
+      frame.right = rightBuf;
+    }
     status.audioFrames++;
     status.lastAudioAt = Date.now();
     status.sampleRate = sampleRate;

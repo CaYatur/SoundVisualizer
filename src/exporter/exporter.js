@@ -76,7 +76,11 @@
   let sprites = null;
   let logo = null;
 
-  let pcm = null;
+  /* Çözülmüş kanallar (#566). Tek kanallı dosyada ikisi AYNI dizi. Mono
+     karışım artık ayrı bir diziye kopyalanmıyor: pencere başına eskisiyle
+     aynı ifadeden hesaplanıyor, yani analiz aynı sayıları görüyor. */
+  let pcmL = null;
+  let pcmR = null;
   let totalSamples = 0;
   let sampleRate = 48000;
   let width = 1920;
@@ -85,18 +89,29 @@
   let totalFrames = 1;
 
   const ring = new Float32Array(FFT_SIZE);
+  const ringL = new Float32Array(FFT_SIZE);
+  const ringR = new Float32Array(FFT_SIZE);
   const freqBytes = new Uint8Array(BINS);
   const timeBytes = new Uint8Array(FFT_SIZE);
+  const leftBytes = new Uint8Array(FFT_SIZE);
+  const rightBytes = new Uint8Array(FFT_SIZE);
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
   // Belirli bir örnek konumunda (sampleEnd ile biten 2048 örneklik pencere) analiz et.
-  // Çıktı: freqBytes (0..255, dB ölçekli) + timeBytes (128 merkez) — loopback ile aynı.
+  // Çıktı: freqBytes (0..255, dB ölçekli) + timeBytes (128 merkez) + sol ve
+  // sağ kanal baytları — loopback ile aynı.
   function analyzeAt(sampleEnd) {
     const start = sampleEnd - FFT_SIZE;
+    const mono = pcmL === pcmR;
     for (let i = 0; i < FFT_SIZE; i++) {
       const idx = start + i;
-      ring[i] = idx >= 0 && idx < totalSamples ? pcm[idx] : 0;
+      const inside = idx >= 0 && idx < totalSamples;
+      const l = inside ? pcmL[idx] : 0;
+      const r = inside ? pcmR[idx] : 0;
+      ring[i] = mono ? l : (l + r) * 0.5;
+      ringL[i] = l;
+      ringR[i] = r;
     }
     for (let i = 0; i < FFT_SIZE; i++) {
       re[i] = ring[i] * hann[i];
@@ -111,15 +126,20 @@
       v = v < 0 ? 0 : v > 1 ? 1 : v;
       freqBytes[i] = (v * 255) | 0;
     }
-    for (let i = 0; i < FFT_SIZE; i++) {
-      let s = ring[i];
+    const toByte = (s) => {
       s = s < -1 ? -1 : s > 1 ? 1 : s;
-      timeBytes[i] = (128 + s * 127) | 0;
+      return (128 + s * 127) | 0;
+    };
+    for (let i = 0; i < FFT_SIZE; i++) {
+      timeBytes[i] = toByte(ring[i]);
+      leftBytes[i] = toByte(ringL[i]);
+      rightBytes[i] = toByte(ringR[i]);
     }
   }
 
   // Ses dosyasını PCM'e çöz (kayıpsız çözümleme). 48000 Hz sabit — canlı boru hattıyla
-  // aynı binHz (48000/2048) için. Kanallar mono'ya indirgenir (loopback ile aynı).
+  // aynı binHz (48000/2048) için. İlk iki kanal tutuluyor (loopback ile aynı);
+  // mono karışım pencere başına ikisinin ortalaması.
   async function decodeAudio(arrayBuffer) {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     const ac = new Ctx({ sampleRate: 48000 });
@@ -128,14 +148,8 @@
     sampleRate = buf.sampleRate;
     const n = buf.length;
     const ch = buf.numberOfChannels;
-    pcm = new Float32Array(n);
-    if (ch <= 1) {
-      pcm.set(buf.getChannelData(0));
-    } else {
-      const a = buf.getChannelData(0);
-      const b = buf.getChannelData(1);
-      for (let i = 0; i < n; i++) pcm[i] = (a[i] + b[i]) * 0.5;
-    }
+    pcmL = buf.getChannelData(0);
+    pcmR = ch <= 1 ? pcmL : buf.getChannelData(1);
     totalSamples = n;
     return buf.duration;
   }
@@ -221,7 +235,7 @@
     const sampleEnd = Math.round(t * sampleRate);
 
     analyzeAt(sampleEnd);
-    audio.ingestFrame({ freq: freqBytes, time: timeBytes, sampleRate });
+    audio.ingestFrame({ freq: freqBytes, time: timeBytes, left: leftBytes, right: rightBytes, sampleRate });
     audio.update(dt);
 
     /* Zaman çizelgesi otomasyonu. Gösteri saati (showclock.js) BURADA

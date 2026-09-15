@@ -1033,21 +1033,26 @@
       const cx = W / 2;
       const cy = H / 2;
       const R = minDim * 0.36;
-      const wave = audio.timeBytes;
       const an = audio.analysis;
 
       /* Gerçek gonyometre L/R'yi 45° döndürülmüş eksende çizer: dikey eksen
          mono (orta), yatay eksen yan bilgi. Tek kanallı yakalamada L=R olur
-         ve dikey bir çizgi görünür — bu da kendi başına doğru bilgidir. */
-      if (wave && wave.length > 4) {
+         ve dikey bir çizgi görünür — bu da kendi başına doğru bilgidir.
+
+         Kanallar artık GERÇEK (#566). Yakalama iki kanalı ortalayıp
+         attığı için burada sağ kanal mono diziden, 7 örnek geciktirilip
+         stereo genişliğiyle karıştırılarak uyduruluyordu; genişlik de hiç
+         beslenmediği için 0'da kalıyor ve her şarkıda dikey çizgi çıkıyordu.
+         Kanal taşımayan bir ses nesnesinde (tanı yoklamaları) iki eksen de
+         mono diziyi okuyor. */
+      const chL = audio.timeL || audio.timeBytes;
+      const chR = audio.timeR || audio.timeBytes;
+      if (chL && chR && chL.length > 4 && chL.length === chR.length) {
         const c = tone(v, cfg, 0.4, t);
         tc.fillStyle = rgba(c, 0.5);
-        const side = an ? an.width : 0;
-        for (let i = 0; i < wave.length; i += 2) {
-          const s = (wave[i] - 128) / 128;
-          const s2 = (wave[(i + 7) % wave.length] - 128) / 128;
-          const l = s;
-          const r = s * (1 - side) + s2 * side;
+        for (let i = 0; i < chL.length; i += 2) {
+          const l = (chL[i] - 128) / 128;
+          const r = (chR[i] - 128) / 128;
           const x = cx + ((l - r) / Math.SQRT2) * R;
           const y = cy - ((l + r) / Math.SQRT2) * R;
           tc.fillRect(x, y, 2, 2);

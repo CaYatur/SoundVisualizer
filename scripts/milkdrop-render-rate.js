@@ -224,6 +224,30 @@ function pageHarness() {
           Math.sin(2 * Math.PI * 329.6 * tt));
         return s * 0.5;
       };
+      /* STEREO (#566). Sol = orta + yan, sağ = orta - yan; orta yukarıdaki
+         mono sinyalin KENDİSİ, yani mono okuyan her yol (bantlar, tayf,
+         "uyum kapalı" yolu) eskisiyle aynı sayıları görüyor. Yan: trampet
+         biraz sola, hi-hat sağa, ped akorunda iki kanal arasında faz farkı;
+         kick ve bas ortada — bir miksajın olağan yerleşimi. */
+      var sideAt = function (j) {
+        var tt = j / SR;
+        var b = Math.floor(tt / BEAT), tb = tt - b * BEAT;
+        var s = 0;
+        if (b % 2 === 1 && tb < 0.25) {
+          s += 0.3 * 0.175 * (noise(j) - noise(j - 1)) * Math.exp(-tb / 0.06);
+        }
+        var th = tt - Math.floor(tt / (BEAT / 2)) * (BEAT / 2);
+        if (th < 0.08) {
+          s -= 0.6 * 0.0225 * (noise(j) - 3 * noise(j - 1) + 3 * noise(j - 2) - noise(j - 3)) *
+            Math.exp(-th / 0.02);
+        }
+        s += 0.03 * Math.sin(2 * Math.PI * 277.2 * tt + 1.1);
+        return s * 0.5;
+      };
+      var toByte = function (s) {
+        s = s < -1 ? -1 : s > 1 ? 1 : s;
+        return (128 + s * 127) | 0;
+      };
       window.__audio = function (i) {
         var t = i / 30;
         var beat = Math.pow(Math.max(0, 1 - ((t * 2) % 1) * 2.2), 2);
@@ -231,10 +255,15 @@ function pageHarness() {
            zamana düşmesin. */
         var end = Math.floor((1 + t) * SR);
         var time = new Uint8Array(2048);
+        var timeL = new Uint8Array(2048);
+        var timeR = new Uint8Array(2048);
         for (var k = 0; k < 2048; k++) {
-          var s = sampleAt(end - 2047 + k);
-          s = s < -1 ? -1 : s > 1 ? 1 : s;
-          time[k] = (128 + s * 127) | 0;
+          var j = end - 2047 + k;
+          var s = sampleAt(j);
+          var d = sideAt(j);
+          time[k] = toByte(s);
+          timeL[k] = toByte(s + d);
+          timeR[k] = toByte(s - d);
         }
         /* Sentetik TAYF. 'spectrum = 1' yazan ozel dalgalar frekans
            verisi okuyor; vermezsek o yol olcumde hic calismaz ve
@@ -252,6 +281,9 @@ function pageHarness() {
           mid: 0.35 + 0.25 * Math.abs(Math.sin(t * 0.7)),
           treble: 0.25 + 0.2 * Math.abs(Math.sin(t * 1.3)),
           timeBytes: time,
+          timeL: timeL,
+          timeR: timeR,
+          stereo: true,
           freq: freq,
         };
       };

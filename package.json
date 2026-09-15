@@ -64,6 +64,7 @@
       "src/shared/audio-devices.js",
       "src/shared/app-audio.js",
       "src/main/app-capture.js",
+      "src/main/audio-frame.js",
       "src/main/loopback-helper.js"
     ],
     "win": {

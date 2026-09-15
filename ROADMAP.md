@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1651 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1666 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 54
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 69
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -696,6 +696,26 @@ MilkDrop (#560):
   reads a `vol` the per-frame code assigned for itself. On the 900-preset sample
   no preset changes class in either mode — 881 render a live image with the
   switch on, 862 with it off, as before.
+
+Audio:
+- **Both channels reach the visuals (#566)** · done on `main`. Found while
+  planning the waveform item above: the capture helper averaged left and right
+  into one channel before anything else saw them. Stereo width sat at 0 and
+  correlation at 1 for every song — both are modulation sources — and the
+  Goniometer, which the README calls a stereo phase scope, drew a vertical line.
+  Each frame now carries the left and right channels next to the mono mix,
+  which is computed exactly as before, so the spectrum, the bands and MilkDrop
+  see the same numbers; the analyser gets both channels and the Goniometer
+  draws left against right. The web overlay receives them appended after its
+  existing payload, so a page from an older build still reads its frame; the
+  exporter decodes both channels of the file; screenshot mode and the MilkDrop
+  render harness send a stereo signal whose mid channel is the old mono one.
+  The self-test fails if a frame from the helper arrives without both channels;
+  it passed with 4,637 frames and none missing them, and the export self-test,
+  whose tone is now stereo with different channels, exported all three scenes
+  with no black frames. With the harness sending stereo and the engine
+  unchanged, all 900 sampled results are identical to the previous run, with
+  MilkDrop Fidelity on and off.
 
 Streaming and transparency:
 - *Shipped early, in v3.1.4:* the overlay keeps a background effect and keys

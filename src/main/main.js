@@ -839,7 +839,14 @@ function startVisualizerCapture() {
   nativeAudio.startCapture(
     sources,
     (frame) => {
-      if (SMOKE) global.__smokeFrames = (global.__smokeFrames || 0) + 1;
+      if (SMOKE) {
+        global.__smokeFrames = (global.__smokeFrames || 0) + 1;
+        /* Kare iki kanalı da taşımalı (#566). Sessiz bir aygıtta sol ve sağ
+           aynı olabilir; denetlenen şey kanalların hatta VAR olması. */
+        if (!(frame.left && frame.right && frame.left.length === 2048 && frame.right.length === 2048)) {
+          global.__smokeMonoFrames = (global.__smokeMonoFrames || 0) + 1;
+        }
+      }
       sendToVisualizers('native-audio', frame);
       if (previewSubscribed) notifyAdmin('native-audio', frame);
       // OBS tarayıcı kaynağı ve diğer web istemcileri
@@ -3730,11 +3737,18 @@ async function runSmoke() {
         proc.on('close', (code) => resolve({ ok: code === 0, err }));
       });
 
-    // 4 saniyelik vuruşlu ton: bas darbeleri olay tabanlı modları da tetikler
+    /* 4 saniyelik vuruşlu ton: bas darbeleri olay tabanlı modları da
+       tetikler. STEREO ve iki kanalı farklı (#566): sol = 0,9 × karışım +
+       0,1 × 330 Hz, sağ = 0,9 × karışım - 0,1 × 330 Hz. Mono bir dosya dışa
+       aktarımın iki kanalı ayrı çözen yolunu hiç sınamazdı; orta kanal
+       eski karışımın kendisi, yalnız %10 kısık. */
     const gen = await runFf([
       '-y', '-f', 'lavfi', '-i', 'sine=frequency=60:duration=4',
       '-f', 'lavfi', '-i', 'sine=frequency=880:duration=4',
-      '-filter_complex', '[0:a]tremolo=f=2:d=0.9[b];[b][1:a]amix=inputs=2:weights=3 1[a]',
+      '-f', 'lavfi', '-i', 'sine=frequency=330:duration=4',
+      '-filter_complex',
+      '[0:a]tremolo=f=2:d=0.9[b];[b][1:a]amix=inputs=2:weights=3 1[m];' +
+        '[m][2:a]amerge=inputs=2,pan=stereo|c0=0.9*c0+0.1*c1|c1=0.9*c0-0.1*c1[a]',
       '-map', '[a]', wav,
     ]);
 
@@ -4165,6 +4179,11 @@ async function runSmoke() {
   if (smokeFrames < 30) {
     errors.push('audio: only ' + smokeFrames + ' frames arrived from the helper — the audio path is broken');
   }
+  const monoFrames = global.__smokeMonoFrames || 0;
+  console.log('[SMOKE] helper frames without left/right channels = ' + monoFrames);
+  if (monoFrames > 0) {
+    errors.push('audio: ' + monoFrames + ' helper frames arrived without the left and right channels');
+  }
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
     errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));
@@ -4286,15 +4305,26 @@ async function runShots() {
       freq[k] = Math.max(0, Math.min(255, v * 148));
     }
     const time = new Uint8Array(2048);
+    /* Sol ve sağ kanal (#566): orta + yan ve orta - yan. Orta yukarıdaki
+       mono dalganın kendisi, yani mono okuyan her şey eskisi gibi; yan
+       kanallar arasında faz farkı olan iki ses, gonyometre bir çizgi değil
+       bir alan çizsin diye. */
+    const left = new Uint8Array(2048);
+    const right = new Uint8Array(2048);
     for (let k = 0; k < 2048; k++) {
       const u = k / 2048;
       const s =
         Math.sin(u * Math.PI * 2 * 4 + t * 5.2) * 0.40 * (0.4 + beat) +
         Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1) * 0.22 +
         Math.sin(u * Math.PI * 2 * 12 + t * 9) * 0.10;
+      const side =
+        Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1 + 0.9) * 0.12 +
+        Math.sin(u * Math.PI * 2 * 12 + t * 9 + 2.1) * 0.06;
       time[k] = Math.max(0, Math.min(255, 128 + s * 118));
+      left[k] = Math.max(0, Math.min(255, 128 + (s + side) * 118));
+      right[k] = Math.max(0, Math.min(255, 128 + (s - side) * 118));
     }
-    return { freq, time, sampleRate: 48000 };
+    return { freq, time, left, right, sampleRate: 48000 };
   };
 
   // ==========================================================================

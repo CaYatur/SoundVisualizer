@@ -13,6 +13,14 @@
       this.bins = BINS;
       this.freqRaw = new Uint8Array(BINS); // ana süreçten ham frekans (0..255)
       this.timeBytes = new Uint8Array(FFT_SIZE); // zaman alanı (128 merkez)
+      /* Sol ve sağ kanal, 128 merkezli (#566). Yakalama iki kanalı
+         ortalayıp atıyordu; stereo genişliği, korelasyon ve gonyometre
+         bu yüzden hiç iki kanal görmedi. Kare kanal taşımıyorsa (sentetik
+         önizleme, eski biçim) ikisi de mono dizinin kopyası ve `stereo`
+         false: o durumda doğru ölçüm genişlik 0, korelasyon 1. */
+      this.timeL = new Uint8Array(FFT_SIZE);
+      this.timeR = new Uint8Array(FFT_SIZE);
+      this.stereo = false;
       this.freq = new Float32Array(BINS); // işlenmiş + yumuşatılmış (0..1)
       this.sampleRate = 48000;
       this.binHz = this.sampleRate / FFT_SIZE;
@@ -40,6 +48,9 @@
       }) : null;
       // Zaman alanı bayt olarak geliyor (128 merkez); çözümleme -1..1 ister
       this._timeF = new Float32Array(FFT_SIZE);
+      this._leftF = new Float32Array(FFT_SIZE);
+      this._rightF = new Float32Array(FFT_SIZE);
+      this._stereoIn = { left: this._leftF, right: this._rightF };
       this._analysisOn = true;
     }
 
@@ -55,6 +66,16 @@
       if (!frame || !frame.freq) return;
       this.freqRaw.set(frame.freq);
       this.timeBytes.set(frame.time);
+      const n = this.timeBytes.length;
+      if (frame.left && frame.right && frame.left.length === n && frame.right.length === n) {
+        this.timeL.set(frame.left);
+        this.timeR.set(frame.right);
+        this.stereo = true;
+      } else {
+        this.timeL.set(this.timeBytes);
+        this.timeR.set(this.timeBytes);
+        this.stereo = false;
+      }
       if (frame.sampleRate && frame.sampleRate !== this.sampleRate) {
         this.sampleRate = frame.sampleRate;
         this.binHz = this.sampleRate / FFT_SIZE;
@@ -108,9 +129,19 @@
       for (let i = 0; i < t.length; i++) this._timeF[i] = (t[i] - 128) / 128;
 
       if (this.analysis && this._analysisOn) {
+        /* İki kanal da veriliyor (#566). `analysis.update` dördüncü
+           argümanı bekliyordu ve hiç almıyordu: genişlik 0'da, korelasyon
+           1'de sabit kalıyor, modülasyon kaynakları hiç kıpırdamıyordu.
+           Mono karede kanallar aynı dizi, sonuç genişlik 0 ve korelasyon 1
+           — mono sesin doğru ölçümü. */
+        const L = this.timeL, R = this.timeR;
+        for (let i = 0; i < L.length; i++) {
+          this._leftF[i] = (L[i] - 128) / 128;
+          this._rightF[i] = (R[i] - 128) / 128;
+        }
         // Yumuşatılmamış tayf verilir: çözümleme kendi zaman sabitlerini
         // uyguluyor, iki kez yumuşatmak tepkiyi gereksiz körelttirdi
-        this.analysis.update(this.rawSpectrum(), this._timeF, dt || 1 / 60);
+        this.analysis.update(this.rawSpectrum(), this._timeF, dt || 1 / 60, this._stereoIn);
       }
     }
 

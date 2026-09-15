@@ -192,8 +192,31 @@ function broadcast(obj, kind) {
   }
 }
 
-/* Ses karesi (ikili): [0..3] sampleRate (LE) | [4..] freq | sonra time.
-   JSON'a göre ~4 kat küçük ve ayrıştırma maliyeti sıfır. */
+/* Ses karesi (ikili). Başlık 12 bayt, küçük endian: örnekleme hızı, tayf
+   uzunluğu, zaman dizisi uzunluğu. Ardından tayf, mono zaman dizisi ve —
+   kare taşıyorsa — sol ile sağ kanal. JSON'a göre ~4 kat küçük ve
+   ayrıştırma maliyeti sıfır. */
+function encodeAudio(frame) {
+  const view = (a) => Buffer.from(a.buffer || a, a.byteOffset || 0, a.length);
+  const freq = view(frame.freq);
+  const time = view(frame.time);
+  const head = Buffer.alloc(12);
+  head.writeUInt32LE(frame.sampleRate || 48000, 0);
+  head.writeUInt32LE(freq.length, 4);
+  head.writeUInt32LE(time.length, 8);
+  /* Sol ve sağ kanal (#566) başlık DEĞİŞMEDEN sona ekleniyor, her biri
+     mono dizi uzunluğunda. Eski bir sürümün sayfası başlıktaki iki
+     uzunluğu okuyup kalanı görmezden geliyor; yeni sayfa kanalları ancak
+     ileti o uzunluğu taşıyorsa okuyor. Kanalları olmayan bir kare (eski
+     biçim, sentetik kaynak) mono gönderilmeye devam ediyor. */
+  const parts = [head, freq, time];
+  if (frame.left && frame.right &&
+      frame.left.length === time.length && frame.right.length === time.length) {
+    parts.push(view(frame.left), view(frame.right));
+  }
+  return Buffer.concat(parts);
+}
+
 function broadcastAudio(frame) {
   if (!clients.size || !frame || !frame.freq) return;
   const now = Date.now();
@@ -201,13 +224,7 @@ function broadcastAudio(frame) {
   if (now - lastFrameSent < minGap - 1) return;
   lastFrameSent = now;
 
-  const freq = Buffer.from(frame.freq.buffer || frame.freq, frame.freq.byteOffset || 0, frame.freq.length);
-  const time = Buffer.from(frame.time.buffer || frame.time, frame.time.byteOffset || 0, frame.time.length);
-  const head = Buffer.alloc(12);
-  head.writeUInt32LE(frame.sampleRate || 48000, 0);
-  head.writeUInt32LE(freq.length, 4);
-  head.writeUInt32LE(time.length, 8);
-  const payload = Buffer.concat([head, freq, time]);
+  const payload = encodeAudio(frame);
   for (const c of clients) {
     if (c.kind === 'overlay') sendTo(c, 0x2, payload);
   }
@@ -631,6 +648,7 @@ module.exports = {
   status,
   broadcast,
   broadcastAudio,
+  encodeAudio,
   broadcastNowPlaying,
   newToken,
   lanAddress,

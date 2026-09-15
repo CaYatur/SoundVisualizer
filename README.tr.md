@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1651%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1666%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -949,6 +949,11 @@ okur, FFT'yi hesaplar ve kareleri arayüze gönderir.
 - **Sistem sesi** doğrudan çıkış aygıtından yakalanır — "stereo mix" gerekmez.
 - **Mikrofon ve hat girişleri** aynı yolla yakalanır.
 - **Birden çok kaynak** çözümlemeden önce karıştırılır.
+- **İki kanal da görsellere ulaşır.** Her kare, tayfın hesaplandığı mono karışımın yanında sol ve sağ
+  kanalı da taşır; stereo genişliği, korelasyon ve Gonyometre gerçek stereo görüntüyü ölçer.
+  v3.1.5'e kadar yakalama yardımcısı iki kanalı başka hiçbir şey görmeden ortalayıp atıyordu:
+  genişlik 0'da, korelasyon 1'de kalıyor, Gonyometre her şarkıda dikey bir çizgi çiziyordu. Tek
+  kanallı bir aygıt iki tarafa aynı örneği verir; bu da doğru biçimde genişlik 0 okunur.
 - **macOS'ta** sistem sesini yakalamak için **BlackHole** gibi sanal bir aygıt gerekir; mikrofon
   doğrudan çalışır. macOS'un kendi loopback'i yok, bunun etrafından dolaşmanın yolu da yok.
 - **Linux'ta** sistem sesi, çıkış aygıtınızın PulseAudio ya da PipeWire **monitor**'üdür. Bu bir
@@ -1069,7 +1074,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1651 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1666 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

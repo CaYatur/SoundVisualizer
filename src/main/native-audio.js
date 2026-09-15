@@ -33,7 +33,10 @@ function unpacked(p) {
 const HELPER = unpacked(path.join(__dirname, 'loopback-helper.js'));
 // ROOT'u HELPER'dan türet (yukarıdaki gibi "app.asar" ile biten yolda replace eşleşmez)
 const ROOT = path.join(path.dirname(HELPER), '..', '..');
-const FRAME_BYTES = 2 + 4 + 1024 + 2048; // marker + sr + freq + time = 3078
+/* Karenin yerleşimi yardımcıyla ORTAK: işaret, örnekleme hızı, tayf, mono,
+   sol ve sağ kanal (bkz. audio-frame.js, #566). */
+const frameFormat = require('./audio-frame.js');
+const FRAME_BYTES = frameFormat.FRAME_BYTES;
 
 // Sistem node yürütülebilirini bul (paketlenmiş uygulamada PATH güvenilir olmayabilir)
 let _nodeCache = null;
@@ -321,19 +324,17 @@ function startCapture(devices, onFrame, onStatus) {
 function parseFrames(generation) {
   if (generation !== captureGeneration || !Buffer.isBuffer(acc)) return;
   while (acc.length >= FRAME_BYTES) {
-    if (acc[0] !== 0xaa || acc[1] !== 0x55) {
+    const M0 = frameFormat.MARKER0, M1 = frameFormat.MARKER1;
+    if (acc[0] !== M0 || acc[1] !== M1) {
       // yeniden hizala
       let k = 1;
-      while (k < acc.length - 1 && !(acc[k] === 0xaa && acc[k + 1] === 0x55)) k++;
+      while (k < acc.length - 1 && !(acc[k] === M0 && acc[k + 1] === M1)) k++;
       acc = acc.subarray(k);
       if (acc.length < FRAME_BYTES) return;
     }
-    const frame = acc.subarray(0, FRAME_BYTES);
-    const sampleRate = frame.readUInt32LE(2);
-    const freq = Uint8Array.prototype.slice.call(frame, 6, 6 + 1024);
-    const time = Uint8Array.prototype.slice.call(frame, 6 + 1024, 6 + 1024 + 2048);
+    const frame = frameFormat.parseFrame(acc.subarray(0, FRAME_BYTES));
     acc = acc.subarray(FRAME_BYTES);
-    if (frameCb) frameCb({ freq, time, sampleRate });
+    if (frameCb) frameCb(frame);
   }
 }
 

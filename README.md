@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1651%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1666%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -949,6 +949,11 @@ computes the FFT, and sends frames to the renderer.
 - **System audio** is captured from the output device directly — no "stereo mix" required.
 - **Microphones and line inputs** are captured the same way.
 - **Several sources at once** are mixed before analysis.
+- **Both channels reach the visuals.** Each frame carries the left and right channels next to the
+  mono mix the spectrum is computed from, so stereo width, correlation and the Goniometer measure the
+  real stereo image. Until v3.1.5 the capture helper averaged the two channels away before anything
+  else saw them: width sat at 0, correlation at 1, and the Goniometer drew a vertical line for every
+  song. A mono device gives the same sample on both sides, which reads correctly as width 0.
 - On **macOS**, capturing system audio needs a virtual device such as **BlackHole**; microphones
   work directly. macOS has no loopback of its own, so there is no way around this.
 - On **Linux**, system audio is the PulseAudio or PipeWire **monitor** of your output device.
@@ -1068,7 +1073,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1651 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1666 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

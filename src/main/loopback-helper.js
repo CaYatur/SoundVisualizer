@@ -17,11 +17,11 @@
 
 const { RtAudio, RtAudioApi, RtAudioFormat } = require('audify');
 
-const FFT_SIZE = 2048;
-const BINS = FFT_SIZE / 2; // 1024
+/* Karenin yerleşimi ve kaynak tamponları ana süreçle ORTAK (bkz.
+   audio-frame.js): biri değişip öbürü değişmeseydi kareler kayardı. */
+const frameFormat = require('./audio-frame.js');
+const { FFT_SIZE, BINS, OFFSET } = frameFormat;
 const FRAME = 512; // callback başına örnek
-const MARKER0 = 0xaa;
-const MARKER1 = 0x55;
 const MIN_DB = -90;
 const MAX_DB = -18;
 
@@ -138,17 +138,18 @@ if (wanted.length === 1 && wanted[0] === 'default') {
 }
 
 // FFT hazırlığı
-const ring = new Float32Array(FFT_SIZE); // karışım (mix) tampon
+/* Karışım: mono ve iki kanal. Tayf mono karışımdan hesaplanıyor — eskisi
+   gibi; iki kanal yalnız zaman baytları olarak karenin sonuna ekleniyor. */
+const mixed = new frameFormat.SourceRings();
 const hann = new Float32Array(FFT_SIZE);
 for (let i = 0; i < FFT_SIZE; i++) hann[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (FFT_SIZE - 1)));
 const re = new Float32Array(FFT_SIZE);
 const im = new Float32Array(FFT_SIZE);
 
-// Çıkış karesi: marker(2) + sampleRate(4) + freq(1024) + time(2048)
-const FRAME_BYTES = 2 + 4 + BINS + FFT_SIZE;
-const outBuf = Buffer.allocUnsafe(FRAME_BYTES);
-outBuf[0] = MARKER0;
-outBuf[1] = MARKER1;
+// Çıkış karesi: işaret, örnekleme hızı, tayf, mono, sol, sağ (audio-frame.js)
+const outBuf = Buffer.allocUnsafe(frameFormat.FRAME_BYTES);
+outBuf[0] = frameFormat.MARKER0;
+outBuf[1] = frameFormat.MARKER1;
 
 function fft() {
   const n = FFT_SIZE;
@@ -183,6 +184,7 @@ function fft() {
 
 function emit() {
   // pencereleme + FFT girişi
+  const ring = mixed.mono;
   for (let i = 0; i < FFT_SIZE; i++) {
     re[i] = ring[i] * hann[i];
     im[i] = 0;
@@ -196,15 +198,12 @@ function emit() {
     let db = 20 * Math.log10(mag + 1e-9);
     let v = (db - MIN_DB) / range;
     v = v < 0 ? 0 : v > 1 ? 1 : v;
-    outBuf[6 + i] = (v * 255) | 0;
+    outBuf[OFFSET.freq + i] = (v * 255) | 0;
   }
-  // zaman baytları (128 merkez)
-  const tOff = 6 + BINS;
-  for (let i = 0; i < FFT_SIZE; i++) {
-    let s = ring[i];
-    s = s < -1 ? -1 : s > 1 ? 1 : s;
-    outBuf[tOff + i] = (128 + s * 127) | 0;
-  }
+  // zaman baytları (128 merkez): mono, sonra iki kanal
+  frameFormat.writeTime(outBuf, OFFSET.time, mixed.mono);
+  frameFormat.writeTime(outBuf, OFFSET.left, mixed.left);
+  frameFormat.writeTime(outBuf, OFFSET.right, mixed.right);
   const ok = process.stdout.write(outBuf);
   return ok;
 }
@@ -214,22 +213,14 @@ process.stdout.on('drain', () => (backpressure = false));
 process.stdout.on('error', () => process.exit(0));
 
 const instances = [];
-const rings = []; // her aygıt için ayrı mono tampon
+const sources = []; // her kaynak için ayrı tamponlar: mono + iki kanal
 const started = [];
 let startedSr = 48000;
 
-function makeCallback(ringR, nCh) {
+function makeCallback(src, nCh) {
   return (pcm) => {
     const f = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength / 4);
-    const samples = (f.length / nCh) | 0;
-    ringR.copyWithin(0, samples);
-    let w = FFT_SIZE - samples;
-    if (w < 0) w = 0;
-    for (let i = 0, idx = 0; i < samples; i++, idx += nCh) {
-      let m = f[idx];
-      if (nCh > 1) m = (f[idx] + f[idx + 1]) * 0.5;
-      if (w + i < FFT_SIZE) ringR[w + i] = m;
-    }
+    src.pushFloat32(f, nCh);
   };
 }
 
@@ -238,7 +229,7 @@ for (const d of resolved) {
   try {
     const inst = makeRt();
     const nCh = Math.min(2, d.channels) || 2;
-    const ringR = new Float32Array(FFT_SIZE);
+    const src = new frameFormat.SourceRings();
     inst.openStream(
       null,
       { deviceId: d.id, nChannels: nCh, firstChannel: 0 },
@@ -246,12 +237,12 @@ for (const d of resolved) {
       d.sampleRate,
       FRAME,
       'cap' + d.id,
-      makeCallback(ringR, nCh),
+      makeCallback(src, nCh),
       null
     );
     inst.start();
     instances.push(inst);
-    rings.push(ringR);
+    sources.push(src);
     started.push(d.name);
     startedSr = d.sampleRate || startedSr;
   } catch (e) {
@@ -261,19 +252,19 @@ for (const d of resolved) {
 
 /* ---------------------------------------------- uygulama başına yakalama
 
-   Aygıt akışlarıyla aynı karışıma yazar: her uygulama kendi mono tamponunu
+   Aygıt akışlarıyla aynı karışıma yazar: her uygulama kendi tamponlarını
    alır ve aşağıdaki zamanlayıcı hepsini birlikte karıştırır. Böylece
    "yalnızca Spotify" da, "Spotify + mikrofon" da aynı yolla çalışıyor.
 
    PCM ayrı bir süreçten geliyor (bkz. native/app-audio-helper): WASAPI'nin
    süreç loopback'i COM üzerinden ve Node'dan çağrılamıyor. */
 const appProcs = [];
-/* Her uygulama kaynağı için bir mono tampon AYRILIR, süreç sonradan bağlansa
-   bile karışımdaki yeri sabit kalsın diye. */
-const appRings = wantedApps.map(() => {
-  const r = new Float32Array(FFT_SIZE);
-  rings.push(r);
-  return r;
+/* Her uygulama kaynağı için tamponlar AYRILIR, süreç sonradan bağlansa bile
+   karışımdaki yeri sabit kalsın diye. */
+const appSources = wantedApps.map(() => {
+  const s = new frameFormat.SourceRings();
+  sources.push(s);
+  return s;
 });
 
 /* Seçilen uygulamayı yakalamaya bağlar. Bağlanamazsa (uygulama henüz açık
@@ -296,7 +287,7 @@ function attachApp(app, index) {
   const child = appCapture.spawn(target.pid, app.mode);
   if (!child) return false;
   appProcs[index] = child;
-  const ringR = appRings[index];
+  const src = appSources[index];
 
   /* stdout ham float32 stereo akıtıyor. Parçalar kare sınırına düşmek zorunda
      değil, o yüzden artan baytlar bir sonraki parçaya taşınıyor; taşımasaydık
@@ -307,17 +298,7 @@ function attachApp(app, index) {
     const frames = Math.floor(buf.length / 8); // 2 kanal x float32
     if (frames > 0) {
       const usable = frames * 8;
-      ringR.copyWithin(0, frames);
-      let w = FFT_SIZE - frames;
-      if (w < 0) w = 0;
-      /* readFloatLE ile okunuyor, Float32Array görünümüyle değil: Node'un
-         havuzdan verdiği tamponun byteOffset'i 4'ün katı olmak zorunda değil
-         ve hizalanmamış bir görünüm RangeError atardı. */
-      for (let i = 0, off = 0; i < frames; i++, off += 8) {
-        if (w + i < FFT_SIZE) {
-          ringR[w + i] = (buf.readFloatLE(off) + buf.readFloatLE(off + 4)) * 0.5;
-        }
-      }
+      src.pushStereoLE(buf, frames);
       carry = Buffer.from(buf.subarray(usable));
     } else {
       carry = Buffer.from(buf);
@@ -334,7 +315,7 @@ function attachApp(app, index) {
   child.on('exit', () => {
     if (appProcs[index] === child) {
       appProcs[index] = null;
-      ringR.fill(0);
+      src.reset();
       process.stderr.write('APP-DETACHED ' + app.match + '\n');
     }
   });
@@ -380,7 +361,7 @@ if (instances.length === 0 && wantedApps.length === 0) {
   process.exit(3);
 }
 
-outBuf.writeUInt32LE(startedSr, 2);
+outBuf.writeUInt32LE(startedSr, OFFSET.sampleRate);
 process.stderr.write('CAPTURE-START ' + started.join(' + ') + '\n');
 
 // Kaynakları karıştır + yayınla (~70 Hz)
@@ -389,15 +370,10 @@ process.stderr.write('CAPTURE-START ' + started.join(' + ') + '\n');
    bir uygulama seçilince aygıt sayısı sıfır oluyordu ve 1/sqrt(0) = Infinity
    karışımı NaN'a düşürüyordu — kareler akmaya devam ediyor ama hepsi sıfır
    çıkıyordu, yani sessiz bir görselleştirici ve görünür bir hata yok. */
-const norm = 1 / Math.sqrt(Math.max(1, rings.length));
+const norm = 1 / Math.sqrt(Math.max(1, sources.length));
 const timer = setInterval(() => {
   if (backpressure) return;
-  const count = rings.length;
-  for (let i = 0; i < FFT_SIZE; i++) {
-    let s = 0;
-    for (let r = 0; r < count; r++) s += rings[r][i];
-    ring[i] = s * norm;
-  }
+  frameFormat.mixSources(mixed, sources, norm);
   const ok = emit();
   if (!ok) backpressure = true;
 }, 14);
