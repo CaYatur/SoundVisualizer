@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1632%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1644%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -458,6 +458,13 @@ Turn on **Output → Streaming Output** and the application serves an overlay pa
   never loaded `aspect.js` — and the error sat in a hidden box, so OBS and the browser showed an
   empty page with nothing in the console (#563). The page now shows the error and logs it, and the
   self-test loads the overlay from the real stream server on every run, packaged builds included.
+- **A diagnostics card for when something is wrong.** Add `?debug=1` to the overlay address and a
+  card in the corner shows whether the page is connected and how many attempts it took, whether and
+  when the configuration arrived, audio frames per second and the age of the last one, the page's
+  own frame rate and canvas size, the transparency in use, the version of the application that
+  served the page, and the last error — a script that failed to load included. It is translated
+  like the rest of the page and stays off unless asked for; the self-test opens the overlay with
+  it on every run (#565).
 - **The visualizer window itself can be the overlay.** Turn on **Background → Transparent
   Background** and the desktop shows through the window: a solid colour is not painted, and a
   background effect's dark parts turn transparent below the **Transparency Threshold** — black
@@ -1051,7 +1058,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1632 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1644 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

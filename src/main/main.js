@@ -1673,6 +1673,7 @@ function syncStreamServer() {
       getConfig: () => currentConfig,
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
+      getVersion: () => app.getVersion(),
       getNowPlaying: () => mediaSession.current(),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
@@ -4017,9 +4018,12 @@ async function runSmoke() {
         if (isConsoleNoise(c.message)) return;
         if (c.level === 3 || c.level === 'error') konsol.push(c.message.slice(0, 200));
       });
-      await win.loadURL('http://127.0.0.1:' + port + '/?transparent=0');
+      /* `?debug=1`: aynı yükleme tanı kartını da (#565) sınıyor. Kart kendi
+         sayaçlarını okuyor; sayfanın başlaması kadar kartın doğru rapor
+         etmesi de denetleniyor. */
+      await win.loadURL('http://127.0.0.1:' + port + '/?transparent=0&debug=1');
       let r = null;
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 48; i++) {
         await wait(250);
         r = await win.webContents.executeJavaScript(`(function () {
           var e = document.getElementById('error');
@@ -4027,10 +4031,15 @@ async function runSmoke() {
           document.querySelectorAll('#stage canvas').forEach(function (c) {
             max = Math.max(max, Math.min(c.width, c.height));
           });
+          var k = document.getElementById('svDiag');
           return { status: document.documentElement.getAttribute('data-sv-status'),
-                   err: e ? e.textContent : '', canvasMax: max };
+                   err: e ? e.textContent : '', canvasMax: max,
+                   kart: k ? { status: k.dataset.status, configs: +k.dataset.configs, audioFrames: +k.dataset.audioFrames,
+                               version: k.dataset.version, canvas: k.dataset.canvas, error: k.dataset.error,
+                               rows: k.querySelectorAll('.d-row').length } : null };
         })()`);
-        if (r.err || (r.status === 'connected' && r.canvasMax > 16)) break;
+        const cardReady = r.kart && r.kart.configs > 0 && (r.kart.audioFrames > 0 || !(global.__smokeFrames > 0));
+        if (r.err || (r.status === 'connected' && r.canvasMax > 16 && cardReady)) break;
       }
       return Object.assign({ port }, r, { konsol });
     } finally {
@@ -4048,6 +4057,17 @@ async function runSmoke() {
     else if (overlayRes.status !== 'connected') errors.push('overlay: never connected to the stream server (' + overlayRes.status + ')');
     else if (!(overlayRes.canvasMax > 16)) errors.push('overlay: the stage never got a size - the page did not start');
     if (overlayRes.konsol && overlayRes.konsol.length) errors.push('overlay: console errors: ' + overlayRes.konsol.join(' | '));
+    const k = overlayRes.kart;
+    if (!k) {
+      errors.push('overlay diagnostics: ?debug=1 did not show the card');
+    } else {
+      if (k.status !== 'connected') errors.push('overlay diagnostics: the card reports "' + k.status + '" on a connected page');
+      if (!(k.configs > 0)) errors.push('overlay diagnostics: the card never saw the configuration arrive');
+      if (k.version !== app.getVersion()) errors.push('overlay diagnostics: the card shows version "' + k.version + '", expected ' + app.getVersion());
+      if (global.__smokeFrames > 0 && !(k.audioFrames > 0)) errors.push('overlay diagnostics: audio is flowing but the card counted no audio frames');
+      if (k.error) errors.push('overlay diagnostics: the card reports an error on a healthy page: ' + k.error);
+      if (k.rows !== 7) errors.push('overlay diagnostics: expected 7 rows, found ' + k.rows);
+    }
   }
 
   /* SAYDAMLIK EFEKT ZİNCİRİNDEN SAĞ ÇIKIYOR MU?

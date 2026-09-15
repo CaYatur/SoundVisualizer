@@ -60,6 +60,10 @@ let hooks = {
   getConfig: () => null,
   getPresets: () => [],
   getLocale: () => 'en',
+  /* Sayfayı hangi sürüm servis etti? Tanı kartı (#565) gösteriyor: OBS eski
+     bir sayfayı önbellekten çiziyorsa ya da yanlış kopyaya bağlıysa ilk
+     bakılacak yer. */
+  getVersion: () => '',
   onCommand: () => {},
   onClientsChanged: () => {},
 };
@@ -431,7 +435,12 @@ function handleUpgrade(req, socket) {
   hooks.onClientsChanged(clientInfo());
 
   // açılışta mevcut durum
-  sendJson(client, { type: 'hello', app: 'CAYADEV Visualizer', kind: client.kind });
+  sendJson(client, {
+    type: 'hello',
+    app: 'CAYADEV Visualizer',
+    kind: client.kind,
+    version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
+  });
   sendJson(client, { type: 'config', config: hooks.getConfig() });
   sendJson(client, { type: 'presets', presets: hooks.getPresets() });
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;

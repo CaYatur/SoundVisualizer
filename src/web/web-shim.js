@@ -31,6 +31,29 @@
   const freqBuf = new Uint8Array(1024);
   const timeBuf = new Uint8Array(2048);
 
+  /* Sayfanın durumu (#565). Sayaçlar HER ZAMAN tutuluyor — ileti başına bir
+     artırma; `?debug=1` ile açılan tanı kartı (overlay-diag.js) bunları
+     okuyor. Bağlantı, yapılandırma ve ses ayrı ayrı sayılıyor, çünkü boş bir
+     yayının sebebi hangisinin eksik olduğudur. */
+  const status = {
+    kind,
+    status: 'connecting',
+    attempts: 0,
+    connectedAt: 0,
+    lastCloseAt: 0,
+    app: '',
+    version: '',
+    configs: 0,
+    lastConfigAt: 0,
+    audioFrames: 0,
+    lastAudioAt: 0,
+    sampleRate: 0,
+    transparency: forceOpaque ? 'forced-opaque' : params.get('transparent') === '1' ? 'forced-transparent' : 'app',
+    appTransparent: false,
+    blackout: false,
+  };
+  window.SVOverlayStatus = status;
+
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const q = new URLSearchParams({ kind });
@@ -84,11 +107,16 @@
   }
 
   function connect() {
+    /* Yeniden denemeler durumu "bağlanıyor"a ÇEKMİYOR: sayfadaki "bağlantı
+       yok" uyarısı (`data-sv-status`) her denemede bir an kaybolup gelirdi.
+       Kart son bilinen durumu deneme sayısıyla birlikte gösteriyor. */
+    status.attempts++;
     try { ws = new WebSocket(wsUrl()); } catch { scheduleRetry(); return; }
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
       retry = 0;
+      status.connectedAt = Date.now();
       setStatus('connected');
     };
 
@@ -96,7 +124,17 @@
       if (typeof ev.data !== 'string') { onAudio(ev.data); return; }
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
-      if (msg.type === 'config') {
+      if (msg.type === 'hello') {
+        status.app = String(msg.app || '');
+        status.version = String(msg.version || '');
+      } else if (msg.type === 'config') {
+        status.configs++;
+        status.lastConfigAt = Date.now();
+        /* Dönüşümden ÖNCEKİ ayar: kart uygulamanın anahtarını gösteriyor,
+           URL'nin zorladığını ayrıca yazıyor. */
+        const raw = msg.config || {};
+        status.appTransparent = !!(raw.background && raw.background.transparent);
+        status.blackout = !!raw.isBlackout;
         const c = transform(msg.config);
         if (!firstConfig) { firstConfig = c; resolveConfig(c); }
         handlers.config.forEach((h) => h(c));
@@ -116,7 +154,11 @@
     };
 
     ws.onerror = () => setStatus('error');
-    ws.onclose = () => { setStatus('closed'); scheduleRetry(); };
+    ws.onclose = () => {
+      status.lastCloseAt = Date.now();
+      setStatus('closed');
+      scheduleRetry();
+    };
   }
 
   function scheduleRetry() {
@@ -140,10 +182,14 @@
     freqBuf.set(f.subarray(0, Math.min(f.length, freqBuf.length)));
     timeBuf.set(t.subarray(0, Math.min(t.length, timeBuf.length)));
     const frame = { freq: freqBuf, time: timeBuf, sampleRate };
+    status.audioFrames++;
+    status.lastAudioAt = Date.now();
+    status.sampleRate = sampleRate;
     handlers.audio.forEach((h) => h(frame));
   }
 
   function setStatus(s) {
+    status.status = s;
     document.documentElement.setAttribute('data-sv-status', s);
   }
 

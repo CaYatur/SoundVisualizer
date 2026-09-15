@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1632 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1644 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 35
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 47
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -697,8 +697,14 @@ Streaming and transparency:
   also covers older versions and hand edits. Verified with three copies on one
   isolated profile: 30 of 30 checks, from the start-up question to the load and
   keep choices and the warning clearing when a copy closes.
-- **An overlay diagnostics card** (`?debug=1`, #565): connection, whether the
-  configuration arrived, audio frames per second and the last error.
+- **An overlay diagnostics card (#565)** · done on `main`. `?debug=1` on the
+  overlay address shows the connection and its attempts, whether and when the
+  configuration arrived, audio frames per second and the age of the last one,
+  the page's frame rate and canvas size, the transparency in use, the version
+  that served the page and the last error, a script that failed to load
+  included. The self-test opens the overlay with the card on every run and
+  checks what it reports; checked by hand connected, with a script removed, in
+  English, and with the application closed.
 
 ## v3.1.6 — Comprehensive video export
 
