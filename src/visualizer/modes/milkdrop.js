@@ -3298,7 +3298,21 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const cyp = this._toClipY(+o.y);
           if (!isFinite(cxp) || !isFinite(cyp)) continue;
           const ang0 = +o.ang || 0;
-          const n = s.sides;
+          /* KENAR SAYISI, DOKU ve TOPLAMALI ÇİZİM per_frame'den sonra
+             okunuyor (milkdropfs.cpp:2171-2173, 2176, 2205): üçü de
+             girdi-çıktı değişken. Motor üçünü de dosyadan alıyordu, yani
+             kare kare değiştiren presetler ilk değerde donuyordu. MilkDrop
+             kenar sayısını `(int)` ile kesip 3..100'e kenetliyor. */
+          let n = s.sides;
+          let textured = s.textured;
+          let additive = s.additive;
+          if (acc) {
+            n = Math.trunc(+o.sides);
+            if (!(n >= 3)) n = 3; else if (n > 100) n = 100;
+            const tx = Math.trunc(+o.textured), ad = Math.trunc(+o.additive);
+            textured = isFinite(tx) && tx !== 0;
+            additive = isFinite(ad) && ad !== 0;
+          }
           /* milkdropfs.cpp:2185-2192. `alpha_mult` COLOR_NORM'un İÇİNDE:
              önce çarpılıyor, sonra 8 bite iniyor. Dışında yapmak geçiş
              sırasında başka bir alfa verirdi. */
@@ -3306,7 +3320,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           const c1 = [cn(o.r), cn(o.g), cn(o.b), cn((+o.a || 0) * aMul)];
           const c2 = [cn(o.r2), cn(o.g2), cn(o.b2), cn((+o.a2 || 0) * aMul)];
 
-          if (s.textured) {
+          if (textured) {
             /* DOKULU: şekil, önceki karenin üstünde bir pencere. Merkez
                dokunun ortasına oturuyor, kenar noktaları tex_zoom'a göre
                ölçekli bir yarıçapa; tex_ang örneklemeyi döndürüyor. Renk
@@ -3340,7 +3354,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
               td[k + 6] = 0.5 + 0.5 * Math.cos(tth) / tz * (acc ? aspY : 1);
               td[k + 7] = 0.5 - 0.5 * Math.sin(tth) / tz;
             }
-            this._blend(gl, s.additive);
+            this._blend(gl, additive);
             gl.useProgram(this.shapeTexProg);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, this._shapeSrcTex);
@@ -3363,7 +3377,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
               d[k + 1] = cyp + Math.sin(th) * rad;
               d[k + 2] = c2[0]; d[k + 3] = c2[1]; d[k + 4] = c2[2]; d[k + 5] = c2[3];
             }
-            this._blend(gl, s.additive);
+            this._blend(gl, additive);
             gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
             gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, (n + 2) * 6);
             gl.drawArrays(gl.TRIANGLE_FAN, 0, n + 2);

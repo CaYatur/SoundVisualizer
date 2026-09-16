@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1731 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1734 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 134
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 137
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -775,6 +775,18 @@ MilkDrop (#560):
   output and none do with the switch off; four of the five differ on screen
   when rendered alone, one of them over 75% of its pixels. No preset changes
   class on the 900-preset sample.
+- **A shape's side count, texturing and blending come from its equations** ·
+  done on `main`. MilkDrop registers `sides`, `textured` and `additive` as
+  input/output variables of a shape's per-frame code (state.cpp:491-495) and
+  reads all three after running it (milkdropfs.cpp:2171-2176, 2205); the file
+  value is only where they start. We read the file and never looked again, so
+  53 presets that switch additive blending per frame, 8 that switch texturing
+  and 4 that drive the side count were frozen at their first value - the same
+  gap `thick` had. The side count is truncated and clamped to 3..100 after the
+  equations, as the source does. On the 900-preset sample at 960x720 one
+  preset changes class, and rendered alone in both trees it is identical -
+  that flip is the picture it inherits from the preset before it in the run,
+  not this change. The legacy run is identical byte for byte.
 - **A textured shape samples the window MilkDrop samples** · done on `main`.
   MilkDrop places a shape's corners at its own angle but does not turn the
   window it reads from the previous frame with them (milkdropfs.cpp:2198-2200):

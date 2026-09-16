@@ -1233,6 +1233,16 @@
              davranışı buradan bedavaya geliyor. Başlıkta bırakmak 15
              preseti yanlış çizerdi. */
           thick: g('thickoutline', 0) !== 0 ? 1 : 0,
+          /* `sides`, `textured` ve `additive` de GİRDİ-ÇIKTI (state.cpp:
+             491, 492, 495). Dosyadaki değer yalnız başlangıç; şeklin
+             per_frame kodu kenar sayısını, dokulu olup olmadığını ve
+             toplamalı çizimi kare kare değiştirebiliyor. Korpusta 53
+             preset `additive`, 8 preset `textured`, 4 preset `sides`
+             yazıyor. Ham sayı olarak duruyorlar: kenetleme ve tam sayıya
+             çevirme MilkDrop'ta per_frame'den SONRA. */
+          sides: g('sides', 4),
+          textured: g('textured', 0),
+          additive: g('additive', 0),
         },
         pool,
         initialised: false,
