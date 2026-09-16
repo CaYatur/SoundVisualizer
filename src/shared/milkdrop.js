@@ -1286,6 +1286,10 @@
          yuvarlamak "hiç çizme" diyen bir preseti çizdirirdi. */
       const n = Math.floor(P.get('samples'));
       w.frameSamples = isFinite(n) ? Math.min(512, Math.max(0, n)) : 0;
+      /* Noktaların rengi HER NOKTADA bu değerlerden başlıyor
+         (milkdropfs.cpp:2475-2478). Kare denklemleri koştuktan sonra
+         alınıyor: dalganın o karedeki rengi bu. */
+      w._ppColor = { r: P.get('r'), g: P.get('g'), b: P.get('b'), a: P.get('a') };
       return true;
     }
 
@@ -1297,10 +1301,24 @@
       P.set('sample', sample);
       P.set('value1', v1);
       P.set('value2', v2);
-      /* x/y tohumlanıyor: per_point bunları yazmayan bir preset varsa
-         ekranın ortasında düz bir çizgi çıksın, tanımsız değer değil. */
-      P.set('x', sample);
-      P.set('y', 0.5);
+      /* HER NOKTA kendi tohumundan başlıyor (milkdropfs.cpp:2470-2478):
+         x ve y dalganın kendi örneğinden (`0,5 + value`), renk de dalganın
+         o karedeki renginden. Motor x'i örneğin sırasına, y'yi 0,5'e
+         kuruyordu ve rengi hiç tohumlamıyordu:
+           • x ya da y yazmayan bir blok (korpusta 63 ve 98 blok, 58 ve 84
+             preset) dalga biçimi yerine düz bir çizgi ya da rampa
+             görüyordu;
+           • rengi kendi değerinden türeten bir blok (`a = a * 0,9` gibi;
+             4.371 blok, 1.811 preset, %17,5) noktalar boyunca BİRİKİYORDU
+             — MilkDrop'ta her nokta aynı renkten başlıyor.
+         Uyum kapalıyken eski tohumlar duruyor. */
+      const acc = this.accurate !== false;
+      P.set('x', acc ? 0.5 + v1 : sample);
+      P.set('y', acc ? 0.5 + v2 : 0.5);
+      if (acc && w._ppColor) {
+        P.set('r', w._ppColor.r); P.set('g', w._ppColor.g);
+        P.set('b', w._ppColor.b); P.set('a', w._ppColor.a);
+      }
       w.cPoint.run(P.values);
       const o = out || {};
       o.x = P.get('x'); o.y = P.get('y');

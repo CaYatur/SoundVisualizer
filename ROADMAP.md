@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1723 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1725 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 126
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 128
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -749,6 +749,21 @@ MilkDrop (#560):
   any real size no case matches and the mode its source calls "constant and
   faint" draws fully opaque. The switch is widened to ranges here, which is
   what projectM does with the same code.
+- **A custom wave's points start from MilkDrop's own seeds** · done on `main`.
+  Found while reading the per-point loop for the item above
+  (milkdropfs.cpp:2470-2478): MilkDrop seeds every point with `x` = 0.5 plus
+  the wave's own sample, `y` = 0.5 plus the second sample, and the colour from
+  what the wave's per-frame code left, then runs the point code. Ours seeded
+  `x` with the sample's position, `y` with 0.5, and never re-seeded the
+  colour, so a block that reads a channel before writing it carried the
+  previous point's value: `a = a * 0.9` faded along the wave instead of
+  applying once per point. Run through the engine's own equations across the
+  corpus - twelve frames, six points a wave, both switch positions - 319
+  presets (3.1%, and 5.0% of those that write per-point code) produce
+  different points, and with the switch off none do. Of eight such presets
+  rendered alone, four move visibly (means of 1.3, 10.0, 20.4 and 21.4 of
+  255, up to 58% of pixels past 8) and all eight are pixel-identical with the
+  switch off. On the 900-preset sample no preset changes class at 960x720.
 - **The layer releases its WebGL context when it closes** · done on `main`.
   It deleted its GL objects one by one but left the context to garbage
   collection, and until then Chromium counts it as active; past the limit it

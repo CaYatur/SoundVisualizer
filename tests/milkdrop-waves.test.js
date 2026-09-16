@@ -80,13 +80,53 @@ test('per_point denklemleri noktanın konumunu belirler', () => {
   assert.ok(Math.abs(o.y - 0.6) < 1e-9, 'y=' + o.y);
 });
 
-test('per_point yazmazsa nokta tanımsız değil, tohumlanmış kalır', () => {
+/* Her nokta kendi tohumundan başlıyor: x = 0,5 + value1, y = 0,5 + value2 ve
+   renk dalganın o karedeki renginden (milkdropfs.cpp:2470-2478). Bunu yazmayan
+   bir blok MilkDrop'ta dalga biçimini çiziyor; motor x'i örneğin sırasına,
+   y'yi 0,5'e kuruyordu. */
+test('per_point yazmazsa nokta dalga biçiminden tohumlanıyor', () => {
   const p = preset(['wavecode_0_enabled=1']);
   p.frame(INPUTS);
   p.waveFrame(p.waves[0]);
-  const o = p.wavePoint(p.waves[0], 0.75, 0, 0, {});
+  const o = p.wavePoint(p.waves[0], 0.75, 0.2, -0.3, {});
+  assert.strictEqual(o.x, 0.7);
+  assert.strictEqual(o.y, 0.2);
+});
+
+test('uyum kapalıyken eski tohumlar duruyor', () => {
+  const p = new M.Preset(['wavecode_0_enabled=1'].join(EOL), { seed: 7, accurate: false });
+  p.frame(INPUTS);
+  p.waveFrame(p.waves[0]);
+  const o = p.wavePoint(p.waves[0], 0.75, 0.2, -0.3, {});
   assert.strictEqual(o.x, 0.75);
   assert.strictEqual(o.y, 0.5);
+});
+
+/* Rengi kendi değerinden türeten bloklar (korpusta 4.371 blok, 1.811 preset)
+   MilkDrop'ta noktalar boyunca BİRİKTİRMİYOR: her nokta dalganın kare
+   renginden başlıyor. */
+test('renk her noktada dalganın kare renginden başlıyor', () => {
+  const p = preset([
+    'wavecode_0_enabled=1',
+    'wavecode_0_a=0.8',
+    'wave_0_per_point1=a = a * 0.5;',
+  ]);
+  p.frame(INPUTS);
+  p.waveFrame(p.waves[0]);
+  for (let i = 0; i < 4; i++) {
+    const o = p.wavePoint(p.waves[0], i / 4, 0, 0, {});
+    assert.strictEqual(o.a, 0.4, 'nokta ' + i);
+  }
+  // Uyum kapalıyken eski davranış: her noktada yarıya iniyor
+  const q = new M.Preset([
+    'wavecode_0_enabled=1', 'wavecode_0_a=0.8', 'wave_0_per_point1=a = a * 0.5;',
+  ].join(EOL), { seed: 7, accurate: false });
+  q.frame(INPUTS);
+  q.waveFrame(q.waves[0]);
+  const first = q.wavePoint(q.waves[0], 0, 0, 0, {}).a;
+  const second = q.wavePoint(q.waves[0], 0.25, 0, 0, {}).a;
+  assert.strictEqual(first, 0.4);
+  assert.strictEqual(second, 0.2);
 });
 
 /* Presetler dalgayı q değişkenleri ve sesle sürüyor; taşınmayan bir ad alt
