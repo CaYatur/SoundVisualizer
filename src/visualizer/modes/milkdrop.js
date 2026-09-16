@@ -3794,16 +3794,27 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         }
       } else if (mode === 4) {
         off = 0;
+        /* NOKTA SAYISI render genişliğinin ÜÇTE BİRİYLE sınırlı
+           (milkdropfs.cpp:2742-2743) ve okuma geçerli örneklerin
+           ORTASINDAN başlıyor (2745). Motor her zaman 480 noktayı dizinin
+           BAŞINDAN okuyordu: dar bir pencerede MilkDrop'un çizdiğinden çok
+           daha sık bir çizgi, ve hep dalganın ilk yarısı. Sınır geniş
+           ekranda ısırmıyor: 1440 pikselde üçte bir zaten 480. */
+        if (acc) {
+          const cap = Math.trunc(GW / 3);
+          if (n > cap) n = cap;
+          off = Math.trunc((SAMPLES - n) / 2);
+        }
         const w1 = 0.45 + 0.5 * (myst * 0.5 + 0.5);
         const w2 = 1 - w1;
         const inv = 1 / n;
         let px1 = 0, py1 = 0, px2 = 0, py2 = 0;
         for (let i = 0; i < n; i++) {
-          let x = -1 + 2 * (i * inv) + posX + R[i + 25] * 0.44;
+          let x = -1 + 2 * (i * inv) + posX + R[i + 25 + off] * 0.44;
           /* Y SOL kanaldan (milkdropfs.cpp:2748: `fL[i + sample_offset]`);
              motor iki kanalı ortalıyordu. X zaten sağ kanaldan okuyordu,
              yani iki kanal bu kipte ayrı iki eksene düşüyor. */
-          let y = (acc ? L[i] : 0.5 * (L[i] + R[i])) * 0.47 + posY;
+          let y = (acc ? L[i + off] : 0.5 * (L[i] + R[i])) * 0.47 + posY;
           // Kendi geçmişine bakan yumuşatma: çizgiyi akıcı bir şeride çeviriyor
           if (i > 1) {
             x = x * w2 + w1 * (px1 * 2 - px2);
@@ -3828,15 +3839,52 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            bir çizgi ve aralarında bir açıklık görüyordu. Uyum kapalıyken
            eski hâli. */
         const two = mode === 7 || !acc;
-        const half = SAMPLES / 2;
-        off = (SAMPLES - half) / 2;
+        let half = SAMPLES / 2;
+        /* Burada da genişliğin üçte biri sınır (milkdropfs.cpp:2907-2908)
+           ve okuma ortadan (2913). */
+        if (acc) {
+          const cap = Math.trunc(GW / 3);
+          if (half > cap) half = cap;
+        }
+        off = Math.trunc((SAMPLES - half) / 2);
         const ang = 1.57 * myst;
         const dx = Math.cos(ang), dy = Math.sin(ang);
-        const ex = posX * Math.cos(ang + 1.57) - dx * 3;
-        const ey = posX * Math.sin(ang + 1.57) - dy * 3;
-        const stepX = (dx * 6) / half;
-        const stepY = (dy * 6) / half;
-        const pdx = -dy, pdy = dx;
+        const cx = posX * Math.cos(ang + 1.57), cy = posX * Math.sin(ang + 1.57);
+        const exs = [cx - dx * 3, cx + dx * 3];
+        const eys = [cy - dy * 3, cy + dy * 3];
+        /* ÇİZGİ EKRANA KIRPILIYOR ve noktalar kalan parçaya yayılıyor
+           (milkdropfs.cpp:2937-2986). Motor her zaman ±3 uzunluğunda bir
+           çizgiye yayıyordu: noktaların çoğu ekranın dışında kalıyor,
+           görünen kısım MilkDrop'takinin üçte biri kadar nokta ile
+           çiziliyordu. Sınır bilerek ±1,1: çift çizgide kanallar
+           ayrıldığında dalga erken bitmesin. */
+        if (acc) {
+          for (let i = 0; i < 2; i++) {
+            const o = 1 - i;
+            for (let j = 0; j < 4; j++) {
+              let t = 0, clip = false;
+              if (j === 0 && exs[i] > 1.1) { t = (1.1 - exs[o]) / (exs[i] - exs[o]); clip = true; }
+              else if (j === 1 && exs[i] < -1.1) { t = (-1.1 - exs[o]) / (exs[i] - exs[o]); clip = true; }
+              else if (j === 2 && eys[i] > 1.1) { t = (1.1 - eys[o]) / (eys[i] - eys[o]); clip = true; }
+              else if (j === 3 && eys[i] < -1.1) { t = (-1.1 - eys[o]) / (eys[i] - eys[o]); clip = true; }
+              if (clip) {
+                const ddx = exs[i] - exs[o], ddy = eys[i] - eys[o];
+                exs[i] = exs[o] + ddx * t;
+                eys[i] = eys[o] + ddy * t;
+              }
+            }
+          }
+        }
+        const ex = exs[0], ey = eys[0];
+        const stepX = acc ? (exs[1] - exs[0]) / half : (dx * 6) / half;
+        const stepY = acc ? (eys[1] - eys[0]) / half : (dy * 6) / half;
+        // Dikey yön kırpılmış parçanın kendi yönünden (milkdropfs.cpp:2990-2992)
+        let pdx = -dy, pdy = dx;
+        if (acc) {
+          const ang2 = Math.atan2(stepY, stepX);
+          pdx = Math.cos(ang2 + 1.57);
+          pdy = Math.sin(ang2 + 1.57);
+        }
         // Tek çizgide ayırma yok: MilkDrop `sep`i yalnız çift çizgide hesaplıyor
         const sep = two ? Math.pow(posY * 0.5 + 0.5, 2) : 0;
         for (let i = 0; i < half; i++) {

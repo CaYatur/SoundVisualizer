@@ -373,7 +373,10 @@ test('motor: varsayılan dalganın nokta sayısı geçerli 480 örnekten', () =>
   assert.match(dw, /const acc = this\._wantAcc !== false;\s*const SAMPLES = acc \? 480 : 512;/);
   const m0 = /if \(mode === 0\) \{\s*n = ([^;]+);\s*off = ([^;]+);/.exec(dw);
   assert.ok(m0, 'mod 0 satırları bulunamadı');
-  const m6 = /const half = ([^;]+);\s*off = ([^;]+);/.exec(dw);
+  /* Mod 6/7'nin sayısı render genişliğiyle de sınırlanıyor (ayrı test
+     dosyası); buradaki soru sınırsız hâlde geçerli örnek sayısından
+     türeyip türemediği. */
+  const m6 = /let half = ([^;]+);[\s\S]*?off = (Math\.trunc\(\(SAMPLES - half\) \/ 2\));/.exec(dw);
   assert.ok(m6, 'mod 6/7 satırları bulunamadı');
   const mode0 = new Function('SAMPLES', 'const n = ' + m0[1] + '; return [n, ' + m0[2] + '];');
   const mode6 = new Function('SAMPLES', 'const half = ' + m6[1] + '; return [half, ' + m6[2] + '];');

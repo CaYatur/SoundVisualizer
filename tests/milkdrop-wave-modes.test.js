@@ -144,12 +144,13 @@ test('kip 6 tek çizgi ve yalnız sol kanal', () => {
   const half = 240, off = 120;
   assert.strictEqual(r.vn, half, 'tek çizgi olmalı');
   assert.strictEqual(r.vbreak, -1, 'kırılma noktası olmamalı');
-  /* myst = 0 → ang = 0, dx = 1, dy = 0, kenarlar ±3, adım 6/half.
-     Ayırma YOK: tek çizgide MilkDrop sep'i hiç hesaplamıyor. */
-  const posX = 0, stepX = 6 / half;
+  /* myst = 0 → ang = 0, dx = 1, dy = 0; kenarlar ±3 iken ±1,1'e
+     kırpılıyor, adım 2,2/half. Ayırma YOK: tek çizgide MilkDrop sep'i hiç
+     hesaplamıyor. */
+  const stepX = 2.2 / half;
   for (const i of [0, 37, half - 1]) {
     const [x, y] = pt(r, i);
-    close(x, posX - 3 + stepX * i, 'x' + i);
+    assert.ok(Math.abs(x - (-1.1 + stepX * i)) < 1e-4, 'x' + i + ': ' + x);
     close(y, 0.25 * L[i + off], 'y' + i); // pdx = -dy = 0, pdy = dx = 1 → y = f
   }
 });
@@ -175,11 +176,104 @@ test('kip 6 uyum kapalıyken eski çift çizgiyi çiziyor', () => {
   assert.strictEqual(r.vbreak, half);
 });
 
+// --------------------------------------------------------------- geometri
+
+test('kip 4 nokta sayısı genişliğin üçte biriyle sınırlı, okuma ortadan', () => {
+  const { L, R } = chans();
+  // 960 piksel → sınır 320; okuma (480-320)/2 = 80'den başlıyor
+  const r = drawWave({ L, R, GW: 960, GH: 720, vals: { wave_mode: 4 } });
+  const n = 320, off = 80;
+  assert.strictEqual(r.vn, n);
+  for (const i of [0, 1]) {
+    const [x, y] = pt(r, i);
+    close(x, -1 + 2 * (i / n) + R[i + 25 + off] * 0.44, 'x' + i);
+    close(y, L[i + off] * 0.47, 'y' + i);
+  }
+  // 1440 ve üstünde sınır ısırmıyor: 480 nokta, kayma 0
+  const wide = drawWave({ L, R, GW: 1440, GH: 900, vals: { wave_mode: 4 } });
+  assert.strictEqual(wide.vn, 480);
+  close(pt(wide, 0)[1], L[0] * 0.47, 'geniş y0');
+});
+
+test('kip 6/7 nokta sayısı da sınırlı ve okuma ortadan', () => {
+  const { L, R } = chans();
+  // 480 piksel → sınır 160; okuma (480-160)/2 = 160
+  const r = drawWave({ L, R, GW: 480, GH: 360, vals: { wave_mode: 6 } });
+  assert.strictEqual(r.vn, 160);
+  close(pt(r, 3)[1], 0.25 * L[3 + 160], 'y3');
+  // 720 ve üstünde 240 nokta kalıyor (240*3 = 720)
+  const wide = drawWave({ L, R, GW: 720, GH: 540, vals: { wave_mode: 6 } });
+  assert.strictEqual(wide.vn, 240);
+});
+
+test('kip 6/7 çizgisi ekrana kırpılıyor ve noktalar kalan parçaya yayılıyor', () => {
+  const { L, R } = chans();
+  const r = drawWave({ L, R, vals: { wave_mode: 6, wave_x: 0.5, wave_mystery: 0 } });
+  const half = 240;
+  const first = pt(r, 0)[0], last = pt(r, half - 1)[0];
+  assert.ok(Math.abs(first + 1.1) < 1e-4, 'ilk nokta sol kenarda: ' + first);
+  assert.ok(last < 1.1 && last > 1.05, 'son nokta sağ kenara yakın: ' + last);
+  // Adım: kırpılmış 2,2 uzunluk / nokta sayısı
+  close((last - first) / (half - 1), 2.2 / half, 'adım');
+});
+
+test('kip 6/7 açılı çizgide kırpma ve dik yön bağımsız hesapla tutuyor', () => {
+  const { L, R } = chans();
+  const myst = 0.5, posX = 0.6 * 2 - 1;
+  const r = drawWave({ L, R, vals: { wave_mode: 6, wave_mystery: myst, wave_x: 0.6 } });
+  /* Kaynaktaki kırpma burada BAĞIMSIZ olarak yeniden yazıldı
+     (milkdropfs.cpp:2937-2986): iki uç, dört kenara karşı, karşı uç
+     çapa alınarak. */
+  const ang = 1.57 * myst;
+  const dx = Math.cos(ang), dy = Math.sin(ang);
+  const cx = posX * Math.cos(ang + 1.57), cy = posX * Math.sin(ang + 1.57);
+  const ex = [cx - dx * 3, cx + dx * 3], ey = [cy - dy * 3, cy + dy * 3];
+  for (let i = 0; i < 2; i++) {
+    const o = 1 - i;
+    const edges = [
+      () => (ex[i] > 1.1 ? (1.1 - ex[o]) / (ex[i] - ex[o]) : null),
+      () => (ex[i] < -1.1 ? (-1.1 - ex[o]) / (ex[i] - ex[o]) : null),
+      () => (ey[i] > 1.1 ? (1.1 - ey[o]) / (ey[i] - ey[o]) : null),
+      () => (ey[i] < -1.1 ? (-1.1 - ey[o]) / (ey[i] - ey[o]) : null),
+    ];
+    for (const f of edges) {
+      const t = f();
+      if (t === null) continue;
+      const ddx = ex[i] - ex[o], ddy = ey[i] - ey[o];
+      ex[i] = ex[o] + ddx * t;
+      ey[i] = ey[o] + ddy * t;
+    }
+  }
+  const half = 240, off = 120;
+  const stepX = (ex[1] - ex[0]) / half, stepY = (ey[1] - ey[0]) / half;
+  const ang2 = Math.atan2(stepY, stepX);
+  const pdx = Math.cos(ang2 + 1.57), pdy = Math.sin(ang2 + 1.57);
+  for (const i of [0, 91, half - 1]) {
+    const f = 0.25 * L[i + off];
+    const [x, y] = pt(r, i);
+    close(x, ex[0] + stepX * i + pdx * f, 'x' + i);
+    close(y, ey[0] + stepY * i + pdy * f, 'y' + i);
+  }
+  // Kırpma gerçekten işledi: çizginin kendisi ekran sınırında başlıyor
+  assert.ok(Math.max(Math.abs(ex[0]), Math.abs(ey[0])) <= 1.1001, 'kırpılmış uç');
+  assert.ok(Math.abs(ex[0] - (cx - dx * 3)) > 0.5, 'kırpma hiç olmamış');
+});
+
+test('kip 4 ve 6/7 uyum kapalıyken sınırsız ve kaymasız', () => {
+  const { L, R } = chans();
+  const m4 = drawWave({ L, R, acc: false, GW: 240, GH: 180, vals: { wave_mode: 4 } });
+  assert.strictEqual(m4.vn, 512, 'eski yolda sınır yok');
+  close(pt(m4, 0)[1], 0.5 * (L[0] + R[0]) * 0.47, 'eski y0');
+  const m6 = drawWave({ L, R, acc: false, GW: 240, GH: 180, vals: { wave_mode: 6 } });
+  assert.strictEqual(m6.vn, 512, 'eski yolda çift çizgi ve sınır yok');
+  close(pt(m6, 0)[0], -3, 'eski çizgi ±3 arasında');
+});
+
 // ------------------------------------------------------------------ kayıt
 
 test('kanal okumaları kaynakta da kipe göre ayrışıyor', () => {
   const dw = method('_drawWaveModes(gl, GW, GH)');
   assert.match(dw, /acc \? R\[i \+ off\] : \(L\[i \+ off\] \+ R\[i \+ off\]\) \* 0\.5/);
-  assert.match(dw, /acc \? L\[i\] : 0\.5 \* \(L\[i\] \+ R\[i\]\)/);
+  assert.match(dw, /acc \? L\[i \+ off\] : 0\.5 \* \(L\[i\] \+ R\[i\]\)/);
   assert.match(dw, /const two = mode === 7 \|\| !acc;/);
 });

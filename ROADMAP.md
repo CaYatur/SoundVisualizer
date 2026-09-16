@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1714 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1719 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 117
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 122
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
