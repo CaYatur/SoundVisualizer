@@ -204,6 +204,104 @@ test('geçersiz ya da kısa girdi nötr, bozuk dt sonlu', () => {
   }
 });
 
+/* ---------------------------------------------------------------------
+   HİZALANMIŞ SOL KANAL (#560). MilkDrop bantlarını `fWaveform[0]`dan, yani
+   hizalandıktan sonraki SOL kanaldan hesaplıyor (plugin.cpp:6875-6884) ve
+   bunu kare sırasında hizalamadan SONRA yapıyor (pluginshell.cpp:833-835 →
+   plugin.cpp:3401). Burada iki kanalın ortalaması, hizalanmamış hâliyle
+   okunuyordu. */
+
+// Baytların en yeni 576 örneği, ±128 biriminde float pencere
+function window576(tb) {
+  const w = new Float32Array(576);
+  for (let i = 0; i < 576; i++) w[i] = (tb[tb.length - 576 + i] | 0) - 128;
+  return w;
+}
+
+test('hizalanmış kanal bayt yoluyla aynı zinciri veriyor', () => {
+  /* Kaydırma sıfırken pencere baytların en yenisiyle aynı: iki giriş
+     biçiminin arasında zincirden başka bir fark olmadığını sabitliyor. */
+  const a = new A.MilkdropBands(), b = new A.MilkdropBands();
+  for (let f = 0; f < 5; f++) {
+    const tb = mix(30 + f * 10);
+    const ra = a.update(1 / 60, tb);
+    const rb = b.update(1 / 60, window576(tb));
+    for (const k of KEYS) close(rb[k], ra[k], 'kare ' + f + ' ' + k);
+  }
+  assert.deepStrictEqual(b.imm, a.imm);
+});
+
+test('bantlar sol kanalı okuyor, iki kanalın ortalamasını değil', () => {
+  /* Sol yalnız bas bandına, sağ yalnız tiz bandına düşen birer ton.
+     Ortalama ikisini de taşıyor; sol kanal yalnız basını. */
+  const L = tone(11, 60), R = tone(212, 60);
+  const M = new Uint8Array(2048);
+  for (let i = 0; i < 2048; i++) M[i] = Math.round(((L[i] - 128) + (R[i] - 128)) / 2 + 128);
+  const w = new A.MilkdropWaves();
+  w.update(L, R);
+  const left = new A.MilkdropBands(), mono = new A.MilkdropBands();
+  left._analyze(w.left);
+  mono._analyze(M);
+  assert.ok(left.imm[2] < mono.imm[2] * 0.2,
+    'sol kanalda sağın tizi görünüyor: ' + left.imm[2] + ' / ' + mono.imm[2]);
+  assert.ok(left.imm[0] > mono.imm[0] * 1.5,
+    'sol kanalın bası yarıya inmiş: ' + left.imm[0] + ' / ' + mono.imm[0]);
+});
+
+test('hizalanmış pencerenin sıfırlanan kuyruğu da FFT içine giriyor', () => {
+  /* Kaydırma sıfırdan büyükse MilkDrop son 96 örneği sıfırlıyor ve kendi
+     çözümlemesine o pencereyle giriyor; kuyruğu atıp 480 örnek okumak
+     başka bir tayf demek. */
+  const full = window576(mix(40));
+  const cut = Float32Array.from(full);
+  cut.fill(0, 480);
+  const a = new A.MilkdropBands(), b = new A.MilkdropBands();
+  a._analyze(full);
+  b._analyze(cut);
+  const sum = (v) => v[0] + v[1] + v[2];
+  assert.ok(Math.abs(sum(b.imm) - sum(a.imm)) > sum(a.imm) * 0.1,
+    'kuyruk tayfı değiştirmiyor: ' + sum(a.imm) + ' / ' + sum(b.imm));
+  for (let i = 0; i < 3; i++) assert.ok(b.imm[i] > 0, 'kuyruk sıfırlı pencere ses sayılmıyor');
+});
+
+test('hizalanmış yolda sabit pencere ses sayılmıyor', () => {
+  /* AudioEngine ilk kare gelene kadar SIFIRLARLA dolu: hizalanmış pencerede
+     bu -128'lik bir doğru akım. Tohumlarsa ilk gerçek ses "her zamanki
+     düzey" sayılır ve oranlar saniyelerce 1'de kalır. */
+  const b = new A.MilkdropBands();
+  const dc = new Float32Array(576).fill(-128);
+  for (let f = 0; f < 10; f++) {
+    const r = b.update(1 / 60, dc);
+    for (const k of KEYS) assert.strictEqual(r[k], 1, 'sessiz kare ' + f + ' ' + k);
+  }
+  assert.strictEqual(b.seeded, false, 'sessizlikle tohumlandı');
+  assert.deepStrictEqual(b.imm, [0, 0, 0]);
+  /* Kuyruğu sıfırlanmış sessiz pencere de ses değil: sabitlik denetimi
+     kuyruğa değil geçerli bölgeye bakıyor, yoksa -128 ile 0 arasındaki
+     basamak "ses" sayılırdı. */
+  const dcCut = new Float32Array(576).fill(-128);
+  dcCut.fill(0, 480);
+  const rc = b.update(1 / 60, dcCut);
+  for (const k of KEYS) assert.strictEqual(rc[k], 1, 'kuyruğu sıfırlı sessiz kare ' + k);
+  assert.strictEqual(b.seeded, false, 'kuyruğu sıfırlı sessizlikle tohumlandı');
+  // Gerçek ses gelince tohumlanıyor; sonraki güçlü kare 1'in üstüne çıkıyor
+  b.update(1 / 60, window576(mix(10)));
+  assert.strictEqual(b.seeded, true);
+  const loud = b.update(1 / 60, window576(mix(80)));
+  assert.ok(loud.bass > 1.5, 'tohumlama sonrası yükseliş: ' + loud.bass);
+});
+
+test('mod: hizalama bantlardan önce ilerletiliyor ve bantlar sol kanalı okuyor', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src/visualizer/modes/milkdrop.js'), 'utf-8');
+  const iw = src.indexOf('this._frameWaves(audio);');
+  const ib = src.indexOf('new MDA.MilkdropBands()');
+  assert.ok(iw > 0, 'hizalama ilerletilmiyor');
+  assert.ok(ib > iw, 'bantlar hizalamadan önce hesaplanıyor');
+  assert.strictEqual(src.split('this._frameWaves(audio);').length - 1, 1,
+    'hizalama karede birden çok kez ilerletiliyor');
+  assert.match(src, /this\._bands\.update\(step, this\._waves \? this\._waves\.left : tbA\)/);
+});
+
 /* Mod tarafı: uyum açıkken ve zaman verisi varken MilkDrop'un bantları,
    yoksa eski yol. Panel önizlemesi ve ölçüm ortamı zaman verisi vermeyebilir. */
 test('mod: uyum açıkken ve zaman verisi varken MilkdropBands', () => {

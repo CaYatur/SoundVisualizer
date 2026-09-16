@@ -2186,23 +2186,35 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.presetTime += step;
       this.frameNo++;
 
+      /* Karenin dalga verisi BURADA hazırlanıyor, bantlardan önce:
+         MilkDrop'un kare sırası önce hizalama, sonra ses çözümlemesi
+         (pluginshell.cpp:833-835 → plugin.cpp:3401). Bantlar hizalanmış
+         kanaldan okuduğu için sıra önemli. */
+      this._frameWaves(audio);
+
       /* MilkDrop bantları MUTLAK genlik olarak değil, uzun dönem ortalamaya
          ORAN olarak bekliyor: 1,0 "her zamanki düzey" demek.
 
          "MilkDrop uyumu" açıkken oranlar MilkDrop'un KENDİ zincirinden
-         geliyor (`MilkdropBands`: ham dalga biçimi, kendi FFT'si, kendi
-         bantları ve ortalamaları). Kapalıyken ya da zaman verisi yoksa eski
-         yol: görselleştiricinin bantları `MilkdropAudio` ile orana
-         çevriliyor. Kullanılmayan yolun durumu atılıyor; anahtar yeniden
-         açılınca dakikalar önceki ortalamalarla değil, yeniden tohumlanarak
-         başlasın. */
+         geliyor (`MilkdropBands`: hizalanmış dalga biçimi, kendi FFT'si,
+         kendi bantları ve ortalamaları). Kapalıyken ya da zaman verisi
+         yoksa eski yol: görselleştiricinin bantları `MilkdropAudio` ile
+         orana çevriliyor. Kullanılmayan yolun durumu atılıyor; anahtar
+         yeniden açılınca dakikalar önceki ortalamalarla değil, yeniden
+         tohumlanarak başlasın.
+
+         BANTLAR SOL KANALI OKUYOR: MilkDrop kendi çözümlemesini
+         `fWaveform[0]` üzerinden yapıyor (plugin.cpp:6875-6884), yani
+         hizalandıktan SONRAKİ sol kanal. Burada iki kanalın ortalaması
+         ve hizalanmamış hâli okunuyordu. Hizalayıcı yoksa (eski kaynak)
+         bayt dizisi yolu duruyor. */
       const MDA = window.SVMilkdropAudio;
       const tbA = audio.timeBytes;
       let a;
       if (this._wantAcc !== false && tbA && tbA.length >= MDA.SPEC_IN) {
         this._audioNorm = null;
         if (!this._bands) this._bands = new MDA.MilkdropBands();
-        a = this._bands.update(step, tbA);
+        a = this._bands.update(step, this._waves ? this._waves.left : tbA);
       } else {
         this._bands = null;
         if (!this._audioNorm) this._audioNorm = new MDA.MilkdropAudio();
@@ -2381,9 +2393,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
       gl.viewport(0, 0, GW, GH);
       /* Dalga örnekleri kare başına BİR KEZ, çizimlerden önce: özel
-         dalgalar geçişte iki preset için iki kez çiziliyor ve hizalama her
-         karede tam bir adım ilerlemeli. */
-      this._frameWaves(audio);
+         dalgalar geçişte iki preset için iki kez çiziliyor. Hizalamanın
+         kendisi karenin başında, bantlardan önce ilerletildi. */
       this._waveSamples(audio, this.preset.get('wave_scale'),
         this.preset.get('wave_smoothing'));
       /* Dokulu şekiller ÖNCEKİ kareyi örnekliyor. Şu an yazdığımız hedefi

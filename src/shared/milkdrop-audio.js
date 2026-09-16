@@ -564,12 +564,18 @@
       this.seeded = false;
     }
 
-    /* timeBytes: 128 merkezli işaretsiz bayt dizisi, kronolojik (en yeni
-       örnek sonda). dt saniye. Dönen nesne `MilkdropAudio`nunkiyle aynı
-       biçimde. */
-    update(dt, timeBytes) {
+    /* input İKİ BİÇİMDEN biri:
+         • HİZALANMIŞ kanal (Float32Array, 576 örnek, ±128 biriminde) —
+           MilkDrop kendi çözümlemesini `fWaveform[0]` üzerinden, yani
+           hizalandıktan sonraki SOL kanaldan yapıyor (plugin.cpp:6875-6884)
+           ve motor buraya onu veriyor;
+         • 128 merkezli işaretsiz bayt dizisi, kronolojik (en yeni örnek
+           sonda) — hizalayıcısı olmayan çağıran için; en yeni 576 örnek
+           okunuyor.
+       dt saniye. Dönen nesne `MilkdropAudio`nunkiyle aynı biçimde. */
+    update(dt, input) {
       const imm = this.imm, avg = this.avg, long = this.long;
-      this._analyze(timeBytes);
+      this._analyze(input);
       if (!this.seeded) {
         if (imm[0] + imm[1] + imm[2] <= BAND_GUARD) return neutral();
         for (let b = 0; b < 3; b++) { avg[b] = imm[b]; long[b] = imm[b]; }
@@ -595,21 +601,39 @@
        sıfır. Sabit tampon ses değil: AudioEngine ilk kare gelene kadar
        SIFIRLARLA dolu (128 değil), ±128 biriminde bu -128'lik bir doğru
        akım demek ve pencerelenmiş doğru akım alt gözlere sızıp sahte bir
-       "ilk ses" tohumlardı. */
-    _analyze(tb) {
+       "ilk ses" tohumlardı.
+
+       Hizalanmış kanalda pencerenin TAMAMI okunuyor: kaydırma sıfırdan
+       büyükse MilkDrop son 96 örneği sıfırlıyor (pluginshell.cpp:1657-1663)
+       ve kendi FFT'sine o sıfırlarla giriyor. Sabitlik denetimi bu yüzden
+       yalnız geçerli bölgeye (ilk 480 örnek) bakıyor. */
+    _analyze(input) {
       const imm = this.imm;
       imm[0] = imm[1] = imm[2] = 0;
-      const n = tb ? tb.length : 0;
-      if (n < SPEC_IN) return;
-      const x = this._x, off = n - SPEC_IN;
-      let lo = 255, hi = 0;
-      for (let i = 0; i < SPEC_IN; i++) {
-        const v = tb[off + i] | 0;
-        if (v < lo) lo = v;
-        if (v > hi) hi = v;
-        x[i] = v - 128;
+      const x = this._x;
+      if (input instanceof Float32Array) {
+        if (input.length < SPEC_IN) return;
+        let lo = input[0], hi = input[0];
+        for (let i = 1; i < WAVE_VALID; i++) {
+          const v = input[i];
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+        }
+        if (hi === lo) return;
+        for (let i = 0; i < SPEC_IN; i++) x[i] = input[i];
+      } else {
+        const n = input ? input.length : 0;
+        if (n < SPEC_IN) return;
+        const off = n - SPEC_IN;
+        let lo = 255, hi = 0;
+        for (let i = 0; i < SPEC_IN; i++) {
+          const v = input[off + i] | 0;
+          if (v < lo) lo = v;
+          if (v > hi) hi = v;
+          x[i] = v - 128;
+        }
+        if (hi === lo) return;
       }
-      if (hi === lo) return;
       const s = transform(x, this._t, this._re, this._im, this._spec);
       for (let b = 0; b < 3; b++) {
         let sum = 0;
