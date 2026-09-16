@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1734 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1738 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 137
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 141
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -787,6 +787,17 @@ MilkDrop (#560):
   preset changes class, and rendered alone in both trees it is identical -
   that flip is the picture it inherits from the preset before it in the run,
   not this change. The legacy run is identical byte for byte.
+- **`hue_shader` only colours what the preset asked to colour** · done on
+  `main`. MilkDrop mixes the four corner colours towards white by the
+  preset's `fShader` amount, and skips them entirely below 0.001, leaving
+  white (milkdropfs.cpp:3857-3876); the default is zero (state.cpp:548). We
+  handed every preset the full colour. Of the 1,239 presets (12.0%) whose
+  composite shader reads `hue_shader`, 914 leave `fShader` at zero - their
+  picture was being tinted by a colour MilkDrop never sends - and 36 ask for
+  a partial amount. Six of those presets rendered alone in both trees all
+  differ, five of them by a lot (means of 3.6 to 26.9 of 255, up to 89% of
+  pixels past 8), and all six are identical with the fidelity switch off; on
+  the 900-preset sample no preset changes class.
 - **A textured shape samples the window MilkDrop samples** · done on `main`.
   MilkDrop places a shape's corners at its own angle but does not turn the
   window it reads from the previous frame with them (milkdropfs.cpp:2198-2200):

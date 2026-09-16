@@ -1836,23 +1836,36 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       if (L.hue_corner) {
         const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
         const rs = rand;
+        /* RENGİN MİKTARI presetin `fShader`ından. MilkDrop dört köşe rengini
+           hesapladıktan sonra beyaza doğru bu oranla karıştırıyor ve oran
+           0,001'in altındaysa hiç hesaplamıyor: dört köşe de (1,1,1)
+           kalıyor (milkdropfs.cpp:3857-3876). Varsayılan 0
+           (state.cpp:548). Motor rengi HER presete veriyordu: korpusta
+           `hue_shader` okuyan 1.239 presetin 914'ü `fShader`ı sıfır
+           bırakıyor, yani MilkDrop'ta hiç renk almayan bir görüntüyü
+           renklendiriyorduk; 36'sı da ara bir oran yazıyor. */
+        const amt = accurate
+          ? Math.max(0, Math.min(1, +(ctx.P && ctx.P.get('fshader')) || 0)) : 1;
         for (let i = 0; i < 4; i++) {
           let r, g, b;
-          if (accurate) {
+          if (accurate && amt <= 0.001) {
+            r = 1; g = 1; b = 1;
+          } else if (accurate) {
             const k = i;
             r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
             g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
             b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
-          } else {
-            r = 0.5 + 0.5 * Math.sin(t * 0.31);
-            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
-            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
-          }
-          if (accurate) {
             const mx = Math.max(r, g, b) || 1;
             r = 0.5 + 0.5 * (r / mx);
             g = 0.5 + 0.5 * (g / mx);
             b = 0.5 + 0.5 * (b / mx);
+            r = r * amt + (1 - amt);
+            g = g * amt + (1 - amt);
+            b = b * amt + (1 - amt);
+          } else {
+            r = 0.5 + 0.5 * Math.sin(t * 0.31);
+            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
+            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
           }
           hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
         }
