@@ -3759,14 +3759,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         n = SAMPLES / 2;
         off = (SAMPLES - n) / 2;
         const inv = 1 / (n - 1);
+        /* ÇEMBER SAĞ KANALI okuyor (milkdropfs.cpp:2702 ve 2709: `fR`).
+           Motor iki kanalın ortalamasını alıyordu — stereo bir kayıtta
+           ortalama iki kanalın ortak yanını bırakıp farkını siliyor.
+           Uyum kapalıyken eski hâli. */
         for (let i = 0; i < n; i++) {
-          let rad = 0.5 + 0.4 * (L[i + off] + R[i + off]) * 0.5 + myst;
+          let rad = 0.5 + 0.4 * (acc ? R[i + off] : (L[i + off] + R[i + off]) * 0.5) + myst;
           const ang = i * inv * 6.28 + this.time * 0.2;
           // İlk %10 ikinci okumaya harmanlanıyor: çember kapanırken sıçramasın
           if (i < n / 10) {
             let mix = i / (n * 0.1);
             mix = 0.5 - 0.5 * Math.cos(mix * 3.1416);
-            const rad2 = 0.5 + 0.4 * (L[i + n + off] + R[i + n + off]) * 0.5 + myst;
+            const j = i + n + off;
+            const rad2 = 0.5 + 0.4 * (acc ? R[j] : (L[j] + R[j]) * 0.5) + myst;
             rad = rad2 * (1 - mix) + rad * mix;
           }
           put(i, rad * Math.cos(ang) * aspY + posX, rad * Math.sin(ang) * aspX + posY);
@@ -3795,7 +3800,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         let px1 = 0, py1 = 0, px2 = 0, py2 = 0;
         for (let i = 0; i < n; i++) {
           let x = -1 + 2 * (i * inv) + posX + R[i + 25] * 0.44;
-          let y = 0.5 * (L[i] + R[i]) * 0.47 + posY;
+          /* Y SOL kanaldan (milkdropfs.cpp:2748: `fL[i + sample_offset]`);
+             motor iki kanalı ortalıyordu. X zaten sağ kanaldan okuyordu,
+             yani iki kanal bu kipte ayrı iki eksene düşüyor. */
+          let y = (acc ? L[i] : 0.5 * (L[i] + R[i])) * 0.47 + posY;
           // Kendi geçmişine bakan yumuşatma: çizgiyi akıcı bir şeride çeviriyor
           if (i > 1) {
             x = x * w2 + w1 * (px1 * 2 - px2);
@@ -3813,7 +3821,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           put(i, (x0 * c - y0 * s) * aspY + posX, (x0 * s + y0 * c) * aspX + posY);
         }
       } else {
-        // 6 ve 7: açılı çift çizgi, aralarındaki mesafe wave_y'den
+        /* 6 ve 7: açılı çizgi. MilkDrop'ta 6 TEK çizgi ve yalnız sol
+           kanaldan (milkdropfs.cpp:2995-3001), 7 ise iki çizgi ve
+           aralarındaki mesafe wave_y'den (3013-3030). Motor ikisini de
+           çift çiziyordu: 6 yazan 753 preset (%7,3) sağ kanaldan ikinci
+           bir çizgi ve aralarında bir açıklık görüyordu. Uyum kapalıyken
+           eski hâli. */
+        const two = mode === 7 || !acc;
         const half = SAMPLES / 2;
         off = (SAMPLES - half) / 2;
         const ang = 1.57 * myst;
@@ -3823,17 +3837,21 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const stepX = (dx * 6) / half;
         const stepY = (dy * 6) / half;
         const pdx = -dy, pdy = dx;
-        const sep = Math.pow(posY * 0.5 + 0.5, 2);
+        // Tek çizgide ayırma yok: MilkDrop `sep`i yalnız çift çizgide hesaplıyor
+        const sep = two ? Math.pow(posY * 0.5 + 0.5, 2) : 0;
         for (let i = 0; i < half; i++) {
           const f = 0.25 * L[i + off] + sep;
           put(i, ex + stepX * i + pdx * f, ey + stepY * i + pdy * f);
         }
-        for (let i = 0; i < half; i++) {
-          const f = 0.25 * R[i + off] - sep;
-          put(half + i, ex + stepX * i + pdx * f, ey + stepY * i + pdy * f);
+        n = half;
+        if (two) {
+          for (let i = 0; i < half; i++) {
+            const f = 0.25 * R[i + off] - sep;
+            put(half + i, ex + stepX * i + pdx * f, ey + stepY * i + pdy * f);
+          }
+          breakAt = half;
+          n = half * 2;
         }
-        breakAt = half;
-        n = half * 2;
       }
 
       if (n < 2) return;
