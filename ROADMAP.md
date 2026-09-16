@@ -27,58 +27,58 @@ covered by a test or by the GPU self-test.
 
 ## Status table
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | **v3.1.3** | Note |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|---|
-| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
-| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
-| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
-| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | Shipped in v3.1.3 on Windows: WASAPI process loopback, include or exclude, several applications at once, targets stored by name and re-attached. macOS and Linux report why they cannot |
-| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
-| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
-| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
-| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | **50** | Includes 14 generative modes, nowplaying and geometry |
-| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
-| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
-| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | **31** | All share the palette and template system |
-| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
-| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
-| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
-| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
-| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
-| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
-| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
-| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Functional baseline in v3.1.2: closure compiler solves CSP (#559), HLSL warp/comp translated (100% stage compile across a 10,332-preset corpus, measured by scripts/milkdrop-compile-rate.js; ~98% of presets render a live image, measured by scripts/milkdrop-render-rate.js), 8 wave modes, repeat wrap, feedback clamp. Phase 2 (#560): textured shapes, motion vectors, rotation matrices, mesh density and internal resolution settings, mouse input, preset transitions, per-sampler filtering and wrapping, and user textures loaded from a texture folder (16.9% of the corpus asks for one) shipped. A fidelity pass then closed the gaps a corpus diff turned up: two header settings that never reached the equations (fZoomExponent, fWaveParam), a vertically mirrored warp mesh, the warp ripple's real coefficients with fWarpScale/fWarpAnimSpeed, waveform smoothing and volume-driven wave alpha, and the outer/inner borders and centre darkening, all behind a MilkDrop Fidelity switch. A second pass, worked from Nullsoft's own MilkDrop 2 C++ source rather than a port, corrected the mesh transform's order and spaces, the swapped aspectx/aspecty, the shader clock, bMotionVectorsOn's real meaning, the blurred copy's edge darkening and the custom-wave amplitude. Then the three remaining items: the built-in per-frame variables now reload from the preset file every frame and q1..q32 return to their post-init values, as MilkDrop does (19.5% of the corpus writes an accumulation that grew without bound here); spectrum custom waves get MilkDrop's own FFT at MilkDrop's scale; and preset transitions are the dual pipeline - both presets keep running, the two warp meshes blend per node along a random ramp, and the same ramp is the alpha their shaders draw with, over one shared feedback buffer. The blur chain now reads what MilkDrop reads: the warp pass' INPUT buffer, which is the previous frame complete with the shapes, waves and borders drawn onto it, rather than the warp's output - the same content one warp step too far along, which dragged the bloom through the motion field and dimmed it by the decay. 71.3% of the corpus reads GetBlur. And the waveform is smoothed the way MilkDrop smooths it: a four-tap kernel inserts a point between every pair, doubling the vertex count, with the negative outer weights that keep a curve from flattening as it smooths - unconditionally on the default waveform, and on every custom wave that is not drawn as dots (7,798 of the corpus' 11,884 live wave blocks). The per-frame reset that q1..q32 got now reaches one level down: a wave or shape block's t1..t8 return to their post-init values before every per_frame run - per instance for shapes, as MilkDrop reloads them - and a custom wave's sample count is reset to the file value and read back after per_frame, so a preset that drives the point count from audio is heard (1,805 presets write t in a wave block, 1,139 in a shape block, 196 write samples). The blur chain also builds only the levels a preset actually reads, the way MilkDrop counts them - 28.7% of the corpus reads no blur at all and was paying for six passes a frame; across the corpus 47.0% of the passes were unread. The frame-time effect measured below this harness' noise floor at both 1024x768 and 1920x1080, so this is faithfulness and removed work rather than a demonstrated speedup. Waveforms are then drawn as anti-aliased ribbons rather than one-texel GL lines fattened by offset redraws - a deliberate divergence from MilkDrop, and the one place we set out to be better than it rather than equal to it; projectM has the same request open as #682. The default conserves the light the old path deposited so no preset changes brightness (measured within about 12% per frame with the feedback loop removed), and a setting offers the physically true width instead, or MilkDrop's own fattening. Vertex colours now go through MilkDrop's COLOR_NORM, which does not clamp out-of-range values but wraps them modulo 256 - a preset whose equation yields 1.5 draws at 0.494 there, not at 1.0, and we were drawing it white. 36.9% of the corpus produces at least one colour or alpha where the two differ materially, and 19.9% goes past 1.4, where the wrap is a different colour entirely. The feedback buffer itself is a normalised RGB10_A2 target rather than half-float: MilkDrop's buffer is 8-bit integer, so every write clamps, and the whole engine assumes it - a half-float target let additively drawn shapes accumulate without bound, measured reaching 65504 within forty frames. Ten bits a channel keeps four times MilkDrop's precision while restoring its clamping, which is what projectM #895 asks for. The preset language's `monitor` variable is finally read: it is the author's own debug probe, written by 43.4% of the corpus and never surfaced anywhere, so those lines were dead. It now shows live in the MilkDrop panel - projectM has the same request open as #664. A decay of exactly zero is honoured rather than read as 'not set' and replaced with 0.98: 225 presets (2.17%) end up asking for no trail at all and were getting a heavy one, while exactly one preset in the corpus omits decay and actually wants the default. And flash limiting caps how far the picture's mean luminance may move between frames, at WCAG 2.3.1's general-flash value - measured, 90% of presets never reach it and pass through untouched, while a synthetic strobe drops from 0.996 to 0.098. projectM has this open as #947 and #742 And the last 0.8% of shader stages now compile too. Each of the 134 that did not was traced from the compiler's own line number back to a cause, which is not the same as grouping them by error text: one message ("wrong operand types") was hiding five separate causes, and one cause (HLSL's `bool` used as a number, which presets treat as a float holding 0 or 1) accounted for 46 stages across four different messages. The rest were a `#define` gluing itself to the declaration below it and so defeating global-initialiser hoisting (19), a wrapped declarator list losing its tail so `Kugel1..3` stayed untyped and a vec2+vec3 went out unnarrowed (20), the same name declared with three different types in three different functions (16), `int(x)` rewritten as a type rather than kept as a conversion (10), a preset that `#define`s `main` over ours (9), and eight smaller ones down to a single preset each. The corpus now compiles 16,346 of 16,346 stages with all 8,485 shader-carrying presets clean. Every step was checked with a diff keyed on file+stage rather than on the aggregate percentage, which cannot tell "fixed 45" from "fixed 45, broke 33" - it caught exactly that twice, and the final state is 134 fixed and none broken. Shape outlines and motion vectors then got the treatment the waveform had already had, and two separate things were missing at once. `thick` never reached the renderer at all: the parser read `thickOutline` and the draw code never looked at it, so a shape's border was always a single draw where MilkDrop draws it four times, offset around a one-texel square (milkdropfs.cpp:2247-2259) - and MilkDrop registers `thick` as an input/output variable (state.cpp:496), so the shape's own per_frame code can set it, which 15 presets do. Neither the border nor the motion vectors were resolution-compensated either, so at 1920 they stayed one pixel wide while every waveform in the same frame was already scaled; MilkDrop's own line is one texel in a 512-wide buffer, which is close to four pixels in ours. 2,961 of the corpus' 15,989 live shape blocks draw a border (1,821 presets, 17.6%), 425 of those ask for thickOutline as well (309 presets, 3.0%), and 884 presets (8.6%) draw motion vectors. Measured with the feedback loop removed - decay=0, no shaders, the fill fully transparent so only the border is on screen, at 512x384 - the border's deposit was 380 whether thick was set or not and whether it came from the file or from the equations: the identical number in all four cases is the gap itself. It is 920 without thick and 1,300 with it now, and motion vectors went from 9,140 to 23,444. The anti-aliased ribbon then followed, so one setting drives all three line kinds rather than leaving a smooth waveform beside a jagged outline in the same frame - the border as a closed strip, the motion vectors as independent segments batched into a single triangle strip with degenerate joins, because a 64x48 grid is 3,072 vectors and one draw call each would eat the frame. Calibrating it turned up a defect in the shipped waveform path: the gain that conserves the old path's light divides by the number of draws that path made, and draw count stops predicting light once the offset copies overlap. With bWaveThick set - the saturated case, seven draws - waveforms were depositing +16.0 / +33.7 / -9.6 / +19.0 / +17.1 percent against the path they were supposed to match. Measured: going from weight 2 to weight 4 multiplies draws by 1.75 but light by 1.58 on average, so the proxy carries a 0.90 overlap factor now, applied only where the offset list saturates - the weight-2 case AA_TRIM was calibrated against is bit-for-bit unchanged. That brings the same five to +4.8 / +24.6 / -18.9 / +7.3 / +5.4, the outline to +15.0 and motion vectors to -6.6. The spread does not close and cannot: it tracks segment count, which no single multiplier can cancel. Exporting a MilkDrop scene to video produced a 0-byte file: the exporter's page never loaded the engine's audio, HLSL and shader parts - the same gap the web overlay had already been fixed for - so the mode threw on every frame. In the same self-test run the other two scenes exported 1,607 KB and 125 KB; MilkDrop now exports 1,394 KB with no black frames, and the self-test exports a MilkDrop scene every run. Auto advance now advances. The panel's slider had been writing milkdrop.autoNext since the engine landed and nothing read it - set to two seconds, the preset on screen was unchanged nine seconds later in the running app. The visualizer switches on its own frame clock, in order or at random without repeating the preset on screen, and never writes the pick into settings.json, which is rewritten in full on every change; the panel shows the live preset and its preview follows the visualizer. And a MilkDrop layer now survives scene transitions: a transition rebuilt every layer of the arriving scene, so MilkDrop restarted its preset, lost its feedback trail and fell back from auto advance to the hand-picked preset - on every track for anyone running the dynamic colour theme with scene transitions, since the palette is part of the scene signature. The instance now stays and the leaving scene composites its canvas through a proxy; measured in one run with the fix switched off and on, off gave a new instance on the hand-picked preset, on kept the same instance and preset. And presets now hear the music the way MilkDrop hears it: with MilkDrop Fidelity on, bass/mid/treb and their _att values come from MilkDrop's own chain - the newest 576 samples, a Hann-windowed 1024-point FFT with its equaliser, three bands summed over the lower half of the spectrum, a fast asymmetric average for _att and a four-second one to divide by - instead of the visualizer's bands smoothed twice and divided by a six-second average, which on a synthetic drum track put bass lower just after a kick than between kicks (0.93x against MilkDrop's 2.45x) and never raised _att on a hit. The averages start from the first frame with sound rather than from zero, and values are capped at 30, where the track's own music peaks at 18.6 and MilkDrop reaches 234 coming back from a long silence. Spectrum waves now read the newest 576 samples too, as MilkDrop does; they had been reading the oldest 576 of the 2048-sample buffer, about 30 ms behind the sound. Shader `vol` and `vol_att` now carry MilkDrop's own value - a third of `treb` and `treb_att`, the result of a comma operator in its source, which 96 presets read in a shader - and custom waves and shapes no longer see per-frame variables MilkDrop does not register for them. The default and custom waves now read the newest audio too, from both channels, through MilkDrop's own alignment - the window shifted by up to 95 samples so a steady tone stands still - and a custom wave with more than 480 samples, which a third of the corpus has, reads before its array's start as MilkDrop does. The bands every preset reads are MilkDrop's own too: it sums them from the left channel after alignment, where ours mixed the two channels and read them unaligned. The default wave's eight modes then got their own differences back: which channel each one reads (mode 0 the right, mode 4's Y the left, where we averaged both), mode 6 as the single line it is rather than mode 7's pair, the point count capped at a third of the render width with the samples read from the middle of the window, the line clipped to the screen before the points are spread along it, and an alpha chain that applies the mode's own factor before the clamp - where a preset asking for more than full alpha, 19.9% of the corpus, was losing the factor to the clamp. The alpha values themselves come from a switch on the texture size that matches only powers of two, which MilkDrop 2's own default size never is; widening it to ranges is a deliberate divergence, and the one projectM makes too. |
-| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
-| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
-| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | **72** | Nine groups, each verified not to damage a working setup |
-| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
-| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
-| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
-| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
-| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
-| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Rebuilt in v3.1.3: pick exactly which scenes, visualizers or presets cycle, all 46 visualizer modes, per-layer variety, and a status line saying what changed and why nothing can |
-| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
-| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
-| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency. v3.1.3's overlay crashed on load and showed an empty page (#563); the self-test now opens it from the stream server on every run |
-| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
-| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
-| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **1597** unit tests at v3.1.4 + a GPU self-test over every engine (1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
-| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
-| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
-| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
-| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
-| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
-| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
-| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
-| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
-| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles |
-| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
-| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | **43** | 33.4.11 reached end of life in April 2025 |
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | **v3.1.4** | Note |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|---|
+| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display |
+| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
+| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | Shipped in v3.1.3 on Windows: WASAPI process loopback, include or exclude, several applications at once, targets stored by name and re-attached. macOS and Linux report why they cannot |
+| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
+| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
+| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
+| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | **50** | **50** | Includes 14 generative modes, nowplaying and geometry |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text |
+| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | **31** | **31** | All share the palette and template system |
+| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
+| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
+| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
+| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
+| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
+| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
+| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
+| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
+| Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | Baseline in v3.1.2 (#559): a CSP-safe expression compiler, the HLSL warp and composite shaders translated to GLSL, 8 wave modes. Phase 2 and the fidelity work shipped in v3.1.4 (#560), behind a MilkDrop Fidelity switch: 16,346 of 16,346 shader stages compile and ~98% of presets render a live image. Detail in the v3.1.4 section; refinements under v3.1.5 |
+| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
+| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
+| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
+| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | **72** | **72** | Nine groups, each verified not to damage a working setup |
+| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor |
+| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
+| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | UDP listener, hand-written OSC 1.0 parser |
+| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
+| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
+| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | Rebuilt in v3.1.3: pick exactly which scenes, visualizers or presets cycle, all 46 visualizer modes, per-layer variety, and a status line saying what changed and why nothing can |
+| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
+| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
+| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ◐ | ✅✅ | Browser source — no plugin, real transparency. v3.1.3's overlay crashed on load and showed an empty page (#563); the self-test now opens it from the stream server on every run |
+| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
+| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
+| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **1597** unit tests at v3.1.4 + a GPU self-test over every engine (1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Tracks, clips, automation lanes, markers, one shared transport. Partial: no multi-select on the canvas, no tempo map editing |
+| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.0. Sparse grid, beat-quantised launch, follow actions, performance view. Partial: one deck, and only scene/template slots apply |
+| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
+| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
+| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
+| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
+| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
+| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
+| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles |
+| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
+| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | **43** | **43** | 33.4.11 reached end of life in April 2025 |
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 
 ### Not shipped yet
@@ -652,12 +652,174 @@ refinements this work turned up are planned for v3.1.5 rather than rushed in.
   exclusive fullscreen when transparent; the layer stack exposes the switch
   at the top of the list. Spout/Syphon stays opaque — the GPU texture cannot
   carry alpha without dropping the sender.
-- **MilkDrop (#560).** Every shader stage in the 10,332-preset corpus compiles;
-  textured shapes, motion vectors, preset transitions as MilkDrop's dual
-  pipeline, user textures and a long list of fidelity fixes taken from
-  Nullsoft's own source; presets hear the music through MilkDrop's own band
-  chain; auto advance works; a MilkDrop layer survives scene transitions and a
-  MilkDrop scene exports to video.
+- **MilkDrop (#560).** v3.1.2 left a working baseline; this is the release
+  where it became faithful. Phase 2 shipped first — textured shapes, motion
+  vectors, rotation matrices, mesh density and internal resolution settings,
+  mouse input, preset transitions, per-sampler filtering and wrapping, and
+  user textures loaded from your own texture folder, which 16.9% of the corpus
+  asks for by name. Everything below it sits behind the **MilkDrop Fidelity**
+  switch, and every figure comes from the 10,332-preset corpus, measured by
+  `scripts/milkdrop-compile-rate.js` for what compiles and
+  `scripts/milkdrop-render-rate.js` for what draws a live image.
+
+  - *Two fidelity passes.* The first closed what a corpus diff turned up: two
+    header settings that never reached the equations (`fZoomExponent`,
+    `fWaveParam`), a vertically mirrored warp mesh, the warp ripple's real
+    coefficients with `fWarpScale`/`fWarpAnimSpeed`, waveform smoothing,
+    volume-driven wave alpha, and the outer and inner borders with centre
+    darkening. The second was worked from Nullsoft's own MilkDrop 2 C++ source
+    rather than from a port, and corrected the mesh transform's order and
+    spaces, the swapped `aspectx`/`aspecty`, the shader clock,
+    `bMotionVectorsOn`'s real meaning, the blurred copy's edge darkening and
+    the custom-wave amplitude.
+  - *Per-frame state resets where MilkDrop resets it.* The built-in per-frame
+    variables reload from the preset file every frame and `q1..q32` return to
+    their post-init values, which 19.5% of the corpus depends on — it writes an
+    accumulation that grew without bound here. The same reset reaches one level
+    down: a wave or shape block's `t1..t8` return to their post-init values
+    before every per_frame run, per instance for shapes as MilkDrop reloads
+    them, and a custom wave's sample count is reset to the file value and read
+    back after per_frame, so a preset that drives its point count from audio is
+    heard. 1,805 presets write `t` in a wave block, 1,139 in a shape block, 196
+    write `samples`.
+  - *Preset transitions are the dual pipeline.* Both presets keep running, the
+    two warp meshes blend per node along a random ramp, and that same ramp is
+    the alpha their shaders draw with, over one shared feedback buffer.
+  - *The blur chain reads what MilkDrop reads* — the warp pass' input buffer,
+    which is the previous frame complete with the shapes, waves and borders
+    drawn onto it, rather than the warp's output: the same content one warp
+    step too far along, which dragged the bloom through the motion field and
+    dimmed it by the decay. 71.3% of the corpus reads `GetBlur`. The chain also
+    builds only the levels a preset actually reads, the way MilkDrop counts
+    them — 28.7% of the corpus reads no blur at all and was paying for six
+    passes a frame, and across the corpus 47.0% of the passes were unread. The
+    frame-time effect measured below this harness' noise floor at both 1024x768
+    and 1920x1080, so this is faithfulness and removed work rather than a
+    demonstrated speedup.
+  - *Waveform smoothing as MilkDrop smooths it:* a four-tap kernel inserts a
+    point between every pair, doubling the vertex count, with the negative
+    outer weights that keep a curve from flattening as it smooths —
+    unconditionally on the default waveform, and on every custom wave not drawn
+    as dots, 7,798 of the corpus' 11,884 live wave blocks.
+  - *Colour wraps where it used to clamp.* Vertex colours go through MilkDrop's
+    `COLOR_NORM`, which does not clamp out-of-range values but wraps them
+    modulo 256: a preset whose equation yields 1.5 draws at 0.494 there, not at
+    1.0, and we were drawing it white. 36.9% of the corpus produces at least one colour or
+    alpha where the two differ materially, and 19.9% goes past 1.4, where the
+    wrap is a different colour entirely.
+  - *The feedback buffer is a normalised RGB10_A2 target rather than
+    half-float.* MilkDrop's buffer is 8-bit integer, so every write clamps and
+    the whole engine assumes it — a half-float target let additively drawn
+    shapes accumulate without bound, measured reaching 65504 within forty
+    frames. Ten bits a channel keeps four times MilkDrop's precision while
+    restoring its clamping, which is what projectM #895 asks for.
+  - *The `monitor` variable is finally read.* It is the preset author's own
+    debug probe, written by 43.4% of the corpus and never surfaced anywhere, so
+    those lines were dead. It now shows live in the MilkDrop panel; projectM
+    has the same request open as #664.
+  - *A decay of exactly zero is honoured* rather than read as "not set" and
+    replaced with 0.98. 225 presets (2.17%) end up asking for no trail at all
+    and were getting a heavy one, while exactly one preset in the corpus omits
+    decay and actually wants the default.
+  - *Flash limiting* caps how far the picture's mean luminance may move between
+    frames, at WCAG 2.3.1's general-flash value. Measured, 90% of presets never
+    reach it and pass through untouched, while a synthetic strobe drops from
+    0.996 to 0.098. projectM has this open as #947 and #742.
+  - *Every shader stage in the corpus compiles.* Each of the last 134 that did
+    not was traced from the compiler's own line number back to a cause, which
+    is not the same as grouping them by error text: one message ("wrong operand
+    types") was hiding five separate causes, and one cause — HLSL's `bool` used
+    as a number, which presets treat as a float holding 0 or 1 — accounted for
+    46 stages across four different messages. The rest were a `#define` gluing
+    itself to the declaration below it and so defeating global-initialiser
+    hoisting (19), a wrapped declarator list losing its tail so `Kugel1..3`
+    stayed untyped and a vec2+vec3 went out unnarrowed (20), the same name
+    declared with three different types in three different functions (16),
+    `int(x)` rewritten as a type rather than kept as a conversion (10), a
+    preset that `#define`s `main` over ours (9), and eight smaller ones down to
+    a single preset each. The corpus now compiles 16,346 of 16,346 stages with
+    all 8,485 shader-carrying presets clean. Every step was checked with a diff
+    keyed on file+stage rather than on the aggregate percentage, which cannot
+    tell "fixed 45" from "fixed 45, broke 33" — it caught exactly that twice,
+    and the final state is 134 fixed and none broken.
+  - *Shape outlines and motion vectors got the treatment the waveform had
+    already had*, and two separate things were missing at once. `thick` never
+    reached the renderer: the parser read `thickOutline` and the draw code
+    never looked at it, so a shape's border was always a single draw where
+    MilkDrop draws it four times, offset around a one-texel square
+    (milkdropfs.cpp:2247-2259) — and MilkDrop registers `thick` as an
+    input/output variable (state.cpp:496), so the shape's own per_frame code
+    can set it, which 15 presets do. Neither the border nor the motion vectors
+    were resolution-compensated either, so at 1920 they stayed one pixel wide
+    while every waveform in the same frame was already scaled; MilkDrop's own
+    line is one texel in a 512-wide buffer, close to four pixels in ours. 2,961
+    of the corpus' 15,989 live shape blocks draw a border (1,821 presets,
+    17.6%), 425 of those ask for `thickOutline` as well (309 presets, 3.0%),
+    and 884 presets (8.6%) draw motion vectors. Measured with the feedback loop
+    removed — decay=0, no shaders, the fill fully transparent so only the
+    border is on screen, at 512x384 — the border's deposit was 380 whether
+    `thick` was set or not and whether it came from the file or from the
+    equations: the identical number in all four cases is the gap itself. It is
+    920 without `thick` and 1,300 with it now, and motion vectors went from
+    9,140 to 23,444.
+  - *Lines are anti-aliased ribbons* rather than one-texel GL lines fattened by
+    offset redraws — a deliberate divergence from MilkDrop, and the one place
+    we set out to be better than it rather than equal to it; projectM has the
+    same request open as #682. The default conserves the light the old path
+    deposited so no preset changes brightness, measured within about 12% per
+    frame with the feedback loop removed, and a setting offers the physically
+    true width instead, or MilkDrop's own fattening. One setting drives all
+    three line kinds rather than leaving a smooth waveform beside a jagged
+    outline in the same frame: the border as a closed strip, the motion vectors
+    as independent segments batched into a single triangle strip with
+    degenerate joins, because a 64x48 grid is 3,072 vectors and one draw call
+    each would eat the frame. Calibrating it turned up a defect in the shipped
+    waveform path: the gain that conserves the old path's light divides by the
+    number of draws that path made, and draw count stops predicting light once
+    the offset copies overlap. With `bWaveThick` set — the saturated case,
+    seven draws — waveforms were depositing +16.0 / +33.7 / -9.6 / +19.0 /
+    +17.1 percent against the path they were supposed to match. Measured, going
+    from weight 2 to weight 4 multiplies draws by 1.75 but light by 1.58 on
+    average, so the proxy carries a 0.90 overlap factor now, applied only where
+    the offset list saturates — the weight-2 case AA_TRIM was calibrated
+    against is bit-for-bit unchanged. That brings the same five to +4.8 / +24.6
+    / -18.9 / +7.3 / +5.4, the outline to +15.0 and motion vectors to -6.6. The
+    spread does not close and cannot: it tracks segment count, which no single
+    multiplier can cancel.
+  - *Presets hear the music the way MilkDrop hears it.* `bass`, `mid`, `treb`
+    and their `_att` values come from MilkDrop's own chain — the newest 576
+    samples, a Hann-windowed 1024-point FFT with its equaliser, three bands
+    summed over the lower half of the spectrum, a fast asymmetric average for
+    `_att` and a four-second one to divide by — instead of the visualizer's
+    bands smoothed twice and divided by a six-second average, which on a
+    synthetic drum track put bass lower just after a kick than between kicks
+    (0.93x against MilkDrop's 2.45x) and never raised `_att` on a hit. The
+    averages start from the first frame with sound rather than from zero, and
+    values are capped at 30, where the track's own music peaks at 18.6 and
+    MilkDrop reaches 234 coming back from a long silence. Spectrum waves read
+    the newest 576 samples too, where they had been reading the oldest 576 of
+    the 2048-sample buffer, about 30 ms behind the sound.
+  - *A MilkDrop scene exports to video.* It produced a 0-byte file: the
+    exporter's page never loaded the engine's audio, HLSL and shader parts —
+    the same gap the web overlay had already been fixed for — so the mode threw
+    on every frame. In the same self-test run the other two scenes exported
+    1,607 KB and 125 KB; MilkDrop now exports 1,394 KB with no black frames,
+    and the self-test exports a MilkDrop scene every run.
+  - *Auto advance advances.* The panel's slider had been writing
+    `milkdrop.autoNext` since the engine landed and nothing read it — set to
+    two seconds, the preset on screen was unchanged nine seconds later in the
+    running app. The visualizer now switches on its own frame clock, in order
+    or at random without repeating the preset on screen, and never writes the
+    pick into `settings.json`, which is rewritten in full on every change; the
+    panel shows the live preset and its preview follows the visualizer.
+  - *A MilkDrop layer survives scene transitions.* A transition rebuilt every
+    layer of the arriving scene, so MilkDrop restarted its preset, lost its
+    feedback trail and fell back from auto advance to the hand-picked preset —
+    on every track for anyone running the dynamic colour theme with scene
+    transitions, since the palette is part of the scene signature. The instance
+    now stays and the leaving scene composites its canvas through a proxy;
+    measured in one run with the fix switched off and on, off gave a new
+    instance on the hand-picked preset, on kept the same instance and preset.
 
 ### Verification
 

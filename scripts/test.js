@@ -70,6 +70,72 @@ function checkClaims(total) {
   return false;
 }
 
+/* ROADMAP'in DURUM TABLOSU.
+ *
+ * İki şey kendiliğinden bozuluyor ve ikisi de testleri kırmıyor:
+ *
+ * 1. Sürüm çıkıyor, tabloya sütunu eklenmiyor. v3.1.4 yayımlandıktan sonra
+ *    tablo v3.1.3'te kaldı; üstelik bazı notlar "v3.1.4'te geldi" diyordu,
+ *    yani tablo kendi notlarıyla çelişiyordu.
+ * 2. Not hücresi büyüyor. MilkDrop'unki 13.358 karaktere çıkmıştı — ikinci
+ *    en uzun notun 44 katı, tek bir hücrede bir sürüm günlüğü. Tablo bir
+ *    bakışta okunsun diye var; ayrıntının yeri sürüm bölümleri.
+ *
+ * Sınır 400 ve belgedeki her tablo için geçerli: bugünkü en uzun not 356
+ * karakter ve rahatça sığıyor, ama bir paragraf sığmıyor. */
+const MAX_NOTE = 400;
+
+function checkRoadmap() {
+  const p = path.join(root, 'ROADMAP.md');
+  let text;
+  try { text = fs.readFileSync(p, 'utf8'); } catch { return true; }
+  const bad = [];
+  const cur = /\*\*Current release: (v[\d.]+)\*\*/.exec(text);
+  if (!cur) bad.push('"Current release" satırı bulunamadı');
+  const lines = text.split(/\r?\n/);
+  const head = lines.findIndex((l) => l.startsWith('| Feature | v1.3.1 |'));
+  if (head < 0) bad.push('durum tablosunun başlık satırı bulunamadı');
+  if (head >= 0 && cur) {
+    const cells = lines[head].split('|').map((c) => c.trim());
+    // ['', 'Feature', sürümler..., 'Note', '']
+    const last = cells[cells.length - 3].replace(/\*/g, '');
+    if (last !== cur[1]) {
+      bad.push('tablonun son sürüm sütunu ' + last + ', yayındaki sürüm ' + cur[1]);
+    }
+    const width = cells.length;
+    for (let i = head + 2; i < lines.length && lines[i].startsWith('|'); i++) {
+      const row = lines[i].split('|');
+      const name = row[1].trim();
+      if (row.length !== width) {
+        bad.push('"' + name + '" satırında ' + (row.length - 3) + ' sürüm hücresi var, başlıkta ' + (width - 3));
+      }
+    }
+  }
+  /* Uzunluk sınırı belgedeki BÜTÜN tablolar için: aynı şişme başka bir
+     tabloda da olabilir, tablo hangisi olursa olsun taranarak okunuyor. */
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    if (!l.startsWith('|')) continue;
+    const row = l.split('|');
+    if (row.length < 4) continue;
+    for (let c = 2; c < row.length - 1; c++) {
+      const cell = row[c].trim();
+      if (cell.length > MAX_NOTE) {
+        bad.push('satır ' + (i + 1) + ', "' + row[1].trim().slice(0, 40) + '" hücresi ' +
+          cell.length + ' karakter (sınır ' + MAX_NOTE + '): ayrıntı sürüm bölümüne taşınmalı');
+      }
+    }
+  }
+  if (!bad.length) return true;
+  console.error('');
+  console.error('ROADMAP durum tablosu:');
+  for (const b of bad) console.error('  ' + b);
+  console.error('');
+  return false;
+}
+
+if (!checkRoadmap()) process.exit(1);
+
 /* Tam koşu değilse (süzgeç verilmişse) sayı zaten eksik olur; denetlemeyiz. */
 const extra = process.argv.slice(2);
 const tap = extra.length ? null : path.join(os.tmpdir(), 'sv-test-' + process.pid + '.tap');
