@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1739 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1746 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 142
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 149
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -804,6 +804,21 @@ MilkDrop (#560):
   non-zero `fShader` were missing the tint entirely. Six of them rendered
   alone all differ (means of 0.3 to 13.0 of 255, up to 60% of pixels past 8)
   and stay identical with the switch off.
+- **Motion vectors sit where MilkDrop puts them and point where it points** ·
+  done on `main`. Four differences in one field (milkdropfs.cpp:1172-1320):
+  the count is truncated with its fraction widening the grid spacing, and the
+  caps are 64 across but 48 down, where we rounded and capped both at 64; the
+  grid runs from one edge of the screen to the other at `(i + 0.25) / (n +
+  fraction + 0.25 - 1)`, where we centred it in half-cells; a trail shorter
+  than one texel is stretched to one texel, where ours could vanish; and the
+  segment runs from the point to where that point's content came from, where
+  ours drew the mirror image of that - the whole field pointed the wrong way.
+  884 presets (8.6%) draw them. Measured at 960x720, two presets changed a
+  recorded value and one crossed into frozen at 8.1e-5 movement; of six
+  presets that really draw vectors, five differ when rendered alone - means of
+  3.4, 38.1, 49.7, 51.2 and 158.2 of 255, the last one over 95% of its pixels
+  - and all six are identical with the fidelity switch off, whose run is also
+  identical byte for byte.
 - **A textured shape samples the window MilkDrop samples** · done on `main`.
   MilkDrop places a shape's corners at its own angle but does not turn the
   window it reads from the previous frame with them (milkdropfs.cpp:2198-2200):

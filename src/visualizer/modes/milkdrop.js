@@ -2715,13 +2715,24 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       if (!P) return;
       const a = +P.get('mv_a');
       if (!isFinite(a) || a <= 0.002) return;
-      const nx = Math.round(+P.get('mv_x'));
-      const ny = Math.round(+P.get('mv_y'));
-      if (!(nx >= 1) || !(ny >= 1)) return;
-      /* Üst sınır: preset per_frame içinde saçma bir sayı yazabiliyor ve
-         çizgi tamponu 512 düğümlük. */
-      const NX = Math.min(64, nx);
-      const NY = Math.min(64, ny);
+      const acc = this._wantAcc !== false;
+      const rawX = +P.get('mv_x'), rawY = +P.get('mv_y');
+      /* SAYI KESİLİYOR ve KESİRLİ KISIM ARALIĞA GİRİYOR (milkdropfs.cpp:
+         1187-1192): `mv_x = 12,5` on iki sütun demek, ama sütunlar
+         yarım aralık kaydırılmış bir ızgaraya oturuyor. Üst sınırlar da
+         ayrı: X'te 64, Y'de 48. Motor yuvarlıyor ve ikisini de 64'te
+         kesiyordu. */
+      let NX = acc ? Math.trunc(rawX) : Math.round(rawX);
+      let NY = acc ? Math.trunc(rawY) : Math.round(rawY);
+      let fdx = acc ? rawX - NX : 0;
+      let fdy = acc ? rawY - NY : 0;
+      if (NX > 64) { NX = 64; fdx = 0; }
+      if (NY > (acc ? 48 : 64)) { NY = acc ? 48 : 64; fdy = 0; }
+      if (!(NX >= 1) || !(NY >= 1)) return;
+      if (!(fdx >= 0)) fdx = 0; else if (fdx > 1) fdx = 1;
+      if (!(fdy >= 0)) fdy = 0; else if (fdy > 1) fdy = 1;
+      // En kısa iz bir teksel (milkdropfs.cpp:1225): duran bir alanda bile görünür
+      const minLen = 1 / Math.max(1, GW);
       const len = +P.get('mv_l');
       const dx0 = +P.get('mv_dx') || 0;
       const dy0 = +P.get('mv_dy') || 0;
@@ -2783,17 +2794,44 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         count = 0;
       };
       for (let j = 0; j < NY; j++) {
+        /* IZGARA MilkDrop'un ızgarası: (j + 0,25) / (NY + kesir + 0,25 - 1)
+           (milkdropfs.cpp:1244, 1256). Ekranın bir kenarından ötekine
+           uzanıyor; motorunki hücre ortalarına oturuyordu, yani alan yarım
+           hücre içeri çekilmiş ve aralıkları başka çıkıyordu. MilkDrop'un
+           `fy`si aşağıdan yukarı, bizimki yukarıdan aşağı: çevirme burada. */
+        const fy = acc ? (j + 0.25) / (NY + fdy + 0.25 - 1) - dy0 : 0;
+        if (acc && !(fy > 0.0001 && fy < 0.9999)) continue;
+        const y = acc ? 1 - fy : (j + 0.5) / NY + dy0;
         for (let i = 0; i < NX; i++) {
-          const x = (i + 0.5) / NX + dx0;
-          const y = (j + 0.5) / NY + dy0;
-          if (x < 0 || x > 1 || y < 0 || y > 1) continue;
+          const fx = acc ? (i + 0.25) / (NX + fdx + 0.25 - 1) + dx0 : 0;
+          if (acc && !(fx > 0.0001 && fx < 0.9999)) continue;
+          const x = acc ? fx : (i + 0.5) / NX + dx0;
+          if (!acc && (x < 0 || x > 1 || y < 0 || y > 1)) continue;
           sampleUV(x, y, uv);
           if (!isFinite(uv[0]) || !isFinite(uv[1])) continue;
-          /* Vektör, noktanın örneklediği yerden noktanın KENDİSİNE doğru:
-             görüntünün aktığı yönü gösteriyor. Ters çizmek akışı geriye
-             akıyormuş gibi gösterirdi. */
-          const ex = x + (x - uv[0]) * L;
-          const ey = y + (y - uv[1]) * L;
+          let ex, ey;
+          if (acc) {
+            /* VEKTÖR NOKTADAN, O NOKTANIN İÇERİĞİNİN GELDİĞİ YERE doğru
+               (milkdropfs.cpp:1265-1289): MilkDrop ters yayılım noktasını
+               alıp aradaki farkı `mv_l` ile ölçekliyor ve bir tekselden
+               kısaysa uzatıyor. Motor farkın AYNASINI çiziyordu, yani
+               bütün alan ters yöne bakıyordu. */
+            let ddx = (uv[0] - x) * L;
+            let ddy = (uv[1] - y) * L;
+            const len = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (len > minLen) {
+              // olduğu gibi
+            } else if (len > 1e-8) {
+              const k = minLen / len;
+              ddx *= k; ddy *= k;
+            } else {
+              ddx = minLen; ddy = minLen;
+            }
+            ex = x + ddx; ey = y + ddy;
+          } else {
+            ex = x + (x - uv[0]) * L;
+            ey = y + (y - uv[1]) * L;
+          }
           if (!isFinite(ex) || !isFinite(ey)) continue;
           if (count + 2 > 512) flush();
           push(x, y);
