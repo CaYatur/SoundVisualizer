@@ -2815,7 +2815,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
                (milkdropfs.cpp:1265-1289): MilkDrop ters yayılım noktasını
                alıp aradaki farkı `mv_l` ile ölçekliyor ve bir tekselden
                kısaysa uzatıyor. Motor farkın AYNASINI çiziyordu, yani
-               bütün alan ters yöne bakıyordu. */
+               bütün alan ters yöne bakıyordu. Aynayı MilkDrop'un kendisi de
+               denemiş ve KAPATMIŞ: milkdropfs.cpp:1266 satırındaki
+               `//fx2 = fx*2 - fx2;` tam olarak motorun çizdiği şeydi. */
             let ddx = (uv[0] - x) * L;
             let ddy = (uv[1] - y) * L;
             const len = Math.sqrt(ddx * ddx + ddy * ddy);
