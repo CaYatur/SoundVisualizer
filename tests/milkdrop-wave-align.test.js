@@ -370,7 +370,8 @@ test('motor: tayf kanal başına ve kare başına bir kez', () => {
    noktası ve 120 örnek kayması, kapalıyken eski 256 ve 128. */
 test('motor: varsayılan dalganın nokta sayısı geçerli 480 örnekten', () => {
   const dw = method('_drawWaveModes(gl, GW, GH)');
-  assert.match(dw, /const acc = this\._wantAcc !== false;\s*const SAMPLES = acc \? 480 : 512;/);
+  assert.match(dw, /const acc = this\._wantAcc !== false;/);
+  assert.match(dw, /const SAMPLES = acc \? 480 : 512;/);
   const m0 = /if \(mode === 0\) \{\s*n = ([^;]+);\s*off = ([^;]+);/.exec(dw);
   assert.ok(m0, 'mod 0 satırları bulunamadı');
   /* Mod 6/7'nin sayısı render genişliğiyle de sınırlanıyor (ayrı test

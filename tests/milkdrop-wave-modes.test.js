@@ -46,6 +46,7 @@ const glStub = new Proxy({}, {
 function drawWave(opts) {
   const fn = new Function('gl', 'GW', 'GH', 'window', 'smoothWave', body(method('_drawWaveModes(gl, GW, GH)')));
   const vol = new Function('a', body(method('_waveVolAlpha(a)')));
+  const modeAlpha = new Function('a', 'mode', 'GW', body(method('_waveModeAlpha(a, mode, GW)')));
   const vals = Object.assign({
     wave_mode: 0, wave_a: 1, wave_r: 1, wave_g: 1, wave_b: 1, wave_x: 0.5, wave_y: 0.5,
     wave_mystery: 0, wave_brighten: 0, wave_usedots: 0, wave_thick: 0, wave_additive: 0,
@@ -62,6 +63,8 @@ function drawWave(opts) {
     lineData: new Float32Array(4096 * 6),
     waveData: new Float32Array(8192 * 6),
     _waveVolAlpha: vol,
+    _waveModeAlpha: modeAlpha,
+    _bands: opts.bands || null,
     _blend() {},
     _strip(gl, kind, vd, vn, vbreak) { got = { vd, vn, vbreak, kind }; },
   };
@@ -267,6 +270,74 @@ test('kip 4 ve 6/7 uyum kapalıyken sınırsız ve kaymasız', () => {
   const m6 = drawWave({ L, R, acc: false, GW: 240, GH: 180, vals: { wave_mode: 6 } });
   assert.strictEqual(m6.vn, 512, 'eski yolda çift çizgi ve sınır yok');
   close(pt(m6, 0)[0], -3, 'eski çizgi ±3 arasında');
+});
+
+// ------------------------------------------------------------------- alfa
+
+// Çizilen alfa: tepe verisinin 6. bileşeni
+const alphaOf = (r) => r.vd[5];
+
+test('alfa sırası: önce kipin çarpanı, sonra sesle değiştirme ve kenetleme', () => {
+  const { L, R } = chans();
+  /* MilkDrop: alpha = wave_a * kip çarpanı, sonra kenetleme. wave_a = 2 ve
+     kip 2, 512 piksel → 2 * 0,09 = 0,18. Motor önce kenetleyip (1) sonra
+     çarptığı için 0,09 çiziyordu. */
+  const r = drawWave({ L, R, GW: 512, GH: 384, vals: { wave_mode: 2, wave_a: 2 } });
+  close(alphaOf(r), MD.colorNorm(0.18), 'kip 2, wave_a = 2');
+  // 1'in altında iki sıra da aynı sonucu veriyor
+  const half = drawWave({ L, R, GW: 512, GH: 384, vals: { wave_mode: 2, wave_a: 0.5 } });
+  close(alphaOf(half), MD.colorNorm(0.045), 'kip 2, wave_a = 0,5');
+  // Eski yol: kenetlemeden sonra çarpım
+  const old = drawWave({ L, R, acc: false, GW: 512, GH: 384, vals: { wave_mode: 2, wave_a: 2 } });
+  // Eski yolda çarpan 8 bite indirmeden SONRA geliyor, yani sonuç tekrar
+  // nicemlenmiyor: min(1, colorNorm(1) * 0,09)
+  close(alphaOf(old), Math.min(1, MD.colorNorm(1) * 0.09), 'eski sıra');
+});
+
+test('kip 2 ve 5 soluklaştırma çarpanı genişliğe göre', () => {
+  const { L, R } = chans();
+  const want = [[256, 0.07], [512, 0.09], [1024, 0.11], [2048, 0.13], [3840, 0.15]];
+  for (const [w, mul] of want) {
+    for (const mode of [2, 5]) {
+      const r = drawWave({ L, R, GW: w, GH: Math.round(w * 0.75), vals: { wave_mode: mode, wave_a: 1 } });
+      close(alphaOf(r), MD.colorNorm(mul), 'kip ' + mode + ' @' + w);
+    }
+  }
+  // Aradaki boyutlar da bir kovaya düşüyor: 960 → 1024 kovası
+  const mid = drawWave({ L, R, GW: 960, GH: 720, vals: { wave_mode: 2, wave_a: 1 } });
+  close(alphaOf(mid), MD.colorNorm(0.11), '960');
+});
+
+test('kip 3 alfayı ATIYOR ve ham tiz bandının karesiyle çarpıyor', () => {
+  const { L, R } = chans();
+  const bands = { imm: [0, 0, 0.5] };
+  // 0,22 (1024 kovası) * 1,3 * 0,5^2 = 0,0715; wave_a hükümsüz
+  const r = drawWave({ L, R, GW: 960, GH: 720, bands, vals: { wave_mode: 3, wave_a: 0.9 } });
+  close(alphaOf(r), MD.colorNorm(0.22 * 1.3 * 0.25), 'tiz 0,5');
+  const r2 = drawWave({ L, R, GW: 960, GH: 720, bands, vals: { wave_mode: 3, wave_a: 0.1 } });
+  close(alphaOf(r2), alphaOf(r), 'wave_a sonucu değiştirmiyor');
+  // Tiz yükselince kenetleniyor
+  const loud = drawWave({ L, R, GW: 960, GH: 720, bands: { imm: [0, 0, 3] }, vals: { wave_mode: 3 } });
+  close(alphaOf(loud), MD.colorNorm(1), 'yüksek tizde opak');
+  // Bant zinciri yoksa presetin gördüğü orana düşülüyor
+  const noBands = drawWave({ L, R, GW: 960, GH: 720, vals: { wave_mode: 3, treb: 1 } });
+  close(alphaOf(noBands), MD.colorNorm(0.22 * 1.3), 'bant yok');
+});
+
+test('kip numarası kesiliyor, eksi numarada hiç çizilmiyor', () => {
+  const { L, R } = chans();
+  // 2,7 → kip 2 (kesme), yuvarlansaydı kip 3 olurdu ve alfa bambaşka çıkardı
+  const frac = drawWave({ L, R, GW: 512, GH: 384, vals: { wave_mode: 2.7, wave_a: 1 } });
+  close(alphaOf(frac), MD.colorNorm(0.09), 'kesme');
+  // 9 → 1, -1 → hiçbir case yok
+  const wrap = drawWave({ L, R, GW: 512, GH: 384, vals: { wave_mode: 9, wave_a: 0.4 } });
+  close(alphaOf(wrap), MD.colorNorm(0.5), '9 → kip 1 (0,4 * 1,25)');
+  assert.strictEqual(drawWave({ L, R, vals: { wave_mode: -1 } }), null, 'eksi kipte çizim yok');
+  assert.strictEqual(drawWave({ L, R, vals: { wave_mode: NaN } }), null, 'sayı değilse çizim yok');
+  // Eski yol yuvarlıyor ve eksi numarayı sarıyor
+  const oldRound = drawWave({ L, R, acc: false, GW: 512, GH: 384, vals: { wave_mode: 2.7, wave_a: 1 } });
+  close(alphaOf(oldRound), MD.colorNorm(Math.min(1, MD.colorNorm(1) * 1.3)), 'eski yol 2,7 → kip 3');
+  assert.ok(drawWave({ L, R, acc: false, vals: { wave_mode: -1 } }) !== null, 'eski yolda eksi kip çiziliyor');
 });
 
 // ------------------------------------------------------------------ kayıt

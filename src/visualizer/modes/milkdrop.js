@@ -3616,6 +3616,38 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
        Aralık ters yazılmış olabiliyor (başlangıç > bitiş); bölme sıfıra
        düşerse alfa sonsuz olur, o yüzden aralık korunuyor. */
+    /* KİPİN KENDİ ALFASI. MilkDrop bunu doku boyutuna bakan bir switch
+       ile seçiyor: kip 2 ve 5 çarpıyor (milkdropfs.cpp:2750-2757 ve
+       2864-2871), kip 3 ATIYOR (2775-2782), kip 1 sabit 1,25 ile çarpıyor
+       (2728).
+
+       SWITCH ARALIĞA ÇEVRİLDİ — bilerek sapma. MilkDrop 2'nin
+       varsayılanında doku boyutu pencerenin kendi genişliği
+       (plugin.cpp:1283-1295), yani yalnız 256/512/1024/2048'e bakan switch
+       gerçek bir pencerede hiç tutmuyor: kaynağın "alfa sabit ve SOLUK"
+       diye tarif ettiği kip 2 (2749) tam opak çiziliyor. Dal, MilkDrop 2
+       tam boy dokuya geçerken ölmüş. Aralığa çevirince tarifteki niyet
+       geri geliyor; projectM de aynı yolu seçmiş (Waveform.cpp,
+       MaximizeColors). 2048'in üstü için onun değerleri alındı.
+
+       Kip 3'te çarpma değil ATAMA var: o 392 preset (%3,8) için wave_a'nın
+       hükmü kalmıyor, MilkDrop'ta da kalmıyor. Tizle çarpan `treble_rel`
+       ORANIN kendisi değil, ham bant toplamı (milkdropfs.cpp:2650:
+       `mdsound.imm[2]`); bantlar MilkDrop'un zincirinden gelmiyorsa
+       (zaman verisi yok) presetin gördüğü orana düşülüyor. */
+    _waveModeAlpha(a, mode, GW) {
+      if (mode === 1) return a * 1.25;
+      if (mode === 2 || mode === 5) {
+        return a * (GW <= 256 ? 0.07 : GW <= 512 ? 0.09 : GW <= 1024 ? 0.11 : GW <= 2048 ? 0.13 : 0.15);
+      }
+      if (mode === 3) {
+        const base = GW <= 256 ? 0.075 : GW <= 512 ? 0.15 : GW <= 1024 ? 0.22 : GW <= 2048 ? 0.33 : 0.44;
+        const t = this._bands ? this._bands.imm[2] : (this.preset.get('treb') || 0);
+        return base * 1.3 * t * t;
+      }
+      return a;
+    }
+
     _waveVolAlpha(a) {
       let alpha = isFinite(a) ? a : 1;
       const P = this.preset;
@@ -3699,13 +3731,34 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _drawWaveModes(gl, GW, GH) {
       const P = this.preset;
       const cl = window.SVMilkdrop.clampColor;
+      /* KİP NUMARASI KESİLİYOR, yuvarlanmıyor: MilkDrop `(int)` ile kesip
+         8'e göre kalan alıyor (milkdropfs.cpp:2653). Eksi bir numara C'de
+         hiçbir case'e düşmüyor — MilkDrop o karede sıfırlanmış tepe
+         noktalarını, yani ekranın ortasında bir noktayı çiziyor; biz hiç
+         çizmiyoruz. Dosyada eksi ya da kesirli numara yazan preset yok,
+         ama 50 preset (%0,5) kipi kare kare hesaplıyor. */
+      const acc = this._wantAcc !== false;
+      let mode;
+      if (acc) {
+        const t = Math.trunc(P.get('wave_mode')) % 8;
+        if (!(t >= 0)) return;
+        mode = t;
+      } else {
+        mode = ((Math.round(P.get('wave_mode')) % 8) + 8) % 8;
+      }
+      /* ALFA SIRASI MilkDrop'ta: wave_a → KİPİN ÇARPANI → sesle değiştirme
+         → [0,1] kenetleme (her case'in sonunda, örn. 2697-2698). Motor
+         önce kenetleyip kipin çarpanını sonra uyguluyordu; wave_a 1'in
+         üstünde olan 2.054 presette (%19,9) çarpan kenetlenmiş 1'e binip
+         sonucu yarıya indiriyordu: wave_a = 2 ve kip 2 için MilkDrop 0,18,
+         motor 0,09. */
       let alpha = P.get('wave_a');
+      if (acc) alpha = this._waveModeAlpha(alpha, mode, GW);
       alpha = this._waveVolAlpha(alpha);
       if (alpha <= 0.002) return;
 
       const L = this._fL, R = this._fR;
       const d = this.lineData;
-      const mode = ((Math.round(P.get('wave_mode')) % 8) + 8) % 8;
       const posX = (P.get('wave_x') || 0) * 2 - 1;
       /* wave_y'de ÇEVİRME YOK. Şekillerde var (`y*-2+1`), dalgada yok —
          MilkDrop kaynağı bunu "orijinalinde tersti, öyle bırakıyoruz" diye
@@ -3725,7 +3778,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       /* VARSAYILAN DALGA renk yolunda bir istisna var: MilkDrop burada
          COLOR_NORM'dan ÖNCE ayrıca KENETLİYOR (milkdropfs.cpp:2623-2628),
          yani rengi sarmıyor — şekil ve özel dalgada sarıyor. Sıra:
-         kenetle, parlat, sonra 8 bite indir. Alfa kenetlenmiyor, o sarıyor. */
+         kenetle, parlat, sonra 8 bite indir. Alfa da kenetli: her kip
+         kendi dalının sonunda [0,1]'e çekiyor (örn. 2697-2698), yani
+         COLOR_NORM'a hiç 1'in üstünde bir değer gitmiyor. */
       let cr = cl(P.get('wave_r')), cg = cl(P.get('wave_g')), cb = cl(P.get('wave_b'));
       // wave_brighten: en parlak kanalı 1'e çekip rengi doyurur
       if (P.get('wave_brighten')) {
@@ -3738,13 +3793,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const cn = window.SVMilkdrop.colorNorm;
       cr = cn(cr); cg = cn(cg); cb = cn(cb);
       alpha = cn(alpha);
+      /* Uyum kapalıyken eski sıra duruyor: kipin çarpanı kenetlemeden ve
+         8 bite inmeden SONRA. */
+      if (!acc) {
+        if (mode === 1) alpha = Math.min(1, alpha * 1.25);
+        else if (mode === 2) alpha = Math.min(1, alpha * 0.09);
+        else if (mode === 3) alpha = Math.min(1, alpha * 1.3);
+      }
 
       /* Nokta sayısının çıkış noktası geçerli örnek sayısı: MilkDrop'ta
          480 (`nVerts = NUM_WAVEFORM_SAMPLES`, milkdropfs.cpp:2666). Motor
          512 kullanıyordu; hizalama kuyruğu sıfırladığından beri bu,
          Lissajous modlarında fazladan 32 noktanın merkeze çökmesi demek.
          Kapalıyken eski sayı. */
-      const acc = this._wantAcc !== false;
       const SAMPLES = acc ? 480 : 512;
       let n = SAMPLES;
       let off = 0;
@@ -3779,7 +3840,6 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         put(n, d[0], d[1]);
         n++;
       } else if (mode === 1) {
-        alpha = Math.min(1, alpha * 1.25);
         n = SAMPLES / 2;
         for (let i = 0; i < n; i++) {
           const rad = 0.53 + 0.43 * R[i] + myst;
@@ -3787,8 +3847,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           put(i, rad * Math.cos(ang) * aspY + posX, rad * Math.sin(ang) * aspX + posY);
         }
       } else if (mode === 2 || mode === 3) {
-        // MilkDrop 512'lik tamponda 2 numaralı modu belirgin şekilde soluklaştırıyor
-        alpha = Math.min(1, mode === 2 ? alpha * 0.09 : alpha * 1.3);
+        // İkisi de aynı noktaları çiziyor; ayrıldıkları yer alfa (_waveModeAlpha)
         for (let i = 0; i < n; i++) {
           put(i, R[i] * aspY + posX, L[i + 32] * aspX + posY);
         }
