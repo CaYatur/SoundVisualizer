@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1725 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1727 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 128
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 130
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -764,6 +764,17 @@ MilkDrop (#560):
   rendered alone, four move visibly (means of 1.3, 10.0, 20.4 and 21.4 of
   255, up to 58% of pixels past 8) and all eight are pixel-identical with the
   switch off. On the 900-preset sample no preset changes class at 960x720.
+- **The mesh's `q` writes stay in the mesh** · done on `main`. MilkDrop copies
+  `q1`..`q32` into a second set of slots when the per-frame code finishes
+  (milkdropfs.cpp:649-650); the per-vertex code writes that copy, while the
+  waves and shapes drawn in the same frame read what per_frame left. We kept
+  one pool, so a preset whose per_pixel writes `q` - 155 of them, 1.5% -
+  handed the mesh's last value to its own waves and shapes. Run through the
+  engine's equations across the corpus, with the mesh nodes evaluated between
+  the frame code and the wave and shape code, 5 presets produce different
+  output and none do with the switch off; four of the five differ on screen
+  when rendered alone, one of them over 75% of its pixels. No preset changes
+  class on the 900-preset sample.
 - **The layer releases its WebGL context when it closes** · done on `main`.
   It deleted its GL objects one by one but left the context to garbage
   collection, and until then Chromium counts it as active; past the limit it

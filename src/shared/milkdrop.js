@@ -1255,7 +1255,9 @@
       const P = this.pool;
       for (const k of SHARED_VARS) pool.set(k, P.get(k));
       if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
-      for (let i = 1; i <= 32; i++) pool.set('q' + i, P.get('q' + i));
+      // Uyum açıkken per_frame'in bıraktığı q; kapalıyken havuzun o anki hâli
+      const q = this.accurate !== false ? this._qFrame : null;
+      for (let i = 1; i <= 32; i++) pool.set('q' + i, q ? q[i - 1] : P.get('q' + i));
     }
 
     // Bir custom dalganın kare denklemlerini koşturur. false: çizilmeyecek.
@@ -1373,6 +1375,15 @@
       for (const k of PF_RESET) P.set(k, this._pfBase[k]);
       if (this._qInit) for (let i = 0; i < NUM_Q; i++) P.set('q' + (i + 1), this._qInit[i]);
       this.cFrame.run(P.values);
+      /* q'ların KARE değeri, per_pixel koşmadan önce. MilkDrop per_frame
+         bittiğinde q1..q32'yi ayrı bir yuva takımına kopyalıyor
+         (milkdropfs.cpp:649-650) ve per_vertex kodu o kopyayı yazıyor;
+         dalgalar ve şekiller ise per_frame'in bıraktığını okuyor
+         (plugin.cpp:2317 ve şeklin eşi). Bizde tek havuz var: ağ
+         düğümlerinde q yazan 155 preset (%1,5) aynı karede çizilen
+         dalgalara ve şekillere düğümlerin bıraktığı değeri geçiriyordu. */
+      if (!this._qFrame) this._qFrame = new Array(NUM_Q);
+      for (let i = 0; i < NUM_Q; i++) this._qFrame[i] = P.get('q' + (i + 1));
       return P;
     }
 

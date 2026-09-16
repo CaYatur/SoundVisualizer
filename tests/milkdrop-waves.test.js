@@ -324,3 +324,46 @@ test('blok taşımayan preset boş diziler verir', () => {
   assert.deepStrictEqual(p.waves, []);
   assert.deepStrictEqual(p.shapes, []);
 });
+
+/* AĞ DÜĞÜMLERİNİN q YAZIMI dalgalara ve şekillere sızmıyor. MilkDrop
+   per_frame bitince q1..q32'yi ayrı bir yuva takımına kopyalıyor
+   (milkdropfs.cpp:649-650); per_vertex kodu o kopyayı yazıyor, dalgalar ve
+   şekiller ise per_frame'in bıraktığını okuyor. Korpusta 155 preset (%1,5)
+   per_pixel içinde q yazıyor. */
+test('per_pixel q yazımı aynı karenin dalgalarına sızmıyor', () => {
+  const lines = [
+    'per_frame_1=q1 = 5;',
+    'per_pixel_1=q1 = 99;',
+    'wavecode_0_enabled=1',
+    'wave_0_per_point1=x = q1; y = q1;',
+  ];
+  const p = preset(lines);
+  p.frame(INPUTS);
+  p.captureBase();
+  p.pixel(0.5, 0.5, 0.2, 0.3, {});      // ağ düğümü: q1 = 99 yazıyor
+  p.waveFrame(p.waves[0]);
+  const o = p.wavePoint(p.waves[0], 0.5, 0, 0, {});
+  assert.strictEqual(o.x, 5, 'dalga, per_frame sonrasi q1 degerini gormeli');
+
+  // Uyum kapalıyken eski davranış: düğümün bıraktığı değer taşınıyor
+  const q = new M.Preset(lines.join(EOL), { seed: 7, accurate: false });
+  q.frame(INPUTS);
+  q.captureBase();
+  q.pixel(0.5, 0.5, 0.2, 0.3, {});
+  q.waveFrame(q.waves[0]);
+  assert.strictEqual(q.wavePoint(q.waves[0], 0.5, 0, 0, {}).x, 99);
+});
+
+test('per_pixel q yazımı şekillere de sızmıyor', () => {
+  const p = preset([
+    'per_frame_1=q2 = 3;',
+    'per_pixel_1=q2 = 77;',
+    'shapecode_0_enabled=1',
+    'shape_0_per_frame1=x = q2;',
+  ]);
+  p.frame(INPUTS);
+  p.captureBase();
+  p.pixel(0.25, 0.75, 0.4, 1.1, {});
+  const o = p.shapeFrame(p.shapes[0], 0, {});
+  assert.strictEqual(o.x, 3);
+});
