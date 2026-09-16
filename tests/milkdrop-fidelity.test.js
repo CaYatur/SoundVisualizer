@@ -114,7 +114,10 @@ test('çeviri: warp aşaması da hue_shader alıyor', () => {
 
 test('motor: köşe renkleri tek seferde yükleniyor', () => {
   assert.match(CODE, /L\.hue_corner = u\('hue_corner\[0\]'\)/);
-  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, hc\)/);
+  /* Renkler ayrı bir yöntemde: shader'lı yol uniform olarak, sabit
+     birleştirme yolu da tepe rengi olarak aynı diziyi kullanıyor. */
+  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, this\._hueCorners\(ctx\.P, t, rand\)\)/);
+  assert.match(CODE, /gl\.uniform3fv\(this\.locComp\.uHue, this\._wantAcc !== false/);
   // Dört köşe x üç bileşen
   assert.match(CODE, /new Float32Array\(12\)/);
 });
@@ -137,8 +140,8 @@ test('motor: köşe rengi en büyük bileşene bölünüp yeniden haritalanıyor
 /* Anahtar kapalıyken YAPI aynı kalıyor: yine dört köşe, yine aynı
    shader, yine aynı uniform. Yalnız dördüne de aynı renk gidiyor. */
 test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
-  const blk = /if \(L\.hue_corner\) \{[\s\S]*?gl\.uniform3fv/.exec(CODE);
-  assert.ok(blk, 'hue_corner bloğu bulunamadı');
+  const blk = /_hueCorners\(P, t, rand\) \{[\s\S]*?return hc;/.exec(CODE);
+  assert.ok(blk, 'köşe rengi yöntemi bulunamadı');
   assert.match(blk[0], /r = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31\)/);
   assert.match(blk[0], /g = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31 \+ 2\.09\)/);
   // Kapalı kipte k'ya bağlı hiçbir terim olmamalı; yoksa köşeler ayrışırdı

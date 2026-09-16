@@ -49,6 +49,8 @@ function corners(opts) {
     _texSizeFor: () => [1, 1, 1, 1],
     _rotRows: () => new Float32Array(12),
     _blurScaleBias: () => [1, 0],
+    // köşe renkleri ayrı bir yöntemde; o da kaynaktan geliyor
+    _hueCorners: new Function('P', 't', 'rand', body(method('_hueCorners(P, t, rand)'))),
     blur: [],
     preset: null,
   };
@@ -106,4 +108,22 @@ test('uyum kapalıyken eski tek renk duruyor', () => {
       assert.ok(Math.abs(hc[i * 3 + k] - want[k]) < 1e-6, 'eski köşe ' + i + ' bileşen ' + k);
     }
   }
+});
+
+/* SABİT birleştirme yolu da aynı renkleri uyguluyor: MilkDrop tam ekran
+   dörtgenini bu dört renkle çiziyor (milkdropfs.cpp:3940-3946). Motorda o
+   yol rengi hiç uygulamıyordu; comp shader'ı olmayan 2.129 presetin 631'i
+   sıfırdan büyük bir fShader yazıyor. */
+test('sabit birleştirme yolu köşe renklerini ekran boyunca uyguluyor', () => {
+  const frag = /const COMP_FIXED_FRAG = `([\s\S]*?)`;/.exec(SRC)[1];
+  assert.match(frag, /uniform vec3 uHue\[4\];/);
+  // Alt satır 2-3, üst satır 0-1: dörtgenin köşe sırası
+  assert.match(frag, /c \*= mix\(mix\(uHue\[2\], uHue\[3\], vUV\.x\), mix\(uHue\[0\], uHue\[1\], vUV\.x\), vUV\.y\);/);
+  // Gama çarpanından ÖNCE: MilkDrop rengi katmana uygulayıp sonra gama için
+  // katmanı yeniden çiziyor
+  assert.ok(frag.indexOf('uHue[2]') < frag.indexOf('c *= uGamma;'), 'renk gamadan sonra uygulanıyor');
+
+  const pass = method('_drawCompPass(gl, dst, prog, ctx)');
+  assert.match(pass, /this\._hueCorners\(Pp, this\.time, this\.randPreset\)/);
+  assert.match(pass, /new Float32Array\(12\)\.fill\(1\)/);  // uyum kapalıyken beyaz
 });

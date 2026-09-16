@@ -230,6 +230,7 @@ uniform float uEchoAlpha;
 uniform float uEchoZoom;
 uniform int uEchoOrient;
 uniform vec4 uFx;          // brighten, darken, solarize, invert
+uniform vec3 uHue[4];      // dört köşe rengi: üst-sol, üst-sağ, alt-sol, alt-sağ
 void main(){
   vec3 c = texture(uSrc, vUV).rgb;
   if (uEchoAlpha > 0.001) {
@@ -238,6 +239,11 @@ void main(){
     if (uEchoOrient == 2 || uEchoOrient == 3) e.y = 1.0 - e.y;
     c = mix(c, texture(uSrc, e).rgb, uEchoAlpha);
   }
+  /* MilkDrop dort kose rengini SABIT yolda da uyguluyor: tam ekran dortgeni
+     bu renklerle ciziliyor ve donanim aralarini dolduruyor
+     (milkdropfs.cpp:3857-3884, 3940-3946). Shader'li yolda ayni renkler
+     hue_shader olarak gidiyordu; sabit yolda hic uygulanmiyordu. */
+  c *= mix(mix(uHue[2], uHue[3], vUV.x), mix(uHue[0], uHue[1], vUV.x), vUV.y);
   c *= uGamma;
   c = clamp(c, 0.0, 1.0);
   /* MilkDrop'un MD1 donemi sabit efektleri. Bunlar shader'dan onceki
@@ -792,6 +798,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           uEchoZoom: gl.getUniformLocation(this.compFixed, 'uEchoZoom'),
           uEchoOrient: gl.getUniformLocation(this.compFixed, 'uEchoOrient'),
           uFx: gl.getUniformLocation(this.compFixed, 'uFx'),
+          uHue: gl.getUniformLocation(this.compFixed, 'uHue[0]'),
         };
         this.locBlur = {
           uSrc: gl.getUniformLocation(this.blurProg, 'uSrc'),
@@ -1708,6 +1715,50 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return L;
     }
 
+    /* DÖRT KÖŞE RENGİ (`hue_shader`). Hem shader'lı yol (uniform) hem de
+       sabit birleştirme yolu (tepe rengi) bunu kullanıyor; MilkDrop ikisini
+       de aynı `shade[4][3]` dizisinden besliyor (milkdropfs.cpp:3857-3884).
+       Miktar presetin `fShader`ı: 0,001'in altındaysa dört köşe de beyaz. */
+    _hueCorners(P, t, rand) {
+      const accurate = this._wantAcc !== false;
+      const rs = rand || this.randPreset || [0, 0, 0, 0];
+      const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
+        /* RENGİN MİKTARI presetin `fShader`ından. MilkDrop dört köşe rengini
+           hesapladıktan sonra beyaza doğru bu oranla karıştırıyor ve oran
+           0,001'in altındaysa hiç hesaplamıyor: dört köşe de (1,1,1)
+           kalıyor (milkdropfs.cpp:3857-3876). Varsayılan 0
+           (state.cpp:548). Motor rengi HER presete veriyordu: korpusta
+           `hue_shader` okuyan 1.239 presetin 914'ü `fShader`ı sıfır
+           bırakıyor, yani MilkDrop'ta hiç renk almayan bir görüntüyü
+           renklendiriyorduk; 36'sı da ara bir oran yazıyor. */
+        const amt = accurate
+          ? Math.max(0, Math.min(1, +(P && P.get('fshader')) || 0)) : 1;
+        for (let i = 0; i < 4; i++) {
+          let r, g, b;
+          if (accurate && amt <= 0.001) {
+            r = 1; g = 1; b = 1;
+          } else if (accurate) {
+            const k = i;
+            r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
+            g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
+            b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
+            const mx = Math.max(r, g, b) || 1;
+            r = 0.5 + 0.5 * (r / mx);
+            g = 0.5 + 0.5 * (g / mx);
+            b = 0.5 + 0.5 * (b / mx);
+            r = r * amt + (1 - amt);
+            g = g * amt + (1 - amt);
+            b = b * amt + (1 - amt);
+          } else {
+            r = 0.5 + 0.5 * Math.sin(t * 0.31);
+            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
+            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
+          }
+          hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
+        }
+      return hc;
+    }
+
     _releasePresetProgs() {
       const gl = this.gl;
       if (!gl) return;
@@ -1833,44 +1884,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          Anahtar KAPALIYKEN dort koseye de AYNI renk gidiyor: yapi ayni
          kaliyor (yine dort kose, yine ayni shader), yalnizca degerler
          motorun eski tek-renk davranisini veriyor. */
-      if (L.hue_corner) {
-        const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
-        const rs = rand;
-        /* RENGİN MİKTARI presetin `fShader`ından. MilkDrop dört köşe rengini
-           hesapladıktan sonra beyaza doğru bu oranla karıştırıyor ve oran
-           0,001'in altındaysa hiç hesaplamıyor: dört köşe de (1,1,1)
-           kalıyor (milkdropfs.cpp:3857-3876). Varsayılan 0
-           (state.cpp:548). Motor rengi HER presete veriyordu: korpusta
-           `hue_shader` okuyan 1.239 presetin 914'ü `fShader`ı sıfır
-           bırakıyor, yani MilkDrop'ta hiç renk almayan bir görüntüyü
-           renklendiriyorduk; 36'sı da ara bir oran yazıyor. */
-        const amt = accurate
-          ? Math.max(0, Math.min(1, +(ctx.P && ctx.P.get('fshader')) || 0)) : 1;
-        for (let i = 0; i < 4; i++) {
-          let r, g, b;
-          if (accurate && amt <= 0.001) {
-            r = 1; g = 1; b = 1;
-          } else if (accurate) {
-            const k = i;
-            r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
-            g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
-            b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
-            const mx = Math.max(r, g, b) || 1;
-            r = 0.5 + 0.5 * (r / mx);
-            g = 0.5 + 0.5 * (g / mx);
-            b = 0.5 + 0.5 * (b / mx);
-            r = r * amt + (1 - amt);
-            g = g * amt + (1 - amt);
-            b = b * amt + (1 - amt);
-          } else {
-            r = 0.5 + 0.5 * Math.sin(t * 0.31);
-            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
-            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
-          }
-          hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
-        }
-        gl.uniform3fv(L.hue_corner, hc);
-      }
+      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(ctx.P, t, rand));
 
       /* Presetin kendisi bu uniform'ları okuyabiliyor (`b1n`/`b1x` olarak
          yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı preset
@@ -2555,6 +2569,17 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         gl.uniform4f(this.locComp.uFx,
           Pp.get('brighten') ? 1 : 0, Pp.get('darken') ? 1 : 0,
           Pp.get('solarize') ? 1 : 0, Pp.get('invert') ? 1 : 0);
+        /* Dört köşe rengi burada da: MilkDrop tam ekran dörtgenini bu
+           renklerle çiziyor (milkdropfs.cpp:3940-3946), shader'lı yolla
+           aynı `shade` dizisinden. Korpusta comp shader'ı olmayan 2.129
+           presetin 631'i sıfırdan büyük bir `fShader` yazıyor; onlarda
+           ekran boyunca gezen bu ton hiç çizilmiyordu. Uyum kapalıyken
+           beyaz: eski sabit yol rengi hiç uygulamıyordu. */
+        if (this.locComp.uHue) {
+          gl.uniform3fv(this.locComp.uHue, this._wantAcc !== false
+            ? this._hueCorners(Pp, this.time, this.randPreset)
+            : (this._hueWhite || (this._hueWhite = new Float32Array(12).fill(1))));
+        }
       }
       gl.bindVertexArray(this.vao);
       gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);

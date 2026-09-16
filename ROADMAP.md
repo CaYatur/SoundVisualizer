@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1738 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1739 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 141
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 142
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -797,7 +797,13 @@ MilkDrop (#560):
   a partial amount. Six of those presets rendered alone in both trees all
   differ, five of them by a lot (means of 3.6 to 26.9 of 255, up to 89% of
   pixels past 8), and all six are identical with the fidelity switch off; on
-  the 900-preset sample no preset changes class.
+  the 900-preset sample no preset changes class. The same four colours then
+  reached the other half of the picture: MilkDrop draws its fixed composite
+  quad with them as vertex colours (milkdropfs.cpp:3940-3946) and we applied
+  none, so the 631 presets that have no composite shader and ask for a
+  non-zero `fShader` were missing the tint entirely. Six of them rendered
+  alone all differ (means of 0.3 to 13.0 of 255, up to 60% of pixels past 8)
+  and stay identical with the switch off.
 - **A textured shape samples the window MilkDrop samples** · done on `main`.
   MilkDrop places a shape's corners at its own angle but does not turn the
   window it reads from the previous frame with them (milkdropfs.cpp:2198-2200):
