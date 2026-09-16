@@ -40,7 +40,11 @@
 
   const synthFreq = new Uint8Array(BINS);
   const synthTime = new Uint8Array(TIME_LEN);
-  const synthFrame = { freq: synthFreq, time: synthTime, sampleRate: 48000 };
+  const synthLeft = new Uint8Array(TIME_LEN);
+  const synthRight = new Uint8Array(TIME_LEN);
+  const synthFrame = {
+    freq: synthFreq, time: synthTime, left: synthLeft, right: synthRight, sampleRate: 48000,
+  };
 
   // --------------------------------------------------------------------------
   // Demo sinyali — 120 BPM civarı, bas vuruşu + hareketli orta/tiz içerik
@@ -66,15 +70,17 @@
       synthFreq[i] = Math.max(0, Math.min(255, v * 255)) | 0;
     }
 
-    const amp = 0.20 + kick * 0.62;
-    for (let i = 0; i < TIME_LEN; i++) {
-      const p = (i / TIME_LEN) * Math.PI * 2;
-      const s =
-        Math.sin(p * 3 + t * 6) * 0.6 +
-        Math.sin(p * 7 + t * 3) * 0.26 +
-        Math.sin(p * 17 + t * 11) * 0.14;
-      synthTime[i] = Math.max(0, Math.min(255, 128 + s * amp * 127)) | 0;
-    }
+    /* ZAMAN VERİSİ ve iki kanal src/shared/demo-audio.js'ten: MilkDrop render
+       ölçümünün her kareye verdiği sesin aynısı. MilkDrop'un bantları ve
+       dalgaları yukarıdaki tayfı değil bu diziyi okuyor ve kendi FFT'sini
+       hesaplıyor. Buradaki eski üç alçak sinüs (2048 örnekte 3, 7 ve 17
+       devir, ~70-398 Hz) orta ve tiz banda yalnız nicemleme gürültüsü
+       düşürüyordu: 45 FPS'te `mid` 0,64-1,38, `treb` 0,66-1,30 arasında
+       kalıyordu; bu seste 0,38-10,5 ve 0,25-11,4. Tayf eğrisi değişmedi,
+       vuruşu ve hi-hat'i bu sesle aynı ızgarada. Kanallar ayrı: gonyometre
+       demoda da bir alan çiziyor. */
+    const D = window.SVDemoAudio;
+    D.fill(Math.floor(t * D.SR), synthTime, synthLeft, synthRight);
     return synthFrame;
   }
 

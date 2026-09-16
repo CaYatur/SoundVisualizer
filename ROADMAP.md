@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1692 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1701 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 95
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 104
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -721,9 +721,26 @@ MilkDrop (#560):
   other WebGL layers turned up the same gap in the Studio shader background,
   which had no `dispose` at all: the same measurement lost the live context on
   the 16th cycle, and now it releases its context like the rest.
-- **The panel preview's demo signal gets broadband audio.** With MilkDrop's own
-  band chain, the demo's three low sines move little more than `bass` when no
-  live audio reaches the panel.
+- **The panel preview's demo signal gets broadband audio** · done on `main`.
+  With MilkDrop's own band chain the demo's three low sines moved little more
+  than `bass`. Measured at 45 FPS through the panel's own frames, `mid` stayed
+  between 0.64 and 1.38 and `treb` between 0.66 and 1.30 - those are the
+  8-bit quantisation noise against its own long average, not the music -
+  while `bass` swung from 0.52 to 2.24. The panel now plays the waveform the
+  900-preset render measurement plays: kick, snare, hi-hat, a bass line and a
+  pad, from one shared file both read, so what the preview shows comes from
+  the sound that was measured. On the same window `mid` runs 0.38 to 10.5,
+  `treb` 0.25 to 11.4 and `bass` 0.44 to 4.11. The frame carries the two
+  channels as well, so the Goniometer draws an area in the demo instead of a
+  line, and the spectrum curve is untouched - it already shared the beat grid.
+  The signal is defined before zero too: the panel asks for its first frame at
+  time zero, where the recipe used to index past the start of its note table
+  and hand back silence. Moving the recipe out of the measurement script
+  changed nothing there - 2,459,200 samples identical byte for byte, and the
+  900-preset run identical in both modes. The `--shots` screenshot generator
+  still builds its own frame from three low sines, so its MilkDrop scene has
+  the narrow band the panel had; changing it means regenerating the README's
+  images, which is a step of its own.
 - **Shader `vol` and `vol_att` as MilkDrop computes them** · done on `main`.
   The shader header maps them to the fourth component of the bass/mid/treb
   constants (include.fx:62, :66), and the line that fills it is a comma

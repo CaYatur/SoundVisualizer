@@ -153,6 +153,10 @@ const ENGINE = [
   'src/visualizer/modes/milkdrop.js',
 ];
 
+/* Ölçümün sesi. Motorun parçası değil: panel önizlemesi de bu dosyayı
+   yüklüyor, önizlemede görülen tepki ölçülenle aynı sesten gelsin diye. */
+const SIGNAL = 'src/shared/demo-audio.js';
+
 /* Sayfa içinde koşan ölçüm harness'ı. Ayrı bir metin olarak duruyor ki
    şablon değişkeni yalnız üç sayı olsun ve gerisi olduğu gibi okunsun. */
 function pageHarness() {
@@ -180,91 +184,26 @@ function pageHarness() {
       /* Sentetik ses — 120 BPM'lik vuruş, kare indisine bağlı, deterministik.
          Sessiz girdi çoğu preseti hareketsiz bırakıp "donmuş" gösterirdi.
 
-         ZAMAN VERİSİ GENİŞ BANTLI: kick, snare, hi-hat, bas hattı ve ped,
-         48 kHz'de, kronolojik sırada (en yeni örnek sonda) — yakalama
-         yardımcısının verdiği biçim. Eskiden iki alçak sinüstü (2048
-         örnekte 4 ve 6,03 devir, ~94 ve ~141 Hz): MilkDrop'un 1024 noktalı
-         tayfında yalnız 2. ve 3. göze düşüyordu. Tayf dalgaları bu veriden
-         hesaplanıyor ve orta ya da tiz bantta hiçbir şey görmüyorlardı.
+         ZAMAN VERİSİ ve iki kanal src/shared/demo-audio.js'ten geliyor:
+         kick, trampet, hi-hat, bas hattı ve ped, 48 kHz'de, en yeni örnek
+         sonda. Panel önizlemesi de aynı dosyayı okuyor; önizlemede görülen
+         MilkDrop tepkisi burada ölçülenle aynı sesten geliyor. Tarif ilk
+         olarak bu dosyada yazılmıştı ve oraya bayt bayt aynı taşındı.
          'bass/mid/treble/freq' alanları DEĞİŞMEDİ: "uyum kapalı" yolu
          onları okuyor ve o yolun ölçümü kaymasın. (Bu metin bir şablon
          dizgisinin içinde: ters tırnak kullanılamaz.) */
-      var SR = 48000, BEAT = 0.5;
-      var NOTES = [55, 55, 73.4, 82.4];
-      /* Örnek indisine bağlı gürültü: aynı örnek her koşuda aynı değeri
-         alıyor; komşu örneklerin farkı yüksek geçiren gürültü veriyor. */
-      var noise = function (j) {
-        var h = Math.imul(j ^ 0x5bd1e995, 0x27d4eb2d);
-        h = Math.imul(h ^ (h >>> 15), 0x165667b1);
-        h ^= h >>> 13;
-        return (h >>> 0) / 2147483648 - 1;
-      };
-      var sampleAt = function (j) {
-        var tt = j / SR;
-        var b = Math.floor(tt / BEAT), tb = tt - b * BEAT;
-        var s = 0;
-        if (tb < 0.4) {
-          // kick: 110 Hz'den 45 Hz'e düşen sinüs
-          s += 0.9 * Math.exp(-tb / 0.16) *
-            Math.sin(2 * Math.PI * (45 * tb + 2.275 * (1 - Math.exp(-tb / 0.035))));
-        }
-        if (b % 2 === 1 && tb < 0.25) {
-          // snare: farkı bir kez alınmış gürültü
-          s += 0.175 * (noise(j) - noise(j - 1)) * Math.exp(-tb / 0.06);
-        }
-        var th = tt - Math.floor(tt / (BEAT / 2)) * (BEAT / 2);
-        if (th < 0.08) {
-          // hi-hat: farkı üç kez alınmış gürültü
-          s += 0.0225 * (noise(j) - 3 * noise(j - 1) + 3 * noise(j - 2) - noise(j - 3)) *
-            Math.exp(-th / 0.02);
-        }
-        var note = NOTES[Math.floor(tt / (BEAT * 2)) % 4];
-        if ((tt / (BEAT / 2)) % 1 < 0.7) s += 0.25 * Math.sin(2 * Math.PI * note * tt);
-        s += 0.05 * (Math.sin(2 * Math.PI * 220 * tt) + Math.sin(2 * Math.PI * 277.2 * tt) +
-          Math.sin(2 * Math.PI * 329.6 * tt));
-        return s * 0.5;
-      };
-      /* STEREO (#566). Sol = orta + yan, sağ = orta - yan; orta yukarıdaki
-         mono sinyalin KENDİSİ, yani mono okuyan her yol (bantlar, tayf,
-         "uyum kapalı" yolu) eskisiyle aynı sayıları görüyor. Yan: trampet
-         biraz sola, hi-hat sağa, ped akorunda iki kanal arasında faz farkı;
-         kick ve bas ortada — bir miksajın olağan yerleşimi. */
-      var sideAt = function (j) {
-        var tt = j / SR;
-        var b = Math.floor(tt / BEAT), tb = tt - b * BEAT;
-        var s = 0;
-        if (b % 2 === 1 && tb < 0.25) {
-          s += 0.3 * 0.175 * (noise(j) - noise(j - 1)) * Math.exp(-tb / 0.06);
-        }
-        var th = tt - Math.floor(tt / (BEAT / 2)) * (BEAT / 2);
-        if (th < 0.08) {
-          s -= 0.6 * 0.0225 * (noise(j) - 3 * noise(j - 1) + 3 * noise(j - 2) - noise(j - 3)) *
-            Math.exp(-th / 0.02);
-        }
-        s += 0.03 * Math.sin(2 * Math.PI * 277.2 * tt + 1.1);
-        return s * 0.5;
-      };
-      var toByte = function (s) {
-        s = s < -1 ? -1 : s > 1 ? 1 : s;
-        return (128 + s * 127) | 0;
-      };
+      var DEMO = window.SVDemoAudio;
       window.__audio = function (i) {
         var t = i / 30;
         var beat = Math.pow(Math.max(0, 1 - ((t * 2) % 1) * 2.2), 2);
-        /* Parça 1. saniyeden başlıyor: pencerenin ilk örnekleri eksi
-           zamana düşmesin. */
-        var end = Math.floor((1 + t) * SR);
+        /* Parça 1. saniyeden başlıyor. Tarif eksi zamanda da tanımlı ama
+           ölçümün baştan beri gördüğü ses bu; kaydırmak her karenin sesini
+           değiştirir ve önceki koşularla karşılaştırmayı bozar. */
+        var end = Math.floor((1 + t) * DEMO.SR);
         var time = new Uint8Array(2048);
         var timeL = new Uint8Array(2048);
         var timeR = new Uint8Array(2048);
-        for (var k = 0; k < 2048; k++) {
-          var j = end - 2047 + k;
-          var s = sampleAt(j);
-          var d = sideAt(j);
-          time[k] = toByte(s);
-          timeL[k] = toByte(s + d);
-          timeR[k] = toByte(s - d);
-        }
+        DEMO.fill(end, time, timeL, timeR);
         /* Sentetik TAYF. 'spectrum = 1' yazan ozel dalgalar frekans
            verisi okuyor; vermezsek o yol olcumde hic calismaz ve
            degisikligi gorunmez olur. Bas agirlikli, vurusla oynayan
@@ -460,16 +399,16 @@ async function main() {
   await win.loadURL('about:blank');
 
   const root = path.join(__dirname, '..');
-  for (const rel of ENGINE) {
+  for (const rel of ENGINE.concat(SIGNAL)) {
     const code = fs.readFileSync(path.join(root, rel), 'utf-8');
     await win.webContents.executeJavaScript(code + '\n;0;');
   }
 
   const ready = await win.webContents.executeJavaScript(
     '!!(window.SVMilkdrop && window.SVMilkdropShader && window.SVMilkdropAudio ' +
-    '&& window.SVModes && window.SVModes.milkdrop)');
+    '&& window.SVModes && window.SVModes.milkdrop && window.SVDemoAudio)');
   if (!ready) {
-    console.error('Motor yüklenemedi — window.SVModes.milkdrop yok.');
+    console.error('Motor yüklenemedi — window.SVModes.milkdrop ya da window.SVDemoAudio yok.');
     app.exit(1);
     return;
   }

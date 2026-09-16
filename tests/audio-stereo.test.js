@@ -379,10 +379,11 @@ test('render ölçümü stereo besliyor ve mono dizi orta kanalın kendisi', () 
   /* Ölçüm harness'ı iki kanal vermeseydi motordaki stereo yolunu hiç
      ölçmezdi. Sol = orta + yan, sağ = orta - yan; orta mono sinyal. */
   const src = read('scripts/milkdrop-render-rate.js');
-  const a = src.indexOf('var SR = 48000');
+  const a = src.indexOf('var DEMO = window.SVDemoAudio;');
   const b = src.indexOf('/* Bir karenin özeti.');
   assert.ok(a > 0 && b > a, 'harness ses bölümü bulunamadı');
-  const win = {};
+  // Tarif src/shared/demo-audio.js'te; harness sayfaya onu yüklüyor
+  const win = { SVDemoAudio: require('../src/shared/demo-audio.js') };
   new Function('window', src.slice(a, b))(win);
   let differ = 0;
   for (let i = 0; i < 30; i += 7) {
