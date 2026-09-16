@@ -3283,6 +3283,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          şekil bu yüzden kare değil BAKLAVA görünür; kaldırırsak düşük
          kenarlı bütün şekiller 45 derece dönmüş olur. */
       const ANG0 = Math.PI * 0.25;
+      const acc = this._wantAcc !== false;
       const out = this._shapeOut || (this._shapeOut = {});
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
@@ -3316,16 +3317,28 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
             td[0] = cxp; td[1] = cyp;
             td[2] = c1[0]; td[3] = c1[1]; td[4] = c1[2]; td[5] = c1[3];
             td[6] = 0.5; td[7] = 0.5;
+            /* DOKU PENCERESİ ŞEKLİN AÇISINI TAŞIMIYOR ve X'te en-boy
+               düzeltmesi var (milkdropfs.cpp:2198-2200):
+                 tu = 0,5 + 0,5·cos(t·2π + tex_ang + π/4) / tex_zoom · aspectY
+                 tv = 0,5 + 0,5·sin(t·2π + tex_ang + π/4) / tex_zoom
+               Motor açıyı (`ang`) doku açısına da ekliyordu: şekil dönünce
+               örneklediği görüntü de dönüyordu, MilkDrop'ta ise şekil döner
+               ama pencere yerinde kalır. Korpusun %64,1'i dokulu şekil
+               çiziyor; bunların 4.981 bloğu (3.388 preset, %32,8) sıfırdan
+               farklı bir açı kullanıyor ya da açıyı kare kare yazıyor.
+               En-boy düzeltmesi de yoktu: 16:9'da pencere olması
+               gerekenden 1/0,5625 kat genişti. */
             for (let i = 0; i <= n; i++) {
               const th = ang0 + ANG0 + (i / n) * Math.PI * 2;
+              const tth = acc ? ANG0 + (i / n) * Math.PI * 2 + ta : th + ta;
               const k = (i + 1) * 8;
               td[k] = cxp + Math.cos(th) * rad * aspY;
               td[k + 1] = cyp + Math.sin(th) * rad;
               td[k + 2] = c2[0]; td[k + 3] = c2[1]; td[k + 4] = c2[2]; td[k + 5] = c2[3];
               /* Doku y ekseni AŞAĞI artıyor (MilkDrop ekran koordinatı),
                  konumun y'si ise yukarı — işaret bu yüzden ters. */
-              td[k + 6] = 0.5 + 0.5 * Math.cos(th + ta) / tz;
-              td[k + 7] = 0.5 - 0.5 * Math.sin(th + ta) / tz;
+              td[k + 6] = 0.5 + 0.5 * Math.cos(tth) / tz * (acc ? aspY : 1);
+              td[k + 7] = 0.5 - 0.5 * Math.sin(tth) / tz;
             }
             this._blend(gl, s.additive);
             gl.useProgram(this.shapeTexProg);

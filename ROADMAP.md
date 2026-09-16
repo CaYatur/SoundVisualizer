@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1727 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1731 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 130
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 134
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -775,6 +775,19 @@ MilkDrop (#560):
   output and none do with the switch off; four of the five differ on screen
   when rendered alone, one of them over 75% of its pixels. No preset changes
   class on the 900-preset sample.
+- **A textured shape samples the window MilkDrop samples** · done on `main`.
+  MilkDrop places a shape's corners at its own angle but does not turn the
+  window it reads from the previous frame with them (milkdropfs.cpp:2198-2200):
+  the texture angle is `tex_ang` alone, and the horizontal coordinate carries
+  the aspect correction the vertical one does not. We added the shape's `ang`
+  to the texture angle, so a turning shape dragged its image around with it,
+  and we left the aspect factor out, so at 16:9 the window was 1.8 times too
+  wide. 64.1% of the corpus draws a textured shape and 3,388 presets (32.8%)
+  turn one. Measured on the 900-preset sample at 960x720, three presets
+  changed a recorded value and one went from frozen to live; six textured
+  presets rendered alone in both trees show five moving (means of 0.1 to 21.1
+  of 255, up to 67% of pixels past 8), and all six are pixel-identical with
+  the fidelity switch off.
 - **The layer releases its WebGL context when it closes** · done on `main`.
   It deleted its GL objects one by one but left the context to garbage
   collection, and until then Chromium counts it as active; past the limit it
