@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1746%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1755%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -213,6 +213,11 @@ that asserts the bar profile has no step in it.
 - **Measured against 10,347 real presets** from the projectM original and cream-of-the-crop packs:
   every one loads and runs, 10,344 of them with no skipped statement at all.
 - **`.milk` import**, including multi-file packs with per-file compile errors reported.
+- **Five presets of our own ship with the application.** *Kutup Işığı* (a flowing nebula),
+  *Erimiş Altın* (the loud one), *Dingin Halkalar* (slow and nearly black), *Sonsuz Tünel* (the
+  classic tunnel) and *Nabız Örgüsü* (squares on the beat over a motion-vector weave) — written
+  here, so the engine shows what it does before you import a pack of your own. They join auto
+  advance like any other preset. The two pictures on this page are rendered from them.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
   against a fixed table at compile time.
@@ -1085,7 +1090,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1746 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1755 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

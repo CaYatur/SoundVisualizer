@@ -1454,8 +1454,17 @@
     'Ara': 'Search',
     'preset adı': 'preset name',
     'Aramaya uyan preset yok.': 'No preset matches the search.',
-    'Henüz preset yok. Bir MilkDrop paketindeki .milk dosyalarını ekleyin; hepsi bir kerede seçilebilir.':
-      'No presets yet. Add the .milk files from a MilkDrop pack — they can all be selected at once.',
+    'Preset listesi yüklenemedi. Bir MilkDrop paketindeki .milk dosyalarını ekleyebilirsiniz; hepsi bir kerede seçilebilir.':
+      'The preset list could not be loaded. You can add the .milk files from a MilkDrop pack — they can all be selected at once.',
+    /* 'yerleşik' anahtarı Studio bölümünde zaten var (aynı nesne). */
+    'CAYADEV presetleri': 'CAYADEV presets',
+    /* Yerleşik MilkDrop presetlerinin adları: listede ve "Yüklü Preset"
+       satırında görünüyorlar. */
+    'Kutup Işığı': 'Aurora',
+    'Erimiş Altın': 'Molten Gold',
+    'Dingin Halkalar': 'Still Rings',
+    'Sonsuz Tünel': 'Endless Tunnel',
+    'Nabız Örgüsü': 'Pulse Weave',
     '◀ Önceki': '◀ Previous',
     'Sonraki ▶': 'Next ▶',
     '🎲 Rastgele': '🎲 Random',

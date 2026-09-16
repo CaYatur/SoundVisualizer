@@ -1498,7 +1498,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.presetKey = key;
       const M = window.SVMilkdrop;
       if (!M) { this.error = 'motor yok'; this.preset = null; return; }
-      const src = (a ? a.source : c.source) || DEFAULT_PRESET;
+      const src = (a ? a.source : c.source) || defaultSource();
       this.preset = new M.Preset(src, { seed: 1234 });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
@@ -4503,12 +4503,20 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
   }
 
-  /* Varsayılan preset.
+  /* Hiçbir preset seçilmemişken çizilen preset: yerleşik kitaplığın ilki
+     (Kutup Işığı, shared/presets-milkdrop.js). Aşağıdaki asgari preset
+     yalnız o modül yüklenmemişse devreye giriyor — motorun her durumda bir
+     şey çizmesi gerekiyor, ve modülü yüklemeyen bir sayfa olabilir. */
+  const defaultSource = () => {
+    const L = typeof window !== 'undefined' && window.SVMilkdropBuiltins;
+    return (Array.isArray(L) && L[0] && L[0].source) || DEFAULT_PRESET;
+  };
+
+  /* Asgari yedek preset.
 
      Kendi yazdığımız bir preset: dil özelliklerinin çoğunu kullanıyor
      (per_frame, per_pixel, q değişkenleri, ses girdileri) ve motor doğru
-     çalıştığında akan bir tünel üretiyor. Bir `.milk` dosyası yüklenmediğinde
-     sahne boş kalmasın diye var. */
+     çalıştığında akan bir tünel üretiyor. */
   const DEFAULT_PRESET = [
     'decay=0.972',
     'fGammaAdj=1.020',

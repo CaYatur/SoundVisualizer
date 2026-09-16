@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1746 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1755 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 149
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 158
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1025,9 +1025,46 @@ MilkDrop (#560):
   and hand back silence. Moving the recipe out of the measurement script
   changed nothing there - 2,459,200 samples identical byte for byte, and the
   900-preset run identical in both modes. The `--shots` screenshot generator
-  still builds its own frame from three low sines, so its MilkDrop scene has
-  the narrow band the panel had; changing it means regenerating the README's
-  images, which is a step of its own.
+  still builds its own frame from three low sines; the README's two MilkDrop
+  images no longer come from it — they are rendered with this signal by the
+  item below.
+- **Five MilkDrop presets of our own, in the application** · done on `main`.
+  The engine has been here since v3.1.2 and the application shipped with one
+  fallback preset: until you found a `.milk` pack and imported it, nothing on
+  screen showed what any of this work does. Five presets now ship in the
+  build, written in this repository, each a different kind — *Kutup Işığı*, a
+  flowing nebula whose warp field opens and closes on the bass; *Erimiş
+  Altın*, the loud one, with fast warp, thick polygons, a 48×36 motion-vector
+  grid and cold lightning over a hot field; *Dingin Halkalar*, slow and
+  nearly black, a few rings breathing with one dotted wave; *Sonsuz Tünel*,
+  the classic flow with a radially exponentiated zoom and a core burning at
+  the end of it; and *Nabız Örgüsü*, the graphic one, squares jumping on the
+  beat between two spectrum waves over the weave the motion vectors leave.
+  They live in code (`src/shared/presets-milkdrop.js`), not in the preset
+  store: copied into `userData` they could be deleted by accident and an
+  upgrade could leave a second copy of each. They register through the same
+  built-in pool the 42 shaders use, so the panel, the layer picker and auto
+  advance all see them without knowing they are different — auto advance
+  reads `byKind('milkdrop')`, and that is now non-empty on a fresh install.
+  The panel shows them with a *yerleşik* badge instead of a delete button,
+  because a built-in has no file for `deletePreset` to remove and the row
+  would come back on the next refresh. With no preset chosen the engine now
+  draws the first of them rather than the minimal fallback, which stays as
+  the last resort for a page that does not load the module.
+  9 tests: every preset compiles with no errors, writes both `per_frame` and
+  `per_pixel`, draws at least one shape or wave, and keeps its decay under
+  0.99 — the first drafts saturated to white within a second at 0.982, which
+  is the failure this bound is drawn around. The ids are `md_caya_*` so they
+  cannot collide with the store's `md_<random>`, and they survive
+  `safeName`'s character filter. Loading the module twice does not throw, the
+  way `registerBuiltin` does on a duplicate id.
+  The README's two MilkDrop images are regenerated from these presets: the
+  still from *Kutup Işığı* at 1600×900, the animation from *Sonsuz Tünel* at
+  760×428 and 11 fps, both rendered by the real engine on a real GPU with the
+  shared demo signal, and the animation given the two-pass palette because a
+  single pass bands visibly. The pictures they replace were rendered from
+  corpus presets — other people's work, displayed in our README, which was
+  the one place a third-party preset was actually being published.
 - **Shader `vol` and `vol_att` as MilkDrop computes them** · done on `main`.
   The shader header maps them to the fourth component of the bass/mid/treb
   constants (include.fx:62, :66), and the line that fills it is a comma

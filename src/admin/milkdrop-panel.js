@@ -25,17 +25,34 @@
   let texCount = null;
   let texAsked = false;
 
+  /* YERLEŞİKLER DEPODA DEĞİL, KODDA (shared/presets-milkdrop.js). Depoya
+     kopyalansalardı kullanıcı silebilir, sürüm yükseltmesi ikinci bir kopya
+     bırakabilirdi. Liste burada birleşiyor: önce yerleşikler, sonra
+     kullanıcının kendi paketleri. */
+  function builtins() {
+    const L = window.SVMilkdropBuiltins;
+    return Array.isArray(L) ? L : [];
+  }
+
+  /* Preset ADI da çeviriden geçiyor: yerleşiklerin adları i18n'de kayıtlı,
+     yani İngilizce arayüzde İngilizce görünüyorlar. Kullanıcının kendi
+     paketindeki ad sözlükte olmadığı için olduğu gibi dönüyor — bir presetin
+     adı onun kendi adı, arayüz metni değil. */
+  const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+
   function refresh(cb) {
     if (!window.api || !window.api.listPresets || loading) return;
     loading = true;
     window.api.listPresets().then((list) => {
       loading = false;
       loaded = true;
-      presets = (list || []).filter((p) => p.kind === 'milkdrop');
+      const mine = (list || []).filter((p) => p.kind === 'milkdrop');
+      presets = builtins().concat(mine);
       if (cb) cb();
     }).catch(() => {
       loading = false;
       loaded = true;
+      presets = builtins();
     });
   }
 
@@ -112,9 +129,9 @@
        "ayardaki preset çiziliyor" dediğinde dönülecek ad. Metinler burada
        çevriliyor çünkü güncelleme DOM çevirmeninden sonra geliyor. */
     const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-    const current = md.name || tt(md.source ? 'Adsız' : 'Yerleşik varsayılan');
+    const current = md.name ? tr(md.name) : tt(md.source ? 'Adsız' : 'Yerleşik varsayılan');
     const lf = window.SVMdFollow;
-    const live = lf && lf.id && (performance.now() - lf.at) < 1500 ? (lf.name || tt('Adsız')) : null;
+    const live = lf && lf.id && (performance.now() - lf.at) < 1500 ? (tr(lf.name) || tt('Adsız')) : null;
     nodes.push(P().row('Yüklü Preset', el('span', {
       id: 'mdLiveName', class: 'md-cur', 'data-cfg': current, text: live || current,
     })));
@@ -407,16 +424,18 @@
     if (!vis.length) {
       list.appendChild(el('div', {
         class: 'studio-note',
+        /* Liste artık hiç boş kalmıyor — yerleşikler her zaman orada; bu
+           dal yalnız yerleşik modülü yüklenemediyse görünür. */
         text: presets.length
           ? 'Aramaya uyan preset yok.'
-          : 'Henüz preset yok. Bir MilkDrop paketindeki .milk dosyalarını ekleyin; hepsi bir kerede seçilebilir.',
+          : 'Preset listesi yüklenemedi. Bir MilkDrop paketindeki .milk dosyalarını ekleyebilirsiniz; hepsi bir kerede seçilebilir.',
       }));
     }
     vis.slice(0, 400).forEach((p) => {
       const active = md.presetId === p.id;
       list.appendChild(el('div', { class: 'md-item' + (active ? ' active' : '') }, [
         el('button', {
-          class: 'md-name', type: 'button', text: p.name || p.id,
+          class: 'md-name', type: 'button', text: tr(p.name || p.id),
           onclick: () => {
             const listEl = document.querySelector('.md-list');
             if (listEl) listScroll = listEl.scrollTop;
@@ -424,15 +443,20 @@
             rerender();
           },
         }),
-        el('button', {
-          class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
-          onclick: async () => {
-            if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
-            if (window.api.deletePreset) await window.api.deletePreset(p.id);
-            if (md.presetId === p.id) load(cfg, null);
-            refresh(() => rerender());
-          },
-        }),
+        /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
+           onu bulamaz, satır da bir sonraki tazelemede geri gelirdi —
+           kullanıcıya çalışmayan bir düğme göstermiş olurduk. */
+        p.builtin
+          ? el('span', { class: 'md-builtin', text: 'yerleşik', title: 'CAYADEV presetleri' })
+          : el('button', {
+            class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
+            onclick: async () => {
+              if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
+              if (window.api.deletePreset) await window.api.deletePreset(p.id);
+              if (md.presetId === p.id) load(cfg, null);
+              refresh(() => rerender());
+            },
+          }),
       ]));
     });
     nodes.push(list);

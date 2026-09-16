@@ -184,7 +184,9 @@ test('motor: elle seçim otomatiği ezer ve sayacı sıfırlar', () => {
   assert.ok(fn, '_ensurePreset bulunamadı');
   assert.match(fn[0],
     /if \(man !== this\._manualKey\) \{[\s\S]*?this\.autoPick = null;[\s\S]*?this\.cycle\.reset\(\);/);
-  assert.match(fn[0], /const src = \(a \? a\.source : c\.source\) \|\| DEFAULT_PRESET;/,
+  /* Yedek artık yerleşik kitaplığın ilki (`defaultSource()`); tutulan şey
+     yine aynı: otomatik seçim varsa ONUN kaynağı çiziliyor. */
+  assert.match(fn[0], /const src = \(a \? a\.source : c\.source\) \|\| defaultSource\(\);/,
     'otomatik seçimin kaynağı çizilmeli');
 });
 

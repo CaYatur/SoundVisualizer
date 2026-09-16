@@ -2842,6 +2842,10 @@ async function runSmoke() {
       var out = [];
       for (var i = 0; i < window.SVPresets.BUILTIN.length; i++) {
         var p = window.SVPresets.BUILTIN[i];
+        /* Yerleşik havuzda artık yalnız shader yok: MilkDrop presetleri de
+           orada (kendi motorları çalıştırıyor, GLSL'leri yok). Boş kaynağı
+           Studio host'una vermek "mainImage bulunamadı" veriyordu. */
+        if (p.engine !== 'shader') continue;
         var r = host.setSource(p.shader, p.controls);
         out.push({ id: p.id, ok: !!r.ok, error: r.ok ? null : (r.error && r.error.message) });
       }

@@ -532,6 +532,19 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 }
 .md-item { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
 .md-item.active { background: rgba(124, 92, 255, 0.18); }
+/* Yerleşik presetin silme düğmesi yerinde duran etiket: satır yüksekliği
+   silinebilen satırlarla aynı kalsın diye aynı yuvayı dolduruyor. */
+.md-builtin {
+  flex: none;
+  padding: 2px 7px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #9aa);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  white-space: nowrap;
+}
 .md-name {
   flex: 1;
   text-align: left;
