@@ -99,3 +99,38 @@ test('resolve: çevrilen katman gerçekten çizilecek listeye giriyor', () => {
   assert.ok(drawn.some((l) => l.type === 'milkdrop'),
     'çizilecek katmanlar arasında milkdrop olmalı');
 });
+
+/* AÇILIŞ YARIŞI. Açılışta `init` listeyi callback'siz istiyor. Panel o
+   istek sürerken çizilirse `loading` doğru olduğu için ikinci bir istek
+   yapmıyordu ve liste gelince kimse paneli yeniden çizmiyordu: liste, ◀/▶
+   ve kilit bir sonraki ayar değişikliğine kadar görünmüyordu. Yalıtılmış
+   bir kopyada, uygulama açılır açılmaz Sahne sekmesine geçilerek yeniden
+   üretildi. Test modülün TAZE bir örneğiyle koşuyor. */
+test('panel: liste gelmeden çizilen panel, liste gelince yeniden çiziliyor', async () => {
+  const key = require.resolve('../src/admin/milkdrop-panel.js');
+  const saved = { api: window.api, SVPanel: window.SVPanel, SVMilkdropPanel: window.SVMilkdropPanel };
+  delete require.cache[key];
+  let resolveList;
+  let rerenders = 0;
+  const node = () => ({ appendChild() {}, setAttribute() {}, addEventListener() {} });
+  window.api = { listPresets: () => new Promise((r) => { resolveList = r; }) };
+  window.SVPanel = {
+    el: node, row: node, cfg: () => ({ milkdrop: {}, visualizer: {} }),
+    rerender: () => { rerenders++; }, apply() {},
+  };
+  try {
+    const M = require('../src/admin/milkdrop-panel.js');
+    M.init();
+    // DOM yok; panelin geri kalanı düşebilir ama bayrak ilk satırlarda kuruluyor
+    try { M.panel(); } catch (e) { /* beklenen */ }
+    assert.strictEqual(rerenders, 0, 'liste gelmeden yeniden çizim olmamalı');
+    resolveList([]);
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(rerenders, 1, 'liste gelince panel bir kez yeniden çizilmeli');
+  } finally {
+    delete require.cache[key];
+    window.api = saved.api;
+    window.SVPanel = saved.SVPanel;
+    window.SVMilkdropPanel = saved.SVMilkdropPanel;
+  }
+});

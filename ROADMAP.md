@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1779 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1780 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 182
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 183
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1147,6 +1147,12 @@ rest after. No version number yet.
   `above(progress, 0.99)`, which the sawtooth triggered every ten seconds.
   24 tests, including the same demo audio cutting on the same frames twice.
   MilkDrop 3's hard-cut modes follow once the compatibility mode exists (#567).
+- **The MilkDrop panel shows its presets on first open** · done. The list was
+  requested once at start-up with no callback; a panel drawn while that
+  request was in flight made no request of its own, so the list, ◀/▶ and the
+  lock stayed missing until some other setting redrew the panel. Reproduced
+  in an isolated copy by opening the Scene tab straight after start-up. A
+  test drives the race on a fresh module and fails without the fix.
 
 ## v3.1.6 — Comprehensive video export
 

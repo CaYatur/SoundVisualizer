@@ -40,19 +40,33 @@
      adı onun kendi adı, arayüz metni değil. */
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
+  /* Panel liste gelmeden çizildiyse, liste gelince yeniden çizilmeli.
+     Açılışta `init` listeyi callback'siz istiyor; panel o istek sürerken
+     çizilirse (`loading` doğru olduğu için) ikinci bir istek de yapmıyordu,
+     yani liste, ◀/▶ ve kilit bir sonraki ayar değişikliğine kadar hiç
+     görünmüyordu. Yalıtılmış bir kopyada yeniden üretildi: uygulama açılır
+     açılmaz Sahne sekmesine geçince panel yalnız içe aktarma düğmeleriyle
+     çizildi. */
+  let staleRender = false;
+
   function refresh(cb) {
     if (!window.api || !window.api.listPresets || loading) return;
     loading = true;
+    const done = () => {
+      if (cb) cb();
+      else if (staleRender) { staleRender = false; P().rerender(); }
+    };
     window.api.listPresets().then((list) => {
       loading = false;
       loaded = true;
       const mine = (list || []).filter((p) => p.kind === 'milkdrop');
       presets = builtins().concat(mine);
-      if (cb) cb();
+      done();
     }).catch(() => {
       loading = false;
       loaded = true;
       presets = builtins();
+      done();
     });
   }
 
@@ -120,6 +134,8 @@
 
     if (!loaded && !loading) {
       refresh(() => P().rerender());
+    } else if (!loaded) {
+      staleRender = true;
     }
 
     // Durum
