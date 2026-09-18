@@ -602,25 +602,18 @@
            varsayilani 16 sn aralik + 10 sn pay; burada 0, cunku aralik
            kullanicinin: "8 saniyede bir" diyenin gecisleri kendiliginden
            dagilmamali.
-         locked — presetin kilidi. Otomatik gecis ve sert gecis durur, elle
-           secim calisir.
          hardCut — 'off' | 'md2'. Sesin ani yukselisinde karismadan yeni
            preset. MilkDrop'ta da varsayilan KAPALI (plugin.cpp:491).
          hardCutThreshold / hardCutHalfLife — MilkDrop'un
            fHardCutLoudnessThresh (2,5) ve fHardCutHalflife (60). */
       autoNextRand: 0,
-      locked: false,
       hardCut: 'off',
       hardCutThreshold: 2.5,
       hardCutHalfLife: 60,
-      /* PUAN (#569). useRatings — rastgele sıra puana göre ağırlıklı;
-         MilkDrop'ta da varsayılan açık (plugin.cpp:509). ratings — yalnız
-         kullanıcının verdiği puanlar, kimlik → 0..5. Verilmemiş puan
-         presetin kendi dosyasındaki fRating'den geliyor (yoksa 3). Preset
-         kaydına yazılmıyor: her kayıt bütün listeyi kaynaklarıyla bütün
-         pencerelere yeniden yayınlıyor. */
+      /* PUANA GÖRE SEÇİM (#569) — rastgele sıra puana göre ağırlıklı;
+         MilkDrop'ta da varsayılan açık (plugin.cpp:509). Puanların kendisi
+         aşağıda, `milkdropLibrary`de. */
       useRatings: true,
-      ratings: {},
       /* Warp agi siklıgı. MilkDrop'un varsayılanı 32x24, "yuksek kalite"
          ayarı 48x36. Ag seyrek oldugunda bozulma dugumler arasında dogrusal
          interpolasyonla doluyor ve kıvrımlı warp'larda koseli gorunuyor;
@@ -679,6 +672,28 @@
          yuzeyi kaliyor — iki ayri boru hatti bakim maliyetini ikiye
          katlardi. */
       accurate: true,
+    },
+
+    /* MILKDROP KİTAPLIĞI VE CANLI DENETİM — SAHNEYE AİT DEĞİL.
+
+       Sahne kaydı `milkdrop` bloğunu BÜTÜNÜYLE saklayıp geri yüklüyor,
+       şablon da onu varsayılana döndürüyor (admin.js applyScene,
+       control.js nextScene, templates.js apply). Puanlar orada dursaydı
+       eski bir sahneye geçmek, Otomatik VJ'nin bir sahne çekmesi ya da bir
+       şablon denemek kullanıcının verdiği bütün puanları silerdi; kilit de
+       sahneyle birlikte gelip giderdi. Bu iki blok o listelerde yok.
+
+       milkdropLibrary.ratings (#569) — yalnız kullanıcının verdiği puanlar,
+         kimlik → 0..5. Verilmemiş puan presetin kendi dosyasındaki
+         fRating'den geliyor (yoksa 3). Preset kaydına yazılmıyor: her kayıt
+         bütün listeyi kaynaklarıyla bütün pencerelere yeniden yayınlıyor.
+       milkdropControl.locked (#568) — kilit: otomatik geçiş ve sert geçiş
+         durur, elle seçim çalışır. */
+    milkdropLibrary: {
+      ratings: {},
+    },
+    milkdropControl: {
+      locked: false,
     },
 
     // ------------------------------------------------------------------

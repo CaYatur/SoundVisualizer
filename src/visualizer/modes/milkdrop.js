@@ -1444,7 +1444,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       /* Sert geçiş bir ÖNCEKİ karenin bantlarına bakıyor: bu karenin analizi
          preset yüklendikten sonra yapılıyor. MilkDrop'ta da kesim, analizden
          sonraki yüklemede — yani bir kare sonra — ekrana geliyor. */
-      const p = this.cycle.step(step, cfg.milkdrop, list, cur, this._rel);
+      /* Kilit ve puanlar sahnenin değil gösterinin: `milkdrop` bloğunda
+         değil, yanındaki iki blokta (defaults.js). Kilit döngüye `md`nin
+         parçası gibi veriliyor; nesne yalnız kilitliyken kopyalanıyor. */
+      const ctl = cfg.milkdropControl || {};
+      const lib = cfg.milkdropLibrary || {};
+      const md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
+      const p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings);
       if (p) this.autoPick = { id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut };
     }
 

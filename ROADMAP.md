@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1799 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1803 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 202
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 206
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1166,6 +1166,14 @@ rest after. No version number yet.
   `fRating` edit that keeps the length. 19 tests; the panel was also driven
   end to end in an isolated copy — ◀/▶, the stars, the lock, and auto-advance
   picks entering the history with the visualizer open.
+- **Ratings and the lock stay out of scenes** · done. #569 kept the ratings,
+  and #568 the lock, inside the `milkdrop` block, which a scene saves and
+  restores whole and a template resets. Going back to an older scene, Auto
+  VJ pulling one or trying a template would have wiped every rating given,
+  and a scene would have carried the lock with it. Both now live in blocks
+  of their own that no scene or template list includes (`milkdropLibrary`,
+  `milkdropControl`). 4 tests, including a template applied over ratings and
+  a lock that come through untouched. Found before either reached `main`.
 - **The MilkDrop panel shows its presets on first open** · done. The list was
   requested once at start-up with no callback; a panel drawn while that
   request was in flight made no request of its own, so the list, ◀/▶ and the

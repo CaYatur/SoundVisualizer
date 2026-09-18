@@ -125,7 +125,8 @@ test('döngü ayardaki puanları kullanıyor; kapalıyken eşit olasılık', () 
     const n = { a: 0, b: 0, c: 0 };
     let cur = 'a';
     for (let i = 0; i < 3000; i++) {
-      const p = cy.step(1, Object.assign({ autoNext: 0.5, autoOrder: 'random' }, md), L, cur);
+      const p = cy.step(1, Object.assign({ autoNext: 0.5, autoOrder: 'random' }, md), L, cur,
+        undefined, md.ratings);
       if (p) { n[p.id]++; cur = p.id; }
     }
     return n;
@@ -140,9 +141,11 @@ test('varsayılan: puana göre seçim açık, verilmiş puan yok', () => {
   assert.strictEqual(C.normalize({}).useRatings, true);
   assert.strictEqual(C.normalize({ useRatings: false }).useRatings, false);
   require('../src/shared/defaults.js');
-  const md = global.window.SV.defaultConfig().milkdrop;
-  assert.strictEqual(md.useRatings, true);
-  assert.deepStrictEqual(md.ratings, {});
+  const def = global.window.SV.defaultConfig();
+  assert.strictEqual(def.milkdrop.useRatings, true);
+  // Puanlar sahnenin değil kitaplığın: milkdrop bloğunda değil
+  assert.strictEqual(def.milkdrop.ratings, undefined);
+  assert.deepStrictEqual(def.milkdropLibrary.ratings, {});
 });
 
 // ------------------------------------------------------------ geçmiş
@@ -199,21 +202,21 @@ test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
   assert.match(PANEL, /text: '◀ Önceki', onclick: back \}/);
   assert.match(PANEL, /text: 'Sonraki ▶', onclick: forward \}/);
   assert.match(PANEL, /const back = \(\) => \{[\s\S]*?h\.back\(\)[\s\S]*?step\(-1\);/);
-  assert.match(PANEL, /const forward = \(\) => \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(md\)[\s\S]*?step\(1\);/);
+  assert.match(PANEL, /const forward = \(\) => \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(cfg, md\)[\s\S]*?step\(1\);/);
   // Liste adımı ekrandakine göre, ayardaki elle seçime göre değil
   assert.match(PANEL, /presets\.findIndex\(\(p\) => p\.id === liveId\(md\)\)/);
 });
 
 test('panel: 🎲 ve ▶ motorla AYNI kuralla seçiyor', () => {
-  assert.match(PANEL, /onclick: \(\) => go\(cfg, randomPick\(md\)\)/);
-  assert.match(PANEL, /function randomPick\(md\) \{[\s\S]*?C\.pick\(presets, liveId\(md\), 'random', Math\.random, w\)/);
-  assert.match(PANEL, /md\.useRatings === false \? null : \(p\) => C\.ratingOf\(p, md\.ratings\)/);
+  assert.match(PANEL, /onclick: \(\) => go\(cfg, randomPick\(cfg, md\)\)/);
+  assert.match(PANEL, /function randomPick\(cfg, md\) \{[\s\S]*?C\.pick\(presets, liveId\(md\), 'random', Math\.random, w\)/);
+  assert.match(PANEL, /md\.useRatings === false \? null : \(p\) => C\.ratingOf\(p, ratings\)/);
 });
 
 test('panel: puan ayara yazılıyor, preset kaydına değil', () => {
   const fn = /function setRating\(id, k\) \{[\s\S]*?\n  \}/.exec(PANEL);
   assert.ok(fn, 'setRating yok');
-  assert.match(fn[0], /md\.ratings = next;/);
+  assert.match(fn[0], /lib\.ratings = next;/);
   assert.doesNotMatch(fn[0], /savePreset/, 'her kayıt bütün listeyi yeniden yayınlıyor');
   assert.match(PANEL, /P\(\)\.row\('Puan', stars\)/);
   assert.match(PANEL, /P\(\)\.row\('Puana Göre', selOf\(/);

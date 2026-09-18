@@ -305,12 +305,14 @@ test('ayarlar: MilkDrop 2 varsayılanları, sert geçiş kapalı', () => {
   assert.strictEqual(md.hardCutThreshold, 2.5);
   assert.strictEqual(md.hardCutHalfLife, 60);
   assert.strictEqual(md.autoNextRand, 0);
-  assert.strictEqual(md.locked, false);
+  // Kilit sahnenin değil gösterinin: milkdrop bloğunda değil
+  assert.strictEqual(md.locked, undefined);
+  assert.strictEqual(global.window.SV.defaultConfig().milkdropControl.locked, false);
 });
 
 test('panel: kilit, pay ve sert geçiş denetimleri ayarı yazıyor', () => {
   const PANEL = bare(read('src/admin/milkdrop-panel.js'));
-  assert.match(PANEL, /onclick: \(\) => \{ md\.locked = !locked; rerender\(\); \}/);
+  assert.match(PANEL, /onclick: \(\) => \{ control\(cfg\)\.locked = !locked; rerender\(\); \}/);
   assert.match(PANEL, /'aria-pressed': locked \? 'true' : 'false'/);
   assert.match(PANEL, /miniSlider\('Rastgele Pay'[\s\S]*?md\.autoNextRand = Math\.round\(v\)/);
   assert.match(PANEL, /P\(\)\.row\('Sert Geçiş', selOf\(/);

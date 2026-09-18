@@ -67,10 +67,11 @@
      okuyucusu gibi büyük/küçük harf ayırmadan aranıyor.
 
      Kullanıcının verdiği puan dosyaya değil ayarlara yazılıyor
-     (`milkdrop.ratings`, kimlik → puan). Her preset kaydı bütün listeyi —
-     kaynaklarıyla — bütün pencerelere yeniden yayınlıyor (main.js
+     (`milkdropLibrary.ratings`, kimlik → puan). Her preset kaydı bütün
+     listeyi — kaynaklarıyla — bütün pencerelere yeniden yayınlıyor (main.js
      `broadcastPresets`); yıldıza her tıklama yüzlerce presetlik bir listeyi
-     taşımamalı. */
+     taşımamalı. `milkdrop` bloğunda da değil: sahne kaydı o bloğu bütünüyle
+     değiştiriyor ve bir sahne geçişi puanları silerdi. */
   const RATING_DEFAULT = 3;
   const RATING_RE = /^[ \t]*fRating[ \t]*=[ \t]*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)/mi;
 
@@ -113,7 +114,6 @@
       /* Puana göre seçim MilkDrop'ta varsayılan AÇIK (`m_bEnableRating`,
          plugin.cpp:509). */
       useRatings: m.useRatings !== false,
-      ratings: m.ratings && typeof m.ratings === 'object' ? m.ratings : null,
     };
   }
 
@@ -241,10 +241,13 @@
     /* Bir kare ilerlet. Dönüş: geçilecek preset ya da null.
        `list` MilkDrop presetleri, `currentId` o an çizilenin kimliği,
        `rel` sert geçişin baktığı { bass, mid, treb } (uzun ortalamaya göre;
-       yoksa sert geçiş bu kare bakmıyor). Dönüşten sonra `this.cut` o
-       seçimin sert geçiş olup olmadığını söylüyor. */
-    step(dt, md, list, currentId, rel) {
+       yoksa sert geçiş bu kare bakmıyor), `ratings` kullanıcının verdiği
+       puanlar (`milkdropLibrary.ratings`; sahneye ait değil, o yüzden `md`
+       içinde değil). Dönüşten sonra `this.cut` o seçimin sert geçiş olup
+       olmadığını söylüyor. */
+    step(dt, md, list, currentId, rel, ratings) {
       const o = normalize(md);
+      o.ratings = ratings && typeof ratings === 'object' ? ratings : null;
       const n = Array.isArray(list) ? list.length : 0;
       const d = Math.max(0, Number(dt) || 0);
       const hard = o.hardCut !== 'off';

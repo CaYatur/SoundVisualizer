@@ -141,7 +141,7 @@ test('bozuk ayar değerleri güvenli', () => {
      eşik varsayılanları (#568). */
   assert.deepStrictEqual(C.normalize({}), {
     seconds: 0, order: 'sequential', spread: 0, blend: 0, locked: false,
-    hardCut: 'off', threshold: 2.5, halfLife: 60, useRatings: true, ratings: null,
+    hardCut: 'off', threshold: 2.5, halfLife: 60, useRatings: true,
   });
   assert.strictEqual(C.normalize(null).seconds, 0);
   assert.strictEqual(C.normalize({ autoNext: -5 }).seconds, 0);
@@ -181,7 +181,10 @@ test('motor: otomatik seçim AYARA YAZILMIYOR', () => {
   assert.ok(fn, '_autoCycle bulunamadı');
   /* Beşinci argüman sert geçişin baktığı bantlar (#568); ayar yine yalnız
      okunuyor. */
-  assert.match(fn[0], /this\.cycle\.step\(step, cfg\.milkdrop, list, cur, this\._rel\)/);
+  assert.match(fn[0], /this\.cycle\.step\(step, md, list, cur, this\._rel, lib\.ratings\)/);
+  /* Kilit ve puanlar sahnenin değil gösterinin; `md` yalnız kilitliyken
+     kopyalanıyor ve ayarın kendisine yazılmıyor. */
+  assert.match(fn[0], /const md = ctl\.locked === true \? Object\.assign\(\{\}, cfg\.milkdrop, \{ locked: true \}\) : cfg\.milkdrop;/);
   assert.doesNotMatch(fn[0], /cfg\.milkdrop\.(presetId|source|name)\s*=/);
   assert.ok(!MODE.includes('updateConfig'), 'motor yapılandırma göndermemeli');
 });

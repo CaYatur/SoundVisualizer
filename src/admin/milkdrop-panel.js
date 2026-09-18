@@ -127,6 +127,19 @@
 
   const CY = () => window.SVMilkdropCycle;
 
+  /* SAHNEYE AİT OLMAYAN İKİ BLOK (defaults.js). Sahne kaydı ve şablon
+     `milkdrop` bloğunu bütünüyle değiştiriyor; puanlar ve kilit orada
+     dursaydı bir sahne geçişi onları silerdi. */
+  function library(cfg) {
+    const l = cfg.milkdropLibrary || (cfg.milkdropLibrary = {});
+    if (!l.ratings || typeof l.ratings !== 'object') l.ratings = {};
+    return l;
+  }
+  function control(cfg) {
+    return cfg.milkdropControl || (cfg.milkdropControl = { locked: false });
+  }
+  const ratingsOf = (cfg) => (cfg && cfg.milkdropLibrary && cfg.milkdropLibrary.ratings) || null;
+
   /* GEÇMİŞ (#569) panelde, çünkü "geri" bir kullanıcı eylemi ve elle seçim
      bütün pencerelere buradan gidiyor. Kayıt ise görselleştiricinin ~30 Hz
      ölçer mesajından: otomatik geçişin ve sert geçişin seçtikleri de
@@ -149,10 +162,11 @@
   }
 
   // Rastgele seçim motorunkiyle aynı kural: o an görülen hariç, puana göre
-  function randomPick(md) {
+  function randomPick(cfg, md) {
     const C = CY();
     if (!C) return presets[(Math.random() * presets.length) | 0];
-    const w = md.useRatings === false ? null : (p) => C.ratingOf(p, md.ratings);
+    const ratings = ratingsOf(cfg);
+    const w = md.useRatings === false ? null : (p) => C.ratingOf(p, ratings);
     return C.pick(presets, liveId(md), 'random', Math.random, w);
   }
 
@@ -169,10 +183,10 @@
      yerinde tazeleniyor. 0 ayrı bir düğme: rastgele sırada hiç gelmeyecek
      demek, "puansız" değil. */
   let starsFor = null;
-  function fillStars(wrap, md) {
+  function fillStars(wrap, cfg) {
     const el = P().el;
     const C = CY();
-    const id = liveId(md);
+    const id = liveId(cfg.milkdrop || {});
     starsFor = id;
     wrap.textContent = '';
     const p = presets.find((x) => x.id === id);
@@ -180,7 +194,7 @@
       wrap.appendChild(el('span', { class: 'dim-hint', text: '—' }));
       return;
     }
-    const r = C.ratingOf(p, md.ratings);
+    const r = C.ratingOf(p, ratingsOf(cfg));
     for (let k = 0; k <= 5; k++) {
       const on = k === 0 ? r === 0 : k <= r;
       wrap.appendChild(el('button', {
@@ -194,17 +208,17 @@
 
   function setRating(id, k) {
     const cfg = P().cfg();
-    const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
-    const next = Object.assign({}, md.ratings || {});
+    const lib = library(cfg);
+    const next = Object.assign({}, lib.ratings);
     next[id] = k;
-    md.ratings = next;
+    lib.ratings = next;
     P().apply();
   }
 
   function syncStars() {
     const wrap = document.getElementById('mdStars');
     const cfg = P() && P().cfg && P().cfg();
-    if (wrap && cfg && cfg.milkdrop) fillStars(wrap, cfg.milkdrop);
+    if (wrap && cfg && cfg.milkdrop) fillStars(wrap, cfg);
   }
 
   /* Ölçer mesajı (admin.js): görselleştiricinin o an çizdiği preset.
@@ -249,7 +263,7 @@
     /* PUAN (#569). Presetin kendi `fRating`iyle başlıyor; verilen puan
        ayarlara yazılıyor. Rastgele sıra puana göre ağırlıklı. */
     const stars = el('span', { id: 'mdStars', class: 'md-stars' });
-    fillStars(stars, md);
+    fillStars(stars, cfg);
     nodes.push(P().row('Puan', stars));
 
     // Doğrulama: yüklü presetin derleme durumu
@@ -616,26 +630,26 @@
           const p = byId(id);
           if (p) { go(cfg, p); return; }
         }
-        if (md.autoOrder === 'random') go(cfg, randomPick(md));
+        if (md.autoOrder === 'random') go(cfg, randomPick(cfg, md));
         else step(1);
       };
       /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
-      const locked = md.locked === true;
+      const locked = control(cfg).locked === true;
       nodes.push(el('div', { class: 'row' }, [
         el('button', { class: 'btn ghost', type: 'button', text: '◀ Önceki', onclick: back }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki ▶', onclick: forward }),
         el('button', {
           class: 'btn ghost', type: 'button', text: '🎲 Rastgele',
-          onclick: () => go(cfg, randomPick(md)),
+          onclick: () => go(cfg, randomPick(cfg, md)),
         }),
         el('button', {
           id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
           text: locked ? '🔒 Kilitli' : '🔓 Kilitle',
           title: 'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır',
           'aria-pressed': locked ? 'true' : 'false',
-          onclick: () => { md.locked = !locked; rerender(); },
+          onclick: () => { control(cfg).locked = !locked; rerender(); },
         }),
       ]));
       nodes.push(SP().miniSlider('Otomatik Geçiş', () => md.autoNext || 0, (v) => { md.autoNext = Math.round(v); }, {
