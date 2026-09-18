@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1829 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1835 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 232
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 238
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1166,6 +1166,14 @@ rest after. No version number yet.
   `fRating` edit that keeps the length. 19 tests; the panel was also driven
   end to end in an isolated copy — ◀/▶, the stars, the lock, and auto-advance
   picks entering the history with the visualizer open.
+- **Stars show only the ratings you gave (#587)** · done. Found in use: the
+  stars showed a preset's own `fRating`, so a preset nobody had rated came up
+  with five stars — 95% of the corpus writes 5 — and moving on from a preset
+  you had just rated looked broken. A preset you have not rated now shows
+  empty, dimmed stars. Random order is deliberately unchanged: an unrated
+  preset is still weighted by its file's rating, MilkDrop's rule, and rating
+  up or down steps from that effective rating so "up" never makes a preset
+  rarer. 6 tests pin both halves.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

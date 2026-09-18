@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1829%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1835%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -290,7 +290,9 @@ profilinde basamak olmadığını doğruluyor.
   yoksa 3) ve MilkDrop rastgele sırasını bu puanların birikimli dağılımından seçiyor: 1 puanlı bir
   preset 5 puanlının beşte biri sıklıkta geliyor, 0 puanlı ise kendiliğinden hiç gelmiyor. Rastgele
   sıra artık aynı biçimde çalışıyor — MilkDrop'taki gibi varsayılan açık, bir anahtarla — ve panel
-  ekrandaki presetin puanını değiştirilebilen yıldızlarla gösteriyor. Verdiğiniz puan presete değil
+  ekrandaki presete sizin verdiğiniz puanı değiştirilebilen yıldızlarla gösteriyor; puan
+  vermediğiniz preset boş görünüyor, rastgele sıra ise onu kendi dosyasındaki puanla ağırlıklandırmayı
+  sürdürüyor. Verdiğiniz puan presete değil
   ayarlara yazılıyor, çünkü bir preseti kaydetmek bütün kitaplığı kaynaklarıyla birlikte bütün
   pencerelere yeniden gönderiyor. ◀ ve ▶ artık son tıkladığınız presetten listede adım atmak yerine
   gerçekten gösterilenlerin geçmişinde geziyor; otomatik geçişin ve sert geçişin seçtikleri de
@@ -1132,7 +1134,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1829 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1835 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

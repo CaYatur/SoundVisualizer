@@ -245,6 +245,9 @@
       const p = byId(id);
       const C = CY();
       if (!p || !C) return false;
+      /* Adım ETKİN puandan atılıyor: puan verilmemiş presette dosyadaki
+         puandan. "Artır" bir preseti asla daha seyrek getirmemeli —
+         dosyada 5 yazan bir preset boş yıldızdan 1'e inseydi öyle olurdu. */
       const r = C.ratingOf(p, ratingsOf(cfg));
       setRating(id, name === 'RateUp' ? Math.min(5, Math.floor(r) + 1) : Math.max(0, Math.ceil(r) - 1));
     } else {
@@ -269,13 +272,27 @@
       wrap.appendChild(el('span', { class: 'dim-hint', text: '—' }));
       return;
     }
-    const r = C.ratingOf(p, ratingsOf(cfg));
+    /* YALNIZ SİZİN VERDİĞİNİZ PUAN YILDIZ OLARAK GÖRÜNÜYOR (#587).
+       Puan verilmemiş preset boş görünüyor; dosyanın kendi `fRating`i
+       yıldızlara taşınmıyor. Önceden taşınıyordu ve hiç puan verilmemiş bir
+       preset beş yıldızla geliyordu — korpusun %95'i dosyada 5 yazıyor —
+       yani bir puan verip başka presete geçince yıldızlar "bozuk" görünüyordu.
+
+       SEÇİM BUNDAN ETKİLENMİYOR, bilerek: rastgele sıra puan verilmemiş
+       presette dosyadaki puanı kullanmaya devam ediyor (`C.ratingOf`,
+       MilkDrop'un kuralı: plugin.cpp:5795-5796). Gösterimi seçime
+       "eşitlemek" için ağırlığı değiştirmek, kitaplığın yazarların verdiği
+       puanlara göre dağılmasını sessizce bozardı. */
+    const mine = ratingsOf(cfg);
+    const own = mine && Object.prototype.hasOwnProperty.call(mine, id) && isFinite(Number(mine[id]))
+      ? Math.max(0, Math.min(5, Number(mine[id]))) : null;
+    wrap.classList && wrap.classList.toggle('md-unrated', own === null);
     for (let k = 0; k <= 5; k++) {
-      const on = k === 0 ? r === 0 : k <= r;
+      const on = own !== null && (k === 0 ? own === 0 : k <= own);
       wrap.appendChild(el('button', {
         class: 'md-star' + (k === 0 ? ' md-star0' : '') + (on ? ' on' : ''),
         type: 'button', title: String(k),
-        text: k === 0 ? '0' : (k <= r ? '★' : '☆'),
+        text: k === 0 ? '0' : (on ? '★' : '☆'),
         onclick: () => setRating(id, k),
       }));
     }
@@ -809,7 +826,7 @@
       }
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
-        text: 'Puan presetin kendi dosyasındaki fRating değeriyle başlar, yoksa 3. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',
+        text: 'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',
       }));
     }
 
@@ -827,7 +844,7 @@
      secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
      sinanabilsin. */
   window.SVMilkdropPanel = {
-    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act,
+    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1829%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1835%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -295,8 +295,9 @@ that asserts the bar profile has no step in it.
   (`fRating`, 3 when it is missing), and MilkDrop draws its random order from the cumulative
   distribution of those ratings: a preset rated 1 comes up a fifth as often as one rated 5, and one
   rated 0 never comes up on its own. Random order now works the same way — on by default, as in
-  MilkDrop, with a switch — and the panel shows the rating of the preset on screen as stars you can
-  change. Your rating goes into the settings rather than into the preset, because saving a preset
+  MilkDrop, with a switch — and the panel shows the rating you gave the preset on screen as stars you
+  can change; a preset you have not rated shows none, while random order keeps weighting it by its
+  own file's rating. Your rating goes into the settings rather than into the preset, because saving a preset
   re-sends the whole library, sources included, to every window. ◀ and ▶ now walk the history of
   what was actually shown, including what auto advance and hard cuts picked, instead of stepping
   through the list from the preset you last clicked; the history keeps MilkDrop's 64 steps. One
@@ -1133,7 +1134,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1829 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1835 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

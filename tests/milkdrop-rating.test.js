@@ -241,7 +241,7 @@ test('yeni arayüz metinlerinin İngilizcesi var', () => {
     assert.ok(I.includes("'" + k + "':"), 'çevirisi yok: ' + k);
   }
   const lits = read('src/admin/milkdrop-panel.js').match(/text: '(?:[^'\\]|\\.)*'/g) || [];
-  const note = lits.map((n) => n.slice('text: '.length)).find((k) => k.startsWith("'Puan presetin"));
+  const note = lits.map((n) => n.slice('text: '.length)).find((k) => k.startsWith("'Yıldızlar yalnız"));
   assert.ok(note, 'puan notu bulunamadı');
   assert.ok(I.includes(note + ':'), 'puan notunun çevirisi yok');
 });

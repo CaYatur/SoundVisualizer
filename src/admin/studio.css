@@ -551,6 +551,8 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   color: var(--muted, #9aa);
 }
 .md-star.on { color: #ffc94d; }
+/* Puan verilmemiş preset: yıldızlar sönük — "0 puan" değil, "puan yok". */
+.md-stars.md-unrated .md-star { opacity: 0.55; }
 .md-star0 {
   font-size: 11px;
   margin-right: 4px;
