@@ -613,6 +613,14 @@
       hardCut: 'off',
       hardCutThreshold: 2.5,
       hardCutHalfLife: 60,
+      /* PUAN (#569). useRatings — rastgele sıra puana göre ağırlıklı;
+         MilkDrop'ta da varsayılan açık (plugin.cpp:509). ratings — yalnız
+         kullanıcının verdiği puanlar, kimlik → 0..5. Verilmemiş puan
+         presetin kendi dosyasındaki fRating'den geliyor (yoksa 3). Preset
+         kaydına yazılmıyor: her kayıt bütün listeyi kaynaklarıyla bütün
+         pencerelere yeniden yayınlıyor. */
+      useRatings: true,
+      ratings: {},
       /* Warp agi siklıgı. MilkDrop'un varsayılanı 32x24, "yuksek kalite"
          ayarı 48x36. Ag seyrek oldugunda bozulma dugumler arasında dogrusal
          interpolasyonla doluyor ve kıvrımlı warp'larda koseli gorunuyor;

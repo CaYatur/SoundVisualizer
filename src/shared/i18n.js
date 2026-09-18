@@ -1488,6 +1488,13 @@
       'When bass, mid and treble, each against its own long average, together exceed three times the threshold, the preset changes with no blend. The threshold doubles on every cut and then returns to its base, so a run of bursts does not become a run of cuts. The rule and the defaults are MilkDrop 2\'s (2.5 and 60 s); as there, the threshold\'s excess falls to a quarter by the end of the recovery time.',
     'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.':
       'The timing is MilkDrop 2\'s: the interval starts counting once the transition has finished, and the random spread is drawn once per preset. The lock stops auto advance and hard cuts; when released, the remaining time carries on from where it stopped.',
+    /* Puan ve geçmiş (#569) */
+    'Puan': 'Rating',
+    'Puana Göre': 'By Rating',
+    'Açık (MilkDrop gibi)': 'On (as in MilkDrop)',
+    'Kapalı (eşit olasılık)': 'Off (equal chance)',
+    'Puan presetin kendi dosyasındaki fRating değeriyle başlar, yoksa 3. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.':
+      'A rating starts from the fRating value in the preset\'s own file, or 3. In random order a preset comes up in proportion to its rating, and a preset rated 0 never comes up — MilkDrop 2\'s rule. The rating you give is written to the settings; the preset file is not touched. ◀ Previous and Next ▶ walk the history of what was shown, including what auto advance picked.',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
     'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.':

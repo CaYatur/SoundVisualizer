@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1780 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1799 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 183
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 202
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1147,6 +1147,25 @@ rest after. No version number yet.
   `above(progress, 0.99)`, which the sawtooth triggered every ten seconds.
   24 tests, including the same demo audio cutting on the same frames twice.
   MilkDrop 3's hard-cut modes follow once the compatibility mode exists (#567).
+- **Ratings, rating-weighted random order and a back/forward history (#569)** ·
+  done. MilkDrop reads each preset's rating from its own file — `fRating`, 3
+  when missing, clamped to 0..5 (plugin.cpp:5795-5796) — and with ratings on,
+  its default (509), draws random order from their cumulative distribution,
+  falling back to uniform when they sum under 0.1 (5160-5199). Random order
+  now does the same, still excluding the preset on screen; a rating of 0
+  never comes up. The panel shows the on-screen preset's rating as stars; a
+  rating you give is kept in the settings, not the preset, because every
+  preset save re-broadcasts the whole library with its sources. ◀/▶ walk a
+  64-step history (plugin.h:57) of what was shown — auto advance and hard
+  cuts included, recorded from the visualizer's meter message — and the list
+  step itself now starts from the preset on screen. Deliberate difference:
+  after going back, a new preset drops the forward part; MilkDrop's auto
+  advance would replay it, but here the history is in the panel and the pick
+  in the visualizer. The file rating is read without a cache: 0.16 ms for a
+  695-preset library, and a cache keyed on id and length would miss an
+  `fRating` edit that keeps the length. 19 tests; the panel was also driven
+  end to end in an isolated copy — ◀/▶, the stars, the lock, and auto-advance
+  picks entering the history with the visualizer open.
 - **The MilkDrop panel shows its presets on first open** · done. The list was
   requested once at start-up with no callback; a panel drawn while that
   request was in flight made no request of its own, so the list, ◀/▶ and the

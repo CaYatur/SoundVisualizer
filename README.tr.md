@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1780%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1799%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -286,6 +286,17 @@ profilinde basamak olmadığını doğruluyor.
   önce sönmek için `above(progress, 0.99)` yazıyor ve testere dişi onları on saniyede bir
   söndürüyordu; otomatik geçiş kapalıyken planlanmış bir geçiş yok ve `progress` 0'da kalıyor,
   MilkDrop'ta kilitli bir presette olduğu gibi.
+- **Puan ve geçmiş, MilkDrop'un tuttuğu gibi.** Her presetin puanı kendi dosyasında (`fRating`,
+  yoksa 3) ve MilkDrop rastgele sırasını bu puanların birikimli dağılımından seçiyor: 1 puanlı bir
+  preset 5 puanlının beşte biri sıklıkta geliyor, 0 puanlı ise kendiliğinden hiç gelmiyor. Rastgele
+  sıra artık aynı biçimde çalışıyor — MilkDrop'taki gibi varsayılan açık, bir anahtarla — ve panel
+  ekrandaki presetin puanını değiştirilebilen yıldızlarla gösteriyor. Verdiğiniz puan presete değil
+  ayarlara yazılıyor, çünkü bir preseti kaydetmek bütün kitaplığı kaynaklarıyla birlikte bütün
+  pencerelere yeniden gönderiyor. ◀ ve ▶ artık son tıkladığınız presetten listede adım atmak yerine
+  gerçekten gösterilenlerin geçmişinde geziyor; otomatik geçişin ve sert geçişin seçtikleri de
+  içinde, geçmiş MilkDrop'un 64 adımını tutuyor. Bir fark bilinçli: geri gidildikten sonra yeni bir
+  preset gelirse ileri kısım atılıyor, tarayıcıdaki gibi; MilkDrop'un otomatik geçişi ise onu
+  yeniden oynatırdı — burada geçmiş panelde, seçim ise görselleştiricide yapılıyor.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1105,7 +1116,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1780 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1799 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

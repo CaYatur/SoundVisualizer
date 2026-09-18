@@ -141,7 +141,7 @@ test('bozuk ayar değerleri güvenli', () => {
      eşik varsayılanları (#568). */
   assert.deepStrictEqual(C.normalize({}), {
     seconds: 0, order: 'sequential', spread: 0, blend: 0, locked: false,
-    hardCut: 'off', threshold: 2.5, halfLife: 60,
+    hardCut: 'off', threshold: 2.5, halfLife: 60, useRatings: true, ratings: null,
   });
   assert.strictEqual(C.normalize(null).seconds, 0);
   assert.strictEqual(C.normalize({ autoNext: -5 }).seconds, 0);

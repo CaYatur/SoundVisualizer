@@ -61,6 +61,41 @@
     return isFinite(x) ? Math.max(lo, Math.min(hi, x)) : dflt;
   }
 
+  /* PUAN (#569). MilkDrop her presetin puanını KENDİ dosyasından okuyor:
+     [preset00] altındaki `fRating`, yoksa 3, 0..5'e kıstırılmış
+     (plugin.cpp:5795-5796, state.cpp:535). Anahtar adı Windows'un .ini
+     okuyucusu gibi büyük/küçük harf ayırmadan aranıyor.
+
+     Kullanıcının verdiği puan dosyaya değil ayarlara yazılıyor
+     (`milkdrop.ratings`, kimlik → puan). Her preset kaydı bütün listeyi —
+     kaynaklarıyla — bütün pencerelere yeniden yayınlıyor (main.js
+     `broadcastPresets`); yıldıza her tıklama yüzlerce presetlik bir listeyi
+     taşımamalı. */
+  const RATING_DEFAULT = 3;
+  const RATING_RE = /^[ \t]*fRating[ \t]*=[ \t]*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)/mi;
+
+  function fileRating(source) {
+    if (typeof source !== 'string' || !source) return RATING_DEFAULT;
+    const m = RATING_RE.exec(source);
+    const v = m ? Number(m[1]) : NaN;
+    return isFinite(v) ? Math.max(0, Math.min(5, v)) : RATING_DEFAULT;
+  }
+
+  /* ÖNBELLEK YOK, bilerek. Rastgele seçim her geçişte bütün presetlerin
+     puanına bakıyor ama `fRating` dosyanın başında: ölçüldü, 695 presetlik
+     bir kitaplıkta en geç 1.143. karakterde bulunuyor ve tam tarama 0,16 ms.
+     "Kimlik + kaynak uzunluğu" anahtarlı bir önbellek ise `fRating=3`ü
+     `fRating=4` yapan bir düzenlemeyi — uzunluk aynı — hiç görmezdi. */
+  function ratingOf(p, ratings) {
+    if (!p) return RATING_DEFAULT;
+    if (ratings && typeof ratings === 'object' &&
+        Object.prototype.hasOwnProperty.call(ratings, p.id)) {
+      const r = Number(ratings[p.id]);
+      if (isFinite(r)) return Math.max(0, Math.min(5, r));
+    }
+    return fileRating(p.source);
+  }
+
   function normalize(md) {
     const m = md || {};
     const s = Number(m.autoNext);
@@ -75,12 +110,17 @@
       hardCut: HARD_CUTS.indexOf(m.hardCut) >= 0 ? m.hardCut : 'off',
       threshold: range(m.hardCutThreshold, HARD_THRESHOLD, 0.5, 20),
       halfLife: range(m.hardCutHalfLife, HARD_HALFLIFE, 1, 600),
+      /* Puana göre seçim MilkDrop'ta varsayılan AÇIK (`m_bEnableRating`,
+         plugin.cpp:509). */
+      useRatings: m.useRatings !== false,
+      ratings: m.ratings && typeof m.ratings === 'object' ? m.ratings : null,
     };
   }
 
   /* Sıradaki preset. `currentId` listede yoksa (yerleşik varsayılan
-     çiziliyorsa) sıradaki ilk presettir. */
-  function pick(list, currentId, order, rnd) {
+     çiziliyorsa) sıradaki ilk presettir. `weight` verilirse rastgele sıra
+     puana göre ağırlıklı. */
+  function pick(list, currentId, order, rnd, weight) {
     const n = Array.isArray(list) ? list.length : 0;
     if (!n) return null;
     const i = list.findIndex((p) => p && p.id === currentId);
@@ -91,6 +131,31 @@
          bir seçimde her üç geçişten biri böyle olurdu. */
       const others = i < 0 ? list : list.slice(0, i).concat(list.slice(i + 1));
       if (!others.length) return null;
+      /* PUANA GÖRE: puanların birikimli dağılımından (plugin.cpp:5160-5199).
+         0 puanlı preset rastgele hiç gelmiyor. Toplam 0,1'in altındaysa
+         — hepsi 0 — MilkDrop düzgün seçime dönüyor, burada da. MilkDrop o
+         an çizileni elemiyor; burada eleniyor, yukarıdaki sebeple. */
+      if (typeof weight === 'function') {
+        let total = 0;
+        const cum = new Array(others.length);
+        for (let k = 0; k < others.length; k++) {
+          const w = Number(weight(others[k]));
+          if (w > 0) total += w;
+          cum[k] = total;
+        }
+        if (total >= 0.1) {
+          let x = Number(rnd()) * total;
+          if (!(x >= 0)) x = 0;
+          // rnd() 1 dönerse x toplama eşit olur ve arama 0 puanlı bir kuyruğa düşebilirdi
+          if (x >= total) x = total * (1 - 1e-12);
+          let lo = 0, hi = others.length - 1;
+          while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (cum[mid] > x) hi = mid; else lo = mid + 1;
+          }
+          return others[lo];
+        }
+      }
       let k = Math.floor(rnd() * others.length);
       if (!(k >= 0)) k = 0;
       // rnd() tam olarak 1 dönerse indis taşardı; üreteç sözleşmesine güvenilmiyor
@@ -133,6 +198,13 @@
         this.jitter = j > 0 ? Math.min(1, j) : 0;
       }
       return o.blend + o.seconds + this.jitter * o.spread;
+    }
+
+    /* Zamanlayıcı da sert geçiş de aynı kuralla seçiyor: sıra, rastgelede
+       puan ağırlığı. */
+    _pick(list, currentId, o) {
+      const w = o.useRatings ? (p) => ratingOf(p, o.ratings) : null;
+      return pick(list, currentId, o.order, this.rnd, w);
     }
 
     /* SERT GEÇİŞ — MilkDrop 2, milkdropfs.cpp:882-906.
@@ -200,7 +272,7 @@
         if (this.elapsed >= this._due(o)) {
           this.elapsed = 0;
           this.jitter = null;
-          const p = pick(list, currentId, o.order, this.rnd);
+          const p = this._pick(list, currentId, o);
           this.reason = p ? 'OK' : 'EMPTY';
           return p;
         }
@@ -208,7 +280,7 @@
         this.elapsed = 0;
       }
       if (loud) {
-        const p = pick(list, currentId, o.order, this.rnd);
+        const p = this._pick(list, currentId, o);
         if (p) {
           this.elapsed = 0;
           this.jitter = null;
@@ -248,9 +320,59 @@
     }
   }
 
+  /* GEÇMİŞ (#569) — ekranda gösterilenler, sırasıyla. "Geri" listede bir
+     önceki presete değil, gerçekten bir önce GÖSTERİLENE dönüyor; otomatik
+     geçiş ya da sert geçiş ne seçtiyse o da giriyor.
+
+     MilkDrop 64 adım tutuyor (plugin.h:57: 64 + 2, "geri gidebilmek için
+     iki fazla"), yalnız rastgele sırada (plugin.cpp:5395). Burada iki sırada
+     da: sırayla geçişte elle bir yere atlandıysa "geri" yine oraya değil,
+     az önce görülene dönmeli.
+
+     Bilinçli bir fark: geri gidildikten sonra yeni bir preset gösterilirse
+     ileri kısım atılıyor — tarayıcıdaki gibi. MilkDrop'ta bu durumda
+     otomatik geçiş önce ileri geçmişi yeniden oynatıyor (5117-5129). Burada
+     geçmiş panelde, otomatik seçim görselleştiricide yapılıyor; seçici
+     paneldeki geçmişi bilmiyor. */
+  class History {
+    constructor(max) {
+      this.max = Number(max) > 1 ? Math.floor(max) : 64;
+      this.items = [];
+      this.pos = -1;
+    }
+
+    // Ekranda şu an `id` var. Dönüş: geçmiş değişti mi.
+    note(id) {
+      if (!id) return false;
+      if (this.pos >= 0 && this.items[this.pos] === id) return false;
+      this.items = this.items.slice(0, this.pos + 1);
+      this.items.push(id);
+      if (this.items.length > this.max) this.items.splice(0, this.items.length - this.max);
+      this.pos = this.items.length - 1;
+      return true;
+    }
+
+    canBack() { return this.pos > 0; }
+    canForward() { return this.pos >= 0 && this.pos < this.items.length - 1; }
+
+    back() {
+      if (!this.canBack()) return null;
+      this.pos--;
+      return this.items[this.pos];
+    }
+
+    forward() {
+      if (!this.canForward()) return null;
+      this.pos++;
+      return this.items[this.pos];
+    }
+
+    current() { return this.pos >= 0 ? this.items[this.pos] : null; }
+  }
+
   const api = {
-    normalize, pick, Cycle, ORDERS, MAX_SECONDS, MAX_SPREAD, HARD_CUTS,
-    HARD_THRESHOLD, HARD_HALFLIFE,
+    normalize, pick, Cycle, History, ORDERS, MAX_SECONDS, MAX_SPREAD, HARD_CUTS,
+    HARD_THRESHOLD, HARD_HALFLIFE, RATING_DEFAULT, fileRating, ratingOf,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdropCycle = api;

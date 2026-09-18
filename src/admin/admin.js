@@ -4672,6 +4672,13 @@
          neyi izleyeceğini yalnız buradan öğrenebiliyor. Alan yoksa MilkDrop
          çizilmiyor ve izlenecek bir şey yok. */
       window.SVMdFollow = d.mdPreset ? Object.assign({ at: performance.now() }, d.mdPreset) : null;
+      /* Gösterilen preset geçmişe ve puan yıldızlarına da gidiyor (#569):
+         "geri" otomatik geçişin seçtiğine de dönebilsin. Mesaj
+         requestAnimationFrame'e bağlı değil; görselleştirici paneli örtse
+         de geliyor. */
+      if (window.SVMilkdropPanel && window.SVMilkdropPanel.noteLive) {
+        window.SVMilkdropPanel.noteLive(d.mdPreset);
+      }
       const lv = document.getElementById('mdLiveName');
       if (lv) {
         const adsiz = window.SVI18n && window.SVI18n.t ? window.SVI18n.t('Adsız') : 'Adsız';

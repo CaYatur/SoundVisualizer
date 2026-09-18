@@ -538,6 +538,27 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   background: rgba(124, 92, 255, 0.22);
   border-color: rgba(124, 92, 255, 0.55);
 }
+/* Puan yıldızları: düğme görünümü değil, satır içi simgeler. 0 ayrı ve
+   soluk, çünkü "puansız" değil "rastgele hiç gelmesin" demek. */
+.md-stars { display: inline-flex; align-items: center; gap: 1px; }
+.md-star {
+  background: none;
+  border: 0;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted, #9aa);
+}
+.md-star.on { color: #ffc94d; }
+.md-star0 {
+  font-size: 11px;
+  margin-right: 4px;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+.md-star0.on { color: #ff8a8a; border-color: rgba(255, 138, 138, 0.5); }
 /* Yerleşik presetin silme düğmesi yerinde duran etiket: satır yüksekliği
    silinebilen satırlarla aynı kalsın diye aynı yuvayı dolduruyor. */
 .md-builtin {

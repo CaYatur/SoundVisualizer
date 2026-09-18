@@ -125,6 +125,101 @@
     pointStackAtMilkdrop(cfg);
   }
 
+  const CY = () => window.SVMilkdropCycle;
+
+  /* GEÇMİŞ (#569) panelde, çünkü "geri" bir kullanıcı eylemi ve elle seçim
+     bütün pencerelere buradan gidiyor. Kayıt ise görselleştiricinin ~30 Hz
+     ölçer mesajından: otomatik geçişin ve sert geçişin seçtikleri de
+     giriyor (admin.js → `noteLive`). */
+  let hist = null;
+  function history() {
+    if (!hist && CY() && CY().History) hist = new (CY().History)(64);
+    return hist;
+  }
+
+  // Motorun elle seçim anahtarıyla aynı biçim (modes/milkdrop.js `_manualKey`)
+  const manualKey = (md) => (md.presetId || '') + '|' + (md.source || '').length;
+
+  /* Ekranda O AN olan preset: görselleştiricinin son mesajı tazeyse ve AYNI
+     elle seçimin üstündeyse onun seçtiği, değilse ayardaki. */
+  function liveId(md) {
+    const F = window.SVMdFollow;
+    if (F && F.id && F.base === manualKey(md) && (performance.now() - F.at) < 1500) return F.id;
+    return md.presetId || '';
+  }
+
+  // Rastgele seçim motorunkiyle aynı kural: o an görülen hariç, puana göre
+  function randomPick(md) {
+    const C = CY();
+    if (!C) return presets[(Math.random() * presets.length) | 0];
+    const w = md.useRatings === false ? null : (p) => C.ratingOf(p, md.ratings);
+    return C.pick(presets, liveId(md), 'random', Math.random, w);
+  }
+
+  function go(cfg, p) {
+    if (!p) return;
+    load(cfg, p);
+    const h = history();
+    if (h) h.note(p.id);
+    P().apply();
+  }
+
+  /* PUAN YILDIZLARI — ekrandaki presetin. Otomatik geçiş preseti
+     değiştirince panel yeniden çizilmiyor (odak kaybolurdu); yıldızlar
+     yerinde tazeleniyor. 0 ayrı bir düğme: rastgele sırada hiç gelmeyecek
+     demek, "puansız" değil. */
+  let starsFor = null;
+  function fillStars(wrap, md) {
+    const el = P().el;
+    const C = CY();
+    const id = liveId(md);
+    starsFor = id;
+    wrap.textContent = '';
+    const p = presets.find((x) => x.id === id);
+    if (!p || !C) {
+      wrap.appendChild(el('span', { class: 'dim-hint', text: '—' }));
+      return;
+    }
+    const r = C.ratingOf(p, md.ratings);
+    for (let k = 0; k <= 5; k++) {
+      const on = k === 0 ? r === 0 : k <= r;
+      wrap.appendChild(el('button', {
+        class: 'md-star' + (k === 0 ? ' md-star0' : '') + (on ? ' on' : ''),
+        type: 'button', title: String(k),
+        text: k === 0 ? '0' : (k <= r ? '★' : '☆'),
+        onclick: () => setRating(id, k),
+      }));
+    }
+  }
+
+  function setRating(id, k) {
+    const cfg = P().cfg();
+    const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
+    const next = Object.assign({}, md.ratings || {});
+    next[id] = k;
+    md.ratings = next;
+    P().apply();
+  }
+
+  function syncStars() {
+    const wrap = document.getElementById('mdStars');
+    const cfg = P() && P().cfg && P().cfg();
+    if (wrap && cfg && cfg.milkdrop) fillStars(wrap, cfg.milkdrop);
+  }
+
+  /* Ölçer mesajı (admin.js): görselleştiricinin o an çizdiği preset.
+     Elle seçimden önceki bayat mesaj `base` eşleşmediği için atılıyor —
+     yoksa az önce bırakılan preset geçmişe yeni bir kayıt gibi girerdi. */
+  function noteLive(mp) {
+    const cfg = P() && P().cfg && P().cfg();
+    const md = cfg && cfg.milkdrop;
+    if (!md || !mp || mp.base !== manualKey(md)) return;
+    const id = mp.id || md.presetId || '';
+    const h = history();
+    if (h) h.note(id);
+    if (id !== starsFor) syncStars();
+  }
+
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
@@ -151,6 +246,11 @@
     nodes.push(P().row('Yüklü Preset', el('span', {
       id: 'mdLiveName', class: 'md-cur', 'data-cfg': current, text: live || current,
     })));
+    /* PUAN (#569). Presetin kendi `fRating`iyle başlıyor; verilen puan
+       ayarlara yazılıyor. Rastgele sıra puana göre ağırlıklı. */
+    const stars = el('span', { id: 'mdStars', class: 'md-stars' });
+    fillStars(stars, md);
+    nodes.push(P().row('Puan', stars));
 
     // Doğrulama: yüklü presetin derleme durumu
     if (md.source && window.SVMilkdrop) {
@@ -489,22 +589,46 @@
 
     // Gezinme ve otomatik geçiş
     if (presets.length > 1) {
+      /* Liste adımı EKRANDAKİ presete göre: otomatik geçiş ilerlemişse
+         "sonraki" ayardaki elle seçimin değil, o an görülenin sonraki
+         (MilkDrop'ta da `m_nCurrentPreset` gösterileni tutuyor). */
       const step = (dir) => {
-        const i = presets.findIndex((p) => p.id === md.presetId);
+        const i = presets.findIndex((p) => p.id === liveId(md));
         const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
-        load(cfg, presets[j]);
-        rerender();
+        go(cfg, presets[j]);
+      };
+      const byId = (id) => presets.find((p) => p.id === id);
+      /* ◀ ve ▶ GEÇMİŞTE geziyor (#569): ekranda gösterilenler, otomatik
+         geçişin seçtikleri dahil. Silinmiş bir presete denk gelen adım
+         atlanıyor. Geçmiş boşsa listede bir önceki; ileride bir şey yoksa
+         sıraya göre yenisi — rastgelede puana göre. */
+      const back = () => {
+        const h = history();
+        for (let id = h && h.back(); id; id = h.back()) {
+          const p = byId(id);
+          if (p) { go(cfg, p); return; }
+        }
+        step(-1);
+      };
+      const forward = () => {
+        const h = history();
+        for (let id = h && h.forward(); id; id = h.forward()) {
+          const p = byId(id);
+          if (p) { go(cfg, p); return; }
+        }
+        if (md.autoOrder === 'random') go(cfg, randomPick(md));
+        else step(1);
       };
       /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
       const locked = md.locked === true;
       nodes.push(el('div', { class: 'row' }, [
-        el('button', { class: 'btn ghost', type: 'button', text: '◀ Önceki', onclick: () => step(-1) }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki ▶', onclick: () => step(1) }),
+        el('button', { class: 'btn ghost', type: 'button', text: '◀ Önceki', onclick: back }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki ▶', onclick: forward }),
         el('button', {
           class: 'btn ghost', type: 'button', text: '🎲 Rastgele',
-          onclick: () => { load(cfg, presets[(Math.random() * presets.length) | 0]); rerender(); },
+          onclick: () => go(cfg, randomPick(md)),
         }),
         el('button', {
           id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
@@ -529,6 +653,14 @@
         ['sequential', 'Sırayla'],
         ['random', 'Rastgele'],
       ], md.autoOrder === 'random' ? 'random' : 'sequential', (v) => { md.autoOrder = String(v); })));
+      /* PUANA GÖRE SEÇİM (#569). MilkDrop'ta varsayılan açık; kapalıyken
+         rastgele sıra eşit olasılıklı. Yalnız rastgele sırada anlamlı. */
+      if (md.autoOrder === 'random') {
+        nodes.push(P().row('Puana Göre', selOf([
+          [1, 'Açık (MilkDrop gibi)'],
+          [0, 'Kapalı (eşit olasılık)'],
+        ], md.useRatings === false ? 0 : 1, (v) => { md.useRatings = Number(v) === 1; })));
+      }
       /* SERT GEÇİŞ (#568). Sesin ani yükselişinde karışmadan yeni preset.
          MilkDrop 2'nin kuralı ve varsayılanları; orada da KAPALI başlıyor. */
       nodes.push(P().row('Sert Geçiş', selOf([
@@ -557,6 +689,10 @@
         class: 'studio-note dim-hint',
         text: 'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.',
       }));
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Puan presetin kendi dosyasındaki fRating değeriyle başlar, yoksa 3. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',
+      }));
     }
 
     nodes.push(el('div', {
@@ -572,7 +708,9 @@
   /* load ve pointStackAtMilkdrop testler icin de disa aciliyor: preset
      secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
      sinanabilsin. */
-  window.SVMilkdropPanel = { panel, init, refresh, load, pointStackAtMilkdrop };
+  window.SVMilkdropPanel = {
+    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history,
+  };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;
   }
