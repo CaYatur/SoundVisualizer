@@ -532,6 +532,12 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 }
 .md-item { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
 .md-item.active { background: rgba(124, 92, 255, 0.18); }
+/* Kilitli preset: düğme basılı görünsün, yoksa kilidin açık mı kapalı mı
+   olduğu yalnız simgeden okunuyordu. */
+.btn.md-locked {
+  background: rgba(124, 92, 255, 0.22);
+  border-color: rgba(124, 92, 255, 0.55);
+}
 /* Yerleşik presetin silme düğmesi yerinde duran etiket: satır yüksekliği
    silinebilen satırlarla aynı kalsın diye aynı yuvayı dolduruyor. */
 .md-builtin {

@@ -479,6 +479,10 @@
         load(cfg, presets[j]);
         rerender();
       };
+      /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
+         geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
+         kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
+      const locked = md.locked === true;
       nodes.push(el('div', { class: 'row' }, [
         el('button', { class: 'btn ghost', type: 'button', text: '◀ Önceki', onclick: () => step(-1) }),
         el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki ▶', onclick: () => step(1) }),
@@ -486,17 +490,56 @@
           class: 'btn ghost', type: 'button', text: '🎲 Rastgele',
           onclick: () => { load(cfg, presets[(Math.random() * presets.length) | 0]); rerender(); },
         }),
+        el('button', {
+          id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
+          text: locked ? '🔒 Kilitli' : '🔓 Kilitle',
+          title: 'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır',
+          'aria-pressed': locked ? 'true' : 'false',
+          onclick: () => { md.locked = !locked; rerender(); },
+        }),
       ]));
       nodes.push(SP().miniSlider('Otomatik Geçiş', () => md.autoNext || 0, (v) => { md.autoNext = Math.round(v); }, {
         min: 0, max: 120, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' ' + tt('sn') : tt('kapalı')),
       }));
+      /* RASTGELE PAY. Sonraki geçiş aralığa 0..pay arası bir süre ekliyor;
+         pay preset başına bir kez çekiliyor. MilkDrop'un varsayılanı 16 sn
+         aralığa 10 sn pay. Aralık kapalıyken anlamı yok, gösterilmiyor. */
+      if ((md.autoNext || 0) > 0) {
+        nodes.push(SP().miniSlider('Rastgele Pay', () => md.autoNextRand || 0, (v) => { md.autoNextRand = Math.round(v); }, {
+          min: 0, max: 30, step: 1, fmt: (v) => (v > 0 ? '+0–' + Math.round(v) + ' ' + tt('sn') : tt('yok')),
+        }));
+      }
       nodes.push(P().row('Geçiş Sırası', selOf([
         ['sequential', 'Sırayla'],
         ['random', 'Rastgele'],
       ], md.autoOrder === 'random' ? 'random' : 'sequential', (v) => { md.autoOrder = String(v); })));
+      /* SERT GEÇİŞ (#568). Sesin ani yükselişinde karışmadan yeni preset.
+         MilkDrop 2'nin kuralı ve varsayılanları; orada da KAPALI başlıyor. */
+      nodes.push(P().row('Sert Geçiş', selOf([
+        ['off', 'Kapalı'],
+        ['md2', 'MilkDrop 2 (ses yükselişi)'],
+      ], md.hardCut === 'md2' ? 'md2' : 'off', (v) => { md.hardCut = String(v); })));
+      if (md.hardCut === 'md2') {
+        nodes.push(SP().miniSlider('Sert Geçiş Eşiği',
+          () => (md.hardCutThreshold == null ? 2.5 : md.hardCutThreshold),
+          (v) => { md.hardCutThreshold = Math.round(v * 10) / 10; },
+          { min: 1, max: 6, step: 0.1, fmt: (v) => (+v).toFixed(1) }));
+        nodes.push(SP().miniSlider('Eşik Toparlanması',
+          () => (md.hardCutHalfLife == null ? 60 : md.hardCutHalfLife),
+          (v) => { md.hardCutHalfLife = Math.round(v); },
+          { min: 5, max: 240, step: 5, fmt: (v) => Math.round(v) + ' ' + tt('sn') }));
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Bas, orta ve tiz, her biri kendi uzun ortalamasına göre, birlikte eşiğin üç katını aşınca karışmadan yeni presete geçilir. Eşik her kesimde iki katına çıkar ve sonra tabanına döner: arka arkaya patlamalar arka arkaya kesim yapmaz. Kural ve varsayılanlar MilkDrop 2\'nin (2,5 ve 60 sn); oradaki gibi, toparlanma süresi sonunda eşiğin fazlası dörtte bire iner.',
+        }));
+      }
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
         text: 'Otomatik geçiş görselleştiricinin kendi saatiyle çalışır: panel kapalıyken ya da görselleştirici paneli örterken de durmaz. Geçilen preset ayarlara yazılmaz; Yüklü Preset satırı o an ekranda olanı gösterir. Rastgele sırada o an çizilen preset hiç seçilmez. Her geçişin süresi yukarıdaki Preset Geçişi ayarından gelir.',
+      }));
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.',
       }));
     }
 

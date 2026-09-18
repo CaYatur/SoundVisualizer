@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1755%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1779%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -277,6 +277,20 @@ that asserts the bar profile has no step in it.
   while the panel is closed or covered, and the preset it moves to is not written into the settings
   file, which is rewritten in full on every change. The panel's Loaded Preset row shows what is on
   screen, and the panel preview follows the visualizer instead of running a sequence of its own.
+- **Preset timing is MilkDrop 2's.** Three things MilkDrop 2 does around auto advance were missing,
+  and now follow its source. The next change comes after the transition time, the interval and a
+  random extra of up to *n* seconds, drawn once per preset (MilkDrop's own default is 16 s plus up
+  to 10 s; ours adds nothing unless asked). A lock stops auto advance and hard cuts, and releasing
+  it carries on with the time that was left. And a hard cut — off by default, as in MilkDrop —
+  changes preset with no blend when bass, mid and treble, each against its own long average,
+  together pass three times a threshold; the threshold doubles on each cut and then falls back, so
+  a run of bursts is not a run of cuts. MilkDrop calls that fall-back a 60-second half-life, but its
+  coefficient is 2·ln 2, so the excess actually halves in 30 s; the formula is kept as it is, so a
+  preset cuts as often here as it does there. A preset's `progress` now means what it means in
+  MilkDrop — how far through its scheduled life the preset is — instead of a ten-second sawtooth.
+  10 of the 23 corpus presets that read it use `above(progress, 0.99)` to fade out just before a
+  change, and the sawtooth made them fade every ten seconds; with auto advance off there is no
+  scheduled change and `progress` stays at 0, as it does in MilkDrop for a locked preset.
 - **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
   the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
   vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
@@ -1090,7 +1104,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1755 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1779 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

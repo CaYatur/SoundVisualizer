@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1755 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1779 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 158
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 182
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1123,6 +1123,30 @@ Streaming and transparency:
   included. The self-test opens the overlay with the card on every run and
   checks what it reports; checked by hand connected, with a script removed, in
   English, and with the application closed.
+
+## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
+
+Tracked in #583. Order: show control, then robustness, then the library; the
+rest after. No version number yet.
+
+- **Preset timing from MilkDrop 2 (#568)** · done. Auto advance had one rule,
+  "every *n* seconds"; MilkDrop 2 has three more and all three now follow its
+  source. The next change comes after the transition time, the interval and a
+  random extra drawn once per preset (milkdropfs.cpp:765-769). A lock stops
+  auto advance and hard cuts, and releasing it resumes the time that was left
+  (771-778). A hard cut, off by default as in MilkDrop, changes preset with no
+  blend when bass, mid and treble — each against its long average — together
+  pass three times a threshold, which doubles on each cut and then falls back
+  (882-906). MilkDrop calls the fall-back a 60 s half-life, but its coefficient
+  is 2·ln 2: the excess halves in 30 s. The formula is kept as written. The
+  hard cut reads the bands before the sensitivity setting, as MilkDrop reads
+  `imm_rel`, so the sensitivity slider does not move the threshold.
+  `progress` was a ten-second sawtooth; it is now the share of the preset's
+  scheduled life that has passed (476), frozen by the lock and 0 when nothing
+  is scheduled. 23 corpus presets read it and 10 of those fade out on
+  `above(progress, 0.99)`, which the sawtooth triggered every ten seconds.
+  24 tests, including the same demo audio cutting on the same frames twice.
+  MilkDrop 3's hard-cut modes follow once the compatibility mode exists (#567).
 
 ## v3.1.6 — Comprehensive video export
 

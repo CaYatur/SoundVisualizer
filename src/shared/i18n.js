@@ -1474,6 +1474,20 @@
       'Auto advance runs on the visualizer\'s own clock: it keeps going while the panel is closed or covered by the visualizer. The preset it moves to is not written to the settings; the Loaded Preset row shows what is on screen right now. In random order the preset currently showing is never picked. Each transition takes as long as the Preset Transition setting above.',
     'kapalı': 'off',
     'sn': 's',
+    /* MilkDrop 2'nin zamanlaması (#568): kilit, rastgele pay, sert geçiş. */
+    '🔒 Kilitli': '🔒 Locked',
+    '🔓 Kilitle': '🔓 Lock',
+    'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır':
+      'Stops auto advance and hard cuts; choosing a preset by hand still works',
+    'Rastgele Pay': 'Random Spread',
+    'Sert Geçiş': 'Hard Cut',
+    'MilkDrop 2 (ses yükselişi)': 'MilkDrop 2 (loudness jump)',
+    'Sert Geçiş Eşiği': 'Hard Cut Threshold',
+    'Eşik Toparlanması': 'Threshold Recovery',
+    'Bas, orta ve tiz, her biri kendi uzun ortalamasına göre, birlikte eşiğin üç katını aşınca karışmadan yeni presete geçilir. Eşik her kesimde iki katına çıkar ve sonra tabanına döner: arka arkaya patlamalar arka arkaya kesim yapmaz. Kural ve varsayılanlar MilkDrop 2\'nin (2,5 ve 60 sn); oradaki gibi, toparlanma süresi sonunda eşiğin fazlası dörtte bire iner.':
+      'When bass, mid and treble, each against its own long average, together exceed three times the threshold, the preset changes with no blend. The threshold doubles on every cut and then returns to its base, so a run of bursts does not become a run of cuts. The rule and the defaults are MilkDrop 2\'s (2.5 and 60 s); as there, the threshold\'s excess falls to a quarter by the end of the recovery time.',
+    'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.':
+      'The timing is MilkDrop 2\'s: the interval starts counting once the transition has finished, and the random spread is drawn once per preset. The lock stops auto advance and hard cuts; when released, the remaining time carries on from where it stopped.',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
     'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.':

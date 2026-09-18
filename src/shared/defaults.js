@@ -595,6 +595,24 @@
          seçilmiyor: aynı presete "geçmek" ekranda hiçbir şey değiştirmez ve
          kullanıcı onu geçiş değil arıza diye okur (shared/milkdrop-cycle.js). */
       autoOrder: 'sequential',
+      /* MILKDROP 2'NIN ZAMANLAMASI (#568, shared/milkdrop-cycle.js).
+
+         autoNextRand — araliga eklenen rastgele pay (sn). Sonraki gecis
+           gecis suresi + aralik + 0..pay sonra. MilkDrop'un kendi
+           varsayilani 16 sn aralik + 10 sn pay; burada 0, cunku aralik
+           kullanicinin: "8 saniyede bir" diyenin gecisleri kendiliginden
+           dagilmamali.
+         locked — presetin kilidi. Otomatik gecis ve sert gecis durur, elle
+           secim calisir.
+         hardCut — 'off' | 'md2'. Sesin ani yukselisinde karismadan yeni
+           preset. MilkDrop'ta da varsayilan KAPALI (plugin.cpp:491).
+         hardCutThreshold / hardCutHalfLife — MilkDrop'un
+           fHardCutLoudnessThresh (2,5) ve fHardCutHalflife (60). */
+      autoNextRand: 0,
+      locked: false,
+      hardCut: 'off',
+      hardCutThreshold: 2.5,
+      hardCutHalfLife: 60,
       /* Warp agi siklıgı. MilkDrop'un varsayılanı 32x24, "yuksek kalite"
          ayarı 48x36. Ag seyrek oldugunda bozulma dugumler arasında dogrusal
          interpolasyonla doluyor ve kıvrımlı warp'larda koseli gorunuyor;

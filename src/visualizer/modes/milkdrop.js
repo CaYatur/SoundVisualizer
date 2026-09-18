@@ -1431,13 +1431,21 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (!F.id) { this.autoPick = null; return; }
         if (this.autoPick && this.autoPick.id === F.id) return;
         const f = listOf().find((x) => x && x.id === F.id);
-        if (f) this.autoPick = { id: f.id, name: f.name || '', source: f.source || '' };
+        /* Sert geçişi önizleme de karışmadan yapıyor: görselleştirici kesip
+           önizleme harmanlasaydı ikisi bir saniye boyunca farklı görünürdü. */
+        if (f) this.autoPick = { id: f.id, name: f.name || '', source: f.source || '', cut: !!F.cut };
         return;
       }
-      const list = C.normalize(cfg.milkdrop).seconds > 0 ? listOf() : [];
+      /* Liste zamanlayıcı ya da sert geçiş açıksa kuruluyor; ikisi de
+         kapalıyken her kare yüzlerce öğelik bir dizi kurmanın anlamı yok. */
+      const o = C.normalize(cfg.milkdrop);
+      const list = o.seconds > 0 || o.hardCut !== 'off' ? listOf() : [];
       const cur = this.autoPick ? this.autoPick.id : ((cfg.milkdrop && cfg.milkdrop.presetId) || '');
-      const p = this.cycle.step(step, cfg.milkdrop, list, cur);
-      if (p) this.autoPick = { id: p.id, name: p.name || '', source: p.source || '' };
+      /* Sert geçiş bir ÖNCEKİ karenin bantlarına bakıyor: bu karenin analizi
+         preset yüklendikten sonra yapılıyor. MilkDrop'ta da kesim, analizden
+         sonraki yüklemede — yani bir kare sonra — ekrana geliyor. */
+      const p = this.cycle.step(step, cfg.milkdrop, list, cur, this._rel);
+      if (p) this.autoPick = { id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut };
     }
 
     /* O an çizilen preset. `id: null` = otomatik geçiş bir şey seçmemiş,
@@ -1445,7 +1453,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        üstünde olduğumuz — önizleme bununla bayat mesajı ayırt ediyor. */
     livePreset() {
       const a = this.autoPick;
-      return { id: a ? a.id : null, name: a ? (a.name || '') : null, base: this._manualKey || '' };
+      return {
+        id: a ? a.id : null, name: a ? (a.name || '') : null, base: this._manualKey || '',
+        cut: !!(a && a.cut),
+      };
     }
 
     _ensurePreset(cfg) {
@@ -1480,7 +1491,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          bağlı olan başka bir programla yapılırdı. Ekranda eski presetin
          rengi yine görünürdü — ama shader'ından değil, geri besleme
          tamponunda kalan izden. */
-      const bt = Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
+      /* Sert geçiş karışmaz: MilkDrop onu `LoadRandomPreset(0.0f)` ile
+         yüklüyor (milkdropfs.cpp:891). */
+      const bt = a && a.cut ? 0 : Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;
@@ -2249,6 +2262,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           bass: audio.bass, mid: audio.mid, treb: audio.treble,
         });
       }
+      /* Sert geçişin baktığı değerler DUYARLILIKTAN ÖNCE: MilkDrop koşulu
+         `imm_rel` ile kuruyor (milkdropfs.cpp:888), yani presetlerin gördüğü
+         ham oranla. Duyarlılık kaydırıcısı eşiği sessizce değiştirmemeli;
+         eşiğin kendi ayarı var. */
+      this._rel = { bass: a.bass, mid: a.mid, treb: a.treb };
 
       /* Duyarlılık oranı doğrudan ÇARPAMAZ: girdiyi ölçeklemek ortalamayı da
          ölçekler ve oran değişmeden kalır. Bunun yerine normalden SAPMA
@@ -2282,6 +2300,18 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const aspectx = accAsp ? 1 / aspX : (GW >= GH ? GW / GH : 1);
       const aspecty = accAsp ? 1 / aspY : (GW >= GH ? 1 : GH / GW);
 
+      /* `progress` MilkDrop 2'deki anlamıyla: presetin PLANLANAN ömrünün ne
+         kadarı geçti (shared/milkdrop-cycle.js). Geçişte eski preset de
+         AYNI değeri görüyor: MilkDrop iki durumu eklentinin tek
+         başlangıç/bitiş çiftiyle besliyor (milkdropfs.cpp:476, 3710).
+         Uyum kapalıyken eski yer tutucu. Korpusta 23 preset denklemde
+         okuyor; 10'u "geçişten önceki son %1'de söndür" için
+         (`above(progress, 0.99)`), ki yer tutucu bunu on saniyede bir
+         tetikliyordu. */
+      const accProg = this._wantAcc !== false;
+      const progress = accProg
+        ? (this.cycle ? this.cycle.progress(cfg.milkdrop) : 0)
+        : (this.presetTime * 0.1) % 1;
       const fpsNow = 1 / Math.max(1e-3, step);
       const inputs = {
         time: this.time,
@@ -2289,7 +2319,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         fps: fpsNow,
         bass, mid, treb,
         bass_att: bassA, mid_att: midA, treb_att: trebA,
-        progress: (this.presetTime * 0.1) % 1,
+        progress,
         meshx: this.meshX, meshy: this.meshY,
         mouse_x: this.mouse.x, mouse_y: this.mouse.y, mouse_down: this.mouse.down,
         aspectx, aspecty,
@@ -2315,7 +2345,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         } else {
           const oi = Object.assign({}, inputs, {
             time: this.oldTime,
-            progress: (this.oldPresetTime * 0.1) % 1,
+            progress: accProg ? progress : (this.oldPresetTime * 0.1) % 1,
           });
           this.oldPreset.frame(oi);
           this.oldPreset.captureBase();
@@ -2332,7 +2362,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const ctx = {
         w: GW, h: GH, aspectx, aspecty, aspX, aspY,
         time: this.time, fps: fpsNow, frame: this.frameNo,
-        progress: (this.presetTime * 0.1) % 1,
+        progress,
         presetTime: this.presetTime, P: this.preset, rand: this.randPreset,
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
         /* SHADER'DAKİ `vol` ve `vol_att`. include.fx:62 ve :66 bunları
@@ -2351,7 +2381,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       };
       const oldCtx = this.oldPreset ? Object.assign({}, ctx, {
         time: this.oldTime,
-        progress: (this.oldPresetTime * 0.1) % 1,
+        progress: accProg ? progress : (this.oldPresetTime * 0.1) % 1,
         presetTime: this.oldPresetTime,
         P: this.oldPreset,
         rand: this.oldRandPreset || this.randPreset,

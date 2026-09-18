@@ -28,19 +28,53 @@
  * VİDEO zamanında oluyor — kullanıcının "8 saniyede bir" dediği video da
  * sekiz saniyede bir değişiyor, render'ın ne kadar sürdüğünden bağımsız.
  *
+ * MILKDROP 2'NİN ZAMANLAMASI (#568)
+ * İlk sürüm yalnız "N saniyede bir" biliyordu. MilkDrop 2 üç şey daha
+ * yapıyor ve üçü de burada, kendi kaynağından (jecassis/foo_vis_milk2
+ * 5b44cea):
+ *   - Sonraki geçiş = geçiş süresi + aralık + 0..pay arası rastgele bir süre
+ *     (milkdropfs.cpp:765-769). Pay preset başına BİR KEZ çekiliyor.
+ *   - Kilit: sonraki geçiş zamanı her kare kare süresi kadar öteleniyor,
+ *     presetin başlangıcı da (771-778); sert geçiş de kapalı (886).
+ *   - Sert geçiş: sesin ani yükselişinde geçişsiz yeni preset (882-906).
+ * `progress` da buradan geliyor, çünkü MilkDrop'ta anlamı bu planın
+ * kendisi: presetin planlanan ömrünün ne kadarı geçti.
+ *
  * Saf ve durumlu: GL ya da DOM istemiyor, Node içinde sınanıyor. */
 (function () {
   const ORDERS = ['sequential', 'random'];
   /* Üst sınır yalnızca ayar dosyası elle düzenlenirse diye: negatif ya da
      devasa bir sayı sayaç aritmetiğini bozmamalı. */
   const MAX_SECONDS = 600;
+  const MAX_SPREAD = 600;
+  /* Geçiş süresi planlanan ömre giriyor; motor onu 5 saniyede kesiyor
+     (modes/milkdrop.js BLEND_MAX), burada da aynı sınır. */
+  const MAX_BLEND = 5;
+  const HARD_CUTS = ['off', 'md2'];
+  /* MilkDrop 2'nin varsayılanları (plugin.cpp:491-493): sert geçiş KAPALI,
+     eşik 2,5, "yarı ömür" 60 sn. */
+  const HARD_THRESHOLD = 2.5;
+  const HARD_HALFLIFE = 60;
+
+  function range(v, dflt, lo, hi) {
+    const x = Number(v);
+    return isFinite(x) ? Math.max(lo, Math.min(hi, x)) : dflt;
+  }
 
   function normalize(md) {
     const m = md || {};
     const s = Number(m.autoNext);
+    const r = Number(m.autoNextRand);
+    const b = Number(m.blendTime);
     return {
       seconds: isFinite(s) && s > 0 ? Math.min(MAX_SECONDS, s) : 0,
       order: ORDERS.indexOf(m.autoOrder) >= 0 ? m.autoOrder : 'sequential',
+      spread: isFinite(r) && r > 0 ? Math.min(MAX_SPREAD, r) : 0,
+      blend: isFinite(b) && b > 0 ? Math.min(MAX_BLEND, b) : 0,
+      locked: m.locked === true,
+      hardCut: HARD_CUTS.indexOf(m.hardCut) >= 0 ? m.hardCut : 'off',
+      threshold: range(m.hardCutThreshold, HARD_THRESHOLD, 0.5, 20),
+      halfLife: range(m.hardCutHalfLife, HARD_HALFLIFE, 1, 600),
     };
   }
 
@@ -74,42 +108,150 @@
          değişmedi" sorusunu cevaplayabilmesi için. Otomatik VJ'de aynı
          desen var ve sebebi aynı — sessiz başarısızlık en pahalı hata. */
       this.reason = 'OFF';
+      /* Bu presetin rastgele payı, 0..1. null = daha çekilmedi. MilkDrop onu
+         sonraki geçiş zamanını kurarken BİR KEZ çekiyor; her kare çekilseydi
+         bitiş zamanı titrer, `progress` da geri gidebilirdi. */
+      this.jitter = null;
+      /* Sert geçiş eşiği. null = daha kurulmadı. */
+      this.thresh = null;
+      /* Son dönen seçim sert geçiş miydi. Motor geçiş süresini buna göre
+         seçiyor: sert geçiş karışmadan olur. */
+      this.cut = false;
     }
 
     reset() {
       this.elapsed = 0;
+      this.jitter = null;
+    }
+
+    /* Presetin planlanan ömrü. Pay yoksa rastgele sayı hiç çekilmiyor:
+       üretecin sırası payı kullanmayan kurulumda eskisiyle aynı kalıyor. */
+    _due(o) {
+      if (!o.spread) return o.blend + o.seconds;
+      if (this.jitter === null) {
+        const j = Number(this.rnd());
+        this.jitter = j > 0 ? Math.min(1, j) : 0;
+      }
+      return o.blend + o.seconds + this.jitter * o.spread;
+    }
+
+    /* SERT GEÇİŞ — MilkDrop 2, milkdropfs.cpp:882-906.
+
+       Koşul: bas + orta + tiz, HER BİRİ KENDİ UZUN ORTALAMASINA BÖLÜNMÜŞ
+       olarak (motorun `bass/mid/treb`i tam olarak bu, milkdrop-audio.js),
+       eşiğin üç katını aşarsa geçişsiz yeni bir preset ve eşik iki katına.
+       Aşmazsa eşik kendi tabanına doğru sönüyor. İlk kurulduğunda eşik
+       tabanın iki katı (885): açılır açılmaz ilk vuruşta kesmesin.
+
+       Adıyla davranışı farklı: katsayı −1,3863 = −2·ln2 (901). Fazlalık
+       `halfLife` saniyede yarıya değil DÖRTTE BİRE iniyor; yarıya inmesi
+       bunun yarısı kadar sürüyor. Formül birebir korunuyor — presetleri
+       MilkDrop'ta izleyen biri aynı sıklıkta kesim görmeli.
+
+       Eşik her uygun karede güncelleniyor: zamanlayıcı o kare bir preset
+       seçse bile MilkDrop eşiği yine ikiye katlıyor ya da söndürüyor
+       (yükleme sürerken yalnız yeni yüklemeyi atlıyor, 889-892). */
+    _hard(d, o, rel) {
+      if (this.thresh === null) this.thresh = o.threshold * 2;
+      // MilkDrop saniyede birden az kare varken hiç bakmıyor (886, GetFps() > 1)
+      if (!(d > 0) || d >= 1) return false;
+      const sum = rel ? Number(rel.bass) + Number(rel.mid) + Number(rel.treb) : NaN;
+      if (!isFinite(sum)) return false;
+      if (sum > this.thresh * 3) {
+        this.thresh *= 2;
+        return true;
+      }
+      const k = Math.exp(-2 * Math.LN2 * d / o.halfLife);
+      this.thresh = (this.thresh - o.threshold) * k + o.threshold;
+      return false;
     }
 
     /* Bir kare ilerlet. Dönüş: geçilecek preset ya da null.
-       `list` MilkDrop presetleri, `currentId` o an çizilenin kimliği. */
-    step(dt, md, list, currentId) {
+       `list` MilkDrop presetleri, `currentId` o an çizilenin kimliği,
+       `rel` sert geçişin baktığı { bass, mid, treb } (uzun ortalamaya göre;
+       yoksa sert geçiş bu kare bakmıyor). Dönüşten sonra `this.cut` o
+       seçimin sert geçiş olup olmadığını söylüyor. */
+    step(dt, md, list, currentId, rel) {
       const o = normalize(md);
       const n = Array.isArray(list) ? list.length : 0;
+      const d = Math.max(0, Number(dt) || 0);
+      const hard = o.hardCut !== 'off';
+      this.cut = false;
+      /* Sert geçiş kapatılınca eşik unutuluyor: yeniden açıldığında bir
+         önceki patlamanın yüksek eşiğiyle değil, baştan (iki kat) başlıyor.
+         MilkDrop'ta açıp kapamak bir .ini ayarı; bizde canlı bir düğme. */
+      if (!hard) this.thresh = null;
       /* Kapalıyken, liste boşken ve tek presetliyken sayaç SIFIRLANIYOR:
          aksi hâlde ayar açılır açılmaz birikmiş süre yüzünden anında bir
          geçiş olurdu ve kullanıcı aralığı hiç görmezdi. */
-      if (!o.seconds) { this.elapsed = 0; this.reason = 'OFF'; return null; }
+      if (!o.seconds && !hard) { this.elapsed = 0; this.reason = 'OFF'; return null; }
       if (!n) { this.elapsed = 0; this.reason = 'EMPTY'; return null; }
       /* Tek preset: kendine geçmek preseti baştan başlatır, yani ekranda
          geçiş değil takılma görünür. */
       if (n === 1) { this.elapsed = 0; this.reason = 'ALONE'; return null; }
-      this.elapsed += Math.max(0, Number(dt) || 0);
-      if (this.elapsed < o.seconds) { this.reason = 'WAIT'; return null; }
-      this.elapsed = 0;
-      const p = pick(list, currentId, o.order, this.rnd);
-      this.reason = p ? 'OK' : 'EMPTY';
-      return p;
+      /* KİLİT. MilkDrop başlangıcı da bitişi de kare süresi kadar ötelediği
+         için kalan süre ve `progress` donuyor — sayacın durması aynı şey.
+         Kilit açılınca kalan süre kaldığı yerden sayıyor. Sert geçiş
+         kilitteyken hiç değerlendirilmiyor, eşik de dokunulmadan kalıyor. */
+      if (o.locked) { this.reason = 'LOCKED'; return null; }
+      const loud = hard && this._hard(d, o, rel);
+      if (o.seconds) {
+        this.elapsed += d;
+        if (this.elapsed >= this._due(o)) {
+          this.elapsed = 0;
+          this.jitter = null;
+          const p = pick(list, currentId, o.order, this.rnd);
+          this.reason = p ? 'OK' : 'EMPTY';
+          return p;
+        }
+      } else {
+        this.elapsed = 0;
+      }
+      if (loud) {
+        const p = pick(list, currentId, o.order, this.rnd);
+        if (p) {
+          this.elapsed = 0;
+          this.jitter = null;
+          this.cut = true;
+          this.reason = 'CUT';
+          return p;
+        }
+      }
+      this.reason = o.seconds ? 'WAIT' : 'ARMED';
+      return null;
     }
 
     // Sıradaki geçişe kalan saniye (panelin durum satırı için)
     remaining(md) {
       const o = normalize(md);
       if (!o.seconds) return 0;
-      return Math.max(0, o.seconds - this.elapsed);
+      return Math.max(0, this._due(o) - this.elapsed);
+    }
+
+    /* `progress` — MilkDrop 2'deki anlamıyla (milkdropfs.cpp:476, 3710):
+         (şimdi − başlangıç) / (sonraki geçiş − başlangıç)
+       yani presetin PLANLANAN ömrünün ne kadarı geçti. Kilitte donuyor,
+       geçişte sıfırlanıyor, geçişten hemen önce 1'e varıyor — presetler
+       onu tam da bunun için okuyor ("son %1'de söndür" gibi).
+
+       Otomatik geçiş kapalıyken planlanmış bir geçiş yok ve değer 0.
+       MilkDrop'ta buna en yakın iki durum da 0 veriyor: kilitli yüklenen
+       preset (başlangıç ve bitiş birlikte kayıyor) ve devasa bir aralık
+       (t / devasa ≈ 0). Eski yer tutucu `(t · 0,1) mod 1` her on saniyede
+       bir sıfıra düşüyordu: "son %1'de söndür" yazan preset on saniyede bir
+       sönüyordu. */
+    progress(md) {
+      const o = normalize(md);
+      if (!o.seconds) return 0;
+      const due = this._due(o);
+      return due > 0 ? this.elapsed / due : 0;
     }
   }
 
-  const api = { normalize, pick, Cycle, ORDERS, MAX_SECONDS };
+  const api = {
+    normalize, pick, Cycle, ORDERS, MAX_SECONDS, MAX_SPREAD, HARD_CUTS,
+    HARD_THRESHOLD, HARD_HALFLIFE,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdropCycle = api;
 })();

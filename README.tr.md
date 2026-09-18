@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1755%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1779%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -271,6 +271,21 @@ profilinde basamak olmadığını doğruluyor.
   kapalıyken ya da örtülüyken de durmuyor; geçilen preset ayar dosyasına yazılmıyor, o dosya her
   değişiklikte baştan yazılıyor. Panelin Yüklü Preset satırı ekrandakini gösteriyor, panel
   önizlemesi de kendi sırasını koşturmak yerine görselleştiriciyi izliyor.
+- **Preset zamanlaması MilkDrop 2'ninki.** MilkDrop 2'nin otomatik geçiş çevresinde yaptığı üç
+  şey eksikti; artık onun kaynağına göre çalışıyor. Sonraki geçiş, geçiş süresi, aralık ve en fazla
+  *n* saniyelik rastgele bir paydan sonra geliyor; pay her presette bir kez çekiliyor (MilkDrop'un
+  kendi varsayılanı 16 sn artı 10 sn'ye kadar pay; bizde istenmedikçe pay yok). Kilit otomatik
+  geçişi ve sert geçişi durduruyor, açılınca kalan süre kaldığı yerden sayıyor. Sert geçiş de —
+  MilkDrop'taki gibi varsayılan kapalı — bas, orta ve tiz, her biri kendi uzun ortalamasına göre,
+  birlikte eşiğin üç katını aşınca karışmadan yeni presete geçiyor; eşik her kesimde iki katına
+  çıkıp sonra geri iniyor, yani arka arkaya patlamalar arka arkaya kesim yapmıyor. MilkDrop bu
+  inişe 60 saniyelik yarı ömür diyor ama katsayısı 2·ln 2, yani fazlalık aslında 30 saniyede yarıya
+  iniyor; formül olduğu gibi korundu ki bir preset burada da orada kestiği sıklıkta kessin. Bir
+  presetin `progress` değeri de artık MilkDrop'taki anlamında — presetin planlanan ömrünün ne kadarı
+  geçti — on saniyelik bir testere dişi değil. Korpusta onu okuyan 23 presetin 10'u geçişten hemen
+  önce sönmek için `above(progress, 0.99)` yazıyor ve testere dişi onları on saniyede bir
+  söndürüyordu; otomatik geçiş kapalıyken planlanmış bir geçiş yok ve `progress` 0'da kalıyor,
+  MilkDrop'ta kilitli bir presette olduğu gibi.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1090,7 +1105,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1755 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1779 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
