@@ -30,6 +30,10 @@ contextBridge.exposeInMainWorld('api', {
      ikisi de yalnızca seçili klasörü görüyor. */
   pickMilkdropTextures: () => ipcRenderer.invoke('milkdrop:pick-textures'),
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
+  /* Panelin canlı önizlemesi de aynı motoru çalıştırıyor ve dokuyu bu
+     çağrıyla istiyor (#586). Burada yalnız liste çağrısı vardı; önizleme
+     dosyayı alamadığı için doku yerine gürültü çiziyordu. */
+  milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
   // Canlı kayıt ve anlık görüntü
   saveRecording: (data, opts) => ipcRenderer.invoke('record:save', { data, opts }),
   saveSnapshot: (dataUrl) => ipcRenderer.invoke('record:snapshot', { dataUrl }),

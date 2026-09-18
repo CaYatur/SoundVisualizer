@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1835%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1850%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -243,7 +243,11 @@ profilinde basamak olmadığını doğruluyor.
 - **Kullanıcı dokuları kendi doku klasörünüzden yükleniyor.** Presetlerin %16,9'u görselini ada
   göre istiyor — `sampler_worms`, `worms.jpg` arıyor. Preset paketleri bu dosyaları getirmiyor;
   MilkDrop › Doku Paketi'ni bir MilkDrop kurulumundaki `textures` klasörüne yöneltin. Klasör
-  yoksa preset yine çalışır, o dokunun yerine gürültü kullanılır.
+  yoksa preset yine çalışır, o dokunun yerine gürültü kullanılır. Dokular presetin çizildiği her
+  yerde yükleniyor: görselleştirici pencereleri, panelin canlı önizlemesi, web çıkışı — görseli
+  yayın sunucusundan adıyla, jetonun arkasından alıyor ve sayfaya klasörün yolu değil kısa bir
+  özeti gidiyor — ve video dışa aktarımı; dışa aktarım bir sonraki kareyi çizmeden önce dokuyu
+  bekliyor, yani aynı iş yine aynı videoyu veriyor.
 - **Preset geçişi MilkDrop'un çift boru hattı.** Yeni preset yüklenince eskisi durmuyor: kendi
   nesnesi, kendi derlenmiş shader'ları ve kendi saatiyle yaşamaya devam ediyor ve her karede iki
   presetin de kare ve düğüm denklemleri koşuyor. İki warp ağı düğüm düğüm bir rampa boyunca
@@ -1134,7 +1138,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1835 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1850 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

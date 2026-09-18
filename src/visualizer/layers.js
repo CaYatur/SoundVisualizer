@@ -1528,6 +1528,32 @@
       return null;
     }
 
+    /* Yüklenmekte olan dokular (#586). Yalnız dışa aktarıcı soruyor: bir
+       sonraki kareyi çizmeden önce bekliyor, böylece dokunun hangi karede
+       yerleştiği diskin hızına değil kare sırasına bağlı kalıyor. Geçişte
+       giden sahnenin katmanları da sayılıyor. */
+    _assetModes() {
+      const out = [];
+      const add = (list) => {
+        for (const e of list || []) {
+          if (e.mode && typeof e.mode.texturesPending === 'function') out.push(e.mode);
+        }
+      };
+      add(this.entries);
+      if (this.trans && this.trans.stack) add(this.trans.stack.entries);
+      return out;
+    }
+
+    assetsPending() {
+      let n = 0;
+      for (const m of this._assetModes()) n += m.texturesPending();
+      return n;
+    }
+
+    whenAssetsSettled() {
+      return Promise.all(this._assetModes().map((m) => m.whenTexturesSettled()));
+    }
+
     dispose() {
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];

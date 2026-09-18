@@ -186,10 +186,25 @@ function clientInfo() {
 }
 
 function broadcast(obj, kind) {
+  if (obj && obj.type === 'config') obj = Object.assign({}, obj, { config: publicConfig(obj.config) });
   for (const c of clients) {
     if (kind && c.kind !== kind) continue;
     sendJson(c, obj);
   }
+}
+
+/* Web istemcilerine giden yapılandırma (#586). MilkDrop doku klasörünün
+   YERİNE yolun kısa bir özeti gidiyor: tarayıcının diskteki klasörü
+   bilmesine gerek yok — dokuyu ADIYLA bu sunucudan istiyor ve sunucu adı
+   kendi klasörüne göre çözüyor. Özet iki şeye yetiyor: klasör seçili mi,
+   ve klasör değişti mi (değişince sayfa listeyi yeniden istiyor).
+   Kumanda sayfası yapılandırmayı geri yazmıyor (yalnız izinli yollar ve
+   sahne kimliği), yani özet gerçek ayara hiç karışmıyor. */
+function publicConfig(cfg) {
+  const md = cfg && cfg.milkdrop;
+  if (!md || typeof md.textureDir !== 'string' || !md.textureDir) return cfg;
+  const tag = 'textures:' + crypto.createHash('sha256').update(md.textureDir).digest('hex').slice(0, 12);
+  return Object.assign({}, cfg, { milkdrop: Object.assign({}, md, { textureDir: tag }) });
 }
 
 /* Ses karesi (ikili). Başlık 12 bayt, küçük endian: örnekleme hızı, tayf
@@ -375,8 +390,42 @@ function handleRequest(req, res) {
   }
 
   if (p === '/media-file') { serveMedia(req, res); return; }
+  if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
+  if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
   if (p.startsWith('/app/')) { serveStatic(res, p); return; }
   res.writeHead(404).end('not found');
+}
+
+/* MILKDROP DOKULARI (#586). Yayın katmanının dosya erişimi yok: preset
+   `sampler_clouds` istediğinde görsel buradan geliyor. Uygulama içinde
+   dokular IPC'den geliyordu ve web çıkışı onları hiç alamıyordu — preset
+   gürültüyle çiziliyordu.
+
+   Adlar ve dosya ana süreçten (kanca). İstemci YOL göndermiyor, yalnız
+   bir dosya adı; o ad ana süreçteki aynı güvenli çözümlemeden geçiyor
+   (milkdrop-textures.js: yol ayırıcısı, sürücü öneki ve klasör dışı
+   reddi) ve yanıt klasörün yolunu içermiyor. İkisi de jeton denetiminin
+   ARKASINDA, medya dosyası gibi. */
+function serveTextureNames(res) {
+  const names = typeof hooks.mdTextureNames === 'function' ? hooks.mdTextureNames() : [];
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(JSON.stringify({ names: Array.isArray(names) ? names : [] }));
+}
+
+function serveTexture(res, name) {
+  const t = typeof hooks.mdTextureFile === 'function' ? hooks.mdTextureFile(name) : null;
+  if (!t || !t.file || !t.mime) { res.writeHead(404).end('not found'); return; }
+  res.writeHead(200, {
+    'Content-Type': t.mime,
+    'Content-Length': t.size,
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(t.file).on('error', () => res.destroy()).pipe(res);
 }
 
 /* Sayfayı servis ederken uygulamanın dilini enjekte eder ve alt kaynaklar
@@ -458,7 +507,7 @@ function handleUpgrade(req, socket) {
     kind: client.kind,
     version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
   });
-  sendJson(client, { type: 'config', config: hooks.getConfig() });
+  sendJson(client, { type: 'config', config: publicConfig(hooks.getConfig()) });
   sendJson(client, { type: 'presets', presets: hooks.getPresets() });
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
   if (np && np.has) {
@@ -652,6 +701,7 @@ module.exports = {
   broadcastNowPlaying,
   newToken,
   lanAddress,
+  publicConfig,
   clientCount: () => clients.size,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
   overlayCount: () => {

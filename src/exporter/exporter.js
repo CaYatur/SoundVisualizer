@@ -271,6 +271,26 @@
     return compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
   }
 
+  /* MilkDrop dokuları (#586) diskten ASENKRON geliyor. Canlı pencere
+     beklemiyor ama burada beklemek şart: yoksa dokunun hangi karede
+     yerleştiği diskin o anki hızına kalır ve aynı iş iki kez farklı video
+     verir. Her kareden sonra uçuştaki doku varsa bekleniyor — doku her
+     çalıştırmada istendiği karenin HEMEN ardından yerleşiyor.
+
+     Süre sınırı bir sigorta: bir istek hiç dönmezse dışa aktarım sonsuza
+     kadar beklemesin. Süre dolarsa iş AÇIKÇA duruyor — beklemeden devam
+     etmek, sessizce farklı bir video yazmak olurdu. */
+  const ASSET_WAIT_MS = 20000;
+  const ASSET_LATE = 'MilkDrop dokusu 20 saniyede yüklenmedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.';
+  async function settleAssets() {
+    if (!stack || typeof stack.assetsPending !== 'function' || !stack.assetsPending()) return true;
+    let timer = null;
+    const late = new Promise((r) => { timer = setTimeout(() => r(false), ASSET_WAIT_MS); });
+    const ok = await Promise.race([stack.whenAssetsSettled().then(() => true), late]);
+    clearTimeout(timer);
+    return ok;
+  }
+
   async function run(job) {
     const duration = await decodeAudio(job.audioBuffer);
     await setup(job);
@@ -299,6 +319,10 @@
       pending.push(p);
       if (pending.length >= WINDOW) await pending.shift();
       if (i % progStep === 0) window.exp.progress(i + 1, totalFrames);
+      if (!(await settleAssets())) {
+        window.exp.error(ASSET_LATE);
+        return;
+      }
     }
 
     await Promise.all(pending);

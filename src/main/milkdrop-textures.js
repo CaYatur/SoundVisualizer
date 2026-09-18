@@ -9,6 +9,7 @@
  * türüyor — kullanıcının yazmadığı bir dize. Bir preset `sampler_worms`
  * yerine yol ayırıcısı içeren bir ad yazabilir. Bu yüzden çözülmüş yol,
  * çözülmüş klasörle karşılaştırılıyor; dize birleştirmesiyle değil. */
+const fs = require('fs');
 const path = require('path');
 
 /* MilkDrop'un doku klasöründe gerçekten bulunan biçimler. Liste dar
@@ -60,4 +61,32 @@ function resolveTexture(dir, name) {
   return file;
 }
 
-module.exports = { TEXTURE_EXT, TEXTURE_MIME, isTextureFile, mimeFor, resolveTexture };
+/* Klasördeki doku dosyalarının ADLARI. Uygulama içi IPC ve web çıkışının
+   yayın sunucusu (#586) aynı listeyi buradan alıyor. */
+function listTextures(dir) {
+  if (!dir || typeof dir !== 'string') return { dir: '', names: [] };
+  try {
+    return { dir, names: fs.readdirSync(dir).filter(isTextureFile) };
+  } catch {
+    return { dir, names: [], error: 'READ_FAILED' };
+  }
+}
+
+/* Tek bir dokunun DOĞRULANMIŞ dosyası: çözülmüş yol, türü ve boyutu, ya da
+   kabul edilmiyorsa null. Boyut sınırı çağırandan geliyor. */
+function textureFileInfo(dir, name, maxBytes) {
+  const file = resolveTexture(dir, name);
+  if (!file) return null;
+  try {
+    const st = fs.statSync(file);
+    if (!st.isFile() || !(st.size <= maxBytes)) return null;
+    const mime = mimeFor(file);
+    return mime ? { file, mime, size: st.size } : null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = {
+  TEXTURE_EXT, TEXTURE_MIME, isTextureFile, mimeFor, resolveTexture, listTextures, textureFileInfo,
+};

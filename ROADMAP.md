@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1835 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1850 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 238
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 253
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1174,6 +1174,27 @@ rest after. No version number yet.
   preset is still weighted by its file's rating, MilkDrop's rule, and rating
   up or down steps from that effective rating so "up" never makes a preset
   rarer. 6 tests pin both halves.
+- **Textures on every output (#586)** · done. Found in use: user textures
+  seemed to load in the main visualizer window only. Measured in an isolated
+  copy with a preset that draws a solid probe texture full screen: before the
+  fix the panel's live preview, the web overlay and video export drew noise,
+  while the visualizer windows on all three displays and the Spout window
+  drew the texture — secondary windows were not affected. The preview's
+  bridge could list the folder but not fetch an image, the overlay had no way
+  to reach the folder, and the exporter had no bridge at all. The stream
+  server now serves the list and single images by name, behind its token and
+  through the same path check as the application, and pages are sent a short
+  digest of the folder instead of its path. Export waits for textures in
+  flight before drawing the next frame, so two exports of the same job still
+  match frame for frame (measured), and it stops with an error rather than
+  write a different video if a texture takes more than 20 s. A texture
+  requested before the folder listing arrives is now fetched as soon as it
+  does: export went from two frames of noise at the start to one. Images
+  still load asynchronously, so that first frame stays, and a preset whose
+  texture is not cached yet shows noise until it arrives — one frame in
+  export, a few on the live outputs. 15 tests,
+  the endpoints among them over real HTTP and WebSocket, path traversal
+  included.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

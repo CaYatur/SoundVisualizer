@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1835%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1850%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -250,7 +250,11 @@ that asserts the bar profile has no step in it.
 - **User textures load from your own texture folder.** 16.9% of presets ask for an image by name —
   `sampler_worms` looks for `worms.jpg`. Preset packs do not ship these files, so point
   MilkDrop › Texture Pack at the `textures` folder of a MilkDrop installation. Without one the
-  preset still runs, with noise in place of that texture.
+  preset still runs, with noise in place of that texture. The textures load wherever the preset is
+  drawn: the visualizer windows, the panel's live preview, the web overlay — which fetches each
+  image by name from the stream server, behind its token, and is sent a short digest of the folder
+  rather than its path — and video export, which waits for a texture before drawing the next frame,
+  so the same job still gives the same video.
 - **Preset transitions are MilkDrop's dual pipeline.** The previous preset does not stop when a new
   one loads: it keeps its own object, its own compiled shaders and its own clock, and both presets
   run their frame and vertex equations every frame. The two warp meshes are blended per node along a
@@ -1134,7 +1138,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1835 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1850 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

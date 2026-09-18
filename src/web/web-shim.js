@@ -222,6 +222,19 @@
     onShowClock: (cb) => handlers.showClock.push(cb),
     sendAudioMeter: () => {}, // tarayıcı tarafında ışık senkronu yok
     sendMessage: () => {},
+    /* MilkDrop dokuları (#586): yayın sunucusundan. Tek doku bir URL olarak
+       dönüyor ve motor onu doğrudan görsel kaynağı yapıyor — base64'e
+       çevirip geri açmaya gerek yok; aynı köken, yani tuval kirlenmiyor.
+       Jeton, medya dosyasında olduğu gibi adrese AÇIKÇA ekleniyor: çereze
+       ya da Referer'e güvenilmiyor. */
+    milkdropTextures: () => fetch('/milkdrop/textures' + (token ? '?token=' + encodeURIComponent(token) : ''), { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { names: [] }))
+      .catch(() => ({ names: [] })),
+    milkdropTexture: (name) => Promise.resolve({
+      name,
+      url: '/milkdrop/texture?name=' + encodeURIComponent(String(name || ''))
+        + (token ? '&token=' + encodeURIComponent(token) : ''),
+    }),
   };
 
   // Uzaktan kumanda sayfasının kullandığı ek yüzey

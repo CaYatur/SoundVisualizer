@@ -2034,6 +2034,7 @@
     '⚠ Ses yakalanamadı': '⚠ Could not capture audio',
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
     'İptal edildi.': 'Cancelled.',
+    'MilkDrop dokusu 20 saniyede yüklenmedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.': 'A MilkDrop texture did not load within 20 seconds. The export was stopped because the video would not come out the same on every run.',
     'Shadertoy kodundan içe aktarıldı.': 'Imported from Shadertoy code.',
     'ISF dosyasından içe aktarıldı.': 'Imported from ISF file.',
     '.milk dosyasından içe aktarılan geri besleme ayarları.': 'Feedback settings imported from .milk file.',
@@ -2550,7 +2551,7 @@
       .replace(/^Render ediliyor \[(.+)\]… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Rendering [$1]… $2% ($3 / $4 frames)')
       .replace(/^✅ Tamamlandı \((.+)\) → (.+)$/g, '✅ Completed ($1) → $2')
       .replace(/^✅ Tamamlandı \((.+)\)$/g, '✅ Completed ($1)')
-      .replace(/^⚠ Hata: (.+)$/g, '⚠ Error: $1')
+      .replace(/^⚠ Hata: (.+)$/g, (_, err) => `⚠ Error: ${translate(err)}`)
       .replace(/^▶ Deste · Satır (\d+)$/g, '▶ Deck · Row $1')
       .replace(/^🎛 Deste · (.+)$/g, '🎛 Deck · $1')
       .replace(/^Şablonum (\d+)$/g, 'My Template $1')

@@ -1682,6 +1682,10 @@ function syncStreamServer() {
       getLocale: () => appLocale(),
       getVersion: () => app.getVersion(),
       getNowPlaying: () => mediaSession.current(),
+      /* MilkDrop dokuları (#586): adlar ve doğrulanmış dosya. Web çıkışı
+         yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
+      mdTextureNames: () => textureNames().names,
+      mdTextureFile: (name) => textureFile(name),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
@@ -1875,30 +1879,26 @@ ipcMain.handle('milkdrop:pick-textures', async () => {
   }
 });
 
+/* Doku adları ve tek bir dokunun DOĞRULANMIŞ dosyası. IPC de yayın sunucusu
+   da bunları kullanıyor (#586): web çıkışının dosya erişimi yok, görseller
+   ona sunucudan gidiyor ve aynı denetimden geçmeleri gerekiyor. */
+function textureNames() {
+  return mdTex.listTextures(textureDir());
+}
+
+function textureFile(name) {
+  return mdTex.textureFileInfo(textureDir(), name, TEX_MAX_BYTES);
+}
+
 /* Klasördeki görsel dosyalarının adları. Preset `sampler_worms` derken
    uzantıyı yazmıyor; eşleme renderer'da yapılıyor. */
-ipcMain.handle('milkdrop:textures', () => {
-  const dir = textureDir();
-  if (!dir) return { dir: '', names: [] };
-  try {
-    return { dir, names: fs.readdirSync(dir).filter(mdTex.isTextureFile) };
-  } catch {
-    return { dir, names: [], error: 'READ_FAILED' };
-  }
-});
+ipcMain.handle('milkdrop:textures', () => textureNames());
 
 ipcMain.handle('milkdrop:texture', (e, name) => {
-  const file = mdTex.resolveTexture(textureDir(), name);
-  if (!file) return null;
+  const t = textureFile(name);
+  if (!t) return null;
   try {
-    const st = fs.statSync(file);
-    if (!st.isFile() || st.size > TEX_MAX_BYTES) return null;
-    const mime = mdTex.mimeFor(file);
-    if (!mime) return null;
-    return {
-      name,
-      dataUrl: 'data:' + mime + ';base64,' + fs.readFileSync(file).toString('base64'),
-    };
+    return { name, dataUrl: 'data:' + t.mime + ';base64,' + fs.readFileSync(t.file).toString('base64') };
   } catch {
     return null;
   }

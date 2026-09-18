@@ -2026,8 +2026,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          karışıklık olurdu. */
       const token = (this._texToken = (this._texToken || 0) + 1);
       this._dropUserTextures();
+      this._texWanted = null;
+      this._texListing = false;
       const api = typeof window !== 'undefined' ? window.api : null;
       if (!dir || !api || !api.milkdropTextures) return;
+      this._texListing = true;
+      this._texBusy(1);
       Promise.resolve(api.milkdropTextures()).then((r) => {
         // Klasör bu arada değiştiyse gelen liste eskimiştir.
         if (token !== this._texToken) return;
@@ -2036,7 +2040,44 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
            yazmış olabilir; o kayıtlar artık yanlış. Temizlenmezse doku
            klasörü seçilmiş olmasına rağmen preset gürültüde kalırdı. */
         this._dropUserTextures();
-      }).catch(() => {});
+        this._texListing = false;
+        /* Liste beklenirken istenen dokular HEMEN isteniyor, bir sonraki
+           kareyi beklemeden. Ölçüldü: dışa aktarımın ilk İKİ karesi
+           gürültüydü (biri liste, biri dosya için); şimdi yalnız ilki.
+           Dosya isteği sayacı liste düşmeden artırıyor, yani bekleyen
+           dışa aktarıcı dosya gelene kadar bekliyor. */
+        const want = this._texWanted;
+        this._texWanted = null;
+        if (want) for (const b of want) this._userTexture('sampler_' + b);
+      }).catch(() => {}).then(() => {
+        if (token === this._texToken) this._texListing = false;
+        this._texBusy(-1);
+      });
+    }
+
+    /* UÇUŞTAKİ DOKU İSTEKLERİ (#586). Canlı pencere beklemiyor: doku
+       gelene kadar gürültü çiziyor. Dışa aktarıcı ise bekleyebilir ve
+       beklemeli — söz verdiği şey "aynı iş, bit bazında aynı video" ve
+       dokunun hangi karede yerleştiği diskin hızına kalırsa o söz bozulur.
+       Sayaç liste isteğini de sayıyor: liste gelmeden dosya adı
+       çözülemiyor. Her istek başarıyla da başarısızlıkla da BİR KEZ
+       düşüyor; bekleyen kalırsa dışa aktarım takılırdı. */
+    _texBusy(d) {
+      this._texLoads = Math.max(0, (this._texLoads || 0) + d);
+      if (this._texLoads === 0 && this._texWait) {
+        const w = this._texWait;
+        this._texWait = null;
+        for (const f of w) f();
+      }
+    }
+
+    texturesPending() {
+      return this._texLoads || 0;
+    }
+
+    whenTexturesSettled() {
+      if (!this._texLoads) return Promise.resolve();
+      return new Promise((res) => { (this._texWait || (this._texWait = [])).push(res); });
     }
 
     _dropUserTextures() {
@@ -2103,37 +2144,53 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          klasörde gerçekten `rand00.png` diye bir dosya varsa o kazanıyor,
          yuva rastgele seçim yapmıyor. Açık dosya, örtük seçimi yenmeli. */
       const file = this._texFileFor(base) || this._randomTextureFor(base);
-      if (!file) return null;
+      if (!file) {
+        // Liste henüz gelmediyse ad çözülemiyor; liste gelince istenecek.
+        if (this._texListing) (this._texWanted || (this._texWanted = new Set())).add(base);
+        return null;
+      }
       const token = this._texToken;
+      this._texBusy(1);
+      let open = true;
+      const settle = () => { if (open) { open = false; this._texBusy(-1); } };
       Promise.resolve(api.milkdropTexture(file)).then((r) => {
-        if (!r || !r.dataUrl || token !== this._texToken || !this.gl) return;
+        /* Uygulama içinde görsel IPC'den data: adresi olarak geliyor; web
+           çıkışında yayın sunucusundaki bir adres (aynı köken, tuval
+           kirlenmiyor). İkisi de görselin kaynağı olabiliyor. */
+        const src = r && (r.url || r.dataUrl);
+        if (!src || token !== this._texToken || !this.gl) { settle(); return; }
         const img = new Image();
         img.onload = () => {
-          const gl = this.gl;
-          if (!gl || token !== this._texToken) return;
-          const tex = gl.createTexture();
-          gl.bindTexture(gl.TEXTURE_2D, tex);
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
-          /* Doku nesnesinin kendi parametreleri: süzme/sarma zaten birime
-             bağlı sampler nesnesinden geliyor, bunlar yalnız makul bir
-             başlangıç. */
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-          gl.bindTexture(gl.TEXTURE_2D, null);
-          /* Aynı doku için ikinci bir istek uçuşta olabilir: önbellek
-             liste geldiğinde temizleniyor ve bekleyen bir istek "gelmedi"
-             kaydını silinmiş buluyor. İkincisi kazanırsa birincinin
-             dokusu haritadan düşer ama GPU'da kalırdı. */
-          if (this.userTex[base] && this.userTex[base].tex) { gl.deleteTexture(tex); return; }
-          this.userTex[base] = { tex, w: img.naturalWidth, h: img.naturalHeight };
+          try { this._placeUserTexture(base, img, token); } finally { settle(); }
         };
-        img.onerror = () => {};
-        img.src = r.dataUrl;
-      }).catch(() => {});
+        img.onerror = settle;
+        img.src = src;
+      }).catch(settle);
       return null;
+    }
+
+    /* Gelen görseli GPU'ya yükler ve önbelleğe koyar. */
+    _placeUserTexture(base, img, token) {
+      const gl = this.gl;
+      if (!gl || token !== this._texToken) return;
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      /* Doku nesnesinin kendi parametreleri: süzme/sarma zaten birime
+         bağlı sampler nesnesinden geliyor, bunlar yalnız makul bir
+         başlangıç. */
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      /* Aynı doku için ikinci bir istek uçuşta olabilir: önbellek
+         liste geldiğinde temizleniyor ve bekleyen bir istek "gelmedi"
+         kaydını silinmiş buluyor. İkincisi kazanırsa birincinin
+         dokusu haritadan düşer ama GPU'da kalırdı. */
+      if (this.userTex[base] && this.userTex[base].tex) { gl.deleteTexture(tex); return; }
+      this.userTex[base] = { tex, w: img.naturalWidth, h: img.naturalHeight };
     }
 
     /* Kanonik sampler adından o adın okuduğu dokuya. Kullanıcı dokusunun
@@ -4545,6 +4602,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
 
     dispose() {
+      /* Uçuştaki doku istekleri geçersiz; onları bekleyen (dışa aktarıcı)
+         takılmasın diye sayaç burada sıfırlanıyor. */
+      this._texToken = (this._texToken || 0) + 1;
+      this._texLoads = 0;
+      this._texBusy(0);
       this._disposeTargets();
       const gl = this.gl;
       if (gl) {

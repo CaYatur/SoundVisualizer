@@ -16,3 +16,11 @@ contextBridge.exposeInMainWorld('exp', {
   cancelled: () => ipcRenderer.send('export:cancelled'),
   error: (msg) => ipcRenderer.send('export:error', msg),
 });
+
+/* MilkDrop motoru dokuları `window.api` üzerinden istiyor (#586). Dışa
+   aktarıcıda o köprü hiç yoktu, yani dokulu presetler videoya gürültüyle
+   çiziliyordu. Yalnız iki doku çağrısı açılıyor; gerisi bu sayfada yok. */
+contextBridge.exposeInMainWorld('api', {
+  milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
+  milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+});
