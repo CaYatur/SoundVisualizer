@@ -201,8 +201,11 @@ const PANEL = bare(read('src/admin/milkdrop-panel.js'));
 test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
   assert.match(PANEL, /text: '◀ Önceki', onclick: back \}/);
   assert.match(PANEL, /text: 'Sonraki ▶', onclick: forward \}/);
-  assert.match(PANEL, /const back = \(\) => \{[\s\S]*?h\.back\(\)[\s\S]*?step\(-1\);/);
-  assert.match(PANEL, /const forward = \(\) => \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(cfg, md\)[\s\S]*?step\(1\);/);
+  // Düğmeler ve denetleyici eylemleri aynı işlevlerden geçiyor (#570)
+  assert.match(PANEL, /const back = \(\) => navBack\(cfg, md\);/);
+  assert.match(PANEL, /const forward = \(\) => navForward\(cfg, md\);/);
+  assert.match(PANEL, /function navBack\(cfg, md\) \{[\s\S]*?h\.back\(\)[\s\S]*?stepList\(cfg, md, -1\);/);
+  assert.match(PANEL, /function navForward\(cfg, md, cut\) \{[\s\S]*?h\.forward\(\)[\s\S]*?randomPick\(cfg, md\)[\s\S]*?stepList\(cfg, md, 1, cut\);/);
   // Liste adımı ekrandakine göre, ayardaki elle seçime göre değil
   assert.match(PANEL, /presets\.findIndex\(\(p\) => p\.id === liveId\(md\)\)/);
 });

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1803 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1815 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 206
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 218
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1166,6 +1166,20 @@ rest after. No version number yet.
   `fRating` edit that keeps the length. 19 tests; the panel was also driven
   end to end in an isolated copy — ◀/▶, the stars, the lock, and auto-advance
   picks entering the history with the visualizer open.
+- **MilkDrop on MIDI and OSC (#570)** · done. Seven actions — next, previous,
+  random, cut now, lock, rating up and down — run the panel's own functions,
+  so a controller walks the same history and uses the same rating weights
+  and lock. Cut now is MilkDrop's H key, the next preset with no blend: the
+  panel writes the new preset's id to `milkdropControl.cutTo`, the engine
+  loads that one switch unblended, and the next manual pick clears it.
+  Measured in the engine: the same switch took 0 blend frames with it and
+  50 (1.7 s at 30 fps) without. Six settings: transition time, auto-advance
+  interval, random spread and hard-cut threshold map over the panel's
+  slider ranges; mesh density and internal resolution take only the panel's
+  own values, a knob's travel split into equal steps, since every value in
+  between would rebuild the mesh or the frame buffers. 12 tests; the
+  actions were also driven end to end in an isolated copy through the
+  controller's own entry point.
 - **Ratings and the lock stay out of scenes** · done. #569 kept the ratings,
   and #568 the lock, inside the `milkdrop` block, which a scene saves and
   restores whole and a template resets. Going back to an older scene, Auto

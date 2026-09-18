@@ -44,6 +44,16 @@
     { path: 'feedback.rotate', label: 'Geri Besleme · Dönüş', min: -1, max: 1 },
     { path: 'media.opacity', label: 'Medya · Saydamlık', min: 0, max: 1 },
     { path: 'media.kaleido', label: 'Medya · Kaleydoskop', min: 0, max: 12, int: true },
+    /* MILKDROP (#570). Aralıklar panelin kaydırıcılarıyla aynı. */
+    { path: 'milkdrop.blendTime', label: 'MilkDrop · Geçiş Süresi', min: 0, max: 5 },
+    { path: 'milkdrop.autoNext', label: 'MilkDrop · Otomatik Geçiş', min: 0, max: 120, int: true },
+    { path: 'milkdrop.autoNextRand', label: 'MilkDrop · Rastgele Pay', min: 0, max: 30, int: true },
+    { path: 'milkdrop.hardCutThreshold', label: 'MilkDrop · Sert Geçiş Eşiği', min: 1, max: 6 },
+    /* Ağ sıklığı ve iç çözünürlük panelde de yalnız bu değerleri alıyor.
+       Sürekli bir düğme her ara değerde ağı ya da çerçeve tamponlarını
+       yeniden kurardı; denetleyicinin yolu kovalara bölünüyor. */
+    { path: 'milkdrop.mesh', label: 'MilkDrop · Ağ Sıklığı', steps: [24, 32, 48, 64, 96, 128] },
+    { path: 'milkdrop.renderScale', label: 'MilkDrop · İç Çözünürlük', steps: [0.75, 1, 1.5, 2] },
     { action: 'nextVisualizer', label: '⏭ Eylem · Sonraki Görselleştirici' },
     { action: 'prevVisualizer', label: '⏮ Eylem · Önceki Görselleştirici' },
     { action: 'nextBackground', label: '⏭ Eylem · Sonraki Arkaplan' },
@@ -56,6 +66,16 @@
     { action: 'tlNextMarker', label: '⏭ Çizelge · Sonraki İşaret' },
     { action: 'tlPrevMarker', label: '⏮ Çizelge · Önceki İşaret' },
     { action: 'deckStopAll', label: '⏹ Deste · Hepsini Durdur' },
+    /* MilkDrop eylemleri panelin kendi düğmeleriyle AYNI yoldan gidiyor
+       (milkdrop-panel.js `act`): geçmiş, puan ağırlığı ve kilit
+       denetleyiciden de aynı çalışsın. */
+    { action: 'mdNext', label: '⏭ MilkDrop · Sonraki Preset' },
+    { action: 'mdPrev', label: '⏮ MilkDrop · Önceki Preset' },
+    { action: 'mdRandom', label: '🎲 MilkDrop · Rastgele Preset' },
+    { action: 'mdCut', label: '✂ MilkDrop · Şimdi Kes (geçişsiz)' },
+    { action: 'mdLock', label: '🔒 MilkDrop · Kilit (aç/kapa)' },
+    { action: 'mdRateUp', label: '⭐ MilkDrop · Puanı Artır' },
+    { action: 'mdRateDown', label: '⭐ MilkDrop · Puanı Azalt' },
   ];
 
   const VIS_CYCLE = ['bars', 'centerBars', 'blocks', 'dots', 'wave', 'ribbon', 'terrain', 'circular',
@@ -131,13 +151,25 @@
       return;
     }
 
-    const lo = map.min == null ? t.min : map.min;
-    const hi = map.max == null ? t.max : map.max;
-    let v = lo + (hi - lo) * Math.max(0, Math.min(1, value01));
-    if (t.int) v = Math.round(v);
-    P().set(t.path, v);
+    P().set(t.path, mappedValue(t, map, value01));
     P().push(false);
     refreshValueChips();
+  }
+
+  /* Denetleyici değerinin (0..1) hedefteki karşılığı. Kovalı hedefte yol
+     eşit kovalara bölünüyor ve kovanın değeri yazılıyor; min/max orada
+     anlamsız, arayüz de onları göstermiyor. */
+  function mappedValue(t, map, value01) {
+    const u = Math.max(0, Math.min(1, Number(value01) || 0));
+    if (Array.isArray(t.steps) && t.steps.length) {
+      const n = t.steps.length;
+      return t.steps[Math.min(n - 1, Math.floor(u * n))];
+    }
+    const lo = map && map.min != null ? map.min : t.min;
+    const hi = map && map.max != null ? map.max : t.max;
+    let v = lo + (hi - lo) * u;
+    if (t.int) v = Math.round(v);
+    return v;
   }
 
   function runAction(action, cfg) {
@@ -170,6 +202,9 @@
       runTimeline(action);
     } else if (action.indexOf('deck') === 0) {
       runDeck(action, cfg);
+    } else if (action.indexOf('md') === 0) {
+      const mp = window.SVMilkdropPanel;
+      if (mp && mp.act) mp.act(action.slice(2));
     }
   }
 
@@ -213,7 +248,8 @@
       const t = targetFor(n.dataset.mapValue);
       if (!t || t.action) return;
       const v = P().get(t.path);
-      n.textContent = typeof v === 'number' ? (t.int ? String(Math.round(v)) : v.toFixed(2)) : '—';
+      n.textContent = typeof v === 'number'
+        ? (t.int ? String(Math.round(v)) : t.steps ? String(v) : v.toFixed(2)) : '—';
     });
   }
 
@@ -384,7 +420,9 @@
       });
 
       const extras = [];
-      if (t && !t.action) {
+      if (t && !t.action && t.steps) {
+        extras.push(el('span', { class: 'map-val', 'data-map-value': m.target }));
+      } else if (t && !t.action) {
         extras.push(
           el('input', {
             class: 'p-in p-num', type: 'number', step: 'any', placeholder: 'min',
@@ -535,5 +573,5 @@
     try { oscState = await window.api.oscStatus(); } catch { /* servis kapalı */ }
   }
 
-  window.SVControl = { panel, init, TARGETS, allTargets };
+  window.SVControl = { panel, init, TARGETS, allTargets, mappedValue, runAction };
 })();

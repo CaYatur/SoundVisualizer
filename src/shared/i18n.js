@@ -1976,6 +1976,20 @@
     '⏭ Çizelge · Sonraki İşaret': '⏭ Timeline · Next Marker',
     '⏮ Çizelge · Önceki İşaret': '⏮ Timeline · Previous Marker',
     '⏹ Deste · Hepsini Durdur': '⏹ Deck · Stop All',
+    /* MilkDrop denetleyici hedefleri (#570) */
+    'MilkDrop · Geçiş Süresi': 'MilkDrop · Preset Transition',
+    'MilkDrop · Otomatik Geçiş': 'MilkDrop · Auto Advance',
+    'MilkDrop · Rastgele Pay': 'MilkDrop · Random Spread',
+    'MilkDrop · Sert Geçiş Eşiği': 'MilkDrop · Hard Cut Threshold',
+    'MilkDrop · Ağ Sıklığı': 'MilkDrop · Mesh Density',
+    'MilkDrop · İç Çözünürlük': 'MilkDrop · Internal Resolution',
+    '⏭ MilkDrop · Sonraki Preset': '⏭ MilkDrop · Next Preset',
+    '⏮ MilkDrop · Önceki Preset': '⏮ MilkDrop · Previous Preset',
+    '🎲 MilkDrop · Rastgele Preset': '🎲 MilkDrop · Random Preset',
+    '✂ MilkDrop · Şimdi Kes (geçişsiz)': '✂ MilkDrop · Cut Now (no blend)',
+    '🔒 MilkDrop · Kilit (aç/kapa)': '🔒 MilkDrop · Lock (toggle)',
+    '⭐ MilkDrop · Puanı Artır': '⭐ MilkDrop · Rating Up',
+    '⭐ MilkDrop · Puanı Azalt': '⭐ MilkDrop · Rating Down',
 
     // Sahne Panelleri, Aydınlatma ve Arayüz
     'Zincir boşken sahne doğrudan kompozit edilir; hiçbir ek maliyet yoktur. Efekt eklediğinizde sahne tek yüzeye birleştirilip GPU\'da işlenir ve efektler dışa aktarımda da aynı sırayla uygulanır.': 'When chain is empty, scene is directly composited with no overhead. When you add effects, scene is rendered to a single surface on the GPU and effects are applied in the same order during export.',

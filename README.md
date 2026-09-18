@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1803%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1815%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -303,6 +303,14 @@ that asserts the bar profile has no step in it.
   difference is deliberate: after going back, a new preset drops the forward part, as a browser
   does, where MilkDrop's auto advance would replay it — the history lives in the panel and the pick
   is made in the visualizer.
+- **MilkDrop on MIDI and OSC.** Controllers could drive the rest of the application but nothing in
+  MilkDrop. They now have seven MilkDrop actions — next, previous, random, cut now (MilkDrop's H:
+  the next preset with no blend), lock, rating up and rating down — which run the panel's own code,
+  so the history, the rating weights and the lock behave the same from a controller; and six
+  settings: transition time, auto-advance interval, random spread, hard-cut threshold, mesh density
+  and internal resolution. The last two only ever take the panel's own values: a knob's travel is
+  split into equal steps, because every value in between would rebuild the mesh or the frame
+  buffers.
 - **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
   the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
   vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
@@ -1116,7 +1124,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1803 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1815 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

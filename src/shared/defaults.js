@@ -680,20 +680,24 @@
        şablon da onu varsayılana döndürüyor (admin.js applyScene,
        control.js nextScene, templates.js apply). Puanlar orada dursaydı
        eski bir sahneye geçmek, Otomatik VJ'nin bir sahne çekmesi ya da bir
-       şablon denemek kullanıcının verdiği bütün puanları silerdi; kilit de
-       sahneyle birlikte gelip giderdi. Bu iki blok o listelerde yok.
+       şablon denemek kullanıcının verdiği bütün puanları silerdi; kilit ve
+       "şimdi kes" de sahneyle birlikte gelip giderdi. Bu iki blok o
+       listelerde yok.
 
        milkdropLibrary.ratings (#569) — yalnız kullanıcının verdiği puanlar,
          kimlik → 0..5. Verilmemiş puan presetin kendi dosyasındaki
          fRating'den geliyor (yoksa 3). Preset kaydına yazılmıyor: her kayıt
          bütün listeyi kaynaklarıyla bütün pencerelere yeniden yayınlıyor.
        milkdropControl.locked (#568) — kilit: otomatik geçiş ve sert geçiş
-         durur, elle seçim çalışır. */
+         durur, elle seçim çalışır.
+       milkdropControl.cutTo (#570) — "şimdi kes": elle seçilen preset bu
+         kimlikse karışmadan yükleniyor. Panel her seçimde temizliyor. */
     milkdropLibrary: {
       ratings: {},
     },
     milkdropControl: {
       locked: false,
+      cutTo: '',
     },
 
     // ------------------------------------------------------------------

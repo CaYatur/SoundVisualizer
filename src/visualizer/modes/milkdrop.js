@@ -1498,8 +1498,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          rengi yine görünürdü — ama shader'ından değil, geri besleme
          tamponunda kalan izden. */
       /* Sert geçiş karışmaz: MilkDrop onu `LoadRandomPreset(0.0f)` ile
-         yüklüyor (milkdropfs.cpp:891). */
-      const bt = a && a.cut ? 0 : Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
+         yüklüyor (milkdropfs.cpp:891). Elle "şimdi kes" de (#570): panel
+         yeni seçimin kimliğini `milkdropControl.cutTo`ya yazıyor. */
+      const cutTo = cfg.milkdropControl && cfg.milkdropControl.cutTo;
+      const cutNow = a ? a.cut : (!!cutTo && cutTo === c.presetId);
+      const bt = cutNow ? 0 : Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;

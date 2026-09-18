@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1803%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1815%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -297,6 +297,13 @@ profilinde basamak olmadığını doğruluyor.
   içinde, geçmiş MilkDrop'un 64 adımını tutuyor. Bir fark bilinçli: geri gidildikten sonra yeni bir
   preset gelirse ileri kısım atılıyor, tarayıcıdaki gibi; MilkDrop'un otomatik geçişi ise onu
   yeniden oynatırdı — burada geçmiş panelde, seçim ise görselleştiricide yapılıyor.
+- **MilkDrop MIDI ve OSC'de.** Denetleyiciler uygulamanın geri kalanını sürebiliyordu ama
+  MilkDrop'ta hiçbir şeyi değil. Artık yedi MilkDrop eylemi var — sonraki, önceki, rastgele, şimdi
+  kes (MilkDrop'un H'si: sıradaki preset, karışmadan), kilit, puan artır ve puan azalt — ve panelin
+  kendi kodundan geçiyorlar, yani geçmiş, puan ağırlığı ve kilit denetleyiciden de aynı çalışıyor;
+  bir de altı ayar: geçiş süresi, otomatik geçiş aralığı, rastgele pay, sert geçiş eşiği, ağ
+  sıklığı ve iç çözünürlük. Son ikisi yalnız panelin kendi değerlerini alıyor: düğmenin yolu eşit
+  kovalara bölünüyor, çünkü aradaki her değer ağı ya da çerçeve tamponlarını yeniden kurardı.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1116,7 +1123,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1803 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1815 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

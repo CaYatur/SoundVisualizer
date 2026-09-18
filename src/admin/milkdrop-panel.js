@@ -120,6 +120,8 @@
     cfg.milkdrop.presetId = p ? p.id : '';
     cfg.milkdrop.name = p ? p.name : '';
     cfg.milkdrop.source = p ? p.source : '';
+    // Her seçim yeniden karışarak yükleniyor; "şimdi kes" bunu `go`da açıyor
+    control(cfg).cutTo = '';
     // Sahne MilkDrop motoruna geçsin, yoksa yükleme görünmez olur
     cfg.visualizer.type = 'milkdrop';
     pointStackAtMilkdrop(cfg);
@@ -128,15 +130,15 @@
   const CY = () => window.SVMilkdropCycle;
 
   /* SAHNEYE AİT OLMAYAN İKİ BLOK (defaults.js). Sahne kaydı ve şablon
-     `milkdrop` bloğunu bütünüyle değiştiriyor; puanlar ve kilit orada
-     dursaydı bir sahne geçişi onları silerdi. */
+     `milkdrop` bloğunu bütünüyle değiştiriyor; puanlar, kilit ve "şimdi
+     kes" orada dursaydı bir sahne geçişi onları silerdi. */
   function library(cfg) {
     const l = cfg.milkdropLibrary || (cfg.milkdropLibrary = {});
     if (!l.ratings || typeof l.ratings !== 'object') l.ratings = {};
     return l;
   }
   function control(cfg) {
-    return cfg.milkdropControl || (cfg.milkdropControl = { locked: false });
+    return cfg.milkdropControl || (cfg.milkdropControl = { locked: false, cutTo: '' });
   }
   const ratingsOf = (cfg) => (cfg && cfg.milkdropLibrary && cfg.milkdropLibrary.ratings) || null;
 
@@ -170,12 +172,85 @@
     return C.pick(presets, liveId(md), 'random', Math.random, w);
   }
 
-  function go(cfg, p) {
+  /* `cut`: karışmadan yükle (#570, "şimdi kes"). Motor bunu elle seçimin
+     kendisinden okuyor: `milkdropControl.cutTo` yeni seçilen presetin
+     kimliğiyse o geçiş karışmıyor. `load` alanı her seçimde temizliyor,
+     yani bir sonraki sıradan seçim yine ayardaki süreyle karışıyor. */
+  function go(cfg, p, cut) {
     if (!p) return;
     load(cfg, p);
+    if (cut) control(cfg).cutTo = p.id;
     const h = history();
     if (h) h.note(p.id);
     P().apply();
+  }
+
+  const byId = (id) => presets.find((p) => p.id === id);
+
+  /* Liste adımı EKRANDAKİ presete göre: otomatik geçiş ilerlemişse
+     "sonraki" ayardaki elle seçimin değil, o an görülenin sonraki
+     (MilkDrop'ta da `m_nCurrentPreset` gösterileni tutuyor). */
+  function stepList(cfg, md, dir, cut) {
+    if (!presets.length) return;
+    const i = presets.findIndex((p) => p.id === liveId(md));
+    const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
+    go(cfg, presets[j], cut);
+  }
+
+  /* ◀ ve ▶ GEÇMİŞTE geziyor (#569): ekranda gösterilenler, otomatik
+     geçişin seçtikleri dahil. Silinmiş bir presete denk gelen adım
+     atlanıyor. Geçmiş boşsa listede bir önceki; ileride bir şey yoksa
+     sıraya göre yenisi — rastgelede puana göre. */
+  function navBack(cfg, md) {
+    const h = history();
+    for (let id = h && h.back(); id; id = h.back()) {
+      const p = byId(id);
+      if (p) { go(cfg, p); return; }
+    }
+    stepList(cfg, md, -1);
+  }
+
+  function navForward(cfg, md, cut) {
+    const h = history();
+    for (let id = h && h.forward(); id; id = h.forward()) {
+      const p = byId(id);
+      if (p) { go(cfg, p, cut); return; }
+    }
+    if (md.autoOrder === 'random') go(cfg, randomPick(cfg, md), cut);
+    else stepList(cfg, md, 1, cut);
+  }
+
+  /* DENETLEYİCİ EYLEMLERİ (#570). MIDI ve OSC buradan geçiyor (control.js
+     `runAction`), yani geçmiş, puan ağırlığı ve kilit düğmelerle aynı.
+     "Şimdi kes" MilkDrop'un H tuşu: sıradaki preset, karışmadan
+     (`LoadRandomPreset(0.0f)`). Puan bir tam adım oynuyor ve 0..5'te
+     kalıyor; dosyadan gelen 3,5 gibi bir puan önce tam sayıya iniyor ya
+     da çıkıyor. Dönüş: bir şey yapıldı mı. */
+  function act(name) {
+    const cfg = P().cfg();
+    const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
+    if (name === 'Lock') {
+      const c = control(cfg);
+      c.locked = c.locked !== true;
+      P().apply();
+      return true;
+    }
+    if (!presets.length) return false;
+    if (name === 'Next') navForward(cfg, md);
+    else if (name === 'Prev') navBack(cfg, md);
+    else if (name === 'Random') go(cfg, randomPick(cfg, md));
+    else if (name === 'Cut') navForward(cfg, md, true);
+    else if (name === 'RateUp' || name === 'RateDown') {
+      const id = liveId(md);
+      const p = byId(id);
+      const C = CY();
+      if (!p || !C) return false;
+      const r = C.ratingOf(p, ratingsOf(cfg));
+      setRating(id, name === 'RateUp' ? Math.min(5, Math.floor(r) + 1) : Math.max(0, Math.ceil(r) - 1));
+    } else {
+      return false;
+    }
+    return true;
   }
 
   /* PUAN YILDIZLARI — ekrandaki presetin. Otomatik geçiş preseti
@@ -603,36 +678,9 @@
 
     // Gezinme ve otomatik geçiş
     if (presets.length > 1) {
-      /* Liste adımı EKRANDAKİ presete göre: otomatik geçiş ilerlemişse
-         "sonraki" ayardaki elle seçimin değil, o an görülenin sonraki
-         (MilkDrop'ta da `m_nCurrentPreset` gösterileni tutuyor). */
-      const step = (dir) => {
-        const i = presets.findIndex((p) => p.id === liveId(md));
-        const j = ((i < 0 ? 0 : i + dir) % presets.length + presets.length) % presets.length;
-        go(cfg, presets[j]);
-      };
-      const byId = (id) => presets.find((p) => p.id === id);
-      /* ◀ ve ▶ GEÇMİŞTE geziyor (#569): ekranda gösterilenler, otomatik
-         geçişin seçtikleri dahil. Silinmiş bir presete denk gelen adım
-         atlanıyor. Geçmiş boşsa listede bir önceki; ileride bir şey yoksa
-         sıraya göre yenisi — rastgelede puana göre. */
-      const back = () => {
-        const h = history();
-        for (let id = h && h.back(); id; id = h.back()) {
-          const p = byId(id);
-          if (p) { go(cfg, p); return; }
-        }
-        step(-1);
-      };
-      const forward = () => {
-        const h = history();
-        for (let id = h && h.forward(); id; id = h.forward()) {
-          const p = byId(id);
-          if (p) { go(cfg, p); return; }
-        }
-        if (md.autoOrder === 'random') go(cfg, randomPick(cfg, md));
-        else step(1);
-      };
+      // Düğmeler ve denetleyici eylemleri aynı yoldan (bkz. `act`)
+      const back = () => navBack(cfg, md);
+      const forward = () => navForward(cfg, md);
       /* KİLİT (#568). MilkDrop'taki gibi yalnız otomatik geçişi ve sert
          geçişi durduruyor; elle seçim çalışıyor. Kilit açılınca kalan süre
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
@@ -723,7 +771,7 @@
      secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
      sinanabilsin. */
   window.SVMilkdropPanel = {
-    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history,
+    panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;
