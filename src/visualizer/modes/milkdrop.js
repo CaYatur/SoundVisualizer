@@ -1403,7 +1403,34 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        `.milk` kaynağıyla birlikte, iki saniyede bir. Ayardaki preset
        kullanıcının en son ELLE seçtiği olarak kalıyor; motor o an neyi
        çizdiğini `presetName()` ile söylüyor ve panel onu gösteriyor. */
-    _autoCycle(cfg, step) {
+    /* ÖLÇÜ (#571): vuruş bilgisi yalnız aralık birimi ölçüyken. Tempo
+       görselleştiricinin KENDİ sesinden kestiriliyor: Otomatik VJ'ninki
+       panelde ve panelin döngüsü görselleştirici onu örtünce duruyor —
+       otomatik geçişin motor tarafında olmasının sebebi de buydu
+       (shared/milkdrop-cycle.js). Saat motorun adımı: çevrimdışı dışa
+       aktarımda ölçüler video zamanında sayılıyor.
+
+       BPM kilidi ve ölçüdeki vuruş sayısı Otomatik VJ'nin ayarından
+       (`autovj.bpmLock`, `autovj.beatsPerBar`) — bilerek: uygulamanın tek
+       tempo kilidi o, tap tempo da oraya yazıyor. Ekranda iki ayrı BPM
+       kilidi olması iki ayrı tempo demek olurdu. */
+    _beat(audio, cfg, step) {
+      const md = cfg.milkdrop || {};
+      const TM = typeof window !== 'undefined' && window.SVTempo;
+      if (md.autoNextUnit !== 'bars' || !TM || !TM.Tempo) { this._tempo = null; return null; }
+      if (!this._tempo) { this._tempo = new TM.Tempo(); this._tempoT = 0; }
+      const tp = this._tempo;
+      const av = cfg.autovj || {};
+      const bpb = Math.round(Number(av.beatsPerBar));
+      tp.beatsPerBar = bpb >= 1 && bpb <= 16 ? bpb : 4;
+      const lock = Math.round(Number(av.bpmLock)) || 0;
+      if (lock > 0) { if (tp.locked !== lock) tp.setLock(lock); } else if (tp.locked) tp.setLock(0);
+      this._tempoT += step;
+      tp.update(audio, this._tempoT, step);
+      return { bpm: tp.bpm || 0, onBar: tp.onBar(), beatsPerBar: tp.beatsPerBar };
+    }
+
+    _autoCycle(cfg, step, audio) {
       const C = typeof window !== 'undefined' && window.SVMilkdropCycle;
       const PR = typeof window !== 'undefined' && window.SVPresets;
       if (!C || !PR || !PR.byKind) return;
@@ -1433,13 +1460,20 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const f = listOf().find((x) => x && x.id === F.id);
         /* Sert geçişi önizleme de karışmadan yapıyor: görselleştirici kesip
            önizleme harmanlasaydı ikisi bir saniye boyunca farklı görünürdü. */
-        if (f) this.autoPick = { id: f.id, name: f.name || '', source: f.source || '', cut: !!F.cut };
+        if (f) {
+          this.autoPick = {
+            id: f.id, name: f.name || '', source: f.source || '', cut: !!F.cut,
+            blend: typeof F.blend === 'number' ? F.blend : null,
+          };
+        }
         return;
       }
       /* Liste zamanlayıcı ya da sert geçiş açıksa kuruluyor; ikisi de
          kapalıyken her kare yüzlerce öğelik bir dizi kurmanın anlamı yok. */
       const o = C.normalize(cfg.milkdrop);
-      const list = o.seconds > 0 || o.hardCut !== 'off' ? listOf() : [];
+      const beat = this._beat(audio, cfg, step);
+      this._barsOf = o.bars;
+      const list = o.seconds > 0 || o.bars > 0 || o.hardCut !== 'off' ? listOf() : [];
       const cur = this.autoPick ? this.autoPick.id : ((cfg.milkdrop && cfg.milkdrop.presetId) || '');
       /* Sert geçiş bir ÖNCEKİ karenin bantlarına bakıyor: bu karenin analizi
          preset yüklendikten sonra yapılıyor. MilkDrop'ta da kesim, analizden
@@ -1450,18 +1484,32 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const ctl = cfg.milkdropControl || {};
       const lib = cfg.milkdropLibrary || {};
       const md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
-      const p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings);
-      if (p) this.autoPick = { id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut };
+      const p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
+      if (p) {
+        this.autoPick = {
+          id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut,
+          blend: this.cycle.blend,
+        };
+      }
     }
 
     /* O an çizilen preset. `id: null` = otomatik geçiş bir şey seçmemiş,
        ayardaki (elle seçilen) preset çiziliyor. `base` hangi elle seçimin
-       üstünde olduğumuz — önizleme bununla bayat mesajı ayırt ediyor. */
+       üstünde olduğumuz — önizleme bununla bayat mesajı ayırt ediyor.
+       `bars` ölçü kipinin durumu; panel ölçü sayacını buradan gösteriyor,
+       kendi tempo kestiriminden değil — iki ayrı kestirim iki ayrı BPM
+       söylerdi. */
     livePreset() {
       const a = this.autoPick;
+      const tp = this._tempo;
       return {
         id: a ? a.id : null, name: a ? (a.name || '') : null, base: this._manualKey || '',
         cut: !!(a && a.cut),
+        blend: a && typeof a.blend === 'number' ? a.blend : null,
+        bars: tp && this.cycle ? {
+          bpm: Math.round(tp.bpm || 0), count: this.cycle.barCount, of: this._barsOf || 0,
+          noTempo: this.cycle.reason === 'NOTEMPO',
+        } : null,
       };
     }
 
@@ -1502,7 +1550,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          yeni seçimin kimliğini `milkdropControl.cutTo`ya yazıyor. */
       const cutTo = cfg.milkdropControl && cfg.milkdropControl.cutTo;
       const cutNow = a ? a.cut : (!!cutTo && cutTo === c.presetId);
-      const bt = cutNow ? 0 : Math.max(0, Math.min(BLEND_MAX, +c.blendTime || 0));
+      /* Ölçü kipinde döngü süreyi tam vuruşa yuvarlıyor (#571); o seçimde
+         ayardaki süre değil o kullanılıyor. */
+      const want = a && typeof a.blend === 'number' ? a.blend : +c.blendTime || 0;
+      const bt = cutNow ? 0 : Math.max(0, Math.min(BLEND_MAX, want));
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;
@@ -2220,7 +2271,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const step = Math.min(0.05, dt || 0.016);
       /* Otomatik geçiş `_ensurePreset`ten ÖNCE: seçimi o kare yapılan
          preset aynı karede yüklensin, yoksa geçiş bir kare gecikirdi. */
-      this._autoCycle(cfg, step);
+      this._autoCycle(cfg, step, audio);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
       /* Uyum anahtarı alt blokların hangi kare değişkenlerini gördüğünü de

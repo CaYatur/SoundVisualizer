@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1815%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1829%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -304,6 +304,15 @@ profilinde basamak olmadığını doğruluyor.
   bir de altı ayar: geçiş süresi, otomatik geçiş aralığı, rastgele pay, sert geçiş eşiği, ağ
   sıklığı ve iç çözünürlük. Son ikisi yalnız panelin kendi değerlerini alıyor: düğmenin yolu eşit
   kovalara bölünüyor, çünkü aradaki her değer ağı ya da çerçeve tamponlarını yeniden kurardı.
+- **Preset ölçüde değişiyor.** Otomatik geçiş saniye yerine ölçü sayabiliyor: her *n* ölçüde bir
+  preset ölçünün ilk vuruşunda değişiyor ve geçiş süresi tam vuruşa yuvarlanıyor, yani geçiş de
+  bir vuruşun üstünde bitiyor (120 BPM'de 1,7 sn üç vuruşa, 1,5 sn'ye iniyor). Tempo panelin değil
+  görselleştiricinin kendi sesinden kestiriliyor — panelin döngüsü görselleştirici onu örtünce
+  duruyor, otomatik geçişin görselleştiricide koşmasının sebebi de bu — ve BPM kilidi ile tap tempo
+  Tempo ve Otomatik VJ'deki ayar; yani uygulamada iki değil tek tempo kilidi var. Tempo
+  bulunamazsa geçiş Otomatik VJ'deki gibi zamana düşüyor, ölçü sayısının iki katı saniyede ve en
+  az 4 sn'de bir, ve panel bunu söylüyor; bulunduğunda görselleştiricinin BPM'ini ve ölçü sayısını
+  gösteriyor.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1123,7 +1132,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1815 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1829 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

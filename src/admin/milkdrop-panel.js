@@ -296,10 +296,39 @@
     if (wrap && cfg && cfg.milkdrop) fillStars(wrap, cfg);
   }
 
+  /* ÖLÇÜ DURUMU (#571) — görselleştiricinin söylediği; sayı ve metin ayrı
+     düğümlerde, çünkü çeviri sözlüğü tam metin eşliyor. Mesaj yalnız
+     değişince yeniden yazılıyor: ~30 Hz geliyor. */
+  let lastBars = null;
+  let lastBarsKey = '';
+  function fillBarStatus(wrap, info) {
+    const el = P().el;
+    const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+    wrap.textContent = '';
+    if (!info) {
+      wrap.appendChild(el('span', { text: tt('Ölçü sayacı görselleştirici açıkken burada görünür.') }));
+      return;
+    }
+    if (info.noTempo || !info.bpm) {
+      wrap.appendChild(el('span', { text: tt('Tempo bulunamadı: ölçüler sayılamıyor, geçiş zamana düştü.') }));
+      return;
+    }
+    wrap.appendChild(el('span', { class: 'md-num', text: info.bpm + ' BPM · ' + info.count + '/' + info.of + ' ' }));
+    wrap.appendChild(el('span', { text: tt('ölçü') }));
+  }
+
   /* Ölçer mesajı (admin.js): görselleştiricinin o an çizdiği preset.
      Elle seçimden önceki bayat mesaj `base` eşleşmediği için atılıyor —
      yoksa az önce bırakılan preset geçmişe yeni bir kayıt gibi girerdi. */
   function noteLive(mp) {
+    const bars = mp && mp.bars ? mp.bars : null;
+    const key = bars ? [bars.bpm, bars.count, bars.of, bars.noTempo].join('|') : '';
+    if (key !== lastBarsKey) {
+      lastBarsKey = key;
+      lastBars = bars;
+      const bs = document.getElementById('mdBarStatus');
+      if (bs) fillBarStatus(bs, lastBars);
+    }
     const cfg = P() && P().cfg && P().cfg();
     const md = cfg && cfg.milkdrop;
     if (!md || !mp || mp.base !== manualKey(md)) return;
@@ -700,13 +729,34 @@
           onclick: () => { control(cfg).locked = !locked; rerender(); },
         }),
       ]));
-      nodes.push(SP().miniSlider('Otomatik Geçiş', () => md.autoNext || 0, (v) => { md.autoNext = Math.round(v); }, {
-        min: 0, max: 120, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' ' + tt('sn') : tt('kapalı')),
-      }));
+      /* ARALIK BİRİMİ (#571). Ölçüde aralık müziğin kendi ızgarası: geçiş
+         ölçünün ilk vuruşunda başlıyor. Etiketler Otomatik VJ'ninkilerle
+         aynı, çünkü aynı şeyi söylüyorlar. */
+      const bars = md.autoNextUnit === 'bars';
+      nodes.push(P().row('Aralık Birimi', selOf([
+        ['seconds', 'Saniye'],
+        ['bars', 'Ölçü'],
+      ], bars ? 'bars' : 'seconds', (v) => { md.autoNextUnit = String(v); })));
+      if (bars) {
+        nodes.push(SP().miniSlider('Otomatik Geçiş', () => (md.autoNextBars == null ? 8 : md.autoNextBars), (v) => { md.autoNextBars = Math.round(v); }, {
+          min: 0, max: 64, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' ' + tt('ölçü') : tt('kapalı')),
+        }));
+        /* Durum görselleştiriciden geliyor (admin.js → `noteLive`): panelin
+           kendi tempo kestirimi başka bir sese bakıyor ve başka bir BPM
+           söylerdi. */
+        const bs = el('div', { id: 'mdBarStatus', class: 'studio-note' });
+        fillBarStatus(bs, lastBars);
+        nodes.push(bs);
+      } else {
+        nodes.push(SP().miniSlider('Otomatik Geçiş', () => md.autoNext || 0, (v) => { md.autoNext = Math.round(v); }, {
+          min: 0, max: 120, step: 1, fmt: (v) => (v > 0 ? Math.round(v) + ' ' + tt('sn') : tt('kapalı')),
+        }));
+      }
       /* RASTGELE PAY. Sonraki geçiş aralığa 0..pay arası bir süre ekliyor;
          pay preset başına bir kez çekiliyor. MilkDrop'un varsayılanı 16 sn
-         aralığa 10 sn pay. Aralık kapalıyken anlamı yok, gösterilmiyor. */
-      if ((md.autoNext || 0) > 0) {
+         aralığa 10 sn pay. Aralık kapalıyken ve ölçü kipinde — aralığı
+         müzik veriyor — anlamı yok, gösterilmiyor. */
+      if (!bars && (md.autoNext || 0) > 0) {
         nodes.push(SP().miniSlider('Rastgele Pay', () => md.autoNextRand || 0, (v) => { md.autoNextRand = Math.round(v); }, {
           min: 0, max: 30, step: 1, fmt: (v) => (v > 0 ? '+0–' + Math.round(v) + ' ' + tt('sn') : tt('yok')),
         }));
@@ -751,6 +801,12 @@
         class: 'studio-note dim-hint',
         text: 'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.',
       }));
+      if (bars) {
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Ölçü kipinde tempo görselleştiricinin kendi sesinden kestirilir; BPM kilidi ve tap tempo Tempo ve Otomatik VJ bölümündeki ayardır. Geçiş ölçünün ilk vuruşunda başlar ve süresi en yakın tam vuruşa yuvarlanır, yani bir vuruşun üstünde biter. Tempo bulunamazsa ölçü sayısının iki katı saniyede, en az 4 saniyede bir geçilir.',
+        }));
+      }
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
         text: 'Puan presetin kendi dosyasındaki fRating değeriyle başlar, yoksa 3. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',

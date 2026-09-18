@@ -47,6 +47,7 @@
      devasa bir sayı sayaç aritmetiğini bozmamalı. */
   const MAX_SECONDS = 600;
   const MAX_SPREAD = 600;
+  const MAX_BARS = 64;
   /* Geçiş süresi planlanan ömre giriyor; motor onu 5 saniyede kesiyor
      (modes/milkdrop.js BLEND_MAX), burada da aynı sınır. */
   const MAX_BLEND = 5;
@@ -102,8 +103,15 @@
     const s = Number(m.autoNext);
     const r = Number(m.autoNextRand);
     const b = Number(m.blendTime);
+    /* ARALIK BİRİMİ (#571). Saniyede `autoNext`, ölçüde `autoNextBars`
+       aralığı veriyor; ikisi ayrı alan, çünkü birimi değiştirmek "8 saniye"yi
+       sessizce "8 ölçü"ye çevirmemeli. Seçilmeyen birimin alanı 0 sayılıyor. */
+    const unit = m.autoNextUnit === 'bars' ? 'bars' : 'seconds';
+    const nb = Math.round(Number(m.autoNextBars));
     return {
-      seconds: isFinite(s) && s > 0 ? Math.min(MAX_SECONDS, s) : 0,
+      unit,
+      seconds: unit === 'seconds' && isFinite(s) && s > 0 ? Math.min(MAX_SECONDS, s) : 0,
+      bars: unit === 'bars' && isFinite(nb) && nb > 0 ? Math.min(MAX_BARS, nb) : 0,
       order: ORDERS.indexOf(m.autoOrder) >= 0 ? m.autoOrder : 'sequential',
       spread: isFinite(r) && r > 0 ? Math.min(MAX_SPREAD, r) : 0,
       blend: isFinite(b) && b > 0 ? Math.min(MAX_BLEND, b) : 0,
@@ -115,6 +123,19 @@
          plugin.cpp:509). */
       useRatings: m.useRatings !== false,
     };
+  }
+
+  /* ÖLÇÜ KİPİNDE GEÇİŞ TAM VURUŞ SÜRÜYOR (#571): ölçünün ilk vuruşunda
+     başlıyor ve bir vuruşun üstünde bitiyor. Ayardaki süre en yakın vuruş
+     sayısına yuvarlanıyor (en az bir) ve motorun 5 sn sınırını aşmıyor.
+     0 — sert kesme — olduğu gibi kalıyor. */
+  function beatBlend(blend, bpm) {
+    if (!(blend > 0)) return 0;
+    if (!(bpm > 0)) return Math.min(MAX_BLEND, blend);
+    const period = 60 / bpm;
+    let k = Math.max(1, Math.round(blend / period));
+    while (k > 1 && k * period > MAX_BLEND) k--;
+    return Math.min(MAX_BLEND, k * period);
   }
 
   /* Sıradaki preset. `currentId` listede yoksa (yerleşik varsayılan
@@ -182,11 +203,26 @@
       /* Son dönen seçim sert geçiş miydi. Motor geçiş süresini buna göre
          seçiyor: sert geçiş karışmadan olur. */
       this.cut = false;
+      /* Ölçü kipi (#571): son geçişten bu yana sayılan ölçü başları, son
+         seçimin vuruşa yuvarlanmış geçiş süresi (null = ayardaki süre) ve
+         son karenin vuruş bilgisi (kalan süre ve `progress` için). */
+      this.barCount = 0;
+      this.blend = null;
+      this.beat = null;
     }
 
     reset() {
       this.elapsed = 0;
       this.jitter = null;
+      this.barCount = 0;
+    }
+
+    /* Ölçü kipinde planlanan ömür: tempo varsa N ölçünün süresi, yoksa
+       yedek kuralın süresi (aşağıda). */
+    _barsDue(o) {
+      const b = this.beat;
+      if (b && b.bpm > 0) return o.bars * (b.beatsPerBar > 0 ? b.beatsPerBar : 4) * 60 / b.bpm;
+      return Math.max(4, o.bars * 2);
     }
 
     /* Presetin planlanan ömrü. Pay yoksa rastgele sayı hiç çekilmiyor:
@@ -243,15 +279,19 @@
        `rel` sert geçişin baktığı { bass, mid, treb } (uzun ortalamaya göre;
        yoksa sert geçiş bu kare bakmıyor), `ratings` kullanıcının verdiği
        puanlar (`milkdropLibrary.ratings`; sahneye ait değil, o yüzden `md`
-       içinde değil). Dönüşten sonra `this.cut` o seçimin sert geçiş olup
-       olmadığını söylüyor. */
-    step(dt, md, list, currentId, rel, ratings) {
+       içinde değil), `beat` ölçü kipinde vuruş bilgisi { bpm, onBar,
+       beatsPerBar } (tempo yoksa bpm 0). Dönüşten sonra `this.cut` o
+       seçimin sert geçiş olup olmadığını, `this.blend` vuruşa yuvarlanmış
+       geçiş süresini söylüyor. */
+    step(dt, md, list, currentId, rel, ratings, beat) {
       const o = normalize(md);
       o.ratings = ratings && typeof ratings === 'object' ? ratings : null;
       const n = Array.isArray(list) ? list.length : 0;
       const d = Math.max(0, Number(dt) || 0);
       const hard = o.hardCut !== 'off';
       this.cut = false;
+      this.blend = null;
+      this.beat = beat || null;
       /* Sert geçiş kapatılınca eşik unutuluyor: yeniden açıldığında bir
          önceki patlamanın yüksek eşiğiyle değil, baştan (iki kat) başlıyor.
          MilkDrop'ta açıp kapamak bir .ini ayarı; bizde canlı bir düğme. */
@@ -259,18 +299,41 @@
       /* Kapalıyken, liste boşken ve tek presetliyken sayaç SIFIRLANIYOR:
          aksi hâlde ayar açılır açılmaz birikmiş süre yüzünden anında bir
          geçiş olurdu ve kullanıcı aralığı hiç görmezdi. */
-      if (!o.seconds && !hard) { this.elapsed = 0; this.reason = 'OFF'; return null; }
-      if (!n) { this.elapsed = 0; this.reason = 'EMPTY'; return null; }
+      if (!o.seconds && !o.bars && !hard) { this.elapsed = 0; this.barCount = 0; this.reason = 'OFF'; return null; }
+      if (!n) { this.elapsed = 0; this.barCount = 0; this.reason = 'EMPTY'; return null; }
       /* Tek preset: kendine geçmek preseti baştan başlatır, yani ekranda
          geçiş değil takılma görünür. */
-      if (n === 1) { this.elapsed = 0; this.reason = 'ALONE'; return null; }
+      if (n === 1) { this.elapsed = 0; this.barCount = 0; this.reason = 'ALONE'; return null; }
       /* KİLİT. MilkDrop başlangıcı da bitişi de kare süresi kadar ötelediği
          için kalan süre ve `progress` donuyor — sayacın durması aynı şey.
          Kilit açılınca kalan süre kaldığı yerden sayıyor. Sert geçiş
          kilitteyken hiç değerlendirilmiyor, eşik de dokunulmadan kalıyor. */
       if (o.locked) { this.reason = 'LOCKED'; return null; }
       const loud = hard && this._hard(d, o, rel);
-      if (o.seconds) {
+      let waiting = 'ARMED';
+      if (o.bars) {
+        /* ÖLÇÜ KİPİ (#571). Ölçü başları sayılıyor ve N'incisinde, o karede —
+           yani ilk vuruşun üstünde — geçiliyor; geçiş süresi tam vuruşa
+           yuvarlanıyor, böylece bir vuruşun üstünde bitiyor. Tempo yoksa
+           ölçü sayılamaz: Otomatik VJ'nin kuralıyla zamana düşülüyor, ölçü
+           sayısının iki katı saniye, en az 4 sn (admin/autovj.js), ve bu
+           durum NOTEMPO diye söyleniyor. Rastgele pay bu kipte yok: aralığı
+           müzik veriyor. */
+        this.elapsed += d;
+        const tempo = !!beat && Number(beat.bpm) > 0;
+        if (tempo && beat.onBar) this.barCount++;
+        const due = tempo ? this.barCount >= o.bars : this.elapsed >= Math.max(4, o.bars * 2);
+        if (due) {
+          this.elapsed = 0;
+          this.barCount = 0;
+          this.jitter = null;
+          const p = this._pick(list, currentId, o);
+          if (p && tempo) this.blend = beatBlend(o.blend, Number(beat.bpm));
+          this.reason = !p ? 'EMPTY' : (tempo ? 'OK' : 'NOTEMPO');
+          return p;
+        }
+        waiting = tempo ? 'WAIT' : 'NOTEMPO';
+      } else if (o.seconds) {
         this.elapsed += d;
         if (this.elapsed >= this._due(o)) {
           this.elapsed = 0;
@@ -279,6 +342,7 @@
           this.reason = p ? 'OK' : 'EMPTY';
           return p;
         }
+        waiting = 'WAIT';
       } else {
         this.elapsed = 0;
       }
@@ -287,18 +351,20 @@
         if (p) {
           this.elapsed = 0;
           this.jitter = null;
+          this.barCount = 0;
           this.cut = true;
           this.reason = 'CUT';
           return p;
         }
       }
-      this.reason = o.seconds ? 'WAIT' : 'ARMED';
+      this.reason = waiting;
       return null;
     }
 
     // Sıradaki geçişe kalan saniye (panelin durum satırı için)
     remaining(md) {
       const o = normalize(md);
+      if (o.bars) return Math.max(0, this._barsDue(o) - this.elapsed);
       if (!o.seconds) return 0;
       return Math.max(0, this._due(o) - this.elapsed);
     }
@@ -317,6 +383,10 @@
        sönüyordu. */
     progress(md) {
       const o = normalize(md);
+      if (o.bars) {
+        const due = this._barsDue(o);
+        return due > 0 ? this.elapsed / due : 0;
+      }
       if (!o.seconds) return 0;
       const due = this._due(o);
       return due > 0 ? this.elapsed / due : 0;
@@ -374,7 +444,7 @@
   }
 
   const api = {
-    normalize, pick, Cycle, History, ORDERS, MAX_SECONDS, MAX_SPREAD, HARD_CUTS,
+    normalize, pick, Cycle, History, ORDERS, MAX_SECONDS, MAX_SPREAD, MAX_BARS, HARD_CUTS, beatBlend,
     HARD_THRESHOLD, HARD_HALFLIFE, RATING_DEFAULT, fileRating, ratingOf,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

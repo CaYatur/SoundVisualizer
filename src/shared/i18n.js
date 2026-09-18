@@ -1488,6 +1488,11 @@
       'When bass, mid and treble, each against its own long average, together exceed three times the threshold, the preset changes with no blend. The threshold doubles on every cut and then returns to its base, so a run of bursts does not become a run of cuts. The rule and the defaults are MilkDrop 2\'s (2.5 and 60 s); as there, the threshold\'s excess falls to a quarter by the end of the recovery time.',
     'Zamanlama MilkDrop 2\'ninki: aralık, geçiş bittikten sonra sayılmaya başlar ve rastgele pay her presette bir kez çekilir. Kilit otomatik geçişi ve sert geçişi durdurur; açılınca kalan süre kaldığı yerden sayar.':
       'The timing is MilkDrop 2\'s: the interval starts counting once the transition has finished, and the random spread is drawn once per preset. The lock stops auto advance and hard cuts; when released, the remaining time carries on from where it stopped.',
+    /* Ölçüye bağlı geçiş (#571) */
+    'Ölçü sayacı görselleştirici açıkken burada görünür.': 'The bar counter shows here while the visualizer is open.',
+    'Tempo bulunamadı: ölçüler sayılamıyor, geçiş zamana düştü.': 'No tempo found: bars cannot be counted, so changes fall back to time.',
+    'Ölçü kipinde tempo görselleştiricinin kendi sesinden kestirilir; BPM kilidi ve tap tempo Tempo ve Otomatik VJ bölümündeki ayardır. Geçiş ölçünün ilk vuruşunda başlar ve süresi en yakın tam vuruşa yuvarlanır, yani bir vuruşun üstünde biter. Tempo bulunamazsa ölçü sayısının iki katı saniyede, en az 4 saniyede bir geçilir.':
+      'In bars the tempo is estimated from the visualizer\'s own audio; the BPM lock and tap tempo are the setting in Tempo & Auto VJ. A change starts on the first beat of a bar and its transition is rounded to whole beats, so it ends on a beat. With no tempo found, the preset changes every twice as many seconds as bars, and at least every 4 seconds.',
     /* Puan ve geçmiş (#569) */
     'Puan': 'Rating',
     'Puana Göre': 'By Rating',

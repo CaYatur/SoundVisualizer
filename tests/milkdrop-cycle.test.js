@@ -140,7 +140,7 @@ test('bozuk ayar değerleri güvenli', () => {
   /* Boş ayar: geçiş yok, kilit yok, sert geçiş kapalı ve MilkDrop 2'nin
      eşik varsayılanları (#568). */
   assert.deepStrictEqual(C.normalize({}), {
-    seconds: 0, order: 'sequential', spread: 0, blend: 0, locked: false,
+    unit: 'seconds', seconds: 0, bars: 0, order: 'sequential', spread: 0, blend: 0, locked: false,
     hardCut: 'off', threshold: 2.5, halfLife: 60, useRatings: true,
   });
   assert.strictEqual(C.normalize(null).seconds, 0);
@@ -167,7 +167,8 @@ test('varsayılan sıra "sırayla"; eski ayar dosyası da alıyor', () => {
 const MODE = bare(read('src/visualizer/modes/milkdrop.js'));
 
 test('motor: seçim o karenin preset yüklemesinden ÖNCE yapılıyor', () => {
-  const a = MODE.indexOf('this._autoCycle(cfg, step);');
+  // Üçüncü argüman ölçü kipinin tempo kestirimine giden ses (#571)
+  const a = MODE.indexOf('this._autoCycle(cfg, step, audio);');
   const e = MODE.indexOf('this._ensurePreset(cfg);');
   assert.ok(a > 0, '_autoCycle çağrılmıyor');
   assert.ok(e > a, 'seçim yüklemeden sonra kalırsa geçiş bir kare gecikir');
@@ -177,11 +178,11 @@ test('motor: otomatik seçim AYARA YAZILMIYOR', () => {
   /* Her yapılandırma gönderimi settings.json'ı senkron yeniden yazıyor ve
      `.milk` kaynağı onlarca kilobayt: iki saniyede bir geçiş dakikada otuz
      tam dosya yazımı olurdu. */
-  const fn = /_autoCycle\(cfg, step\) \{[\s\S]*?\n    \}/.exec(MODE);
+  const fn = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE);
   assert.ok(fn, '_autoCycle bulunamadı');
-  /* Beşinci argüman sert geçişin baktığı bantlar (#568); ayar yine yalnız
-     okunuyor. */
-  assert.match(fn[0], /this\.cycle\.step\(step, md, list, cur, this\._rel, lib\.ratings\)/);
+  /* Beşinci argüman sert geçişin baktığı bantlar (#568), yedincisi ölçü
+     kipinin vuruş bilgisi (#571); ayar yine yalnız okunuyor. */
+  assert.match(fn[0], /this\.cycle\.step\(step, md, list, cur, this\._rel, lib\.ratings, beat\)/);
   /* Kilit ve puanlar sahnenin değil gösterinin; `md` yalnız kilitliyken
      kopyalanıyor ve ayarın kendisine yazılmıyor. */
   assert.match(fn[0], /const md = ctl\.locked === true \? Object\.assign\(\{\}, cfg\.milkdrop, \{ locked: true \}\) : cfg\.milkdrop;/);
@@ -203,7 +204,7 @@ test('motor: elle seçim otomatiği ezer ve sayacı sıfırlar', () => {
 test('motor: önizleme yalnız AYNI elle seçimin üstündeki seçimi izliyor', () => {
   /* Elle seçimden hemen sonra yolda eski bir ölçer mesajı olabilir; onu
      izlemek yeni preseti eskisine geri harmanlardı. */
-  const fn = /_autoCycle\(cfg, step\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
+  const fn = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(fn, /F\.base === \(this\._manualKey \|\| ''\)/);
   assert.match(fn, /\(performance\.now\(\) - F\.at\) < FOLLOW_MS/);
   assert.match(MODE, /livePreset\(\) \{[\s\S]*?base: this\._manualKey \|\| ''/);

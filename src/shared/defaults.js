@@ -607,6 +607,14 @@
          hardCutThreshold / hardCutHalfLife — MilkDrop'un
            fHardCutLoudnessThresh (2,5) ve fHardCutHalflife (60). */
       autoNextRand: 0,
+      /* ARALIK BİRİMİ (#571). 'seconds' | 'bars'. Ölçüde aralığı
+         autoNextBars veriyor (0 = kapalı); tempo görselleştiricinin kendi
+         sesinden kestiriliyor, kilidi Otomatik VJ'nin BPM kilidi. Birimi
+         değiştirmek "8 saniye"yi "8 ölçü"ye çevirmesin diye iki ayrı alan.
+         Aralık görünüşün parçası: kilit ve puanlar gibi ayrı bir bloğa
+         değil, sahneyle birlikte kaydedilen bu bloğa ait. */
+      autoNextUnit: 'seconds',
+      autoNextBars: 8,
       hardCut: 'off',
       hardCutThreshold: 2.5,
       hardCutHalfLife: 60,

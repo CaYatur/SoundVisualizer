@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1815%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1829%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -311,6 +311,15 @@ that asserts the bar profile has no step in it.
   and internal resolution. The last two only ever take the panel's own values: a knob's travel is
   split into equal steps, because every value in between would rebuild the mesh or the frame
   buffers.
+- **Preset changes on the bar.** Auto advance can count bars instead of seconds: every *n* bars, the
+  preset changes on the first beat of a bar, and the transition is rounded to whole beats so it
+  also ends on a beat (1.7 s at 120 BPM becomes three beats, 1.5 s). The tempo is estimated from
+  the visualizer's own audio, not the panel's — the panel's loop stops while the visualizer covers
+  it, which is why auto advance runs in the visualizer in the first place — and the BPM lock and
+  tap tempo are the ones in Tempo & Auto VJ, so there is one tempo lock in the application, not
+  two. With no tempo to be found the change falls back to time the way Auto VJ does, every twice
+  as many seconds as bars and at least every 4 s, and the panel says so; otherwise it shows the
+  visualizer's BPM and bar count.
 - **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
   the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
   vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
@@ -1124,7 +1133,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1815 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1829 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

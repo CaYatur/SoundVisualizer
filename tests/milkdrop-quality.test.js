@@ -101,7 +101,10 @@ test('motor: geçiş süresi 5 saniyeyle sınırlanıyor', () => {
      da verilebiliyor. Sınır var, çünkü geçiş boyunca İKİ presetin
      denklemleri koşuyor. */
   assert.match(CODE, /const BLEND_MAX = 5;/);
-  assert.match(CODE, /Math\.max\(0, Math\.min\(BLEND_MAX, \+c\.blendTime/);
+  /* Ölçü kipinde süre vuruşa yuvarlanmış olarak otomatik seçimden de
+     gelebiliyor (#571); sınır iki durumda da uygulanıyor. */
+  assert.match(CODE, /const want = a && typeof a\.blend === 'number' \? a\.blend : \+c\.blendTime \|\| 0;/);
+  assert.match(CODE, /Math\.max\(0, Math\.min\(BLEND_MAX, want\)\)/);
 });
 
 test('motor: ilk yüklemede geçiş başlamıyor', () => {

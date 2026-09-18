@@ -275,10 +275,10 @@ const MODE = bare(read('src/visualizer/modes/milkdrop.js'));
 test('motor: sert geçiş karışmadan yükleniyor', () => {
   const fn = /_ensurePreset\(cfg\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(fn, /const cutNow = a \? a\.cut : \(!!cutTo && cutTo === c\.presetId\);/);
-  assert.match(fn, /const bt = cutNow \? 0 : Math\.max\(0, Math\.min\(BLEND_MAX, \+c\.blendTime \|\| 0\)\);/);
-  const ac = /_autoCycle\(cfg, step\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
-  assert.match(ac, /cut: this\.cycle\.cut \}/);
-  assert.match(ac, /cut: !!F\.cut \}/, 'önizleme de karışmadan izlemeli');
+  assert.match(fn, /const bt = cutNow \? 0 : Math\.max\(0, Math\.min\(BLEND_MAX, want\)\);/);
+  const ac = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
+  assert.match(ac, /cut: this\.cycle\.cut,/);
+  assert.match(ac, /cut: !!F\.cut,/, 'önizleme de karışmadan izlemeli');
   assert.match(MODE, /livePreset\(\) \{[\s\S]*?cut: !!\(a && a\.cut\)/);
 });
 

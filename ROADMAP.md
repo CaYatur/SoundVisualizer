@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1815 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1829 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 218
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 232
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1166,6 +1166,21 @@ rest after. No version number yet.
   `fRating` edit that keeps the length. 19 tests; the panel was also driven
   end to end in an isolated copy — ◀/▶, the stars, the lock, and auto-advance
   picks entering the history with the visualizer open.
+- **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
+  advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
+  seconds: every n bars the preset changes on the first beat of a bar, and
+  the transition is rounded to whole beats so it ends on one (1.7 s at 120
+  BPM → 1.5 s). The tempo is estimated in the visualizer from its own audio,
+  since the panel's loop stops while the visualizer covers it; `tempo.js` now
+  loads in the visualizer, exporter and overlay pages, and the clock is the
+  engine's step, so an export counts bars in video time. The BPM lock and
+  beats per bar are Auto VJ's (`autovj.bpmLock`, `beatsPerBar`) — the one
+  tempo lock, which tap tempo writes. With no tempo, the change falls back to
+  Auto VJ's rule, 2n seconds and at least 4, and reports NOTEMPO; the panel's
+  bar readout comes from the visualizer, not a second estimate. Measured in
+  the engine with a 120 BPM signal: changes every 4.00 s for 2 bars, each
+  blending 1.495 s (44 frames at 30 fps). 14 tests, including the real tempo
+  estimator giving the same switch frames twice.
 - **MilkDrop on MIDI and OSC (#570)** · done. Seven actions — next, previous,
   random, cut now, lock, rating up and down — run the panel's own functions,
   so a controller walks the same history and uses the same rating weights
