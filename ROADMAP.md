@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1865 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1877 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 268
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 280
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1234,6 +1234,27 @@ rest after. No version number yet.
   again — 5.3 pictures per sample with it on. It lives in `milkdropControl`,
   outside scenes. Per-frame randomness (`rand_frame`, `rot_rand`) still
   differs between screens. 12 tests, two engines side by side among them.
+- **The lights can take MilkDrop's colors (#589)** · done. Asked for in
+  use: the lights followed the background or the theme, and the sampled
+  palette came from background layers only. A new color source, `milkdrop`,
+  fills that palette from MilkDrop's current frame instead — shrunk to 64×16
+  and cut into eight slices from left to right, each slice's color averaged
+  with weights of brightness squared so a small bright detail on a dark
+  background still counts, its hue kept and its brightest channel brought
+  to full, since the lighting mode sets the brightness. Because it fills the
+  same palette, the modes tied to the background follow MilkDrop too, and
+  with no MilkDrop in the stack it falls back to the background. It is
+  read for any light output that is on — Dynamic Lighting, OpenRGB or
+  Art-Net — and the MilkDrop panel has a shortcut that keeps the previous
+  source and restores it. OpenRGB now takes the sampled palette the way
+  Dynamic Lighting does, through one shared helper; it used to draw the
+  configured gradient. Measured in an isolated copy over Art-Net sent to
+  localhost, with a picture red on the left and blue on the right: the
+  first four of eight fixtures red and the last four blue; before, all
+  eight showed the fallback color and the panel received no palette. The
+  window ran at 75.2 Hz with the sampling and 75.0 Hz without. 12 tests,
+  the sampler through a fake canvas and Art-Net's channels through its own
+  code.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

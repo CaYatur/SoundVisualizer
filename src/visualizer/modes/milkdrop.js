@@ -518,6 +518,18 @@ void main(){ outColor = vCol; }`;
     return next;
   }
 
+  /* Işık rengi (#589): tonu ve doygunluğu koruyup en parlak kanalı tama
+     çekiyor. Işığın parlaklığını ışık kipi sesle belirliyor; görüntünün
+     koyu olması rengini söndürmemeli. Neredeyse siyah dilim siyah kalıyor:
+     gürültünün tonunu parlatmak renk uydurmak olurdu. */
+  function vividHex(r, g, b) {
+    const m = Math.max(r, g, b);
+    if (!(m >= 8)) return '#000000';
+    const k = 255 / m;
+    const h = (v) => Math.min(255, Math.round(v * k)).toString(16).padStart(2, '0');
+    return '#' + h(r) + h(g) + h(b);
+  }
+
   // Dizgeden 32 bitlik tohum (FNV-1a): elle seçimin tohumu.
   function hashSeed(str) {
     let h = 2166136261;
@@ -4669,6 +4681,52 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        Preset yoksa ya da `monitor` hiç yazılmamışsa `null` dönüyor —
        0 dönmek "preset sıfır yazdı" ile "kimse yazmadı"yı aynı gösterirdi
        ve panelde ikisi çok farklı şeyler. */
+    /* IŞIKLARA MILKDROP RENKLERİ (#589). Işıklar arkaplanın ya da temanın
+       renklerini alabiliyordu ama MilkDrop'unkini değil: arkaplan paleti
+       yalnız arkaplan katmanlarından okunuyor.
+
+       Çizilen kare 64x16'ya küçültülüyor (tarayıcının kutu süzgeci, gerçek
+       ortalama) ve soldan sağa `n` dilime bölünüyor. Dilimin rengi
+       parlaklığın KARESİYLE ağırlıklı ortalama: koyu bir arkaplanın
+       üstündeki küçük ama parlak ayrıntı düz ortalamada griye boğulurdu.
+       Geri okunan 64x16 piksel — tam kare değil — ve yalnız ışık bu kaynağı
+       istediğinde, ~30 Hz ölçer mesajında. */
+    sampleColors(n) {
+      const src = this.canvas;
+      if (!src || !src.width || !src.height || typeof document === 'undefined') return [];
+      const cols = Math.max(1, Math.min(16, Math.round(n) || 8));
+      const SW = 64, SH = 16;
+      if (!this._colorCanvas) {
+        const c = document.createElement('canvas');
+        c.width = SW;
+        c.height = SH;
+        this._colorCanvas = c;
+      }
+      const x = this._colorCanvas.getContext('2d');
+      if (!x) return [];
+      x.imageSmoothingEnabled = true;
+      x.imageSmoothingQuality = 'high';
+      x.clearRect(0, 0, SW, SH);
+      x.drawImage(src, 0, 0, SW, SH);
+      const d = x.getImageData(0, 0, SW, SH).data;
+      const out = new Array(cols);
+      for (let k = 0; k < cols; k++) {
+        const x0 = Math.floor((k * SW) / cols);
+        const x1 = Math.max(x0 + 1, Math.floor(((k + 1) * SW) / cols));
+        let r = 0, g = 0, b = 0, w = 0;
+        for (let y = 0; y < SH; y++) {
+          for (let px = x0; px < x1; px++) {
+            const o = (y * SW + px) * 4;
+            const m = Math.max(d[o], d[o + 1], d[o + 2]);
+            const wt = m * m;
+            r += d[o] * wt; g += d[o + 1] * wt; b += d[o + 2] * wt; w += wt;
+          }
+        }
+        out[k] = w > 0 ? vividHex(r / w, g / w, b / w) : '#000000';
+      }
+      return out;
+    }
+
     monitorValue() {
       const P = this.preset;
       if (!P || !P.pool.has('monitor')) return null;

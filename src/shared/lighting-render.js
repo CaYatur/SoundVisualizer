@@ -213,6 +213,12 @@
 
     function sourceColor(source, position, value, time, lighting, visualConfig) {
       const saturation = clamp(lighting.saturation, 0, 1.5);
+      /* MilkDrop görüntüsü (#589): görselleştirici örneklenmiş paleti bu
+         kaynakta MilkDrop'un o anki karesinden dolduruyor, yani geri kalan
+         her şey arkaplan paletinin aynısı. Arkaplana bağlı kipler de
+         (arkaplan senkronu, eşik patlaması, füzyon) böylece MilkDrop'u
+         izliyor. */
+      if (source === 'milkdrop') source = 'background';
       if (source === 'visualizer') {
         const visualizer = visualConfig?.visualizer || {};
         if (visualizer.rainbow) {
@@ -574,7 +580,17 @@
     };
   }
 
-  const api = { createRenderer, DYNAMIC_MODES, STATIC_MODES };
+  /* Görselleştiricinin ölçer karesinde örneklenmiş palet varsa (arkaplan ya
+     da MilkDrop, #589) çizime o veriliyor. Dynamic Lighting ve OpenRGB AYNI
+     yoldan geçiyor: OpenRGB kareden gelen renkleri hiç almıyordu ve
+     arkaplana bağlı kiplerde ayardaki gradyanı çiziyordu. */
+  function withSampledColors(visualConfig, frame) {
+    return frame && Array.isArray(frame.backgroundColors) && frame.backgroundColors.length
+      ? Object.assign({}, visualConfig, { __lightingBackgroundColors: frame.backgroundColors })
+      : visualConfig;
+  }
+
+  const api = { createRenderer, DYNAMIC_MODES, STATIC_MODES, withSampledColors };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLightingRender = api;
 })();

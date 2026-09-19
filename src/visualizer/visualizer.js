@@ -355,8 +355,19 @@
       // palette() gradyan katmanında gl.readPixels kullanır ve GPU işlem
       // hattını senkron olarak bekletir. Yalnızca Dynamic Lighting gerçekten
       // arkaplan renklerini istediğinde çağrılır.
-      const needsBgColors =
-        !!cfg.lighting?.enabled && cfg.lighting?.paletteSource === 'background';
+      /* Kaynak `milkdrop` ise (#589) palet MilkDrop'un o anki
+         görüntüsünden: hangi ışık çıkışı açıksa — Dynamic Lighting, OpenRGB
+         ya da Art-Net — onun için. Yığında MilkDrop yoksa arkaplana
+         düşülüyor, ışık sönmesin. */
+      const lightSrc = cfg.lighting?.paletteSource;
+      const lightsOut = !!cfg.lighting?.enabled || !!cfg.openrgb?.enabled || !!cfg.artnet?.enabled;
+      let backgroundColors = [];
+      if (lightSrc === 'milkdrop' && lightsOut) {
+        backgroundColors = stack.milkdropColors(8);
+        if (!backgroundColors.length) backgroundColors = stack.palette(cfg);
+      } else if (!!cfg.lighting?.enabled && lightSrc === 'background') {
+        backgroundColors = stack.palette(cfg);
+      }
       /* Sayfanın o an çizdiği preset tanı için de saklanıyor (#585): her
          ekranın aynı preseti gösterip göstermediği buradan okunuyor. */
       const mdPreset = stack.milkdropPreset();
@@ -367,7 +378,7 @@
         mid: audio.mid,
         treble: audio.treble,
         time: now / 1000,
-        backgroundColors: needsBgColors ? stack.palette(cfg) : [],
+        backgroundColors,
         ready: audio.ready,
         /* MilkDrop presetinin `monitor` değişkeni. Yeni bir IPC kanalı
            açmak yerine bu ~30 Hz mesaja biniyor: değer yazar aracı, kare

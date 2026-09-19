@@ -1528,6 +1528,16 @@
       return null;
     }
 
+    /* O an çizilen MilkDrop görüntüsünün renkleri, soldan sağa (#589).
+       Işıklar bunları arkaplan paleti yerine alıyor. Yığında MilkDrop yoksa
+       boş dizi: çağıran arkaplanın renklerine düşüyor. */
+    milkdropColors(n) {
+      for (const e of this.entries) {
+        if (e.mode && typeof e.mode.sampleColors === 'function') return e.mode.sampleColors(n);
+      }
+      return [];
+    }
+
     /* Yüklenmekte olan dokular (#586). Yalnız dışa aktarıcı soruyor: bir
        sonraki kareyi çizmeden önce bekliyor, böylece dokunun hangi karede
        yerleştiği diskin hızına değil kare sırasına bağlı kalıyor. Geçişte

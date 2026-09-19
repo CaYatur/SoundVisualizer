@@ -503,6 +503,35 @@
       text: 'Ölçüt WCAG 2.3.1\'in genel flaş tanımı: bağıl parlaklıkta 0,10\'dan büyük ve saniyede üçten fazla değişim. Ölçüldü: presetlerin %90\'ı bu eşiğin altında kalıyor ve hiç etkilenmiyor; sınırlama yalnızca kalan %10\'da devreye giriyor ve orada da kesme değil oranlama yapıyor — eşiği on kat aşan bir flaş onda bir geçiyor. Sınır kare başına değil saniye başına tutuluyor: 30 fps\'te kare başına 0,10, 60 Hz\'lik ekranda 0,05 — yenileme hızı yüksek bir ekranda da aynı sıkılıkta.',
     }));
 
+    /* IŞIK RENKLERİ (#589). Işıklar arkaplanın ya da temanın renklerini
+       alıyordu, MilkDrop'unkini değil. Buradaki seçim Aydınlatma
+       bölümündeki Renk Kaynağı'nın kısayolu: MilkDrop seçilince önceki
+       kaynak saklanıyor, geri dönülünce o geri geliyor. */
+    const light = cfg.lighting || (cfg.lighting = {});
+    nodes.push(P().row('Işık Renkleri', selOf([
+      [0, 'Işık ayarındaki kaynak'],
+      [1, 'MilkDrop görüntüsü (canlı)'],
+    ], light.paletteSource === 'milkdrop' ? 1 : 0, (v) => {
+      if (Number(v) === 1) {
+        if (light.paletteSource !== 'milkdrop') light.paletteSourceSaved = light.paletteSource || 'background';
+        light.paletteSource = 'milkdrop';
+      } else if (light.paletteSource === 'milkdrop') {
+        const back = light.paletteSourceSaved;
+        light.paletteSource = back && back !== 'milkdrop' ? back : 'background';
+      }
+    })));
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır: görüntü soldan sağa sekiz dilime bölünür ve her dilimin parlak bölgelerinin rengi saniyede yaklaşık 30 kez okunur; ışıkların sırası dilimlerin sırasını izler. Işığın parlaklığını yine ışık kipi sesle belirler. Dynamic Lighting, OpenRGB ve Art-Net\'te çalışır; sahnede MilkDrop yoksa arkaplan renklerine döner.',
+    }));
+    if (light.paletteSource === 'milkdrop' && !light.enabled
+        && !(cfg.openrgb && cfg.openrgb.enabled) && !(cfg.artnet && cfg.artnet.enabled)) {
+      nodes.push(el('div', {
+        class: 'studio-note md-err',
+        text: 'Işık çıkışı kapalı: Aydınlatma bölümünden Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.',
+      }));
+    }
+
     /* MILKDROP UYUMLULUĞU. Motorun ölçülebilir uyum hataları düzeltildi ve
        düzeltilmiş değerler varsayılan. Anahtar yalnızca DEĞERLERİ geri
        alıyor — shader'lar, dokular ve doku birimleri iki durumda da aynı;

@@ -22,7 +22,7 @@
 
 const net = require('net');
 const P = require('../shared/openrgb-protocol.js');
-const { createRenderer, DYNAMIC_MODES } = require('../shared/lighting-render.js');
+const { createRenderer, DYNAMIC_MODES, withSampledColors } = require('../shared/lighting-render.js');
 
 const renderer = createRenderer();
 const DEFAULT_PORT = 6742;
@@ -306,6 +306,9 @@ function send(cfg, rawLighting, frame, visualConfig) {
   if (socket.writableLength > 64 * 1024) return;
   lastSendAt = now;
 
+  /* Görselleştiricinin örneklediği palet (arkaplan ya da MilkDrop, #589):
+     Dynamic Lighting ile aynı yoldan. Eskiden OpenRGB bunu hiç almıyordu. */
+  const renderConfig = withSampledColors(visualConfig, frame);
   const st = renderer.updateAnimation(frame, lighting, visualConfig, now);
   const bars = Array.isArray(frame && frame.bars) && frame.bars.length
     ? frame.bars.map((v) => renderer.clamp(v))
@@ -323,7 +326,7 @@ function send(cfg, rawLighting, frame, visualConfig) {
       const position = renderer.layoutPosition(
         lighting, d, i, { lampCount: count }, globalIndex, totalLeds, devices.length
       );
-      const hex = renderer.renderPixel(lighting.mode, position, bars, lighting, visualConfig, st);
+      const hex = renderer.renderPixel(lighting.mode, position, bars, lighting, renderConfig, st);
       colors[i] = renderer.scaleHex(hex, gain);
       globalIndex++;
     }

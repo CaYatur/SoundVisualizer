@@ -198,6 +198,7 @@
     'Bas · Mid · Tiz Renkleri': 'Bass · Mid · Treble Colors',
     'Tam Spektrum Gökkuşağı': 'Full-Spectrum Rainbow',
     'Birincil · İkincil Renk': 'Primary · Secondary Colors',
+    'MilkDrop Görüntüsü (Canlı)': 'MilkDrop Picture (Live)',
     'Frekans Renkleri ve Hassasiyet': 'Frequency Colors and Sensitivity',
     'Bas Rengi': 'Bass Color', 'Orta Frekans Rengi': 'Mid Color', 'Tiz Rengi': 'Treble Color',
     'Bas Hassasiyeti': 'Bass Sensitivity', 'Orta Frekans Hassasiyeti': 'Mid Sensitivity', 'Tiz Hassasiyeti': 'Treble Sensitivity',
@@ -1498,6 +1499,14 @@
     'Puana Göre': 'By Rating',
     'Açık (MilkDrop gibi)': 'On (as in MilkDrop)',
     'Kapalı (eşit olasılık)': 'Off (equal chance)',
+    /* Işık renkleri MilkDrop'tan (#589) */
+    'Işık Renkleri': 'Light Colors',
+    'Işık ayarındaki kaynak': 'Source set in Lighting',
+    'MilkDrop görüntüsü (canlı)': 'MilkDrop picture (live)',
+    'MilkDrop görüntüsü seçiliyken ışıklar rengini o anki kareden alır: görüntü soldan sağa sekiz dilime bölünür ve her dilimin parlak bölgelerinin rengi saniyede yaklaşık 30 kez okunur; ışıkların sırası dilimlerin sırasını izler. Işığın parlaklığını yine ışık kipi sesle belirler. Dynamic Lighting, OpenRGB ve Art-Net\'te çalışır; sahnede MilkDrop yoksa arkaplan renklerine döner.':
+      'With the MilkDrop picture selected, the lights take their color from the current frame: the picture is cut into eight slices from left to right and the color of each slice\'s bright areas is read about 30 times a second; the order of the lights follows the order of the slices. The lighting mode still sets the brightness from the audio. Works with Dynamic Lighting, OpenRGB and Art-Net; with no MilkDrop in the scene it falls back to the background colors.',
+    'Işık çıkışı kapalı: Aydınlatma bölümünden Dynamic Lighting, OpenRGB ya da Art-Net\'i açın.':
+      'No light output is on: turn on Dynamic Lighting, OpenRGB or Art-Net in the Lighting section.',
     /* Her ekranda aynı preset (#585) */
     'Hepsinde aynı preset': 'Same preset on all',
     'Her ekran kendi seçer': 'Each display picks its own',

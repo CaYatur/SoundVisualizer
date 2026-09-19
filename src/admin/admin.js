@@ -1463,6 +1463,8 @@
         { value: 'bands', label: 'Bas · Mid · Tiz Renkleri' },
         { value: 'rainbow', label: 'Tam Spektrum Gökkuşağı' },
         { value: 'custom', label: 'Birincil · İkincil Renk' },
+        // MilkDrop'un o anki görüntüsü (#589): palet her ~30 Hz'te kareden
+        { value: 'milkdrop', label: 'MilkDrop Görüntüsü (Canlı)' },
       ]));
     }
 

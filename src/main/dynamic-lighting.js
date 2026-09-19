@@ -6,7 +6,7 @@ const path = require('path');
 /* Renk hesabı OpenRGB ile ORTAKTIR — bkz. src/shared/lighting-render.js.
    Kendi animasyon durumumuzu alıyoruz ki iki tüketici aynı karede
    zamanlayıcıyı iki kez ilerletmesin. */
-const { createRenderer, DYNAMIC_MODES, STATIC_MODES } = require('../shared/lighting-render.js');
+const { createRenderer, DYNAMIC_MODES, STATIC_MODES, withSampledColors } = require('../shared/lighting-render.js');
 const renderer = createRenderer();
 const {
   animation,
@@ -120,9 +120,7 @@ function onAudioFrame(frame, visualConfig) {
   animation.lastFrameAt = now;
 
   const state = updateAnimation(frame, lighting, visualConfig, now);
-  const renderConfig = Array.isArray(frame?.backgroundColors) && frame.backgroundColors.length
-    ? { ...visualConfig, __lightingBackgroundColors: frame.backgroundColors }
-    : visualConfig;
+  const renderConfig = withSampledColors(visualConfig, frame);
   const bars = Array.isArray(frame?.bars) && frame.bars.length
     ? frame.bars.map((value) => clamp(value))
     : [state.bands.bass, state.bands.mid, state.bands.treble];

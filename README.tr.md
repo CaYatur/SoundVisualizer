@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1865%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1877%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -337,6 +337,16 @@ profilinde basamak olmadığını doğruluyor.
   düz renk olarak çizen presetler piksel piksel aynıydı. Önceden altı yüzey örnek başına ortalama
   5,7 farklı görüntü veriyordu. MilkDrop › Ekranlar › Her ekran kendi seçer ayrı sıraları geri
   getiriyor. Her karede çekilen rastgelelik (`rand_frame`) ekrandan ekrana hâlâ farklı.
+- **Işıklar MilkDrop'un renklerini alabiliyor.** Işıklar arkaplanı ya da temayı izleyebiliyordu,
+  MilkDrop'un çizdiğini değil. Yeni renk kaynağı MilkDrop görüntüsü (canlı) — Aydınlatma › Renk
+  Kaynağı'nda ya da doğrudan MilkDrop panelinde — o anki kareyi saniyede yaklaşık 30 kez okuyor:
+  kare 64×16'ya küçültülüp soldan sağa sekiz dilime bölünüyor; her dilimin rengi parlaklıkla
+  ağırlıklı, yani koyu arkaplandaki küçük ama parlak bir ayrıntı da sayılıyor; ton korunuyor,
+  parlaklığı ışık kipi belirliyor. Dynamic Lighting, OpenRGB ve Art-Net üçü de alıyor; OpenRGB de
+  örneklenmiş paleti artık Dynamic Lighting'le aynı biçimde kullanıyor, eskiden ayardaki gradyanı
+  çiziyordu. Art-Net üzerinden, solu kırmızı sağı mavi bir görüntüyle ölçüldü: sekiz armatürün ilk
+  dördü kırmızı, son dördü mavi; önceden sekizi de yedek rengi gösteriyordu. Pencere örneklemeyle
+  75,2 Hz, örneklemesiz 75,0 Hz'te çalıştı.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1156,7 +1166,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1865 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1877 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

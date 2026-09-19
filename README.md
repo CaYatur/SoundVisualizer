@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1865%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1877%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -344,6 +344,16 @@ that asserts the bar profile has no step in it.
   different pictures per sample on average. MilkDrop › Displays › Each display picks its own brings
   back separate sequences. Randomness drawn every frame (`rand_frame`) still differs from screen to
   screen.
+- **The lights can take MilkDrop's colors.** The lights could follow the background or the theme,
+  not what MilkDrop draws. A new color source, MilkDrop picture (live) — in Lighting › Color Source
+  or straight from the MilkDrop panel — reads the current frame about 30 times a second: shrunk to
+  64×16 and cut into eight slices from left to right, each slice's color weighted by brightness so
+  a small bright detail on a dark background still counts, its hue kept and its brightness left to
+  the lighting mode. Dynamic Lighting, OpenRGB and Art-Net all take it, and OpenRGB now uses the
+  sampled palette the same way Dynamic Lighting does, where it used to draw the configured
+  gradient. Measured over Art-Net with a picture red on the left and blue on the right: the first
+  four of eight fixtures red and the last four blue, where before all eight showed the fallback
+  color; the window ran at 75.2 Hz with the sampling and 75.0 Hz without.
 - **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
   the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
   vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
@@ -1157,7 +1167,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1865 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1877 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
