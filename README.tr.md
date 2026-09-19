@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1850%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1853%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -248,6 +248,13 @@ profilinde basamak olmadığını doğruluyor.
   yayın sunucusundan adıyla, jetonun arkasından alıyor ve sayfaya klasörün yolu değil kısa bir
   özeti gidiyor — ve video dışa aktarımı; dışa aktarım bir sonraki kareyi çizmeden önce dokuyu
   bekliyor, yani aynı iş yine aynı videoyu veriyor.
+- **Flaş sınırlama her ekranda aynı.** Varsayılan olarak açık; görüntünün ortalama parlaklığının
+  ne kadar hızlı değişebileceğini WCAG 2.3.1'in genel flaş değerinde sınırlıyor: ölçüldüğü kare
+  adımında, 30 fps'te, kare başına bağıl parlaklığın 0,10'u. Sınır önceden kare başınaydı, yani
+  hızlı bir ekran flaşı daha hızlı geçiriyordu — saniyede üç kez siyahla beyaz arasında gidip
+  gelen bir presetle ölçüldü: dönem başına salınım panelin 45 fps'lik önizlemesinde 0,714, 74
+  Hz'lik ekranda ise 1,000'dı, flaş hiç kısılmıyordu. Sınır artık saniye başına: önizlemede, 60
+  ve 74 Hz'lik pencerelerde, 35 fps'lik pencerede ve web çıkışında aynı biçimde 0,43–0,49.
 - **Preset geçişi MilkDrop'un çift boru hattı.** Yeni preset yüklenince eskisi durmuyor: kendi
   nesnesi, kendi derlenmiş shader'ları ve kendi saatiyle yaşamaya devam ediyor ve her karede iki
   presetin de kare ve düğüm denklemleri koşuyor. İki warp ağı düğüm düğüm bir rampa boyunca
@@ -1138,7 +1145,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1850 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1853 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

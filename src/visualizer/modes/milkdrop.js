@@ -477,6 +477,25 @@ void main(){ outColor = vCol; }`;
      Ölçüm ve gerekçe FLASH_FRAG'in yanında. */
   const FLASH_THRESH = 0.10;
 
+  /* EŞİK ZAMANA BAĞLI, KAREYE DEĞİL (#588). 0,10 kare arası değişim
+     olarak ölçüldü ve korpus aracı kareleri 1/30 sn adımla çiziyor
+     (scripts/milkdrop-render-rate.js), yani ölçülen şey saniyede 3,0'lık
+     bir parlaklık değişim hızı. Kare başına sabit bir eşik ise saniyede
+     0,10 x fps demek: ekranın yenileme hızı arttıkça sınırlama gevşiyordu.
+
+     Ölçüldü, saniyede 3 kez tam siyah-beyaz geçen bir presetle: dönem
+     başına salınım önizlemede (45 fps) 0,714 iken 74 Hz'lik pencerede
+     1,000'dı — flaş hiç kısılmadan geçiyordu; 60 Hz'de 0,980, web
+     çıkışında 0,918. Eşik artık kare süresiyle orantılı: 30 fps'te yine
+     0,10, 74 Hz'te 0,04. Daha yavaş karelerde 0,10'u AŞMIYOR — yavaş
+     ekranda sınırlama gevşemiyor, olsa olsa sıkılaşıyor. */
+  const FLASH_RATE = FLASH_THRESH * 30;
+
+  // Bu karenin eşiği: kare süresiyle orantılı, 0,10'u aşmıyor.
+  function flashThreshold(step) {
+    return Math.min(FLASH_THRESH, FLASH_RATE * (step > 0 ? step : 1 / 60));
+  }
+
   const AALINE_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -1301,7 +1320,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        `copyTexSubImage2D` tam boy bir kopya ama GPU içinde kalıyor;
        alternatifi ekrana çizmeden önce bir ara dokuya çizip sonra ekrana
        bir daha çizmek olurdu, yani bir tam ekran çizim daha. */
-    _flashPass(gl, fl, GW, GH) {
+    _flashPass(gl, fl, GW, GH, step) {
       const L = this.locFlash;
       // 1. bu karenin ortalaması için mipmap zinciri
       gl.bindTexture(gl.TEXTURE_2D, fl.raw.tex);
@@ -1315,7 +1334,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       gl.bindVertexArray(this.quadVao);
       gl.uniform1i(L.uCur, 0);
       gl.uniform1i(L.uPrev, 1);
-      gl.uniform1f(L.uThresh, FLASH_THRESH);
+      gl.uniform1f(L.uThresh, flashThreshold(step));
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fl.raw.tex);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fl.prev.tex);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -2631,7 +2650,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this._drawCompPass(gl, dst, this.compPreset, ctx);
       }
 
-      if (fl) this._flashPass(gl, fl, GW, GH);
+      if (fl) this._flashPass(gl, fl, GW, GH, step);
 
       const c = this.ctx;
       c.clearRect(0, 0, W, H);

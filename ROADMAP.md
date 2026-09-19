@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1850 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1853 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 253
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 256
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1195,6 +1195,23 @@ rest after. No version number yet.
   export, a few on the live outputs. 15 tests,
   the endpoints among them over real HTTP and WebSocket, path traversal
   included.
+- **Flash limiting holds on every screen (#588)** · done. Found in use: the
+  limiter seemed to work in the panel preview only. Measured in an isolated
+  copy with a preset that flips between black and white three times a
+  second, one window at a time: the limiter ran on every surface — no frame
+  moved more than 0.102 — but its limit was per frame, 0.10 of mean relative
+  luminance, so what it let through per second grew with the frame rate. The
+  swing per cycle was 0.714 in the 45 fps preview, 0.918 on the web overlay,
+  0.980 on a 60 Hz display and 1.000 on a 74 Hz one, where the flash passed
+  as if the limiter were off. The threshold now scales with the frame's
+  duration from the step it was measured at — the corpus tool draws at
+  1/30 s — so 3.0 per second: 0.10 per frame at 30 fps, 0.04 at 74 Hz, and
+  never above 0.10 on a slower screen. After the change the swing is
+  0.43–0.49 on all five surfaces and the largest change within 100 ms
+  0.28–0.32, against 0.30 expected. The limiter is still a limit on the rate
+  of change, not a count of flashes: a strobe faster than three a second
+  still gets through, at reduced amplitude. 3 tests read the threshold
+  `_flashPass` actually loads, through a fake GL.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

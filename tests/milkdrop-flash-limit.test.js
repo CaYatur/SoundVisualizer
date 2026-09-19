@@ -37,6 +37,53 @@ test('eşik WCAG 2.3.1\'in genel flaş değeri', () => {
   assert.strictEqual(parseFloat(m[1]), 0.10);
 });
 
+/* EŞİK ZAMANA BAĞLI (#588). Kare başına sabit 0,10, saniyede 0,10 x fps
+   demekti: 74 Hz'lik pencerede saniyede 3 kez tam siyah-beyaz geçen bir
+   flaş dönem başına 1,000 geçiyordu (sınırlayıcı kapalıyla aynı), 45 fps'lik
+   önizlemede 0,714. Bu testler motoru sahte bir GL ile kurup `_flashPass`in
+   GERÇEKTEN yüklediği eşiği okuyor. */
+function flashUniform(step) {
+  const vm = require('vm');
+  const canvas = () => ({ width: 320, height: 240, getContext: (k) => (k === '2d' ? {} : null), addEventListener() {} });
+  const ctx = { window: {}, document: { createElement: canvas }, console };
+  ctx.window.document = ctx.document;
+  vm.createContext(ctx);
+  vm.runInContext(CODE, ctx, { filename: 'milkdrop.js' });
+  const m = new ctx.window.SVModes.milkdrop(canvas());
+  let got = null;
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (k === 'uniform1f') return (loc, v) => { if (loc === 'uThresh') got = v; };
+      return () => undefined;
+    },
+  });
+  m.locFlash = { uCur: 'uCur', uPrev: 'uPrev', uThresh: 'uThresh' };
+  m._flashPass(gl, { raw: { tex: 1 }, prev: { tex: 2 } }, 64, 64, step);
+  return got;
+}
+
+test('eşik 30 fps\'te ölçüldüğü değer: kare başına 0,10', () => {
+  assert.ok(Math.abs(flashUniform(1 / 30) - 0.10) < 1e-12);
+  // Ölçümün kare adımı gerçekten 1/30: eşik o adımdan türetildi
+  assert.match(read('scripts/milkdrop-render-rate.js'), /window\.__mode\.draw\(window\.__audio\(i\), cfg, i \/ 30, 1 \/ 30\);/);
+});
+
+test('eşik kare süresiyle orantılı: saniyedeki değişim her ekranda aynı', () => {
+  for (const hz of [45, 60, 74, 120, 144]) {
+    const perFrame = flashUniform(1 / hz);
+    assert.ok(Math.abs(perFrame * hz - 3.0) < 1e-9, hz + ' Hz: saniyede ' + perFrame * hz);
+  }
+});
+
+test('yavaş karelerde eşik 0,10\'u aşmıyor', () => {
+  /* Motorun adımı 0,05'te kesiliyor; 20 fps'in altında eşik sabit kalıyor.
+     Yavaş bir ekranda sınırlama gevşemiyor. */
+  for (const step of [1 / 30, 1 / 25, 1 / 20, 0.05, 0.1]) {
+    assert.ok(flashUniform(step) <= 0.10 + 1e-12, step + ' adımında ' + flashUniform(step));
+  }
+  assert.ok(flashUniform(0) > 0 && flashUniform(0) <= 0.10, 'adım yoksa da geçerli bir eşik');
+});
+
 test('parlaklık BT.709 bağıl parlaklığı', () => {
   /* WCAG bu katsayıları kullanıyor. Düz ortalama (r+g+b)/3 almak yeşili
      olduğundan az, maviyi çok sayardı — flaş algısı yeşile göre. */
@@ -78,7 +125,7 @@ test('karşılaştırma GÖSTERİLEN kareyle, ham kareyle değil', () => {
   /* Ham kareyle karşılaştırsaydık yanıp sönen preset her karede aynı
      sıçramayı yeniden üretir, sınırlama yakınsamaz ve ekran yarı genlikte
      sönmeye devam ederdi. */
-  const fn = /_flashPass\(gl, fl, GW, GH\) \{[\s\S]*?\n    \}/.exec(BARE);
+  const fn = /_flashPass\(gl, fl, GW, GH, step\) \{[\s\S]*?\n    \}/.exec(BARE);
   assert.ok(fn, '_flashPass bulunamadı');
   const kopya = fn[0].indexOf('copyTexSubImage2D');
   const cizim = fn[0].indexOf('drawArrays');
@@ -94,7 +141,7 @@ test('kapalıyken tek doku bile ayrılmıyor', () => {
      onu ödememeli. */
   assert.match(BARE, /const fl = \(this\._flashLimit && this\.flashProg\) \? this\._ensureFlash\(GW, GH\) : null;/);
   assert.match(BARE, /gl\.bindFramebuffer\(gl\.FRAMEBUFFER, fl \? fl\.raw\.fb : null\);/);
-  assert.match(BARE, /if \(fl\) this\._flashPass\(gl, fl, GW, GH\);/);
+  assert.match(BARE, /if \(fl\) this\._flashPass\(gl, fl, GW, GH, step\);/);
 });
 
 test('hedefler ALFASIZ — ekrandan kopyalanıyorlar', () => {
@@ -129,4 +176,10 @@ test('arayüz metinleri İngilizceye çevrilmiş', () => {
   for (const k of ['Flaş Sınırlama', 'Açık (nöbet riskini kes)', 'Kapalı (ham görüntü)']) {
     assert.ok(I18N.includes("'" + k + "':"), k + ' sözlükte yok');
   }
+  /* Açıklama notu bütünüyle sözlükte: tek harf farkı İngilizce arayüzde
+     notu Türkçe bırakırdı. Kaynak metinler kaçışlarıyla karşılaştırılıyor. */
+  const note = /text: '(Ölçüt WCAG 2\.3\.1[^\n]*?)',\r?\n/.exec(PANEL);
+  assert.ok(note, 'flaş notu panelde bulunamadı');
+  assert.match(note[1], /saniye başına tutuluyor/, 'not zamana bağlı eşiği anlatmalı (#588)');
+  assert.ok(I18N.includes("'" + note[1] + "': '"), 'flaş notunun İngilizcesi yok ya da metin uyuşmuyor');
 });
