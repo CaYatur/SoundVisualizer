@@ -2147,7 +2147,18 @@ function logoLibDir() {
 }
 
 ipcMain.handle('logo-lib:list', () => logoLibrary.list(logoLibDir()));
-ipcMain.handle('logo-lib:read', (e, id) => logoLibrary.read(logoLibDir(), id));
+ipcMain.handle('logo-lib:read', async (e, id) => {
+  const entry = await logoLibrary.readBytes(logoLibDir(), id);
+  if (!entry || !entry.buf) return null;
+  const info = logoLibrary.fileInfo(logoLibDir(), id);
+  return {
+    id: String(id || ''),
+    name: info && info.name,
+    kind: info && info.kind,
+    mime: entry.mime || (info && info.mime) || 'application/octet-stream',
+    b64: entry.buf.toString('base64'),
+  };
+});
 ipcMain.handle('logo-lib:remove', (e, id) => logoLibrary.remove(logoLibDir(), id));
 ipcMain.handle('logo-lib:import', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
@@ -2579,16 +2590,12 @@ app.whenReady().then(async () => {
     try {
       const u = new URL(request.url);
       const id = decodeURIComponent((u.pathname || '').replace(/^\//, '') || u.hostname || '');
-      const info = logoLibrary.fileInfo(logoLibDir(), id);
-      if (!info || !info.file) return new Response('not found', { status: 404 });
-      /* Senkron okuma ana süreci kilitliyordu: kitaplıktan bir görsel
-         seçilince bütün görselleştiriciler donuyordu. file:// üzerinden
-         akış, ses IPC'sini ve diğer pencereleri serbest bırakır. */
-      const res = await net.fetch(url.pathToFileURL(info.file).href);
-      const headers = new Headers(res.headers);
-      if (info.mime) headers.set('Content-Type', info.mime);
-      headers.set('Cache-Control', 'private, max-age=120');
-      return new Response(res.body, { status: res.status, headers });
+      const entry = await logoLibrary.readBytes(logoLibDir(), id);
+      if (!entry || !entry.buf) return new Response('not found', { status: 404 });
+      const headers = new Headers();
+      if (entry.mime) headers.set('Content-Type', entry.mime);
+      headers.set('Cache-Control', 'private, max-age=300');
+      return new Response(new Uint8Array(entry.buf), { status: 200, headers });
     } catch {
       return new Response('error', { status: 500 });
     }

@@ -569,8 +569,9 @@
             lg.src = '';
             lg.kind = it.kind || '';
             lg.enabled = true;
+            if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
             P().push(true);
-            if (wasGif !== (lg.kind === 'gif')) rerender();
+            rerender();
           },
         }));
       }

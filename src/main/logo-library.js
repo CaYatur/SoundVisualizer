@@ -23,6 +23,25 @@ const MIME = {
 };
 const MAX_BYTES = 24 * 1024 * 1024;
 
+/* resolveId her sv-logo isteginde senkron disk I/O yapiyordu. */
+const resolveCache = new Map();
+const bytesCache = new Map();
+
+function cacheKey(dir, id) {
+  return String(dir || '') + '\0' + String(id || '');
+}
+
+function invalidateCache(dir) {
+  const prefix = String(dir || '') + '\0';
+  for (const k of [...resolveCache.keys()]) {
+    if (k.startsWith(prefix)) resolveCache.delete(k);
+  }
+  for (const k of [...bytesCache.keys()]) {
+    if (k.startsWith(prefix)) bytesCache.delete(k);
+  }
+}
+
+
 function isImageFile(name) {
   return EXT.indexOf(path.extname(String(name || '')).toLowerCase()) >= 0;
 }
@@ -62,6 +81,7 @@ function loadManifest(dir) {
 function saveManifest(dir, man) {
   ensureDir(dir);
   fs.writeFileSync(manifestPath(dir), JSON.stringify({ items: man.items || [] }, null, 2), 'utf8');
+  invalidateCache(dir);
 }
 
 function publicItem(it) {
@@ -81,6 +101,8 @@ function resolveId(dir, id) {
   if (!dir || typeof dir !== 'string') return null;
   const sid = safeId(id);
   if (!sid) return null;
+  const key = cacheKey(dir, sid);
+  if (resolveCache.has(key)) return resolveCache.get(key);
   const man = loadManifest(dir);
   const it = man.items.find((x) => x && x.id === sid);
   if (!it || typeof it.file !== 'string' || !it.file) return null;
@@ -101,7 +123,9 @@ function resolveId(dir, id) {
   try {
     const st = fs.statSync(realFile);
     if (!st.isFile() || st.size > MAX_BYTES) return null;
-    return { item: it, file: realFile, size: st.size };
+    const resolved = { item: it, file: realFile, size: st.size };
+    resolveCache.set(key, resolved);
+    return resolved;
   } catch {
     return null;
   }
@@ -176,9 +200,21 @@ function fileInfo(dir, id) {
   return { file: r.file, mime: r.item.mime, size: r.size, kind: r.item.kind, name: r.item.name };
 }
 
+async function readBytes(dir, id) {
+  const info = fileInfo(dir, id);
+  if (!info || !info.file) return null;
+  const key = cacheKey(dir, safeId(id));
+  const hit = bytesCache.get(key);
+  if (hit && hit.file === info.file && hit.size === info.size) return hit;
+  const buf = await fs.promises.readFile(info.file);
+  const entry = { file: info.file, size: info.size, mime: info.mime, buf };
+  bytesCache.set(key, entry);
+  return entry;
+}
+
 module.exports = {
   EXT, MIME, MAX_BYTES,
   isImageFile, mimeFor, kindOf, safeId,
-  list, importFile, remove, read, resolveId, fileInfo,
-  loadManifest, publicItem,
+  list, importFile, remove, read, resolveId, fileInfo, readBytes,
+  loadManifest, publicItem, invalidateCache,
 };

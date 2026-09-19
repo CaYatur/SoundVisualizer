@@ -29,8 +29,14 @@
 
   function logoFileSrc(lg) {
     if (!lg) return null;
+    if (typeof window !== 'undefined' && window.SVLogoRuntime && window.SVLogoRuntime.displaySrc) {
+      const ready = window.SVLogoRuntime.displaySrc(lg);
+      if (ready) return ready;
+      if (lg.libraryId) return null;
+    }
+    if (lg.src) return lg.src;
     if (lg.libraryId) return libraryUrl(lg.libraryId);
-    return lg.src || null;
+    return null;
   }
 
   /* durations: kare süreleri (ms). loopMode: 'loop' | 'pingpong' | 'once'. */

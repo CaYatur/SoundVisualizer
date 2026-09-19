@@ -601,8 +601,14 @@
       return window.SVGif.logoFileSrc(lg);
     }
     if (!lg) return null;
+    if (typeof window !== 'undefined' && window.SVLogoRuntime && window.SVLogoRuntime.displaySrc) {
+      const ready = window.SVLogoRuntime.displaySrc(lg);
+      if (ready) return ready;
+      if (lg.libraryId) return null;
+    }
+    if (lg.src) return lg.src;
     if (lg.libraryId) return 'sv-logo://lib/' + encodeURIComponent(lg.libraryId);
-    return lg.src || null;
+    return null;
   }
 
   // ==========================================================================
@@ -777,6 +783,10 @@
         this._paintLogo(ctx, gif, l, audio, this.width, this.height);
         return;
       }
+      /* GIF_LIB_NO_IMG_FALLBACK */
+      if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(l, effectiveSrc)) {
+        return;
+      }
       let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
         ? this.logoEl
         : this._getImage(effectiveSrc);
@@ -880,6 +890,16 @@
       }
       this.lastSig = scnSig;
       this.prevCfg = cfg;
+      /* Kitaplık logolarını blob'a ısıt — sv-logo:// ile çizim donmasına yol açıyordu. */
+      if (typeof window !== 'undefined' && window.SVLogoRuntime && window.SVLogoRuntime.warm) {
+        const ids = new Set();
+        if (cfg && cfg.logo && cfg.logo.libraryId) ids.add(cfg.logo.libraryId);
+        (cfg && cfg.layers || []).forEach((l) => {
+          const lg = l && l.settings && l.settings.logo;
+          if (lg && lg.libraryId) ids.add(lg.libraryId);
+        });
+        ids.forEach((id) => window.SVLogoRuntime.warm(id));
+      }
 
       const sig = wanted.map((l) => this._key(l)).join(';');
       const oldEntries = this.entries;
@@ -1436,6 +1456,9 @@
         const gif = this._logoDrawable(lg, effectiveSrc, audio, t);
         if (gif) {
           this._paintLogo(e.ctx, gif, lg, audio, W, H);
+          return;
+        }
+        if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(lg, effectiveSrc)) {
           return;
         }
         let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)

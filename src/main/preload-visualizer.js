@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
   floatingClose: () => ipcRenderer.send('floating:close'),
   floatingSnap: (where) => ipcRenderer.send('floating:snap', where),
   floatingSize: (kind) => ipcRenderer.send('floating:size', kind),

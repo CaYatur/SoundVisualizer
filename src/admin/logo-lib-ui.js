@@ -27,6 +27,11 @@
 
   function srcFor(item) {
     if (!item || !item.id) return '';
+    if (window.SVLogoRuntime) {
+      const ready = window.SVLogoRuntime.urlFor(item.id);
+      if (ready) return ready;
+      window.SVLogoRuntime.warm(item.id);
+    }
     return window.SVGif ? window.SVGif.libraryUrl(item.id) : ('sv-logo://lib/' + encodeURIComponent(item.id));
   }
 
@@ -73,6 +78,29 @@
     }
 
     function paint(force) {
+      /* blobRefresh: runtime ısınınca thumb src'lerini protokolden blob'a çevir */
+      if (!paint._blobTimer) {
+        paint._blobTimer = setInterval(() => {
+          if (!window.SVLogoRuntime) return;
+          let pending = 0;
+          grid.querySelectorAll('.logo-lib-thumb').forEach((img) => {
+            const card = img.closest('.logo-lib-cell');
+            // id is not on img; re-filter list
+          });
+          const list = filtered();
+          grid.querySelectorAll('.logo-lib-thumb').forEach((img, i) => {
+            const it = list[i];
+            if (!it) return;
+            const ready = window.SVLogoRuntime.urlFor(it.id);
+            if (ready && img.src !== ready) img.src = ready;
+            else if (!ready) pending++;
+          });
+          if (pending === 0 && items.length) {
+            clearInterval(paint._blobTimer);
+            paint._blobTimer = null;
+          }
+        }, 120);
+      }
       const list = filtered();
       const ids = list.map((it) => it.id).join('|');
       empty.style.display = items.length ? 'none' : 'block';

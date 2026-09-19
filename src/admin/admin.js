@@ -1085,11 +1085,19 @@
         cfg.logo.src = null;
         cfg.logo.kind = it.kind || '';
         cfg.logo.enabled = true;
+        if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
         push(true);
-        /* Tam panel yeniden çizimi kitaplığı baştan kuruyor ve bütün
-           görselleştiricileri donduruyordu. GIF ayarları ancak tür değişince
-           lazım. */
-        if (wasGif !== isGifLogo(cfg.logo)) render();
+        const url = (window.SVLogoRuntime && window.SVLogoRuntime.urlFor(it.id))
+          || (window.SVGif && window.SVGif.libraryUrl(it.id));
+        if (url) {
+          document.querySelectorAll('.logo-preview, .layer-preview').forEach((img) => {
+            img.src = url;
+            img.style.display = 'block';
+          });
+        }
+        /* Önizleme + GIF kontrolleri için paneli yenile. Kitaplık thumb'ları
+           blob önbelleğinden geldiği için yeniden mount donmaya yol açmaz. */
+        render();
       },
     });
   }
