@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1877 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1881 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 280
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 284
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1255,6 +1255,20 @@ rest after. No version number yet.
   window ran at 75.2 Hz with the sampling and 75.0 Hz without. 12 tests,
   the sampler through a fake canvas and Art-Net's channels through its own
   code.
+- **An effect on one layer no longer blacks out the layers below (#590)** ·
+  done. Found in use: an effect given to a single layer hid everything under
+  it, while the same effect on the global chain did not. The layer's chain
+  ran in the effect chain's opaque mode whenever the scene was not
+  transparent, and that mode writes alpha 1 on every pixel, so the layer's
+  empty areas became a black cover. A layer's chain now always runs in the
+  see-through mode, which takes coverage from the layer's own alpha and
+  counts a spreading effect's glow into empty space; the global chain still
+  asks whether the scene is transparent, since it draws the final picture.
+  Measured in an isolated copy with a red background under a bar layer
+  carrying a bloom: the top corner was red without the effect and with it on
+  the global chain, black with it on the layer — the bar layer's canvas
+  opaque there, alpha 255. After the change it is red in all three and the
+  canvas is transparent there. 4 tests.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

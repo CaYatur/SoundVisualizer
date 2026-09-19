@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1877%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1881%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -127,7 +127,8 @@ that asserts the bar profile has no step in it.
 - **17 blend modes**, groups with a single fader, solo, mute and lock.
 - **Masks** — alpha from another layer, plus shape and gradient masks.
 - **40 GPU effects**, orderable, audio-bindable, and available per layer as well as on the
-  composite.
+  composite. An effect on a single layer keeps that layer's transparency, so the layers below stay
+  visible; a bloom's glow that spreads into empty space still shows over them.
 - **A/B crossfader** between layer groups, on an equal-power curve.
 - **The whole stack switches off**, returning the scene to the plain Background plus Visualizer
   setup without losing the layer list.
@@ -1167,7 +1168,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1877 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1881 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

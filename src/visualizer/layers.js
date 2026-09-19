@@ -1280,7 +1280,15 @@
       const l = live || e.layer;
       this._drawEntryRaw(e, audio, cfg, t, dt, l);
       this._applyMask(e, l);
-      this._applyLayerFX(e, l, audio, t, dt, seeThrough(cfg));
+      /* KATMAN EFEKTİ HEP SAYDAM KİPTE (#590). Katman alttakilerin ÜSTÜNE
+         biniyor; efekt zinciri opak kipte her pikselin alfasını 1 yazıyor ve
+         katmanın boş yerleri siyah bir örtüye dönüyordu — tek katmana
+         verilen bir efekt, sahne şeffaf değilse, altındaki her şeyi
+         kapatıyordu. Saydam kipte örtü katmanın kendi alfasından geliyor;
+         parlama gibi yayılan efektin boş alana taşan ışığı da örtüye
+         katılıyor. Genel zincir sahnenin son hâli olduğu için orada
+         `seeThrough(cfg)` doğru soru; burada değil. */
+      this._applyLayerFX(e, l, audio, t, dt, true);
     }
 
     /* Katmana özel efekt zinciri.

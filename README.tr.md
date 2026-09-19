@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1877%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1881%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -125,7 +125,8 @@ profilinde basamak olmadığını doğruluyor.
 - **17 karışım modu**, tek fader'lı gruplar, solo, sessiz ve kilit.
 - **Maskeler** — başka bir katmandan alfa, ayrıca şekil ve gradyan maskeleri.
 - **40 GPU efekti**; sıralanabilir, sese bağlanabilir ve bileşiğin yanı sıra katman başına da
-  kullanılabilir.
+  kullanılabilir. Tek bir katmana verilen efekt o katmanın saydamlığını koruyor, yani alttaki
+  katmanlar görünür kalıyor; parlamanın boş alana taşan ışığı yine onların üstünde görünüyor.
 - **A/B çapraz geçişi** katman grupları arasında, eşit güç eğrisiyle.
 - **Yığının tamamı kapatılabilir**; sahne katman listesini kaybetmeden yalın Arkaplan +
   Görselleştirici kurulumuna döner.
@@ -1166,7 +1167,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1877 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1881 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
