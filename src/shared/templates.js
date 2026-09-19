@@ -621,6 +621,8 @@
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
     const keepKey = cfg.background && cfg.background.transparentKey;
     const logoSrc = (cfg.logo && cfg.logo.src) || null;
+    const logoLibraryId = (cfg.logo && cfg.logo.libraryId) || null;
+    const logoKind = (cfg.logo && cfg.logo.kind) || null;
     const logoSource = (cfg.logo && cfg.logo.source) || null;
     const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
     const layerStackEnabled = cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : null;
@@ -629,6 +631,8 @@
       if (def[k] !== undefined) out[k] = clone(def[k]);
     }
     if (logoSrc) out.logo.src = logoSrc;
+    if (logoLibraryId) out.logo.libraryId = logoLibraryId;
+    if (logoKind) out.logo.kind = logoKind;
     if (logoSource) out.logo.source = logoSource;
     const merged = deepMerge(out, tpl.patch);
     if (!tpl.patch.logo && userLogo) {
@@ -641,6 +645,14 @@
       if (logoSrc) {
         merged.logo = merged.logo || {};
         merged.logo.src = logoSrc;
+      }
+      if (logoLibraryId) {
+        merged.logo = merged.logo || {};
+        merged.logo.libraryId = logoLibraryId;
+      }
+      if (logoKind) {
+        merged.logo = merged.logo || {};
+        merged.logo.kind = logoKind;
       }
       if (logoSource) {
         merged.logo = merged.logo || {};
@@ -663,6 +675,8 @@
           ly.settings = ly.settings || {};
           ly.settings.logo = ly.settings.logo || {};
           if (logoSrc) ly.settings.logo.src = logoSrc;
+          if (logoLibraryId) ly.settings.logo.libraryId = logoLibraryId;
+          if (logoKind) ly.settings.logo.kind = logoKind;
           if (logoSource) ly.settings.logo.source = logoSource;
         }
       });

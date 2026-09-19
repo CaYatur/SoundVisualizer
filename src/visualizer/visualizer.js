@@ -20,6 +20,46 @@
   const hint = document.getElementById('hint');
   const errBox = document.getElementById('error');
 
+  /* Yüzen pencere: çerçevesiz doğduğu için taşıma / boyut / köşe / kapat
+     çubuğu yalnız --sv-floating iken çizilir. Tam ekran pencereler etkilenmez. */
+  if (typeof window !== 'undefined' && window.SV_FLOATING) {
+    document.documentElement.classList.add('sv-floating');
+    const bar = document.createElement('div');
+    bar.id = 'sv-float-bar';
+    const grip = document.createElement('div');
+    grip.className = 'sv-float-grip';
+    grip.textContent = '⠿';
+    function chip(label, fn) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sv-float-chip';
+      b.textContent = label;
+      b.addEventListener('click', (e) => { e.preventDefault(); try { fn(); } catch { /* yok */ } });
+      return b;
+    }
+    const sizes = document.createElement('div');
+    sizes.className = 'sv-float-group';
+    ['S', 'M', 'L'].forEach((k) => sizes.appendChild(chip(k, () => window.api.floatingSize(k.toLowerCase()))));
+    const corners = document.createElement('div');
+    corners.className = 'sv-float-group';
+    [['↖', 'tl'], ['↗', 'tr'], ['↙', 'bl'], ['↘', 'br']].forEach((p) => {
+      corners.appendChild(chip(p[0], () => window.api.floatingSnap(p[1])));
+    });
+    const close = document.createElement('button');
+    close.className = 'sv-float-close';
+    close.type = 'button';
+    close.textContent = '✕';
+    close.addEventListener('click', () => { try { window.api.floatingClose(); } catch { /* yok */ } });
+    bar.appendChild(grip);
+    bar.appendChild(sizes);
+    bar.appendChild(corners);
+    bar.appendChild(close);
+    (document.body || document.documentElement).appendChild(bar);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { try { window.api.floatingClose(); } catch { /* yok */ } }
+    });
+  }
+
   let cfg = window.SV.defaultConfig();
   const audio = new window.SVAudio();
   const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller
@@ -404,7 +444,7 @@
     applyMedia();
     applyScene();
     applyLogo();
-    document.body.style.cursor = cfg.power.hideCursor ? 'none' : 'default';
+    document.body.style.cursor = (window.SV_FLOATING || !cfg.power.hideCursor) ? 'default' : 'none';
     /* Sayfanın zemini de kalkmalı; pencere şeffaf doğsa bile body siyah
        boyadığı sürece arkasındaki masaüstü görünmez. */
     document.documentElement.classList.toggle('sv-transparent',

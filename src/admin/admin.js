@@ -439,6 +439,8 @@
         return imagesCtrl(def);
       case 'logofile':
         return logoFileCtrl(def);
+      case 'logolibrary':
+        return logoLibraryCtrl(def);
       case 'xy':
         return xyCtrl(def);
       case 'button':
@@ -1006,9 +1008,12 @@
       const reader = new FileReader();
       reader.onload = () => {
         cfg.logo.src = reader.result;
+        cfg.logo.libraryId = '';
+        cfg.logo.kind = (file.type === 'image/gif' || /\.gif$/i.test(file.name || '')) ? 'gif' : 'image';
         push(true);
         preview.src = reader.result;
         preview.style.display = 'block';
+        render();
       };
       reader.readAsDataURL(file);
     });
@@ -1020,8 +1025,11 @@
       class: 'btn ghost small', text: 'Kaldır',
       onclick: () => {
         cfg.logo.src = null;
+        cfg.logo.libraryId = '';
+        cfg.logo.kind = '';
         push(true);
         preview.style.display = 'none';
+        render();
       },
     });
     removeBtn.style.marginLeft = '8px';
@@ -1042,8 +1050,9 @@
     }
 
     const preview = el('img', { class: 'logo-preview' });
-    if (cfg.logo.src) {
-      preview.src = cfg.logo.src;
+    const previewSrc = cfg.logo.src || (cfg.logo.libraryId && window.SVGif && window.SVGif.libraryUrl(cfg.logo.libraryId));
+    if (previewSrc) {
+      preview.src = previewSrc;
       preview.style.display = 'block';
     }
     const hintText = mode === 'auto'
@@ -1056,6 +1065,27 @@
       preview,
       hint,
     ]);
+  }
+
+  function isGifLogo(lg) {
+    if (!lg) return false;
+    if (window.SVGif && window.SVGif.isAnimatedLogo) return window.SVGif.isAnimatedLogo(lg, lg.src);
+    return lg.kind === 'gif' || /^data:image\/gif/i.test(lg.src || '') || /\.gif(?:$|\?)/i.test(lg.src || '');
+  }
+
+  function logoLibraryCtrl() {
+    if (!window.SVLogoLibUi) return el('div');
+    return window.SVLogoLibUi.mount({
+      selectedId: (cfg.logo && cfg.logo.libraryId) || '',
+      onPick: (it) => {
+        cfg.logo.libraryId = it.id;
+        cfg.logo.src = null;
+        cfg.logo.kind = it.kind || '';
+        cfg.logo.enabled = true;
+        push(true);
+        render();
+      },
+    });
   }
 
   function xyCtrl() {
@@ -2762,7 +2792,7 @@
         category: 'scene',
         icon: '🖼️',
         title: 'Logo / Resim',
-        desc: 'Sahneye bir resim yerleştirin; sese göre nabız atar.',
+        desc: 'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.',
         show: notStack,
         controls: [
           { type: 'toggle', path: 'logo.enabled', label: 'Logo Göster', rebuild: true },
@@ -2779,9 +2809,41 @@
             rebuild: true,
           },
           { type: 'logofile', show: () => cfg.logo.enabled },
+          { type: 'logolibrary', show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.speed', label: 'Oynatma Hızı', min: 0.1, max: 3, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          {
+            type: 'segment', path: 'logo.loop', label: 'Döngü',
+            options: [{ value: 'loop', label: 'Tekrar' }, { value: 'pingpong', label: 'Gidiş-Dönüş' }, { value: 'once', label: 'Bir Kez' }],
+            show: () => cfg.logo.enabled && isGifLogo(cfg.logo),
+          },
+          { type: 'toggle', path: 'logo.reverse', label: 'Ters Oynat', show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'toggle', path: 'logo.smooth', label: 'Kenar Yumuşatma', show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.brightness', label: 'Parlaklık', min: 0.2, max: 2, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.hue', label: 'Renk Kayması', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.saturate', label: 'Doygunluk', min: 0, max: 2, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          {
+            type: 'segment', path: 'logo.blend', label: 'Karışım',
+            options: [{ value: 'normal', label: 'Normal' }, { value: 'screen', label: 'Ekran' }, { value: 'add', label: 'Ekle' }],
+            show: () => cfg.logo.enabled && isGifLogo(cfg.logo),
+          },
+          {
+            type: 'select', path: 'logo.audioBand', label: 'Ses Bandı',
+            options: [
+              { value: 'bass', label: 'Bas' },
+              { value: 'mid', label: 'Orta' },
+              { value: 'treble', label: 'Tiz' },
+              { value: 'level', label: 'Seviye' },
+            ],
+            show: () => cfg.logo.enabled && isGifLogo(cfg.logo),
+          },
+          { type: 'slider', path: 'logo.audioSpeed', label: 'Ses → Hız', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioBrightness', label: 'Ses → Parlaklık', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.beatFlash', label: 'Ritim Parlaması', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
+          { type: 'slider', path: 'logo.audioHue', label: 'Ses → Renk', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           { type: 'slider', path: 'logo.glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
           { type: 'xy', show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
         ],
@@ -2805,7 +2867,21 @@
         icon: '🖥️',
         title: 'Ekran',
         desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
-        controls: [{ type: 'displaypicker' }],
+        controls: [
+          { type: 'displaypicker' },
+          { type: 'button', label: '🪟 Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
+          { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', min: 0.2, max: 1, step: 0.01, percent: true },
+          { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
+          { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
+          { type: 'toggle', path: 'floating.clickThrough', label: 'Tıklamayı Alt Pencereye Geçir' },
+          { type: 'button', label: 'Yüzen · Küçük', action: 'floatingSizeS' },
+          { type: 'button', label: 'Yüzen · Orta', action: 'floatingSizeM' },
+          { type: 'button', label: 'Yüzen · Büyük', action: 'floatingSizeL' },
+          { type: 'button', label: 'Köşe · Sağ Alt', action: 'floatingSnapBr' },
+          { type: 'button', label: 'Köşe · Sağ Üst', action: 'floatingSnapTr' },
+          { type: 'button', label: 'Köşe · Sol Alt', action: 'floatingSnapBl' },
+          { type: 'button', label: 'Köşe · Sol Üst', action: 'floatingSnapTl' },
+        ],
       },
       {
         id: 'power',
@@ -3695,6 +3771,18 @@
       if (window.api.appAudioStatus) appAudioStatus = await window.api.appAudioStatus();
     } catch (_) { audioApps = []; }
   }
+
+  actions.toggleFloating = async () => {
+    if (!window.api || !window.api.toggleFloating) return;
+    try { await window.api.toggleFloating(); } catch { /* köprü yok */ }
+  };
+  actions.floatingSizeS = () => { if (window.api && window.api.floatingSize) window.api.floatingSize('s'); };
+  actions.floatingSizeM = () => { if (window.api && window.api.floatingSize) window.api.floatingSize('m'); };
+  actions.floatingSizeL = () => { if (window.api && window.api.floatingSize) window.api.floatingSize('l'); };
+  actions.floatingSnapBr = () => { if (window.api && window.api.floatingSnap) window.api.floatingSnap('br'); };
+  actions.floatingSnapTr = () => { if (window.api && window.api.floatingSnap) window.api.floatingSnap('tr'); };
+  actions.floatingSnapBl = () => { if (window.api && window.api.floatingSnap) window.api.floatingSnap('bl'); };
+  actions.floatingSnapTl = () => { if (window.api && window.api.floatingSnap) window.api.floatingSnap('tl'); };
 
   actions.refreshDevices = async () => {
     setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');

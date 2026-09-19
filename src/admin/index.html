@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: sv-logo:; connect-src 'self' sv-logo:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Ses Görselleştirici — Yönetici Paneli</title>
     <link rel="stylesheet" href="admin.css" />
     <link rel="stylesheet" href="studio.css" />
@@ -307,6 +307,8 @@
     <script src="../visualizer/postfx.js"></script>
     <script src="../visualizer/postfx-extra.js"></script>
     <script src="../visualizer/mapper.js"></script>
+    <script src="../shared/gif-anim.js"></script>
+    <script src="../visualizer/gif-player.js"></script>
     <script src="../visualizer/layers.js"></script>
     <script src="../shared/presets.js"></script>
     <script src="../shared/presets-shaders.js"></script>
@@ -353,6 +355,7 @@
     <script src="control.js"></script>
     <script src="media-panel.js"></script>
     <script src="../shared/tempo.js"></script>
+    <script src="logo-lib-ui.js"></script>
     <script src="scene-panels.js"></script>
     <script src="modulation-panel.js"></script>
     <script src="timeline-panel.js"></script>

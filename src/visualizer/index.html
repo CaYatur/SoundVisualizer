@@ -2,7 +2,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: sv-logo:; connect-src 'self' sv-logo:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Görselleştirme</title>
     <link rel="stylesheet" href="visualizer.css" />
   </head>
@@ -37,6 +37,8 @@
     <script src="postfx.js"></script>
     <script src="postfx-extra.js"></script>
     <script src="mapper.js"></script>
+    <script src="../shared/gif-anim.js"></script>
+    <script src="gif-player.js"></script>
     <script src="layers.js"></script>
     <script src="../shared/presets.js"></script>
     <script src="../shared/presets-shaders.js"></script>
