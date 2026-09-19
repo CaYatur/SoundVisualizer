@@ -1225,7 +1225,10 @@ rest after. No version number yet.
   pattern come from it, and a manual pick seeds from the pick itself. A
   follower that hears nothing for 1.5 s runs its own cycle from where it
   was, so when the leader closes, the next window carries on from the same
-  preset. Measured in an isolated copy — three windows, Spout, the web
+  preset — measured by closing the leading window mid-run: for the next
+  second the other five surfaces kept the same preset and seed, and they
+  stayed together in 50 of 50 samples after it, through four changes under
+  the new leader. Measured in an isolated copy — three windows, Spout, the web
   overlay and the preview, random order every 2 s: before, the six showed
   5.7 different pictures per sample and never one; after, all six agreed
   on the preset in 58 of 60 samples (the other two at a switch) and presets
@@ -1268,7 +1271,9 @@ rest after. No version number yet.
   carrying a bloom: the top corner was red without the effect and with it on
   the global chain, black with it on the layer — the bar layer's canvas
   opaque there, alpha 255. After the change it is red in all three and the
-  canvas is transparent there. 4 tests.
+  canvas is transparent there. Export composes through the same path and
+  had the same fault: the corner of the 30th frame was black before and is
+  red now, and two exports of the job still match frame for frame. 4 tests.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and
