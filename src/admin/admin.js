@@ -441,6 +441,8 @@
         return logoFileCtrl(def);
       case 'logolibrary':
         return logoLibraryCtrl(def);
+      case 'floatingtools':
+        return floatingToolsCtrl(def);
       case 'xy':
         return xyCtrl(def);
       case 'button':
@@ -1078,14 +1080,41 @@
     return window.SVLogoLibUi.mount({
       selectedId: (cfg.logo && cfg.logo.libraryId) || '',
       onPick: (it) => {
+        const wasGif = isGifLogo(cfg.logo);
         cfg.logo.libraryId = it.id;
         cfg.logo.src = null;
         cfg.logo.kind = it.kind || '';
         cfg.logo.enabled = true;
         push(true);
-        render();
+        /* Tam panel yeniden çizimi kitaplığı baştan kuruyor ve bütün
+           görselleştiricileri donduruyordu. GIF ayarları ancak tür değişince
+           lazım. */
+        if (wasGif !== isGifLogo(cfg.logo)) render();
       },
     });
+  }
+
+  function floatingToolsCtrl() {
+    const chip = (label, fn) => el('button', {
+      class: 'btn ghost small',
+      type: 'button',
+      text: label,
+      onclick: fn,
+    });
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'lbl', text: tr('Boyut ve köşe') }),
+      el('div', { class: 'float-tools' }, [
+        chip('S', () => actions.floatingSizeS()),
+        chip('M', () => actions.floatingSizeM()),
+        chip('L', () => actions.floatingSizeL()),
+      ]),
+      el('div', { class: 'float-tools' }, [
+        chip('↖', () => actions.floatingSnapTl()),
+        chip('↗', () => actions.floatingSnapTr()),
+        chip('↙', () => actions.floatingSnapBl()),
+        chip('↘', () => actions.floatingSnapBr()),
+      ]),
+    ]);
   }
 
   function xyCtrl() {
@@ -2809,7 +2838,6 @@
             rebuild: true,
           },
           { type: 'logofile', show: () => cfg.logo.enabled },
-          { type: 'logolibrary', show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
@@ -2846,6 +2874,7 @@
           { type: 'slider', path: 'logo.audioHue', label: 'Ses → Renk', min: 0, max: 1, step: 0.01, percent: true, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           { type: 'slider', path: 'logo.glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
           { type: 'xy', show: () => cfg.logo.enabled, group: 'Konum ve Işıltı', advanced: true },
+          { type: 'logolibrary', show: () => cfg.logo.enabled },
         ],
       },
       {
@@ -2874,13 +2903,7 @@
           { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
           { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
           { type: 'toggle', path: 'floating.clickThrough', label: 'Tıklamayı Alt Pencereye Geçir' },
-          { type: 'button', label: 'Yüzen · Küçük', action: 'floatingSizeS' },
-          { type: 'button', label: 'Yüzen · Orta', action: 'floatingSizeM' },
-          { type: 'button', label: 'Yüzen · Büyük', action: 'floatingSizeL' },
-          { type: 'button', label: 'Köşe · Sağ Alt', action: 'floatingSnapBr' },
-          { type: 'button', label: 'Köşe · Sağ Üst', action: 'floatingSnapTr' },
-          { type: 'button', label: 'Köşe · Sol Alt', action: 'floatingSnapBl' },
-          { type: 'button', label: 'Köşe · Sol Üst', action: 'floatingSnapTl' },
+          { type: 'floatingtools' },
         ],
       },
       {

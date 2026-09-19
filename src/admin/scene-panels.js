@@ -516,19 +516,6 @@
             },
           }) : null,
         ].filter(Boolean)));
-        if (window.SVLogoLibUi) {
-          out.push(window.SVLogoLibUi.mount({
-            selectedId: lg.libraryId || '',
-            onPick: (it) => {
-              lg.libraryId = it.id;
-              lg.src = '';
-              lg.kind = it.kind || '';
-              lg.enabled = true;
-              P().push(true);
-              rerender();
-            },
-          }));
-        }
         if (mode === 'auto') {
           out.push(el('div', {
             class: 'studio-note dim-hint',
@@ -572,6 +559,20 @@
         out.push(miniSlider('Ses → Saydamlık', () => getL('audioOpacity', 0), (v) => setL('audioOpacity', v), { min: 0, max: 1, step: 0.01, percent: true }));
         out.push(miniSlider('Ritim Parlaması', () => getL('beatFlash', 0), (v) => setL('beatFlash', v), { min: 0, max: 1, step: 0.01, percent: true }));
         out.push(miniSlider('Ses → Renk', () => getL('audioHue', 0), (v) => setL('audioHue', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      }
+      if ((lg.source || 'auto') !== 'track' && window.SVLogoLibUi) {
+        out.push(window.SVLogoLibUi.mount({
+          selectedId: lg.libraryId || '',
+          onPick: (it) => {
+            const wasGif = (lg.kind === 'gif');
+            lg.libraryId = it.id;
+            lg.src = '';
+            lg.kind = it.kind || '';
+            lg.enabled = true;
+            P().push(true);
+            if (wasGif !== (lg.kind === 'gif')) rerender();
+          },
+        }));
       }
       return out;
     }

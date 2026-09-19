@@ -984,6 +984,10 @@ function closeVisualizer(displayId) {
       win.close();
     }
   }
+  /* Paneldeki Kapat, yüzen pencereyi de kapatır: yalnız PiP açıkken
+     düğme aktif oluyor ama ekran penceresi olmadığı için hiçbir şey
+     olmuyordu. */
+  closeFloatingWindow();
 }
 
 /* Kullanıcıya GÖRÜNMEYEN yardımcı pencereleri kapatır.
@@ -2571,19 +2575,20 @@ app.whenReady().then(async () => {
     }
   });
 
-  protocol.handle('sv-logo', (request) => {
+  protocol.handle('sv-logo', async (request) => {
     try {
       const u = new URL(request.url);
       const id = decodeURIComponent((u.pathname || '').replace(/^\//, '') || u.hostname || '');
       const info = logoLibrary.fileInfo(logoLibDir(), id);
       if (!info || !info.file) return new Response('not found', { status: 404 });
-      const buf = fs.readFileSync(info.file);
-      return new Response(buf, {
-        headers: {
-          'Content-Type': info.mime || 'application/octet-stream',
-          'Cache-Control': 'no-cache',
-        },
-      });
+      /* Senkron okuma ana süreci kilitliyordu: kitaplıktan bir görsel
+         seçilince bütün görselleştiriciler donuyordu. file:// üzerinden
+         akış, ses IPC'sini ve diğer pencereleri serbest bırakır. */
+      const res = await net.fetch(url.pathToFileURL(info.file).href);
+      const headers = new Headers(res.headers);
+      if (info.mime) headers.set('Content-Type', info.mime);
+      headers.set('Cache-Control', 'private, max-age=120');
+      return new Response(res.body, { status: res.status, headers });
     } catch {
       return new Response('error', { status: 500 });
     }

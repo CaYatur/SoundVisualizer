@@ -685,6 +685,7 @@
     'Ses → Parlaklık': 'Audio → Brightness',
     'Ritim Parlaması': 'Beat Flash',
     'Ses → Renk': 'Audio → Hue',
+    'Boyut ve köşe': 'Size and corner',
     '🪟 Yüzen Pencereyi Aç / Kapat': '🪟 Open / Close Floating Window',
     'Yüzen Pencere Saydamlığı': 'Floating Window Opacity',
     'En-Boy Kilidi (16:9)': 'Aspect Lock (16:9)',

@@ -402,13 +402,18 @@ select:focus { border-color: var(--accent); }
 .filebtn:hover { border-color: var(--accent); background: var(--card3); }
 .logo-preview { margin-top: 10px; max-height: 78px; max-width: 100%; border-radius: 8px; display: none; border: 1px solid var(--line); }
 
-.logo-lib { margin-top: 12px; }
+.logo-lib { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--line); }
 .logo-lib-search { width: 100%; margin: 6px 0 8px; }
 .logo-lib-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 8px;
+  max-height: 196px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
+.float-tools { display: flex; gap: 6px; margin-top: 6px; }
+.float-tools .btn { flex: 1; min-width: 0; }
 .logo-lib-cell { position: relative; }
 .logo-lib-card {
   width: 100%;

@@ -28,7 +28,7 @@
     return new Uint8Array(await res.arrayBuffer());
   }
 
-  async function decodeGif(bytes) {
+  async function decodeGif(bytes, onPartial) {
     if (typeof ImageDecoder === 'undefined') throw new Error('ImageDecoder unavailable');
     const dec = new ImageDecoder({ data: bytes, type: 'image/gif' });
     await dec.tracks.ready;
@@ -48,6 +48,8 @@
       vf.close();
       frames.push(bmp);
       durations.push(durUs != null ? Math.max(20, durUs / 1000) : (window.SVGif ? window.SVGif.DEFAULT_DELAY_MS : 60));
+      if (onPartial) onPartial({ frames, durations, width, height });
+      if (i % 3 === 2) await new Promise((r) => setTimeout(r, 0));
     }
     try { dec.close(); } catch { /* yok */ }
     return { frames, durations, width, height };
@@ -61,7 +63,13 @@
     CACHE.set(src, entry);
     entry.promise = (async () => {
       const bytes = await srcToBytes(src);
-      const dec = await decodeGif(bytes);
+      const dec = await decodeGif(bytes, (partial) => {
+        entry.frames = partial.frames;
+        entry.durations = partial.durations;
+        entry.width = partial.width;
+        entry.height = partial.height;
+        if (entry.status === 'loading') entry.status = 'ready';
+      });
       if (!dec.frames.length) throw new Error('no frames');
       entry.frames = dec.frames;
       entry.durations = dec.durations;

@@ -37,7 +37,7 @@
 
   function mount(opts) {
     const onPick = opts && opts.onPick;
-    const selectedId = (opts && opts.selectedId) || '';
+    let selectedId = (opts && opts.selectedId) || '';
     const wrap = el('div', { class: 'logo-lib' });
     const head = el('div', { class: 'logo-lib-head' }, [
       el('div', { class: 'lbl', text: tr('Kitaplık') }),
@@ -64,6 +64,7 @@
 
     let items = [];
     let q = '';
+    let lastIds = '';
 
     function filtered() {
       const s = q.trim().toLowerCase();
@@ -71,13 +72,22 @@
       return items.filter((it) => String(it.name || '').toLowerCase().indexOf(s) >= 0);
     }
 
-    function paint() {
+    function paint(force) {
       const list = filtered();
-      grid.innerHTML = '';
+      const ids = list.map((it) => it.id).join('|');
       empty.style.display = items.length ? 'none' : 'block';
       grid.style.display = list.length ? 'grid' : 'none';
+      if (!force && ids === lastIds && grid.childNodes.length === list.length) {
+        grid.querySelectorAll('.logo-lib-card').forEach((card, i) => {
+          card.classList.toggle('is-on', !!(list[i] && list[i].id === selectedId));
+        });
+        return;
+      }
+      lastIds = ids;
+      grid.innerHTML = '';
       list.forEach((it) => {
-        const thumb = el('img', { class: 'logo-lib-thumb', alt: it.name || '', src: srcFor(it) });
+        const thumb = el('img', { class: 'logo-lib-thumb', alt: it.name || '', src: srcFor(it), loading: 'lazy' });
+        thumb.setAttribute('decoding', 'async');
         const name = el('div', { class: 'logo-lib-name', text: it.name || it.id });
         const badge = it.kind === 'gif' ? el('span', { class: 'logo-lib-badge', text: 'GIF' }) : null;
         const del = el('button', {
@@ -92,6 +102,8 @@
         }, [thumb, badge, name].filter(Boolean));
         card.addEventListener('click', (e) => {
           if (e.target === del) return;
+          selectedId = it.id;
+          paint();
           if (onPick) onPick(it);
         });
         del.addEventListener('click', async (e) => {
@@ -108,7 +120,7 @@
 
     async function refresh() {
       items = await listItems();
-      paint();
+      paint(true);
     }
 
     search.addEventListener('input', () => { q = search.value || ''; paint(); });
