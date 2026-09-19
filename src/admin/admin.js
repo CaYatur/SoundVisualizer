@@ -519,6 +519,9 @@
   }
 
   const actions = {};
+  // Pioneer / .lkd klip listesi (ana süreçten async gelir; geldiğinde panel
+  // yeniden kurulur ki seçim kutusu dolsun).
+  let pioneerClips = [];
 
   function buttonCtrl(def) {
     const btn = el('button', {
@@ -2360,6 +2363,8 @@
               { value: 'scope', label: 'Osiloskop (XY)' },
               { value: 'goniometer', label: 'Gonyometre' },
               { value: 'chromawheel', label: 'Kroma Çemberi' },
+              { group: 'Pioneer / LKD' },
+              { value: 'pioneer', label: '🐬 Pioneer / LKD' },
               { group: 'Gelişmiş Motorlar' },
               { value: 'geometry', label: '◈ 3B Geometri' },
               { value: 'milkdrop', label: '🥛 MilkDrop' },
@@ -2548,6 +2553,39 @@
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
         controls: [{ type: 'milkdroppanel' }],
+      },
+      {
+        id: 'pioneer',
+        roots: ['visualizer', 'pioneer'],
+        category: 'scene',
+        icon: '🐬',
+        title: 'Pioneer / LKD',
+        desc: 'Klasik Pioneer araç ses sistemi animasyonları (yunuslar dahil). Yerleşik .lkd ve GIF kütüphanesinden seçin ya da kendi klasörünüzü ekleyin. Ses tepkiselliği yalnızca görünümü etkiler; orijinal animasyonu bozmaz.',
+        show: () => v.type === 'pioneer',
+        controls: [
+          {
+            type: 'select', path: 'visualizer.pioneer.clip', label: 'Animasyon',
+            options: () => pioneerClips.map((c) => ({
+              value: c.id,
+              label: ((window.SVI18n && window.SVI18n.locale === 'tr') ? c.labelTr : c.label) + (c.source === 'user' ? ' ★' : ''),
+            })),
+          },
+          { type: 'button', label: '📁 Klasör Seç (.lkd / GIF)', action: 'pioneerPickFolder' },
+          {
+            type: 'segment', path: 'visualizer.pioneer.fit', label: 'Yerleşim',
+            options: [{ value: 'contain', label: 'Sığdır' }, { value: 'cover', label: 'Doldur' }, { value: 'stretch', label: 'Uzat' }],
+          },
+          { type: 'slider', path: 'visualizer.pioneer.scale', label: 'Ölçek', min: 0.25, max: 2, step: 0.01 },
+          { type: 'slider', path: 'visualizer.pioneer.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.01, percent: true },
+          { type: 'slider', path: 'visualizer.pioneer.brightness', label: 'Parlaklık', min: 0.2, max: 2, step: 0.01 },
+          { type: 'slider', path: 'visualizer.pioneer.speed', label: 'Oynatma Hızı', min: 0.1, max: 3, step: 0.01 },
+          { type: 'toggle', path: 'visualizer.pioneer.smooth', label: 'Yumuşatma (kenar)', advanced: true },
+          { type: 'slider', path: 'visualizer.pioneer.audioSpeed', label: 'Ses → Hız', min: 0, max: 1, step: 0.01, percent: true, advanced: true },
+          { type: 'slider', path: 'visualizer.pioneer.audioBrightness', label: 'Ses → Parlaklık', min: 0, max: 1, step: 0.01, percent: true, advanced: true },
+          { type: 'slider', path: 'visualizer.pioneer.audioScale', label: 'Ses → Ölçek', min: 0, max: 1, step: 0.01, percent: true, advanced: true },
+          { type: 'slider', path: 'visualizer.pioneer.audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 1, step: 0.01, percent: true, advanced: true },
+          { type: 'slider', path: 'visualizer.pioneer.beatFlash', label: 'Ritim Parlaması', min: 0, max: 1, step: 0.01, percent: true, advanced: true },
+        ],
       },
       {
         id: 'transition',
@@ -2805,7 +2843,14 @@
         icon: '🖥️',
         title: 'Ekran',
         desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
-        controls: [{ type: 'displaypicker' }],
+        controls: [
+          { type: 'displaypicker' },
+          {
+            type: 'note',
+            text: 'Yüzen pencere: görselleştiriciyi küçük, taşınabilir ve her zaman üstte bir pencerede açar (resim-içinde-resim). Tüm görselleştirici türleriyle çalışır; başka uygulamalarla birlikte kullanmak için idealdir. Taşımak için üst kenardan sürükleyin, kapatmak için ✕ veya Esc.',
+          },
+          { type: 'button', label: '🪟 Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
+        ],
       },
       {
         id: 'power',
@@ -3696,6 +3741,28 @@
     } catch (_) { audioApps = []; }
   }
 
+  async function refreshPioneerClips() {
+    try {
+      pioneerClips = (window.api.lkdList ? await window.api.lkdList() : []) || [];
+    } catch { pioneerClips = []; }
+  }
+
+  actions.toggleFloating = async () => {
+    if (!window.api.toggleFloating) return;
+    try { await window.api.toggleFloating(); } catch { /* köprü yok */ }
+  };
+
+  actions.pioneerPickFolder = async () => {
+    if (!window.api.lkdPickFolder) return;
+    const r = await window.api.lkdPickFolder();
+    if (r && r.ok && r.dir) {
+      setPath(cfg, 'pioneer.userDir', r.dir);
+      await refreshPioneerClips();
+      push(true);
+      render();
+    }
+  };
+
   actions.refreshDevices = async () => {
     setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
     const result = await window.api.diagnoseAudio();
@@ -4334,6 +4401,7 @@
     const audioDiagnostic = await window.api.diagnoseAudio();
     audioDevices = audioDiagnostic?.devices || [];
     await refreshAudioApps();
+    await refreshPioneerClips();
     try {
       lightingIdentity = await window.api.getLightingIdentityStatus();
     } catch {

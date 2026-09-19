@@ -34,6 +34,13 @@ contextBridge.exposeInMainWorld('api', {
      çağrıyla istiyor (#586). Burada yalnız liste çağrısı vardı; önizleme
      dosyayı alamadığı için doku yerine gürültü çiziyordu. */
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  // Pioneer / .lkd görsel kütüphanesi
+  lkdList: () => ipcRenderer.invoke('lkd:list'),
+  lkdRead: (id) => ipcRenderer.invoke('lkd:read', id),
+  lkdPickFolder: () => ipcRenderer.invoke('lkd:pick-folder'),
+  // Yüzen / PiP penceresi
+  toggleFloating: () => ipcRenderer.invoke('floating:toggle'),
+  floatingIsOpen: () => ipcRenderer.invoke('floating:is-open'),
   // Canlı kayıt ve anlık görüntü
   saveRecording: (data, opts) => ipcRenderer.invoke('record:save', { data, opts }),
   saveSnapshot: (dataUrl) => ipcRenderer.invoke('record:snapshot', { dataUrl }),

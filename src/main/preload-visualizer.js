@@ -8,6 +8,10 @@ const displayArg = process.argv.find((a) => a.startsWith('--sv-display-id='));
 contextBridge.exposeInMainWorld('SV_DISPLAY_ID',
   displayArg ? Number(displayArg.split('=')[1]) : null);
 
+// Bu pencere yüzen/PiP penceresi mi? Renderer ona küçük bir sürükleme/kapat
+// çubuğu çizer; normal tam ekran pencerede hiç görünmez.
+contextBridge.exposeInMainWorld('SV_FLOATING', process.argv.includes('--sv-floating=1'));
+
 contextBridge.exposeInMainWorld('api', {
   requestConfig: () => ipcRenderer.invoke('request-config'),
   onConfig: (cb) => ipcRenderer.on('config', (e, config) => cb(config)),
@@ -29,6 +33,11 @@ contextBridge.exposeInMainWorld('api', {
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  // Pioneer / .lkd görsel kütüphanesi: liste ve tek klibin baytları
+  lkdList: () => ipcRenderer.invoke('lkd:list'),
+  lkdRead: (id) => ipcRenderer.invoke('lkd:read', id),
+  // Yüzen pencerenin kendini kapatması (çubuğdaki ✕)
+  floatingClose: () => ipcRenderer.send('floating:close'),
   // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir
   onMdFollow: (cb) => ipcRenderer.on('md-follow', (e, p) => cb(p)),
 });

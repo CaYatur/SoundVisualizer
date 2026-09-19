@@ -60,6 +60,7 @@ function trUi(tr, en) { return appLocale() === 'tr' ? tr : en; }
 // ----------------------------------------------------------------------------
 let adminWin = null;
 const visualizerWins = new Map(); // ekran kimliği -> görselleştirme penceresi
+let floatingWin = null; // yüzen / resim-içinde-resim penceresi (ekrandan bağımsız)
 let currentConfig = null; // son bilinen yapılandırma (admin -> görselleştirici köprüsü)
 let lastCaptureSource = null; // o an yakalanan çıkış aygıtı
 let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare istiyor mu?
@@ -140,6 +141,10 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+/* Yüzen pencerenin konumu/boyutu ayrı, küçük bir dosyada tutulur: her taşımada
+   settings.json'u yeniden yazmak (sahne ayarlarıyla birlikte) gereksiz disk
+   trafiği olurdu. */
+const FLOATING_BOUNDS_PATH = path.join(app.getPath('userData'), 'floating-window.json');
 
 /* ÖZ TEST KULLANICININ AYARLARINA DOKUNMAMALI.
 
@@ -536,6 +541,11 @@ function openWindows() {
     if (win && !win.isDestroyed()) out.push(win);
     else visualizerWins.delete(id);
   }
+  /* Yüzen pencere bir EKRANA ait değil (visualizerWins haritasında yok), ama
+     aynı yapılandırmayı, ses karelerini ve "her zaman üstte" davranışını
+     alması gerekir — tıpkı texture-share penceresi gibi. Ekran başına
+     işlemler (setBounds/mapping) haritayı ayrı dolaştığı için ona dokunmaz. */
+  if (floatingWin && !floatingWin.isDestroyed()) out.push(floatingWin);
   return out;
 }
 
@@ -1026,6 +1036,8 @@ function applyAlwaysOnTop() {
 
   if (!wantsAlwaysOnTop()) {
     for (const win of openWindows()) {
+      // Yüzen pencere ayardan bağımsız HER ZAMAN üstte kalır — amacı bu.
+      if (win === floatingWin) continue;
       win.setAlwaysOnTop(false);
       win.setVisibleOnAllWorkspaces(false);
     }
@@ -1150,6 +1162,122 @@ ipcMain.handle('repair-audio', async () => {
 });
 
 ipcMain.handle('get-settings', () => loadSettings());
+
+// ----------------------------------------------------------------------------
+// Yüzen / resim-içinde-resim penceresi
+//
+// Aynı visualizer/index.html'i, küçük, taşınabilir, yeniden boyutlanabilir ve
+// her zaman üstte bir pencerede açar. İçeriği ekran penceresiyle AYNI kaynaktan
+// (sendToVisualizers) beslendiği için HER görselleştirici türü çalışır ve
+// gösteri saatiyle senkron kalır. Ekran başına mantığa (mapping/aspect/tam
+// ekran) hiç girmez; sadece openWindows()'a eklenir.
+// ----------------------------------------------------------------------------
+function readFloatingBounds() {
+  try {
+    const b = JSON.parse(fs.readFileSync(FLOATING_BOUNDS_PATH, 'utf-8'));
+    if (b && Number.isFinite(b.width) && Number.isFinite(b.height)) return b;
+  } catch { /* dosya yok / bozuk: varsayılana düş */ }
+  return null;
+}
+
+let floatingSaveTimer = null;
+function saveFloatingBounds() {
+  if (!floatingWin || floatingWin.isDestroyed()) return;
+  const b = floatingWin.getBounds();
+  clearTimeout(floatingSaveTimer);
+  floatingSaveTimer = setTimeout(() => {
+    try { fs.writeFileSync(FLOATING_BOUNDS_PATH, JSON.stringify(b), 'utf-8'); } catch { /* yok say */ }
+  }, 600);
+}
+
+// İstenen sınırları görünür bir ekranın içine sabitler (ekran çıkarılmış olabilir).
+function clampToDisplay(b) {
+  const def = { width: 480, height: 270 };
+  const disp = screen.getPrimaryDisplay();
+  const wa = disp.workArea;
+  const width = Math.max(160, Math.min((b && b.width) || def.width, wa.width));
+  const height = Math.max(90, Math.min((b && b.height) || def.height, wa.height));
+  let x = b && Number.isFinite(b.x) ? b.x : wa.x + wa.width - width - 24;
+  let y = b && Number.isFinite(b.y) ? b.y : wa.y + wa.height - height - 24;
+  // Ekran dışına düşmüşse geri çek
+  const all = screen.getAllDisplays();
+  const onScreen = all.some((d) => x + 40 < d.bounds.x + d.bounds.width && x + width - 40 > d.bounds.x && y + 20 < d.bounds.y + d.bounds.height && y + height - 20 > d.bounds.y);
+  if (!onScreen) { x = wa.x + wa.width - width - 24; y = wa.y + wa.height - height - 24; }
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+}
+
+function createFloatingWindow() {
+  if (floatingWin && !floatingWin.isDestroyed()) { floatingWin.show(); floatingWin.focus(); return floatingWin; }
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
+  const b = clampToDisplay(readFloatingBounds());
+  const primaryId = screen.getPrimaryDisplay().id;
+  floatingWin = new BrowserWindow({
+    x: b.x, y: b.y, width: b.width, height: b.height,
+    minWidth: 160, minHeight: 90,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    frame: false,
+    transparent: false,
+    backgroundColor: '#000000',
+    show: true,
+    resizable: true,
+    movable: true,
+    minimizable: true,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: false,
+    alwaysOnTop: true,
+    hasShadow: true,
+    title: trUi('Yüzen Görselleştirici', 'Floating Visualizer'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-visualizer.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+      // Ekran kimliği + yüzen bayrağı: renderer küçük bir sürükleme/kapat çubuğu çizer
+      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1'],
+    },
+  });
+  floatingWin.setAlwaysOnTop(true, 'screen-saver');
+  floatingWin.setVisibleOnAllWorkspaces(true);
+  floatingWin.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  attachSmoke(floatingWin, 'FLOAT');
+
+  floatingWin.on('move', saveFloatingBounds);
+  floatingWin.on('resize', saveFloatingBounds);
+
+  floatingWin.webContents.on('did-finish-load', () => {
+    syncCapture();
+    if (currentConfig) floatingWin.webContents.send('config', currentConfig);
+    if (showClockAnchor) floatingWin.webContents.send('show-clock', showClockAnchor);
+    if (mediaSession.current().has) floatingWin.webContents.send('now-playing', mediaSession.current());
+    notifyVisualizerStatus();
+  });
+
+  floatingWin.on('closed', () => {
+    floatingWin = null;
+    syncCapture();
+    applyAlwaysOnTop();
+    notifyVisualizerStatus();
+  });
+
+  syncCapture();
+  applyAlwaysOnTop();
+  notifyVisualizerStatus();
+  return floatingWin;
+}
+
+function closeFloatingWindow() {
+  if (floatingWin && !floatingWin.isDestroyed()) floatingWin.close();
+  floatingWin = null;
+}
+
+ipcMain.handle('floating:toggle', () => {
+  if (floatingWin && !floatingWin.isDestroyed()) { closeFloatingWindow(); return { open: false }; }
+  createFloatingWindow();
+  return { open: true };
+});
+ipcMain.handle('floating:is-open', () => !!(floatingWin && !floatingWin.isDestroyed()));
+ipcMain.on('floating:close', () => closeFloatingWindow());
 
 ipcMain.handle('open-visualizer', (e, displayIds) => {
   openVisualizer(displayIds);
@@ -1940,6 +2068,33 @@ ipcMain.handle('milkdrop:texture', (e, name) => {
     return { name, dataUrl: 'data:' + t.mime + ';base64,' + fs.readFileSync(t.file).toString('base64') };
   } catch {
     return null;
+  }
+});
+
+// ----------------------------------------------------------------------------
+// Pioneer / .lkd görsel kütüphanesi (yerleşik GIF + .lkd, kullanıcı klasörü)
+// ----------------------------------------------------------------------------
+const lkdStore = require('./lkd-store');
+
+function lkdUserDir() {
+  const d = currentConfig && currentConfig.pioneer && currentConfig.pioneer.userDir;
+  return typeof d === 'string' ? d : '';
+}
+
+ipcMain.handle('lkd:list', () => lkdStore.listClips(lkdUserDir()));
+ipcMain.handle('lkd:read', (e, id) => lkdStore.readClip(id, lkdUserDir()));
+
+ipcMain.handle('lkd:pick-folder', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('.lkd / GIF Klasörü Seç', 'Choose .lkd / GIF Folder'),
+    properties: ['openDirectory'],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  const dir = r.filePaths[0];
+  try {
+    return { ok: true, dir, count: lkdStore.listClips(dir).filter((c) => c.source === 'user').length };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
 });
 

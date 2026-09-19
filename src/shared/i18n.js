@@ -669,6 +669,20 @@
     'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
     'Çarpma': 'Multiply', 'Aynala': 'Mirror',
     'Kaleydoskop Dilimi': 'Kaleidoscope Slices',
+    // Pioneer / .lkd görsel modu
+    'Pioneer / LKD': 'Pioneer / LKD',
+    '🐬 Pioneer / LKD': '🐬 Pioneer / LKD',
+    'Klasik Pioneer araç ses sistemi animasyonları (yunuslar dahil). Yerleşik .lkd ve GIF kütüphanesinden seçin ya da kendi klasörünüzü ekleyin. Ses tepkiselliği yalnızca görünümü etkiler; orijinal animasyonu bozmaz.': 'Classic Pioneer car-stereo animations (including the dolphins). Choose from the built-in .lkd and GIF library or add your own folder. Audio reactivity affects only the appearance; it does not distort the original animation.',
+    'Animasyon': 'Animation',
+    'Uzat': 'Stretch',
+    'Oynatma Hızı': 'Playback Speed',
+    'Yumuşatma (kenar)': 'Smoothing (edges)',
+    'Ses → Parlaklık': 'Audio → Brightness',
+    'Ritim Parlaması': 'Beat Flash',
+    '📁 Klasör Seç (.lkd / GIF)': '📁 Choose Folder (.lkd / GIF)',
+    // Yüzen / PiP penceresi
+    '🪟 Yüzen Pencereyi Aç / Kapat': '🪟 Open / Close Floating Window',
+    'Yüzen pencere: görselleştiriciyi küçük, taşınabilir ve her zaman üstte bir pencerede açar (resim-içinde-resim). Tüm görselleştirici türleriyle çalışır; başka uygulamalarla birlikte kullanmak için idealdir. Taşımak için üst kenardan sürükleyin, kapatmak için ✕ veya Esc.': 'Floating window: opens the visualizer in a small, movable, always-on-top window (picture-in-picture). Works with every visualizer type; ideal for use alongside other apps. Drag the top edge to move it, press ✕ or Esc to close.',
     'Bas → Saydamlık': 'Bass → Opacity',
 
     // ---- Sahne üretici ----
