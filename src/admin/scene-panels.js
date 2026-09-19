@@ -267,7 +267,7 @@
         ['isocity', 'İzometrik Şehir'], ['attractorfield', 'Çekici Alanı'],
         ['scope', 'Osiloskop (XY)'], ['goniometer', 'Gonyometre'], ['chromawheel', 'Kroma Çemberi'],
         ['text', 'Metin / Şarkı Sözü'], ['nowplaying', 'Çalan Parça'],
-        ['milkdrop', 'MilkDrop'], ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
+        ['milkdrop', 'MilkDrop'], ['pioneer', 'Pioneer / LKD'], ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
       ];
     }
     if (kind === 'sprites') return [['back', 'Arka Katman'], ['front', 'Ön Katman']];

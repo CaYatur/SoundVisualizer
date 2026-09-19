@@ -1,0 +1,19 @@
+{
+  "_comment": "Pioneer / .lkd yerleşik animasyon kaydı. Dosyalar klasörden taranır; buradaki girdiler yalnızca etiket ve sıralama ekler. Listelenmeyen dosyalar da dosya adından türetilmiş etiketle görünür.",
+  "clips": {
+    "alt_diverdolphins.lkd": { "label": "Pioneer Dolphins (.lkd)", "labelTr": "Pioneer Yunuslar (.lkd)", "order": 0 },
+    "alt_diverdolphins_glow.gif": { "label": "Diver Dolphins (Glow)", "labelTr": "Dalgıç Yunuslar (Parlak)", "order": 1 },
+    "color_02_greatbarrierreef_clean.gif": { "label": "Great Barrier Reef", "labelTr": "Büyük Set Resifi", "order": 2 },
+    "color_01_nightcruising.lkd": { "label": "Night Cruising (.lkd)", "labelTr": "Gece Sürüşü (.lkd)", "order": 3 },
+    "color_01_nightcruising_clean.gif": { "label": "Night Cruising", "labelTr": "Gece Sürüşü", "order": 4 },
+    "color_04_island_clean.gif": { "label": "Island", "labelTr": "Ada", "order": 5 },
+    "color_05_firedragon_clean.gif": { "label": "Fire Dragon", "labelTr": "Ateş Ejderi", "order": 6 },
+    "alt_wildlife_clean.gif": { "label": "Wildlife", "labelTr": "Vahşi Yaşam", "order": 7 },
+    "alt_wrc_clean.gif": { "label": "WRC Rally", "labelTr": "WRC Ralli", "order": 8 },
+    "alt_still_bgp_e2.lkd": { "label": "Still Background (.lkd)", "labelTr": "Sabit Arka Plan (.lkd)", "order": 9 },
+    "alt_bgv1_clean.gif": { "label": "Background Wave 1", "labelTr": "Arka Plan Dalga 1", "order": 10 },
+    "alt_bgv2_clean.gif": { "label": "Background Wave 2", "labelTr": "Arka Plan Dalga 2", "order": 11 },
+    "color_bgv01_clean.gif": { "label": "Color Background 1", "labelTr": "Renkli Arka Plan 1", "order": 12 },
+    "alt_meter_li01_clean.gif": { "label": "Level Meter", "labelTr": "Seviye Ölçer", "order": 13 }
+  }
+}

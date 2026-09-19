@@ -1339,7 +1339,12 @@
 
       if (l.kind === 'visualizer') {
         if (!e.mode) { e.ctx.clearRect(0, 0, W, H); return; }
-        if (!audio || !audio.ready) { e.ctx.clearRect(0, 0, W, H); return; }
+        /* Çoğu mod ses ölçümü olmadan çizemez (getBars vb.), o yüzden ses
+           hazır değilse boş bırakılır. Kare tabanlı modlar (Pioneer/.lkd)
+           sesten bağımsız oynar; sınıf `usesAudio = false` diyorsa geçit
+           uygulanmaz. */
+        const usesAudio = !(e.mode.constructor && e.mode.constructor.usesAudio === false);
+        if (usesAudio && (!audio || !audio.ready)) { e.ctx.clearRect(0, 0, W, H); return; }
         e.mode.draw(audio, lcfg, t, dt);
         return;
       }
