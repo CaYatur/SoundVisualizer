@@ -213,7 +213,8 @@ test('motor: önizleme yalnız AYNI elle seçimin üstündeki seçimi izliyor', 
 test('aktarım: ölçer mesajı → panel → önizleme', () => {
   assert.match(bare(read('src/visualizer/layers.js')),
     /milkdropPreset\(\) \{[\s\S]*?e\.mode\.livePreset\(\)/);
-  assert.match(bare(read('src/visualizer/visualizer.js')), /mdPreset: stack\.milkdropPreset\(\),/);
+  assert.match(bare(read('src/visualizer/visualizer.js')),
+    /const mdPreset = stack\.milkdropPreset\(\);[\s\S]*?window\.api\.sendAudioMeter\(\{[\s\S]*?\bmdPreset,/);
   assert.match(bare(read('src/admin/admin.js')),
     /window\.SVMdFollow = d\.mdPreset \? Object\.assign\(\{ at: performance\.now\(\) \}, d\.mdPreset\) : null;/);
   /* İzleme TEK pencereye dayanıyor: birden çok ekranda her görselleştirici

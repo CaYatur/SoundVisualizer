@@ -48,8 +48,12 @@ const stub = (gx, gy, ax, ay) => ({
   _genPlasma: Mode.prototype._genPlasma,
 });
 
-const pattern = (gx, gy) => {
+/* Desen artık geçişin TOHUMUNDAN (#585): aynı tohum her ekranda aynı
+   deseni veriyor. Buradaki testler desenlerin dağılımına bakıyor, o yüzden
+   her çağrı ayrı bir tohumla — tohum verilmezse rastgele. */
+const pattern = (gx, gy, seed) => {
   const s = stub(gx, gy, 1, 0.75);
+  s._blendSeed = seed != null ? seed : (Math.random() * 4294967296) >>> 0;
   Mode.prototype._ensureBlendPattern.call(s);
   return s;
 };

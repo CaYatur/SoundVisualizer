@@ -1498,6 +1498,11 @@
     'Puana Göre': 'By Rating',
     'Açık (MilkDrop gibi)': 'On (as in MilkDrop)',
     'Kapalı (eşit olasılık)': 'Off (equal chance)',
+    /* Her ekranda aynı preset (#585) */
+    'Hepsinde aynı preset': 'Same preset on all',
+    'Her ekran kendi seçer': 'Each display picks its own',
+    'Hepsinde aynı presette seçimi ilk görselleştirici penceresi yapar — yoksa Spout/Syphon penceresi, o da yoksa bu önizleme — ve diğer pencereler, Spout/Syphon ve web çıkışı aynı preseti aynı geçişle gösterir. Her ekran kendi seçerse otomatik geçiş ve sert geçiş her ekranda ayrı çalışır; rastgele sırada her ekran başka bir preset gösterir. Önizleme her iki durumda da ilk pencereyi izler.':
+      'With the same preset on all, the first visualizer window makes the pick — or the Spout/Syphon window if there is none, or this preview if neither is open — and the other windows, Spout/Syphon and the web output show the same preset with the same transition. If each display picks its own, auto advance and hard cuts run separately on each; in random order every display shows a different preset. Either way the preview follows the first window.',
     'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.':
       'The stars show only the rating you gave; a preset you have not rated looks empty and, in random order, is picked by the fRating value in its own file (or 3). In random order a preset comes up in proportion to its rating, and a preset rated 0 never comes up — MilkDrop 2\'s rule. The rating you give is written to the settings; the preset file is not touched. ◀ Previous and Next ▶ walk the history of what was shown, including what auto advance picked.',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':

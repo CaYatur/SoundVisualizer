@@ -29,4 +29,6 @@ contextBridge.exposeInMainWorld('api', {
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir
+  onMdFollow: (cb) => ipcRenderer.on('md-follow', (e, p) => cb(p)),
 });

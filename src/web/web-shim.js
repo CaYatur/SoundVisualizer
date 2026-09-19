@@ -18,7 +18,7 @@
   const fpsOverride = parseInt(params.get('fps') || '', 10);
   const scaleOverride = parseFloat(params.get('scale') || '');
 
-  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [] };
+  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [], mdFollow: [] };
   let ws = null;
   let retry = 0;
   let firstConfig = null;
@@ -150,6 +150,9 @@
         handlers.nowPlaying.forEach((h) => h(msg.state));
       } else if (msg.type === 'show-clock') {
         handlers.showClock.forEach((h) => h(msg.anchor));
+      } else if (msg.type === 'md-follow') {
+        // Liderin MilkDrop seçimi (#585): web çıkışı hep izleyici
+        handlers.mdFollow.forEach((h) => h(msg.follow || null));
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -220,6 +223,7 @@
     onPresets: (cb) => handlers.presets.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
+    onMdFollow: (cb) => handlers.mdFollow.push(cb),
     sendAudioMeter: () => {}, // tarayıcı tarafında ışık senkronu yok
     sendMessage: () => {},
     /* MilkDrop dokuları (#586): yayın sunucusundan. Tek doku bir URL olarak

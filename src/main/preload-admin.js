@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld('api', {
 
   // Canlı önizleme (panel içi): ses karesi akışını aç/kapat
   subscribePreview: (on) => ipcRenderer.send('preview:subscribe', on),
+  /* Önizleme lider olduğunda (görselleştirici penceresi ve Spout/Syphon
+     yokken) MilkDrop seçimi: web çıkışı onu izliyor (#585). */
+  sendMdLive: (p) => ipcRenderer.send('md-live', p),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
 
   // Eylemler

@@ -699,13 +699,17 @@
        milkdropControl.locked (#568) — kilit: otomatik geçiş ve sert geçiş
          durur, elle seçim çalışır.
        milkdropControl.cutTo (#570) — "şimdi kes": elle seçilen preset bu
-         kimlikse karışmadan yükleniyor. Panel her seçimde temizliyor. */
+         kimlikse karışmadan yükleniyor. Panel her seçimde temizliyor.
+       milkdropControl.independent (#585) — "her ekran kendi seçer". Kapalıyken
+         (varsayılan) ilk görselleştirici penceresi seçiyor, diğer pencereler,
+         Spout/Syphon ve web çıkışı onu izliyor. */
     milkdropLibrary: {
       ratings: {},
     },
     milkdropControl: {
       locked: false,
       cutTo: '',
+      independent: false,
     },
 
     // ------------------------------------------------------------------

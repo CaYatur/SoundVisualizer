@@ -357,6 +357,10 @@
       // arkaplan renklerini istediğinde çağrılır.
       const needsBgColors =
         !!cfg.lighting?.enabled && cfg.lighting?.paletteSource === 'background';
+      /* Sayfanın o an çizdiği preset tanı için de saklanıyor (#585): her
+         ekranın aynı preseti gösterip göstermediği buradan okunuyor. */
+      const mdPreset = stack.milkdropPreset();
+      window.SVMdLive = mdPreset;
       window.api.sendAudioMeter({
         level: audio.level,
         bass: audio.bass,
@@ -370,9 +374,9 @@
            başına doğruluk gerekmiyor ve ek kanal ek bakım demek. */
         mdMonitor: stack.milkdropMonitor(),
         /* O an çizilen MilkDrop preseti. Otomatik geçiş seçimini ayara
-           yazmıyor; panel ekranda ne olduğunu, önizleme de neyi izleyeceğini
-           buradan öğreniyor. */
-        mdPreset: stack.milkdropPreset(),
+           yazmıyor; panel ekranda ne olduğunu, önizleme ve diğer ekranlar
+           da neyi izleyeceğini buradan öğreniyor. */
+        mdPreset,
       });
     }
   }
@@ -468,6 +472,15 @@
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
     window.api.onConfig((c) => applyConfig(c));
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç
+       liderin seçimini buraya yolluyor ve motor kendi sayacı yerine onu
+       gösteriyor — her ekranda aynı preset, aynı tohum. Zaman damgası
+       bu sayfanın saatiyle: mesaj kesilince izleme 1,5 sn'de düşüyor. */
+    if (window.api.onMdFollow) {
+      window.api.onMdFollow((p) => {
+        window.SVMdFollow = p ? Object.assign({ at: performance.now() }, p) : null;
+      });
+    }
     /* Çalan parça çıpası. Her kare gelmez — kaynak konumu ancak ara sıra
        günceller — aradaki değeri katmanlar SVNowPlaying ile hesaplar. */
     if (window.api.onNowPlaying) {

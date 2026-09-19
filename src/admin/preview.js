@@ -167,6 +167,26 @@
     if (logoImg) logoImg.style.display = 'none';
   }
 
+  /* ÖNİZLEME LİDER OLDUĞUNDA (#585). Görselleştirici penceresi ve
+     Spout/Syphon yokken MilkDrop'un seçimini önizleme yapıyor; web çıkışı
+     onu izlesin diye seçim ana sürece gidiyor — değişince hemen, değişmezse
+     yarım saniyede bir. Önizleme bir pencereyi izlerken (ölçer mesajı
+     taze) lider o pencere; burada yollanacak bir şey yok. */
+  let mdLiveKey = '';
+  let mdLiveAt = 0;
+  function reportMdLive(now) {
+    if (!window.api || !window.api.sendMdLive) return;
+    const F = window.SVMdFollow;
+    if (F && now - F.at < 1500) return;
+    const mp = stack.milkdropPreset();
+    if (!mp) return;
+    const key = [mp.id, mp.base, mp.cut, mp.blend, mp.seed].join('|');
+    if (key === mdLiveKey && now - mdLiveAt < 500) return;
+    mdLiveKey = key;
+    mdLiveAt = now;
+    window.api.sendMdLive(mp);
+  }
+
   // --------------------------------------------------------------------------
   // Çizim döngüsü
   // --------------------------------------------------------------------------
@@ -228,6 +248,7 @@
     const mcfg = modulator.apply(base, dt);
     if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
     stack.draw(audio, mcfg, t, dt);
+    reportMdLive(now);
 
     // logo LayerStack tuvali tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {

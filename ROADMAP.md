@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1853 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1865 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 256
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 268
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1212,6 +1212,28 @@ rest after. No version number yet.
   of change, not a count of flashes: a strobe faster than three a second
   still gets through, at reduced amplitude. 3 tests read the threshold
   `_flashPass` actually loads, through a fake GL.
+- **Every screen shows the same preset (#585)** · done. Found in use: with
+  random order every screen showed something different. Each visualizer
+  window, the Spout/Syphon window and the web overlay ran its own auto
+  advance, and even on the same preset two things were drawn per window:
+  the four `rand_preset` numbers and the transition's pattern. One engine
+  now picks — the window whose meter message main already forwards (the
+  first visualizer window, else the Spout/Syphon window), or the panel
+  preview when neither exists — and main passes its pick on, at once when it
+  changes and every 250 ms otherwise, to the other windows, Spout/Syphon and
+  the web overlay. The pick carries a seed; `rand_preset` and the transition
+  pattern come from it, and a manual pick seeds from the pick itself. A
+  follower that hears nothing for 1.5 s runs its own cycle from where it
+  was, so when the leader closes, the next window carries on from the same
+  preset. Measured in an isolated copy — three windows, Spout, the web
+  overlay and the preview, random order every 2 s: before, the six showed
+  5.7 different pictures per sample and never one; after, all six agreed
+  on the preset in 58 of 60 samples (the other two at a switch) and presets
+  drawing `rand_preset` as a flat colour matched to the pixel. The new
+  MilkDrop › Displays option, off by default, lets each display pick its own
+  again — 5.3 pictures per sample with it on. It lives in `milkdropControl`,
+  outside scenes. Per-frame randomness (`rand_frame`, `rot_rand`) still
+  differs between screens. 12 tests, two engines side by side among them.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

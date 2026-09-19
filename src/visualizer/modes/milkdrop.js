@@ -496,6 +496,38 @@ void main(){ outColor = vCol; }`;
     return Math.min(FLASH_THRESH, FLASH_RATE * (step > 0 ? step : 1 / 60));
   }
 
+  /* PRESET TOHUMU (#585). Aynı preset iki pencerede iki ayrı görüntü
+     veriyordu: `rand_preset`in dört sayısı ve geçiş deseni (yön, plazma,
+     daire) her pencerede `Math.random`dan çekiliyordu. Artık ikisi de
+     preset değişiminin TOHUMUNDAN türüyor. Otomatik geçişte tohumu lider
+     seçiyor ve izleyenlere seçimle birlikte gidiyor; elle seçimde tohum
+     seçimin kendisinden (ayar herkeste aynı), yani yine aynı.
+
+     Üreteç xorshift32, gürültü dokularınınkiyle aynı aile. Sıfır tohum
+     sıfırda takılır; o yüzden sabit bir değere çevriliyor. İlk birkaç çıktı
+     tohuma yakın olduğundan atılıyor. */
+  function seededRandom(seed) {
+    let s = (seed >>> 0) || 0x9e3779b9;
+    const next = () => {
+      s ^= s << 13; s >>>= 0;
+      s ^= s >> 17;
+      s ^= s << 5; s >>>= 0;
+      return (s >>> 8) / 16777216;
+    };
+    for (let i = 0; i < 4; i++) next();
+    return next;
+  }
+
+  // Dizgeden 32 bitlik tohum (FNV-1a): elle seçimin tohumu.
+  function hashSeed(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    return h >>> 0;
+  }
+
   const AALINE_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -1459,12 +1491,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          preset getiriyor. Otomatik geçiş kapalıyken — varsayılan bu — her
          kare boşuna yüzlerce öğelik bir dizi kurulurdu. */
       const listOf = () => PR.byKind('milkdrop');
-      /* PANEL ÖNİZLEMESİ GÖRSELLEŞTİRİCİYİ İZLİYOR. İkisi ayrı sayaç
-         koştursaydı rastgele sırada farklı presetler gösterirlerdi ve panel
-         hangisinin canlı olduğunu söyleyemezdi. Görselleştirici açıkken
-         ~30 Hz ölçer mesajı onun seçimini taşıyor (admin.js `SVMdFollow`);
-         mesaj kesilince önizleme kendi sayacına dönüyor. Görselleştirici
-         penceresinde bu değişken hiç yazılmıyor.
+      /* LİDERİ İZLEMEK. Her ekran ayrı sayaç koştursaydı rastgele sırada
+         farklı presetler gösterirdi ve panel hangisinin canlı olduğunu
+         söyleyemezdi. Seçimi TEK bir motor yapıyor: ilk görselleştirici
+         penceresi, o yoksa Spout/Syphon penceresi, o da yoksa panel
+         önizlemesi. Seçimi ~30 Hz ölçer mesajıyla ana sürece gidiyor ve
+         oradan diğer pencerelere, Spout/Syphon'a ve web çıkışına
+         `SVMdFollow` olarak dağılıyor (#585); önizleme her durumda izliyor.
+         "Her ekran kendi seçer" açıkken ana süreç dağıtmıyor.
+
+         Mesaj kesilince izleyen kendi sayacına dönüyor ve o ana kadar
+         izlediği presetten devam ediyor. Lider kapandığında bu yüzden
+         sıçrama yok: yeni lider eskisinin son seçimini, aynı tohumla,
+         gösteriyor. Dışa aktarıcıda bu değişken hiç yazılmıyor.
 
          `base` eşleşmesi şart: elle seçimden hemen sonra yolda eski bir
          mesaj olabilir. Onu izlemek yeni preseti eskisine geri harmanlar,
@@ -1483,6 +1522,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
           this.autoPick = {
             id: f.id, name: f.name || '', source: f.source || '', cut: !!F.cut,
             blend: typeof F.blend === 'number' ? F.blend : null,
+            // Liderin tohumu: aynı rand_preset ve aynı geçiş deseni (#585)
+            seed: Number.isInteger(F.seed) ? F.seed : null,
           };
         }
         return;
@@ -1508,6 +1549,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this.autoPick = {
           id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut,
           blend: this.cycle.blend,
+          /* Bu seçimin tohumu (#585). Seçimle birlikte izleyenlere gidiyor;
+             döngünün kendi rastgele akışından çekilmiyor, sıra seçimi
+             bundan etkilenmesin. */
+          seed: (Math.random() * 4294967296) >>> 0,
         };
       }
     }
@@ -1525,6 +1570,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         id: a ? a.id : null, name: a ? (a.name || '') : null, base: this._manualKey || '',
         cut: !!(a && a.cut),
         blend: a && typeof a.blend === 'number' ? a.blend : null,
+        seed: a && Number.isInteger(a.seed) ? a.seed : null,
         bars: tp && this.cycle ? {
           bpm: Math.round(tp.bpm || 0), count: this.cycle.barCount, of: this._barsOf || 0,
           noTempo: this.cycle.reason === 'NOTEMPO',
@@ -1573,6 +1619,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          ayardaki süre değil o kullanılıyor. */
       const want = a && typeof a.blend === 'number' ? a.blend : +c.blendTime || 0;
       const bt = cutNow ? 0 : Math.max(0, Math.min(BLEND_MAX, want));
+      /* Değişimin tohumu (#585): otomatik seçimde seçenin (lider pencere ya
+         da izlenen) verdiği, elle seçimde seçimin kendisinden. */
+      const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(key);
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;
@@ -1586,6 +1635,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         this.blendProg = 0;
         this.blendDur = bt;
         this.blendDirty = true;
+        // Geçiş deseni aynı tohumun ayrı bir akışından
+        this._blendSeed = (seed ^ 0x85ebca6b) >>> 0;
       }
       this.presetKey = key;
       const M = window.SVMilkdrop;
@@ -1597,8 +1648,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.presetTime = 0;
       /* MilkDrop'ta rand_preset float4: preset basina sabit DORT rastgele
          sayi. Uc tutmak `rand_preset.w` okuyan presetlerde derlemeyi
-         dusuruyordu ("vector field selection out of range"). */
-      this.randPreset = [Math.random(), Math.random(), Math.random(), Math.random()];
+         dusuruyordu ("vector field selection out of range"). Sayılar
+         değişimin tohumundan: aynı seçim her ekranda aynı dört sayı. */
+      const R = seededRandom(seed);
+      this.randPreset = [R(), R(), R(), R()];
       this._buildPresetShaders(src);
     }
 
@@ -3264,7 +3317,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const A = this.blendA, C = this.blendC;
       const gx = this.meshX, gy = this.meshY;
       const ax = this._aspX || 1, ay = this._aspY || 1;
-      const R = Math.random;
+      /* Desen değişimin tohumundan (#585): her ekranda aynı geçiş. Ağ
+         boyutu değişip desen geçişin ortasında yeniden kurulursa da aynı
+         desen çıkıyor. */
+      const R = seededRandom(this._blendSeed || 1);
       const type = 1 + Math.floor(R() * 3);
       if (type === 1) {
         // Yönlü silme: rastgele bir açıda ilerleyen bir bant
@@ -3293,7 +3349,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         C[gx] = R();
         C[gy * (gx + 1)] = R();
         C[gy * (gx + 1) + gx] = R();
-        this._genPlasma(0, gx, 0, gy, 0.25);
+        this._genPlasma(0, gx, 0, gy, 0.25, R);
         let mn = C[0], mx = C[0];
         for (let i = 0; i < n; i++) { if (C[i] < mn) mn = C[i]; if (C[i] > mx) mx = C[i]; }
         const mul = mx > mn ? 1 / (mx - mn) : 1;
@@ -3306,7 +3362,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         // Dairesel: içten dışa ya da dıştan içe
         const band = 0.02 + 0.14 * R() + 0.34 * R();
         const inv = 1 / band;
-        const dir = Math.random() < 0.5 ? -1 : 1;
+        const dir = R() < 0.5 ? -1 : 1;
         let k = 0;
         for (let y = 0; y <= gy; y++) {
           const dy = (y / gy - 0.5) * ay;
@@ -3325,14 +3381,14 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     /* Elmas-kare (orta nokta yer değiştirmesi). Köşelerden başlayıp her
        adımda ikiye bölüyor ve orta noktalara azalan genlikte gürültü
        ekliyor; MilkDrop'un plazma geçişinin kaynağı bu. */
-    _genPlasma(x0, x1, y0, y1, dt) {
+    _genPlasma(x0, x1, y0, y1, dt, R) {
       const C = this.blendC;
       const n = this.meshX + 1;
       const ax = this._aspX || 1, ay = this._aspY || 1;
       const midx = (x0 + x1) >> 1, midy = (y0 + y1) >> 1;
       let t00 = C[y0 * n + x0], t01 = C[y0 * n + x1];
       let t10 = C[y1 * n + x0], t11 = C[y1 * n + x1];
-      const jit = (m) => (Math.random() * 2 - 1) * dt * m;
+      const jit = (m) => (R() * 2 - 1) * dt * m;
       if (y1 - y0 >= 2) {
         if (x0 === 0) C[midy * n + x0] = 0.5 * (t00 + t10) + jit(ay);
         C[midy * n + x1] = 0.5 * (t01 + t11) + jit(ay);
@@ -3348,10 +3404,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         t11 = C[y1 * n + midx];
         C[midy * n + midx] = 0.25 * (t00 + t01 + t10 + t11) + jit(1);
         const d = dt * 0.5;
-        this._genPlasma(x0, midx, y0, midy, d);
-        this._genPlasma(midx, x1, y0, midy, d);
-        this._genPlasma(x0, midx, midy, y1, d);
-        this._genPlasma(midx, x1, midy, y1, d);
+        this._genPlasma(x0, midx, y0, midy, d, R);
+        this._genPlasma(midx, x1, y0, midy, d, R);
+        this._genPlasma(x0, midx, midy, y1, d, R);
+        this._genPlasma(midx, x1, midy, y1, d, R);
       }
     }
 

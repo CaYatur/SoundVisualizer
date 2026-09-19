@@ -1344,9 +1344,48 @@ ipcMain.handle('file:import-json', async (e, title) => {
 // Görselleştirici -> admin (ses seviyesi göstergesi vb.)
 // Yalnızca ilk pencerenin karesi dinlenir: her ekran ayrı kare gönderirse
 // Dynamic Lighting ekran sayısı kadar hızlı güncellenir ve efektler bozulur.
+/* MILKDROP: HER EKRANDA AYNI PRESET (#585).
+
+   Her pencere, Spout/Syphon ve web çıkışı kendi otomatik geçiş sayacını
+   koşturuyordu: rastgele sırada her ekran başka bir preset gösteriyordu.
+   Artık seçimi TEK motor yapıyor — ölçer mesajı iletilen pencere, yani ilk
+   görselleştirici penceresi, o yoksa Spout/Syphon penceresi, o da yoksa
+   panel önizlemesi — ve seçimi tohumuyla birlikte diğerlerine gidiyor.
+
+   Seçim değişince hemen, değişmezse 250 ms'de bir yollanıyor: izleyen,
+   1,5 sn mesaj almazsa kendi sayacına dönüyor. "Her ekran kendi seçer"
+   (`milkdropControl.independent`) açıkken hiç yollanmıyor. Panel
+   önizlemesi ölçer mesajının kendisini izlediği için burada ayrıca yok. */
+let mdFollowSent = { key: '', at: 0 };
+function relayMdFollow(sender, mp) {
+  if (!mp) return;
+  const ctl = currentConfig && currentConfig.milkdropControl;
+  if (ctl && ctl.independent === true) return;
+  const follow = { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
+    blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null };
+  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed].join('|');
+  const now = Date.now();
+  if (key === mdFollowSent.key && now - mdFollowSent.at < 250) return;
+  mdFollowSent = { key, at: now };
+  for (const win of openWindows()) {
+    if (win.webContents !== sender) win.webContents.send('md-follow', follow);
+  }
+  const ts = textureShare.window();
+  if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
+  streamServer.broadcast({ type: 'md-follow', follow }, 'overlay');
+}
+
+/* Görselleştirici penceresi ve Spout/Syphon yokken lider panel
+   önizlemesi: seçimini buradan yolluyor ve yalnız web çıkışı izliyor. */
+ipcMain.on('md-live', (e, mp) => {
+  if (openWindows().length || textureShare.window()) return;
+  relayMdFollow(e.sender, mp);
+});
+
 ipcMain.on('audio-meter', (e, data) => {
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
+  if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
   notifyAdmin('audio-meter', data);
   dynamicLighting.onAudioFrame(data, currentConfig);
   if (currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {

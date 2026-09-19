@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1853%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1865%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -326,6 +326,17 @@ profilinde basamak olmadığını doğruluyor.
   bulunamazsa geçiş Otomatik VJ'deki gibi zamana düşüyor, ölçü sayısının iki katı saniyede ve en
   az 4 sn'de bir, ve panel bunu söylüyor; bulunduğunda görselleştiricinin BPM'ini ve ölçü sayısını
   gösteriyor.
+- **Her ekran aynı preseti gösteriyor.** Otomatik geçiş ya da sert geçiş açıkken her
+  görselleştirici penceresi, Spout/Syphon çıkışı ve web çıkışı kendi sırasını koşturuyordu:
+  rastgele sırada her ekranda başka bir preset vardı — aynı preset bile farklıydı, çünkü dört
+  `rand_preset` sayısı ve geçişin deseni her birinde ayrı çekiliyordu. Artık seçimi tek motor
+  yapıyor — ilk görselleştirici penceresi, yoksa Spout/Syphon penceresi, o da yoksa panel
+  önizlemesi — ve diğerleri onun seçimini aynı tohumla, yani aynı `rand_preset` ve aynı geçişle
+  gösteriyor. Üç pencere, Spout, web çıkışı ve önizlemede, 2 sn'de bir rastgele sırayla ölçüldü:
+  altısı 60 örneğin 58'inde aynı presetteydi, kalan ikisi geçiş anına denk geldi; `rand_preset`i
+  düz renk olarak çizen presetler piksel piksel aynıydı. Önceden altı yüzey örnek başına ortalama
+  5,7 farklı görüntü veriyordu. MilkDrop › Ekranlar › Her ekran kendi seçer ayrı sıraları geri
+  getiriyor. Her karede çekilen rastgelelik (`rand_frame`) ekrandan ekrana hâlâ farklı.
 - **MilkDrop katmanı sahne geçişinde yaşamaya devam ediyor.** Sahne geçişi varış sahnesinin bütün
   katmanlarını sıfırdan kuruyordu; MilkDrop için bu, presetin baştan başlaması, geri besleme izinin
   silinmesi ve otomatik geçişin elle seçilen presete dönmesi demekti. Dinamik renk teması her
@@ -1145,7 +1156,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1853 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1865 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

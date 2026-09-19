@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1853%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1865%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -332,6 +332,18 @@ that asserts the bar profile has no step in it.
   two. With no tempo to be found the change falls back to time the way Auto VJ does, every twice
   as many seconds as bars and at least every 4 s, and the panel says so; otherwise it shows the
   visualizer's BPM and bar count.
+- **Every screen shows the same preset.** With auto advance or hard cuts on, each visualizer
+  window, the Spout/Syphon output and the web overlay ran a sequence of its own, so random order
+  put a different preset on every screen — and even the same preset differed, since its four
+  `rand_preset` numbers and the transition's pattern were drawn separately in each. Now one engine
+  picks — the first visualizer window, else the Spout/Syphon window, else the panel preview — and
+  the others show its pick with the same seed, so the same `rand_preset` and the same transition.
+  Measured across three windows, Spout, the web overlay and the preview with random order every
+  2 s: all six agreed on the preset in 58 of 60 samples, the other two falling on a switch, and
+  presets that draw `rand_preset` as a flat colour matched to the pixel; before, the six showed 5.7
+  different pictures per sample on average. MilkDrop › Displays › Each display picks its own brings
+  back separate sequences. Randomness drawn every frame (`rand_frame`) still differs from screen to
+  screen.
 - **A MilkDrop layer survives scene transitions.** A scene transition used to build every layer of
   the arriving scene from scratch, which for MilkDrop means the preset restarting, its feedback trail
   vanishing and auto advance falling back to the preset you picked by hand. The dynamic colour theme
@@ -1145,7 +1157,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1853 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1865 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

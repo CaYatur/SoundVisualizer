@@ -810,6 +810,18 @@
           text: 'Bas, orta ve tiz, her biri kendi uzun ortalamasına göre, birlikte eşiğin üç katını aşınca karışmadan yeni presete geçilir. Eşik her kesimde iki katına çıkar ve sonra tabanına döner: arka arkaya patlamalar arka arkaya kesim yapmaz. Kural ve varsayılanlar MilkDrop 2\'nin (2,5 ve 60 sn); oradaki gibi, toparlanma süresi sonunda eşiğin fazlası dörtte bire iner.',
         }));
       }
+      /* EKRANLAR (#585). Varsayılan: seçimi ilk görselleştirici penceresi
+         yapıyor, diğer pencereler, Spout/Syphon ve web çıkışı onu izliyor.
+         Sahnenin değil kurulumun ayarı: `milkdropControl`da, sahne değişince
+         kendiliğinden açılıp kapanmasın. */
+      nodes.push(P().row('Ekranlar', selOf([
+        [0, 'Hepsinde aynı preset'],
+        [1, 'Her ekran kendi seçer'],
+      ], control(cfg).independent === true ? 1 : 0, (v) => { control(cfg).independent = Number(v) === 1; })));
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Hepsinde aynı presette seçimi ilk görselleştirici penceresi yapar — yoksa Spout/Syphon penceresi, o da yoksa bu önizleme — ve diğer pencereler, Spout/Syphon ve web çıkışı aynı preseti aynı geçişle gösterir. Her ekran kendi seçerse otomatik geçiş ve sert geçiş her ekranda ayrı çalışır; rastgele sırada her ekran başka bir preset gösterir. Önizleme her iki durumda da ilk pencereyi izler.',
+      }));
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
         text: 'Otomatik geçiş görselleştiricinin kendi saatiyle çalışır: panel kapalıyken ya da görselleştirici paneli örterken de durmaz. Geçilen preset ayarlara yazılmaz; Yüklü Preset satırı o an ekranda olanı gösterir. Rastgele sırada o an çizilen preset hiç seçilmez. Her geçişin süresi yukarıdaki Preset Geçişi ayarından gelir.',
