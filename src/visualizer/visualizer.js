@@ -20,6 +20,29 @@
   const hint = document.getElementById('hint');
   const errBox = document.getElementById('error');
 
+  /* Yüzen / PiP penceresi: çerçevesiz doğduğu için taşımak ve kapatmak üzere
+     ince bir üst çubuk çizilir. Çubuk sürükleme bölgesi (-webkit-app-region),
+     ✕ ise değil. Normal tam ekran/OBS pencerede hiç oluşturulmaz. */
+  if (typeof window !== 'undefined' && window.SV_FLOATING) {
+    document.documentElement.classList.add('sv-floating');
+    const bar = document.createElement('div');
+    bar.id = 'sv-float-bar';
+    const grip = document.createElement('div');
+    grip.className = 'sv-float-grip';
+    grip.textContent = '⠿';
+    const close = document.createElement('button');
+    close.className = 'sv-float-close';
+    close.type = 'button';
+    close.textContent = '✕';
+    close.addEventListener('click', () => { try { window.api.floatingClose(); } catch { /* köprü yok */ } });
+    bar.appendChild(grip);
+    bar.appendChild(close);
+    (document.body || document.documentElement).appendChild(bar);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { try { window.api.floatingClose(); } catch { /* yok */ } }
+    });
+  }
+
   let cfg = window.SV.defaultConfig();
   const audio = new window.SVAudio();
   const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller

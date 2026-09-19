@@ -208,6 +208,27 @@
       // 'geometry' (3B parametrik) |
       // 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
       type: 'bars',
+      // Pioneer / .lkd modu ayarları (visualizer.type === 'pioneer').
+      // Klip yerleşik GIF/.lkd kütüphanesinden ya da kullanıcı klasöründen
+      // seçilir. Ses tepkiselliği yalnızca görünümü etkiler; orijinal
+      // animasyonun akışını bozmaz (bkz. modes/pioneer.js).
+      pioneer: {
+        clip: 'builtin:alt_diverdolphins_glow.gif',
+        fit: 'contain', // 'contain' | 'cover' | 'stretch'
+        scale: 1,
+        opacity: 1,
+        brightness: 1,
+        smooth: false, // Pioneer OEL görünümü keskin pikseldir
+        blend: 'normal', // 'normal' | 'screen' | 'add'
+        speed: 1, // temel oynatma hızı çarpanı (1 = orijinal)
+        hue: 0,
+        saturate: 1,
+        audioSpeed: 0, // 0 = deterministik; >0 ise bas hızı değiştirir
+        audioBrightness: 0, // bas -> parlaklık
+        audioScale: 0, // bas -> yakınlaşma
+        audioOpacity: 0, // seviye -> saydamlık
+        beatFlash: 0, // ritimde parlama
+      },
       colorMode: 'rainbow', // 'custom' | 'theme' | 'rainbow'
       rainbow: true,
       color: '#3aa6ff',
@@ -945,6 +966,13 @@
       saturate: 1,
       audioZoom: 0.12, // bas -> yakınlaşma
       audioOpacity: 0, // bas -> saydamlık nabzı
+    },
+
+    // Pioneer / .lkd görsel kütüphanesi (uygulama düzeyi ayar). Kullanıcı
+    // kendi .lkd / GIF klasörünü buradan tanımlar; ana süreç bu klasörü
+    // güvenle tarar (bkz. src/main/lkd-store.js).
+    pioneer: {
+      userDir: '', // boş = yalnızca yerleşik klipler
     },
 
     // ------------------------------------------------------------------

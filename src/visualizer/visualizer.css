@@ -72,3 +72,50 @@ html, body {
   max-width: 70%;
   text-align: center;
 }
+
+/* Yüzen / PiP penceresi çubuğu. Yalnızca --sv-floating pencerede oluşturulur.
+   Boştayken neredeyse görünmez; imleç pencerenin üstüne gelince belirir, böylece
+   görseli örtmez ama taşıma/kapatma her an elde olur. */
+#sv-float-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 0 8px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+  -webkit-app-region: drag;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 2147483647;
+  user-select: none;
+}
+#sv-float-bar:hover,
+html.sv-floating:hover #sv-float-bar {
+  opacity: 1;
+}
+#sv-float-bar .sv-float-grip {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: grab;
+}
+#sv-float-bar .sv-float-close {
+  -webkit-app-region: no-drag;
+  width: 20px;
+  height: 18px;
+  line-height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+#sv-float-bar .sv-float-close:hover {
+  background: rgba(230, 60, 60, 0.9);
+}

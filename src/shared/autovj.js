@@ -52,7 +52,7 @@
     'particles', 'fireworks', 'lightning', 'bubbles', 'metaball', 'ripplegrid',
     'spectrogram', 'flowfield', 'flock', 'voronoi', 'truchet', 'moire',
     'interference', 'ropes', 'galaxy', 'dna', 'isocity', 'attractorfield',
-    'scope', 'goniometer', 'chromawheel', 'geometry', 'milkdrop', 'feedback',
+    'scope', 'goniometer', 'chromawheel', 'geometry', 'milkdrop', 'feedback', 'pioneer',
   ];
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
