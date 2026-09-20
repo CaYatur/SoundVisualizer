@@ -502,5 +502,11 @@
     raf = requestAnimationFrame(frame);
   }
 
+  /* Katman yığınına dışarıdan tek erişim noktası — panelin önizlemesindeki
+     `SVPreview.stack()` ile aynı desen. Öz test (#572) WebGL bağlamını
+     buradan bulduğu katmanda bilerek kaybettirip karelerin geri geldiğini
+     ölçüyor; başka türlü çizen motora ulaşmanın yolu yok. */
+  window.SVStage = { stack: () => stack };
+
   init().catch((e) => showError('Başlatılamadı: ' + (e && e.message ? e.message : e)));
 })();
