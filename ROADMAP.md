@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1881 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1894 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 284
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 297
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1274,6 +1274,28 @@ rest after. No version number yet.
   canvas is transparent there. Export composes through the same path and
   had the same fault: the corner of the 30th frame was black before and is
   red now, and two exports of the job still match frame for frame. 4 tests.
+- **MilkDrop recovers from a lost WebGL context (#572)** · done. A driver
+  reset or a GPU process crash takes every WebGL object with it, and nothing
+  in `src` listened for `webglcontextlost`: the layer stayed black until the
+  application was restarted. The engine now holds the loss on the canvas
+  that owns the context, asks for it back (`preventDefault`, without which
+  the browser never restores it) and rebuilds its programs, buffers,
+  textures and the running preset's shaders when it arrives; if it does not
+  arrive within three seconds it starts again on a fresh canvas, and an
+  abandoned canvas whose context is restored later is released at once so it
+  does not hold a slot. The preset object, its equation pool and its clock
+  are kept, so the preset carries on rather than restarting; the feedback
+  buffer's content cannot come back, so the picture flows again from black,
+  and a half-finished transition counts as finished. Chromium's per-domain
+  3D block after a GPU crash is disabled in the main process, since a
+  blocked page cannot get a new context at all. Measured in the GPU
+  self-test on the running engine, both ways: with a restore, frames go 12 →
+  101 and the brightest sample stays 246 of 255; without one, 99 → 242 at
+  244, and both keep the same preset object and clock (0.25 s → 1.42 s). 13
+  unit tests drive the engine with a fake GL: the event is refused, the
+  listener sits on the offscreen canvas, our own `dispose` loss is ignored,
+  every GL name the engine creates is forgotten, and the inventory is read
+  from the source so a new buffer cannot be left behind.
 - **Preset changes on the bar, from the tempo engine (#571)** · done. Auto
   advance can count bars (`autoNextUnit`, `autoNextBars`) instead of
   seconds: every n bars the preset changes on the first beat of a bar, and

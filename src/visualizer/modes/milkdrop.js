@@ -54,6 +54,26 @@
      bedeli sınırlıyor. */
   const BLEND_MAX = 5;
 
+  /* BAĞLAM KAYBI (#572). Sürücü sıfırlanınca ya da GPU süreci çökünce
+     WebGL bağlamı gidiyor; tarayıcı onu ancak sayfa `webglcontextlost`
+     olayını geri çevirirse (preventDefault) geri vermeyi deniyor. Bu süre
+     içinde geri gelmezse — tarayıcı vazgeçtiyse ya da kayıp elle
+     istendiyse — yeni bir tuvalde yeni bir bağlam kuruluyor. Yeni bağlam da
+     alınamıyorsa (GPU süreci henüz kalkmadı) ikinci süre aralıklarla
+     yeniden deneniyor; her karede denemek her karede bir tuval demek olurdu. */
+  const RESTORE_WAIT_MS = 3000;
+  const CONTEXT_RETRY_MS = 2000;
+  /* Motorun kurduğu tekil GL nesnelerinin adları: kayıptan sonra
+     `_forgetGL` bunları unutuyor. tests/milkdrop-context-loss.test.js
+     listeyi motorun kaynakta GERÇEKTEN kurduklarıyla karşılaştırıyor —
+     yeni bir nesne eklenip buraya yazılmazsa kayıptan sonra ölü bağlamın
+     nesnesiyle çizilir ve ekran sessizce eksik kalırdı. */
+  const GL_NAMES = [
+    'vao', 'vbo', 'ibo', 'quadVao', 'quadVbo', 'lineVao', 'lineVbo', 'aaVao', 'aaVbo',
+    'shapeTexVao', 'shapeTexVbo',
+    'warpFixed', 'compFixed', 'blurProg', 'lineProg', 'aaProg', 'shapeTexProg', 'flashProg',
+  ];
+
   /* GEÇİŞTE SAYISAL OLARAK KARIŞTIRILAN kare değişkenleri.
 
      MilkDrop geçişte iki presetin per_frame'ini de koşturuyor, sonra
@@ -698,7 +718,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.frameNo = 0;
       this.presetTime = 0;
       this._pix = {};
-      this._progCache = new Map();
+      /* Bağlam kaybı (#572): null = bağlam sağlam; aksi hâlde kaybın anı
+         ve tarayıcının onu geri verip vermediği. */
+      this._lost = null;
       this.meshX = MESH_X_DEFAULT;
       this.meshY = MESH_Y_DEFAULT;
       /* Fare durumu (#560, madde 5). MilkDrop denklemlere mouse_x/mouse_y
@@ -802,6 +824,108 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return { ok: true, prog: p };
     }
 
+    /* BAĞLAM KAYBI (#572).
+
+       Sürücü sıfırlanması, GPU sürecinin çökmesi ya da uzun bir gecede bir
+       GPU takılması bağlamı götürüyor: bütün programlar, dokular ve
+       tamponlar onunla gidiyor. Hiçbir şey dinlenmiyordu ve katman
+       uygulama yeniden açılana kadar siyah kalıyordu.
+
+       Dinleyiciler bağlamın SAHİBİ olan ekran dışı tuvalde (`gl2`), görünür
+       2D tuvalde değil. `preventDefault` şart: onsuz tarayıcı bağlamı hiç
+       geri vermiyor ve `webglcontextrestored` hiç gelmiyor.
+
+       KENDİ BIRAKTIĞIMIZ bağlam sayılmıyor: `dispose` bağlamı bilerek
+       kaybettiriyor (Chromium'un etkin bağlam sınırı); o kayıp geri
+       istenseydi atılmış bir örnek dirilirdi.
+
+       Terk edilmiş bir tuvalin bağlamı sonradan geri gelirse (yeni tuvale
+       geçildikten sonra tarayıcı eskisini de geri verdiyse) hemen
+       bırakılıyor: yoksa kimsenin çizmediği bir bağlam etkin sayılmaya
+       devam eder ve sınırı canlı katmanların aleyhine doldururdu. */
+    _watchContext(canvas, gl) {
+      if (!canvas || !canvas.addEventListener) return;
+      canvas.addEventListener('webglcontextlost', (e) => {
+        if (this._disposed || canvas !== this.gl2) return;
+        if (e && e.preventDefault) e.preventDefault();
+        if (!this._lost) this._lost = { at: performance.now(), restored: false };
+      });
+      canvas.addEventListener('webglcontextrestored', () => {
+        if (this._disposed || canvas !== this.gl2) {
+          const ext = gl.getExtension('WEBGL_lose_context');
+          if (ext) ext.loseContext();
+          return;
+        }
+        if (this._lost) this._lost.restored = true;
+      });
+    }
+
+    /* Kare başında: bağlam sağlamsa true. Kaybolduysa tarayıcı geri
+       verdiğinde AYNI tuvalde, vermezse süre dolunca YENİ bir tuvalde
+       baştan kuruluyor. Beklerken hiçbir şey çizilmiyor: görünür tuvalde
+       son kare kalıyor ve presetin saati duruyor — geri geldiğinde kaldığı
+       yerden sürüyor. */
+    _recover() {
+      const gl = this.gl;
+      /* Olay kaçtıysa bağlamın kendisi söylüyor. Bu yolda preventDefault
+         çağrılmamış olabilir, yani tarayıcı geri vermeyecek: süre dolunca
+         yeni tuvale geçiliyor. */
+      if (!this._lost && gl && gl.isContextLost && gl.isContextLost()) {
+        this._lost = { at: performance.now(), restored: false };
+      }
+      const L = this._lost;
+      if (!L) return true;
+      if (L.restored && gl && !gl.isContextLost()) {
+        this._forgetGL();
+        this._lost = null;
+        this.recoveries = (this.recoveries || 0) + 1;
+        this.recoveredBy = 'restored';
+        return true;
+      }
+      if (performance.now() - L.at < RESTORE_WAIT_MS) return false;
+      this._forgetGL();
+      this.gl = null;
+      this.gl2 = document.createElement('canvas');
+      this._lost = null;
+      this.recoveries = (this.recoveries || 0) + 1;
+      this.recoveredBy = 'new-canvas';
+      return true;
+    }
+
+    /* Kaybolan bağlamın nesneleri geçersiz: silmeye gerek yok, silmeye
+       çalışmak da bir şey yapmıyor. Adlar unutuluyor ki `_initGL` ve tembel
+       kurucular (hedefler, flaş, gürültü, kullanıcı dokuları, preset
+       shader'ları) hepsini yeni bağlamda baştan kursun.
+
+       JS TARAFI OLDUĞU GİBİ KALIYOR: preset nesnesi, denklem havuzu (q
+       değişkenleri, presetin kendi tuttuğu durum), saat, otomatik geçiş
+       sayacı. Geri besleme tamponunun İÇERİĞİ ise GPU belleğindeydi ve
+       gitti; preset siyah bir tampondan yeniden akmaya başlıyor. Yalnız
+       var olan görüntüyü süzen presetler (dokulu şekiller, kenar bulan comp)
+       bir süre karanlık kalabilir — bu bir onarım değil, kayıptan kurtulma.
+
+       Yarım kalan bir preset geçişi TAMAMLANMIŞ sayılıyor: eski presetin
+       shader'larını yeniden derlemek yerine yeni preset doğrudan sürüyor. */
+    _forgetGL() {
+      for (const k of GL_NAMES) this[k] = null;
+      this.targets = null;
+      this.blur = null;
+      this.flash = null;
+      this.noise = null;
+      this.samplers = null;
+      this.userTex = {};
+      this.warpPreset = null;
+      this.compPreset = null;
+      this.oldPreset = null;
+      this.oldWarpPreset = null;
+      this.oldCompPreset = null;
+      this.oldRandPreset = null;
+      this.blendProg = 0;
+      this._fmt = null;
+      this._staticFail = false;
+      this._shadersLost = true;
+    }
+
     _initGL(W, H) {
       /* "MilkDrop uyumlu" anahtari. Varsayilan ACIK; bilinmiyorsa (olcum
          harness'i gibi cagiranlarda) yine acik sayiliyor, cunku dogru olan
@@ -813,9 +937,21 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         const gl = this.gl2.getContext('webgl2', {
           alpha: false, antialias: false, preserveDrawingBuffer: true,
         });
-        if (!gl) { this.error = 'WebGL2 yok'; return false; }
+        if (!gl) {
+          this.error = 'WebGL2 yok';
+          this._noCtxAt = performance.now();
+          return false;
+        }
         this.gl = gl;
-
+        this._noCtxAt = 0;
+        this._watchContext(this.gl2, gl);
+      }
+      /* SABİT KAYNAKLAR: ilk kurulumda ve bağlam geri geldikten sonra
+         (#572) — `_forgetGL` adları unutuyor, burası yeniden kuruyor.
+         Derlenemeyen sabit bir shader her karede yeniden denenmiyor. */
+      if (!this.warpFixed) {
+        if (this._staticFail) return false;
+        const gl = this.gl;
         const warp = this._link(MESH_VERT, WARP_FIXED_FRAG);
         const comp = this._link(COMP_MESH_VERT, COMP_FIXED_FRAG);
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
@@ -834,6 +970,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !aal.ok || !shtex.ok) {
           this.error = (warp.log || comp.log || blur.log || line.log ||
                         aal.log || shtex.log || 'shader');
+          this._staticFail = true;
           return false;
         }
         this.aaProg = aal.prog;
@@ -1654,6 +1791,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const M = window.SVMilkdrop;
       if (!M) { this.error = 'motor yok'; this.preset = null; return; }
       const src = (a ? a.source : c.source) || defaultSource();
+      /* Kaynak saklanıyor: bağlam kaybından sonra (#572) shader'lar ondan
+         yeniden derleniyor, preset nesnesine dokunmadan. */
+      this._presetSrc = src;
       this.preset = new M.Preset(src, { seed: 1234 });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
@@ -1696,6 +1836,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.warpPreset = null;
       this.compPreset = null;
       this.shaderNote = '';
+      this._shadersLost = false;
       if (!gl || !T || !this.preset) return;
 
       const notes = [];
@@ -2257,6 +2398,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     _placeUserTexture(base, img, token) {
       const gl = this.gl;
       if (!gl || token !== this._texToken) return;
+      /* Bağlam kaybolmuşken yükleme yapılmıyor (#572): kaybolmuş bağlamda
+         `createTexture` null döner ve önbelleğe "bu doku yok" diye geçerdi;
+         yeniden istenmediği için preset doku yerine siyah okurdu. */
+      if (gl.isContextLost && gl.isContextLost()) return;
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -2404,6 +2549,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          altında kalıyor ve hiç etkilenmiyor; devreye yalnızca WCAG'in
          riskli dediği %7,1'de giriyor. Kapatmak isteyen ayardan kapatıyor. */
       this._flashLimit = !(cfg.milkdrop && cfg.milkdrop.flashLimit === false);
+      /* Bağlam kaybı (#572): geri gelmesini beklerken çizilmiyor, görünür
+         tuvalde son kare kalıyor. Hiç bağlam alınamadıysa (GPU süreci daha
+         kalkmadıysa) deneme aralıklarla, her karede değil. */
+      if (!this._recover()) return;
+      if (!this.gl && this._noCtxAt) {
+        if (performance.now() - this._noCtxAt < CONTEXT_RETRY_MS) { this._fallback(W, H); return; }
+        this.gl2 = document.createElement('canvas');
+        this._noCtxAt = 0;
+      }
       if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
       /* Anahtar cizim sirasinda degistiyse gurultu dokulari yeniden
          uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
@@ -2415,6 +2569,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._autoCycle(cfg, step, audio);
       this._ensurePreset(cfg);
       if (!this.preset) { this._fallback(W, H); return; }
+      /* Bağlam geri geldiyse (#572) çalışan presetin shader'ları yeni
+         bağlamda yeniden derleniyor. Preset NESNESİ aynı kalıyor: denklem
+         havuzu, q değişkenleri ve saat kaybın olduğu yerden sürüyor.
+         Preset bu arada zaten değiştiyse `_buildPresetShaders` bayrağı
+         orada düşürüyor ve burada ikinci kez derlenmiyor. */
+      if (this._shadersLost && this._presetSrc) this._buildPresetShaders(this._presetSrc);
       /* Uyum anahtarı alt blokların hangi kare değişkenlerini gördüğünü de
          seçiyor (shared/milkdrop.js, SHARED_LEGACY). Her kare yazılıyor:
          anahtar çizim sürerken değişebiliyor ve geçişteki eski preset de
@@ -4735,6 +4895,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
 
     dispose() {
+      /* İLK İŞ: aşağıdaki `loseContext` bir `webglcontextlost` olayı
+         doğuruyor ve dinleyici (#572) onu bir sürücü kaybı sanmamalı —
+         yoksa atılmış bir örnek kendini yeniden kurmaya çalışırdı. */
+      this._disposed = true;
       /* Uçuştaki doku istekleri geçersiz; onları bekleyen (dışa aktarıcı)
          takılmasın diye sayaç burada sıfırlanıyor. */
       this._texToken = (this._texToken || 0) + 1;

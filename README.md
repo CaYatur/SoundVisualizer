@@ -11,7 +11,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1881%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1894%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -263,6 +263,17 @@ that asserts the bar profile has no step in it.
   times a second, the swing per cycle was 0.714 in the panel's 45 fps preview but 1.000 on a 74 Hz
   display, the flash untouched. It is now held per second: 0.43–0.49 in the preview, in 60 Hz and
   74 Hz windows, in a 35 fps window and on the web overlay alike.
+- **A lost GPU context comes back.** A driver reset or a GPU process crash takes every WebGL object
+  with it, and MilkDrop stayed black until the application was restarted: nothing in the code
+  listened for it. The engine now holds the loss, asks the browser for the context back and rebuilds
+  its programs, textures and buffers on the same canvas when it arrives; if it does not arrive
+  within three seconds — a browser that gave up, or a context lost by hand — it starts again on a
+  fresh canvas. The running preset survives either way: the same object, the same equation state and
+  the same clock, so it carries on from where it stopped instead of restarting. What cannot come
+  back is the feedback buffer's content, which lived in GPU memory, so the picture flows again from
+  black. Chromium's habit of blocking 3D for a page whose GPU process crashed is turned off, because
+  that block would leave the recovery with nowhere to go. The GPU self-test loses the context on the
+  running engine both ways and checks that frames, pixels and the preset's own state come back.
 - **Preset transitions are MilkDrop's dual pipeline.** The previous preset does not stop when a new
   one loads: it keeps its own object, its own compiled shaders and its own clock, and both presets
   run their frame and vertex equations every frame. The two warp meshes are blended per node along a
@@ -1168,7 +1179,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1881 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1894 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

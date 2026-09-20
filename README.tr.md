@@ -11,7 +11,7 @@
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Test](https://img.shields.io/badge/test-1881%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1894%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -256,6 +256,17 @@ profilinde basamak olmadığını doğruluyor.
   gelen bir presetle ölçüldü: dönem başına salınım panelin 45 fps'lik önizlemesinde 0,714, 74
   Hz'lik ekranda ise 1,000'dı, flaş hiç kısılmıyordu. Sınır artık saniye başına: önizlemede, 60
   ve 74 Hz'lik pencerelerde, 35 fps'lik pencerede ve web çıkışında aynı biçimde 0,43–0,49.
+- **Kaybolan GPU bağlamı geri geliyor.** Sürücünün sıfırlanması ya da GPU sürecinin çökmesi bütün
+  WebGL nesnelerini götürüyor; MilkDrop uygulama yeniden açılana kadar siyah kalıyordu, çünkü kodda
+  bunu dinleyen bir yer yoktu. Motor artık kaybı tutuyor: tarayıcıdan bağlamı geri istiyor ve
+  geldiğinde programlarını, dokularını ve tamponlarını aynı tuvalde yeniden kuruyor; üç saniyede
+  gelmezse — tarayıcı vazgeçmişse ya da bağlam elle kaybettirilmişse — yeni bir tuvalde baştan
+  kuruluyor. Çalışan preset iki durumda da yaşıyor: aynı nesne, aynı denklem durumu, aynı saat,
+  yani kaldığı yerden sürüyor. Geri gelemeyen tek şey GPU belleğindeki geri besleme tamponunun
+  içeriği; görüntü yeniden siyahtan akmaya başlıyor. Chromium'un, GPU süreci çöken bir sayfaya 3B'yi
+  kapatma alışkanlığı da kapatıldı: o engel kurtarmanın gidecek yerini bırakmıyordu. GPU öz testi
+  çalışan motorda bağlamı iki yoldan da kaybettirip karelerin, piksellerin ve presetin kendi
+  durumunun geri geldiğini ölçüyor.
 - **Preset geçişi MilkDrop'un çift boru hattı.** Yeni preset yüklenince eskisi durmuyor: kendi
   nesnesi, kendi derlenmiş shader'ları ve kendi saatiyle yaşamaya devam ediyor ve her karede iki
   presetin de kare ve düğüm denklemleri koşuyor. İki warp ağı düğüm düğüm bir rampa boyunca
@@ -1167,7 +1178,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1881 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1894 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
