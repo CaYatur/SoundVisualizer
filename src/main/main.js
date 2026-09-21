@@ -67,6 +67,17 @@ let currentConfig = null; // son bilinen yapılandırma (admin -> görselleştir
 let lastCaptureSource = null; // o an yakalanan çıkış aygıtı
 let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare istiyor mu?
 
+/* GPU ÇÖKÜNCE 3B YENİDEN AÇILABİLMELİ (#572).
+
+   Chromium bir alan adı WebGL kullanırken GPU süreci çökerse o alanı 3B
+   API'lerden bir süre, art arda çökmelerde UYGULAMA KAPANANA KADAR
+   engelliyor. Tarayıcıda makul; burada değil: engellenen "alan" bizim kendi
+   sayfamız ve engellendiğinde bütün görselleştirici siyah kalıyor —
+   MilkDrop'un bağlamı geri kurma yolu da (#572) yeni bağlam alamadığı için
+   işlemez hâle geliyor. Elektron bunu kapatmak için bu çağrıyı veriyor ve
+   yalnız `ready`den ÖNCE kabul ediyor. */
+app.disableDomainBlockingFor3DAPIs();
+
 const SMOKE = process.argv.includes('--smoke');
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
@@ -1557,8 +1568,11 @@ function relayMdFollow(sender, mp) {
   const ctl = currentConfig && currentConfig.milkdropControl;
   if (ctl && ctl.independent === true) return;
   const follow = { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
-    blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null };
-  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed].join('|');
+    blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null,
+    /* Liderin önceden derlediği SIRADAKİ preset (#573): izleyenler de onu
+       önceden derliyor, değişim geldiğinde hepsi aynı anda geçebiliyor. */
+    next: typeof mp.next === 'string' ? mp.next : null };
+  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
   const now = Date.now();
   if (key === mdFollowSent.key && now - mdFollowSent.at < 250) return;
   mdFollowSent = { key, at: now };
@@ -2739,6 +2753,123 @@ async function runSmoke() {
   send({ background: Object.assign({}, base.background, { type: 'gradient' }) });
   await wait(300);
   console.log('[SMOKE] backgrounds drawn: ' + backgrounds.length);
+
+  /* BAĞLAM KAYBINDAN GERİ DÖNÜYOR MU? (#572)
+
+     Sürücü sıfırlanması ya da GPU sürecinin çökmesi bütün WebGL
+     nesnelerini götürüyor. Birim testler motoru sahte bir GL ile kurup
+     mantığı ölçüyor; GERÇEKTEN geri geldiğini ancak gerçek bir bağlamı
+     kaybettirip kareleri saymak gösterebilir.
+
+     İKİ YOL ayrı ayrı ölçülüyor, çünkü ikisi farklı kodtan geçiyor:
+     tarayıcı bağlamı geri verdiğinde (restoreContext) aynı tuvalde,
+     vermediğinde süre dolunca yeni bir tuvalde. İkincisi gerçek hayatta
+     tarayıcının vazgeçtiği durum ve sessizce siyah kalmanın tek çaresi.
+
+     Ölçülen: kareler devam ediyor mu, GÖRÜNTÜ geri geliyor mu (piksel), ve
+     çalışan presetin NESNESİ aynı mı kaldı — denklem havuzu ve saat
+     kayboluyorsa "geri geldi" demek yanlış olurdu. */
+  const lossProbe = async () => {
+    /* Otomatik geçiş ve sert kesme KAPALI: ölçüt "çalışan presetin nesnesi
+       aynı kaldı mı" ve preset kendiliğinden değişirse o ölçüt yanlış
+       yerden düşerdi. */
+    /* Katman yığını KAPALI gönderiliyor: açıkken sahneyi `cfg.layers`
+       belirliyor ve `visualizer.type` sahnede bir MilkDrop katmanı
+       doğurmuyor (#560, madde 8). Ölçüm için gereken, çizen bir motor. */
+    send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
+      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' }),
+      background: { type: 'solid', solidColor: '#000000' } });
+    const find = `(function () {
+      var s = window.SVStage && window.SVStage.stack();
+      if (!s) return 'stage';
+      var e = s.entries.filter(function (x) { return x.mode && x.mode.gl2; })[0];
+      if (!e) return 'layer';
+      window.__md = e.mode;
+      window.__mdCanvas = e.canvas;
+      return e.mode.gl ? true : 'context';
+    })()`;
+    let found = null;
+    for (let i = 0; i < 12; i++) {
+      await wait(300);
+      found = await wc.executeJavaScript(find);
+      if (found === true) break;
+    }
+    if (found !== true) return { hata: 'the MilkDrop layer never started drawing (' + found + ')' };
+    /* Görüntü ölçüsü: katman tuvalindeki birkaç noktanın en parlağı.
+       Motor çiziyorsa siyah kalmıyor; bağlam kayıpken yeni kare hiç
+       gelmediği için de burada eski kare durabilir — bu yüzden asıl
+       ölçüt kare SAYACI, piksel ise "gerçekten resim var" güvencesi. */
+    const probe = (what) => wc.executeJavaScript(`(function () {
+      var m = window.__md, c = window.__mdCanvas;
+      /* Katmanın KENDİ tuvalinden okumuyoruz: GPU destekli bir 2D tuvali
+         arka arkaya okumak Chromium'da "willReadFrequently" uyarısı
+         bastırıyor ve öz test her uyarıyı hata sayıyor. Görüntü 8x8'e
+         küçültülüp işlemci tarafındaki tuvalden TEK seferde okunuyor. */
+      var s = window.__mdSample;
+      if (!s) {
+        s = window.__mdSample = document.createElement('canvas');
+        s.width = 8; s.height = 8;
+      }
+      var x = s.getContext('2d', { willReadFrequently: true }), mx = 0;
+      x.clearRect(0, 0, 8, 8);
+      x.drawImage(c, 0, 0, 8, 8);
+      var d = x.getImageData(0, 0, 8, 8).data;
+      for (var i = 0; i < d.length; i += 4) mx = Math.max(mx, d[i], d[i + 1], d[i + 2]);
+      return { what: ${JSON.stringify(what)}, frames: m.frameNo, time: m.time, px: mx,
+        lost: !!(m.gl && m.gl.isContextLost && m.gl.isContextLost()), recoveries: m.recoveries || 0,
+        by: m.recoveredBy || '', mark: m.preset ? m.preset.__smokeMark || 0 : -1 };
+    })()`);
+    const out = {};
+    for (const phase of ['restored', 'new-canvas']) {
+      await wc.executeJavaScript('(function(){ var m = window.__md; if (m.preset) m.preset.__smokeMark = 1;' +
+        'window.__mdExt = m.gl.getExtension("WEBGL_lose_context"); if (window.__mdExt) window.__mdExt.loseContext();' +
+        'return !!window.__mdExt; })()');
+      const before = await probe(phase);
+      await wait(400);
+      const lost = await probe(phase);
+      if (phase === 'restored') {
+        await wc.executeJavaScript('window.__mdExt.restoreContext();0;');
+        await wait(1200);
+      } else {
+        // Kimse geri vermiyor: motor kendi süresini doldurup yeni tuvale geçmeli
+        await wait(4500);
+      }
+      out[phase] = { before, lost, after: await probe(phase) };
+    }
+    return out;
+  };
+  const loss = await lossProbe();
+  console.log('[SMOKE] bağlam kaybı: ' + JSON.stringify(loss));
+  if (loss.hata) {
+    errors.push('context loss: ' + loss.hata);
+  } else {
+    for (const phase of ['restored', 'new-canvas']) {
+      const p = loss[phase];
+      if (!p.lost.lost && p.lost.frames > p.before.frames + 2) {
+        errors.push('context loss (' + phase + '): the context was never lost, so nothing was measured');
+      }
+      if (!(p.after.frames > p.lost.frames)) {
+        errors.push('context loss (' + phase + '): no frames after the context came back (' +
+          p.lost.frames + ' -> ' + p.after.frames + ')');
+      }
+      if (p.after.lost) errors.push('context loss (' + phase + '): the engine is still on a lost context');
+      if (!(p.after.px > 8)) {
+        errors.push('context loss (' + phase + '): the picture did not come back (brightest sample ' + p.after.px + ')');
+      }
+      if (p.after.mark !== 1) {
+        errors.push('context loss (' + phase + '): the running preset was rebuilt, its equation state is gone');
+      }
+      if (!(p.after.time >= p.before.time)) {
+        errors.push('context loss (' + phase + '): the preset clock restarted (' + p.before.time + ' -> ' + p.after.time + ')');
+      }
+    }
+    if (loss['new-canvas'] && loss['new-canvas'].after.by !== 'new-canvas') {
+      errors.push('context loss: recovery without a restore did not go through a new canvas (' +
+        loss['new-canvas'].after.by + ')');
+    }
+  }
+
 
 
   /* --- Rasterizer denemesi (--smoke-raster) ---

@@ -11,7 +11,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
-[![Tests](https://img.shields.io/badge/tests-1891%20passing-2ea043.svg)](#tests)
+[![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
+[![Tests](https://img.shields.io/badge/tests-1923%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -263,6 +264,17 @@ that asserts the bar profile has no step in it.
   times a second, the swing per cycle was 0.714 in the panel's 45 fps preview but 1.000 on a 74 Hz
   display, the flash untouched. It is now held per second: 0.43–0.49 in the preview, in 60 Hz and
   74 Hz windows, in a 35 fps window and on the web overlay alike.
+- **A lost GPU context comes back.** A driver reset or a GPU process crash takes every WebGL object
+  with it, and MilkDrop stayed black until the application was restarted: nothing in the code
+  listened for it. The engine now holds the loss, asks the browser for the context back and rebuilds
+  its programs, textures and buffers on the same canvas when it arrives; if it does not arrive
+  within three seconds — a browser that gave up, or a context lost by hand — it starts again on a
+  fresh canvas. The running preset survives either way: the same object, the same equation state and
+  the same clock, so it carries on from where it stopped instead of restarting. What cannot come
+  back is the feedback buffer's content, which lived in GPU memory, so the picture flows again from
+  black. Chromium's habit of blocking 3D for a page whose GPU process crashed is turned off, because
+  that block would leave the recovery with nowhere to go. The GPU self-test loses the context on the
+  running engine both ways and checks that frames, pixels and the preset's own state come back.
 - **Preset transitions are MilkDrop's dual pipeline.** The previous preset does not stop when a new
   one loads: it keeps its own object, its own compiled shaders and its own clock, and both presets
   run their frame and vertex equations every frame. The two warp meshes are blended per node along a
@@ -281,6 +293,17 @@ that asserts the bar profile has no step in it.
   mesh 64 with a hard cut, 12.10 ms with a transition; at mesh 96 that one frame goes 12.00 → 18.00
   ms and drops a frame. So the default is 1.7s, MilkDrop's own `fBlendTimeUser`, and automatic
   preset advance stays off by default, which means a transition only ever runs when you ask for one.
+- **A preset change no longer stalls the frame.** Measured across 900 presets at 1280×720, the
+  frame that loaded a preset ran a median 17 ms and at worst ~119 ms over its neighbours, and six
+  changes in ten dropped a frame that would otherwise have held — nine tenths of it the GPU compiling
+  the new shaders while the frame waited. Where the driver offers `KHR_parallel_shader_compile` the
+  compile now runs in the background and the running preset keeps drawing; the change, transition
+  included, starts once the new programs are ready, a median two or three frames later. With auto
+  advance the next preset is chosen a second early and compiled in advance, so the change still
+  lands on time — on the bar in bar mode — and the other screens prepare the same one. At the
+  default mesh the changes that drop a frame fell from 61.9% to 4.9% with a hard cut and from 61.7%
+  to 8.1% with a transition. Video export still waits for each compile, so the frame a preset
+  appears on never depends on the machine.
 - **Auto advance advances.** The panel's Auto Advance slider had been there since the engine landed
   and nothing ever read it: set to two seconds, the same preset stayed on screen (measured in the
   running app — nine seconds, no change). It now moves on every *n* seconds, in order or at random,
@@ -1168,7 +1191,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1891 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1923 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

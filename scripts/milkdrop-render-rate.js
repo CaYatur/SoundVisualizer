@@ -81,7 +81,7 @@ if (!process.versions.electron) {
 // --- Electron tarafı --------------------------------------------------------
 
 const { app, BrowserWindow } = require('electron');
-const crypto = require('crypto');
+const { listPresets: listCorpus } = require('./milkdrop-corpus.js');
 
 /* ILERLEME CIKTISI OLCUMU DUSUREMEZ.
 
@@ -99,47 +99,10 @@ process.stderr.on('error', (e) => { if (!e || e.code !== 'EPIPE') throw e; });
 const emit = (t) => { try { process.stdout.write(t); } catch (e) { /* boru kapali */ } };
 const say = (t) => emit(t + '\n');
 
+/* Liste ve tohumlu kesit ortak modülde (milkdrop-corpus.js): preset
+   değişiminin maliyetini ölçen betik de AYNI presetleri ölçmeli. */
 function listPresets(dir) {
-  const out = [];
-  const walk = (d) => {
-    let entries;
-    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
-    for (const e of entries) {
-      const p = path.join(d, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.toLowerCase().endsWith('.milk')) out.push(p);
-    }
-  };
-  walk(dir);
-  out.sort();
-  // Aynı preset iki kez ölçülmesin (paketlerde iç içe kopya klasörler var).
-  const seen = new Set();
-  const uniq = [];
-  for (const p of out) {
-    let h;
-    try { h = crypto.createHash('sha1').update(fs.readFileSync(p)).digest('hex'); }
-    catch (e) { continue; }
-    if (seen.has(h)) continue;
-    seen.add(h);
-    uniq.push(p);
-  }
-  if (LIMIT) return uniq.slice(0, LIMIT);
-  /* Tohumlu örnekleme. `--limit` alfabetik ilk N'i alıyor ve bu YANLI: aynı
-     yazarın peş peşe duran presetleri seçiliyor. 10.000 presetin tamamını
-     render etmek saatler sürdüğü için temsili bir kesit gerekiyor; tohum
-     sabit olduğu için kesit koşudan koşuya AYNI kalıyor ve iki ölçüm
-     karşılaştırılabilir oluyor. */
-  if (SAMPLE && SAMPLE < uniq.length) {
-    let s = 20260908;
-    const rnd = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
-    const a = uniq.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      const t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    return a.slice(0, SAMPLE).sort();
-  }
-  return uniq;
+  return listCorpus(dir, { limit: LIMIT, sample: SAMPLE });
 }
 
 /* Sayfaya yüklenecek motor dosyaları. Görselleştirici HTML'inin yüklediği
@@ -163,6 +126,10 @@ function pageHarness() {
   return `
     (function () {
       var W = ${WIDTH}, H = ${HEIGHT}, N = ${FRAMES};
+      /* Presetler BEKLEYEREK derleniyor (#573): arka planda derlenseydi
+         yeni preset birkaç kare geç gelir, ilk kareler öncekini çizer ve
+         ölçüm önceki koşularla karşılaştırılamaz olurdu. */
+      window.SVMilkdropSync = true;
       var TEXDIR = ${JSON.stringify(TEXDIR)};
       var ACCURATE = ${LEGACY ? 'false' : 'true'};
 
