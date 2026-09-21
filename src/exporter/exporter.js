@@ -7,6 +7,12 @@
  * Ham RGBA kareler ana sürece akıtılır; ffmpeg orada kayıpsız videoya kodlar.
  */
 (function () {
+  /* MilkDrop presetleri burada BEKLEYEREK derleniyor (#573). Canlı
+     ekranlarda yeni preset arka planda derlenip hazır olunca geliyor; o
+     an derlemenin hızına bağlı. Dışa aktarımda bir presetin hangi karede
+     göründüğü buna kalamaz: aynı iş aynı videoyu vermeli. */
+  window.SVMilkdropSync = true;
+
   // ---- loopback-helper.js ile birebir aynı sabitler/ölçek ----
   const FFT_SIZE = 2048;
   const BINS = FFT_SIZE / 2; // 1024

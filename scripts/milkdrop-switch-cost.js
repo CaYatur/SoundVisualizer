@@ -41,6 +41,13 @@
  *
  * Kesit milkdrop-render-rate.js ile AYNI (milkdrop-corpus.js): --sample=900
  * yayınlanmış bütün oranların ölçüldüğü 900 preset.
+ *
+ * ARKA PLANDA DERLEME (#573): motor yeni presetin shader'larını
+ * `KHR_parallel_shader_compile` ile arka planda derliyor ve hazır olunca
+ * geçiyor. Ölçüm bu yüzden değişim İSTENDİĞİ kareden, gerçekten
+ * GERÇEKLEŞTİĞİ kareden üç kare sonrasına kadar süren pencerenin en kötü
+ * karesine bakıyor ve bekleyişin kaç kare sürdüğünü de sayıyor.
+ * `--sync` eski yolu (derlemeyi beklemek) ölçüyor.
  */
 const path = require('path');
 const fs = require('fs');
@@ -63,6 +70,7 @@ const MESHES = String(flag('meshes', '32,64,128')).split(',').map(Number).filter
    ölçülü. */
 const BLEND = Number(flag('blend', 0.2)) || 0.2;
 const WARM = argv.indexOf('--warm') >= 0;
+const SYNC = argv.indexOf('--sync') >= 0;
 const SHOW = Number(flag('show', 8)) || 8;
 
 if (!corpus) {
@@ -98,14 +106,15 @@ if (!process.versions.electron) {
     }
   }
   console.log('\nÖZET (' + (WARM ? 'önbellek açık, ikinci geçiş' : 'her geçiş kendi sürecinde, ilk yükleme') + ')');
-  console.log('  ağ   geçiş    komşu  en kötü p50   p95    maks   bütçe aşımı   değişimin düşürdüğü');
+  console.log('  ağ   geçiş    komşu  en kötü p50   p95    maks   bütçe aşımı   değişimin düşürdüğü   bekleme p50/maks');
   for (const p of parts) {
     const s = p.summary;
     const pc = (a) => (s.n ? (a * 100 / s.n).toFixed(1) : '0.0') + '%';
     console.log('  ' + String(p.mesh).padStart(3) + '  ' + (p.blend ? 'harman' : 'sert  ') + ' ' +
       s.base.p50.toFixed(2).padStart(7) + ' ' + s.worstFrame.p50.toFixed(2).padStart(11) + ' ' +
       s.worstFrame.p95.toFixed(2).padStart(6) + ' ' + s.worstFrame.max.toFixed(1).padStart(7) + ' ' +
-      pc(s.overBudget).padStart(12) + ' ' + pc(s.causedDrop).padStart(20));
+      pc(s.overBudget).padStart(12) + ' ' + pc(s.causedDrop).padStart(20) + '   ' +
+      (s.delay ? s.delay.p50 + '/' + s.delay.max : '-'));
   }
   const JSON_ALL = flag('json', '');
   if (JSON_ALL) {
@@ -150,6 +159,7 @@ function pageHarness() {
     (function () {
       var W = ${WIDTH}, H = ${HEIGHT};
       var DT = 1 / 60;
+      if (${SYNC ? 'true' : 'false'}) window.SVMilkdropSync = true;
 
       var _seed = 1;
       Math.random = function () {
@@ -206,6 +216,8 @@ function pageHarness() {
       M.parseMilk = timed(M.parseMilk, 'parse');
       T.translate = timed(T.translate, 'translate');
       mode._link = timed(mode._link, 'link');
+      mode._linkBegin = timed(mode._linkBegin, 'link');
+      mode._linkEnd = timed(mode._linkEnd, 'link');
 
       var gi = 0;
       var PX = new Uint8Array(4);
@@ -240,10 +252,15 @@ function pageHarness() {
           milkdrop: { presetId: id, source: source, mesh: mesh, blendTime: blend, maxSize: 1920, accurate: true },
           visualizer: { sensitivity: 1 },
         };
-        var out = { frames: [], err: '' };
+        var out = { frames: [], err: '', swapAt: 0 };
         var after = (blend > 0 ? Math.ceil(blend / DT) : 0) + 6;
         try {
           out.frames.push(frame(cfg));
+          /* Arka planda derlenirken eski preset çiziliyor: değişimin
+             gerçekleştiği kareyi bul (en çok 120 kare). */
+          var guard = 0;
+          while ((mode._pending || mode._presetSrc !== source) && guard++ < 120) out.frames.push(frame(cfg));
+          out.swapAt = out.frames.length - 1;
           for (var i = 0; i < after; i++) out.frames.push(frame(cfg));
         } catch (e) {
           out.err = String(e && e.message || e);
@@ -277,18 +294,28 @@ const BUDGET = 1000 / 60;
    AMA komşu kareler aşmıyor — yani o kare yalnız değişim yüzünden kaçtı. */
 function baseOf(r, blendFrames) {
   const f = r.frames.map((x) => x.ms);
-  if (blendFrames > 4) return q(f.slice(4, 1 + blendFrames), 0.5);
+  const s0 = r.swapAt || 0;
+  if (blendFrames > 4) return q(f.slice(s0 + 4, s0 + 1 + blendFrames), 0.5);
   return q(f.slice(-3), 0.5);
+}
+
+/* Değişim penceresi: istenen kareden gerçekleştiği karenin üç sonrasına. */
+function windowOf(r) {
+  return r.frames.slice(0, (r.swapAt || 0) + 4);
 }
 
 function summarize(rows, blend) {
   const blendFrames = blend > 0 ? Math.ceil(blend * 60) : 0;
-  const ok = rows.filter((r) => !r.err && r.frames.length >= 5);
+  /* İlk satır bir DEĞİŞİM değil, ilk YÜKLEME: gösterilecek önceki preset
+     yok, motor onu her yolda bekleyerek derliyor. Sayılmıyor. */
+  const ok = rows.slice(1).filter((r) => !r.err && r.frames.length >= 5);
   const sw = ok.map((r) => r.frames[0].ms);
-  const worst = ok.map((r) => Math.max(...r.frames.slice(0, 4).map((f) => f.ms)));
+  const worst = ok.map((r) => Math.max(...windowOf(r).map((f) => f.ms)));
+  const delay = ok.map((r) => r.swapAt || 0);
   const base = ok.map((r) => baseOf(r, blendFrames));
   const spike = ok.map((r, i) => worst[i] - base[i]);
-  const ph = (k) => q(ok.map((r) => r.frames[0][k]), 0.5);
+  // Aşamalar pencere boyunca toplanıyor: arka planda derlemede iş kareler arasına dağılıyor.
+  const ph = (k) => q(ok.map((r) => windowOf(r).reduce((a, f) => a + f[k], 0)), 0.5);
   const over = (arr, lim) => arr.filter((x) => x > lim).length;
   const dist = (a) => ({ p50: q(a, 0.5), p90: q(a, 0.9), p95: q(a, 0.95), p99: q(a, 0.99), max: q(a, 1) });
   return {
@@ -298,6 +325,7 @@ function summarize(rows, blend) {
     switchFrame: dist(sw),
     worstFrame: dist(worst),
     spike: dist(spike),
+    delay: dist(delay),
     overBudget: over(worst, BUDGET),
     overTwoFrames: over(worst, 2 * BUDGET),
     causedDrop: ok.filter((r, i) => worst[i] > BUDGET && base[i] <= BUDGET).length,
@@ -321,6 +349,8 @@ function report(label, s) {
     s.overTwoFrames + ' (' + pct(s.overTwoFrames) + '%)');
   say('  değişimin düşürdüğü kare  : ' + s.causedDrop + ' (' + pct(s.causedDrop) + '%)' +
     '   (komşuları bütçede, yalnız değişim karesi kaçıyor)');
+  say('  değişimin beklediği kare  p50/p90/p95/p99/maks: ' +
+    [s.delay.p50, s.delay.p90, s.delay.p95, s.delay.p99, s.delay.max].join(' / '));
   say('  değişim karesinin aşamaları (medyan): denklemler ' + s.phases.preset.toFixed(2) +
     ' · ayrıştırma ' + s.phases.parse.toFixed(2) + ' · çeviri ' + s.phases.translate.toFixed(2) +
     ' · GL derleme ' + s.phases.link.toFixed(2) + ' ms');
@@ -364,6 +394,7 @@ async function main() {
   say('korpus        : ' + corpus + '   preset: ' + files.length);
   say('çözünürlük    : ' + WIDTH + 'x' + HEIGHT + '   geçiş: ' + PASS);
   say('önbellek      : ' + (WARM ? 'AÇIK (aynı süreçte ikinci geçiş)' : 'KAPALI (kendi sürecinde ilk yükleme)'));
+  say('derleme       : ' + (SYNC ? 'BEKLEYEREK (--sync, eski yol)' : 'arka planda, hazır olunca geçiş'));
   say('GPU           : ' + (gpu || '?') + '   ' + caps.renderer);
   say('paralel derleme (KHR_parallel_shader_compile): ' + (caps.parallel ? 'var' : 'yok'));
 
@@ -393,7 +424,7 @@ async function main() {
       const s = summarize(rows, blend);
       report((blend ? 'HARMAN ' + BLEND + ' s' : 'SERT GEÇİŞ') + ', ağ ' + mesh, s);
       const worst = rows.filter((r) => !r.err && r.frames.length)
-        .map((r) => ({ file: path.basename(r.file), ms: Math.max(...r.frames.slice(0, 4).map((f) => f.ms)),
+        .map((r) => ({ file: path.basename(r.file), ms: Math.max(...windowOf(r).map((f) => f.ms)),
           link: r.frames[0].link, preset: r.frames[0].preset }))
         .sort((a, b) => b.ms - a.ms).slice(0, SHOW);
       for (const w of worst) {
@@ -402,7 +433,8 @@ async function main() {
       }
       fs.writeFileSync(PART, JSON.stringify({ corpus, presets: files.length, width: WIDTH, height: HEIGHT,
         warm: WARM, gpu, renderer: caps.renderer, parallel: caps.parallel, mesh, blend, summary: s,
-        rows: rows.map((r) => ({ file: r.file, err: r.err || '', note: r.note, warpProg: r.warpProg,
+        sync: SYNC,
+        rows: rows.map((r) => ({ file: r.file, err: r.err || '', swapAt: r.swapAt || 0, note: r.note, warpProg: r.warpProg,
           compProg: r.compProg, frames: r.frames.map((f) => [+f.ms.toFixed(3), +f.preset.toFixed(3),
             +f.parse.toFixed(3), +f.translate.toFixed(3), +f.link.toFixed(3)]) })) }), 'utf-8');
     }

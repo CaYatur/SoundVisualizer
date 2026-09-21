@@ -1373,8 +1373,11 @@ function relayMdFollow(sender, mp) {
   const ctl = currentConfig && currentConfig.milkdropControl;
   if (ctl && ctl.independent === true) return;
   const follow = { id: mp.id || null, name: mp.name || null, base: mp.base || '', cut: !!mp.cut,
-    blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null };
-  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed].join('|');
+    blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null,
+    /* Liderin önceden derlediği SIRADAKİ preset (#573): izleyenler de onu
+       önceden derliyor, değişim geldiğinde hepsi aynı anda geçebiliyor. */
+    next: typeof mp.next === 'string' ? mp.next : null };
+  const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
   const now = Date.now();
   if (key === mdFollowSent.key && now - mdFollowSent.at < 250) return;
   mdFollowSent = { key, at: now };

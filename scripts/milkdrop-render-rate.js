@@ -126,6 +126,10 @@ function pageHarness() {
   return `
     (function () {
       var W = ${WIDTH}, H = ${HEIGHT}, N = ${FRAMES};
+      /* Presetler BEKLEYEREK derleniyor (#573): arka planda derlenseydi
+         yeni preset birkaç kare geç gelir, ilk kareler öncekini çizer ve
+         ölçüm önceki koşularla karşılaştırılamaz olurdu. */
+      window.SVMilkdropSync = true;
       var TEXDIR = ${JSON.stringify(TEXDIR)};
       var ACCURATE = ${LEGACY ? 'false' : 'true'};
 
