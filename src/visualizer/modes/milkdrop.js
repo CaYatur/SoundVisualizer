@@ -729,6 +729,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       /* Arka planda derlenen preset (#573): { key, job } — değişim bekliyor;
          `early` ise otomatik geçişin sıradakisi, önceden hazırlanıyor. */
       this._pending = null;
+      // Son opak karenin tuval boyutu; `covers()` bakıyor
+      this._coverW = 0;
+      this._coverH = 0;
       this.meshX = MESH_X_DEFAULT;
       this.meshY = MESH_Y_DEFAULT;
       /* Fare durumu (#560, madde 5). MilkDrop denklemlere mouse_x/mouse_y
@@ -3058,6 +3061,19 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       c.clearRect(0, 0, W, H);
       c.imageSmoothingEnabled = true;
       c.drawImage(this.gl2, 0, 0, W, H);
+      this._coverW = W;
+      this._coverH = H;
+    }
+
+    /* Katman yığını soruyor (#560, madde 8): son kare tuvalin tamamını
+       opak kapladı mı? Kapladıysa alttaki katmanları çizmek boşuna.
+       Kopyalanan bağlam `alpha: false`, yani başarılı her kare opak.
+       Tuval o kareden sonra yeniden boyutlandıysa boş (tuval boyutu
+       yazılınca temizleniyor); motor kurulamadıysa `_fallback` yarı
+       saydam bir yazı bırakıyor. İkisinde de örtmüyor. */
+    covers() {
+      const c = this.canvas;
+      return !this._disposed && !!c && c.width > 0 && this._coverW === c.width && this._coverH === c.height;
     }
 
     /* Tek bir warp çizimi. Presetin shader'ı varsa onunla, yoksa sabit
@@ -5003,6 +5019,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
     // Motor kurulamazsa sahne boş kalmasın
     _fallback(W, H) {
+      this._coverW = 0;
       const c = this.ctx;
       c.clearRect(0, 0, W, H);
       c.fillStyle = 'rgba(255,255,255,0.35)';

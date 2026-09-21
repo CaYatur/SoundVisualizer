@@ -1120,6 +1120,43 @@
       return d.scale !== 1 || d.rotate !== 0 || d.x !== 0 || d.y !== 0 || d.flipX || d.flipY;
     }
 
+    /* ÖRTÜLEN KATMANLAR ÇİZİLMİYOR (#560, madde 8).
+
+       Katmansız kipte MilkDrop seçilince arkaplan yine kuruluyor ve her
+       karede çiziliyordu; MilkDrop tuvalin tamamını opak kapladığı için
+       hiç görünmüyordu. Ölçüldü (1920x1080, kare hızı sınırsız): 2D aurora
+       arkaplanı kare başına ~0,43 ms, WebGL gradyan gürültü düzeyinde; tuvali
+       gizlemek birleştiricinin payını da alıyor.
+
+       Bir katman altındakileri ancak hepsi doğruysa örtüyor: motoru son
+       karesinin tuvali opak kapladığını söylüyor (`covers()`), karışımı
+       normal, opaklığı tam, dönüşümü, maskesi ve katman efekti yok;
+       görselleştiriciyse ses hazır — değilse tuvali bu karede temizleniyor.
+       Döndürdüğü sıranın altındakiler atlanıyor; -1 hiçbiri.
+
+       Işıklar arkaplandan renk örnekliyorsa (`palette()`, son 1,5 sn)
+       arkaplan katmanları çizilmeye devam ediyor: örneklenen tuval donardı. */
+    _coverFloor(audio, cfg) {
+      for (let i = this.entries.length - 1; i > 0; i--) {
+        const e = this.entries[i];
+        if (e.proxyOf || !e.mode || typeof e.mode.covers !== 'function') continue;
+        const l = this._live(e, cfg);
+        if (l.enabled === false || (l.blend || 'normal') !== 'normal') continue;
+        if (l.mask && l.mask.type && l.mask.type !== 'none') continue;
+        if (Array.isArray(l.postfx) && l.postfx.some((f) => f && f.enabled !== false)) continue;
+        if (l.kind === 'visualizer' && !(audio && audio.ready)) continue;
+        const d = this._dynamics(l, audio, cfg);
+        if (d.opacity < 1 || this._hasTransform(d)) continue;
+        if (e.mode.covers()) return i;
+      }
+      return -1;
+    }
+
+    _covered(e, i, floor) {
+      if (i >= floor) return false;
+      return !(e.layer.kind === 'background' && this._paletteAt > 0 && performance.now() - this._paletteAt < 1500);
+    }
+
     /* Şeffaf arkaplanda arkaplan katmanlarına uygulanacak süzgeç
        ('url(#sv-bg-key)') ya da null. Yalnız görselleştirici penceresi
        veriyor — süzgeç o sayfada tanımlı; önizleme ve dışa aktarıcı
@@ -1304,7 +1341,17 @@
       this._setSurface(null);
       if (this.logoEl) this.logoEl.style.display = 'none';
 
-      for (const e of this.entries) {
+      const floor = this._coverFloor(audio, cfg);
+      for (let i = 0; i < this.entries.length; i++) {
+        const e = this.entries[i];
+        /* Örtülen tuval gizleniyor da: birleştirici onu da her karede
+           harmanlıyordu. Açılınca aynı karede yeniden çiziliyor. */
+        const hide = this._covered(e, i, floor);
+        if (e.canvas && e.canvas.style && !!e._coverHidden !== hide) {
+          e.canvas.style.visibility = hide ? 'hidden' : '';
+          e._coverHidden = hide;
+        }
+        if (hide) continue;
         const l = this._live(e, cfg);
         this._drawEntry(e, audio, cfg, t, dt, l);
 
@@ -1559,7 +1606,10 @@
       }
       ctx.restore();
 
-      for (const e of this.entries) {
+      const floor = this._coverFloor(audio, cfg);
+      for (let i = 0; i < this.entries.length; i++) {
+        const e = this.entries[i];
+        if (this._covered(e, i, floor)) continue;
         const l = this._live(e, cfg);
         this._drawEntry(e, audio, cfg, t, dt, l);
         if (!e.canvas) continue;
@@ -1616,6 +1666,8 @@
 
     // Dynamic Lighting arkaplan rengi ister: en alttaki arkaplan katmanı bildirir
     palette(cfg) {
+      // Örneklenen arkaplan örtülse de çizilmeye devam etsin (_covered)
+      this._paletteAt = performance.now();
       for (const e of this.entries) {
         if (e.layer.kind !== 'background') continue;
         if (e.gl && e.mode && typeof e.mode.sampleColors === 'function') return e.mode.sampleColors(48);

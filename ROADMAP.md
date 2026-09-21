@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1929 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1936 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 332
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 339
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1080,6 +1080,37 @@ MilkDrop (#560):
   reads a `vol` the per-frame code assigned for itself. On the 900-preset sample
   no preset changes class in either mode — 881 render a live image with the
   switch on, 862 with it off, as before.
+- **The default wave's green and blue stay in order** · checked on `main`, no
+  change on screen. The pinned source writes the default wave's green from
+  `cb` and its blue from `cg` (milkdropfs.cpp:3101-3102), and this was put off
+  three times because the vertex struct was not at hand. It is plain floats in
+  RGBA order (support.h:71-75), so that fork does draw the two swapped — but
+  the fork is a D3D11 port, and the D3D9 code it was ported from sets the
+  colour in one call, `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` (mvsoft74/BeatDrop
+  53d83ee, milkdropfs.cpp:3225), a line the fork still carries as a comment in
+  every wave mode. The swap came in with the port. The engine already draws in
+  order; a test now pins it in all eight modes.
+- **Layers hidden under MilkDrop are no longer drawn** · done on `main`. The
+  rest of item 8. With the layer stack off, the scene still builds the
+  background, and every frame drew it under a MilkDrop layer that covers the
+  canvas with an opaque picture — the engine copies from a context created
+  with `alpha: false`. Nothing showed, so this was a cost, not a glitch:
+  measured in an isolated copy at 1920×1080 with the frame-rate cap off, a 2D
+  aurora background took ~0.47 ms a frame and the WebGL gradient ~0.17 ms.
+  A layer now covers what is under it only when its engine says its last
+  frame covered the canvas (`covers()`, MilkDrop for now; a resized canvas or
+  the engine's fallback text does not count), its blend is normal, its
+  opacity full, it has no transform, mask or per-layer effect, and the audio
+  is ready — without audio a visualizer layer clears its canvas that frame.
+  Covered layers are skipped on both drawing paths, their canvases are hidden
+  so the compositor skips them as well, and a layer is drawn again in the
+  same frame it is uncovered. When the lights sample the background's
+  colours, the background keeps drawing, or they would read a frozen frame.
+  The same measurement afterwards, alternating new and old: 253.6/260.7 fps
+  against 246.2/246.6 over the gradient, 264.8/266.9 against 234.8/238.5 over
+  aurora. The item's other point, the MilkDrop section hiding itself, was
+  already gone: it has had no visibility condition since b6ef117. 6 tests;
+  9 of 9 mutations caught.
 
 Audio:
 - **Both channels reach the visuals (#566)** · done on `main`. Found while
