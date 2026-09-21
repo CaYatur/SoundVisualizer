@@ -375,6 +375,13 @@ void main(){
       return true;
     }
 
+    /* Bağlam kayboldu mu (#594). Sürücü sıfırlanınca ya da GPU süreci
+       çökünce bağlam gidiyor ve bu yüzey siyah kalıyordu; sahibi bunu sorup
+       yüzeyi yeni bir tuval ve yeni bir bağlamla baştan kuruyor. */
+    contextLost() {
+      return !!(this.gl && this.gl.isContextLost && this.gl.isContextLost());
+    }
+
     dispose() {
       const gl = this.gl;
       if (!gl) return;

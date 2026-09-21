@@ -36,6 +36,9 @@
 
   const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo'];
 
+  /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
+  const REVIVE_MS = 2000;
+
   function newLayerId() {
     return 'ly_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 0xffff).toString(36);
   }
@@ -823,6 +826,47 @@
       return c;
     }
 
+    /* BAĞLAMI KAYBOLAN YÜZEY (#594).
+
+       Sürücü sıfırlanınca ya da GPU süreci çökünce bütün WebGL bağlamları
+       birden gidiyor. MilkDrop kendini geri kuruyor (#572); gradyan
+       arkaplan, 3B geometri, shader modları ve efekt zincirleri kurmuyordu
+       ve uygulama yeniden açılana kadar siyah kalıyordu. Bunların hiçbiri
+       geri besleme ya da birikmiş durum taşımıyor: aynı ayarlarla yeni bir
+       örnek kurmak yetiyor.
+
+       Kaybolan bir bağlam kendiliğinden geri gelmiyor — bu yüzeyler olayı
+       geri çevirmiyor — yani soru her karede aynı cevabı verir. Yeniden
+       kurma yüzey başına iki saniyede bir: GPU süreci henüz kalkmadıysa
+       yeni bağlam da hemen kaybolur ve her karede bir tuval açılırdı. */
+    _lostNow(obj, key, holder) {
+      if (!obj || typeof obj.contextLost !== 'function' || !obj.contextLost()) return false;
+      const h = holder || this;
+      const k = key || '_revivedAt';
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (h[k] && now - h[k] < REVIVE_MS) return false;
+      h[k] = now;
+      return true;
+    }
+
+    /* Katmanı YERİNDE yeniden kurar: yeni tuval eskisinin DOM'daki yerine
+       ve onun satır içi stiliyle (z-sırası, karışım kipi, saydamlık) giriyor;
+       giriş nesnesi aynı kalıyor, çünkü geçiş ve vekil kayıtları ona
+       bağlı. */
+    _revive(e, cfg) {
+      const fresh = this._create(e.layer, e.key, cfg);
+      const old = e.canvas;
+      if (old && fresh.canvas) {
+        if (old.parentNode) old.parentNode.insertBefore(fresh.canvas, old);
+        fresh.canvas.style.cssText = old.style.cssText;
+        fresh.canvas.className = old.className;
+      }
+      this._disposeEntry(e);
+      for (const k of ['canvas', 'ctx', 'mode', 'gl', 'solid']) e[k] = fresh[k];
+      this._sizeEntry(e);
+      this.revived = (this.revived || 0) + 1;
+    }
+
     _disposeEntry(e) {
       // Vekilin tuvali canlı bir katmanın tuvali; ona dokunmak onu silerdi
       if (e.proxyOf) return;
@@ -1204,6 +1248,15 @@
         ) &&
         cfg.visualizer && cfg.visualizer.type === 'none' &&
         (!cfg.layers || cfg.layers.every((l) => !l.enabled)));
+      /* Efekt zinciri son görüntüyü çiziyor: bağlamı kaybolursa (#594) bütün
+         sahne kararırdı. Aynı zincirle yeni bir örnek kuruluyor. */
+      if (this.postfx && this._lostNow(this.postfx, '_fxRevivedAt')) {
+        const chain = this.postfx.chain;
+        try { this.postfx.dispose(); } catch { /* bağlam zaten gitti */ }
+        this.postfx = new window.SVPostFX.PostFX();
+        this.postfx.setChain(chain);
+        this.revived = (this.revived || 0) + 1;
+      }
       const fxOn = !!(this.postfx && this.postfx.hasWork());
       const single = fxOn || !!tick || this._mapping || this._forceSingle || isBlackout;
 
@@ -1350,6 +1403,7 @@
          efekti canlı tuvalin üstüne İKİNCİ kez binerdi. */
       if (e.proxyOf) return;
       const l = live || e.layer;
+      if (e.mode && this._lostNow(e.mode, null, e)) this._revive(e, cfg);
       this._drawEntryRaw(e, audio, cfg, t, dt, l);
       this._applyMask(e, l);
       /* KATMAN EFEKTİ HEP SAYDAM KİPTE (#590). Katman alttakilerin ÜSTÜNE
@@ -1371,6 +1425,11 @@
     _applyLayerFX(e, l, audio, t, dt, see) {
       const chain = Array.isArray(l.postfx) ? l.postfx.filter((f) => f && f.enabled !== false) : [];
       if (!chain.length || !e.canvas || !window.SVPostFX) return;
+      if (this.layerFx && this._lostNow(this.layerFx, '_layerFxRevivedAt')) {
+        try { this.layerFx.dispose(); } catch { /* bağlam zaten gitti */ }
+        this.layerFx = null;
+        this.revived = (this.revived || 0) + 1;
+      }
       if (!this.layerFx) this.layerFx = new window.SVPostFX.PostFX();
       const fx = this.layerFx;
       fx.setChain(chain);

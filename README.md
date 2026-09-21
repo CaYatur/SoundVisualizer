@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-1923%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1929%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -275,6 +275,15 @@ that asserts the bar profile has no step in it.
   black. Chromium's habit of blocking 3D for a page whose GPU process crashed is turned off, because
   that block would leave the recovery with nowhere to go. The GPU self-test loses the context on the
   running engine both ways and checks that frames, pixels and the preset's own state come back.
+- **So does every other GPU surface.** A real GPU reset takes every context at once, so MilkDrop
+  coming back was not enough while the gradient background, the 3D geometry mode, the shader modes,
+  the effect chains and projection mapping stayed black. None of them carries feedback or built-up
+  state, so each now reports a lost context and its owner builds a fresh one with the same settings:
+  a layer is rebuilt in place, in the same position and with the same blend, opacity and z-order;
+  the effect chain keeps its effects. A surface is rebuilt at most every two seconds, so a GPU that
+  is still restarting does not get a new canvas every frame. The GPU self-test loses the context of
+  a gradient background and of the effect chain on the running stage and checks both come back with
+  a picture (brightest sample 175 and 206 of 255, the same as before the loss).
 - **Preset transitions are MilkDrop's dual pipeline.** The previous preset does not stop when a new
   one loads: it keeps its own object, its own compiled shaders and its own clock, and both presets
   run their frame and vertex equations every frame. The two warp meshes are blended per node along a
@@ -1191,7 +1200,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1923 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1929 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

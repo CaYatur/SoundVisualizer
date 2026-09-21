@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1923 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1929 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 326
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 332
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1274,6 +1274,25 @@ rest after. No version number yet.
   canvas is transparent there. Export composes through the same path and
   had the same fault: the corner of the 30th frame was black before and is
   red now, and two exports of the job still match frame for frame. 4 tests.
+- **Every other GPU surface recovers from a lost context too (#594)** ·
+  done. A real GPU reset takes every context at once; with only MilkDrop
+  recovering (#572), the gradient background, the 3D geometry mode, the
+  shader modes, the effect chains and projection mapping still stayed black.
+  None of them carries feedback or built-up state, so each now answers
+  `contextLost()` and its owner builds a fresh instance with the same
+  settings: the layer stack rebuilds a layer in place — same DOM position,
+  same inline style, so z-order, blend and opacity carry over, same entry
+  object for transitions and proxies — the global and per-layer effect
+  chains keep their effects, and the visualizer replaces the mapper. A lost
+  context never comes back on its own for these surfaces, so each is rebuilt
+  at most every two seconds rather than every frame while the GPU restarts.
+  MilkDrop is deliberately not asked: rebuilding the layer would throw away
+  its preset and equation state, which #572 keeps. Measured in the GPU
+  self-test on the running stage: the gradient background's and the effect
+  chain's contexts are lost, both are rebuilt (0 → 2) and both come back
+  with a picture — brightest sample 175 and 206 of 255, as before the loss;
+  the sample is taken right after the next frame, since these surfaces do
+  not preserve their drawing buffer. 6 tests.
 - **A preset change no longer stalls the frame (#573)** · done. Measured
   first, as the issue asked, with `scripts/milkdrop-switch-cost.js`: 900
   presets at 1280×720, every mesh and mode in its own process, the switch

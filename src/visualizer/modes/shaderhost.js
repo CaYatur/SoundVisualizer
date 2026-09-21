@@ -452,6 +452,13 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
       return true;
     }
 
+    /* Bağlam kayboldu mu (#594). Sürücü sıfırlanınca ya da GPU süreci
+       çökünce bağlam gidiyor ve bu yüzey siyah kalıyordu; sahibi bunu sorup
+       yüzeyi yeni bir tuval ve yeni bir bağlamla baştan kuruyor. */
+    contextLost() {
+      return !!(this.gl && this.gl.isContextLost && this.gl.isContextLost());
+    }
+
     dispose() {
       const gl = this.gl;
       if (!gl) return;
@@ -515,6 +522,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
         ctx.drawImage(this.host.canvas, 0, 0, W, H);
       }
     }
+    contextLost() { return this.host.contextLost(); }
     dispose() { this.host.dispose(); }
   }
 
@@ -564,6 +572,7 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
        eski bağlamı, yani ekranda çizen bir katmanınkini kaybettiriyor.
        Ölçüldü: canlı bir bağlam açıkken bu arka plan 40 kez kurulup
        atıldı; 16. atımda canlı bağlam kayboldu. */
+    contextLost() { return this.host.contextLost(); }
     dispose() { this.host.dispose(); }
   }
 
@@ -691,6 +700,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
         ctx.drawImage(this.host.canvas, 0, 0, W, H);
       }
     }
+    contextLost() { return this.host.contextLost(); }
     dispose() { this.host.dispose(); }
   }
 

@@ -2872,6 +2872,74 @@ async function runSmoke() {
 
 
 
+  /* DİĞER YÜZEYLER DE DÖNÜYOR MU? (#594)
+
+     Gerçek bir GPU sıfırlanması bütün bağlamları birden götürüyor; MilkDrop
+     dönse bile gradyan arkaplan ya da son görüntüyü çizen efekt zinciri
+     siyah kalsaydı ekran yine kararırdı. İkisinin bağlamı gerçekten
+     kaybettiriliyor ve katman yığını yeni örnekler kurmalı. Örnek, bir
+     sonraki karenin HEMEN ARDINDAN alınıyor: bu yüzeylerin çizim tamponu
+     korunmuyor ve kare gösterildikten sonra okunursa boş görünürdü. */
+  const surfaceProbe = async () => {
+    send({ visualizer: Object.assign({}, base.visualizer, { type: 'bars' }),
+      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      background: Object.assign({}, base.background, { type: 'gradient' }),
+      postfx: [{ type: 'bloom', enabled: true }] });
+    await wait(1200);
+    const GRAD = "s.entries.filter(function (x) { return x.mode && x.gl && typeof x.mode.contextLost === 'function'; })[0]";
+    const sample = (what) => wc.executeJavaScript(`new Promise(function (done) {
+      requestAnimationFrame(function () {
+        var s = window.SVStage && window.SVStage.stack();
+        if (!s) return done({ hata: 'stage' });
+        var g = ${GRAD};
+        var px = function (c) {
+          if (!c || !c.width) return -1;
+          var q = window.__svSample || (window.__svSample = document.createElement('canvas'));
+          q.width = 8; q.height = 8;
+          var x = q.getContext('2d', { willReadFrequently: true });
+          x.clearRect(0, 0, 8, 8);
+          x.drawImage(c, 0, 0, 8, 8);
+          var d = x.getImageData(0, 0, 8, 8).data, mx = 0;
+          for (var i = 0; i < d.length; i += 4) mx = Math.max(mx, d[i], d[i + 1], d[i + 2]);
+          return mx;
+        };
+        done({ what: ${JSON.stringify(what)}, revived: s.revived || 0,
+          grad: g ? { lost: g.mode.contextLost(), px: px(g.canvas) } : null,
+          fx: s.postfx ? { lost: s.postfx.contextLost(), work: s.postfx.hasWork(), px: px(s.postfx.canvas) } : null });
+      });
+    })`);
+    const lose = (expr) => wc.executeJavaScript(`(function () {
+      var s = window.SVStage.stack(); var o = ${expr};
+      var ext = o && o.gl && o.gl.getExtension('WEBGL_lose_context');
+      if (ext) ext.loseContext();
+      return !!ext;
+    })()`);
+    const before = await sample('before');
+    if (before.hata || !before.grad || !before.fx) return { hata: 'the gradient layer or the effect chain was not on the stage', before };
+    const lostGrad = await lose(GRAD + '.mode');
+    const lostFx = await lose('s.postfx');
+    await wait(900);
+    const after = await sample('after');
+    return { before, after, lostGrad, lostFx };
+  };
+  const surf = await surfaceProbe();
+  console.log('[SMOKE] yüzeylerin bağlam kaybı: ' + JSON.stringify(surf));
+  if (surf.hata) {
+    errors.push('context loss (surfaces): ' + surf.hata);
+  } else {
+    if (!surf.lostGrad || !surf.lostFx) errors.push('context loss (surfaces): the context could not be lost, nothing was measured');
+    if (!(surf.after.revived >= surf.before.revived + 2)) {
+      errors.push('context loss (surfaces): the stage did not rebuild both surfaces (' +
+        surf.before.revived + ' -> ' + surf.after.revived + ')');
+    }
+    if (!surf.after.grad || surf.after.grad.lost || !(surf.after.grad.px > 8)) {
+      errors.push('context loss (surfaces): the gradient background did not come back (' + JSON.stringify(surf.after.grad) + ')');
+    }
+    if (!surf.after.fx || surf.after.fx.lost || !surf.after.fx.work || !(surf.after.fx.px > 8)) {
+      errors.push('context loss (surfaces): the effect chain did not come back (' + JSON.stringify(surf.after.fx) + ')');
+    }
+  }
+
   /* --- Rasterizer denemesi (--smoke-raster) ---
      Aynı 2D arkaplanı iki tuvale çizer: biri willReadFrequently (yazılım
      rasterizer), diğeri normal (GPU). Piksel farkı, katman refactoru
