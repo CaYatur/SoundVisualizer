@@ -88,7 +88,8 @@
   /* Projeksiyon haritalaması bu pencerenin ekranına ait tanımı kullanır.
      Kimlik dönüşümündeyse hiç devreye girmez — kapalı haritalamanın maliyeti
      sıfır olmalı. */
-  const mapper = new window.SVMapper.Mapper();
+  let mapper = new window.SVMapper.Mapper();
+  let mapRevivedAt = 0;
   const displayId = window.SV_DISPLAY_ID;
   let mapCanvas = null;
 
@@ -262,6 +263,18 @@
     stack.setMapping(true);
     const src = stack.surface();
     if (!src) return;
+    /* Haritalamanın bağlamı kaybolursa (#594) yeni bir örnek kuruluyor:
+       eski tuval sahneden kalkıyor, yenisi aşağıda ilk çizimde yerine
+       giriyor. En çok iki saniyede bir — GPU süreci daha kalkmadıysa yeni
+       bağlam da hemen kaybolur. */
+    if (mapper.contextLost && mapper.contextLost() && performance.now() - mapRevivedAt > 2000) {
+      mapRevivedAt = performance.now();
+      const old = mapper.canvas;
+      try { mapper.dispose(); } catch { /* bağlam zaten gitti */ }
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      mapper = new window.SVMapper.Mapper();
+      mapCanvas = null;
+    }
     mapper.resize(src.width, src.height);
     if (!mapper.render(src, out, window.SVLayers.seeThrough(c))) return;
     if (mapCanvas !== mapper.canvas) {

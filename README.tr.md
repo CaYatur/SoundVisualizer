@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-1923%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1929%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -268,6 +268,15 @@ profilinde basamak olmadığını doğruluyor.
   kapatma alışkanlığı da kapatıldı: o engel kurtarmanın gidecek yerini bırakmıyordu. GPU öz testi
   çalışan motorda bağlamı iki yoldan da kaybettirip karelerin, piksellerin ve presetin kendi
   durumunun geri geldiğini ölçüyor.
+- **Diğer GPU yüzeyleri de dönüyor.** Gerçek bir GPU sıfırlanması bütün bağlamları birden götürüyor;
+  gradyan arkaplan, 3B geometri modu, shader modları, efekt zincirleri ve projeksiyon haritalaması
+  siyah kalırken MilkDrop'un dönmesi yetmiyordu. Hiçbiri geri besleme ya da birikmiş durum
+  taşımıyor; her biri artık bağlamının kaybolduğunu söylüyor ve sahibi aynı ayarlarla yenisini
+  kuruyor: katman YERİNDE — aynı sırada, aynı karışım kipi, saydamlık ve z-sırasıyla — yeniden
+  kuruluyor, efekt zinciri efektlerini koruyor. Bir yüzey en çok iki saniyede bir yeniden kuruluyor;
+  GPU süreci daha kalkmadıysa her karede yeni bir tuval açılmıyor. GPU öz testi çalışan sahnede
+  gradyan arkaplanın ve efekt zincirinin bağlamını kaybettirip ikisinin de görüntüyle döndüğünü
+  ölçüyor (en parlak örnek 175 ve 206/255, kayıptan öncekiyle aynı).
 - **Preset geçişi MilkDrop'un çift boru hattı.** Yeni preset yüklenince eskisi durmuyor: kendi
   nesnesi, kendi derlenmiş shader'ları ve kendi saatiyle yaşamaya devam ediyor ve her karede iki
   presetin de kare ve düğüm denklemleri koşuyor. İki warp ağı düğüm düğüm bir rampa boyunca
@@ -1189,7 +1198,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1923 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1929 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

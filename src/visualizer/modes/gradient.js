@@ -297,6 +297,13 @@
       return accum.map((rgb) => '#' + rgb.map((value) => Math.round(value / rows).toString(16).padStart(2, '0')).join(''));
     }
 
+    /* Bağlam kayboldu mu (#594). Sürücü sıfırlanınca ya da GPU süreci
+       çökünce bağlam gidiyor ve bu yüzey siyah kalıyordu; sahibi bunu sorup
+       yüzeyi yeni bir tuval ve yeni bir bağlamla baştan kuruyor. */
+    contextLost() {
+      return !!(this.gl && this.gl.isContextLost && this.gl.isContextLost());
+    }
+
     dispose() {
       const gl = this.gl;
       const ext = gl.getExtension('WEBGL_lose_context');
