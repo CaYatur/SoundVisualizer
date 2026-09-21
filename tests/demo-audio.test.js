@@ -268,3 +268,45 @@ test('panel ve ölçüm aynı dosyayı yüklüyor', () => {
   assert.match(h, /DEMO\.fill\(end, time, timeL, timeR\)/);
   assert.doesNotMatch(h, /var sampleAt = function/, 'ölçümde tarifin kopyası duruyor');
 });
+
+// ------------------------------------------------------- ekran görüntüleri
+
+/* README görsellerini üreten `--shots` zaman verisini kendisi kuruyordu:
+   2048 örnekte 4, 6 ve 12 devirlik üç alçak sinüs. Panelin eski demosuyla
+   aynı dar bant — üstelik seviye (RMS) de o diziden hesaplanıyor, yani her
+   mod README'de başka bir sese tepki veriyordu. */
+function shotsFrame() {
+  const src = read('src/main/main.js').replace(/\r\n/g, '\n');
+  const a = src.indexOf("  const DEMO = require('../shared/demo-audio.js');");
+  const end = 'return { freq, time, left, right, sampleRate: DEMO.SR };\n  };';
+  const b = src.indexOf(end, a);
+  assert.ok(a > 0 && b > a, 'üreticinin ses karesi bulunamadı');
+  const body = src.slice(a, b + end.length);
+  return new Function('require', body + '\nreturn makeFrame;')(() => D);
+}
+
+test('ekran görüntüsü üreticisi de aynı sesi veriyor — iki kanal birden', () => {
+  const makeFrame = shotsFrame();
+  for (const t of [0, 0.37, 1.25, 7.9]) {
+    const f = makeFrame(t);
+    assert.strictEqual(f.sampleRate, D.SR);
+    const [m, l, r] = bufs();
+    D.fill(Math.floor(t * D.SR), m, l, r);
+    assert.deepStrictEqual(Array.from(f.time), Array.from(m), t + ' sn mono');
+    assert.deepStrictEqual(Array.from(f.left), Array.from(l), t + ' sn sol');
+    assert.deepStrictEqual(Array.from(f.right), Array.from(r), t + ' sn sağ');
+    assert.strictEqual(f.freq.length, 1024, 'tayf eğrisi yerinde kalmalı');
+  }
+  const src = read('src/main/main.js');
+  assert.doesNotMatch(src, /Math\.sin\(u \* Math\.PI \* 2 \* 4 \+ t \* 5\.2\)/, 'eski üç sinüs duruyor');
+});
+
+test('üreticinin tayfında hi-hat sesin ızgarasında: sekizlik, onaltılık değil', () => {
+  /* Ortak seste hi-hat her 0,25 sn'de 0,08 sn çalıyor. Tayf onaltılıkta
+     çalıyordu; dalga biçimi ile tayf farklı ritim gösterirdi. */
+  const makeFrame = shotsFrame();
+  const hatBin = (t) => makeFrame(t).freq[780];
+  assert.ok(hatBin(0.26) - hatBin(0.2) > 30, 'sekizlikte hi-hat yok');
+  assert.ok(Math.abs(hatBin(0.135) - hatBin(0.2)) < 10, 'onaltılıkta hi-hat çalıyor');
+  for (const t of [0.51, 1.01, 1.76]) assert.ok(hatBin(t) - hatBin(t - 0.06) > 30, t + ' sn');
+});

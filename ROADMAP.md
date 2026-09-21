@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1936 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1941 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 339
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 344
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1111,6 +1111,27 @@ MilkDrop (#560):
   aurora. The item's other point, the MilkDrop section hiding itself, was
   already gone: it has had no visibility condition since b6ef117. 6 tests;
   9 of 9 mutations caught.
+- **The README's pictures hear the same sound as the preview** · done on
+  `main`. The last place with its own signal was the `--shots` generator: its
+  time data was three low sines, 4, 6 and 12 cycles per 2048 samples, the
+  same narrow band the panel's demo lost in the item above, and the level
+  every mode reads is that data's RMS. It now takes the time data and both
+  channels from `src/shared/demo-audio.js`; its spectrum curve stays, with
+  the hi-hat moved to the signal's eighth notes. Regenerating the pictures
+  turned up three faults in the generator, all fixed: the four broadcast
+  scenes came out without their logo, because the logo was written over the
+  finished scene and never reached the template's logo layer — it now goes
+  in through the base, the way a user's own logo does; the text scene carried
+  a faded title from the scene before, captured 2 s into a 2.5 s transition —
+  scene transitions are off while shooting; and a full run would have
+  overwritten the two MilkDrop pictures, which were made separately from our
+  own presets, so it now skips them unless `--only` names MilkDrop. 21
+  pictures are regenerated from a fresh profile. Two are not: the shared
+  signal is quieter (RMS −16.4 dBFS against the old −12.8), the tunnel's
+  brightness follows loudness, and its still and animation came out 58% and
+  42% as bright. They keep the previous render until the demo's loudness is
+  settled; changing that would move the MilkDrop measurement's baseline.
+  5 tests; 9 of 9 mutations caught.
 
 Audio:
 - **Both channels reach the visuals (#566)** · done on `main`. Found while
