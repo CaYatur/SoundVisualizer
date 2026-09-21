@@ -25,12 +25,14 @@ const { MediaSession } = require('./media-session');
 const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
+const logoLibrary = require('./logo-library');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
 // izin vermekle yetinir ve rastgele yerel dosya okuma yolu açılmaz.
 protocol.registerSchemesAsPrivileged([
   { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
+  { scheme: 'sv-logo', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
 ]);
 
 /* Arayüz dili.
@@ -60,6 +62,7 @@ function trUi(tr, en) { return appLocale() === 'tr' ? tr : en; }
 // ----------------------------------------------------------------------------
 let adminWin = null;
 const visualizerWins = new Map(); // ekran kimliği -> görselleştirme penceresi
+let floatingWin = null; // yüzen / resim-içinde-resim penceresi (ekrandan bağımsız)
 let currentConfig = null; // son bilinen yapılandırma (admin -> görselleştirici köprüsü)
 let lastCaptureSource = null; // o an yakalanan çıkış aygıtı
 let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare istiyor mu?
@@ -151,6 +154,10 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+/* Yüzen pencerenin konumu ayrı tutulur: her taşımada settings.json'u
+   (sahne ayarlarıyla birlikte) yeniden yazmak gereksiz disk trafiği olur. */
+const FLOATING_BOUNDS_PATH = path.join(app.getPath('userData'), 'floating-window.json');
+const LOGO_LIB_DIR = path.join(app.getPath('userData'), 'logo-library');
 
 /* ÖZ TEST KULLANICININ AYARLARINA DOKUNMAMALI.
 
@@ -547,6 +554,10 @@ function openWindows() {
     if (win && !win.isDestroyed()) out.push(win);
     else visualizerWins.delete(id);
   }
+  /* Yüzen pencere bir ekrana ait değil ama aynı yapılandırmayı, ses
+     karelerini ve yakalamayı alması gerekir. Ekran başına işlemler
+     (setBounds / tam ekran) haritayı ayrı dolaştığı için ona dokunmaz. */
+  if (floatingWin && !floatingWin.isDestroyed()) out.push(floatingWin);
   return out;
 }
 
@@ -770,12 +781,17 @@ function createVisualizerWindow(display) {
   return win;
 }
 
+function floatingIsOpen() {
+  return !!(floatingWin && !floatingWin.isDestroyed());
+}
+
 function notifyVisualizerStatus() {
   const ids = Array.from(visualizerWins.keys());
   notifyAdmin('visualizer-status', {
-    open: ids.length > 0,
+    open: ids.length > 0 || floatingIsOpen(),
     displayIds: ids,
     displayId: ids.length ? ids[0] : null, // eski alan (geriye dönük uyum)
+    floating: floatingIsOpen(),
   });
 }
 
@@ -979,6 +995,10 @@ function closeVisualizer(displayId) {
       win.close();
     }
   }
+  /* Paneldeki Kapat, yüzen pencereyi de kapatır: yalnız PiP açıkken
+     düğme aktif oluyor ama ekran penceresi olmadığı için hiçbir şey
+     olmuyordu. */
+  closeFloatingWindow();
 }
 
 /* Kullanıcıya GÖRÜNMEYEN yardımcı pencereleri kapatır.
@@ -1037,6 +1057,7 @@ function applyAlwaysOnTop() {
 
   if (!wantsAlwaysOnTop()) {
     for (const win of openWindows()) {
+      if (win === floatingWin) continue;
       win.setAlwaysOnTop(false);
       win.setVisibleOnAllWorkspaces(false);
     }
@@ -1162,6 +1183,178 @@ ipcMain.handle('repair-audio', async () => {
 
 ipcMain.handle('get-settings', () => loadSettings());
 
+// ----------------------------------------------------------------------------
+// Yüzen / resim-içinde-resim penceresi
+//
+// Aynı visualizer/index.html küçük, taşınabilir, her zaman üstte bir
+// pencerede açılır. İçerik sendToVisualizers ile geldiği için her
+// görselleştirici türü çalışır. Ekran başına mantığa (mapping / tam ekran)
+// girmez.
+// ----------------------------------------------------------------------------
+function floatingPrefs() {
+  const f = (currentConfig && currentConfig.floating) || {};
+  return {
+    opacity: typeof f.opacity === 'number' ? Math.max(0.2, Math.min(1, f.opacity)) : 1,
+    clickThrough: !!f.clickThrough,
+    aspectLock: f.aspectLock !== false,
+    locked: !!f.locked,
+  };
+}
+
+function readFloatingBounds() {
+  try {
+    const b = JSON.parse(fs.readFileSync(FLOATING_BOUNDS_PATH, 'utf-8'));
+    if (b && Number.isFinite(b.width) && Number.isFinite(b.height)) return b;
+  } catch { /* yok / bozuk */ }
+  return null;
+}
+
+let floatingSaveTimer = null;
+function saveFloatingBounds() {
+  if (!floatingIsOpen()) return;
+  const b = floatingWin.getBounds();
+  clearTimeout(floatingSaveTimer);
+  floatingSaveTimer = setTimeout(() => {
+    try { fs.writeFileSync(FLOATING_BOUNDS_PATH, JSON.stringify(b), 'utf-8'); } catch { /* yok say */ }
+  }, 600);
+}
+
+function clampFloatingBounds(b) {
+  const def = { width: 480, height: 270 };
+  const disp = screen.getPrimaryDisplay();
+  const wa = disp.workArea;
+  const width = Math.max(160, Math.min((b && b.width) || def.width, wa.width));
+  const height = Math.max(90, Math.min((b && b.height) || def.height, wa.height));
+  let x = b && Number.isFinite(b.x) ? b.x : wa.x + wa.width - width - 24;
+  let y = b && Number.isFinite(b.y) ? b.y : wa.y + wa.height - height - 24;
+  const all = screen.getAllDisplays();
+  const onScreen = all.some((d) => x + 40 < d.bounds.x + d.bounds.width && x + width - 40 > d.bounds.x && y + 20 < d.bounds.y + d.bounds.height && y + height - 20 > d.bounds.y);
+  if (!onScreen) { x = wa.x + wa.width - width - 24; y = wa.y + wa.height - height - 24; }
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+}
+
+function applyFloatingPrefs() {
+  if (!floatingIsOpen()) return;
+  const p = floatingPrefs();
+  try { floatingWin.setOpacity(p.opacity); } catch { /* yok */ }
+  try { floatingWin.setMovable(!p.locked); } catch { /* yok */ }
+  try { floatingWin.setResizable(!p.locked); } catch { /* yok */ }
+  try { floatingWin.setIgnoreMouseEvents(!!p.clickThrough, { forward: true }); } catch { /* yok */ }
+}
+
+function snapFloating(where) {
+  if (!floatingIsOpen()) return;
+  const b = floatingWin.getBounds();
+  const wa = screen.getDisplayMatching(b).workArea;
+  const m = 16;
+  let x = b.x, y = b.y;
+  if (where === 'tl' || where === 'bl') x = wa.x + m;
+  if (where === 'tr' || where === 'br') x = wa.x + wa.width - b.width - m;
+  if (where === 'tl' || where === 'tr') y = wa.y + m;
+  if (where === 'bl' || where === 'br') y = wa.y + wa.height - b.height - m;
+  floatingWin.setBounds({ x: Math.round(x), y: Math.round(y), width: b.width, height: b.height });
+  saveFloatingBounds();
+}
+
+function sizeFloating(kind) {
+  if (!floatingIsOpen()) return;
+  const sizes = { s: [320, 180], m: [480, 270], l: [640, 360], xl: [960, 540] };
+  const pair = sizes[kind] || sizes.m;
+  const b = floatingWin.getBounds();
+  const next = clampFloatingBounds({ x: b.x, y: b.y, width: pair[0], height: pair[1] });
+  floatingWin.setBounds(next);
+  saveFloatingBounds();
+}
+
+function createFloatingWindow() {
+  if (floatingIsOpen()) { floatingWin.show(); floatingWin.focus(); return floatingWin; }
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
+  const b = clampFloatingBounds(readFloatingBounds());
+  const primaryId = screen.getPrimaryDisplay().id;
+  const win = new BrowserWindow({
+    x: b.x, y: b.y, width: b.width, height: b.height,
+    minWidth: 160, minHeight: 90,
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    frame: false,
+    transparent: false,
+    backgroundColor: '#000000',
+    show: true,
+    resizable: true,
+    movable: true,
+    minimizable: true,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: false,
+    alwaysOnTop: true,
+    hasShadow: true,
+    title: trUi('Yüzen Görselleştirici', 'Floating Visualizer'),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-visualizer.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1'],
+    },
+  });
+  floatingWin = win;
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setVisibleOnAllWorkspaces(true);
+  win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
+  attachSmoke(win, 'FLOAT');
+  applyFloatingPrefs();
+
+  win.on('move', saveFloatingBounds);
+  win.on('resize', () => {
+    if (floatingPrefs().aspectLock && !win._svAspectBusy) {
+      const cur = win.getBounds();
+      const ratio = 16 / 9;
+      const h = Math.max(90, Math.round(cur.width / ratio));
+      if (Math.abs(h - cur.height) > 2) {
+        win._svAspectBusy = true;
+        win.setBounds({ x: cur.x, y: cur.y, width: cur.width, height: h });
+        win._svAspectBusy = false;
+      }
+    }
+    saveFloatingBounds();
+  });
+
+  win.webContents.on('did-finish-load', () => {
+    syncCapture();
+    if (currentConfig) win.webContents.send('config', currentConfig);
+    if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
+    notifyVisualizerStatus();
+  });
+
+  win.on('closed', () => {
+    if (floatingWin === win) floatingWin = null;
+    syncCapture();
+    applyAlwaysOnTop();
+    notifyVisualizerStatus();
+  });
+
+  syncCapture();
+  applyAlwaysOnTop();
+  notifyVisualizerStatus();
+  return win;
+}
+
+function closeFloatingWindow() {
+  if (floatingIsOpen()) floatingWin.close();
+}
+
+ipcMain.handle('floating:toggle', () => {
+  if (floatingIsOpen()) { closeFloatingWindow(); return { open: false }; }
+  createFloatingWindow();
+  return { open: true };
+});
+ipcMain.handle('floating:is-open', () => floatingIsOpen());
+ipcMain.handle('floating:snap', (e, where) => { snapFloating(where); return true; });
+ipcMain.handle('floating:size', (e, kind) => { sizeFloating(kind); return true; });
+ipcMain.on('floating:close', () => closeFloatingWindow());
+ipcMain.on('floating:snap', (e, where) => snapFloating(where));
+ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
+
 ipcMain.handle('open-visualizer', (e, displayIds) => {
   openVisualizer(displayIds);
   return true;
@@ -1194,9 +1387,10 @@ ipcMain.handle('get-visualizer-status', () => {
     return w && !w.isDestroyed();
   });
   return {
-    open: ids.length > 0,
+    open: ids.length > 0 || floatingIsOpen(),
     displayIds: ids,
     displayId: ids.length ? ids[0] : null,
+    floating: floatingIsOpen(),
   };
 });
 
@@ -1239,6 +1433,7 @@ function applyIncomingConfig(config, opts) {
   if (anyVisualizerOpen() || textureShare.window()) {
     sendToVisualizers('config', config);
     if (anyVisualizerOpen()) applyAlwaysOnTop();
+    applyFloatingPrefs();
   }
   if (prevSee !== nowSee && anyVisualizerOpen()) {
     if (recreateTimer) clearTimeout(recreateTimer);
@@ -1739,6 +1934,7 @@ function syncStreamServer() {
          yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
       mdTextureNames: () => textureNames().names,
       mdTextureFile: (name) => textureFile(name),
+      logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
@@ -1955,6 +2151,45 @@ ipcMain.handle('milkdrop:texture', (e, name) => {
   } catch {
     return null;
   }
+});
+
+// ----------------------------------------------------------------------------
+// Logo / görsel kitaplığı (userData/logo-library)
+// ----------------------------------------------------------------------------
+function logoLibDir() {
+  try { return LOGO_LIB_DIR; } catch { return path.join(app.getPath('userData'), 'logo-library'); }
+}
+
+ipcMain.handle('logo-lib:list', () => logoLibrary.list(logoLibDir()));
+ipcMain.handle('logo-lib:read', async (e, id) => {
+  const entry = await logoLibrary.readBytes(logoLibDir(), id);
+  if (!entry || !entry.buf) return null;
+  const info = logoLibrary.fileInfo(logoLibDir(), id);
+  return {
+    id: String(id || ''),
+    name: info && info.name,
+    kind: info && info.kind,
+    mime: entry.mime || (info && info.mime) || 'application/octet-stream',
+    b64: entry.buf.toString('base64'),
+  };
+});
+ipcMain.handle('logo-lib:remove', (e, id) => logoLibrary.remove(logoLibDir(), id));
+ipcMain.handle('logo-lib:import', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Resim / GIF Ekle', 'Add Images / GIFs'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: trUi('Görseller', 'Images'), extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
+  const added = [];
+  for (const file of r.filePaths) {
+    const one = logoLibrary.importFile(logoLibDir(), file, path.basename(file));
+    if (one && one.ok) added.push(one.item);
+  }
+  return { ok: true, added };
 });
 
 // ----------------------------------------------------------------------------
@@ -2360,6 +2595,21 @@ app.whenReady().then(async () => {
         return new Response('forbidden', { status: 403 });
       }
       return serveMediaFile(raw, request.headers.get('range'));
+    } catch {
+      return new Response('error', { status: 500 });
+    }
+  });
+
+  protocol.handle('sv-logo', async (request) => {
+    try {
+      const u = new URL(request.url);
+      const id = decodeURIComponent((u.pathname || '').replace(/^\//, '') || u.hostname || '');
+      const entry = await logoLibrary.readBytes(logoLibDir(), id);
+      if (!entry || !entry.buf) return new Response('not found', { status: 404 });
+      const headers = new Headers();
+      if (entry.mime) headers.set('Content-Type', entry.mime);
+      headers.set('Cache-Control', 'private, max-age=300');
+      return new Response(new Uint8Array(entry.buf), { status: 200, headers });
     } catch {
       return new Response('error', { status: 500 });
     }

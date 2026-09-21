@@ -390,6 +390,7 @@ function handleRequest(req, res) {
   }
 
   if (p === '/media-file') { serveMedia(req, res); return; }
+  if (p === '/logo-file') { serveLogoFile(res, url.searchParams.get('id') || ''); return; }
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
   if (p.startsWith('/app/')) { serveStatic(res, p); return; }
@@ -414,6 +415,20 @@ function serveTextureNames(res) {
     'X-Content-Type-Options': 'nosniff',
   });
   res.end(JSON.stringify({ names: Array.isArray(names) ? names : [] }));
+}
+
+function serveLogoFile(res, id) {
+  const t = typeof hooks.logoFile === 'function' ? hooks.logoFile(id) : null;
+  if (!t || !t.file || !t.mime) { res.writeHead(404).end('not found'); return; }
+  let st;
+  try { st = fs.statSync(t.file); } catch { res.writeHead(404).end('not found'); return; }
+  res.writeHead(200, {
+    'Content-Type': t.mime,
+    'Content-Length': st.size,
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(t.file).on('error', () => res.destroy()).pipe(res);
 }
 
 function serveTexture(res, name) {

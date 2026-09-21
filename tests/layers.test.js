@@ -369,4 +369,6 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   assert.ok(synthAuto.some((l) => l.kind === 'logo'), 'auto modda logo katmanı sentezlenmeli');
   const synthManual = L.synthesize({ logo: { enabled: true, source: 'manual', src: '' } });
   assert.strictEqual(synthManual.some((l) => l.kind === 'logo'), false, 'manual modda src boşken logo katmanı sentezlenmemeli');
+  const synthLib = L.synthesize({ logo: { enabled: true, source: 'manual', src: '', libraryId: 'img_1' } });
+  assert.ok(synthLib.some((l) => l.kind === 'logo'), 'kitaplık kimliği varken logo katmanı sentezlenmeli');
 });

@@ -253,13 +253,39 @@
     logo: {
       enabled: false,
       source: 'auto', // 'auto' | 'manual' | 'track'
-      src: null, // dataURL
+      src: null, // dataURL (tek seferlik içe aktarma)
+      libraryId: '', // kitaplık öğesi; src yerine dosya kimliği
+      kind: '', // '' | 'image' | 'gif'
       scale: 0.22, // ekranın kısa kenarına oran
       opacity: 1,
       pulse: 0.3, // sese tepki (büyüme)
       x: 0.5,
       y: 0.5, // konum oranı (otomatik ortalama = 0.5, 0.5)
       glow: 0.2,
+      // GIF seçilince panelde açılan oynatma / görünüm / ses
+      speed: 1,
+      loop: 'loop', // 'loop' | 'pingpong' | 'once'
+      reverse: false,
+      smooth: true,
+      brightness: 1,
+      hue: 0,
+      saturate: 1,
+      blend: 'normal', // 'normal' | 'screen' | 'add'
+      audioSpeed: 0,
+      audioBrightness: 0,
+      audioOpacity: 0,
+      beatFlash: 0,
+      audioHue: 0,
+      audioBand: 'bass', // 'bass' | 'mid' | 'treble' | 'level'
+    },
+
+    /* Yüzen / resim-içinde-resim penceresi. Konum ayrı dosyada; burada
+       oynatıcı tercihleri durur. */
+    floating: {
+      opacity: 1,
+      clickThrough: false,
+      aspectLock: true,
+      locked: false,
     },
 
     power: {

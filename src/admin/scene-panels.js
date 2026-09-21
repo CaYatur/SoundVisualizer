@@ -489,23 +489,28 @@
           el('span', { class: 'dim-hint', text: lg.src ? 'seçildi' : 'seçilmedi' }),
         ]);
         out.push(el('div', { class: 'ctrl' }, [info]));
-        if (lg.src) out.push(el('img', { class: 'layer-preview', src: lg.src, alt: '' }));
+        const previewSrc = lg.src || (lg.libraryId && window.SVGif && window.SVGif.libraryUrl(lg.libraryId));
+        if (previewSrc) out.push(el('img', { class: 'layer-preview', src: previewSrc, alt: '' }));
         out.push(el('div', { class: 'row' }, [
           el('button', {
             class: 'btn small', type: 'button', text: lg.src ? '🖼 Logoyu Değiştir' : '🖼 Logo Seç',
             onclick: () => {
-              pickImage((dataUrl) => {
+              pickImage((dataUrl, fileName) => {
                 lg.src = dataUrl;
+                lg.libraryId = '';
+                lg.kind = (fileName && /\.gif$/i.test(fileName)) || /^data:image\/gif/i.test(dataUrl) ? 'gif' : 'image';
                 lg.enabled = true;
                 P().push(true);
                 rerender();
               });
             },
           }),
-          lg.src ? el('button', {
+          lg.src || lg.libraryId ? el('button', {
             class: 'btn ghost small danger', type: 'button', text: 'Kaldır',
             onclick: () => {
               lg.src = '';
+              lg.libraryId = '';
+              lg.kind = '';
               P().push(true);
               rerender();
             },
@@ -535,6 +540,41 @@
       out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true }));
       out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
       out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
+      const gifOn = (lg.kind === 'gif') || (window.SVGif && window.SVGif.isAnimatedLogo && window.SVGif.isAnimatedLogo(lg, lg.src));
+      if (gifOn) {
+        out.push(miniSlider('Oynatma Hızı', () => getL('speed', 1), (v) => setL('speed', v), { min: 0.1, max: 3, step: 0.01 }));
+        out.push(miniSelect('Döngü', [['loop', 'Tekrar'], ['pingpong', 'Gidiş-Dönüş'], ['once', 'Bir Kez']],
+          () => lg.loop || 'loop', (v) => { lg.loop = v; }));
+        out.push(miniToggle('Ters Oynat', () => !!lg.reverse, (v) => { lg.reverse = v; }));
+        out.push(miniToggle('Kenar Yumuşatma', () => lg.smooth !== false, (v) => { lg.smooth = v; }));
+        out.push(miniSlider('Parlaklık', () => getL('brightness', 1), (v) => setL('brightness', v), { min: 0.2, max: 2, step: 0.01 }));
+        out.push(miniSlider('Renk Kayması', () => getL('hue', 0), (v) => setL('hue', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Doygunluk', () => getL('saturate', 1), (v) => setL('saturate', v), { min: 0, max: 2, step: 0.01 }));
+        out.push(miniSelect('Karışım', [['normal', 'Normal'], ['screen', 'Ekran'], ['add', 'Ekle']],
+          () => lg.blend || 'normal', (v) => { lg.blend = v; }));
+        out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']],
+          () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }));
+        out.push(miniSlider('Ses → Hız', () => getL('audioSpeed', 0), (v) => setL('audioSpeed', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Ses → Parlaklık', () => getL('audioBrightness', 0), (v) => setL('audioBrightness', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Ses → Saydamlık', () => getL('audioOpacity', 0), (v) => setL('audioOpacity', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Ritim Parlaması', () => getL('beatFlash', 0), (v) => setL('beatFlash', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Ses → Renk', () => getL('audioHue', 0), (v) => setL('audioHue', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      }
+      if ((lg.source || 'auto') !== 'track' && window.SVLogoLibUi) {
+        out.push(window.SVLogoLibUi.mount({
+          selectedId: lg.libraryId || '',
+          onPick: (it) => {
+            const wasGif = (lg.kind === 'gif');
+            lg.libraryId = it.id;
+            lg.src = '';
+            lg.kind = it.kind || '';
+            lg.enabled = true;
+            if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
+            P().push(true);
+            rerender();
+          },
+        }));
+      }
       return out;
     }
 

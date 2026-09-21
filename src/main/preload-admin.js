@@ -34,6 +34,14 @@ contextBridge.exposeInMainWorld('api', {
      çağrıyla istiyor (#586). Burada yalnız liste çağrısı vardı; önizleme
      dosyayı alamadığı için doku yerine gürültü çiziyordu. */
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  logoLibList: () => ipcRenderer.invoke('logo-lib:list'),
+  logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
+  logoLibRemove: (id) => ipcRenderer.invoke('logo-lib:remove', id),
+  logoLibImport: () => ipcRenderer.invoke('logo-lib:import'),
+  toggleFloating: () => ipcRenderer.invoke('floating:toggle'),
+  floatingIsOpen: () => ipcRenderer.invoke('floating:is-open'),
+  floatingSnap: (where) => ipcRenderer.invoke('floating:snap', where),
+  floatingSize: (kind) => ipcRenderer.invoke('floating:size', kind),
   // Canlı kayıt ve anlık görüntü
   saveRecording: (data, opts) => ipcRenderer.invoke('record:save', { data, opts }),
   saveSnapshot: (dataUrl) => ipcRenderer.invoke('record:snapshot', { dataUrl }),

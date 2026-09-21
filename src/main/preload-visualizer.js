@@ -7,6 +7,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 const displayArg = process.argv.find((a) => a.startsWith('--sv-display-id='));
 contextBridge.exposeInMainWorld('SV_DISPLAY_ID',
   displayArg ? Number(displayArg.split('=')[1]) : null);
+contextBridge.exposeInMainWorld('SV_FLOATING',
+  process.argv.some((a) => a === '--sv-floating=1' || a.startsWith('--sv-floating=')));
 
 contextBridge.exposeInMainWorld('api', {
   requestConfig: () => ipcRenderer.invoke('request-config'),
@@ -29,6 +31,10 @@ contextBridge.exposeInMainWorld('api', {
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
+  floatingClose: () => ipcRenderer.send('floating:close'),
+  floatingSnap: (where) => ipcRenderer.send('floating:snap', where),
+  floatingSize: (kind) => ipcRenderer.send('floating:size', kind),
   // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir
   onMdFollow: (cb) => ipcRenderer.on('md-follow', (e, p) => cb(p)),
 });

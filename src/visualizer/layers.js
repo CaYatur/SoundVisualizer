@@ -188,7 +188,7 @@
         settings: { text: JSON.parse(JSON.stringify(cfg.text || {})) },
       }));
     }
-    if (cfg.logo && cfg.logo.enabled && (cfg.logo.src || (cfg.logo.source || 'auto') !== 'manual')) {
+    if (cfg.logo && cfg.logo.enabled && (cfg.logo.src || cfg.logo.libraryId || (cfg.logo.source || 'auto') !== 'manual')) {
       out.push(normalizeLayer({
         id: 'ly_logo', name: 'Logo', kind: 'logo',
         settings: { logo: JSON.parse(JSON.stringify(cfg.logo || {})) },
@@ -542,7 +542,7 @@
   function resolveLogoSrc(lg, cfg) {
     if (!lg) return null;
     const mode = lg.source || 'auto';
-    if (mode === 'manual') return lg.src || null;
+    if (mode === 'manual') return logoFileSrc(lg);
 
     const live = (typeof window !== 'undefined' && window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
       ? window.SVNowLive.state : null;
@@ -593,7 +593,22 @@
     if (lyricsOrTextActive && showArtworkAllowed && trackArtwork) {
       return trackArtwork;
     }
-    return lg.src || null;
+    return logoFileSrc(lg);
+  }
+
+  function logoFileSrc(lg) {
+    if (typeof window !== 'undefined' && window.SVGif && window.SVGif.logoFileSrc) {
+      return window.SVGif.logoFileSrc(lg);
+    }
+    if (!lg) return null;
+    if (typeof window !== 'undefined' && window.SVLogoRuntime && window.SVLogoRuntime.displaySrc) {
+      const ready = window.SVLogoRuntime.displaySrc(lg);
+      if (ready) return ready;
+      if (lg.libraryId) return null;
+    }
+    if (lg.src) return lg.src;
+    if (lg.libraryId) return 'sv-logo://lib/' + encodeURIComponent(lg.libraryId);
+    return null;
   }
 
   // ==========================================================================
@@ -694,9 +709,66 @@
       }
     }
 
+    _logoDrawable(lg, src, audio, t) {
+      const animated = (typeof window !== 'undefined' && window.SVGif)
+        ? window.SVGif.isAnimatedLogo(lg, src)
+        : false;
+      if (animated && typeof window !== 'undefined' && window.SVGifPlayer) {
+        const entry = window.SVGifPlayer.get(src);
+        if (entry && entry.status === 'ready' && entry.frames && entry.frames.length) {
+          const av = bandValue(audio, (lg && lg.audioBand) || 'bass');
+          const speed = lg && lg.speed > 0 ? lg.speed : 1;
+          const mul = 1 + Math.min(1, (lg && lg.audioSpeed) || 0) * av * 1.5;
+          const ms = (t || 0) * 1000 * speed * mul;
+          const idx = window.SVGifPlayer.frameAt(entry, ms, (lg && lg.loop) || 'loop', !!(lg && lg.reverse));
+          const bmp = entry.frames[idx];
+          if (bmp) return { source: bmp, width: entry.width || bmp.width, height: entry.height || bmp.height };
+        }
+      }
+      return null;
+    }
+
+    _paintLogo(ctx, drawable, lg, audio, W, H) {
+      const minDim = Math.min(W, H);
+      const av = bandValue(audio, (lg && lg.audioBand) || 'bass');
+      const level = audio ? audio.level : 0;
+      const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));
+      const pulse = 1 + av * (lg.pulse == null ? 0.3 : lg.pulse);
+      const size = minDim * scale * pulse;
+      const aspect = (drawable.height || 1) / (drawable.width || 1);
+      const w = size;
+      const h = w * aspect;
+      const x = (lg.x == null ? 0.5 : lg.x) * W;
+      const y = (lg.y == null ? 0.5 : lg.y) * H;
+      let opacity = Math.max(0, Math.min(1, lg.opacity == null ? 1 : lg.opacity));
+      if (lg.audioOpacity > 0) {
+        opacity *= (1 - lg.audioOpacity) + lg.audioOpacity * Math.min(1, level * 1.5);
+      }
+      const bright = (lg.brightness > 0 ? lg.brightness : 1)
+        + Math.min(1, lg.audioBrightness || 0) * av * 0.8
+        + Math.min(1, lg.beatFlash || 0) * Math.max(0, av - 0.6) * 2;
+      const hue = (lg.hue || 0) + Math.min(1, lg.audioHue || 0) * av;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+      if (lg.blend === 'add') ctx.globalCompositeOperation = 'lighter';
+      else if (lg.blend === 'screen') ctx.globalCompositeOperation = 'screen';
+      if (lg.glow && lg.glow > 0) {
+        ctx.shadowColor = 'rgba(255,255,255,0.7)';
+        ctx.shadowBlur = lg.glow * 40 * (minDim / 1080);
+      }
+      ctx.imageSmoothingEnabled = lg.smooth !== false;
+      const filters = [];
+      if (bright !== 1) filters.push('brightness(' + bright.toFixed(3) + ')');
+      if (hue) filters.push('hue-rotate(' + Math.round(hue * 360) + 'deg)');
+      if (lg.saturate != null && lg.saturate !== 1) filters.push('saturate(' + lg.saturate + ')');
+      if (filters.length) ctx.filter = filters.join(' ');
+      ctx.drawImage(drawable.source, x - w / 2, y - h / 2, w, h);
+      ctx.restore();
+    }
+
     // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
     // logonun da efektlerden geçmesi için)
-    _drawLogoToCanvas(ctx, cfg, audio) {
+    _drawLogoToCanvas(ctx, cfg, audio, t) {
       if (stackOn(cfg)) return;
       const l = cfg && cfg.logo;
       if (!l || !l.enabled) return;
@@ -704,6 +776,15 @@
       if (!effectiveSrc) {
         this._lastLogoImg = null;
         this._lastLogoSrc = '';
+        return;
+      }
+      const gif = this._logoDrawable(l, effectiveSrc, audio, t);
+      if (gif) {
+        this._paintLogo(ctx, gif, l, audio, this.width, this.height);
+        return;
+      }
+      /* GIF_LIB_NO_IMG_FALLBACK */
+      if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(l, effectiveSrc)) {
         return;
       }
       let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
@@ -719,26 +800,7 @@
         this._lastLogoImg = img;
         this._lastLogoSrc = effectiveSrc;
       }
-      const W = this.width;
-      const H = this.height;
-      const minDim = Math.min(W, H);
-      const scale = Math.max(0.02, Math.min(1.5, l.scale == null ? 0.22 : l.scale));
-      const pulse = 1 + (audio ? audio.bass : 0) * (l.pulse == null ? 0.3 : l.pulse);
-      const size = minDim * scale * pulse;
-      const aspect = img.naturalHeight / img.naturalWidth;
-      const w = size;
-      const h = w * aspect;
-      const lx = l.x == null ? 0.5 : l.x;
-      const ly = l.y == null ? 0.5 : l.y;
-      const opacity = Math.max(0, Math.min(1, l.opacity == null ? 1 : l.opacity));
-      ctx.save();
-      ctx.globalAlpha = opacity;
-      if (l.glow && l.glow > 0) {
-        ctx.shadowColor = 'rgba(255,255,255,0.7)';
-        ctx.shadowBlur = l.glow * 40 * (minDim / 1080);
-      }
-      ctx.drawImage(img, lx * W - w / 2, ly * H - h / 2, w, h);
-      ctx.restore();
+      this._paintLogo(ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, l, audio, this.width, this.height);
     }
 
     setSprites(s) { this.sprites = s; }
@@ -828,6 +890,16 @@
       }
       this.lastSig = scnSig;
       this.prevCfg = cfg;
+      /* Kitaplık logolarını blob'a ısıt — sv-logo:// ile çizim donmasına yol açıyordu. */
+      if (typeof window !== 'undefined' && window.SVLogoRuntime && window.SVLogoRuntime.warm) {
+        const ids = new Set();
+        if (cfg && cfg.logo && cfg.logo.libraryId) ids.add(cfg.logo.libraryId);
+        (cfg && cfg.layers || []).forEach((l) => {
+          const lg = l && l.settings && l.settings.logo;
+          if (lg && lg.libraryId) ids.add(lg.libraryId);
+        });
+        ids.forEach((id) => window.SVLogoRuntime.warm(id));
+      }
 
       const sig = wanted.map((l) => this._key(l)).join(';');
       const oldEntries = this.entries;
@@ -1141,7 +1213,7 @@
           this.compCanvas.width = this.width;
           this.compCanvas.height = this.height;
         }
-        this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio));
+        this.drawTo(this.compCtx, audio, cfg, t, dt, (ctx) => this._drawLogoToCanvas(ctx, cfg, audio, t));
 
         let src = this.compCanvas;
         if (tick) {
@@ -1157,7 +1229,7 @@
             }
           }
           tr.stack.drawTo(this.transOutCtx, audio, tr.cfg, t, dt,
-            (ctx) => tr.stack._drawLogoToCanvas(ctx, tr.cfg, audio));
+            (ctx) => tr.stack._drawLogoToCanvas(ctx, tr.cfg, audio, t));
           this.compositor.compose(this.transCtx, this.transOut, this.compCanvas,
             this.width, this.height, tr.type, tick.p, tr.opts);
           src = this.transSurface;
@@ -1381,6 +1453,14 @@
           e._lastImgSrc = '';
           return;
         }
+        const gif = this._logoDrawable(lg, effectiveSrc, audio, t);
+        if (gif) {
+          this._paintLogo(e.ctx, gif, lg, audio, W, H);
+          return;
+        }
+        if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(lg, effectiveSrc)) {
+          return;
+        }
         let img = (this.logoEl && this.logoEl.naturalWidth && this.logoEl.src === effectiveSrc)
           ? this.logoEl
           : this._getImage(effectiveSrc);
@@ -1394,25 +1474,7 @@
           e._lastImg = img;
           e._lastImgSrc = effectiveSrc;
         }
-        const minDim = Math.min(W, H);
-        const scale = Math.max(0.02, Math.min(1.5, lg.scale == null ? 0.22 : lg.scale));
-        const pulse = 1 + (audio ? audio.bass : 0) * (lg.pulse == null ? 0.3 : lg.pulse);
-        const size = minDim * scale * pulse;
-        const aspect = img.naturalHeight / img.naturalWidth;
-        const w = size;
-        const h = w * aspect;
-        const x = (lg.x == null ? 0.5 : lg.x) * W;
-        const y = (lg.y == null ? 0.5 : lg.y) * H;
-        const opacity = Math.max(0, Math.min(1, lg.opacity == null ? 1 : lg.opacity));
-
-        e.ctx.save();
-        e.ctx.globalAlpha = opacity;
-        if (lg.glow && lg.glow > 0) {
-          e.ctx.shadowColor = 'rgba(255,255,255,0.7)';
-          e.ctx.shadowBlur = lg.glow * 40 * (minDim / 1080);
-        }
-        e.ctx.drawImage(img, x - w / 2, y - h / 2, w, h);
-        e.ctx.restore();
+        this._paintLogo(e.ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, lg, audio, W, H);
         return;
       }
     }
@@ -1596,6 +1658,7 @@
     groupGain,
     LAYER_DEFAULTS,
     resolveLogoSrc,
+    logoFileSrc,
     seeThrough,
     layerWantsKey,
     pageBackground,

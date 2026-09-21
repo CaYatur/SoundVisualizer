@@ -72,3 +72,50 @@ html, body {
   max-width: 70%;
   text-align: center;
 }
+
+/* Yüzen pencere kromu: hover olunca görünür, sürükleme bölgesi üstte. */
+html.sv-floating, html.sv-floating body { cursor: default; }
+#sv-float-bar {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: rgba(0, 0, 0, 0.0);
+  opacity: 0;
+  transition: opacity .15s, background .15s;
+  pointer-events: none;
+}
+html.sv-floating #sv-float-bar { pointer-events: auto; }
+html.sv-floating #sv-float-bar:hover,
+html.sv-floating.sv-float-show #sv-float-bar { opacity: 1; background: rgba(8, 8, 12, 0.72); }
+.sv-float-grip {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+  color: rgba(255,255,255,0.55);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  cursor: grab;
+}
+.sv-float-group { display: flex; gap: 3px; -webkit-app-region: no-drag; }
+.sv-float-chip, .sv-float-close {
+  -webkit-app-region: no-drag;
+  border: 0;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 11px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sv-float-chip:hover, .sv-float-close:hover { background: rgba(255,255,255,0.28); }
+.sv-float-close:hover { background: rgba(230, 60, 60, 0.9); }
