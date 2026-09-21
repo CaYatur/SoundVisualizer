@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-1894%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1913%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -293,6 +293,17 @@ that asserts the bar profile has no step in it.
   mesh 64 with a hard cut, 12.10 ms with a transition; at mesh 96 that one frame goes 12.00 → 18.00
   ms and drops a frame. So the default is 1.7s, MilkDrop's own `fBlendTimeUser`, and automatic
   preset advance stays off by default, which means a transition only ever runs when you ask for one.
+- **A preset change no longer stalls the frame.** Measured across 900 presets at 1280×720, the
+  frame that loaded a preset ran a median 17 ms and at worst ~119 ms over its neighbours, and six
+  changes in ten dropped a frame that would otherwise have held — nine tenths of it the GPU compiling
+  the new shaders while the frame waited. Where the driver offers `KHR_parallel_shader_compile` the
+  compile now runs in the background and the running preset keeps drawing; the change, transition
+  included, starts once the new programs are ready, a median two or three frames later. With auto
+  advance the next preset is chosen a second early and compiled in advance, so the change still
+  lands on time — on the bar in bar mode — and the other screens prepare the same one. At the
+  default mesh the changes that drop a frame fell from 61.9% to 4.9% with a hard cut and from 61.7%
+  to 8.1% with a transition. Video export still waits for each compile, so the frame a preset
+  appears on never depends on the machine.
 - **Auto advance advances.** The panel's Auto Advance slider had been there since the engine landed
   and nothing ever read it: set to two seconds, the same preset stayed on screen (measured in the
   running app — nine seconds, no change). It now moves on every *n* seconds, in order or at random,
@@ -1180,7 +1191,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1894 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1913 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

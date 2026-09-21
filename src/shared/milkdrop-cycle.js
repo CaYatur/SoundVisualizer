@@ -209,12 +209,15 @@
       this.barCount = 0;
       this.blend = null;
       this.beat = null;
+      /* Önceden yapılmış seçim (#573): { p, from }. Bkz. `upcoming`. */
+      this.next = null;
     }
 
     reset() {
       this.elapsed = 0;
       this.jitter = null;
       this.barCount = 0;
+      this.next = null;
     }
 
     /* Ölçü kipinde planlanan ömür: tempo varsa N ölçünün süresi, yoksa
@@ -241,6 +244,41 @@
     _pick(list, currentId, o) {
       const w = o.useRatings ? (p) => ratingOf(p, o.ratings) : null;
       return pick(list, currentId, o.order, this.rnd, w);
+    }
+
+    /* ÖNCEDEN SEÇİM (#573). Motor sıradaki presetin shader'larını geçiş
+       anından ÖNCE, arka planda derlemek istiyor; bunun için seçimin önceden
+       yapılması gerek. Seçim bir kez yapılıp saklanıyor ve vakti gelince
+       `step` — zamanlayıcı da sert geçiş de — aynı preseti döndürüyor.
+
+       Erken seçmek sırayı ya da dağılımı DEĞİŞTİRMİYOR: aynı üreteçten aynı
+       tek çekiliş, yalnız daha önce; aradaki tek çekiliş (rastgele pay) o
+       presetin ömrünün başında zaten yapılmış oluyor. Ekrandaki preset
+       değiştiyse ya da seçilen artık listede yoksa saklanan unutuluyor ve
+       vakti gelince yeniden seçiliyor. Kilitliyken seçim yapılmıyor. */
+    upcoming(md, list, currentId, ratings) {
+      const o = normalize(md);
+      o.ratings = ratings && typeof ratings === 'object' ? ratings : null;
+      if (o.locked || !Array.isArray(list) || list.length < 2) return null;
+      const n = this.next;
+      if (n && n.from === currentId) {
+        const again = list.find((x) => x && x.id === n.p.id);
+        if (again) return again;
+      }
+      const p = this._pick(list, currentId, o);
+      this.next = p ? { p, from: currentId } : null;
+      return p;
+    }
+
+    // Saklanan seçim geçerliyse o, değilse şimdi seçilen (bkz. `upcoming`)
+    _take(list, currentId, o) {
+      const n = this.next;
+      this.next = null;
+      if (n && n.from === currentId) {
+        const again = list.find((x) => x && x.id === n.p.id);
+        if (again) return again;
+      }
+      return this._pick(list, currentId, o);
     }
 
     /* SERT GEÇİŞ — MilkDrop 2, milkdropfs.cpp:882-906.
@@ -327,7 +365,7 @@
           this.elapsed = 0;
           this.barCount = 0;
           this.jitter = null;
-          const p = this._pick(list, currentId, o);
+          const p = this._take(list, currentId, o);
           if (p && tempo) this.blend = beatBlend(o.blend, Number(beat.bpm));
           this.reason = !p ? 'EMPTY' : (tempo ? 'OK' : 'NOTEMPO');
           return p;
@@ -338,7 +376,7 @@
         if (this.elapsed >= this._due(o)) {
           this.elapsed = 0;
           this.jitter = null;
-          const p = this._pick(list, currentId, o);
+          const p = this._take(list, currentId, o);
           this.reason = p ? 'OK' : 'EMPTY';
           return p;
         }
@@ -347,7 +385,7 @@
         this.elapsed = 0;
       }
       if (loud) {
-        const p = this._pick(list, currentId, o);
+        const p = this._take(list, currentId, o);
         if (p) {
           this.elapsed = 0;
           this.jitter = null;

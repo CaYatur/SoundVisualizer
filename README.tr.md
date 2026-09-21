@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-1894%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1913%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -287,6 +287,16 @@ profilinde basamak olmadığını doğruluyor.
   12,00 → 18,00 ms'ye çıkıp bir kare düşürüyor. Bu yüzden varsayılan 1,7 sn — MilkDrop'un kendi
   `fBlendTimeUser` değeri — ve otomatik preset geçişi varsayılan olarak kapalı, yani geçiş yalnız
   siz istediğinizde koşuyor.
+- **Preset değişimi kareyi bekletmiyor.** 900 presette, 1280×720'de ölçüldü: preseti yükleyen kare
+  komşularından ortancada 17 ms, en kötü ~119 ms uzundu ve her on değişimden altısı, başka türlü
+  tutacak bir kareyi düşürüyordu — bunun onda dokuzu, kare beklerken GPU'nun yeni shader'ları
+  derlemesiydi. Sürücü `KHR_parallel_shader_compile` sunuyorsa derleme artık arka planda sürüyor ve
+  çalışan preset çizilmeye devam ediyor; değişim — geçiş dahil — yeni programlar hazır olunca,
+  ortancada iki üç kare sonra başlıyor. Otomatik geçişte sıradaki preset bir saniye önceden seçilip
+  derleniyor, yani değişim yine vaktinde — ölçü kipinde ölçünün başında — geliyor ve diğer ekranlar
+  da aynı preseti hazırlıyor. Varsayılan ağda kare düşüren değişimler sert kesmede %61,9'dan
+  %4,9'a, geçişte %61,7'den %8,1'e indi. Video dışa aktarımı derlemeyi yine bekliyor; bir presetin
+  hangi karede göründüğü makineye bağlı değil.
 - **Otomatik geçiş artık geçiyor.** Paneldeki Otomatik Geçiş kaydırıcısı motor geldiğinden beri
   oradaydı ve hiçbir yer onu okumuyordu: iki saniyeye ayarlanınca aynı preset ekranda kalıyordu
   (çalışan uygulamada ölçüldü — dokuz saniye, değişim yok). Artık her *n* saniyede, sırayla ya da
@@ -1179,7 +1189,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1894 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1913 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

@@ -63,6 +63,11 @@
      yeniden deneniyor; her karede denemek her karede bir tuval demek olurdu. */
   const RESTORE_WAIT_MS = 3000;
   const CONTEXT_RETRY_MS = 2000;
+  /* Otomatik geçişte sıradaki preset değişime bu kadar kala seçilip arka
+     planda derleniyor (#573). Ölçüldü: 900 presetin arka planda derlemesi
+     medyanda 2-3 kare, en uzunu 39 kare (~0,65 sn) sürdü; bir saniye
+     neredeyse hepsine değişimden önce bitme payı veriyor. */
+  const PREFETCH_S = 1;
   /* Motorun kurduğu tekil GL nesnelerinin adları: kayıptan sonra
      `_forgetGL` bunları unutuyor. tests/milkdrop-context-loss.test.js
      listeyi motorun kaynakta GERÇEKTEN kurduklarıyla karşılaştırıyor —
@@ -721,6 +726,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       /* Bağlam kaybı (#572): null = bağlam sağlam; aksi hâlde kaybın anı
          ve tarayıcının onu geri verip vermediği. */
       this._lost = null;
+      /* Arka planda derlenen preset (#573): { key, job } — değişim bekliyor;
+         `early` ise otomatik geçişin sıradakisi, önceden hazırlanıyor. */
+      this._pending = null;
       this.meshX = MESH_X_DEFAULT;
       this.meshY = MESH_Y_DEFAULT;
       /* Fare durumu (#560, madde 5). MilkDrop denklemlere mouse_x/mouse_y
@@ -824,6 +832,54 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       return { ok: true, prog: p };
     }
 
+    /* PRESET DERLEMESİ ÜÇ ADIMDA (#573): başlat, hazır mı, bitir.
+
+       Ölçüldü (scripts/milkdrop-switch-cost.js, 900 preset, 1280x720):
+       preset değişim karesi komşu kareden medyanda 17 ms, en kötü ~119 ms
+       uzun ve değişimlerin %60'ı yalnız bu yüzden bir kare düşürüyordu;
+       karenin 14-15 ms'si GL derleme ve bağlama. `_link` durumu hemen
+       SORDUĞU için çizim iş parçacığı derleme bitene kadar bekliyordu.
+
+       `KHR_parallel_shader_compile` varken derleme arka planda sürüyor;
+       durum sorulmadıkça beklenmiyor. `_linkReady` beklemeden bakıyor,
+       `_linkEnd` sonucu ancak hazır olunca alıyor. Uzantı yoksa `_linkReady`
+       hep true ve `_linkEnd` eski `_link` gibi bekliyor — davranış aynı. */
+    _linkBegin(vsSrc, fsSrc) {
+      const gl = this.gl;
+      const vs = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vs, vsSrc);
+      gl.compileShader(vs);
+      const fs = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fs, fsSrc);
+      gl.compileShader(fs);
+      const p = gl.createProgram();
+      gl.attachShader(p, vs);
+      gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      return { p, vs, fs };
+    }
+
+    _linkReady(h) {
+      const ext = this._parallel;
+      return !ext || this.gl.getProgramParameter(h.p, ext.COMPLETION_STATUS_KHR) === true;
+    }
+
+    _linkEnd(h) {
+      const gl = this.gl;
+      const ok = gl.getProgramParameter(h.p, gl.LINK_STATUS);
+      let log = '';
+      if (!ok) {
+        // Önce shader'ların kendi günlükleri: bağlama hatası çoğu zaman onlardan
+        if (!gl.getShaderParameter(h.vs, gl.COMPILE_STATUS)) log = gl.getShaderInfoLog(h.vs) || 'shader';
+        else if (!gl.getShaderParameter(h.fs, gl.COMPILE_STATUS)) log = gl.getShaderInfoLog(h.fs) || 'shader';
+        else log = gl.getProgramInfoLog(h.p) || 'link';
+      }
+      gl.deleteShader(h.vs);
+      gl.deleteShader(h.fs);
+      if (!ok) { gl.deleteProgram(h.p); return { ok: false, log }; }
+      return { ok: true, prog: h.p };
+    }
+
     /* BAĞLAM KAYBI (#572).
 
        Sürücü sıfırlanması, GPU sürecinin çökmesi ya da uzun bir gecede bir
@@ -924,6 +980,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._fmt = null;
       this._staticFail = false;
       this._shadersLost = true;
+      // Arka planda derlenen preset ölü bağlamdaydı: istek yeniden başlıyor
+      this._pending = null;
+      this._parallel = null;
     }
 
     _initGL(W, H) {
@@ -952,6 +1011,9 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       if (!this.warpFixed) {
         if (this._staticFail) return false;
         const gl = this.gl;
+        /* Arka planda derleme (#573). Burada, çünkü bağlam geri geldiğinde
+           uzantı yeniden istenmeli: kayıptan önceki nesne geçersiz. */
+        this._parallel = gl.getExtension('KHR_parallel_shader_compile') || null;
         const warp = this._link(MESH_VERT, WARP_FIXED_FRAG);
         const comp = this._link(COMP_MESH_VERT, COMP_FIXED_FRAG);
         const blur = this._link(QUAD_VERT, BLUR_FRAG);
@@ -1662,6 +1724,13 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const F = typeof window !== 'undefined' && window.SVMdFollow;
       if (F && F.base === (this._manualKey || '') && (performance.now() - F.at) < FOLLOW_MS) {
         this.cycle.reset();
+        /* Liderin önceden derlediği sıradakini izleyen de hazırlıyor (#573);
+           liste yalnız sıradaki DEĞİŞİNCE aranıyor. */
+        if (F.next && F.next !== this._nextSeen && this._compileAsync()) {
+          this._nextSeen = F.next;
+          const n = listOf().find((x) => x && x.id === F.next);
+          if (n) this._prefetch(n);
+        }
         if (!F.id) { this.autoPick = null; return; }
         if (this.autoPick && this.autoPick.id === F.id) return;
         const f = listOf().find((x) => x && x.id === F.id);
@@ -1694,6 +1763,16 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       const lib = cfg.milkdropLibrary || {};
       const md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
       const p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
+      /* SIRADAKİNİ ÖNCEDEN DERLE (#573). Değişime bir saniye kala döngü
+         sıradaki seçimi yapıyor ve motor onun shader'larını arka planda
+         derliyor; vakti gelince derleme bitmiş oluyor ve değişim — ölçü
+         kipinde vuruşun üstünde — beklemeden geliyor. Yalnız sert geçiş
+         açıksa kalan süre sıfır sayılıyor: sıradaki hep hazır tutuluyor,
+         kesim beklemeden geliyor. */
+      if (!p && list.length > 1 && this._compileAsync() && this.cycle.remaining(md) < PREFETCH_S) {
+        const u = this.cycle.upcoming(md, list, cur, lib.ratings);
+        if (u) this._prefetch(u);
+      }
       if (p) {
         this.autoPick = {
           id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut,
@@ -1720,6 +1799,8 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         cut: !!(a && a.cut),
         blend: a && typeof a.blend === 'number' ? a.blend : null,
         seed: a && Number.isInteger(a.seed) ? a.seed : null,
+        // Önceden derlenen sıradaki (#573): izleyenler de onu hazırlıyor
+        next: this._pending && this._pending.early ? this._pending.id : null,
         bars: tp && this.cycle ? {
           bpm: Math.round(tp.bpm || 0), count: this.cycle.barCount, of: this._barsOf || 0,
           noTempo: this.cycle.reason === 'NOTEMPO',
@@ -1741,7 +1822,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
       const a = this.autoPick;
       const key = a ? (a.id + '|' + a.source.length) : man;
-      if (key === this.presetKey && this.preset) return;
+      if (key === this.presetKey && this.preset) {
+        /* Derlenirken seçim geri alındıysa yarım iş atılıyor (#573). Önceden
+           derlenen SIRADAKİ ise kalıyor: o, değişimi bekliyor. */
+        if (this._pending && !this._pending.early) { this._dropJob(this._pending.job); this._pending = null; }
+        return;
+      }
       /* GECIS yalnız GERCEK bir degisimde baslıyor: ilk yuklemede onceki
          preset diye bir sey yok.
 
@@ -1771,6 +1857,36 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       /* Değişimin tohumu (#585): otomatik seçimde seçenin (lider pencere ya
          da izlenen) verdiği, elle seçimde seçimin kendisinden. */
       const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(key);
+      const src = (a ? a.source : c.source) || defaultSource();
+      /* YENİ PRESET HAZIR OLANA KADAR ESKİSİ SÜRÜYOR (#573).
+
+         Derleme arka planda başlatılıyor ve bu kare bitiyor: ekranda
+         çalışan preset (ve varsa süren geçiş) çizilmeye devam ediyor.
+         Değişim — geçişin başlaması dahil — ancak iki aşamanın programı
+         da hazır olduğunda yapılıyor; yani geçiş yarım derlenmiş bir
+         presetle değil, hazır bir presetle başlıyor. Bekleme birkaç kare.
+
+         SENKRON KALAN DURUMLAR: ilk yükleme (gösterilecek başka bir şey
+         yok, beklemek boş bir ekran demek), uzantının olmadığı sürücüler
+         ve çevrimdışı işler (`SVMilkdropSync`): dışa aktarımda bir presetin
+         hangi karede göründüğü derlemenin hızına kalamaz, aynı iş aynı
+         videoyu vermeli; ölçüm betikleri de önceki koşularla
+         karşılaştırılabilir kalmalı. */
+      let job = null;
+      if (this._compileAsync()) {
+        const P = this._pending;
+        if (!P || P.key !== key) {
+          if (P) this._dropJob(P.job);
+          this._pending = { key, job: this._beginStages(src) };
+          return;
+        }
+        /* Önceden derlenmiş sıradaki artık bir değişimin işi: bir sonraki
+           önceden derleme onu atmamalı. */
+        P.early = false;
+        if (!this._stagesReady(P.job)) return;
+        job = P.job;
+        this._pending = null;
+      }
       this._dropOld();
       if (this.presetKey && this.preset && bt > 0) {
         this.oldPreset = this.preset;
@@ -1789,8 +1905,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
       this.presetKey = key;
       const M = window.SVMilkdrop;
-      if (!M) { this.error = 'motor yok'; this.preset = null; return; }
-      const src = (a ? a.source : c.source) || defaultSource();
+      if (!M) { this.error = 'motor yok'; this.preset = null; this._dropJob(job); return; }
       /* Kaynak saklanıyor: bağlam kaybından sonra (#572) shader'lar ondan
          yeniden derleniyor, preset nesnesine dokunmadan. */
       this._presetSrc = src;
@@ -1804,7 +1919,27 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
          değişimin tohumundan: aynı seçim her ekranda aynı dört sayı. */
       const R = seededRandom(seed);
       this.randPreset = [R(), R(), R(), R()];
-      this._buildPresetShaders(src);
+      this._buildPresetShaders(src, job);
+    }
+
+    /* Arka planda derleme yalnız: uzantı var, ekranda sürdürülecek bir
+       preset var ve iş çevrimdışı değil (bkz. `_ensurePreset`). */
+    _compileAsync() {
+      if (!this._parallel || !this.gl || !this.preset || !this.presetKey) return false;
+      return !(typeof window !== 'undefined' && window.SVMilkdropSync === true);
+    }
+
+    /* Sıradaki presetin derlemesini ÖNCEDEN başlatır (#573). Süren bir
+       değişimin derlemesine dokunulmuyor; ekrandaki presete de. Değişim
+       gelince `_ensurePreset` bu işi hazır bulup kullanıyor, başka bir
+       preset gelirse iş atılıyor. */
+    _prefetch(p) {
+      const key = p.id + '|' + (p.source || '').length;
+      if (key === this.presetKey) return;
+      const P = this._pending;
+      if (P && (!P.early || P.key === key)) return;
+      if (P) this._dropJob(P.job);
+      this._pending = { key, id: p.id, early: true, job: this._beginStages(p.source || '') };
     }
 
     /* Geçişi bitirir ve eski presetin programlarını serbest bırakır.
@@ -1829,7 +1964,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
        comp'u derlenmeyen bir preset warp'ıyla hâlâ doğru akıyor. Sebep
        `shaderNote`ta duruyor, çünkü sessizce sabit yola düşmek "çalışıyor"
        görünüp bambaşka bir görüntü vermek demek. */
-    _buildPresetShaders(src) {
+    _buildPresetShaders(src, job) {
       const gl = this.gl;
       const T = window.SVMilkdropShader;
       this._releasePresetProgs();
@@ -1837,35 +1972,77 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this.compPreset = null;
       this.shaderNote = '';
       this._shadersLost = false;
-      if (!gl || !T || !this.preset) return;
-
+      if (!gl || !T || !this.preset) { this._dropJob(job); return; }
+      /* Arka planda hazırlanmış iş varsa o, yoksa şimdi başlatılıp hemen
+         bitiriliyor — eski senkron yol, aynı adımlarla. */
+      const j = job || this._beginStages(src);
       const notes = [];
+      this.warpPreset = this._finishStage(j.warp, notes);
+      this.compPreset = this._finishStage(j.comp, notes);
+      this.shaderNote = notes.join(' | ');
+    }
+
+    /* İki aşamayı ÇEVİRİR ve derlemelerini BAŞLATIR, sonucu beklemez.
+       Çeviri hatası derlemeye hiç gitmiyor; notu aşamada taşınıyor ki
+       `shaderNote` eskisiyle aynı sırada kurulsun (önce warp, sonra comp). */
+    _beginStages(src) {
+      const T = window.SVMilkdropShader;
       const M = window.SVMilkdrop;
+      const job = { warp: null, comp: null };
+      if (!this.gl || !T || !M) return job;
       const fl = M.parseMilk(src);
-      const build = (text, stage) => {
+      const begin = (text, stage) => {
         if (!text || !text.trim()) return null;
         let r;
-        try { r = T.translate(text, { stage }); } catch (e) { notes.push(stage + ': çeviri hatası'); return null; }
+        try { r = T.translate(text, { stage }); } catch (e) { return { note: stage + ': çeviri hatası' }; }
         if (r.empty) return null;
-        if (r.hard.length) { notes.push(stage + ': ' + r.hard.join(', ')); return null; }
-        const lk = this._link(stage === 'warp' ? MESH_VERT : COMP_MESH_VERT, r.glsl);
-        if (!lk.ok) {
-          notes.push(stage + ': derlenmedi');
-          return null;
-        }
-        if (r.soft.length) notes.push(stage + ': ' + r.soft.length + ' doku yaklaşık');
-        const plan = this._assignUnits(r.samplerPlan);
-        return {
-          prog: lk.prog,
-          locs: this._presetLocs(lk.prog, plan, r.rotUniforms, r.texSizeNames),
-          plan,
-          rot: r.rotUniforms || [],
-          blurLevel: blurLevelOf(text),
-        };
+        if (r.hard.length) return { note: stage + ': ' + r.hard.join(', ') };
+        return { stage, text, r, h: this._linkBegin(stage === 'warp' ? MESH_VERT : COMP_MESH_VERT, r.glsl) };
       };
-      this.warpPreset = build(fl.warpShader, 'warp');
-      this.compPreset = build(fl.compShader, 'comp');
-      this.shaderNote = notes.join(' | ');
+      job.warp = begin(fl.warpShader, 'warp');
+      job.comp = begin(fl.compShader, 'comp');
+      return job;
+    }
+
+    _stagesReady(job) {
+      const ok = (st) => !st || !st.h || this._linkReady(st.h);
+      return ok(job.warp) && ok(job.comp);
+    }
+
+    /* Derlemenin sonucunu alır. Derlenmeyen aşama SABİT YOLA düşüyor,
+       preset tümden reddedilmiyor (bkz. `_buildPresetShaders`). */
+    _finishStage(st, notes) {
+      if (!st) return null;
+      if (st.note) { notes.push(st.note); return null; }
+      const lk = this._linkEnd(st.h);
+      st.h = null;
+      if (!lk.ok) { notes.push(st.stage + ': derlenmedi'); return null; }
+      const r = st.r;
+      // Presetin KENDİ metni, çevrilmiş GLSL değil (bkz. BLUR_REF)
+      const text = st.text;
+      if (r.soft.length) notes.push(st.stage + ': ' + r.soft.length + ' doku yaklaşık');
+      const plan = this._assignUnits(r.samplerPlan);
+      return {
+        prog: lk.prog,
+        locs: this._presetLocs(lk.prog, plan, r.rotUniforms, r.texSizeNames),
+        plan,
+        rot: r.rotUniforms || [],
+        blurLevel: blurLevelOf(text),
+      };
+    }
+
+    /* Kullanılmayacak bir işin programlarını siler: derleme sürerken seçim
+       değişti, geri alındı ya da örnek atıldı. */
+    _dropJob(job) {
+      const gl = this.gl;
+      if (!job || !gl) return;
+      for (const st of [job.warp, job.comp]) {
+        if (!st || !st.h) continue;
+        gl.deleteShader(st.h.vs);
+        gl.deleteShader(st.h.fs);
+        gl.deleteProgram(st.h.p);
+        st.h = null;
+      }
     }
 
     /* GEÇİŞİN KOSİNÜS EĞRİSİ (MilkDrop: CosineInterp).
@@ -4907,6 +5084,7 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       this._disposeTargets();
       const gl = this.gl;
       if (gl) {
+        if (this._pending) { this._dropJob(this._pending.job); this._pending = null; }
         this._releasePresetProgs();
         this._dropOld();
         if (this.vbo) gl.deleteBuffer(this.vbo);
