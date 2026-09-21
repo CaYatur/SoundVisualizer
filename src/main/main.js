@@ -4778,7 +4778,16 @@ async function runShots() {
      aynı görünmeli ve o an ne çalıyorsa ona bağlı olmamalı. Sinyal müzikal
      olacak biçimde kuruluyor — 120 BPM'lik bir vuruş, bas ağırlıklı bir taban,
      spektrumda gezinen tepe noktaları ve stereo bir dalga formu. Böylece
-     hiçbir kare "sessiz" yakalanmıyor. */
+     hiçbir kare "sessiz" yakalanmıyor.
+
+     ZAMAN VERİSİ ve iki kanal src/shared/demo-audio.js'ten (#560): panel
+     önizlemesinin ve MilkDrop render ölçümünün verdiği sesin aynısı. Burada
+     2048 örnekte 4, 6 ve 12 devirlik üç alçak sinüs vardı (~94-281 Hz);
+     MilkDrop bantlarını bu diziden kendi FFT'siyle hesaplıyor ve orta ile
+     tiz banda yalnız nicemleme gürültüsü düşüyordu. Seviye (RMS) de bu
+     diziden, yani her mod aynı sesi görüyor. Tayf eğrisi burada kalıyor;
+     vuruşu ve hi-hat'i o sesle aynı ızgarada (120 BPM, sekizlik hi-hat). */
+  const DEMO = require('../shared/demo-audio.js');
   const makeFrame = (t) => {
     const freq = new Uint8Array(1024);
     const beatPhase = (t * 2) % 1;               // 120 BPM
@@ -4791,32 +4800,18 @@ async function runShots() {
       const mid1 = 0.62 * Math.exp(-Math.pow((k - 110 - 46 * Math.sin(t * 0.7 + bar)) / 26, 2));
       const mid2 = 0.5 * Math.exp(-Math.pow((k - 260 - 110 * Math.sin(t * 0.9)) / 34, 2));
       const air = 0.42 * Math.exp(-Math.pow((k - 560 - 190 * Math.sin(t * 0.53 + 1)) / 60, 2));
-      const hat = 0.35 * (((t * 8) % 1) < 0.12 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
+      const hat = 0.35 * (((t * 4) % 1) < 0.32 ? 1 : 0) * Math.exp(-Math.pow((k - 780) / 160, 2));
       const ripple = 0.1 * (0.5 + 0.5 * Math.sin(k * 0.55 + t * 6));
       let v = decay * (0.26 + 0.34 * beat) + kick + bass + mid1 + mid2 + air + hat + ripple * decay;
       freq[k] = Math.max(0, Math.min(255, v * 148));
     }
+    /* Sol ve sağ kanal (#566) da ortak sesten: orta + yan ve orta - yan,
+       gonyometre bir çizgi değil bir alan çiziyor. */
     const time = new Uint8Array(2048);
-    /* Sol ve sağ kanal (#566): orta + yan ve orta - yan. Orta yukarıdaki
-       mono dalganın kendisi, yani mono okuyan her şey eskisi gibi; yan
-       kanallar arasında faz farkı olan iki ses, gonyometre bir çizgi değil
-       bir alan çizsin diye. */
     const left = new Uint8Array(2048);
     const right = new Uint8Array(2048);
-    for (let k = 0; k < 2048; k++) {
-      const u = k / 2048;
-      const s =
-        Math.sin(u * Math.PI * 2 * 4 + t * 5.2) * 0.40 * (0.4 + beat) +
-        Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1) * 0.22 +
-        Math.sin(u * Math.PI * 2 * 12 + t * 9) * 0.10;
-      const side =
-        Math.sin(u * Math.PI * 2 * 6.03 + t * 3.1 + 0.9) * 0.12 +
-        Math.sin(u * Math.PI * 2 * 12 + t * 9 + 2.1) * 0.06;
-      time[k] = Math.max(0, Math.min(255, 128 + s * 118));
-      left[k] = Math.max(0, Math.min(255, 128 + (s + side) * 118));
-      right[k] = Math.max(0, Math.min(255, 128 + (s - side) * 118));
-    }
-    return { freq, time, left, right, sampleRate: 48000 };
+    DEMO.fill(Math.floor(t * DEMO.SR), time, left, right);
+    return { freq, time, left, right, sampleRate: DEMO.SR };
   };
 
   // ==========================================================================
@@ -4944,14 +4939,27 @@ async function runShots() {
   /* Şablonu görselleştirici penceresinin İÇİNDE uygula: şablon motoru orada
      zaten yüklü ve aynı kodu iki yerde tutmak gerekmiyor. */
   const applyTemplate = async (id, over) => {
+    /* Logo kullanıcınınki gibi TABANDAN veriliyor: şablon onu kendi logo
+       katmanlarına taşıyor (templates.js apply). Sonradan `over` ile
+       yazılan logo o katmanlara ulaşmıyordu; yayın sahneleri, şablonlar
+       logo katmanı taşımaya başlayalı (b6ef117) logosuz çıkıyordu. */
+    const from = over && over.logo && over.logo.src
+      ? Object.assign({}, base, { logo: Object.assign({}, base.logo, { src: over.logo.src }) })
+      : base;
+    /* Sahne geçişi kapalı: bazı şablonlar 2,5 sn'lik geçiş kuruyor ve
+       bekleme ondan kısaysa görüntüye önceki sahnenin hayaleti giriyordu —
+       metin sahnesinde bir önceki yayın sahnesinin başlığı, GIF'lerin ilk
+       karelerinde önceki sahne. */
     const cfg = await vw.webContents.executeJavaScript(
       '(function(){' +
-        'var base=' + JSON.stringify(base) + ';' +
+        'var base=' + JSON.stringify(from) + ';' +
         'var t=(window.SVTemplates.TEMPLATES||[]).filter(function(x){return x.id===' + JSON.stringify(id) + ';})[0];' +
         'if(!t) return null;' +
         'var out=window.SVTemplates.apply(base,t,{defaultConfig:window.SV.defaultConfig,deepMerge:window.SV.deepMerge,clone:window.SV.clone});' +
         'var over=' + JSON.stringify(over || {}) + ';' +
-        'return window.SV.deepMerge(out, over);' +
+        'var cfg=window.SV.deepMerge(out, over);' +
+        'cfg.transition=Object.assign({},cfg.transition,{enabled:false});' +
+        'return cfg;' +
       '})()'
     );
     if (!cfg) { console.log('[SHOTS] şablon yok: ' + id); return false; }
@@ -5001,8 +5009,18 @@ async function runShots() {
     ['bc-amber', 'scene-broadcast-amber.png', 2600, NOW_PLAYING],
   ];
 
+  /* Özenle üretilmiş iki görüntü (73a7d43): README'nin MilkDrop görselleri
+     kendi presetlerimizden, ortak demo sesiyle ve ayrıca ayarlanarak
+     üretildi — fotoğraf Kutup Işığı'ndan, GIF Sonsuz Tünel'den, 11 fps ve
+     iki geçişli paletle. Buradaki şablon yolu onları başka ayarlarla
+     (GIF'te başka preset, kare hızı ve tek geçişli palet) ezerdi. Tam koşu
+     da `--only=scene-` gibi geniş bir süzgeç de atlıyor; yalnız açıkça
+     istenirse (`--only=milkdrop`) üretiliyor. */
+  const CURATED = new Set(['scene-milkdrop.png', 'demo-milkdrop.gif']);
+  const wantShot = (name) => want(name) && (!CURATED.has(name) || SHOTS_ONLY.includes('milkdrop'));
+
   for (const [id, name, settle, over] of SCENES) {
-    if (!want(name)) continue;
+    if (!wantShot(name)) continue;
     if (!(await applyTemplate(id, over))) continue;
     await wait(settle);
     await save(vw, name);
@@ -5031,7 +5049,7 @@ async function runShots() {
     ['amb-flow', 'demo-flowfield.gif', 30, 65, 760],
   ];
   for (const [id, name, frames, delay, width] of GIFS) {
-    if (!want(name)) continue;
+    if (!wantShot(name)) continue;
     if (!(await applyTemplate(id))) continue;
     await wait(1600);
     await saveGif(vw, name, frames, delay, width);
