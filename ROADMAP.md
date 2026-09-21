@@ -1108,7 +1108,12 @@ MilkDrop (#560):
   colours, the background keeps drawing, or they would read a frozen frame.
   The same measurement afterwards, alternating new and old: 253.6/260.7 fps
   against 246.2/246.6 over the gradient, 264.8/266.9 against 234.8/238.5 over
-  aurora. The item's other point, the MilkDrop section hiding itself, was
+  aurora. Export composes through the same path and is unchanged: MilkDrop
+  over aurora exported on the commit before and after matches frame for
+  frame, 60 of 60, each tree twice. One thing does change: a background that
+  builds state frame by frame stops while covered and resumes from there when
+  uncovered, rather than from where it would have been. The item's other
+  point, the MilkDrop section hiding itself, was
   already gone: it has had no visibility condition since b6ef117. 6 tests;
   9 of 9 mutations caught.
 - **The README's pictures hear the same sound as the preview** · done on
