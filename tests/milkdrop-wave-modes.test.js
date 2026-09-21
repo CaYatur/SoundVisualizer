@@ -340,6 +340,32 @@ test('kip numarası kesiliyor, eksi numarada hiç çizilmiyor', () => {
   assert.ok(drawWave({ L, R, acc: false, vals: { wave_mode: -1 } }) !== null, 'eski yolda eksi kip çiziliyor');
 });
 
+test('renk kırmızı, yeşil, mavi sırasında kalıyor — kaynaktaki yer değiştirme bir aktarım hatası', () => {
+  /* jecassis/foo_vis_milk2 5b44cea, milkdropfs.cpp:3100-3102:
+       v1[0].r = COLOR_NORM(cr);  v1[0].g = COLOR_NORM(cb);  v1[0].b = COLOR_NORM(cg);
+     Yeşile mavi, maviye yeşil gidiyor gibi okunuyor ve üç kez "tepe
+     noktası yapısı elimde yok" diye ertelendi. Yapı support.h:71-75'te:
+     düz `float r, g, b, a`, girdi düzeni R32G32B32A32 (d3d11shim.cpp:77-80) —
+     yani o çatal gerçekten yer değiştirmiş çiziyor.
+     MilkDrop 2 ise çizmiyor. O çatal D3D11'e aktarılmış; aktardığı D3D9
+     kodu rengi tek satırda kuruyor: `v1[0].Diffuse =
+     D3DCOLOR_RGBA_01(cr, cg, cb, alpha1);` (mvsoft74/BeatDrop 53d83ee,
+     milkdropfs.cpp:3225). Çatalın kendi dosyası da her kipte o dönemin
+     satırını yorum olarak taşıyor: `//color = D3DCOLOR_RGBA_01(cr, cg, cb,
+     alpha);` (2697, 2734, 2764 …). Diğer bütün renk yerleri (şekil, özel
+     dalga, kenarlık, hareket vektörleri) de sıralı. Yer değiştirme D3D11
+     aktarımında girmiş; motor sıralı kalıyor. */
+  const { L, R } = chans();
+  const vals = { wave_r: 0.2, wave_g: 0.5, wave_b: 0.8 };
+  for (let mode = 0; mode <= 7; mode++) {
+    const r = drawWave({ L, R, GW: 960, GH: 720, vals: Object.assign({ wave_mode: mode }, vals) });
+    assert.ok(r && r.vn > 0, 'kip ' + mode + ' çizmedi');
+    close(r.vd[2], MD.colorNorm(0.2), 'kip ' + mode + ' kırmızı');
+    close(r.vd[3], MD.colorNorm(0.5), 'kip ' + mode + ' yeşil wave_g\'den');
+    close(r.vd[4], MD.colorNorm(0.8), 'kip ' + mode + ' mavi wave_b\'den');
+  }
+});
+
 // ------------------------------------------------------------------ kayıt
 
 test('kanal okumaları kaynakta da kipe göre ayrışıyor', () => {

@@ -4638,7 +4638,11 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       }
 
       if (n < 2) return;
-      // Renk/alfa yukarıda değişmiş olabilir; tepe verisine yeniden yaz
+      /* Renk/alfa yukarıda değişmiş olabilir; tepe verisine yeniden yaz.
+         Sıra kırmızı, yeşil, mavi. Birincil kaynağın D3D11 çatalı burada
+         yeşile `cb`, maviye `cg` yazıyor (milkdropfs.cpp:3101-3102), ama
+         aktardığı D3D9 kodu `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` diyor;
+         yer değiştirme aktarımda girmiş, MilkDrop 2'de yok. */
       for (let i = 0; i < n; i++) {
         const k = i * 6;
         d[k + 2] = cr; d[k + 3] = cg; d[k + 4] = cb; d[k + 5] = alpha;
