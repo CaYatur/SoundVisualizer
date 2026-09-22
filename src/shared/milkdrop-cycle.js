@@ -122,6 +122,8 @@
       /* Puana göre seçim MilkDrop'ta varsayılan AÇIK (`m_bEnableRating`,
          plugin.cpp:509). */
       useRatings: m.useRatings !== false,
+      // Parça değişince sıradaki preset (#582)
+      onTrack: m.trackAdvance === true,
     };
   }
 
@@ -397,6 +399,32 @@
       }
       this.reason = waiting;
       return null;
+    }
+
+    /* PARÇA DEĞİŞİNCE (#582). Çalan parça değiştiğinde sıradaki preset,
+       zamanlayıcının kuralıyla: aynı sıra, rastgelede aynı puan ağırlığı,
+       önceden yapılmış bir seçim (#573) varsa o — sıra ve dağılım
+       zamanlayıcıyla aynı kalsın. Otomatik geçişin yanında AYRI bir ayar:
+       zamanlayıcı kapalıyken de çalışıyor. Kilit bunu da durduruyor; kilit
+       "preset değişmesin" demek. Geçince presetin planlanan ömrü baştan
+       başlıyor, zamanlayıcı kendisi geçmiş gibi. Geçiş ayardaki süreyle
+       karışıyor, kesmiyor. */
+    onTrack(md, list, currentId, ratings) {
+      const o = normalize(md);
+      o.ratings = ratings && typeof ratings === 'object' ? ratings : null;
+      if (!o.onTrack) return null;
+      const n = Array.isArray(list) ? list.length : 0;
+      if (n < 2) { this.reason = n ? 'ALONE' : 'EMPTY'; return null; }
+      if (o.locked) { this.reason = 'LOCKED'; return null; }
+      const p = this._take(list, currentId, o);
+      if (!p) return null;
+      this.elapsed = 0;
+      this.jitter = null;
+      this.barCount = 0;
+      this.cut = false;
+      this.blend = null;
+      this.reason = 'TRACK';
+      return p;
     }
 
     // Sıradaki geçişe kalan saniye (panelin durum satırı için)

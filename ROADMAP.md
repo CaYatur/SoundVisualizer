@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1978 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1985 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 381
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 388
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1504,6 +1504,29 @@ rest after. No version number yet.
   lock stayed missing until some other setting redrew the panel. Reproduced
   in an isolated copy by opening the Scene tab straight after start-up. A
   test drives the race on a fresh module and fails without the fix.
+- **A new track can bring the next preset (#582)** · done. Now Playing
+  already knew when the track changed. Next to auto advance, *On Track
+  Change* now moves to the next preset when a new track starts.
+  - **Rules.** The pick goes through the cycle's own rule: the chosen order,
+    the rating weight in random order, and a pick the timer had already made
+    (#573). It is independent of the timer, so it works with the timer off.
+    The lock stops it too. The preset's scheduled life restarts, as if the
+    timer had fired, and the change blends with the configured time.
+  - **What counts as a new track.** A track is its title, artist and album.
+    The track already playing when the app opens does not count, and neither
+    does the gap between two tracks: the same track after a gap is no change.
+  - **Only the leading screen picks**, and the others follow it as for any
+    other pick (#585). Every engine updates the track it has seen even while
+    following, so an engine that becomes leader later does not fire a change
+    that happened before.
+  - **Measured** in an isolated copy with one window leading and the panel
+    preview following. The first track left the preset alone. The next two
+    each moved to the next preset in order, and the window and the preview
+    showed the same one every time. With the lock on, a fourth track changed
+    nothing.
+  - **Tests.** 7 tests run the engine's own `_autoCycle` in a fake
+    environment, as leader and as follower. 7 of 7 mutations are caught,
+    among them asking about the track only on the leader's path.
 
 ## v3.1.6 — Comprehensive video export
 

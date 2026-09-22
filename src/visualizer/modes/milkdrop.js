@@ -1751,6 +1751,9 @@ void main(){
          preset getiriyor. Otomatik geçiş kapalıyken — varsayılan bu — her
          kare boşuna yüzlerce öğelik bir dizi kurulurdu. */
       const listOf = () => PR.byKind('milkdrop');
+      /* Parça değişti mi (#582) — izlerken de soruluyor: izleyen bir motor
+         sonradan lider olunca çoktan geçmiş bir değişimi tetiklemesin. */
+      const trackNew = this._trackChanged();
       /* LİDERİ İZLEMEK. Her ekran ayrı sayaç koştursaydı rastgele sırada
          farklı presetler gösterirdi ve panel hangisinin canlı olduğunu
          söyleyemezdi. Seçimi TEK bir motor yapıyor: ilk görselleştirici
@@ -1811,7 +1814,12 @@ void main(){
       const ctl = cfg.milkdropControl || {};
       const lib = cfg.milkdropLibrary || {};
       const md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
-      const p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
+      let p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
+      /* PARÇA DEĞİŞİNCE (#582) sıradaki preset. Yalnız LİDER seçiyor —
+         izleyenler yukarıda liderin seçimine geçti; her ekran kendi başına
+         geçseydi #585'in "her ekranda aynı preset"i bozulurdu. Liste
+         zamanlayıcı kapalıyken kurulmamış olabilir; yalnız o an kuruluyor. */
+      if (!p && trackNew && o.onTrack) p = this.cycle.onTrack(md, list.length ? list : listOf(), cur, lib.ratings);
       /* SIRADAKİNİ ÖNCEDEN DERLE (#573). Değişime bir saniye kala döngü
          sıradaki seçimi yapıyor ve motor onun shader'larını arka planda
          derliyor; vakti gelince derleme bitmiş oluyor ve değişim — ölçü
@@ -1832,6 +1840,20 @@ void main(){
           seed: (Math.random() * 4294967296) >>> 0,
         };
       }
+    }
+
+    /* ÇALAN PARÇA (#582): yeni bir parça başladı mı. Kimlik başlık, sanatçı
+       ve albüm. İlk görülen parça değişim sayılmıyor (uygulama açılırken
+       zaten çalan parça); boş durum da — iki parça arasındaki boşluk yeni
+       parça değil, ve aynı parça boşluktan sonra sürerse değişim yok.
+       Dışa aktarıcıda Şimdi Çalıyor yok: hiç tetiklenmiyor. */
+    _trackChanged() {
+      const st = typeof window !== 'undefined' && window.SVNowLive && window.SVNowLive.state;
+      const key = st && st.has && st.title ? [st.title, st.artist || '', st.album || ''].join('\n') : '';
+      if (!key) return false;
+      const prev = this._trackKey;
+      this._trackKey = key;
+      return prev !== undefined && prev !== key;
     }
 
     /* O an çizilen preset. `id: null` = otomatik geçiş bir şey seçmemiş,

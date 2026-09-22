@@ -946,6 +946,13 @@
           min: 0, max: 30, step: 1, fmt: (v) => (v > 0 ? '+0–' + Math.round(v) + ' ' + tt('sn') : tt('yok')),
         }));
       }
+      /* PARÇA DEĞİŞİNCE (#582). Şimdi Çalıyor yeni bir parça gördüğünde
+         sıradaki preset, aşağıdaki Geçiş Sırası'na göre. Zamanlayıcıdan
+         bağımsız; kilit bunu da durduruyor. */
+      nodes.push(P().row('Parça Değişince', selOf([
+        [0, 'Bir şey yapma'],
+        [1, 'Sıradaki presete geç'],
+      ], md.trackAdvance === true ? 1 : 0, (v) => { md.trackAdvance = Number(v) === 1; })));
       nodes.push(P().row('Geçiş Sırası', selOf([
         ['sequential', 'Sırayla'],
         ['random', 'Rastgele'],

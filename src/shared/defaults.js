@@ -641,6 +641,10 @@
          değil, sahneyle birlikte kaydedilen bu bloğa ait. */
       autoNextUnit: 'seconds',
       autoNextBars: 8,
+      /* PARÇA DEĞİŞİNCE (#582): Şimdi Çalıyor yeni bir parça gördüğünde
+         sıradaki preset (autoOrder'a göre). Zamanlayıcıdan bağımsız; kilit
+         bunu da durduruyor. */
+      trackAdvance: false,
       hardCut: 'off',
       hardCutThreshold: 2.5,
       hardCutHalfLife: 60,

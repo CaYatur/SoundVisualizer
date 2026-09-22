@@ -142,6 +142,7 @@ test('bozuk ayar değerleri güvenli', () => {
   assert.deepStrictEqual(C.normalize({}), {
     unit: 'seconds', seconds: 0, bars: 0, order: 'sequential', spread: 0, blend: 0, locked: false,
     hardCut: 'off', threshold: 2.5, halfLife: 60, useRatings: true,
+    onTrack: false, // parça değişince geçiş (#582) varsayılan kapalı
   });
   assert.strictEqual(C.normalize(null).seconds, 0);
   assert.strictEqual(C.normalize({ autoNext: -5 }).seconds, 0);

@@ -1623,6 +1623,9 @@
     '🖼 MilkDrop · Sprite: En Yeniyi Sil': '🖼 MilkDrop · Sprite: Remove Newest',
     '🖼 MilkDrop · Sprite: En Eskiyi Sil': '🖼 MilkDrop · Sprite: Remove Oldest',
     '🖼 MilkDrop · Sprite: Hepsini Sil': '🖼 MilkDrop · Sprite: Remove All',
+    // ---- Parça değişince (#582) — "Parça Değişince" yukarıda zaten var ----
+    'Bir şey yapma': 'Do nothing',
+    'Sıradaki presete geç': 'Go to the next preset',
     'Sil': 'Delete',
 
 
