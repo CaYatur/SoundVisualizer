@@ -197,7 +197,7 @@ function finish(plan) {
   if (plan.bytes > MAX_TOTAL_BYTES) plan.tooBig = true;
 }
 
-/* Özet: sayfaya giden; yollar ve dosya listeleri ana süreçte kalıyor.
+/* Özet: sayfaya giden; dosya listeleri ana süreçte kalıyor.
    `textures` kesin alınacaklar, `loose` presetlerin yanındaki görseller
    (yalnız istenenleri). `searchCut`: makinede aramanın süresi yetmedi,
    sayılar eksik — içe aktarmadan önce `rescan`. */

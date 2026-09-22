@@ -2193,7 +2193,8 @@ ipcMain.handle('milkdrop:texture', (e, name) => {
 // İKİ AŞAMA: tarama bir plan üretiyor ve sayfaya yalnız özeti gidiyor (kaç
 // preset, kaç doku, kaç MB, neler atlanacak); plan burada, kimliğiyle
 // bekliyor. Kullanıcı onaylarsa aynı kimlikle çalıştırılıyor. Sormadan
-// hiçbir şey kopyalanmıyor. Yollar ve dosya listeleri sayfaya gitmiyor.
+// hiçbir şey kopyalanmıyor. Dosya listeleri sayfaya gitmiyor; kaynağın
+// kendi yolu (`where`) yalnız listede ipucu olarak gidiyor.
 // ----------------------------------------------------------------------------
 const mdImport = require('./milkdrop-import');
 const libraryPlans = new Map(); // kimlik → plan (son 32)

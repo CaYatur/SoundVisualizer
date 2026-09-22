@@ -111,7 +111,7 @@ contextBridge.exposeInMainWorld('api', {
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
   onPresetsProgress: (cb) => ipcRenderer.on('presets-progress', (e, p) => cb(p)),
   /* MilkDrop kütüphanesi (#574): tarama bir özet ve kimlik döndürüyor,
-     içe aktarım aynı kimlikle; yollar ve dosya listeleri ana süreçte. */
+     içe aktarım aynı kimlikle; dosya listeleri ana süreçte kalıyor. */
   pickMilkdropLibrary: (kind) => ipcRenderer.invoke('milkdrop:library-pick', kind),
   discoverMilkdropLibraries: () => ipcRenderer.invoke('milkdrop:library-discover'),
   rescanMilkdropLibrary: (token) => ipcRenderer.invoke('milkdrop:library-rescan', token),

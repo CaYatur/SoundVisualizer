@@ -1718,10 +1718,13 @@ rest after. No version number yet.
     in the user's own Downloads in 5–7 s; importing the test pack added 79
     presets tagged Dancer (74) and Fractal (5) and copied `worms.jpg` into
     the app's folder, and the visualizer window loaded it with no texture
-    folder chosen. An 80,000-preset folder the search could count only to
-    10,013 was listed as "10,013+"; *Import* scanned it again (10.8 s), the
-    confirmation showed 80,000 presets and 80 folder tags, and cancelling
-    imported nothing. The English UI was checked the same way.
+    folder chosen. A web overlay opened in a real browser before the import
+    asked for its texture list again after it and loaded `worms.jpg` from
+    the server when a preset needing it was chosen. An 80,000-preset folder
+    the search could count only to 10,013 was listed as "10,013+"; *Import*
+    scanned it again (10.8 s), the confirmation showed 80,000 presets and 80
+    folder tags, and cancelling imported nothing. The English UI was checked
+    the same way.
   - **Not done:** `.milk2` (#567); RAR and 7z packs; a ZIP inside a ZIP or
     inside a chosen folder is not opened; the search does not look at other
     drives or anywhere outside the places above — *Import from Folder*
