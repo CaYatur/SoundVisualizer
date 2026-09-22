@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-1978%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1985%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -313,6 +313,11 @@ that asserts the bar profile has no step in it.
   default mesh the changes that drop a frame fell from 61.9% to 4.9% with a hard cut and from 61.7%
   to 8.1% with a transition. Video export still waits for each compile, so the frame a preset
   appears on never depends on the machine.
+- **A new track can bring the next preset.** Next to auto advance, *On Track Change* moves to the
+  next preset — in the chosen order, random included — when Now Playing sees a new track. It works
+  with the timer off, the lock stops it too, and only the leading screen picks, so every screen
+  changes together. The track already playing when the app opens does not count, nor does the gap
+  between two tracks.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1212,7 +1217,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1978 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1985 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-1978%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1985%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -306,6 +306,11 @@ profilinde basamak olmadığını doğruluyor.
   da aynı preseti hazırlıyor. Varsayılan ağda kare düşüren değişimler sert kesmede %61,9'dan
   %4,9'a, geçişte %61,7'den %8,1'e indi. Video dışa aktarımı derlemeyi yine bekliyor; bir presetin
   hangi karede göründüğü makineye bağlı değil.
+- **Yeni parça sıradaki preseti getirebilir.** Otomatik geçişin yanında *Parça Değişince* ayarı,
+  Şimdi Çalıyor yeni bir parça gördüğünde sıradaki presete geçiyor — seçilen sırayla, rastgele de
+  dahil. Zamanlayıcı kapalıyken de çalışıyor, kilit bunu da durduruyor ve seçimi yalnız lider ekran
+  yapıyor, yani bütün ekranlar birlikte değişiyor. Uygulama açılırken zaten çalan parça sayılmıyor,
+  iki parça arasındaki boşluk da.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1209,7 +1214,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1978 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1985 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
