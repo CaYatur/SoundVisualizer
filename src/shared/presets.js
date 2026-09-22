@@ -460,7 +460,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
   // --------------------------------------------------------------------------
   // Paket (birden çok preset tek dosyada)
   // --------------------------------------------------------------------------
-  function makePack(list, meta) {
+  /* `libraryOf(p)` (#576): presetin kullanıcıya ait kaydı — favori, etiket,
+     puan — ya da null. Kayıt presetin `library` alanında gidiyor: kimlik
+     karşı tarafta aynı olmayacağı için ayrı bir kimlik eşlemi işe yaramaz. */
+  function makePack(list, meta, libraryOf) {
     return {
       format: PACK_FORMAT,
       version: VERSION,
@@ -471,19 +474,34 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
       presets: (list || []).map((p) => {
         const c = normalize(p);
         delete c.builtin;
+        delete c.library;
+        const e = typeof libraryOf === 'function' ? libraryOf(p) : null;
+        if (e && typeof e === 'object') c.library = e;
         return c;
       }),
     };
   }
 
-  // Dosyadan gelen veriyi preset listesine çevirir (tek preset veya paket)
+  /* Dosyadan gelen veriyi preset listesine çevirir (tek preset veya paket).
+     Her preset yeni kimlik alıyor; `library` kaydı presetten AYRILIYOR —
+     preset dosyasına yazılmasın, ayarlara gitsin — ve `library` eşleminde
+     yeni kimliğe bağlı dönüyor. Doğrulaması kitaplığın işi
+     (shared/milkdrop-library.js `mergeEntries`). */
   function readImported(data) {
     if (!data || typeof data !== 'object') return { ok: false, error: 'Dosya okunamadı.' };
+    const library = {};
+    const take = (p) => {
+      const c = Object.assign({}, p, { id: newId(), builtin: false });
+      const e = c.library;
+      delete c.library;
+      if (e && typeof e === 'object' && !Array.isArray(e)) library[c.id] = e;
+      return normalize(c);
+    };
     if (data.format === PACK_FORMAT && Array.isArray(data.presets)) {
-      return { ok: true, presets: data.presets.map((p) => normalize(Object.assign({}, p, { id: newId(), builtin: false }))) };
+      return { ok: true, presets: data.presets.filter((p) => p && typeof p === 'object').map(take), library };
     }
     if (data.format === FORMAT) {
-      return { ok: true, presets: [normalize(Object.assign({}, data, { id: newId(), builtin: false }))] };
+      return { ok: true, presets: [take(data)], library };
     }
     return { ok: false, error: 'Tanınmayan dosya biçimi (svpreset veya svpack bekleniyordu).' };
   }

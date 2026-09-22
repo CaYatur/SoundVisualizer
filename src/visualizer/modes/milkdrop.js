@@ -1804,19 +1804,26 @@ void main(){
       const o = C.normalize(md);
       const beat = this._beat(audio, cfg, step);
       this._barsOf = o.bars;
-      const list = o.seconds > 0 || o.bars > 0 || o.hardCut !== 'off' ? listOf() : [];
+      /* HAVUZ (#576): otomatik geçiş yalnız favorilerden ya da bir etiketten
+         seçebiliyor. Süzgeç listenin kurulduğu yerde, yani zamanlayıcı, sert
+         geçiş, parça değişimi ve önceden derleme aynı havuzu görüyor. Havuz
+         boşsa ya da tek presetse döngü bunu kendi nedeniyle söylüyor (EMPTY,
+         ALONE). Puanlar ve favoriler sahnenin değil gösterinin (bkz.
+         `_cycleMd`). */
+      const lib = cfg.milkdropLibrary || {};
+      const LB = typeof window !== 'undefined' && window.SVMilkdropLibrary;
+      const poolList = () => (LB ? LB.pool(listOf(), md, lib) : listOf());
+      const list = o.seconds > 0 || o.bars > 0 || o.hardCut !== 'off' ? poolList() : [];
       const cur = this.autoPick ? this.autoPick.id : ((cfg.milkdrop && cfg.milkdrop.presetId) || '');
       /* Sert geçiş bir ÖNCEKİ karenin bantlarına bakıyor: bu karenin analizi
          preset yüklendikten sonra yapılıyor. MilkDrop'ta da kesim, analizden
          sonraki yüklemede — yani bir kare sonra — ekrana geliyor. */
-      // Puanlar da sahnenin değil gösterinin (bkz. `_cycleMd`)
-      const lib = cfg.milkdropLibrary || {};
       let p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
       /* PARÇA DEĞİŞİNCE (#582) sıradaki preset. Yalnız LİDER seçiyor —
          izleyenler yukarıda liderin seçimine geçti; her ekran kendi başına
          geçseydi #585'in "her ekranda aynı preset"i bozulurdu. Liste
          zamanlayıcı kapalıyken kurulmamış olabilir; yalnız o an kuruluyor. */
-      if (!p && trackNew && o.onTrack) p = this.cycle.onTrack(md, list.length ? list : listOf(), cur, lib.ratings);
+      if (!p && trackNew && o.onTrack) p = this.cycle.onTrack(md, list.length ? list : poolList(), cur, lib.ratings);
       /* SIRADAKİNİ ÖNCEDEN DERLE (#573). Değişime bir saniye kala döngü
          sıradaki seçimi yapıyor ve motor onun shader'larını arka planda
          derliyor; vakti gelince derleme bitmiş oluyor ve değişim — ölçü

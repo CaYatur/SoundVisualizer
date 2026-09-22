@@ -645,6 +645,14 @@
          sıradaki preset (autoOrder'a göre). Zamanlayıcıdan bağımsız; kilit
          bunu da durduruyor. */
       trackAdvance: false,
+      /* HAVUZ (#576): otomatik geçiş (zamanlayıcı, sert geçiş, parça
+         değişimi) yalnız bunlardan seçiyor. 'all' | 'favorites' | 'tag'
+         (+ autoTag). Elle ◀/▶/🎲 ve listeden seçim bütün presetlere gidiyor.
+         Sahneyle kaydediliyor: bir sahne "sakin" etiketinden, öbürü
+         favorilerden geçebilir. Favori ve etiketlerin kendisi aşağıda,
+         `milkdropLibrary`de. */
+      autoFrom: 'all',
+      autoTag: '',
       hardCut: 'off',
       hardCutThreshold: 2.5,
       hardCutHalfLife: 60,
@@ -726,6 +734,11 @@
          kimlik → 0..5. Verilmemiş puan presetin kendi dosyasındaki
          fRating'den geliyor (yoksa 3). Preset kaydına yazılmıyor: her kayıt
          bütün listeyi kaynaklarıyla bütün pencerelere yeniden yayınlıyor.
+       milkdropLibrary.favorites (#576) — kimlik → true.
+       milkdropLibrary.tags (#576) — kimlik → etiket dizisi (en çok 16, her
+         biri en çok 32 karakter; shared/milkdrop-library.js). Puanlarla
+         birlikte paketle dışa aktarılıyor, içe aktarımda yeni kimliğe
+         katlanıyor.
        milkdropControl.locked (#568) — kilit: otomatik geçiş ve sert geçiş
          durur, elle seçim çalışır.
        milkdropControl.cutTo (#570) — "şimdi kes": elle seçilen preset bu
@@ -740,6 +753,8 @@
          sınırlayıcı açık kalıyor, sert geçiş yok, geçişler uzun. */
     milkdropLibrary: {
       ratings: {},
+      favorites: {},
+      tags: {},
     },
     milkdropControl: {
       locked: false,

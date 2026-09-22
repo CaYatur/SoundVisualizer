@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2003%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2029%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -321,6 +321,17 @@ profilinde basamak olmadığını doğruluyor.
   dahil. Zamanlayıcı kapalıyken de çalışıyor, kilit bunu da durduruyor ve seçimi yalnız lider ekran
   yapıyor, yani bütün ekranlar birlikte değişiyor. Uygulama açılırken zaten çalan parça sayılmıyor,
   iki parça arasındaki boşluk da.
+- **Favoriler, etiketler ve yazara göre arama.** MilkDrop panelinin listesinde presetleri yıldızla
+  işaretleyin, ekrandakini *Favori* ile (bir MIDI ya da OSC eşlemesinden de) ve onlara kendi
+  etiketlerinizi verin. Arama adda, yazarda ve etiketlerde. MilkDrop adları çoğunlukla "Yazar -
+  Başlık"; `yazar:geiss` (ya da `author:`) Geiss'in presetlerini buluyor, adını anan bir başlığı
+  değil, `#sakin` bir etiketi buluyor. *Süz* listeyi favorilere ya da bir etikete, *Yazar* bir
+  yazara daraltıyor. *Havuz* otomatik geçişi — zamanlayıcı, sert geçiş ve parça değişimi —
+  favorilerle ya da bir etiketle sınırlıyor; ◀, ▶, Rastgele ve liste yine bütün presetlere gidiyor.
+  Favori ve etiketler puanlarınızın yanında, ayarlarda duruyor, preset dosyalarında değil; paket
+  üçünü de taşıyor: *Görünenleri Paketle* listede görünen presetleri onlarla birlikte yazıyor, paketi
+  içe aktarmak onları yeni kopyalara bağlıyor. Yalıtılmış bir kopyada denetlendi: havuz üç favoriye
+  ayarlıyken görselleştirici penceresi o üçünde döndü, başka hiçbir presete geçmedi.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1224,7 +1235,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2003 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2029 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

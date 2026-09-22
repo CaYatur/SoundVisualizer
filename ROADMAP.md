@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2003 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2029 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 406
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 432
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1565,6 +1565,54 @@ rest after. No version number yet.
     and `_ensurePreset` in a fake window with a fake `matchMedia`, draw the
     panel with a fake DOM, and follow *Always* from the export job to the
     layer the engine draws. 29 of 29 mutations are caught.
+- **Favourites, tags and search by author (#576)** · done. Search matched
+  the name only.
+  - **Where they live.** Favourites and free-form tags are the user's, not
+    the preset's: in the settings next to the ratings (#569), keyed by
+    preset id (`milkdropLibrary.favorites`, `milkdropLibrary.tags`), outside
+    every scene. The preset files are untouched.
+  - **In a pack.** Ids differ on the other side — an import gives every
+    preset a new one — so a pack carries each preset's own `library` record
+    (favourite, tags, rating), and the import folds it onto the new id. The
+    record never reaches the preset file, and only presets that were really
+    saved get one. Both the MilkDrop panel (*Pack What Is Shown*, *Import
+    Pack*) and the Studio's pack export do this. Built-in presets stay out of
+    packs: every install has them.
+  - **Author.** MilkDrop files have no author field; names are mostly
+    "Author - Title" ("Flexi, martin + geiss - …"). The author comes from
+    the name at search time, so nothing on disk needs migrating. `+`, `&`
+    and commas separate authors; the first " - " ends them; a part without a
+    letter is no author.
+  - **Search.** Words match the name (also the translated name of a
+    built-in), the authors and the tags, and all must match. `#tag` or
+    `tag:`/`etiket:` search tags only, `author:`/`yazar:` authors only.
+    Comparison ignores case and the Turkish I/ı, İ/i difference. *Show*
+    narrows to favourites or one tag, *Author* to one author; these are
+    view settings and send no config.
+  - **Pool.** Auto advance — the timer, hard cuts, track changes and the
+    look-ahead compile (#573) — can pick from favourites or one tag only
+    (`milkdrop.autoFrom`/`autoTag`, saved with the scene). The filter sits
+    where the cycle's list is built; an empty or one-preset pool says so
+    through the cycle's own reasons (EMPTY, ALONE) and in the panel. A
+    follower does not filter: the leader's pick already came from the pool.
+    ◀, ▶, Random and the list reach every preset.
+  - **Also:** *Favourite* for the preset on screen, as a button and a MIDI/
+    OSC action; deleting a preset clears its rating, favourite and tags; a
+    search or filter hidden because six or fewer presets remain no longer
+    keeps narrowing the list.
+  - **Measured** in an isolated copy with eight presets of our own. Stars in
+    the list and the on-screen *Favourite* wrote the settings;
+    `author:martin` found the three Martin presets and not a title naming
+    him; with the pool on three favourites the visualizer window went round
+    those three for nine seconds and nothing else. A pack of the eight
+    carried two records; imported through the real save path, the favourites
+    and tags landed on the new ids and in `settings.json`, and no preset
+    file held a `library` field. The file dialog itself was not driven: the
+    bridge object cannot be stubbed from the page.
+  - **Tests.** 26 tests cover authors, folding, tags, search, the pool, the
+    pack round trip, the engine's own `_autoCycle` with a pool (timer, hard
+    cut, track change, follower) and the panel drawn with a fake DOM.
+    42 of 42 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
