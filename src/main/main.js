@@ -2154,12 +2154,23 @@ ipcMain.handle('milkdrop:pick-textures', async () => {
 /* Doku adları ve tek bir dokunun DOĞRULANMIŞ dosyası. IPC de yayın sunucusu
    da bunları kullanıyor (#586): web çıkışının dosya erişimi yok, görseller
    ona sunucudan gidiyor ve aynı denetimden geçmeleri gerekiyor. */
+/* İçe aktarılan paketlerin dokuları (#574) uygulamanın kendi klasörüne
+   kopyalanıyor; kullanıcının seçtiği klasörden SONRA aranıyor, yani aynı ad
+   iki yerdeyse kullanıcınınki geçerli. */
+function managedTextureDir() {
+  return path.join(app.getPath('userData'), 'milkdrop-textures');
+}
+
+function textureDirs() {
+  return [textureDir(), managedTextureDir()];
+}
+
 function textureNames() {
-  return mdTex.listTextures(textureDir());
+  return mdTex.listTexturesIn(textureDirs());
 }
 
 function textureFile(name) {
-  return mdTex.textureFileInfo(textureDir(), name, TEX_MAX_BYTES);
+  return mdTex.textureFileInfoIn(textureDirs(), name, TEX_MAX_BYTES);
 }
 
 /* Klasördeki görsel dosyalarının adları. Preset `sampler_worms` derken
@@ -2174,6 +2185,108 @@ ipcMain.handle('milkdrop:texture', (e, name) => {
   } catch {
     return null;
   }
+});
+
+// ----------------------------------------------------------------------------
+// MilkDrop kütüphanesi içe aktarımı (#574): ZIP, klasör, makinede bulunanlar
+//
+// İKİ AŞAMA: tarama bir plan üretiyor ve sayfaya yalnız özeti gidiyor (kaç
+// preset, kaç doku, kaç MB, neler atlanacak); plan burada, kimliğiyle
+// bekliyor. Kullanıcı onaylarsa aynı kimlikle çalıştırılıyor. Sormadan
+// hiçbir şey kopyalanmıyor. Dosya listeleri sayfaya gitmiyor; kaynağın
+// kendi yolu (`where`) yalnız listede ipucu olarak gidiyor.
+// ----------------------------------------------------------------------------
+const mdImport = require('./milkdrop-import');
+const libraryPlans = new Map(); // kimlik → plan (son 32)
+
+function keepPlan(plan) {
+  const token = 'lib_' + require('crypto').randomBytes(8).toString('hex');
+  libraryPlans.set(token, plan);
+  while (libraryPlans.size > 32) libraryPlans.delete(libraryPlans.keys().next().value);
+  return Object.assign({ token, where: plan.source }, mdImport.summary(plan));
+}
+
+ipcMain.handle('milkdrop:library-pick', async (e, kind) => {
+  const isZip = kind === 'zip';
+  const r = await dialog.showOpenDialog(adminWin, isZip ? {
+    title: trUi('MilkDrop Paketi Seç (ZIP)', 'Choose MilkDrop Pack (ZIP)'),
+    properties: ['openFile'],
+    filters: [{ name: 'ZIP', extensions: ['zip'] }, { name: trUi('Tümü', 'All Files'), extensions: ['*'] }],
+  } : {
+    title: trUi('MilkDrop Preset Klasörü Seç', 'Choose MilkDrop Preset Folder'),
+    properties: ['openDirectory'],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  try {
+    const plan = isZip ? mdImport.scanZip(r.filePaths[0]) : await mdImport.scanFolder(r.filePaths[0]);
+    return Object.assign({ ok: true }, keepPlan(plan));
+  } catch (err) {
+    return { ok: false, error: (err && err.code) || 'READ_FAILED' };
+  }
+});
+
+/* Makinede arama: bilinen kurulum klasörleri ve kullanıcı klasörleri
+   (İndirilenler, Masaüstü, Müzik, Belgeler). Yalnız düğmeyle, sonuçlar
+   yalnız bu makinede. Kullanıcı klasörlerinin yeri sistemden: OneDrive
+   taşımış olabilir, Linux'ta adları yerel dilde. */
+function knownFolder(name) {
+  try { return app.getPath(name); } catch { return ''; }
+}
+
+ipcMain.handle('milkdrop:library-discover', async () => {
+  const env = {
+    platform: process.platform,
+    home: app.getPath('home'),
+    appData: process.env.APPDATA || app.getPath('appData'),
+    programFiles: process.env.ProgramFiles || '',
+    programFilesX86: process.env['ProgramFiles(x86)'] || '',
+    downloads: knownFolder('downloads'),
+    desktop: knownFolder('desktop'),
+    music: knownFolder('music'),
+    documents: knownFolder('documents'),
+  };
+  /* Ölçüm kancası: SV_LIBRARY_ROOTS (yol ayırıcısıyla birden çok) aramaya
+     ek kök veriyor, ilk onlara bakılıyor; yalıtılmış uçtan uca denemeler
+     kullanıcının kendi klasörlerine dosya koymadan sınansın diye. */
+  const roots = (process.env.SV_LIBRARY_ROOTS || '').split(path.delimiter).filter(Boolean);
+  const r = await mdImport.discover(env, { budgetMs: 8000, roots });
+  return { ok: true, complete: r.complete, libraries: r.libraries.map(keepPlan) };
+});
+
+/* Aramada süresi yetmeyip eksik sayılan kütüphane: onaydan önce baştan
+   sona taranıyor; onay gerçek sayıları gösteriyor, eksik içe aktarım
+   olmuyor. Yeni plan eskisinin yerini alıyor. */
+ipcMain.handle('milkdrop:library-rescan', async (e, token) => {
+  const key = String(token || '');
+  const old = libraryPlans.get(key);
+  if (!old) return { ok: false, error: 'NO_PLAN' };
+  try {
+    const plan = await mdImport.rescan(old);
+    libraryPlans.delete(key);
+    return Object.assign({ ok: true }, keepPlan(plan));
+  } catch (err) {
+    return { ok: false, error: (err && err.code) || 'READ_FAILED' };
+  }
+});
+
+ipcMain.handle('milkdrop:library-import', async (e, token) => {
+  const plan = libraryPlans.get(String(token || ''));
+  if (!plan) return { ok: false, error: 'NO_PLAN' };
+  if (plan.tooBig) return { ok: false, error: 'TOO_BIG' };
+  const sender = e.sender;
+  const r = await mdImport.runImport(plan, {
+    existing: () => presetsStore.list(),
+    saveManyAsync: presetsStore.saveManyAsync,
+    textureDir: managedTextureDir(),
+    onProgress: (phase, done, total) => {
+      if (sender && !sender.isDestroyed()) sender.send('milkdrop:library-progress', { phase, done, total });
+    },
+  });
+  libraryPlans.delete(String(token));
+  // Yeni presetler bir kez ve yalnız onlar yayınlanıyor; sayfaya kimlik ve etiket dönüyor
+  if (r.presets && r.presets.length) broadcastPresetDelta(r.presets, []);
+  delete r.presets;
+  return r;
 });
 
 // ----------------------------------------------------------------------------

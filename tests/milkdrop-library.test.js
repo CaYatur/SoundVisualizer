@@ -337,7 +337,7 @@ test('varsayılanlar: havuz "hepsi"; favori ve etiketler kitaplıkta, sahnenin d
   const d = SV.defaultConfig();
   assert.strictEqual(d.milkdrop.autoFrom, 'all');
   assert.strictEqual(d.milkdrop.autoTag, '');
-  assert.deepStrictEqual(d.milkdropLibrary, { ratings: {}, favorites: {}, tags: {} });
+  assert.deepStrictEqual(d.milkdropLibrary, { ratings: {}, favorites: {}, tags: {}, textureRev: 0 });
   for (const f of ['src/main/main.js', 'src/admin/control.js', 'src/admin/admin.js']) {
     const m = /const SCENE_KEYS = \[([\s\S]*?)\];/.exec(read(f));
     assert.ok(m && !m[1].includes('milkdropLibrary'), f);

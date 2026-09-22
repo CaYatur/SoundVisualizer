@@ -73,8 +73,10 @@ test('doku dosyası: doğrulanmış yol, tür ve boyut; sınırın üstü ve dı
 
 test('ana süreç: IPC ile yayın sunucusu AYNI iki yardımcıyı kullanıyor', () => {
   const main = strip(read('src/main/main.js'));
-  assert.match(main, /function textureNames\(\) \{\s*return mdTex\.listTextures\(textureDir\(\)\);\s*\}/);
-  assert.match(main, /function textureFile\(name\) \{\s*return mdTex\.textureFileInfo\(textureDir\(\), name, TEX_MAX_BYTES\);\s*\}/);
+  // Kullanıcının klasörü ve içe aktarılan dokuların klasörü, bu sırayla (#574)
+  assert.match(main, /function textureDirs\(\) \{\s*return \[textureDir\(\), managedTextureDir\(\)\];\s*\}/);
+  assert.match(main, /function textureNames\(\) \{\s*return mdTex\.listTexturesIn\(textureDirs\(\)\);\s*\}/);
+  assert.match(main, /function textureFile\(name\) \{\s*return mdTex\.textureFileInfoIn\(textureDirs\(\), name, TEX_MAX_BYTES\);\s*\}/);
   assert.match(main, /ipcMain\.handle\('milkdrop:textures', \(\) => textureNames\(\)\)/);
   assert.match(main, /ipcMain\.handle\('milkdrop:texture', \(e, name\) => \{\s*const t = textureFile\(name\);/);
   assert.match(main, /mdTextureNames: \(\) => textureNames\(\)\.names,/);

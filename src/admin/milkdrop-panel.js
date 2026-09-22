@@ -151,6 +151,152 @@
     if (r && r.ok) P().toast(list.length + ' ' + tr('preset pakete yazıldı.'), 'ok');
   }
 
+  /* KÜTÜPHANE İÇE AKTARIMI (#574): ZIP, klasör ve makinede bulunanlar. İKİ
+     AŞAMA: tarama bir özet getiriyor (kaç preset, kaç doku, kaç MB, neler
+     atlanacak); onaylanınca ana süreç kopyalıyor. Sormadan hiçbir şey
+     kopyalanmıyor. `libBusy` sürüyorsa durum metni, `libFound` makinede
+     bulunanlar, `libSearchDone` arama bütün adaylara bakabildi mi,
+     `libResult` son içe aktarımın özeti. */
+  let libBusy = '';
+  let libFound = null;
+  let libSearchDone = true;
+  let libResult = '';
+  let libListening = false;
+  // Sayılar dile göre ayrılıyor: 9.795 / 9,795
+  const loc = () => (window.SVI18n && window.SVI18n.locale === 'en' ? 'en' : 'tr');
+  const fmt = (s, vars) => tr(s).replace(/\{(\w+)\}/g, (m, k) => {
+    if (!vars || !(k in vars)) return m;
+    return typeof vars[k] === 'number' ? vars[k].toLocaleString(loc()) : String(vars[k]);
+  });
+  const mb = (b) => (Math.round(((+b || 0) / 1048576) * 10) / 10).toLocaleString(loc());
+
+  const LIB_ERR = {
+    NOT_ZIP: 'ZIP okunamadı: bozuk ya da ZIP değil.',
+    CORRUPT: 'ZIP okunamadı: bozuk ya da ZIP değil.',
+    READ_FAILED: 'ZIP okunamadı: bozuk ya da ZIP değil.',
+    TOO_MANY_ENTRIES: 'ZIP çok fazla girdi içeriyor.',
+    TOO_BIG: 'Kaynak çok büyük (2 GB üstü).',
+    NO_PLAN: 'Bu tarama artık geçerli değil; yeniden tarayın.',
+  };
+  const libError = (code) => tr(LIB_ERR[code] || 'İçe aktarılamadı.');
+
+  function libSetBusy(text) {
+    libBusy = text;
+    const n = typeof document !== 'undefined' && document.getElementById('mdLibProgress');
+    if (n) n.textContent = text;
+  }
+
+  function listenLibrary() {
+    if (libListening || !window.api || !window.api.onMilkdropLibraryProgress) return;
+    libListening = true;
+    const PH = { read: 'Okunuyor: {a}/{b}', save: 'Kaydediliyor: {a}/{b}', textures: 'Dokular: {a}/{b}' };
+    window.api.onMilkdropLibraryProgress((p) => {
+      if (!p || !libBusy) return;
+      libSetBusy(fmt(PH[p.phase] || 'İçe aktarılıyor…', { a: p.done, b: p.total }));
+    });
+  }
+
+  // Onaydan önce gösterilen özet: ne eklenecek, neler atlanacak
+  function libSummaryText(s) {
+    const lines = [fmt('“{label}”: {p} preset, {t} doku, {mb} MB.', { label: s.label, p: s.presets, t: s.textures, mb: mb(s.bytes) })];
+    if (s.loose) lines.push(fmt('Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.', { n: s.loose }));
+    const k = s.skipped || {};
+    if (k.milk2) lines.push(fmt('{n} .milk2 dosyası (MilkDrop 3 çift preseti) desteklenmiyor, atlanacak.', { n: k.milk2 }));
+    if (k.tooLarge || k.textureTooLarge) lines.push(fmt('{n} dosya boyut sınırını aşıyor, atlanacak.', { n: (k.tooLarge || 0) + (k.textureTooLarge || 0) }));
+    if (k.encrypted || k.unsupported) lines.push(fmt('{n} şifreli ya da desteklenmeyen ZIP girdisi atlanacak.', { n: (k.encrypted || 0) + (k.unsupported || 0) }));
+    if (s.complete === false) lines.push(tr('Tarama yarıda kesildi: çok fazla dosya var; bulunanlar alınır.'));
+    if (s.tags && control(P().cfg()).importFolderTags !== false) lines.push(fmt('{n} klasör adı etiket olacak.', { n: s.tags }));
+    return lines.join(' ');
+  }
+
+  // Son içe aktarımın sonucu
+  function libResultText(r) {
+    const lines = [fmt('{a} preset eklendi, {d} tekrar atlandı.', { a: r.added || 0, d: r.duplicates || 0 })];
+    if (r.failed) lines.push(fmt('{f} preset okunamadı ya da kaydedilemedi.', { f: r.failed }));
+    const t = r.textures || {};
+    if (t.copied) lines.push(fmt('{c} doku kopyalandı.', { c: t.copied }));
+    if (t.same) lines.push(fmt('{s} doku zaten vardı.', { s: t.same }));
+    if (t.conflicts) lines.push(fmt('{k} doku adı var olan başka bir dokuyla çakıştı; var olan kaldı.', { k: t.conflicts }));
+    if (r.skipped && r.skipped.milk2) lines.push(fmt('{n} .milk2 dosyası atlandı (MilkDrop 3 çift preseti).', { n: r.skipped.milk2 }));
+    return lines.join(' ');
+  }
+
+  /* Aramanın süresi yetmeyip eksik saydığı kütüphane: onaydan önce tamamı
+     taranıyor, onay gerçek sayıları gösteriyor ve eksik içe aktarım olmuyor.
+     Yeni özet listedekinin yerini alıyor (onay verilmese de). Baştan tarama
+     `searchCut` taşımıyor; o da sınıra takılırsa (çok büyük klasör) olağan
+     onaya geçiliyor, döngü yok. */
+  async function rescanFirst(s) {
+    if (!window.api || !window.api.rescanMilkdropLibrary) { P().toast(tr('İçe aktarma kullanılamıyor.'), 'err'); return null; }
+    libSetBusy(tr('Taranıyor…'));
+    P().rerender();
+    let r = null;
+    try { r = await window.api.rescanMilkdropLibrary(s.token); } catch (e) { r = null; }
+    libSetBusy('');
+    if (!r || !r.ok) { P().toast(libError(r && r.error), 'err'); P().rerender(); return null; }
+    if (libFound) libFound = libFound.map((x) => (x.token === s.token ? r : x));
+    return r;
+  }
+
+  async function confirmAndImport(s) {
+    if (s && s.searchCut) {
+      s = await rescanFirst(s);
+      if (!s) return;
+    }
+    if (!s || !s.presets) { P().toast(tr('Bu kaynakta MilkDrop preseti yok.'), 'err'); P().rerender(); return; }
+    if (s.tooBig) { P().toast(libError('TOO_BIG'), 'err'); P().rerender(); return; }
+    const msg = libSummaryText(s) + ' ' + tr('Aynı ad ve içerikteki presetler atlanır; dosyalar uygulamanın klasörüne kopyalanır. Devam edilsin mi?');
+    if (!(await P().confirm(msg, { okText: tr('İçe Aktar') }))) { P().rerender(); return; }
+    listenLibrary();
+    libResult = '';
+    libSetBusy(tr('İçe aktarılıyor…'));
+    P().rerender();
+    let r = null;
+    try { r = await window.api.importMilkdropLibrary(s.token); } catch (e) { r = null; }
+    libSetBusy('');
+    if (!r || !r.ok) { P().toast(libError(r && r.error), 'err'); P().rerender(); return; }
+    // Bulunanlar listesinden çıkıyor: aynı kütüphane iki kez önerilmesin
+    if (libFound) libFound = libFound.filter((x) => x.token !== s.token);
+    /* Kaydedilen presetler değişiklik yayınıyla geliyor; etiketler ve doku
+       sayacı ayara buradan (ayar paneldeki kopyadan gönderiliyor). */
+    const cfg = P().cfg();
+    const lib = library(cfg);
+    const L = LB();
+    const tagged = (r.saved || []).filter((x) => x && x.tag);
+    if (L && tagged.length && control(cfg).importFolderTags !== false) lib.tags = L.addTags(lib, tagged);
+    if (r.textures && r.textures.copied) lib.textureRev = (+lib.textureRev || 0) + 1;
+    libResult = libResultText(r);
+    P().apply();
+  }
+
+  async function pickLibrary(kind) {
+    if (!window.api || !window.api.pickMilkdropLibrary) { P().toast(tr('İçe aktarma kullanılamıyor.'), 'err'); return; }
+    libSetBusy(tr('Taranıyor…'));
+    P().rerender();
+    let r = null;
+    try { r = await window.api.pickMilkdropLibrary(kind); } catch (e) { r = null; }
+    libSetBusy('');
+    if (!r || !r.ok) {
+      P().rerender();
+      if (!r || !r.canceled) P().toast(libError(r && r.error), 'err');
+      return;
+    }
+    await confirmAndImport(r);
+  }
+
+  async function discoverLibraries() {
+    if (!window.api || !window.api.discoverMilkdropLibraries) { P().toast(tr('İçe aktarma kullanılamıyor.'), 'err'); return; }
+    libFound = null;
+    libSetBusy(tr('Makinede aranıyor…'));
+    P().rerender();
+    let r = null;
+    try { r = await window.api.discoverMilkdropLibraries(); } catch (e) { r = null; }
+    libSetBusy('');
+    libFound = (r && r.ok && Array.isArray(r.libraries)) ? r.libraries : [];
+    libSearchDone = !(r && r.complete === false);
+    P().rerender();
+  }
+
   async function importPack() {
     const IS = window.SVPresets;
     const L = LB();
@@ -1067,6 +1213,71 @@
         onclick: () => importPack(),
       }),
     ]));
+    /* KÜTÜPHANE (#574): ZIP paketi, klasör ya da makinede bulunan bir
+       kütüphane. Önce ne ekleneceği gösteriliyor, onaysız kopya yok. */
+    nodes.push(el('div', { class: 'row' }, [
+      el('button', {
+        class: 'btn ghost', type: 'button', text: '🗜 ZIP Paketinden İçe Aktar', disabled: !!libBusy,
+        onclick: () => pickLibrary('zip'),
+      }),
+      el('button', {
+        class: 'btn ghost', type: 'button', text: '📁 Klasörden İçe Aktar', disabled: !!libBusy,
+        onclick: () => pickLibrary('folder'),
+      }),
+      el('button', {
+        class: 'btn ghost', type: 'button', text: '🔎 Makinede Ara', disabled: !!libBusy,
+        title: 'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi arar',
+        onclick: () => discoverLibraries(),
+      }),
+    ]));
+    nodes.push(P().row('Klasör Adları', selOf([
+      [1, 'Etiket yap'],
+      [0, 'Etiket yapma'],
+    ], control(cfg).importFolderTags === false ? 0 : 1, (v) => { control(cfg).importFolderTags = Number(v) === 1; })));
+    if (libBusy) nodes.push(el('div', { id: 'mdLibProgress', class: 'studio-note', text: libBusy }));
+    if (libResult) nodes.push(el('div', { class: 'studio-note md-ok', text: libResult }));
+    if (libFound) {
+      if (!libFound.length) {
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi bulunamadı.',
+        }));
+      } else {
+        const box = el('div', { class: 'md-libs' });
+        for (const s of libFound) {
+          /* Aramanın süresi yetmediyse sayılar alt sınır ("+"); hiç
+             sayılamadıysa bu söyleniyor. İçe aktarmadan önce tamamı taranıyor. */
+          const vars = { p: s.presets, t: s.textures, mb: mb(s.bytes) };
+          const count = !s.searchCut ? fmt('{p} preset · {t} doku · {mb} MB', vars)
+            : s.presets ? fmt('{p}+ preset · {t}+ doku · {mb}+ MB', vars) : tr('sayılmadı');
+          box.appendChild(el('div', { class: 'md-lib' }, [
+            el('span', { class: 'md-lib-name', text: s.label, title: s.where || '' }),
+            el('span', { class: 'md-lib-count', text: count }),
+            el('button', {
+              class: 'btn ghost tiny', type: 'button', text: tr('İçe Aktar'), disabled: !!libBusy,
+              onclick: () => confirmAndImport(s),
+            }),
+          ]));
+        }
+        nodes.push(P().row('Bulunan Kütüphaneler', box));
+        if (libFound.some((s) => s.searchCut)) {
+          nodes.push(el('div', {
+            class: 'studio-note dim-hint',
+            text: 'Aramanın süresi bazı kütüphaneleri saymaya yetmedi (+ ya da “sayılmadı”); içe aktarmadan önce tamamı taranır.',
+          }));
+        }
+      }
+      if (!libSearchDone) {
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.',
+        }));
+      }
+    }
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) henüz desteklenmiyor.',
+    }));
 
     // Arama
     if (presets.length > 6) {

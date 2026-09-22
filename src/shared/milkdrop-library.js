@@ -116,6 +116,19 @@
     return all;
   }
 
+  /* Toplu etiket (#574, içe aktarımda klasör adları): her `{ id, tag }` için
+     etiket ekleniyor, eşlem BİR kez kopyalanıyor — 10 bin presette tek tek
+     `withTags` eşlemi 10 bin kez kopyalardı. */
+  function addTags(lib, pairs) {
+    const all = Object.assign({}, lib && lib.tags);
+    for (const pr of Array.isArray(pairs) ? pairs : []) {
+      if (!pr || !safeKey(pr.id) || !pr.tag) continue;
+      const t = normTags((Array.isArray(all[pr.id]) ? all[pr.id] : []).concat([pr.tag]));
+      if (t.length) all[pr.id] = t;
+    }
+    return all;
+  }
+
   /* Silinen presetin izi: puan, favori ve etiketler birlikte gidiyor. */
   function forget(lib, id) {
     const drop = (o) => {
@@ -287,7 +300,7 @@
   }
 
   const api = {
-    MAX_TAGS, MAX_TAG_LEN, fold, authorsOf, normTags, isFavorite, tagsOf, withFavorite, withTags, forget,
+    MAX_TAGS, MAX_TAG_LEN, fold, authorsOf, normTags, isFavorite, tagsOf, withFavorite, withTags, addTags, forget,
     parseQuery, matches, filter, poolOf, pool, tagCounts, authorCounts, packEntry, mergeEntries, adopt,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

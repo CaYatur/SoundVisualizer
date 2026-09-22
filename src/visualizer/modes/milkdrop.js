@@ -2588,8 +2588,13 @@ void main(){
        bugün yanlış-ama-çalışan 1.748 preseti siyaha çevirirdi. */
     _ensureTextureLib(cfg) {
       const dir = (cfg.milkdrop && cfg.milkdrop.textureDir) || '';
-      if (dir === this._texDir) return;
-      this._texDir = dir;
+      /* İçe aktarılan paketlerin dokuları (#574) uygulamanın kendi
+         klasöründe; her içe aktarım sayacı artırıyor ve liste yeniden
+         isteniyor. Klasör seçilmemiş olsa da o dokular kullanılıyor. */
+      const rev = (cfg.milkdropLibrary && +cfg.milkdropLibrary.textureRev) || 0;
+      const key = dir + '#' + rev;
+      if (key === this._texDir) return;
+      this._texDir = key;
       this._texNames = [];
       /* Jeton her klasör değişiminde artıyor: uçuşta olan istekler geri
          döndüğünde artık geçersiz oldukları buradan anlaşılıyor. Klasörü
@@ -2600,7 +2605,7 @@ void main(){
       this._texWanted = null;
       this._texListing = false;
       const api = typeof window !== 'undefined' ? window.api : null;
-      if (!dir || !api || !api.milkdropTextures) return;
+      if ((!dir && !rev) || !api || !api.milkdropTextures) return;
       this._texListing = true;
       this._texBusy(1);
       Promise.resolve(api.milkdropTextures()).then((r) => {

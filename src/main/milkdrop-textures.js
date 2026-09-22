@@ -87,6 +87,35 @@ function textureFileInfo(dir, name, maxBytes) {
   }
 }
 
+/* BİRDEN ÇOK KLASÖR (#574). Kullanıcının seçtiği doku klasörü ve içe
+   aktarılan paketlerin dokularının kopyalandığı, uygulamaya ait klasör.
+   Aynı ad iki yerde varsa kullanıcınınki geçerli: sırayla bakılıyor.
+   Adlar birleşiyor, her ad bir kez. */
+function listTexturesIn(dirs) {
+  const names = [];
+  const seen = new Set();
+  for (const d of Array.isArray(dirs) ? dirs : []) {
+    if (!d) continue;
+    for (const n of listTextures(d).names) {
+      const k = n.toLowerCase();
+      if (seen.has(k)) continue;
+      seen.add(k);
+      names.push(n);
+    }
+  }
+  return { dir: (Array.isArray(dirs) && dirs[0]) || '', names };
+}
+
+function textureFileInfoIn(dirs, name, maxBytes) {
+  for (const d of Array.isArray(dirs) ? dirs : []) {
+    if (!d) continue;
+    const t = textureFileInfo(d, name, maxBytes);
+    if (t) return t;
+  }
+  return null;
+}
+
 module.exports = {
   TEXTURE_EXT, TEXTURE_MIME, isTextureFile, mimeFor, resolveTexture, listTextures, textureFileInfo,
+  listTexturesIn, textureFileInfoIn,
 };

@@ -755,6 +755,10 @@
       ratings: {},
       favorites: {},
       tags: {},
+      /* İçe aktarılan paketlerin dokuları (#574) uygulamanın klasörüne
+         kopyalanıyor; her içe aktarım bu sayacı artırıyor ve motorlar doku
+         listesini yeniden istiyor. */
+      textureRev: 0,
     },
     milkdropControl: {
       locked: false,
@@ -762,6 +766,8 @@
       independent: false,
       spriteFile: '',
       reduceMotion: 'system',
+      // İçe aktarımda paketin kategori klasörü etiket olsun (#574, #576)
+      importFolderTags: true,
     },
 
     // ------------------------------------------------------------------
