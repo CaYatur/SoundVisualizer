@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2029 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2032 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 432
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 435
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1609,10 +1609,12 @@ rest after. No version number yet.
     and tags landed on the new ids and in `settings.json`, and no preset
     file held a `library` field. The file dialog itself was not driven: the
     bridge object cannot be stubbed from the page.
-  - **Tests.** 26 tests cover authors, folding, tags, search, the pool, the
+  - **Tests.** 29 tests cover authors, folding, tags, search, the pool, the
     pack round trip, the engine's own `_autoCycle` with a pool (timer, hard
-    cut, track change, follower) and the panel drawn with a fake DOM.
-    42 of 42 mutations are caught.
+    cut, track change, follower), a pick made in advance that the pool no
+    longer holds, and the panel drawn with a fake DOM — its own pack buttons
+    included, with only the file dialogs stubbed, and ◀/▶/🎲 still reaching
+    presets outside the pool. 49 of 49 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

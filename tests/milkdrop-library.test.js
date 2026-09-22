@@ -289,6 +289,22 @@ test('motor: izleyen havuzu süzmüyor — liderin seçimi zaten havuzdan', () =
   assert.strictEqual(e.m.autoPick && e.m.autoPick.id, 'p5');
 });
 
+test('döngü: önceden yapılmış seçim havuz değişince havuzun dışına taşmıyor', () => {
+  /* Önceden derleme (#573) sıradakini havuzsuz listeyle seçmiş olabilir;
+     kullanıcı sonra havuzu favorilere çevirirse o seçim kullanılmamalı. */
+  const C = require('../src/shared/milkdrop-cycle.js');
+  const md = { autoNext: 1, autoNextRand: 0, blendTime: 0, autoOrder: 'sequential' };
+  const pooled = L.pool(PRESETS, { autoFrom: 'favorites' }, { favorites: { p4: true, p5: true } });
+  const cy = new C.Cycle(() => 0.5);
+  assert.strictEqual(cy.upcoming(md, PRESETS, 'p1', null).id, 'p2', 'havuzsuz sıradaki');
+  let p = null;
+  for (let i = 0; i < 200 && !p; i++) p = cy.step(1 / 60, md, pooled, 'p1', null, null, null);
+  assert.strictEqual(p && p.id, 'p4', 'zamanlayıcı havuzdan');
+  const cy2 = new C.Cycle(() => 0.5);
+  cy2.upcoming(md, PRESETS, 'p1', null);
+  assert.strictEqual(cy2.onTrack(Object.assign({ trackAdvance: true }, md), pooled, 'p1', null).id, 'p4', 'parça değişimi havuzdan');
+});
+
 test('motor kaynağı: süzgeç listenin kurulduğu yerde, izleme dalında değil', () => {
   const MODE = read('src/visualizer/modes/milkdrop.js');
   const fn = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
@@ -487,6 +503,69 @@ test('panel: havuz seçimi sahneye yazılıyor; boş havuz söyleniyor', async (
   const pool2 = p.render().kids.find((n) => n.label === 'Havuz').node;
   const sel = pool2.kids.find((o) => o.selected);
   assert.deepStrictEqual([sel.props.value, sel.text], ['tag:eski', '#eski (0)']);
+});
+
+test('panel: elle ▶ ve 🎲 havuzu dinlemiyor — yalnız otomatik geçiş sınırlı', async () => {
+  // Belgelerdeki söz: ◀, ▶, Rastgele ve liste bütün presetlere gidiyor
+  const p = await panelWith((cfg) => {
+    cfg.milkdrop.autoFrom = 'favorites';
+    cfg.milkdropLibrary.favorites = { u5: true };
+  });
+  p.M.act('Next');
+  assert.strictEqual(p.cfg.milkdrop.presetId, 'u2', 'sıradaki, havuzun dışında olsa da');
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) { p.M.act('Random'); seen.add(p.cfg.milkdrop.presetId); }
+  assert.ok([...seen].some((id) => id !== 'u5'), 'rastgele havuzun dışından da seçiyor');
+});
+
+test('panel: paket düğmeleri — görünenler kayıtlarıyla, içe aktarım yeni kimliklere', async () => {
+  const p = await panelWith((cfg) => {
+    cfg.milkdropLibrary.favorites = { u2: true, u3: true };
+    cfg.milkdropLibrary.tags = { u3: ['sakin'] };
+    cfg.milkdropLibrary.ratings = { u2: 4, u6: 1 };
+  });
+  const toasts = [];
+  window.SVPanel.toast = (m) => { toasts.push(m); };
+  let packed = null;
+  window.api.exportJson = (name, data) => { packed = { name, data: JSON.parse(JSON.stringify(data)) }; return Promise.resolve({ ok: true }); };
+  const button = (root, text) => { let b = null; walk(root, (n) => { if (!b && n.props && n.props.text === text) b = n; }); return b; };
+  // Süzgeç favorilerde: yalnız görünenler pakete giriyor
+  const show = p.row('Süz').node;
+  show.value = 'fav';
+  show.on.change();
+  await button(p.render(), '📦 Görünenleri Paketle').on.click();
+  assert.strictEqual(packed.name, 'milkdrop-presetler.svpack');
+  assert.deepStrictEqual(packed.data.presets.map((x) => [x.name, x.library || null]), [
+    ['Martin - Preset 2', { favorite: true, rating: 4 }],
+    ['Geiss - Preset 3', { favorite: true, tags: ['sakin'] }],
+  ]);
+  // Aynı paket içe aktarılıyor: dosya seçimi ve kayıt taklit, geri kalanı panelin kendisi
+  const saved = [];
+  window.api.importShaderText = () => Promise.resolve({ ok: true, text: JSON.stringify(packed.data), ext: '.svpack', name: 'x' });
+  window.api.savePresets = (list) => { saved.push(...list); return Promise.resolve({ ok: true, saved: list }); };
+  const applied = p.calls.apply;
+  await button(p.render(), '📥 Paket İçe Aktar').on.click();
+  await new Promise((r) => setImmediate(r));
+  assert.strictEqual(saved.length, 2);
+  const [a, b] = saved.map((x) => x.id);
+  assert.ok(![a, b].some((id) => id === 'u2' || id === 'u3'), 'yeni kimlik');
+  assert.ok(saved.every((x) => x.library === undefined), 'kayıt preset dosyasına gitmiyor');
+  const lib = p.cfg.milkdropLibrary;
+  assert.deepStrictEqual([lib.favorites[a], lib.favorites[b], lib.tags[b], lib.ratings[a]], [true, true, ['sakin'], 4]);
+  assert.strictEqual(lib.ratings.u6, 1, 'var olan puanlar yerinde');
+  assert.ok(p.calls.apply > applied, 'yapılandırma gönderildi');
+  assert.ok(toasts.includes('2 preset içe aktarıldı.'), toasts.join(' | '));
+  // Paket olmayan dosya: hata, kayıt yok
+  window.api.importShaderText = () => Promise.resolve({ ok: true, text: 'MILKDROP_PRESET_VERSION=201', ext: '.milk', name: 'y' });
+  await button(p.render(), '📥 Paket İçe Aktar').on.click();
+  assert.strictEqual(saved.length, 2);
+  assert.ok(toasts.some((t) => /^Paket okunamadı/.test(t)));
+  // Listede kendi preseti yoksa dışa aktarım yok
+  p.cfg.milkdropLibrary.favorites = {};
+  packed = null;
+  await button(p.render(), '📦 Görünenleri Paketle').on.click();
+  assert.strictEqual(packed, null);
+  assert.ok(toasts.some((t) => /^Listede dışa aktarılacak/.test(t)));
 });
 
 test('panel: denetleyiciden favori ekrandakine', async () => {
