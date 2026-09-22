@@ -187,6 +187,11 @@ function clientInfo() {
 
 function broadcast(obj, kind) {
   if (obj && obj.type === 'config') obj = Object.assign({}, obj, { config: publicConfig(obj.config) });
+  else if (obj && obj.type === 'presets') obj = Object.assign({}, obj, { presets: publicPresets(obj.presets) });
+  else if (obj && obj.type === 'presets-delta') {
+    const d = obj.delta || {};
+    obj = Object.assign({}, obj, { delta: { upsert: publicPresets(d.upsert), remove: Array.isArray(d.remove) ? d.remove : [] } });
+  }
   for (const c of clients) {
     if (kind && c.kind !== kind) continue;
     sendJson(c, obj);
@@ -200,6 +205,23 @@ function broadcast(obj, kind) {
    ve klasör değişti mi (değişince sayfa listeyi yeniden istiyor).
    Kumanda sayfası yapılandırmayı geri yazmıyor (yalnız izinli yollar ve
    sahne kimliği), yani özet gerçek ayara hiç karışmıyor. */
+/* WEB İSTEMCİLERİNE GİDEN PRESET LİSTESİ (#574). MilkDrop presetleri
+   KAYNAKSIZ gidiyor (`lazy`): 10.347 presetlik bir kütüphane 116 MB ediyordu
+   ve her bağlantıda ve her değişimde her istemciye — telefondaki kumandaya
+   da — gidiyordu. Kaynak, preset gerçekten çizilecekken kimliğiyle
+   isteniyor (`/milkdrop/preset`, jetonun arkasında). Studio presetleri
+   küçük ve sayfa onları hemen çiziyor; olduğu gibi gidiyor. */
+function publicPreset(p) {
+  if (!p || typeof p !== 'object' || p.kind !== 'milkdrop' || typeof p.source !== 'string') return p;
+  const c = Object.assign({}, p, { lazy: true });
+  delete c.source;
+  return c;
+}
+
+function publicPresets(list) {
+  return (Array.isArray(list) ? list : []).map(publicPreset);
+}
+
 function publicConfig(cfg) {
   const md = cfg && cfg.milkdrop;
   if (!md || typeof md.textureDir !== 'string' || !md.textureDir) return cfg;
@@ -394,6 +416,7 @@ function handleRequest(req, res) {
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
   if (p === '/milkdrop/sprite') { serveSprite(res, url.searchParams.get('key') || ''); return; }
+  if (p === '/milkdrop/preset') { servePresetSource(res, url.searchParams.get('id') || ''); return; }
   if (p.startsWith('/app/')) { serveStatic(res, p); return; }
   res.writeHead(404).end('not found');
 }
@@ -457,6 +480,22 @@ function serveSprite(res, key) {
     'X-Content-Type-Options': 'nosniff',
   });
   fs.createReadStream(t.file).on('error', () => res.destroy()).pipe(res);
+}
+
+/* MILKDROP PRESET KAYNAĞI (#574). Listede kaynaksız giden presetin kaynağı,
+   kimliğiyle. Kimlik ana süreçteki depoda aranıyor; yalnız MilkDrop
+   presetleri. Jetonun arkasında. */
+function servePresetSource(res, id) {
+  const src = typeof hooks.mdPresetSource === 'function' ? hooks.mdPresetSource(id) : null;
+  if (typeof src !== 'string') { res.writeHead(404).end('not found'); return; }
+  const body = JSON.stringify({ id, source: src });
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  res.end(body);
 }
 
 /* Sayfayı servis ederken uygulamanın dilini enjekte eder ve alt kaynaklar
@@ -539,7 +578,7 @@ function handleUpgrade(req, socket) {
     version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
   });
   sendJson(client, { type: 'config', config: publicConfig(hooks.getConfig()) });
-  sendJson(client, { type: 'presets', presets: hooks.getPresets() });
+  sendJson(client, { type: 'presets', presets: publicPresets(hooks.getPresets()) });
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
   if (np && np.has) {
     sendJson(client, { type: 'now-playing', state: np });
@@ -733,6 +772,7 @@ module.exports = {
   newToken,
   lanAddress,
   publicConfig,
+  publicPresets,
   clientCount: () => clients.size,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
   overlayCount: () => {

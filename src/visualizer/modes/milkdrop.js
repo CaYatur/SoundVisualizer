@@ -1790,7 +1790,8 @@ void main(){
            önizleme harmanlasaydı ikisi bir saniye boyunca farklı görünürdü. */
         if (f) {
           this.autoPick = {
-            id: f.id, name: f.name || '', source: f.source || '', cut: !!F.cut,
+            // Web çıkışında kaynak listede yok (#574): `_ensurePreset` istiyor
+            id: f.id, name: f.name || '', source: f.source || '', lazy: !!f.lazy && !f.source, cut: !!F.cut,
             blend: typeof F.blend === 'number' ? F.blend : null,
             // Liderin tohumu: aynı rand_preset ve aynı geçiş deseni (#585)
             seed: Number.isInteger(F.seed) ? F.seed : null,
@@ -1836,7 +1837,7 @@ void main(){
       }
       if (p) {
         this.autoPick = {
-          id: p.id, name: p.name || '', source: p.source || '', cut: this.cycle.cut,
+          id: p.id, name: p.name || '', source: p.source || '', lazy: !!p.lazy && !p.source, cut: this.cycle.cut,
           blend: this.cycle.blend,
           /* Bu seçimin tohumu (#585). Seçimle birlikte izleyenlere gidiyor;
              döngünün kendi rastgele akışından çekilmiyor, sıra seçimi
@@ -1933,6 +1934,17 @@ void main(){
         if (this.cycle) this.cycle.reset();
       }
       const a = this.autoPick;
+      /* KAYNAĞI YOLDA OLAN SEÇİM (#574, web çıkışı): liste MilkDrop
+         presetlerini kaynaksız taşıyor; kaynak kimlikle isteniyor ve gelene
+         kadar ekrandaki preset (ve süren geçiş) çizilmeye devam ediyor. */
+      if (a && a.lazy) {
+        const s = this._lazySource(a.id);
+        if (s === null) return;
+        // Alınamadı (silinmiş, sunucu yok): varsayılana düşmek yerine seçim bırakılıyor
+        if (!s) { this.autoPick = null; return; }
+        a.source = s;
+        a.lazy = false;
+      }
       const key = a ? (a.id + '|' + a.source.length) : man;
       if (key === this.presetKey && this.preset) {
         /* Derlenirken seçim geri alındıysa yarım iş atılıyor (#573). Önceden
@@ -2050,7 +2062,38 @@ void main(){
        değişimin derlemesine dokunulmuyor; ekrandaki presete de. Değişim
        gelince `_ensurePreset` bu işi hazır bulup kullanıyor, başka bir
        preset gelirse iş atılıyor. */
+    /* KAYNAK GEREKTİĞİNDE (#574). Web çıkışında MilkDrop presetleri listede
+       kaynaksız (yayın sunucusu `publicPresets`): 10.347 presetlik bir
+       kütüphane her istemciye her değişimde 116 MB gidiyordu. Kaynak
+       kimliğiyle isteniyor ve gelince listedeki kayda yazılıyor — bir daha
+       istenmiyor. Dönüş: kaynak; istek yoldaysa null; alınamadıysa ''. */
+    _lazySource(id) {
+      const S = typeof window !== 'undefined' && window.SVPresets;
+      const p = S && typeof S.get === 'function' ? S.get(id) : null;
+      if (p && typeof p.source === 'string' && p.source) return p.source;
+      const api = typeof window !== 'undefined' && window.api;
+      if (!api || typeof api.milkdropPresetSource !== 'function') return '';
+      const box = this._srcReq || (this._srcReq = new Map());
+      const r = box.get(id);
+      if (r) return r.done ? r.source : null;
+      const rec = { done: false, source: '' };
+      box.set(id, rec);
+      Promise.resolve(api.milkdropPresetSource(id)).then((s) => {
+        rec.done = true;
+        rec.source = typeof s === 'string' ? s : '';
+        if (p && rec.source) p.source = rec.source;
+      }, () => { rec.done = true; });
+      return null;
+    }
+
     _prefetch(p) {
+      /* Web çıkışında kaynak listede yok (#574): önceden derlemenin ilk işi
+         kaynağı istemek; derleme kaynak gelince bir sonraki fırsatta. */
+      if (p.lazy && !p.source) {
+        const s = this._lazySource(p.id);
+        if (s === null) return;
+        p = Object.assign({}, p, { source: s });
+      }
       const key = p.id + '|' + (p.source || '').length;
       if (key === this.presetKey) return;
       const P = this._pending;

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2032%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2050%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -339,6 +339,14 @@ that asserts the bar profile has no step in it.
   the presets in view with them, and importing the pack attaches them to the new copies. Checked in
   an isolated copy: with the pool set to three favourites, the visualizer window went round those
   three and nothing else.
+- **Large preset libraries stay light.** Every save or delete used to re-read every preset file
+  and send the whole list, sources included, to the panel, each window and every web client. With
+  the 10,347 presets of a full MilkDrop library (116 MB) one delete held the app for about 2.4
+  seconds and the panel used 631 MB. Presets are now read once and kept; a change sends only what
+  changed. At the same size a save now takes 91 ms and the panel uses 273 MB. Deleting or adding
+  MilkDrop presets no longer restarts the MilkDrop picture on screen. Web clients get MilkDrop
+  presets without their sources (271 KB instead of about 30 MB for 2,000 presets), and the web
+  overlay fetches the source of a preset only when it is about to draw it.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1238,7 +1246,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2032 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2050 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

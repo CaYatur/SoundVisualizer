@@ -1632,27 +1632,42 @@ function notifyAll(channel, payload) {
   sendToVisualizers(channel, payload);
 }
 
-function broadcastPresets() {
-  const list = presetsStore.list();
-  notifyAll('presets', list);
-  streamServer.broadcast({ type: 'presets', presets: list });
-  return list;
+/* PRESET YAYINI (#574). Önceden her kayıt bütün listeyi — kaynaklarıyla —
+   panele, her pencereye, Spout/Syphon'a ve web istemcilerine yeniden
+   gönderiyordu; 10.347 presette her değişim 116 MB ve ~2,4 sn ana süreç
+   kilidi. Şimdi yalnız değişenler gidiyor (`presets-delta`); bütün liste
+   yalnız sayfa açılırken isteniyor (`presets:list`). Web istemcilerine
+   MilkDrop kaynakları hiç gitmiyor (stream-server.js `publicPresets`). */
+function broadcastPresetDelta(upsert, remove) {
+  const delta = { upsert: upsert || [], remove: remove || [] };
+  if (!delta.upsert.length && !delta.remove.length) return;
+  notifyAll('presets-delta', delta);
+  streamServer.broadcast({ type: 'presets-delta', delta });
 }
 
-ipcMain.handle('presets:list', () => presetsStore.list());
+// Açılışta arka planda okunmuş olabilir; değilse okuma burada bitiyor
+ipcMain.handle('presets:list', async () => {
+  await presetsStore.warm();
+  return presetsStore.list();
+});
 ipcMain.handle('presets:save', (e, preset) => {
   const r = presetsStore.save(preset);
-  if (r.ok) broadcastPresets();
+  if (r.ok) broadcastPresetDelta([r.preset], []);
   return r;
 });
 ipcMain.handle('presets:delete', (e, id) => {
   const r = presetsStore.remove(id);
-  if (r.ok) broadcastPresets();
+  if (r.ok) broadcastPresetDelta([], [String(id)]);
   return r;
 });
-ipcMain.handle('presets:save-many', (e, list) => {
-  const saved = presetsStore.saveMany(list);
-  if (saved.length) broadcastPresets();
+/* Toplu kayıt parça parça (presets-store.js `saveManyAsync`); kaydeden
+   sayfaya ilerleme gidiyor, yayın bir kez ve sonunda. */
+ipcMain.handle('presets:save-many', async (e, list) => {
+  const sender = e.sender;
+  const saved = await presetsStore.saveManyAsync(list, (done, total) => {
+    if (sender && !sender.isDestroyed()) sender.send('presets-progress', { done, total });
+  });
+  if (saved.length) broadcastPresetDelta(saved, []);
   return { ok: true, saved };
 });
 /* MilkDrop preset paketleri yüzlerce .milk dosyasından oluşur; tek tek
@@ -1936,6 +1951,12 @@ function syncStreamServer() {
       mdTextureFile: (name) => textureFile(name),
       /* MilkDrop sprite resmi (#577): kimlikle; yol ana süreçte çözülüyor. */
       mdSpriteFile: (key) => spriteImageFile(key),
+      /* MilkDrop preset kaynağı (#574): listede kaynaksız gidiyor, sayfa
+         çizeceği presetin kaynağını kimliğiyle istiyor. */
+      mdPresetSource: (id) => {
+        const p = presetsStore.get(id);
+        return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
+      },
       logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
@@ -2712,6 +2733,10 @@ app.whenReady().then(async () => {
     dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
   }
   syncNowPlaying();
+  /* Preset deposu arka planda okunmaya başlıyor (#574): pencereler açılıp
+     listeyi isteyene kadar binlerce dosyanın okuması büyük ölçüde bitmiş
+     oluyor ve ana süreç o arada bekletilmiyor. */
+  presetsStore.warm().catch(() => {});
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
