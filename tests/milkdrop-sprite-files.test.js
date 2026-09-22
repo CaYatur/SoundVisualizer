@@ -47,7 +47,15 @@ test('tam yol sürücüsüyle geçiyor; sürücüye göreli, sürücüsüz kök 
   assert.strictEqual(F.resolveImage(ini, '\\logo.png', 'win32').error, 'BAD_PATH');
   assert.strictEqual(F.resolveImage(ini, '/logo.png', 'win32').error, 'BAD_PATH', 'Windows\'ta / da sürücüsüz kök');
   assert.strictEqual(F.resolveImage(ini, '\\\\sunucu\\pay\\logo.png').error, 'BAD_PATH');
-  assert.strictEqual(F.resolveImage(ini, '//sunucu/pay/logo.png').error, 'BAD_PATH');
+  /* `//` yalnız Windows'ta ağ yolu; platform açıkça veriliyor, test hangi
+     sistemde koşarsa koşsun aynı şeyi sınasın (CI'da Ubuntu da var). */
+  assert.strictEqual(F.resolveImage(ini, '//sunucu/pay/logo.png', 'win32').error, 'BAD_PATH');
+  // macOS ve Linux'ta `/` ile başlayan yol gerçek bir tam yol
+  for (const p of ['linux', 'darwin']) {
+    assert.notStrictEqual(F.resolveImage(ini, '//sunucu/pay/logo.png', p).error, 'BAD_PATH', p);
+    assert.notStrictEqual(F.resolveImage(ini, '/logo.png', p).error, 'BAD_PATH', p);
+    assert.strictEqual(F.resolveImage(ini, 'c:logo.png', p).error, 'BAD_PATH', p + ': sürücüye göreli her yerde geçersiz');
+  }
   assert.strictEqual(F.resolveImage(ini, '').error, 'NO_IMG');
   assert.strictEqual(F.resolveImage(ini, '   ').error, 'NO_IMG');
 });
