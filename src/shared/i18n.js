@@ -1719,6 +1719,14 @@
     'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.':
       'The search reached its time limit and some folders were not checked. If your library is not listed, choose it with 📁 Import from Folder.',
     'Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.': 'Of the {n} images next to the presets, only the ones the presets ask for are copied.',
+    // ---- Küçük resimler (#575) ----
+    'Düzen': 'Layout',
+    'Liste': 'List',
+    // 'Izgara' → 'Grid' aşağıda arkaplan adlarıyla zaten var
+    'Küçük resim hazırlanıyor…': 'Preparing thumbnail…',
+    'Küçük resim çizilemedi': 'The thumbnail could not be drawn',
+    'Küçük resim, presetin ilk iki saniyesi: örnek sesle, siyah bir ekrandan başlanarak çiziliyor. Her preset bir kez çiziliyor ve saklanıyor; preset değişince yeniden çiziliyor.':
+      'A thumbnail shows the first two seconds of a preset, drawn with the demo sound from a black screen. Each preset is drawn once and kept, and drawn again when it changes.',
     'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) henüz desteklenmiyor.':
       'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double presets) is not supported yet.',
     'Sil': 'Delete',

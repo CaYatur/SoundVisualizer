@@ -297,6 +297,120 @@
     P().rerender();
   }
 
+  /* KÜÇÜK RESİMLER (#575). Izgara görünümünde her hücrenin küçük resmi ana
+     süreçten geliyor: görünen hücrelerin kimlikleri isteniyor, hazır
+     olanların anahtarı hemen dönüyor, gerisi çizildikçe olayla. Görsel
+     `sv-thumb://t/<anahtar>.webp`. Görünüm (liste / ızgara) bu
+     görüntüleyicinin tercihi: ayara değil tarayıcı deposuna yazılıyor.
+       thumbKeys: kimlik → anahtar ('' = çizilemedi); çizimler arasında
+       kalıyor. Preset değişince ya da silinince (değişiklik yayını) kaydı,
+       doku klasörü ya da içe aktarılan dokular değişince hepsi düşüyor.
+     Bekleyen hücre çizgili, çizilemeyen kesikli çerçeveli: ikisi de siyah
+     bir küçük resimden ayrı görünmeli — presetlerin ~%9'u gerçekten siyah
+     başlıyor. */
+  const VIEW_KEY = 'sv-md-view';
+  let viewMode = (() => {
+    try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list'; } catch (e) { return 'list'; }
+  })();
+  const thumbKeys = new Map();
+  const thumbWanted = new Set();
+  let thumbTexSig = null;
+  let thumbObserver = null;
+  let thumbTimer = null;
+  let thumbListening = false;
+  // Gözlemci (IntersectionObserver) yoksa istenen ilk hücre sayısı
+  const THUMB_FIRST = 24;
+  const thumbUrl = (key) => 'sv-thumb://t/' + key + '.webp';
+
+  function setView(v) {
+    viewMode = v === 'grid' ? 'grid' : 'list';
+    try { localStorage.setItem(VIEW_KEY, viewMode); } catch (e) { /* depo yok: bu oturumluk */ }
+  }
+
+  function listenThumbs() {
+    if (thumbListening || !window.api) return;
+    thumbListening = true;
+    if (window.api.onMilkdropThumb) {
+      window.api.onMilkdropThumb((t) => {
+        if (!t || typeof t.id !== 'string') return;
+        // Beklerken anahtarı eskidi (dokular değişti): yeni anahtarla yeniden
+        if (t.stale) { thumbKeys.delete(t.id); paintThumb(thumbBox(t.id), undefined); wantThumb(t.id); return; }
+        setThumb(t.id, t.ok ? String(t.key || '') : '');
+      });
+    }
+    if (window.api.onPresetsDelta) {
+      window.api.onPresetsDelta((d) => {
+        for (const p of (d && d.upsert) || []) if (p && p.id) thumbKeys.delete(p.id);
+        for (const id of (d && d.remove) || []) thumbKeys.delete(id);
+      });
+    }
+  }
+
+  function thumbBox(id) {
+    if (typeof document === 'undefined') return null;
+    const root = (document.getElementById && document.getElementById('sections')) || document;
+    if (!root || !root.querySelectorAll) return null;
+    for (const b of root.querySelectorAll('.md-thumb-box')) if (b.getAttribute('data-id') === id) return b;
+    return null;
+  }
+
+  // Hücrenin durumu: anahtar (görsel), '' (çizilemedi) ya da undefined (bekliyor)
+  function paintThumb(box, key) {
+    if (!box) return;
+    const img = box.querySelector && box.querySelector('img');
+    box.classList.remove('pending', 'failed');
+    if (key) {
+      if (img && img.getAttribute('src') !== thumbUrl(key)) img.setAttribute('src', thumbUrl(key));
+      box.removeAttribute('title');
+      return;
+    }
+    if (img) img.removeAttribute('src');
+    box.classList.add(key === '' ? 'failed' : 'pending');
+    box.setAttribute('title', tr(key === '' ? 'Küçük resim çizilemedi' : 'Küçük resim hazırlanıyor…'));
+  }
+
+  function setThumb(id, key) {
+    thumbKeys.set(id, key);
+    paintThumb(thumbBox(id), key);
+  }
+
+  function wantThumb(id) {
+    if (!id) return;
+    thumbWanted.add(id);
+    clearTimeout(thumbTimer);
+    thumbTimer = setTimeout(flushThumbs, 80);
+  }
+
+  async function flushThumbs() {
+    thumbTimer = null;
+    const ids = Array.from(thumbWanted);
+    thumbWanted.clear();
+    if (!ids.length || !window.api || !window.api.milkdropThumbs) return;
+    listenThumbs();
+    let r = null;
+    try { r = await window.api.milkdropThumbs(ids); } catch (e) { r = null; }
+    if (!r || !r.ok || !r.ready) return;
+    for (const id of Object.keys(r.ready)) setThumb(id, String(r.ready[id] || ''));
+  }
+
+  /* Her çizimde gözlemci yeniden kuruluyor: panel düğümleri baştan
+     yaratıyor. Görünen hücreler (biraz payla) isteniyor; ana süreç aynı
+     anahtarı bir kez çiziyor, önbellektekini hemen döndürüyor — yani görünen
+     her hücreyi her çizimde yeniden istemek ucuz ve dışarıda değişen bir
+     doku da böylece fark ediliyor. */
+  function watchThumbs(grid) {
+    if (thumbObserver) { try { thumbObserver.disconnect(); } catch (e) { /* yok say */ } thumbObserver = null; }
+    const boxes = grid && grid.querySelectorAll ? Array.from(grid.querySelectorAll('.md-thumb-box')) : [];
+    if (typeof IntersectionObserver !== 'function') {
+      boxes.slice(0, THUMB_FIRST).forEach((b) => wantThumb(b.getAttribute('data-id')));
+      return;
+    }
+    thumbObserver = new IntersectionObserver((entries) => {
+      for (const en of entries) if (en.isIntersecting) wantThumb(en.target.getAttribute('data-id'));
+    }, { root: grid, rootMargin: '160px 0px' });
+    boxes.forEach((b) => thumbObserver.observe(b));
+  }
+
   async function importPack() {
     const IS = window.SVPresets;
     const L = LB();
@@ -1335,9 +1449,21 @@
       }
     }
 
-    // Liste
+    /* DÜZEN (#575): liste ya da küçük resimli ızgara. Seçmek yapılandırma
+       göndermiyor, yalnız paneli yeniden çiziyor. */
+    const viewSel = el('select', { class: 'sel' });
+    for (const [v, label] of [['list', 'Liste'], ['grid', 'Izgara']]) {
+      const o = el('option', { value: v, text: tr(label) });
+      if (v === viewMode) o.selected = true;
+      viewSel.appendChild(o);
+    }
+    viewSel.addEventListener('change', () => { setView(viewSel.value); listScroll = 0; P().rerender(); });
+    nodes.push(P().row('Düzen', viewSel));
+    const grid = viewMode === 'grid';
+
+    // Liste ya da ızgara
     const list = el('div', {
-      class: 'md-list',
+      class: grid ? 'md-grid' : 'md-list',
       onscroll: (e) => { listScroll = e.target.scrollTop; },
     });
     /* Arama ve süzgeç satırları az presette gizli; görünmeyen bir süzgeç
@@ -1346,6 +1472,26 @@
     const vis = visible(cfg);
     const LBn = LB();
     const libNow = library(cfg);
+    const keepScroll = () => {
+      const box = document.querySelector(grid ? '.md-grid' : '.md-list');
+      if (box) listScroll = box.scrollTop;
+    };
+    const removePreset = async (p) => {
+      if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
+      if (window.api.deletePreset) await window.api.deletePreset(p.id);
+      adoptDelta({ remove: [p.id] });
+      if (md.presetId === p.id) load(cfg, null);
+      // Puanı, favorisi ve etiketleri de gidiyor (#576): kimlik bir daha gelmiyor
+      if (LBn) Object.assign(library(cfg), LBn.forget(library(cfg), p.id));
+      refresh(() => rerender());
+    };
+    if (grid) {
+      // Doku klasörü ya da içe aktarılan dokular değiştiyse bütün anahtarlar eski
+      const tsig = (md.textureDir || '') + '#' + (+libNow.textureRev || 0);
+      if (thumbTexSig !== null && thumbTexSig !== tsig) thumbKeys.clear();
+      thumbTexSig = tsig;
+      listenThumbs();
+    }
     if (!vis.length) {
       list.appendChild(el('div', {
         class: 'studio-note',
@@ -1360,26 +1506,47 @@
       const active = md.presetId === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
+      const favBtn = LBn ? el('button', {
+        class: 'md-fav' + (fav ? ' on' : ''), type: 'button', text: fav ? '★' : '☆',
+        title: fav ? 'Favorilerden çıkar' : 'Favorilere ekle',
+        'aria-pressed': fav ? 'true' : 'false',
+        onclick: () => { keepScroll(); setFavorite(p.id, !fav); },
+      }) : null;
+      if (grid) {
+        /* Hücre: küçük resim, ad, yıldız ve (kullanıcı presetinde) silme.
+           Dosyası gitmiş bir anahtarın görseli yüklenemezse yeniden isteniyor. */
+        const key = thumbKeys.get(p.id);
+        const img = el('img', {
+          alt: '', draggable: 'false',
+          onerror: () => {
+            if (!thumbKeys.get(p.id)) return;
+            thumbKeys.delete(p.id);
+            paintThumb(thumbBox(p.id), undefined);
+            wantThumb(p.id);
+          },
+        });
+        if (key) img.setAttribute('src', thumbUrl(key));
+        const box = el('div', { class: 'md-thumb-box', 'data-id': p.id }, [img]);
+        paintThumb(box, key);
+        list.appendChild(el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
+          el('button', {
+            class: 'md-cell-main', type: 'button', title: tr(p.name || p.id),
+            onclick: () => { keepScroll(); load(cfg, p); rerender(); },
+          }, [box, el('span', { class: 'md-cell-name', text: tr(p.name || p.id) })]),
+          favBtn,
+          p.builtin ? null : el('button', {
+            class: 'btn ghost tiny danger md-cell-del', type: 'button', text: '✕', title: 'Sil',
+            onclick: () => removePreset(p),
+          }),
+        ]));
+        return;
+      }
       const tags = LBn ? LBn.tagsOf(libNow, p.id) : [];
       list.appendChild(el('div', { class: 'md-item' + (active ? ' active' : '') }, [
-        LBn ? el('button', {
-          class: 'md-fav' + (fav ? ' on' : ''), type: 'button', text: fav ? '★' : '☆',
-          title: fav ? 'Favorilerden çıkar' : 'Favorilere ekle',
-          'aria-pressed': fav ? 'true' : 'false',
-          onclick: () => {
-            const listEl = document.querySelector('.md-list');
-            if (listEl) listScroll = listEl.scrollTop;
-            setFavorite(p.id, !fav);
-          },
-        }) : null,
+        favBtn,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
-          onclick: () => {
-            const listEl = document.querySelector('.md-list');
-            if (listEl) listScroll = listEl.scrollTop;
-            load(cfg, p);
-            rerender();
-          },
+          onclick: () => { keepScroll(); load(cfg, p); rerender(); },
         }),
         tags.length ? el('span', { class: 'md-tagline', text: tags.map((t) => '#' + t).join(' ') }) : null,
         /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
@@ -1389,15 +1556,7 @@
           ? el('span', { class: 'md-builtin', text: 'yerleşik', title: 'CAYADEV presetleri' })
           : el('button', {
             class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
-            onclick: async () => {
-              if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
-              if (window.api.deletePreset) await window.api.deletePreset(p.id);
-              adoptDelta({ remove: [p.id] });
-              if (md.presetId === p.id) load(cfg, null);
-              // Puanı, favorisi ve etiketleri de gidiyor (#576): kimlik bir daha gelmiyor
-              if (LBn) Object.assign(library(cfg), LBn.forget(library(cfg), p.id));
-              refresh(() => rerender());
-            },
+            onclick: () => removePreset(p),
           }),
       ]));
     });
@@ -1405,9 +1564,16 @@
     if (listScroll > 0) {
       setTimeout(() => {
         list.scrollTop = listScroll;
-        const active = list.querySelector('.md-item.active');
+        const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
         if (active) active.scrollIntoView({ block: 'nearest' });
       }, 0);
+    }
+    if (grid) {
+      setTimeout(() => watchThumbs(list), 0);
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Küçük resim, presetin ilk iki saniyesi: örnek sesle, siyah bir ekrandan başlanarak çiziliyor. Her preset bir kez çiziliyor ve saklanıyor; preset değişince yeniden çiziliyor.',
+      }));
     }
     if (vis.length > 400) {
       nodes.push(el('div', { class: 'studio-note dim-hint', text: vis.length + ' presetten ilk 400 gösteriliyor; aramayı daraltın.' }));

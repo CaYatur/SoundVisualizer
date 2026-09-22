@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline';" />
+    <title>MilkDrop Küçük Resim</title>
+    <style>
+      html, body { margin: 0; background: #000; overflow: hidden; }
+    </style>
+  </head>
+  <body>
+    <!-- Gizli pencere (#575): MilkDrop presetlerinin küçük resmi burada
+         çiziliyor. Betik listesi src/main/milkdrop-thumbs.js PAGE_FILES ile
+         aynı ve aynı sırada: reçetenin özeti bu dosyaların baytlarından. -->
+    <canvas id="c"></canvas>
+    <script src="../shared/milkdrop.js"></script>
+    <script src="../shared/milkdrop-audio.js"></script>
+    <script src="../shared/milkdrop-hlsl.js"></script>
+    <script src="../shared/milkdrop-shader.js"></script>
+    <script src="../visualizer/modes/milkdrop.js"></script>
+    <script src="../shared/demo-audio.js"></script>
+    <script src="thumbs.js"></script>
+  </body>
+</html>

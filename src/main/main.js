@@ -33,6 +33,8 @@ const logoLibrary = require('./logo-library');
 protocol.registerSchemesAsPrivileged([
   { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
   { scheme: 'sv-logo', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
+  // MilkDrop küçük resimleri (#575): yalnız anahtar, yalnız kendi klasörü
+  { scheme: 'sv-thumb', privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: false } },
 ]);
 
 /* Arayüz dili.
@@ -88,6 +90,16 @@ const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').sli
    bekçisini açmaz (#564): bir sürüm kapısı o an masada ne açık olduğuna
    bağlı olamaz. */
 const AUTOMATION_RUN = SMOKE || SHOTS || process.argv.includes('--diag') || !!process.env.SV_IDENTITY_PROBE_FILE;
+/* OTOMASYON FİZİKSEL IŞIKLARI SÜRMEZ (#575'te bulundu). Öz test ve ekran
+   görüntüsü üreticisi gerçek kullanıcı klasörüyle koşuyor. Kullanıcının
+   ayarında Dynamic Lighting açıksa açılışta cihazları sürüyordu; öz testin
+   kendi adımları da panelde OpenRGB'yi açıyor — bilgisayarda OpenRGB
+   çalışıyorsa onun cihazlarını, Art-Net açıksa ağdaki sahne ışıklarını
+   sürerdi. Kamera için kural zaten var (otomasyonda hiç açılmıyor); ışıklar
+   için de aynısı: bu kiplerde donanıma giden çağrılar kapalı (bkz.
+   `lightingSet`, `syncArtnet`, `syncOpenRgb`). Tanılama (`--diag`) ışıkları
+   gerçekten sınamak için var; ona dokunulmuyor. */
+const HW_OFF = SMOKE || SHOTS;
 /* Electron 35, console-message olayinin imzasini degistirdi: eskiden
    (event, level, message, line, sourceId) geliyordu ve level bir sayiydi
    (0 verbose, 1 info, 2 warning, 3 error); artik tum alanlar olay nesnesinin
@@ -420,8 +432,8 @@ function syncPortableLightingFocus() {
     const lighting = currentConfig?.lighting;
     if (!lighting?.enabled) return;
     const focused = BrowserWindow.getAllWindows().some((win) => !win.isDestroyed() && win.isFocused());
-    if (focused) dynamicLighting.setConfig(lighting).catch(() => {});
-    else dynamicLighting.setConfig({ ...lighting, enabled: false }).catch(() => {});
+    if (focused) lightingSet(lighting).catch(() => {});
+    else lightingSet({ ...lighting, enabled: false }).catch(() => {});
   }, 120);
 }
 app.on('browser-window-focus', syncPortableLightingFocus);
@@ -1017,14 +1029,17 @@ function closeVisualizer(displayId) {
      bildirilen "kapattım ama arka planda açık kalıyor" hatasının nedeni buydu.
    - Dışa aktarma render penceresi: normalde finalizeExport() yok eder, ama
      dışa aktarma sürerken panel kapatılırsa geride kalır ve aynı sonucu verir.
+   - MilkDrop küçük resim penceresi (#575): boşta kalınca kendisi kapanıyor,
+     ama panel çizim sürerken kapatılırsa ayakta kalırdı.
 
    Panel kapandığında gösteri biter — closeVisualizer() de aynı yerde çağrılıyor —
-   bu yüzden bu ikisinin ayakta kalması için bir sebep yok. */
+   bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
   /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
   finalizeExport('cancelled');
+  closeThumbWin();
 }
 
 // ----------------------------------------------------------------------------
@@ -1424,7 +1439,7 @@ function applyIncomingConfig(config, opts) {
   const prevSee = wantsTransparent();
   currentConfig = config;
   if (save) saveSettings(config);
-  dynamicLighting.setConfig(config?.lighting).catch(() => {});
+  lightingSet(config?.lighting).catch(() => {});
   const nowSee = wantsTransparent();
   /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
      pencere yeniden kurulacaksa bile önce canlı pencere yeni sahneyi
@@ -1506,9 +1521,18 @@ ipcMain.on('preview:subscribe', (e, on) => {
 
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
 ipcMain.handle('request-config', () => currentConfig);
-ipcMain.handle('lighting:scan', () => dynamicLighting.scan());
+/* Dynamic Lighting'e giden her ayar buradan geçiyor: otomasyonda ışıklar
+   hep kapalı gidiyor (bkz. HW_OFF). Tarama da cihazlara bir anlığına el
+   koyuyor; otomasyonda hiç yapılmıyor. */
+function lightingSet(lighting) {
+  return dynamicLighting.setConfig(HW_OFF ? Object.assign({}, lighting, { enabled: false }) : lighting);
+}
+
+ipcMain.handle('lighting:scan', () => (HW_OFF
+  ? { ok: true, supported: false, devices: [], automation: true }
+  : dynamicLighting.scan()));
 ipcMain.handle('lighting:availability', () => dynamicLighting.availability());
-ipcMain.handle('lighting:apply', (e, lighting) => dynamicLighting.setConfig(lighting));
+ipcMain.handle('lighting:apply', (e, lighting) => lightingSet(lighting));
 ipcMain.handle('lighting:identity-status', () => lightingIdentity.status(dynamicLighting));
 ipcMain.handle('lighting:open-settings', () => lightingIdentity.openDynamicLightingSettings());
 
@@ -1923,7 +1947,7 @@ function applyRemoteCommand(msg, client) {
   sendToVisualizers('config', currentConfig);
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
-  dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+  lightingSet(currentConfig.lighting).catch(() => {});
 }
 
 let streamSyncing = false;
@@ -1973,7 +1997,8 @@ function syncStreamServer() {
 
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
-  if (!a.enabled) return artnet.stop().then(() => artnet.status());
+  // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
+  if (!a.enabled || HW_OFF) return artnet.stop().then(() => artnet.status());
   return artnet.start(a).then((st) => {
     notifyAdmin('artnet-status', st);
     return st;
@@ -2005,7 +2030,8 @@ function syncTextureShare() {
 
 function syncOpenRgb() {
   const o = (currentConfig && currentConfig.openrgb) || {};
-  if (!o.enabled) return openrgb.stop().then(() => openrgb.status());
+  // Otomasyonda OpenRGB sunucusuna bağlanılmıyor (bkz. HW_OFF)
+  if (!o.enabled || HW_OFF) return openrgb.stop().then(() => openrgb.status());
   return openrgb.start(o).then((st) => {
     notifyAdmin('openrgb-status', st);
     return st;
@@ -2108,7 +2134,7 @@ ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('openrgb:status', () => openrgb.status());
 ipcMain.handle('openrgb:sync', () => syncOpenRgb());
-ipcMain.handle('openrgb:rescan', () => openrgb.rescan());
+ipcMain.handle('openrgb:rescan', () => (HW_OFF ? openrgb.status() : openrgb.rescan()));
 ipcMain.handle('texture:status', () => textureShare.status());
 ipcMain.handle('texture:sync', () => syncTextureShare());
 ipcMain.handle('texture:senders', () => textureShare.listSenders());
@@ -2287,6 +2313,223 @@ ipcMain.handle('milkdrop:library-import', async (e, token) => {
   if (r.presets && r.presets.length) broadcastPresetDelta(r.presets, []);
   delete r.presets;
   return r;
+});
+
+// ----------------------------------------------------------------------------
+// MilkDrop küçük resimleri (#575)
+//
+// Panel görünen hücrelerin kimliklerini istiyor. Burada her birinin
+// ANAHTARI hesaplanıyor (reçete + kaynak + istediği dokular); önbellekte
+// olan hemen dönüyor, olmayan kuyruğa giriyor ve gizli bir pencerede tek
+// tek çiziliyor. Biten `milkdrop:thumb` ile sayfaya bildiriliyor. Pencere
+// boşta kalınca kapanıyor. Ayrıntı: src/main/milkdrop-thumbs.js.
+// ----------------------------------------------------------------------------
+const mdThumbs = require('./milkdrop-thumbs');
+const THUMB_IDLE_MS = 20000;
+const THUMB_JOB_MS = 30000;
+let thumbRecipe = '';
+let thumbQ = null;
+let thumbWin = null;
+let thumbWinReady = null;
+let thumbJob = null; // { key, resolve, timer }
+let thumbIdle = null;
+let thumbClient = null; // son isteyen sayfa
+let thumbPruned = false;
+let mdBuiltins = null;
+
+/* Öz test gerçek kullanıcı verisiyle koşuyor: küçük resimler onun yerine
+   geçici bir klasöre (öz testin sonunda siliniyor). */
+let smokeThumbDir = '';
+function thumbDir() {
+  if (SMOKE) {
+    if (!smokeThumbDir) smokeThumbDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'sv-smoke-thumbs-'));
+    return smokeThumbDir;
+  }
+  return path.join(app.getPath('userData'), 'milkdrop-thumbs');
+}
+
+function milkdropBuiltins() {
+  if (!mdBuiltins) {
+    try { mdBuiltins = require('../shared/presets-milkdrop.js'); } catch { mdBuiltins = []; }
+    if (!Array.isArray(mdBuiltins)) mdBuiltins = [];
+  }
+  return mdBuiltins;
+}
+
+function thumbSourceOf(id) {
+  const b = milkdropBuiltins().find((p) => p.id === id);
+  if (b) return b.source;
+  const p = presetsStore.get(id);
+  return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
+}
+
+function thumbRecipeHash() {
+  if (!thumbRecipe) thumbRecipe = mdThumbs.recipeHash(path.join(__dirname, '..', '..'));
+  return thumbRecipe;
+}
+
+/* İstek başına bir kez: motorun göreceği sıralı doku listesi ve her
+   dosyanın damgası (boyut + değişme zamanı). */
+function thumbTextureLib() {
+  const dirs = textureDirs();
+  const names = mdTex.listTexturesIn(dirs).names;
+  const stamps = new Map();
+  return {
+    names,
+    stamp(n) {
+      if (!stamps.has(n)) {
+        let s = '-';
+        const t = mdTex.textureFileInfoIn(dirs, n, TEX_MAX_BYTES);
+        if (t) {
+          try { const st = fs.statSync(t.file); s = st.size + ':' + Math.round(st.mtimeMs); } catch { s = '-'; }
+        }
+        stamps.set(n, s);
+      }
+      return stamps.get(n);
+    },
+  };
+}
+
+function thumbKeyOf(source, lib) {
+  return mdThumbs.keyOf(thumbRecipeHash(), source, mdThumbs.textureSig(source, lib));
+}
+
+function ensureThumbWin() {
+  if (thumbWin && !thumbWin.isDestroyed()) return thumbWinReady;
+  const win = new BrowserWindow({
+    width: 320,
+    height: 180,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-thumbs.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  thumbWin = win;
+  attachSmoke(win, 'THUMBS');
+  thumbWinReady = new Promise((resolve) => {
+    const onReady = (e) => {
+      if (e.sender !== win.webContents) return;
+      ipcMain.removeListener('thumbs:ready', onReady);
+      resolve(true);
+    };
+    ipcMain.on('thumbs:ready', onReady);
+    win.on('closed', () => { ipcMain.removeListener('thumbs:ready', onReady); resolve(false); });
+  });
+  win.on('closed', () => {
+    if (thumbWin === win) { thumbWin = null; thumbWinReady = null; }
+    const j = thumbJob;
+    if (j) { thumbJob = null; clearTimeout(j.timer); j.resolve(null); }
+  });
+  /* Çizim süreci çöktüyse pencere kapanmıyor, `closed` gelmiyor: süren iş
+     30 sn bekler, sonraki her hücre de. Pencere yok ediliyor; süren iş
+     başarısız, sıradaki yeni bir pencerede. */
+  win.webContents.on('render-process-gone', () => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  win.loadFile(path.join(__dirname, '..', 'thumbs', 'index.html')).catch(() => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
+  return thumbWinReady;
+}
+
+/* Gizli pencere (bkz. closeHelperWindows): panel kapanınca bekleyen işler
+   bırakılıyor ve pencere hemen kapanıyor. */
+function closeThumbWin() {
+  clearTimeout(thumbIdle);
+  if (thumbQ) thumbQ.clear();
+  if (thumbWin && !thumbWin.isDestroyed()) { try { thumbWin.destroy(); } catch { /* zaten kapalı */ } }
+}
+
+function closeThumbWinSoon() {
+  clearTimeout(thumbIdle);
+  thumbIdle = setTimeout(() => {
+    if (thumbQ && thumbQ.pending()) return;
+    if (thumbWin && !thumbWin.isDestroyed()) { try { thumbWin.destroy(); } catch { /* zaten kapalı */ } }
+  }, THUMB_IDLE_MS);
+}
+
+ipcMain.on('thumbs:done', (e, key, r) => {
+  const j = thumbJob;
+  if (!j || !thumbWin || thumbWin.isDestroyed() || e.sender !== thumbWin.webContents || j.key !== key) return;
+  thumbJob = null;
+  clearTimeout(j.timer);
+  j.resolve(r);
+});
+
+async function renderThumb(job) {
+  clearTimeout(thumbIdle);
+  /* Kuyrukta beklerken dokular değiştiyse bu anahtarın görüntüsü artık bu
+     değil: çizilmiyor, bekleyenlere yeniden istemeleri söyleniyor. */
+  if (thumbKeyOf(job.source, thumbTextureLib()) !== job.key) return { stale: true };
+  const ready = await ensureThumbWin();
+  if (!ready || !thumbWin || thumbWin.isDestroyed()) return null;
+  const cfg = currentConfig || {};
+  const md = cfg.milkdrop || {};
+  const lib = cfg.milkdropLibrary || {};
+  const r = await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (thumbJob && thumbJob.key === job.key) { thumbJob = null; resolve(null); }
+    }, THUMB_JOB_MS);
+    thumbJob = { key: job.key, resolve, timer };
+    thumbWin.webContents.send('thumbs:job', {
+      key: job.key, source: job.source,
+      textureDir: md.textureDir || '', textureRev: +lib.textureRev || 0,
+      recipe: mdThumbs.RECIPE,
+    });
+  });
+  closeThumbWinSoon();
+  return r && r.ok && r.bytes ? Buffer.from(r.bytes) : null;
+}
+
+function thumbQueue() {
+  if (!thumbQ) {
+    thumbQ = new mdThumbs.ThumbQueue({
+      dir: thumbDir(),
+      render: renderThumb,
+      onReady: (id, key, ok, stale) => {
+        if (thumbClient && !thumbClient.isDestroyed()) thumbClient.send('milkdrop:thumb', { id, key, ok, stale: !!stale });
+      },
+    });
+  }
+  return thumbQ;
+}
+
+/* Oturum başına bir kez, arka planda: bugünkü presetlerin anahtarı olmayan
+   küçük resimler siliniyor. Anahtarlar parça parça hesaplanıyor; ana süreç
+   sesi, ışıkları ve IPC'yi beklemeden sürdürsün. */
+async function pruneThumbs() {
+  const started = Date.now();
+  await presetsStore.warm();
+  const lib = thumbTextureLib();
+  const live = new Set();
+  const all = milkdropBuiltins().concat(presetsStore.list().filter((p) => p && p.kind === 'milkdrop'));
+  for (let i = 0; i < all.length; i++) {
+    if (typeof all[i].source === 'string') live.add(thumbKeyOf(all[i].source, lib));
+    if (i % 250 === 249) await new Promise((r) => setImmediate(r));
+  }
+  mdThumbs.prune(thumbDir(), live, started);
+}
+
+ipcMain.handle('milkdrop:thumbs', async (e, ids) => {
+  await presetsStore.warm();
+  const list = Array.isArray(ids) ? ids.filter((x) => typeof x === 'string').slice(0, 200) : [];
+  thumbClient = e.sender;
+  const lib = thumbTextureLib();
+  const items = [];
+  for (const id of list) {
+    const source = thumbSourceOf(id);
+    if (typeof source === 'string' && source) items.push({ id, source, key: thumbKeyOf(source, lib) });
+  }
+  const ready = thumbQueue().request(items);
+  if (!thumbPruned) {
+    thumbPruned = true;
+    setTimeout(() => { pruneThumbs().catch(() => {}); }, 5000);
+  }
+  return { ok: true, ready };
 });
 
 // ----------------------------------------------------------------------------
@@ -2843,7 +3086,7 @@ app.whenReady().then(async () => {
     currentConfig = null;
   }
   if (currentConfig?.lighting?.enabled) {
-    dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+    lightingSet(currentConfig.lighting).catch(() => {});
   }
   syncNowPlaying();
   /* Preset deposu arka planda okunmaya başlıyor (#574): pencereler açılıp
@@ -2880,6 +3123,23 @@ app.whenReady().then(async () => {
       return new Response(new Uint8Array(entry.buf), { status: 200, headers });
     } catch {
       return new Response('error', { status: 500 });
+    }
+  });
+
+  /* MilkDrop küçük resimleri (#575). Adres bir yol değil, içeriğin
+     anahtarı: dosya yalnız küçük resim klasöründen okunuyor. Anahtar
+     içerikten türediği için değişmiyor, önbellekte süresiz kalabilir. */
+  protocol.handle('sv-thumb', async (request) => {
+    const file = mdThumbs.fileForUrl(thumbDir(), request.url);
+    if (!file) return new Response('not found', { status: 404 });
+    try {
+      const buf = await fs.promises.readFile(file);
+      return new Response(new Uint8Array(buf), {
+        status: 200,
+        headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'private, max-age=31536000, immutable' },
+      });
+    } catch {
+      return new Response('not found', { status: 404 });
     }
   });
 
@@ -3273,6 +3533,46 @@ async function runSmoke() {
       if (!red(spr.on)) errors.push('sprite: the sprite did not reach the screen (' + JSON.stringify(spr.on && spr.on.rgb) + ')');
       if (!spr.off || !spr.off.live || spr.off.live.length !== 0) errors.push('sprite: removing all left a sprite running');
       if (red(spr.off)) errors.push('sprite: the sprite stayed on screen after it was removed');
+    }
+  }
+
+  /* --- MilkDrop küçük resmi (#575) ---
+     Zincirin tamamı yalnız gerçek uygulamada görünüyor: reçetenin özeti
+     (paketlenmiş uygulamada asar'ın içindeki dosyalar), kuyruk, gizli
+     pencere, `sv-thumb:` protokolü ve panelin CSP'si. Yerleşik bir preset
+     çiziliyor — öz testte küçük resim klasörü geçici bir klasör, kullanıcının
+     verisine yazılmıyor — ve panelde bir <img> ile geri okunuyor. */
+  const thumbProbe = async () => {
+    try {
+      await presetsStore.warm();
+      const b = milkdropBuiltins()[0];
+      if (!b) return { hata: 'yerleşik preset yok' };
+      const key = thumbKeyOf(b.source, thumbTextureLib());
+      const file = path.join(thumbDir(), key + '.webp');
+      const t0 = Date.now();
+      thumbQueue().request([{ id: b.id, key, source: b.source }]);
+      for (let i = 0; i < 120 && !fs.existsSync(file); i++) await wait(250);
+      const ms = Date.now() - t0;
+      if (!fs.existsSync(file)) return { hata: 'dosya yazılmadı', ms };
+      const head = fs.readFileSync(file).subarray(0, 12).toString('latin1');
+      const img = adminWin && !adminWin.isDestroyed() ? await adminWin.webContents.executeJavaScript(`new Promise(function (done) {
+        var i = new Image();
+        i.onload = function () { done({ w: i.naturalWidth, h: i.naturalHeight }); };
+        i.onerror = function () { done({ hata: 'yüklenmedi' }); };
+        i.src = ${JSON.stringify('sv-thumb://t/' + key + '.webp')};
+      })`) : { hata: 'panel yok' };
+      return { ms, bytes: fs.statSync(file).size, webp: head.slice(0, 4) === 'RIFF' && head.slice(8, 12) === 'WEBP', img };
+    } catch (e) {
+      return { hata: String((e && e.message) || e) };
+    }
+  };
+  const th = await thumbProbe();
+  console.log('[SMOKE] küçük resim: ' + JSON.stringify(th));
+  if (th.hata) errors.push('thumbnail: ' + th.hata);
+  else {
+    if (!th.webp) errors.push('thumbnail: the file is not a WebP');
+    if (!th.img || th.img.w !== mdThumbs.RECIPE.thumbW || th.img.h !== mdThumbs.RECIPE.thumbH) {
+      errors.push('thumbnail: the panel could not show it (' + JSON.stringify(th.img) + ')');
     }
   }
 
@@ -5012,6 +5312,9 @@ async function runSmoke() {
   if (monoFrames > 0) {
     errors.push('audio: ' + monoFrames + ' helper frames arrived without the left and right channels');
   }
+  // Öz testin küçük resim klasörü geçici (#575)
+  closeThumbWin();
+  if (smokeThumbDir) { try { fs.rmSync(smokeThumbDir, { recursive: true, force: true }); } catch { /* geçici */ } }
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
     errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));

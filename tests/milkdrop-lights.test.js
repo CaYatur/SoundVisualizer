@@ -31,14 +31,22 @@ const ART = require('../src/main/artnet.js');
    Sahte tuval, motorun istediği küçültmeyi bu işlevden dolduruyor. */
 function engineWith(paint) {
   const calls = [];
+  // Hangi tuvale ne yapıldı: sık okumaya ayrılmış mı, kaynak ne boyda
+  const ops = [];
   const canvas = (w, h) => {
     const c = { width: w || 0, height: h || 0, addEventListener() {} };
-    c.getContext = (k) => {
+    c.getContext = (k, opts) => {
       if (k !== '2d') return null;
+      if (opts) c.opts = opts;
+      const freq = () => !!(c.opts && c.opts.willReadFrequently);
       return {
         clearRect() {},
-        drawImage(src, x, y, dw, dh) { calls.push([src === c ? 'self' : 'src', dw, dh]); },
+        drawImage(src, x, y, dw, dh) {
+          calls.push([src === c ? 'self' : 'src', dw, dh]);
+          ops.push(['draw', freq(), src.width]);
+        },
         getImageData(x0, y0, w2, h2) {
+          ops.push(['read', freq(), w2 * h2]);
           const data = new Uint8ClampedArray(w2 * h2 * 4);
           for (let yy = 0; yy < h2; yy++) {
             for (let xx = 0; xx < w2; xx++) {
@@ -58,7 +66,7 @@ function engineWith(paint) {
   vm.createContext(ctx);
   vm.runInContext(read('src/visualizer/modes/milkdrop.js'), ctx, { filename: 'milkdrop.js' });
   const m = new ctx.window.SVModes.milkdrop(canvas(1920, 1080));
-  return { m, calls };
+  return { m, calls, ops };
 }
 
 // ------------------------------------------------------------ örnekleyici
@@ -69,6 +77,21 @@ test('renkler soldan sağa dilimlerden: sol yarı kırmızı, sağ yarı mavi', 
   assert.deepStrictEqual(c, ['#ff0000', '#ff0000', '#ff0000', '#ff0000', '#0000ff', '#0000ff', '#0000ff', '#0000ff']);
   // Kare 64x16'ya küçültülüyor; tam kare geri okunmuyor
   assert.deepStrictEqual(Array.from(calls[0]), ['src', 64, 16]);
+});
+
+test('geri okuma küçük tuvalden; tam boy kare GPU tuvalinde küçültülüyor (#575)', () => {
+  /* Tek tuvalde `getImageData` Chromium'un "willReadFrequently" uyarısını
+     veriyordu (öz test onu hata sayıyor); tuvali sık okumaya ayırmak ise
+     tam boy kareyi her seferinde işlemciye çekerdi. */
+  const { m, ops } = engineWith(() => [200, 0, 0]);
+  m.sampleColors(8);
+  m.sampleColors(8);
+  const reads = ops.filter((o) => o[0] === 'read');
+  assert.ok(reads.length === 2 && reads.every((o) => o[1] === true && o[2] === 64 * 16), 'okuma sık okumaya ayrılmış 64x16 tuvalden');
+  const full = ops.filter((o) => o[0] === 'draw' && o[2] === 1920);
+  assert.ok(full.length === 2 && full.every((o) => o[1] === false), 'tam boy kare sık okumaya ayrılmamış tuvalde küçültülüyor');
+  const copy = ops.filter((o) => o[0] === 'draw' && o[2] === 64);
+  assert.ok(copy.length === 2 && copy.every((o) => o[1] === true), 'küçük kare okuma tuvaline kopyalanıyor');
 });
 
 test('koyu arkaplandaki küçük parlak ayrıntı dilimin rengini veriyor', () => {

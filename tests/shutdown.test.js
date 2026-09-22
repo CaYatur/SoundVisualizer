@@ -40,8 +40,9 @@ const main = () => stripComments(read('src/main/main.js'));
    Liste bilerek elle tutuluyor: yeni bir gizli pencere ekleyen kişi buraya da
    yazmak zorunda kalsın, yani "kapanışta ne olacak?" sorusunu atlayamasın. */
 const HIDDEN_WINDOW_SITES = [
-  { file: 'src/main/texture-share.js', count: 1, teardown: 'textureShare.stop()' },
-  { file: 'src/main/main.js', count: 1, teardown: "finalizeExport('cancelled')" },
+  { file: 'src/main/texture-share.js', count: 1, teardown: ['textureShare.stop()'] },
+  // Dışa aktarma render penceresi ve MilkDrop küçük resim penceresi (#575)
+  { file: 'src/main/main.js', count: 2, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()'] },
 ];
 
 /* Ana süreçte gizli pencere açan yerleri sayar: dosya -> adet.
@@ -99,8 +100,10 @@ test('gizli pencere açan her yer kayıtlı', () => {
 test('closeHelperWindows() her gizli pencereyi kapatıyor', () => {
   const body = functionBody(main(), 'closeHelperWindows');
   for (const site of HIDDEN_WINDOW_SITES) {
-    assert.ok(body.indexOf(site.teardown) >= 0,
-      site.file + ' için temizlik çağrısı yok: ' + site.teardown);
+    assert.strictEqual(site.teardown.length, site.count, site.file + ': her gizli pencerenin bir temizliği olmalı');
+    for (const t of site.teardown) {
+      assert.ok(body.indexOf(t) >= 0, site.file + ' için temizlik çağrısı yok: ' + t);
+    }
   }
 });
 

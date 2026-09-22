@@ -117,6 +117,11 @@ contextBridge.exposeInMainWorld('api', {
   rescanMilkdropLibrary: (token) => ipcRenderer.invoke('milkdrop:library-rescan', token),
   importMilkdropLibrary: (token) => ipcRenderer.invoke('milkdrop:library-import', token),
   onMilkdropLibraryProgress: (cb) => ipcRenderer.on('milkdrop:library-progress', (e, p) => cb(p)),
+  /* Küçük resimler (#575): görünen kimlikler isteniyor; hazır olanların
+     anahtarı hemen, gerisi çizildikçe `milkdrop:thumb` ile. Görsel
+     `sv-thumb://t/<anahtar>.webp` adresinden. */
+  milkdropThumbs: (ids) => ipcRenderer.invoke('milkdrop:thumbs', ids),
+  onMilkdropThumb: (cb) => ipcRenderer.on('milkdrop:thumb', (e, t) => cb(t)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),
