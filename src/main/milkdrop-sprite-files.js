@@ -12,8 +12,8 @@
  *   img=c:\bir\logo.jpg   tam yol
  *   img=c:logo.jpg        HAYIR — sürücüye göreli
  *   img=\logo.jpg         HAYIR — sürücüsüz kök
- * Ağ yolu (`\\sunucu\pay`) da reddediliyor: bir ini dosyası uygulamaya
- * ağdan dosya çektirmemeli.
+ * Ağ yolu (`\\sunucu\pay`) da reddediliyor — sürücüsüz kök kuralıyla: bir
+ * ini dosyası uygulamaya ağdan dosya çektirmemeli.
  *
  * Oluşturucular (pencereler, web çıkışı) resmi YOLLA değil, burada
  * üretilen bir KİMLİKLE istiyor; yol hiçbir zaman sayfaya gitmiyor. */
@@ -47,12 +47,13 @@ function resolveImage(iniFile, img, platform) {
   const raw = typeof img === 'string' ? img.trim() : '';
   if (!raw) return { error: 'NO_IMG' };
   const win = (platform || process.platform) === 'win32';
-  if (/^[\\/]{2}/.test(raw)) return { error: 'BAD_PATH' };           // ağ yolu
   if (/^[A-Za-z]:(?![\\/])/.test(raw)) return { error: 'BAD_PATH' }; // c:logo.jpg
   const drive = /^[A-Za-z]:[\\/]/.test(raw);
   /* Sürücüsüz kök: Windows'ta `\logo.jpg` da `/logo.jpg` da geçerli
-     sürücüye göre — MilkDrop "sürücü belirtilmeli" diyor. macOS ve
-     Linux'ta `/` ile başlayan yol ise gerçek bir tam yol. */
+     sürücüye göre — MilkDrop "sürücü belirtilmeli" diyor. Ağ yolu
+     (`\\sunucu\pay`, `//sunucu/pay`) da bu kurala takılıyor. macOS ve
+     Linux'ta `/` ile başlayan yol ise gerçek bir tam yol; orada `//`
+     bir ağ yolu değil. */
   if (!drive && (raw[0] === '\\' || (raw[0] === '/' && win))) return { error: 'BAD_PATH' };
   const absolute = drive || raw[0] === '/';
   // Windows'tan gelen ini'de ayırıcı ters eğik çizgi; her sistemde yol olsun

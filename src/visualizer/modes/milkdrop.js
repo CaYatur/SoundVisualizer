@@ -1026,9 +1026,12 @@ void main(){
       this._pending = null;
       this._parallel = null;
       /* Sprite dokuları da gitti; sprite'ların KENDİSİ (kodları, değişkenleri,
-         saatleri) kalıyor, dokular bir sonraki karede yeniden isteniyor. */
+         saatleri) kalıyor, dokular bir sonraki karede yeniden isteniyor.
+         Resmini bekleyen başlatmaların süresi yeni bağlamda baştan
+         başlıyor: kayıptan önceki saatle hemen düşerlerdi. */
       this._spriteTex = new Map();
       this.locSprite = null;
+      if (this._spriteWait) for (const w of this._spriteWait) w.at = 0;
     }
 
     _initGL(W, H) {

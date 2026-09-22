@@ -1193,8 +1193,12 @@ MilkDrop (#560):
     - an unknown key got 404, and a request without the token got 401;
     - a burnt sprite's image stayed exactly where it was after the sprite
       died, and not mirrored.
-  - **Tests.** 37 tests; 13 of 13 mutations that change behaviour are
-    caught. Two further mutations are equivalent and are noted.
+  - **Tests.** 37 tests; 16 of 16 mutations that change behaviour are
+    caught. Two more mutations did not change behaviour:
+    - one showed a network-path check that the driveless-root rule
+      already covers, and the check was removed;
+    - the other, DELETE outside sprite mode, is already stopped by a later
+      check.
 
 Audio:
 - **Both channels reach the visuals (#566)** · done on `main`. Found while

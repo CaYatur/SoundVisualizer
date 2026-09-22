@@ -274,6 +274,7 @@ test('tuşlar: K + iki hane başlatıyor, SHIFT+K + iki hane siliyor', () => {
   const idle = S.spriteKey(null, { key: '5' });
   assert.strictEqual(idle.cmd, null); assert.strictEqual(idle.used, false);
   assert.strictEqual(S.spriteKey(null, { key: 'Delete' }).used, false);
+  assert.strictEqual(S.spriteKey(null, { key: 'Delete' }).cmd, null, 'kip dışında DELETE silmemeli');
   assert.strictEqual(S.spriteKey(null, { key: 'Escape' }).used, false, 'kip dışında ESC pencerenin');
 });
 

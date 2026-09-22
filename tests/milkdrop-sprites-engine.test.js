@@ -238,7 +238,10 @@ test('çizim yerinde: birleştirmeden sonra, flaş sınırlayıcıdan önce; ba�
   assert.ok(d > 0 && comp > 0 && comp < d && flash > d, 'sıra: birleştirme → sprite → flaş');
   const names = /const GL_NAMES = \[([\s\S]*?)\];/.exec(SRC)[1];
   for (const n of ['spriteVao', 'spriteVbo', 'spriteProg']) assert.ok(names.includes("'" + n + "'"), n + ' envanterde yok');
-  assert.match(method('_forgetGL()'), /this\._spriteTex = new Map\(\);/);
+  const forget = method('_forgetGL()');
+  assert.match(forget, /this\._spriteTex = new Map\(\);/);
+  // Bekleyen başlatmalar yeni bağlamda baştan bekliyor
+  assert.match(forget, /if \(this\._spriteWait\) for \(const w of this\._spriteWait\) w\.at = 0;/);
   const disp = method('dispose()');
   assert.match(disp, /gl\.deleteProgram\(this\.spriteProg\)/);
   assert.match(disp, /for \(const t of this\._spriteTex\.values\(\)\) if \(t\.tex\) gl\.deleteTexture\(t\.tex\);/);
