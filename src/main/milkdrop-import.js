@@ -37,8 +37,6 @@ const MAX_FILES = 200000;
 const MAX_DEPTH = 12;
 const MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
 const TEX_DIRS = ['textures', 'sprites'];
-/* Motorun kendi örnekleyicileri: preset bunları istese de dosya değil. */
-const BUILTIN_SAMPLERS = /^(main|fw_main|fc_main|pw_main|pc_main|noise_[lmh]q|noisevol_[lh]q|blur[123]|rand\d\d)(_|$)/i;
 
 const lower = (s) => String(s || '').toLowerCase();
 const extOf = (n) => path.extname(String(n || '')).toLowerCase();
@@ -236,16 +234,13 @@ function decodeText(buf) {
 const SEP = String.fromCharCode(0);
 const keyOf = (name, source) => name + SEP + crypto.createHash('sha1').update(source).digest('hex');
 
-/* Presetin istediği dosya dokuları: `sampler_worms` → "worms". */
+/* Presetin istediği dosya dokuları: `sampler_worms` → "worms". Süzme/sarma
+   ön eki soyuluyor (`sampler_fw_worms` de "worms"): önceden soyulmuyordu ve
+   ön ekli isteyen bir presetin yanındaki doku içe aktarımda kopyalanmıyordu
+   (#575'te bulundu). Motorun kendi örnekleyicileri ve `randNN` yuvaları dosya
+   adı değil (bkz. `milkdrop-textures.js` `userSamplers`). */
 function samplerNames(source) {
-  const out = new Set();
-  const re = /\bsampler_([A-Za-z0-9_]+)/g;
-  let m;
-  while ((m = re.exec(source))) {
-    const n = m[1];
-    if (!BUILTIN_SAMPLERS.test(n)) out.add(lower(n));
-  }
-  return out;
+  return tex.userSamplers(source).names;
 }
 
 /* ÇALIŞTIRMA. `deps`:

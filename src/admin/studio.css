@@ -532,6 +532,96 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 }
 .md-item { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
 .md-item.active { background: rgba(124, 92, 255, 0.18); }
+/* Küçük resimli ızgara (#575): listeyle aynı çerçeve. Hücre 16:9 küçük
+   resim + ad; yıldız ve silme köşede. Bekleyen hücre çizgili, çizilemeyen
+   kesikli çerçeveli — ikisi de siyah bir küçük resimden ayrı görünmeli:
+   presetlerin bir kısmı gerçekten siyah başlıyor. */
+.md-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 6px;
+}
+.md-cell { position: relative; min-width: 0; }
+.md-cell-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.md-cell-main:hover { background: rgba(255, 255, 255, 0.05); }
+.md-cell.active .md-cell-main {
+  background: rgba(124, 92, 255, 0.18);
+  border-color: rgba(124, 92, 255, 0.55);
+}
+.md-thumb-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #000;
+}
+.md-thumb-box img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.md-thumb-box.pending img,
+.md-thumb-box.failed img { display: none; }
+.md-thumb-box.pending {
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 6px, rgba(255, 255, 255, 0.02) 6px 12px);
+  animation: md-thumb-wait 1.6s ease-in-out infinite;
+}
+@keyframes md-thumb-wait { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) {
+  .md-thumb-box.pending { animation: none; }
+}
+.md-thumb-box.failed {
+  background: rgba(255, 255, 255, 0.03);
+  outline: 1px dashed rgba(255, 138, 138, 0.55);
+  outline-offset: -1px;
+}
+.md-thumb-box.failed::after {
+  content: '✕';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 138, 138, 0.8);
+  font-size: 14px;
+}
+.md-cell-name {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md-cell .md-fav {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  padding: 2px 5px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 999px;
+}
+.md-cell .md-cell-del {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.md-cell:hover .md-cell-del,
+.md-cell .md-cell-del:focus-visible { opacity: 1; }
 /* Sprite'lar (#577): numara, ad, varsa neden başlamadığı, ▶ ve ■. Preset
    listesiyle aynı çerçeve; başlatılamayan satır soluk. */
 .md-sprites {

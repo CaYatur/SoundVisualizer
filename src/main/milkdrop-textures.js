@@ -90,7 +90,13 @@ function textureFileInfo(dir, name, maxBytes) {
 /* BİRDEN ÇOK KLASÖR (#574). Kullanıcının seçtiği doku klasörü ve içe
    aktarılan paketlerin dokularının kopyalandığı, uygulamaya ait klasör.
    Aynı ad iki yerde varsa kullanıcınınki geçerli: sırayla bakılıyor.
-   Adlar birleşiyor, her ad bir kez. */
+   Adlar birleşiyor, her ad bir kez.
+
+   Liste SIRALI (#575). `sampler_rand00` gibi yuvalar dokuyu bu listedeki
+   SIRASINDAN seçiyor; dosya sisteminin sırası Windows'ta alfabetik,
+   Linux'ta rastgele. Sıralayınca aynı preset her makinede aynı dokuyu
+   alıyor, küçük resmi de her seferinde aynı çıkıyor. Sıralama ölçüm
+   betiğininkiyle aynı (`milkdrop-render-rate.js`, varsayılan `sort`). */
 function listTexturesIn(dirs) {
   const names = [];
   const seen = new Set();
@@ -103,7 +109,33 @@ function listTexturesIn(dirs) {
       names.push(n);
     }
   }
+  names.sort();
   return { dir: (Array.isArray(dirs) && dirs[0]) || '', names };
+}
+
+/* PRESETİN İSTEDİĞİ KULLANICI DOKULARI (#574, #575). Çevirici
+   (`milkdrop-shader.js`, `canonSampler`) süzme/sarma ön ekini soyuyor:
+   `sampler_fw_worms` de `sampler_pc_worms` de `worms` dosyasını istiyor.
+   Motorun kendi örnekleyicileri (main, blur, gürültü) dosya değil.
+   `rand00` … `rand15` klasörden SIRAYLA seçiliyor: ada değil bütün listeye
+   bağlı (`rand`). Adlar küçük harf, uzantısız — motor da öyle eşliyor
+   (`_texFileFor`). */
+const SAMPLER_PREFIX = /^(fw|pw|fc|pc)_/i;
+const ENGINE_SAMPLERS = /^(main|blur[123]|noise_lq|noise_lq_lite|noise_mq|noise_hq|noisevol_lq|noisevol_hq)$/i;
+
+function userSamplers(source) {
+  const names = new Set();
+  let rand = false;
+  const re = /\bsampler_([A-Za-z0-9_]+)/g;
+  const text = String(source || '');
+  let m;
+  while ((m = re.exec(text))) {
+    const base = m[1].replace(SAMPLER_PREFIX, '').toLowerCase();
+    if (!base || ENGINE_SAMPLERS.test(base)) continue;
+    if (/^rand\d\d(_|$)/.test(base)) { rand = true; continue; }
+    names.add(base);
+  }
+  return { names, rand };
 }
 
 function textureFileInfoIn(dirs, name, maxBytes) {
@@ -117,5 +149,5 @@ function textureFileInfoIn(dirs, name, maxBytes) {
 
 module.exports = {
   TEXTURE_EXT, TEXTURE_MIME, isTextureFile, mimeFor, resolveTexture, listTextures, textureFileInfo,
-  listTexturesIn, textureFileInfoIn,
+  listTexturesIn, textureFileInfoIn, userSamplers,
 };

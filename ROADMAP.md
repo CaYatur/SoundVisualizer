@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2081 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2102 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 484
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 505
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1737,6 +1737,71 @@ rest after. No version number yet.
     main-process handlers, the engine's texture counter, and the panel
     drawn with a fake DOM, confirmation and rescan included. 57 of 57
     mutations are caught.
+- **Preset thumbnails (#575)** · done. The MilkDrop panel's list gets a
+  *Layout* choice, *List* or *Grid*. In the grid every preset shows a
+  thumbnail, drawn once in a hidden window and kept in the user data
+  (`milkdrop-thumbs/`).
+  - **Recipe, measured** on a seeded 200-preset sample of the corpus: a
+    black start; 60 frames of the demo sound at 1/30 s; drawn at 640x360
+    and scaled to a 256x144 WebP (~3.6 KB). A fixed seed image (a builtin
+    preset for 45 frames, then a hard cut) lowered the black thumbnails only
+    from 20 to 18 — fixing four and breaking two — made each job 45% longer
+    and painted its own colours into the thumbnails of presets that draw
+    nothing like it. 90 and 150 frames gave 20 and 22 black thumbnails (some
+    presets fade out), at a median of 350 and 538 ms against 259 ms. Drawing
+    at 640x360 instead of 320x180 barely moved the time (250 against 259 ms
+    median): the work is the per-frame code, not the pixels.
+  - **The same every time.** Each thumbnail is drawn by a new engine
+    instance, whose context `dispose` releases, from black buffers.
+    `Math.random` and the preset's seed come from the key. A texture the
+    preset asks for is waited for right after the frame that asks, and a
+    thumbnail whose texture does not arrive within 8 s is not written.
+    Checked in the real page: a preset drawn after two different presets
+    gave the same bytes, with and without a texture.
+  - **Key** = a hash of the recipe (the bytes of every file the thumbnail
+    page loads, plus the sizes and the frame count) + the preset's source +
+    a signature of the textures it asks for (name, size, modification time;
+    the whole list for `sampler_randNN`). An engine change (#580, #567)
+    therefore retires every thumbnail by itself, an edited preset or a
+    changed texture gets a new one, and two presets with the same content
+    share one. Once per session, files no current preset produces are
+    deleted.
+  - **Panel.** The visible cells are asked for; cached thumbnails come back
+    at once, the rest as they are drawn, newest request first, one at a
+    time. A waiting cell is striped and a failed one has a dashed frame, so
+    neither looks like a thumbnail that is really black (about 9% are). The
+    layout is the viewer's own choice, kept in browser storage rather than
+    in the settings. Images come through an `sv-thumb:` protocol that
+    accepts only a key and reads only the thumbnail folder. The hidden
+    window closes after 20 s idle and when the panel closes — otherwise it
+    would keep the app from quitting.
+  - **Found on the way:** `sampler_randNN` picked from the texture list in
+    the order the file system returned — alphabetical on Windows, arbitrary
+    on Linux — so the same preset could get another texture on another
+    machine; the list is now sorted the way the measurement script sorts
+    it. The importer (#574) did not strip the filter/wrap prefix from
+    sampler names, so a preset asking for `sampler_fw_worms` did not bring
+    the `worms.jpg` beside it; now it does. The builtin presets module gave
+    Node nothing; the main process now reads their sources from it.
+  - **Measured** in an isolated copy with 120 corpus presets and the panel
+    driven: the first thumbnail after 1.0 s, the 20 visible cells full in
+    10–17 s. With a visualizer window drawing MilkDrop at 75 Hz, 20 s idle
+    against 20 s while 31 thumbnails were drawn: frame time p99 13.5 against
+    13.6 ms, longest frame 17.2 against 26.7 ms, none over 33 ms either way
+    — so no pause between jobs was added. The English UI was checked.
+  - **Not done:** thumbnails in the web remote and in the list view;
+    drawing every thumbnail ahead of time (only what is looked at is drawn;
+    10,000 presets would take over an hour); a thumbnail shows the first two
+    seconds, not a preset's later look.
+  - **Tests.** 21 tests: recipe and page files, key and texture signature,
+    the queue (cache, one job per key, newest first, failure, staleness,
+    cap, clear), cleanup, the protocol, the page driver with a fake engine
+    (new instance per job, seeding, texture wait and timeout), the builtins
+    in Node, the main-process pins, and the panel's grid with a fake DOM.
+    The smoke test draws a builtin preset's thumbnail through the whole
+    chain — the recipe files read from the package, the hidden window, the
+    protocol and the panel's CSP — into a temporary folder, not the user's
+    data. 40 of 40 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

@@ -13,16 +13,12 @@
 
    Kimlikler koddan geliyor ve SABİT: kullanıcı deposundaki `md_<rastgele>`
    ile çakışmasınlar diye `md_caya_` önekli, ve `safeName`in izin verdiği
-   karakter kümesinde. */
-(function () {
-  const P = typeof window !== 'undefined' ? window.SVPresets : null;
-  if (!P || !P.registerBuiltin) return;
-  /* Aynı sayfada iki kez değerlendirilirse `registerBuiltin` yinelenen
-     kimlik için hata atıyor ve kayıt yarıda kalıyor. Nöbetçi, ikinci
-     değerlendirmeyi sessizce geçiyor. */
-  if (window.__SVMilkdropBuiltins) return;
-  window.__SVMilkdropBuiltins = true;
+   karakter kümesinde.
 
+   Liste ÖNCE kuruluyor ve Node'da da dışa veriliyor (#575): ana süreç
+   küçük resim anahtarını ve artık temizliğini yerleşiklerin kaynağından
+   hesaplıyor. Kayıt yalnız sayfada, `SVPresets` varken. */
+(function () {
   const MD = (id, name, description, source) => ({
     id, name, description, source,
     kind: 'milkdrop', engine: 'milkdrop', tags: ['milkdrop'],
@@ -780,7 +776,14 @@ wave_1_per_point2=y = 0.12 + 0.62*value1;
 wave_1_per_point3=a = 0.14 + 0.26*value1;`),
   ];
 
-  P.registerBuiltin(LIST);
   if (typeof module !== 'undefined' && module.exports) module.exports = LIST;
+  const P = typeof window !== 'undefined' ? window.SVPresets : null;
+  if (!P || !P.registerBuiltin) return;
+  /* Aynı sayfada iki kez değerlendirilirse `registerBuiltin` yinelenen
+     kimlik için hata atıyor ve kayıt yarıda kalıyor. Nöbetçi, ikinci
+     değerlendirmeyi sessizce geçiyor. */
+  if (window.__SVMilkdropBuiltins) return;
+  window.__SVMilkdropBuiltins = true;
+  P.registerBuiltin(LIST);
   window.SVMilkdropBuiltins = LIST;
 })();

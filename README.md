@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2081%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2102%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -360,6 +360,12 @@ that asserts the bar profile has no step in it.
   scanned in full before you are asked. No preset pack ships with the app. Measured with real
   packs: a 9,795-preset folder was scanned in 1.1 s and imported in 6.2 s, and importing it again
   added nothing.
+- **Preset thumbnails.** The MilkDrop panel's list has a *Grid* layout: every preset shows a small
+  picture of itself, so a preset can be found by its look. Each thumbnail is drawn once in the
+  background — the first two seconds of the preset with the demo sound, from a black screen — kept
+  in the app's data, and drawn again when the preset or a texture it uses changes. Only the
+  presets you scroll to are drawn. A visualizer window drawing MilkDrop at the same time barely
+  noticed: none of its frames took longer than 27 ms.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1259,7 +1265,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2081 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2102 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
