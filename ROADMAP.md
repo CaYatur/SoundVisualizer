@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2002 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2003 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 405
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 406
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1561,9 +1561,10 @@ rest after. No version number yet.
     now* still a cut. *Off* while asked: 1 s again; *Always* while not asked:
     5 s. A change to the system setting while the app ran was picked up
     without a restart, and the panel named the reason every time.
-  - **Tests.** 17 tests run the engine's own `_reducedMotion`, `_autoCycle`
-    and `_ensurePreset` in a fake window with a fake `matchMedia`, and draw
-    the panel with a fake DOM. 26 of 26 mutations are caught.
+  - **Tests.** 18 tests run the engine's own `_reducedMotion`, `_autoCycle`
+    and `_ensurePreset` in a fake window with a fake `matchMedia`, draw the
+    panel with a fake DOM, and follow *Always* from the export job to the
+    layer the engine draws. 29 of 29 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

@@ -104,6 +104,20 @@ test('dışa aktarım üreten makinenin ayarına bağlı değil; "Her zaman" ora
   assert.match(read('src/exporter/exporter.js'), /window\.SVMilkdropSync = true;/, 'dışa aktarıcı bayrağı koyuyor');
 });
 
+test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşınıyor', () => {
+  /* `milkdropControl` sahne anahtarı değil; dışa aktarıcı yalnız sahneyi
+     alsaydı 'on' motora hiç varmaz, belgelerdeki söz boşa çıkardı. */
+  assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: currentConfig \|\| \{\},/);
+  assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), job\.cfg \|\| \{\}\);/);
+  require('../src/visualizer/layers.js');
+  const cfg = SV.defaultConfig();
+  cfg.milkdropControl.reduceMotion = 'on';
+  for (const settings of [{}, { visualizer: { sensitivity: 2 } }]) {
+    const lc = window.SVLayers.layerConfig(cfg, { kind: 'visualizer', type: 'milkdrop', settings });
+    assert.strictEqual(lc.milkdropControl.reduceMotion, 'on', 'katman ayarı ' + JSON.stringify(settings));
+  }
+});
+
 test('varsayılan "sistemi izle"; ayar gösterinin, sahnenin değil', () => {
   assert.strictEqual(SV.defaultConfig().milkdropControl.reduceMotion, 'system');
   // Sahne anahtarlarında milkdropControl yok: sahne değişince ayar kalıyor
@@ -355,7 +369,7 @@ test('panel: metinlerin İngilizcesi var', () => {
   const I18N = read('src/shared/i18n.js');
   const PANEL = read('src/admin/milkdrop-panel.js');
   for (const k of [
-    'Hareketi Azalt', 'Sistemi izle', 'Her zaman', 'Kapalı (sistem istese de)',
+    'Hareketi Azalt', 'Durum', 'Sistemi izle', 'Her zaman', 'Kapalı (sistem istese de)',
     'Açık — bu ayarla', 'Açık — işletim sistemi hareketin azaltılmasını istiyor',
     'Kapalı — sistem istiyor ama geçersiz kılındı', 'Kapalı — işletim sistemi istemiyor',
   ]) {
