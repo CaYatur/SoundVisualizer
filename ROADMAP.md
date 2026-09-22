@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2108 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2147 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 511
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 550
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1858,6 +1858,91 @@ rest after. No version number yet.
     automation flag. 57 of 58 mutations are caught; the survivor removes
     the "no context" check, which the frame counter already makes (without
     a context no frame is drawn).
+- **A preset generator of our own (#579)** · the generator is done; mash-ups
+  are next.
+  - **What it does.** *Studio → MilkDrop Preset Generator* writes an
+    original `.milk` from four sliders and a seed. Energy sets how strongly
+    zoom, rotation, warp and the size and brightness of shapes and waves
+    follow bass, mids and treble; warmth picks the palette (icy blue,
+    violet, pink, orange); density adds custom waves, shapes, shape
+    instances and per-pixel terms; motion scales every time coefficient.
+    Six motion patterns (tunnel, vortex, rings, current, bloom, breath), six
+    wave patterns, four shape patterns (a breathing core, orbiting
+    instances, a rotating frame, and a textured shape that draws the
+    previous frame into itself), four composite and two warp shaders — all
+    written for this app, in MilkDrop 2's file format. The version lines are
+    written only when there is a shader, so a shaderless preset is a
+    MilkDrop 1 file.
+  - **Preview, then save.** *Generate* loads the preset through the
+    MilkDrop panel's own selection path — the layer stack switches to
+    MilkDrop, the history records it, every window shows it — without
+    saving it. Rating, favorite and tags stay off for an unsaved preset, ◀
+    skips it and *Next* goes on from the top of the list. *Save to Library*
+    saves the generator's last result, not whatever is on screen:
+    auto-advance may have moved on. The id comes from the code
+    (`md_gen1_72-15-60-88-2n9c`), so saving the same preset twice leaves one
+    file. The author is *Generator*, so the author filter gathers them.
+  - **A code brings it back.** `energy-warmth-density-motion-seed`. Spaces,
+    capitals and leading zeros read as the same code; an axis above 100
+    makes the code invalid instead of clamping it to another preset. A
+    slider keeps the seed: each part draws from its own random stream and
+    the number of draws does not depend on the axes, so warmth changes only
+    colours and density adds elements without re-rolling the palette. The
+    same code writes the same file on Windows and Linux under Node 20 and
+    22: every number written goes through arithmetic and rounding only;
+    sin, pow and exp run in the preset, not in the generator. Seven golden
+    hashes pin it, and a change to the patterns must bump the version in
+    the id so earlier saves are not overwritten.
+  - **Safe by construction.** Invert, solarize, brighten and darken stay
+    off; no step functions (`above`, `below`, `if`) and no `rand`. Colour
+    and alpha expressions are built from the numbers they print, so they
+    stay in [0, 1] at any volume — MilkDrop wraps a colour above 1 instead
+    of clamping it, and a wrap flickers with the beat. Bass, mids and treble
+    are capped at 2.5 inside the preset. A warp shader dims the picture
+    itself, independent of the frame rate (`q8 = pow(decay, 30/fps)`).
+  - **Measured.** 200 generated presets — every 0/100 corner of the four
+    axes twice, and 168 random points — each drawn for 5 s at 320×180 with
+    silence, the demo sound and a loud bass line, flash limiter and reduced
+    motion off. No shader stage fell back to the fixed pipeline, and all
+    200 were clean with all three sounds: never black (at least 4% of the
+    screen lit in silence, 9% with sound), never washed out (at most 33%
+    near white), at most 2 flashes a second in any sixteenth of the screen
+    (in 2 of the 600 runs; 587 had none), and never frozen (at least 4.7%
+    of the pixels visibly changing within a second). A frame took 2.9 to
+    3.3 ms (median). 40 of them at 960×720: all clean, at most 15% near
+    white, at most one flash a second. Every line and statement longer than
+    30 characters in 2,000 generated presets (73,405 fragments) was looked
+    up in the 10,332-preset corpus (30,563 distinct long lines): none is
+    there. In an isolated copy the card generated a preset and the
+    visualizer window drew it, a slider kept the seed, a typed code brought
+    its preset back, saving twice left one file, the favorite worked after
+    saving, and the English UI had no Turkish left.
+  - **Found by the measurement.** A sparse preset with only the main wave
+    came out nearly black: the wave is a thin line, and modes 1, 2, 3 and 5
+    draw the left channel against the right, which collapses to a point in
+    silence. A sparse preset now always gets one custom wave, those modes
+    and a dotted main wave need at least two elements, and the centre is
+    darkened only when density leaves something elsewhere. A decay of 0.99
+    let a thick additive line drawn in the same place every frame fill 61%
+    of the screen with white, even in silence: decay stops at 0.98 and the
+    main wave's alpha follows it. A ring or a round core that only rotates
+    looked frozen in silence: both now change over time. An edge-sharpening
+    composite made a fast Lissajous figure flash three times a second in
+    one part of the screen: its gains are lower.
+  - **Not done:** mash-ups (the second half of #579); a MIDI/OSC action and
+    a web-remote button that generate.
+  - **Tests.** 37 tests. 24 for the generator: the code and id (round trip,
+    one spelling, invalid codes, one file in the real store), determinism
+    and golden hashes, 512 presets on an axis grid compiled block by block
+    with every function known, shaders translated without hard or
+    approximate notes, number formatting, nothing that flashes, colours in
+    range at five volumes and five times, decay, gamma and the main wave's
+    alpha, the rules the measurement found, the four axes' effects averaged
+    over 60 seeds, the independent streams, and the three range helpers
+    directly. 13 for the panel with a fake DOM: an unsaved preview leaves
+    rating, favorite and tags alone, ◀ skips it, saving writes the last
+    result under the same id and the list takes it at once, the code field,
+    the sliders, 🎲 and the wiring. 26 of 26 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
