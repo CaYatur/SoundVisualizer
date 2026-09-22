@@ -173,7 +173,8 @@ test('motor: "şimdi kes" yalnız o elle seçimde karışmıyor', () => {
   const MODE = bare(read('src/visualizer/modes/milkdrop.js'));
   const fn = /_ensurePreset\(cfg\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(fn, /const cutTo = cfg\.milkdropControl && cfg\.milkdropControl\.cutTo;/);
-  assert.match(fn, /const cutNow = a \? a\.cut : \(!!cutTo && cutTo === c\.presetId\);/);
+  // Hareketi azaltan izleyici liderin sert geçişini karıştırıyor (#581); elle kesme kalıyor
+  assert.match(fn, /const cutNow = a \? \(a\.cut && !this\._reduced\) : \(!!cutTo && cutTo === c\.presetId\);/);
   assert.strictEqual(SV.defaultConfig().milkdropControl.cutTo, '');
 });
 

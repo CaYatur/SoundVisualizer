@@ -230,6 +230,19 @@
      (`LoadRandomPreset(0.0f)`). Puan bir tam adım oynuyor ve 0..5'te
      kalıyor; dosyadan gelen 3,5 gibi bir puan önce tam sayıya iniyor ya
      da çıkıyor. Dönüş: bir şey yapıldı mı. */
+  /* İşletim sisteminin "hareketi azalt" isteği (#581). Panel aynı
+     makinede; ayar değişince kendini yeniden çiziyor. */
+  let rmq = null;
+  function osReducedMotion() {
+    if (!rmq && typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      rmq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const re = () => { try { P().rerender(); } catch (e) { /* panel yok */ } };
+      if (rmq.addEventListener) rmq.addEventListener('change', re);
+      else if (rmq.addListener) rmq.addListener(re);
+    }
+    return !!(rmq && rmq.matches);
+  }
+
   /* SPRITE'LAR (#577). Komut ana sürece gidiyor, oradan her motora; panel
      yalnız sonucu (hata varsa) söylüyor. */
   const SPRITE_ERR = {
@@ -564,6 +577,37 @@
       class: 'studio-note dim-hint',
       text: 'Ölçüt WCAG 2.3.1\'in genel flaş tanımı: bağıl parlaklıkta 0,10\'dan büyük ve saniyede üçten fazla değişim. Ölçüldü: presetlerin %90\'ı bu eşiğin altında kalıyor ve hiç etkilenmiyor; sınırlama yalnızca kalan %10\'da devreye giriyor ve orada da kesme değil oranlama yapıyor — eşiği on kat aşan bir flaş onda bir geçiyor. Sınır kare başına değil saniye başına tutuluyor: 30 fps\'te kare başına 0,10, 60 Hz\'lik ekranda 0,05 — yenileme hızı yüksek bir ekranda da aynı sıkılıkta.',
     }));
+
+    /* HAREKETİ AZALT (#581). İşletim sistemi hareketin azaltılmasını
+       istediğinde flaş sınırlayıcı açık kalıyor, sesin yükselişinde sert
+       geçiş olmuyor ve geçişler uzun sürüyor. Panel nedenini söylüyor ve
+       kullanıcı iki yönde de geçersiz kılabiliyor. Ayar gösterinin,
+       sahnenin değil (`milkdropControl`). */
+    {
+      const ctl = control(cfg);
+      const rm = ctl.reduceMotion === 'on' || ctl.reduceMotion === 'off' ? ctl.reduceMotion : 'system';
+      nodes.push(P().row('Hareketi Azalt', selOf([
+        ['system', 'Sistemi izle'],
+        ['on', 'Her zaman'],
+        ['off', 'Kapalı (sistem istese de)'],
+      ], rm, (v) => { ctl.reduceMotion = String(v); })));
+      const sys = osReducedMotion();
+      const on = rm === 'on' || (rm === 'system' && sys);
+      const st = el('span', { class: on ? 'md-ok' : 'dim-hint' });
+      st.appendChild(el('span', {
+        text: on
+          ? (rm === 'on' ? 'Açık — bu ayarla' : 'Açık — işletim sistemi hareketin azaltılmasını istiyor')
+          : (rm === 'off' && sys ? 'Kapalı — sistem istiyor ama geçersiz kılındı'
+            : rm === 'off' ? 'Kapalı' : 'Kapalı — işletim sistemi istemiyor'),
+      }));
+      nodes.push(P().row('Durum', st));
+      if (on) {
+        nodes.push(el('div', {
+          class: 'studio-note',
+          text: 'Flaş sınırlayıcı açık kalıyor, sesin yükselişinde sert geçiş olmuyor ve geçişler 5 saniye sürüyor. Elle "şimdi kes" yine keser. Video dışa aktarımında sistemin ayarı değil yalnız bu ayar ("Her zaman") geçerli.',
+        }));
+      }
+    }
 
     /* IŞIK RENKLERİ (#589). Işıklar arkaplanın ya da temanın renklerini
        alıyordu, MilkDrop'unkini değil. Buradaki seçim Aydınlatma

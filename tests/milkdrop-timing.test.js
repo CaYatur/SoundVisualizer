@@ -274,8 +274,9 @@ const MODE = bare(read('src/visualizer/modes/milkdrop.js'));
 
 test('motor: sert geçiş karışmadan yükleniyor', () => {
   const fn = /_ensurePreset\(cfg\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
-  assert.match(fn, /const cutNow = a \? a\.cut : \(!!cutTo && cutTo === c\.presetId\);/);
-  assert.match(fn, /const bt = cutNow \? 0 : Math\.max\(0, Math\.min\(BLEND_MAX, want\)\);/);
+  assert.match(fn, /const cutNow = a \? \(a\.cut && !this\._reduced\) : \(!!cutTo && cutTo === c\.presetId\);/);
+  // Hareket azaltılırken (#581) geçiş motorun sınırı kadar uzun
+  assert.match(fn, /const bt = cutNow \? 0 : \(this\._reduced \? BLEND_MAX : Math\.max\(0, Math\.min\(BLEND_MAX, want\)\)\);/);
   const ac = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(ac, /cut: this\.cycle\.cut,/);
   assert.match(ac, /cut: !!F\.cut,/, 'önizleme de karışmadan izlemeli');
@@ -290,7 +291,8 @@ test('motor: sert geçiş duyarlılıktan ÖNCEKİ bantlara bakıyor', () => {
 });
 
 test('motor: progress planın oranı; uyum kapalıyken eski yer tutucu', () => {
-  assert.match(MODE, /const progress = accProg\s*\? \(this\.cycle \? this\.cycle\.progress\(cfg\.milkdrop\) : 0\)\s*: \(this\.presetTime \* 0\.1\) % 1;/);
+  // Döngünün planladığı ayarla (#581: hareket azaltılırken geçiş uzun)
+  assert.match(MODE, /const progress = accProg\s*\? \(this\.cycle \? this\.cycle\.progress\(this\._cycleMd\(cfg\)\) : 0\)\s*: \(this\.presetTime \* 0\.1\) % 1;/);
   assert.doesNotMatch(MODE, /progress: \(this\.presetTime \* 0\.1\) % 1/, 'yer tutucu yalnız uyum kapalıyken');
   // Geçişte eski preset de aynı değeri görüyor (MilkDrop tek başlangıç/bitiş çifti tutuyor)
   const eski = MODE.match(/progress: accProg \? progress : \(this\.oldPresetTime \* 0\.1\) % 1,/g) || [];

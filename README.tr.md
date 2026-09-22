@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-1985%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2002%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -257,6 +257,16 @@ profilinde basamak olmadığını doğruluyor.
   gelen bir presetle ölçüldü: dönem başına salınım panelin 45 fps'lik önizlemesinde 0,714, 74
   Hz'lik ekranda ise 1,000'dı, flaş hiç kısılmıyordu. Sınır artık saniye başına: önizlemede, 60
   ve 74 Hz'lik pencerelerde, 35 fps'lik pencerede ve web çıkışında aynı biçimde 0,43–0,49.
+- **MilkDrop sistemin "hareketi azalt" ayarını izliyor.** İşletim sistemi hareketin azaltılmasını
+  istediğinde (Windows'ta Erişilebilirlik › Görsel efektler altında *Animasyon efektleri*
+  kapalıyken) flaş sınırlayıcı kapatılmış olsa da açık kalıyor, sesin yükselişinde sert geçiş
+  olmuyor ve her değişim 5 saniyede karışıyor. Otomatik geçiş bu uzun geçişle planlıyor, yani
+  preset ayarladığınız süre boyunca yine tam görünüyor. Elle *Şimdi kes* yine kesiyor. MilkDrop
+  paneli açık olup olmadığını ve nedenini söylüyor; *Hareketi Azalt* iki yönde de geçersiz
+  kılıyor: *Her zaman* ya da sistem istese de *Kapalı*. Her ekran kendi sistemine bakıyor — başka
+  makinedeki web çıkışı o makineyi izliyor — video dışa aktarımı ise yalnız *Her zaman*'ı izliyor,
+  yani bir video onu üreten makineye bağlı değil. Ayarın tarayıcı motorunda taklit edildiği
+  yalıtılmış bir kopyada denetlendi; sistemin kendi ayarına dokunulmadı.
 - **Kaybolan GPU bağlamı geri geliyor.** Sürücünün sıfırlanması ya da GPU sürecinin çökmesi bütün
   WebGL nesnelerini götürüyor; MilkDrop uygulama yeniden açılana kadar siyah kalıyordu, çünkü kodda
   bunu dinleyen bir yer yoktu. Motor artık kaybı tutuyor: tarayıcıdan bağlamı geri istiyor ve
@@ -1214,7 +1224,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1985 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2002 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-1985%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2002%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -264,6 +264,16 @@ that asserts the bar profile has no step in it.
   times a second, the swing per cycle was 0.714 in the panel's 45 fps preview but 1.000 on a 74 Hz
   display, the flash untouched. It is now held per second: 0.43–0.49 in the preview, in 60 Hz and
   74 Hz windows, in a 35 fps window and on the web overlay alike.
+- **MilkDrop follows the system's reduce-motion setting.** When the operating system asks for
+  reduced motion (on Windows, *Animation effects* turned off under Accessibility › Visual effects),
+  the flash limiter stays on even if it was turned off, loud moments no longer hard-cut, and every
+  change blends over 5 seconds. Auto advance plans with that longer blend, so a preset is still
+  shown in full for the time you set. A manual *Cut now* still cuts. The MilkDrop panel says
+  whether it is on and why, and *Reduce Motion* overrides it either way: *Always*, or *Off* even
+  when the system asks. Each screen reads its own system — a web overlay on another machine follows
+  that machine — and video export follows only *Always*, so a video never depends on the machine
+  that made it. Checked in an isolated copy with the setting emulated in the browser engine; the
+  system's own setting was left alone.
 - **A lost GPU context comes back.** A driver reset or a GPU process crash takes every WebGL object
   with it, and MilkDrop stayed black until the application was restarted: nothing in the code
   listened for it. The engine now holds the loss, asks the browser for the context back and rebuilds
@@ -1217,7 +1227,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1985 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2002 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
