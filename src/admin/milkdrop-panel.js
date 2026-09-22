@@ -17,6 +17,10 @@
   let loading = false;
   let presets = [];
   let filter = '';
+  /* Listenin süzgeci (#576): 'all' | 'fav' | 'tag:<anahtar>', ve yazar
+     (katlanmış anahtar, boşsa hepsi). Aramayla birleşiyor. */
+  let showSel = 'all';
+  let authorSel = '';
   let busy = '';
   let listScroll = 0;
   /* Doku klasöründe kaç görsel bulunduğu. null = henüz sorulmadı.
@@ -74,10 +78,91 @@
     });
   }
 
-  function visible() {
-    const f = filter.trim().toLowerCase();
-    if (!f) return presets;
-    return presets.filter((p) => (p.name || '').toLowerCase().includes(f));
+  /* ARAMA VE SÜZGEÇ (#576). Arama adda, yazarda ve etiketlerde; `#etiket`
+     ve `yazar:` sözcükleri yalnız oralarda. Görünen ad da aranıyor:
+     yerleşiklerin adı İngilizce arayüzde çevrili. */
+  function visible(cfg) {
+    const L = LB();
+    if (!L) {
+      const f = filter.trim().toLowerCase();
+      return f ? presets.filter((p) => (p.name || '').toLowerCase().includes(f)) : presets;
+    }
+    const tag = showSel.indexOf('tag:') === 0 ? showSel.slice(4) : '';
+    return L.filter(presets, {
+      query: filter, show: tag ? 'tag' : showSel, tag, author: authorSel, nameOf: tr,
+    }, cfg && cfg.milkdropLibrary);
+  }
+
+  /* Favori ve etiket yazımı: puanlarla aynı desen (`setRating`), yeni bir
+     eşlem kitaplığa atanıyor ve yapılandırma gönderiliyor. */
+  function setFavorite(id, on) {
+    const L = LB();
+    const cfg = P().cfg();
+    if (!L || !id) return;
+    const lib = library(cfg);
+    lib.favorites = L.withFavorite(lib, id, on);
+    P().apply();
+  }
+
+  /* PAKET (#576). Dışa aktarılan: listede GÖRÜNEN kendi presetleri — süzgeç
+     "favoriler" ya da bir etiketse yalnız onlar — favori, etiket ve
+     puanlarıyla. Yerleşikler girmiyor: her kurulumda zaten varlar.
+     İçe aktarımda presetler yeni kimlik alıyor ve kayıtları o kimliğe
+     katlanıyor (shared/milkdrop-library.js `mergeEntries`). */
+  async function exportPack(cfg) {
+    const IS = window.SVPresets;
+    const L = LB();
+    if (!IS || !IS.makePack || !window.api || !window.api.exportJson) {
+      P().toast(tr('Dışa aktarma kullanılamıyor.'), 'err');
+      return;
+    }
+    const list = visible(cfg).filter((p) => p && !p.builtin);
+    if (!list.length) {
+      P().toast(tr('Listede dışa aktarılacak kendi presetiniz yok.'), 'err');
+      return;
+    }
+    const lib = cfg.milkdropLibrary;
+    const data = IS.makePack(list, { name: 'MilkDrop' }, L ? (p) => L.packEntry(lib, p.id) : null);
+    const r = await window.api.exportJson('milkdrop-presetler.svpack', data);
+    if (r && r.ok) P().toast(list.length + ' ' + tr('preset pakete yazıldı.'), 'ok');
+  }
+
+  async function importPack() {
+    const IS = window.SVPresets;
+    const L = LB();
+    if (!IS || !IS.readImported || !window.api || !window.api.importShaderText || !window.api.savePresets) {
+      P().toast(tr('İçe aktarma kullanılamıyor.'), 'err');
+      return;
+    }
+    const r = await window.api.importShaderText();
+    if (!r || !r.ok) {
+      if (r && r.error === 'FILE_TOO_LARGE') P().toast(tr('Dosya çok büyük (2 MB üstü).'), 'err');
+      return;
+    }
+    let data = null;
+    try { data = JSON.parse(r.text); } catch (e) { data = null; }
+    const read = data ? IS.readImported(data) : { ok: false };
+    if (!read.ok) {
+      P().toast(tr('Paket okunamadı (.svpack ya da .svpreset bekleniyordu).'), 'err');
+      return;
+    }
+    const res = await window.api.savePresets(read.presets);
+    const saved = (res && res.saved) || [];
+    if (L) L.adopt(library(P().cfg()), read.library, saved);
+    refresh(() => {
+      P().apply();
+      P().toast(saved.length + ' ' + tr('preset içe aktarıldı.'), 'ok');
+    });
+  }
+
+  function setTags(id, input) {
+    const L = LB();
+    const cfg = P().cfg();
+    if (!L || !id) return;
+    const lib = library(cfg);
+    const before = JSON.stringify(L.tagsOf(lib, id));
+    lib.tags = L.withTags(lib, id, input);
+    if (JSON.stringify(L.tagsOf(lib, id)) !== before) P().apply();
   }
 
   /* Katman yığını AÇIKKEN sahneyi cfg.visualizer.type belirlemiyor:
@@ -139,8 +224,12 @@
   function library(cfg) {
     const l = cfg.milkdropLibrary || (cfg.milkdropLibrary = {});
     if (!l.ratings || typeof l.ratings !== 'object') l.ratings = {};
+    if (!l.favorites || typeof l.favorites !== 'object') l.favorites = {};
+    if (!l.tags || typeof l.tags !== 'object') l.tags = {};
     return l;
   }
+  // Favoriler, etiketler, yazar, arama ve havuz (#576)
+  const LB = () => window.SVMilkdropLibrary;
   function control(cfg) {
     return cfg.milkdropControl || (cfg.milkdropControl = { locked: false, cutTo: '' });
   }
@@ -325,6 +414,12 @@
          dosyada 5 yazan bir preset boş yıldızdan 1'e inseydi öyle olurdu. */
       const r = C.ratingOf(p, ratingsOf(cfg));
       setRating(id, name === 'RateUp' ? Math.min(5, Math.floor(r) + 1) : Math.max(0, Math.ceil(r) - 1));
+    } else if (name === 'Favorite') {
+      // Ekrandaki preset favorilere girer ya da çıkar (#576)
+      const L = LB();
+      const id = liveId(md);
+      if (!L || !byId(id)) return false;
+      setFavorite(id, !L.isFavorite(cfg.milkdropLibrary, id));
     } else {
       return false;
     }
@@ -386,6 +481,75 @@
     const wrap = document.getElementById('mdStars');
     const cfg = P() && P().cfg && P().cfg();
     if (wrap && cfg && cfg.milkdrop) fillStars(wrap, cfg);
+    const fav = document.getElementById('mdFav');
+    if (fav && cfg && cfg.milkdrop) fillFav(fav, cfg);
+    /* Etiket kutusu yazılırken tazelenmiyor: otomatik geçiş kullanıcının
+       yazdığını silip başka presetin etiketlerini koyardı. */
+    const box = document.getElementById('mdTagsBox');
+    const typing = box && document.activeElement && box.contains(document.activeElement);
+    if (box && cfg && cfg.milkdrop && !typing) fillTags(box, cfg);
+  }
+
+  /* EKRANDAKİ PRESETİN FAVORİSİ VE ETİKETLERİ (#576). Yıldızlar gibi
+     ekrandakinin ve yerinde tazeleniyor; metinler burada çevriliyor, çünkü
+     tazeleme DOM çevirmeninden sonra geliyor. */
+  function fillFav(btn, cfg) {
+    const L = LB();
+    const id = liveId(cfg.milkdrop || {});
+    const ok = !!(L && byId(id));
+    const on = ok && L.isFavorite(cfg.milkdropLibrary, id);
+    btn.textContent = tr(on ? '★ Favori' : '☆ Favorilere Ekle');
+    btn.className = 'btn ghost small md-fav-live' + (on ? ' on' : '');
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.disabled = !ok;
+  }
+
+  function fillTags(box, cfg) {
+    const el = P().el;
+    const L = LB();
+    const id = liveId(cfg.milkdrop || {});
+    box.textContent = '';
+    box.setAttribute('data-for', id);
+    if (!L || !byId(id)) {
+      box.appendChild(el('span', { class: 'dim-hint', text: '—' }));
+      return;
+    }
+    const lib = cfg.milkdropLibrary;
+    const mine = L.tagsOf(lib, id);
+    box.appendChild(el('input', {
+      class: 'p-in md-tags-in', type: 'text', value: mine.join(', '),
+      placeholder: tr('virgülle ayırın: sakin, dans'),
+      'aria-label': tr('Etiketler'),
+      /* Yazılan etiket KUTUNUN presetine gidiyor: kutu yazılırken
+         tazelenmediği için (`syncStars`) bu, yazmaya başlanan preset —
+         otomatik geçiş o arada ekrandakini değiştirse de. */
+      onchange: (e) => { setTags(id, e.target.value); },
+      onkeydown: (e) => { if (e.key === 'Enter') e.target.blur(); },
+      onblur: () => {
+        // Yazarken ekrandaki preset değiştiyse kutu şimdi ona dönüyor
+        setTimeout(() => {
+          const b = document.getElementById('mdTagsBox');
+          const c = P().cfg();
+          if (b && c && c.milkdrop && b.getAttribute('data-for') !== liveId(c.milkdrop)) fillTags(b, c);
+        }, 0);
+      },
+    }));
+    /* Var olan etiketler tek tıkla eklenip çıkarılıyor: virgüllü kutuda
+       tarayıcının öneri listesi yalnız ilk etikete yarardı. */
+    const known = L.tagCounts(presets, lib);
+    if (known.length) {
+      const wrap = el('span', { class: 'md-tagchips' });
+      for (const t of known.slice(0, 40)) {
+        const on = mine.some((m) => L.fold(m) === t.key);
+        wrap.appendChild(el('button', {
+          class: 'md-tagchip' + (on ? ' on' : ''), type: 'button', text: '#' + t.name,
+          'aria-pressed': on ? 'true' : 'false',
+          title: tr(on ? 'Bu presetten çıkar' : 'Bu presete ekle'),
+          onclick: () => setTags(id, on ? mine.filter((m) => L.fold(m) !== t.key) : mine.concat([t.name])),
+        }));
+      }
+      box.appendChild(wrap);
+    }
   }
 
   /* ÖLÇÜ DURUMU (#571) — görselleştiricinin söylediği; sayı ve metin ayrı
@@ -461,6 +625,14 @@
     const stars = el('span', { id: 'mdStars', class: 'md-stars' });
     fillStars(stars, cfg);
     nodes.push(P().row('Puan', stars));
+    /* FAVORİ VE ETİKETLER (#576) — ekrandaki presetin. Ayarlara, preset
+       kimliğine bağlı yazılıyor; preset dosyasına dokunulmuyor. */
+    const favBtn = el('button', { id: 'mdFav', type: 'button', onclick: () => act('Favorite') });
+    fillFav(favBtn, cfg);
+    nodes.push(P().row('Favori', favBtn));
+    const tagsBox = el('span', { id: 'mdTagsBox', class: 'md-tagsbox' });
+    fillTags(tagsBox, cfg);
+    nodes.push(P().row('Etiketler', tagsBox));
 
     // Doğrulama: yüklü presetin derleme durumu
     if (md.source && window.SVMilkdrop) {
@@ -853,12 +1025,25 @@
         onclick: () => { load(cfg, null); rerender(); },
       }),
     ]));
+    // Paket (#576): favori, etiket ve puanlar presetlerle birlikte
+    nodes.push(el('div', { class: 'row' }, [
+      el('button', {
+        class: 'btn ghost', type: 'button', text: '📦 Görünenleri Paketle',
+        title: 'Listede görünen kendi presetlerinizi favori, etiket ve puanlarıyla tek dosyaya yazar',
+        onclick: () => exportPack(cfg),
+      }),
+      el('button', {
+        class: 'btn ghost', type: 'button', text: '📥 Paket İçe Aktar',
+        title: 'Bir .svpack paketini favori, etiket ve puanlarıyla ekler',
+        onclick: () => importPack(),
+      }),
+    ]));
 
     // Arama
     if (presets.length > 6) {
       nodes.push(P().row('Ara', el('input', {
         class: 'p-in md-search', type: 'search', value: filter,
-        placeholder: 'preset adı',
+        placeholder: 'ad, yazar ya da #etiket',
         /* Filtre paneli baştan çiziyor, yani bu girdi düğümü siliniyor ve
            yerine yenisi geliyor. Odak da onunla birlikte gidiyordu: kullanıcı
            her harften sonra kutuya yeniden tıklamak zorunda kalıyordu.
@@ -876,6 +1061,38 @@
           try { again.setSelectionRange(caret, caret); } catch (_) { /* desteklemeyen tarayıcı */ }
         },
       })));
+      /* SÜZGEÇ VE YAZAR (#576). Görünümün ayarı, sahnenin değil: seçmek
+         yapılandırma göndermiyor, yalnız paneli yeniden çiziyor. Sayılar
+         seçeneğin içinde, o yüzden metin burada çevriliyor. */
+      const L = LB();
+      if (L) {
+        const lib = library(cfg);
+        const viewSel = (pairs, value, onChange) => {
+          const sel = el('select', { class: 'sel' });
+          for (const [v, label] of pairs) {
+            const o = el('option', { value: String(v), text: label });
+            if (String(v) === String(value)) o.selected = true;
+            sel.appendChild(o);
+          }
+          sel.addEventListener('change', () => { onChange(sel.value); listScroll = 0; P().rerender(); });
+          return sel;
+        };
+        const tags = L.tagCounts(presets, lib);
+        if (showSel.indexOf('tag:') === 0 && !tags.some((t) => 'tag:' + t.key === showSel)) showSel = 'all';
+        const favN = presets.reduce((n, p) => n + (L.isFavorite(lib, p.id) ? 1 : 0), 0);
+        nodes.push(P().row('Süz', viewSel([
+          ['all', tr('Tümü') + ' (' + presets.length + ')'],
+          ['fav', tr('★ Favoriler') + ' (' + favN + ')'],
+        ].concat(tags.map((t) => ['tag:' + t.key, '#' + t.name + ' (' + t.count + ')'])),
+        showSel, (v) => { showSel = String(v); })));
+        const authors = L.authorCounts(presets);
+        if (authorSel && !authors.some((a) => a.key === authorSel)) authorSel = '';
+        if (authors.length > 1) {
+          nodes.push(P().row('Yazar', viewSel([['', tr('Tüm yazarlar')]]
+            .concat(authors.map((a) => [a.key, a.name + ' (' + a.count + ')'])),
+          authorSel, (v) => { authorSel = String(v); })));
+        }
+      }
     }
 
     // Liste
@@ -883,7 +1100,12 @@
       class: 'md-list',
       onscroll: (e) => { listScroll = e.target.scrollTop; },
     });
-    const vis = visible();
+    /* Arama ve süzgeç satırları az presette gizli; görünmeyen bir süzgeç
+       listeyi sessizce daraltmasın (silme sonrası 6'ya inince de). */
+    if (presets.length <= 6) { filter = ''; showSel = 'all'; authorSel = ''; }
+    const vis = visible(cfg);
+    const LBn = LB();
+    const libNow = library(cfg);
     if (!vis.length) {
       list.appendChild(el('div', {
         class: 'studio-note',
@@ -896,7 +1118,20 @@
     }
     vis.slice(0, 400).forEach((p) => {
       const active = md.presetId === p.id;
+      // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
+      const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
+      const tags = LBn ? LBn.tagsOf(libNow, p.id) : [];
       list.appendChild(el('div', { class: 'md-item' + (active ? ' active' : '') }, [
+        LBn ? el('button', {
+          class: 'md-fav' + (fav ? ' on' : ''), type: 'button', text: fav ? '★' : '☆',
+          title: fav ? 'Favorilerden çıkar' : 'Favorilere ekle',
+          'aria-pressed': fav ? 'true' : 'false',
+          onclick: () => {
+            const listEl = document.querySelector('.md-list');
+            if (listEl) listScroll = listEl.scrollTop;
+            setFavorite(p.id, !fav);
+          },
+        }) : null,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
           onclick: () => {
@@ -906,6 +1141,7 @@
             rerender();
           },
         }),
+        tags.length ? el('span', { class: 'md-tagline', text: tags.map((t) => '#' + t).join(' ') }) : null,
         /* Yerleşiğin silme düğmesi YOK: dosyası olmadığı için `deletePreset`
            onu bulamaz, satır da bir sonraki tazelemede geri gelirdi —
            kullanıcıya çalışmayan bir düğme göstermiş olurduk. */
@@ -917,6 +1153,8 @@
               if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
               if (window.api.deletePreset) await window.api.deletePreset(p.id);
               if (md.presetId === p.id) load(cfg, null);
+              // Puanı, favorisi ve etiketleri de gidiyor (#576): kimlik bir daha gelmiyor
+              if (LBn) Object.assign(library(cfg), LBn.forget(library(cfg), p.id));
               refresh(() => rerender());
             },
           }),
@@ -1008,6 +1246,44 @@
           [1, 'Açık (MilkDrop gibi)'],
           [0, 'Kapalı (eşit olasılık)'],
         ], md.useRatings === false ? 0 : 1, (v) => { md.useRatings = Number(v) === 1; })));
+      }
+      /* HAVUZ (#576). Otomatik geçiş — zamanlayıcı, sert geçiş, parça
+         değişimi — yalnız favorilerden ya da bir etiketten seçebiliyor.
+         Seçim sahneyle kaydediliyor (`milkdrop.autoFrom`/`autoTag`). Elle
+         ◀/▶/🎲 ve listeden seçim bütün presetlere gidiyor. */
+      const LP = LB();
+      if (LP) {
+        const lib = library(cfg);
+        const tags = LP.tagCounts(presets, lib);
+        const favN = presets.reduce((n, p) => n + (LP.isFavorite(lib, p.id) ? 1 : 0), 0);
+        const cur = LP.poolOf(md);
+        /* Seçilen etiket en sık yazılışıyla eşleşiyor; hiçbir presette
+           kalmadıysa seçim yine görünüyor (0 ile), sessizce "hepsi"ne dönmüyor. */
+        const hit = cur.from === 'tag' ? tags.find((t) => t.key === LP.fold(cur.tag)) : null;
+        const value = cur.from === 'tag' ? 'tag:' + (hit ? hit.name : cur.tag) : cur.from;
+        const pairs = [
+          ['all', tr('Tüm presetler')],
+          ['favorites', tr('★ Favoriler') + ' (' + favN + ')'],
+        ].concat(tags.map((t) => ['tag:' + t.name, '#' + t.name + ' (' + t.count + ')']));
+        if (cur.from === 'tag' && !hit) pairs.push([value, '#' + cur.tag + ' (0)']);
+        nodes.push(P().row('Havuz', selOf(pairs, value, (v) => {
+          const s = String(v);
+          if (s.indexOf('tag:') === 0) { md.autoFrom = 'tag'; md.autoTag = s.slice(4); } else { md.autoFrom = s === 'favorites' ? 'favorites' : 'all'; md.autoTag = ''; }
+        })));
+        const n = cur.from === 'all' ? presets.length : LP.pool(presets, md, lib).length;
+        if (cur.from !== 'all') {
+          nodes.push(el('div', {
+            class: 'studio-note dim-hint',
+            text: 'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. ◀ Önceki, Sonraki ▶, Rastgele ve listeden seçim bütün presetlere gider.',
+          }));
+        }
+        if (cur.from !== 'all' && n < 2) {
+          nodes.push(el('div', {
+            class: 'studio-note',
+            text: n ? 'Havuzda tek preset var; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.'
+              : 'Havuzda preset yok; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.',
+          }));
+        }
       }
       /* SERT GEÇİŞ (#568). Sesin ani yükselişinde karışmadan yeni preset.
          MilkDrop 2'nin kuralı ve varsayılanları; orada da KAPALI başlıyor. */

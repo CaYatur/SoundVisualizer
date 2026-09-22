@@ -76,6 +76,8 @@
     { action: 'mdLock', label: '🔒 MilkDrop · Kilit (aç/kapa)' },
     { action: 'mdRateUp', label: '⭐ MilkDrop · Puanı Artır' },
     { action: 'mdRateDown', label: '⭐ MilkDrop · Puanı Azalt' },
+    // Ekrandaki preset favorilere girer ya da çıkar (#576)
+    { action: 'mdFavorite', label: '★ MilkDrop · Favori (aç/kapa)' },
     /* Sprite'lar (#577): başlatma hedefleri ini'deki her sprite için canlı
        ekleniyor (milkdrop-panel.js `spriteTargets`); silme üçü sabit. */
     { action: 'mdSpriteNewest', label: '🖼 MilkDrop · Sprite: En Yeniyi Sil' },

@@ -181,7 +181,7 @@ test('motor: "şimdi kes" yalnız o elle seçimde karışmıyor', () => {
 test('eylem ve hedef etiketlerinin İngilizcesi var', () => {
   const I = read('src/shared/i18n.js');
   const mine = CT.TARGETS.filter((t) => /^milkdrop\./.test(t.path || '') || /^md/.test(t.action || ''));
-  // 13 + sprite silme eylemleri (#577: en yeni, en eski, hepsi)
-  assert.strictEqual(mine.length, 16);
+  // 13 + sprite silme eylemleri (#577: en yeni, en eski, hepsi) + favori (#576)
+  assert.strictEqual(mine.length, 17);
   for (const t of mine) assert.ok(I.includes("'" + t.label + "':"), 'çevirisi yok: ' + t.label);
 });

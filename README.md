@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2003%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2032%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -328,6 +328,17 @@ that asserts the bar profile has no step in it.
   with the timer off, the lock stops it too, and only the leading screen picks, so every screen
   changes together. The track already playing when the app opens does not count, nor does the gap
   between two tracks.
+- **Favourites, tags and search by author.** Star presets in the MilkDrop panel's list, or the one
+  on screen with *Favourite* (also from a MIDI or OSC mapping), and give them tags of your own.
+  Search matches the name, the author and the tags. MilkDrop names are mostly "Author - Title", so
+  `author:geiss` (or `yazar:`) finds Geiss's presets but not a title that mentions him, and `#calm`
+  finds a tag. *Show* narrows the list to favourites or one tag, *Author* to one author. *Pool*
+  limits auto advance — the timer, hard cuts and track changes — to favourites or one tag, while ◀,
+  ▶, Random and the list still reach every preset. Favourites and tags live in the settings next to
+  your ratings, not in the preset files, and a pack carries all three: *Pack What Is Shown* writes
+  the presets in view with them, and importing the pack attaches them to the new copies. Checked in
+  an isolated copy: with the pool set to three favourites, the visualizer window went round those
+  three and nothing else.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1227,7 +1238,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2003 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2032 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

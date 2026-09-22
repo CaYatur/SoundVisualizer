@@ -1637,6 +1637,39 @@
     'Kapalı — işletim sistemi istemiyor': 'Off — the operating system does not ask for it',
     'Flaş sınırlayıcı açık kalıyor, sesin yükselişinde sert geçiş olmuyor ve geçişler 5 saniye sürüyor. Elle "şimdi kes" yine keser. Video dışa aktarımında sistemin ayarı değil yalnız bu ayar ("Her zaman") geçerli.':
       'The flash limiter stays on, there are no hard cuts on a rise in the sound, and transitions last 5 seconds. A manual "cut now" still cuts. Video export follows this setting ("Always") only, not the system’s.',
+    // ---- Favoriler, etiketler, yazar, havuz ve paket (#576) ----
+    'Favori': 'Favourite',
+    '★ Favori': '★ Favourite',
+    '☆ Favorilere Ekle': '☆ Add to Favourites',
+    'Etiketler': 'Tags',
+    'virgülle ayırın: sakin, dans': 'comma-separated: calm, dance',
+    'Bu presetten çıkar': 'Remove from this preset',
+    'Bu presete ekle': 'Add to this preset',
+    'ad, yazar ya da #etiket': 'name, author or #tag',
+    'Süz': 'Show',
+    '★ Favoriler': '★ Favourites',
+    'Yazar': 'Author',
+    'Tüm yazarlar': 'All authors',
+    'Favorilerden çıkar': 'Remove from favourites',
+    'Favorilere ekle': 'Add to favourites',
+    'Havuz': 'Pool',
+    'Tüm presetler': 'All presets',
+    'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. ◀ Önceki, Sonraki ▶, Rastgele ve listeden seçim bütün presetlere gider.':
+      'The pool limits auto advance only: the timer, hard cuts and track changes pick from it alone. ◀ Previous, Next ▶, Random and picking from the list reach every preset.',
+    'Havuzda tek preset var; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.':
+      'The pool holds one preset; auto advance is waiting. Add favourites or tag presets.',
+    'Havuzda preset yok; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.':
+      'The pool is empty; auto advance is waiting. Add favourites or tag presets.',
+    '📦 Görünenleri Paketle': '📦 Pack What Is Shown',
+    'Listede görünen kendi presetlerinizi favori, etiket ve puanlarıyla tek dosyaya yazar':
+      'Writes your own presets shown in the list to one file, with their favourites, tags and ratings',
+    '📥 Paket İçe Aktar': '📥 Import Pack',
+    'Bir .svpack paketini favori, etiket ve puanlarıyla ekler': 'Adds a .svpack pack with its favourites, tags and ratings',
+    'Dışa aktarma kullanılamıyor.': 'Export is not available.',
+    'Listede dışa aktarılacak kendi presetiniz yok.': 'The list shows none of your own presets to export.',
+    'preset pakete yazıldı.': 'presets written to the pack.',
+    'Paket okunamadı (.svpack ya da .svpreset bekleniyordu).': 'The pack could not be read (.svpack or .svpreset expected).',
+    'preset içe aktarıldı.': 'presets imported.',
     'Sil': 'Delete',
 
 
@@ -2079,6 +2112,7 @@
     '🔒 MilkDrop · Kilit (aç/kapa)': '🔒 MilkDrop · Lock (toggle)',
     '⭐ MilkDrop · Puanı Artır': '⭐ MilkDrop · Rating Up',
     '⭐ MilkDrop · Puanı Azalt': '⭐ MilkDrop · Rating Down',
+    '★ MilkDrop · Favori (aç/kapa)': '★ MilkDrop · Favourite (on/off)',
 
     // Sahne Panelleri, Aydınlatma ve Arayüz
     'Zincir boşken sahne doğrudan kompozit edilir; hiçbir ek maliyet yoktur. Efekt eklediğinizde sahne tek yüzeye birleştirilip GPU\'da işlenir ve efektler dışa aktarımda da aynı sırayla uygulanır.': 'When chain is empty, scene is directly composited with no overhead. When you add effects, scene is rendered to a single surface on the GPU and effects are applied in the same order during export.',
