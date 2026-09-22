@@ -393,6 +393,7 @@ function handleRequest(req, res) {
   if (p === '/logo-file') { serveLogoFile(res, url.searchParams.get('id') || ''); return; }
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
+  if (p === '/milkdrop/sprite') { serveSprite(res, url.searchParams.get('key') || ''); return; }
   if (p.startsWith('/app/')) { serveStatic(res, p); return; }
   res.writeHead(404).end('not found');
 }
@@ -433,6 +434,21 @@ function serveLogoFile(res, id) {
 
 function serveTexture(res, name) {
   const t = typeof hooks.mdTextureFile === 'function' ? hooks.mdTextureFile(name) : null;
+  if (!t || !t.file || !t.mime) { res.writeHead(404).end('not found'); return; }
+  res.writeHead(200, {
+    'Content-Type': t.mime,
+    'Content-Length': t.size,
+    'Cache-Control': 'no-cache',
+    'X-Content-Type-Options': 'nosniff',
+  });
+  fs.createReadStream(t.file).on('error', () => res.destroy()).pipe(res);
+}
+
+/* MILKDROP SPRITE RESMİ (#577). İstemci bir KİMLİK gönderiyor; kimlik ana
+   süreçte, kullanıcının seçtiği milk_img.ini'den çözülüp başlatılmış bir
+   resme karşılık geliyor. Yol ne istekte ne yanıtta. Jetonun arkasında. */
+function serveSprite(res, key) {
+  const t = typeof hooks.mdSpriteFile === 'function' ? hooks.mdSpriteFile(key) : null;
   if (!t || !t.file || !t.mime) { res.writeHead(404).end('not found'); return; }
   res.writeHead(200, {
     'Content-Type': t.mime,

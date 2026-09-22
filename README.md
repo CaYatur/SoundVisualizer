@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-1941%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-1978%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -313,6 +313,18 @@ that asserts the bar profile has no step in it.
   default mesh the changes that drop a frame fell from 61.9% to 4.9% with a hard cut and from 61.7%
   to 8.1% with a transition. Video export still waits for each compile, so the frame a preset
   appears on never depends on the machine.
+- **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
+  show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
+  runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
+  its list, from a MIDI or OSC mapping, or with MilkDrop's own keys in the visualizer window — K
+  and two digits launch, SHIFT+K and two digits remove that number, DELETE removes the newest. Up
+  to 16 run at once; the five blend modes, the colour key, tiling, flipping and `burn` (the sprite
+  leaves its image in the feedback and flows with the preset) follow MilkDrop 2's source. Every
+  screen shows the same sprite, `rand` included: the launch carries its seed. Measured in an
+  isolated copy with three displays, the web output, Spout and the panel preview: all six drew the
+  probe image at every sample point, a sprite placed with `rand` sat at the same x/y on all of
+  them, and a burnt sprite's image stayed where the sprite was after it died. Sprites are a live
+  tool and are not part of video export.
 - **Auto advance advances.** The panel's Auto Advance slider had been there since the engine landed
   and nothing ever read it: set to two seconds, the same preset stayed on screen (measured in the
   running app — nine seconds, no change). It now moves on every *n* seconds, in order or at random,
@@ -1200,7 +1212,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1941 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**1978 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

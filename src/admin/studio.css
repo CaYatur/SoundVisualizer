@@ -532,6 +532,23 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 }
 .md-item { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
 .md-item.active { background: rgba(124, 92, 255, 0.18); }
+/* Sprite'lar (#577): numara, ad, varsa neden başlamadığı, ▶ ve ■. Preset
+   listesiyle aynı çerçeve; başlatılamayan satır soluk. */
+.md-sprites {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  padding: 4px;
+}
+.md-sprite { display: flex; align-items: center; gap: 6px; padding: 1px 4px; border-radius: 6px; }
+.md-sprite .md-num { font-variant-numeric: tabular-nums; opacity: 0.75; min-width: 2ch; }
+.md-sprite-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-sprite-bad .md-sprite-name { opacity: 0.55; }
+.md-sprite .md-err { margin-left: 0; }
 /* Kilitli preset: düğme basılı görünsün, yoksa kilidin açık mı kapalı mı
    olduğu yalnız simgeden okunuyordu. */
 .btn.md-locked {

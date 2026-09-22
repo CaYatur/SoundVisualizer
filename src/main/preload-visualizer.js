@@ -37,4 +37,10 @@ contextBridge.exposeInMainWorld('api', {
   floatingSize: (kind) => ipcRenderer.send('floating:size', kind),
   // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir
   onMdFollow: (cb) => ipcRenderer.on('md-follow', (e, p) => cb(p)),
+  /* MilkDrop sprite'ları (#577): başlatma/silme komutları her motora gelir;
+     resim kimlikle istenir, yol ana süreçte kalır. Pencerenin tuşları
+     (K + iki hane...) komutu ana sürece yollar. */
+  onMdSprite: (cb) => ipcRenderer.on('md-sprite', (e, c) => cb(c)),
+  milkdropSpriteImage: (key) => ipcRenderer.invoke('milkdrop:sprite-image', key),
+  milkdropSprite: (req) => ipcRenderer.invoke('milkdrop:sprite', req),
 });

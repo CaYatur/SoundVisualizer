@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1941 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **1978 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 344
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 381
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1137,6 +1137,64 @@ MilkDrop (#560):
   42% as bright. They keep the previous render until the demo's loudness is
   settled; changing that would move the MilkDrop measurement's baseline.
   5 tests; 9 of 9 mutations caught.
+- **Sprites from `milk_img.ini` (#577)** · done on `main`. The last item of
+  this issue. MilkDrop 2 overlays images during a show, each defined in
+  `milk_img.ini` with an image, init and per-frame code and a colour key, and
+  launched by number (plugin.cpp:6695-6868, texmgr.cpp, milkdropfs.cpp:3286).
+  The behaviour was written down from the source and the sample ini's own
+  documentation first, and the code built from that description.
+  - **What it does.** Up to 16 at once; a full set drops the oldest. The
+    outputs start from MilkDrop's defaults, init runs once before the frame
+    inputs exist, and every value persists from frame to frame. The five
+    blend modes are 0 blend (the image's alpha ignored), 1 decal,
+    2 additive, 3 srccolor and 4 colour key; the key makes exactly matching
+    pixels transparent black at load. Tiling repeats from the centre, flips
+    swap the corners, and `done` draws a last frame before the sprite goes.
+    With `burn`, on by default, the sprite is also drawn into the feedback
+    buffer, so it leaves its image and flows with the preset. Sprites are
+    drawn over the composited picture and before the flash limiter, so a
+    flashing sprite is limited too (#588). An image shared by several
+    sprites is one texture, freed when its last sprite goes.
+  - **Where the source overrides its documentation.**
+    - `progress` is the preset transition's progress, not the preset's.
+    - Positive `rot` turns clockwise on screen.
+    - The width normalisation comes after the translation, so on a wide
+      screen the y position scales with it too: the visible range is
+      y = 0.5 ± 0.5·H/W, 0.22..0.78 at 16:9.
+
+    The D3D11 port the rest of #560 was checked against comments out the
+    kill on `done`; the D3D9 code kills.
+  - **One deliberate divergence.** MilkDrop corrects for a 4:3 feedback
+    texture and undoes that correction, but it undoes it every frame and
+    applies it only on the last. On a wide screen the sprite is stretched
+    vertically by (W/H)/(4/3), while its imprint is not. The feedback buffer
+    here has the window's aspect, so neither step is applied.
+  - **Launching.**
+    - Choose the file in the MilkDrop panel (it lives outside scenes) and
+      launch from its list, from MIDI and OSC mappings (every defined sprite
+      is a target), or with MilkDrop's own keys in the visualizer window.
+    - Main re-reads the ini on every launch, as MilkDrop does, and sends
+      the command with a seed to every engine: visualizer windows,
+      Spout/Syphon, the web output and the panel preview.
+    - The page asks for the image by an opaque key. Its path never leaves
+      the main process, and the web route is behind the token.
+    - MilkDrop loads the image before the sprite starts. Here the load is
+      asynchronous, so the launch waits for it, up to 5 s, keeping the
+      order of later commands. Measured: without that, a sprite that died
+      after eight frames never showed.
+    - TGA, DDS, PPM and DIB, which MilkDrop also read, are reported as
+      unsupported.
+  - **Measured.** In the GPU self-test, a red decal sprite fills the centre
+    ([255,0,0]) and is gone after remove-all. In an isolated copy with three
+    displays, the web output, Spout and the panel preview:
+    - all six drew the probe image at 5 of 5 sample points;
+    - a sprite placed with `rand` sat at the same x/y on every engine;
+    - remove-all cleared them all;
+    - an unknown key got 404, and a request without the token got 401;
+    - a burnt sprite's image stayed exactly where it was after the sprite
+      died, and not mirrored.
+  - **Tests.** 37 tests; 13 of 13 mutations that change behaviour are
+    caught. Two further mutations are equivalent and are noted.
 
 Audio:
 - **Both channels reach the visuals (#566)** · done on `main`. Found while

@@ -68,6 +68,10 @@
      medyanda 2-3 kare, en uzunu 39 kare (~0,65 sn) sürdü; bir saniye
      neredeyse hepsine değişimden önce bitme payı veriyor. */
   const PREFETCH_S = 1;
+  /* Sprite başlatması resmini en fazla bu kadar bekliyor (#577); gelmezse
+     düşüyor. Resim ana süreçten IPC ya da yayın sunucusuyla geliyor ve
+     16 MB'a kadar olabiliyor. */
+  const SPRITE_WAIT_MS = 5000;
   /* Motorun kurduğu tekil GL nesnelerinin adları: kayıptan sonra
      `_forgetGL` bunları unutuyor. tests/milkdrop-context-loss.test.js
      listeyi motorun kaynakta GERÇEKTEN kurduklarıyla karşılaştırıyor —
@@ -75,8 +79,8 @@
      nesnesiyle çizilir ve ekran sessizce eksik kalırdı. */
   const GL_NAMES = [
     'vao', 'vbo', 'ibo', 'quadVao', 'quadVbo', 'lineVao', 'lineVbo', 'aaVao', 'aaVbo',
-    'shapeTexVao', 'shapeTexVbo',
-    'warpFixed', 'compFixed', 'blurProg', 'lineProg', 'aaProg', 'shapeTexProg', 'flashProg',
+    'shapeTexVao', 'shapeTexVbo', 'spriteVao', 'spriteVbo',
+    'warpFixed', 'compFixed', 'blurProg', 'lineProg', 'aaProg', 'shapeTexProg', 'flashProg', 'spriteProg',
   ];
 
   /* GEÇİŞTE SAYISAL OLARAK KARIŞTIRILAN kare değişkenleri.
@@ -647,6 +651,32 @@ out vec4 outColor;
 uniform sampler2D uSrc;
 void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 
+  /* SPRITE'LAR (#577, shared/milkdrop-sprites.js). Dört köşe tek renkte:
+     renk ve karışım kipi tek tip değişkenle geliyor. Renk = doku × köşe
+     rengi; alfa kip 4'te dokunun alfası × köşe alfası, diğerlerinde
+     yalnız köşe alfası — MilkDrop kip 0'da dokunun alfasını yok sayıyor. */
+  const SPRITE_VERT = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec2 aUV;
+out vec2 vUV;
+void main(){
+  vUV = aUV;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+  const SPRITE_FRAG = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 outColor;
+uniform sampler2D uTex;
+uniform vec4 uCol;
+uniform float uTexAlpha;
+void main(){
+  vec4 t = texture(uTex, vUV);
+  outColor = vec4(t.rgb * uCol.rgb, mix(1.0, t.a, uTexAlpha) * uCol.a);
+}`;
+
   /* Presetin shader'ına verilen değişkenler. Tek yerde duruyor çünkü hem
      konum önbelleği hem yükleme bu listeden türüyor; ikiye bölmek birinde
      unutulan bir adın sessizce sıfır kalmasına yol açardı. */
@@ -732,6 +762,15 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       // Son opak karenin tuval boyutu; `covers()` bakıyor
       this._coverW = 0;
       this._coverH = 0;
+      /* Sprite'lar (#577): ilk komutta kuruluyor. Komutlar sayfanın ortak
+         kuyruğundan (`SVMdSpriteQueue`); motor KURULDUĞU andan sonrakileri
+         uyguluyor — sahne değişiminde yeniden kurulan bir motor eski
+         başlatmaları baştan oynatmasın. Dokular resim kimliğine göre. */
+      this.sprites = null;
+      this._spriteTex = new Map();
+      this._spriteSeq = (typeof window !== 'undefined' && window.SVMdSpriteSeq) || 0;
+      this._spriteWait = []; // sırası gelmiş ama resmini bekleyen komutlar
+      this._spriteIn = null;
       this.meshX = MESH_X_DEFAULT;
       this.meshY = MESH_Y_DEFAULT;
       /* Fare durumu (#560, madde 5). MilkDrop denklemlere mouse_x/mouse_y
@@ -986,6 +1025,10 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       // Arka planda derlenen preset ölü bağlamdaydı: istek yeniden başlıyor
       this._pending = null;
       this._parallel = null;
+      /* Sprite dokuları da gitti; sprite'ların KENDİSİ (kodları, değişkenleri,
+         saatleri) kalıyor, dokular bir sonraki karede yeniden isteniyor. */
+      this._spriteTex = new Map();
+      this.locSprite = null;
     }
 
     _initGL(W, H) {
@@ -2894,6 +2937,17 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         }
       }
 
+      /* Sprite'ların okunur değişkenleri (#577): presetle aynı bantlar ve
+         kare hızı. `progress` ise presetin ömrü DEĞİL, geçişin ilerlemesi —
+         MilkDrop sprite'a harmanın ilerlemesini veriyor (belge "presetin
+         ilerlemesi" diyor; kaynak geçerli). Harman yokken 1: MilkDrop son
+         değeri, 1'in biraz üstünü tutuyor. */
+      this._spriteIn = {
+        time: this.time, frame: this.frameNo, fps: fpsNow,
+        progress: this.oldPreset ? this.blendProg : 1,
+        bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
+      };
+
       this._buildWarpMesh();
 
       const src = this.targets[this.cur];
@@ -3054,6 +3108,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
       } else {
         this._drawCompPass(gl, dst, this.compPreset, ctx);
       }
+
+      /* SPRITE'LAR (#577) birleştirilmiş görüntünün ÜSTÜNE — MilkDrop'ta
+         karenin son çizimi. Flaş sınırlayıcıdan ÖNCE: yanıp sönen bir
+         sprite da sınırlamadan geçsin (#588). `burn` açık olanlar ayrıca
+         `dst`e, yani bir sonraki karenin warp kaynağına basılıyor. */
+      this._drawSprites(gl, dst, fl ? fl.raw.fb : null, GW, GH);
 
       if (fl) this._flashPass(gl, fl, GW, GH, step);
 
@@ -5017,6 +5077,225 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
     }
 
 
+    // ------------------------------------------------------------ sprite'lar
+    /* SPRITE KOMUTLARI (#577). Ana süreç panelden, denetleyiciden ya da
+       görselleştirici penceresinin tuşlarından gelen başlatma/silme
+       komutunu HER motora yolluyor (pencereler, Spout/Syphon, web çıkışı,
+       panel önizlemesi); sayfa onları sırayla `SVMdSpriteQueue`a koyuyor.
+       Her ekran aynı komutları aynı sırayla uyguluyor ve başlatma tohumu
+       komutla geldiği için sprite'ın `rand`ı her ekranda aynı (#585).
+       Dışa aktarıcı komut almıyor: canlı sprite gösterinin anlık bir
+       parçası, işin değil — MilkDrop'ta da elle başlatılıyor. */
+    /* BAŞLATMA RESİM HAZIR OLUNCA. MilkDrop resmi başlatırken eşzamanlı
+       yüklüyor: sprite ömrünün tamamını resmiyle geçiriyor. Burada resim
+       eşzamansız geliyor; sprite hemen başlasaydı ilk kareleri resimsiz
+       geçerdi ve kısa ömürlü bir sprite (ör. sekiz karede ölüp izini
+       bırakan) hiç görünmezdi — ölçüldü, öyle oldu. Başlatma resim gelene
+       kadar bekliyor ve sprite'ın saati o kareden başlıyor.
+
+       Komutlar SIRAYLA: bekleyen bir başlatmanın arkasındaki silme de
+       bekliyor, yoksa "başlat, sonra hepsini sil" tersine uygulanırdı ve
+       yuva sırası ekranlar arasında ayrışırdı. Resim yüklenemezse ya da
+       SPRITE_WAIT_MS içinde gelmezse başlatma düşüyor — MilkDrop'ta da
+       resmi açılamayan sprite başlamıyor. */
+    _takeSpriteCommands() {
+      const q = typeof window !== 'undefined' && window.SVMdSpriteQueue;
+      if (q && q.length) {
+        for (const c of q) {
+          if (!c || !(c.id > this._spriteSeq)) continue;
+          this._spriteSeq = c.id;
+          this._spriteWait.push({ c, at: 0 });
+        }
+      }
+      while (this._spriteWait.length) {
+        const w = this._spriteWait[0];
+        const c = w.c;
+        if (c.op === 'launch' && c.def) {
+          if (!this._spriteTexFor(c.key, c.def.colorkey)) {
+            const rec = this._spriteTex.get(c.key);
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (!w.at) w.at = now;
+            if (rec && !rec.failed && now - w.at < SPRITE_WAIT_MS) break;
+            this._spriteWait.shift();
+            continue;
+          }
+        }
+        this._spriteWait.shift();
+        this._spriteCommand(c);
+      }
+    }
+
+    _spriteCommand(c) {
+      const S = typeof window !== 'undefined' && window.SVMilkdropSprites;
+      const M = typeof window !== 'undefined' && window.SVMilkdrop;
+      if (!S || !M) return;
+      if (!this.sprites) this.sprites = new S.SpriteSet(M);
+      if (c.op === 'launch' && c.def) {
+        this.sprites.launch(c.def, { seed: c.seed, time: this.time, frame: this.frameNo, key: c.key });
+      } else if (c.op === 'kill') this.sprites.killNum(c.num);
+      else if (c.op === 'newest') this.sprites.killNewest();
+      else if (c.op === 'oldest') this.sprites.killOldest();
+      else if (c.op === 'all') this.sprites.killAll();
+    }
+
+    /* Sprite dokusu, resim kimliğine göre. İlk istekte ana süreçten
+       (uygulamada IPC'den data adresi, web çıkışında yayın sunucusundan
+       bir adres) isteniyor ve gelene kadar null. Sprite'ın KODU yine her
+       kare çalışıyor — yalnız çizim bekliyor; böylece sprite'ın durumu
+       resmin hangi karede geldiğine bağlı kalmıyor ve ekranlar ayrışmıyor.
+       Aynı resmi kullanan sprite'lar tek dokuyu paylaşıyor; renk anahtarı
+       dokuyu İLK yükleyen sprite'ınki (MilkDrop'ta da öyle). */
+    _spriteTexFor(key, colorkey) {
+      let t = this._spriteTex.get(key);
+      if (t) return t.tex ? t : null;
+      t = { tex: null, w: 0, h: 0, failed: false };
+      this._spriteTex.set(key, t);
+      const api = typeof window !== 'undefined' ? window.api : null;
+      if (!api || !api.milkdropSpriteImage) { t.failed = true; return null; }
+      Promise.resolve(api.milkdropSpriteImage(key)).then((r) => {
+        const src = r && (r.url || r.dataUrl);
+        if (!src || this._spriteTex.get(key) !== t || !this.gl) { t.failed = true; return; }
+        const img = new Image();
+        img.onload = () => this._placeSpriteTexture(key, t, img, colorkey);
+        img.onerror = () => { t.failed = true; };
+        img.src = src;
+      }).catch(() => { t.failed = true; });
+      return null;
+    }
+
+    /* Renk anahtarı piksellere uygulanıyor, yani resim önce bir 2D tuvale
+       çiziliyor. MilkDrop resmi 2048x2048'e kadar kabul ediyordu; büyüğü
+       oranı korunarak o sınıra küçültülüyor. Mipmap: sprite çoğu zaman
+       küçültülerek çiziliyor ve süzülmeden kırpılmış görünürdü. Sarma
+       TEKRAR — `repeatx/y` dokuyu döşüyor. */
+    _placeSpriteTexture(key, t, img, colorkey) {
+      const gl = this.gl;
+      if (!gl || (gl.isContextLost && gl.isContextLost()) || this._spriteTex.get(key) !== t) return;
+      const S = window.SVMilkdropSprites;
+      const k = Math.min(1, 2048 / Math.max(1, img.naturalWidth, img.naturalHeight));
+      const w = Math.max(1, Math.round(img.naturalWidth * k));
+      const h = Math.max(1, Math.round(img.naturalHeight * k));
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(img, 0, 0, w, h);
+      const data = x.getImageData(0, 0, w, h);
+      S.applyColorKey(data.data, colorkey >>> 0);
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data.data);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      t.tex = tex;
+      t.w = w;
+      t.h = h;
+    }
+
+    /* Hiçbir sprite'ın kullanmadığı doku hemen bırakılıyor — MilkDrop da
+       resmin son örneği gidince dokuyu siliyor. Sonraki başlatma resmi
+       yeniden, kendi renk anahtarıyla yüklüyor. */
+    _releaseSpriteTex() {
+      if (!this._spriteTex.size) return;
+      const used = new Set();
+      if (this.sprites) for (const s of this.sprites.slots) if (s) used.add(s.key);
+      // Başlamayı bekleyenlerin resmi de: bırakılsaydı hiç hazır olmazdı
+      for (const w of this._spriteWait) if (w.c.op === 'launch') used.add(w.c.key);
+      for (const [key, t] of this._spriteTex) {
+        if (used.has(key)) continue;
+        if (t.tex && this.gl) this.gl.deleteTexture(t.tex);
+        this._spriteTex.delete(key);
+      }
+    }
+
+    _ensureSpriteGL(gl) {
+      if (this.spriteProg) return true;
+      if (this._spriteFail) return false;
+      const p = this._link(SPRITE_VERT, SPRITE_FRAG);
+      if (!p.ok) { this._spriteFail = true; return false; }
+      this.spriteProg = p.prog;
+      this.locSprite = {
+        uTex: gl.getUniformLocation(p.prog, 'uTex'),
+        uCol: gl.getUniformLocation(p.prog, 'uCol'),
+        uTexAlpha: gl.getUniformLocation(p.prog, 'uTexAlpha'),
+      };
+      this.spriteVao = gl.createVertexArray();
+      this.spriteVbo = gl.createBuffer();
+      gl.bindVertexArray(this.spriteVao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, 16 * 4, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+      gl.bindVertexArray(null);
+      return true;
+    }
+
+    /* Bir kare sprite. Önce komutlar, sonra her sprite'ın kodu (yuva
+       sırasıyla), sonra çizim: `burn` açıksa önce geri beslemeye, sonra
+       görüntüye — MilkDrop'un sırası. Hedeflerin alfa kanalına dokunulmuyor
+       (renk maskesi): karışım kiplerinin alfası yalnız karışımı belirliyor. */
+    _drawSprites(gl, dst, outFb, GW, GH) {
+      this._takeSpriteCommands();
+      if (!this.sprites || !this.sprites.count()) { this._releaseSpriteTex(); return; }
+      const S = window.SVMilkdropSprites;
+      const list = this.sprites.step(this._spriteIn || {});
+      if (list.length && this._ensureSpriteGL(gl)) {
+        const L = this.locSprite;
+        gl.useProgram(this.spriteProg);
+        gl.bindVertexArray(this.spriteVao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteVbo);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindSampler(0, null);
+        gl.uniform1i(L.uTex, 0);
+        gl.colorMask(true, true, true, false);
+        gl.blendEquation(gl.FUNC_ADD);
+        const blend = (b) => {
+          if (!b) { gl.disable(gl.BLEND); return; }
+          gl.enable(gl.BLEND);
+          if (b === 'add') gl.blendFunc(gl.ONE, gl.ONE);
+          else if (b === 'srccolor') gl.blendFunc(gl.SRC_COLOR, gl.ONE_MINUS_SRC_COLOR);
+          else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        };
+        for (const d of list) {
+          const t = this._spriteTexFor(d.key, d.colorkey);
+          if (!t) continue;
+          const c = S.spriteColor(d, window.SVMilkdrop);
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, S.spriteQuad(d, t.w, t.h, GW, GH));
+          gl.bindTexture(gl.TEXTURE_2D, t.tex);
+          gl.uniform4f(L.uCol, c.color[0], c.color[1], c.color[2], c.color[3]);
+          gl.uniform1f(L.uTexAlpha, c.texAlpha ? 1 : 0);
+          blend(c.blend);
+          if (d.burn && dst) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
+            gl.viewport(0, 0, GW, GH);
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+          }
+          gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
+          gl.viewport(0, 0, GW, GH);
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+        gl.disable(gl.BLEND);
+        gl.colorMask(true, true, true, true);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindVertexArray(null);
+        // Sonraki çizim (flaş sınırlayıcı) aynı hedefte bekliyor
+        gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
+      }
+      this._releaseSpriteTex();
+    }
+
+    /* Panelin ve tanının gördüğü: çalışan sprite'ların numaraları, yuva
+       sırasıyla. */
+    spritesLive() {
+      return this.sprites ? this.sprites.slots.filter(Boolean).map((s) => s.num) : [];
+    }
+
     // Motor kurulamazsa sahne boş kalmasın
     _fallback(W, H) {
       this._coverW = 0;
@@ -5127,6 +5406,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
         if (this.lineProg) gl.deleteProgram(this.lineProg);
         if (this.aaProg) gl.deleteProgram(this.aaProg);
         if (this.shapeTexProg) gl.deleteProgram(this.shapeTexProg);
+        // Sprite'lar (#577)
+        if (this.spriteVao) gl.deleteVertexArray(this.spriteVao);
+        if (this.spriteVbo) gl.deleteBuffer(this.spriteVbo);
+        if (this.spriteProg) gl.deleteProgram(this.spriteProg);
+        for (const t of this._spriteTex.values()) if (t.tex) gl.deleteTexture(t.tex);
+        this._spriteTex.clear();
         this._dropUserTextures();
         if (this.samplers) for (const k in this.samplers) gl.deleteSampler(this.samplers[k]);
         if (this.noise) for (const k in this.noise) gl.deleteTexture(this.noise[k].tex);

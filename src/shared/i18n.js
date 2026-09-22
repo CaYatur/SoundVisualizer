@@ -1595,6 +1595,34 @@
     'görsel bulundu': 'images found',
     'MilkDrop presetleri dokularını ada göre ister: sampler_worms yazan bir preset klasörde worms.jpg arar. Bu görseller preset paketleriyle gelmez; MilkDrop kurulumunuzdaki textures klasörünü gösterin. Klasör seçilmezse preset yine çalışır, yalnız o dokunun yerine gürültü kullanılır.':
       'MilkDrop presets ask for their textures by name: a preset writing sampler_worms looks for worms.jpg in the folder. Preset packs do not ship these images; point this at the textures folder of your MilkDrop installation. Without a folder the preset still runs, only that texture is replaced with noise.',
+    // ---- Sprite'lar (#577) ----
+    'Sprite Dosyası': 'Sprite File',
+    '🖼 milk_img.ini Seç': '🖼 Choose milk_img.ini',
+    'Yenile': 'Refresh',
+    'Seçilmedi': 'Not chosen',
+    'sprite tanımlı': 'sprites defined',
+    'Başlat': 'Launch',
+    'Bu numaranın hepsini sil': 'Remove every sprite with this number',
+    'En Yeniyi Sil': 'Remove Newest',
+    'En Eskiyi Sil': 'Remove Oldest',
+    'Hepsini Sil': 'Remove All',
+    'Sprite dosyası seçimi kullanılamıyor.': 'Choosing a sprite file is not available.',
+    'Sprite dosyası seçilmedi': 'No sprite file chosen',
+    'milk_img.ini okunamadı': 'milk_img.ini could not be read',
+    'Dosya çok büyük': 'The file is too large',
+    'Numara 00 ile 99 arasında olmalı': 'The number must be between 00 and 99',
+    'Bu numara milk_img.ini içinde tanımlı değil': 'This number is not defined in milk_img.ini',
+    'img= satırı boş': 'The img= line is empty',
+    'Resim yolu kabul edilmiyor: tam yolda sürücü yazılmalı, ya da yol ini dosyasının klasörüne göre olmalı':
+      'Image path not accepted: a full path needs its drive letter, otherwise the path is relative to the ini file’s folder',
+    'Desteklenmeyen resim biçimi (JPG, PNG, BMP, GIF, WebP)': 'Unsupported image format (JPG, PNG, BMP, GIF, WebP)',
+    'Resim bulunamadı': 'Image not found',
+    'Sprite başlatılamadı': 'The sprite could not be launched',
+    'Sprite, MilkDrop görüntüsünün üstüne çizilen ve kendi koduyla hareket eden bir resimdir. MilkDrop\'un milk_img.ini dosyasını seçin; resim yolları o dosyanın klasörüne göredir. Görselleştirici penceresinde MilkDrop\'un tuşları da çalışır: K ve iki hane başlatır, SHIFT+K ve iki hane o numaranın hepsini siler, sprite kipinde DELETE en yeniyi, SHIFT+DELETE en eskiyi siler, CTRL+K hepsini siler. Bütün ekranlar aynı sprite\'ı gösterir; video dışa aktarımına girmez.':
+      'A sprite is an image drawn over the MilkDrop picture and moved by its own code. Choose MilkDrop’s milk_img.ini file; image paths are relative to that file’s folder. MilkDrop’s keys work in the visualizer window too: K and two digits launch, SHIFT+K and two digits remove every sprite with that number, and in sprite mode DELETE removes the newest, SHIFT+DELETE the oldest, CTRL+K all of them. Every screen shows the same sprite; sprites are not part of video export.',
+    '🖼 MilkDrop · Sprite: En Yeniyi Sil': '🖼 MilkDrop · Sprite: Remove Newest',
+    '🖼 MilkDrop · Sprite: En Eskiyi Sil': '🖼 MilkDrop · Sprite: Remove Oldest',
+    '🖼 MilkDrop · Sprite: Hepsini Sil': '🖼 MilkDrop · Sprite: Remove All',
     'Sil': 'Delete',
 
 

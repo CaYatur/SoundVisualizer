@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-1941%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-1978%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -306,6 +306,17 @@ profilinde basamak olmadığını doğruluyor.
   da aynı preseti hazırlıyor. Varsayılan ağda kare düşüren değişimler sert kesmede %61,9'dan
   %4,9'a, geçişte %61,7'den %8,1'e indi. Video dışa aktarımı derlemeyi yine bekliyor; bir presetin
   hangi karede göründüğü makineye bağlı değil.
+- **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
+  üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
+  tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
+  MIDI ya da OSC eşlemesinden ya da görselleştirici penceresinde MilkDrop'un kendi tuşlarıyla
+  başlatın — K ve iki hane başlatır, SHIFT+K ve iki hane o numarayı siler, DELETE en yeniyi siler.
+  Aynı anda 16 tane; beş karışım kipi, renk anahtarı, döşeme, çevirme ve `burn` (sprite resmini
+  geri beslemede bırakıyor, presetle akıyor) MilkDrop 2'nin kaynağına göre. Bütün ekranlar aynı
+  sprite'ı gösteriyor, `rand` dahil: başlatma kendi tohumunu taşıyor. Üç ekran, web çıkışı, Spout
+  ve panel önizlemesiyle yalıtılmış bir kopyada ölçüldü: altısı da yoklama resmini her ölçüm
+  noktasında çizdi, `rand` ile konumlanan sprite hepsinde aynı x/y'deydi ve basılan bir sprite'ın
+  resmi o öldükten sonra olduğu yerde kaldı. Sprite canlı bir araç; video dışa aktarımına girmiyor.
 - **Otomatik geçiş artık geçiyor.** Paneldeki Otomatik Geçiş kaydırıcısı motor geldiğinden beri
   oradaydı ve hiçbir yer onu okumuyordu: iki saniyeye ayarlanınca aynı preset ekranda kalıyordu
   (çalışan uygulamada ölçüldü — dokuz saniye, değişim yok). Artık her *n* saniyede, sırayla ya da
@@ -1198,7 +1209,7 @@ npm test
 npm start -- --smoke
 ```
 
-**1941 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**1978 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

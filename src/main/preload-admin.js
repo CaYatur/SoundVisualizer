@@ -34,6 +34,13 @@ contextBridge.exposeInMainWorld('api', {
      çağrıyla istiyor (#586). Burada yalnız liste çağrısı vardı; önizleme
      dosyayı alamadığı için doku yerine gürültü çiziyordu. */
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
+  /* MilkDrop sprite'ları (#577): milk_img.ini seçimi ve listesi, komutlar,
+     önizlemenin aldığı komutlar ve resimler. */
+  pickMilkdropSprites: () => ipcRenderer.invoke('milkdrop:pick-sprites'),
+  milkdropSprites: () => ipcRenderer.invoke('milkdrop:sprites'),
+  milkdropSprite: (req) => ipcRenderer.invoke('milkdrop:sprite', req),
+  milkdropSpriteImage: (key) => ipcRenderer.invoke('milkdrop:sprite-image', key),
+  onMdSprite: (cb) => ipcRenderer.on('md-sprite', (e, c) => cb(c)),
   logoLibList: () => ipcRenderer.invoke('logo-lib:list'),
   logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
   logoLibRemove: (id) => ipcRenderer.invoke('logo-lib:remove', id),

@@ -277,6 +277,9 @@
         if (st) window.SVNowLive.state = st;
       }).catch(() => {});
     }
+    /* MilkDrop sprite komutları (#577): önizleme de bir motor, sprite'ları
+       ekranlarla birlikte gösteriyor. */
+    if (window.SVMilkdropSprites && window.api) window.SVMilkdropSprites.listen(window.api);
 
     audio = new window.SVAudio();
     sprites = new window.SVSprites();
