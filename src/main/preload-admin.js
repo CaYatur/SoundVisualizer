@@ -110,6 +110,13 @@ contextBridge.exposeInMainWorld('api', {
   // Değişiklik yayını ve toplu kaydın ilerlemesi (#574)
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
   onPresetsProgress: (cb) => ipcRenderer.on('presets-progress', (e, p) => cb(p)),
+  /* MilkDrop kütüphanesi (#574): tarama bir özet ve kimlik döndürüyor,
+     içe aktarım aynı kimlikle; yollar ve dosya listeleri ana süreçte. */
+  pickMilkdropLibrary: (kind) => ipcRenderer.invoke('milkdrop:library-pick', kind),
+  discoverMilkdropLibraries: () => ipcRenderer.invoke('milkdrop:library-discover'),
+  rescanMilkdropLibrary: (token) => ipcRenderer.invoke('milkdrop:library-rescan', token),
+  importMilkdropLibrary: (token) => ipcRenderer.invoke('milkdrop:library-import', token),
+  onMilkdropLibraryProgress: (cb) => ipcRenderer.on('milkdrop:library-progress', (e, p) => cb(p)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),

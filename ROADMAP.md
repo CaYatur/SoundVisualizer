@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2052 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2081 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 455
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 484
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1663,6 +1663,77 @@ rest after. No version number yet.
     the visualizer's rebuild rule and the engine waiting for a source (and
     saying so once if a page ever gets a sourceless preset with no way to
     fetch it). 26 of 26 mutations are caught.
+- **Large preset libraries (#574, part 2 of 2: the importer)** · done. The
+  MilkDrop panel imports a whole library from a ZIP pack, from a folder, or
+  from one found on the machine. Two steps: a scan shows what will be added —
+  presets, textures, MB, and what will be skipped — and nothing is copied
+  until the user confirms. The plan stays in the main process; the page only
+  gets its summary and a token.
+  - **What is taken.** `.milk` files in nested folders; images in `textures`
+    or `sprites` folders; images lying next to the presets only when a
+    preset asks for them by `sampler_<name>` (MilkDrop looks in the preset's
+    folder too) — a preview picture beside each preset is not a texture, and
+    the summary lists those images apart instead of counting them into the
+    size. Skipped and reported: `.milk2` (#567), presets over 450 KB,
+    textures over 8 MB, encrypted or unsupported ZIP entries; macOS
+    `__MACOSX` and AppleDouble leftovers, hidden folders and `node_modules`
+    are not looked at. A preset with the same name and the same content is a
+    duplicate and skipped; the same name with other content is imported.
+  - **ZIP reading** is our own: only the central directory for the scan,
+    ZIP64, stored and deflate entries, the CRC checked, each entry inflated
+    with a hard output cap, a suspicious compression ratio refused, at most
+    200,000 entries, CP437 and UTF-8 names. Only an entry's file name is
+    used, so `../../x.milk` cannot write outside (zip-slip).
+  - **Textures** are copied into the app's own folder (`milkdrop-textures`
+    in the user data), which is looked up after the texture folder the user
+    chose: when a name is in both, the user's wins, and a texture already in
+    the app's folder with other content is kept and reported. A counter in
+    the settings makes every engine — windows, Spout/Syphon, the preview,
+    the web overlay — reload its texture list after an import.
+  - **Tags.** The first folder below the pack's common prefix becomes a tag
+    (#576) unless it is a generic name (presets, milkdrop …); it can be
+    turned off.
+  - **Search.** Known install folders (Winamp's `Plugins\Milkdrop2`,
+    foobar2000's `milkdrop2`, projectM's preset folders) and the user
+    folders where portable installs get unpacked, in the order Downloads,
+    Desktop, Music, Documents, as the system reports them (OneDrive can move
+    them on Windows; the names are localized on Linux). Every subfolder and
+    ZIP there is a candidate, and presets lying in one of those folders
+    itself are one too. Candidates are searched breadth first — the first
+    level of each, then the second — because a depth-first walk spent the
+    budget inside the first huge folder and never reached a small pack next
+    to it; the first end-to-end run showed exactly that. Finding uses at
+    most 60% of an 8-second budget and counting the rest, shared between
+    the libraries found. One whose count did not finish is listed with "+"
+    (or "not counted") and scanned in full before the confirmation, so the
+    confirmation shows the real numbers and nothing is imported from a
+    partial scan. If finding ran out of time, the panel says so and points
+    to *Import from Folder*.
+  - **Measured** in an isolated store with real packs: the Cream of the Crop
+    folder was scanned in 1.1 s (9,795 presets, 11 category tags), imported
+    in 6.2 s, and imported again in 1.2 s with every preset skipped as a
+    duplicate; the original pack's ZIP was scanned in 6 ms and imported in
+    287 ms, 14 of its presets already there from Cream. In an isolated copy
+    with the panel driven: the search listed a test pack and the libraries
+    in the user's own Downloads in 5–7 s; importing the test pack added 79
+    presets tagged Dancer (74) and Fractal (5) and copied `worms.jpg` into
+    the app's folder, and the visualizer window loaded it with no texture
+    folder chosen. An 80,000-preset folder the search could count only to
+    10,013 was listed as "10,013+"; *Import* scanned it again (10.8 s), the
+    confirmation showed 80,000 presets and 80 folder tags, and cancelling
+    imported nothing. The English UI was checked the same way.
+  - **Not done:** `.milk2` (#567); RAR and 7z packs; a ZIP inside a ZIP or
+    inside a chosen folder is not opened; the search does not look at other
+    drives or anywhere outside the places above — *Import from Folder*
+    reaches those.
+  - **Tests.** 29 tests: 7 for the ZIP reader (with a hand-written ZIP
+    writer, ZIP64 included) and 22 for the importer — real temporary
+    folders and archives, zip-slip, duplicates, textures, tags, the search
+    order and breadth-first finding (made deterministic with a file budget
+    instead of time), a library found but not counted, the rescan, the
+    main-process handlers, the engine's texture counter, and the panel
+    drawn with a fake DOM, confirmation and rescan included. 57 of 57
+    mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

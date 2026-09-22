@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2052%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2081%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -340,6 +340,19 @@ profilinde basamak olmadığını doğruluyor.
   kullanıyor. MilkDrop presetleri eklenip silindiğinde ekrandaki MilkDrop görüntüsü artık baştan
   başlamıyor. Web istemcileri MilkDrop presetlerini kaynaksız alıyor (2.000 presette ~30 MB yerine
   271 KB) ve web çıkışı bir presetin kaynağını ancak onu çizecekken istiyor.
+- **Bütün bir MilkDrop kütüphanesini içe aktarın.** MilkDrop panelindeki *ZIP Paketinden İçe
+  Aktar*, *Klasörden İçe Aktar* ve *Makinede Ara* bir kütüphaneyi tek seferde alıyor: iç içe
+  klasörler, paketin dokuları ve istenirse paketin kategori klasörleri etiket olarak. Neyin
+  ekleneceğini (preset, doku, MB ve neyin atlanacağı: MilkDrop 3'ün `.milk2` çift presetleri, sınırı
+  aşan dosyalar, şifreli ZIP girdileri) görüp onaylamadan hiçbir şey kopyalanmıyor. Aynı ad ve
+  içerikteki presetler atlanıyor, yani bir paketi iki kez almak bir şey eklemiyor. Dokular
+  uygulamanın kendi klasörüne gidiyor ve seçtiğiniz doku klasöründen sonra aranıyor; paketin
+  `sampler_worms`'u klasör seçmeden de çalışıyor. Arama bilinen Winamp, foobar2000 ve projectM
+  klasörlerine ve İndirilenler, Masaüstü, Müzik, Belgeler'e — sistem onları nerede tutuyorsa —
+  bakıyor ve birkaç saniyede duruyor; sayımını bitiremediği bir kütüphane size sorulmadan önce
+  baştan taranıyor. Uygulamayla hiçbir preset paketi gelmiyor. Gerçek paketlerle ölçüldü: 9.795
+  presetlik bir klasör 1,1 sn'de tarandı, 6,2 sn'de içe aktarıldı; ikinci kez almak hiçbir şey
+  eklemedi.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1243,7 +1256,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2052 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2081 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

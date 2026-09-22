@@ -651,6 +651,12 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   background: rgba(124, 92, 255, 0.22);
   border-color: rgba(124, 92, 255, 0.55);
 }
+/* Makinede bulunan kütüphaneler (#574): ad, sayılar, içe aktar. Yol ipucu
+   olarak adın üstünde. */
+.md-libs { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.md-lib { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.md-lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-lib-count { flex: none; font-size: 11px; color: var(--muted, #9aa); font-variant-numeric: tabular-nums; }
 
 
 /* ===== Kayıt paneli ===== */

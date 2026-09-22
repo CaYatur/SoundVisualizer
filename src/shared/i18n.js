@@ -1670,6 +1670,57 @@
     'preset pakete yazıldı.': 'presets written to the pack.',
     'Paket okunamadı (.svpack ya da .svpreset bekleniyordu).': 'The pack could not be read (.svpack or .svpreset expected).',
     'preset içe aktarıldı.': 'presets imported.',
+    // ---- Kütüphane içe aktarımı: ZIP, klasör, makinede arama (#574) ----
+    '🗜 ZIP Paketinden İçe Aktar': '🗜 Import from ZIP Pack',
+    '📁 Klasörden İçe Aktar': '📁 Import from Folder',
+    '🔎 Makinede Ara': '🔎 Search This Computer',
+    'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi arar':
+      'Looks for MilkDrop libraries in the usual install folders and in Desktop, Downloads, Documents and Music',
+    'Klasör Adları': 'Folder Names',
+    'Etiket yap': 'Make tags',
+    'Etiket yapma': 'Don’t make tags',
+    'Bulunan Kütüphaneler': 'Libraries Found',
+    'İçe Aktar': 'Import',
+    'Taranıyor…': 'Scanning…',
+    'Makinede aranıyor…': 'Searching this computer…',
+    'İçe aktarılıyor…': 'Importing…',
+    'Okunuyor: {a}/{b}': 'Reading: {a}/{b}',
+    'Kaydediliyor: {a}/{b}': 'Saving: {a}/{b}',
+    'Dokular: {a}/{b}': 'Textures: {a}/{b}',
+    '“{label}”: {p} preset, {t} doku, {mb} MB.': '“{label}”: {p} presets, {t} textures, {mb} MB.',
+    '{n} .milk2 dosyası (MilkDrop 3 çift preseti) desteklenmiyor, atlanacak.':
+      '{n} .milk2 files (MilkDrop 3 double presets) are not supported and will be skipped.',
+    '{n} dosya boyut sınırını aşıyor, atlanacak.': '{n} files exceed the size limit and will be skipped.',
+    '{n} şifreli ya da desteklenmeyen ZIP girdisi atlanacak.': '{n} encrypted or unsupported ZIP entries will be skipped.',
+    'Tarama yarıda kesildi: çok fazla dosya var; bulunanlar alınır.': 'The scan stopped early: too many files; what was found will be imported.',
+    '{n} klasör adı etiket olacak.': '{n} folder names will become tags.',
+    'Aynı ad ve içerikteki presetler atlanır; dosyalar uygulamanın klasörüne kopyalanır. Devam edilsin mi?':
+      'Presets with the same name and content are skipped; files are copied into the app’s own folder. Continue?',
+    '{a} preset eklendi, {d} tekrar atlandı.': '{a} presets added, {d} duplicates skipped.',
+    '{f} preset okunamadı ya da kaydedilemedi.': '{f} presets could not be read or saved.',
+    '{c} doku kopyalandı.': '{c} textures copied.',
+    '{s} doku zaten vardı.': '{s} textures were already there.',
+    '{k} doku adı var olan başka bir dokuyla çakıştı; var olan kaldı.':
+      '{k} texture names clashed with a different existing texture; the existing one was kept.',
+    '{n} .milk2 dosyası atlandı (MilkDrop 3 çift preseti).': '{n} .milk2 files were skipped (MilkDrop 3 double presets).',
+    'Bu kaynakta MilkDrop preseti yok.': 'There are no MilkDrop presets in this source.',
+    'ZIP okunamadı: bozuk ya da ZIP değil.': 'The ZIP could not be read: it is damaged or not a ZIP.',
+    'ZIP çok fazla girdi içeriyor.': 'The ZIP has too many entries.',
+    'Kaynak çok büyük (2 GB üstü).': 'The source is too large (over 2 GB).',
+    'Bu tarama artık geçerli değil; yeniden tarayın.': 'This scan is no longer valid; scan again.',
+    'İçe aktarılamadı.': 'Could not import.',
+    'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi bulunamadı.':
+      'No MilkDrop library was found in the usual install folders or in Desktop, Downloads, Documents and Music.',
+    '{p} preset · {t} doku · {mb} MB': '{p} presets · {t} textures · {mb} MB',
+    '{p}+ preset · {t}+ doku · {mb}+ MB': '{p}+ presets · {t}+ textures · {mb}+ MB',
+    'sayılmadı': 'not counted',
+    'Aramanın süresi bazı kütüphaneleri saymaya yetmedi (+ ya da “sayılmadı”); içe aktarmadan önce tamamı taranır.':
+      'The search ran out of time before it could count some libraries (+ or “not counted”); they are scanned in full before importing.',
+    'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.':
+      'The search reached its time limit and some folders were not checked. If your library is not listed, choose it with 📁 Import from Folder.',
+    'Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.': 'Of the {n} images next to the presets, only the ones the presets ask for are copied.',
+    'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) henüz desteklenmiyor.':
+      'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double presets) is not supported yet.',
     'Sil': 'Delete',
 
 
