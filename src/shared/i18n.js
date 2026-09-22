@@ -1730,6 +1730,43 @@
     'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) henüz desteklenmiyor.':
       'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double presets) is not supported yet.',
     'Sil': 'Delete',
+    // ---- MilkDrop preset üretici (#579) ----
+    // 'Enerji', 'Sıcaklık', 'Yoğunluk', 'Hareket', 'sakin', 'soğuk', 'sıcak', 'Tünel', 'Girdap', 'Yok',
+    // 'Durum', 'Shader', '🎲 Karıştır' ve 'Kaydediliyor…' başka yerlerde zaten var
+    'MilkDrop Preset Üretici': 'MilkDrop Preset Generator',
+    'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.':
+      'Writes an original MilkDrop preset from energy, warmth, density and motion. Fully offline; save the ones you like to the library.',
+    'coşkun': 'energetic',
+    'seyrek': 'sparse',
+    'yoğun': 'dense',
+    'yavaş': 'slow',
+    'hızlı': 'fast',
+    'Halkalar': 'Rings',
+    'Akıntı': 'Current',
+    'Çiçek': 'Bloom',
+    'Nefes': 'Breath',
+    'Birleştirme': 'Composite',
+    'Warp ve birleştirme': 'Warp and composite',
+    'MilkDrop paneli kullanılamıyor.': 'The MilkDrop panel is not available.',
+    'Kod okunamadı. Biçim: enerji-sıcaklık-yoğunluk-hareket-tohum': 'Could not read the code. Format: energy-warmth-density-motion-seed',
+    'Kaydetme kullanılamıyor.': 'Saving is not available.',
+    'Üretici': 'Generator',
+    'Preset kütüphaneye kaydedildi.': 'Preset saved to the library.',
+    'Kaydedilemedi.': 'Could not save.',
+    'Üretici yüklenemedi.': 'The generator could not be loaded.',
+    'ör. 50-50-50-50-k3x9ab': 'e.g. 50-50-50-50-k3x9ab',
+    'Kod': 'Code',
+    '✨ Preset Üret': '✨ Generate Preset',
+    'Kaydırıcılardaki eksenlerle üretir ve yükler': 'Generates and loads a preset from the slider axes',
+    'Aynı eksenler, başka bir tohum': 'Same axes, another seed',
+    '💾 Kütüphaneye Kaydet': '💾 Save to Library',
+    'Dalgalar': 'Waves',
+    'Şekiller': 'Shapes',
+    'Son Üretilen': 'Last Generated',
+    '✓ Kütüphanede': '✓ In the library',
+    'Önizleme — kaydedilmedi': 'Preview — not saved',
+    'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.':
+      'Runs entirely on this computer and connects to no service. Releasing a slider generates again with the same seed; 🎲 tries another seed. The code carries the axes and the seed: the same code always gives the same preset. A preview is not written to the library; rating, favorite and tags open once you save it. The motion, wave, shape and shader patterns were written in this app, not taken from any preset pack.',
 
 
     'MilkDrop': 'MilkDrop',

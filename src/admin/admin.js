@@ -499,6 +499,8 @@
         return window.SVMappingPanel ? window.SVMappingPanel.panel() : null;
       case 'milkdroppanel':
         return window.SVMilkdropPanel ? window.SVMilkdropPanel.panel() : null;
+      case 'mdgenpanel':
+        return window.SVMdGenPanel ? window.SVMdGenPanel.panel() : null;
       case 'recordpanel':
         return window.SVRecordPanel ? window.SVRecordPanel.panel() : null;
       case 'templatepanel':
@@ -2822,6 +2824,15 @@
         title: 'Sahne Üretici',
         desc: 'Ruh halini yaz, uygulama sana uygun bir sahne kursun. Tamamen çevrimdışı çalışır.',
         controls: [{ type: 'scenegen' }],
+      },
+      {
+        id: 'mdgen',
+        roots: [],
+        category: 'studio',
+        icon: '🧬',
+        title: 'MilkDrop Preset Üretici',
+        desc: 'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.',
+        controls: [{ type: 'mdgenpanel' }],
       },
       {
         id: 'logo',

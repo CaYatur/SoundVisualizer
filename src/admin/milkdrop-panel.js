@@ -565,6 +565,26 @@
 
   const byId = (id) => presets.find((p) => p.id === id);
 
+  /* ÜRETİCİ (#579). Üretilen preset KAYDEDİLMEDEN elle seçim gibi
+     yükleniyor: aynı yol, yani katman yığını MilkDrop'a dönüyor, geçmişe
+     giriyor ve bütün pencereler görüyor. Kimliği listede olmadığı için
+     puan, favori ve etiket kapalı (üçü de `byId` soruyor), ◀/▶ geçmişteki
+     kaydını atlıyor, liste adımı listenin başından sürüyor. */
+  function preview(p) {
+    if (!p || typeof p.id !== 'string' || !p.id || typeof p.source !== 'string') return false;
+    go(P().cfg(), p);
+    return true;
+  }
+
+  /* Kaydedilen preset HEMEN listeye. Kaydı başka bir kart yapıyor; değişiklik
+     yayını gelene kadar liste eski kalır, ekrandaki önizlemenin yıldızları
+     ve favori düğmesi bir çizim boyunca kapalı görünürdü. */
+  function adopt(saved) {
+    if (!saved || !saved.id) return;
+    adoptDelta({ upsert: [saved] });
+    refresh(() => P().rerender());
+  }
+
   /* Liste adımı EKRANDAKİ presete göre: otomatik geçiş ilerlemişse
      "sonraki" ayardaki elle seçimin değil, o an görülenin sonraki
      (MilkDrop'ta da `m_nCurrentPreset` gösterileni tutuyor). */
@@ -1766,7 +1786,7 @@
      sinanabilsin. */
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
-    spriteTargets,
+    spriteTargets, preview, adopt,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

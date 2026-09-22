@@ -74,6 +74,8 @@ const PANELS = [
      doku paketi. Duman testinin tarayabilmesi için panelin AÇIK olması
      gerekiyor; kaynaktan denetlemek o koşula bağlı değil. */
   'src/admin/milkdrop-panel.js',
+  // MilkDrop preset üreticisi (#579): panel yalnız kart açıkken çiziliyor
+  'src/admin/milkdrop-gen.js',
 ];
 
 for (const file of PANELS) {
