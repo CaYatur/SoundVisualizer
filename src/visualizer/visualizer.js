@@ -526,6 +526,24 @@
       stack.dispose();
       applyScene();
     });
+    /* DEĞİŞİKLİK YAYINI (#574): yalnız değişenler geliyor. Sahne yalnız bir
+       Studio preseti değişince yeniden kuruluyor; MilkDrop presetlerinin
+       listesi değişince (içe aktarım, silme) motor baştan başlamıyor —
+       çizdiği kaynak ayardan ya da seçimden geliyor, listeden değil.
+       Önceden her içe aktarım ekrandaki MilkDrop'u sıfırlıyordu. Silinen
+       presetin türü, liste güncellenmeden ÖNCE okunuyor. */
+    if (window.api.onPresetsDelta) {
+      window.api.onPresetsDelta((d) => {
+        const S = window.SVPresets;
+        const studio = (d && Array.isArray(d.upsert) ? d.upsert : []).some((p) => p && p.kind !== 'milkdrop') ||
+          (d && Array.isArray(d.remove) ? d.remove : []).some((id) => { const p = S.get(id); return !!p && p.kind !== 'milkdrop'; });
+        S.applyDelta(d);
+        if (studio) {
+          stack.dispose();
+          applyScene();
+        }
+      });
+    }
 
     const saved = await window.api.requestConfig();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);

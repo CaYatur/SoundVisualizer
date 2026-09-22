@@ -57,7 +57,31 @@
      çizildi. */
   let staleRender = false;
 
+  /* TEK LİSTE (#574). Panel eskiden kendi kopyasını istiyordu
+     (`listPresets`); admin.js'in tuttuğu `SVPresets` listesi değişiklik
+     yayınıyla zaten güncel. İkinci kopya 10.347 presette yüzlerce MB
+     demekti (ölçülen: panel 631 MB). Ortak liste hazır değilse (açılışın
+     ilk anı, testler) eski yol. */
+  function fromStore() {
+    const S = window.SVPresets;
+    if (!S || typeof S.ready !== 'function' || !S.ready() || typeof S.user !== 'function') return false;
+    presets = builtins().concat(S.user().filter((p) => p && p.kind === 'milkdrop'));
+    loaded = true;
+    return true;
+  }
+
+  // Kaydedilen/silinen hemen ortak listeye: yayın zaten geliyor, ikisi aynı sonucu veriyor
+  function adoptDelta(delta) {
+    const S = window.SVPresets;
+    if (S && typeof S.applyDelta === 'function' && typeof S.ready === 'function' && S.ready()) S.applyDelta(delta);
+  }
+
   function refresh(cb) {
+    if (fromStore()) {
+      if (cb) cb();
+      else if (staleRender) { staleRender = false; P().rerender(); }
+      return;
+    }
     if (!window.api || !window.api.listPresets || loading) return;
     loading = true;
     const done = () => {
@@ -148,6 +172,7 @@
     }
     const res = await window.api.savePresets(read.presets);
     const saved = (res && res.saved) || [];
+    adoptDelta({ upsert: saved });
     if (L) L.adopt(library(P().cfg()), read.library, saved);
     refresh(() => {
       P().apply();
@@ -601,10 +626,13 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    if (!loaded && !loading) {
-      refresh(() => P().rerender());
-    } else if (!loaded) {
-      staleRender = true;
+    // Ortak liste değişiklik yayınıyla güncel (#574): her çizimde ondan
+    if (!fromStore()) {
+      if (!loaded && !loading) {
+        refresh(() => P().rerender());
+      } else if (!loaded) {
+        staleRender = true;
+      }
     }
 
     // Durum
@@ -1004,7 +1032,8 @@
               });
             }
             if (items.length && window.api.savePresets) {
-              await window.api.savePresets(items);
+              const res = await window.api.savePresets(items);
+              adoptDelta({ upsert: (res && res.saved) || [] });
             }
             busy = '';
             refresh(() => {
@@ -1152,6 +1181,7 @@
             onclick: async () => {
               if (!(await P().confirm('"' + (p.name || p.id) + '" silinsin mi?'))) return;
               if (window.api.deletePreset) await window.api.deletePreset(p.id);
+              adoptDelta({ remove: [p.id] });
               if (md.presetId === p.id) load(cfg, null);
               // Puanı, favorisi ve etiketleri de gidiyor (#576): kimlik bir daha gelmiyor
               if (LBn) Object.assign(library(cfg), LBn.forget(library(cfg), p.id));

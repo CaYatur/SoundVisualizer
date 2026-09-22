@@ -4496,6 +4496,14 @@
       render();
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
+    // Değişiklik yayını (#574): bütün liste yalnız açılışta geliyor
+    if (window.api.onPresetsDelta) {
+      window.api.onPresetsDelta((d) => {
+        window.SVPresets.applyDelta(d);
+        render();
+        if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      });
+    }
 
     // Uzaktan kumandadan (telefon / OBS sayfası) gelen değişiklik: panelin
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.

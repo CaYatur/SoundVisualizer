@@ -18,11 +18,18 @@
   const fpsOverride = parseInt(params.get('fps') || '', 10);
   const scaleOverride = parseFloat(params.get('scale') || '');
 
-  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [], mdFollow: [], mdSprite: [] };
+  /* `presets` bütün liste geldiğinde (bağlanınca), `presetsDelta` yalnız
+     değişenler geldiğinde (#574), `presetsList` her ikisinde güncel listenin
+     tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
+  const handlers = {
+    config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
+    showClock: [], mdFollow: [], mdSprite: [],
+  };
   let ws = null;
   let retry = 0;
   let firstConfig = null;
   let firstPresets = null;
+  let presetList = [];
   let resolveConfig;
   let resolvePresets;
   const configReady = new Promise((r) => { resolveConfig = r; });
@@ -142,8 +149,19 @@
         handlers.config.forEach((h) => h(c));
       } else if (msg.type === 'presets') {
         const list = msg.presets || [];
+        presetList = list.slice();
         if (!firstPresets) { firstPresets = list; resolvePresets(list); }
         handlers.presets.forEach((h) => h(list));
+        handlers.presetsList.forEach((h) => h(presetList));
+      } else if (msg.type === 'presets-delta') {
+        /* Değişiklik yayını (#574): köprü güncel listeyi kendisi de tutuyor,
+           kumanda bütün listeyi alsın; görselleştirici değişiklikle yetiniyor. */
+        const d = msg.delta || {};
+        const up = Array.isArray(d.upsert) ? d.upsert.filter((p) => p && p.id) : [];
+        const drop = new Set((Array.isArray(d.remove) ? d.remove : []).map(String).concat(up.map((p) => String(p.id))));
+        presetList = presetList.filter((p) => !drop.has(String(p && p.id))).concat(up);
+        handlers.presetsDelta.forEach((h) => h(d));
+        handlers.presetsList.forEach((h) => h(presetList));
       } else if (msg.type === 'now-playing') {
         if (window.SVNowLive) window.SVNowLive.state = msg.state;
         else window.SVNowLive = { state: msg.state };
@@ -224,6 +242,7 @@
     onNativeAudio: (cb) => handlers.audio.push(cb),
     getPresets: () => presetsReady,
     onPresets: (cb) => handlers.presets.push(cb),
+    onPresetsDelta: (cb) => handlers.presetsDelta.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
     onMdFollow: (cb) => handlers.mdFollow.push(cb),
@@ -249,13 +268,21 @@
       url: '/milkdrop/sprite?key=' + encodeURIComponent(String(key || ''))
         + (token ? '&token=' + encodeURIComponent(token) : ''),
     }),
+    /* MilkDrop preset kaynağı (#574): liste kaynaksız geliyor; motor çizeceği
+       presetin kaynağını kimliğiyle istiyor. Dönüş: kaynak ya da null. */
+    milkdropPresetSource: (id) => fetch('/milkdrop/preset?id=' + encodeURIComponent(String(id || ''))
+      + (token ? '&token=' + encodeURIComponent(token) : ''), { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => (j && typeof j.source === 'string' ? j.source : null))
+      .catch(() => null),
   };
 
   // Uzaktan kumanda sayfasının kullandığı ek yüzey
   window.SVRemote = {
     send,
     onConfig: (cb) => handlers.config.push(cb),
-    onPresets: (cb) => handlers.presets.push(cb),
+    // Güncel listenin tamamı: bağlanınca ve her değişiklikte (#574)
+    onPresets: (cb) => handlers.presetsList.push(cb),
     onStatus: (cb) => handlers.status.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     ready: configReady,

@@ -107,6 +107,9 @@ contextBridge.exposeInMainWorld('api', {
   openPresetsFolder: () => ipcRenderer.invoke('presets:open-folder'),
   importShaderText: () => ipcRenderer.invoke('presets:import-text'),
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
+  // Değişiklik yayını ve toplu kaydın ilerlemesi (#574)
+  onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
+  onPresetsProgress: (cb) => ipcRenderer.on('presets-progress', (e, p) => cb(p)),
 
   // Yayın çıkışı (OBS tarayıcı kaynağı + mobil kumanda)
   streamStatus: () => ipcRenderer.invoke('stream:status'),

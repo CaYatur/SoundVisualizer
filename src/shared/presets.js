@@ -242,8 +242,39 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     }
   }
 
+  let userSet = false;
   function setUser(list) {
     userPresets = (Array.isArray(list) ? list : []).map(normalize);
+    userSet = true;
+  }
+
+  /* LİSTE SIRASI (#574): son değişen önce, eşitlikte kimlik. Ana süreçteki
+     depo (main/presets-store.js `compare`) aynı kuralla sıralıyor; değişiklik
+     yayını uygulanınca iki taraf aynı sırada kalıyor — sıralı otomatik geçiş
+     bu sırayla ilerliyor. Eşitlik bozulmasaydı aynı milisaniyede kaydedilen
+     presetlerin sırası makineden makineye değişirdi. */
+  function compare(a, b) {
+    const d = (Number(b && b.updatedAt) || 0) - (Number(a && a.updatedAt) || 0);
+    if (d) return d;
+    const x = String(a && a.id);
+    const y = String(b && b.id);
+    return x < y ? -1 : x > y ? 1 : 0;
+  }
+
+  /* DEĞİŞİKLİK YAYINI (#574). Bütün liste yerine yalnız değişenler geliyor:
+     10.347 presetlik bir kütüphanede tek bir silme her pencereye 116 MB
+     gönderiyordu. `upsert` eklenen ya da değişen presetler, `remove`
+     silinenlerin kimlikleri. Aynı yayın iki kez uygulanırsa sonuç değişmiyor
+     (kaydeden sayfa sonucu kendisi de uygulayabiliyor). */
+  function applyDelta(delta) {
+    const d = delta || {};
+    const drop = new Set((Array.isArray(d.remove) ? d.remove : []).map(String));
+    const up = (Array.isArray(d.upsert) ? d.upsert : [])
+      .filter((p) => p && typeof p === 'object' && p.id)
+      .map(normalize);
+    for (const p of up) drop.add(String(p.id));
+    const kept = drop.size ? userPresets.filter((p) => !drop.has(String(p.id))) : userPresets;
+    userPresets = kept.concat(up).sort(compare);
   }
   function all() {
     return BUILTIN_LIST.concat(userPresets);
@@ -525,5 +556,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     makePack,
     readImported,
     user: () => userPresets.slice(),
+    // Değişiklik yayını ve ortak sıra (#574)
+    compare,
+    applyDelta,
+    ready: () => userSet,
   };
 })();

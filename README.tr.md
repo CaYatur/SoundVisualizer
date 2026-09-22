@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2032%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2052%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -332,6 +332,14 @@ profilinde basamak olmadığını doğruluyor.
   üçünü de taşıyor: *Görünenleri Paketle* listede görünen presetleri onlarla birlikte yazıyor, paketi
   içe aktarmak onları yeni kopyalara bağlıyor. Yalıtılmış bir kopyada denetlendi: havuz üç favoriye
   ayarlıyken görselleştirici penceresi o üçünde döndü, başka hiçbir presete geçmedi.
+- **Büyük preset kütüphaneleri hafif kalıyor.** Her kayıt ya da silme bütün preset dosyalarını
+  yeniden okuyor ve bütün listeyi kaynaklarıyla panele, her pencereye ve her web istemcisine
+  gönderiyordu. Tam bir MilkDrop kütüphanesinin 10.347 presetiyle (116 MB) tek bir silme uygulamayı
+  ~2,4 saniye tutuyordu ve panel 631 MB kullanıyordu. Presetler artık bir kez okunup tutuluyor; bir
+  değişiklik yalnız değişeni gönderiyor. Aynı büyüklükte bir kayıt artık 91 ms sürüyor, panel 273 MB
+  kullanıyor. MilkDrop presetleri eklenip silindiğinde ekrandaki MilkDrop görüntüsü artık baştan
+  başlamıyor. Web istemcileri MilkDrop presetlerini kaynaksız alıyor (2.000 presette ~30 MB yerine
+  271 KB) ve web çıkışı bir presetin kaynağını ancak onu çizecekken istiyor.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1235,7 +1243,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2032 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2052 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2032 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2052 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 435
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 455
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1615,6 +1615,54 @@ rest after. No version number yet.
     longer holds, and the panel drawn with a fake DOM — its own pack buttons
     included, with only the file dialogs stubbed, and ◀/▶/🎲 still reaching
     presets outside the pool. 49 of 49 mutations are caught.
+- **Large preset libraries (#574, part 1 of 2: scale)** · done. Importing a
+  ZIP or a library found on the machine means thousands of presets; the
+  store could not carry them. Measured in an isolated copy with the corpus
+  (10,347 presets, 116 MB): `presets:list` took 3.8 s, one save held the main
+  process for about 2.4 s, the panel used 631 MB, and every web client got
+  116 MB on every change. The user chose to scale the store before adding
+  the importer.
+  - **Store.** Files are read once — in the background at start-up — and
+    kept; saves and deletes update the cache. `list()` still looks at the
+    folder's file names on every call, so a file added or removed by hand
+    shows up; a file edited by hand shows up after a restart. Bulk saves are
+    written in batches with pauses so the main process keeps serving audio,
+    lights and IPC, report progress, and keep the pack's own order.
+  - **Change broadcast.** A save or delete sends only what changed
+    (`presets-delta`); the whole list is sent only when a page opens. Pages
+    apply it in the store's order — newest first, ties broken by id, so
+    presets saved in the same millisecond no longer land in a different
+    order on each machine.
+  - **Web clients** get MilkDrop presets without their sources. The overlay
+    engine asks for a source by id (`/milkdrop/preset`, behind the token)
+    only when it is about to draw that preset, keeps the current one on
+    screen until it arrives, and drops the pick if it cannot be fetched
+    rather than falling back to the default preset.
+  - **Found on the way:** every preset change rebuilt the visualizer
+    window's whole layer stack, so importing or deleting a MilkDrop preset
+    restarted the MilkDrop picture on screen. The stack is now rebuilt only
+    when a Studio preset changes. The MilkDrop panel no longer keeps a
+    second copy of the list.
+  - **Measured** after the change, same corpus: `presets:list` 0.3 s, a
+    save 29 ms (91 ms with a window open), the panel 273 MB. With 2,000
+    presets and a web overlay open in a real browser: the connect message
+    was 271 KB instead of about 30 MB; the overlay followed the window's
+    auto advance preset for preset and fetched the sources of the seven it
+    showed; a delete took 68 ms while the window's MilkDrop kept drawing
+    (same preset, 97 frames in 1.2 s), and the window, overlay and panel
+    lists all dropped to 1,999.
+  - **Not done here:** visualizer windows still hold every source (141 MB
+    with 10,347 presets), since they draw from them directly; the importer
+    itself is part 2.
+  - **Tests.** 20 tests: the store against a temporary folder (one read,
+    cache updates, hand-made files, background load with a save and a
+    delete in between — the delete made deterministic, since a load that
+    had already read the file brought it back — and batched saves in the
+    pack's order), the change broadcast on the page, the stream server
+    stripping sources and serving them behind the token, the web bridge,
+    the visualizer's rebuild rule and the engine waiting for a source (and
+    saying so once if a page ever gets a sourceless preset with no way to
+    fetch it). 26 of 26 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
