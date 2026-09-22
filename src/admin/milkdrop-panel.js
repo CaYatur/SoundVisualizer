@@ -24,6 +24,10 @@
      klasörü göstermiş olabilir ve sayı bunu anında ele veriyor. */
   let texCount = null;
   let texAsked = false;
+  /* Sprite dosyası (#577): listesi ana süreçten, dosya değişince ya da
+     "Yenile" ile yeniden. `sprFor` listenin okunduğu dosya. */
+  let sprList = null;
+  let sprFor = null;
 
   /* YERLEŞİKLER DEPODA DEĞİL, KODDA (shared/presets-milkdrop.js). Depoya
      kopyalansalardı kullanıcı silebilir, sürüm yükseltmesi ikinci bir kopya
@@ -226,9 +230,67 @@
      (`LoadRandomPreset(0.0f)`). Puan bir tam adım oynuyor ve 0..5'te
      kalıyor; dosyadan gelen 3,5 gibi bir puan önce tam sayıya iniyor ya
      da çıkıyor. Dönüş: bir şey yapıldı mı. */
+  /* SPRITE'LAR (#577). Komut ana sürece gidiyor, oradan her motora; panel
+     yalnız sonucu (hata varsa) söylüyor. */
+  const SPRITE_ERR = {
+    NO_FILE: 'Sprite dosyası seçilmedi',
+    NOT_FILE: 'milk_img.ini okunamadı',
+    READ_FAILED: 'milk_img.ini okunamadı',
+    TOO_LARGE: 'Dosya çok büyük',
+    BAD_NUM: 'Numara 00 ile 99 arasında olmalı',
+    NOT_DEFINED: 'Bu numara milk_img.ini içinde tanımlı değil',
+    NO_IMG: 'img= satırı boş',
+    BAD_PATH: 'Resim yolu kabul edilmiyor: tam yolda sürücü yazılmalı, ya da yol ini dosyasının klasörüne göre olmalı',
+    UNSUPPORTED: 'Desteklenmeyen resim biçimi (JPG, PNG, BMP, GIF, WebP)',
+    NOT_FOUND: 'Resim bulunamadı',
+  };
+  const spriteErr = (code) => tr(SPRITE_ERR[code] || 'Sprite başlatılamadı');
+
+  /* Liste isteği bir sonraki göreve bırakılıyor: `P().apply()` önce paneli
+     çiziyor, ayarı SONRA gönderiyor. Hemen sorulsaydı ana süreç yeni
+     seçilen dosyayı henüz bilmez, eskisini okurdu. Aynı sayfanın IPC
+     iletileri sırasıyla işleniyor; ayar önce varıyor. */
+  function loadSprites(file) {
+    if (!window.api || !window.api.milkdropSprites) return;
+    sprFor = file;
+    setTimeout(() => {
+      window.api.milkdropSprites().then((r) => {
+        if (sprFor !== file) return;
+        sprList = r || null;
+        P().rerender();
+      }).catch(() => {});
+    }, 0);
+  }
+
+  async function spriteCmd(req) {
+    if (!window.api || !window.api.milkdropSprite) return false;
+    const r = await window.api.milkdropSprite(req);
+    if (r && !r.ok) P().toast((r.num ? r.num + ': ' : '') + spriteErr(r.error));
+    return !!(r && r.ok);
+  }
+
+  /* Denetleyici hedefleri (control.js): tanımlı ve başlatılabilir her sprite
+     bir eylem. Liste paneldeki son okumadan. */
+  function spriteTargets() {
+    const list = sprList && Array.isArray(sprList.sprites) ? sprList.sprites : [];
+    return list.filter((s) => !s.error).map((s) => ({
+      action: 'mdSprite:' + s.num,
+      label: '🖼 MilkDrop · Sprite ' + s.num + (s.desc || s.img ? ' · ' + (s.desc || s.img) : ''),
+    }));
+  }
+
   function act(name) {
     const cfg = P().cfg();
     const md = cfg.milkdrop || (cfg.milkdrop = window.SV.defaultConfig().milkdrop);
+    // Sprite eylemleri presetlere bağlı değil: preset listesi boşken de çalışıyor
+    if (name.indexOf('Sprite') === 0) {
+      if (name === 'SpriteNewest') spriteCmd({ op: 'newest' });
+      else if (name === 'SpriteOldest') spriteCmd({ op: 'oldest' });
+      else if (name === 'SpriteAll') spriteCmd({ op: 'all' });
+      else if (name.indexOf('Sprite:') === 0) spriteCmd({ op: 'launch', num: name.slice(7) });
+      else return false;
+      return true;
+    }
     if (name === 'Lock') {
       const c = control(cfg);
       c.locked = c.locked !== true;
@@ -622,6 +684,83 @@
       text: 'MilkDrop presetleri dokularını ada göre ister: sampler_worms yazan bir preset klasörde worms.jpg arar. Bu görseller preset paketleriyle gelmez; MilkDrop kurulumunuzdaki textures klasörünü gösterin. Klasör seçilmezse preset yine çalışır, yalnız o dokunun yerine gürültü kullanılır.',
     }));
 
+    /* SPRITE'LAR (#577): MilkDrop'un milk_img.ini dosyası. Dosya gösteri
+       aracı, sahneyle değişmiyor (`milkdropControl`). */
+    {
+      const ctl = control(cfg);
+      const sFile = typeof ctl.spriteFile === 'string' ? ctl.spriteFile : '';
+      if (sFile && sprFor !== sFile) loadSprites(sFile);
+      if (!sFile && sprFor) { sprList = null; sprFor = null; }
+      const sprRow = el('span', {}, [
+        el('button', {
+          class: 'btn', type: 'button', text: '🖼 milk_img.ini Seç',
+          onclick: async () => {
+            if (!window.api || !window.api.pickMilkdropSprites) {
+              P().toast('Sprite dosyası seçimi kullanılamıyor.');
+              return;
+            }
+            const r = await window.api.pickMilkdropSprites();
+            if (!r || !r.ok) { if (r && r.error) P().toast(spriteErr(r.error)); return; }
+            ctl.spriteFile = r.file;
+            sprFor = null;
+            rerender();
+          },
+        }),
+      ]);
+      if (sFile) {
+        sprRow.appendChild(el('button', {
+          class: 'btn', type: 'button', text: 'Yenile',
+          onclick: () => { sprFor = null; P().rerender(); },
+        }));
+        sprRow.appendChild(el('button', {
+          class: 'btn', type: 'button', text: 'Kaldır',
+          onclick: () => { ctl.spriteFile = ''; sprList = null; sprFor = null; rerender(); },
+        }));
+      }
+      nodes.push(P().row('Sprite Dosyası', sprRow));
+      const st = el('span', { class: sFile && sprList && !sprList.error ? 'md-ok' : 'md-err' });
+      if (!sFile) {
+        st.appendChild(el('span', { text: 'Seçilmedi' }));
+      } else if (!sprList) {
+        st.appendChild(el('span', { text: 'Okunuyor…' }));
+      } else if (sprList.error) {
+        st.appendChild(el('span', { text: spriteErr(sprList.error) }));
+      } else {
+        st.appendChild(el('span', { class: 'md-num', text: String(sprList.sprites.length) + ' ' }));
+        st.appendChild(el('span', { text: 'sprite tanımlı' }));
+      }
+      nodes.push(P().row('Durum', st));
+      if (sFile && sprList && !sprList.error && sprList.sprites.length) {
+        const list = el('div', { class: 'md-sprites' });
+        for (const s of sprList.sprites) {
+          const bad = !!s.error;
+          list.appendChild(el('div', { class: 'md-sprite' + (bad ? ' md-sprite-bad' : '') }, [
+            el('span', { class: 'md-num', text: s.num }),
+            el('span', { class: 'md-sprite-name', text: s.desc || s.img || '—' }),
+            bad ? el('span', { class: 'md-err', text: spriteErr(s.error) }) : null,
+            el('button', {
+              class: 'btn ghost', type: 'button', text: '▶', title: tr('Başlat'), disabled: bad,
+              onclick: () => spriteCmd({ op: 'launch', num: s.num }),
+            }),
+            el('button', {
+              class: 'btn ghost', type: 'button', text: '■', title: tr('Bu numaranın hepsini sil'),
+              onclick: () => spriteCmd({ op: 'kill', num: s.num }),
+            }),
+          ].filter(Boolean)));
+        }
+        nodes.push(list);
+        nodes.push(el('div', { class: 'row' }, [
+          el('button', { class: 'btn', type: 'button', text: 'En Yeniyi Sil', onclick: () => spriteCmd({ op: 'newest' }) }),
+          el('button', { class: 'btn', type: 'button', text: 'En Eskiyi Sil', onclick: () => spriteCmd({ op: 'oldest' }) }),
+          el('button', { class: 'btn', type: 'button', text: 'Hepsini Sil', onclick: () => spriteCmd({ op: 'all' }) }),
+        ]));
+      }
+      nodes.push(el('div', {
+        class: 'studio-note dim-hint',
+        text: 'Sprite, MilkDrop görüntüsünün üstüne çizilen ve kendi koduyla hareket eden bir resimdir. MilkDrop\'un milk_img.ini dosyasını seçin; resim yolları o dosyanın klasörüne göredir. Görselleştirici penceresinde MilkDrop\'un tuşları da çalışır: K ve iki hane başlatır, SHIFT+K ve iki hane o numaranın hepsini siler, sprite kipinde DELETE en yeniyi, SHIFT+DELETE en eskiyi siler, CTRL+K hepsini siler. Bütün ekranlar aynı sprite\'ı gösterir; video dışa aktarımına girmez.',
+      }));
+    }
+
     // İçe aktarma
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
@@ -879,13 +1018,21 @@
     return el('div', { class: 'md-panel' }, nodes);
   }
 
-  function init() { refresh(); }
+  /* Sprite listesi de açılışta: denetleyici eşlemesinin hedef listesi
+     (control.js) MilkDrop paneli hiç açılmadan da sprite'ları görsün. */
+  function init() {
+    refresh();
+    const cfg = P() && P().cfg && P().cfg();
+    const f = cfg && cfg.milkdropControl && cfg.milkdropControl.spriteFile;
+    if (typeof f === 'string' && f) loadSprites(f);
+  }
 
   /* load ve pointStackAtMilkdrop testler icin de disa aciliyor: preset
      secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
      sinanabilsin. */
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
+    spriteTargets,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

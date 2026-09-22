@@ -728,7 +728,9 @@
          kimlikse karışmadan yükleniyor. Panel her seçimde temizliyor.
        milkdropControl.independent (#585) — "her ekran kendi seçer". Kapalıyken
          (varsayılan) ilk görselleştirici penceresi seçiyor, diğer pencereler,
-         Spout/Syphon ve web çıkışı onu izliyor. */
+         Spout/Syphon ve web çıkışı onu izliyor.
+       milkdropControl.spriteFile (#577) — MilkDrop'un sprite dosyası
+         (`milk_img.ini`). Gösteri aracı: sahneyle değişmemeli. */
     milkdropLibrary: {
       ratings: {},
     },
@@ -736,6 +738,7 @@
       locked: false,
       cutTo: '',
       independent: false,
+      spriteFile: '',
     },
 
     // ------------------------------------------------------------------

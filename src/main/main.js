@@ -1934,6 +1934,8 @@ function syncStreamServer() {
          yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
       mdTextureNames: () => textureNames().names,
       mdTextureFile: (name) => textureFile(name),
+      /* MilkDrop sprite resmi (#577): kimlikle; yol ana süreçte çözülüyor. */
+      mdSpriteFile: (key) => spriteImageFile(key),
       logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onClientsChanged: (list) => {
@@ -2148,6 +2150,134 @@ ipcMain.handle('milkdrop:texture', (e, name) => {
   if (!t) return null;
   try {
     return { name, dataUrl: 'data:' + t.mime + ';base64,' + fs.readFileSync(t.file).toString('base64') };
+  } catch {
+    return null;
+  }
+});
+
+// ----------------------------------------------------------------------------
+// MilkDrop sprite'ları (#577): milk_img.ini
+//
+// Kullanıcı bir `milk_img.ini` seçiyor (MilkDrop'un sprite dosyası).
+// Başlatma ya da silme komutu — panelden, denetleyiciden, görselleştirici
+// penceresinin tuşlarından — buraya geliyor ve buradan HER motora gidiyor:
+// görselleştirici pencereleri, Spout/Syphon, panel önizlemesi, web çıkışı.
+// Komut sıra numarası ve başlatmada bir tohum taşıyor; her ekran aynı
+// komutları aynı sırayla uyguluyor ve sprite'ın `rand`ı her yerde aynı.
+//
+// ini her başlatmada YENİDEN okunuyor — MilkDrop'ta da öyle ("milk_img.ini
+// is never cached"): dosyayı düzeltip aynı numarayı yeniden başlatmak
+// yetiyor. Resmin yolu sayfaya hiç gitmiyor; sayfa resmi burada üretilen
+// bir kimlikle istiyor ve yalnız ini'den çözülüp başlatılmış resimler
+// istenebilir.
+// ----------------------------------------------------------------------------
+const mdSprites = require('../shared/milkdrop-sprites.js');
+const mdSpriteFiles = require('./milkdrop-sprite-files');
+let mdSpriteSeq = 0;
+const mdSpriteImages = new Map(); // kimlik → dosya
+
+function spriteIniFile() {
+  const c = currentConfig && currentConfig.milkdropControl;
+  return c && typeof c.spriteFile === 'string' ? c.spriteFile : '';
+}
+
+function readSprites() {
+  const file = spriteIniFile();
+  if (!file) return { file: '', sprites: [], defs: new Map(), error: 'NO_FILE' };
+  const r = mdSpriteFiles.readIni(file);
+  if (!r.ok) return { file, sprites: [], defs: new Map(), error: r.error };
+  const { defs } = mdSprites.parseImgIni(r.text);
+  const sprites = [...defs.values()].sort((a, b) => a.num.localeCompare(b.num)).map((d) => ({
+    num: d.num,
+    desc: d.desc,
+    img: d.img ? path.basename(d.img.replace(/\\/g, '/')) : '',
+    error: mdSpriteFiles.resolveImage(file, d.img).error || '',
+  }));
+  return { file, sprites, defs, error: '' };
+}
+
+function sendSpriteCommand(c) {
+  const cmd = Object.assign({ id: ++mdSpriteSeq }, c);
+  for (const win of openWindows()) win.webContents.send('md-sprite', cmd);
+  const ts = textureShare.window();
+  if (ts && !ts.isDestroyed()) ts.webContents.send('md-sprite', cmd);
+  if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('md-sprite', cmd);
+  streamServer.broadcast({ type: 'md-sprite', cmd }, 'overlay');
+  return cmd;
+}
+
+/* { op: 'launch' | 'kill', num } ya da { op: 'newest' | 'oldest' | 'all' }.
+   Dönüş { ok } ya da { ok: false, error, num }. */
+function spriteCommand(req) {
+  const op = req && req.op;
+  if (op === 'launch') {
+    const num = mdSprites.spriteNum(req.num);
+    if (!num) return { ok: false, error: 'BAD_NUM' };
+    const r = readSprites();
+    if (r.error) return { ok: false, error: r.error, num };
+    const def = r.defs.get(num);
+    if (!def) return { ok: false, error: 'NOT_DEFINED', num };
+    const img = mdSpriteFiles.resolveImage(r.file, def.img);
+    if (img.error) return { ok: false, error: img.error, num };
+    const key = mdSpriteFiles.imageKey(img.file);
+    mdSpriteImages.delete(key);
+    mdSpriteImages.set(key, img.file);
+    if (mdSpriteImages.size > 256) mdSpriteImages.delete(mdSpriteImages.keys().next().value);
+    sendSpriteCommand({
+      op, num, key,
+      seed: require('crypto').randomInt(1, 2147483647),
+      // Sayfaya yol değil kimlik: `img` burada resmin kimliği
+      def: { num, img: key, colorkey: def.colorkey, init: def.init, code: def.code },
+    });
+    return { ok: true, num };
+  }
+  if (op === 'kill') {
+    const num = mdSprites.spriteNum(req.num);
+    if (!num) return { ok: false, error: 'BAD_NUM' };
+    sendSpriteCommand({ op, num });
+    return { ok: true, num };
+  }
+  if (op === 'newest' || op === 'oldest' || op === 'all') {
+    sendSpriteCommand({ op });
+    return { ok: true };
+  }
+  return { ok: false, error: 'BAD_OP' };
+}
+
+/* Kimliğin dosyası, yeniden doğrulanmış: dosya bu arada silinmiş ya da
+   büyümüş olabilir. */
+function spriteImageFile(key) {
+  const file = mdSpriteImages.get(String(key || ''));
+  if (!file) return null;
+  const r = mdSpriteFiles.resolveImage('', file);
+  return r.error ? null : { file: r.file, mime: r.mime, size: r.size };
+}
+
+ipcMain.handle('milkdrop:pick-sprites', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('MilkDrop Sprite Dosyası Seç (milk_img.ini)', 'Choose MilkDrop Sprite File (milk_img.ini)'),
+    properties: ['openFile'],
+    filters: [{ name: 'milk_img.ini', extensions: ['ini'] }],
+  });
+  if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
+  const file = r.filePaths[0];
+  const ini = mdSpriteFiles.readIni(file);
+  if (!ini.ok) return { ok: false, error: ini.error };
+  return { ok: true, file, count: mdSprites.parseImgIni(ini.text).defs.size };
+});
+
+ipcMain.handle('milkdrop:sprites', () => {
+  const r = readSprites();
+  return { file: r.file, sprites: r.sprites, error: r.error };
+});
+
+ipcMain.handle('milkdrop:sprite', (e, req) => spriteCommand(req));
+
+ipcMain.handle('milkdrop:sprite-image', (e, key) => {
+  const t = spriteImageFile(key);
+  if (!t) return null;
+  try {
+    return { key, dataUrl: 'data:' + t.mime + ';base64,' + fs.readFileSync(t.file).toString('base64') };
   } catch {
     return null;
   }
@@ -2937,6 +3067,74 @@ async function runSmoke() {
     }
     if (!surf.after.fx || surf.after.fx.lost || !surf.after.fx.work || !(surf.after.fx.px > 8)) {
       errors.push('context loss (surfaces): the effect chain did not come back (' + JSON.stringify(surf.after.fx) + ')');
+    }
+  }
+
+  /* SPRITE'LAR GERÇEKTEN ÇİZİLİYOR MU? (#577)
+
+     Birim testler motorun hangi hedefe ne çizdiğini sahte bir GL ile
+     ölçüyor; zincirin tamamını — ini'yi okuyan ana süreç, komutu taşıyan
+     IPC, resmi kimlikle isteyen sayfa, renk anahtarını uygulayıp dokuyu
+     yükleyen motor — ancak gerçek bir pencere gösterebilir. Kırmızı bir
+     resim, decal kipinde ve iz bırakmadan (burn = 0) ekranın ortasına
+     başlatılıyor; ortası kırmızı olmalı, "hepsini sil"den sonra olmamalı. */
+  const spriteProbe = async () => {
+    const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'sv-smoke-spr-'));
+    const px = Buffer.alloc(64 * 64 * 4);
+    for (let i = 0; i < px.length; i += 4) { px[i] = 0; px[i + 1] = 0; px[i + 2] = 255; px[i + 3] = 255; } // BGRA: kırmızı
+    fs.writeFileSync(path.join(dir, 'kirmizi.png'), require('electron').nativeImage.createFromBitmap(px, { width: 64, height: 64 }).toPNG());
+    const ini = path.join(dir, 'milk_img.ini');
+    fs.writeFileSync(ini, '[img00]\nimg=kirmizi.png\ninit_1=blendmode = 1; burn = 0; sx = 0.3; sy = 0.3;\n');
+    /* ini'yi ANA SÜREÇ okuyor ve `send` ayarı yalnız pencereye yolluyor:
+       dosya bellekteki ayara da, geçici olarak, yazılıyor. Öz testte ayar
+       kaydı kapalı; diske bir şey gitmiyor ve sonda eski hâline dönüyor. */
+    const prevCtl = currentConfig && currentConfig.milkdropControl;
+    currentConfig = Object.assign({}, currentConfig, { milkdropControl: Object.assign({}, prevCtl, { spriteFile: ini }) });
+    send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
+      layerStack: Object.assign({}, base.layerStack, { enabled: false }),
+      milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' }),
+      postfx: [], background: { type: 'solid', solidColor: '#000000' } });
+    await wait(900);
+    const sample = (what) => wc.executeJavaScript(`new Promise(function (done) {
+      requestAnimationFrame(function () {
+        var s = window.SVStage && window.SVStage.stack();
+        var e = s && s.entries.filter(function (x) { return x.mode && x.mode.gl2; })[0];
+        if (!e) return done({ hata: 'layer' });
+        var c = e.canvas;
+        var q = window.__sprSample || (window.__sprSample = document.createElement('canvas'));
+        q.width = 8; q.height = 8;
+        var x = q.getContext('2d', { willReadFrequently: true });
+        x.clearRect(0, 0, 8, 8);
+        x.drawImage(c, c.width / 2 - 4, c.height / 2 - 4, 8, 8, 0, 0, 8, 8);
+        var d = x.getImageData(0, 0, 8, 8).data, r = 0, g = 0, b = 0;
+        for (var i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; }
+        var n = d.length / 4;
+        done({ what: ${JSON.stringify(what)}, live: e.mode.spritesLive ? e.mode.spritesLive() : null,
+          rgb: [Math.round(r / n), Math.round(g / n), Math.round(b / n)] });
+      });
+    })`);
+    const before = await sample('before');
+    const launched = spriteCommand({ op: 'launch', num: '00' });
+    await wait(700);
+    const on = await sample('on');
+    const killed = spriteCommand({ op: 'all' });
+    await wait(700);
+    const off = await sample('off');
+    currentConfig = Object.assign({}, currentConfig, { milkdropControl: prevCtl });
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* geçici */ }
+    return { launched, killed, before, on, off };
+  };
+  const spr = await spriteProbe();
+  console.log('[SMOKE] sprite: ' + JSON.stringify(spr));
+  {
+    const red = (p) => p && p.rgb && p.rgb[0] >= 200 && p.rgb[1] <= 60 && p.rgb[2] <= 60;
+    if (!spr.launched || !spr.launched.ok) errors.push('sprite: the launch was refused (' + JSON.stringify(spr.launched) + ')');
+    else if (red(spr.before)) errors.push('sprite: the picture was already red, nothing was measured');
+    else {
+      if (!spr.on || !spr.on.live || spr.on.live.length !== 1) errors.push('sprite: the engine is not running the sprite (' + JSON.stringify(spr.on) + ')');
+      if (!red(spr.on)) errors.push('sprite: the sprite did not reach the screen (' + JSON.stringify(spr.on && spr.on.rgb) + ')');
+      if (!spr.off || !spr.off.live || spr.off.live.length !== 0) errors.push('sprite: removing all left a sprite running');
+      if (red(spr.off)) errors.push('sprite: the sprite stayed on screen after it was removed');
     }
   }
 

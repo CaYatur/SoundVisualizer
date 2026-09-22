@@ -545,6 +545,14 @@
         window.SVMdFollow = p ? Object.assign({ at: performance.now() }, p) : null;
       });
     }
+    /* MILKDROP SPRITE'LARI (#577): ana süreç başlatma/silme komutlarını her
+       motora yolluyor; sayfa sırayla kuyruğa koyuyor. Pencerenin kendi
+       tuşları (K + iki hane...) komutu ana sürece gönderiyor — web
+       çıkışında bu çağrı yok, orada tuşlar bir şey yapmıyor. */
+    if (window.SVMilkdropSprites) {
+      window.SVMilkdropSprites.listen(window.api);
+      if (window.api.milkdropSprite) spriteKeys();
+    }
     /* Çalan parça çıpası. Her kare gelmez — kaynak konumu ancak ara sıra
        günceller — aradaki değeri katmanlar SVNowPlaying ile hesaplar. */
     if (window.api.onNowPlaying) {
@@ -553,6 +561,46 @@
     window.addEventListener('resize', resize);
 
     raf = requestAnimationFrame(frame);
+  }
+
+  /* MilkDrop'un sprite tuşları (shared/milkdrop-sprites.js `spriteKey`).
+     Kip açıkken sağ üstte kısa bir ipucu: ▶ başlatma, ■ silme, girilen
+     haneler. Yakalama aşamasında dinleniyor: kipteyken ESC yüzen
+     pencereyi kapatmasın, kipten çıksın. */
+  function spriteKeys() {
+    const S = window.SVMilkdropSprites;
+    let st = { mode: '', digits: '' };
+    let hint = null;
+    let hideAt = 0;
+    const show = () => {
+      if (!hint) {
+        hint = document.createElement('div');
+        hint.className = 'sv-md-keys';
+        hint.style.cssText = 'position:fixed;top:12px;right:14px;z-index:100000;pointer-events:none;' +
+          'font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);padding:4px 10px;border-radius:6px;';
+        (document.body || document.documentElement).appendChild(hint);
+      }
+      hint.textContent = st.mode
+        ? (st.mode === 'kill' ? '■ ' : '▶ ') + 'Sprite ' + (st.digits + '__').slice(0, 2)
+        : '';
+      hint.style.display = st.mode ? 'block' : 'none';
+      hideAt = performance.now() + 4000;
+    };
+    // Kip dört saniye tuşsuz kalırsa kapanıyor
+    setInterval(() => {
+      if (st.mode && performance.now() > hideAt) { st = { mode: '', digits: '' }; show(); }
+    }, 500);
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      const r = S.spriteKey(st, { key: e.key, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey });
+      st = r.st;
+      if (r.used) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        show();
+      }
+      if (r.cmd) Promise.resolve(window.api.milkdropSprite(r.cmd)).catch(() => {});
+    }, true);
   }
 
   /* Katman yığınına dışarıdan tek erişim noktası — panelin önizlemesindeki

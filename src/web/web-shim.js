@@ -18,7 +18,7 @@
   const fpsOverride = parseInt(params.get('fps') || '', 10);
   const scaleOverride = parseFloat(params.get('scale') || '');
 
-  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [], mdFollow: [] };
+  const handlers = { config: [], audio: [], presets: [], status: [], nowPlaying: [], showClock: [], mdFollow: [], mdSprite: [] };
   let ws = null;
   let retry = 0;
   let firstConfig = null;
@@ -153,6 +153,9 @@
       } else if (msg.type === 'md-follow') {
         // Liderin MilkDrop seçimi (#585): web çıkışı hep izleyici
         handlers.mdFollow.forEach((h) => h(msg.follow || null));
+      } else if (msg.type === 'md-sprite') {
+        // MilkDrop sprite komutu (#577): her ekranla aynı sırayla
+        handlers.mdSprite.forEach((h) => h(msg.cmd || null));
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -224,6 +227,7 @@
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
     onMdFollow: (cb) => handlers.mdFollow.push(cb),
+    onMdSprite: (cb) => handlers.mdSprite.push(cb),
     sendAudioMeter: () => {}, // tarayıcı tarafında ışık senkronu yok
     sendMessage: () => {},
     /* MilkDrop dokuları (#586): yayın sunucusundan. Tek doku bir URL olarak
@@ -237,6 +241,12 @@
     milkdropTexture: (name) => Promise.resolve({
       name,
       url: '/milkdrop/texture?name=' + encodeURIComponent(String(name || ''))
+        + (token ? '&token=' + encodeURIComponent(token) : ''),
+    }),
+    /* Sprite resmi (#577): yol değil, ana sürecin verdiği kimlik. */
+    milkdropSpriteImage: (key) => Promise.resolve({
+      key,
+      url: '/milkdrop/sprite?key=' + encodeURIComponent(String(key || ''))
         + (token ? '&token=' + encodeURIComponent(token) : ''),
     }),
   };

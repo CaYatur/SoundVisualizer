@@ -76,6 +76,11 @@
     { action: 'mdLock', label: '🔒 MilkDrop · Kilit (aç/kapa)' },
     { action: 'mdRateUp', label: '⭐ MilkDrop · Puanı Artır' },
     { action: 'mdRateDown', label: '⭐ MilkDrop · Puanı Azalt' },
+    /* Sprite'lar (#577): başlatma hedefleri ini'deki her sprite için canlı
+       ekleniyor (milkdrop-panel.js `spriteTargets`); silme üçü sabit. */
+    { action: 'mdSpriteNewest', label: '🖼 MilkDrop · Sprite: En Yeniyi Sil' },
+    { action: 'mdSpriteOldest', label: '🖼 MilkDrop · Sprite: En Eskiyi Sil' },
+    { action: 'mdSpriteAll', label: '🖼 MilkDrop · Sprite: Hepsini Sil' },
   ];
 
   const VIS_CYCLE = ['bars', 'centerBars', 'blocks', 'dots', 'wave', 'ribbon', 'terrain', 'circular',
@@ -124,8 +129,13 @@
     return out;
   }
 
+  function spriteTargets() {
+    const mp = window.SVMilkdropPanel;
+    return mp && mp.spriteTargets ? mp.spriteTargets() : [];
+  }
+
   function allTargets() {
-    return TARGETS.concat(deckTargets());
+    return TARGETS.concat(deckTargets(), spriteTargets());
   }
 
   function targetFor(key) {
