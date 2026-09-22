@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2104 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2108 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 507
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 511
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1799,7 +1799,10 @@ rest after. No version number yet.
     thumbnails: any window whose buffers are allocated again (a second
     window opening, a resize, a restored context) and the video export
     could start from another window's picture. Drawing alone is unchanged:
-    200 presets gave identical results before and after.
+    200 presets gave identical results before and after. The price is paid
+    only when buffers are allocated: a full rebuild of the targets at
+    1920x1080 (feedback, blur and flash limiter) takes 8.6 ms instead of
+    3.3 ms, less than one frame.
   - **Found on the way, smaller:** `sampler_randNN` picked from the texture
     list in the order the file system returned — alphabetical on Windows,
     arbitrary on Linux — so the same preset could get another texture on
@@ -1807,7 +1810,22 @@ rest after. No version number yet.
     sorts it. The importer (#574) did not strip the filter/wrap prefix from
     sampler names, so a preset asking for `sampler_fw_worms` did not bring
     the `worms.jpg` beside it; now it does. The builtin presets module gave
-    Node nothing; the main process now reads their sources from it.
+    Node nothing; the main process now reads their sources from it. The
+    light colour sampler (#589) read its 64x16 canvas with `getImageData`
+    about 30 times a second and Chromium warned about it — the smoke test
+    caught the warning once lights were set to take MilkDrop's colours; the
+    downscale stays on the GPU and only the 4 KB result is read back from a
+    canvas made for reading.
+  - **Found on the way — the smoke test could drive real lights.** The smoke
+    test and the screenshot tool run on the user's own profile. With
+    Dynamic Lighting on in the settings, the app drove the lights at
+    start-up in those runs too, and the smoke test itself turns OpenRGB on
+    in the panel. As with the camera, which automation never opens, the
+    physical outputs are now off in these runs: every Dynamic Lighting
+    setting goes through one function that sends it switched off, the
+    device scan is skipped, and OpenRGB and Art-Net are never started.
+    Diagnostics (`--diag`) still drives the lights, since that is what it
+    is for.
   - **Measured** in an isolated copy with 120 corpus presets and the panel
     driven: the first thumbnail after 1.0 s, the 20 visible cells full in
     10–17 s. With a visualizer window drawing MilkDrop at 75 Hz, 20 s idle
@@ -1834,10 +1852,12 @@ rest after. No version number yet.
     protocol and the panel's CSP — into a temporary folder, not the user's
     data. One engine test drives `_makeTarget` against a fake GL: a zero
     array of the right type and length for both formats, the unpack
-    alignment set first, the clear kept, the buffer shared and grown. 48 of
-    49 mutations are caught; the survivor removes the "no context" check,
-    which the frame counter already makes (without a context no frame is
-    drawn).
+    alignment set first, the clear kept, the buffer shared and grown. One
+    checks that the light sampler reads only the small canvas made for
+    reading, and three check that every path to the lights passes the
+    automation flag. 57 of 58 mutations are caught; the survivor removes
+    the "no context" check, which the frame counter already makes (without
+    a context no frame is drawn).
 
 ## v3.1.6 — Comprehensive video export
 

@@ -90,6 +90,16 @@ const SHOTS_ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').sli
    bekçisini açmaz (#564): bir sürüm kapısı o an masada ne açık olduğuna
    bağlı olamaz. */
 const AUTOMATION_RUN = SMOKE || SHOTS || process.argv.includes('--diag') || !!process.env.SV_IDENTITY_PROBE_FILE;
+/* OTOMASYON FİZİKSEL IŞIKLARI SÜRMEZ (#575'te bulundu). Öz test ve ekran
+   görüntüsü üreticisi gerçek kullanıcı klasörüyle koşuyor. Kullanıcının
+   ayarında Dynamic Lighting açıksa açılışta cihazları sürüyordu; öz testin
+   kendi adımları da panelde OpenRGB'yi açıyor — bilgisayarda OpenRGB
+   çalışıyorsa onun cihazlarını, Art-Net açıksa ağdaki sahne ışıklarını
+   sürerdi. Kamera için kural zaten var (otomasyonda hiç açılmıyor); ışıklar
+   için de aynısı: bu kiplerde donanıma giden çağrılar kapalı (bkz.
+   `lightingSet`, `syncArtnet`, `syncOpenRgb`). Tanılama (`--diag`) ışıkları
+   gerçekten sınamak için var; ona dokunulmuyor. */
+const HW_OFF = SMOKE || SHOTS;
 /* Electron 35, console-message olayinin imzasini degistirdi: eskiden
    (event, level, message, line, sourceId) geliyordu ve level bir sayiydi
    (0 verbose, 1 info, 2 warning, 3 error); artik tum alanlar olay nesnesinin
@@ -422,8 +432,8 @@ function syncPortableLightingFocus() {
     const lighting = currentConfig?.lighting;
     if (!lighting?.enabled) return;
     const focused = BrowserWindow.getAllWindows().some((win) => !win.isDestroyed() && win.isFocused());
-    if (focused) dynamicLighting.setConfig(lighting).catch(() => {});
-    else dynamicLighting.setConfig({ ...lighting, enabled: false }).catch(() => {});
+    if (focused) lightingSet(lighting).catch(() => {});
+    else lightingSet({ ...lighting, enabled: false }).catch(() => {});
   }, 120);
 }
 app.on('browser-window-focus', syncPortableLightingFocus);
@@ -1429,7 +1439,7 @@ function applyIncomingConfig(config, opts) {
   const prevSee = wantsTransparent();
   currentConfig = config;
   if (save) saveSettings(config);
-  dynamicLighting.setConfig(config?.lighting).catch(() => {});
+  lightingSet(config?.lighting).catch(() => {});
   const nowSee = wantsTransparent();
   /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
      pencere yeniden kurulacaksa bile önce canlı pencere yeni sahneyi
@@ -1511,9 +1521,18 @@ ipcMain.on('preview:subscribe', (e, on) => {
 
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
 ipcMain.handle('request-config', () => currentConfig);
-ipcMain.handle('lighting:scan', () => dynamicLighting.scan());
+/* Dynamic Lighting'e giden her ayar buradan geçiyor: otomasyonda ışıklar
+   hep kapalı gidiyor (bkz. HW_OFF). Tarama da cihazlara bir anlığına el
+   koyuyor; otomasyonda hiç yapılmıyor. */
+function lightingSet(lighting) {
+  return dynamicLighting.setConfig(HW_OFF ? Object.assign({}, lighting, { enabled: false }) : lighting);
+}
+
+ipcMain.handle('lighting:scan', () => (HW_OFF
+  ? { ok: true, supported: false, devices: [], automation: true }
+  : dynamicLighting.scan()));
 ipcMain.handle('lighting:availability', () => dynamicLighting.availability());
-ipcMain.handle('lighting:apply', (e, lighting) => dynamicLighting.setConfig(lighting));
+ipcMain.handle('lighting:apply', (e, lighting) => lightingSet(lighting));
 ipcMain.handle('lighting:identity-status', () => lightingIdentity.status(dynamicLighting));
 ipcMain.handle('lighting:open-settings', () => lightingIdentity.openDynamicLightingSettings());
 
@@ -1928,7 +1947,7 @@ function applyRemoteCommand(msg, client) {
   sendToVisualizers('config', currentConfig);
   notifyAdmin('external-config', currentConfig); // panel kendi kopyasını tazelesin
   streamServer.broadcast({ type: 'config', config: currentConfig });
-  dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+  lightingSet(currentConfig.lighting).catch(() => {});
 }
 
 let streamSyncing = false;
@@ -1978,7 +1997,8 @@ function syncStreamServer() {
 
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
-  if (!a.enabled) return artnet.stop().then(() => artnet.status());
+  // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
+  if (!a.enabled || HW_OFF) return artnet.stop().then(() => artnet.status());
   return artnet.start(a).then((st) => {
     notifyAdmin('artnet-status', st);
     return st;
@@ -2010,7 +2030,8 @@ function syncTextureShare() {
 
 function syncOpenRgb() {
   const o = (currentConfig && currentConfig.openrgb) || {};
-  if (!o.enabled) return openrgb.stop().then(() => openrgb.status());
+  // Otomasyonda OpenRGB sunucusuna bağlanılmıyor (bkz. HW_OFF)
+  if (!o.enabled || HW_OFF) return openrgb.stop().then(() => openrgb.status());
   return openrgb.start(o).then((st) => {
     notifyAdmin('openrgb-status', st);
     return st;
@@ -2113,7 +2134,7 @@ ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('openrgb:status', () => openrgb.status());
 ipcMain.handle('openrgb:sync', () => syncOpenRgb());
-ipcMain.handle('openrgb:rescan', () => openrgb.rescan());
+ipcMain.handle('openrgb:rescan', () => (HW_OFF ? openrgb.status() : openrgb.rescan()));
 ipcMain.handle('texture:status', () => textureShare.status());
 ipcMain.handle('texture:sync', () => syncTextureShare());
 ipcMain.handle('texture:senders', () => textureShare.listSenders());
@@ -3065,7 +3086,7 @@ app.whenReady().then(async () => {
     currentConfig = null;
   }
   if (currentConfig?.lighting?.enabled) {
-    dynamicLighting.setConfig(currentConfig.lighting).catch(() => {});
+    lightingSet(currentConfig.lighting).catch(() => {});
   }
   syncNowPlaying();
   /* Preset deposu arka planda okunmaya başlıyor (#574): pencereler açılıp
