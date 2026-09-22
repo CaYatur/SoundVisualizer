@@ -58,6 +58,9 @@ function compare(a, b) {
 let byFile = null; // dosya adı → preset
 let sorted = null; // sıralı liste; değişince null
 let warming = null;
+/* Arka plan okuması sürerken silinenler: okuma, silmeden ÖNCE aldığı ad
+   listesinden bir önbellek kuruyor ve silineni geri getirebilirdi. */
+const droppedWhileWarming = new Set();
 
 function names() {
   try { return fs.readdirSync(dir()).filter((f) => f.endsWith('.json')); } catch { return []; }
@@ -103,6 +106,8 @@ function warm() {
         } catch { /* okunamayan dosya atlanıyor */ }
       }));
     }
+    for (const n of droppedWhileWarming) map.delete(n);
+    droppedWhileWarming.clear();
     if (!byFile) { byFile = map; sorted = null; }
   })();
   return warming;
@@ -131,11 +136,20 @@ function list() {
   return sorted.slice();
 }
 
+/* Tek preset. Önbellekte yoksa dosyasına bakılıyor: arka plan okuması
+   sürerken kaydedilen preset okumanın ad listesinde yok, `list()` onu
+   klasör eşitlemesiyle buluyor, `get()` de dosyadan. */
 function get(id) {
   const n = safeName(id);
   if (!n) return null;
   ensure();
-  return byFile.get(n + '.json') || null;
+  const name = n + '.json';
+  let p = byFile.get(name) || null;
+  if (!p && fs.existsSync(path.join(dir(), name))) {
+    p = readOne(name);
+    if (p) { byFile.set(name, p); sorted = null; }
+  }
+  return p;
 }
 
 /* Kaydın hazırlığı: doğrulama, kimlik ve zaman damgası. `stamp` verilirse
@@ -179,7 +193,7 @@ function remove(id) {
   if (!file) return { ok: false, error: 'BAD_ID' };
   try {
     fs.unlinkSync(file);
-    if (byFile) { byFile.delete(path.basename(file)); sorted = null; }
+    if (byFile) { byFile.delete(path.basename(file)); sorted = null; } else if (warming) droppedWhileWarming.add(path.basename(file));
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -229,6 +243,7 @@ function setDir(d) {
   byFile = null;
   sorted = null;
   warming = null;
+  droppedWhileWarming.clear();
 }
 
 module.exports = { list, get, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir };

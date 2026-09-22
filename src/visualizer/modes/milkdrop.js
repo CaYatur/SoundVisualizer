@@ -2072,7 +2072,16 @@ void main(){
       const p = S && typeof S.get === 'function' ? S.get(id) : null;
       if (p && typeof p.source === 'string' && p.source) return p.source;
       const api = typeof window !== 'undefined' && window.api;
-      if (!api || typeof api.milkdropPresetSource !== 'function') return '';
+      if (!api || typeof api.milkdropPresetSource !== 'function') {
+        /* Kaynaksız preset ama isteyecek köprü yok. Bugün yalnız web çıkışı
+           kaynaksız liste alıyor; bir gün başka bir sayfa alırsa seçim
+           sessizce bırakılmasın, konsolda bir kez görünsün. */
+        if (!this._srcWarned) {
+          this._srcWarned = true;
+          if (typeof console !== 'undefined' && console.warn) console.warn('[milkdrop] kaynaksız preset, kaynak köprüsü yok: ' + id);
+        }
+        return '';
+      }
       const box = this._srcReq || (this._srcReq = new Map());
       const r = box.get(id);
       if (r) return r.done ? r.source : null;

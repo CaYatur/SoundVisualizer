@@ -115,6 +115,38 @@ test('depo: arka planda okuma; bu arada yapılan kayıt kaybolmuyor', async () =
   assert.strictEqual(ids[0], 'md_arada');
 });
 
+test('depo: arka planda okuma sürerken silinen geri gelmiyor; kaydedilen get ile bulunuyor', async () => {
+  const d = tmpStore();
+  for (let i = 0; i < 20; i++) write(d, md('md_r' + i, i));
+  /* Yarış belirlenimli: okuma dosyanın içeriğini HEMEN alıyor, sonucu ise
+     silme yapıldıktan sonra açılan bir kapıda bekliyor — yani okuma silinen
+     dosyayı görmüş oluyor. */
+  const origRead = fs.promises.readFile;
+  let open;
+  const gate = new Promise((r) => { open = r; });
+  fs.promises.readFile = function (f, enc) {
+    let text = null;
+    try { text = fs.readFileSync(f, enc); } catch (e) { return Promise.reject(e); }
+    return gate.then(() => text);
+  };
+  let w;
+  try {
+    w = STORE.warm();
+    await new Promise((r) => setImmediate(r));
+    assert.ok(STORE.remove('md_r5').ok);
+    assert.ok(STORE.save(md('md_yeni', 999)).ok);
+    open();
+    await w;
+  } finally {
+    fs.promises.readFile = origRead;
+  }
+  // Önce get: list() klasörü eşitleyip eksiği kendisi kapatırdı
+  const yeni = STORE.get('md_yeni');
+  assert.strictEqual(yeni && yeni.name, 'Y - md_yeni', 'okuma sırasında kaydedilen get ile de bulunuyor');
+  assert.strictEqual(STORE.get('md_r5'), null, 'silinen önbellekte dirilmemeli');
+  assert.ok(!STORE.list().some((p) => p.id === 'md_r5'));
+});
+
 test('depo: toplu kayıt parça parça, paketin sırasıyla, ilerlemeyle', async () => {
   tmpStore();
   /* Kimlikler bilerek AZALAN sırada: sıra kimlikten değil paketten gelmeli
@@ -433,6 +465,27 @@ test('motor: kaynak alınamazsa seçim bırakılıyor, varsayılana düşülmüy
   e.m._ensurePreset(cfg);
   assert.strictEqual(e.m.autoPick, null);
   assert.strictEqual(e.m.presetKey, before);
+});
+
+test('motor: kaynaksız preset ama köprü yok — seçim bırakılıyor ve konsolda bir kez söyleniyor', () => {
+  const e = engine({}, [{ id: 'm2', kind: 'milkdrop', name: 'İki', lazy: true, updatedAt: 1 }]);
+  const warned = [];
+  const saved = console.warn;
+  console.warn = (m) => warned.push(String(m));
+  try {
+    const cfg = { milkdrop: { presetId: 'm1', source: '[preset00]\nzoom=1.01\n', blendTime: 0 }, milkdropControl: {}, milkdropLibrary: {} };
+    e.m._ensurePreset(cfg);
+    const before = e.m.presetKey;
+    for (let i = 0; i < 3; i++) {
+      e.m.autoPick = { id: 'm2', name: 'İki', source: '', lazy: true, cut: false, blend: null, seed: 3 };
+      e.m._ensurePreset(cfg);
+    }
+    assert.strictEqual(e.m.autoPick, null);
+    assert.strictEqual(e.m.presetKey, before, 'varsayılana düşülmedi');
+    assert.deepStrictEqual(warned, ['[milkdrop] kaynaksız preset, kaynak köprüsü yok: m2']);
+  } finally {
+    console.warn = saved;
+  }
 });
 
 test('motor: izleyen ve lider seçimi kaynaksız presette "yolda" işaretliyor', () => {

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2050 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2052 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 453
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 455
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1654,12 +1654,15 @@ rest after. No version number yet.
   - **Not done here:** visualizer windows still hold every source (141 MB
     with 10,347 presets), since they draw from them directly; the importer
     itself is part 2.
-  - **Tests.** 18 tests: the store against a temporary folder (one read,
-    cache updates, hand-made files, background load with a save in between,
-    batched saves in the pack's order), the change broadcast on the page,
-    the stream server stripping sources and serving them behind the token,
-    the web bridge, the visualizer's rebuild rule and the engine waiting
-    for a source. 23 of 23 mutations are caught.
+  - **Tests.** 20 tests: the store against a temporary folder (one read,
+    cache updates, hand-made files, background load with a save and a
+    delete in between — the delete made deterministic, since a load that
+    had already read the file brought it back — and batched saves in the
+    pack's order), the change broadcast on the page, the stream server
+    stripping sources and serving them behind the token, the web bridge,
+    the visualizer's rebuild rule and the engine waiting for a source (and
+    saying so once if a page ever gets a sourceless preset with no way to
+    fetch it). 26 of 26 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
