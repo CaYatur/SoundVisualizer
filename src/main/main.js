@@ -2403,6 +2403,12 @@ function ensureThumbWin() {
     const j = thumbJob;
     if (j) { thumbJob = null; clearTimeout(j.timer); j.resolve(null); }
   });
+  /* Çizim süreci çöktüyse pencere kapanmıyor, `closed` gelmiyor: süren iş
+     30 sn bekler, sonraki her hücre de. Pencere yok ediliyor; süren iş
+     başarısız, sıradaki yeni bir pencerede. */
+  win.webContents.on('render-process-gone', () => {
+    try { win.destroy(); } catch { /* zaten kapalı */ }
+  });
   win.loadFile(path.join(__dirname, '..', 'thumbs', 'index.html')).catch(() => {
     try { win.destroy(); } catch { /* zaten kapalı */ }
   });

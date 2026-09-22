@@ -22,6 +22,17 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf-8');
 const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+/* Koşul gerçekleşene kadar yokla. Sabit bir bekleme panelin 80 ms'lik
+   toplama zamanlayıcısıyla yarışırdı: Windows'ta zamanlayıcı ~15,6 ms'de
+   bir işliyor, yüklü bir CI makinesinde daha da geç. */
+async function until(fn, ms) {
+  const end = Date.now() + (ms || 3000);
+  for (;;) {
+    const v = fn();
+    if (v || Date.now() > end) return v;
+    await wait(10);
+  }
+}
 
 const made = [];
 test.after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
@@ -280,9 +291,18 @@ function driver(opts) {
       this.canvas = canvas;
       this.pending = 0;
       this.waiters = [];
+      // Motor gibi: bağlam ilk çizimde, sayaç yalnız gerçekten çizilen karede
+      this.gl = null;
+      this.preset = null;
+      this.frameNo = 0;
       log.randoms.push([pageMath.random(), pageMath.random()]);
     }
     draw(audio, cfg, t, dt) {
+      if (!o.noContext && !this.gl) this.gl = { isContextLost: () => !!o.lostAt && log.draws.length >= o.lostAt };
+      if (this.gl && !this.gl.isContextLost()) {
+        this.preset = this.preset || {};
+        if (!(o.skipFrame && log.draws.length === o.skipFrame)) this.frameNo++;
+      }
       log.draws.push({ t, dt, id: cfg.milkdrop.presetId, cut: cfg.milkdrop.blendTime, rev: cfg.milkdropLibrary.textureRev, w: this.canvas.width, h: this.canvas.height, time: audio.timeBytes.length });
       if (o.textureAt === log.draws.length - 1) {
         this.pending = 1;
@@ -355,6 +375,21 @@ test('çizim sayfası: doku istendiği karenin ardından bekleniyor; gelmezse i�
   assert.strictEqual(late.log.disposed, 1, 'başarısız işin motoru da bırakıldı');
 });
 
+test('çizim sayfası: bağlam yoksa, kaybolduysa ya da bir kare çizilmediyse yazılmıyor', async () => {
+  // Bağlam hiç alınamadı: motor yedek görüntü çiziyor
+  const none = await driver({ noContext: true }).run(JOB(K('a')));
+  assert.deepStrictEqual([none.r.ok, none.r.error], [false, 'NO_CONTEXT']);
+  // Üçüncü karede kayboldu: motor son kareyi bırakıyor
+  const lost = await driver({ lostAt: 3 }).run(JOB(K('b')));
+  assert.deepStrictEqual([lost.r.ok, lost.r.error], [false, 'NO_CONTEXT']);
+  // Bir kare çizilmedi (sayaç eksik)
+  const short = await driver({ skipFrame: 2 }).run(JOB(K('c')));
+  assert.deepStrictEqual([short.r.ok, short.r.error], [false, 'NO_CONTEXT']);
+  // Hepsi canlı bağlamda: yazılıyor
+  const ok = await driver().run(JOB(K('d')));
+  assert.strictEqual(ok.r.ok, true);
+});
+
 // ------------------------------------------------------------ ana süreç
 
 test('ana süreç: protokol, istek, eskime, pencere ve yerleşikler', () => {
@@ -378,6 +413,8 @@ test('ana süreç: protokol, istek, eskime, pencere ve yerleşikler', () => {
   assert.match(M, /mdThumbs\.prune\(thumbDir\(\), live, started\);/);
   // Pencere yalnız kendi iletisine yanıt veriyor
   assert.match(M, /e\.sender !== thumbWin\.webContents \|\| j\.key !== key\) return;/);
+  // Çizim süreci çökerse pencere yok ediliyor (kapanış olayı gelmezdi)
+  assert.match(M, /win\.webContents\.on\('render-process-gone', \(\) => \{\s*try \{ win\.destroy\(\); \}/);
   /* Öz test: zincirin tamamı (asar'daki reçete dosyaları, gizli pencere,
      protokol, CSP) sürüm kapısında sınanıyor; klasörü geçici, kullanıcının
      verisine küçük resim yazılmıyor. */
@@ -429,6 +466,10 @@ function walk(n, f) {
 }
 
 async function gridPanel(api, setup) {
+  /* Önceki testin panelinin toplama zamanlayıcısı hâlâ sürüyor olabilir:
+     köprü değişmeden önce kendi köprüsüne boşalsın, yoksa bu testin
+     sayacına karışır. */
+  await wait(200);
   const key = require.resolve('../src/admin/milkdrop-panel.js');
   delete require.cache[key];
   const cfg = global.window.SV.defaultConfig();
@@ -489,9 +530,10 @@ test('panel: düzen ızgaraya geçince görünenler isteniyor; hazırlar görsel
   assert.strictEqual(root.querySelectorAll('.md-grid').length, 1);
   assert.strictEqual(cellsOf(root).length, 3);
   assert.ok(cellsOf(root).every((b) => b.classList.contains('pending')), 'ilk çizimde hepsi bekliyor');
-  await wait(120); // gözlemci yok: ilk hücreler isteniyor (80 ms toplanıp)
-  assert.deepStrictEqual(asked, [['md_caya_a', 'md_caya_b', 'md_u1']]);
   const box = (id) => cellsOf(root).find((b) => b.getAttribute('data-id') === id);
+  // Gözlemci yok: ilk hücreler toplanıp tek istekte isteniyor
+  await until(() => box('md_caya_a').querySelector('img').getAttribute('src'));
+  assert.deepStrictEqual(asked, [['md_caya_a', 'md_caya_b', 'md_u1']]);
   assert.strictEqual(box('md_caya_a').querySelector('img').getAttribute('src'), 'sv-thumb://t/' + K('a') + '.webp');
   assert.ok(!box('md_caya_a').classList.contains('pending'));
   assert.ok(box('md_u1').classList.contains('failed'), 'çizilemeyen kesikli');
@@ -514,9 +556,9 @@ test('panel: preset değişince ve dokular değişince eski küçük resim göst
   layoutRow(root).node.value = 'grid';
   layoutRow(root).node.on.change();
   root = again.render();
-  await wait(120);
   const box = (id) => cellsOf(root).find((b) => b.getAttribute('data-id') === id);
-  assert.ok(box('md_caya_a').querySelector('img').getAttribute('src'));
+  const src = (id) => box(id).querySelector('img').getAttribute('src');
+  assert.ok(await until(() => asked.length >= 1 && src('md_caya_a') && src('md_caya_b')));
   // Değişiklik yayını: preset değişti — kaydı düşüyor
   again.listeners.delta({ upsert: [{ id: 'md_caya_a' }], remove: [] });
   root = again.render();
@@ -524,14 +566,17 @@ test('panel: preset değişince ve dokular değişince eski küçük resim göst
   assert.ok(box('md_caya_b').querySelector('img').getAttribute('src'), 'ötekiler kalıyor');
   // Dokular değişti (içe aktarım sayacı): hepsi
   again.cfg.milkdropLibrary.textureRev = 7;
+  const before = asked.length;
   root = again.render();
   assert.ok(cellsOf(root).every((b) => b.classList.contains('pending')));
-  // Eskiyen iş: yeniden isteniyor. Çizimin tetiklediği istek önce bitsin —
-  // sayılan istek yalnız olayın yol açtığı olsun.
-  await wait(120);
+  /* Eskiyen iş: yeniden isteniyor. Çizimin tetiklediği istek önce yanıtını
+     alsın — sayılan istek yalnız olayın yol açtığı olsun. */
+  assert.ok(await until(() => asked.length > before && box('md_caya_b').querySelector('img').getAttribute('src')));
   const n = asked.length;
   again.listeners.thumb({ id: 'md_caya_b', key: '', ok: false, stale: true });
-  await wait(120);
+  assert.ok(box('md_caya_b').classList.contains('pending'), 'eskiyen hücre yeniden bekliyor');
+  await until(() => asked.length > n);
+  await wait(30);
   assert.strictEqual(asked.length, n + 1, 'eskiyen için tek bir istek');
   assert.deepStrictEqual(asked[n], ['md_caya_b'], 'eskiyen yeniden istendi');
 });

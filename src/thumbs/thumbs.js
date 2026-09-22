@@ -13,7 +13,13 @@
      - Derleme bekleyerek (`SVMilkdropSync`).
      - Doku isteniyorsa istendiği karenin hemen ardından bekleniyor (dışa
        aktarıcıdaki gibi). Süre dolarsa iş BAŞARISIZ: yazılsaydı görüntü o
-       anki disk hızına kalırdı. */
+       anki disk hızına kalırdı.
+     - Her kare CANLI bir bağlamda ve presetle çizilmiş olmalı. Bağlam
+       alınamazsa motor yedek bir görüntü çiziyor, kaybolursa son kareyi
+       bırakıyor; ikisi de içerik anahtarıyla kalıcı olarak saklanırdı —
+       bir GPU sıfırlaması yanlış küçük resmi sonsuza dek yerleştirirdi.
+       Motorun kare sayacı (`frameNo`) yalnız gerçekten çizilen karede
+       artıyor. */
 (function () {
   window.SVMilkdropSync = true;
   const bridge = window.thumbs;
@@ -82,6 +88,11 @@
         while (mode.texturesPending()) {
           if (!(await settle(mode, R.textureWaitMs))) return { ok: false, error: 'TEXTURE_TIMEOUT' };
         }
+      }
+      const gl = mode.gl;
+      if (!gl || (gl.isContextLost && gl.isContextLost()) || mode._lost || mode.recoveries ||
+          !mode.preset || mode.frameNo !== R.frames) {
+        return { ok: false, error: 'NO_CONTEXT' };
       }
       out.width = R.thumbW;
       out.height = R.thumbH;

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2102%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2104%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -358,7 +358,10 @@ profilinde basamak olmadığını doğruluyor.
   bir kez çiziliyor — presetin ilk iki saniyesi, örnek sesle, siyah bir ekrandan — uygulamanın
   verisinde saklanıyor ve preset ya da kullandığı bir doku değişince yeniden çiziliyor. Yalnız
   kaydırıp baktığınız presetler çiziliyor. Aynı anda MilkDrop çizen bir görselleştirici penceresi
-  bunu neredeyse hiç fark etmedi: hiçbir karesi 27 ms'den uzun sürmedi.
+  bunu neredeyse hiç fark etmedi: hiçbir karesi 27 ms'den uzun sürmedi. Bunu yaparken bulundu: başka
+  bir MilkDrop penceresi çizerken ve bilgisayar meşgulken, tamponlarını yeni kuran bir MilkDrop
+  görüntüsü (yeni bir pencere, yeniden boyutlandırma, küçük resim, video dışa aktarımı) öbür
+  pencerenin görüntüsüyle başlayabiliyordu. Tamponlar artık sıfırdan başlıyor.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1262,7 +1265,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2102 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2104 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
