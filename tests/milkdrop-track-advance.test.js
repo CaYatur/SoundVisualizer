@@ -86,6 +86,8 @@ function engine() {
   const self = {
     cycle: null, autoPick: null, _manualKey: 'a|0', _rel: null,
     _trackChanged: new Function(method('_trackChanged()')),
+    // Döngünün gördüğü ayar (kilit, hareketi azaltma #581) motorun kendi yöntemiyle
+    _cycleMd: new Function('BLEND_MAX', 'return function (cfg) {' + method('_cycleMd(cfg)') + '};')(5),
     _beat: () => null, _compileAsync: () => false, _prefetch: () => {},
   };
   self.run = (cfg) => fn.call(self, cfg, 1 / 60, null, 1);

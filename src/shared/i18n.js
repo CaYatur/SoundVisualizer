@@ -1626,6 +1626,17 @@
     // ---- Parça değişince (#582) — "Parça Değişince" yukarıda zaten var ----
     'Bir şey yapma': 'Do nothing',
     'Sıradaki presete geç': 'Go to the next preset',
+    // ---- Hareketi azalt (#581) ----
+    'Hareketi Azalt': 'Reduce Motion',
+    'Sistemi izle': 'Follow the system',
+    'Her zaman': 'Always',
+    'Kapalı (sistem istese de)': 'Off (even if the system asks)',
+    'Açık — bu ayarla': 'On — by this setting',
+    'Açık — işletim sistemi hareketin azaltılmasını istiyor': 'On — the operating system asks for reduced motion',
+    'Kapalı — sistem istiyor ama geçersiz kılındı': 'Off — the system asks for it, overridden here',
+    'Kapalı — işletim sistemi istemiyor': 'Off — the operating system does not ask for it',
+    'Flaş sınırlayıcı açık kalıyor, sesin yükselişinde sert geçiş olmuyor ve geçişler 5 saniye sürüyor. Elle "şimdi kes" yine keser. Video dışa aktarımında sistemin ayarı değil yalnız bu ayar ("Her zaman") geçerli.':
+      'The flash limiter stays on, there are no hard cuts on a rise in the sound, and transitions last 5 seconds. A manual "cut now" still cuts. Video export follows this setting ("Always") only, not the system’s.',
     'Sil': 'Delete',
 
 

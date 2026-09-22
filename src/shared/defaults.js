@@ -734,7 +734,10 @@
          (varsayılan) ilk görselleştirici penceresi seçiyor, diğer pencereler,
          Spout/Syphon ve web çıkışı onu izliyor.
        milkdropControl.spriteFile (#577) — MilkDrop'un sprite dosyası
-         (`milk_img.ini`). Gösteri aracı: sahneyle değişmemeli. */
+         (`milk_img.ini`). Gösteri aracı: sahneyle değişmemeli.
+       milkdropControl.reduceMotion (#581) — 'system' (işletim sisteminin
+         "hareketi azalt" ayarını izle) | 'on' | 'off'. Azaltılırken flaş
+         sınırlayıcı açık kalıyor, sert geçiş yok, geçişler uzun. */
     milkdropLibrary: {
       ratings: {},
     },
@@ -743,6 +746,7 @@
       cutTo: '',
       independent: false,
       spriteFile: '',
+      reduceMotion: 'system',
     },
 
     // ------------------------------------------------------------------

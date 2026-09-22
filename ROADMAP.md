@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **1985 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2003 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 388
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 406
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1527,6 +1527,44 @@ rest after. No version number yet.
   - **Tests.** 7 tests run the engine's own `_autoCycle` in a fake
     environment, as leader and as follower. 7 of 7 mutations are caught,
     among them asking about the track only on the leader's path.
+- **MilkDrop follows the system's reduce-motion setting (#581)** · done. When
+  the operating system asks for reduced motion (`prefers-reduced-motion:
+  reduce`; on Windows, *Animation effects* off), the flash limiter stays on,
+  hard cuts are off and blends are long. The panel says why, and *Reduce
+  Motion* overrides it either way.
+  - **What changes.** The flash limiter cannot be turned off while motion is
+    reduced. Loud moments no longer cut: the cycle sees the hard cut as off
+    while the setting itself stays as it was, so the user's hard cut comes
+    back when reduced motion ends. Every blend runs the engine's full 5
+    seconds, a 0-second setting included. A manual *Cut now* is an explicit
+    command and still cuts.
+  - **The plan follows the blend.** MilkDrop starts a preset's life with its
+    blend, so the timer counts blend plus interval. Planning with the
+    configured blend while the engine blended for 5 seconds would have cut
+    the time a preset is shown in full short, and with a short interval kept
+    the screen blending from one preset straight into the next. The cycle,
+    the look-ahead compile (#573) and `progress` all use the same plan.
+    Found while writing the tests.
+  - **Whose system.** Each screen asks its own: a follower (a web overlay on
+    another machine) blends a leader's hard cut when its own system asks for
+    reduced motion. Video export and the measurement scripts do not read the
+    system at all (`SVMilkdropSync`), only *Always*: the same job must give
+    the same video on every machine.
+  - **Setting.** `milkdropControl.reduceMotion`: *Follow the system*
+    (default), *Always*, *Off (even if the system asks)*. It belongs to the
+    show, not the scene, like the lock.
+  - **Measured** in an isolated copy with one window leading and the panel
+    preview following, the setting emulated in the browser engine (CDP
+    `Emulation.setEmulatedMedia`) and the system left alone. Not asked: the
+    limiter off as set, the hard cut armed, a 1 s blend. Asked: the limiter
+    on with its targets allocated, the hard cut off, a 5 s blend, and *Cut
+    now* still a cut. *Off* while asked: 1 s again; *Always* while not asked:
+    5 s. A change to the system setting while the app ran was picked up
+    without a restart, and the panel named the reason every time.
+  - **Tests.** 18 tests run the engine's own `_reducedMotion`, `_autoCycle`
+    and `_ensurePreset` in a fake window with a fake `matchMedia`, draw the
+    panel with a fake DOM, and follow *Always* from the export job to the
+    layer the engine draws. 29 of 29 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

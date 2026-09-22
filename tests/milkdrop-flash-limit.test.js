@@ -168,7 +168,8 @@ test('varsayılan AÇIK, ayardan kapatılabiliyor', () => {
   /* Ölçüldü: %90 hiç etkilenmiyor, devreye WCAG'in riskli dediği %7,1'de
      giriyor. Bedeli neredeyse yok, kazancı erişilebilirlik. */
   assert.match(DEF, /flashLimit: true,/);
-  assert.match(BARE, /this\._flashLimit = !\(cfg\.milkdrop && cfg\.milkdrop\.flashLimit === false\);/);
+  // Hareket azaltılırken (#581) kapatılamıyor
+  assert.match(BARE, /this\._flashLimit = this\._reduced \|\| !\(cfg\.milkdrop && cfg\.milkdrop\.flashLimit === false\);/);
   assert.match(PANEL, /md\.flashLimit === false \? 0 : 1/);
 });
 

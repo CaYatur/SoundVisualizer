@@ -1800,7 +1800,8 @@ void main(){
       }
       /* Liste zamanlayıcı ya da sert geçiş açıksa kuruluyor; ikisi de
          kapalıyken her kare yüzlerce öğelik bir dizi kurmanın anlamı yok. */
-      const o = C.normalize(cfg.milkdrop);
+      const md = this._cycleMd(cfg);
+      const o = C.normalize(md);
       const beat = this._beat(audio, cfg, step);
       this._barsOf = o.bars;
       const list = o.seconds > 0 || o.bars > 0 || o.hardCut !== 'off' ? listOf() : [];
@@ -1808,12 +1809,8 @@ void main(){
       /* Sert geçiş bir ÖNCEKİ karenin bantlarına bakıyor: bu karenin analizi
          preset yüklendikten sonra yapılıyor. MilkDrop'ta da kesim, analizden
          sonraki yüklemede — yani bir kare sonra — ekrana geliyor. */
-      /* Kilit ve puanlar sahnenin değil gösterinin: `milkdrop` bloğunda
-         değil, yanındaki iki blokta (defaults.js). Kilit döngüye `md`nin
-         parçası gibi veriliyor; nesne yalnız kilitliyken kopyalanıyor. */
-      const ctl = cfg.milkdropControl || {};
+      // Puanlar da sahnenin değil gösterinin (bkz. `_cycleMd`)
       const lib = cfg.milkdropLibrary || {};
-      const md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
       let p = this.cycle.step(step, md, list, cur, this._rel, lib.ratings, beat);
       /* PARÇA DEĞİŞİNCE (#582) sıradaki preset. Yalnız LİDER seçiyor —
          izleyenler yukarıda liderin seçimine geçti; her ekran kendi başına
@@ -1840,6 +1837,43 @@ void main(){
           seed: (Math.random() * 4294967296) >>> 0,
         };
       }
+    }
+
+    /* HAREKETİ AZALT (#581). İşletim sistemi hareketin azaltılmasını
+       istediğinde (`prefers-reduced-motion: reduce`; Windows'ta
+       Erişilebilirlik › Görsel efektler › Animasyon efektleri kapalı) flaş
+       sınırlayıcı açık kalıyor, sesin yükselişinde sert geçiş olmuyor ve
+       geçişler uzun sürüyor. `milkdropControl.reduceMotion`:
+         'system' — sistemi izle (varsayılan)
+         'on'     — sistem istemese de azalt
+         'off'    — sistem istese de azaltma (geçersiz kılma)
+       'system' dışa aktarımda ve ölçüm betiklerinde (`SVMilkdropSync`)
+       uygulanmıyor: bir video, onu üreten makinenin erişilebilirlik ayarına
+       bağlı olmamalı. 'on' kullanıcının seçimi, orada da geçerli. */
+    _reducedMotion(cfg) {
+      const mode = cfg && cfg.milkdropControl && cfg.milkdropControl.reduceMotion;
+      if (mode === 'off') return false;
+      if (mode === 'on') return true;
+      if (typeof window === 'undefined' || window.SVMilkdropSync === true) return false;
+      if (this._rmq === undefined) {
+        this._rmq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+      }
+      return !!(this._rmq && this._rmq.matches);
+    }
+
+    /* DÖNGÜNÜN GÖRDÜĞÜ AYAR. Kilit ve puanlar sahnenin değil gösterinin:
+       `milkdrop` bloğunda değil, yanındaki iki blokta (defaults.js). Kilit
+       döngüye `md`nin parçası gibi veriliyor. Hareket azaltılırken (#581)
+       sesin yükselişinde kesme yok ve döngü motorun uzun geçişiyle
+       planlıyor: presetin ömrü geçişle başlıyor (MilkDrop), ekranda tam
+       görünme süresi ayardaki kadar kalsın, `progress` de aynı plana göre
+       1'e varsın. Ayarın kendisine yazılmıyor; nesne yalnız gerektiğinde
+       kopyalanıyor. */
+    _cycleMd(cfg) {
+      const ctl = cfg.milkdropControl || {};
+      let md = ctl.locked === true ? Object.assign({}, cfg.milkdrop, { locked: true }) : cfg.milkdrop;
+      if (this._reduced) md = Object.assign({}, md, { hardCut: 'off', blendTime: BLEND_MAX });
+      return md;
     }
 
     /* ÇALAN PARÇA (#582): yeni bir parça başladı mı. Kimlik başlık, sanatçı
@@ -1920,11 +1954,16 @@ void main(){
          yüklüyor (milkdropfs.cpp:891). Elle "şimdi kes" de (#570): panel
          yeni seçimin kimliğini `milkdropControl.cutTo`ya yazıyor. */
       const cutTo = cfg.milkdropControl && cfg.milkdropControl.cutTo;
-      const cutNow = a ? a.cut : (!!cutTo && cutTo === c.presetId);
+      /* Hareketi azaltan bir izleyici (#581; ör. başka makinedeki web
+         çıkışı) liderin sert geçişini de karıştırarak gösteriyor. */
+      const cutNow = a ? (a.cut && !this._reduced) : (!!cutTo && cutTo === c.presetId);
       /* Ölçü kipinde döngü süreyi tam vuruşa yuvarlıyor (#571); o seçimde
          ayardaki süre değil o kullanılıyor. */
       const want = a && typeof a.blend === 'number' ? a.blend : +c.blendTime || 0;
-      const bt = cutNow ? 0 : Math.max(0, Math.min(BLEND_MAX, want));
+      /* Hareket azaltılırken (#581) geçiş UZUN: motorun sınırı. Elle
+         "şimdi kes" açık bir komut, o kalıyor; kendiliğinden sert geçiş
+         döngüde zaten kapalı. */
+      const bt = cutNow ? 0 : (this._reduced ? BLEND_MAX : Math.max(0, Math.min(BLEND_MAX, want)));
       /* Değişimin tohumu (#585): otomatik seçimde seçenin (lider pencere ya
          da izlenen) verdiği, elle seçimde seçimin kendisinden. */
       const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(key);
@@ -2795,8 +2834,10 @@ void main(){
       this._lineStyle = (ls === 'thin' || ls === 'milkdrop') ? ls : 'smooth';
       /* Flaş sınırlama VARSAYILAN AÇIK. Ölçtük: presetlerin %90'ı eşiğin
          altında kalıyor ve hiç etkilenmiyor; devreye yalnızca WCAG'in
-         riskli dediği %7,1'de giriyor. Kapatmak isteyen ayardan kapatıyor. */
-      this._flashLimit = !(cfg.milkdrop && cfg.milkdrop.flashLimit === false);
+         riskli dediği %7,1'de giriyor. Kapatmak isteyen ayardan kapatıyor.
+         Hareket azaltılırken (#581) kapatılamıyor. */
+      this._reduced = this._reducedMotion(cfg);
+      this._flashLimit = this._reduced || !(cfg.milkdrop && cfg.milkdrop.flashLimit === false);
       /* Bağlam kaybı (#572): geri gelmesini beklerken çizilmiyor, görünür
          tuvalde son kare kalıyor. Hiç bağlam alınamadıysa (GPU süreci daha
          kalkmadıysa) deneme aralıklarla, her karede değil. */
@@ -2919,7 +2960,7 @@ void main(){
          tetikliyordu. */
       const accProg = this._wantAcc !== false;
       const progress = accProg
-        ? (this.cycle ? this.cycle.progress(cfg.milkdrop) : 0)
+        ? (this.cycle ? this.cycle.progress(this._cycleMd(cfg)) : 0)
         : (this.presetTime * 0.1) % 1;
       const fpsNow = 1 / Math.max(1e-3, step);
       const inputs = {

@@ -186,7 +186,12 @@ test('motor: otomatik seçim AYARA YAZILMIYOR', () => {
   assert.match(fn[0], /this\.cycle\.step\(step, md, list, cur, this\._rel, lib\.ratings, beat\)/);
   /* Kilit ve puanlar sahnenin değil gösterinin; `md` yalnız kilitliyken
      kopyalanıyor ve ayarın kendisine yazılmıyor. */
-  assert.match(fn[0], /const md = ctl\.locked === true \? Object\.assign\(\{\}, cfg\.milkdrop, \{ locked: true \}\) : cfg\.milkdrop;/);
+  // Döngünün gördüğü ayar tek yerde kuruluyor (#581: hareketi azaltma da orada)
+  assert.match(fn[0], /const md = this\._cycleMd\(cfg\);/);
+  const cm = /_cycleMd\(cfg\) \{[\s\S]*?\n    \}/.exec(MODE);
+  assert.ok(cm, '_cycleMd bulunamadı');
+  assert.match(cm[0], /let md = ctl\.locked === true \? Object\.assign\(\{\}, cfg\.milkdrop, \{ locked: true \}\) : cfg\.milkdrop;/);
+  assert.doesNotMatch(cm[0], /cfg\.milkdrop\.\w+\s*=/, 'ayarın kendisine yazılmamalı');
   assert.doesNotMatch(fn[0], /cfg\.milkdrop\.(presetId|source|name)\s*=/);
   assert.ok(!MODE.includes('updateConfig'), 'motor yapılandırma göndermemeli');
 });
