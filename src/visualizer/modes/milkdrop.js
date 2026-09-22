@@ -569,6 +569,33 @@ void main(){ outColor = vCol; }`;
     return h >>> 0;
   }
 
+  /* SIFIR DOLU TAMPON (#575'te bulundu). Yeni bir hedef dokusu SIFIRLA
+     ayrılıyor; ardından gelen `clear`e güvenilmiyor. Ölçüldü: aynı GPU'da
+     başka bir MilkDrop bağlamı çizerken ve işlemci meşgulken, yeni ayrılan
+     geri besleme tamponu temizlenmiş olmasına rağmen o bağlamın görüntüsünü
+     taşıyabiliyordu — görselleştirici penceresinin çizdiği preset, küçük
+     resmi siyah olması gereken bir presete sızdı (24 çizimde 13). Geri
+     besleme bu kalıntıyı büyütüp sürdürüyor. Sıfırla ayırınca aynı koşulda
+     24'te 0. Veri yükleme çizim durumundan (makas, maske, görünüm)
+     etkilenmiyor; temizleme etkileniyor.
+
+     Tampon hiç yazılmıyor, yani örnekler arasında paylaşılabiliyor; en
+     büyük hedefe göre büyüyor (1920x1080'de 8 MB). Pencere boyutu
+     sürüklenirken her boyutta yeniden ayırmak çöp üretirdi. */
+  let zeroBuf = new ArrayBuffer(0);
+  function zeroPixels(gl, w, h, format, type) {
+    const comps = format === gl.RGB ? 3 : 4;
+    const n = w * h;
+    let bytes;
+    let make;
+    if (type === gl.UNSIGNED_INT_2_10_10_10_REV) { bytes = n * 4; make = (b) => new Uint32Array(b, 0, n); }
+    else if (type === gl.HALF_FLOAT) { bytes = n * comps * 2; make = (b) => new Uint16Array(b, 0, n * comps); }
+    else if (type === gl.FLOAT) { bytes = n * comps * 4; make = (b) => new Float32Array(b, 0, n * comps); }
+    else { bytes = n * comps; make = (b) => new Uint8Array(b, 0, n * comps); }
+    if (zeroBuf.byteLength < bytes) zeroBuf = new ArrayBuffer(bytes);
+    return make(zeroBuf);
+  }
+
   const AALINE_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
@@ -1263,7 +1290,11 @@ void main(){
       const f = fmt || this._colorFormat();
       const tex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, f.format || gl.RGBA, f.type, null);
+      /* Sıfırla ayrılıyor, `null` değil (bkz. `zeroPixels`). Hizalama 1:
+         RGB satırı 4'ün katı olmayabilir. */
+      const format = f.format || gl.RGBA;
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, format, f.type, zeroPixels(gl, w, h, format, f.type));
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -5457,25 +5488,37 @@ void main(){
        parlaklığın KARESİYLE ağırlıklı ortalama: koyu bir arkaplanın
        üstündeki küçük ama parlak ayrıntı düz ortalamada griye boğulurdu.
        Geri okunan 64x16 piksel — tam kare değil — ve yalnız ışık bu kaynağı
-       istediğinde, ~30 Hz ölçer mesajında. */
+       istediğinde, ~30 Hz ölçer mesajında.
+
+       İKİ TUVAL (#575'te bulundu). Küçültme GPU'daki tuvalde, okuma sık
+       okumaya ayrılmış ikinci 64x16 tuvalden. Tek tuvalde `getImageData`
+       her ~33 ms'de GPU'dan geri okuyordu ve Chromium "willReadFrequently"
+       uyarısı veriyordu (öz test uyarıyı hata sayıyor). Tek tuvali sık
+       okumaya ayırmak ise tam boy kareyi — 1080p'de ~8 MB — her seferinde
+       işlemciye çekerdi. Böyle geri okunan yalnız küçük kare, 4 KB. */
     sampleColors(n) {
       const src = this.canvas;
       if (!src || !src.width || !src.height || typeof document === 'undefined') return [];
       const cols = Math.max(1, Math.min(16, Math.round(n) || 8));
       const SW = 64, SH = 16;
-      if (!this._colorCanvas) {
+      const small = () => {
         const c = document.createElement('canvas');
         c.width = SW;
         c.height = SH;
-        this._colorCanvas = c;
-      }
+        return c;
+      };
+      if (!this._colorCanvas) this._colorCanvas = small();
+      if (!this._colorRead) this._colorRead = small();
       const x = this._colorCanvas.getContext('2d');
-      if (!x) return [];
+      const xr = this._colorRead.getContext('2d', { willReadFrequently: true });
+      if (!x || !xr) return [];
       x.imageSmoothingEnabled = true;
       x.imageSmoothingQuality = 'high';
       x.clearRect(0, 0, SW, SH);
       x.drawImage(src, 0, 0, SW, SH);
-      const d = x.getImageData(0, 0, SW, SH).data;
+      xr.clearRect(0, 0, SW, SH);
+      xr.drawImage(this._colorCanvas, 0, 0);
+      const d = xr.getImageData(0, 0, SW, SH).data;
       const out = new Array(cols);
       for (let k = 0; k < cols; k++) {
         const x0 = Math.floor((k * SW) / cols);
