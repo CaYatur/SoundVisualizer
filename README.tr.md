@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2147%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2167%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -373,6 +373,17 @@ profilinde basamak olmadığını doğruluyor.
   parlatma hiç kullanılmıyor. 200 üretilmiş presette sessizlik, örnek ses ve yüksek bir bas
   çizgisiyle ölçüldü: bütün shader'lar derlendi; hiçbiri siyah kalmadı, beyaza doymadı, saniyede
   ikiden çok yanıp sönmedi ya da donmadı.
+- **Kütüphaneden karışım.** Aynı kart zaten sahip olduğunuz presetlerin parçalarından bir preset
+  kuruyor: görünüm (sönme, yankı, gama, ana dalga), hareket denklemleri, özel dalgalar, özel
+  şekiller, warp shader'ı ve birleştirme shader'ı — her biri bütünüyle tek bir presetten, satır
+  satır kopyalanarak. *Yeni Karışım* her parçayı MilkDrop panelinin listesinde görünen
+  presetlerden rastgele çekiyor, yani oradaki arama ve süzgeç burada da geçerli, ve yalnız o
+  parçası olan presetlerden. Tek bir parça yeniden çekilebiliyor ya da altısı birden ekrandaki
+  presetten başlayabiliyor; ◀ ▶ önceki karışımlara dönüyor, *Kütüphaneye Kaydet* birini saklıyor.
+  Karışım parçalarını veren presetlerin görünüşünü taşıyor, yani onlardan daha parlak ya da daha
+  karanlık çıkabilir. 10.332 presetlik bir korpusta denetlendi: tek presetten kurulan karışım
+  presetin kendisi, 5.000 rastgele karışımda da her parça onu veren presetinkiyle birebir aynı.
+  300 rastgele karışım motorda koşturuldu; hiçbir shader aşaması düşmedi.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1276,7 +1287,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2147 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2167 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

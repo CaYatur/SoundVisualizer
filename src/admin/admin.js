@@ -2831,7 +2831,7 @@
         category: 'studio',
         icon: '🧬',
         title: 'MilkDrop Preset Üretici',
-        desc: 'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.',
+        desc: 'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar ya da kütüphanenizdeki presetlerin parçalarını karıştırır. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.',
         controls: [{ type: 'mdgenpanel' }],
       },
       {

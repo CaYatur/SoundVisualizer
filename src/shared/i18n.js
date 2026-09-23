@@ -1734,8 +1734,8 @@
     // 'Enerji', 'Sıcaklık', 'Yoğunluk', 'Hareket', 'sakin', 'soğuk', 'sıcak', 'Tünel', 'Girdap', 'Yok',
     // 'Durum', 'Shader', '🎲 Karıştır' ve 'Kaydediliyor…' başka yerlerde zaten var
     'MilkDrop Preset Üretici': 'MilkDrop Preset Generator',
-    'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.':
-      'Writes an original MilkDrop preset from energy, warmth, density and motion. Fully offline; save the ones you like to the library.',
+    'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar ya da kütüphanenizdeki presetlerin parçalarını karıştırır. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.':
+      'Writes an original MilkDrop preset from energy, warmth, density and motion, or mixes parts of the presets in your library. Fully offline; save the ones you like to the library.',
     'coşkun': 'energetic',
     'seyrek': 'sparse',
     'yoğun': 'dense',
@@ -1765,6 +1765,21 @@
     'Son Üretilen': 'Last Generated',
     '✓ Kütüphanede': '✓ In the library',
     'Önizleme — kaydedilmedi': 'Preview — not saved',
+    // Kütüphaneden karışım (#579); 'Görünüm', 'Yok' ve '◀'/'▶' zaten var
+    'Kütüphaneden Karışım': 'Mash-up from Your Library',
+    '🎲 Yeni Karışım': '🎲 New Mash-up',
+    'Her parçayı listede görünen presetlerden rastgele çeker': 'Draws every part at random from the presets shown in the list',
+    '📌 Ekrandakinden Başla': '📌 Start from the Preset on Screen',
+    'Altı parçanın hepsini ekrandaki presetten alır; sonra tek tek değiştirin': 'Takes all six parts from the preset on screen; then change them one by one',
+    'Bu parçayı yeniden çek': 'Draw this part again',
+    'Önceki karışım': 'Previous mash-up',
+    'Sonraki karışım': 'Next mash-up',
+    'Son Karışım': 'Last Mash-up',
+    'Listede preset yok.': 'The list has no presets.',
+    'Listede bu parçası olan başka preset yok.': 'No other preset in the list has this part.',
+    'Önce MilkDrop listesinden bir preset seçin.': 'Choose a preset from the MilkDrop list first.',
+    'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. ◀ ▶ önceki karışımlara döner.':
+      'Parts are drawn from the presets shown in the MilkDrop panel’s list; its search and filter apply here too. Each part comes whole from one preset and its lines are copied as they are. A preset’s shader may have been written for another preset’s equations, so the result can surprise you. Warp and composite sometimes come out as “none”: then the look’s own echo and gamma run. ◀ ▶ go back to earlier mash-ups.',
     'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.':
       'Runs entirely on this computer and connects to no service. Releasing a slider generates again with the same seed; 🎲 tries another seed. The code carries the axes and the seed: the same code always gives the same preset. A preview is not written to the library; rating, favorite and tags open once you save it. The motion, wave, shape and shader patterns were written in this app, not taken from any preset pack.',
 
