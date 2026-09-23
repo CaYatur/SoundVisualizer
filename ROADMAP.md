@@ -1881,7 +1881,10 @@ rest after. No version number yet.
     saves the generator's last result, not whatever is on screen:
     auto-advance may have moved on. The id comes from the code
     (`md_gen1_72-15-60-88-2n9c`), so saving the same preset twice leaves one
-    file. The author is *Generator*, so the author filter gathers them.
+    file. The author is *Generator* — *Üretici* in the Turkish interface:
+    like the name, it is written in the interface's language when the
+    preset is saved — so the author filter lists the generated presets
+    together as long as the language stays the same.
   - **A code brings it back.** `energy-warmth-density-motion-seed`. Spaces,
     capitals and leading zeros read as the same code; an axis above 100
     makes the code invalid instead of clamping it to another preset. A
@@ -1908,9 +1911,11 @@ rest after. No version number yet.
     screen lit in silence, 9% with sound), never washed out (at most 33%
     near white), at most 2 flashes a second in any sixteenth of the screen
     (in 2 of the 600 runs; 587 had none), and never frozen (at least 4.7%
-    of the pixels visibly changing within a second). A frame took 2.9 to
-    3.3 ms (median). 40 of them at 960×720: all clean, at most 15% near
-    white, at most one flash a second. Every line and statement longer than
+    of the pixels visibly changing within a second). A frame took 3.0 to
+    3.4 ms (median). 40 of them at 960×720: all clean, at most 15% near
+    white, at most 2 flashes a second (in 1 of the 120 runs). All of these
+    figures come from the committed generator, measured again after the
+    last change. Every line and statement longer than
     30 characters in 2,000 generated presets (73,405 fragments) was looked
     up in the 10,332-preset corpus (30,563 distinct long lines): none is
     there. In an isolated copy the card generated a preset and the
