@@ -148,6 +148,16 @@ test('%: 32 bite sığmayan değer MilkDrop\'ta 2^31 oluyor (x87 belirsiz tam sa
   assert.deepStrictEqual(['a', 'b', 'c'].map(on.get), [2147483648 % 7, 7, 2147483648 % 1000]);
 });
 
+test('& ve |: uyum açıkken 64 bitlik tam sayılarla; 32 bite sığanda aynı', () => {
+  const src = 'a = 3000000000 & 4294967295; b = 1099511627776 | 1; c = 5.9 & 3; d = -1 & 255; e = -7.5 | 0; z = 1e30 & 1; w = 1e30 | 0; v = -3000000000.5 & -1;';
+  const on = run(src + ' _andop(x, 6); _orop(y, 4294967296);', true, { x: 13, y: 1 });
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'z', 'x', 'y'].map(on.get), [3000000000, 1099511627777, 1, 255, -7, 0, 4, 4294967297]);
+  assert.strictEqual(on.get('w'), -9223372036854775808, 'sığmayan 64 bit −2^63');
+  assert.strictEqual(on.get('v'), -3000000000, 'sıfıra doğru kırpma');
+  const off = run(src, false);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e'].map(off.get), [-1294967296, 1, 1, 255, -7], 'kapalıyken 32 bit');
+});
+
 // ------------------------------------------------------------ preset bağlantısı
 
 const PRESET = [

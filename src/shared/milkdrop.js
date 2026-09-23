@@ -252,6 +252,21 @@
     return ub === 0 ? 0 : (FIST(Math.abs(a)) >>> 0) % ub;
   };
 
+  /* Bit işleçleri (`&`, `|`, `&=`, `|=`): MilkDrop iki tarafı 64 bitlik tam
+     sayıya çeviriyor (nseel_asm_and/or: fistp qword, kırpma kipinde).
+     32 bite sığan değerde JavaScript'in `|0`ıyla aynı sonuç — yol hızlı
+     kalıyor; sığmayanda 64 bit. Sığmayan 64 bit değer ve NaN −2^63. */
+  const I64_MIN = -9223372036854775808;
+  const toI64 = (x) => {
+    const t = Math.trunc(x);
+    return t >= I64_MIN && t < -I64_MIN ? BigInt(t) : BigInt(I64_MIN);
+  };
+  const fits32 = (x) => x > -2147483649 && x < 2147483648;
+  const AND_MD2 = (a, b) => (fits32(a) && fits32(b) ? (a | 0) & (b | 0)
+    : Number(BigInt.asIntN(64, toI64(a) & toI64(b))));
+  const OR_MD2 = (a, b) => (fits32(a) && fits32(b) ? (a | 0) | (b | 0)
+    : Number(BigInt.asIntN(64, toI64(a) | toI64(b))));
+
   // ==========================================================================
   // Ayrıştırıcı
   // ==========================================================================
@@ -681,9 +696,15 @@
         const mode = cx.mode;
         return (P) => ((mode.md2 ? T_MD2(a(P)) || T_MD2(b(P)) : a(P) !== 0 || b(P) !== 0) ? 1 : 0);
       }
-      // Bit işleçleri tam sayıya yuvarlar
-      case '&': return (P) => (a(P) | 0) & (b(P) | 0);
-      case '|': return (P) => (a(P) | 0) | (b(P) | 0);
+      // Bit işleçleri tam sayıya yuvarlar; uyum açıkken 64 bit (AND_MD2)
+      case '&': {
+        const mode = cx.mode;
+        return (P) => (mode.md2 ? AND_MD2(a(P), b(P)) : (a(P) | 0) & (b(P) | 0));
+      }
+      case '|': {
+        const mode = cx.mode;
+        return (P) => (mode.md2 ? OR_MD2(a(P), b(P)) : (a(P) | 0) | (b(P) | 0));
+      }
       default: return () => 0;
     }
   }
