@@ -945,7 +945,8 @@
     // Doğrulama: yüklü presetin derleme durumu
     if (md.source && window.SVMilkdrop) {
       try {
-        const p = new window.SVMilkdrop.Preset(md.source);
+        // Görselleştiricinin okuyacağı kuralla (#580: uyum açıkken MilkDrop'unki)
+        const p = new window.SVMilkdrop.Preset(md.source, { accurate: md.accurate !== false });
         /* Sayı ve metin AYRI düğümlerde. i18n sözlüğü metin düğümlerini
            birebir eşleştiriyor, dolayısıyla '3 hata' gibi birleşik bir metin
            hiçbir zaman eşleşmez ve İngilizce arayüzde Türkçe kalırdı —
@@ -1301,7 +1302,7 @@
             const items = [];
             let bad = 0;
             for (const f of r.files) {
-              const parsed = M ? new M.Preset(f.text, { name: f.name }) : null;
+              const parsed = M ? new M.Preset(f.text, { name: f.name, accurate: md.accurate !== false }) : null;
               if (parsed && parsed.errors.length) bad++;
               items.push({
                 id: 'md_' + Math.random().toString(36).slice(2, 10),

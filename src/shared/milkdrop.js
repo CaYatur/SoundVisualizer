@@ -841,6 +841,237 @@
     };
   }
 
+  /* MILKDROP 2'NİN OKUYUŞU (#580). Uyum açıkken preset dosyası bununla
+     okunuyor (`readMilk`); kapalıyken yukarıdaki `parseMilk` duruyor.
+
+     MilkDrop dosyayı önce satır satır bir dizine çeviriyor (state.cpp
+     _GetLineByName; BeatDrop'un D3D9 hâli aynı): satırın ADI ilk `=`ye, ilk
+     boşluğa ya da satır sonuna kadar olan kısım, DEĞERİ ondan sonrası.
+     Sonra anahtarları KENDİ sırasıyla arıyor (CState::Import, CWave::Import,
+     CShape::Import): önce bir önceki okumanın hemen ardındaki satıra
+     bakıyor, o değilse baştan tarıyor. Bizim ayrıştırıcımızdan farkları —
+     korpusun 10.332 presetinden 25'inde görülüyor:
+      - anahtar büyük/küçük harfe duyarlı (`PSVERSION_comp` okunmuyor);
+      - girintili satırın adı boş, hiç okunmuyor; `anahtar değer` (boşlukla)
+        okunuyor, `anahtar = değer` okunmuyor (değer `=` ile başlıyor);
+      - iki kez yazılmış anahtarda sıradaki ya da İLK geçiş, son değil;
+      - tam sayı anahtarları `%d`: `textured=0.05` 0, `bBrighten=0.5` 0;
+        kayan noktalılar `%f`: baştaki sayı, `.975;` 0,975; sayı yoksa
+        anahtar okunmamış sayılıyor;
+      - numaralı kod satırları ilk eksik numarada bitiyor, ilk satırdaki ters
+        tırnak her kod satırında atılıyor;
+      - denklem satırlarında `//` ve `\\` satır sonuna kadar yorum ve satırlar
+        ARADA HİÇBİR ŞEY OLMADAN yapışıyor, satır sonundaki boşluk korunarak
+        (ReadCode, StripLinefeedCharsAndComments). Bizim ayrıştırıcı
+        yapışık biçim ayrışmazsa satır sonuyla birleştiriyordu.
+     Okunmayan anahtar sonuçta YOK; varsayılanı motor veriyor.
+
+     Yapılmayanlar: MilkDrop baytları okuyor, motor çözülmüş metni alıyor.
+     0xFF baytını dosya sonu sayması ve 251 karakteri aşan değeri dizinde
+     ikinci bir satıra bölmesi bayt kuralları; çözülmüş metinde birebir
+     kurulamıyor ve korpusta hiçbir dosyada etkisi yok. Değerler double
+     kalıyor: MilkDrop float'a çeviriyor, fark 1e-7'nin altında. Derlenemeyen
+     bir blok MilkDrop'ta bütünüyle düşüyor, bizde deyim deyim kurtarılıyor:
+     bizim ayrıştırıcımızla MilkDrop'unki neyin hata olduğunda ayrışıyor
+     (korpusta `_aboeq` gibi iç işlevler), o yüzden bütünüyle düşürmek
+     yanlış blokları da düşürürdü. */
+  function md2Index(text) {
+    const s = String(text == null ? '' : text);
+    const N = s.length;
+    const names = [];
+    const vals = [];
+    let i = 0;
+    while (i < N) {
+      // Ad: satır sonuna, boşluğa ya da '='ye kadar
+      let j = i;
+      while (j < N) {
+        const c = s.charCodeAt(j);
+        if (c === 13 || c === 10 || c === 32 || c === 61) break;
+        j++;
+      }
+      if (j >= N) break;
+      const stop = s.charCodeAt(j);
+      let next = j + 1;
+      if (stop === 61 || stop === 32) {
+        names.push(s.slice(i, j));
+        // Aramada okunan değer: satır sonuna kadar
+        let e = next;
+        while (e < N && s.charCodeAt(e) !== 13 && s.charCodeAt(e) !== 10) e++;
+        vals.push(s.slice(next, e));
+        // Dizin satırın geri kalanını LF'ye kadar yutuyor (fgets)
+        const lf = s.indexOf('\n', next);
+        next = lf < 0 ? N : lf + 1;
+      }
+      // Arta kalan satır sonları
+      while (next < N && (s.charCodeAt(next) === 13 || s.charCodeAt(next) === 10)) next++;
+      i = next;
+    }
+    /* Arama: önce bir önceki okumanın ardındaki satır, o değilse baştan.
+       Bulunamayan anahtar sırayı bozmuyor. */
+    let line = 0;
+    const find = (name) => {
+      if (!(line < names.length && names[line] === name)) {
+        const k = names.indexOf(name);
+        if (k < 0) return null;
+        line = k;
+      }
+      return vals[line++];
+    };
+    return { find };
+  }
+
+  // %d: baştaki boşluk, işaret ve rakamlar; %f: C yerel ayarında baştaki sayı
+  const md2Int = (v) => {
+    const m = /^[ \t\n\v\f\r]*([+-]?\d+)/.exec(v);
+    return m ? parseInt(m[1], 10) : null;
+  };
+  const md2Float = (v) => {
+    const m = /^[ \t\n\v\f\r]*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)/.exec(v);
+    return m ? parseFloat(m[1]) : null;
+  };
+
+  /* Sürüm satırları, MilkDrop'un Import'ta okuduğu sırayla ve kuralıyla —
+     dosyanın ilk okumaları bunlar, yani `parseMilkMd2` de tam bu değerleri
+     buluyor. Karışımlar (milkdrop-mashup.js) aynı kuralı buradan alıyor. */
+  function readVersions(text, idx) {
+    const ix = idx || md2Index(text);
+    const out = {};
+    const I = (k) => {
+      const v = ix.find(k);
+      const n = v === null ? null : md2Int(v);
+      if (n !== null) out[k.toLowerCase()] = n;
+    };
+    I('MILKDROP_PRESET_VERSION');
+    const ver = typeof out.milkdrop_preset_version === 'number' ? out.milkdrop_preset_version : 100;
+    if (ver === 200) I('PSVERSION');
+    else if (ver > 200) { I('PSVERSION_WARP'); I('PSVERSION_COMP'); }
+    return out;
+  }
+
+  // `seen` verilirse aranan her anahtar (küçük harfle) oraya yazılıyor
+  function parseMilkMd2(text, seen) {
+    const ix = md2Index(text);
+    const params = readVersions(text, ix);
+    const put = (k, parse) => {
+      if (seen) seen.add(k.toLowerCase());
+      const v = ix.find(k);
+      const n = v === null ? null : parse(v);
+      if (n !== null) params[k.toLowerCase()] = n;
+    };
+    const I = (...keys) => keys.forEach((k) => put(k, md2Int));
+    const F = (...keys) => keys.forEach((k) => put(k, md2Float));
+    const code = (prefix) => {
+      const out = [];
+      for (let n = 1; ; n++) {
+        const v = ix.find(prefix + n);
+        if (v === null) break;
+        out.push(v.charAt(0) === '`' ? v.slice(1) : v);
+      }
+      return out;
+    };
+    // Denklem: satır satır yorum kesiliyor, satırlar yapışıyor
+    const eq = (lines) => lines.map((l) => {
+      const a = l.indexOf('//');
+      const b = l.indexOf('\\\\');
+      const cut = a < 0 ? b : b < 0 ? a : Math.min(a, b);
+      return cut < 0 ? l : l.slice(0, cut);
+    }).join('');
+
+    // Genel
+    F('fRating', 'fDecay', 'fGammaAdj', 'fVideoEchoZoom', 'fVideoEchoAlpha');
+    I('nVideoEchoOrientation', 'bRedBlueStereo', 'bBrighten', 'bDarken', 'bSolarize', 'bInvert');
+    F('fShader', 'b1n', 'b2n', 'b3n', 'b1x', 'b2x', 'b3x', 'b1ed');
+    // Dalga
+    I('nWaveMode', 'bAdditiveWaves', 'bWaveDots', 'bWaveThick', 'bModWaveAlphaByVolume', 'bMaximizeWaveColor');
+    F('fWaveAlpha', 'fWaveScale', 'fWaveSmoothing', 'fWaveParam', 'fModWaveAlphaStart', 'fModWaveAlphaEnd',
+      'wave_r', 'wave_g', 'wave_b', 'wave_x', 'wave_y',
+      'nMotionVectorsX', 'nMotionVectorsY', 'mv_dx', 'mv_dy', 'mv_l', 'mv_r', 'mv_g', 'mv_b');
+    I('bMotionVectorsOn');
+    F('mv_a');
+    const waves = [];
+    for (let i = 0; i < 4; i++) {
+      const k = (n) => 'wavecode_' + i + '_' + n;
+      I(k('enabled'), k('samples'), k('sep'), k('bSpectrum'), k('bUseDots'), k('bDrawThick'), k('bAdditive'));
+      F(k('scaling'), k('smoothing'), k('r'), k('g'), k('b'), k('a'));
+      const w = { index: i };
+      const init = code('wave_' + i + '_init');
+      const frame = code('wave_' + i + '_per_frame');
+      const point = code('wave_' + i + '_per_point');
+      if (init.length) w.init = eq(init);
+      if (frame.length) w.per_frame = eq(frame);
+      if (point.length) w.per_point = eq(point);
+      if (init.length || frame.length || point.length) waves.push(w);
+    }
+    const shapes = [];
+    for (let i = 0; i < 4; i++) {
+      const k = (n) => 'shapecode_' + i + '_' + n;
+      I(k('enabled'), k('sides'), k('additive'), k('thickOutline'), k('textured'), k('num_inst'));
+      F(k('x'), k('y'), k('rad'), k('ang'), k('tex_ang'), k('tex_zoom'), k('r'), k('g'), k('b'), k('a'),
+        k('r2'), k('g2'), k('b2'), k('a2'), k('border_r'), k('border_g'), k('border_b'), k('border_a'));
+      const s = { index: i };
+      const init = code('shape_' + i + '_init');
+      const frame = code('shape_' + i + '_per_frame');
+      if (init.length) s.init = eq(init);
+      if (frame.length) s.per_frame = eq(frame);
+      if (init.length || frame.length) shapes.push(s);
+    }
+    // Hareket
+    F('zoom', 'rot', 'cx', 'cy', 'dx', 'dy', 'warp', 'sx', 'sy');
+    I('bTexWrap', 'bDarkenCenter');
+    F('fWarpAnimSpeed', 'fWarpScale', 'fZoomExponent',
+      'ob_size', 'ob_r', 'ob_g', 'ob_b', 'ob_a', 'ib_size', 'ib_r', 'ib_g', 'ib_b', 'ib_a');
+    const init = eq(code('per_frame_init_'));
+    const perFrame = eq(code('per_frame_'));
+    const perPixel = eq(code('per_pixel_'));
+    const warpShader = code('warp_').join('\n');
+    const compShader = code('comp_').join('\n');
+    return { params, init, perFrame, perPixel, warpShader, compShader, waves, shapes };
+  }
+
+  // Uyum anahtarına göre okuyuş: açıkken MilkDrop'unki, kapalıyken eski ayrıştırıcı
+  const readMilk = (text, accurate) => (accurate === false ? parseMilk(text) : parseMilkMd2(text));
+
+  /* İki okuyuş bu dosyada MOTORUN KULLANDIĞI bir şeyde ayrışıyor mu. Uyum
+     anahtarı çevrilince motor presetini ancak o zaman yeniden kuruyor
+     (denklem durumu baştan başlıyor); ayrışmıyorsa preset yerinde kalıyor.
+     Karşılaştırılan:
+      - aşama sürümleri, motorun çıkardığı hâliyle (`md2Versions`) — ham
+        `PSVERSION` satırı değil: MilkDrop onu sürüm 200 değilse okumuyor
+        ve dosyaların çoğu yine de yazıyor;
+      - motorun dosyadan okuduğu sayısal anahtarlar: MilkDrop'un anahtarları
+        ve kare değişkeni adları (eski ayrıştırıcı `decay=` gibi bir başlık
+        satırını da okuyordu);
+      - denklemler boşluksuz, shader'lar satır sonları kırpılarak: MilkDrop
+        satır sonundaki boşluğu koruyor, eski ayrıştırıcı kırpıyordu.
+     Boşluksuz karşılaştırma, satır sonundaki bir boşluğun iki simgeyi
+     ayırdığı durumu kaçırabilir; o preset bir sonraki yüklenişinde doğru
+     okunuyor, yalnız anahtar çevrildiği an eski okuyuşla kalıyor. */
+  const MD2_READ_KEYS = new Set();
+  function readingsDiffer(text) {
+    const a = parseMilk(text);
+    const b = parseMilkMd2(text);
+    if (!MD2_READ_KEYS.size) {
+      // MilkDrop'un aradığı bütün anahtarlar (boş bir dosyada da hepsi aranıyor)
+      parseMilkMd2('', MD2_READ_KEYS);
+      for (const k of PF_RESET) MD2_READ_KEYS.add(k);
+    }
+    const eqs = (f) => JSON.stringify([f.init, f.perFrame, f.perPixel,
+      (f.waves || []).map((w) => [w.index, w.init, w.per_frame, w.per_point]),
+      (f.shapes || []).map((s) => [s.index, s.init, s.per_frame])].map(function strip(x) {
+      return Array.isArray(x) ? x.map(strip) : typeof x === 'string' ? x.replace(/\s+/g, '') : x;
+    }));
+    const shaders = (f) => [f.warpShader, f.compShader].map((s) => String(s || '').replace(/[ \t]+$/gm, '')).join('\u0000');
+    if (eqs(a) !== eqs(b) || shaders(a) !== shaders(b)) return true;
+    if (JSON.stringify(md2Versions(a.params)) !== JSON.stringify(md2Versions(b.params))) return true;
+    // Sürüm anahtarları bu kümede yok (readVersions kaydetmiyor): yukarıda karşılaştırıldılar
+    for (const k of MD2_READ_KEYS) {
+      const va = typeof a.params[k] === 'number' ? a.params[k] : undefined;
+      const vb = typeof b.params[k] === 'number' ? b.params[k] : undefined;
+      if (va !== vb) return true;
+    }
+    return false;
+  }
+
   /* Bir presetin çalıştırılabilir hali.
 
      Preset yüklendiğinde blokları derler, kare başına per_frame'i bir kez,
@@ -1071,14 +1302,20 @@
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
-      this.file = parseMilk(text);
-      this.pool = new Pool();
-      this.errors = [];
-      this.name = o.name || this.file.params.psetname || '';
       /* "MilkDrop uyumu" anahtarı. Görselleştirici her kare kendi ayarını
          buraya yazıyor; alt blokların hangi kare değişkenlerini gördüğünü
-         seçiyor (bkz. SHARED_LEGACY). */
+         seçiyor (bkz. SHARED_LEGACY). Dosyanın hangi kuralla OKUNDUĞUNU da
+         o seçiyor (#580, `readMilk`) — okuyuş kurulumda bir kez yapılıyor ve
+         `readAcc`ta kalıyor; anahtar sonradan çevrilirse görselleştirici
+         iki okuyuş ayrışıyorsa presetini yeniden kuruyor. */
       this.accurate = o.accurate !== false;
+      this.readAcc = this.accurate;
+      this.file = readMilk(text, this.accurate);
+      this.pool = new Pool();
+      this.errors = [];
+      // `psetname` MilkDrop'un okuduğu bir anahtar değil; ad için metinden
+      const pname = /^[ \t]*psetname[ \t]*=(.*)$/im.exec(String(text == null ? '' : text));
+      this.name = o.name || (pname ? pname[1].trim() : '') || '';
 
       /* MilkDrop varsayılanları. Dosya bunları belirtmeyebilir ve havuzun
          doğal başlangıcı 0; kırpma sonrası 0 SİYAH demek olurdu. MilkDrop'ta
@@ -1720,7 +1957,7 @@
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
-    echoFlipBits, fixedCompWeights };
+    echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

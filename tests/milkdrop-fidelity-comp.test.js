@@ -284,6 +284,8 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
       const sorted = nums.slice().sort((a, b) => a - b);
       sorted.forEach((n, k) => assert.strictEqual(n, k + 1, id + ': ' + prefix + ' numarasında boşluk'));
     }
+    // İki okuyuş kendi presetlerimizde aynı: uyum anahtarı onları değiştirmiyor
+    assert.strictEqual(M.readingsDiffer(text), false, id + ': iki okuyuş ayrışıyor');
   }
   assert.ok(texts.length === 5 + 64 + 30 && checked > 10000, 'yeterince satır denetlendi: ' + checked);
 });
@@ -330,6 +332,47 @@ test('motor: uyum açıkken aşamayı sürüm seçiyor, kapalıyken metin', () =
   const g = m._beginStages('MILKDROP_PRESET_VERSION=201\n[preset00]\nfDecay=0.9\n');
   assert.ok(g.warp && /ret \*= 0\.90;/.test(g.warp.text), 'üretilen warp');
   assert.ok(g.comp && /ret \*= 2\.00;/.test(g.comp.text), 'üretilen birleştirme');
+});
+
+/* Uyum anahtarı dosyanın OKUNUŞUNU da seçiyor (#580): çevrildiğinde iki
+   okuyuş bu dosyada ayrışıyorsa preset yeniden kuruluyor, ayrışmıyorsa
+   yalnız işareti güncelleniyor. Önceden (anahtar çevrilmeden) kurulmuş bir
+   preset de yakalanıyor, sürüyorsa geçiş bırakılıyor; aşamalar da o
+   kuralla okunuyor. */
+test('motor: anahtar çevrilince okuyuşu ayrışan preset yeniden kuruluyor', () => {
+  const { m, M: MM } = engine();
+  const diff = 'fdecay=0.5\nper_frame_1=zoom = 1.01;\n';
+  const same = 'fDecay=0.5\nper_frame_1=zoom = 1.01;\n';
+  m._wantAcc = true;
+  m._presetSrc = diff;
+  m.preset = new MM.Preset(diff, { seed: 1234, accurate: true });
+  const before = m.preset;
+  m._wantAcc = false;
+  assert.strictEqual(m._syncReading(), true);
+  assert.notStrictEqual(m.preset, before, 'yeniden kuruldu');
+  assert.strictEqual(m.preset.readAcc, false);
+  assert.strictEqual(m.preset.file.params.fdecay, 0.5, 'eski ayrıştırıcıyla okundu');
+  assert.strictEqual(m._syncReading(), false, 'kural aynıyken dokunulmuyor');
+  // Ayrışmayan dosya: preset yerinde, yalnız işaret
+  m._presetSrc = same;
+  m.preset = new MM.Preset(same, { seed: 1234, accurate: true });
+  const kept = m.preset;
+  assert.strictEqual(m._syncReading(), false);
+  assert.strictEqual(m.preset, kept);
+  assert.strictEqual(kept.readAcc, false);
+  // Geçiş sürerken yeniden kurulursa geçiş bırakılıyor
+  m._presetSrc = diff;
+  m.preset = new MM.Preset(diff, { seed: 1234, accurate: false });
+  m.oldPreset = new MM.Preset(same, { seed: 1234, accurate: false });
+  m._wantAcc = true;
+  assert.strictEqual(m._syncReading(), true);
+  assert.strictEqual(m.oldPreset, null);
+  assert.strictEqual(m.preset.file.params.fdecay, undefined, 'MilkDrop\'un okuyuşuyla');
+  // Kurulum ve aşamalar kullanıcının kuralıyla
+  const code = bare(read('src/visualizer/modes/milkdrop.js'));
+  assert.match(code, /this\.preset = new M\.Preset\(src, \{ seed: 1234, accurate: this\._wantAcc !== false \}\);/);
+  assert.match(code, /const parsed = M\.readMilk \? M\.readMilk\(src, acc\) : M\.parseMilk\(src\);/);
+  assert.match(code, /this\._syncReading\(\);\s*if \(\(this\._shadersLost \|\| this\._stagesAcc !== \(this\._wantAcc !== false\)\) && this\._presetSrc\)/);
 });
 
 test('motor: geçişte yönü farklı iki yankı sönüp yeniden beliriyor', () => {
