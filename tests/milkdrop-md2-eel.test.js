@@ -158,6 +158,34 @@ test('& ve |: uyum açıkken 64 bitlik tam sayılarla; 32 bite sığanda aynı',
   assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e'].map(off.get), [-1294967296, 1, 1, 255, -7], 'kapalıyken 32 bit');
 });
 
+// ------------------------------------------------------------ bellek
+
+test('megabuf indisi uyum açıkken trunc(x + 0,00001): 2,99999999 3. göz, −1 0. göz', () => {
+  const src = 'megabuf(2.99999999) = 5; a = megabuf(3); megabuf(-1) = 7; b = megabuf(0); megabuf(1.99999999) += 2; c = megabuf(2); d = megabuf(-1.5);';
+  const on = run(src, true);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map(on.get), [5, 7, 2, 0]);
+  const off = run(src, false);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map(off.get), [0, 0, 5, 0], 'kapalıyken |0: 2,99999999 → 2, −1 atılıyor, 1,99999999 → 1');
+  assert.strictEqual(off.pool.mem.get(2, 1048576), 5, 'kapalıyken 2,99999999 → 2. göz');
+});
+
+test('megabuf uyum açıkken 8.388.608 girdi, kapalıyken 1.048.576; dışı 0 ve yazılan atılıyor', () => {
+  const src = 'megabuf(5000000) = 9; a = megabuf(5000000); b = (megabuf(8388608) = 4); c = megabuf(8388608); megabuf(8388607) = 3; d = megabuf(8388607); megabuf(6000000) = 1; megabuf(6000000) += 2; e = megabuf(6000000);';
+  const on = run(src, true);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e'].map(on.get), [9, 4, 0, 3, 3], 'atama değerini yine döndürüyor');
+  const off = run(src, false);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e'].map(off.get), [0, 4, 0, 0, 0]);
+});
+
+test('gmegabuf uyum açıkken 2^20\'de sarıyor (negatif de); presetler arasında ortak', () => {
+  const on = run('gmegabuf(1048576 + 777001) = 4; a = gmegabuf(777001); gmegabuf(-2) = 6; b = gmegabuf(1048575); c = gmegabuf(-2); gmegabuf(777003) = 8; e = gmegabuf(777003 - 524288);', true);
+  assert.deepStrictEqual(['a', 'b', 'c', 'e'].map(on.get), [4, 6, 6, 0], 'sarma 2^20 girdide, 2^19 girdide değil');
+  const other = run('d = gmegabuf(777001);', true);
+  assert.strictEqual(other.get('d'), 4, 'başka havuz aynı gmegabuf\'u görüyor');
+  const off = run('gmegabuf(1048576 + 777002) = 4; a = gmegabuf(777002); gmegabuf(-3) = 6; b = gmegabuf(1048574);', false);
+  assert.deepStrictEqual(['a', 'b'].map(off.get), [0, 0], 'kapalıyken sarmıyor, negatif atılıyor');
+});
+
 // ------------------------------------------------------------ preset bağlantısı
 
 const PRESET = [

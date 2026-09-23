@@ -32,31 +32,38 @@
   // ==========================================================================
   /* megabuf/gmegabuf: MilkDrop'un karalama bellekleri.
 
-     MilkDrop bunları 1.048.576 girdilik sabit bir dizi olarak tutar. Burada
-     4096'dan başlayıp ikiye katlayarak büyütüyoruz: yönetici paneli her
-     çizimde presetin derlemesini doğrulamak için yeni bir Preset kuruyor ve
-     preset başına 8 MB ayırmak kabul edilemezdi. Yazılmamış girdi 0'dır,
-     dolayısıyla dizinin kısa olması okumayı değiştirmiyor. */
+     Bellek 4096 girdilik bloklar hâlinde tutuluyor, bir blok ilk
+     yazıldığında ayrılıyor: yönetici paneli her çizimde presetin
+     derlemesini doğrulamak için yeni bir Preset kuruyor ve preset başına
+     megabaytlar ayırmak kabul edilemezdi. Yazılmamış girdi 0'dır.
+
+     İndis ve sınır kipe göre (memKey, #580):
+       • kapalıyken eski kural: `x | 0`, 0..1.048.575 (MEM_MAX);
+       • açıkken MilkDrop'unki: indis trunc(x + 0,00001) — MilkDrop indise
+         yakınlık payını ekleyip kırpıyor (asm `_asm_megabuf`: fadd
+         closefact; fistp), yani 2,9999999 gibi bir hesap 3. gözü, −1 ise
+         0. gözü buluyor. megabuf 0..8.388.607 (NSEEL_RAM_BLOCKS ×
+         NSEEL_RAM_ITEMSPERBLOCK = 128 × 65.536); dışı 0 okuyor, yazılanı
+         atıyor. gmegabuf tek bir 2^20'lik dizi ve indis ona SARIYOR
+         (nseel-ram.c __NSEEL_RAMAllocGMEM: `w & (NSEEL_SHARED_GRAM_SIZE −
+         1)`; MilkDrop sanal makinelerine ayrı bir GRAM bloğu vermiyor). */
   const MEM_MAX = 1048576;
+  const MD2_MEM_MAX = 8388608;
+  const GMEM_MASK = 0xFFFFF;
   function makeMem() {
-    let a = new Float64Array(4096);
+    const blocks = [];
     return {
-      get(i) {
-        const k = i | 0;
-        return k >= 0 && k < a.length ? a[k] : 0;
+      // k: tam sayı indis, max: sınır (hariç)
+      get(k, max) {
+        if (!(k >= 0 && k < max)) return 0;
+        const b = blocks[k >>> 12];
+        return b ? b[k & 4095] : 0;
       },
-      set(i, v) {
-        const k = i | 0;
-        if (k < 0 || k >= MEM_MAX) return v;
-        if (k >= a.length) {
-          let n = a.length;
-          while (n <= k) n *= 2;
-          if (n > MEM_MAX) n = MEM_MAX;
-          const b = new Float64Array(n);
-          b.set(a);
-          a = b;
-        }
-        a[k] = v;
+      set(k, v, max) {
+        if (!(k >= 0 && k < max)) return v;
+        let b = blocks[k >>> 12];
+        if (!b) b = blocks[k >>> 12] = new Float64Array(4096);
+        b[k & 4095] = v;
         return v;
       },
     };
@@ -251,6 +258,10 @@
     const ub = FIST(Math.abs(b)) >>> 0;
     return ub === 0 ? 0 : (FIST(Math.abs(a)) >>> 0) % ub;
   };
+
+  // Bellek indisi ve sınırı: uyum açıkken MilkDrop'unki (bkz. makeMem)
+  const memKey = (x, md2, g) => (!md2 ? x | 0 : g ? FIST(x + CLOSE) & GMEM_MASK : FIST(x + CLOSE));
+  const memMax = (md2, g) => (md2 && !g ? MD2_MEM_MAX : MEM_MAX);
 
   /* Bit işleçleri (`&`, `|`, `&=`, `|=`): MilkDrop iki tarafı 64 bitlik tam
      sayıya çeviriyor (nseel_asm_and/or: fistp qword, kırpma kipinde).
@@ -629,11 +640,17 @@
         };
       }
       case 'bufset': {
-        const mem = node.buf === 'gmegabuf' ? GMEM : pool.mem;
+        const g = node.buf === 'gmegabuf';
+        const mem = g ? GMEM : pool.mem;
         const i = emit(node.i, pool, cx);
         const v = emit(node.v, pool, cx);
-        const F = cx.F;
-        if (!node.compound) return (P) => mem.set(i(P), F(v(P)));
+        const F = cx.F, mode = cx.mode;
+        if (!node.compound) {
+          return (P) => {
+            const md2 = mode.md2;
+            return mem.set(memKey(i(P), md2, g), F(v(P)), memMax(md2, g));
+          };
+        }
         /* Bileşik atamada indeks BİR KEZ değerlendirilir: `megabuf(n=n+1) *= 2`
            gibi yan etkili bir indeks iki kez çalışsaydı iki farklı gözü
            okuyup yazardı. İşleç de burada, derleme anında seçiliyor. */
@@ -644,8 +661,9 @@
               : op === '/' ? (a, b) => D(a, b)
                 : (a, b) => MM(a, b);
         return (P) => {
-          const k = i(P);
-          return mem.set(k, F(apply(mem.get(k), v(P))));
+          const md2 = mode.md2, max = memMax(md2, g);
+          const k = memKey(i(P), md2, g);
+          return mem.set(k, F(apply(mem.get(k, max), v(P))), max);
         };
       }
       case 'bin':
@@ -767,9 +785,13 @@
       };
     }
     if (name === 'megabuf' || name === 'gmegabuf') {
-      const mem = name === 'gmegabuf' ? GMEM : pool.mem;
+      const g = name === 'gmegabuf';
+      const mem = g ? GMEM : pool.mem;
       const i = a[0];
-      return (P) => mem.get(i(P));
+      return (P) => {
+        const md2 = mode.md2;
+        return mem.get(memKey(i(P), md2, g), memMax(md2, g));
+      };
     }
     /* Ayrıştırıcı adı zaten beyaz listeye karşı doğruladı (bilinmeyen ad
        SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
