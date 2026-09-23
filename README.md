@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2181%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2184%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -255,6 +255,12 @@ that asserts the bar profile has no step in it.
   flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
   and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
   Rendered through the engine, every case matches MilkDrop's formula within 2/255.
+- **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
+  shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
+  says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
+  too, so about 950 presets of the corpus drew without their colour or with part of it, and the
+  corners were mirrored top to bottom. On the fixed pipeline the colour now goes through MilkDrop's
+  own draw passes, the wraparound of out-of-range colours included.
 - **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
   mouse input and preset transitions** are all implemented, and each sampler is read with the
   filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is
@@ -1299,7 +1305,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2181 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2184 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

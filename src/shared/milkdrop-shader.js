@@ -503,10 +503,16 @@
        tamamı hacim gürültüsünü veriyor; iki boyutlu aşırı yükleme yine de
        duruyor, çünkü korpus dışında bir preset 2B sampler geçirirse eskiden
        derlenen shader birden derlenmez olurdu. */
-    /* Dort kose renginin cift dogrusal karisimi. MilkDrop'un tarama sirasi
-       ekranin USTUNDEN baslıyor, bizim `uv.y` ise altta sifir: bu yuzden y
-       ters cevriliyor. Ters cevrilmezse renk gecisi dikeyde aynalanirdi. */
-    'vec3 hueAt(vec2 p){ float x = p.x; float y = 1.0 - p.y;' +
+    /* Dört köşe renginin çift doğrusal karışımı, MilkDrop'un ağırlıklarıyla
+       (milkdropfs.cpp:4146-4160; BeatDrop'un D3D9 hâli aynı): köşe 0 x·y,
+       1 (1−x)·y, 2 x·(1−y), 3 (1−x)·(1−y). x ve y birleştirme ağının
+       EKRAN konumundan geliyor ve y ekranın ÜSTÜNDE 1 — ağ `sy`yi üst
+       satırda +1 kuruyor (plugin.cpp:1475-1490) — yani 0 üst-sağ, 1 üst-sol,
+       2 alt-sağ, 3 alt-sol. Bizim `uv.y` de ekranın üstünde 1: ağın ilk
+       satırı altta, ve ekrandan geri okunarak doğrulandı. Burada
+       `1.0 - p.y` vardı ("MilkDrop'un taraması üstten başlıyor" diye) ve
+       renk geçişini dikeyde aynalıyordu (#580). */
+    'vec3 hueAt(vec2 p){ float x = p.x; float y = p.y;' +
       ' return hue_corner[0] * x * y + hue_corner[1] * (1.0 - x) * y' +
       ' + hue_corner[2] * x * (1.0 - y) + hue_corner[3] * (1.0 - x) * (1.0 - y); }',
     'vec3 tex3D(sampler3D s, vec3 uv2){ return texture(s, uv2).xyz; }',

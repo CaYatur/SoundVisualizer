@@ -99,12 +99,15 @@ test('çeviri: hueAt dört köşeyi çift doğrusal karıştırıyor', () => {
   assert.match(r.glsl, /hue_corner\[3\] \* \(1\.0 - x\) \* \(1\.0 - y\)/);
 });
 
-/* MilkDrop'un tarama sırası ekranın ÜSTÜNDEN başlıyor, bizim `uv.y` ise
-   altta sıfır. Ters çevrilmezse renk geçişi dikeyde aynalanır — hata
-   vermez, yalnız yanlış görünür. */
-test('çeviri: hueAt dikeyde ters çeviriyor', () => {
+/* MilkDrop'un ağırlığındaki y birleştirme ağının EKRAN konumu ve ekranın
+   üstünde 1 (plugin.cpp:1475-1490, `sy` üst satırda +1); bizim `uv.y` de
+   üstte 1. Burada eskiden `1.0 - p.y` vardı ve renk geçişi dikeyde
+   aynalanıyordu (#580) — hata vermez, yalnız yanlış görünür. Ekrandaki
+   yerleşim bu testin sınayamadığı şey; o ölçümle doğrulandı. */
+test('çeviri: hueAt y\'yi çevirmiyor (MilkDrop\'ta y ekranın üstünde 1)', () => {
   const r = T.translate('shader_body { ret = hue_shader; }');
-  assert.match(r.glsl, /float y = 1\.0 - p\.y;/);
+  assert.match(r.glsl, /float y = p\.y;/);
+  assert.doesNotMatch(r.glsl, /float y = 1\.0 - p\.y;/);
 });
 
 test('çeviri: warp aşaması da hue_shader alıyor', () => {
@@ -114,10 +117,11 @@ test('çeviri: warp aşaması da hue_shader alıyor', () => {
 
 test('motor: köşe renkleri tek seferde yükleniyor', () => {
   assert.match(CODE, /L\.hue_corner = u\('hue_corner\[0\]'\)/);
-  /* Renkler ayrı bir yöntemde: shader'lı yol uniform olarak, sabit
-     birleştirme yolu da tepe rengi olarak aynı diziyi kullanıyor. */
-  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, this\._hueCorners\(ctx\.P, t, rand\)\)/);
-  assert.match(CODE, /gl\.uniform3fv\(this\.locComp\.uHue, this\._wantAcc !== false/);
+  /* Renkler ayrı bir yöntemde: shader'lı yol uniform olarak tam renkle
+     (oran 1), sabit birleştirme yolu dosyadaki fShader oranıyla ve köşe
+     ağırlıklarına çevirerek aynı yöntemi kullanıyor (#580). */
+  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, this\._hueCorners\(1, t, rand\)\)/);
+  assert.match(CODE, /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\)/);
   // Dört köşe x üç bileşen
   assert.match(CODE, /new Float32Array\(12\)/);
 });
@@ -140,7 +144,7 @@ test('motor: köşe rengi en büyük bileşene bölünüp yeniden haritalanıyor
 /* Anahtar kapalıyken YAPI aynı kalıyor: yine dört köşe, yine aynı
    shader, yine aynı uniform. Yalnız dördüne de aynı renk gidiyor. */
 test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
-  const blk = /_hueCorners\(P, t, rand\) \{[\s\S]*?return hc;/.exec(CODE);
+  const blk = /_hueCorners\(amt, t, rand\) \{[\s\S]*?return hc;/.exec(CODE);
   assert.ok(blk, 'köşe rengi yöntemi bulunamadı');
   assert.match(blk[0], /r = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31\)/);
   assert.match(blk[0], /g = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31 \+ 2\.09\)/);

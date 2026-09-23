@@ -1642,20 +1642,70 @@
     return (o % 2 !== 0 ? 1 : 0) | (o >= 2 ? 2 : 0);
   }
 
-  /* Sabit yolun gaması (milkdropfs.cpp:3955-4010): görüntü tam katları
-     kadar üst üste TOPLANARAK çiziliyor, son kat kesirli. Yankı açıkken
-     ilk çizim zaten tam; ek çizim ancak gama 1'i aştığında var, yani
-     1'in altındaki gama yankıyla birlikte HİÇ uygulanmıyor. Yankı yokken
-     tek geçiş gamanın kendisiyle çiziliyor. */
-  function fixedGammaGain(g, echoOn) {
-    const gamma = Math.fround(Number(g) || 0);
-    if (echoOn) return gamma > 0.001 && Math.trunc(gamma - 0.0001) >= 1 ? gamma : 1;
-    return gamma > 0 ? gamma : 0;
+  /* SABİT BİRLEŞTİRMENİN KÖŞE AĞIRLIKLARI (#580; milkdropfs.cpp:3907-4003,
+     BeatDrop'un D3D9 hâli 4090-4180 aynı).
+
+     MilkDrop sabit yolda görüntüyü dokulu bir dörtgenle BİRKAÇ KEZ
+     çiziyor: ilki yazıyor, gerisi üstüne ekliyor. Her çizimin köşe rengi
+     (o çizimin gaması) × (katmanın payı) × (ton rengi) ve tepe rengi
+     yolundan, yani COLOR_NORM'dan geçiyor: bayta kırpılıyor, 1'i aşan ya
+     da eksiye düşen değer SARIYOR. Ekrandaki sonuç
+
+       ana doku × Σ ana çizimlerin rengi + yankı dokusu × Σ yankı çizimlerinin rengi
+
+     ve bu işlev iki toplamı köşe başına veriyor. Ton [0,1] içindeyken
+     toplam gama × pay × tonun bayta kırpılmışı; `fShader` 1'in üstündeyse
+     ton eksiye iniyor ve sarma onu başka bir renge çeviriyor (korpusta
+     sabit yolda 16 preset `fShader=10` yazıyor).
+
+     - Yankı açık (saydamlık > 0,001): iki katman, ana `1 − a`, yankı `a`
+       payıyla. Her biri bir kez çiziliyor; gama 0,001'in üstündeyse
+       `(int)(gama − 0,0001)` kez daha, son tekrarın gaması kesirli kısım.
+       Yani 1'in altındaki gama yankıyla HİÇ uygulanmıyor.
+     - Yankı kapalı: `(int)(gama − 0,001) + 1` geçiş, sonuncunun gaması
+       kalan. Gama −0,999'un altındaysa hiç geçiş yok, dörtgen çizilmiyor
+       (bizde siyah).
+
+     MilkDrop 8 bitlik tamponda her çizimden sonra yuvarlıyor; burada
+     toplam bir kez yuvarlanıyor. Hesap float32, MilkDrop'taki gibi.
+     `shade`: 12 sayı, köşe sırası üst-sol, üst-sağ, alt-sol, alt-sağ
+     (MilkDrop'un dörtgeni v3[0..3]). `out` verilirse dizileri yeniden
+     kullanılıyor. */
+  function fixedCompWeights(gamma, echoAlpha, shade, out) {
+    const f = Math.fround;
+    const g = f(Number(gamma) || 0);
+    const a = f(Number(echoAlpha) || 0);
+    const main = out && out.main ? out.main.fill(0) : new Float32Array(12);
+    const echo = out && out.echo ? out.echo.fill(0) : new Float32Array(12);
+    // COLOR_NORM float32'de: (int)(x * 255) & 0xFF
+    const cn = (x) => (Math.trunc(f(x * 255)) & 0xFF) / 255;
+    const draw = (dst, k) => { for (let i = 0; i < 12; i++) dst[i] += cn(f(k * shade[i])); };
+    /* Tam katlar 256'da kesiliyor: sıfır olmayan her çizim en az 1/255
+       ekliyor, yani 255 kattan sonra kanal zaten doymuş. */
+    const MAX_DRAWS = 256;
+    const echoOn = a > 0.001;
+    if (echoOn) {
+      for (let layer = 0; layer < 2; layer++) {
+        const mix = layer === 1 ? a : f(1 - a);
+        const dst = layer === 1 ? echo : main;
+        draw(dst, mix);
+        if (g > 0.001) {
+          const n = Math.trunc(f(g - f(0.0001)));
+          for (let r = Math.max(0, n - MAX_DRAWS); r < n; r++) {
+            draw(dst, f((r === n - 1 ? f(g - n) : 1) * mix));
+          }
+        }
+      }
+    } else {
+      const n = Math.trunc(f(g - f(0.001))) + 1;
+      for (let p = Math.max(0, n - MAX_DRAWS); p < n; p++) draw(main, p === n - 1 ? f(g - p) : 1);
+    }
+    return { main, echo, echoOn };
   }
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
-    echoFlipBits, fixedGammaGain };
+    echoFlipBits, fixedCompWeights };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();
