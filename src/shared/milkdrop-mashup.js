@@ -33,7 +33,14 @@
    bir presetin kare denklemlerinin yazdığı q değişkenlerini okuyor olabilir.
    Karışımın doğası bu; MilkDrop 2'de de öyle. */
 (function () {
-  const VERSION = 1;
+  /* Kural sürümü, kimliğin içinde (idOf). Aynı tarifin METNİNİ değiştiren
+     her kural değişikliği bunu artırıyor ki eski kural altında kaydedilmiş
+     bir karışımın dosyasının üstüne yazılmasın.
+     1: ilk kurallar (#579).
+     2: shader parçası MilkDrop'un aşama kuralına uyuyor (#580) — sürümü
+        MilkDrop'ta 0 okunan bir shader karışımda da 0 yazılıyor; 1'de 2
+        yazılıyor ve motor o shader'ı çiziyordu. */
+  const VERSION = 2;
   const SLOTS = ['look', 'motion', 'waves', 'shapes', 'warp', 'comp'];
   // Shader parçası "yok" olabilir: görünümün sabit yolu (yankı, gama, bayraklar) o zaman çalışıyor
   const NONE = '';

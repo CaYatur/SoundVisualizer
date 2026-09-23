@@ -226,7 +226,7 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
 test('kimlik tariften: aynı tarif aynı kimlik, depo adıyla uyumlu', () => {
   const r = { look: 'a', motion: 'b', waves: 'c', shapes: 'a', warp: '', comp: 'd' };
   const id = X.idOf(r);
-  assert.match(id, /^md_mix1_[0-9a-f]{16}$/);
+  assert.match(id, /^md_mix2_[0-9a-f]{16}$/);
   assert.strictEqual(X.idOf(Object.assign({}, r)), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { warp: 'b' })), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { look: 'b', motion: 'a' })), id, 'parçanın yeri de kimlikte');
