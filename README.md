@@ -252,9 +252,9 @@ that asserts the bar profile has no step in it.
   `sqrt(c)` and `4c(1−c)` the engine used (410 and 83 presets of a 10,332-preset corpus turn them
   on); echo orientation is `(int)x % 4`; gamma below 1 is ignored while echo is on; and when two
   presets whose echoes point different ways blend, the echo fades out and back in instead of
-  flipping. Keys a preset does not write take MilkDrop's defaults — decay 0.98, gamma 2.0 — instead
-  of 0, and a rotation centre of 0 stays in the corner. Rendered through the engine, every case
-  matches MilkDrop's formula within 2/255.
+  flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
+  and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
+  Rendered through the engine, every case matches MilkDrop's formula within 2/255.
 - **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
   mouse input and preset transitions** are all implemented, and each sampler is read with the
   filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is

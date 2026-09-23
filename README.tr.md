@@ -245,9 +245,9 @@ profilinde basamak olmadığını doğruluyor.
   `sqrt(c)` ve `4c(1−c)` değil (10.332 presetlik bir korpusta 410 preset parlatmayı, 83'ü
   solarize'ı açıyor); yankı yönü `(int)x % 4`; yankı açıkken 1'in altındaki gama uygulanmıyor;
   yankıları farklı yöne bakan iki preset geçişte karışırken yankı bir anda dönmüyor, sönüp
-  yeniden beliriyor. Presetin yazmadığı anahtarlar 0 yerine MilkDrop'un varsayılanlarını alıyor —
-  sönme 0,98, gama 2,0 — ve dönme merkezi 0 ise köşede kalıyor. Motordan geçirilerek çizildi:
-  her durum MilkDrop'un formülüyle 2/255 içinde aynı.
+  yeniden beliriyor. Sönmesini ya da gamasını yazmayan bir preset 0 yerine MilkDrop'un 0,98 ve
+  2,0'ını alıyor, yazmadığı öteki değerlerin çoğu da öyle; dönme merkezi 0 ise köşede kalıyor.
+  Motordan geçirilerek çizildi: her durum MilkDrop'un formülüyle 2/255 içinde aynı.
 - **Dokulu şekiller, hareket vektörleri, dönme matrisleri, ağ sıklığı, iç çözünürlük, fare girdisi
   ve preset geçişleri** uygulandı; her sampler adının istediği süzme ve sarma ile okunuyor
   (`sampler_pw_main` noktasal, `sampler_fc_main` süzülmüş+kenetli — presetlerin %22,7'si aynı

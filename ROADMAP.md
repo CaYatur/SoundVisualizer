@@ -1961,12 +1961,14 @@ rest after. No version number yet.
       generated preset or a mash-up) is never in the list, so it never
       gives a part. ◀ ▶ step through a history of recipes (part → preset);
       a recipe whose preset was deleted is skipped. The id comes from the
-      recipe (`md_mix1_` and two 32-bit hashes), so the same mash-up saved
-      twice leaves one file, and the version in it keeps later rule changes
-      from overwriting earlier saves.
+      recipe (`md_mix`, the rule version and two 32-bit hashes; the
+      version is 2 since #580), so the same mash-up saved twice leaves one
+      file, and the version in it keeps later rule changes from
+      overwriting earlier saves.
     - *Part tests* decide which presets can give a part without parsing
       them (13.5 µs a test): a non-comment equation line, an enabled wave
-      or shape block, a non-empty shader line.
+      or shape block, a non-empty shader line (since #580, one whose stage
+      version MilkDrop reads as above 0).
   - **Mash-ups measured** on the whole 10,332-preset corpus. The part tests
     agree with the parser for every preset and part. A mash-up whose six
     parts come from one preset is that preset again for all 10,332 —
@@ -2094,7 +2096,11 @@ rest after. No version number yet.
     presets with a centre of 0 and 7 of 38 that write `echo_orient` changed.
   - **Mash-ups follow the same rule.** A preset whose shader MilkDrop
     ignores cannot give that part, and the version written for a shader is
-    the one its preset has for that stage.
+    the one its preset has for that stage. A recipe from the history can
+    therefore give different version lines than before — a warp from a
+    preset with `PSVERSION_WARP=0` was written as version 2 and drawn — so
+    the mash-up rule version went from 1 to 2: a mash-up saved under the
+    old rule keeps its file, and saving the recipe again writes a new one.
   - **Found while finishing this, fixed next.** MilkDrop hands every
     composite shader the full hue colour ("since we don't know if shader
     uses it or not", in both the D3D11 and the D3D9 code); `fShader` scales
@@ -2102,7 +2108,10 @@ rest after. No version number yet.
     preset without one. The engine has applied `fShader` to preset shaders
     too since the `hue_shader` change of 16 September, so with fidelity on
     the 914 corpus presets that read `hue_shader` and leave `fShader` at 0
-    lost their colour, and 36 got part of it. The engine also takes the
+    lost their colour, and 36 got part of it. In the shader written for a
+    composite stage with a version and no text, a partial `fShader` now
+    lands twice, in the text and in the colour; the one corpus preset with
+    such a stage has `fShader` at 0. The engine also takes the
     amount from per-frame values: 16 presets write `fshader` in code,
     which MilkDrop never sees, all of them with a composite shader. Some
     keys fall back to something else when a file leaves them out. MilkDrop
