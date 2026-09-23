@@ -77,9 +77,15 @@ test('per_frame_init yerleşik ada yazarsa değer atılıyor', () => {
 });
 
 test('dosya değeri yazılmayan yerleşik adlarda da geri geliyor', () => {
+  /* Dosyanın yazmadığı adda taban MilkDrop'un varsayılanı (#580): dalga
+     saydamlığı 0,8 (state.cpp CState::Default). Uyum kapalıyken eski
+     taban, 1. */
   const p = mk('fWaveScale=1.5\nper_frame_1=wave_a = wave_a * 0.5;');
   run(p, 4);
-  assert.strictEqual(p.get('wave_a'), 0.5, 'varsayılan 1 üzerinden, birikmeden');
+  assert.strictEqual(p.get('wave_a'), 0.4, 'MilkDrop varsayılanı 0,8 üzerinden, birikmeden');
+  const legacy = new MD.Preset('fWaveScale=1.5\nper_frame_1=wave_a = wave_a * 0.5;', { seed: 1, accurate: false });
+  run(legacy, 4);
+  assert.strictEqual(legacy.get('wave_a'), 0.5, 'uyum kapalıyken eski varsayılan 1');
 });
 
 test('sıfırlama listesi MilkDrop\'un kendi listesi kadar', () => {

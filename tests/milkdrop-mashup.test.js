@@ -150,6 +150,13 @@ test('sürüm satırları shader\'ı veren presetten', () => {
      koruyor: tek presetten kurulan karışım kendisini birebir vermeli */
   const md2Plain = 'MILKDROP_PRESET_VERSION=201\nPSVERSION=2\nPSVERSION_WARP=0\nPSVERSION_COMP=0\n[preset00]\nfDecay=0.95\nper_frame_1=zoom = 1.01;\n';
   assert.deepStrictEqual(ver(X.compose({ look: md2Plain, motion: md2Plain, waves: md2Plain, shapes: md2Plain, warp: md2Plain, comp: md2Plain })), [201, 2, 0, 0]);
+  /* MilkDrop'un okumadığı bir shader karışımda da okunmayan kalıyor
+     (#580): warp metni olan ama PSVERSION_WARP=0 yazan presetten gelen
+     warp parçasının sürümü 0 yazılıyor, 2 değil. */
+  const inert = 'MILKDROP_PRESET_VERSION=201\nPSVERSION=2\nPSVERSION_WARP=0\nPSVERSION_COMP=0\n[preset00]\nwarp_1=`shader_body { ret = 0.5; }\n';
+  const inertOut = M.parseMilk(X.compose({ look: md1, motion: md1, waves: md1, shapes: md1, warp: inert, comp: md2 }));
+  assert.strictEqual(inertOut.params.psversion_warp, 0);
+  assert.strictEqual(M.stagePlan(inertOut).warp, 'fixed');
   // Yalnız birleştirme: warp sürümü 0
   assert.deepStrictEqual(ver(X.compose({ look: md1, motion: md1, waves: md1, shapes: md1, warp: X.NONE, comp: md2 })), [201, 2, 0, 2]);
   // Presetin kendi sürümü korunuyor (ps_3_0 shader'ı 2 ile okunmaz)
@@ -178,8 +185,8 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
     if (slot === 'motion') return !!(f.init.trim() || f.perFrame.trim() || f.perPixel.trim());
     if (slot === 'waves') return enabled('wavecode');
     if (slot === 'shapes') return enabled('shapecode');
-    if (slot === 'warp') return !!f.warpShader.trim();
-    return !!f.compShader.trim();
+    // Shader parçası: motorun kuralıyla bu presetin shader'ı çalışıyor mu (#580)
+    return M.stagePlan(f)[slot] === 'shader';
   };
   const edge = [
     '[preset00]\nper_frame_1=// yalnız yorum\n',
@@ -196,6 +203,15 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
     '[preset00]\nwarp_1=`\nwarp_2=`   \n',
     '[preset00]\nwarp_1=`shader_body\ncomp_1=\n',
     '[preset00]\ncomp_1=`ret = 1;\n',
+    // Sürüm kuralı (#580): MilkDrop sürümü 0 olan aşamanın metnini okumuyor
+    'MILKDROP_PRESET_VERSION=201\n[preset00]\nwarp_1=`shader_body\ncomp_1=`ret = 1;\n',
+    'MILKDROP_PRESET_VERSION=201\nPSVERSION_WARP=0\nPSVERSION_COMP=3\n[preset00]\nwarp_1=`shader_body\ncomp_1=`ret = 1;\n',
+    'MILKDROP_PRESET_VERSION=200\nPSVERSION=0\n[preset00]\nwarp_1=`shader_body\n',
+    'MILKDROP_PRESET_VERSION=200\n[preset00]\nwarp_1=`shader_body\n',
+    'MILKDROP_PRESET_VERSION=199\nPSVERSION_WARP=2\n[preset00]\nwarp_1=`shader_body\n',
+    'MILKDROP_PRESET_VERSION=201\nPSVERSION_WARP=abc\n[preset00]\nwarp_1=`shader_body\n',
+    'MILKDROP_PRESET_VERSION=201\nPSVERSION_WARP=2\nPSVERSION_WARP=0\n[preset00]\nwarp_1=`shader_body\n',
+    'milkdrop_preset_version=201.7\npsversion_comp=2.9\n[preset00]\ncomp_1=`ret = 1;\n',
     '',
   ];
   for (const t of edge.concat(TEXTS)) {
@@ -210,7 +226,7 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
 test('kimlik tariften: aynı tarif aynı kimlik, depo adıyla uyumlu', () => {
   const r = { look: 'a', motion: 'b', waves: 'c', shapes: 'a', warp: '', comp: 'd' };
   const id = X.idOf(r);
-  assert.match(id, /^md_mix1_[0-9a-f]{16}$/);
+  assert.match(id, /^md_mix2_[0-9a-f]{16}$/);
   assert.strictEqual(X.idOf(Object.assign({}, r)), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { warp: 'b' })), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { look: 'b', motion: 'a' })), id, 'parçanın yeri de kimlikte');

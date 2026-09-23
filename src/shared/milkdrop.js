@@ -961,6 +961,30 @@
     'b1n', 'b1x', 'b2n', 'b2x', 'b3n', 'b3x', 'b1ed',
   ];
 
+  /* MILKDROP'UN VARSAYILANLARI, dosyanın YAZMADIĞI yerleşik adlar için
+     (state.cpp CState::Default ve Import; #580). Havuzun doğal başlangıcı
+     0 ve kare başı sıfırlama o 0'ı her kare geri yazıyordu: fDecay yazmayan
+     bir preset hiç iz bırakmıyor (MilkDrop'ta 0,98), fGammaAdj yazmayan
+     yarı parlaklıkta çıkıyor (MilkDrop'ta 2,0). Motorun "yazılmadıysa
+     0,98" denetimi de işe yaramıyordu: sıfırlama adı havuza her kare
+     yazdığı için ad hep "var" görünüyordu.
+
+     `mv_a` MilkDrop'ta da sonunda 0: `bMotionVectorsOn` yoksa 0'a
+     çevriliyor (state.cpp:1402), ancak sonra `mv_a` okunuyor. Uyum açıkken
+     bu tablo, kapalıyken eski taban geçerli. */
+  const MD2_PF_DEFAULTS = {
+    zoom: 1, zoomexp: 1, rot: 0, warp: 1, cx: 0.5, cy: 0.5, dx: 0, dy: 0, sx: 1, sy: 1,
+    decay: 0.98, wave_a: 0.8, wave_r: 1, wave_g: 1, wave_b: 1, wave_x: 0.5, wave_y: 0.5,
+    wave_mystery: 0, wave_mode: 0,
+    ob_size: 0.01, ob_r: 0, ob_g: 0, ob_b: 0, ob_a: 0,
+    ib_size: 0.01, ib_r: 0.25, ib_g: 0.25, ib_b: 0.25, ib_a: 0,
+    mv_x: 12, mv_y: 9, mv_dx: 0, mv_dy: 0, mv_l: 0.9, mv_r: 1, mv_g: 1, mv_b: 1, mv_a: 0,
+    echo_zoom: 2, echo_alpha: 0, echo_orient: 0,
+    wave_usedots: 0, wave_thick: 0, wave_additive: 0, wave_brighten: 1,
+    darken_center: 0, gamma: 2, wrap: 1, invert: 0, brighten: 0, darken: 0, solarize: 0,
+    b1n: 0, b1x: 1, b2n: 0, b2x: 1, b3n: 0, b3x: 1, b1ed: 0.25,
+  };
+
   const NUM_Q = 32;
 
   /* t1..t8 — DALGA VE ŞEKİL BLOKLARININ KENDİ ARA DEĞİŞKENLERİ.
@@ -1136,6 +1160,18 @@
          yazdigi sey ilk karede zaten uzerine yaziliyor. */
       this._pfBase = {};
       for (const k of PF_RESET) this._pfBase[k] = this.pool.get(k);
+      /* Uyum açıkken taban: dosyanın yazdığı değer, yazmadığı adda
+         MilkDrop'un varsayılanı. Dosya bir adı ya kendi adıyla ya da
+         başlık adıyla (PARAM_ALIAS) yazıyor; `mv_a`yı `bMotionVectorsOn`
+         de veriyor. */
+      const fromFile = new Set();
+      for (const k of PF_RESET) if (typeof this.file.params[k] === 'number') fromFile.add(k);
+      for (const [from, to] of PARAM_ALIAS) if (typeof this.file.params[from] === 'number') fromFile.add(to);
+      if (typeof this.file.params.bmotionvectorson === 'number') fromFile.add('mv_a');
+      this._pfBaseMd2 = {};
+      for (const k of PF_RESET) {
+        this._pfBaseMd2[k] = fromFile.has(k) || !(k in MD2_PF_DEFAULTS) ? this._pfBase[k] : MD2_PF_DEFAULTS[k];
+      }
       this._qInit = null;
 
       /* Custom dalgalar ve şekiller. Referans preset paketinde şekillerin
@@ -1370,7 +1406,12 @@
     frame(inputs) {
       const P = this.pool;
       if (inputs) for (const k in inputs) P.set(k, inputs[k]);
+      const base = this.accurate ? this._pfBaseMd2 : this._pfBase;
       if (!this.initialised) {
+        /* MilkDrop init'i koşturmadan önce de yerleşik adları yüklüyor
+           (state.cpp RecompileExpressions: LoadPerFrameEvallibVars, sonra
+           init): init MilkDrop'un varsayılanlarını görmeli. */
+        if (this.accurate) for (const k of PF_RESET) P.set(k, base[k]);
         this.cInit.run(P.values);
         this.initialised = true;
         /* q'larin "init sonrasi" degeri: her karenin basladigi nokta.
@@ -1382,7 +1423,7 @@
       /* Yerlesik kare degiskenleri her karede dosyadaki degere donuyor —
          ilk kare dahil, cunku MilkDrop init'ten sonra da yeniden yukluyor.
          Ayrintili gerekce PF_RESET'in yaninda. */
-      for (const k of PF_RESET) P.set(k, this._pfBase[k]);
+      for (const k of PF_RESET) P.set(k, base[k]);
       if (this._qInit) for (let i = 0; i < NUM_Q; i++) P.set('q' + (i + 1), this._qInit[i]);
       this.cFrame.run(P.values);
       /* q'ların KARE değeri, per_pixel koşmadan önce. MilkDrop per_frame
@@ -1435,13 +1476,19 @@
     // per_frame sonrası hareket değişkenlerinin kare genelindeki değerleri
     captureBase() {
       const P = this.pool;
+      /* Merkez 0 GEÇERLİ bir değer: dönmenin ve germenin merkezi köşede.
+         `|| 0,5` onu ortaya taşıyordu; korpusta 84 preset başlıkta cx ya da
+         cy 0 yazıyor (#580). Uyum açıkken varsayılan zaten tabandan geliyor
+         (MD2_PF_DEFAULTS), yani 0 yalnız yazılmış 0. zoom, sx ve sy'de 0
+         MilkDrop'ta da sıfıra bölme — onlarda koruma kalıyor. */
+      const acc = this.accurate;
       this._base = {
         zoom: P.get('zoom') || 1,
         zoomexp: P.get('zoomexp') || 1,
         rot: P.get('rot'),
         warp: P.get('warp'),
-        cx: P.get('cx') || 0.5,
-        cy: P.get('cy') || 0.5,
+        cx: acc ? P.get('cx') : (P.get('cx') || 0.5),
+        cy: acc ? P.get('cy') : (P.get('cy') || 0.5),
         dx: P.get('dx'),
         dy: P.get('dy'),
         sx: P.get('sx') || 1,
@@ -1491,8 +1538,124 @@
     return ((Math.trunc(v * 255) & 0xFF)) / 255;
   }
 
+  // ==========================================================================
+  // MilkDrop 2'nin aşama seçimi ve sabit yol ayrıntıları (#580)
+  // ==========================================================================
+  /* Birincil kaynak: jecassis/foo_vis_milk2 5b44cea (Nullsoft'un kodu),
+     sabit yol için BeatDrop 53d83ee'deki D3D9 hâliyle de karşılaştırıldı.
+     Buradakiler kaynaktan öğrenilen KURALLAR; kod bizim.
+
+     AŞAMA SÜRÜMDEN SEÇİLİYOR, METİNDEN DEĞİL (state.cpp:1328-1348,
+     milkdropfs.cpp:921-924). MilkDrop bir aşamanın shader'ını ancak o
+     aşamanın sürümü sıfırdan büyükse kullanıyor:
+       MILKDROP_PRESET_VERSION yok ya da 200'den küçük -> ikisi de 0
+       tam 200 -> PSVERSION (yoksa 2) ikisine de
+       201 ve üstü -> PSVERSION_WARP / PSVERSION_COMP (yoksa 2)
+     Sürümü 0 olan aşamanın metni varsa bile okunmuyor, sabit yol çiziyor.
+     Sürümü sıfırdan büyük ama metni olmayan aşama için MilkDrop YÜKLEMEDE
+     bir shader yazıyor ve dosyadaki değerleri içine GÖMÜYOR: o presette
+     kare denklemlerinin gama, yankı ve bayraklara yazdıkları yok sayılıyor.
+     Tam sayılar `sscanf("%d")` ile okunuyor: kesirli bir değer aşağı
+     kırpılıyor. */
+  function md2Versions(params) {
+    const p = params || {};
+    const int = (v, d) => (typeof v === 'number' && isFinite(v) ? Math.trunc(v) : d);
+    const pv = int(p.milkdrop_preset_version, 100);
+    if (pv < 200) return { preset: pv, warp: 0, comp: 0 };
+    if (pv === 200) {
+      const v = int(p.psversion, 2);
+      return { preset: pv, warp: v, comp: v };
+    }
+    return { preset: pv, warp: int(p.psversion_warp, 2), comp: int(p.psversion_comp, 2) };
+  }
+
+  /* Aşama başına yol: 'shader' (presetin metni), 'generated' (MilkDrop'un
+     yüklemede yazdığı, değerleri gömülü shader) ya da 'fixed' (shader'sız
+     sabit yol). `file` parseMilk çıktısı. */
+  function stagePlan(file) {
+    const f = file || {};
+    const v = md2Versions(f.params);
+    const pick = (ver, text) => (ver > 0 ? (String(text || '').trim() ? 'shader' : 'generated') : 'fixed');
+    return { warp: pick(v.warp, f.warpShader), comp: pick(v.comp, f.compShader), versions: v };
+  }
+
+  /* Gömülü değerler dosyadan, MilkDrop'un varsayılanlarıyla
+     (state.cpp CState::Default): decay 0,98, gama 2,0, yankı yakınlaşması
+     2,0, yankı saydamlığı 0, yön 0, doku sarma açık. Kayan sayılar 32 bit
+     okunuyor (`%f` bir float'a); yuvarlamadan önce Math.fround — 0,975
+     float'ta 0,97500002 ve "%.2f" onu 0,98 yazıyor, double 0,97. */
+  const f32 = (v, d) => Math.fround(typeof v === 'number' && isFinite(v) ? v : d);
+  const i32 = (v, d) => (typeof v === 'number' && isFinite(v) ? Math.trunc(v) : d);
+
+  // Sürümü olup metni olmayan warp aşaması (plugin.cpp GenWarpPShaderText)
+  function genWarpText(params) {
+    const p = params || {};
+    const wrap = i32(p.btexwrap, 1) !== 0;
+    return [
+      'shader_body',
+      '{',
+      '    ret = tex2D(' + (wrap ? 'sampler_main' : 'sampler_fc_main') + ', uv).xyz;',
+      '    ret *= ' + f32(p.fdecay, 0.98).toFixed(2) + ';',
+      '}',
+    ].join('\n');
+  }
+
+  /* Sürümü olup metni olmayan birleştirme aşaması (plugin.cpp
+     GenCompPShaderText). Sıra: yankı ya da düz örnek, gama çarpanı, ton,
+     sonra dört bayrak — shader'daki biçimleriyle: karekök, kare,
+     4c(1-c), 1-c. Yön burada `% 4` görmüyor: 5 iki ekseni de çeviriyor. */
+  function genCompText(params) {
+    const p = params || {};
+    const alpha = f32(p.fvideoechoalpha, 0);
+    const zoom = f32(p.fvideoechozoom, 2);
+    const orient = i32(p.nvideoechoorientation, 0);
+    const gamma = f32(p.fgammaadj, 2).toFixed(2);
+    const hue = f32(p.fshader, 0);
+    const on = (k) => i32(p[k], 0) !== 0;
+    const out = ['shader_body', '{'];
+    if (alpha > 0.001) {
+      const ox = orient % 2 !== 0 ? -1 : 1;
+      const oy = orient >= 2 ? -1 : 1;
+      out.push('    float2 uv_echo = (uv - 0.5)*' + Math.fround(1 / zoom).toFixed(3) + '*float2(' + ox + ',' + oy + ') + 0.5;');
+      out.push('    ret = lerp(tex2D(sampler_main, uv).xyz, tex2D(sampler_main, uv_echo).xyz, ' + alpha.toFixed(2) + ');');
+    } else {
+      out.push('    ret = tex2D(sampler_main, uv).xyz;');
+    }
+    out.push('    ret *= ' + gamma + ';');
+    if (hue >= 1) out.push('    ret *= hue_shader;');
+    else if (hue > 0.001) out.push('    ret *= ' + Math.fround(1 - hue).toFixed(2) + ' + ' + hue.toFixed(2) + '*hue_shader;');
+    if (on('bbrighten')) out.push('    ret = sqrt(ret);');
+    if (on('bdarken')) out.push('    ret *= ret;');
+    if (on('bsolarize')) out.push('    ret = ret*(1-ret)*4;');
+    if (on('binvert')) out.push('    ret = 1 - ret;');
+    out.push('}');
+    return out.join('\n');
+  }
+
+  /* Sabit yolun yankı yönü (milkdropfs.cpp:3888, BeatDrop 4066):
+     `(int)echo_orient % 4` — C'de sıfıra doğru kırpılıyor ve kalan
+     bölünenin işaretini alıyor; x ekseni `% 2` sıfır değilse, y ekseni
+     değer 2 ya da üstüyse çevriliyor. Yani -1 x'i çeviriyor, 5 de 1 gibi.
+     Dönüş: 1 = x, 2 = y, 3 = ikisi. */
+  function echoFlipBits(v) {
+    const o = Math.trunc(Number(v) || 0) % 4;
+    return (o % 2 !== 0 ? 1 : 0) | (o >= 2 ? 2 : 0);
+  }
+
+  /* Sabit yolun gaması (milkdropfs.cpp:3955-4010): görüntü tam katları
+     kadar üst üste TOPLANARAK çiziliyor, son kat kesirli. Yankı açıkken
+     ilk çizim zaten tam; ek çizim ancak gama 1'i aştığında var, yani
+     1'in altındaki gama yankıyla birlikte HİÇ uygulanmıyor. Yankı yokken
+     tek geçiş gamanın kendisiyle çiziliyor. */
+  function fixedGammaGain(g, echoOn) {
+    const gamma = Math.fround(Number(g) || 0);
+    if (echoOn) return gamma > 0.001 && Math.trunc(gamma - 0.0001) >= 1 ? gamma : 1;
+    return gamma > 0 ? gamma : 0;
+  }
+
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
-    clampColor, colorNorm };
+    clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
+    echoFlipBits, fixedGammaGain };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

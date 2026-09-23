@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2167 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2181 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 570
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 584
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1961,12 +1961,14 @@ rest after. No version number yet.
       generated preset or a mash-up) is never in the list, so it never
       gives a part. ◀ ▶ step through a history of recipes (part → preset);
       a recipe whose preset was deleted is skipped. The id comes from the
-      recipe (`md_mix1_` and two 32-bit hashes), so the same mash-up saved
-      twice leaves one file, and the version in it keeps later rule changes
-      from overwriting earlier saves.
+      recipe (`md_mix`, the rule version and two 32-bit hashes; the
+      version is 2 since #580), so the same mash-up saved twice leaves one
+      file, and the version in it keeps later rule changes from
+      overwriting earlier saves.
     - *Part tests* decide which presets can give a part without parsing
       them (13.5 µs a test): a non-comment equation line, an enabled wave
-      or shape block, a non-empty shader line.
+      or shape block, a non-empty shader line (since #580, one whose stage
+      version MilkDrop reads as above 0).
   - **Mash-ups measured** on the whole 10,332-preset corpus. The part tests
     agree with the parser for every preset and part. A mash-up whose six
     parts come from one preset is that preset again for all 10,332 —
@@ -2028,6 +2030,121 @@ rest after. No version number yet.
     was equivalent, and the branch it changed was removed. Putting back
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
+- **Fidelity follow-ups (#580)** · the fixed composite, the stage rule and
+  MilkDrop's defaults are done; the other audits and the file-reading
+  differences are next.
+  - **Checked against the source.** Nullsoft's own code
+    (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
+    passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
+    53d83ee). Both agree on everything below.
+  - **Which stage draws.** MilkDrop picks a preset's warp and composite
+    shaders by version, not by whether shader text exists. A file with no
+    `MILKDROP_PRESET_VERSION`, or one below 200, is a MilkDrop 1 preset and
+    any shader text in it is ignored; 200 uses `PSVERSION`, 201 and above
+    `PSVERSION_WARP` and `PSVERSION_COMP`, each 2 when missing. A stage with
+    a version but no text gets a shader MilkDrop writes at load time with
+    the file's decay, gamma, echo, hue and flags baked in, so per-frame
+    changes to them are ignored there. With fidelity on the engine follows
+    this, and switching fidelity rebuilds the running preset's stages. In
+    the corpus it changes one preset: a composite with a version and no
+    text, whose per-frame code writes gamma and echo that MilkDrop ignores.
+    The corpus has no MilkDrop 1 file carrying shader text.
+  - **The fixed composite** — every preset without a composite shader,
+    2,128 in the corpus. MilkDrop draws its flags with blend passes of a
+    white quad: brighten inverts, squares and inverts again, so it is
+    `1−(1−c)²`, and solarize multiplies by the inverse and then adds the
+    result to itself, so it is `2c(1−c)`. The engine used `sqrt(c)` and
+    `4c(1−c)`, which are what MilkDrop writes into a shader it generates,
+    not what it draws for these presets. 410 presets turn brighten on and 83
+    solarize. Echo orientation is `(int)x % 4` with C's sign rule, where the
+    engine rounded (38 presets write `echo_orient` per frame). Gamma draws
+    the picture again additively, so below 1 it is not applied while echo is
+    on (2 presets). When two presets whose echoes point different ways
+    blend, the echo now fades out before the snap point and back in after
+    it, instead of flipping.
+  - **MilkDrop's defaults for keys a file does not write**: decay 0.98,
+    gamma 2.0, echo zoom 2.0, wave alpha 0.8, motion-vector length 0.9 and
+    grid 12×9, border size 0.01, inner border colour 0.25. The per-frame
+    reset wrote the pool's 0 back every frame, so a preset without `fDecay`
+    left no trail and one without `fGammaAdj` rendered at half brightness,
+    and the engine's own "decay missing → 0.98" check never fired because
+    the reset made the name exist. Init code sees the defaults too, as in
+    MilkDrop.
+  - **A centre of 0 is a centre.** `cx` and `cy` of 0 put rotation and
+    stretch in the corner; the engine turned an explicit 0 into 0.5 (84
+    presets write it in the header). A zoom or stretch of 0 still falls
+    back, since it divides by zero in MilkDrop too.
+  - **Our own presets write MilkDrop's key.** The five builtin MilkDrop
+    presets and the generator wrote the main wave's alpha as `wave_a`, the
+    name per-frame code uses. MilkDrop reads `fWaveAlpha` from the file —
+    every corpus preset writes that and none writes `wave_a` there — so in
+    MilkDrop these presets drew the wave at its default 0.8. They now write
+    `fWaveAlpha`. The engine reads both, so nothing changes on screen here:
+    the same generator code gives the same picture, and its golden hashes
+    were renewed without a new generator version.
+  - **Measured.** Rendered through the engine on the GPU: a warp shader
+    writes a known flat colour — or a UV gradient for the echo — into the
+    buffer, the composite takes the fixed path, and every flag, gamma and
+    orientation case read back within 2/255 of MilkDrop's formula, with
+    fidelity on and with it off (66 of 66). The 900-preset sample with the
+    texture pack sorts into the same classes before and after (882 clean,
+    12 blown, 4 frozen, 2 black). The last ten of 60 frames compared between
+    `main` and this change: among 120 brighten presets, 99 changed by more
+    than 1% (median 3.8%, darks darker: median brightness 0.181 → 0.152);
+    among the 83 solarize presets, 63 changed and the median brightness
+    roughly halved (0.291 → 0.112), with four more near black; 23 of 49
+    presets with a centre of 0 and 7 of 38 that write `echo_orient` changed.
+  - **Mash-ups follow the same rule.** A preset whose shader MilkDrop
+    ignores cannot give that part, and the version written for a shader is
+    the one its preset has for that stage. A recipe from the history can
+    therefore give different version lines than before — a warp from a
+    preset with `PSVERSION_WARP=0` was written as version 2 and drawn — so
+    the mash-up rule version went from 1 to 2: a mash-up saved under the
+    old rule keeps its file, and saving the recipe again writes a new one.
+  - **Found while finishing this, fixed next.** MilkDrop hands every
+    composite shader the full hue colour ("since we don't know if shader
+    uses it or not", in both the D3D11 and the D3D9 code); `fShader` scales
+    it only on the fixed path and in the shader MilkDrop writes for a
+    preset without one. The engine has applied `fShader` to preset shaders
+    too since the `hue_shader` change of 16 September, so with fidelity on
+    the 914 corpus presets that read `hue_shader` and leave `fShader` at 0
+    lost their colour, and 36 got part of it. In the shader written for a
+    composite stage with a version and no text, a partial `fShader` now
+    lands twice, in the text and in the colour; the one corpus preset with
+    such a stage has `fShader` at 0. The engine also takes the
+    amount from per-frame values: 16 presets write `fshader` in code,
+    which MilkDrop never sees, all of them with a composite shader. Some
+    keys fall back to something else when a file leaves them out. MilkDrop
+    reads a missing `wave_r`, `wave_g`, `wave_b`, `wave_x` or `wave_y` as
+    `rot`'s value at that point, which is 0, where the engine has 1, 1, 1,
+    0.5 and 0.5. Missing wave smoothing is 0.75, and the volume fade runs
+    from 0.75 to 0.95. Custom shapes default to red inside and green
+    outside. No corpus preset leaves any of these out, and neither do ours.
+  - **Not done yet:** the fixed warp path, the blur chain, borders and
+    centre darkening, and the rest of the blend snap points; the
+    file-reading differences found while building the mash-ups (a
+    duplicated key, where MilkDrop reads the first occurrence and we keep
+    the last; numbered code that MilkDrop stops reading at the first
+    missing number; `\\` comments; integer keys holding fractions; text
+    after a number; key case; indented lines — about 40 corpus presets in
+    all); the reference comparison with an external renderer, which needs
+    one installed and waits for the user's approval.
+  - **Tests.** 14 new: the version rule and the stage choice, the two
+    generated shaders (float rounding, samplers, echo, hue, flag order,
+    and that they translate), echo orientation and gamma cases, the
+    defaults with fidelity on and off, init seeing them, a header value
+    winning over them, the centre of 0, the engine choosing stages by
+    version and by text, the echo fade during a blend, the shader's
+    formulas behind the switch, and our own presets — the builtins, 64
+    generated ones and 30 mash-ups of them — writing only keys MilkDrop
+    reads, each once, unindented, with code lines numbered from 1 without
+    a gap. Eight older test files were updated: two used presets with
+    `PSVERSION` lines but no `MILKDROP_PRESET_VERSION`, which MilkDrop
+    reads as MilkDrop 1; the generator's golden hashes and wave-alpha
+    check follow the new key; the mash-up tests check the part test
+    against the engine's stage choice and expect `md_mix2_` ids. 36 of 36
+    mutations are caught, one of them putting the mash-up rule version
+    back to 1.
 
 ## v3.1.6 — Comprehensive video export
 

@@ -202,15 +202,21 @@ test('aynı kod aynı metni veriyor; dil yalnız adı değiştiriyor', () => {
    test düşerse değişiklik bilerek yapıldıysa VERSION artırılmalı (kimlik
    de değişir, eski kayıtların üstüne yazılmaz) ve özetler yenilenmeli.
    Windows ve Ubuntu'da, Node 20 ve 22'de aynı çıkmalı: üretici yazdığı
-   sayılara sin/pow/exp sokmuyor. */
+   sayılara sin/pow/exp sokmuyor.
+
+   Özetler bir kez VERSION artmadan yenilendi (#580): dalga saydamlığının
+   anahtarı `wave_a` yerine MilkDrop'un okuduğu `fWaveAlpha` oldu. Değer ve
+   motordaki görüntü aynı, yalnız MilkDrop'ta artık doğru okunuyor; aynı
+   kodu yeniden kaydetmek eski dosyanın üstüne AYNI görünen, düzeltilmiş
+   bir dosya yazıyor. Görüntüyü değiştiren bir değişiklik VERSION ister. */
 const GOLDEN = {
-  '0-0-0-0-0': '471e4ed82802f52e', // warp shader'ı, zorlanan tek dalga
-  '100-100-100-100-zzzzzz': '39d6604bf92852c8', // birleştirme, 4 dalga, 3 şekil
-  '50-50-50-50-k3x9ab': '63ae6d15b3fcfc68', // iki shader
-  '72-15-60-88-2n9c': '78b50f1e94a2c875',
-  '20-80-35-65-1a2b3c': 'c01c340ae467e8ad',
-  '90-40-90-10-7': 'f2e5665d620a10a7',
-  '30-60-40-30-5': 'e7ced80c3c4ab9f4', // shader yok (MilkDrop 1 biçimi)
+  '0-0-0-0-0': '506e5e7950ae5f55', // warp shader'ı, zorlanan tek dalga
+  '100-100-100-100-zzzzzz': '766aef37f142e51c', // birleştirme, 4 dalga, 3 şekil
+  '50-50-50-50-k3x9ab': 'd0ce1d37d84b2f25', // iki shader
+  '72-15-60-88-2n9c': 'eb04c5e58e0fe0f0',
+  '20-80-35-65-1a2b3c': 'af26a0cbbfbf1642',
+  '90-40-90-10-7': 'ffa4bebae2715ca8',
+  '30-60-40-30-5': '3b7e30dc59759bb4', // shader yok (MilkDrop 1 biçimi)
 };
 
 test('altın özetler: kod -> metin sabit', () => {
@@ -318,7 +324,7 @@ const TIMES = [0, 1.7, 13.3, 101.9, 1234.5];
 function mainVars(f, t, a) {
   const v = { time: t, fps: 30, frame: Math.round(t * 30), progress: 0.5, aspectx: 1, aspecty: 16 / 9 };
   for (const k of ['bass', 'mid', 'treb', 'bass_att', 'mid_att', 'treb_att']) v[k] = a;
-  for (const k of ['zoom', 'rot', 'warp', 'cx', 'cy', 'dx', 'dy', 'sx', 'sy', 'wave_r', 'wave_g', 'wave_b', 'wave_a', 'decay']) {
+  for (const k of ['zoom', 'rot', 'warp', 'cx', 'cy', 'dx', 'dy', 'sx', 'sy', 'wave_r', 'wave_g', 'wave_b', 'decay']) {
     if (typeof f.params[k] === 'number') v[k] = f.params[k];
   }
   return v;
@@ -464,7 +470,7 @@ test('sönme ve gama makul aralıkta; warp shader\'ı sönmeyi kendisi yapıyor'
     assert.ok(f.params.fgammaadj >= 1 && f.params.fgammaadj <= 1.8, r.code + ' gama ' + f.params.fgammaadj);
     // Ana dalga sönme yavaşladıkça saydamlaşıyor: 0,97'de tam, 0,98'de üçte iki
     const room = Math.max(0.5, Math.min(1, (1 - f.params.fdecay) / 0.03));
-    assert.ok(f.params.wave_a <= 0.9 * room + 0.001, r.code + ' wave_a ' + f.params.wave_a + ' sönme ' + f.params.fdecay);
+    assert.ok(f.params.fwavealpha <= 0.9 * room + 0.001, r.code + ' fWaveAlpha ' + f.params.fwavealpha + ' sönme ' + f.params.fdecay);
     if (f.warpShader) {
       /* MilkDrop warp shader'ı olan presette decay'i uygulamıyor. q8'i
          yazmayan bir warp shader'ı görüntüyü hiç söndürmez ve beyaza doyar. */

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2167%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2181%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -245,6 +245,16 @@ that asserts the bar profile has no step in it.
   correcting for a wide screen corrected the wrong axis. The blurred copy is darkened at its edges
   (`b1ed`, 68.6% ask for it), and a custom wave is drawn at MilkDrop's amplitude and reads the
   spectrum when it asks for the spectrum (23.2% do).
+- **Presets without a shader of their own look as they do in MilkDrop 2.** MilkDrop picks a preset's
+  warp and composite shaders by the file's version, not by whether shader text is present, and
+  draws the rest with a fixed pipeline built from blend passes. Checked against MilkDrop 2's source
+  and the original D3D9 code: brighten there is `1−(1−c)²` and solarize `2c(1−c)`, not the
+  `sqrt(c)` and `4c(1−c)` the engine used (410 and 83 presets of a 10,332-preset corpus turn them
+  on); echo orientation is `(int)x % 4`; gamma below 1 is ignored while echo is on; and when two
+  presets whose echoes point different ways blend, the echo fades out and back in instead of
+  flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
+  and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
+  Rendered through the engine, every case matches MilkDrop's formula within 2/255.
 - **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
   mouse input and preset transitions** are all implemented, and each sampler is read with the
   filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is
@@ -1289,7 +1299,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2167 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2181 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

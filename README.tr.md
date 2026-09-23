@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2167%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2181%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -238,6 +238,16 @@ profilinde basamak olmadığını doğruluyor.
   değiştirmişti, yani geniş ekran düzeltmesi yanlış eksene uygulanıyordu. Bulanık kopya kenarında
   karartılıyor (`b1ed`, %68,6'sı istiyor), özel dalgalar MilkDrop genliğinde çiziliyor ve tayf
   isteyen dalga tayfı okuyor (%23,2).
+- **Kendi shader'ı olmayan presetler MilkDrop 2'deki gibi görünüyor.** MilkDrop bir presetin warp
+  ve birleştirme shader'ını shader metninin varlığından değil dosyanın sürümünden seçiyor, gerisini
+  harmanlama geçişlerinden kurulu sabit bir yolla çiziyor. MilkDrop 2'nin kaynağına ve özgün D3D9
+  koduna göre denetlendi: orada parlatma `1−(1−c)²`, solarize `2c(1−c)` — motorun kullandığı
+  `sqrt(c)` ve `4c(1−c)` değil (10.332 presetlik bir korpusta 410 preset parlatmayı, 83'ü
+  solarize'ı açıyor); yankı yönü `(int)x % 4`; yankı açıkken 1'in altındaki gama uygulanmıyor;
+  yankıları farklı yöne bakan iki preset geçişte karışırken yankı bir anda dönmüyor, sönüp
+  yeniden beliriyor. Sönmesini ya da gamasını yazmayan bir preset 0 yerine MilkDrop'un 0,98 ve
+  2,0'ını alıyor, yazmadığı öteki değerlerin çoğu da öyle; dönme merkezi 0 ise köşede kalıyor.
+  Motordan geçirilerek çizildi: her durum MilkDrop'un formülüyle 2/255 içinde aynı.
 - **Dokulu şekiller, hareket vektörleri, dönme matrisleri, ağ sıklığı, iç çözünürlük, fare girdisi
   ve preset geçişleri** uygulandı; her sampler adının istediği süzme ve sarma ile okunuyor
   (`sampler_pw_main` noktasal, `sampler_fc_main` süzülmüş+kenetli — presetlerin %22,7'si aynı
@@ -1287,7 +1297,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2167 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2181 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
