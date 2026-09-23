@@ -1,0 +1,249 @@
+'use strict';
+/* MILKDROP 2'NİN İFADE DERLEYİCİSİ (#580).
+ *
+ * Uyum açıkken denklemler MilkDrop 2'nin ifade derleyicisinin kurallarıyla
+ * koşuyor. Kaynak Nullsoft'un ns-eel2'si (BeatDrop kopyası 53d83ee):
+ *  - işleçlerin iç adları (nseel-compiler.c fnTable1, ad çevirisi
+ *    nseel-eval.c): `_aboeq(a, b)` `a >= b`, `_and` kısa devreli `&&` …;
+ *  - doğruluk ve eşitlik sınamalarında 0,00001'lik yakınlık payı
+ *    (NSEEL_CLOSEFACTOR, ns-eel-int.h; asm-nseel-x86-msvc.c `fcomp
+ *    closefact`): `if`, `!`, `&&`, `||`, `while`, `bnot` için |x| >= pay
+ *    doğru, `band`/`bor` işlevlerinde |x| > pay; `==`/`equal` |a − b| < pay.
+ * Uyum kapalıyken eski birebir sınamalar ve eski ad kümesi duruyor. */
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+const M = require('../src/shared/milkdrop.js');
+const S = require('../src/shared/milkdrop-sprites.js');
+const ROOT = path.join(__dirname, '..');
+
+// Kodu verilen kipte koşturur, havuzu döndürür
+function run(src, md2, pre) {
+  const pool = new M.Pool();
+  for (const k in pre || {}) pool.set(k, pre[k]);
+  const c = M.compile(src, pool, { mode: { md2 }, md2Funcs: md2 });
+  c.run();
+  return { pool, error: c.error, get: (k) => pool.get(k) };
+}
+
+test('iç adlar uyum açıkken işleçlerin kendisi, kapalıyken bilinmeyen işlev', () => {
+  const src = [
+    'a = _aboeq(3, 3); b = _aboeq(2, 3); c = _beleq(3, 3); d = _above(3, 3); e = _below(2, 3);',
+    'f = _equal(2, 2); g = _noteq(2, 2); h = _not(0); i = _if(0, 5, 6); j = _mod(7, 3);',
+  ].join('\n');
+  const on = run(src, true);
+  assert.strictEqual(on.error, '');
+  assert.deepStrictEqual('abcdefghij'.split('').map(on.get), [1, 0, 1, 0, 1, 1, 0, 1, 6, 1]);
+  const off = run(src, false);
+  assert.match(off.error, /bilinmeyen fonksiyon '_aboeq'/);
+  assert.strictEqual(off.get('a'), 0, 'kapalıyken deyim atlanıyor');
+});
+
+test('iç atama adları: _set, _addop … ilk argümana yazıyor', () => {
+  const on = run('_set(a, 4); _addop(a, 2); _mulop(a, 3); _subop(a, 1); _divop(a, 17); _set(b, 7); _modop(b, 4); _set(c, 1); _orop(c, 6); _andop(c, 3); _set(d, 2); _powop(d, 10);', true);
+  assert.strictEqual(on.error, '');
+  assert.strictEqual(on.get('a'), 1);
+  assert.strictEqual(on.get('b'), 3);
+  assert.strictEqual(on.get('c'), 3);
+  assert.strictEqual(on.get('d'), 1024);
+  assert.match(run('_set(1, 2);', true).error, /bir değişken ve bir değer ister/);
+});
+
+test('_mem/_gmem megabuf/gmegabuf\'un iç adı: okunuyor ve yazılıyor', () => {
+  const on = run('_mem(3) = 7; megabuf(4) = 8; a = _mem(3) + megabuf(4); _gmem(12345) = 2; b = gmegabuf(12345);', true);
+  assert.strictEqual(on.error, '');
+  assert.strictEqual(on.get('a'), 15);
+  assert.strictEqual(on.get('b'), 2);
+  assert.match(run('a = _mem(1, 2);', true).error, /1 argüman ister/);
+});
+
+test('iç adlar büyük/küçük harf ayırmıyor', () => {
+  const on = run('a = _AboEq(2, 1); b = _IF(1, 3, 4);', true);
+  assert.strictEqual(on.error, '');
+  assert.strictEqual(on.get('a'), 1);
+  assert.strictEqual(on.get('b'), 3);
+});
+
+test('_and/_or kısa devreli (&& ve ||); band/bor iki tarafı da hesaplıyor', () => {
+  const on = run('a = _and(0, x = 5); b = _or(1, y = 5); c = band(0, z = 5); d = bor(1, w = 5);', true);
+  assert.strictEqual(on.get('x'), 0, '_and sağ tarafı hesaplamamalı');
+  assert.strictEqual(on.get('y'), 0, '_or sağ tarafı hesaplamamalı');
+  assert.strictEqual(on.get('z'), 5, 'band iki tarafı da hesaplıyor');
+  assert.strictEqual(on.get('w'), 5, 'bor iki tarafı da hesaplıyor');
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map(on.get), [0, 1, 0, 1]);
+});
+
+// ------------------------------------------------------------ yakınlık payı
+
+const CLOSE = 0.00001;
+const BELOW = 0.0000099;
+const ABOVE = 0.0000101;
+
+test('if, !, &&, ||, bnot: |x| >= 0,00001 doğru (sınır dahil)', () => {
+  for (const [v, want] of [[CLOSE, 1], [-CLOSE, 1], [BELOW, 0], [-BELOW, 0], [ABOVE, 1], [0, 0]]) {
+    const on = run('a = if(v, 1, 0); b = !v; c = v && 1; d = v || 0; e = bnot(v);', true, { v });
+    assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e'].map(on.get), [want, 1 - want, want, want, 1 - want], 'v=' + v);
+  }
+});
+
+test('band/bor işlevleri: |x| > 0,00001 doğru — sınırda && ve ||den farklı', () => {
+  for (const [v, want] of [[CLOSE, 0], [-CLOSE, 0], [BELOW, 0], [ABOVE, 1], [-ABOVE, 1]]) {
+    const on = run('a = band(v, 1); b = bor(v, 0);', true, { v });
+    assert.deepStrictEqual([on.get('a'), on.get('b')], [want, want], 'v=' + v);
+  }
+});
+
+test('==, !=, equal: |a − b| < 0,00001 eşit; <, >, above, below birebir', () => {
+  const on = run('a = 0.3 + 0.6 == 0.9; b = equal(1, 1 + 0.0000099); c = equal(0.00001, 0); d = 1 != 1.0000099; e = 0.00001 != 0; f = above(1.0000001, 1); g = 1 < 1.0000001; h = _aboeq(1, 1.0000001);', true);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(on.get), [1, 1, 0, 0, 1, 1, 1, 0]);
+  const off = run('a = 0.3 + 0.6 == 0.9; b = equal(1, 1 + 0.0000099); d = 1 != 1.0000099;', false);
+  assert.deepStrictEqual(['a', 'b', 'd'].map(off.get), [0, 0, 1], 'kapalıyken birebir');
+});
+
+test('while: son değer |x| < 0,00001 olunca duruyor', () => {
+  // Sıra: 0,00001 (sınır, doğru) → 0,000005 → 0
+  const src = 'n = 0; v = 3; while(n = n + 1; v = v - 1; v * 0.000005);';
+  assert.strictEqual(run(src, true).get('n'), 2, '0,000005 yanlış');
+  assert.strictEqual(run(src, false).get('n'), 3, 'kapalıyken tam sıfıra kadar');
+});
+
+test('NaN: x87 karşılaştırması sırasız — yanlış sayılıyor, NaN\'lı eşitlik doğru', () => {
+  const nan = '(0 * (1e308 * 10))';
+  const on = run(`a = if(${nan}, 1, 2); b = equal(${nan}, 3); c = !${nan};`, true);
+  assert.deepStrictEqual(['a', 'b', 'c'].map(on.get), [2, 1, 1]);
+  const off = run(`a = if(${nan}, 1, 2); b = equal(${nan}, 3); c = !${nan};`, false);
+  assert.deepStrictEqual(['a', 'b', 'c'].map(off.get), [1, 0, 0]);
+});
+
+test('kip çalışma anında: aynı derleme mode.md2 çevrilince öbür sınamayı kullanıyor', () => {
+  const pool = new M.Pool();
+  const mode = { md2: false };
+  const c = M.compile('a = if(0.000005, 1, 2); b = equal(1, 1.000005);', pool, { mode });
+  c.run();
+  assert.deepStrictEqual([pool.get('a'), pool.get('b')], [1, 0]);
+  mode.md2 = true;
+  c.run();
+  assert.deepStrictEqual([pool.get('a'), pool.get('b')], [2, 1]);
+  // Seçenek verilmezse eski davranış
+  const p2 = new M.Pool();
+  M.compile('a = if(0.000005, 1, 2); b = _aboeq(1, 0);', p2).run();
+  assert.strictEqual(p2.get('a'), 1);
+  assert.strictEqual(p2.get('b'), 0, 'iç ad yok');
+});
+
+// ------------------------------------------------------------ preset bağlantısı
+
+const PRESET = [
+  'MILKDROP_PRESET_VERSION=201',
+  'per_frame_1=q1 = if(0.000005, 1, 2);',
+  'per_frame_2=q2 = _aboeq(2, 1);',
+  'wavecode_0_enabled=1',
+  'wave_0_per_frame1=t1 = equal(1, 1.000005);',
+  'shapecode_0_enabled=1',
+  'shape_0_per_frame1=x = if(0.000005, 0.1, 0.9);',
+  '',
+].join('\n');
+
+test('Preset: anahtar bütün blokların ortak kipini çeviriyor (dalga ve şekil dahil)', () => {
+  const p = new M.Preset(PRESET, { seed: 1, accurate: true });
+  p.frame({ time: 0, frame: 0 });
+  assert.deepStrictEqual([p.get('q1'), p.get('q2')], [2, 1]);
+  p.waveFrame(p.waves[0]);
+  assert.strictEqual(p.waves[0].pool.get('t1'), 1);
+  assert.strictEqual(p.shapeFrame(p.shapes[0], 0).x, 0.9);
+
+  p.accurate = false;
+  p.frame({ time: 0, frame: 1 });
+  assert.strictEqual(p.get('q1'), 1, 'kapalıyken birebir: 0,000005 doğru');
+  p.waveFrame(p.waves[0]);
+  assert.strictEqual(p.waves[0].pool.get('t1'), 0);
+  assert.strictEqual(p.shapeFrame(p.shapes[0], 0).x, 0.1);
+  assert.strictEqual(p.accurate, false);
+  p.accurate = undefined;
+  assert.strictEqual(p.accurate, true, 'false dışındaki her değer açık');
+});
+
+test('Preset: iç adlar okuyuşla birlikte kuruluşta kararlaştırılıyor', () => {
+  const off = new M.Preset(PRESET, { seed: 1, accurate: false });
+  off.frame({ time: 0, frame: 0 });
+  assert.strictEqual(off.get('q2'), 0, 'kapalı kurulan preset iç adı tanımıyor');
+  assert.ok(off.errors.some((e) => /_aboeq/.test(e)));
+  off.accurate = true;
+  off.frame({ time: 0, frame: 1 });
+  assert.strictEqual(off.get('q2'), 0, 'yeniden kurulmadan iç ad derlenmiyor — görselleştirici yeniden kuruyor');
+});
+
+test('readingsDiffer: kod iç ad kullanıyorsa anahtar çevrilince preset yeniden kuruluyor', () => {
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = above(2, 1);\n'), false);
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = _aboeq(2, 1);\n'), true);
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nwave_0_per_point1=a = _ABOEQ (2, 1);\n'), true, 'harf ve boşluk');
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=my_aboeq = 1; b = my_aboeq(2);\n'), false, 'adın parçası değil');
+});
+
+test('sprite kodu da MilkDrop kurallarıyla: anahtar setAccurate ile', () => {
+  const def = { num: '01', img: 'a.png', colorkey: 0, init: 'k1 = if(0.000005, 1, 2); k2 = _aboeq(1, 0);', code: 'k3 = equal(1, 1.000005);', desc: '' };
+  const set = new S.SpriteSet(M);
+  set.launch(def, { seed: 1 });
+  const P = set.slots[0].pool;
+  assert.deepStrictEqual([P.get('k1'), P.get('k2')], [2, 1]);
+  set.step({ time: 0, frame: 0 });
+  assert.strictEqual(P.get('k3'), 1);
+  set.setAccurate(false);
+  set.step({ time: 0, frame: 1 });
+  assert.strictEqual(P.get('k3'), 0, 'kapalıyken birebir');
+  set.launch(def, { seed: 1 });
+  const P2 = set.slots[1].pool;
+  assert.deepStrictEqual([P2.get('k1'), P2.get('k2')], [1, 0], 'kapalıyken başlatılan iç adı tanımıyor');
+});
+
+test('görselleştirici sprite setine anahtarı başlatmadan ve her kareden önce veriyor', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/visualizer/modes/milkdrop.js'), 'utf8');
+  const set = 'this.sprites.setAccurate(this._wantAcc !== false);';
+  const i = src.indexOf(set);
+  assert.ok(i > 0 && i < src.indexOf('this.sprites.launch('), 'başlatmadan önce');
+  const j = src.indexOf(set, i + 1);
+  assert.ok(j > 0 && j < src.indexOf('this.sprites.step('), 'kareden önce');
+});
+
+/* İfade derleyicisini çağıran her yer kipini AÇIKÇA veriyor. Verilmeyen bir
+   yer uyum açıkken bile eski sınamalarla koşardı ve bu hiçbir yerde
+   görünmezdi. */
+// Açılan parantezin kapandığı yere kadar (dize içindeki parantezler sayılmıyor)
+function callArgs(src, from) {
+  let depth = 1;
+  let q = null;
+  let i = from;
+  for (; i < src.length && depth > 0; i++) {
+    const ch = src[i];
+    if (q) {
+      if (ch === '\\') i++;
+      else if (ch === q) q = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') q = ch;
+    else if (ch === '(') depth++;
+    else if (ch === ')') depth--;
+  }
+  return src.slice(from, i - 1);
+}
+
+test('kaynakta her ifade derlemesi kipini veriyor', () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+    (e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith('.js') ? [path.join(d, e.name)] : []));
+  let found = 0;
+  for (const file of walk(path.join(ROOT, 'src'))) {
+    const src = fs.readFileSync(file, 'utf8');
+    const isEngine = file.endsWith(path.join('shared', 'milkdrop.js'));
+    // Motorun kendi içinde `compile(`, dışarıda SVMilkdrop api'si üzerinden `M.compile(`
+    const re = isEngine ? /(?<![.\w])(?<!function )compile\(/g : /\b[Mm]\.compile\(/g;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+      found++;
+      const args = callArgs(src, m.index + m[0].length);
+      assert.match(args, /\beel\b|mode:/, path.relative(ROOT, file) + ': ' + m[0] + args.slice(0, 90));
+    }
+  }
+  assert.strictEqual(found, 11, 'derleme çağrısı sayısı (motor 8, sprite 2, öz test 1)');
+});
