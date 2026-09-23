@@ -1784,9 +1784,14 @@
   /* load ve pointStackAtMilkdrop testler icin de disa aciliyor: preset
      secmenin sahneyi GERCEKTEN degistirdigi, panelin arayuzunu kurmadan
      sinanabilsin. */
+  /* Karışım (#579) parçalarını buradan çekiyor: listede GÖRÜNENLER, yani
+     arama ve süzgeç orada da geçerli. Kaydedilmemiş bir önizleme listede
+     olmadığı için hiçbir zaman parça vermiyor. `presetById` bütün listede
+     arıyor: geçmişteki bir karışım süzgeç değişse de geri getirilebilsin. */
+  const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
-    spriteTargets, preview, adopt,
+    spriteTargets, preview, adopt, visibleList, presetById: byId,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

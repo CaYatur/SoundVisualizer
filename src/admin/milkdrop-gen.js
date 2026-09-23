@@ -76,8 +76,12 @@
     return !!(S && typeof S.user === 'function' && S.user().some((p) => p && p.id === id));
   };
 
-  async function save() {
-    const r = last;
+  // Üreticinin son sonucu; karışımınki `saveMix`
+  function save() {
+    return saveResult(last);
+  }
+
+  async function saveResult(r) {
     if (!r || saving) return;
     if (!window.api || !window.api.savePreset) {
       P().toast(tr('Kaydetme kullanılamıyor.'), 'err');
@@ -105,6 +109,209 @@
       P().rerender();
       P().toast(tr('Kaydedilemedi.'), 'err');
     }
+  }
+
+  // --------------------------------------------------------------------
+  // Kütüphaneden karışım (shared/milkdrop-mashup.js)
+  // --------------------------------------------------------------------
+  /* Parçalar MilkDrop panelinin listesinde GÖRÜNEN presetlerden çekiliyor
+     (arama ve süzgeç burada da geçerli) ve yalnız o parçası olanlardan.
+     Warp ve birleştirme bazen "yok" çıkıyor: kütüphanenin çoğu MilkDrop 2
+     presetiyse her karışım iki shader alırdı ve görünümün sabit yolu
+     (yankı, gama, bayraklar) hiç çalışmazdı.
+
+     Geçmiş tarifleri tutuyor (parça -> preset kimliği), metni değil: ◀/▶
+     karışımı aynı parçalardan yeniden kuruyor. Parçalarından biri silinmiş
+     bir tarif atlanıyor, MilkDrop panelinin ◀/▶'ı gibi. */
+  const X = () => window.SVMdMix;
+  const NONE_CHANCE = 0.12;
+  const SLOT_LABELS = {
+    look: 'Görünüm', motion: 'Hareket', waves: 'Dalgalar', shapes: 'Şekiller', warp: 'Warp', comp: 'Birleştirme',
+  };
+  let mix = null;
+  let mixLast = null;
+  let mixHist = null;
+  const mixRecipes = new Map();
+  function mixHistory() {
+    const C = window.SVMilkdropCycle;
+    if (!mixHist && C && C.History) mixHist = new C.History(64);
+    return mixHist;
+  }
+  const byId = (id) => (MP() && MP().presetById ? MP().presetById(id) : null);
+
+  // Bir parçanın yeni presetini çeker; bulunamazsa null
+  function draw(list, slot, avoid) {
+    if ((slot === 'warp' || slot === 'comp') && avoid !== X().NONE && Math.random() < NONE_CHANCE) return X().NONE;
+    const p = X().pick(list, slot, Math.random, avoid);
+    if (p) return p.id;
+    return slot === 'warp' || slot === 'comp' ? X().NONE : null;
+  }
+
+  /* Tarifi kurar ve yükler. `record` yeni bir karışım mı (geçmişe girer)
+     yoksa geçmişte gezinme mi. Parçalarından biri artık yoksa false. */
+  function showMix(recipe, record) {
+    const donors = {};
+    for (const s of X().SLOTS) {
+      if (recipe[s] === X().NONE) { donors[s] = X().NONE; continue; }
+      const p = byId(recipe[s]);
+      if (!p || typeof p.source !== 'string') return false;
+      donors[s] = p.source;
+    }
+    const nameOf = (id) => { const p = byId(id); return p ? tr(p.name || id) : id; };
+    const r = {
+      id: X().idOf(recipe), name: X().nameFor(recipe, nameOf, lang()),
+      source: X().compose(donors), recipe: Object.assign({}, recipe),
+    };
+    mix = r.recipe;
+    mixLast = r;
+    if (record) {
+      const key = X().recipeKey(recipe);
+      mixRecipes.set(key, r.recipe);
+      const h = mixHistory();
+      if (h) h.note(key);
+    }
+    const panel = MP();
+    if (!panel || !panel.preview || !panel.preview({ id: r.id, kind: 'milkdrop', name: r.name, source: r.source })) {
+      P().toast(tr('MilkDrop paneli kullanılamıyor.'), 'err');
+      P().rerender();
+    }
+    return true;
+  }
+
+  function mixList() {
+    const panel = MP();
+    const list = panel && panel.visibleList ? panel.visibleList() : [];
+    if (!list.length) P().toast(tr('Listede preset yok.'), 'err');
+    return list;
+  }
+
+  // Altı parçanın hepsi yeniden
+  function rollAll() {
+    if (!X()) return;
+    const list = mixList();
+    if (!list.length) return;
+    const look = draw(list, 'look', null);
+    if (!look) return;
+    const recipe = { look };
+    for (const s of X().SLOTS) {
+      if (s === 'look') continue;
+      const id = draw(list, s, null);
+      // Parçası olan aday yoksa görünümün presetinden (belki boş) gelir
+      recipe[s] = id === null ? look : id;
+    }
+    showMix(recipe, true);
+  }
+
+  // Tek parça yeniden; ötekiler yerinde
+  function rollSlot(slot) {
+    if (!X() || !mix) return;
+    const list = mixList();
+    if (!list.length) return;
+    const id = draw(list, slot, mix[slot]);
+    if (id === null) {
+      P().toast(tr('Listede bu parçası olan başka preset yok.'), 'err');
+      return;
+    }
+    showMix(Object.assign({}, mix, { [slot]: id }), true);
+  }
+
+  /* Ekrandaki presetten başlar: altı parçanın hepsi ondan, sonra tek tek
+     değiştirilir. Ekrandaki listede olmalı — kaydedilmemiş bir önizleme ya
+     da karışım parça veremez. */
+  function fromScreen() {
+    if (!X()) return;
+    const panel = MP();
+    const cfg = P().cfg();
+    const id = panel && panel.liveId && cfg.milkdrop ? panel.liveId(cfg.milkdrop) : '';
+    const p = id ? byId(id) : null;
+    if (!p) {
+      P().toast(tr('Önce MilkDrop listesinden bir preset seçin.'), 'err');
+      return;
+    }
+    const recipe = {};
+    for (const s of X().SLOTS) {
+      recipe[s] = (s === 'warp' || s === 'comp') && !X().has(p.source, s) ? X().NONE : p.id;
+    }
+    showMix(recipe, true);
+  }
+
+  function mixNav(dir) {
+    const h = mixHistory();
+    if (!h) return;
+    for (let key = dir < 0 ? h.back() : h.forward(); key; key = dir < 0 ? h.back() : h.forward()) {
+      const recipe = mixRecipes.get(key);
+      if (recipe && showMix(recipe, false)) return;
+    }
+    P().rerender();
+  }
+
+  function saveMix() {
+    return saveResult(mixLast);
+  }
+
+  function mixSection() {
+    const el = P().el;
+    const nodes = [el('h4', { class: 'mdgen-sub', text: 'Kütüphaneden Karışım' })];
+    const h = mixHistory();
+    nodes.push(el('div', { class: 'gen-actions' }, [
+      el('button', {
+        class: 'btn primary', type: 'button', text: '🎲 Yeni Karışım',
+        title: 'Her parçayı listede görünen presetlerden rastgele çeker',
+        onclick: () => rollAll(),
+      }),
+      el('button', {
+        class: 'btn', type: 'button', text: '📌 Ekrandakinden Başla',
+        title: 'Altı parçanın hepsini ekrandaki presetten alır; sonra tek tek değiştirin',
+        onclick: () => fromScreen(),
+      }),
+    ]));
+    if (mix) {
+      for (const s of X().SLOTS) {
+        const id = mix[s];
+        const p = id && id !== X().NONE ? byId(id) : null;
+        nodes.push(el('div', { class: 'mdmix-row' }, [
+          el('span', { class: 'mdmix-slot', text: SLOT_LABELS[s] }),
+          // Presetin adı kendi adı; yerleşiklerin adı sözlükte
+          el('span', { class: 'mdmix-name' + (p ? '' : ' dim-hint'), text: p ? tr(p.name || p.id) : (id === X().NONE ? 'Yok' : '—') }),
+          el('button', {
+            class: 'btn ghost small', type: 'button', text: '🎲',
+            title: 'Bu parçayı yeniden çek', 'aria-label': tr('Bu parçayı yeniden çek'),
+            onclick: () => rollSlot(s),
+          }),
+        ]));
+      }
+    }
+    nodes.push(el('div', { class: 'gen-actions' }, [
+      el('button', {
+        class: 'btn', type: 'button', text: '◀', title: 'Önceki karışım',
+        disabled: !(h && h.canBack()), onclick: () => mixNav(-1),
+      }),
+      el('button', {
+        class: 'btn', type: 'button', text: '▶', title: 'Sonraki karışım',
+        disabled: !(h && h.canForward()), onclick: () => mixNav(1),
+      }),
+      el('button', {
+        class: 'btn', type: 'button', text: saving ? 'Kaydediliyor…' : '💾 Kütüphaneye Kaydet',
+        disabled: !mixLast || saving,
+        onclick: () => saveMix(),
+      }),
+    ]));
+    if (mixLast) {
+      const kept = inLibrary(mixLast.id);
+      nodes.push(el('div', { class: 'studio-note' }, [
+        el('div', { class: 'gen-pair' }, [
+          el('span', { class: 'dim-hint', text: 'Son Karışım' }),
+          el('span', { class: 'md-cur mdgen-name', text: mixLast.name }),
+          el('span', { class: 'dim-hint', text: 'Durum' }),
+          el('span', { class: kept ? 'md-ok' : 'dim-hint', text: kept ? '✓ Kütüphanede' : 'Önizleme — kaydedilmedi' }),
+        ]),
+      ]));
+    }
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. ◀ ▶ önceki karışımlara döner.',
+    }));
+    return nodes;
   }
 
   function axisRow(key, label, lo, hi) {
@@ -187,9 +394,13 @@
       class: 'studio-note dim-hint',
       text: 'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.',
     }));
+    if (X()) for (const n of mixSection()) nodes.push(n);
     return el('div', { class: 'mdgen-panel' }, nodes);
   }
 
-  window.SVMdGenPanel = { panel, regenerate, save, fromCode, state: () => ({ axes: Object.assign({}, axes), seed, last }) };
+  window.SVMdGenPanel = {
+    panel, regenerate, save, fromCode, rollAll, rollSlot, fromScreen, mixNav, saveMix,
+    state: () => ({ axes: Object.assign({}, axes), seed, last, mix: mix && Object.assign({}, mix), mixLast }),
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = window.SVMdGenPanel;
 })();
