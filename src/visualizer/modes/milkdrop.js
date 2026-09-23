@@ -2099,7 +2099,10 @@ void main(){
       /* Kaynak saklanıyor: bağlam kaybından sonra (#572) shader'lar ondan
          yeniden derleniyor, preset nesnesine dokunmadan. */
       this._presetSrc = src;
-      this.preset = new M.Preset(src, { seed: 1234 });
+      /* Dosya uyum anahtarına göre okunuyor (#580): açıkken MilkDrop'un
+         okuyuşuyla (`readMilk`), kapalıyken eski ayrıştırıcıyla. Varsayılana
+         bırakılmıyor — Preset'in varsayılanı açık. */
+      this.preset = new M.Preset(src, { seed: 1234, accurate: this._wantAcc !== false });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
       this.presetTime = 0;
@@ -2175,6 +2178,28 @@ void main(){
     /* Geçişi bitirir ve eski presetin programlarını serbest bırakır.
        Programlar burada siliniyor, `_buildPresetShaders`ta değil: orası
        yalnız YENİ yuvaya bakıyor ve eski yuva geçiş boyunca çiziliyor. */
+    /* Uyum anahtarı dosyanın hangi kuralla OKUNDUĞUNU da seçiyor (#580):
+       açıkken MilkDrop'un okuyuşu, kapalıyken eski ayrıştırıcı. Okuyuş
+       preset kurulurken yapılıyor (`readAcc`). Anahtar çevrildiğinde iki
+       okuyuş bu dosyada ayrışıyorsa preset yeniden kuruluyor — denklem
+       durumu baştan başlıyor, sürüyorsa geçiş bırakılıyor ve aşamalar da
+       yeniden kuruluyor; ayrışmıyorsa yalnız işareti güncelleniyor. Önceden
+       kurulmuş bir preset de burada yakalanıyor. Dönüş: yeniden kuruldu mu. */
+    _syncReading() {
+      const wantAcc = this._wantAcc !== false;
+      if (!this._presetSrc || !this.preset || this.preset.readAcc === wantAcc) return false;
+      const M = window.SVMilkdrop;
+      if (M.readingsDiffer && M.readingsDiffer(this._presetSrc)) {
+        this._dropOld();
+        this.preset = new M.Preset(this._presetSrc, { seed: 1234, accurate: wantAcc });
+        this.error = this.preset.errors.join(' | ');
+        this._stagesAcc = null;
+        return true;
+      }
+      this.preset.readAcc = wantAcc;
+      return false;
+    }
+
     _dropOld() {
       const gl = this.gl;
       if (gl) {
@@ -2230,7 +2255,8 @@ void main(){
       const acc = this._wantAcc !== false;
       const job = { warp: null, comp: null, acc };
       if (!this.gl || !T || !M) return job;
-      const parsed = M.parseMilk(src);
+      // Aşamalar da presetin okunduğu kuralla okunuyor (#580)
+      const parsed = M.readMilk ? M.readMilk(src, acc) : M.parseMilk(src);
       let fl = parsed;
       if (acc && M.stagePlan) {
         const plan = M.stagePlan(parsed);
@@ -3097,8 +3123,9 @@ void main(){
          havuzu, q değişkenleri ve saat kaybın olduğu yerden sürüyor.
          Preset bu arada zaten değiştiyse `_buildPresetShaders` bayrağı
          orada düşürüyor ve burada ikinci kez derlenmiyor. */
+      this._syncReading();
       /* Uyum anahtarı çevrildiyse de: aşamaları hangi kuralın seçtiği ona
-         bağlı (#580). Preset nesnesi burada da aynı kalıyor. */
+         bağlı (#580). */
       if ((this._shadersLost || this._stagesAcc !== (this._wantAcc !== false)) && this._presetSrc) {
         this._buildPresetShaders(this._presetSrc);
       }

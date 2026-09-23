@@ -161,7 +161,7 @@ test('karışımın metni parçalarının presetlerinden, önizleme kaydedilmiyo
   GP.rollAll();
   const { mix, mixLast } = GP.state();
   assert.strictEqual(cfg.milkdrop.presetId, mixLast.id);
-  assert.match(mixLast.id, /^md_mix2_[0-9a-f]{16}$/);
+  assert.match(mixLast.id, /^md_mix3_[0-9a-f]{16}$/);
   assert.strictEqual(mixLast.id, X.idOf(mix));
   assert.strictEqual(cfg.milkdrop.source, mixLast.source);
   const f = M0.parseMilk(mixLast.source);

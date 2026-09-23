@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2187%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2197%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -258,6 +258,11 @@ that asserts the bar profile has no step in it.
   equations (wave scale and smoothing, the volume fade, warp speed and scale) come from the file as
   they do there, so a wave scale of 0 flattens the wave (102 presets of the corpus). Rendered
   through the engine, every case matches MilkDrop's formula within 2/255.
+- **Preset files are read the way MilkDrop reads them.** With fidelity on, keys are case-sensitive,
+  a key written twice takes the value MilkDrop finds (usually the first), numbered code ends at the
+  first missing number, integer settings drop their fractions, and equation lines are glued the way
+  MilkDrop glues them, `\\` comments included. 32 presets of the corpus read differently; with
+  fidelity off the old parser stays.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
@@ -1308,7 +1313,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2187 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2197 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
