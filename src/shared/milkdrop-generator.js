@@ -778,14 +778,20 @@
   // --------------------------------------------------------------------
   /* Ad yalnız arayüz dilinde üretiliyor ve KAYNAĞA girmiyor: aynı kod iki
      dilde aynı .milk'i veriyor. Presetin adı onun kendi adı; İngilizce
-     arayüzde üretilen preset İngilizce adla kaydediliyor. */
+     arayüzde üretilen preset İngilizce adla kaydediliyor.
+
+     Sözcük çiftlerinden hiçbiri sözlükte anahtar ya da bir yerleşik
+     presetin adı olmamalı: çeviri adı " · "den bölüp ilk parçayı çeviriyor.
+     "Dingin Halkalar" yerleşik bir presetin adıydı ve İngilizce arayüzde
+     "Still Rings" okunuyordu; halka sözcükleri bu yüzden "Çemberler" ve
+     "Circles". Test bütün çiftleri sözlüğe karşı sınıyor. */
   const NAME_WORDS = {
     tr: {
       tone: [['Buzlu', 'Soğuk', 'Kristal'], ['Lacivert', 'Derin', 'Gece Mavisi'], ['Mor', 'Leylak', 'Eflatun'],
         ['Pembe', 'Mercan', 'Fuşya'], ['Kızıl', 'Kehribar', 'Altın']],
       mood: [['Dingin', 'Sakin', 'Uykulu'], ['Akışkan', 'Salınan', 'Gezgin'], ['Coşkun', 'Çılgın', 'Fırtınalı']],
       noun: {
-        tunel: ['Tünel', 'Geçit'], girdap: ['Girdap', 'Anafor'], halka: ['Halkalar', 'Yankı'],
+        tunel: ['Tünel', 'Geçit'], girdap: ['Girdap', 'Anafor'], halka: ['Çemberler', 'Yankı'],
         akinti: ['Akıntı', 'Rüzgâr'], cicek: ['Çiçek', 'Taç'], nefes: ['Nefes', 'Nabız'],
       },
     },
@@ -794,7 +800,7 @@
         ['Rose', 'Coral', 'Fuchsia'], ['Crimson', 'Amber', 'Golden']],
       mood: [['Still', 'Calm', 'Drowsy'], ['Fluid', 'Swaying', 'Wandering'], ['Restless', 'Wild', 'Stormy']],
       noun: {
-        tunel: ['Tunnel', 'Passage'], girdap: ['Vortex', 'Whirl'], halka: ['Rings', 'Echo'],
+        tunel: ['Tunnel', 'Passage'], girdap: ['Vortex', 'Whirl'], halka: ['Circles', 'Echo'],
         akinti: ['Current', 'Drift'], cicek: ['Bloom', 'Crown'], nefes: ['Breath', 'Pulse'],
       },
     },
@@ -1072,7 +1078,7 @@
     /* Sınır yardımcıları testler için: bugünkü aralıklarda sınırları hiç
        zorlanmıyor, yani üretilen presetlerden sınanamıyorlar. Aralık
        genişletilince devreye girecekler ve o zaman da tutmaları gerek. */
-    _test: { num, sway, withAudio },
+    _test: { num, sway, withAudio, NAME_WORDS },
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMdGen = api;

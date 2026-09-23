@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2166 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2167 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 569
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 570
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1990,7 +1990,14 @@ rest after. No version number yet.
     `comp_N` lines count now. One corpus file writes the same key twice
     (`shapecode_2_enabled=1`, later `=0`): our parser keeps the last value
     and the part test follows it. Which one MilkDrop 2 keeps was not
-    checked here (#580).
+    checked here (#580). A check of the English interface found two names
+    that did not stay names: the interface splits text at " · " and
+    translates the pieces, so a mash-up saved as "Karışım · …" read
+    "Blend · …", and one generated word pair, "Dingin Halkalar" ("Still
+    Rings"), is a builtin preset's name. Mash-up names now use ": ", the
+    ring nouns are "Çemberler" and "Circles", and a test runs every
+    generated word pair and a mash-up name through the English
+    translation.
   - **Tests.** 37 tests. 24 for the generator: the code and id (round trip,
     one spelling, invalid codes, one file in the real store), determinism
     and golden hashes, 512 presets on an axis grid compiled block by block
@@ -2015,8 +2022,12 @@ rest after. No version number yet.
     leaving the others, starting from the preset on screen (and never from
     an unsaved preview), a "none" part drawn again always giving a preset,
     the history skipping a deleted preset, saving the mash-up and not the
-    generated preset, and the rows. 23 of 23 mutations are caught; a 24th
-    was equivalent, and the branch it changed was removed.
+    generated preset, and the rows. One more checks the names against the
+    English translation, and the card's wiring test now also requires the
+    mash-up module before the panel. 23 of 23 mutations are caught; a 24th
+    was equivalent, and the branch it changed was removed. Putting back
+    the old ring nouns, the " · " in mash-up names or removing the
+    module's script tag each fails a test.
 
 ## v3.1.6 — Comprehensive video export
 

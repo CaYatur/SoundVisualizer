@@ -220,8 +220,8 @@ test('kimlik tariften: aynı tarif aynı kimlik, depo adıyla uyumlu', () => {
 test('ad: kelime ve ilk üç ayrı preset, uzunlar kısaltılmış', () => {
   const names = { a: 'Alfa', b: 'Beta', c: 'Gamma Delta Epsilon Zeta Eta Theta', d: 'Delta' };
   const r = { look: 'a', motion: 'b', waves: 'a', shapes: 'c', warp: '', comp: 'd' };
-  assert.strictEqual(X.nameFor(r, (id) => names[id], 'tr'), 'Karışım · Alfa × Beta × Gamma Delta Epsilon Z…');
-  assert.strictEqual(X.nameFor(r, (id) => names[id], 'en'), 'Mash-up · Alfa × Beta × Gamma Delta Epsilon Z…');
+  assert.strictEqual(X.nameFor(r, (id) => names[id], 'tr'), 'Karışım: Alfa × Beta × Gamma Delta Epsilon Z…');
+  assert.strictEqual(X.nameFor(r, (id) => names[id], 'en'), 'Mash-up: Alfa × Beta × Gamma Delta Epsilon Z…');
 });
 
 // ------------------------------------------------------------------- aday

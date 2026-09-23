@@ -247,3 +247,39 @@ test('canlı parça başlığı i18n taramasının dışında', () => {
   // Sınıf gerçekten canlı başlığa veriliyor mu
   assert.match(admin, /class: 'np-live'[^}]*\$\{live\.title\}/);
 });
+
+/* ÜRETİLEN VE KARIŞIM PRESETLERİNİN ADI (#579) çeviriden olduğu gibi
+   geçmeli: bir presetin adı onun kendi adı. Çeviri " · " gördüğü metni
+   bölüp parçaları ayrı ayrı çeviriyor; adın bir parçası sözlükte anahtar
+   olunca İngilizce arayüzde başka bir şey okunuyor. İki kez böyle oldu:
+   "Karışım · …" → "Blend · …" (katman karışımı), ve üretilen
+   "Dingin Halkalar" yerleşik bir presetin adıydı → "Still Rings". */
+test('üretilen ve karışım adları çeviriden olduğu gibi geçiyor', () => {
+  const t = loadEnglish().t;
+  const G = require('../src/shared/milkdrop-generator.js');
+  const X = require('../src/shared/milkdrop-mashup.js');
+  const B = require('../src/shared/presets-milkdrop.js');
+  const W = G._test.NAME_WORDS;
+  const builtin = new Set(B.map((p) => p.name).concat(B.map((p) => t(p.name))));
+  let pairs = 0;
+  for (const lang of ['tr', 'en']) {
+    const adjs = [].concat(...W[lang].tone, ...W[lang].mood);
+    for (const a of adjs) {
+      for (const nouns of Object.values(W[lang].noun)) {
+        for (const n of nouns) {
+          const name = a + ' ' + n + ' · k3x9ab';
+          assert.strictEqual(t(name), name, lang + ': ' + name);
+          assert.ok(!builtin.has(a + ' ' + n), 'yerleşik presetin adı: ' + a + ' ' + n);
+          pairs++;
+        }
+      }
+    }
+  }
+  assert.ok(pairs > 500, 'çift sayısı ' + pairs);
+  // Karışım adı, parçaları veren presetlerin adları sözlükte olsa da bütün kalıyor
+  for (const lang of ['tr', 'en']) {
+    const n = X.nameFor({ look: 'a', motion: 'b', waves: 'a', shapes: 'a', warp: '', comp: '' },
+      (id) => ({ a: 'Tünel', b: 'Girdap' })[id], lang);
+    assert.strictEqual(t(n), n, n);
+  }
+});

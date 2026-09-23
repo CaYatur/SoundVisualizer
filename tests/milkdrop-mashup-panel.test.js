@@ -265,7 +265,7 @@ test('kaydet son karışımı yazıyor; aynı karışım aynı kimlik', async ()
   assert.strictEqual(saved.length, 2);
   assert.deepStrictEqual(saved[0], { id: mixLast.id, kind: 'milkdrop', name: mixLast.name, source: mixLast.source, author: 'Üretici' });
   assert.strictEqual(saved[1].id, saved[0].id);
-  assert.match(mixLast.name, /^Karışım · /);
+  assert.match(mixLast.name, /^Karışım: /);
 });
 
 test('kart: parça satırları, "yok" ve geçmiş düğmeleri', async () => {

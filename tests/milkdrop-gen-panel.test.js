@@ -251,4 +251,8 @@ test('kart bağlı: bölüm, denetim, betik sırası ve çeviriler', () => {
   assert.ok(at('../shared/milkdrop-generator.js') > 0, 'üretici yüklenmiyor');
   assert.ok(at('milkdrop-panel.js"') < at('milkdrop-gen.js"'), 'panel üreticiden önce yüklenmeli');
   assert.ok(at('../shared/milkdrop-generator.js') < at('milkdrop-gen.js"'));
+  /* Karışım bölümü yalnız SVMdMix varsa çiziliyor: betik düşerse bölüm
+     sessizce kaybolur, ne bir test ne duman testi düşerdi (#579). */
+  assert.ok(at('../shared/milkdrop-mashup.js') > 0, 'karışım modülü yüklenmiyor');
+  assert.ok(at('../shared/milkdrop-mashup.js') < at('milkdrop-gen.js"'), 'karışım modülü panelden sonra');
 });

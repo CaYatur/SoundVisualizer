@@ -207,7 +207,12 @@
 
   /* Ad: kelime ve parçaları veren presetlerin adları (ilk üç ayrı ad,
      kısaltılmış). Arayüz dilinde; kaynağa girmiyor. `nameOf(id)` presetin
-     görünen adını veriyor (yerleşiklerin adı çevrilebiliyor). */
+     görünen adını veriyor (yerleşiklerin adı çevrilebiliyor).
+
+     Ayırıcı ": ", " · " değil: çeviri " · " gördüğü metni bölüp parçaları
+     ayrı ayrı çeviriyor ve "Karışım" sözlükte ("Blend", katman karışımı).
+     Türkçe arayüzde kaydedilmiş bir karışım İngilizce arayüzde "Blend · …"
+     okunurdu. Ad, presetin kendi adı olarak bütün kalıyor. */
   function nameFor(recipe, nameOf, lang) {
     const seen = new Set();
     const names = [];
@@ -219,7 +224,7 @@
       if (n) names.push(n);
       if (names.length === 3) break;
     }
-    return (WORD[lang === 'en' ? 'en' : 'tr']) + ' · ' + names.join(' × ');
+    return (WORD[lang === 'en' ? 'en' : 'tr']) + ': ' + names.join(' × ');
   }
 
   /* Parçası olan rastgele bir aday. Liste on binlerce preset olabilir:
