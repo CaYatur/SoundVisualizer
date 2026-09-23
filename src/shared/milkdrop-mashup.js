@@ -60,6 +60,24 @@
     return 'look';
   }
 
+  /* Sürüm satırının değeri, ayrıştırıcının kuralıyla: değerin TAMAMI
+     sayıysa sayı, değilse "yok" (NaN; sürüm kuralı onu varsayılana
+     düşürüyor). Aynı anahtar iki kez geçerse sonuncusu — ayrıştırıcı da
+     öyle tutuyor. */
+  const numVal = (raw) => {
+    const n = parseFloat(raw);
+    return isFinite(n) && /^[\s\-+.0-9eE]+$/.test(raw) ? n : NaN;
+  };
+
+  // Yalnız sürüm satırları, metni ayrıştırmadan (aday sınaması için)
+  function versionsOf(text) {
+    const ver = {};
+    const re = /^[ \t]*(milkdrop_preset_version|psversion_warp|psversion_comp|psversion)[ \t]*=(.*)$/gmi;
+    let m;
+    while ((m = re.exec(text)) !== null) ver[m[1].toLowerCase()] = numVal(m[2].replace(/\s+$/, ''));
+    return ver;
+  }
+
   /* Metni parçalarına ayırır. Eşittirsiz satırlar ve bölüm başlıkları
      düşüyor (ayrıştırıcı da onları okumuyor). Dönüş: parça -> satırlar ve
      sürüm satırlarının değerleri. */
@@ -74,8 +92,7 @@
       const key = line.slice(0, eq).trim().toLowerCase();
       const slot = slotOf(key);
       if (slot === 'version') {
-        const v = parseFloat(line.slice(eq + 1));
-        if (isFinite(v)) ver[key] = v;
+        ver[key] = numVal(line.slice(eq + 1));
         continue;
       }
       /* Satırın iki ucu kırpılmış hâli: ayrıştırıcı da satırı öyle okuyor.
@@ -92,8 +109,17 @@
 
        motion — boş olmayan bir denklem satırı (yorum dışında)
        waves/shapes — açık (enabled sıfırdan farklı) bir blok
-       warp/comp — boş olmayan bir shader satırı */
+       warp/comp — boş olmayan bir shader satırı VE o aşamanın sürümü
+         sıfırdan büyük: MilkDrop sürümü 0 olan aşamanın metnini okumuyor,
+         motor da (#580); öyle bir preset o parçayı veremez */
   function has(text, slot) {
+    if (slot === 'warp' || slot === 'comp') {
+      return hasLine(text, slot) && stageVersion(versionsOf(String(text == null ? '' : text)), slot) > 0;
+    }
+    return hasLine(text, slot);
+  }
+
+  function hasLine(text, slot) {
     if (slot === 'look') return true;
     const s = String(text == null ? '' : text);
     let re;
@@ -126,17 +152,30 @@
     return false;
   }
 
-  /* Bir parçanın shader sürümü: parçanın kendi satırı, yoksa genel sürüm,
-     yoksa 2; shader satırı yoksa 0. Yalnız `warp_N`/`comp_N` satırlarına
-     bakılıyor: birleştirme parçasında bulanıklık aralıkları da var ve
-     shader'ı olmayan bir presette onları shader sanmak, 308 MilkDrop 1
-     presetine olmayan bir shader için sürüm satırı yazıyordu (ölçüm). */
+  /* Bir aşamanın MilkDrop'taki sürümü, MilkDrop'un kuralıyla (#580;
+     motordaki eşi shared/milkdrop.js `md2Versions`, test ikisini
+     karşılaştırıyor): MILKDROP_PRESET_VERSION yoksa ya da 200'den küçükse
+     0, tam 200'de PSVERSION (yoksa 2), üstünde PSVERSION_WARP/_COMP
+     (yoksa 2). Sürümü 0 olan aşamanın metni MilkDrop'ta da motorda da
+     okunmuyor. */
+  function stageVersion(ver, slot) {
+    const int = (v, d) => (typeof v === 'number' && isFinite(v) ? Math.trunc(v) : d);
+    const pv = int(ver.milkdrop_preset_version, 100);
+    if (pv < 200) return 0;
+    if (pv === 200) return int(ver.psversion, 2);
+    return int(ver['psversion_' + slot], 2);
+  }
+
+  /* Bir parçanın yazılacak shader sürümü: shader satırı yoksa 0, varsa
+     onu veren presetin o aşamadaki sürümü — MilkDrop'ta okunmayan bir
+     shader karışımda da okunmayan kalıyor. Yalnız `warp_N`/`comp_N`
+     satırlarına bakılıyor: birleştirme parçasında bulanıklık aralıkları da
+     var ve shader'ı olmayan bir presette onları shader sanmak, 308 MilkDrop
+     1 presetine olmayan bir shader için sürüm satırı yazıyordu (ölçüm). */
   function shaderVersion(parts, slot) {
     const re = slot === 'warp' ? /^warp_\d+[ \t]*=/i : /^comp_\d+[ \t]*=/i;
     if (!parts.lines[slot].some((l) => re.test(l) && l.slice(l.indexOf('=') + 1).replace(/^`/, '').trim())) return 0;
-    const own = parts.ver['psversion_' + slot];
-    if (own > 0) return own;
-    return parts.ver.psversion > 0 ? parts.ver.psversion : 2;
+    return stageVersion(parts.ver, slot);
   }
 
   /* Karışımı yazar. `donors`: parça -> preset metni. warp ve comp için
