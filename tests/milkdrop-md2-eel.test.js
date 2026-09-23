@@ -186,6 +186,49 @@ test('gmegabuf uyum açıkken 2^20\'de sarıyor (negatif de); presetler arasınd
   assert.deepStrictEqual(['a', 'b'].map(off.get), [0, 0], 'kapalıyken sarmıyor, negatif atılıyor');
 });
 
+// ------------------------------------------------------------ rand
+
+test('rand(n) uyum açıkken 0 ile max(1, floor(n)) arasında ONDALIKLI; kapalıyken 0..n−1 tam sayı', () => {
+  const pool = new M.Pool();
+  const mode = { md2: true };
+  const c = M.compile('a = rand(4); b = rand(0.5); d = rand(-3); e = rand(4.9);', pool, { mode, seed: 7 });
+  let frac = 0, minA = 99, maxA = 0, maxB = 0, maxD = 0, maxE = 0;
+  for (let i = 0; i < 2000; i++) {
+    c.run();
+    const a = pool.get('a');
+    if (a !== Math.floor(a)) frac++;
+    minA = Math.min(minA, a); maxA = Math.max(maxA, a);
+    maxB = Math.max(maxB, pool.get('b')); maxD = Math.max(maxD, pool.get('d')); maxE = Math.max(maxE, pool.get('e'));
+  }
+  assert.ok(frac > 1990, 'ondalıklı: ' + frac);
+  assert.ok(minA >= 0 && maxA <= 4 && maxA > 3.9, 'aralık 0..4: ' + minA + '..' + maxA);
+  assert.ok(maxB <= 1 && maxB > 0.9, 'n < 1 → 1: ' + maxB);
+  assert.ok(maxD <= 1 && maxD > 0.9, 'negatif → 1: ' + maxD);
+  assert.ok(maxE <= 4 && maxE > 3.9, 'floor(4,9) = 4: ' + maxE);
+  mode.md2 = false;
+  let ints = true, maxL = 0;
+  for (let i = 0; i < 2000; i++) {
+    c.run();
+    const a = pool.get('a');
+    if (a !== Math.floor(a)) ints = false;
+    maxL = Math.max(maxL, a);
+  }
+  assert.ok(ints && maxL === 3, 'kapalıyken 0..3 tam sayı');
+});
+
+test('rand: aynı tohum aynı sayılar; iki kip aynı üreteci ilerletiyor', () => {
+  const seq = (md2) => {
+    const p = new M.Pool();
+    const c = M.compile('a = rand(10);', p, { mode: { md2 }, seed: 99 });
+    const out = [];
+    for (let i = 0; i < 5; i++) { c.run(); out.push(p.get('a')); }
+    return out;
+  };
+  const on = seq(true);
+  assert.deepStrictEqual(seq(true), on, 'tekrarlanabilir');
+  assert.deepStrictEqual(on.map(Math.floor), seq(false), 'kapalıyken aynı sayının tam kısmı');
+});
+
 // ------------------------------------------------------------ preset bağlantısı
 
 const PRESET = [

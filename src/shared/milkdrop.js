@@ -842,11 +842,23 @@
       const bi = b | 0;
       return bi === 0 ? 0 : (a | 0) % bi;
     };
-    // rand(n): 0..n-1 tam sayı. Tohumlu, çünkü çevrimdışı dışa aktarımın
-    // kare kare tekrarlanabilir olması gerekiyor.
+    /* rand(n). Tohumlu, çünkü çevrimdışı dışa aktarımın kare kare
+       tekrarlanabilir olması gerekiyor.
+
+       Uyum açıkken MilkDrop'unki: TAM SAYI DEĞİL, 0 ile max(1, floor(n))
+       arasında ondalıklı bir sayı (nseel-cfunc.c nseel_int_rand:
+       `genrand_int32() * (1.0 / 0xFFFFFFFF) * x`). Tam sayı veren dal
+       NSEEL_EEL1_COMPAT_MODE'a bağlı ve iki MilkDrop kod tabanı da onu
+       açmıyor; korpusta sık görülen `int(rand(4))` bu yüzden var. Üreteç
+       bizim (MilkDrop'unki Mersenne Twister), aralık ve dağılım aynı.
+       Kapalıyken eski davranış: 0..n−1 tam sayı. */
     let seed = (o.seed || 12345) >>> 0;
     const R = (n) => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      if (mode.md2) {
+        const x = Math.floor(n);
+        return seed * (1 / 4294967295) * (x < 1 ? 1 : x);
+      }
       const k = Math.max(1, Math.floor(n) || 1);
       return (seed / 4294967296) * k | 0;
     };
