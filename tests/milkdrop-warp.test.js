@@ -27,10 +27,15 @@ const CODE = fs.readFileSync(
 const BODY = CODE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const MESH = /_warpMeshPass\(P, clock, rep\) \{[\s\S]*?\n    \}/.exec(BODY);
 
+/* İkisi de DOSYADAN ve YENİ presetten, geçişte eski presetin ağı için de
+   (#580): MilkDrop frekansları karede bir kez yeni durumdan hesaplıyor
+   (milkdropfs.cpp:1591-1597). Hız karışmıyor, ölçek doğrusal karışıyor;
+   0 bir değer. */
 test('warp: iki preset ayarı okunuyor', () => {
   assert.ok(MESH, '_warpMeshPass bulunamadı');
-  assert.match(MESH[0], /P\.get\('warpanimspeed'\)/);
-  assert.match(MESH[0], /P\.get\('warpscale'\)/);
+  assert.match(MESH[0], /this\._fileOf\(this\.preset, 'fwarpanimspeed', 1\)/);
+  assert.match(MESH[0], /this\._fileVal\('fwarpscale', 1\)/);
+  assert.doesNotMatch(MESH[0], /P\.get\('warp(animspeed|scale)'\)/, 'denklemlerin yazdığı değer MilkDrop\'a ulaşmıyor');
   // Hız zamanı çarpıyor, ölçek tersiyle giriyor
   assert.match(MESH[0], /const warpTime = clock \* wSpeed;/);
   assert.match(MESH[0], /const wsi = 1 \/ wScale;/);
@@ -100,8 +105,8 @@ test('warp: genlik çarpanı 0.0035 değişmedi', () => {
 test('warp: anahtar kapalıyken eski desen ve eski hız duruyor', () => {
   /* Eski davranış bir uyum değil ama kullanıcıların izlediği görüntü.
      Kapalıyken hız ve ölçek 1, terimler de eski sabitleriyle. */
-  assert.match(MESH[0], /const wSpeed = acc \? \(P\.get\('warpanimspeed'\) \|\| 1\) : 1;/);
-  assert.match(MESH[0], /const wScaleRaw = acc \? \(P\.get\('warpscale'\) \|\| 1\) : 1;/);
+  assert.match(MESH[0], /const wSpeed = acc \? this\._fileOf\(this\.preset, 'fwarpanimspeed', 1\) : 1;/);
+  assert.match(MESH[0], /const wScaleRaw = acc \? this\._fileVal\('fwarpscale', 1\) : 1;/);
   /* Eski desen artık ayrı bir kod yolunda duruyor (dönüşümün sırası da
      farklı olduğu için tek bir `if` ile ayrılamıyordu). */
   assert.match(MESH[0], /su \+= wr \* Math\.sin\(warpTime \* 0\.333 \+ cx0 \* 5 \+ cy0 \* 3\);/);

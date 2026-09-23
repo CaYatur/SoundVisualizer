@@ -402,15 +402,24 @@ test('motor: özel dalga örnekleri iki yolda', () => {
   const fn = new Function('tb', 'N', 'w', 'audio', 'preset', inner);
   const tb = bytes(2048, (t) => smooth(t * 5));
   const waves = new A.MilkdropWaves().update(tb, bytes(2048, (t) => smooth(t * 4 + 3)));
-  const preset = { get: (k) => (k === 'wave_scale' ? 1 : 0) };
+  // wave_scale dalganın presetinin DOSYASINDAN (#580); yazılmamışsa 1
+  const fo = method('_fileOf(P, key, dflt)');
+  const fileOf = new Function('P', 'key', 'dflt', fo.slice(fo.indexOf('{') + 1, fo.lastIndexOf('}')));
+  const preset = { get: () => 0, file: { params: {} } };
   const wave = { sep: 0, smoothing: 0, scaling: 1, spectrum: 0 };
-  const acc = { _wantAcc: true, _waves: waves, _specData: null, preset };
+  const acc = { _wantAcc: true, _waves: waves, _specData: null, preset, _fileOf: fileOf };
   fn.call(acc, tb, 512, wave, {}, preset);
   for (let i = 0; i < 512; i++) {
     assert.strictEqual(acc._cw1[i], Math.fround(waves.at(0, i - 16) * 0.004), 'a[' + i + ']');
     assert.strictEqual(acc._cw2[i], Math.fround(waves.at(1, i - 16) * 0.004), 'b[' + i + ']');
   }
-  const old = { _wantAcc: false, _waves: null, _specData: null, preset };
+  // Dosyadaki 0 dalgayı düzleştiriyor; havuzun yazdığı 5 MilkDrop'a ulaşmıyor
+  const zero = { get: (k) => (k === 'wave_scale' ? 5 : 0), file: { params: { fwavescale: 0 } } };
+  const acc0 = { _wantAcc: true, _waves: waves, _specData: null, preset: zero, _fileOf: fileOf };
+  fn.call(acc0, tb, 512, wave, {}, zero);
+  // −0 da sıfır: strictEqual onu ayırıyor, `===` ayırmıyor
+  for (let i = 0; i < 512; i++) assert.ok(acc0._cw1[i] === 0, 'ölçek 0: a[' + i + '] = ' + acc0._cw1[i]);
+  const old = { _wantAcc: false, _waves: null, _specData: null, preset, _fileOf: fileOf };
   fn.call(old, tb, 512, wave, {}, preset);
   for (let i = 0; i < 512; i++) {
     assert.strictEqual(old._cw1[i], Math.fround((tb[i] - 128) / 128), 'eski a[' + i + ']');

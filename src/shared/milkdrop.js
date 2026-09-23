@@ -970,11 +970,20 @@
      yazdığı için ad hep "var" görünüyordu.
 
      `mv_a` MilkDrop'ta da sonunda 0: `bMotionVectorsOn` yoksa 0'a
-     çevriliyor (state.cpp:1402), ancak sonra `mv_a` okunuyor. Uyum açıkken
-     bu tablo, kapalıyken eski taban geçerli. */
+     çevriliyor (state.cpp:1402), ancak sonra `mv_a` okunuyor.
+
+     `wave_r/g/b/x/y` yazılmamışsa 0, CState::Default'un 1 ve 0,5'i DEĞİL:
+     Import onları varsayılan olarak `rot`un o anki değeriyle okuyor
+     (`GetFastFloat("wave_r", m_fRot.eval(-1), f)`, state.cpp:1389-1393;
+     BeatDrop'un D3D9 hâli 1368-1372 aynı) ve `rot` henüz okunmadığı için
+     o değer Default'un 0'ı. Yani bu anahtarları yazmayan bir dosyanın
+     dalgası MilkDrop'ta siyah ve köşede. Korpusta hiçbir dosya onları
+     atlamıyor, yerleşiklerimiz ve üreticimiz de yazıyor (#580).
+
+     Uyum açıkken bu tablo, kapalıyken eski taban geçerli. */
   const MD2_PF_DEFAULTS = {
     zoom: 1, zoomexp: 1, rot: 0, warp: 1, cx: 0.5, cy: 0.5, dx: 0, dy: 0, sx: 1, sy: 1,
-    decay: 0.98, wave_a: 0.8, wave_r: 1, wave_g: 1, wave_b: 1, wave_x: 0.5, wave_y: 0.5,
+    decay: 0.98, wave_a: 0.8, wave_r: 0, wave_g: 0, wave_b: 0, wave_x: 0, wave_y: 0,
     wave_mystery: 0, wave_mode: 0,
     ob_size: 0.01, ob_r: 0, ob_g: 0, ob_b: 0, ob_a: 0,
     ib_size: 0.01, ib_r: 0.25, ib_g: 0.25, ib_b: 0.25, ib_a: 0,
@@ -1283,6 +1292,12 @@
         pool,
         initialised: false,
       };
+      /* MilkDrop'un şekil renkleri, dosya yazmamışsa (state.cpp:619-626):
+         iç renk KIRMIZI (1,0,0), dış renk YEŞİL ve saydam (0,1,0,0).
+         Eski tabanımız beyaz ve siyahtı. Fark yalnız dosyanın atladığı
+         renklerde — korpustaki 15.982 açık şeklin hiçbiri atlamıyor. Uyum
+         açıkken bu taban geçerli (shapeFrame; #580). */
+      shape.baseMd2 = Object.assign({}, shape.base, { g: g('g', 0), b: g('b', 0), g2: g('g2', 1) });
       shape.cInit = compile(s.init || '', pool, { seed: o.seed, loopBudget: 65536 });
       shape.cFrame = compile(s.per_frame || '', pool, { seed: o.seed, loopBudget: 65536 });
       for (const c of [shape.cInit, shape.cFrame]) {
@@ -1381,7 +1396,7 @@
       if (!s || !s.enabled) return null;
       const P = s.pool;
       this._shareInto(P);
-      const b = s.base;
+      const b = this.accurate !== false && s.baseMd2 ? s.baseMd2 : s.base;
       for (const k in b) P.set(k, b[k]);
       P.set('instance', instance);
       P.set('num_inst', s.instances);

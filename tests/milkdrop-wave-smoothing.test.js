@@ -30,9 +30,27 @@ const ALPHA = /_waveVolAlpha\(a\) \{[\s\S]*?\n    \}/.exec(BODY);
 
 // ------------------------------------------------------------ kare dalgası
 
+/* Uyum açıkken ölçek ve yumuşatma DOSYADAN, yazılmamışsa 1 ve 0,75,
+   geçişte doğrusal karışarak (milkdropfs.cpp:909-912; #580); kapalıyken
+   havuzdan. */
 test('kare dalgası: yumuşatma okunuyor ve çizime bağlanıyor', () => {
   assert.ok(BASIC, '_waveSamples bulunamadı');
-  assert.match(BODY, /this\._waveSamples\(audio, this\.preset\.get\('wave_scale'\),\s*this\.preset\.get\('wave_smoothing'\)\)/);
+  assert.match(BODY, /accW \? this\._fileVal\('fwavescale', 1\) : this\.preset\.get\('wave_scale'\)/);
+  assert.match(BODY, /accW \? this\._fileVal\('fwavesmoothing', 0\.75\) : this\.preset\.get\('wave_smoothing'\)/);
+});
+
+/* 0 da bir ölçek: MilkDrop'ta dalga düzleşiyor (korpusta 102 preset
+   `fWaveScale=0` yazıyor). Eski yol 0'ı "yok" sayıp 1'e çeviriyordu. */
+test('kare dalgası: uyum açıkken 0 ölçek dalgayı düzleştiriyor, kapalıyken 1 sayılıyor', () => {
+  const fn = new Function('audio', 'scale', 'smoothing',
+    BASIC[0].slice(BASIC[0].indexOf('{') + 1, BASIC[0].lastIndexOf('}')));
+  const tb = new Uint8Array(1024).map((_, i) => 128 + Math.round(100 * Math.sin(i / 7)));
+  const acc = { _wantAcc: true, _waves: null };
+  fn.call(acc, { timeBytes: tb }, 0, 0);
+  assert.ok(acc._fL.every((v) => v === 0), 'ölçek 0: düz');
+  const old = { _wantAcc: false, _waves: null };
+  fn.call(old, { timeBytes: tb }, 0, 0);
+  assert.ok(old._fL.some((v) => v !== 0), 'eski yol 0\'ı 1 sayıyor');
 });
 
 /* Ölçek karışıma giriyor (`s * (1 - sm)`). Girmezse yumuşatma arttıkça
@@ -114,7 +132,8 @@ test('özel dalga: ölçek yumuşatmadan sonra uygulanıyor', () => {
    kullanıyordu: özel dalgaların hepsi olması gerekenin yaklaşık iki katı
    büyüklükte çiziliyor ve `wave_scale` onlara hiç ulaşmıyordu. */
 test('özel dalga: MilkDrop genliği ve wave_scale', () => {
-  assert.match(CUSTOM[0], /WP\.get\('wave_scale'\)/);
+  // Dalganın kendi presetinin dosyasından, karışmadan (milkdropfs.cpp:2429; #580)
+  assert.match(CUSTOM[0], /const ws = acc \? this\._fileOf\(WP, 'fwavescale', 1\) : 1;/);
   const m = /const sc = acc \? \(fq \? ([\d.]+) : ([\d.]+)\) \* w\.scaling \* ws/
     .exec(CUSTOM[0]);
   assert.ok(m, 'ölçek satırı bulunamadı');
@@ -173,9 +192,32 @@ test('özel dalga: çizim yumuşatılmış diziyi kullanıyor', () => {
 
 test('alfa: sese göre saydamlık uygulanıyor', () => {
   assert.ok(ALPHA, '_waveVolAlpha bulunamadı');
-  assert.match(ALPHA[0], /P\.get\('wave_modalpha'\) > 0/);
+  assert.match(ALPHA[0], /this\._fileOf\(P, 'bmodwavealphabyvolume', 0\) !== 0/);
   assert.match(ALPHA[0], /alpha \*= \(vol - a0\) \/ d;/);
   assert.match(BODY, /alpha = this\._waveVolAlpha\(alpha\);/);
+});
+
+/* Anahtar ve aralık DOSYADAN (#580): MilkDrop üçünü de denklemlere açmıyor;
+   aralık yazılmamışsa 0,75 ile 0,95 (state.cpp:570-572), geçişte doğrusal.
+   Havuzdan okumak eksik aralığı 0 yapıyordu. */
+test('alfa: anahtar ve aralık dosyadan, MilkDrop\'un varsayılanlarıyla', () => {
+  const fn = new Function('a', ALPHA[0].slice(ALPHA[0].indexOf('{') + 1, ALPHA[0].lastIndexOf('}')));
+  const grab = (sig) => { const m = new RegExp(sig.replace(/[()]/g, '\\$&') + ' \\{[\\s\\S]*?\\n    \\}').exec(BODY); return m[0]; };
+  const fo = grab('_fileOf(P, key, dflt)');
+  const fv = grab('_fileVal(key, dflt)');
+  const fileOf = new Function('P', 'key', 'dflt', fo.slice(fo.indexOf('{') + 1, fo.lastIndexOf('}')));
+  const fileVal = new Function('key', 'dflt', fv.slice(fv.indexOf('{') + 1, fv.lastIndexOf('}')));
+  // Ses 0,85: aralık 0,75..0,95'in tam ortası → yarı saydam
+  const mk = (params, pool) => ({
+    _wantAcc: true, oldPreset: null, blendProg: 1, _fileOf: fileOf, _fileVal: fileVal,
+    preset: { get: (k) => (k === 'bass' || k === 'mid' || k === 'treb' ? 0.85 : (pool || {})[k]), file: { params } },
+  });
+  assert.ok(Math.abs(fn.call(mk({ bmodwavealphabyvolume: 1 }), 1) - 0.5) < 1e-9, 'varsayılan aralık');
+  assert.ok(Math.abs(fn.call(mk({ bmodwavealphabyvolume: 1, fmodwavealphastart: 0.8, fmodwavealphaend: 0.9 }), 1) - 0.5) < 1e-9);
+  // Anahtar kapalı: yalnız kırpma; havuzun yazdığı anahtar ve aralık MilkDrop'a ulaşmıyor
+  assert.strictEqual(fn.call(mk({}, { wave_modalpha: 1, wave_modalpha_start: 0, wave_modalpha_end: 0.1 }), 1), 1);
+  // Eksi anahtar da açık: MilkDrop `!= 0` diye okuyor
+  assert.ok(fn.call(mk({ bmodwavealphabyvolume: -1 }), 1) < 1);
 });
 
 /* Ses ölçüsü `vol` DEĞİL, `bass/mid/treb` ortalaması. Presetlerin %37,9'u
@@ -193,5 +235,5 @@ test('alfa: ters ya da sıfır aralıkta sonsuza gitmiyor', () => {
 });
 
 test('alfa: anahtar kapalıyken sadece kırpma yapılıyor', () => {
-  assert.match(ALPHA[0], /this\._wantAcc !== false && P && P\.get\('wave_modalpha'\) > 0/);
+  assert.match(ALPHA[0], /this\._wantAcc !== false && P && this\._fileOf\(P, 'bmodwavealphabyvolume', 0\) !== 0/);
 });

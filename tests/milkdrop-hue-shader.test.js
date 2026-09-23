@@ -35,7 +35,10 @@ const body = (src) => src.slice(src.indexOf('{') + 1, src.lastIndexOf('}'));
 
 // Köşe rengi yöntemi kaynaktan
 const hueCorners = new Function('amt', 't', 'rand', body(method('_hueCorners(amt, t, rand)')));
-const fileVal = new Function('key', 'dflt', body(method('_fileVal(key, dflt)')));
+const fileOf = new Function('P', 'key', 'dflt', body(method('_fileOf(P, key, dflt)')));
+const fileValRaw = new Function('key', 'dflt', body(method('_fileVal(key, dflt)')));
+// `_fileVal` tek presetin değerini `_fileOf`tan alıyor
+const fileVal = { call: (self, key, dflt) => fileValRaw.call(Object.assign({ _fileOf: fileOf }, self), key, dflt) };
 
 /* Motorun kendi uniform yükleyicisini koşturur ve `hue_corner`a yazılan
    on iki sayıyı döndürür. Yalnız o uniform'un konumu verildiği için
