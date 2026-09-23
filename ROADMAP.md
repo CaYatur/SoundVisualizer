@@ -949,23 +949,24 @@ MilkDrop (#560):
   preset changes class, and rendered alone in both trees it is identical -
   that flip is the picture it inherits from the preset before it in the run,
   not this change. The legacy run is identical byte for byte.
-- **`hue_shader` only colours what the preset asked to colour** · done on
-  `main`. MilkDrop mixes the four corner colours towards white by the
-  preset's `fShader` amount, and skips them entirely below 0.001, leaving
-  white (milkdropfs.cpp:3857-3876); the default is zero (state.cpp:548). We
-  handed every preset the full colour. Of the 1,239 presets (12.0%) whose
-  composite shader reads `hue_shader`, 914 leave `fShader` at zero - their
-  picture was being tinted by a colour MilkDrop never sends - and 36 ask for
-  a partial amount. Six of those presets rendered alone in both trees all
-  differ, five of them by a lot (means of 3.6 to 26.9 of 255, up to 89% of
-  pixels past 8), and all six are identical with the fidelity switch off; on
-  the 900-preset sample no preset changes class. The same four colours then
-  reached the other half of the picture: MilkDrop draws its fixed composite
-  quad with them as vertex colours (milkdropfs.cpp:3940-3946) and we applied
-  none, so the 631 presets that have no composite shader and ask for a
-  non-zero `fShader` were missing the tint entirely. Six of them rendered
-  alone all differ (means of 0.3 to 13.0 of 255, up to 60% of pixels past 8)
-  and stay identical with the switch off.
+- **`hue_shader` gets the colour MilkDrop sends** · done on `main`,
+  corrected in #580. MilkDrop builds four corner colours every frame and uses
+  them in two ways. Every composite shader gets the full colour as
+  `hue_shader`, whatever the preset's `fShader` says - the D3D11 and the D3D9
+  code both note "since we don't know if shader uses it or not"
+  (milkdropfs.cpp:4122) - and `fShader` scales it only in the shader MilkDrop
+  writes for a preset without one. The fixed composite mixes the colours
+  towards white by `fShader`, skips them below 0.001 (milkdropfs.cpp:
+  3857-3884; the default is zero, state.cpp:548) and draws its quad with them
+  as vertex colours (3940-3946). The first version of this change (16
+  September) took the fixed composite's rule for the shaders too: with
+  fidelity on, the 914 presets whose composite shader reads `hue_shader` and
+  leaves `fShader` at zero lost their colour, and 36 got part of it. #580 gave
+  the full colour back and found the shader corners mirrored top to bottom as
+  well. The fixed composite applied no colour at all before this change; the
+  631 presets without a composite shader that ask for a non-zero `fShader`
+  got the tint here and kept it, and #580 takes its amount from the file
+  instead of per-frame values and draws it as MilkDrop does.
 - **Motion vectors sit where MilkDrop puts them and point where it points** ·
   done on `main`. Four differences in one field (milkdropfs.cpp:1172-1320):
   the count is truncated with its fraction widening the grid spacing, and the
@@ -2030,9 +2031,9 @@ rest after. No version number yet.
     was equivalent, and the branch it changed was removed. Putting back
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
-- **Fidelity follow-ups (#580)** · the fixed composite, the stage rule and
-  MilkDrop's defaults are done; the other audits and the file-reading
-  differences are next.
+- **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
+  MilkDrop's defaults and the hue colour are done; the remaining defaults,
+  the other audits and the file-reading differences are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
     passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
@@ -2101,25 +2102,59 @@ rest after. No version number yet.
     preset with `PSVERSION_WARP=0` was written as version 2 and drawn — so
     the mash-up rule version went from 1 to 2: a mash-up saved under the
     old rule keeps its file, and saving the recipe again writes a new one.
-  - **Found while finishing this, fixed next.** MilkDrop hands every
-    composite shader the full hue colour ("since we don't know if shader
-    uses it or not", in both the D3D11 and the D3D9 code); `fShader` scales
-    it only on the fixed path and in the shader MilkDrop writes for a
-    preset without one. The engine has applied `fShader` to preset shaders
-    too since the `hue_shader` change of 16 September, so with fidelity on
-    the 914 corpus presets that read `hue_shader` and leave `fShader` at 0
-    lost their colour, and 36 got part of it. In the shader written for a
-    composite stage with a version and no text, a partial `fShader` now
-    lands twice, in the text and in the colour; the one corpus preset with
-    such a stage has `fShader` at 0. The engine also takes the
-    amount from per-frame values: 16 presets write `fshader` in code,
-    which MilkDrop never sees, all of them with a composite shader. Some
-    keys fall back to something else when a file leaves them out. MilkDrop
-    reads a missing `wave_r`, `wave_g`, `wave_b`, `wave_x` or `wave_y` as
-    `rot`'s value at that point, which is 0, where the engine has 1, 1, 1,
-    0.5 and 0.5. Missing wave smoothing is 0.75, and the volume fade runs
-    from 0.75 to 0.95. Custom shapes default to red inside and green
-    outside. No corpus preset leaves any of these out, and neither do ours.
+  - **The hue colour, as MilkDrop gives it** (found while finishing the
+    first change). MilkDrop hands every composite shader the full hue
+    colour, and the engine had applied `fShader` there as well (see the
+    corrected #560 entry). With fidelity on, preset shaders get the full
+    colour again. Their corners were mirrored top to bottom too: MilkDrop
+    weighs them by the composite grid's screen position, with y at 1 on top
+    (plugin.cpp:1475-1490), and our translation flipped y. On the fixed
+    composite the amount is the file's `fShader`, blended linearly through a
+    transition like MilkDrop's other file values; 16 presets write `fshader`
+    in per-frame code, which MilkDrop never sees. It is no longer clamped to
+    1, and each draw's corner colour goes through `COLOR_NORM`, so the 16
+    presets with `fShader` 10 wrap into other colours as in MilkDrop. The
+    quad is interpolated as MilkDrop's two triangles, not bilinearly, and a
+    generated composite stage no longer gets a partial `fShader` twice. Echo
+    fading during a blend now looks at the new side's blended echo alpha, as
+    MilkDrop does, so the old echo fades out even when the new preset has
+    none.
+  - **Measured.** Four pure colours read back from the screen: corner 0
+    sits top right in shaders and top left on the fixed quad, as in
+    MilkDrop, and the quad's centre is the mean of corners 1 and 2. The
+    fixed composite through the engine: 72 of 72 cases within 2/255,
+    including gamma 3.7 with echo 0.5, which is eight draws; a simulation
+    that rounds after every draw, as MilkDrop's 8-bit buffer does, differs
+    from our single rounding by at most 0.6/255 in those cases. The last
+    ten of 60 frames against `main`, up to 120 presets a group:
+    - shader presets that do not read `hue_shader`: 120 of 120 identical;
+    - `fShader` at 0: 95 of 120 changed by more than 1%, and their median
+      saturation went from 0.006 to 0.150;
+    - `fShader` 1 or more, where only the corners move: 90 of 120 changed,
+      median 4.3%;
+    - partial `fShader`: 28 of 36 changed;
+    - fixed composite with `fShader` above 0.001: 30 of 120 changed,
+      median 0.5%, and 12 of the 16 at 10;
+    - fixed composite without it: rounding only, the largest mean change
+      0.36%.
+
+    On the 900-preset sample one preset moves from blown to clean (882 →
+    883 clean): it scales its picture by `hue_shader`, which was white on
+    `main`; rendered alone its brightness goes from 0.555 to 0.507 and its
+    share of pixels at full from 45.8% to 41.7%.
+    With fidelity off the fixed composite and the control group stay
+    byte-identical; presets that read `hue_shader` differ in at most 0.1%
+    of pixels by one level, the same four equal corner colours summed in
+    another order.
+  - **Next: keys that fall back to other values.** MilkDrop reads a
+    missing `wave_r`, `wave_g`, `wave_b`, `wave_x` or `wave_y` as `rot`'s
+    value at that point, which is 0, where the engine has 1, 1, 1, 0.5 and
+    0.5. Missing wave smoothing is 0.75, and the volume fade runs from 0.75
+    to 0.95. Custom shapes default to red inside and green outside. MilkDrop
+    also blends its other file-only values linearly through a transition
+    (wave scale and smoothing, the fade range, warp scale), where the engine
+    reads them from per-frame values. No corpus preset leaves any of these
+    keys out, and neither do ours.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
     centre darkening, and the rest of the blend snap points; the
     file-reading differences found while building the mash-ups (a
@@ -2127,8 +2162,12 @@ rest after. No version number yet.
     the last; numbered code that MilkDrop stops reading at the first
     missing number; `\\` comments; integer keys holding fractions; text
     after a number; key case; indented lines — about 40 corpus presets in
-    all); the reference comparison with an external renderer, which needs
-    one installed and waits for the user's approval.
+    all); whether `uv` in preset shaders runs the way MilkDrop's does —
+    read back from the screen, our `uv.y` is 1 at the top, where MilkDrop's
+    texture coordinate is 0; sampling agrees, but a shader doing arithmetic
+    on `uv.y` may come out mirrored, which needs its own check; the
+    reference comparison with an external renderer, which needs one
+    installed and waits for the user's approval.
   - **Tests.** 14 new: the version rule and the stage choice, the two
     generated shaders (float rounding, samplers, echo, hue, flag order,
     and that they translate), echo orientation and gamma cases, the
@@ -2144,7 +2183,14 @@ rest after. No version number yet.
     check follow the new key; the mash-up tests check the part test
     against the engine's stage choice and expect `md_mix2_` ids. 36 of 36
     mutations are caught, one of them putting the mash-up rule version
-    back to 1.
+    back to 1. The hue change adds three tests — the fixed quad's two
+    triangles run through the shader's own formula, the fixed amount taken
+    from the file and not from per-frame values, and its linear blend — and
+    reworks the hue tests: preset shaders at full colour for every
+    `fShader`; the fixed amount's threshold, partial mix and no clamp; the
+    draw weights (pass counts, the 1.0001 cut, the edge below −0.999,
+    wraparound, per-corner order); the echo fade with no echo on the new
+    side; and `hueAt` not flipping y. 18 of 18 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

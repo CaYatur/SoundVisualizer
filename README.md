@@ -255,6 +255,12 @@ that asserts the bar profile has no step in it.
   flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
   and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
   Rendered through the engine, every case matches MilkDrop's formula within 2/255.
+- **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
+  shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
+  says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
+  too, so about 950 presets of the corpus drew without their colour or with part of it, and the
+  corners were mirrored top to bottom. On the fixed pipeline the colour now goes through MilkDrop's
+  own draw passes, the wraparound of out-of-range colours included.
 - **Textured shapes, motion vectors, rotation matrices, mesh density, internal resolution scale,
   mouse input and preset transitions** are all implemented, and each sampler is read with the
   filtering and wrapping its name asks for (`sampler_pw_main` is point-sampled, `sampler_fc_main` is
