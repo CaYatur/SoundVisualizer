@@ -24,7 +24,10 @@ const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\
 
 /* Warp ve comp shader'ı olan küçük presetler: değişim gerçekten derleme
    gerektirsin. */
+/* MILKDROP_PRESET_VERSION şart: yoksa MilkDrop dosyayı MilkDrop 1 sayıyor
+   ve shader'larını okumuyor; uyum açıkken motor da (#580). */
 const shaderPreset = (decay, gain) => [
+  'MILKDROP_PRESET_VERSION=201',
   '[preset00]',
   'fDecay=' + decay,
   'PSVERSION=2', 'PSVERSION_WARP=2', 'PSVERSION_COMP=2',

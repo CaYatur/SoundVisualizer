@@ -175,7 +175,7 @@ test('preset ve saat kayıptan sağ çıkıyor, shader yeniden derleniyor', () =
   assert.strictEqual(m.time, 42, 'saat sıfırlandı');
   assert.strictEqual(m._shadersLost, true, 'shader yeniden derlenmeyecek');
   /* Çizim, preset değişmemiş olsa bile shader'ları kaynaktan kuruyor. */
-  assert.match(BODY, /if \(this\._shadersLost && this\._presetSrc\) this\._buildPresetShaders\(this\._presetSrc\);/);
+  assert.match(BODY, /if \(\(this\._shadersLost \|\| this\._stagesAcc !== \(this\._wantAcc !== false\)\) && this\._presetSrc\) \{\s*this\._buildPresetShaders\(this\._presetSrc\);/);
   assert.match(BODY, /this\._presetSrc = src;/);
 });
 

@@ -217,11 +217,14 @@ function snapOf(s) {
 }
 
 test('atlama noktası motorda da aynı üç durumla yazılmış', () => {
+  /* Nokta ayrı bir yöntemde (#580): sabit birleştirmenin yankı sönümü de
+     aynı noktayı kullanıyor, iki yerde ayrı ayrı yazılmasın. */
+  const snap = /_snapPoint\(\) \{[\s\S]*?\n    \}/.exec(BODY)[0];
+  assert.match(snap, /if \(oldComp && !newComp\) return -0\.01;/);
+  assert.match(snap, /if \(!oldComp && newComp\) return 1\.01;/);
+  assert.match(snap, /return 0\.5;/);
   const fn = /_blendScalars\(\) \{[\s\S]*?\n    \}/.exec(BODY)[0];
-  assert.match(fn, /let snap = 0\.5;/);
-  assert.match(fn, /if \(oldComp && !newComp\) snap = -0\.01;/);
-  assert.match(fn, /else if \(!oldComp && newComp\) snap = 1\.01;/);
-  assert.match(fn, /if \(mix < snap\) for \(const k of BLEND_SNAP\) P\.set\(k, O\.get\(k\)\);/);
+  assert.match(fn, /if \(mix < this\._snapPoint\(\)\) for \(const k of BLEND_SNAP\) P\.set\(k, O\.get\(k\)\);/);
 });
 
 // --------------------------------------------------- karıştırılan adlar

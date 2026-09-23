@@ -259,6 +259,7 @@ uniform float uEchoAlpha;
 uniform float uEchoZoom;
 uniform int uEchoOrient;
 uniform vec4 uFx;          // brighten, darken, solarize, invert
+uniform float uFxMd2;      // 1: MilkDrop 2'nin sabit yolunun biçimleri (#580)
 uniform vec3 uHue[4];      // dört köşe rengi: üst-sol, üst-sağ, alt-sol, alt-sağ
 void main(){
   vec3 c = texture(uSrc, vUV).rgb;
@@ -277,10 +278,19 @@ void main(){
   c = clamp(c, 0.0, 1.0);
   /* MilkDrop'un MD1 donemi sabit efektleri. Bunlar shader'dan onceki
      surumlerden kalma ama eski presetlerin cogu hala kullaniyor; yoklugunda
-     o presetler yazarinin istedigi kontrasti hic gostermiyordu. */
-  if (uFx.x > 0.5) c = sqrt(c);
+     o presetler yazarinin istedigi kontrasti hic gostermiyordu.
+
+     MilkDrop 2'NIN SABIT YOLU bunlari beyaz bir dortgenin HARMANLAMA
+     gecisleriyle yapiyor (milkdropfs.cpp:4010-4080, BeatDrop'un D3D9
+     hali 4200-4285 ile ayni): parlatma once ters cevirip kareliyor ve
+     yine ceviriyor, yani 1-(1-c)^2 — karekok DEGIL, o shader yolunun
+     bicimi; solarize d(1-d) sonra kendisini ekliyor, yani 2c(1-c) — 4c(1-c)
+     degil. Kararti c^2 ve ters cevirme 1-c iki yolda da ayni. Sabit yol
+     shader'i olmayan presetlerin hepsi: korpusta 2.128, parlatma 410'unda,
+     solarize 83'unde acik. Uyum kapaliyken eski bicim. */
+  if (uFx.x > 0.5) c = uFxMd2 > 0.5 ? 1.0 - (1.0 - c) * (1.0 - c) : sqrt(c);
   if (uFx.y > 0.5) c = c * c;
-  if (uFx.z > 0.5) c = c * (1.0 - c) * 4.0;
+  if (uFx.z > 0.5) c = uFxMd2 > 0.5 ? 2.0 * c * (1.0 - c) : c * (1.0 - c) * 4.0;
   if (uFx.w > 0.5) c = 1.0 - c;
   outColor = vec4(clamp(c, 0.0, 1.0), vBlend);
 }`;
@@ -1136,6 +1146,7 @@ void main(){
           uEchoZoom: gl.getUniformLocation(this.compFixed, 'uEchoZoom'),
           uEchoOrient: gl.getUniformLocation(this.compFixed, 'uEchoOrient'),
           uFx: gl.getUniformLocation(this.compFixed, 'uFx'),
+          uFxMd2: gl.getUniformLocation(this.compFixed, 'uFxMd2'),
           uHue: gl.getUniformLocation(this.compFixed, 'uHue[0]'),
         };
         this.locBlur = {
@@ -2172,10 +2183,13 @@ void main(){
       this.compPreset = null;
       this.shaderNote = '';
       this._shadersLost = false;
+      // Aşamaları seçen kural uyum anahtarına bağlı (#580): değişince yeniden kurulur
+      this._stagesAcc = job ? job.acc : this._wantAcc !== false;
       if (!gl || !T || !this.preset) { this._dropJob(job); return; }
       /* Arka planda hazırlanmış iş varsa o, yoksa şimdi başlatılıp hemen
          bitiriliyor — eski senkron yol, aynı adımlarla. */
       const j = job || this._beginStages(src);
+      this._stagesAcc = j.acc;
       const notes = [];
       this.warpPreset = this._finishStage(j.warp, notes);
       this.compPreset = this._finishStage(j.comp, notes);
@@ -2188,9 +2202,24 @@ void main(){
     _beginStages(src) {
       const T = window.SVMilkdropShader;
       const M = window.SVMilkdrop;
-      const job = { warp: null, comp: null };
+      /* Uyum açıkken aşamayı MilkDrop'un kuralı seçiyor: SÜRÜM, metin değil
+         (shared/milkdrop.js `stagePlan`, #580). Sürümü 0 olan aşamanın
+         metni okunmuyor; sürümü olup metni olmayan aşamaya MilkDrop'un
+         yüklemede yazdığı, dosyadaki değerleri gömülü shader veriliyor.
+         Kapalıyken eski kural: metin varsa shader. `acc` işte taşınıyor ki
+         anahtar değişince aşamalar yeniden kurulsun. */
+      const acc = this._wantAcc !== false;
+      const job = { warp: null, comp: null, acc };
       if (!this.gl || !T || !M) return job;
-      const fl = M.parseMilk(src);
+      const parsed = M.parseMilk(src);
+      let fl = parsed;
+      if (acc && M.stagePlan) {
+        const plan = M.stagePlan(parsed);
+        const text = (stage, own) => (plan[stage] === 'shader' ? own
+          : plan[stage] === 'generated' ? (stage === 'warp' ? M.genWarpText(parsed.params) : M.genCompText(parsed.params))
+            : '');
+        fl = { warpShader: text('warp', parsed.warpShader), compShader: text('comp', parsed.compShader) };
+      }
       const begin = (text, stage) => {
         if (!text || !text.trim()) return null;
         let r;
@@ -2275,12 +2304,65 @@ void main(){
       const mix = this._cosMix();
       const inv = 1 - mix;
       for (const k of BLEND_LERP) P.set(k, mix * P.get(k) + inv * O.get(k));
+      if (mix < this._snapPoint()) for (const k of BLEND_SNAP) P.set(k, O.get(k));
+    }
+
+    /* Mantıksal değişkenlerin geçişte atladığı nokta (milkdropfs.cpp
+       667-721, `m_fSnapPoint`): normalde 0,5; yalnız bir tarafın
+       birleştirme shader'ı varsa -0,01 ya da 1,01 — shader'ı olan taraf o
+       etkileri kendi içinde uyguluyor. */
+    _snapPoint() {
       const newComp = !!this.compPreset;
       const oldComp = !!this.oldCompPreset;
-      let snap = 0.5;
-      if (oldComp && !newComp) snap = -0.01;
-      else if (!oldComp && newComp) snap = 1.01;
-      if (mix < snap) for (const k of BLEND_SNAP) P.set(k, O.get(k));
+      if (oldComp && !newComp) return -0.01;
+      if (!oldComp && newComp) return 1.01;
+      return 0.5;
+    }
+
+    /* SABİT BİRLEŞTİRMENİN GİRDİLERİ, MilkDrop 2'nin kuralıyla (#580;
+       milkdropfs.cpp:3885-4010, BeatDrop 4064-4175 aynı):
+       - gama ve yankı yakınlaşması dosyada yoksa MilkDrop'un varsayılanı
+         2,0 (CState::Default); bizde 1'e düşüyordu, yani gamasız bir
+         preset yarı parlaklıkta çıkıyordu (varsayılan artık kare başı
+         tabanında, shared/milkdrop.js MD2_PF_DEFAULTS);
+       - yön `(int)echo_orient % 4` (shared/milkdrop.js `echoFlipBits`);
+       - gama görüntüyü üst üste toplayarak çiziyor ve yankıyla birlikte
+         1'in altında HİÇ uygulanmıyor (`fixedGammaGain`);
+       - GEÇİŞTE iki presetin de dosyasında yankı varsa (saydamlık 0,01'in
+         üstünde) ve yönleri farklıysa, yankı atlama noktasına kadar ESKİ
+         yönle sönüyor, sonra yeni yönle yeniden beliriyor — yön bir anda
+         dönmüyor. Karşılaştırılan DOSYADAKİ değerler; MilkDrop da onlara
+         bakıyor, denklemlerin yazdığına değil. */
+    _fixedCompInputs(Pp) {
+      const M = window.SVMilkdrop;
+      /* Gama ve yakınlaşma havuzdan: dosyanın yazmadığı adda MilkDrop'un
+         varsayılanı kare başında zaten orada (shared/milkdrop.js
+         MD2_PF_DEFAULTS), geçişte karışan da o değer. */
+      let alpha = Pp.get('echo_alpha') || 0;
+      const zoom = Pp.get('echo_zoom');
+      let orient = M.echoFlipBits(Pp.get('echo_orient'));
+      const O = this.oldPreset;
+      if (O && this.blendProg < 1) {
+        const fp = (P, k, d) => {
+          const v = P && P.file && P.file.params ? P.file.params[k] : undefined;
+          return typeof v === 'number' && isFinite(v) ? v : d;
+        };
+        const na = fp(Pp, 'fvideoechoalpha', 0);
+        const oa = fp(O, 'fvideoechoalpha', 0);
+        const no = Math.trunc(fp(Pp, 'nvideoechoorientation', 0));
+        const oo = Math.trunc(fp(O, 'nvideoechoorientation', 0));
+        if (na > 0.01 && oa > 0.01 && no !== oo) {
+          const ci = this._cosMix();
+          if (this.blendProg < this._snapPoint()) {
+            // Eski yön dosyadaki tam sayı, `% 4` görmeden
+            orient = (oo % 2 !== 0 ? 1 : 0) | (oo >= 2 ? 2 : 0);
+            alpha *= 1 - 2 * ci;
+          } else {
+            alpha *= 2 * ci - 1;
+          }
+        }
+      }
+      return { alpha, zoom, orient, gain: M.fixedGammaGain(Pp.get('gamma'), alpha > 0.001) };
     }
 
     /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
@@ -2958,7 +3040,11 @@ void main(){
          havuzu, q değişkenleri ve saat kaybın olduğu yerden sürüyor.
          Preset bu arada zaten değiştiyse `_buildPresetShaders` bayrağı
          orada düşürüyor ve burada ikinci kez derlenmiyor. */
-      if (this._shadersLost && this._presetSrc) this._buildPresetShaders(this._presetSrc);
+      /* Uyum anahtarı çevrildiyse de: aşamaları hangi kuralın seçtiği ona
+         bağlı (#580). Preset nesnesi burada da aynı kalıyor. */
+      if ((this._shadersLost || this._stagesAcc !== (this._wantAcc !== false)) && this._presetSrc) {
+        this._buildPresetShaders(this._presetSrc);
+      }
       /* Uyum anahtarı alt blokların hangi kare değişkenlerini gördüğünü de
          seçiyor (shared/milkdrop.js, SHARED_LEGACY). Her kare yazılıyor:
          anahtar çizim sürerken değişebiliyor ve geçişteki eski preset de
@@ -3366,14 +3452,24 @@ void main(){
            geliyor; oradaki değerler `_blendScalars` tarafından zaten
            karıştırılmış ya da atlatılmış durumda. */
         const Pp = this.preset;
-        const gamma = Pp.get('gamma') || 1;
-        gl.uniform1f(this.locComp.uGamma, gamma > 0 ? gamma : 1);
-        gl.uniform1f(this.locComp.uEchoAlpha, Pp.get('echo_alpha') || 0);
-        gl.uniform1f(this.locComp.uEchoZoom, Pp.get('echo_zoom') || 1);
-        gl.uniform1i(this.locComp.uEchoOrient, Math.round(Pp.get('echo_orient') || 0));
+        const acc = this._wantAcc !== false;
+        if (acc) {
+          const f = this._fixedCompInputs(Pp);
+          gl.uniform1f(this.locComp.uGamma, f.gain);
+          gl.uniform1f(this.locComp.uEchoAlpha, f.alpha);
+          gl.uniform1f(this.locComp.uEchoZoom, f.zoom);
+          gl.uniform1i(this.locComp.uEchoOrient, f.orient);
+        } else {
+          const gamma = Pp.get('gamma') || 1;
+          gl.uniform1f(this.locComp.uGamma, gamma > 0 ? gamma : 1);
+          gl.uniform1f(this.locComp.uEchoAlpha, Pp.get('echo_alpha') || 0);
+          gl.uniform1f(this.locComp.uEchoZoom, Pp.get('echo_zoom') || 1);
+          gl.uniform1i(this.locComp.uEchoOrient, Math.round(Pp.get('echo_orient') || 0));
+        }
         gl.uniform4f(this.locComp.uFx,
           Pp.get('brighten') ? 1 : 0, Pp.get('darken') ? 1 : 0,
           Pp.get('solarize') ? 1 : 0, Pp.get('invert') ? 1 : 0);
+        if (this.locComp.uFxMd2) gl.uniform1f(this.locComp.uFxMd2, acc ? 1 : 0);
         /* Dört köşe rengi burada da: MilkDrop tam ekran dörtgenini bu
            renklerle çiziyor (milkdropfs.cpp:3940-3946), shader'lı yolla
            aynı `shade` dizisinden. Korpusta comp shader'ı olmayan 2.129

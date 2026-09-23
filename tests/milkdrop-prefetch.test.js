@@ -115,7 +115,8 @@ const bare = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\
 
 const shaderPreset = (id, gain) => ({
   id, name: id.toUpperCase(), kind: 'milkdrop',
-  source: ['[preset00]', 'fDecay=0.97', 'PSVERSION=2', 'PSVERSION_WARP=2', 'PSVERSION_COMP=2',
+  // MILKDROP_PRESET_VERSION'suz dosyanın shader'ları okunmuyor (#580)
+  source: ['MILKDROP_PRESET_VERSION=201', '[preset00]', 'fDecay=0.97', 'PSVERSION=2', 'PSVERSION_WARP=2', 'PSVERSION_COMP=2',
     'warp_1=`shader_body', 'warp_2=`{', 'warp_3=`    ret = tex2D(sampler_main, uv).xyz * ' + gain + ';', 'warp_4=`}',
     'comp_1=`shader_body', 'comp_2=`{', 'comp_3=`    ret = tex2D(sampler_main, uv).xyz;', 'comp_4=`}', ''].join('\n'),
 });
