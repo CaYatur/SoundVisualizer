@@ -251,6 +251,11 @@ profilinde basamak olmadığını doğruluyor.
   (dalga ölçeği ve yumuşatması, sesle sönme, warp hızı ve ölçeği) oradaki gibi dosyadan geliyor, yani
   0 dalga ölçeği dalgayı düzleştiriyor (korpusta 102 preset). Motordan geçirilerek çizildi: her
   durum MilkDrop'un formülüyle 2/255 içinde aynı.
+- **Preset dosyaları MilkDrop'un okuduğu gibi okunuyor.** Uyum açıkken anahtarlar büyük/küçük harfe
+  duyarlı, iki kez yazılmış bir anahtar MilkDrop'un bulduğu değeri (çoğunlukla ilkini) alıyor,
+  numaralı kod ilk eksik numarada bitiyor, tam sayı ayarları kesirlerini atıyor ve denklem satırları
+  MilkDrop'un yapıştırdığı gibi, `\\` yorumları dahil, yapışıyor. Korpusta 32 preset farklı
+  okunuyor; uyum kapalıyken eski ayrıştırıcı duruyor.
 - **Birleştirme shader'ları MilkDrop'un verdiği ton rengini alıyor.** MilkDrop her birleştirme
   shader'ına `hue_shader` olarak dört köşede yavaşça gezinen renkler veriyor, presetin `fShader`ı
   ne derse desin; `fShader` onları yalnız sabit yolda ölçekliyor. Motor `fShader`ı shader'lara da

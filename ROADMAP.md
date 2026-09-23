@@ -1963,13 +1963,14 @@ rest after. No version number yet.
       gives a part. ◀ ▶ step through a history of recipes (part → preset);
       a recipe whose preset was deleted is skipped. The id comes from the
       recipe (`md_mix`, the rule version and two 32-bit hashes; the
-      version is 2 since #580), so the same mash-up saved twice leaves one
+      version is 3 since #580), so the same mash-up saved twice leaves one
       file, and the version in it keeps later rule changes from
       overwriting earlier saves.
-    - *Part tests* decide which presets can give a part without parsing
-      them (13.5 µs a test): a non-comment equation line, an enabled wave
-      or shape block, a non-empty shader line (since #580, one whose stage
-      version MilkDrop reads as above 0).
+    - *Part tests* decide which presets can give a part: a non-comment
+      equation line, an enabled wave or shape block, a non-empty shader
+      line. They first worked on the text without parsing it (13.5 µs a
+      test); since #580 they read the file the way MilkDrop does (0.04 ms)
+      and a shader counts only if MilkDrop draws it.
   - **Mash-ups measured** on the whole 10,332-preset corpus. The part tests
     agree with the parser for every preset and part. A mash-up whose six
     parts come from one preset is that preset again for all 10,332 —
@@ -2032,8 +2033,8 @@ rest after. No version number yet.
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
-  MilkDrop's defaults, the hue colour and the values that stay in the file
-  are done; the other audits and the file-reading differences are next.
+  MilkDrop's defaults, the hue colour, the values that stay in the file and
+  MilkDrop's way of reading a file are done; the other audits are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
     passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
@@ -2174,19 +2175,62 @@ rest after. No version number yet.
     flat; of the 4 with warp speed 0, one changes, slightly. With fidelity
     off all of them are identical. The 900-preset sample sorts into the
     same classes, preset for preset.
+  - **Files read the way MilkDrop reads them.** With fidelity on, a preset
+    file goes through a reader that follows MilkDrop's own
+    (`parseMilkMd2`; state.cpp _GetLineByName, the GetFast readers,
+    ReadCode and the three Import functions, the same in the D3D9 code);
+    with it off the old parser stays. MilkDrop first indexes the file line
+    by line — a line's name runs to the first `=`, space or line break —
+    and then looks the keys up in its own order, trying the line after the
+    previous read before scanning from the top. So keys are case-sensitive;
+    an indented line has an empty name and is never read; `key value` is
+    read and `key = value` is not; a key written twice takes the next line
+    or the first occurrence, not the last; integer keys are `%d`
+    (`textured=0.05` is off, where we had it on) and float keys take the
+    leading number (`.975;` is 0.975); numbered code ends at the first
+    missing number; and equation lines lose `//` and `\\` comments and are
+    glued with nothing between them, trailing spaces kept. A simulation of
+    that reader against our parser found real differences in 25 files of
+    the corpus; the engine-side check (`readingsDiffer`: stage versions,
+    the numeric keys the engine reads, equations without whitespace) finds
+    32 — duplicated keys (4 presets), fractions in integer keys (11), key
+    case (2), a per-frame name written in the header, shapes past MilkDrop
+    2's four, a `\\` comment, a gap in the numbering. Our builtins,
+    generated presets and mash-ups read the same both ways. Turning
+    fidelity over rebuilds the running preset only when the two readings
+    differ for it, and the stage choice reads the file the same way.
+  - **Mash-ups read their donors the same way.** A preset gives a part only
+    if MilkDrop reads that part from it, and the version lines written for a
+    shader are the ones MilkDrop reads from its donor — a donor writing
+    `PSVERSION_comp=3` gives version 2. The same recipe can give different
+    version lines than before, so the mash-up rule version went to 3. The
+    part test now reads the file (0.04 ms a test, was 0.014); on the whole
+    corpus it agrees with the engine for every preset and part, a mash-up of
+    one preset reads as that preset for all 10,332, and 5,000 random
+    mash-ups keep every part and stage of their donors.
+  - **Measured** against `main`, the last ten of 60 frames: 120 control
+    presets are identical with fidelity on and off; of the 32 that read
+    differently, 15 change with fidelity on, 12 by more than 1% (up to
+    32%), and all 32 are identical with it off. The 900-preset sample sorts
+    into the same classes, preset for preset.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
-    centre darkening, and the rest of the blend snap points; the
-    file-reading differences found while building the mash-ups (a
-    duplicated key, where MilkDrop reads the first occurrence and we keep
-    the last; numbered code that MilkDrop stops reading at the first
-    missing number; `\\` comments; integer keys holding fractions; text
-    after a number; key case; indented lines — about 40 corpus presets in
-    all); whether `uv` in preset shaders runs the way MilkDrop's does —
-    read back from the screen, our `uv.y` is 1 at the top, where MilkDrop's
-    texture coordinate is 0; sampling agrees, but a shader doing arithmetic
-    on `uv.y` may come out mirrored, which needs its own check; the
-    reference comparison with an external renderer, which needs one
-    installed and waits for the user's approval.
+    centre darkening, and the rest of the blend snap points; whether `uv`
+    in preset shaders runs the way MilkDrop's does — read back from the
+    screen, our `uv.y` is 1 at the top, where MilkDrop's texture
+    coordinate is 0; sampling agrees, but a shader doing arithmetic on
+    `uv.y` may come out mirrored, which needs its own check; MilkDrop's
+    internal comparison functions such as `_aboeq`, which three corpus
+    presets call and our compiler does not know; the reference comparison
+    with an external renderer, which needs one installed and waits for the
+    user's approval. Left out of the reader on purpose: MilkDrop reads
+    bytes and the engine gets decoded text, so its two byte rules — a
+    0xFF byte ends the file, a value over 251 characters splits into a
+    second index line — cannot be kept exactly, and neither touches a
+    corpus file; values stay double where MilkDrop stores float, a
+    difference below 1e-7; and a block that fails to compile is dropped
+    whole in MilkDrop but recovered statement by statement here, because
+    our parser and MilkDrop's do not agree on what an error is (`_aboeq`
+    is one case), so dropping whole blocks would drop some MilkDrop runs.
   - **Tests.** 14 new: the version rule and the stage choice, the two
     generated shaders (float rounding, samplers, echo, hue, flag order,
     and that they translate), echo orientation and gamma cases, the
@@ -2216,7 +2260,16 @@ rest after. No version number yet.
     counting as 1 with it off; and the volume fade's switch and range from
     the file with MilkDrop's defaults, a negative switch counting as on.
     Five test files follow the new reads, one of them with a flat custom
-    wave at scale 0. 16 of 16 mutations are caught.
+    wave at scale 0. 16 of 16 mutations are caught. The file reading adds
+    ten: the reader's naming (case, indentation, the space separator), the
+    next-line and first-occurrence lookup, `%d` and `%f`, code ending at a
+    gap with comments cut and lines glued, the version lines in MilkDrop's
+    order, `readMilk` and the Preset's `readAcc`, `readingsDiffer`, every
+    Preset built in `src` naming its reading rule, the toggle rebuilding
+    only when the readings differ, and a mash-up's version lines from its
+    donor's reading. The own-presets test also requires both readings to
+    agree, and the mash-up part test compares with the new reader.
+    23 of 23 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
