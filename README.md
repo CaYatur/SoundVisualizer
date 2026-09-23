@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2147%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2166%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -380,6 +380,16 @@ that asserts the bar profile has no step in it.
   used. Measured on 200 generated presets with silence, the demo sound and a loud bass line: every
   shader compiled, and none went black, washed out to white, flashed more than twice a second or
   froze.
+- **Mash-ups from your library.** The same card builds a preset out of pieces of the presets you
+  already have: the look (decay, echo, gamma, the main wave), the motion equations, the custom
+  waves, the custom shapes, the warp shader and the composite shader — each taken whole from one
+  preset and copied line for line. *New Mash-up* draws every part at random from the presets the
+  MilkDrop panel's list shows, so its search and filter apply, and only from presets that have that
+  part. A single part can be drawn again, or all six can start from the preset on screen; ◀ ▶ step
+  back through earlier mash-ups, and *Save to Library* keeps one. A mash-up inherits its donors'
+  looks, so it can come out brighter or darker than any of them. Checked on a 10,332-preset corpus:
+  a mash-up of one preset is that preset again, and in 5,000 random mash-ups every part was
+  exactly its donor's. 300 random mash-ups ran in the engine without a single shader failure.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1279,7 +1289,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2147 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2166 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2147 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2166 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 550
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 569
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1858,8 +1858,8 @@ rest after. No version number yet.
     automation flag. 57 of 58 mutations are caught; the survivor removes
     the "no context" check, which the frame counter already makes (without
     a context no frame is drawn).
-- **A preset generator of our own (#579)** · the generator is done; mash-ups
-  are next.
+- **A preset generator of our own, and mash-ups (#579)** · done. The
+  generator came first; the mash-ups are described after it.
   - **What it does.** *Studio → MilkDrop Preset Generator* writes an
     original `.milk` from four sliders and a seed. Energy sets how strongly
     zoom, rotation, warp and the size and brightness of shapes and waves
@@ -1934,8 +1934,63 @@ rest after. No version number yet.
     looked frozen in silence: both now change over time. An edge-sharpening
     composite made a fast Lissajous figure flash three times a second in
     one part of the screen: its gains are lower.
-  - **Not done:** mash-ups (the second half of #579); a MIDI/OSC action and
-    a web-remote button that generate.
+  - **Not done:** a MIDI/OSC action and a web-remote button that generate
+    or mix.
+  - **Mash-ups.** The same card builds a preset out of six parts of the
+    presets in the library: the look (decay, gamma, echo, the four flags,
+    the main wave, borders, motion vectors, the rating), the motion
+    (`per_frame_init`, `per_frame`, `per_pixel` and zoom, rot, cx, cy, dx,
+    dy, warp, sx, sy, `fWarpAnimSpeed`, `fWarpScale`, `fZoomExponent`), the
+    custom waves, the custom shapes, the warp shader, and the composite
+    shader with the blur ranges (`b1n`…`b3x`, `b1ed`) — `GetBlur`'s scale
+    comes from them and the composite shader reads the blur most. Every
+    key belongs to exactly one part; the list was counted from the corpus
+    (86 header keys), and an unknown key goes to the look. A part comes
+    whole from one preset and its lines are copied as they are, numbers
+    included. The version lines are written anew from the presets that give
+    the shaders, since MilkDrop 2 reads a shader only when its version is
+    above zero. Written from a description of the behaviour in our own
+    words; MilkDrop 2's mash-up code was not opened.
+    - *New Mash-up* draws each part from the presets the MilkDrop panel's
+      list shows — its search and filter apply — and only from presets that
+      have the part. Warp and composite come out "none" 12% of the time:
+      in a library of mostly MilkDrop 2 presets every mash-up would
+      otherwise get both shaders, and the look's fixed pipeline (echo,
+      gamma, flags) would never run. A single part can be drawn again, or
+      all six can start from the preset on screen; an unsaved preview (a
+      generated preset or a mash-up) is never in the list, so it never
+      gives a part. ◀ ▶ step through a history of recipes (part → preset);
+      a recipe whose preset was deleted is skipped. The id comes from the
+      recipe (`md_mix1_` and two 32-bit hashes), so the same mash-up saved
+      twice leaves one file, and the version in it keeps later rule changes
+      from overwriting earlier saves.
+    - *Part tests* decide which presets can give a part without parsing
+      them (13.5 µs a test): a non-comment equation line, an enabled wave
+      or shape block, a non-empty shader line.
+  - **Mash-ups measured** on the whole 10,332-preset corpus. The part tests
+    agree with the parser for every preset and part. A mash-up whose six
+    parts come from one preset is that preset again for all 10,332 —
+    equations, waves, shapes, shaders and every parameter; only 5 files
+    get different version lines, all malformed or old headers (three with
+    `MILKDROP_PRESET_VERSION` but no `PSVERSION`, one declaring a composite
+    shader that is empty, one version-200 file). In 5,000 random mash-ups
+    (warp and composite "none" one time in ten) every part equals its
+    donor's, parameters split by part, and the version lines match the
+    shaders. 300 random mash-ups ran in the engine (214 with a warp shader,
+    221 with a composite one): no shader stage or equation failed that did
+    not fail in its own preset, and there were none of those either. In an
+    isolated copy with 40 corpus presets: a search in the MilkDrop panel
+    left 20 in the list and six mash-ups drew 14 different presets, all
+    from those 20; the visualizer window drew the mash-up; drawing one part
+    again changed only that part; ◀ went back; saving twice left one file;
+    the English UI had no Turkish left.
+  - **Found by the mash-up measurement.** The composite part's blur ranges
+    were first taken for a shader, and 308 MilkDrop 1 presets that have
+    them got version lines for a composite shader they do not have; only
+    `comp_N` lines count now. One corpus file writes the same key twice
+    (`shapecode_2_enabled=1`, later `=0`): our parser keeps the last value
+    and the part test follows it. Which one MilkDrop 2 keeps was not
+    checked here (#580).
   - **Tests.** 37 tests. 24 for the generator: the code and id (round trip,
     one spelling, invalid codes, one file in the real store), determinism
     and golden hashes, 512 presets on an axis grid compiled block by block
@@ -1947,7 +2002,21 @@ rest after. No version number yet.
     directly. 13 for the panel with a fake DOM: an unsaved preview leaves
     rating, favorite and tags alone, ◀ skips it, saving writes the last
     result under the same id and the list takes it at once, the code field,
-    the sliders, 🎲 and the wiring. 26 of 26 mutations are caught.
+    the sliders, 🎲 and the wiring. 26 of 26 mutations are caught. The
+    mash-ups add 19: 10 for the module — every key's part, one-preset round
+    trip, mixed presets part by part, lines copied as they are, version
+    lines (MilkDrop 1 look with MilkDrop 2 shaders, none, composite only,
+    version 3 kept, a shaderless MilkDrop 2 file kept), "none" taking the
+    blur ranges with it, the part tests against the parser on edge cases
+    from the corpus, id and name, and candidate picking — and 9 for the
+    panel with a fake DOM, the search typed into the MilkDrop panel's real
+    search box: parts only from the visible list and only from presets
+    with the part, the mash-up's text from its donors, one part drawn again
+    leaving the others, starting from the preset on screen (and never from
+    an unsaved preview), a "none" part drawn again always giving a preset,
+    the history skipping a deleted preset, saving the mash-up and not the
+    generated preset, and the rows. 23 of 23 mutations are caught; a 24th
+    was equivalent, and the branch it changed was removed.
 
 ## v3.1.6 — Comprehensive video export
 
