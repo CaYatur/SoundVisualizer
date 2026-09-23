@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2108%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2147%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -369,6 +369,17 @@ that asserts the bar profile has no step in it.
   MilkDrop window was drawing and the computer was busy, a MilkDrop picture that had just set up its
   buffers (a new window, a resize, a thumbnail, a video export) could start from the other window's
   picture. Buffers now start from zeros.
+- **A preset generator of our own.** *Studio → MilkDrop Preset Generator* writes an original
+  MilkDrop preset from four sliders — energy, warmth, density and motion — and a seed. It runs
+  offline, and every motion, wave, shape and shader pattern it uses was written for this app: no
+  line of it longer than 30 characters appears in a 10,332-preset corpus. The preset loads straight
+  away as a preview without being saved; *Save to Library* keeps it. Moving a slider keeps the
+  seed, so you get the same preset with more energy or warmer colours rather than a different one,
+  and a code such as `72-15-60-88-2n9c` brings the same preset back. Nothing in a generated preset
+  flashes: its colours stay in range at any volume, and invert, solarize and brighten are never
+  used. Measured on 200 generated presets with silence, the demo sound and a loud bass line: every
+  shader compiled, and none went black, washed out to white, flashed more than twice a second or
+  froze.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1268,7 +1279,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2108 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2147 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

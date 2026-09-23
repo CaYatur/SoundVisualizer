@@ -200,6 +200,9 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .gen-chip b { color: var(--muted2); font-weight: 600; }
 .gen-chip i { color: var(--text); font-style: normal; }
 .gen-pair { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 11px; align-items: baseline; }
+/* MilkDrop üreticisi (#579): kaydırıcının iki ucunun adı */
+.mdgen-ends { display: flex; justify-content: space-between; font-size: 10.5px; margin-top: -2px; }
+.mdgen-name { font-weight: 600; }
 .st-num { font-variant-numeric: tabular-nums; }
 .st-sep { opacity: .5; }
 
