@@ -1,13 +1,21 @@
 'use strict';
-/* HUE_SHADER'IN MİKTARI: presetin `fShader` ayarı (#560).
+/* DÖRT KÖŞE RENGİ VE `fShader` (#560, düzeltme #580).
  *
- * MilkDrop dört köşe rengini hesapladıktan sonra beyaza doğru `fShader`
- * oranıyla karıştırıyor, ve oran 0,001'in altındaysa rengi hiç
- * hesaplamıyor — dört köşe de (1,1,1) kalıyor (milkdropfs.cpp:3857-3876).
- * Varsayılan 0 (state.cpp:548). Motor rengi HER presete veriyordu.
+ * MilkDrop her kare dört köşe için ayrı fazlarla bir renk hesaplıyor ve iki
+ * yolda iki ayrı şekilde kullanıyor:
+ *  - SHADER'LI YOL: `hue_shader`a HER ZAMAN tam renk gidiyor, `fShader` ne
+ *    olursa olsun ("shader kullanıyor mu bilmiyoruz", milkdropfs.cpp:4122;
+ *    BeatDrop'un D3D9 hâli 4318 aynı). `fShader` yalnız MilkDrop'un kendi
+ *    yazdığı birleştirme metninde çarpan.
+ *  - SABİT YOL: renk beyaza doğru presetin `fShader` oranıyla karışıyor ve
+ *    oran 0,001'in altındaysa hiç hesaplanmıyor — köşeler beyaz
+ *    (milkdropfs.cpp:3857-3884). Oran dosyadaki değer, geçişte doğrusal
+ *    karışıyor (CBlendableFloat); kenetlenmiyor.
  *
- * Korpusta comp shader'ında `hue_shader` okuyan 1.239 preset var (%12,0);
- * bunların 914'ü `fShader`ı sıfır bırakıyor, 36'sı ara bir oran yazıyor.
+ * 52c7391 (#560) sabit yolun kuralını shader'lı yola da uyguluyordu:
+ * korpusta `hue_shader` okuyan 1.239 presetin 914'ü `fShader`ı sıfır
+ * bırakıyor ve rengini kaybediyordu, 36'sı rengin yalnız bir kısmını
+ * alıyordu.
  */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -24,6 +32,10 @@ function method(sig) {
   return SRC.slice(i, end + 6);
 }
 const body = (src) => src.slice(src.indexOf('{') + 1, src.lastIndexOf('}'));
+
+// Köşe rengi yöntemi kaynaktan
+const hueCorners = new Function('amt', 't', 'rand', body(method('_hueCorners(amt, t, rand)')));
+const fileVal = new Function('key', 'dflt', body(method('_fileVal(key, dflt)')));
 
 /* Motorun kendi uniform yükleyicisini koşturur ve `hue_corner`a yazılan
    on iki sayıyı döndürür. Yalnız o uniform'un konumu verildiği için
@@ -49,13 +61,13 @@ function corners(opts) {
     _texSizeFor: () => [1, 1, 1, 1],
     _rotRows: () => new Float32Array(12),
     _blurScaleBias: () => [1, 0],
-    // köşe renkleri ayrı bir yöntemde; o da kaynaktan geliyor
-    _hueCorners: new Function('P', 't', 'rand', body(method('_hueCorners(P, t, rand)'))),
+    _hueCorners: hueCorners,
     blur: [],
     preset: null,
   };
   const L = { hue_corner: 'HC', _plan: [], _texSize: [], _rot: [] };
-  const P = { get: (k) => (k === 'fshader' ? opts.fshader : 0) };
+  // Presetin hem dosyası hem havuzu fShader'ı taşıyor; shader yolu ikisine de bakmamalı
+  const P = { get: (k) => (k === 'fshader' ? opts.fshader : 0), file: { params: { fshader: opts.fshader } } };
   const ctx = {
     w: 960, h: 720, aspectx: 1, aspecty: 0.75, aspX: 1, aspY: 0.75,
     time: opts.time === undefined ? 12.5 : opts.time,
@@ -68,26 +80,18 @@ function corners(opts) {
   return got;
 }
 
-test('fShader sıfırken dört köşe de beyaz', () => {
-  for (const v of [0, 0.0005, undefined, -1]) {
-    const hc = corners({ fshader: v });
-    assert.deepStrictEqual(hc, new Array(12).fill(1), 'fShader = ' + v);
-  }
-});
+// ------------------------------------------------------------ shader yolu
 
-test('fShader 1 iken tam renk, ara değerde beyaza karışıyor', () => {
+test('shader yolu: fShader ne olursa olsun tam renk', () => {
   const full = corners({ fshader: 1 });
-  const half = corners({ fshader: 0.5 });
-  assert.ok(full.some((v) => v < 0.999), 'tam oranda renk yok');
-  for (let i = 0; i < 12; i++) {
-    // yarı oran: tam rengin beyazla ortası
-    assert.ok(Math.abs(half[i] - (full[i] * 0.5 + 0.5)) < 1e-6, 'köşe ' + i);
-    assert.ok(half[i] >= full[i] - 1e-9, 'yarı oran daha koyu çıktı');
+  assert.ok(full.some((v) => v < 0.999), 'renk yok');
+  for (const v of [0, 0.0005, undefined, -1, 0.5, 10]) {
+    assert.deepStrictEqual(corners({ fshader: v }), full, 'fShader = ' + v);
   }
 });
 
-test('köşeler birbirinden farklı ve en parlak bileşen 1 ile ölçekli', () => {
-  const hc = corners({ fshader: 1 });
+test('shader yolu: köşeler birbirinden farklı ve en parlak bileşen 1 ile ölçekli', () => {
+  const hc = corners({ fshader: 0 });
   const c = [0, 1, 2, 3].map((i) => hc.slice(i * 3, i * 3 + 3));
   assert.ok(c.some((v, i) => i > 0 && v.some((x, k) => Math.abs(x - c[0][k]) > 1e-6)),
     'dört köşe aynı renk');
@@ -110,20 +114,59 @@ test('uyum kapalıyken eski tek renk duruyor', () => {
   }
 });
 
-/* SABİT birleştirme yolu da aynı renkleri uyguluyor: MilkDrop tam ekran
-   dörtgenini bu dört renkle çiziyor (milkdropfs.cpp:3940-3946). Motorda o
-   yol rengi hiç uygulamıyordu; comp shader'ı olmayan 2.129 presetin 631'i
-   sıfırdan büyük bir fShader yazıyor. */
-test('sabit birleştirme yolu köşe renklerini ekran boyunca uyguluyor', () => {
+// -------------------------------------------------------------- sabit yol
+
+const hue = (amt) => Array.from(hueCorners.call({ _wantAcc: true, randPreset: [0.1, 0.2, 0.3, 0.4] },
+  amt, 12.5, [0.1, 0.2, 0.3, 0.4]));
+
+test('sabit yolun oranı: 0,001 ve altı beyaz, ara değer beyaza karışıyor, 1\'in üstü kenetlenmiyor', () => {
+  for (const v of [0, 0.0005, 0.001, -1, NaN, undefined]) {
+    assert.deepStrictEqual(hue(v), new Array(12).fill(1), 'oran ' + v);
+  }
+  const full = hue(1);
+  const half = hue(0.5);
+  const ten = hue(10);
+  for (let i = 0; i < 12; i++) {
+    assert.ok(Math.abs(half[i] - (full[i] * 0.5 + 0.5)) < 1e-6, 'yarı oran, bileşen ' + i);
+    assert.ok(Math.abs(ten[i] - (full[i] * 10 - 9)) < 1e-4, 'oran 10, bileşen ' + i);
+  }
+  // Oran 10'da renk 0,5'in altına, eksiye iniyor — COLOR_NORM onu sarıyor
+  assert.ok(ten.some((v) => v < 0), 'oran 10 kenetlenmiş');
+});
+
+test('sabit yolun oranı dosyadan: denklemin yazdığı fshader MilkDrop\'a ulaşmıyor', () => {
+  // Havuz 1 diyor (denklem yazmış), dosya 0,4
+  const P = { get: () => 1, file: { params: { fshader: 0.4 } } };
+  assert.strictEqual(fileVal.call({ preset: P, oldPreset: null, blendProg: 1 }, 'fshader', 0), 0.4);
+  const bos = { get: () => 1, file: { params: {} } };
+  assert.strictEqual(fileVal.call({ preset: bos, oldPreset: null, blendProg: 1 }, 'fshader', 0), 0,
+    'yazılmamışsa MilkDrop\'un varsayılanı');
+});
+
+test('sabit yolun oranı geçişte eski ve yeni dosya değeri arasında doğrusal', () => {
+  const mk = (v) => ({ file: { params: { fshader: v } } });
+  const self = { preset: mk(0), oldPreset: mk(1), blendProg: 0.25 };
+  assert.ok(Math.abs(fileVal.call(self, 'fshader', 0) - 0.75) < 1e-12, 'kosinüs değil, ham ilerleme');
+  self.blendProg = 1;
+  assert.strictEqual(fileVal.call(self, 'fshader', 0), 0, 'geçiş bitti');
+  self.blendProg = 0.5;
+  self.oldPreset = { file: { params: {} } };
+  assert.ok(Math.abs(fileVal.call(Object.assign({}, self, { preset: mk(1) }), 'fshader', 0) - 0.5) < 1e-12,
+    'eski tarafta yazılmamış: varsayılandan');
+});
+
+/* Sabit birleştirme yolu: ton rengi dosyadaki orandan, köşe ağırlıklarına
+   çevrilerek (çizim başına COLOR_NORM). Uyum kapalıyken renk hiç
+   hesaplanmıyor — eski sabit yol rengi uygulamıyordu. */
+test('sabit birleştirme yolu köşe rengini ağırlıklarla dörtgene uyguluyor', () => {
   const frag = /const COMP_FIXED_FRAG = `([\s\S]*?)`;/.exec(SRC)[1];
-  assert.match(frag, /uniform vec3 uHue\[4\];/);
-  // Alt satır 2-3, üst satır 0-1: dörtgenin köşe sırası
-  assert.match(frag, /c \*= mix\(mix\(uHue\[2\], uHue\[3\], vUV\.x\), mix\(uHue\[0\], uHue\[1\], vUV\.x\), vUV\.y\);/);
-  // Gama çarpanından ÖNCE: MilkDrop rengi katmana uygulayıp sonra gama için
-  // katmanı yeniden çiziyor
-  assert.ok(frag.indexOf('uHue[2]') < frag.indexOf('c *= uGamma;'), 'renk gamadan sonra uygulanıyor');
+  assert.match(frag, /uniform vec3 uWMain\[4\];/);
+  assert.match(frag, /uniform vec3 uWEcho\[4\];/);
+  assert.doesNotMatch(frag, /uHue/, 'eski tek çarpanlı renk kalmamalı');
 
   const pass = method('_drawCompPass(gl, dst, prog, ctx)');
-  assert.match(pass, /this\._hueCorners\(Pp, this\.time, this\.randPreset\)/);
-  assert.match(pass, /new Float32Array\(12\)\.fill\(1\)/);  // uyum kapalıyken beyaz
+  const acc = /if \(acc\) \{([\s\S]*?)\} else \{([\s\S]*?)\}\s*gl\.uniform4f/.exec(pass);
+  assert.ok(acc, 'uyum dalları bulunamadı');
+  assert.match(acc[1], /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\)/);
+  assert.doesNotMatch(acc[2], /_hueCorners/, 'uyum kapalıyken renk yok');
 });

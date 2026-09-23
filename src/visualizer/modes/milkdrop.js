@@ -254,27 +254,45 @@ in vec2 vUV;
 in float vBlend;
 out vec4 outColor;
 uniform sampler2D uSrc;
-uniform float uGamma;
-uniform float uEchoAlpha;
+uniform float uGamma;      // eski biçim
+uniform float uEchoAlpha;  // eski biçimde yankının payı; MilkDrop biçiminde yalnız "yankı var"
 uniform float uEchoZoom;
 uniform int uEchoOrient;
 uniform vec4 uFx;          // brighten, darken, solarize, invert
 uniform float uFxMd2;      // 1: MilkDrop 2'nin sabit yolunun biçimleri (#580)
-uniform vec3 uHue[4];      // dört köşe rengi: üst-sol, üst-sağ, alt-sol, alt-sağ
+/* MilkDrop biçimi: iki katmanın köşe ağırlıkları, köşe sırası üst-sol,
+   üst-sağ, alt-sol, alt-sağ. Her biri o katmanın çizimlerinin köşe
+   renklerinin toplamı — gama, pay ve ton rengi içinde (M.fixedCompWeights). */
+uniform vec3 uWMain[4];
+uniform vec3 uWEcho[4];
+/* MilkDrop'un dörtgeni İKİ ÜÇGEN (şerit v0 v1 v2 v3): ortak kenar
+   üst-sağdan alt-sola. Köşe rengi her üçgenin içinde doğrusal, çift
+   doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması. */
+vec3 quad(vec3 w[4]) {
+  float x = vUV.x, y = vUV.y;
+  if (y >= x) return (y - x) * w[0] + x * w[1] + (1.0 - y) * w[2];
+  return y * w[1] + (1.0 - x) * w[2] + (x - y) * w[3];
+}
+vec2 echoUV() {
+  vec2 e = (vUV - 0.5) / max(0.001, uEchoZoom) + 0.5;
+  if (uEchoOrient == 1 || uEchoOrient == 3) e.x = 1.0 - e.x;
+  if (uEchoOrient == 2 || uEchoOrient == 3) e.y = 1.0 - e.y;
+  return e;
+}
 void main(){
-  vec3 c = texture(uSrc, vUV).rgb;
-  if (uEchoAlpha > 0.001) {
-    vec2 e = (vUV - 0.5) / max(0.001, uEchoZoom) + 0.5;
-    if (uEchoOrient == 1 || uEchoOrient == 3) e.x = 1.0 - e.x;
-    if (uEchoOrient == 2 || uEchoOrient == 3) e.y = 1.0 - e.y;
-    c = mix(c, texture(uSrc, e).rgb, uEchoAlpha);
+  vec3 c;
+  if (uFxMd2 > 0.5) {
+    /* MilkDrop 2: görüntü köşe rengiyle çarpılarak birkaç kez çiziliyor ve
+       toplanıyor (milkdropfs.cpp:3907-4003). Gama, yankının payı ve dört
+       köşe rengi (fShader) ağırlıkların içinde, çizim başına bayta
+       sarılmış olarak. */
+    c = texture(uSrc, vUV).rgb * quad(uWMain);
+    if (uEchoAlpha > 0.001) c += texture(uSrc, echoUV()).rgb * quad(uWEcho);
+  } else {
+    c = texture(uSrc, vUV).rgb;
+    if (uEchoAlpha > 0.001) c = mix(c, texture(uSrc, echoUV()).rgb, uEchoAlpha);
+    c *= uGamma;
   }
-  /* MilkDrop dort kose rengini SABIT yolda da uyguluyor: tam ekran dortgeni
-     bu renklerle ciziliyor ve donanim aralarini dolduruyor
-     (milkdropfs.cpp:3857-3884, 3940-3946). Shader'li yolda ayni renkler
-     hue_shader olarak gidiyordu; sabit yolda hic uygulanmiyordu. */
-  c *= mix(mix(uHue[2], uHue[3], vUV.x), mix(uHue[0], uHue[1], vUV.x), vUV.y);
-  c *= uGamma;
   c = clamp(c, 0.0, 1.0);
   /* MilkDrop'un MD1 donemi sabit efektleri. Bunlar shader'dan onceki
      surumlerden kalma ama eski presetlerin cogu hala kullaniyor; yoklugunda
@@ -1147,7 +1165,8 @@ void main(){
           uEchoOrient: gl.getUniformLocation(this.compFixed, 'uEchoOrient'),
           uFx: gl.getUniformLocation(this.compFixed, 'uFx'),
           uFxMd2: gl.getUniformLocation(this.compFixed, 'uFxMd2'),
-          uHue: gl.getUniformLocation(this.compFixed, 'uHue[0]'),
+          uWMain: gl.getUniformLocation(this.compFixed, 'uWMain[0]'),
+          uWEcho: gl.getUniformLocation(this.compFixed, 'uWEcho[0]'),
         };
         this.locBlur = {
           uSrc: gl.getUniformLocation(this.blurProg, 'uSrc'),
@@ -2326,13 +2345,19 @@ void main(){
          preset yarı parlaklıkta çıkıyordu (varsayılan artık kare başı
          tabanında, shared/milkdrop.js MD2_PF_DEFAULTS);
        - yön `(int)echo_orient % 4` (shared/milkdrop.js `echoFlipBits`);
-       - gama görüntüyü üst üste toplayarak çiziyor ve yankıyla birlikte
-         1'in altında HİÇ uygulanmıyor (`fixedGammaGain`);
-       - GEÇİŞTE iki presetin de dosyasında yankı varsa (saydamlık 0,01'in
-         üstünde) ve yönleri farklıysa, yankı atlama noktasına kadar ESKİ
-         yönle sönüyor, sonra yeni yönle yeniden beliriyor — yön bir anda
+       - gama ham dönüyor: görüntüyü üst üste toplayarak çizen geçişler ve
+         yankıyla birlikte 1'in altında uygulanmaması köşe ağırlıklarında
+         (shared/milkdrop.js `fixedCompWeights`);
+       - GEÇİŞTE iki tarafta da yankı varsa (saydamlık 0,01'in üstünde) ve
+         yönleri farklıysa, yankı atlama noktasına kadar ESKİ yönle
+         sönüyor, sonra yeni yönle yeniden beliriyor — yön bir anda
          dönmüyor. Karşılaştırılan DOSYADAKİ değerler; MilkDrop da onlara
-         bakıyor, denklemlerin yazdığına değil. */
+         bakıyor, denklemlerin yazdığına değil. Yeni tarafın saydamlığı
+         geçiş boyunca KARIŞAN dosya değeri (`m_fVideoEchoAlpha.eval`),
+         eski tarafınki geçiş başındaki değer: yeni presette yankı kapalı
+         olsa da karışan değer 0,01'i aşıyor ve eski yankı yine sönerek
+         gidiyor (#580'in ilk hâlinde yeni presetin ham değerine
+         bakılıyordu ve yankı bir anda dönüyordu). */
     _fixedCompInputs(Pp) {
       const M = window.SVMilkdrop;
       /* Gama ve yakınlaşma havuzdan: dosyanın yazmadığı adda MilkDrop'un
@@ -2347,7 +2372,7 @@ void main(){
           const v = P && P.file && P.file.params ? P.file.params[k] : undefined;
           return typeof v === 'number' && isFinite(v) ? v : d;
         };
-        const na = fp(Pp, 'fvideoechoalpha', 0);
+        const na = this._fileVal('fvideoechoalpha', 0);
         const oa = fp(O, 'fvideoechoalpha', 0);
         const no = Math.trunc(fp(Pp, 'nvideoechoorientation', 0));
         const oo = Math.trunc(fp(O, 'nvideoechoorientation', 0));
@@ -2362,7 +2387,26 @@ void main(){
           }
         }
       }
-      return { alpha, zoom, orient, gain: M.fixedGammaGain(Pp.get('gamma'), alpha > 0.001) };
+      return { alpha, zoom, orient, gamma: Pp.get('gamma') };
+    }
+
+    /* DOSYADAN OKUNAN, KARE DEĞİŞKENİ OLMAYAN ayarlar — `fShader` gibi.
+       MilkDrop bunları denklemlere açmıyor: kodun aynı adla yazdığı değer
+       bir kullanıcı değişkeni olarak kalıyor. Geçişte eski ve yeni presetin
+       dosyadaki değeri arasında DOĞRUSAL, ham ilerlemeyle karışıyorlar
+       (`CBlendableFloat::eval`, state.cpp:1933-1953) — kosinüs eğrisi yok.
+       `key` dosyanın küçük harfli anahtarı; yazılmamışsa `dflt`, yani
+       MilkDrop'un varsayılanı. */
+    _fileVal(key, dflt) {
+      const get = (P) => {
+        const v = P && P.file && P.file.params ? P.file.params[key] : undefined;
+        return typeof v === 'number' && isFinite(v) ? v : dflt;
+      };
+      const cur = get(this.preset);
+      const O = this.oldPreset;
+      if (!O || !(this.blendProg < 1)) return cur;
+      const p = Math.max(0, Math.min(1, this.blendProg));
+      return get(O) * (1 - p) + cur * p;
     }
 
     /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
@@ -2472,47 +2516,51 @@ void main(){
       return L;
     }
 
-    /* DÖRT KÖŞE RENGİ (`hue_shader`). Hem shader'lı yol (uniform) hem de
-       sabit birleştirme yolu (tepe rengi) bunu kullanıyor; MilkDrop ikisini
-       de aynı `shade[4][3]` dizisinden besliyor (milkdropfs.cpp:3857-3884).
-       Miktar presetin `fShader`ı: 0,001'in altındaysa dört köşe de beyaz. */
-    _hueCorners(P, t, rand) {
+    /* DÖRT KÖŞE RENGİ. MilkDrop her kare dört köşeye ayrı fazlarla bir renk
+       hesaplıyor — sabit yolda (milkdropfs.cpp:3857-3884) ve shader'lı
+       yolda (4122-4140) aynı formül — ve rengi beyaza doğru `amt` oranıyla
+       karıştırıyor. Oranı ÇAĞIRAN veriyor, çünkü iki yol ayrı:
+       - shader'lı yol HER ZAMAN 1: MilkDrop "shader kullanıyor mu
+         bilmiyoruz" diye `hue_shader`a tam rengi veriyor (4122, BeatDrop
+         4318); `fShader` yalnız kendi yazdığı birleştirme metninde çarpan.
+         52c7391 (#560) oranı buraya da uyguluyordu ve `fShader`ı 0 olan
+         914 preset rengini kaybediyordu (#580);
+       - sabit yol: presetin DOSYADAKİ `fShader`ı, geçişte doğrusal karışan
+         (`_fileVal`); 0,001'in altındaysa renk hiç hesaplanmıyor, köşeler
+         beyaz kalıyor.
+       Oran kenetlenmiyor: 1'in üstünde renk 0,5'in altına, eksiye iniyor ve
+       sabit yolda COLOR_NORM onu sarıyor (M.fixedCompWeights).
+       Dizideki sıra yalnız köşenin NUMARASI; ekrandaki yerini iki yol
+       kendisi veriyor ve MilkDrop'ta da ayrı: sabit yolun dörtgeninde 0
+       üst-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
+       eski tek rengi. */
+    _hueCorners(amt, t, rand) {
       const accurate = this._wantAcc !== false;
       const rs = rand || this.randPreset || [0, 0, 0, 0];
       const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
-        /* RENGİN MİKTARI presetin `fShader`ından. MilkDrop dört köşe rengini
-           hesapladıktan sonra beyaza doğru bu oranla karıştırıyor ve oran
-           0,001'in altındaysa hiç hesaplamıyor: dört köşe de (1,1,1)
-           kalıyor (milkdropfs.cpp:3857-3876). Varsayılan 0
-           (state.cpp:548). Motor rengi HER presete veriyordu: korpusta
-           `hue_shader` okuyan 1.239 presetin 914'ü `fShader`ı sıfır
-           bırakıyor, yani MilkDrop'ta hiç renk almayan bir görüntüyü
-           renklendiriyorduk; 36'sı da ara bir oran yazıyor. */
-        const amt = accurate
-          ? Math.max(0, Math.min(1, +(P && P.get('fshader')) || 0)) : 1;
-        for (let i = 0; i < 4; i++) {
-          let r, g, b;
-          if (accurate && amt <= 0.001) {
-            r = 1; g = 1; b = 1;
-          } else if (accurate) {
-            const k = i;
-            r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
-            g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
-            b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
-            const mx = Math.max(r, g, b) || 1;
-            r = 0.5 + 0.5 * (r / mx);
-            g = 0.5 + 0.5 * (g / mx);
-            b = 0.5 + 0.5 * (b / mx);
-            r = r * amt + (1 - amt);
-            g = g * amt + (1 - amt);
-            b = b * amt + (1 - amt);
-          } else {
-            r = 0.5 + 0.5 * Math.sin(t * 0.31);
-            g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
-            b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
-          }
-          hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
+      for (let i = 0; i < 4; i++) {
+        let r, g, b;
+        if (accurate && !(amt > 0.001)) {
+          r = 1; g = 1; b = 1;
+        } else if (accurate) {
+          const k = i;
+          r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + k * 21 + rs[3]);
+          g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + k * 13 + rs[1]);
+          b = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + k * 9 + rs[2]);
+          const mx = Math.max(r, g, b) || 1;
+          r = 0.5 + 0.5 * (r / mx);
+          g = 0.5 + 0.5 * (g / mx);
+          b = 0.5 + 0.5 * (b / mx);
+          r = r * amt + (1 - amt);
+          g = g * amt + (1 - amt);
+          b = b * amt + (1 - amt);
+        } else {
+          r = 0.5 + 0.5 * Math.sin(t * 0.31);
+          g = 0.5 + 0.5 * Math.sin(t * 0.31 + 2.09);
+          b = 0.5 + 0.5 * Math.sin(t * 0.31 + 4.19);
         }
+        hc[i * 3] = r; hc[i * 3 + 1] = g; hc[i * 3 + 2] = b;
+      }
       return hc;
     }
 
@@ -2640,8 +2688,12 @@ void main(){
 
          Anahtar KAPALIYKEN dort koseye de AYNI renk gidiyor: yapi ayni
          kaliyor (yine dort kose, yine ayni shader), yalnizca degerler
-         motorun eski tek-renk davranisini veriyor. */
-      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(ctx.P, t, rand));
+         motorun eski tek-renk davranisini veriyor.
+
+         Oran HER ZAMAN 1, presetin `fShader`ı ne olursa olsun: MilkDrop
+         shader'a tam rengi veriyor ve kullanıp kullanmamayı shader'a
+         bırakıyor (milkdropfs.cpp:4122). Geçişte de hesaplanıyor. */
+      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(1, t, rand));
 
       /* Presetin kendisi bu uniform'ları okuyabiliyor (`b1n`/`b1x` olarak
          yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı preset
@@ -3455,8 +3507,18 @@ void main(){
         const acc = this._wantAcc !== false;
         if (acc) {
           const f = this._fixedCompInputs(Pp);
-          gl.uniform1f(this.locComp.uGamma, f.gain);
-          gl.uniform1f(this.locComp.uEchoAlpha, f.alpha);
+          /* Dört köşe rengi de burada: MilkDrop tam ekran dörtgenini bu
+             renklerle çiziyor (milkdropfs.cpp:3857-3884, 3940-3946).
+             Korpusta comp shader'ı olmayan 2.128 presetin 631'i sıfırdan
+             büyük bir `fShader` yazıyor. Oran DOSYADAN, geçişte doğrusal
+             karışarak; renk dizisi paylaşılan tampon, hemen ağırlıklara
+             dönüşüyor (çizim başına COLOR_NORM, M.fixedCompWeights). */
+          const shade = this._hueCorners(this._fileVal('fshader', 0), this.time, this.randPreset);
+          const w = window.SVMilkdrop.fixedCompWeights(f.gamma, f.alpha, shade,
+            this._compW || (this._compW = { main: new Float32Array(12), echo: new Float32Array(12) }));
+          gl.uniform3fv(this.locComp.uWMain, w.main);
+          gl.uniform3fv(this.locComp.uWEcho, w.echo);
+          gl.uniform1f(this.locComp.uEchoAlpha, w.echoOn ? 1 : 0);
           gl.uniform1f(this.locComp.uEchoZoom, f.zoom);
           gl.uniform1i(this.locComp.uEchoOrient, f.orient);
         } else {
@@ -3470,17 +3532,6 @@ void main(){
           Pp.get('brighten') ? 1 : 0, Pp.get('darken') ? 1 : 0,
           Pp.get('solarize') ? 1 : 0, Pp.get('invert') ? 1 : 0);
         if (this.locComp.uFxMd2) gl.uniform1f(this.locComp.uFxMd2, acc ? 1 : 0);
-        /* Dört köşe rengi burada da: MilkDrop tam ekran dörtgenini bu
-           renklerle çiziyor (milkdropfs.cpp:3940-3946), shader'lı yolla
-           aynı `shade` dizisinden. Korpusta comp shader'ı olmayan 2.129
-           presetin 631'i sıfırdan büyük bir `fShader` yazıyor; onlarda
-           ekran boyunca gezen bu ton hiç çizilmiyordu. Uyum kapalıyken
-           beyaz: eski sabit yol rengi hiç uygulamıyordu. */
-        if (this.locComp.uHue) {
-          gl.uniform3fv(this.locComp.uHue, this._wantAcc !== false
-            ? this._hueCorners(Pp, this.time, this.randPreset)
-            : (this._hueWhite || (this._hueWhite = new Float32Array(12).fill(1))));
-        }
       }
       gl.bindVertexArray(this.vao);
       gl.drawElements(gl.TRIANGLES, this.indexCount, gl.UNSIGNED_INT, 0);

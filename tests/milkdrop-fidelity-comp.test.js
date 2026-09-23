@@ -99,18 +99,43 @@ test('sabit yol yankı yönü: (int)x % 4, C işaret kuralıyla', () => {
   for (const [v, want] of cases) assert.strictEqual(M.echoFlipBits(v), want, String(v));
 });
 
-test('sabit yol gaması: yankıyla birlikte 1\'in altı uygulanmıyor', () => {
-  const on = (g) => M.fixedGammaGain(g, true);
-  const off = (g) => M.fixedGammaGain(g, false);
-  assert.strictEqual(on(0.5), 1);
-  assert.strictEqual(on(0), 1);
-  assert.strictEqual(on(1), 1);
-  assert.strictEqual(on(1.00005), 1, 'kırpma sınırı 1,0001');
-  assert.strictEqual(on(1.5), 1.5);
-  assert.strictEqual(on(2), 2);
-  assert.strictEqual(off(0.5), 0.5);
-  assert.strictEqual(off(0), 0, 'yankısız gama 0 siyah');
-  assert.strictEqual(off(2), 2);
+/* Sabit yolun gaması ve yankısı MilkDrop'un ÇİZİMLERİ olarak: her çizimin
+   köşe rengi gama × pay × ton ve COLOR_NORM'dan geçiyor (bayta kırpma,
+   taşanı sarma); ekrandaki çarpan çizimlerin toplamı
+   (milkdropfs.cpp:3907-4003). */
+test('sabit yol gaması ve yankısı: MilkDrop\'un çizimleri, çizim başına COLOR_NORM', () => {
+  const W = (g, a, s) => M.fixedCompWeights(g, a, new Array(12).fill(s === undefined ? 1 : s));
+  const b = (x) => Math.trunc(Math.fround(x * 255)) / 255;   // [0,1] içinde bayta kırpma
+  const near = (v, want, msg) => assert.ok(Math.abs(v - want) < 1e-6, msg + ': ' + v + ' ≠ ' + want);
+  // Yankı yok: (int)(g − 0,001) + 1 geçiş, sonuncusunun gaması kalan
+  near(W(2, 0).main[0], 2, 'gama 2 iki tam çizim');
+  near(W(1.5, 0).main[0], 1 + b(0.5), 'gama 1,5: 1 + bayta kırpılmış 0,5');
+  near(W(0.5, 0).main[0], b(0.5), 'gama 0,5 tek geçiş');
+  near(W(0, 0).main[0], 0, 'yankısız gama 0 siyah');
+  near(W(-1, 0).main[0], 0, 'gama −0,999 altında hiç çizim yok');
+  near(W(-0.9995, 0).main[0], 0, 'sınır (int)(g − 0,001): −0,9995 de çizilmiyor');
+  near(W(-0.5, 0).main[0], 129 / 255, 'eksi gama bayta SARIYOR');
+  assert.strictEqual(W(2, 0).echoOn, false);
+  assert.ok(W(2, 0).echo.every((v) => v === 0), 'yankısız yankı katmanı boş');
+  // Yankı açık: iki katman bir kez paylarıyla; ek çizim (int)(g − 0,0001) kez
+  let w = W(0.5, 0.5);
+  assert.strictEqual(w.echoOn, true);
+  near(w.main[0], b(0.5), '1\'in altındaki gama yankıyla uygulanmıyor (ana)');
+  near(w.echo[0], b(0.5), '1\'in altındaki gama yankıyla uygulanmıyor (yankı)');
+  near(W(1.00005, 0.5).main[0], b(0.5), 'kırpma sınırı 1,0001');
+  w = W(2.5, 0.3);
+  near(w.main[0], 2 * b(0.7) + b(0.35), 'ana: pay, 1 × pay, 0,5 × pay');
+  near(w.echo[0], 2 * b(0.3) + b(0.15), 'yankı: aynı çizimler');
+  near(W(1, 0.0005).main[0], 1, 'saydamlık 0,001 ve altı yankı sayılmıyor');
+  // Ton eksiye inerse (fShader 1'in üstünde) sarma başka bir renk veriyor
+  near(W(1, 0, -0.5).main[0], 129 / 255, 'ton −0,5');
+  near(W(1, 0, -2.3).main[0], (Math.trunc(Math.fround(-2.3 * 255)) & 0xFF) / 255, 'ton −2,3');
+  // Çok büyük gama doyuruyor; döngü sınırlı
+  assert.ok(W(1e6, 0).main[0] >= 1);
+  // Köşeler ayrı ayrı, dizideki sırasıyla
+  const s = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 0.55, 0.65, 0.75, 0.85, 0.95, 0.52];
+  const m2 = M.fixedCompWeights(1, 0, s).main;
+  s.forEach((v, i) => near(m2[i], b(v), 'köşe bileşeni ' + i));
 });
 
 // ------------------------------------------------------- varsayılanlar
@@ -311,6 +336,15 @@ test('motor: geçişte yönü farklı iki yankı sönüp yeniden beliriyor', () 
   f = m._fixedCompInputs(m.preset);
   assert.strictEqual(f.alpha, 0.5);
   assert.strictEqual(f.orient, 2);
+  /* Yeni presette yankı kapalı: yeni tarafın saydamlığı geçişte KARIŞAN
+     dosya değeri (m_fVideoEchoAlpha.eval), o 0,01'in üstünde kaldıkça eski
+     yankı yine eski yönle sönerek gidiyor */
+  m.preset = mk(0, 0);
+  m.oldPreset = mk(1, 0.5);
+  m.blendProg = 0.25;
+  assert.strictEqual(m._fixedCompInputs(m.preset).orient, 1, 'yeni tarafta yankı yok: yine eski yön');
+  m.blendProg = 0.999;
+  assert.strictEqual(m._fixedCompInputs(m.preset).orient, 0, 'karışan değer 0,0005: sönüm yok');
   // Geçiş yokken yön (int) % 4
   m.oldPreset = null;
   m.preset = mk(5, 0.5);
@@ -327,5 +361,35 @@ test('sabit birleştirme shader\'ı: MilkDrop 2 biçimleri anahtarın arkasında
   // Sabit geçiş uyum açıkken girdilerini MilkDrop'un kuralından alıyor
   assert.match(code, /const acc = this\._wantAcc !== false;\s*if \(acc\) \{\s*const f = this\._fixedCompInputs\(Pp\);/);
   assert.match(code, /gl\.uniform1i\(this\.locComp\.uEchoOrient, f\.orient\);/);
-  assert.match(code, /gl\.uniform1f\(this\.locComp\.uGamma, f\.gain\);/);
+  // Gama, yankının payı ve ton köşe ağırlıklarında; tonun oranı dosyadan
+  assert.match(code, /const shade = this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\);/);
+  assert.match(code, /window\.SVMilkdrop\.fixedCompWeights\(f\.gamma, f\.alpha, shade,/);
+  assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWMain, w\.main\);/);
+  assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWEcho, w\.echo\);/);
+  // MilkDrop biçiminde uEchoAlpha yalnız "yankı dalı var" bayrağı
+  assert.match(code, /gl\.uniform1f\(this\.locComp\.uEchoAlpha, w\.echoOn \? 1 : 0\);/);
+  assert.match(code, /c = texture\(uSrc, vUV\)\.rgb \* quad\(uWMain\);\s*if \(uEchoAlpha > 0\.001\) c \+= texture\(uSrc, echoUV\(\)\)\.rgb \* quad\(uWEcho\);/);
+  // Eski biçim kendi dalında, değişmeden
+  assert.match(code, /c = texture\(uSrc, vUV\)\.rgb;\s*if \(uEchoAlpha > 0\.001\) c = mix\(c, texture\(uSrc, echoUV\(\)\)\.rgb, uEchoAlpha\);\s*c \*= uGamma;/);
+});
+
+/* MilkDrop'un sabit dörtgeni iki üçgen (şerit v0 v1 v2 v3; ortak kenar
+   üst-sağdan alt-sola): köşe rengi her üçgenin içinde DOĞRUSAL. Shader'daki
+   formül burada sayılarla koşturuluyor — köşelerde köşenin kendisi, ortada
+   1 ile 2'nin ortalaması (çift doğrusalda dördünün ortalaması olurdu). */
+test('sabit dörtgen: köşe rengi iki üçgende doğrusal, ortak kenar üst-sağ → alt-sol', () => {
+  const code = read('src/visualizer/modes/milkdrop.js');
+  const q = /vec3 quad\(vec3 w\[4\]\) \{\s*float x = vUV\.x, y = vUV\.y;\s*if \(y >= x\) return ([^;]+);\s*return ([^;]+);\s*\}/.exec(code);
+  assert.ok(q, 'quad() bulunamadı');
+  const fn = new Function('w', 'x', 'y', 'return y >= x ? (' + q[1] + ') : (' + q[2] + ');');
+  const w = [10, 20, 30, 40];   // 0 üst-sol, 1 üst-sağ, 2 alt-sol, 3 alt-sağ
+  assert.strictEqual(fn(w, 0, 1), 10, 'üst-sol');
+  assert.strictEqual(fn(w, 1, 1), 20, 'üst-sağ');
+  assert.strictEqual(fn(w, 0, 0), 30, 'alt-sol');
+  assert.strictEqual(fn(w, 1, 0), 40, 'alt-sağ');
+  assert.strictEqual(fn(w, 0.5, 0.5), 25, 'orta: 1 ile 2\'nin ortalaması');
+  // Ortak kenarın iki yanı birleşiyor
+  for (const t of [0.1, 0.3, 0.7]) {
+    assert.ok(Math.abs(fn(w, t, t + 1e-9) - fn(w, t + 1e-9, t)) < 1e-6, 'kenarda süreksiz: ' + t);
+  }
 });
