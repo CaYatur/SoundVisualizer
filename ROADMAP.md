@@ -2138,10 +2138,13 @@ rest after. No version number yet.
     formulas behind the switch, and our own presets — the builtins, 64
     generated ones and 30 mash-ups of them — writing only keys MilkDrop
     reads, each once, unindented, with code lines numbered from 1 without
-    a gap. Seven older tests were updated: two used presets with
+    a gap. Eight older test files were updated: two used presets with
     `PSVERSION` lines but no `MILKDROP_PRESET_VERSION`, which MilkDrop
-    reads as MilkDrop 1, and the generator's golden hashes and wave-alpha
-    check follow the new key. 35 of 35 mutations are caught.
+    reads as MilkDrop 1; the generator's golden hashes and wave-alpha
+    check follow the new key; the mash-up tests check the part test
+    against the engine's stage choice and expect `md_mix2_` ids. 36 of 36
+    mutations are caught, one of them putting the mash-up rule version
+    back to 1.
 
 ## v3.1.6 — Comprehensive video export
 
