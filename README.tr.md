@@ -246,8 +246,11 @@ profilinde basamak olmadığını doğruluyor.
   solarize'ı açıyor); yankı yönü `(int)x % 4`; yankı açıkken 1'in altındaki gama uygulanmıyor;
   yankıları farklı yöne bakan iki preset geçişte karışırken yankı bir anda dönmüyor, sönüp
   yeniden beliriyor. Sönmesini ya da gamasını yazmayan bir preset 0 yerine MilkDrop'un 0,98 ve
-  2,0'ını alıyor, yazmadığı öteki değerlerin çoğu da öyle; dönme merkezi 0 ise köşede kalıyor.
-  Motordan geçirilerek çizildi: her durum MilkDrop'un formülüyle 2/255 içinde aynı.
+  2,0'ını alıyor, yazmadığı öteki değerler de öyle — MilkDrop'un eksik dalga rengini 0 okuyan
+  tuhaflığına kadar; dönme merkezi 0 ise köşede kalıyor. MilkDrop'un denklemlere açmadığı değerler
+  (dalga ölçeği ve yumuşatması, sesle sönme, warp hızı ve ölçeği) oradaki gibi dosyadan geliyor, yani
+  0 dalga ölçeği dalgayı düzleştiriyor (korpusta 102 preset). Motordan geçirilerek çizildi: her
+  durum MilkDrop'un formülüyle 2/255 içinde aynı.
 - **Birleştirme shader'ları MilkDrop'un verdiği ton rengini alıyor.** MilkDrop her birleştirme
   shader'ına `hue_shader` olarak dört köşede yavaşça gezinen renkler veriyor, presetin `fShader`ı
   ne derse desin; `fShader` onları yalnız sabit yolda ölçekliyor. Motor `fShader`ı shader'lara da

@@ -253,8 +253,11 @@ that asserts the bar profile has no step in it.
   on); echo orientation is `(int)x % 4`; gamma below 1 is ignored while echo is on; and when two
   presets whose echoes point different ways blend, the echo fades out and back in instead of
   flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
-  and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
-  Rendered through the engine, every case matches MilkDrop's formula within 2/255.
+  and so do the other values it leaves out — down to MilkDrop's quirk of reading a missing wave
+  colour as 0; a rotation centre of 0 stays in the corner. The values MilkDrop keeps out of the
+  equations (wave scale and smoothing, the volume fade, warp speed and scale) come from the file as
+  they do there, so a wave scale of 0 flattens the wave (102 presets of the corpus). Rendered
+  through the engine, every case matches MilkDrop's formula within 2/255.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders

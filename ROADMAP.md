@@ -2032,8 +2032,8 @@ rest after. No version number yet.
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
-  MilkDrop's defaults and the hue colour are done; the remaining defaults,
-  the other audits and the file-reading differences are next.
+  MilkDrop's defaults, the hue colour and the values that stay in the file
+  are done; the other audits and the file-reading differences are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
     passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
@@ -2146,15 +2146,34 @@ rest after. No version number yet.
     byte-identical; presets that read `hue_shader` differ in at most 0.1%
     of pixels by one level, the same four equal corner colours summed in
     another order.
-  - **Next: keys that fall back to other values.** MilkDrop reads a
-    missing `wave_r`, `wave_g`, `wave_b`, `wave_x` or `wave_y` as `rot`'s
-    value at that point, which is 0, where the engine has 1, 1, 1, 0.5 and
-    0.5. Missing wave smoothing is 0.75, and the volume fade runs from 0.75
-    to 0.95. Custom shapes default to red inside and green outside. MilkDrop
-    also blends its other file-only values linearly through a transition
-    (wave scale and smoothing, the fade range, warp scale), where the engine
-    reads them from per-frame values. No corpus preset leaves any of these
-    keys out, and neither do ours.
+  - **Keys that fall back to other values.** MilkDrop reads a missing
+    `wave_r`, `wave_g`, `wave_b`, `wave_x` or `wave_y` with `rot`'s value as
+    the default (state.cpp:1389-1393, the same in the D3D9 code), and `rot`
+    is still Default's 0 at that point — so a file without them draws a
+    black wave in the corner, where the engine had white and centred.
+    Custom shapes that leave out their colours are red inside and green
+    outside (state.cpp:619-626), where the engine had white and black. With
+    fidelity on the engine now does both. No corpus preset leaves any of
+    these keys out, and neither do ours.
+  - **Values that stay in the file.** Wave scale and smoothing, the volume
+    fade's switch and range, warp speed and warp scale are not per-frame
+    variables in MilkDrop; the engine read them from per-frame values, with
+    `|| 1` fallbacks. With fidelity on they now come from the file: missing
+    smoothing is 0.75 and the fade range 0.75 to 0.95, as in MilkDrop; a
+    wave scale of 0 flattens the wave (102 presets) and a warp speed of 0
+    stops the warp pattern (4 presets), where `|| 1` turned both into 1.
+    Through a transition wave scale and smoothing, the fade range and warp
+    scale blend linearly between the two files, and the warp's speed and
+    scale are the new preset's for both meshes, since MilkDrop computes the
+    warp frequencies once a frame from the new state (milkdropfs.cpp:
+    1591-1597); a custom wave takes the wave scale of its own preset,
+    unblended (2429).
+  - **Measured** against `main`, the last ten of 60 frames: 120 presets
+    that write none of these zeros are identical; of the 102 with wave
+    scale 0, 12 change and 7 by more than 1% (up to 23%), their waves now
+    flat; of the 4 with warp speed 0, one changes, slightly. With fidelity
+    off all of them are identical. The 900-preset sample sorts into the
+    same classes, preset for preset.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
     centre darkening, and the rest of the blend snap points; the
     file-reading differences found while building the mash-ups (a
@@ -2190,7 +2209,14 @@ rest after. No version number yet.
     `fShader`; the fixed amount's threshold, partial mix and no clamp; the
     draw weights (pass counts, the 1.0001 cut, the edge below −0.999,
     wraparound, per-corner order); the echo fade with no echo on the new
-    side; and `hueAt` not flipping y. 18 of 18 mutations are caught.
+    side; and `hueAt` not flipping y. 18 of 18 mutations are caught. The
+    values that stay in the file add three: missing wave keys at 0 and
+    shape colours red and green with fidelity on and the old base with it
+    off; a wave scale of 0 flattening the main wave with fidelity on and
+    counting as 1 with it off; and the volume fade's switch and range from
+    the file with MilkDrop's defaults, a negative switch counting as on.
+    Five test files follow the new reads, one of them with a flat custom
+    wave at scale 0. 16 of 16 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 
