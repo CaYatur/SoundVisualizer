@@ -165,6 +165,32 @@ test('dosyanın yazdığı değer varsayılanın önünde; mv_a bMotionVectorsOn
   assert.strictEqual(p.get('wave_a'), 0.3, 'başlık adı fWaveAlpha kazanmalı');
 });
 
+/* `wave_r/g/b/x/y` yazılmamışsa MilkDrop'ta 0: Import onları varsayılan
+   olarak `rot`un o anki değeriyle okuyor ve `rot` henüz Default'un 0'ı
+   (state.cpp:1389-1393). Şekillerin eksik renkleri iç kırmızı, dış yeşil
+   (state.cpp:619-626). Uyum kapalıyken eski beyaz, orta ve siyah. */
+test('eksik dalga rengi ve konumu 0; şeklin eksik renkleri kırmızı ve yeşil', () => {
+  const src = 'fDecay=0.9\nshapecode_0_enabled=1\nshapecode_0_r=1\n';
+  const acc = new M.Preset(src, { seed: 1 });
+  acc.frame({ time: 0, frame: 0 });
+  for (const k of ['wave_r', 'wave_g', 'wave_b', 'wave_x', 'wave_y']) assert.strictEqual(acc.get(k), 0, k);
+  const s = acc.shapeFrame(acc.shapes[0], 0);
+  assert.deepStrictEqual([s.r, s.g, s.b, s.a, s.r2, s.g2, s.b2, s.a2], [1, 0, 0, 1, 0, 1, 0, 0]);
+  // Dosyanın yazdığı değer kazanıyor
+  const w = new M.Preset('wave_r=0.3\nwave_x=0.7\nshapecode_0_enabled=1\nshapecode_0_g=0.4\n', { seed: 1 });
+  w.frame({ time: 0, frame: 0 });
+  assert.strictEqual(w.get('wave_r'), 0.3);
+  assert.strictEqual(w.get('wave_x'), 0.7);
+  assert.strictEqual(w.shapeFrame(w.shapes[0], 0).g, 0.4);
+  // Uyum kapalıyken eski taban
+  const legacy = new M.Preset(src, { seed: 1, accurate: false });
+  legacy.frame({ time: 0, frame: 0 });
+  assert.strictEqual(legacy.get('wave_r'), 1);
+  assert.strictEqual(legacy.get('wave_x'), 0.5);
+  const ls = legacy.shapeFrame(legacy.shapes[0], 0);
+  assert.deepStrictEqual([ls.g, ls.b, ls.g2], [1, 1, 0]);
+});
+
 test('init de MilkDrop\'un varsayılanlarını görüyor', () => {
   // MilkDrop init'ten önce yerleşik adları yüklüyor (LoadPerFrameEvallibVars)
   const p = new M.Preset('per_frame_init_1=q1 = decay + gamma;', { seed: 1 });

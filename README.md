@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2184%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2187%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -253,8 +253,11 @@ that asserts the bar profile has no step in it.
   on); echo orientation is `(int)x % 4`; gamma below 1 is ignored while echo is on; and when two
   presets whose echoes point different ways blend, the echo fades out and back in instead of
   flipping. A preset that leaves out its decay or gamma gets MilkDrop's 0.98 and 2.0 instead of 0,
-  and so do most other values a preset leaves out; a rotation centre of 0 stays in the corner.
-  Rendered through the engine, every case matches MilkDrop's formula within 2/255.
+  and so do the other values it leaves out — down to MilkDrop's quirk of reading a missing wave
+  colour as 0; a rotation centre of 0 stays in the corner. The values MilkDrop keeps out of the
+  equations (wave scale and smoothing, the volume fade, warp speed and scale) come from the file as
+  they do there, so a wave scale of 0 flattens the wave (102 presets of the corpus). Rendered
+  through the engine, every case matches MilkDrop's formula within 2/255.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
@@ -1305,7 +1308,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2184 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2187 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

@@ -2368,14 +2368,10 @@ void main(){
       let orient = M.echoFlipBits(Pp.get('echo_orient'));
       const O = this.oldPreset;
       if (O && this.blendProg < 1) {
-        const fp = (P, k, d) => {
-          const v = P && P.file && P.file.params ? P.file.params[k] : undefined;
-          return typeof v === 'number' && isFinite(v) ? v : d;
-        };
         const na = this._fileVal('fvideoechoalpha', 0);
-        const oa = fp(O, 'fvideoechoalpha', 0);
-        const no = Math.trunc(fp(Pp, 'nvideoechoorientation', 0));
-        const oo = Math.trunc(fp(O, 'nvideoechoorientation', 0));
+        const oa = this._fileOf(O, 'fvideoechoalpha', 0);
+        const no = Math.trunc(this._fileOf(Pp, 'nvideoechoorientation', 0));
+        const oo = Math.trunc(this._fileOf(O, 'nvideoechoorientation', 0));
         if (na > 0.01 && oa > 0.01 && no !== oo) {
           const ci = this._cosMix();
           if (this.blendProg < this._snapPoint()) {
@@ -2390,23 +2386,32 @@ void main(){
       return { alpha, zoom, orient, gamma: Pp.get('gamma') };
     }
 
-    /* DOSYADAN OKUNAN, KARE DEĞİŞKENİ OLMAYAN ayarlar — `fShader` gibi.
-       MilkDrop bunları denklemlere açmıyor: kodun aynı adla yazdığı değer
-       bir kullanıcı değişkeni olarak kalıyor. Geçişte eski ve yeni presetin
-       dosyadaki değeri arasında DOĞRUSAL, ham ilerlemeyle karışıyorlar
-       (`CBlendableFloat::eval`, state.cpp:1933-1953) — kosinüs eğrisi yok.
-       `key` dosyanın küçük harfli anahtarı; yazılmamışsa `dflt`, yani
-       MilkDrop'un varsayılanı. */
+    /* DOSYADAN OKUNAN, KARE DEĞİŞKENİ OLMAYAN ayarlar — `fShader`,
+       `fWaveScale`, `fWaveSmoothing`, `fModWaveAlphaStart/End`,
+       `fWarpScale`, `fWarpAnimSpeed`, `bModWaveAlphaByVolume`. MilkDrop
+       bunları denklemlere açmıyor: kodun aynı adla yazdığı değer bir
+       kullanıcı değişkeni olarak kalıyor. `key` dosyanın küçük harfli
+       anahtarı; yazılmamışsa `dflt`, yani MilkDrop'un varsayılanı. 0 da
+       bir değer: burada `|| 1` yok.
+
+       `_fileOf` tek presetinkini veriyor. `_fileVal` geçişte eski ve yeni
+       presetin değeri arasında DOĞRUSAL, ham ilerlemeyle karışanı —
+       MilkDrop'un karışabilen sayıları böyle (`CBlendableFloat::eval`,
+       state.cpp:1933-1953), kosinüs eğrisi yok. Karışmayanlar
+       (`fWarpAnimSpeed`, mantıksal ayarlar) geçişin başından yeni
+       presetin: MilkDrop onları anında değiştiriyor (state.cpp
+       StartBlendFrom). */
+    _fileOf(P, key, dflt) {
+      const v = P && P.file && P.file.params ? P.file.params[key] : undefined;
+      return typeof v === 'number' && isFinite(v) ? v : dflt;
+    }
+
     _fileVal(key, dflt) {
-      const get = (P) => {
-        const v = P && P.file && P.file.params ? P.file.params[key] : undefined;
-        return typeof v === 'number' && isFinite(v) ? v : dflt;
-      };
-      const cur = get(this.preset);
+      const cur = this._fileOf(this.preset, key, dflt);
       const O = this.oldPreset;
       if (!O || !(this.blendProg < 1)) return cur;
       const p = Math.max(0, Math.min(1, this.blendProg));
-      return get(O) * (1 - p) + cur * p;
+      return this._fileOf(O, key, dflt) * (1 - p) + cur * p;
     }
 
     /* MilkDrop'un dönme matrisleri: rot_s/d/f/vf/uf/rand 1..4.
@@ -3346,8 +3351,14 @@ void main(){
       /* Dalga örnekleri kare başına BİR KEZ, çizimlerden önce: özel
          dalgalar geçişte iki preset için iki kez çiziliyor. Hizalamanın
          kendisi karenin başında, bantlardan önce ilerletildi. */
-      this._waveSamples(audio, this.preset.get('wave_scale'),
-        this.preset.get('wave_smoothing'));
+      /* Ölçek ve yumuşatma uyum açıkken DOSYADAN, geçişte doğrusal karışarak
+         (milkdropfs.cpp:909-912): MilkDrop onları denklemlere açmıyor ve
+         yazılmamışsa 1 ile 0,75 kullanıyor. Havuzdan okumak yumuşatmayı
+         yazmayan dosyada 0 veriyordu. */
+      const accW = this._wantAcc !== false;
+      this._waveSamples(audio,
+        accW ? this._fileVal('fwavescale', 1) : this.preset.get('wave_scale'),
+        accW ? this._fileVal('fwavesmoothing', 0.75) : this.preset.get('wave_smoothing'));
       /* Dokulu şekiller ÖNCEKİ kareyi örnekliyor. Şu an yazdığımız hedefi
          okumak tanımsız davranış: aynı dokudan okurken aynı dokuya yazmak
          sürücüye göre değişen çöp verir. MilkDrop da şekli sampler_main
@@ -3863,9 +3874,16 @@ void main(){
          kural.
 
          Sifira bolme korunuyor: `fWarpScale = 0` yazan bir preset var
-         olabilir ve sonsuz bir frekans butun agi katlardi. */
-      const wSpeed = acc ? (P.get('warpanimspeed') || 1) : 1;
-      const wScaleRaw = acc ? (P.get('warpscale') || 1) : 1;
+         olabilir ve sonsuz bir frekans butun agi katlardi.
+
+         İKİ DEĞER DE DOSYADAN ve YENİ presetten, geçişte eski presetin ağı
+         için de (#580): MilkDrop frekansları karede bir kez, yeni durumdan
+         hesaplıyor ve iki ağa da uyguluyor (milkdropfs.cpp:1591-1597). Hız
+         karışmıyor (düz bir sayı), ölçek doğrusal karışıyor. 0 bir hız:
+         korpusta 4 preset `fWarpAnimSpeed=0` yazıyor ve deseni durduruyor;
+         `|| 1` onu yine oynatıyordu. */
+      const wSpeed = acc ? this._fileOf(this.preset, 'fwarpanimspeed', 1) : 1;
+      const wScaleRaw = acc ? this._fileVal('fwarpscale', 1) : 1;
       const wScale = Math.abs(wScaleRaw) < 1e-4 ? 1e-4 : wScaleRaw;
       const warpTime = clock * wSpeed;
       const wsi = 1 / wScale;
@@ -4643,8 +4661,12 @@ void main(){
          ornekler ±128 biriminde. Motor bir ara 1 kullaniyordu — ozel
          dalgalarin hepsi olmasi gerekenin iki kati buyuklukteydi ve
          `wave_scale` onlara hic ulasmiyordu. Artik iki yol da MilkDrop'un
-         carpanini KENDI biriminde kullaniyor. */
-      const ws = acc ? (WP.get('wave_scale') || 1) : 1;
+         carpanini KENDI biriminde kullaniyor.
+
+         `wave_scale` dalganın KENDİ presetinin dosyasından, karışmadan
+         (`pState->m_fWaveScale.eval(-1)`, milkdropfs.cpp:2429); 0 dalgayı
+         düzleştiriyor. `|| 1` 102 presette 0'ı 1'e çeviriyordu (#580). */
+      const ws = acc ? this._fileOf(WP, 'fwavescale', 1) : 1;
       const sc = acc ? (fq ? 0.15 : 0.004) * w.scaling * ws : w.scaling / 128;
       for (let i = 0; i < N; i++) { a[i] *= sc; b[i] *= sc; }
     }
@@ -4708,13 +4730,18 @@ void main(){
       return a;
     }
 
+    /* Ses yüksekliğiyle sönen dalga. Anahtar ve aralık DOSYADAN (#580):
+       MilkDrop üçünü de denklemlere açmıyor; aralık yazılmamışsa 0,75 ile
+       0,95 ve geçişte doğrusal karışıyor, anahtar geçişin başından yeni
+       presetin (milkdropfs.cpp:2693-2694, state.cpp:570-572). Havuzdan
+       okumak eksik aralığı 0 yapıyordu. */
     _waveVolAlpha(a) {
       let alpha = isFinite(a) ? a : 1;
       const P = this.preset;
-      if (this._wantAcc !== false && P && P.get('wave_modalpha') > 0) {
+      if (this._wantAcc !== false && P && this._fileOf(P, 'bmodwavealphabyvolume', 0) !== 0) {
         const vol = ((P.get('bass') || 0) + (P.get('mid') || 0) + (P.get('treb') || 0)) / 3;
-        const a0 = P.get('wave_modalpha_start') || 0;
-        const a1 = P.get('wave_modalpha_end') || 0;
+        const a0 = this._fileVal('fmodwavealphastart', 0.75);
+        const a1 = this._fileVal('fmodwavealphaend', 0.95);
         const d = a1 - a0;
         if (Math.abs(d) > 1e-6) alpha *= (vol - a0) / d;
       }
@@ -4761,7 +4788,10 @@ void main(){
       if (!this._fL) { this._fL = new Float32Array(576); this._fR = new Float32Array(576); }
       const L = this._fL, R = this._fR;
       const n = tb.length;
-      const s = isFinite(scale) && scale !== 0 ? scale : 1;
+      /* Uyum açıkken 0 da bir ölçek: dalga düzleşiyor, MilkDrop'ta olduğu
+         gibi (korpusta 102 preset `fWaveScale=0` yazıyor). Eski yol 0'ı
+         "yok" sayıp 1'e çeviriyordu. */
+      const s = isFinite(scale) && (scale !== 0 || this._wantAcc !== false) ? scale : 1;
       let sm = this._wantAcc !== false && isFinite(smoothing) ? smoothing : 0;
       if (sm < 0) sm = 0; else if (sm > 1) sm = 1;
       // Uyum açıkken hizalanmış iki kanal, aynı süzgeçle

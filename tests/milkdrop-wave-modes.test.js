@@ -47,16 +47,23 @@ function drawWave(opts) {
   const fn = new Function('gl', 'GW', 'GH', 'window', 'smoothWave', body(method('_drawWaveModes(gl, GW, GH)')));
   const vol = new Function('a', body(method('_waveVolAlpha(a)')));
   const modeAlpha = new Function('a', 'mode', 'GW', body(method('_waveModeAlpha(a, mode, GW)')));
+  // Sesle sönmenin anahtarı ve aralığı dosyadan okunuyor (#580)
+  const fileOf = new Function('P', 'key', 'dflt', body(method('_fileOf(P, key, dflt)')));
+  const fileVal = new Function('key', 'dflt', body(method('_fileVal(key, dflt)')));
   const vals = Object.assign({
     wave_mode: 0, wave_a: 1, wave_r: 1, wave_g: 1, wave_b: 1, wave_x: 0.5, wave_y: 0.5,
     wave_mystery: 0, wave_brighten: 0, wave_usedots: 0, wave_thick: 0, wave_additive: 0,
-    wave_modalpha: 0, wave_modalpha_start: 0, wave_modalpha_end: 1, bass: 1, mid: 1, treb: 1,
+    bass: 1, mid: 1, treb: 1,
   }, opts.vals || {});
-  const preset = { get: (k) => vals[k] };
+  const preset = { get: (k) => vals[k], file: { params: opts.file || {} } };
   let got = null;
   const self = {
     _wantAcc: opts.acc !== false,
     preset,
+    oldPreset: null,
+    blendProg: 1,
+    _fileOf: fileOf,
+    _fileVal: fileVal,
     time: opts.time || 0,
     _fL: opts.L,
     _fR: opts.R,
