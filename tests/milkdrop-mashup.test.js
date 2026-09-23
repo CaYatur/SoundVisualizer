@@ -176,9 +176,12 @@ test('"yok" shader parçası bulanıklık aralıklarını da götürüyor', () =
 
 // ------------------------------------------------------------- parça var mı
 
-test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
+/* Parça sınamaları motorun uyum açıkken dosyayı OKUDUĞU gibi: MilkDrop'un
+   okuyuşu (#580). Karışım satırları olduğu gibi kopyaladığı için MilkDrop'un
+   vericide okumadığı bir satır karışımda da okunmuyor. */
+test('"parçası var mı" motorun okuyuşuyla aynı cevabı veriyor', () => {
   const parsedHas = (t, slot) => {
-    const f = M.parseMilk(t);
+    const f = M.parseMilkMd2(t);
     const enabled = (pre) => Object.keys(f.params).some((k) => new RegExp('^' + pre + '_\\d+_enabled$').test(k) &&
       typeof f.params[k] === 'number' && f.params[k] !== 0);
     if (slot === 'look') return true;
@@ -219,6 +222,33 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
       assert.strictEqual(X.has(t, s), parsedHas(t, s), s + ': ' + JSON.stringify(t.slice(0, 60)));
     }
   }
+  /* MilkDrop'un okuyuşunun eski ayrıştırıcıdan ayrıldığı yerler açıkça:
+     büyük harfli anahtar okunmuyor, girintili satır okunmuyor, iki kez
+     yazılmış anahtarda ilki, numaralı kod 1'den başlamıyorsa hiç okunmuyor,
+     sürüm satırı yanlış harfle yazılmışsa MilkDrop 1. */
+  assert.strictEqual(X.has('[preset00]\nWAVECODE_1_ENABLED=1\n', 'waves'), false);
+  assert.strictEqual(X.has('[preset00]\n  PER_FRAME_1=zoom = 1.01;\n', 'motion'), false);
+  assert.strictEqual(X.has('[preset00]\n  per_frame_1=zoom = 1.01;\n', 'motion'), false);
+  assert.strictEqual(X.has('[preset00]\nshapecode_2_enabled=1\nshapecode_2_enabled=0\n', 'shapes'), true);
+  assert.strictEqual(X.has('[preset00]\nper_frame_2=zoom = 1.01;\n', 'motion'), false);
+  assert.strictEqual(X.has('milkdrop_preset_version=201\n[preset00]\ncomp_1=`ret = 1;\n', 'comp'), false);
+  assert.strictEqual(X.has('MILKDROP_PRESET_VERSION=201\n[preset00]\ncomp_1=`ret = 1;\n', 'comp'), true);
+});
+
+/* Karışımın sürüm satırları vericinin MilkDrop'ta OKUNAN sürümünden
+   (#580): `PSVERSION_comp=3` yanlış harfle yazılmış, MilkDrop okumuyor ve
+   2 sayıyor; iki kez yazılmış `PSVERSION_WARP`ta ardındaki satır. */
+test('karışımın sürüm satırları vericinin MilkDrop\'ta okunan sürümü', () => {
+  const ver = (t) => {
+    const o = M.parseMilkMd2(t).params;
+    return [o.milkdrop_preset_version, o.psversion_warp, o.psversion_comp];
+  };
+  const odd = 'MILKDROP_PRESET_VERSION=201\nPSVERSION_comp=3\n[preset00]\ncomp_1=`ret = 1;\n';
+  const out = X.compose({ look: odd, motion: odd, waves: odd, shapes: odd, warp: X.NONE, comp: odd });
+  assert.deepStrictEqual(ver(out), [201, 0, 2], out.slice(0, 120));
+  const dup = 'MILKDROP_PRESET_VERSION=201\nPSVERSION_WARP=2\nPSVERSION_WARP=0\n[preset00]\nwarp_1=`shader_body\n';
+  const out2 = X.compose({ look: dup, motion: dup, waves: dup, shapes: dup, warp: dup, comp: X.NONE });
+  assert.deepStrictEqual(ver(out2), [201, 2, 0], out2.slice(0, 120));
 });
 
 // --------------------------------------------------------- kimlik ve ad
@@ -226,7 +256,7 @@ test('"parçası var mı" ayrıştırıcıyla aynı cevabı veriyor', () => {
 test('kimlik tariften: aynı tarif aynı kimlik, depo adıyla uyumlu', () => {
   const r = { look: 'a', motion: 'b', waves: 'c', shapes: 'a', warp: '', comp: 'd' };
   const id = X.idOf(r);
-  assert.match(id, /^md_mix2_[0-9a-f]{16}$/);
+  assert.match(id, /^md_mix3_[0-9a-f]{16}$/);
   assert.strictEqual(X.idOf(Object.assign({}, r)), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { warp: 'b' })), id);
   assert.notStrictEqual(X.idOf(Object.assign({}, r, { look: 'b', motion: 'a' })), id, 'parçanın yeri de kimlikte');

@@ -39,8 +39,11 @@
      1: ilk kurallar (#579).
      2: shader parçası MilkDrop'un aşama kuralına uyuyor (#580) — sürümü
         MilkDrop'ta 0 okunan bir shader karışımda da 0 yazılıyor; 1'de 2
-        yazılıyor ve motor o shader'ı çiziyordu. */
-  const VERSION = 2;
+        yazılıyor ve motor o shader'ı çiziyordu.
+     3: sürüm satırları ve parça sınamaları MilkDrop'un okuyuşuyla (#580) —
+        büyük/küçük harfe duyarlı, iki kez yazılmışsa MilkDrop'un bulduğu:
+        `PSVERSION_comp=3` yazan bir vericinin shader'ı 3 değil 2 yazılıyor. */
+  const VERSION = 3;
   const SLOTS = ['look', 'motion', 'waves', 'shapes', 'warp', 'comp'];
   // Shader parçası "yok" olabilir: görünümün sabit yolu (yankı, gama, bayraklar) o zaman çalışıyor
   const NONE = '';
@@ -67,10 +70,22 @@
     return 'look';
   }
 
-  /* Sürüm satırının değeri, ayrıştırıcının kuralıyla: değerin TAMAMI
-     sayıysa sayı, değilse "yok" (NaN; sürüm kuralı onu varsayılana
-     düşürüyor). Aynı anahtar iki kez geçerse sonuncusu — ayrıştırıcı da
-     öyle tutuyor. */
+  /* Sürüm satırları MOTORUN okuduğu gibi (#580): `readVersions`,
+     MilkDrop'un Import'unun ilk okumaları — büyük/küçük harfe duyarlı,
+     iki kez yazılmışsa MilkDrop'un bulduğu, değer `%d`. Motor uyum açıkken
+     dosyayı bu kuralla okuyor; karışımın aşama kararı onunla aynı olmalı.
+     Motor yüklü değilse (bu modül tek başına) eski tarama: büyük/küçük
+     harfe duyarsız, sonuncusu, değerin tamamı sayıysa. */
+  let ENGINE = null;
+  const engine = () => {
+    if (ENGINE) return ENGINE;
+    if (typeof window !== 'undefined' && window.SVMilkdrop && window.SVMilkdrop.readVersions) {
+      ENGINE = window.SVMilkdrop;
+    } else if (typeof module !== 'undefined' && typeof require === 'function') {
+      try { ENGINE = require('./milkdrop.js'); } catch (e) { ENGINE = null; }
+    }
+    return ENGINE;
+  };
   const numVal = (raw) => {
     const n = parseFloat(raw);
     return isFinite(n) && /^[\s\-+.0-9eE]+$/.test(raw) ? n : NaN;
@@ -78,6 +93,8 @@
 
   // Yalnız sürüm satırları, metni ayrıştırmadan (aday sınaması için)
   function versionsOf(text) {
+    const E = engine();
+    if (E && E.readVersions) return E.readVersions(String(text == null ? '' : text));
     const ver = {};
     const re = /^[ \t]*(milkdrop_preset_version|psversion_warp|psversion_comp|psversion)[ \t]*=(.*)$/gmi;
     let m;
@@ -90,7 +107,6 @@
      sürüm satırlarının değerleri. */
   function split(text) {
     const out = { look: [], motion: [], waves: [], shapes: [], warp: [], comp: [] };
-    const ver = {};
     for (const raw of String(text == null ? '' : text).split(/\r?\n/)) {
       const line = raw.trim();
       if (!line || line[0] === '[') continue;
@@ -98,32 +114,48 @@
       if (eq < 0) continue;
       const key = line.slice(0, eq).trim().toLowerCase();
       const slot = slotOf(key);
-      if (slot === 'version') {
-        ver[key] = numVal(line.slice(eq + 1));
-        continue;
-      }
+      // Sürüm satırları kopyalanmıyor, karışımda yeniden yazılıyor
+      if (slot === 'version') continue;
       /* Satırın iki ucu kırpılmış hâli: ayrıştırıcı da satırı öyle okuyor.
          Shader girintisi ters tırnaktan SONRA, kırpmadan etkilenmiyor. */
       out[slot].push(line);
     }
-    return { lines: out, ver };
+    return { lines: out, ver: versionsOf(text) };
   }
 
-  /* Bir parçası var mı — ayrıştırıcıyla aynı cevap, ama ayrıştırmadan.
-     Aday seçimi on bin presetlik bir listede satır satır arıyor; her aday
-     için tam ayrıştırma pahalı olurdu. Ölçüldü: korpusun 10.332 presetinde
-     altı parçanın hepsi için ayrıştırıcıyla birebir aynı (ROADMAP #579).
+  /* Bir parçası var mı — motorun uyum açıkken DOSYAYI OKUDUĞU GİBİ (#580):
+     MilkDrop'un okuyuşu (`parseMilkMd2`), büyük/küçük harfe duyarlı,
+     numaralı kod ilk eksik numarada bitiyor, iki kez yazılmış anahtarda
+     MilkDrop'un bulduğu. Karışım satırları olduğu gibi kopyaladığı için
+     MilkDrop'un vericide okumadığı bir satır karışımda da okunmuyor; o
+     presetin o parçası yok sayılmalı.
 
-       motion — boş olmayan bir denklem satırı (yorum dışında)
+       motion — yorumlar atıldıktan sonra boş olmayan bir denklem bloğu
        waves/shapes — açık (enabled sıfırdan farklı) bir blok
-       warp/comp — boş olmayan bir shader satırı VE o aşamanın sürümü
-         sıfırdan büyük: MilkDrop sürümü 0 olan aşamanın metnini okumuyor,
-         motor da (#580); öyle bir preset o parçayı veremez */
+       warp/comp — motorun aşama kuralında o aşama shader'la çiziliyor:
+         sürümü sıfırdan büyük ve metni boş değil
+
+     Okuma aday başına ~0,2 ms (korpusta ölçüldü) ve son metin önbellekte:
+     bir presetin altı parçası tek okuma. Motor yüklü değilse (bu modül
+     tek başına) eski metin sınamaları. */
+  let lastText = null;
+  let lastRead = null;
   function has(text, slot) {
-    if (slot === 'warp' || slot === 'comp') {
-      return hasLine(text, slot) && stageVersion(versionsOf(String(text == null ? '' : text)), slot) > 0;
+    if (slot === 'look') return true;
+    const s = String(text == null ? '' : text);
+    const E = engine();
+    if (!E || !E.parseMilkMd2) {
+      if (slot === 'warp' || slot === 'comp') return hasLine(s, slot) && stageVersion(versionsOf(s), slot) > 0;
+      return hasLine(s, slot);
     }
-    return hasLine(text, slot);
+    if (s !== lastText) { lastText = s; lastRead = E.parseMilkMd2(s); }
+    const f = lastRead;
+    if (slot === 'motion') return !!(f.init.trim() || f.perFrame.trim() || f.perPixel.trim());
+    if (slot === 'waves' || slot === 'shapes') {
+      const re = slot === 'waves' ? /^wavecode_\d+_enabled$/ : /^shapecode_\d+_enabled$/;
+      return Object.keys(f.params).some((k) => re.test(k) && f.params[k] !== 0);
+    }
+    return E.stagePlan(f)[slot] === 'shader';
   }
 
   function hasLine(text, slot) {
