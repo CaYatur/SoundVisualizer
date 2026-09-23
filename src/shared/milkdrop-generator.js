@@ -983,7 +983,12 @@
     put('wave_r', num(cW[0]));
     put('wave_g', num(cW[1]));
     put('wave_b', num(cW[2]));
-    put('wave_a', num(wA));
+    /* MilkDrop başlıkta dalga saydamlığını `fWaveAlpha`dan okuyor;
+       `wave_a` yalnız denklem adı. Önce `wave_a` yazılıyordu: motor ikisini
+       de okuduğu için burada fark yoktu, MilkDrop'ta ise değer okunmayıp
+       varsayılan 0,8'e düşüyordu (#580). Korpusun 10.332 presetinin hepsi
+       fWaveAlpha yazıyor. */
+    put('fWaveAlpha', num(wA));
     put('wave_x', '0.500');
     put('wave_y', '0.500');
     put('fWaveScale', num(wScale));
