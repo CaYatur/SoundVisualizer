@@ -233,6 +233,25 @@
   const T_STRICT = (v) => v > CLOSE || v < -CLOSE;
   const EQ_MD2 = (a, b) => { const d = a - b; return !(d >= CLOSE || d <= -CLOSE); };
 
+  /* x87 `fistp` ile 32 bitlik tam sayıya çevirme. MilkDrop kodu koşturmadan
+     önce yuvarlama kipini KIRPMAYA alıyor (nseel-compiler.c GLUE_CALL_CODE:
+     `_controlfp(_RC_CHOP, _MCW_RC)`), yani sıfıra doğru kırpılıyor; sığmayan
+     değer ve NaN "belirsiz tam sayı" veriyor: −2^31. */
+  const FIST = (x) => {
+    const t = Math.trunc(x);
+    return t >= -2147483648 && t <= 2147483647 ? t : -2147483648;
+  };
+
+  /* MilkDrop'un KALANI (`%`, `%=`, `_mod`): iki taraf da MUTLAK değerinin
+     tam kısmına iniyor ve bölme işaretsiz — sonuç hiç negatif olmuyor
+     (asm-nseel-x86-msvc.c nseel_asm_mod: fabs; fistp; div). −7 % 3 MilkDrop'ta
+     1, JavaScript'te −1. Sığmayan değer −2^31, işaretsiz 2^31 oluyor.
+     Bölen 0 ise 0. */
+  const MOD_MD2 = (a, b) => {
+    const ub = FIST(Math.abs(b)) >>> 0;
+    return ub === 0 ? 0 : (FIST(Math.abs(a)) >>> 0) % ub;
+  };
+
   // ==========================================================================
   // Ayrıştırıcı
   // ==========================================================================
@@ -769,11 +788,14 @@
        panel bunu göstersin diye. Sessizce çalıştırmak, kullanıcıya yanlış
        görünen bir sahnenin sebebini saklardı. */
     const skipped = (stmts.errors || []).slice();
+    const mode = o.mode || { md2: false };
     // Yardımcılar kapanışa dışarıdan verilir; üretilen kodda serbest
     // tanımlayıcı yoktur.
     const F = (v) => (isFinite(v) ? v : 0);
     const D = (a, b) => (b === 0 ? 0 : F(a / b));
+    // Kalan: uyum açıkken MilkDrop'unki (MOD_MD2), kapalıyken işaretli
     const M = (a, b) => {
+      if (mode.md2) return MOD_MD2(a, b);
       const bi = b | 0;
       return bi === 0 ? 0 : (a | 0) % bi;
     };
@@ -789,7 +811,7 @@
     /* Yardımcılar kapanışlara buradan verilir. R tohumu dışarıda tuttuğu
        için resetSeed sonradan da çalışır. */
     const budget = { n: 0 };
-    const cx = { F, D, M, R, budget, mode: o.mode || { md2: false } };
+    const cx = { F, D, M, R, budget, mode };
     const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
 
     let prog;

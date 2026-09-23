@@ -133,6 +133,21 @@ test('kip çalışma anında: aynı derleme mode.md2 çevrilince öbür sınamay
   assert.strictEqual(p2.get('b'), 0, 'iç ad yok');
 });
 
+// ------------------------------------------------------------ kalan
+
+test('%: uyum açıkken iki tarafın mutlak değerinin tam kısmıyla, sonuç hiç negatif değil', () => {
+  const src = 'a = -7 % 3; b = 7 % -3; c = -7 % -3; d = 7.9 % 3.9; e = 5 % 0.5 + 1; f = -7.5 % 2; x %= -4; h = _mod(-9, 4); megabuf(1) = -10; megabuf(1) %= 3; k = megabuf(1);';
+  const on = run(src, true, { x: -10 });
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'x', 'h', 'k'].map(on.get), [1, 1, 1, 1, 1, 1, 2, 1, 1]);
+  const off = run(src, false, { x: -10 });
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'x', 'k'].map(off.get), [-1, 1, -1, 1, 1, -1, -2, -1], 'kapalıyken işaretli');
+});
+
+test('%: 32 bite sığmayan değer MilkDrop\'ta 2^31 oluyor (x87 belirsiz tam sayısı, işaretsiz)', () => {
+  const on = run('a = 3000000000 % 7; b = 7 % 3000000000; c = -3000000000 % 1000;', true);
+  assert.deepStrictEqual(['a', 'b', 'c'].map(on.get), [2147483648 % 7, 7, 2147483648 % 1000]);
+});
+
 // ------------------------------------------------------------ preset bağlantısı
 
 const PRESET = [
