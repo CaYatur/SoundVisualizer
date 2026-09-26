@@ -1,7 +1,7 @@
 {
   "name": "soundvisualizer",
   "version": "3.1.4",
-  "description": "CAYADEV — çoklu ekran, OBS yayın çıkışı ve Studio shader editörü olan ses görselleştirici (Windows + macOS)",
+  "description": "CAYADEV \u2014 \u00e7oklu ekran, OBS yay\u0131n \u00e7\u0131k\u0131\u015f\u0131 ve Studio shader edit\u00f6r\u00fc olan ses g\u00f6rselle\u015ftirici (Windows + macOS)",
   "main": "src/main/main.js",
   "author": {
     "name": "CAYADEV",
@@ -17,6 +17,8 @@
   "scripts": {
     "start": "node scripts/start.js",
     "dev": "node scripts/start.js --dev",
+    "postinstall": "node scripts/rebuild-audify.js",
+    "rebuild:audio": "node scripts/rebuild-audify.js",
     "icons": "node scripts/gen-icons.js",
     "prepare:smtc": "node scripts/prepare-smtc.js",
     "prepare:appaudio": "node scripts/prepare-app-audio.js",
@@ -31,6 +33,7 @@
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",
+    "@electron/rebuild": "^4.2.0",
     "electron": "^43.6.0",
     "electron-builder": "^26.15.3",
     "node-gyp": "^12.3.0",

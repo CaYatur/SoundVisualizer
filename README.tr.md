@@ -1204,6 +1204,8 @@ okur, FFT'yi hesaplar ve kareleri arayüze gönderir.
 npm install
 ```
 
+`npm install` bitince `audify` native modülü Electron için otomatik yeniden derlenir (`postinstall` → `rebuild:audio`). Bu adım olmazsa kaynaktan `npm start` ses yardımcı sürecinde `INVALID_HELPER_OUTPUT` verebilir. Elle: `npm run rebuild:audio`, sonra `npm run check:runtime`.
+
 ```bash
 npm start
 ```

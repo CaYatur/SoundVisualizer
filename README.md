@@ -1207,6 +1207,8 @@ computes the FFT, and sends frames to the renderer.
 npm install
 ```
 
+After `npm install`, the `audify` native module is rebuilt for Electron automatically (`postinstall` → `rebuild:audio`). Without that step, source `npm start` can show `INVALID_HELPER_OUTPUT` from the audio helper. Manual: `npm run rebuild:audio`, then `npm run check:runtime`.
+
 ```bash
 npm start
 ```
