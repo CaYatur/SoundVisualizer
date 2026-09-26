@@ -3136,6 +3136,9 @@
   // --------------------------------------------------------------------------
   // Render — yalnızca seçili kategorinin kartları
   // --------------------------------------------------------------------------
+  /* #615: hızlı ardışık render'larda eski rAF restore'ları yeni scroll'u ezmesin */
+  let sectionsScrollRestoreGen = 0;
+
   function render() {
     const root = $('sections');
     const prevScroll = root.scrollTop;
@@ -3158,7 +3161,19 @@
     });
 
     renderNav();
-    root.scrollTop = prevScroll;
+    /* #615: innerHTML sonrası sync scrollTop layout oturmadan clamp olur (mode/katman/tür).
+       MilkDrop listesindeki deferred restore ile aynı fikir; çift rAF + clamp. */
+    const gen = ++sectionsScrollRestoreGen;
+    const restoreSectionsScroll = () => {
+      if (gen !== sectionsScrollRestoreGen || !root.isConnected) return;
+      const max = Math.max(0, root.scrollHeight - root.clientHeight);
+      root.scrollTop = Math.min(prevScroll, max);
+    };
+    restoreSectionsScroll();
+    requestAnimationFrame(() => {
+      restoreSectionsScroll();
+      requestAnimationFrame(restoreSectionsScroll);
+    });
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
   }
 
