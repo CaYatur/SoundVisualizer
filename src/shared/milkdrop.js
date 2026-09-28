@@ -81,6 +81,15 @@
      çevrilince aynı karede değişiyor. */
   const REGS = new Float64Array(100);
   const REG_RE = /^reg\d\d$/;
+
+  /* Döngü sınırı: ns-eel2'de `loop` ve `while` ÇAĞRI BAŞINA en çok
+     1.048.576 tur (ns-eel.h NSEEL_LOOPFUNC_SUPPORT_MAXLEN; asm
+     nseel_asm_repeat / _repeatwhile). Uyum açıkken bu sınır da uygulanıyor;
+     motorun koşu başına bütçesi (loopBudget / loopBudgetMd2) uygulamanın
+     donmaması için ayrıca duruyor. */
+  const LOOP_CAP = 1048576;
+  // Uyum açıkken bir şeklin bir karede, bütün örnekleriyle harcayabileceği tur
+  const SHAPE_FRAME_LOOPS = 4194304;
   /* Ortak bellekleri (gmegabuf, reg'ler) sıfırlar. MilkDrop bunu hiç
      yapmıyor; ölçüm ve testler presetleri birbirinden yalıtmak için
      çağırıyor. */
@@ -655,7 +664,7 @@
       case 'loop': {
         const n = emit(node.n, pool, cx);
         const body = node.body.map((b) => emit(b, pool, cx));
-        const budget = cx.budget;
+        const budget = cx.budget, mode = cx.mode;
         const len = body.length;
         /* Bütçe: bir preset per_pixel içinde loop(10000, …) yazabilir. Ağın
            1271 düğümünde 60 fps ile bu kare başına 762 milyon işlem demek —
@@ -665,6 +674,7 @@
         return (P) => {
           let k = n(P) | 0;
           if (k < 0) k = 0;
+          if (mode.md2 && k > LOOP_CAP) k = LOOP_CAP;
           for (let i = 0; i < k; i++) {
             if (--budget.n < 0) break;
             for (let j = 0; j < len; j++) body[j](P);
@@ -800,7 +810,8 @@
       const body = a[0];
       const budget = cx.budget;
       return (P) => {
-        for (;;) {
+        for (let it = 0; ; it++) {
+          if (mode.md2 && it >= LOOP_CAP) break;
           if (--budget.n < 0) break;
           const v = body(P);
           if (mode.md2 ? !T_MD2(v) : v === 0) break;
@@ -901,6 +912,8 @@
     const budget = { n: 0 };
     const cx = { F, D, M, R, budget, mode };
     const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
+    // Uyum açıkken bütçe (verilmezse aynısı): MilkDrop'un izin verdiğine yakın
+    const LOOP_BUDGET_MD2 = Math.max(0, Number(o.loopBudgetMd2) || LOOP_BUDGET);
 
     let prog;
     try {
@@ -917,12 +930,17 @@
       skipped: skipped.length,
       statements: stmts.length,
       resetSeed: (sd) => { seed = (sd || 12345) >>> 0; },
-      run: (P) => {
+      /* cap: bu koşunun bütçesi bundan büyük olamaz (şeklin kare toplamı).
+         Dönüş: harcanan tur. */
+      run: (P, cap) => {
         const V = P || p.values;
-        budget.n = LOOP_BUDGET;
+        const b = mode.md2 ? LOOP_BUDGET_MD2 : LOOP_BUDGET;
+        const start = cap !== undefined && cap < b ? cap : b;
+        budget.n = start;
         try {
           for (let i = 0; i < prog.length; i++) prog[i](V);
         } catch (e) { /* çalışma anı hatası kareyi düşürmesin */ }
+        return start - Math.max(0, budget.n);
       },
     };
   }
@@ -1655,10 +1673,14 @@
       /* Döngü bütçesi bloğun KAÇ KEZ koştuğuna göre veriliyor: init bir kez,
          per_frame saniyede 60 kez, per_pixel ise ağın 1271 düğümünde yani
          saniyede ~76 bin kez. Tek bir sabit bütçe ya init'i boğardı ya da
-         per_pixel'de uygulamayı dondururdu. */
+         per_pixel'de uygulamayı dondururdu. Uyum açıkken init ve kare
+         blokları MilkDrop'un çağrı sınırına göre daha geniş (loopBudgetMd2):
+         korpusta beş preset init'te ~1,07 milyon tur, bir şekil karede
+         ~103 bin tur istiyor. Düğüm ve nokta başına bütçe aynı — MilkDrop'un
+         çağrı sınırı orada uygulamayı dondururdu. */
       const eel = this._eel();
-      this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576 }, eel));
-      this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576, loopBudgetMd2: 4194304 }, eel));
+      this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       this.cPixel = compile(this.file.perPixel, this.pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       /* Uyum açıkken per_pixel kendi havuzunda (PV_IN). Aynı kod iki kez
          derleniyor: kapanışlar havuzun indislerini ve megabuf'ını derleme
@@ -1758,8 +1780,8 @@
       /* per_point saniyede samples×60 kez koşuyor; bütçe per_pixel'inkiyle
          aynı mantıkta, blok başına veriliyor. */
       const eel = this._eel();
-      wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
-      wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 4194304 }, eel));
+      wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       wave.cPoint = compile(w.per_point || '', pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       /* Uyum açıkken per_point kendi havuzunda, kendi megabuf'ıyla (PP_IN);
          per_pixel gibi iki kez derleniyor. */
@@ -1822,8 +1844,8 @@
          açıkken bu taban geçerli (shapeFrame; #580). */
       shape.baseMd2 = Object.assign({}, shape.base, { g: g('g', 0), b: g('b', 0), g2: g('g2', 1) });
       const eel = this._eel();
-      shape.cInit = compile(s.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
-      shape.cFrame = compile(s.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      shape.cInit = compile(s.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 4194304 }, eel));
+      shape.cFrame = compile(s.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       for (const c of [shape.cInit, shape.cFrame]) {
         if (c.error) this.errors.push('shape ' + i + ': ' + c.error);
       }
@@ -1943,7 +1965,17 @@
         s._tInit = captureT(P);
       }
       restoreT(P, s._tInit);
-      s.cFrame.run(P.values);
+      /* Şeklin kare denklemi örnek başına koşuyor (1024'e kadar). Uyum
+         açıkken koşu başına bütçe MilkDrop'un çağrı sınırında; tek bir
+         şeklin bir karede harcayabileceği toplam ayrıca sınırlı
+         (SHAPE_FRAME_LOOPS), yoksa her örneğinde dönen bir preset
+         uygulamayı dondururdu. Korpustaki en büyük ihtiyaç ~103 bin tur. */
+      if (this._mode.md2) {
+        if (instance === 0 || s._loopLeft === undefined) s._loopLeft = SHAPE_FRAME_LOOPS;
+        s._loopLeft -= s.cFrame.run(P.values, Math.max(0, s._loopLeft));
+      } else {
+        s.cFrame.run(P.values);
+      }
       const o = out || {};
       for (const k in b) o[k] = P.get(k);
       return o;

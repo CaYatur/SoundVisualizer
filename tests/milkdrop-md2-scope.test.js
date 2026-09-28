@@ -232,3 +232,45 @@ test('dalga ve şekil zamanı ve sesi ana per_frame\'den ÖNCEKİ değerden alı
   p.frame(IN);
   assert.strictEqual(p.shapeFrame(p.shapes[0], 0).x, 5, 'anahtar koşarken çevrilince aynı karede');
 });
+
+/* Döngü sınırı: ns-eel2'de loop ve while ÇAĞRI BAŞINA 1.048.576 tur
+   (NSEEL_LOOPFUNC_SUPPORT_MAXLEN). Motorun koşu başına bütçesi uyum
+   açıkken init'te 4.194.304, kare bloklarında 1.048.576. */
+test('loop ve while çağrı başına 1.048.576 turda kesiliyor; init iki çağrıyı da tamamlıyor', () => {
+  const body = 'per_frame_init_1=loop(2000000, a = a + 1); loop(2000000, b = b + 1); while(c = c + 1); while(d = d + 1);';
+  const p = mk(body);
+  p.frame(IN);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map((k) => p.get(k)), [1048576, 1048576, 1048576, 1048576]);
+  const l = mk(body, false);
+  l.frame(IN);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map((k) => l.get(k)), [1048576, 0, 0, 0], 'uyum kapalı: tek bütçe ilk döngüde bitiyor');
+});
+
+test('kare bloğunun bütçesi uyum açıkken 1.048.576', () => {
+  const body = 'per_frame_1=a = 0; loop(100000, a = a + 1);\nwavecode_0_enabled=1\nwave_0_per_frame1=b = 0; loop(100000, b = b + 1); r = b;';
+  const p = mk(body);
+  p.frame(IN);
+  p.waveFrame(p.waves[0]);
+  assert.deepStrictEqual([p.get('a'), p.waves[0]._ppColor.r], [100000, 100000]);
+  const l = mk(body, false);
+  l.frame(IN);
+  l.waveFrame(l.waves[0]);
+  assert.deepStrictEqual([l.get('a'), l.waves[0]._ppColor.r], [65536, 65536]);
+});
+
+test('bir şeklin bir karede bütün örnekleriyle harcayabileceği tur sınırlı', () => {
+  const body = 'shapecode_0_enabled=1\nshapecode_0_num_inst=8\nshape_0_per_frame1=loop(1000000, reg00 = reg00 + 1);';
+  MD.resetGlobals();
+  const p = mk(body);
+  p.frame(IN);
+  for (let k = 0; k < 8; k++) p.shapeFrame(p.shapes[0], k);
+  assert.strictEqual(p.get('reg00'), 4194304, 'dört örnek 1 milyon, beşinci kalanı, gerisi hiç');
+  MD.resetGlobals();
+  p.frame(IN);
+  p.shapeFrame(p.shapes[0], 0);
+  assert.strictEqual(p.get('reg00'), 1000000, 'yeni karede sayaç baştan');
+  const l = mk(body, false);
+  l.frame(IN);
+  for (let k = 0; k < 8; k++) l.shapeFrame(l.shapes[0], k);
+  assert.strictEqual(l.shapes[0].pool.get('reg00'), 8 * 65536, 'uyum kapalı: örnek başına eski bütçe');
+});
