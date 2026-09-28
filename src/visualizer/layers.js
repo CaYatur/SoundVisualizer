@@ -905,6 +905,13 @@
         try { e.mode.dispose(); } catch { /* motor zaten kapanmış */ }
       }
       if (e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
+      /* Tuvalin arka belleği çöp toplayıcıyı beklemeden bırakılıyor (#621):
+         her sahne/Otomatik VJ değişimi katman başına tam ekran bir tuval
+         atıyor (1080p'de 8 MB) ve tarayıcı onları ancak bir sonraki büyük
+         toplamada geri alıyordu. Sıfır boyut belleği hemen bırakır. */
+      if (e.canvas && typeof e.canvas.width === 'number') {
+        try { e.canvas.width = 0; e.canvas.height = 0; } catch { /* kapanmış bağlam */ }
+      }
     }
 
     /* Yapılandırmayı uygula. Yalnızca DEĞİŞEN katmanların mod örneği yeniden
