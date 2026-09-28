@@ -3706,8 +3706,13 @@
     a.className = 'audio-state' + (cls ? ' ' + cls : '');
   }
 
+  /* Ölçek olarak yazılıyor, genişlik değil (bkz. admin.css .meter .bar i,
+     #621). Aynı değer yeniden yazılmıyor: stil bildirimi her yazımda
+     değişmiş sayılıyor. */
   function setMeter(id, v) {
-    $(id).style.width = Math.min(100, Math.max(0, v * 100)) + '%';
+    const s = 'scaleX(' + Math.min(1, Math.max(0, v || 0)).toFixed(3) + ')';
+    const e = $(id);
+    if (e && e.style.transform !== s) e.style.transform = s;
   }
 
   // --------------------------------------------------------------------------
@@ -4819,8 +4824,10 @@
       window.SVMdMonitor = d.mdMonitor;
       const mv = document.getElementById('mdMonitorVal');
       if (mv) {
-        mv.textContent = (d.mdMonitor === null || d.mdMonitor === undefined)
+        const txt = (d.mdMonitor === null || d.mdMonitor === undefined)
           ? '—' : Number(d.mdMonitor).toFixed(4);
+        // Aynı metni yeniden yazmak düğümü söküp takıyor ve yerleşimi bozuyor
+        if (mv.textContent !== txt) mv.textContent = txt;
       }
       /* Otomatik geçişin o an çizdiği preset. Seçim ayara yazılmıyor
          (shared/milkdrop-cycle.js): panel ekranda ne olduğunu, önizleme de
