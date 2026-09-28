@@ -52,9 +52,23 @@ test('bekçi açılıştaki içeriği yapılandırmayla AYNI okumadan öğreniyo
   assert.strictEqual(reads.length, 1, 'ayar dosyası açılışta birden çok kez okunuyor');
 });
 
+test('kaydetme birleştiriliyor: son yapılandırma bekliyor, bir kez yazılıyor (#621)', () => {
+  const save = body(MAIN, 'function saveSettings(config) {');
+  assert.match(save, /^\{\s*if \(settingsFrozen\) return;/, 'öz testin dondurması ilk satır olmalı');
+  assert.match(save, /saveQueued = config;\s*if \(!saveTimer\) saveTimer = setTimeout\(flushSettings, SAVE_DELAY_MS\);/);
+  assert.doesNotMatch(save, /writeFileSync|writeSettingsText|JSON\.stringify/, 'gönderim başına eşzamanlı yazım geri gelmiş');
+  const flush = body(MAIN, 'function flushSettings() {');
+  // Öz test ayarları geri yazdıktan sonra bekleyen kayıt onu ezmemeli
+  assert.match(flush, /if \(!config \|\| settingsFrozen\) return;/);
+  // Kapanışta bekleyen kayıt kaybolmamalı
+  assert.match(body(MAIN, 'function shutdownCleanup() {'), /flushSettings\(\);/);
+  // Diskten yükleme bekleyen eski kaydı atmalı, yoksa yüklenen dosyanın üstüne yazılır
+  const handler = MAIN.slice(MAIN.indexOf("ipcMain.handle('settings-conflict:resolve'"));
+  assert.match(handler.slice(0, handler.indexOf('\n});')), /choice === 'load'[\s\S]*dropQueuedSave\(\);[\s\S]*applyIncomingConfig\(loaded, \{ save: false \}\)/);
+});
+
 test('kaydetme çakışmada dosyaya yazmıyor, bekletiyor', () => {
-  const fn = body(MAIN, 'function saveSettings(config) {');
-  assert.match(fn, /^\{\s*if \(settingsFrozen\) return;/, 'öz testin dondurması ilk satır olmalı');
+  const fn = body(MAIN, 'function flushSettings() {');
   assert.match(fn, /settingsGuard\.changed\(\) === true\) raiseSettingsConflict\(\);/);
   assert.match(fn, /if \(settingsConflict\) \{\s*pendingSettings = text;\s*return;\s*\}/);
   const write = body(MAIN, 'function writeSettingsText(text) {');
