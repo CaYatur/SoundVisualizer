@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2227 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2251 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 630
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 654
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2034,8 +2034,8 @@ rest after. No version number yet.
     module's script tag each fails a test.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
   MilkDrop's defaults, the hue colour, the values that stay in the file,
-  MilkDrop's way of reading a file and its expression compiler's rules are
-  done; the other audits are next.
+  MilkDrop's way of reading a file, its expression compiler's rules and
+  the scope of expression variables are done; the other audits are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
     passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
@@ -2257,22 +2257,82 @@ rest after. No version number yet.
     features and renders the same alone before and after (clean,
     brightness 0.038); main itself classed it blown in the sample run, so
     its class there depends on the order of the run, not on this change.
+  - **Each block has MilkDrop's own variables.** MilkDrop gives every
+    block a virtual machine of its own (state.cpp:213-225): init and
+    per-frame share one, per-pixel has one, each wave has one for
+    per-frame and one for per-point, each shape has one. Variables and
+    `megabuf` belong to the machine; only `reg00`..`reg99` and `gmegabuf`
+    are shared by all of them and by both presets of a transition. With
+    fidelity on the engine now does the same:
+    - `reg00`..`reg99` live in one array for everything, as ns-eel2's
+      `nseel_globalregs`; with fidelity off each pool keeps its own;
+    - per-pixel gets time, fps, frame, progress, the six audio values, the
+      mesh and pixel sizes and the aspect once a frame before per-frame
+      runs, q1..q32 after it, and zoom..sy per vertex from what per-frame
+      left (milkdropfs.cpp:619-650, 1647-1660); it no longer sees
+      per-frame's variables, and what it writes no longer reaches
+      per-frame or the drawing;
+    - a wave's per-point gets time, audio and the frame counters before
+      the wave's per-frame runs, q1..q32 and t1..t8 after it
+      (milkdropfs.cpp:2405-2421), and keeps its own variables;
+    - waves and shapes read time and audio from before per-frame, not
+      the values per-frame rewrote;
+    - `loop` and `while` stop at 1,048,576 turns a call
+      (`NSEEL_LOOPFUNC_SUPPORT_MAXLEN`), and the engine's budget is wider
+      where MilkDrop allows it: 4,194,304 for init, 1,048,576 for
+      per-frame code, at most 4,194,304 a frame for one shape over all its
+      instances; per-pixel and per-point keep 1,024 a vertex, where
+      MilkDrop's cap would freeze the app.
+    Per-pixel and per-point code is compiled twice, once per pool, since
+    fidelity can flip while a preset runs. Thumbnails clear `gmegabuf`
+    and the registers before each render, so a thumbnail no longer
+    depends on the preset drawn before it; a video export opens a fresh
+    page, so it starts from zero too. Two MilkDrop layers in one window
+    share the registers, as they already shared `gmegabuf`.
+  - **Measured** against the previous step, the last ten of 60 frames,
+    each preset in a fresh page so nothing carries over. Registers: of 120
+    presets that use them, 40 change, 38 by more than 1% — the common
+    idiom is init writing random values to `reg01`..`reg03` and shapes
+    reading them, and the shapes saw 0 and stacked their instances on one
+    point. Per-pixel: of 120 presets whose per-pixel code reads or writes
+    something per-frame uses (696 in the corpus by a text scan), 46
+    change, median 94%; of the 70 whose per-pixel reads a per-frame
+    variable it never sets, 31. Per-point: of 120 wave presets, 6 change
+    — the text scan counts 868 but ignores statement order and whether the
+    wave is enabled; in the one preset checked, per-point sets the shared
+    name before reading it. Time and audio before per-frame: the three presets
+    the scan predicts change (5% to 28%). Loop cap: of the six presets
+    that ran out of budget, four change. Every group is identical with
+    fidelity off, and control groups are identical with it on. A preset
+    costs about 0.03 ms more to build; a 1,728-vertex frame costs the
+    same. The 900-preset sample keeps 899 of 900 classes. The one that
+    moves, LuxXx – Benefiscient Prescience (clean → blown), keeps its own
+    `x` and `y` in per-frame and hands them to per-pixel as the zoom
+    centre; the last vertex used to overwrite them every frame, and now
+    the centre stays where the beat put it, as in MilkDrop. Alone in a
+    fresh page it differs by 61% and is not blown (brightness 0.62), so
+    its class in the sample also depends on the order of the run.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
     centre darkening, and the rest of the blend snap points; whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on
-    `uv.y` may come out mirrored, which needs its own check; the scope of
-    expression variables — MilkDrop gives per-frame, per-pixel, each
-    wave's per-frame and per-point and each shape their own variables and
-    `megabuf`, and hands per-pixel only a fixed list, where the engine
-    shares one set between init, per-frame and per-pixel (next); division
-    by zero, which is infinity in MilkDrop and 0 here; the loop cap —
-    MilkDrop stops `loop` and `while` at 1,048,576 turns a call, the engine
-    at a budget, which six corpus presets reach (five in init, one in a
-    shape); the reference comparison with an external renderer, which
-    needs one installed and waits for the user's approval. Left out of
-    the compiler: syntax newer than MilkDrop 2's grammar (`?:`, `&=`,
+    `uv.y` may come out mirrored, which needs its own check; division by
+    zero and other results that are not finite — MilkDrop gives infinity
+    or NaN and keeps it in the variable, the engine gives 0; run with a
+    realistic clock, 910 corpus presets (8.8%) divide by zero at least
+    once in 40 frames, some every frame, and matching MilkDrop needs NaN
+    carried through the whole drawing path the way Direct3D 9 does, which
+    only the reference renderer can check; the same holds for the
+    functions that guard their result — `log` and `log10` of 0 or less,
+    `pow`, `exp` and `tan` past the float range give 0 here, and `asin`
+    and `acos` clamp their input, where MilkDrop's C library returns
+    infinity or NaN (not counted in the scan above); the reference comparison with
+    an external renderer, which needs one installed and waits for the
+    user's approval. Left out of the compiler: variable names compared on
+    their first 16 characters only (`NSEEL_MAX_VARIABLE_NAMELEN`) — 24
+    corpus presets use names that long and none has two that would
+    collide; syntax newer than MilkDrop 2's grammar (`?:`, `&=`,
     `|=`, `^=`, `<<`, `$` constants) and the functions `invsqrt`,
     `memcpy`, `memset` and `freembuf`, which no corpus preset uses in code;
     and the old grammar's `%`, which ns-eel2's parser table maps to a
@@ -2336,7 +2396,22 @@ rest after. No version number yet.
     wrong mask), the real
     `rand` and its repeatability, the Preset switching all its blocks,
     `readingsDiffer` seeing the names, sprites, and every expression compile
-    in `src` passing the mode. 71 of 71 mutations are caught.
+    in `src` passing the mode. 71 of 71 mutations are caught. The
+    variable scope adds 24 (`milkdrop-md2-scope.test.js`): registers seen
+    by shapes, waves and a second preset, their name rule, `Preset.get`
+    and `set`, `resetGlobals`; per-pixel not seeing per-frame's variables
+    and not leaking its own, keeping them across vertices and frames,
+    taking its inputs before per-frame and q after, its own `megabuf`
+    beside the shared `gmegabuf` and registers, zoom..sy from per-frame
+    and `zoom_base` only with fidelity off; the same for a wave's
+    per-point with t1..t8; waves and shapes reading time and audio from
+    before per-frame; the loop cap, the budgets and one shape's total over
+    its instances; and every one of them flipping with fidelity in the
+    same frame. The thumbnail page test checks the reset before each
+    engine, two wave tests pass a per-frame counter through t1 and t2 as
+    a MilkDrop preset has to, and the compile guard counts 13 calls. 51
+    of 52 mutations are caught; the one left caps loops with fidelity off
+    too, which changes nothing, since that budget never exceeds the cap.
 
 ## v3.1.6 — Comprehensive video export
 

@@ -66,10 +66,37 @@
         b[k & 4095] = v;
         return v;
       },
+      clear() { blocks.length = 0; },
     };
   }
   // gmegabuf presetler arasında ORTAK: MilkDrop'ta da öyle.
   const GMEM = makeMem();
+
+  /* reg00..reg99: ns-eel2'de SÜREÇ GENELİNDE tek bir dizi
+     (nseel-eval.c `nseel_globalregs[100]`; ad büyük/küçük harfe bakmadan
+     "reg" + iki rakam). Her sanal makine — per_frame, per_pixel, her dalga
+     ve şekil, geçişteki iki preset — aynı yüz gözü görüyor ve hiçbiri
+     sıfırlamıyor. Uyum açıkken böyle; kapalıyken eski kural: her havuzun
+     kendi reg'leri (Pool.persistent). Kip koşarken okunuyor, anahtar
+     çevrilince aynı karede değişiyor. */
+  const REGS = new Float64Array(100);
+  const REG_RE = /^reg\d\d$/;
+
+  /* Döngü sınırı: ns-eel2'de `loop` ve `while` ÇAĞRI BAŞINA en çok
+     1.048.576 tur (ns-eel.h NSEEL_LOOPFUNC_SUPPORT_MAXLEN; asm
+     nseel_asm_repeat / _repeatwhile). Uyum açıkken bu sınır da uygulanıyor;
+     motorun koşu başına bütçesi (loopBudget / loopBudgetMd2) uygulamanın
+     donmaması için ayrıca duruyor. */
+  const LOOP_CAP = 1048576;
+  // Uyum açıkken bir şeklin bir karede, bütün örnekleriyle harcayabileceği tur
+  const SHAPE_FRAME_LOOPS = 4194304;
+  /* Ortak bellekleri (gmegabuf, reg'ler) sıfırlar. MilkDrop bunu hiç
+     yapmıyor; ölçüm ve testler presetleri birbirinden yalıtmak için
+     çağırıyor. */
+  function resetGlobals() {
+    GMEM.clear();
+    REGS.fill(0);
+  }
 
   const PUNCT = [
     '<<', '>>', '<=', '>=', '==', '!=', '&&', '||',
@@ -517,11 +544,14 @@
       this.index = new Map();
       this.names = [];
       this.values = new Float64Array(0);
-      /* megabuf presetin KENDİNE ait. Havuzda duruyor çünkü init, per_frame
-         ve per_pixel ayrı ayrı derleniyor ama aynı belleği paylaşmaları
-         gerekiyor — MilkDrop'ta da öyle. */
+      /* megabuf havuzun, yani sanal makinenin. Havuzda duruyor çünkü init
+         ile per_frame ayrı ayrı derleniyor ama MilkDrop'ta aynı makinede
+         koşuyor ve aynı belleği görüyor. per_pixel MilkDrop'ta AYRI makine:
+         uyum açıkken kendi havuzunda (pvPool), kendi megabuf'ıyla; uyum
+         kapalıyken eski hâli, ana havuzu paylaşıyor. */
       this.mem = makeMem();
-      // Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur
+      /* Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur.
+         Yalnız uyum kapalıyken kullanılıyor; açıkken reg'ler REGS'te. */
       this.persistent = new Set();
       for (let i = 0; i < 100; i++) {
         const n = 'reg' + (i < 10 ? '0' + i : i);
@@ -593,12 +623,24 @@
       }
       case 'var': {
         const i = pool.id(node.name);
+        if (REG_RE.test(node.name)) {
+          const r = +node.name.slice(3), mode = cx.mode;
+          return (P) => (mode.md2 ? REGS[r] : P[i]);
+        }
         return (P) => P[i];
       }
       case 'assign': {
         const i = pool.id(node.name);
         const rhs = emit(node.v, pool, cx);
         const F = cx.F;
+        if (REG_RE.test(node.name)) {
+          const r = +node.name.slice(3), mode = cx.mode;
+          return (P) => {
+            const v = F(rhs(P));
+            if (mode.md2) REGS[r] = v; else P[i] = v;
+            return v;
+          };
+        }
         return (P) => (P[i] = F(rhs(P)));
       }
       case 'un': {
@@ -622,7 +664,7 @@
       case 'loop': {
         const n = emit(node.n, pool, cx);
         const body = node.body.map((b) => emit(b, pool, cx));
-        const budget = cx.budget;
+        const budget = cx.budget, mode = cx.mode;
         const len = body.length;
         /* Bütçe: bir preset per_pixel içinde loop(10000, …) yazabilir. Ağın
            1271 düğümünde 60 fps ile bu kare başına 762 milyon işlem demek —
@@ -632,6 +674,7 @@
         return (P) => {
           let k = n(P) | 0;
           if (k < 0) k = 0;
+          if (mode.md2 && k > LOOP_CAP) k = LOOP_CAP;
           for (let i = 0; i < k; i++) {
             if (--budget.n < 0) break;
             for (let j = 0; j < len; j++) body[j](P);
@@ -767,7 +810,8 @@
       const body = a[0];
       const budget = cx.budget;
       return (P) => {
-        for (;;) {
+        for (let it = 0; ; it++) {
+          if (mode.md2 && it >= LOOP_CAP) break;
           if (--budget.n < 0) break;
           const v = body(P);
           if (mode.md2 ? !T_MD2(v) : v === 0) break;
@@ -868,6 +912,8 @@
     const budget = { n: 0 };
     const cx = { F, D, M, R, budget, mode };
     const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
+    // Uyum açıkken bütçe (verilmezse aynısı): MilkDrop'un izin verdiğine yakın
+    const LOOP_BUDGET_MD2 = Math.max(0, Number(o.loopBudgetMd2) || LOOP_BUDGET);
 
     let prog;
     try {
@@ -884,12 +930,17 @@
       skipped: skipped.length,
       statements: stmts.length,
       resetSeed: (sd) => { seed = (sd || 12345) >>> 0; },
-      run: (P) => {
+      /* cap: bu koşunun bütçesi bundan büyük olamaz (şeklin kare toplamı).
+         Dönüş: harcanan tur. */
+      run: (P, cap) => {
         const V = P || p.values;
-        budget.n = LOOP_BUDGET;
+        const b = mode.md2 ? LOOP_BUDGET_MD2 : LOOP_BUDGET;
+        const start = cap !== undefined && cap < b ? cap : b;
+        budget.n = start;
         try {
           for (let i = 0; i < prog.length; i++) prog[i](V);
         } catch (e) { /* çalışma anı hatası kareyi düşürmesin */ }
+        return start - Math.max(0, budget.n);
       },
     };
   }
@@ -1498,6 +1549,31 @@
   ];
   const SHARED_LEGACY = ['vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty', 'pixelsx', 'pixelsy'];
 
+  /* per_pixel'in KENDİ sanal makinesine giden kare girdileri (#580).
+
+     MilkDrop per_pixel'i ayrı bir makinede koşturuyor (state.cpp:214
+     `m_pv_eel`). O makine kare denklemlerinin değişkenlerini görmüyor;
+     yalnız şunları alıyor:
+       • bu liste — kare başına bir kez, per_frame KOŞMADAN ÖNCE
+         (milkdropfs.cpp:619-634, yürütme 638-641): per_frame `bass`i
+         değiştirse de per_pixel dosyanın/sesin değerini görüyor;
+       • q1..q32 — per_frame BİTTİKTEN sonra (649-650);
+       • zoom..sy — her düğümde per_frame'in bıraktığı değerler
+         (1651-1660), x, y, rad, ang da düğümün kendisi.
+     Kendi değişkenleri ve megabuf'ı kareler boyunca kalıyor. Fare bizim
+     eklentimiz: alt bloklara gittiği gibi buraya da gidiyor. */
+  const PV_IN = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'bass_att', 'mid_att',
+    'treb_att', 'meshx', 'meshy', 'pixelsx', 'pixelsy', 'aspectx', 'aspecty',
+    'mouse_x', 'mouse_y', 'mouse_down'];
+
+  /* Dalga per_point'inin KENDİ sanal makinesine gidenler (#580; state.cpp:220
+     `m_pp_eel`, değişkenler 424-454). Dalganın per_frame değişkenlerini
+     görmüyor; bu liste dalganın per_frame kodu KOŞMADAN ÖNCE, q1..q32 ve
+     t1..t8 SONRA kopyalanıyor (milkdropfs.cpp:2405-2421). Nokta başına
+     sample, value1, value2, x, y ve renk ayrıca kuruluyor (wavePoint). */
+  const PP_IN = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'bass_att', 'mid_att',
+    'treb_att', 'mouse_x', 'mouse_y', 'mouse_down'];
+
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
@@ -1597,11 +1673,21 @@
       /* Döngü bütçesi bloğun KAÇ KEZ koştuğuna göre veriliyor: init bir kez,
          per_frame saniyede 60 kez, per_pixel ise ağın 1271 düğümünde yani
          saniyede ~76 bin kez. Tek bir sabit bütçe ya init'i boğardı ya da
-         per_pixel'de uygulamayı dondururdu. */
+         per_pixel'de uygulamayı dondururdu. Uyum açıkken init ve kare
+         blokları MilkDrop'un çağrı sınırına göre daha geniş (loopBudgetMd2):
+         korpusta beş preset init'te ~1,07 milyon tur, bir şekil karede
+         ~103 bin tur istiyor. Düğüm ve nokta başına bütçe aynı — MilkDrop'un
+         çağrı sınırı orada uygulamayı dondururdu. */
       const eel = this._eel();
-      this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576 }, eel));
-      this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576, loopBudgetMd2: 4194304 }, eel));
+      this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       this.cPixel = compile(this.file.perPixel, this.pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
+      /* Uyum açıkken per_pixel kendi havuzunda (PV_IN). Aynı kod iki kez
+         derleniyor: kapanışlar havuzun indislerini ve megabuf'ını derleme
+         anında bağlıyor, anahtar ise koşarken çevrilebiliyor. Hatalar
+         aynı metinden, bir kez sayılıyor. */
+      this.pvPool = new Pool();
+      this.cPixelMd2 = compile(this.file.perPixel, this.pvPool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [this.cInit, this.cFrame, this.cPixel]) {
         if (c.error) this.errors.push(c.error);
       }
@@ -1694,9 +1780,13 @@
       /* per_point saniyede samples×60 kez koşuyor; bütçe per_pixel'inkiyle
          aynı mantıkta, blok başına veriliyor. */
       const eel = this._eel();
-      wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
-      wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 4194304 }, eel));
+      wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       wave.cPoint = compile(w.per_point || '', pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
+      /* Uyum açıkken per_point kendi havuzunda, kendi megabuf'ıyla (PP_IN);
+         per_pixel gibi iki kez derleniyor. */
+      wave.ppPool = new Pool();
+      wave.cPointMd2 = compile(w.per_point || '', wave.ppPool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [wave.cInit, wave.cFrame, wave.cPoint]) {
         if (c.error) this.errors.push('wave ' + i + ': ' + c.error);
       }
@@ -1754,8 +1844,8 @@
          açıkken bu taban geçerli (shapeFrame; #580). */
       shape.baseMd2 = Object.assign({}, shape.base, { g: g('g', 0), b: g('b', 0), g2: g('g2', 1) });
       const eel = this._eel();
-      shape.cInit = compile(s.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
-      shape.cFrame = compile(s.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      shape.cInit = compile(s.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 4194304 }, eel));
+      shape.cFrame = compile(s.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536, loopBudgetMd2: 1048576 }, eel));
       for (const c of [shape.cInit, shape.cFrame]) {
         if (c.error) this.errors.push('shape ' + i + ': ' + c.error);
       }
@@ -1770,7 +1860,15 @@
        değişkenleri ve ses girdileriyle sürüyor, o yüzden bunlar paylaşılmalı. */
     _shareInto(pool) {
       const P = this.pool;
-      for (const k of SHARED_VARS) pool.set(k, P.get(k));
+      /* Zaman ve ses: MilkDrop dalgaya ve şekle bunları kendi kaynağından
+         veriyor (milkdropfs.cpp LoadCustomWavePerFrameEvallibVars,
+         LoadCustomShapePerFrameEvallibVars), ana per_frame'in değiştirdiği
+         değerden değil. Uyum açıkken per_frame'den ÖNCEKİ değerler
+         okunuyor — per_pixel'in aldığı anlık görüntü (PV_IN hepsini
+         içeriyor). Korpusta 3 preset per_frame'de bunlardan birini yazıp
+         bir dalgada ya da şekilde okuyor. */
+      const S = this.accurate !== false ? this.pvPool : P;
+      for (const k of SHARED_VARS) pool.set(k, S.get(k));
       if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
       // Uyum açıkken per_frame'in bıraktığı q; kapalıyken havuzun o anki hâli
       const q = this.accurate !== false ? this._qFrame : null;
@@ -1793,7 +1891,11 @@
         w._tInit = captureT(P);
       }
       restoreT(P, w._tInit);
+      const V = w.ppPool;
+      for (const k of PP_IN) V.set(k, P.get(k));
       w.cFrame.run(P.values);
+      for (let i = 1; i <= 32; i++) V.set('q' + i, P.get('q' + i));
+      for (let i = 1; i <= 8; i++) V.set('t' + i, P.get('t' + i));
       /* NOKTA SAYISI per_frame'den SONRA okunuyor. MilkDrop:
              nSamples = (int)*var_pf_samples;
              nSamples = std::min(512, nSamples);
@@ -1816,7 +1918,8 @@
        `out` her çağrıda YENİDEN KULLANILIYOR: 512 nokta için kare başına
        512 nesne ayırmak kabul edilemezdi. */
     wavePoint(w, sample, v1, v2, out) {
-      const P = w.pool;
+      const md2 = this._mode.md2;
+      const P = md2 ? w.ppPool : w.pool;
       P.set('sample', sample);
       P.set('value1', v1);
       P.set('value2', v2);
@@ -1838,7 +1941,7 @@
         P.set('r', w._ppColor.r); P.set('g', w._ppColor.g);
         P.set('b', w._ppColor.b); P.set('a', w._ppColor.a);
       }
-      w.cPoint.run(P.values);
+      (md2 ? w.cPointMd2 : w.cPoint).run(P.values);
       const o = out || {};
       o.x = P.get('x'); o.y = P.get('y');
       o.r = P.get('r'); o.g = P.get('g'); o.b = P.get('b'); o.a = P.get('a');
@@ -1862,21 +1965,42 @@
         s._tInit = captureT(P);
       }
       restoreT(P, s._tInit);
-      s.cFrame.run(P.values);
+      /* Şeklin kare denklemi örnek başına koşuyor (1024'e kadar). Uyum
+         açıkken koşu başına bütçe MilkDrop'un çağrı sınırında; tek bir
+         şeklin bir karede harcayabileceği toplam ayrıca sınırlı
+         (SHAPE_FRAME_LOOPS), yoksa her örneğinde dönen bir preset
+         uygulamayı dondururdu. Korpustaki en büyük ihtiyaç ~103 bin tur. */
+      if (this._mode.md2) {
+        if (instance === 0 || s._loopLeft === undefined) s._loopLeft = SHAPE_FRAME_LOOPS;
+        s._loopLeft -= s.cFrame.run(P.values, Math.max(0, s._loopLeft));
+      } else {
+        s.cFrame.run(P.values);
+      }
       const o = out || {};
       for (const k in b) o[k] = P.get(k);
       return o;
     }
 
-    // Havuzdaki değişkenlere kısayol
-    get(name) { return this.pool.get(name); }
-    set(name, v) { this.pool.set(name, v); }
+    /* Havuzdaki değişkenlere kısayol. Uyum açıkken reg'ler havuzda değil,
+       ortak REGS dizisinde. */
+    get(name) {
+      if (this._mode.md2 && name.charCodeAt(0) === 114 && REG_RE.test(name)) return REGS[+name.slice(3)];
+      return this.pool.get(name);
+    }
+    set(name, v) {
+      if (this._mode.md2 && name.charCodeAt(0) === 114 && REG_RE.test(name)) REGS[+name.slice(3)] = Number(v) || 0;
+      else this.pool.set(name, v);
+    }
 
     /* Kare başına: girdi değişkenlerini yaz, init'i (bir kez) ve per_frame'i
        koştur. inputs: { time, fps, frame, bass, mid, treb, bass_att, ... } */
     frame(inputs) {
       const P = this.pool;
       if (inputs) for (const k in inputs) P.set(k, inputs[k]);
+      /* per_pixel'in girdileri per_frame'den ÖNCE (PV_IN). Anahtar kare
+         ortasında çevrilebildiği için kip ne olursa olsun dolduruluyor. */
+      const V = this.pvPool;
+      for (const k of PV_IN) V.set(k, P.get(k));
       const base = this.accurate ? this._pfBaseMd2 : this._pfBase;
       if (!this.initialised) {
         /* MilkDrop init'i koşturmadan önce de yerleşik adları yüklüyor
@@ -1906,6 +2030,7 @@
          dalgalara ve şekillere düğümlerin bıraktığı değeri geçiriyordu. */
       if (!this._qFrame) this._qFrame = new Array(NUM_Q);
       for (let i = 0; i < NUM_Q; i++) this._qFrame[i] = P.get('q' + (i + 1));
+      for (let i = 0; i < NUM_Q; i++) V.set('q' + (i + 1), this._qFrame[i]);
       return P;
     }
 
@@ -1913,13 +2038,18 @@
        değişkenleri okunur. Dönüş nesnesi HER ÇAĞRIDA YENİDEN KULLANILIR —
        1728 düğüm için kare başına 1728 nesne ayırmak kabul edilemezdi. */
     pixel(x, y, rad, ang, out) {
-      const P = this.pool;
+      /* Uyum açıkken per_pixel'in kendi havuzu: kare denklemlerinin
+         değişkenlerini görmüyor, yazdıkları da kare denklemlerine ve
+         çizime sızmıyor (PV_IN). */
+      const md2 = this._mode.md2;
+      const P = md2 ? this.pvPool : this.pool;
       P.set('x', x);
       P.set('y', y);
       P.set('rad', rad);
       P.set('ang', ang);
       // Varsayılanlar her düğümde yeniden kurulur; presetler bunlara güvenir
-      P.set('zoom', P.get('zoom_base') || this._base.zoom);
+      // `zoom_base` motorun eski bir kaçamağı; MilkDrop'ta yok, korpusta kullanan yok
+      P.set('zoom', md2 ? this._base.zoom : (P.get('zoom_base') || this._base.zoom));
       P.set('zoomexp', this._base.zoomexp);
       P.set('rot', this._base.rot);
       P.set('warp', this._base.warp);
@@ -1929,7 +2059,7 @@
       P.set('dy', this._base.dy);
       P.set('sx', this._base.sx);
       P.set('sy', this._base.sy);
-      this.cPixel.run(P.values);
+      (md2 ? this.cPixelMd2 : this.cPixel).run(P.values);
       const o = out || {};
       o.zoom = P.get('zoom');
       o.zoomexp = P.get('zoomexp');
@@ -2176,7 +2306,8 @@
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
-    echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer };
+    echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
+    resetGlobals };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

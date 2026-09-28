@@ -63,6 +63,8 @@ test('preset yazarının kendi değişkeni KALICI', () => {
 });
 
 test('reg00 kalıcı — MilkDrop\'ta kareler arası depo bu', () => {
+  // Uyum açıkken reg'ler süreç geneli; önceki testlerden kalan silinsin
+  MD.resetGlobals();
   const p = mk('per_frame_1=reg00 = reg00 + 0.5;');
   run(p, 6);
   assert.strictEqual(p.get('reg00'), 3);

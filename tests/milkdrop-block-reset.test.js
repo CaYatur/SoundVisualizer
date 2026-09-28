@@ -87,12 +87,14 @@ test('dalga: per_point içindeki t noktalar boyunca BİRİKİYOR', () => {
 
 test('dalga: rezerve OLMAYAN değişken taşınmaya devam ediyor', () => {
   /* Yalnızca t1..t8 ve dosya değerleri sıfırlanıyor. MilkDrop\'un eel
-     değişken tablosunda gerisi duruyor ve presetler buna güveniyor. */
+     değişken tablosunda gerisi duruyor ve presetler buna güveniyor.
+     per_point MilkDrop'ta ayrı makine, per_frame'in değişkenini görmüyor
+     (#580): değer ona t1 ile gidiyor. */
   const p = preset([
     'wavecode_0_enabled=1',
     'wave_0_init1=birikim = 0;',
-    'wave_0_per_frame1=birikim = birikim + 1;',
-    'wave_0_per_point1=x = birikim;',
+    'wave_0_per_frame1=birikim = birikim + 1; t1 = birikim;',
+    'wave_0_per_point1=x = t1;',
   ]);
   for (let f = 1; f <= 4; f++) {
     p.frame(INPUTS);

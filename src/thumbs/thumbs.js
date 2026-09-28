@@ -72,6 +72,11 @@
     canvas.width = R.renderW;
     canvas.height = R.renderH;
     seedRandom(job.key);
+    /* gmegabuf ve reg'ler presetler arasında ortak (MilkDrop'ta da); küçük
+       resimler aynı sayfada art arda çiziliyor. Sıfırlanmasa bir resim
+       kendinden önce çizilenin bıraktığına bağlı olurdu — anahtar aynı,
+       görüntü farklı. */
+    window.SVMilkdrop.resetGlobals();
     const mode = new window.SVModes.milkdrop(canvas);
     const cfg = {
       milkdrop: {

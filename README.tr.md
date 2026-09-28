@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2227%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2251%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -261,6 +261,12 @@ profilinde basamak olmadığını doğruluyor.
   tam sayılarla çalışıyor, `megabuf` ve `gmegabuf` indisleri onun yuvarladığı ve sınırladığı gibi
   hesaplanıyor, `rand(n)` gerçel sayı döndürüyor (korpusta 5.361 preset çağırıyor) ve derleyicinin
   `_aboeq` gibi iç adları çalışıyor. Uyum kapalıyken hiçbir şey değişmiyor.
+- **Her blok MilkDrop'taki kendi değişkenleriyle çalışıyor.** Uyum açıkken per-pixel kodu ve bir
+  dalganın per-point kodu, MilkDrop'un ayrı sanal makineleri gibi kendi değişken alanında koşuyor:
+  yalnız MilkDrop'un verdiklerini görüyor (zaman, ses, ağ ölçüsü, q1..q32, dalgada t1..t8), kendi
+  değişkenlerini ve `megabuf`ını tutuyor, yazdıkları geri sızmıyor. `reg00`..`reg99` her blokta ve
+  presette ortak; şekiller artık init'in oraya bıraktığı rastgele değerleri görüyor. `loop`/`while`
+  MilkDrop'taki gibi çağrı başına 1.048.576 turda duruyor.
 - **Birleştirme shader'ları MilkDrop'un verdiği ton rengini alıyor.** MilkDrop her birleştirme
   shader'ına `hue_shader` olarak dört köşede yavaşça gezinen renkler veriyor, presetin `fShader`ı
   ne derse desin; `fShader` onları yalnız sabit yolda ölçekliyor. Motor `fShader`ı shader'lara da
@@ -1318,7 +1324,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2227 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2251 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

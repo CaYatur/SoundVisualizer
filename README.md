@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2227%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2251%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -268,6 +268,12 @@ that asserts the bar profile has no step in it.
   `megabuf` and `gmegabuf` indices are rounded and bounded the way it does, `rand(n)` returns a
   real number (5,361 corpus presets call it), and the compiler's internal names such as `_aboeq`
   run. With fidelity off nothing changes.
+- **Each block keeps MilkDrop's own variables.** With fidelity on, per-pixel code and a wave's
+  per-point code run in their own variable space the way MilkDrop's separate machines do: they see
+  only what MilkDrop hands them (time, audio, the mesh size, q1..q32 and for waves t1..t8), keep
+  their own variables and `megabuf`, and nothing they write leaks back. `reg00`..`reg99` are
+  shared by every block and preset, so shapes now see the random values init leaves there, and
+  `loop`/`while` stop at MilkDrop's 1,048,576 turns a call.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
@@ -1320,7 +1326,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2227 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2251 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
