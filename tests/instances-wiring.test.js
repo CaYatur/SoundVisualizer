@@ -62,6 +62,8 @@ test('kaydetme birleştiriliyor: son yapılandırma bekliyor, bir kez yazılıyo
   assert.match(flush, /if \(!config \|\| settingsFrozen\) return;/);
   // Kapanışta bekleyen kayıt kaybolmamalı
   assert.match(body(MAIN, 'function shutdownCleanup() {'), /flushSettings\(\);/);
+  // Dosyayı okuyan (yeni pencere, get-settings) bekleyen kaydı görmeli
+  assert.match(body(MAIN, 'function loadSettings() {'), /^\{[\s\S]*?if \(saveQueued\) flushSettings\(\);\s*try \{/);
   // Diskten yükleme bekleyen eski kaydı atmalı, yoksa yüklenen dosyanın üstüne yazılır
   const handler = MAIN.slice(MAIN.indexOf("ipcMain.handle('settings-conflict:resolve'"));
   assert.match(handler.slice(0, handler.indexOf('\n});')), /choice === 'load'[\s\S]*dropQueuedSave\(\);[\s\S]*applyIncomingConfig\(loaded, \{ save: false \}\)/);

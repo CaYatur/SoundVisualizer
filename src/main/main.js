@@ -200,6 +200,10 @@ function restoreSmokeSettings() {
 // Ayar kalıcılığı
 // ----------------------------------------------------------------------------
 function loadSettings() {
+  /* Kayıt birleştirilirken (#621) disk son değişikliğin 300 ms gerisinde
+     kalabiliyor; dosyayı okuyan (yeni açılan pencere, `get-settings`)
+     bekleyen kaydı önce yazdırıyor ki eskisiyle aynı içeriği görsün. */
+  if (saveQueued) flushSettings();
   try {
     /* Çözümleme SettingsGuard.parse'ta, çünkü çakışmada "diskteki ayarları
        yükle" de aynı yoldan okuyor. BOM'u ayıklıyor: dosya bir metin
