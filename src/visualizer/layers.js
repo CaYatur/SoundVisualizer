@@ -443,12 +443,43 @@
 
   /* Katmanın gördüğü yapılandırma: genel ayarların üstüne katmanın kendi
      geçersiz kılmaları biner. Böylece iki "bars" katmanı farklı renk ve bar
-     sayısıyla aynı sahnede durabilir. */
+     sayısıyla aynı sahnede durabilir.
+
+     HER KAREDE, HER KATMAN İÇİN ÇAĞRILIYOR (#621). Burada eskiden
+     `deepMerge(cfg, over)` vardı ve katmanın dokunmadığı her bölümü de
+     JSON üzerinden kopyalıyordu: kayıtlı sahneler, MilkDrop kütüphanesinin
+     puan/etiket kayıtları, Studio presetleri. Ölçüldü: 842 KB'lık gerçek bir
+     ayar dosyasında görselleştirici penceresinin CPU süresinin %87'si bu
+     kopyaydı ve pencere 74 Hz ekranda 33 fps çiziyordu. Sahne kaydettikçe,
+     kütüphane büyüdükçe her kare pahalılaşıyordu — "zamanla kasıyor"
+     şikâyetinin kaynağı. Klasik (katmansız) yol da ödüyordu: sentezlenen
+     arkaplan ve görselleştirici katmanlarının ayarı var.
+
+     Artık yalnız katmanın ezdiği bölümler birleştiriliyor; geri kalanı
+     `cfg`nin kendisiyle paylaşılıyor. Değerler aynı (bkz.
+     tests/layers-config-cost.test.js); ayarı olmayan katman zaten `cfg`nin
+     kendisini görüyordu. */
+  function overlay(cfg, over) {
+    const out = Object.assign({}, cfg);
+    for (const k of Object.keys(over)) {
+      out[k] = window.SV.deepMerge(cfg ? cfg[k] : undefined, over[k]);
+    }
+    return out;
+  }
+
+  /* Varsayılanlar yalnız eksik bölüm için yedek olarak okunuyor; her
+     çağrıda bütün varsayılan yapılandırmayı kopyalamaya gerek yok. */
+  let DEF_CACHE = null;
+  function defaultsOnce() {
+    if (!DEF_CACHE && window.SV && window.SV.defaultConfig) DEF_CACHE = window.SV.defaultConfig();
+    return DEF_CACHE;
+  }
+
   function layerConfig(cfg, layer) {
     const over = layer.settings;
     const hasOverrides = over && Object.keys(over).length;
-    const base = hasOverrides ? window.SV.deepMerge(cfg, over) : cfg;
-    const def = (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : null;
+    const base = hasOverrides ? overlay(cfg, over) : cfg;
+    const def = defaultsOnce();
 
     if (layer.kind === 'background') {
       const defBg = def ? def.background : {};
