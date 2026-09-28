@@ -256,6 +256,11 @@ profilinde basamak olmadığını doğruluyor.
   numaralı kod ilk eksik numarada bitiyor, tam sayı ayarları kesirlerini atıyor ve denklem satırları
   MilkDrop'un yapıştırdığı gibi, `\\` yorumları dahil, yapışıyor. Korpusta 32 preset farklı
   okunuyor; uyum kapalıyken eski ayrıştırıcı duruyor.
+- **Denklemler MilkDrop 2 derleyicisinin kurallarıyla çalışıyor.** Uyum açıkken doğruluk ve eşitlik
+  sınamaları onun 0.00001 toleransını kullanıyor, `%` işaretsiz tam sayılarla, `&` ve `|` 64 bit
+  tam sayılarla çalışıyor, `megabuf` ve `gmegabuf` indisleri onun yuvarladığı ve sınırladığı gibi
+  hesaplanıyor, `rand(n)` gerçel sayı döndürüyor (korpusta 5.361 preset çağırıyor) ve derleyicinin
+  `_aboeq` gibi iç adları çalışıyor. Uyum kapalıyken hiçbir şey değişmiyor.
 - **Birleştirme shader'ları MilkDrop'un verdiği ton rengini alıyor.** MilkDrop her birleştirme
   shader'ına `hue_shader` olarak dört köşede yavaşça gezinen renkler veriyor, presetin `fShader`ı
   ne derse desin; `fShader` onları yalnız sabit yolda ölçekliyor. Motor `fShader`ı shader'lara da

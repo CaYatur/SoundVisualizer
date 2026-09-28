@@ -263,6 +263,11 @@ that asserts the bar profile has no step in it.
   first missing number, integer settings drop their fractions, and equation lines are glued the way
   MilkDrop glues them, `\\` comments included. 32 presets of the corpus read differently; with
   fidelity off the old parser stays.
+- **Equations run by MilkDrop 2's compiler rules.** With fidelity on, truth and equality tests use
+  its 0.00001 tolerance, `%` works on whole numbers without sign, `&` and `|` on 64-bit integers,
+  `megabuf` and `gmegabuf` indices are rounded and bounded the way it does, `rand(n)` returns a
+  real number (5,361 corpus presets call it), and the compiler's internal names such as `_aboeq`
+  run. With fidelity off nothing changes.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
