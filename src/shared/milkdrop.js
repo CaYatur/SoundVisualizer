@@ -1838,7 +1838,15 @@
        değişkenleri ve ses girdileriyle sürüyor, o yüzden bunlar paylaşılmalı. */
     _shareInto(pool) {
       const P = this.pool;
-      for (const k of SHARED_VARS) pool.set(k, P.get(k));
+      /* Zaman ve ses: MilkDrop dalgaya ve şekle bunları kendi kaynağından
+         veriyor (milkdropfs.cpp LoadCustomWavePerFrameEvallibVars,
+         LoadCustomShapePerFrameEvallibVars), ana per_frame'in değiştirdiği
+         değerden değil. Uyum açıkken per_frame'den ÖNCEKİ değerler
+         okunuyor — per_pixel'in aldığı anlık görüntü (PV_IN hepsini
+         içeriyor). Korpusta 3 preset per_frame'de bunlardan birini yazıp
+         bir dalgada ya da şekilde okuyor. */
+      const S = this.accurate !== false ? this.pvPool : P;
+      for (const k of SHARED_VARS) pool.set(k, S.get(k));
       if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
       // Uyum açıkken per_frame'in bıraktığı q; kapalıyken havuzun o anki hâli
       const q = this.accurate !== false ? this._qFrame : null;

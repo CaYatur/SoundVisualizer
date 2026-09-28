@@ -214,3 +214,21 @@ test('anahtar koşarken çevrilince per_point aynı karede havuz değiştiriyor'
   p.accurate = false;
   assert.strictEqual(p.wavePoint(p.waves[0], 0, 0.1, 0.2, {}).x, 0.3);
 });
+
+test('dalga ve şekil zamanı ve sesi ana per_frame\'den ÖNCEKİ değerden alıyor', () => {
+  const body = ['per_frame_1=bass = 5; time = 9;',
+    'shapecode_0_enabled=1', 'shape_0_per_frame1=x = bass; y = time;',
+    'wavecode_0_enabled=1', 'wave_0_per_frame1=r = bass; g = time;'].join('\n');
+  const p = mk(body);
+  p.frame(IN);
+  const s = p.shapeFrame(p.shapes[0], 0);
+  p.waveFrame(p.waves[0]);
+  assert.deepStrictEqual([s.x, s.y, p.waves[0]._ppColor.r, p.waves[0]._ppColor.g], [1, 1, 1, 1]);
+  const l = mk(body, false);
+  l.frame(IN);
+  const ls = l.shapeFrame(l.shapes[0], 0);
+  assert.deepStrictEqual([ls.x, ls.y], [5, 9], 'uyum kapalı: per_frame\'in değiştirdiği');
+  p.accurate = false;
+  p.frame(IN);
+  assert.strictEqual(p.shapeFrame(p.shapes[0], 0).x, 5, 'anahtar koşarken çevrilince aynı karede');
+});
