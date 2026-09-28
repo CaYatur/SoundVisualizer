@@ -268,6 +268,12 @@ that asserts the bar profile has no step in it.
   `megabuf` and `gmegabuf` indices are rounded and bounded the way it does, `rand(n)` returns a
   real number (5,361 corpus presets call it), and the compiler's internal names such as `_aboeq`
   run. With fidelity off nothing changes.
+- **Each block keeps MilkDrop's own variables.** With fidelity on, per-pixel code and a wave's
+  per-point code run in their own variable space the way MilkDrop's separate machines do: they see
+  only what MilkDrop hands them (time, audio, the mesh size, q1..q32 and for waves t1..t8), keep
+  their own variables and `megabuf`, and nothing they write leaks back. `reg00`..`reg99` are
+  shared by every block and preset, so shapes now see the random values init leaves there, and
+  `loop`/`while` stop at MilkDrop's 1,048,576 turns a call.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
