@@ -157,3 +157,60 @@ test('anahtar koşarken çevrilince per_pixel aynı karede havuz değiştiriyor'
   p.accurate = true;
   assert.strictEqual(p.pixel(0.5, 0.5, 0.2, 0.1, {}).rot, 0);
 });
+
+/* Dalga per_point'inin kendi sanal makinesi (state.cpp:220 m_pp_eel):
+   zaman ve ses dalganın per_frame'inden ÖNCE, q ve t1..t8 SONRA. */
+const wv = (lines, acc) => mk(['wavecode_0_enabled=1'].concat(lines).join('\n'), acc);
+const pt = (p, s) => { p.frame(IN2); p.waveFrame(p.waves[0]); return p.wavePoint(p.waves[0], s || 0, 0.1, 0.2, {}); };
+
+test('per_point dalganın per_frame değişkenini görmüyor', () => {
+  const body = ['wave_0_per_frame1=myv = 0.3;', 'wave_0_per_point1=x = myv;'];
+  assert.strictEqual(pt(wv(body)).x, 0);
+  assert.strictEqual(pt(wv(body, false)).x, 0.3, 'uyum kapalı: tek havuz');
+});
+
+test('per_point\'in yazdığı dalganın per_frame\'ine sızmıyor', () => {
+  const body = ['wave_0_per_frame1=r = zz * 0.1;', 'wave_0_per_point1=zz = 5;'];
+  const p = wv(body);
+  pt(p); pt(p);
+  assert.strictEqual(p.waves[0]._ppColor.r, 0);
+  const l = wv(body, false);
+  pt(l); pt(l);
+  assert.strictEqual(l.waves[0]._ppColor.r, 0.5, 'uyum kapalı: sızıyor');
+});
+
+test('per_point\'in kendi değişkenleri noktalar ve kareler boyunca kalıyor', () => {
+  const p = wv(['wave_0_per_point1=cnt = cnt + 1; x = cnt;']);
+  pt(p);
+  assert.strictEqual(p.wavePoint(p.waves[0], 0.5, 0, 0, {}).x, 2);
+  assert.strictEqual(pt(p).x, 3, 'yeni karede sıfırlanmıyor');
+});
+
+test('per_point girdileri dalganın per_frame\'inden ÖNCE, q ve t\'yi SONRA alıyor', () => {
+  const body = ['wave_0_per_frame1=bass = 7; time = 9; t3 = 0.4; q5 = 0.6;',
+    'wave_0_per_point1=x = bass; y = time; r = t3; g = q5;'];
+  const o = pt(wv(body));
+  assert.deepStrictEqual([o.x, o.y, o.r, o.g], [1, 1, 0.4, 0.6]);
+  const l = pt(wv(body, false));
+  assert.deepStrictEqual([l.x, l.y, l.r, l.g], [7, 9, 0.4, 0.6]);
+});
+
+test('per_point\'in t yazması kalıcı değil; her kare per_frame\'in t\'sinden', () => {
+  const p = wv(['wave_0_init1=t4 = 10;', 'wave_0_per_point1=t4 = t4 + 1; x = t4;']);
+  assert.strictEqual(pt(p).x, 11);
+  assert.strictEqual(p.wavePoint(p.waves[0], 0.5, 0, 0, {}).x, 12, 'kare içinde noktadan noktaya taşınıyor');
+  assert.strictEqual(pt(p).x, 11, 'yeni karede init\'in 10\'undan');
+});
+
+test('per_point\'in megabuf\'ı kendisinin', () => {
+  const body = ['wave_0_per_frame1=megabuf(2) = 3;', 'wave_0_per_point1=x = megabuf(2);'];
+  assert.strictEqual(pt(wv(body)).x, 0);
+  assert.strictEqual(pt(wv(body, false)).x, 3);
+});
+
+test('anahtar koşarken çevrilince per_point aynı karede havuz değiştiriyor', () => {
+  const p = wv(['wave_0_per_frame1=myv = 0.3;', 'wave_0_per_point1=x = myv;']);
+  assert.strictEqual(pt(p).x, 0);
+  p.accurate = false;
+  assert.strictEqual(p.wavePoint(p.waves[0], 0, 0.1, 0.2, {}).x, 0.3);
+});

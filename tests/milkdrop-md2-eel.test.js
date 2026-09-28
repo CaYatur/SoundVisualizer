@@ -341,5 +341,5 @@ test('kaynakta her ifade derlemesi kipini veriyor', () => {
       assert.match(args, /\beel\b|mode:/, path.relative(ROOT, file) + ': ' + m[0] + args.slice(0, 90));
     }
   }
-  assert.strictEqual(found, 12, 'derleme çağrısı sayısı (motor 9, sprite 2, öz test 1)');
+  assert.strictEqual(found, 13, 'derleme çağrısı sayısı (motor 10, sprite 2, öz test 1)');
 });

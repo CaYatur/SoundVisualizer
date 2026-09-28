@@ -1548,6 +1548,14 @@
     'treb_att', 'meshx', 'meshy', 'pixelsx', 'pixelsy', 'aspectx', 'aspecty',
     'mouse_x', 'mouse_y', 'mouse_down'];
 
+  /* Dalga per_point'inin KENDİ sanal makinesine gidenler (#580; state.cpp:220
+     `m_pp_eel`, değişkenler 424-454). Dalganın per_frame değişkenlerini
+     görmüyor; bu liste dalganın per_frame kodu KOŞMADAN ÖNCE, q1..q32 ve
+     t1..t8 SONRA kopyalanıyor (milkdropfs.cpp:2405-2421). Nokta başına
+     sample, value1, value2, x, y ve renk ayrıca kuruluyor (wavePoint). */
+  const PP_IN = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'bass_att', 'mid_att',
+    'treb_att', 'mouse_x', 'mouse_y', 'mouse_down'];
+
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
@@ -1753,6 +1761,10 @@
       wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
       wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
       wave.cPoint = compile(w.per_point || '', pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
+      /* Uyum açıkken per_point kendi havuzunda, kendi megabuf'ıyla (PP_IN);
+         per_pixel gibi iki kez derleniyor. */
+      wave.ppPool = new Pool();
+      wave.cPointMd2 = compile(w.per_point || '', wave.ppPool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [wave.cInit, wave.cFrame, wave.cPoint]) {
         if (c.error) this.errors.push('wave ' + i + ': ' + c.error);
       }
@@ -1849,7 +1861,11 @@
         w._tInit = captureT(P);
       }
       restoreT(P, w._tInit);
+      const V = w.ppPool;
+      for (const k of PP_IN) V.set(k, P.get(k));
       w.cFrame.run(P.values);
+      for (let i = 1; i <= 32; i++) V.set('q' + i, P.get('q' + i));
+      for (let i = 1; i <= 8; i++) V.set('t' + i, P.get('t' + i));
       /* NOKTA SAYISI per_frame'den SONRA okunuyor. MilkDrop:
              nSamples = (int)*var_pf_samples;
              nSamples = std::min(512, nSamples);
@@ -1872,7 +1888,8 @@
        `out` her çağrıda YENİDEN KULLANILIYOR: 512 nokta için kare başına
        512 nesne ayırmak kabul edilemezdi. */
     wavePoint(w, sample, v1, v2, out) {
-      const P = w.pool;
+      const md2 = this._mode.md2;
+      const P = md2 ? w.ppPool : w.pool;
       P.set('sample', sample);
       P.set('value1', v1);
       P.set('value2', v2);
@@ -1894,7 +1911,7 @@
         P.set('r', w._ppColor.r); P.set('g', w._ppColor.g);
         P.set('b', w._ppColor.b); P.set('a', w._ppColor.a);
       }
-      w.cPoint.run(P.values);
+      (md2 ? w.cPointMd2 : w.cPoint).run(P.values);
       const o = out || {};
       o.x = P.get('x'); o.y = P.get('y');
       o.r = P.get('r'); o.g = P.get('g'); o.b = P.get('b'); o.a = P.get('a');

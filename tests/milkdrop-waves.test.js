@@ -169,12 +169,13 @@ test('dalga init bloğu yalnızca bir kez koşar', () => {
   /* Sayaç `t2` DEĞİL, kendi adı: t1..t8 artık her karede `per_init`in
      bıraktığı değere dönüyor (MilkDrop'un yaptığı; bkz.
      milkdrop-block-reset.test.js). Ad rezerve olmadığı için havuzda
-     kalıyor ve init ikinci kez koşsaydı 5'e geri dönerdi. */
+     kalıyor ve init ikinci kez koşsaydı 5'e geri dönerdi. per_point
+     MilkDrop'ta ayrı makine (#580): sayacı t2 üzerinden görüyor. */
   const p = preset([
     'wavecode_0_enabled=1',
     'wave_0_init1=sayac = 5;',
-    'wave_0_per_frame1=sayac = sayac + 1;',
-    'wave_0_per_point1=x = sayac;',
+    'wave_0_per_frame1=sayac = sayac + 1; t2 = sayac;',
+    'wave_0_per_point1=x = t2;',
   ]);
   p.frame(INPUTS);
   p.waveFrame(p.waves[0]);
