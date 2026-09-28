@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2257 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2258 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 660
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 661
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1243,6 +1243,38 @@ Streaming and transparency:
   included. The self-test opens the overlay with the card on every run and
   checks what it reports; checked by hand connected, with a script removed, in
   English, and with the application closed.
+
+Performance (#621):
+- **The visualizer no longer slows down as settings grow** · done on `main`.
+  Reported in use: with Auto VJ or MilkDrop on, the app got slower over time.
+  Measured on a copy of the reporter's own 842 KB settings file (saved scenes,
+  MilkDrop library records): the visualizer drew 33 fps on a 74 Hz display,
+  and 87% of its CPU time went into one function. Every frame, every layer
+  with its own settings merged them into a deep copy of the whole
+  configuration — scenes and library records included — so each saved scene
+  and each rated preset made every frame dearer. The classic, layer-less
+  path paid it too. Only the sections a layer overrides are merged now; the
+  result is the same (the tests compare it with the old code). Same file:
+  74.6 fps, the window idle 80% of the time. An eight-minute MilkDrop
+  auto-cycle (a new preset every 4 s) over the reporter's 10,369-preset
+  library then held 73.1-75 fps with the heap flat at 190 MB; 4 of 36,206
+  frames took over 50 ms.
+- **The panel no longer lays itself out every frame** · done on `main`. The
+  level meters animated their width, which re-ran layout and re-measured the
+  scene list's and the cards' scrollbars on every frame, and a value was
+  rewritten 30 times a second even when unchanged: the panel's main thread
+  spent 2,206 ms of every 5 s working, now 839 ms, and layout per frame is gone.
+- **Smaller costs in the same measurements** · done on `main`. Settings writes
+  are coalesced: while a slider was dragged the file was rewritten
+  synchronously about 18 times a second; it is now written once within
+  300 ms and flushed on exit (main-thread round trip during a drag, p95
+  15 → 12 ms — the rest is carrying the configuration itself between
+  processes). A layer canvas thrown away by a scene or Auto VJ change now
+  frees its memory at once instead of waiting for garbage collection.
+- *Not done:* the panel still sends the whole configuration on every change,
+  so a very large settings file still costs some IPC per change; on the
+  measured machine this no longer shows as a dropped frame, and splitting the
+  configuration is a larger change than the measurements justify.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
