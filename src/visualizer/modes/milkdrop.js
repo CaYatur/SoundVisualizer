@@ -587,6 +587,54 @@ void main(){ outColor = vCol; }`;
     return '#' + h(r) + h(g) + h(b);
   }
 
+  /* Küçültülmüş kareyi (RGBA, w x h) soldan sağa `cols` dilime böler; dilimin
+     rengi parlaklığın KARESİYLE ağırlıklı ortalama (bkz. sampleColors).
+     Satır sırası önemsiz — GL okuması alttan üste, 2B okuma üstten alta. */
+  function colorSlices(d, w, h, cols) {
+    const out = new Array(cols);
+    for (let k = 0; k < cols; k++) {
+      const x0 = Math.floor((k * w) / cols);
+      const x1 = Math.max(x0 + 1, Math.floor(((k + 1) * w) / cols));
+      let r = 0, g = 0, b = 0, wsum = 0;
+      for (let y = 0; y < h; y++) {
+        for (let px = x0; px < x1; px++) {
+          const o = (y * w + px) * 4;
+          const m = Math.max(d[o], d[o + 1], d[o + 2]);
+          const wt = m * m;
+          r += d[o] * wt; g += d[o + 1] * wt; b += d[o + 2] * wt; wsum += wt;
+        }
+      }
+      out[k] = wsum > 0 ? vividHex(r / wsum, g / wsum, b / wsum) : '#000000';
+    }
+    return out;
+  }
+
+  /* RGBA karesini alan ortalamasıyla `W x H`ye indirir. GL okuması mip
+     seviyesinden geliyor (ör. 1080p'de 120x67); ışık renginin eşiği ve
+     ağırlığı 64x16'lık küçültmeye göre ayarlı, daha ince ızgara karanlık
+     karedeki küçük ayrıntıyı eşiğin üstüne çıkarıp ışığı değiştirirdi. */
+  function boxResample(d, w, h, W, H) {
+    const out = new Uint8Array(W * H * 4);
+    for (let ty = 0; ty < H; ty++) {
+      const y0 = Math.floor((ty * h) / H);
+      const y1 = Math.max(y0 + 1, Math.floor(((ty + 1) * h) / H));
+      for (let tx = 0; tx < W; tx++) {
+        const x0 = Math.floor((tx * w) / W);
+        const x1 = Math.max(x0 + 1, Math.floor(((tx + 1) * w) / W));
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const o = (y * w + x) * 4;
+            r += d[o]; g += d[o + 1]; b += d[o + 2]; n++;
+          }
+        }
+        const o = (ty * W + tx) * 4;
+        out[o] = Math.round(r / n); out[o + 1] = Math.round(g / n); out[o + 2] = Math.round(b / n); out[o + 3] = 255;
+      }
+    }
+    return out;
+  }
+
   // Dizgeden 32 bitlik tohum (FNV-1a): elle seçimin tohumu.
   function hashSeed(str) {
     let h = 2166136261;
@@ -1087,6 +1135,8 @@ void main(){
       this._spriteTex = new Map();
       this.locSprite = null;
       if (this._spriteWait) for (const w of this._spriteWait) w.at = 0;
+      // Işık rengi okumasının dokusu, tamponu ve çiti de ölü bağlamdaydı (#621)
+      this._rb = null;
     }
 
     _initGL(W, H) {
@@ -5701,11 +5751,31 @@ void main(){
        her ~33 ms'de GPU'dan geri okuyordu ve Chromium "willReadFrequently"
        uyarısı veriyordu (öz test uyarıyı hata sayıyor). Tek tuvali sık
        okumaya ayırmak ise tam boy kareyi — 1080p'de ~8 MB — her seferinde
-       işlemciye çekerdi. Böyle geri okunan yalnız küçük kare, 4 KB. */
+       işlemciye çekerdi. Böyle geri okunan yalnız küçük kare, 4 KB.
+
+       GERİ OKUMA BEKLETMİYOR (#621). Küçük kare bile olsa GPU tuvalinden
+       işlemci tuvaline kopya, GPU'nun o karenin BÜTÜN işini bitirmesini
+       bekliyordu: OpenRGB açık ve kaynak MilkDrop iken görselleştiricinin
+       ana iş parçacığı zamanının ~%16'sını bu beklemede geçiriyordu (1,5
+       sn'lik profilde 248 ms). 2B tuvalin eşzamansız okuması yok
+       (`createImageBitmap` denendi: okuma yine `getImageData`'da bekledi).
+       Okuma artık motorun kendi WebGL2 bağlamında (`_gpuColors`): kare bir
+       dokuya kopyalanıp mipmap'i üretiliyor (GPU'da gerçek kutu ortalaması),
+       genişliği en az 64 olan mip seviyesi bir piksel tamponuna isteniyor ve
+       bir çit konuyor; veri çit geçildikten sonraki çağrıda alınıyor. Işık
+       bir önceki okumanın — ~33 ms eski — renklerini görüyor. İlk çağrı ve
+       WebGL2'siz ortam eski yoldan, eşzamanlı. */
     sampleColors(n) {
       const src = this.canvas;
       if (!src || !src.width || !src.height || typeof document === 'undefined') return [];
       const cols = Math.max(1, Math.min(16, Math.round(n) || 8));
+      if (!this._colorData || !this._gpuColors()) this._cpuColors();
+      if (!this._colorData) return [];
+      return colorSlices(this._colorData, this._colorW, this._colorH, cols);
+    }
+
+    // Eski yol: 2B tuvalde 64x16'ya küçültüp eşzamanlı geri okuma
+    _cpuColors() {
       const SW = 64, SH = 16;
       const small = () => {
         const c = document.createElement('canvas');
@@ -5717,30 +5787,90 @@ void main(){
       if (!this._colorRead) this._colorRead = small();
       const x = this._colorCanvas.getContext('2d');
       const xr = this._colorRead.getContext('2d', { willReadFrequently: true });
-      if (!x || !xr) return [];
+      if (!x || !xr) return;
       x.imageSmoothingEnabled = true;
       x.imageSmoothingQuality = 'high';
       x.clearRect(0, 0, SW, SH);
-      x.drawImage(src, 0, 0, SW, SH);
+      x.drawImage(this.canvas, 0, 0, SW, SH);
       xr.clearRect(0, 0, SW, SH);
       xr.drawImage(this._colorCanvas, 0, 0);
-      const d = xr.getImageData(0, 0, SW, SH).data;
-      const out = new Array(cols);
-      for (let k = 0; k < cols; k++) {
-        const x0 = Math.floor((k * SW) / cols);
-        const x1 = Math.max(x0 + 1, Math.floor(((k + 1) * SW) / cols));
-        let r = 0, g = 0, b = 0, w = 0;
-        for (let y = 0; y < SH; y++) {
-          for (let px = x0; px < x1; px++) {
-            const o = (y * SW + px) * 4;
-            const m = Math.max(d[o], d[o + 1], d[o + 2]);
-            const wt = m * m;
-            r += d[o] * wt; g += d[o + 1] * wt; b += d[o + 2] * wt; w += wt;
-          }
-        }
-        out[k] = w > 0 ? vividHex(r / w, g / w, b / w) : '#000000';
+      this._colorData = xr.getImageData(0, 0, SW, SH).data;
+      this._colorW = SW;
+      this._colorH = SH;
+    }
+
+    /* Bekletmeyen okuma. Dönüş: bu yol kullanılabiliyor mu (kullanılamıyorsa
+       çağıran eski yola düşer). Bekleyen okuma bittiyse veriyi alır, bitmediyse
+       dokunmaz; bekleyen yoksa yenisini başlatır. GL durumunun değiştirdiği
+       her bağı geri koyar — motor geçişlerini kendi bağlarıyla kuruyor ama
+       buradan dönen bir bağ bir sonraki çizimi bozmamalı. */
+    _gpuColors() {
+      const gl = this.gl;
+      const cv = this.gl2;
+      if (!gl || !cv || !cv.width || !cv.height || typeof gl.fenceSync !== 'function') return false;
+      if (gl.isContextLost && gl.isContextLost()) return false;
+      const rb = this._rb || (this._rb = { tex: null, fbo: null, pbo: null, sync: null, W: 0, H: 0, L: 0, w: 0, h: 0 });
+      if (rb.sync) {
+        if (gl.getSyncParameter(rb.sync, gl.SYNC_STATUS) !== gl.SIGNALED) return true;
+        const out = new Uint8Array(rb.w * rb.h * 4);
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, rb.pbo);
+        gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, out);
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+        gl.deleteSync(rb.sync);
+        rb.sync = null;
+        this._colorData = boxResample(out, rb.w, rb.h, 64, 16);
+        this._colorW = 64;
+        this._colorH = 16;
+        return true;
       }
-      return out;
+      const W = cv.width, H = cv.height;
+      if (!rb.tex || rb.W !== W || rb.H !== H) {
+        if (rb.tex) gl.deleteTexture(rb.tex);
+        // Genişlik en az 64, yükseklik en az 1 kalsın
+        const L = Math.max(0, Math.floor(Math.log2(Math.max(1, W / 64))));
+        rb.L = Math.min(L, Math.floor(Math.log2(H)));
+        rb.W = W; rb.H = H;
+        rb.w = Math.max(1, W >> rb.L);
+        rb.h = Math.max(1, H >> rb.L);
+        rb.tex = gl.createTexture();
+        const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+        gl.bindTexture(gl.TEXTURE_2D, rb.tex);
+        // Bağlam `alpha: false`: çerçeve RGB, kopyanın biçimi de RGB olmalı
+        gl.texStorage2D(gl.TEXTURE_2D, rb.L + 1, gl.RGB8, W, H);
+        gl.bindTexture(gl.TEXTURE_2D, prevTex);
+        if (!rb.fbo) rb.fbo = gl.createFramebuffer();
+        if (!rb.pbo) rb.pbo = gl.createBuffer();
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, rb.pbo);
+        gl.bufferData(gl.PIXEL_PACK_BUFFER, rb.w * rb.h * 4, gl.STREAM_READ);
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      }
+      const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
+      const prevRead = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+      gl.bindTexture(gl.TEXTURE_2D, rb.tex);
+      gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 0, 0, W, H);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      gl.bindTexture(gl.TEXTURE_2D, prevTex);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, rb.fbo);
+      gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rb.tex, rb.L);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, rb.pbo);
+      gl.readPixels(0, 0, rb.w, rb.h, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, prevRead);
+      rb.sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+      gl.flush();
+      return true;
+    }
+
+    _dropReadback() {
+      const gl = this.gl;
+      const rb = this._rb;
+      this._rb = null;
+      if (!gl || !rb) return;
+      if (rb.sync) gl.deleteSync(rb.sync);
+      if (rb.tex) gl.deleteTexture(rb.tex);
+      if (rb.fbo) gl.deleteFramebuffer(rb.fbo);
+      if (rb.pbo) gl.deleteBuffer(rb.pbo);
     }
 
     monitorValue() {
@@ -5761,6 +5891,7 @@ void main(){
       this._texLoads = 0;
       this._texBusy(0);
       this._disposeTargets();
+      this._dropReadback();
       const gl = this.gl;
       if (gl) {
         if (this._pending) { this._dropJob(this._pending.job); this._pending = null; }

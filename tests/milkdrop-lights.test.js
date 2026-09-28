@@ -201,3 +201,75 @@ test('yeni metinlerin İngilizcesi var', () => {
     assert.ok(I.includes("'" + m[1] + "':"), start + ' notunun İngilizcesi yok ya da metin uyuşmuyor');
   }
 });
+
+/* Motorun WebGL2 bağlamı yerine kayıt tutan sahte bir bağlam: çit durumu
+   testten sürülüyor, okunan piksel verisi `gpuColor`dan geliyor. */
+function fakeGL(state) {
+  const C = { TEXTURE_2D: 1, TEXTURE_BINDING_2D: 2, READ_FRAMEBUFFER: 3, READ_FRAMEBUFFER_BINDING: 4,
+    PIXEL_PACK_BUFFER: 5, SYNC_STATUS: 6, SIGNALED: 7, UNSIGNALED: 8, RGB8: 9, RGBA: 10,
+    UNSIGNED_BYTE: 11, COLOR_ATTACHMENT0: 12, STREAM_READ: 13, SYNC_GPU_COMMANDS_COMPLETE: 14 };
+  const log = [];
+  const bind = { tex: 'motor-doku', read: 'motor-fb', pack: null };
+  const gl = Object.assign({}, C, {
+    log, bind,
+    isContextLost: () => false,
+    getParameter: (p) => (p === C.TEXTURE_BINDING_2D ? bind.tex : p === C.READ_FRAMEBUFFER_BINDING ? bind.read : null),
+    createTexture: () => ({ t: 'tex' }), createFramebuffer: () => ({ t: 'fbo' }), createBuffer: () => ({ t: 'pbo' }),
+    bindTexture: (k, t) => { bind.tex = t; }, bindFramebuffer: (k, f) => { bind.read = f; },
+    bindBuffer: (k, b) => { bind.pack = b; },
+    texStorage2D: (...a) => log.push(['texStorage2D', ...a.slice(1)]),
+    bufferData: (k, n) => log.push(['bufferData', n]),
+    copyTexSubImage2D: (...a) => log.push(['copy', a[6], a[7], bind.read]),
+    generateMipmap: () => log.push(['mip']),
+    framebufferTexture2D: (...a) => log.push(['attach', a[4]]),
+    readPixels: (x, y, w, h, fmt, type, off) => log.push(['readPixels', w, h, off, !!bind.pack]),
+    fenceSync: () => { log.push(['fence']); return { s: 'sync' }; },
+    flush: () => {},
+    getSyncParameter: () => (state.signaled ? C.SIGNALED : C.UNSIGNALED),
+    getBufferSubData: (k, off, out) => {
+      log.push(['getBufferSubData', out.length]);
+      for (let i = 0; i < out.length; i += 4) { out[i] = state.gpuColor[0]; out[i + 1] = state.gpuColor[1]; out[i + 2] = state.gpuColor[2]; out[i + 3] = 255; }
+    },
+    deleteSync: () => log.push(['deleteSync']),
+  });
+  return gl;
+}
+
+test('ışık rengi okuması bekletmiyor: çit geçilmeden veri alınmıyor (#621)', () => {
+  /* 2B tuvalden eşzamanlı okuma GPU'nun karenin bütün işini bitirmesini
+     bekliyordu (OpenRGB + MilkDrop kaynağında ana iş parçacığının ~%16'sı). */
+  const { m, ops } = engineWith(() => [200, 0, 0]);
+  const state = { signaled: false, gpuColor: [0, 0, 200] };
+  const gl = fakeGL(state);
+  m.gl = gl;
+  m.gl2 = { width: 1920, height: 1080 };
+  const cpuReads = () => ops.filter((o) => o[0] === 'read').length;
+  const red = ['#ff0000', '#ff0000', '#ff0000', '#ff0000'];
+
+  assert.deepStrictEqual(Array.from(m.sampleColors(4)), red, 'ilk çağrı eşzamanlı eski yoldan');
+  assert.strictEqual(cpuReads(), 1);
+
+  assert.deepStrictEqual(Array.from(m.sampleColors(4)), red, 'okuma başladı, eski renkler dönüyor');
+  const rp = gl.log.find((l) => l[0] === 'readPixels');
+  assert.ok(rp, 'GL okuması başlamalı');
+  assert.deepStrictEqual(rp, ['readPixels', 120, 67, 0, true], '1080p: genişliği >= 64 olan mip seviyesi (4), tampona');
+  assert.deepStrictEqual(gl.log.find((l) => l[0] === 'texStorage2D'), ['texStorage2D', 5, gl.RGB8, 1920, 1080], 'RGB doku, 5 seviye');
+  assert.deepStrictEqual(gl.log.find((l) => l[0] === 'attach'), ['attach', 4]);
+  assert.deepStrictEqual(gl.log.find((l) => l[0] === 'copy'), ['copy', 1920, 1080, null], 'kopya çizim tamponundan');
+  assert.strictEqual(gl.bind.tex, 'motor-doku', 'doku bağı geri konmalı');
+  assert.strictEqual(gl.bind.read, 'motor-fb', 'okuma çerçevesi bağı geri konmalı');
+  assert.strictEqual(gl.bind.pack, null);
+
+  assert.deepStrictEqual(Array.from(m.sampleColors(4)), red, 'çit geçilmedi: bekleme yok, eski renkler');
+  assert.ok(!gl.log.some((l) => l[0] === 'getBufferSubData'), 'çit geçilmeden okunmamalı');
+  assert.strictEqual(gl.log.filter((l) => l[0] === 'readPixels').length, 1, 'bekleyen varken yenisi başlamıyor');
+  assert.strictEqual(cpuReads(), 1, 'eşzamanlı okumaya düşülmedi');
+
+  state.signaled = true;
+  assert.deepStrictEqual(Array.from(m.sampleColors(4)), ['#0000ff', '#0000ff', '#0000ff', '#0000ff'], 'çit geçince yeni renkler');
+  assert.deepStrictEqual(gl.log.find((l) => l[0] === 'getBufferSubData'), ['getBufferSubData', 120 * 67 * 4]);
+  // Eşik ve ağırlık 64x16'ya göre ayarlı: mip verisi aynı ızgaraya indiriliyor
+  assert.deepStrictEqual([m._colorW, m._colorH, m._colorData.length], [64, 16, 64 * 16 * 4]);
+  m.sampleColors(4);
+  assert.strictEqual(gl.log.filter((l) => l[0] === 'readPixels').length, 2, 'okuma bitince yenisi başlıyor');
+});

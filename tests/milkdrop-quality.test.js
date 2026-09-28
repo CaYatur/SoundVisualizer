@@ -145,11 +145,15 @@ test('motor: donmuş kare eritmesi tümüyle kaldırıldı', () => {
      saklamak için onu kullanıyor. Yasaklamak, adı geçen mekanizmayı değil
      çağrının kendisini yasaklamak olurdu. Asıl güvence yukarıdaki dört ad;
      onlar durdukça donmuş kare yolu geri gelemez. */
-  const kopya = (CODE.match(/copyTexSubImage2D/g) || []).length;
-  assert.ok(kopya <= 1, 'copyTexSubImage2D yalnız flaş sınırlayıcıda olmalı');
+  /* İki bilinen kullanıcı var: flaş sınırlayıcı ve ışık rengi okuması
+     (#621, kare mipmap'li dokuya kopyalanıp küçük seviyesi okunuyor). Başka
+     bir yerde geçerse geçiş yolu geri gelmiş olabilir. */
+  const count = (s) => (s.match(/copyTexSubImage2D/g) || []).length;
   const fl = /_flashPass\(gl, fl, GW, GH, step\) \{[\s\S]*?\n    \}/.exec(CODE);
-  assert.ok(fl && fl[0].includes('copyTexSubImage2D'),
-    'tek kullanım flaş sınırlayıcıda değilse geçiş yolu geri gelmiş olabilir');
+  const rb = /_gpuColors\(\) \{[\s\S]*?\n    \}/.exec(CODE);
+  assert.ok(fl && count(fl[0]) === 1, 'flaş sınırlayıcı kareyi saklamak için kopyalıyor');
+  assert.ok(rb && count(rb[0]) === 1, 'ışık okuması kareyi kopyalıyor');
+  assert.strictEqual(count(CODE), 2, 'copyTexSubImage2D yalnız flaş sınırlayıcıda ve ışık okumasında olmalı');
 });
 
 test('blur: min/max presetten okunuyor, yoksa MilkDrop varsayılanı', () => {
