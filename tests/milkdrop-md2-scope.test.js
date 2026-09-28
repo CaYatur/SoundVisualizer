@@ -79,3 +79,81 @@ test('resetGlobals gmegabuf\'u da siliyor', () => {
   b.frame(IN);
   assert.strictEqual(b.get('monitor'), 0);
 });
+
+/* per_pixel'in kendi sanal makinesi (state.cpp:214 m_pv_eel). Girdiler
+   per_frame'den önce, q'lar sonra, zoom..sy düğüm başına per_frame'in
+   bıraktığından; kendi değişkenleri ve megabuf'ı kalıcı. */
+const IN2 = Object.assign({}, IN, { meshx: 48, meshy: 36, pixelsx: 640, pixelsy: 480, aspectx: 0.75, aspecty: 1 });
+const px = (p) => { p.frame(IN2); p.captureBase(); return p.pixel(0.5, 0.5, 0.2, 0.1, {}); };
+
+test('per_pixel kare denklemlerinin değişkenini görmüyor', () => {
+  const body = 'per_frame_1=myv = 0.3;\nper_pixel_1=rot = myv;';
+  assert.strictEqual(px(mk(body)).rot, 0, 'MilkDrop: kendi makinesinde myv 0');
+  assert.strictEqual(px(mk(body, false)).rot, 0.3, 'uyum kapalı: tek havuz');
+});
+
+test('per_pixel\'in yazdığı kare denklemlerine ve çizime sızmıyor', () => {
+  const body = 'fDecay=0.98\nper_frame_1=monitor = zz;\nper_pixel_1=decay = 0.1; zz = 5; wave_r = 0.2;';
+  const p = mk(body);
+  px(p); px(p);
+  assert.deepStrictEqual([p.get('decay'), p.get('zz'), p.get('monitor')], [0.98, 0, 0]);
+  assert.strictEqual(p.get('wave_r') === 0.2, false, 'dalga rengi per_pixel\'den gelmiyor');
+  const old = mk(body, false);
+  px(old); px(old);
+  assert.deepStrictEqual([old.get('zz'), old.get('monitor')], [5, 5], 'uyum kapalı: sızıyor');
+});
+
+test('per_pixel\'in kendi değişkenleri düğümler ve kareler boyunca kalıyor', () => {
+  const p = mk('per_pixel_1=cnt = cnt + 1; dx = cnt;');
+  p.frame(IN2); p.captureBase();
+  p.pixel(0, 0, 0, 0, {}); p.pixel(0, 0, 0, 0, {});
+  assert.strictEqual(p.pixel(0, 0, 0, 0, {}).dx, 3);
+  p.frame(IN2); p.captureBase();
+  assert.strictEqual(p.pixel(0, 0, 0, 0, {}).dx, 4, 'kare başında sıfırlanmıyor');
+});
+
+test('per_pixel girdileri per_frame\'den ÖNCE alıyor, q\'ları SONRA', () => {
+  const body = 'per_frame_1=bass = 5; meshx = 2; q1 = 0.7;\nper_pixel_1=rot = bass; dx = meshx; dy = q1; sx = aspectx; sy = pixelsy;';
+  const o = px(mk(body));
+  assert.deepStrictEqual([o.rot, o.dx, o.dy, o.sx, o.sy], [1, 48, 0.7, 0.75, 480]);
+  const l = px(mk(body, false));
+  assert.deepStrictEqual([l.rot, l.dx, l.dy], [5, 2, 0.7], 'uyum kapalı: per_frame\'in değiştirdiği');
+});
+
+test('per_pixel\'in q yazması kare denklemlerinin q\'suna dokunmuyor', () => {
+  const p = mk('per_frame_1=q2 = q2 + 1;\nper_pixel_1=q2 = 100;');
+  px(p); px(p);
+  assert.strictEqual(p.get('q2'), 1, 'her kare init sonrası değerden (0) başlıyor, per_pixel\'in 100\'ü görünmüyor');
+});
+
+test('megabuf per_pixel\'in kendisinin; gmegabuf ve reg ortak', () => {
+  MD.resetGlobals();
+  const body = 'per_frame_1=megabuf(3) = 2; gmegabuf(3) = 4; reg10 = 0.4;\nper_pixel_1=rot = megabuf(3); dx = gmegabuf(3); dy = reg10;';
+  const o = px(mk(body));
+  assert.deepStrictEqual([o.rot, o.dx, o.dy], [0, 4, 0.4]);
+  MD.resetGlobals();
+  const l = px(mk(body, false));
+  assert.deepStrictEqual([l.rot, l.dx, l.dy], [2, 4, 0.4], 'uyum kapalı: tek megabuf, havuzun reg\'i');
+});
+
+test('per_pixel zoom..sy\'yi per_frame\'in bıraktığından alıyor; zoom_base yalnız uyum kapalıyken', () => {
+  const body = 'per_frame_1=zoom = 1.2; rot = 0.3; zoom_base = 2;\nper_pixel_1=warp = zoom + rot;';
+  const o = px(mk(body));
+  assert.deepStrictEqual([o.zoom, o.rot], [1.2, 0.3]);
+  assert.ok(Math.abs(o.warp - 1.5) < 1e-12);
+  assert.strictEqual(px(mk(body, false)).zoom, 2, 'eski kaçamak');
+  // per_pixel'in kendisi yazsa da sonraki düğümün zoom'u per_frame'inki
+  const q = mk('per_frame_1=zoom = 1.2;\nper_pixel_1=zoom_base = 3;');
+  px(q);
+  assert.strictEqual(q.pixel(0.5, 0.5, 0.2, 0.1, {}).zoom, 1.2);
+});
+
+test('anahtar koşarken çevrilince per_pixel aynı karede havuz değiştiriyor', () => {
+  const p = mk('per_frame_1=myv = 0.3;\nper_pixel_1=rot = myv;');
+  assert.strictEqual(px(p).rot, 0);
+  p.accurate = false;
+  p.captureBase();
+  assert.strictEqual(p.pixel(0.5, 0.5, 0.2, 0.1, {}).rot, 0.3);
+  p.accurate = true;
+  assert.strictEqual(p.pixel(0.5, 0.5, 0.2, 0.1, {}).rot, 0);
+});

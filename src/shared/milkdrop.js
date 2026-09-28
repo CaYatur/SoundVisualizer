@@ -535,9 +535,11 @@
       this.index = new Map();
       this.names = [];
       this.values = new Float64Array(0);
-      /* megabuf presetin KENDİNE ait. Havuzda duruyor çünkü init, per_frame
-         ve per_pixel ayrı ayrı derleniyor ama aynı belleği paylaşmaları
-         gerekiyor — MilkDrop'ta da öyle. */
+      /* megabuf havuzun, yani sanal makinenin. Havuzda duruyor çünkü init
+         ile per_frame ayrı ayrı derleniyor ama MilkDrop'ta aynı makinede
+         koşuyor ve aynı belleği görüyor. per_pixel MilkDrop'ta AYRI makine:
+         uyum açıkken kendi havuzunda (pvPool), kendi megabuf'ıyla; uyum
+         kapalıyken eski hâli, ana havuzu paylaşıyor. */
       this.mem = makeMem();
       /* Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur.
          Yalnız uyum kapalıyken kullanılıyor; açıkken reg'ler REGS'te. */
@@ -1529,6 +1531,23 @@
   ];
   const SHARED_LEGACY = ['vol', 'vol_att', 'meshx', 'meshy', 'aspectx', 'aspecty', 'pixelsx', 'pixelsy'];
 
+  /* per_pixel'in KENDİ sanal makinesine giden kare girdileri (#580).
+
+     MilkDrop per_pixel'i ayrı bir makinede koşturuyor (state.cpp:214
+     `m_pv_eel`). O makine kare denklemlerinin değişkenlerini görmüyor;
+     yalnız şunları alıyor:
+       • bu liste — kare başına bir kez, per_frame KOŞMADAN ÖNCE
+         (milkdropfs.cpp:619-634, yürütme 638-641): per_frame `bass`i
+         değiştirse de per_pixel dosyanın/sesin değerini görüyor;
+       • q1..q32 — per_frame BİTTİKTEN sonra (649-650);
+       • zoom..sy — her düğümde per_frame'in bıraktığı değerler
+         (1651-1660), x, y, rad, ang da düğümün kendisi.
+     Kendi değişkenleri ve megabuf'ı kareler boyunca kalıyor. Fare bizim
+     eklentimiz: alt bloklara gittiği gibi buraya da gidiyor. */
+  const PV_IN = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'bass_att', 'mid_att',
+    'treb_att', 'meshx', 'meshy', 'pixelsx', 'pixelsy', 'aspectx', 'aspecty',
+    'mouse_x', 'mouse_y', 'mouse_down'];
+
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
@@ -1633,6 +1652,12 @@
       this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576 }, eel));
       this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
       this.cPixel = compile(this.file.perPixel, this.pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
+      /* Uyum açıkken per_pixel kendi havuzunda (PV_IN). Aynı kod iki kez
+         derleniyor: kapanışlar havuzun indislerini ve megabuf'ını derleme
+         anında bağlıyor, anahtar ise koşarken çevrilebiliyor. Hatalar
+         aynı metinden, bir kez sayılıyor. */
+      this.pvPool = new Pool();
+      this.cPixelMd2 = compile(this.file.perPixel, this.pvPool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [this.cInit, this.cFrame, this.cPixel]) {
         if (c.error) this.errors.push(c.error);
       }
@@ -1915,6 +1940,10 @@
     frame(inputs) {
       const P = this.pool;
       if (inputs) for (const k in inputs) P.set(k, inputs[k]);
+      /* per_pixel'in girdileri per_frame'den ÖNCE (PV_IN). Anahtar kare
+         ortasında çevrilebildiği için kip ne olursa olsun dolduruluyor. */
+      const V = this.pvPool;
+      for (const k of PV_IN) V.set(k, P.get(k));
       const base = this.accurate ? this._pfBaseMd2 : this._pfBase;
       if (!this.initialised) {
         /* MilkDrop init'i koşturmadan önce de yerleşik adları yüklüyor
@@ -1944,6 +1973,7 @@
          dalgalara ve şekillere düğümlerin bıraktığı değeri geçiriyordu. */
       if (!this._qFrame) this._qFrame = new Array(NUM_Q);
       for (let i = 0; i < NUM_Q; i++) this._qFrame[i] = P.get('q' + (i + 1));
+      for (let i = 0; i < NUM_Q; i++) V.set('q' + (i + 1), this._qFrame[i]);
       return P;
     }
 
@@ -1951,13 +1981,18 @@
        değişkenleri okunur. Dönüş nesnesi HER ÇAĞRIDA YENİDEN KULLANILIR —
        1728 düğüm için kare başına 1728 nesne ayırmak kabul edilemezdi. */
     pixel(x, y, rad, ang, out) {
-      const P = this.pool;
+      /* Uyum açıkken per_pixel'in kendi havuzu: kare denklemlerinin
+         değişkenlerini görmüyor, yazdıkları da kare denklemlerine ve
+         çizime sızmıyor (PV_IN). */
+      const md2 = this._mode.md2;
+      const P = md2 ? this.pvPool : this.pool;
       P.set('x', x);
       P.set('y', y);
       P.set('rad', rad);
       P.set('ang', ang);
       // Varsayılanlar her düğümde yeniden kurulur; presetler bunlara güvenir
-      P.set('zoom', P.get('zoom_base') || this._base.zoom);
+      // `zoom_base` motorun eski bir kaçamağı; MilkDrop'ta yok, korpusta kullanan yok
+      P.set('zoom', md2 ? this._base.zoom : (P.get('zoom_base') || this._base.zoom));
       P.set('zoomexp', this._base.zoomexp);
       P.set('rot', this._base.rot);
       P.set('warp', this._base.warp);
@@ -1967,7 +2002,7 @@
       P.set('dy', this._base.dy);
       P.set('sx', this._base.sx);
       P.set('sy', this._base.sy);
-      this.cPixel.run(P.values);
+      (md2 ? this.cPixelMd2 : this.cPixel).run(P.values);
       const o = out || {};
       o.zoom = P.get('zoom');
       o.zoomexp = P.get('zoomexp');
