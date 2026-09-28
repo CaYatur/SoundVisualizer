@@ -66,10 +66,28 @@
         b[k & 4095] = v;
         return v;
       },
+      clear() { blocks.length = 0; },
     };
   }
   // gmegabuf presetler arasında ORTAK: MilkDrop'ta da öyle.
   const GMEM = makeMem();
+
+  /* reg00..reg99: ns-eel2'de SÜREÇ GENELİNDE tek bir dizi
+     (nseel-eval.c `nseel_globalregs[100]`; ad büyük/küçük harfe bakmadan
+     "reg" + iki rakam). Her sanal makine — per_frame, per_pixel, her dalga
+     ve şekil, geçişteki iki preset — aynı yüz gözü görüyor ve hiçbiri
+     sıfırlamıyor. Uyum açıkken böyle; kapalıyken eski kural: her havuzun
+     kendi reg'leri (Pool.persistent). Kip koşarken okunuyor, anahtar
+     çevrilince aynı karede değişiyor. */
+  const REGS = new Float64Array(100);
+  const REG_RE = /^reg\d\d$/;
+  /* Ortak bellekleri (gmegabuf, reg'ler) sıfırlar. MilkDrop bunu hiç
+     yapmıyor; ölçüm ve testler presetleri birbirinden yalıtmak için
+     çağırıyor. */
+  function resetGlobals() {
+    GMEM.clear();
+    REGS.fill(0);
+  }
 
   const PUNCT = [
     '<<', '>>', '<=', '>=', '==', '!=', '&&', '||',
@@ -521,7 +539,8 @@
          ve per_pixel ayrı ayrı derleniyor ama aynı belleği paylaşmaları
          gerekiyor — MilkDrop'ta da öyle. */
       this.mem = makeMem();
-      // Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur
+      /* Kare boyunca kalıcı olanlar (registerlar) — sıfırlamada korunur.
+         Yalnız uyum kapalıyken kullanılıyor; açıkken reg'ler REGS'te. */
       this.persistent = new Set();
       for (let i = 0; i < 100; i++) {
         const n = 'reg' + (i < 10 ? '0' + i : i);
@@ -593,12 +612,24 @@
       }
       case 'var': {
         const i = pool.id(node.name);
+        if (REG_RE.test(node.name)) {
+          const r = +node.name.slice(3), mode = cx.mode;
+          return (P) => (mode.md2 ? REGS[r] : P[i]);
+        }
         return (P) => P[i];
       }
       case 'assign': {
         const i = pool.id(node.name);
         const rhs = emit(node.v, pool, cx);
         const F = cx.F;
+        if (REG_RE.test(node.name)) {
+          const r = +node.name.slice(3), mode = cx.mode;
+          return (P) => {
+            const v = F(rhs(P));
+            if (mode.md2) REGS[r] = v; else P[i] = v;
+            return v;
+          };
+        }
         return (P) => (P[i] = F(rhs(P)));
       }
       case 'un': {
@@ -1868,9 +1899,16 @@
       return o;
     }
 
-    // Havuzdaki değişkenlere kısayol
-    get(name) { return this.pool.get(name); }
-    set(name, v) { this.pool.set(name, v); }
+    /* Havuzdaki değişkenlere kısayol. Uyum açıkken reg'ler havuzda değil,
+       ortak REGS dizisinde. */
+    get(name) {
+      if (this._mode.md2 && name.charCodeAt(0) === 114 && REG_RE.test(name)) return REGS[+name.slice(3)];
+      return this.pool.get(name);
+    }
+    set(name, v) {
+      if (this._mode.md2 && name.charCodeAt(0) === 114 && REG_RE.test(name)) REGS[+name.slice(3)] = Number(v) || 0;
+      else this.pool.set(name, v);
+    }
 
     /* Kare başına: girdi değişkenlerini yaz, init'i (bir kez) ve per_frame'i
        koştur. inputs: { time, fps, frame, bass, mid, treb, bass_att, ... } */
@@ -2176,7 +2214,8 @@
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
-    echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer };
+    echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
+    resetGlobals };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

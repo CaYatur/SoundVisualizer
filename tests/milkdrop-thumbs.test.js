@@ -272,7 +272,7 @@ test('yerleşik presetler Node\'da da okunuyor; sayfada kayıt bir kez', () => {
 
 function driver(opts) {
   const o = opts || {};
-  const log = { modes: 0, disposed: 0, draws: [], randoms: [], done: [], drawn: null };
+  const log = { modes: 0, disposed: 0, draws: [], randoms: [], done: [], drawn: null, resets: [] };
   const jobs = [];
   function Canvas() {
     const c = {
@@ -319,6 +319,8 @@ function driver(opts) {
     setTimeout, clearTimeout, Promise, Uint8Array, Float32Array, Math: pageMath,
   };
   ctx.window.SVModes = { milkdrop: FakeMode };
+  // Ortak bellekler: kaçıncı motordan ÖNCE sıfırlandığı yazılıyor
+  ctx.window.SVMilkdrop = { resetGlobals: () => log.resets.push(log.modes) };
   ctx.window.SVDemoAudio = require('../src/shared/demo-audio.js');
   ctx.window.thumbs = {
     onJob: (cb) => jobs.push(cb),
@@ -350,6 +352,7 @@ test('çizim sayfası: her iş yeni motor, reçetedeki boyut ve kare sayısı, W
   assert.deepStrictEqual(d.log.blob, { type: 'image/webp', q: 0.8 });
   await d.run(JOB(K('b')));
   assert.deepStrictEqual([d.log.modes, d.log.disposed], [2, 2], 'iş başına yeni örnek, hepsi bırakıldı');
+  assert.deepStrictEqual(d.log.resets, [0, 1], 'gmegabuf ve reg\'ler her motordan önce sıfırlandı');
 });
 
 test('çizim sayfası: rastgelelik anahtardan — aynı iş aynı sayıları görüyor, öncülü ne olursa olsun', async () => {
