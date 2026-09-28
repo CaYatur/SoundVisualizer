@@ -5096,7 +5096,7 @@ async function runSmoke() {
     try {
       var m = window.SVMilkdrop;
       var pool = new m.Pool();
-      var c = m.compile('x = 2 + 3; y = x * 5; z = sqrt(y); w = if(above(y,10), 7, 9); v = 10 % 3; u = 2 ^ 3; t = 1/0;', pool);
+      var c = m.compile('x = 2 + 3; y = x * 5; z = sqrt(y); w = if(above(y,10), 7, 9); v = 10 % 3; u = 2 ^ 3; t = 1/0;', pool, { mode: { md2: true }, md2Funcs: true });
       c.run();
       return JSON.stringify({
         hata: '',

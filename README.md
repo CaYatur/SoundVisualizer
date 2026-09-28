@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2202%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2227%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -263,6 +263,11 @@ that asserts the bar profile has no step in it.
   first missing number, integer settings drop their fractions, and equation lines are glued the way
   MilkDrop glues them, `\\` comments included. 32 presets of the corpus read differently; with
   fidelity off the old parser stays.
+- **Equations run by MilkDrop 2's compiler rules.** With fidelity on, truth and equality tests use
+  its 0.00001 tolerance, `%` works on whole numbers without sign, `&` and `|` on 64-bit integers,
+  `megabuf` and `gmegabuf` indices are rounded and bounded the way it does, `rand(n)` returns a
+  real number (5,361 corpus presets call it), and the compiler's internal names such as `_aboeq`
+  run. With fidelity off nothing changes.
 - **Composite shaders get the hue colour MilkDrop gives them.** MilkDrop passes every composite
   shader four slowly drifting corner colours as `hue_shader`, whatever the preset's `fShader`
   says; `fShader` only scales them on the fixed pipeline. The engine applied `fShader` to shaders
@@ -1315,7 +1320,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2202 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2227 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

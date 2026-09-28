@@ -5495,6 +5495,7 @@ void main(){
       const M = typeof window !== 'undefined' && window.SVMilkdrop;
       if (!S || !M) return;
       if (!this.sprites) this.sprites = new S.SpriteSet(M);
+      this.sprites.setAccurate(this._wantAcc !== false);
       if (c.op === 'launch' && c.def) {
         this.sprites.launch(c.def, { seed: c.seed, time: this.time, frame: this.frameNo, key: c.key });
       } else if (c.op === 'kill') this.sprites.killNum(c.num);
@@ -5609,6 +5610,7 @@ void main(){
       this._takeSpriteCommands();
       if (!this.sprites || !this.sprites.count()) { this._releaseSpriteTex(); return; }
       const S = window.SVMilkdropSprites;
+      this.sprites.setAccurate(this._wantAcc !== false);
       const list = this.sprites.step(this._spriteIn || {});
       if (list.length && this._ensureSpriteGL(gl)) {
         const L = this.locSprite;

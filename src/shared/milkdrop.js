@@ -32,31 +32,38 @@
   // ==========================================================================
   /* megabuf/gmegabuf: MilkDrop'un karalama bellekleri.
 
-     MilkDrop bunları 1.048.576 girdilik sabit bir dizi olarak tutar. Burada
-     4096'dan başlayıp ikiye katlayarak büyütüyoruz: yönetici paneli her
-     çizimde presetin derlemesini doğrulamak için yeni bir Preset kuruyor ve
-     preset başına 8 MB ayırmak kabul edilemezdi. Yazılmamış girdi 0'dır,
-     dolayısıyla dizinin kısa olması okumayı değiştirmiyor. */
+     Bellek 4096 girdilik bloklar hâlinde tutuluyor, bir blok ilk
+     yazıldığında ayrılıyor: yönetici paneli her çizimde presetin
+     derlemesini doğrulamak için yeni bir Preset kuruyor ve preset başına
+     megabaytlar ayırmak kabul edilemezdi. Yazılmamış girdi 0'dır.
+
+     İndis ve sınır kipe göre (memKey, #580):
+       • kapalıyken eski kural: `x | 0`, 0..1.048.575 (MEM_MAX);
+       • açıkken MilkDrop'unki: indis trunc(x + 0,00001) — MilkDrop indise
+         yakınlık payını ekleyip kırpıyor (asm `_asm_megabuf`: fadd
+         closefact; fistp), yani 2,9999999 gibi bir hesap 3. gözü, −1 ise
+         0. gözü buluyor. megabuf 0..8.388.607 (NSEEL_RAM_BLOCKS ×
+         NSEEL_RAM_ITEMSPERBLOCK = 128 × 65.536); dışı 0 okuyor, yazılanı
+         atıyor. gmegabuf tek bir 2^20'lik dizi ve indis ona SARIYOR
+         (nseel-ram.c __NSEEL_RAMAllocGMEM: `w & (NSEEL_SHARED_GRAM_SIZE −
+         1)`; MilkDrop sanal makinelerine ayrı bir GRAM bloğu vermiyor). */
   const MEM_MAX = 1048576;
+  const MD2_MEM_MAX = 8388608;
+  const GMEM_MASK = 0xFFFFF;
   function makeMem() {
-    let a = new Float64Array(4096);
+    const blocks = [];
     return {
-      get(i) {
-        const k = i | 0;
-        return k >= 0 && k < a.length ? a[k] : 0;
+      // k: tam sayı indis, max: sınır (hariç)
+      get(k, max) {
+        if (!(k >= 0 && k < max)) return 0;
+        const b = blocks[k >>> 12];
+        return b ? b[k & 4095] : 0;
       },
-      set(i, v) {
-        const k = i | 0;
-        if (k < 0 || k >= MEM_MAX) return v;
-        if (k >= a.length) {
-          let n = a.length;
-          while (n <= k) n *= 2;
-          if (n > MEM_MAX) n = MEM_MAX;
-          const b = new Float64Array(n);
-          b.set(a);
-          a = b;
-        }
-        a[k] = v;
+      set(k, v, max) {
+        if (!(k >= 0 && k < max)) return v;
+        let b = blocks[k >>> 12];
+        if (!b) b = blocks[k >>> 12] = new Float64Array(4096);
+        b[k & 4095] = v;
         return v;
       },
     };
@@ -183,6 +190,94 @@
     }],
   };
 
+  /* MilkDrop 2'NİN İÇ İŞLEVLERİ (#580). MilkDrop 2'nin ifade derleyicisi
+     (Nullsoft'un ns-eel2'si; BeatDrop kopyasında nseel-compiler.c fnTable1,
+     ad çevirisi nseel-eval.c) işleçleri adlı işlevler olarak da
+     çağrılabilir tutuyor: `_aboeq(a, b)` `a >= b` demek. Korpusta üç preset
+     `_aboeq` çağırıyor ve motor onları "bilinmeyen işlev" diye atlıyordu.
+     D3D11 çatalı (jecassis) ifadeleri projectM'in yeniden yazdığı
+     kütüphaneyle değerlendiriyor; burada presetlerin yazıldığı Nullsoft
+     derleyicisi izleniyor. Yalnız uyum açıkken derleniyor — kapalıyken eski
+     davranış (bilinmeyen işlev) duruyor.
+
+     `_and` ve `_or` `band`/`bor` DEĞİL: onlar `&&` ve `||`nin kendisi —
+     sağ tarafı gerekmedikçe hesaplamıyorlar (derleyici bu iki işlevi
+     döngüyle birlikte ayrı bir yoldan kuruyor). `band`/`bor` ise iki
+     tarafı da hep hesaplıyor. `_mem`/`_gmem` `megabuf`/`gmegabuf`un iç adı.
+
+     Değer verenler var olan işleçlere eşleniyor; atama biçimleri
+     (`_set(x, v)`, `_addop(x, v)` …) ilk bağımsız değişkeni değişken olan
+     `x = v`, `x += v` … gibi derleniyor. */
+  const MD2_FUNCS = {
+    _if: 'if', _and: '&&', _or: '||', _not: 'bnot', _equal: 'equal', _noteq: '!=',
+    _below: '<', _above: '>', _beleq: '<=', _aboeq: '>=', _mod: '%',
+  };
+  const MD2_ASSIGN_FUNCS = {
+    _set: null, _addop: '+', _subop: '-', _mulop: '*', _divop: '/', _modop: '%',
+    _orop: '|', _andop: '&', _powop: '^',
+  };
+  const MD2_MEM = { _mem: 'megabuf', _gmem: 'gmegabuf' };
+  const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  // Adlar büyük/küçük harf ayırmıyor (MilkDrop strcasecmp ile arıyor)
+  const MD2_FUNC_RE = /(^|[^a-z0-9_])_(if|and|or|not|equal|noteq|below|above|beleq|aboeq|mod|set|addop|subop|mulop|divop|modop|orop|andop|powop|mem|gmem)\s*\(/i;
+
+  /* MilkDrop'un doğruluk ve eşitlik sınamaları bir YAKINLIK PAYIYLA
+     (NSEEL_CLOSEFACTOR = 0,00001; ns-eel-int.h): mutlak değeri bunun
+     altındaki sayı "yanlış", farkı bunun altındaki iki sayı "eşit".
+       • `if`, `!`/`bnot`, `&&`, `||`, `while`: |x| >= pay doğru
+         (asm: fabs; fcomp closefact);
+       • `band`/`bor` işlevleri: |x| > pay doğru — sınırda farklılar
+         (C: `fabs(a) > g_closefact`);
+       • `==`/`equal`: |a − b| < pay eşit; `!=` tersi;
+       • `<`, `>`, `<=`, `>=`, `above`, `below`: birebir.
+     NaN'da x87 karşılaştırması "sırasız" dönüyor ve C0 bitini kuruyor:
+     NaN yanlış sayılıyor, NaN'lı eşitlik doğru. Uyum açıkken geçerli;
+     kapalıyken eski birebir sınamalar. Anahtar çalışma anında
+     çevrilebildiği için karar derlemede değil çağrıda: presetin paylaştığı
+     `mode` nesnesi anahtarla birlikte güncelleniyor (Preset.accurate). */
+  const CLOSE = 0.00001;
+  const T_MD2 = (v) => v >= CLOSE || v <= -CLOSE;
+  const T_STRICT = (v) => v > CLOSE || v < -CLOSE;
+  const EQ_MD2 = (a, b) => { const d = a - b; return !(d >= CLOSE || d <= -CLOSE); };
+
+  /* x87 `fistp` ile 32 bitlik tam sayıya çevirme. MilkDrop kodu koşturmadan
+     önce yuvarlama kipini KIRPMAYA alıyor (nseel-compiler.c GLUE_CALL_CODE:
+     `_controlfp(_RC_CHOP, _MCW_RC)`), yani sıfıra doğru kırpılıyor; sığmayan
+     değer ve NaN "belirsiz tam sayı" veriyor: −2^31. */
+  const FIST = (x) => {
+    const t = Math.trunc(x);
+    return t >= -2147483648 && t <= 2147483647 ? t : -2147483648;
+  };
+
+  /* MilkDrop'un KALANI (`%`, `%=`, `_mod`): iki taraf da MUTLAK değerinin
+     tam kısmına iniyor ve bölme işaretsiz — sonuç hiç negatif olmuyor
+     (asm-nseel-x86-msvc.c nseel_asm_mod: fabs; fistp; div). −7 % 3 MilkDrop'ta
+     1, JavaScript'te −1. Sığmayan değer −2^31, işaretsiz 2^31 oluyor.
+     Bölen 0 ise 0. */
+  const MOD_MD2 = (a, b) => {
+    const ub = FIST(Math.abs(b)) >>> 0;
+    return ub === 0 ? 0 : (FIST(Math.abs(a)) >>> 0) % ub;
+  };
+
+  // Bellek indisi ve sınırı: uyum açıkken MilkDrop'unki (bkz. makeMem)
+  const memKey = (x, md2, g) => (!md2 ? x | 0 : g ? FIST(x + CLOSE) & GMEM_MASK : FIST(x + CLOSE));
+  const memMax = (md2, g) => (md2 && !g ? MD2_MEM_MAX : MEM_MAX);
+
+  /* Bit işleçleri (`&`, `|`, `&=`, `|=`): MilkDrop iki tarafı 64 bitlik tam
+     sayıya çeviriyor (nseel_asm_and/or: fistp qword, kırpma kipinde).
+     32 bite sığan değerde JavaScript'in `|0`ıyla aynı sonuç — yol hızlı
+     kalıyor; sığmayanda 64 bit. Sığmayan 64 bit değer ve NaN −2^63. */
+  const I64_MIN = -9223372036854775808;
+  const toI64 = (x) => {
+    const t = Math.trunc(x);
+    return t >= I64_MIN && t < -I64_MIN ? BigInt(t) : BigInt(I64_MIN);
+  };
+  const fits32 = (x) => x > -2147483649 && x < 2147483648;
+  const AND_MD2 = (a, b) => (fits32(a) && fits32(b) ? (a | 0) & (b | 0)
+    : Number(BigInt.asIntN(64, toI64(a) & toI64(b))));
+  const OR_MD2 = (a, b) => (fits32(a) && fits32(b) ? (a | 0) | (b | 0)
+    : Number(BigInt.asIntN(64, toI64(a) | toI64(b))));
+
   // ==========================================================================
   // Ayrıştırıcı
   // ==========================================================================
@@ -194,7 +289,9 @@
     ['+', '-'], ['*', '/', '%'],
   ];
 
-  function parse(src) {
+  // `popts.md2`: MilkDrop 2'nin iç işlevleri (`_aboeq` …) tanınsın mı
+  function parse(src, popts) {
+    const md2 = !!(popts && popts.md2);
     const toks = tokenize(src);
     let pos = 0;
     const peek = () => toks[pos];
@@ -252,6 +349,24 @@
              denetimine takılır. */
           if (tk.v === 'assign' && args.length === 2 && args[0] && args[0].k === 'var') {
             return { k: 'assign', name: args[0].name, v: args[1] };
+          }
+          // MilkDrop 2'nin iç işlevleri, yalnız uyum açıkken (MD2_FUNCS)
+          if (md2 && own(MD2_ASSIGN_FUNCS, tk.v)) {
+            if (args.length !== 2 || !args[0] || args[0].k !== 'var') {
+              throw new SyntaxError(`'${tk.v}' bir değişken ve bir değer ister (satır ${tk.line})`);
+            }
+            const op = MD2_ASSIGN_FUNCS[tk.v];
+            const name = args[0].name;
+            return op ? { k: 'assign', name, v: { k: 'bin', op, a: { k: 'var', name }, b: args[1] } }
+              : { k: 'assign', name, v: args[1] };
+          }
+          if (md2 && (own(MD2_FUNCS, tk.v) || own(MD2_MEM, tk.v))) {
+            const to = MD2_FUNCS[tk.v] || MD2_MEM[tk.v];
+            const need = to === 'if' ? 3 : to === 'bnot' || MD2_MEM[tk.v] ? 1 : 2;
+            if (args.length !== need) {
+              throw new SyntaxError(`'${tk.v}' ${need} argüman ister, ${args.length} verildi (satır ${tk.line})`);
+            }
+            return FUNCS[to] ? { k: 'call', name: to, args } : { k: 'bin', op: to, a: args[0], b: args[1] };
           }
           const def = FUNCS[tk.v];
           if (!def) throw new SyntaxError(`bilinmeyen fonksiyon '${tk.v}' (satır ${tk.line})`);
@@ -314,9 +429,11 @@
          MilkDrop'un ifade dilinde megabuf() bir GÖSTERGE döndürür, dolayısıyla
          atamanın sol tarafında durabilir. Dilin geri kalanında çağrıya atama
          yoktur; bu yüzden yalnızca bu iki ad için açılıyor. */
-      if (peek().t === 'id' && (peek().v === 'megabuf' || peek().v === 'gmegabuf')
+      const memOf = (v) => (v === 'megabuf' || v === 'gmegabuf' ? v
+        : md2 && own(MD2_MEM, v) ? MD2_MEM[v] : '');
+      if (peek().t === 'id' && memOf(peek().v)
           && toks[pos + 1] && toks[pos + 1].t === 'op' && toks[pos + 1].v === '(') {
-        const buf = peek().v;
+        const buf = memOf(peek().v);
         pos += 2;
         const idx = expr();
         const nxt = toks[pos + 1];
@@ -487,7 +604,10 @@
       case 'un': {
         const a = emit(node.a, pool, cx);
         if (node.op === '-') return (P) => -a(P);
-        if (node.op === '!') return (P) => (a(P) === 0 ? 1 : 0);
+        if (node.op === '!') {
+          const mode = cx.mode;
+          return (P) => { const v = a(P); return (mode.md2 ? !T_MD2(v) : v === 0) ? 1 : 0; };
+        }
         return a;
       }
       case 'seq': {
@@ -520,11 +640,17 @@
         };
       }
       case 'bufset': {
-        const mem = node.buf === 'gmegabuf' ? GMEM : pool.mem;
+        const g = node.buf === 'gmegabuf';
+        const mem = g ? GMEM : pool.mem;
         const i = emit(node.i, pool, cx);
         const v = emit(node.v, pool, cx);
-        const F = cx.F;
-        if (!node.compound) return (P) => mem.set(i(P), F(v(P)));
+        const F = cx.F, mode = cx.mode;
+        if (!node.compound) {
+          return (P) => {
+            const md2 = mode.md2;
+            return mem.set(memKey(i(P), md2, g), F(v(P)), memMax(md2, g));
+          };
+        }
         /* Bileşik atamada indeks BİR KEZ değerlendirilir: `megabuf(n=n+1) *= 2`
            gibi yan etkili bir indeks iki kez çalışsaydı iki farklı gözü
            okuyup yazardı. İşleç de burada, derleme anında seçiliyor. */
@@ -535,8 +661,9 @@
               : op === '/' ? (a, b) => D(a, b)
                 : (a, b) => MM(a, b);
         return (P) => {
-          const k = i(P);
-          return mem.set(k, F(apply(mem.get(k), v(P))));
+          const md2 = mode.md2, max = memMax(md2, g);
+          const k = memKey(i(P), md2, g);
+          return mem.set(k, F(apply(mem.get(k, max), v(P))), max);
         };
       }
       case 'bin':
@@ -563,8 +690,15 @@
       case '/': { const D = cx.D; return (P) => D(a(P), b(P)); }
       case '%': { const M = cx.M; return (P) => M(a(P), b(P)); }
       case '^': return (P) => F(Math.pow(a(P), b(P)));
-      case '==': return (P) => (a(P) === b(P) ? 1 : 0);
-      case '!=': return (P) => (a(P) !== b(P) ? 1 : 0);
+      // Uyum açıkken yakınlık payıyla (CLOSE)
+      case '==': {
+        const mode = cx.mode;
+        return (P) => { const x = a(P), y = b(P); return (mode.md2 ? EQ_MD2(x, y) : x === y) ? 1 : 0; };
+      }
+      case '!=': {
+        const mode = cx.mode;
+        return (P) => { const x = a(P), y = b(P); return (mode.md2 ? !EQ_MD2(x, y) : x !== y) ? 1 : 0; };
+      }
       case '<': return (P) => (a(P) < b(P) ? 1 : 0);
       case '>': return (P) => (a(P) > b(P) ? 1 : 0);
       case '<=': return (P) => (a(P) <= b(P) ? 1 : 0);
@@ -572,11 +706,23 @@
       /* && ve || JavaScript'te olduğu gibi kısa devre yapar: sağ taraf
          gerekmedikçe ÇAĞRILMAZ. Eski üretilen kod da öyleydi; atama içeren
          bir sağ taraf iki davranış arasında fark yaratırdı. */
-      case '&&': return (P) => (a(P) !== 0 && b(P) !== 0 ? 1 : 0);
-      case '||': return (P) => (a(P) !== 0 || b(P) !== 0 ? 1 : 0);
-      // Bit işleçleri tam sayıya yuvarlar
-      case '&': return (P) => (a(P) | 0) & (b(P) | 0);
-      case '|': return (P) => (a(P) | 0) | (b(P) | 0);
+      case '&&': {
+        const mode = cx.mode;
+        return (P) => ((mode.md2 ? T_MD2(a(P)) && T_MD2(b(P)) : a(P) !== 0 && b(P) !== 0) ? 1 : 0);
+      }
+      case '||': {
+        const mode = cx.mode;
+        return (P) => ((mode.md2 ? T_MD2(a(P)) || T_MD2(b(P)) : a(P) !== 0 || b(P) !== 0) ? 1 : 0);
+      }
+      // Bit işleçleri tam sayıya yuvarlar; uyum açıkken 64 bit (AND_MD2)
+      case '&': {
+        const mode = cx.mode;
+        return (P) => (mode.md2 ? AND_MD2(a(P), b(P)) : (a(P) | 0) & (b(P) | 0));
+      }
+      case '|': {
+        const mode = cx.mode;
+        return (P) => (mode.md2 ? OR_MD2(a(P), b(P)) : (a(P) | 0) | (b(P) | 0));
+      }
       default: return () => 0;
     }
   }
@@ -584,11 +730,31 @@
   function callExpr(node, pool, cx) {
     const name = node.name;
     const a = node.args.map((x) => emit(x, pool, cx));
+    const mode = cx.mode;
     // if() kısa devre yapmalı: her iki dalı da hesaplamak yan etkileri
     // (atamaları) yanlışlıkla çalıştırırdı
     if (name === 'if') {
       const c = a[0], t = a[1], f = a[2];
-      return (P) => (c(P) !== 0 ? t(P) : f(P));
+      return (P) => ((mode.md2 ? T_MD2(c(P)) : c(P) !== 0) ? t(P) : f(P));
+    }
+    /* Doğruluk ve eşitlik sınayan işlevler uyum açıkken yakınlık payıyla
+       (CLOSE). band/bor iki tarafı da HEP hesaplıyor — && ve || gibi kısa
+       devre yapmıyorlar; sınırları da onlardan farklı (T_STRICT). */
+    if (name === 'equal') {
+      const x = a[0], y = a[1];
+      return (P) => { const u = x(P), v = y(P); return (mode.md2 ? EQ_MD2(u, v) : u === v) ? 1 : 0; };
+    }
+    if (name === 'bnot') {
+      const x = a[0];
+      return (P) => { const u = x(P); return (mode.md2 ? !T_MD2(u) : u === 0) ? 1 : 0; };
+    }
+    if (name === 'band') {
+      const x = a[0], y = a[1];
+      return (P) => { const u = x(P), v = y(P); return (mode.md2 ? T_STRICT(u) && T_STRICT(v) : u !== 0 && v !== 0) ? 1 : 0; };
+    }
+    if (name === 'bor') {
+      const x = a[0], y = a[1];
+      return (P) => { const u = x(P), v = y(P); return (mode.md2 ? T_STRICT(u) || T_STRICT(v) : u !== 0 || v !== 0) ? 1 : 0; };
     }
     if (name === 'rand') {
       const R = cx.R, n = a[0];
@@ -603,7 +769,8 @@
       return (P) => {
         for (;;) {
           if (--budget.n < 0) break;
-          if (body(P) === 0) break;
+          const v = body(P);
+          if (mode.md2 ? !T_MD2(v) : v === 0) break;
         }
         return 0;
       };
@@ -618,9 +785,13 @@
       };
     }
     if (name === 'megabuf' || name === 'gmegabuf') {
-      const mem = name === 'gmegabuf' ? GMEM : pool.mem;
+      const g = name === 'gmegabuf';
+      const mem = g ? GMEM : pool.mem;
       const i = a[0];
-      return (P) => mem.get(i(P));
+      return (P) => {
+        const md2 = mode.md2;
+        return mem.get(memKey(i(P), md2, g), memMax(md2, g));
+      };
     }
     /* Ayrıştırıcı adı zaten beyaz listeye karşı doğruladı (bilinmeyen ad
        SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
@@ -639,13 +810,20 @@
 
      Dönüş: { run(P), pool, error }  — hata varsa run yine çalışır ama hiçbir
      şey yapmaz. Bozuk bir preset uygulamayı durdurmamalı; olan biteni
-     kullanıcıya söylemek yeterli. */
+     kullanıcıya söylemek yeterli.
+
+     opts.mode: { md2 } — MilkDrop 2 uyumu (#580). Kapanışlar bunu HER
+       ÇAĞRIDA okuyor, yani anahtar çevrildiğinde yeniden derlemek
+       gerekmiyor. Verilmezse eski davranış.
+     opts.md2Funcs: MilkDrop'un iç işlev adları (`_aboeq` …) tanınsın mı.
+       Ayrıştırma anında karar verildiği için anahtar çevrilince bu adları
+       kullanan preset yeniden kuruluyor (readingsDiffer). */
   function compile(src, pool, opts) {
     const p = pool || new Pool();
     const o = opts || {};
     let stmts;
     try {
-      stmts = parse(src);
+      stmts = parse(src, { md2: !!o.md2Funcs });
     } catch (e) {
       return { run: () => {}, pool: p, error: String(e.message || e), statements: 0 };
     }
@@ -653,19 +831,34 @@
        panel bunu göstersin diye. Sessizce çalıştırmak, kullanıcıya yanlış
        görünen bir sahnenin sebebini saklardı. */
     const skipped = (stmts.errors || []).slice();
+    const mode = o.mode || { md2: false };
     // Yardımcılar kapanışa dışarıdan verilir; üretilen kodda serbest
     // tanımlayıcı yoktur.
     const F = (v) => (isFinite(v) ? v : 0);
     const D = (a, b) => (b === 0 ? 0 : F(a / b));
+    // Kalan: uyum açıkken MilkDrop'unki (MOD_MD2), kapalıyken işaretli
     const M = (a, b) => {
+      if (mode.md2) return MOD_MD2(a, b);
       const bi = b | 0;
       return bi === 0 ? 0 : (a | 0) % bi;
     };
-    // rand(n): 0..n-1 tam sayı. Tohumlu, çünkü çevrimdışı dışa aktarımın
-    // kare kare tekrarlanabilir olması gerekiyor.
+    /* rand(n). Tohumlu, çünkü çevrimdışı dışa aktarımın kare kare
+       tekrarlanabilir olması gerekiyor.
+
+       Uyum açıkken MilkDrop'unki: TAM SAYI DEĞİL, 0 ile max(1, floor(n))
+       arasında ondalıklı bir sayı (nseel-cfunc.c nseel_int_rand:
+       `genrand_int32() * (1.0 / 0xFFFFFFFF) * x`). Tam sayı veren dal
+       NSEEL_EEL1_COMPAT_MODE'a bağlı ve iki MilkDrop kod tabanı da onu
+       açmıyor; korpusta sık görülen `int(rand(4))` bu yüzden var. Üreteç
+       bizim (MilkDrop'unki Mersenne Twister), aralık ve dağılım aynı.
+       Kapalıyken eski davranış: 0..n−1 tam sayı. */
     let seed = (o.seed || 12345) >>> 0;
     const R = (n) => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      if (mode.md2) {
+        const x = Math.floor(n);
+        return seed * (1 / 4294967295) * (x < 1 ? 1 : x);
+      }
       const k = Math.max(1, Math.floor(n) || 1);
       return (seed / 4294967296) * k | 0;
     };
@@ -673,7 +866,7 @@
     /* Yardımcılar kapanışlara buradan verilir. R tohumu dışarıda tuttuğu
        için resetSeed sonradan da çalışır. */
     const budget = { n: 0 };
-    const cx = { F, D, M, R, budget };
+    const cx = { F, D, M, R, budget, mode };
     const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
 
     let prog;
@@ -1042,7 +1235,9 @@
         ve kare değişkeni adları (eski ayrıştırıcı `decay=` gibi bir başlık
         satırını da okuyordu);
       - denklemler boşluksuz, shader'lar satır sonları kırpılarak: MilkDrop
-        satır sonundaki boşluğu koruyor, eski ayrıştırıcı kırpıyordu.
+        satır sonundaki boşluğu koruyor, eski ayrıştırıcı kırpıyordu;
+      - kodda MilkDrop'un iç işlev adları (`_aboeq` …) varsa metin aynı
+        olsa da DERLEME farklı: o adlar yalnız uyum açıkken tanınıyor.
      Boşluksuz karşılaştırma, satır sonundaki bir boşluğun iki simgeyi
      ayırdığı durumu kaçırabilir; o preset bir sonraki yüklenişinde doğru
      okunuyor, yalnız anahtar çevrildiği an eski okuyuşla kalıyor. */
@@ -1062,6 +1257,10 @@
     }));
     const shaders = (f) => [f.warpShader, f.compShader].map((s) => String(s || '').replace(/[ \t]+$/gm, '')).join('\u0000');
     if (eqs(a) !== eqs(b) || shaders(a) !== shaders(b)) return true;
+    const code = (f) => [f.init, f.perFrame, f.perPixel]
+      .concat(...(f.waves || []).map((w) => [w.init, w.per_frame, w.per_point]),
+        ...(f.shapes || []).map((s) => [s.init, s.per_frame])).join('\n');
+    if (MD2_FUNC_RE.test(code(a)) || MD2_FUNC_RE.test(code(b))) return true;
     if (JSON.stringify(md2Versions(a.params)) !== JSON.stringify(md2Versions(b.params))) return true;
     // Sürüm anahtarları bu kümede yok (readVersions kaydetmiyor): yukarıda karşılaştırıldılar
     for (const k of MD2_READ_KEYS) {
@@ -1307,7 +1506,13 @@
          seçiyor (bkz. SHARED_LEGACY). Dosyanın hangi kuralla OKUNDUĞUNU da
          o seçiyor (#580, `readMilk`) — okuyuş kurulumda bir kez yapılıyor ve
          `readAcc`ta kalıyor; anahtar sonradan çevrilirse görselleştirici
-         iki okuyuş ayrışıyorsa presetini yeniden kuruyor. */
+         iki okuyuş ayrışıyorsa presetini yeniden kuruyor.
+
+         Derlenmiş kodun hepsi (ana bloklar, dalgalar, şekiller) `_mode`u
+         paylaşıyor; anahtar yazılınca o da çevriliyor (`accurate`
+         erişimcisi), yani ifadelerin MilkDrop sınamaları aynı karede
+         değişiyor. */
+      this._mode = { md2: true };
       this.accurate = o.accurate !== false;
       this.readAcc = this.accurate;
       this.file = readMilk(text, this.accurate);
@@ -1393,9 +1598,10 @@
          per_frame saniyede 60 kez, per_pixel ise ağın 1271 düğümünde yani
          saniyede ~76 bin kez. Tek bir sabit bütçe ya init'i boğardı ya da
          per_pixel'de uygulamayı dondururdu. */
-      this.cInit = compile(this.file.init, this.pool, { seed: o.seed, loopBudget: 1048576 });
-      this.cFrame = compile(this.file.perFrame, this.pool, { seed: o.seed, loopBudget: 65536 });
-      this.cPixel = compile(this.file.perPixel, this.pool, { seed: o.seed, loopBudget: 1024 });
+      const eel = this._eel();
+      this.cInit = compile(this.file.init, this.pool, Object.assign({ seed: o.seed, loopBudget: 1048576 }, eel));
+      this.cFrame = compile(this.file.perFrame, this.pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      this.cPixel = compile(this.file.perPixel, this.pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [this.cInit, this.cFrame, this.cPixel]) {
         if (c.error) this.errors.push(c.error);
       }
@@ -1427,6 +1633,17 @@
       this.waves = this._collect('wavecode', this.file.waves).map((w) => this._buildWave(w, o));
       this.shapes = this._collect('shapecode', this.file.shapes).map((s) => this._buildShape(s, o));
     }
+
+    get accurate() { return this._acc; }
+    set accurate(v) {
+      this._acc = v !== false;
+      this._mode.md2 = this._acc;
+    }
+
+    /* Derleme seçenekleri: paylaşılan `mode` ve iç adlar. İç adların kararı
+       OKUYUŞLA birlikte veriliyor (`readAcc`) — ikisi de kurulumda bir kez;
+       anahtar çevrilince görselleştirici presetini yeniden kuruyor. */
+    _eel() { return { mode: this._mode, md2Funcs: this.readAcc !== false }; }
 
     /* Blok numaralarını DENKLEMLERDEN ve PARAMETRELERDEN birlikte toplar.
 
@@ -1476,9 +1693,10 @@
       };
       /* per_point saniyede samples×60 kez koşuyor; bütçe per_pixel'inkiyle
          aynı mantıkta, blok başına veriliyor. */
-      wave.cInit = compile(w.init || '', pool, { seed: o.seed, loopBudget: 65536 });
-      wave.cFrame = compile(w.per_frame || '', pool, { seed: o.seed, loopBudget: 65536 });
-      wave.cPoint = compile(w.per_point || '', pool, { seed: o.seed, loopBudget: 1024 });
+      const eel = this._eel();
+      wave.cInit = compile(w.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      wave.cFrame = compile(w.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      wave.cPoint = compile(w.per_point || '', pool, Object.assign({ seed: o.seed, loopBudget: 1024 }, eel));
       for (const c of [wave.cInit, wave.cFrame, wave.cPoint]) {
         if (c.error) this.errors.push('wave ' + i + ': ' + c.error);
       }
@@ -1535,8 +1753,9 @@
          renklerde — korpustaki 15.982 açık şeklin hiçbiri atlamıyor. Uyum
          açıkken bu taban geçerli (shapeFrame; #580). */
       shape.baseMd2 = Object.assign({}, shape.base, { g: g('g', 0), b: g('b', 0), g2: g('g2', 1) });
-      shape.cInit = compile(s.init || '', pool, { seed: o.seed, loopBudget: 65536 });
-      shape.cFrame = compile(s.per_frame || '', pool, { seed: o.seed, loopBudget: 65536 });
+      const eel = this._eel();
+      shape.cInit = compile(s.init || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
+      shape.cFrame = compile(s.per_frame || '', pool, Object.assign({ seed: o.seed, loopBudget: 65536 }, eel));
       for (const c of [shape.cInit, shape.cFrame]) {
         if (c.error) this.errors.push('shape ' + i + ': ' + c.error);
       }

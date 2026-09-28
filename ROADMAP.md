@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2202 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2227 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 600
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 630
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2033,12 +2033,17 @@ rest after. No version number yet.
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
-  MilkDrop's defaults, the hue colour, the values that stay in the file and
-  MilkDrop's way of reading a file are done; the other audits are next.
+  MilkDrop's defaults, the hue colour, the values that stay in the file,
+  MilkDrop's way of reading a file and its expression compiler's rules are
+  done; the other audits are next.
   - **Checked against the source.** Nullsoft's own code
     (jecassis/foo_vis_milk2 5b44cea) and, for the fixed pipeline's blend
     passes, the D3D9 code the D3D11 fork was ported from (BeatDrop
-    53d83ee). Both agree on everything below.
+    53d83ee). Both agree on everything below. Expressions are the
+    exception: the D3D11 fork evaluates them with projectM's
+    re-implementation by default, which differs from MilkDrop in places
+    (its `%` keeps the sign, its memory index adds 0.0001), so there the
+    reference is Nullsoft's compiler, ns-eel2, as BeatDrop carries it.
   - **Which stage draws.** MilkDrop picks a preset's warp and composite
     shaders by version, not by whether shader text exists. A file with no
     `MILKDROP_PRESET_VERSION`, or one below 200, is a MilkDrop 1 preset and
@@ -2213,24 +2218,75 @@ rest after. No version number yet.
     differently, 15 change with fidelity on, 12 by more than 1% (up to
     32%), and all 32 are identical with it off. The 900-preset sample sorts
     into the same classes, preset for preset.
+  - **Expressions follow MilkDrop 2's compiler.** With fidelity on the
+    equations run by the rules of ns-eel2 as MilkDrop 2 builds it:
+    - truth tests (`if`, `!`, `&&`, `||`, `while`, `bnot`) count |x| of
+      0.00001 or more as true, `band` and `bor` need more than 0.00001,
+      `==`, `!=` and `equal` compare with the same tolerance, and `<`, `>`,
+      `above`, `below` stay exact; NaN is false, and equal to anything;
+    - the compiler's own operator names compile (`_aboeq`, `_if`, `_and`,
+      `_or`, `_equal`, `_set`, `_addop` and the rest, `_mem`, `_gmem`);
+      `_and` and `_or` skip their right side like `&&` and `||`;
+    - `%` works on whole numbers without sign — both sides lose their
+      sign and fraction, so `-7 % 3` is 1 and `5 % 0.5` is 0 — and a value
+      outside the signed 32-bit range turns into 2^31, as the x87
+      conversion does;
+    - `&` and `|` work on 64-bit integers;
+    - a `megabuf` index is rounded down after adding 0.00001, reaches
+      8,388,608 cells, and reads 0 outside them; `gmegabuf` has 2^20
+      cells and its index wraps;
+    - `rand(n)` returns a real number between 0 and n, not an integer.
+    Every block of a preset and its sprites read one switch, so turning
+    fidelity over changes all of them in the same frame, and a preset that
+    uses the internal names is rebuilt. With fidelity off nothing changes.
+  - **Measured** against the previous step, the last ten of 60 frames, 120
+    presets per group. Truth tests: 119 of 120 presets with conditions are
+    identical, and one moves 4% — it asks `equal(sin(ang), 0)`, where
+    sin(π) is 1.2e-16; the three `_aboeq` presets change by up to 29%,
+    since the engine did not run that code before. `%`: 118 of 120
+    identical; one takes the remainder of negative samples (6%), one
+    hashes with numbers past 2^31 and its points pile up (48%). `&` and
+    `|`: 120 of 120 identical. Memory: 119 of 120; one computes its
+    `gmegabuf` indices (3%). `rand`, which 5,361 presets call: 92 of 120
+    identical, 14 change by more than 1%, up to 18%, the median of those
+    that change 1.07%. Control groups without the feature are identical,
+    and every group is identical with fidelity off. The whole change costs
+    no time: 0.62-0.64 ms for a 1,728-point per-pixel frame, 0.71-0.75 ms
+    before. The 900-preset sample keeps 899 of 900 classes; the one that
+    moves, Goody's Molten Wavepool (blown → clean), uses none of these
+    features and renders the same alone before and after (clean,
+    brightness 0.038); main itself classed it blown in the sample run, so
+    its class there depends on the order of the run, not on this change.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
     centre darkening, and the rest of the blend snap points; whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on
-    `uv.y` may come out mirrored, which needs its own check; MilkDrop's
-    internal comparison functions such as `_aboeq`, which three corpus
-    presets call and our compiler does not know; the reference comparison
-    with an external renderer, which needs one installed and waits for the
-    user's approval. Left out of the reader on purpose: MilkDrop reads
+    `uv.y` may come out mirrored, which needs its own check; the scope of
+    expression variables — MilkDrop gives per-frame, per-pixel, each
+    wave's per-frame and per-point and each shape their own variables and
+    `megabuf`, and hands per-pixel only a fixed list, where the engine
+    shares one set between init, per-frame and per-pixel (next); division
+    by zero, which is infinity in MilkDrop and 0 here; the loop cap —
+    MilkDrop stops `loop` and `while` at 1,048,576 turns a call, the engine
+    at a budget, which six corpus presets reach (five in init, one in a
+    shape); the reference comparison with an external renderer, which
+    needs one installed and waits for the user's approval. Left out of
+    the compiler: syntax newer than MilkDrop 2's grammar (`?:`, `&=`,
+    `|=`, `^=`, `<<`, `$` constants) and the functions `invsqrt`,
+    `memcpy`, `memset` and `freembuf`, which no corpus preset uses in code;
+    and the old grammar's `%`, which ns-eel2's parser table maps to a
+    function that returns its right side — the corpus writes `%` as a
+    remainder, and the operator function MilkDrop compiles is the
+    remainder above. Left out of the reader on purpose: MilkDrop reads
     bytes and the engine gets decoded text, so its two byte rules — a
     0xFF byte ends the file, a value over 251 characters splits into a
     second index line — cannot be kept exactly, and neither touches a
     corpus file; values stay double where MilkDrop stores float, a
     difference below 1e-7; and a block that fails to compile is dropped
     whole in MilkDrop but recovered statement by statement here, because
-    our parser and MilkDrop's do not agree on what an error is (`_aboeq`
-    is one case), so dropping whole blocks would drop some MilkDrop runs.
+    our parser and MilkDrop's may still disagree on what an error is, and
+    dropping whole blocks would then drop code MilkDrop runs.
   - **Tests.** 14 new: the version rule and the stage choice, the two
     generated shaders (float rounding, samplers, echo, hue, flag order,
     and that they translate), echo orientation and gamma cases, the
@@ -2270,6 +2326,17 @@ rest after. No version number yet.
     donor's reading. The own-presets test also requires both readings to
     agree, and the mash-up part test compares with the new reader.
     23 of 23 mutations are caught.
+    The expression rules add 25 (`milkdrop-md2-eel.test.js`): the internal
+    names with fidelity on and off, their arity and case, `_and` and `_or`
+    skipping their right side, the truth boundaries at 0.00001 for every
+    test, NaN, `while`, switching mode at run time, the remainder's sign,
+    fractions and values outside the signed 32-bit range, 64-bit `&` and
+    `|`, the memory index, capacity and wrap (with a compound write past
+    the old limit and two `gmegabuf` indices that alias only under the
+    wrong mask), the real
+    `rand` and its repeatability, the Preset switching all its blocks,
+    `readingsDiffer` seeing the names, sprites, and every expression compile
+    in `src` passing the mode. 71 of 71 mutations are caught.
 
 ## v3.1.6 — Comprehensive video export
 

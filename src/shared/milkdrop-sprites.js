@@ -149,7 +149,14 @@
       this.M = M;
       this.slots = new Array(SLOTS).fill(null);
       this.launches = 0; // başlatma sırası: en yeni / en eski buradan
+      /* MilkDrop 2 uyumu (#580): sprite kodu da MilkDrop'un ifade
+         derleyicisiyle koşuyor. Derlenen kodun paylaştığı anahtar; motor
+         her karede yazıyor (setAccurate). İç işlev adları (`_aboeq` …)
+         sprite başlatılırken o anki değere göre tanınıyor. */
+      this.mode = { md2: true };
     }
+
+    setAccurate(on) { this.mode.md2 = on !== false; }
 
     count() { return this.slots.reduce((n, s) => n + (s ? 1 : 0), 0); }
 
@@ -183,8 +190,9 @@
       for (const k of INPUTS) pool.set(k, 0);
       for (const k of Object.keys(DEFAULTS)) pool.set(k, DEFAULTS[k]);
       const seed = (Number(opt.seed) >>> 0) || 1;
-      const init = M.compile(def.init || '', pool, { seed });
-      const code = M.compile(def.code || '', pool, { seed: (seed ^ 0x9e3779b9) >>> 0 || 1 });
+      const eel = { mode: this.mode, md2Funcs: this.mode.md2 };
+      const init = M.compile(def.init || '', pool, Object.assign({ seed }, eel));
+      const code = M.compile(def.code || '', pool, Object.assign({ seed: (seed ^ 0x9e3779b9) >>> 0 || 1 }, eel));
       init.run(pool.values);
       this.slots[slot] = {
         num: def.num,

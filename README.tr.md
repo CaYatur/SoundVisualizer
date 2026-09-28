@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2202%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2227%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -256,6 +256,11 @@ profilinde basamak olmadığını doğruluyor.
   numaralı kod ilk eksik numarada bitiyor, tam sayı ayarları kesirlerini atıyor ve denklem satırları
   MilkDrop'un yapıştırdığı gibi, `\\` yorumları dahil, yapışıyor. Korpusta 32 preset farklı
   okunuyor; uyum kapalıyken eski ayrıştırıcı duruyor.
+- **Denklemler MilkDrop 2 derleyicisinin kurallarıyla çalışıyor.** Uyum açıkken doğruluk ve eşitlik
+  sınamaları onun 0.00001 toleransını kullanıyor, `%` işaretsiz tam sayılarla, `&` ve `|` 64 bit
+  tam sayılarla çalışıyor, `megabuf` ve `gmegabuf` indisleri onun yuvarladığı ve sınırladığı gibi
+  hesaplanıyor, `rand(n)` gerçel sayı döndürüyor (korpusta 5.361 preset çağırıyor) ve derleyicinin
+  `_aboeq` gibi iç adları çalışıyor. Uyum kapalıyken hiçbir şey değişmiyor.
 - **Birleştirme shader'ları MilkDrop'un verdiği ton rengini alıyor.** MilkDrop her birleştirme
   shader'ına `hue_shader` olarak dört köşede yavaşça gezinen renkler veriyor, presetin `fShader`ı
   ne derse desin; `fShader` onları yalnız sabit yolda ölçekliyor. Motor `fShader`ı shader'lara da
@@ -1313,7 +1318,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2202 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2227 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
