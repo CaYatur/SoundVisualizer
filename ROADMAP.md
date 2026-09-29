@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2280 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2281 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 683
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 684
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1279,7 +1279,13 @@ Performance (#621):
   the lights were skipped in those frames. The name is fixed, and a layer
   that throws is now skipped alone and reported once per kind and type.
   Every visualizer in all three colour modes and every background were then
-  drawn in the app with exceptions counted: none.
+  drawn in the app with exceptions counted. One more turned up, now and then
+  and only during a scene change: a layer canvas of zero size reached the
+  compositor, which the browser refuses with an exception — the same frame
+  loss. A canvas thrown away by a scene change drops to zero size since the
+  memory fix above, and one made before the window has its size is born at
+  zero. The compositor, layer masks and layer effects now pass over a
+  zero-size canvas; there is nothing on it to draw.
 - *Not done:* the panel still sends the whole configuration on every change,
   so a very large settings file still costs some IPC per change; on the
   measured machine this no longer shows as a dropped frame, and splitting the

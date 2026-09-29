@@ -97,3 +97,27 @@ test('hata atan katmanın üstündeki katman aynı karede yine çiziliyor', () =
   assert.strictEqual(logged.length, 1, 'hata tür başına bir kez yazılmalı: ' + logged.length);
   assert.match(logged[0], /visualizer:particles/);
 });
+
+test('sıfır boyutlu katman tuvali birleştirmede atlanıyor, kare sürüyor', () => {
+  const stack = new L.LayerStack(null, {});
+  stack.width = 320;
+  stack.height = 180;
+  const a = { draw() {} };
+  const b = { draw() {} };
+  const low = entry('ly_a', 'visualizer', 'bars', a);
+  const gone = entry('ly_b', 'visualizer', 'wave', b);
+  gone.canvas.width = 0; // atılmış ya da henüz boyutlanmamış tuval
+  const top = entry('ly_c', 'visualizer', 'dots', { draw() {} });
+  stack.entries = [low, gone, top];
+  const drawn = [];
+  // Tarayıcı gibi: sıfır boyutlu kaynak istisna
+  const ctx = {
+    save() {}, restore() {}, setTransform() {}, clearRect() {}, fillRect() {}, translate() {}, rotate() {}, scale() {},
+    drawImage(src) {
+      if (!src.width || !src.height) throw new Error('InvalidStateError: width or height of 0');
+      drawn.push(src.name);
+    },
+  };
+  assert.doesNotThrow(() => stack.drawTo(ctx, AUDIO, CFG, 0, 1 / 60));
+  assert.deepStrictEqual(drawn, ['ly_a', 'ly_c']);
+});
