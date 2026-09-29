@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2290%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2311%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -425,6 +425,13 @@ that asserts the bar profile has no step in it.
   looks, so it can come out brighter or darker than any of them. Checked on a 10,332-preset corpus:
   a mash-up of one preset is that preset again, and in 5,000 random mash-ups every part was
   exactly its donor's. 300 random mash-ups ran in the engine without a single shader failure.
+- **An editor for presets.** *Studio → MilkDrop Preset Editor* opens the preset on screen: frame and
+  pixel equations, custom waves and shapes, the warp and composite shaders and the main values each
+  have a tab, and a change shows in the running picture a moment after you stop typing. Errors point
+  at the preset's own line (`per_frame_14`) with its own text, not at generated code; shaders are
+  compiled as you type. Sliders for zoom, warp, rotation, decay and echo say when the preset's
+  equations rewrite the value every frame. The original is never changed: *Save as a New Preset*
+  keeps your version, and only what you changed is written — the rest of the file keeps its bytes.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1328,7 +1335,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2290 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2311 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

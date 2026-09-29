@@ -576,6 +576,19 @@
     return true;
   }
 
+  /* DÜZENLEYİCİ (#578). Her düzeltme presetin yeni bir sürümü; KARIŞMADAN
+     (sonuç hemen görünsün) ve GEÇMİŞE YAZILMADAN yükleniyor — her tuş
+     vuruşu ◀/▶'a bir kayıt bırakmasın. Panel yeniden çizilmiyor: yazılan
+     metin kutusu odağını ve imlecini kaybederdi. */
+  function previewEdit(p) {
+    if (!p || typeof p.id !== 'string' || !p.id || typeof p.source !== 'string') return false;
+    const cfg = P().cfg();
+    load(cfg, p);
+    control(cfg).cutTo = p.id;
+    P().push(true);
+    return true;
+  }
+
   /* Kaydedilen preset HEMEN listeye. Kaydı başka bir kart yapıyor; değişiklik
      yayını gelene kadar liste eski kalır, ekrandaki önizlemenin yıldızları
      ve favori düğmesi bir çizim boyunca kapalı görünürdü. */
@@ -1792,7 +1805,7 @@
   const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
-    spriteTargets, preview, adopt, visibleList, presetById: byId,
+    spriteTargets, preview, previewEdit, adopt, visibleList, presetById: byId, go,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

@@ -1822,8 +1822,12 @@
     return out;
   }
 
-  // `seen` verilirse aranan her anahtar (küçük harfle) oraya yazılıyor
-  function parseMilkMd2(text, seen) {
+  /* `seen` verilirse aranan her anahtar (küçük harfle) oraya yazılıyor.
+     `raw` verilirse her kod bloğunun satırları, MilkDrop'un bulduğu
+     sırayla ve yapıştırılmadan, önekiyle oraya (`raw['per_frame_']`):
+     düzenleyici (#578) bloğu MilkDrop'un gördüğü satırlarla gösteriyor —
+     yinelenen numaralarda hangisini seçtiği aramanın sırasına bağlı. */
+  function parseMilkMd2(text, seen, raw) {
     const ix = md2Index(text);
     const params = readVersions(text, ix);
     const put = (k, parse) => {
@@ -1841,6 +1845,7 @@
         if (v === null) break;
         out.push(v.charAt(0) === '`' ? v.slice(1) : v);
       }
+      if (raw) raw[prefix] = out.slice();
       return out;
     };
     // Denklem: satır satır yorum kesiliyor, satırlar yapışıyor
@@ -2959,6 +2964,14 @@
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
     resetGlobals,
+    /* Çağrılabilen işlev adları (küçük harf): uyum açıkken ns-eel2'nin
+       tablosu ve ad çevirisi, kapalıyken eski tablo ve özel biçimler.
+       Düzenleyici bilinmeyen bir adı ayrıştırıcının iç sözü yerine adıyla
+       söylüyor (shared/milkdrop-edit.js). */
+    callNames: (md2) => (md2
+      ? Object.keys(MD2_ARITY).concat(Object.keys(MD2_ALIAS))
+      : Object.keys(FUNCS).concat(['if', 'loop', 'while', 'megabuf', 'gmegabuf', 'exec2', 'exec3', 'rand',
+        'equal', 'bnot', 'band', 'bor'])),
     // Yalnız testler için: kırpma yardımcılarının iki yolu (bkz. toZero)
     _chop: { toZero, toZeroBits, MUL_MD2, ADD_MD2 } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

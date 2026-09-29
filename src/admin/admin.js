@@ -501,6 +501,8 @@
         return window.SVMilkdropPanel ? window.SVMilkdropPanel.panel() : null;
       case 'mdgenpanel':
         return window.SVMdGenPanel ? window.SVMdGenPanel.panel() : null;
+      case 'mdeditpanel':
+        return window.SVMdEditPanel ? window.SVMdEditPanel.panel() : null;
       case 'recordpanel':
         return window.SVRecordPanel ? window.SVRecordPanel.panel() : null;
       case 'templatepanel':
@@ -2833,6 +2835,16 @@
         title: 'MilkDrop Preset Üretici',
         desc: 'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar ya da kütüphanenizdeki presetlerin parçalarını karıştırır. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.',
         controls: [{ type: 'mdgenpanel' }],
+      },
+      {
+        id: 'mdedit',
+        roots: [],
+        category: 'studio',
+        icon: '✏️',
+        wide: true,
+        title: 'MilkDrop Preset Düzenleyici',
+        desc: 'Ekrandaki MilkDrop presetinin denklemlerini, dalgalarını, şekillerini ve shader\'larını düzenleyin; sonuç çalışan görüntüde hemen görünür. Hatalar presetin kendi satırını gösterir. Asıl preset hiç değişmez.',
+        controls: [{ type: 'mdeditpanel' }],
       },
       {
         id: 'logo',

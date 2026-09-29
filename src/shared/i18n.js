@@ -1782,6 +1782,70 @@
       'Parts are drawn from the presets shown in the MilkDrop panel’s list; its search and filter apply here too. Each part comes whole from one preset and its lines are copied as they are. A preset’s shader may have been written for another preset’s equations, so the result can surprise you. Warp and composite sometimes come out as “none”: then the look’s own echo and gamma run. ◀ ▶ go back to earlier mash-ups.',
     'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.':
       'Runs entirely on this computer and connects to no service. Releasing a slider generates again with the same seed; 🎲 tries another seed. The code carries the axes and the seed: the same code always gives the same preset. A preview is not written to the library; rating, favorite and tags open once you save it. The motion, wave, shape and shader patterns were written in this app, not taken from any preset pack.',
+    // ---- MilkDrop preset düzenleyici (#578) ----
+    // 'Dalgalar', 'Şekiller', 'Birleştirme', 'Metin', 'Dalga', 'Şekil', 'Ad', 'Durum', 'Kaydediliyor…',
+    // '✓ Kütüphanede', 'Önizleme — kaydedilmedi' ve kaydetme uyarıları yukarıda
+    'MilkDrop Preset Düzenleyici': 'MilkDrop Preset Editor',
+    'Ekrandaki MilkDrop presetinin denklemlerini, dalgalarını, şekillerini ve shader\'larını düzenleyin; sonuç çalışan görüntüde hemen görünür. Hatalar presetin kendi satırını gösterir. Asıl preset hiç değişmez.':
+      'Edit the equations, waves, shapes and shaders of the MilkDrop preset on screen; the result shows at once in the running picture. Errors point at the preset’s own line. The original preset never changes.',
+    'Her Kare': 'Per Frame',
+    'Piksel': 'Pixel',
+    'Değerler': 'Values',
+    'Başlangıç (init)': 'Start (init)',
+    'Her kare (per_frame)': 'Every frame (per_frame)',
+    'Her nokta (per_point)': 'Every point (per_point)',
+    'Kare denklemleri': 'Frame equations',
+    'Piksel denklemleri': 'Pixel equations',
+    'Birleştirme shader': 'Composite shader',
+    'Yakınlaşma (zoom)': 'Zoom',
+    'Bükülme (warp)': 'Warp',
+    'Dönme (rot)': 'Rotation (rot)',
+    'Sönüm (decay)': 'Decay',
+    'Yankı yakınlaşması': 'Echo zoom',
+    'Yankı saydamlığı': 'Echo alpha',
+    'düzenlendi': 'edited',
+    'Çevrilemedi': 'Could not be translated',
+    'Desteklenmiyor': 'Not supported',
+    'Shader derlenmedi': 'The shader did not compile',
+    'Parantez kapanmamış': 'Unclosed parenthesis',
+    'Fazladan kapanan parantez': 'Extra closing parenthesis',
+    'Bilinmeyen işlev': 'Unknown function',
+    'Bu blokta hata var: MilkDrop bloğu bütünüyle atlar, hiçbir satırı çalışmaz.':
+      'This block has an error: MilkDrop skips the whole block, none of its lines run.',
+    'Ayrıştırılamadı': 'Could not be parsed',
+    '✓ Hata yok': '✓ No errors',
+    'satır': 'line',
+    'Hatalar': 'Errors',
+    'Bu presetin sürüm satırı bu aşamanın shader\'ını kullanmıyor: MilkDrop metni yok sayıyor ve sabit yolu çiziyor. Kullanmak için dosyanın MILKDROP_PRESET_VERSION ve PSVERSION satırlarını Metin sekmesinden düzeltin.':
+      'This preset’s version line does not use this stage’s shader: MilkDrop ignores the text and draws the fixed path. To use it, fix the file’s MILKDROP_PRESET_VERSION and PSVERSION lines in the Text tab.',
+    'dosyada yok': 'not in the file',
+    'Presetin denklemleri bu değeri her karede kendisinden yeniden hesaplıyor; kaydırıcı hesabın başladığı değeri değiştirir.':
+      'The preset’s equations recompute this value from itself every frame; the slider changes the value the calculation starts from.',
+    'Presetin denklemleri bu değeri her karede baştan yazıyor; kaydırıcının görüntüye etkisi olmaz.':
+      'The preset’s equations overwrite this value every frame; the slider has no effect on the picture.',
+    'Presetin metni': 'Preset text',
+    'Presetin bütün metni. Burada yapılan değişiklik öteki sekmelere de geçer.':
+      'The preset’s whole text. Changes made here carry over to the other tabs.',
+    'Dalganın rengi, nokta sayısı ve açık/kapalı hâli dosyadaki wavecode satırlarında; Metin sekmesinden değiştirilebilir.':
+      'A wave’s colour, point count and on/off state are in the file’s wavecode lines; change them in the Text tab.',
+    'Şeklin kenar sayısı, konumu ve renkleri dosyadaki shapecode satırlarında; Metin sekmesinden değiştirilebilir.':
+      'A shape’s side count, position and colours are in the file’s shapecode lines; change them in the Text tab.',
+    'Düzenleyici': 'Editor',
+    'Preset kütüphaneye kaydedildi. Asıl preset değişmedi.': 'Preset saved to the library. The original preset is unchanged.',
+    'Düzenleyici yüklenemedi.': 'The editor could not be loaded.',
+    '✏️ Ekrandakini Düzenle': '✏️ Edit the Preset on Screen',
+    'Ekrandaki MilkDrop presetini açar: denklemler, dalgalar, şekiller ve shader\'lar düzenlenir, sonuç çalışan görüntüde hemen görünür. Asıl preset hiç değişmez; beğendiğinizi yeni bir preset olarak kaydedin.':
+      'Opens the MilkDrop preset on screen: edit its equations, waves, shapes and shaders, and the result shows at once in the running picture. The original preset never changes; save what you like as a new preset.',
+    'Düzenlenen': 'Editing',
+    '💾 Kaydedileni Güncelle': '💾 Update the Saved Copy',
+    '💾 Yeni Preset Olarak Kaydet': '💾 Save as a New Preset',
+    '📄 Yeni Kopya': '📄 New Copy',
+    '↺ Baştan': '↺ Start Over',
+    'Bütün değişiklikleri geri alır': 'Undoes every change',
+    '✕ Kapat': '✕ Close',
+    'Düzenleyiciyi kapatır; kaydedilmediyse asıl preset geri gelir': 'Closes the editor; if nothing was saved, the original preset comes back',
+    'Değişiklik yazmayı bıraktıktan kısa süre sonra çalışan presete uygulanır. Düzenlerken otomatik geçiş duraklar. MilkDrop satırları araya bir şey koymadan birleştirir: deyimleri ; ile bitirin.':
+      'A change reaches the running preset shortly after you stop typing. Automatic switching pauses while you edit. MilkDrop joins lines with nothing in between: end each statement with ;.',
 
 
     'MilkDrop': 'MilkDrop',
