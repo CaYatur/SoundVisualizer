@@ -377,7 +377,7 @@
     'Hedef (satır:sütun)': 'Target (row:column)',
     'ör. 2:0': 'e.g. 2:0',
     'Yuvayı Boşalt': 'Clear Slot',
-    'Satırı Adlandır': 'Name Row',
+    'Satır Adı': 'Row Name',
     'Satır adı': 'Row name',
     'ör. sahne kimliği': 'e.g. scene id',
     'Video': 'Video',

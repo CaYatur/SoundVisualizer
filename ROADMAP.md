@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2333 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2341 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 736
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 744
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2755,6 +2755,43 @@ rest after. No version number yet.
     a MilkDrop preset has to, and the compile guard counts 13 calls. 51
     of 52 mutations are caught; the one left caps loops with fidelity off
     too, which changes nothing, since that budget never exceeds the cap.
+
+## Next, not yet numbered — Timeline and Clip Deck, professional (#636, #637)
+
+The two surfaces from v3.1.0 worked in a demo but not under real use. The
+first step is making them reliable. Only then do they get the editor a VJ
+expects.
+
+- **Reliability (#636, #637)** · done on `main`. Each bug below was found in
+  the app, in an isolated profile, by driving both surfaces with real mouse
+  events over CDP:
+  - **Listeners piling up.** Every panel redraw added one more window
+    listener. Ten redraws took `mousemove` from 1 to 11. The window
+    listeners are now bound once.
+  - **Dragged clips colliding.** Dragging clip A (1 s) past clip B (5 s)
+    left both at 8 s. The drag held a position in the list, the list was
+    re-sorted on every move, and the drag jumped to the neighbour.
+    Keyframes had the same fault. The drag now holds the object itself, and
+    keys are sorted in place, since `sortKeys` builds new objects.
+  - **Inspector not following the selection.** Clicking a clip selected it,
+    but the inspector still said "select a clip". It now refreshes on
+    selection. Only the inspector is rebuilt: rebuilding the whole panel
+    would replace the canvas under the second click of a double-click.
+  - **Row naming broken.** "Name Row" opened `window.prompt`, which Electron
+    does not support, and threw on a deck with no row-name map. The row name
+    is now a text field in the slot editor.
+  - **Deck edits lost.** A config with an empty deck list got a temporary
+    deck, so grid size, slots and row names written to it were lost. The
+    default deck is now written into the config.
+  - **Canvas bound to frame callbacks.** The canvas was bound, and the grid
+    painted, on `requestAnimationFrame`. A background window gets no frames,
+    so mouse events went to the old, detached canvas. Both now use a timer.
+  - **Tests** (8): the timeline panel is driven through a fake DOM and
+    canvas, with mouse events handed to its own listeners. The tests cover
+    listener counts, moving and trimming a clip past its neighbour, a
+    keyframe past its neighbour, and the inspector. On the deck side they
+    cover the row name, a deck with no row-name map, and an empty deck list.
+    All 8 fail on the old code.
 
 ## v3.1.6 — Comprehensive video export
 
