@@ -206,6 +206,11 @@
       globe: { tilt: 0.4, links: 1, size: 1 },
       wireframe: { rings: 16, sides: 10, speed: 1 },
       hexpulse: { size: 1, gap: 1, wave: 1 },
+      lavalamp: { blobs: 7, size: 1, flow: 1, glowAmt: 1, bassPush: 1.2 },
+      lowpoly: { cells: 16, jitter: 0.6, shimmer: 1, relief: 1, bassPush: 1.2 },
+      clouds: { scale: 1, cover: 0.5, drift: 1, softness: 1, bassPush: 1 },
+      halftone: { cells: 38, angle: 0.26, contrast: 1, response: 1, bassPush: 1.3 },
+      spotlights: { beams: 5, spread: 1, sweep: 1, haze: 0.35, bassPush: 1.5 },
     },
 
     visualizer: {

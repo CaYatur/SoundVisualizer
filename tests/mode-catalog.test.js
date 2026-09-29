@@ -159,3 +159,52 @@ test('panel ve katman paneli arkaplan ayarlarını katalogdan okuyor', () => {
   assert.match(admin, /settingsOf\('background', mode\)/);
   assert.match(layers, /settingsOf\('background', l\.type\)/);
 });
+
+// ------------------------------------------------ sayfalar mod dosyalarını yüklüyor mu
+
+/* Mod dosyası bir sayfada yüklenmezse o sayfada mod boş çizer ve hiçbir şey
+   bunu söylemez: kayıt testi kaynağı okuyor, öz test yalnız görselleştirici
+   penceresini dolaşıyor. Görüntü üreten dört sayfa her katalog modunu
+   yüklemeli; bilinen istisnalar gerekçesiyle burada. */
+const PAGES = {
+  'src/visualizer/index.html': [],
+  'src/web/overlay.html': [],
+  // Çalan Parça canlı sistem medya bilgisinden (SMTC) besleniyor; çevrimdışı
+  // dışa aktarımda ve yönetim önizlemesinde o bilgi yok
+  'src/exporter/index.html': ['nowplaying.js'],
+  'src/admin/index.html': ['nowplaying.js'],
+};
+
+function fileRegistry() {
+  const out = {};
+  const cat = new Set(MC.ids('visualizer').concat(MC.ids('background')));
+  for (const f of fs.readdirSync(MODES_DIR)) {
+    if (!f.endsWith('.js')) continue;
+    const src = fs.readFileSync(path.join(MODES_DIR, f), 'utf8');
+    const ids = new Set();
+    for (const m of src.matchAll(/window\.SV(?:Modes|Backgrounds)\.([A-Za-z0-9]+)\s*=\s*[A-Z]/g)) ids.add(m[1]);
+    for (const m of src.matchAll(/(?:Object\.assign\(window\.SV(?:Modes|Backgrounds),\s*|window\.SVBackgrounds\s*=\s*)\{([^}]*)\}/g)) {
+      for (const k of m[1].matchAll(/([A-Za-z0-9]+)\s*:/g)) ids.add(k[1]);
+    }
+    const inCat = [...ids].filter((id) => cat.has(id));
+    if (inCat.length) out[f] = inCat;
+  }
+  return out;
+}
+
+test('görüntü üreten her sayfa her katalog modunun dosyasını doğru sırayla yüklüyor', () => {
+  const reg = fileRegistry();
+  assert.ok(reg['generative2.js'] && reg['backgrounds-gen2.js'], 'yeni dosyalar kayıt okumasında yok');
+  for (const [page, skip] of Object.entries(PAGES)) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+    const loaded = [...html.matchAll(/modes\/([a-z0-9-]+\.js)/g)].map((m) => m[1]);
+    const missing = Object.keys(reg).filter((f) => loaded.indexOf(f) < 0 && skip.indexOf(f) < 0);
+    assert.deepStrictEqual(missing, [], page + ': yüklenmeyen mod dosyası');
+    // Yardımcılarını başka dosyadan alanlar ondan sonra gelmeli
+    const at = (f) => loaded.indexOf(f);
+    assert.ok(at('generative2.js') > at('generative.js'), page + ': generative2.js, SVGenUtil tanımlanmadan yükleniyor');
+    for (const f of loaded.filter((x) => /^backgrounds-/.test(x))) {
+      assert.ok(at(f) > at('backgrounds.js'), page + ': ' + f + ', SVBgUtil tanımlanmadan yükleniyor');
+    }
+  }
+});
