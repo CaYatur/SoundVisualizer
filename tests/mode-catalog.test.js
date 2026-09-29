@@ -106,3 +106,56 @@ test('panel, kumanda ve kısayol dosyalarında elle tutulan mod listesi yok', ()
     }
   }
 });
+
+// ------------------------------------------------ arkaplanların kendi ayarları
+
+/* Otuz arkaplanın yirmi ikisinin ayarı motorda vardı ama panelde yoktu;
+   katman panelindeki kopya da Yıldız Alanı'nın üç ayarını motorun
+   okumadığı anahtarlara yazıyordu. Liste artık katalogda; burada motorun
+   gerçekten okuduğu anahtarlarla ve varsayılanlarla karşılaştırılıyor. */
+function msetFallbacks() {
+  const out = {};
+  for (const f of fs.readdirSync(MODES_DIR)) {
+    if (!f.startsWith('backgrounds')) continue;
+    const src = fs.readFileSync(path.join(MODES_DIR, f), 'utf8');
+    for (const m of src.matchAll(/mset\(cfg, '([a-z]+)', (\{[\s\S]*?\})\)/g)) {
+      out[m[1]] = Function('return (' + m[2] + ');')();
+    }
+  }
+  return out;
+}
+
+test('her 2D arkaplanın ayarları katalogda; anahtarlar motorun okuduklarıyla aynı', () => {
+  const fb = msetFallbacks();
+  assert.ok(Object.keys(fb).length >= 30, 'mset okunamadı: ' + Object.keys(fb).length);
+  for (const id of MC.ids('background')) {
+    const set = MC.settingsOf('background', id);
+    if (['gradient', 'solid', 'custom'].indexOf(id) >= 0) { assert.strictEqual(set.length, 0, id); continue; }
+    assert.ok(set.length, id + ': panelde ayarı yok');
+    assert.deepStrictEqual(set.map((r) => r[0]).sort(), Object.keys(fb[id] || {}).sort(), id + ': anahtarlar motorla aynı değil');
+  }
+});
+
+test('ayarların varsayılanı defaults.js\'te, motorun yedeğiyle aynı ve aralığın içinde', () => {
+  global.window = global.window || {};
+  require('../src/shared/defaults.js');
+  const def = global.window.SV.defaultConfig().background;
+  const fb = msetFallbacks();
+  for (const m of MC.BACKGROUNDS) {
+    for (const [key, label, min, max, step] of (m.settings || [])) {
+      const d = def[m.id] && def[m.id][key];
+      assert.strictEqual(d, fb[m.id][key], m.id + '.' + key + ': varsayılan motorun yedeğinden farklı');
+      assert.ok(d >= min && d <= max, m.id + '.' + key + ' aralık dışında: ' + d);
+      assert.ok(step > 0 && min < max && label, m.id + '.' + key + ': bozuk satır');
+    }
+  }
+});
+
+test('panel ve katman paneli arkaplan ayarlarını katalogdan okuyor', () => {
+  const SRC = path.join(__dirname, '..', 'src', 'admin');
+  const admin = fs.readFileSync(path.join(SRC, 'admin.js'), 'utf8');
+  const layers = fs.readFileSync(path.join(SRC, 'scene-panels.js'), 'utf8');
+  assert.ok(!/BG_MODE_CONTROLS/.test(admin) && !/BG_MODE_CONTROLS/.test(layers), 'elle tutulan ayar listesi geri geldi');
+  assert.match(admin, /settingsOf\('background', mode\)/);
+  assert.match(layers, /settingsOf\('background', l\.type\)/);
+});

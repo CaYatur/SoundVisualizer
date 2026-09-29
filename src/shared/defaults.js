@@ -191,6 +191,21 @@
         speed: 0.6,
         bassPush: 1.2,
       },
+      // Üretken zeminler (#638): motorun mset() yedekleriyle aynı değerler
+      liquid: { bands: 7, warp: 1, sharp: 0.6 },
+      plasma: { scale: 1, swirl: 1 },
+      caustics: { scale: 1, sharp: 1 },
+      ribbons: { count: 7, width: 1, wave: 1 },
+      contours: { lines: 26, scale: 1, drift: 1 },
+      wavefield: { depth: 26, amp: 1, spacing: 1 },
+      embers: { drift: 1, size: 1, glowAmt: 1 },
+      sand: { flow: 1, layers: 5, grain: 1 },
+      stained: { count: 46, lead: 1, glowAmt: 1 },
+      circuit: { count: 34, pulse: 1, thickness: 1 },
+      prism: { slices: 14, depth: 1, spin: 1 },
+      globe: { tilt: 0.4, links: 1, size: 1 },
+      wireframe: { rings: 16, sides: 10, speed: 1 },
+      hexpulse: { size: 1, gap: 1, wave: 1 },
     },
 
     visualizer: {
