@@ -579,6 +579,389 @@
     dispose() {}
   }
 
+  // ==========================================================================
+  // DJ DALGA FORMU — kayan dalga özeti, rengi bas/orta/tizin oranından
+  // ==========================================================================
+  /* DJ yazılımlarındaki renkli dalga özeti gibi: her sütun bir an; boyu o
+     anın tepe genliği, rengi tayfın parlaklığı (tiz ağırlıklıysa paletin bir
+     ucu, bas ağırlıklıysa öbürü). Sabit hızda kayar; halka tampon. */
+  const DJ_COLS = 360;
+  const DJ_RATE = 1 / 60;
+
+  class DJWave {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
+      this.amp = new Float32Array(DJ_COLS);
+      this.rms = new Float32Array(DJ_COLS);
+      this.hue = new Float32Array(DJ_COLS);
+      this.head = 0;
+      this.acc = 0;
+      this.cols = [];
+    }
+    resize() {}
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = cfg.visualizer;
+      const sens = v.sensitivity || 1;
+      const buf = audio.timeBytes;
+      let peak = 0;
+      let sum = 0;
+      let n = 0;
+      if (buf && buf.length) {
+        for (let i = 0; i < buf.length; i += 4) {
+          const x = Math.abs(buf[i] - 128) / 128;
+          if (x > peak) peak = x;
+          sum += x * x;
+          n++;
+        }
+      }
+      const rms = n ? Math.sqrt(sum / n) : 0;
+      const lo = audio.bass || 0;
+      const hi = (audio.treble || 0) + (audio.mid || 0) * 0.5;
+      const bright = clamp(hi / (lo + hi + 1e-3), 0, 1);
+      this.acc += Math.min(0.1, dt || 0.016);
+      while (this.acc >= DJ_RATE) {
+        this.acc -= DJ_RATE;
+        this.head = (this.head + 1) % DJ_COLS;
+        this.amp[this.head] = clamp(peak * sens, 0, 1);
+        this.rms[this.head] = clamp(rms * sens * 1.8, 0, 1);
+        this.hue[this.head] = bright;
+      }
+      ctx.clearRect(0, 0, W, H);
+      const cy = H / 2;
+      const half = H * 0.42 * (0.5 + (v.thickness == null ? 0.5 : v.thickness));
+      const colW = W / DJ_COLS;
+      toneTable(v, cfg, t, 16, this.cols);
+      // Aynı renkteki sütunlar tek yolda: 16 kova
+      for (let b = 0; b < 16; b++) {
+        ctx.beginPath();
+        let any = false;
+        for (let k = 0; k < DJ_COLS; k++) {
+          const idx = (this.head + 1 + k) % DJ_COLS;
+          if (Math.min(15, (this.hue[idx] * 16) | 0) !== b) continue;
+          const a = this.amp[idx] * half;
+          if (a < 0.5) continue;
+          ctx.rect(k * colW, cy - a, Math.max(1, colW + 0.5), a * 2);
+          any = true;
+        }
+        if (!any) continue;
+        ctx.fillStyle = rgba(this.cols[b], 0.55);
+        ctx.fill();
+      }
+      // Ortalama güç: parlak iç çekirdek
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.beginPath();
+      for (let k = 0; k < DJ_COLS; k++) {
+        const idx = (this.head + 1 + k) % DJ_COLS;
+        const a = this.rms[idx] * half * 0.8;
+        if (a < 0.5) continue;
+        ctx.rect(k * colW, cy - a, Math.max(1, colW + 0.5), a * 2);
+      }
+      ctx.fill();
+      // Oynatma kafası: en yeni sütun sağda
+      ctx.fillStyle = rgba(this.cols[15], 0.9);
+      ctx.fillRect(W - Math.max(2, W / 600), cy - half, Math.max(2, W / 600), half * 2);
+      this.glow.apply(this.canvas, v.glow, 0.6);
+    }
+    dispose() {}
+  }
+
+  // ==========================================================================
+  // KARDİOİD — çember üstünde çarpım tablosu (i → i·k) çizgi sanatı
+  // ==========================================================================
+  /* k yavaşça artar ve şekil kardioidden nefroide, gül eğrilerine geçer; ses
+     hızı artırır, vuruş k'yı küçük bir adım iter. Çizgiler renk kovalarında
+     toplu çiziliyor (kare başına 12 çizim çağrısı). */
+  const CARD_N = 240;
+  const CARD_BUCKETS = 12;
+
+  class Cardioid {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
+      this.onset = onset(0.2);
+      this.k = 2;
+      this.cols = [];
+    }
+    resize() {}
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = cfg.visualizer;
+      const step = Math.min(0.05, dt || 0.016);
+      const sens = v.sensitivity || 1;
+      const lvl = clamp(audio.level * sens, 0, 1.5);
+      this.k += step * (0.02 + lvl * 0.09);
+      if (this.onset.push(audio.bass * sens, step) > 0) this.k += 0.035;
+      if (this.k > 60) this.k = 2;
+      ctx.clearRect(0, 0, W, H);
+      const cx = W / 2;
+      const cy = H / 2;
+      const R = Math.min(W, H) * 0.44;
+      const rot = -Math.PI / 2 + t * 0.03;
+      toneTable(v, cfg, t, CARD_BUCKETS, this.cols);
+      ctx.lineWidth = Math.max(0.6, v.lineWidth * 0.3 * (Math.min(W, H) / 1080));
+      const alpha = (0.25 + lvl * 0.5).toFixed(3);
+      for (let b = 0; b < CARD_BUCKETS; b++) {
+        ctx.strokeStyle = rgba(this.cols[b], alpha);
+        ctx.beginPath();
+        for (let i = b; i < CARD_N; i += CARD_BUCKETS) {
+          const a0 = rot + (i / CARD_N) * TAU;
+          const a1 = rot + (((i * this.k) % CARD_N) / CARD_N) * TAU;
+          ctx.moveTo(cx + Math.cos(a0) * R, cy + Math.sin(a0) * R);
+          ctx.lineTo(cx + Math.cos(a1) * R, cy + Math.sin(a1) * R);
+        }
+        ctx.stroke();
+      }
+      ctx.strokeStyle = rgba(this.cols[CARD_BUCKETS - 1], 0.3);
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, TAU);
+      ctx.stroke();
+      this.glow.apply(this.canvas, v.glow, 0.8);
+    }
+    dispose() {}
+  }
+
+  // ==========================================================================
+  // VURUŞ PEDLERİ — davul makinesi gibi ped ızgarası
+  // ==========================================================================
+  /* Her ped bir bandı gösteriyor (düşükler sol altta); vuruşta tohumlu bir
+     pedden dalga yayılıyor. Pedler arası boşluk Bar Boşluğu ayarından. */
+  class BeatPads {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
+      this.onset = onset(0.14);
+      this.rand = rng(0xbea7);
+      this.hits = []; // { r, c, age } — en çok 8, sabit
+      this.cols = [];
+    }
+    resize() {}
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = cfg.visualizer;
+      const step = Math.min(0.05, dt || 0.016);
+      const sens = v.sensitivity || 1;
+      const side = clamp(Math.round(Math.sqrt(clamp(v.barCount | 0, 16, 64))), 4, 8);
+      const n = side * side;
+      const bars = audio.getBars(n, v.minFreq, v.maxFreq, v.spectrum);
+      if (this.onset.push(audio.bass * sens, step) > 0) {
+        if (this.hits.length >= 8) this.hits.shift();
+        this.hits.push({ r: (this.rand() * side) | 0, c: (this.rand() * side) | 0, age: 0 });
+      }
+      for (const h of this.hits) h.age += step;
+      while (this.hits.length && this.hits[0].age > 1.2) this.hits.shift();
+      ctx.clearRect(0, 0, W, H);
+      const S = Math.min(W, H) * 0.86;
+      const x0 = (W - S) / 2;
+      const y0 = (H - S) / 2;
+      const cell = S / side;
+      const gap = cell * clamp(v.gap == null ? 0.3 : v.gap, 0, 0.8) * 0.4;
+      const rr = cell * 0.12;
+      toneTable(v, cfg, t, n, this.cols);
+      for (let r = 0; r < side; r++) {
+        for (let c = 0; c < side; c++) {
+          const i = (side - 1 - r) * side + c; // düşük bantlar altta
+          let e = clamp(bars[i] * sens, 0, 1);
+          for (const h of this.hits) {
+            const d = Math.hypot(h.r - r, h.c - c);
+            const front = h.age * 7;
+            e += Math.max(0, 1 - Math.abs(d - front)) * (1 - h.age / 1.2) * 0.8;
+          }
+          e = clamp(e, 0, 1.2);
+          const x = x0 + c * cell + gap / 2;
+          const y = y0 + r * cell + gap / 2;
+          const w = cell - gap;
+          ctx.fillStyle = rgba(this.cols[i], (0.08 + e * 0.85).toFixed(3));
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(x, y, w, w, rr); else ctx.rect(x, y, w, w);
+          ctx.fill();
+          ctx.strokeStyle = rgba(this.cols[i], 0.35);
+          ctx.lineWidth = Math.max(1, S / 700);
+          ctx.stroke();
+        }
+      }
+      this.glow.apply(this.canvas, v.glow, 0.85);
+    }
+    dispose() { this.hits = []; }
+  }
+
+  // ==========================================================================
+  // SEVİYE ÖLÇER (PPM) — L/R tepe ve RMS, tepe tutma, dB ölçeği
+  // ==========================================================================
+  /* Tepe: anında yükselir, saniyede 20 dB düşer (IEC tipi II'ye yakın);
+     tepe tutma 1,5 sn bekler. RMS 300 ms ortalama. Ölçek -60..0 dBFS;
+     -18 üstü sarı, -6 üstü kırmızı bölge (yayın alışkanlığı). */
+  const PPM_MIN = -60;
+  const PPM_MARKS = [0, -3, -6, -9, -12, -18, -24, -30, -40, -50, -60];
+
+  class LevelMeter {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.peak = [PPM_MIN, PPM_MIN];
+      this.rms = [PPM_MIN, PPM_MIN];
+      this.hold = [PPM_MIN, PPM_MIN];
+      this.holdAge = [0, 0];
+    }
+    resize() {}
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = cfg.visualizer;
+      const step = Math.min(0.05, dt || 0.016);
+      const gainDb = 20 * Math.log10(Math.max(0.05, v.sensitivity || 1));
+      const chans = [audio.timeL || audio.timeBytes, audio.timeR || audio.timeBytes];
+      ctx.clearRect(0, 0, W, H);
+      const ink = tone(v, cfg, 0.5, t);
+      const low = tone(v, cfg, 0.2, t);
+      const midC = [255, 196, 77];
+      const hot = [255, 82, 72];
+      const top = H * 0.08;
+      const bot = H * 0.9;
+      const span = bot - top;
+      const yOf = (db) => bot - (clamp(db, PPM_MIN, 0) - PPM_MIN) / -PPM_MIN * span;
+      const barW = Math.min(W * 0.1, H * 0.09);
+      const cx = W / 2;
+      const xs = [cx - barW * 1.25, cx + barW * 0.25];
+      ctx.font = Math.round(Math.max(10, H * 0.022)) + 'px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      // Ölçek
+      ctx.textAlign = 'right';
+      for (const db of PPM_MARKS) {
+        const y = yOf(db);
+        ctx.fillStyle = rgba(ink, 0.75);
+        ctx.fillText(String(db), xs[0] - barW * 0.25, y);
+        ctx.fillStyle = rgba(ink, 0.25);
+        ctx.fillRect(xs[0] - barW * 0.18, y, xs[1] + barW - xs[0] + barW * 0.36, 1);
+      }
+      for (let ch = 0; ch < 2; ch++) {
+        const buf = chans[ch];
+        let pk = 0;
+        let sum = 0;
+        let n = 0;
+        if (buf) {
+          for (let i = 0; i < buf.length; i += 2) {
+            const x = Math.abs(buf[i] - 128) / 128;
+            if (x > pk) pk = x;
+            sum += x * x;
+            n++;
+          }
+        }
+        const pkDb = 20 * Math.log10(pk + 1e-6) + gainDb;
+        const rmsDb = 20 * Math.log10(Math.sqrt(n ? sum / n : 0) + 1e-6) + gainDb;
+        this.peak[ch] = Math.max(pkDb, this.peak[ch] - 20 * step);
+        this.rms[ch] += (rmsDb - this.rms[ch]) * (1 - Math.exp(-step / 0.3));
+        if (this.peak[ch] >= this.hold[ch]) { this.hold[ch] = this.peak[ch]; this.holdAge[ch] = 0; }
+        else {
+          this.holdAge[ch] += step;
+          if (this.holdAge[ch] > 1.5) this.hold[ch] = Math.max(PPM_MIN, this.hold[ch] - 30 * step);
+        }
+        const x = xs[ch];
+        ctx.fillStyle = rgba(ink, 0.08);
+        ctx.fillRect(x, top, barW, span);
+        // Tepe çubuğu üç bölgede
+        const zones = [[PPM_MIN, -18, low], [-18, -6, midC], [-6, 0, hot]];
+        for (const [a, b, col] of zones) {
+          const hiDb = Math.min(b, this.peak[ch]);
+          if (hiDb <= a) continue;
+          ctx.fillStyle = rgba(col, 0.9);
+          ctx.fillRect(x, yOf(hiDb), barW, yOf(a) - yOf(hiDb));
+        }
+        // RMS: içte ince açık çubuk
+        const ry = yOf(this.rms[ch]);
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillRect(x + barW * 0.35, ry, barW * 0.3, bot - ry);
+        // Tepe tutma
+        const hy = yOf(this.hold[ch]);
+        ctx.fillStyle = this.hold[ch] > -6 ? rgba(hot, 1) : rgba(ink, 0.95);
+        ctx.fillRect(x, hy - 1.5, barW, 3);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = rgba(ink, 0.9);
+        ctx.fillText(ch === 0 ? 'L' : 'R', x + barW / 2, bot + H * 0.035);
+        ctx.fillText(this.hold[ch] <= PPM_MIN + 0.5 ? '-∞' : this.hold[ch].toFixed(1), x + barW / 2, top - H * 0.035);
+      }
+    }
+    dispose() {}
+  }
+
+  // ==========================================================================
+  // ZIPLAYAN TOPLAR — barların üstünde fizikle zıplayan toplar
+  // ==========================================================================
+  /* Bar hızla yükselince üstündeki topu fırlatır; top yerçekimiyle düşer ve
+     barın tepesinden seker. Sabit diziler, kare başına ayırma yok. */
+  class Bounce {
+    constructor(canvas) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.glow = new window.SVGlow();
+      this.n = 0;
+      this.cols = [];
+    }
+    resize() { this.n = 0; }
+    _init(n) {
+      this.n = n;
+      this.by = new Float32Array(n); // topun yüksekliği (0..1, zeminden)
+      this.vy = new Float32Array(n);
+      this.prev = new Float32Array(n);
+    }
+    draw(audio, cfg, t, dt) {
+      const ctx = this.ctx;
+      const W = this.canvas.width;
+      const H = this.canvas.height;
+      const v = cfg.visualizer;
+      const step = Math.min(0.05, dt || 0.016);
+      const sens = v.sensitivity || 1;
+      const n = clamp(Math.round((v.barCount | 0) / 3), 12, 48);
+      if (this.n !== n) this._init(n);
+      const bars = audio.getBars(n, v.minFreq, v.maxFreq, v.spectrum);
+      ctx.clearRect(0, 0, W, H);
+      const floor = H * 0.9;
+      const maxH = H * 0.62;
+      const colW = (W * 0.9) / n;
+      const x0 = W * 0.05;
+      const gap = colW * clamp(v.gap == null ? 0.3 : v.gap, 0, 0.8);
+      const ballR = Math.max(3, Math.min(colW * 0.32, H * 0.02));
+      const g = 2.6; // yükseklik birimi / sn²
+      toneTable(v, cfg, t, n, this.cols);
+      for (let i = 0; i < n; i++) {
+        const h = clamp(bars[i] * sens, 0, 1);
+        const rise = (h - this.prev[i]) / step;
+        this.prev[i] = h;
+        // Top barın içinde kalmasın; hızlı yükselen bar topa hız verir
+        if (this.by[i] <= h) {
+          this.by[i] = h;
+          if (rise > 0) this.vy[i] = Math.max(this.vy[i], rise * 0.35);
+          else if (this.vy[i] < 0) this.vy[i] = -this.vy[i] * 0.45; // seke
+        }
+        this.vy[i] -= g * step;
+        this.by[i] = Math.max(h, this.by[i] + this.vy[i] * step);
+        if (this.by[i] > 1.4) { this.by[i] = 1.4; this.vy[i] = 0; }
+        const x = x0 + i * colW + gap / 2;
+        const w = colW - gap;
+        const c = this.cols[i];
+        ctx.fillStyle = rgba(c, 0.55);
+        ctx.fillRect(x, floor - h * maxH, w, h * maxH);
+        ctx.fillStyle = rgba(c, 1);
+        ctx.beginPath();
+        ctx.arc(x + w / 2, floor - this.by[i] * maxH - ballR, ballR, 0, TAU);
+        ctx.fill();
+      }
+      this.glow.apply(this.canvas, v.glow, 0.75);
+    }
+    dispose() { this.n = 0; }
+  }
+
   window.SVModes = window.SVModes || {};
   Object.assign(window.SVModes, {
     ridges: Ridges,
@@ -586,5 +969,10 @@
     vumeter: VUMeter,
     radar: Radar,
     confetti: Confetti,
+    djwave: DJWave,
+    cardioid: Cardioid,
+    beatpads: BeatPads,
+    levelmeter: LevelMeter,
+    bounce: Bounce,
   });
 })();
