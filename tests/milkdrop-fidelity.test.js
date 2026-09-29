@@ -238,11 +238,28 @@ test('bulanıklık: adım kaynağın tekseline göre', () => {
   assert.match(CODE, /gl\.uniform2f\(L\.uStep, 0, 1 \/ b\.hh\)/);
 });
 
-test('bulanıklık: ölçek yalnız ikinci geçişe uygulanıyor', () => {
+/* Uyum açıkken ölçek MilkDrop gibi YATAY geçişte (blur1_ps.fx) ve iki geçiş
+   de 0..1'e doyuyor (8 bitlik hedef, #580); kapalıyken eski yol: dikeyde,
+   kırpmasız. */
+test('bulanıklık: ölçek uyum açıkken yatay geçişte, doyma ile', () => {
   const fn = /_buildBlur\(srcTex, need\) \{[\s\S]*?\n    \}/.exec(CODE);
   assert.ok(fn, '_buildBlur bulunamadı');
-  assert.match(fn[0], /setSB\(1, 0\);/, 'yatay geçiş birim ölçek almalı');
-  assert.match(fn[0], /setSB\(sb\[i\]\[0\], sb\[i\]\[1\]\)/, 'dikey geçiş gerçek ölçeği almalı');
+  assert.match(fn[0], /setSB\(acc \? sb\[i\]\[0\] : 1, acc \? sb\[i\]\[1\] : 0\);/, 'yatay geçiş');
+  assert.match(fn[0], /setSB\(acc \? 1 : sb\[i\]\[0\], acc \? 0 : sb\[i\]\[1\]\);/, 'dikey geçiş');
+  assert.match(fn[0], /gl\.uniform1f\(L\.uSat, acc \? 1 : 0\)/);
+});
+
+/* Doymanın etkisi çalıştırılarak: aralığı daraltan bir kademede parlak tek
+   bir bant. MilkDrop yatayda ölçekleyip kırpıyor, sonra dikeyde
+   bulanıklaştırıyor; kırpmadan bulanıklaştırmak tepeyi yükseltirdi. */
+test('bulanıklık: ara sonuç kırpılınca tepe düşüyor', () => {
+  const scale = 1 / (0.8 - 0.2), bias = -0.2 * scale;
+  const col = [0, 1, 1, 0, 0]; // dikeyde iki parlak satır
+  const vw = [0.25, 0.5, 0.25];
+  const vblur = (v, j) => vw.reduce((s, w, k) => s + w * (v[j + k - 1] || 0), 0);
+  const md2 = vblur(col.map((x) => Math.min(1, Math.max(0, x * scale + bias))), 2);
+  const late = Math.min(1, vblur(col, 2) * scale + bias);
+  assert.ok(md2 < late, md2 + ' ≥ ' + late);
 });
 
 /* İkinci ve üçüncü kademenin aralığı BİR ÖNCEKİ kademenin aralığına göre

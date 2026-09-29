@@ -51,7 +51,9 @@ test('shader: karartma karekök eğrisiyle uygulanıyor', () => {
   assert.match(FRAG[1], /float e = min\(min\(vUV\.x, vUV\.y\), 1\.0 - max\(vUV\.x, vUV\.y\)\);/);
   assert.match(FRAG[1], /e = sqrt\(max\(e, 0\.0\)\);/);
   assert.match(FRAG[1], /e = uEdge\.x \+ uEdge\.y \* clamp\(e \* uEdge\.z, 0\.0, 1\.0\);/);
-  assert.match(FRAG[1], /outColor = vec4\(\(c \* uNorm \* uScale \+ uBias\) \* e, 1\.0\);/);
+  assert.match(FRAG[1], /vec3 r = \(c \* uNorm \* uScale \+ uBias\) \* e;/);
+  // Uyum açıkken 8 bitlik hedef gibi doyuyor (#580)
+  assert.match(FRAG[1], /outColor = vec4\(uSat > 0\.5 \? clamp\(r, 0\.0, 1\.0\) : r, 1\.0\);/);
 });
 
 /* Eğrinin kendisi çalıştırılıyor: doğrusal bir eğri de "kenarda koyu"

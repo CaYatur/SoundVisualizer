@@ -323,9 +323,9 @@ void main(){
      anahtari shader'i degil yalnizca DEGERLERI degistiriyor.
 
      `uScale`/`uBias` presetin b1n/b1x araligini dokuya sigdiriyor; okurken
-     `GetBlurN` ayni araligi geri aciyor. Tek gecise (dikey) uygulaniyor:
-     olcekleme dogrusal oldugu icin bulaniklikla yer degistirebiliyor ve
-     ara sonucu kirpmadan gecmek daha az bilgi kaybediyor. */
+     `GetBlurN` ayni araligi geri aciyor. Uyum acikken MilkDrop gibi yatay
+     gecise uygulaniyor ve iki gecis de 0..1'e doyuyor (`uSat`, #580);
+     kapaliyken eski yol: dikey gecise, kirpmadan. */
   const BLUR_FRAG = `#version 300 es
 precision highp float;
 in vec2 vUV;
@@ -339,6 +339,7 @@ uniform float uNorm;     // toplami 1'e getiren bolen
 uniform float uScale;
 uniform float uBias;
 uniform vec3 uEdge;      // kenar karartma: (1-b1ed, b1ed, 5.0); kapaliyken (1,0,5)
+uniform float uSat;      // 1: sonuc [0,1]'e doyuyor (MilkDrop'un 8 bit hedefi, #580)
 void main(){
   vec3 c = texture(uSrc, vUV).rgb * uCenter;
   for (int i = 0; i < 4; i++) {
@@ -355,7 +356,8 @@ void main(){
   float e = min(min(vUV.x, vUV.y), 1.0 - max(vUV.x, vUV.y));
   e = sqrt(max(e, 0.0));
   e = uEdge.x + uEdge.y * clamp(e * uEdge.z, 0.0, 1.0);
-  outColor = vec4((c * uNorm * uScale + uBias) * e, 1.0);
+  vec3 r = (c * uNorm * uScale + uBias) * e;
+  outColor = vec4(uSat > 0.5 ? clamp(r, 0.0, 1.0) : r, 1.0);
 }`;
 
   /* MilkDrop'un sekiz agirlikli simetrik cekirdegi, cift cift toplanmis.
@@ -1228,6 +1230,7 @@ void main(){
           uScale: gl.getUniformLocation(this.blurProg, 'uScale'),
           uBias: gl.getUniformLocation(this.blurProg, 'uBias'),
           uEdge: gl.getUniformLocation(this.blurProg, 'uEdge'),
+          uSat: gl.getUniformLocation(this.blurProg, 'uSat'),
         };
 
         this._buildMesh();
@@ -4339,7 +4342,16 @@ void main(){
         gl.bindTexture(gl.TEXTURE_2D, input);
         gl.uniform2f(L.uStep, 1 / iw, 0);
         setK(kH);
-        setSB(1, 0);
+        /* ÖLÇEK YATAY GEÇİŞTE ve iki geçiş de DOYUYOR (#580). MilkDrop
+           kademenin min/max'ını yatay geçişte uyguluyor (blur1_ps.fx) ve
+           sonucu 8 bitlik bir hedefe yazıyor: aralığın dışındaki parlaklık
+           dikey bulanıklıktan ÖNCE 0..1'e kırpılıyor. Bizim hedeflerimiz
+           yarım kayan noktalı; kırpma gölgelendiricide. Aralığı daraltan
+           (b1n > 0 ya da b1x < 1 …) ve bulanıklık okuyan 246 korpus presetinde
+           parlak kenarların bulanık kopyası bu yüzden fazla yayılıyordu.
+           Uyum kapalıyken eski yol: ölçek dikeyde, kırpma yok. */
+        setSB(acc ? sb[i][0] : 1, acc ? sb[i][1] : 0);
+        if (L.uSat) gl.uniform1f(L.uSat, acc ? 1 : 0);
         setEdge(false);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
@@ -4348,10 +4360,7 @@ void main(){
         gl.bindTexture(gl.TEXTURE_2D, b.tmp.tex);
         gl.uniform2f(L.uStep, 0, 1 / b.hh);
         setK(kV);
-        /* Olcek yalnizca IKINCI gecise uygulaniyor. Olcekleme dogrusal
-           oldugu icin bulaniklikla yer degistirebiliyor; ara sonucu
-           kirpmadan gecirmek daha az bilgi kaybediyor. */
-        setSB(sb[i][0], sb[i][1]);
+        setSB(acc ? 1 : sb[i][0], acc ? 0 : sb[i][1]);
         setEdge(i === 0);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
 
