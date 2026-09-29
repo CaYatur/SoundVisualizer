@@ -188,10 +188,10 @@ test('panel: başlık çubuğu genel nicelemeyi yazıyor ve çalıştırıcıya 
 
 test('metinlerin İngilizcesi var; eski girdiler kaldırıldı', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
-  for (const s of ['Genel (destenin)', 'Boş yuva — eklemek için tıklayın', '▶ Ateşle', '🗑 Yuvayı Boşalt', 'Hedef Yuva', 'Izgara ve kayıt', 'Genel ayar (Geçiş kartı)']) {
+  for (const s of ['Genel (destenin)', 'Boş yuva — eklemek için tıklayın', '▶ Ateşle', '🗑 Yuvayı Boşalt', 'Hedef Yuva', 'Deste, ızgara ve kayıt', 'Genel ayar (Geçiş kartı)']) {
     assert.ok(src.includes("'" + s + "':"), 'sözlükte yok: ' + s);
   }
-  for (const s of ['Hedef (satır:sütun)', 'boş = mevcut ayar', 'Boş yuva — düzenlemek için tıklayın']) {
+  for (const s of ['Hedef (satır:sütun)', 'boş = mevcut ayar', 'Boş yuva — düzenlemek için tıklayın', 'Izgara ve kayıt']) {
     assert.ok(!src.includes("'" + s + "':"), 'eski girdi duruyor: ' + s);
   }
 });
