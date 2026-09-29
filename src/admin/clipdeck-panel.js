@@ -448,6 +448,9 @@
     engine: () => ensureEngine(),
     launchSlot: launch,
     applyRef,
+    /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
+       (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
+    applyFaded: (type, ref, fade) => applySlot({ slot: { type, ref }, fade: Number(fade) || 0 }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,

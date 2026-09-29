@@ -28,6 +28,7 @@
   // Ölçüler
   const TRACK_H = 40;
   const RULER_H = 38; // üstte ölçü ve süre, altta işaret bayrakları
+  const LOOP_BAND = 5; // cetvelin üstünde döngü ayracının bandı (tutma yüksekliği biraz fazlası)
   const HEAD_W = 0; // parça başlıkları tuvalin solunda ayrı bir sütun; tuval yalnız zamanı çiziyor
   const MIN_ZOOM = 4; // saniye başına piksel
   const MAX_ZOOM = 400;
@@ -50,6 +51,12 @@
   let lastAnchorKey = '';
   let clipboard = null;
   let hist = null; // geri al / yinele (shared/timeline-edit.js History)
+  /* Çoklu seçim (#636 TL-2): birden fazla klip seçiliyken birincil dahil
+     hepsi, kimlikle. Tek klipte boş; birincil her zaman `selection`da. */
+  let multi = [];
+  // Tam pencere düzenleyici açık mı (panel yeniden çizilse de sürüyor)
+  let fullWin = false;
+  let hostEl = null;
   /* Zaman çizelgesi klipleri sahne uygular; aynı klibi her karede yeniden
      uygulamak paneli kilitlerdi. Sütun başına en son uygulanan klip tutulur. */
   let lastAppliedClip = new Map();
@@ -161,10 +168,16 @@
 
      Klip destesiyle AYNI uygulama yolu kullanılır (SVClipDeckPanel.applyRef):
      iki ayrı kopya zamanla birbirinden ayrılırdı. */
+  /* Klibin geçiş süresi (fade) UYGULANIYOR. Önce yalnız denetçide
+     yazılıp tuvalde gösteriliyordu; ateşleme onu hiç okumuyordu ve her
+     klip genel geçiş ayarıyla değişiyordu. 0 = genel ayar (Geçiş kartı),
+     > 0 = bu klibin süresi, destenin yuvalarıyla aynı yoldan. */
   function fireClip(clip) {
     if (!clip.ref) return;
     const dp = window.SVClipDeckPanel;
-    if (dp && dp.applyRef) dp.applyRef(clip.type, clip.ref);
+    if (!dp) return;
+    if (clip.fade > 0 && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade);
+    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref);
   }
 
   // --------------------------------------------------------------------------
@@ -254,6 +267,37 @@
     return trk && trk.clips ? trk.clips.find((c) => c.id === selection.clipId) || null : null;
   }
 
+  // Seçili klipler (çoklu ya da tek): [{ trk, clip, trackIndex }]; bayat kimlikler düşer
+  function pickedClips() {
+    const refs = multi.length > 1 ? multi : selection && selection.kind === 'clip' ? [selection] : [];
+    const out = [];
+    for (const r of refs) {
+      const trk = trackById(r.trackId);
+      const clip = trk && trk.clips ? trk.clips.find((c) => c.id === r.clipId) : null;
+      if (clip) out.push({ trk, clip, trackIndex: trackIndex(trk.id) });
+    }
+    return out;
+  }
+  function isPicked(c) {
+    if (multi.length > 1) return multi.some((m) => m.clipId === c.id);
+    return !!(selection && selection.kind === 'clip' && selection.clipId === c.id);
+  }
+  // Ctrl/Shift+tık: klibi seçime ekle ya da çıkar; son eklenen birincil olur
+  function toggleMulti(trk, c) {
+    if (multi.length <= 1) multi = selection && selection.kind === 'clip' ? [{ trackId: selection.trackId, clipId: selection.clipId }] : [];
+    const i = multi.findIndex((m) => m.clipId === c.id);
+    if (i >= 0) multi.splice(i, 1);
+    else multi.push({ trackId: trk.id, clipId: c.id });
+    const last = multi[multi.length - 1];
+    selection = last ? { kind: 'clip', trackId: last.trackId, clipId: last.clipId } : { kind: 'track', trackId: trk.id };
+    if (multi.length <= 1) multi = [];
+  }
+  function setMulti(refs) {
+    multi = refs.length > 1 ? refs.slice() : [];
+    const last = refs[refs.length - 1];
+    if (last) selection = { kind: 'clip', trackId: last.trackId, clipId: last.clipId };
+  }
+
   // --------------------------------------------------------------------------
   // Tuval çizimi
   // --------------------------------------------------------------------------
@@ -317,13 +361,22 @@
     drawRuler(w, h, tl, fg, dim, line);
 
     // --- Döngü bölgesi: cetvelde belirgin bant, şeritlerde hafif örtü ---
-    if (tl.loop.enabled) {
+    /* Döngü ayracı (#636 TL-2): cetvelin üst bandında, kapalıyken de soluk
+       görünüyor ki sürüklenip açılabilsin. Kenarlardan boyu, ortasından
+       yeri değişiyor. */
+    if (tl.loop.end > tl.loop.start) {
       const lx = xOf(tl.loop.start);
       const lw = (tl.loop.end - tl.loop.start) * view().zoom;
-      ctx.fillStyle = 'rgba(120,180,255,.08)';
-      ctx.fillRect(lx, RULER_H, lw, h - RULER_H);
-      ctx.fillStyle = 'rgba(120,180,255,.55)';
-      ctx.fillRect(lx, 0, lw, 4);
+      const on = tl.loop.enabled;
+      if (on) {
+        ctx.fillStyle = 'rgba(120,180,255,.08)';
+        ctx.fillRect(lx, RULER_H, lw, h - RULER_H);
+      }
+      ctx.fillStyle = on ? 'rgba(120,180,255,.55)' : 'rgba(120,180,255,.2)';
+      ctx.fillRect(lx, 0, lw, LOOP_BAND);
+      ctx.fillStyle = on ? 'rgba(160,205,255,.95)' : 'rgba(160,205,255,.4)';
+      ctx.fillRect(lx - 1, 0, 3, LOOP_BAND + 3);
+      ctx.fillRect(lx + lw - 2, 0, 3, LOOP_BAND + 3);
     }
 
     // --- Parçalar ---
@@ -378,6 +431,19 @@
     ctx.lineTo(px, RULER_H - 2);
     ctx.closePath();
     ctx.fill();
+
+    // --- Kutu seçimi ---
+    if (drag && drag.kind === 'marquee' && drag.moved) {
+      const x0 = Math.min(drag.x0, drag.x1);
+      const y0 = Math.min(drag.y0, drag.y1);
+      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.fillRect(x0, y0, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(x0 + 0.5, y0 + 0.5, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
+      ctx.setLineDash([]);
+    }
   }
 
   /* Cetvel: yakınlaştırmaya göre ızgara sıklığı seçilir. Sabit bir aralık,
@@ -489,7 +555,7 @@
       const x = xOf(c.start);
       const cw = Math.max(3, c.dur * view().zoom);
       if (x + cw < 0 || x > w) continue;
-      const sel = selection && selection.kind === 'clip' && selection.clipId === c.id;
+      const sel = isPicked(c);
       const col = TE().clipColor(c, trk);
       const top = y + 4;
       const hh = TRACK_H - 8;
@@ -498,6 +564,29 @@
       ctx.fillRect(x, top, cw, hh);
       ctx.fillStyle = col;
       ctx.fillRect(x, top, cw, 3);
+      /* Geçiş (fade) rampası ve tutamacı (#636 TL-2): klibin sol üstünden
+         sürüklenerek ayarlanıyor. Rampanın solu kararık: geçiş o sürede
+         tamamlanıyor. */
+      const fw = Math.min(cw, (c.fade || 0) * view().zoom);
+      if (fw > 1) {
+        ctx.fillStyle = 'rgba(0,0,0,.28)';
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x + fw, top);
+        ctx.lineTo(x, top + hh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.55)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, top + hh);
+        ctx.lineTo(x + fw, top);
+        ctx.stroke();
+      }
+      if ((sel || fw > 1) && cw > 14) {
+        ctx.fillStyle = sel ? '#ffffff' : 'rgba(255,255,255,.7)';
+        ctx.fillRect(x + fw - 3, top - 1, 6, 6);
+      }
       // Kaynağı seçilmemiş klip çizgili: ateşlendiğinde hiçbir şey olmayacak
       if (!c.ref) {
         ctx.strokeStyle = 'rgba(255,255,255,.18)';
@@ -578,7 +667,24 @@
   // --------------------------------------------------------------------------
   function hit(x, y) {
     const tl = ensureTransport().tl;
-    if (y < RULER_H) return { kind: 'ruler' };
+    if (y < RULER_H) {
+      // İşaret bayrakları cetvelin alt bandında: tutulup sürükleniyor
+      if (y >= RULER_H - 14) {
+        for (let mi = tl.markers.length - 1; mi >= 0; mi--) {
+          const mx = xOf(tl.markers[mi].t);
+          if (x >= mx - 3 && x <= mx + 9) return { kind: 'marker', marker: tl.markers[mi] };
+        }
+      }
+      // Döngü ayracı üst bantta: kenarlar boy, ortası yer
+      if (y <= LOOP_BAND + 4 && tl.loop.end > tl.loop.start) {
+        const lx0 = xOf(tl.loop.start);
+        const lx1 = xOf(tl.loop.end);
+        if (Math.abs(x - lx0) <= 6) return { kind: 'loopL' };
+        if (Math.abs(x - lx1) <= 6) return { kind: 'loopR' };
+        if (x > lx0 && x < lx1) return { kind: 'loopMove' };
+      }
+      return { kind: 'ruler' };
+    }
     const index = Math.floor((y - RULER_H) / TRACK_H);
     const trk = tl.tracks[index];
     if (!trk) return { kind: 'none' };
@@ -590,6 +696,10 @@
         if (x < cx - 4 || x > cx + cw + 4) continue;
         /* Kenarlardan 6 piksellik şerit kırpma; ortası taşıma. Şeridi daha dar
            yapmak kırpmayı isabet edilemez hale getiriyordu. */
+        // Geçiş tutamacı sol üst köşede, rampanın ucunda; kırpmadan önce bakılıyor
+        const top = RULER_H + index * TRACK_H + 4;
+        const fx = cx + Math.min(cw, (c.fade || 0) * view().zoom);
+        if (cw > 14 && y <= top + 8 && x >= fx - 4 && x <= fx + 6) return { kind: 'fade', index, ci };
         const edge = Math.min(6, cw / 3);
         if (x <= cx + edge) return { kind: 'trimL', index, ci };
         if (x >= cx + cw - edge) return { kind: 'trimR', index, ci };
@@ -662,6 +772,11 @@
      S, Del ve Ctrl+Z hiçbir yere gitmiyordu. */
   function refreshAll() {
     if (selection && !selTrack()) selection = null;
+    // Geri alma ya da silme sonrası artık olmayan klipler çoklu seçimden düşüyor
+    if (multi.length > 1) {
+      multi = pickedClips().map((p) => ({ trackId: p.trk.id, clipId: p.clip.id }));
+      if (multi.length <= 1) multi = [];
+    }
     refreshHeads();
     refreshInspector();
     refreshMore();
@@ -694,6 +809,16 @@
   }
 
   function deleteSelection() {
+    if (multi.length > 1) {
+      // Kilitli parçalardaki klipler yerinde kalıyor
+      const gone = pickedClips().filter((p) => !p.trk.locked);
+      if (!gone.length) return false;
+      for (const p of gone) p.trk.clips.splice(p.trk.clips.indexOf(p.clip), 1);
+      multi = [];
+      selection = null;
+      commit();
+      return true;
+    }
     const trk = selTrack();
     if (!trk || trk.locked) return false;
     if (selection.kind === 'clip') {
@@ -711,7 +836,30 @@
     return true;
   }
 
+  // Yapıştırılan/çoğaltılan grubu şeritlerine koy ve yeni grubu seç
+  function placeGroup(placed) {
+    const tl = ensureTransport().tl;
+    const refs = [];
+    const touched = new Set();
+    for (const p of placed) {
+      const trk = tl.tracks[p.trackIndex];
+      if (!trk || trk.kind !== 'clip' || trk.locked) continue;
+      trk.clips.push(p.clip);
+      touched.add(trk);
+      refs.push({ trackId: trk.id, clipId: p.clip.id });
+    }
+    touched.forEach((t) => TE().sortClips(t));
+    if (!refs.length) return false;
+    setMulti(refs);
+    commit();
+    return true;
+  }
+
   function duplicateSelection() {
+    if (multi.length > 1) {
+      const picked = pickedClips().filter((p) => !p.trk.locked);
+      return picked.length ? placeGroup(TE().duplicateGroup(ensureTransport().tl, picked)) : false;
+    }
     const trk = selTrack();
     const c = selClip();
     if (!trk || !c || trk.locked) return false;
@@ -739,6 +887,10 @@
   }
 
   function copySelection() {
+    if (multi.length > 1) {
+      clipboard = { group: TE().copyGroup(pickedClips()) };
+      return !!clipboard.group;
+    }
     const c = selClip();
     if (!c) return false;
     clipboard = JSON.parse(JSON.stringify(c));
@@ -747,6 +899,11 @@
 
   function pasteAtPlayhead() {
     if (!clipboard) return false;
+    if (clipboard.group) {
+      // Grup kafaya; ilk şerit seçili (ya da ilk) klip parçası, göreli şeritler korunuyor
+      const base = trackIndex(targetClipTrack().id);
+      return placeGroup(TE().pasteGroup(ensureTransport().tl, clipboard.group, snap(ensureTransport().time, false), base));
+    }
     const trk = targetClipTrack();
     if (trk.locked) return false;
     const copy = TE().pasteClip(clipboard, snap(ensureTransport().time, false));
@@ -764,6 +921,20 @@
     const c = selClip();
     const at = c ? c.start : ensureTransport().time;
     const step = fine ? 1 / Math.max(1, cfg.fps || 60) : TE().gridStep(tl.tempo, cfg.snap, cfg.fps, dir < 0 ? Math.max(0, at - 1e-6) : at);
+    if (multi.length > 1) {
+      const picked = pickedClips().filter((p) => !p.trk.locked);
+      if (!picked.length) return false;
+      const d = TE().groupDelta(picked.map((p) => p.clip.start), dir * step);
+      const touched = new Set();
+      for (const p of picked) {
+        p.clip.start += d;
+        touched.add(p.trk);
+      }
+      touched.forEach((t) => TE().sortClips(t));
+      commit();
+      draw();
+      return true;
+    }
     if (c) {
       const trk = selTrack();
       if (trk.locked) return false;
@@ -829,6 +1000,29 @@
     commit();
   }
 
+  function selectAllClips() {
+    const refs = [];
+    for (const trk of ensureTransport().tl.tracks) {
+      if (trk.kind === 'clip') for (const c of trk.clips) refs.push({ trackId: trk.id, clipId: c.id });
+    }
+    if (!refs.length) return false;
+    setMulti(refs);
+    return true;
+  }
+
+  /* Tam pencere düzenleyici (#636 TL-2): panel ekranı kaplıyor, düzenleme
+     alanı pencerenin boyunu alıyor. Uzun bir gösteriyi 280 piksellik bir
+     şeritte düzenlemek zordu. Esc ya da aynı düğme kapatıyor. */
+  function setFull(v) {
+    fullWin = !!v;
+    if (hostEl && hostEl.classList) hostEl.classList.toggle('tl-full', fullWin);
+    if (typeof document !== 'undefined' && document.body && document.body.classList) document.body.classList.toggle('tl-full-open', fullWin);
+    refreshToolbar();
+    const ed = hostEl && hostEl.querySelector ? hostEl.querySelector('.tl-editor') : null;
+    if (ed && ed.focus) ed.focus({ preventScroll: true });
+    setTimeout(draw);
+  }
+
   function togglePlay() {
     if (syncTransportFromAnchor().playing) pause();
     else play();
@@ -848,6 +1042,21 @@
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
       const h = hit(x, y);
+      const tl0 = transport.tl;
+      if (h.kind === 'loopL' || h.kind === 'loopR' || h.kind === 'loopMove') {
+        drag = { kind: h.kind, t0: tOf(x), s0: tl0.loop.start, e0: tl0.loop.end };
+        return;
+      }
+      if (h.kind === 'marker') {
+        // Tık: işarete git; sürükleme: işareti taşı (bırakınca karar veriliyor)
+        drag = { kind: 'marker', marker: h.marker, t0: tOf(x), mt0: h.marker.t, x0: x };
+        return;
+      }
+      if (h.kind === 'ruler' && e.shiftKey) {
+        // Shift+sürükleme cetvelde yeni bir döngü bölgesi çiziyor
+        drag = { kind: 'loopNew', t0: snap(tOf(x), e.altKey) };
+        return;
+      }
       if (h.kind === 'ruler') {
         // Cetvele tıklamak sürüklemedir: duraklatılmışken de sahne güncellenir
         transport.seek(snap(tOf(x), e.altKey));
@@ -865,11 +1074,28 @@
          komşusunun ötesine geçince sürükleme komşuya atlıyor ve iki klip
          aynı yere yığılıyordu — ölçüldü: 2 sn'deki A, 5 sn'deki B'nin
          ötesine çekilince ikisi de 8 sn'de kaldı. */
-      if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
+      const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+      if ((h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR' || h.kind === 'fade') && additive) {
+        // Ctrl/Shift+tık: seçime ekle ya da çıkar, taşıma yok
+        toggleMulti(trk, trk.clips[h.ci]);
+        drag = { kind: 'select' };
+      } else if (h.kind === 'fade') {
         const c = trk.clips[h.ci];
+        if (!isPicked(c)) multi = [];
         selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
+        drag = trk.locked ? { kind: 'select' } : { kind: 'fade', trackId: trk.id, clip: c };
+      } else if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
+        const c = trk.clips[h.ci];
+        // Seçili bir gruba tıklamak grubu korur (grup taşıma); başka klibe tıklamak tek seçim
+        if (!isPicked(c) || h.kind !== 'move') multi = [];
+        selection = { kind: 'clip', trackId: trk.id, clipId: c.id };
+        /* Grup taşıma: birincil klip yakalamaya göre kayar, diğerleri aynı
+           miktarda. Kilitli parçadaki klipler yerinde kalıyor. */
+        const group = h.kind === 'move' && multi.length > 1
+          ? pickedClips().filter((p) => !p.trk.locked).map((p) => ({ trackId: p.trk.id, clip: p.clip, start0: p.clip.start }))
+          : null;
         // Kilitli parçada seçilebiliyor ama taşınamıyor
-        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c, t0: tOf(x), start0: c.start, dur0: c.dur };
+        drag = trk.locked ? { kind: 'select' } : { kind: h.kind, trackId: trk.id, clip: c, t0: tOf(x), start0: c.start, dur0: c.dur, group };
       } else if (h.kind === 'key') {
         selection = { kind: 'key', trackId: trk.id, keyIndex: h.ki };
         drag = trk.locked ? { kind: 'select' } : { kind: 'key', trackId: trk.id, key: trk.keys[h.ki], top: RULER_H + h.index * TRACK_H + 6, bot: RULER_H + (h.index + 1) * TRACK_H - 6 };
@@ -889,11 +1115,18 @@
         commit();
         refreshInspector();
       } else if (trk) {
-        // Boş şeride tıklamak parçayı seçiyor: yapıştırma ve bölme oraya
+        /* Boş şeride tıklamak parçayı seçiyor: yapıştırma ve bölme oraya.
+           Klip şeridinde sürüklemek kutu seçimi başlatıyor (Ctrl/Shift ile
+           var olan seçime ekliyor). */
+        const keep = additive ? pickedClips().map((p) => ({ trackId: p.trk.id, clipId: p.clip.id })) : [];
+        if (!additive) multi = [];
         selection = { kind: 'track', trackId: trk.id };
+        if (h.kind === 'track') drag = { kind: 'marquee', x0: x, y0: y, x1: x, y1: y, keep };
       } else {
+        multi = [];
         selection = null;
       }
+      if (h.kind === 'key') multi = [];
       // Denetçi seçimi göstermeli: seçim değiştiyse yalnız denetçi yenileniyor
       if (JSON.stringify(selection) !== before) {
         refreshInspector();
@@ -941,10 +1174,55 @@
       const r = canvas.getBoundingClientRect();
       const x = e.clientX - r.left;
       const y = e.clientY - r.top;
+      const tl = transport.tl;
       if (drag.kind === 'scrub') {
         transport.seek(snap(tOf(x), e.altKey));
         applyClipsAt(transport.time);
         reanchor();
+      } else if (drag.kind === 'loopL' || drag.kind === 'loopR' || drag.kind === 'loopMove') {
+        const len = drag.e0 - drag.s0;
+        if (drag.kind === 'loopL') {
+          tl.loop.start = Math.max(0, Math.min(snap(tOf(x), e.altKey), tl.loop.end - 0.05));
+        } else if (drag.kind === 'loopR') {
+          tl.loop.end = Math.max(snap(tOf(x), e.altKey), tl.loop.start + 0.05);
+        } else {
+          const ns = Math.max(0, snap(drag.s0 + tOf(x) - drag.t0, e.altKey));
+          tl.loop.start = ns;
+          tl.loop.end = ns + len;
+        }
+        drag.moved = true;
+      } else if (drag.kind === 'loopNew') {
+        const a = snap(tOf(x), e.altKey);
+        if (Math.abs(a - drag.t0) > 0.01) {
+          tl.loop = { enabled: true, start: Math.max(0, Math.min(a, drag.t0)), end: Math.max(a, drag.t0) };
+          drag.moved = true;
+        }
+      } else if (drag.kind === 'marker') {
+        // Küçük titreme tıklamayı sürüklemeye çevirmesin
+        if (!drag.moved && Math.abs(x - drag.x0) < 3) return;
+        drag.marker.t = snap(drag.mt0 + tOf(x) - drag.t0, e.altKey);
+        drag.moved = true;
+      } else if (drag.kind === 'marquee') {
+        drag.x1 = x;
+        drag.y1 = y;
+        if (Math.abs(x - drag.x0) + Math.abs(y - drag.y0) > 4) drag.moved = true;
+      } else if (drag.kind === 'fade') {
+        const trk = trackById(drag.trackId);
+        const c = drag.clip;
+        if (!trk || !trk.clips || trk.clips.indexOf(c) < 0) { drag = null; return; }
+        c.fade = Math.round(Math.max(0, Math.min(c.dur, tOf(x) - c.start)) * 100) / 100;
+        drag.moved = true;
+      } else if (drag.kind === 'move' && drag.group) {
+        // Grup: birincil yakalamaya göre, hepsi aynı kayma; hiçbiri sıfırın soluna geçmez
+        const want = snap(drag.start0 + tOf(x) - drag.t0, e.altKey) - drag.start0;
+        const d = TE().groupDelta(drag.group.map((g) => g.start0), want);
+        const touched = new Set();
+        for (const g of drag.group) {
+          g.clip.start = g.start0 + d;
+          touched.add(g.trackId);
+        }
+        touched.forEach((id) => TE().sortClips(trackById(id)));
+        drag.moved = true;
       } else if (drag.kind === 'key') {
         const trk = trackById(drag.trackId);
         const k = drag.key;
@@ -981,9 +1259,44 @@
       if (!drag) return;
       const d = drag;
       drag = null;
-      if (d.kind === 'scrub' || d.kind === 'select') return;
+      if (d.kind === 'scrub') return;
+      if (d.kind === 'select') {
+        refreshInspector();
+        draw();
+        return;
+      }
+      if (d.kind === 'marquee') {
+        if (d.moved && canvas) {
+          const i0 = Math.floor((Math.min(d.y0, d.y1) - RULER_H) / TRACK_H);
+          const i1 = Math.floor((Math.max(d.y0, d.y1) - RULER_H) / TRACK_H);
+          const found = TE().clipsInRect(transport.tl, tOf(Math.min(d.x0, d.x1)), tOf(Math.max(d.x0, d.x1)), i0, i1);
+          const refs = d.keep.slice();
+          for (const f of found) if (!refs.some((r) => r.clipId === f.clipId)) refs.push(f);
+          if (refs.length) setMulti(refs);
+          refreshInspector();
+          refreshHeads();
+        }
+        draw();
+        return;
+      }
+      if (d.kind === 'marker') {
+        if (!d.moved) {
+          // Tıklama: işarete git
+          seek(d.marker.t);
+          applyClipsAt(transport.time);
+          draw();
+          return;
+        }
+        transport.tl.markers.sort((a, b) => a.t - b.t);
+      }
+      if ((d.kind === 'loopL' || d.kind === 'loopR' || d.kind === 'loopMove' || d.kind === 'loopNew') && !d.moved) return;
       // Yalnız tıklanıp bırakılan klip değişmedi: geçmişe adım eklenmiyor (commit aynıysa eklemiyor)
       commit();
+      if (d.kind.indexOf('loop') === 0) {
+        reanchor();
+        refreshMore();
+      }
+      if (d.kind === 'marker') refreshMore();
       /* Denetçi seçili öğeyi göstermeli. Önce yalnız tuval yeniden
          çiziliyordu: klibe tıklamak onu seçiyor ama denetçi "Bir klip
          seçin" demeye devam ediyordu. */
@@ -1033,6 +1346,12 @@
     ['+ / − / 0', 'Yakınlaştır / uzaklaştır / hepsini sığdır'],
     ['M', 'Kafada işaret'],
     ['L', 'Döngü aç / kapat'],
+    ['Ctrl/Shift+tık', 'Klibi seçime ekle / çıkar'],
+    ['Boş şeritte sürükle', 'Kutu seçimi'],
+    ['Ctrl+A', 'Tüm klipleri seç'],
+    ['Shift+cetvelde sürükle', 'Döngü bölgesi çiz; ayracın kenarları ve ortası sürüklenir'],
+    ['Klibin sol üst köşesi', 'Geçiş süresini sürükle'],
+    ['F / Esc', 'Tam pencere aç / kapat'],
   ];
 
   function onEditorKey(e) {
@@ -1058,6 +1377,10 @@
     else if (!mod && k === '0') fitAll();
     else if (!mod && (k === 'm' || k === 'M')) { addMarkerAtPlayhead(); refreshAll(); }
     else if (!mod && (k === 'l' || k === 'L')) { toggleLoop(); refreshToolbar(); }
+    else if (mod && (k === 'a' || k === 'A')) { if (selectAllClips()) refreshAll(); }
+    else if (!mod && (k === 'f' || k === 'F')) setFull(!fullWin);
+    // Esc yalnız tam penceredeyken burada; değilse genel Esc'e bırakılıyor
+    else if (k === 'Escape' && fullWin) setFull(false);
     else done = false;
     if (done) {
       e.preventDefault();
@@ -1084,8 +1407,12 @@
     remove: deleteSelection,
     fit: fitAll,
     toggleLoop,
-    _select: (s) => { selection = s; },
+    selectAll: selectAllClips,
+    full: (v) => setFull(v == null ? !fullWin : v),
+    _select: (s) => { selection = s; multi = []; },
     _selection: () => selection,
+    _multi: () => multi.slice(),
+    _full: () => fullWin,
     _key: onEditorKey,
   };
 
@@ -1117,7 +1444,8 @@
     const tl = ensureTransport().tl;
     history_().sync(TE().snapshot(cfg));
     if (selection && !selTrack()) selection = null;
-    const host = el('div', { class: 'tl-panel' });
+    const host = el('div', { class: 'tl-panel' + (fullWin ? ' tl-full' : '') });
+    hostEl = host;
 
     // --- Açma anahtarı ---
     host.appendChild(
@@ -1177,6 +1505,8 @@
       let last = 0;
       const ro = new ResizeObserver(() => {
         if (!body.isConnected) { ro.disconnect(); return; }
+        // Tam pencerede boy pencereden geliyor; kullanıcının boyu olarak saklanmamalı
+        if (fullWin) { last = 0; draw(); return; }
         const hh = Math.round(body.getBoundingClientRect().height);
         if (!last) { last = hh; return; }
         if (Math.abs(hh - last) > 2) { last = hh; cfg.editorHeight = hh; draw(); }
@@ -1289,6 +1619,7 @@
       refreshToolbar();
     });
     const undoBtn = btn('↶', 'Geri al (Ctrl+Z)', () => undo());
+    const fullBtn = btn('⛶', 'Tam pencere (F). Esc ile kapanır', () => setFull(!fullWin));
     const redoBtn = btn('↷', 'Yinele (Ctrl+Y)', () => redo());
 
     const bar = el('div', { class: 'tl-toolbar' }, [
@@ -1334,11 +1665,12 @@
         btn('−', 'Uzaklaştır (−)', () => zoomBy(1 / 1.25)),
         btn('+', 'Yakınlaştır (+)', () => zoomBy(1.25)),
         btn('⤢', 'Hepsini sığdır (0)', () => fitAll()),
+        fullBtn,
       ]),
       group([undoBtn, redoBtn]),
     ]);
 
-    toolbarRefs = { playBtn, loopBtn, followBtn, undoBtn, redoBtn, timeLabel, barLabel };
+    toolbarRefs = { playBtn, loopBtn, followBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel };
     refreshToolbar();
 
     /* Saat ve oynat düğmesi kendi zamanlayıcısından: çizim döngüsü yalnız
@@ -1369,6 +1701,7 @@
     const on = (b, v) => { if (b.classList) b.classList.toggle('on', !!v); };
     on(r.loopBtn, tl.loop.enabled);
     on(r.followBtn, cfg.followPlayhead !== false);
+    on(r.fullBtn, fullWin);
     r.undoBtn.disabled = !history_().canUndo();
     r.redoBtn.disabled = !history_().canRedo();
   }
@@ -1492,6 +1825,24 @@
       return b;
     };
 
+    /* Çoklu seçim: sayı, ortak eylemler ve hepsine birden renk/geçiş.
+       Tek tek alanlar (ad, kaynak, başlangıç) grupta anlamsız. */
+    if (multi.length > 1) {
+      const picked = pickedClips();
+      box.insertBefore(el('div', { class: 'tl-insp-head', text: picked.length + ' ' + tt('klip seçili') }), grid);
+      const col = el('input', { class: 'tl-swatch big', type: 'color', value: TE().clipColor(picked[0].clip, picked[0].trk) });
+      col.addEventListener('change', () => { picked.forEach((q) => { if (!q.trk.locked) q.clip.color = col.value; }); commit(); draw(); });
+      grid.appendChild(p.row('Renk (hepsi)', col));
+      grid.appendChild(p.row('Geçiş (sn, hepsi)', numInput(picked[0].clip.fade, 0, 30, 0.05, (v) => { picked.forEach((q) => { if (!q.trk.locked) q.clip.fade = Math.min(v, q.clip.dur); }); commit(); draw(); })));
+      box.appendChild(el('div', { class: 'tl-actions' }, [
+        act('⧉ Çoğalt', 'Grubu hemen ardına çoğalt (Ctrl+D)', () => { if (duplicateSelection()) refreshAll(); }),
+        act('⎘ Kopyala', 'Grubu panoya al (Ctrl+C); Ctrl+V kafaya yapıştırır', () => copySelection()),
+        act('✕ Seçimi Bırak', 'Tek seçime dön', () => { multi = []; refreshAll(); }),
+        act('🗑 Sil', 'Seçili klipleri sil (Del)', () => { if (deleteSelection()) refreshAll(); }, 'danger'),
+      ]));
+      return box;
+    }
+
     if (selection.kind === 'clip') {
       const c = selClip();
       if (!c) return box;
@@ -1509,7 +1860,8 @@
       grid.appendChild(p.row('Kaynak', refPicker(c.type, c.ref, (v) => { c.ref = v; commit(); refreshInspector(); draw(); })));
       grid.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; TE().sortClips(trk); commit(); draw(); })));
       grid.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); draw(); })));
-      grid.appendChild(p.row('Geçiş (sn)', numInput(c.fade, 0, 30, 0.05, (v) => { c.fade = v; commit(); draw(); })));
+      // 0 = Geçiş kartındaki genel ayar; klibin sol üst köşesinden de sürüklenir
+      grid.appendChild(p.row('Geçiş (sn, 0 = genel)', numInput(c.fade, 0, 30, 0.05, (v) => { c.fade = v; commit(); draw(); })));
       grid.appendChild(p.row('Kırpma Başı (sn)', numInput(c.inPoint, 0, 1e6, 0.01, (v) => { c.inPoint = v; commit(); })));
       grid.appendChild(p.row('Hız', numInput(c.speed, 0.05, 20, 0.01, (v) => { c.speed = v; commit(); })));
       const col = el('input', { class: 'tl-swatch big', type: 'color', value: TE().clipColor(c, trk) });

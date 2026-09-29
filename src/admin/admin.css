@@ -949,6 +949,15 @@ input.num {
 input.num:focus { border-color: var(--accent); }
 .tl-editor { border: 1px solid var(--line); border-radius: 10px; outline: none; background: var(--bg2); }
 .tl-editor:focus-visible, .tl-editor:focus-within { border-color: var(--line2); box-shadow: 0 0 0 1px var(--accent-soft); }
+/* Tam pencere düzenleyici (#636 TL-2): panel ekranı kaplar, düzenleme alanı
+   pencerenin boyunu alır. Satır içi boy (kullanıcının tutamaktan verdiği) ezilir. */
+.tl-panel.tl-full {
+  position: fixed; inset: 10px; z-index: 950; overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; box-shadow: 0 24px 70px rgba(0, 0, 0, .65);
+}
+.tl-panel.tl-full .tl-body { height: calc(100vh - 250px) !important; min-height: 220px; resize: none; }
+body.tl-full-open { overflow: hidden; }
 .tl-body {
   display: flex; align-items: flex-start; overflow: auto; resize: vertical;
   min-height: 120px; max-height: 1200px; border-radius: 10px;
