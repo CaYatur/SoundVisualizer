@@ -56,6 +56,10 @@
   let multi = [];
   // Tam pencere düzenleyici açık mı (panel yeniden çizilse de sürüyor)
   let fullWin = false;
+  /* Düzenleyici klavye odağındaydı. Oynarken klip sahne uyguluyor, panel
+     yeniden çiziliyor ve odak BODY'ye düşüyordu — ölçüldü: bir klip
+     sınırından sonra Boşluk artık duraklatmıyordu. */
+  let editorFocus = false;
   let hostEl = null;
   /* Zaman çizelgesi klipleri sahne uygular; aynı klibi her karede yeniden
      uygulamak paneli kilitlerdi. Sütun başına en son uygulanan klip tutulur. */
@@ -1515,7 +1519,11 @@
     }
     const editor = el('div', { class: 'tl-editor', tabindex: '0', 'aria-label': 'Zaman çizelgesi düzenleyicisi' }, [body]);
     editor.addEventListener('keydown', onEditorKey);
+    editor.addEventListener('focus', () => { editorFocus = true; });
+    // Yeniden çizimde sökülen düzenleyicinin kaybı odak kaybı sayılmıyor
+    editor.addEventListener('blur', () => setTimeout(() => { if (editor.isConnected) editorFocus = false; }, 0));
     host.appendChild(editor);
+    if (editorFocus) setTimeout(() => { if (editor.isConnected && editor.focus) editor.focus({ preventScroll: true }); }, 0);
     /* bindCanvas panel yerleştikten sonra: canvas henüz DOM'a girmediği
        için clientWidth 0 döner ve ilk çizim boş kalırdı. Zamanlayıcıyla,
        requestAnimationFrame ile değil: arka plandaki pencere kare almıyor,
