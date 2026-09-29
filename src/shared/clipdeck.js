@@ -47,6 +47,14 @@
     bar4: null,
   };
   const QUANTIZE_IDS = ['off', 'frame', 'quarter', 'half', 'beat', 'bar', 'bar2', 'bar4'];
+  /* 'global' (#637): yuva destenin genel nicelemesini izliyor (Resolume'daki
+     kompozisyon ayarı gibi). Çalıştırıcı ateşlerken onu gerçek bir kipe
+     çeviriyor; genel ayar değişince bütün bu yuvalar birlikte değişiyor. */
+  const SLOT_QUANTIZE_IDS = ['global'].concat(QUANTIZE_IDS);
+
+  function hexColor(v) {
+    return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+  }
 
   function quantizeBeats(mode, beatsPerBar) {
     const bpb = Math.max(1, num(beatsPerBar, 4));
@@ -96,7 +104,7 @@
       name: typeof s.name === 'string' ? s.name : '',
       type,
       ref: typeof s.ref === 'string' ? s.ref : '',
-      quantize: QUANTIZE_IDS.indexOf(s.quantize) >= 0 ? s.quantize : 'bar',
+      quantize: SLOT_QUANTIZE_IDS.indexOf(s.quantize) >= 0 ? s.quantize : 'bar',
       /* 'cut' gerçek kesmedir: tek karelik harman bile yapılmaz. Geçiş adı
          verilirse mevcut geçiş motorunun 18 geçişinden biri kullanılır. */
       trigger: s.trigger === 'cut' ? 'cut' : 'fade',
@@ -105,6 +113,8 @@
       dur: s.dur == null ? null : Math.max(0.05, num(s.dur, 4)),
       follow: FOLLOW_ACTIONS.indexOf(s.follow) >= 0 ? s.follow : 'none',
       followTarget: typeof s.followTarget === 'string' ? s.followTarget : '',
+      // Hücrenin rengi (#637); boşsa türün rengi
+      color: hexColor(s.color),
     };
   }
 
@@ -141,6 +151,9 @@
       /* Satır adları: bir satır "Giriş" ya da "Nakarat" diye okunabilsin,
          "3. satır" değil. Yalnızca adı olanlar saklanır. */
       rowNames: s.rowNames && typeof s.rowNames === 'object' ? Object.assign({}, s.rowNames) : {},
+      /* Sütun adları (#637): sütun bir katman gibi (tek klip çalar); "Arka
+         Plan", "Işık" diye adlandırılabilsin. Boş sütun harfle (A, B…). */
+      colNames: s.colNames && typeof s.colNames === 'object' ? Object.assign({}, s.colNames) : {},
     };
   }
 
@@ -171,6 +184,7 @@
       rows: deck.rows,
       cols: deck.cols,
       rowNames: deck.rowNames,
+      colNames: deck.colNames,
       slots: slotList(deck),
     };
   }
@@ -195,7 +209,15 @@
        (süresi 0'a yakın bir klip + 'next' zinciri) kare başına sonsuz döngü
        oluşur. Kare başına ateşleme sayısı sınırlanır. */
     this.maxFiresPerUpdate = 32;
+    // 'global' nicelemeli yuvaların kipi; panel her karede yapılandırmadan yazıyor
+    this.globalQuantize = 'bar';
   }
+
+  // Yuvanın gerçek niceleme kipi
+  Engine.prototype.quantizeOf = function (slot) {
+    const q = slot.quantize === 'global' ? this.globalQuantize : slot.quantize;
+    return QUANTIZE_IDS.indexOf(q) >= 0 ? q : 'bar';
+  };
 
   Engine.prototype.on = function (fn) {
     if (typeof fn === 'function') this.listeners.push(fn);
@@ -221,10 +243,8 @@
     const deck = this.deck(deckId);
     const slot = getSlot(deck, row, col);
     if (!slot) return null;
-    const at =
-      slot.quantize === 'off' || slot.quantize === 'frame'
-        ? now
-        : nextGridTime(tempoMap, now, slot.quantize);
+    const q = this.quantizeOf(slot);
+    const at = q === 'off' || q === 'frame' ? now : nextGridTime(tempoMap, now, q);
     /* Aynı sütunda bekleyen başka bir yuva varsa onu değiştir: operatör
        fikrini değiştirdiğinde iki klip birden ateşlenmemeli. */
     this.armed = this.armed.filter((a) => !(a.deckId === deck.id && a.slot.col === slot.col));
@@ -247,8 +267,9 @@
     if (!slots.length) return [];
     let at = now;
     for (const s of slots) {
-      if (s.quantize === 'off' || s.quantize === 'frame') continue;
-      at = Math.max(at, nextGridTime(tempoMap, now, s.quantize));
+      const q = this.quantizeOf(s);
+      if (q === 'off' || q === 'frame') continue;
+      at = Math.max(at, nextGridTime(tempoMap, now, q));
     }
     const out = [];
     for (const s of slots) {
@@ -445,6 +466,7 @@
 
   const api = {
     QUANTIZE_IDS,
+    SLOT_QUANTIZE_IDS,
     quantizeBeats,
     nextGridTime,
     CLIP_TYPES,

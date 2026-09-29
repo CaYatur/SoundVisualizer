@@ -82,7 +82,10 @@
 
     grid.appendChild(el('div', { class: 'perf-corner' }));
     for (let c = 0; c < deck.cols; c++) {
-      const st = el('button', { class: 'perf-stopcol', type: 'button', text: COL_KEYS[c].toUpperCase() + ' ⏹' });
+      // Sütun adı panelle aynı (#637): adı yoksa harf; kısayol harfi hep başta
+      const cn = DP().colName ? DP().colName(deck, c) : '';
+      const letter = COL_KEYS[c].toUpperCase();
+      const st = el('button', { class: 'perf-stopcol', type: 'button', text: letter + (cn && cn !== letter ? ' · ' + cn : '') + ' ⏹' });
       const cc = c;
       st.addEventListener('click', () => {
         DP().engine().stopColumn(deckSpec().id, cc);
@@ -111,7 +114,14 @@
         });
         const prev = slotPreview(slot);
         if (prev) cell.appendChild(el('span', { class: 'perf-thumb', style: 'background:' + prev }));
-        cell.appendChild(el('span', { class: 'perf-name', text: slot ? slot.name || slot.ref || '' : '' }));
+        /* Panelle aynı görünüş (#637): renk şeridi, okunur ad (sahne kimliği
+           değil) ve çalma ilerlemesi. */
+        if (slot) {
+          cell.appendChild(el('span', { class: 'perf-color', style: 'background:' + DP().slotColor(slot) }));
+          if (cell.style && cell.style.setProperty) cell.style.setProperty('--slot', DP().slotColor(slot));
+        }
+        cell.appendChild(el('span', { class: 'perf-name', text: slot ? ((DP().TYPE_ICONS[slot.type] || '') + ' ' + DP().slotLabel(slot)) : '' }));
+        if (slot) cell.appendChild(el('span', { class: 'perf-progwrap' }, [el('span', { class: 'perf-prog' })]));
         cell.appendChild(el('span', { class: 'perf-count', text: '' }));
         const rr2 = r;
         const cc2 = c;
@@ -184,7 +194,10 @@
       clock.textContent = b.bar + '.' + b.beat;
     }
 
-    const active = new Set(engine.activeSlots().map((a) => a.slot.row + ':' + a.slot.col));
+    const activeList = engine.activeSlots();
+    const active = new Set(activeList.map((a) => a.slot.row + ':' + a.slot.col));
+    const tempo = tr && tr.tl ? tr.tl.tempo : null;
+    const prog = new Map(activeList.map((a) => [a.slot.row + ':' + a.slot.col, DP().progressOf(a, now, tempo)]));
     const armed = new Map(engine.armed.map((a) => [a.slot.row + ':' + a.slot.col, a.at]));
 
     for (let r = 0; r < deck.rows; r++) {
@@ -201,6 +214,8 @@
         /* Geri sayım yalnızca hazırlanmış yuvada görünür; her hücreye sayı
            yazmak karanlıkta okunamayacak bir gürültü olurdu. */
         if (cd) cd.textContent = armed.has(key) ? Math.max(0, armed.get(key) - now).toFixed(1) : '';
+        const pg = node.querySelector('.perf-prog');
+        if (pg) pg.style.width = ((prog.get(key) || 0) * 100).toFixed(1) + '%';
       }
     }
   }
