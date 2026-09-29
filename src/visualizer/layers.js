@@ -1489,7 +1489,23 @@
       if (e.proxyOf) return;
       const l = live || e.layer;
       if (e.mode && this._lostNow(e.mode, null, e)) this._revive(e, cfg);
-      this._drawEntryRaw(e, audio, cfg, t, dt, l);
+      /* BİR KATMANIN HATASI KAREYİ DÜŞÜRMÜYOR. Çizimde atılan bir istisna
+         döngüden çıkıyordu: üstteki katmanlar, efekt zinciri ve ışıklar o
+         karede hiç çizilmiyor, her karede tekrarlandığı için de sahne
+         donmuş ya da yarım görünüyordu (parçacıklar tema renginde tanımsız
+         bir adla her karede patlıyordu). Hata tür başına bir kez yazılıyor;
+         sessizce yutulsaydı bir sonraki böyle hata hiç görülmezdi. */
+      try {
+        this._drawEntryRaw(e, audio, cfg, t, dt, l);
+      } catch (err) {
+        const key = (l && l.kind) + ':' + (l && l.type);
+        const seen = this._drawErrors || (this._drawErrors = new Set());
+        if (!seen.has(key)) {
+          seen.add(key);
+          console.error('[layers] ' + key + ' çizilemedi:', err);
+        }
+        return;
+      }
       this._applyMask(e, l);
       /* KATMAN EFEKTİ HEP SAYDAM KİPTE (#590). Katman alttakilerin ÜSTÜNE
          biniyor; efekt zinciri opak kipte her pikselin alfasını 1 yazıyor ve
