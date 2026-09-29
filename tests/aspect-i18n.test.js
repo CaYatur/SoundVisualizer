@@ -76,6 +76,8 @@ const PANELS = [
   'src/admin/milkdrop-panel.js',
   // MilkDrop preset üreticisi (#579): panel yalnız kart açıkken çiziliyor
   'src/admin/milkdrop-gen.js',
+  // MilkDrop preset düzenleyici (#578): panel yalnız kart açıkken çiziliyor
+  'src/admin/milkdrop-editor.js',
 ];
 
 for (const file of PANELS) {

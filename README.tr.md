@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2290%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2311%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -419,6 +419,14 @@ profilinde basamak olmadığını doğruluyor.
   karanlık çıkabilir. 10.332 presetlik bir korpusta denetlendi: tek presetten kurulan karışım
   presetin kendisi, 5.000 rastgele karışımda da her parça onu veren presetinkiyle birebir aynı.
   300 rastgele karışım motorda koşturuldu; hiçbir shader aşaması düşmedi.
+- **Preset düzenleyici.** *Studio → MilkDrop Preset Düzenleyici* ekrandaki preseti açıyor: kare ve
+  piksel denklemleri, özel dalgalar ve şekiller, warp ve birleştirme shader'ları ve ana değerler ayrı
+  sekmelerde; değişiklik, yazmayı bıraktıktan bir an sonra çalışan görüntüde. Hatalar presetin kendi
+  satırını (`per_frame_14`) kendi metniyle gösteriyor, üretilmiş kodu değil; shader'lar yazarken
+  derleniyor. Yakınlaşma, bükülme, dönme, sönüm ve yankı kaydırıcıları, presetin denklemleri değeri
+  her karede yeniden yazıyorsa bunu söylüyor. Asıl preset hiç değişmiyor: *Yeni Preset Olarak
+  Kaydet* sizin sürümünüzü saklıyor ve yalnız değiştirdiğiniz yazılıyor — dosyanın geri kalanı
+  baytı baytına aynı.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1326,7 +1334,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2290 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2311 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

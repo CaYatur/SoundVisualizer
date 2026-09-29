@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2290 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2311 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 693
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 714
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2121,6 +2121,54 @@ rest after. No version number yet.
     was equivalent, and the branch it changed was removed. Putting back
     the old ring nouns, the " · " in mash-up names or removing the
     module's script tag each fails a test.
+- **An in-app preset editor (#578)** · done on `main`.
+  - **What it does.** *Studio → MilkDrop Preset Editor* opens the preset
+    on screen. Frame and pixel equations, the four custom waves (init, per
+    frame, per point), the four custom shapes, the warp and composite
+    shaders, the main values and the whole file text each have a tab. A
+    change reaches the running preset about 0.4 s after typing stops, as a
+    new version of it loaded without a blend and without an entry in the
+    ◀/▶ history; automatic switching pauses while the editor is open and
+    comes back as it was when it closes.
+  - **Errors point at the preset's own line.** Each statement is parsed on
+    its own, the way MilkDrop reads the block (comments cut per line, lines
+    glued, statements split at top-level `;`), and its error is reported at
+    the line where it starts, with the key (`per_frame_14`) and the
+    preset's own text — not the engine's rewritten code. An unclosed or
+    extra parenthesis and an unknown function are named as such; with
+    fidelity on, the list also says that MilkDrop drops the whole block.
+    Shaders are translated and compiled in a WebGL context of the panel's
+    own; the GPU compiler's line is mapped back to the preset's shader line
+    by the tokens they share, since the translator rewrites lines.
+  - **Sliders for zoom, warp, rotation, decay and echo**, with a note when
+    the preset's equations rewrite the value every frame: whether they
+    compute it from itself (the slider changes where it starts) or
+    overwrite it (the slider has no effect), with a link to that line.
+  - **The original never changes.** *Save as a New Preset* writes a new
+    library entry; later saves update that copy, *New Copy* makes another.
+    Closing without saving brings the original back on screen. A stage
+    whose version line makes MilkDrop ignore its shader text is pointed out.
+  - **The file stays the file.** Only changed blocks and values are
+    written; everything else keeps its bytes, line endings included. A
+    block is read with MilkDrop's own reader (up to the first missing
+    number; for a repeated number, the line its search lands on). Measured
+    over all 10,347 corpus files: rewritten unchanged, every one is
+    byte-identical; every block read equals what MilkDrop reads; adding a
+    line to one block and changing two values changes exactly those in
+    MilkDrop's reading. In the app a line added through the editor was
+    read back from the running engine, a broken block was dropped exactly
+    where the editor said, and closing restored the original preset and
+    the lock.
+  - **Tests.** 12 for the text side (reading, byte-identical writing,
+    placement of new blocks, values, error lines and messages, gluing and
+    comments, overridden values, GLSL line mapping) and 7 for the session
+    (opening the preset on screen, a new id per change without history,
+    errors, saving as new and updating, closing, starting over); the
+    panel is in the i18n source scan.
+  - *Not done:* no syntax highlighting or autocompletion; shader errors in
+    the part before `shader_body` are mapped by similarity and can be
+    missed; a wave's or shape's parameters (colour, sides, point count)
+    are edited as text in the *Text* tab rather than with controls.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
   MilkDrop's defaults, the hue colour, the values that stay in the file,
   MilkDrop's way of reading a file, its expression compiler's rules and
