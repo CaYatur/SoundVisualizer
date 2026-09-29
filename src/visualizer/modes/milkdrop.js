@@ -3696,14 +3696,12 @@ void main(){
        istiyor, per_frame'den sürenlerle birlikte 3.906 preset (%37,8).
        Motor hiç çizmiyordu.
 
-       Halka DÖRT ŞERİT olarak çiziliyor, tek bir büyük dikdörtgenin
-       üstüne küçüğü değil: saydam bir kenarlıkta üst üste binen köşeler
-       iki kez harmanlanır ve dört köşe gövdeden koyu çıkardı. Sol ve sağ
-       şeritler bu yüzden dikeyde kenarlık kalınlığı kadar içeri
-       çekiliyor.
+       Halka DÖRT YAMUK olarak çiziliyor, tek bir büyük dikdörtgenin
+       üstüne küçüğü değil: köşelerde gönye kesimli, yani saydam bir
+       kenarlıkta hiçbir yer iki kez harmanlanmıyor.
 
-       İç kenarlık dıştakinin BİTTİĞİ yerden başlıyor (`prev`): ikisi de
-       kenardan ölçseydi iç kenarlık dışın altına gizlenirdi.
+       İç kenarlık dıştakinin BİTTİĞİ yerden başlıyor: ikisi de kenardan
+       ölçseydi iç kenarlık dışın altına gizlenirdi.
 
        Kalınlık her eksende ekranın kendi oranı — MilkDrop da böyle. Geniş
        ekranda yan şeritler üst/alttakinden fiziksel olarak daha kalın
@@ -3715,35 +3713,30 @@ void main(){
       /* Kenarlık rengi de COLOR_NORM'dan geçiyor (milkdropfs.cpp:3245-3248):
          kenetleme değil, 256'ya göre sarma. */
       const cn = window.SVMilkdrop.colorNorm;
-      const rings = [
-        { size: P.get('ob_size'), prev: 0,
-          c: [cn(P.get('ob_r')), cn(P.get('ob_g')), cn(P.get('ob_b')), cn(P.get('ob_a'))] },
-        { size: P.get('ib_size'), prev: P.get('ob_size'),
-          c: [cn(P.get('ib_r')), cn(P.get('ib_g')), cn(P.get('ib_b')), cn(P.get('ib_a'))] },
-      ];
+      /* MilkDrop'un geometrisi (milkdropfs.cpp:3226-3284, #580): şerit
+         kırpma uzayında `1 − kalınlık`tan `1`e (iç kenarlık dışınkinin
+         içinden: `1 − ob − ib`den `1 − ob`ye), dört kenarda gönye kesimli
+         dört yamuk; kalınlıklar sınırlanmıyor ve eşik HAM saydamlıkta
+         (a > 0,001, renk sarmasından önce). Önceki çizim kalınlığı 0..1'e
+         kısıyor, eksi kalınlığı atlıyor ve eşiği sarılmış saydamlığa
+         uyguluyordu: korpusu 30 kare koşturunca per_frame'in ürettiği
+         değerlerle 31 presette dış, 13'ünde iç kenarlık eksi kalınlıkla
+         (içte eksi kalınlık dış şeridin üstüne binen görünür bir şerit),
+         29'unda eşik farkı, 7'sinde 1'i aşan kalınlık (şeritler ortada üst
+         üste biniyor) çıkıyordu. */
+      const rings = window.SVMilkdrop.borderRings(+P.get('ob_size'), +P.get('ib_size'), +P.get('ob_a'), +P.get('ib_a'));
       let used = false;
       const d = this.lineData;
       for (const r of rings) {
-        const size = isFinite(r.size) ? r.size : 0;
-        const prev = isFinite(r.prev) && r.prev > 0 ? r.prev : 0;
-        if (!(size > 0) || !(r.c[3] > 0.002)) continue;
-        const p0 = prev;
-        const p1 = Math.min(1, size + prev);
-        const quads = [
-          [-1 + p0, -1 + p1, -1 + p1, 1 - p1],   // sol
-          [1 - p1, 1 - p0, -1 + p1, 1 - p1],     // sağ
-          [-1 + p0, 1 - p0, -1 + p0, -1 + p1],   // alt
-          [-1 + p0, 1 - p0, 1 - p1, 1 - p0],     // üst
-        ];
+        const c = r.ring === 0
+          ? [cn(P.get('ob_r')), cn(P.get('ob_g')), cn(P.get('ob_b')), cn(P.get('ob_a'))]
+          : [cn(P.get('ib_r')), cn(P.get('ib_g')), cn(P.get('ib_b')), cn(P.get('ib_a'))];
         let n = 0;
-        for (const [x0, x1, y0, y1] of quads) {
-          const v = [[x0, y0], [x1, y0], [x1, y1], [x0, y0], [x1, y1], [x0, y1]];
-          for (const [x, y] of v) {
-            const k = n * 6;
-            d[k] = x; d[k + 1] = y;
-            d[k + 2] = r.c[0]; d[k + 3] = r.c[1]; d[k + 4] = r.c[2]; d[k + 5] = r.c[3];
-            n++;
-          }
+        for (const [x, y] of r.verts) {
+          const k = n * 6;
+          d[k] = x; d[k + 1] = y;
+          d[k + 2] = c[0]; d[k + 3] = c[1]; d[k + 4] = c[2]; d[k + 5] = c[3];
+          n++;
         }
         if (!used) {
           gl.useProgram(this.lineProg);

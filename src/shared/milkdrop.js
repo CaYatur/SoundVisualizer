@@ -2856,6 +2856,31 @@
     return ((Math.trunc(v * 255) & 0xFF)) / 255;
   }
 
+  /* DIŞ ve İÇ KENARLIK geometrisi (#580; milkdropfs.cpp:3226-3284).
+     Kırpma uzayında (−1..1, en-boya göre DÜZELTİLMEDEN) şerit: dış halka
+     `1 − ob`den `1`e, iç halka `1 − ob − ib`den `1 − ob`ye. Her kenar bir
+     yamuk (iç köşe, dış köşe, dış köşe, iç köşe), öbür üç kenar onun 90°
+     döndürülmüşü; yamuk MilkDrop'un yelpazesiyle iki üçgen. Kalınlık
+     sınırlanmıyor: eksi kalınlık tersine dönmüş bir şerit (içte dış şeridin
+     üstüne biner), 1'in üstü ortada üst üste binen yamuklar. Halka ancak
+     HAM saydamlığı 0,001'i aşarsa, renk sarmasından (colorNorm) önce.
+     Dönüş: [{ ring: 0 dış | 1 iç, verts: 24 nokta }]. */
+  function borderRings(ob, ib, obA, ibA) {
+    const out = [];
+    const rings = [[0, obA, 1 - ob, 1], [1, ibA, 1 - ob - ib, 1 - ob]];
+    for (const [ring, a, i0, o0] of rings) {
+      if (!(a > 0.001) || !isFinite(i0) || !isFinite(o0)) continue;
+      let q = [[i0, i0], [o0, o0], [o0, -o0], [i0, -i0]];
+      const verts = [];
+      for (let side = 0; side < 4; side++) {
+        for (const j of [0, 1, 2, 0, 2, 3]) verts.push(q[j].slice());
+        q = q.map(([x, y]) => [-y, x]);
+      }
+      out.push({ ring, verts });
+    }
+    return out;
+  }
+
   // ==========================================================================
   // MilkDrop 2'nin aşama seçimi ve sabit yol ayrıntıları (#580)
   // ==========================================================================
@@ -3022,7 +3047,7 @@
   }
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
-    clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText, md3Features, md3Auto, isMd3,
+    clampColor, colorNorm, borderRings, md2Versions, stagePlan, genWarpText, genCompText, md3Features, md3Auto, isMd3,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
     resetGlobals,
     /* Çağrılabilen işlev adları (küçük harf): uyum açıkken ns-eel2'nin

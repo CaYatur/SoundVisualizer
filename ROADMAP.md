@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2321 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2322 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 724
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 725
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2569,8 +2569,22 @@ rest after. No version number yet.
     moved by a bit. With fidelity off nothing changes. Cost: the
     equations take about 20% longer per frame (0.78 → 0.96 ms per preset
     on 200 corpus presets), half of it the exact rounding.
-  - **Not done yet:** the fixed warp path, the blur chain, borders and
-    centre darkening, and the rest of the blend snap points; whether `uv`
+  - **Borders and centre darkening, checked against the source.** Centre
+    darkening already matched (a diamond of half-size 0.05, alpha 3/32 in
+    the middle fading to 0, x scaled by the aspect). The borders did not:
+    MilkDrop draws each ring in clip space from `1 − size` to `1` (the
+    inner one inside the outer), as four mitred trapezoids, with the sizes
+    unclamped and the 0.001 alpha threshold on the raw value before the
+    colour wraps. The engine clamped the width to the screen, skipped a
+    negative width and tested the wrapped alpha against 0.002. Running the
+    corpus for 30 frames with the values the per-frame code produces: 31
+    presets reach a negative outer width, 13 a negative inner one (drawn by
+    MilkDrop as a band on top of the outer ring), 29 an alpha that crosses
+    one threshold and not the other, and 7 widths above 1 (the trapezoids
+    overlap in the middle). The geometry is now MilkDrop's
+    (`borderRings`); its tests sample the triangles for coverage.
+  - **Not done yet:** the fixed warp path, the blur chain, and the rest of
+    the blend snap points; whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on

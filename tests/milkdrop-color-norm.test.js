@@ -97,7 +97,8 @@ test('şekil dolgusu ve kenarı COLOR_NORM kullanıyor', () => {
 
 test('özel dalga, kenarlıklar ve hareket vektörleri COLOR_NORM kullanıyor', () => {
   assert.match(BARE, /d\[k \+ 5\] = cn\(\(\+o\.a \|\| 0\) \* aMul\)/);
-  assert.match(BARE, /c: \[cn\(P\.get\('ob_r'\)\), cn\(P\.get\('ob_g'\)\), cn\(P\.get\('ob_b'\)\), cn\(P\.get\('ob_a'\)\)\]/);
+  assert.match(BARE, /\[cn\(P\.get\('ob_r'\)\), cn\(P\.get\('ob_g'\)\), cn\(P\.get\('ob_b'\)\), cn\(P\.get\('ob_a'\)\)\]/);
+  assert.match(BARE, /\[cn\(P\.get\('ib_r'\)\), cn\(P\.get\('ib_g'\)\), cn\(P\.get\('ib_b'\)\), cn\(P\.get\('ib_a'\)\)\]/);
   assert.match(BARE, /const r = cn\(P\.get\('mv_r'\)\), g = cn\(P\.get\('mv_g'\)\), b = cn\(P\.get\('mv_b'\)\)/);
   assert.match(BARE, /const al = cn\(a\)/);
 });
