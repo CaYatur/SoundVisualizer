@@ -48,7 +48,12 @@ test('iç atama adları: _set, _addop … ilk argümana yazıyor', () => {
   assert.strictEqual(on.get('b'), 3);
   assert.strictEqual(on.get('c'), 3);
   assert.strictEqual(on.get('d'), 1024);
-  assert.match(run('_set(1, 2);', true).error, /bir değişken ve bir değer ister/);
+  /* Değişken olmayana atama MilkDrop'ta geçerli: geçici bir yere yazıp
+     değeri döndürüyor (eelref: `e = _set(1, 2)` → 2; korpusta
+     `if(c, 0 = 0.01*rand(100), y)` yazan bir preset var) */
+  const t = run('e = _set(1, 2); f = if(1, 0 = 7, 3);', true);
+  assert.strictEqual(t.error, '');
+  assert.deepStrictEqual([t.get('e'), t.get('f')], [2, 7]);
 });
 
 test('_mem/_gmem megabuf/gmegabuf\'un iç adı: okunuyor ve yazılıyor', () => {
@@ -110,9 +115,13 @@ test('while: son değer |x| < 0,00001 olunca duruyor', () => {
 });
 
 test('NaN: x87 karşılaştırması sırasız — yanlış sayılıyor, NaN\'lı eşitlik doğru', () => {
-  const nan = '(0 * (1e308 * 10))';
-  const on = run(`a = if(${nan}, 1, 2); b = equal(${nan}, 3); c = !${nan};`, true);
+  /* Uyum açıkken 0/0 MilkDrop'taki gibi NaN (eelref: if → 2, equal → 1,
+     ! → 1). Kapalıyken NaN'ı taşan bir çarpım üretiyor; açıkken o çarpım
+     taşmıyor, DBL_MAX'ta kalıyor (kırpma kipi), yani NaN değil. */
+  const on = run('a = if(0/0, 1, 2); b = equal(0/0, 3); c = !(0/0); n = 0/0;', true);
+  assert.strictEqual(on.get('n'), 0, 'düz atama NaN yerine 0 yazıyor');
   assert.deepStrictEqual(['a', 'b', 'c'].map(on.get), [2, 1, 1]);
+  const nan = '(0 * (1e308 * 10))';
   const off = run(`a = if(${nan}, 1, 2); b = equal(${nan}, 3); c = !${nan};`, false);
   assert.deepStrictEqual(['a', 'b', 'c'].map(off.get), [1, 0, 0]);
 });
@@ -136,22 +145,30 @@ test('kip çalışma anında: aynı derleme mode.md2 çevrilince öbür sınamay
 // ------------------------------------------------------------ kalan
 
 test('%: uyum açıkken iki tarafın mutlak değerinin tam kısmıyla, sonuç hiç negatif değil', () => {
-  const src = 'a = -7 % 3; b = 7 % -3; c = -7 % -3; d = 7.9 % 3.9; e = 5 % 0.5 + 1; f = -7.5 % 2; x %= -4; h = _mod(-9, 4); megabuf(1) = -10; megabuf(1) %= 3; k = megabuf(1);';
+  /* Kalanın kendisi hiç negatif değil; `-7 % 3` ise MilkDrop'ta −(7 % 3):
+     önişlemci `%`'nin sol tarafını tek terim alıyor, eksi dışarıda kalıyor
+     (eelref: a = −1, c = −1, f = −1; `(0-7) % 3` = 1). */
+  const src = 'a = -7 % 3; b = 7 % -3; c = -7 % -3; d = 7.9 % 3.9; e = 5 % 0.5 + 1; f = -7.5 % 2; x %= -4; h = _mod(-9, 4); megabuf(1) = -10; megabuf(1) %= 3; k = megabuf(1); p = (0-7) % 3;';
   const on = run(src, true, { x: -10 });
-  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'x', 'h', 'k'].map(on.get), [1, 1, 1, 1, 1, 1, 2, 1, 1]);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'x', 'h', 'k', 'p'].map(on.get), [-1, 1, -1, 1, 1, -1, 2, 1, 1, 1]);
   const off = run(src, false, { x: -10 });
   assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'f', 'x', 'k'].map(off.get), [-1, 1, -1, 1, 1, -1, -2, -1], 'kapalıyken işaretli');
 });
 
 test('%: 32 bite sığmayan değer MilkDrop\'ta 2^31 oluyor (x87 belirsiz tam sayısı, işaretsiz)', () => {
-  const on = run('a = 3000000000 % 7; b = 7 % 3000000000; c = -3000000000 % 1000;', true);
-  assert.deepStrictEqual(['a', 'b', 'c'].map(on.get), [2147483648 % 7, 7, 2147483648 % 1000]);
+  /* Büyük sayı çarpımla: MilkDrop noktasız bir sayı yazımını zaten 2^31−1'e
+     kırpıyor (atoi), `3000000000` yazmak 2147483647 demek (eelref). */
+  const on = run('t = 3*1000000000; a = t % 7; b = 7 % t; c = (0 - t) % 1000; d = 3000000000 % 7;', true);
+  assert.deepStrictEqual(['a', 'b', 'c', 'd'].map(on.get), [2147483648 % 7, 7, 2147483648 % 1000, 2147483647 % 7]);
 });
 
 test('& ve |: uyum açıkken 64 bitlik tam sayılarla; 32 bite sığanda aynı', () => {
-  const src = 'a = 3000000000 & 4294967295; b = 1099511627776 | 1; c = 5.9 & 3; d = -1 & 255; e = -7.5 | 0; z = 1e30 & 1; w = 1e30 | 0; v = -3000000000.5 & -1;';
-  const on = run(src + ' _andop(x, 6); _orop(y, 4294967296);', true, { x: 13, y: 1 });
-  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'z', 'x', 'y'].map(on.get), [3000000000, 1099511627777, 1, 255, -7, 0, 4, 4294967297]);
+  /* Büyük değerler çarpımla (MilkDrop'ta `1e30` yazımı derlenmiyor, noktasız
+     uzun sayı 2^31−1'e kırpılıyor). Beklenenler eelref'in verdikleri. */
+  const src = 'm = 65536*65536 - 1; t = 3*1000000000; k = 1024*1024*1024*1024; g = 1000000*1000000*1000000*1000000*1000000; a = t & m; b = k | 1; c = 5.9 & 3; d = -1 & 255; e = -7.5 | 0; z = g & 1; w = g | 0; v = (0 - t - 0.5) & -1;';
+  const on = run(src + ' _andop(x, 6); _orop(y, k*4);', true, { x: 13, y: 1 });
+  assert.strictEqual(on.error, '');
+  assert.deepStrictEqual(['a', 'b', 'c', 'd', 'e', 'z', 'x', 'y'].map(on.get), [3000000000, 1099511627777, 1, 255, -7, 0, 4, 4398046511105]);
   assert.strictEqual(on.get('w'), -9223372036854775808, 'sığmayan 64 bit −2^63');
   assert.strictEqual(on.get('v'), -3000000000, 'sıfıra doğru kırpma');
   const off = run(src, false);
@@ -271,11 +288,14 @@ test('Preset: iç adlar okuyuşla birlikte kuruluşta kararlaştırılıyor', ()
   assert.strictEqual(off.get('q2'), 0, 'yeniden kurulmadan iç ad derlenmiyor — görselleştirici yeniden kuruyor');
 });
 
-test('readingsDiffer: kod iç ad kullanıyorsa anahtar çevrilince preset yeniden kuruluyor', () => {
-  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = above(2, 1);\n'), false);
-  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = _aboeq(2, 1);\n'), true);
+test('readingsDiffer: iki okuyuş farklı ayrışıyorsa anahtar çevrilince preset yeniden kuruluyor', () => {
+  /* Uyum açıkken kod MilkDrop'un ön ucuyla okunuyor (md2Parse); ağaçlar
+     karşılaştırılıyor. Aynı ayrışan kodda denklem durumu korunuyor. */
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = 1 + b*2;\n'), false, 'aynı ağaç');
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = _aboeq(2, 1);\n'), true, 'iç ad');
   assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nwave_0_per_point1=a = _ABOEQ (2, 1);\n'), true, 'harf ve boşluk');
-  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=my_aboeq = 1; b = my_aboeq(2);\n'), false, 'adın parçası değil');
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = -b^2;\n'), true, 'öncelik: −(b^2) / (−b)^2');
+  assert.strictEqual(M.readingsDiffer('MILKDROP_PRESET_VERSION=201\nper_frame_1=a = 1<2<3;\n'), true, 'karşılaştırma sağdan');
 });
 
 test('sprite kodu da MilkDrop kurallarıyla: anahtar setAccurate ile', () => {

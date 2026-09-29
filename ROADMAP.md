@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2263 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2275 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 666
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 678
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2288,9 +2288,10 @@ rest after. No version number yet.
       `_or`, `_equal`, `_set`, `_addop` and the rest, `_mem`, `_gmem`);
       `_and` and `_or` skip their right side like `&&` and `||`;
     - `%` works on whole numbers without sign — both sides lose their
-      sign and fraction, so `-7 % 3` is 1 and `5 % 0.5` is 0 — and a value
-      outside the signed 32-bit range turns into 2^31, as the x87
-      conversion does;
+      sign and fraction, so `(0-7) % 3` is 1 and `5 % 0.5` is 0 — and a
+      value outside the signed 32-bit range turns into 2^31, as the x87
+      conversion does (written `-7 % 3` it is −1: the minus applies to the
+      remainder, see the next item);
     - `&` and `|` work on 64-bit integers;
     - a `megabuf` index is rounded down after adding 0.00001, reaches
       8,388,608 cells, and reads 0 outside them; `gmegabuf` has 2^20
@@ -2372,41 +2373,88 @@ rest after. No version number yet.
     the centre stays where the beat put it, as in MilkDrop. Alone in a
     fresh page it differs by 61% and is not blown (brightness 0.62), so
     its class in the sample also depends on the order of the run.
+  - **Equations are read and computed the way MilkDrop 2 does, checked
+    against MilkDrop's own compiler.** Nullsoft's ns-eel2 (the BeatDrop
+    copy the rest of this work follows) was built from source into a small
+    command-line tool outside the repository, and the same expressions
+    were run in it and in the engine. It showed that several things this
+    roadmap had written down were wrong, and what the rules actually are:
+    - ns-eel2 does not parse most operators; a preprocessor rewrites
+      `= += == < > && || % ^ ! ?: [ ]` into calls, finding each operand's
+      extent by scanning the text, and only `+ - * / & |` reach the
+      grammar. The engine now does the same when fidelity is on, which is
+      where MilkDrop's odd precedence comes from: `-2^2` is −4,
+      `3*-7%4` is −9, `2^2^3` is 64, `1<2<3` is 1<(2<3), `a||z&&z` is
+      (a||z)&&z, `3|4*2` is 11, and an assignment binds to the term just
+      before it, so a line glued to the next one (`g = 1 + b*b = 7`)
+      assigns `b` and gives 50, as MilkDrop does; inside parentheses `;`
+      becomes a sequence or a space depending on what follows;
+    - one statement that does not compile drops its whole block, as in
+      MilkDrop (which warns and skips the block); numbers without a point
+      are cut to 2,147,483,647, `1e3` and `0x1F` do not compile, `1.5e-2`
+      is 1.5 minus 2, a lone `.` is 0, and `$pi`, `$e`, `$phi`, `$x1F`,
+      `$'A'` work; a function name used without parentheses does not
+      compile;
+    - numbers are not guarded. Division by zero gives infinity or NaN,
+      `log(-1)`, `asin(2)` and `tan` of a huge value give NaN, and those
+      flow through the expression — `min(1/0, 5)` is 5, `above(1/0, 3)`
+      is 1 — until an assignment: `=` writes 0 for infinity, NaN and
+      denormals, while `+=` and the other compound assignments keep them.
+      The earlier note that MilkDrop keeps infinity in the variable was
+      wrong; so was giving 0 at the division;
+    - MilkDrop runs its code with the x87 rounding mode set to chop, so
+      every `+ − × ÷` and `sqrt` rounds toward zero — 0.3·50 is
+      14.999999999999998 and `int(0.3*50)` is 14 — and an overflow gives
+      the largest double, not infinity; the engine reproduces both,
+      detecting the direction of each rounding exactly;
+    - NaN compares the x87 way (`<` and `>` true, `<=` and `>=` false,
+      `min(NaN, 1)` NaN but `min(1, NaN)` 1), `sin` and `cos` return
+      arguments past 2^63 unchanged, `sigmoid` is guarded like MilkDrop's,
+      `invsqrt` is MilkDrop's fast inverse square root, and a variable in
+      an expression is read when the operation runs, after the other
+      operand — `b*(b = 7)` is 49.
+  - **Measured.** Every unique block of the corpus (10,757) was compiled
+    in both: whether it compiles agrees in all of them (4 fail in both).
+    Each was then run for four frames with the same inputs and every
+    variable compared: of the 9,486 blocks that do not call `rand`, 17
+    differ, all traced to the last bit of `atan2`, `sin` and `cos` — 16 of
+    them bouncing-ball presets whose balls start on the same spot in this
+    test, where `atan2` of a 1e-18 difference decides the angle. 20,000
+    random expressions over special values (0, −0, ±infinity, NaN,
+    denormals, 1e300) differ in 0.1%, the same three causes. Rendered in a
+    fresh page against the previous step, the 26 presets whose code
+    contains an operator pattern that parses differently changed in 25;
+    of 60 random presets 46 are identical to the pixel, 7 change by more
+    than 1% — traced in each to a last-bit rounding the feedback loop
+    amplifies, or to a shape drawing random numbers from a value that
+    moved by a bit. With fidelity off nothing changes. Cost: the
+    equations take about 20% longer per frame (0.78 → 0.96 ms per preset
+    on 200 corpus presets), half of it the exact rounding.
   - **Not done yet:** the fixed warp path, the blur chain, borders and
     centre darkening, and the rest of the blend snap points; whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on
-    `uv.y` may come out mirrored, which needs its own check; division by
-    zero and other results that are not finite — MilkDrop gives infinity
-    or NaN and keeps it in the variable, the engine gives 0; run with a
-    realistic clock, 910 corpus presets (8.8%) divide by zero at least
-    once in 40 frames, some every frame, and matching MilkDrop needs NaN
-    carried through the whole drawing path the way Direct3D 9 does, which
-    only the reference renderer can check; the same holds for the
-    functions that guard their result — `log` and `log10` of 0 or less,
-    `pow`, `exp` and `tan` past the float range give 0 here, and `asin`
-    and `acos` clamp their input, where MilkDrop's C library returns
-    infinity or NaN (not counted in the scan above); the reference comparison with
-    an external renderer, which needs one installed and waits for the
-    user's approval. Left out of the compiler: variable names compared on
-    their first 16 characters only (`NSEEL_MAX_VARIABLE_NAMELEN`) — 24
-    corpus presets use names that long and none has two that would
-    collide; syntax newer than MilkDrop 2's grammar (`?:`, `&=`,
-    `|=`, `^=`, `<<`, `$` constants) and the functions `invsqrt`,
-    `memcpy`, `memset` and `freembuf`, which no corpus preset uses in code;
-    and the old grammar's `%`, which ns-eel2's parser table maps to a
-    function that returns its right side — the corpus writes `%` as a
-    remainder, and the operator function MilkDrop compiles is the
-    remainder above. Left out of the reader on purpose: MilkDrop reads
-    bytes and the engine gets decoded text, so its two byte rules — a
-    0xFF byte ends the file, a value over 251 characters splits into a
-    second index line — cannot be kept exactly, and neither touches a
-    corpus file; values stay double where MilkDrop stores float, a
-    difference below 1e-7; and a block that fails to compile is dropped
-    whole in MilkDrop but recovered statement by statement here, because
-    our parser and MilkDrop's may still disagree on what an error is, and
-    dropping whole blocks would then drop code MilkDrop runs.
+    `uv.y` may come out mirrored, which needs its own check; and the
+    comparison of whole frames with a reference renderer (the expression
+    side is compared, see below). Left out of the compiler: the last bit
+    of `sin`, `cos`, `tan`, `atan2`, `exp`, `log` and `pow`, which x87
+    computes in 80 bits and chops to 64, where JavaScript rounds to
+    nearest — matching it needs each call evaluated beyond double
+    precision; the sign bit of NaN, which x87 sets on a fresh NaN and
+    `sign()` reads (`sign(0/0)` is −1 in both, `sign(-(0/0))` is 1 in
+    MilkDrop and −1 here); and `rand`'s generator, a Mersenne Twister in
+    MilkDrop whose sequence runs across every preset since the program
+    started, so no two sessions draw the same numbers either way; the
+    functions `memcpy`, `memset` and `freembuf`, which no corpus preset
+    uses. Variable names are compared on their first 16 characters only
+    in MilkDrop (`NSEEL_MAX_VARIABLE_NAMELEN`); 24 corpus presets use names
+    that long and none has two that would collide. Left out of the reader
+    on purpose: MilkDrop reads bytes and the engine gets decoded text, so
+    its two byte rules — a 0xFF byte ends the file, a value over 251
+    characters splits into a second index line — cannot be kept exactly,
+    and neither touches a corpus file; values stay double where MilkDrop
+    stores float, a difference below 1e-7.
   - **Tests.** 14 new: the version rule and the stage choice, the two
     generated shaders (float rounding, samplers, echo, hue, flag order,
     and that they translate), echo orientation and gamma cases, the

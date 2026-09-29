@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2263%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2275%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -995,8 +995,10 @@ video layer. Shadertoy and ISF presets import through local converters.
 ### MilkDrop
 
 The preset language runs for real: a tokeniser, a parser to an AST, compilation to JavaScript
-closures, the variable pool (`q1`–`q32`, `t1`–`t8`, `regNN`), the built-in function library — every
-built-in returns a finite number, including `log(0)` and division by zero — per-frame equations,
+closures, the variable pool (`q1`–`q32`, `t1`–`t8`, `regNN`), the built-in function library — with
+MilkDrop fidelity on the equations follow MilkDrop 2's own compiler, checked against it down to the
+rounding mode and what division by zero does; with it off every built-in returns a finite number,
+including `log(0)` and division by zero — per-frame equations,
 per-pixel equations across the warp mesh, and the feedback renderer. `.milk` files import
 individually or as packs, with compile errors reported per file.
 
@@ -1326,7 +1328,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2263 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2275 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
