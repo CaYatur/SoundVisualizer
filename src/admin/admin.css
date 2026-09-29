@@ -1005,30 +1005,81 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .tl-markers { padding-top: 6px; }
 .tl-marker-row { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
 
-.cd-grid { display: grid; gap: 4px; margin: 8px 0; }
-.cd-corner { }
+/* Klip destesi (#637): başlık çubuğu, adlandırılmış sütunlar ve durumları
+   uzaktan okunan hücreler. Hücre rengi --slot değişkeninden. */
+.cd-head {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 6px 8px; margin: 6px 0 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--card2);
+}
+.cd-clock { display: flex; align-items: center; gap: 8px; }
+.cd-barnum { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; min-width: 44px; }
+.cd-beats { display: flex; gap: 4px; }
+.cd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line2); transition: background .06s; }
+.cd-dot:first-child { border-radius: 2px; }
+.cd-dot.on { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+.cd-dot.on:first-child { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.cd-bpm { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cd-q { display: flex; align-items: center; gap: 6px; }
+.cd-lbl { font-size: 11px; color: var(--muted); }
+.cd-head .sel { height: 28px; padding: 0 22px 0 6px; font-size: 11.5px; width: auto; }
+.cd-spacer { flex: 1; }
+.cd-gridwrap { overflow-x: auto; margin: 4px 0 8px; padding-bottom: 2px; }
+.cd-grid { display: grid; gap: 4px; }
+.cd-corner { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted2); align-self: end; padding: 0 0 4px 6px; }
+.cd-colhead { display: flex; align-items: center; gap: 3px; min-width: 0; }
+.cd-panel input.cd-colname {
+  flex: 1; min-width: 0; background: transparent; border: 1px solid transparent; border-radius: 6px;
+  padding: 3px 5px; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--text); text-align: center; outline: none;
+}
+.cd-panel input.cd-colname::placeholder { color: var(--muted); }
+.cd-panel input.cd-colname:hover { border-color: var(--line); }
+.cd-panel input.cd-colname:focus { border-color: var(--accent); background: var(--card2); }
 .cd-stop, .cd-rowlaunch {
   background: var(--card2, rgba(255,255,255,.04)); border: 1px solid var(--line);
-  color: var(--muted); border-radius: 5px; cursor: pointer; font-size: 11px; padding: 4px;
+  color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 11px; padding: 4px 6px;
 }
-.cd-rowlaunch { text-align: left; padding-left: 8px; }
+.cd-stop { flex: none; width: 26px; }
+.cd-rowlaunch { text-align: left; padding-left: 8px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 .cd-stop:hover, .cd-rowlaunch:hover { color: var(--text); border-color: var(--accent); }
 .cd-cell {
-  position: relative; min-height: 42px; border-radius: 5px; cursor: pointer;
+  --slot: #4f8cff;
+  position: relative; min-height: 54px; border-radius: 7px; cursor: pointer;
   border: 1px dashed var(--line); background: transparent; color: var(--muted2);
-  display: flex; flex-direction: column; justify-content: center; padding: 4px 6px;
-  font-size: 11px; text-align: left; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 5px 7px 7px 10px;
+  font-size: 11px; text-align: left; overflow: hidden; font-family: inherit;
 }
-.cd-cell.filled { border-style: solid; background: rgba(90,140,220,.16); color: var(--text); }
-/* Hazırlanmış: ateşlenmeyi bekliyor. Geri sayım hücrenin köşesinde. */
-.cd-cell.armed { border-color: #f0b429; box-shadow: inset 0 0 0 1px #f0b429; }
-.cd-cell.active { background: rgba(46,160,67,.28); border-color: #2ea043; }
-.cd-cell.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
-.cd-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cd-count { position: absolute; right: 4px; bottom: 2px; font-size: 9px; color: #f0b429;
+.cd-cell.empty { align-items: center; justify-content: center; padding: 0; }
+.cd-plus { font-size: 18px; line-height: 1; color: var(--line2); transition: color .12s, transform .12s; }
+.cd-cell.empty:hover { border-color: var(--line2); background: rgba(255,255,255,.02); }
+.cd-cell.empty:hover .cd-plus { color: var(--text); transform: scale(1.15); }
+.cd-cell.filled { border: 1px solid color-mix(in srgb, var(--slot) 45%, var(--line)); background: color-mix(in srgb, var(--slot) 14%, var(--card)); color: var(--text); }
+.cd-cell.filled:hover { background: color-mix(in srgb, var(--slot) 22%, var(--card)); }
+.cd-color { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.cd-name { font-weight: 600; font-size: 11.5px; }
+.cd-meta { font-size: 10px; color: var(--muted); min-height: 12px; }
+.cd-progwrap { position: absolute; left: 4px; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.05); }
+.cd-prog { display: block; height: 100%; width: 0%; background: var(--slot); }
+/* Hazırlanmış: ateşlenmeyi bekliyor (yanıp söner). Geri sayım köşede. */
+.cd-cell.armed { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); animation: cd-armed .5s steps(2, jump-none) infinite; }
+@keyframes cd-armed { 50% { box-shadow: inset 0 0 0 2px var(--warn), 0 0 10px rgba(255,196,77,.35); } }
+/* Çalıyor: yeşil çerçeve ve parlama; uzaktan da seçilir. */
+.cd-cell.active { border-color: #2ea043; box-shadow: inset 0 0 0 2px #2ea043, 0 0 12px rgba(46,160,67,.35); }
+.cd-cell.active .cd-name::before { content: '▶ '; color: #43d98a; }
+.cd-cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .cd-cell.armed { animation: none; } }
+.cd-name, .cd-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cd-count { position: absolute; right: 5px; top: 3px; font-size: 10px; font-weight: 700; color: var(--warn);
   font-variant-numeric: tabular-nums; }
 .cd-editor { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
-.cd-editor-head { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.cd-editor-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.cd-editor-sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.cd-editor-where { font-size: 11px; font-weight: 500; color: var(--muted); }
+.cd-typepick { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.cd-panel input.txt {
+  background: var(--card2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 11.5px; outline: none; min-width: 0;
+}
+.cd-panel input.txt:focus { border-color: var(--accent); }
 
 /* ==========================================================================
    Performans görünümü — karanlık odada, uzaktan, aceleyle kullanılır.
@@ -1064,7 +1115,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
   font-size: 17px; padding: 10px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; text-align: center;
 }
-.perf-cell.filled { color: #e8e8ec; background: #16203a; border-color: #35507f; }
+.perf-cell.filled { color: #e8e8ec; background: color-mix(in srgb, var(--slot, #35507f) 18%, #0d0d14); border-color: color-mix(in srgb, var(--slot, #35507f) 55%, #24242e); }
+/* Panelle aynı renk şeridi ve çalma ilerlemesi (#637) */
+.perf-color { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; }
+.perf-progwrap { position: absolute; left: 6px; right: 0; bottom: 0; height: 5px; background: rgba(255,255,255,.05); }
+.perf-prog { display: block; height: 100%; width: 0%; background: var(--slot, #2ea043); }
 .perf-cell.cursor { border-color: #7a7a90; }
 /* Hazırlanmış: ateşlenmeyi bekliyor, köşede geri sayım. */
 .perf-cell.armed { border-color: #f0b429; background: #2a2210; }
@@ -1090,7 +1145,7 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 
 /* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar
    ve soluk metin bunu ateşlemeden önce belli eder. */
-.cd-cell.filled.noref { border-style: dashed; opacity: .6; }
+.cd-cell.filled.noref { border-style: dashed; opacity: .65; }
 
 
 /* OpenRGB aygıt listesi. Sürülemeyen aygıtlar sönük çizilir: renk kabul

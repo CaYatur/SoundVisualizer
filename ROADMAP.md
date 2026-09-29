@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2360 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2369 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 763
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 772
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2866,6 +2866,72 @@ expects.
     - multi-select
     - clip fade handles
     - a full-window editor
+- **The clip deck as a performance grid (#637, CD-1)** · done on `main`.
+  The model is Resolume's clip grid and Ableton's Session View (research
+  table on #637).
+  - **Header bar.**
+    - Bar.beat, with one dot per beat. The downbeat dot is a different
+      colour.
+    - The tempo, and a **global quantise**.
+    - A slot set to "Global" (new slots are) fires on the deck's grid.
+      Changing the global setting moves every such slot at once, without
+      editing them, as Resolume's composition setting does.
+    - Stop All, and the performance view.
+  - **Grid.**
+    - Columns are named inline, falling back to A, B, C…, each with its own
+      stop.
+    - Row launch buttons carry the row name.
+  - **Cells.**
+    - A filled cell shows its colour (its own, else the type's), a type
+      icon, and the scene's or template's name instead of its id.
+    - It also shows short quantise, follow and duration hints, and a
+      progress bar.
+    - The progress bar shows elapsed time for a slot with a duration, and
+      the position in the bar for one without.
+    - A playing cell has a green frame and ▶. A queued cell blinks, and has
+      its countdown in the corner. Blinking stops with reduce-motion.
+    - An empty cell shows "+". Clicking it offers Scene / Template / Colour
+      as one-click types.
+    - Right-click edits a cell as Shift-click does.
+  - **Slot editor.**
+    - Fire, stop the column and clear the slot, laid out in the same grid
+      as the timeline inspector.
+    - The **transition type is chosen from the transition engine's list**
+      rather than typed as free text.
+    - A **go-to follow target is picked by row and column**, where it used
+      to be a "row:col" text whose counting base was unclear. The stored
+      format is unchanged.
+    - A warning appears when a follow action is set on a slot with no
+      duration, since it would never run.
+  - **Performance view.**
+    - The same colours, names and progress bars as the grid.
+    - Column names appear after the key letter.
+  - **Model.** `color` on slots and `colNames` on decks carry through
+    `makeSlot`, `makeDeck` and `serializeDeck`. A `global` quantise is
+    resolved by the engine (`quantizeOf`), including for row launches.
+  - **Checked in the app** (real events over CDP):
+    - A fired slot is marked active.
+    - With the transport running, the progress bar reads 65% at bar 1.3,
+      and the beat dots and BPM update.
+    - The performance view shows the same state.
+    - Grid resizing works.
+    - No exceptions.
+  - **Tests** (9, `tests/clipdeck-grid.test.js`):
+    - the model round trip
+    - global-quantise resolution, including row launch and a bad value
+    - the empty-cell "+" and one-click type
+    - cell label, colour and hints
+    - column names
+    - the transition select and the target row/column selects
+    - the no-duration warning
+    - the header's global quantise reaching the engine
+    - English entries, with the old ones removed
+  - **Next (CD-2):**
+    - launch modes (trigger / toggle / gate)
+    - keyboard triggers in the panel
+    - dragging slots to move or copy them
+    - several decks
+    - video, image and shader slots applied to a chosen layer
 
 ## v3.1.6 — Comprehensive video export
 
