@@ -4403,15 +4403,15 @@ async function runSmoke() {
        ZATEN SEÇİLİ bir klip varken çiziliyordu, boş parçada panel "bir klip
        seçin" diyordu ve seçilecek klip yoktu. Çizelge bu haliyle kullanılamaz
        durumdaydı. */
+    /* #636'dan beri düğme düzenleyicinin altındaki "＋ Kafada Klip": seçili
+       (yoksa ilk) klip parçasına, oynatma kafasına ekliyor. Şeride çift
+       tıklamak da ekliyor; burada düğme sınanıyor. */
     const clipRes = await awc5.executeJavaScript(`(function(){
-      var rows = document.querySelectorAll("#sections .tl-track-row");
+      var bs = document.querySelectorAll("#sections .tl-panel button");
       var found = null;
-      for (var i = 0; i < rows.length; i++) {
-        var bs = rows[i].querySelectorAll("button");
-        for (var j = 0; j < bs.length; j++) {
-          if ((bs[j].textContent || "").indexOf("Klip") >= 0 && bs[j].title) { found = bs[j]; break; }
-        }
-        if (found) break;
+      for (var j = 0; j < bs.length; j++) {
+        var tx = bs[j].textContent || "";
+        if ((tx.indexOf("Kafada Klip") >= 0 || tx.indexOf("Clip at Playhead") >= 0) && bs[j].title) { found = bs[j]; break; }
       }
       if (!found) return JSON.stringify({ button: false, clips: -1 });
       found.click();
