@@ -2089,14 +2089,31 @@
       ] : [
         '  uv = vUV;',
         '  uv_orig = vUV;',
+      ].concat(o.acc ? [
+        /* MilkDrop'un birleştirme ağındaki değerler (#580; plugin.cpp,
+           UvToMathSpace): p = (2u − 1, 2v − 1) × (aspX, aspY);
+           rad = |p| / |(aspX, aspY)| — köşelerde 1; ang = atan2(py, px)
+           0..2π aralığında, en-boy ölçekli. Warp ağında (vRad, vAng) rad
+           normalize DEĞİL ve ang −π..π — iki aşama MilkDrop'ta da farklı.
+           Önceki formülde bölen yoktu (geniş ekranda köşede 1,15), ang
+           en-boysuz ve −π..π idi; korpusta 1.276 birleştirme shader'ı
+           rad ya da ang okuyor. v'nin yönü (üstte 0 mı 1 mi) ayrı ve açık
+           bir soru: ang'in işareti ona bağlı. */
+        '  { vec2 p = (uv * 2.0 - 1.0) * aspect.xy;',
+        '    rad = length(p) / length(aspect.xy);',
+        '    ang = atan(p.y, p.x);',
+        '    if (ang < 0.0) ang += 6.2831853071796; }',
+      ] : [
         /* rad/ang MilkDrop'ta merkeze göre kutupsal koordinat. En-boy
-           düzeltmesi uygulanıyor, yoksa geniş ekranda çemberler elips olur. */
+           düzeltmesi uygulanıyor, yoksa geniş ekranda çemberler elips olur.
+           Uyum kapalıyken eski formül. */
         '  rad = length((uv - 0.5) * aspect.xy) * 2.0;',
         '  ang = atan(uv.y - 0.5, uv.x - 0.5);',
+      ]).concat([
         '  hue_shader = hueAt(uv);',
         '  ret = vec3(0.0);',
         '',
-      ])
+      ]))
       // presetin küresel ilk değerleri: uniform okuyabilsinler diye burada
       /* Uniform kopyaları her şeyden önce tohumlanmalı: hem presetin kendi
          globalleri hem de gövde onları okuyabiliyor. */

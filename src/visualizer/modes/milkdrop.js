@@ -2330,7 +2330,7 @@ void main(){
       const begin = (text, stage) => {
         if (!text || !text.trim()) return null;
         let r;
-        try { r = T.translate(text, { stage }); } catch (e) { return { note: stage + ': çeviri hatası' }; }
+        try { r = T.translate(text, { stage, acc }); } catch (e) { return { note: stage + ': çeviri hatası' }; }
         if (r.empty) return null;
         if (r.hard.length) return { note: stage + ': ' + r.hard.join(', ') };
         return { stage, text, r, h: this._linkBegin(stage === 'warp' ? MESH_VERT : COMP_MESH_VERT, r.glsl) };
