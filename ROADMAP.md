@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2392 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2401 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 795
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 804
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2940,12 +2940,20 @@ expects.
     - the no-duration warning
     - the header's global quantise reaching the engine
     - English entries, with the old ones removed
-  - **Next (CD-2):**
-    - launch modes (trigger / toggle / gate)
-    - keyboard triggers in the panel
-    - dragging slots to move or copy them
-    - several decks
-    - video, image and shader slots applied to a chosen layer
+- **Clip deck performance, CD-2 (#637)** · done on `main`.
+  - **Launch modes:**
+    - trigger, the default and the earlier behaviour;
+    - toggle, where a second press stops the slot or cancels it while armed;
+    - gate, which plays while held. On release the column returns to the slot that was playing before, or stops, and a slot fired in the meantime is left alone.
+    - The engine's `press`/`release` implement them. The panel, the keyboard and the Performance View all go through them.
+  - **Keyboard in the panel,** the same scheme as the Performance View: 1-9 or ↑/↓ picks the row, A-P fires that row's slot, and Enter launches the row. Key repeat does not count as a second press.
+  - **Focus bug fixed:** firing a scene re-rendered the panel and focus fell to BODY, so the keyboard stopped after the first key. The grid now keeps focus across re-renders, and the gate release is heard on the window.
+  - **Drag and drop:** a slot dropped on an empty cell moves there, and dropped on a filled cell the two swap. Ctrl or Alt copies.
+  - **Several decks:**
+    - tabs with a playing dot, and + for a new deck;
+    - name, duplicate and delete in the deck settings (delete stops the deck's columns first);
+    - the grid and the Performance View show only the current deck's playing and armed slots.
+  - **Next (CD-3):** video, image and shader slots applied to a chosen layer.
 
 ## v3.1.6 — Comprehensive video export
 

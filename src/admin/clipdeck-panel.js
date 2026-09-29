@@ -28,6 +28,14 @@
   let recorder = null;
   let lastTick = 0;
   let lastBeatKey = '';
+  /* Klavye imleci: panelde ve performans görünümünde aynı şema (1-9 satır,
+     A-P sütun, Enter satırı başlatır). */
+  let cursorRow = 0;
+  let dragFrom = null; // sürüklenen yuva { row, col }
+  /* Izgara klavye odağındaydı: sahne uygulamak paneli yeniden çiziyor ve
+     odak BODY'ye düşüyordu — ölçüldü: ilk tuştan sonra klavye ölüydü. */
+  let gridFocus = false;
+  const COL_KEYS = 'abcdefghijklmnop';
 
   function cfg() {
     return P().cfg().clipdeck;
@@ -248,6 +256,8 @@
   // Hücrede kısa niceleme etiketi
   const QUANTIZE_SHORT = { off: '⚡', frame: '1f', quarter: '¼', half: '½', beat: '1♩', bar: '1▮', bar2: '2▮', bar4: '4▮' };
   const FOLLOW_ICONS = { stop: '⏹', loop: '↻', next: '↓', random: '🎲', goto: '↪', none: '' };
+  // Ateşleme kipi hücrede: tetik varsayılan olduğu için simgesiz
+  const LAUNCH_ICONS = { trigger: '', toggle: '⏯', gate: '✋' };
 
   function slotColor(slot) {
     if (!slot) return '';
@@ -320,8 +330,11 @@
     if (!gridHost || !gridHost.isConnected) return;
     const deck = CD().makeDeck(deckSpec());
     const e = ensureEngine();
-    const active = new Set(e.activeSlots().map((a) => a.slot.row + ':' + a.slot.col));
-    const armed = new Set(e.armed.map((a) => a.slot.row + ':' + a.slot.col));
+    /* Birden çok deste (#637 CD-2): başka destede çalan yuva bu destenin
+       aynı hücresini yakmasın. */
+    const mine = (a) => a.deckId === deck.id;
+    const active = new Set(e.activeSlots().filter(mine).map((a) => a.slot.row + ':' + a.slot.col));
+    const armed = new Set(e.armed.filter(mine).map((a) => a.slot.row + ':' + a.slot.col));
     for (let r = 0; r < deck.rows; r++) {
       for (let c = 0; c < deck.cols; c++) {
         const node = gridHost.querySelector('#' + cellId(r, c));
@@ -339,6 +352,8 @@
           if (cd && cd.textContent) cd.textContent = '';
         }
       }
+      const rb = gridHost.querySelector('#cdr-' + r);
+      if (rb) rb.classList.toggle('cursor', r === cursorRow);
     }
   }
 
@@ -347,13 +362,16 @@
   function paintLive(now, tempoMap) {
     if (!gridHost || !gridHost.isConnected) return;
     const e = ensureEngine();
+    const id = deckSpec().id;
     for (const a of e.armed) {
+      if (a.deckId !== id) continue;
       const node = gridHost.querySelector('#' + cellId(a.slot.row, a.slot.col));
       if (!node) continue;
       const cd = node.querySelector('.cd-count');
       if (cd) cd.textContent = Math.max(0, a.at - now).toFixed(1);
     }
     for (const a of e.activeSlots()) {
+      if (a.deckId !== id) continue;
       const node = gridHost.querySelector('#' + cellId(a.slot.row, a.slot.col));
       const pg = node && node.querySelector('.cd-prog');
       if (pg) pg.style.width = (progressOf(a, now, tempoMap) * 100).toFixed(1) + '%';
@@ -412,6 +430,72 @@
     paintGrid();
   }
 
+  /* BASIŞ ve BIRAKIŞ (#637 CD-2): yuvanın ateşleme kipine göre. Hücre,
+     klavye ve performans görünümü bunu çağırır; kapı kipinde bırakış
+     sütunu önceki yuvaya döndürür. */
+  function press(row, col) {
+    const deck = CD().makeDeck(deckSpec());
+    const slot = CD().getSlot(deck, row, col);
+    if (!slot) return;
+    if (!slot.ref) {
+      launch(row, col); // kaynaksız yuvanın uyarısı tek yerde
+      return;
+    }
+    ensureEngine().press(deck.id, row, col, clockNow(), tempoNow());
+    if (window.SVTimelinePanel) window.SVTimelinePanel.start();
+    paintGrid();
+  }
+
+  function release(row, col) {
+    if (ensureEngine().release(deckSpec().id, row, col, clockNow())) paintGrid();
+  }
+
+  /* Klavye: ızgara odaktayken. Metin kutusunda (sütun adı) yazarken
+     karışmaz; tuş tekrarı ikinci bir basış sayılmaz (kapı kipi titrerdi). */
+  function onGridKey(e, down) {
+    const tg = e.target;
+    const tag = tg && tg.tagName ? tg.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const deck = CD().makeDeck(deckSpec());
+    const k = String(e.key || '');
+    let done = false;
+    if (down && k >= '1' && k <= '9' && k.length === 1) {
+      cursorRow = Math.min(deck.rows - 1, Number(k) - 1);
+      done = true;
+    } else if (down && (k === 'ArrowDown' || k === 'ArrowUp')) {
+      cursorRow = Math.max(0, Math.min(deck.rows - 1, cursorRow + (k === 'ArrowDown' ? 1 : -1)));
+      done = true;
+    } else if (down && k === 'Enter') {
+      launchRow(cursorRow);
+      done = true;
+    } else {
+      const col = COL_KEYS.indexOf(k.toLowerCase());
+      if (down && k.length === 1 && col >= 0 && col < deck.cols) {
+        if (!e.repeat) {
+          const row = cursorRow;
+          const sl = CD().getSlot(deck, row, col);
+          press(row, col);
+          /* Kapı: bırakış PENCEREDEN dinleniyor. Basış sahneyi uygulayıp
+             paneli yeniden çizdiği için tuşun bırakılışı eski ızgaraya
+             hiç ulaşmıyordu ve kapı açık kalıyordu. */
+          if (sl && sl.launch === 'gate' && typeof window !== 'undefined' && window.addEventListener) {
+            const up = (ev) => {
+              if (String(ev.key || '').toLowerCase() !== k.toLowerCase()) return;
+              window.removeEventListener('keyup', up, true);
+              release(row, col);
+            };
+            window.addEventListener('keyup', up, true);
+          }
+        }
+        done = true;
+      }
+    }
+    if (!done) return;
+    if (e.preventDefault) e.preventDefault();
+    paintGrid();
+  }
+
   function launchRow(row) {
     const deck = CD().makeDeck(deckSpec());
     let empty = 0;
@@ -446,7 +530,9 @@
     panel,
     tick,
     engine: () => ensureEngine(),
-    launchSlot: launch,
+    // Ateşleme kipine uyan basış; performans görünümü de bunu kullanır
+    launchSlot: press,
+    releaseSlot: release,
     applyRef,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
@@ -463,6 +549,8 @@
     progressOf,
     TYPE_ICONS,
     _select: (s) => { selected = s; },
+    _key: onGridKey,
+    _cursor: () => cursorRow,
   };
   if (typeof window !== 'undefined') window.SVClipDeckPanel = api;
 
@@ -529,6 +617,7 @@
     syncEngine();
     const deck = CD().makeDeck(deckSpec());
 
+    host.appendChild(deckTabs());
     host.appendChild(headBar());
 
     // --- Izgara ---
@@ -558,7 +647,7 @@
 
     for (let row = 0; row < deck.rows; row++) {
       const rn = deck.rowNames[row] || String(row + 1);
-      const rowBtn = el('button', { class: 'cd-rowlaunch', type: 'button', title: 'Satırın tamamını sahne gibi başlat', text: '▶ ' + rn });
+      const rowBtn = el('button', { class: 'cd-rowlaunch' + (row === cursorRow ? ' cursor' : ''), type: 'button', id: 'cdr-' + row, title: 'Satırın tamamını sahne gibi başlat', text: '▶ ' + rn });
       const rr = row;
       rowBtn.addEventListener('click', () => launchRow(rr));
       grid.appendChild(rowBtn);
@@ -568,7 +657,14 @@
       }
     }
     gridHost = grid;
-    host.appendChild(el('div', { class: 'cd-gridwrap' }, [grid]));
+    if (cursorRow >= deck.rows) cursorRow = 0;
+    const wrap = el('div', { class: 'cd-gridwrap', tabindex: '0', title: 'Klavye: 1-9 satır seçer, A-P o satırın yuvasını ateşler, Enter satırı başlatır' }, [grid]);
+    wrap.addEventListener('keydown', (e) => onGridKey(e, true));
+    wrap.addEventListener('focus', () => { gridFocus = true; });
+    // Yeniden çizimde sökülen ızgaranın kaybı odak kaybı sayılmıyor
+    wrap.addEventListener('blur', () => setTimeout(() => { if (wrap.isConnected) gridFocus = false; }, 0));
+    host.appendChild(wrap);
+    if (gridFocus) setTimeout(() => { if (wrap.isConnected && wrap.focus) wrap.focus({ preventScroll: true }); }, 0);
     // Arka plandaki pencere kare almıyor; boyama zamanlayıcıyla
     setTimeout(paintGrid, 0);
 
@@ -591,7 +687,7 @@
       kids.push(el('span', { class: 'cd-color', style: 'background:' + slotColor(slot) }));
       kids.push(el('span', { class: 'cd-name', text: (TYPE_ICONS[slot.type] || '') + ' ' + slotLabel(slot) }));
       const q = slot.quantize === 'global' ? '' : QUANTIZE_SHORT[slot.quantize] || '';
-      const meta = [q, FOLLOW_ICONS[slot.follow] || '', slot.dur ? slot.dur + 's' : ''].filter(Boolean).join(' · ');
+      const meta = [LAUNCH_ICONS[slot.launch] || '', q, FOLLOW_ICONS[slot.follow] || '', slot.dur ? slot.dur + 's' : ''].filter(Boolean).join(' · ');
       kids.push(el('span', { class: 'cd-meta', text: meta }));
       kids.push(el('span', { class: 'cd-progwrap' }, [el('span', { class: 'cd-prog' })]));
     } else {
@@ -607,13 +703,62 @@
         : 'Boş yuva — eklemek için tıklayın',
     }, kids);
     if (slot && cell.style && cell.style.setProperty) cell.style.setProperty('--slot', slotColor(slot));
+    const gate = !!(slot && slot.ref && slot.launch === 'gate');
     cell.addEventListener('click', (e) => {
       selected = { row, col };
+      // Kapı kipi basılı tutmayla çalışıyor (aşağıda); tık ikinci kez ateşlemesin
+      if (gate && !e.shiftKey) {
+        paintGrid();
+        return;
+      }
       /* Dolu yuvaya tıklamak ateşler, boş yuvaya tıklamak düzenleyiciyi
          açar. Shift ile tıklamak dolu yuvayı da yalnızca seçer — canlıda
          yanlışlıkla ateşlememek için. Sağ tık da düzenler. */
-      if (slot && !e.shiftKey) launch(row, col);
+      if (slot && !e.shiftKey) press(row, col);
       else p.rerender();
+    });
+    if (gate) {
+      cell.addEventListener('mousedown', (e) => {
+        if ((e.button != null && e.button !== 0) || e.shiftKey) return;
+        press(row, col);
+        const up = () => {
+          window.removeEventListener('mouseup', up);
+          release(row, col);
+        };
+        window.addEventListener('mouseup', up);
+      });
+    }
+    /* Sürükle-bırak (#637 CD-2): dolu yuva başka hücreye taşınır; dolu
+       hücreye bırakılırsa ikisi yer değiştirir. Ctrl ya da Alt ile kopyalar. */
+    if (slot) {
+      cell.setAttribute('draggable', 'true');
+      cell.addEventListener('dragstart', (e) => {
+        dragFrom = { row, col };
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'copyMove';
+          e.dataTransfer.setData('text/plain', 'cd:' + row + ':' + col);
+        }
+      });
+      cell.addEventListener('dragend', () => { dragFrom = null; });
+    }
+    cell.addEventListener('dragover', (e) => {
+      if (!dragFrom) return;
+      if (e.preventDefault) e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = e.ctrlKey || e.altKey ? 'copy' : 'move';
+      cell.classList.add('drop');
+    });
+    cell.addEventListener('dragleave', () => cell.classList.remove('drop'));
+    cell.addEventListener('drop', (e) => {
+      if (e.preventDefault) e.preventDefault();
+      cell.classList.remove('drop');
+      const from = dragFrom;
+      dragFrom = null;
+      if (!from) return;
+      const live = CD().makeDeck(deckSpec());
+      if (!CD().moveSlot(live, from, { row, col }, !!(e.ctrlKey || e.altKey))) return;
+      deckSpec().slots = CD().slotList(live);
+      selected = { row, col };
+      p.apply();
     });
     cell.addEventListener('contextmenu', (e) => {
       if (e.preventDefault) e.preventDefault();
@@ -621,6 +766,54 @@
       p.rerender();
     });
     return cell;
+  }
+
+  /* Deste sekmeleri (#637 CD-2): birden çok deste, Resolume'daki
+     kompozisyon sayfaları gibi. Çalan yuvalar deste değişince durmuyor;
+     her destenin sütunları ayrı. */
+  function deckTabs() {
+    const p = P();
+    const el = p.el;
+    const c = cfg();
+    const cur = deckSpec();
+    const bar = el('div', { class: 'cd-tabs' });
+    const e = ensureEngine();
+    for (const d of c.decks) {
+      const live = e.activeSlots().some((a) => a.deckId === d.id);
+      const b = el('button', { class: 'cd-tab' + (d.id === cur.id ? ' on' : '') + (live ? ' live' : ''), type: 'button', text: d.name || d.id,
+        title: live ? 'Bu destede çalan yuva var' : 'Desteyi göster' });
+      b.addEventListener('click', () => {
+        if (d.id === cur.id) return;
+        c.activeDeck = d.id;
+        selected = null;
+        cursorRow = 0;
+        p.apply();
+      });
+      bar.appendChild(b);
+    }
+    const add = el('button', { class: 'cd-tab add', type: 'button', text: '＋', title: 'Yeni deste' });
+    add.addEventListener('click', () => {
+      const d = newDeck(c, { rows: 4, cols: 4 });
+      c.decks.push(d);
+      c.activeDeck = d.id;
+      selected = null;
+      p.apply();
+    });
+    bar.appendChild(add);
+    return bar;
+  }
+
+  // Benzersiz kimlik ve sıradaki harf adıyla yeni deste
+  function newDeck(c, base) {
+    const ids = new Set(c.decks.map((d) => d.id));
+    let n = c.decks.length;
+    let id = 'deck' + n;
+    while (ids.has(id)) id = 'deck' + ++n;
+    const names = new Set(c.decks.map((d) => d.name));
+    let k = c.decks.length;
+    let name = String.fromCharCode(65 + (k % 26));
+    while (names.has(name) && k < 200) name = String.fromCharCode(65 + (++k % 26)) + (k >= 26 ? Math.floor(k / 26) : '');
+    return Object.assign({ rows: 4, cols: 4, slots: [], rowNames: {}, colNames: {} }, JSON.parse(JSON.stringify(base || {})), { id, name });
   }
 
   // Başlık çubuğu: ölçü.vuruş, vuruş noktaları, tempo, genel niceleme, durdur, performans
@@ -816,6 +1009,11 @@
     const colReset = act('↺', 'Rengi türden al', () => save({ color: '' }));
     grid.appendChild(p.row('Renk', el('div', { class: 'tl-inline' }, [col, colReset])));
     grid.appendChild(p.row('Niceleme', select(QUANTIZE_LABELS, spec.quantize, (v) => save({ quantize: v }))));
+    grid.appendChild(p.row('Ateşleme Kipi', select(
+      [['trigger', 'Tetik (her basış ateşler)'], ['toggle', 'Aç / Kapa (ikinci basış durdurur)'], ['gate', 'Kapı (basılı tuttukça çalar)']],
+      spec.launch || 'trigger',
+      (v) => save({ launch: v })
+    )));
     grid.appendChild(p.row('Tetikleme', select([['fade', 'Geçişle'], ['cut', 'Kesme']], spec.trigger, (v) => save({ trigger: v }))));
     if (spec.trigger !== 'cut') {
       grid.appendChild(p.row('Geçiş Türü', select(transitionPairs(), spec.transition, (v) => save({ transition: v }))));
@@ -894,7 +1092,40 @@
     const box = el('details', { class: 'tl-more' });
     if (moreOpen || c.recording) box.setAttribute('open', '');
     box.addEventListener('toggle', () => { moreOpen = !!box.open; });
-    box.appendChild(el('summary', { text: 'Izgara ve kayıt' }));
+    box.appendChild(el('summary', { text: 'Deste, ızgara ve kayıt' }));
+    box.appendChild(p.row('Deste Adı', textInput(deckSpec().name || '', (v) => {
+      deckSpec().name = v || deckSpec().name;
+      p.apply();
+    })));
+    const deckAct = (text, title, fn, cls) => {
+      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text, title });
+      b.addEventListener('click', fn);
+      return b;
+    };
+    const acts = [deckAct('⧉ Desteyi Çoğalt', 'Bu destenin kopyası: aynı yuvalar, yeni bir sekmede', () => {
+      const src = deckSpec();
+      const d = newDeck(c, { rows: src.rows, cols: src.cols, slots: src.slots, rowNames: src.rowNames, colNames: src.colNames });
+      c.decks.push(d);
+      c.activeDeck = d.id;
+      selected = null;
+      p.apply();
+    })];
+    if (c.decks.length > 1) {
+      acts.push(deckAct('🗑 Desteyi Sil', 'Bu desteyi ve yuvalarını sil', () => {
+        const d = deckSpec();
+        p.confirm(tt('Deste silinsin mi?') + ' ' + (d.name || d.id)).then((ok) => {
+          if (!ok) return;
+          // Çalan yuvaları durdur ki silinmiş bir desteden ateşleme kalmasın
+          const deckEng = ensureEngine();
+          for (let col = 0; col < (d.cols || 0); col++) deckEng.stopColumn(d.id, col);
+          c.decks = c.decks.filter((x) => x !== d);
+          c.activeDeck = c.decks[0].id;
+          selected = null;
+          p.apply();
+        });
+      }, 'danger'));
+    }
+    box.appendChild(el('div', { class: 'tl-actions' }, acts));
     box.appendChild(
       p.row(
         'Izgara Boyutu',

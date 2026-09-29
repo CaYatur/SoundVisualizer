@@ -95,6 +95,14 @@
 
   const FOLLOW_ACTIONS = ['stop', 'loop', 'next', 'random', 'goto', 'none'];
 
+  /* Ateşleme kipi (#637 CD-2), Resolume ve Ableton'daki gibi:
+       trigger  her basış ateşler (varsayılan, eski davranış)
+       toggle   çalarken ya da hazırlanırken basmak durdurur
+       gate     basılı tutulduğu sürece çalar; bırakınca sütunda ondan
+                önce çalan yuvaya döner (yoksa sütun durur). Canlıda bir
+                sahneyi "flaş" gibi göstermek için. */
+  const LAUNCH_MODES = ['trigger', 'toggle', 'gate'];
+
   function makeSlot(spec) {
     const s = spec || {};
     const type = CLIP_TYPES.indexOf(s.type) >= 0 ? s.type : 'scene';
@@ -115,6 +123,7 @@
       followTarget: typeof s.followTarget === 'string' ? s.followTarget : '',
       // Hücrenin rengi (#637); boşsa türün rengi
       color: hexColor(s.color),
+      launch: LAUNCH_MODES.indexOf(s.launch) >= 0 ? s.launch : 'trigger',
     };
   }
 
@@ -176,6 +185,27 @@
       .sort((a, b) => a.row - b.row || a.col - b.col);
   }
 
+  /* Yuvayı başka bir hücreye taşı ya da kopyala (#637 CD-2, sürükle-bırak).
+     Taşımada hedef doluysa iki yuva YER DEĞİŞTİRİR: bırakılan yerdeki yuva
+     kaybolmasın. Kopyada hedefteki yuvanın yerine kopya geçer. Aynı hücreye
+     bırakmak ya da ızgara dışı bir hedef hiçbir şey yapmaz (false). */
+  function moveSlot(deck, from, to, copy) {
+    if (!deck || !from || !to) return false;
+    if (from.row === to.row && from.col === to.col) return false;
+    if (to.row < 0 || to.col < 0 || to.row >= deck.rows || to.col >= deck.cols) return false;
+    const src = getSlot(deck, from.row, from.col);
+    if (!src) return false;
+    const dst = getSlot(deck, to.row, to.col);
+    const moved = Object.assign({}, src);
+    if (copy) {
+      setSlot(deck, to.row, to.col, moved);
+      return true;
+    }
+    setSlot(deck, from.row, from.col, dst ? Object.assign({}, dst) : null);
+    setSlot(deck, to.row, to.col, moved);
+    return true;
+  }
+
   /* Seyrek kaydetme: boş yuvalar dosyaya hiç yazılmaz. */
   function serializeDeck(deck) {
     return {
@@ -209,6 +239,8 @@
        (süresi 0'a yakın bir klip + 'next' zinciri) kare başına sonsuz döngü
        oluşur. Kare başına ateşleme sayısı sınırlanır. */
     this.maxFiresPerUpdate = 32;
+    // Kapı kipi: basılı yuva -> bırakınca dönülecek yuva ('deste:satır:sütun')
+    this.gates = {};
     // 'global' nicelemeli yuvaların kipi; panel her karede yapılandırmadan yazıyor
     this.globalQuantize = 'bar';
   }
@@ -280,6 +312,57 @@
     }
     this.emit('rowArmed', { deckId: deck.id, row, at, count: out.length });
     return out;
+  };
+
+  /* BASIŞ: yuvanın ateşleme kipine göre ateşle, durdur ya da kapıyı aç.
+     Arayüz (panel, performans görünümü, klavye) launch yerine bunu çağırır. */
+  Engine.prototype.press = function (deckId, row, col, now, tempoMap) {
+    const deck = this.deck(deckId);
+    const slot = getSlot(deck, row, col);
+    if (!slot) return null;
+    const key = deck.id + ':' + col;
+    const here = (a) => a.deckId === deck.id && a.slot.col === col && a.slot.row === row;
+    if (slot.launch === 'toggle') {
+      if (this.armed.some(here)) {
+        this.armed = this.armed.filter((a) => !here(a));
+        this.emit('disarmed', { deckId: deck.id, row, col });
+        return { off: true };
+      }
+      const act = this.active[key];
+      if (act && act.slot.row === row) {
+        this.stopColumn(deck.id, col);
+        return { off: true };
+      }
+    }
+    if (slot.launch === 'gate') {
+      const act = this.active[key];
+      this.gates[deck.id + ':' + row + ':' + col] = act && act.slot.row !== row ? { row: act.slot.row } : null;
+    }
+    return this.launch(deck.id, row, col, now, tempoMap);
+  };
+
+  /* BIRAKIŞ: yalnız kapı kipinde bir şey yapar. Hâlâ hazırlanıyorsa iptal,
+     çalıyorsa sütunda önceki yuvaya ANINDA döner (yoksa sütunu durdurur).
+     Bu arada sütunda başka bir yuva ateşlendiyse ona dokunulmaz. */
+  Engine.prototype.release = function (deckId, row, col, now) {
+    const deck = this.deck(deckId);
+    const slot = getSlot(deck, row, col);
+    if (!slot || slot.launch !== 'gate') return null;
+    const gk = deck.id + ':' + row + ':' + col;
+    const back = this.gates[gk];
+    delete this.gates[gk];
+    const before = this.armed.length;
+    this.armed = this.armed.filter((a) => !(a.deckId === deck.id && a.slot.col === col && a.slot.row === row));
+    if (this.armed.length !== before) return 'cancelled';
+    const act = this.active[deck.id + ':' + col];
+    if (!act || act.slot.row !== row) return null;
+    const prev = back ? getSlot(deck, back.row, col) : null;
+    if (prev) {
+      this.fire({ deckId: deck.id, slot: prev }, now);
+      return 'back';
+    }
+    this.stopColumn(deck.id, col);
+    return 'stopped';
   };
 
   Engine.prototype.stopColumn = function (deckId, col) {
@@ -471,11 +554,13 @@
     nextGridTime,
     CLIP_TYPES,
     FOLLOW_ACTIONS,
+    LAUNCH_MODES,
     DEFAULT_FADE,
     makeSlot,
     makeDeck,
     getSlot,
     setSlot,
+    moveSlot,
     slotList,
     serializeDeck,
     slotKey,

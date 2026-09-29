@@ -125,11 +125,28 @@
         cell.appendChild(el('span', { class: 'perf-count', text: '' }));
         const rr2 = r;
         const cc2 = c;
+        /* Kapı kipindeki yuva basılı tutulurken çalar (#637 CD-2); diğerleri
+           tıkla ateşlenir. */
+        const gate = !!(slot && slot.ref && slot.launch === 'gate');
         cell.addEventListener('click', () => {
           cursorRow = rr2;
-          if (slot) DP().launchSlot(rr2, cc2);
+          if (slot && !gate) DP().launchSlot(rr2, cc2);
           paint();
         });
+        if (gate) {
+          cell.addEventListener('mousedown', (e) => {
+            if (e.button != null && e.button !== 0) return;
+            cursorRow = rr2;
+            DP().launchSlot(rr2, cc2);
+            const up = () => {
+              window.removeEventListener('mouseup', up);
+              if (DP().releaseSlot) DP().releaseSlot(rr2, cc2);
+              paint();
+            };
+            window.addEventListener('mouseup', up);
+            paint();
+          });
+        }
         grid.appendChild(cell);
       }
     }
@@ -142,6 +159,8 @@
     );
 
     host.addEventListener('keydown', onKey);
+    // Kapı kipi: tuş bırakılınca sütun önceki yuvaya döner
+    host.addEventListener('keyup', onKeyUp);
     document.body.appendChild(host);
     host.focus();
     timer = setInterval(paint, 100);
@@ -175,10 +194,19 @@
     }
     const col = COL_KEYS.indexOf(String(e.key).toLowerCase());
     if (col >= 0 && col < deck.cols) {
-      DP().launchSlot(cursorRow, col);
+      // Tuş tekrarı ikinci basış değil (aç/kapa kipi titrerdi)
+      if (!e.repeat) DP().launchSlot(cursorRow, col);
       paint();
       e.preventDefault();
     }
+  }
+
+  function onKeyUp(e) {
+    const deck = CD().makeDeck(deckSpec());
+    const col = COL_KEYS.indexOf(String(e.key).toLowerCase());
+    if (String(e.key).length !== 1 || col < 0 || col >= deck.cols || !DP().releaseSlot) return;
+    DP().releaseSlot(cursorRow, col);
+    paint();
   }
 
   function paint() {
@@ -194,11 +222,12 @@
       clock.textContent = b.bar + '.' + b.beat;
     }
 
-    const activeList = engine.activeSlots();
+    // Yalnız bu destenin yuvaları: başka destede çalan aynı hücreyi yakmasın
+    const activeList = engine.activeSlots().filter((a) => a.deckId === deck.id);
     const active = new Set(activeList.map((a) => a.slot.row + ':' + a.slot.col));
     const tempo = tr && tr.tl ? tr.tl.tempo : null;
     const prog = new Map(activeList.map((a) => [a.slot.row + ':' + a.slot.col, DP().progressOf(a, now, tempo)]));
-    const armed = new Map(engine.armed.map((a) => [a.slot.row + ':' + a.slot.col, a.at]));
+    const armed = new Map(engine.armed.filter((a) => a.deckId === deck.id).map((a) => [a.slot.row + ':' + a.slot.col, a.at]));
 
     for (let r = 0; r < deck.rows; r++) {
       const rowNode = host.querySelector('#pvr-' + r);
