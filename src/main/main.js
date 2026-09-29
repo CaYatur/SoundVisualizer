@@ -3274,6 +3274,21 @@ async function runSmoke() {
     if (c.warnOrWorse || /error|hata|failed|undefined is not/i.test(c.message)) errors.push(c.message);
   });
 
+  /* PANELİN OTOMATİK VJ'Sİ SUSTURULUYOR. Öz test gerçek ayarlarla koşuyor;
+     orada Otomatik VJ açıksa panel birkaç saniyede bir sahneyi değiştirip
+     görselleştiriciye gönderiyor ve testin kurduğu sahneyi ölçümün
+     ortasında eziyordu: ölçülen MilkDrop katmanı yoklamalar arasında
+     atılıyor, adımlar rastgele düşüyordu. Yalnız paneldeki bellek kopyası
+     değişiyor, dosyaya yazılmıyor (öz test ayar yazmıyor); Otomatik VJ'nin
+     kendi denetimi aşağıda onu yeniden açıp ölçüyor. */
+  if (adminWin && !adminWin.isDestroyed()) {
+    const held = await adminWin.webContents.executeJavaScript(
+      '(function(){ var c = window.SVPanel && window.SVPanel.cfg(); if (!c) return "panel yok";' +
+      ' var was = !!(c.autovj && c.autovj.enabled); if (c.autovj) c.autovj.enabled = false; return was ? "kapatıldı" : "zaten kapalı"; })()'
+    ).catch((e) => 'hata: ' + (e && e.message));
+    console.log('[SMOKE] panelin Otomatik VJ\'si: ' + held);
+  }
+
   const cam = await cameraProbe(meterWindow());
   console.log('[SMOKE] kamera: ' + cam);
   if (cam === 'AÇILDI') errors.push('camera opened during automation - it must stay off');
@@ -3296,10 +3311,18 @@ async function runSmoke() {
     send({ visualizer: Object.assign({}, base.visualizer, { type: m }), background: { type: 'solid', solidColor: '#101018' } });
     await wait(260);
     // Katman yığını gerçekten tuval üretti mi ve boyutlandı mı?
-    const st = await wc.executeJavaScript(
+    const look = () => wc.executeJavaScript(
       '(function(){var c=document.querySelectorAll("#stage canvas");' +
       'return { n: c.length, w: c.length ? c[c.length-1].width : 0 };})()'
     );
+    /* Soru "tuval oluşuyor mu", "260 ms'de mi" değil: gerçek ayarlarda
+       açılış sahnesi (ör. bir MilkDrop katmanı) pencereyi ilk ayarın
+       ulaştığı anda meşgul tutabiliyor. En çok ~2 sn bekleniyor. */
+    let st = await look();
+    for (let i = 0; i < 8 && !(st.n && st.w); i++) {
+      await wait(220);
+      st = await look();
+    }
     if (!st.n) errors.push('mode ' + m + ': katman tuvali oluşmadı');
     else if (!st.w) errors.push('mode ' + m + ': katman tuvalinin genişliği sıfır');
   }
