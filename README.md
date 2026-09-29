@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2311%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2321%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -432,6 +432,12 @@ that asserts the bar profile has no step in it.
   compiled as you type. Sliders for zoom, warp, rotation, decay and echo say when the preset's
   equations rewrite the value every frame. The original is never changed: *Save as a New Preset*
   keeps your version, and only what you changed is written — the rest of the file keeps its bytes.
+- **MilkDrop 2 and MilkDrop 3 rules.** A *Preset Format* setting — Automatic, MilkDrop 2 or
+  MilkDrop 3 — picks whose file rules a preset is read with: MilkDrop 3's 16 custom waves and shapes
+  and q1–q64, or MilkDrop 2's four and q1–q32. Automatic reads a preset with MilkDrop 3 rules when
+  it uses those extensions, and the panel names them. MilkDrop 3's hard-cut modes 1–6 are offered
+  with its thresholds and delays. Its new waveforms, `.milk2` double presets, new transitions and
+  `get_fft` in shaders are not here yet: nothing describes how they behave.
 - **Sprites from `milk_img.ini`.** MilkDrop 2 draws images of your own over the picture during a
   show: each one is defined in `milk_img.ini` with an image, code that runs once and code that
   runs every frame, and launched by number. Choose the file in the MilkDrop panel and launch from
@@ -1335,7 +1341,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2311 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2321 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

@@ -48,6 +48,25 @@
      adı onun kendi adı, arayüz metni değil. */
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
+  // MilkDrop 3 uzantılarının adları (shared/milkdrop.js `md3Features`, #567)
+  const FMT_LABELS = {
+    slots: '5.–16. dalga/şekil yuvası',
+    slot4: '5. yuva (MilkDrop 2 yok sayar)',
+    q64: 'q33–q64',
+    wavemode: 'dalga kipi 8 ve üstü (MilkDrop 2 kalanı alır)',
+    fft: 'shader\'da get_fft',
+    mouse: 'shader\'da mouse',
+  };
+  // MilkDrop 3'ün sert geçiş kipleri (README; eşik ve gecikme oradan)
+  const MD3_CUTS = [
+    ['md3-1', 'MilkDrop 3 · 1: bas > 1,5, en az 0,2 sn'],
+    ['md3-2', 'MilkDrop 3 · 2: tiz > 2,9, en az 0,5 sn'],
+    ['md3-3', 'MilkDrop 3 · 3: tiz > 2,9, en az 1 sn'],
+    ['md3-4', 'MilkDrop 3 · 4: tiz > 2,9, en az 3 sn; tiz > 8 hemen'],
+    ['md3-5', 'MilkDrop 3 · 5: tiz > 2,9, en az 5 sn'],
+    ['md3-6', 'MilkDrop 3 · 6: bas > 1,5'],
+  ];
+
   /* Panel liste gelmeden çizildiyse, liste gelince yeniden çizilmeli.
      Açılışta `init` listeyi callback'siz istiyor; panel o istek sürerken
      çizilirse (`loading` doğru olduğu için) ikinci bir istek de yapmıyordu,
@@ -1146,6 +1165,34 @@
       text: 'Açıkken motor MilkDrop\'un kendi değerlerini kullanır: gürültü dokularının kafes ölçekleri, gerçekten üç boyutlu hacim gürültüsü, ekran boyunca değişen renk kayması, doğru bulanıklık ölçeği ve kenar karartması, ağın MilkDrop sırasıyla kurulan dönüşümü (dikey yön, en-boy, yarıçap ve açı), warp titreşiminin kendi ölçeği ve hızı, dalga yumuşatma, sese göre dalga saydamlığı, özel dalgaların gerçek genliği ve tayf kaynağı, dış/iç kenarlıklar ve merkez karartma. Kapalı hâl motorun daha önceki yaklaşık değerlerini geri verir; presetler iki durumda da çalışır, yalnız görüntü farklıdır.',
     }));
 
+    /* BİÇİM (#567). Uyumdan ayrı eksen: hangi MilkDrop'un dosya kuralları.
+       MilkDrop 2'ye geçilince MilkDrop 3'ün sert geçiş kipleri gizleniyor;
+       seçili olan varsa MilkDrop 2'ninkine dönüyor. */
+    nodes.push(P().row('Preset Biçimi', selOf([
+      ['auto', 'Otomatik'],
+      ['md2', 'MilkDrop 2'],
+      ['md3', 'MilkDrop 3'],
+    ], md.format === 'md2' || md.format === 'md3' ? md.format : 'auto', (v) => {
+      md.format = String(v);
+      if (md.format === 'md2' && /^md3-/.test(md.hardCut || '')) md.hardCut = 'md2';
+    })));
+    const liveFmt = (() => {
+      try {
+        const M = window.SVMilkdrop;
+        return M && M.md3Features && md.source ? M.md3Features(md.source) : [];
+      } catch (e) { return []; }
+    })();
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: 'MilkDrop 3 kuralları 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa MilkDrop 3 kurallarıyla okur. MilkDrop 3\'ün 8 yeni basit dalga biçimi, .milk2 çift presetleri, yeni geçişleri ve shader\'daki get_fft henüz yok: hiçbir yerde tarif edilmiyorlar.',
+    }));
+    if (liveFmt.length) {
+      nodes.push(el('div', {
+        class: 'studio-note',
+        text: tr('Seçili preset MilkDrop 3 uzantısı kullanıyor') + ': ' + liveFmt.map((f) => tr(FMT_LABELS[f] || f)).join(', '),
+      }));
+    }
+
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
       text: 'Geçişte iki preset de çalışır: kare denklemleri, warp ağları ve shader\'ları aynı anda koşar ve ekranın farklı yerleri farklı zamanda yeni presete döner. Maliyeti neredeyse tam iki katı: 1280×720\'de ve varsayılan 64\'lük ağda kare süresi 2,7 ms\'den 5,2 ms\'ye çıkıyor, yani 60 fps bütçesinin %31\'i. En yoğun ağda (96) bu oran %67 oluyor.',
@@ -1728,10 +1775,17 @@
       }
       /* SERT GEÇİŞ (#568). Sesin ani yükselişinde karışmadan yeni preset.
          MilkDrop 2'nin kuralı ve varsayılanları; orada da KAPALI başlıyor. */
-      nodes.push(P().row('Sert Geçiş', selOf([
-        ['off', 'Kapalı'],
-        ['md2', 'MilkDrop 2 (ses yükselişi)'],
-      ], md.hardCut === 'md2' ? 'md2' : 'off', (v) => { md.hardCut = String(v); })));
+      /* MilkDrop 3'ün kipleri (#567) MilkDrop 2 biçiminde gizli. */
+      const cuts = [['off', 'Kapalı'], ['md2', 'MilkDrop 2 (ses yükselişi)']]
+        .concat(md.format === 'md2' ? [] : MD3_CUTS);
+      const cutNow = cuts.some((c) => c[0] === md.hardCut) ? md.hardCut : 'off';
+      nodes.push(P().row('Sert Geçiş', selOf(cuts, cutNow, (v) => { md.hardCut = String(v); })));
+      if (/^md3-/.test(cutNow)) {
+        nodes.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'MilkDrop 3\'ün kipleri: bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. Eşik ve gecikmeler MilkDrop 3\'ün açıklamasından. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.',
+        }));
+      }
       if (md.hardCut === 'md2') {
         nodes.push(SP().miniSlider('Sert Geçiş Eşiği',
           () => (md.hardCutThreshold == null ? 2.5 : md.hardCutThreshold),

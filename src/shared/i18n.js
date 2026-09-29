@@ -1511,6 +1511,25 @@
     'Rastgele Pay': 'Random Spread',
     'Sert Geçiş': 'Hard Cut',
     'MilkDrop 2 (ses yükselişi)': 'MilkDrop 2 (loudness jump)',
+    // MilkDrop 3 biçimi ve sert geçiş kipleri (#567)
+    'Preset Biçimi': 'Preset Format',
+    'Otomatik': 'Automatic',
+    'MilkDrop 3 kuralları 16 özel dalga ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32. Otomatik her preseti yüklenirken inceler: 5. ve sonraki yuvaları, q33–q64\'ü ya da shader\'da get_fft ve mouse kullanıyorsa MilkDrop 3 kurallarıyla okur. MilkDrop 3\'ün 8 yeni basit dalga biçimi, .milk2 çift presetleri, yeni geçişleri ve shader\'daki get_fft henüz yok: hiçbir yerde tarif edilmiyorlar.':
+      'MilkDrop 3 rules mean 16 custom wave and shape slots and q1–q64; MilkDrop 2 has four slots each and q1–q32. Automatic inspects each preset as it loads and reads it with MilkDrop 3 rules if it uses the 5th and later slots, q33–q64, or get_fft and mouse in a shader. MilkDrop 3’s 8 new simple waveforms, .milk2 double presets, new transitions and get_fft in shaders are not here yet: nothing describes them.',
+    'Seçili preset MilkDrop 3 uzantısı kullanıyor': 'The selected preset uses MilkDrop 3 extensions',
+    '5.–16. dalga/şekil yuvası': '5th–16th wave/shape slot',
+    '5. yuva (MilkDrop 2 yok sayar)': '5th slot (MilkDrop 2 ignores it)',
+    'dalga kipi 8 ve üstü (MilkDrop 2 kalanı alır)': 'wave mode 8 and above (MilkDrop 2 takes the remainder)',
+    'shader\'da get_fft': 'get_fft in a shader',
+    'shader\'da mouse': 'mouse in a shader',
+    'MilkDrop 3 · 1: bas > 1,5, en az 0,2 sn': 'MilkDrop 3 · 1: bass > 1.5, at least 0.2 s',
+    'MilkDrop 3 · 2: tiz > 2,9, en az 0,5 sn': 'MilkDrop 3 · 2: treble > 2.9, at least 0.5 s',
+    'MilkDrop 3 · 3: tiz > 2,9, en az 1 sn': 'MilkDrop 3 · 3: treble > 2.9, at least 1 s',
+    'MilkDrop 3 · 4: tiz > 2,9, en az 3 sn; tiz > 8 hemen': 'MilkDrop 3 · 4: treble > 2.9, at least 3 s; treble > 8 at once',
+    'MilkDrop 3 · 5: tiz > 2,9, en az 5 sn': 'MilkDrop 3 · 5: treble > 2.9, at least 5 s',
+    'MilkDrop 3 · 6: bas > 1,5': 'MilkDrop 3 · 6: bass > 1.5',
+    'MilkDrop 3\'ün kipleri: bas ya da tiz, kendi uzun ortalamasına göre, eşiği aşınca ve son geçişten bu yana en az o kadar süre geçtiyse karışmadan yeni presete geçilir. Eşik ve gecikmeler MilkDrop 3\'ün açıklamasından. 6. kipin çok yüksek basta belirli bir preseti yüklemesi ve 7. kipin efekt eklemesi tarif edilmediği için yok.':
+      'MilkDrop 3’s modes: when bass or treble, each against its own long average, crosses the threshold and at least that long has passed since the last change, the next preset loads without a blend. Thresholds and delays come from MilkDrop 3’s own description. Mode 6 loading a particular preset on very loud bass and mode 7 adding an effect are not here, as neither is described.',
     'Sert Geçiş Eşiği': 'Hard Cut Threshold',
     'Eşik Toparlanması': 'Threshold Recovery',
     'Bas, orta ve tiz, her biri kendi uzun ortalamasına göre, birlikte eşiğin üç katını aşınca karışmadan yeni presete geçilir. Eşik her kesimde iki katına çıkar ve sonra tabanına döner: arka arkaya patlamalar arka arkaya kesim yapmaz. Kural ve varsayılanlar MilkDrop 2\'nin (2,5 ve 60 sn); oradaki gibi, toparlanma süresi sonunda eşiğin fazlası dörtte bire iner.':

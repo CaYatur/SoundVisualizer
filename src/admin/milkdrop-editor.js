@@ -77,6 +77,15 @@
 
   // ------------------------------------------------------------------ oturum
 
+  /* Kaç dalga/şekil yuvası (#567): preset MilkDrop 3 kurallarıyla mı
+     okunuyor — motorun kararıyla aynı (biçim ayarı ve metin). */
+  function slotsFor(source) {
+    const m = M();
+    const c = P().cfg();
+    const fmt = (c && c.milkdrop && c.milkdrop.format) || 'auto';
+    return m && m.isMd3 && m.isMd3(fmt, source) ? 16 : 4;
+  }
+
   function start() {
     if (!E()) return;
     const cfg = P().cfg();
@@ -90,7 +99,8 @@
       return;
     }
     const baseName = p ? tr(p.name || p.id) : (md.name || tr('Preset'));
-    const r = E().read(source);
+    const slots = slotsFor(source);
+    const r = E().read(source, slots);
     S = {
       baseId: p ? p.id : (md.presetId || ''),
       baseName,
@@ -100,6 +110,7 @@
       source,
       blocks: r.blocks,
       values: r.values,
+      slots,
       rev: 0,
       tab: 'frame',
       wave: 0,
@@ -137,7 +148,8 @@
 
   function reset() {
     if (!S) return;
-    const r = E().read(S.first);
+    S.slots = slotsFor(S.first);
+    const r = E().read(S.first, S.slots);
     S.original = S.first;
     S.blocks = r.blocks;
     S.values = r.values;
@@ -147,7 +159,7 @@
 
   // Düzenlenmiş metin: bloklar ve değerler asıl metnin üstüne
   function compose() {
-    return E().write(S.original, S.blocks, S.values);
+    return E().write(S.original, S.blocks, S.values, S.slots);
   }
 
   /* Canlı uygulama. Presetin yeni bir sürümü, yeni bir kimlikle (motor
@@ -364,7 +376,7 @@
   function slotPicker(kind) {
     const el = P().el;
     const label = kind === 'wave' ? 'Dalga' : 'Şekil';
-    return el('div', { class: 'mded-slots' }, [0, 1, 2, 3].map((i) => {
+    return el('div', { class: 'mded-slots' }, Array.from({ length: S.slots }, (_, i) => i).map((i) => {
       const parts = kind === 'wave' ? ['init', 'per_frame', 'per_point'] : ['init', 'per_frame'];
       const used = parts.some((p) => (S.blocks[kind + '_' + i + '_' + p] || []).some((l) => l.trim()));
       return el('button', {
@@ -442,7 +454,8 @@
       /* Ham metin yeni temel: bloklar ve değerler ondan yeniden okunuyor,
          öteki sekmeler bir sonraki çizimde onu gösteriyor. */
       S.original = ta.value;
-      const r = E().read(ta.value);
+      S.slots = slotsFor(ta.value);
+      const r = E().read(ta.value, S.slots);
       S.blocks = r.blocks;
       S.values = r.values;
       S.focus = { block: '__text', start: ta.selectionStart, end: ta.selectionEnd };
