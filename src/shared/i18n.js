@@ -2375,6 +2375,9 @@
     'Katman kopyalandı.': 'Layer copied.',
     'Katman kilitli. Düzenlemek için kilidi açın.': 'Layer locked. Unlock to edit.',
     'Katman Efektleri': 'Layer Effects',
+    // Katman satırı (#622)
+    'Tümünü Aç': 'Expand All', 'Tümünü Kapat': 'Collapse All',
+    'Ayarları göster': 'Show settings', 'Ayarları gizle': 'Hide settings',
     'Katman Yığınını Kullan': 'Use Layer Stack',
     'Kaynak Katman': 'Source Layer',
     'Arka Katman': 'Back Layer',

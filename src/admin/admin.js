@@ -3159,6 +3159,7 @@
       const card = buildCard(sec);
       if (card) root.appendChild(card);
     });
+    layoutCards(root);
 
     renderNav();
     /* #615: innerHTML sonrası sync scrollTop layout oturmadan clamp olur (mode/katman/tür).
@@ -3175,6 +3176,46 @@
       requestAnimationFrame(restoreSectionsScroll);
     });
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
+  }
+
+  /* KART DÜZENİ (#622).
+
+     Kartlar satır satır diziliyordu ve bir satırın yüksekliği en uzun karta
+     göre belirleniyordu: kısa bir kartın altında büyük boşluk kalıyordu (Ses
+     Kaynakları ile Ses Analizi, Kayıt ile Basıklık Düzeltme). İki geniş kart
+     arasında tek kalan yarım kart da sağında boş bir yarım bırakıyordu
+     (Art-Net, Tempo ve Otomatik VJ, Renk Şablonlarım).
+
+     Taşma düzeni: ızgaranın satırları MASONRY_ROW piksel ve her kart kendi
+     yüksekliği kadar satır kaplıyor; yerleştirme sırası korunuyor, kart bir
+     üstteki boşluğa değil en yakın uygun yere oturuyor. Kartın boyu
+     değişince (katman açılınca, gelişmiş ayarlar görününce) aralık yeniden
+     ölçülüyor. Yalnız kalan yarım kart tam genişlik alıyor. */
+  const MASONRY_ROW = 4; // px — admin.css `.sections.masonry` ile aynı
+  let masonryRO = null;
+  function layoutCards(root) {
+    const kids = [...root.children];
+    let run = [];
+    const flush = () => { if (run.length === 1) run[0].classList.add('solo'); run = []; };
+    for (const c of kids) {
+      c.classList.remove('solo');
+      if (!c.classList.contains('card') || c.classList.contains('wide')) flush();
+      else run.push(c);
+    }
+    flush();
+    root.classList.add('masonry');
+    const gap = parseFloat(getComputedStyle(root).columnGap) || 14;
+    const span = (c) => {
+      const h = c.getBoundingClientRect().height;
+      const s = 'span ' + Math.max(1, Math.ceil((h + gap) / MASONRY_ROW));
+      if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
+    };
+    kids.forEach(span);
+    if (masonryRO) masonryRO.disconnect();
+    if (window.ResizeObserver) {
+      masonryRO = new ResizeObserver((entries) => { for (const e of entries) span(e.target); });
+      kids.forEach((c) => masonryRO.observe(c));
+    }
   }
 
   // Tek bir kart: başlık + gruplanmış kontroller (+ gelişmiş)
