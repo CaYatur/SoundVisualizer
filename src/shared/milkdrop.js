@@ -245,8 +245,6 @@
   };
   const MD2_MEM = { _mem: 'megabuf', _gmem: 'gmegabuf' };
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-  // Adlar büyük/küçük harf ayırmıyor (MilkDrop strcasecmp ile arıyor)
-  const MD2_FUNC_RE = /(^|[^a-z0-9_])_(if|and|or|not|equal|noteq|below|above|beleq|aboeq|mod|set|addop|subop|mulop|divop|modop|orop|andop|powop|mem|gmem)\s*\(/i;
 
   /* MilkDrop'un doğruluk ve eşitlik sınamaları bir YAKINLIK PAYIYLA
      (NSEEL_CLOSEFACTOR = 0,00001; ns-eel-int.h): mutlak değeri bunun
@@ -266,6 +264,143 @@
   const T_MD2 = (v) => v >= CLOSE || v <= -CLOSE;
   const T_STRICT = (v) => v > CLOSE || v < -CLOSE;
   const EQ_MD2 = (a, b) => { const d = a - b; return !(d >= CLOSE || d <= -CLOSE); };
+
+  /* SONSUZ, NaN VE TAŞMA (#580). MilkDrop 2'nin ifade motoru (Nullsoft
+     ns-eel2) 32 bitlik x87 kodu üretiyor; kuralları ondan DERLENMİŞ bir
+     karşılaştırma aracıyla ölçüldü (milkdrop-tools/eelref: aynı ifadeler, aynı
+     girdiler, iki motor). Eskiden "MilkDrop sonsuz verir" diye yazılmıştı;
+     ölçüm başka bir şey gösterdi:
+       • İşlemler ham: 1/0 = sonsuz, 0/0 = NaN, log(−1) = NaN, asin(2) = NaN.
+         Ara değerler böyle akıyor: min(1/0, 5) = 5, above(1/0, 3) = 1.
+       • DÜZ ATAMA temizliyor (asm-nseel-x86-msvc.c nseel_asm_assign): üs
+         alanı 0 (sıfır, altnormal) ya da 7FF (sonsuz, NaN) olan değer 0
+         yazılıyor. Bileşik atamalar (`+=`, `/=` …, _op işlevleri) ham yazıyor:
+         `q /= 0` sonsuz bırakıyor.
+       • Kod sıfıra doğru yuvarlama kipinde koşuyor (GLUE_CALL_CODE
+         `_RC_CHOP`): taşan çarpma/toplama/exp/pow sonsuz değil ±DBL_MAX
+         veriyor. Sıfıra bölme ve kutup (log(0), pow(0, −1)) yine sonsuz.
+       • x87 karşılaştırması NaN'da "sırasız": `<`, `>`, above, below DOĞRU;
+         `<=`, `>=` YANLIŞ. min(NaN, 1) = NaN ama min(1, NaN) = 1; max
+         tersine; sign(NaN) = −1.
+       • fsin/fcos |x| >= 2^63'te argümanı değiştirmeden bırakıyor, fptan
+         NaN veriyor.
+     Yalnız uyum açıkken; kapalıyken eski korumalı değerler. */
+  const DBL_MAX = Number.MAX_VALUE;
+  const DBL_MIN = 2.2250738585072014e-308;
+  const TWO63 = 9223372036854775808;
+  // Düz atamanın temizliği: sıfır/altnormal ve sonsuz/NaN → 0 (−0 da +0 oluyor)
+  const SAN = (v) => (v - v === 0 ? (v < DBL_MIN && v > -DBL_MIN ? 0 : v) : 0);
+  // Sonlu girdilerden gelen sonsuz TAŞMADIR: kırpma kipinde ±DBL_MAX
+  const OVF = (v, a, b) => ((v === Infinity || v === -Infinity) && a - a === 0 && b - b === 0
+    ? (v > 0 ? DBL_MAX : -DBL_MAX) : v);
+  /* KIRPMA KİPİ (#580). MilkDrop kodu x87'de yuvarlama kipi "sıfıra doğru"
+     iken koşturuyor (GLUE_CALL_CODE `_RC_CHOP`); her işlemin sonucu en yakına
+     değil sıfıra doğru yuvarlanıyor. Çoğu yerde son bit farkı, ama tam sayıya
+     çevrilen yerde görünür: 0,3·50 MilkDrop'ta 14,999999999999998, `int` 14
+     (korpusta `int(value1*50)`, `(100*value1)%7` yazan dalgalar). JavaScript
+     en yakına yuvarlıyor; sonucun tam değerden uzaklığı hata terimiyle (toplamada
+     TwoSum, çarpmada Dekker bölmesi) bulunuyor ve sonuç sıfırdan uzağa
+     yuvarlanmışsa bir basamak sıfıra çekiliyor. Yalnız `+ − · /`. */
+  const SPLIT = 134217729; // 2^27 + 1
+  const F64 = new Float64Array(1);
+  const U32 = new Uint32Array(F64.buffer);
+  const LO = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1 ? 0 : 1;
+  const HI = 1 - LO;
+  // Büyüklüğü bir basamak küçült (işaret korunur)
+  const toZero = (v) => {
+    F64[0] = v;
+    if (U32[LO] === 0) { U32[LO] = 0xFFFFFFFF; U32[HI] -= 1; } else U32[LO] -= 1;
+    return F64[0];
+  };
+  // a·b − p, tam (p = a·b en yakına yuvarlanmış)
+  const prodErr = (a, b, p) => {
+    let t = SPLIT * a;
+    const ah = t - (t - a), al = a - ah;
+    t = SPLIT * b;
+    const bh = t - (t - b), bl = b - bh;
+    return ((ah * bh - p) + ah * bl + al * bh) + al * bl;
+  };
+  // Hata sonucun tersi yöndeyse sonuç sıfırdan uzağa yuvarlanmış demektir
+  const chop = (v, err) => (err !== 0 && v !== 0 && (err > 0) !== (v > 0) ? toZero(v) : v);
+  const ADD_MD2 = (a, b) => {
+    const s = a + b;
+    if (s - s !== 0) return OVF(s, a, b);
+    const bb = s - a;
+    return chop(s, (a - (s - bb)) + (b - bb));
+  };
+  const SUB_MD2 = (a, b) => ADD_MD2(a, -b);
+  const MUL_MD2 = (a, b) => {
+    const p = a * b;
+    if (p - p !== 0) return OVF(p, a, b);
+    return chop(p, prodErr(a, b, p));
+  };
+  // Sıfıra bölme kutup: sonsuz ya da NaN kalıyor
+  const DIV_MD2 = (a, b) => {
+    if (b === 0) return a / b;
+    const q = a / b;
+    if (q - q !== 0) return OVF(q, a, b);
+    if (q === 0) return q;
+    // Kalan r = a − q·b tam; tam bölüm q + r/b
+    const pq = q * b;
+    const r = (a - pq) - prodErr(q, b, pq);
+    return r === 0 ? q : chop(q, (r > 0) === (b > 0) ? 1 : -1);
+  };
+  // C'nin pow'u: pow(1, NaN) = 1, pow(−1, ±∞) = 1 (JavaScript NaN veriyor)
+  const POW_MD2 = (a, b) => {
+    if (a === 1 || b === 0) return 1;
+    if (a === -1 && (b === Infinity || b === -Infinity)) return 1;
+    const v = Math.pow(a, b);
+    return a !== 0 ? OVF(v, a, b) : v;
+  };
+  const EXP_MD2 = (a) => { const v = Math.exp(a); return v === Infinity && a !== Infinity ? DBL_MAX : v; };
+  /* fsqrt da kırpma kipinde (`sqrt` MilkDrop'ta mutlak değerin karekökü):
+     s² tam olarak girdiyi aşıyorsa s bir basamak büyük yuvarlanmış */
+  const SQRT_MD2 = (a) => {
+    const x = Math.abs(a);
+    const s = Math.sqrt(x);
+    if (s - s !== 0 || s === 0) return s;
+    const p = s * s;
+    return (p - x) + prodErr(s, s, p) > 0 ? toZero(s) : s;
+  };
+  const LT_MD2 = (a, b) => !(a >= b);
+  const GT_MD2 = (a, b) => !(a <= b);
+  /* invsqrt: hızlı ters karekök (asm nseel_asm_invsqrt). Girdi float32'ye
+     kırpma kipinde iniyor (sığmayan FLT_MAX oluyor), 0x5f3759df sabiti ve
+     tek Newton adımı: y · (1,5 − 0,5 · x · y²). */
+  const F32 = new Float32Array(1);
+  const I32 = new Int32Array(F32.buffer);
+  const INVSQRT_MD2 = (x) => {
+    F32[0] = x;
+    // Math.fround en yakına yuvarlıyor; kırpma kipinde büyüklük aşılmaz
+    if (x - x === 0 && Math.abs(F32[0]) > Math.abs(x)) I32[0] -= 1;
+    const y0 = (I32[0] = 0x5f3759df - (I32[0] >> 1), F32[0]);
+    /* Her adım kırpma kipinde (fmul, fmul, fmul, fadd, fmul). x87'nin üs
+       aralığı geniş: ara değer taşmıyor, taşarsa sonuç DBL_MAX'a iniyor */
+    const t = MUL_MD2(MUL_MD2(MUL_MD2(x, -0.5), y0), y0);
+    const v = MUL_MD2(ADD_MD2(t, 1.5), y0);
+    return v - v === 0 ? v : OVF((x * -0.5 * y0 * y0 + 1.5) * y0, x, 0);
+  };
+  const FUNCS_MD2 = {
+    sin: (a) => (a >= TWO63 || a <= -TWO63 ? (a - a === 0 ? a : NaN) : Math.sin(a)),
+    cos: (a) => (a >= TWO63 || a <= -TWO63 ? (a - a === 0 ? a : NaN) : Math.cos(a)),
+    tan: (a) => (a >= TWO63 || a <= -TWO63 ? NaN : Math.tan(a)),
+    asin: (a) => Math.asin(a),
+    acos: (a) => Math.acos(a),
+    pow: POW_MD2,
+    exp: EXP_MD2,
+    log: (a) => Math.log(a),
+    log10: (a) => Math.log10(a),
+    sqr: (a) => MUL_MD2(a, a),
+    sqrt: SQRT_MD2,
+    min: (a, b) => (b < a ? b : a),
+    max: (a, b) => (a > b ? a : b),
+    sign: (a) => (a > 0 ? 1 : a === 0 ? 0 : -1),
+    above: (a, b) => (GT_MD2(a, b) ? 1 : 0),
+    below: (a, b) => (LT_MD2(a, b) ? 1 : 0),
+    // C: t = 1 + exp(−x·c); |t| > pay ise 1/t
+    sigmoid: (x, c) => { const t = 1 + Math.exp(-x * c); return t > CLOSE || t < -CLOSE ? 1 / t : 0; },
+    invsqrt: INVSQRT_MD2,
+  };
 
   /* x87 `fistp` ile 32 bitlik tam sayıya çevirme. MilkDrop kodu koşturmadan
      önce yuvarlama kipini KIRPMAYA alıyor (nseel-compiler.c GLUE_CALL_CODE:
@@ -315,10 +450,370 @@
     ['==', '!=', '<', '>', '<=', '>='],
     ['+', '-'], ['*', '/', '%'],
   ];
+  // ==========================================================================
+  // MILKDROP 2'NİN İFADE ÖN UCU (#580)
+  //
+  // Uyum açıkken denklemler MilkDrop 2'nin derleyicisinin (Nullsoft ns-eel2;
+  // BeatDrop kopyası 53d83ee, nseel-compiler.c preprocessCode, nseel-eval.c,
+  // nseel-lextab.c) okuduğu gibi okunuyor. Aşağısı onun DAVRANIŞININ bizim
+  // kodumuzla kurulmuş hâli; her kural derlenmiş gerçeğiyle karşılaştırılarak
+  // doğrulandı (milkdrop-tools/eelref: aynı ifade, iki motor):
+  //
+  //  1. ÖNİŞLEMCİ. Dilbilgisi yalnız `+ - * / & |`, tekli işaret, çağrı ve
+  //     parantez biliyor. Geri kalan işleçler metin düzeyinde çağrıya
+  //     çevriliyor; işlenenin sınırı METİN TARANARAK bulunuyor:
+  //       `a = x`   → `_set(a, x)`, sol taraf harf/rakam/`_`/`.` dışındaki ilk
+  //                  karaktere kadar geri, sağ taraf `, ) ;`'e kadar ileri;
+  //       `+= -= *= /= %= |= &= ^=` aynı biçimde (`_addop` …);
+  //       `== != < > <= >= && ||` sol taraf `: ( , ; ? %`'ye kadar geri, sağ
+  //                  taraf `, ) : ? ;` ya da `&&`/`||`'ye kadar ileri
+  //                  (`_equal`, `_below` …);
+  //       `%` ve `^` sol taraf tek terim, sağ taraf ilk ad/sayıdan sonraki
+  //                  işlece kadar (`_mod`, `pow`);
+  //       `!x` → `_not(x)`, `c ? a : b` → `_if(c, a, b)`, `x[i]` → `_mem(x+i)`;
+  //       `$pi $e $phi $x1F $'A'` sayıya.
+  //     Ölçülen "öncelikler" bunun sonucu: `-2^2` = −4, `3*-7%4` = −9,
+  //     `1<2<3` = 1<(2<3), `7%3^2` = (7%3)^2, `g = 1 + b*b = 7` =
+  //     g = 1 + b*(b = 7).
+  //  2. Parantez içinde `;` ardından harf, rakam, `( _ ! $` geliyorsa `%`
+  //     (dilbilgisinde DİZİ: iki yanı çalışır, sağdakinin değeri döner),
+  //     gelmiyorsa boşluk oluyor: `(k;; * 3)` = k*3.
+  //  3. En üstte `;` deyim ayırıcı. Bir deyim bile derlenemezse BLOK
+  //     BÜTÜNÜYLE düşüyor (MilkDrop "preset hatalı" uyarısı verip o bloğu
+  //     çalıştırmıyor, state.cpp RecompileExpressions).
+  //  4. Sayılar: noktasız tam sayı 32 bite kırpılıyor (atoi: 3000000000 →
+  //     2147483647); noktalıda üs işaretsiz (`1.5e2` = 150, `1.5e-2` =
+  //     `1.5e` − 2 = −0,5); noktasız üs (`1e3`) ve `0x1F` hata.
+  //  5. Adlar büyük/küçük harf ayırmıyor; bir işlev adı parantezsiz
+  //     kullanılırsa (`rot*sin*cos(t)`) hata.
+  // ==========================================================================
+  const md2Sp = (c) => c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\v' || c === '\f';
+  const md2Al = (c) => {
+    if (!c) return false;
+    const k = c.charCodeAt(0);
+    return (k >= 48 && k <= 57) || (k >= 65 && k <= 90) || (k >= 97 && k <= 122);
+  };
+  const md2Dig = (c) => !!c && c >= '0' && c <= '9';
+  const MD2_PRE_LISTS = ['', ':(,;?%', ',):?;', ',);', ',);', ''];
+  // [ilk karakter, ikinci karakter, sol tarama, sağ tarama, üretilen]
+  const MD2_PRE_OPS = [
+    ['+', '=', 0, 3, '_addop'], ['-', '=', 0, 3, '_subop'], ['%', '=', 0, 3, '_modop'],
+    ['|', '=', 0, 3, '_orop'], ['&', '=', 0, 3, '_andop'], ['/', '=', 0, 3, '_divop'],
+    ['*', '=', 0, 3, '_mulop'], ['^', '=', 0, 3, '_powop'],
+    ['=', '=', 1, 2, '_equal'], ['<', '=', 1, 2, '_beleq'], ['>', '=', 1, 2, '_aboeq'],
+    ['<', '', 1, 2, '_below'], ['>', '', 1, 2, '_above'], ['!', '=', 1, 2, '_noteq'],
+    ['|', '|', 1, 2, '_or'], ['&', '&', 1, 2, '_and'],
+    ['=', '', 0, 3, '_set'], ['%', '', 0, 0, '_mod'], ['^', '', 0, 0, 'pow'],
+    ['[', '', 0, 5, '['], ['!', '', -1, 0, '!'], ['?', '', 1, 4, '?'],
+  ];
 
-  // `popts.md2`: MilkDrop 2'nin iç işlevleri (`_aboeq` …) tanınsın mı
+  function md2Pre(src) {
+    const s = String(src);
+    const n = s.length;
+    let out = '';
+    let i = 0;
+    let depth = 0;
+    while (i < n) {
+      const c0 = s[i];
+      // Yorumlar
+      if (c0 === '/' && s[i + 1] === '/') {
+        i += 2;
+        while (i < n && s[i] !== '\n') i++;
+        continue;
+      }
+      if (c0 === '/' && s[i + 1] === '*') {
+        i += 2;
+        while (i < n && !(s[i] === '*' && s[i + 1] === '/')) i++;
+        if (i < n) i += 2;
+        continue;
+      }
+      // Sabitler
+      if (c0 === '$') {
+        const a = s[i + 1] || '', b = s[i + 2] || '', d = s[i + 3] || '';
+        if (a === 'x' || a === 'X') {
+          let j = i + 2, v = 0;
+          while (j < n && /[0-9a-fA-F]/.test(s[j])) { v = Math.min(4294967295, v * 16 + parseInt(s[j], 16)); j++; }
+          out += String(v);
+          i = j;
+          continue;
+        }
+        if (a === '\'' && b && d === '\'') { out += String(s.charCodeAt(i + 2) & 255); i += 4; continue; }
+        if ((a === 'p' || a === 'P') && (b === 'i' || b === 'I')) { out += '3.141592653589793'; i += 3; continue; }
+        if (a === 'e' || a === 'E') { out += '2.71828183'; i += 2; continue; }
+        if ((a === 'p' || a === 'P') && (b === 'h' || b === 'H') && (d === 'i' || d === 'I')) { out += '1.61803399'; i += 4; continue; }
+      }
+      let c = s[i++];
+      if (md2Sp(c)) c = ' ';
+      if (c === '(') depth++;
+      else if (c === ')') { depth--; if (depth < 0) depth = 0; }
+      else if (c === ';' && depth > 0) {
+        // Parantez içindeki `;`: sonrası bir terimse dizi işleci, değilse boşluk
+        let p = i, cs = 0, nc = '';
+        while (p < n) {
+          nc = s[p];
+          if (!cs && nc === '/') { if (s[p + 1] === '/') cs = 1; else if (s[p + 1] === '*') cs = 2; }
+          if (cs === 1 && nc === '\n') cs = 0;
+          else if (cs === 2 && nc === '*' && s[p + 1] === '/') { p++; cs = 0; }
+          else if (!cs && !md2Sp(nc)) break;
+          p++;
+        }
+        if (p >= n) nc = '';
+        c = nc && (md2Al(nc) || nc === '(' || nc === '_' || nc === '!' || nc === '$') ? '%' : ' ';
+      } else if (!md2Sp(c) && !md2Al(c)) {
+        let op = null;
+        for (const o of MD2_PRE_OPS) {
+          if (c === o[0] && (!o[1] || s[i] === o[1])) { op = o; break; }
+        }
+        if (op) {
+          const [, second, lscan, rscan, fn] = op;
+          // Sol taraf: çıktıda geriye
+          let lhs = null;
+          if (lscan >= 0) {
+            const list = MD2_PRE_LISTS[lscan];
+            let lp = out.length - 1, lsc = 0;
+            while (lp >= 0) {
+              const ch = out[lp];
+              if (ch === ')') lsc++;
+              else if (ch === '(') { lsc--; if (lsc < 0) break; }
+              else if (!lsc) {
+                if (!list) {
+                  if (!md2Sp(ch) && !md2Al(ch) && ch !== '_' && ch !== '.') break;
+                } else if (list.indexOf(ch) >= 0) break;
+              }
+              lp--;
+            }
+            lhs = out.slice(lp + 1);
+            out = out.slice(0, lp + 1);
+          }
+          if (second) i++;
+          // Sağ taraf: kaynakta ileriye
+          const list = MD2_PRE_LISTS[rscan];
+          let rp = i, rsc = 0, qc = 0, cs = 0, had = false, br = 0;
+          while (rp < n) {
+            const ch = s[rp];
+            if (!cs && ch === '/') { if (s[rp + 1] === '/') cs = 1; else if (s[rp + 1] === '*') cs = 2; }
+            if (cs === 1 && ch === '\n') cs = 0;
+            else if (cs === 2 && ch === '*' && s[rp + 1] === '/') { rp++; cs = 0; }
+            else if (!cs) {
+              if (ch === '(') { had = true; rsc++; }
+              else if (ch === ')') { rsc--; if (rsc < 0) break; }
+              else if (!rsc) {
+                if (ch === ';' || ch === ',') break;
+                if (!rscan) {
+                  if (ch === ':') break;
+                  if (!md2Sp(ch) && !md2Al(ch) && ch !== '_' && ch !== '.' && had) break;
+                  if (md2Al(ch) || ch === '_') had = true;
+                } else if (rscan === 2 && ((ch === '|' && s[rp + 1] === '|') || (ch === '&' && s[rp + 1] === '&'))) {
+                  break;
+                } else if (rscan === 3 || rscan === 4) {
+                  if (ch === ':') qc--; else if (ch === '?') qc++;
+                  if (qc < 3 - rscan) break;
+                } else if (rscan === 5) {
+                  if (ch === '[') br++; else if (ch === ']') br--;
+                  if (br < 0) break;
+                }
+                if (list.indexOf(ch) >= 0) break;
+              }
+            }
+            rp++;
+          }
+          const rhs = md2Pre(s.slice(i, rp));
+          i = rp;
+          if (fn === '[') {
+            const lp = (lhs || '').replace(/^\s+/, '');
+            const rr = rhs.replace(/^\s+/, '');
+            if (/^gmem(\s|$)/i.test(lp)) out += '_gmem(' + (rhs ? rhs : '0');
+            else if (rr && rr !== '0') out += '_mem((' + lp + ')+(' + rr + ')';
+            else out += '_mem(' + lp;
+            if (s[i] === ']') i++;
+          } else if (fn === '!') {
+            out += '_not(' + rhs;
+          } else if (fn === '?') {
+            // Sağ tarafı en üst düzeydeki ':'den böl
+            let k = 0, par = 0, q = 1;
+            for (; k < rhs.length; k++) {
+              const ch = rhs[k];
+              if (ch === '?') q++;
+              else if (ch === ':') q--;
+              else if (ch === '(') par++;
+              else if (ch === ')') par--;
+              if (par < 0) break;
+              if (!par && !q && ch === ':') break;
+            }
+            const yes = rhs.slice(0, k).replace(/^\s+/, '');
+            const no = (k < rhs.length ? rhs.slice(k + 1) : '').replace(/^\s+/, '');
+            out += '_if(' + (lhs || '') + ',' + (yes || '0') + ',' + (no || '0');
+          } else {
+            out += fn + '(' + (lhs || '') + ',' + rhs;
+          }
+          c = ')';
+        }
+      }
+      out += c;
+    }
+    return out;
+  }
+
+  // ns-eel2'nin işlev tablosu (nseel-compiler.c fnTable1) ve ad çevirisi (nseel-eval.c)
+  const MD2_ALIAS = {
+    if: '_if', bnot: '_not', assign: '_set', equal: '_equal', below: '_below', above: '_above',
+    megabuf: '_mem', gmegabuf: '_gmem', int: 'floor',
+  };
+  const MD2_ARITY = {
+    _if: 3, _and: 2, _or: 2, loop: 2, while: 1, _not: 1, _equal: 2, _noteq: 2, _below: 2, _above: 2,
+    _beleq: 2, _aboeq: 2, _set: 2, _mod: 2, _mulop: 2, _divop: 2, _orop: 2, _andop: 2, _addop: 2,
+    _subop: 2, _modop: 2, _powop: 2, sin: 1, cos: 1, tan: 1, asin: 1, acos: 1, atan: 1, atan2: 2,
+    sqr: 1, sqrt: 1, pow: 2, exp: 1, log: 1, log10: 1, abs: 1, min: 2, max: 2, sign: 1, rand: 1,
+    floor: 1, ceil: 1, invsqrt: 1, sigmoid: 2, band: 2, bor: 2, exec2: 2, exec3: 3, _mem: 1, _gmem: 1,
+  };
+  const MD2_CMP = { _equal: 'equal', _noteq: '!=', _below: '<', _above: '>', _beleq: '<=', _aboeq: '>=' };
+  const MD2_OPS = { _mulop: '*', _divop: '/', _orop: '|', _andop: '&', _addop: '+', _subop: '-', _modop: '%', _powop: '^' };
+
+  /* Önişlenmiş metnin dilbilgisi: `|` < `&` < `+ -` < `* / %` < tekli
+     işaret, hepsi soldan; `%` burada dizi (bkz. md2Pre, madde 2). */
+  function md2Tokens(src) {
+    const out = [];
+    const s = src;
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (md2Sp(c)) { i++; continue; }
+      // Tek başına `.` de sayı: atof(".") = 0 (korpusta `.-.4` yazan presetler var)
+      if (md2Dig(c) || c === '.') {
+        let j = i;
+        while (md2Dig(s[j])) j++;
+        if (s[j] === '.') {
+          j++;
+          while (md2Dig(s[j])) j++;
+          if (s[j] === 'e' || s[j] === 'E') { j++; while (md2Dig(s[j])) j++; }
+          out.push({ t: 'num', v: parseFloat(s.slice(i, j)) || 0 });
+        } else {
+          // atoi: taşan değer 2^31 − 1
+          const v = parseInt(s.slice(i, j), 10);
+          out.push({ t: 'num', v: v > 2147483647 ? 2147483647 : v });
+        }
+        i = j;
+        continue;
+      }
+      if (md2Al(c) || c === '_') {
+        let j = i;
+        while (j < s.length && (md2Al(s[j]) || s[j] === '_')) j++;
+        out.push({ t: 'id', v: s.slice(i, j).toLowerCase() });
+        i = j;
+        continue;
+      }
+      if ('+-*/%&|(),'.indexOf(c) >= 0) { out.push({ t: 'op', v: c }); i++; continue; }
+      throw new SyntaxError(`beklenmeyen '${c}'`);
+    }
+    out.push({ t: 'eof', v: '' });
+    return out;
+  }
+
+  function md2Statement(src) {
+    const toks = md2Tokens(src);
+    let pos = 0;
+    const peek = () => toks[pos];
+    const isOp = (v) => toks[pos].t === 'op' && toks[pos].v === v;
+    const expect = (v) => {
+      if (!isOp(v)) throw new SyntaxError(`'${v}' bekleniyordu, bulunan '${toks[pos].v || 'son'}'`);
+      pos++;
+    };
+    const LEVELS = [['|'], ['&'], ['+', '-'], ['*', '/', '%']];
+    function level(k) {
+      if (k >= LEVELS.length) return unary();
+      let left = level(k + 1);
+      while (peek().t === 'op' && LEVELS[k].indexOf(peek().v) >= 0) {
+        const op = peek().v;
+        pos++;
+        const right = level(k + 1);
+        if (op === '%') left = { k: 'seq', list: (left.k === 'seq' ? left.list : [left]).concat([right]) };
+        else left = { k: 'bin', op, a: left, b: right };
+      }
+      return left;
+    }
+    function unary() {
+      if (isOp('-')) { pos++; return { k: 'un', op: '-', a: unary() }; }
+      if (isOp('+')) { pos++; return unary(); }
+      return primary();
+    }
+    function primary() {
+      const tk = peek();
+      if (tk.t === 'num') { pos++; return { k: 'num', v: tk.v }; }
+      if (isOp('(')) { pos++; const e = level(0); expect(')'); return e; }
+      if (tk.t === 'id') {
+        pos++;
+        const name = MD2_ALIAS[tk.v] || tk.v;
+        const arity = own(MD2_ARITY, name) ? MD2_ARITY[name] : 0;
+        if (!arity) return { k: 'var', name: tk.v };
+        // İşlev adı: parantez şart
+        expect('(');
+        const args = [level(0)];
+        while (isOp(',')) { pos++; args.push(level(0)); }
+        expect(')');
+        if (args.length !== arity) throw new SyntaxError(`'${tk.v}' ${arity} argüman ister, ${args.length} verildi`);
+        return md2Call(name, args);
+      }
+      throw new SyntaxError(`beklenmeyen '${tk.v || 'son'}'`);
+    }
+    const e = level(0);
+    if (peek().t !== 'eof') throw new SyntaxError(`beklenmeyen '${peek().v}'`);
+    return e;
+  }
+
+  // Önişlemcinin ürettiği çağrıları motorun düğümlerine çevirir
+  function md2Call(name, args) {
+    const [a, b] = args;
+    const memOf = (x) => (x.k === 'call' && (x.name === 'megabuf' || x.name === 'gmegabuf') ? x : null);
+    if (name === '_set' || own(MD2_OPS, name)) {
+      const op = MD2_OPS[name] || '';
+      if (a.k === 'var') {
+        return op ? { k: 'assign', name: a.name, compound: true, v: { k: 'bin', op, a, b } }
+          : { k: 'assign', name: a.name, v: b };
+      }
+      const m = memOf(a);
+      if (m) return { k: 'bufset', buf: m.name, i: m.args[0], compound: op, v: b };
+      /* Değişken olmayan sol taraf (`0 = x`, önişlemcinin ürettiği `1 = 9`):
+         MilkDrop geçici bir yere yazıp değeri döndürüyor */
+      return op ? { k: 'bin', op, a, b } : { k: 'tmpset', v: b };
+    }
+    if (own(MD2_CMP, name)) {
+      const to = MD2_CMP[name];
+      return to === 'equal' ? { k: 'call', name: 'equal', args } : { k: 'bin', op: to, a, b };
+    }
+    if (name === '_and') return { k: 'bin', op: '&&', a, b };
+    if (name === '_or') return { k: 'bin', op: '||', a, b };
+    if (name === '_mod') return { k: 'bin', op: '%', a, b };
+    if (name === '_not') return { k: 'call', name: 'bnot', args };
+    if (name === '_if') return { k: 'call', name: 'if', args };
+    if (name === '_mem') return { k: 'call', name: 'megabuf', args };
+    if (name === '_gmem') return { k: 'call', name: 'gmegabuf', args };
+    if (name === 'loop') return { k: 'loop', n: a, body: [b] };
+    return { k: 'call', name, args };
+  }
+
+  /* MilkDrop'un bir bloğu okuması: önişlem, deyimlere bölme, her deyimin
+     ayrıştırılması. Bir deyim bile başarısızsa `errors` dolu döner ve
+     derleyici bloğu bütünüyle düşürür. */
+  function md2Parse(src) {
+    const stmts = [];
+    const errors = [];
+    let pre;
+    try { pre = md2Pre(src); } catch (e) { pre = ''; errors.push(String((e && e.message) || e)); }
+    for (const part of pre.split(';')) {
+      if (!part.trim()) continue;
+      try { stmts.push(md2Statement(part)); } catch (e) {
+        errors.push(String((e && e.message) || e) + ' — ' + part.trim().slice(0, 60));
+      }
+    }
+    stmts.errors = errors;
+    stmts.md2 = true;
+    return stmts;
+  }
+
+  /* `popts.md2`: MilkDrop 2'nin kendi ön ucuyla ayrıştır (md2Parse, #580).
+     Aşağısı uyum kapalıyken kullanılan eski ayrıştırıcı. */
   function parse(src, popts) {
-    const md2 = !!(popts && popts.md2);
+    if (popts && popts.md2) return md2Parse(src);
     const toks = tokenize(src);
     let pos = 0;
     const peek = () => toks[pos];
@@ -376,24 +871,6 @@
              denetimine takılır. */
           if (tk.v === 'assign' && args.length === 2 && args[0] && args[0].k === 'var') {
             return { k: 'assign', name: args[0].name, v: args[1] };
-          }
-          // MilkDrop 2'nin iç işlevleri, yalnız uyum açıkken (MD2_FUNCS)
-          if (md2 && own(MD2_ASSIGN_FUNCS, tk.v)) {
-            if (args.length !== 2 || !args[0] || args[0].k !== 'var') {
-              throw new SyntaxError(`'${tk.v}' bir değişken ve bir değer ister (satır ${tk.line})`);
-            }
-            const op = MD2_ASSIGN_FUNCS[tk.v];
-            const name = args[0].name;
-            return op ? { k: 'assign', name, v: { k: 'bin', op, a: { k: 'var', name }, b: args[1] } }
-              : { k: 'assign', name, v: args[1] };
-          }
-          if (md2 && (own(MD2_FUNCS, tk.v) || own(MD2_MEM, tk.v))) {
-            const to = MD2_FUNCS[tk.v] || MD2_MEM[tk.v];
-            const need = to === 'if' ? 3 : to === 'bnot' || MD2_MEM[tk.v] ? 1 : 2;
-            if (args.length !== need) {
-              throw new SyntaxError(`'${tk.v}' ${need} argüman ister, ${args.length} verildi (satır ${tk.line})`);
-            }
-            return FUNCS[to] ? { k: 'call', name: to, args } : { k: 'bin', op: to, a: args[0], b: args[1] };
           }
           const def = FUNCS[tk.v];
           if (!def) throw new SyntaxError(`bilinmeyen fonksiyon '${tk.v}' (satır ${tk.line})`);
@@ -456,8 +933,7 @@
          MilkDrop'un ifade dilinde megabuf() bir GÖSTERGE döndürür, dolayısıyla
          atamanın sol tarafında durabilir. Dilin geri kalanında çağrıya atama
          yoktur; bu yüzden yalnızca bu iki ad için açılıyor. */
-      const memOf = (v) => (v === 'megabuf' || v === 'gmegabuf' ? v
-        : md2 && own(MD2_MEM, v) ? MD2_MEM[v] : '');
+      const memOf = (v) => (v === 'megabuf' || v === 'gmegabuf' ? v : '');
       if (peek().t === 'id' && memOf(peek().v)
           && toks[pos + 1] && toks[pos + 1].t === 'op' && toks[pos + 1].v === '(') {
         const buf = memOf(peek().v);
@@ -482,7 +958,7 @@
         const name = peek().v;
         const op = toks[pos + 1].v[0];
         pos += 2;
-        return { k: 'assign', name, v: { k: 'bin', op, a: { k: 'var', name }, b: expr() } };
+        return { k: 'assign', name, compound: true, v: { k: 'bin', op, a: { k: 'var', name }, b: expr() } };
       }
       // Atama: sol taraf tek bir değişken olmalı
       if (peek().t === 'id' && toks[pos + 1] && toks[pos + 1].t === 'op' && toks[pos + 1].v === '=') {
@@ -632,16 +1108,25 @@
       case 'assign': {
         const i = pool.id(node.name);
         const rhs = emit(node.v, pool, cx);
-        const F = cx.F;
+        const F = cx.F, mode = cx.mode;
+        /* Uyum açıkken düz atama temizliyor (SAN), bileşik atama ham yazıyor
+           (bkz. SAN, #580); kapalıyken ikisi de eskisi gibi sonlu tutuyor. */
+        const W = node.compound ? (v) => (mode.md2 ? v : F(v)) : (v) => (mode.md2 ? SAN(v) : F(v));
         if (REG_RE.test(node.name)) {
-          const r = +node.name.slice(3), mode = cx.mode;
+          const r = +node.name.slice(3);
           return (P) => {
-            const v = F(rhs(P));
+            const v = W(rhs(P));
             if (mode.md2) REGS[r] = v; else P[i] = v;
             return v;
           };
         }
-        return (P) => (P[i] = F(rhs(P)));
+        return (P) => (P[i] = W(rhs(P)));
+      }
+      case 'tmpset': {
+        // Değişken olmayana atama (`0 = x`): değer temizlenip dönüyor, yazılmıyor
+        const rhs = emit(node.v, pool, cx);
+        const F = cx.F, mode = cx.mode;
+        return (P) => (mode.md2 ? SAN(rhs(P)) : F(rhs(P)));
       }
       case 'un': {
         const a = emit(node.a, pool, cx);
@@ -691,22 +1176,24 @@
         if (!node.compound) {
           return (P) => {
             const md2 = mode.md2;
-            return mem.set(memKey(i(P), md2, g), F(v(P)), memMax(md2, g));
+            return mem.set(memKey(i(P), md2, g), md2 ? SAN(v(P)) : F(v(P)), memMax(md2, g));
           };
         }
         /* Bileşik atamada indeks BİR KEZ değerlendirilir: `megabuf(n=n+1) *= 2`
            gibi yan etkili bir indeks iki kez çalışsaydı iki farklı gözü
-           okuyup yazardı. İşleç de burada, derleme anında seçiliyor. */
+           okuyup yazardı. İşleç de burada, derleme anında seçiliyor.
+           Uyum açıkken ham yazıyor (bkz. SAN). */
         const D = cx.D, MM = cx.M, op = node.compound;
-        const apply = op === '+' ? (a, b) => a + b
-          : op === '-' ? (a, b) => a - b
-            : op === '*' ? (a, b) => a * b
+        const apply = op === '+' ? (a, b) => (mode.md2 ? ADD_MD2(a, b) : a + b)
+          : op === '-' ? (a, b) => (mode.md2 ? SUB_MD2(a, b) : a - b)
+            : op === '*' ? (a, b) => (mode.md2 ? MUL_MD2(a, b) : a * b)
               : op === '/' ? (a, b) => D(a, b)
                 : (a, b) => MM(a, b);
         return (P) => {
           const md2 = mode.md2, max = memMax(md2, g);
           const k = memKey(i(P), md2, g);
-          return mem.set(k, F(apply(mem.get(k, max), v(P))), max);
+          const r = apply(mem.get(k, max), v(P));
+          return mem.set(k, md2 ? r : F(r), max);
         };
       }
       case 'bin':
@@ -722,17 +1209,31 @@
   const guard = (fn, F) => (P) => F(fn(P));
 
   function binExpr(node, pool, cx) {
-    const a = emit(node.a, pool, cx);
-    const b = emit(node.b, pool, cx);
-    const F = cx.F;
+    let a = emit(node.a, pool, cx);
+    let b = emit(node.b, pool, cx);
+    /* İşaretçi sırası (#580, MilkDrop okuyuşunda). ns-eel basit bir değişkeni
+       işleme GÖSTERGE olarak veriyor ve değerini işlem anında okuyor; öbür
+       işlenen o sırada çoktan hesaplanmış oluyor. `b*(b = 7)` MilkDrop'ta
+       7·7 = 49 (eelref: `g = 1 + b*b = 7` → 50). Sol işlenen değişken, sağı
+       hesaplanan bir ifadeyse önce sağ hesaplanıyor. Kısa devreli `&&`/`||`
+       hariç: orada sağ taraf gerekmedikçe çalışmıyor. */
+    if (cx.md2Ast && node.op !== '&&' && node.op !== '||' && node.a.k === 'var'
+        && node.b.k !== 'var' && node.b.k !== 'num') {
+      const a0 = a, b0 = b;
+      let cb = 0;
+      a = (P) => { cb = b0(P); return a0(P); };
+      b = () => cb;
+    }
+    const F = cx.F, md = cx.mode;
     switch (node.op) {
-      case '+': return (P) => a(P) + b(P);
-      case '-': return (P) => a(P) - b(P);
-      case '*': return (P) => a(P) * b(P);
-      // Sıfıra bölme MilkDrop'ta hata değil: sonuç 0 kabul edilir
+      // Uyum açıkken taşma ±DBL_MAX (kırpma kipi, bkz. OVF)
+      case '+': return (P) => { const x = a(P), y = b(P); return md.md2 ? ADD_MD2(x, y) : x + y; };
+      case '-': return (P) => { const x = a(P), y = b(P); return md.md2 ? SUB_MD2(x, y) : x - y; };
+      case '*': return (P) => { const x = a(P), y = b(P); return md.md2 ? MUL_MD2(x, y) : x * y; };
+      // Sıfıra bölme: kapalıyken 0, açıkken MilkDrop'taki gibi sonsuz/NaN (bkz. D)
       case '/': { const D = cx.D; return (P) => D(a(P), b(P)); }
       case '%': { const M = cx.M; return (P) => M(a(P), b(P)); }
-      case '^': return (P) => F(Math.pow(a(P), b(P)));
+      case '^': return (P) => { const x = a(P), y = b(P); return md.md2 ? POW_MD2(x, y) : F(Math.pow(x, y)); };
       // Uyum açıkken yakınlık payıyla (CLOSE)
       case '==': {
         const mode = cx.mode;
@@ -742,8 +1243,9 @@
         const mode = cx.mode;
         return (P) => { const x = a(P), y = b(P); return (mode.md2 ? !EQ_MD2(x, y) : x !== y) ? 1 : 0; };
       }
-      case '<': return (P) => (a(P) < b(P) ? 1 : 0);
-      case '>': return (P) => (a(P) > b(P) ? 1 : 0);
+      // x87'de NaN'lı `<` ve `>` DOĞRU (bkz. LT_MD2); `<=`, `>=` birebir
+      case '<': return (P) => { const x = a(P), y = b(P); return (md.md2 ? LT_MD2(x, y) : x < y) ? 1 : 0; };
+      case '>': return (P) => { const x = a(P), y = b(P); return (md.md2 ? GT_MD2(x, y) : x > y) ? 1 : 0; };
       case '<=': return (P) => (a(P) <= b(P) ? 1 : 0);
       case '>=': return (P) => (a(P) >= b(P) ? 1 : 0);
       /* && ve || JavaScript'te olduğu gibi kısa devre yapar: sağ taraf
@@ -841,9 +1343,17 @@
        SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
        anında ad üzerinden arama yok. */
     const def = FUNCS[name];
-    const f = def && def[1];
+    const f0 = def && def[1];
+    /* Uyum açıkken MilkDrop'un ham C/x87 davranışı (FUNCS_MD2, bkz. SAN);
+       kapalıyken korumalı olanlar. invsqrt yalnız uyum açıkken ayrışıyor. */
+    const fm = FUNCS_MD2[name];
+    const f = fm && f0 ? (...v) => (mode.md2 ? fm : f0)(...v) : (f0 || fm);
     if (!f) return () => 0;
     // Argüman sayısına göre özelleşiyoruz: apply/yayılım her çağrıda dizi ayırır
+    /* İki ayrı çağrı noktası: tek noktada değişen hedef (`(md2 ? fm : f0)(…)`)
+       V8'in satır içine almasını engelliyor ve per-pixel'de pahalı */
+    if (fm && f0 && a.length === 1) { const x = a[0]; return (P) => (mode.md2 ? fm(x(P)) : f0(x(P))); }
+    if (fm && f0 && a.length === 2) { const x = a[0], y = a[1]; return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P))); }
     if (a.length === 1) { const x = a[0]; return (P) => f(x(P)); }
     if (a.length === 2) { const x = a[0], y = a[1]; return (P) => f(x(P), y(P)); }
     if (a.length === 3) { const x = a[0], y = a[1], z = a[2]; return (P) => f(x(P), y(P), z(P)); }
@@ -875,11 +1385,26 @@
        panel bunu göstersin diye. Sessizce çalıştırmak, kullanıcıya yanlış
        görünen bir sahnenin sebebini saklardı. */
     const skipped = (stmts.errors || []).slice();
+    /* MilkDrop'un okuyuşunda (md2Parse) bir deyim bile derlenemezse BLOK
+       BÜTÜNÜYLE düşüyor — MilkDrop o bloğu hiç çalıştırmıyor (state.cpp
+       RecompileExpressions: NSEEL_code_compile NULL döndürünce kod yok).
+       Eskiden deyim deyim kurtarılıyordu; ayrıştırıcılar neyin hata olduğunda
+       ayrıştığı için bütünüyle düşürmek doğru blokları da düşürürdü. Artık
+       ayrıştırıcı MilkDrop'unkiyle aynı: korpusun 10.757 tekil bloğunda
+       derlenip derlenmeme iki motorda aynı (eelref). */
+    if (stmts.md2 && skipped.length) {
+      return {
+        run: () => 0, pool: p, statements: 0, skipped: skipped.length, dropped: true,
+        error: 'blok derlenmedi (MilkDrop da çalıştırmıyor): ' + skipped.join(' | '),
+        resetSeed: () => {},
+      };
+    }
     const mode = o.mode || { md2: false };
     // Yardımcılar kapanışa dışarıdan verilir; üretilen kodda serbest
     // tanımlayıcı yoktur.
     const F = (v) => (isFinite(v) ? v : 0);
-    const D = (a, b) => (b === 0 ? 0 : F(a / b));
+    // Uyum açıkken ham bölme (sıfıra bölme sonsuz/NaN; atama temizler — SAN)
+    const D = (a, b) => (mode.md2 ? DIV_MD2(a, b) : b === 0 ? 0 : F(a / b));
     // Kalan: uyum açıkken MilkDrop'unki (MOD_MD2), kapalıyken işaretli
     const M = (a, b) => {
       if (mode.md2) return MOD_MD2(a, b);
@@ -910,7 +1435,7 @@
     /* Yardımcılar kapanışlara buradan verilir. R tohumu dışarıda tuttuğu
        için resetSeed sonradan da çalışır. */
     const budget = { n: 0 };
-    const cx = { F, D, M, R, budget, mode };
+    const cx = { F, D, M, R, budget, mode, md2Ast: !!stmts.md2 };
     const LOOP_BUDGET = Math.max(0, Number(o.loopBudget) || 65536);
     // Uyum açıkken bütçe (verilmezse aynısı): MilkDrop'un izin verdiğine yakın
     const LOOP_BUDGET_MD2 = Math.max(0, Number(o.loopBudgetMd2) || LOOP_BUDGET);
@@ -1115,10 +1640,9 @@
      ikinci bir satıra bölmesi bayt kuralları; çözülmüş metinde birebir
      kurulamıyor ve korpusta hiçbir dosyada etkisi yok. Değerler double
      kalıyor: MilkDrop float'a çeviriyor, fark 1e-7'nin altında. Derlenemeyen
-     bir blok MilkDrop'ta bütünüyle düşüyor, bizde deyim deyim kurtarılıyor:
-     bizim ayrıştırıcımızla MilkDrop'unki neyin hata olduğunda ayrışıyor
-     (korpusta `_aboeq` gibi iç işlevler), o yüzden bütünüyle düşürmek
-     yanlış blokları da düşürürdü. */
+     bir blok MilkDrop'ta bütünüyle düşüyor; uyum açıkken bizde de (bkz.
+     md2Parse ve compile): ayrıştırıcı artık MilkDrop'unkiyle aynı, korpusun
+     10.757 tekil bloğunda derlenip derlenmeme iki motorda aynı. */
   function md2Index(text) {
     const s = String(text == null ? '' : text);
     const N = s.length;
@@ -1311,7 +1835,16 @@
     const code = (f) => [f.init, f.perFrame, f.perPixel]
       .concat(...(f.waves || []).map((w) => [w.init, w.per_frame, w.per_point]),
         ...(f.shapes || []).map((s) => [s.init, s.per_frame])).join('\n');
-    if (MD2_FUNC_RE.test(code(a)) || MD2_FUNC_RE.test(code(b))) return true;
+    /* Uyum ayrıştırmayı da değiştiriyor (#580): iç işlev adları, invsqrt,
+       öncelik ve birleşme yönü. Tahmin yerine kod iki kipte ayrıştırılıp
+       ağaçlar karşılaştırılıyor — yalnız anahtar çevrildiğinde çalışıyor. */
+    const tree = (src, md2) => {
+      const st = parse(src, { md2 });
+      return JSON.stringify({ st, e: st.errors || [] });
+    };
+    for (const src of [code(a), code(b)]) {
+      if (tree(src, false) !== tree(src, true)) return true;
+    }
     if (JSON.stringify(md2Versions(a.params)) !== JSON.stringify(md2Versions(b.params))) return true;
     // Sürüm anahtarları bu kümede yok (readVersions kaydetmiyor): yukarıda karşılaştırıldılar
     for (const k of MD2_READ_KEYS) {
