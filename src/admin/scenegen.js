@@ -91,6 +91,26 @@
     ['feedback', (a) => 0.3 + a.energy * 0.4 + a.dark * 0.4],
   ];
 
+  /* Elle ağırlık verilmemiş modlar katalogdan, grubuna göre bir varsayılanla
+     havuza girer (#638). Eskiden havuz elle tutuluyordu ve yeni modların
+     çoğu sahne üreticisine hiç çıkmıyordu. Kendi ayar kartı olan motorlar
+     (MilkDrop, 3B geometri, Studio) rastgele seçilmiyor. */
+  const MC = () => window.SVModeCatalog;
+  const GROUP_WEIGHT = {
+    'Üretken Sistemler': (a) => 0.3 + a.organic * 0.3,
+    'Ölçüm': (a) => 0.2 - a.organic * 0.3,
+    'Üretken Zeminler': (a) => 0.35 + a.organic * 0.2,
+  };
+  function withCatalog(list, kind) {
+    const have = new Set(list.map((x) => x[0]));
+    const out = list.slice();
+    for (const m of (MC() ? MC()[kind === 'background' ? 'BACKGROUNDS' : 'VISUALIZERS'] : [])) {
+      if (have.has(m.id) || m.cycle === false || m.engine || m.id === 'solid') continue;
+      out.push([m.id, GROUP_WEIGHT[m.group] || (() => 0.3)]);
+    }
+    return out;
+  }
+
   function rng(s) {
     let x = (s >>> 0) || 1;
     return () => {
@@ -185,8 +205,8 @@
   function generate() {
     const axes = analyze(prompt);
     const rand = rng(hashString(String(prompt)) ^ (seed * 2654435761));
-    const bg = pick(BACKGROUNDS, axes, rand);
-    const vis = pick(VISUALIZERS, axes, rand);
+    const bg = pick(withCatalog(BACKGROUNDS, 'background'), axes, rand);
+    const vis = pick(withCatalog(VISUALIZERS, 'visualizer'), axes, rand);
     const colors = palette(axes, rand);
 
     const energy01 = (axes.energy + 1) / 2;
@@ -249,24 +269,6 @@
     ];
   }
 
-  // Mod kimliğini kullanıcıya gösterilecek ada çevirir
-  const BG_LABELS = {
-    gradient: 'Akışkan Gradyan', ink: 'Mürekkep', nebula: 'Bulutsu', waves: 'Dalga Katmanları',
-    aurora: 'Kutup Işıkları', grid: 'Retro Izgara', hexgrid: 'Petek Izgara', mosaic: 'Mozaik',
-    corridor: 'Koridor', spiral: 'Sarmal', rings: 'Nabız Halkaları', network: 'Ağ',
-    starfield: 'Yıldız Alanı', snow: 'Kar / Kor', bokeh: 'Işık Parçacıkları', rain: 'Dijital Yağmur',
-    city: 'Şehir', solid: 'Düz Renk',
-  };
-  const VIS_LABELS = {
-    bars: 'Barlar', centerBars: 'Merkez', blocks: 'Segment', dots: 'Nokta Matris', wave: 'Dalga',
-    ribbon: 'Şerit', wave3d: '3B Dalga', lissajous: 'Lissajous', strings: 'Teller', terrain: 'Arazi',
-    circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın', arcs: 'Yaylar',
-    pinwheel: 'Fırıldak', mandala: 'Mandala', kaleido: 'Kaleydoskop', vortex: 'Girdap',
-    helix: 'Helis', tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', fireworks: 'Havai Fişek',
-    lightning: 'Şimşek', bubbles: 'Baloncuk', metaball: 'Sıvı Damla', ripplegrid: 'Dalgalı Izgara',
-    skyline: 'Şehir Silüeti', spectrogram: 'Spektrogram', feedback: 'Geri Besleme',
-  };
-
   function panel() {
     const el = P().el;
     const nodes = [];
@@ -313,9 +315,9 @@
           chips,
           el('div', { class: 'gen-pair' }, [
             el('span', { class: 'dim-hint', text: 'Arkaplan' }),
-            el('span', { text: BG_LABELS[lastResult.bg] || lastResult.bg }),
+            el('span', { text: MC().label('background', lastResult.bg) }),
             el('span', { class: 'dim-hint', text: 'Görselleştirici' }),
-            el('span', { text: VIS_LABELS[lastResult.vis] || lastResult.vis }),
+            el('span', { text: MC().label('visualizer', lastResult.vis) }),
           ]),
         ])
       );

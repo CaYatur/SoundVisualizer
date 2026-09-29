@@ -330,43 +330,13 @@
      boyunca bellekte durur, ayar dosyasına yazılmaz. */
   let clipboard = null;
 
+  // Mod listeleri tek kaynaktan (shared/mode-catalog.js, #638)
+  const MC = () => window.SVModeCatalog || require('../shared/mode-catalog.js');
+
   // Katman türüne göre seçilebilir mod listesi
   function typeOptionsFor(kind) {
-    if (kind === 'background') {
-      return [
-        ['gradient', 'Akışkan Gradyan'], ['ink', 'Mürekkep'], ['nebula', 'Bulutsu'],
-        ['waves', 'Dalga Katmanları'], ['aurora', 'Kutup Işıkları'], ['grid', 'Retro Izgara'],
-        ['hexgrid', 'Petek Izgara'], ['mosaic', 'Mozaik'], ['corridor', 'Koridor'],
-        ['spiral', 'Sarmal'], ['rings', 'Nabız Halkaları'], ['network', 'Ağ'],
-        ['starfield', 'Yıldız Alanı'], ['snow', 'Kar / Kor'], ['bokeh', 'Işık Parçacıkları'],
-        ['rain', 'Dijital Yağmur'], ['city', 'Şehir'],
-        ['liquid', 'Sıvı Metal'], ['plasma', 'Plazma'], ['caustics', 'Su Yüzeyi'],
-        ['ribbons', 'Şeritler'], ['contours', 'Eşyükselti'], ['wavefield', 'Dalga Alanı'],
-        ['embers', 'Kıvılcım'], ['sand', 'Kum'], ['stained', 'Vitray'],
-        ['circuit', 'Devre Kartı'], ['prism', 'Prizma'], ['globe', 'Küre Ağı'],
-        ['wireframe', 'Tel Tüneli'], ['hexpulse', 'Petek Nabzı'],
-        ['custom', 'Studio Preset'], ['solid', 'Düz Renk'],
-      ];
-    }
-    if (kind === 'visualizer') {
-      return [
-        ['bars', 'Barlar'], ['centerBars', 'Merkez'], ['blocks', 'Segment'], ['dots', 'Nokta Matris'],
-        ['skyline', 'Şehir Silüeti'], ['wave', 'Dalga'], ['ribbon', 'Şerit'], ['wave3d', '3B Dalga'],
-        ['lissajous', 'Lissajous'], ['strings', 'Teller'], ['terrain', 'Arazi'], ['circular', 'Çember'],
-        ['radialWave', 'Dairesel Dalga'], ['starburst', 'Işın'], ['arcs', 'Yaylar'], ['pinwheel', 'Fırıldak'],
-        ['mandala', 'Mandala'], ['kaleido', 'Kaleydoskop'], ['vortex', 'Girdap'], ['helix', 'Helis'],
-        ['tunnel', 'Tünel'], ['orb', 'Küre'], ['particles', 'Parçacık'], ['fireworks', 'Havai Fişek'],
-        ['lightning', 'Şimşek'], ['bubbles', 'Baloncuk'], ['metaball', 'Sıvı Damla'],
-        ['ripplegrid', 'Dalgalı Izgara'], ['spectrogram', 'Spektrogram'], ['geometry', '3B Geometri'],
-        ['flowfield', 'Akış Alanı'], ['flock', 'Sürü'], ['voronoi', 'Voronoi'],
-        ['truchet', 'Truchet'], ['moire', 'Moiré'], ['interference', 'Dalga Girişimi'],
-        ['ropes', 'İpler'], ['galaxy', 'Galaksi'], ['dna', 'DNA Sarmalı'],
-        ['isocity', 'İzometrik Şehir'], ['attractorfield', 'Çekici Alanı'],
-        ['scope', 'Osiloskop (XY)'], ['goniometer', 'Gonyometre'], ['chromawheel', 'Kroma Çemberi'],
-        ['text', 'Metin / Şarkı Sözü'], ['nowplaying', 'Çalan Parça'],
-        ['milkdrop', 'MilkDrop'], ['feedback', 'Geri Besleme'], ['custom', 'Studio Preset'],
-      ];
-    }
+    if (kind === 'background') return MC().layerPairs('background');
+    if (kind === 'visualizer') return MC().layerPairs('visualizer');
     if (kind === 'sprites') return [['back', 'Arka Katman'], ['front', 'Ön Katman']];
     return [];
   }
@@ -976,7 +946,7 @@
 
       if (getColorMode() === 'custom') {
         out.push(miniColor('Renk', () => getV('color', '#ff2d3a'), (v) => setV('color', v)));
-        if (['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].includes(l.type)) {
+        if (MC().is('visualizer', l.type, 'color2')) {
           out.push(miniColor('İkincil Renk', () => getV('color2', '#3aa6ff'), (v) => setV('color2', v)));
         }
       }
@@ -986,14 +956,10 @@
       }
 
       // Bar / Band ayarları
-      const usesBands = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'spectrogram', 'starburst', 'terrain', 'orb', 'tunnel',
-        'kaleido', 'helix', 'metaball', 'vortex', 'mandala', 'skyline', 'arcs', 'pinwheel', 'strings'];
-      if (usesBands.includes(l.type)) {
+      if (MC().is('visualizer', l.type, 'bands')) {
         out.push(miniSlider('Bar Sayısı', () => getV('barCount', 64), (v) => setV('barCount', v), { min: 16, max: 160, step: 1 }));
       }
-      const hasGap = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'starburst',
-        'kaleido', 'metaball', 'skyline', 'arcs', 'strings', 'ripplegrid'];
-      if (hasGap.includes(l.type)) {
+      if (MC().is('visualizer', l.type, 'gap')) {
         out.push(miniSlider('Bar Boşluğu', () => getV('gap', 0.3), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true }));
       }
       if (['bars', 'wave', 'radialWave'].includes(l.type)) {
@@ -1008,10 +974,11 @@
         out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true }));
       }
 
-      const isWaveMode = ['wave', 'ribbon', 'radialWave', 'terrain', 'orb',
-        'helix', 'vortex', 'mandala', 'fireworks', 'lightning', 'lissajous', 'strings', 'wave3d', 'bubbles'];
-      if (isWaveMode.includes(l.type)) {
+      // Tek mod kartıyla aynı koşullar (katalog bayrakları, #638)
+      if (MC().is('visualizer', l.type, 'wave')) {
         out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', 2), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5 }));
+      }
+      if (MC().is('visualizer', l.type, 'thick')) {
         out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', 0.5), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true }));
       }
 

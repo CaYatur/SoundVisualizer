@@ -24,8 +24,7 @@
     },
 
     background: {
-      // 'gradient' (WebGL) | 'solid' | 2D modlar:
-      // 'waves' | 'aurora' | 'starfield' | 'grid' | 'bokeh' | 'rain' | 'network' | 'rings'
+      // Tüm türler ve grupları: shared/mode-catalog.js (#638)
       type: 'gradient',
       solidColor: '#08080f',
       /* Şeffaf arkaplan. Açıkken görselleştirici penceresi arkasındaki
@@ -195,18 +194,7 @@
     },
 
     visualizer: {
-      // 'none' | 'bars' | 'centerBars' | 'blocks' | 'dots' | 'wave' | 'ribbon' |
-      // 'terrain' | 'circular' | 'radialWave' | 'starburst' | 'tunnel' | 'orb' |
-      // 'particles' | 'spectrogram' | 'kaleido' | 'helix' | 'metaball' |
-      // 'fireworks' | 'vortex' | 'mandala' | 'skyline' | 'lightning' |
-      // 'ripplegrid' | 'lissajous' | 'strings' | 'bubbles' | 'wave3d' |
-      // 'arcs' | 'pinwheel' |
-      // üretken: 'flowfield' | 'flock' | 'voronoi' | 'truchet' | 'moire' |
-      //          'interference' | 'ropes' | 'galaxy' | 'dna' | 'isocity' |
-      //          'attractorfield' |
-      // ölçüm:   'scope' | 'goniometer' | 'chromawheel' |
-      // 'geometry' (3B parametrik) |
-      // 'feedback' (MilkDrop ailesi) | 'custom' (Studio)
+      // Tüm türler ve grupları: shared/mode-catalog.js (#638)
       type: 'bars',
       colorMode: 'rainbow', // 'custom' | 'theme' | 'rainbow'
       rainbow: true,

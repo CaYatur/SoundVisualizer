@@ -20,25 +20,12 @@ const F = global.window.SVFormulas;
 
 const env = { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone };
 
-// Kayıtlı mod ve arkaplan kimlikleri (tarayıcıda yüklenen dosyalardan
-// bağımsız olarak, defaults.js yorumlarındaki listeyle değil, gerçek
-// panel listeleriyle karşılaştırmak için burada elle tutuluyor)
-const KNOWN_BG = new Set([
-  'gradient', 'starfield', 'grid', 'waves', 'bokeh', 'rain', 'aurora', 'network',
-  'rings', 'nebula', 'hexgrid', 'ink', 'snow', 'city', 'corridor', 'spiral', 'mosaic',
-  'liquid', 'plasma', 'ribbons', 'contours', 'embers', 'stained', 'circuit', 'caustics',
-  'prism', 'globe', 'wireframe', 'sand', 'wavefield', 'hexpulse',
-  'custom', 'solid', 'transparent',
-]);
-const KNOWN_VIS = new Set([
-  'none', 'bars', 'centerBars', 'blocks', 'dots', 'skyline', 'wave', 'ribbon', 'wave3d',
-  'lissajous', 'strings', 'terrain', 'circular', 'radialWave', 'starburst', 'arcs',
-  'pinwheel', 'mandala', 'kaleido', 'vortex', 'helix', 'tunnel', 'orb', 'particles',
-  'fireworks', 'lightning', 'bubbles', 'metaball', 'ripplegrid', 'spectrogram',
-  'flowfield', 'flock', 'voronoi', 'truchet', 'moire', 'interference', 'ropes',
-  'galaxy', 'dna', 'isocity', 'attractorfield', 'scope', 'goniometer', 'chromawheel',
-  'geometry', 'milkdrop', 'feedback', 'custom',
-]);
+// Kayıtlı mod ve arkaplan kimlikleri panelin kullandığı katalogdan (#638).
+// 'transparent' eski saydam şablonların arkaplanı; seçicide yok ama
+// motor tanıyor (layers.js).
+const MC = require('../src/shared/mode-catalog.js');
+const KNOWN_BG = new Set(MC.ids('background').concat(['transparent']));
+const KNOWN_VIS = new Set(MC.ids('visualizer'));
 
 test('şablon kataloğu eksiksiz ve benzersiz', () => {
   assert.ok(T.TEMPLATES.length >= 60, 'şablon sayısı: ' + T.TEMPLATES.length);
