@@ -24,10 +24,17 @@
     return P().cfg().clipdeck;
   }
 
+  /* Deste kaydı YAPILANDIRMANIN İÇİNDE olmalı (#637). Önce listesi boş
+     ya da eksik bir yapılandırmada geçici bir nesne dönüyordu: ızgara
+     boyutu, yuvalar ve satır adları ona yazılıyor ve kayboluyordu. Eski ya
+     da elle düzenlenmiş dosyada satır adı sözlüğü de eksik olabiliyor. */
   function deckSpec() {
     const c = cfg();
-    const list = Array.isArray(c.decks) && c.decks.length ? c.decks : [{ id: 'deck', name: 'A' }];
-    return list.find((d) => d.id === c.activeDeck) || list[0];
+    if (!Array.isArray(c.decks) || !c.decks.length) c.decks = [{ id: 'deck', name: 'A', rows: 6, cols: 6, slots: [], rowNames: {} }];
+    const d = c.decks.find((x) => x && x.id === c.activeDeck) || c.decks[0];
+    if (!d.rowNames || typeof d.rowNames !== 'object') d.rowNames = {};
+    if (!Array.isArray(d.slots)) d.slots = [];
+    return d;
   }
 
   /* Motorun desteleri yapılandırmadan türetilir. İmza değişmedikçe yeniden
@@ -439,7 +446,8 @@
     }
     gridHost = grid;
     host.appendChild(grid);
-    requestAnimationFrame(paintGrid);
+    // Arka plandaki pencere kare almıyor; boyama zamanlayıcıyla
+    setTimeout(paintGrid, 0);
 
     // --- Genel denetimler ---
     const perf = el('button', { class: 'btn', type: 'button', text: 'Performans Görünümü' });
@@ -603,6 +611,17 @@
 
     box.appendChild(el('div', { class: 'cd-editor-head', text: 'Yuva ' + (selected.row + 1) + '×' + (selected.col + 1) }));
     box.appendChild(p.row('Ad', textInput(spec.name, (v) => save({ name: v }))));
+    /* Satır adı burada, bir metin kutusunda. Önce "Satırı Adlandır"
+       düğmesi `window.prompt` açıyordu: Electron onu desteklemiyor, düğme
+       hiçbir şey yapmıyordu (ve satır adı sözlüğü eksikse hata atıyordu). */
+    const rowAt = selected.row;
+    box.appendChild(p.row('Satır Adı', textInput(deckSpec().rowNames[rowAt] || '', (v) => {
+      const d = deckSpec();
+      d.rowNames = Object.assign({}, d.rowNames);
+      if (v) d.rowNames[rowAt] = v;
+      else delete d.rowNames[rowAt];
+      p.apply();
+    }, String(rowAt + 1))));
     box.appendChild(
       p.row('Tür', select(
         [['scene', 'Sahne'], ['preset', 'Şablon'], ['palette', 'Renk Şablonu'], ['video', 'Video'], ['image', 'Görsel'], ['shader', 'Shader'], ['action', 'Eylem']],
@@ -678,16 +697,7 @@
       selected = null;
       p.apply();
     });
-    const name = el('button', { class: 'btn', type: 'button', text: 'Satırı Adlandır' });
-    name.addEventListener('click', async () => {
-      const v = window.prompt('Satır adı', deckSpec().rowNames[selected.row] || '');
-      if (v == null) return;
-      deckSpec().rowNames = Object.assign({}, deckSpec().rowNames);
-      if (v.trim()) deckSpec().rowNames[selected.row] = v.trim();
-      else delete deckSpec().rowNames[selected.row];
-      p.apply();
-    });
-    box.appendChild(el('div', { class: 'tl-actions' }, [name, del]));
+    box.appendChild(el('div', { class: 'tl-actions' }, [del]));
     return box;
   }
 })();

@@ -502,13 +502,18 @@
       const tl = transport.tl;
       const trk = tl.tracks[h.index];
       if (trk && trk.locked) return;
+      /* Sürüklenen öğe NESNESİYLE tutuluyor, sırasıyla değil (#636). Her
+         harekette liste yeniden sıralanıyor; sıra tutulduğunda bir klip
+         komşusunun ötesine geçince sürükleme komşuya atlıyor ve iki klip
+         aynı yere yığılıyordu — ölçüldü: 2 sn'deki A, 5 sn'deki B'nin
+         ötesine çekilince ikisi de 8 sn'de kaldı. */
       if (h.kind === 'move' || h.kind === 'trimL' || h.kind === 'trimR') {
         const c = trk.clips[h.ci];
         selection = { trackIndex: h.index, clipIndex: h.ci };
-        drag = { kind: h.kind, index: h.index, ci: h.ci, t0: tOf(x), start0: c.start, dur0: c.dur };
+        drag = { kind: h.kind, index: h.index, ci: h.ci, clip: c, t0: tOf(x), start0: c.start, dur0: c.dur };
       } else if (h.kind === 'key') {
         selection = { trackIndex: h.index, keyIndex: h.ki };
-        drag = { kind: 'key', index: h.index, ki: h.ki, top: RULER_H + h.index * TRACK_H + 5, bot: RULER_H + (h.index + 1) * TRACK_H - 6 };
+        drag = { kind: 'key', index: h.index, ki: h.ki, key: trk.keys[h.ki], top: RULER_H + h.index * TRACK_H + 5, bot: RULER_H + (h.index + 1) * TRACK_H - 6 };
       } else if (h.kind === 'track' && e.detail === 2) {
         /* Boş bir yere çift tıklamak klip ekler — otomasyon parçasında
            anahtar kare için zaten böyleydi, klip parçasında yoktu. */
@@ -524,49 +529,12 @@
         trk.keys = TL().sortKeys(trk.keys.concat([{ t: snap(tOf(x), e.altKey), v }]));
         commit();
       } else {
+        const had = !!selection;
         selection = null;
+        // Denetçi seçimi göstermeli: boşa tıklamak onu da boşaltıyor
+        if (had) refreshInspector();
       }
       draw();
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (!drag || !canvas || !canvas.isConnected) return;
-      const r = canvas.getBoundingClientRect();
-      const x = e.clientX - r.left;
-      const y = e.clientY - r.top;
-      const tl = transport.tl;
-      if (drag.kind === 'scrub') {
-        transport.seek(snap(tOf(x), e.altKey));
-        applyClipsAt(transport.time);
-        reanchor();
-      } else if (drag.kind === 'key') {
-        const k = tl.tracks[drag.index].keys[drag.ki];
-        k.t = snap(tOf(x), e.altKey);
-        k.v = Math.max(0, Math.min(1, (drag.bot - y) / (drag.bot - drag.top)));
-        tl.tracks[drag.index].keys = TL().sortKeys(tl.tracks[drag.index].keys);
-      } else {
-        const c = tl.tracks[drag.index].clips[drag.ci];
-        const delta = tOf(x) - drag.t0;
-        if (drag.kind === 'move') {
-          c.start = snap(drag.start0 + delta, e.altKey);
-        } else if (drag.kind === 'trimL') {
-          const ns = snap(drag.start0 + delta, e.altKey);
-          const end = drag.start0 + drag.dur0;
-          c.start = Math.min(ns, end - 0.05);
-          c.dur = end - c.start;
-        } else {
-          c.dur = Math.max(0.05, snap(drag.start0 + drag.dur0 + delta, e.altKey) - c.start);
-        }
-        tl.tracks[drag.index].clips.sort((a, b) => a.start - b.start);
-      }
-      draw();
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (!drag) return;
-      const wasEdit = drag.kind !== 'scrub';
-      drag = null;
-      if (wasEdit) commit();
     });
 
     /* Tekerlek yakınlaştırır (Ctrl) ya da kaydırır. İmlecin altındaki an
@@ -587,6 +555,86 @@
       }
       draw();
     }, { passive: false });
+
+    bindWindowOnce();
+  }
+
+  /* Pencere dinleyicileri BİR KEZ (#636). Panel her çizildiğinde tuval
+     yeniden bağlanıyor; bunlar her seferinde eklendiğinde birikiyordu —
+     ölçüldü: on yeniden çizimde 1'den 11'e. Tutucular modül durumunu
+     (tuval, taşıma, sürükleme) okuyor, yani tek kopya hepsine yetiyor. */
+  let windowBound = false;
+
+  function bindWindowOnce() {
+    if (windowBound) return;
+    windowBound = true;
+
+    window.addEventListener('mousemove', (e) => {
+      if (!drag || !canvas || !canvas.isConnected) return;
+      const r = canvas.getBoundingClientRect();
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      const tl = transport.tl;
+      if (drag.kind === 'scrub') {
+        transport.seek(snap(tOf(x), e.altKey));
+        applyClipsAt(transport.time);
+        reanchor();
+      } else if (drag.kind === 'key') {
+        const trk = tl.tracks[drag.index];
+        const k = drag.key;
+        if (!trk || !trk.keys || trk.keys.indexOf(k) < 0) { drag = null; return; }
+        k.t = snap(tOf(x), e.altKey);
+        k.v = Math.max(0, Math.min(1, (drag.bot - y) / (drag.bot - drag.top)));
+        /* Yerinde sıralama: `sortKeys` yeni nesneler kuruyor ve sürüklenen
+           anahtarın kimliği kayboluyordu. */
+        trk.keys.sort((a, b) => a.t - b.t);
+        drag.ki = trk.keys.indexOf(k);
+        if (selection && selection.keyIndex != null) selection.keyIndex = drag.ki;
+      } else {
+        const trk = tl.tracks[drag.index];
+        const c = drag.clip;
+        if (!trk || !trk.clips || trk.clips.indexOf(c) < 0) { drag = null; return; }
+        const delta = tOf(x) - drag.t0;
+        if (drag.kind === 'move') {
+          c.start = snap(drag.start0 + delta, e.altKey);
+        } else if (drag.kind === 'trimL') {
+          const ns = snap(drag.start0 + delta, e.altKey);
+          const end = drag.start0 + drag.dur0;
+          c.start = Math.min(ns, end - 0.05);
+          c.dur = end - c.start;
+        } else {
+          c.dur = Math.max(0.05, snap(drag.start0 + drag.dur0 + delta, e.altKey) - c.start);
+        }
+        trk.clips.sort((a, b) => a.start - b.start);
+        drag.ci = trk.clips.indexOf(c);
+        if (selection && selection.clipIndex != null) selection.clipIndex = drag.ci;
+      }
+      draw();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!drag) return;
+      const wasEdit = drag.kind !== 'scrub';
+      drag = null;
+      if (!wasEdit) return;
+      commit();
+      /* Denetçi seçili öğeyi göstermeli. Önce yalnız tuval yeniden
+         çiziliyordu: klibe tıklamak onu seçiyor ama denetçi "Bir klip
+         seçin" demeye devam ediyordu. */
+      refreshInspector();
+    });
+  }
+
+  /* Yalnız denetçi kutusu yenileniyor: bütün paneli çizmek tuvali de
+     yeniden kurar, bir çift tıklamanın ikinci tıklaması da yeni tuvale
+     düşerdi. */
+  let inspectorBox = null;
+
+  function refreshInspector() {
+    if (!inspectorBox || !inspectorBox.isConnected) return;
+    const next = inspector();
+    inspectorBox.replaceWith(next);
+    inspectorBox = next;
   }
 
   /* Taşıma durumunu değiştiren TEK kapı. transport() nesnesini alıp
@@ -874,9 +922,12 @@
     // --- Tuval ---
     const cv = el('canvas', { class: 'tl-canvas' });
     host.appendChild(el('div', { class: 'tl-canvas-wrap' }, [cv]));
-    /* bindCanvas bir sonraki karede: canvas henüz DOM'a girmediği için
-       clientWidth 0 döner ve ilk çizim boş kalırdı. */
-    requestAnimationFrame(() => {
+    /* bindCanvas panel yerleştikten sonra: canvas henüz DOM'a girmediği
+       için clientWidth 0 döner ve ilk çizim boş kalırdı. Zamanlayıcıyla,
+       requestAnimationFrame ile değil: arka plandaki pencere kare almıyor,
+       tuval hiç bağlanmıyor ve fare olayları eski (sökülmüş) tuvale
+       bakıyordu (#636). */
+    setTimeout(() => {
       bindCanvas(cv);
       draw();
       start();
@@ -904,7 +955,8 @@
     host.appendChild(trackList());
 
     // --- Seçili öğe ---
-    host.appendChild(inspector());
+    inspectorBox = inspector();
+    host.appendChild(inspectorBox);
 
     // --- İşaretler ---
     host.appendChild(markerSection());
