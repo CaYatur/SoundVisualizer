@@ -72,6 +72,7 @@ test('grubu çoğalt: kopyalar grubun hemen ardına, aynı şeritlere', () => {
 
 // ------------------------------------------------------------------ panel
 
+let lastFocused = null;
 function el(tag, props, kids) {
   const n = { tag, props: props || {}, kids: [], on: {}, attrs: {}, style: {}, parent: null, isConnected: true };
   n.className = (props && props.class) || '';
@@ -86,6 +87,7 @@ function el(tag, props, kids) {
   n.querySelector = () => null;
   n.querySelectorAll = () => [];
   n.classList = { toggle() {}, add() {}, remove() {}, contains: () => false };
+  n.focus = () => { lastFocused = n; };
   Object.defineProperty(n, 'textContent', { get: () => n.text, set: (v) => { n.text = v; } });
   if (tag === 'canvas') {
     n.clientWidth = 800;
@@ -276,4 +278,27 @@ test('panel: F tam pencereyi açıyor, Esc kapatıyor; Esc tam pencere dışınd
   prevented = 0;
   key('Escape');
   assert.strictEqual(prevented, 0, 'genel Esc kısayoluna bırakıldı');
+});
+
+/* Oynarken klip sahne uyguluyor ve panel yeniden çiziliyor; düzenleyici
+   odaktaydıysa YENİ düzenleyici odağı almalı. Önce odak BODY'ye düşüyor ve
+   Boşluk artık duraklatmıyordu (uygulamada ölçüldü). */
+test('panel: odaktaki düzenleyici yeniden çizimden sonra da odakta', async () => {
+  const cfg = cfgOf();
+  const first = await mount(cfg);
+  const ed1 = find(first.host, (n) => n.className === 'tl-editor');
+  fire(ed1, 'focus');
+  lastFocused = null;
+  ed1.isConnected = false; // yeniden çizim eskisini söküyor
+  fire(ed1, 'blur');
+  const second = await mount(cfg);
+  const ed2 = find(second.host, (n) => n.className === 'tl-editor');
+  assert.strictEqual(lastFocused, ed2, 'yeni düzenleyici odaklandı');
+  // Kullanıcı başka yere tıklarsa (düzenleyici yerinde) odak geri çalınmıyor
+  fire(ed2, 'blur');
+  await wait(5);
+  lastFocused = null;
+  const third = await mount(cfg);
+  assert.strictEqual(lastFocused, null, 'bilinçli odak kaybına saygı');
+  void third;
 });
