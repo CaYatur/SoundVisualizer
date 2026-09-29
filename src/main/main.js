@@ -3343,10 +3343,16 @@ async function runSmoke() {
     const find = `(function () {
       var s = window.SVStage && window.SVStage.stack();
       if (!s) return 'stage';
-      var e = s.entries.filter(function (x) { return x.mode && x.mode.gl2; })[0];
+      var e = s.entries.filter(function (x) { return x.mode && x.mode.gl2 && x.canvas && x.canvas.isConnected; })[0];
       if (!e) return 'layer';
+      /* Aynı katman iki yoklamada üst üste bulunmalı: gönderilen ayar henüz
+         uygulanmadıysa bulunan, bir önceki sahnenin atılmak üzere olan
+         katmanı olabilir. Atılan tuval sıfır boyuta iniyor (#621) ve ölçüm
+         ölü bir motoru okurdu. */
+      var same = window.__md === e.mode;
       window.__md = e.mode;
       window.__mdCanvas = e.canvas;
+      if (!same) return 'settling';
       return e.mode.gl ? true : 'context';
     })()`;
     let found = null;
@@ -3371,6 +3377,7 @@ async function runSmoke() {
         s = window.__mdSample = document.createElement('canvas');
         s.width = 8; s.height = 8;
       }
+      if (!c || !c.width || !c.height) return { what: ${JSON.stringify(what)}, hata: 'the measured layer was disposed mid-probe' };
       var x = s.getContext('2d', { willReadFrequently: true }), mx = 0;
       x.clearRect(0, 0, 8, 8);
       x.drawImage(c, 0, 0, 8, 8);
@@ -3406,6 +3413,11 @@ async function runSmoke() {
   } else {
     for (const phase of ['restored', 'new-canvas']) {
       const p = loss[phase];
+      const gone = [p.before, p.lost, p.after].filter((r) => r && r.hata)[0];
+      if (gone) {
+        errors.push('context loss (' + phase + '): ' + gone.hata);
+        continue;
+      }
       if (!p.lost.lost && p.lost.frames > p.before.frames + 2) {
         errors.push('context loss (' + phase + '): the context was never lost, so nothing was measured');
       }
@@ -3474,7 +3486,13 @@ async function runSmoke() {
       if (ext) ext.loseContext();
       return !!ext;
     })()`);
-    const before = await sample('before');
+    /* Yeni sahne makinenin yüküne göre geç kurulabiliyor: tek bir anlık
+       bakış yerine kurulana kadar (en çok ~4 sn) bekleniyor. */
+    let before = await sample('before');
+    for (let i = 0; i < 10 && (before.hata || !before.grad || !before.fx); i++) {
+      await wait(300);
+      before = await sample('before');
+    }
     if (before.hata || !before.grad || !before.fx) return { hata: 'the gradient layer or the effect chain was not on the stage', before };
     const lostGrad = await lose(GRAD + '.mode');
     const lostFx = await lose('s.postfx');
