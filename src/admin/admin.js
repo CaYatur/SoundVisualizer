@@ -2069,82 +2069,14 @@
     },
   ];
 
-  // Arkaplan modlarına özel ayarlar.
-  // Her mod kendi ayar bloğunu (background.<mod>) taşır; yalnızca o mod
-  // seçiliyken görünür. Yeni bir mod eklemek = buraya bir satır eklemek.
-  // [yol, etiket, min, max, adım, yüzde mi]
-  const BG_MODE_CONTROLS = {
-    starfield: [
-      ['count', 'Yıldız Sayısı', 40, 1200, 10],
-      ['size', 'Yıldız Boyutu', 0.3, 3, 0.05],
-      ['trail', 'Hız İzi', 0, 3, 0.05],
-      ['depth', 'Derinlik', 0.4, 2.5, 0.05],
-      ['twinkle', 'Parıldama', 0, 1, 0.02, true],
-      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
-    ],
-    grid: [
-      ['horizon', 'Ufuk Yüksekliği', 0.15, 0.85, 0.01, true],
-      ['rows', 'Yatay Çizgi Sayısı', 4, 60, 1],
-      ['cols', 'Dikey Çizgi Sayısı', 4, 80, 1],
-      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
-      ['horizonGlow', 'Ufuk Parlaması', 0, 2, 0.02],
-      ['skyIntensity', 'Gökyüzü Yoğunluğu', 0, 1.5, 0.02],
-      ['spectrumBars', 'Spektrum Tepkisi', 0, 3, 0.05],
-      ['bassPush', 'Bas İtkisi', 0, 6, 0.1],
-    ],
-    waves: [
-      ['layers', 'Katman Sayısı', 1, 14, 1],
-      ['amplitude', 'Tepe Yüksekliği', 0.2, 3, 0.05],
-      ['frequency', 'Dalga Sıklığı', 0.2, 3, 0.05],
-      ['spread', 'Katman Aralığı', 0.3, 2, 0.05],
-      ['opacity', 'Saydamlık', 0.2, 1.5, 0.02],
-      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
-    ],
-    bokeh: [
-      ['count', 'Işık Sayısı', 4, 160, 1],
-      ['size', 'Boyut', 0.2, 3, 0.05],
-      ['sizeVar', 'Boyut Çeşitliliği', 0, 2, 0.05],
-      ['drift', 'Süzülme', 0, 3, 0.05],
-      ['pulse', 'Bas Nabzı', 0, 2, 0.02],
-      ['opacity', 'Saydamlık', 0.2, 2, 0.02],
-    ],
-    rain: [
-      ['columns', 'Sütun Sayısı', 10, 240, 2],
-      ['speed', 'Düşme Hızı', 0.2, 4, 0.05],
-      ['trail', 'İz Uzunluğu', 0.1, 3, 0.05],
-      ['density', 'Yoğunluk', 0.1, 1, 0.02, true],
-      ['thickness', 'Kalınlık', 0.2, 3, 0.05],
-      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
-    ],
-    aurora: [
-      ['bands', 'Perde Sayısı', 1, 12, 1],
-      ['amplitude', 'Dalgalanma', 0.2, 3, 0.05],
-      ['thickness', 'Perde Kalınlığı', 0.2, 3, 0.05],
-      ['softness', 'Kenar Yumuşaklığı', 0.4, 3, 0.05],
-      ['height', 'Dikey Konum', 0.1, 0.9, 0.01, true],
-      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
-    ],
-    network: [
-      ['nodes', 'Düğüm Sayısı', 8, 220, 2],
-      ['linkDist', 'Bağlantı Mesafesi', 0.04, 0.5, 0.01],
-      ['nodeSize', 'Düğüm Boyutu', 0.2, 4, 0.05],
-      ['lineWidth', 'Çizgi Kalınlığı', 0.2, 4, 0.05],
-      ['speed', 'Hareket Hızı', 0.1, 4, 0.05],
-      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
-    ],
-    rings: [
-      ['rate', 'Halka Sıklığı', 0.2, 10, 0.1],
-      ['speed', 'Genişleme Hızı', 0.2, 4, 0.05],
-      ['thickness', 'Kalınlık', 0.2, 4, 0.05],
-      ['beatSpawn', 'Darbede Halka', 0, 3, 0.05],
-      ['fade', 'Sönme', 0.2, 3, 0.05],
-    ],
-  };
-
+  /* Arkaplan modlarına özel ayarlar: katalogdaki `settings` listesi (#638).
+     Her mod kendi ayar bloğunu (background.<mod>) taşır; yalnızca o mod
+     seçiliyken görünür. Eskiden liste burada elle tutuluyordu ve otuz
+     arkaplanın yirmi ikisinin ayarı motorda olduğu hâlde panelde yoktu. */
   function bgModeControls() {
     const out = [];
-    Object.keys(BG_MODE_CONTROLS).forEach((mode) => {
-      BG_MODE_CONTROLS[mode].forEach(([key, label, min, max, step, percent]) => {
+    MC().BACKGROUNDS.forEach(({ id: mode }) => {
+      MC().settingsOf('background', mode).forEach(([key, label, min, max, step, percent]) => {
         out.push({
           type: 'slider',
           path: 'background.' + mode + '.' + key,
