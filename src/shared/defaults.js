@@ -211,6 +211,11 @@
       clouds: { scale: 1, cover: 0.5, drift: 1, softness: 1, bassPush: 1 },
       halftone: { cells: 38, angle: 0.26, contrast: 1, response: 1, bassPush: 1.3 },
       spotlights: { beams: 5, spread: 1, sweep: 1, haze: 0.35, bassPush: 1.5 },
+      cubes: { size: 1, wave: 1, pop: 1, bassPush: 1.2 },
+      fireflies: { count: 60, size: 1, drift: 1, sync: 0.4, bassPush: 1.2 },
+      storm: { cover: 0.6, rain: 1, flash: 1, bassPush: 1.5 },
+      underwater: { rays: 5, bubbles: 70, sway: 1, depth: 0.6, bassPush: 1.2 },
+      mirror: { segments: 8, scale: 1, swirl: 1, bassPush: 1.2 },
     },
 
     visualizer: {

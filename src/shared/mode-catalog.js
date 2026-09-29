@@ -46,6 +46,7 @@
     V('strings', 'Teller', 'Dalga Formu', { bands: true, gap: true, wave: true, thick: true }),
     V('terrain', 'Arazi', 'Dalga Formu', { bands: true, wave: true, color2: true }),
     V('ridges', 'Sırt Çizgileri', 'Dalga Formu', { bands: true, wave: true, thick: true, color2: true }),
+    V('djwave', 'DJ Dalga Formu', 'Dalga Formu', { thick: true, color2: true }),
 
     V('circular', 'Çember', 'Dairesel', { bands: true, gap: true }),
     V('radialWave', 'Dairesel Dalga', 'Dairesel', { wave: true, thick: true, color2: true }),
@@ -68,6 +69,8 @@
     V('ripplegrid', 'Dalgalı Izgara', 'Parçacık ve Olay', { gap: true, thick: true }),
     V('spectrogram', 'Spektrogram', 'Parçacık ve Olay', { bands: true }),
     V('confetti', 'Konfeti', 'Parçacık ve Olay', { color2: true }),
+    V('beatpads', 'Vuruş Pedleri', 'Parçacık ve Olay', { bands: true, gap: true, color2: true }),
+    V('bounce', 'Zıplayan Toplar', 'Parçacık ve Olay', { bands: true, gap: true, color2: true }),
 
     V('flowfield', 'Akış Alanı', 'Üretken Sistemler'),
     V('flock', 'Sürü', 'Üretken Sistemler'),
@@ -81,6 +84,7 @@
     V('isocity', 'İzometrik Şehir', 'Üretken Sistemler'),
     V('attractorfield', 'Çekici Alanı', 'Üretken Sistemler'),
     V('pendulum', 'Sarkaç Dalgası', 'Üretken Sistemler', { bands: true, wave: true, thick: true, color2: true }),
+    V('cardioid', 'Kardioid', 'Üretken Sistemler', { wave: true, color2: true }),
 
     V('text', 'Metin / Şarkı Sözü', 'Metin', { cycle: false }),
     V('nowplaying', 'Çalan Parça', 'Metin', { cycle: false }),
@@ -89,6 +93,7 @@
     V('goniometer', 'Gonyometre', 'Ölçüm'),
     V('chromawheel', 'Kroma Çemberi', 'Ölçüm'),
     V('vumeter', 'VU Metre', 'Ölçüm', { color2: true }),
+    V('levelmeter', 'Seviye Ölçer (PPM)', 'Ölçüm', { color2: true }),
 
     V('geometry', '◈ 3B Geometri', 'Gelişmiş Motorlar', { engine: true }),
     V('milkdrop', '🥛 MilkDrop', 'Gelişmiş Motorlar', { engine: true }),
@@ -139,6 +144,13 @@
       ['size', 'Damla Boyutu', 0.4, 2.5, 0.05],
       ['flow', 'Akış Hızı', 0, 3, 0.05],
       ['glowAmt', 'Işıma', 0, 2, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('underwater', 'Su Altı', 'Akışkan', { settings: [
+      ['rays', 'Işık Hüzmesi', 0, 8, 1],
+      ['bubbles', 'Kabarcık Sayısı', 0, 200, 1],
+      ['sway', 'Salınım', 0, 3, 0.05],
+      ['depth', 'Derinlik', 0, 1, 0.02, true],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
     V('grid', 'Retro Izgara', 'Geometrik', { settings: [
@@ -213,6 +225,12 @@
       ['response', 'Spektrum Tepkisi', 0, 3, 0.05],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
+    V('cubes', 'İzometrik Küpler', 'Geometrik', { settings: [
+      ['size', 'Küp Boyutu', 0.4, 2.5, 0.05],
+      ['wave', 'Dalga', 0, 2, 0.05],
+      ['pop', 'Kabarma', 0, 2, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
     V('starfield', 'Yıldız Alanı', 'Atmosfer', { settings: [
       ['count', 'Yıldız Sayısı', 40, 1200, 10],
       ['size', 'Yıldız Boyutu', 0.3, 3, 0.05],
@@ -266,6 +284,19 @@
       ['spread', 'Hüzme Genişliği', 0.2, 2, 0.05],
       ['sweep', 'Süpürme', 0, 2, 0.05],
       ['haze', 'Sis', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('fireflies', 'Ateş Böcekleri', 'Atmosfer', { settings: [
+      ['count', 'Böcek Sayısı', 0, 200, 1],
+      ['size', 'Boyut', 0.4, 3, 0.05],
+      ['drift', 'Süzülme', 0, 3, 0.05],
+      ['sync', 'Vuruşla Eşleşme', 0, 1, 0.02, true],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
+    V('storm', 'Fırtına', 'Atmosfer', { settings: [
+      ['cover', 'Bulut Örtüsü', 0, 1, 0.02, true],
+      ['rain', 'Yağmur', 0, 2, 0.05],
+      ['flash', 'Şimşek Parlaklığı', 0, 2, 0.05],
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
     V('liquid', 'Sıvı Metal', 'Üretken Zeminler', { settings: [
@@ -337,6 +368,12 @@
       ['wave', 'Dalga Sıklığı', 0.2, 3, 0.05],
     ] }),
 
+    V('mirror', 'Ayna Deseni', 'Üretken Zeminler', { settings: [
+      ['segments', 'Dilim Sayısı', 3, 16, 1],
+      ['scale', 'Desen Ölçeği', 0.3, 3, 0.05],
+      ['swirl', 'Girdap', 0, 3, 0.05],
+      ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
+    ] }),
     V('solid', 'Düz Renk', 'Diğer'),
     V('custom', '🧪 Studio', 'Diğer', { cycle: false }),
   ];
