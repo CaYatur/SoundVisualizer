@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2329 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2333 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 732
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 736
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1960,6 +1960,28 @@ rest after. No version number yet.
     automation flag. 57 of 58 mutations are caught; the survivor removes
     the "no context" check, which the frame counter already makes (without
     a context no frame is drawn).
+- **Every preset in the list (#635)** · done on `main`. The list and the
+  grid used to show only the first 400 presets of the current filter, with
+  a note to narrow the search. Now every preset can be scrolled to.
+  - **Only what is in view is built.** Above 200 presets the panel draws the
+    rows in view plus six on each side; two empty boxes above and below keep
+    the scroll bar at full length. The row pitch and, in the grid, the
+    column count are measured from the drawn rows, so the CSS stays the one
+    source of both. Rows still in view are reused when the window moves,
+    and the grid asks thumbnails only for the cells that exist.
+  - **Measured** in the app with 10,347 presets: the list is 17–24 rows in
+    the DOM and the grid 47–85 cells; scrolling to the end shows the last
+    preset; a click in the middle keeps the chosen preset highlighted and in
+    view after the redraw; a full panel redraw takes 32–41 ms. No
+    exceptions.
+  - **Fixed on the way.** The window first redrew on `requestAnimationFrame`;
+    a window in the background gets no frames, so the list stayed on its
+    first rows. It now redraws in the scroll handler, which only rebuilds
+    when the range changes.
+  - **Tests** (4): a small library is drawn whole with no boxes; a
+    10,347-preset one draws a small window with the boxes at the right
+    height; neither the cap nor its note remains; the boxes do not shrink in
+    the list and span every column in the grid.
 - **A preset generator of our own, and mash-ups (#579)** · done. The
   generator came first; the mash-ups are described after it.
   - **What it does.** *Studio → MilkDrop Preset Generator* writes an

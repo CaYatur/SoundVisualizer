@@ -587,6 +587,9 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
   padding: 4px;
 }
 .md-item { display: flex; align-items: center; gap: 4px; border-radius: 6px; }
+/* Pencereli listenin boşluk kutuları (#635): içleri boş, esnek kutuda
+   küçülmemeli; ızgarada bütün sütunları kaplamalı. */
+.md-spacer { flex: none; grid-column: 1 / -1; }
 .md-item.active { background: rgba(124, 92, 255, 0.18); }
 /* Küçük resimli ızgara (#575): listeyle aynı çerçeve. Hücre 16:9 küçük
    resim + ad; yıldız ve silme köşede. Bekleyen hücre çizgili, çizilemeyen
