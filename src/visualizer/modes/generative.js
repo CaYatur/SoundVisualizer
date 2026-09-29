@@ -1281,6 +1281,10 @@
   }
 
   // ==========================================================================
+  /* Ortak yardımcılar: generative2.js ve sonraki üretken modlar aynı renk,
+     gürültü ve vuruş kurallarını kullansın. */
+  window.SVGenUtil = { rng, tone, rgba, paletteAt, hslToRgb, makeNoise, onset, fadeTrail };
+
   window.SVModes = window.SVModes || {};
   Object.assign(window.SVModes, {
     flowfield: FlowField,
