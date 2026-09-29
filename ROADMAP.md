@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2322 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2323 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 725
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 726
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2583,8 +2583,22 @@ rest after. No version number yet.
     one threshold and not the other, and 7 widths above 1 (the trapezoids
     overlap in the middle). The geometry is now MilkDrop's
     (`borderRings`); its tests sample the triangles for coverage.
-  - **Not done yet:** the fixed warp path, the blur chain, and the rest of
-    the blend snap points; whether `uv`
+  - **The blur chain, checked against the source** (`BlurPasses`,
+    `blur1_ps.fx`, `blur2_ps.fx`). Weights, paired tap distances, the
+    number of passes, the progressive min/max chain and the edge darkening
+    on the first vertical pass already matched. The `+1 texel` offsets in
+    MilkDrop's blur shaders make up for Direct3D 9's half-pixel rule at a
+    2:1 reduction, so the net sampling position is the texel centre — which
+    is where the engine samples. One difference: MilkDrop applies each
+    level's min/max in the HORIZONTAL pass and writes to an 8-bit target,
+    so brightness outside the range is clipped before the vertical blur;
+    the engine applied it in the vertical pass on half-float targets and
+    never clipped. With fidelity on it now scales in the horizontal pass
+    and both passes saturate to 0..1. It shows in presets that read a blur
+    level and narrow its range: 246 of the 7,379 corpus presets that read
+    one. The 8-bit rounding of each pass is not reproduced.
+  - **Not done yet:** the fixed warp path and the rest of the blend snap
+    points; whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on
