@@ -124,6 +124,10 @@
       // Hücrenin rengi (#637); boşsa türün rengi
       color: hexColor(s.color),
       launch: LAUNCH_MODES.indexOf(s.launch) >= 0 ? s.launch : 'trigger',
+      /* Video, görsel ve shader yuvasının HEDEFİ (#637 CD-3): 'media',
+         'vis', 'bg', 'layer:<kimlik>', 'img:<nesne>' ya da
+         'limg:<katman>:<nesne>'. Boşsa panelin ilk uygun hedefi. */
+      target: typeof s.target === 'string' ? s.target.slice(0, 120) : '',
     };
   }
 
