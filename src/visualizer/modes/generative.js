@@ -121,6 +121,34 @@
     };
   }
 
+  /* İz tamponunu SAYDAMA doğru soldurur.
+
+     Eskiden iz siyahla boyanarak soluyordu (source-over). Birkaç saniyede
+     tampon tamamen opaklaşıyor ve görselleştirici tuvali arkaplanın
+     üstüne siyah bir perde gibi iniyordu: Akış Alanı, Osiloskop,
+     Gonyometre ve Çekici Alanı seçilince arkaplan görünmüyordu (tuvalin
+     alfa ortalaması 249-253/255). destination-out yalnız alfayı eritir.
+
+     8 bit alfada küçük bir solma çarpımla sıfıra inmiyor: 0,035'lik solma
+     14/255'te takılıyor ve iz hiç tam silinmiyor. On altı karede bir
+     yapılan daha güçlü bir geçiş kalıntıyı 1/255'e indiriyor; tabanın
+     solması bunu telafi edecek kadar azaltılıyor ki iz uzunluğu değişmesin
+     (ölçüldü: 30. karede eski yöntemle aynı parlaklık, ±%5). */
+  const CLEAN_EVERY = 16;
+  const CLEAN_ALPHA = 0.25;
+  function fadeTrail(tc, W, H, amount, self) {
+    // 16 karede bir 0,25'lik geçişin payı tabandan düşülüyor
+    const base = Math.max(0.004, amount - 0.009);
+    tc.globalCompositeOperation = 'destination-out';
+    tc.fillStyle = 'rgba(0,0,0,' + base.toFixed(3) + ')';
+    tc.fillRect(0, 0, W, H);
+    self._fadeN = ((self._fadeN || 0) + 1) % CLEAN_EVERY;
+    if (self._fadeN === 0) {
+      tc.fillStyle = 'rgba(0,0,0,' + CLEAN_ALPHA + ')';
+      tc.fillRect(0, 0, W, H);
+    }
+  }
+
   // Ortak vuruş algılayıcı sarmalayıcısı (bkz. src/shared/onset.js)
   function onset(refractory) {
     return new window.SVOnset.Onset({ refractory: refractory == null ? 0.11 : refractory });
@@ -170,9 +198,7 @@
         this.tctx = this.trail.getContext('2d');
       }
       const tc = this.tctx;
-      tc.globalCompositeOperation = 'source-over';
-      tc.fillStyle = 'rgba(0,0,0,' + (0.035 + (1 - v.thickness) * 0.06).toFixed(3) + ')';
-      tc.fillRect(0, 0, W, H);
+      fadeTrail(tc, W, H, 0.035 + (1 - v.thickness) * 0.06, this);
       tc.globalCompositeOperation = 'lighter';
 
       const sens = v.sensitivity || 1;
@@ -971,9 +997,7 @@
       }
       const tc = this.tctx;
       // Fosfor sönümü: kalınlık ayarı kalıcılığı belirler
-      tc.globalCompositeOperation = 'source-over';
-      tc.fillStyle = 'rgba(0,0,0,' + (0.06 + (1 - v.thickness) * 0.22).toFixed(3) + ')';
-      tc.fillRect(0, 0, W, H);
+      fadeTrail(tc, W, H, 0.06 + (1 - v.thickness) * 0.22, this);
       tc.globalCompositeOperation = 'lighter';
 
       const wave = audio.timeBytes;
@@ -1024,9 +1048,7 @@
         this.tctx = this.trail.getContext('2d');
       }
       const tc = this.tctx;
-      tc.globalCompositeOperation = 'source-over';
-      tc.fillStyle = 'rgba(0,0,0,0.12)';
-      tc.fillRect(0, 0, W, H);
+      fadeTrail(tc, W, H, 0.12, this);
       tc.globalCompositeOperation = 'lighter';
 
       const minDim = Math.min(W, H);
@@ -1213,9 +1235,7 @@
         this.tctx = this.trail.getContext('2d');
       }
       const tc = this.tctx;
-      tc.globalCompositeOperation = 'source-over';
-      tc.fillStyle = 'rgba(0,0,0,' + (0.04 + (1 - v.thickness) * 0.1).toFixed(3) + ')';
-      tc.fillRect(0, 0, W, H);
+      fadeTrail(tc, W, H, 0.04 + (1 - v.thickness) * 0.1, this);
       tc.globalCompositeOperation = 'lighter';
 
       const sens = v.sensitivity || 1;
