@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2341 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2360 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 744
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 763
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2792,6 +2792,80 @@ expects.
     keyframe past its neighbour, and the inspector. On the deck side they
     cover the row name, a deck with no row-name map, and an empty deck list.
     All 8 fail on the old code.
+- **The timeline editor (#636, TL-1)** · done on `main`. It follows the
+  research table on #636, with Ableton's Arrangement View as the model.
+  - **Layout.**
+    - A one-row toolbar holds the transport, a clock (time and bar.beat),
+      tempo, snap, loop, follow, zoom (out / in / fit) and undo/redo.
+    - Below it, track headers sit beside the lanes, row for row. Each header
+      has a colour, a name, and mute, solo and lock.
+    - The editing area gets its height from the track count and can be
+      resized from its corner. The size is remembered.
+    - Below the lanes: an inspector for the selected clip, keyframe or
+      track, and a folded section for loop bounds, markers and the ruler.
+    - The ruler is 38 px. Bar and time labels are on top, marker flags
+      underneath (a marker name used to cover the time label). Bar lines
+      run down through the lanes.
+  - **Clips.**
+    - A clip is coloured by its own colour, else the track's, else its
+      type's.
+    - Its label is the scene's or template's name, not its id.
+    - A clip with no source is hatched, since firing it would do nothing.
+  - **Editing.**
+    - Split at the playhead, with the second half's in-point advanced, so
+      a split video continues rather than restarts.
+    - Duplicate right after the clip, copy, paste at the playhead, delete,
+      and nudge by one grid step (Alt: one frame).
+    - Undo/redo, 100 steps.
+    - Clicking an empty lane selects the track, so paste and split know
+      where to go.
+    - These operations live in `shared/timeline-edit.js`, as pure
+      functions.
+  - **Shortcuts.** Space, Home/End, arrows, Ctrl+Z/Y, Ctrl+D, S,
+    Ctrl+C/V, Del, + / − / 0, M and L. They work only while the editor has
+    focus and nothing is being typed into a field. The list is in the panel.
+  - **Solo is in the shared model** (`clipsAt`, `automationAt`), not the
+    panel. Visualizer windows and offline export read the same functions,
+    so export matches live playback. A muted track stays silent even when
+    soloed.
+  - **Undo history follows outside changes.** If the config changed from
+    outside (a scene applied, settings imported, deck recording appending
+    tracks), the history restarts from the new state. Otherwise Ctrl+Z
+    would paste an old show over the new work.
+  - **Found on the way:**
+    - **Clip speed.** Every clip with no speed set ran at 0.05 instead of
+      1: `clamp(undefined)` returned the lower bound, so `|| 1` never
+      applied.
+    - **Focus lost after an edit.** Rebuilding the whole panel after an
+      edit dropped the editor's focus. Measured with real key events:
+      after Ctrl+D, the next S, Del and Ctrl+Z went nowhere. Edits now
+      refresh the headers, inspector, markers and canvas in place.
+  - **Checked in the app**, isolated profile, real mouse and key events
+    over CDP:
+    - Ctrl+D, S at the playhead, Del and Ctrl+Z twice gave the expected
+      clip lists, with focus kept in the editor.
+    - Del while typing in a field deletes nothing.
+    - Dragging past a neighbour is still correct.
+    - Screenshots in Turkish and English at 1100, 1400 and 1800 px.
+  - **Tests** (19, `tests/timeline-edit.test.js`):
+    - history: undo, redo, the limit, and a new base after outside changes
+    - snapshot and restore
+    - split, including edges and the in-point
+    - duplicate and paste
+    - grid step, including after a tempo change
+    - fit
+    - colour precedence
+    - colour and solo surviving the model rebuild
+    - solo semantics
+    - default speed
+    - shortcuts driven through the panel's own key handler, including
+      typing in a field and undo after an outside change
+    - English entries
+  - **Next (TL-2):**
+    - a draggable loop brace and markers on the ruler
+    - multi-select
+    - clip fade handles
+    - a full-window editor
 
 ## v3.1.6 — Comprehensive video export
 

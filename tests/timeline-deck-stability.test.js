@@ -21,6 +21,7 @@ require('../src/shared/defaults.js');
 const SV = global.window.SV;
 window.SVTimeline = require('../src/shared/timeline.js');
 window.SVClipDeck = require('../src/shared/clipdeck.js');
+window.SVTimelineEdit = require('../src/shared/timeline-edit.js');
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms || 0));
 
@@ -82,8 +83,9 @@ function setupPanel(cfg) {
 }
 
 // 60 px/sn, kaydırma yok, yakalama kapalı: x = 60 * t
-const RULER = 26;
-const TRACK = 34;
+// Panelin ölçüleri (#636 düzenleyicisi): cetvel 38, şerit 40 piksel
+const RULER = 38;
+const TRACK = 40;
 const X = (t) => t * 60;
 
 function timelineCfg() {
@@ -154,7 +156,7 @@ test('zaman çizelgesi: sağ kenardan uzatma komşuyu geçince de aynı klipte k
 test('zaman çizelgesi: anahtar kare komşusunun ötesine sürüklenince kimliği korunuyor', async () => {
   const cfg = timelineCfg();
   const { cv } = await timelinePanel(cfg);
-  const top = RULER + TRACK + 5;
+  const top = RULER + TRACK + 6;
   const bot = RULER + 2 * TRACK - 6;
   const yOf = (v) => bot - (bot - top) * v;
   fire(cv, 'mousedown', { clientX: X(1), clientY: yOf(0.2), detail: 1 });
@@ -164,24 +166,28 @@ test('zaman çizelgesi: anahtar kare komşusunun ötesine sürüklenince kimliğ
   assert.deepStrictEqual(keys, ['4:0.80', '6:0.20']);
 });
 
-test('zaman çizelgesi: klibe tıklamak denetçide o klibi gösteriyor, boşa tıklamak boşaltıyor', async () => {
+test('zaman çizelgesi: klibe tıklamak denetçide o klibi, boş şerit parçayı gösteriyor; parçaların altı seçimi kaldırıyor', async () => {
   const cfg = timelineCfg();
   const { host, cv, calls } = await timelinePanel(cfg);
   const inspector = () => find(host, (n) => n.className === 'tl-inspector');
-  // Önceki testin seçimi modülde duruyor: önce boşa tıklanıyor
-  fire(cv, 'mousedown', { clientX: X(11), clientY: RULER + TRACK / 2, detail: 1 });
+  const below = RULER + 3 * TRACK + 5; // son parçanın altı: şerit yok
+  // Önceki testin seçimi modülde duruyor: önce parçaların altına tıklanıyor
+  fire(cv, 'mousedown', { clientX: X(11), clientY: below, detail: 1 });
   winFire('mouseup', {});
-  assert.ok(find(inspector(), (n) => /Bir klip ya da anahtar kare seçin/.test(n.text)));
+  assert.ok(find(inspector(), (n) => /Bir klip, anahtar kare ya da parça seçin/.test(n.text)));
   const y = RULER + TRACK / 2;
   fire(cv, 'mousedown', { clientX: X(5.5), clientY: y, detail: 1 });
   winFire('mouseup', {});
   const name = find(inspector(), (n) => n.tag === 'input' && n.value === 'B');
   assert.ok(name, 'denetçi B klibinin adını gösteriyor');
   assert.strictEqual(calls.rerender, 0, 'bütün panel yeniden çizilmedi (çift tıklama bozulmasın)');
-  // Boş bir yere tıklamak seçimi ve denetçiyi boşaltıyor
+  // Boş şerit parçayı seçiyor: yapıştırma ve bölme oraya
   fire(cv, 'mousedown', { clientX: X(11), clientY: y, detail: 1 });
   winFire('mouseup', {});
-  assert.ok(find(inspector(), (n) => /Bir klip ya da anahtar kare seçin/.test(n.text)));
+  assert.ok(find(inspector(), (n) => n.tag === 'input' && n.value === 'P1'), 'denetçide parça adı');
+  fire(cv, 'mousedown', { clientX: X(11), clientY: below, detail: 1 });
+  winFire('mouseup', {});
+  assert.ok(find(inspector(), (n) => /Bir klip, anahtar kare ya da parça seçin/.test(n.text)));
 });
 
 // --------------------------------------------------------------- klip destesi

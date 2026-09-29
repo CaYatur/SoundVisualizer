@@ -263,11 +263,23 @@
          ve şablonlarda yok sayılır. */
       inPoint: Math.max(0, num(s.inPoint, 0)),
       outPoint: s.outPoint == null ? null : Math.max(0, num(s.outPoint, 0)),
-      speed: clamp(s.speed, 0.05, 20) || 1,
+      /* Hız verilmemişse 1. Önce `clamp(undefined)` alt sınırı (0,05)
+         döndürüyordu ve `|| 1` hiç devreye girmiyordu: hızı yazılmamış her
+         klip yirmide bir hızdaydı (#636'da denetçide görüldü). */
+      speed: s.speed == null || s.speed === '' ? 1 : clamp(s.speed, 0.05, 20),
       type: CLIP_TYPES.indexOf(s.type) >= 0 ? s.type : 'scene',
       ref: typeof s.ref === 'string' ? s.ref : '',
       fade: Math.max(0, num(s.fade, 0)),
+      /* Kullanıcının verdiği renk (#636); boşsa parçanın rengi, o da yoksa
+         türün rengi kullanılıyor (shared/timeline-edit.js clipColor). Model
+         her çizimde yeniden kurulduğu için burada TAŞINMAZSA ilk çizimde
+         sessizce silinirdi. */
+      color: hexColor(s.color),
     };
+  }
+
+  function hexColor(v) {
+    return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
   }
 
   function clipEnd(clip) {
@@ -282,7 +294,13 @@
       name: typeof s.name === 'string' ? s.name : kind === 'automation' ? 'Otomasyon' : 'Parça',
       kind,
       muted: !!s.muted,
+      /* Solo (#636): bir parça solo ise yalnız solo parçalar çalıyor.
+         Değerlendirme modelin kendisinde (clipsAt/automationAt): pencereler
+         ve çevrimdışı dışa aktarım da buradan okuyor, panel içinde yapılsa
+         dışa aktarım canlıdan farklı çıkardı. */
+      solo: !!s.solo,
       locked: !!s.locked,
+      color: hexColor(s.color),
     };
     if (kind === 'automation') {
       t.target = typeof s.target === 'string' ? s.target : '';
@@ -343,10 +361,21 @@
 
   /* Belirli bir anda hangi klipler etkin? Sıra parça sırasıdır: üstteki parça
      önce döner, çizim tarafı istiflemeyi buna göre yapar. */
+  /* Parça çalıyor mu: susturulmuş parça hiç çalmıyor (solo olsa da);
+     herhangi bir parça solo ise solo olmayanlar da susuyor. */
+  function anySolo(tl) {
+    for (const trk of tl.tracks) if (trk.solo) return true;
+    return false;
+  }
+  function audible(trk, solo) {
+    return !trk.muted && (!solo || !!trk.solo);
+  }
+
   function clipsAt(tl, t) {
     const out = [];
+    const solo = anySolo(tl);
     for (const trk of tl.tracks) {
-      if (trk.kind !== 'clip' || trk.muted) continue;
+      if (trk.kind !== 'clip' || !audible(trk, solo)) continue;
       for (const c of trk.clips) {
         if (t >= c.start - TL_EPS && t < clipEnd(c) - TL_EPS) out.push({ track: trk, clip: c, local: t - c.start });
       }
@@ -359,8 +388,9 @@
      verir, sıfırlamaz. */
   function automationAt(tl, t) {
     const out = {};
+    const solo = anySolo(tl);
     for (const trk of tl.tracks) {
-      if (trk.kind !== 'automation' || trk.muted || !trk.target) continue;
+      if (trk.kind !== 'automation' || !audible(trk, solo) || !trk.target) continue;
       const norm = evalKeys(trk.keys, t);
       if (norm == null) continue;
       out[trk.target] = trk.min + (trk.max - trk.min) * clamp(norm, 0, 1);
@@ -545,6 +575,8 @@
     timelineLength,
     clipsAt,
     automationAt,
+    audible,
+    anySolo,
     applyAutomation,
     retimeToTempo,
     markerAfter,
