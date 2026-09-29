@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2258 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2263 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 661
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 666
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1275,6 +1275,34 @@ Performance (#621):
   so a very large settings file still costs some IPC per change; on the
   measured machine this no longer shows as a dropped frame, and splitting the
   configuration is a larger change than the measurements justify.
+
+Panel layout (#622):
+- **The Layers card lists layers, and opens the one being edited** · done on
+  `main`. Every layer showed all its settings at once: on the reporter's
+  six-layer scene the card was 4,356 px tall, four screens of scrolling before
+  the next card. Layers now arrive collapsed; each row shows the kind, the
+  source, the blend mode and the opacity, and opens on a click (remembered on
+  this machine, not in the settings file). An open layer lays its controls out
+  in columns sized to the card, and its five sub-sections are a tab strip
+  instead of five folded headings at the bottom. The same scene's card is
+  612 px with everything collapsed. A newly added layer opens.
+- **Rows no longer squeeze their labels** · done on `main`. A drop-down next
+  to its label took the whole row and sat 7 px lower, breaking labels over two
+  lines ("Image / Source"); it now takes most of the row beside a one-line
+  label, in every card.
+- **Cards fill the columns** · done on `main`. Cards were laid out row by row,
+  so a short card beside a tall one left a hole under it, and a half-width card
+  alone between two wide ones left half the row empty (Art-Net, Tempo and Auto
+  VJ, My Color Presets). Cards now stack under the shortest column in order,
+  re-measured when a card grows, and a lone half-width card takes the full
+  row. Where only two cards sit side by side, the shorter one still ends
+  first — there is nothing to put under it.
+- **Preset tiles end their rows** · done on `main`. The colour preset groups
+  hold 10 and 6 tiles and the grid gave 9 columns, so every group of 10 left
+  its last tile alone on a new row; the column count is now one of 4, 6, 7, 8
+  or 10.
+- Checked by screenshots of every category at 1100, 1300, 1600 and 1900 px
+  wide, in Turkish and English, with the reporter's settings.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
