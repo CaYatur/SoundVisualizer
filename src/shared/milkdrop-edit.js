@@ -31,7 +31,10 @@
   ];
   const WAVE_PARTS = ['init', 'per_frame', 'per_point'];
   const SHAPE_PARTS = ['init', 'per_frame'];
-  const SLOTS = 4;
+  /* Tanınan yuva: MilkDrop 3 kurallarında 16 (#567). Bir dosya kaç yuvayla
+     OKUNUYOR ayrı soru — `read` ve `write`ın `slots`u: MilkDrop 2 kuralında
+     4, ve 4'ün ötesindeki satırlara dokunulmuyor. */
+  const SLOTS = 16;
 
   function blockDefs() {
     const out = MAIN_BLOCKS.slice();
@@ -98,11 +101,11 @@
      ilk eksik numaraya, yinelenen numarada aramanın bulduğu). Satırın
      baştaki ters tırnağı (MilkDrop'un satır işareti) gösterilmiyor; shader
      satırlarına geri yazarken ekleniyor. */
-  function read(source) {
+  function read(source, slots) {
     const lines = splitLines(source);
     const M = engine();
     const raw = {};
-    if (M && M.parseMilkMd2) M.parseMilkMd2(String(source == null ? '' : source), null, raw);
+    if (M && M.parseMilkMd2) M.parseMilkMd2(String(source == null ? '' : source), null, raw, slots === 16 ? 16 : 4);
     const blocks = {};
     for (const b of BLOCKS) blocks[b.id] = (raw[b.prefix] || []).slice();
     const values = {};
@@ -152,13 +155,13 @@
      dosyadaki İLK satırının yerine yazılıyor; dosyada hiç yoksa: dalga ve
      şekil kodu kendi parametrelerinin ardına, ötekiler dosyanın sonuna,
      MilkDrop'un kendi sırasıyla. */
-  function write(source, blocks, values) {
+  function write(source, blocks, values, slots) {
     const eol = eolOf(source);
     const items = splitKeep(source);
     /* Yalnız DEĞİŞEN bloklar yazılıyor: aynısı verilen blok dosyadaki
        satırlarıyla, yerinde ve numarasıyla kalıyor (dosya baytı baytına
        aynı kalsın; MilkDrop'un aramasına göre sıra zaten önemsiz). */
-    const now = read(source);
+    const now = read(source, slots);
     const want = {};
     for (const id in (blocks || {})) {
       if (!BLOCK_BY_ID[id]) continue;

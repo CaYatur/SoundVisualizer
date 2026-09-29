@@ -51,7 +51,25 @@
   /* Geçiş süresi planlanan ömre giriyor; motor onu 5 saniyede kesiyor
      (modes/milkdrop.js BLEND_MAX), burada da aynı sınır. */
   const MAX_BLEND = 5;
-  const HARD_CUTS = ['off', 'md2'];
+  const HARD_CUTS = ['off', 'md2', 'md3-1', 'md3-2', 'md3-3', 'md3-4', 'md3-5', 'md3-6'];
+  /* MİLKDROP 3'ÜN SERT GEÇİŞ KİPLERİ (#567), MilkDrop 3'ün kendi
+     açıklamasındaki (README) eşik ve en kısa gecikmeyle: bas ya da tiz,
+     uzun ortalamasına göre (MilkDrop'un `bass`/`treb` değişkeni), eşiği
+     aşınca ve son geçişten bu yana en az `min` saniye geçtiyse. 4'te tiz
+     8'i aşarsa gecikme beklenmiyor. İki sayı tarif edilmemiş ve BİZİM
+     SEÇİMİMİZ: 6'nın gecikmesi (1'inki gibi 0,2 sn) ve 4'ün "hemen"i
+     (0,2 sn; yoksa tiz 8'in üstünde kaldıkça her karede preset değişirdi).
+     6'nın çok yüksek basta belirli bir preseti (Bass/WHITE.milk) yüklemesi
+     ve 7'nin efekt eklemesi tarif edilmediği için yok. */
+  const MD3_CUTS = {
+    'md3-1': { band: 'bass', over: 1.5, min: 0.2 },
+    'md3-2': { band: 'treb', over: 2.9, min: 0.5 },
+    'md3-3': { band: 'treb', over: 2.9, min: 1 },
+    'md3-4': { band: 'treb', over: 2.9, min: 3, now: 8 },
+    'md3-5': { band: 'treb', over: 2.9, min: 5 },
+    'md3-6': { band: 'bass', over: 1.5, min: 0.2 },
+  };
+  const NOW_MIN = 0.2;
   /* MilkDrop 2'nin varsayılanları (plugin.cpp:491-493): sert geçiş KAPALI,
      eşik 2,5, "yarı ömür" 60 sn. */
   const HARD_THRESHOLD = 2.5;
@@ -116,7 +134,10 @@
       spread: isFinite(r) && r > 0 ? Math.min(MAX_SPREAD, r) : 0,
       blend: isFinite(b) && b > 0 ? Math.min(MAX_BLEND, b) : 0,
       locked: m.locked === true,
-      hardCut: HARD_CUTS.indexOf(m.hardCut) >= 0 ? m.hardCut : 'off',
+      /* MilkDrop 3'ün kipleri MilkDrop 2 biçiminde yok (#567): seçili kalmışsa
+         MilkDrop 2'ninki. */
+      hardCut: HARD_CUTS.indexOf(m.hardCut) < 0 ? 'off'
+        : (m.format === 'md2' && MD3_CUTS[m.hardCut] ? 'md2' : m.hardCut),
       threshold: range(m.hardCutThreshold, HARD_THRESHOLD, 0.5, 20),
       halfLife: range(m.hardCutHalfLife, HARD_HALFLIFE, 1, 600),
       /* Puana göre seçim MilkDrop'ta varsayılan AÇIK (`m_bEnableRating`,
@@ -202,6 +223,9 @@
       this.jitter = null;
       /* Sert geçiş eşiği. null = daha kurulmadı. */
       this.thresh = null;
+      /* Son preset değişiminden bu yana geçen süre (MilkDrop 3'ün sert geçiş
+         kiplerinin en kısa gecikmesi, #567). Başta sonsuz: ilk vuruş geçebilir. */
+      this.sinceChange = Infinity;
       /* Son dönen seçim sert geçiş miydi. Motor geçiş süresini buna göre
          seçiyor: sert geçiş karışmadan olur. */
       this.cut = false;
@@ -220,6 +244,8 @@
       this.jitter = null;
       this.barCount = 0;
       this.next = null;
+      // Elle seçim de bir değişim: MilkDrop 3 kiplerinin gecikmesi ondan sayılıyor
+      this.sinceChange = 0;
     }
 
     /* Ölçü kipinde planlanan ömür: tempo varsa N ölçünün süresi, yoksa
@@ -300,6 +326,15 @@
        seçse bile MilkDrop eşiği yine ikiye katlıyor ya da söndürüyor
        (yükleme sürerken yalnız yeni yüklemeyi atlıyor, 889-892). */
     _hard(d, o, rel) {
+      const md3 = MD3_CUTS[o.hardCut];
+      if (md3) {
+        // Kare hızı şartı MilkDrop 2'ninkiyle aynı tutuluyor
+        if (!(d > 0) || d >= 1) return false;
+        const v = rel ? Number(rel[md3.band]) : NaN;
+        if (!isFinite(v)) return false;
+        if (md3.now && v > md3.now) return this.sinceChange >= NOW_MIN;
+        return v > md3.over && this.sinceChange >= md3.min;
+      }
       if (this.thresh === null) this.thresh = o.threshold * 2;
       // MilkDrop saniyede birden az kare varken hiç bakmıyor (886, GetFps() > 1)
       if (!(d > 0) || d >= 1) return false;
@@ -324,6 +359,15 @@
        seçimin sert geçiş olup olmadığını, `this.blend` vuruşa yuvarlanmış
        geçiş süresini söylüyor. */
     step(dt, md, list, currentId, rel, ratings, beat) {
+      /* Son değişimden bu yana süre (#567): bu kare de sayılıyor, bir seçim
+         dönerse sıfırlanıyor. */
+      this.sinceChange += Math.max(0, Number(dt) || 0);
+      const p = this._step(dt, md, list, currentId, rel, ratings, beat);
+      if (p) this.sinceChange = 0;
+      return p;
+    }
+
+    _step(dt, md, list, currentId, rel, ratings, beat) {
       const o = normalize(md);
       o.ratings = ratings && typeof ratings === 'object' ? ratings : null;
       const n = Array.isArray(list) ? list.length : 0;
@@ -424,6 +468,7 @@
       this.cut = false;
       this.blend = null;
       this.reason = 'TRACK';
+      this.sinceChange = 0;
       return p;
     }
 

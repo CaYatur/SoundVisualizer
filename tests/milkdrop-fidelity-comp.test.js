@@ -370,7 +370,8 @@ test('motor: anahtar çevrilince okuyuşu ayrışan preset yeniden kuruluyor', (
   assert.strictEqual(m.preset.file.params.fdecay, undefined, 'MilkDrop\'un okuyuşuyla');
   // Kurulum ve aşamalar kullanıcının kuralıyla
   const code = bare(read('src/visualizer/modes/milkdrop.js'));
-  assert.match(code, /this\.preset = new M\.Preset\(src, \{ seed: 1234, accurate: this\._wantAcc !== false \}\);/);
+  // Biçim (#567) ayrı eksen olarak yanında
+  assert.match(code, /this\.preset = new M\.Preset\(src, \{ seed: 1234, accurate: this\._wantAcc !== false, format: this\._wantFmt \}\);/);
   assert.match(code, /const parsed = M\.readMilk \? M\.readMilk\(src, acc\) : M\.parseMilk\(src\);/);
   assert.match(code, /this\._syncReading\(\);\s*if \(\(this\._shadersLost \|\| this\._stagesAcc !== \(this\._wantAcc !== false\)\) && this\._presetSrc\)/);
 });

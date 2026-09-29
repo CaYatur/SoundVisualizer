@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2311%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2321%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -427,6 +427,13 @@ profilinde basamak olmadığını doğruluyor.
   her karede yeniden yazıyorsa bunu söylüyor. Asıl preset hiç değişmiyor: *Yeni Preset Olarak
   Kaydet* sizin sürümünüzü saklıyor ve yalnız değiştirdiğiniz yazılıyor — dosyanın geri kalanı
   baytı baytına aynı.
+- **MilkDrop 2 ve MilkDrop 3 kuralları.** *Preset Biçimi* ayarı — Otomatik, MilkDrop 2 ya da
+  MilkDrop 3 — presetin kimin dosya kurallarıyla okunacağını seçiyor: MilkDrop 3'ün 16 özel dalgası
+  ve şekli ve q1–q64'ü ya da MilkDrop 2'nin dördü ve q1–q32'si. Otomatik, bu uzantıları kullanan
+  preseti MilkDrop 3 kurallarıyla okuyor ve panel hangilerini kullandığını söylüyor. MilkDrop 3'ün
+  1–6 numaralı sert geçiş kipleri kendi eşik ve gecikmeleriyle seçilebiliyor. Yeni dalga biçimleri,
+  `.milk2` çift presetleri, yeni geçişleri ve shader'da `get_fft` henüz yok: nasıl davrandıklarını
+  tarif eden bir kaynak yok.
 - **`milk_img.ini`'den sprite'lar.** MilkDrop 2 gösteri sırasında kendi resimlerinizi görüntünün
   üstüne çiziyor: her biri `milk_img.ini`de bir resim, bir kez çalışan ve her kare çalışan koduyla
   tanımlı ve numarasıyla başlatılıyor. Dosyayı MilkDrop panelinde seçin; panelin listesinden, bir
@@ -1334,7 +1341,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2311 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2321 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

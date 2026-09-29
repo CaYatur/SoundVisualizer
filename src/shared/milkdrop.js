@@ -1827,7 +1827,11 @@
      sırayla ve yapıştırılmadan, önekiyle oraya (`raw['per_frame_']`):
      düzenleyici (#578) bloğu MilkDrop'un gördüğü satırlarla gösteriyor —
      yinelenen numaralarda hangisini seçtiği aramanın sırasına bağlı. */
-  function parseMilkMd2(text, seen, raw) {
+  function parseMilkMd2(text, seen, raw, slots) {
+    /* Dalga ve şekil yuvası: MilkDrop 2'de 4 (md_defines.h
+       MAX_CUSTOM_WAVES/SHAPES), MilkDrop 3 kipinde 16 (#567). 4'te okuma
+       sırası ve arama konumu eskisinin aynısı. */
+    const SLOTS = slots === 16 ? 16 : 4;
     const ix = md2Index(text);
     const params = readVersions(text, ix);
     const put = (k, parse) => {
@@ -1868,7 +1872,7 @@
     I('bMotionVectorsOn');
     F('mv_a');
     const waves = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < SLOTS; i++) {
       const k = (n) => 'wavecode_' + i + '_' + n;
       I(k('enabled'), k('samples'), k('sep'), k('bSpectrum'), k('bUseDots'), k('bDrawThick'), k('bAdditive'));
       F(k('scaling'), k('smoothing'), k('r'), k('g'), k('b'), k('a'));
@@ -1882,7 +1886,7 @@
       if (init.length || frame.length || point.length) waves.push(w);
     }
     const shapes = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < SLOTS; i++) {
       const k = (n) => 'shapecode_' + i + '_' + n;
       I(k('enabled'), k('sides'), k('additive'), k('thickOutline'), k('textured'), k('num_inst'));
       F(k('x'), k('y'), k('rad'), k('ang'), k('tex_ang'), k('tex_zoom'), k('r'), k('g'), k('b'), k('a'),
@@ -1908,7 +1912,51 @@
   }
 
   // Uyum anahtarına göre okuyuş: açıkken MilkDrop'unki, kapalıyken eski ayrıştırıcı
-  const readMilk = (text, accurate) => (accurate === false ? parseMilk(text) : parseMilkMd2(text));
+  const readMilk = (text, accurate, slots) => (accurate === false ? parseMilk(text) : parseMilkMd2(text, null, null, slots));
+
+  /* MİLKDROP 3 UZANTILARI (#567). Bir presetin hangi MilkDrop 3 uzantısını
+     kullandığı: 'slots' (5.–16. dalga ya da şekil yuvası etkin ya da kodlu),
+     'slot4' (yalnız 5. yuva, yani 4 numara), 'q64' (denklemlerde q33–q64),
+     'wavemode' (nWaveMode 8 ve üstü), 'fft' ve 'mouse' (shader'da get_fft,
+     get_fft_hz, mouse.x…). Tarif MilkDrop 3'ün kendi açıklamasından
+     (README): 16 şekil ve dalga, q1–q64, 16 basit dalga biçimi, shader'da
+     FFT ve fare; o özelliklerin koduna erişim yok, yalnız adları.
+
+     Otomatik kip (`md3Auto`) yalnız 'slots', 'q64', 'fft' ve 'mouse'u MD3
+     sayıyor. Korpusun 10.347 presetinden 14'ü öbür ikisine takılıyor ve
+     hepsi MilkDrop 2 dönemi dosyası: 7'si 4 numaralı yuvayı açık ya da
+     kodlu yazıyor (162 dosya o yuvanın anahtarını taşıyor), 5'i 8 ve üstü
+     dalga kipi yazıyor. MilkDrop 2 ikisini de yok sayıyordu (yuva 4'ün
+     ötesi okunmuyor; kip `% 8`) — yazarlarının gördüğü o. */
+  const MD3_AUTO = ['slots', 'q64', 'fft', 'mouse'];
+  function md3Features(text) {
+    const out = new Set();
+    for (const raw of String(text == null ? '' : text).split('\n')) {
+      const l = raw.replace(/\r$/, '');
+      let m = /^(wavecode|shapecode)_(\d+)_enabled[ =]\s*([+-]?\d+)/i.exec(l);
+      if (m && +m[2] >= 4 && +m[2] < 16 && +m[3] !== 0) out.add(+m[2] === 4 ? 'slot4' : 'slots');
+      m = /^(wave|shape)_(\d+)_(?:init|per_frame|per_point)\d+[ =](.*)$/i.exec(l);
+      if (m && +m[2] >= 4 && +m[2] < 16 && m[3].replace(/\/\/.*$/, '').trim()) out.add(+m[2] === 4 ? 'slot4' : 'slots');
+      m = /^(?:per_frame_init_|per_frame_|per_pixel_|wave_\d+_(?:init|per_frame|per_point)|shape_\d+_(?:init|per_frame))\d+[ =](.*)$/i.exec(l);
+      if (m && /(^|[^a-z0-9_])q(3[3-9]|[45]\d|6[0-4])(?![a-z0-9_])/i.test(m[1].replace(/\/\/.*$/, ''))) out.add('q64');
+      m = /^nWaveMode[ =]\s*([+-]?\d+)/.exec(l);
+      if (m && +m[1] >= 8) out.add('wavemode');
+      m = /^(?:warp|comp)_\d+[ =](.*)$/i.exec(l);
+      if (m) {
+        const c = m[1].replace(/\/\/.*$/, '');
+        if (/\bget_fft(?:_hz)?\s*\(/.test(c)) out.add('fft');
+        if (/\bmouse\s*\.\s*[xyzw]/.test(c)) out.add('mouse');
+      }
+    }
+    return Array.from(out);
+  }
+  const md3Auto = (text) => md3Features(text).some((f) => MD3_AUTO.indexOf(f) >= 0);
+  // Biçim ayarı ve metin → bu preset MilkDrop 3 kurallarıyla mı okunuyor
+  function isMd3(format, text) {
+    if (format === 'md3') return true;
+    if (format === 'md2') return false;
+    return md3Auto(text);
+  }
 
   /* İki okuyuş bu dosyada MOTORUN KULLANDIĞI bir şeyde ayrışıyor mu. Uyum
      anahtarı çevrilince motor presetini ancak o zaman yeniden kuruyor
@@ -2238,7 +2286,15 @@
       this._mode = { md2: true };
       this.accurate = o.accurate !== false;
       this.readAcc = this.accurate;
-      this.file = readMilk(text, this.accurate);
+      /* BİÇİM (#567): 'md2' | 'md3' | 'auto'. Uyumdan (`accurate`) ayrı bir
+         eksen: MilkDrop 3 kurallarında 16 dalga ve şekil yuvası ve q1–q64.
+         Otomatikte preset metninden (`md3Auto`). Kurulumda bir kez; ayar
+         değişince görselleştirici preseti yeniden kuruyor. */
+      this.format = o.format === 'md2' || o.format === 'md3' ? o.format : 'auto';
+      this.md3 = isMd3(this.format, text);
+      this.slots = this.md3 ? 16 : 4;
+      this._nq = this.md3 ? 64 : NUM_Q;
+      this.file = readMilk(text, this.accurate, this.slots);
       this.pool = new Pool();
       this.errors = [];
       // `psetname` MilkDrop'un okuduğu bir anahtar değil; ad için metinden
@@ -2394,7 +2450,12 @@
         const i = +m[1];
         if (!byIdx.has(i)) byIdx.set(i, { index: i });
       }
-      return Array.from(byIdx.keys()).sort((a, b) => a - b).map((i) => byIdx.get(i));
+      /* Yuva sayısının ötesi yok (#567): MilkDrop 2'de 4, MilkDrop 3
+         kurallarında 16. Eski okuyucu (uyum kapalı) bütün numaraları
+         topluyordu ve 4 numaralı yuvayı açan 7 korpus presetinde MilkDrop'un
+         hiç çizmediği bir şekil ya da dalga çiziliyordu. */
+      return Array.from(byIdx.keys()).filter((i) => i >= 0 && i < this.slots)
+        .sort((a, b) => a - b).map((i) => byIdx.get(i));
     }
 
     /* Blok parametrelerini okumak için: `wavecode_2_r` gibi adlar presetin
@@ -2519,7 +2580,7 @@
       if (this.accurate === false) for (const k of SHARED_LEGACY) pool.set(k, P.get(k));
       // Uyum açıkken per_frame'in bıraktığı q; kapalıyken havuzun o anki hâli
       const q = this.accurate !== false ? this._qFrame : null;
-      for (let i = 1; i <= 32; i++) pool.set('q' + i, q ? q[i - 1] : P.get('q' + i));
+      for (let i = 1; i <= this._nq; i++) pool.set('q' + i, q ? q[i - 1] : P.get('q' + i));
     }
 
     // Bir custom dalganın kare denklemlerini koşturur. false: çizilmeyecek.
@@ -2541,7 +2602,7 @@
       const V = w.ppPool;
       for (const k of PP_IN) V.set(k, P.get(k));
       w.cFrame.run(P.values);
-      for (let i = 1; i <= 32; i++) V.set('q' + i, P.get('q' + i));
+      for (let i = 1; i <= this._nq; i++) V.set('q' + i, P.get('q' + i));
       for (let i = 1; i <= 8; i++) V.set('t' + i, P.get('t' + i));
       /* NOKTA SAYISI per_frame'den SONRA okunuyor. MilkDrop:
              nSamples = (int)*var_pf_samples;
@@ -2659,14 +2720,14 @@
         /* q'larin "init sonrasi" degeri: her karenin basladigi nokta.
            MilkDrop init kodunu preset yuklenirken bir kez kosturup
            q1..q32'yi tam burada saklıyor. */
-        this._qInit = new Array(NUM_Q);
-        for (let i = 0; i < NUM_Q; i++) this._qInit[i] = P.get('q' + (i + 1)) || 0;
+        this._qInit = new Array(this._nq);
+        for (let i = 0; i < this._nq; i++) this._qInit[i] = P.get('q' + (i + 1)) || 0;
       }
       /* Yerlesik kare degiskenleri her karede dosyadaki degere donuyor —
          ilk kare dahil, cunku MilkDrop init'ten sonra da yeniden yukluyor.
          Ayrintili gerekce PF_RESET'in yaninda. */
       for (const k of PF_RESET) P.set(k, base[k]);
-      if (this._qInit) for (let i = 0; i < NUM_Q; i++) P.set('q' + (i + 1), this._qInit[i]);
+      if (this._qInit) for (let i = 0; i < this._nq; i++) P.set('q' + (i + 1), this._qInit[i]);
       this.cFrame.run(P.values);
       /* q'ların KARE değeri, per_pixel koşmadan önce. MilkDrop per_frame
          bittiğinde q1..q32'yi ayrı bir yuva takımına kopyalıyor
@@ -2675,9 +2736,9 @@
          (plugin.cpp:2317 ve şeklin eşi). Bizde tek havuz var: ağ
          düğümlerinde q yazan 155 preset (%1,5) aynı karede çizilen
          dalgalara ve şekillere düğümlerin bıraktığı değeri geçiriyordu. */
-      if (!this._qFrame) this._qFrame = new Array(NUM_Q);
-      for (let i = 0; i < NUM_Q; i++) this._qFrame[i] = P.get('q' + (i + 1));
-      for (let i = 0; i < NUM_Q; i++) V.set('q' + (i + 1), this._qFrame[i]);
+      if (!this._qFrame) this._qFrame = new Array(this._nq);
+      for (let i = 0; i < this._nq; i++) this._qFrame[i] = P.get('q' + (i + 1));
+      for (let i = 0; i < this._nq; i++) V.set('q' + (i + 1), this._qFrame[i]);
       return P;
     }
 
@@ -2961,7 +3022,7 @@
   }
 
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
-    clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
+    clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText, md3Features, md3Auto, isMd3,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
     resetGlobals,
     /* Çağrılabilen işlev adları (küçük harf): uyum açıkken ns-eel2'nin

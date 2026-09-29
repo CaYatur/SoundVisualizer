@@ -2152,7 +2152,7 @@ void main(){
       /* Dosya uyum anahtarına göre okunuyor (#580): açıkken MilkDrop'un
          okuyuşuyla (`readMilk`), kapalıyken eski ayrıştırıcıyla. Varsayılana
          bırakılmıyor — Preset'in varsayılanı açık. */
-      this.preset = new M.Preset(src, { seed: 1234, accurate: this._wantAcc !== false });
+      this.preset = new M.Preset(src, { seed: 1234, accurate: this._wantAcc !== false, format: this._wantFmt });
       this.error = this.preset.errors.join(' | ');
       this.frameNo = 0;
       this.presetTime = 0;
@@ -2235,13 +2235,22 @@ void main(){
        durumu baştan başlıyor, sürüyorsa geçiş bırakılıyor ve aşamalar da
        yeniden kuruluyor; ayrışmıyorsa yalnız işareti güncelleniyor. Önceden
        kurulmuş bir preset de burada yakalanıyor. Dönüş: yeniden kuruldu mu. */
+    /* BİÇİM (#567) de burada: MilkDrop 2 / 3 ayarı değişip bu presetin
+       okunduğu kural (yuva ve q sayısı) değişiyorsa preset yeniden
+       kuruluyor; değişmiyorsa (Otomatikte MD2 sayılan bir preset MD2
+       ayarına geçince) yerinde kalıyor. */
     _syncReading() {
       const wantAcc = this._wantAcc !== false;
-      if (!this._presetSrc || !this.preset || this.preset.readAcc === wantAcc) return false;
+      if (!this._presetSrc || !this.preset) return false;
       const M = window.SVMilkdrop;
-      if (M.readingsDiffer && M.readingsDiffer(this._presetSrc)) {
+      const fmt = this._wantFmt || 'auto';
+      // Her karede çağrılıyor: ayar ve okuyuş aynıysa metin taranmıyor
+      if (this.preset.readAcc === wantAcc && this.preset.format === fmt) return false;
+      const fmtMoved = !!M.isMd3 && M.isMd3(fmt, this._presetSrc) !== !!this.preset.md3;
+      if (this.preset.readAcc === wantAcc && !fmtMoved) { this.preset.format = fmt; return false; }
+      if (fmtMoved || (this.preset.readAcc !== wantAcc && M.readingsDiffer && M.readingsDiffer(this._presetSrc))) {
         this._dropOld();
-        this.preset = new M.Preset(this._presetSrc, { seed: 1234, accurate: wantAcc });
+        this.preset = new M.Preset(this._presetSrc, { seed: 1234, accurate: wantAcc, format: fmt });
         this.error = this.preset.errors.join(' | ');
         this._stagesAcc = null;
         return true;
@@ -3135,6 +3144,8 @@ void main(){
       this._applyMesh(cfg);
       this._bindMouse();
       this._wantAcc = !(cfg.milkdrop && cfg.milkdrop.accurate === false);
+      // MilkDrop 2 / 3 biçimi (#567): uyumdan ayrı eksen
+      this._wantFmt = (cfg.milkdrop && cfg.milkdrop.format) || 'auto';
       /* ÇİZGİ ÇİZİMİ. `smooth` kenar yumuşatmalı ve eski yolun bıraktığı
          ışığı koruyor; `thin` gerçek kalınlık, ışık koruması yok;
          `milkdrop` MilkDrop'un kendi kaydırmalı kalınlaştırması.

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2311 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2321 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 714
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 724
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2169,6 +2169,68 @@ rest after. No version number yet.
     the part before `shader_body` are mapped by similarity and can be
     missed; a wave's or shape's parameters (colour, sides, point count)
     are edited as text in the *Text* tab rather than with controls.
+- **MilkDrop 3 compatibility: Automatic / MilkDrop 2 / MilkDrop 3 (#567)** ·
+  the parts that can be pinned down are done on `main`; the rest is below
+  with the reason.
+  - **Where the rules come from.** MilkDrop 3's public repository still
+    carries MilkDrop 2.2-level source (`NUM_Q_VAR 32`, four wave and shape
+    slots), its example presets ship only inside a 92 MB installer, and the
+    only description of the extensions is its README: 16 custom shapes and
+    waves, q1–q64, eight new simple waveforms (16 in all), `get_fft(pos)`
+    and `get_fft_hz(freq)` in shaders, `mouse.x/y/z/w` in shaders, `.milk2`
+    double presets, 27+ transitions by name and seven hard-cut modes. The
+    installer was not run or unpacked: an untrusted binary.
+  - **A Preset Format setting**, next to MilkDrop Fidelity and separate from
+    it: fidelity picks MilkDrop's values, the format picks whose file rules.
+    *MilkDrop 3* reads 16 wave and shape slots and carries q1–q64 from the
+    frame equations to the pixel equations, the waves and the shapes;
+    *MilkDrop 2* reads four slots and q1–q32 (q33 and up are then ordinary
+    variables that do not cross between the equation blocks, as in
+    MilkDrop 2). Switching it rebuilds the running preset only when that
+    preset's rules change. The panel names the extensions the selected
+    preset uses.
+  - **Automatic** reads a preset with MilkDrop 3 rules when it enables or
+    has code in slots 6–16, uses q33–q64 in its equations, or calls
+    `get_fft`/`get_fft_hz` or reads `mouse.` in a shader. Two other signs
+    are deliberately not counted: over the 10,347-preset corpus, 7 files
+    enable or code the fifth slot (162 carry its keys) and 5 write a wave
+    mode of 8 or more — all MilkDrop 2-era files whose authors saw
+    MilkDrop 2 ignore the slot and take the mode modulo 8. With that rule
+    Automatic reads no corpus preset as MilkDrop 3, and old and new engine
+    agree to the bit on every output of every corpus preset, fidelity on
+    and off — except those 7 files with fidelity off, where the old reader
+    drew the fifth slot MilkDrop 2 never reads. A genuine MilkDrop 3 preset
+    that uses only a fifth slot is read as MilkDrop 2 in Automatic; the
+    MilkDrop 3 setting reads it fully.
+  - **Hard cuts 1–6 of MilkDrop 3**, offered in Automatic and MilkDrop 3
+    and hidden in MilkDrop 2 (a selected one falls back to MilkDrop 2's
+    there): bass above 1.5 (1 and 6) or treble above 2.9 (2–5), each
+    against its long average, once at least 0.2 / 0.5 / 1 / 3 / 5 s have
+    passed since the last change (a pick by hand counts); in 4, treble
+    above 8 does not wait. Two numbers are our choice, as the README gives
+    none: mode 6 waits 0.2 s like mode 1, and mode 4's "at once" still
+    waits 0.2 s, or treble staying above 8 would change the preset every
+    frame.
+  - **The editor follows the format**: with MilkDrop 3 rules its wave and
+    shape pickers offer 16 slots; with MilkDrop 2 rules four, and lines of
+    the other slots are kept untouched when the file is written.
+  - **Tests.** 10: the detection signs and the Automatic rule, 16 against 4
+    slots in both readers, q33–q64 crossing (and not crossing) into pixels
+    and waves, a MilkDrop 2 file giving the same outputs under both rules,
+    the engine rebuilding only when the rules change, the setting's
+    default, the three hard-cut rules, the MilkDrop 2 fallback, and the
+    editor's slots.
+  - *Not done, as nothing describes the behaviour:* the eight new simple
+    waveforms (modes 8–15 are still taken modulo 8, as MilkDrop 2 does);
+    `get_fft`/`get_fft_hz` and `mouse` in shaders (a shader using them does
+    not compile and its stage falls back to the fixed path, as for any
+    shader that fails); q33–q64 in shaders; `.milk2` double presets and
+    their blend patterns (import still says they are not supported); the
+    new transitions, known by name only; hard cut 6 loading a particular
+    preset on very loud bass, and hard cut 7's effect; 500-point shapes.
+    Any of these can follow once a description or sample files are
+    available — reading MilkDrop 3's own presets needs them outside the
+    installer.
 - **Fidelity follow-ups (#580)** · the fixed composite, the stage rule,
   MilkDrop's defaults, the hue colour, the values that stay in the file,
   MilkDrop's way of reading a file, its expression compiler's rules and

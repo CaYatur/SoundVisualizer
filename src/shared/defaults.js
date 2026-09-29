@@ -718,6 +718,13 @@
          yuzeyi kaliyor — iki ayri boru hatti bakim maliyetini ikiye
          katlardi. */
       accurate: true,
+      /* BİÇİM (#567): 'auto' | 'md2' | 'md3'. MilkDrop 3 kuralları 16 dalga
+         ve şekil yuvası ve q1–q64 demek; MilkDrop 2 dörder yuva ve q1–q32.
+         Otomatik her preseti yüklenirken inceliyor ve MilkDrop 3
+         uzantısı kullanıyorsa onun kurallarıyla okuyor. Uyumdan ayrı bir
+         eksen: uyum MilkDrop'un değerlerini, biçim hangi MilkDrop'un dosya
+         kurallarını seçiyor. */
+      format: 'auto',
     },
 
     /* MILKDROP KİTAPLIĞI VE CANLI DENETİM — SAHNEYE AİT DEĞİL.
