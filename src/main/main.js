@@ -3359,9 +3359,16 @@ async function runSmoke() {
     /* Katman yığını KAPALI gönderiliyor: açıkken sahneyi `cfg.layers`
        belirliyor ve `visualizer.type` sahnede bir MilkDrop katmanı
        doğurmuyor (#560, madde 8). Ölçüm için gereken, çizen bir motor. */
+    /* Ölçülen preset YERLEŞİK ilk preset, kullanıcınınki değil. Öz test
+       gerçek ayarlarla koşuyor ve "görüntü geri geldi mi" ölçütü seçili
+       presetin sessizlikte ne çizdiğine bağlıydı: dalga saydamlığı 0,001
+       olan bir preset seçiliyken geri besleme tamponu kaybolunca ekran ses
+       gelene kadar karanlık kalıyor ve adım rastgele düşüyordu. */
+    const probeMd = milkdropBuiltins()[0];
     send({ visualizer: Object.assign({}, base.visualizer, { type: 'milkdrop' }),
       layerStack: Object.assign({}, base.layerStack, { enabled: false }),
-      milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' }),
+      milkdrop: Object.assign({}, base.milkdrop, { autoNext: 0, autoNextBars: 0, hardCut: 'off' },
+        probeMd ? { presetId: probeMd.id, name: probeMd.name, source: probeMd.source } : {}),
       background: { type: 'solid', solidColor: '#000000' } });
     const find = `(function () {
       var s = window.SVStage && window.SVStage.stack();
