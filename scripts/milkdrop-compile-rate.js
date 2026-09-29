@@ -17,6 +17,7 @@
  *   node scripts/milkdrop-compile-rate.js <klasör> --json=rapor.json
  *   node scripts/milkdrop-compile-rate.js <klasör> --limit=200
  *   node scripts/milkdrop-compile-rate.js <klasör> --show=5   (örnek başına kaç preset adı)
+ *   node scripts/milkdrop-compile-rate.js <klasör> --legacy   (uyum kapalıyken çeviri)
  *
  * Çıktı: toplam stage, derlenen stage, tamamı temiz preset yüzdesi ve
  * başarısızlıkların neden bazında sıklık listesi. O liste, iş kuyruğudur.
@@ -33,6 +34,8 @@ const corpus = argv.find((a) => !a.startsWith('--') && !a.endsWith('.js'));
 const LIMIT = Number(flag('limit', 0)) || 0;
 const SHOW = Number(flag('show', 3)) || 3;
 const JSON_OUT = flag('json', '');
+// Uyum kapalı çeviri (motorun eski yolu); varsayılan motorun varsayılanı: açık (#580)
+const LEGACY = argv.indexOf('--legacy') >= 0;
 
 if (!corpus) {
   console.error('Preset klasörü verilmedi.\n' +
@@ -186,7 +189,7 @@ async function main() {
     for (const stage of ['warp', 'comp']) {
       const src = stage === 'warp' ? preset.warpShader : preset.compShader;
       let r;
-      try { r = SH.translate(src, { stage }); } catch (e) {
+      try { r = SH.translate(src, { stage, acc: !LEGACY }); } catch (e) {
         total++; bump(file, true);
         failures.push({ file, stage, reason: 'çeviri çöktü: ' + (e && e.message) });
         continue;

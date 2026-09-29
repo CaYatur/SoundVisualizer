@@ -463,3 +463,33 @@ test('sabit dörtgen: köşe rengi iki üçgende doğrusal, ortak kenar üst-sa�
     assert.ok(Math.abs(fn(w, t, t + 1e-9) - fn(w, t + 1e-9, t)) < 1e-6, 'kenarda süreksiz: ' + t);
   }
 });
+
+/* BİRLEŞTİRMENİN rad/ang'ı MilkDrop'un formülüyle (#580; plugin.cpp
+   UvToMathSpace): p = (2u − 1, 2v − 1) × aspect; rad = |p| / |aspect|,
+   köşelerde 1; ang = atan2(py, px), 0..2π. Önceki formülde bölen yoktu
+   (16:9'da köşede 1,15) ve ang en-boysuz, −π..π idi. Formül JS'te aynen
+   çalıştırılıyor; GLSL metni de o formül. */
+test('birleştirme: rad köşede 1, ang en-boy ölçekli ve 0..2π (uyum açık)', () => {
+  const T = require('../src/shared/milkdrop-shader.js');
+  const src = 'shader_body { ret = float3(rad, ang, 0); }';
+  const on = T.translate(src, { stage: 'comp', acc: true }).glsl;
+  assert.match(on, /vec2 p = \(uv \* 2\.0 - 1\.0\) \* aspect\.xy;/);
+  assert.match(on, /rad = length\(p\) \/ length\(aspect\.xy\);/);
+  assert.match(on, /ang = atan\(p\.y, p\.x\);\s*if \(ang < 0\.0\) ang \+= 6\.2831853071796;/);
+  const off = T.translate(src, { stage: 'comp' }).glsl;
+  assert.match(off, /rad = length\(\(uv - 0\.5\) \* aspect\.xy\) \* 2\.0;/, 'uyum kapalıyken eski formül');
+  // Formülün kendisi: 16:9 (aspX 1, aspY 0,5625)
+  const ax = 1, ay = 0.5625;
+  const f = (u, v) => {
+    const px = (u * 2 - 1) * ax, py = (v * 2 - 1) * ay;
+    let a = Math.atan2(py, px); if (a < 0) a += 2 * Math.PI;
+    return [Math.hypot(px, py) / Math.hypot(ax, ay), a];
+  };
+  assert.ok(Math.abs(f(1, 1)[0] - 1) < 1e-12 && Math.abs(f(0, 0)[0] - 1) < 1e-12, 'köşe 1');
+  assert.ok(Math.abs(f(1, 0.5)[0] - 1 / Math.hypot(ax, ay)) < 1e-12);
+  // Köşegen açısı en-boydan: 45° değil atan(0,5625)
+  assert.ok(Math.abs(f(1, 1)[1] - Math.atan2(ay, ax)) < 1e-12);
+  assert.ok(f(0.9, 0.1)[1] > Math.PI, 'negatif yarı 2π eklenerek');
+  // Motor aşamayı kullanıcının kuralıyla çeviriyor
+  assert.match(read('src/visualizer/modes/milkdrop.js'), /T\.translate\(text, \{ stage, acc \}\)/);
+});

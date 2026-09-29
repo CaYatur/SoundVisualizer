@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2327 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2328 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 730
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 731
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2612,13 +2612,33 @@ rest after. No version number yet.
     (`decay^(30/fps)`): MilkDrop applies it per frame and its default
     frame-rate cap is 30 (`m_max_fps_fs`), so the correction reproduces
     that default at any frame rate.
-  - **Not done yet:** whether `uv`
-    in preset shaders runs the way MilkDrop's does — read back from the
-    screen, our `uv.y` is 1 at the top, where MilkDrop's texture
-    coordinate is 0; sampling agrees, but a shader doing arithmetic on
-    `uv.y` may come out mirrored, which needs its own check; and the
-    comparison of whole frames with a reference renderer (the expression
-    side is compared, see below). Left out of the compiler: the last bit
+  - **The composite stage's `rad` and `ang`, MilkDrop's formula.** In
+    MilkDrop the composite mesh carries `rad = |p| / |aspect|` (1 at the
+    corners) and `ang = atan2(py, px)` in 0..2π, with
+    `p = (2u − 1, 2v − 1) × aspect` (`UvToMathSpace`); the warp mesh
+    differs on purpose — `rad` not normalised, `ang` in −π..π — and the
+    engine's warp values already matched. The engine's composite had no
+    divisor (1.15 in the corners at 16:9), no aspect in `ang` and a
+    −π..π range; 1,276 corpus composite shaders read `rad` or `ang`. With
+    fidelity on it now uses MilkDrop's formula; all 16,346 corpus stages
+    still compile (`scripts/milkdrop-compile-rate.js` now translates the
+    way the engine does, `--legacy` for fidelity off).
+  - **Not done yet — `uv` orientation, left as it is on purpose.** Whether
+    a preset shader doing arithmetic on `uv.y` (or reading `ang` in the
+    composite, whose sign follows `v`) comes out mirrored. The source
+    alone does not settle it: MilkDrop's composite mesh puts `v = 0` at
+    the top, but its warp mesh computes `v ≈ 1` for the top row and then
+    flips the rows as it draws, so which way the picture ends up on screen
+    depends on how its render targets are flipped between the warp, the
+    composite and the display. Our warp `uv` has the same numbers as
+    MilkDrop's warp mesh; our composite has `v = 1` at the top. Changing
+    it means flipping every 2D texture fetch and storing user textures
+    bottom-up, and it changes thousands of presets — not something to do
+    on reasoning alone. It needs frames from a reference renderer, which
+    is the other item not done: a whole-frame comparison needs a full
+    MilkDrop build (BeatDrop or the Nullsoft code) plus a harness that
+    feeds both the same audio frame by frame. The expression side is
+    compared (see below). Left out of the compiler: the last bit
     of `sin`, `cos`, `tan`, `atan2`, `exp`, `log` and `pow`, which x87
     computes in 80 bits and chops to 64, where JavaScript rounds to
     nearest — matching it needs each call evaluated beyond double
