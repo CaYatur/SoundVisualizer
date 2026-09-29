@@ -41,6 +41,8 @@
   let gpuAvailable = false;
 
   const $ = (id) => document.getElementById(id);
+  // Mod listeleri tek kaynaktan (shared/mode-catalog.js, #638)
+  const MC = () => window.SVModeCatalog;
 
   /* Ekran yenileme hızı. "Ekranla Eşitle" seçildiğinde hızın nereden
      geldiği görünmüyordu; kullanıcı ayarın işe yarayıp yaramadığını
@@ -832,13 +834,7 @@
       parts.push(d.layers.length + ' ' + (d.layers.length === 1 ? tr('Katman') : tr('Katmanlar')));
     } else {
       const type = (d.visualizer && d.visualizer.type) || 'none';
-      const names = {
-        none: 'Kapalı', bars: 'Barlar', centerBars: 'Merkez', blocks: 'Segment',
-        dots: 'Nokta Matris', wave: 'Dalga', ribbon: 'Şerit', terrain: 'Arazi',
-        circular: 'Çember', radialWave: 'Dairesel Dalga', starburst: 'Işın',
-        tunnel: 'Tünel', orb: 'Küre', particles: 'Parçacık', spectrogram: 'Spektrogram',
-      };
-      parts.push(names[type] || type);
+      parts.push(MC().label('visualizer', type));
     }
     if (d.logo && d.logo.enabled) parts.push('Logo');
     if (d.images && d.images.enabled && (d.images.items || []).length) parts.push('Nesneler');
@@ -2183,15 +2179,11 @@
     // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
     const usesPalette = () => cfg.background.type !== 'solid';
     // Frekans bandı okuyan ön modlar (bar sayısı / frekans aralığı anlamlı)
-    const usesBands = ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'spectrogram', 'starburst', 'terrain', 'orb', 'tunnel',
-      'kaleido', 'helix', 'metaball', 'vortex', 'mandala', 'skyline', 'arcs', 'pinwheel', 'strings'];
-    const isBandMode = () => usesBands.indexOf(v.type) >= 0;
+    const isBandMode = () => MC().is('visualizer', v.type, 'bands');
     // Bar benzeri geometriye sahip modlar (aralarındaki boşluk anlamlı)
-    const hasGap = () => ['bars', 'centerBars', 'circular', 'blocks', 'dots', 'starburst',
-      'kaleido', 'metaball', 'skyline', 'arcs', 'strings', 'ripplegrid'].indexOf(v.type) >= 0;
+    const hasGap = () => MC().is('visualizer', v.type, 'gap');
     // Dalga formu çizen modlar (çizgi kalınlığı / genlik anlamlı)
-    const isWaveMode = () => ['wave', 'ribbon', 'radialWave', 'terrain', 'orb',
-      'helix', 'vortex', 'mandala', 'fireworks', 'lightning', 'lissajous', 'strings', 'wave3d', 'bubbles'].indexOf(v.type) >= 0;
+    const isWaveMode = () => MC().is('visualizer', v.type, 'wave');
     return [
       {
         id: 'sources',
@@ -2265,46 +2257,7 @@
         controls: [
           {
             type: 'segment', path: 'background.type', label: 'Tür', rebuild: true, grouped: true,
-            options: [
-              { group: 'Akışkan' },
-              { value: 'gradient', label: 'Akışkan Gradyan' },
-              { value: 'ink', label: 'Mürekkep' },
-              { value: 'nebula', label: 'Bulutsu' },
-              { value: 'waves', label: 'Dalga Katmanları' },
-              { value: 'aurora', label: 'Kutup Işıkları' },
-              { group: 'Geometrik' },
-              { value: 'grid', label: 'Retro Izgara' },
-              { value: 'hexgrid', label: 'Petek Izgara' },
-              { value: 'mosaic', label: 'Mozaik' },
-              { value: 'corridor', label: 'Koridor' },
-              { value: 'spiral', label: 'Sarmal' },
-              { value: 'rings', label: 'Nabız Halkaları' },
-              { value: 'network', label: 'Ağ' },
-              { group: 'Atmosfer' },
-              { value: 'starfield', label: 'Yıldız Alanı' },
-              { value: 'snow', label: 'Kar / Kor' },
-              { value: 'bokeh', label: 'Işık Parçacıkları' },
-              { value: 'rain', label: 'Dijital Yağmur' },
-              { value: 'city', label: 'Şehir' },
-              { group: 'Diğer' },
-              { value: 'custom', label: '🧪 Studio' },
-              { group: 'Üretken Zeminler' },
-              { value: 'liquid', label: 'Sıvı Metal' },
-              { value: 'plasma', label: 'Plazma' },
-              { value: 'caustics', label: 'Su Yüzeyi' },
-              { value: 'ribbons', label: 'Şeritler' },
-              { value: 'contours', label: 'Eşyükselti' },
-              { value: 'wavefield', label: 'Dalga Alanı' },
-              { value: 'embers', label: 'Kıvılcım' },
-              { value: 'sand', label: 'Kum' },
-              { value: 'stained', label: 'Vitray' },
-              { value: 'circuit', label: 'Devre Kartı' },
-              { value: 'prism', label: 'Prizma' },
-              { value: 'globe', label: 'Küre Ağı' },
-              { value: 'wireframe', label: 'Tel Tüneli' },
-              { value: 'hexpulse', label: 'Petek Nabzı' },
-              { value: 'solid', label: 'Düz Renk' },
-            ],
+            options: MC().options('background'),
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
           { type: 'color', path: 'background.solidColor', label: 'Düz Renk', show: () => cfg.background.type === 'solid' },
@@ -2378,65 +2331,7 @@
         controls: [
           {
             type: 'segment', path: 'visualizer.type', label: 'Tür', rebuild: true, grouped: true,
-            options: [
-              { group: 'Temel' },
-              { value: 'none', label: 'Kapalı' },
-              { value: 'bars', label: 'Barlar' },
-              { value: 'centerBars', label: 'Merkez' },
-              { value: 'blocks', label: 'Segment' },
-              { value: 'dots', label: 'Nokta Matris' },
-              { value: 'skyline', label: 'Şehir Silüeti' },
-              { group: 'Dalga Formu' },
-              { value: 'wave', label: 'Dalga' },
-              { value: 'ribbon', label: 'Şerit' },
-              { value: 'wave3d', label: '3B Dalga' },
-              { value: 'lissajous', label: 'Lissajous' },
-              { value: 'strings', label: 'Teller' },
-              { value: 'terrain', label: 'Arazi' },
-              { group: 'Dairesel' },
-              { value: 'circular', label: 'Çember' },
-              { value: 'radialWave', label: 'Dairesel Dalga' },
-              { value: 'starburst', label: 'Işın' },
-              { value: 'arcs', label: 'Yaylar' },
-              { value: 'pinwheel', label: 'Fırıldak' },
-              { value: 'mandala', label: 'Mandala' },
-              { value: 'kaleido', label: 'Kaleydoskop' },
-              { value: 'vortex', label: 'Girdap' },
-              { value: 'helix', label: 'Helis' },
-              { value: 'tunnel', label: 'Tünel' },
-              { value: 'orb', label: 'Küre' },
-              { group: 'Parçacık ve Olay' },
-              { value: 'particles', label: 'Parçacık' },
-              { value: 'fireworks', label: 'Havai Fişek' },
-              { value: 'lightning', label: 'Şimşek' },
-              { value: 'bubbles', label: 'Baloncuk' },
-              { value: 'metaball', label: 'Sıvı Damla' },
-              { value: 'ripplegrid', label: 'Dalgalı Izgara' },
-              { value: 'spectrogram', label: 'Spektrogram' },
-              { group: 'Üretken Sistemler' },
-              { value: 'flowfield', label: 'Akış Alanı' },
-              { value: 'flock', label: 'Sürü' },
-              { value: 'voronoi', label: 'Voronoi' },
-              { value: 'truchet', label: 'Truchet' },
-              { value: 'moire', label: 'Moiré' },
-              { value: 'interference', label: 'Dalga Girişimi' },
-              { value: 'ropes', label: 'İpler' },
-              { value: 'galaxy', label: 'Galaksi' },
-              { value: 'dna', label: 'DNA Sarmalı' },
-              { value: 'isocity', label: 'İzometrik Şehir' },
-              { value: 'attractorfield', label: 'Çekici Alanı' },
-              { group: 'Metin' },
-              { value: 'text', label: 'Metin / Şarkı Sözü' },
-              { group: 'Ölçüm' },
-              { value: 'scope', label: 'Osiloskop (XY)' },
-              { value: 'goniometer', label: 'Gonyometre' },
-              { value: 'chromawheel', label: 'Kroma Çemberi' },
-              { group: 'Gelişmiş Motorlar' },
-              { value: 'geometry', label: '◈ 3B Geometri' },
-              { value: 'milkdrop', label: '🥛 MilkDrop' },
-              { value: 'feedback', label: '♾ Geri Besleme' },
-              { value: 'custom', label: '🧪 Studio' },
-            ],
+            options: MC().options('visualizer'),
           },
           { type: 'custompicker', kind: 'visualizer', show: () => v.type === 'custom' },
           {
@@ -2461,7 +2356,7 @@
             type: 'color',
             path: 'visualizer.color2',
             label: 'İkincil Renk',
-            show: () => (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom' && ['wave', 'ribbon', 'orb', 'tunnel', 'radialWave', 'terrain', 'mandala', 'wave3d', 'helix'].indexOf(v.type) >= 0,
+            show: () => (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom' && MC().is('visualizer', v.type, 'color2'),
           },
           { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
           // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
@@ -2487,7 +2382,7 @@
 
           // --- Dalga / çizgi biçimi (gelişmiş) ---
           { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },
-          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', min: 0.1, max: 1, step: 0.02, percent: true, show: () => ['wave', 'ribbon', 'radialWave', 'helix', 'metaball', 'lissajous', 'strings', 'wave3d', 'ripplegrid', 'bubbles'].indexOf(v.type) >= 0, group: 'Dalga Biçimi', advanced: true },
+          { type: 'slider', path: 'visualizer.thickness', label: 'Genlik / Dolgu', min: 0.1, max: 1, step: 0.02, percent: true, show: () => MC().is('visualizer', v.type, 'thick'), group: 'Dalga Biçimi', advanced: true },
 
           // --- Frekans aralığı (gelişmiş) ---
           { type: 'slider', path: 'visualizer.minFreq', label: 'Min Frekans (Hz)', min: 20, max: 500, step: 5, show: isBandMode, group: 'Frekans Aralığı', advanced: true },

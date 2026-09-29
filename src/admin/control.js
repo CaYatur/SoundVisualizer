@@ -85,12 +85,11 @@
     { action: 'mdSpriteAll', label: '🖼 MilkDrop · Sprite: Hepsini Sil' },
   ];
 
-  const VIS_CYCLE = ['bars', 'centerBars', 'blocks', 'dots', 'wave', 'ribbon', 'terrain', 'circular',
-    'radialWave', 'starburst', 'tunnel', 'orb', 'particles', 'spectrogram', 'kaleido', 'helix',
-    'metaball', 'fireworks', 'vortex', 'mandala', 'skyline', 'lightning', 'ripplegrid', 'lissajous',
-    'strings', 'bubbles', 'wave3d', 'arcs', 'pinwheel', 'feedback'];
-  const BG_CYCLE = ['gradient', 'ink', 'nebula', 'waves', 'aurora', 'grid', 'hexgrid', 'mosaic',
-    'corridor', 'spiral', 'rings', 'network', 'starfield', 'snow', 'bokeh', 'rain', 'city', 'solid'];
+  /* Kısayol döngüsü katalogdan: elle tutulan liste on beşten fazla modu
+     atlıyordu (#638). */
+  const MC = () => window.SVModeCatalog || require('../shared/mode-catalog.js');
+  const VIS_CYCLE = MC().cycleIds('visualizer');
+  const BG_CYCLE = MC().cycleIds('background');
 
   let blackoutSaved = null;
 

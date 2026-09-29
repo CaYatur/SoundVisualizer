@@ -322,31 +322,21 @@ test('Hepsi kipi türler arasında gerçekten dönüyor', () => {
 
 // ------------------------------------------------- kaynakla eşleşme koruması
 
-test('görselleştirici listesi panelin tür seçicisiyle aynı', () => {
-  /* Liste iki yerde: burada (dolaşım için) ve admin.js'te (kullanıcının tür
-     seçicisi). Biri diğerinden koparsa Otomatik VJ ya var olmayan bir türe
-     geçer ya da yeni eklenen türü hiç göstermez. İkisi de sessiz olurdu. */
+test('görselleştirici listesi panelin tür seçicisiyle aynı kaynaktan', () => {
+  /* Liste iki yerdeydi: burada (dolaşım için) ve admin.js'te (kullanıcının
+     tür seçicisi). Artık ikisi de shared/mode-catalog.js'ten geliyor (#638);
+     bu test hem kaynağın ortak olduğunu hem dışlamaların doğru olduğunu
+     sabitliyor. */
+  const MC = require('../src/shared/mode-catalog.js');
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
-  const i = src.indexOf("path: 'visualizer.type'");
-  assert.ok(i > 0, 'tür seçicisi admin.js içinde bulunamadı');
-  const block = src.slice(i, src.indexOf('],', src.indexOf('options: [', i)));
-
-  const found = [];
-  const re = /\{\s*value:\s*'([^']+)'/g;
-  let m;
-  while ((m = re.exec(block))) found.push(m[1]);
-  assert.ok(found.length > 20, 'seçiciden tür okunamadı: ' + found.length);
-
-  /* Üç tür bilerek dışlanıyor: 'none' ekranı boşaltır, 'text' bir
-     görselleştirici değil, 'custom' preset seçilmemişse hiçbir şey çizmez. */
-  const EXCLUDED = ['none', 'text', 'custom'];
-  for (const v of EXCLUDED) {
-    assert.ok(found.indexOf(v) >= 0, 'dışlama listesi eskimiş, panelde yok: ' + v);
-    assert.ok(A.VISUALIZERS.indexOf(v) < 0, 'dışlanması gereken tür dolaşımda: ' + v);
-  }
-  const usable = found.filter((v) => EXCLUDED.indexOf(v) < 0);
-  const missing = usable.filter((v) => A.VISUALIZERS.indexOf(v) < 0);
-  const extra = A.VISUALIZERS.filter((v) => usable.indexOf(v) < 0);
-  assert.deepStrictEqual(missing, [], 'panelde var, Otomatik VJ listesinde yok: ' + missing.join(', '));
-  assert.deepStrictEqual(extra, [], 'Otomatik VJ listesinde var, panelde yok: ' + extra.join(', '));
+  assert.match(src, /path: 'visualizer\.type', label: 'Tür', rebuild: true, grouped: true,\s*options: MC\(\)\.options\('visualizer'\)/,
+    'panelin tür seçicisi katalogdan okumuyor');
+  assert.deepStrictEqual(A.VISUALIZERS, MC.cycleIds('visualizer'));
+  const all = MC.ids('visualizer');
+  assert.ok(A.VISUALIZERS.length > 40, 'dolaşım listesi: ' + A.VISUALIZERS.length);
+  /* Dört tür bilerek dışlanıyor: 'none' ekranı boşaltır, 'text' ve
+     'nowplaying' görselleştirici değil, 'custom' preset seçilmemişse hiçbir
+     şey çizmez. */
+  const EXCLUDED = ['none', 'text', 'nowplaying', 'custom'];
+  assert.deepStrictEqual(all.filter((v) => A.VISUALIZERS.indexOf(v) < 0), EXCLUDED);
 });

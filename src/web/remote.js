@@ -15,25 +15,11 @@
   let presets = [];
   let selectedSceneId = null;
 
-  const VIS_MODES = [
-    ['none', 'Kapalı'], ['bars', 'Barlar'], ['centerBars', 'Merkez'], ['blocks', 'Segment'],
-    ['dots', 'Nokta'], ['wave', 'Dalga'], ['ribbon', 'Şerit'], ['terrain', 'Arazi'],
-    ['circular', 'Çember'], ['radialWave', 'Dairesel'], ['starburst', 'Işın'], ['tunnel', 'Tünel'],
-    ['orb', 'Küre'], ['particles', 'Parçacık'], ['spectrogram', 'Spektrogram'],
-    ['kaleido', 'Kaleydoskop'], ['helix', 'Helis'], ['metaball', 'Damla'], ['fireworks', 'Havai Fişek'],
-    ['vortex', 'Girdap'], ['mandala', 'Mandala'], ['skyline', 'Silüet'], ['lightning', 'Şimşek'],
-    ['ripplegrid', 'Dalgalı Izgara'], ['lissajous', 'Lissajous'], ['strings', 'Teller'],
-    ['bubbles', 'Baloncuk'], ['wave3d', '3B Dalga'], ['arcs', 'Yaylar'], ['pinwheel', 'Fırıldak'],
-    ['feedback', 'Geri Besleme'], ['custom', 'Studio'],
-  ];
-
-  const BG_MODES = [
-    ['gradient', 'Gradyan'], ['ink', 'Mürekkep'], ['nebula', 'Bulutsu'], ['waves', 'Dalga'],
-    ['aurora', 'Kutup Işıkları'], ['grid', 'Izgara'], ['hexgrid', 'Petek'], ['mosaic', 'Mozaik'],
-    ['corridor', 'Koridor'], ['spiral', 'Sarmal'], ['rings', 'Halka'], ['network', 'Ağ'],
-    ['starfield', 'Yıldız'], ['snow', 'Kar'], ['bokeh', 'Bokeh'], ['rain', 'Yağmur'],
-    ['city', 'Şehir'], ['custom', 'Studio'], ['solid', 'Düz'],
-  ];
+  /* Mod listeleri masaüstüyle aynı kaynaktan (shared/mode-catalog.js, #638);
+     buradaki kopya on beşten fazla modu hiç göstermiyordu. */
+  const MC = window.SVModeCatalog;
+  const VIS_MODES = MC.VISUALIZERS.map((m) => [m.id, m.label]);
+  const BG_MODES = MC.BACKGROUNDS.map((m) => [m.id, m.label]);
 
   /* Yerleşik renk şablonları masaüstüyle AYNI kaynaktan (shared/defaults.js)
      okunur; burada ikinci bir kopya tutmak, şablon eklendiğinde telefonun

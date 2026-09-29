@@ -196,7 +196,7 @@ test('aynı adı paylaşan iki ayrı öge kaynağında ayrıldı', () => {
 
   const root = path.join(__dirname, '..', 'src');
   const read = (p) => fs.readFileSync(path.join(root, p), 'utf-8');
-  for (const f of ['admin/admin.js', 'admin/scene-panels.js', 'admin/scenegen.js', 'web/remote.js']) {
+  for (const f of ['admin/admin.js', 'admin/scene-panels.js', 'admin/scenegen.js', 'web/remote.js', 'shared/mode-catalog.js']) {
     const txt = read(f);
     assert.ok(!/helix['"]?\s*[:,]\s*['"]Sarmal['"]/.test(txt) && !/\['helix', 'Sarmal'\]/.test(txt),
       f + ' hâlâ helix için Sarmal kullanıyor');

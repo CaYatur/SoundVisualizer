@@ -42,18 +42,11 @@
 
      Eski dolaşım listesi bunların dışında 17 türü daha atlıyordu
      (spectrogram, flowfield, galaxy, dna, milkdrop...) — panelde vardı ama
-     Otomatik VJ'ye hiç uğramıyordu. Liste ile seçicinin ayrışması sessiz bir
-     hata olduğu için tests/autovj.test.js ikisini karşılaştırıyor. */
-  const VISUALIZERS = [
-    'bars', 'centerBars', 'blocks', 'dots', 'skyline',
-    'wave', 'ribbon', 'wave3d', 'lissajous', 'strings', 'terrain',
-    'circular', 'radialWave', 'starburst', 'arcs', 'pinwheel', 'mandala',
-    'kaleido', 'vortex', 'helix', 'tunnel', 'orb',
-    'particles', 'fireworks', 'lightning', 'bubbles', 'metaball', 'ripplegrid',
-    'spectrogram', 'flowfield', 'flock', 'voronoi', 'truchet', 'moire',
-    'interference', 'ropes', 'galaxy', 'dna', 'isocity', 'attractorfield',
-    'scope', 'goniometer', 'chromawheel', 'geometry', 'milkdrop', 'feedback',
-  ];
+     Otomatik VJ'ye hiç uğramıyordu. Liste artık panelin seçicisiyle aynı
+     kaynaktan geliyor (shared/mode-catalog.js, #638): dışlamalar orada
+     `cycle: false` bayrağı. */
+  const MC = (typeof window !== 'undefined' && window.SVModeCatalog) || require('./mode-catalog.js');
+  const VISUALIZERS = MC.cycleIds('visualizer');
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const num = (v, def) => (Number.isFinite(Number(v)) ? Number(v) : def);
