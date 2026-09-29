@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2323 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2327 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 726
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 730
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2597,8 +2597,22 @@ rest after. No version number yet.
     and both passes saturate to 0..1. It shows in presets that read a blur
     level and narrow its range: 246 of the 7,379 corpus presets that read
     one. The 8-bit rounding of each pass is not reproduced.
-  - **Not done yet:** the fixed warp path and the rest of the blend snap
-    points; whether `uv`
+  - **The fixed warp path and the blend snap point, checked against the
+    source** (`WarpedBlit_NoShaders`, `RunPerFrameEquations`). Matching:
+    the previous frame sampled bilinearly and multiplied by the vertex
+    colour, i.e. `decay` through COLOR_NORM; no gamma; the lists of values
+    blended and snapped during a transition, and the rule that picks the
+    snap point (only the composite shaders count: −0.01 when only the old
+    preset has one, 1.01 when only the new one does). Different: MilkDrop
+    compares `wrap` with that snap point in the fixed warp, not with 0.5,
+    so in those one-sided transitions the fixed warp always wraps (−0.01)
+    or never does (1.01); now it does too. The snap point is used in one
+    other place, the echo orientation of the fixed composite, already
+    covered. The per-frame `decay` stays corrected for the frame rate
+    (`decay^(30/fps)`): MilkDrop applies it per frame and its default
+    frame-rate cap is 30 (`m_max_fps_fs`), so the correction reproduces
+    that default at any frame rate.
+  - **Not done yet:** whether `uv`
     in preset shaders runs the way MilkDrop's does — read back from the
     screen, our `uv.y` is 1 at the top, where MilkDrop's texture
     coordinate is 0; sampling agrees, but a shader doing arithmetic on

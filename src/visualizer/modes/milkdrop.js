@@ -2824,11 +2824,16 @@ void main(){
        Kapalı bıraktığımızda içerik ekrandan akıp gidiyor, geriye tek sıra
        piksel bulaşması kalıyor ve preset birkaç saniyede "bitmiş" gibi
        görünüyordu — kullanıcının bildirdiği hata buydu. */
-    _bindMain(tex) {
+    /* `snap`: `wrap` hangi eşikle karşılaştırılıyor. Sabit warp yolunda
+       MilkDrop geçişin atlama noktasını kullanıyor (milkdropfs.cpp:1785):
+       yalnız eski presetin birleştirme shader'ı varsa −0,01 (hep sarıyor),
+       yalnız yeninin varsa 1,01 (hiç sarmıyor). Geçiş yokken 0,5. */
+    _bindMain(tex, snap) {
       const gl = this.gl;
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, tex);
-      const w = this.preset && this.preset.get('wrap') > 0.5 ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+      const t = typeof snap === 'number' ? snap : 0.5;
+      const w = this.preset && this.preset.get('wrap') > t ? gl.REPEAT : gl.CLAMP_TO_EDGE;
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, w);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, w);
     }
@@ -3550,7 +3555,8 @@ void main(){
         this._setPresetUniforms(prog.locs, ctx);
       } else {
         gl.useProgram(this.warpFixed);
-        this._bindMain(src.tex);
+        // Geçişte sarma eşiği atlama noktası (#580), uyum kapalıyken 0,5
+        this._bindMain(src.tex, this.oldPreset && this._wantAcc !== false ? this._snapPoint() : 0.5);
         gl.uniform1i(this.locWarpFixed.uPrev, 0);
         /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
            0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
