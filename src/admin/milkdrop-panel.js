@@ -430,6 +430,97 @@
     boxes.forEach((b) => thumbObserver.observe(b));
   }
 
+  /* PENCERELİ LİSTE (#635). Bu sayının üstünde yalnız görünen satırlar
+     (ve iki yanında birkaç satır pay) DOM'da; üstte ve altta iki boşluk
+     kutusu kaydırma çubuğunu gerçek boyunda tutuyor. Izgarada da aynı:
+     sütun sayısı CSS'in `auto-fill`inden ölçülüyor, boşluk kutusu bütün
+     sütunları kaplıyor, böylece pencerenin ilk hücresi hep satır başında. */
+  const WINDOW_MIN = 200;
+  const WINDOW_PAD = 6;
+
+  function windowList(list, items, make, grid, activeIdx) {
+    const el = P().el;
+    const gap = grid ? 6 : 2;
+    const st = { pitch: grid ? 104 : 28, cols: 1, r0: -1, r1: -1, nodes: new Map() };
+    const top = el('div', { class: 'md-spacer' });
+    const bottom = el('div', { class: 'md-spacer' });
+    list.appendChild(top);
+    list.appendChild(bottom);
+    const rows = () => Math.ceil(items.length / st.cols);
+
+    const draw = (force, at) => {
+      const h = list.clientHeight || (grid ? 420 : 300);
+      const s = at == null ? list.scrollTop : at;
+      const r0 = Math.max(0, Math.floor(s / st.pitch) - WINDOW_PAD);
+      const r1 = Math.min(rows(), Math.ceil((s + h) / st.pitch) + WINDOW_PAD);
+      if (!force && r0 === st.r0 && r1 === st.r1) return;
+      st.r0 = r0;
+      st.r1 = r1;
+      while (top.nextSibling && top.nextSibling !== bottom) list.removeChild(top.nextSibling);
+      // Pencerede kalan satırlar yeniden kurulmuyor: odak ve küçük resim yerinde kalıyor
+      const keep = new Map();
+      const end = Math.min(items.length, r1 * st.cols);
+      for (let i = r0 * st.cols; i < end; i++) {
+        const n = st.nodes.get(i) || make(items[i]);
+        keep.set(i, n);
+        list.insertBefore(n, bottom);
+      }
+      st.nodes = keep;
+      top.style.height = (r0 * st.pitch) + 'px';
+      bottom.style.height = (Math.max(0, rows() - r1) * st.pitch) + 'px';
+      if (grid) watchThumbs(list);
+    };
+
+    // Satır aralığı ve sütun sayısı çizilmiş satırlardan: tahmin tutmazsa true
+    const measure = () => {
+      const kids = [];
+      for (let n = top.nextSibling; n && n !== bottom; n = n.nextSibling) kids.push(n);
+      if (!kids.length) return false;
+      const y0 = kids[0].offsetTop;
+      let cols = 1;
+      if (grid) while (cols < kids.length && kids[cols].offsetTop === y0) cols++;
+      const next = kids[cols];
+      const pitch = next ? next.offsetTop - y0 : kids[0].offsetHeight + gap;
+      if (!(pitch > 0)) return false;
+      const changed = cols !== st.cols || Math.abs(pitch - st.pitch) > 0.5;
+      st.cols = cols;
+      st.pitch = pitch;
+      return changed;
+    };
+
+    // Etkin presete göre kaydırma: görünmüyorsa en yakın kenara getiriliyor
+    const scrollFor = (s) => {
+      if (activeIdx < 0) return s;
+      const h = list.clientHeight || 0;
+      const y = Math.floor(activeIdx / st.cols) * st.pitch;
+      if (y < s) return y;
+      if (h && y + st.pitch > s + h) return y + st.pitch - h;
+      return s;
+    };
+
+    draw(true, listScroll);
+    setTimeout(() => {
+      if (!list.isConnected) return;
+      for (let k = 0; k < 3 && measure(); k++) draw(true, listScroll);
+      list.scrollTop = scrollFor(listScroll);
+      listScroll = list.scrollTop;
+      draw(true);
+      if (measure()) draw(true);
+      /* Doğrudan kaydırma olayında: pencere yalnız aralık değişince
+         yeniden kuruluyor, bu ucuz. requestAnimationFrame'e bağlanınca
+         pencere arka plandayken çizim hiç gelmiyor ve liste boş kalıyordu. */
+      list.addEventListener('scroll', () => draw(false));
+      if (typeof ResizeObserver === 'function') {
+        const ro = new ResizeObserver(() => {
+          if (!list.isConnected) { ro.disconnect(); return; }
+          if (measure()) draw(true);
+          else draw(false);
+        });
+        ro.observe(list);
+      }
+    }, 0);
+  }
+
   async function importPack() {
     const IS = window.SVPresets;
     const L = LB();
@@ -1583,7 +1674,7 @@
           : 'Preset listesi yüklenemedi. Bir MilkDrop paketindeki .milk dosyalarını ekleyebilirsiniz; hepsi bir kerede seçilebilir.',
       }));
     }
-    vis.slice(0, 400).forEach((p) => {
+    const makeItem = (p) => {
       const active = md.presetId === p.id;
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
@@ -1609,7 +1700,7 @@
         if (key) img.setAttribute('src', thumbUrl(key));
         const box = el('div', { class: 'md-thumb-box', 'data-id': p.id }, [img]);
         paintThumb(box, key);
-        list.appendChild(el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
+        return el('div', { class: 'md-cell' + (active ? ' active' : '') }, [
           el('button', {
             class: 'md-cell-main', type: 'button', title: tr(p.name || p.id),
             onclick: () => { keepScroll(); load(cfg, p); rerender(); },
@@ -1619,11 +1710,10 @@
             class: 'btn ghost tiny danger md-cell-del', type: 'button', text: '✕', title: 'Sil',
             onclick: () => removePreset(p),
           }),
-        ]));
-        return;
+        ]);
       }
       const tags = LBn ? LBn.tagsOf(libNow, p.id) : [];
-      list.appendChild(el('div', { class: 'md-item' + (active ? ' active' : '') }, [
+      return el('div', { class: 'md-item' + (active ? ' active' : '') }, [
         favBtn,
         el('button', {
           class: 'md-name', type: 'button', text: tr(p.name || p.id),
@@ -1639,25 +1729,31 @@
             class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
             onclick: () => removePreset(p),
           }),
-      ]));
-    });
-    nodes.push(list);
-    if (listScroll > 0) {
-      setTimeout(() => {
-        list.scrollTop = listScroll;
-        const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
-        if (active) active.scrollIntoView({ block: 'nearest' });
-      }, 0);
+      ]);
+    };
+    /* SINIR YOK (#635). Küçük listede her satır çiziliyor; büyükte yalnız
+       görünen pencere (bkz. `windowList`) — 10 binlik bir kitaplıkta her
+       tıklamada binlerce satır kurmak paneli durdururdu. */
+    const activeIdx = vis.findIndex((p) => p.id === md.presetId);
+    if (vis.length > WINDOW_MIN) {
+      windowList(list, vis, makeItem, grid, activeIdx);
+    } else {
+      vis.forEach((p) => list.appendChild(makeItem(p)));
+      if (listScroll > 0) {
+        setTimeout(() => {
+          list.scrollTop = listScroll;
+          const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
+          if (active) active.scrollIntoView({ block: 'nearest' });
+        }, 0);
+      }
+      if (grid) setTimeout(() => watchThumbs(list), 0);
     }
+    nodes.push(list);
     if (grid) {
-      setTimeout(() => watchThumbs(list), 0);
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
         text: 'Küçük resim, presetin ilk iki saniyesi: örnek sesle, siyah bir ekrandan başlanarak çiziliyor. Her preset bir kez çiziliyor ve saklanıyor; preset değişince yeniden çiziliyor.',
       }));
-    }
-    if (vis.length > 400) {
-      nodes.push(el('div', { class: 'studio-note dim-hint', text: vis.length + ' presetten ilk 400 gösteriliyor; aramayı daraltın.' }));
     }
 
     // Gezinme ve otomatik geçiş

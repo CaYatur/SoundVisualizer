@@ -1443,7 +1443,6 @@
     'parça zaman çizelgesine eklendi.': 'track added to timeline.',
     'yuvanın kaynağı seçilmemiş; onlar atlanacak.': 'slot source not selected; they will be skipped.',
     'dosya atlandı': 'files skipped',
-    'presetten ilk 400 gösteriliyor; aramayı daraltın.': 'Showing first 400 presets; narrow your search.',
     'tanesinde derleme uyarısı var)': 'have compilation warnings)',
     'aynı vuruşta': 'on the same beat',
     'işaret üretildi.': 'markers generated.',
