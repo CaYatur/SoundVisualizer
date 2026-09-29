@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2381 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2392 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 784
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 795
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2861,11 +2861,25 @@ expects.
     - shortcuts driven through the panel's own key handler, including
       typing in a field and undo after an outside change
     - English entries
-  - **Next (TL-2):**
-    - a draggable loop brace and markers on the ruler
-    - multi-select
-    - clip fade handles
-    - a full-window editor
+- **Timeline editing, TL-2 (#636)** · done on `main`.
+  - **Ruler:**
+    - The loop brace is drawn even when the loop is off. Its edges resize it and its middle moves it.
+    - Shift+drag on the ruler draws a new loop.
+    - Marker flags can be dragged. A click on a flag jumps the playhead there.
+  - **Multi-select:**
+    - Ctrl/Shift+click toggles a clip. Dragging on an empty lane box-selects, and Ctrl+A selects every clip.
+    - A group moves together and stops at zero without changing its shape.
+    - Delete, duplicate, copy/paste and nudge work on the whole group. Paste keeps the relative lanes.
+    - The inspector shows the count, a colour and transition for all selected clips, and the group actions.
+  - **Transitions:**
+    - A handle in the top-left corner of a clip drags its transition length. A ramp shows it on the clip.
+    - The transition is now actually applied. Before, `clip.fade` was only shown and every clip used the global transition. It goes through the same path as clip deck slots, and 0 still means the global setting.
+  - **Full window:** F or the ⛶ button fills the window, and Esc closes it. The full-window height does not overwrite the height the user set.
+  - **Tests** (`tests/timeline-tl2.test.js`):
+    - the pure group operations (box hit test, clamped group delta, copy/paste with lane fallback, duplicate);
+    - the panel driven through its own mouse and key handlers;
+    - confirmed in the app with real mouse and key events.
+  - **Next:** clip fade-out, tempo changes on the ruler, and lane height in the full window.
 - **The clip deck as a performance grid (#637, CD-1)** · done on `main`.
   The model is Resolume's clip grid and Ableton's Session View (research
   table on #637).

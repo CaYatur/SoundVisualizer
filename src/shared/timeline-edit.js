@@ -134,6 +134,72 @@
     return track;
   }
 
+  // ==========================================================================
+  // Çoklu seçim (#636 TL-2)
+  //
+  // Seçim kimliklerle tutuluyor ({ trackId, clipId }); model her çizimde
+  // yeniden kurulduğu için nesne tutmak bir sonraki çizimde bayatlardı.
+  // ==========================================================================
+
+  // Kutu seçimi: [t0, t1] aralığına değen, [i0, i1] şeritlerindeki klipler
+  function clipsInRect(tl, t0, t1, i0, i1) {
+    const a = Math.min(num(t0, 0), num(t1, 0));
+    const b = Math.max(num(t0, 0), num(t1, 0));
+    const lo = Math.max(0, Math.min(i0, i1));
+    const hi = Math.max(i0, i1);
+    const out = [];
+    ((tl && tl.tracks) || []).forEach((trk, i) => {
+      if (i < lo || i > hi || trk.kind !== 'clip') return;
+      for (const c of trk.clips || []) {
+        if (c.start < b && c.start + c.dur > a) out.push({ trackId: trk.id, clipId: c.id });
+      }
+    });
+    return out;
+  }
+
+  /* Grup taşımada ortak kayma: hiçbir klip sıfırın soluna geçmesin. Tek
+     tek sınırlamak grubun biçimini bozardı (baştaki klip dururken
+     arkadakiler ona yığılırdı). */
+  function groupDelta(starts, delta) {
+    if (!starts.length) return 0;
+    return Math.max(num(delta, 0), -Math.min.apply(null, starts));
+  }
+
+  /* Kopyalama: her klip grubun başına ve ilk şeridine göre konumuyla.
+     `picked`: [{ trackIndex, clip }]. */
+  function copyGroup(picked) {
+    if (!picked || !picked.length) return null;
+    const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
+    const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
+    const t1 = Math.max.apply(null, picked.map((p) => p.clip.start + p.clip.dur));
+    return {
+      span: t1 - t0,
+      items: picked.map((p) => ({ dTrack: p.trackIndex - base, dStart: p.clip.start - t0, clip: JSON.parse(JSON.stringify(p.clip)) })),
+    };
+  }
+
+  /* Yapıştırma: grup `at` anına ve `baseIndex` şeridine. Göreli şerit bir
+     klip parçası değilse (ya da yoksa) klip taban şeride düşüyor; kaybolmuyor.
+     Dönen: [{ trackIndex, clip }] — yeni kimliklerle. */
+  function pasteGroup(tl, board, at, baseIndex) {
+    if (!board || !board.items) return [];
+    const tracks = (tl && tl.tracks) || [];
+    const okTrack = (i) => tracks[i] && tracks[i].kind === 'clip' && !tracks[i].locked;
+    return board.items.map((it) => {
+      const want = baseIndex + it.dTrack;
+      return { trackIndex: okTrack(want) ? want : baseIndex, clip: pasteClip(it.clip, Math.max(0, num(at, 0)) + it.dStart) };
+    });
+  }
+
+  // Grubu çoğalt: kopyalar grubun hemen ardına, aynı şeritlere
+  function duplicateGroup(tl, picked) {
+    const board = copyGroup(picked);
+    if (!board) return [];
+    const base = Math.min.apply(null, picked.map((p) => p.trackIndex));
+    const t0 = Math.min.apply(null, picked.map((p) => p.clip.start));
+    return pasteGroup(tl, board, t0 + board.span, base);
+  }
+
   /* Izgaranın bir adımı (saniye): kaydırma okları bu kadar taşıyor.
      Yakalama kapalıyken 0,1 sn; "kare" kipinde bir kare. Adım o andaki
      tempodan: tempo haritası değişiyorsa ölçü uzunluğu da değişir. */
@@ -190,6 +256,11 @@
     duplicateClip,
     pasteClip,
     sortClips,
+    clipsInRect,
+    groupDelta,
+    copyGroup,
+    pasteGroup,
+    duplicateGroup,
     gridStep,
     fitView,
     TYPE_COLORS,
