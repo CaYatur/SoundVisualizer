@@ -36,41 +36,75 @@ test('kenarlık: iki halka da kendi renk ve boyunu okuyor', () => {
   }
 });
 
-/* İç kenarlık dıştakinin BİTTİĞİ yerden başlamalı. İkisi de kenardan
-   ölçseydi iç kenarlık dışın altına gizlenir ve hiç görünmezdi. */
-test('kenarlık: iç halka dış halkanın bittiği yerden başlıyor', () => {
-  assert.match(BORDER[0], /\{ size: P\.get\('ib_size'\), prev: P\.get\('ob_size'\)/);
-  assert.match(BORDER[0], /\{ size: P\.get\('ob_size'\), prev: 0,/);
+/* GEOMETRİ MilkDrop'unki (#580; milkdropfs.cpp:3226-3284): kırpma uzayında
+   şerit, her kenarda gönye kesimli bir yamuk, kalınlık sınırsız, eşik ham
+   saydamlıkta. Testler üçgenleri noktalarla örnekliyor: bir nokta kaç
+   üçgenin içinde (0 = boş, 1 = tek harman, 2 = üst üste). */
+const M = require('../src/shared/milkdrop.js');
+function cover(tris, x, y) {
+  let n = 0;
+  for (let i = 0; i < tris.length; i += 3) {
+    const [a, b, c] = [tris[i], tris[i + 1], tris[i + 2]];
+    const s = (p, q) => (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
+    const d1 = s(a, b), d2 = s(b, c), d3 = s(c, a);
+    const neg = d1 < 0 || d2 < 0 || d3 < 0, pos = d1 > 0 || d2 > 0 || d3 > 0;
+    if (!(neg && pos)) n++;
+  }
+  return n;
+}
+const ringOf = (rings, k) => (rings.find((r) => r.ring === k) || { verts: [] }).verts;
+
+test('kenarlık: dış şerit kenardan içeri, iç şerit onun bittiği yerden; köşede tek kat', () => {
+  const r = M.borderRings(0.1, 0.05, 0.5, 0.5);
+  const outer = ringOf(r, 0), inner = ringOf(r, 1);
+  assert.strictEqual(outer.length, 24);
+  // Dış: 0,9 < |x| < 1 ya da |y| aynısı
+  assert.strictEqual(cover(outer, 0.95, 0.3), 1);
+  assert.strictEqual(cover(outer, -0.3, -0.95), 1);
+  assert.strictEqual(cover(outer, 0.85, 0.3), 0);
+  // Köşe gönye kesimli: iki yamuk paylaşıyor, iki kat değil
+  assert.strictEqual(cover(outer, 0.95, 0.96), 1);
+  assert.strictEqual(cover(outer, -0.97, 0.93), 1);
+  // İç: 0,85 < |x| < 0,9
+  assert.strictEqual(cover(inner, 0.87, 0.2), 1);
+  assert.strictEqual(cover(inner, 0.95, 0.2), 0);
+  assert.strictEqual(cover(inner, 0.8, 0.2), 0);
+  // Ortası boş
+  assert.strictEqual(cover(outer.concat(inner), 0, 0), 0);
 });
 
-/* Halka DÖRT ŞERİT. Tek bir büyük dikdörtgenin üstüne küçüğünü çizmek de
-   halka verirdi ama saydam bir kenarlıkta köşeler iki kez harmanlanır ve
-   dört köşe gövdeden koyu çıkardı. */
-test('kenarlık: dört şerit ve köşede üst üste binme yok', () => {
-  const quads = /const quads = \[([\s\S]*?)\];/.exec(BORDER[0]);
-  assert.ok(quads, 'şerit listesi bulunamadı');
-  const rows = quads[1].split('\n').filter((l) => l.indexOf('[') >= 0);
-  assert.strictEqual(rows.length, 4, 'dört şerit olmalı');
-  /* Sol ve sağ şeritler dikeyde kenarlık kalınlığı kadar İÇERİ çekiliyor
-     (-1 + p1 .. 1 - p1), üst ve alt şeritler ise yatayda dışa kadar
-     gidiyor (-1 + p0 .. 1 - p0). Çakışma tam bu yüzden olmuyor. */
-  assert.match(rows[0], /-1 \+ p0, -1 \+ p1, -1 \+ p1, 1 - p1/);
-  assert.match(rows[1], /1 - p1, 1 - p0, -1 \+ p1, 1 - p1/);
-  assert.match(rows[2], /-1 \+ p0, 1 - p0, -1 \+ p0, -1 \+ p1/);
-  assert.match(rows[3], /-1 \+ p0, 1 - p0, 1 - p1, 1 - p0/);
+test('kenarlık: eşik ham saydamlıkta, 0,001', () => {
+  assert.deepStrictEqual(M.borderRings(0.1, 0.1, 0.001, 0), []);
+  assert.strictEqual(M.borderRings(0.1, 0.1, 0.0015, 0).length, 1, 'renk sarmasından önce: 0,0015 çiziliyor');
+  // 1'in üstü de ham değerle geçiyor; rengini colorNorm sarıyor
+  assert.strictEqual(M.borderRings(0.1, 0.1, 1.001, 0).length, 1);
+  assert.deepStrictEqual(M.borderRings(NaN, 0.1, 0.5, 0), [], 'kalınlık sayı değilse çizilmiyor');
 });
 
-test('kenarlık: görünmez halka hiç çizilmiyor', () => {
-  /* Alfası ya da boyu sıfır olan halka için tek bir çizim çağrısı bile
-     yapılmamalı: presetlerin %99,7'si bu anahtarları taşıyor ama çoğunda
-     ikisi de sıfır. */
-  assert.match(BORDER[0], /if \(!\(size > 0\) \|\| !\(r\.c\[3\] > 0\.002\)\) continue;/);
+test('kenarlık: eksi kalınlık — içte dış şeridin üstüne binen şerit, dışta ekran dışı', () => {
+  // ob 0,1, ib −0,05: iç şerit 0,9..0,95 arası, dış şeridin içinde
+  const inner = ringOf(M.borderRings(0.1, -0.05, 0, 0.5), 1);
+  assert.strictEqual(cover(inner, 0.92, 0.1), 1);
+  assert.strictEqual(cover(inner, 0.97, 0.1), 0);
+  // ob −0,1: dış şerit 1..1,1, ekranın dışında
+  const outer = ringOf(M.borderRings(-0.1, 0, 0.5, 0), 0);
+  assert.strictEqual(cover(outer, 0.99, 0), 0);
+  assert.strictEqual(cover(outer, 1.05, 0), 1);
 });
 
-test('kenarlık: kalınlık ekranı taşmıyor', () => {
-  /* `ob_size = 3` yazan bir preset olabilir; kırpılmazsa şeritler ters
-     dönüp bütün ekranı kaplardı. */
-  assert.match(BORDER[0], /Math\.min\(1, size \+ prev\)/);
+test('kenarlık: 1\'in üstündeki kalınlık ortada üst üste biniyor', () => {
+  // ob 1: yamuklar merkezde birleşiyor, ekran tek katla kaplı
+  const full = ringOf(M.borderRings(1, 0, 0.5, 0), 0);
+  assert.strictEqual(cover(full, 0.3, 0.1), 1);
+  assert.strictEqual(cover(full, -0.6, 0.55), 1);
+  // ob 1,2: dört yamuk da merkezi aşıyor, ortada dört kat harmanlanıyor
+  const over = ringOf(M.borderRings(1.2, 0, 0.5, 0), 0);
+  assert.strictEqual(cover(over, 0.05, 0.0), 4);
+  assert.strictEqual(cover(over, 0.9, 0.2), 1);
+});
+
+test('kenarlık: çizim geometriyi motorun işlevinden alıyor', () => {
+  assert.match(BORDER[0], /window\.SVMilkdrop\.borderRings\(\+P\.get\('ob_size'\), \+P\.get\('ib_size'\), \+P\.get\('ob_a'\), \+P\.get\('ib_a'\)\)/);
 });
 
 test('kenarlık: anahtar kapalıyken hiç çizilmiyor', () => {
