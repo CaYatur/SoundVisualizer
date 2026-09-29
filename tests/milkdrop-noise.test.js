@@ -150,7 +150,20 @@ test('ayar: MilkDrop uyumu varsayılan olarak açık', () => {
 test('motor: anahtar kapalıyken de hacim gürültüsü üç boyutlu', () => {
   const three = /const three = \(size, zoom, smooth\) =>[\s\S]{0,200}?;/.exec(CODE);
   assert.ok(three, 'hacim üreteci bulunamadı');
-  assert.match(three[0], /upload\(size, size, accurate \? lattice\([\s\S]*?\) : boxed\(/);
+  assert.match(three[0], /accurate \? lattice\(size, size, size, zoom\) : boxed\(size, size, size, smooth\)/);
+  // Hacimler üçüncü boyutuyla yükleniyor
+  assert.match(CODE, /volLq: upload\(32, 32, px\.volLq\)/);
+  assert.match(CODE, /volHq: upload\(32, 32, px\.volHq\)/);
+});
+
+/* Pikseller sayfa başına bir kez üretiliyor (#621): üretici her çağrıda
+   aynı tohumdan başladığı için çıktı her örnekte aynı; saklanan kopya
+   kipe göre ayrı (eski / uyumlu). */
+test('motor: gürültü pikselleri kipe göre bir kez üretiliyor', () => {
+  assert.match(CODE, /const NOISE_PIXELS = \[null, null\];/);
+  assert.match(CODE, /const slot = accurate \? 1 : 0;\s*const px = NOISE_PIXELS\[slot\] \|\| \(NOISE_PIXELS\[slot\] = \{/);
+  // Üretecin tohumu her çağrıda baştan: saklamak çıktıyı değiştirmiyor
+  assert.match(CODE, /_buildNoise\(accurate\) \{[\s\S]{0,200}?let seed = 0x9e3779b9;/);
 });
 
 test('motor: anahtar değişince gürültü yeniden üretiliyor', () => {
