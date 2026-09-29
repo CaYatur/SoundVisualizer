@@ -306,8 +306,19 @@
   const U32 = new Uint32Array(F64.buffer);
   const LO = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1 ? 0 : 1;
   const HI = 1 - LO;
-  // Büyüklüğü bir basamak küçült (işaret korunur)
-  const toZero = (v) => {
+  /* Büyüklüğü bir basamak küçült (işaret korunur).
+
+     Normal sayılarda tek çarpma: v = m·2^e (1 ≤ m < 2) için tam çarpım
+     v − m·2^(e−53), yani v'nin bir basamağının (2^(e−52)) yarısı ile tamamı
+     arasında aşağıda; en yakına yuvarlama onu hep bir alttaki sayıya
+     götürüyor. m = 1 iken (ikinin kuvveti) alttaki aralık yarı genişlikte ve
+     çarpım tam o sayı. Altnormallerde aralık sabit, çarpım v'ye geri
+     yuvarlanırdı: orada bitlerle. Tipli dizi yolu per_pixel'in en sıcak
+     işlemindeydi (her çarpmanın yarısı sıfırdan uzağa yuvarlanıyor); ikisinin
+     her girdide aynı sonucu verdiği testte sınanıyor. */
+  const CHOP_K = 1 - 2 ** -53;
+  const toZero = (v) => (v >= 4.450147717014403e-308 || v <= -4.450147717014403e-308 ? v * CHOP_K : toZeroBits(v));
+  const toZeroBits = (v) => {
     F64[0] = v;
     if (U32[LO] === 0) { U32[LO] = 0xFFFFFFFF; U32[HI] -= 1; } else U32[LO] -= 1;
     return F64[0];
@@ -952,7 +963,7 @@
       }
       /* Bileşik atama: `zoom -= 0.03` ==> `zoom = zoom - 0.03`
          Ayrı bir düğüm türü gerekmiyor; sağ tarafı ikili işleme sarmak
-         yeterli ve geri kalan her şey (guard, kapanış üretimi) aynen çalışır. */
+         yeterli ve geri kalan her şey (kapanış üretimi) aynen çalışır. */
       if (peek().t === 'id' && toks[pos + 1] && toks[pos + 1].t === 'op'
           && ['+=', '-=', '*=', '/=', '%='].indexOf(toks[pos + 1].v) >= 0) {
         const name = peek().v;
@@ -1205,12 +1216,67 @@
     }
   }
 
-  // Bölme ve benzeri işlemler sonsuz üretebilir; sonuç her zaman sonlu tutulur
-  const guard = (fn, F) => (P) => F(fn(P));
+
+  /* YAPRAK İŞLENEN: düz bir değişken (reg'ler hariç — onlar uyum açıkken
+     havuzda değil) ya da bir sayı. `leafOf` indisi ya da sabiti veriyor. */
+  function leafOf(node, pool) {
+    if (node.k === 'num') return { v: isFinite(node.v) ? node.v : 0 };
+    if (node.k === 'var' && !REG_RE.test(node.name)) return { i: pool.id(node.name) };
+    return null;
+  }
+
+  /* `+ − ·` İÇİN YAPRAKLI KAPANIŞLAR (#621, genel hız). per_pixel ağın her
+     düğümünde koşuyor ve işlenenlerin yarısından çoğu düz bir değişken ya
+     da sayı; her biri ayrı bir kapanış çağrısıydı (`(P) => P[i]`). Burada
+     değişken doğrudan diziden, sayı sabitten okunuyor. Sonuç ve okuma
+     sırası genel yolla aynı: MilkDrop okuyuşunda (late) sol değişken sağ
+     ifadeden SONRA okunuyor (işaretçi sırası, bkz. binExpr), eski okuyuşta
+     önce. İki sabitli ya da iki ifadeli durumlar genel yola kalıyor. */
+  function arithLeaf(op, a, b, A, B, cx) {
+    const md = cx.mode, late = cx.md2Ast;
+    const shape = (A ? (A.i !== undefined ? 'v' : 'n') : 'e') + (B ? (B.i !== undefined ? 'v' : 'n') : 'e');
+    const ai = A && A.i !== undefined ? A.i : 0, bi = B && B.i !== undefined ? B.i : 0;
+    const av = A && A.i === undefined ? A.v : 0, bv = B && B.i === undefined ? B.v : 0;
+    switch (op + shape) {
+      case '+ev': return (P) => { const x = a(P), y = P[bi]; return md.md2 ? ADD_MD2(x, y) : x + y; };
+      case '+ve': return late
+        ? (P) => { const y = b(P), x = P[ai]; return md.md2 ? ADD_MD2(x, y) : x + y; }
+        : (P) => { const x = P[ai], y = b(P); return md.md2 ? ADD_MD2(x, y) : x + y; };
+      case '+vv': return (P) => { const x = P[ai], y = P[bi]; return md.md2 ? ADD_MD2(x, y) : x + y; };
+      case '+en': return (P) => { const x = a(P); return md.md2 ? ADD_MD2(x, bv) : x + bv; };
+      case '+ne': return (P) => { const y = b(P); return md.md2 ? ADD_MD2(av, y) : av + y; };
+      case '+vn': return (P) => { const x = P[ai]; return md.md2 ? ADD_MD2(x, bv) : x + bv; };
+      case '+nv': return (P) => { const y = P[bi]; return md.md2 ? ADD_MD2(av, y) : av + y; };
+      case '-ev': return (P) => { const x = a(P), y = P[bi]; return md.md2 ? SUB_MD2(x, y) : x - y; };
+      case '-ve': return late
+        ? (P) => { const y = b(P), x = P[ai]; return md.md2 ? SUB_MD2(x, y) : x - y; }
+        : (P) => { const x = P[ai], y = b(P); return md.md2 ? SUB_MD2(x, y) : x - y; };
+      case '-vv': return (P) => { const x = P[ai], y = P[bi]; return md.md2 ? SUB_MD2(x, y) : x - y; };
+      case '-en': return (P) => { const x = a(P); return md.md2 ? SUB_MD2(x, bv) : x - bv; };
+      case '-ne': return (P) => { const y = b(P); return md.md2 ? SUB_MD2(av, y) : av - y; };
+      case '-vn': return (P) => { const x = P[ai]; return md.md2 ? SUB_MD2(x, bv) : x - bv; };
+      case '-nv': return (P) => { const y = P[bi]; return md.md2 ? SUB_MD2(av, y) : av - y; };
+      case '*ev': return (P) => { const x = a(P), y = P[bi]; return md.md2 ? MUL_MD2(x, y) : x * y; };
+      case '*ve': return late
+        ? (P) => { const y = b(P), x = P[ai]; return md.md2 ? MUL_MD2(x, y) : x * y; }
+        : (P) => { const x = P[ai], y = b(P); return md.md2 ? MUL_MD2(x, y) : x * y; };
+      case '*vv': return (P) => { const x = P[ai], y = P[bi]; return md.md2 ? MUL_MD2(x, y) : x * y; };
+      case '*en': return (P) => { const x = a(P); return md.md2 ? MUL_MD2(x, bv) : x * bv; };
+      case '*ne': return (P) => { const y = b(P); return md.md2 ? MUL_MD2(av, y) : av * y; };
+      case '*vn': return (P) => { const x = P[ai]; return md.md2 ? MUL_MD2(x, bv) : x * bv; };
+      case '*nv': return (P) => { const y = P[bi]; return md.md2 ? MUL_MD2(av, y) : av * y; };
+      default: return null;
+    }
+  }
 
   function binExpr(node, pool, cx) {
     let a = emit(node.a, pool, cx);
     let b = emit(node.b, pool, cx);
+    if (node.op === '+' || node.op === '-' || node.op === '*') {
+      const A = leafOf(node.a, pool), B = leafOf(node.b, pool);
+      const f = (A || B) && arithLeaf(node.op, a, b, A, B, cx);
+      if (f) return f;
+    }
     /* İşaretçi sırası (#580, MilkDrop okuyuşunda). ns-eel basit bir değişkeni
        işleme GÖSTERGE olarak veriyor ve değerini işlem anında okuyor; öbür
        işlenen o sırada çoktan hesaplanmış oluyor. `b*(b = 7)` MilkDrop'ta
@@ -1269,6 +1335,41 @@
         return (P) => (mode.md2 ? OR_MD2(a(P), b(P)) : (a(P) | 0) | (b(P) | 0));
       }
       default: return () => 0;
+    }
+  }
+
+  /* SIK İŞLEVLER KENDİ ÇAĞRI NOKTALARINDA (#621, genel hız). Genel yolda
+     bütün tek argümanlı işlevler aynı kapanış metnini paylaşıyor; V8 o
+     noktada sin, cos, abs... hepsini görüp çağrıyı satır içine almıyor.
+     Her işleve ayrı bir metin, her birinde tek hedef. Çağrılan işlevler
+     genel yoldakilerin aynısı; yalnız çağrının yeri ayrı. */
+  function hotCall(name, a, f0, fm, mode) {
+    const x = a[0], y = a[1];
+    const key = a.length === 1 ? name : a.length === 2 ? name + '/2' : '';
+    if (fm && f0) {
+      switch (key) {
+        case 'sin': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'cos': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'asin': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'acos': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'sqr': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'sqrt': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'sign': return (P) => (mode.md2 ? fm(x(P)) : f0(x(P)));
+        case 'pow/2': return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P)));
+        case 'min/2': return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P)));
+        case 'max/2': return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P)));
+        case 'above/2': return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P)));
+        case 'below/2': return (P) => (mode.md2 ? fm(x(P), y(P)) : f0(x(P), y(P)));
+        default: return null;
+      }
+    }
+    const f = f0 || fm;
+    switch (key) {
+      case 'abs': return (P) => f(x(P));
+      case 'int': return (P) => f(x(P));
+      case 'atan': return (P) => f(x(P));
+      case 'atan2/2': return (P) => f(x(P), y(P));
+      default: return null;
     }
   }
 
@@ -1347,6 +1448,8 @@
     /* Uyum açıkken MilkDrop'un ham C/x87 davranışı (FUNCS_MD2, bkz. SAN);
        kapalıyken korumalı olanlar. invsqrt yalnız uyum açıkken ayrışıyor. */
     const fm = FUNCS_MD2[name];
+    const hot = hotCall(name, a, f0, fm, mode);
+    if (hot) return hot;
     const f = fm && f0 ? (...v) => (mode.md2 ? fm : f0)(...v) : (f0 || fm);
     if (!f) return () => 0;
     // Argüman sayısına göre özelleşiyoruz: apply/yayılım her çağrıda dizi ayırır
@@ -1442,7 +1545,10 @@
 
     let prog;
     try {
-      prog = stmts.map((st) => guard(emit(st, p, cx), F));
+      /* Deyimin değeri kullanılmıyor (run dönüşü atıyor); eskiden her deyim
+         sonucunu sonlu tutan bir kapanışla sarılıydı — düğüm başına boşa bir
+         çağrı (#621, genel hız). */
+      prog = stmts.map((st) => emit(st, p, cx));
     } catch (e) {
       return { run: () => {}, pool: p, error: 'derleme: ' + String(e.message || e), statements: 0 };
     }
@@ -2107,6 +2213,9 @@
   const PP_IN = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'bass_att', 'mid_att',
     'treb_att', 'mouse_x', 'mouse_y', 'mouse_down'];
 
+  // Ağ düğümünün girdileri ve hareket değişkenleri, `pixel`in yazdığı sırayla
+  const PIX_NAMES = ['x', 'y', 'rad', 'ang', 'zoom', 'zoomexp', 'rot', 'warp', 'cx', 'cy', 'dx', 'dy', 'sx', 'sy'];
+
   class Preset {
     constructor(text, opts) {
       const o = opts || {};
@@ -2576,34 +2685,43 @@
          çizime sızmıyor (PV_IN). */
       const md2 = this._mode.md2;
       const P = md2 ? this.pvPool : this.pool;
-      P.set('x', x);
-      P.set('y', y);
-      P.set('rad', rad);
-      P.set('ang', ang);
+      /* Adlar düğüm başına aranmıyor (#621, genel hız): 64x48 ağda karede
+         ~3.200 düğüm, her birinde 24 ad araması demekti. İndisler havuz
+         başına bir kez alınıyor ve değişmiyor; dizi ise yeni ad eklenince
+         değişebildiği için her çağrıda havuzdan okunuyor. Yazılan değerler
+         `Pool.set` ile aynı: sayı değilse ya da NaN ise 0. */
+      const I = md2 ? (this._pixMd2 || (this._pixMd2 = PIX_NAMES.map((n) => P.id(n))))
+        : (this._pixOld || (this._pixOld = PIX_NAMES.map((n) => P.id(n))));
+      const V = P.values;
+      const B = this._base;
+      V[I[0]] = +x || 0;
+      V[I[1]] = +y || 0;
+      V[I[2]] = +rad || 0;
+      V[I[3]] = +ang || 0;
       // Varsayılanlar her düğümde yeniden kurulur; presetler bunlara güvenir
       // `zoom_base` motorun eski bir kaçamağı; MilkDrop'ta yok, korpusta kullanan yok
-      P.set('zoom', md2 ? this._base.zoom : (P.get('zoom_base') || this._base.zoom));
-      P.set('zoomexp', this._base.zoomexp);
-      P.set('rot', this._base.rot);
-      P.set('warp', this._base.warp);
-      P.set('cx', this._base.cx);
-      P.set('cy', this._base.cy);
-      P.set('dx', this._base.dx);
-      P.set('dy', this._base.dy);
-      P.set('sx', this._base.sx);
-      P.set('sy', this._base.sy);
-      (md2 ? this.cPixelMd2 : this.cPixel).run(P.values);
+      V[I[4]] = +(md2 ? B.zoom : (P.get('zoom_base') || B.zoom)) || 0;
+      V[I[5]] = +B.zoomexp || 0;
+      V[I[6]] = +B.rot || 0;
+      V[I[7]] = +B.warp || 0;
+      V[I[8]] = +B.cx || 0;
+      V[I[9]] = +B.cy || 0;
+      V[I[10]] = +B.dx || 0;
+      V[I[11]] = +B.dy || 0;
+      V[I[12]] = +B.sx || 0;
+      V[I[13]] = +B.sy || 0;
+      (md2 ? this.cPixelMd2 : this.cPixel).run(V);
       const o = out || {};
-      o.zoom = P.get('zoom');
-      o.zoomexp = P.get('zoomexp');
-      o.rot = P.get('rot');
-      o.warp = P.get('warp');
-      o.cx = P.get('cx');
-      o.cy = P.get('cy');
-      o.dx = P.get('dx');
-      o.dy = P.get('dy');
-      o.sx = P.get('sx');
-      o.sy = P.get('sy');
+      o.zoom = V[I[4]];
+      o.zoomexp = V[I[5]];
+      o.rot = V[I[6]];
+      o.warp = V[I[7]];
+      o.cx = V[I[8]];
+      o.cy = V[I[9]];
+      o.dx = V[I[10]];
+      o.dy = V[I[11]];
+      o.sx = V[I[12]];
+      o.sy = V[I[13]];
       return o;
     }
 
@@ -2840,7 +2958,9 @@
   const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
     clampColor, colorNorm, md2Versions, stagePlan, genWarpText, genCompText,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
-    resetGlobals };
+    resetGlobals,
+    // Yalnız testler için: kırpma yardımcılarının iki yolu (bkz. toZero)
+    _chop: { toZero, toZeroBits, MUL_MD2, ADD_MD2 } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdrop = api;
 })();

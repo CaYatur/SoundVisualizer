@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2281 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2290 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 684
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 693
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1286,6 +1286,20 @@ Performance (#621):
   memory fix above, and one made before the window has its size is born at
   zero. The compositor, layer masks and layer effects now pass over a
   zero-size canvas; there is nothing on it to draw.
+- **MilkDrop equations take a third less time** · done on `main`. On the
+  reporter's own preset (per-pixel code with three `pow`/`acos`/`sin`/`cos`
+  groups, run on a 64x48 mesh) the equations took 9.5 ms a frame; now
+  6.6 ms. Over 200 corpus presets the average went from 1.05 to 0.63 ms,
+  which more than pays back what the MilkDrop-exact arithmetic of #580
+  added. Four changes, none of them changing a result: the round-toward-zero
+  step is one multiplication instead of a trip through typed arrays (bits
+  only for subnormals); `+ − ×` read plain variables and numbers directly
+  instead of through a call each; common functions (`sin`, `cos`, `pow`,
+  `min`, …) get call sites of their own that the JavaScript engine can
+  inline; and a mesh point no longer looks its variables up by name. Old
+  and new engine were run side by side over all 10,347 corpus presets,
+  fidelity on and off — frame, mesh, wave and shape outputs are identical
+  to the bit.
 - *Not done:* the panel still sends the whole configuration on every change,
   so a very large settings file still costs some IPC per change; on the
   measured machine this no longer shows as a dropped frame, and splitting the
