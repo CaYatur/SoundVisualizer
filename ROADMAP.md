@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2402 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2410 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 805
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 813
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2953,7 +2953,21 @@ expects.
     - tabs with a playing dot, and + for a new deck;
     - name, duplicate and delete in the deck settings (delete stops the deck's columns first);
     - the grid and the Performance View show only the current deck's playing and armed slots.
-  - **Next (CD-3):** video, image and shader slots applied to a chosen layer.
+- **Media slots, CD-3 (#637)** · done on `main`.
+  - Video, image and shader slots now apply to a target. Before, the model knew these types but firing them did nothing.
+  - **Targets** (the slot's `target`; if empty, the first suitable one):
+    - video: the main media or a media layer;
+    - shader: the main visualizer, the main background, or a visualizer or background layer (text and Now Playing layers are excluded);
+    - image: an image object in the main list or in a sprites layer.
+    - A deleted target falls back to the first suitable one, and with no target nothing is overwritten.
+  - **Sources:**
+    - video: the system file dialog;
+    - image: a data URL, the same format as image objects;
+    - shader: the Studio shader presets matching the target's kind.
+  - **Editor:** the empty-slot type buttons offer all six types. The slot editor has a Target row, and an image slot with no image objects says where to add one.
+  - **Not yet:**
+    - Timeline clips of these types have no target field, so they use the first suitable target.
+    - The Action type is still stored but does nothing.
 
 ## v3.1.6 — Comprehensive video export
 

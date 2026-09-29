@@ -102,12 +102,12 @@
   /* Yuvanın/klibin içeriğini uygula.
 
      Sahne ve şablon TÜM yapılandırmaya etki eder; ne yapacakları belirsiz
-     değil. Video, görsel ve shader ise BİR KATMANI hedeflemek zorunda; hangi
-     katman olduğu söylenmeden uygulanırsa kullanıcının orada ne varsa üzerine
-     yazılır. Bu yüzden model onları tanıyor ama uygulanmıyorlar — arayüz de
-     bunu açıkça söylüyor. */
-  function applyRef(type, ref) {
+     değil. Video, görsel ve shader ise BİR HEDEFE uygulanır (#637 CD-3):
+     yuvanın `target` alanı ya da yoksa ilk uygun hedef. Hedef söylenmeden
+     rastgele bir katmanın üzerine yazılmıyor. */
+  function applyRef(type, ref, target) {
     if (!ref) return false;
+    if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
     const actions = P().actions ? P().actions() : null;
     if (type === 'scene') {
       if (actions && actions.applyScene) {
@@ -219,10 +219,109 @@
     const slot = ev.slot;
     if (!slot.ref) return;
     stashTransition();
-    applyRef(slot.type, slot.ref);
+    applyRef(slot.type, slot.ref, slot.target);
     overrideTransition(ev);
     P().push(true);
     scheduleRelease(ev.fade);
+  }
+
+  // --------------------------------------------------------------------------
+  // Medya yuvaları (#637 CD-3): hedefler ve uygulama
+  // --------------------------------------------------------------------------
+  function layerList() {
+    const c = P().cfg();
+    return Array.isArray(c.layers) ? c.layers : [];
+  }
+
+  // [değer, etiket] — türün uygulanabileceği yerler
+  function targetOptions(type) {
+    const c = P().cfg();
+    const out = [];
+    const lname = (l) => l.name || l.id;
+    if (type === 'video') {
+      out.push(['media', tt('Medya (ana)')]);
+      for (const l of layerList()) if (l.kind === 'media') out.push(['layer:' + l.id, tt('Katman') + ': ' + lname(l)]);
+    } else if (type === 'shader') {
+      out.push(['vis', tt('Görselleştirici (ana)')], ['bg', tt('Arkaplan (ana)')]);
+      for (const l of layerList()) {
+        if (l.kind === 'background' || (l.kind === 'visualizer' && l.type !== 'text' && l.type !== 'nowplaying')) {
+          out.push(['layer:' + l.id, tt('Katman') + ': ' + lname(l)]);
+        }
+      }
+    } else if (type === 'image') {
+      const items = (c.images && Array.isArray(c.images.items)) ? c.images.items : [];
+      items.forEach((it, i) => out.push(['img:' + it.id, tt('Nesne') + ' ' + (i + 1) + (it.name ? ' · ' + it.name : '')]));
+      for (const l of layerList()) {
+        if (l.kind !== 'sprites') continue;
+        const li = (l.settings && l.settings.images && l.settings.images.items) || [];
+        li.forEach((it, i) => out.push(['limg:' + l.id + ':' + it.id, lname(l) + ' · ' + tt('Nesne') + ' ' + (i + 1)]));
+      }
+    }
+    return out;
+  }
+
+  // Kayıtlı hedef hâlâ varsa o, yoksa ilk uygun hedef (null: hiç yok)
+  function resolveTarget(type, target) {
+    const opts = targetOptions(type);
+    if (target && opts.some((o) => o[0] === target)) return target;
+    return opts.length ? opts[0][0] : null;
+  }
+
+  // Shader hedefi arkaplan mı (preset listesi türe göre süzülüyor)
+  function shaderKindOf(target) {
+    if (target === 'bg') return 'background';
+    if (target && target.indexOf('layer:') === 0) {
+      const l = layerList().find((x) => x.id === target.slice(6));
+      if (l && l.kind === 'background') return 'background';
+    }
+    return 'visualizer';
+  }
+
+  function applyMedia(type, ref, target) {
+    const c = P().cfg();
+    const to = resolveTarget(type, target);
+    if (!to) return false;
+    const layer = to.indexOf('layer:') === 0 ? layerList().find((l) => l.id === to.slice(6)) : null;
+    if (type === 'video') {
+      const patch = { source: 'file', file: ref, enabled: true };
+      if (layer) {
+        layer.settings = layer.settings || {};
+        layer.settings.media = Object.assign({}, layer.settings.media, patch);
+        layer.enabled = true;
+      } else {
+        c.media = Object.assign({}, c.media, patch);
+      }
+    } else if (type === 'shader') {
+      c.custom = c.custom || {};
+      if (layer) {
+        layer.type = 'custom';
+        layer.presetId = ref;
+      } else if (to === 'bg') {
+        c.background.type = 'custom';
+        c.custom.backgroundId = ref;
+      } else {
+        c.visualizer.type = 'custom';
+        c.custom.visualizerId = ref;
+      }
+    } else if (type === 'image') {
+      let items = null;
+      let id = '';
+      if (to.indexOf('limg:') === 0) {
+        const parts = to.split(':');
+        const l = layerList().find((x) => x.id === parts[1]);
+        items = l && l.settings && l.settings.images && l.settings.images.items;
+        id = parts.slice(2).join(':');
+      } else {
+        items = c.images && c.images.items;
+        id = to.slice(4);
+        if (c.images) c.images.enabled = true;
+      }
+      const it = Array.isArray(items) ? items.find((x) => x.id === id) : null;
+      if (!it) return false;
+      it.src = ref;
+    }
+    P().apply();
+    return true;
   }
 
   // --------------------------------------------------------------------------
@@ -279,6 +378,20 @@
         const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === slot.ref);
         if (tp) return tt(tp.name);
       }
+      if (slot.type === 'shader' && window.SVPresets) {
+        const sp = window.SVPresets.get(slot.ref);
+        if (sp) return sp.name || sp.id;
+      }
+      // Video: dosya adı; görsel: veri adresi okunur bir ad değil
+      if (slot.type === 'video') {
+        const base = String(slot.ref).split(/[\\/]/).pop() || slot.ref;
+        try {
+          return decodeURIComponent(base);
+        } catch (e) {
+          return base;
+        }
+      }
+      if (slot.type === 'image') return tt('Görsel');
       return slot.ref;
     }
     return tt(TYPE_LABELS[slot.type] || slot.type);
@@ -297,6 +410,7 @@
      karanlıkta uzaktan da ayırt edilir ve hiçbir şeyi bozmaz. */
   function slotPreview(slot) {
     if (!slot || !slot.ref) return '';
+    if (slot.type === 'image' && /^data:image\//.test(slot.ref)) return 'center / cover no-repeat url("' + slot.ref + '")';
     if (slot.type !== 'scene') return '';
     const scenes = (P().cfg().scenes || []);
     const sc = scenes.find((x) => x && x.id === slot.ref);
@@ -534,6 +648,7 @@
     launchSlot: press,
     releaseSlot: release,
     applyRef,
+    targetOptions,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
     applyFaded: (type, ref, fade) => applySlot({ slot: { type, ref }, fade: Number(fade) || 0 }),
@@ -900,6 +1015,49 @@
     return null;
   }
 
+  /* Medya kaynağı: video dosyası (sistem penceresi), görsel (dosyadan veri
+     adresi; görsel nesnelerle aynı biçim) ya da Studio shader preseti
+     (hedefin türüne göre görselleştirici ya da arkaplan presetleri). */
+  function mediaPicker(spec, target, save) {
+    const el = P().el;
+    if (spec.type === 'shader') {
+      const kind = shaderKindOf(target);
+      const list = window.SVPresets ? window.SVPresets.byKind(kind).filter((x) => x.engine === 'shader') : [];
+      if (!list.length) return el('div', { class: 'ctrl settings-io-note', text: 'Henüz Studio preseti yok. Studio bölümünden bir shader preseti oluşturun.' });
+      const pairs = [['', '— seçin —']].concat(list.map((x) => [x.id, x.name || x.id]));
+      return select(pairs, spec.ref || '', (v) => save({ ref: v }));
+    }
+    const name = spec.ref ? slotLabel(Object.assign({}, spec, { name: '' })) : tt('seçilmedi');
+    const btn = el('button', { class: 'btn small', type: 'button', text: spec.type === 'video' ? '🎞 Video Seç' : '🖼 Görsel Seç' });
+    btn.addEventListener('click', async () => {
+      if (spec.type === 'video') {
+        const r = window.api && window.api.pickVideo ? await window.api.pickVideo() : null;
+        if (r && r.url) save({ ref: r.url, name: spec.name || r.name || '' });
+        return;
+      }
+      pickImage((url) => save({ ref: url }));
+    });
+    return el('div', { class: 'tl-inline' }, [btn, el('span', { class: 'dim-hint', text: name })]);
+  }
+
+  function pickImage(cb) {
+    if (typeof document === 'undefined' || !document.createElement) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => cb(reader.result);
+      reader.readAsDataURL(file);
+    });
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => input.remove(), 1000);
+  }
+
   function refPicker(type, value, onChange) {
     const el = P().el;
     const opts = refOptions(type);
@@ -965,11 +1123,11 @@
     if (!cur) {
       box.appendChild(el('div', { class: 'cd-editor-head', text: tt('Boş yuva') + ' · ' + where }));
       const types = el('div', { class: 'cd-typepick' });
-      for (const t of ['scene', 'preset', 'palette']) {
+      for (const t of ['scene', 'preset', 'palette', 'video', 'image', 'shader']) {
         types.appendChild(act((TYPE_ICONS[t] || '') + ' ' + tt(TYPE_LABELS[t]), 'Bu türde bir yuva oluştur', () => save({ type: t, ref: '', fade: CD().DEFAULT_FADE[t] })));
       }
       box.appendChild(types);
-      box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Tür seçin; sonra kaynağını (hangi sahne, şablon ya da renk) seçin. Video, görsel ve shader türleri yuva düzenleyicinin Tür listesinde.' }));
+      box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Tür seçin; sonra kaynağını seçin. Video, görsel ve shader yuvaları bir hedefe uygulanır (ana medya, bir katman ya da bir görsel nesne).' }));
       return box;
     }
 
@@ -1003,7 +1161,16 @@
         (v) => save({ type: v, ref: '', fade: CD().DEFAULT_FADE[v] })
       ))
     );
-    grid.appendChild(p.row('Kaynak', refPicker(spec.type, spec.ref, (v) => save({ ref: v }))));
+    if (spec.type === 'video' || spec.type === 'image' || spec.type === 'shader') {
+      const tOpts = targetOptions(spec.type);
+      const tNow = resolveTarget(spec.type, spec.target);
+      grid.appendChild(p.row('Kaynak', mediaPicker(spec, tNow, save)));
+      if (tOpts.length) {
+        grid.appendChild(p.row('Hedef', select(tOpts, tNow, (v) => save({ target: v }))));
+      }
+    } else {
+      grid.appendChild(p.row('Kaynak', refPicker(spec.type, spec.ref, (v) => save({ ref: v }))));
+    }
     const col = el('input', { class: 'tl-swatch big', type: 'color', value: slotColor(spec) });
     col.addEventListener('change', () => save({ color: col.value }));
     const colReset = act('↺', 'Rengi türden al', () => save({ color: '' }));
@@ -1073,13 +1240,12 @@
       else delete d.rowNames[rowAt];
       p.apply();
     }, String(rowAt + 1))));
-    if (spec.type !== 'scene' && spec.type !== 'preset' && spec.type !== 'palette') {
-      box.appendChild(
-        el('div', {
-          class: 'ctrl settings-io-note',
-          text: 'Bu tür kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde uygulanmaz: bir katmanı hedeflemesi gerekiyor ve hedef söylenmeden uygulamak o katmandaki içeriğin üzerine yazardı. Sahne ve Şablon türleri çalışıyor.',
-        })
-      );
+    if (spec.type === 'action') {
+      box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem türü kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde bir şey yapmaz.' }));
+    } else if ((spec.type === 'video' || spec.type === 'image' || spec.type === 'shader') && !targetOptions(spec.type).length) {
+      box.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: spec.type === 'image'
+        ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'
+        : 'Bu tür için uygun hedef yok.' }));
     }
     return box;
   }
