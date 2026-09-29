@@ -598,10 +598,17 @@ select:focus { border-color: var(--accent); }
 .meter { display: flex; align-items: center; gap: 9px; }
 .meter label { font-size: 10.5px; color: var(--muted2); width: 34px; flex-shrink: 0; }
 .meter .bar { flex: 1; height: 7px; background: var(--card); border-radius: 6px; overflow: hidden; border: 1px solid var(--line); }
+/* Doluluk `width` ile değil `transform` ile (#621): genişlik geçişi
+   saniyede 30 kez yerleşimi yeniden hesaplatıyor, sahne listesinin ve
+   kartların kaydırma çubuklarını da yeniden ölçtürüyordu (panelde her
+   karede ~2 ms yerleşim + boyama). Ölçek yalnız birleştiricide çalışır.
+   Gradyan kutuya göre çizildiği için görünüm aynı. */
 .meter .bar i {
-  display: block; height: 100%; width: 0%;
+  display: block; height: 100%; width: 100%;
   background: linear-gradient(90deg, var(--ok), #ffd54a 70%, #ff5e6c);
-  transition: width .05s linear;
+  transform: scaleX(0); transform-origin: 0 50%;
+  transition: transform .05s linear;
+  will-change: transform;
 }
 /* Aygıt adları çok uzun olabilir: dock'u taşırmasın, üç nokta ile kısalsın */
 .audio-state {

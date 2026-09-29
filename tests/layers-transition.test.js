@@ -152,3 +152,20 @@ test('MilkDrop geçişte kalmaya katılıyor', () => {
   const MODE = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf-8');
   assert.match(MODE, /constructor\(canvas\) \{[\s\S]{0,400}this\.keepAcrossTransitions = true;/);
 });
+
+test('atılan katmanın tuval belleği hemen bırakılıyor, vekilinki bırakılmıyor (#621)', () => {
+  /* Her sahne/Otomatik VJ değişimi katman başına tam ekran bir tuval atıyor;
+     tarayıcı arka belleği ancak bir sonraki büyük toplamada geri alıyordu. */
+  const log = [];
+  const md = entry(log, 'md', true);
+  const bg = entry(log, 'bg', false);
+  md.canvas.width = 1920; md.canvas.height = 1080;
+  bg.canvas.width = 1920; bg.canvas.height = 1080;
+  const s = new L.LayerStack(null, {});
+  s.entries = [bg, md];
+  s.beginTransition({}, SPEC, new Set(['bg', 'md']));
+  s.endTransition();
+  assert.strictEqual(bg.canvas.width, 0, 'atılan tuval sıfırlanmalı');
+  assert.strictEqual(bg.canvas.height, 0);
+  assert.strictEqual(md.canvas.width, 1920, 'vekilin tuvali canlı katmanın — dokunulmamalı');
+});

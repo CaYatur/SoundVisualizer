@@ -200,6 +200,10 @@ function restoreSmokeSettings() {
 // Ayar kalıcılığı
 // ----------------------------------------------------------------------------
 function loadSettings() {
+  /* Kayıt birleştirilirken (#621) disk son değişikliğin 300 ms gerisinde
+     kalabiliyor; dosyayı okuyan (yeni açılan pencere, `get-settings`)
+     bekleyen kaydı önce yazdırıyor ki eskisiyle aynı içeriği görsün. */
+  if (saveQueued) flushSettings();
   try {
     /* Çözümleme SettingsGuard.parse'ta, çünkü çakışmada "diskteki ayarları
        yükle" de aynı yoldan okuyor. BOM'u ayıklıyor: dosya bir metin
@@ -212,8 +216,35 @@ function loadSettings() {
   }
 }
 
+/* KAYIT BİRLEŞTİRİLİYOR (#621). Panel kaydırıcı sürüklenirken 55 ms'de bir
+   yapılandırma gönderiyor ve her gönderim dosyayı EŞZAMANLI yeniden
+   yazıyordu: 842 KB'lık gerçek bir ayar dosyasında her yazım ana süreci
+   ~15-20 ms kilitliyordu (ölçüldü: gidiş-dönüş p95 0,4 → 15 ms). Ses kareleri
+   pencerelere ana süreçten gittiği için bu kilit görüntüye takılma olarak
+   yansıyor. Artık son yapılandırma bekletiliyor ve SAVE_DELAY_MS içinde bir
+   kez yazılıyor; kapanışta bekleyen yazılıyor (bkz. shutdownCleanup). */
+const SAVE_DELAY_MS = 300;
+let saveTimer = null;
+let saveQueued = null;
+
 function saveSettings(config) {
   if (settingsFrozen) return;
+  saveQueued = config;
+  if (!saveTimer) saveTimer = setTimeout(flushSettings, SAVE_DELAY_MS);
+}
+
+// Bekleyen kayıt atılır: diskteki dosya yüklendiyse eski hâli üstüne yazılmasın
+function dropQueuedSave() {
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = null;
+  saveQueued = null;
+}
+
+function flushSettings() {
+  const config = saveQueued;
+  dropQueuedSave();
+  // Öz test ayarları geri yazdıysa bekleyen kayıt onu ezmemeli
+  if (!config || settingsFrozen) return;
   const text = JSON.stringify(config, null, 2);
   /* Başkası dosyayı bu kopya en son bıraktıktan sonra değiştirdiyse ÜSTÜNE
      YAZILMAZ (#564): yapılandırma bellekte kalır, kullanıcıya sorulur. */
@@ -1499,6 +1530,7 @@ ipcMain.handle('settings-conflict:resolve', (e, choice) => {
       return { ok: false, error: 'read' };
     }
     if (!loaded || typeof loaded !== 'object') return { ok: false, error: 'read' };
+    dropQueuedSave();
     settingsGuard.remember(buf);
     pendingSettings = null;
     settingsConflict = null;
@@ -5334,6 +5366,7 @@ async function runSmoke() {
    Spout göndericisi uygulama kapandıktan sonra da kayıtlı kalıyordu. */
 function shutdownCleanup() {
   quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
+  flushSettings(); // birleştirilmiş kayıt beklemede kalmasın
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
   artnet.stop().catch(() => {});
