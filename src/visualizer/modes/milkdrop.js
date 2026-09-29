@@ -54,6 +54,9 @@
      bedeli sınırlıyor. */
   const BLEND_MAX = 5;
 
+  // Gürültü dokularının pikselleri, [eski, uyumlu] — sayfa başına bir kez (`_buildNoise`)
+  const NOISE_PIXELS = [null, null];
+
   /* BAĞLAM KAYBI (#572). Sürücü sıfırlanınca ya da GPU süreci çökünce
      WebGL bağlamı gidiyor; tarayıcı onu ancak sayfa `webglcontextlost`
      olayını geri çevirirse (preventDefault) geri vermeyi deniyor. Bu süre
@@ -1644,21 +1647,35 @@ void main(){
       /* Ölçekler MilkDrop'un kendi ölçekleri. Önceden mq ile hq AYNI
          parametrelerle üretiliyordu; iki ayrı doku isteyen preset ikisinden
          de aynı deseni alıyordu. */
-      const two = (size, zoom, smooth) =>
-        upload(size, 1, accurate ? lattice(size, size, 1, zoom) : boxed(size, size, 1, smooth));
+      const two = (size, zoom, smooth) => (accurate ? lattice(size, size, 1, zoom) : boxed(size, size, 1, smooth));
       /* Hacim gürültüsü her iki kipte de GERÇEK 3B: anahtar değerleri
          değiştiriyor, yapıyı değil. Eskiden 64x64 iki boyutluydu ve
          `tex3D` z'yi atıyordu. */
-      const three = (size, zoom, smooth) =>
-        upload(size, size, accurate ? lattice(size, size, size, zoom) : boxed(size, size, size, smooth));
+      const three = (size, zoom, smooth) => (accurate ? lattice(size, size, size, zoom) : boxed(size, size, size, smooth));
 
-      this.noise = {
+      /* PİKSELLER BİR KEZ ÜRETİLİYOR (#621, genel hız). Üretici her
+         çağrıda aynı tohumdan başlıyor, yani çıktı her MilkDrop örneğinde
+         aynı; ama her katman kuruluşunda (Otomatik VJ MilkDrop'a her
+         dönüşünde) JS'te baştan üretiliyordu: kuruluş karesinin ~45 ms'si
+         (ölçüldü, 130 ms'lik karede). Sayfa başına bir kez üretilip
+         saklanıyor; GPU'ya yükleme her bağlamda yine yapılıyor. Sıra
+         eskisiyle aynı — üretecin akışı ona bağlı. */
+      const slot = accurate ? 1 : 0;
+      const px = NOISE_PIXELS[slot] || (NOISE_PIXELS[slot] = {
         lq: two(256, 1, false),
         lqLite: two(32, 1, false),
         mq: two(256, 4, true),
         hq: two(256, 8, true),
         volLq: three(32, 1, false),
         volHq: three(32, 4, true),
+      });
+      this.noise = {
+        lq: upload(256, 1, px.lq),
+        lqLite: upload(32, 1, px.lqLite),
+        mq: upload(256, 1, px.mq),
+        hq: upload(256, 1, px.hq),
+        volLq: upload(32, 32, px.volLq),
+        volHq: upload(32, 32, px.volHq),
       };
       this._noiseAcc = !!accurate;
     }

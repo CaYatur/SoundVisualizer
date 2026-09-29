@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2328 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2329 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 731
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 732
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1300,6 +1300,18 @@ Performance (#621):
   and new engine were run side by side over all 10,347 corpus presets,
   fidelity on and off — frame, mesh, wave and shape outputs are identical
   to the bit.
+- **A MilkDrop layer sets up faster** · done on `main`. Auto VJ builds a
+  new MilkDrop engine each time it switches a layer to MilkDrop, and that
+  frame was measured (reporter's settings, warm runs) at about 130 ms, 95
+  of it in the GL setup and 41–47 of those regenerating the six noise
+  textures in JavaScript — the same pixels every time, since the
+  generator always starts from the same seed. They are now generated once
+  per page and only uploaded per engine: noise 4–7 ms, GL setup ~50 ms,
+  the setup frame 80–120 ms. *Not done:* the rest of that frame is the
+  WebGL context itself, the render targets, the seven fixed programs and
+  the first preset's shaders; keeping one engine alive across Auto VJ
+  switches would remove it but ties the engine to a canvas the layer
+  stack disposes.
 - *Not done:* the panel still sends the whole configuration on every change,
   so a very large settings file still costs some IPC per change; on the
   measured machine this no longer shows as a dropped frame, and splitting the
