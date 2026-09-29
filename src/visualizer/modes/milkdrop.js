@@ -5818,6 +5818,8 @@ void main(){
         gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
         gl.deleteSync(rb.sync);
         rb.sync = null;
+        gl.deleteBuffer(rb.pbo);
+        rb.pbo = null;
         this._colorData = boxResample(out, rb.w, rb.h, 64, 16);
         this._colorW = 64;
         this._colorH = 16;
@@ -5839,11 +5841,17 @@ void main(){
         gl.texStorage2D(gl.TEXTURE_2D, rb.L + 1, gl.RGB8, W, H);
         gl.bindTexture(gl.TEXTURE_2D, prevTex);
         if (!rb.fbo) rb.fbo = gl.createFramebuffer();
-        if (!rb.pbo) rb.pbo = gl.createBuffer();
-        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, rb.pbo);
-        gl.bufferData(gl.PIXEL_PACK_BUFFER, rb.w * rb.h * 4, gl.STREAM_READ);
-        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
       }
+      /* HER OKUMAYA YENİ TAMPON. Aynı tampona yeniden yazmak Chromium'un
+         "READ-usage buffer was written, then fenced, but written again before
+         being read back" uyarısını her okumada veriyordu (çit geçildikten sonra
+         okunsa da — getSyncParameter ve clientWaitSync ikisi de denendi, 20
+         okumada 19 uyarı); öz test konsol uyarısını hata sayıyor. Okunduktan
+         sonra silinen yeni tamponla 0 uyarı. */
+      rb.pbo = gl.createBuffer();
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, rb.pbo);
+      gl.bufferData(gl.PIXEL_PACK_BUFFER, rb.w * rb.h * 4, gl.STREAM_READ);
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
       const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
       const prevRead = gl.getParameter(gl.READ_FRAMEBUFFER_BINDING);
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);

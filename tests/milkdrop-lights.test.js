@@ -214,7 +214,7 @@ function fakeGL(state) {
     log, bind,
     isContextLost: () => false,
     getParameter: (p) => (p === C.TEXTURE_BINDING_2D ? bind.tex : p === C.READ_FRAMEBUFFER_BINDING ? bind.read : null),
-    createTexture: () => ({ t: 'tex' }), createFramebuffer: () => ({ t: 'fbo' }), createBuffer: () => ({ t: 'pbo' }),
+    createTexture: () => ({ t: 'tex' }), createFramebuffer: () => ({ t: 'fbo' }), createBuffer: () => { log.push(['createBuffer']); return { t: 'pbo' }; }, deleteBuffer: () => log.push(['deleteBuffer']),
     bindTexture: (k, t) => { bind.tex = t; }, bindFramebuffer: (k, f) => { bind.read = f; },
     bindBuffer: (k, b) => { bind.pack = b; },
     texStorage2D: (...a) => log.push(['texStorage2D', ...a.slice(1)]),
@@ -272,4 +272,9 @@ test('ışık rengi okuması bekletmiyor: çit geçilmeden veri alınmıyor (#62
   assert.deepStrictEqual([m._colorW, m._colorH, m._colorData.length], [64, 16, 64 * 16 * 4]);
   m.sampleColors(4);
   assert.strictEqual(gl.log.filter((l) => l[0] === 'readPixels').length, 2, 'okuma bitince yenisi başlıyor');
+  /* Her okumaya yeni tampon, okununca siliniyor: aynı tampona yeniden yazmak
+     Chromium'un performans uyarısını her okumada veriyordu (öz test onu hata
+     sayıyor). */
+  assert.strictEqual(gl.log.filter((l) => l[0] === 'createBuffer').length, 2, 'her okumaya yeni tampon');
+  assert.strictEqual(gl.log.filter((l) => l[0] === 'deleteBuffer').length, 1, 'okunan tampon silindi');
 });
