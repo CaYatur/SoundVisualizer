@@ -227,6 +227,15 @@
          katmandan açılır.
      Karartma sürerken siyah kalıyor — saydam bir karartma ekranı söndürmek
      yerine masaüstünü gösterirdi. */
+  /* Sıfır boyutlu bir tuvalin bileşime katacağı bir şey yok, `drawImage` ise
+     onu istisnayla reddediyor. Atılan katman tuvali sıfıra iniyor (#621) ve
+     pencere henüz boyutlanmamışken kurulan tuval de sıfır doğuyor; ikisi de
+     kareyi yarıda kesmemeli. Uygulamada ölçüldü: bütün modları sırayla
+     çizen bir taramada ara sıra, geçiş sırasında. */
+  function drawable(c) {
+    return !!(c && c.width > 0 && c.height > 0);
+  }
+
   function seeThrough(cfg) {
     const bg = cfg && cfg.background;
     if (!bg) return false;
@@ -1471,7 +1480,7 @@
       } else if (m.type === 'layer' && m.from) {
         // Başka bir katmanın parlaklığı maske olur
         const src = this.entries.find((x) => x.layer.id === m.from);
-        if (src && src.canvas) ctx.drawImage(src.canvas, 0, 0, W, H);
+        if (src && drawable(src.canvas)) ctx.drawImage(src.canvas, 0, 0, W, H);
       }
       ctx.restore();
     }
@@ -1489,7 +1498,23 @@
       if (e.proxyOf) return;
       const l = live || e.layer;
       if (e.mode && this._lostNow(e.mode, null, e)) this._revive(e, cfg);
-      this._drawEntryRaw(e, audio, cfg, t, dt, l);
+      /* BİR KATMANIN HATASI KAREYİ DÜŞÜRMÜYOR. Çizimde atılan bir istisna
+         döngüden çıkıyordu: üstteki katmanlar, efekt zinciri ve ışıklar o
+         karede hiç çizilmiyor, her karede tekrarlandığı için de sahne
+         donmuş ya da yarım görünüyordu (parçacıklar tema renginde tanımsız
+         bir adla her karede patlıyordu). Hata tür başına bir kez yazılıyor;
+         sessizce yutulsaydı bir sonraki böyle hata hiç görülmezdi. */
+      try {
+        this._drawEntryRaw(e, audio, cfg, t, dt, l);
+      } catch (err) {
+        const key = (l && l.kind) + ':' + (l && l.type);
+        const seen = this._drawErrors || (this._drawErrors = new Set());
+        if (!seen.has(key)) {
+          seen.add(key);
+          console.error('[layers] ' + key + ' çizilemedi:', err);
+        }
+        return;
+      }
       this._applyMask(e, l);
       /* KATMAN EFEKTİ HEP SAYDAM KİPTE (#590). Katman alttakilerin ÜSTÜNE
          biniyor; efekt zinciri opak kipte her pikselin alfasını 1 yazıyor ve
@@ -1522,7 +1547,7 @@
       fx.resize(this.width, this.height);
       if (!fx.render(e.canvas, audio, t, dt, !!see)) return;
       const ctx = e.ctx || (e.canvas.getContext ? e.canvas.getContext('2d') : null);
-      if (!ctx) return;
+      if (!ctx || !drawable(fx.canvas)) return;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'copy';
@@ -1650,7 +1675,7 @@
         if (this._covered(e, i, floor)) continue;
         const l = this._live(e, cfg);
         this._drawEntry(e, audio, cfg, t, dt, l);
-        if (!e.canvas) continue;
+        if (!drawable(e.canvas)) continue;
 
         const d = this._dynamics(l, audio, cfg);
         ctx.save();

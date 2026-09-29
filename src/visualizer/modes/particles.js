@@ -85,7 +85,7 @@
         const colorMode = v.colorMode || (v.rainbow ? 'rainbow' : 'custom');
         ctx.fillStyle = (colorMode === 'rainbow')
           ? `hsla(${this.hue[i]}, 92%, 64%, ${a})`
-          : (colorMode === 'theme' ? rgbaOf(window.SV.sampleThemeColorRgb(cfg, i / COUNT), a) : hexA(v.color, a));
+          : (colorMode === 'theme' ? rgbaOf(window.SV.sampleThemeColorRgb(cfg, i / MAX), a) : hexA(v.color, a));
         ctx.beginPath();
         ctx.arc(this.px[i] * minDim * 0.5, this.py[i] * minDim * 0.5, r, 0, Math.PI * 2);
         ctx.fill();
