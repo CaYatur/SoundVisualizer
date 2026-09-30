@@ -129,8 +129,14 @@ function setup(cfg) {
     push() {}, apply() {}, rerender() {}, confirm: () => Promise.resolve(true), toast() {}, actions: () => ({ applyScene() {} }),
   };
   window.SVClipDeckPanel = {
-    applyRef: (type, ref) => fired.push(['ref', type, ref]),
-    applyFaded: (type, ref, fade) => fired.push(['faded', type, ref, fade]),
+    applyRef: (type, ref, target) => fired.push(target ? ['ref', type, ref, target] : ['ref', type, ref]),
+    applyFaded: (type, ref, fade, target) => fired.push(target ? ['faded', type, ref, fade, target] : ['faded', type, ref, fade]),
+    // Medya klipleri destenin seçicisini ve hedef listesini kullanıyor
+    targetOptions: (t) => (t === 'shader' ? [['vis', 'Görselleştirici (ana)'], ['layer:lb', 'Katman: Zemin']] : []),
+    resolveTarget: (t, target) => target || 'vis',
+    mediaPicker: () => el('div', { class: 'picker', text: 'seçici' }),
+    slotLabel: (s) => (s.type === 'image' ? 'Görsel' : s.ref),
+    refOptions: (t) => (t === 'action' ? [['nextScene', 'Sonraki Sahne']] : null),
   };
 }
 
@@ -301,4 +307,43 @@ test('panel: odaktaki düzenleyici yeniden çizimden sonra da odakta', async () 
   const third = await mount(cfg);
   assert.strictEqual(lastFocused, null, 'bilinçli odak kaybına saygı');
   void third;
+});
+
+/* Medya ve eylem klipleri (#636): klibin hedefi var ve ateşlemeye gidiyor;
+   denetçi destenin seçicisini ve hedef listesini kullanıyor. Önceki not
+   ("henüz uygulanmaz") CD-3'ten beri yanlıştı: klipler ilk uygun hedefe
+   uygulanıyordu, yalnız hedef seçilemiyordu. */
+test('model: klibin hedefi kayıttan sağ çıkıyor, 120 karakterle sınırlı', () => {
+  const c = TL.makeClip({ type: 'shader', ref: 'pb', target: 'layer:lb' });
+  assert.strictEqual(c.target, 'layer:lb');
+  assert.strictEqual(TL.makeClip({}).target, '');
+  assert.strictEqual(TL.makeClip({ target: 5 }).target, '');
+  assert.strictEqual(TL.makeClip({ target: 'x'.repeat(300) }).target.length, 120);
+});
+
+test('panel: medya klibi kendi hedefiyle ateşleniyor; denetçide Hedef satırı', async () => {
+  const cfg = cfgOf();
+  cfg.timeline.tracks[0].clips[0] = { id: 'cA', type: 'shader', ref: 'pb', target: 'layer:lb', start: 1, dur: 2 };
+  cfg.timeline.tracks[0].clips[1] = { id: 'cB', type: 'image', ref: 'data:image/png;base64,QUFB', start: 5, dur: 2, fade: 0.5 };
+  const { host, cv } = await mount(cfg);
+  fired.length = 0;
+  TP.stop();
+  fire(cv, 'mousedown', { clientX: X(1.5), clientY: 16, detail: 1 });
+  winFire('mouseup', {});
+  fire(cv, 'mousedown', { clientX: X(5.5), clientY: 16, detail: 1 });
+  winFire('mouseup', {});
+  assert.deepStrictEqual(fired, [['ref', 'shader', 'pb', 'layer:lb'], ['faded', 'image', 'data:image/png;base64,QUFB', 0.5]]);
+  // Denetçi: seçici ve hedef; eski "uygulanmaz" notu yok
+  fire(cv, 'mousedown', { clientX: X(1.5), clientY: laneY(0), detail: 1 });
+  winFire('mouseup', {});
+  const all = [];
+  walk(host, (n) => all.push(n));
+  assert.ok(all.some((n) => n.tag === 'label' && n.text === 'Hedef'), 'Hedef satırı');
+  assert.ok(all.some((n) => n.className === 'picker'), 'destenin seçicisi');
+  assert.ok(!all.some((n) => /henüz oynatıldığında uygulanmaz/.test(n.text)), 'eski not gitti');
+});
+
+test('panel: görsel klibinin etiketi veri adresi değil; eylem listesi desteden', () => {
+  assert.strictEqual(TP._clipLabel({ type: 'image', ref: 'data:image/png;base64,QUFB' }), 'Görsel');
+  assert.deepStrictEqual(TP._refOptions('action'), [['nextScene', 'Sonraki Sahne']]);
 });

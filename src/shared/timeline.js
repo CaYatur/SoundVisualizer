@@ -269,6 +269,10 @@
       speed: s.speed == null || s.speed === '' ? 1 : clamp(s.speed, 0.05, 20),
       type: CLIP_TYPES.indexOf(s.type) >= 0 ? s.type : 'scene',
       ref: typeof s.ref === 'string' ? s.ref : '',
+      /* Video, görsel ve shader klibinin hedefi (katman ya da ana yüzey):
+         klip destesinin yuvalarıyla aynı biçim (#637 CD-3). Boşsa ya da
+         hedef silinmişse ilk uygun hedef. */
+      target: typeof s.target === 'string' ? s.target.slice(0, 120) : '',
       fade: Math.max(0, num(s.fade, 0)),
       /* Kullanıcının verdiği renk (#636); boşsa parçanın rengi, o da yoksa
          türün rengi kullanılıyor (shared/timeline-edit.js clipColor). Model

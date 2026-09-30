@@ -470,7 +470,7 @@
     'Henüz Studio preseti yok. Studio bölümünden bir shader preseti oluşturun.': 'No Studio presets yet. Create a shader preset in the Studio section.',
     '🖼 Görsel Seç': '🖼 Choose Image',
     'Tür seçin; sonra kaynağını seçin. Video, görsel ve shader yuvaları bir hedefe uygulanır (ana medya, bir katman ya da bir görsel nesne).': 'Pick a type, then its source. Video, image and shader slots apply to a target (the main media, a layer or an image object).',
-    'Eylem türü kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde bir şey yapmaz.': 'The Action type is stored and recorded onto the timeline, but firing it does nothing yet.',
+    'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.': 'An action runs the same action as a MIDI or OSC mapping. Transition settings do not apply to actions.',
     'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An image slot replaces the picture of an image object, and there are none yet. Add one in Scene › Visual Objects.',
     'Bu tür için uygun hedef yok.': 'There is no suitable target for this type.',
     // Arkaplanların kendi ayarları (#638)
@@ -637,7 +637,7 @@
     'Bir klip, anahtar kare ya da parça seçin. Kısayollar için düzenleyiciye tıklayın.': 'Select a clip, keyframe or track. Click the editor to use the shortcuts.',
     'Geçiş (sn)': 'Fade (s)',
     'Rengi parçadan / türden al': 'Take the colour from the track / type',
-    'Bu tür kaydedilir, ama henüz oynatıldığında uygulanmaz: bir katmanı hedeflemesi gerekiyor ve hedef söylenmeden uygulamak o katmandaki içeriğin üzerine yazardı. Sahne, Şablon ve Renk Şablonu türleri çalışıyor.': 'This type is saved but not yet applied on playback: it has to target a layer, and applying it without a target would overwrite what that layer shows. Scene, Template and Colour Preset clips work.',
+    'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An Image clip replaces the picture of an image object, and there is none yet. Add one under Scene › Image Objects.',
     '✂ Böl': '✂ Split',
     'Oynatma kafasında böl (S)': 'Split at the playhead (S)',
     'Oynatma kafası bu klibin içinde değil.': 'The playhead is not inside this clip.',
