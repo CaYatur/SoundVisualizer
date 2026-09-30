@@ -35,6 +35,9 @@ const ASSETS = [
   { file: 'CAYADEV-Visualizer-' + version + '-macos-arm64.dmg', desc: 'macOS — Apple Silicon' },
   { file: 'CAYADEV-Visualizer-' + version + '-macos-arm64.zip', desc: 'macOS — Apple Silicon, zip' },
   { file: 'CAYADEV-Visualizer-' + version + '-linux-x86_64.AppImage', desc: 'Linux — x64, runs anywhere' },
+  /* AppImageUpdate'in parça parça indirme dosyası (#640). AppImage'e gömülü
+     güncelleme bilgisi bu adı arıyor; yüklenmezse AppImageUpdate çalışmaz. */
+  { file: 'CAYADEV-Visualizer-' + version + '-linux-x86_64.AppImage.zsync', desc: 'Linux — AppImageUpdate delta file' },
   { file: 'CAYADEV-Visualizer-' + version + '-linux-amd64.deb', desc: 'Linux — Debian / Ubuntu' },
 ];
 
