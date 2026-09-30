@@ -432,7 +432,7 @@ test('sabit birleştirme shader\'ı: MilkDrop 2 biçimleri anahtarın arkasında
   assert.match(code, /const acc = this\._wantAcc !== false;\s*if \(acc\) \{\s*const f = this\._fixedCompInputs\(Pp\);/);
   assert.match(code, /gl\.uniform1i\(this\.locComp\.uEchoOrient, f\.orient\);/);
   // Gama, yankının payı ve ton köşe ağırlıklarında; tonun oranı dosyadan
-  assert.match(code, /const shade = this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\);/);
+  assert.match(code, /const shade = this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time\);/);
   assert.match(code, /window\.SVMilkdrop\.fixedCompWeights\(f\.gamma, f\.alpha, shade,/);
   assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWMain, w\.main\);/);
   assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWEcho, w\.echo\);/);
@@ -444,21 +444,22 @@ test('sabit birleştirme shader\'ı: MilkDrop 2 biçimleri anahtarın arkasında
 });
 
 /* MilkDrop'un sabit dörtgeni iki üçgen (şerit v0 v1 v2 v3; ortak kenar
-   üst-sağdan alt-sola): köşe rengi her üçgenin içinde DOĞRUSAL. Shader'daki
+   alt-sağdan üst-sola): köşe rengi her üçgenin içinde DOĞRUSAL. Shader'daki
    formül burada sayılarla koşturuluyor — köşelerde köşenin kendisi, ortada
    1 ile 2'nin ortalaması (çift doğrusalda dördünün ortalaması olurdu). */
-test('sabit dörtgen: köşe rengi iki üçgende doğrusal, ortak kenar üst-sağ → alt-sol', () => {
+test('sabit dörtgen: köşe rengi iki üçgende doğrusal, ortak kenar alt-sağ → üst-sol', () => {
   const code = read('src/visualizer/modes/milkdrop.js');
-  /* Ağırlıklar EKRAN konumuna göre, y ekranın üstünde 1. vUV artık
-     MilkDrop'un sayısı (üstte 0, #580), o yüzden y = 1 − vUV.y. */
-  const q = /vec3 quad\(vec3 w\[4\]\) \{\s*\/\/[^\n]*\n\s*float x = vUV\.x, y = 1\.0 - vUV\.y;\s*if \(y >= x\) return ([^;]+);\s*return ([^;]+);\s*\}/.exec(code);
+  /* Ağırlıklar EKRAN konumuna göre, y ekranın altında 1. vUV MilkDrop'un
+     sayısı (üstte 0, #580) ve dörtgenin v0'ı ekranın altı, o yüzden
+     y = vUV.y. */
+  const q = /vec3 quad\(vec3 w\[4\]\) \{\s*\/\/[^\n]*\n\s*float x = vUV\.x, y = vUV\.y;\s*if \(y >= x\) return ([^;]+);\s*return ([^;]+);\s*\}/.exec(code);
   assert.ok(q, 'quad() bulunamadı');
   const fn = new Function('w', 'x', 'y', 'return y >= x ? (' + q[1] + ') : (' + q[2] + ');');
-  const w = [10, 20, 30, 40];   // 0 üst-sol, 1 üst-sağ, 2 alt-sol, 3 alt-sağ
-  assert.strictEqual(fn(w, 0, 1), 10, 'üst-sol');
-  assert.strictEqual(fn(w, 1, 1), 20, 'üst-sağ');
-  assert.strictEqual(fn(w, 0, 0), 30, 'alt-sol');
-  assert.strictEqual(fn(w, 1, 0), 40, 'alt-sağ');
+  const w = [10, 20, 30, 40];   // 0 alt-sol, 1 alt-sağ, 2 üst-sol, 3 üst-sağ
+  assert.strictEqual(fn(w, 0, 1), 10, 'alt-sol');
+  assert.strictEqual(fn(w, 1, 1), 20, 'alt-sağ');
+  assert.strictEqual(fn(w, 0, 0), 30, 'üst-sol');
+  assert.strictEqual(fn(w, 1, 0), 40, 'üst-sağ');
   assert.strictEqual(fn(w, 0.5, 0.5), 25, 'orta: 1 ile 2\'nin ortalaması');
   // Ortak kenarın iki yanı birleşiyor
   for (const t of [0.1, 0.3, 0.7]) {

@@ -3011,8 +3011,9 @@
 
      MilkDrop 8 bitlik tamponda her çizimden sonra yuvarlıyor; burada
      toplam bir kez yuvarlanıyor. Hesap float32, MilkDrop'taki gibi.
-     `shade`: 12 sayı, köşe sırası üst-sol, üst-sağ, alt-sol, alt-sağ
-     (MilkDrop'un dörtgeni v3[0..3]). `out` verilirse dizileri yeniden
+     `shade`: 12 sayı, köşe sırası ekranda alt-sol, alt-sağ, üst-sol,
+     üst-sağ (MilkDrop'un dörtgeni v3[0..3]; v0'ın doku koordinatı tv = 1,
+     görüntünün altı). `out` verilirse dizileri yeniden
      kullanılıyor. */
   function fixedCompWeights(gamma, echoAlpha, shade, out) {
     const f = Math.fround;

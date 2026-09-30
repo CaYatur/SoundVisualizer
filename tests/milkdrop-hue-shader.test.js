@@ -34,7 +34,9 @@ function method(sig) {
 const body = (src) => src.slice(src.indexOf('{') + 1, src.lastIndexOf('}'));
 
 // Köşe rengi yöntemi kaynaktan
-const hueCorners = new Function('amt', 't', 'rand', body(method('_hueCorners(amt, t, rand)')));
+// Modül sabiti (faz, #580) da kaynaktan
+const HRS = /const HUE_RAND_START = [^;]+;/.exec(SRC)[0];
+const hueCorners = new Function('amt', 't', HRS + String.fromCharCode(10) + body(method('_hueCorners(amt, t)')));
 const fileOf = new Function('P', 'key', 'dflt', body(method('_fileOf(P, key, dflt)')));
 const fileValRaw = new Function('key', 'dflt', body(method('_fileVal(key, dflt)')));
 // `_fileVal` tek presetin değerini `_fileOf`tan alıyor
@@ -120,7 +122,24 @@ test('uyum kapalıyken eski tek renk duruyor', () => {
 // -------------------------------------------------------------- sabit yol
 
 const hue = (amt) => Array.from(hueCorners.call({ _wantAcc: true, randPreset: [0.1, 0.2, 0.3, 0.4] },
-  amt, 12.5, [0.1, 0.2, 0.3, 0.4]));
+  amt, 12.5));
+
+/* Renk MilkDrop'un formülünün kendisi, faz 0 (m_fRandStart hiç atanmıyor):
+   presetin rastgele sayıları rengi değiştirmiyor. */
+test('köşe rengi MilkDrop formülü, rastgele faz yok', () => {
+  const t = 12.5;
+  const a = Array.from(hueCorners.call({ _wantAcc: true, randPreset: [0.1, 0.2, 0.3, 0.4] }, 1, t));
+  const b = Array.from(hueCorners.call({ _wantAcc: true, randPreset: [0.9, 0.8, 0.7, 0.6] }, 1, t));
+  assert.deepStrictEqual(a, b, 'preset rastgeleliği rengi değiştirmemeli');
+  for (let i = 0; i < 4; i++) {
+    let r = 0.6 + 0.3 * Math.sin(t * 30 * 0.0143 + 3 + i * 21);
+    let g = 0.6 + 0.3 * Math.sin(t * 30 * 0.0107 + 1 + i * 13);
+    let bb = 0.6 + 0.3 * Math.sin(t * 30 * 0.0129 + 6 + i * 9);
+    const mx = Math.max(r, g, bb);
+    r = 0.5 + 0.5 * r / mx; g = 0.5 + 0.5 * g / mx; bb = 0.5 + 0.5 * bb / mx;
+    for (const [k, v] of [[0, r], [1, g], [2, bb]]) assert.ok(Math.abs(a[i * 3 + k] - v) < 1e-6, 'köşe ' + i + ' bileşen ' + k);
+  }
+});
 
 test('sabit yolun oranı: 0,001 ve altı beyaz, ara değer beyaza karışıyor, 1\'in üstü kenetlenmiyor', () => {
   for (const v of [0, 0.0005, 0.001, -1, NaN, undefined]) {
@@ -170,6 +189,6 @@ test('sabit birleştirme yolu köşe rengini ağırlıklarla dörtgene uyguluyor
   const pass = method('_drawCompPass(gl, dst, prog, ctx)');
   const acc = /if \(acc\) \{([\s\S]*?)\} else \{([\s\S]*?)\}\s*gl\.uniform4f/.exec(pass);
   assert.ok(acc, 'uyum dalları bulunamadı');
-  assert.match(acc[1], /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\)/);
+  assert.match(acc[1], /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time\)/);
   assert.doesNotMatch(acc[2], /_hueCorners/, 'uyum kapalıyken renk yok');
 });

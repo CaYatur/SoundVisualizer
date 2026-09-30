@@ -40,6 +40,8 @@
      düğüm sayısı kadar artması. */
   const MESH_X_DEFAULT = 64;
   const MESH_Y_DEFAULT = 48;
+  // MilkDrop'un hiç atanmayan `m_fRandStart[4]`ı (ton renginin fazı, #580)
+  const HUE_RAND_START = [0, 0, 0, 0];
   /* Ayardan gelebilecek ag sıklıkları. MilkDrop'un kendi listesi de
      boyle: en-boy 4:3 sabit, yalnız yogunluk degisiyor. */
   const MESH_STEPS = [24, 32, 48, 64, 96, 128];
@@ -271,17 +273,20 @@ uniform float uEchoZoom;
 uniform int uEchoOrient;
 uniform vec4 uFx;          // brighten, darken, solarize, invert
 uniform float uFxMd2;      // 1: MilkDrop 2'nin sabit yolunun biçimleri (#580)
-/* MilkDrop biçimi: iki katmanın köşe ağırlıkları, köşe sırası üst-sol,
-   üst-sağ, alt-sol, alt-sağ. Her biri o katmanın çizimlerinin köşe
+/* MilkDrop biçimi: iki katmanın köşe ağırlıkları, köşe sırası EKRANDA
+   alt-sol, alt-sağ, üst-sol, üst-sağ. Her biri o katmanın çizimlerinin köşe
    renklerinin toplamı — gama, pay ve ton rengi içinde (M.fixedCompWeights). */
 uniform vec3 uWMain[4];
 uniform vec3 uWEcho[4];
 /* MilkDrop'un dörtgeni İKİ ÜÇGEN (şerit v0 v1 v2 v3): ortak kenar
-   üst-sağdan alt-sola. Köşe rengi her üçgenin içinde doğrusal, çift
-   doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması. */
+   alt-sağdan üst-sola. Köşe rengi her üçgenin içinde doğrusal, çift
+   doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması.
+   v0 ile v1 EKRANIN ALTI (#580): kırpma y'leri +1 ama doku koordinatları
+   tv = 1, yani görüntünün alt satırı (milkdropfs.cpp:4154-4155); çizim
+   dönüşümü y'yi çeviriyor. Referans çizicide ölçüldü. */
 vec3 quad(vec3 w[4]) {
-  // Köşe ağırlıkları ekran konumuna göre, y ekranın üstünde 1
-  float x = vUV.x, y = 1.0 - vUV.y;
+  // Köşe ağırlıkları ekran konumuna göre, y ekranın altında 1 (vUV.y)
+  float x = vUV.x, y = vUV.y;
   if (y >= x) return (y - x) * w[0] + x * w[1] + (1.0 - y) * w[2];
   return y * w[1] + (1.0 - x) * w[2] + (x - y) * w[3];
 }
@@ -2684,11 +2689,19 @@ void main(){
        sabit yolda COLOR_NORM onu sarıyor (M.fixedCompWeights).
        Dizideki sıra yalnız köşenin NUMARASI; ekrandaki yerini iki yol
        kendisi veriyor ve MilkDrop'ta da ayrı: sabit yolun dörtgeninde 0
-       üst-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
-       eski tek rengi. */
-    _hueCorners(amt, t, rand) {
+       alt-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
+       eski tek rengi.
+
+       RASTGELE FAZ YOK (#580). Formüldeki `m_fRandStart[]` MilkDrop'ta hiç
+       atanmıyor: birincil kaynakta onu dolduracak `Randomize()` bile yok,
+       BeatDrop'ta tanımlı ama hiç çağrılmıyor; küresel `CPlugin`te dört
+       sayı da 0. Renkler yalnız oturumun saatine bağlı. Burada presetin
+       rastgele sayıları faz olarak ekleniyordu: renk MilkDrop'unkini hiç
+       tutmuyordu ve 0..1 aralığı döngünün yalnız bir radyanını geziyordu.
+       Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) ölçüldü. */
+    _hueCorners(amt, t) {
       const accurate = this._wantAcc !== false;
-      const rs = rand || this.randPreset || [0, 0, 0, 0];
+      const rs = HUE_RAND_START;
       const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
       for (let i = 0; i < 4; i++) {
         let r, g, b;
@@ -2845,7 +2858,7 @@ void main(){
          Oran HER ZAMAN 1, presetin `fShader`ı ne olursa olsun: MilkDrop
          shader'a tam rengi veriyor ve kullanıp kullanmamayı shader'a
          bırakıyor (milkdropfs.cpp:4122). Geçişte de hesaplanıyor. */
-      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(1, t, rand));
+      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(1, t));
 
       /* Presetin kendisi bu uniform'ları okuyabiliyor (`b1n`/`b1x` olarak
          yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı preset
@@ -3681,7 +3694,7 @@ void main(){
              büyük bir `fShader` yazıyor. Oran DOSYADAN, geçişte doğrusal
              karışarak; renk dizisi paylaşılan tampon, hemen ağırlıklara
              dönüşüyor (çizim başına COLOR_NORM, M.fixedCompWeights). */
-          const shade = this._hueCorners(this._fileVal('fshader', 0), this.time, this.randPreset);
+          const shade = this._hueCorners(this._fileVal('fshader', 0), this.time);
           const w = window.SVMilkdrop.fixedCompWeights(f.gamma, f.alpha, shade,
             this._compW || (this._compW = { main: new Float32Array(12), echo: new Float32Array(12) }));
           gl.uniform3fv(this.locComp.uWMain, w.main);
