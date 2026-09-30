@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2426 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2429 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 829
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 832
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2980,7 +2980,10 @@ expects.
   - **Windows:** the installer starts detached with `--updated`, which the NSIS template uses to wait for the app to close, and the app quits past the close guard.
   - **AppImage:** the new file downloads next to the old one, is made executable and replaces it atomically. A restart relaunches from `$APPIMAGE`. A read-only folder falls back to notify.
   - **Automatic mode:** downloads by itself. On Windows it installs silently (`/S --updated`) when the app quits.
-  - **Next:** step 3, AppImage update information and `.zsync` for AppImageUpdate.
+- **AppImageUpdate support (#640, step 3 of 3)** · done on `main`.
+  - `scripts/appimage-update-info.sh` writes `gh-releases-zsync|CaYatur|SoundVisualizer|latest|CAYADEV-Visualizer-*-linux-x86_64.AppImage.zsync` into the AppImage runtime's `.upd_info` section (1024 bytes) and reads it back. It then runs `zsyncmake` beside the file. There is no repack and no extra binary.
+  - `build.yml` runs it on the Linux job and collects the `.zsync`, and `release-assets.js` expects the `.zsync` among the release files.
+  - Checked with a `workflow_dispatch` build of the branch, which made no release: the runtime's own `--appimage-updateinformation` prints the string. AppImageUpdate and AppImageLauncher can update in place with delta downloads from the next release on.
 
 ## v3.1.6 — Comprehensive video export
 
