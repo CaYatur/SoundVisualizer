@@ -1131,6 +1131,106 @@ function notifyAdmin(channel, payload) {
 }
 
 // ----------------------------------------------------------------------------
+// Güncelleme denetimi (#640) — karar src/main/updater.js'te
+//
+// Otomatik denetim YALNIZ paketlenmiş, gerçek kullanımda: geliştirme kopyası,
+// öz test ve ekran görüntüsü aracı hiç ağa çıkmıyor (yalıtılmış profille
+// koşan yoklamalar GitHub'ın saatlik sınırını yer, öz testin kullanıcı verisi
+// sağlaması bozulurdu). "Şimdi denetle" her yerde çalışır.
+// "Bu sürümü atla" ayar dosyasına değil ayrı bir dosyaya yazılıyor: ayar
+// dosyası kullanıcının, bekçisi (settings-guard) dış değişikliği sorun sayar.
+// ----------------------------------------------------------------------------
+const updater = require('./updater');
+const UPDATE_STATE_PATH = path.join(app.getPath('userData'), 'update-state.json');
+const UPDATE_KIND = updater.installKind(process.platform, process.env, app.isPackaged);
+const UPDATE_AUTO = app.isPackaged && !SMOKE && !SHOTS;
+const UPDATE_EVERY = 6 * 3600 * 1000;
+let updateState = { status: 'idle', current: app.getVersion(), kind: UPDATE_KIND };
+let updateTimer = null;
+
+function readUpdateStore() {
+  try {
+    return JSON.parse(fs.readFileSync(UPDATE_STATE_PATH, 'utf8')) || {};
+  } catch (e) {
+    return {};
+  }
+}
+function writeUpdateStore(patch) {
+  if (!UPDATE_AUTO) return;
+  try {
+    fs.writeFileSync(UPDATE_STATE_PATH, JSON.stringify(Object.assign(readUpdateStore(), patch)));
+  } catch (e) {
+    /* yazılamazsa atlama yalnız bu oturumda geçerli */
+  }
+}
+
+function updateMode() {
+  const m = currentConfig && currentConfig.updates && currentConfig.updates.mode;
+  return m === 'off' || m === 'auto' ? m : 'notify';
+}
+
+async function fetchJsonHttps(url, headers) {
+  if (!/^https:\/\//.test(url)) throw new Error('https required');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const res = await net.fetch(url, { headers, signal: ctl.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function runUpdateCheck(manual) {
+  if (updateState.status === 'checking') return updateState;
+  updateState = Object.assign({}, updateState, { status: 'checking' });
+  notifyAdmin('updates:status', updateState);
+  const store = readUpdateStore();
+  const res = await updater.check({
+    current: app.getVersion(),
+    kind: UPDATE_KIND,
+    arch: process.arch,
+    skipVersion: manual ? '' : store.skipVersion,
+    fetchJson: fetchJsonHttps,
+  });
+  updateState = Object.assign(res, { manual: !!manual, auto: UPDATE_AUTO, mode: updateMode() });
+  notifyAdmin('updates:status', updateState);
+  return updateState;
+}
+
+function scheduleUpdateChecks() {
+  if (!UPDATE_AUTO) return;
+  if (updateTimer) clearInterval(updateTimer);
+  const tick = () => {
+    if (updateMode() !== 'off') runUpdateCheck(false).catch(() => {});
+  };
+  setTimeout(tick, 20000);
+  updateTimer = setInterval(tick, UPDATE_EVERY);
+}
+
+ipcMain.handle('updates:state', () => Object.assign({}, updateState, { auto: UPDATE_AUTO, mode: updateMode() }));
+ipcMain.handle('updates:check', () => runUpdateCheck(true));
+ipcMain.handle('updates:skip', () => {
+  if (updateState.latest) {
+    writeUpdateStore({ skipVersion: updateState.latest });
+    updateState = Object.assign({}, updateState, { skipped: true });
+    notifyAdmin('updates:status', updateState);
+  }
+  return updateState;
+});
+/* Adres arayüzden ALINMIYOR: yalnız son denetimin döndürdüğü GitHub
+   adreslerinden biri açılıyor (updater.parseRelease yalnız github.com'u
+   kabul ediyor). */
+ipcMain.handle('updates:open', (_e, which) => {
+  const target = which === 'asset' && updateState.asset && updateState.asset.url
+    ? updateState.asset.url
+    : updateState.releaseUrl || updater.RELEASES_PAGE;
+  if (/^https:\/\/github\.com\//.test(target)) shell.openExternal(target);
+  return target;
+});
+
+// ----------------------------------------------------------------------------
 // IPC
 // ----------------------------------------------------------------------------
 ipcMain.handle('get-displays', () => getDisplayList());
@@ -3202,6 +3302,7 @@ app.whenReady().then(async () => {
     sess.setDevicePermissionHandler(() => false);
   }
   createAdminWindow();
+  scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
   syncStreamServer().catch(() => {});

@@ -511,6 +511,8 @@
         return window.SVTemplatePanel ? window.SVTemplatePanel.panel() : null;
       case 'textpanel':
         return window.SVTextPanel ? window.SVTextPanel.panel() : null;
+      case 'updatespanel':
+        return window.SVUpdatesPanel ? window.SVUpdatesPanel.panel() : null;
       case 'nowplayingpanel':
         return window.SVNowPlayingPanel ? window.SVNowPlayingPanel.panel() : null;
       case 'grouppanel':
@@ -2818,6 +2820,23 @@
         title: 'Ayarları Yedekle / Geri Yükle',
         desc: 'Renk şablonları hariç tüm uygulama ayarlarını tek JSON dosyasında taşıyın.',
         controls: [{ type: 'settingsio' }],
+      },
+      {
+        id: 'updates',
+        category: 'library',
+        icon: '⬆️',
+        title: 'Güncellemeler',
+        desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',
+        controls: [
+          {
+            type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
+            options: [
+              { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
+              { value: 'off', label: 'Kapalı' },
+            ],
+          },
+          { type: 'updatespanel' },
+        ],
       },
       {
         id: 'export',
