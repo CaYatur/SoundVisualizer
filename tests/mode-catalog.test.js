@@ -166,14 +166,27 @@ test('panel ve katman paneli arkaplan ayarlarını katalogdan okuyor', () => {
    bunu söylemez: kayıt testi kaynağı okuyor, öz test yalnız görselleştirici
    penceresini dolaşıyor. Görüntü üreten dört sayfa her katalog modunu
    yüklemeli; bilinen istisnalar gerekçesiyle burada. */
+/* İstisna kalmadı. Çalan Parça önce dışa aktarımda ve yönetim önizlemesinde
+   yüklenmiyordu ("sistem medya bilgisi orada yok" diye): önizlemede katman
+   boş çiziyordu. Önizleme o bilgiyi zaten alıyor (preview.js, SVNowLive) ve
+   elle yazılan kaynak her yerde çalışıyor; dışa aktarımda yalnız canlı
+   sistem kaynağı boş kalıyor. */
 const PAGES = {
   'src/visualizer/index.html': [],
   'src/web/overlay.html': [],
-  // Çalan Parça canlı sistem medya bilgisinden (SMTC) besleniyor; çevrimdışı
-  // dışa aktarımda ve yönetim önizlemesinde o bilgi yok
-  'src/exporter/index.html': ['nowplaying.js'],
-  'src/admin/index.html': ['nowplaying.js'],
+  'src/exporter/index.html': [],
+  'src/admin/index.html': [],
 };
+
+/* Mod SVNowPlaying'i yüklenirken değil, kurulurken okuyor; sıra önemsiz
+   ama yardımcı sayfada olmalı, yoksa katman sessizce boş çizer. */
+test('Çalan Parça modunu yükleyen her sayfa ortak yardımcısını da yüklüyor', () => {
+  for (const page of Object.keys(PAGES)) {
+    const html = fs.readFileSync(path.join(__dirname, '..', page), 'utf8');
+    assert.ok(html.includes('modes/nowplaying.js'), page + ': mod yok');
+    assert.ok(html.includes('shared/nowplaying.js'), page + ': SVNowPlaying yok');
+  }
+});
 
 function fileRegistry() {
   const out = {};

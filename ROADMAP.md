@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2446 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2447 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 849
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 850
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2966,11 +2966,16 @@ expects.
     - shader: the Studio shader presets matching the target's kind.
   - **Editor:** the empty-slot type buttons offer all six types. The slot editor has a Target row, and an image slot with no image objects says where to add one.
   - **Timeline clips too** (follow-up): video, image and shader clips carry the same `target`. The clip inspector uses the deck's source picker and target list, and the clip's own transition is applied to the chosen target. The inspector note that said these clips "are not applied yet" had been wrong since CD-3: they were applied, but only to the first suitable target. Image clips are labelled "Image" on the canvas, not with their data URL.
-- **Action slots and clips (#637, #636)** · done on the branch.
+- **Action slots and clips (#637, #636)** · done on `main`.
   - The Action type was stored but did nothing when fired. It now runs the same action list as MIDI and OSC mappings (`SVControl.runAction`), so "Next Scene" on a slot is the same thing as on a controller.
   - The deck's own actions (fire a slot or row, stop all) are left out of the list. Chaining slots is what follow actions are for, and a slot firing slots could loop.
   - An action has no transition. Firing one leaves the user's transition setting alone, and the slot editor hides the transition rows.
   - Tests: the list and its exclusions, running and refusing actions, an action slot fired through the engine with the transition unchanged, the editor, and timeline clips firing with their target. Mutations catch each path.
+- **Now Playing in the panel preview and in exports (#638)** · done on the branch.
+  - The Now Playing mode was not loaded on these two pages, so a Now Playing visualizer or layer drew nothing in the panel preview or in an exported video. The page check listed both as deliberate exceptions, saying the live system media information is missing there.
+  - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
+  - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
+  - Checked in the app: a manual Now Playing visualizer shows its title and artist in the panel preview.
 - **Update checks (#640, step 1 of 3)** · done on `main`.
   - The Library › Updates card shows the installed version and install type, a Check Now button, the latest version and date, the release notes as plain text, Download / Release Page / Skip This Version, and how to update this kind of install.
   - Settings: on (notify, the default) or off. A new release is announced once per version per session.
