@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2455 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2461 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 858
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 864
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2867,7 +2867,7 @@ expects.
     - the pure group operations (box hit test, clamped group delta, copy/paste with lane fallback, duplicate);
     - the panel driven through its own mouse and key handlers;
     - confirmed in the app with real mouse and key events.
-  - **Next:** clip fade-out, tempo changes on the ruler, and lane height in the full window.
+  - **Next:** tempo changes on the ruler and lane height — done below ("Tempo changes on the ruler"). Clip fade-out is left out on purpose: our clips change state (a scene, a template, a palette) rather than layer media with an opacity, so a fade-out has no defined target. The transition into the next clip is that clip's own fade, and fading to black at the end is an Action clip (Blackout).
 - **The clip deck as a performance grid (#637, CD-1)** · done on `main`.
   The model is Resolume's clip grid and Ableton's Session View (research
   table on #637).
@@ -2964,6 +2964,20 @@ expects.
   - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
   - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
   - Checked in the app: a manual Now Playing visualizer shows its title and artist in the panel preview.
+- **Tempo changes on the ruler, lane height (#636)** · done on the branch.
+  - **Bug fixed:** the header BPM edited only the first tempo entry and replaced the whole tempo list with that one entry, so tempo changes from an imported show file were silently deleted. The model always supported a tempo map; the panel did not.
+  - **Tempo changes** show on the ruler as cyan ♩ tags (BPM, and the metre when it changes) with a line down the lanes:
+    - **♩＋** adds one at the playhead;
+    - a tag drags along the ruler and snaps to the bar lines of the tempo before it, not to its own, which would slide under it;
+    - clicking a tag selects it: the inspector has time, BPM and beats per bar, Go and Delete (Del also deletes);
+    - the first entry, the tempo the show starts with, cannot be moved or deleted.
+  - **The header BPM** shows and edits the tempo at the playhead, and follows the playhead as it crosses a change.
+  - **Undo:** tempo is now part of the timeline's undo history. Every tempo edit goes through the same commit, so undoing a later clip edit cannot silently revert a BPM change.
+  - **Lane height:** ▭− / ▭+ set `timeline.laneHeight` from 28 to 120 px (default 40). Before, full window made the editor taller but left the lanes at 40 px, and the extra room collected at the bottom.
+  - **Checks:**
+    - pure functions in `timeline-edit.js` (list, add, move between neighbours, delete, set, the first entry fixed);
+    - the panel through its own handlers (header edit keeping other changes, undo, ♩＋, drag, inspector BPM with the resulting bar count, Del, lane height and its limits);
+    - in the app (`perf-tools/tl3probe.js`): the header read 90 at 10 s, ♩＋ added a change at 4 s, a drag from 8 s landed on the bar at 10 s, lanes reached 56 px with 0 exceptions. That probe caught the snapping fix above: snapping against the dragged change's own map first landed on 10.67.
 - **Update checks (#640, step 1 of 3)** · done on `main`.
   - The Library › Updates card shows the installed version and install type, a Check Now button, the latest version and date, the release notes as plain text, Download / Release Page / Skip This Version, and how to update this kind of install.
   - Settings: on (notify, the default) or off. A new release is announced once per version per session.
@@ -2985,7 +2999,7 @@ expects.
   - The engine loads them in two steps. Preset 1 loads with a hard cut. Preset 2 then starts a normal transition, which is frozen at the file's `blending_progress`. The two presets' per-vertex mix (MD2's transition patterns) uses the file's pattern: `side` is a wipe, `plasma` is plasma, and radial, circle or zoom are radial. `random_1..5` and `blending_direction` seed that pattern.
   - Checked against three real MilkDrop 3.x files, kept outside the repository: each reaches the frozen mix on frame 3 and holds it.
   - **Not yet:** MD3 sprite sections, which point at MD3's own image files. The exact meaning of the random values is our reading of the files, because MilkDrop 3's source is not public.
-- **Reference renderer and internal buffers in MilkDrop's orientation (#580)** · done on the branch.
+- **Reference renderer and internal buffers in MilkDrop's orientation (#580)** · done on `main`.
   - **The reference renderer.** A small offline host built from BeatDrop's D3D9 sources (mvsoft74/BeatDrop 53d83ee, BSD-3) and Microsoft's D3DX NuGet package. It takes a preset, fixed 576+576-sample audio per frame and a fixed 30 fps step, and writes chosen frames as raw pixels. A matching script renders the same preset, audio and frames through our engine and compares them. The tool lives outside the repository (the project notes record its sources); nothing of it ships.
   - **What it measured.** MilkDrop 2 draws in Direct3D, where texture row 0 is the top of the picture. The engine kept its buffers GL-style and used MilkDrop's 2D formulas unchanged:
     - per-pixel `x`, `y`, `dx`, `dy` matched;

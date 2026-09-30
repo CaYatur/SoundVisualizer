@@ -26,9 +26,16 @@
   const tt = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
   // Ölçüler
-  const TRACK_H = 40;
+  /* Şerit yüksekliği kullanıcının ayarı (timeline.laneHeight, 28..120).
+     Önce sabit 40'tı; tam pencerede editörün yüksekliği büyüyordu ama
+     şeritler aynı kalıyor, boşluk altta birikiyordu. Her çizimde ve panel
+     kurulurken ayardan okunuyor (syncLaneH). */
+  let TRACK_H = 40;
+  const LANE_MIN = 28;
+  const LANE_MAX = 120;
   const RULER_H = 38; // üstte ölçü ve süre, altta işaret bayrakları
   const LOOP_BAND = 5; // cetvelin üstünde döngü ayracının bandı (tutma yüksekliği biraz fazlası)
+  const TEMPO_TAG_W = 34; // cetveldeki ♩ etiketinin tutulabilir genişliği
   const HEAD_W = 0; // parça başlıkları tuvalin solunda ayrı bir sütun; tuval yalnız zamanı çiziyor
   const MIN_ZOOM = 4; // saniye başına piksel
   const MAX_ZOOM = 400;
@@ -333,8 +340,25 @@
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
 
+  function syncLaneH() {
+    const v = Math.round(Number(tlCfg().laneHeight));
+    TRACK_H = v >= LANE_MIN && v <= LANE_MAX ? v : 40;
+  }
+
+  // Şerit yüksekliğini adım adım değiştir; paneli yeniden kuruyor (başlıklar da boy alıyor)
+  function laneBy(d) {
+    syncLaneH();
+    const nv = Math.max(LANE_MIN, Math.min(LANE_MAX, TRACK_H + d));
+    if (nv === TRACK_H) return;
+    tlCfg().laneHeight = nv;
+    TRACK_H = nv;
+    P().push(false);
+    P().rerender();
+  }
+
   function draw() {
     if (!canvas || !ctx || !canvas.isConnected) return;
+    syncLaneH();
     const tl = ensureTransport().tl;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
@@ -420,6 +444,27 @@
       ctx.fill();
       if (m.name) ctx.fillText(m.name, x + 9, RULER_H - 3);
     }
+
+    /* --- Tempo değişimleri: cetvelin alt bandında camgöbeği ♩ etiketi. İlk
+       giriş (parçanın başındaki tempo) başlıktaki BPM alanında. Ölçüdeki
+       vuruş değiştiyse etikette o da yazıyor. */
+    const tsel = selection && selection.kind === 'tempo' ? selection.index : -1;
+    for (let i = 1; i < tl.tempo.length; i++) {
+      const e = tl.tempo[i];
+      const x = xOf(e.t);
+      if (x < -TEMPO_TAG_W || x > w + 2) continue;
+      const on = i === tsel;
+      ctx.strokeStyle = on ? '#b8f6ff' : 'rgba(80,210,230,.85)';
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(x) + 0.5, RULER_H - 14);
+      ctx.lineTo(Math.round(x) + 0.5, h);
+      ctx.stroke();
+      ctx.fillStyle = on ? '#b8f6ff' : '#50d2e6';
+      const sig = e.beatsPerBar !== tl.tempo[i - 1].beatsPerBar ? ' ' + e.beatsPerBar + '/4' : '';
+      ctx.fillText('♩' + (Math.round(e.bpm * 10) / 10) + sig, x + 3, RULER_H - 4);
+    }
+    ctx.lineWidth = 1;
 
     // --- Oynatma kafası: çizgi ve cetvelde üçgen ---
     const px = xOf(transport.time);
@@ -685,6 +730,11 @@
           const mx = xOf(tl.markers[mi].t);
           if (x >= mx - 3 && x <= mx + 9) return { kind: 'marker', marker: tl.markers[mi] };
         }
+        // Tempo etiketleri de bu bantta; işaret bayrağı önce
+        for (let ti = tl.tempo.length - 1; ti >= 1; ti--) {
+          const tx = xOf(tl.tempo[ti].t);
+          if (x >= tx - 3 && x <= tx + TEMPO_TAG_W) return { kind: 'tempo', index: ti };
+        }
       }
       // Döngü ayracı üst bantta: kenarlar boy, ortası yer
       if (y <= LOOP_BAND + 4 && tl.loop.end > tl.loop.start) {
@@ -753,10 +803,41 @@
     cfg.tracks = tl.tracks;
     cfg.markers = tl.markers;
     cfg.loop = tl.loop;
+    // Tempo da düzenlemenin parçası (cetvelde değişimler, #636): düz liste
+    cfg.tempo = TE().tempoList(tl.tempo);
     modelDirty = false;
     history_().push(TE().snapshot(cfg));
     P().push(true);
     refreshToolbar();
+  }
+
+  // --------------------------------------------------------------------------
+  // Tempo değişimleri (#636): cetvelde ♩ etiketleri
+  // --------------------------------------------------------------------------
+  /* Tempo listesini modele yazar ve geçmişe bir adım ekler. Liste düz
+     (TE.tempoList); model birikimli vuruşları kendisi hesaplıyor. */
+  function applyTempo(list, selectIndex) {
+    const tl = ensureTransport().tl;
+    tl.tempo = TL().makeTempoMap(list);
+    if (selectIndex != null) {
+      selection = { kind: 'tempo', index: selectIndex };
+      multi = [];
+    }
+    commit();
+    refreshInspector();
+    draw();
+  }
+
+  // Oynatma kafasında geçerli tempo girişinin sırası
+  function tempoAtHead() {
+    const tr = ensureTransport();
+    return TE().tempoIndexAt(TE().tempoList(tr.tl.tempo), tr.time);
+  }
+
+  function addTempoAtHead() {
+    const tr = ensureTransport();
+    const r = TE().addTempoChange(tr.tl.tempo, snap(tr.time, false));
+    applyTempo(r.list, r.index);
   }
 
   function undo() {
@@ -782,7 +863,7 @@
      düzenleyicinin odağını düşürüyordu — ölçüldü: Ctrl+D'den sonra gelen
      S, Del ve Ctrl+Z hiçbir yere gitmiyordu. */
   function refreshAll() {
-    if (selection && !selTrack()) selection = null;
+    if (selection && selection.kind !== 'tempo' && !selTrack()) selection = null;
     // Geri alma ya da silme sonrası artık olmayan klipler çoklu seçimden düşüyor
     if (multi.length > 1) {
       multi = pickedClips().map((p) => ({ trackId: p.trk.id, clipId: p.clip.id }));
@@ -820,6 +901,14 @@
   }
 
   function deleteSelection() {
+    // Tempo değişimi: ilk giriş (parçanın başındaki tempo) silinmiyor
+    if (selection && selection.kind === 'tempo') {
+      if (!(selection.index > 0)) return false;
+      const list = TE().removeTempoChange(ensureTransport().tl.tempo, selection.index);
+      selection = null;
+      applyTempo(list);
+      return true;
+    }
     if (multi.length > 1) {
       // Kilitli parçalardaki klipler yerinde kalıyor
       const gone = pickedClips().filter((p) => !p.trk.locked);
@@ -1063,6 +1152,17 @@
         drag = { kind: 'marker', marker: h.marker, t0: tOf(x), mt0: h.marker.t, x0: x };
         return;
       }
+      if (h.kind === 'tempo') {
+        // Tık: seç (denetçide BPM ve ölçü); sürükleme: taşı
+        selection = { kind: 'tempo', index: h.index };
+        multi = [];
+        const base = TE().tempoList(tl0.tempo);
+        drag = { kind: 'tempo', index: h.index, t0: tOf(x), tt0: tl0.tempo[h.index].t, x0: x, base,
+          grid: TL().makeTempoMap(TE().removeTempoChange(base, h.index)) };
+        refreshInspector();
+        draw();
+        return;
+      }
       if (h.kind === 'ruler' && e.shiftKey) {
         // Shift+sürükleme cetvelde yeni bir döngü bölgesi çiziyor
         drag = { kind: 'loopNew', t0: snap(tOf(x), e.altKey) };
@@ -1213,6 +1313,17 @@
         if (!drag.moved && Math.abs(x - drag.x0) < 3) return;
         drag.marker.t = snap(drag.mt0 + tOf(x) - drag.t0, e.altKey);
         drag.moved = true;
+      } else if (drag.kind === 'tempo') {
+        if (!drag.moved && Math.abs(x - drag.x0) < 3) return;
+        /* Yakalama ızgarası, sürüklenen değişim OLMADAN kurulan haritadan:
+           değişim kendinden önceki tempo'nun ölçü çizgisine oturuyor. Kendi
+           haritasıyla yakalasaydı ızgara her adımda onunla kayardı (uygulamada
+           10 yerine 10,67'ye oturdu). Komşularının arasında kalıyor. */
+        const raw = Math.max(0, drag.tt0 + tOf(x) - drag.t0);
+        const c = tlCfg();
+        const t = e.altKey ? raw : TL().snapSeconds(drag.grid, raw, c.snap, c.fps);
+        tl.tempo = TL().makeTempoMap(TE().moveTempoChange(drag.base, drag.index, t));
+        drag.moved = true;
       } else if (drag.kind === 'marquee') {
         drag.x1 = x;
         drag.y1 = y;
@@ -1287,6 +1398,12 @@
           refreshInspector();
           refreshHeads();
         }
+        draw();
+        return;
+      }
+      if (d.kind === 'tempo') {
+        if (d.moved) commit();
+        refreshInspector();
         draw();
         return;
       }
@@ -1454,6 +1571,7 @@
        (sahne uygulandı, ayar dosyası yüklendi). Modeli tazele; geçmiş de
        yapılandırmayla uyuşmuyorsa yeni bir tabanla başlıyor. */
     invalidateModel();
+    syncLaneH();
     const tl = ensureTransport().tl;
     history_().sync(TE().snapshot(cfg));
     if (selection && !selTrack()) selection = null;
@@ -1638,6 +1756,13 @@
     const undoBtn = btn('↶', 'Geri al (Ctrl+Z)', () => undo());
     const fullBtn = btn('⛶', 'Tam pencere (F). Esc ile kapanır', () => setFull(!fullWin));
     const redoBtn = btn('↷', 'Yinele (Ctrl+Y)', () => redo());
+    const head0 = TE().tempoList(tl.tempo)[tempoAtHead()];
+    const bpmIn = numInput(head0.bpm, 1, 999, 0.1, (v) => {
+      applyTempo(TE().setTempo(ensureTransport().tl.tempo, tempoAtHead(), { bpm: v }));
+    }, 'tl-num-sm');
+    const bpbIn = numInput(head0.beatsPerBar, 1, 16, 1, (v) => {
+      applyTempo(TE().setTempo(ensureTransport().tl.tempo, tempoAtHead(), { beatsPerBar: v }));
+    }, 'tl-num-xs');
 
     const bar = el('div', { class: 'tl-toolbar' }, [
       group([
@@ -1657,17 +1782,15 @@
         }),
       ]),
       el('div', { class: 'tl-clock', title: 'Süre · ölçü.vuruş' }, [timeLabel, barLabel]),
+      /* Oynatma kafasındaki tempo. Önce hep ilk girişi düzenliyor ve bütün
+         listeyi tek girişle değiştiriyordu: bir gösteri dosyasından gelen
+         tempo değişimleri sessizce siliniyordu. Değişimler cetvelde (♩). */
       group([
-        el('span', { class: 'tl-lbl', text: 'BPM' }),
-        numInput(tl.tempo[0].bpm, 1, 999, 0.1, (v) => {
-          cfg.tempo = [{ t: 0, bpm: v, beatsPerBar: tl.tempo[0].beatsPerBar }];
-          p.apply();
-        }, 'tl-num-sm'),
+        el('span', { class: 'tl-lbl', text: 'BPM', title: 'Oynatma kafasındaki tempo. Tempo değişimleri cetvelde (♩)' }),
+        bpmIn,
         el('span', { class: 'tl-lbl', text: '/' }),
-        numInput(tl.tempo[0].beatsPerBar, 1, 16, 1, (v) => {
-          cfg.tempo = [{ t: 0, bpm: tl.tempo[0].bpm, beatsPerBar: Math.round(v) }];
-          p.apply();
-        }, 'tl-num-xs'),
+        bpbIn,
+        btn('♩＋', 'Oynatma kafasına tempo değişimi', () => addTempoAtHead()),
       ]),
       group([
         el('span', { class: 'tl-lbl', text: '🧲', title: 'Yakalama. Sürüklerken Alt tuşu yakalamayı geçici olarak kapatır' }),
@@ -1682,12 +1805,14 @@
         btn('−', 'Uzaklaştır (−)', () => zoomBy(1 / 1.25)),
         btn('+', 'Yakınlaştır (+)', () => zoomBy(1.25)),
         btn('⤢', 'Hepsini sığdır (0)', () => fitAll()),
+        btn('▭−', 'Şeritleri alçalt', () => laneBy(-8)),
+        btn('▭+', 'Şeritleri yükselt (tam pencerede yer açar)', () => laneBy(8)),
         fullBtn,
       ]),
       group([undoBtn, redoBtn]),
     ]);
 
-    toolbarRefs = { playBtn, loopBtn, followBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel };
+    toolbarRefs = { playBtn, loopBtn, followBtn, undoBtn, redoBtn, fullBtn, timeLabel, barLabel, bpmIn, bpbIn };
     refreshToolbar();
 
     /* Saat ve oynat düğmesi kendi zamanlayıcısından: çizim döngüsü yalnız
@@ -1701,6 +1826,7 @@
       timeLabel.textContent = fmtClock(tr.time);
       const b = tr.bars();
       barLabel.textContent = b.bar + '.' + b.beat;
+      showHeadTempo();
       const want = tr.playing ? '⏸' : '▶';
       if (playBtn.textContent !== want) {
         playBtn.textContent = want;
@@ -1721,6 +1847,20 @@
     on(r.fullBtn, fullWin);
     r.undoBtn.disabled = !history_().canUndo();
     r.redoBtn.disabled = !history_().canRedo();
+    showHeadTempo();
+  }
+
+  /* Başlıktaki BPM kafadaki tempoyu gösteriyor: kafa bir tempo değişimini
+     geçince değer de değişiyor. Kullanıcı alana yazarken dokunulmuyor. */
+  function showHeadTempo() {
+    const r = toolbarRefs;
+    if (!r || !r.bpmIn) return;
+    const e = TE().tempoList(ensureTransport().tl.tempo)[tempoAtHead()];
+    const busy = (n) => typeof document !== 'undefined' && document.activeElement === n;
+    const bpm = String(Math.round(e.bpm * 1000) / 1000);
+    const bpb = String(e.beatsPerBar);
+    if (!busy(r.bpmIn) && r.bpmIn.value !== bpm) r.bpmIn.value = bpm;
+    if (!busy(r.bpbIn) && r.bpbIn.value !== bpb) r.bpbIn.value = bpb;
   }
 
   // --------------------------------------------------------------------------
@@ -1828,6 +1968,32 @@
     const p = P();
     const el = p.el;
     const box = el('div', { class: 'tl-inspector' });
+    // Tempo değişimi (#636): cetveldeki ♩ etiketi
+    if (selection && selection.kind === 'tempo') {
+      const list = TE().tempoList(ensureTransport().tl.tempo);
+      const i = selection.index;
+      const e = list[i];
+      if (e && i > 0) {
+        const tact = (text, title, fn, cls) => {
+          const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text, title });
+          b.addEventListener('click', fn);
+          return b;
+        };
+        box.appendChild(el('div', { class: 'tl-insp-head', text: '♩ ' + tt('Tempo değişimi') + ' · ' + fmtTime(e.t) }));
+        const tg = el('div', { class: 'tl-insp-grid' });
+        box.appendChild(tg);
+        tg.appendChild(p.row('Zaman (sn)', numInput(e.t, 0, 1e6, 0.01, (v) => applyTempo(TE().moveTempoChange(list, i, v), i))));
+        tg.appendChild(p.row('BPM', numInput(e.bpm, 1, 999, 0.1, (v) => applyTempo(TE().setTempo(list, i, { bpm: v }), i))));
+        tg.appendChild(p.row('Ölçüdeki Vuruş', numInput(e.beatsPerBar, 1, 16, 1, (v) => applyTempo(TE().setTempo(list, i, { beatsPerBar: v }), i))));
+        box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Bu andan sonraki ölçüler bu tempoyla sayılır. Etiketi cetvelde sürükleyerek de taşıyabilirsiniz.' }));
+        box.appendChild(el('div', { class: 'tl-actions' }, [
+          tact('⏵ Git', 'Oynatma kafasını buraya al', () => { seek(e.t); applyClipsAt(ensureTransport().time); draw(); }),
+          tact('🗑 Sil', 'Tempo değişimini sil (Del)', () => { deleteSelection(); }, 'danger'),
+        ]));
+        return box;
+      }
+      selection = null;
+    }
     const trk = selTrack();
     if (!selection || !trk) {
       box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Bir klip, anahtar kare ya da parça seçin. Kısayollar için düzenleyiciye tıklayın.' }));

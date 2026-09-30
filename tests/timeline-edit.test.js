@@ -58,13 +58,58 @@ test('geçmiş: dışarıdan değişen yapılandırma yeni taban', () => {
   assert.strictEqual(h.current(), 'dışarıdan');
 });
 
-test('anlık görüntü: parçalar, işaretler ve döngü; geri yükleme', () => {
-  const cfg = { tracks: [{ id: 't' }], markers: [{ t: 1 }], loop: { enabled: true, start: 1, end: 2 }, tempo: [{ bpm: 99 }] };
+/* Tempo da geçmişe giriyor (#636): cetvelde düzenlendiği için düzenlemenin
+   parçası. Önce "ayrı bir ayar" diye girmiyordu; o zaman tek bir BPM vardı. */
+test('anlık görüntü: parçalar, işaretler, döngü ve tempo; geri yükleme', () => {
+  const cfg = { tracks: [{ id: 't' }], markers: [{ t: 1 }], loop: { enabled: true, start: 1, end: 2 }, tempo: [{ t: 0, bpm: 99, beatsPerBar: 4 }] };
   const snap = TE.snapshot(cfg);
-  assert.ok(!/99/.test(snap), 'tempo geçmişe girmiyor');
   const to = { tracks: [], markers: [], loop: null, tempo: [{ bpm: 120 }] };
   TE.restore(to, snap);
-  assert.deepStrictEqual([to.tracks, to.markers, to.loop, to.tempo], [cfg.tracks, cfg.markers, cfg.loop, [{ bpm: 120 }]]);
+  assert.deepStrictEqual([to.tracks, to.markers, to.loop, to.tempo], [cfg.tracks, cfg.markers, cfg.loop, cfg.tempo]);
+  // Tempo listesi olmayan eski anlık görüntü tempoya dokunmuyor
+  const old = JSON.stringify({ tracks: [], markers: [], loop: null });
+  const keep = { tempo: [{ bpm: 77 }] };
+  TE.restore(keep, old);
+  assert.deepStrictEqual(keep.tempo, [{ bpm: 77 }]);
+});
+
+// ------------------------------------------------------------ tempo değişimleri
+
+test('tempo listesi: sıralı, ilki 0\'da, sınırlar içinde; boşsa 120', () => {
+  assert.deepStrictEqual(TE.tempoList([]), [{ t: 0, bpm: 120, beatsPerBar: 4 }]);
+  const l = TE.tempoList([{ t: 8, bpm: 2000, beatsPerBar: 3 }, { t: 0.5, bpm: 100, beatsPerBar: 40 }]);
+  assert.deepStrictEqual(l, [{ t: 0, bpm: 100, beatsPerBar: 16 }, { t: 8, bpm: 999, beatsPerBar: 3 }]);
+  // Modelin çıktısı (beat0 taşıyan) da düz listeye iniyor
+  const m = TL.makeTempoMap([{ t: 0, bpm: 120 }, { t: 4, bpm: 90 }]);
+  assert.deepStrictEqual(TE.tempoList(m).map((e) => Object.keys(e).sort()), [['beatsPerBar', 'bpm', 't'], ['beatsPerBar', 'bpm', 't']]);
+});
+
+test('tempo değişimi ekle: o anki tempoyla; aynı yere ikinci kez eklenmiyor', () => {
+  const base = [{ t: 0, bpm: 120, beatsPerBar: 4 }, { t: 10, bpm: 90, beatsPerBar: 3 }];
+  const r = TE.addTempoChange(base, 4);
+  assert.strictEqual(r.index, 1);
+  assert.deepStrictEqual(r.list[1], { t: 4, bpm: 120, beatsPerBar: 4 });
+  assert.strictEqual(r.list.length, 3);
+  const r2 = TE.addTempoChange(base, 12, 140);
+  assert.deepStrictEqual(r2.list[2], { t: 12, bpm: 140, beatsPerBar: 3 }, 'o anki ölçü, verilen BPM');
+  const same = TE.addTempoChange(base, 10.01);
+  assert.deepStrictEqual([same.index, same.list.length], [1, 2], 'var olanı seçiyor');
+  assert.deepStrictEqual([TE.addTempoChange(base, 0).index, TE.addTempoChange(base, 0).list.length], [0, 2]);
+  assert.deepStrictEqual(base.length, 2, 'girdi değişmiyor');
+});
+
+test('tempo değişimi taşı / sil / ayarla: ilk giriş sabit, komşuların arasında kalıyor', () => {
+  const base = [{ t: 0, bpm: 120, beatsPerBar: 4 }, { t: 4, bpm: 100, beatsPerBar: 4 }, { t: 8, bpm: 80, beatsPerBar: 4 }];
+  assert.strictEqual(TE.moveTempoChange(base, 1, 20)[1].t, 8 - TE.TEMPO_GAP, 'sonrakini geçmiyor');
+  assert.strictEqual(TE.moveTempoChange(base, 1, -3)[1].t, TE.TEMPO_GAP, 'öncekini geçmiyor');
+  assert.strictEqual(TE.moveTempoChange(base, 2, 30)[2].t, 30, 'sonuncunun üst sınırı yok');
+  assert.strictEqual(TE.moveTempoChange(base, 0, 5)[0].t, 0, 'ilk giriş taşınmıyor');
+  assert.deepStrictEqual(TE.removeTempoChange(base, 1).map((e) => e.t), [0, 8]);
+  assert.strictEqual(TE.removeTempoChange(base, 0).length, 3, 'ilk giriş silinmiyor');
+  assert.deepStrictEqual(TE.setTempo(base, 2, { bpm: 0, beatsPerBar: 7.6 })[2], { t: 8, bpm: 80, beatsPerBar: 8 }, 'geçersiz BPM eskisinde kalıyor');
+  assert.strictEqual(TE.setTempo(base, 1, { bpm: 1500 })[1].bpm, 999);
+  assert.strictEqual(TE.tempoIndexAt(base, 7.99), 1);
+  assert.strictEqual(TE.tempoIndexAt(base, 8), 2);
 });
 
 // ------------------------------------------------------------ klip işlemleri
