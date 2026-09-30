@@ -449,7 +449,9 @@ test('sabit birleştirme shader\'ı: MilkDrop 2 biçimleri anahtarın arkasında
    1 ile 2'nin ortalaması (çift doğrusalda dördünün ortalaması olurdu). */
 test('sabit dörtgen: köşe rengi iki üçgende doğrusal, ortak kenar üst-sağ → alt-sol', () => {
   const code = read('src/visualizer/modes/milkdrop.js');
-  const q = /vec3 quad\(vec3 w\[4\]\) \{\s*float x = vUV\.x, y = vUV\.y;\s*if \(y >= x\) return ([^;]+);\s*return ([^;]+);\s*\}/.exec(code);
+  /* Ağırlıklar EKRAN konumuna göre, y ekranın üstünde 1. vUV artık
+     MilkDrop'un sayısı (üstte 0, #580), o yüzden y = 1 − vUV.y. */
+  const q = /vec3 quad\(vec3 w\[4\]\) \{\s*\/\/[^\n]*\n\s*float x = vUV\.x, y = 1\.0 - vUV\.y;\s*if \(y >= x\) return ([^;]+);\s*return ([^;]+);\s*\}/.exec(code);
   assert.ok(q, 'quad() bulunamadı');
   const fn = new Function('w', 'x', 'y', 'return y >= x ? (' + q[1] + ') : (' + q[2] + ');');
   const w = [10, 20, 30, 40];   // 0 üst-sol, 1 üst-sağ, 2 alt-sol, 3 alt-sağ

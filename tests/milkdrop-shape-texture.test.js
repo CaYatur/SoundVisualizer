@@ -91,8 +91,10 @@ test('doku koordinatı MilkDrop\'un formülünü veriyor', () => {
     const t = (i / sides) * Math.PI * 2 + texAng + Math.PI * 0.25;
     const [u, v] = uv(td, i);
     close(u, 0.5 + 0.5 * Math.cos(t) / texZoom * aspY, 'u' + i);
-    // v ekseni bizde yukarı: MilkDrop'un aşağı artan tv'si burada aynalı
-    close(v, 0.5 - 0.5 * Math.sin(t) / texZoom, 'v' + i);
+    /* İç tampon MilkDrop yönünde (satır 0 üstte, #580): tv MilkDrop'un
+       formülünün kendisi. Önce GL yönü için aynalıydı (0,5 − ...) ve
+       referans çizicide şekiller dikeyde ters çıkıyordu. */
+    close(v, 0.5 + 0.5 * Math.sin(t) / texZoom, 'v' + i);
   }
 });
 
@@ -103,7 +105,8 @@ test('uyum kapalıyken eski pencere duruyor', () => {
     const t = 0.9 + Math.PI * 0.25 + (i / sides) * Math.PI * 2 + 0.2;
     const [u, v] = uv(td, i);
     close(u, 0.5 + 0.5 * Math.cos(t), 'eski u' + i);   // en-boy düzeltmesi yok
-    close(v, 0.5 - 0.5 * Math.sin(t), 'eski v' + i);
+    // Yön uyumdan bağımsız: tamponun yönü iki yolda da aynı (#580)
+    close(v, 0.5 + 0.5 * Math.sin(t), 'eski v' + i);
   }
 });
 
