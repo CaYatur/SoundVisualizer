@@ -347,3 +347,61 @@ test('panel: görsel klibinin etiketi veri adresi değil; eylem listesi desteden
   assert.strictEqual(TP._clipLabel({ type: 'image', ref: 'data:image/png;base64,QUFB' }), 'Görsel');
   assert.deepStrictEqual(TP._refOptions('action'), [['nextScene', 'Sonraki Sahne']]);
 });
+
+/* Tempo değişimleri cetvelde (#636). Başlıktaki BPM önce hep ilk girişi
+   düzenliyor ve bütün listeyi TEK girişle değiştiriyordu: bir gösteri
+   dosyasındaki tempo değişimleri sessizce siliniyordu. */
+test('panel: başlıktaki BPM kafadaki tempoyu düzenliyor, diğerlerini silmiyor', async () => {
+  const cfg = cfgOf();
+  cfg.timeline.tempo = [{ t: 0, bpm: 120, beatsPerBar: 4 }, { t: 6, bpm: 90, beatsPerBar: 3 }];
+  const { host } = await mount(cfg);
+  TP.seek(7);
+  const bpm = find(host, (n) => n.tag === 'input' && /tl-num-sm/.test(n.className));
+  bpm.value = '100';
+  fire(bpm, 'change');
+  assert.deepStrictEqual(cfg.timeline.tempo.map((e) => [e.t, e.bpm, e.beatsPerBar]), [[0, 120, 4], [6, 100, 3]]);
+  TP.undo();
+  assert.deepStrictEqual(cfg.timeline.tempo.map((e) => e.bpm), [120, 90], 'geri alınıyor');
+});
+
+test('panel: ♩＋ kafaya tempo değişimi ekliyor; etiket sürüklenince taşınıyor, Del siliyor', async () => {
+  const cfg = cfgOf();
+  const { host, cv } = await mount(cfg);
+  TP.seek(6);
+  const add = find(host, (n) => n.tag === 'button' && n.text === '♩＋');
+  fire(add, 'click');
+  assert.deepStrictEqual(cfg.timeline.tempo.map((e) => [e.t, e.bpm]), [[0, 120], [6, 120]]);
+  assert.deepStrictEqual(TP._selection(), { kind: 'tempo', index: 1 });
+  // Etiket cetvelin alt bandında; sürükleyince taşınıyor (yakalama kapalı)
+  const tagY = RULER - 6;
+  fire(cv, 'mousedown', { clientX: X(6) + 10, clientY: tagY, detail: 1 });
+  winFire('mousemove', { clientX: X(8) + 10, clientY: tagY });
+  winFire('mouseup', {});
+  assert.ok(Math.abs(cfg.timeline.tempo[1].t - 8) < 1e-9, 'taşındı: ' + cfg.timeline.tempo[1].t);
+  // Denetçiden BPM
+  const all = [];
+  walk(host, (n) => all.push(n));
+  const row = all.find((n) => n.tag === 'label' && n.text === 'BPM' && n.parent && n.parent.className === 'row');
+  const inp = row.parent.kids.find((k) => k.tag === 'input');
+  inp.value = '140';
+  fire(inp, 'change');
+  assert.strictEqual(cfg.timeline.tempo[1].bpm, 140);
+  // 8. saniyeden sonra ölçüler 140 ile: 8 sn = 4 ölçü (120'de), +4 vuruş 140'ta = 1 ölçü
+  assert.strictEqual(TL.secondsToBars(TL.makeTempoMap(cfg.timeline.tempo), 8 + 4 * 60 / 140).bar, 6);
+  TP._key({ key: 'Delete', target: {}, preventDefault() {}, stopPropagation() {} });
+  assert.strictEqual(cfg.timeline.tempo.length, 1, 'silindi');
+  TP.undo();
+  assert.strictEqual(cfg.timeline.tempo.length, 2, 'geri geldi');
+});
+
+test('panel: şerit yüksekliği ayarlanıyor ve sınırlı', async () => {
+  const cfg = cfgOf();
+  const { host } = await mount(cfg);
+  const up = find(host, (n) => n.tag === 'button' && n.text === '▭+');
+  const down = find(host, (n) => n.tag === 'button' && n.text === '▭−');
+  fire(up, 'click');
+  assert.strictEqual(cfg.timeline.laneHeight, 48);
+  for (let i = 0; i < 20; i++) fire(down, 'click');
+  assert.strictEqual(cfg.timeline.laneHeight, 28, 'alt sınır');
+  cfg.timeline.laneHeight = 40;
+});

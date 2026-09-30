@@ -914,6 +914,8 @@
       scroll: 0,
       ruler: 'both', // time | bars | both
       followPlayhead: true,
+      // Şerit yüksekliği, piksel (28..120); tam pencerede yer açmak için büyütülür
+      laneHeight: 40,
     },
 
     /* ------------------------------------------------------------------
