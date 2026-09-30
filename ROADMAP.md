@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2410 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2418 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 813
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 821
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2968,6 +2968,12 @@ expects.
   - **Not yet:**
     - Timeline clips of these types have no target field, so they use the first suitable target.
     - The Action type is still stored but does nothing.
+- **Update checks (#640, step 1 of 3)** · done on `main`.
+  - The Library › Updates card shows the installed version and install type, a Check Now button, the latest version and date, the release notes as plain text, Download / Release Page / Skip This Version, and how to update this kind of install.
+  - Settings: on (notify, the default) or off. A new release is announced once per version per session.
+  - Automatic checks every 6 hours, only in packaged real use (never in dev copies, smoke or the screenshot tool). The only network call is GitHub's latest-release API, with no identifiers. The skipped version lives in `update-state.json`, not in the settings file.
+  - Assets are matched to the install type: Windows setup and portable, Linux AppImage and .deb, macOS arm64. Only github.com URLs and SHA-256 digests are accepted.
+  - **Next:** step 2 downloads, verifies and installs (Windows installer, AppImage self-replace, with an automatic mode). Step 3 embeds AppImage update information and publishes a `.zsync` so AppImageUpdate works.
 
 ## v3.1.6 — Comprehensive video export
 

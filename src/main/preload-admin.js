@@ -141,6 +141,13 @@ contextBridge.exposeInMainWorld('api', {
   onOscMessage: (cb) => ipcRenderer.on('osc-message', (e, m) => cb(m)),
   onOscStatus: (cb) => ipcRenderer.on('osc-status', (e, d) => cb(d)),
 
+  // Güncelleme denetimi (#640)
+  updatesState: () => ipcRenderer.invoke('updates:state'),
+  updatesCheck: () => ipcRenderer.invoke('updates:check'),
+  updatesSkip: () => ipcRenderer.invoke('updates:skip'),
+  updatesOpen: (which) => ipcRenderer.invoke('updates:open', which === 'asset' ? 'asset' : 'release'),
+  onUpdatesStatus: (cb) => ipcRenderer.on('updates:status', (e, s) => cb(s)),
+
   // Medya katmanı
   pickVideo: () => ipcRenderer.invoke('media:pick-video'),
   reportVideoDevices: (devices) => ipcRenderer.send('report-video-devices', devices),

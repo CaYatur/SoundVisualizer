@@ -301,6 +301,12 @@
       locked: false,
     },
 
+    /* Güncelleme denetimi (#640): 'off' | 'notify' (varsayılan, yalnız haber
+       verir) | 'auto'. Tek ağ isteği GitHub Releases'e; kimlik gönderilmez. */
+    updates: {
+      mode: 'notify',
+    },
+
     power: {
       // 0 = ekranla eşitle (her yenilemede bir kare). En akıcı sonuç budur:
       // ekranın yenileme hızının tam böleni olmayan bir sınır (75 Hz'de 60 gibi)

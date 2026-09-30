@@ -1177,3 +1177,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .orgb-meta { flex: 0 0 auto; opacity: .7; font-variant-numeric: tabular-nums; }
 .orgb-warn { flex: 0 0 auto; font-size: 11px; opacity: .8; }
 .link-note { display: inline-block; padding: 2px 0 8px; font-size: 12px; opacity: .85; }
+
+/* Güncellemeler kartı (#640) */
+.upd-ver { font-weight: 700; font-variant-numeric: tabular-nums; }
+.upd-ver.new { color: var(--ok); }
+.upd-status { font-size: 12.5px; color: var(--muted); }
+.upd-status.available { color: var(--ok); font-weight: 600; }
+.upd-status.error { color: var(--warn); }
+.upd-notes { white-space: pre-wrap; word-break: break-word; max-height: 240px; overflow: auto; margin: 6px 0 0; padding: 8px 10px; font: 12px/1.5 ui-monospace, Consolas, monospace; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--text); }
