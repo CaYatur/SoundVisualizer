@@ -2076,7 +2076,25 @@ void main(){
         a.source = s;
         a.lazy = false;
       }
-      const key = a ? (a.id + '|' + a.source.length) : man;
+      const baseKey = a ? (a.id + '|' + a.source.length) : man;
+      /* MILKDROP 3 ÇİFT PRESETİ (.milk2, #567): iki aşamada yükleniyor.
+         1. aşama birinci preseti sert geçişle kuruyor; 2. aşama ikinciye
+         GEÇİŞ başlatıyor ve geçiş dosyanın söylediği yerde donduruluyor.
+         Böylece iki presetin derlenmesi, iki saat ve düğüm başına karışım
+         olağan geçişin aynı yolundan geçiyor. İkinci aşama birincinin
+         shader'ları hazır olunca (bir sonraki kare) başlıyor. */
+      const MD = window.SVMilkdrop;
+      const rawSrc = (a ? a.source : c.source) || defaultSource();
+      const dbl = MD && MD.parseMilk2 ? MD.parseMilk2(rawSrc) : null;
+      if (dbl) {
+        const d = this._double;
+        if (!d || d.key !== baseKey) this._double = { key: baseKey, stage: 1, info: dbl };
+        else if (d.stage === 1 && this.presetKey === baseKey + '#1' && this.preset && !this._pending) d.stage = 2;
+      } else {
+        this._double = null;
+      }
+      const stage = dbl ? this._double.stage : 0;
+      const key = stage === 1 ? baseKey + '#1' : baseKey;
       if (key === this.presetKey && this.preset) {
         /* Derlenirken seçim geri alındıysa yarım iş atılıyor (#573). Önceden
            derlenen SIRADAKİ ise kalıyor: o, değişimi bekliyor. */
@@ -2113,11 +2131,12 @@ void main(){
       /* Hareket azaltılırken (#581) geçiş UZUN: motorun sınırı. Elle
          "şimdi kes" açık bir komut, o kalıyor; kendiliğinden sert geçiş
          döngüde zaten kapalı. */
-      const bt = cutNow ? 0 : (this._reduced ? BLEND_MAX : Math.max(0, Math.min(BLEND_MAX, want)));
+      const bt = stage === 1 ? 0 : stage === 2 ? 1
+        : cutNow ? 0 : (this._reduced ? BLEND_MAX : Math.max(0, Math.min(BLEND_MAX, want)));
       /* Değişimin tohumu (#585): otomatik seçimde seçenin (lider pencere ya
          da izlenen) verdiği, elle seçimde seçimin kendisinden. */
       const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(key);
-      const src = (a ? a.source : c.source) || defaultSource();
+      const src = stage ? this._double.info.presets[stage - 1] : rawSrc;
       /* YENİ PRESET HAZIR OLANA KADAR ESKİSİ SÜRÜYOR (#573).
 
          Derleme arka planda başlatılıyor ve bu kare bitiyor: ekranda
@@ -2162,6 +2181,18 @@ void main(){
         this.blendDirty = true;
         // Geçiş deseni aynı tohumun ayrı bir akışından
         this._blendSeed = (seed ^ 0x85ebca6b) >>> 0;
+      }
+      /* Çift presetin ikinci aşaması: geçiş hiç bitmiyor, karışım dosyanın
+         noktasında duruyor ve desen dosyadan. Başka bir preset gelince
+         (stage 0) ikisi de kalkıyor. */
+      if (stage === 2 && this.oldPreset) {
+        this.blendFrozen = this._double.info.progress;
+        this.blendProg = this.blendFrozen;
+        this._blendForced = this._double.info;
+        this.blendDirty = true;
+      } else if (stage !== 2) {
+        this.blendFrozen = null;
+        this._blendForced = null;
       }
       this.presetKey = key;
       const M = window.SVMilkdrop;
@@ -3340,7 +3371,8 @@ void main(){
       if (this.oldPreset) {
         this.oldTime += step;
         this.oldPresetTime += step;
-        this.blendProg += step / Math.max(1e-3, this.blendDur);
+        if (this.blendFrozen != null) this.blendProg = this.blendFrozen;
+        else this.blendProg += step / Math.max(1e-3, this.blendDur);
         if (this.blendProg >= 1) {
           this._dropOld();
         } else {
@@ -4178,8 +4210,16 @@ void main(){
       /* Desen değişimin tohumundan (#585): her ekranda aynı geçiş. Ağ
          boyutu değişip desen geçişin ortasında yeniden kurulursa da aynı
          desen çıkıyor. */
-      const R = seededRandom(this._blendSeed || 1);
-      const type = 1 + Math.floor(R() * 3);
+      /* Çift presette (#567) desen dosyadan: side = yönlü silme, plasma =
+         plazma, radial/circle/zoom = dairesel. Desenin ilk parametreleri
+         dosyanın rastgele sayılarından sırayla, gerisi tohumdan. Hangi
+         sayının neye gittiği kendi yorumumuz (MilkDrop 3 kaynağı yok). */
+      const F = this._blendForced;
+      const seeded = seededRandom(this._blendSeed || 1);
+      let fi = 0;
+      const R = F ? () => (fi < F.random.length ? F.random[fi++] : seeded()) : seeded;
+      const FORCED = { side: 1, wipe: 1, plasma: 2, radial: 3, circle: 3, zoom: 3 };
+      const type = F ? (FORCED[F.pattern] || 2) : 1 + Math.floor(R() * 3);
       if (type === 1) {
         // Yönlü silme: rastgele bir açıda ilerleyen bir bant
         const ang = R() * 6.28;
@@ -4220,7 +4260,7 @@ void main(){
         // Dairesel: içten dışa ya da dıştan içe
         const band = 0.02 + 0.14 * R() + 0.34 * R();
         const inv = 1 / band;
-        const dir = R() < 0.5 ? -1 : 1;
+        const dir = F ? F.direction : (R() < 0.5 ? -1 : 1);
         let k = 0;
         for (let y = 0; y <= gy; y++) {
           const dy = (y / gy - 0.5) * ay;

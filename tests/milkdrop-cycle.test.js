@@ -203,7 +203,8 @@ test('motor: elle seçim otomatiği ezer ve sayacı sıfırlar', () => {
     /if \(man !== this\._manualKey\) \{[\s\S]*?this\.autoPick = null;[\s\S]*?this\.cycle\.reset\(\);/);
   /* Yedek artık yerleşik kitaplığın ilki (`defaultSource()`); tutulan şey
      yine aynı: otomatik seçim varsa ONUN kaynağı çiziliyor. */
-  assert.match(fn[0], /const src = \(a \? a\.source : c\.source\) \|\| defaultSource\(\);/,
+  // Çift preset (#567): ham kaynak aynı kuralla, aşamanın preseti ondan
+  assert.match(fn[0], /const rawSrc = \(a \? a\.source : c\.source\) \|\| defaultSource\(\);[\s\S]*const src = stage \? this\._double\.info\.presets\[stage - 1\] : rawSrc;/,
     'otomatik seçimin kaynağı çizilmeli');
 });
 

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2429 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2434 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 832
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 837
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2984,6 +2984,11 @@ expects.
   - `scripts/appimage-update-info.sh` writes `gh-releases-zsync|CaYatur|SoundVisualizer|latest|CAYADEV-Visualizer-*-linux-x86_64.AppImage.zsync` into the AppImage runtime's `.upd_info` section (1024 bytes) and reads it back. It then runs `zsyncmake` beside the file. There is no repack and no extra binary.
   - `build.yml` runs it on the Linux job and collects the `.zsync`, and `release-assets.js` expects the `.zsync` among the release files.
   - Checked with a `workflow_dispatch` build of the branch, which made no release: the runtime's own `--appimage-updateinformation` prints the string. AppImageUpdate and AppImageLauncher can update in place with delta downloads from the next release on.
+- **MilkDrop 3 double presets (.milk2, #567)** · done on `main`.
+  - `.milk2` files import as presets. They used to be skipped as unsupported.
+  - The engine loads them in two steps. Preset 1 loads with a hard cut. Preset 2 then starts a normal transition, which is frozen at the file's `blending_progress`. The two presets' per-vertex mix (MD2's transition patterns) uses the file's pattern: `side` is a wipe, `plasma` is plasma, and radial, circle or zoom are radial. `random_1..5` and `blending_direction` seed that pattern.
+  - Checked against three real MilkDrop 3.x files, kept outside the repository: each reaches the frozen mix on frame 3 and holds it.
+  - **Not yet:** MD3 sprite sections, which point at MD3's own image files. The exact meaning of the random values is our reading of the files, because MilkDrop 3's source is not public.
 
 ## v3.1.6 — Comprehensive video export
 

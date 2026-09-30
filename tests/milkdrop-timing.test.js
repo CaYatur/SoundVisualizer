@@ -276,7 +276,8 @@ test('motor: sert geçiş karışmadan yükleniyor', () => {
   const fn = /_ensurePreset\(cfg\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(fn, /const cutNow = a \? \(a\.cut && !this\._reduced\) : \(!!cutTo && cutTo === c\.presetId\);/);
   // Hareket azaltılırken (#581) geçiş motorun sınırı kadar uzun
-  assert.match(fn, /const bt = cutNow \? 0 : \(this\._reduced \? BLEND_MAX : Math\.max\(0, Math\.min\(BLEND_MAX, want\)\)\);/);
+  // Çift presetin aşamaları (#567) önce; olağan preset için kural aynı
+  assert.match(fn, /: cutNow \? 0 : \(this\._reduced \? BLEND_MAX : Math\.max\(0, Math\.min\(BLEND_MAX, want\)\)\);/);
   const ac = /_autoCycle\(cfg, step, audio\) \{[\s\S]*?\n    \}/.exec(MODE)[0];
   assert.match(ac, /cut: this\.cycle\.cut,/);
   assert.match(ac, /cut: !!F\.cut,/, 'önizleme de karışmadan izlemeli');

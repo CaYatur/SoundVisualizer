@@ -52,7 +52,8 @@ const LAYOUT = {
   'Dans/worms.jpg': 'SOLUCAN', // gevşek, A istiyor: doku
   'textures/clouds.png': 'BULUT', // doku klasörü: hep
   'sprites/logo.png': 'LOGO', // MilkDrop 3'te sprites da doku klasörü
-  'cift.milk2': 'MD3',
+  // MilkDrop 3 çift preseti (#567): artık preset olarak ekleniyor
+  'cift.milk2': 'blending_pattern=plasma\nblending_progress=0.5\n[PRESET1_BEGIN]\n' + MILK_A + '[PRESET1_END]\n[PRESET2_BEGIN]\n' + MILK_B + '[PRESET2_END]\n',
   'buyuk.milk': 'x'.repeat(I.PRESET_MAX_BYTES + 1),
   'node_modules/gizli.milk': MILK_B,
   'okubeni.txt': 'metin',
@@ -133,15 +134,15 @@ function fakeStore(existing) {
 test('klasör taraması: presetler, dokular, atlananlar, kategori etiketleri', async () => {
   const plan = await I.scanFolder(packFolder());
   const s = I.summary(plan);
-  assert.deepStrictEqual([s.kind, s.label, s.presets, s.textures, s.loose, s.complete, s.searchCut], ['folder', 'Paket', 3, 2, 2, true, false]);
+  assert.deepStrictEqual([s.kind, s.label, s.presets, s.textures, s.loose, s.complete, s.searchCut], ['folder', 'Paket', 4, 2, 2, true, false]);
   // Boyut: presetler ve doku klasörü; yanlardaki görseller ayrı (yalnız istenirse kopyalanıyor)
   const size = (list) => list.reduce((n, x) => n + x.size, 0);
   assert.strictEqual(s.bytes, size(plan.presets) + size(plan.textures));
   assert.strictEqual(plan.looseBytes, size(plan.loose));
-  assert.deepStrictEqual(s.skipped, { milk2: 1, tooLarge: 1, encrypted: 0, unsupported: 0, textureTooLarge: 0 });
+  assert.deepStrictEqual(s.skipped, { milk2: 0, tooLarge: 1, encrypted: 0, unsupported: 0, textureTooLarge: 0 });
   assert.strictEqual(s.tags, 2);
   const byName = Object.fromEntries(plan.presets.map((p) => [p.name, p.tag]));
-  assert.deepStrictEqual(byName, { 'Geiss - A': 'Fraktal', 'Martin - B': 'Fraktal', 'Flexi - C': 'Dans' }, 'node_modules atlandı');
+  assert.deepStrictEqual(byName, { 'Geiss - A': 'Fraktal', 'Martin - B': 'Fraktal', 'Flexi - C': 'Dans', cift: '' }, 'node_modules atlandı; .milk2 preset');
   assert.deepStrictEqual(plan.textures.map((t) => t.name).sort(), ['clouds.png', 'logo.png']);
   assert.deepStrictEqual(plan.loose.map((t) => t.name).sort(), ['Flexi - C.jpg', 'worms.jpg']);
   assert.strictEqual(s.where, undefined, 'özette yol yok');
@@ -157,9 +158,9 @@ test('ZIP taraması aynı planı veriyor; şifreli ve desteklenmeyen girdi sayı
     { name: 'Paket/.git/eski.milk', data: MILK_B },
   ]);
   const s = I.summary(I.scanZip(f));
-  assert.deepStrictEqual([s.kind, s.label, s.presets, s.textures, s.loose, s.tags], ['zip', 'paket', 3, 2, 2, 2]);
+  assert.deepStrictEqual([s.kind, s.label, s.presets, s.textures, s.loose, s.tags], ['zip', 'paket', 4, 2, 2, 2]);
   assert.strictEqual(s.skipped.encrypted, 1);
-  assert.strictEqual(s.skipped.milk2, 1);
+  assert.strictEqual(s.skipped.milk2, 0, '.milk2 artık atlanmıyor (#567)');
 });
 
 test('etiket: ortak ön ek atılıyor, genel klasör adları etiket değil', () => {
@@ -187,17 +188,17 @@ test('içe aktarım: presetler kaydediliyor, dokular yalnız gerekenler, etiketl
   const phases = new Set();
   const r = await I.runImport(plan, { existing: store.existing, saveManyAsync: store.saveManyAsync, textureDir: texDir, onProgress: (ph) => phases.add(ph) });
   assert.strictEqual(r.ok, true);
-  assert.deepStrictEqual([r.added, r.duplicates, r.failed], [3, 0, 0]);
+  assert.deepStrictEqual([r.added, r.duplicates, r.failed], [4, 0, 0]);
   assert.deepStrictEqual(fs.readdirSync(texDir).sort(), ['clouds.png', 'logo.png', 'worms.jpg'], 'önizleme görüntüsü doku değil');
   assert.strictEqual(fs.readFileSync(path.join(texDir, 'worms.jpg'), 'utf8'), 'SOLUCAN');
   assert.deepStrictEqual(r.textures, { copied: 3, same: 0, conflicts: 0, failed: 0 });
-  assert.deepStrictEqual(r.saved.map((x) => x.tag).sort(), ['Dans', 'Fraktal', 'Fraktal']);
-  assert.ok(r.presets.length === 3 && r.presets.every((p) => p.kind === 'milkdrop' && p.source), 'ana süreç yayın için alıyor');
+  assert.deepStrictEqual(r.saved.map((x) => x.tag).sort(), ['', 'Dans', 'Fraktal', 'Fraktal']);
+  assert.ok(r.presets.length === 4 && r.presets.every((p) => p.kind === 'milkdrop' && p.source), 'ana süreç yayın için alıyor');
   assert.deepStrictEqual([...phases].sort(), ['read', 'save', 'textures']);
-  assert.deepStrictEqual(r.skipped.milk2, 1);
+  assert.deepStrictEqual(r.skipped.milk2, 0);
   // İkinci kez: hepsi tekrar, dokular zaten var
   const r2 = await I.runImport(plan, { existing: store.existing, saveManyAsync: store.saveManyAsync, textureDir: texDir });
-  assert.deepStrictEqual([r2.added, r2.duplicates], [0, 3]);
+  assert.deepStrictEqual([r2.added, r2.duplicates], [0, 4]);
   assert.deepStrictEqual(r2.textures, { copied: 0, same: 3, conflicts: 0, failed: 0 });
 });
 
@@ -207,7 +208,7 @@ test('içe aktarım: aynı ad başka içerik tekrar değil; var olan dokunun üs
   const texDir = path.join(tmpDir(), 'dokular');
   put(texDir, 'clouds.png', 'KULLANICININ');
   const r = await I.runImport(plan, { existing: store.existing, saveManyAsync: store.saveManyAsync, textureDir: texDir });
-  assert.deepStrictEqual([r.added, r.duplicates], [2, 1], 'yalnız Martin - B aynı');
+  assert.deepStrictEqual([r.added, r.duplicates], [3, 1], 'yalnız Martin - B aynı');
   assert.strictEqual(r.textures.conflicts, 1);
   assert.strictEqual(fs.readFileSync(path.join(texDir, 'clouds.png'), 'utf8'), 'KULLANICININ', 'var olan kaldı');
 });
@@ -222,7 +223,7 @@ test('ZIP içe aktarımı; ad yol dışına çıkamıyor (zip-slip)', async () =
   const base = tmpDir();
   const texDir = path.join(base, 'a', 'b', 'dokular');
   const r = await I.runImport(plan, { existing: store.existing, saveManyAsync: store.saveManyAsync, textureDir: texDir });
-  assert.strictEqual(r.added, 4);
+  assert.strictEqual(r.added, 5);
   assert.ok(store.all.some((p) => p.name === 'Kacak - D'), 'yalnız dosya adı alındı');
   assert.deepStrictEqual(fs.readdirSync(texDir).sort(), ['clouds.png', 'kacak.png', 'logo.png', 'worms.jpg']);
   assert.ok(!fs.existsSync(path.join(base, 'kacak')) && !fs.existsSync(path.join(base, 'a', 'kacak.png')), 'klasör dışına yazılmadı');
@@ -282,11 +283,11 @@ test('makinede arama: süresi yetmeyen kütüphane sayılmadan listeleniyor; ba�
   assert.deepStrictEqual([cut.presets.length, cut.complete, cut.searchCut], [0, false, true], 'bulunan listeden düşmedi');
   assert.strictEqual(I.summary(cut).searchCut, true);
   const full = I.summary(await I.rescan(cut));
-  assert.deepStrictEqual([full.presets, full.textures, full.loose, full.complete, full.searchCut], [3, 2, 2, true, false]);
+  assert.deepStrictEqual([full.presets, full.textures, full.loose, full.complete, full.searchCut], [4, 2, 2, true, false]);
   // Süre varsa sayılıyor; ZIP'in planı bulunurken hazır, yeniden sayılmıyor
   const zipPlan = I.scanZip(packZip());
   const both = await I.countLibraries([{ label: 'Paket', dir }, { label: 'paket.zip', dir: zipPlan.source, plan: zipPlan }], Date.now() + 60000);
-  assert.deepStrictEqual(both.map((p) => [p.kind, p.presets.length, !!p.searchCut]), [['folder', 3, false], ['zip', 3, false]]);
+  assert.deepStrictEqual(both.map((p) => [p.kind, p.presets.length, !!p.searchCut]), [['folder', 4, false], ['zip', 4, false]]);
   assert.strictEqual(both[1], zipPlan);
 });
 
