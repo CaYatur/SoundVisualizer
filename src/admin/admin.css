@@ -858,11 +858,16 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 }
 
 /* --- çoklu ekran seçimi (üst çubuk) --- */
-.display-field { position: relative; }
+/* Etiket düğmenin ÜSTÜNDE değil YANINDA: .field sütun düzeninde etiket
+   düğmeyi aşağı itiyor ve ekran seçimi, yanındaki "Görselleştirmeyi Aç"
+   düğmelerinden ~8px aşağıda kalıyordu. Yalnız bu alan satır düzenine
+   alınıyor; .field başka yerlerde de kullanılıyor. */
+.display-field { position: relative; flex-direction: row; align-items: center; gap: 8px; }
+.display-field > span { font-size: 11px; white-space: nowrap; }
 .display-btn {
   background: var(--card2); color: var(--text); border: 1px solid var(--line);
-  border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 12px;
-  cursor: pointer; min-width: 148px; text-align: left; margin-top: 4px;
+  border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 12px; line-height: 1.35;
+  cursor: pointer; min-width: 148px; text-align: left;
 }
 .display-btn:hover { border-color: var(--line2); }
 .display-btn::after { content: '▾'; float: right; color: var(--muted2); }
