@@ -164,3 +164,67 @@ test('düzenleyici: boş yuvada altı tür; görsel yuvası nesne yoksa ne yapı
   assert.ok(find(root, (n) => /henüz nesne yok/.test(n.text)), 'yol gösteren not');
   assert.ok(find(root, (n) => n.tag === 'button' && /Görsel Seç/.test(n.text)), 'görsel seçme düğmesi');
 });
+
+/* EYLEM YUVALARI. Önce kaydediliyor ama ateşlenince hiçbir şey yapmıyordu.
+   MIDI/OSC'nin eylem listesi ve uygulama yolu (SVControl) kullanılıyor;
+   deste eylemleri (yuva/satır ateşle, hepsini durdur) listede yok. */
+const ran = [];
+window.SVControl = {
+  allTargets: () => [
+    { path: 'audio.sensitivity', label: 'Ses · Hassasiyet' },
+    { action: 'nextVisualizer', label: '⏭ Eylem · Sonraki Görselleştirici' },
+    { action: 'deckStopAll', label: '⏹ Deste · Hepsini Durdur' },
+    { action: 'deckSlot:deck:0:0', label: '🎛 Deste · A' },
+  ],
+  runAction: (a, cfg) => ran.push([a, !!cfg]),
+};
+
+test('eylem: liste MIDI/OSC eylemlerinden, deste eylemleri hariç', () => {
+  mount(cfgOf());
+  assert.deepStrictEqual(DP.refOptions('action').map((o) => o[0]), ['nextVisualizer']);
+});
+
+test('eylem: uygulanınca SVControl.runAction çalışıyor; listede olmayan çalışmıyor', () => {
+  const cfg = cfgOf();
+  mount(cfg);
+  ran.length = 0;
+  const before = applied;
+  assert.strictEqual(DP.applyRef('action', 'nextVisualizer'), true);
+  assert.deepStrictEqual(ran, [['nextVisualizer', true]]);
+  assert.strictEqual(applied, before + 1, 'panel yeniden çizilip gönderildi');
+  assert.strictEqual(DP.applyRef('action', 'deckStopAll'), false, 'deste eylemi yuvadan çalışmıyor');
+  assert.strictEqual(DP.applyRef('action', 'yok'), false);
+  assert.strictEqual(ran.length, 1);
+});
+
+test('eylem: ateşlenen yuva eylemi çalıştırıyor ve kullanıcının geçişine dokunmuyor', () => {
+  const cfg = cfgOf();
+  cfg.clipdeck.defaultQuantize = 'off';
+  cfg.transition = { enabled: true, duration: 2, type: 'fade' };
+  cfg.clipdeck.decks[0].slots = [{ row: 0, col: 0, type: 'action', ref: 'nextVisualizer', quantize: 'off' }];
+  mount(cfg);
+  ran.length = 0;
+  DP.launchSlot(0, 0);
+  DP.engine().update(1e6, TL.makeTempoMap([{ t: 0, bpm: 120 }]));
+  assert.deepStrictEqual(ran.map((r) => r[0]), ['nextVisualizer']);
+  assert.deepStrictEqual(cfg.transition, { enabled: true, duration: 2, type: 'fade' });
+  assert.strictEqual(DP.slotLabel({ type: 'action', ref: 'nextVisualizer' }), '⏭ Eylem · Sonraki Görselleştirici');
+});
+
+test('eylem düzenleyicisi: geçiş satırları yok, ne yaptığını söylüyor', () => {
+  const cfg = cfgOf();
+  cfg.clipdeck.decks[0].slots = [{ row: 1, col: 1, type: 'action', ref: 'nextVisualizer' }];
+  DP._select({ row: 1, col: 1 });
+  const root = mount(cfg);
+  assert.ok(find(root, (n) => /MIDI ve OSC eşlemelerindeki eylemin aynısını/.test(n.text)));
+  assert.ok(!find(root, (n) => n.tag === 'label' && n.text === 'Tetikleme'), 'Tetikleme satırı yok');
+  assert.ok(!find(root, (n) => /henüz ateşlendiğinde bir şey yapmaz/.test(n.text)), 'eski not gitti');
+});
+
+test('zaman çizelgesi yolu: applyFaded hedefi taşıyor', () => {
+  const cfg = cfgOf();
+  mount(cfg);
+  DP.applyFaded('shader', 'pb', 0.5, 'layer:lb');
+  assert.deepStrictEqual([cfg.layers[3].type, cfg.layers[3].presetId], ['custom', 'pb']);
+  assert.notStrictEqual(cfg.background.type, 'custom', 'ana arkaplana dokunulmadı');
+});

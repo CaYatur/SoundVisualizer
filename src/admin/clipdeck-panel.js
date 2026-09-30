@@ -108,6 +108,7 @@
   function applyRef(type, ref, target) {
     if (!ref) return false;
     if (type === 'video' || type === 'image' || type === 'shader') return applyMedia(type, ref, target);
+    if (type === 'action') return runActionRef(ref);
     const actions = P().actions ? P().actions() : null;
     if (type === 'scene') {
       if (actions && actions.applyScene) {
@@ -218,11 +219,42 @@
   function applySlot(ev) {
     const slot = ev.slot;
     if (!slot.ref) return;
+    // Eylemin geçişi yok: kullanıcının geçiş ayarına hiç dokunulmuyor
+    if (slot.type === 'action') {
+      applyRef(slot.type, slot.ref);
+      return;
+    }
     stashTransition();
     applyRef(slot.type, slot.ref, slot.target);
     overrideTransition(ev);
     P().push(true);
     scheduleRelease(ev.fade);
+  }
+
+  // --------------------------------------------------------------------------
+  // Eylem yuvaları: MIDI/OSC'nin ve kısayolların eylem listesi
+  // --------------------------------------------------------------------------
+  /* Eylem türü önce kaydediliyor ama ateşlenince hiçbir şey yapmıyordu.
+     Yeni bir eylem dizisi kurulmuyor: MIDI ve OSC eşlemelerinin kullandığı
+     liste ve uygulama yolu (SVControl.runAction) aynen kullanılıyor, yani
+     bir yuvanın "Sonraki Sahne"si denetleyicininkiyle aynı şey. Deste
+     eylemleri (yuva/satır ateşle) listede yok: bir yuvanın başka bir yuvayı
+     ateşlemesi takip eylemlerinin işi ve döngü kurabilirdi. */
+  function actionOptions() {
+    const C = window.SVControl;
+    if (!C || !C.allTargets) return [];
+    return C.allTargets()
+      .filter((t) => t.action && t.action.indexOf('deck') !== 0)
+      .map((t) => [t.action, tt(t.label)]);
+  }
+
+  function runActionRef(ref) {
+    const C = window.SVControl;
+    if (!C || !C.runAction) return false;
+    if (!actionOptions().some((o) => o[0] === ref)) return false;
+    C.runAction(ref, P().cfg());
+    P().apply();
+    return true;
   }
 
   // --------------------------------------------------------------------------
@@ -392,6 +424,10 @@
         }
       }
       if (slot.type === 'image') return tt('Görsel');
+      if (slot.type === 'action') {
+        const o = actionOptions().find((x) => x[0] === slot.ref);
+        if (o) return o[1];
+      }
       return slot.ref;
     }
     return tt(TYPE_LABELS[slot.type] || slot.type);
@@ -649,9 +685,12 @@
     releaseSlot: release,
     applyRef,
     targetOptions,
+    // Zaman çizelgesinin medya klipleri aynı hedef listesini ve seçiciyi kullanıyor
+    resolveTarget,
+    mediaPicker,
     /* Zaman çizelgesi klibi kendi geçiş süresiyle: yuvalarla aynı yol
        (kullanıcının geçiş ayarı saklanıyor, geçiş bitince geri konuyor). */
-    applyFaded: (type, ref, fade) => applySlot({ slot: { type, ref }, fade: Number(fade) || 0 }),
+    applyFaded: (type, ref, fade, target) => applySlot({ slot: { type, ref, target }, fade: Number(fade) || 0 }),
     /* Öz testin kaynak listelerini doğrulayabilmesi için. */
     refOptions: (t) => refOptions(t),
     launchRow,
@@ -1012,6 +1051,7 @@
         .map((g) => [g.name, g.name])
         .concat((c.userPresets || []).map((g) => [g.name, g.name]));
     }
+    if (type === 'action') return actionOptions();
     return null;
   }
 
@@ -1181,8 +1221,9 @@
       spec.launch || 'trigger',
       (v) => save({ launch: v })
     )));
-    grid.appendChild(p.row('Tetikleme', select([['fade', 'Geçişle'], ['cut', 'Kesme']], spec.trigger, (v) => save({ trigger: v }))));
-    if (spec.trigger !== 'cut') {
+    // Eylemin geçişi yok; bu satırlar onda bir şey değiştirmezdi
+    if (spec.type !== 'action') grid.appendChild(p.row('Tetikleme', select([['fade', 'Geçişle'], ['cut', 'Kesme']], spec.trigger, (v) => save({ trigger: v }))));
+    if (spec.trigger !== 'cut' && spec.type !== 'action') {
       grid.appendChild(p.row('Geçiş Türü', select(transitionPairs(), spec.transition, (v) => save({ transition: v }))));
       grid.appendChild(p.row('Geçiş Süresi (sn)', numInput(spec.fade, 0, 30, 0.05, (v) => save({ fade: v }))));
     }
@@ -1241,7 +1282,7 @@
       p.apply();
     }, String(rowAt + 1))));
     if (spec.type === 'action') {
-      box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem türü kaydedilir ve zaman çizelgesine yazılır, ama henüz ateşlendiğinde bir şey yapmaz.' }));
+      box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.' }));
     } else if ((spec.type === 'video' || spec.type === 'image' || spec.type === 'shader') && !targetOptions(spec.type).length) {
       box.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: spec.type === 'image'
         ? 'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'

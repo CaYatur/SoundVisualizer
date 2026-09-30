@@ -180,8 +180,9 @@
     if (!clip.ref) return;
     const dp = window.SVClipDeckPanel;
     if (!dp) return;
-    if (clip.fade > 0 && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade);
-    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref);
+    // Hedef medya klipleri için (#637 CD-3 ile aynı biçim); diğer türler yok sayıyor
+    if (clip.fade > 0 && dp.applyFaded) dp.applyFaded(clip.type, clip.ref, clip.fade, clip.target);
+    else if (dp.applyRef) dp.applyRef(clip.type, clip.ref, clip.target);
   }
 
   // --------------------------------------------------------------------------
@@ -548,6 +549,12 @@
       if (c.type === 'preset' && window.SVTemplates) {
         const tp = window.SVTemplates.TEMPLATES.find((x) => x.id === c.ref);
         if (tp) return tt(tp.name);
+      }
+      /* Medya ve eylem kliplerinin adı destedeki gibi: görselin kaynağı bir
+         veri adresi, tuvale yazılacak bir ad değil. */
+      const dp = window.SVClipDeckPanel;
+      if (dp && dp.slotLabel && (c.type === 'video' || c.type === 'image' || c.type === 'shader' || c.type === 'action')) {
+        return dp.slotLabel({ type: c.type, ref: c.ref, name: '' });
       }
       return c.ref;
     }
@@ -1417,6 +1424,8 @@
     _selection: () => selection,
     _multi: () => multi.slice(),
     _full: () => fullWin,
+    _clipLabel: clipLabel,
+    _refOptions: refOptions,
     _key: onEditorKey,
   };
 
@@ -1865,7 +1874,19 @@
           (v) => { c.type = v; c.ref = ''; commit(); refreshInspector(); draw(); }
         ))
       );
-      grid.appendChild(p.row('Kaynak', refPicker(c.type, c.ref, (v) => { c.ref = v; commit(); refreshInspector(); draw(); })));
+      const dp = window.SVClipDeckPanel;
+      const media = c.type === 'video' || c.type === 'image' || c.type === 'shader';
+      if (media && dp && dp.mediaPicker && dp.targetOptions) {
+        /* Medya klibi destenin yuvasıyla AYNI seçiciyi ve hedef listesini
+           kullanıyor: iki kopya zamanla ayrışırdı. */
+        const tNow = dp.resolveTarget(c.type, c.target);
+        const save = (patch) => { Object.assign(c, patch); commit(); refreshInspector(); draw(); };
+        grid.appendChild(p.row('Kaynak', dp.mediaPicker(c, tNow, save)));
+        const tOpts = dp.targetOptions(c.type);
+        if (tOpts.length) grid.appendChild(p.row('Hedef', select(tOpts, tNow, (v) => save({ target: v }))));
+      } else {
+        grid.appendChild(p.row('Kaynak', refPicker(c.type, c.ref, (v) => { c.ref = v; commit(); refreshInspector(); draw(); })));
+      }
       grid.appendChild(p.row('Başlangıç (sn)', numInput(c.start, 0, 1e6, 0.01, (v) => { c.start = v; TE().sortClips(trk); commit(); draw(); })));
       grid.appendChild(p.row('Süre (sn)', numInput(c.dur, 0.05, 1e6, 0.01, (v) => { c.dur = v; commit(); draw(); })));
       // 0 = Geçiş kartındaki genel ayar; klibin sol üst köşesinden de sürüklenir
@@ -1876,11 +1897,15 @@
       col.addEventListener('change', () => { c.color = col.value; commit(); draw(); });
       const colReset = act('↺', 'Rengi parçadan / türden al', () => { c.color = ''; commit(); refreshInspector(); draw(); });
       grid.appendChild(p.row('Renk', el('div', { class: 'tl-inline' }, [col, colReset])));
-      if (c.type !== 'scene' && c.type !== 'preset' && c.type !== 'palette') {
+      if (media && dp && dp.targetOptions && !dp.targetOptions(c.type).length) {
         box.appendChild(el('div', {
-          class: 'ctrl settings-io-note',
-          text: 'Bu tür kaydedilir, ama henüz oynatıldığında uygulanmaz: bir katmanı hedeflemesi gerekiyor ve hedef söylenmeden uygulamak o katmandaki içeriğin üzerine yazardı. Sahne, Şablon ve Renk Şablonu türleri çalışıyor.',
+          class: 'ctrl settings-io-note warn',
+          text: c.type === 'image'
+            ? 'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.'
+            : 'Bu tür için uygun hedef yok.',
         }));
+      } else if (c.type === 'action') {
+        box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.' }));
       }
       box.appendChild(el('div', { class: 'tl-actions' }, [
         act('✂ Böl', 'Oynatma kafasında böl (S)', () => { if (!splitAtPlayhead()) p.toast('Oynatma kafası bu klibin içinde değil.', 'warn'); else refreshAll(); }),
@@ -1994,6 +2019,11 @@
       const built = (window.SV.GRADIENT_PRESETS || []).map((g) => [g.name, g.name]);
       const user = (cfg.userPresets || []).map((g) => [g.name, g.name]);
       return built.concat(user);
+    }
+    // Eylemler destenin listesinden (MIDI/OSC eylemleri, deste eylemleri hariç)
+    if (type === 'action') {
+      const dp = window.SVClipDeckPanel;
+      return dp && dp.refOptions ? dp.refOptions('action') : [];
     }
     return null; // bu tür için seçilebilir bir liste yok
   }
