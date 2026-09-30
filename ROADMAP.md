@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2418 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2426 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 821
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 829
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2973,7 +2973,14 @@ expects.
   - Settings: on (notify, the default) or off. A new release is announced once per version per session.
   - Automatic checks every 6 hours, only in packaged real use (never in dev copies, smoke or the screenshot tool). The only network call is GitHub's latest-release API, with no identifiers. The skipped version lives in `update-state.json`, not in the settings file.
   - Assets are matched to the install type: Windows setup and portable, Linux AppImage and .deb, macOS arm64. Only github.com URLs and SHA-256 digests are accepted.
-  - **Next:** step 2 downloads, verifies and installs (Windows installer, AppImage self-replace, with an automatic mode). Step 3 embeds AppImage update information and publishes a `.zsync` so AppImageUpdate works.
+- **Update install (#640, step 2 of 3)** · done on `main`.
+  - Windows installer and AppImage copies can Download and Install from the card. Other types still open the download in the browser.
+  - Downloads use HTTPS only. Redirects are allowed only to github.com and *.githubusercontent.com, at most 5. A `.part` file stops growing past the release's size.
+  - Nothing runs or replaces anything unless the size and the SHA-256 (GitHub's asset digest) match exactly. A mismatch deletes the file.
+  - **Windows:** the installer starts detached with `--updated`, which the NSIS template uses to wait for the app to close, and the app quits past the close guard.
+  - **AppImage:** the new file downloads next to the old one, is made executable and replaces it atomically. A restart relaunches from `$APPIMAGE`. A read-only folder falls back to notify.
+  - **Automatic mode:** downloads by itself. On Windows it installs silently (`/S --updated`) when the app quits.
+  - **Next:** step 3, AppImage update information and `.zsync` for AppImageUpdate.
 
 ## v3.1.6 — Comprehensive video export
 

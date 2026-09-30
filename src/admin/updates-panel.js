@@ -49,6 +49,9 @@
     if (s.status === 'latest') return 'Güncel: en yeni sürüm kurulu.';
     if (s.status === 'available') return s.skipped ? 'Yeni sürüm var (atlandı).' : 'Yeni sürüm var.';
     if (s.status === 'error') return 'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.';
+    if (s.status === 'downloading') return tt('İndiriliyor…') + ' %' + Math.round((s.progress || 0) * 100);
+    if (s.status === 'ready') return 'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.';
+    if (s.status === 'installed') return 'Yeni sürüm yerine kondu; yeniden başlatınca açılır.';
     return '';
   }
 
@@ -95,9 +98,21 @@
     check.disabled = s.status === 'checking';
     const acts = [check];
 
+    if (s.status === 'ready' || s.status === 'installed') {
+      acts.push(btn(s.status === 'ready' ? '⬆ Kur ve Yeniden Başlat' : '↻ Yeniden Başlat', 'Uygulama kapanır; yeni sürüm açılır', async () => {
+        const r = await window.api.updatesInstall();
+        if (!r || !r.ok) P().toast(tt('Kurulum başlatılamadı; sürüm sayfasından indirin.'), 'warn');
+      }, 'primary'));
+    }
     if (s.status === 'available') {
       root.appendChild(p.row('En Yeni Sürüm', el('span', { class: 'upd-ver new', text: 'v' + s.latest + (s.publishedAt ? ' · ' + fmtDate(s.publishedAt) : '') })));
-      if (s.asset) acts.push(btn('⬇ İndir', s.asset.name, () => window.api.updatesOpen('asset'), 'primary'));
+      /* Kurulabilen türde (Windows kurulumu, AppImage) indirme uygulamanın
+         içinde ve doğrulanarak; diğerlerinde tarayıcıda. */
+      if (s.installable && s.auto && window.api.updatesDownload) {
+        acts.push(btn('⬇ İndir ve Kur', s.asset.name + ' — ' + tt('SHA-256 ile doğrulanır'), async () => onStatus(await window.api.updatesDownload()), 'primary'));
+      } else if (s.asset) {
+        acts.push(btn('⬇ İndir', s.asset.name, () => window.api.updatesOpen('asset'), 'primary'));
+      }
       acts.push(btn('Sürüm Sayfası', 'Sürüm notları ve tüm dosyalar', () => window.api.updatesOpen('release')));
       if (!s.skipped) acts.push(btn('Bu Sürümü Atla', 'Bu sürüm için bir daha bildirim gösterme', async () => onStatus(await window.api.updatesSkip())));
     }
@@ -105,6 +120,9 @@
 
     if (s.status === 'available') {
       root.appendChild(el('div', { class: 'ctrl settings-io-note', text: KIND_HINTS[kind] || '' }));
+      if (s.downloadError) {
+        root.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: tt('İndirme başarısız:') + ' ' + s.downloadError }));
+      }
       if (!s.asset) {
         root.appendChild(el('div', { class: 'ctrl settings-io-note warn', text: 'Bu sistem için hazır bir dosya bulunamadı; sürüm sayfasından uygun olanı seçin.' }));
       }
