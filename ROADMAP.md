@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2447 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2455 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 850
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 858
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2657,22 +2657,10 @@ rest after. No version number yet.
     fidelity on it now uses MilkDrop's formula; all 16,346 corpus stages
     still compile (`scripts/milkdrop-compile-rate.js` now translates the
     way the engine does, `--legacy` for fidelity off).
-  - **Not done yet — `uv` orientation, left as it is on purpose.** Whether
-    a preset shader doing arithmetic on `uv.y` (or reading `ang` in the
-    composite, whose sign follows `v`) comes out mirrored. The source
-    alone does not settle it: MilkDrop's composite mesh puts `v = 0` at
-    the top, but its warp mesh computes `v ≈ 1` for the top row and then
-    flips the rows as it draws, so which way the picture ends up on screen
-    depends on how its render targets are flipped between the warp, the
-    composite and the display. Our warp `uv` has the same numbers as
-    MilkDrop's warp mesh; our composite has `v = 1` at the top. Changing
-    it means flipping every 2D texture fetch and storing user textures
-    bottom-up, and it changes thousands of presets — not something to do
-    on reasoning alone. It needs frames from a reference renderer, which
-    is the other item not done: a whole-frame comparison needs a full
-    MilkDrop build (BeatDrop or the Nullsoft code) plus a harness that
-    feeds both the same audio frame by frame. The expression side is
-    compared (see below). Left out of the compiler: the last bit
+  - **`uv` orientation — settled with a reference renderer, fixed in the
+    follow-up below ("Internal buffers in MilkDrop's orientation").** The
+    source alone did not settle it; frames from MilkDrop 2 itself did. The
+    expression side is compared separately (see below). Left out of the compiler: the last bit
     of `sin`, `cos`, `tan`, `atan2`, `exp`, `log` and `pow`, which x87
     computes in 80 bits and chops to 64, where JavaScript rounds to
     nearest — matching it needs each call evaluated beyond double
@@ -2971,7 +2959,7 @@ expects.
   - The deck's own actions (fire a slot or row, stop all) are left out of the list. Chaining slots is what follow actions are for, and a slot firing slots could loop.
   - An action has no transition. Firing one leaves the user's transition setting alone, and the slot editor hides the transition rows.
   - Tests: the list and its exclusions, running and refusing actions, an action slot fired through the engine with the transition unchanged, the editor, and timeline clips firing with their target. Mutations catch each path.
-- **Now Playing in the panel preview and in exports (#638)** · done on the branch.
+- **Now Playing in the panel preview and in exports (#638)** · done on `main`.
   - The Now Playing mode was not loaded on these two pages, so a Now Playing visualizer or layer drew nothing in the panel preview or in an exported video. The page check listed both as deliberate exceptions, saying the live system media information is missing there.
   - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
   - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
@@ -2997,6 +2985,35 @@ expects.
   - The engine loads them in two steps. Preset 1 loads with a hard cut. Preset 2 then starts a normal transition, which is frozen at the file's `blending_progress`. The two presets' per-vertex mix (MD2's transition patterns) uses the file's pattern: `side` is a wipe, `plasma` is plasma, and radial, circle or zoom are radial. `random_1..5` and `blending_direction` seed that pattern.
   - Checked against three real MilkDrop 3.x files, kept outside the repository: each reaches the frozen mix on frame 3 and holds it.
   - **Not yet:** MD3 sprite sections, which point at MD3's own image files. The exact meaning of the random values is our reading of the files, because MilkDrop 3's source is not public.
+- **Reference renderer and internal buffers in MilkDrop's orientation (#580)** · done on the branch.
+  - **The reference renderer.** A small offline host built from BeatDrop's D3D9 sources (mvsoft74/BeatDrop 53d83ee, BSD-3) and Microsoft's D3DX NuGet package. It takes a preset, fixed 576+576-sample audio per frame and a fixed 30 fps step, and writes chosen frames as raw pixels. A matching script renders the same preset, audio and frames through our engine and compares them. The tool lives outside the repository (the project notes record its sources); nothing of it ships.
+  - **What it measured.** MilkDrop 2 draws in Direct3D, where texture row 0 is the top of the picture. The engine kept its buffers GL-style and used MilkDrop's 2D formulas unchanged:
+    - per-pixel `x`, `y`, `dx`, `dy` matched;
+    - shapes and custom waves were vertically mirrored (a shape at `y = 0.75` drew near the bottom, while MilkDrop and its own documentation put it near the top);
+    - `uv.y` and `ang` in warp and composite shaders were mirrored, and so was the direction of offset texture reads;
+    - `rot`, `cx`/`cy`, `sx`/`sy` and the built-in warp only looked right because two mirrors cancelled out.
+  - **Change.** The warp mesh flips its position and `uv` once, and the composite mesh flips its `uv`. Internal buffers now have row 0 at the top, and MilkDrop's formulas apply as written:
+    - shapes, waves and borders use `y·−2+1`;
+    - the built-in wave negates every `y` before drawing (milkdropfs.cpp:3223-3230);
+    - textured shapes use MilkDrop's `tv`;
+    - burned sprites skip the display flip;
+    - hue corners and the fixed composite keep their on-screen placement.
+  - **After.** 26 synthetic presets, each asking one question (uv in warp and composite, `ang`, read direction, `rot`, `cx`/`cy`, `sx`/`sy`, warp, per-pixel rotation, shapes, textured shapes, waves, echo, borders, motion vectors), match MilkDrop 2 within 0.0–0.6 of 255 on a 16-pixel grid.
+  - **A warm-up before comparing.** MilkDrop's band averages start from zero in a new session, so its `bass`, `mid` and `treb` sit at the cap of 10 on the first frame and settle over about 20 frames. The engine seeds its averages instead. Both engines therefore first run the same audio for 90 frames on a black preset, then hard-cut to the preset under test. After that, the bands agree to three decimals frame by frame (for example 0.052 / 0.549 / 0.439 against 0.052 / 0.547 / 0.437). Without the warm-up, a preset like "Flexi - psychenapping", whose swirls scale with `bass`, looked like it was missing half its picture.
+  - **On 200 random corpus presets** (seed 11, 90-frame warm-up, mean difference on a 16-pixel grid, 0..255):
+
+    | | frame 2 | frame 10 | frame 30 | frame 59 |
+    |---|---|---|---|---|
+    | median, before → after | 6.0 → 5.0 | 11.5 → 8.7 | 20.0 → 16.7 | 25.1 → 22.1 |
+    | better / worse by more than 2 | 28 / 6 | 49 / 3 | 61 / 10 | 63 / 16 |
+    | our image mirrored matches better | 21 → 5 | 38 → 2 | 41 → 2 | 41 → 8 |
+
+    Among the 68 presets without user textures or `rand()`, frame 2 is 8 better and 0 worse (median 3.4 → 2.4), and frame 10 is 16 better and 1 worse. Later frames diverge in both engines, because small differences grow in feedback.
+  - **Found alongside and still open:**
+    - the built-in wave and motion vectors draw about 2.5× brighter than MilkDrop 2;
+    - hue colours use `rand_preset` as their phase. MilkDrop's `m_fRandStart` is never assigned (the source has no `Randomize()`, and BeatDrop never calls its own), so MilkDrop's phase is 0 and its colours depend on the clock alone;
+    - the fixed composite's hue corners are mirrored top to bottom (a synthetic preset matches MilkDrop only when flipped);
+    - presets with user textures, `rand()` or `rand_frame` can't be compared frame for frame yet.
 
 ## v3.1.6 — Comprehensive video export
 

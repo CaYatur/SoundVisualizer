@@ -100,14 +100,16 @@ test('çeviri: hueAt dört köşeyi çift doğrusal karıştırıyor', () => {
 });
 
 /* MilkDrop'un ağırlığındaki y birleştirme ağının EKRAN konumu ve ekranın
-   üstünde 1 (plugin.cpp:1475-1490, `sy` üst satırda +1); bizim `uv.y` de
-   üstte 1. Burada eskiden `1.0 - p.y` vardı ve renk geçişi dikeyde
-   aynalanıyordu (#580) — hata vermez, yalnız yanlış görünür. Ekrandaki
-   yerleşim bu testin sınayamadığı şey; o ölçümle doğrulandı. */
-test('çeviri: hueAt y\'yi çevirmiyor (MilkDrop\'ta y ekranın üstünde 1)', () => {
+   üstünde 1 (plugin.cpp:1475-1490, `sy` üst satırda +1). `uv` ise artık
+   MilkDrop'un kendi sayısı, ekranın üstünde 0 (iç tamponlar MilkDrop
+   yönünde, #580; referans çizicide ölçüldü) — o yüzden y = 1 − uv.y.
+   Ekrandaki yerleşim değişmedi: önceki `uv.y` üstte 1'di ve `y = p.y`
+   aynı köşeleri veriyordu. Bir yöne çevirmek hata vermez, yalnız renk
+   geçişini dikeyde aynalar. */
+test('çeviri: hueAt y\'si ekranın üstünde 1 (uv üstte 0)', () => {
   const r = T.translate('shader_body { ret = hue_shader; }');
-  assert.match(r.glsl, /float y = p\.y;/);
-  assert.doesNotMatch(r.glsl, /float y = 1\.0 - p\.y;/);
+  assert.match(r.glsl, /float y = 1\.0 - p\.y;/);
+  assert.doesNotMatch(r.glsl, /float y = p\.y;/);
 });
 
 test('çeviri: warp aşaması da hue_shader alıyor', () => {

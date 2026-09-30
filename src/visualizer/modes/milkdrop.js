@@ -135,12 +135,18 @@ out float vRad;
 out float vAng;
 out float vBlend;
 void main(){
-  vUV = aUV;
-  vUVOrig = aUVOrig;
+  /* İÇ TAMPONLAR MilkDrop'un (D3D) YÖNÜNDE: satır 0 görüntünün ÜSTÜ
+     (#580). Ağ düğümleri GL düzeninde kuruluyor (üst düğüm y = +1, v ≈ 1);
+     burada TEK KEZ çevriliyor: üst düğüm satır 0'a yazıyor ve v ≈ 0'dan
+     okuyor. Böylece presetin gördüğü uv MilkDrop'unkiyle aynı sayı (üstte
+     0), şekil ve dalgalar MilkDrop'un kendi formülüyle (y·−2+1) doğru yere
+     düşüyor. Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) ölçüldü. */
+  vUV = vec2(aUV.x, 1.0 - aUV.y);
+  vUVOrig = vec2(aUVOrig.x, 1.0 - aUVOrig.y);
   vRad = aRad;
   vAng = aAng;
   vBlend = aBlend;
-  gl_Position = vec4(aPos, 0.0, 1.0);
+  gl_Position = vec4(aPos.x, -aPos.y, 0.0, 1.0);
 }`;
 
   /* BIRLESTIRME AGI (#560, madde 4).
@@ -164,7 +170,9 @@ layout(location=5) in float aBlend;
 out vec2 vUV;
 out float vBlend;
 void main(){
-  vUV = aUVOrig;
+  /* Ekrana çizim: konum GL düzeninde kalıyor, okuma MilkDrop yönündeki
+     iç tampondan — ekranın üstü v = 0 (MilkDrop'un birleştirme ağı gibi). */
+  vUV = vec2(aUVOrig.x, 1.0 - aUVOrig.y);
   vBlend = aBlend;
   gl_Position = vec4(aPos, 0.0, 1.0);
 }`;
@@ -272,7 +280,8 @@ uniform vec3 uWEcho[4];
    üst-sağdan alt-sola. Köşe rengi her üçgenin içinde doğrusal, çift
    doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması. */
 vec3 quad(vec3 w[4]) {
-  float x = vUV.x, y = vUV.y;
+  // Köşe ağırlıkları ekran konumuna göre, y ekranın üstünde 1
+  float x = vUV.x, y = 1.0 - vUV.y;
   if (y >= x) return (y - x) * w[0] + x * w[1] + (1.0 - y) * w[2];
   return y * w[1] + (1.0 - x) * w[2] + (x - y) * w[3];
 }
@@ -767,10 +776,12 @@ void main(){ outColor = texture(uSrc, vUV) * vCol; }`;
 precision highp float;
 layout(location=0) in vec2 aPos;
 layout(location=1) in vec2 aUV;
+uniform float uYSign;
 out vec2 vUV;
 void main(){
   vUV = aUV;
-  gl_Position = vec4(aPos, 0.0, 1.0);
+  // Ekrana +1, MilkDrop yönündeki iç tampona (burn) −1 (#580)
+  gl_Position = vec4(aPos.x, aPos.y * uYSign, 0.0, 1.0);
 }`;
 
   const SPRITE_FRAG = `#version 300 es
@@ -4447,9 +4458,11 @@ void main(){
       }
     }
 
-    /* MilkDrop'un ekran koordinatı: x,y 0..1 ve y AŞAĞI doğru artıyor.
-       GL'de y yukarı; çevirmezsek her şekil yatay eksende aynalanır ve
-       simetrik olmayan presetler ters görünür. */
+    /* MilkDrop'un kendi formülü (milkdropfs.cpp:2300, 2613: y·−2+1). İç
+       tampon MilkDrop yönünde (satır 0 = görüntünün üstü, #580), yani −1
+       üst: şekil ve dalganın y'si belgedeki gibi 0 altta, 1 üstte çıkıyor.
+       Önce tampon GL yönündeydi ve bu formül her şekli, her dalgayı dikeyde
+       aynalıyordu; referans çizicide ölçüldü. */
     _toClipY(y) { return 1 - 2 * y; }
 
     _blend(gl, additive) {
@@ -4553,10 +4566,10 @@ void main(){
               td[k] = cxp + Math.cos(th) * rad * aspY;
               td[k + 1] = cyp + Math.sin(th) * rad;
               td[k + 2] = c2[0]; td[k + 3] = c2[1]; td[k + 4] = c2[2]; td[k + 5] = c2[3];
-              /* Doku y ekseni AŞAĞI artıyor (MilkDrop ekran koordinatı),
-                 konumun y'si ise yukarı — işaret bu yüzden ters. */
+              /* İç tampon MilkDrop yönünde (satır 0 üstte, #580): konum da
+                 doku da MilkDrop'un kendi formülü, işaret çevirmesi yok. */
               td[k + 6] = 0.5 + 0.5 * Math.cos(tth) / tz * (acc ? aspY : 1);
-              td[k + 7] = 0.5 - 0.5 * Math.sin(tth) / tz;
+              td[k + 7] = 0.5 + 0.5 * Math.sin(tth) / tz;
             }
             this._blend(gl, additive);
             gl.useProgram(this.shapeTexProg);
@@ -5006,7 +5019,8 @@ void main(){
       /* wave_y'de ÇEVİRME YOK. Şekillerde var (`y*-2+1`), dalgada yok —
          MilkDrop kaynağı bunu "orijinalinde tersti, öyle bırakıyoruz" diye
          işaretliyor. İkisini aynı sanmak dalgayı ekranın yanlış yarısına
-         koyuyor. */
+         koyuyor. Bütün noktaların y'si çizimden hemen önce ters çevriliyor
+         (aşağıda, MilkDrop'un sırası). */
       const posY = (P.get('wave_y') || 0) * 2 - 1;
       let myst = P.get('wave_mystery') || 0;
       if ((mode === 0 || mode === 1 || mode === 4) && (myst < -1 || myst > 1)) {
@@ -5210,8 +5224,15 @@ void main(){
          yeşile `cb`, maviye `cg` yazıyor (milkdropfs.cpp:3101-3102), ama
          aktardığı D3D9 kodu `D3DCOLOR_RGBA_01(cr, cg, cb, alpha1)` diyor;
          yer değiştirme aktarımda girmiş, MilkDrop 2'de yok. */
+      /* Y'LER TERS ÇEVRİLİYOR — MilkDrop da burada çeviriyor, "VMS öncesi
+         MilkDrop'la tutarlı kalmak için" (milkdropfs.cpp:3223-3230, BeatDrop
+         D3D9). İç tampon MilkDrop yönüne geçene kadar (#580) bu çevirme
+         yoktu ve tamponun kendi aynalaması onu telafi ediyordu; referans
+         çizicide dalga kipi 7 ile ölçüldü. Yumuşatma doğrusal, sırası fark
+         etmiyor. */
       for (let i = 0; i < n; i++) {
         const k = i * 6;
+        d[k + 1] = -d[k + 1];
         d[k + 2] = cr; d[k + 3] = cg; d[k + 4] = cb; d[k + 5] = alpha;
       }
 
@@ -5716,6 +5737,7 @@ void main(){
         uTex: gl.getUniformLocation(p.prog, 'uTex'),
         uCol: gl.getUniformLocation(p.prog, 'uCol'),
         uTexAlpha: gl.getUniformLocation(p.prog, 'uTexAlpha'),
+        uYSign: gl.getUniformLocation(p.prog, 'uYSign'),
       };
       this.spriteVao = gl.createVertexArray();
       this.spriteVbo = gl.createBuffer();
@@ -5767,10 +5789,12 @@ void main(){
           if (d.burn && dst) {
             gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fb);
             gl.viewport(0, 0, GW, GH);
+            gl.uniform1f(L.uYSign, -1);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
           }
           gl.bindFramebuffer(gl.FRAMEBUFFER, outFb);
           gl.viewport(0, 0, GW, GH);
+          gl.uniform1f(L.uYSign, 1);
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         }
         gl.disable(gl.BLEND);

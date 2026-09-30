@@ -83,8 +83,11 @@ function drawWave(opts) {
   return got;
 }
 
-// i. tepe noktası [x, y]
-const pt = (r, i) => [r.vd[i * 6], r.vd[i * 6 + 1]];
+/* i. tepe noktası [x, y]. MilkDrop bütün y'leri çizimden hemen önce ters
+   çeviriyor (milkdropfs.cpp:3223-3230, "VMS öncesiyle tutarlı kalmak için");
+   aşağıdaki beklenen değerler kaynağın çevirmeden ÖNCEKİ formülleri, o
+   yüzden burada geri çevriliyor. Çevirmenin kendisi ayrı testte (#580). */
+const pt = (r, i) => [r.vd[i * 6], -r.vd[i * 6 + 1]];
 // Ayrı iki kanal: sol ve sağ kesinlikle farklı diziler
 function chans() {
   const L = new Float32Array(576), R = new Float32Array(576);
@@ -380,4 +383,19 @@ test('kanal okumaları kaynakta da kipe göre ayrışıyor', () => {
   assert.match(dw, /acc \? R\[i \+ off\] : \(L\[i \+ off\] \+ R\[i \+ off\]\) \* 0\.5/);
   assert.match(dw, /acc \? L\[i \+ off\] : 0\.5 \* \(L\[i\] \+ R\[i\]\)/);
   assert.match(dw, /const two = mode === 7 \|\| !acc;/);
+});
+
+/* SON ÇEVİRME (#580). İç tampon MilkDrop yönüne geçti (satır 0 üstte); orada
+   MilkDrop'un kendi çevirmesi gerekiyor. Referans çizicide (BeatDrop'tan
+   derlenen MilkDrop 2) dalga kipi 7'nin iki çizgisi bu çevirme olmadan
+   ekranın öbür yarısına düşüyordu. */
+test('bütün noktaların y\'si çizimden önce ters çevriliyor (kip 0 ve 6)', () => {
+  const { L, R } = chans();
+  const r6 = drawWave({ L, R, vals: { wave_mode: 6, wave_y: 0.9 } });
+  for (const i of [0, 37, 239]) close(r6.vd[i * 6 + 1], -0.25 * L[i + 120], 'kip 6 y' + i);
+  // Kip 0 çemberin merkezi (wave_y 0.8 → +0.6) çevrilince −0.6 çevresinde
+  const r0 = drawWave({ L, R, vals: { wave_mode: 0, wave_y: 0.8 } });
+  let s = 0;
+  for (let i = 0; i < r0.vn; i++) s += r0.vd[i * 6 + 1];
+  assert.ok(Math.abs(s / r0.vn + 0.6) < 0.05, 'çemberin ortası ' + (s / r0.vn));
 });
