@@ -273,17 +273,20 @@ uniform float uEchoZoom;
 uniform int uEchoOrient;
 uniform vec4 uFx;          // brighten, darken, solarize, invert
 uniform float uFxMd2;      // 1: MilkDrop 2'nin sabit yolunun biçimleri (#580)
-/* MilkDrop biçimi: iki katmanın köşe ağırlıkları, köşe sırası üst-sol,
-   üst-sağ, alt-sol, alt-sağ. Her biri o katmanın çizimlerinin köşe
+/* MilkDrop biçimi: iki katmanın köşe ağırlıkları, köşe sırası EKRANDA
+   alt-sol, alt-sağ, üst-sol, üst-sağ. Her biri o katmanın çizimlerinin köşe
    renklerinin toplamı — gama, pay ve ton rengi içinde (M.fixedCompWeights). */
 uniform vec3 uWMain[4];
 uniform vec3 uWEcho[4];
 /* MilkDrop'un dörtgeni İKİ ÜÇGEN (şerit v0 v1 v2 v3): ortak kenar
-   üst-sağdan alt-sola. Köşe rengi her üçgenin içinde doğrusal, çift
-   doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması. */
+   alt-sağdan üst-sola. Köşe rengi her üçgenin içinde doğrusal, çift
+   doğrusal değil — ortada dört köşenin değil 1 ile 2'nin ortalaması.
+   v0 ile v1 EKRANIN ALTI (#580): kırpma y'leri +1 ama doku koordinatları
+   tv = 1, yani görüntünün alt satırı (milkdropfs.cpp:4154-4155); çizim
+   dönüşümü y'yi çeviriyor. Referans çizicide ölçüldü. */
 vec3 quad(vec3 w[4]) {
-  // Köşe ağırlıkları ekran konumuna göre, y ekranın üstünde 1
-  float x = vUV.x, y = 1.0 - vUV.y;
+  // Köşe ağırlıkları ekran konumuna göre, y ekranın altında 1 (vUV.y)
+  float x = vUV.x, y = vUV.y;
   if (y >= x) return (y - x) * w[0] + x * w[1] + (1.0 - y) * w[2];
   return y * w[1] + (1.0 - x) * w[2] + (x - y) * w[3];
 }
@@ -2686,7 +2689,7 @@ void main(){
        sabit yolda COLOR_NORM onu sarıyor (M.fixedCompWeights).
        Dizideki sıra yalnız köşenin NUMARASI; ekrandaki yerini iki yol
        kendisi veriyor ve MilkDrop'ta da ayrı: sabit yolun dörtgeninde 0
-       üst-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
+       alt-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
        eski tek rengi.
 
        RASTGELE FAZ YOK (#580). Formüldeki `m_fRandStart[]` MilkDrop'ta hiç

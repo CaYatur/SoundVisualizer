@@ -77,8 +77,11 @@ test('zincir: warp düğümü per_pixel y = 0 (üst) satır 0\'a yazıp v ≈ 0\
   assert.strictEqual(v, 0, 'v = 0 (MilkDrop\'un uv\'si, üstte 0)');
 });
 
-test('hue ve sabit birleştirme köşeleri ekranda yerinde (y üstte 1)', () => {
-  assert.match(shader('COMP_FIXED_FRAG'), /float x = vUV\.x, y = 1\.0 - vUV\.y;/);
+/* Sabit yolun dörtgeninde v0 ile v1 ekranın ALTI: MilkDrop'ta kırpma
+   y'leri +1 ama doku koordinatları tv = 1 (görüntünün alt satırı). Hue
+   shader'ının köşeleri ise y üstte 1 ile yerinde. */
+test('hue ve sabit birleştirme köşeleri ekranda yerinde', () => {
+  assert.match(shader('COMP_FIXED_FRAG'), /float x = vUV\.x, y = vUV\.y;/);
   const T = require('../src/shared/milkdrop-shader.js');
   assert.match(T.translate('shader_body { ret = hue_shader; }').glsl, /float y = 1\.0 - p\.y;/);
 });

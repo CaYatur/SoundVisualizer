@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2461 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2462 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 864
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 865
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -2964,7 +2964,7 @@ expects.
   - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
   - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
   - Checked in the app: a manual Now Playing visualizer shows its title and artist in the panel preview.
-- **Tempo changes on the ruler, lane height (#636)** · done on the branch.
+- **Tempo changes on the ruler, lane height (#636)** · done on `main`.
   - **Bug fixed:** the header BPM edited only the first tempo entry and replaced the whole tempo list with that one entry, so tempo changes from an imported show file were silently deleted. The model always supported a tempo map; the panel did not.
   - **Tempo changes** show on the ruler as cyan ♩ tags (BPM, and the metre when it changes) with a line down the lanes:
     - **♩＋** adds one at the playhead;
@@ -3025,9 +3025,15 @@ expects.
     Among the 68 presets without user textures or `rand()`, frame 2 is 8 better and 0 worse (median 3.4 → 2.4), and frame 10 is 16 better and 1 worse. Later frames diverge in both engines, because small differences grow in feedback.
   - **Found alongside and still open:**
     - the built-in wave and motion vectors draw about 2.5× brighter than MilkDrop 2;
-    - hue colours use `rand_preset` as their phase. MilkDrop's `m_fRandStart` is never assigned (the source has no `Randomize()`, and BeatDrop never calls its own), so MilkDrop's phase is 0 and its colours depend on the clock alone;
-    - the fixed composite's hue corners are mirrored top to bottom (a synthetic preset matches MilkDrop only when flipped);
+    - hue colours and the fixed composite's corners — fixed in the next entry;
     - presets with user textures, `rand()` or `rand_frame` can't be compared frame for frame yet.
+- **Hue corner colours as in MilkDrop (#580)** · done on the branch.
+  - **Phase.** The four hue colours (`hue_shader` in composite shaders, and the corner colours of the fixed composite) used `rand_preset` as their phase. MilkDrop's formula adds `m_fRandStart`, but nothing ever assigns it: the primary source has no `Randomize()`, and BeatDrop defines one but never calls it. The phase is therefore 0, and the colours depend on the session clock alone. The old phase also only moved the colours within one radian of the cycle.
+  - **Fixed composite corners.** MilkDrop draws the fixed composite as a two-triangle quad. Its first two vertices have clip `y = +1` but texture `tv = 1`, the bottom row of the picture (milkdropfs.cpp:4154-4155), so after the sprite transform they are the **bottom** corners on screen. The engine put corner 0 at the top left. Corner 0 is now bottom left, and the shared edge of the two triangles runs from bottom right to top left.
+  - **Measured** on the reference renderer with two synthetic presets, mean difference on a 16-pixel grid (0..255):
+    - `hue_shader` in a composite shader: 13.75 → 0.49;
+    - the fixed composite with `fShader = 1`: 16.2 (and 0.03 when our image was flipped) → 0.03, with no pixel off by more than 2.
+  - In the corpus, 631 of the 2,128 presets without a composite shader set `fShader` above zero, so this is visible on many presets: the tint now sits where MilkDrop puts it and changes colour at MilkDrop's pace.
 
 ## v3.1.6 — Comprehensive video export
 
