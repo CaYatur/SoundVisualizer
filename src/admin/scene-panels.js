@@ -26,11 +26,11 @@
     const up = reverse ? 1 : -1;
     const kids = [
       el('button', {
-        class: 'btn ghost tiny', type: 'button', text: '▲', title: 'Yukarı taşı',
+        class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: 'Yukarı taşı',
         onclick: () => { if (moveItem(list, i, up)) onChange(); },
       }),
       el('button', {
-        class: 'btn ghost tiny', type: 'button', text: '▼', title: 'Aşağı taşı',
+        class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: 'Aşağı taşı',
         onclick: () => { if (moveItem(list, i, -up)) onChange(); },
       }),
       el('span', { class: 'item-title', text: title }),
@@ -38,7 +38,7 @@
     if (extra) kids.push(extra);
     kids.push(
       el('button', {
-        class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Kaldır',
+        class: 'btn ghost tiny danger', type: 'button', icon: 'x', title: 'Kaldır',
         onclick: () => { list.splice(i, 1); onChange(); },
       })
     );
@@ -170,16 +170,18 @@
     const el = P().el;
     const body = el('div', { class: 'fold-body' });
     let open = !!foldStates[k];
+    /* Ok ayrı bir öğe ve CSS'le döndürülüyor (.fold-head.open); yazı
+       kendi metin düğümünde kalıyor, çeviri onu tam metin eşliyor. */
     const head = el('button', {
-      class: 'fold-head', type: 'button', text: (open ? '▾ ' : '▸ ') + title,
+      class: 'fold-head' + (open ? ' open' : ''), type: 'button',
       onclick: () => {
         open = !open;
         foldStates[k] = open;
-        head.textContent = (open ? '▾ ' : '▸ ') + title;
+        head.classList.toggle('open', open);
         body.classList.toggle('open', open);
         if (open && !body.childElementCount) buildKids().forEach((n) => n && body.appendChild(n));
       },
-    });
+    }, [el('span', { class: 'fold-caret', icon: 'caret-right' }), el('span', { text: title })]);
     if (open) {
       body.classList.add('open');
       buildKids().forEach((n) => n && body.appendChild(n));
@@ -211,7 +213,7 @@
     try { localStorage.setItem('sv-layers-open', JSON.stringify([...set].slice(-64))); } catch { /* yok say */ }
   }
 
-  const LAYER_ICONS = { background: '🌄', visualizer: '🎵', text: '🔤', media: '🎞', sprites: '✨', logo: '🏷' };
+  const LAYER_ICONS = { background: 'background', visualizer: 'bars', text: 'text', media: 'film', sprites: 'sparkles', logo: 'tag' };
 
   /* Katman başlığı: sıra okları, tür simgesi, ad ve özet, bayraklar, aç/kapa
      ve kaldır. Liste ekranda ters sırada: "yukarı" dizide İLERİ demek (bkz.
@@ -219,19 +221,19 @@
      hedeflemek zorunda kalınmasın. */
   function layerHead(list, i, l, name, summary, flags, open, toggle, onChange) {
     const el = P().el;
-    const icon = LAYER_ICONS[l.kind === 'visualizer' && l.type === 'text' ? 'text' : l.kind] || '▦';
+    const icon = LAYER_ICONS[l.kind === 'visualizer' && l.type === 'text' ? 'text' : l.kind] || 'grid';
     return el('div', { class: 'layer-head' + (open ? ' open' : '') }, [
       el('div', { class: 'layer-ord' }, [
         el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '▲', title: 'Yukarı taşı',
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: 'Yukarı taşı',
           onclick: () => { if (moveItem(list, i, 1)) onChange(); },
         }),
         el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '▼', title: 'Aşağı taşı',
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: 'Aşağı taşı',
           onclick: () => { if (moveItem(list, i, -1)) onChange(); },
         }),
       ]),
-      el('span', { class: 'layer-ico', text: icon }),
+      el('span', { class: 'layer-ico', icon }),
       el('button', {
         class: 'layer-name', type: 'button', title: open ? tr('Ayarları gizle') : tr('Ayarları göster'),
         'aria-expanded': open ? 'true' : 'false',
@@ -242,13 +244,13 @@
       ]),
       flags,
       el('button', {
-        class: 'btn ghost tiny layer-caret', type: 'button', text: open ? '▾' : '▸',
+        class: 'btn ghost tiny layer-caret', type: 'button', icon: open ? 'caret-down' : 'caret-right',
         title: open ? tr('Ayarları gizle') : tr('Ayarları göster'),
         disabled: !!l.locked,
         onclick: toggle,
       }),
       el('button', {
-        class: 'btn ghost tiny layer-del', type: 'button', text: '✕', title: 'Kaldır',
+        class: 'btn ghost tiny layer-del', type: 'button', icon: 'x', title: 'Kaldır',
         onclick: () => { list.splice(i, 1); onChange(); },
       }),
     ]);
@@ -407,7 +409,7 @@
         }
         out.push(el('div', { class: 'row' }, [
           el('button', {
-            class: 'btn small', type: 'button', text: m.file ? '🎞 Videoyu Değiştir' : '🎞 Video Seç',
+            class: 'btn small', type: 'button', icon: 'film', text: m.file ? 'Videoyu Değiştir' : 'Video Seç',
             onclick: async () => {
               if (window.api && window.api.pickVideo) {
                 const r = await window.api.pickVideo();
@@ -493,7 +495,7 @@
         if (previewSrc) out.push(el('img', { class: 'layer-preview', src: previewSrc, alt: '' }));
         out.push(el('div', { class: 'row' }, [
           el('button', {
-            class: 'btn small', type: 'button', text: lg.src ? '🖼 Logoyu Değiştir' : '🖼 Logo Seç',
+            class: 'btn small', type: 'button', icon: 'image', text: lg.src ? 'Logoyu Değiştir' : 'Logo Seç',
             onclick: () => {
               pickImage((dataUrl, fileName) => {
                 lg.src = dataUrl;
@@ -527,7 +529,7 @@
       out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true }));
       out.push(el('div', { class: 'row', style: 'margin-bottom: 6px;' }, [
         el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '⌖ Otomatik Ortala (50%)',
+          class: 'btn ghost tiny', type: 'button', icon: 'target', text: 'Otomatik Ortala (50%)',
           onclick: () => {
             lg.x = 0.5;
             lg.y = 0.5;
@@ -600,7 +602,7 @@
           onchange: (e) => { it.name = e.target.value.trim() || 'Görsel'; P().push(true); },
         });
         const repBtn = el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '🖼 Değiştir',
+          class: 'btn ghost tiny', type: 'button', icon: 'image', text: 'Değiştir',
           onclick: () => {
             pickImage((dataUrl) => {
               it.src = dataUrl;
@@ -610,7 +612,7 @@
           },
         });
         const delBtn = el('button', {
-          class: 'btn ghost tiny danger', type: 'button', text: '🗑 Sil',
+          class: 'btn ghost tiny danger', type: 'button', icon: 'trash', text: 'Sil',
           onclick: () => {
             imgs.items.splice(idx, 1);
             P().push(true);
@@ -625,7 +627,7 @@
       out.push(imgList);
 
       out.push(el('button', {
-        class: 'btn small', type: 'button', text: '➕ Görsel Ekle',
+        class: 'btn small', type: 'button', icon: 'plus', text: 'Görsel Ekle',
         onclick: () => {
           pickImage((dataUrl, fileName) => {
             imgs.items.push(window.SV.imageItem({ src: dataUrl, name: fileName || ('Görsel ' + (imgs.items.length + 1)) }));
@@ -698,16 +700,16 @@
             const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
               ? window.SVNowLive.state : null;
             const statusText = live
-              ? (live.playing ? '▶ ' : '❚❚ ') + ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
+              ? ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
               : 'Şu anda sistemde çalan parça yok (yedek kullanılır)';
             const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
-            out.push(P().row('Canlı Medya', el('span', { class: statusClass, text: statusText })));
+            out.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText })));
 
             out.push(el('div', { class: 'row' }, [
               el('button', {
                 class: 'btn small ghost',
                 type: 'button',
-                text: '📥 Çalan Şarkıyı Alanlara Doldur',
+                icon: 'import', text: 'Çalan Şarkıyı Alanlara Doldur',
                 title: 'Çalan parçanın adını ve sanatçısını aşağıdaki yedek kutularına aktarır.',
                 onclick: () => {
                   const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
@@ -739,7 +741,7 @@
                 el('button', {
                   class: 'btn small ghost',
                   type: 'button',
-                  text: '📥 Çalan Şarkıyı Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
+                  icon: 'import', text: 'Çalan Şarkıyı Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
                   onclick: () => {
                     txt.nowPlaying = txt.nowPlaying || {};
                     if (cur.title) txt.nowPlaying.title = cur.title;
@@ -821,7 +823,7 @@
         out.push(P().row('Dosya', el('span', { class: 'txt-info', text: (txt.lyricsName || '') + ' ' + info })));
         out.push(el('div', { class: 'row' }, [
           el('button', {
-            class: 'btn small', type: 'button', text: '📂 Söz Dosyası Yükle',
+            class: 'btn small', type: 'button', icon: 'folder-open', text: 'Söz Dosyası Yükle',
             onclick: async () => {
               if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
               const r = await window.api.importShaderText();
@@ -1081,7 +1083,7 @@
       );
       nodes.push(
         el('button', {
-          class: 'btn primary', type: 'button', text: '⬗ Katmanlara Geç',
+          class: 'btn primary', type: 'button', icon: 'layers', text: 'Katmanlara Geç',
           onclick: () => {
             if (window.SVLayers && window.SVLayers.setStackEnabled) {
               window.SVLayers.setStackEnabled(cfg, true);
@@ -1139,15 +1141,15 @@
          Üçü de bir kompozitörde beklenen ama farklı işler yapan davranışlar:
          solo diğerlerini geri alınabilir biçimde susturur, sessiz katmanı
          ayarlarını kaybetmeden gizler, kilit kazara düzenlemeyi engeller. */
-      const flagBtn = (fkey, label, title, cls) => el('button', {
+      const flagBtn = (fkey, label, title, cls, icon) => el('button', {
         class: 'btn ghost tiny flagbtn' + (l[fkey] ? ' on ' + cls : ''),
-        type: 'button', text: label, title,
+        type: 'button', text: icon ? '' : label, icon, title,
         onclick: () => { l[fkey] = !l[fkey]; rerender(); },
       });
       const flags = el('span', { class: 'layer-flags' }, [
         flagBtn('solo', 'S', 'Solo — yalnızca solo katmanlar çizilir', 'solo'),
         flagBtn('muted', 'M', 'Sessiz — katmanı ayarlarını kaybetmeden gizler', 'mute'),
-        flagBtn('locked', '🔒', 'Kilit — kazara düzenlemeyi engeller', 'lock'),
+        flagBtn('locked', '', 'Kilit — kazara düzenlemeyi engeller', 'lock', 'lock'),
         el('label', { class: 'switch small', title: 'Katmanı aç/kapat' }, [enable, el('span', { class: 'track' })]),
       ]);
 
@@ -1281,7 +1283,7 @@
               out.push(el('div', { class: 'row layer-fx-head' }, [
                 el('span', { class: 'lbl', text: (fi + 1) + '. ' + (def ? def.label : f.type) }),
                 el('button', {
-                  class: 'btn ghost tiny danger', type: 'button', text: '✕',
+                  class: 'btn ghost tiny danger', type: 'button', icon: 'x',
                   onclick: () => { l.postfx.splice(fi, 1); rerender(); },
                 }),
               ]));
@@ -1327,7 +1329,7 @@
       // ---- Kopyala / çoğalt ----
       body.push(el('div', { class: 'layer-foot' }, [
         el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '⧉ Çoğalt',
+          class: 'btn ghost tiny', type: 'button', icon: 'copy', text: 'Çoğalt',
           onclick: () => {
             const copy = JSON.parse(JSON.stringify(l));
             copy.id = null;
@@ -1341,7 +1343,7 @@
           },
         }),
         el('button', {
-          class: 'btn ghost tiny', type: 'button', text: '⧉ Kopyala',
+          class: 'btn ghost tiny', type: 'button', icon: 'copy', text: 'Kopyala',
           title: 'Katmanı panoya al; başka bir sahnede yapıştırılabilir',
           onclick: () => {
             clipboard = JSON.parse(JSON.stringify(l));
@@ -1359,7 +1361,7 @@
     LAYER_KIND_LABELS.forEach(([kind, label]) => {
       addRow.appendChild(
         el('button', {
-          class: 'btn ghost small', type: 'button', text: '＋ ' + label,
+          class: 'btn ghost small', type: 'button', icon: 'plus', text: label,
           onclick: () => {
             const opts = typeOptionsFor(kind);
             const made = window.SVLayers.normalizeLayer({
@@ -1377,7 +1379,7 @@
     TEXT_ADD_PRESETS.forEach((preset) => {
       addRow.appendChild(
         el('button', {
-          class: 'btn ghost small', type: 'button', text: '＋ ' + preset.label,
+          class: 'btn ghost small', type: 'button', icon: 'plus', text: preset.label,
           onclick: () => {
             const layer = window.SVLayers.makeTextLayer
               ? window.SVLayers.makeTextLayer(preset.spec)
@@ -1398,7 +1400,7 @@
     });
     if (clipboard) {
       addRow.appendChild(el('button', {
-        class: 'btn ghost small', type: 'button', text: '📋 Yapıştır',
+        class: 'btn ghost small', type: 'button', icon: 'paste', text: 'Yapıştır',
         onclick: () => {
           const copy = JSON.parse(JSON.stringify(clipboard));
           copy.id = null;
@@ -1414,7 +1416,7 @@
 
     nodes.push(
       el('button', {
-        class: 'btn ghost small', type: 'button', text: '↺ Katmanları Sıfırla',
+        class: 'btn ghost small', type: 'button', icon: 'reset', text: 'Katmanları Sıfırla',
         title: 'Katman listesini boşaltır; sahne yeniden Arkaplan/Görselleştirici kartlarından sürülür',
         onclick: async () => {
           if (!(await P().confirm('Katman listesi boşaltılacak. Sahne yeniden Arkaplan ve Görselleştirici kartlarından sürülecek.', { danger: true, okText: 'Sıfırla' }))) return;
@@ -1496,7 +1498,7 @@
         rerender();
       },
     });
-    addSel.appendChild(el('option', { value: '', text: '＋ Efekt ekle…' }));
+    addSel.appendChild(el('option', { value: '', text: '+ Efekt ekle…' }));
     FX.EFFECT_IDS.forEach((id) => addSel.appendChild(el('option', { value: id, text: FX.EFFECTS[id].label })));
     nodes.push(P().row('Yeni Efekt', addSel));
 
@@ -1631,7 +1633,7 @@
     // Durum: parçalar ayrı düğümlerde (sayı içeren birleşik metin çevrilemez)
     const st = el('div', { class: 'studio-status ' + (artnetState.running ? 'ok' : artnetState.error ? 'err' : '') });
     if (artnetState.running) {
-      st.appendChild(el('span', { text: '✓ ' }));
+      st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Yayında' }));
       st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
       st.appendChild(el('span', { text: 'Evren' }));
@@ -1640,7 +1642,7 @@
       st.appendChild(el('span', { class: 'st-num', text: String(artnetState.packets || 0) + ' ' }));
       st.appendChild(el('span', { text: 'paket' }));
     } else if (artnetState.error) {
-      st.appendChild(el('span', { text: '✕ ' + artnetState.error }));
+      st.appendChild(el('span', { icon: 'x', text: artnetState.error }));
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));
     }

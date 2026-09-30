@@ -364,11 +364,11 @@ test('panel: başlıktaki BPM kafadaki tempoyu düzenliyor, diğerlerini silmiyo
   assert.deepStrictEqual(cfg.timeline.tempo.map((e) => e.bpm), [120, 90], 'geri alınıyor');
 });
 
-test('panel: ♩＋ kafaya tempo değişimi ekliyor; etiket sürüklenince taşınıyor, Del siliyor', async () => {
+test('panel: ♩ artı kafaya tempo değişimi ekliyor; etiket sürüklenince taşınıyor, Del siliyor', async () => {
   const cfg = cfgOf();
   const { host, cv } = await mount(cfg);
   TP.seek(6);
-  const add = find(host, (n) => n.tag === 'button' && n.text === '♩＋');
+  const add = find(host, (n) => n.tag === 'button' && n.text === '♩' && n.props.icon === 'plus');
   fire(add, 'click');
   assert.deepStrictEqual(cfg.timeline.tempo.map((e) => [e.t, e.bpm]), [[0, 120], [6, 120]]);
   assert.deepStrictEqual(TP._selection(), { kind: 'tempo', index: 1 });
@@ -397,8 +397,8 @@ test('panel: ♩＋ kafaya tempo değişimi ekliyor; etiket sürüklenince taş�
 test('panel: şerit yüksekliği ayarlanıyor ve sınırlı', async () => {
   const cfg = cfgOf();
   const { host } = await mount(cfg);
-  const up = find(host, (n) => n.tag === 'button' && n.text === '▭+');
-  const down = find(host, (n) => n.tag === 'button' && n.text === '▭−');
+  const up = find(host, (n) => n.tag === 'button' && n.props.icon === 'lanes-more');
+  const down = find(host, (n) => n.tag === 'button' && n.props.icon === 'lanes-less');
   fire(up, 'click');
   assert.strictEqual(cfg.timeline.laneHeight, 48);
   for (let i = 0; i < 20; i++) fire(down, 'click');

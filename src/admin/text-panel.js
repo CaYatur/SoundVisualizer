@@ -137,16 +137,16 @@
           const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
             ? window.SVNowLive.state : null;
           const statusText = live
-            ? (live.playing ? '▶ ' : '❚❚ ') + ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
+            ? ([live.title, live.artist].filter(Boolean).join(' — ') || '(adsız)')
             : 'Şu anda sistemde çalan parça algılanmadı (yedek kullanılır)';
           const statusClass = live ? 'txt-info np-status ok' : 'txt-info np-status';
-          nodes.push(P().row('Canlı Medya', el('span', { class: statusClass, text: statusText })));
+          nodes.push(P().row('Canlı Medya', el('span', { class: statusClass, icon: live ? (live.playing ? 'play' : 'pause') : '', text: statusText })));
 
           nodes.push(el('div', { class: 'row' }, [
             el('button', {
               class: 'btn small ghost',
               type: 'button',
-              text: '📥 Çalan Şarkıyı Alanlara Doldur',
+              icon: 'import', text: 'Çalan Şarkıyı Alanlara Doldur',
               title: 'Şu an sistemde çalan parçanın başlık ve sanatçısını aşağıdaki yedek kutularına yazar.',
               onclick: () => {
                 const cur = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
@@ -200,7 +200,7 @@
               el('button', {
                 class: 'btn small ghost',
                 type: 'button',
-                text: '📥 Çalan Şarkıyı Alanlara Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
+                icon: 'import', text: 'Çalan Şarkıyı Alanlara Doldur (' + ([cur.title, cur.artist].filter(Boolean).join(' — ')) + ')',
                 onclick: () => {
                   T.nowPlaying = T.nowPlaying || {};
                   if (cur.title) T.nowPlaying.title = cur.title;
@@ -280,7 +280,7 @@
 
       nodes.push(el('div', { class: 'row' }, [
         el('button', {
-          class: 'btn', type: 'button', text: '📂 Söz Dosyası Yükle',
+          class: 'btn', type: 'button', icon: 'folder-open', text: 'Söz Dosyası Yükle',
           onclick: async () => {
             if (!window.api || !window.api.importShaderText) { P().toast('İçe aktarma kullanılamıyor.'); return; }
             const r = await window.api.importShaderText();

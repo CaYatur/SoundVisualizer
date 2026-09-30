@@ -329,7 +329,7 @@ test('yeni arayüz metinlerinin İngilizcesi var', () => {
   const I = read('src/shared/i18n.js');
   const PANEL = read('src/admin/milkdrop-panel.js');
   const keys = [
-    '🔒 Kilitli', '🔓 Kilitle', 'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır',
+    'Kilitli', 'Kilitle', 'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır',
     'Rastgele Pay', 'Sert Geçiş', 'MilkDrop 2 (ses yükselişi)', 'Sert Geçiş Eşiği',
     'Eşik Toparlanması', 'yok',
   ];

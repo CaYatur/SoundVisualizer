@@ -20,13 +20,10 @@
     'Otomatik (Sistem dili)': 'Automatic (System language)',
     'Türkçe': 'Turkish',
     'Dil değişikliği uygulamayı yeniden yükler.': 'Changing the language reloads the application.',
-    '▶ Açık': '▶ Open',
-    '■ Kapat': '■ Close',
     'Kapat': 'Close',
     'Ses çıkışı yakalanamadı.': 'Audio output could not be captured.',
-    "Farklı bir Çıkış Aygıtı seçmeyi deneyin veya 🔄 Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.": 'Try selecting a different Output Device or press 🔄 Refresh Devices. If another application is using the device in exclusive mode, release it there first.',
+    "Farklı bir Çıkış Aygıtı seçmeyi deneyin veya Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.": 'Try selecting a different Output Device or press Refresh Devices. If another application is using the device in exclusive mode, release it there first.',
     'Çıkış Aygıtı': 'Output Device',
-    '🔄 Aygıtları Yenile': '🔄 Refresh Devices',
     'Otomatik Onar': 'Automatic Repair',
     // Aynı ayar klasörünü kullanan başka kopya ve ayar dosyası çakışması (#564)
     'Uygulamanın başka bir kopyası da çalışıyor.': 'Another copy of the application is running.',
@@ -48,28 +45,27 @@
     'Bu Kopyadakileri Kaydet': 'Save This Copy’s Settings',
     'Onarılıyor…': 'Repairing…',
     'Ses bekleniyor…': 'Waiting for audio…',
-    '↺ Varsayılanlara Sıfırla': '↺ Reset to Defaults',
+    'Varsayılanlara Sıfırla': 'Reset to Defaults',
     'Görselleştirme ekranında': 'In the visualizer, press',
     'ile çıkış • Ayarlar otomatik kaydedilir': 'to exit • Settings are saved automatically',
     'Görselleştirme ekranında ESC ile çıkış • Ayarlar otomatik kaydedilir': 'Press ESC in the visualizer to exit • Settings are saved automatically',
     'Kendi Şablonlarım': 'My Presets',
     'Henüz şablon yok. Aşağıdaki renkleri ayarlayıp “Mevcut Renkleri Kaydet”e basın.': 'No presets yet. Adjust the colors below and press “Save Current Colors”.',
-    'Şablon': 'Preset', 'Uygula': 'Apply', '⟳ Güncelle': '⟳ Update', 'Mevcut renklerle güncelle': 'Update with current colors',
-    '💾 Mevcut Renkleri Kaydet': '💾 Save Current Colors', '📤 Dışa Aktar': '📤 Export', '📥 İçe Aktar': '📥 Import',
-    '📤 Arkaplanı Dışa Aktar': '📤 Export Background', '📥 Arkaplanı İçe Aktar': '📥 Import Background',
+    'Şablon': 'Preset', 'Uygula': 'Apply', 'Güncelle': 'Update', 'Mevcut renklerle güncelle': 'Update with current colors',
+    'Mevcut Renkleri Kaydet': 'Save Current Colors', 'Dışa Aktar': 'Export',
+    'Arkaplanı Dışa Aktar': 'Export Background', 'Arkaplanı İçe Aktar': 'Import Background',
     'Arkaplan Ayarları (dosya)': 'Background Settings (file)',
     'Sabit': 'Static', 'Süzülme': 'Float', 'Yörünge': 'Orbit', 'Saçılma (sese)': 'Scatter (audio)', 'Yükselme': 'Rise', 'Düşme': 'Fall',
     'Ekran (parlak)': 'Screen (bright)', 'Toplama (ışıltı)': 'Add (glow)', 'Önde': 'Front', 'Arkada': 'Back',
     'Görsel eklemek için aşağıdaki düğmeyi kullanın. Her görsel için çok sayıda kopya (partikül) sahnede gezinir/saçılır.': 'Use the button below to add an image. Multiple copies (particles) of each image move and scatter across the scene.',
-    'Görsel': 'Image', '🗑 Kaldır': '🗑 Remove', '🖼 Değiştir': '🖼 Replace',
+    'Görsel': 'Image', 'Değiştir': 'Replace',
     'Kopya Sayısı': 'Copy Count', 'Boyut Çeşitliliği': 'Size Variation',
     'Yayılma / Alan': 'Spread / Area', 'Ses → Boyut': 'Audio → Size',
     'Ses → Hız': 'Audio → Speed',
     'Üst Üste Binmeyi Engelle': 'Prevent Overlap', 'Minimum Mesafe (boyut çarpanı)': 'Minimum Distance (size multiplier)',
-    '➕ Görsel Ekle': '➕ Add Image', '🖼  Resim / Logo Seç': '🖼  Choose Image / Logo', '⌖ Otomatik Ortala': '⌖ Auto Center',
+    'Görsel Ekle': 'Add Image', 'Resim / Logo Seç': 'Choose Image / Logo', 'Otomatik Ortala': 'Auto Center',
     'Varsayılan Çıkış (Aktif Hoparlör)': 'Default Output (Active Speaker)', 'Henüz dosya seçilmedi': 'No file selected yet',
-    '🎵  Ses Dosyası Seç (MP3 / WAV / FLAC)': '🎵  Choose Audio File (MP3 / WAV / FLAC)', '🎬 Videoya Aktar': '🎬 Export Video', '■ İptal': '■ Cancel',
-    'Birden fazla kaynak seçilebilir ve karıştırılır. 🔊 Loopback (sistem sesi), 🎤 Mikrofon (giriş aygıtı).': 'Multiple sources can be selected and mixed. 🔊 Loopback (system audio), 🎤 Microphone (input device).',
+    'Ses Dosyası Seç (MP3 / WAV / FLAC)': 'Choose Audio File (MP3 / WAV / FLAC)', 'Videoya Aktar': 'Export Video',
     'Hassasiyet': 'Sensitivity', 'Bas Güçlendirme': 'Bass Boost',
     'Renkler ve Hazır Şablonlar': 'Colors and Built-in Presets',
     'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.': 'Color sequence and built-in themes for fluid gradient and palette-driven backgrounds.',
@@ -86,7 +82,7 @@
     // Katman paneli
     'Medya Kaynağı': 'Media Source',
     'Web Kamerası': 'Webcam',
-    '🎞 Videoyu Değiştir': '🎞 Change Video',
+    'Videoyu Değiştir': 'Change Video',
     'Kapla': 'Cover',
     'Medya kapalı. Kaynak seçilince açılır.': 'Media is off. Choosing a source turns it on.',
     'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.': 'The list runs opposite to draw order: the layer at the top is the topmost one in the output.',
@@ -138,10 +134,10 @@
     'Kare Hızı (FPS)': 'Frame Rate (FPS)', '30 FPS (Düşük güç)': '30 FPS (Low power)', '60 FPS (Dengeli)': '60 FPS (Balanced)', '60 FPS (Akıcı)': '60 FPS (Smooth)', '120 FPS (Akıcı)': '120 FPS (Smooth)', 'Sınırsız': 'Unlimited',
     'Sessizlikte Duraklat': 'Pause on Silence', 'İmleci Gizle': 'Hide Cursor',
     'Bir ses dosyası seç; yukarıdaki görsel ayarlarla kayıpsız videoya dönüştürülür. Ekran/ses kaydı yapılmaz — her kare birebir render edilir, ses kaynaktan kopyalanır.': 'Choose an audio file and render it to a visually lossless video using the settings above. No screen/audio recording is performed—every frame is rendered directly and audio is copied from the source.',
-    'Kodlayıcı (Hız)': 'Encoder (Speed)', '⚡ GPU — NVIDIA NVENC (çok hızlı)': '⚡ GPU — NVIDIA NVENC (very fast)',
+    'Kodlayıcı (Hız)': 'Encoder (Speed)', 'GPU — NVIDIA NVENC (çok hızlı)': 'GPU — NVIDIA NVENC (very fast)',
     'CPU — libx264 (en uyumlu, yavaş)': 'CPU — libx264 (most compatible, slow)', 'CPU — libx264 (GPU bulunamadı)': 'CPU — libx264 (GPU unavailable)',
     'Kalite': 'Quality', 'Görsel Kayıpsız (en yüksek)': 'Visually Lossless (highest)', 'Yüksek': 'High', 'Dengeli (daha küçük dosya)': 'Balanced (smaller file)',
-    'Hız / Kalite Dengesi': 'Speed / Quality Balance', '⚡ Hızlı (en hızlı dışa aktarım)': '⚡ Fast (fastest export)', 'Dengeli (önerilen)': 'Balanced (recommended)', 'Kalite (en yavaş, en iyi sıkıştırma)': 'Quality (slowest, best compression)',
+    'Hız / Kalite Dengesi': 'Speed / Quality Balance', 'Hızlı (en hızlı dışa aktarım)': 'Fast (fastest export)', 'Dengeli (önerilen)': 'Balanced (recommended)', 'Kalite (en yavaş, en iyi sıkıştırma)': 'Quality (slowest, best compression)',
     'Bu şablon silinsin mi?': 'Delete this preset?',
     'Renk Şablonlarını İçe Aktar': 'Import Color Presets', 'İçe aktarılamadı:': 'Import failed:', 'Dosyada şablon bulunamadı.': 'No presets were found in the file.',
     'İçe Aktarılan': 'Imported', 'Arkaplan Ayarlarını İçe Aktar': 'Import Background Settings', 'Geçerli bir arkaplan dosyası değil.': 'This is not a valid background file.',
@@ -152,7 +148,7 @@
     'Gün Batımı': 'Sunset', 'Okyanus': 'Ocean', 'Gece': 'Night', 'Buz': 'Ice', 'Lav': 'Lava', 'Orman': 'Forest', 'Aurora': 'Aurora',
     'Windows Dynamic Lighting': 'Windows Dynamic Lighting',
     'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.': 'Synchronizes compatible RGB devices with the visualizer colors. Disabled by default.',
-    '🔄 Aydınlatma Aygıtlarını Tara': '🔄 Scan Lighting Devices',
+    'Aydınlatma Aygıtlarını Tara': 'Scan Lighting Devices',
     'Aydınlatma Modu': 'Lighting Mode',
     'Görselleştirici ile Senkron': 'Visualizer Sync',
     'Tüm Aygıtlarda Tek Renk': 'Single Color on All Devices',
@@ -161,7 +157,7 @@
     'LED / bölge': 'LED / zone',
     'Ses Tepkisi': 'Audio Reactivity',
     'Güncelleme Hızı': 'Update Rate',
-    '✓ Arka plan Dynamic Lighting kimliği hazır': '✓ Background Dynamic Lighting identity is ready',
+    'Arka plan Dynamic Lighting kimliği hazır': 'Background Dynamic Lighting identity is ready',
     'Portable sürüm yalnızca CAYADEV Visualizer odaktayken aydınlatmayı kontrol eder.': 'The portable build controls lighting only while CAYADEV Visualizer is focused.',
     'Ön plan kontrol durumu, Dynamic Lighting etkinleştirildiğinde izlenir.': 'Foreground control status is monitored when Dynamic Lighting is enabled.',
     'Not: Portable sürüm yalnızca uygulama odaktayken aydınlatmayı kontrol eder. Başka uygulamalara geçtiğinizde de kontrolün sürmesi gerekiyorsa installer sürümünü kullanın.': 'Note: The portable build controls lighting only while the application is focused. Use the installer build if control must continue after switching to another application.',
@@ -326,8 +322,8 @@
     'Kilitle': 'Lock',
     'Parçayı sil': 'Delete track',
     'Bu parça ve içindeki her şey silinecek.': 'This track and everything on it will be deleted.',
-    '＋ Klip Parçası': '+ Clip Track',
-    '＋ Otomasyon Parçası': '+ Automation Track',
+    'Klip Parçası': 'Clip Track',
+    'Otomasyon Parçası': 'Automation Track',
     'ör. postfx.0.params.strength': 'e.g. postfx.0.params.strength',
     'Parça': 'Track',
     'Bir klip ya da anahtar kare seçin.': 'Select a clip or a keyframe.',
@@ -337,7 +333,7 @@
     'Süre (sn)': 'Duration (s)',
     'Kırpma Başı (sn)': 'Trim In (s)',
     'Klibi Sil': 'Delete Clip',
-    '＋ Kafada Yeni Klip': '+ New Clip at Playhead',
+    'Kafada Yeni Klip': 'New Clip at Playhead',
     'Zaman (sn)': 'Time (s)',
     'Değer (0..1)': 'Value (0..1)',
     'Segment Eğrisi': 'Segment Curve',
@@ -345,7 +341,7 @@
     'Üstel (küp)': 'Exponential (cubic)',
     'İşaret adı': 'Marker name',
     'Bu işarete git': 'Jump to this marker',
-    '＋ Kafada İşaret': '+ Marker at Playhead',
+    'Kafada İşaret': 'Marker at Playhead',
     'Sözlerden İşaret Üret': 'Create Markers from Lyrics',
     'Önce Metin bölümünden bir LRC ya da SRT dosyası yükleyin.': 'Load an LRC or SRT file from the Text section first.',
     'Bu sütunu durdur': 'Stop this column',
@@ -379,19 +375,16 @@
     'tıkla: ateşle · Shift+tıkla: düzenle': 'click: fire · Shift+click: edit',
     'Boş yuva — eklemek için tıklayın': 'Empty slot — click to add',
     'Genel niceleme: "Genel" seçili yuvalar bu ızgaraya hizalı ateşlenir': 'Global quantise: slots set to “Global” fire on this grid',
-    '🎛 Performans Görünümü': '🎛 Performance View',
     'Tam ekran, büyük hedefler, klavyeyle': 'Full screen, large targets, keyboard driven',
-    '⏹ Hepsini Durdur': '⏹ Stop All',
     'Ölçü.vuruş': 'Bar.beat',
     'Genel ayar (Geçiş kartı)': 'Global setting (Transition card)',
     'Boş bir yuvaya tıklayıp ekleyin. Dolu yuvaya tıklamak ateşler; düzenlemek için Shift ile ya da sağ tıklayın.': 'Click an empty slot to add one. Clicking a filled slot fires it; Shift-click or right-click to edit.',
     'Boş yuva': 'Empty slot',
     'Bu türde bir yuva oluştur': 'Create a slot of this type',
-    '▶ Ateşle': '▶ Fire',
+    'Ateşle': 'Fire',
     'Bu yuvayı nicelemesine göre ateşle': 'Fire this slot on its quantise grid',
-    '⏹ Sütunu Durdur': '⏹ Stop Column',
+    'Sütunu Durdur': 'Stop Column',
     'Bu sütunda çalan yuvayı durdur': 'Stop the slot playing in this column',
-    '🗑 Yuvayı Boşalt': '🗑 Clear Slot',
     'Yuvayı sil': 'Delete the slot',
     'Rengi türden al': 'Take the colour from the type',
     'Takip eylemi süre dolunca çalışır; bu yuvanın süresi yok. Bir süre girin.': 'Follow actions run when the duration ends, and this slot has none. Enter a duration.',
@@ -407,9 +400,9 @@
     'Kapı (basılı tuttukça çalar)': 'Gate (plays while held)',
     'Deste, ızgara ve kayıt': 'Deck, grid and recording',
     'Deste Adı': 'Deck Name',
-    '⧉ Desteyi Çoğalt': '⧉ Duplicate Deck',
+    'Desteyi Çoğalt': 'Duplicate Deck',
     'Bu destenin kopyası: aynı yuvalar, yeni bir sekmede': 'A copy of this deck: the same slots, in a new tab',
-    '🗑 Desteyi Sil': '🗑 Delete Deck',
+    'Desteyi Sil': 'Delete Deck',
     'Bu desteyi ve yuvalarını sil': 'Delete this deck and its slots',
     'Deste silinsin mi?': 'Delete the deck?',
     // Güncellemeler kartı (#640)
@@ -439,10 +432,10 @@
     'Kitaplık › Güncellemeler': 'Library › Updates',
     'Kurulu Sürüm': 'Installed Version',
     'Kurulum Türü': 'Install Type',
-    '↻ Şimdi Denetle': '↻ Check Now',
+    'Şimdi Denetle': 'Check Now',
     'GitHub sürümlerine bir kez sorar': 'Asks GitHub Releases once',
     'En Yeni Sürüm': 'Latest Version',
-    '⬇ İndir': '⬇ Download',
+    'İndir': 'Download',
     'Sürüm Sayfası': 'Release Page',
     'Sürüm notları ve tüm dosyalar': 'Release notes and all files',
     'Bu Sürümü Atla': 'Skip This Version',
@@ -454,11 +447,11 @@
     'İndiriliyor…': 'Downloading…',
     'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.': 'Downloaded and verified. The app will close and reopen to install it.',
     'Yeni sürüm yerine kondu; yeniden başlatınca açılır.': 'The new version is in place; it opens after a restart.',
-    '⬆ Kur ve Yeniden Başlat': '⬆ Install and Restart',
-    '↻ Yeniden Başlat': '↻ Restart',
+    'Kur ve Yeniden Başlat': 'Install and Restart',
+    'Yeniden Başlat': 'Restart',
     'Uygulama kapanır; yeni sürüm açılır': 'The app closes; the new version opens',
     'Kurulum başlatılamadı; sürüm sayfasından indirin.': 'The installer could not be started; download it from the release page.',
-    '⬇ İndir ve Kur': '⬇ Download and Install',
+    'İndir ve Kur': 'Download and Install',
     'SHA-256 ile doğrulanır': 'verified with SHA-256',
     'İndirme başarısız:': 'Download failed:',
     'Otomatik — indir ve kapanırken kur': 'Automatic — download, install on exit',
@@ -468,7 +461,7 @@
     'Arkaplan (ana)': 'Background (main)',
     'Nesne': 'Object',
     'Henüz Studio preseti yok. Studio bölümünden bir shader preseti oluşturun.': 'No Studio presets yet. Create a shader preset in the Studio section.',
-    '🖼 Görsel Seç': '🖼 Choose Image',
+    'Görsel Seç': 'Choose Image',
     'Tür seçin; sonra kaynağını seçin. Video, görsel ve shader yuvaları bir hedefe uygulanır (ana medya, bir katman ya da bir görsel nesne).': 'Pick a type, then its source. Video, image and shader slots apply to a target (the main media, a layer or an image object).',
     'Eylem, MIDI ve OSC eşlemelerindeki eylemin aynısını çalıştırır. Geçiş ayarları eylemde kullanılmaz.': 'An action runs the same action as a MIDI or OSC mapping. Transition settings do not apply to actions.',
     'Görsel yuvası bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An image slot replaces the picture of an image object, and there are none yet. Add one in Scene › Visual Objects.',
@@ -587,13 +580,13 @@
     'Geçiş (sn, hepsi)': 'Transition (s, all)',
     'Grubu hemen ardına çoğalt (Ctrl+D)': 'Duplicate the group right after itself (Ctrl+D)',
     'Grubu panoya al (Ctrl+C); Ctrl+V kafaya yapıştırır': 'Copy the group (Ctrl+C); Ctrl+V pastes it at the playhead',
-    '✕ Seçimi Bırak': '✕ Clear Selection',
+    'Seçimi Bırak': 'Clear Selection',
     'Tek seçime dön': 'Back to a single selection',
     'Seçili klipleri sil (Del)': 'Delete the selected clips (Del)',
     'Geçiş (sn, 0 = genel)': 'Transition (s, 0 = global)',
     // Zaman çizelgesi düzenleyicisi (#636)
-    '1) “＋ Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da “＋ Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.': '1) Add a “+ Clip Track”. 2) Double-click its lane, or use “+ Clip at Playhead”, to place a clip. 3) Click the clip and choose which scene it plays.',
-    'Parça boş. Şeride çift tıklayın ya da “＋ Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.': 'This track is empty. Double-click its lane, or use “+ Clip at Playhead”, then click the clip and choose its scene.',
+    '1) “Klip Parçası” ekleyin. 2) Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun. 3) Klibe tıklayıp hangi sahneyi çalacağını seçin.': '1) Add a “Clip Track”. 2) Double-click its lane, or use “Clip at Playhead”, to place a clip. 3) Click the clip and choose which scene it plays.',
+    'Parça boş. Şeride çift tıklayın ya da “Kafada Klip” ile oynatma kafasına klip koyun; sonra klibe tıklayıp sahnesini seçin.': 'This track is empty. Double-click its lane, or use “Clip at Playhead”, then click the clip and choose its scene.',
     'kaynak yok': 'no source',
     'hedef seçilmedi': 'no target',
     'anahtar': 'key',
@@ -614,7 +607,7 @@
     'Zaman çizelgesi düzenleyicisi': 'Timeline editor',
     'Sahne, şablon ya da renk klipleri için bir parça': 'A track for scene, template or colour clips',
     'Bir ayarı zamana yayan eğri': 'A curve that moves a setting over time',
-    '＋ Kafada Klip': '+ Clip at Playhead',
+    'Kafada Klip': 'Clip at Playhead',
     'Oynatma kafasının bulunduğu yere, seçili (ya da ilk) klip parçasına': 'At the playhead, on the selected (or first) clip track',
     'Parça kilitli.': 'The track is locked.',
     'Oynatma kafasına adlandırılmış bir işaret (M)': 'A named marker at the playhead (M)',
@@ -640,32 +633,31 @@
     'Tempo değişimi': 'Tempo change',
     'Oynatma kafasına tempo değişimi': 'Tempo change at the playhead',
     'Bu andan sonraki ölçüler bu tempoyla sayılır. Etiketi cetvelde sürükleyerek de taşıyabilirsiniz.': 'Bars from here on are counted at this tempo. You can also drag the tag on the ruler.',
-    '⏵ Git': '⏵ Go',
+    'Git': 'Go',
     'Oynatma kafasını buraya al': 'Move the playhead here',
     'Tempo değişimini sil (Del)': 'Delete the tempo change (Del)',
     'Şeritleri alçalt': 'Shorter lanes',
     'Şeritleri yükselt (tam pencerede yer açar)': 'Taller lanes (uses the room in full window)',
     'Oynatma kafasındaki tempo. Tempo değişimleri cetvelde (♩)': 'Tempo at the playhead. Tempo changes are on the ruler (♩)',
     'Görsel klibi bir görsel nesnenin resmini değiştirir; henüz nesne yok. Sahne › Görsel Nesneler bölümünden bir nesne ekleyin.': 'An Image clip replaces the picture of an image object, and there is none yet. Add one under Scene › Image Objects.',
-    '✂ Böl': '✂ Split',
+    'Böl': 'Split',
     'Oynatma kafasında böl (S)': 'Split at the playhead (S)',
     'Oynatma kafası bu klibin içinde değil.': 'The playhead is not inside this clip.',
     'Hemen ardına bir kopya (Ctrl+D)': 'A copy right after it (Ctrl+D)',
-    '⎘ Kopyala': '⎘ Copy',
+    'Kopyala': 'Copy',
     'Panoya (Ctrl+C); Ctrl+V kafaya yapıştırır': 'To the clipboard (Ctrl+C); Ctrl+V pastes at the playhead',
     'Klip kopyalandı. Ctrl+V oynatma kafasına yapıştırır.': 'Clip copied. Ctrl+V pastes it at the playhead.',
     'Sil (Del)': 'Delete (Del)',
-    '🗑 Anahtarı Sil': '🗑 Delete Key',
     'Parçanın Adı': 'Track Name',
     'Hedef Ayar': 'Target Setting',
     'En Az': 'Minimum',
     'En Çok': 'Maximum',
-    '↑ Yukarı': '↑ Up',
+    'Yukarı': 'Up',
     'Parçayı yukarı taşı': 'Move the track up',
-    '↓ Aşağı': '↓ Down',
+    'Aşağı': 'Down',
     'Parçayı aşağı taşı': 'Move the track down',
     'Bu parçaya, oynatma kafasına': 'On this track, at the playhead',
-    '🗑 Parçayı Sil': '🗑 Delete Track',
+    'Parçayı Sil': 'Delete Track',
     'Parça ve içindeki her şey': 'The track and everything on it',
     'Klavye kısayolları': 'Keyboard shortcuts',
     'Döngü, işaretler ve cetvel': 'Loop, markers and ruler',
@@ -758,7 +750,7 @@
     'Ekranla Eşitle, her ekran yenilemesinde bir kare çizer; en akıcı sonucu verir. Ekranınızın yenileme hızının tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapabilir.': 'Match Display draws one frame per screen refresh, which is the smoothest result. A limit that is not an exact divisor of your refresh rate (such as 60 on a 75 Hz screen) can make frame intervals uneven.',
 
     // ---- Aydınlatma panelinde çevirisi eksik kalan metinler ----
-    '⚠ Windows arka plan kontrolünü vermedi (0/3). Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın.': '⚠ Windows did not grant background control (0/3). In Dynamic Lighting settings, move the CAYADEV Visualizer app to the top of the list.',
+    'Windows arka plan kontrolünü vermedi (0/3). Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın.': 'Windows did not grant background control (0/3). In Dynamic Lighting settings, move the CAYADEV Visualizer app to the top of the list.',
     'Bütün ışıklara tek sabit renk uygular.': 'Applies a single fixed color to all lights.',
     'Her aydınlatma aygıtına ayrı renk atar.': 'Assigns a separate color to each lighting device.',
     'Her LED veya bölgeyi tek tek ayarlamanızı sağlar.': 'Lets you set each LED or zone individually.',
@@ -778,9 +770,6 @@
 
     // ---- Gelişmiş / sıfırlama ----
     'Kategoriyi Sıfırla': 'Reset Category',
-    '↺ Kategoriyi Sıfırla': '↺ Reset Category',
-    '📤 Tüm Ayarları Dışa Aktar': '📤 Export All Settings',
-    '📥 Ayarları İçe Aktar': '📥 Import Settings',
     'Bu kategoriyi varsayılana döndür': 'Reset this category to defaults',
     'Bu bölümdeki ayarlar varsayılana dönecek. Emin misiniz?': 'The settings in this section will return to their defaults. Are you sure?',
     'Bu kategorideki tüm ayarlar varsayılana dönecek. Emin misiniz?': 'All settings in this category will return to their defaults. Are you sure?',
@@ -801,13 +790,12 @@
     'Arkaplan + görselleştirici + logo + görsel nesneleri tek isim altında saklayın.': 'Store background + visualizer + logo + visual objects under a single name.',
     'Mevcut görünümü yeni sahne olarak kaydet': 'Save the current look as a new scene',
     'Henüz sahne yok. Beğendiğiniz görünümü ayarlayıp “Mevcut Görünümü Kaydet”e basın; daha sonra tek tıkla geri dönersiniz.': 'No scenes yet. Set up a look you like and press “Save Current Look”; you can return to it with one click later.',
-    '＋ Kaydet': '＋ Save',
+    'Kaydet': 'Save',
     'Sahne adı:': 'Scene name:',
     'Bu sahne silinsin mi?': 'Delete this scene?',
     'Sahneleri İçe Aktar': 'Import Scenes',
 
     // ---- Bölüm başlıkları / açıklamaları ----
-    'Birden fazla kaynak seçilip karıştırılabilir. 🔊 Loopback (sistem sesi), 🎤 Mikrofon.': 'Multiple sources can be selected and mixed. 🔊 Loopback (system audio), 🎤 Microphone.',
     'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.': 'How hard or soft the captured audio hits the visuals.',
     'Sese tepki veren sisli/akışkan fon veya düz renk.': 'A misty, fluid backdrop that reacts to audio, or a solid color.',
     'Renk Şablonlarım': 'My Color Presets',
@@ -839,8 +827,7 @@
 
     // ---- Üst çubuk / çoklu ekran / karartma ----
     'Ekranlar': 'Displays',
-    '🌑 Karart': '🌑 Blackout',
-    '☀ Karartmayı Kaldır': '☀ Undo Blackout',
+    'Karartmayı Kaldır': 'Undo Blackout',
     'Karartma (Blackout) Geçişi': 'Blackout Transition',
     'Şablonu taşı': 'Reorder preset',
     'Sürükleyerek ya da yukarı/aşağı ok tuşlarıyla taşıyın': 'Drag, or use the up and down arrow keys, to reorder',
@@ -879,7 +866,6 @@
     'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.': 'An audio-reactive fluid backdrop, wave layers, starfield, and more.',
 
     // ---- Yeni görselleştirici modları ----
-    '♾ Geri Besleme': '♾ Feedback', '🧪 Studio': '🧪 Studio',
 
     // ---- Yeni arkaplanlar ----
 
@@ -895,8 +881,7 @@
     'yerleşik': 'built-in', 'shader': 'shader', 'varyasyon': 'variation',
     'Ad': 'Name', 'Açıklama': 'Description',
     'Preset adı': 'Preset name',
-    '💾 Kaydet': '💾 Save', '▶ Sahnede Kullan': '▶ Use In Scene',
-    '🗑 Sil': '🗑 Delete',
+    'Sahnede Kullan': 'Use In Scene',
     'Henüz Studio preseti yok. Studio sekmesinden bir tane oluşturun.': 'No Studio preset yet. Create one from the Studio tab.',
     'Kodda mainImage(out vec4 fragColor, in vec2 fragCoord) bulunamadı.': 'mainImage(out vec4 fragColor, in vec2 fragCoord) was not found in the code.',
     'ISF gövdesinde void main() bulunamadı.': 'void main() was not found in the ISF body.',
@@ -907,7 +892,7 @@
     'Port': 'Port',
     'dinleniyor': 'listening',
     'Mobil Kumanda': 'Mobile Remote',
-    'OBS → Kaynaklar → ＋ → Tarayıcı (Browser).': 'OBS → Sources → ＋ → Browser.',
+    'OBS → Kaynaklar → + → Tarayıcı (Browser).': 'OBS → Sources → + → Browser.',
     'Yayın sayfası yerel ağdaki tüm cihazlara açılacak. Adres, tahmin edilmesi güç bir jeton içerir ve jeton olmadan hiçbir istek kabul edilmez. Genel/paylaşımlı bir ağdaysanız (kafe, otel, konferans) açmayın.': 'The streaming page will be reachable by every device on your local network. The address contains a hard-to-guess token and no request is accepted without it. Do not enable this on a public or shared network (café, hotel, conference).',
     'Erişim Jetonu': 'Access Token',
     'Yeni jeton üretir; eski adresler geçersiz olur': 'Generates a new token; old addresses stop working',
@@ -920,17 +905,16 @@
     'sinyal bekleniyor…': 'waiting for a signal…', 'mesaj bekleniyor…': 'waiting for a message…',
     'UDP Portu': 'UDP Port',
     'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.': 'Point the OSC sender at this computer\'s IP address and the port above. Values between 0 and 1 are used directly; values up to 127 are scaled automatically.',
-    'Henüz eşleme yok. “＋ Eşleme Ekle” ile başlayın.': 'No mappings yet. Start with "＋ Add Mapping".',
-    '＋ Eşleme Ekle': '＋ Add Mapping', 'Eşlemeyi kaldır': 'Remove mapping',
-    '🎯 Öğren': '🎯 Learn', '● Dinleniyor…': '● Listening…',
+    'Henüz eşleme yok. “Eşleme Ekle” ile başlayın.': 'No mappings yet. Start with "Add Mapping".',
+    'Eşleme Ekle': 'Add Mapping', 'Eşlemeyi kaldır': 'Remove mapping',
+    'Dinleniyor…': 'Listening…',
     'Bas, sonra denetleyicideki düğmeyi oynat': 'Press this, then move the control on your device',
     'Bas, sonra OSC mesajını gönder': 'Press this, then send the OSC message',
 
     // ---- Medya katmanı ----
     'Kameranızı veya bir video dosyasını sahneye katman olarak koyar. Kaleydoskop, renk kayması ve sese bağlı yakınlaşma uygulanabilir; Studio shader\'larında sv_media (iChannel3) olarak da okunur.': 'Places your camera or a video file into the scene as a layer. Kaleidoscope, hue shift, and audio-driven zoom can be applied; Studio shaders can also read it as sv_media (iChannel3).',
-    '📷 Kamera': '📷 Camera', '🎞 Video Dosyası': '🎞 Video File',
-    'Kamera': 'Camera', 'Varsayılan kamera': 'Default camera', '🔄 Kameraları Yenile': '🔄 Refresh Cameras',
-    'Video Dosyası': 'Video File', '🎞 Video Seç': '🎞 Choose Video',
+    'Kamera': 'Camera', 'Varsayılan kamera': 'Default camera', 'Kameraları Yenile': 'Refresh Cameras',
+    'Video Dosyası': 'Video File', 'Video Seç': 'Choose Video',
     'seçildi': 'selected', 'seçilmedi': 'not selected', 'Döngüde Oynat': 'Loop Playback',
     'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
     'Çarpma': 'Multiply', 'Aynala': 'Mirror',
@@ -939,7 +923,7 @@
     'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.': 'Place an image or GIF on the scene; it pulses with the audio. Choosing a GIF unlocks playback and audio controls.',
     'Ara…': 'Search…',
     'Henüz kitaplıkta görsel yok. Aşağıdan birden fazla resim veya GIF ekleyebilirsiniz.': 'The library is empty. Add multiple images or GIFs below.',
-    '📥 Kitaplığa Ekle': '📥 Add to Library',
+    'Kitaplığa Ekle': 'Add to Library',
     'Oynatma Hızı': 'Playback Speed',
     'Döngü': 'Loop',
     'Tekrar': 'Repeat',
@@ -952,7 +936,7 @@
     'Ritim Parlaması': 'Beat Flash',
     'Ses → Renk': 'Audio → Hue',
     'Boyut ve köşe': 'Size and corner',
-    '🪟 Yüzen Pencereyi Aç / Kapat': '🪟 Open / Close Floating Window',
+    'Yüzen Pencereyi Aç / Kapat': 'Open / Close Floating Window',
     'Yüzen Pencere Saydamlığı': 'Floating Window Opacity',
     'En-Boy Kilidi (16:9)': 'Aspect Lock (16:9)',
     'Konumu Kilitle': 'Lock Position',
@@ -1015,7 +999,7 @@
     'Birleştirilmiş sahneye sırayla uygulanan son-işlem efektleri. Sıra görüntüyü değiştirir; zincir dışa aktarımda da aynen çalışır.': 'Post-processing effects applied in order to the composited scene. The order changes the result, and the chain runs the same way on export.',
     'Efekti aç/kapat': 'Enable/disable effect',
     'Sese Bağla': 'Bind To Audio',
-    'Yeni Efekt': 'New Effect', '＋ Efekt ekle…': '＋ Add effect…',
+    'Yeni Efekt': 'New Effect', 'Efekt ekle…': 'Add effect…',
 
     // Efekt adları
     'Bloom (Kompozisyon Parlaması)': 'Bloom (Composition Glow)',
@@ -1042,7 +1026,6 @@
     'Örnek': 'Samples', 'Kademe': 'Levels',
 
     // ---- 3B geometri ----
-    '◈ 3B Geometri': '◈ 3D Geometry',
     'Matematiksel formüllerden gerçek perspektifte geometri: yüzeyler, uzay eğrileri ve çekici sistemler.': 'Geometry in true perspective from mathematical formulas: surfaces, space curves, and attractor systems.',
     'Aile': 'Family', 'Formül': 'Formula', 'Çizim': 'Draw',
     'Sese Bağlı Bozulma': 'Audio Deformation', 'Bozulma Kipi': 'Deformation Mode',
@@ -1100,7 +1083,7 @@
     // ---- Tempo ve otomatik VJ ----
     'Tempo ve Otomatik VJ': 'Tempo & Auto VJ',
     'Parçanın temposunu bulur; sahneleri, modları veya renkleri ölçüye hizalı olarak kendiliğinden değiştirir.': 'Finds the track\'s tempo and switches scenes, modes, or colors by itself, aligned to the bar.',
-    '👆 Tempoya Vur': '👆 Tap Tempo',
+    'Tempoya Vur': 'Tap Tempo',
     'Ritimle birkaç kez basın; tempo elle sabitlenir': 'Tap a few times in time with the music to lock the tempo manually',
     'BPM Kilidi': 'BPM Lock', 'otomatik': 'automatic',
     'Ölçüdeki Vuruş': 'Beats Per Bar',
@@ -1110,7 +1093,7 @@
     'Sahneler': 'Scenes', 'Görselleştiriciler': 'Visualizers', 'Hepsi (sırayla)': 'All (in turn)',
     'Aralık Birimi': 'Interval Unit', 'Ölçü': 'Bars',
     'Aralık': 'Interval', 'Sıra': 'Order', 'Sırayla': 'Sequential', 'Rastgele': 'Random',
-    '⏭ Şimdi Değiştir': '⏭ Switch Now',
+    'Şimdi Değiştir': 'Switch Now',
 
     // ---- Art-Net / DMX ----
     'Art-Net / DMX Çıkışı': 'Art-Net / DMX Output',
@@ -1203,7 +1186,7 @@
       'A transition only runs when the scene changes (mode, background, preset, palette or layer structure). Moving a slider does not start one.',
     'Vuruş cinsinden süre tempo motorundan okunur; geçiş müziğe oturur.':
       'A duration in beats is read from the tempo engine, so the transition lands with the music.',
-    '▶ Geçişi Dene': '▶ Preview Transition',
+    'Geçişi Dene': 'Preview Transition',
     'Sahneyi kendisiyle değiştirerek geçişi bir kez oynatır': 'Plays the transition once by swapping the scene with itself',
     'Önizleme hazır değil.': 'The preview is not ready.',
     'Süre Birimi': 'Duration Unit',
@@ -1419,11 +1402,11 @@
     'Kayıt ve Anlık Görüntü': 'Recording & Snapshot',
     'Ekranda göründüğü gibi kaydedin: canlı sesle, modülasyon, geçiş ve efektler dahil. MP4, WebM, GIF ve PNG.':
       'Record exactly what is on screen, with the live audio, including modulation, transitions and effects. MP4, WebM, GIF and PNG.',
-    '● Kayda Başla': '● Start Recording',
-    '■ Durdur': '■ Stop',
+    'Kayda Başla': 'Start Recording',
+    'Durdur': 'Stop',
     'Kaydediliyor…': 'Saving…',
     'Dosya yazılıyor…': 'Writing file…',
-    '📷 Anlık Görüntü': '📷 Snapshot',
+    'Anlık Görüntü': 'Snapshot',
     'Biçim': 'Format',
     'MP4 (H.264)': 'MP4 (H.264)',
     'WebM': 'WebM',
@@ -1480,9 +1463,7 @@
     'Ekle': 'Add',
     'Bu zincir yalnızca bu katmana uygulanır; sahnenin geneline uygulanan Efekt Zinciri kartından bağımsızdır.':
       'This chain applies to this layer only, independently of the scene-wide Effect Chain card.',
-    '⧉ Çoğalt': '⧉ Duplicate',
-    '⧉ Kopyala': '⧉ Copy',
-    '📋 Yapıştır': '📋 Paste',
+    'Yapıştır': 'Paste',
     'Katmanı panoya al; başka bir sahnede yapıştırılabilir': 'Copy the layer to the clipboard; it can be pasted into another scene',
 
     // ---- Metin ve şarkı sözü ----
@@ -1496,7 +1477,7 @@
     'Sanatçı': 'Artist',
     'Dosya': 'File',
     'yüklü dosya yok': 'no file loaded',
-    '📂 Söz Dosyası Yükle': '📂 Load Lyrics File',
+    'Söz Dosyası Yükle': 'Load Lyrics File',
     'Temizle': 'Clear',
     'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC dosyasındaki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.':
       'LRC and SRT are both supported, and the format is detected from the file contents. If enhanced LRC word timings are present the karaoke highlight moves word by word; otherwise it sweeps evenly across the line.',
@@ -1629,9 +1610,9 @@
       'Only the album cover/artwork of the playing track is shown. Automatically activates when a song plays while the lyrics / now-playing system is active.',
     'Yatay Konum (X)': 'Horizontal Position (X)',
     'Dikey Konum (Y)': 'Vertical Position (Y)',
-    '📥 Çalan Şarkıyı Alanlara Doldur': '📥 Fill Fields with Playing Track',
-    '📥 Çalan Şarkıyı Doldur (': '📥 Fill Playing Track (',
-    '📥 Çalan Şarkıyı Alanlara Doldur (': '📥 Fill Fields with Playing Track (',
+    'Çalan Şarkıyı Alanlara Doldur': 'Fill Fields with Playing Track',
+    'Çalan Şarkıyı Doldur (': 'Fill Playing Track (',
+    'Çalan Şarkıyı Alanlara Doldur (': 'Fill Fields with Playing Track (',
     'Renkler sahne paletinden alınır; palet değişince yazı da değişir.':
       'Colours come from the scene palette, so changing the palette changes the text too.',
     'Şu anda sistemde çalan parça yok (yedek kullanılır)':
@@ -1644,8 +1625,8 @@
       'Custom Image (Selected file only)',
     'Sadece Çalan Şarkı Resmi':
       'Track Artwork Only',
-    '🖼 Logo Seç': '🖼 Choose Logo',
-    '🖼 Logoyu Değiştir': '🖼 Change Logo',
+    'Logo Seç': 'Choose Logo',
+    'Logoyu Değiştir': 'Change Logo',
     'Çalan Şarkı Kapağı': 'Playing Track Artwork',
     'Özel resim modu: Şarkı çalsa dahi her zaman bu özel görsel gösterilir.':
       'Custom image mode: This custom image is always shown even if a track is playing.',
@@ -1690,7 +1671,7 @@
     'Otomatik yeniden deneme başarısız oldu.': 'Automatic retry failed.',
     'Bu hata için güvenli otomatik kurulum yok; yukarıdaki öneriyi uygulayın.':
       'No safe automatic installation for this error; apply the suggestion above.',
-    '⚠ Ses aygıtı tanılaması başarısız': '⚠ Audio device diagnosis failed',
+    'Ses aygıtı tanılaması başarısız': 'Audio device diagnosis failed',
     'Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini kullanır. Bas solda, tiz sağda ilerler.':
       'Each LED uses the color and height of the corresponding bar in the visualizer. Bass on left, treble on right.',
     'LED dizisinin ilk kısmı bas, ortası mid ve son kısmı tiz frekanslarına ayrılır.':
@@ -1741,7 +1722,7 @@
     'Yerleşik varsayılan': 'Built-in default',
     'Adsız': 'Untitled',
     'Derleme': 'Compilation',
-    '📂 .milk Dosyaları Ekle': '📂 Add .milk Files',
+    '.milk Dosyaları Ekle': 'Add .milk Files',
     'Okunuyor…': 'Reading…',
     'Varsayılana Dön': 'Back to Default',
     'İçe aktarma kullanılamıyor.': 'Import is not available.',
@@ -1759,9 +1740,8 @@
     'Dingin Halkalar': 'Still Rings',
     'Sonsuz Tünel': 'Endless Tunnel',
     'Nabız Örgüsü': 'Pulse Weave',
-    '◀ Önceki': '◀ Previous',
-    'Sonraki ▶': 'Next ▶',
-    '🎲 Rastgele': '🎲 Random',
+    'Önceki': 'Previous',
+    'Sonraki': 'Next',
     'Otomatik Geçiş': 'Auto Advance',
     'Geçiş Sırası': 'Advance Order',
     'Otomatik geçiş görselleştiricinin kendi saatiyle çalışır: panel kapalıyken ya da görselleştirici paneli örterken de durmaz. Geçilen preset ayarlara yazılmaz; Yüklü Preset satırı o an ekranda olanı gösterir. Rastgele sırada o an çizilen preset hiç seçilmez. Her geçişin süresi yukarıdaki Preset Geçişi ayarından gelir.':
@@ -1769,8 +1749,7 @@
     'kapalı': 'off',
     'sn': 's',
     /* MilkDrop 2'nin zamanlaması (#568): kilit, rastgele pay, sert geçiş. */
-    '🔒 Kilitli': '🔒 Locked',
-    '🔓 Kilitle': '🔓 Lock',
+    'Kilitli': 'Locked',
     'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır':
       'Stops auto advance and hard cuts; choosing a preset by hand still works',
     'Rastgele Pay': 'Random Spread',
@@ -1824,8 +1803,8 @@
     'Her ekran kendi seçer': 'Each display picks its own',
     'Hepsinde aynı presette seçimi ilk görselleştirici penceresi yapar — yoksa Spout/Syphon penceresi, o da yoksa bu önizleme — ve diğer pencereler, Spout/Syphon ve web çıkışı aynı preseti aynı geçişle gösterir. Her ekran kendi seçerse otomatik geçiş ve sert geçiş her ekranda ayrı çalışır; rastgele sırada her ekran başka bir preset gösterir. Önizleme her iki durumda da ilk pencereyi izler.':
       'With the same preset on all, the first visualizer window makes the pick — or the Spout/Syphon window if there is none, or this preview if neither is open — and the other windows, Spout/Syphon and the web output show the same preset with the same transition. If each display picks its own, auto advance and hard cuts run separately on each; in random order every display shows a different preset. Either way the preview follows the first window.',
-    'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.':
-      'The stars show only the rating you gave; a preset you have not rated looks empty and, in random order, is picked by the fRating value in its own file (or 3). In random order a preset comes up in proportion to its rating, and a preset rated 0 never comes up — MilkDrop 2\'s rule. The rating you give is written to the settings; the preset file is not touched. ◀ Previous and Next ▶ walk the history of what was shown, including what auto advance picked.',
+    'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. Önceki ve Sonraki ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.':
+      'The stars show only the rating you gave; a preset you have not rated looks empty and, in random order, is picked by the fRating value in its own file (or 3). In random order a preset comes up in proportion to its rating, and a preset rated 0 never comes up — MilkDrop 2\'s rule. The rating you give is written to the settings; the preset file is not touched. Previous and Next walk the history of what was shown, including what auto advance picked.',
     'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.':
       'Load MilkDrop preset files (.milk). The equation blocks really run: per_frame and per_pixel motion, the warp mesh and feedback.',
     'Denklem blokları (per_frame, per_pixel) ve MilkDrop 2 presetlerinin HLSL warp/composite shaderları gerçekten çalıştırılır: 10.332 presetlik bir korpustaki 16.346 shader aşamasının hepsi derleniyor. Şekiller, dalgalar, blur zinciri ve hareket vektörleri çizilir; preset dosyalarıyla gelmeyen kullanıcı dokuları, doku paketi seçilmediyse gürültüyle ikame edilir.':
@@ -1870,7 +1849,7 @@
     'Açıkken motor MilkDrop\'un kendi değerlerini kullanır: gürültü dokularının kafes ölçekleri, gerçekten üç boyutlu hacim gürültüsü, ekran boyunca değişen renk kayması, doğru bulanıklık ölçeği ve kenar karartması, ağın MilkDrop sırasıyla kurulan dönüşümü (dikey yön, en-boy, yarıçap ve açı), warp titreşiminin kendi ölçeği ve hızı, dalga yumuşatma, sese göre dalga saydamlığı, özel dalgaların gerçek genliği ve tayf kaynağı, dış/iç kenarlıklar ve merkez karartma. Kapalı hâl motorun daha önceki yaklaşık değerlerini geri verir; presetler iki durumda da çalışır, yalnız görüntü farklıdır.': 'When on, the engine uses MilkDrop’s own values: the lattice scales of the noise textures, volume noise that really is three-dimensional, the hue shift that varies across the screen, the correct blur scale and edge darkening, the mesh transform built in MilkDrop’s own order (vertical direction, aspect, radius and angle), the warp ripple’s own scale and speed, waveform smoothing, volume-driven waveform alpha, the real amplitude and spectrum source of custom waves, the outer and inner borders, and the centre darkening. Off restores the engine’s earlier approximate values; presets run either way, only the picture differs.',
     // ---- Doku paketi (#560 madde 2) ----
     'Doku Paketi': 'Texture Pack',
-    '🖼 Doku Klasörü Seç': '🖼 Choose Texture Folder',
+    'Doku Klasörü Seç': 'Choose Texture Folder',
     // ('Kaldır' aşağıda zaten var — sözlükte her anahtar bir kez yazılır)
     'Doku klasörü seçimi kullanılamıyor.': 'Choosing a texture folder is not available.',
     'Seçilmedi — presetin kendi dokusu yerine gürültü kullanılıyor':
@@ -1881,7 +1860,7 @@
       'MilkDrop presets ask for their textures by name: a preset writing sampler_worms looks for worms.jpg in the folder. Preset packs do not ship these images; point this at the textures folder of your MilkDrop installation. Without a folder the preset still runs, only that texture is replaced with noise.',
     // ---- Sprite'lar (#577) ----
     'Sprite Dosyası': 'Sprite File',
-    '🖼 milk_img.ini Seç': '🖼 Choose milk_img.ini',
+    'milk_img.ini Seç': 'Choose milk_img.ini',
     'Yenile': 'Refresh',
     'Seçilmedi': 'Not chosen',
     'sprite tanımlı': 'sprites defined',
@@ -1904,9 +1883,9 @@
     'Sprite başlatılamadı': 'The sprite could not be launched',
     'Sprite, MilkDrop görüntüsünün üstüne çizilen ve kendi koduyla hareket eden bir resimdir. MilkDrop\'un milk_img.ini dosyasını seçin; resim yolları o dosyanın klasörüne göredir. Görselleştirici penceresinde MilkDrop\'un tuşları da çalışır: K ve iki hane başlatır, SHIFT+K ve iki hane o numaranın hepsini siler, sprite kipinde DELETE en yeniyi, SHIFT+DELETE en eskiyi siler, CTRL+K hepsini siler. Bütün ekranlar aynı sprite\'ı gösterir; video dışa aktarımına girmez.':
       'A sprite is an image drawn over the MilkDrop picture and moved by its own code. Choose MilkDrop’s milk_img.ini file; image paths are relative to that file’s folder. MilkDrop’s keys work in the visualizer window too: K and two digits launch, SHIFT+K and two digits remove every sprite with that number, and in sprite mode DELETE removes the newest, SHIFT+DELETE the oldest, CTRL+K all of them. Every screen shows the same sprite; sprites are not part of video export.',
-    '🖼 MilkDrop · Sprite: En Yeniyi Sil': '🖼 MilkDrop · Sprite: Remove Newest',
-    '🖼 MilkDrop · Sprite: En Eskiyi Sil': '🖼 MilkDrop · Sprite: Remove Oldest',
-    '🖼 MilkDrop · Sprite: Hepsini Sil': '🖼 MilkDrop · Sprite: Remove All',
+    'MilkDrop · Sprite: En Yeniyi Sil': 'MilkDrop · Sprite: Remove Newest',
+    'MilkDrop · Sprite: En Eskiyi Sil': 'MilkDrop · Sprite: Remove Oldest',
+    'MilkDrop · Sprite: Hepsini Sil': 'MilkDrop · Sprite: Remove All',
     // ---- Parça değişince (#582) — "Parça Değişince" yukarıda zaten var ----
     'Bir şey yapma': 'Do nothing',
     'Sıradaki presete geç': 'Go to the next preset',
@@ -1923,31 +1902,30 @@
       'The flash limiter stays on, there are no hard cuts on a rise in the sound, and transitions last 5 seconds. A manual "cut now" still cuts. Video export follows this setting ("Always") only, not the system’s.',
     // ---- Favoriler, etiketler, yazar, havuz ve paket (#576) ----
     'Favori': 'Favourite',
-    '★ Favori': '★ Favourite',
-    '☆ Favorilere Ekle': '☆ Add to Favourites',
+    'Favorilere Ekle': 'Add to Favourites',
     'Etiketler': 'Tags',
     'virgülle ayırın: sakin, dans': 'comma-separated: calm, dance',
     'Bu presetten çıkar': 'Remove from this preset',
     'Bu presete ekle': 'Add to this preset',
     'ad, yazar ya da #etiket': 'name, author or #tag',
     'Süz': 'Show',
-    '★ Favoriler': '★ Favourites',
+    'Favoriler': 'Favourites',
     'Yazar': 'Author',
     'Tüm yazarlar': 'All authors',
     'Favorilerden çıkar': 'Remove from favourites',
     'Favorilere ekle': 'Add to favourites',
     'Havuz': 'Pool',
     'Tüm presetler': 'All presets',
-    'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. ◀ Önceki, Sonraki ▶, Rastgele ve listeden seçim bütün presetlere gider.':
-      'The pool limits auto advance only: the timer, hard cuts and track changes pick from it alone. ◀ Previous, Next ▶, Random and picking from the list reach every preset.',
+    'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. Önceki, Sonraki, Rastgele ve listeden seçim bütün presetlere gider.':
+      'The pool limits auto advance only: the timer, hard cuts and track changes pick from it alone. Previous, Next, Random and picking from the list reach every preset.',
     'Havuzda tek preset var; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.':
       'The pool holds one preset; auto advance is waiting. Add favourites or tag presets.',
     'Havuzda preset yok; otomatik geçiş bekliyor. Favori ekleyin ya da etiketleyin.':
       'The pool is empty; auto advance is waiting. Add favourites or tag presets.',
-    '📦 Görünenleri Paketle': '📦 Pack What Is Shown',
+    'Görünenleri Paketle': 'Pack What Is Shown',
     'Listede görünen kendi presetlerinizi favori, etiket ve puanlarıyla tek dosyaya yazar':
       'Writes your own presets shown in the list to one file, with their favourites, tags and ratings',
-    '📥 Paket İçe Aktar': '📥 Import Pack',
+    'Paket İçe Aktar': 'Import Pack',
     'Bir .svpack paketini favori, etiket ve puanlarıyla ekler': 'Adds a .svpack pack with its favourites, tags and ratings',
     'Dışa aktarma kullanılamıyor.': 'Export is not available.',
     'Listede dışa aktarılacak kendi presetiniz yok.': 'The list shows none of your own presets to export.',
@@ -1955,9 +1933,9 @@
     'Paket okunamadı (.svpack ya da .svpreset bekleniyordu).': 'The pack could not be read (.svpack or .svpreset expected).',
     'preset içe aktarıldı.': 'presets imported.',
     // ---- Kütüphane içe aktarımı: ZIP, klasör, makinede arama (#574) ----
-    '🗜 ZIP Paketinden İçe Aktar': '🗜 Import from ZIP Pack',
-    '📁 Klasörden İçe Aktar': '📁 Import from Folder',
-    '🔎 Makinede Ara': '🔎 Search This Computer',
+    'ZIP Paketinden İçe Aktar': 'Import from ZIP Pack',
+    'Klasörden İçe Aktar': 'Import from Folder',
+    'Makinede Ara': 'Search This Computer',
     'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi arar':
       'Looks for MilkDrop libraries in the usual install folders and in Desktop, Downloads, Documents and Music',
     'Klasör Adları': 'Folder Names',
@@ -2000,8 +1978,8 @@
     'sayılmadı': 'not counted',
     'Aramanın süresi bazı kütüphaneleri saymaya yetmedi (+ ya da “sayılmadı”); içe aktarmadan önce tamamı taranır.':
       'The search ran out of time before it could count some libraries (+ or “not counted”); they are scanned in full before importing.',
-    'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.':
-      'The search reached its time limit and some folders were not checked. If your library is not listed, choose it with 📁 Import from Folder.',
+    'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa “Klasörden İçe Aktar” ile seçin.':
+      'The search reached its time limit and some folders were not checked. If your library is not listed, choose it with “Import from Folder”.',
     'Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.': 'Of the {n} images next to the presets, only the ones the presets ask for are copied.',
     // ---- Küçük resimler (#575) ----
     'Düzen': 'Layout',
@@ -2040,20 +2018,20 @@
     'Üretici yüklenemedi.': 'The generator could not be loaded.',
     'ör. 50-50-50-50-k3x9ab': 'e.g. 50-50-50-50-k3x9ab',
     'Kod': 'Code',
-    '✨ Preset Üret': '✨ Generate Preset',
+    'Preset Üret': 'Generate Preset',
     'Kaydırıcılardaki eksenlerle üretir ve yükler': 'Generates and loads a preset from the slider axes',
     'Aynı eksenler, başka bir tohum': 'Same axes, another seed',
-    '💾 Kütüphaneye Kaydet': '💾 Save to Library',
+    'Kütüphaneye Kaydet': 'Save to Library',
     'Dalgalar': 'Waves',
     'Şekiller': 'Shapes',
     'Son Üretilen': 'Last Generated',
-    '✓ Kütüphanede': '✓ In the library',
+    'Kütüphanede': 'In the library',
     'Önizleme — kaydedilmedi': 'Preview — not saved',
     // Kütüphaneden karışım (#579); 'Görünüm', 'Yok' ve '◀'/'▶' zaten var
     'Kütüphaneden Karışım': 'Mash-up from Your Library',
-    '🎲 Yeni Karışım': '🎲 New Mash-up',
+    'Yeni Karışım': 'New Mash-up',
     'Her parçayı listede görünen presetlerden rastgele çeker': 'Draws every part at random from the presets shown in the list',
-    '📌 Ekrandakinden Başla': '📌 Start from the Preset on Screen',
+    'Ekrandakinden Başla': 'Start from the Preset on Screen',
     'Altı parçanın hepsini ekrandaki presetten alır; sonra tek tek değiştirin': 'Takes all six parts from the preset on screen; then change them one by one',
     'Bu parçayı yeniden çek': 'Draw this part again',
     'Önceki karışım': 'Previous mash-up',
@@ -2062,10 +2040,10 @@
     'Listede preset yok.': 'The list has no presets.',
     'Listede bu parçası olan başka preset yok.': 'No other preset in the list has this part.',
     'Önce MilkDrop listesinden bir preset seçin.': 'Choose a preset from the MilkDrop list first.',
-    'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. ◀ ▶ önceki karışımlara döner.':
-      'Parts are drawn from the presets shown in the MilkDrop panel’s list; its search and filter apply here too. Each part comes whole from one preset and its lines are copied as they are. A preset’s shader may have been written for another preset’s equations, so the result can surprise you. Warp and composite sometimes come out as “none”: then the look’s own echo and gamma run. ◀ ▶ go back to earlier mash-ups.',
-    'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.':
-      'Runs entirely on this computer and connects to no service. Releasing a slider generates again with the same seed; 🎲 tries another seed. The code carries the axes and the seed: the same code always gives the same preset. A preview is not written to the library; rating, favorite and tags open once you save it. The motion, wave, shape and shader patterns were written in this app, not taken from any preset pack.',
+    'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. Oklar önceki karışımlara döner.':
+      'Parts are drawn from the presets shown in the MilkDrop panel’s list; its search and filter apply here too. Each part comes whole from one preset and its lines are copied as they are. A preset’s shader may have been written for another preset’s equations, so the result can surprise you. Warp and composite sometimes come out as “none”: then the look’s own echo and gamma run. The arrows go back to earlier mash-ups.',
+    'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; zar düğmesi başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.':
+      'Runs entirely on this computer and connects to no service. Releasing a slider generates again with the same seed; the dice button tries another seed. The code carries the axes and the seed: the same code always gives the same preset. A preview is not written to the library; rating, favorite and tags open once you save it. The motion, wave, shape and shader patterns were written in this app, not taken from any preset pack.',
     // ---- MilkDrop preset düzenleyici (#578) ----
     // 'Dalgalar', 'Şekiller', 'Birleştirme', 'Metin', 'Dalga', 'Şekil', 'Ad', 'Durum', 'Kaydediliyor…',
     // '✓ Kütüphanede', 'Önizleme — kaydedilmedi' ve kaydetme uyarıları yukarıda
@@ -2097,7 +2075,7 @@
     'Bu blokta hata var: MilkDrop bloğu bütünüyle atlar, hiçbir satırı çalışmaz.':
       'This block has an error: MilkDrop skips the whole block, none of its lines run.',
     'Ayrıştırılamadı': 'Could not be parsed',
-    '✓ Hata yok': '✓ No errors',
+    'Hata yok': 'No errors',
     'satır': 'line',
     'Hatalar': 'Errors',
     'Bu presetin sürüm satırı bu aşamanın shader\'ını kullanmıyor: MilkDrop metni yok sayıyor ve sabit yolu çiziyor. Kullanmak için dosyanın MILKDROP_PRESET_VERSION ve PSVERSION satırlarını Metin sekmesinden düzeltin.':
@@ -2117,23 +2095,21 @@
     'Düzenleyici': 'Editor',
     'Preset kütüphaneye kaydedildi. Asıl preset değişmedi.': 'Preset saved to the library. The original preset is unchanged.',
     'Düzenleyici yüklenemedi.': 'The editor could not be loaded.',
-    '✏️ Ekrandakini Düzenle': '✏️ Edit the Preset on Screen',
+    'Ekrandakini Düzenle': 'Edit the Preset on Screen',
     'Ekrandaki MilkDrop presetini açar: denklemler, dalgalar, şekiller ve shader\'lar düzenlenir, sonuç çalışan görüntüde hemen görünür. Asıl preset hiç değişmez; beğendiğinizi yeni bir preset olarak kaydedin.':
       'Opens the MilkDrop preset on screen: edit its equations, waves, shapes and shaders, and the result shows at once in the running picture. The original preset never changes; save what you like as a new preset.',
     'Düzenlenen': 'Editing',
-    '💾 Kaydedileni Güncelle': '💾 Update the Saved Copy',
-    '💾 Yeni Preset Olarak Kaydet': '💾 Save as a New Preset',
-    '📄 Yeni Kopya': '📄 New Copy',
-    '↺ Baştan': '↺ Start Over',
+    'Kaydedileni Güncelle': 'Update the Saved Copy',
+    'Yeni Preset Olarak Kaydet': 'Save as a New Preset',
+    'Yeni Kopya': 'New Copy',
+    'Baştan': 'Start Over',
     'Bütün değişiklikleri geri alır': 'Undoes every change',
-    '✕ Kapat': '✕ Close',
     'Düzenleyiciyi kapatır; kaydedilmediyse asıl preset geri gelir': 'Closes the editor; if nothing was saved, the original preset comes back',
     'Değişiklik yazmayı bıraktıktan kısa süre sonra çalışan presete uygulanır. Düzenlerken otomatik geçiş duraklar. MilkDrop satırları araya bir şey koymadan birleştirir: deyimleri ; ile bitirin.':
       'A change reaches the running preset shortly after you stop typing. Automatic switching pauses while you edit. MilkDrop joins lines with nothing in between: end each statement with ;.',
 
 
     'MilkDrop': 'MilkDrop',
-    '🥛 MilkDrop': '🥛 MilkDrop',
     'MilkDrop Presetleri': 'MilkDrop Presets',
     'MilkDrop motoru başlatılamadı': 'The MilkDrop engine could not start',
 
@@ -2163,8 +2139,8 @@
     'Nota G#': 'Note G#', 'Nota A': 'Note A', 'Nota A#': 'Note A#', 'Nota B': 'Note B',
     'Akıllı Sessizlik Filtresi': 'Smart Silence Filter',
     '50/60 Hz donanım uğultusu ve boşta dip gürültüsünü filtreler': 'Filters 50/60 Hz hardware hum and idle noise floor',
-    '⚡ Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.':
-      '⚡ Hardware noise floor / mains hum detected (50/60 Hz). You can enable the Smart Silence Filter to switch to corrected mode.',
+    'Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.':
+      'Hardware noise floor / mains hum detected (50/60 Hz). You can enable the Smart Silence Filter to switch to corrected mode.',
     'Filtreyi Aç': 'Enable Filter',
     'Akıllı Sessizlik Filtresi etkinleştirildi.': 'Smart Silence Filter enabled.',
     'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).':
@@ -2227,7 +2203,7 @@
     'karartma': 'blackout',
     'yüklenemedi': 'failed to load',
     'Görselleştirme': 'Visualization',
-    '▶ Aç': '▶ Open',
+    'Aç': 'Open',
     'Renk Şablonları': 'Color Presets',
     'Studio Presetleri': 'Studio Presets',
     'Önceki sahne': 'Previous scene', 'Sonraki sahne': 'Next scene',
@@ -2545,18 +2521,18 @@
     'Geri Besleme · Dönüş': 'Feedback · Rotation',
     'Medya · Saydamlık': 'Media · Opacity',
     'Medya · Kaleydoskop': 'Media · Kaleidoscope',
-    '⏭ Eylem · Sonraki Görselleştirici': '⏭ Action · Next Visualizer',
-    '⏮ Eylem · Önceki Görselleştirici': '⏮ Action · Previous Visualizer',
-    '⏭ Eylem · Sonraki Arkaplan': '⏭ Action · Next Background',
-    '⏭ Eylem · Sonraki Sahne': '⏭ Action · Next Scene',
-    '⏭ Eylem · Sonraki Renk Şablonu': '⏭ Action · Next Color Preset',
-    '🌑 Eylem · Karart (aç/kapa)': '🌑 Action · Blackout (toggle)',
-    '▶ Çizelge · Oynat': '▶ Timeline · Play',
-    '⏸ Çizelge · Duraklat': '⏸ Timeline · Pause',
-    '⏹ Çizelge · Durdur ve Başa Dön': '⏹ Timeline · Stop and Rewind',
-    '⏭ Çizelge · Sonraki İşaret': '⏭ Timeline · Next Marker',
-    '⏮ Çizelge · Önceki İşaret': '⏮ Timeline · Previous Marker',
-    '⏹ Deste · Hepsini Durdur': '⏹ Deck · Stop All',
+    'Eylem · Sonraki Görselleştirici': 'Action · Next Visualizer',
+    'Eylem · Önceki Görselleştirici': 'Action · Previous Visualizer',
+    'Eylem · Sonraki Arkaplan': 'Action · Next Background',
+    'Eylem · Sonraki Sahne': 'Action · Next Scene',
+    'Eylem · Sonraki Renk Şablonu': 'Action · Next Color Preset',
+    'Eylem · Karart (aç/kapa)': 'Action · Blackout (toggle)',
+    'Çizelge · Oynat': 'Timeline · Play',
+    'Çizelge · Duraklat': 'Timeline · Pause',
+    'Çizelge · Durdur ve Başa Dön': 'Timeline · Stop and Rewind',
+    'Çizelge · Sonraki İşaret': 'Timeline · Next Marker',
+    'Çizelge · Önceki İşaret': 'Timeline · Previous Marker',
+    'Deste · Hepsini Durdur': 'Deck · Stop All',
     /* MilkDrop denetleyici hedefleri (#570) */
     'MilkDrop · Geçiş Süresi': 'MilkDrop · Preset Transition',
     'MilkDrop · Otomatik Geçiş': 'MilkDrop · Auto Advance',
@@ -2564,14 +2540,14 @@
     'MilkDrop · Sert Geçiş Eşiği': 'MilkDrop · Hard Cut Threshold',
     'MilkDrop · Ağ Sıklığı': 'MilkDrop · Mesh Density',
     'MilkDrop · İç Çözünürlük': 'MilkDrop · Internal Resolution',
-    '⏭ MilkDrop · Sonraki Preset': '⏭ MilkDrop · Next Preset',
-    '⏮ MilkDrop · Önceki Preset': '⏮ MilkDrop · Previous Preset',
-    '🎲 MilkDrop · Rastgele Preset': '🎲 MilkDrop · Random Preset',
-    '✂ MilkDrop · Şimdi Kes (geçişsiz)': '✂ MilkDrop · Cut Now (no blend)',
-    '🔒 MilkDrop · Kilit (aç/kapa)': '🔒 MilkDrop · Lock (toggle)',
-    '⭐ MilkDrop · Puanı Artır': '⭐ MilkDrop · Rating Up',
-    '⭐ MilkDrop · Puanı Azalt': '⭐ MilkDrop · Rating Down',
-    '★ MilkDrop · Favori (aç/kapa)': '★ MilkDrop · Favourite (on/off)',
+    'MilkDrop · Sonraki Preset': 'MilkDrop · Next Preset',
+    'MilkDrop · Önceki Preset': 'MilkDrop · Previous Preset',
+    'MilkDrop · Rastgele Preset': 'MilkDrop · Random Preset',
+    'MilkDrop · Şimdi Kes (geçişsiz)': 'MilkDrop · Cut Now (no blend)',
+    'MilkDrop · Kilit (aç/kapa)': 'MilkDrop · Lock (toggle)',
+    'MilkDrop · Puanı Artır': 'MilkDrop · Rating Up',
+    'MilkDrop · Puanı Azalt': 'MilkDrop · Rating Down',
+    'MilkDrop · Favori (aç/kapa)': 'MilkDrop · Favourite (on/off)',
 
     // Sahne Panelleri, Aydınlatma ve Arayüz
     'Zincir boşken sahne doğrudan kompozit edilir; hiçbir ek maliyet yoktur. Efekt eklediğinizde sahne tek yüzeye birleştirilip GPU\'da işlenir ve efektler dışa aktarımda da aynı sırayla uygulanır.': 'When chain is empty, scene is directly composited with no overhead. When you add effects, scene is rendered to a single surface on the GPU and effects are applied in the same order during export.',
@@ -2594,21 +2570,21 @@
     'Özel Logo Görseli': 'Custom Logo Image',
     'Şarkı Resmini Göster': 'Show Track Artwork',
     'Şarkı bilgileri alanlara yazıldı.': 'Track information filled into fields.',
-    '⌖ Otomatik Ortala (50%)': '⌖ Auto Center (50%)',
+    'Otomatik Ortala (50%)': 'Auto Center (50%)',
     'Bu Windows sürümünde Dynamic Lighting desteklenmiyor.': 'Dynamic Lighting is not supported on this Windows version.',
     'Uyumlu Dynamic Lighting aygıtı bulunamadı.': 'No compatible Dynamic Lighting devices found.',
     'Windows Dynamic Lighting Etkin': 'Windows Dynamic Lighting Enabled',
-    '⚙ Windows Dynamic Lighting Ayarları': '⚙ Windows Dynamic Lighting Settings',
+    'Windows Dynamic Lighting Ayarları': 'Windows Dynamic Lighting Settings',
     'Ekran seçilmedi': 'No display selected',
     'Ekran': 'Display',
     'Açık': 'On',
     'Kapalı': 'Off',
-    '▶ Ekranları Uygula': '▶ Apply Displays',
-    '▶ Görselleştirmeyi Aç': '▶ Open Visualizer',
-    '● Yakalanıyor: çıkış': '● Capturing: output',
-    '⚠ Sistem sesi yakalanamıyor': '⚠ System audio cannot be captured',
+    'Ekranları Uygula': 'Apply Displays',
+    'Görselleştirmeyi Aç': 'Open Visualizer',
+    'Yakalanıyor: çıkış': 'Capturing: output',
+    'Sistem sesi yakalanamıyor': 'System audio cannot be captured',
     'Bu sistemde sistem sesini veren bir aygıt bulunamadı.': 'No audio output device found on this system.',
-    '⚠ Ses yakalanamadı': '⚠ Could not capture audio',
+    'Ses yakalanamadı': 'Could not capture audio',
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
     'İptal edildi.': 'Cancelled.',
     'MilkDrop dokusu 20 saniyede yüklenmedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.': 'A MilkDrop texture did not load within 20 seconds. The export was stopped because the video would not come out the same on every run.',
@@ -2732,18 +2708,17 @@
     'Ön Katman': 'Front Layer',
     'Başka Katman': 'Other Layer',
     'Dalga Katmanları': 'Wave Layers',
-    '⬗ Katmanlara Geç': '⬗ Switch to Layers',
-    '↺ Katmanları Sıfırla': '↺ Reset Layers',
+    'Katmanlara Geç': 'Switch to Layers',
+    'Katmanları Sıfırla': 'Reset Layers',
     'Katman Grupları ve A/B': 'Layer Groups and A/B',
     'Medya Katmanı': 'Media Layer',
-    'Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.': 'No saved scenes. Save the current view with "＋ Save".',
+    'Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.': 'No saved scenes. Save the current view with "Save".',
     'Sahne': 'Scene',
     'Sahne adı': 'Scene name',
     'Sahneyi taşı': 'Move scene',
     'Bu sahneyi uygula': 'Apply this scene',
     'Mevcut görünümle güncelle': 'Update with current view',
     'Mevcut Görünümü Kaydet': 'Save Current View',
-    '💾 Mevcut Görünümü Kaydet': '💾 Save Current View',
     'Kategoriler': 'Categories',
     'çıkış': 'output',
     'Eşleşen ayar bulunamadı.': 'No matching settings found.',
@@ -2754,20 +2729,19 @@
     'Shadertoy / ISF / MilkDrop / .svpreset / .svpack': 'Shadertoy / ISF / MilkDrop / .svpreset / .svpack',
     'Tüm kendi presetlerini tek dosyada paylaş': 'Share all your presets in a single file',
     'Preset klasörünü aç': 'Open presets folder',
-    '＋ Shader': '＋ Shader',
-    '＋ Varyasyon': '＋ Variation',
-    '📦 Paket Dışa Aktar': '📦 Export Pack',
-    '📁 Klasör': '📁 Folder',
+    'Varyasyon': 'Variation',
+    'Paket Dışa Aktar': 'Export Pack',
+    'Klasör': 'Folder',
     'Varyasyon güncel görünümle tazelendi.': 'Variation updated with current view.',
     'Bu yerleşik bir preset. Kaydettiğinde kendi kopyan oluşturulur; orijinali korunur.': 'This is a built-in preset. Saving creates your own copy; the original is preserved.',
-    '⟳ Şu Anki Görünümle Güncelle': '⟳ Update with Current View',
+    'Şu Anki Görünümle Güncelle': 'Update with Current View',
     'Temel Mod': 'Base Mode',
     'Parametreler': 'Parameters',
     'Shader Kodu (GLSL)': 'Shader Code (GLSL)',
-    '＋ Parametre Ekle': '＋ Add Parameter',
+    'Parametre Ekle': 'Add Parameter',
     'Parametreyi kaldır': 'Remove parameter',
     'canlı': 'live',
-    '✓ Derlendi': '✓ Compiled',
+    'Derlendi': 'Compiled',
     'Studio Preseti': 'Studio Preset',
     'Henüz yok.': 'None yet.',
     'Shader içinde uniform olarak tanımladığın kaydırıcıları buraya ekle. Ad (ör. uSpeed) GLSL kodundakiyle tam aynı olmalı.': 'Add sliders here that you define as uniforms in the shader. The name (e.g. uSpeed) must exactly match the GLSL code.',
@@ -2790,8 +2764,8 @@
     'Bu bölümdeki ayarlar varsayılana dönecek.': 'Settings in this section will return to defaults.',
     'Bölümü sıfırla': 'Reset section',
     'ör. "karanlık sinematik uzay", "enerjik neon techno", "sakin orman sabahı"': 'e.g. "dark cinematic space", "energetic neon techno", "calm forest morning"',
-    '✨ Sahne Üret': '✨ Generate Scene',
-    '🎲 Karıştır': '🎲 Shuffle',
+    'Sahne Üret': 'Generate Scene',
+    'Karıştır': 'Shuffle',
     'Aynı ruh hali, farklı yorum': 'Same mood, different interpretation',
     'Sahne kuruldu.': 'Scene generated.',
 
@@ -2817,14 +2791,13 @@
     'Açık: URL\'de ?token= zorunlu.': 'On: ?token= is required in the URL.',
     'Kapalı: adresler token olmadan açılır (yerel kullanım için önerilir).': 'Off: addresses open without a token (recommended for local use).',
     'Görselleştirici Jetonu (OBS / Web)': 'Visualizer Token (OBS / Web)',
-    '⟳ Yenile': '⟳ Regenerate',
+    'Yeni Jeton': 'New Token',
     'Görselleştirici için yeni jeton üretir; eski OBS adresi geçersiz olur': 'Generates a new visualizer token; the old OBS address becomes invalid',
     'Mobil Kumanda Jetonu': 'Mobile Remote Token',
     'Mobil kumanda için yeni jeton üretir; eski kumanda adresi geçersiz olur': 'Generates a new mobile remote token; the old remote address becomes invalid',
     'Tarayıcı Kaynağı Kare Hızı': 'Browser Source Frame Rate',
     'Tarayıcı Kaynağı Çözünürlük Ölçeği': 'Browser Source Resolution Scale',
-    '📱 Kumanda': '📱 Remote',
-    '📺 Katman': '📺 Overlay',
+    'Kumanda': 'Remote',
     'Bağlı İstemciler': 'Connected Clients',
     'Yayın sayfası masaüstü penceresiyle aynı motoru çalıştırır; ayrı bir render yoktur, bu yüzden iki görüntü asla birbirinden ayrışmaz. NDI ve Spout çıkışı bu sürümde yok — OBS için tarayıcı kaynağı zaten aynı işi eklenti kurmadan görür.': 'The stream page uses the same engine as the desktop window; there is no separate render, so the two views never diverge. NDI and Spout output are not available in this version — the OBS browser source already provides the same result without a plugin.',
     'Bu port başka bir uygulama tarafından kullanılıyor. Başka bir port deneyin.': 'This port is already in use by another application. Try another port.',
@@ -2841,20 +2814,20 @@
     'Çalan şarkının albüm kapağına veya şarkı geçişlerine göre renk temasını otomatik değiştirin.': 'Automatically adapt the color theme based on album artwork or track changes.',
     'Yalnızca Windows Desteklenir': 'Windows Only Supported',
     'Dinamik renk teması modu, Windows Medya Taşıma Denetimleri (SMTC) oturumundan gelen çalan parça ve albüm kapağı verileriyle çalışır. Bu platformda kullanılamaz.': 'Dynamic color theme mode operates with track and album artwork data from the Windows System Media Transport Controls (SMTC) session. It is not available on this platform.',
-    '🖼️ Albüm kapağı algılandı': '🖼️ Album artwork detected',
-    'ℹ️ Albüm kapağı yok (parça bilgisi mevcut)': 'ℹ️ No album artwork (track info available)',
-    '🎵 Windows Medya Oturumu Hazır': '🎵 Windows Media Session Ready',
+    'Albüm kapağı algılandı': 'Album artwork detected',
+    'Albüm kapağı yok (parça bilgisi mevcut)': 'No album artwork (track info available)',
+    'Windows Medya Oturumu Hazır': 'Windows Media Session Ready',
     'Müzik çaldığında (Spotify, Apple Music, YouTube vb.) renkler otomatik güncellenir.': 'Colors update automatically when music plays (Spotify, Apple Music, YouTube, etc.).',
     'Çalan Parça Kapağı': 'Playing Track Artwork',
     'Dinamik Renk Temasını Etkinleştir': 'Enable Dynamic Color Theme',
     'Şarkı değiştiğinde veya yeni kapak geldiğinde renkleri otomatik uyarla.': 'Automatically adapt colors when a track changes or new artwork arrives.',
     'Çalışma Modu': 'Operation Mode',
-    '🖼️🎲 Albüm Kapağı (Yoksa Rastgele)': '🖼️🎲 Album Artwork (Random Fallback)',
-    '🖼️ Yalnızca Albüm Kapağı': '🖼️ Album Artwork Only',
-    '🎲 Rastgele Renk Teması (Stüdyo Üreticisi)': '🎲 Random Color Theme (Studio Generator)',
-    '🎶 Parça Adı & Ruh Hali Analizi': '🎶 Track Title & Mood Analysis',
-    '📑 Hazır Şablon Döngüsü': '📑 Preset Cycle',
-    '🔀 Hazır Şablon Rastgele': '🔀 Random Preset',
+    'Albüm Kapağı (Yoksa Rastgele)': 'Album Artwork (Random Fallback)',
+    'Yalnızca Albüm Kapağı': 'Album Artwork Only',
+    'Rastgele Renk Teması (Stüdyo Üreticisi)': 'Random Color Theme (Studio Generator)',
+    'Parça Adı & Ruh Hali Analizi': 'Track Title & Mood Analysis',
+    'Hazır Şablon Döngüsü': 'Preset Cycle',
+    'Hazır Şablon Rastgele': 'Random Preset',
     'Çalan şarkının albüm kapağı varsa renklerini çıkarıp miksler; kapak yoksa stüdyo armonisiyle rastgele bir renk teması üretir.': 'Extracts and mixes colors from the playing track\'s album artwork if available; generates a random harmonic studio theme if no artwork.',
     'Yalnızca çalan şarkının albüm kapağındaki renkleri çıkarır ve miksler. Kapak yoksa mevcut renkleri korur.': 'Extracts and mixes colors strictly from the playing track\'s album artwork. Keeps current colors if no artwork.',
     'Her şarkı değişiminde stüdyo renk teorisi ve armonik yayılımla (analogous, cyberpunk, sunset vb.) sıfırdan yepyeni 5 renkli bir palet üretir.': 'Generates a brand new 5-color palette from scratch on every track change using studio color harmony (analogous, cyberpunk, sunset, etc.).',
@@ -2866,7 +2839,7 @@
     'Görselleştirici Ana ve İkincil Renklerine Uygula': 'Apply to Visualizer Primary and Secondary Colors',
     'Aktif Renk Paleti': 'Active Color Palette',
     'Mevcut Aktif Renk Paleti': 'Current Active Color Palette',
-    '⚡ Şimdi Test Et / Renkleri Uygula': '⚡ Test Now / Apply Colors',
+    'Şimdi Test Et / Renkleri Uygula': 'Test Now / Apply Colors',
     'Uygulanacak renk teması bulunamadı.': 'No applicable color theme found.',
     /* Anahtar KIRPILMIŞ tutulmalı. Arama normalize() ile yapılıyor, yani
        sondaki boşluk zaten kırpılıyor; ama karşılığın sonundaki boşluk
@@ -2880,10 +2853,10 @@
     'Şablon Kaynağı': 'Preset Source',
     'Hangi Katmanlar': 'Which Layers',
     'Otomatik VJ kapalı.': 'Auto VJ is off.',
-    '⚠ Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.':
-      '⚠ No saved scenes. Save one under Library › Scenes first, or pick a different source.',
-    '⚠ Seçilen kaynakta renk şablonu yok.': '⚠ The selected source has no color presets.',
-    '⚠ Bu kaynakta değiştirilecek bir şey yok.': '⚠ There is nothing to switch in this source.',
+    'Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.':
+      'No saved scenes. Save one under Library › Scenes first, or pick a different source.',
+    'Seçilen kaynakta renk şablonu yok.': 'The selected source has no color presets.',
+    'Bu kaynakta değiştirilecek bir şey yok.': 'There is nothing to switch in this source.',
     'Son değişim': 'Last change',
     'Son deneme başarısız': 'Last attempt failed',
     'sıradaki': 'next',
@@ -2940,8 +2913,8 @@
     'Yalnızca Seçilenler': 'Selected Only',
     'Seçilen Hariç': 'Except Selected',
     'çalışmıyor': 'not running',
-    'Birden fazla kaynak seçilip karıştırılabilir: 🔊 sistem sesi, 🎤 mikrofon ve 🎵 tek tek uygulamalar.':
-      'Several sources can be selected and mixed: 🔊 system audio, 🎤 microphone and 🎵 individual applications.',
+    'Birden fazla kaynak seçilip karıştırılabilir: sistem sesi, mikrofon ve tek tek uygulamalar.':
+      'Several sources can be selected and mixed: system audio, microphone and individual applications.',
     'Şu anda ses çalan bir uygulama yok. Bir şey çaldırıp Aygıtları Yenile’ye basın.':
       'No application is playing audio right now. Start something and press Refresh Devices.',
     'Seçilen uygulama hariç sistemdeki her şey dinlenir. Bu kipte tek uygulama seçilebilir.':
@@ -2964,6 +2937,14 @@
     'Kapak Görseli': 'Cover Artwork',
     'Başarılı': 'Success',
 
+    // İkon seti (#665): ikonla birlikte gelen yeni yazılar
+    'Sol üst köşe': 'Top-left corner',
+    'Sağ üst köşe': 'Top-right corner',
+    'Sol alt köşe': 'Bottom-left corner',
+    'Sağ alt köşe': 'Bottom-right corner',
+    'geçiş': 'fade',
+    'Yayın katmanı': 'Overlay',
+
     // Görselleştirici Renk Modları
     'Renk Modu': 'Color Mode',
     'Sabit Renk': 'Fixed Color',
@@ -2975,20 +2956,9 @@
     Object.entries(EN).map(([key, translated]) => [normalize(key), translated])
   );
 
-  /* Katlanır başlıklar metnin başına ▸/▾ işareti koyuyor. Bunları sözlüğe
-     iki ayrı biçimde yazmak yerine, arama sırasında işaret ayrılıp çeviri
-     sonrasında geri konuyor — yeni bir katlanır bölüm eklendiğinde sözlükte
-     ekstra bir girdi gerekmesin diye. */
-  const MARKER = /^([▸▾▴▾►▼]\s*)/;
-
   function translate(value) {
     if (locale === 'tr' || value == null) return String(value == null ? '' : value);
     const raw = String(value);
-    const mark = raw.match(MARKER);
-    if (mark) {
-      const rest = translate(raw.slice(mark[1].length));
-      return mark[1] + rest;
-    }
     const compact = normalize(raw);
     const translated = EN_NORMALIZED[compact];
     if (translated) {
@@ -3016,12 +2986,10 @@
     if (layerMatch) return `Layer ${layerMatch[1]}`;
     const sceneMatch = raw.match(/^Sahne\s+(\d+)$/);
     if (sceneMatch) return `Scene ${sceneMatch[1]}`;
-    const plus = raw.match(/^(＋|\+)\s*(.+)$/);
+    const plus = raw.match(/^(\+)\s*(.+)$/);
     if (plus) return plus[1] + ' ' + translate(plus[2]);
     const numbered = raw.match(/^(\d+)\.\s+(.+)$/);
     if (numbered) return numbered[1] + '. ' + translate(numbered[2]);
-    const icon = raw.match(/^(🎛|[▶⏭⏮⏹⏸🌑✨🎲])\s+(.+)$/);
-    if (icon) return icon[1] + ' ' + translate(icon[2]);
     return raw
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/^(\d+) süreç$/g, (_, n) => n + (Number(n) === 1 ? ' process' : ' processes'))
@@ -3040,13 +3008,13 @@
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
       .replace(/Görsel (\d+)/g, 'Image $1')
-      .replace(/✓ (\d+) uyumlu aydınlatma aygıtı bulundu/g, '✓ $1 compatible lighting device(s) found')
-      .replace(/⚠ Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\./g, '⚠ The portable build controls lighting only while the application is focused ($1/$2).')
+      .replace(/(\d+) uyumlu aydınlatma aygıtı bulundu/g, '$1 compatible lighting device(s) found')
+      .replace(/Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\./g, 'The portable build controls lighting only while the application is focused ($1/$2).')
       .replace(/LED \/ bölge/g, 'LED / zone')
-      .replace(/● Yakalanıyor: /g, '● Capturing: ')
+      .replace(/Yakalanıyor: /g, 'Capturing: ')
       .replace(/çıkış/g, 'output')
-      .replace(/✅ Tamamlandı/g, '✅ Completed')
-      .replace(/⚠ Hata:/g, '⚠ Error:')
+      .replace(/^Tamamlandı/g, 'Completed')
+      .replace(/^Hata:/g, 'Error:')
       .replace(/WebGL başlatılamadı:/g, 'WebGL could not be initialized:')
       .replace(/Shader hatası:/g, 'Shader error:')
       .replace(/Program hatası:/g, 'Program error:')
@@ -3063,8 +3031,8 @@
       .replace(/^Parametre (\d+)$/g, 'Parameter $1')
       .replace(/^Satır (\d+): /g, 'Line $1: ')
       .replace(/^Satır (\d+)$/g, 'Row $1')
-      .replace(/^▶ Deste · Satır (\d+)$/g, '▶ Deck · Row $1')
-      .replace(/^🎛 Deste · (.+)$/g, (m, rest) => `🎛 Deck · ${translate(rest)}`)
+      .replace(/^Deste · Satır (\d+)$/g, 'Deck · Row $1')
+      .replace(/^Deste · (.+)$/g, (m, rest) => `Deck · ${translate(rest)}`)
        .replace(/^(.+) kopyalandı\.$/g, (m, label) => `${translate(label)} copied.`)
       .replace(/^Kaydedilemedi: /g, 'Could not save: ')
       .replace(/^MIDI erişimi reddedildi: /g, 'MIDI access denied: ')
@@ -3083,16 +3051,16 @@
       .replace(/^(\d+) preset\(s\) imported\.$/g, (m, n) =>
         n + ' preset' + (Number(n) === 1 ? '' : 's') + ' imported.')
       // Dynamic Lighting kontrol durumu (sayı içerdiği için sözlükle eşleşmez)
-      .replace(/✓ Windows (\d+)\/(\d+) aygıt için kontrol verdi/g, '✓ Windows granted control for $1/$2 device(s)')
-      .replace(/⚠ Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, '⚠ Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')
+      .replace(/Windows (\d+)\/(\d+) aygıt için kontrol verdi/g, 'Windows granted control for $1/$2 device(s)')
+      .replace(/Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, 'Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')
       .replace(/^CC (\d+)( · k(\d+))?$/g, (m, cc, _s, ch) => 'CC ' + cc + (ch ? ' · ch' + ch : ''))
       .replace(/^Nota (\d+)( · k(\d+))?$/g, (m, n, _s, ch) => 'Note ' + n + (ch ? ' · ch' + ch : ''))
       // Çalan parça dinamik metinleri
       .replace(/^([\d.]+) sn$/g, '$1 s')
       .replace(/^(\d+) bölme$/g, '$1 segments')
       .replace(/^Sistemden okunamıyor — (.+)$/g, 'Cannot read from system — $1')
-      .replace(/^📥 Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, '📥 Fill Fields with Playing Track ($1)')
-      .replace(/^📥 Çalan Şarkıyı Doldur \((.+)\)$/g, '📥 Fill Playing Track ($1)')
+      .replace(/^Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, 'Fill Fields with Playing Track ($1)')
+      .replace(/^Çalan Şarkıyı Doldur \((.+)\)$/g, 'Fill Playing Track ($1)')
       // MilkDrop list count
       .replace(/^(\d+) presetten ilk (\d+) gösteriliyor; aramayı daraltın\.$/g, 'Showing first $2 of $1 presets; narrow your search.')
       // Metin ve söz satır/format çıktıları
@@ -3119,23 +3087,22 @@
       .replace(/^Ayarlar dışa aktarılamadı: (.+)$/g, (_, err) => `Could not export settings: ${translate(err)}`)
       .replace(/^Ayarlar içe aktarılamadı: (.+)$/g, (_, err) => `Could not import settings: ${translate(err)}`)
       .replace(/^Panel başlatılamadı: (.+)$/g, (_, err) => `Could not initialize panel: ${translate(err)}`)
-      .replace(/^✓ Görüntü kaydedildi: (.+)$/g, '✓ Image saved: $1')
-      .replace(/^⚠ Kayıt çok kısa: kare yazılamadı \((.+)\)$/g, '⚠ Recording too short: frame could not be written ($1)')
+      .replace(/^Görüntü kaydedildi: (.+)$/g, 'Image saved: $1')
+      .replace(/^Kaydedildi: (.+)$/g, 'Saved: $1')
+      .replace(/^Kayıt çok kısa: kare yazılamadı \((.+)\)$/g, 'Recording too short: frame could not be written ($1)')
       .replace(/^(\d+) ekran seçili$/g, '$1 displays selected')
       .replace(/^(\d+) ekranda açık$/g, 'Open on $1 displays')
-      .replace(/^✓ (\d+) uyumlu aydınlatma aygıtı bulundu$/g, '✓ $1 compatible lighting device(s) found')
-      .replace(/^✓ (\d+) ses aygıtı bulundu$/g, '✓ $1 audio device(s) found')
+      .replace(/^(\d+) uyumlu aydınlatma aygıtı bulundu$/g, '$1 compatible lighting device(s) found')
+      .replace(/^(\d+) ses aygıtı bulundu$/g, '$1 audio device(s) found')
       .replace(/^(\d+) preset içe aktarıldı\.$/g, '$1 presets imported.')
-      .replace(/^● Yakalanıyor: (.+)$/g, (m, dev) => `● Capturing: ${translate(dev)}`)
+      .replace(/^Yakalanıyor: (.+)$/g, (m, dev) => `Capturing: ${translate(dev)}`)
       .replace(/^Kodlanıyor \((.+)\)… kareler bitti, video yazılıyor\.$/g, 'Encoding ($1)… frames finished, writing video.')
       .replace(/^Render ediliyor \[(.+)\]… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Rendering [$1]… $2% ($3 / $4 frames)')
-      .replace(/^✅ Tamamlandı \((.+)\) → (.+)$/g, '✅ Completed ($1) → $2')
-      .replace(/^✅ Tamamlandı \((.+)\)$/g, '✅ Completed ($1)')
-      .replace(/^⚠ Hata: (.+)$/g, (_, err) => `⚠ Error: ${translate(err)}`)
-      .replace(/^▶ Deste · Satır (\d+)$/g, '▶ Deck · Row $1')
-      .replace(/^🎛 Deste · (.+)$/g, '🎛 Deck · $1')
+      .replace(/^Tamamlandı \((.+)\) → (.+)$/g, 'Completed ($1) → $2')
+      .replace(/^Tamamlandı \((.+)\)$/g, 'Completed ($1)')
+      .replace(/^Hata: (.+)$/g, (_, err) => `Error: ${translate(err)}`)
       .replace(/^Şablonum (\d+)$/g, 'My Template $1')
-      .replace(/^⚠ Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\.$/g, '⚠ Portable version only controls while app is in focus ($1/$2).')
+      .replace(/^Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\.$/g, 'Portable version only controls while app is in focus ($1/$2).')
       ;
   }
 

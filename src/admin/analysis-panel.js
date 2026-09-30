@@ -116,7 +116,7 @@
     });
 
     bannerEl = el('div', { class: 'an-banner', style: 'display:none;' }, [
-      el('span', { class: 'an-banner-text', text: tr('⚡ Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.') }),
+      el('span', { class: 'an-banner-text', icon: 'bolt', text: tr('Donanım dip gürültüsü / şebeke uğultusu algılandı (50/60 Hz). Düzeltmeli moda geçmek için Akıllı Sessizlik Filtresini açabilirsiniz.') }),
       bannerBtn,
     ]);
 

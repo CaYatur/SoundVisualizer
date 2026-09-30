@@ -65,7 +65,7 @@
       ]),
       el('div', { class: 'url-row' }, [
         field,
-        el('button', { class: 'btn small', type: 'button', text: '⧉ Kopyala', onclick: () => copy(url, label) }),
+        el('button', { class: 'btn small', type: 'button', icon: 'copy', text: 'Kopyala', onclick: () => copy(url, label) }),
       ]),
     ]);
   }
@@ -97,7 +97,7 @@
     // sayı içeren birleşik bir cümle hiçbir zaman çevrilemezdi.
     const statusBox = el('div', { class: 'studio-status ' + (status.running ? 'ok' : status.error ? 'err' : '') });
     if (status.running) {
-      statusBox.appendChild(el('span', { text: '✓ ' }));
+      statusBox.appendChild(el('span', { icon: 'check' }));
       statusBox.appendChild(el('span', { text: status.lan ? 'Ağa açık' : 'Yalnızca bu bilgisayar' }));
       statusBox.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
       statusBox.appendChild(el('span', { text: 'Port' }));
@@ -110,7 +110,7 @@
         statusBox.appendChild(el('span', { text: 'istemci yok' }));
       }
     } else if (status.error) {
-      statusBox.appendChild(el('span', { text: '✕ ' }));
+      statusBox.appendChild(el('span', { icon: 'x' }));
       statusBox.appendChild(el('span', { text: ERRORS[status.error] || status.error }));
     } else {
       statusBox.appendChild(el('span', { text: 'Kapalı' }));
@@ -127,7 +127,7 @@
         el('div', { class: 'obs-help' }, [
           el('div', { class: 'obs-help-title', text: 'OBS kurulumu' }),
           el('ol', {}, [
-            el('li', { text: 'OBS → Kaynaklar → ＋ → Tarayıcı (Browser).' }),
+            el('li', { text: 'OBS → Kaynaklar → + → Tarayıcı (Browser).' }),
             el('li', { text: 'URL alanına yukarıdaki adresi yapıştırın.' }),
             el('li', { text: 'Genişlik/Yükseklik: sahne çözünürlüğünüzle aynı (ör. 1920 × 1080).' }),
             el('li', { text: '“Kaynak görünür değilken kapat” seçeneğini KAPALI bırakın; yoksa sahne değişince yeniden bağlanır.' }),
@@ -233,7 +233,7 @@
             el('div', { class: 'row' }, [
               el('label', { class: 'lbl', text: 'Görselleştirici Jetonu (OBS / Web)' }),
               el('button', {
-                class: 'btn ghost small', type: 'button', text: '⟳ Yenile',
+                class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeni Jeton',
                 title: 'Görselleştirici için yeni jeton üretir; eski OBS adresi geçersiz olur',
                 onclick: async () => {
                   s.token = await window.api.streamNewToken();
@@ -253,7 +253,7 @@
               el('div', { class: 'row' }, [
                 el('label', { class: 'lbl', text: 'Mobil Kumanda Jetonu' }),
                 el('button', {
-                  class: 'btn ghost small', type: 'button', text: '⟳ Yenile',
+                  class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeni Jeton',
                   title: 'Mobil kumanda için yeni jeton üretir; eski kumanda adresi geçersiz olur',
                   onclick: async () => {
                     s.remoteToken = await window.api.streamNewToken();
@@ -278,7 +278,7 @@
         status.clients.forEach((c) => {
           list.appendChild(
             el('div', { class: 'client-row' }, [
-              el('span', { class: 'client-kind', text: c.kind === 'remote' ? '📱 Kumanda' : '📺 Katman' }),
+              el('span', { class: 'client-kind', icon: c.kind === 'remote' ? 'phone' : 'tv', text: c.kind === 'remote' ? 'Kumanda' : 'Yayın katmanı' }),
               el('span', { class: 'client-addr', text: (c.address || '').replace('::ffff:', '') }),
             ])
           );

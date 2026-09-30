@@ -805,7 +805,7 @@
     const list = sprList && Array.isArray(sprList.sprites) ? sprList.sprites : [];
     return list.filter((s) => !s.error).map((s) => ({
       action: 'mdSprite:' + s.num,
-      label: '🖼 MilkDrop · Sprite ' + s.num + (s.desc || s.img ? ' · ' + (s.desc || s.img) : ''),
+      label: 'MilkDrop · Sprite ' + s.num + (s.desc || s.img ? ' · ' + (s.desc || s.img) : ''),
     }));
   }
 
@@ -890,7 +890,8 @@
       wrap.appendChild(el('button', {
         class: 'md-star' + (k === 0 ? ' md-star0' : '') + (on ? ' on' : ''),
         type: 'button', title: String(k),
-        text: k === 0 ? '0' : (on ? '★' : '☆'),
+        text: k === 0 ? '0' : '',
+        icon: k === 0 ? '' : (on ? 'star-fill' : 'star'),
         onclick: () => setRating(id, k),
       }));
     }
@@ -926,10 +927,19 @@
     const id = liveId(cfg.milkdrop || {});
     const ok = !!(L && byId(id));
     const on = ok && L.isFavorite(cfg.milkdropLibrary, id);
-    btn.textContent = tr(on ? '★ Favori' : '☆ Favorilere Ekle');
+    setIcon(btn, on ? 'star-fill' : 'star', tr(on ? 'Favori' : 'Favorilere Ekle'));
     btn.className = 'btn ghost small md-fav-live' + (on ? ' on' : '');
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     btn.disabled = !ok;
+  }
+
+/* İkonu durumla değişen öğe (#665). SVIcons yoksa (testlerin sahte DOM'u)
+     yalnız yazı; ikon adı düğümde kalıyor. */
+  function setIcon(n, icon, text) {
+    if (window.SVIcons && n.nodeType === 1) return window.SVIcons.set(n, icon, text);
+    n.textContent = text || '';
+    n.icon = icon || '';
+    return n;
   }
 
   function fillTags(box, cfg) {
@@ -1076,11 +1086,11 @@
            #559'daki ekran görüntüsünde tam olarak bu görünüyor. */
         const st = el('span', { class: p.errors.length ? 'md-err' : 'md-ok' });
         if (p.errors.length) {
-          st.appendChild(el('span', { text: '⚠ ' }));
+          st.appendChild(el('span', { icon: 'warning' }));
           st.appendChild(el('span', { class: 'md-num', text: String(p.errors.length) + ' ' }));
           st.appendChild(el('span', { text: 'hata' }));
         } else {
-          st.appendChild(el('span', { text: '✓ ' }));
+          st.appendChild(el('span', { icon: 'check' }));
           st.appendChild(el('span', {
             class: 'md-num',
             text: String(p.cFrame.statements + p.cPixel.statements + p.cInit.statements) + ' ',
@@ -1309,7 +1319,7 @@
        flex kuralını miras alıp iki düğmeyi iki uca iterdi. */
     const texRow = el('span', {}, [
       el('button', {
-        class: 'btn', type: 'button', text: '🖼 Doku Klasörü Seç',
+        class: 'btn', type: 'button', icon: 'image', text: 'Doku Klasörü Seç',
         onclick: async () => {
           if (!window.api || !window.api.pickMilkdropTextures) {
             P().toast('Doku klasörü seçimi kullanılamıyor.');
@@ -1369,7 +1379,7 @@
       if (!sFile && sprFor) { sprList = null; sprFor = null; }
       const sprRow = el('span', {}, [
         el('button', {
-          class: 'btn', type: 'button', text: '🖼 milk_img.ini Seç',
+          class: 'btn', type: 'button', icon: 'image', text: 'milk_img.ini Seç',
           onclick: async () => {
             if (!window.api || !window.api.pickMilkdropSprites) {
               P().toast('Sprite dosyası seçimi kullanılamıyor.');
@@ -1415,11 +1425,11 @@
             el('span', { class: 'md-sprite-name', text: s.desc || s.img || '—' }),
             bad ? el('span', { class: 'md-err', text: spriteErr(s.error) }) : null,
             el('button', {
-              class: 'btn ghost', type: 'button', text: '▶', title: tr('Başlat'), disabled: bad,
+              class: 'btn ghost', type: 'button', icon: 'play', title: tr('Başlat'), disabled: bad,
               onclick: () => spriteCmd({ op: 'launch', num: s.num }),
             }),
             el('button', {
-              class: 'btn ghost', type: 'button', text: '■', title: tr('Bu numaranın hepsini sil'),
+              class: 'btn ghost', type: 'button', icon: 'stop', title: tr('Bu numaranın hepsini sil'),
               onclick: () => spriteCmd({ op: 'kill', num: s.num }),
             }),
           ].filter(Boolean)));
@@ -1440,7 +1450,7 @@
     // İçe aktarma
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
-        class: 'btn', type: 'button', text: busy || '📂 .milk Dosyaları Ekle',
+        class: 'btn', type: 'button', icon: busy ? '' : 'folder-open', text: busy || '.milk Dosyaları Ekle',
         disabled: !!busy,
         onclick: async () => {
           if (!window.api || !window.api.importMilk) { P().toast('İçe aktarma kullanılamıyor.'); return; }
@@ -1489,12 +1499,12 @@
     // Paket (#576): favori, etiket ve puanlar presetlerle birlikte
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
-        class: 'btn ghost', type: 'button', text: '📦 Görünenleri Paketle',
+        class: 'btn ghost', type: 'button', icon: 'box', text: 'Görünenleri Paketle',
         title: 'Listede görünen kendi presetlerinizi favori, etiket ve puanlarıyla tek dosyaya yazar',
         onclick: () => exportPack(cfg),
       }),
       el('button', {
-        class: 'btn ghost', type: 'button', text: '📥 Paket İçe Aktar',
+        class: 'btn ghost', type: 'button', icon: 'import', text: 'Paket İçe Aktar',
         title: 'Bir .svpack paketini favori, etiket ve puanlarıyla ekler',
         onclick: () => importPack(),
       }),
@@ -1503,15 +1513,15 @@
        kütüphane. Önce ne ekleneceği gösteriliyor, onaysız kopya yok. */
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
-        class: 'btn ghost', type: 'button', text: '🗜 ZIP Paketinden İçe Aktar', disabled: !!libBusy,
+        class: 'btn ghost', type: 'button', icon: 'archive', text: 'ZIP Paketinden İçe Aktar', disabled: !!libBusy,
         onclick: () => pickLibrary('zip'),
       }),
       el('button', {
-        class: 'btn ghost', type: 'button', text: '📁 Klasörden İçe Aktar', disabled: !!libBusy,
+        class: 'btn ghost', type: 'button', icon: 'folder', text: 'Klasörden İçe Aktar', disabled: !!libBusy,
         onclick: () => pickLibrary('folder'),
       }),
       el('button', {
-        class: 'btn ghost', type: 'button', text: '🔎 Makinede Ara', disabled: !!libBusy,
+        class: 'btn ghost', type: 'button', icon: 'search', text: 'Makinede Ara', disabled: !!libBusy,
         title: 'Bilinen kurulum klasörlerinde ve Masaüstü, İndirilenler, Belgeler, Müzik klasörlerinde MilkDrop kütüphanesi arar',
         onclick: () => discoverLibraries(),
       }),
@@ -1556,7 +1566,7 @@
       if (!libSearchDone) {
         nodes.push(el('div', {
           class: 'studio-note dim-hint',
-          text: 'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.',
+          text: 'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa “Klasörden İçe Aktar” ile seçin.',
         }));
       }
     }
@@ -1608,7 +1618,7 @@
         const favN = presets.reduce((n, p) => n + (L.isFavorite(lib, p.id) ? 1 : 0), 0);
         nodes.push(P().row('Süz', viewSel([
           ['all', tr('Tümü') + ' (' + presets.length + ')'],
-          ['fav', tr('★ Favoriler') + ' (' + favN + ')'],
+          ['fav', tr('Favoriler') + ' (' + favN + ')'],
         ].concat(tags.map((t) => ['tag:' + t.key, '#' + t.name + ' (' + t.count + ')'])),
         showSel, (v) => { showSel = String(v); })));
         const authors = L.authorCounts(presets);
@@ -1679,7 +1689,7 @@
       // Favori ve etiketler (#576): yıldız tek tıkla, etiketler adın yanında
       const fav = !!(LBn && LBn.isFavorite(libNow, p.id));
       const favBtn = LBn ? el('button', {
-        class: 'md-fav' + (fav ? ' on' : ''), type: 'button', text: fav ? '★' : '☆',
+        class: 'md-fav' + (fav ? ' on' : ''), type: 'button', icon: fav ? 'star-fill' : 'star',
         title: fav ? 'Favorilerden çıkar' : 'Favorilere ekle',
         'aria-pressed': fav ? 'true' : 'false',
         onclick: () => { keepScroll(); setFavorite(p.id, !fav); },
@@ -1707,7 +1717,7 @@
           }, [box, el('span', { class: 'md-cell-name', text: tr(p.name || p.id) })]),
           favBtn,
           p.builtin ? null : el('button', {
-            class: 'btn ghost tiny danger md-cell-del', type: 'button', text: '✕', title: 'Sil',
+            class: 'btn ghost tiny danger md-cell-del', type: 'button', icon: 'x', title: 'Sil',
             onclick: () => removePreset(p),
           }),
         ]);
@@ -1726,7 +1736,7 @@
         p.builtin
           ? el('span', { class: 'md-builtin', text: 'yerleşik', title: 'CAYADEV presetleri' })
           : el('button', {
-            class: 'btn ghost tiny danger', type: 'button', text: '✕', title: 'Sil',
+            class: 'btn ghost tiny danger', type: 'button', icon: 'x', title: 'Sil',
             onclick: () => removePreset(p),
           }),
       ]);
@@ -1766,15 +1776,15 @@
          kaldığı yerden sayıyor (shared/milkdrop-cycle.js). */
       const locked = control(cfg).locked === true;
       nodes.push(el('div', { class: 'row' }, [
-        el('button', { class: 'btn ghost', type: 'button', text: '◀ Önceki', onclick: back }),
-        el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki ▶', onclick: forward }),
+        el('button', { class: 'btn ghost', type: 'button', icon: 'chevron-left', text: 'Önceki', onclick: back }),
+        el('button', { class: 'btn ghost', type: 'button', text: 'Sonraki', onclick: forward }, [el('span', { class: 'svi-after', icon: 'chevron-right' })]),
         el('button', {
-          class: 'btn ghost', type: 'button', text: '🎲 Rastgele',
+          class: 'btn ghost', type: 'button', icon: 'dice', text: 'Rastgele',
           onclick: () => go(cfg, randomPick(cfg, md)),
         }),
         el('button', {
           id: 'mdLock', class: 'btn ghost' + (locked ? ' md-locked' : ''), type: 'button',
-          text: locked ? '🔒 Kilitli' : '🔓 Kilitle',
+          icon: locked ? 'lock' : 'unlock', text: locked ? 'Kilitli' : 'Kilitle',
           title: 'Otomatik geçişi ve sert geçişi durdurur; elle seçim çalışır',
           'aria-pressed': locked ? 'true' : 'false',
           onclick: () => { control(cfg).locked = !locked; rerender(); },
@@ -1847,7 +1857,7 @@
         const value = cur.from === 'tag' ? 'tag:' + (hit ? hit.name : cur.tag) : cur.from;
         const pairs = [
           ['all', tr('Tüm presetler')],
-          ['favorites', tr('★ Favoriler') + ' (' + favN + ')'],
+          ['favorites', tr('Favoriler') + ' (' + favN + ')'],
         ].concat(tags.map((t) => ['tag:' + t.name, '#' + t.name + ' (' + t.count + ')']));
         if (cur.from === 'tag' && !hit) pairs.push([value, '#' + cur.tag + ' (0)']);
         nodes.push(P().row('Havuz', selOf(pairs, value, (v) => {
@@ -1858,7 +1868,7 @@
         if (cur.from !== 'all') {
           nodes.push(el('div', {
             class: 'studio-note dim-hint',
-            text: 'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. ◀ Önceki, Sonraki ▶, Rastgele ve listeden seçim bütün presetlere gider.',
+            text: 'Havuz yalnız otomatik geçişi sınırlar: zamanlayıcı, sert geçiş ve parça değişimi yalnız bunlardan seçer. Önceki, Sonraki, Rastgele ve listeden seçim bütün presetlere gider.',
           }));
         }
         if (cur.from !== 'all' && n < 2) {
@@ -1924,7 +1934,7 @@
       }
       nodes.push(el('div', {
         class: 'studio-note dim-hint',
-        text: 'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. ◀ Önceki ve Sonraki ▶ ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',
+        text: 'Yıldızlar yalnız sizin verdiğiniz puanı gösterir; puan vermediğiniz preset boş görünür ve rastgele sırada kendi dosyasındaki fRating değeriyle (yoksa 3) seçilir. Rastgele sırada presetler puanlarıyla orantılı olasılıkla gelir ve 0 puanlı preset hiç gelmez — MilkDrop 2\'nin kuralı. Verdiğiniz puan ayarlara yazılır, preset dosyasına dokunulmaz. Önceki ve Sonraki ekranda gösterilenlerin geçmişinde gezer; otomatik geçişin seçtikleri de o geçmişte.',
       }));
     }
 

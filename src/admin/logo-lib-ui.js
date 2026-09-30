@@ -58,7 +58,7 @@
     const addBtn = el('button', {
       class: 'btn ghost small',
       type: 'button',
-      text: tr('📥 Kitaplığa Ekle'),
+      icon: 'import', text: tr('Kitaplığa Ekle'),
     });
     toolbar.appendChild(addBtn);
     wrap.appendChild(head);
@@ -121,7 +121,7 @@
         const del = el('button', {
           class: 'logo-lib-del',
           type: 'button',
-          text: '✕',
+          icon: 'x',
           title: tr('Sil'),
         });
         const card = el('button', {

@@ -11,6 +11,8 @@
 (function () {
   const R = window.SVRemote;
   const $ = (id) => document.getElementById(id);
+  // Düğme ikonları masaüstüyle aynı setten (#665)
+  if (window.SVIcons) window.SVIcons.hydrate(document);
   let cfg = null;
   let presets = [];
   let selectedSceneId = null;

@@ -127,6 +127,35 @@ body {
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); }
 .dot.on { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
 
+/* ============================ İKONLAR (#665) ============================ */
+/* src/shared/icons.js'in SVG'leri. Boyut yazıya bağlı; yazıdan önce gelen
+   ikonla yazı arasında sabit bir boşluk. Satır yüksekliğini büyütmesin diye
+   dikey hizası yazının orta çizgisine göre. */
+.svi { width: 1.15em; height: 1.15em; flex-shrink: 0; vertical-align: -0.22em; overflow: visible; }
+.svi-lead { margin-right: .42em; }
+.svi-after { display: inline-flex; margin-left: .38em; vertical-align: -0.22em; }
+.btn .svi, .filebtn .svi { width: 1.2em; height: 1.2em; }
+.nav-ico .svi { width: 17px; height: 17px; }
+.card-head .ico .svi { width: 16px; height: 16px; }
+.sr-ico .svi, .source-icon .svi { width: 15px; height: 15px; }
+.icon-btn .svi { width: 16px; height: 16px; }
+.icon-btn.small .svi { width: 13px; height: 13px; }
+.btn.tiny .svi { width: 12px; height: 12px; }
+.bicon .svi { width: 18px; height: 18px; }
+.ts-icon .svi { width: 14px; height: 14px; vertical-align: middle; }
+.lighting-status .svi, .audio-state .svi, .export-status .svi, .rec-status .svi,
+.studio-status .svi, .autovj-status .svi, .md-ok .svi, .mded-ok .svi { width: 1.1em; height: 1.1em; }
+.lighting-status.ok .svi, .md-ok .svi, .mded-ok .svi { color: var(--ok); }
+.autovj-status .svi-warning, .rec-status .svi-warning, .export-status .svi-warning, .audio-state .svi-warning,
+.lighting-status .svi-warning { color: var(--warn, #ffc44d); }
+/* Katlanır bölüm oku: kapalıyken sağa, açıkken aşağı */
+.fold-caret { display: inline-flex; margin-right: .35em; transition: transform .15s; }
+.fold-caret .svi { width: 10px; height: 10px; vertical-align: 0; }
+.fold-head.open .fold-caret { transform: rotate(90deg); }
+.cd-meta .svi { width: 11px; height: 11px; vertical-align: -1px; }
+.cd-sep { margin: 0 .3em; opacity: .7; }
+.perf-stopico { display: inline-flex; margin-left: .45em; vertical-align: -0.15em; }
+
 /* ============================ BUTONLAR ============================ */
 .btn {
   cursor: pointer; border-radius: 9px; padding: 8px 14px;
@@ -298,7 +327,11 @@ body {
   cursor: pointer; transition: .15s;
 }
 .adv-summary:hover { color: var(--text); border-color: var(--line2); }
-.adv-summary .caret { transition: transform .18s; font-size: 9px; }
+.adv-summary .caret {
+  display: inline-block; width: 9px; height: 9px; transition: transform .18s;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
 .advanced.open .adv-summary .caret { transform: rotate(90deg); }
 .adv-summary .count { margin-left: auto; font-size: 10px; color: var(--muted2); font-weight: 700; }
 .adv-body { display: none; padding: 12px 2px 2px; }
@@ -610,10 +643,11 @@ select:focus { border-color: var(--accent); }
   padding: 2px 6px; border-radius: 5px;
   background: rgba(0,0,0,.55); color: rgba(255,255,255,.55);
 }
+/* Duraklatma işareti CSS'te: ikon setindeki "pause" (icons.js), sabit renkle
+   data: URL'si olarak (#665). */
 .preview-stage.paused::after {
-  content: '⏸'; position: absolute; inset: 0; z-index: 6;
-  display: grid; place-items: center; font-size: 30px;
-  background: rgba(5,4,10,.62); color: rgba(255,255,255,.75);
+  content: ''; position: absolute; inset: 0; z-index: 6;
+  background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3Cpath d=%22M14.5 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1 -1 1h-2a1 1 0 0 1 -1 -1v-12a1 1 0 0 1 1 -1z%22 fill=%22rgba(255,255,255,.75)%22/%3E%3C/svg%3E") center / 38px no-repeat, rgba(5,4,10,.62);
 }
 
 /* --- seviye göstergeleri --- */
@@ -858,14 +892,24 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 }
 
 /* --- çoklu ekran seçimi (üst çubuk) --- */
-.display-field { position: relative; }
+/* Etiket düğmenin ÜSTÜNDE değil YANINDA: .field sütun düzeninde etiket
+   düğmeyi aşağı itiyor ve ekran seçimi, yanındaki "Görselleştirmeyi Aç"
+   düğmelerinden ~8px aşağıda kalıyordu. Yalnız bu alan satır düzenine
+   alınıyor; .field başka yerlerde de kullanılıyor. */
+.display-field { position: relative; flex-direction: row; align-items: center; gap: 8px; }
+.display-field > span { font-size: 11px; white-space: nowrap; }
 .display-btn {
   background: var(--card2); color: var(--text); border: 1px solid var(--line);
-  border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 12px;
-  cursor: pointer; min-width: 148px; text-align: left; margin-top: 4px;
+  border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 12px; line-height: 1.35;
+  cursor: pointer; min-width: 148px; text-align: left;
 }
 .display-btn:hover { border-color: var(--line2); }
-.display-btn::after { content: '▾'; float: right; color: var(--muted2); }
+/* Açılır ok: ikon setindeki "caret-down", maske olarak — rengi temadan */
+.display-btn::after {
+  content: ''; float: right; width: 12px; height: 12px; margin: 2px 0 0 8px;
+  background: var(--muted2);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M6.8 9.5h10.4a.6.6 0 0 1 .45 1l-5.2 5.6a.6.6 0 0 1-.9 0l-5.2-5.6a.6.6 0 0 1 .45-1z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M6.8 9.5h10.4a.6.6 0 0 1 .45 1l-5.2 5.6a.6.6 0 0 1-.9 0l-5.2-5.6a.6.6 0 0 1 .45-1z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
 .display-menu {
   position: absolute; z-index: 40; top: calc(100% + 5px); left: 0; min-width: 240px;
   background: var(--surface); border: 1px solid var(--line2); border-radius: 11px;
@@ -1084,7 +1128,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 @keyframes cd-armed { 50% { box-shadow: inset 0 0 0 2px var(--warn), 0 0 10px rgba(255,196,77,.35); } }
 /* Çalıyor: yeşil çerçeve ve parlama; uzaktan da seçilir. */
 .cd-cell.active { border-color: #2ea043; box-shadow: inset 0 0 0 2px #2ea043, 0 0 12px rgba(46,160,67,.35); }
-.cd-cell.active .cd-name::before { content: '▶ '; color: #43d98a; }
+.cd-cell.active .cd-name::before {
+  content: ''; display: inline-block; width: .9em; height: .9em; margin-right: .3em; vertical-align: -.1em;
+  background: #43d98a;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Cpath d=%22M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.3-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z%22 fill=%22%23000%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
 .cd-cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .cd-cell.armed { animation: none; } }
 .cd-name, .cd-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

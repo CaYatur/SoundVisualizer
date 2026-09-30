@@ -28,12 +28,15 @@
     bar.id = 'sv-float-bar';
     const grip = document.createElement('div');
     grip.className = 'sv-float-grip';
-    grip.textContent = '⠿';
-    function chip(label, fn) {
+    // İkonlar ikon setinden (#665); set yüklenmemişse yazı
+    const ico = (name, alt) => (window.SVIcons ? window.SVIcons.el(name) : document.createTextNode(alt));
+    grip.appendChild(ico('grip', '::'));
+    function chip(label, fn, icon, title) {
       const b = document.createElement('button');
       b.type = 'button';
+      if (title) b.title = title;
       b.className = 'sv-float-chip';
-      b.textContent = label;
+      if (icon) b.appendChild(ico(icon, label)); else b.textContent = label;
       b.addEventListener('click', (e) => { e.preventDefault(); try { fn(); } catch { /* yok */ } });
       return b;
     }
@@ -42,13 +45,14 @@
     ['S', 'M', 'L'].forEach((k) => sizes.appendChild(chip(k, () => window.api.floatingSize(k.toLowerCase()))));
     const corners = document.createElement('div');
     corners.className = 'sv-float-group';
-    [['↖', 'tl'], ['↗', 'tr'], ['↙', 'bl'], ['↘', 'br']].forEach((p) => {
-      corners.appendChild(chip(p[0], () => window.api.floatingSnap(p[1])));
+    [['tl', 'Sol üst köşe'], ['tr', 'Sağ üst köşe'], ['bl', 'Sol alt köşe'], ['br', 'Sağ alt köşe']].forEach((p) => {
+      corners.appendChild(chip(p[0], () => window.api.floatingSnap(p[0]), 'corner-' + p[0], p[1]));
     });
     const close = document.createElement('button');
     close.className = 'sv-float-close';
     close.type = 'button';
-    close.textContent = '✕';
+    close.title = 'Kapat';
+    close.appendChild(ico('x', 'x'));
     close.addEventListener('click', () => { try { window.api.floatingClose(); } catch { /* yok */ } });
     bar.appendChild(grip);
     bar.appendChild(sizes);
@@ -598,9 +602,9 @@
           'font:600 15px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);padding:4px 10px;border-radius:6px;';
         (document.body || document.documentElement).appendChild(hint);
       }
-      hint.textContent = st.mode
-        ? (st.mode === 'kill' ? '■ ' : '▶ ') + 'Sprite ' + (st.digits + '__').slice(0, 2)
-        : '';
+      const label = st.mode ? 'Sprite ' + (st.digits + '__').slice(0, 2) : '';
+      if (window.SVIcons) window.SVIcons.set(hint, st.mode ? (st.mode === 'kill' ? 'stop' : 'play') : '', label);
+      else hint.textContent = label;
       hint.style.display = st.mode ? 'block' : 'none';
       hideAt = performance.now() + 4000;
     };

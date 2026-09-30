@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2469%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2475%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -362,7 +362,7 @@ profilinde basamak olmadığını doğruluyor.
   Başlık"; `yazar:geiss` (ya da `author:`) Geiss'in presetlerini buluyor, adını anan bir başlığı
   değil, `#sakin` bir etiketi buluyor. *Süz* listeyi favorilere ya da bir etikete, *Yazar* bir
   yazara daraltıyor. *Havuz* otomatik geçişi — zamanlayıcı, sert geçiş ve parça değişimi —
-  favorilerle ya da bir etiketle sınırlıyor; ◀, ▶, Rastgele ve liste yine bütün presetlere gidiyor.
+  favorilerle ya da bir etiketle sınırlıyor; Önceki, Sonraki, Rastgele ve liste yine bütün presetlere gidiyor.
   Favori ve etiketler puanlarınızın yanında, ayarlarda duruyor, preset dosyalarında değil; paket
   üçünü de taşıyor: *Görünenleri Paketle* listede görünen presetleri onlarla birlikte yazıyor, paketi
   içe aktarmak onları yeni kopyalara bağlıyor. Yalıtılmış bir kopyada denetlendi: havuz üç favoriye
@@ -414,7 +414,7 @@ profilinde basamak olmadığını doğruluyor.
   satır kopyalanarak. *Yeni Karışım* her parçayı MilkDrop panelinin listesinde görünen
   presetlerden rastgele çekiyor, yani oradaki arama ve süzgeç burada da geçerli, ve yalnız o
   parçası olan presetlerden. Tek bir parça yeniden çekilebiliyor ya da altısı birden ekrandaki
-  presetten başlayabiliyor; ◀ ▶ önceki karışımlara dönüyor, *Kütüphaneye Kaydet* birini saklıyor.
+  presetten başlayabiliyor; oklar önceki karışımlara dönüyor, *Kütüphaneye Kaydet* birini saklıyor.
   Karışım parçalarını veren presetlerin görünüşünü taşıyor, yani onlardan daha parlak ya da daha
   karanlık çıkabilir. 10.332 presetlik bir korpusta denetlendi: tek presetten kurulan karışım
   presetin kendisi, 5.000 rastgele karışımda da her parça onu veren presetinkiyle birebir aynı.
@@ -476,7 +476,7 @@ profilinde basamak olmadığını doğruluyor.
   vermediğiniz preset boş görünüyor, rastgele sıra ise onu kendi dosyasındaki puanla ağırlıklandırmayı
   sürdürüyor. Verdiğiniz puan presete değil
   ayarlara yazılıyor, çünkü bir preseti kaydetmek bütün kitaplığı kaynaklarıyla birlikte bütün
-  pencerelere yeniden gönderiyor. ◀ ve ▶ artık son tıkladığınız presetten listede adım atmak yerine
+  pencerelere yeniden gönderiyor. Önceki ve Sonraki artık son tıkladığınız presetten listede adım atmak yerine
   gerçekten gösterilenlerin geçmişinde geziyor; otomatik geçişin ve sert geçişin seçtikleri de
   içinde, geçmiş MilkDrop'un 64 adımını tutuyor. Bir fark bilinçli: geri gidildikten sonra yeni bir
   preset gelirse ileri kısım atılıyor, tarayıcıdaki gibi; MilkDrop'un otomatik geçişi ise onu
@@ -1178,7 +1178,7 @@ Geliştirme, kurulu ve taşınabilir (portable) derlemelerin hepsi ayarlarını 
   ama kare aralıkları düzensizleşir; bu yüzden *Ekranla Eşle* önerilir.
 - Arkaplan çözünürlük ölçeği, sessizlikte duraklat, imleci gizle.
 
-### Uygulama ayarları (⚙ menüsü)
+### Uygulama ayarları (dişli menüsü)
 
 - **Dil** — otomatik (sistem), Türkçe ya da İngilizce.
 - **Görselleştirmeyi Her Zaman Üstte Tut** *(varsayılan kapalı)* — görselleştirme penceresi odağı
@@ -1319,7 +1319,7 @@ eksik yüklemenin bilerek yapıldığı durumlar içindir.
 
 1. **Ekranlar** menüsünden bir veya **birkaç** ekran, ardından bir veya daha fazla **ses kaynağı**
    seçin.
-2. **▶ Görselleştiriciyi Aç**'a basın; seçili her ekranda tam ekran görsel başlar.
+2. **Görselleştirmeyi Aç**'a basın; seçili her ekranda tam ekran görsel başlar.
 3. Sağdaki kartlardan istediğinizi değiştirin — anında uygulanır ve kendini kaydeder.
 4. Yayın yapıyorsanız **Çıkış → Yayın Çıkışı**'nı açıp verdiği adresi OBS'de bir **Tarayıcı
    Kaynağı**'na yapıştırın.
@@ -1341,7 +1341,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2469 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2475 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

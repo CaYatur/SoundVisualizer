@@ -369,9 +369,9 @@ test('metinlerin İngilizcesi var', () => {
   const dictSrc = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
   const need = [
     'Bir klip, anahtar kare ya da parça seçin. Kısayollar için düzenleyiciye tıklayın.',
-    'Klavye kısayolları', 'Döngü, işaretler ve cetvel', '＋ Kafada Klip', '＋ Kafada İşaret', 'Parçalar',
+    'Klavye kısayolları', 'Döngü, işaretler ve cetvel', 'Kafada Klip', 'Kafada İşaret', 'Parçalar',
     'Oynat / duraklat (Boşluk)', 'Hepsini sığdır (0)', 'Geri al (Ctrl+Z)', 'Yinele (Ctrl+Y)',
-    'Solo: yalnız solo parçalar çalar', 'Parçanın Adı', 'Hedef Ayar', '✂ Böl', '⧉ Çoğalt', '🗑 Parçayı Sil',
+    'Solo: yalnız solo parçalar çalar', 'Parçanın Adı', 'Hedef Ayar', 'Böl', 'Çoğalt', 'Parçayı Sil',
   ];
   for (const s of need) {
     assert.ok(src.includes(s), 'panelde yok: ' + s);

@@ -172,9 +172,9 @@ const ran = [];
 window.SVControl = {
   allTargets: () => [
     { path: 'audio.sensitivity', label: 'Ses · Hassasiyet' },
-    { action: 'nextVisualizer', label: '⏭ Eylem · Sonraki Görselleştirici' },
-    { action: 'deckStopAll', label: '⏹ Deste · Hepsini Durdur' },
-    { action: 'deckSlot:deck:0:0', label: '🎛 Deste · A' },
+    { action: 'nextVisualizer', label: 'Eylem · Sonraki Görselleştirici' },
+    { action: 'deckStopAll', label: 'Deste · Hepsini Durdur' },
+    { action: 'deckSlot:deck:0:0', label: 'Deste · A' },
   ],
   runAction: (a, cfg) => ran.push([a, !!cfg]),
 };
@@ -208,7 +208,7 @@ test('eylem: ateşlenen yuva eylemi çalıştırıyor ve kullanıcının geçiş
   DP.engine().update(1e6, TL.makeTempoMap([{ t: 0, bpm: 120 }]));
   assert.deepStrictEqual(ran.map((r) => r[0]), ['nextVisualizer']);
   assert.deepStrictEqual(cfg.transition, { enabled: true, duration: 2, type: 'fade' });
-  assert.strictEqual(DP.slotLabel({ type: 'action', ref: 'nextVisualizer' }), '⏭ Eylem · Sonraki Görselleştirici');
+  assert.strictEqual(DP.slotLabel({ type: 'action', ref: 'nextVisualizer' }), 'Eylem · Sonraki Görselleştirici');
 });
 
 test('eylem düzenleyicisi: geçiş satırları yok, ne yaptığını söylüyor', () => {

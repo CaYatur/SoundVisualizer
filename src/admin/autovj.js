@@ -197,14 +197,29 @@
   // --------------------------------------------------------------------------
   // Durum satırı — kullanıcı çalıştığını GÖRSÜN
   // --------------------------------------------------------------------------
+  /* Son satırın bir uyarı olup olmadığı: ikon metinden değil bundan (#665) */
+  let statusWarn = false;
+
+  /* Durum satırını yerinde yazar; değişmediyse DOM'a dokunmaz. */
+  function paintStatus(st, text) {
+    const icon = statusWarn ? 'warning' : '';
+    if (st._svText === text && st._svIcon === icon) return;
+    st._svText = text;
+    st._svIcon = icon;
+    if (window.SVIcons && st.nodeType === 1) window.SVIcons.set(st, icon, text);
+    else st.textContent = text;
+  }
+
   function statusText(a, ctx) {
+    statusWarn = false;
     if (!a.enabled) return T('Otomatik VJ kapalı.');
 
     const d = R().diagnose(cfg0(), ctx);
     if (!d.ok) {
-      if (a.source === 'scenes') return T('⚠ Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.');
-      if (a.source === 'palettes') return T('⚠ Seçilen kaynakta renk şablonu yok.');
-      return T('⚠ Bu kaynakta değiştirilecek bir şey yok.');
+      statusWarn = true;
+      if (a.source === 'scenes') return T('Kayıtlı sahne yok. Önce Kitaplık › Sahneler bölümünden sahne kaydedin ya da başka bir kaynak seçin.');
+      if (a.source === 'palettes') return T('Seçilen kaynakta renk şablonu yok.');
+      return T('Bu kaynakta değiştirilecek bir şey yok.');
     }
 
     const parts = [];
@@ -265,7 +280,7 @@
       /* Durum satırı yerinde güncelleniyor — paneli yeniden çizmeden.
          Yeniden çizmek kullanıcının tıklamasını düşürüyordu. */
       const st = document.getElementById('autovjStatus');
-      if (st) st.textContent = statusText(a, ctxOf(cfg));
+      if (st) paintStatus(st, statusText(a, ctxOf(cfg)));
     }
 
     if (!a.enabled) return;
@@ -378,7 +393,7 @@
       el('span', { id: 'bpmValue', class: 'bpm-value', text: tempo && tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM' }),
       el('div', { class: 'bpm-conf' }, [el('i', { id: 'bpmConf' })]),
       el('button', {
-        class: 'btn small', type: 'button', text: '👆 Tempoya Vur',
+        class: 'btn small', type: 'button', icon: 'hand', text: 'Tempoya Vur',
         title: 'Ritimle birkaç kez basın; tempo elle sabitlenir',
         onclick: () => {
           if (!tempo) return;
@@ -416,9 +431,11 @@
 
     /* Durum satırı — kapalıyken de duruyor ki kullanıcı nereye bakacağını
        bilsin. Döngü bunu yerinde günceller. */
+    const stText = statusText(a, ctx);
     nodes.push(el('div', {
       id: 'autovjStatus', class: 'studio-note autovj-status',
-      text: statusText(a, ctx),
+      icon: statusWarn ? 'warning' : '',
+      text: stText,
     }));
 
     if (a.enabled) {
@@ -463,13 +480,13 @@
 
       nodes.push(el('div', { class: 'row' }, [
         el('button', {
-          class: 'btn ghost small', type: 'button', text: '⏭ Şimdi Değiştir',
+          class: 'btn ghost small', type: 'button', icon: 'next', text: 'Şimdi Değiştir',
           onclick: () => {
             restartTiming();
             const res = applySwitch();
             if (res.ok && !res.pushed) P().push(true);
             const st = document.getElementById('autovjStatus');
-            if (st) st.textContent = statusText(R().normalize(raw), ctxOf(P().cfg()));
+            if (st) paintStatus(st, statusText(R().normalize(raw), ctxOf(P().cfg())));
           },
         }),
       ]));

@@ -439,7 +439,7 @@ test('panel: ZIP seçimi → özet onayı → içe aktarım → etiketler ve dok
     pickMilkdropLibrary: (kind) => Promise.resolve(Object.assign({ kind }, SUMMARY)),
     importMilkdropLibrary: (token) => { imported = token; return Promise.resolve(RESULT); },
   });
-  await find(p.render(), '🗜 ZIP Paketinden İçe Aktar').on.click();
+  await find(p.render(), 'ZIP Paketinden İçe Aktar').on.click();
   assert.strictEqual(imported, 'lib_1');
   assert.strictEqual(p.calls.confirms.length, 1, 'kopyalamadan önce soruluyor');
   const msg = p.calls.confirms[0];
@@ -462,10 +462,10 @@ test('panel: onay verilmezse içe aktarım yok; klasör adları kapalıysa etike
     importMilkdropLibrary: () => { imported++; return Promise.resolve(RESULT); },
   }, (cfg) => { cfg.milkdropControl.importFolderTags = false; });
   window.SVPanel.confirm = () => Promise.resolve(false);
-  await find(p.render(), '📁 Klasörden İçe Aktar').on.click();
+  await find(p.render(), 'Klasörden İçe Aktar').on.click();
   assert.strictEqual(imported, 0, 'sormadan kopya yok');
   window.SVPanel.confirm = () => Promise.resolve(true);
-  await find(p.render(), '📁 Klasörden İçe Aktar').on.click();
+  await find(p.render(), 'Klasörden İçe Aktar').on.click();
   assert.strictEqual(imported, 1);
   assert.deepStrictEqual(p.cfg.milkdropLibrary.tags, {}, 'etiket yapılmadı');
 });
@@ -476,18 +476,18 @@ test('panel: makinede arama listesi ve hata metinleri', async () => {
     importMilkdropLibrary: () => Promise.resolve({ ok: false, error: 'NO_PLAN' }),
     pickMilkdropLibrary: () => Promise.resolve({ ok: false, error: 'NOT_ZIP' }),
   });
-  await find(p.render(), '🔎 Makinede Ara').on.click();
+  await find(p.render(), 'Makinede Ara').on.click();
   const r = p.render();
   const row = r.kids.find((n) => n && n.label === 'Bulunan Kütüphaneler');
   assert.ok(row, 'liste yok');
   assert.deepStrictEqual(row.node.kids.map((it) => it.kids[1].text), ['3 preset · 2 doku · 3 MB', '552 preset · 0 doku · 4,6 MB']);
   await row.node.kids[1].kids[2].on.click();
   assert.ok(p.calls.toasts.includes('Bu tarama artık geçerli değil; yeniden tarayın.'));
-  await find(p.render(), '🗜 ZIP Paketinden İçe Aktar').on.click();
+  await find(p.render(), 'ZIP Paketinden İçe Aktar').on.click();
   assert.ok(p.calls.toasts.includes('ZIP okunamadı: bozuk ya da ZIP değil.'));
   // Boş arama sonucu söyleniyor
   window.api.discoverMilkdropLibraries = () => Promise.resolve({ ok: true, libraries: [] });
-  await find(p.render(), '🔎 Makinede Ara').on.click();
+  await find(p.render(), 'Makinede Ara').on.click();
   const texts = [];
   walk(p.render(), (n) => { if (n.text) texts.push(n.text); });
   assert.ok(texts.some((t) => t.startsWith('Bilinen kurulum klasörlerinde')));
@@ -504,7 +504,7 @@ test('panel: süresi yetmeyen kütüphane "+" ile listeleniyor, onaydan önce ta
     rescanMilkdropLibrary: (token) => { rescans.push(token); return Promise.resolve(Object.assign({ ok: true }, FULL)); },
     importMilkdropLibrary: (token) => { imported = token; return Promise.resolve(RESULT); },
   });
-  await find(p.render(), '🔎 Makinede Ara').on.click();
+  await find(p.render(), 'Makinede Ara').on.click();
   const rows = () => p.render().kids.find((n) => n && n.label === 'Bulunan Kütüphaneler').node.kids;
   assert.deepStrictEqual(rows().map((it) => it.kids[1].text), ['120+ preset · 2+ doku · 3+ MB', 'sayılmadı']);
   const texts = [];
@@ -528,7 +528,7 @@ test('panel: süresi yetmeyen kütüphane "+" ile listeleniyor, onaydan önce ta
   imported = null;
   window.api.discoverMilkdropLibraries = () => Promise.resolve({ ok: true, complete: true, libraries: [CUT] });
   window.api.rescanMilkdropLibrary = () => Promise.resolve({ ok: false, error: 'NO_PLAN' });
-  await find(p.render(), '🔎 Makinede Ara').on.click();
+  await find(p.render(), 'Makinede Ara').on.click();
   await rows()[0].kids[2].on.click();
   assert.strictEqual(imported, null);
   assert.strictEqual(p.calls.confirms.length, 2, 'sorulmadı bile');
@@ -549,14 +549,14 @@ test('metinlerin İngilizcesi var', () => {
   const I18N = read('src/shared/i18n.js');
   const PANEL = read('src/admin/milkdrop-panel.js');
   for (const k of [
-    '🗜 ZIP Paketinden İçe Aktar', '📁 Klasörden İçe Aktar', '🔎 Makinede Ara', 'Klasör Adları', 'Etiket yap', 'Etiket yapma',
+    'ZIP Paketinden İçe Aktar', 'Klasörden İçe Aktar', 'Makinede Ara', 'Klasör Adları', 'Etiket yap', 'Etiket yapma',
     'Bulunan Kütüphaneler', 'İçe Aktar', 'Taranıyor…', 'Makinede aranıyor…', 'İçe aktarılıyor…',
     'Okunuyor: {a}/{b}', 'Kaydediliyor: {a}/{b}', 'Dokular: {a}/{b}', '“{label}”: {p} preset, {t} doku, {mb} MB.',
     '{a} preset eklendi, {d} tekrar atlandı.', '{c} doku kopyalandı.', '{p} preset · {t} doku · {mb} MB',
     'Bu kaynakta MilkDrop preseti yok.', 'ZIP okunamadı: bozuk ya da ZIP değil.', 'İçe aktarılamadı.',
     '{p}+ preset · {t}+ doku · {mb}+ MB', 'sayılmadı', 'Presetlerin yanındaki {n} görselden yalnız presetlerin istediği kopyalanır.',
     'Aramanın süresi bazı kütüphaneleri saymaya yetmedi (+ ya da “sayılmadı”); içe aktarmadan önce tamamı taranır.',
-    'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa 📁 Klasörden İçe Aktar ile seçin.',
+    'Arama süre sınırına ulaştı, bazı klasörlere bakılamadı. Kütüphaneniz listede yoksa “Klasörden İçe Aktar” ile seçin.',
   ]) {
     assert.ok(PANEL.includes("'" + k + "'"), k + ' panelde yok');
     assert.ok(I18N.includes("'" + k + "':"), k + ' sözlükte yok');

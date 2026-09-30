@@ -76,7 +76,8 @@
     const s = state || { status: 'idle' };
     const root = el('div', { class: 'upd-panel' });
     const btn = (text, title, fn, cls) => {
-      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text, title: title || '' });
+      const [ico, txt] = Array.isArray(text) ? text : ['', text];
+      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', icon: ico, text: txt, title: title || '' });
       b.addEventListener('click', fn);
       return b;
     };
@@ -86,7 +87,7 @@
     root.appendChild(p.row('Kurulum Türü', el('span', { text: KIND_LABELS[kind] || kind })));
     root.appendChild(el('div', { class: 'ctrl upd-status ' + (s.status || 'idle'), text: statusText(s) }));
 
-    const check = btn('↻ Şimdi Denetle', 'GitHub sürümlerine bir kez sorar', async () => {
+    const check = btn(['refresh', 'Şimdi Denetle'], 'GitHub sürümlerine bir kez sorar', async () => {
       if (!window.api || !window.api.updatesCheck) return;
       check.disabled = true;
       try {
@@ -99,7 +100,7 @@
     const acts = [check];
 
     if (s.status === 'ready' || s.status === 'installed') {
-      acts.push(btn(s.status === 'ready' ? '⬆ Kur ve Yeniden Başlat' : '↻ Yeniden Başlat', 'Uygulama kapanır; yeni sürüm açılır', async () => {
+      acts.push(btn(s.status === 'ready' ? ['upload', 'Kur ve Yeniden Başlat'] : ['refresh', 'Yeniden Başlat'], 'Uygulama kapanır; yeni sürüm açılır', async () => {
         const r = await window.api.updatesInstall();
         if (!r || !r.ok) P().toast(tt('Kurulum başlatılamadı; sürüm sayfasından indirin.'), 'warn');
       }, 'primary'));
@@ -109,9 +110,9 @@
       /* Kurulabilen türde (Windows kurulumu, AppImage) indirme uygulamanın
          içinde ve doğrulanarak; diğerlerinde tarayıcıda. */
       if (s.installable && s.auto && window.api.updatesDownload) {
-        acts.push(btn('⬇ İndir ve Kur', s.asset.name + ' — ' + tt('SHA-256 ile doğrulanır'), async () => onStatus(await window.api.updatesDownload()), 'primary'));
+        acts.push(btn(['download', 'İndir ve Kur'], s.asset.name + ' — ' + tt('SHA-256 ile doğrulanır'), async () => onStatus(await window.api.updatesDownload()), 'primary'));
       } else if (s.asset) {
-        acts.push(btn('⬇ İndir', s.asset.name, () => window.api.updatesOpen('asset'), 'primary'));
+        acts.push(btn(['download', 'İndir'], s.asset.name, () => window.api.updatesOpen('asset'), 'primary'));
       }
       acts.push(btn('Sürüm Sayfası', 'Sürüm notları ve tüm dosyalar', () => window.api.updatesOpen('release')));
       if (!s.skipped) acts.push(btn('Bu Sürümü Atla', 'Bu sürüm için bir daha bildirim gösterme', async () => onStatus(await window.api.updatesSkip())));

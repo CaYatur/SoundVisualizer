@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2469 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2475 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 872
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 878
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1344,6 +1344,17 @@ Panel layout (#622):
   or 10.
 - Checked by screenshots of every category at 1100, 1300, 1600 and 1900 px
   wide, in Turkish and English, with the reporter's settings.
+
+Icons and top bar (#665):
+- **Our own icons instead of emoji** · done on the branch.
+  - **The problem.** The panel, the visualizer window's own controls and the phone remote used emoji and Unicode pictographs as icons (💾 📤 🗑 ⚠️ ⏭ …): about 350 code lines in 30 files, plus their dictionary entries. They drew in the system's colour emoji font, so they ignored the panel's colours and looked different on each system. Some (⏸ ⏹ ⏭) fell back to colour emoji while others (▶ ■) drew as text, so one toolbar mixed two styles, and an emoji made its button taller: "Open" was 34 px and "Close" beside it 32 px.
+  - **The set.** 119 line icons drawn for this application in `src/shared/icons.js`: a 24 grid, one stroke weight, round ends, `currentColor`. Each icon is only path data, so the same definition draws as SVG in the page and through `Path2D` on the timeline's canvas. The panel, the visualizer window, the phone remote and the web overlay all load it.
+  - **How it is used.** A button names its icon (`icon: 'save'`) and keeps its text in its own text node, so the dictionary still matches the whole label. Buttons whose state changes (Open / Apply displays, Blackout, play / pause, favourite, lock) swap icon and text together. Status lines (audio capture, export, recording, lighting, Auto VJ) take their icon from their state, not from a character in the text. A drop-down option cannot hold an icon, so options lost the glyph.
+  - **Dictionary.** 174 keys started with a glyph: 142 lost it, and 32 then matched an existing key with the same meaning and were removed. About ten more were edited by hand: help texts that named a button by its emoji ("press 🔄 Refresh Devices") now name it by its label. The rules that translate counted status lines were rewritten without the glyphs.
+  - **Kept as text on purpose:** arrows inside sentences (→ ← ↑ ↓), ♩ for a beat and ▮ for a bar in the clip cells, fractions and ×.
+  - A test fails if a UI file gets an emoji outside a comment again, if code names an icon the set does not have, or if the dictionary gets a duplicate key.
+- **The Displays picker lines up with the top bar** · done on the branch. Its label sat above it and pushed the picker about 8 px below Open / Close / Blackout; the label now sits beside it.
+- Checked with screenshots of Scene, Audio, Control (timeline, Clip Deck, performance view), Library, MilkDrop and the search results in Turkish, Control in English, the floating window's bar and the phone remote at 375 px. A script opened every category and found no unknown icon and no glyph left in Turkish, and no untranslated text in English; the smoke run's English scan passed.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

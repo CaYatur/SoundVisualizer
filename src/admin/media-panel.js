@@ -42,8 +42,8 @@
 
     nodes.push(
       P().segment('Kaynak', 'media.source', [
-        { value: 'webcam', label: '📷 Kamera' },
-        { value: 'file', label: '🎞 Video Dosyası' },
+        { value: 'webcam', icon: 'camera', label: 'Kamera' },
+        { value: 'file', icon: 'film', label: 'Video Dosyası' },
       ], { rebuild: true })
     );
 
@@ -60,7 +60,7 @@
       nodes.push(P().row('Kamera', sel));
       nodes.push(
         el('button', {
-          class: 'btn ghost small', type: 'button', text: '🔄 Kameraları Yenile',
+          class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Kameraları Yenile',
           onclick: async () => { await refreshCameras(); P().rerender(); },
         })
       );
@@ -72,7 +72,7 @@
             el('span', { class: 'dim-hint', text: m.file ? (m.fileName || 'seçildi') : 'seçilmedi' }),
           ]),
           el('button', {
-            class: 'btn small', type: 'button', text: '🎞 Video Seç',
+            class: 'btn small', type: 'button', icon: 'film', text: 'Video Seç',
             onclick: async () => {
               const r = await window.api.pickVideo();
               if (!r) return;
