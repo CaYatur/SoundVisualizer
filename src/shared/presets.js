@@ -217,8 +217,16 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
     return out;
   }
 
+  /* Kimlik: zaman + SÜREÇ İÇİ SAYAÇ + rastgele. Önce yalnız zaman ve
+     0..65535 arası bir sayıydı; aynı milisaniyede üretilen iki kimlik
+     1/65536 olasılıkla aynı çıkıyordu. Binlerce presetlik bir içe
+     aktarımda bu kesinliğe yakın: bir preset ötekinin üstüne yazılıyordu
+     (CI'da paket içe aktarım testi tam olarak buna düştü). Sayaç aynı
+     süreçte tekrarı imkânsız kılıyor, rastgele parça süreçler arasında. */
+  let idSeq = 0;
   function newId() {
-    return 'usr_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 0xffff).toString(36);
+    idSeq = (idSeq + 1) % 0x7fffffff;
+    return 'usr_' + Date.now().toString(36) + '_' + idSeq.toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
   }
 
   function builtins() {

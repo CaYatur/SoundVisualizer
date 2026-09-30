@@ -368,13 +368,15 @@ void main(){
 
   const EFFECT_IDS = Object.keys(EFFECTS);
 
+  let fxIdSeq = 0;
   function defaultChainEntry(type) {
     const def = EFFECTS[type];
     if (!def) return null;
     const params = {};
     for (const p of def.params) params[p.name] = p.default;
     return {
-      id: 'fx_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 0xffff).toString(36),
+      // Aynı milisaniyede eklenen efektler çakışmasın (bkz. presets.js newId)
+      id: 'fx_' + Date.now().toString(36) + '_' + (fxIdSeq = (fxIdSeq + 1) % 0x7fffffff).toString(36) + Math.floor(Math.random() * 0xffff).toString(36),
       type,
       enabled: true,
       params,

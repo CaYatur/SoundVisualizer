@@ -39,8 +39,11 @@
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
   const REVIVE_MS = 2000;
 
+  let layerIdSeq = 0;
   function newLayerId() {
-    return 'ly_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 0xffff).toString(36);
+    // Aynı milisaniyede eklenen katmanlar çakışmasın (bkz. presets.js newId)
+    layerIdSeq = (layerIdSeq + 1) % 0x7fffffff;
+    return 'ly_' + Date.now().toString(36) + '_' + layerIdSeq.toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
   }
 
   const LAYER_DEFAULTS = {

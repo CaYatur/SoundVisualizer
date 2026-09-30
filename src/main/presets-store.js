@@ -26,6 +26,14 @@ const MAX_PRESET_BYTES = 512 * 1024; // tek preset üst sınırı (shader metni)
 const WRITE_BATCH = 50; // toplu kayıtta aynı anda yazılan dosya
 
 let root = null; // test kancası: `setDir`
+/* Kimlik: zaman + SÜREÇ İÇİ SAYAÇ + rastgele. Önce yalnız zaman ve
+   0..65535 arası bir sayıydı; aynı milisaniyede üretilen iki kimlik
+   1/65536 olasılıkla aynı çıkıyordu. Binlerce presetlik bir içe
+   aktarımda bu kesinliğe yakın: bir preset ötekinin üstüne yazılıyordu
+   (CI'da paket içe aktarım testi tam olarak buna düştü). Sayaç aynı
+   süreçte tekrarı imkânsız kılıyor, rastgele parça süreçler arasında. */
+let idSeq = 0;
+
 function dir() {
   const d = root || path.join(app.getPath('userData'), 'presets');
   try { fs.mkdirSync(d, { recursive: true }); } catch { /* zaten var */ }
@@ -158,7 +166,10 @@ function prepare(preset, stamp) {
   if (!preset || typeof preset !== 'object') return { ok: false, error: 'INVALID' };
   const p = Object.assign({}, preset);
   p.builtin = false;
-  if (!p.id) p.id = 'usr_' + Date.now().toString(36) + '_' + Math.floor(Math.random() * 65536).toString(36);
+  if (!p.id) {
+    idSeq = (idSeq + 1) % 0x7fffffff;
+    p.id = 'usr_' + Date.now().toString(36) + '_' + idSeq.toString(36) + Math.floor(Math.random() * 65536).toString(36);
+  }
   p.updatedAt = typeof stamp === 'number' ? stamp : Date.now();
   if (!p.createdAt) p.createdAt = p.updatedAt;
   const file = fileFor(p.id);
