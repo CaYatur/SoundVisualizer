@@ -368,8 +368,8 @@ that asserts the bar profile has no step in it.
   Search matches the name, the author and the tags. MilkDrop names are mostly "Author - Title", so
   `author:geiss` (or `yazar:`) finds Geiss's presets but not a title that mentions him, and `#calm`
   finds a tag. *Show* narrows the list to favourites or one tag, *Author* to one author. *Pool*
-  limits auto advance — the timer, hard cuts and track changes — to favourites or one tag, while ◀,
-  ▶, Random and the list still reach every preset. Favourites and tags live in the settings next to
+  limits auto advance — the timer, hard cuts and track changes — to favourites or one tag, while Previous,
+  Next, Random and the list still reach every preset. Favourites and tags live in the settings next to
   your ratings, not in the preset files, and a pack carries all three: *Pack What Is Shown* writes
   the presets in view with them, and importing the pack attaches them to the new copies. Checked in
   an isolated copy: with the pool set to three favourites, the visualizer window went round those
@@ -420,7 +420,7 @@ that asserts the bar profile has no step in it.
   waves, the custom shapes, the warp shader and the composite shader — each taken whole from one
   preset and copied line for line. *New Mash-up* draws every part at random from the presets the
   MilkDrop panel's list shows, so its search and filter apply, and only from presets that have that
-  part. A single part can be drawn again, or all six can start from the preset on screen; ◀ ▶ step
+  part. A single part can be drawn again, or all six can start from the preset on screen; the arrows step
   back through earlier mash-ups, and *Save to Library* keeps one. A mash-up inherits its donors'
   looks, so it can come out brighter or darker than any of them. Checked on a 10,332-preset corpus:
   a mash-up of one preset is that preset again, and in 5,000 random mash-ups every part was
@@ -479,7 +479,7 @@ that asserts the bar profile has no step in it.
   MilkDrop, with a switch — and the panel shows the rating you gave the preset on screen as stars you
   can change; a preset you have not rated shows none, while random order keeps weighting it by its
   own file's rating. Your rating goes into the settings rather than into the preset, because saving a preset
-  re-sends the whole library, sources included, to every window. ◀ and ▶ now walk the history of
+  re-sends the whole library, sources included, to every window. Previous and Next now walk the history of
   what was actually shown, including what auto advance and hard cuts picked, instead of stepping
   through the list from the preset you last clicked; the history keeps MilkDrop's 64 steps. One
   difference is deliberate: after going back, a new preset drops the forward part, as a browser
@@ -1179,7 +1179,7 @@ of them used to mean that whichever saved last silently replaced the other's set
   recommended.
 - Background resolution scale, pause on silence, hide cursor.
 
-### Application settings (⚙ menu)
+### Application settings (gear menu)
 
 - **Language** — automatic (system), Turkish or English.
 - **Keep visualization always on top** *(off by default)* — the visualization window re-raises
@@ -1319,7 +1319,7 @@ and `--partial` when a partial upload really is intended.
 ## Usage
 
 1. Pick one or **several** displays from the **Displays** menu, then one or more **audio sources**.
-2. Click **▶ Open Visualizer** to start the full-screen visual on every selected display.
+2. Click **Open Visualizer** to start the full-screen visual on every selected display.
 3. Change anything on the right — it applies immediately and saves itself.
 4. For streaming, turn on **Output → Streaming Output** and paste the address into an OBS
    **Browser Source**.
