@@ -95,7 +95,7 @@ test('kenarlık ŞİŞİRİLEN yoldan çiziliyor ve thick\'i taşıyor', () => {
   /* Çarpan 4 değil 2: MilkDrop'un dört çizimi bir teksellik 2x2 karenin
      köşelerinde, yani DOĞRUSAL kalınlık iki katı. Dalga da aynı çarpanı
      kullanıyor (`wave_thick ? 2 : 1`). */
-  assert.match(BARE, /this\._strip\(gl, gl\.LINE_LOOP, d, n, -1, GW, GH, o\.thick \? 2 : 1\);/);
+  assert.match(BARE, /this\._strip\(gl, gl\.LINE_LOOP, d, n, -1, GW, GH, o\.thick \? 2 : 1,\s*\{ its: o\.thick \? 4 : 1 \}\);/);
   assert.doesNotMatch(BARE, /gl\.drawArrays\(gl\.LINE_LOOP/,
     'doğrudan LINE_LOOP çizimi kalmamalı');
 });
@@ -103,7 +103,7 @@ test('kenarlık ŞİŞİRİLEN yoldan çiziliyor ve thick\'i taşıyor', () => {
 test('hareket vektörleri de şişiriliyor, ama thick ile değil', () => {
   /* MilkDrop vektörleri KALINLAŞTIRMIYOR (milkdropfs.cpp:1314, tek bir
      LINELIST). Telafi yalnızca çözünürlük için, o yüzden çarpan 1. */
-  assert.match(BARE, /this\._strip\(gl, gl\.LINES, d, count, -1, GW, GH, 1\);/);
+  assert.match(BARE, /this\._strip\(gl, gl\.LINES, d, count, -1, GW, GH, 1, \{ its: 1 \}\);/);
 });
 
 test('vektörler hâlâ tampon dolunca BOŞALTILIYOR, kesilmiyor', () => {
@@ -116,7 +116,7 @@ test('vektörler hâlâ tampon dolunca BOŞALTILIYOR, kesilmiyor', () => {
 });
 
 test('şişirme çizgi biçimlerinin HEPSİNDE, noktalarda değil', () => {
-  const fn = /_strip\(gl, kind, d, n, breakAt, GW, GH, thickMul\) \{[\s\S]*?\n    \}/.exec(BARE);
+  const fn = /_strip\(gl, kind, d, n, breakAt, GW, GH, thickMul, md\) \{[\s\S]*?\n    \}/.exec(BARE);
   assert.ok(fn, '_strip bulunamadı');
   assert.match(fn[0],
     /if \(kind !== gl\.LINE_STRIP && kind !== gl\.LINE_LOOP && kind !== gl\.LINES\) return;/);
@@ -126,7 +126,7 @@ test('kenar yumuşatma üç çizgi biçiminde de aynı ayardan sürülüyor', ()
   /* `lineStyle` dalgada, şekil kenarlığında ve hareket vektörlerinde aynı
      anda geçerli: biri yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı.
      Kenarlık KAPALI şerit (`closed`), vektörler bağımsız parçalar. */
-  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul)'));
+  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul, md)'));
   assert.match(fn, /const aa = this\._lineStyle !== 'milkdrop' && this\.aaProg;/);
   assert.match(fn, /this\._aaSegments\(gl, d, n, GW, GH, thickMul\);/);
   assert.match(fn, /this\._aaStrip\(gl, d, n, breakAt, GW, GH, thickMul, kind === gl\.LINE_LOOP\);/);

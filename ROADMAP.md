@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2462 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2469 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 865
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 872
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -3011,7 +3011,7 @@ expects.
     - the built-in wave negates every `y` before drawing (milkdropfs.cpp:3223-3230);
     - textured shapes use MilkDrop's `tv`;
     - burned sprites skip the display flip;
-    - hue corners and the fixed composite keep their on-screen placement.
+    - hue corners keep their on-screen placement. (The fixed composite's corners turned out to be mirrored already; see "Hue corner colours as in MilkDrop".)
   - **After.** 26 synthetic presets, each asking one question (uv in warp and composite, `ang`, read direction, `rot`, `cx`/`cy`, `sx`/`sy`, warp, per-pixel rotation, shapes, textured shapes, waves, echo, borders, motion vectors), match MilkDrop 2 within 0.0–0.6 of 255 on a 16-pixel grid.
   - **A warm-up before comparing.** MilkDrop's band averages start from zero in a new session, so its `bass`, `mid` and `treb` sit at the cap of 10 on the first frame and settle over about 20 frames. The engine seeds its averages instead. Both engines therefore first run the same audio for 90 frames on a black preset, then hard-cut to the preset under test. After that, the bands agree to three decimals frame by frame (for example 0.052 / 0.549 / 0.439 against 0.052 / 0.547 / 0.437). Without the warm-up, a preset like "Flexi - psychenapping", whose swirls scale with `bass`, looked like it was missing half its picture.
   - **On 200 random corpus presets** (seed 11, 90-frame warm-up, mean difference on a 16-pixel grid, 0..255):
@@ -3024,16 +3024,38 @@ expects.
 
     Among the 68 presets without user textures or `rand()`, frame 2 is 8 better and 0 worse (median 3.4 → 2.4), and frame 10 is 16 better and 1 worse. Later frames diverge in both engines, because small differences grow in feedback.
   - **Found alongside and still open:**
-    - the built-in wave and motion vectors draw about 2.5× brighter than MilkDrop 2;
+    - the built-in wave and motion vectors draw about 2.5× brighter than MilkDrop 2 — fixed for the `milkdrop` line style in "Wave dots, line passes and custom wave aspect";
     - hue colours and the fixed composite's corners — fixed in the next entry;
     - presets with user textures, `rand()` or `rand_frame` can't be compared frame for frame yet.
-- **Hue corner colours as in MilkDrop (#580)** · done on the branch.
+- **Hue corner colours as in MilkDrop (#580)** · done on `main`.
   - **Phase.** The four hue colours (`hue_shader` in composite shaders, and the corner colours of the fixed composite) used `rand_preset` as their phase. MilkDrop's formula adds `m_fRandStart`, but nothing ever assigns it: the primary source has no `Randomize()`, and BeatDrop defines one but never calls it. The phase is therefore 0, and the colours depend on the session clock alone. The old phase also only moved the colours within one radian of the cycle.
   - **Fixed composite corners.** MilkDrop draws the fixed composite as a two-triangle quad. Its first two vertices have clip `y = +1` but texture `tv = 1`, the bottom row of the picture (milkdropfs.cpp:4154-4155), so after the sprite transform they are the **bottom** corners on screen. The engine put corner 0 at the top left. Corner 0 is now bottom left, and the shared edge of the two triangles runs from bottom right to top left.
   - **Measured** on the reference renderer with two synthetic presets, mean difference on a 16-pixel grid (0..255):
     - `hue_shader` in a composite shader: 13.75 → 0.49;
-    - the fixed composite with `fShader = 1`: 16.2 (and 0.03 when our image was flipped) → 0.03, with no pixel off by more than 2.
+    - the fixed composite with `fShader = 1`: 11.09 (and 0.03 when our image was flipped) → 0.03, with no pixel off by more than 2.
   - In the corpus, 631 of the 2,128 presets without a composite shader set `fShader` above zero, so this is visible on many presets: the tint now sits where MilkDrop puts it and changes colour at MilkDrop's pace.
+- **Wave dots, line passes and custom wave aspect (#580)** · done on the branch.
+  - **Dots did not show.** The line shader never wrote `gl_PointSize`. WebGL leaves the point size undefined then, and on Windows (ANGLE) dots were not drawn at all. In the corpus, 4,086 of 11,884 enabled custom waves use dots, as do presets with `bWaveDots`.
+  - **MilkDrop's pass rules.** MilkDrop thickens a line by drawing it again, each time one texel further: x, then y, then x back, a 2×2 block. How many passes depends on what is drawn:
+    - built-in wave: 4 when thick or dots and the buffer is at least 512 wide, point size 1 (milkdropfs.cpp:3259);
+    - custom wave: dot size 2 on a buffer at least 1024 wide, otherwise 1, plus 1 when thick; 4 passes only for thick lines (milkdropfs.cpp:2650-2654);
+    - thick shape border: 4 (milkdropfs.cpp:2371);
+    - motion vectors: 1 (milkdropfs.cpp:1301).
+  - **Where it applies.** Dots follow these rules in every line style: a point has no edge to smooth, and MilkDrop's 512/1024 thresholds already grow it with the buffer. Lines follow them in the `milkdrop` style. `smooth` and `thin` keep their own width and light calibration on purpose.
+  - **Custom wave aspect.** MilkDrop multiplies every custom wave point by the inverse aspect (milkdropfs.cpp:2612-2613), so on a wide buffer the wave stretches vertically by W/H: 4/3 at 4:3, 1.78 at 16:9. The engine did not, and custom waves looked flattened. This follows the accuracy setting.
+  - **Measured** on the reference renderer at 960×720, one frame of a preset with `fDecay = 0` (mean difference on a 16-pixel grid, 0..255):
+
+    | synthetic preset | before | after |
+    |---|---|---|
+    | built-in wave, thin / thick / additive | 0.95 / 0.44 / 0.95 | 0.05 / 0.12 / 0.05 |
+    | built-in wave, mode 0 / mode 6 at alpha 0.5 | 1.32 / 0.74 | 0.07 / 0.02 |
+    | built-in wave, dots | 0.65 (nothing drawn) | 0.10 |
+    | custom wave, thick line | 2.86 | 0.29 |
+    | custom wave, dots / thick dots | 0.07 / 0.30 (nothing drawn) | 0.02 / 0.07 |
+    | shape, thick border | 0.22 | 0.06 |
+
+    The light each preset leaves now matches MilkDrop's to three decimals.
+  - **Not matched:** MilkDrop's thin line lands between two rows at about half brightness, where ours lights one row fully. The light is the same; the half-texel placement is Direct3D 9's rasterisation and is not chased.
 
 ## v3.1.6 — Comprehensive video export
 
