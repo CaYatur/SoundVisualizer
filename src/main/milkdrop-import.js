@@ -18,7 +18,8 @@
        bulamayınca presetin klasörüne de bakıyor. Ötekiler (önizleme ekran
        görüntüleri gibi) doku sayılmıyor.
    NE ALINMIYOR (sayılıp raporlanıyor)
-     - `.milk2` (MilkDrop 3'ün çift preseti): motor bugün okumuyor (#567).
+     - `.milk2` (MilkDrop 3'ün çift preseti) artık preset olarak ekleniyor;
+       motor içeriğinden tanıyıp iki preseti karıştırıyor (#567).
      - Sınırı aşan preset ve doku, şifreli ya da desteklenmeyen ZIP girdisi.
      - Aynı ad ve aynı içerikte zaten var olan preset (tekrar).
 
@@ -71,7 +72,8 @@ function classify(parts, size) {
   const dirs = parts.slice(0, -1);
   const ext = extOf(name);
   if (ext === '.milk') return { type: 'preset', name: stem(name), dirs, size };
-  if (ext === '.milk2') return { type: 'milk2' };
+  // Çift preset (#567): motor kaynağın içeriğinden tanıyor, uzantıdan değil
+  if (ext === '.milk2') return { type: 'preset', name: stem(name), dirs, size };
   if (tex.isTextureFile(name)) {
     const inTexDir = dirs.some((d) => TEX_DIRS.indexOf(lower(d)) >= 0);
     return { type: inTexDir ? 'texture' : 'loose', name, dirs, size };
@@ -406,7 +408,7 @@ const FIND_SHARE = 0.6;
 /* Adayın İÇİNDE inilmeyen klasörler, yalnız ada bakılarak; adayın kendi
    yolu denetlenmiyor (~/.projectM/presets gizli bir klasörün altında). */
 const skipDirName = (n) => n === '__MACOSX' || n === 'node_modules' || n[0] === '.';
-const isPresetFile = (n) => extOf(n) === '.milk' && n.indexOf('._') !== 0;
+const isPresetFile = (n) => (extOf(n) === '.milk' || extOf(n) === '.milk2') && n.indexOf('._') !== 0;
 const tick = () => new Promise((r) => setImmediate(r));
 
 async function isDir(p) {

@@ -3046,7 +3046,58 @@
     return { main, echo, echoOn };
   }
 
-  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset,
+  /* MilkDrop 3 ÇİFT PRESETİ (.milk2, #567).
+
+     Dosya iki tam preset taşıyor ([PRESET1_BEGIN]..[PRESET1_END] ve 2) ve
+     başında ikisinin nasıl karıştırılacağı: desen (blending_pattern: side,
+     plasma...), karışımın durduğu yer (blending_progress 0..1), yön ve beş
+     rastgele sayı. Sonrasında isteğe bağlı sprite bölümleri. Biçim gerçek
+     MilkDrop 3.x dosyalarından okundu; MilkDrop 3'ün kaynağı yayında değil,
+     yani karışımın ANLAMI (hangi rastgele sayı neye gidiyor) kendi
+     yorumumuz: MilkDrop 2'nin geçiş desenleri (RandomizeBlendPattern) bu
+     sayılarla sabitlenip geçiş o noktada durduruluyor.
+
+     Çift preset değilse null. */
+  function parseMilk2(text) {
+    const s = String(text || '');
+    if (s.indexOf('[PRESET1_BEGIN]') < 0 || s.indexOf('[PRESET2_BEGIN]') < 0) return null;
+    const section = (n) => {
+      const a = s.indexOf('[PRESET' + n + '_BEGIN]');
+      const b = s.indexOf('[PRESET' + n + '_END]', a);
+      if (a < 0 || b < 0) return null;
+      return s.slice(a + ('[PRESET' + n + '_BEGIN]').length, b).replace(/^\r?\n/, '');
+    };
+    const p1 = section(1);
+    const p2 = section(2);
+    if (!p1 || !p2) return null;
+    const head = s.slice(0, s.indexOf('[PRESET1_BEGIN]'));
+    const field = (k) => {
+      const m = new RegExp('^\\s*' + k + '\\s*=\\s*(.*?)\\s*$', 'mi').exec(head);
+      return m ? m[1] : null;
+    };
+    const num = (k, d) => {
+      const v = parseFloat(field(k));
+      return isFinite(v) ? v : d;
+    };
+    const nameOf = (t) => {
+      const m = /^\s*NAME\s*=\s*(.*?)\s*$/mi.exec(t);
+      return m ? m[1] : '';
+    };
+    const random = [];
+    for (let i = 1; i <= 5; i++) random.push(Math.max(0, Math.min(1, num('random_' + i, 0.5))));
+    return {
+      pattern: String(field('blending_pattern') || 'plasma').toLowerCase(),
+      progress: Math.max(0, Math.min(1, num('blending_progress', 0.5))),
+      direction: num('blending_direction', 1) < 0 ? -1 : 1,
+      random,
+      presets: [p1, p2],
+      names: [nameOf(p1), nameOf(p2)],
+      // Sprite bölümleri MilkDrop 3'ün kendi resim klasörüne bağlı; şimdilik yalnız sayılıyor
+      sprites: (s.match(/\[SPRITE\d+_BEGIN\]/g) || []).length,
+    };
+  }
+
+  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset, parseMilk2,
     clampColor, colorNorm, borderRings, md2Versions, stagePlan, genWarpText, genCompText, md3Features, md3Auto, isMd3,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
     resetGlobals,

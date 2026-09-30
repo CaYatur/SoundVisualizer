@@ -113,7 +113,7 @@ test('panel yerleşiği silme düğmesi olmadan çiziyor', () => {
 });
 
 test('preset seçilmemişken yerleşiğin kendisi çiziliyor', () => {
-  assert.match(MODE, /const src = \(a \? a\.source : c\.source\) \|\| defaultSource\(\);/);
+  assert.match(MODE, /const rawSrc = \(a \? a\.source : c\.source\) \|\| defaultSource\(\);/);
   const fn = /const defaultSource = \(\) => \{([\s\S]*?)\};/.exec(MODE);
   assert.ok(fn, 'defaultSource bulunamadı');
   const run = new Function('window', 'DEFAULT_PRESET', 'return (() => {' + fn[1] + '})();');
