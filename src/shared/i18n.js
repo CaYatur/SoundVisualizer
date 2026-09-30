@@ -450,6 +450,18 @@
     'Bu sistem için hazır bir dosya bulunamadı; sürüm sayfasından uygun olanı seçin.': 'No ready file was found for this system; pick the right one on the release page.',
     'Sürüm Notları': 'Release Notes',
     'Denetim yalnız GitHub Releases sayfasına tek bir istektir; kimlik ya da kullanım bilgisi gönderilmez.': 'A check is a single request to GitHub Releases; no identifiers or usage data are sent.',
+    // Güncelleme: indir, doğrula, kur (#640)
+    'İndiriliyor…': 'Downloading…',
+    'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.': 'Downloaded and verified. The app will close and reopen to install it.',
+    'Yeni sürüm yerine kondu; yeniden başlatınca açılır.': 'The new version is in place; it opens after a restart.',
+    '⬆ Kur ve Yeniden Başlat': '⬆ Install and Restart',
+    '↻ Yeniden Başlat': '↻ Restart',
+    'Uygulama kapanır; yeni sürüm açılır': 'The app closes; the new version opens',
+    'Kurulum başlatılamadı; sürüm sayfasından indirin.': 'The installer could not be started; download it from the release page.',
+    '⬇ İndir ve Kur': '⬇ Download and Install',
+    'SHA-256 ile doğrulanır': 'verified with SHA-256',
+    'İndirme başarısız:': 'Download failed:',
+    'Otomatik — indir ve kapanırken kur': 'Automatic — download, install on exit',
     // Klip destesi CD-3: medya yuvaları (#637)
     'Medya (ana)': 'Media (main)',
     'Görselleştirici (ana)': 'Visualizer (main)',

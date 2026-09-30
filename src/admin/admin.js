@@ -2832,6 +2832,7 @@
             type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
             options: [
               { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
+              { value: 'auto', label: 'Otomatik — indir ve kapanırken kur' },
               { value: 'off', label: 'Kapalı' },
             ],
           },

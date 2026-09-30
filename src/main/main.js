@@ -1183,7 +1183,8 @@ async function fetchJsonHttps(url, headers) {
 }
 
 async function runUpdateCheck(manual) {
-  if (updateState.status === 'checking') return updateState;
+  // Denetim sürerken, indirirken ya da kurulum hazırken durumu ezme
+  if (['checking', 'downloading', 'ready', 'installed'].indexOf(updateState.status) >= 0) return updateState;
   updateState = Object.assign({}, updateState, { status: 'checking' });
   notifyAdmin('updates:status', updateState);
   const store = readUpdateStore();
@@ -1196,6 +1197,7 @@ async function runUpdateCheck(manual) {
   });
   updateState = Object.assign(res, { manual: !!manual, auto: UPDATE_AUTO, mode: updateMode() });
   notifyAdmin('updates:status', updateState);
+  autoUpdateAfterCheck(updateState);
   return updateState;
 }
 
@@ -1228,6 +1230,117 @@ ipcMain.handle('updates:open', (_e, which) => {
     : updateState.releaseUrl || updater.RELEASES_PAGE;
   if (/^https:\/\/github\.com\//.test(target)) shell.openExternal(target);
   return target;
+});
+
+/* 2. adım: indir, doğrula, kur (#640). Kurallar src/main/update-install.js'te:
+   yalnız GitHub alan adları, boyut sınırı ve SHA-256 tutmadan hiçbir şey
+   çalışmıyor ya da yerine konmuyor. Yalnız Windows kurulumu ve AppImage
+   uygulamanın içinden kurulabiliyor; geliştirme kopyası hiç indirmiyor. */
+const updateInstall = require('./update-install');
+let updateReadyFile = null; // indirilip doğrulanmış Windows kurulum dosyası
+let updateBusy = false;
+
+function updateRequest(url) {
+  return new Promise((resolve, reject) => {
+    const req = require('https').get(url, {
+      headers: { 'User-Agent': 'CAYADEV-Visualizer/' + app.getVersion(), Accept: 'application/octet-stream' },
+      timeout: 30000, // takılan bağlantı: 30 sn veri gelmezse kes
+    }, (res) => resolve({ status: res.statusCode, headers: res.headers, body: res }));
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+  });
+}
+
+async function downloadUpdate() {
+  const s = updateState;
+  if (!app.isPackaged) throw new Error('development copy: download is disabled');
+  if (updateBusy) return updateState;
+  if (s.status !== 'available' || !s.installable || !s.asset) throw new Error('not installable here');
+  const fsp = fs.promises;
+  const fsx = { createWriteStream: (p) => fs.createWriteStream(p), rename: fsp.rename, unlink: fsp.unlink, chmod: fsp.chmod };
+  let dest;
+  const target = process.env.APPIMAGE;
+  if (UPDATE_KIND === 'appimage') {
+    // Klasöre yazılamıyorsa (ör. /opt) yerinde değiştirilemez: yalnız haber ver
+    try {
+      fs.accessSync(path.dirname(target), fs.constants.W_OK);
+    } catch (e) {
+      throw new Error('the AppImage folder is not writable');
+    }
+    dest = updateInstall.appImageTemp(target, s.asset.name);
+  } else {
+    const dir = path.join(app.getPath('temp'), 'cayadev-update');
+    fs.mkdirSync(dir, { recursive: true });
+    dest = path.join(dir, path.basename(s.asset.name));
+  }
+  updateBusy = true;
+  let last = 0;
+  const post = (patch) => {
+    updateState = Object.assign({}, updateState, patch);
+    notifyAdmin('updates:status', updateState);
+  };
+  post({ status: 'downloading', progress: 0, downloadError: '' });
+  try {
+    await updateInstall.download({
+      url: s.asset.url, size: s.asset.size, digest: s.asset.digest, dest,
+      request: updateRequest, fsx,
+      onProgress: (p) => {
+        const now = Date.now();
+        if (now - last > 250 || p >= 1) { last = now; post({ progress: p }); }
+      },
+    });
+    if (UPDATE_KIND === 'appimage') {
+      await updateInstall.replaceAppImage(dest, target, fsx);
+      post({ status: 'installed', progress: 1 });
+    } else {
+      updateReadyFile = dest;
+      post({ status: 'ready', progress: 1 });
+    }
+  } catch (e) {
+    post({ status: 'available', downloadError: String((e && e.message) || e) });
+    throw e;
+  } finally {
+    updateBusy = false;
+  }
+  return updateState;
+}
+
+ipcMain.handle('updates:download', () => downloadUpdate().catch((e) => Object.assign({}, updateState, { downloadError: String((e && e.message) || e) })));
+// Kullanıcı istedi: kaza korumasını geçip çık; kurulum ya da yeni AppImage başlar
+ipcMain.handle('updates:install', () => {
+  if (UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
+    updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
+    updateReadyFile = null;
+    forceQuitApp = true;
+    setTimeout(() => app.quit(), 200);
+    return { ok: true };
+  }
+  if (UPDATE_KIND === 'appimage' && updateState.status === 'installed' && process.env.APPIMAGE) {
+    // process.execPath eski imajın içinde; yeniden açılış yeni dosyadan
+    app.relaunch({ execPath: process.env.APPIMAGE, args: process.argv.slice(1) });
+    forceQuitApp = true;
+    app.quit();
+    return { ok: true };
+  }
+  return { ok: false };
+});
+
+/* Otomatik kip: yeni sürüm kurulabiliyorsa kendiliğinden indirilir; Windows'ta
+   uygulama kapanırken sessiz kurulur (tüm kullanıcılar için kurulumda Windows
+   yine izin ister). AppImage indirilir indirilmez yerine konur. */
+function autoUpdateAfterCheck(res) {
+  if (!UPDATE_AUTO || updateMode() !== 'auto') return;
+  if (res.status === 'available' && res.installable && !res.skipped) downloadUpdate().catch(() => {});
+}
+app.on('will-quit', () => {
+  if (UPDATE_AUTO && updateMode() === 'auto' && UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
+    try {
+      updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn);
+    } catch (e) {
+      /* kurulum başlatılamadı: bir sonraki açılışta yeniden denenir */
+    }
+    updateReadyFile = null;
+  }
 });
 
 // ----------------------------------------------------------------------------

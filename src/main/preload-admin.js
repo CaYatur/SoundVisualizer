@@ -145,6 +145,8 @@ contextBridge.exposeInMainWorld('api', {
   updatesState: () => ipcRenderer.invoke('updates:state'),
   updatesCheck: () => ipcRenderer.invoke('updates:check'),
   updatesSkip: () => ipcRenderer.invoke('updates:skip'),
+  updatesDownload: () => ipcRenderer.invoke('updates:download'),
+  updatesInstall: () => ipcRenderer.invoke('updates:install'),
   updatesOpen: (which) => ipcRenderer.invoke('updates:open', which === 'asset' ? 'asset' : 'release'),
   onUpdatesStatus: (cb) => ipcRenderer.on('updates:status', (e, s) => cb(s)),
 
