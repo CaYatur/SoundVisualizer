@@ -286,7 +286,7 @@
   function diagNodes() {
     const el = P().el;
     const errs = allErrors();
-    if (!errs.length) return [el('div', { class: 'mded-ok', text: '✓ Hata yok' })];
+    if (!errs.length) return [el('div', { class: 'mded-ok', icon: 'check', text: 'Hata yok' })];
     return errs.map((d) => {
       const where = blockLabel(d.block) + (d.line >= 0 ? ', ' + tr('satır') + ' ' + (d.line + 1) + ' (' + keyName(d.block, d.line) + ')' : '');
       return el('button', {
@@ -531,7 +531,7 @@
     if (!S) {
       return el('div', { class: 'mded-panel' }, [
         el('div', { class: 'gen-actions' }, [
-          el('button', { class: 'btn primary', type: 'button', text: '✏️ Ekrandakini Düzenle', onclick: () => start() }),
+          el('button', { class: 'btn primary', type: 'button', icon: 'pencil', text: 'Ekrandakini Düzenle', onclick: () => start() }),
         ]),
         el('div', {
           class: 'studio-note dim-hint',
@@ -551,18 +551,18 @@
         // Presetin adı onun kendi adı, arayüz metni değil
         el('span', { class: 'md-cur mdgen-name', text: S.baseName }),
         el('span', { class: 'dim-hint', text: 'Durum' }),
-        el('span', { class: S.savedId ? 'md-ok' : 'dim-hint', text: S.savedId ? '✓ Kütüphanede' : 'Önizleme — kaydedilmedi' }),
+        el('span', { class: S.savedId ? 'md-ok' : 'dim-hint', icon: S.savedId ? 'check' : '', text: S.savedId ? 'Kütüphanede' : 'Önizleme — kaydedilmedi' }),
       ]),
       P().row('Ad', nameIn),
       el('div', { class: 'gen-actions' }, [
         el('button', {
           class: 'btn primary', type: 'button', disabled: saving,
-          text: saving ? 'Kaydediliyor…' : (S.savedId ? '💾 Kaydedileni Güncelle' : '💾 Yeni Preset Olarak Kaydet'),
+          icon: saving ? '' : 'save', text: saving ? 'Kaydediliyor…' : (S.savedId ? 'Kaydedileni Güncelle' : 'Yeni Preset Olarak Kaydet'),
           onclick: () => save(false),
         }),
-        S.savedId ? el('button', { class: 'btn', type: 'button', text: '📄 Yeni Kopya', disabled: saving, onclick: () => save(true) }) : null,
-        el('button', { class: 'btn', type: 'button', text: '↺ Baştan', title: 'Bütün değişiklikleri geri alır', onclick: () => reset() }),
-        el('button', { class: 'btn ghost', type: 'button', text: '✕ Kapat', title: 'Düzenleyiciyi kapatır; kaydedilmediyse asıl preset geri gelir', onclick: () => close() }),
+        S.savedId ? el('button', { class: 'btn', type: 'button', icon: 'copy', text: 'Yeni Kopya', disabled: saving, onclick: () => save(true) }) : null,
+        el('button', { class: 'btn', type: 'button', icon: 'reset', text: 'Baştan', title: 'Bütün değişiklikleri geri alır', onclick: () => reset() }),
+        el('button', { class: 'btn ghost', type: 'button', icon: 'x', text: 'Kapat', title: 'Düzenleyiciyi kapatır; kaydedilmediyse asıl preset geri gelir', onclick: () => close() }),
       ]),
     ];
     const tabs = el('div', { class: 'layer-tabs mded-tabs', role: 'tablist' }, TABS.map(([id, label]) => el('button', {

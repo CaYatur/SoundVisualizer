@@ -85,7 +85,7 @@
       // Sütun adı panelle aynı (#637): adı yoksa harf; kısayol harfi hep başta
       const cn = DP().colName ? DP().colName(deck, c) : '';
       const letter = COL_KEYS[c].toUpperCase();
-      const st = el('button', { class: 'perf-stopcol', type: 'button', text: letter + (cn && cn !== letter ? ' · ' + cn : '') + ' ⏹' });
+      const st = el('button', { class: 'perf-stopcol', type: 'button', title: 'Bu sütunu durdur', text: letter + (cn && cn !== letter ? ' · ' + cn : '') }, [el('span', { class: 'perf-stopico', icon: 'stop' })]);
       const cc = c;
       st.addEventListener('click', () => {
         DP().engine().stopColumn(deckSpec().id, cc);
@@ -120,7 +120,7 @@
           cell.appendChild(el('span', { class: 'perf-color', style: 'background:' + DP().slotColor(slot) }));
           if (cell.style && cell.style.setProperty) cell.style.setProperty('--slot', DP().slotColor(slot));
         }
-        cell.appendChild(el('span', { class: 'perf-name', text: slot ? ((DP().TYPE_ICONS[slot.type] || '') + ' ' + DP().slotLabel(slot)) : '' }));
+        cell.appendChild(el('span', { class: 'perf-name', icon: slot ? DP().TYPE_ICONS[slot.type] : '', text: slot ? DP().slotLabel(slot) : '' }));
         if (slot) cell.appendChild(el('span', { class: 'perf-progwrap' }, [el('span', { class: 'perf-prog' })]));
         cell.appendChild(el('span', { class: 'perf-count', text: '' }));
         const rr2 = r;

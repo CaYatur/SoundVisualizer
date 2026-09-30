@@ -62,7 +62,7 @@
     // --- Durum. Sayılar ayrı düğümlerde: birleşik metin çevrilemez. ---
     const st = el('div', { class: 'studio-status ' + (state.running && !state.error ? 'ok' : state.error ? 'err' : '') });
     if (state.running && !state.error) {
-      st.appendChild(el('span', { text: '✓ ' }));
+      st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Yayında' }));
       st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: state.width + '×' + state.height }));
@@ -75,7 +75,7 @@
         st.appendChild(el('span', { text: 'düşen' }));
       }
     } else if (state.error) {
-      st.appendChild(el('span', { text: '✕ ' }));
+      st.appendChild(el('span', { icon: 'x' }));
       st.appendChild(el('span', { text: 'Hata' }));
     } else {
       st.appendChild(el('span', { text: 'Kapalı' }));

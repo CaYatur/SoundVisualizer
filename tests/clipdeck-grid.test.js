@@ -114,7 +114,7 @@ test('panel: boş hücre "+" gösteriyor; tıklayınca tür düğmeleri, seçile
   assert.ok(find(cell, (n) => n.className === 'cd-plus'), 'boş hücrede +');
   fire(cell, 'click', {});
   root = mount(cfg);
-  const scene = find(root, (n) => n.tag === 'button' && /🎬 Sahne/.test(n.text));
+  const scene = find(root, (n) => n.tag === 'button' && n.text === 'Sahne' && n.props.icon === 'clapper');
   assert.ok(scene, 'tür düğmesi');
   fire(scene, 'click');
   const s = cfg.clipdeck.decks[0].slots;
@@ -126,8 +126,12 @@ test('panel: dolu hücre adı kaynağın adı, rengi ve kısa niceleme/takip bil
   const cfg = deckCfg([{ row: 0, col: 0, type: 'scene', ref: 'sA', quantize: 'bar2', follow: 'next', dur: 8, color: '#112233' }]);
   const root = mount(cfg);
   const cell = find(root, (n) => n.props && n.props.id === 'cdc-0-0');
-  assert.strictEqual(find(cell, (n) => n.className === 'cd-name').text, '🎬 Giriş', 'sahne kimliği değil adı');
-  assert.strictEqual(find(cell, (n) => n.className === 'cd-meta').text, '2▮ · ↓ · 8s');
+  const name = find(cell, (n) => n.className === 'cd-name');
+  assert.strictEqual(name.text, 'Giriş', 'sahne kimliği değil adı');
+  assert.strictEqual(name.props.icon, 'clapper', 'tür ikonu');
+  // Alt satır: niceleme yazı, takip ikon, süre yazı; aralarında ayırıcı
+  const meta = find(cell, (n) => n.className === 'cd-meta');
+  assert.deepStrictEqual(meta.kids.map((k) => k.props.icon || k.text), ['2▮', '·', 'arrow-down', '·', '8s']);
   assert.strictEqual(find(cell, (n) => n.className === 'cd-color').props.style, 'background:#112233');
   assert.ok(find(cell, (n) => n.className === 'cd-prog'), 'ilerleme çubuğu');
 });
@@ -188,7 +192,7 @@ test('panel: başlık çubuğu genel nicelemeyi yazıyor ve çalıştırıcıya 
 
 test('metinlerin İngilizcesi var; eski girdiler kaldırıldı', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
-  for (const s of ['Genel (destenin)', 'Boş yuva — eklemek için tıklayın', '▶ Ateşle', '🗑 Yuvayı Boşalt', 'Hedef Yuva', 'Deste, ızgara ve kayıt', 'Genel ayar (Geçiş kartı)']) {
+  for (const s of ['Genel (destenin)', 'Boş yuva — eklemek için tıklayın', 'Ateşle', 'Yuvayı Boşalt', 'Hedef Yuva', 'Deste, ızgara ve kayıt', 'Genel ayar (Geçiş kartı)']) {
     assert.ok(src.includes("'" + s + "':"), 'sözlükte yok: ' + s);
   }
   for (const s of ['Hedef (satır:sütun)', 'boş = mevcut ayar', 'Boş yuva — düzenlemek için tıklayın', 'Izgara ve kayıt']) {

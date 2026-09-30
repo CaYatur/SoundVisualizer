@@ -97,7 +97,7 @@
     // ------------------------------------------------------------- deneme
     nodes.push(el('div', { class: 'row' }, [
       el('button', {
-        class: 'btn', type: 'button', text: '▶ Geçişi Dene',
+        class: 'btn', type: 'button', icon: 'play', text: 'Geçişi Dene',
         title: 'Sahneyi kendisiyle değiştirerek geçişi bir kez oynatır',
         onclick: () => {
           /* Sahneyi gerçekten değiştirmeden geçişi tetiklemek için katman

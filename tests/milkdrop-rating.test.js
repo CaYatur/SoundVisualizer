@@ -199,8 +199,8 @@ test('geçmiş MilkDrop gibi 64 adım; boş kimlik kaydedilmiyor', () => {
 const PANEL = bare(read('src/admin/milkdrop-panel.js'));
 
 test('panel: ◀ ve ▶ geçmişte geziyor, geçmiş boşsa listede', () => {
-  assert.match(PANEL, /text: '◀ Önceki', onclick: back \}/);
-  assert.match(PANEL, /text: 'Sonraki ▶', onclick: forward \}/);
+  assert.match(PANEL, /icon: 'chevron-left', text: 'Önceki', onclick: back \}/);
+  assert.match(PANEL, /text: 'Sonraki', onclick: forward \}, \[el\('span', \{ class: 'svi-after', icon: 'chevron-right' \}\)\]/);
   // Düğmeler ve denetleyici eylemleri aynı işlevlerden geçiyor (#570)
   assert.match(PANEL, /const back = \(\) => navBack\(cfg, md\);/);
   assert.match(PANEL, /const forward = \(\) => navForward\(cfg, md\);/);

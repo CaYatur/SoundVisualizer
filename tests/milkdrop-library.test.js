@@ -397,13 +397,15 @@ async function panelWith(setup) {
 test('panel: ekrandaki presetin favorisi ve etiketleri', async () => {
   const p = await panelWith();
   const fav = p.row('Favori').node;
-  assert.strictEqual(fav.text, '☆ Favorilere Ekle');
+  assert.strictEqual(fav.text, 'Favorilere Ekle');
+  assert.strictEqual(fav.icon, 'star', 'boş yıldız');
   fav.on.click();
   assert.deepStrictEqual(p.cfg.milkdropLibrary.favorites, { u1: true }, 'ekrandaki preset favori');
   assert.ok(p.calls.apply > 0, 'yapılandırma gönderildi');
   const again = p.render();
   const fav2 = again.kids.find((n) => n.label === 'Favori').node;
-  assert.strictEqual(fav2.text, '★ Favori');
+  assert.strictEqual(fav2.text, 'Favori');
+  assert.strictEqual(fav2.icon, 'star-fill', 'dolu yıldız');
   /* Etiket kutusu KUTUNUN presetine yazıyor: yazarken otomatik geçiş
      ekrandakini değiştirse de (izlenen seçim u3) etiket u1'e gidiyor. */
   const box = again.kids.find((n) => n.label === 'Etiketler').node;
@@ -433,7 +435,7 @@ test('panel: arama, süzgeç ve yazar seçicisi listeyi daraltıyor', async () =
   assert.strictEqual(names(p.root).length, 8);
   const show = p.row('Süz').node;
   assert.deepStrictEqual(show.kids.map((o) => o.props.value), ['all', 'fav', 'tag:sakin']);
-  assert.deepStrictEqual(show.kids.map((o) => o.text), ['Tümü (8)', '★ Favoriler (2)', '#sakin (2)']);
+  assert.deepStrictEqual(show.kids.map((o) => o.text), ['Tümü (8)', 'Favoriler (2)', '#sakin (2)']);
   show.value = 'fav';
   show.on.change();
   assert.strictEqual(p.calls.apply, 0, 'görünüm süzgeci yapılandırma göndermiyor');
@@ -533,7 +535,7 @@ test('panel: paket düğmeleri — görünenler kayıtlarıyla, içe aktarım ye
   const show = p.row('Süz').node;
   show.value = 'fav';
   show.on.change();
-  await button(p.render(), '📦 Görünenleri Paketle').on.click();
+  await button(p.render(), 'Görünenleri Paketle').on.click();
   assert.strictEqual(packed.name, 'milkdrop-presetler.svpack');
   assert.deepStrictEqual(packed.data.presets.map((x) => [x.name, x.library || null]), [
     ['Martin - Preset 2', { favorite: true, rating: 4 }],
@@ -544,7 +546,7 @@ test('panel: paket düğmeleri — görünenler kayıtlarıyla, içe aktarım ye
   window.api.importShaderText = () => Promise.resolve({ ok: true, text: JSON.stringify(packed.data), ext: '.svpack', name: 'x' });
   window.api.savePresets = (list) => { saved.push(...list); return Promise.resolve({ ok: true, saved: list }); };
   const applied = p.calls.apply;
-  await button(p.render(), '📥 Paket İçe Aktar').on.click();
+  await button(p.render(), 'Paket İçe Aktar').on.click();
   await new Promise((r) => setImmediate(r));
   assert.strictEqual(saved.length, 2);
   const [a, b] = saved.map((x) => x.id);
@@ -557,13 +559,13 @@ test('panel: paket düğmeleri — görünenler kayıtlarıyla, içe aktarım ye
   assert.ok(toasts.includes('2 preset içe aktarıldı.'), toasts.join(' | '));
   // Paket olmayan dosya: hata, kayıt yok
   window.api.importShaderText = () => Promise.resolve({ ok: true, text: 'MILKDROP_PRESET_VERSION=201', ext: '.milk', name: 'y' });
-  await button(p.render(), '📥 Paket İçe Aktar').on.click();
+  await button(p.render(), 'Paket İçe Aktar').on.click();
   assert.strictEqual(saved.length, 2);
   assert.ok(toasts.some((t) => /^Paket okunamadı/.test(t)));
   // Listede kendi preseti yoksa dışa aktarım yok
   p.cfg.milkdropLibrary.favorites = {};
   packed = null;
-  await button(p.render(), '📦 Görünenleri Paketle').on.click();
+  await button(p.render(), 'Görünenleri Paketle').on.click();
   assert.strictEqual(packed, null);
   assert.ok(toasts.some((t) => /^Listede dışa aktarılacak/.test(t)));
 });
@@ -575,7 +577,7 @@ test('panel: denetleyiciden favori ekrandakine', async () => {
   p.M.act('Favorite');
   assert.deepStrictEqual(p.cfg.milkdropLibrary.favorites, {});
   const CT = read('src/admin/control.js');
-  assert.match(CT, /\{ action: 'mdFavorite', label: '★ MilkDrop · Favori \(aç\/kapa\)' \}/);
+  assert.match(CT, /\{ action: 'mdFavorite', label: 'MilkDrop · Favori \(aç\/kapa\)' \}/);
 });
 
 test('Studio paketi de kayıtları taşıyor', () => {
@@ -589,9 +591,9 @@ test('metinlerin İngilizcesi var', () => {
   const I = read('src/shared/i18n.js');
   const PANEL = read('src/admin/milkdrop-panel.js');
   for (const k of [
-    'Favori', '★ Favori', '☆ Favorilere Ekle', 'Etiketler', 'virgülle ayırın: sakin, dans', 'Bu presetten çıkar',
-    'Bu presete ekle', 'ad, yazar ya da #etiket', 'Süz', 'Tümü', '★ Favoriler', 'Yazar', 'Tüm yazarlar',
-    'Favorilerden çıkar', 'Favorilere ekle', 'Havuz', 'Tüm presetler', '📦 Görünenleri Paketle', '📥 Paket İçe Aktar',
+    'Favori', 'Favorilere Ekle', 'Etiketler', 'virgülle ayırın: sakin, dans', 'Bu presetten çıkar',
+    'Bu presete ekle', 'ad, yazar ya da #etiket', 'Süz', 'Tümü', 'Favoriler', 'Yazar', 'Tüm yazarlar',
+    'Favorilerden çıkar', 'Favorilere ekle', 'Havuz', 'Tüm presetler', 'Görünenleri Paketle', 'Paket İçe Aktar',
     'Dışa aktarma kullanılamıyor.', 'Listede dışa aktarılacak kendi presetiniz yok.', 'preset pakete yazıldı.',
     'Paket okunamadı (.svpack ya da .svpreset bekleniyordu).', 'preset içe aktarıldı.',
     'Listede görünen kendi presetlerinizi favori, etiket ve puanlarıyla tek dosyaya yazar',
@@ -605,5 +607,5 @@ test('metinlerin İngilizcesi var', () => {
     assert.ok(m, re + ' panelde yok');
     assert.ok(I.includes("'" + m[1] + "':"), m[1].slice(0, 30) + '… sözlükte yok');
   }
-  assert.ok(I.includes("'★ MilkDrop · Favori (aç/kapa)':"));
+  assert.ok(I.includes("'MilkDrop · Favori (aç/kapa)':"));
 });

@@ -62,7 +62,8 @@
     const time = st && !st.live && st.duration > 0
       ? '  ·  ' + N.fmtTime(st.position) + ' / ' + N.fmtTime(st.duration)
       : '';
-    statusEl.textContent = (live.playing ? '▶ ' : '❚❚ ') + who + time;
+    if (window.SVIcons && statusEl.nodeType === 1) window.SVIcons.set(statusEl, live.playing ? 'play' : 'pause', who + time);
+    else statusEl.textContent = who + time;
     statusEl.className = 'txt-info np-status ok';
   }
 

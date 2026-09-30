@@ -372,7 +372,7 @@
   const TYPE_LABELS = {
     scene: 'Sahne', preset: 'Şablon', palette: 'Renk Şablonu', video: 'Video', image: 'Görsel', shader: 'Shader', action: 'Eylem',
   };
-  const TYPE_ICONS = { scene: '🎬', preset: '✨', palette: '🎨', video: '🎞', image: '🖼', shader: '🌀', action: '⚡' };
+  const TYPE_ICONS = { scene: 'clapper', preset: 'sparkles', palette: 'palette', video: 'film', image: 'image', shader: 'code', action: 'bolt' };
   const QUANTIZE_LABELS = [
     ['global', 'Genel (destenin)'],
     ['off', 'Kapalı (anında)'],
@@ -384,11 +384,13 @@
     ['bar2', 'İki Ölçü'],
     ['bar4', 'Dört Ölçü'],
   ];
-  // Hücrede kısa niceleme etiketi
-  const QUANTIZE_SHORT = { off: '⚡', frame: '1f', quarter: '¼', half: '½', beat: '1♩', bar: '1▮', bar2: '2▮', bar4: '4▮' };
-  const FOLLOW_ICONS = { stop: '⏹', loop: '↻', next: '↓', random: '🎲', goto: '↪', none: '' };
+  /* Hücrede kısa niceleme etiketi. Kesirler ve ♩ (vuruş), ▮ (ölçü) nota
+     gösterimi olarak YAZI; "anında" bir ikon. */
+  const QUANTIZE_SHORT = { off: '', frame: '1f', quarter: '¼', half: '½', beat: '1♩', bar: '1▮', bar2: '2▮', bar4: '4▮' };
+  const QUANTIZE_ICONS = { off: 'bolt' };
+  const FOLLOW_ICONS = { stop: 'stop', loop: 'loop', next: 'arrow-down', random: 'dice', goto: 'redirect', none: '' };
   // Ateşleme kipi hücrede: tetik varsayılan olduğu için simgesiz
-  const LAUNCH_ICONS = { trigger: '', toggle: '⏯', gate: '✋' };
+  const LAUNCH_ICONS = { trigger: '', toggle: 'play-pause', gate: 'hand' };
 
   function slotColor(slot) {
     if (!slot) return '';
@@ -794,14 +796,14 @@
         else delete d.colNames[cc];
         p.apply();
       });
-      const stop = el('button', { class: 'cd-stop', type: 'button', title: 'Bu sütunu durdur', text: '⏹' });
+      const stop = el('button', { class: 'cd-stop', type: 'button', title: 'Bu sütunu durdur', icon: 'stop' });
       stop.addEventListener('click', () => stopColumn(cc));
       grid.appendChild(el('div', { class: 'cd-colhead' }, [name, stop]));
     }
 
     for (let row = 0; row < deck.rows; row++) {
       const rn = deck.rowNames[row] || String(row + 1);
-      const rowBtn = el('button', { class: 'cd-rowlaunch' + (row === cursorRow ? ' cursor' : ''), type: 'button', id: 'cdr-' + row, title: 'Satırın tamamını sahne gibi başlat', text: '▶ ' + rn });
+      const rowBtn = el('button', { class: 'cd-rowlaunch' + (row === cursorRow ? ' cursor' : ''), type: 'button', id: 'cdr-' + row, title: 'Satırın tamamını sahne gibi başlat', icon: 'play', text: rn });
       const rr = row;
       rowBtn.addEventListener('click', () => launchRow(rr));
       grid.appendChild(rowBtn);
@@ -839,10 +841,22 @@
       const prev = slotPreview(slot);
       if (prev) kids.push(el('span', { class: 'cd-thumb', style: 'background:' + prev }));
       kids.push(el('span', { class: 'cd-color', style: 'background:' + slotColor(slot) }));
-      kids.push(el('span', { class: 'cd-name', text: (TYPE_ICONS[slot.type] || '') + ' ' + slotLabel(slot) }));
-      const q = slot.quantize === 'global' ? '' : QUANTIZE_SHORT[slot.quantize] || '';
-      const meta = [LAUNCH_ICONS[slot.launch] || '', q, FOLLOW_ICONS[slot.follow] || '', slot.dur ? slot.dur + 's' : ''].filter(Boolean).join(' · ');
-      kids.push(el('span', { class: 'cd-meta', text: meta }));
+      kids.push(el('span', { class: 'cd-name', icon: TYPE_ICONS[slot.type], text: slotLabel(slot) }));
+      /* Alt satır: ateşleme kipi · niceleme · takip · süre. Her parça ya
+         ikon ya yazı; aralarına ayırıcı. */
+      const qk = slot.quantize === 'global' ? '' : slot.quantize;
+      const parts = [
+        { icon: LAUNCH_ICONS[slot.launch] || '' },
+        { icon: QUANTIZE_ICONS[qk] || '', text: QUANTIZE_SHORT[qk] || '' },
+        { icon: FOLLOW_ICONS[slot.follow] || '' },
+        { text: slot.dur ? slot.dur + 's' : '' },
+      ].filter((x) => x.icon || x.text);
+      const meta = [];
+      parts.forEach((x, i) => {
+        if (i) meta.push(el('span', { class: 'cd-sep', text: '·' }));
+        meta.push(x.icon ? el('span', { icon: x.icon }) : el('span', { text: x.text }));
+      });
+      kids.push(el('span', { class: 'cd-meta' }, meta));
       kids.push(el('span', { class: 'cd-progwrap' }, [el('span', { class: 'cd-prog' })]));
     } else {
       kids.push(el('span', { class: 'cd-plus', text: '+' }));
@@ -945,7 +959,7 @@
       });
       bar.appendChild(b);
     }
-    const add = el('button', { class: 'cd-tab add', type: 'button', text: '＋', title: 'Yeni deste' });
+    const add = el('button', { class: 'cd-tab add', type: 'button', icon: 'plus', title: 'Yeni deste' });
     add.addEventListener('click', () => {
       const d = newDeck(c, { rows: 4, cols: 4 });
       c.decks.push(d);
@@ -981,11 +995,11 @@
       p.apply();
     });
     qSel.title = tt('Genel niceleme: "Genel" seçili yuvalar bu ızgaraya hizalı ateşlenir');
-    const perf = el('button', { class: 'btn small', type: 'button', text: '🎛 Performans Görünümü', title: 'Tam ekran, büyük hedefler, klavyeyle' });
+    const perf = el('button', { class: 'btn small', type: 'button', icon: 'sliders', text: 'Performans Görünümü', title: 'Tam ekran, büyük hedefler, klavyeyle' });
     perf.addEventListener('click', () => {
       if (window.SVPerformView) window.SVPerformView.open();
     });
-    const stop = el('button', { class: 'btn small danger', type: 'button', text: '⏹ Hepsini Durdur' });
+    const stop = el('button', { class: 'btn small danger', type: 'button', icon: 'stop', text: 'Hepsini Durdur' });
     stop.addEventListener('click', stopAll);
     lastBeatKey = '';
     const bar = el('div', { class: 'cd-head' }, [
@@ -1068,7 +1082,7 @@
       return select(pairs, spec.ref || '', (v) => save({ ref: v }));
     }
     const name = spec.ref ? slotLabel(Object.assign({}, spec, { name: '' })) : tt('seçilmedi');
-    const btn = el('button', { class: 'btn small', type: 'button', text: spec.type === 'video' ? '🎞 Video Seç' : '🖼 Görsel Seç' });
+    const btn = el('button', { class: 'btn small', type: 'button', icon: spec.type === 'video' ? 'film' : 'image', text: spec.type === 'video' ? 'Video Seç' : 'Görsel Seç' });
     btn.addEventListener('click', async () => {
       if (spec.type === 'video') {
         const r = window.api && window.api.pickVideo ? await window.api.pickVideo() : null;
@@ -1154,7 +1168,8 @@
     };
 
     const act = (text, title, fn, cls) => {
-      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text, title });
+      const [ico, txt] = Array.isArray(text) ? text : ['', text];
+      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', icon: ico, text: txt, title });
       b.addEventListener('click', fn);
       return b;
     };
@@ -1164,7 +1179,7 @@
       box.appendChild(el('div', { class: 'cd-editor-head', text: tt('Boş yuva') + ' · ' + where }));
       const types = el('div', { class: 'cd-typepick' });
       for (const t of ['scene', 'preset', 'palette', 'video', 'image', 'shader']) {
-        types.appendChild(act((TYPE_ICONS[t] || '') + ' ' + tt(TYPE_LABELS[t]), 'Bu türde bir yuva oluştur', () => save({ type: t, ref: '', fade: CD().DEFAULT_FADE[t] })));
+        types.appendChild(act([TYPE_ICONS[t], tt(TYPE_LABELS[t])], 'Bu türde bir yuva oluştur', () => save({ type: t, ref: '', fade: CD().DEFAULT_FADE[t] })));
       }
       box.appendChild(types);
       box.appendChild(el('div', { class: 'ctrl settings-io-note', text: 'Tür seçin; sonra kaynağını seçin. Video, görsel ve shader yuvaları bir hedefe uygulanır (ana medya, bir katman ya da bir görsel nesne).' }));
@@ -1174,13 +1189,13 @@
     const spec = cur;
     box.appendChild(el('div', { class: 'cd-editor-head' }, [
       el('span', { class: 'cd-editor-sw', style: 'background:' + slotColor(spec) }),
-      el('span', { text: (TYPE_ICONS[spec.type] || '') + ' ' + slotLabel(spec) }),
+      el('span', { icon: TYPE_ICONS[spec.type], text: slotLabel(spec) }),
       el('span', { class: 'cd-editor-where', text: where }),
     ]));
     box.appendChild(el('div', { class: 'tl-actions' }, [
-      act('▶ Ateşle', 'Bu yuvayı nicelemesine göre ateşle', () => launch(at.row, at.col)),
-      act('⏹ Sütunu Durdur', 'Bu sütunda çalan yuvayı durdur', () => stopColumn(at.col)),
-      act('🗑 Yuvayı Boşalt', 'Yuvayı sil', () => {
+      act(['play', 'Ateşle'], 'Bu yuvayı nicelemesine göre ateşle', () => launch(at.row, at.col)),
+      act(['stop', 'Sütunu Durdur'], 'Bu sütunda çalan yuvayı durdur', () => stopColumn(at.col)),
+      act(['trash', 'Yuvayı Boşalt'], 'Yuvayı sil', () => {
         const live = CD().makeDeck(deckSpec());
         CD().setSlot(live, at.row, at.col, null);
         deckSpec().slots = CD().slotList(live);
@@ -1213,7 +1228,7 @@
     }
     const col = el('input', { class: 'tl-swatch big', type: 'color', value: slotColor(spec) });
     col.addEventListener('change', () => save({ color: col.value }));
-    const colReset = act('↺', 'Rengi türden al', () => save({ color: '' }));
+    const colReset = act(['reset'], 'Rengi türden al', () => save({ color: '' }));
     grid.appendChild(p.row('Renk', el('div', { class: 'tl-inline' }, [col, colReset])));
     grid.appendChild(p.row('Niceleme', select(QUANTIZE_LABELS, spec.quantize, (v) => save({ quantize: v }))));
     grid.appendChild(p.row('Ateşleme Kipi', select(
@@ -1305,11 +1320,12 @@
       p.apply();
     })));
     const deckAct = (text, title, fn, cls) => {
-      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', text, title });
+      const [ico, txt] = Array.isArray(text) ? text : ['', text];
+      const b = el('button', { class: 'btn small' + (cls ? ' ' + cls : ''), type: 'button', icon: ico, text: txt, title });
       b.addEventListener('click', fn);
       return b;
     };
-    const acts = [deckAct('⧉ Desteyi Çoğalt', 'Bu destenin kopyası: aynı yuvalar, yeni bir sekmede', () => {
+    const acts = [deckAct(['copy', 'Desteyi Çoğalt'], 'Bu destenin kopyası: aynı yuvalar, yeni bir sekmede', () => {
       const src = deckSpec();
       const d = newDeck(c, { rows: src.rows, cols: src.cols, slots: src.slots, rowNames: src.rowNames, colNames: src.colNames });
       c.decks.push(d);
@@ -1318,7 +1334,7 @@
       p.apply();
     })];
     if (c.decks.length > 1) {
-      acts.push(deckAct('🗑 Desteyi Sil', 'Bu desteyi ve yuvalarını sil', () => {
+      acts.push(deckAct(['trash', 'Desteyi Sil'], 'Bu desteyi ve yuvalarını sil', () => {
         const d = deckSpec();
         p.confirm(tt('Deste silinsin mi?') + ' ' + (d.name || d.id)).then((ok) => {
           if (!ok) return;

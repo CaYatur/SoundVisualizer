@@ -4771,10 +4771,11 @@ async function runSmoke() {
       c.autovj = Object.assign({}, c.autovj, { enabled: true, source: 'scenes' });
       window.SVPanel.apply();
       var el = document.getElementById('autovjStatus');
-      return el ? el.textContent : '';
+      /* Uyarı ikonu metinde değil ayrı bir öğe (#665): ikon adı + metin */
+      return el ? (el.dataset.icon || '') + '|' + el.textContent : '';
     })()`);
     console.log('[SMOKE] otomatik VJ boş kaynak uyarısı: ' + JSON.stringify(warn));
-    if (!warn || warn.indexOf('⚠') < 0) {
+    if (!warn || warn.indexOf('warning|') !== 0 || warn.length <= 'warning|'.length) {
       errors.push('autovj: no warning shown when the chosen source is empty (silent failure is back)');
     }
 

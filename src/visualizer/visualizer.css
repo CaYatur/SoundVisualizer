@@ -118,4 +118,9 @@ html.sv-floating.sv-float-show #sv-float-bar { opacity: 1; background: rgba(8, 8
   cursor: pointer;
 }
 .sv-float-chip:hover, .sv-float-close:hover { background: rgba(255,255,255,0.28); }
+/* İkonlar ikon setinden (shared/icons.js, #665) */
+.sv-float-chip .svi, .sv-float-close .svi { width: 13px; height: 13px; vertical-align: middle; }
+.sv-float-grip .svi { width: 14px; height: 14px; }
+.svi-lead { margin-right: .4em; }
+.sv-md-keys .svi { width: 1em; height: 1em; vertical-align: -0.15em; }
 .sv-float-close:hover { background: rgba(230, 60, 60, 0.9); }

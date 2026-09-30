@@ -286,11 +286,11 @@
     nodes.push(
       el('div', { class: 'gen-actions' }, [
         el('button', {
-          class: 'btn primary', type: 'button', text: '✨ Sahne Üret',
+          class: 'btn primary', type: 'button', icon: 'sparkles', text: 'Sahne Üret',
           onclick: () => { generate(); apply(); P().toast('Sahne kuruldu.', 'ok'); },
         }),
         el('button', {
-          class: 'btn', type: 'button', text: '🎲 Karıştır',
+          class: 'btn', type: 'button', icon: 'dice', text: 'Karıştır',
           title: 'Aynı ruh hali, farklı yorum',
           onclick: () => { seed = (Math.random() * 1e9) | 0; generate(); apply(); },
         }),

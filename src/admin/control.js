@@ -54,35 +54,35 @@
        yeniden kurardı; denetleyicinin yolu kovalara bölünüyor. */
     { path: 'milkdrop.mesh', label: 'MilkDrop · Ağ Sıklığı', steps: [24, 32, 48, 64, 96, 128] },
     { path: 'milkdrop.renderScale', label: 'MilkDrop · İç Çözünürlük', steps: [0.75, 1, 1.5, 2] },
-    { action: 'nextVisualizer', label: '⏭ Eylem · Sonraki Görselleştirici' },
-    { action: 'prevVisualizer', label: '⏮ Eylem · Önceki Görselleştirici' },
-    { action: 'nextBackground', label: '⏭ Eylem · Sonraki Arkaplan' },
-    { action: 'nextScene', label: '⏭ Eylem · Sonraki Sahne' },
-    { action: 'nextPalette', label: '⏭ Eylem · Sonraki Renk Şablonu' },
-    { action: 'blackout', label: '🌑 Eylem · Karart (aç/kapa)' },
-    { action: 'tlPlay', label: '▶ Çizelge · Oynat' },
-    { action: 'tlPause', label: '⏸ Çizelge · Duraklat' },
-    { action: 'tlStop', label: '⏹ Çizelge · Durdur ve Başa Dön' },
-    { action: 'tlNextMarker', label: '⏭ Çizelge · Sonraki İşaret' },
-    { action: 'tlPrevMarker', label: '⏮ Çizelge · Önceki İşaret' },
-    { action: 'deckStopAll', label: '⏹ Deste · Hepsini Durdur' },
+    { action: 'nextVisualizer', label: 'Eylem · Sonraki Görselleştirici' },
+    { action: 'prevVisualizer', label: 'Eylem · Önceki Görselleştirici' },
+    { action: 'nextBackground', label: 'Eylem · Sonraki Arkaplan' },
+    { action: 'nextScene', label: 'Eylem · Sonraki Sahne' },
+    { action: 'nextPalette', label: 'Eylem · Sonraki Renk Şablonu' },
+    { action: 'blackout', label: 'Eylem · Karart (aç/kapa)' },
+    { action: 'tlPlay', label: 'Çizelge · Oynat' },
+    { action: 'tlPause', label: 'Çizelge · Duraklat' },
+    { action: 'tlStop', label: 'Çizelge · Durdur ve Başa Dön' },
+    { action: 'tlNextMarker', label: 'Çizelge · Sonraki İşaret' },
+    { action: 'tlPrevMarker', label: 'Çizelge · Önceki İşaret' },
+    { action: 'deckStopAll', label: 'Deste · Hepsini Durdur' },
     /* MilkDrop eylemleri panelin kendi düğmeleriyle AYNI yoldan gidiyor
        (milkdrop-panel.js `act`): geçmiş, puan ağırlığı ve kilit
        denetleyiciden de aynı çalışsın. */
-    { action: 'mdNext', label: '⏭ MilkDrop · Sonraki Preset' },
-    { action: 'mdPrev', label: '⏮ MilkDrop · Önceki Preset' },
-    { action: 'mdRandom', label: '🎲 MilkDrop · Rastgele Preset' },
-    { action: 'mdCut', label: '✂ MilkDrop · Şimdi Kes (geçişsiz)' },
-    { action: 'mdLock', label: '🔒 MilkDrop · Kilit (aç/kapa)' },
-    { action: 'mdRateUp', label: '⭐ MilkDrop · Puanı Artır' },
-    { action: 'mdRateDown', label: '⭐ MilkDrop · Puanı Azalt' },
+    { action: 'mdNext', label: 'MilkDrop · Sonraki Preset' },
+    { action: 'mdPrev', label: 'MilkDrop · Önceki Preset' },
+    { action: 'mdRandom', label: 'MilkDrop · Rastgele Preset' },
+    { action: 'mdCut', label: 'MilkDrop · Şimdi Kes (geçişsiz)' },
+    { action: 'mdLock', label: 'MilkDrop · Kilit (aç/kapa)' },
+    { action: 'mdRateUp', label: 'MilkDrop · Puanı Artır' },
+    { action: 'mdRateDown', label: 'MilkDrop · Puanı Azalt' },
     // Ekrandaki preset favorilere girer ya da çıkar (#576)
-    { action: 'mdFavorite', label: '★ MilkDrop · Favori (aç/kapa)' },
+    { action: 'mdFavorite', label: 'MilkDrop · Favori (aç/kapa)' },
     /* Sprite'lar (#577): başlatma hedefleri ini'deki her sprite için canlı
        ekleniyor (milkdrop-panel.js `spriteTargets`); silme üçü sabit. */
-    { action: 'mdSpriteNewest', label: '🖼 MilkDrop · Sprite: En Yeniyi Sil' },
-    { action: 'mdSpriteOldest', label: '🖼 MilkDrop · Sprite: En Eskiyi Sil' },
-    { action: 'mdSpriteAll', label: '🖼 MilkDrop · Sprite: Hepsini Sil' },
+    { action: 'mdSpriteNewest', label: 'MilkDrop · Sprite: En Yeniyi Sil' },
+    { action: 'mdSpriteOldest', label: 'MilkDrop · Sprite: En Eskiyi Sil' },
+    { action: 'mdSpriteAll', label: 'MilkDrop · Sprite: Hepsini Sil' },
   ];
 
   /* Kısayol döngüsü katalogdan: elle tutulan liste on beşten fazla modu
@@ -116,13 +116,13 @@
       for (const slot of window.SVClipDeck.slotList(deck)) {
         out.push({
           action: 'deckSlot:' + deck.id + ':' + slot.row + ':' + slot.col,
-          label: '🎛 Deste · ' + (slot.name || slot.ref || T('Yuva')) + ' (' + (slot.row + 1) + '×' + (slot.col + 1) + ')',
+          label: 'Deste · ' + (slot.name || slot.ref || T('Yuva')) + ' (' + (slot.row + 1) + '×' + (slot.col + 1) + ')',
         });
         if (!named.has(slot.row)) {
           named.add(slot.row);
           out.push({
             action: 'deckRow:' + deck.id + ':' + slot.row,
-            label: '▶ Deste · ' + T('Satır') + ' ' + (deck.rowNames[slot.row] || slot.row + 1),
+            label: 'Deste · ' + T('Satır') + ' ' + (deck.rowNames[slot.row] || slot.row + 1),
           });
         }
       }
@@ -387,7 +387,7 @@
     const host = el('div', { class: 'map-list' });
 
     if (!list.length) {
-      host.appendChild(el('div', { class: 'studio-empty', text: 'Henüz eşleme yok. “＋ Eşleme Ekle” ile başlayın.' }));
+      host.appendChild(el('div', { class: 'studio-empty', text: 'Henüz eşleme yok. “Eşleme Ekle” ile başlayın.' }));
     }
 
     list.forEach((m, i) => {
@@ -404,7 +404,8 @@
       const learnBtn = el('button', {
         class: 'btn small' + (isLearning ? ' primary' : ' ghost'),
         type: 'button',
-        text: isLearning ? '● Dinleniyor…' : '🎯 Öğren',
+        icon: isLearning ? 'record' : 'aim',
+        text: isLearning ? 'Dinleniyor…' : 'Öğren',
         title: surface === 'midi' ? 'Bas, sonra denetleyicideki düğmeyi oynat' : 'Bas, sonra OSC mesajını gönder',
         onclick: () => {
           learning = isLearning ? null : { surface, id: m.id };
@@ -456,7 +457,7 @@
           targetSel,
           ...extras,
           el('button', {
-            class: 'btn ghost small', type: 'button', text: '✕', title: 'Eşlemeyi kaldır',
+            class: 'btn ghost small', type: 'button', icon: 'x', title: 'Eşlemeyi kaldır',
             onclick: () => { list.splice(i, 1); P().push(true); P().rerender(); },
           }),
         ])
@@ -465,7 +466,7 @@
 
     host.appendChild(
       el('button', {
-        class: 'btn ghost small', type: 'button', text: '＋ Eşleme Ekle',
+        class: 'btn ghost small', type: 'button', icon: 'plus', text: 'Eşleme Ekle',
         onclick: () => { list.push(newMapping(surface)); P().push(true); P().rerender(); },
       })
     );
@@ -548,12 +549,12 @@
         class: 'lbl studio-status ' + (oscState.running ? 'ok' : oscState.error ? 'err' : ''),
       });
       if (oscState.running) {
-        stBox.appendChild(el('span', { text: '✓ ' }));
+        stBox.appendChild(el('span', { icon: 'check' }));
         stBox.appendChild(el('span', { text: 'Port' }));
         stBox.appendChild(el('span', { class: 'st-num', text: ' ' + oscState.port + ' ' }));
         stBox.appendChild(el('span', { text: 'dinleniyor' }));
       } else if (oscState.error) {
-        stBox.appendChild(el('span', { text: '✕ ' + oscState.error }));
+        stBox.appendChild(el('span', { icon: 'x', text: oscState.error }));
       } else {
         stBox.appendChild(el('span', { text: 'Kapalı' }));
       }

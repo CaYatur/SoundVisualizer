@@ -63,7 +63,7 @@
       </div>
 
       <div class="topsearch">
-        <span class="ts-icon">🔍</span>
+        <span class="ts-icon" data-icon="search"></span>
         <input id="searchInput" type="text" placeholder="Tüm ayarlarda ara…" autocomplete="off" spellcheck="false" />
         <kbd class="ts-kbd">Ctrl K</kbd>
         <div id="searchResults" class="search-results hidden"></div>
@@ -75,25 +75,25 @@
           <button id="displayBtn" class="display-btn" type="button" aria-haspopup="true" aria-expanded="false">Ekran 1</button>
           <div id="displayMenu" class="display-menu hidden" role="menu"></div>
         </div>
-        <button id="openBtn" class="btn primary">▶ Görselleştirmeyi Aç</button>
-        <button id="closeBtn" class="btn ghost" disabled>■ Kapat</button>
-        <button id="blackoutBtn" class="btn ghost" type="button" title="Sahneyi karart (tekrar basınca geri gelir)">🌑 Karart</button>
+        <button id="openBtn" class="btn primary" data-icon="play">Görselleştirmeyi Aç</button>
+        <button id="closeBtn" class="btn ghost" data-icon="stop" disabled>Kapat</button>
+        <button id="blackoutBtn" class="btn ghost" type="button" title="Sahneyi karart (tekrar basınca geri gelir)" data-icon="moon">Karart</button>
         <div class="status">
           <span id="statusDot" class="dot off"></span>
           <span id="statusText">Kapalı</span>
         </div>
-        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ayarlar" title="Ayarlar">⚙</button>
+        <button id="settingsBtn" class="icon-btn" type="button" aria-label="Ayarlar" title="Ayarlar" data-icon="gear"></button>
       </div>
     </header>
 
     <!-- ================= UYARI BANDI ================= -->
     <div id="banner" class="banner hidden">
-      <span class="bicon">⚠️</span>
+      <span class="bicon" data-icon="warning"></span>
       <div class="btext">
         <strong>Ses çıkışı yakalanamadı.</strong>
         <span id="bannerDetail">Çıkış aygıtı yakalanamadı.</span>
         <!-- Tek metin düğümü: çeviri tam dizeyle eşleştiği için içeride etiket yok -->
-        <div class="bhelp">Farklı bir Çıkış Aygıtı seçmeyi deneyin veya 🔄 Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.</div>
+        <div class="bhelp">Farklı bir Çıkış Aygıtı seçmeyi deneyin veya Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.</div>
       </div>
       <div class="banner-actions">
         <button id="repairAudioBtn" class="btn small">Otomatik Onar</button>
@@ -103,7 +103,7 @@
 
     <!-- ============ BAŞKA KOPYA (#564): aynı ayar klasörünü kullanan ============ -->
     <div id="copiesBanner" class="banner hidden" role="status">
-      <span class="bicon">⚠️</span>
+      <span class="bicon" data-icon="warning"></span>
       <div class="btext">
         <strong>Uygulamanın başka bir kopyası da çalışıyor.</strong>
         <span>İki kopya aynı ayar klasörünü kullanır; birinin kaydettiği ayarlar diğerininkini ezebilir.</span>
@@ -118,7 +118,7 @@
 
     <!-- ============ AYAR DOSYASI ÇAKIŞMASI (#564) ============ -->
     <div id="conflictBanner" class="banner hidden" role="alert">
-      <span class="bicon">⚠️</span>
+      <span class="bicon" data-icon="warning"></span>
       <div class="btext">
         <strong>Ayar dosyası bu kopyanın dışında değişti.</strong>
         <span>Üstüne yazmamak için bu kopya ayarları kaydetmeyi durdurdu.</span>
@@ -149,7 +149,7 @@
               <span class="track"></span>
               <span class="adv-label">Gelişmiş</span>
             </label>
-            <button id="catResetBtn" class="btn ghost small" title="Bu kategoriyi varsayılana döndür">↺ Kategoriyi Sıfırla</button>
+            <button id="catResetBtn" class="btn ghost small" title="Bu kategoriyi varsayılana döndür" data-icon="reset">Kategoriyi Sıfırla</button>
           </div>
         </div>
         <div id="sections" class="sections"></div>
@@ -162,7 +162,7 @@
             <h3>Canlı Önizleme</h3>
             <div class="dock-head-actions">
               <span id="previewSource" class="pill">Demo</span>
-              <button id="previewToggle" class="icon-btn small" type="button" title="Önizlemeyi duraklat/başlat">⏸</button>
+              <button id="previewToggle" class="icon-btn small" type="button" title="Önizlemeyi duraklat/başlat" data-icon="pause"></button>
             </div>
           </div>
           <div id="previewStage" class="preview-stage">
@@ -190,12 +190,12 @@
         <section class="dock-block dock-grow">
           <div class="dock-head">
             <h3>Sahneler</h3>
-            <button id="sceneSaveBtn" class="btn small" type="button" title="Mevcut görünümü yeni sahne olarak kaydet">＋ Kaydet</button>
+            <button id="sceneSaveBtn" class="btn small" type="button" title="Mevcut görünümü yeni sahne olarak kaydet" data-icon="plus">Kaydet</button>
           </div>
           <div id="sceneList" class="scene-list"></div>
           <div class="scene-toolbar">
-            <button id="sceneExportBtn" class="btn ghost small" type="button">📤 Dışa Aktar</button>
-            <button id="sceneImportBtn" class="btn ghost small" type="button">📥 İçe Aktar</button>
+            <button id="sceneExportBtn" class="btn ghost small" type="button" data-icon="export">Dışa Aktar</button>
+            <button id="sceneImportBtn" class="btn ghost small" type="button" data-icon="import">İçe Aktar</button>
           </div>
         </section>
       </aside>
@@ -203,7 +203,7 @@
 
     <!-- ================= ALT ÇUBUK ================= -->
     <footer class="footer">
-      <button id="resetBtn" class="btn ghost small">↺ Varsayılanlara Sıfırla</button>
+      <button id="resetBtn" class="btn ghost small" data-icon="reset">Varsayılanlara Sıfırla</button>
       <span class="hint">Görselleştirme ekranında <kbd>ESC</kbd> ile çıkış • Ayarlar otomatik kaydedilir</span>
     </footer>
 
@@ -284,6 +284,7 @@
     </div>
 
     <script src="../shared/defaults.js"></script>
+    <script src="../shared/icons.js"></script>
     <script src="../shared/i18n.js"></script>
     <script src="../visualizer/audio.js"></script>
     <script src="../visualizer/modes/glow.js"></script>

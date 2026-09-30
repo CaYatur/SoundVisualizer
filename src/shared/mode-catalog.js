@@ -95,10 +95,10 @@
     V('vumeter', 'VU Metre', 'Ölçüm', { color2: true }),
     V('levelmeter', 'Seviye Ölçer (PPM)', 'Ölçüm', { color2: true }),
 
-    V('geometry', '◈ 3B Geometri', 'Gelişmiş Motorlar', { engine: true }),
-    V('milkdrop', '🥛 MilkDrop', 'Gelişmiş Motorlar', { engine: true }),
-    V('feedback', '♾ Geri Besleme', 'Gelişmiş Motorlar', { engine: true }),
-    V('custom', '🧪 Studio', 'Gelişmiş Motorlar', { cycle: false, engine: true }),
+    V('geometry', '3B Geometri', 'Gelişmiş Motorlar', { engine: true }),
+    V('milkdrop', 'MilkDrop', 'Gelişmiş Motorlar', { engine: true }),
+    V('feedback', 'Geri Besleme', 'Gelişmiş Motorlar', { engine: true }),
+    V('custom', 'Studio', 'Gelişmiş Motorlar', { cycle: false, engine: true }),
   ];
 
   /* 'gradient', 'solid' ve 'custom' SVBackgrounds'ta değil: gradyan kendi
@@ -375,7 +375,7 @@
       ['bassPush', 'Bas İtkisi', 0, 4, 0.05],
     ] }),
     V('solid', 'Düz Renk', 'Diğer'),
-    V('custom', '🧪 Studio', 'Diğer', { cycle: false }),
+    V('custom', 'Studio', 'Diğer', { cycle: false }),
   ];
 
   const listOf = (kind) => (kind === 'background' ? BACKGROUNDS : VISUALIZERS);

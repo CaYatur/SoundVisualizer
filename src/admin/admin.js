@@ -187,6 +187,7 @@
     if (props) {
       for (const k in props) {
         if (k === 'class') e.className = props[k];
+        else if (k === 'icon') continue;
         else if (k === 'html') e.innerHTML = props[k];
         else if (k === 'text') e.textContent = props[k];
         else if (k.startsWith('on') && typeof props[k] === 'function')
@@ -200,6 +201,13 @@
           else e.removeAttribute(k);
         } else e.setAttribute(k, props[k]);
       }
+    }
+    /* İkon (#665): yazıdan ÖNCE, ayrı bir öğe olarak. Yazı kendi metin
+       düğümünde kalıyor, çeviri o düğümü tam metin olarak eşliyor. */
+    if (props && props.icon && window.SVIcons) {
+      const txt = e.textContent;
+      e.insertBefore(window.SVIcons.el(props.icon, txt ? 'svi-lead' : ''), e.firstChild);
+      e.dataset.icon = props.icon;
     }
     (kids || []).forEach((c) => c && e.appendChild(c));
     return e;
@@ -223,7 +231,7 @@
       class: 'drag-handle', type: 'button', draggable: 'true',
       title: title || 'Sürükleyerek ya da yukarı/aşağı ok tuşlarıyla taşıyın',
       'aria-label': title || 'Taşı',
-      text: '⠿',
+      icon: 'grip',
     });
     return h;
   }
@@ -535,6 +543,7 @@
   function buttonCtrl(def) {
     const btn = el('button', {
       class: 'btn ghost small',
+      icon: def.icon,
       text: def.label,
       onclick: () => {
         if (def.action && actions[def.action]) actions[def.action]();
@@ -651,6 +660,7 @@
       if (o.group) { seg.appendChild(el('div', { class: 'seg-group', text: tr(o.group) })); return; }
       const b = el('button', {
         class: cur === o.value ? 'active' : '',
+        icon: o.icon,
         text: tr(o.label),
         onclick: () => {
           setPath(cfg, def.path, o.value);
@@ -769,8 +779,8 @@
       });
 
       const applyBtn = el('button', { class: 'btn ghost small', text: 'Uygula', onclick: () => actions.applyUserPreset(p.id) });
-      const updateBtn = el('button', { class: 'btn ghost small', text: '⟳ Güncelle', title: 'Mevcut renklerle güncelle', onclick: () => actions.updateUserPreset(p.id) });
-      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteUserPreset(p.id) });
+      const updateBtn = el('button', { class: 'btn ghost small', icon: 'refresh', text: 'Güncelle', title: 'Mevcut renklerle güncelle', onclick: () => actions.updateUserPreset(p.id) });
+      const delBtn = el('button', { class: 'btn ghost small danger', icon: 'trash', title: 'Sil', onclick: () => actions.deleteUserPreset(p.id) });
 
       const row = el('div', { class: 'up-item' }, [
         dragHandle('Şablonu taşı'),
@@ -783,9 +793,9 @@
     sortableList(list, () => cfg.userPresets, '.up-item', () => { push(true); render(); });
     wrap.appendChild(list);
 
-    const saveBtn = el('button', { class: 'btn ghost small', text: '💾 Mevcut Renkleri Kaydet', onclick: () => actions.saveCurrentPreset() });
-    const expBtn = el('button', { class: 'btn ghost small', text: '📤 Dışa Aktar', onclick: () => actions.exportPresets() });
-    const impBtn = el('button', { class: 'btn ghost small', text: '📥 İçe Aktar', onclick: () => actions.importPresets() });
+    const saveBtn = el('button', { class: 'btn ghost small', icon: 'save', text: 'Mevcut Renkleri Kaydet', onclick: () => actions.saveCurrentPreset() });
+    const expBtn = el('button', { class: 'btn ghost small', icon: 'export', text: 'Dışa Aktar', onclick: () => actions.exportPresets() });
+    const impBtn = el('button', { class: 'btn ghost small', icon: 'import', text: 'İçe Aktar', onclick: () => actions.importPresets() });
     const bar = el('div', { class: 'up-toolbar' }, [saveBtn, expBtn, impBtn]);
     wrap.appendChild(bar);
     return wrap;
@@ -793,8 +803,8 @@
 
   // --- Arkaplan ayarlarını içe/dışa aktarma ---
   function bgIoCtrl() {
-    const expBtn = el('button', { class: 'btn ghost small', text: '📤 Arkaplanı Dışa Aktar', onclick: () => actions.exportBackground() });
-    const impBtn = el('button', { class: 'btn ghost small', text: '📥 Arkaplanı İçe Aktar', onclick: () => actions.importBackground() });
+    const expBtn = el('button', { class: 'btn ghost small', icon: 'export', text: 'Arkaplanı Dışa Aktar', onclick: () => actions.exportBackground() });
+    const impBtn = el('button', { class: 'btn ghost small', icon: 'import', text: 'Arkaplanı İçe Aktar', onclick: () => actions.importBackground() });
     return el('div', { class: 'ctrl' }, [
       el('label', { class: 'lbl', text: 'Arkaplan Ayarları (dosya)' }),
       el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
@@ -803,8 +813,8 @@
 
   // --- Tüm ayarları içe/dışa aktarma (renk şablonları hariç) ---
   function settingsIoCtrl() {
-    const expBtn = el('button', { class: 'btn ghost small', text: '📤 Tüm Ayarları Dışa Aktar', onclick: () => actions.exportAllSettings() });
-    const impBtn = el('button', { class: 'btn ghost small', text: '📥 Ayarları İçe Aktar', onclick: () => actions.importAllSettings() });
+    const expBtn = el('button', { class: 'btn ghost small', icon: 'export', text: 'Tüm Ayarları Dışa Aktar', onclick: () => actions.exportAllSettings() });
+    const impBtn = el('button', { class: 'btn ghost small', icon: 'import', text: 'Ayarları İçe Aktar', onclick: () => actions.importAllSettings() });
     return el('div', { class: 'ctrl settings-io-panel' }, [
       el('div', { class: 'settings-io-note', text: 'Ses, görünüm, Dynamic Lighting, performans, logo, görsel nesneler ve video dışa aktarma ayarlarını JSON dosyasına kaydeder. Renk şablonlarınız ve sahneleriniz dosyaya dahil edilmez ve içe aktarma sırasında korunur; onların kendi dışa aktarma düğmeleri vardır.' }),
       el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
@@ -868,8 +878,8 @@
       });
       name.addEventListener('change', () => actions.renameScene(sc.id, name.value));
       const applyBtn = el('button', { class: 'btn small', text: 'Uygula', onclick: () => actions.applyScene(sc.id) });
-      const updBtn = el('button', { class: 'btn ghost small', text: '⟳ Güncelle', title: 'Mevcut görünümle güncelle', onclick: () => actions.updateScene(sc.id) });
-      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑', title: 'Sil', onclick: () => actions.deleteScene(sc.id) });
+      const updBtn = el('button', { class: 'btn ghost small', icon: 'refresh', text: 'Güncelle', title: 'Mevcut görünümle güncelle', onclick: () => actions.updateScene(sc.id) });
+      const delBtn = el('button', { class: 'btn ghost small danger', icon: 'trash', title: 'Sil', onclick: () => actions.deleteScene(sc.id) });
       list.appendChild(
         el('div', { class: 'up-item' + (sc.id === activeSceneId ? ' active' : '') }, [
           dragHandle('Sahneyi taşı'),
@@ -886,9 +896,9 @@
     sortableList(list, ensureScenes, '.up-item', () => { push(true); render(); renderScenes(); });
 
     const toolbar = el('div', { class: 'up-toolbar' }, [
-      el('button', { class: 'btn small', text: '💾 Mevcut Görünümü Kaydet', onclick: () => actions.saveScene() }),
-      el('button', { class: 'btn ghost small', text: '📤 Dışa Aktar', onclick: () => actions.exportScenes() }),
-      el('button', { class: 'btn ghost small', text: '📥 İçe Aktar', onclick: () => actions.importScenes() }),
+      el('button', { class: 'btn small', icon: 'save', text: 'Mevcut Görünümü Kaydet', onclick: () => actions.saveScene() }),
+      el('button', { class: 'btn ghost small', icon: 'export', text: 'Dışa Aktar', onclick: () => actions.exportScenes() }),
+      el('button', { class: 'btn ghost small', icon: 'import', text: 'İçe Aktar', onclick: () => actions.importScenes() }),
     ]);
 
     return el('div', { class: 'ctrl' }, [list, toolbar]);
@@ -917,7 +927,7 @@
       box.checked = selectedDisplayIds.indexOf(d.id) >= 0;
       const row = el('label', { class: 'source-item' }, [
         box,
-        el('span', { class: 'source-icon', text: d.isPrimary ? '🖥️' : '🖵' }),
+        el('span', { class: 'source-icon', icon: 'monitor' }),
         el('span', { class: 'source-name', text: `${d.label} — ${d.size.width}×${d.size.height}` }),
       ]);
       list.appendChild(row);
@@ -968,8 +978,8 @@
         type: 'text', class: 'up-name', value: it.name || 'Görsel',
         onchange: (e) => { it.name = e.target.value.trim() || 'Görsel'; push(true); },
       });
-      const delBtn = el('button', { class: 'btn ghost small danger', text: '🗑 Kaldır', onclick: () => actions.removeImage(it.id) });
-      const replaceBtn = el('button', { class: 'btn ghost small', text: '🖼 Değiştir', onclick: () => actions.replaceImage(it.id) });
+      const delBtn = el('button', { class: 'btn ghost small danger', icon: 'trash', text: 'Kaldır', onclick: () => actions.removeImage(it.id) });
+      const replaceBtn = el('button', { class: 'btn ghost small', icon: 'image', text: 'Değiştir', onclick: () => actions.replaceImage(it.id) });
 
       const head = el('div', { class: 'img-head' }, [
         thumb,
@@ -998,7 +1008,7 @@
       wrap.appendChild(el('div', { class: 'img-card' }, [head, body]));
     });
 
-    const addBtn = el('button', { class: 'btn ghost small', text: '➕ Görsel Ekle', onclick: () => actions.addImage() });
+    const addBtn = el('button', { class: 'btn ghost small', icon: 'plus', text: 'Görsel Ekle', onclick: () => actions.addImage() });
     wrap.appendChild(el('div', { class: 'up-toolbar' }, [addBtn]));
     return el('div', { class: 'ctrl' }, [wrap]);
   }
@@ -1021,7 +1031,7 @@
       };
       reader.readAsDataURL(file);
     });
-    const btn = el('label', { class: 'filebtn', text: '🖼  Resim / Logo Seç' });
+    const btn = el('label', { class: 'filebtn', icon: 'image', text: 'Resim / Logo Seç' });
     btn.appendChild(fileInput);
     btn.addEventListener('click', () => fileInput.click());
 
@@ -1105,10 +1115,12 @@
   }
 
   function floatingToolsCtrl() {
-    const chip = (label, fn) => el('button', {
+    const chip = (label, fn, icon, title) => el('button', {
       class: 'btn ghost small',
       type: 'button',
-      text: label,
+      text: icon ? '' : label,
+      icon,
+      title,
       onclick: fn,
     });
     return el('div', { class: 'ctrl' }, [
@@ -1119,10 +1131,10 @@
         chip('L', () => actions.floatingSizeL()),
       ]),
       el('div', { class: 'float-tools' }, [
-        chip('↖', () => actions.floatingSnapTl()),
-        chip('↗', () => actions.floatingSnapTr()),
-        chip('↙', () => actions.floatingSnapBl()),
-        chip('↘', () => actions.floatingSnapBr()),
+        chip('', () => actions.floatingSnapTl(), 'corner-tl', 'Sol üst köşe'),
+        chip('', () => actions.floatingSnapTr(), 'corner-tr', 'Sağ üst köşe'),
+        chip('', () => actions.floatingSnapBl(), 'corner-bl', 'Sol alt köşe'),
+        chip('', () => actions.floatingSnapBr(), 'corner-br', 'Sağ alt köşe'),
       ]),
     ]);
   }
@@ -1131,7 +1143,7 @@
     const mk = (axis, label) =>
       sliderCtrl({ path: 'logo.' + axis, label, min: 0, max: 1, step: 0.01, percent: true });
     const auto = el('button', {
-      class: 'btn ghost small', text: '⌖ Otomatik Ortala',
+      class: 'btn ghost small', icon: 'target', text: 'Otomatik Ortala',
       onclick: () => {
         cfg.logo.x = 0.5;
         cfg.logo.y = 0.5;
@@ -1209,7 +1221,7 @@
       cb.addEventListener('change', () => toggle(entry));
       const kids = [
         cb,
-        el('span', { class: 'source-icon', text: icon }),
+        el('span', { class: 'source-icon', icon }),
         el('span', { class: 'source-name', text: label }),
       ];
       if (extra) kids.push(el('span', { class: 'source-note', text: extra }));
@@ -1217,10 +1229,10 @@
     }
 
     const devices = typeof def.devices === 'function' ? def.devices() : (def.devices || []);
-    const rows = [makeRow('default', '\ud83d\udd0a', 'Varsayılan Çıkış (Aktif Hoparlör)')];
+    const rows = [makeRow('default', 'speaker', 'Varsayılan Çıkış (Aktif Hoparlör)')];
     devices.forEach((d) => {
-      const icon = d.kind === 'input' ? '\ud83c\udfa4' : '\ud83d\udd0a';
-      const suffix = d.isDefault ? ' (★)' : '';
+      const icon = d.kind === 'input' ? 'mic' : 'speaker';
+      const suffix = d.isDefault ? ' (' + tr('varsayılan') + ')' : '';
       rows.push(makeRow(d.name, icon, d.name + suffix));
     });
     const kids = [
@@ -1244,7 +1256,7 @@
         shown.add(AA.baseName(a.match));
         appRows.push(makeRow(
           { kind: 'app', match: a.match, label: a.label },
-          a.audible ? '🎵' : '🔇',
+          a.audible ? 'music' : 'mute',
           a.label,
           a.count > 1 ? a.count + ' süreç' : ''
         ));
@@ -1256,7 +1268,7 @@
         if (shown.has(AA.baseName(s.match))) continue;
         appRows.push(makeRow(
           { kind: 'app', match: s.match, label: s.label },
-          '⏸', s.label || s.match, 'çalışmıyor'
+          'pause', s.label || s.match, 'çalışmıyor'
         ));
       }
       if (!appRows.length) {
@@ -1297,7 +1309,7 @@
       id: 'exportAudioName',
       text: exportAudioName || 'Henüz dosya seçilmedi',
     });
-    const btn = el('label', { class: 'filebtn', text: '🎵  Ses Dosyası Seç (MP3 / WAV / FLAC)' });
+    const btn = el('label', { class: 'filebtn', icon: 'music', text: 'Ses Dosyası Seç (MP3 / WAV / FLAC)' });
     btn.addEventListener('click', async () => {
       if (exporting) return;
       const p = await window.api.pickExportAudio();
@@ -1313,11 +1325,11 @@
   // --- Video dışa aktarma: çalıştır düğmesi + ilerleme ---
   function exportPanelCtrl() {
     const runBtn = el('button', {
-      class: 'btn primary', id: 'exportRunBtn', text: '🎬 Videoya Aktar',
+      class: 'btn primary', id: 'exportRunBtn', icon: 'clapper', text: 'Videoya Aktar',
       onclick: () => actions.runExport(),
     });
     const cancelBtn = el('button', {
-      class: 'btn ghost small', id: 'exportCancelBtn', text: '■ İptal',
+      class: 'btn ghost small', id: 'exportCancelBtn', icon: 'stop', text: 'İptal',
       onclick: () => window.api.cancelExport(),
     });
     cancelBtn.style.display = 'none';
@@ -1351,8 +1363,8 @@
       : available
         ? ''
         : 'Uyumlu Dynamic Lighting aygıtı bulunamadı.';
-    const resolvedStatusText = available ? '✓ ' + devices.length + ' uyumlu aydınlatma aygıtı bulundu' : statusText;
-    const status = el('div', { class: available ? 'lighting-status ok' : 'lighting-status', text: resolvedStatusText });
+    const resolvedStatusText = available ? devices.length + ' uyumlu aydınlatma aygıtı bulundu' : statusText;
+    const status = el('div', { class: available ? 'lighting-status ok' : 'lighting-status', icon: available ? 'check' : '', text: resolvedStatusText });
 
     const enabledInput = el('input', {
       type: 'checkbox',
@@ -1373,7 +1385,7 @@
 
     const refreshBtn = el('button', {
       class: 'btn ghost small',
-      text: '🔄 Aydınlatma Aygıtlarını Tara',
+      icon: 'refresh', text: 'Aydınlatma Aygıtlarını Tara',
       onclick: async () => {
         lightingInfo = await window.api.scanLighting();
         if (!lightingInfo.devices?.length) lighting.enabled = false;
@@ -1385,12 +1397,13 @@
     const identityText = lightingIdentity.portable
       ? 'Portable sürüm yalnızca CAYADEV Visualizer odaktayken aydınlatmayı kontrol eder.'
       : lightingIdentity.hasIdentity
-        ? '✓ Arka plan Dynamic Lighting kimliği hazır'
+        ? 'Arka plan Dynamic Lighting kimliği hazır'
         : lightingIdentity.packaged
           ? 'Arka plan kimliği bulunamadı; ön plan kontrolü kullanılabilir.'
           : 'Geliştirme modunda yalnızca ön plan kontrolü kullanılabilir.';
     const identityStatus = el('div', {
       class: !lightingIdentity.portable && lightingIdentity.hasIdentity ? 'lighting-status ok' : 'lighting-status',
+      icon: !lightingIdentity.portable && lightingIdentity.hasIdentity ? 'check' : '',
       text: identityText,
     });
 
@@ -1402,18 +1415,19 @@
         ? 'Ön plan kontrol durumu, Dynamic Lighting etkinleştirildiğinde izlenir.'
         : 'Arka plan kontrol durumu, Dynamic Lighting etkinleştirildiğinde izlenir.')
       : controlGranted
-        ? '✓ Windows ' + controlAvailable + '/' + controlTotal + ' aygıt için kontrol verdi'
+        ? 'Windows ' + controlAvailable + '/' + controlTotal + ' aygıt için kontrol verdi'
         : lightingIdentity.portable
-          ? '⚠ Portable sürüm yalnızca uygulama odaktayken kontrol eder (' + controlAvailable + '/' + controlTotal + ').'
-          : '⚠ Windows arka plan kontrolünü vermedi (' + controlAvailable + '/' + controlTotal + '). Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın.';
+          ? 'Portable sürüm yalnızca uygulama odaktayken kontrol eder (' + controlAvailable + '/' + controlTotal + ').'
+          : 'Windows arka plan kontrolünü vermedi (' + controlAvailable + '/' + controlTotal + '). Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın.';
     const controlStatus = el('div', {
       class: lighting.enabled && controlGranted ? 'lighting-status ok' : 'lighting-status',
+      icon: !lighting.enabled ? '' : (controlGranted ? 'check' : 'warning'),
       text: controlText,
     });
 
     const settingsBtn = el('button', {
       class: 'btn ghost small',
-      text: '⚙ Windows Dynamic Lighting Ayarları',
+      icon: 'gear', text: 'Windows Dynamic Lighting Ayarları',
       onclick: () => window.api.openDynamicLightingSettings(),
     });
     const priorityNote = el('div', {
@@ -1437,7 +1451,7 @@
       const selected = options.find((option) => String(option.value) === String(value)) || options[0];
       const menu = el('div', { class: 'lighting-select-menu' });
       const buttonText = el('span', { class: 'lighting-select-value', text: selected.label });
-      const arrow = el('span', { class: 'lighting-select-arrow', text: '▾' });
+      const arrow = el('span', { class: 'lighting-select-arrow', icon: 'chevron-down' });
       const button = el('button', { type: 'button', class: 'lighting-select-button' }, [buttonText, arrow]);
       const wrap = el('div', { class: 'lighting-select-wrap', tabIndex: 0 }, [button, menu]);
       const close = () => wrap.classList.remove('open');
@@ -1895,10 +1909,10 @@
          Sınıf olmadan i18n taraması bunu "çevrilmemiş Türkçe" sayıyor ve
          Türkçe bir şarkı çalarken sürüm kapısı düşüyordu — kapının sonucu
          o an ne dinlendiğine bağlı olamaz. */
-      statusInfo.appendChild(el('div', { class: 'np-live', style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', text: `🎵 ${live.title} — ${live.artist || ''}` }));
-      statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: live.artwork ? tr('🖼️ Albüm kapağı algılandı') : tr('ℹ️ Albüm kapağı yok (parça bilgisi mevcut)') }));
+      statusInfo.appendChild(el('div', { class: 'np-live', style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', icon: 'music', text: `${live.title} — ${live.artist || ''}` }));
+      statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', icon: live.artwork ? 'image' : 'info', text: live.artwork ? tr('Albüm kapağı algılandı') : tr('Albüm kapağı yok (parça bilgisi mevcut)') }));
     } else {
-      statusInfo.appendChild(el('div', { style: 'font-weight: 600;', text: tr('🎵 Windows Medya Oturumu Hazır') }));
+      statusInfo.appendChild(el('div', { style: 'font-weight: 600;', icon: 'music', text: tr('Windows Medya Oturumu Hazır') }));
       statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: tr('Müzik çaldığında (Spotify, Apple Music, YouTube vb.) renkler otomatik güncellenir.') }));
     }
     statusRow.appendChild(statusInfo);
@@ -1940,12 +1954,12 @@
 
       // 3. Çalışma Modu Seçimi
       const MODES = [
-        ['artworkOrRandom', tr('🖼️🎲 Albüm Kapağı (Yoksa Rastgele)')],
-        ['artwork', tr('🖼️ Yalnızca Albüm Kapağı')],
-        ['random', tr('🎲 Rastgele Renk Teması (Stüdyo Üreticisi)')],
-        ['energyMood', tr('🎶 Parça Adı & Ruh Hali Analizi')],
-        ['presetCycle', tr('📑 Hazır Şablon Döngüsü')],
-        ['presetRandom', tr('🔀 Hazır Şablon Rastgele')],
+        ['artworkOrRandom', tr('Albüm Kapağı (Yoksa Rastgele)')],
+        ['artwork', tr('Yalnızca Albüm Kapağı')],
+        ['random', tr('Rastgele Renk Teması (Stüdyo Üreticisi)')],
+        ['energyMood', tr('Parça Adı & Ruh Hali Analizi')],
+        ['presetCycle', tr('Hazır Şablon Döngüsü')],
+        ['presetRandom', tr('Hazır Şablon Rastgele')],
       ];
 
       const sel = el('select', {
@@ -2019,7 +2033,7 @@
         class: 'btn',
         type: 'button',
         style: 'width: 100%; justify-content: center; margin-top: 8px;',
-        text: tr('⚡ Şimdi Test Et / Renkleri Uygula'),
+        icon: 'bolt', text: tr('Şimdi Test Et / Renkleri Uygula'),
         onclick: () => {
           applyDynamicThemeNow();
         },
@@ -2042,31 +2056,31 @@
   // --------------------------------------------------------------------------
   const CATEGORIES = [
     {
-      id: 'scene', icon: '🎨', title: 'Sahne',
+      id: 'scene', icon: 'palette', title: 'Sahne',
       desc: 'Ekranda görünen her şey: arkaplan, görselleştirici, logo ve görsel nesneler.',
     },
     {
-      id: 'audio', icon: '🔊', title: 'Ses',
+      id: 'audio', icon: 'speaker', title: 'Ses',
       desc: 'Hangi sesin yakalanacağı ve görüntüye nasıl çevrileceği.',
     },
     {
-      id: 'lighting', icon: '💡', title: 'Işık',
+      id: 'lighting', icon: 'bulb', title: 'Işık',
       desc: 'Windows Dynamic Lighting ile uyumlu RGB aygıtlarını müzikle senkronize edin.',
     },
     {
-      id: 'output', icon: '📺', title: 'Çıkış',
+      id: 'output', icon: 'tv', title: 'Çıkış',
       desc: 'Görüntünün nereye ve nasıl gideceği: ekran, yayın, performans ve video dosyası.',
     },
     {
-      id: 'control', icon: '🎛️', title: 'Kontrol',
+      id: 'control', icon: 'sliders', title: 'Kontrol',
       desc: 'MIDI denetleyicileri ve OSC ile ayarları canlı sürün.',
     },
     {
-      id: 'studio', icon: '🧪', title: 'Studio',
+      id: 'studio', icon: 'flask', title: 'Studio',
       desc: 'Kendi görselleştiricini ve arkaplanını yap; içe/dışa aktar.',
     },
     {
-      id: 'library', icon: '📚', title: 'Kitaplık',
+      id: 'library', icon: 'library', title: 'Kitaplık',
       desc: 'Kayıtlı sahneler, renk şablonları ve ayar yedekleri.',
     },
   ];
@@ -2122,9 +2136,9 @@
       {
         id: 'sources',
         category: 'audio',
-        icon: '🎙️',
+        icon: 'mic',
         title: 'Ses Kaynakları',
-        desc: 'Birden fazla kaynak seçilip karıştırılabilir: 🔊 sistem sesi, 🎤 mikrofon ve 🎵 tek tek uygulamalar.',
+        desc: 'Birden fazla kaynak seçilip karıştırılabilir: sistem sesi, mikrofon ve tek tek uygulamalar.',
         controls: [
           {
             type: 'multisource',
@@ -2134,13 +2148,13 @@
             apps: () => (window.SVAppAudio ? window.SVAppAudio.candidates(audioApps) : []),
             appStatus: () => appAudioStatus,
           },
-          { type: 'button', label: '🔄 Aygıtları Yenile', action: 'refreshDevices' },
+          { type: 'button', icon: 'refresh', label: 'Aygıtları Yenile', action: 'refreshDevices' },
         ],
       },
       {
         id: 'analysis',
         category: 'audio',
-        icon: '📈',
+        icon: 'chart-line',
         title: 'Ses Analizi',
         desc: 'Yakalanan sesin görsele ne kadar sert veya yumuşak yansıyacağı.',
         controls: [
@@ -2158,7 +2172,7 @@
       {
         id: 'lighting',
         category: 'lighting',
-        icon: '💡',
+        icon: 'bulb',
         wide: true,
         /* Yalnız Windows: LampArray bir Windows API'si. Diğer
            platformlarda kart hiç çizilmez — devre dışı bir kart
@@ -2171,7 +2185,7 @@
       {
         id: 'colorPresets',
         category: 'scene',
-        icon: '🎨',
+        icon: 'palette',
         wide: true,
         title: 'Renkler ve Hazır Şablonlar',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
@@ -2184,7 +2198,7 @@
       {
         id: 'background',
         category: 'scene',
-        icon: '🌫️',
+        icon: 'background',
         title: 'Arkaplan',
         desc: 'Sese tepki veren akışkan fon, dalga katmanları, yıldız alanı ve daha fazlası.',
         show: notStack,
@@ -2247,7 +2261,7 @@
       {
         id: 'palettes',
         category: 'library',
-        icon: '🎨',
+        icon: 'palette',
         title: 'Renk Şablonlarım',
         desc: 'Beğendiğiniz arkaplan renklerini kaydedin; tek tıkla geri yükleyin.',
         controls: [
@@ -2258,7 +2272,7 @@
       {
         id: 'visualizer',
         category: 'scene',
-        icon: '📊',
+        icon: 'bars',
         title: 'Görselleştirici',
         desc: 'Sese duyarlı ön efekt: barlar, dalga, çember, tünel, spektrogram ve daha fazlası.',
         show: notStack,
@@ -2351,7 +2365,7 @@
         id: 'layers',
         roots: ['layers', 'layerStack', 'layerGroups', 'crossfade'],
         category: 'scene',
-        icon: '⬗',
+        icon: 'layers',
         wide: true,
         title: 'Katmanlar',
         desc: 'Sahneyi üst üste binen katmanlardan kurun: her katmanın kendi kaynağı, karışım modu, saydamlığı, dönüşümü ve sese tepkisi olur.',
@@ -2361,7 +2375,7 @@
         id: 'templates',
         roots: ['visualizer', 'background', 'postfx'],
         category: 'library',
-        icon: '✨',
+        icon: 'sparkles',
         wide: true,
         title: 'Hazır Şablonlar',
         desc: 'Kullanıma ve türe göre gruplanmış bitmiş sahneler. Tek tıkla uygulanır; ses, ekran, yayın ve aydınlatma ayarlarınıza dokunmaz.',
@@ -2371,7 +2385,7 @@
         id: 'record',
         roots: ['recording'],
         category: 'output',
-        icon: '⏺',
+        icon: 'record',
         title: 'Kayıt ve Anlık Görüntü',
         desc: 'Ekranda göründüğü gibi kaydedin: canlı sesle, modülasyon, geçiş ve efektler dahil. MP4, WebM, GIF ve PNG.',
         controls: [{ type: 'recordpanel' }],
@@ -2384,7 +2398,7 @@
         id: 'aspect',
         roots: ['aspect'],
         category: 'output',
-        icon: '⬭',
+        icon: 'ellipse',
         title: 'Basıklık Düzeltme',
         desc: 'Ekranın bildirdiği çözünürlük fiziksel şekliyle uyuşmuyorsa daireler elips, logo ve yazılar basık çıkar. Tek ayarla arkaplan, görselleştirici, logo ve yazıların hepsi birden düzelir; kırpma ya da siyah bant oluşmaz.',
         controls: [{ type: 'aspectpanel' }],
@@ -2393,7 +2407,7 @@
         id: 'mapping',
         roots: ['mapping'],
         category: 'output',
-        icon: '⧉',
+        icon: 'warp',
         wide: true,
         title: 'Projeksiyon Haritalama',
         desc: 'Görüntüyü düz olmayan yüzeylere oturtun: köşe düzeltme, bükme ızgarası, kırpma, kenar harmanlama, ekran başına renk düzeltme, maske ve hizalama desenleri.',
@@ -2403,7 +2417,7 @@
         id: 'deepanalysis',
         roots: [],
         category: 'audio',
-        icon: '📈',
+        icon: 'chart-bar',
         wide: true,
         title: 'Ses Çözümlemesi',
         desc: 'Sinyalden çıkarılan canlı ölçümler: tonalite, akor, perde, gürlük, tını, armonik/vurmalı dengesi ve nota sınıfı dağılımı. Hepsi modülasyon matrisinde kaynak olarak kullanılabilir.',
@@ -2413,7 +2427,7 @@
         id: 'text',
         roots: ['text'],
         category: 'scene',
-        icon: '🅣',
+        icon: 'text',
         title: 'Metin ve Şarkı Sözü',
         desc: 'Sabit metin, zamanlanmış şarkı sözü (LRC / SRT, karaoke vurgusuyla) ya da çalan parça bilgisi.',
         show: notStack,
@@ -2423,7 +2437,7 @@
         id: 'dynamicTheme',
         roots: ['dynamicTheme'],
         category: 'scene',
-        icon: '🪩',
+        icon: 'disco',
         wide: true,
         title: 'Dinamik Renk Teması (Windows)',
         desc: 'Çalan şarkının albüm kapağına veya şarkı geçişlerine göre renk temasını otomatik değiştirin.',
@@ -2433,7 +2447,7 @@
         id: 'nowplaying',
         roots: ['nowplaying'],
         category: 'scene',
-        icon: '🎵',
+        icon: 'music',
         title: 'Çalan Parça',
         desc: 'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.',
         controls: [{ type: 'nowplayingpanel' }],
@@ -2443,7 +2457,7 @@
         id: 'milkdrop',
         roots: ['milkdrop'],
         category: 'scene',
-        icon: '🥛',
+        icon: 'drop',
         wide: true,
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
@@ -2453,7 +2467,7 @@
         id: 'transition',
         roots: ['transition'],
         category: 'scene',
-        icon: '⇋',
+        icon: 'swap',
         title: 'Sahne Geçişi',
         desc: 'Sahne değiştirirken sert kesme yerine geçiş: çapraz geçiş, silme, iris, zum, glitch ve daha fazlası. İstenirse tamamen kapatılabilir.',
         controls: [{ type: 'transitionpanel' }],
@@ -2462,7 +2476,7 @@
         id: 'modulation',
         roots: ['modulation'],
         category: 'scene',
-        icon: '⇄',
+        icon: 'wave',
         wide: true,
         title: 'Modülasyon Matrisi',
         desc: 'Herhangi bir kaynağı (bas, LFO, zarf, makro, rastgele, tempo) herhangi bir sayısal ayara bağlayın. Kaydedilen ayarlar değişmez; modülasyon yalnızca çizim anında uygulanır ve dışa aktarımda da birebir çalışır.',
@@ -2472,7 +2486,7 @@
         id: 'groups',
         roots: ['layerGroups'],
         category: 'scene',
-        icon: '⧉',
+        icon: 'copy',
         title: 'Katman Grupları ve A/B',
         desc: 'Birden çok katmanı tek fader ile yönetin; "A" ve "B" grupları arasında eşit güç eğrisiyle çapraz geçiş yapın.',
         controls: [{ type: 'grouppanel' }],
@@ -2481,7 +2495,7 @@
         id: 'effects',
         roots: ['postfx'],
         category: 'scene',
-        icon: '✦',
+        icon: 'sparkle',
         wide: true,
         title: 'Efekt Zinciri',
         desc: 'Birleştirilmiş sahneye sırayla uygulanan son-işlem efektleri. Sıra görüntüyü değiştirir; zincir dışa aktarımda da aynen çalışır.',
@@ -2491,7 +2505,7 @@
         id: 'geometry',
         roots: ['geometry'],
         category: 'scene',
-        icon: '◈',
+        icon: 'cube',
         title: '3B Geometri',
         desc: 'Matematiksel formüllerden gerçek perspektifte geometri: yüzeyler, uzay eğrileri ve çekici sistemler.',
         show: () => notStack() && cfg.visualizer.type === 'geometry',
@@ -2501,7 +2515,7 @@
         id: 'feedbackengine',
         roots: ['feedback'],
         category: 'scene',
-        icon: '♾',
+        icon: 'infinity',
         title: 'Geri Besleme Motoru',
         desc: 'MilkDrop ailesi: her kare bir öncekini büker, yakınlaştırır ve söndürür. Sonsuz tünel görünümü buradan gelir.',
         show: () => notStack() && cfg.visualizer.type === 'feedback',
@@ -2533,7 +2547,7 @@
         id: 'media',
         roots: ['media'],
         category: 'scene',
-        icon: '🎥',
+        icon: 'video',
         title: 'Medya Katmanı',
         desc: 'Web kameranızı veya bir video dosyasını sahneye katman olarak koyun; sese göre nabız atsın.',
         show: notStack,
@@ -2542,7 +2556,7 @@
       {
         id: 'stream',
         category: 'output',
-        icon: '📡',
+        icon: 'broadcast',
         wide: true,
         title: 'Yayın Çıkışı (OBS / Web)',
         desc: 'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.',
@@ -2551,7 +2565,7 @@
       {
         id: 'timeline',
         category: 'control',
-        icon: '🎬',
+        icon: 'timeline',
         wide: true,
         title: 'Zaman Çizelgesi',
         desc: 'Sahneleri ve ayar değişimlerini zamana yayın. Ölçüye ya da saniyeye hizalı planlayın; oynatma kafası tüm ekranları birlikte sürer.',
@@ -2560,7 +2574,7 @@
       {
         id: 'clipdeck',
         category: 'control',
-        icon: '🎛',
+        icon: 'grid',
         wide: true,
         title: 'Klip Destesi',
         desc: 'Sahneleri, şablonları ve medyayı bir ızgaraya yerleştirip vuruşa hizalı ateşleyin. Sütun başlatmak satırın tamamını sahne gibi çalıştırır.',
@@ -2569,7 +2583,7 @@
       {
         id: 'tempo',
         category: 'control',
-        icon: '🥁',
+        icon: 'drum',
         title: 'Tempo ve Otomatik VJ',
         desc: 'Parçanın temposunu bulur; sahneleri, modları veya renkleri ölçüye hizalı olarak kendiliğinden değiştirir.',
         controls: [{ type: 'autovjpanel' }],
@@ -2580,7 +2594,7 @@
            kalmak yerine nedenini söyle. */
         id: 'lightingUnavailable',
         category: 'lighting',
-        icon: '💡',
+        icon: 'bulb',
         wide: true,
         show: () => !isWindows() && !!(cfg.lighting && cfg.lighting.enabled),
         title: 'Windows Dynamic Lighting bu sistemde yok',
@@ -2594,7 +2608,7 @@
            kullanilacagini soylemek, olmayan bir ayari aratmaktan iyidir. */
         id: 'textureShare',
         category: 'output',
-        icon: '🎬',
+        icon: 'tv',
         wide: true,
         title: 'Spout / Syphon Çıkışı',
         desc: 'Görüntüyü aynı bilgisayardaki başka bir uygulamaya GPU üzerinden verir: Resolume, OBS, TouchDesigner. Pencere yakalama ve eklenti gerekmez.',
@@ -2606,7 +2620,7 @@
            fazlasini. macOS ve Linux'ta RGB'nin tek yolu budur. */
         id: 'openrgb',
         category: 'lighting',
-        icon: '🌈',
+        icon: 'rainbow',
         wide: true,
         title: 'OpenRGB',
         desc: 'Ayrı çalışan OpenRGB sunucusuna bağlanır ve RGB aygıtlarını müzikle sürer. Windows, macOS ve Linux.',
@@ -2615,7 +2629,7 @@
       {
         id: 'artnet',
         category: 'lighting',
-        icon: '🎚️',
+        icon: 'sliders',
         title: 'Art-Net / DMX Çıkışı',
         desc: 'Sahne renklerini standart DMX protokolüyle ışık konsollarına ve arayüzlerine yollar.',
         controls: [{ type: 'artnetpanel' }],
@@ -2623,7 +2637,7 @@
       {
         id: 'midi',
         category: 'control',
-        icon: '🎹',
+        icon: 'keys',
         wide: true,
         title: 'MIDI Denetleyici',
         desc: 'MIDI kumandanızın düğme ve faderlarını istediğiniz ayara bağlayın. Öğren düğmesine basıp denetleyiciyi oynatmanız yeterli.',
@@ -2632,7 +2646,7 @@
       {
         id: 'osc',
         category: 'control',
-        icon: '🛰️',
+        icon: 'share',
         wide: true,
         title: 'OSC',
         desc: 'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
@@ -2641,7 +2655,7 @@
       {
         id: 'studio',
         category: 'studio',
-        icon: '🧪',
+        icon: 'flask',
         wide: true,
         title: 'Studio — Kendi Görselleştiricin',
         desc: 'Hazır bir modu kendine göre değiştir ya da sıfırdan shader yaz. Shadertoy, ISF ve MilkDrop dosyaları içe aktarılabilir.',
@@ -2651,7 +2665,7 @@
         id: 'scenegen',
         roots: [],
         category: 'studio',
-        icon: '✨',
+        icon: 'dice',
         title: 'Sahne Üretici',
         desc: 'Ruh halini yaz, uygulama sana uygun bir sahne kursun. Tamamen çevrimdışı çalışır.',
         controls: [{ type: 'scenegen' }],
@@ -2660,7 +2674,7 @@
         id: 'mdgen',
         roots: [],
         category: 'studio',
-        icon: '🧬',
+        icon: 'dna',
         title: 'MilkDrop Preset Üretici',
         desc: 'Enerji, sıcaklık, yoğunluk ve hareketten özgün bir MilkDrop preseti yazar ya da kütüphanenizdeki presetlerin parçalarını karıştırır. Tamamen çevrimdışı; beğendiğinizi kütüphaneye kaydedin.',
         controls: [{ type: 'mdgenpanel' }],
@@ -2669,7 +2683,7 @@
         id: 'mdedit',
         roots: [],
         category: 'studio',
-        icon: '✏️',
+        icon: 'pencil',
         wide: true,
         title: 'MilkDrop Preset Düzenleyici',
         desc: 'Ekrandaki MilkDrop presetinin denklemlerini, dalgalarını, şekillerini ve shader\'larını düzenleyin; sonuç çalışan görüntüde hemen görünür. Hatalar presetin kendi satırını gösterir. Asıl preset hiç değişmez.',
@@ -2679,7 +2693,7 @@
         id: 'logo',
         roots: ['logo'],
         category: 'scene',
-        icon: '🖼️',
+        icon: 'image',
         title: 'Logo / Resim',
         desc: 'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.',
         show: notStack,
@@ -2741,7 +2755,7 @@
         id: 'images',
         roots: ['images'],
         category: 'scene',
-        icon: '✨',
+        icon: 'sparkles',
         title: 'Görsel Nesneler',
         desc: 'Resim ekleyin; sahnede süzülsün, yörünge çizsin, sese göre saçılsın.',
         show: notStack,
@@ -2753,12 +2767,12 @@
       {
         id: 'display',
         category: 'output',
-        icon: '🖥️',
+        icon: 'monitor',
         title: 'Ekran',
         desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
         controls: [
           { type: 'displaypicker' },
-          { type: 'button', label: '🪟 Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
+          { type: 'button', icon: 'window', label: 'Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
           { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', min: 0.2, max: 1, step: 0.01, percent: true },
           { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
           { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
@@ -2769,7 +2783,7 @@
       {
         id: 'power',
         category: 'output',
-        icon: '⚡',
+        icon: 'bolt',
         title: 'Güç / Performans',
         desc: 'Kare hızı, çözünürlük ölçeği ve enerji ayarları.',
         controls: [
@@ -2808,7 +2822,7 @@
       {
         id: 'scenes',
         category: 'library',
-        icon: '🎬',
+        icon: 'clapper',
         title: 'Sahneler',
         desc: 'Arkaplan + görselleştirici + logo + görsel nesneleri tek isim altında saklayın.',
         controls: [{ type: 'scenes' }],
@@ -2816,7 +2830,7 @@
       {
         id: 'backup',
         category: 'library',
-        icon: '💾',
+        icon: 'save',
         title: 'Ayarları Yedekle / Geri Yükle',
         desc: 'Renk şablonları hariç tüm uygulama ayarlarını tek JSON dosyasında taşıyın.',
         controls: [{ type: 'settingsio' }],
@@ -2824,7 +2838,7 @@
       {
         id: 'updates',
         category: 'library',
-        icon: '⬆️',
+        icon: 'download',
         title: 'Güncellemeler',
         desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',
         controls: [
@@ -2842,7 +2856,7 @@
       {
         id: 'export',
         category: 'output',
-        icon: '🎞️',
+        icon: 'film',
         wide: true,
         title: 'Video Dışa Aktar (MP3 → Video)',
         desc: 'Bir ses dosyası seçin; mevcut sahne ayarlarıyla kayıpsız videoya dönüştürülür. Ekran kaydı değildir — her kare birebir render edilir.',
@@ -2870,7 +2884,7 @@
             options: () =>
               gpuAvailable
                 ? [
-                    { value: 'gpu', label: '⚡ GPU — NVIDIA NVENC (çok hızlı)' },
+                    { value: 'gpu', label: 'GPU — NVIDIA NVENC (çok hızlı)' },
                     { value: 'cpu', label: 'CPU — libx264 (en uyumlu, yavaş)' },
                   ]
                 : [{ value: 'cpu', label: 'CPU — libx264 (GPU bulunamadı)' }],
@@ -2888,7 +2902,7 @@
             type: 'select', path: 'export.speed', label: 'Hız / Kalite Dengesi',
             group: 'Kodlama', advanced: true,
             options: [
-              { value: 'fast', label: '⚡ Hızlı (en hızlı dışa aktarım)' },
+              { value: 'fast', label: 'Hızlı (en hızlı dışa aktarım)' },
               { value: 'balanced', label: 'Dengeli (önerilen)' },
               { value: 'quality', label: 'Kalite (en yavaş, en iyi sıkıştırma)' },
             ],
@@ -2972,7 +2986,7 @@
           onclick: () => setCategory(cat.id),
         },
         [
-          el('span', { class: 'nav-ico', text: cat.icon }),
+          el('span', { class: 'nav-ico', icon: cat.icon }),
           el('span', { class: 'nav-label', text: tr(cat.title) }),
           n > 0 ? el('span', { class: 'nav-badge', text: String(n), title: tr('Varsayılandan farklı ayar sayısı') }) : null,
         ]
@@ -3089,7 +3103,7 @@
 
     const modCount = countModified(sectionPaths(sec));
     const head = el('div', { class: 'card-head' }, [
-      el('span', { class: 'ico', text: sec.icon }),
+      el('span', { class: 'ico', icon: sec.icon }),
       el('div', { class: 'ch-main' }, [
         el('h3', { text: tr(sec.title) }),
         sec.desc ? el('div', { class: 'desc', text: tr(sec.desc) }) : null,
@@ -3102,7 +3116,7 @@
           ? el('button', {
               class: 'icon-btn small',
               type: 'button',
-              text: '↺',
+              icon: 'reset',
               title: tr('Bu bölümü varsayılana döndür'),
               onclick: () => resetSection(sec),
             })
@@ -3124,7 +3138,7 @@
             title: 'Gelişmiş ayarları göster',
             onclick: () => setAdvanced(true),
             html:
-              '<span class="caret">▶</span><span>Gelişmiş ayarlar</span>' +
+              '<span class="caret"></span><span>Gelişmiş ayarlar</span>' +
               '<span class="count">' + advanced.length + '</span>',
           })
         );
@@ -3167,7 +3181,7 @@
             el('button', {
               class: 'ctrl-reset',
               type: 'button',
-              text: '↺',
+              icon: 'reset',
               title: 'Bu ayarı varsayılana döndür',
               onclick: (e) => {
                 e.preventDefault();
@@ -3213,7 +3227,7 @@
         acts.appendChild(el('span', { class: 'chip-mod', title: 'Varsayılandan farklı ayar sayısı' }));
         acts.appendChild(
           el('button', {
-            class: 'icon-btn small', type: 'button', text: '↺',
+            class: 'icon-btn small', type: 'button', icon: 'reset',
             title: 'Bu bölümü varsayılana döndür',
             onclick: () => resetSection(sec),
           })
@@ -3367,7 +3381,7 @@
     items.forEach((e, i) => {
       box.appendChild(
         el('button', { class: 'sr-item' + (i === 0 ? ' active' : ''), type: 'button', onclick: () => jumpTo(e) }, [
-          el('span', { class: 'sr-ico', text: e.icon }),
+          el('span', { class: 'sr-ico', icon: e.icon }),
           el('span', { class: 'sr-main' }, [
             el('div', { class: 'sr-label', text: tr(e.label) }),
             el('div', { class: 'sr-path', text: tr(e.categoryTitle) + ' › ' + tr(e.section) }),
@@ -3577,7 +3591,7 @@
     }
     if (btn) {
       btn.classList.toggle('on', !!blackoutSaved);
-      btn.textContent = blackoutSaved ? '☀ Karartmayı Kaldır' : '🌑 Karart';
+      window.SVIcons.set(btn, blackoutSaved ? 'sun' : 'moon', blackoutSaved ? 'Karartmayı Kaldır' : 'Karart');
     }
     push(true);
     render();
@@ -3594,14 +3608,14 @@
     // Seçim değişmişse açıkken de yeniden uygulanabilsin
     $('openBtn').disabled = false;
     $('closeBtn').disabled = !open;
-    $('openBtn').textContent = open ? '▶ Ekranları Uygula' : '▶ Görselleştirmeyi Aç';
+    window.SVIcons.set($('openBtn'), 'play', open ? 'Ekranları Uygula' : 'Görselleştirmeyi Aç');
     // Görselleştirici açıkken yakalama zaten sürüyor; önizleme kareleri bedava
     syncPreviewSubscription();
   }
 
-  function setAudioState(text, cls) {
+  function setAudioState(text, cls, icon) {
     const a = $('audioState');
-    a.textContent = text;
+    window.SVIcons.set(a, icon || '', text);
     a.title = text; // kısaltılan uzun aygıt adları için tam metin
     a.className = 'audio-state' + (cls ? ' ' + cls : '');
   }
@@ -3643,11 +3657,11 @@
   function applyAudioDiagnostic(result, showSuccess = false) {
     audioDevices = result?.devices || [];
     if (result?.ok) {
-      if (showSuccess) setAudioState(window.SVI18n?.locale === 'tr' ? `✓ ${audioDevices.length} ses aygıtı bulundu` : `✓ ${audioDevices.length} audio devices detected`, 'ok');
+      if (showSuccess) setAudioState(`${audioDevices.length} ses aygıtı bulundu`, 'ok', 'check');
       $('banner').classList.add('hidden');
       return;
     }
-    setAudioState(window.SVI18n?.locale === 'tr' ? '⚠ Ses aygıtı tanılaması başarısız' : '⚠ Audio device diagnostics failed', 'err');
+    setAudioState('Ses aygıtı tanılaması başarısız', 'err', 'warning');
     $('bannerDetail').textContent = diagnosticText(result);
     $('banner').classList.remove('hidden');
   }
@@ -3908,7 +3922,7 @@
       btn.addEventListener('click', () => {
         const next = !window.SVPreview.isPaused();
         window.SVPreview.setPaused(next);
-        btn.textContent = next ? '▶' : '⏸';
+        window.SVIcons.set(btn, next ? 'play' : 'pause', '');
         btn.title = next ? 'Önizlemeyi başlat' : 'Önizlemeyi duraklat';
         syncPreviewSubscription();
       });
@@ -4142,7 +4156,7 @@
     sortableList(host, ensureScenes, '.scene-item', () => { push(true); renderScenes(); });
     if (!arr.length) {
       host.appendChild(
-        el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “＋ Kaydet” ile mevcut görünümü saklayın.') })
+        el('div', { class: 'scene-empty', text: tr('Kayıtlı sahne yok. “Kaydet” ile mevcut görünümü saklayın.') })
       );
       return;
     }
@@ -4161,8 +4175,8 @@
           thumb,
           el('div', { class: 'scene-main' }, [name, el('div', { class: 'scene-meta', text: sceneSummary(sc) })]),
           el('div', { class: 'scene-acts' }, [
-            el('button', { class: 'icon-btn small', type: 'button', text: '⟳', title: tr('Mevcut görünümle güncelle'), onclick: () => actions.updateScene(sc.id) }),
-            el('button', { class: 'icon-btn small', type: 'button', text: '🗑', title: tr('Sil'), onclick: () => actions.deleteScene(sc.id) }),
+            el('button', { class: 'icon-btn small', type: 'button', icon: 'refresh', title: tr('Mevcut görünümle güncelle'), onclick: () => actions.updateScene(sc.id) }),
+            el('button', { class: 'icon-btn small', type: 'button', icon: 'trash', title: tr('Sil'), onclick: () => actions.deleteScene(sc.id) }),
           ]),
         ])
       );
@@ -4309,10 +4323,10 @@
   // --------------------------------------------------------------------------
   // Video dışa aktarma
   // --------------------------------------------------------------------------
-  function setExportStatus(text, cls) {
+  function setExportStatus(text, cls, icon) {
     const s = $('exportStatus');
     if (!s) return;
-    s.textContent = text || '';
+    window.SVIcons.set(s, icon || '', text || '');
     s.className = 'export-status' + (cls ? ' ' + cls : '');
   }
 
@@ -4351,7 +4365,7 @@
       speed: cfg.export.speed,
     });
     if (!r || !r.ok) {
-      setExportStatus('⚠ ' + ((r && r.error) || 'Başlatılamadı'), 'err');
+      setExportStatus((r && r.error) || 'Başlatılamadı', 'err', 'warning');
       return;
     }
     exporting = true;
@@ -4360,6 +4374,8 @@
   };
 
   async function init() {
+    // Durağan HTML'deki ikonlar (üst çubuk, bantlar, dock): ayarları beklemeden
+    if (window.SVIcons) window.SVIcons.hydrate(document);
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
     if (window.SVLayers && window.SVLayers.syncStackState) {
@@ -4754,7 +4770,7 @@
     });
     window.api.onAudioSourceStatus((s) => {
       if (s.type === 'started') {
-        setAudioState('● Yakalanıyor: ' + (s.device || 'çıkış'), 'ok');
+        setAudioState('Yakalanıyor: ' + (s.device || 'çıkış'), 'ok', 'record');
         $('banner').classList.add('hidden');
         // başlatılan aygıtlardan herhangi biri listede yoksa listeyi tazele
         if (s.device) {
@@ -4768,11 +4784,11 @@
            kullanıcının BlackHole gibi sanal bir aygıt kurması gerekir.
            Sessiz kalmak, kullanıcının neden hiçbir şey görmediğini
            anlamaması demek olurdu. */
-        setAudioState('⚠ Sistem sesi yakalanamıyor', 'err');
+        setAudioState('Sistem sesi yakalanamıyor', 'err', 'warning');
         $('bannerDetail').textContent = s.message || 'Bu sistemde sistem sesini veren bir aygıt bulunamadı.';
         $('banner').classList.remove('hidden');
       } else if (s.type === 'error') {
-        setAudioState('⚠ Ses yakalanamadı', 'err');
+        setAudioState('Ses yakalanamadı', 'err', 'warning');
         $('bannerDetail').textContent = s.message || 'Çıkış aygıtı yakalanamadı.';
         $('banner').classList.remove('hidden');
       }
@@ -4802,11 +4818,11 @@
       setExportUI(false);
       if (d.status === 'done') {
         const enc = d.encoder === 'gpu' ? 'GPU/NVENC' : 'CPU/libx264';
-        setExportStatus('✅ Tamamlandı (' + enc + ') → ' + d.output, 'ok');
+        setExportStatus('Tamamlandı (' + enc + ') → ' + d.output, 'ok', 'check-circle');
       } else if (d.status === 'cancelled') {
         setExportStatus('İptal edildi.');
       } else {
-        setExportStatus('⚠ Hata: ' + (d.message || 'bilinmeyen hata'), 'err');
+        setExportStatus('Hata: ' + (d.message || 'bilinmeyen hata'), 'err', 'warning');
       }
     });
 
@@ -4824,7 +4840,7 @@
     root.classList.add('single');
     const card = el('div', { class: 'card wide' }, [
       el('div', { class: 'card-head' }, [
-        el('span', { class: 'ico', text: '⚠️' }),
+        el('span', { class: 'ico', icon: 'warning' }),
         el('div', { class: 'ch-main' }, [
           el('h3', { text: 'Panel başlatılamadı' }),
           el('div', { class: 'desc', text: 'Uygulamayı yeniden başlatın. Sorun sürerse aşağıdaki ayrıntıyı bildirin.' }),

@@ -144,7 +144,7 @@ test('panel: sürüm notları yalnız metin; yeni sürüm bildirimi sürüm baş
   assert.strictEqual(pre.text, '<img src=x onerror=alert(1)> notlar', 'HTML değil metin');
   const texts = [];
   walk(root, (n) => { if (n.tag === 'button') texts.push(n.text); });
-  assert.deepStrictEqual(texts, ['↻ Şimdi Denetle', '⬇ İndir', 'Sürüm Sayfası', 'Bu Sürümü Atla']);
+  assert.deepStrictEqual(texts, ['Şimdi Denetle', 'İndir', 'Sürüm Sayfası', 'Bu Sürümü Atla']);
   // Yeni durum gelince açık kart YERİNDE yenileniyor (önce yeni kart kendi
   // yerine yazılıyordu ve ekrandaki kart eski durumda kalıyordu)
   UP._onStatus(Object.assign({}, s, { status: 'latest' }));

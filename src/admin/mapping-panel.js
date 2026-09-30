@@ -362,7 +362,7 @@
             onclick: () => { activeMask = i; rerender(); },
           }),
           el('button', {
-            class: 'btn ghost tiny danger', type: 'button', text: '✕',
+            class: 'btn ghost tiny danger', type: 'button', icon: 'x',
             onclick: () => { out.masks.splice(i, 1); activeMask = 0; rerender(); },
           }),
         ]));

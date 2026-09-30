@@ -51,6 +51,10 @@
       button:active { transform: scale(.985); }
       button.primary { background: var(--red); border-color: var(--red); font-weight: 600; }
       button.on { background: #33243a; border-color: #6b4bd8; color: #fff; }
+      /* İkonlar masaüstüyle aynı set (shared/icons.js, #665) */
+      .svi { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
+      .svi-lead { margin-right: .4em; }
+      .stepper button .svi { width: 20px; height: 20px; }
 
       .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 7px; }
       .grid button { padding: 10px 6px; font-size: 13px; }
@@ -114,18 +118,18 @@
     <div class="card">
       <h2>Görselleştirme</h2>
       <div class="row">
-        <button class="primary" data-action="openVisualizer">▶ Aç</button>
-        <button data-action="closeVisualizer">■ Kapat</button>
-        <button id="blackoutBtn">🌑 Karart</button>
+        <button class="primary" data-action="openVisualizer" data-icon="play">Aç</button>
+        <button data-action="closeVisualizer" data-icon="stop">Kapat</button>
+        <button id="blackoutBtn" data-icon="moon">Karart</button>
       </div>
     </div>
 
     <div class="card">
       <h2>Sahneler <b id="sceneCount"></b></h2>
       <div class="row stepper">
-        <button data-step="scene:-1" title="Önceki sahne">◀</button>
+        <button data-step="scene:-1" title="Önceki sahne" data-icon="chevron-left"></button>
         <div class="now" id="sceneNow">—<small>sahne yok</small></div>
-        <button data-step="scene:1" title="Sonraki sahne">▶</button>
+        <button data-step="scene:1" title="Sonraki sahne" data-icon="chevron-right"></button>
       </div>
       <div class="grid" id="scenes"><span class="empty">Kayıtlı sahne yok.</span></div>
     </div>
@@ -133,9 +137,9 @@
     <div class="card">
       <h2>Renk Şablonları <b id="paletteCount"></b></h2>
       <div class="row stepper">
-        <button data-step="palette:-1" title="Önceki şablon">◀</button>
+        <button data-step="palette:-1" title="Önceki şablon" data-icon="chevron-left"></button>
         <div class="now" id="paletteNow">—<small>şablon</small></div>
-        <button data-step="palette:1" title="Sonraki şablon">▶</button>
+        <button data-step="palette:1" title="Sonraki şablon" data-icon="chevron-right"></button>
       </div>
       <div class="swatches" id="palettes"></div>
     </div>
@@ -143,9 +147,9 @@
     <div class="card" id="studioCard" hidden>
       <h2>Studio Presetleri <b id="studioCount"></b></h2>
       <div class="row stepper">
-        <button data-step="studio:-1" title="Önceki preset">◀</button>
+        <button data-step="studio:-1" title="Önceki preset" data-icon="chevron-left"></button>
         <div class="now" id="studioNow">—<small>preset</small></div>
-        <button data-step="studio:1" title="Sonraki preset">▶</button>
+        <button data-step="studio:1" title="Sonraki preset" data-icon="chevron-right"></button>
       </div>
       <div class="grid" id="studioPresets"></div>
     </div>
@@ -195,6 +199,7 @@
     <footer>CAYADEV Visualizer · cayadev.com</footer>
 
     <script src="/app/shared/defaults.js"></script>
+    <script src="/app/shared/icons.js"></script>
     <script src="/app/shared/i18n.js"></script>
     <script src="/app/web/web-shim.js"></script>
     <script src="/app/shared/mode-catalog.js"></script>

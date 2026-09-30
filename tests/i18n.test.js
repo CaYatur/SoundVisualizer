@@ -209,9 +209,9 @@ test('aynı adı paylaşan iki ayrı öge kaynağında ayrıldı', () => {
 test('birleşik deste etiketlerinde Türkçe kelime kalmıyor', () => {
   const t = loadEnglish().t;
   const labels = [
-    '\u{1F39B} Deste · ' + t('Yuva') + ' (1×1)',
-    '▶ Deste · ' + t('Satır') + ' 1',
-    '▶ Deste · ' + t('Satır') + ' Intro',
+    'Deste · ' + t('Yuva') + ' (1×1)',
+    'Deste · ' + t('Satır') + ' 1',
+    'Deste · ' + t('Satır') + ' Intro',
   ];
   for (const l of labels) {
     const out = t(l);

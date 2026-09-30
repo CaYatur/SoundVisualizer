@@ -50,7 +50,8 @@ function wrapStub() {
   return w;
 }
 
-const stars = (w) => w.kids.map((k) => k.props.text).join('');
+// Yıldızlar ikon (#665): dolu/boş yıldız ikonunu eski karakteriyle yazıp karşılaştırıyoruz
+const stars = (w) => w.kids.map((k) => k.props.text || (k.props.icon === 'star-fill' ? '★' : '☆')).join('');
 const lit = (w) => w.kids.filter((k) => / on$| on /.test(k.props.class + ' ')).length;
 
 test('puan verilmemiş preset boş görünüyor — dosyada 5 yazsa da', async () => {

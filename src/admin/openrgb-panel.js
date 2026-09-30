@@ -55,7 +55,7 @@
     // --- Durum. Sayılar ayrı düğümlerde: birleşik metin çevrilemez. ---
     const st = el('div', { class: 'studio-status ' + (state.connected ? 'ok' : state.error ? 'err' : '') });
     if (state.connected) {
-      st.appendChild(el('span', { text: '✓ ' }));
+      st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Bağlı' }));
       st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: String(state.drivable || 0) + ' ' }));
@@ -66,7 +66,7 @@
         st.appendChild(el('span', { text: 'yalnız kendi efektini oynatıyor' }));
       }
     } else if (state.error) {
-      st.appendChild(el('span', { text: '✕ ' }));
+      st.appendChild(el('span', { icon: 'x' }));
       st.appendChild(el('span', { text: 'Bağlanılamadı' }));
     } else if (o.enabled) {
       st.appendChild(el('span', { text: 'Bağlanılıyor…' }));

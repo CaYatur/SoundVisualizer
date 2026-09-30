@@ -255,12 +255,12 @@
     const h = mixHistory();
     nodes.push(el('div', { class: 'gen-actions' }, [
       el('button', {
-        class: 'btn primary', type: 'button', text: '🎲 Yeni Karışım',
+        class: 'btn primary', type: 'button', icon: 'dice', text: 'Yeni Karışım',
         title: 'Her parçayı listede görünen presetlerden rastgele çeker',
         onclick: () => rollAll(),
       }),
       el('button', {
-        class: 'btn', type: 'button', text: '📌 Ekrandakinden Başla',
+        class: 'btn', type: 'button', icon: 'pin', text: 'Ekrandakinden Başla',
         title: 'Altı parçanın hepsini ekrandaki presetten alır; sonra tek tek değiştirin',
         onclick: () => fromScreen(),
       }),
@@ -274,7 +274,7 @@
           // Presetin adı kendi adı; yerleşiklerin adı sözlükte
           el('span', { class: 'mdmix-name' + (p ? '' : ' dim-hint'), text: p ? tr(p.name || p.id) : (id === X().NONE ? 'Yok' : '—') }),
           el('button', {
-            class: 'btn ghost small', type: 'button', text: '🎲',
+            class: 'btn ghost small', type: 'button', icon: 'dice',
             title: 'Bu parçayı yeniden çek', 'aria-label': tr('Bu parçayı yeniden çek'),
             onclick: () => rollSlot(s),
           }),
@@ -283,15 +283,15 @@
     }
     nodes.push(el('div', { class: 'gen-actions' }, [
       el('button', {
-        class: 'btn', type: 'button', text: '◀', title: 'Önceki karışım',
+        class: 'btn', type: 'button', icon: 'chevron-left', title: 'Önceki karışım',
         disabled: !(h && h.canBack()), onclick: () => mixNav(-1),
       }),
       el('button', {
-        class: 'btn', type: 'button', text: '▶', title: 'Sonraki karışım',
+        class: 'btn', type: 'button', icon: 'chevron-right', title: 'Sonraki karışım',
         disabled: !(h && h.canForward()), onclick: () => mixNav(1),
       }),
       el('button', {
-        class: 'btn', type: 'button', text: saving ? 'Kaydediliyor…' : '💾 Kütüphaneye Kaydet',
+        class: 'btn', type: 'button', icon: saving ? '' : 'save', text: saving ? 'Kaydediliyor…' : 'Kütüphaneye Kaydet',
         disabled: !mixLast || saving,
         onclick: () => saveMix(),
       }),
@@ -303,13 +303,13 @@
           el('span', { class: 'dim-hint', text: 'Son Karışım' }),
           el('span', { class: 'md-cur mdgen-name', text: mixLast.name }),
           el('span', { class: 'dim-hint', text: 'Durum' }),
-          el('span', { class: kept ? 'md-ok' : 'dim-hint', text: kept ? '✓ Kütüphanede' : 'Önizleme — kaydedilmedi' }),
+          el('span', { class: kept ? 'md-ok' : 'dim-hint', icon: kept ? 'check' : '', text: kept ? 'Kütüphanede' : 'Önizleme — kaydedilmedi' }),
         ]),
       ]));
     }
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. ◀ ▶ önceki karışımlara döner.',
+      text: 'Parçalar MilkDrop panelinin listesinde görünen presetlerden çekilir; arama ve süzgeç burada da geçerli. Her parça bütünüyle tek bir presetten gelir ve satırları olduğu gibi kopyalanır. Bir presetin shader\'ı başka bir presetin denklemlerine göre yazılmış olabilir, yani sonuç şaşırtabilir. Warp ve birleştirme bazen "yok" çıkar: o zaman görünümün kendi yankısı ve gaması çalışır. Oklar önceki karışımlara döner.',
     }));
     return nodes;
   }
@@ -352,17 +352,17 @@
 
     nodes.push(el('div', { class: 'gen-actions' }, [
       el('button', {
-        class: 'btn primary', type: 'button', text: '✨ Preset Üret',
+        class: 'btn primary', type: 'button', icon: 'sparkles', text: 'Preset Üret',
         title: 'Kaydırıcılardaki eksenlerle üretir ve yükler',
         onclick: () => regenerate(),
       }),
       el('button', {
-        class: 'btn', type: 'button', text: '🎲 Karıştır',
+        class: 'btn', type: 'button', icon: 'dice', text: 'Karıştır',
         title: 'Aynı eksenler, başka bir tohum',
         onclick: () => { seed = G().randomSeed(); regenerate(); },
       }),
       el('button', {
-        class: 'btn', type: 'button', text: saving ? 'Kaydediliyor…' : '💾 Kütüphaneye Kaydet',
+        class: 'btn', type: 'button', icon: saving ? '' : 'save', text: saving ? 'Kaydediliyor…' : 'Kütüphaneye Kaydet',
         disabled: !last || saving,
         onclick: () => save(),
       }),
@@ -384,7 +384,7 @@
           // Presetin adı onun kendi adı, arayüz metni değil (üretildiği dilde)
           el('span', { class: 'md-cur mdgen-name', text: last.name }),
           el('span', { class: 'dim-hint', text: 'Durum' }),
-          el('span', { class: kept ? 'md-ok' : 'dim-hint', text: kept ? '✓ Kütüphanede' : 'Önizleme — kaydedilmedi' }),
+          el('span', { class: kept ? 'md-ok' : 'dim-hint', icon: kept ? 'check' : '', text: kept ? 'Kütüphanede' : 'Önizleme — kaydedilmedi' }),
         ]),
         chips,
       ]));
@@ -392,7 +392,7 @@
 
     nodes.push(el('div', {
       class: 'studio-note dim-hint',
-      text: 'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; 🎲 başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.',
+      text: 'Tamamen bu bilgisayarda çalışır, hiçbir servise bağlanmaz. Kaydırıcıyı bırakınca aynı tohumla yeniden üretilir; zar düğmesi başka bir tohum dener. Kod eksenleri ve tohumu taşır: aynı kod her zaman aynı preseti verir. Önizleme kütüphaneye yazılmaz; puan, favori ve etiket kaydettikten sonra açılır. Hareket, dalga, şekil ve shader kalıpları bu uygulamada yazıldı, hiçbir preset paketinden alınmadı.',
     }));
     if (X()) for (const n of mixSection()) nodes.push(n);
     return el('div', { class: 'mdgen-panel' }, nodes);

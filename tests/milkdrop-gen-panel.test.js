@@ -210,10 +210,10 @@ test('kaydırıcı sürüklerken yüklemiyor, bırakınca aynı tohumla yüklüy
   assert.strictEqual(cfg.milkdrop.presetId, 'md_gen1_80-50-50-50-k3x9ab', 'tohum aynı kalmalı');
 });
 
-test('🎲 eksenleri bırakıp tohumu değiştiriyor', async () => {
+test('zar eksenleri bırakıp tohumu değiştiriyor', async () => {
   const { GP, cfg } = await fresh();
   GP.fromCode('30-60-40-70-abc');
-  const btn = find(GP.panel(), (n) => n.tag === 'button' && /🎲/.test(String(n.props.text)));
+  const btn = find(GP.panel(), (n) => n.tag === 'button' && n.props.icon === 'dice' && n.props.text === 'Karıştır');
   btn.props.onclick();
   const d = G.decode(cfg.milkdrop.presetId.replace(/^md_gen1_/, ''));
   assert.ok(d, cfg.milkdrop.presetId);

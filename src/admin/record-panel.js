@@ -150,12 +150,12 @@
       el('button', {
         class: 'btn ' + (recording ? 'danger' : 'primary'),
         type: 'button',
-        text: busy ? 'Kaydediliyor…' : (recording ? '■ Durdur' : '● Kayda Başla'),
+        icon: busy ? '' : (recording ? 'stop' : 'record'), text: busy ? 'Kaydediliyor…' : (recording ? 'Durdur' : 'Kayda Başla'),
         disabled: busy && !recording,
         onclick: () => (recording ? stop() : start(cfg)),
       }),
       el('button', {
-        class: 'btn ghost', type: 'button', text: '📷 Anlık Görüntü',
+        class: 'btn ghost', type: 'button', icon: 'camera', text: 'Anlık Görüntü',
         disabled: busy || recording,
         onclick: () => snap(cfg),
       }),
@@ -173,7 +173,10 @@
       }, 200);
     }
 
-    if (status) nodes.push(el('div', { class: 'studio-note rec-status', text: status }));
+    if (status) {
+      const [si, stx] = Array.isArray(status) ? status : ['', status];
+      nodes.push(el('div', { class: 'studio-note rec-status', icon: si, text: stx }));
+    }
 
     nodes.push(SP().miniSelect('Biçim', FORMAT_LABELS, () => r.format || 'mp4', (v) => { r.format = v; }, () => P().apply()));
     nodes.push(SP().miniSelect('Çözünürlük', RES_LABELS,
@@ -270,8 +273,8 @@
        durduruluyor: WebM başlığı tek başına yaklaşık bir kaç yüz bayttır. */
     if (!blob || blob.size < 2048) {
       busy = false;
-      status = '⚠ Kayıt çok kısa: kare yazılamadı (' + (blob ? blob.size : 0) +
-        ' bayt). En az bir saniye kaydedin.';
+      status = ['warning', 'Kayıt çok kısa: kare yazılamadı (' + (blob ? blob.size : 0) +
+        ' bayt). En az bir saniye kaydedin.'];
       P().rerender();
       return;
     }
@@ -285,16 +288,16 @@
       });
       busy = false;
       if (out && out.ok) {
-        status = '✓ Kaydedildi: ' + out.path;
+        status = ['check', 'Kaydedildi: ' + out.path];
         P().toast('Kayıt tamamlandı.');
       } else if (out && out.canceled) {
         status = 'Kaydetme iptal edildi.';
       } else {
-        status = '⚠ ' + ((out && out.error) || 'yazılamadı');
+        status = ['warning', (out && out.error) || 'yazılamadı'];
       }
     } catch (e) {
       busy = false;
-      status = '⚠ ' + String(e.message || e);
+      status = ['warning', String(e.message || e)];
     }
     P().rerender();
   }
@@ -329,17 +332,17 @@
       const out = await (window.api.saveSnapshot ? window.api.saveSnapshot(url) : window.api.saveRecording(url, { isSnapshot: true }));
       busy = false;
       if (out && out.ok) {
-        status = '✓ Görüntü kaydedildi: ' + out.path;
+        status = ['check', 'Görüntü kaydedildi: ' + out.path];
         P().toast('Anlık görüntü kaydedildi.');
       } else if (out && out.canceled) {
         status = '';
       } else {
-        status = '⚠ ' + ((out && out.error) || 'yazılamadı');
+        status = ['warning', (out && out.error) || 'yazılamadı'];
       }
     } catch (e) {
       busy = false;
       release();
-      status = '⚠ ' + (e && e.message ? e.message : String(e));
+      status = ['warning', e && e.message ? e.message : String(e)];
     }
     P().rerender();
   }

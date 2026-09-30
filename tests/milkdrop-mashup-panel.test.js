@@ -271,10 +271,10 @@ test('kaydet son karışımı yazıyor; aynı karışım aynı kimlik', async ()
 test('kart: parça satırları, "yok" ve geçmiş düğmeleri', async () => {
   const { M, GP, lib } = await fresh();
   const tree = () => GP.panel();
-  const btn = (t, re) => findAll(t, (n) => n.tag === 'button' && re.test(String(n.text))).pop();
+  const btn = (t, icon) => findAll(t, (n) => n.tag === 'button' && n.props.icon === icon).pop();
   let t = tree();
   assert.strictEqual(findAll(t, (n) => n.className === 'mdmix-row').length, 0, 'karışım yokken satır yok');
-  assert.ok(btn(t, /^◀$/).attrs.disabled !== undefined || btn(t, /^◀$/).props.disabled === true);
+  assert.ok(btn(t, 'chevron-left').attrs.disabled !== undefined || btn(t, 'chevron-left').props.disabled === true);
   M.preview(byId(lib, 'u_b3'));
   GP.fromScreen();
   t = tree();
@@ -284,7 +284,7 @@ test('kart: parça satırları, "yok" ve geçmiş düğmeleri', async () => {
   assert.deepStrictEqual(names, ['Beta 3', 'Beta 3', 'Beta 3', 'Beta 3', 'Yok', 'Yok']);
   GP.rollAll();
   t = tree();
-  assert.strictEqual(btn(t, /^◀$/).props.disabled, false, 'iki karışımdan sonra geri açık');
-  assert.strictEqual(btn(t, /^▶$/).props.disabled, true);
+  assert.strictEqual(btn(t, 'chevron-left').props.disabled, false, 'iki karışımdan sonra geri açık');
+  assert.strictEqual(btn(t, 'chevron-right').props.disabled, true);
   assert.strictEqual(findAll(t, (n) => /Kütüphaneye Kaydet/.test(String(n.text))).length, 2, 'iki bölümün kendi kaydet düğmesi');
 });
