@@ -432,7 +432,7 @@ test('sabit birleştirme shader\'ı: MilkDrop 2 biçimleri anahtarın arkasında
   assert.match(code, /const acc = this\._wantAcc !== false;\s*if \(acc\) \{\s*const f = this\._fixedCompInputs\(Pp\);/);
   assert.match(code, /gl\.uniform1i\(this\.locComp\.uEchoOrient, f\.orient\);/);
   // Gama, yankının payı ve ton köşe ağırlıklarında; tonun oranı dosyadan
-  assert.match(code, /const shade = this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\);/);
+  assert.match(code, /const shade = this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time\);/);
   assert.match(code, /window\.SVMilkdrop\.fixedCompWeights\(f\.gamma, f\.alpha, shade,/);
   assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWMain, w\.main\);/);
   assert.match(code, /gl\.uniform3fv\(this\.locComp\.uWEcho, w\.echo\);/);

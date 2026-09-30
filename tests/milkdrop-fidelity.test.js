@@ -122,8 +122,8 @@ test('motor: köşe renkleri tek seferde yükleniyor', () => {
   /* Renkler ayrı bir yöntemde: shader'lı yol uniform olarak tam renkle
      (oran 1), sabit birleştirme yolu dosyadaki fShader oranıyla ve köşe
      ağırlıklarına çevirerek aynı yöntemi kullanıyor (#580). */
-  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, this\._hueCorners\(1, t, rand\)\)/);
-  assert.match(CODE, /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time, this\.randPreset\)/);
+  assert.match(CODE, /gl\.uniform3fv\(L\.hue_corner, this\._hueCorners\(1, t\)\)/);
+  assert.match(CODE, /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time\)/);
   // Dört köşe x üç bileşen
   assert.match(CODE, /new Float32Array\(12\)/);
 });
@@ -146,7 +146,7 @@ test('motor: köşe rengi en büyük bileşene bölünüp yeniden haritalanıyor
 /* Anahtar kapalıyken YAPI aynı kalıyor: yine dört köşe, yine aynı
    shader, yine aynı uniform. Yalnız dördüne de aynı renk gidiyor. */
 test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
-  const blk = /_hueCorners\(amt, t, rand\) \{[\s\S]*?return hc;/.exec(CODE);
+  const blk = /_hueCorners\(amt, t\) \{[\s\S]*?return hc;/.exec(CODE);
   assert.ok(blk, 'köşe rengi yöntemi bulunamadı');
   assert.match(blk[0], /r = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31\)/);
   assert.match(blk[0], /g = 0\.5 \+ 0\.5 \* Math\.sin\(t \* 0\.31 \+ 2\.09\)/);
@@ -155,13 +155,20 @@ test('motor: anahtar kapalıyken dört köşe de aynı rengi alıyor', () => {
   assert.ok(legacy && !/\bk\b/.test(legacy[0]), 'kapalı kip köşeye bağlı olmamalı');
 });
 
-/* `rand_start` MilkDrop'ta preset başına dört rastgele sayı; bizde
-   `randPreset`. Kullanılmazsa her preset aynı renk döngüsünü alır. */
-test('motor: köşe renkleri preset rastgeleliğini kullanıyor', () => {
-  assert.match(CODE, /const rand = ctx\.rand \|\| this\.randPreset \|\| \[0, 0, 0, 0\]/);
-  assert.match(CODE, /\+ rs\[3\]\)/);
-  assert.match(CODE, /\+ rs\[1\]\)/);
-  assert.match(CODE, /\+ rs\[2\]\)/);
+/* Formüldeki faz `m_fRandStart[]` MilkDrop'ta HİÇ ATANMIYOR (#580): birincil
+   kaynakta onu dolduracak `Randomize()` yok, BeatDrop'ta tanımlı ama
+   çağrılmıyor; küresel `CPlugin`te dördü de 0. Buradaki eski test tersini
+   varsayıyordu ("preset başına dört rastgele sayı") ve motor presetin
+   rastgele sayılarını faz olarak ekliyordu. Referans çizicide ölçüldü:
+   renkler yalnız saate bağlı. */
+test('motor: köşe renklerinin fazı sıfır, preset rastgeleliğine bağlı değil', () => {
+  assert.match(CODE, /const HUE_RAND_START = \[0, 0, 0, 0\];/);
+  const blk = /_hueCorners\(amt, t\) \{[\s\S]*?return hc;/.exec(CODE)[0];
+  assert.match(blk, /const rs = HUE_RAND_START;/);
+  assert.doesNotMatch(blk, /randPreset/);
+  assert.match(blk, /\+ rs\[3\]\)/);
+  assert.match(blk, /\+ rs\[1\]\)/);
+  assert.match(blk, /\+ rs\[2\]\)/);
 });
 
 // ------------------------------------------------------------ bulanıklık

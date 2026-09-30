@@ -40,6 +40,8 @@
      düğüm sayısı kadar artması. */
   const MESH_X_DEFAULT = 64;
   const MESH_Y_DEFAULT = 48;
+  // MilkDrop'un hiç atanmayan `m_fRandStart[4]`ı (ton renginin fazı, #580)
+  const HUE_RAND_START = [0, 0, 0, 0];
   /* Ayardan gelebilecek ag sıklıkları. MilkDrop'un kendi listesi de
      boyle: en-boy 4:3 sabit, yalnız yogunluk degisiyor. */
   const MESH_STEPS = [24, 32, 48, 64, 96, 128];
@@ -2685,10 +2687,18 @@ void main(){
        Dizideki sıra yalnız köşenin NUMARASI; ekrandaki yerini iki yol
        kendisi veriyor ve MilkDrop'ta da ayrı: sabit yolun dörtgeninde 0
        üst-sol, shader'ın `hueAt`inde 0 üst-sağ. Uyum kapalıyken motorun
-       eski tek rengi. */
-    _hueCorners(amt, t, rand) {
+       eski tek rengi.
+
+       RASTGELE FAZ YOK (#580). Formüldeki `m_fRandStart[]` MilkDrop'ta hiç
+       atanmıyor: birincil kaynakta onu dolduracak `Randomize()` bile yok,
+       BeatDrop'ta tanımlı ama hiç çağrılmıyor; küresel `CPlugin`te dört
+       sayı da 0. Renkler yalnız oturumun saatine bağlı. Burada presetin
+       rastgele sayıları faz olarak ekleniyordu: renk MilkDrop'unkini hiç
+       tutmuyordu ve 0..1 aralığı döngünün yalnız bir radyanını geziyordu.
+       Referans çizicide (BeatDrop'tan derlenen MilkDrop 2) ölçüldü. */
+    _hueCorners(amt, t) {
       const accurate = this._wantAcc !== false;
-      const rs = rand || this.randPreset || [0, 0, 0, 0];
+      const rs = HUE_RAND_START;
       const hc = this._hueBuf || (this._hueBuf = new Float32Array(12));
       for (let i = 0; i < 4; i++) {
         let r, g, b;
@@ -2845,7 +2855,7 @@ void main(){
          Oran HER ZAMAN 1, presetin `fShader`ı ne olursa olsun: MilkDrop
          shader'a tam rengi veriyor ve kullanıp kullanmamayı shader'a
          bırakıyor (milkdropfs.cpp:4122). Geçişte de hesaplanıyor. */
-      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(1, t, rand));
+      if (L.hue_corner) gl.uniform3fv(L.hue_corner, this._hueCorners(1, t));
 
       /* Presetin kendisi bu uniform'ları okuyabiliyor (`b1n`/`b1x` olarak
          yazıp shader'da `blur1_min` diye geri okuyor; korpusta altı preset
@@ -3681,7 +3691,7 @@ void main(){
              büyük bir `fShader` yazıyor. Oran DOSYADAN, geçişte doğrusal
              karışarak; renk dizisi paylaşılan tampon, hemen ağırlıklara
              dönüşüyor (çizim başına COLOR_NORM, M.fixedCompWeights). */
-          const shade = this._hueCorners(this._fileVal('fshader', 0), this.time, this.randPreset);
+          const shade = this._hueCorners(this._fileVal('fshader', 0), this.time);
           const w = window.SVMilkdrop.fixedCompWeights(f.gamma, f.alpha, shade,
             this._compW || (this._compW = { main: new Float32Array(12), echo: new Float32Array(12) }));
           gl.uniform3fv(this.locComp.uWMain, w.main);
