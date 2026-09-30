@@ -492,14 +492,20 @@ void main(){
     return j + 1;
   }
 
+  /* NOKTA BOYU (#580). `gl_PointSize` yazılmazsa WebGL'de nokta boyu
+     tanımsız; Windows'ta (ANGLE) noktalar hiç çıkmıyordu — nokta kipindeki
+     dalgalar görünmüyordu. Boy MilkDrop'un kuralıyla çağırandan geliyor
+     (`_strip`), alt sınır 1. */
   const LINE_VERT = `#version 300 es
 precision highp float;
 layout(location=0) in vec2 aPos;
 layout(location=1) in vec4 aCol;
+uniform float uPointSize;
 out vec4 vCol;
 void main(){
   vCol = aCol;
   gl_Position = vec4(aPos, 0.0, 1.0);
+  gl_PointSize = max(1.0, uPointSize);
 }`;
 
   const LINE_FRAG = `#version 300 es
@@ -1223,6 +1229,7 @@ void main(){
         this.compFixed = comp.prog;
         this.blurProg = blur.prog;
         this.lineProg = line.prog;
+        this.locLine = { uPointSize: gl.getUniformLocation(line.prog, 'uPointSize') };
 
         this.locWarpFixed = {
           uPrev: gl.getUniformLocation(this.warpFixed, 'uPrev'),
@@ -3228,7 +3235,8 @@ void main(){
       this._wantFmt = (cfg.milkdrop && cfg.milkdrop.format) || 'auto';
       /* ÇİZGİ ÇİZİMİ. `smooth` kenar yumuşatmalı ve eski yolun bıraktığı
          ışığı koruyor; `thin` gerçek kalınlık, ışık koruması yok;
-         `milkdrop` MilkDrop'un kendi kaydırmalı kalınlaştırması.
+         `milkdrop` MilkDrop'un kendi kaydırmalı kalınlaştırması, kuralı
+         çağıranın `md` planında (geçiş sayısı MilkDrop'taki gibi).
          Tanınmayan değer varsayılana düşüyor — ayardaki bir yazım hatası
          çizgileri yok etmemeli. */
       const ls = cfg.milkdrop && cfg.milkdrop.lineStyle;
@@ -3916,7 +3924,7 @@ void main(){
            PİKSEL kalıyordu — 1920 genişlikte MilkDrop'un gördüğünün dörtte
            biri. Telafi çözünürlük içindir, `thick` için değil; çarpan 1.
            Korpusta 884 preset (%8,6) hareket vektörü çiziyor. */
-        this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1);
+        this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1, { its: 1 });
         count = 0;
       };
       for (let j = 0; j < NY; j++) {
@@ -4636,7 +4644,9 @@ void main(){
                dörtte bir kalınlıkta çiziliyordu. Korpusta 2.961 şekil bloğu
                (1.821 preset, %17,6) kenarlık çiziyor; bunların 425'i
                (309 preset, %3,0) `thickOutline` da istiyor. */
-            this._strip(gl, gl.LINE_LOOP, d, n, -1, GW, GH, o.thick ? 2 : 1);
+            /* MilkDrop biçiminde: kalınsa dört geçiş (milkdropfs.cpp:2371). */
+            this._strip(gl, gl.LINE_LOOP, d, n, -1, GW, GH, o.thick ? 2 : 1,
+              { its: o.thick ? 4 : 1 });
           }
         }
       }
@@ -4690,6 +4700,15 @@ void main(){
       this._specData = spec;
       gl.useProgram(this.lineProg);
       gl.bindVertexArray(this.lineVao);
+      /* EN-BOY (#580). MilkDrop özel dalganın noktasını en-boyun TERSİYLE
+         çarpıyor (milkdropfs.cpp:2612-2613):
+             v[j].x = (x*2-1) * m_fInvAspectX;  v[j].y = (y*-2+1) * m_fInvAspectY;
+         Geniş ekranda x olduğu gibi, y W/H kadar uzuyor — 4:3'te 4/3, 16:9'da
+         1,78. Bizde çarpan yoktu: dalga MilkDrop'takinden basıktı. Referans
+         çizicide 960x720'de ölçüldü (genlik tam 4/3 kat). */
+      const acc = this._wantAcc !== false;
+      const invX = acc ? 1 / (this._aspX || 1) : 1;
+      const invY = acc ? 1 / (this._aspY || 1) : 1;
       for (const w of P.waves) {
         if (!P.waveFrame(w)) continue;
         /* Nokta sayısı per_frame'den SONRA okunuyor: preset onu sesle
@@ -4707,8 +4726,8 @@ void main(){
           const x = +o.x, y = +o.y;
           if (!isFinite(x) || !isFinite(y)) continue;
           const k = count * 6;
-          d[k] = x * 2 - 1;
-          d[k + 1] = this._toClipY(y);
+          d[k] = (x * 2 - 1) * invX;
+          d[k + 1] = this._toClipY(y) * invY;
           /* milkdropfs.cpp:2487-2490 — nokta başına COLOR_NORM, ve
              `alpha_mult` yine içeride. */
           d[k + 2] = cn(o.r); d[k + 3] = cn(o.g); d[k + 4] = cn(o.b);
@@ -4734,8 +4753,14 @@ void main(){
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, vd, 0, vn * 6);
         const gw = this.gl2.width, gh = this.gl2.height;
+        /* MilkDrop'un kuralı (milkdropfs.cpp:2650-2654): nokta boyu tampon
+           1024 ve üstündeyse 2, değilse 1, kalınsa +1; dört geçiş yalnız
+           kalın ÇİZGİDE. */
         this._strip(gl, w.useDots ? gl.POINTS : gl.LINE_STRIP, vd, vn, -1,
-          gw, gh, w.thick ? 2 : 1);
+          gw, gh, w.thick ? 2 : 1, {
+            its: (w.thick && !w.useDots) ? 4 : 1,
+            pt: (gw >= 1024 ? 2 : 1) + (w.thick ? 1 : 0),
+          });
       }
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
@@ -5274,7 +5299,13 @@ void main(){
       gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, vd, 0, vn * 6);
       const kind = P.get('wave_usedots') ? gl.POINTS : gl.LINE_STRIP;
-      this._strip(gl, kind, vd, vn, vbreak, GW, GH, P.get('wave_thick') ? 2 : 1);
+      /* MilkDrop'un kuralı (milkdropfs.cpp:3259): kalın ya da nokta kipinde,
+         tampon 512 ve üstündeyse dört geçiş; nokta boyu 1. */
+      const thickW = !!P.get('wave_thick');
+      this._strip(gl, kind, vd, vn, vbreak, GW, GH, thickW ? 2 : 1, {
+        its: ((thickW || !!P.get('wave_usedots')) && GW >= 512) ? 4 : 1,
+        pt: 1,
+      });
       gl.bindVertexArray(null);
       gl.disable(gl.BLEND);
     }
@@ -5544,7 +5575,32 @@ void main(){
       gl.bindVertexArray(null);
     }
 
-    _strip(gl, kind, d, n, breakAt, GW, GH, thickMul) {
+    /* MILKDROP'UN GEÇİŞLERİ. `its` kez çiziliyor; her geçiş bir öncekinin
+       üstüne bir teksel kaydırıyor — önce x, sonra y, sonra x geri, yani
+       2x2'lik bir blok (milkdropfs.cpp:2376-2381, 2659-2664, 3263-3270).
+       `d` sonunda geri alınıyor: çağıran tamponu yeniden kullanıyor. */
+    _mdPasses(gl, d, n, its, GW, GH, draw) {
+      draw();
+      if (!(its > 1)) return;
+      const ix = 2 / GW, iy = 2 / GH;
+      const step = [[ix, 0], [0, iy], [-ix, 0]];
+      let tx = 0, ty = 0;
+      for (let it = 1; it < Math.min(4, its); it++) {
+        const sx = step[it - 1][0], sy = step[it - 1][1];
+        for (let i = 0; i < n; i++) { d[i * 6] += sx; d[i * 6 + 1] += sy; }
+        tx += sx; ty += sy;
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, n * 6);
+        draw();
+      }
+      for (let i = 0; i < n; i++) { d[i * 6] -= tx; d[i * 6 + 1] -= ty; }
+    }
+
+    /* `md`: MilkDrop'un bu çizim için kuralı — `its` geçiş sayısı, `pt`
+       nokta boyu (teksel). Noktalar HER biçimde bu kuralla çiziliyor:
+       noktada kenar yumuşatacak bir şey yok, MilkDrop'un eşikleri (512,
+       1024) boyu tamponla zaten büyütüyor. Çizgiler yalnız `milkdrop`
+       biçiminde; ötekiler kendi kalınlık hesabını kullanıyor. */
+    _strip(gl, kind, d, n, breakAt, GW, GH, thickMul, md) {
       /* KENAR YUMUŞATMALI YOL yalnızca ÇİZGİ için. Nokta kipinde şerit
          diye bir şey yok; noktalar eski yoldan çiziliyor. */
       /* KENAR YUMUŞATMALI YOL artık üç çizgi biçiminde de: dalga şeridi,
@@ -5577,6 +5633,16 @@ void main(){
           gl.drawArrays(kind, 0, n);
         }
       };
+      const its = (md && md.its) || 1;
+      if (kind === gl.POINTS) {
+        if (this.locLine) gl.uniform1f(this.locLine.uPointSize, (md && md.pt) || 1);
+        this._mdPasses(gl, d, n, its, GW, GH, draw);
+        return;
+      }
+      if (this._lineStyle === 'milkdrop' && md) {
+        this._mdPasses(gl, d, n, its, GW, GH, draw);
+        return;
+      }
       draw();
       /* ŞİŞİRME çizgi biçimlerinin hepsinde: dalga şeridi (LINE_STRIP),
          şekil kenarlığı (LINE_LOOP) ve hareket vektörleri (LINES). MilkDrop

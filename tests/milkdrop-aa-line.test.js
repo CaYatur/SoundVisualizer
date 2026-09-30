@@ -168,8 +168,9 @@ test('telafi kapalıyken alfa dokunulmadan geçiyor', () => {
 // ------------------------------------------------------------- bağlanışı
 
 test('nokta kipi eski yoldan çiziliyor', () => {
-  /* Nokta kipinde şerit diye bir şey yok; `gl.POINTS` AA yoluna girmemeli. */
-  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul)'));
+  /* Nokta kipinde şerit diye bir şey yok; `gl.POINTS` AA yoluna girmemeli.
+     Noktanın kendi yolu `const draw =`dan SONRA (MilkDrop'un kuralı). */
+  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul, md)'));
   /* Yönlendirme ÜÇ çizgi biçimini sayıyor ve POINTS hiçbirinde yok; yani
      nokta kipi eski yola düşüyor. */
   assert.match(fn, /if \(aa && kind === gl\.LINES\)/);
@@ -182,7 +183,7 @@ test('AA yolundan sonra program ve VAO geri bağlanıyor', () => {
   /* Çağıran döngü `lineProg`/`lineVao`yu döngü DIŞINDA bağlıyor; AA yolu
      ikisini de değiştirdiği için geri koymazsak sıradaki dalga yanlış
      gölgelendiriciyle çizilir. */
-  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul)'));
+  const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul, md)'));
   const aa = fn.slice(0, fn.indexOf('const draw ='));
   assert.match(aa, /gl\.useProgram\(this\.lineProg\)/);
   assert.match(aa, /gl\.bindVertexArray\(this\.lineVao\)/);
