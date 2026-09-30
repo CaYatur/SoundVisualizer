@@ -387,8 +387,9 @@
       ctx.clearRect(0, 0, W, H);
 
       // Tohum noktaları yavaşça gezer; bant enerjisi onları merkezden iter
-      const sx = new Float32Array(this.N);
-      const sy = new Float32Array(this.N);
+      // Kareler arasında yeniden kullanılan tamponlar
+      const sx = this._sx && this._sx.length === this.N ? this._sx : (this._sx = new Float32Array(this.N));
+      const sy = this._sy && this._sy.length === this.N ? this._sy : (this._sy = new Float32Array(this.N));
       for (let i = 0; i < this.N; i++) {
         const e = clamp(bars[i] * sens, 0, 1);
         const drift = 0.06 * Math.sin(t * 0.25 + this.ph[i]);
@@ -598,10 +599,11 @@
         this.data = this.ictx.createImageData(w, h);
       }
       const bars = audio.getBars(this.N, v.minFreq, v.maxFreq, v.spectrum);
-      const px = new Float32Array(this.N);
-      const py = new Float32Array(this.N);
-      const k = new Float32Array(this.N);
-      const amp = new Float32Array(this.N);
+      // Kareler arasında yeniden kullanılan tamponlar
+      const px = this._px && this._px.length === this.N ? this._px : (this._px = new Float32Array(this.N));
+      const py = this._py && this._py.length === this.N ? this._py : (this._py = new Float32Array(this.N));
+      const k = this._k && this._k.length === this.N ? this._k : (this._k = new Float32Array(this.N));
+      const amp = this._amp && this._amp.length === this.N ? this._amp : (this._amp = new Float32Array(this.N));
       for (let i = 0; i < this.N; i++) {
         px[i] = this.sx[i] * w;
         py[i] = this.sy[i] * h;

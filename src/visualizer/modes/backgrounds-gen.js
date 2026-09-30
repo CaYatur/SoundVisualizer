@@ -544,9 +544,10 @@
       const tilt = m.tilt;
       const lvl = audio.level * g.react;
 
-      const px = new Float32Array(this.N);
-      const py = new Float32Array(this.N);
-      const pz = new Float32Array(this.N);
+      // Tamponlar kareler arasında yeniden kullanılıyor (her karede ayırmak çöp toplayıcıyı yoruyordu)
+      const px = this._px && this._px.length === this.N ? this._px : (this._px = new Float32Array(this.N));
+      const py = this._py && this._py.length === this.N ? this._py : (this._py = new Float32Array(this.N));
+      const pz = this._pz && this._pz.length === this.N ? this._pz : (this._pz = new Float32Array(this.N));
       for (let i = 0; i < this.N; i++) {
         const th = this.th[i];
         const ph = this.ph[i] + spin;
@@ -698,8 +699,10 @@
       const depth = Math.max(4, Math.round(m.depth));
       const n = 96;
       const bars = audio.getBars(n, 30, 14000);
-      // Yeni satırı geçmişe ekle, eskisini at
-      const row = new Float32Array(n);
+      // Yeni satırı geçmişe ekle, eskisini at. Düşen en eski satırın dizisi
+      // yenisi için kullanılıyor: kare başına ayırma yok.
+      const last = this.hist.length >= depth ? this.hist.pop() : null;
+      const row = last && last.length === n ? last : new Float32Array(n);
       for (let i = 0; i < n; i++) row[i] = bars[i];
       this.hist.unshift(row);
       if (this.hist.length > depth) this.hist.length = depth;
