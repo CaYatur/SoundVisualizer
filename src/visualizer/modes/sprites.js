@@ -118,9 +118,15 @@
         }
 
         // Tüm partiküllerin normalleştirilmiş konumlarını ve boyutlarını hesapla
-        const pxArr = new Float32Array(it.count);
-        const pyArr = new Float32Array(it.count);
-        const sArr = new Float32Array(it.count);
+        // Nesne başına tamponlar kareler arasında yeniden kullanılıyor
+        if (!it._px || it._px.length !== it.count) {
+          it._px = new Float32Array(it.count);
+          it._py = new Float32Array(it.count);
+          it._s = new Float32Array(it.count);
+        }
+        const pxArr = it._px;
+        const pyArr = it._py;
+        const sArr = it._s;
         for (let i = 0; i < it.count; i++) {
           let px, py;
           switch (c.motion) {

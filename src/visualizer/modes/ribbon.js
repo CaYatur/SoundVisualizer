@@ -32,7 +32,9 @@
       this.acc += (dt || 0.016) * 46;
       if (this.acc >= 1) {
         this.acc -= Math.floor(this.acc);
-        const row = new Float32Array(POINTS);
+        // Düşecek en eski satırın dizisi yenisine (kare başına ayırma yok)
+        const old = this.hist.length >= LAYERS ? this.hist.pop() : null;
+        const row = old && old.length === POINTS ? old : new Float32Array(POINTS);
         const step = data.length / POINTS;
         for (let i = 0; i < POINTS; i++) {
           row[i] = (data[Math.min(data.length - 1, (i * step) | 0)] - 128) / 128;

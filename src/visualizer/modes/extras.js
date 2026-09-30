@@ -883,7 +883,9 @@
       if (this.acc >= 1 / 45) {
         this.acc = 0;
         const n = this.points;
-        const row = new Float32Array(n);
+        // En eski satır düşecekse onun dizisi yenisine (kare başına ayırma yok)
+        const old = this.rows.length >= this.maxRows ? this.rows.pop() : null;
+        const row = old && old.length === n ? old : new Float32Array(n);
         const wave = audio.timeBytes;
         const stride = wave.length / n;
         for (let i = 0; i < n; i++) row[i] = (wave[(i * stride) | 0] - 128) / 128;

@@ -31,7 +31,9 @@
       if (this.acc >= 1) {
         this.acc -= Math.floor(this.acc);
         const bars = audio.getBars(COLS, v.minFreq, v.maxFreq, v.spectrum);
-        const row = new Float32Array(COLS);
+        // Düşecek en eski satırın dizisi yenisine (kare başına ayırma yok)
+        const old = this.hist.length >= ROWS ? this.hist.pop() : null;
+        const row = old && old.length === COLS ? old : new Float32Array(COLS);
         for (let i = 0; i < COLS; i++) {
           // simetrik: bas ortada, tizler kenarlara
           const m = i < COLS / 2 ? COLS / 2 - 1 - i : i - COLS / 2;
