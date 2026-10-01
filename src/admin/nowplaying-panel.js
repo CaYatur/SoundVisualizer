@@ -239,12 +239,26 @@
 
     // ----------------------------------------------------------------- renk
     nodes.push(SP().foldable('Renk', () => {
-      const kids = [SP().miniToggle('Kendi Renklerim', () => !!C.useCustomColor, (v) => { C.useCustomColor = v; }, rerender)];
-      if (C.useCustomColor) {
+      const getMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
+        || (C.useCustomColor ? 'custom' : 'theme');
+      const setMode = (m) => {
+        C.useCustomColor = (m === 'custom');
+        cfg.visualizer = cfg.visualizer || {};
+        cfg.visualizer.colorMode = m;
+        cfg.visualizer.rainbow = (m === 'rainbow');
+      };
+      const kids = [
+        SP().miniSegment('Renk Modu', [
+          ['custom', 'Sabit Renk'],
+          ['theme', 'Renk Teması'],
+          ['rainbow', 'Gökkuşağı'],
+        ], getMode, setMode, rerender),
+      ];
+      if (getMode() === 'custom') {
         kids.push(P().color('Parça Adı', 'nowplaying.color'));
         kids.push(P().color('İkincil Yazı', 'nowplaying.colorDim'));
         kids.push(P().color('Çubuk', 'nowplaying.colorBar'));
-      } else {
+      } else if (getMode() === 'theme') {
         kids.push(el('div', { class: 'studio-note dim-hint',
           text: 'Renkler sahne paletinden alınır; palet değişince yazı da değişir.' }));
       }

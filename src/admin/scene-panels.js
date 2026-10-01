@@ -848,6 +848,23 @@
         ]));
       }
 
+      const getTxtMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
+        || (txt.useCustomColor ? 'custom' : 'theme');
+      const setTxtMode = (m) => {
+        txt.useCustomColor = (m === 'custom');
+        cfg.visualizer = cfg.visualizer || {};
+        cfg.visualizer.colorMode = m;
+        cfg.visualizer.rainbow = (m === 'rainbow');
+      };
+      out.push(miniSegment('Renk Modu', [
+        ['custom', 'Sabit Renk'],
+        ['theme', 'Renk Teması'],
+        ['rainbow', 'Gökkuşağı'],
+      ], getTxtMode, setTxtMode, rerender));
+      if (getTxtMode() === 'custom') {
+        out.push(miniColor('Metin Rengi', () => txt.color || '#ffffff', (v) => { txt.color = v; }));
+        out.push(miniColor('Vurgu Rengi', () => txt.colorHighlight || '#ffd23f', (v) => { txt.colorHighlight = v; }));
+      }
       out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
       out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; }));
       return out;
@@ -877,12 +894,42 @@
         ['custom', 'Sabit Renk'],
         ['theme', 'Renk Teması'],
         ['rainbow', 'Gökkuşağı'],
-      ], getColorMode, setColorMode, rerender));
+      ], getColorMode, (m) => {
+        setColorMode(m);
+        if (l.type === 'nowplaying') {
+          const np = (l.settings.nowplaying = l.settings.nowplaying || {});
+          np.useCustomColor = (m === 'custom');
+          cfg.nowplaying = cfg.nowplaying || {};
+          cfg.nowplaying.useCustomColor = (m === 'custom');
+        }
+        if (l.type === 'text') {
+          const tx = (l.settings.text = l.settings.text || {});
+          tx.useCustomColor = (m === 'custom');
+          cfg.text = cfg.text || {};
+          cfg.text.useCustomColor = (m === 'custom');
+        }
+      }, rerender));
 
       if (getColorMode() === 'custom') {
-        out.push(miniColor('Renk', () => getV('color', '#ff2d3a'), (v) => setV('color', v)));
-        if (MC().is('visualizer', l.type, 'color2')) {
-          out.push(miniColor('İkincil Renk', () => getV('color2', '#3aa6ff'), (v) => setV('color2', v)));
+        if (l.type === 'nowplaying') {
+          const np = (l.settings.nowplaying = l.settings.nowplaying || {});
+          const getNp = (k, fb) => np[k] !== undefined ? np[k] : ((cfg.nowplaying && cfg.nowplaying[k]) || fb);
+          const setNp = (k, val) => {
+            np[k] = val;
+            cfg.nowplaying = cfg.nowplaying || {};
+            cfg.nowplaying[k] = val;
+          };
+          out.push(miniColor('Parça Adı', () => getNp('color', '#ffffff'), (v) => setNp('color', v)));
+          out.push(miniColor('İkincil Yazı', () => getNp('colorDim', '#c8c8d0'), (v) => setNp('colorDim', v)));
+          out.push(miniColor('Çubuk', () => getNp('colorBar', '#3aa6ff'), (v) => setNp('colorBar', v)));
+        } else if (l.type === 'text') {
+          /* text layers use settings.text; color controls live in the text block above when type===text.
+             This branch is for non-text types only — text returns earlier. */
+        } else {
+          out.push(miniColor('Renk', () => getV('color', '#ff2d3a'), (v) => setV('color', v)));
+          if (MC().is('visualizer', l.type, 'color2')) {
+            out.push(miniColor('İkincil Renk', () => getV('color2', '#3aa6ff'), (v) => setV('color2', v)));
+          }
         }
       }
       out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05 }));
@@ -958,6 +1005,22 @@
       if (l.type === 'solid') {
         out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => setB('solidColor', v)));
         return out;
+      }
+
+      /* Same colorMode path as the main Background card (SV.resolveBackgroundColors). */
+      const getBgColorMode = () => getB('colorMode', 'theme');
+      const setBgColorMode = (m) => { setB('colorMode', m); cfg.background = cfg.background || {}; cfg.background.colorMode = m; };
+      out.push(miniSegment('Renk Modu', [
+        ['solid', 'Düz Renk'],
+        ['theme', 'Renk Teması'],
+        ['rainbow', 'Gökkuşağı'],
+      ], getBgColorMode, setBgColorMode, rerender));
+      if (getBgColorMode() === 'solid') {
+        out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => {
+          setB('solidColor', v);
+          cfg.background = cfg.background || {};
+          cfg.background.solidColor = v;
+        }));
       }
 
       if (l.type === 'gradient') {
@@ -1706,7 +1769,7 @@
   window.SVScenePanels = {
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
-    miniSlider, miniSelect, miniToggle, foldable, itemHeader, moveItem,
+    miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
     isWindows: isWindowsPlatform,
   };
 })();

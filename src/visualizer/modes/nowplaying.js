@@ -108,9 +108,36 @@
       const bass = clamp(audio.bass * sens, 0, 1.4);
       const pulse = 1 + bass * (c.audioScale == null ? 0.04 : c.audioScale);
 
-      const baseCol = c.useCustomColor ? hexRgb(c.color) : paletteAt(cfg, 0.9);
-      const dimCol = c.useCustomColor ? hexRgb(c.colorDim) : paletteAt(cfg, 0.6);
-      const barCol = c.useCustomColor ? hexRgb(c.colorBar) : paletteAt(cfg, 0.3);
+      /* Prefer visualizer.colorMode (Sabit / Tema / Gökkuşağı); fall back to useCustomColor. */
+      const colorMode = (cfg.visualizer && cfg.visualizer.colorMode)
+        || (c.useCustomColor ? 'custom' : 'theme');
+      let baseCol, dimCol, barCol;
+      if (colorMode === 'custom') {
+        baseCol = hexRgb(c.color);
+        dimCol = hexRgb(c.colorDim);
+        barCol = hexRgb(c.colorBar);
+      } else if (colorMode === 'rainbow') {
+        const hsl = (pos) => {
+          const h = ((t * 40 + pos * 300) % 360 + 360) % 360;
+          const a = h / 60;
+          const x = 1 - Math.abs(a % 2 - 1);
+          let r = 0, g = 0, b = 0;
+          if (a < 1) { r = 1; g = x; }
+          else if (a < 2) { r = x; g = 1; }
+          else if (a < 3) { g = 1; b = x; }
+          else if (a < 4) { g = x; b = 1; }
+          else if (a < 5) { r = x; b = 1; }
+          else { r = 1; b = x; }
+          return [(r * 255) | 0, (g * 255) | 0, (b * 255) | 0];
+        };
+        baseCol = hsl(0.9);
+        dimCol = hsl(0.6);
+        barCol = hsl(0.3);
+      } else {
+        baseCol = paletteAt(cfg, 0.9);
+        dimCol = paletteAt(cfg, 0.6);
+        barCol = paletteAt(cfg, 0.3);
+      }
       const dimA = style.dimOpacity;
 
       const outline = pick(c.outline, 'outline');

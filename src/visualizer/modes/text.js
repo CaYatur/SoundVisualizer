@@ -168,12 +168,32 @@
         ctx.shadowOffsetY = 0;
       };
 
-      const baseColor = T.useCustomColor
-        ? window.SV.hexToRgb01(T.color || '#ffffff').map((v) => (v * 255) | 0)
-        : paletteAt(cfg, 0.85);
-      const hiColor = T.useCustomColor
-        ? window.SV.hexToRgb01(T.colorHighlight || '#ffd23f').map((v) => (v * 255) | 0)
-        : paletteAt(cfg, 0.35);
+      const colorMode = (cfg.visualizer && cfg.visualizer.colorMode)
+        || (T.useCustomColor ? 'custom' : 'theme');
+      let baseColor, hiColor;
+      if (colorMode === 'custom') {
+        baseColor = window.SV.hexToRgb01(T.color || '#ffffff').map((v) => (v * 255) | 0);
+        hiColor = window.SV.hexToRgb01(T.colorHighlight || '#ffd23f').map((v) => (v * 255) | 0);
+      } else if (colorMode === 'rainbow') {
+        const hsl = (pos) => {
+          const h = ((t * 40 + pos * 300) % 360 + 360) % 360;
+          const a = h / 60;
+          const x = 1 - Math.abs(a % 2 - 1);
+          let r = 0, g = 0, b = 0;
+          if (a < 1) { r = 1; g = x; }
+          else if (a < 2) { r = x; g = 1; }
+          else if (a < 3) { g = 1; b = x; }
+          else if (a < 4) { g = x; b = 1; }
+          else if (a < 5) { r = x; b = 1; }
+          else { r = 1; b = x; }
+          return [(r * 255) | 0, (g * 255) | 0, (b * 255) | 0];
+        };
+        baseColor = hsl(0.85);
+        hiColor = hsl(0.35);
+      } else {
+        baseColor = paletteAt(cfg, 0.85);
+        hiColor = paletteAt(cfg, 0.35);
+      }
 
       if (words && T.karaoke !== false) {
         /* Karaoke: satır tek parça çizilmez. Söylenen kelimeler vurgulu,

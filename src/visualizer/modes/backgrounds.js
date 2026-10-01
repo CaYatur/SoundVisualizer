@@ -15,6 +15,9 @@
 (function () {
   // ---- ortak yardımcılar ----
   function colorsOf(cfg) {
+    if (window.SV && typeof window.SV.resolveBackgroundColors === 'function') {
+      return window.SV.resolveBackgroundColors(cfg);
+    }
     const c = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
     return c.length ? c : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
   }

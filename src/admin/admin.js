@@ -675,6 +675,12 @@
           setPath(cfg, def.path, o.value);
           if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
             cfg.visualizer.rainbow = (o.value === 'rainbow');
+            if (cfg.nowplaying && cfg.visualizer.type === 'nowplaying') {
+              cfg.nowplaying.useCustomColor = (o.value === 'custom');
+            }
+            if (cfg.text && cfg.visualizer.type === 'text') {
+              cfg.text.useCustomColor = (o.value === 'custom');
+            }
           }
           /* Seçili görünümü hemen güncelle. rebuild/onChange olmadan
              (Otomatik VJ "Hangi Katmanlar" / "Sıra") panel yeniden
@@ -2033,7 +2039,7 @@
         wide: true,
         title: 'Renkler ve Hazır Şablonlar',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
-        show: () => isStackOn() || usesPalette(),
+        show: () => (isStackOn() || usesPalette()) && (cfg.background.colorMode || 'theme') === 'theme',
         controls: [
           { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)' },
           { type: 'presets' },
@@ -2052,7 +2058,21 @@
             options: MC().options('background'),
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
-          { type: 'color', path: 'background.solidColor', label: 'Düz Renk', show: () => cfg.background.type === 'solid' },
+          { type: 'color', path: 'background.solidColor', label: 'Düz Renk',
+            show: () => cfg.background.type === 'solid'
+              || ((cfg.background.colorMode || 'theme') === 'solid' && cfg.background.type !== 'solid'), },
+          {
+            type: 'segment',
+            path: 'background.colorMode',
+            label: 'Renk Modu',
+            rebuild: true,
+            options: [
+              { value: 'solid', label: 'Düz Renk' },
+              { value: 'theme', label: 'Renk Teması' },
+              { value: 'rainbow', label: 'Gökkuşağı' },
+            ],
+            show: () => usesPalette(),
+          },
           { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan', rebuild: true },
           {
             type: 'note',
@@ -2151,13 +2171,42 @@
             type: 'color',
             path: 'visualizer.color',
             label: 'Renk',
-            show: () => v.type !== 'none' && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+            show: () => v.type !== 'none' && v.type !== 'nowplaying' && v.type !== 'text'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
           },
           {
             type: 'color',
             path: 'visualizer.color2',
             label: 'İkincil Renk',
-            show: () => (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom' && MC().is('visualizer', v.type, 'color2'),
+            show: () => v.type !== 'nowplaying' && v.type !== 'text'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom'
+              && MC().is('visualizer', v.type, 'color2'),
+          },
+          /* Now Playing solid/custom: all three editable colors (not visualizer.color). */
+          {
+            type: 'color', path: 'nowplaying.color', label: 'Parça Adı',
+            show: () => v.type === 'nowplaying'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'color', path: 'nowplaying.colorDim', label: 'İkincil Yazı',
+            show: () => v.type === 'nowplaying'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'color', path: 'nowplaying.colorBar', label: 'Çubuk',
+            show: () => v.type === 'nowplaying'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'color', path: 'text.color', label: 'Metin Rengi',
+            show: () => v.type === 'text'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'color', path: 'text.colorHighlight', label: 'Vurgu Rengi',
+            show: () => v.type === 'text'
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
           },
           { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
           // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
@@ -2898,8 +2947,10 @@
 
   function setCategory(id) {
     if (activeCategory === id) return;
+    saveCategoryScroll(activeCategory);
     activeCategory = id;
     localStorage.setItem('sv-category', id);
+    pendingCategoryScrollId = id;
     render();
   }
 
@@ -2908,10 +2959,27 @@
   // --------------------------------------------------------------------------
   /* #615: hızlı ardışık render'larda eski rAF restore'ları yeni scroll'u ezmesin */
   let sectionsScrollRestoreGen = 0;
+  /* Per-category #sections scroll while Admin is open (not persisted to disk). */
+  const categoryScrollById = new Map();
+  let pendingCategoryScrollId = null;
+
+  function saveCategoryScroll(catId) {
+    const root = $('sections');
+    if (!root || !catId) return;
+    categoryScrollById.set(catId, root.scrollTop);
+  }
 
   function render() {
     const root = $('sections');
-    const prevScroll = root.scrollTop;
+    let prevScroll;
+    if (pendingCategoryScrollId === activeCategory) {
+      prevScroll = categoryScrollById.has(activeCategory)
+        ? categoryScrollById.get(activeCategory)
+        : 0;
+      pendingCategoryScrollId = null;
+    } else {
+      prevScroll = root.scrollTop;
+    }
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -3300,6 +3368,10 @@
       localStorage.setItem('sv-advanced', '1');
       const box = $('advToggle');
       if (box) box.checked = true;
+    }
+    if (entry.category !== activeCategory) {
+      saveCategoryScroll(activeCategory);
+      pendingCategoryScrollId = entry.category;
     }
     activeCategory = entry.category;
     localStorage.setItem('sv-category', activeCategory);

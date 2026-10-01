@@ -331,11 +331,27 @@
     ]));
 
     nodes.push(SP().foldable('Renk', () => {
-      const kids = [SP().miniToggle('Kendi Rengim', () => !!T.useCustomColor, (v) => { T.useCustomColor = v; sync(); }, rerender)];
-      if (T.useCustomColor) {
+      const cfg = P().cfg();
+      const getMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
+        || (T.useCustomColor ? 'custom' : 'theme');
+      const setMode = (m) => {
+        T.useCustomColor = (m === 'custom');
+        cfg.visualizer = cfg.visualizer || {};
+        cfg.visualizer.colorMode = m;
+        cfg.visualizer.rainbow = (m === 'rainbow');
+        sync();
+      };
+      const kids = [
+        SP().miniSegment('Renk Modu', [
+          ['custom', 'Sabit Renk'],
+          ['theme', 'Renk Teması'],
+          ['rainbow', 'Gökkuşağı'],
+        ], getMode, setMode, rerender),
+      ];
+      if (getMode() === 'custom') {
         kids.push(P().color('Metin Rengi', 'text.color'));
         kids.push(P().color('Vurgu Rengi', 'text.colorHighlight'));
-      } else {
+      } else if (getMode() === 'theme') {
         kids.push(el('div', { class: 'studio-note dim-hint', text: 'Renkler sahne paletinden alınır; palet değişince metin de değişir.' }));
       }
       return kids;
