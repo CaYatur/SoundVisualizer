@@ -2412,7 +2412,23 @@
       },
       {
         id: 'templates',
-        roots: ['visualizer', 'background', 'postfx'],
+        /* Badge/reset must cover every SCENE_KEYS field apply() touches.
+           Partial roots left modulation/layers/geometry dirty and — with
+           layerStack on — syncStackState re-cleared classic visualizer to
+           'none' after a partial reset, so the badge bounced back alone. */
+        roots: (window.SVTemplates && window.SVTemplates.SCENE_KEYS
+          ? window.SVTemplates.SCENE_KEYS.slice()
+          : ['background', 'visualizer', 'geometry', 'postfx', 'layers', 'layerStack', 'logo',
+            'modulation', 'transition', 'custom', 'milkdrop', 'images', 'feedback']),
+        /* Same preserves as templates.apply / resetScene — user setup, not scene. */
+        rootOmit: [
+          'background.transparent', 'background.transparentKey', 'background.coverTaskbar',
+          'logo.src', 'logo.libraryId', 'logo.kind', 'logo.source', 'logo.enabled',
+        ],
+        /* TEMP: hide card modified badge + circular reset on Ready Templates.
+           Applying a template still changes SCENE_KEYS; re-enable by setting
+           hideCardReset: false once resetScene bounce is fully validated UX-wise. */
+        hideCardReset: true,
         category: 'library',
         icon: 'sparkles',
         wide: true,
@@ -2895,7 +2911,7 @@
       },
       {
         /* Uygulama: Dil / Pencere / Panel. Güncellemeler ayrı tam genişlik
-           kartta (settings-updates) ve footer indirme düğmesi modalında. */
+           kartta (settings-updates). Footer indirme modalı kaldırıldı. */
         id: 'settings-main',
         category: 'settings',
         wide: true,
@@ -3077,6 +3093,11 @@
     return out;
   }
 
+  function sectionShowsResetChrome(sec) {
+    /* hideCardReset: TEMP gate for Ready Templates card chrome. */
+    return !(sec && sec.hideCardReset);
+  }
+
   function countModified(paths) {
     return paths.filter(isModified).length;
   }
@@ -3086,6 +3107,7 @@
     sectionSchema().forEach((sec) => {
       if (sec.category !== catId) return;
       if (sec.show && !sec.show()) return;
+      if (!sectionShowsResetChrome(sec)) return;
       n += countModified(sectionPaths(sec));
     });
     return n;
@@ -3169,7 +3191,7 @@
     root.classList.toggle('single', sections.length === 1 || sections.every((s) => s.wide));
 
     // Sıfırlanacak bir şey yoksa (ör. Kitaplık) düğme boşuna durmasın
-    const resettable = sections.some((s) => countModified(sectionPaths(s)) > 0);
+    const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     $('catResetBtn').classList.toggle('hidden', !resettable);
 
     sections.forEach((sec) => {
@@ -3245,7 +3267,7 @@
     const tail = visible.filter((d) => d.tail);
     const showAdvanced = advancedOn;
 
-    const modCount = countModified(sectionPaths(sec));
+    const modCount = sectionShowsResetChrome(sec) ? countModified(sectionPaths(sec)) : 0;
     const head = el('div', { class: 'card-head' }, [
       el('span', { class: 'ico', icon: sec.icon }),
       el('div', { class: 'ch-main' }, [
@@ -3369,7 +3391,7 @@
     sections.forEach((sec, i) => {
       const card = cards[i];
       if (!card) return;
-      const n = countModified(sectionPaths(sec));
+      const n = sectionShowsResetChrome(sec) ? countModified(sectionPaths(sec)) : 0;
       let chip = card.querySelector('.chip-mod');
       const acts = card.querySelector('.ch-actions');
       if (n > 0 && !chip && acts) {
@@ -3393,7 +3415,7 @@
     });
 
     renderNav();
-    const resettable = sections.some((s) => countModified(sectionPaths(s)) > 0);
+    const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     const catBtn = $('catResetBtn');
     if (catBtn) catBtn.classList.toggle('hidden', !resettable);
   }
@@ -3407,15 +3429,29 @@
   }
 
   async function resetSection(sec) {
+    if (sec && sec.hideCardReset) return;
     const paths = sectionPaths(sec);
     if (!paths.length) return;
     const ok = await svConfirm('Bu bölümdeki ayarlar varsayılana dönecek.', { danger: true, okText: 'Bölümü sıfırla' });
     if (!ok) return;
-    const defaults = window.SV.defaultConfig();
-    paths.forEach((p) => {
-      const dv = getPath(defaults, p);
-      if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
-    });
+    /* Ready Templates: whole-object SCENE_KEYS restore (not leaf setPath).
+       Leaf reset missed array/object identity and left layerStack on, so
+       the next syncStackState re-dirtied visualizer.type back to 'none'. */
+    if (sec.id === 'templates' && window.SVTemplates && typeof window.SVTemplates.resetScene === 'function') {
+      window.SVTemplates.resetScene(cfg, {
+        defaultConfig: window.SV.defaultConfig,
+        clone: window.SV.clone,
+      });
+      if (window.SVTemplatePanel && typeof window.SVTemplatePanel.clearLastApplied === 'function') {
+        window.SVTemplatePanel.clearLastApplied();
+      }
+    } else {
+      const defaults = window.SV.defaultConfig();
+      paths.forEach((p) => {
+        const dv = getPath(defaults, p);
+        if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
+      });
+    }
     push(true);
     render();
   }
@@ -3593,6 +3629,7 @@
     sectionSchema()
       .filter((s) => s.category === catId && (!s.show || s.show()))
       .forEach((sec) => {
+        if (!sectionShowsResetChrome(sec)) return;
         sectionPaths(sec).forEach((p) => {
           const dv = getPath(defaults, p);
           if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));

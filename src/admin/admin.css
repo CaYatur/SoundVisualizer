@@ -828,11 +828,6 @@ select:focus { border-color: var(--accent); }
 }
 .footer-end { display: flex; align-items: center; gap: 12px; margin-left: auto; min-width: 0; }
 .footer .hint { font-size: 11px; line-height: 1.35; color: var(--muted2); text-align: right; }
-#updatesBtn.has-update {
-  color: var(--ok);
-  border-color: var(--ok);
-  background: rgba(67, 217, 138, .14);
-}
 kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 10.5px; }
 
 /* scrollbar */
@@ -842,32 +837,6 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 ::-webkit-scrollbar-track { background: transparent; }
 
 /* Settings is the left-rail Ayarlar category; Updates is a footer modal. */
-.upd-backdrop {
-  position: fixed; inset: 0; z-index: 410; display: grid; place-items: center;
-  background: rgba(3, 3, 8, .62); backdrop-filter: blur(3px);
-  animation: askIn .12s ease-out;
-  padding: 20px;
-}
-.upd-backdrop.hidden { display: none; }
-.upd-modal {
-  width: min(520px, calc(100vw - 40px)); max-height: min(820px, calc(100vh - 40px));
-  overflow: auto; padding: 18px 18px 16px;
-  border: 1px solid var(--line2); border-radius: 14px;
-  background: var(--card); box-shadow: 0 28px 80px rgba(0, 0, 0, .6);
-}
-.upd-modal-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-bottom: 14px;
-}
-.upd-modal-head h2 { font-size: 16px; font-weight: 700; }
-.upd-modal-close {
-  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
-  background: transparent; color: var(--muted); font-size: 18px; line-height: 1;
-  cursor: pointer;
-}
-.upd-modal-close:hover { background: var(--card2); color: var(--text); }
-.upd-modal-body .ctrl { margin-bottom: 12px; }
-.upd-modal-body .upd-panel { margin-top: 4px; }
 
 /* ================= UYGULAMA İÇİ ONAY + BİLDİRİM =================
    Sistem confirm/alert pencereleri renderer'ı kilitliyor ve çok ekranlı

@@ -608,6 +608,42 @@
     return null;
   }
 
+  /* Factory reset for Ready Templates card.
+
+     Mirrors apply()'s SCENE_KEYS wipe + user-setup preserves, without
+     merging a template patch. Keeps audio/display/stream/lighting intact
+     and restores logo identity + transparent-window flags the same way
+     apply() does, so the card badge can clear permanently. */
+  function resetScene(cfg, env) {
+    if (!cfg || !env) return cfg;
+    const { defaultConfig, clone } = env;
+    const def = defaultConfig();
+    const keepTransparent = !!(cfg.background && cfg.background.transparent);
+    const keepKey = cfg.background && cfg.background.transparentKey;
+    const keepCover = cfg.background && cfg.background.coverTaskbar;
+    const logoSrc = (cfg.logo && cfg.logo.src) || null;
+    const logoLibraryId = (cfg.logo && cfg.logo.libraryId) || null;
+    const logoKind = (cfg.logo && cfg.logo.kind) || null;
+    const logoSource = (cfg.logo && cfg.logo.source) || null;
+    const logoEnabled = cfg.logo && typeof cfg.logo.enabled === 'boolean' ? cfg.logo.enabled : null;
+    for (const k of SCENE_KEYS) {
+      if (def[k] !== undefined) cfg[k] = clone(def[k]);
+    }
+    if (cfg.logo) {
+      if (logoSrc) cfg.logo.src = logoSrc;
+      if (logoLibraryId) cfg.logo.libraryId = logoLibraryId;
+      if (logoKind) cfg.logo.kind = logoKind;
+      if (logoSource) cfg.logo.source = logoSource;
+      if (logoEnabled !== null) cfg.logo.enabled = logoEnabled;
+    }
+    if (cfg.background) {
+      cfg.background.transparent = keepTransparent;
+      if (keepKey != null) cfg.background.transparentKey = keepKey;
+      if (keepCover != null) cfg.background.coverTaskbar = !!keepCover;
+    }
+    return cfg;
+  }
+
   function apply(cfg, tpl, env) {
     if (!cfg || !tpl || !env) return cfg;
     const { defaultConfig, deepMerge, clone } = env;
@@ -712,7 +748,7 @@
     return out;
   }
 
-  const api = { TEMPLATES, apply, groups };
+  const api = { TEMPLATES, SCENE_KEYS, apply, resetScene, groups };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVTemplates = api;
 })();

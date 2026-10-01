@@ -1,6 +1,6 @@
 'use strict';
 /* Settings: Uygulama card (Dil/Pencere/Panel) + separate full-width Updates card.
- * Footer download icon opens the same Updates UI as a modal. */
+ * Updates live only on the Settings full-width card (no footer modal). */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
@@ -34,17 +34,18 @@ test('Settings: separate full-width Updates card', () => {
   assert.doesNotMatch(admin, /id:\s*'updates',\s*\n\s*category:\s*'library'/);
 });
 
-test('Updates modal from footer download button', () => {
-  assert.match(html, /id="updatesBtn"/);
-  assert.match(html, /id="updatesBackdrop"/);
-  assert.match(html, /id="updatesModalBody"/);
-  assert.match(updatesPanel, /function openModal/);
-  assert.match(updatesPanel, /function closeModal/);
-  assert.match(updatesPanel, /fillModalBody/);
+test('Updates footer modal removed; Settings card panel remains', () => {
+  assert.doesNotMatch(html, /id="updatesBtn"/);
+  assert.doesNotMatch(html, /id="updatesBackdrop"/);
+  assert.doesNotMatch(html, /id="updatesModalBody"/);
+  assert.doesNotMatch(updatesPanel, /function openModal/);
+  assert.doesNotMatch(updatesPanel, /function closeModal/);
+  assert.doesNotMatch(updatesPanel, /fillModalBody/);
+  assert.doesNotMatch(updatesPanel, /updatesBtn/);
   assert.match(updatesPanel, /function buildPanel/);
-  assert.match(css, /\.upd-backdrop/);
-  assert.match(css, /\.upd-modal/);
-  assert.doesNotMatch(updatesPanel, /Ayarlar › Güncellemeler|Kitaplık › Güncellemeler/);
+  assert.match(updatesPanel, /function panel/);
+  assert.doesNotMatch(css, /\.upd-backdrop/);
+  assert.doesNotMatch(css, /#updatesBtn/);
 });
 
 test('Settings groups have distinct block styles with theme tokens', () => {
