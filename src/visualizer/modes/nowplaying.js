@@ -256,11 +256,23 @@
         }
         ctx.save();
         ctx.translate(coverCx, coverCy);
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(-coverPx / 2, -coverPx / 2, coverPx, coverPx, rad);
-        else ctx.rect(-coverPx / 2, -coverPx / 2, coverPx, coverPx);
-        ctx.clip();
-        ctx.drawImage(coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx);
+        /* Kapak da logo/görsel gibi yuvarlatılınca dış ışık clip ile kesilmesin.
+           Metin gölgesi (shadow) varsa aynı yumuşak dış ışığı oval kenara taşı. */
+        const coverGlow = shadow > 0 ? shadow * coverPx * 0.22 : 0;
+        if (window.SVRoundImage && window.SVRoundImage.drawImage) {
+          window.SVRoundImage.drawImage(ctx, coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx, {
+            radiusPx: rad,
+            glowBlur: coverGlow,
+            shadowColor: 'rgba(0,0,0,0.55)',
+            owner: this,
+          });
+        } else {
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(-coverPx / 2, -coverPx / 2, coverPx, coverPx, rad);
+          else ctx.rect(-coverPx / 2, -coverPx / 2, coverPx, coverPx);
+          ctx.clip();
+          ctx.drawImage(coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx);
+        }
         ctx.restore();
       }
 
