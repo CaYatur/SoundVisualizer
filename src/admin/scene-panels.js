@@ -541,6 +541,7 @@
       out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true }));
       out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true }));
       out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
+      out.push(miniSlider('Köşe / Oval', () => getL('cornerRadius', 0), (v) => setL('cornerRadius', v), { min: 0, max: 0.5, step: 0.01, percent: true }));
       out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
       const gifOn = (lg.kind === 'gif') || (window.SVGif && window.SVGif.isAnimatedLogo && window.SVGif.isAnimatedLogo(lg, lg.src));
       if (gifOn) {
@@ -623,6 +624,7 @@
           thumb,
           el('div', { class: 'img-headmain' }, [nameInput, el('div', { class: 'up-actions' }, [repBtn, delBtn])]),
         ]));
+        imgList.appendChild(miniSlider('Köşe / Oval (' + (it.name || ('#' + (idx + 1))) + ')', () => (it.cornerRadius == null ? 0 : it.cornerRadius), (v) => { it.cornerRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true }));
       });
       out.push(imgList);
 
@@ -952,17 +954,18 @@
         }, rerender));
         if (getCover('coverOverlay', false)) {
           out.push(el('div', { class: 'studio-note dim-hint',
-            text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
-          out.push(miniSlider('Kapak Boyutu', () => getCover('coverSize', 1.15), (v) => setCover('coverSize', v),
-            { min: 0.5, max: 2.5, step: 0.05 }));
+            text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+          out.push(miniSlider('Kapak Boyutu', () => getCover('coverSize', 0.14), (v) => setCover('coverSize', v),
+            { min: 0.05, max: 0.5, step: 0.01, percent: true }));
           out.push(miniSlider('Yazı Aralığı', () => getCover('coverGap', 0.35), (v) => setCover('coverGap', v),
             { min: 0, max: 1, step: 0.02, percent: true }));
-          out.push(miniSlider('Köşe Yuvarlaklığı', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
-            { min: 0, max: 0.5, step: 0.01 }));
+          out.push(miniSlider('Köşe / Oval', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
+            { min: 0, max: 0.5, step: 0.01, percent: true }));
           out.push(miniSelect('Kapak Konumu', [
-            ['auto', 'Otomatik'],
+            ['auto', 'Otomatik (Üstte)'],
             ['left', 'Solda'],
             ['right', 'Sağda'],
+            ['top', 'Üstte'],
           ], () => getCover('coverSide', 'auto'), (v) => setCover('coverSide', v)));
         }
       }

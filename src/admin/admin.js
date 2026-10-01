@@ -1020,6 +1020,7 @@
       add({ type: 'slider', path: base + 'audioSpeed', label: 'Ses → Hız', min: 0, max: 2, step: 0.05 });
       add({ type: 'slider', path: base + 'audioOpacity', label: 'Ses → Saydamlık', min: 0, max: 2, step: 0.05 });
       add({ type: 'slider', path: base + 'glow', label: 'Parlama', min: 0, max: 1, step: 0.02, percent: true });
+      add({ type: 'slider', path: base + 'cornerRadius', label: 'Köşe / Oval', min: 0, max: 0.5, step: 0.01, percent: true });
       add({ type: 'select', path: base + 'blend', label: 'Karışım', options: BLEND_OPTS });
       add({ type: 'select', path: base + 'layer', label: 'Katman', options: LAYER_OPTS });
       add({ type: 'toggle', path: base + 'noOverlap', label: 'Üst Üste Binmeyi Engelle', rebuild: false });
@@ -2213,12 +2214,12 @@
           },
           {
             type: 'note',
-            text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.',
+            text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.',
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
             type: 'slider', path: 'nowplaying.coverSize', label: 'Kapak Boyutu',
-            min: 0.5, max: 2.5, step: 0.05,
+            min: 0.05, max: 0.5, step: 0.01, percent: true,
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
@@ -2227,16 +2228,17 @@
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
-            type: 'slider', path: 'nowplaying.coverRadius', label: 'Köşe Yuvarlaklığı',
-            min: 0, max: 0.5, step: 0.01,
+            type: 'slider', path: 'nowplaying.coverRadius', label: 'Köşe / Oval',
+            min: 0, max: 0.5, step: 0.01, percent: true,
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
             type: 'select', path: 'nowplaying.coverSide', label: 'Kapak Konumu',
             options: [
-              { value: 'auto', label: 'Otomatik' },
+              { value: 'auto', label: 'Otomatik (Üstte)' },
               { value: 'left', label: 'Solda' },
               { value: 'right', label: 'Sağda' },
+              { value: 'top', label: 'Üstte' },
             ],
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
@@ -2675,6 +2677,7 @@
           { type: 'slider', path: 'logo.scale', label: 'Boyut', min: 0.05, max: 0.6, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.opacity', label: 'Saydamlık', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.pulse', label: 'Ses Nabzı', min: 0, max: 1, step: 0.02, percent: true, show: () => cfg.logo.enabled },
+          { type: 'slider', path: 'logo.cornerRadius', label: 'Köşe / Oval', min: 0, max: 0.5, step: 0.01, percent: true, show: () => cfg.logo.enabled },
           { type: 'slider', path: 'logo.speed', label: 'Oynatma Hızı', min: 0.1, max: 3, step: 0.01, show: () => cfg.logo.enabled && isGifLogo(cfg.logo) },
           {
             type: 'segment', path: 'logo.loop', label: 'Döngü',

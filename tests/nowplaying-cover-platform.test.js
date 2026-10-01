@@ -59,3 +59,31 @@ test('UI: Layers panel exposes coverOverlay for nowplaying layers', () => {
   assert.match(sceneSrc, /Kapak Boyutu|coverSize/);
   assert.match(sceneSrc, /Kapak Konumu|coverSide/);
 });
+
+test('defaults: coverSide includes top; coverSize is display-relative', () => {
+  assert.match(defaultsSrc, /coverSide:\s*'auto'/);
+  assert.match(defaultsSrc, /'auto' \(= top\) \| 'left' \| 'right' \| 'top'/);
+  assert.match(defaultsSrc, /coverSize:\s*0\.14/);
+  assert.match(defaultsSrc, /cornerRadius:\s*0/);
+});
+
+test('kaynak: NP cover anchors to bar\/text; supports top; display size', () => {
+  assert.match(npSrc, /side === 'top'/);
+  assert.match(npSrc, /blockLeft/);
+  assert.match(npSrc, /textCenterY/);
+  assert.match(npSrc, /minDim \* coverSizeVal|coverSizeVal > 1/);
+  assert.doesNotMatch(npSrc, /pairShift/);
+});
+
+test('UI: coverSide offers top; logo\/images cornerRadius exposed', () => {
+  assert.match(panelSrc, /\['top'/);
+  assert.match(adminSrc, /value:\s*'top'/);
+  assert.match(adminSrc, /logo\.cornerRadius/);
+  assert.match(adminSrc, /cornerRadius/);
+  assert.match(sceneSrc, /\['top'/);
+  assert.match(sceneSrc, /cornerRadius/);
+});
+
+test('kaynak: auto coverSide resolves to top', () => {
+  assert.match(npSrc, /side === 'auto'[\s\S]{0,80}side = 'top'/);
+});

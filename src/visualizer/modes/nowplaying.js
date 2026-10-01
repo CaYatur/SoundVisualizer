@@ -207,16 +207,34 @@
       else if (anim === 'scale') { animA = ease; scale = 0.82 + ease * 0.18; }
 
       // ---- album cover overlay (optional; default off)
+      // Text/bar stay anchored at (cx,cy). Cover attaches outside the bar/text
+      // column (left/right) or above the title block (top). Size is relative to
+      // the display short side (minDim), like logo scale; values > 1 keep the
+      // legacy "relative to text-block height" meaning.
       const wantCover = !!c.coverOverlay;
       const artUrl = wantCover
         ? ((raw && raw.artwork) || (c.manual && c.manual.artwork) || '')
         : '';
       const coverImg = wantCover ? this._coverImage(artUrl) : null;
       const coverReady = !!(coverImg && coverImg.complete && coverImg.naturalWidth > 0);
-      const coverPx = coverReady ? Math.max(8, total * (c.coverSize == null ? 1.15 : c.coverSize)) : 0;
+      const coverSizeVal = c.coverSize == null ? 0.14 : c.coverSize;
+      const coverPx = coverReady
+        ? Math.max(8, coverSizeVal > 1 ? total * coverSizeVal : minDim * coverSizeVal)
+        : 0;
       const coverGapPx = coverReady ? coverPx * (c.coverGap == null ? 0.35 : c.coverGap) : 0;
       let side = c.coverSide || 'auto';
-      if (side === 'auto') side = (align === 'right') ? 'right' : 'left';
+      if (side === 'auto') side = 'top'; // default: above title
+
+      // Bar/text column width used to park left/right covers flush to the block.
+      const bwRef = hasBar ? W * clamp(c.barWidth == null ? 0.42 : c.barWidth, 0.05, 1) : 0;
+      const refW = hasBar ? bwRef : maxW;
+      const blockLeft = align === 'left' ? 0 : align === 'right' ? -refW : -refW / 2;
+      const blockRight = align === 'left' ? refW : align === 'right' ? 0 : refW / 2;
+      // Vertical center of title/artist rows only (exclude bar + time) so a
+      // left/right cover does not sit over the progress bar.
+      let textH = 0;
+      rows.forEach((r, i) => { textH += r.size + (i ? gap : 0); });
+      const textCenterY = -total / 2 + textH / 2;
 
       ctx.save();
       ctx.globalAlpha = clamp(env.alpha * animA * (c.opacity == null ? 1 : c.opacity), 0, 1);
@@ -224,13 +242,18 @@
       ctx.scale(scale * pulse, scale * pulse);
       ctx.textBaseline = 'middle';
 
-      // Cover sits beside the text group; nudge text so the pair stays centered on (cx,cy).
-      const pairShift = coverReady ? (coverPx + coverGapPx) / 2 : 0;
-      const textShift = coverReady ? (side === 'left' ? pairShift : -pairShift) : 0;
       if (coverReady) {
         const rad = Math.max(0, Math.min(0.5, c.coverRadius == null ? 0.14 : c.coverRadius)) * coverPx;
-        const coverCx = side === 'left' ? -pairShift - coverGapPx / 2 - coverPx / 2 : pairShift + coverGapPx / 2 + coverPx / 2;
-        const coverCy = 0;
+        let coverCx = 0;
+        let coverCy = textCenterY;
+        if (side === 'top') {
+          coverCx = align === 'left' ? coverPx / 2 : align === 'right' ? -coverPx / 2 : 0;
+          coverCy = -total / 2 - coverGapPx - coverPx / 2;
+        } else if (side === 'left') {
+          coverCx = blockLeft - coverGapPx - coverPx / 2;
+        } else {
+          coverCx = blockRight + coverGapPx + coverPx / 2;
+        }
         ctx.save();
         ctx.translate(coverCx, coverCy);
         ctx.beginPath();
@@ -240,8 +263,6 @@
         ctx.drawImage(coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx);
         ctx.restore();
       }
-
-      ctx.translate(textShift, 0);
 
       // Grup, verilen noktada dikeyde ortalanır
       let y = -total / 2;

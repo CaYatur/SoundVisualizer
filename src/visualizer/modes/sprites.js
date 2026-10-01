@@ -213,10 +213,19 @@
           let a = (c.opacity != null ? c.opacity : 1) * it.al[i] * (1 + bass * (c.audioOpacity || 0));
           ctx.globalAlpha = clamp(a, 0, 1);
           const rot = it.ph[i] + t * (c.spin || 0) * it.spin[i] * 1.2;
+          ctx.save();
           ctx.translate(pxArr[i] * W, pyArr[i] * H);
           ctx.rotate(rot);
+          const cr = Math.max(0, Math.min(0.5, c.cornerRadius == null ? 0 : c.cornerRadius));
+          if (cr > 0.0001) {
+            const rad = cr * Math.min(w, h);
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, rad);
+            else ctx.rect(-w / 2, -h / 2, w, h);
+            ctx.clip();
+          }
           ctx.drawImage(img, -w / 2, -h / 2, w, h);
-          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.restore();
         }
         ctx.restore();
       }
