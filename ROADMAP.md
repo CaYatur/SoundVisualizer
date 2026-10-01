@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.4** · **Next release: v3.1.5**
+**Current release: v3.1.4** · **In development: v3.1.5-beta** · **Next release: v3.1.5**
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -17,7 +17,7 @@ covered by a test or by the GPU self-test.
 | v3.1.2 | MilkDrop shader engine, Now Playing overlay, transparent visualizer | 2026-09-05 | Shipped |
 | v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | 2026-09-08 | Shipped |
 | **v3.1.4** | **Streaming overlay and transparency fixes, MilkDrop fidelity** | **2026-09-15** | **Current** |
-| v3.1.5 | MilkDrop and streaming refinements | — | Planned |
+| v3.1.5 | MilkDrop and streaming refinements | — | In development (v3.1.5-beta) |
 | v3.1.6 | Comprehensive video export | — | Planned |
 | v3.1.7 | Broadcast layout editor | — | Planned |
 | v3.1.8 | NDI output | — | Deferred |
@@ -129,7 +129,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **2535 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2537 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 878
   on `main` since.

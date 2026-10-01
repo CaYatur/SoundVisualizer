@@ -3266,6 +3266,12 @@
     root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
       node.classList.toggle('modified', isModified(node.getAttribute('data-path')));
     });
+    /* Layer-internal (attachDefault) controls: no config path; get/defVal
+       live on _svSyncModified. Path-based refresh does not touch them;
+       this keeps per-control reset visibility instant on change. */
+    root.querySelectorAll('.ctrl[data-sv-local-def]').forEach((node) => {
+      if (typeof node._svSyncModified === 'function') node._svSyncModified();
+    });
 
     const sections = sectionSchema().filter((s) => s.category === activeCategory && (!s.show || s.show()));
     const cards = root.querySelectorAll('.card');

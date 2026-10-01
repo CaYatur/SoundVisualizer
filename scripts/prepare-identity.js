@@ -17,7 +17,10 @@ const manifestDir = path.join(output, 'package');
 const packageName = 'CAYADEV.SoundVisualizer.Identity';
 const applicationId = 'CAYADEVSoundVisualizer';
 const publisher = 'CN=CAYADEV SoundVisualizer';
-const fourPartVersion = `${pkg.version}.1`;
+/* AppX / SxS identity must be #.#.#.#. Strip semver prerelease
+   (e.g. 3.1.5-beta → 3.1.5) so development betas still pack on Windows. */
+const versionCore = String(pkg.version || '0.0.0').split('-')[0];
+const fourPartVersion = `${versionCore}.1`;
 const pfx = path.join(output, 'CAYADEV.SoundVisualizer.Identity.pfx');
 const cer = path.join(output, 'CAYADEV.SoundVisualizer.Identity.cer');
 const passwordFile = path.join(output, '.pfx-password');
