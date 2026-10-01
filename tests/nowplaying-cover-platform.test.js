@@ -62,7 +62,7 @@ test('UI: Layers panel exposes coverOverlay for nowplaying layers', () => {
 
 test('defaults: coverSide includes top; coverSize is display-relative', () => {
   assert.match(defaultsSrc, /coverSide:\s*'auto'/);
-  assert.match(defaultsSrc, /'auto' \| 'left' \| 'right' \| 'top'/);
+  assert.match(defaultsSrc, /'auto' \(= top\) \| 'left' \| 'right' \| 'top'/);
   assert.match(defaultsSrc, /coverSize:\s*0\.14/);
   assert.match(defaultsSrc, /cornerRadius:\s*0/);
 });
@@ -82,4 +82,8 @@ test('UI: coverSide offers top; logo\/images cornerRadius exposed', () => {
   assert.match(adminSrc, /cornerRadius/);
   assert.match(sceneSrc, /\['top'/);
   assert.match(sceneSrc, /cornerRadius/);
+});
+
+test('kaynak: auto coverSide resolves to top', () => {
+  assert.match(npSrc, /side === 'auto'[\s\S]{0,80}side = 'top'/);
 });

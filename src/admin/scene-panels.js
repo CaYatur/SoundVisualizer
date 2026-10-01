@@ -962,7 +962,7 @@
           out.push(miniSlider('Köşe / Oval', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
             { min: 0, max: 0.5, step: 0.01, percent: true }));
           out.push(miniSelect('Kapak Konumu', [
-            ['auto', 'Otomatik'],
+            ['auto', 'Otomatik (Üstte)'],
             ['left', 'Solda'],
             ['right', 'Sağda'],
             ['top', 'Üstte'],

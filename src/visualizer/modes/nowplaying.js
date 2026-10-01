@@ -223,7 +223,7 @@
         : 0;
       const coverGapPx = coverReady ? coverPx * (c.coverGap == null ? 0.35 : c.coverGap) : 0;
       let side = c.coverSide || 'auto';
-      if (side === 'auto') side = (align === 'right') ? 'right' : 'left';
+      if (side === 'auto') side = 'top'; // default: above title
 
       // Bar/text column width used to park left/right covers flush to the block.
       const bwRef = hasBar ? W * clamp(c.barWidth == null ? 0.42 : c.barWidth, 0.05, 1) : 0;

@@ -263,7 +263,7 @@
         SP().miniSlider('Köşe / Oval', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
           (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true }),
         SP().miniSelect('Konum', [
-          ['auto', 'Otomatik'],
+          ['auto', 'Otomatik (Üstte)'],
           ['left', 'Solda'],
           ['right', 'Sağda'],
           ['top', 'Üstte'],

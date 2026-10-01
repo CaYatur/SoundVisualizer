@@ -567,7 +567,7 @@
       coverSize: 0.14, // fraction of display short side (legacy >1 = text-block height)
       coverGap: 0.35,  // gap between cover and text (fraction of cover)
       coverRadius: 0.14, // corner radius 0..0.5 of cover size (0.5 = circle/oval)
-      coverSide: 'auto', // 'auto' | 'left' | 'right' | 'top'
+      coverSide: 'auto', // 'auto' (= top) | 'left' | 'right' | 'top'
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi

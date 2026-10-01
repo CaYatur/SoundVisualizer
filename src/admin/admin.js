@@ -2235,7 +2235,7 @@
           {
             type: 'select', path: 'nowplaying.coverSide', label: 'Kapak Konumu',
             options: [
-              { value: 'auto', label: 'Otomatik' },
+              { value: 'auto', label: 'Otomatik (Üstte)' },
               { value: 'left', label: 'Solda' },
               { value: 'right', label: 'Sağda' },
               { value: 'top', label: 'Üstte' },
