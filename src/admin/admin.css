@@ -878,6 +878,23 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 .lighting-option-label { font-size: 11.5px; font-weight: 700; }
 .lighting-option-desc { color: var(--muted2); font-size: 10px; line-height: 1.35; }
 
+/* Genel Işık Ayarları: ortak görünüm + backend etiketleri */
+.lighting-general-panel { display: grid; gap: 8px; }
+.lighting-general-banner {
+  margin: 0 0 4px; padding: 10px 12px; border-radius: 9px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: #ffc7cd; font-size: 11.5px; line-height: 1.5; font-weight: 600;
+}
+.lighting-tagged { display: grid; gap: 4px; }
+.lighting-backends { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.lighting-backend-tag {
+  display: inline-block; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  color: var(--muted2); background: var(--card2); border: 1px solid var(--line);
+}
+
+
 /* ============================ DAR EKRAN ============================ */
 @media (max-width: 1400px) {
   :root { --dock-w: 320px; --rail-w: 190px; }

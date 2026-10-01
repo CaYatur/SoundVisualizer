@@ -186,7 +186,7 @@ test('panel: MilkDrop seçimi önceki kaynağı saklıyor, geri dönüş onu get
   assert.match(P, /P\(\)\.row\('Işık Renkleri', selOf\(\[/);
   assert.match(P, /if \(light\.paletteSource !== 'milkdrop'\) light\.paletteSourceSaved = light\.paletteSource \|\| 'background';\s*light\.paletteSource = 'milkdrop';/);
   assert.match(P, /light\.paletteSource = back && back !== 'milkdrop' \? back : 'background';/);
-  assert.match(read('src/admin/admin.js'), /\{ value: 'milkdrop', label: 'MilkDrop Görüntüsü \(Canlı\)' \}/);
+  assert.match(read('src/admin/lighting-general.js'), /\{ value: 'milkdrop', label: 'MilkDrop Görüntüsü \(Canlı\)' \}/);
 });
 
 test('yeni metinlerin İngilizcesi var', () => {
