@@ -798,10 +798,6 @@
       ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
       if (lg.blend === 'add') ctx.globalCompositeOperation = 'lighter';
       else if (lg.blend === 'screen') ctx.globalCompositeOperation = 'screen';
-      if (lg.glow && lg.glow > 0) {
-        ctx.shadowColor = 'rgba(255,255,255,0.7)';
-        ctx.shadowBlur = lg.glow * 40 * (minDim / 1080);
-      }
       ctx.imageSmoothingEnabled = lg.smooth !== false;
       const filters = [];
       if (bright !== 1) filters.push('brightness(' + bright.toFixed(3) + ')');
@@ -809,14 +805,29 @@
       if (lg.saturate != null && lg.saturate !== 1) filters.push('saturate(' + lg.saturate + ')');
       if (filters.length) ctx.filter = filters.join(' ');
       const cr = Math.max(0, Math.min(0.5, lg.cornerRadius == null ? 0 : lg.cornerRadius));
-      if (cr > 0.0001) {
-        const rad = cr * Math.min(w, h);
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, rad);
-        else ctx.rect(x - w / 2, y - h / 2, w, h);
-        ctx.clip();
+      const rad = cr > 0.0001 ? cr * Math.min(w, h) : 0;
+      const glowBlur = (lg.glow && lg.glow > 0) ? lg.glow * 40 * (minDim / 1080) : 0;
+      /* clip+shadowBlur oval kenar ışığını keser; siluet ara tuvalde kurulur. */
+      if (window.SVRoundImage && window.SVRoundImage.drawImage) {
+        window.SVRoundImage.drawImage(ctx, drawable.source, x - w / 2, y - h / 2, w, h, {
+          radiusPx: rad,
+          glowBlur,
+          shadowColor: 'rgba(255,255,255,0.7)',
+          owner: this,
+        });
+      } else {
+        if (glowBlur > 0) {
+          ctx.shadowColor = 'rgba(255,255,255,0.7)';
+          ctx.shadowBlur = glowBlur;
+        }
+        if (rad > 0) {
+          ctx.beginPath();
+          if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, rad);
+          else ctx.rect(x - w / 2, y - h / 2, w, h);
+          ctx.clip();
+        }
+        ctx.drawImage(drawable.source, x - w / 2, y - h / 2, w, h);
       }
-      ctx.drawImage(drawable.source, x - w / 2, y - h / 2, w, h);
       ctx.restore();
     }
 

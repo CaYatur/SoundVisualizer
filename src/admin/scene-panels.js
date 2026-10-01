@@ -7,6 +7,74 @@
 (function () {
   const P = () => window.SVPanel;
 
+  /* Tek ayar sıfırlama: admin appendGrouped / lighting-general ile aynı
+     data-path + ctrl-reset. Yalnız kategori düzeyi kontroller (yığın anahtarı,
+     şeffaf arkaplan vb.); katman kartlarının içi HARİÇ — orada her alanın
+     ayrı reseti yok. Bölüm/kategori sıfırlaması layers kökünü fabrika
+     varsayılanına (boş dizi) döndürür: kullanıcı katmanları kalkar,
+     sevkiyat varsayılan yığını gelir (Layers’a özgü). */
+  function attachPath(ctrl, path) {
+    const el = P().el;
+    ctrl.setAttribute('data-path', path);
+    if (P().isModified && P().isModified(path)) ctrl.classList.add('modified');
+    const lbl = ctrl.querySelector && ctrl.querySelector('label.lbl');
+    if (lbl && P().resetPath && P().defaultAt && P().defaultAt(path) !== undefined) {
+      lbl.appendChild(el('button', {
+        class: 'ctrl-reset',
+        type: 'button',
+        icon: 'reset',
+        title: 'Bu ayarı varsayılana döndür',
+        onclick: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          P().resetPath(path);
+        },
+      }));
+    }
+    return ctrl;
+  }
+
+
+  /* Katman içi tek ayar sıfırlama: config yolu yok (layers[] varsayılan boş),
+     bu yüzden açık varsayılan değerle çalışır. Kategori düzeyi attachPath’ten
+     ayrı; yığın anahtarı buna dahil DEĞİL. */
+  function attachDefault(ctrl, get, set, defVal) {
+    if (!ctrl || defVal === undefined) return ctrl;
+    const el = P().el;
+    const same = (a, b) => {
+      if (a === b) return true;
+      if (typeof a === 'object' || typeof b === 'object') {
+        try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; }
+      }
+      return false;
+    };
+    if (!same(get(), defVal)) ctrl.classList.add('modified');
+    const lbl = ctrl.querySelector && ctrl.querySelector('label.lbl');
+    if (!lbl) return ctrl;
+    if (lbl.querySelector && lbl.querySelector('.ctrl-reset')) return ctrl;
+    const title = (window.SVI18n && window.SVI18n.t)
+      ? window.SVI18n.t('Bu ayarı varsayılana döndür')
+      : 'Bu ayarı varsayılana döndür';
+    lbl.appendChild(el('button', {
+      class: 'ctrl-reset',
+      type: 'button',
+      icon: 'reset',
+      title,
+      onclick: (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const v = (defVal !== null && typeof defVal === 'object')
+          ? JSON.parse(JSON.stringify(defVal))
+          : defVal;
+        set(v);
+        P().push(true);
+        if (P().rerender) P().rerender();
+        else if (P().apply) P().apply();
+      },
+    }));
+    return ctrl;
+  }
+
   function moveItem(list, i, dir) {
     const j = i + dir;
     if (j < 0 || j >= list.length) return false;
@@ -64,13 +132,14 @@
         P().push(false);
       },
     });
-    return el('div', { class: 'ctrl' }, [
+    const ctrl = el('div', { class: 'ctrl' }, [
       el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), val]),
       input,
     ]);
+    return o.def !== undefined ? attachDefault(ctrl, get, set, o.def) : ctrl;
   }
 
-  function miniSelect(label, options, get, set, onAfter) {
+  function miniSelect(label, options, get, set, onAfter, def) {
     const el = P().el;
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
     const sel = el('select', {
@@ -82,10 +151,11 @@
       if (String(get()) === String(v)) o.selected = true;
       sel.appendChild(o);
     }
-    return P().row(tr(label), sel);
+    const ctrl = P().row(tr(label), sel);
+    return def !== undefined ? attachDefault(ctrl, get, (v) => { set(v); }, def) : ctrl;
   }
 
-  function miniSegment(label, options, get, set, onAfter) {
+  function miniSegment(label, options, get, set, onAfter, def) {
     const el = P().el;
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
     const cur = get();
@@ -103,10 +173,11 @@
       });
       seg.appendChild(b);
     }
-    return el('div', { class: 'ctrl' }, [
+    const ctrl = el('div', { class: 'ctrl' }, [
       el('label', { class: 'lbl', text: tr(label) }),
       seg,
     ]);
+    return def !== undefined ? attachDefault(ctrl, get, (v) => { set(v); }, def) : ctrl;
   }
 
   function isWindowsPlatform() {
@@ -149,7 +220,10 @@
         el('span', { class: 'pill', text: opts.badge }),
       ]);
     }
-    return P().row(labelEl, switchEl);
+        const ctrl = P().row(labelEl, switchEl);
+    return (opts && opts.def !== undefined)
+      ? attachDefault(ctrl, get, (v) => { set(!!v); }, opts.def)
+      : ctrl;
   }
 
   function miniColor(label, get, set) {
@@ -473,7 +547,7 @@
         lg.source = v;
         P().push(true);
         rerender();
-      }));
+      }, undefined, 'auto'));
 
       const mode = lg.source || 'auto';
       if (mode === 'track') {
@@ -525,8 +599,8 @@
           }));
         }
       }
-      out.push(miniSlider('Yatay Konum (X)', () => getL('x', 0.5), (v) => setL('x', v), { min: 0, max: 1, step: 0.01, percent: true }));
-      out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Yatay Konum (X)', () => getL('x', 0.5), (v) => setL('x', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
+      out.push(miniSlider('Dikey Konum (Y)', () => getL('y', 0.5), (v) => setL('y', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
       out.push(el('div', { class: 'row', style: 'margin-bottom: 6px;' }, [
         el('button', {
           class: 'btn ghost tiny', type: 'button', icon: 'target', text: 'Otomatik Ortala (50%)',
@@ -538,30 +612,30 @@
           },
         }),
       ]));
-      out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true }));
-      out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true }));
-      out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
-      out.push(miniSlider('Köşe / Oval', () => getL('cornerRadius', 0), (v) => setL('cornerRadius', v), { min: 0, max: 0.5, step: 0.01, percent: true }));
-      out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
+      out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true, def: 0.22}));
+      out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.3}));
+      out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0}));
+      out.push(miniSlider('Köşe / Oval', () => getL('cornerRadius', 0), (v) => setL('cornerRadius', v), { min: 0, max: 0.5, step: 0.01, percent: true, def: 0}));
+      out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true, def: 1}));
       const gifOn = (lg.kind === 'gif') || (window.SVGif && window.SVGif.isAnimatedLogo && window.SVGif.isAnimatedLogo(lg, lg.src));
       if (gifOn) {
-        out.push(miniSlider('Oynatma Hızı', () => getL('speed', 1), (v) => setL('speed', v), { min: 0.1, max: 3, step: 0.01 }));
+        out.push(miniSlider('Oynatma Hızı', () => getL('speed', 1), (v) => setL('speed', v), { min: 0.1, max: 3, step: 0.01, def: 1}));
         out.push(miniSelect('Döngü', [['loop', 'Tekrar'], ['pingpong', 'Gidiş-Dönüş'], ['once', 'Bir Kez']],
-          () => lg.loop || 'loop', (v) => { lg.loop = v; }));
+          () => lg.loop || 'loop', (v) => { lg.loop = v; }, undefined, 'loop'));
         out.push(miniToggle('Ters Oynat', () => !!lg.reverse, (v) => { lg.reverse = v; }));
         out.push(miniToggle('Kenar Yumuşatma', () => lg.smooth !== false, (v) => { lg.smooth = v; }));
-        out.push(miniSlider('Parlaklık', () => getL('brightness', 1), (v) => setL('brightness', v), { min: 0.2, max: 2, step: 0.01 }));
-        out.push(miniSlider('Renk Kayması', () => getL('hue', 0), (v) => setL('hue', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Doygunluk', () => getL('saturate', 1), (v) => setL('saturate', v), { min: 0, max: 2, step: 0.01 }));
+        out.push(miniSlider('Parlaklık', () => getL('brightness', 1), (v) => setL('brightness', v), { min: 0.2, max: 2, step: 0.01, def: 1}));
+        out.push(miniSlider('Renk Kayması', () => getL('hue', 0), (v) => setL('hue', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
+        out.push(miniSlider('Doygunluk', () => getL('saturate', 1), (v) => setL('saturate', v), { min: 0, max: 2, step: 0.01, def: 1}));
         out.push(miniSelect('Karışım', [['normal', 'Normal'], ['screen', 'Ekran'], ['add', 'Ekle']],
-          () => lg.blend || 'normal', (v) => { lg.blend = v; }));
+          () => lg.blend || 'normal', (v) => { lg.blend = v; }, undefined, 'normal'));
         out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']],
-          () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }));
-        out.push(miniSlider('Ses → Hız', () => getL('audioSpeed', 0), (v) => setL('audioSpeed', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Ses → Parlaklık', () => getL('audioBrightness', 0), (v) => setL('audioBrightness', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Ses → Saydamlık', () => getL('audioOpacity', 0), (v) => setL('audioOpacity', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Ritim Parlaması', () => getL('beatFlash', 0), (v) => setL('beatFlash', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Ses → Renk', () => getL('audioHue', 0), (v) => setL('audioHue', v), { min: 0, max: 1, step: 0.01, percent: true }));
+          () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }, undefined, 'bass'));
+        out.push(miniSlider('Ses → Hız', () => getL('audioSpeed', 0), (v) => setL('audioSpeed', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
+        out.push(miniSlider('Ses → Parlaklık', () => getL('audioBrightness', 0), (v) => setL('audioBrightness', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
+        out.push(miniSlider('Ses → Saydamlık', () => getL('audioOpacity', 0), (v) => setL('audioOpacity', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
+        out.push(miniSlider('Ritim Parlaması', () => getL('beatFlash', 0), (v) => setL('beatFlash', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
+        out.push(miniSlider('Ses → Renk', () => getL('audioHue', 0), (v) => setL('audioHue', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
       }
       if ((lg.source || 'auto') !== 'track' && window.SVLogoLibUi) {
         out.push(window.SVLogoLibUi.mount({
@@ -624,7 +698,7 @@
           thumb,
           el('div', { class: 'img-headmain' }, [nameInput, el('div', { class: 'up-actions' }, [repBtn, delBtn])]),
         ]));
-        imgList.appendChild(miniSlider('Köşe / Oval (' + (it.name || ('#' + (idx + 1))) + ')', () => (it.cornerRadius == null ? 0 : it.cornerRadius), (v) => { it.cornerRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true }));
+        imgList.appendChild(miniSlider('Köşe / Oval (' + (it.name || ('#' + (idx + 1))) + ')', () => (it.cornerRadius == null ? 0 : it.cornerRadius), (v) => { it.cornerRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true, def: 0}));
       });
       out.push(imgList);
 
@@ -956,11 +1030,11 @@
           out.push(el('div', { class: 'studio-note dim-hint',
             text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
           out.push(miniSlider('Kapak Boyutu', () => getCover('coverSize', 0.14), (v) => setCover('coverSize', v),
-            { min: 0.05, max: 0.5, step: 0.01, percent: true }));
+            { min: 0.05, max: 0.5, step: 0.01, percent: true, def: 0.14}));
           out.push(miniSlider('Yazı Aralığı', () => getCover('coverGap', 0.35), (v) => setCover('coverGap', v),
-            { min: 0, max: 1, step: 0.02, percent: true }));
+            { min: 0, max: 1, step: 0.02, percent: true, def: 0.35}));
           out.push(miniSlider('Köşe / Oval', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
-            { min: 0, max: 0.5, step: 0.01, percent: true }));
+            { min: 0, max: 0.5, step: 0.01, percent: true, def: 0.14}));
           out.push(miniSelect('Kapak Konumu', [
             ['auto', 'Otomatik (Üstte)'],
             ['left', 'Solda'],
@@ -970,17 +1044,17 @@
         }
       }
 
-      out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05 }));
+      out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05, def: 1}));
       if (l.type !== 'spectrogram') {
-        out.push(miniSlider('Parlama (Glow)', () => getV('glow', 0.2), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));
+        out.push(miniSlider('Parlama (Glow)', () => getV('glow', 0.2), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0.2}));
       }
 
       // Bar / Band ayarları
       if (MC().is('visualizer', l.type, 'bands')) {
-        out.push(miniSlider('Bar Sayısı', () => getV('barCount', 64), (v) => setV('barCount', v), { min: 16, max: 160, step: 1 }));
+        out.push(miniSlider('Bar Sayısı', () => getV('barCount', 64), (v) => setV('barCount', v), { min: 16, max: 160, step: 1, def: 64}));
       }
       if (MC().is('visualizer', l.type, 'gap')) {
-        out.push(miniSlider('Bar Boşluğu', () => getV('gap', 0.3), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true }));
+        out.push(miniSlider('Bar Boşluğu', () => getV('gap', 0.3), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true, def: 0.3}));
       }
       if (['bars', 'wave', 'radialWave'].includes(l.type)) {
         out.push(miniToggle('Ayna (Simetri)', () => !!getV('mirror', false), (v) => setV('mirror', v)));
@@ -988,18 +1062,18 @@
 
       if (l.type === 'bars') {
         out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v)));
-        out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true }));
-        out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true }));
+        out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true, def: 1}));
+        out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
+        out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.9}));
+        out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
       }
 
       // Tek mod kartıyla aynı koşullar (katalog bayrakları, #638)
       if (MC().is('visualizer', l.type, 'wave')) {
-        out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', 2), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5 }));
+        out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', 2), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5, def: 2}));
       }
       if (MC().is('visualizer', l.type, 'thick')) {
-        out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', 0.5), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true }));
+        out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', 0.5), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true, def: 0.5}));
       }
 
       return out;
@@ -1068,12 +1142,12 @@
         const setGr = (k, val) => { gr[k] = val; };
 
         out.push(miniSelect('Stil', [['soft', 'Yumuşak'], ['plasma', 'Plazma']], () => getGr('style', 'soft'), (v) => setGr('style', v)));
-        out.push(miniSlider('Akış Hızı', () => getGr('speed', 1), (v) => setGr('speed', v), { min: 0, max: 2, step: 0.02 }));
-        out.push(miniSlider('Ses Tepkisi', () => getGr('audioReactivity', 1), (v) => setGr('audioReactivity', v), { min: 0, max: 2, step: 0.02 }));
-        out.push(miniSlider('Ölçek', () => getGr('scale', 1.5), (v) => setGr('scale', v), { min: 0.4, max: 3, step: 0.05 }));
-        out.push(miniSlider('Bozulma (Warp)', () => getGr('warp', 1), (v) => setGr('warp', v), { min: 0, max: 2, step: 0.02 }));
-        out.push(miniSlider('Parlaklık', () => getGr('brightness', 1), (v) => setGr('brightness', v), { min: 0.4, max: 1.6, step: 0.02 }));
-        out.push(miniSlider('Vinyet', () => getGr('vignette', 0.3), (v) => setGr('vignette', v), { min: 0, max: 1, step: 0.02, percent: true }));
+        out.push(miniSlider('Akış Hızı', () => getGr('speed', 1), (v) => setGr('speed', v), { min: 0, max: 2, step: 0.02, def: 1}));
+        out.push(miniSlider('Ses Tepkisi', () => getGr('audioReactivity', 1), (v) => setGr('audioReactivity', v), { min: 0, max: 2, step: 0.02, def: 1}));
+        out.push(miniSlider('Ölçek', () => getGr('scale', 1.5), (v) => setGr('scale', v), { min: 0.4, max: 3, step: 0.05, def: 1.5}));
+        out.push(miniSlider('Bozulma (Warp)', () => getGr('warp', 1), (v) => setGr('warp', v), { min: 0, max: 2, step: 0.02, def: 1}));
+        out.push(miniSlider('Parlaklık', () => getGr('brightness', 1), (v) => setGr('brightness', v), { min: 0.4, max: 1.6, step: 0.02, def: 1}));
+        out.push(miniSlider('Vinyet', () => getGr('vignette', 0.3), (v) => setGr('vignette', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0.3}));
         return out;
       }
 
@@ -1149,7 +1223,7 @@
         },
       });
       transparent.checked = !!(cfg.background && cfg.background.transparent);
-      nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
+      nodes.push(attachPath(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])), 'background.transparent'));
       if (transparent.checked) {
         nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
         const cover = el('input', {
@@ -1162,10 +1236,10 @@
           },
         });
         cover.checked = !!(cfg.background && cfg.background.coverTaskbar);
-        nodes.push(P().row('Tam Ekran (Görev Çubuğu Dahil)', el('label', { class: 'switch' }, [cover, el('span', { class: 'track' })])));
+        nodes.push(attachPath(P().row('Tam Ekran (Görev Çubuğu Dahil)', el('label', { class: 'switch' }, [cover, el('span', { class: 'track' })])), 'background.coverTaskbar'));
         nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.' }));
         if (!cfg.background || cfg.background.type !== 'solid') {
-          nodes.push(miniSlider('Saydamlık Eşiği', () => {
+          nodes.push(attachPath(miniSlider('Saydamlık Eşiği', () => {
             const v = cfg.background && cfg.background.transparentKey;
             return v == null ? 0.2 : v;
           }, (v) => {
@@ -1177,7 +1251,7 @@
                 ly.settings.background = Object.assign({}, ly.settings.background || {}, { transparentKey: v });
               }
             });
-          }, { min: 0, max: 1, step: 0.01, percent: true }));
+          }, { min: 0, max: 1, step: 0.01, percent: true }), 'background.transparentKey'));
         }
       }
     }
@@ -1200,7 +1274,7 @@
       );
       nodes.push(
         el('button', {
-          class: 'btn primary', type: 'button', icon: 'layers', text: 'Katmanlara Geç',
+          class: 'btn primary layers-cta', type: 'button', icon: 'layers', text: 'Katmanlara Geç',
           onclick: () => {
             if (window.SVLayers && window.SVLayers.setStackEnabled) {
               window.SVLayers.setStackEnabled(cfg, true);
@@ -1327,8 +1401,8 @@
       body.push.apply(body, layerOwnSettings(l, rerender));
 
       if (l.kind !== 'logo') {
-        body.push(miniSelect('Karışım', BLEND_LABELS, () => l.blend, (v) => { l.blend = v; }));
-        body.push(miniSlider('Saydamlık', () => l.opacity, (v) => { l.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true }));
+        body.push(miniSelect('Karışım', BLEND_LABELS, () => l.blend, (v) => { l.blend = v; }, undefined, 'normal'));
+        body.push(miniSlider('Saydamlık', () => l.opacity, (v) => { l.opacity = v; }, { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
       }
 
       const tabs = [
@@ -1336,18 +1410,19 @@
           key: 'transform', label: 'Dönüşüm',
           build: () => {
             const transKids = [
-              miniSlider('Ölçek', () => l.transform.scale, (v) => { l.transform.scale = v; }, { min: 0.2, max: 3, step: 0.01 }),
-              miniSlider('Dönüş', () => l.transform.rotate, (v) => { l.transform.rotate = v; }, { min: -180, max: 180, step: 1, fmt: (v) => Math.round(v) + '°' }),
+              miniSlider('Ölçek', () => l.transform.scale, (v) => { l.transform.scale = v; }, { min: 0.2, max: 3, step: 0.01, def: 1 }),
+              miniSlider('Dönüş', () => l.transform.rotate, (v) => { l.transform.rotate = v; }, { min: -180, max: 180, step: 1, fmt: (v) => Math.round(v) + '°', def: 0 }),
             ];
             if (l.kind !== 'logo') {
               transKids.push(
-                miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true }),
-                miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true })
+                miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true, def: 0 }),
+                miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true, def: 0 })
+
               );
             }
             transKids.push(
-              miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }),
-              miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; })
+              miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }, { def: false }),
+              miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; }, { def: false })
             );
             return transKids;
           },
@@ -1356,9 +1431,9 @@
           key: 'audio', label: 'Sese Tepki',
           build: () => [
             miniSelect('Bant', BAND_LABELS, () => l.audio.band, (v) => { l.audio.band = v; }),
-            miniSlider('Ses → Saydamlık', () => l.audio.opacity, (v) => { l.audio.opacity = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
-            miniSlider('Ses → Ölçek', () => l.audio.scale, (v) => { l.audio.scale = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
-            miniSlider('Ses → Dönüş', () => l.audio.rotate, (v) => { l.audio.rotate = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
+            miniSlider('Ses → Saydamlık', () => l.audio.opacity, (v) => { l.audio.opacity = v; }, { min: 0, max: 1, step: 0.02, percent: true, def: 0 }),
+            miniSlider('Ses → Ölçek', () => l.audio.scale, (v) => { l.audio.scale = v; }, { min: 0, max: 1, step: 0.02, percent: true, def: 0 }),
+            miniSlider('Ses → Dönüş', () => l.audio.rotate, (v) => { l.audio.rotate = v; }, { min: 0, max: 1, step: 0.02, percent: true, def: 0 }),
           ],
         },
         {

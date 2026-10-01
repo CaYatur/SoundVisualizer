@@ -2309,6 +2309,11 @@
       },
       {
         id: 'layers',
+        /* layers dizisi yaprak kalır: bölüm/kategori sıfırlaması tüm yığını
+           fabrika varsayılanına (boş []) döndürür — kullanıcının eklediği
+           katmanlar kalkar, sevkiyat varsayılan yığını gelir. layerStack /
+           layerGroups / crossfade kategori düzeyi kontrollerdir. Katman
+           içi ayarlar genişletilmez (Layers’a özgü). */
         roots: ['layers', 'layerStack', 'layerGroups', 'crossfade'],
         category: 'scene',
         icon: 'layers',

@@ -28,7 +28,8 @@ function setup(layers, openIds) {
   const el = (tag, attrs, children) => {
     const node = { tag, attrs: attrs || {}, children: (children || []).filter(Boolean), style: {}, classList: { toggle() {}, add() {} } };
     node.appendChild = (c) => { node.children.push(c); return c; };
-    node.setAttribute = () => {};
+    node.setAttribute = (k, v) => { node.attrs[k] = v; };
+    node.querySelector = () => null;
     node.getAttribute = (k) => node.attrs[k];
     return node;
   };
@@ -42,6 +43,9 @@ function setup(layers, openIds) {
     rerender: () => { renders++; },
     toast() {},
     confirm: async () => true,
+    isModified: () => false,
+    resetPath() {},
+    defaultAt: () => undefined,
   };
   delete require.cache[require.resolve('../src/admin/scene-panels.js')];
   require('../src/admin/scene-panels.js');
@@ -102,4 +106,54 @@ test('kilitli katman açılamıyor', () => {
   const { panel } = setup([{ id: 'k', kind: 'visualizer', type: 'bars', locked: true }], ['k']);
   assert.strictEqual(all(panel, cls('layer-tabs')).length, 0);
   assert.ok(all(panel, (n) => /kilitli/.test(n.attrs.text || '')).length, 'kilit notu görünüyor');
+});
+
+test('layers category controls get ctrl-reset; stack switch does not', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  assert.match(src, /function attachPath/);
+  assert.match(src, /attachPath\([\s\S]*?'background\.transparent'/);
+  assert.match(src, /attachPath\([\s\S]*?'background\.coverTaskbar'/);
+  assert.match(src, /attachPath\([\s\S]*?'background\.transparentKey'/);
+  assert.match(src, /layers-cta/);
+  assert.doesNotMatch(src, /attachPath\([\s\S]{0,220}stackSwitch[\s\S]{0,100}layerStack\.enabled/);
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
+  assert.match(admin, /id: 'layers'[\s\S]*?roots:\s*\['layers'/);
+  assert.match(admin, /fabrika varsay/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
+  assert.match(css, /\.btn\.layers-cta/);
+});
+
+test('round-image helper ships and is wired for glow silhouette', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const ri = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'round-image.js'), 'utf8');
+  assert.match(ri, /function drawImage/);
+  assert.match(ri, /shadowBlur/);
+  assert.match(ri, /clip\(\)/);
+  const layers = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'layers.js'), 'utf8');
+  assert.match(layers, /SVRoundImage/);
+  const sprites = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'sprites.js'), 'utf8');
+  assert.match(sprites, /SVRoundImage/);
+  const np = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'nowplaying.js'), 'utf8');
+  assert.match(np, /SVRoundImage/);
+  assert.match(np, /coverGlow/);
+  const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
+  const visHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'index.html'), 'utf8');
+  assert.match(adminHtml, /round-image\.js/);
+  assert.match(visHtml, /round-image\.js/);
+});
+
+
+test('layer-internal mini helpers use attachDefault with def', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  assert.match(src, /function attachDefault/);
+  assert.match(src, /o\.def !== undefined \? attachDefault/);
+  assert.match(src, /getL\('x',[\s\S]*?def:\s*0\.5/);
+  assert.match(src, /l\.opacity[\s\S]*?def:\s*1/);
+  assert.match(src, /l\.transform\.scale[\s\S]*?def:\s*1/);
+  assert.doesNotMatch(src, /attachPath\([\s\S]{0,220}stackSwitch[\s\S]{0,100}layerStack\.enabled/);
 });

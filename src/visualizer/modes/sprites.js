@@ -112,11 +112,6 @@
         ctx.save();
         ctx.globalCompositeOperation =
           c.blend === 'screen' ? 'screen' : c.blend === 'add' ? 'lighter' : 'source-over';
-        if ((c.glow || 0) > 0) {
-          ctx.shadowBlur = c.glow * 42 * (minDim / 1080);
-          ctx.shadowColor = 'rgba(255,255,255,0.55)';
-        }
-
         // Tüm partiküllerin normalleştirilmiş konumlarını ve boyutlarını hesapla
         // Nesne başına tamponlar kareler arasında yeniden kullanılıyor
         if (!it._px || it._px.length !== it.count) {
@@ -217,14 +212,28 @@
           ctx.translate(pxArr[i] * W, pyArr[i] * H);
           ctx.rotate(rot);
           const cr = Math.max(0, Math.min(0.5, c.cornerRadius == null ? 0 : c.cornerRadius));
-          if (cr > 0.0001) {
-            const rad = cr * Math.min(w, h);
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, rad);
-            else ctx.rect(-w / 2, -h / 2, w, h);
-            ctx.clip();
+          const rad = cr > 0.0001 ? cr * Math.min(w, h) : 0;
+          const glowBlur = (c.glow || 0) > 0 ? c.glow * 42 * (minDim / 1080) : 0;
+          if (window.SVRoundImage && window.SVRoundImage.drawImage) {
+            window.SVRoundImage.drawImage(ctx, img, -w / 2, -h / 2, w, h, {
+              radiusPx: rad,
+              glowBlur,
+              shadowColor: 'rgba(255,255,255,0.55)',
+              owner: this,
+            });
+          } else {
+            if (glowBlur > 0) {
+              ctx.shadowBlur = glowBlur;
+              ctx.shadowColor = 'rgba(255,255,255,0.55)';
+            }
+            if (rad > 0) {
+              ctx.beginPath();
+              if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, rad);
+              else ctx.rect(-w / 2, -h / 2, w, h);
+              ctx.clip();
+            }
+            ctx.drawImage(img, -w / 2, -h / 2, w, h);
           }
-          ctx.drawImage(img, -w / 2, -h / 2, w, h);
           ctx.restore();
         }
         ctx.restore();
