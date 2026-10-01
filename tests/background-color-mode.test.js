@@ -91,3 +91,11 @@ test('kaynak: Admin Background Renk Modu solidColor\'dan once', () => {
   assert.ok(modeAt > 0 && solidAt > 0, 'ikisi de olmali');
   assert.ok(modeAt < solidAt, 'Renk Modu, Duz Renk secicisinden once gelmeli');
 });
+
+test('kaynak: renk sablonlari colorMode\'dan bagimsiz gorunur', () => {
+  assert.match(adminSrc, /show:\s*\(\)\s*=>\s*isStackOn\(\)\s*\|\|\s*usesPalette\(\)/);
+  assert.doesNotMatch(
+    adminSrc,
+    /usesPalette\(\)\)\s*&&\s*\(cfg\.background\.colorMode/
+  );
+});

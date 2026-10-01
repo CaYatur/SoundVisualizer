@@ -2043,7 +2043,9 @@
         wide: true,
         title: 'Renkler ve Hazır Şablonlar',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
-        show: () => (isStackOn() || usesPalette()) && (cfg.background.colorMode || 'theme') === 'theme',
+        /* Theme/preset strip stays visible regardless of background.colorMode —
+           visualizer theme mode, lighting, and other features still read it. */
+        show: () => isStackOn() || usesPalette(),
         controls: [
           { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)' },
           { type: 'presets' },
