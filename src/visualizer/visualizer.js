@@ -107,12 +107,18 @@
 
     window.api.onWindowChrome((st) => {
       const show = !!(st && st.show);
+      const was = document.documentElement.classList.contains('sv-windowed');
       document.documentElement.classList.toggle('sv-windowed', show);
+      if (!show) {
+        /* Tam ekran / PiP / henüz F11 yok: cubuk kesin gizli. */
+        document.documentElement.classList.remove('sv-win-show');
+      }
       if (typeof st.locked === 'boolean') {
         locked = st.locked;
         setLockUi(locked);
       }
-      if (show) {
+      /* Yalniz windowed'a YENI geciste flash; config/PiP ayari tekrarinda degil. */
+      if (show && !was) {
         document.documentElement.classList.add('sv-win-show');
         setTimeout(() => document.documentElement.classList.remove('sv-win-show'), 1800);
       }

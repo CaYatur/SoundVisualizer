@@ -41,3 +41,16 @@ test('gorsellestirici F11 windowed: surukleme + geometri kilidi', () => {
   assert.match(pre, /setGeometryLock/);
   assert.match(pre, /onWindowChrome/);
 });
+
+test('F11 chrome yalniz armed windowed; PiP ve fullscreen gizli', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /_svChromeArmed/);
+  assert.match(main, /win === floatingWin/);
+  assert.match(main, /leave-full-screen[\s\S]{0,120}_svChromeArmed = true/);
+  assert.match(main, /enter-full-screen[\s\S]{0,120}_svChromeArmed = false/);
+  const vis = read('src/visualizer/visualizer.js');
+  assert.match(vis, /!window\.SV_FLOATING/);
+  assert.match(vis, /const was = document\.documentElement\.classList\.contains\('sv-windowed'\)/);
+  assert.match(vis, /show && !was/);
+  assert.match(vis, /!show[\s\S]{0,200}remove\('sv-win-show'\)/);
+});
