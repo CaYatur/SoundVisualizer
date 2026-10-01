@@ -1993,6 +1993,13 @@
       'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double preset) files are added too.',
     'Sil': 'Delete',
     
+    
+    // ---- Yüzen PiP + pencere geometri kilidi ----
+    'Yüzen pencere (PiP)': 'Floating window (PiP)',
+    'Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.': 'If you close the window elsewhere, this switch turns off right away.',
+    'Ekrandan bağımsız küçük görselleştirici. Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.': 'A small visualizer independent of the displays. If you close the window elsewhere, this switch turns off right away.',
+    'Konum ve boyutu kilitle': 'Lock position and size',
+    'Kilidi aç': 'Unlock',
     // ---- Genel Işık Ayarları (ortak görünüm + backend etiketleri) ----
     'Genel Işık Ayarları': 'General Light Settings',
     'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, colour and audio response — the shared look for Windows Dynamic Lighting and OpenRGB. Each control names the outputs it applies to. Art-Net uses the settings on its own card.',

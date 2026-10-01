@@ -940,6 +940,15 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 }
 .display-menu label:hover { background: var(--card2); color: var(--text); }
 .display-menu input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+.dm-sep { height: 1px; margin: 6px 8px; background: var(--line); }
+.dm-pip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; cursor: pointer; font-size: 12.5px; font-weight: 600;
+}
+.dm-pip:hover { background: rgba(255,255,255,.04); }
+.dm-pip input { accent-color: var(--accent); width: 15px; height: 15px; }
+
 .display-menu .dm-sub { color: var(--muted2); font-size: 10.5px; margin-left: auto; }
 .display-menu .dm-note {
   font-size: 10.5px; color: var(--muted2); padding: 6px 9px 3px; line-height: 1.45;

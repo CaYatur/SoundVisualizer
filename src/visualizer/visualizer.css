@@ -124,3 +124,63 @@ html.sv-floating.sv-float-show #sv-float-bar { opacity: 1; background: rgba(8, 8
 .svi-lead { margin-right: .4em; }
 .sv-md-keys .svi { width: 1em; height: 1em; vertical-align: -0.15em; }
 .sv-float-close:hover { background: rgba(230, 60, 60, 0.9); }
+
+/* Tam ekrandan (F11) cekilince gorsellestirici surukleme/kilit cubugu.
+   Yalniz windowed iken; tam ekranda gizli. */
+html.sv-windowed, html.sv-windowed body { cursor: default; }
+#sv-win-bar {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 28px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: rgba(8, 8, 12, 0.72);
+  opacity: 0;
+  transition: opacity .15s;
+  pointer-events: none;
+}
+html.sv-windowed #sv-win-bar {
+  display: flex;
+  pointer-events: auto;
+}
+html.sv-windowed #sv-win-bar:hover,
+html.sv-windowed.sv-win-show #sv-win-bar { opacity: 1; }
+.sv-win-grip {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: grab;
+}
+.sv-win-lock {
+  -webkit-app-region: no-drag;
+  border: 0;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  font-size: 11px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sv-win-lock:hover { background: rgba(255,255,255,0.28); }
+.sv-win-lock.on { background: rgba(225,29,42,0.55); }
+.sv-win-lock .svi { width: 13px; height: 13px; }
+html.sv-geo-locked .sv-win-grip {
+  -webkit-app-region: no-drag;
+  cursor: default;
+  opacity: 0.55;
+}
+

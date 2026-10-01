@@ -64,6 +64,64 @@
     });
   }
 
+
+
+  /* Tam ekran gorsellestirici: F11 ile windowed olunca suruklenebilir olmali.
+     Cercevesiz pencerede -webkit-app-region: drag sarti; kilit yalniz windowed. */
+  if (typeof window !== 'undefined' && !window.SV_FLOATING && window.api && window.api.onWindowChrome) {
+    const bar = document.createElement('div');
+    bar.id = 'sv-win-bar';
+    const grip = document.createElement('div');
+    grip.className = 'sv-win-grip';
+    const ico = (name, alt) => (window.SVIcons ? window.SVIcons.el(name) : document.createTextNode(alt));
+    grip.appendChild(ico('grip', '::'));
+    const label = document.createElement('span');
+    label.textContent = 'Taşı';
+    grip.appendChild(label);
+    const lockBtn = document.createElement('button');
+    lockBtn.type = 'button';
+    lockBtn.className = 'sv-win-lock';
+    lockBtn.title = 'Konum ve boyutu kilitle';
+    const setLockUi = (locked) => {
+      lockBtn.classList.toggle('on', !!locked);
+      document.documentElement.classList.toggle('sv-geo-locked', !!locked);
+      lockBtn.textContent = '';
+      lockBtn.appendChild(ico(locked ? 'lock' : 'unlock', locked ? 'Kilitli' : 'Açık'));
+      const t = document.createElement('span');
+      /* Kapaliyken eylem: Kilitle; acikken eylem: Kilidi ac */
+      t.textContent = locked ? 'Kilidi aç' : 'Kilitle';
+      lockBtn.appendChild(t);
+    };
+    let locked = false;
+    lockBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      locked = !locked;
+      setLockUi(locked);
+      try { window.api.setGeometryLock(locked); } catch { /* yok */ }
+    });
+    setLockUi(false);
+    bar.appendChild(grip);
+    bar.appendChild(lockBtn);
+    const mount = () => (document.body || document.documentElement).appendChild(bar);
+    if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+
+    window.api.onWindowChrome((st) => {
+      const show = !!(st && st.show);
+      document.documentElement.classList.toggle('sv-windowed', show);
+      if (typeof st.locked === 'boolean') {
+        locked = st.locked;
+        setLockUi(locked);
+      }
+      if (show) {
+        document.documentElement.classList.add('sv-win-show');
+        setTimeout(() => document.documentElement.classList.remove('sv-win-show'), 1800);
+      }
+    });
+    try {
+      window.api.getGeometryLock().then((v) => { locked = !!v; setLockUi(locked); }).catch(() => {});
+    } catch { /* yok */ }
+  }
+
   let cfg = window.SV.defaultConfig();
   const audio = new window.SVAudio();
   const sprites = new window.SVSprites(); // ek görsel nesneler / partiküller

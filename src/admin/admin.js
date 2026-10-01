@@ -6,6 +6,7 @@
   let displays = [];
   let selectedDisplayIds = []; // görselleştirmenin açılacağı ekranlar (çoklu)
   let visOpen = false;
+  let floatingOpen = false; // yüzen PiP açık mı (visualizer-status.floating)
   let audioDevices = [];
   let audioApps = [];              // o an ses oturumu olan uygulamalar
   let appAudioStatus = null;       // özellik bu makinede kullanılabilir mi
@@ -451,6 +452,8 @@
         return logoFileCtrl(def);
       case 'logolibrary':
         return logoLibraryCtrl(def);
+      case 'floatingtoggle':
+        return floatingToggleCtrl(def);
       case 'floatingtools':
         return floatingToolsCtrl(def);
       case 'xy':
@@ -1119,6 +1122,45 @@
         render();
       },
     });
+  }
+
+
+  function updateFloatingToggles() {
+    document.querySelectorAll('[data-sv-floating-toggle]').forEach((box) => {
+      box.checked = !!floatingOpen;
+    });
+  }
+
+  function floatingToggleCtrl() {
+    const box = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        const want = !!e.target.checked;
+        if (want === floatingOpen) return;
+        try {
+          const r = await window.api.toggleFloating();
+          floatingOpen = !!(r && r.open);
+        } catch {
+          floatingOpen = false;
+        }
+        updateFloatingToggles();
+        /* Boyut/köşe araçları yalnızca açıkken anlamlı; kartı tazele. */
+        render();
+      },
+    });
+    box.checked = !!floatingOpen;
+    box.setAttribute('data-sv-floating-toggle', '1');
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: 'Yüzen pencere (PiP)' }),
+        el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]),
+      ]),
+      el('div', {
+        class: 'settings-io-note',
+        style: 'margin-top:6px',
+        text: 'Ekrandan bağımsız küçük görselleştirici. Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.',
+      }),
+    ]);
   }
 
   function floatingToolsCtrl() {
@@ -2580,7 +2622,7 @@
         desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
         controls: [
           { type: 'displaypicker' },
-          { type: 'button', icon: 'window', label: 'Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
+          { type: 'floatingtoggle' },
           { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', min: 0.2, max: 1, step: 0.01, percent: true },
           { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
           { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
@@ -3332,6 +3374,33 @@
         text: 'Birden fazla ekran seçerseniz görselleştirme hepsinde aynı anda açılır. ESC hepsini kapatır.',
       })
     );
+
+    const pipSep = el('div', { class: 'dm-sep' });
+    menu.appendChild(pipSep);
+    const pipBox = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        e.stopPropagation();
+        const want = !!e.target.checked;
+        if (want === floatingOpen) return;
+        try {
+          const r = await window.api.toggleFloating();
+          floatingOpen = !!(r && r.open);
+        } catch { floatingOpen = false; }
+        updateFloatingToggles();
+        render();
+      },
+    });
+    pipBox.checked = !!floatingOpen;
+    pipBox.setAttribute('data-sv-floating-toggle', '1');
+    /* Menü dış tıklanınca kapanmasın diye mousedown durdur. */
+    const pipRow = el('label', { class: 'dm-pip' }, [
+      pipBox,
+      el('span', { text: 'Yüzen pencere (PiP)' }),
+    ]);
+    pipRow.addEventListener('click', (e) => e.stopPropagation());
+    menu.appendChild(pipRow);
+
   }
 
   // Menüyü aç/kapat ve dışarı tıklayınca kapat
@@ -3408,8 +3477,9 @@
   // --------------------------------------------------------------------------
   // Durum
   // --------------------------------------------------------------------------
-  function setStatus(open, displayIds) {
+    function setStatus(open, displayIds, floating) {
     visOpen = open;
+    if (typeof floating === 'boolean') floatingOpen = floating;
     const n = Array.isArray(displayIds) ? displayIds.length : open ? 1 : 0;
     $('statusDot').className = 'dot ' + (open ? 'on' : 'off');
     $('statusText').textContent = open ? (n > 1 ? n + ' ekranda açık' : 'Açık') : 'Kapalı';
@@ -3419,6 +3489,7 @@
     window.SVIcons.set($('openBtn'), 'play', open ? 'Ekranları Uygula' : 'Görselleştirmeyi Aç');
     // Görselleştirici açıkken yakalama zaten sürüyor; önizleme kareleri bedava
     syncPreviewSubscription();
+    updateFloatingToggles();
   }
 
   function setAudioState(text, cls, icon) {
@@ -4510,7 +4581,7 @@
         handleDynamicThemeTrackUpdate(st);
       });
     }
-    window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));
+    window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds, d.floating));
 
     // Farklı kontrol sistemi (Heartbeat / Durum Güvencesi):
     // Kaza korumasıyla pencere geri açıldığında, çökme anında veya IPC gecikmelerinde
@@ -4523,7 +4594,7 @@
           const closeBtn = $('closeBtn');
           const isMismatched = (st.open !== visOpen) || (closeBtn && closeBtn.disabled === st.open);
           if (isMismatched) {
-            setStatus(st.open, st.displayIds);
+            setStatus(st.open, st.displayIds, st.floating);
           }
         }
       } catch {}

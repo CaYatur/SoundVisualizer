@@ -806,6 +806,17 @@ function createVisualizerWindow(display) {
     }
   });
 
+  /* F11: Electron varsayilan tam ekran cikisinda pencere yeniden boyutlanir
+     ama cercevesiz oldugu icin surukleme bolgesi yoktu — tasinamıyordu.
+     Windowed iken ustte surukleme cubugu; kilit yalniz tam ekran DEGILKEN. */
+  const syncChrome = () => applyGeometryLockToWin(win);
+  win.on('enter-full-screen', syncChrome);
+  win.on('leave-full-screen', syncChrome);
+  win.webContents.on('did-finish-load', () => {
+    /* Ilk yuklenmede tam ekransa chrome gizli; F11 sonrasi gosterilir. */
+    setTimeout(syncChrome, 0);
+  });
+
   win.on('closed', () => {
     visualizerWins.delete(display.id);
     // Kapanış kasıtlı mıydı? closeVisualizer() bunu önceden işaretler;
@@ -1561,6 +1572,7 @@ function createFloatingWindow() {
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
   attachSmoke(win, 'FLOAT');
   applyFloatingPrefs();
+  applyGeometryLockAll();
 
   win.on('move', saveFloatingBounds);
   win.on('resize', () => {
@@ -1613,6 +1625,40 @@ ipcMain.handle('floating:size', (e, kind) => { sizeFloating(kind); return true; 
 ipcMain.on('floating:close', () => closeFloatingWindow());
 ipcMain.on('floating:snap', (e, where) => snapFloating(where));
 ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
+
+/* Tam ekrandan (F11) cekilince tasima/yeniden boyut; kilit cfg.power.geometryLock. */
+function geometryLocked() {
+  return !!(currentConfig && currentConfig.power && currentConfig.power.geometryLock);
+}
+function applyGeometryLockToWin(win) {
+  if (!win || win.isDestroyed()) return;
+  const locked = geometryLocked();
+  /* Yalniz tam ekrana girebilen (opak) pencereler: F11 sonrasi windowed.
+     Seffaf modda fullscreenable=false; ekrani kaplayan sabit pencere kalir. */
+  let canFs = false;
+  try { canFs = !!win.isFullScreenable(); } catch { canFs = false; }
+  const windowed = canFs && !win.isFullScreen();
+  if (windowed) {
+    try { win.setMovable(!locked); } catch { /* yok */ }
+    try { win.setResizable(!locked); } catch { /* yok */ }
+  }
+  try {
+    if (!win.webContents.isDestroyed()) {
+      win.webContents.send('window-chrome', { show: windowed, locked });
+    }
+  } catch { /* yok */ }
+}
+function applyGeometryLockAll() {
+  for (const win of visualizerWins.values()) applyGeometryLockToWin(win);
+}
+ipcMain.on('visualizer:geometry-lock', (e, locked) => {
+  if (!currentConfig.power) currentConfig.power = {};
+  currentConfig.power.geometryLock = !!locked;
+  applyGeometryLockAll();
+  notifyAdmin('external-config', currentConfig);
+});
+ipcMain.handle('visualizer:geometry-lock-get', () => geometryLocked());
+
 
 ipcMain.handle('open-visualizer', (e, displayIds) => {
   openVisualizer(displayIds);
@@ -1693,6 +1739,7 @@ function applyIncomingConfig(config, opts) {
     sendToVisualizers('config', config);
     if (anyVisualizerOpen()) applyAlwaysOnTop();
     applyFloatingPrefs();
+  applyGeometryLockAll();
   }
   if (prevSee !== nowSee && anyVisualizerOpen()) {
     if (recreateTimer) clearTimeout(recreateTimer);
