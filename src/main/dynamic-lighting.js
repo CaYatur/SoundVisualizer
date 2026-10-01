@@ -61,6 +61,10 @@ async function scan() {
 
 async function setConfig(config) {
   const next = normalizeLighting(config);
+  /* Skip hardware writes when lighting is unchanged: dynamic modes used to
+     call setAll(baseLevel) on every push and flicker the animation. */
+  const unchanged = currentConfig != null
+    && JSON.stringify(currentConfig) === JSON.stringify(next);
   if (next.mode !== animation.mode) resetAnimation(next.mode);
   currentConfig = next;
 
@@ -77,6 +81,7 @@ async function setConfig(config) {
     devicesClaimed = true;
   }
   if (!cachedScan.devices?.length) return { ok: false, error: 'NO_SUPPORTED_DEVICES' };
+  if (unchanged) return { ok: true, skipped: true };
 
   if (currentConfig.mode === 'single-color') {
     addon.setAll(currentConfig.color, currentConfig.brightness);
