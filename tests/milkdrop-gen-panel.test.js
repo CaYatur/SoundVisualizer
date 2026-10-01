@@ -256,3 +256,17 @@ test('kart bağlı: bölüm, denetim, betik sırası ve çeviriler', () => {
   assert.ok(at('../shared/milkdrop-mashup.js') > 0, 'karışım modülü yüklenmiyor');
   assert.ok(at('../shared/milkdrop-mashup.js') < at('milkdrop-gen.js"'), 'karışım modülü panelden sonra');
 });
+
+test('üretici düğme satırı kaydırılabilir ve sağa yapışmaz', () => {
+  /* flex:1 (basis 0%) uzun "Kütüphaneye Kaydet" etiketini ~300px kartta
+     sağ kenara sıkıştırıyordu. CSS flex-wrap + içerik temelli basis; karışım
+     geçmişindeki oklar mdmix-nav ile kompakt. */
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'studio.css'), 'utf-8');
+  assert.match(css, /\.gen-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
+  assert.match(css, /\.gen-actions\s+\.btn\s*\{[^}]*flex:\s*1\s+1\s+8\.5rem/s);
+  assert.doesNotMatch(css, /\.gen-actions\s+\.btn\s*\{\s*flex:\s*1;\s*\}/);
+  assert.match(css, /\.gen-actions\.mdmix-nav/);
+  const gen = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'milkdrop-gen.js'), 'utf-8');
+  assert.match(gen, /class:\s*'gen-actions mdmix-nav'/);
+  assert.doesNotMatch(css, /\.gen-actions[^{]*\{[^}]*margin-left:\s*auto/s);
+});

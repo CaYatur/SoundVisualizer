@@ -6,6 +6,7 @@
   let displays = [];
   let selectedDisplayIds = []; // görselleştirmenin açılacağı ekranlar (çoklu)
   let visOpen = false;
+  let floatingOpen = false; // yüzen PiP açık mı (visualizer-status.floating)
   let audioDevices = [];
   let audioApps = [];              // o an ses oturumu olan uygulamalar
   let appAudioStatus = null;       // özellik bu makinede kullanılabilir mi
@@ -451,6 +452,8 @@
         return logoFileCtrl(def);
       case 'logolibrary':
         return logoLibraryCtrl(def);
+      case 'floatingtoggle':
+        return floatingToggleCtrl(def);
       case 'floatingtools':
         return floatingToolsCtrl(def);
       case 'xy':
@@ -465,6 +468,8 @@
         return exportPanelCtrl(def);
       case 'lightingpanel':
         return lightingPanelCtrl(def);
+      case 'lightinggeneralpanel':
+        return window.SVLightingGeneral ? window.SVLightingGeneral.panel() : null;
       case 'dynamictheme':
         return dynamicThemeCtrl(def);
       case 'streampanel':
@@ -667,6 +672,11 @@
           if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
             cfg.visualizer.rainbow = (o.value === 'rainbow');
           }
+          /* Seçili görünümü hemen güncelle. rebuild/onChange olmadan
+             (Otomatik VJ "Hangi Katmanlar" / "Sıra") panel yeniden
+             çizilene kadar eski active sınıfı kalıyordu. */
+          for (const sib of seg.querySelectorAll('button')) sib.classList.remove('active');
+          b.classList.add('active');
           /* Değeri yazdıktan SONRA, yeniden çizimden ÖNCE: çağıran taraf
              yeni değere göre kendi durumunu düzeltebilsin (Otomatik VJ
              zamanlayıcısını sıfırlamak gibi). */
@@ -1114,6 +1124,45 @@
     });
   }
 
+
+  function updateFloatingToggles() {
+    document.querySelectorAll('[data-sv-floating-toggle]').forEach((box) => {
+      box.checked = !!floatingOpen;
+    });
+  }
+
+  function floatingToggleCtrl() {
+    const box = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        const want = !!e.target.checked;
+        if (want === floatingOpen) return;
+        try {
+          const r = await window.api.toggleFloating();
+          floatingOpen = !!(r && r.open);
+        } catch {
+          floatingOpen = false;
+        }
+        updateFloatingToggles();
+        /* Boyut/köşe araçları yalnızca açıkken anlamlı; kartı tazele. */
+        render();
+      },
+    });
+    box.checked = !!floatingOpen;
+    box.setAttribute('data-sv-floating-toggle', '1');
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: 'Yüzen pencere (PiP)' }),
+        el('label', { class: 'switch' }, [box, el('span', { class: 'track' })]),
+      ]),
+      el('div', {
+        class: 'settings-io-note',
+        style: 'margin-top:6px',
+        text: 'Ekrandan bağımsız küçük görselleştirici. Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.',
+      }),
+    ]);
+  }
+
   function floatingToolsCtrl() {
     const chip = (label, fn, icon, title) => el('button', {
       class: 'btn ghost small',
@@ -1447,249 +1496,29 @@
     ];
     if (!available || !lighting.enabled) return el('div', { class: 'lighting-panel' }, children);
 
-    const themedDropdown = (label, value, options, onChange, description = true) => {
-      const selected = options.find((option) => String(option.value) === String(value)) || options[0];
-      const menu = el('div', { class: 'lighting-select-menu' });
-      const buttonText = el('span', { class: 'lighting-select-value', text: selected.label });
-      const arrow = el('span', { class: 'lighting-select-arrow', icon: 'chevron-down' });
-      const button = el('button', { type: 'button', class: 'lighting-select-button' }, [buttonText, arrow]);
-      const wrap = el('div', { class: 'lighting-select-wrap', tabIndex: 0 }, [button, menu]);
-      const close = () => wrap.classList.remove('open');
-      options.forEach((option) => {
-        const item = el('button', {
-          type: 'button',
-          class: String(option.value) === String(value) ? 'lighting-select-option active' : 'lighting-select-option',
-          onclick: (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            close();
-            onChange(option.value);
-          },
-        }, [
-          el('span', { class: 'lighting-option-label', text: option.label }),
-          description && option.desc ? el('span', { class: 'lighting-option-desc', text: option.desc }) : null,
-        ].filter(Boolean));
-        menu.appendChild(item);
-      });
-      button.onclick = (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        wrap.classList.toggle('open');
-      };
-      wrap.onblur = () => setTimeout(close, 100);
-      return el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: label }), wrap]);
-    };
-
-    children.push(themedDropdown('Aydınlatma Modu', lighting.mode, MODE_OPTIONS, (value) => {
-      lighting.mode = value;
-      apply(true);
+    /* Görünüm ayarları (mod, renk, tepki…) her zaman erişilebilir Genel Işık
+       Ayarları kartında. Burada yalnız Windows Dynamic Lighting'e özgü
+       aygıt/LED boyama kalır — OpenRGB bunları süremez. */
+    children.push(el('div', {
+      class: 'lighting-mode-help',
+      text: 'Ortak görünüm ayarları (mod, parlaklık, ses tepkisi, renkler) aşağıda Genel Işık Ayarları kartındadır. Bu kartta yalnız Windows aygıtlarına özel renk boyama vardır.',
     }));
 
-    const colorRow = (key, label) => {
-      const input = el('input', {
-        type: 'color', value: lighting[key],
-        oninput: (e) => { lighting[key] = e.target.value; apply(false); },
-      });
-      return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), input])]);
-    };
-
-    const rangeRow = (key, label, min, max, step, percent = false) => {
-      const current = Number(lighting[key]);
-      const value = el('span', { class: 'val', text: percent ? Math.round(current * 100) + '%' : String(current) });
-      const input = el('input', {
-        type: 'range', min, max, step, value: current,
-        oninput: (e) => {
-          lighting[key] = parseFloat(e.target.value);
-          value.textContent = percent ? Math.round(lighting[key] * 100) + '%' : String(lighting[key]);
-          apply(false);
-        },
-      });
-      return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), value]), input]);
-    };
-
-    const optionRow = (key, label, options) => themedDropdown(label, lighting[key], options, (value) => {
-      lighting[key] = value;
-      apply(true);
-    }, false);
-
     const staticMode = ['single-color', 'per-device', 'per-led'].includes(lighting.mode);
-    const dynamicMode = !staticMode;
-
-    children.push(rangeRow('brightness', 'Genel Parlaklık', 0, 1, 0.01, true));
-
     if (lighting.mode === 'single-color') {
-      children.push(colorRow('color', 'Tek Renk'));
-    }
-
-    if (dynamicMode) {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Genel Dinamik Ayarlar' }));
-      children.push(optionRow('layout', 'LED Yerleşimi', [
-        { value: 'global', label: 'Tüm Aygıtlarda Kesintisiz' },
-        { value: 'per-device', label: 'Her Aygıtta Baştan Başla' },
-        { value: 'uniform', label: 'Tüm LED’lerde Aynı Ton' },
+      const input = el('input', {
+        type: 'color', value: lighting.color,
+        oninput: (e) => { lighting.color = e.target.value; apply(false); },
+      });
+      children.push(el('div', { class: 'ctrl' }, [
+        el('div', { class: 'row' }, [
+          el('label', { class: 'lbl', text: 'Tek Renk' }),
+          input,
+        ]),
+        el('div', { class: 'lighting-backends' }, [
+          el('span', { class: 'lighting-backend-tag', text: 'Windows Dynamic Lighting' }),
+        ]),
       ]));
-      if (lighting.mode !== 'threshold-background-burst') {
-        children.push(rangeRow('intensity', 'Ses Tepkisi', 0, 1, 0.01, true));
-        children.push(rangeRow('smoothing', 'Yumuşatma', 0, 0.95, 0.01, true));
-        children.push(rangeRow('baseLevel', 'Sessizlikte Işık', 0.02, 0.6, 0.01, true));
-        children.push(rangeRow('spread', 'Renk Yayılımı', 0.1, 4, 0.05));
-      }
-      children.push(rangeRow('updateRate', 'Güncelleme Hızı', 5, 60, 1));
-      children.push(rangeRow('saturation', 'Renk Doygunluğu', 0, 1.5, 0.01));
-    }
-
-    const paletteModes = ['visualizer-sync', 'spectrum-bars', 'beat-pulse', 'ripple', 'ambient-fusion', 'device-flow'];
-    if (paletteModes.includes(lighting.mode)) {
-      children.push(optionRow('paletteSource', 'Renk Kaynağı', [
-        { value: 'visualizer', label: 'Görselleştirici Bar Renkleri' },
-        { value: 'background', label: 'Arka Plan Gradyanı' },
-        { value: 'bands', label: 'Bas · Mid · Tiz Renkleri' },
-        { value: 'rainbow', label: 'Tam Spektrum Gökkuşağı' },
-        { value: 'custom', label: 'Birincil · İkincil Renk' },
-        // MilkDrop'un o anki görüntüsü (#589): palet her ~30 Hz'te kareden
-        { value: 'milkdrop', label: 'MilkDrop Görüntüsü (Canlı)' },
-      ]));
-    }
-
-    if (lighting.paletteSource === 'custom' && paletteModes.includes(lighting.mode)) {
-      children.push(colorRow('color', 'Birincil Renk'));
-      children.push(colorRow('color2', 'İkincil Renk'));
-    }
-
-    const bandColorModes = ['spectrum-bars', 'band-zones', 'beat-pulse', 'ripple'];
-    if (bandColorModes.includes(lighting.mode) || lighting.paletteSource === 'bands') {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Frekans Renkleri ve Hassasiyet' }));
-      children.push(colorRow('bassColor', 'Bas Rengi'));
-      children.push(colorRow('midColor', 'Orta Frekans Rengi'));
-      children.push(colorRow('trebleColor', 'Tiz Rengi'));
-      children.push(rangeRow('bassGain', 'Bas Hassasiyeti', 0, 3, 0.05));
-      children.push(rangeRow('midGain', 'Orta Frekans Hassasiyeti', 0, 3, 0.05));
-      children.push(rangeRow('trebleGain', 'Tiz Hassasiyeti', 0, 3, 0.05));
-      children.push(optionRow('bandResponse', 'Bant Tepki Profili', [
-        { value: 'instant', label: 'Anlık / Katı' },
-        { value: 'punchy', label: 'Vuruşlu / Sert' },
-        { value: 'smooth', label: 'Yumuşak / Akıcı' },
-      ]));
-      if (lighting.bandResponse !== 'instant') {
-        children.push(rangeRow('bandAttack', 'Bant Saldırı Hızı', 0.15, 1, 0.01, true));
-        children.push(rangeRow('bandRelease', 'Bant Bırakma Hızı', 0.03, 0.65, 0.01, true));
-      }
-      children.push(rangeRow('bandThreshold', 'Bant Gürültü Eşiği', 0, 0.8, 0.01, true));
-      children.push(rangeRow('bandHardness', 'Bant Sertliği', 0, 1, 0.01, true));
-      children.push(rangeRow('bandSeparation', 'Bant Ayrıştırma', 0, 1, 0.01, true));
-    }
-
-    if (lighting.mode === 'visualizer-sync') {
-      children.push(rangeRow('colorSpeed', 'Renk Akış Hızı', 0, 3, 0.02));
-      children.push(rangeRow('audioAcceleration', 'Sesle Hızlanma', 0, 3, 0.05));
-    }
-
-    if (lighting.mode === 'spectrum-bars') {
-      children.push(rangeRow('spectrumContrast', 'Bar Kontrastı', 0, 1, 0.01, true));
-      children.push(el('div', { class: 'lighting-mode-help', text: 'Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini kullanır. Bas solda, tiz sağda ilerler.' }));
-    }
-
-    if (lighting.mode === 'band-zones') {
-      children.push(optionRow('bandPattern', 'Bant LED Deseni', [
-        { value: 'zones', label: 'Bas · Mid · Tiz Bölgeleri' },
-        { value: 'alternate', label: 'LED’lerde Sırayla Bas · Mid · Tiz' },
-        { value: 'mirror', label: 'Merkezden Aynalı Dağılım' },
-        { value: 'dominant', label: 'En Güçlü Bant Tüm LED’lerde' },
-      ]));
-      children.push(rangeRow('zoneBlend', 'Bölge Geçiş Yumuşaklığı', 0, 1, 0.01, true));
-      children.push(el('div', { class: 'lighting-mode-help', text: 'LED dizisinin ilk kısmı bas, ortası mid ve son kısmı tiz frekanslarına ayrılır.' }));
-    }
-
-    if (lighting.mode === 'background-sync') {
-      children.push(rangeRow('colorSpeed', 'Arka Plan Akış Çarpanı', 0, 3, 0.02));
-      children.push(el('div', { class: 'lighting-mode-help', text: 'Arka planın seçili renk şablonu, akış hızı ve ses tepkisi aynı anda ışıklara taşınır.' }));
-    }
-
-    const flashModes = ['background-sync', 'beat-pulse', 'ripple', 'ambient-fusion', 'device-flow'];
-    if (flashModes.includes(lighting.mode)) {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Vuruş ve Işık Patlaması' }));
-      children.push(optionRow('triggerBand', 'Patlamayı Tetikleyen Bant', [
-        { value: 'bass', label: 'Bas' },
-        { value: 'mid', label: 'Orta Frekans' },
-        { value: 'treble', label: 'Tiz' },
-        { value: 'level', label: 'Genel Ses Seviyesi' },
-        { value: 'auto', label: 'En Güçlü Frekansı Otomatik Seç' },
-      ]));
-      children.push(rangeRow('flashThreshold', 'Patlama Eşiği', 0.02, 0.98, 0.01, true));
-      children.push(rangeRow('flashStrength', 'Patlama Gücü', 0, 1.5, 0.01));
-      children.push(rangeRow('flashDecay', 'Patlama Sönümleme', 0.45, 0.995, 0.005));
-    }
-
-    if (lighting.mode === 'ripple') {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Dalga Hareketi' }));
-      children.push(optionRow('rippleDirection', 'Dalga Yönü', [
-        { value: 'forward', label: 'İleri' },
-        { value: 'reverse', label: 'Geri' },
-        { value: 'alternate', label: 'Her Vuruşta Yön Değiştir' },
-      ]));
-      children.push(rangeRow('rippleSpeed', 'Dalga Hızı', 0.05, 3, 0.05));
-      children.push(rangeRow('rippleWidth', 'Dalga Genişliği', 0.03, 0.6, 0.01));
-    }
-
-    if (lighting.mode === 'ambient-fusion') {
-      children.push(rangeRow('fusionMix', 'Arka Plan Karışım Oranı', 0, 1, 0.01, true));
-      children.push(rangeRow('spectrumContrast', 'Bar Kontrastı', 0, 1, 0.01, true));
-    }
-
-    if (lighting.mode === 'device-flow') {
-      children.push(rangeRow('flowSpeed', 'Aygıtlar Arası Akış Hızı', 0, 3, 0.02));
-      children.push(rangeRow('audioAcceleration', 'Sesle Akış Hızlanması', 0, 3, 0.05));
-    }
-
-    if (lighting.mode === 'rainbow') {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Rainbow Ayarları' }));
-      children.push(optionRow('rainbowStyle', 'Rainbow Dağıtımı', [
-        { value: 'ordered', label: 'LED’lerde Sıralı Gökkuşağı' },
-        { value: 'single', label: 'Tüm LED’lerde Aynı Ton' },
-      ]));
-      children.push(optionRow('rainbowAudioBand', 'Parlaklığa Tepki Veren Ses', [
-        { value: 'level', label: 'Genel Ses Seviyesi' },
-        { value: 'bass', label: 'Bas' },
-        { value: 'mid', label: 'Orta Frekans' },
-        { value: 'treble', label: 'Tiz' },
-        { value: 'auto', label: 'En Güçlü Frekans' },
-      ]));
-      children.push(rangeRow('rainbowSpeed', 'Rainbow Akış Hızı', 0.05, 3, 0.05));
-      children.push(rangeRow('rainbowSpread', 'Rainbow Renk Yayılımı', 0.1, 4, 0.05));
-      children.push(rangeRow('rainbowBaseBrightness', 'Rainbow Taban Parlaklığı', 0.02, 1, 0.01, true));
-      children.push(rangeRow('rainbowAudioBrightness', 'Sese Göre Parlaklık Gücü', 0, 1.5, 0.01));
-    }
-
-    if (lighting.mode === 'threshold-background-burst') {
-      children.push(el('div', { class: 'lighting-subtitle', text: 'Eşik Tetiklemeli Patlama Ayarları' }));
-      children.push(optionRow('thresholdBurstSource', 'İzlenecek Tek Ses Kaynağı', [
-        { value: 'bass', label: 'Bas' },
-        { value: 'mid', label: 'Orta Frekans' },
-        { value: 'treble', label: 'Tiz' },
-        { value: 'level', label: 'Genel Ses Seviyesi' },
-        { value: 'auto', label: 'En Güçlü Frekans' },
-      ]));
-      children.push(optionRow('thresholdBurstMode', 'Eşik Üstü Davranış', [
-        { value: 'pulse', label: 'Yalnızca Darbe / Patlama' },
-        { value: 'proportional', label: 'Eşik Üstünde Orantılı Parlama' },
-        { value: 'hybrid', label: 'Darbe + Orantılı Parlama' },
-      ]));
-      children.push(rangeRow('thresholdBurstThreshold', 'Tetikleme Eşiği', 0.01, 0.99, 0.01, true));
-      children.push(rangeRow('thresholdBurstStrength', 'Eşik Üstü Patlama Gücü', 0, 2, 0.01));
-      children.push(rangeRow('thresholdBurstBaseBrightness', 'Eşik Altı Taban Işığı', 0, 0.5, 0.01, true));
-      if (lighting.thresholdBurstMode !== 'proportional') {
-        children.push(rangeRow('thresholdBurstDecay', 'Patlama Sönümleme', 0.45, 0.995, 0.005));
-        children.push(rangeRow('thresholdBurstCooldown', 'Darbeler Arası Süre (ms)', 0, 1000, 10));
-      }
-      children.push(optionRow('thresholdBurstColorPosition', 'Arka Plan Renk Eşleme', [
-        { value: 'source', label: 'Seçilen Frekans Bölgesinin Rengi' },
-        { value: 'center', label: 'Arka Plan Merkez Rengi' },
-        { value: 'spread', label: 'Arka Plan Renklerini LED’lere Yay' },
-      ]));
-      children.push(el('div', {
-        class: 'lighting-mode-help',
-        text: 'Seçilen kaynak eşik altında kaldığında yalnızca taban ışığı görünür. Eşik aşıldığında, aşma miktarı patlamanın parlaklığını ve beyaz vurgu oranını belirler.',
-      }));
     }
 
     if (lighting.mode === 'per-device') {
@@ -1705,7 +1534,10 @@
         });
         children.push(el('div', { class: 'ctrl lighting-device' }, [
           el('div', { class: 'row' }, [
-            el('label', { class: 'lbl', text: device.name + ' · ' + device.lampCount + ' LED' }), input,
+            el('label', { class: 'lbl', text: device.name + ' — ' + device.lampCount + ' LED' }), input,
+          ]),
+          el('div', { class: 'lighting-backends' }, [
+            el('span', { class: 'lighting-backend-tag', text: 'Windows Dynamic Lighting' }),
           ]),
         ]));
       });
@@ -1717,7 +1549,7 @@
         for (let index = 0; index < device.lampCount; index++) {
           const input = el('input', {
             type: 'color',
-            title: device.name + ' · LED ' + (index + 1),
+            title: device.name + ' — LED ' + (index + 1),
             value: stored[index] || lighting.deviceColors?.[device.id] || lighting.color,
             oninput: (e) => {
               const colors = lighting.deviceLedColors[device.id] || [];
@@ -1731,16 +1563,23 @@
           ]));
         }
         children.push(el('div', { class: 'ctrl lighting-device' }, [
-          el('label', { class: 'lbl', text: device.name + ' · ' + device.lampCount + ' LED / bölge' }),
+          el('label', { class: 'lbl', text: device.name + ' — ' + device.lampCount + ' LED / bölge' }),
           grid,
+          el('div', { class: 'lighting-backends' }, [
+            el('span', { class: 'lighting-backend-tag', text: 'Windows Dynamic Lighting' }),
+          ]),
         ]));
       });
-    } else if (dynamicMode) {
-      children.push(el('div', { class: 'lighting-devices', text: devices.map((device) => device.name + ' (' + device.lampCount + ' LED)').join(' • ') }));
+    } else if (!staticMode) {
+      children.push(el('div', {
+        class: 'lighting-devices',
+        text: devices.map((device) => device.name + ' (' + device.lampCount + ' LED)').join(' · '),
+      }));
     }
 
     return el('div', { class: 'lighting-panel' }, children);
   }
+
 
   // --- Dinamik / Olay Temelli Renk Teması Kontrolü (Windows SMTC) ---
   let lastDynamicTrackKey = '';
@@ -2635,6 +2474,17 @@
         controls: [{ type: 'artnetpanel' }],
       },
       {
+        /* Ortak görünüm: WDL kapalı veya OpenRGB tek başına açıkken de
+           erişilsin diye kategorinin EN ALTINDA, belirgin başlıkla. */
+        id: 'lightingGeneral',
+        category: 'lighting',
+        icon: 'sliders',
+        wide: true,
+        title: 'Genel Işık Ayarları',
+        desc: 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.',
+        controls: [{ type: 'lightinggeneralpanel' }],
+      },
+      {
         id: 'midi',
         category: 'control',
         icon: 'keys',
@@ -2772,7 +2622,7 @@
         desc: 'Görselleştirme hangi ekranda tam ekran açılsın? Üst çubuktan da seçebilirsiniz.',
         controls: [
           { type: 'displaypicker' },
-          { type: 'button', icon: 'window', label: 'Yüzen Pencereyi Aç / Kapat', action: 'toggleFloating' },
+          { type: 'floatingtoggle' },
           { type: 'slider', path: 'floating.opacity', label: 'Yüzen Pencere Saydamlığı', min: 0.2, max: 1, step: 0.01, percent: true },
           { type: 'toggle', path: 'floating.aspectLock', label: 'En-Boy Kilidi (16:9)' },
           { type: 'toggle', path: 'floating.locked', label: 'Konumu Kilitle' },
@@ -3524,6 +3374,33 @@
         text: 'Birden fazla ekran seçerseniz görselleştirme hepsinde aynı anda açılır. ESC hepsini kapatır.',
       })
     );
+
+    const pipSep = el('div', { class: 'dm-sep' });
+    menu.appendChild(pipSep);
+    const pipBox = el('input', {
+      type: 'checkbox',
+      onchange: async (e) => {
+        e.stopPropagation();
+        const want = !!e.target.checked;
+        if (want === floatingOpen) return;
+        try {
+          const r = await window.api.toggleFloating();
+          floatingOpen = !!(r && r.open);
+        } catch { floatingOpen = false; }
+        updateFloatingToggles();
+        render();
+      },
+    });
+    pipBox.checked = !!floatingOpen;
+    pipBox.setAttribute('data-sv-floating-toggle', '1');
+    /* Menü dış tıklanınca kapanmasın diye mousedown durdur. */
+    const pipRow = el('label', { class: 'dm-pip' }, [
+      pipBox,
+      el('span', { text: 'Yüzen pencere (PiP)' }),
+    ]);
+    pipRow.addEventListener('click', (e) => e.stopPropagation());
+    menu.appendChild(pipRow);
+
   }
 
   // Menüyü aç/kapat ve dışarı tıklayınca kapat
@@ -3600,8 +3477,9 @@
   // --------------------------------------------------------------------------
   // Durum
   // --------------------------------------------------------------------------
-  function setStatus(open, displayIds) {
+    function setStatus(open, displayIds, floating) {
     visOpen = open;
+    if (typeof floating === 'boolean') floatingOpen = floating;
     const n = Array.isArray(displayIds) ? displayIds.length : open ? 1 : 0;
     $('statusDot').className = 'dot ' + (open ? 'on' : 'off');
     $('statusText').textContent = open ? (n > 1 ? n + ' ekranda açık' : 'Açık') : 'Kapalı';
@@ -3611,6 +3489,7 @@
     window.SVIcons.set($('openBtn'), 'play', open ? 'Ekranları Uygula' : 'Görselleştirmeyi Aç');
     // Görselleştirici açıkken yakalama zaten sürüyor; önizleme kareleri bedava
     syncPreviewSubscription();
+    updateFloatingToggles();
   }
 
   function setAudioState(text, cls, icon) {
@@ -4702,7 +4581,7 @@
         handleDynamicThemeTrackUpdate(st);
       });
     }
-    window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds));
+    window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds, d.floating));
 
     // Farklı kontrol sistemi (Heartbeat / Durum Güvencesi):
     // Kaza korumasıyla pencere geri açıldığında, çökme anında veya IPC gecikmelerinde
@@ -4715,7 +4594,7 @@
           const closeBtn = $('closeBtn');
           const isMismatched = (st.open !== visOpen) || (closeBtn && closeBtn.disabled === st.open);
           if (isMismatched) {
-            setStatus(st.open, st.displayIds);
+            setStatus(st.open, st.displayIds, st.floating);
           }
         }
       } catch {}

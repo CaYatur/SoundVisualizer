@@ -1992,7 +1992,23 @@
     'ZIP paketi, bir klasör ya da makinede bulunan bir kütüphane: önce ne ekleneceği gösterilir, onaylamadan hiçbir şey kopyalanmaz. İç içe klasörler ve dokular dahil; aynı ad ve içerikteki presetler atlanır. Dokular uygulamanın kendi klasörüne gider ve seçtiğiniz doku klasöründen sonra aranır. Uygulamayla hiçbir preset paketi gelmez. .milk2 (MilkDrop 3 çift preseti) dosyaları da eklenir.':
       'A ZIP pack, a folder or a library found on this computer: what will be added is shown first, and nothing is copied until you confirm. Nested folders and textures are included; presets with the same name and content are skipped. Textures go into the app’s own folder and are looked up after the texture folder you chose. No preset pack ships with the app. .milk2 (MilkDrop 3 double preset) files are added too.',
     'Sil': 'Delete',
-    // ---- MilkDrop preset üretici (#579) ----
+    
+    
+    // ---- Yüzen PiP + pencere geometri kilidi ----
+    'Yüzen pencere (PiP)': 'Floating window (PiP)',
+    'Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.': 'If you close the window elsewhere, this switch turns off right away.',
+    'Ekrandan bağımsız küçük görselleştirici. Pencereyi dışarıdan kapatınca bu anahtar anında kapanır.': 'A small visualizer independent of the displays. If you close the window elsewhere, this switch turns off right away.',
+    'Konum ve boyutu kilitle': 'Lock position and size',
+    'Kilidi aç': 'Unlock',
+    // ---- Genel Işık Ayarları (ortak görünüm + backend etiketleri) ----
+    'Genel Işık Ayarları': 'General Light Settings',
+    'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, colour and audio response — the shared look for Windows Dynamic Lighting and OpenRGB. Each control names the outputs it applies to. Art-Net uses the settings on its own card.',
+    'Bu ayarlar Windows Dynamic Lighting ve OpenRGB çıkışlarının ortak görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.': 'These settings are the shared look for Windows Dynamic Lighting and OpenRGB. Art-Net uses the settings on its own card. You can edit them here even before turning an output on.',
+    'Ortak görünüm ayarları (mod, parlaklık, ses tepkisi, renkler) aşağıda Genel Işık Ayarları kartındadır. Bu kartta yalnız Windows aygıtlarına özel renk boyama vardır.': 'Shared look settings (mode, brightness, audio response, colours) are in the General Light Settings card below. This card only has colour painting that is specific to Windows devices.',
+    'Statik modlar (tek renk, aygıt başına, LED başına) yalnız Windows Dynamic Lighting ile çalışır. OpenRGB sesi izleyen dinamik modları sürer. Aygıt/LED renk boyası Windows Dynamic Lighting kartındadır.': 'Static modes (single colour, per device, per LED) work only with Windows Dynamic Lighting. OpenRGB drives the dynamic modes that follow the audio. Device/LED colour painting is on the Windows Dynamic Lighting card.',
+    'OpenRGB parlaklığı OpenRGB kartındaki Parlaklık kaydırıcısındadır; buradaki değer Windows Dynamic Lighting içindir.': 'OpenRGB brightness is the Brightness slider on the OpenRGB card; the value here is for Windows Dynamic Lighting.',
+    'OpenRGB kare hızı OpenRGB kartındaki Güncelleme Hızı kaydırıcısındadır.': 'OpenRGB frame rate is the Update Rate slider on the OpenRGB card.',
+// ---- MilkDrop preset üretici (#579) ----
     // 'Enerji', 'Sıcaklık', 'Yoğunluk', 'Hareket', 'sakin', 'soğuk', 'sıcak', 'Tünel', 'Girdap', 'Yok',
     // 'Durum', 'Shader', '🎲 Karıştır' ve 'Kaydediliyor…' başka yerlerde zaten var
     'MilkDrop Preset Üretici': 'MilkDrop Preset Generator',

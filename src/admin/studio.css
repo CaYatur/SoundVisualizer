@@ -184,8 +184,30 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 .client-addr { color: var(--muted2); font: 10.5px 'Cascadia Code', 'Consolas', monospace; margin-left: auto; }
 
 /* ========================= SAHNE ÜRETİCİ ========================= */
-.gen-actions { display: flex; gap: 6px; margin-top: 6px; }
-.gen-actions .btn { flex: 1; }
+/* Button row (#579 / layout): flex:1 (basis 0%) forced equal columns in a
+   ~300px card, so long TR/EN labels ("Kütüphaneye Kaydet" / "Save to Library")
+   overflowed and sat flush on the right edge. Wrap with a content-ish basis
+   and even gap; don't shrink below the label. Same idea as #622 add-row. */
+.gen-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  align-items: stretch;
+}
+.gen-actions .btn {
+  flex: 1 1 8.5rem;
+  min-width: min(100%, 8.5rem);
+  max-width: 100%;
+}
+/* Mix history: icon-only chevrons stay compact; Save shares the rest without
+   margin-left:auto so disabled state does not jump to the far edge. */
+.gen-actions.mdmix-nav .btn { flex: 1 1 auto; min-width: 0; }
+.gen-actions.mdmix-nav .btn[data-icon="chevron-left"],
+.gen-actions.mdmix-nav .btn[data-icon="chevron-right"] {
+  flex: 0 0 auto;
+  min-width: 0;
+}
 .gen-swatch {
   height: 34px; border-radius: 8px; margin-top: 8px;
   border: 1px solid var(--line2);
@@ -211,7 +233,7 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 
 /* --- MilkDrop preset düzenleyici (#578) --- */
 .mded-panel { display: flex; flex-direction: column; gap: 8px; }
-.mded-panel .gen-actions .btn { flex: 1 1 auto; }
+/* Editor actions inherit .gen-actions wrap; no separate flex override. */
 .mded-tabs { margin-top: 2px; }
 .mded-tabs .layer-tab { display: inline-flex; align-items: center; gap: 5px; }
 .mded-badge {

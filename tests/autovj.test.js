@@ -340,3 +340,21 @@ test('görselleştirici listesi panelin tür seçicisiyle aynı kaynaktan', () =
   const EXCLUDED = ['none', 'text', 'nowplaying', 'custom'];
   assert.deepStrictEqual(all.filter((v) => A.VISUALIZERS.indexOf(v) < 0), EXCLUDED);
 });
+
+test('segment düğmesi tıklanınca active sınıfını hemen günceller', () => {
+  /* Otomatik VJ "Hangi Katmanlar" ve "Sıra" rebuild/onChange olmadan
+     yazıyordu; seçili görünüm panel yeniden çizilene kadar eski kalıyordu.
+     segmentCtrl artık classList ile anında senkronlar. */
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
+  const i = src.indexOf('function segmentCtrl(');
+  assert.ok(i > 0, 'segmentCtrl yok');
+  const block = src.slice(i, i + 1800);
+  assert.match(block, /classList\.remove\('active'\)/);
+  assert.match(block, /classList\.add\('active'\)/);
+  assert.ok(block.indexOf("classList.add('active')") < block.indexOf('def.onChange'),
+    'active, onChange/rebuild öncesi güncellenmeli');
+
+  const panel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'autovj.js'), 'utf-8');
+  assert.match(panel, /segment\('Hangi Katmanlar',\s*'autovj\.visualizerTargets'/);
+  assert.match(panel, /segment\('Sıra',\s*'autovj\.order'/);
+});

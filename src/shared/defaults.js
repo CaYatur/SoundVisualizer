@@ -318,6 +318,8 @@
       // Görselleştirme penceresini her zaman diğer pencerelerin üstünde tut.
       // Başka bir uygulama öne çıkarsa pencere kendini yeniden üste taşır.
       alwaysOnTop: false,
+      /* Tam ekrandan cikinca tasima/boyut kilidi (F11 windowed). */
+      geometryLock: false,
 
       /* Kaza koruması. Açıkken görselleştirme penceresi beklenmedik biçimde
          kapanırsa (çökme, Alt+F4) anında geri açılır. Varsayılan KAPALI:

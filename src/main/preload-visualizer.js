@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('api', {
   floatingClose: () => ipcRenderer.send('floating:close'),
   floatingSnap: (where) => ipcRenderer.send('floating:snap', where),
   floatingSize: (kind) => ipcRenderer.send('floating:size', kind),
+  onWindowChrome: (cb) => ipcRenderer.on('window-chrome', (e, st) => cb(st)),
+  setGeometryLock: (locked) => ipcRenderer.send('visualizer:geometry-lock', !!locked),
+  getGeometryLock: () => ipcRenderer.invoke('visualizer:geometry-lock-get'),
   // Liderin MilkDrop seçimi (#585): bu pencere izleyiciyse gelir
   onMdFollow: (cb) => ipcRenderer.on('md-follow', (e, p) => cb(p)),
   /* MilkDrop sprite'ları (#577): başlatma/silme komutları her motora gelir;
