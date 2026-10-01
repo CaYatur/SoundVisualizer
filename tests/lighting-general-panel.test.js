@@ -68,10 +68,42 @@ test('genel ışık kartı lighting kökünü sıfırlama için bildiriyor', () 
   assert.doesNotMatch(admin, /if \(sec\.id === 'lighting'\) out\.push\('lighting'\)/);
 });
 
-test('WDL kartı yalnız WDL-özel alanları sıfırlar', () => {
+test('WDL kartında sıfırlama yok — değişen ayar kalmadı', () => {
   const admin = read('src/admin/admin.js');
   const start = admin.search(/id: 'lighting',\s*category: 'lighting'/);
   assert.ok(start > 0, 'WDL section yok');
   const slice = admin.slice(start, start + 700);
-  assert.match(slice, /roots:\s*\['lighting\.enabled',\s*'lighting\.deviceColors',\s*'lighting\.deviceLedColors'\]/);
+  assert.match(slice, /roots:\s*\[\]/);
+  assert.doesNotMatch(slice, /lighting\.enabled/);
+});
+
+test('OpenRGB ve Art-Net kökleri sectionPaths için bildiriliyor', () => {
+  const admin = read('src/admin/admin.js');
+  const orgb = admin.slice(admin.search(/id: 'openrgb'/), admin.search(/id: 'openrgb'/) + 500);
+  assert.match(orgb, /roots:\s*\['openrgb'\]/);
+  const art = admin.slice(admin.search(/id: 'artnet',\s*category: 'lighting'/), admin.search(/id: 'artnet',\s*category: 'lighting'/) + 500);
+  assert.match(art, /roots:\s*\['artnet'\]/);
+});
+
+test('genel ışık rootOmit WDL anahtarı ve aygıt boyasını dışlar', () => {
+  const admin = read('src/admin/admin.js');
+  const start = admin.search(/id: 'lightingGeneral'/);
+  const slice = admin.slice(start, start + 800);
+  assert.match(slice, /rootOmit:\s*\['lighting\.enabled',\s*'lighting\.deviceColors',\s*'lighting\.deviceLedColors'\]/);
+  assert.match(admin, /function expandRoot/);
+});
+
+test('genel ışık paneli her ayara data-path ve ctrl-reset bağlar', () => {
+  const src = read('src/admin/lighting-general.js');
+  assert.match(src, /function attachPath/);
+  assert.match(src, /ctrl-reset/);
+  assert.match(src, /setAttribute\('data-path'/);
+  assert.match(src, /attachPath\([\s\S]*?'mode'\)/);
+});
+
+test('lighting.enabled varsayılanı kapalı', () => {
+  const defaults = read('src/shared/defaults.js');
+  const m = defaults.match(/lighting:\s*\{[\s\S]{0,80}enabled:\s*(true|false)/);
+  assert.ok(m, 'lighting.enabled bulunamadı');
+  assert.equal(m[1], 'false');
 });

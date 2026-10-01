@@ -418,6 +418,10 @@
        ellerinden kaçardı (Otomatik VJ’de olduğu gibi). */
     actions: () => actions,
     lightingModes: () => MODE_OPTIONS,
+    /* Özel paneller (Genel Işık vb.) tek ayar sıfırlama / rozet için */
+    isModified: (p) => isModified(p),
+    resetPath: (p) => resetPath(p),
+    defaultAt: (p) => defaultAt(p),
   };
 
 
@@ -2019,7 +2023,7 @@
         show: isWindows,
         title: 'Windows Dynamic Lighting',
         desc: 'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.',
-        roots: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
+        roots: [],
         controls: [{ type: 'lightingpanel' }],
       },
       {
@@ -2464,6 +2468,7 @@
         wide: true,
         title: 'OpenRGB',
         desc: 'Ayrı çalışan OpenRGB sunucusuna bağlanır ve RGB aygıtlarını müzikle sürer. Windows, macOS ve Linux.',
+        roots: ['openrgb'],
         controls: [{ type: 'openrgbpanel' }],
       },
       {
@@ -2472,6 +2477,7 @@
         icon: 'sliders',
         title: 'Art-Net / DMX Çıkışı',
         desc: 'Sahne renklerini standart DMX protokolüyle ışık konsollarına ve arayüzlerine yollar.',
+        roots: ['artnet'],
         controls: [{ type: 'artnetpanel' }],
       },
       {
@@ -2484,6 +2490,7 @@
         title: 'Genel Işık Ayarları',
         desc: 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.',
         roots: ['lighting'],
+        rootOmit: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
         controls: [{ type: 'lightinggeneralpanel' }],
       },
       {
@@ -2792,13 +2799,43 @@
      kuruyor ve buraya hiçbir yol bildirmiyorlardı; yol olmayınca da başlıkta
      ne değişiklik rozeti ne sıfırlama düğmesi çıkıyordu. Artık her bölüm
      kendi köklerini `roots` ile bildiriyor. */
+  /* Kök bir düz nesneyse yaprak yollarına aç: roots: ['lighting'] tek
+     birim sayılmasın, her değişen ayar rozette ayrı sayılsın. Dizi ve
+     boş/harita nesneleri yaprak kalır. rootOmit ile kartta olmayan alanlar
+     (WDL anahtarı, aygıt boyası) Genel Işık sayımından düşülür. */
+  function expandRoot(rootPath) {
+    const def = defaultAt(rootPath);
+    if (def === undefined) return [];
+    if (def === null || typeof def !== 'object') return [rootPath];
+    if (Array.isArray(def)) return [rootPath];
+    const keys = Object.keys(def);
+    if (!keys.length) return [rootPath];
+    const out = [];
+    keys.forEach((k) => {
+      const child = rootPath + '.' + k;
+      const v = def[k];
+      if (v !== null && typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length > 0) {
+        expandRoot(child).forEach((p) => out.push(p));
+      } else {
+        out.push(child);
+      }
+    });
+    return out;
+  }
+
   function sectionPaths(sec) {
     const out = [];
-    sec.controls.forEach((c) => {
-      if (c.path && defaultAt(c.path) !== undefined) out.push(c.path);
+    const omit = new Set(sec.rootOmit || []);
+    const add = (p) => {
+      if (!p || omit.has(p) || out.indexOf(p) >= 0) return;
+      if (defaultAt(p) === undefined) return;
+      out.push(p);
+    };
+    (sec.controls || []).forEach((c) => {
+      if (c.path) add(c.path);
     });
     (sec.roots || []).forEach((r) => {
-      if (defaultAt(r) !== undefined && out.indexOf(r) < 0) out.push(r);
+      expandRoot(r).forEach(add);
     });
     return out;
   }
