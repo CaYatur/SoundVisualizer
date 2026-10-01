@@ -263,7 +263,9 @@ test('üretici düğme satırı kaydırılabilir ve sağa yapışmaz', () => {
      geçmişindeki oklar mdmix-nav ile kompakt. */
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'studio.css'), 'utf-8');
   assert.match(css, /\.gen-actions\s*\{[^}]*flex-wrap:\s*wrap/s);
-  assert.match(css, /\.gen-actions\s+\.btn\s*\{[^}]*flex:\s*1\s+1\s+8\.5rem/s);
+  assert.match(css, /\.gen-actions\s+\.btn\s*\{[^}]*min-width:\s*0/s);
+  assert.match(css, /\.gen-actions\s+\.btn\s*\{[^}]*white-space:\s*normal/s);
+  assert.match(css, /\.gen-actions\s+\.btn\s*\{[^}]*overflow-wrap:\s*anywhere/s);
   assert.doesNotMatch(css, /\.gen-actions\s+\.btn\s*\{\s*flex:\s*1;\s*\}/);
   assert.match(css, /\.gen-actions\.mdmix-nav/);
   const gen = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'milkdrop-gen.js'), 'utf-8');

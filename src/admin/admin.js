@@ -2710,7 +2710,9 @@
         icon: 'sliders',
         wide: true,
         title: 'Genel Işık Ayarları',
-        desc: 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.',
+        desc: isWindows()
+          ? 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.'
+          : 'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.',
         roots: ['lighting'],
         rootOmit: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
         controls: [{ type: 'lightinggeneralpanel' }],
@@ -3181,6 +3183,9 @@
     } else {
       prevScroll = root.scrollTop;
     }
+    /* Masonry sınıfı bir önceki çizimden kalırsa yeni kartlar 4 px satıra
+       doğar. Linux o boyu içerik sanıp bütün kartları üst üste bindiriyor. */
+    root.classList.remove('masonry');
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -3232,6 +3237,31 @@
      ölçülüyor. Yalnız kalan yarım kart tam genişlik alıyor. */
   const MASONRY_ROW = 4; // px — admin.css `.sections.masonry` ile aynı
   let masonryRO = null;
+  let sectionsRO = null;
+  let sectionsW = 0;
+
+  function columnCount(root) {
+    const tpl = getComputedStyle(root).gridTemplateColumns;
+    if (!tpl || tpl === 'none') return 1;
+    return tpl.split(/\s+/).filter(Boolean).length || 1;
+  }
+
+  /* Sahne Üretici ile MilkDrop Preset Üretici iki tam genişlik kartın
+     arasında. Pencere büyüyünce ızgara yeni sütun açar, bu ikisi birer
+     sütunda dar kalır. Sütun sayısı 2'yi geçince satırı yarım yarım paylaşırlar. */
+  function placeGeneratorPair(root) {
+    const a = root.querySelector(':scope > [data-card="scenegen"]');
+    const b = root.querySelector(':scope > [data-card="mdgen"]');
+    if (!a || !b) return;
+    a.style.gridColumn = '';
+    b.style.gridColumn = '';
+    const cols = columnCount(root);
+    if (cols < 3) return;
+    const mid = Math.ceil(cols / 2);
+    a.style.gridColumn = '1 / ' + (mid + 1);
+    b.style.gridColumn = (mid + 1) + ' / -1';
+  }
+
   function layoutCards(root) {
     const kids = [...root.children];
     let run = [];
@@ -3242,18 +3272,61 @@
       else run.push(c);
     }
     flush();
-    root.classList.add('masonry');
+    placeGeneratorPair(root);
     const gap = parseFloat(getComputedStyle(root).columnGap) || 14;
-    const span = (c) => {
-      const h = c.getBoundingClientRect().height;
-      const s = 'span ' + Math.max(1, Math.ceil((h + gap) / MASONRY_ROW));
+    const spanFor = (h) => 'span ' + Math.max(1, Math.ceil((h + gap) / MASONRY_ROW));
+    /* İçerik boyu, 4 px'lik satır ızgarası kapalıyken okunur. Sınıf açıkken
+       Linux getBoundingClientRect'i satır yüksekliği sanıyor; span 1 kalınca
+       kartlar aynı yere yığılıyor. Çalan parça gibi yeniden çizen her işlem
+       bu yoldan geçer, o yüzden ölçüm her seferinde doğal düzende yapılır. */
+    root.classList.remove('masonry');
+    const heights = kids.map((c) => c.getBoundingClientRect().height);
+    root.classList.add('masonry');
+    kids.forEach((c, i) => {
+      const s = spanFor(heights[i]);
       if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
-    };
-    kids.forEach(span);
+    });
     if (masonryRO) masonryRO.disconnect();
     if (window.ResizeObserver) {
-      masonryRO = new ResizeObserver((entries) => { for (const e of entries) span(e.target); });
+      masonryRO = new ResizeObserver((entries) => {
+        for (const e of entries) {
+          const c = e.target;
+          if (!c.isConnected) continue;
+          const h = Math.max(c.scrollHeight, c.getBoundingClientRect().height);
+          const s = spanFor(h);
+          const cur = parseInt(String(c.style.gridRowEnd).replace(/[^\d]/g, ''), 10) || 0;
+          const next = parseInt(s.replace(/[^\d]/g, ''), 10) || 0;
+          /* Küçültme tam yeniden çizime bırakılır; gözlemci yalnızca
+             büyüyen içeriği (yüklenen kapak gibi) takip eder. Aksi halde
+             4 px satır ölçümü span'i eritip kartları üst üste bindirir. */
+          if (next > cur) c.style.gridRowEnd = s;
+        }
+      });
       kids.forEach((c) => masonryRO.observe(c));
+    }
+    /* Genişlik değişince payı aynı karede yenile. Sütun sayısı aynı kalsa
+       da eski grid-column çizgileri yatay kaydırmayı bir sonraki çizime
+       kadar açık bırakıyordu. */
+    if (sectionsRO) sectionsRO.disconnect();
+    sectionsW = root.clientWidth;
+    if (window.ResizeObserver) {
+      sectionsRO = new ResizeObserver(() => {
+        if (!root.isConnected) return;
+        const w = root.clientWidth;
+        if (w === sectionsW) return;
+        sectionsW = w;
+        placeGeneratorPair(root);
+        root.classList.remove('masonry');
+        const again = [...root.children];
+        const hs = again.map((c) => c.getBoundingClientRect().height);
+        root.classList.add('masonry');
+        again.forEach((c, i) => {
+          const s = spanFor(hs[i]);
+          if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
+        });
+        sectionsW = root.clientWidth;
+      });
+      sectionsRO.observe(root);
     }
   }
 

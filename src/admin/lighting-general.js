@@ -3,7 +3,9 @@
  *
  * Eskiden bu ayarlar yalnız WDL kartı AÇIKken görünüyordu; OpenRGB tek başına
  * açıkken veya henüz hiçbir çıkış seçilmemişken dokunulamıyordu. Bu panel
- * Işık kategorisinin en altında her zaman durur.
+ * Işık kategorisinin en altında her zaman durur. Linux ve macOS'ta kart
+ * kapanmaz: yalnız WDL'ye ait denetimler ve "Windows Dynamic Lighting"
+ * etiketi gizlenir, OpenRGB'nin kullandığı ayarlar yerinde kalır.
  *
  * Her denetimin yanında hangi çıkışlarda geçerli olduğu yazar. Etiketler
  * kod yollarına göre: shared/lighting-render.js → WDL + OpenRGB; lighting.brightness
@@ -16,14 +18,29 @@
   const WDL = 'Windows Dynamic Lighting';
   const ORGB = 'OpenRGB';
 
+  const STATIC_MODES = ['single-color', 'per-device', 'per-led'];
+
+  function wdlOn() {
+    return !!(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
+  }
+
+  function shownTags(names) {
+    if (wdlOn()) return names;
+    return names.filter((n) => n !== WDL);
+  }
+
   function backends(names) {
     const el = P().el;
     return el('div', { class: 'lighting-backends' }, names.map((n) => el('span', { class: 'lighting-backend-tag', text: n })));
   }
 
-  function wrap(ctrl, names) {
+  /* keep: etiket kalmayınca denetimi yine çiz (mod listesi). WDL-only
+     kaydırıcılar keep olmadan tamamen düşer. */
+  function wrap(ctrl, names, keep) {
     const el = P().el;
-    return el('div', { class: 'lighting-tagged' }, [ctrl, backends(names)]);
+    const tags = shownTags(names);
+    if (!tags.length) return keep ? ctrl : null;
+    return el('div', { class: 'lighting-tagged' }, [ctrl, backends(tags)]);
   }
 
   /* Tek ayar sıfırlama: admin appendGrouped ile aynı data-path + ctrl-reset.
@@ -61,7 +78,9 @@
     const nodes = [];
     nodes.push(el('div', {
       class: 'lighting-general-banner',
-      text: 'Bu ayarlar Windows Dynamic Lighting ve OpenRGB çıkışlarının ortak görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.',
+      text: wdlOn()
+        ? 'Bu ayarlar Windows Dynamic Lighting ve OpenRGB çıkışlarının ortak görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.'
+        : 'Bu ayarlar OpenRGB çıkışının görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.',
     }));
 
     const themedDropdown = (label, value, options, onChange, description) => {
@@ -124,8 +143,9 @@
       apply(true);
     }, false), key);
 
-    const modes = (P().lightingModes && P().lightingModes()) || [];
-    const staticMode = ['single-color', 'per-device', 'per-led'].includes(lighting.mode);
+    let modes = (P().lightingModes && P().lightingModes()) || [];
+    if (!wdlOn()) modes = modes.filter((m) => STATIC_MODES.indexOf(String(m.value)) < 0);
+    const staticMode = STATIC_MODES.includes(lighting.mode);
     const dynamicMode = !staticMode;
 
     nodes.push(wrap(
@@ -133,20 +153,28 @@
         lighting.mode = value;
         apply(true);
       }, true), 'mode'),
-      staticMode ? [WDL] : [WDL, ORGB]
+      staticMode ? [WDL] : [WDL, ORGB],
+      !wdlOn()
     ));
-    if (staticMode) {
+    if (staticMode && wdlOn()) {
       nodes.push(el('div', {
         class: 'lighting-mode-help',
         text: 'Statik modlar (tek renk, aygıt başına, LED başına) yalnız Windows Dynamic Lighting ile çalışır. OpenRGB sesi izleyen dinamik modları sürer. Aygıt/LED renk boyası Windows Dynamic Lighting kartındadır.',
       }));
+    } else if (staticMode) {
+      nodes.push(el('div', {
+        class: 'lighting-mode-help',
+        text: 'Kayıtlı aydınlatma modu bu sistemde yok. Listeden OpenRGB\'nin sürebildiği bir mod seçin.',
+      }));
     }
 
-    nodes.push(wrap(rangeRow('brightness', 'Genel Parlaklık', 0, 1, 0.01, true), [WDL]));
-    nodes.push(el('div', {
-      class: 'lighting-mode-help',
-      text: 'OpenRGB parlaklığı OpenRGB kartındaki Parlaklık kaydırıcısındadır; buradaki değer Windows Dynamic Lighting içindir.',
-    }));
+    if (wdlOn()) {
+      nodes.push(wrap(rangeRow('brightness', 'Genel Parlaklık', 0, 1, 0.01, true), [WDL]));
+      nodes.push(el('div', {
+        class: 'lighting-mode-help',
+        text: 'OpenRGB parlaklığı OpenRGB kartındaki Parlaklık kaydırıcısındadır; buradaki değer Windows Dynamic Lighting içindir.',
+      }));
+    }
 
     if (lighting.mode === 'single-color') {
       nodes.push(wrap(colorRow('color', 'Tek Renk'), [WDL]));
@@ -165,11 +193,13 @@
         nodes.push(wrap(rangeRow('baseLevel', 'Sessizlikte Işık', 0.02, 0.6, 0.01, true), [WDL, ORGB]));
         nodes.push(wrap(rangeRow('spread', 'Renk Yayılımı', 0.1, 4, 0.05), [WDL, ORGB]));
       }
-      nodes.push(wrap(rangeRow('updateRate', 'Güncelleme Hızı', 5, 60, 1), [WDL]));
-      nodes.push(el('div', {
-        class: 'lighting-mode-help',
-        text: 'OpenRGB kare hızı OpenRGB kartındaki Güncelleme Hızı kaydırıcısındadır.',
-      }));
+      if (wdlOn()) {
+        nodes.push(wrap(rangeRow('updateRate', 'Güncelleme Hızı', 5, 60, 1), [WDL]));
+        nodes.push(el('div', {
+          class: 'lighting-mode-help',
+          text: 'OpenRGB kare hızı OpenRGB kartındaki Güncelleme Hızı kaydırıcısındadır.',
+        }));
+      }
       nodes.push(wrap(rangeRow('saturation', 'Renk Doygunluğu', 0, 1.5, 0.01), [WDL, ORGB]));
     }
 

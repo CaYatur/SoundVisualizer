@@ -46,9 +46,12 @@
     if (!statusEl || !statusEl.isConnected) return;
     const N = NP();
     if (status && status.supported === false) {
-      statusEl.textContent = status.platform === 'win32'
-        ? 'Sistemden okunamıyor' + (status.error ? ' — ' + status.error : '')
-        : 'Sistemden okuma yalnızca Windows’ta çalışıyor';
+      statusEl.textContent = 'Sistemden okunamıyor' + (status.error ? ' — ' + status.error : '');
+      statusEl.className = 'txt-info np-status bad';
+      return;
+    }
+    if ((!live || !live.has) && status && status.error) {
+      statusEl.textContent = 'Sistemden okunamıyor — ' + status.error;
       statusEl.className = 'txt-info np-status bad';
       return;
     }
@@ -101,9 +104,7 @@
     const nodes = [];
 
     const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
-    if (!isWin && (C.source || 'system') === 'system') {
-      C.source = 'manual';
-    }
+    if (!isWin && (C.source || 'system') === 'system') C.source = 'manual';
     const src = C.source || (isWin ? 'system' : 'manual');
     if (src === 'system' && isWin && window.api && window.api.nowPlayingSubscribe) {
       window.api.nowPlayingSubscribe(true);
@@ -115,13 +116,8 @@
 
     const sourceOpts = isWin ? SOURCE_LABELS : [['manual', 'Elle Yaz']];
     nodes.push(SP().miniSelect('Kaynak', sourceOpts, () => src, (v) => {
-      if (!isWin && v === 'system') { C.source = 'manual'; }
-      else C.source = v;
+      C.source = isWin ? v : 'manual';
     }, rerender));
-    if (!isWin) {
-      nodes.push(el('div', { class: 'studio-note dim-hint',
-        text: 'Sistemden okuma (SMTC) yalnızca Windows’ta çalışır. Bu platformda parçayı elle yazın.' }));
-    }
 
     if (src === 'system') {
       statusEl = el('span', { class: 'txt-info np-status', text: 'okunuyor…' });

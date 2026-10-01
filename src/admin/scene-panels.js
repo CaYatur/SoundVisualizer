@@ -761,9 +761,7 @@
         }
       } else if (src === 'now') {
         const isWin = isWindowsPlatform();
-        if (!isWin && txt.nowSource === 'system') {
-          txt.nowSource = 'manual';
-        }
+        if (!isWin && (txt.nowSource || 'system') === 'system') txt.nowSource = 'manual';
         const isAuto = isWin && (txt.nowSource || 'system') === 'system';
 
         out.push(miniSelect('Gösterilen Alan', [
@@ -772,18 +770,17 @@
           ['both', 'Parça ve Sanatçı'],
         ], () => txt.field || 'both', (v) => { txt.field = v; }, rerender));
 
-        if (isWin) {
-          if (isAuto && window.api && window.api.nowPlayingSubscribe) {
+        if (isWin && isAuto && window.api && window.api.nowPlayingSubscribe) {
+          window.api.nowPlayingSubscribe(true);
+        }
+        if (isWin) out.push(miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
+          txt.nowSource = v ? 'system' : 'manual';
+          if (v && window.api && window.api.nowPlayingSubscribe) {
             window.api.nowPlayingSubscribe(true);
           }
-          out.push(miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
-            txt.nowSource = v ? 'system' : 'manual';
-            if (v && window.api && window.api.nowPlayingSubscribe) {
-              window.api.nowPlayingSubscribe(true);
-            }
-          }, rerender));
+        }, rerender));
 
-          out.push(miniToggle('Şarkı Resmini Göster', () => txt.showArtwork !== false, (v) => {
+          if (isWin) out.push(miniToggle('Şarkı Resmini Göster', () => txt.showArtwork !== false, (v) => {
             txt.showArtwork = v;
             P().push(true);
           }, rerender));
@@ -847,18 +844,6 @@
               ]));
             }
           }
-        } else {
-          // macOS / Linux
-          out.push(miniToggle('Sistemden Otomatik Doldur', () => false, () => {}, null, {
-            disabled: true,
-            badge: 'Yalnızca Windows',
-            title: 'Bu özellik şu anda yalnızca Windows (SMTC) üzerinde desteklenmektedir.',
-          }));
-          out.push(el('div', {
-            class: 'studio-note dim-hint',
-            text: 'Sistem medya oturumunu (SMTC) otomatik okuma şu anda yalnızca Windows’ta desteklenmektedir. Başlık ve sanatçı bilgilerini aşağıdan elle girebilirsiniz.',
-          }));
-        }
 
         const titleLabel = isAuto ? 'Yedek Parça Adı' : 'Parça Adı';
         const artistLabel = isAuto ? 'Yedek Sanatçı' : 'Sanatçı';

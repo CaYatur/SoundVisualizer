@@ -39,6 +39,7 @@ test('kaynak: dynamicTheme karti Windows-only', () => {
 test('kaynak: NP sistem kaynagi non-Windows manuel', () => {
   assert.match(panelSrc, /isWin/);
   assert.match(panelSrc, /C\.source\s*=\s*'manual'/);
+  assert.doesNotMatch(panelSrc, /Sistemden okuma \(SMTC\)/);
 });
 test('UI: NP panel cover toggle is always visible (not only inside foldable)', () => {
   const toggleAt = panelSrc.indexOf("miniToggle('Kapağı Göster'");
