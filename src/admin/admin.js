@@ -1949,6 +1949,10 @@
       id: 'library', icon: 'library', title: 'Kitaplık',
       desc: 'Kayıtlı sahneler, renk şablonları ve ayar yedekleri.',
     },
+    {
+      id: 'settings', icon: 'gear', title: 'Ayarlar',
+      desc: 'Uygulama sürümü, güncelleme denetimi ve kurulum türü.',
+    },
   ];
 
   /* Arkaplan modlarına özel ayarlar: katalogdaki `settings` listesi (#638).
@@ -2842,7 +2846,7 @@
       },
       {
         id: 'updates',
-        category: 'library',
+        category: 'settings',
         icon: 'download',
         title: 'Güncellemeler',
         desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',

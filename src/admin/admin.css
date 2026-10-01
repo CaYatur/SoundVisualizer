@@ -557,7 +557,13 @@ select:focus { border-color: var(--accent); }
 .subctrls { border-left: 2px solid var(--line2); padding-left: 12px; margin-top: 6px; }
 
 /* ---------- Kullanıcı renk şablonları ---------- */
-.user-presets { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+/* Library Scenes + My Color Presets: own scroll so the page does not grow forever. */
+.user-presets {
+  display: flex; flex-direction: column; gap: 6px; margin-top: 8px;
+  max-height: min(360px, 45vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
 .up-empty { font-size: 11px; color: var(--muted2); line-height: 1.5; padding: 6px 2px; }
 .up-item {
   display: flex; align-items: stretch; gap: 9px; padding: 7px;
