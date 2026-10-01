@@ -129,6 +129,28 @@ test('makeTextLayer sanatçı adı katmanı üretir', () => {
   assert.strictEqual(t.align, 'left');
 });
 
+
+test('makeNowPlayingLayer first-class kind', () => {
+  const l = L.makeNowPlayingLayer({ name: 'Çalan Parça' });
+  assert.strictEqual(l.kind, 'nowplaying');
+  assert.strictEqual(l.type, 'nowplaying');
+  assert.strictEqual(l.name, 'Çalan Parça');
+  assert.ok(l.id);
+  assert.strictEqual(l.settings.nowplaying.enabled, true);
+  assert.strictEqual(l.settings.nowplaying.source, 'system');
+  assert.strictEqual(l.settings.nowplaying.coverOverlay, false);
+});
+
+test('normalizeLayer forces nowplaying type for nowplaying kind', () => {
+  const l = L.normalizeLayer({ kind: 'nowplaying', name: 'NP', type: 'bars' });
+  assert.strictEqual(l.kind, 'nowplaying');
+  assert.strictEqual(l.type, 'nowplaying');
+});
+
+test('KINDS includes nowplaying', () => {
+  assert.ok(L.KINDS.indexOf('nowplaying') >= 0);
+});
+
 test('yığın açıkken kullanıcı listesi kullanılır', () => {
   const cfg = baseCfg();
   cfg.layers = [{ id: 'a', kind: 'visualizer', type: 'wave' }];
