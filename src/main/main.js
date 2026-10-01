@@ -664,11 +664,20 @@ function applyVisualizerRects() {
     if (!win || win.isDestroyed()) continue;
     const display = all.find((d) => d.id === id) || screen.getPrimaryDisplay();
     const nb = visualizerRect(display);
-    const cur = win.getBounds();
-    if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
-      try { win.setBounds(nb); } catch { /* yok */ }
-    }
+    try {
+      /* Skip equality check: after fullscreen/DPI/recreate, getBounds can look
+         equal while the taskbar region was never applied. */
+      win.setBounds(nb);
+    } catch { /* ignore */ }
   }
+}
+
+/* coverTaskbar + transparency: raise above shell first (so Windows allows
+   covering the taskbar), then apply bounds/workArea. Live on transparent or
+   cover changes; also re-run after window recreate. */
+function applyCoverTaskbarLive() {
+  applyAlwaysOnTop();
+  applyVisualizerRects();
 }
 
 /* Spout/Syphon GPU dokusu alfa taşımıyor (alıcıda siyah, CPU yolu da
@@ -778,11 +787,16 @@ function createVisualizerWindow(display) {
      Gösterim anında setBounds/setFullScreen ÇAĞRILMAZ: pencere zaten
      doğru ekranın sınırlarında ve tam ekran doğuyor. Bunları sonradan
      çağırmak, pencerenin bir an ekran dışına taşmasına yol açıyordu. */
+  /* On transparent windows Windows may clamp birth bounds to workArea;
+     setBounds again after alwaysOnTop so coverTaskbar sticks. */
   applyAlwaysOnTop();
+  if (see) {
+    try { win.setBounds(visualizerRect(display)); } catch { /* ignore */ }
+  }
 
   // Odak kaybında (başka uygulama öne çıktığında) üstte kalmayı yeniden dayat
   win.on('blur', () => {
-    if (wantsAlwaysOnTop()) raiseVisualizer();
+    if (wantsRaiseAboveShell()) raiseVisualizer();
   });
 
   // Pencere yüklenince ses yakalamayı istenen duruma getir. Panel önizlemesi
@@ -1808,9 +1822,16 @@ function applyIncomingConfig(config, opts) {
   const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
   const prevCover = wantsCoverTaskbar();
+  const prevLightingJson = JSON.stringify((currentConfig && currentConfig.lighting) || null);
   currentConfig = config;
   if (save) saveSettings(config);
-  lightingSet(config?.lighting).catch(() => {});
+  /* Every config push used to call lightingSet; in dynamic modes that hits
+     addon.setAll(baseLevel) and flickers the lights. Re-apply only when the
+     lighting tree actually changed. */
+  const nextLightingJson = JSON.stringify((config && config.lighting) || null);
+  if (prevLightingJson !== nextLightingJson) {
+    lightingSet(config?.lighting).catch(() => {});
+  }
   const nowSee = wantsTransparent();
   const nowCover = wantsCoverTaskbar();
   /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
@@ -1820,8 +1841,11 @@ function applyIncomingConfig(config, opts) {
   if (anyVisualizerOpen() || textureShare.window()) {
     sendToVisualizers('config', config);
     if (anyVisualizerOpen()) {
-      if (prevCover !== nowCover) applyVisualizerRects();
-      applyAlwaysOnTop();
+      /* Live-apply when transparency or cover changes. Not only the cover
+         flag: toggling transparent off/on still needs bounds + raise before
+         and after recreate. */
+      if (prevCover !== nowCover || prevSee !== nowSee) applyCoverTaskbarLive();
+      else applyAlwaysOnTop();
     }
     applyFloatingPrefs();
     applyGeometryLockAll();
@@ -1830,7 +1854,12 @@ function applyIncomingConfig(config, opts) {
     if (recreateTimer) clearTimeout(recreateTimer);
     recreateTimer = setTimeout(() => {
       recreateTimer = null;
-      if (anyVisualizerOpen()) recreateVisualizerWindows();
+      if (anyVisualizerOpen()) {
+        recreateVisualizerWindows();
+        /* After recreate: if the OS clamped transparent birth size to
+           workArea, re-assert the coverTaskbar preference. */
+        applyCoverTaskbarLive();
+      }
     }, 40);
   }
   streamServer.broadcast({ type: 'config', config });

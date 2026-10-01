@@ -194,6 +194,25 @@ test('panel: coverTaskbar etiketleri iki dilde', () => {
   assert.ok(!/Görev Çubuğu Dahil':\s*'[^']*[çğıöşüÇĞİÖŞÜ]/.test(dictSrc), 'EN çevirisi Türkçe kalmış');
 });
 
+test('coverTaskbar: live apply on transparent/cover change and after recreate', () => {
+  const src = read('src/main/main.js');
+  assert.match(src, /function applyCoverTaskbarLive\(/);
+  assert.match(src, /prevCover !== nowCover \|\| prevSee !== nowSee/);
+  assert.match(src, /recreateVisualizerWindows\(\);[\s\S]*?applyCoverTaskbarLive\(\)/);
+  assert.match(src, /wantsRaiseAboveShell\(\)\)\s*raiseVisualizer/);
+  assert.match(src, /if \(see\) \{[\s\S]*?win\.setBounds\(visualizerRect\(display\)\)/);
+});
+
+test('lighting: config push only re-applies when lighting tree changes', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /prevLightingJson/);
+  assert.match(main, /prevLightingJson !== nextLightingJson/);
+  assert.match(main, /lightingSet\(config\?\.lighting\)/);
+  const dyn = read('src/main/dynamic-lighting.js');
+  assert.match(dyn, /skipped:\s*true/);
+  assert.match(dyn, /JSON\.stringify\(currentConfig\) === JSON\.stringify\(next\)/);
+});
+
 test('haritalama: saydam modda alfa geri kazanılıyor', () => {
   const src = read('src/visualizer/mapper.js');
   assert.match(src, /uniform float uSee;/);
