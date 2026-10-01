@@ -806,14 +806,22 @@ function createVisualizerWindow(display) {
     }
   });
 
-  /* F11: Electron varsayilan tam ekran cikisinda pencere yeniden boyutlanir
-     ama cercevesiz oldugu icin surukleme bolgesi yoktu — tasinamıyordu.
-     Windowed iken ustte surukleme cubugu; kilit yalniz tam ekran DEGILKEN. */
+  /* F11 chrome: yalniz leave-full-screen sonrasi (armed). Dogustan
+     fullscreen iken isFullScreen yarisi cubugu gostermesin; enter'da
+     her zaman gizle. PiP ayari / config push flash tetiklemesin. */
+  win._svChromeArmed = false;
   const syncChrome = () => applyGeometryLockToWin(win);
-  win.on('enter-full-screen', syncChrome);
-  win.on('leave-full-screen', syncChrome);
+  win.on('enter-full-screen', () => {
+    win._svChromeArmed = false;
+    syncChrome();
+  });
+  win.on('leave-full-screen', () => {
+    win._svChromeArmed = true;
+    syncChrome();
+  });
   win.webContents.on('did-finish-load', () => {
-    /* Ilk yuklenmede tam ekransa chrome gizli; F11 sonrasi gosterilir. */
+    /* Ilk kare: gizli. F11 ile windowed olunca leave-full-screen açar. */
+    win._svChromeArmed = false;
     setTimeout(syncChrome, 0);
   });
 
@@ -1632,19 +1640,27 @@ function geometryLocked() {
 }
 function applyGeometryLockToWin(win) {
   if (!win || win.isDestroyed()) return;
+  /* PiP / yüzen pencere: kendi cubugu var; F11 chrome asla burada degil. */
+  if (win === floatingWin) return;
   const locked = geometryLocked();
   /* Yalniz tam ekrana girebilen (opak) pencereler: F11 sonrasi windowed.
      Seffaf modda fullscreenable=false; ekrani kaplayan sabit pencere kalir. */
   let canFs = false;
   try { canFs = !!win.isFullScreenable(); } catch { canFs = false; }
-  const windowed = canFs && !win.isFullScreen();
-  if (windowed) {
+  let isFs = false;
+  try { isFs = !!win.isFullScreen(); } catch { isFs = false; }
+  /* _svChromeArmed: yalniz leave-full-screen ile true. Dogustan fullscreen
+     pencerede isFullScreen() gecici false donup cubugu yanlis gostermesin;
+     ayar / PiP degisince de F11'siz flash olmasin. */
+  const armed = win._svChromeArmed === true;
+  const show = !!(canFs && !isFs && armed);
+  if (show) {
     try { win.setMovable(!locked); } catch { /* yok */ }
     try { win.setResizable(!locked); } catch { /* yok */ }
   }
   try {
     if (!win.webContents.isDestroyed()) {
-      win.webContents.send('window-chrome', { show: windowed, locked });
+      win.webContents.send('window-chrome', { show, locked });
     }
   } catch { /* yok */ }
 }
