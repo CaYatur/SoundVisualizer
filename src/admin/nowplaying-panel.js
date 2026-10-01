@@ -250,27 +250,25 @@
     }
 
     // -------------------------------------------------------- album cover overlay
-    nodes.push(SP().foldable('Albüm Kapağı (Bindirme)', () => {
-      const kids = [
-        SP().miniToggle('Kapağı Göster', () => !!C.coverOverlay, (v) => { C.coverOverlay = v; }, rerender),
-      ];
-      if (C.coverOverlay) {
-        kids.push(el('div', { class: 'studio-note dim-hint',
-          text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
-        kids.push(SP().miniSlider('Boyut', () => (C.coverSize == null ? 1.15 : C.coverSize),
-          (v) => { C.coverSize = v; }, { min: 0.5, max: 2.5, step: 0.05 }));
-        kids.push(SP().miniSlider('Yazı Aralığı', () => (C.coverGap == null ? 0.35 : C.coverGap),
-          (v) => { C.coverGap = v; }, { min: 0, max: 1, step: 0.02, percent: true }));
-        kids.push(SP().miniSlider('Köşe Yuvarlaklığı', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
-          (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01 }));
-        kids.push(SP().miniSelect('Konum', [
+    // Always-visible show/hide (not buried in a collapsed foldable).
+    nodes.push(SP().miniToggle('Kapağı Göster', () => !!C.coverOverlay, (v) => { C.coverOverlay = !!v; }, rerender));
+    if (C.coverOverlay) {
+      nodes.push(el('div', { class: 'studio-note dim-hint',
+        text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+      nodes.push(SP().foldable('Albüm Kapağı (Bindirme)', () => [
+        SP().miniSlider('Boyut', () => (C.coverSize == null ? 1.15 : C.coverSize),
+          (v) => { C.coverSize = v; }, { min: 0.5, max: 2.5, step: 0.05 }),
+        SP().miniSlider('Yazı Aralığı', () => (C.coverGap == null ? 0.35 : C.coverGap),
+          (v) => { C.coverGap = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
+        SP().miniSlider('Köşe Yuvarlaklığı', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
+          (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01 }),
+        SP().miniSelect('Konum', [
           ['auto', 'Otomatik'],
           ['left', 'Solda'],
           ['right', 'Sağda'],
-        ], () => C.coverSide || 'auto', (v) => { C.coverSide = v; }));
-      }
-      return kids;
-    }));
+        ], () => C.coverSide || 'auto', (v) => { C.coverSide = v; }),
+      ]));
+    }
 
     // ----------------------------------------------------------------- renk
     nodes.push(SP().foldable('Renk', () => {

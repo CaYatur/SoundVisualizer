@@ -2951,6 +2951,17 @@
       'This operating system has no per-application audio capture.',
     'Dinamik renk teması uygulandı:': 'Dynamic color theme applied:',
     'Albüm Kapağı': 'Album Artwork',
+    'Kapağı Göster': 'Show Cover',
+    'Albüm Kapağı (Bindirme)': 'Album Cover (Overlay)',
+    'Kapak Boyutu': 'Cover Size',
+    'Yazı Aralığı': 'Gap from Text',
+    'Köşe Yuvarlaklığı': 'Corner Roundness',
+    'Kapak Konumu': 'Cover Position',
+    'Solda': 'Left',
+    'Sağda': 'Right',
+    'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.':
+      'Places the playing track\'s album cover beside the text. If no cover is available, nothing is drawn. Off by default.',
+
     'Rastgele Armoni': 'Random Harmony',
     'Ruh Hali': 'Mood',
     'Kapak Görseli': 'Cover Artwork',

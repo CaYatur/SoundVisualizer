@@ -92,10 +92,14 @@ test('kaynak: Admin Background Renk Modu solidColor\'dan once', () => {
   assert.ok(modeAt < solidAt, 'Renk Modu, Duz Renk secicisinden once gelmeli');
 });
 
-test('kaynak: renk sablonlari colorMode\'dan bagimsiz gorunur', () => {
-  assert.match(adminSrc, /show:\s*\(\)\s*=>\s*isStackOn\(\)\s*\|\|\s*usesPalette\(\)/);
-  assert.doesNotMatch(
-    adminSrc,
-    /usesPalette\(\)\)\s*&&\s*\(cfg\.background\.colorMode/
-  );
+test('kaynak: renk sablonlari asla gizlenmez (usesPalette stripte cagrilmaz)', () => {
+  /* Keep usesPalette helper for Background card sliders, but the
+     Renkler ve Hazır Şablonlar strip must not call it. */
+  assert.match(adminSrc, /const usesPalette\s*=\s*\(\)\s*=>/);
+  const stripAt = adminSrc.indexOf("title: 'Renkler ve Hazır Şablonlar'");
+  assert.ok(stripAt > 0, 'Renkler ve Hazır Şablonlar karti yok');
+  const stripBlock = adminSrc.slice(stripAt, adminSrc.indexOf('controls:', stripAt));
+  assert.match(stripBlock, /show:\s*\(\)\s*=>\s*true/);
+  assert.doesNotMatch(stripBlock, /usesPalette\s*\(/);
+  assert.doesNotMatch(stripBlock, /show:\s*\([^)]*colorMode/);
 });
