@@ -344,6 +344,62 @@ body {
   color: var(--muted2); margin-bottom: 10px;
 }
 
+/* Settings card: Dil / Pencere / Panel as distinct blocks (single wide card). */
+.card[data-card="settings-main"] .group {
+  margin-top: 18px;
+  padding: 16px 14px 14px;
+  border-top: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card2);
+}
+.card[data-card="settings-main"] .card-head + .group {
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: none;
+}
+.card[data-card="settings-main"] .group-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  color: var(--accent2);
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--accent-soft);
+}
+.card[data-card="settings-main"] .group-label::before {
+  content: '';
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);
+  flex-shrink: 0;
+}
+.card[data-card="settings-main"] .group .ctrl {
+  margin-bottom: 16px;
+}
+.card[data-card="settings-main"] .group .ctrl:last-child {
+  margin-bottom: 0;
+}
+/* Quieter helpers under toggles — no heavy gray box look. */
+.card[data-card="settings-main"] .group .ctrl .studio-note.dim-hint {
+  font-size: 10.5px;
+  line-height: 1.4;
+  margin-top: 5px !important;
+  padding: 0;
+  max-width: 58ch;
+  color: var(--muted2);
+  background: none;
+  border: none;
+}
+.card[data-card="settings-main"] .group select {
+  width: 100%;
+  max-width: 420px;
+}
+
 /* -------- Gelişmiş açılır bölüm -------- */
 .advanced { margin-top: 13px; }
 .adv-summary {
@@ -770,7 +826,13 @@ select:focus { border-color: var(--accent); }
   padding: 9px 18px; border-top: 1px solid var(--line); background: rgba(0,0,0,.28);
   flex-shrink: 0;
 }
+.footer-end { display: flex; align-items: center; gap: 12px; margin-left: auto; min-width: 0; }
 .footer .hint { font-size: 11px; line-height: 1.35; color: var(--muted2); text-align: right; }
+#updatesBtn.has-update {
+  color: var(--ok);
+  border-color: var(--ok);
+  background: rgba(67, 217, 138, .14);
+}
 kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; font-size: 10.5px; }
 
 /* scrollbar */
@@ -779,7 +841,33 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 ::-webkit-scrollbar-thumb:hover { background: var(--line2); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* Settings is the left-rail Ayarlar category; no modal. */
+/* Settings is the left-rail Ayarlar category; Updates is a footer modal. */
+.upd-backdrop {
+  position: fixed; inset: 0; z-index: 410; display: grid; place-items: center;
+  background: rgba(3, 3, 8, .62); backdrop-filter: blur(3px);
+  animation: askIn .12s ease-out;
+  padding: 20px;
+}
+.upd-backdrop.hidden { display: none; }
+.upd-modal {
+  width: min(520px, calc(100vw - 40px)); max-height: min(820px, calc(100vh - 40px));
+  overflow: auto; padding: 18px 18px 16px;
+  border: 1px solid var(--line2); border-radius: 14px;
+  background: var(--card); box-shadow: 0 28px 80px rgba(0, 0, 0, .6);
+}
+.upd-modal-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 14px;
+}
+.upd-modal-head h2 { font-size: 16px; font-weight: 700; }
+.upd-modal-close {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line);
+  background: transparent; color: var(--muted); font-size: 18px; line-height: 1;
+  cursor: pointer;
+}
+.upd-modal-close:hover { background: var(--card2); color: var(--text); }
+.upd-modal-body .ctrl { margin-bottom: 12px; }
+.upd-modal-body .upd-panel { margin-top: 4px; }
 
 /* ================= UYGULAMA İÇİ ONAY + BİLDİRİM =================
    Sistem confirm/alert pencereleri renderer'ı kilitliyor ve çok ekranlı

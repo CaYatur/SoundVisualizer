@@ -2008,7 +2008,7 @@
     },
     {
       id: 'settings', icon: 'gear', title: 'Ayarlar',
-      desc: 'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
+      desc: 'Dil, pencere koruması ve genişletilmiş aralıklar.',
     },
   ];
 
@@ -2894,16 +2894,15 @@
         controls: [{ type: 'settingsio' }],
       },
       {
-        /* Tek tam genişlik kart: yan yana iki dengesiz kart (Uygulama + Güncellemeler)
-           yerine grup başlıklı tek sütun. Kategori alt yazısı zaten kapsamı söylüyor;
-           kart açıklaması boş bırakılır ki etiketler çakışmasın. */
+        /* Single wide card: Dil / Pencere / Panel. Updates live in the
+           footer modal (updatesBtn), not inline here. */
         id: 'settings-main',
         category: 'settings',
         wide: true,
         icon: 'gear',
         title: 'Ayarlar',
         desc: '',
-        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose', 'updates'],
+        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         controls: [
           { type: 'language', group: 'Dil' },
           {
@@ -2928,16 +2927,6 @@
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
           { type: 'extendedrange', group: 'Panel' },
-          {
-            type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
-            group: 'Güncellemeler',
-            options: [
-              { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
-              { value: 'auto', label: 'Otomatik — indir ve kapanırken kur' },
-              { value: 'off', label: 'Kapalı' },
-            ],
-          },
-          { type: 'updatespanel', group: 'Güncellemeler' },
         ],
       },
       {

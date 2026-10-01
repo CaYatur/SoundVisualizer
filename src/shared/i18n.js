@@ -429,7 +429,7 @@
     'Yeni sürüm var.': 'A new release is available.',
     'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.': 'Could not check. Check the internet connection and try again.',
     'Yeni sürüm:': 'New release:',
-    'Ayarlar › Güncellemeler': 'Settings › Updates',
+    'Dil, pencere koruması ve genişletilmiş aralıklar.': 'Language, window protection and extended ranges.',
     'Pencere': 'Window',
     'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.': 'Language, window protection, extended ranges and updates.',
     'Dil, görselleştirici penceresi ve panel davranışı.': 'Language, visualizer window and panel behaviour.',
