@@ -1,8 +1,9 @@
 'use strict';
 /* Güncellemeler (#640).
 
-   Ana süreç denetler (src/main/updater.js) ve durumu gönderir. UI footer’daki
-   Güncellemeler düğmesinden açılan modalda yaşar (Settings kartında değil).
+   Ana süreç denetler (src/main/updater.js) ve durumu gönderir. Aynı içerik
+   Settings’teki tam genişlik Güncellemeler kartında ve footer indirme
+   düğmesinden açılan modalda kullanılır (panel() ortak kaynak).
    Sürüm notları yalnız METİN; adresler ana süreçte açılır.
 
    Yeni sürüm ilk görüldüğünde (oturum başına sürüm başına bir kez) toast
@@ -65,15 +66,19 @@
   }
 
   function refresh() {
-    if (!box || !box.isConnected) return;
-    const old = box; // panel() box'ı yenisiyle değiştiriyor
-    old.replaceWith(panel());
-    // If the modal is open, rebuild mode+panel host too
-    if (typeof document === 'undefined') return;
-    const body = document.getElementById('updatesModalBody');
-    if (body && !body.classList.contains('hidden') && body.isConnected) {
-      /* panel() already replaced box when it was inside body */
+    /* Kart ve modal aynı anda .upd-panel tutabilir; hepsini yenile. */
+    if (typeof document !== 'undefined') {
+      const nodes = Array.from(document.querySelectorAll('.upd-panel'));
+      if (nodes.length) {
+        nodes.forEach((old) => {
+          if (!old.isConnected) return;
+          old.replaceWith(buildPanel());
+        });
+        return;
+      }
     }
+    if (!box || !box.isConnected) return;
+    box.replaceWith(buildPanel());
   }
 
   function syncFooterBtn() {
@@ -139,7 +144,7 @@
     if (btn) btn.focus();
   }
 
-  function panel() {
+  function buildPanel() {
     const p = P();
     const el = p.el;
     const s = state || { status: 'idle' };
@@ -207,6 +212,10 @@
     root.appendChild(el('div', { class: 'ctrl settings-io-note dim', text: 'Denetim yalnız GitHub Releases sayfasına tek bir istektir; kimlik ya da kullanım bilgisi gönderilmez.' }));
     box = root;
     return root;
+  }
+
+  function panel() {
+    return buildPanel();
   }
 
   function wireModalChrome() {
