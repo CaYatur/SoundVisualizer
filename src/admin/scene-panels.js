@@ -301,7 +301,7 @@
     try { localStorage.setItem('sv-layers-open', JSON.stringify([...set].slice(-64))); } catch { /* yok say */ }
   }
 
-  const LAYER_ICONS = { background: 'background', visualizer: 'bars', text: 'text', media: 'film', sprites: 'sparkles', logo: 'tag' };
+  const LAYER_ICONS = { background: 'background', visualizer: 'bars', text: 'text', media: 'film', sprites: 'sparkles', logo: 'tag', nowplaying: 'music' };
 
   /* Katman başlığı: sıra okları, tür simgesi, ad ve özet, bayraklar, aç/kapa
      ve kaldır. Liste ekranda ters sırada: "yukarı" dizide İLERİ demek (bkz.
@@ -309,7 +309,7 @@
      hedeflemek zorunda kalınmasın. */
   function layerHead(list, i, l, name, summary, flags, open, toggle, onChange) {
     const el = P().el;
-    const icon = LAYER_ICONS[l.kind === 'visualizer' && l.type === 'text' ? 'text' : l.kind] || 'grid';
+    const icon = LAYER_ICONS[(l.kind === 'visualizer' && l.type === 'text') ? 'text' : (l.kind === 'visualizer' && l.type === 'nowplaying') ? 'nowplaying' : l.kind] || 'grid';
     return el('div', { class: 'layer-head' + (open ? ' open' : '') }, [
       el('div', { class: 'layer-ord' }, [
         el('button', {
@@ -383,6 +383,7 @@
     ['media', 'Medya'],
     ['sprites', 'Görsel Nesneler'],
     ['logo', 'Logo'],
+    ['nowplaying', 'Çalan Parça'],
   ];
 
   /* Metin bir kind değil; görselleştirici türünün alt tipi. Ayrı düğmeler
@@ -428,6 +429,7 @@
     if (kind === 'background') return MC().layerPairs('background');
     if (kind === 'visualizer') return MC().layerPairs('visualizer');
     if (kind === 'sprites') return [['back', 'Arka Katman'], ['front', 'Ön Katman']];
+    if (kind === 'nowplaying') return [];
     return [];
   }
 
@@ -960,10 +962,11 @@
       return out;
     }
 
-    if (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom') {
+    if (l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom')) {
       l.settings = l.settings || {};
       const defVis = def.visualizer || {};
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
+      if (l.kind === 'nowplaying') l.type = 'nowplaying';
       const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
       const setV = (k, val) => { vs[k] = val; };
 
@@ -1585,12 +1588,17 @@
         el('button', {
           class: 'btn ghost small', type: 'button', icon: 'plus', text: label,
           onclick: () => {
-            const opts = typeOptionsFor(kind);
-            const made = window.SVLayers.normalizeLayer({
-              kind,
-              name: label,
-              type: opts.length ? opts[0][0] : 'back',
-            });
+            let made;
+            if (kind === 'nowplaying' && window.SVLayers.makeNowPlayingLayer) {
+              made = window.SVLayers.makeNowPlayingLayer({ name: label });
+            } else {
+              const opts = typeOptionsFor(kind);
+              made = window.SVLayers.normalizeLayer({
+                kind,
+                name: label,
+                type: opts.length ? opts[0][0] : 'back',
+              });
+            }
             list.push(made);
             openNew(made);
             rerender();

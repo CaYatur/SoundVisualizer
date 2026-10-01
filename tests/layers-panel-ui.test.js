@@ -102,6 +102,18 @@ test('aç/kapa durumu kaydediliyor, yeni eklenen katman açık geliyor', () => {
   assert.ok(JSON.parse(store['sv-layers-open']).includes(made.id), 'yeni katman açık');
 });
 
+
+test('nowplaying add button creates nowplaying kind layer', () => {
+  const { panel, cfg } = setup(LAYERS);
+  const add = all(panel, (n) => n.tag === 'button' && /Çalan Parça$/.test(n.attrs.text || ''))[0];
+  assert.ok(add, 'Çalan Parça add button present');
+  add.attrs.onclick();
+  const made = cfg.layers[cfg.layers.length - 1];
+  assert.strictEqual(made.kind, 'nowplaying');
+  assert.strictEqual(made.type, 'nowplaying');
+  assert.ok(made.settings && made.settings.nowplaying);
+});
+
 test('kilitli katman açılamıyor', () => {
   const { panel } = setup([{ id: 'k', kind: 'visualizer', type: 'bars', locked: true }], ['k']);
   assert.strictEqual(all(panel, cls('layer-tabs')).length, 0);

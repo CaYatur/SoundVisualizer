@@ -34,7 +34,7 @@
   const CSS_BLEND = (b) => (b === 'add' ? 'screen' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
   const CANVAS_BLEND = (b) => (b === 'add' ? 'lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'source-over');
 
-  const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo'];
+  const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying'];
 
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
   const REVIVE_MS = 2000;
@@ -93,6 +93,7 @@
     out.postfx = Array.isArray(l && l.postfx) ? l.postfx : [];
     out.settings = (l && l.settings) || {};
     if (KINDS.indexOf(out.kind) < 0) out.kind = 'visualizer';
+    if (out.kind === 'nowplaying') out.type = 'nowplaying';
     if (!out.id) out.id = newLayerId();
     return out;
   }
@@ -138,6 +139,23 @@
       kind: 'visualizer',
       type: 'text',
       settings: { text },
+    });
+  }
+
+  /* Now Playing layer factory — first-class kind (alongside media/logo).
+     Reuses SVModes.nowplaying cover/title rendering + settings.nowplaying. */
+  function makeNowPlayingLayer(spec) {
+    const s = spec || {};
+    const np = Object.assign({
+      enabled: true,
+      source: s.source || 'system',
+      coverOverlay: s.coverOverlay != null ? !!s.coverOverlay : false,
+    }, s.nowplaying || {});
+    return normalizeLayer({
+      name: s.name || 'Çalan Parça',
+      kind: 'nowplaying',
+      type: 'nowplaying',
+      settings: { nowplaying: np },
     });
   }
 
@@ -368,6 +386,7 @@
         const list = Array.isArray(cfg.layers) ? cfg.layers : [];
         const vis = list.find((l) => l && l.kind === 'visualizer'
           && l.type !== 'text' && l.type !== 'nowplaying');
+        /* kind nowplaying is a dedicated overlay, not a classic visualizer type. */
         if (cfg.visualizer && cfg.visualizer.type === 'none') {
           cfg.visualizer.type = vis ? vis.type : 'bars';
         }
@@ -502,6 +521,16 @@
       });
     }
 
+    if (layer.kind === 'nowplaying') {
+      const npSettings = (layer.settings && layer.settings.nowplaying) || {};
+      const defNp = (cfg && cfg.nowplaying) || (def ? def.nowplaying : {});
+      const baseVis = (cfg && cfg.visualizer) || (def ? def.visualizer : {}) || {};
+      return Object.assign({}, base, {
+        visualizer: Object.assign({}, baseVis, { type: 'nowplaying' }),
+        nowplaying: Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false }),
+      });
+    }
+
     if (layer.kind === 'visualizer') {
       const defVis = def ? def.visualizer : {};
       const baseVis = (cfg && cfg.visualizer) || defVis;
@@ -613,7 +642,7 @@
                 trackArtwork = t.nowPlaying.artwork;
               }
             }
-          } else if (l.type === 'nowplaying') {
+          } else if (l.type === 'nowplaying' || l.kind === 'nowplaying') {
             lyricsOrTextActive = true;
             const np = (l.settings && l.settings.nowplaying) || cfg.nowplaying;
             if (np && np.showArtwork === false) showArtworkAllowed = false;
@@ -1071,8 +1100,9 @@
           e.ctx = e.canvas.getContext('2d');
           e.solid = true; // 'solid' ya da bilinmeyen tür: düz renk
         }
-      } else if (layer.kind === 'visualizer') {
-        if (window.SVModes[layer.type]) e.mode = new window.SVModes[layer.type](e.canvas);
+      } else if (layer.kind === 'visualizer' || layer.kind === 'nowplaying') {
+        const modeType = layer.kind === 'nowplaying' ? 'nowplaying' : layer.type;
+        if (window.SVModes[modeType]) e.mode = new window.SVModes[modeType](e.canvas);
         e.ctx = e.canvas.getContext('2d');
       } else {
         e.ctx = e.canvas.getContext('2d');
@@ -1593,7 +1623,7 @@
         return;
       }
 
-      if (l.kind === 'visualizer') {
+      if (l.kind === 'visualizer' || l.kind === 'nowplaying') {
         if (!e.mode) { e.ctx.clearRect(0, 0, W, H); return; }
         if (!audio || !audio.ready) { e.ctx.clearRect(0, 0, W, H); return; }
         e.mode.draw(audio, lcfg, t, dt);
@@ -1836,6 +1866,7 @@
     KINDS,
     normalizeLayer,
     makeTextLayer,
+    makeNowPlayingLayer,
     newLayerId,
     synthesize,
     resolve,
