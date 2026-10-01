@@ -5458,50 +5458,99 @@ async function runSmoke() {
     if (!av.ok) {
       console.log('[SMOKE] Spout/Syphon: bu platformda yok (' + av.reason + ')');
     } else {
+      /* Önceki adımlar katman yığınını kapatıp görselleştiriciyi 'none'
+         bırakabiliyor. Chromium, pikseller değişmezse ikinci bir paint
+         üretmez; o zaman gönderici kaydı oluşur ama sayaç 1'de kalır ve
+         alıcı donmuş bir kare görür. Ölçüm kendi sahnesini kullanır:
+         tuval her karede değişen 2D dalga, sessizlikte duraklama kapalı.
+         Ekran pencereleri de kapanır — içlerindeki WebGL bağlamları yeni
+         offscreen pencerenin karelerini GPU'da bekletebiliyor. Bitince
+         aynı ekranlar geri açılır. */
+      const heldIds = Array.from(visualizerWins.keys());
+      if (heldIds.length) {
+        closeVisualizer();
+        for (let i = 0; i < 20 && anyVisualizerOpen(); i++) await wait(100);
+      }
+      const prevConfig = currentConfig;
+      currentConfig = JSON.parse(JSON.stringify(prevConfig || {}));
       currentConfig.textureShare = Object.assign({}, currentConfig.textureShare, {
         enabled: true, name: 'CAYADEV Smoke', width: 640, height: 360, fps: 30,
       });
-      await syncTextureShare();
-
-      /* Sabit bekleme yerine YOKLAMA. Spout'un gönderici kaydı paylaşılan bir
-         defterde oluşuyor ve bunun ne kadar süreceği makineye göre değişiyor;
-         3 saniyelik sabit bekleme koşuların bir kısmında yetmiyor ve öz test
-         ürün sağlamken "sender is not registered" diye düşüyordu. Ölçüldü:
-         aynı derlemede arka arkaya FAIL, PASS, PASS.
-
-         Denetim zayıflamıyor — kayıt hiç oluşmazsa süre dolduğunda yine
-         düşüyor; yalnızca zamanlamaya duyarlılığı kalkıyor. */
-      let senders = [];
+      currentConfig.power = Object.assign({}, currentConfig.power, { pauseOnSilence: false, fpsCap: 30 });
+      currentConfig.layerStack = Object.assign({}, currentConfig.layerStack, { enabled: false });
+      currentConfig.layers = [];
+      currentConfig.visualizer = Object.assign({}, currentConfig.visualizer, { type: 'none' });
+      currentConfig.background = { type: 'waves' };
+      if (currentConfig.mapping) currentConfig.mapping.enabled = false;
+      if (currentConfig.aspect) currentConfig.aspect.enabled = false;
+      let ts;
       let mine = false;
-      for (let k = 0; k < 20 && !mine; k++) {
-        await wait(300);
-        senders = textureShare.listSenders().map((x) => x.name);
-        mine = senders.indexOf('CAYADEV Smoke') >= 0;
+      try {
+        await syncTextureShare();
+
+        /* Sabit bekleme yerine YOKLAMA. Spout'un gönderici kaydı paylaşılan bir
+           defterde oluşuyor ve bunun ne kadar süreceği makineye göre değişiyor;
+           3 saniyelik sabit bekleme koşuların bir kısmında yetmiyor ve öz test
+           ürün sağlamken "sender is not registered" diye düşüyordu. Ölçüldü:
+           aynı derlemede arka arkaya FAIL, PASS, PASS.
+
+           Denetim zayıflamıyor — kayıt hiç oluşmazsa süre dolduğunda yine
+           düşüyor; yalnızca zamanlamaya duyarlılığı kalkıyor. */
+        for (let k = 0; k < 20 && !mine; k++) {
+          await wait(300);
+          mine = textureShare.listSenders().map((x) => x.name).indexOf('CAYADEV Smoke') >= 0;
+        }
+        /* Kayıt, ilk paint'te oluşuyor. O kareden sonra akış gecikirse sayaç
+           hâlâ 1'dir. Akış başlayana kadar kısa yoklama, sonra taze 2 saniye:
+           eşik bu pencerenin kendisine ait, yoklama süresine değil. */
+        const born = textureShare.status().frames;
+        let moved = born > 2;
+        for (let k = 0; k < 16 && !moved; k++) {
+          await wait(500);
+          moved = textureShare.status().frames > born + 2;
+        }
+        const before = textureShare.status().frames;
+        const MEASURE_MS = 2000;
+        await wait(MEASURE_MS);
+        ts = textureShare.status();
+        const delta = ts.frames - before;
+        console.log('[SMOKE] Spout/Syphon: ' + JSON.stringify({
+          protokol: ts.protocol, kare: delta, toplam: ts.frames, düşen: ts.dropped,
+          boyut: ts.width + 'x' + ts.height, kayıt: mine, hata: ts.error,
+        }));
+        if (!ts.running) errors.push('texture-share: did not start');
+        if (!mine) errors.push('texture-share: the sender is not registered with ' + ts.protocol);
+        /* 30 fps ayarında 2 saniye ~60 kare demek; eşik 20'de üç kat pay var. */
+        if (!(delta > 20)) {
+          let page = '';
+          const tw = textureShare.window();
+          if (tw && !tw.isDestroyed()) {
+            try {
+              page = await tw.webContents.executeJavaScript(
+                '(function(){var e=document.getElementById("error");' +
+                'return JSON.stringify({err:e?e.textContent:"",' +
+                'canvases:document.querySelectorAll("#stage canvas").length,' +
+                'hidden:document.hidden,iw:innerWidth,ih:innerHeight});})()'
+              );
+            } catch (e) { page = String((e && e.message) || e); }
+          }
+          errors.push('texture-share: only ' + delta + ' frames in '
+            + (MEASURE_MS / 1000) + 's — the receiver would see a frozen image'
+            + (page ? ' [' + page + ']' : ''));
+        }
+        if (ts.dropped > ts.frames / 10) errors.push('texture-share: dropped ' + ts.dropped + ' of ' + (ts.frames + ts.dropped) + ' frames');
+      } finally {
+        const stopped = await textureShare.stop();
+        const after = textureShare.listSenders().map((x) => x.name);
+        if (after.indexOf('CAYADEV Smoke') >= 0) errors.push('texture-share: the sender stayed registered after stop');
+        if (stopped.running) errors.push('texture-share: still running after stop');
+        currentConfig = prevConfig;
+        if (currentConfig && currentConfig.textureShare) currentConfig.textureShare.enabled = false;
+        if (heldIds.length) {
+          openVisualizer(heldIds);
+          await wait(1800);
+        }
       }
-      /* Kayıt göründükten SONRA sabit bir ölçüm penceresi. Kayıt var ama kare
-         akmıyorsa alıcı donmuş bir görüntü alır ve her şey yolunda sanır;
-         ölçülen şey o. Pencere sabit tutuluyor ki eşik anlamını korusun —
-         yoklama süresi makineye göre değiştiği için ona yaslanamaz. */
-      const MEASURE_MS = 2000;
-      await wait(MEASURE_MS);
-      const ts = textureShare.status();
-      console.log('[SMOKE] Spout/Syphon: ' + JSON.stringify({
-        protokol: ts.protocol, kare: ts.frames, düşen: ts.dropped,
-        boyut: ts.width + 'x' + ts.height, kayıt: mine, hata: ts.error,
-      }));
-      if (!ts.running) errors.push('texture-share: did not start');
-      if (!mine) errors.push('texture-share: the sender is not registered with ' + ts.protocol);
-      /* 30 fps ayarında 2 saniye ~60 kare demek; eşik 20'de üç kat pay var. */
-      if (!(ts.frames > 20)) {
-        errors.push('texture-share: only ' + ts.frames + ' frames in '
-          + (MEASURE_MS / 1000) + 's — the receiver would see a frozen image');
-      }
-      if (ts.dropped > ts.frames / 10) errors.push('texture-share: dropped ' + ts.dropped + ' of ' + (ts.frames + ts.dropped) + ' frames');
-      const stopped = await textureShare.stop();
-      const after = textureShare.listSenders().map((x) => x.name);
-      if (after.indexOf('CAYADEV Smoke') >= 0) errors.push('texture-share: the sender stayed registered after stop');
-      if (stopped.running) errors.push('texture-share: still running after stop');
-      currentConfig.textureShare.enabled = false;
     }
   }
 

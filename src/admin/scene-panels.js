@@ -555,17 +555,21 @@
         lg[k] = val;
       };
 
-      out.push(miniSelect('Resim Kaynağı', [
-        ['auto', 'Otomatik (Şarkı resmi varsa göster, yoksa özel)'],
-        ['manual', 'Özel Resim (Yalnızca seçilen dosya)'],
-        ['track', 'Sadece Çalan Şarkı Resmi'],
-      ], () => lg.source || 'auto', (v) => {
-        lg.source = v;
-        P().push(true);
-        rerender();
-      }, undefined, 'auto'));
+      const logoWin = isWindowsPlatform();
+      if (!logoWin) lg.source = 'manual';
+      if (logoWin) {
+        out.push(miniSelect('Resim Kaynağı', [
+          ['auto', 'Otomatik (Şarkı resmi varsa göster, yoksa özel)'],
+          ['manual', 'Özel Resim (Yalnızca seçilen dosya)'],
+          ['track', 'Sadece Çalan Şarkı Resmi'],
+        ], () => lg.source || 'auto', (v) => {
+          lg.source = v;
+          P().push(true);
+          rerender();
+        }, undefined, 'auto'));
+      }
 
-      const mode = lg.source || 'auto';
+      const mode = logoWin ? (lg.source || 'auto') : 'manual';
       if (mode === 'track') {
         const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
         out.push(el('div', {
@@ -999,7 +1003,9 @@
           };
           out.push(miniColor('Parça Adı', () => getNp('color', '#ffffff'), (v) => setNp('color', v)));
           out.push(miniColor('İkincil Yazı', () => getNp('colorDim', '#c8c8d0'), (v) => setNp('colorDim', v)));
-          out.push(miniColor('Çubuk', () => getNp('colorBar', '#3aa6ff'), (v) => setNp('colorBar', v)));
+          if (isWindowsPlatform() && ((cfg.nowplaying && cfg.nowplaying.source) || 'system') === 'system') {
+            out.push(miniColor('Çubuk', () => getNp('colorBar', '#3aa6ff'), (v) => setNp('colorBar', v)));
+          }
         } else if (l.type === 'text') {
           /* text layers use settings.text; color controls live in the text block above when type===text.
              This branch is for non-text types only — text returns earlier. */
@@ -1029,8 +1035,46 @@
           setCover('coverOverlay', !!v);
         }, rerender));
         if (getCover('coverOverlay', false)) {
+          const coverWin = isWindowsPlatform();
+          if (!coverWin) setCover('coverSource', 'manual');
           out.push(el('div', { class: 'studio-note dim-hint',
             text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+          if (coverWin) {
+            out.push(miniSelect('Kapak Kaynağı', [
+              ['auto', 'Otomatik (Sistem)'],
+              ['manual', 'Elle Yükle'],
+            ], () => getCover('coverSource', 'auto'), (v) => setCover('coverSource', v), rerender));
+            out.push(el('div', { class: 'studio-note dim-hint',
+              text: (getCover('coverSource', 'auto') === 'manual')
+                ? 'Elle yüklenen resim yazının yanında gösterilir.'
+                : 'Windows’ta kapak çalan parçadan otomatik gelir. İsterseniz kendi resminizi de yükleyebilirsiniz; otomatik kapak yoksa o resim kullanılır.' }));
+          } else {
+            out.push(el('div', { class: 'studio-note dim-hint',
+              text: 'Bu platformda albüm kapağı otomatik okunamaz. Gösterilecek resmi elle yükleyin.' }));
+          }
+          const artNow = () => {
+            const m = npCover.manual || (cfg.nowplaying && cfg.nowplaying.manual) || {};
+            return m.artwork || '';
+          };
+          const setArt = (url) => {
+            npCover.manual = Object.assign({}, npCover.manual, { artwork: url || '' });
+            cfg.nowplaying = cfg.nowplaying || {};
+            cfg.nowplaying.manual = Object.assign({}, cfg.nowplaying.manual, { artwork: url || '' });
+          };
+          if (artNow()) out.push(el('img', { class: 'layer-preview', src: artNow(), alt: 'Kapak Görseli' }));
+          out.push(el('div', { class: 'row' }, [
+            el('button', {
+              class: 'btn small', type: 'button', icon: 'image',
+              text: artNow() ? 'Kapağı Değiştir' : 'Kapak Seç',
+              onclick: () => {
+                pickImage((dataUrl) => { setArt(dataUrl); P().push(true); rerender(); });
+              },
+            }),
+            artNow() ? el('button', {
+              class: 'btn ghost small danger', type: 'button', text: 'Kapağı Kaldır',
+              onclick: () => { setArt(''); P().push(true); rerender(); },
+            }) : null,
+          ].filter(Boolean)));
           out.push(miniSlider('Kapak Boyutu', () => getCover('coverSize', 0.14), (v) => setCover('coverSize', v),
             { min: 0.05, max: 0.5, step: 0.01, percent: true, def: 0.14}));
           out.push(miniSlider('Yazı Aralığı', () => getCover('coverGap', 0.35), (v) => setCover('coverGap', v),

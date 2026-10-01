@@ -456,6 +456,8 @@
         return imagesCtrl(def);
       case 'logofile':
         return logoFileCtrl(def);
+      case 'npcoverfile':
+        return npCoverFileCtrl(def);
       case 'logolibrary':
         return logoLibraryCtrl(def);
       case 'floatingtoggle':
@@ -1092,6 +1094,8 @@
   }
 
   function logoFileCtrl() {
+    /* macOS/Linux albüm kapağını okuyamaz. Kayıtlı auto/track burada özel resme iner. */
+    if (!isWindows() && cfg.logo && cfg.logo.source !== 'manual') cfg.logo.source = 'manual';
     const fileInput = el('input', { type: 'file', accept: 'image/*' });
     fileInput.style.display = 'none';
     fileInput.addEventListener('change', (e) => {
@@ -1126,7 +1130,7 @@
     });
     removeBtn.style.marginLeft = '8px';
 
-    const mode = cfg.logo.source || 'auto';
+    const mode = isWindows() ? (cfg.logo.source || 'auto') : 'manual';
     if (mode === 'track') {
       const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
       const note = el('div', {
@@ -1157,6 +1161,46 @@
       preview,
       hint,
     ]);
+  }
+
+  /* Çalan parça kapağı: Windows'ta otomatik kapağın yedeği, diğer platformlarda tek kaynak. */
+  function npCoverFileCtrl() {
+    const C = cfg.nowplaying || (cfg.nowplaying = {});
+    C.manual = C.manual || {};
+    if (!isWindows()) C.coverSource = 'manual';
+    const fileInput = el('input', { type: 'file', accept: 'image/*' });
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        C.manual.artwork = reader.result;
+        push(true);
+        render();
+      };
+      reader.readAsDataURL(file);
+    });
+    const pick = el('button', {
+      class: 'btn small', type: 'button', icon: 'image',
+      text: C.manual.artwork ? 'Kapağı Değiştir' : 'Kapak Seç',
+      onclick: () => fileInput.click(),
+    });
+    const remove = C.manual.artwork ? el('button', {
+      class: 'btn ghost small danger', type: 'button', text: 'Kapağı Kaldır',
+      onclick: () => {
+        C.manual.artwork = '';
+        push(true);
+        render();
+      },
+    }) : null;
+    const preview = C.manual.artwork
+      ? el('img', { class: 'logo-preview', src: C.manual.artwork, alt: 'Kapak Görseli', style: 'display:block' })
+      : null;
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [pick, remove, fileInput].filter(Boolean)),
+      preview,
+    ].filter(Boolean));
   }
 
   function isGifLogo(lg) {
@@ -2278,6 +2322,8 @@
           {
             type: 'color', path: 'nowplaying.colorBar', label: 'Çubuk',
             show: () => v.type === 'nowplaying'
+              && isWindows()
+              && ((cfg.nowplaying && cfg.nowplaying.source) || 'system') === 'system'
               && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
           },
           {
@@ -2288,6 +2334,29 @@
           {
             type: 'note',
             text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.',
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'select', path: 'nowplaying.coverSource', label: 'Kapak Kaynağı', rebuild: true,
+            options: [
+              { value: 'auto', label: 'Otomatik (Sistem)' },
+              { value: 'manual', label: 'Elle Yükle' },
+            ],
+            show: () => isWindows() && v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'note',
+            text: () => {
+              if (!isWindows()) return 'Bu platformda albüm kapağı otomatik okunamaz. Gösterilecek resmi elle yükleyin.';
+              const src = (cfg.nowplaying && cfg.nowplaying.coverSource) || 'auto';
+              return src === 'manual'
+                ? 'Elle yüklenen resim yazının yanında gösterilir.'
+                : 'Windows’ta kapak çalan parçadan otomatik gelir. İsterseniz kendi resminizi de yükleyebilirsiniz; otomatik kapak yoksa o resim kullanılır.';
+            },
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'npcoverfile',
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
@@ -2505,7 +2574,9 @@
         category: 'scene',
         icon: 'music',
         title: 'Çalan Parça',
-        desc: 'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.',
+        desc: isWindows()
+          ? 'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.'
+          : 'Elle yazılan parça adı ve sanatçı ekrana gelir. Albüm kapağı elle yüklenir. Süre ve ilerleme çubuğu sistemden okunduğu için bu platformda yoktur.',
         controls: [{ type: 'nowplayingpanel' }],
         show: () => notStack() && v.type === 'nowplaying',
       },
@@ -2791,7 +2862,7 @@
               { value: 'manual', label: 'Özel Resim (Yalnızca seçilen dosya)' },
               { value: 'track', label: 'Sadece Çalan Şarkı Resmi' },
             ],
-            show: () => cfg.logo.enabled,
+            show: () => cfg.logo.enabled && isWindows(),
             rebuild: true,
           },
           { type: 'logofile', show: () => cfg.logo.enabled },
@@ -4725,8 +4796,39 @@
     if (advBox) advBox.checked = advancedOn;
     if (!CATEGORIES.some((c) => c.id === activeCategory)) activeCategory = CATEGORIES[0].id;
     if (!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows)) {
-      if (cfg.dynamicTheme) cfg.dynamicTheme.enabled = false;
-      if (cfg.nowplaying && cfg.nowplaying.source === 'system') cfg.nowplaying.source = 'manual';
+      let platformTouched = false;
+      if (cfg.dynamicTheme && cfg.dynamicTheme.enabled) {
+        cfg.dynamicTheme.enabled = false;
+        platformTouched = true;
+      }
+      if (cfg.nowplaying) {
+        if (cfg.nowplaying.source === 'system') { cfg.nowplaying.source = 'manual'; platformTouched = true; }
+        if (cfg.nowplaying.coverSource !== 'manual') { cfg.nowplaying.coverSource = 'manual'; platformTouched = true; }
+      }
+      if (cfg.logo && cfg.logo.source && cfg.logo.source !== 'manual') {
+        cfg.logo.source = 'manual';
+        platformTouched = true;
+      }
+      if (cfg.text && cfg.text.nowSource === 'system') {
+        cfg.text.nowSource = 'manual';
+        platformTouched = true;
+      }
+      if (Array.isArray(cfg.layers)) {
+        cfg.layers.forEach((l) => {
+          if (!l || !l.settings) return;
+          if (l.kind === 'logo' && l.settings.logo && l.settings.logo.source && l.settings.logo.source !== 'manual') {
+            l.settings.logo.source = 'manual';
+            platformTouched = true;
+          }
+          if (l.settings.nowplaying && l.settings.nowplaying.coverSource !== 'manual') {
+            l.settings.nowplaying.coverSource = 'manual';
+            platformTouched = true;
+          }
+          const lt = l.settings.text;
+          if (lt && lt.nowSource === 'system') { lt.nowSource = 'manual'; platformTouched = true; }
+        });
+      }
+      if (platformTouched) push(true);
     }
 
     // Seçili arayüz dilini ana sürece bildir (diyaloglar ve yayın sayfaları)

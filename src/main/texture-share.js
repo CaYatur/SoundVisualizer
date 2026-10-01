@@ -174,6 +174,7 @@ function start(cfg, hooks) {
       }
     } catch {}
     try {
+      win.webContents.setBackgroundThrottling(false);
       win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
       if (typeof win.webContents.startPainting === 'function' && (!win.webContents.isPainting || !win.webContents.isPainting())) {
         win.webContents.startPainting();
@@ -213,6 +214,7 @@ function start(cfg, hooks) {
     destroySender();
     state = Object.assign({}, state, { running: false });
   });
+  try { win.webContents.setBackgroundThrottling(false); } catch {}
   win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
   if (typeof win.webContents.startPainting === 'function') {
     try { win.webContents.startPainting(); } catch {}
@@ -243,10 +245,15 @@ function stop() {
     try {
       if (typeof win.webContents.stopPainting === 'function') win.webContents.stopPainting();
     } catch {}
-    win.webContents.removeListener('paint', onPaint);
-    win.destroy();
+    /* Dinleyici pencere yok olana kadar kalır. Erken sökülürse son paint'in
+       dokusu serbest bırakılmaz; Electron o dokuyu çöp toplayınca kare
+       havuzu tıkanır ve bir sonraki yayın donar. */
+    const dying = win;
+    win = null;
+    dying.destroy();
+  } else {
+    win = null;
   }
-  win = null;
   state = Object.assign({}, state, { running: false, frames: 0, dropped: 0, error: null });
   return Promise.resolve(snapshot());
 }

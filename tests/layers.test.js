@@ -351,6 +351,9 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   assert.strictEqual(row.ctrl.children[0].attrs.disabled, true);
 
   // 5) Logo ve Şarkı Kapağı / Logo Source testleri (auto, manual, track)
+  // Yukarıdaki panel denemesi platformu macOS yapmıştı. Kapak çözümlemesi
+  // Windows'ta şarkı resmini, diğerlerinde yalnız özel dosyayı kullanır.
+  global.window.SV_PLATFORM = { isWindows: true, isMac: false, isLinux: false };
   const defaults = window.SV ? window.SV.defaultConfig() : require('../src/shared/defaults.js');
   assert.strictEqual(defaults.logo.source, 'auto', 'Varsayılan logo kaynağı auto olmalı');
   assert.strictEqual(defaults.text.showArtwork, true, 'Varsayılan metin kapak gösterme açık olmalı');
@@ -377,6 +380,14 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, {}), 'data:image/png;base64,ARTWORK123');
   global.window.SVNowLive = { state: null };
   assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), null);
+
+  // e2) macOS/Linux: auto ve track özel resme iner, çalan kapak logoyu değiştirmez
+  global.window.SV_PLATFORM = { isWindows: false, isMac: true, isLinux: false };
+  global.window.SVNowLive = { state: { has: true, artwork: 'data:image/png;base64,ARTWORK123' } };
+  assert.strictEqual(L.resolveLogoSrc({ source: 'auto', src: 'fallback.png' }, autoCfgWithText), 'fallback.png');
+  assert.strictEqual(L.resolveLogoSrc({ source: 'track', src: 'manual.png' }, autoCfgWithText), 'manual.png');
+  global.window.SV_PLATFORM = { isWindows: true, isMac: false, isLinux: false };
+  global.window.SVNowLive = { state: null };
 
   // f) katmanlar (layers) dizisinde metin katmanı kapak bilgisi
   const cfgWithLayerArt = {

@@ -2,6 +2,13 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+contextBridge.exposeInMainWorld('SV_PLATFORM', {
+  os: process.platform,
+  isWindows: process.platform === 'win32',
+  isMac: process.platform === 'darwin',
+  isLinux: process.platform === 'linux',
+});
+
 // Bu pencerenin ekran kimliği (ana süreç komut satırında veriyor).
 // Projeksiyon haritalaması ekran başına tanımlandığı için gerekli.
 const displayArg = process.argv.find((a) => a.startsWith('--sv-display-id='));

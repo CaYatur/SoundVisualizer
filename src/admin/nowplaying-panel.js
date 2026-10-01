@@ -94,6 +94,43 @@
     setInterval(paintStatus, 500);
   }
 
+  function coverFileRow(el, P, C, rerender) {
+    C.manual = C.manual || {};
+    const fileInput = el('input', { type: 'file', accept: 'image/*' });
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        C.manual.artwork = reader.result;
+        P().push(true);
+        rerender();
+      };
+      reader.readAsDataURL(file);
+    });
+    const pick = el('button', {
+      class: 'btn small', type: 'button', icon: 'image',
+      text: C.manual.artwork ? 'Kapağı Değiştir' : 'Kapak Seç',
+      onclick: () => fileInput.click(),
+    });
+    const remove = C.manual.artwork ? el('button', {
+      class: 'btn ghost small danger', type: 'button', text: 'Kapağı Kaldır',
+      onclick: () => {
+        C.manual.artwork = '';
+        P().push(true);
+        rerender();
+      },
+    }) : null;
+    const preview = C.manual.artwork
+      ? el('img', { class: 'logo-preview', src: C.manual.artwork, alt: 'Kapak Görseli', style: 'display:block' })
+      : null;
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [pick, remove, fileInput].filter(Boolean)),
+      preview,
+    ].filter(Boolean));
+  }
+
   // ------------------------------------------------------------------ panel
   function panel() {
     const el = P().el;
@@ -105,7 +142,9 @@
 
     const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
     if (!isWin && (C.source || 'system') === 'system') C.source = 'manual';
+    if (!isWin) C.coverSource = 'manual';
     const src = C.source || (isWin ? 'system' : 'manual');
+    const fromSystem = isWin && src === 'system';
     if (src === 'system' && isWin && window.api && window.api.nowPlayingSubscribe) {
       window.api.nowPlayingSubscribe(true);
     }
@@ -164,12 +203,16 @@
         f('title', 'Parça Adı', true),
         f('artist', 'Sanatçı', true),
         f('album', 'Albüm', false),
-        f('appName', 'Oynatıcı Adı', false),
-        f('elapsed', 'Geçen Süre', true),
-        f('remaining', 'Kalan Süre', false),
-        f('total', 'Toplam Süre', true),
-        f('bar', 'İlerleme Çubuğu', true),
       ];
+      /* Süre ve oynatıcı adı sistem oturumundan gelir. Elle yazılan
+         parçada bu alanlar 0:00 üretirdi; o yüzden gizlenir. */
+      if (fromSystem) {
+        kids.push(f('appName', 'Oynatıcı Adı', false));
+        kids.push(f('elapsed', 'Geçen Süre', true));
+        kids.push(f('remaining', 'Kalan Süre', false));
+        kids.push(f('total', 'Toplam Süre', true));
+        kids.push(f('bar', 'İlerleme Çubuğu', true));
+      }
       kids.push(SP().miniToggle('Parça ve Sanatçı Tek Satırda', () => !!C.oneLine, (v) => { C.oneLine = v; }, rerender));
       if (C.oneLine) {
         kids.push(P().row('Ayırıcı', el('input', {
@@ -177,12 +220,16 @@
           oninput: (e) => { C.separator = e.target.value; P().push(false); },
         })));
       }
-      kids.push(P().row('Süre Ayırıcı', el('input', {
-        class: 'p-in', type: 'text', value: C.timeSeparator === undefined ? ' / ' : C.timeSeparator,
-        oninput: (e) => { C.timeSeparator = e.target.value; P().push(false); },
-      })));
+      if (fromSystem) {
+        kids.push(P().row('Süre Ayırıcı', el('input', {
+          class: 'p-in', type: 'text', value: C.timeSeparator === undefined ? ' / ' : C.timeSeparator,
+          oninput: (e) => { C.timeSeparator = e.target.value; P().push(false); },
+        })));
+      }
       kids.push(el('div', { class: 'studio-note dim-hint',
-        text: 'Her alan tek tek kapatılabilir: yalnızca parça adı, yalnızca süre ya da yalnızca çubuk gösterilebilir.' }));
+        text: fromSystem
+          ? 'Her alan tek tek kapatılabilir: yalnızca parça adı, yalnızca süre ya da yalnızca çubuk gösterilebilir.'
+          : 'Parça adı, sanatçı ve albüm tek tek kapatılabilir.' }));
       return kids;
     }));
 
@@ -226,7 +273,7 @@
     }));
 
     // ---------------------------------------------------------------- çubuk
-    if (C.show.bar !== false) {
+    if (fromSystem && C.show.bar !== false) {
       nodes.push(SP().foldable('İlerleme Çubuğu', () => {
         const style = NP() ? NP().styleOf(C.style) : { barHeight: 0.005, barSegments: 0, barBackOpacity: 0.22 };
         return [
@@ -251,6 +298,20 @@
     if (C.coverOverlay) {
       nodes.push(el('div', { class: 'studio-note dim-hint',
         text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+      if (isWin) {
+        nodes.push(SP().miniSelect('Kapak Kaynağı', [
+          ['auto', 'Otomatik (Sistem)'],
+          ['manual', 'Elle Yükle'],
+        ], () => C.coverSource || 'auto', (v) => { C.coverSource = v; }, rerender));
+        nodes.push(el('div', { class: 'studio-note dim-hint',
+          text: (C.coverSource || 'auto') === 'manual'
+            ? 'Elle yüklenen resim yazının yanında gösterilir.'
+            : 'Windows’ta kapak çalan parçadan otomatik gelir. İsterseniz kendi resminizi de yükleyebilirsiniz; otomatik kapak yoksa o resim kullanılır.' }));
+      } else {
+        nodes.push(el('div', { class: 'studio-note dim-hint',
+          text: 'Bu platformda albüm kapağı otomatik okunamaz. Gösterilecek resmi elle yükleyin.' }));
+      }
+      nodes.push(coverFileRow(el, P, C, rerender));
       nodes.push(SP().foldable('Albüm Kapağı (Bindirme)', () => [
         SP().miniSlider('Boyut', () => (C.coverSize == null ? 0.14 : C.coverSize),
           (v) => { C.coverSize = v; }, { min: 0.05, max: 0.5, step: 0.01, percent: true }),
@@ -295,7 +356,7 @@
       if (getMode() === 'custom') {
         kids.push(P().color('Parça Adı', 'nowplaying.color'));
         kids.push(P().color('İkincil Yazı', 'nowplaying.colorDim'));
-        kids.push(P().color('Çubuk', 'nowplaying.colorBar'));
+        if (fromSystem) kids.push(P().color('Çubuk', 'nowplaying.colorBar'));
       } else if (getMode() === 'theme') {
         kids.push(el('div', { class: 'studio-note dim-hint',
           text: 'Renkler sahne paletinden alınır; palet değişince yazı da değişir.' }));

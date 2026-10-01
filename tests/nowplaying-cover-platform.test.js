@@ -111,3 +111,48 @@ test('kaynak: natural fit uses aspect coverW/coverH not forced square', () => {
   assert.match(npSrc, /coverW = coverPx; coverH = coverPx \* \(ih \/ iw\)/);
   assert.match(npSrc, /fit:\s*drawFit/);
 });
+
+test('defaults: coverSource auto, macOS/Linux paneli manuala ceker', () => {
+  assert.match(defaultsSrc, /coverSource:\s*'auto'/);
+  assert.match(panelSrc, /if \(!isWin\) C\.coverSource = 'manual'/);
+  assert.match(sceneSrc, /if \(!coverWin\) setCover\('coverSource', 'manual'\)/);
+});
+
+test('UI: sisteme ozgu NP alanlari yalniz fromSystem icinde', () => {
+  assert.match(panelSrc, /if \(fromSystem\) \{[\s\S]{0,500}appName/);
+  assert.match(panelSrc, /if \(fromSystem\) \{[\s\S]{0,700}elapsed/);
+  assert.match(panelSrc, /if \(fromSystem && C\.show\.bar !== false\)/);
+  assert.match(panelSrc, /if \(fromSystem\) kids\.push\(P\(\)\.color\('Çubuk'/);
+  assert.doesNotMatch(panelSrc, /Sistemden okuma \(SMTC\)/);
+});
+
+test('UI: logo kaynagi ve kapak dosyasi platforma gore', () => {
+  assert.match(adminSrc, /path:\s*'logo\.source'[\s\S]{0,450}isWindows\(\)/);
+  assert.match(adminSrc, /case 'npcoverfile'/);
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverSource'/);
+  assert.match(adminSrc, /Elle yazılan parça adı ve sanatçı ekrana gelir/);
+  assert.match(sceneSrc, /if \(!logoWin\) lg\.source = 'manual'/);
+  assert.match(sceneSrc, /if \(logoWin\)/);
+});
+
+test('kaynak: NP ve logo macOS/Linux otomatik kapagi kullanmaz', () => {
+  assert.match(npSrc, /SV_PLATFORM\.isWindows === false/);
+  assert.match(npSrc, /const fromSystem = platWin && \(c\.source \|\| 'system'\) === 'system'/);
+  assert.match(npSrc, /useSystemArt = fromSystem && \(c\.coverSource \|\| 'auto'\) !== 'manual'/);
+  const layersSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'layers.js'), 'utf8');
+  assert.match(layersSrc, /isWindows === false/);
+  assert.match(layersSrc, /if \(mode === 'manual' \|\| !winOk\) return logoFileSrc\(lg\)/);
+});
+
+test('i18n: kapak aciklamasi ve WebGL2 uyarisi Ingilizce', () => {
+  const i18n = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
+  const milk = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'milkdrop.js'), 'utf8');
+  const trKey = 'WebGL2 yok. Görüntü kartı sürücüsünü güncelleyin. Sürücü WebGL2 vermezse MilkDrop bu ekranda çalışmaz.';
+  assert.ok(i18n.includes(trKey));
+  assert.match(i18n, /WebGL2 is missing\. Update your graphics driver/);
+  assert.ok(milk.includes(trKey));
+  assert.match(milk, /SVI18n\.t\(rawMsg\)/);
+  assert.ok(i18n.includes('Album artwork cannot be read automatically on this platform'));
+  assert.ok(i18n.includes('beside or above the text'));
+  assert.ok(i18n.includes('WebGL2 is missing. Update your graphics driver.'));
+});
