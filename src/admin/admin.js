@@ -2060,6 +2060,15 @@
             show: () => !!cfg.background.transparent,
           },
           {
+            type: 'toggle', path: 'background.coverTaskbar', label: 'Tam Ekran (Görev Çubuğu Dahil)',
+            show: () => !!cfg.background.transparent,
+          },
+          {
+            type: 'note',
+            text: 'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.',
+            show: () => !!cfg.background.transparent,
+          },
+          {
             type: 'slider', path: 'background.transparentKey', label: 'Saydamlık Eşiği',
             min: 0, max: 1, step: 0.01, percent: true,
             show: () => !!cfg.background.transparent && cfg.background.type !== 'solid',
@@ -3957,6 +3966,7 @@
     const blacked = isBlackedOut();
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
     const keepKey = cfg.background && cfg.background.transparentKey;
+    const keepCover = cfg.background && cfg.background.coverTaskbar;
     SCENE_KEYS.forEach((k) => {
       let val;
       if (sc.data[k] === undefined) {
@@ -3993,6 +4003,7 @@
     if (cfg.background) {
       cfg.background.transparent = keepTransparent;
       if (keepKey != null) cfg.background.transparentKey = keepKey;
+      if (keepCover != null) cfg.background.coverTaskbar = !!keepCover;
     }
     sceneActionInFlight = true;
     activeSceneId = id;

@@ -939,6 +939,10 @@
       }, rerender));
       if (getB('transparent', false)) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Şeffaf arkaplan bu katmanın koyu yerlerini saydamlar. Görselleştirici penceresi, yayın ve Spout aynı ayarı paylaşır; açık pencereler bu anahtarla yeniden kurulur.' }));
+        out.push(miniToggle('Tam Ekran (Görev Çubuğu Dahil)', () => !!(cfg.background && cfg.background.coverTaskbar), (v) => {
+          cfg.background = cfg.background || {};
+          cfg.background.coverTaskbar = !!v;
+        }, rerender));
         if (l.type !== 'solid') {
           out.push(miniSlider('Saydamlık Eşiği', () => {
             const v = getB('transparentKey', cfg.background && cfg.background.transparentKey);
@@ -1047,6 +1051,18 @@
       nodes.push(P().row('Şeffaf Arkaplan', el('label', { class: 'switch' }, [transparent, el('span', { class: 'track' })])));
       if (transparent.checked) {
         nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.' }));
+        const cover = el('input', {
+          type: 'checkbox',
+          onchange: (e) => {
+            cfg.background = cfg.background || {};
+            cfg.background.coverTaskbar = !!e.target.checked;
+            P().push(true);
+            rerender();
+          },
+        });
+        cover.checked = !!(cfg.background && cfg.background.coverTaskbar);
+        nodes.push(P().row('Tam Ekran (Görev Çubuğu Dahil)', el('label', { class: 'switch' }, [cover, el('span', { class: 'track' })])));
+        nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.' }));
         if (!cfg.background || cfg.background.type !== 'solid') {
           nodes.push(miniSlider('Saydamlık Eşiği', () => {
             const v = cfg.background && cfg.background.transparentKey;

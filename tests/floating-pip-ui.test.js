@@ -48,6 +48,12 @@ test('F11 chrome yalniz armed windowed; PiP ve fullscreen gizli', () => {
   assert.match(main, /win === floatingWin/);
   assert.match(main, /leave-full-screen[\s\S]{0,120}_svChromeArmed = true/);
   assert.match(main, /enter-full-screen[\s\S]{0,120}_svChromeArmed = false/);
+  /* leave'te isFullScreen gecikmesine guvenme — forceWindowed ile hemen arm */
+  assert.match(main, /forceWindowed/);
+  assert.match(main, /forceFullscreen/);
+  assert.match(main, /applyGeometryLockToWin\(win, opts\)/);
+  assert.match(main, /leave-full-screen[\s\S]{0,280}forceWindowed:\s*true/);
+  assert.match(main, /enter-full-screen[\s\S]{0,200}forceFullscreen:\s*true/);
   const vis = read('src/visualizer/visualizer.js');
   assert.match(vis, /!window\.SV_FLOATING/);
   assert.match(vis, /const was = document\.documentElement\.classList\.contains\('sv-windowed'\)/);

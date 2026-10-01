@@ -638,6 +638,39 @@ function wantsTransparent() {
   return false;
 }
 
+/* Şeffaf tam ekranda görev çubuğunu ört (bounds + üstte tut). Varsayılan
+   false: workArea — görev çubuğu dışarıda kalır. */
+function wantsCoverTaskbar() {
+  if (!wantsTransparent()) return false;
+  const cfg = currentConfig || loadSettings();
+  return !!(cfg && cfg.background && cfg.background.coverTaskbar);
+}
+
+/* Görselleştirici penceresinin oturacağı dikdörtgen.
+   Şeffaf + coverTaskbar kapalı → workArea (görev çubuğu hariç).
+   Şeffaf + coverTaskbar açık veya opak → bounds (tam ekran). */
+function visualizerRect(display) {
+  if (!display) return { x: 0, y: 0, width: 800, height: 600 };
+  if (wantsTransparent() && !wantsCoverTaskbar()) {
+    const wa = display.workArea;
+    if (wa && wa.width > 0 && wa.height > 0) return wa;
+  }
+  return display.bounds;
+}
+
+function applyVisualizerRects() {
+  const all = screen.getAllDisplays();
+  for (const [id, win] of visualizerWins) {
+    if (!win || win.isDestroyed()) continue;
+    const display = all.find((d) => d.id === id) || screen.getPrimaryDisplay();
+    const nb = visualizerRect(display);
+    const cur = win.getBounds();
+    if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
+      try { win.setBounds(nb); } catch { /* yok */ }
+    }
+  }
+}
+
 /* Spout/Syphon GPU dokusu alfa taşımıyor (alıcıda siyah, CPU yolu da
    yayını düşürüyordu). Yakalamaya giden yapılandırmada şeffaflık kapalı:
    sahne opak basılır. Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır. */
@@ -682,7 +715,7 @@ function resolveDisplayIds(input) {
 
 function createVisualizerWindow(display) {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
-  const b = display.bounds;
+  const b = visualizerRect(display);
   const see = wantsTransparent();
   /* Şeffaflık pencere DOĞARKEN belirlenmek zorunda; Electron sonradan
      değiştirmeye izin vermiyor. Ayar değişince pencereler yeniden kurulur.
@@ -808,21 +841,33 @@ function createVisualizerWindow(display) {
 
   /* F11 chrome: yalniz leave-full-screen sonrasi (armed). Dogustan
      fullscreen iken isFullScreen yarisi cubugu gostermesin; enter'da
-     her zaman gizle. PiP ayari / config push flash tetiklemesin. */
+     her zaman gizle. PiP ayari / config push flash tetiklemesin.
+
+     leave-full-screen aninda Electron bazen hâlâ isFullScreen()=true
+     döner; o zaman cubuk acilmaz ve ancak sonradan applyGeometryLockAll
+     (ornegin PiP ayari) ile düzelirdi. forceWindowed ile hemen arm et. */
   win._svChromeArmed = false;
-  const syncChrome = () => applyGeometryLockToWin(win);
+  const syncChrome = (opts) => applyGeometryLockToWin(win, opts);
   win.on('enter-full-screen', () => {
     win._svChromeArmed = false;
-    syncChrome();
+    syncChrome({ forceFullscreen: true });
   });
   win.on('leave-full-screen', () => {
     win._svChromeArmed = true;
-    syncChrome();
+    syncChrome({ forceWindowed: true });
+    setTimeout(() => {
+      if (!win.isDestroyed() && win._svChromeArmed) syncChrome({ forceWindowed: true });
+    }, 0);
   });
   win.webContents.on('did-finish-load', () => {
-    /* Ilk kare: gizli. F11 ile windowed olunca leave-full-screen açar. */
-    win._svChromeArmed = false;
-    setTimeout(syncChrome, 0);
+    /* Ilk kare: gizli. F11 ile windowed olunca leave-full-screen açar.
+       Yalniz henüz hiç F11 yapilmadiysa disarm et — reload arm'i bozmasin. */
+    if (win._svChromeArmed !== true) {
+      win._svChromeArmed = false;
+      setTimeout(() => syncChrome(), 0);
+    } else {
+      setTimeout(() => syncChrome({ forceWindowed: true }), 0);
+    }
   });
 
   win.on('closed', () => {
@@ -876,7 +921,7 @@ function openVisualizer(displayIds) {
       /* Yalnızca gerçekten yanlış ekrandaysa yerleştir. Doğru yerdeki bir
          pencereye setBounds/setFullScreen uygulamak, bir an ekran dışına
          taşmasına yol açıyordu. */
-      const nb = display.bounds;
+      const nb = visualizerRect(display);
       const cur = existing.getBounds();
       if (cur.x !== nb.x || cur.y !== nb.y || cur.width !== nb.width || cur.height !== nb.height) {
         existing.setBounds(nb);
@@ -1105,11 +1150,24 @@ function wantsAlwaysOnTop() {
   return !!(currentConfig && currentConfig.power && currentConfig.power.alwaysOnTop);
 }
 
+/* Her zaman üstte VEYA şeffaf coverTaskbar: görev çubuğunun üstünde kal. */
+function wantsRaiseAboveShell() {
+  return wantsAlwaysOnTop() || wantsCoverTaskbar();
+}
+
 function raiseVisualizer() {
   for (const win of openWindows()) {
+    if (win === floatingWin) continue;
     win.setAlwaysOnTop(true, 'screen-saver');
     win.setVisibleOnAllWorkspaces(true);
     win.moveTop();
+  }
+  /* Yüzen pencere kendi alwaysOnTop'unu korur. */
+  if (floatingIsOpen()) {
+    try {
+      floatingWin.setAlwaysOnTop(true, 'screen-saver');
+      floatingWin.setVisibleOnAllWorkspaces(true);
+    } catch { /* yok */ }
   }
 }
 
@@ -1120,7 +1178,7 @@ function applyAlwaysOnTop() {
   }
   if (!anyVisualizerOpen()) return;
 
-  if (!wantsAlwaysOnTop()) {
+  if (!wantsRaiseAboveShell()) {
     for (const win of openWindows()) {
       if (win === floatingWin) continue;
       win.setAlwaysOnTop(false);
@@ -1136,10 +1194,13 @@ function applyAlwaysOnTop() {
       onTopTimer = null;
       return;
     }
-    if (!wantsAlwaysOnTop()) return;
-    const needsRaise = openWindows().some((w) => !w.isAlwaysOnTop());
+    if (!wantsRaiseAboveShell()) return;
+    const needsRaise = openWindows().some((w) => w !== floatingWin && !w.isAlwaysOnTop());
     if (needsRaise) raiseVisualizer();
-    else for (const win of openWindows()) win.moveTop();
+    else for (const win of openWindows()) {
+      if (win === floatingWin) continue;
+      win.moveTop();
+    }
   }, 1200);
 }
 
@@ -1638,7 +1699,7 @@ ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
 function geometryLocked() {
   return !!(currentConfig && currentConfig.power && currentConfig.power.geometryLock);
 }
-function applyGeometryLockToWin(win) {
+function applyGeometryLockToWin(win, opts) {
   if (!win || win.isDestroyed()) return;
   /* PiP / yüzen pencere: kendi cubugu var; F11 chrome asla burada degil. */
   if (win === floatingWin) return;
@@ -1649,6 +1710,9 @@ function applyGeometryLockToWin(win) {
   try { canFs = !!win.isFullScreenable(); } catch { canFs = false; }
   let isFs = false;
   try { isFs = !!win.isFullScreen(); } catch { isFs = false; }
+  /* leave/enter olayinda Electron'un isFullScreen gecikmesine guvenme. */
+  if (opts && opts.forceWindowed) isFs = false;
+  if (opts && opts.forceFullscreen) isFs = true;
   /* _svChromeArmed: yalniz leave-full-screen ile true. Dogustan fullscreen
      pencerede isFullScreen() gecici false donup cubugu yanlis gostermesin;
      ayar / PiP degisince de F11'siz flash olmasin. */
@@ -1743,19 +1807,24 @@ ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
 function applyIncomingConfig(config, opts) {
   const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
+  const prevCover = wantsCoverTaskbar();
   currentConfig = config;
   if (save) saveSettings(config);
   lightingSet(config?.lighting).catch(() => {});
   const nowSee = wantsTransparent();
+  const nowCover = wantsCoverTaskbar();
   /* Sahne/preset değişimi her zaman hemen gitsin. Şeffaflık kromu için
      pencere yeniden kurulacaksa bile önce canlı pencere yeni sahneyi
      çizsin — aksi halde şarkı çalarken sahne değişimi pencere yüklenene
      (veya bir sonraki parça olayına) kadar donmuş kalıyordu. */
   if (anyVisualizerOpen() || textureShare.window()) {
     sendToVisualizers('config', config);
-    if (anyVisualizerOpen()) applyAlwaysOnTop();
+    if (anyVisualizerOpen()) {
+      if (prevCover !== nowCover) applyVisualizerRects();
+      applyAlwaysOnTop();
+    }
     applyFloatingPrefs();
-  applyGeometryLockAll();
+    applyGeometryLockAll();
   }
   if (prevSee !== nowSee && anyVisualizerOpen()) {
     if (recreateTimer) clearTimeout(recreateTimer);
@@ -2218,6 +2287,7 @@ function applyRemoteCommand(msg, client) {
     currentConfig._activeSceneId = scene.id;
     const keepTransparent = !!(currentConfig.background && currentConfig.background.transparent);
     const keepKey = currentConfig.background && currentConfig.background.transparentKey;
+    const keepCover = currentConfig.background && currentConfig.background.coverTaskbar;
     const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
     for (const key of SCENE_KEYS) {
       if (scene.data[key] !== undefined) currentConfig[key] = JSON.parse(JSON.stringify(scene.data[key]));
@@ -2225,6 +2295,7 @@ function applyRemoteCommand(msg, client) {
     if (currentConfig.background) {
       currentConfig.background.transparent = keepTransparent;
       if (keepKey != null) currentConfig.background.transparentKey = keepKey;
+      if (keepCover != null) currentConfig.background.coverTaskbar = !!keepCover;
     }
   } else if (msg.action === 'blackout') {
     /* Karartmayı PANEL yapar, telefon değil.

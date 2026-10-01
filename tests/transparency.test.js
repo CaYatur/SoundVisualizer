@@ -169,6 +169,31 @@ test('Windows şeffaf pencere tam ekran kullanmıyor', () => {
   assert.match(src, /function recreateVisualizerWindows\(/);
 });
 
+test('şeffaf tam ekran: coverTaskbar workArea vs bounds', () => {
+  const src = read('src/main/main.js');
+  assert.match(src, /function wantsCoverTaskbar\(/);
+  assert.match(src, /function visualizerRect\(/);
+  assert.match(src, /display\.workArea/);
+  assert.match(src, /wantsRaiseAboveShell/);
+  assert.match(src, /applyVisualizerRects/);
+  assert.match(read('src/shared/defaults.js'), /coverTaskbar:\s*false/);
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /path: 'background\.coverTaskbar'/);
+  assert.match(admin, /Tam Ekran \(Görev Çubuğu Dahil\)/);
+  const scene = read('src/admin/scene-panels.js');
+  assert.match(scene, /coverTaskbar/);
+  assert.match(scene, /Tam Ekran \(Görev Çubuğu Dahil\)/);
+  assert.match(read('src/shared/templates.js'), /keepCover/);
+  assert.match(admin, /keepCover/);
+});
+
+test('panel: coverTaskbar etiketleri iki dilde', () => {
+  const dictSrc = read('src/shared/i18n.js');
+  assert.match(dictSrc, /'Tam Ekran \(Görev Çubuğu Dahil\)':\s*'Full Display \(Include Taskbar\)'/);
+  assert.match(dictSrc, /When off, the visualizer stays outside the Windows taskbar/);
+  assert.ok(!/Görev Çubuğu Dahil':\s*'[^']*[çğıöşüÇĞİÖŞÜ]/.test(dictSrc), 'EN çevirisi Türkçe kalmış');
+});
+
 test('haritalama: saydam modda alfa geri kazanılıyor', () => {
   const src = read('src/visualizer/mapper.js');
   assert.match(src, /uniform float uSee;/);
