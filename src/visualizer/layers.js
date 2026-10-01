@@ -313,6 +313,34 @@
           çakışma ve gereksiz render/kaynak tüketimi olmaz.
      Katmanlar kapatıldığında (enabled = false):
        Klasik alanlar önceki aktif durumlarına geri yüklenir. */
+  function snapshotClassic(cfg) {
+    const curVis = cfg.visualizer && cfg.visualizer.type;
+    return {
+      visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
+      logoEnabled: !!(cfg.logo && cfg.logo.enabled),
+      imagesEnabled: !!(cfg.images && cfg.images.enabled),
+      mediaEnabled: !!(cfg.media && cfg.media.enabled),
+      textEnabled: !!(cfg.text && cfg.text.enabled),
+    };
+  }
+
+  function restoreClassic(cfg, b) {
+    if (!b) return;
+    if (cfg.visualizer && b.visualizerType) cfg.visualizer.type = b.visualizerType;
+    if (cfg.logo && b.logoEnabled !== undefined) cfg.logo.enabled = !!b.logoEnabled;
+    if (cfg.images && b.imagesEnabled !== undefined) cfg.images.enabled = !!b.imagesEnabled;
+    if (cfg.media && b.mediaEnabled !== undefined) cfg.media.enabled = !!b.mediaEnabled;
+    if (cfg.text && b.textEnabled !== undefined) cfg.text.enabled = !!b.textEnabled;
+  }
+
+  function clearClassicOverlays(cfg) {
+    if (cfg.visualizer) cfg.visualizer.type = 'none';
+    if (cfg.logo) cfg.logo.enabled = false;
+    if (cfg.images) cfg.images.enabled = false;
+    if (cfg.media) cfg.media.enabled = false;
+    if (cfg.text) cfg.text.enabled = false;
+  }
+
   function setStackEnabled(cfg, enabled) {
     if (!cfg) return;
     cfg.layerStack = cfg.layerStack || {};
@@ -321,62 +349,27 @@
       if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
         cfg.layers = synthesize(cfg);
       }
-      const curVis = cfg.visualizer && cfg.visualizer.type;
-      const curLogo = !!(cfg.logo && cfg.logo.enabled);
-      const curImgs = !!(cfg.images && cfg.images.enabled);
-      const curMedia = !!(cfg.media && cfg.media.enabled);
-      const curText = !!(cfg.text && cfg.text.enabled);
-
-      if (!cfg.layerStack.classicBackup) {
-        cfg.layerStack.classicBackup = {
-          visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
-          logoEnabled: curLogo,
-          imagesEnabled: curImgs,
-          mediaEnabled: curMedia,
-          textEnabled: curText,
-        };
-      } else {
-        const b = cfg.layerStack.classicBackup;
-        if (curVis && curVis !== 'none') b.visualizerType = curVis;
-        if (curLogo) b.logoEnabled = true;
-        if (curImgs) b.imagesEnabled = true;
-        if (curMedia) b.mediaEnabled = true;
-        if (curText) b.textEnabled = true;
-      }
-
-      // Klasik kök alanları devre dışı (pasif) bırak
-      if (cfg.visualizer) cfg.visualizer.type = 'none';
-      if (cfg.logo) cfg.logo.enabled = false;
-      if (cfg.images) cfg.images.enabled = false;
-      if (cfg.media) cfg.media.enabled = false;
-      if (cfg.text) cfg.text.enabled = false;
+      /* Fresh snapshot every time the stack is turned on — do not ratchet
+         previous backup flags to true. Overlay modes added as layers while
+         the stack is on must not leak into classic roots on the way back. */
+      cfg.layerStack.classicBackup = snapshotClassic(cfg);
+      clearClassicOverlays(cfg);
       cfg.layerStack.enabled = true;
     } else {
       cfg.layerStack.enabled = false;
       const b = cfg.layerStack.classicBackup;
       if (b) {
-        if (cfg.visualizer && b.visualizerType) cfg.visualizer.type = b.visualizerType;
-        if (cfg.logo && b.logoEnabled !== undefined) cfg.logo.enabled = b.logoEnabled;
-        if (cfg.images && b.imagesEnabled !== undefined) cfg.images.enabled = b.imagesEnabled;
-        if (cfg.media && b.mediaEnabled !== undefined) cfg.media.enabled = b.mediaEnabled;
-        if (cfg.text && b.textEnabled !== undefined) cfg.text.enabled = b.textEnabled;
+        restoreClassic(cfg, b);
       } else {
+        /* No snapshot (legacy / template): keep the scene lit via the
+           visualizer type from the layer list, but do NOT promote logo /
+           text / images / media layers into classic toggles — those stay
+           at whatever the classic roots already are (usually off). */
         const list = Array.isArray(cfg.layers) ? cfg.layers : [];
-        const vis = list.find((l) => l.kind === 'visualizer' && l.type !== 'text');
+        const vis = list.find((l) => l && l.kind === 'visualizer'
+          && l.type !== 'text' && l.type !== 'nowplaying');
         if (cfg.visualizer && cfg.visualizer.type === 'none') {
           cfg.visualizer.type = vis ? vis.type : 'bars';
-        }
-        if (cfg.logo && !cfg.logo.enabled && list.some((l) => l.kind === 'logo')) {
-          cfg.logo.enabled = true;
-        }
-        if (cfg.images && !cfg.images.enabled && list.some((l) => l.kind === 'sprites')) {
-          cfg.images.enabled = true;
-        }
-        if (cfg.media && !cfg.media.enabled && list.some((l) => l.kind === 'media')) {
-          cfg.media.enabled = true;
-        }
-        if (cfg.text && !cfg.text.enabled && list.some((l) => l.kind === 'visualizer' && l.type === 'text')) {
-          cfg.text.enabled = true;
         }
       }
     }
@@ -391,29 +384,12 @@
     const curText = !!(cfg.text && cfg.text.enabled);
 
     const hasActive = (curVis && curVis !== 'none') || curLogo || curImgs || curMedia || curText;
-    if (hasActive) {
-      if (!cfg.layerStack.classicBackup) {
-        cfg.layerStack.classicBackup = {
-          visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
-          logoEnabled: curLogo,
-          imagesEnabled: curImgs,
-          mediaEnabled: curMedia,
-          textEnabled: curText,
-        };
-      } else {
-        const b = cfg.layerStack.classicBackup;
-        if (curVis && curVis !== 'none') b.visualizerType = curVis;
-        if (curLogo) b.logoEnabled = true;
-        if (curImgs) b.imagesEnabled = true;
-        if (curMedia) b.mediaEnabled = true;
-        if (curText) b.textEnabled = true;
-      }
-      if (cfg.visualizer) cfg.visualizer.type = 'none';
-      if (cfg.logo) cfg.logo.enabled = false;
-      if (cfg.images) cfg.images.enabled = false;
-      if (cfg.media) cfg.media.enabled = false;
-      if (cfg.text) cfg.text.enabled = false;
-    }
+    if (!hasActive) return;
+    /* Classic roots briefly became active while the stack is on (template
+       apply, import). Refresh the snapshot from those roots, then clear
+       them again so the stack remains the only driver. */
+    cfg.layerStack.classicBackup = snapshotClassic(cfg);
+    clearClassicOverlays(cfg);
   }
 
   // Etkin katman listesi: kullanıcı tanımlıysa o, değilse sentez

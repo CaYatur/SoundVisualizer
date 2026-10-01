@@ -1200,7 +1200,15 @@
       },
     });
     stackSwitch.checked = on;
-    nodes.push(P().row('Katman Yığınını Kullan', el('label', { class: 'switch' }, [stackSwitch, el('span', { class: 'track' })])));
+    /* Master mode switch — must not look like Transparent / Cover Taskbar
+       toggles below. Built with el() so the class sticks in the panel test mock
+       (classList.add alone is a no-op there). CTA styling alone was not enough. */
+    nodes.push(el('div', { class: 'ctrl layer-stack-toggle' }, [
+      el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: 'Katman Yığınını Kullan' }),
+        el('label', { class: 'switch' }, [stackSwitch, el('span', { class: 'track' })]),
+      ]),
+    ]));
 
     if (on) {
       /* Arkaplan kartı yığın açıkken gizli; şeffaflık burada, listenin

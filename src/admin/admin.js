@@ -2414,6 +2414,16 @@
         title: 'MilkDrop Presetleri',
         desc: 'MilkDrop preset dosyalarını (.milk) yükleyin. Denklem blokları gerçekten çalıştırılır: per_frame ve per_pixel hareketi, warp ağı ve geri besleme.',
         controls: [{ type: 'milkdroppanel' }],
+        /* Scene only when MilkDrop is actually in use:
+           stack on → at least one MilkDrop visualizer layer;
+           stack off → classic visualizer mode is MilkDrop. */
+        show: () => {
+          if (isStackOn()) {
+            return (cfg.layers || []).some(
+              (l) => l && l.kind === 'visualizer' && l.type === 'milkdrop');
+          }
+          return v.type === 'milkdrop';
+        },
       },
       {
         id: 'transition',
