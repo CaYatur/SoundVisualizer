@@ -667,6 +667,11 @@
           if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
             cfg.visualizer.rainbow = (o.value === 'rainbow');
           }
+          /* Seçili görünümü hemen güncelle. rebuild/onChange olmadan
+             (Otomatik VJ "Hangi Katmanlar" / "Sıra") panel yeniden
+             çizilene kadar eski active sınıfı kalıyordu. */
+          for (const sib of seg.querySelectorAll('button')) sib.classList.remove('active');
+          b.classList.add('active');
           /* Değeri yazdıktan SONRA, yeniden çizimden ÖNCE: çağıran taraf
              yeni değere göre kendi durumunu düzeltebilsin (Otomatik VJ
              zamanlayıcısını sıfırlamak gibi). */

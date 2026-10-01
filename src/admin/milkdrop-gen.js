@@ -281,7 +281,7 @@
         ]));
       }
     }
-    nodes.push(el('div', { class: 'gen-actions' }, [
+    nodes.push(el('div', { class: 'gen-actions mdmix-nav' }, [
       el('button', {
         class: 'btn', type: 'button', icon: 'chevron-left', title: 'Önceki karışım',
         disabled: !(h && h.canBack()), onclick: () => mixNav(-1),
