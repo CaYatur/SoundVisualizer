@@ -254,18 +254,19 @@
     nodes.push(SP().miniToggle('Kapağı Göster', () => !!C.coverOverlay, (v) => { C.coverOverlay = !!v; }, rerender));
     if (C.coverOverlay) {
       nodes.push(el('div', { class: 'studio-note dim-hint',
-        text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+        text: 'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
       nodes.push(SP().foldable('Albüm Kapağı (Bindirme)', () => [
-        SP().miniSlider('Boyut', () => (C.coverSize == null ? 1.15 : C.coverSize),
-          (v) => { C.coverSize = v; }, { min: 0.5, max: 2.5, step: 0.05 }),
+        SP().miniSlider('Boyut', () => (C.coverSize == null ? 0.14 : C.coverSize),
+          (v) => { C.coverSize = v; }, { min: 0.05, max: 0.5, step: 0.01, percent: true }),
         SP().miniSlider('Yazı Aralığı', () => (C.coverGap == null ? 0.35 : C.coverGap),
           (v) => { C.coverGap = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
-        SP().miniSlider('Köşe Yuvarlaklığı', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
-          (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01 }),
+        SP().miniSlider('Köşe / Oval', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
+          (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true }),
         SP().miniSelect('Konum', [
           ['auto', 'Otomatik'],
           ['left', 'Solda'],
           ['right', 'Sağda'],
+          ['top', 'Üstte'],
         ], () => C.coverSide || 'auto', (v) => { C.coverSide = v; }),
       ]));
     }

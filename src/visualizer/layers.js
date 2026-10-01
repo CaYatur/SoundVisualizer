@@ -808,6 +808,14 @@
       if (hue) filters.push('hue-rotate(' + Math.round(hue * 360) + 'deg)');
       if (lg.saturate != null && lg.saturate !== 1) filters.push('saturate(' + lg.saturate + ')');
       if (filters.length) ctx.filter = filters.join(' ');
+      const cr = Math.max(0, Math.min(0.5, lg.cornerRadius == null ? 0 : lg.cornerRadius));
+      if (cr > 0.0001) {
+        const rad = cr * Math.min(w, h);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, rad);
+        else ctx.rect(x - w / 2, y - h / 2, w, h);
+        ctx.clip();
+      }
       ctx.drawImage(drawable.source, x - w / 2, y - h / 2, w, h);
       ctx.restore();
     }

@@ -283,6 +283,7 @@
       x: 0.5,
       y: 0.5, // konum oranı (otomatik ortalama = 0.5, 0.5)
       glow: 0.2,
+      cornerRadius: 0, // 0..0.5 of min(logo w,h); 0.5 = circle/oval
       // GIF seçilince panelde açılan oynatma / görünüm / ses
       speed: 1,
       loop: 'loop', // 'loop' | 'pingpong' | 'once'
@@ -563,10 +564,10 @@
       showArtwork: true, // logo layer may show track artwork when NP/lyrics active
       /* NP overlay: album cover beside the text block. Default OFF. */
       coverOverlay: false,
-      coverSize: 1.15, // relative to text-block height
+      coverSize: 0.14, // fraction of display short side (legacy >1 = text-block height)
       coverGap: 0.35,  // gap between cover and text (fraction of cover)
-      coverRadius: 0.14, // corner radius 0..0.5 of cover size
-      coverSide: 'auto', // 'auto' | 'left' | 'right'
+      coverRadius: 0.14, // corner radius 0..0.5 of cover size (0.5 = circle/oval)
+      coverSide: 'auto', // 'auto' | 'left' | 'right' | 'top'
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi
@@ -1131,6 +1132,7 @@
     audioSpeed: 0.35, // seviye -> hareket hızı
     audioOpacity: 0.0, // bas -> saydamlık nabzı
     glow: 0.15,
+    cornerRadius: 0, // 0..0.5 of min(sprite w,h); 0.5 = circle/oval
     blend: 'normal', // 'normal'|'screen'|'add'
     layer: 'front', // 'front' (görselin önünde) | 'back' (arkasında)
     noOverlap: false, // üst üste binmeyi engelle
