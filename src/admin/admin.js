@@ -2008,7 +2008,7 @@
     },
     {
       id: 'settings', icon: 'gear', title: 'Ayarlar',
-      desc: 'Dil, pencere koruması ve genişletilmiş aralıklar.',
+      desc: 'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
     },
   ];
 
@@ -2894,13 +2894,13 @@
         controls: [{ type: 'settingsio' }],
       },
       {
-        /* Single wide card: Dil / Pencere / Panel. Updates live in the
-           footer modal (updatesBtn), not inline here. */
+        /* Uygulama: Dil / Pencere / Panel. Güncellemeler ayrı tam genişlik
+           kartta (settings-updates) ve footer indirme düğmesi modalında. */
         id: 'settings-main',
         category: 'settings',
         wide: true,
         icon: 'gear',
-        title: 'Ayarlar',
+        title: 'Uygulama',
         desc: '',
         roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         controls: [
@@ -2927,6 +2927,26 @@
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
           { type: 'extendedrange', group: 'Panel' },
+        ],
+      },
+      {
+        id: 'settings-updates',
+        category: 'settings',
+        wide: true,
+        icon: 'download',
+        title: 'Güncellemeler',
+        desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',
+        roots: ['updates.mode'],
+        controls: [
+          {
+            type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
+            options: [
+              { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
+              { value: 'auto', label: 'Otomatik — indir ve kapanırken kur' },
+              { value: 'off', label: 'Kapalı' },
+            ],
+          },
+          { type: 'updatespanel' },
         ],
       },
       {
