@@ -25,6 +25,17 @@ test('kaynak: resolveBackgroundColors disa acik', () => {
   assert.match(defaultsSrc, /resolveBackgroundColors,/);
 });
 
+test('factory: visualizer + background colorMode default to theme', () => {
+  const SV = loadSV();
+  const cfg = SV.defaultConfig();
+  assert.strictEqual(cfg.visualizer.colorMode, 'theme');
+  assert.strictEqual(cfg.visualizer.rainbow, false);
+  assert.strictEqual(cfg.background.colorMode, 'theme');
+  /* Source of truth in defaults.js — visualizer must not default to rainbow. */
+  assert.match(defaultsSrc, /visualizer:\s*\{[\s\S]*?colorMode:\s*'theme'/);
+  assert.doesNotMatch(defaultsSrc, /visualizer:\s*\{[\s\S]*?colorMode:\s*'rainbow'/);
+});
+
 test('resolve: theme gradient.colors kullanir', () => {
   const SV = loadSV();
   const cols = ['#111111', '#222222', '#333333', '#444444', '#555555'];

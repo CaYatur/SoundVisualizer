@@ -229,8 +229,8 @@
     visualizer: {
       // Tüm türler ve grupları: shared/mode-catalog.js (#638)
       type: 'bars',
-      colorMode: 'rainbow', // 'custom' | 'theme' | 'rainbow'
-      rainbow: true,
+      colorMode: 'theme', // 'custom' | 'theme' | 'rainbow'
+      rainbow: false,
       color: '#3aa6ff',
       color2: '#d24bff',
       barCount: 160,
