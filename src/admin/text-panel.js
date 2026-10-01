@@ -59,17 +59,6 @@
     }
   }
 
-  function isWindowsPlatform() {
-    if (SP() && typeof SP().isWindows === 'function') return SP().isWindows();
-    if (typeof window !== 'undefined' && window.SV_PLATFORM && typeof window.SV_PLATFORM.isWindows === 'boolean') {
-      return window.SV_PLATFORM.isWindows;
-    }
-    if (typeof process !== 'undefined' && process.platform) {
-      return process.platform === 'win32';
-    }
-    return false;
-  }
-
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
@@ -107,18 +96,17 @@
         ['artist', 'Sanatçı Adı'],
         ['both', 'Parça ve Sanatçı'],
       ], () => T.field || 'both', (v) => { T.field = v; sync(); }, rerender));
-      const isWin = isWindowsPlatform();
-      if (!isWin && T.nowSource === 'system') {
+      const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
+      if (!isWin && (T.nowSource || 'system') === 'system') {
         T.nowSource = 'manual';
         sync();
       }
       const isAuto = isWin && (T.nowSource || 'system') === 'system';
 
-      if (isWin) {
-        if (isAuto && window.api && window.api.nowPlayingSubscribe) {
-          window.api.nowPlayingSubscribe(true);
-        }
-        nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
+      if (isWin && isAuto && window.api && window.api.nowPlayingSubscribe) {
+        window.api.nowPlayingSubscribe(true);
+      }
+      if (isWin) nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => isAuto, (v) => {
           T.nowSource = v ? 'system' : 'manual';
           sync();
           if (v && window.api && window.api.nowPlayingSubscribe) {
@@ -127,7 +115,7 @@
           P().push(true);
         }, rerender));
 
-        nodes.push(SP().miniToggle('Şarkı Resmini Göster', () => T.showArtwork !== false, (v) => {
+        if (isWin) nodes.push(SP().miniToggle('Şarkı Resmini Göster', () => T.showArtwork !== false, (v) => {
           T.showArtwork = v;
           sync();
           P().push(true);
@@ -236,38 +224,6 @@
             },
           })));
         }
-      } else {
-        // macOS / Linux
-        nodes.push(SP().miniToggle('Sistemden Otomatik Doldur', () => false, () => {}, null, {
-          disabled: true,
-          badge: 'Yalnızca Windows',
-          title: 'Bu özellik şu anda yalnızca Windows (SMTC) üzerinde desteklenmektedir.',
-        }));
-        nodes.push(el('div', {
-          class: 'studio-note dim-hint',
-          text: 'Sistem medya oturumunu (SMTC) otomatik okuma şu anda yalnızca Windows’ta desteklenmektedir. Başlık ve sanatçı bilgilerini aşağıdan elle girebilirsiniz.',
-        }));
-        nodes.push(P().row('Başlık', el('input', {
-          class: 'p-in', type: 'text', placeholder: 'Örn: Şarkı Başlığı',
-          value: (T.nowPlaying && T.nowPlaying.title) || '',
-          oninput: (e) => {
-            T.nowPlaying = T.nowPlaying || {};
-            T.nowPlaying.title = e.target.value;
-            sync();
-            P().push(false);
-          },
-        })));
-        nodes.push(P().row('Sanatçı', el('input', {
-          class: 'p-in', type: 'text', placeholder: 'Örn: Sanatçı Adı',
-          value: (T.nowPlaying && T.nowPlaying.artist) || '',
-          oninput: (e) => {
-            T.nowPlaying = T.nowPlaying || {};
-            T.nowPlaying.artist = e.target.value;
-            sync();
-            P().push(false);
-          },
-        })));
-      }
     }
  else {
       // ------------------------------------------------------------ söz
