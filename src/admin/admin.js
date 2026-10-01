@@ -348,6 +348,8 @@
     cfg: () => cfg,
     push,
     rerender: () => render(),
+    /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
+    openSettings: () => setCategory('settings'),
     isBlackedOut: () => isBlackedOut(),
     toggleBlackout,
     // Yeniden çiz ve ardından gönder. Paneller çizim sırasında bağımlı
@@ -530,6 +532,10 @@
         return window.SVTextPanel ? window.SVTextPanel.panel() : null;
       case 'updatespanel':
         return window.SVUpdatesPanel ? window.SVUpdatesPanel.panel() : null;
+      case 'language':
+        return languageCtrl();
+      case 'extendedrange':
+        return extendedRangeCtrl();
       case 'nowplayingpanel':
         return window.SVNowPlayingPanel ? window.SVNowPlayingPanel.panel() : null;
       case 'grouppanel':
@@ -828,6 +834,57 @@
     return el('div', { class: 'ctrl' }, [
       el('label', { class: 'lbl', text: 'Arkaplan Ayarları (dosya)' }),
       el('div', { class: 'up-toolbar' }, [expBtn, impBtn]),
+    ]);
+  }
+
+  // --- Dil seçici (eski modal Ayarlar penceresinden) ---
+  function languageCtrl() {
+    const saved = localStorage.getItem('sv-language') || 'auto';
+    const sel = el('select', {
+      onchange: (e) => {
+        const value = e.target.value;
+        if (value === 'auto') localStorage.removeItem('sv-language');
+        else localStorage.setItem('sv-language', value);
+        window.location.reload();
+      },
+    });
+    [
+      ['auto', 'Otomatik (Sistem dili)'],
+      ['tr', 'Türkçe'],
+      ['en', 'English'],
+    ].forEach(([v, t]) => {
+      const o = el('option', { value: v, text: tr(t) });
+      if (v === (['auto', 'tr', 'en'].includes(saved) ? saved : 'auto')) o.selected = true;
+      sel.appendChild(o);
+    });
+    /* Group header already says Dil — avoid a second Dil label. */
+    return el('div', { class: 'ctrl' }, [
+      sel,
+      el('div', { class: 'studio-note dim-hint', text: tr('Dil değişikliği uygulamayı yeniden yükler.'), style: 'margin-top:4px;' }),
+    ]);
+  }
+
+  // --- Genişletilmiş aralıklar (localStorage; cfg yolu yok) ---
+  function extendedRangeCtrl() {
+    const input = el('input', {
+      type: 'checkbox',
+      onchange: (e) => {
+        extendedRange = e.target.checked;
+        localStorage.setItem('sv-extended-range', extendedRange ? '1' : '0');
+        render();
+      },
+    });
+    input.checked = !!extendedRange;
+    return el('div', { class: 'ctrl' }, [
+      el('div', { class: 'row' }, [
+        el('label', { class: 'lbl', text: tr('Genişletilmiş Ayar Aralıkları') }),
+        el('label', { class: 'switch' }, [input, el('span', { class: 'track' })]),
+      ]),
+      el('div', {
+        class: 'studio-note dim-hint',
+        text: tr('Kaydırıcıların üst sınırını 5 katına çıkarır; normalin çok üstünde değerler girebilirsiniz. Aşırı değerler performansı düşürebilir.'),
+        style: 'margin-top:4px;',
+      }),
     ]);
   }
 
@@ -1949,6 +2006,10 @@
       id: 'library', icon: 'library', title: 'Kitaplık',
       desc: 'Kayıtlı sahneler, renk şablonları ve ayar yedekleri.',
     },
+    {
+      id: 'settings', icon: 'gear', title: 'Ayarlar',
+      desc: 'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
+    },
   ];
 
   /* Arkaplan modlarına özel ayarlar: katalogdaki `settings` listesi (#638).
@@ -2814,14 +2875,6 @@
           { type: 'slider', path: 'power.renderScale', label: 'Arkaplan Çözünürlüğü', min: 0.4, max: 1, step: 0.05, percent: true , noExtend: true },
           { type: 'toggle', path: 'power.pauseOnSilence', label: 'Sessizlikte Duraklat', group: 'Davranış', advanced: true },
           { type: 'toggle', path: 'power.hideCursor', label: 'İmleci Gizle', group: 'Davranış', advanced: true },
-          {
-            type: 'toggle',
-            path: 'power.confirmClose',
-            label: 'Yanlışlıkla Kapatmayı Önle',
-            group: 'Davranış',
-            advanced: true,
-            hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
-          },
         ],
       },
       {
@@ -2841,21 +2894,50 @@
         controls: [{ type: 'settingsio' }],
       },
       {
-        id: 'updates',
-        category: 'library',
-        icon: 'download',
-        title: 'Güncellemeler',
-        desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',
+        /* Tek tam genişlik kart: yan yana iki dengesiz kart (Uygulama + Güncellemeler)
+           yerine grup başlıklı tek sütun. Kategori alt yazısı zaten kapsamı söylüyor;
+           kart açıklaması boş bırakılır ki etiketler çakışmasın. */
+        id: 'settings-main',
+        category: 'settings',
+        wide: true,
+        icon: 'gear',
+        title: 'Ayarlar',
+        desc: '',
+        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose', 'updates'],
         controls: [
+          { type: 'language', group: 'Dil' },
+          {
+            type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',
+            group: 'Pencere',
+            hint: 'Başka bir uygulama öne çıksa bile görselleştirme ekranı üstte kalır.',
+          },
+          {
+            type: 'toggle', path: 'power.protect', label: 'Kaza Koruması', rebuild: true,
+            group: 'Pencere',
+            hint: 'Görselleştirme penceresi beklenmedik biçimde kapanırsa (çökme, Alt+F4) anında geri açılır. Panelden ya da ESC ile kapatmak her zaman çalışır.',
+          },
+          {
+            type: 'toggle', path: 'power.protectNoEscape', label: 'ESC ile Kapatmayı Devre Dışı Bırak',
+            group: 'Pencere',
+            show: () => !!(cfg.power && cfg.power.protect),
+            hint: 'Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Shift+Q (veya Ctrl+Alt+Shift+Q) ile kapanır.',
+          },
+          {
+            type: 'toggle', path: 'power.confirmClose', label: 'Yanlışlıkla Kapatmayı Önle',
+            group: 'Pencere',
+            hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
+          },
+          { type: 'extendedrange', group: 'Panel' },
           {
             type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
+            group: 'Güncellemeler',
             options: [
               { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
               { value: 'auto', label: 'Otomatik — indir ve kapanırken kur' },
               { value: 'off', label: 'Kapalı' },
             ],
           },
-          { type: 'updatespanel' },
+          { type: 'updatespanel', group: 'Güncellemeler' },
         ],
       },
       {
@@ -4627,111 +4709,10 @@
       renderScenes();
     });
 
-    // Ayarlar penceresindeki uygulama anahtarları
-    const aotBox = $('alwaysOnTopToggle');
-    if (aotBox) {
-      aotBox.checked = !!(cfg.power && cfg.power.alwaysOnTop);
-      aotBox.addEventListener('change', (e) => {
-        cfg.power = cfg.power || {};
-        cfg.power.alwaysOnTop = e.target.checked;
-        push(true);
-        svToast(
-          e.target.checked
-            ? 'Görselleştirme artık her zaman üstte kalacak.'
-            : 'Her zaman üstte kapatıldı.',
-          'ok'
-        );
-      });
-    }
-    /* Kaza koruması. İkinci anahtar yalnızca birincisi açıkken anlamlı
-       olduğu için, kapalıyken görsel olarak da devre dışı gösterilir —
-       aksi halde kullanıcı ESC kilidini açıp neden çalışmadığını arardı. */
-    const protBox = $('protectToggle');
-    const protEscBox = $('protectEscToggle');
-    const protEscRow = $('protectEscRow');
-    function syncProtectRow() {
-      if (!protEscRow) return;
-      const on = !!(cfg.power && cfg.power.protect);
-      protEscRow.classList.toggle('disabled', !on);
-      if (protEscBox) protEscBox.disabled = !on;
-    }
-    if (protBox) {
-      protBox.checked = !!(cfg.power && cfg.power.protect);
-      syncProtectRow();
-      protBox.addEventListener('change', (e) => {
-        cfg.power = cfg.power || {};
-        cfg.power.protect = e.target.checked;
-        push(true);
-        syncProtectRow();
-        svToast(
-          e.target.checked
-            ? 'Kaza koruması açık — kapanan görselleştirme penceresi geri açılır.'
-            : 'Kaza koruması kapatıldı.',
-          'ok'
-        );
-      });
-    }
-    if (protEscBox) {
-      protEscBox.checked = !!(cfg.power && cfg.power.protectNoEscape);
-      protEscBox.addEventListener('change', (e) => {
-        cfg.power = cfg.power || {};
-        cfg.power.protectNoEscape = e.target.checked;
-        push(true);
-        svToast(
-          e.target.checked
-            ? tr('ESC artık kapatmıyor. Kapatmak için paneldeki Kapat düğmesini ya da Ctrl+Shift+Q kullanın.')
-            : tr('ESC ile kapatma yeniden açık.'),
-          'ok'
-        );
-      });
-    }
-
-    const confirmCloseBox = $('confirmCloseToggle');
-    if (confirmCloseBox) {
-      confirmCloseBox.checked = !!(cfg.power && cfg.power.confirmClose);
-      confirmCloseBox.addEventListener('change', (e) => {
-        cfg.power = cfg.power || {};
-        cfg.power.confirmClose = e.target.checked;
-        push(true);
-        svToast(
-          e.target.checked
-            ? 'Yanlışlıkla kapatma koruması açık — görselleştirici açıkken onay istenir.'
-            : 'Yanlışlıkla kapatma koruması kapatıldı.',
-          'ok'
-        );
-      });
-    }
-
-    function syncSettingsCheckboxes() {
-      const aot = $('alwaysOnTopToggle');
-      if (aot) aot.checked = !!(cfg.power && cfg.power.alwaysOnTop);
-      const prot = $('protectToggle');
-      if (prot) prot.checked = !!(cfg.power && cfg.power.protect);
-      const protEsc = $('protectEscToggle');
-      if (protEsc) protEsc.checked = !!(cfg.power && cfg.power.protectNoEscape);
-      const cc = $('confirmCloseToggle');
-      if (cc) cc.checked = !!(cfg.power && cfg.power.confirmClose);
-      syncProtectRow();
-    }
+    /* Üst sağ dişli → tek Ayarlar kategorisi (modal yok). */
     const settingsBtn = $('settingsBtn');
     if (settingsBtn) {
-      settingsBtn.addEventListener('click', syncSettingsCheckboxes);
-    }
-
-    const extBox = $('extendedRangeToggle');
-    if (extBox) {
-      extBox.checked = extendedRange;
-      extBox.addEventListener('change', (e) => {
-        extendedRange = e.target.checked;
-        localStorage.setItem('sv-extended-range', extendedRange ? '1' : '0');
-        render();
-        svToast(
-          extendedRange
-            ? 'Genişletilmiş aralıklar açık — kaydırıcılar 5 kat daha yükseğe çıkabilir.'
-            : 'Genişletilmiş aralıklar kapatıldı. Mevcut yüksek değerler korunur.',
-          'ok'
-        );
-      });
+      settingsBtn.addEventListener('click', () => setCategory('settings'));
     }
 
     // Gelişmiş ayarlar anahtarı + kategori sıfırlama

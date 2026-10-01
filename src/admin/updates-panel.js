@@ -59,7 +59,7 @@
     state = s;
     if (s && s.status === 'available' && !s.skipped && !toasted.has(s.latest) && P() && P().toast) {
       toasted.add(s.latest);
-      P().toast(tt('Yeni sürüm:') + ' v' + s.latest + ' — ' + tt('Kitaplık › Güncellemeler'), 'ok');
+      P().toast(tt('Yeni sürüm:') + ' v' + s.latest + ' — ' + tt('Ayarlar › Güncellemeler'), 'ok');
     }
     refresh();
   }

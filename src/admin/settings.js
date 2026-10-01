@@ -1,41 +1,21 @@
 'use strict';
+/* Üst sağ dişli → tek Ayarlar kategorisi.
 
+   Eski modal (settingsBackdrop) kaldırıldı; dil / koruma / geniş aralık /
+   güncellemeler sol raydaki Ayarlar kategorisinde. admin.js SVPanel.openSettings
+   kaydeder; bu dosya yalnızca tıklamayı oraya iletir. */
 (() => {
   const button = document.getElementById('settingsBtn');
-  const backdrop = document.getElementById('settingsBackdrop');
-  const closeButton = document.getElementById('settingsClose');
-  const languageSelect = document.getElementById('languageSelect');
+  if (!button) return;
 
-  if (!button || !backdrop || !closeButton || !languageSelect) return;
-
-  const savedLanguage = localStorage.getItem('sv-language') || 'auto';
-  languageSelect.value = ['auto', 'tr', 'en'].includes(savedLanguage) ? savedLanguage : 'auto';
-
-  function openSettings() {
-    backdrop.classList.remove('hidden');
-    backdrop.setAttribute('aria-hidden', 'false');
-    languageSelect.focus();
+  function openUnifiedSettings() {
+    if (window.SVPanel && typeof window.SVPanel.openSettings === 'function') {
+      window.SVPanel.openSettings();
+      return;
+    }
+    /* admin.js henüz yüklenmediyse bir kez ertelenir. */
+    setTimeout(openUnifiedSettings, 0);
   }
 
-  function closeSettings() {
-    backdrop.classList.add('hidden');
-    backdrop.setAttribute('aria-hidden', 'true');
-    button.focus();
-  }
-
-  button.addEventListener('click', openSettings);
-  closeButton.addEventListener('click', closeSettings);
-  backdrop.addEventListener('click', (event) => {
-    if (event.target === backdrop) closeSettings();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !backdrop.classList.contains('hidden')) closeSettings();
-  });
-
-  languageSelect.addEventListener('change', () => {
-    const value = languageSelect.value;
-    if (value === 'auto') localStorage.removeItem('sv-language');
-    else localStorage.setItem('sv-language', value);
-    window.location.reload();
-  });
+  button.addEventListener('click', openUnifiedSettings);
 })();
