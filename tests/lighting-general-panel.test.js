@@ -58,3 +58,20 @@ test('genel ışık i18n ve stiller', () => {
   assert.match(css, /\.lighting-backend-tag/);
   assert.match(css, /\.lighting-general-banner/);
 });
+
+test('genel ışık kartı lighting kökünü sıfırlama için bildiriyor', () => {
+  const admin = read('src/admin/admin.js');
+  const start = admin.search(/id: 'lightingGeneral'/);
+  assert.ok(start > 0);
+  const slice = admin.slice(start, start + 500);
+  assert.match(slice, /roots:\s*\['lighting'\]/);
+  assert.doesNotMatch(admin, /if \(sec\.id === 'lighting'\) out\.push\('lighting'\)/);
+});
+
+test('WDL kartı yalnız WDL-özel alanları sıfırlar', () => {
+  const admin = read('src/admin/admin.js');
+  const start = admin.search(/id: 'lighting',\s*category: 'lighting'/);
+  assert.ok(start > 0, 'WDL section yok');
+  const slice = admin.slice(start, start + 700);
+  assert.match(slice, /roots:\s*\['lighting\.enabled',\s*'lighting\.deviceColors',\s*'lighting\.deviceLedColors'\]/);
+});
