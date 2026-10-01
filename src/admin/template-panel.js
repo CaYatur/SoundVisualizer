@@ -153,5 +153,8 @@
     P().toast('"' + t.name + '" uygulandı.');
   }
 
-  window.SVTemplatePanel = { panel };
+  window.SVTemplatePanel = {
+    panel,
+    clearLastApplied() { lastApplied = ''; },
+  };
 })();

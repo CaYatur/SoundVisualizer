@@ -1,10 +1,8 @@
 'use strict';
 /* Güncellemeler (#640).
 
-   Ana süreç denetler (src/main/updater.js) ve durumu gönderir. Aynı içerik
-   Settings’teki tam genişlik Güncellemeler kartında ve footer indirme
-   düğmesinden açılan modalda kullanılır (panel() ortak kaynak).
-   Sürüm notları yalnız METİN; adresler ana süreçte açılır.
+   Ana süreç denetler (src/main/updater.js) ve durumu gönderir. İçerik Settings’teki tam genişlik Güncellemeler kartında gösterilir (panel()).
+   Sürüm notları yalnız METİN; adresler ana süreçte açılır. Footer indirme modalı kaldırıldı.
 
    Yeni sürüm ilk görüldüğünde (oturum başına sürüm başına bir kez) toast
    çıkar; modal kapalı olsa da kullanıcı haberdar olur. */
@@ -33,7 +31,8 @@
     dev: 'Geliştirme kopyası: yalnız denetim yapılır; otomatik denetim kapalı.',
   };
 
-  function fmtDate(iso) {
+  
+function fmtDate(iso) {
     const d = new Date(iso);
     if (isNaN(d.getTime())) return '';
     try {
@@ -43,7 +42,7 @@
     }
   }
 
-  function statusText(s) {
+function statusText(s) {
     if (!s || s.status === 'idle') return s && s.auto ? 'Henüz denetlenmedi.' : 'Otomatik denetim bu kopyada kapalı; elle denetleyebilirsiniz.';
     if (s.status === 'checking') return 'Denetleniyor…';
     if (s.status === 'latest') return 'Güncel: en yeni sürüm kurulu.';
@@ -55,18 +54,17 @@
     return '';
   }
 
-  function onStatus(s) {
+function onStatus(s) {
     state = s;
     if (s && s.status === 'available' && !s.skipped && !toasted.has(s.latest) && P() && P().toast) {
       toasted.add(s.latest);
       P().toast(tt('Yeni sürüm:') + ' v' + s.latest + ' — ' + tt('Güncellemeler'), 'ok');
     }
     refresh();
-    syncFooterBtn();
   }
 
-  function refresh() {
-    /* Kart ve modal aynı anda .upd-panel tutabilir; hepsini yenile. */
+function refresh() {
+    /* Settings kartında birden fazla .upd-panel tutabilir; hepsini yenile. */
     if (typeof document !== 'undefined') {
       const nodes = Array.from(document.querySelectorAll('.upd-panel'));
       if (nodes.length) {
@@ -81,70 +79,7 @@
     box.replaceWith(buildPanel());
   }
 
-  function syncFooterBtn() {
-    if (typeof document === 'undefined') return;
-    const btn = document.getElementById('updatesBtn');
-    if (!btn) return;
-    const hot = !!(state && state.status === 'available' && !state.skipped);
-    btn.classList.toggle('has-update', hot);
-  }
-
-  function modeSelect() {
-    const p = P();
-    if (!p || !p.el || !p.cfg) return null;
-    const el = p.el;
-    const cfg = p.cfg();
-    if (!cfg.updates) cfg.updates = { mode: 'notify' };
-    const sel = el('select', {
-      onchange: (e) => {
-        cfg.updates.mode = e.target.value;
-        if (p.push) p.push(true);
-      },
-    });
-    [
-      ['notify', 'Açık — yeni sürümü haber ver'],
-      ['auto', 'Otomatik — indir ve kapanırken kur'],
-      ['off', 'Kapalı'],
-    ].forEach(([v, t]) => {
-      const o = el('option', { value: v, text: tt(t) });
-      if (String(cfg.updates.mode || 'notify') === v) o.selected = true;
-      sel.appendChild(o);
-    });
-    return p.row(tt('Güncellemeleri Denetle'), sel);
-  }
-
-  function fillModalBody() {
-    if (typeof document === 'undefined') return;
-    const body = document.getElementById('updatesModalBody');
-    if (!body || !P() || !P().el) return;
-    body.textContent = '';
-    const mode = modeSelect();
-    if (mode) body.appendChild(mode);
-    body.appendChild(panel());
-  }
-
-  function openModal() {
-    if (typeof document === 'undefined') return;
-    const backdrop = document.getElementById('updatesBackdrop');
-    if (!backdrop) return;
-    fillModalBody();
-    backdrop.classList.remove('hidden');
-    backdrop.setAttribute('aria-hidden', 'false');
-    const closeBtn = document.getElementById('updatesClose');
-    if (closeBtn) closeBtn.focus();
-  }
-
-  function closeModal() {
-    if (typeof document === 'undefined') return;
-    const backdrop = document.getElementById('updatesBackdrop');
-    if (!backdrop) return;
-    backdrop.classList.add('hidden');
-    backdrop.setAttribute('aria-hidden', 'true');
-    const btn = document.getElementById('updatesBtn');
-    if (btn) btn.focus();
-  }
-
-  function buildPanel() {
+function buildPanel() {
     const p = P();
     const el = p.el;
     const s = state || { status: 'idle' };
@@ -214,39 +149,17 @@
     return root;
   }
 
-  function panel() {
+function panel() {
     return buildPanel();
   }
 
-  function wireModalChrome() {
-    if (typeof document === 'undefined') return;
-    const btn = document.getElementById('updatesBtn');
-    const backdrop = document.getElementById('updatesBackdrop');
-    const closeBtn = document.getElementById('updatesClose');
-    if (btn) btn.addEventListener('click', openModal);
-    if (closeBtn) closeBtn.addEventListener('click', closeModal);
-    if (backdrop) {
-      backdrop.addEventListener('click', (e) => {
-        if (e.target === backdrop) closeModal();
-      });
-    }
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && backdrop && !backdrop.classList.contains('hidden')) {
-        e.preventDefault();
-        closeModal();
-      }
-    });
-  }
-
-  function init() {
-    wireModalChrome();
-    syncFooterBtn();
+function init() {
     if (!window.api || !window.api.onUpdatesStatus) return;
     window.api.onUpdatesStatus(onStatus);
     if (window.api.updatesState) window.api.updatesState().then(onStatus).catch(() => {});
   }
 
-  window.SVUpdatesPanel = { panel, init, openModal, closeModal, _state: () => state, _onStatus: onStatus };
+  window.SVUpdatesPanel = { panel, init, _state: () => state, _onStatus: onStatus };
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

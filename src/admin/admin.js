@@ -2412,7 +2412,19 @@
       },
       {
         id: 'templates',
-        roots: ['visualizer', 'background', 'postfx'],
+        /* Badge/reset must cover every SCENE_KEYS field apply() touches.
+           Partial roots left modulation/layers/geometry dirty and — with
+           layerStack on — syncStackState re-cleared classic visualizer to
+           'none' after a partial reset, so the badge bounced back alone. */
+        roots: (window.SVTemplates && window.SVTemplates.SCENE_KEYS
+          ? window.SVTemplates.SCENE_KEYS.slice()
+          : ['background', 'visualizer', 'geometry', 'postfx', 'layers', 'layerStack', 'logo',
+            'modulation', 'transition', 'custom', 'milkdrop', 'images', 'feedback']),
+        /* Same preserves as templates.apply / resetScene — user setup, not scene. */
+        rootOmit: [
+          'background.transparent', 'background.transparentKey', 'background.coverTaskbar',
+          'logo.src', 'logo.libraryId', 'logo.kind', 'logo.source', 'logo.enabled',
+        ],
         category: 'library',
         icon: 'sparkles',
         wide: true,
@@ -2895,7 +2907,7 @@
       },
       {
         /* Uygulama: Dil / Pencere / Panel. Güncellemeler ayrı tam genişlik
-           kartta (settings-updates) ve footer indirme düğmesi modalında. */
+           kartta (settings-updates). Footer indirme modalı kaldırıldı. */
         id: 'settings-main',
         category: 'settings',
         wide: true,
@@ -3411,11 +3423,24 @@
     if (!paths.length) return;
     const ok = await svConfirm('Bu bölümdeki ayarlar varsayılana dönecek.', { danger: true, okText: 'Bölümü sıfırla' });
     if (!ok) return;
-    const defaults = window.SV.defaultConfig();
-    paths.forEach((p) => {
-      const dv = getPath(defaults, p);
-      if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
-    });
+    /* Ready Templates: whole-object SCENE_KEYS restore (not leaf setPath).
+       Leaf reset missed array/object identity and left layerStack on, so
+       the next syncStackState re-dirtied visualizer.type back to 'none'. */
+    if (sec.id === 'templates' && window.SVTemplates && typeof window.SVTemplates.resetScene === 'function') {
+      window.SVTemplates.resetScene(cfg, {
+        defaultConfig: window.SV.defaultConfig,
+        clone: window.SV.clone,
+      });
+      if (window.SVTemplatePanel && typeof window.SVTemplatePanel.clearLastApplied === 'function') {
+        window.SVTemplatePanel.clearLastApplied();
+      }
+    } else {
+      const defaults = window.SV.defaultConfig();
+      paths.forEach((p) => {
+        const dv = getPath(defaults, p);
+        if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
+      });
+    }
     push(true);
     render();
   }

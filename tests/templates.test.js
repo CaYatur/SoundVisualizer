@@ -195,3 +195,42 @@ test('her şablon uygulandığında tam ve geçerli bir yapılandırma verir', (
   assert.strictEqual(outCustom.layerStack.enabled, false, 'şablondaki açık layerStack tercihi uygulanmalı');
 });
 
+
+
+test('resetScene fabrika sahnesine döner ve kurulum/korunan alanlara dokunmaz', () => {
+  const cfg = SV.defaultConfig();
+  cfg.audio.sensitivity = 2.5;
+  cfg.background.transparent = true;
+  cfg.background.coverTaskbar = true;
+  cfg.logo.enabled = true;
+  cfg.logo.src = 'data:image/png;base64,abc';
+  cfg.layerStack.enabled = true;
+
+  const tpl = T.TEMPLATES.find((t) => t.id === 'club-strobe');
+  const out = T.apply(cfg, tpl, env);
+  assert.notStrictEqual(out.visualizer.type, SV.defaultConfig().visualizer.type);
+  assert.ok((out.postfx || []).length > 0 || (out.modulation.routes || []).length > 0);
+
+  T.resetScene(out, env);
+
+  const def = SV.defaultConfig();
+  assert.strictEqual(out.visualizer.type, def.visualizer.type);
+  assert.deepStrictEqual(out.postfx, def.postfx);
+  assert.deepStrictEqual(out.modulation.routes, def.modulation.routes);
+  assert.deepStrictEqual(out.layers, def.layers);
+  assert.strictEqual(out.layerStack.enabled, def.layerStack.enabled);
+  assert.strictEqual(out.audio.sensitivity, 2.5, 'kurulum bozulmamalı');
+  assert.strictEqual(out.background.transparent, true, 'transparent korunmalı');
+  assert.strictEqual(out.background.coverTaskbar, true, 'coverTaskbar korunmalı');
+  assert.strictEqual(out.logo.enabled, true, 'logo.enabled korunmalı');
+  assert.strictEqual(out.logo.src, 'data:image/png;base64,abc', 'logo.src korunmalı');
+});
+
+test('SCENE_KEYS dışa aktarılır ve apply ile aynıdır', () => {
+  assert.ok(Array.isArray(T.SCENE_KEYS));
+  assert.ok(T.SCENE_KEYS.includes('visualizer'));
+  assert.ok(T.SCENE_KEYS.includes('modulation'));
+  assert.ok(T.SCENE_KEYS.includes('layers'));
+  assert.ok(T.SCENE_KEYS.includes('layerStack'));
+  assert.ok(typeof T.resetScene === 'function');
+});
