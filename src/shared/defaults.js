@@ -27,6 +27,9 @@
       // Tüm türler ve grupları: shared/mode-catalog.js (#638)
       type: 'gradient',
       solidColor: '#08080f',
+      /* Color mode for effect palettes (one source of truth for Admin + Layers).
+         theme = gradient.colors, solid = solidColor x5, rainbow = fixed spectrum. */
+      colorMode: 'theme', // 'theme' | 'solid' | 'rainbow'
       /* Şeffaf arkaplan. Açıkken görselleştirici penceresi arkasındaki
          masaüstünü gösterir ve düz renk arkaplan boyanmaz.
          DİKKAT: pencerenin şeffaflığı Electron'da yalnızca OLUŞTURULURKEN
@@ -557,7 +560,13 @@
     nowplaying: {
       enabled: true,
       source: 'system',   // 'system' | 'manual'
-      showArtwork: true,
+      showArtwork: true, // logo layer may show track artwork when NP/lyrics active
+      /* NP overlay: album cover beside the text block. Default OFF. */
+      coverOverlay: false,
+      coverSize: 1.15, // relative to text-block height
+      coverGap: 0.35,  // gap between cover and text (fraction of cover)
+      coverRadius: 0.14, // corner radius 0..0.5 of cover size
+      coverSide: 'auto', // 'auto' | 'left' | 'right'
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi
@@ -1283,10 +1292,25 @@
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
+  /* Resolve the 5-stop palette the background effects actually paint with.
+     Admin (stack off) and Layers (stack on) both write background.colorMode;
+     renderers must call this instead of reading gradient.colors raw. */
+  const BG_RAINBOW_COLORS = ['#ff0040', '#ff8c00', '#ffd400', '#00e676', '#2979ff'];
+  function resolveBackgroundColors(cfg) {
+    const bg = (cfg && cfg.background) || {};
+    const mode = bg.colorMode || 'theme';
+    if (mode === 'solid') {
+      const c = bg.solidColor || '#08080f';
+      return [c, c, c, c, c];
+    }
+    if (mode === 'rainbow') return BG_RAINBOW_COLORS.slice();
+    const cols = (bg.gradient && bg.gradient.colors) || [];
+    return cols.length ? cols.slice(0, 5) : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+  }
+
   /* 5 noktalı arkaplan gradyanı / renk temasından oran (0..1) boyunca renk örnekleme */
   function sampleThemeColor(cfg, pos) {
-    const cols = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
-    const list = cols.length ? cols : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+    const list = resolveBackgroundColors(cfg);
     const p = Math.max(0, Math.min(0.9999, ((Number(pos || 0) % 1) + 1) % 1));
     const x = p * (list.length - 1);
     const i = Math.floor(x);
@@ -1300,8 +1324,7 @@
   }
 
   function sampleThemeColorRgb(cfg, pos) {
-    const cols = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
-    const list = cols.length ? cols : ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'];
+    const list = resolveBackgroundColors(cfg);
     const p = Math.max(0, Math.min(0.9999, ((Number(pos || 0) % 1) + 1) % 1));
     const x = p * (list.length - 1);
     const i = Math.floor(x);
@@ -1327,5 +1350,6 @@
     hexToRgb01,
     sampleThemeColor,
     sampleThemeColorRgb,
+    resolveBackgroundColors,
   };
 })();

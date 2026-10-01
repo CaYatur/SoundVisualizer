@@ -224,7 +224,9 @@
       const g = cfg.background.gradient;
       gl.useProgram(this.prog);
 
-      const cols = g.colors;
+      const cols = (window.SV && window.SV.resolveBackgroundColors)
+        ? window.SV.resolveBackgroundColors(cfg)
+        : (g.colors || []);
       for (let i = 0; i < 5; i++) {
         const c = window.SV.hexToRgb01(cols[i] || cols[cols.length - 1] || '#000000');
         this._colorBuf[i * 3] = c[0];

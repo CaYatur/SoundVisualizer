@@ -156,3 +156,14 @@ test('davranış: isConnected false iken restore atlanır', () => {
   flushAll();
   assert.strictEqual(root.scrollTop, 0, 'bağlı değilken rAF restore yok');
 });
+
+test('kaynak: kategori scroll haritasi (bellekte, diske yazilmaz)', () => {
+  assert.match(adminSrc, /const categoryScrollById\s*=\s*new Map\(\)/);
+  assert.match(adminSrc, /let pendingCategoryScrollId\s*=\s*null/);
+  assert.match(adminSrc, /function saveCategoryScroll\s*\(/);
+  assert.match(adminSrc, /saveCategoryScroll\(activeCategory\)/);
+  assert.match(adminSrc, /pendingCategoryScrollId\s*=\s*id/);
+  assert.match(adminSrc, /pendingCategoryScrollId\s*===\s*activeCategory/);
+  assert.doesNotMatch(adminSrc, /localStorage\.[gs]etItem\([^)]*scroll/i);
+  assert.doesNotMatch(adminSrc, /categoryScrollById[^;]*localStorage/);
+});

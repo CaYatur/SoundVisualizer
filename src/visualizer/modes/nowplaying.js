@@ -45,6 +45,22 @@
       this.tracker = window.SVNowPlaying ? new window.SVNowPlaying.Tracker() : null;
       this.scrollT = 0;
       this.lastKey = '';
+      this._coverImg = null;
+      this._coverKey = '';
+    }
+
+    _coverImage(url) {
+      if (!url || typeof url !== 'string' || url.length < 20) {
+        this._coverImg = null; this._coverKey = '';
+        return null;
+      }
+      if (this._coverKey === url && this._coverImg) return this._coverImg;
+      this._coverKey = url;
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = url;
+      this._coverImg = img;
+      return img;
     }
     resize() {}
 
@@ -108,9 +124,36 @@
       const bass = clamp(audio.bass * sens, 0, 1.4);
       const pulse = 1 + bass * (c.audioScale == null ? 0.04 : c.audioScale);
 
-      const baseCol = c.useCustomColor ? hexRgb(c.color) : paletteAt(cfg, 0.9);
-      const dimCol = c.useCustomColor ? hexRgb(c.colorDim) : paletteAt(cfg, 0.6);
-      const barCol = c.useCustomColor ? hexRgb(c.colorBar) : paletteAt(cfg, 0.3);
+      /* Prefer visualizer.colorMode (Sabit / Tema / Gökkuşağı); fall back to useCustomColor. */
+      const colorMode = (cfg.visualizer && cfg.visualizer.colorMode)
+        || (c.useCustomColor ? 'custom' : 'theme');
+      let baseCol, dimCol, barCol;
+      if (colorMode === 'custom') {
+        baseCol = hexRgb(c.color);
+        dimCol = hexRgb(c.colorDim);
+        barCol = hexRgb(c.colorBar);
+      } else if (colorMode === 'rainbow') {
+        const hsl = (pos) => {
+          const h = ((t * 40 + pos * 300) % 360 + 360) % 360;
+          const a = h / 60;
+          const x = 1 - Math.abs(a % 2 - 1);
+          let r = 0, g = 0, b = 0;
+          if (a < 1) { r = 1; g = x; }
+          else if (a < 2) { r = x; g = 1; }
+          else if (a < 3) { g = 1; b = x; }
+          else if (a < 4) { g = x; b = 1; }
+          else if (a < 5) { r = x; b = 1; }
+          else { r = 1; b = x; }
+          return [(r * 255) | 0, (g * 255) | 0, (b * 255) | 0];
+        };
+        baseCol = hsl(0.9);
+        dimCol = hsl(0.6);
+        barCol = hsl(0.3);
+      } else {
+        baseCol = paletteAt(cfg, 0.9);
+        dimCol = paletteAt(cfg, 0.6);
+        barCol = paletteAt(cfg, 0.3);
+      }
       const dimA = style.dimOpacity;
 
       const outline = pick(c.outline, 'outline');
@@ -163,11 +206,42 @@
       else if (anim === 'slideLeft') { animA = ease; ox = (1 - ease) * size * 2; }
       else if (anim === 'scale') { animA = ease; scale = 0.82 + ease * 0.18; }
 
+      // ---- album cover overlay (optional; default off)
+      const wantCover = !!c.coverOverlay;
+      const artUrl = wantCover
+        ? ((raw && raw.artwork) || (c.manual && c.manual.artwork) || '')
+        : '';
+      const coverImg = wantCover ? this._coverImage(artUrl) : null;
+      const coverReady = !!(coverImg && coverImg.complete && coverImg.naturalWidth > 0);
+      const coverPx = coverReady ? Math.max(8, total * (c.coverSize == null ? 1.15 : c.coverSize)) : 0;
+      const coverGapPx = coverReady ? coverPx * (c.coverGap == null ? 0.35 : c.coverGap) : 0;
+      let side = c.coverSide || 'auto';
+      if (side === 'auto') side = (align === 'right') ? 'right' : 'left';
+
       ctx.save();
       ctx.globalAlpha = clamp(env.alpha * animA * (c.opacity == null ? 1 : c.opacity), 0, 1);
       ctx.translate(cx + ox, cy + oy);
       ctx.scale(scale * pulse, scale * pulse);
       ctx.textBaseline = 'middle';
+
+      // Cover sits beside the text group; nudge text so the pair stays centered on (cx,cy).
+      const pairShift = coverReady ? (coverPx + coverGapPx) / 2 : 0;
+      const textShift = coverReady ? (side === 'left' ? pairShift : -pairShift) : 0;
+      if (coverReady) {
+        const rad = Math.max(0, Math.min(0.5, c.coverRadius == null ? 0.14 : c.coverRadius)) * coverPx;
+        const coverCx = side === 'left' ? -pairShift - coverGapPx / 2 - coverPx / 2 : pairShift + coverGapPx / 2 + coverPx / 2;
+        const coverCy = 0;
+        ctx.save();
+        ctx.translate(coverCx, coverCy);
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-coverPx / 2, -coverPx / 2, coverPx, coverPx, rad);
+        else ctx.rect(-coverPx / 2, -coverPx / 2, coverPx, coverPx);
+        ctx.clip();
+        ctx.drawImage(coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx);
+        ctx.restore();
+      }
+
+      ctx.translate(textShift, 0);
 
       // Grup, verilen noktada dikeyde ortalanır
       let y = -total / 2;
@@ -295,7 +369,7 @@
       ctx.restore();
     }
 
-    dispose() { this.tracker = null; }
+    dispose() { this.tracker = null; this._coverImg = null; this._coverKey = ''; }
   }
 
   window.SVModes = window.SVModes || {};
