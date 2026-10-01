@@ -2019,6 +2019,7 @@
         show: isWindows,
         title: 'Windows Dynamic Lighting',
         desc: 'Uyumlu RGB aygıtlarını görselleştirici renkleriyle senkronize eder. Varsayılan olarak kapalıdır.',
+        roots: ['lighting.enabled', 'lighting.deviceColors', 'lighting.deviceLedColors'],
         controls: [{ type: 'lightingpanel' }],
       },
       {
@@ -2482,6 +2483,7 @@
         wide: true,
         title: 'Genel Işık Ayarları',
         desc: 'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.',
+        roots: ['lighting'],
         controls: [{ type: 'lightinggeneralpanel' }],
       },
       {
@@ -2795,7 +2797,6 @@
     sec.controls.forEach((c) => {
       if (c.path && defaultAt(c.path) !== undefined) out.push(c.path);
     });
-    if (sec.id === 'lighting') out.push('lighting');
     (sec.roots || []).forEach((r) => {
       if (defaultAt(r) !== undefined && out.indexOf(r) < 0) out.push(r);
     });
