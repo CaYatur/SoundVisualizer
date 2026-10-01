@@ -560,7 +560,13 @@
     nowplaying: {
       enabled: true,
       source: 'system',   // 'system' | 'manual'
-      showArtwork: true,
+      showArtwork: true, // logo layer may show track artwork when NP/lyrics active
+      /* NP overlay: album cover beside the text block. Default OFF. */
+      coverOverlay: false,
+      coverSize: 1.15, // relative to text-block height
+      coverGap: 0.35,  // gap between cover and text (fraction of cover)
+      coverRadius: 0.14, // corner radius 0..0.5 of cover size
+      coverSide: 'auto', // 'auto' | 'left' | 'right'
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi

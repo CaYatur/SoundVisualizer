@@ -1646,6 +1646,10 @@
 
   function applyDynamicThemeNow() {
     clearDynamicArtworkTimer();
+    if (!window.SV_PLATFORM || !window.SV_PLATFORM.isWindows) {
+      svToast(tr('Dinamik renk teması yalnızca Windows’ta kullanılabilir.'), 'warn');
+      return;
+    }
     if (!window.SV || !window.SV.AdaptiveTheme) return;
     const dt = cfg.dynamicTheme;
     if (!dt) return;
@@ -2058,9 +2062,6 @@
             options: MC().options('background'),
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
-          { type: 'color', path: 'background.solidColor', label: 'Düz Renk',
-            show: () => cfg.background.type === 'solid'
-              || ((cfg.background.colorMode || 'theme') === 'solid' && cfg.background.type !== 'solid'), },
           {
             type: 'segment',
             path: 'background.colorMode',
@@ -2073,6 +2074,9 @@
             ],
             show: () => usesPalette(),
           },
+          { type: 'color', path: 'background.solidColor', label: 'Düz Renk',
+            show: () => cfg.background.type === 'solid'
+              || ((cfg.background.colorMode || 'theme') === 'solid' && cfg.background.type !== 'solid'), },
           { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan', rebuild: true },
           {
             type: 'note',
@@ -2343,6 +2347,7 @@
         wide: true,
         title: 'Dinamik Renk Teması (Windows)',
         desc: 'Çalan şarkının albüm kapağına veya şarkı geçişlerine göre renk temasını otomatik değiştirin.',
+        show: () => !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows),
         controls: [{ type: 'dynamictheme' }],
       },
       {
@@ -4429,6 +4434,10 @@
     const advBox = $('advToggle');
     if (advBox) advBox.checked = advancedOn;
     if (!CATEGORIES.some((c) => c.id === activeCategory)) activeCategory = CATEGORIES[0].id;
+    if (!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows)) {
+      if (cfg.dynamicTheme) cfg.dynamicTheme.enabled = false;
+      if (cfg.nowplaying && cfg.nowplaying.source === 'system') cfg.nowplaying.source = 'manual';
+    }
 
     // Seçili arayüz dilini ana sürece bildir (diyaloglar ve yayın sayfaları)
     try { window.api.setUiLanguage(window.SVI18n.locale); } catch { /* i18n yok */ }

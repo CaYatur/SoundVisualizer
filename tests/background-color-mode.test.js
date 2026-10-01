@@ -84,3 +84,10 @@ test('kaynak: Admin NP solid modunda uc renk', () => {
   assert.match(adminSrc, /path: 'nowplaying\.colorDim'/);
   assert.match(adminSrc, /path: 'nowplaying\.colorBar'/);
 });
+
+test('kaynak: Admin Background Renk Modu solidColor\'dan once', () => {
+  const modeAt = adminSrc.indexOf("path: 'background.colorMode'");
+  const solidAt = adminSrc.indexOf("path: 'background.solidColor'");
+  assert.ok(modeAt > 0 && solidAt > 0, 'ikisi de olmali');
+  assert.ok(modeAt < solidAt, 'Renk Modu, Duz Renk secicisinden once gelmeli');
+});

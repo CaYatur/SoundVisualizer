@@ -100,16 +100,28 @@
     const rerender = () => P().apply();
     const nodes = [];
 
-    const src = C.source || 'system';
-    if (src === 'system' && window.api && window.api.nowPlayingSubscribe) {
+    const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
+    if (!isWin && (C.source || 'system') === 'system') {
+      C.source = 'manual';
+    }
+    const src = C.source || (isWin ? 'system' : 'manual');
+    if (src === 'system' && isWin && window.api && window.api.nowPlayingSubscribe) {
       window.api.nowPlayingSubscribe(true);
     }
-    ensureLive();
+    if (isWin) ensureLive();
 
     nodes.push(SP().miniToggle('Etkin', () => C.enabled !== false, (v) => { C.enabled = v; }, rerender));
     if (C.enabled === false) return el('div', { class: 'txt-panel' }, nodes);
 
-    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => src, (v) => { C.source = v; }, rerender));
+    const sourceOpts = isWin ? SOURCE_LABELS : [['manual', 'Elle Yaz']];
+    nodes.push(SP().miniSelect('Kaynak', sourceOpts, () => src, (v) => {
+      if (!isWin && v === 'system') { C.source = 'manual'; }
+      else C.source = v;
+    }, rerender));
+    if (!isWin) {
+      nodes.push(el('div', { class: 'studio-note dim-hint',
+        text: 'Sistemden okuma (SMTC) yalnızca Windows’ta çalışır. Bu platformda parçayı elle yazın.' }));
+    }
 
     if (src === 'system') {
       statusEl = el('span', { class: 'txt-info np-status', text: 'okunuyor…' });
@@ -236,6 +248,29 @@
         ];
       }));
     }
+
+    // -------------------------------------------------------- album cover overlay
+    nodes.push(SP().foldable('Albüm Kapağı (Bindirme)', () => {
+      const kids = [
+        SP().miniToggle('Kapağı Göster', () => !!C.coverOverlay, (v) => { C.coverOverlay = v; }, rerender),
+      ];
+      if (C.coverOverlay) {
+        kids.push(el('div', { class: 'studio-note dim-hint',
+          text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+        kids.push(SP().miniSlider('Boyut', () => (C.coverSize == null ? 1.15 : C.coverSize),
+          (v) => { C.coverSize = v; }, { min: 0.5, max: 2.5, step: 0.05 }));
+        kids.push(SP().miniSlider('Yazı Aralığı', () => (C.coverGap == null ? 0.35 : C.coverGap),
+          (v) => { C.coverGap = v; }, { min: 0, max: 1, step: 0.02, percent: true }));
+        kids.push(SP().miniSlider('Köşe Yuvarlaklığı', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
+          (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01 }));
+        kids.push(SP().miniSelect('Konum', [
+          ['auto', 'Otomatik'],
+          ['left', 'Solda'],
+          ['right', 'Sağda'],
+        ], () => C.coverSide || 'auto', (v) => { C.coverSide = v; }));
+      }
+      return kids;
+    }));
 
     // ----------------------------------------------------------------- renk
     nodes.push(SP().foldable('Renk', () => {
