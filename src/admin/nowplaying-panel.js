@@ -262,12 +262,20 @@
           (v) => { C.coverGap = v; }, { min: 0, max: 1, step: 0.02, percent: true }),
         SP().miniSlider('Köşe / Oval', () => (C.coverRadius == null ? 0.14 : C.coverRadius),
           (v) => { C.coverRadius = v; }, { min: 0, max: 0.5, step: 0.01, percent: true }),
+        SP().miniSelect('Kapak Sığdırma', [
+          ['natural', 'Doğal oran'],
+          ['square', 'Kareye ger'],
+          ['cover', 'Kareye kapla'],
+          ['contain', 'Kareye sığdır'],
+        ], () => C.coverFit || 'natural', (v) => { C.coverFit = v; }),
         SP().miniSelect('Konum', [
           ['auto', 'Otomatik (Üstte)'],
           ['left', 'Solda'],
           ['right', 'Sağda'],
           ['top', 'Üstte'],
         ], () => C.coverSide || 'auto', (v) => { C.coverSide = v; }),
+        SP().miniSlider('Kapak Bas Nabzı', () => (C.coverAudioScale == null ? 0 : C.coverAudioScale),
+          (v) => { C.coverAudioScale = v; }, { min: 0, max: 0.4, step: 0.01 }),
       ]));
     }
 

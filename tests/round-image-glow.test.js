@@ -25,3 +25,10 @@ test('logo sprites nowplaying use SVRoundImage', () => {
   const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
   assert.match(adminHtml, /round-image\.js/);
 });
+
+test('SVRoundImage supports fit cover/contain via drawFitted', () => {
+  const ri = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'round-image.js'), 'utf8');
+  assert.match(ri, /function drawFitted/);
+  assert.match(ri, /o\.fit \|\| 'stretch'/);
+  assert.match(ri, /drawFitted\(s, source/);
+});

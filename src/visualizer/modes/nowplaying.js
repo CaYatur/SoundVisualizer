@@ -221,7 +221,35 @@
       const coverPx = coverReady
         ? Math.max(8, coverSizeVal > 1 ? total * coverSizeVal : minDim * coverSizeVal)
         : 0;
-      const coverGapPx = coverReady ? coverPx * (c.coverGap == null ? 0.35 : c.coverGap) : 0;
+      // Fit mode: default natural (keep aspect — rect covers must not square-crop).
+      // square = legacy stretch-to-square; cover/contain = square box + object-fit.
+      let coverFit = c.coverFit || 'natural';
+      if (coverFit === 'aspect') coverFit = 'natural'; // alias
+      const iw = coverReady ? (coverImg.naturalWidth || 1) : 1;
+      const ih = coverReady ? (coverImg.naturalHeight || 1) : 1;
+      let coverW = coverPx;
+      let coverH = coverPx;
+      let drawFit = 'stretch'; // passed to SVRoundImage
+      if (coverReady) {
+        if (coverFit === 'natural') {
+          if (iw >= ih) { coverW = coverPx; coverH = coverPx * (ih / iw); }
+          else { coverH = coverPx; coverW = coverPx * (iw / ih); }
+          drawFit = 'stretch';
+        } else if (coverFit === 'cover') {
+          coverW = coverH = coverPx;
+          drawFit = 'cover';
+        } else if (coverFit === 'contain') {
+          coverW = coverH = coverPx;
+          drawFit = 'contain';
+        } else {
+          // square (legacy): stretch into square
+          coverW = coverH = coverPx;
+          drawFit = 'stretch';
+        }
+      }
+      const coverGapPx = coverReady
+        ? Math.max(coverW, coverH) * (c.coverGap == null ? 0.35 : c.coverGap)
+        : 0;
       let side = c.coverSide || 'auto';
       if (side === 'auto') side = 'top'; // default: above title
 
@@ -243,35 +271,46 @@
       ctx.textBaseline = 'middle';
 
       if (coverReady) {
-        const rad = Math.max(0, Math.min(0.5, c.coverRadius == null ? 0.14 : c.coverRadius)) * coverPx;
+        const minCover = Math.min(coverW, coverH);
+        const rad = Math.max(0, Math.min(0.5, c.coverRadius == null ? 0.14 : c.coverRadius)) * minCover;
         let coverCx = 0;
         let coverCy = textCenterY;
         if (side === 'top') {
-          coverCx = align === 'left' ? coverPx / 2 : align === 'right' ? -coverPx / 2 : 0;
-          coverCy = -total / 2 - coverGapPx - coverPx / 2;
+          coverCx = align === 'left' ? coverW / 2 : align === 'right' ? -coverW / 2 : 0;
+          coverCy = -total / 2 - coverGapPx - coverH / 2;
         } else if (side === 'left') {
-          coverCx = blockLeft - coverGapPx - coverPx / 2;
+          coverCx = blockLeft - coverGapPx - coverW / 2;
         } else {
-          coverCx = blockRight + coverGapPx + coverPx / 2;
+          coverCx = blockRight + coverGapPx + coverW / 2;
         }
+        // Cover has its own bass pulse (coverAudioScale), independent of text audioScale.
+        const coverPulse = 1 + bass * (c.coverAudioScale == null ? 0 : c.coverAudioScale);
         ctx.save();
+        // Undo shared text pulse so cover reacts only via coverAudioScale.
+        ctx.scale(1 / pulse, 1 / pulse);
         ctx.translate(coverCx, coverCy);
+        ctx.scale(coverPulse, coverPulse);
         /* Kapak da logo/görsel gibi yuvarlatılınca dış ışık clip ile kesilmesin.
            Metin gölgesi (shadow) varsa aynı yumuşak dış ışığı oval kenara taşı. */
-        const coverGlow = shadow > 0 ? shadow * coverPx * 0.22 : 0;
+        const coverGlow = shadow > 0 ? shadow * minCover * 0.22 : 0;
         if (window.SVRoundImage && window.SVRoundImage.drawImage) {
-          window.SVRoundImage.drawImage(ctx, coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx, {
+          window.SVRoundImage.drawImage(ctx, coverImg, -coverW / 2, -coverH / 2, coverW, coverH, {
             radiusPx: rad,
             glowBlur: coverGlow,
             shadowColor: 'rgba(0,0,0,0.55)',
             owner: this,
+            fit: drawFit,
           });
         } else {
           ctx.beginPath();
-          if (ctx.roundRect) ctx.roundRect(-coverPx / 2, -coverPx / 2, coverPx, coverPx, rad);
-          else ctx.rect(-coverPx / 2, -coverPx / 2, coverPx, coverPx);
+          if (ctx.roundRect) ctx.roundRect(-coverW / 2, -coverH / 2, coverW, coverH, rad);
+          else ctx.rect(-coverW / 2, -coverH / 2, coverW, coverH);
           ctx.clip();
-          ctx.drawImage(coverImg, -coverPx / 2, -coverPx / 2, coverPx, coverPx);
+          if (window.SVRoundImage && window.SVRoundImage.drawFitted) {
+            window.SVRoundImage.drawFitted(ctx, coverImg, -coverW / 2, -coverH / 2, coverW, coverH, drawFit);
+          } else {
+            ctx.drawImage(coverImg, -coverW / 2, -coverH / 2, coverW, coverH);
+          }
         }
         ctx.restore();
       }

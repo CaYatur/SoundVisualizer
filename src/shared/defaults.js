@@ -566,8 +566,12 @@
       coverOverlay: false,
       coverSize: 0.14, // fraction of display short side (legacy >1 = text-block height)
       coverGap: 0.35,  // gap between cover and text (fraction of cover)
-      coverRadius: 0.14, // corner radius 0..0.5 of cover size (0.5 = circle/oval)
+      coverRadius: 0.14, // corner radius 0..0.5 of min(coverW,coverH) (0.5 = circle/oval)
       coverSide: 'auto', // 'auto' (= top) | 'left' | 'right' | 'top'
+      /* Fit: natural = keep aspect (default); square = legacy stretch-to-square;
+         cover = square box + crop-fill; contain = square box + letterbox. */
+      coverFit: 'natural', // 'natural' | 'square' | 'cover' | 'contain'
+      coverAudioScale: 0, // separate bass pulse for cover (0 = still; text keeps audioScale)
       manual: { title: '', artist: '', album: '' },
 
       // Görünürlük: sürekli mi, yoksa yalnızca parça değişince mi

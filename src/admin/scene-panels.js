@@ -1035,12 +1035,20 @@
             { min: 0, max: 1, step: 0.02, percent: true, def: 0.35}));
           out.push(miniSlider('Köşe / Oval', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
             { min: 0, max: 0.5, step: 0.01, percent: true, def: 0.14}));
+          out.push(miniSelect('Kapak Sığdırma', [
+            ['natural', 'Doğal oran'],
+            ['square', 'Kareye ger'],
+            ['cover', 'Kareye kapla'],
+            ['contain', 'Kareye sığdır'],
+          ], () => getCover('coverFit', 'natural'), (v) => setCover('coverFit', v)));
           out.push(miniSelect('Kapak Konumu', [
             ['auto', 'Otomatik (Üstte)'],
             ['left', 'Solda'],
             ['right', 'Sağda'],
             ['top', 'Üstte'],
           ], () => getCover('coverSide', 'auto'), (v) => setCover('coverSide', v)));
+          out.push(miniSlider('Kapak Bas Nabzı', () => getCover('coverAudioScale', 0), (v) => setCover('coverAudioScale', v),
+            { min: 0, max: 0.4, step: 0.01, def: 0}));
         }
       }
 

@@ -1612,6 +1612,18 @@
 
     if (dt.applyToBackground !== false && cfg.background && cfg.background.gradient) {
       cfg.background.gradient.colors = res.colors.slice(0, 5);
+      /* sync live theme into background layers */
+      if (cfg.layerStack && cfg.layerStack.enabled && Array.isArray(cfg.layers)) {
+        cfg.layers.forEach((ly) => {
+          if (!ly || ly.kind !== 'background') return;
+          const bg = (ly.settings = ly.settings || {}).background = (ly.settings.background || {});
+          const mode = (cfg.background.colorMode || bg.colorMode || 'theme');
+          if (mode !== 'theme') return;
+          bg.colorMode = 'theme';
+          bg.gradient = bg.gradient || {};
+          bg.gradient.colors = res.colors.slice(0, 5);
+        });
+      }
     }
     if (dt.applyToVisualizer !== false && cfg.visualizer) {
       cfg.visualizer.color = res.color || res.colors[2] || '#3aa6ff';
@@ -2233,6 +2245,16 @@
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
+            type: 'select', path: 'nowplaying.coverFit', label: 'Kapak Sığdırma',
+            options: [
+              { value: 'natural', label: 'Doğal oran' },
+              { value: 'square', label: 'Kareye ger' },
+              { value: 'cover', label: 'Kareye kapla' },
+              { value: 'contain', label: 'Kareye sığdır' },
+            ],
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
             type: 'select', path: 'nowplaying.coverSide', label: 'Kapak Konumu',
             options: [
               { value: 'auto', label: 'Otomatik (Üstte)' },
@@ -2240,6 +2262,11 @@
               { value: 'right', label: 'Sağda' },
               { value: 'top', label: 'Üstte' },
             ],
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'slider', path: 'nowplaying.coverAudioScale', label: 'Kapak Bas Nabzı',
+            min: 0, max: 0.4, step: 0.01,
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {

@@ -28,9 +28,24 @@ function oldLayerConfig(cfg, layer) {
     const defBg = def.background;
     const baseBg = (cfg && cfg.background) || defBg;
     const bgSettings = (layer.settings && layer.settings.background) || {};
-    const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (baseBg.gradient && baseBg.gradient.colors);
     const mergedBg = SV.deepMerge(baseBg, bgSettings);
-    if (mergedBg.gradient) mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
+    if (cfg && cfg.background) {
+      if (cfg.background.colorMode != null) mergedBg.colorMode = cfg.background.colorMode;
+      if (cfg.background.solidColor != null) mergedBg.solidColor = cfg.background.solidColor;
+    }
+    if (mergedBg.gradient) {
+      const mode = mergedBg.colorMode || 'theme';
+      if (mode === 'theme') {
+        const live = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors)
+          || (baseBg.gradient && baseBg.gradient.colors);
+        if (live && live.length) mergedBg.gradient.colors = live.slice();
+      } else if (typeof SV.resolveBackgroundColors === 'function') {
+        mergedBg.gradient.colors = SV.resolveBackgroundColors({ background: mergedBg });
+      } else {
+        const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (baseBg.gradient && baseBg.gradient.colors);
+        mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
+      }
+    }
     mergedBg.type = layer.type || (cfg && cfg.background && cfg.background.type) || 'solid';
     return Object.assign({}, base, {
       background: mergedBg,

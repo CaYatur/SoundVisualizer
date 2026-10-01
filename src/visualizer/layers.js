@@ -473,10 +473,27 @@
       const defBg = def ? def.background : {};
       const baseBg = (cfg && cfg.background) || defBg;
       const bgSettings = (layer.settings && layer.settings.background) || {};
-      const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || (baseBg.gradient && baseBg.gradient.colors);
       const mergedBg = window.SV.deepMerge(baseBg, bgSettings);
+      /* Shared colorMode + live theme palette. Dynamic theme and the
+         Renkler/Hazır Şablonlar strip write cfg.background; layer-local
+         gradient.colors must not freeze over them when mode is theme. */
+      if (cfg && cfg.background) {
+        if (cfg.background.colorMode != null) mergedBg.colorMode = cfg.background.colorMode;
+        if (cfg.background.solidColor != null) mergedBg.solidColor = cfg.background.solidColor;
+      }
       if (mergedBg.gradient) {
-        mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
+        const mode = mergedBg.colorMode || 'theme';
+        if (mode === 'theme') {
+          const live = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors)
+            || (baseBg.gradient && baseBg.gradient.colors);
+          if (live && live.length) mergedBg.gradient.colors = live.slice();
+        } else if (window.SV && typeof window.SV.resolveBackgroundColors === 'function') {
+          mergedBg.gradient.colors = window.SV.resolveBackgroundColors({ background: mergedBg });
+        } else {
+          const paletteColors = (cfg && cfg.background && cfg.background.gradient && cfg.background.gradient.colors)
+            || (baseBg.gradient && baseBg.gradient.colors);
+          mergedBg.gradient.colors = (bgSettings.gradient && bgSettings.gradient.colors) || paletteColors;
+        }
       }
       mergedBg.type = layer.type || (cfg && cfg.background && cfg.background.type) || 'solid';
       return Object.assign({}, base, {
