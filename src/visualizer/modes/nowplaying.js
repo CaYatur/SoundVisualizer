@@ -107,7 +107,15 @@
       const style = N.styleOf(c.style);
       const pick = (v, k) => (v === null || v === undefined ? style[k] : v);
 
+      /* Süre, çubuk ve oynatıcı adı yalnız Windows medya oturumundan gelir.
+         Elle yazılan parçada, ya da macOS/Linux'ta, 0:00 göstermek yanlış bilgi olur. */
+      const platWin = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false);
+      const fromSystem = platWin && (c.source || 'system') === 'system';
+      const show = fromSystem ? c.show : Object.assign({}, c.show, {
+        appName: false, elapsed: false, remaining: false, total: false, bar: false,
+      });
       const parts = N.compose(st, Object.assign({}, c, {
+        show,
         uppercase: pick(c.uppercase, 'uppercase'),
       }));
       if (!parts.hasText && !parts.hasTime && !parts.showBar) return;
@@ -212,9 +220,11 @@
       // the display short side (minDim), like logo scale; values > 1 keep the
       // legacy "relative to text-block height" meaning.
       const wantCover = !!c.coverOverlay;
-      const artUrl = wantCover
-        ? ((raw && raw.artwork) || (c.manual && c.manual.artwork) || '')
-        : '';
+      /* auto: Windows oturumundaki kapak, yoksa elle yüklenen.
+         manual: yalnız elle yüklenen. Sistem kaynağı kapalıysa otomatik kapak yok. */
+      const uploaded = (c.manual && c.manual.artwork) || '';
+      const useSystemArt = fromSystem && (c.coverSource || 'auto') !== 'manual';
+      const artUrl = !wantCover ? '' : (useSystemArt ? ((raw && raw.artwork) || uploaded) : uploaded);
       const coverImg = wantCover ? this._coverImage(artUrl) : null;
       const coverReady = !!(coverImg && coverImg.complete && coverImg.naturalWidth > 0);
       const coverSizeVal = c.coverSize == null ? 0.14 : c.coverSize;

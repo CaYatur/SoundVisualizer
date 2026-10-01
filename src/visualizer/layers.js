@@ -610,7 +610,10 @@
   function resolveLogoSrc(lg, cfg) {
     if (!lg) return null;
     const mode = lg.source || 'auto';
-    if (mode === 'manual') return logoFileSrc(lg);
+    /* macOS/Linux albüm kapağını okuyamaz. auto ve track orada özel resmi
+       göstermeli; aksi halde çalan parça kapağı logonun yerine geçer. */
+    const winOk = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false);
+    if (mode === 'manual' || !winOk) return logoFileSrc(lg);
 
     const live = (typeof window !== 'undefined' && window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has)
       ? window.SVNowLive.state : null;

@@ -564,6 +564,9 @@
       showArtwork: true, // logo layer may show track artwork when NP/lyrics active
       /* NP overlay: album cover beside the text block. Default OFF. */
       coverOverlay: false,
+      /* auto = Windows medya oturumu; manual = elle yüklenen resim.
+         macOS/Linux paneli bunu manual'a çeker. */
+      coverSource: 'auto',
       coverSize: 0.14, // fraction of display short side (legacy >1 = text-block height)
       coverGap: 0.35,  // gap between cover and text (fraction of cover)
       coverRadius: 0.14, // corner radius 0..0.5 of min(coverW,coverH) (0.5 = circle/oval)

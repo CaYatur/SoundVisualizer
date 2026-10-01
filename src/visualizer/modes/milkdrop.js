@@ -1178,7 +1178,7 @@ void main(){
           alpha: false, antialias: false, preserveDrawingBuffer: true,
         });
         if (!gl) {
-          this.error = 'WebGL2 yok';
+          this.error = 'WebGL2 yok. Görüntü kartı sürücüsünü güncelleyin. Sürücü WebGL2 vermezse MilkDrop bu ekranda çalışmaz.';
           this._noCtxAt = performance.now();
           return false;
         }
@@ -5900,7 +5900,23 @@ void main(){
       c.fillStyle = 'rgba(255,255,255,0.35)';
       c.font = Math.round(Math.min(W, H) * 0.03) + 'px system-ui, sans-serif';
       c.textAlign = 'center';
-      c.fillText(this.error || 'MilkDrop motoru başlatılamadı', W / 2, H / 2);
+      const rawMsg = this.error || 'MilkDrop motoru başlatılamadı';
+      const msg = (window.SVI18n && window.SVI18n.t) ? window.SVI18n.t(rawMsg) : rawMsg;
+      const maxW = Math.max(40, W * 0.86);
+      const words = String(msg).split(/\s+/);
+      const lines = [];
+      let line = '';
+      words.forEach((w) => {
+        const next = line ? (line + ' ' + w) : w;
+        if (line && c.measureText(next).width > maxW) {
+          lines.push(line);
+          line = w;
+        } else line = next;
+      });
+      if (line) lines.push(line);
+      const lh = Math.round(Math.min(W, H) * 0.042);
+      let y = H / 2 - ((lines.length - 1) * lh) / 2;
+      lines.forEach((ln) => { c.fillText(ln, W / 2, y); y += lh; });
     }
 
     /* `monitor` — presetin kendi hata ayıklama probu.

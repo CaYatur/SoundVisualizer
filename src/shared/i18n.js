@@ -1576,6 +1576,8 @@
     'Süre Ayırıcı': 'Time Separator',
     'Her alan tek tek kapatılabilir: yalnızca parça adı, yalnızca süre ya da yalnızca çubuk gösterilebilir.':
       'Each field can be toggled individually: show only the track name, only the time, or only the progress bar.',
+    'Parça adı, sanatçı ve albüm tek tek kapatılabilir.':
+      'Track title, artist, and album can each be turned off.',
     'Yazı ve Yerleşim': 'Typography & Layout',
     'Kalıp': 'Preset Style',
     'Büyük Harf': 'Uppercase',
@@ -2976,6 +2978,24 @@
     'Sağda': 'Right',
     'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.':
       'Places the playing track\'s album cover beside the text. If no cover is available, nothing is drawn. Off by default.',
+    'Çalan parçanın albüm kapağını yazının yanına veya üstüne yerleştirir. Boyut ekranın kısa kenarına göredir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.':
+      'Places the playing track\'s album cover beside or above the text. Size follows the short side of the screen. If no cover is available, nothing is drawn. Off by default.',
+    'Kapak Kaynağı': 'Cover Source',
+    'Otomatik (Sistem)': 'Automatic (System)',
+    'Elle Yükle': 'Upload Image',
+    'Kapak Seç': 'Choose Cover',
+    'Kapağı Değiştir': 'Change Cover',
+    'Kapağı Kaldır': 'Remove Cover',
+    'Windows’ta kapak çalan parçadan otomatik gelir. İsterseniz kendi resminizi de yükleyebilirsiniz; otomatik kapak yoksa o resim kullanılır.':
+      'On Windows the cover comes from the playing track. You can also upload your own image; it is used when the track has no artwork.',
+    'Bu platformda albüm kapağı otomatik okunamaz. Gösterilecek resmi elle yükleyin.':
+      'Album artwork cannot be read automatically on this platform. Upload the image you want to show.',
+    'Elle yüklenen resim yazının yanında gösterilir.':
+      'The image you upload is shown beside the text.',
+    'Elle yazılan parça adı ve sanatçı ekrana gelir. Albüm kapağı elle yüklenir. Süre ve ilerleme çubuğu sistemden okunduğu için bu platformda yoktur.':
+      'The title and artist you type are shown. Album artwork is uploaded by hand. Elapsed time and the progress bar are absent here because they are read from the system.',
+    'WebGL2 yok. Görüntü kartı sürücüsünü güncelleyin. Sürücü WebGL2 vermezse MilkDrop bu ekranda çalışmaz.':
+      'WebGL2 is missing. Update your graphics driver. If the driver does not provide WebGL2, MilkDrop cannot run on this display.',
 
     'Rastgele Armoni': 'Random Harmony',
     'Ruh Hali': 'Mood',
