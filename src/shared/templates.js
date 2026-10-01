@@ -620,6 +620,7 @@
        katman yığını düzenini kapatırdı. */
     const keepTransparent = !!(cfg.background && cfg.background.transparent);
     const keepKey = cfg.background && cfg.background.transparentKey;
+    const keepCover = cfg.background && cfg.background.coverTaskbar;
     const logoSrc = (cfg.logo && cfg.logo.src) || null;
     const logoLibraryId = (cfg.logo && cfg.logo.libraryId) || null;
     const logoKind = (cfg.logo && cfg.logo.kind) || null;
@@ -700,6 +701,7 @@
     if (merged.background) {
       merged.background.transparent = keepTransparent;
       if (keepKey != null) merged.background.transparentKey = keepKey;
+      if (keepCover != null) merged.background.coverTaskbar = !!keepCover;
     }
     return merged;
   }

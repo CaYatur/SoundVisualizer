@@ -1518,6 +1518,9 @@
     'Bilgisayarda çalan parçayı ekrana getirir: ad, sanatçı, geçen ve kalan süre, ilerleme çubuğu. Sürekli görünebilir ya da yalnızca parça değişince canlandırmayla belirir.':
       'Brings the currently playing track to the screen: title, artist, elapsed and remaining time, progress bar. Can stay visible continuously or appear with an animation only on track change.',
     'Şeffaf Arkaplan': 'Transparent Background',
+    'Tam Ekran (Görev Çubuğu Dahil)': 'Full Display (Include Taskbar)',
+    'Kapalıyken görselleştirici Windows görev çubuğunun dışında kalır (çalışma alanı). Açıkken tüm ekranı — görev çubuğu dahil — kaplar. Yalnızca şeffaf arkaplanda gerekir; opak tam ekran zaten görev çubuğunu örter. Canlı uygulanır; pencere yeniden kurulmaz.':
+      'When off, the visualizer stays outside the Windows taskbar (work area). When on, it covers the full display — including the taskbar. Only needed with a transparent background; opaque fullscreen already covers the taskbar. Applies live; windows are not recreated.',
     'Şeffaf arkaplan açık: doku alfa kanalı ile gider. Alıcıda (OBS Spout Kaynağı, Resolume) ön-çarpımlı alfa / şeffaf zemin seçeneğini açın; aksi halde siyah zemin görünür.':
       'Transparent background is on: the texture includes an alpha channel. In the receiver (OBS Spout Source, Resolume) enable premultiplied alpha / transparent background, otherwise you will see a black fill.',
     'Şeffaf arkaplan Spout/Syphon çıkışına uygulanmaz (GPU dokusu alfa taşımıyor). Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır; bu çıkış sahneyi opak basar.':

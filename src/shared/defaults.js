@@ -33,6 +33,11 @@
          verilebiliyor; bu yüzden değişiklik ancak görselleştirici yeniden
          açılınca geçerli olur (panel de bunu yazıyor). */
       transparent: false,
+      /* Şeffaf tam ekran: varsayılan görev çubuğunu DIŞLAR (workArea).
+         Açıkken display.bounds + görev çubuğunun üstünde tutma — tam
+         ekranı (görev çubuğu dahil) kaplar. Opak exclusive fullscreen
+         zaten örtüğü için yalnızca şeffaf modda uygulanır. */
+      coverTaskbar: false,
       /* Şeffaf arkaplanda arkaplan EFEKTİNİN saydamlık eşiği (0..1):
          parlaklığı bunun altında kalan yerler masaüstünü gösterir, siyah
          tamamen saydam. Bkz. SVLayers.keyMatrix. */
