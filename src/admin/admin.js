@@ -2053,7 +2053,7 @@
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
           { type: 'color', path: 'background.solidColor', label: 'Düz Renk', show: () => cfg.background.type === 'solid' },
-          { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan' },
+          { type: 'toggle', path: 'background.transparent', label: 'Şeffaf Arkaplan', rebuild: true },
           {
             type: 'note',
             text: 'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Yayın katmanı (OBS) ve Spout/Syphon aynı ayarı kullanır. Pencere şeffaflığı doğuşta kilitlendiği için açık görselleştirici pencereleri bu anahtarla yeniden kurulur.',

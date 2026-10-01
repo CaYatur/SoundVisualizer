@@ -194,6 +194,16 @@ test('panel: coverTaskbar etiketleri iki dilde', () => {
   assert.ok(!/Görev Çubuğu Dahil':\s*'[^']*[çğıöşüÇĞİÖŞÜ]/.test(dictSrc), 'EN çevirisi Türkçe kalmış');
 });
 
+test('Background card: transparent toggle rebuilds so coverTaskbar shows', () => {
+  const admin = read('src/admin/admin.js');
+  /* Layers path rebuilds its panel on each paint; the Background settings
+     card only re-evaluates show() after render(). Without rebuild:true on
+     background.transparent, coverTaskbar stayed hidden until another control
+     forced a redraw. */
+  assert.match(admin, /path: 'background\.transparent'[\s\S]*?rebuild:\s*true/);
+  assert.match(admin, /path: 'background\.coverTaskbar'[\s\S]*?show:\s*\(\)\s*=>\s*!!cfg\.background\.transparent/);
+});
+
 test('coverTaskbar: live apply on transparent/cover change and after recreate', () => {
   const src = read('src/main/main.js');
   assert.match(src, /function applyCoverTaskbarLive\(/);
