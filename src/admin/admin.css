@@ -779,41 +779,7 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 ::-webkit-scrollbar-thumb:hover { background: var(--line2); }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ============================ AYARLAR PENCERESİ ============================ */
-.settings-backdrop {
-  position: fixed; inset: 0; z-index: 300; display: grid; place-items: center;
-  background: rgba(3, 3, 8, .6); backdrop-filter: blur(3px);
-}
-.settings-panel {
-  width: min(360px, calc(100vw - 32px)); padding: 18px;
-  border: 1px solid var(--line2); border-radius: 14px;
-  background: var(--card); box-shadow: 0 24px 70px rgba(0, 0, 0, .5);
-}
-.settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.settings-head h2 { font-size: 16px; }
-.settings-close {
-  width: 30px; height: 30px; border: 0; border-radius: 8px;
-  background: transparent; color: var(--muted); font-size: 21px; cursor: pointer;
-}
-.settings-close:hover { background: var(--card2); color: var(--text); }
-.settings-field { display: grid; gap: 7px; font-size: 11.5px; color: var(--muted); }
-.settings-field select { margin-top: 0; }
-.settings-note { margin: 10px 0 0; font-size: 10.5px; color: var(--muted2); }
-.settings-sep { height: 1px; background: var(--line); margin: 16px 0 4px; }
-.settings-toggle {
-  display: flex; align-items: flex-start; gap: 14px; padding: 12px 0;
-  cursor: pointer; border-bottom: 1px solid var(--line);
-}
-.settings-toggle:last-child { border-bottom: none; }
-.settings-toggle .st-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.settings-toggle .st-title { font-size: 12.5px; font-weight: 600; color: var(--text); }
-.settings-toggle .st-desc { font-size: 10.5px; color: var(--muted2); line-height: 1.5; }
-.settings-toggle .switch { margin-top: 2px; }
-/* Bağımlı anahtar: üstteki kapalıyken görsel olarak da devre dışı. Yalnızca
-   input’u disabled yapmak yetmiyor; satırın tamamı sönmezse kullanıcı
-   anahtarın neden tepki vermediğini anlamıyor. */
-.settings-toggle.disabled { opacity: .45; }
-.settings-toggle.disabled .switch { cursor: not-allowed; }
+/* Settings is the left-rail Ayarlar category; no modal. */
 
 /* ================= UYGULAMA İÇİ ONAY + BİLDİRİM =================
    Sistem confirm/alert pencereleri renderer'ı kilitliyor ve çok ekranlı
