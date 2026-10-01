@@ -345,10 +345,10 @@
       applyToVisualizer: true,
     },
 
-    // Windows Dynamic Lighting (LampArray). Uyumlu aygıt bulunamazsa yönetici
-    // paneli açılışta bunu otomatik olarak kapatır.
+    // Windows Dynamic Lighting (LampArray). Varsayılan KAPALI; uyumlu aygıt
+    // yoksa yönetici paneli açılışta da kapalı tutar.
     lighting: {
-      enabled: true,
+      enabled: false,
       mode: 'beat-pulse',
       color: '#ff0000',
       color2: '#f00000',

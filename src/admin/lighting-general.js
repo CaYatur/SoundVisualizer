@@ -26,6 +26,29 @@
     return el('div', { class: 'lighting-tagged' }, [ctrl, backends(names)]);
   }
 
+  /* Tek ayar sıfırlama: admin appendGrouped ile aynı data-path + ctrl-reset.
+     Rozet sayımı sectionPaths yapraklarına dayandığı için her denetim yolu şart. */
+  function attachPath(ctrl, key) {
+    const path = key.indexOf('.') >= 0 ? key : 'lighting.' + key;
+    const el = P().el;
+    ctrl.setAttribute('data-path', path);
+    if (P().isModified && P().isModified(path)) ctrl.classList.add('modified');
+    const lbl = ctrl.querySelector('label.lbl');
+    if (lbl && P().resetPath && P().defaultAt && P().defaultAt(path) !== undefined) {
+      lbl.appendChild(el('button', {
+        class: 'ctrl-reset',
+        type: 'button',
+        icon: 'reset',
+        title: 'Bu ayarı varsayılana döndür',
+        onclick: (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          P().resetPath(path);
+        },
+      }));
+    }
+    return ctrl;
+  }
   function panel() {
     const el = P().el;
     const cfg = P().cfg();
@@ -79,7 +102,7 @@
         type: 'color', value: lighting[key],
         oninput: (e) => { lighting[key] = e.target.value; apply(false); },
       });
-      return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), input])]);
+      return attachPath(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), input])]), key);
     };
 
     const rangeRow = (key, label, min, max, step, percent) => {
@@ -93,23 +116,23 @@
           apply(false);
         },
       });
-      return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), value]), input]);
+      return attachPath(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), value]), input]), key);
     };
 
-    const optionRow = (key, label, options) => themedDropdown(label, lighting[key], options, (value) => {
+    const optionRow = (key, label, options) => attachPath(themedDropdown(label, lighting[key], options, (value) => {
       lighting[key] = value;
       apply(true);
-    }, false);
+    }, false), key);
 
     const modes = (P().lightingModes && P().lightingModes()) || [];
     const staticMode = ['single-color', 'per-device', 'per-led'].includes(lighting.mode);
     const dynamicMode = !staticMode;
 
     nodes.push(wrap(
-      themedDropdown('Aydınlatma Modu', lighting.mode, modes, (value) => {
+      attachPath(themedDropdown('Aydınlatma Modu', lighting.mode, modes, (value) => {
         lighting.mode = value;
         apply(true);
-      }, true),
+      }, true), 'mode'),
       staticMode ? [WDL] : [WDL, ORGB]
     ));
     if (staticMode) {
