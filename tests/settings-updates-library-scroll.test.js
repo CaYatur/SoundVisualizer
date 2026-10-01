@@ -1,6 +1,7 @@
 'use strict';
 /* Updates lives under Settings (not Library); Library scene/preset lists scroll;
- * top-right gear opens the same Settings category (no modal). */
+ * top-right gear opens the same Settings category (no modal).
+ * Settings is one wide card with Dil / Pencere / Panel / Güncellemeler groups. */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
@@ -13,11 +14,17 @@ const updatesPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
 const settingsJs = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'settings.js'), 'utf8');
 
-test('Settings category exists; Updates section is under settings not library', () => {
+test('Settings category: one wide card with groups; Updates not in Library', () => {
   assert.match(admin, /id:\s*'settings'[\s\S]{0,120}title:\s*'Ayarlar'/);
-  assert.match(admin, /id:\s*'updates',\s*\n\s*category:\s*'settings'/);
+  assert.match(admin, /id:\s*'settings-main'/);
+  assert.match(admin, /id:\s*'settings-main'[\s\S]{0,200}?wide:\s*true/);
+  assert.match(admin, /group:\s*'Dil'/);
+  assert.match(admin, /group:\s*'Pencere'/);
+  assert.match(admin, /group:\s*'Panel'/);
+  assert.match(admin, /type:\s*'updatespanel',\s*group:\s*'Güncellemeler'/);
+  assert.doesNotMatch(admin, /id:\s*'appprefs'/);
   assert.doesNotMatch(admin, /id:\s*'updates',\s*\n\s*category:\s*'library'/);
-  assert.match(admin, /id:\s*'appprefs',\s*\n\s*category:\s*'settings'/);
+  assert.doesNotMatch(admin, /id:\s*'updates',\s*\n\s*category:\s*'settings'/);
 });
 
 test('update toast and i18n point to Settings › Updates', () => {

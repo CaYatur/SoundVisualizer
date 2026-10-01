@@ -857,8 +857,9 @@
       if (v === (['auto', 'tr', 'en'].includes(saved) ? saved : 'auto')) o.selected = true;
       sel.appendChild(o);
     });
+    /* Group header already says Dil — avoid a second Dil label. */
     return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [el('label', { class: 'lbl', text: tr('Dil') }), sel]),
+      sel,
       el('div', { class: 'studio-note dim-hint', text: tr('Dil değişikliği uygulamayı yeniden yükler.'), style: 'margin-top:4px;' }),
     ]);
   }
@@ -2893,50 +2894,50 @@
         controls: [{ type: 'settingsio' }],
       },
       {
-        id: 'appprefs',
+        /* Tek tam genişlik kart: yan yana iki dengesiz kart (Uygulama + Güncellemeler)
+           yerine grup başlıklı tek sütun. Kategori alt yazısı zaten kapsamı söylüyor;
+           kart açıklaması boş bırakılır ki etiketler çakışmasın. */
+        id: 'settings-main',
         category: 'settings',
+        wide: true,
         icon: 'gear',
-        title: 'Uygulama',
-        desc: 'Dil, görselleştirici penceresi ve panel davranışı.',
-        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        title: 'Ayarlar',
+        desc: '',
+        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose', 'updates'],
         controls: [
-          { type: 'language' },
+          { type: 'language', group: 'Dil' },
           {
             type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',
+            group: 'Pencere',
             hint: 'Başka bir uygulama öne çıksa bile görselleştirme ekranı üstte kalır.',
           },
           {
             type: 'toggle', path: 'power.protect', label: 'Kaza Koruması', rebuild: true,
+            group: 'Pencere',
             hint: 'Görselleştirme penceresi beklenmedik biçimde kapanırsa (çökme, Alt+F4) anında geri açılır. Panelden ya da ESC ile kapatmak her zaman çalışır.',
           },
           {
             type: 'toggle', path: 'power.protectNoEscape', label: 'ESC ile Kapatmayı Devre Dışı Bırak',
+            group: 'Pencere',
             show: () => !!(cfg.power && cfg.power.protect),
             hint: 'Yalnızca Kaza Koruması açıkken çalışır. Bu haldeyken görselleştirme ancak paneldeki “Kapat” düğmesiyle ya da pencere odaktayken Ctrl+Shift+Q (veya Ctrl+Alt+Shift+Q) ile kapanır.',
           },
           {
             type: 'toggle', path: 'power.confirmClose', label: 'Yanlışlıkla Kapatmayı Önle',
+            group: 'Pencere',
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
-          { type: 'extendedrange' },
-        ],
-      },
-      {
-        id: 'updates',
-        category: 'settings',
-        icon: 'download',
-        title: 'Güncellemeler',
-        desc: 'Yeni sürümleri denetle ve kurulum türüne göre nasıl güncelleneceğini gör.',
-        controls: [
+          { type: 'extendedrange', group: 'Panel' },
           {
             type: 'select', path: 'updates.mode', label: 'Güncellemeleri Denetle',
+            group: 'Güncellemeler',
             options: [
               { value: 'notify', label: 'Açık — yeni sürümü haber ver' },
               { value: 'auto', label: 'Otomatik — indir ve kapanırken kur' },
               { value: 'off', label: 'Kapalı' },
             ],
           },
-          { type: 'updatespanel' },
+          { type: 'updatespanel', group: 'Güncellemeler' },
         ],
       },
       {

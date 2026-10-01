@@ -430,6 +430,7 @@
     'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.': 'Could not check. Check the internet connection and try again.',
     'Yeni sürüm:': 'New release:',
     'Ayarlar › Güncellemeler': 'Settings › Updates',
+    'Pencere': 'Window',
     'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.': 'Language, window protection, extended ranges and updates.',
     'Dil, görselleştirici penceresi ve panel davranışı.': 'Language, visualizer window and panel behaviour.',
     'Uygulama': 'Application',
