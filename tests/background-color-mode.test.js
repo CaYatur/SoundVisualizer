@@ -10,6 +10,7 @@ const defaultsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 
 const adminSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
 const sceneSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
 const npSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'nowplaying.js'), 'utf8');
+const layersSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'layers.js'), 'utf8');
 
 function loadSV() {
   const ctx = { window: {}, console };
@@ -102,4 +103,33 @@ test('kaynak: renk sablonlari asla gizlenmez (usesPalette stripte cagrilmaz)', (
   assert.match(stripBlock, /show:\s*\(\)\s*=>\s*true/);
   assert.doesNotMatch(stripBlock, /usesPalette\s*\(/);
   assert.doesNotMatch(stripBlock, /show:\s*\([^)]*colorMode/);
+});
+
+test('kaynak: layerConfig theme uses live cfg palette (dynamic theme / presets)', () => {
+  assert.match(layersSrc, /mode === 'theme'/);
+  assert.match(layersSrc, /live theme palette|Live shared palette|live = \(cfg && cfg\.background/);
+  assert.match(layersSrc, /resolveBackgroundColors/);
+  assert.match(adminSrc, /sync live theme into background layers/);
+});
+
+test('layerConfig: theme ignores stale layer-local colors', () => {
+  global.window = global.window || {};
+  require('../src/shared/defaults.js');
+  const L = require('../src/visualizer/layers.js');
+  const live = ['#aa0000', '#bb0000', '#cc0000', '#dd0000', '#ee0000'];
+  const stale = ['#111111', '#222222', '#333333', '#444444', '#555555'];
+  const cfg = {
+    background: { type: 'gradient', colorMode: 'theme', gradient: { colors: live.slice() } },
+    visualizer: { type: 'bars' },
+    layerStack: { enabled: true },
+    layers: [],
+  };
+  const layer = L.normalizeLayer({
+    id: 'ly_bg', kind: 'background', type: 'gradient',
+    settings: { background: { colorMode: 'theme', gradient: { colors: stale.slice(), speed: 0.9 } } },
+  });
+  const out = L.layerConfig(cfg, layer);
+  assert.deepStrictEqual(out.background.gradient.colors, live);
+  assert.strictEqual(out.background.gradient.speed, 0.9);
+  assert.strictEqual(out.background.colorMode, 'theme');
 });
