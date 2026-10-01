@@ -15,6 +15,8 @@ test('defaults: coverOverlay varsayilan kapali', () => {
   assert.match(defaultsSrc, /coverSize:/);
   assert.match(defaultsSrc, /coverGap:/);
   assert.match(defaultsSrc, /coverSide:\s*'auto'/);
+  assert.match(defaultsSrc, /coverFit:\s*'natural'/);
+  assert.match(defaultsSrc, /coverAudioScale:\s*0/);
 });
 
 test('kaynak: NP cover overlay cizer', () => {
@@ -86,4 +88,25 @@ test('UI: coverSide offers top; logo\/images cornerRadius exposed', () => {
 
 test('kaynak: auto coverSide resolves to top', () => {
   assert.match(npSrc, /side === 'auto'[\s\S]{0,80}side = 'top'/);
+});
+
+test('defaults+UI: coverFit natural default; square option; separate coverAudioScale', () => {
+  assert.match(defaultsSrc, /coverFit:\s*'natural'/);
+  assert.match(defaultsSrc, /coverAudioScale:\s*0/);
+  assert.match(npSrc, /coverFit === 'natural'/);
+  assert.match(npSrc, /coverAudioScale/);
+  assert.match(npSrc, /1 \/ pulse/); // undo text pulse for cover
+  assert.match(panelSrc, /coverFit/);
+  assert.match(panelSrc, /Kapak Sığdırma|natural/);
+  assert.match(panelSrc, /square/);
+  assert.match(panelSrc, /coverAudioScale/);
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverFit'/);
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverAudioScale'/);
+  assert.match(sceneSrc, /setCover\('coverFit'/);
+  assert.match(sceneSrc, /setCover\('coverAudioScale'/);
+});
+
+test('kaynak: natural fit uses aspect coverW/coverH not forced square', () => {
+  assert.match(npSrc, /coverW = coverPx; coverH = coverPx \* \(ih \/ iw\)/);
+  assert.match(npSrc, /fit:\s*drawFit/);
 });

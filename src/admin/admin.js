@@ -2233,6 +2233,16 @@
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
+            type: 'select', path: 'nowplaying.coverFit', label: 'Kapak Sığdırma',
+            options: [
+              { value: 'natural', label: 'Doğal oran' },
+              { value: 'square', label: 'Kareye ger' },
+              { value: 'cover', label: 'Kareye kapla' },
+              { value: 'contain', label: 'Kareye sığdır' },
+            ],
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
             type: 'select', path: 'nowplaying.coverSide', label: 'Kapak Konumu',
             options: [
               { value: 'auto', label: 'Otomatik (Üstte)' },
@@ -2240,6 +2250,11 @@
               { value: 'right', label: 'Sağda' },
               { value: 'top', label: 'Üstte' },
             ],
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'slider', path: 'nowplaying.coverAudioScale', label: 'Kapak Bas Nabzı',
+            min: 0, max: 0.4, step: 0.01,
             show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
