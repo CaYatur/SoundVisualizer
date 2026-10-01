@@ -372,3 +372,77 @@ test('grupsuz katman grup ayarlarından etkilenmez', () => {
   const synthLib = L.synthesize({ logo: { enabled: true, source: 'manual', src: '', libraryId: 'img_1' } });
   assert.ok(synthLib.some((l) => l.kind === 'logo'), 'kitaplık kimliği varken logo katmanı sentezlenmeli');
 });
+
+test('turning the stack off restores classic overlays from the snapshot', () => {
+  const cfg = window.SV.defaultConfig();
+  cfg.visualizer.type = 'bars';
+  cfg.logo.enabled = false;
+  cfg.images.enabled = false;
+  cfg.media.enabled = false;
+  cfg.text.enabled = false;
+  cfg.layerStack = { enabled: false };
+  cfg.layers = [];
+
+  L.setStackEnabled(cfg, true);
+  assert.strictEqual(cfg.layerStack.enabled, true);
+  assert.ok(cfg.layerStack.classicBackup, 'snapshot taken on enable');
+  assert.strictEqual(cfg.layerStack.classicBackup.logoEnabled, false);
+  assert.strictEqual(cfg.layerStack.classicBackup.textEnabled, false);
+  assert.strictEqual(cfg.visualizer.type, 'none');
+
+  cfg.layers.push(L.normalizeLayer({ kind: 'logo', name: 'Logo', type: 'back' }));
+  cfg.layers.push(L.makeTextLayer
+    ? L.makeTextLayer({ name: 'Yazi', contentMode: 'fixed', text: 'hi' })
+    : L.normalizeLayer({ kind: 'visualizer', type: 'text', name: 'Yazi',
+      settings: { text: { enabled: true, contentMode: 'fixed', text: 'hi' } } }));
+
+  L.setStackEnabled(cfg, false);
+  assert.strictEqual(cfg.layerStack.enabled, false);
+  assert.strictEqual(cfg.logo.enabled, false, 'logo must not stay on after stack off');
+  assert.strictEqual(cfg.text.enabled, false, 'text must not stay on after stack off');
+  assert.strictEqual(cfg.images.enabled, false);
+  assert.strictEqual(cfg.media.enabled, false);
+  assert.strictEqual(cfg.visualizer.type, 'bars', 'visualizer restored from snapshot');
+  assert.ok(cfg.layers.some((l) => l.kind === 'logo'), 'layer list kept');
+});
+
+test('stack off without snapshot does not promote overlay layers into classic toggles', () => {
+  const cfg = window.SV.defaultConfig();
+  cfg.visualizer.type = 'none';
+  cfg.logo.enabled = false;
+  cfg.text.enabled = false;
+  cfg.images.enabled = false;
+  cfg.media.enabled = false;
+  cfg.layerStack = { enabled: true };
+  cfg.layers = [
+    L.normalizeLayer({ kind: 'background', type: 'solid', name: 'BG' }),
+    L.normalizeLayer({ kind: 'visualizer', type: 'wave', name: 'Vis' }),
+    L.normalizeLayer({ kind: 'logo', name: 'Logo', type: 'back' }),
+    L.normalizeLayer({ kind: 'visualizer', type: 'text', name: 'Yazi',
+      settings: { text: { enabled: true, contentMode: 'fixed', text: 'x' } } }),
+  ];
+
+  L.setStackEnabled(cfg, false);
+  assert.strictEqual(cfg.visualizer.type, 'wave', 'visualizer inferred from layers');
+  assert.strictEqual(cfg.logo.enabled, false, 'logo layer must not flip classic logo on');
+  assert.strictEqual(cfg.text.enabled, false, 'text layer must not flip classic text on');
+  assert.strictEqual(cfg.images.enabled, false);
+  assert.strictEqual(cfg.media.enabled, false);
+});
+
+test('fresh enable replaces classicBackup instead of ratcheting flags to true', () => {
+  const cfg = window.SV.defaultConfig();
+  cfg.visualizer.type = 'bars';
+  cfg.logo.enabled = true;
+  cfg.layerStack = { enabled: false };
+  cfg.layers = [];
+  L.setStackEnabled(cfg, true);
+  assert.strictEqual(cfg.layerStack.classicBackup.logoEnabled, true);
+  L.setStackEnabled(cfg, false);
+  assert.strictEqual(cfg.logo.enabled, true);
+  cfg.logo.enabled = false;
+  L.setStackEnabled(cfg, true);
+  assert.strictEqual(cfg.layerStack.classicBackup.logoEnabled, false, 'no ratchet');
+  L.setStackEnabled(cfg, false);
+  assert.strictEqual(cfg.logo.enabled, false);
+});

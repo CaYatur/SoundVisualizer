@@ -178,6 +178,21 @@ body {
   box-shadow: 0 8px 28px rgba(225,29,42,.42), inset 0 1px 0 rgba(255,255,255,.16);
 }
 .btn.layers-cta .svi { width: 1.35em; height: 1.35em; }
+/* Use Layer Stack — master switch; not the same as other toggles in this card */
+.ctrl.layer-stack-toggle {
+  margin: 0 0 14px; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid rgba(225,29,42,.38);
+  border-left: 3px solid var(--accent);
+  background: linear-gradient(135deg, var(--accent-soft), rgba(225,29,42,.06));
+  box-shadow: 0 4px 16px rgba(225,29,42,.12), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.ctrl.layer-stack-toggle > .row > label.lbl {
+  font-size: 13px; font-weight: 700; letter-spacing: .02em; color: #ffc7cd;
+}
+.ctrl.layer-stack-toggle .switch { width: 46px; height: 24px; }
+.ctrl.layer-stack-toggle .switch .track { border-radius: 12px; }
+.ctrl.layer-stack-toggle .switch .track::after { width: 18px; height: 18px; top: 2px; left: 2px; }
+.ctrl.layer-stack-toggle .switch input:checked + .track::after { left: 24px; }
 .btn.ghost { background: transparent; }
 .btn.small { padding: 6px 11px; font-size: 11.5px; }
 .btn.danger { color: #ff8a8a; border-color: rgba(255,80,80,.35); }

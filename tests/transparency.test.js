@@ -144,9 +144,11 @@ test('katman panosu: yığın açıkken en üstte tek şeffaf arkaplan anahtarı
   assert.ok(i > 0, 'layersPanel bulunamadı');
   const end = src.indexOf('function effectsPanel(', i);
   const body = src.slice(i, end > i ? end : i + 8000);
-  const stackRow = body.indexOf("P().row('Katman Yığınını Kullan'");
+  const stackRow = body.indexOf("Katman Yığınını Kullan");
+  const stackClass = body.indexOf("layer-stack-toggle");
   const transRow = body.indexOf("P().row('Şeffaf Arkaplan'");
   assert.ok(stackRow > 0, 'yığın anahtarı yok');
+  assert.ok(stackClass > 0, 'yığın anahtarı layer-stack-toggle ile işaretli olmalı');
   assert.ok(transRow > stackRow, 'şeffaf arkaplan anahtarı yığın anahtarından sonra, listenin üstünde olmalı');
   const assign = body.indexOf('cfg.background.transparent = v');
   assert.ok(assign > stackRow, 'anahtar kök background.transparent yazmıyor');

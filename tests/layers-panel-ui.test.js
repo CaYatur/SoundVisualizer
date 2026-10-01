@@ -157,3 +157,17 @@ test('layer-internal mini helpers use attachDefault with def', () => {
   assert.match(src, /l\.transform\.scale[\s\S]*?def:\s*1/);
   assert.doesNotMatch(src, /attachPath\([\s\S]{0,220}stackSwitch[\s\S]{0,100}layerStack\.enabled/);
 });
+
+test('Use Layer Stack toggle is visually distinct from other switches', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  assert.match(src, /class:\s*'ctrl layer-stack-toggle'/);
+  assert.match(src, /Katman Yığınını Kullan/);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
+  assert.match(css, /\.ctrl\.layer-stack-toggle\s*\{/);
+  assert.match(css, /\.btn\.layers-cta/);
+  const { panel } = setup(LAYERS);
+  const marked = all(panel, cls('layer-stack-toggle'));
+  assert.strictEqual(marked.length, 1, 'exactly one master stack toggle');
+});
