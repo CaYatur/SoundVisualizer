@@ -1,7 +1,6 @@
 'use strict';
-/* Updates lives under Settings (not Library); Library scene/preset lists scroll;
- * top-right gear opens the same Settings category (no modal).
- * Settings is one wide card with Dil / Pencere / Panel / Güncellemeler groups. */
+/* Settings card: Dil / Pencere / Panel with distinct groups.
+ * Updates open from the footer download button as a modal. */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
@@ -9,28 +8,40 @@ const path = require('path');
 
 const admin = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
 const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
-const i18n = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
 const updatesPanel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'updates-panel.js'), 'utf8');
 const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
 const settingsJs = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'settings.js'), 'utf8');
 
-test('Settings category: one wide card with groups; Updates not in Library', () => {
+test('Settings category: one wide card Dil/Pencere/Panel; Updates not inline', () => {
   assert.match(admin, /id:\s*'settings'[\s\S]{0,120}title:\s*'Ayarlar'/);
   assert.match(admin, /id:\s*'settings-main'/);
   assert.match(admin, /id:\s*'settings-main'[\s\S]{0,200}?wide:\s*true/);
   assert.match(admin, /group:\s*'Dil'/);
   assert.match(admin, /group:\s*'Pencere'/);
   assert.match(admin, /group:\s*'Panel'/);
-  assert.match(admin, /type:\s*'updatespanel',\s*group:\s*'Güncellemeler'/);
+  assert.doesNotMatch(admin, /type:\s*'updatespanel'/);
+  assert.doesNotMatch(admin, /group:\s*'Güncellemeler'/);
   assert.doesNotMatch(admin, /id:\s*'appprefs'/);
-  assert.doesNotMatch(admin, /id:\s*'updates',\s*\n\s*category:\s*'library'/);
-  assert.doesNotMatch(admin, /id:\s*'updates',\s*\n\s*category:\s*'settings'/);
 });
 
-test('update toast and i18n point to Settings › Updates', () => {
-  assert.match(updatesPanel, /Ayarlar › Güncellemeler/);
-  assert.doesNotMatch(updatesPanel, /Kitaplık › Güncellemeler/);
-  assert.match(i18n, /'Ayarlar › Güncellemeler':\s*'Settings › Updates'/);
+test('Updates modal from footer download button', () => {
+  assert.match(html, /id="updatesBtn"/);
+  assert.match(html, /id="updatesBackdrop"/);
+  assert.match(html, /id="updatesModalBody"/);
+  assert.match(updatesPanel, /function openModal/);
+  assert.match(updatesPanel, /function closeModal/);
+  assert.match(updatesPanel, /updatesBtn/);
+  assert.match(updatesPanel, /fillModalBody/);
+  assert.match(css, /\.upd-backdrop/);
+  assert.match(css, /\.upd-modal/);
+  assert.match(updatesPanel, /tt\('Güncellemeler'\)/);
+  assert.doesNotMatch(updatesPanel, /Ayarlar › Güncellemeler|Kitaplık › Güncellemeler/);
+});
+
+test('Settings groups have distinct block styles', () => {
+  assert.match(css, /data-card="settings-main"[\s\S]{0,120}\.group/);
+  assert.match(css, /settings-main"[\s\S]{0,500}group-label::before/);
+  assert.match(css, /settings-main"[\s\S]{0,900}studio-note\.dim-hint/);
 });
 
 test('Library user-presets lists have constrained height and overflow scroll', () => {
@@ -46,16 +57,8 @@ test('Library user-presets lists have constrained height and overflow scroll', (
 test('one Settings: top-right gear opens category; modal removed', () => {
   assert.match(html, /id="settingsBtn"/);
   assert.doesNotMatch(html, /settingsBackdrop/);
-  assert.doesNotMatch(html, /alwaysOnTopToggle|extendedRangeToggle|protectToggle/);
   assert.match(admin, /openSettings:\s*\(\)\s*=>\s*setCategory\('settings'\)/);
-  assert.match(admin, /settingsBtn[\s\S]{0,120}setCategory\('settings'\)/);
   assert.match(settingsJs, /SVPanel\.openSettings/);
-  assert.doesNotMatch(settingsJs, /settingsBackdrop\.classList|function closeSettings/);
-  assert.match(settingsJs, /openUnifiedSettings/);
-  assert.doesNotMatch(css, /\.settings-backdrop|\.settings-panel\s*\{/);
   assert.match(admin, /function languageCtrl/);
   assert.match(admin, /function extendedRangeCtrl/);
-  assert.match(admin, /path:\s*'power\.alwaysOnTop'/);
-  assert.match(admin, /path:\s*'power\.protect'/);
-  assert.match(admin, /path:\s*'power\.confirmClose'/);
 });
