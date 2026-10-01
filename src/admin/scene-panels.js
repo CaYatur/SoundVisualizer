@@ -48,7 +48,21 @@
       }
       return false;
     };
-    if (!same(get(), defVal)) ctrl.classList.add('modified');
+    /* push() → refreshModifiedMarks() runs this callback. Layer-internal
+       controls have no data-path, so the modified class is refreshed only
+       here — including while a slider is dragged — so the per-control
+       reset appears immediately after a change. */
+    const syncModified = () => {
+      const mod = !same(get(), defVal);
+      if (ctrl.classList && typeof ctrl.classList.toggle === 'function') {
+        ctrl.classList.toggle('modified', mod);
+      } else if (mod) {
+        ctrl.classList.add('modified');
+      }
+    };
+    ctrl.setAttribute('data-sv-local-def', '1');
+    ctrl._svSyncModified = syncModified;
+    syncModified();
     const lbl = ctrl.querySelector && ctrl.querySelector('label.lbl');
     if (!lbl) return ctrl;
     if (lbl.querySelector && lbl.querySelector('.ctrl-reset')) return ctrl;

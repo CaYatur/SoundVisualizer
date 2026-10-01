@@ -171,3 +171,43 @@ test('Use Layer Stack toggle is visually distinct from other switches', () => {
   const marked = all(panel, cls('layer-stack-toggle'));
   assert.strictEqual(marked.length, 1, 'exactly one master stack toggle');
 });
+
+test('attachDefault registers local-def sync so modified refreshes without rerender', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
+  assert.match(src, /data-sv-local-def/);
+  assert.match(src, /_svSyncModified\s*=\s*syncModified/);
+  assert.match(src, /classList\.toggle\('modified',\s*mod\)/);
+  const admin = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
+  assert.match(admin, /\.ctrl\[data-sv-local-def\]/);
+  assert.match(admin, /node\._svSyncModified/);
+});
+
+test('open layer control gets data-sv-local-def and syncs modified on change', () => {
+  // Start at factory opacity (1) so modified is false until we drag.
+  const { panel, cfg } = setup([
+    { id: 'v1', kind: 'visualizer', type: 'bars', name: 'Görselleştirici', opacity: 1 },
+  ], ['v1']);
+  const ctrls = all(panel, (n) => n.attrs && n.attrs['data-sv-local-def'] === '1');
+  assert.ok(ctrls.length > 0, 'open layer should expose local-def controls');
+  const opacity = ctrls.find((c) => {
+    const labels = all(c, (n) => n.tag === 'label' && n.attrs.text === 'Saydamlık');
+    return labels.length > 0;
+  });
+  assert.ok(opacity, 'opacity control with local-def');
+  assert.strictEqual(typeof opacity._svSyncModified, 'function');
+  const range = all(opacity, (n) => n.tag === 'input' && n.attrs.type === 'range')[0];
+  assert.ok(range, 'opacity range input');
+  let modified = null;
+  opacity.classList.toggle = (name, on) => { if (name === 'modified') modified = !!on; };
+  opacity._svSyncModified();
+  assert.strictEqual(modified, false, 'at default: not modified');
+  range.attrs.oninput({ target: { value: '0.4' } });
+  opacity._svSyncModified();
+  assert.strictEqual(modified, true, 'modified after change');
+  assert.ok(Math.abs(cfg.layers.find((l) => l.id === 'v1').opacity - 0.4) < 1e-6);
+  range.attrs.oninput({ target: { value: '1' } });
+  opacity._svSyncModified();
+  assert.strictEqual(modified, false, 'clears when back to default');
+});
