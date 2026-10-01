@@ -7,6 +7,7 @@ const path = require('path');
 const npSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'nowplaying.js'), 'utf8');
 const panelSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'nowplaying-panel.js'), 'utf8');
 const adminSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf8');
+const sceneSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'scene-panels.js'), 'utf8');
 const defaultsSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'defaults.js'), 'utf8');
 
 test('defaults: coverOverlay varsayilan kapali', () => {
@@ -36,4 +37,25 @@ test('kaynak: dynamicTheme karti Windows-only', () => {
 test('kaynak: NP sistem kaynagi non-Windows manuel', () => {
   assert.match(panelSrc, /isWin/);
   assert.match(panelSrc, /C\.source\s*=\s*'manual'/);
+});
+test('UI: NP panel cover toggle is always visible (not only inside foldable)', () => {
+  const toggleAt = panelSrc.indexOf("miniToggle('Kapağı Göster'");
+  const foldAt = panelSrc.indexOf("foldable('Albüm Kapağı (Bindirme)'");
+  assert.ok(toggleAt > 0, 'Kapağı Göster toggle missing');
+  assert.ok(foldAt > 0, 'Albüm Kapağı foldable missing');
+  assert.ok(toggleAt < foldAt, 'toggle should come before foldable');
+});
+
+test('UI: Visualizer card exposes coverOverlay when type is nowplaying', () => {
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverOverlay'/);
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverSize'/);
+  assert.match(adminSrc, /path:\s*'nowplaying\.coverSide'/);
+  assert.match(adminSrc, /coverOverlay'[\s\S]{0,160}rebuild:\s*true/);
+});
+
+test('UI: Layers panel exposes coverOverlay for nowplaying layers', () => {
+  assert.match(sceneSrc, /l\.type\s*===\s*'nowplaying'[\s\S]{0,900}coverOverlay/);
+  assert.match(sceneSrc, /setCover\('coverOverlay'/);
+  assert.match(sceneSrc, /Kapak Boyutu|coverSize/);
+  assert.match(sceneSrc, /Kapak Konumu|coverSide/);
 });

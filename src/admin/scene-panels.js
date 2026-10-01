@@ -932,6 +932,41 @@
           }
         }
       }
+
+      // Album cover overlay for Now Playing layers (default off).
+      // Layer stack hides the dedicated Now Playing card (notStack), so expose here.
+      if (l.type === 'nowplaying') {
+        const npCover = (l.settings.nowplaying = l.settings.nowplaying || {});
+        const getCover = (k, fb) => {
+          if (npCover[k] !== undefined) return npCover[k];
+          if (cfg.nowplaying && cfg.nowplaying[k] !== undefined) return cfg.nowplaying[k];
+          return fb;
+        };
+        const setCover = (k, val) => {
+          npCover[k] = val;
+          cfg.nowplaying = cfg.nowplaying || {};
+          cfg.nowplaying[k] = val;
+        };
+        out.push(miniToggle('Kapağı Göster', () => !!getCover('coverOverlay', false), (v) => {
+          setCover('coverOverlay', !!v);
+        }, rerender));
+        if (getCover('coverOverlay', false)) {
+          out.push(el('div', { class: 'studio-note dim-hint',
+            text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.' }));
+          out.push(miniSlider('Kapak Boyutu', () => getCover('coverSize', 1.15), (v) => setCover('coverSize', v),
+            { min: 0.5, max: 2.5, step: 0.05 }));
+          out.push(miniSlider('Yazı Aralığı', () => getCover('coverGap', 0.35), (v) => setCover('coverGap', v),
+            { min: 0, max: 1, step: 0.02, percent: true }));
+          out.push(miniSlider('Köşe Yuvarlaklığı', () => getCover('coverRadius', 0.14), (v) => setCover('coverRadius', v),
+            { min: 0, max: 0.5, step: 0.01 }));
+          out.push(miniSelect('Kapak Konumu', [
+            ['auto', 'Otomatik'],
+            ['left', 'Solda'],
+            ['right', 'Sağda'],
+          ], () => getCover('coverSide', 'auto'), (v) => setCover('coverSide', v)));
+        }
+      }
+
       out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05 }));
       if (l.type !== 'spectrogram') {
         out.push(miniSlider('Parlama (Glow)', () => getV('glow', 0.2), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true }));

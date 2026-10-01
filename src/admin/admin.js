@@ -2043,9 +2043,11 @@
         wide: true,
         title: 'Renkler ve Hazır Şablonlar',
         desc: 'Akışkan gradyan ve palet kullanan arkaplanların renk dizisi ve hazır renk temaları.',
-        /* Theme/preset strip stays visible regardless of background.colorMode —
-           visualizer theme mode, lighting, and other features still read it. */
-        show: () => isStackOn() || usesPalette(),
+        /* Theme/preset strip: always visible (show => true).
+           usesPalette helper stays for Background card speed/reactivity
+           sliders only; do not gate this strip — other features still
+           read the palette when background is solid. */
+        show: () => true,
         controls: [
           { type: 'colors', path: 'background.gradient.colors', label: 'Renkler (5 nokta)' },
           { type: 'presets' },
@@ -2203,6 +2205,40 @@
             type: 'color', path: 'nowplaying.colorBar', label: 'Çubuk',
             show: () => v.type === 'nowplaying'
               && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+          },
+          {
+            type: 'toggle', path: 'nowplaying.coverOverlay', label: 'Kapağı Göster',
+            rebuild: true,
+            show: () => v.type === 'nowplaying',
+          },
+          {
+            type: 'note',
+            text: 'Çalan parçanın albüm kapağını yazının yanına yerleştirir. Kapak yoksa bindirme çizilmez. Varsayılan kapalıdır.',
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'slider', path: 'nowplaying.coverSize', label: 'Kapak Boyutu',
+            min: 0.5, max: 2.5, step: 0.05,
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'slider', path: 'nowplaying.coverGap', label: 'Yazı Aralığı',
+            min: 0, max: 1, step: 0.02, percent: true,
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'slider', path: 'nowplaying.coverRadius', label: 'Köşe Yuvarlaklığı',
+            min: 0, max: 0.5, step: 0.01,
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
+          },
+          {
+            type: 'select', path: 'nowplaying.coverSide', label: 'Kapak Konumu',
+            options: [
+              { value: 'auto', label: 'Otomatik' },
+              { value: 'left', label: 'Solda' },
+              { value: 'right', label: 'Sağda' },
+            ],
+            show: () => v.type === 'nowplaying' && !!(cfg.nowplaying && cfg.nowplaying.coverOverlay),
           },
           {
             type: 'color', path: 'text.color', label: 'Metin Rengi',
