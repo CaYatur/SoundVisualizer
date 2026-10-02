@@ -1264,6 +1264,19 @@
       ]),
     ]));
 
+    /* K1: when layer stack hides the Background card, surface the same
+       WebGL→solid info notice here (non-blocking). */
+    if (window.SVLayers
+        && typeof window.SVLayers.isGradientWebGLFallback === 'function'
+        && window.SVLayers.isGradientWebGLFallback()) {
+      const note = el('div', {
+        class: 'studio-note dim-hint',
+        text: 'WebGL yok / desteklenmiyor: gradyan düz renge düştü',
+      });
+      note.setAttribute('data-sv-webgl-fallback-note', '1');
+      nodes.push(note);
+    }
+
     if (on) {
       /* Arkaplan kartı yığın açıkken gizli; şeffaflık burada, listenin
          en üstünde tek bir anahtar. Pencere / yayın / Spout aynı ayarı

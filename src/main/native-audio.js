@@ -145,6 +145,32 @@ function runnerOrder() {
   return [selfRunner(), externalRunner()];
 }
 
+/* Empty device list is platform-blind without this: Windows Sound
+   wording on Linux/macOS sends users to the wrong settings. Align the
+   actionable half with loopbackAdvice (PulseAudio/PipeWire / macOS /
+   Windows). */
+function noDevicesMessage(platform) {
+  const p = platform || process.platform;
+  if (p === 'linux') {
+    return 'No active audio devices were detected. PulseAudio or PipeWire normally exposes devices — check that the audio server is running and a monitor source is available.';
+  }
+  if (p === 'darwin') {
+    return 'No active audio devices were detected. Check macOS Sound settings and reconnect the device.';
+  }
+  return 'No active audio devices were detected. Check Windows Sound settings and reconnect the device.';
+}
+
+function accessDeniedMessage(platform) {
+  const p = platform || process.platform;
+  if (p === 'linux') {
+    return 'Access to the audio subsystem was denied. Check PulseAudio/PipeWire permissions and restart the application.';
+  }
+  if (p === 'darwin') {
+    return 'macOS denied access to the audio subsystem. Check Sound and Privacy settings and restart the application.';
+  }
+  return 'Windows denied access to the audio subsystem. Restart the application and check audio privacy/security settings.';
+}
+
 function classifyListError({ code, signal, stderr, spawnError, timedOut, node, helperExists, runner }) {
   if (!helperExists) return { code: 'HELPER_MISSING', message: 'Audio helper files are missing from the installation.' };
   if (timedOut) return { code: 'DEVICE_ENUM_TIMEOUT', message: 'Audio device detection timed out.' };
@@ -170,10 +196,10 @@ function classifyListError({ code, signal, stderr, spawnError, timedOut, node, h
     return { code: 'NATIVE_ABI_MISMATCH', message: 'The native audio module is incompatible with this Node.js version. Reinstall Node.js LTS and the application.' };
   }
   if (/access denied|eperm|eacces/i.test(stderr)) {
-    return { code: 'ACCESS_DENIED', message: 'Windows denied access to the audio subsystem. Restart the application and check audio privacy/security settings.' };
+    return { code: 'ACCESS_DENIED', message: accessDeniedMessage() };
   }
   if (code !== 0) return { code: 'HELPER_EXITED', message: `The audio helper exited unexpectedly (code ${code ?? 'unknown'}${signal ? `, signal ${signal}` : ''}).` };
-  return { code: 'NO_DEVICES', message: 'No active audio devices were detected. Check Windows Sound settings and reconnect the device.' };
+  return { code: 'NO_DEVICES', message: noDevicesMessage() };
 }
 
 function listDevicesAttempt(timeoutMs = 6000, runner = selfRunner()) {
@@ -358,4 +384,4 @@ function resetNodeCache() {
   _runner = null;
 }
 
-module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture, selfRunner, externalRunner, runnerOrder, classifyListError };
+module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture, selfRunner, externalRunner, runnerOrder, classifyListError, noDevicesMessage, accessDeniedMessage };

@@ -1661,10 +1661,22 @@
     'Ses aygıtı algılanamadı.': 'Audio device could not be detected.',
     'Ses aygıtı algılama zaman aşımına uğradı. Windows Ses hizmetini ve bağlı aygıtları kontrol edin.':
       'Audio device detection timed out. Check Windows Audio service and connected devices.',
+    'Ses aygıtı algılama zaman aşımına uğradı. PulseAudio veya PipeWire servisini ve bağlı aygıtları kontrol edin.':
+      'Audio device detection timed out. Check the PulseAudio or PipeWire service and connected devices.',
+    'Ses aygıtı algılama zaman aşımına uğradı. macOS Ses ayarlarını ve bağlı aygıtları kontrol edin.':
+      'Audio device detection timed out. Check macOS Sound settings and connected devices.',
     'Etkin ses aygıtı bulunamadı. Windows Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.':
       'No active audio device found. Check Windows Audio settings and reconnect the device.',
+    'Etkin ses aygıtı bulunamadı. PulseAudio veya PipeWire çalışıyor mu ve bir monitor kaynağı görünüyor mu kontrol edin.':
+      'No active audio device found. Check that PulseAudio or PipeWire is running and a monitor source is available.',
+    'Etkin ses aygıtı bulunamadı. macOS Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.':
+      'No active audio device found. Check macOS Sound settings and reconnect the device.',
     'Windows ses sistemine erişimi engelledi. Ses gizlilik/güvenlik ayarlarını kontrol edip uygulamayı yeniden başlatın.':
       'Windows blocked access to audio system. Check audio privacy/security settings and restart the application.',
+    'Ses alt sistemine erişim engellendi. PulseAudio/PipeWire izinlerini kontrol edip uygulamayı yeniden başlatın.':
+      'Access to the audio subsystem was denied. Check PulseAudio/PipeWire permissions and restart the application.',
+    'macOS ses alt sistemine erişimi engelledi. Ses ve Gizlilik ayarlarını kontrol edip uygulamayı yeniden başlatın.':
+      'macOS blocked access to the audio subsystem. Check Sound and Privacy settings and restart the application.',
     'Ses yardımcı dosyaları kurulumda eksik. Uygulamayı yeniden kurun veya onarın.':
       'Audio helper files missing from installation. Reinstall or repair the application.',
     'Ses yardımcı süreci başlatılamadı.': 'Could not start audio helper process.',
@@ -1717,6 +1729,8 @@
     'Kamera erişimi bu ortamda kullanılamıyor.': 'Camera access is not available in this environment.',
     'WebGL2 kullanılamıyor. Sürücü güncellemesi gerekebilir.': 'WebGL2 unavailable. Driver update may be required.',
     'WebGL2 kullanılamıyor': 'WebGL2 unavailable',
+    'WebGL yok / desteklenmiyor: gradyan düz renge düştü':
+      'WebGL missing / unsupported: gradient fell back to solid color',
     'bilinmeyen derleme hatası': 'unknown compile error',
     'bağlama hatası': 'link error',
     'Derleme hatası': 'Compilation error',
