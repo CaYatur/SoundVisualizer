@@ -97,3 +97,24 @@ test('yardımcı dosyası yoksa çalıştırıcıdan bağımsız olarak bildiril
   const e = na.classifyListError({ helperExists: false, runner: { kind: 'self' } });
   assert.strictEqual(e.code, 'HELPER_MISSING');
 });
+
+test('NO_DEVICES metni platforma gore (Windows Sound Linux\'ta yok)', () => {
+  const win = na.noDevicesMessage('win32');
+  const lin = na.noDevicesMessage('linux');
+  const mac = na.noDevicesMessage('darwin');
+  assert.match(win, /Windows Sound/i);
+  assert.ok(!/Windows Sound/i.test(lin), 'Linux metni Windows dememeli: ' + lin);
+  assert.match(lin, /PulseAudio|PipeWire/i);
+  assert.ok(!/Windows Sound/i.test(mac), 'macOS metni Windows dememeli: ' + mac);
+  assert.match(mac, /macOS Sound/i);
+  const e = na.classifyListError({ helperExists: true, code: 0, stderr: '', runner: { kind: 'self' } });
+  assert.strictEqual(e.code, 'NO_DEVICES');
+  assert.strictEqual(e.message, na.noDevicesMessage());
+});
+
+test('ACCESS_DENIED metni platforma gore', () => {
+  assert.match(na.accessDeniedMessage('win32'), /Windows denied/i);
+  assert.ok(!/Windows denied/i.test(na.accessDeniedMessage('linux')));
+  assert.match(na.accessDeniedMessage('linux'), /PulseAudio|PipeWire/i);
+  assert.match(na.accessDeniedMessage('darwin'), /macOS denied/i);
+});

@@ -542,10 +542,17 @@
         return window.SVNowPlayingPanel ? window.SVNowPlayingPanel.panel() : null;
       case 'grouppanel':
         return window.SVGroupPanel ? window.SVGroupPanel.panel() : null;
-      case 'note':
+      case 'note': {
         // Metin işlev olabilir: içerik çizim anında hesaplanır (ör. ekran hızı)
-        return el('div', { class: 'ctrl settings-io-note',
-          text: typeof def.text === 'function' ? def.text() : def.text });
+        const note = el('div', {
+          class: 'ctrl settings-io-note' + (def.warn ? ' warn' : ''),
+          text: typeof def.text === 'function' ? def.text() : def.text,
+        });
+        if (def.attrs) {
+          for (const k in def.attrs) note.setAttribute(k, def.attrs[k]);
+        }
+        return note;
+      }
       case 'scenes':
         return scenesCtrl(def);
       case 'displaypicker':
@@ -2097,6 +2104,12 @@
     const isGradient = () => cfg.background.type === 'gradient';
     // Renk paleti gradyan dışındaki 2D arkaplan modlarında da kullanılır
     const usesPalette = () => cfg.background.type !== 'solid';
+    /* K1: WebGL gradient ctor failed → silent 2D solid. Informational only. */
+    const isGradientWebGLFallback = () => !!(
+      window.SVLayers
+      && typeof window.SVLayers.isGradientWebGLFallback === 'function'
+      && window.SVLayers.isGradientWebGLFallback()
+    );
     // Frekans bandı okuyan ön modlar (bar sayısı / frekans aralığı anlamlı)
     const isBandMode = () => MC().is('visualizer', v.type, 'bands');
     // Bar benzeri geometriye sahip modlar (aralarındaki boşluk anlamlı)
@@ -2182,6 +2195,13 @@
           {
             type: 'segment', path: 'background.type', label: 'Tür', rebuild: true, grouped: true,
             options: MC().options('background'),
+          },
+          {
+            type: 'note',
+            warn: true,
+            attrs: { 'data-sv-webgl-fallback-note': '1' },
+            text: 'WebGL yok / desteklenmiyor: gradyan düz renge düştü',
+            show: () => isGradient() && isGradientWebGLFallback(),
           },
           { type: 'custompicker', kind: 'background', show: () => cfg.background.type === 'custom' },
           {
@@ -3257,6 +3277,8 @@
     /* Masonry sınıfı bir önceki çizimden kalırsa yeni kartlar 4 px satıra
        doğar. Linux o boyu içerik sanıp bütün kartları üst üste bindiriyor. */
     root.classList.remove('masonry');
+    // Preview first so K1 WebGL-fallback flag is current for note show().
+    if (window.SVPreview) window.SVPreview.setConfig(cfg);
     root.innerHTML = '';
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
@@ -3290,7 +3312,6 @@
       restoreSectionsScroll();
       requestAnimationFrame(restoreSectionsScroll);
     });
-    if (window.SVPreview) window.SVPreview.setConfig(cfg);
   }
 
   /* KART DÜZENİ (#622).
@@ -3977,11 +3998,82 @@
     updateFloatingToggles();
   }
 
+  /* audioUiKind tracks how the Ses Seviyesi status was last set:
+     idle (waiting / diagnosing), capture (source started or levels flowing),
+     devices (enumerate success), err (capture/diagnose failure).
+     Capture may already be running before the admin window subscribes to
+     audio-source-status, so meters can move while the label still says
+     "Ses bekleniyor…". Levels refresh promotes idle/devices -> capture. */
+  let audioUiKind = 'idle';
+  let audioCaptureDevice = null;
+  let audioCaptureFromStatus = false; // true after onAudioSourceStatus started
+
   function setAudioState(text, cls, icon) {
     const a = $('audioState');
     window.SVIcons.set(a, icon || '', text);
     a.title = text; // kısaltılan uzun aygıt adları için tam metin
     a.className = 'audio-state' + (cls ? ' ' + cls : '');
+  }
+
+  /* Mirror loopback-helper resolveDevice + CAPTURE-START naming:
+     'default' -> pickDefault device name; apps -> label; else device name.
+     Joined with ' + ' so the status matches onAudioSourceStatus started. */
+  function pickDefaultDeviceName() {
+    const all = audioDevices || [];
+    const d =
+      all.find((x) => x.loopback && x.isDefault) ||
+      all.find((x) => x.loopback) ||
+      all.find((x) => x.kind === 'output' && x.isDefault) ||
+      all.find((x) => x.kind === 'output') ||
+      all.find((x) => x.isDefault) ||
+      all[0] ||
+      null;
+    return d && d.name ? d.name : null;
+  }
+
+  function resolveSelectedCaptureLabel() {
+    const audio = cfg && cfg.audio;
+    const sources = (audio && Array.isArray(audio.sources) && audio.sources.length)
+      ? audio.sources
+      : (audio && audio.source ? [audio.source] : ['default']);
+    const AA = window.SVAppAudio;
+    const names = [];
+    const seen = new Set();
+    for (const s of sources) {
+      let name = null;
+      if (AA && AA.isAppSource(s)) name = s.label || s.match || null;
+      else if (s === 'default') name = pickDefaultDeviceName();
+      else if (s != null && s !== '') name = String(s);
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      names.push(name);
+    }
+    return names.length ? names.join(' + ') : null;
+  }
+
+  function markAudioCapturing(device) {
+    if (device) audioCaptureDevice = device;
+    const label = audioCaptureDevice || resolveSelectedCaptureLabel() || 'çıkış';
+    audioCaptureDevice = label;
+    audioCaptureFromStatus = true;
+    audioUiKind = 'capture';
+    setAudioState('Yakalanıyor: ' + label, 'ok', 'record');
+  }
+
+  /* Promote waiting/device-list status when live meters show signal.
+     Resolves the selected Ses Kaynakları label so we do not need a
+     re-select (started event) just to learn the device name. */
+  function ensureAudioListeningFromLevels(d) {
+    if (!d || audioUiKind === 'err') return;
+    if (audioCaptureFromStatus && audioUiKind === 'capture') return;
+    const signal = Math.max(+d.level || 0, +d.bass || 0, +d.mid || 0, +d.treble || 0);
+    if (!(signal > 0.015)) return;
+    const label = resolveSelectedCaptureLabel() || audioCaptureDevice;
+    if (audioUiKind === 'capture' && audioCaptureDevice && audioCaptureDevice === label) return;
+    audioCaptureDevice = label;
+    audioUiKind = 'capture';
+    if (label) setAudioState('Yakalanıyor: ' + label, 'ok', 'record');
+    else setAudioState('Yakalanıyor: ' + (resolveSelectedCaptureLabel() || 'çıkış'), 'ok', 'record');
   }
 
   /* Ölçek olarak yazılıyor, genişlik değil (bkz. admin.css .meter .bar i,
@@ -4002,14 +4094,28 @@
     if (window.SVI18n?.locale !== 'tr') {
       return `${english} [${code}]${result?.retried ? ' Automatic retry was unsuccessful.' : ''}`;
     }
+    /* Platforma gore TR metin: Windows Ses ayarlari Linux'ta yaniltir.
+       loopbackAdvice / noDevicesMessage ile ayni yonlendirme. */
     const tr = {
-      NODE_NOT_FOUND: 'Node.js bulunamadı. Node.js LTS kurun veya PATH ayarını onarın.',
+      NODE_NOT_FOUND: 'Node.js bulunamadı. Node.js LTS kurun veya PATH ayarınızı onarın.',
       HELPER_MISSING: 'Ses yardımcı dosyaları kurulumda eksik. Uygulamayı yeniden kurun veya onarın.',
       AUDIFY_MISSING: 'Native ses modülü eksik. Uygulamayı yeniden kurun veya onarın.',
       NATIVE_ABI_MISMATCH: 'Native ses modülü bu Node.js sürümüyle uyumsuz. Node.js LTS ve uygulamayı yeniden kurun.',
-      ACCESS_DENIED: 'Windows ses sistemine erişimi engelledi. Ses gizlilik/güvenlik ayarlarını kontrol edip uygulamayı yeniden başlatın.',
-      DEVICE_ENUM_TIMEOUT: 'Ses aygıtı algılama zaman aşımına uğradı. Windows Ses hizmetini ve bağlı aygıtları kontrol edin.',
-      NO_DEVICES: 'Etkin ses aygıtı bulunamadı. Windows Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.',
+      ACCESS_DENIED: PLATFORM.isLinux
+        ? 'Ses alt sistemine erişim engellendi. PulseAudio/PipeWire izinlerini kontrol edip uygulamayı yeniden başlatın.'
+        : PLATFORM.isMac
+          ? 'macOS ses alt sistemine erişimi engelledi. Ses ve Gizlilik ayarlarını kontrol edip uygulamayı yeniden başlatın.'
+          : 'Windows ses sistemine erişimi engelledi. Ses gizlilik/güvenlik ayarlarını kontrol edip uygulamayı yeniden başlatın.',
+      DEVICE_ENUM_TIMEOUT: PLATFORM.isLinux
+        ? 'Ses aygıtı algılama zaman aşımına uğradı. PulseAudio veya PipeWire servisini ve bağlı aygıtları kontrol edin.'
+        : PLATFORM.isMac
+          ? 'Ses aygıtı algılama zaman aşımına uğradı. macOS Ses ayarlarını ve bağlı aygıtları kontrol edin.'
+          : 'Ses aygıtı algılama zaman aşımına uğradı. Windows Ses hizmetini ve bağlı aygıtları kontrol edin.',
+      NO_DEVICES: PLATFORM.isLinux
+        ? 'Etkin ses aygıtı bulunamadı. PulseAudio veya PipeWire çalışıyor mu ve bir monitor kaynağı görünüyor mu kontrol edin.'
+        : PLATFORM.isMac
+          ? 'Etkin ses aygıtı bulunamadı. macOS Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.'
+          : 'Etkin ses aygıtı bulunamadı. Windows Ses ayarlarını kontrol edin ve aygıtı yeniden bağlayın.',
       INVALID_HELPER_OUTPUT: 'Ses yardımcı süreci geçersiz veri döndürdü.',
       HELPER_EXITED: 'Ses yardımcı süreci beklenmedik şekilde kapandı.',
       PROCESS_START_FAILED: 'Ses yardımcı süreci başlatılamadı.',
@@ -4021,10 +4127,22 @@
   function applyAudioDiagnostic(result, showSuccess = false) {
     audioDevices = result?.devices || [];
     if (result?.ok) {
-      if (showSuccess) setAudioState(`${audioDevices.length} ses aygıtı bulundu`, 'ok', 'check');
+      // Keep an active capture label; enumerate success must not hide it.
+      if (showSuccess && audioUiKind !== 'capture') {
+        audioUiKind = 'devices';
+        setAudioState(`${audioDevices.length} ses aygıtı bulundu`, 'ok', 'check');
+      } else if (audioUiKind === 'capture' && !audioCaptureFromStatus) {
+        // Device list just refreshed — resolve default -> real name for status.
+        const label = resolveSelectedCaptureLabel();
+        if (label && label !== audioCaptureDevice) {
+          audioCaptureDevice = label;
+          setAudioState('Yakalanıyor: ' + label, 'ok', 'record');
+        }
+      }
       $('banner').classList.add('hidden');
       return;
     }
+    audioUiKind = 'err';
     setAudioState('Ses aygıtı tanılaması başarısız', 'err', 'warning');
     $('bannerDetail').textContent = diagnosticText(result);
     $('banner').classList.remove('hidden');
@@ -4125,7 +4243,12 @@
   actions.floatingSnapTl = () => { if (window.api && window.api.floatingSnap) window.api.floatingSnap('tl'); };
 
   actions.refreshDevices = async () => {
-    setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
+    // Do not clobber an active capture status while re-enumerating devices
+    // (started handler may call refresh when a device name is missing).
+    if (audioUiKind !== 'capture') {
+      audioUiKind = 'idle';
+      setAudioState(window.SVI18n?.locale === 'tr' ? 'Ses aygıtları tanılanıyor…' : 'Diagnosing audio devices…');
+    }
     const result = await window.api.diagnoseAudio();
     applyAudioDiagnostic(result, true);
     await refreshAudioApps();
@@ -4279,6 +4402,7 @@
       setMeter('mBass', l.bass);
       setMeter('mMid', l.mid);
       setMeter('mTreble', l.treble);
+      ensureAudioListeningFromLevels(l);
     }, 50);
 
     const btn = $('previewToggle');
@@ -4765,6 +4889,8 @@
     }
     const audioDiagnostic = await window.api.diagnoseAudio();
     audioDevices = audioDiagnostic?.devices || [];
+    // Prefetch capture label from selected sources so meter promote has a name.
+    audioCaptureDevice = resolveSelectedCaptureLabel();
     await refreshAudioApps();
     try {
       lightingIdentity = await window.api.getLightingIdentityStatus();
@@ -5004,6 +5130,20 @@
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds, d.floating));
 
+    /* K1 admin notice: refresh when preview stack flips WebGL→solid fallback. */
+    let fallbackUiRaf = 0;
+    window.addEventListener('sv-gradient-webgl-fallback', () => {
+      if (fallbackUiRaf) return;
+      fallbackUiRaf = requestAnimationFrame(() => {
+        fallbackUiRaf = 0;
+        const want = !!(window.SVLayers
+          && typeof window.SVLayers.isGradientWebGLFallback === 'function'
+          && window.SVLayers.isGradientWebGLFallback());
+        const has = !!document.querySelector('[data-sv-webgl-fallback-note]');
+        if (want !== has) render();
+      });
+    });
+
     // Farklı kontrol sistemi (Heartbeat / Durum Güvencesi):
     // Kaza korumasıyla pencere geri açıldığında, çökme anında veya IPC gecikmelerinde
     // buton durumunun ve görselleştirici durumunun gerçekle %100 uyuşmasını garanti eder.
@@ -5067,10 +5207,11 @@
       setMeter('mBass', d.bass);
       setMeter('mMid', d.mid);
       setMeter('mTreble', d.treble);
+      ensureAudioListeningFromLevels(d);
     });
     window.api.onAudioSourceStatus((s) => {
       if (s.type === 'started') {
-        setAudioState('Yakalanıyor: ' + (s.device || 'çıkış'), 'ok', 'record');
+        markAudioCapturing(s.device || 'çıkış');
         $('banner').classList.add('hidden');
         // başlatılan aygıtlardan herhangi biri listede yoksa listeyi tazele
         if (s.device) {
@@ -5084,10 +5225,12 @@
            kullanıcının BlackHole gibi sanal bir aygıt kurması gerekir.
            Sessiz kalmak, kullanıcının neden hiçbir şey görmediğini
            anlamaması demek olurdu. */
+        audioUiKind = 'err';
         setAudioState('Sistem sesi yakalanamıyor', 'err', 'warning');
         $('bannerDetail').textContent = s.message || 'Bu sistemde sistem sesini veren bir aygıt bulunamadı.';
         $('banner').classList.remove('hidden');
       } else if (s.type === 'error') {
+        audioUiKind = 'err';
         setAudioState('Ses yakalanamadı', 'err', 'warning');
         $('bannerDetail').textContent = s.message || 'Çıkış aygıtı yakalanamadı.';
         $('banner').classList.remove('hidden');

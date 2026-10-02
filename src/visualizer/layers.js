@@ -693,6 +693,9 @@
       this.container = container || null;
       this.opts = opts || {};
       this.entries = []; // { layer, canvas, ctx, mode, key }
+      /* K1 admin signal: true while any gradient entry is on the silent
+         2D solid path after WebGL ctor failure. */
+      this._gradientWebGLFallback = false;
       this.width = 2;
       this.height = 2;
       this.sprites = null; // paylaşılan sprite motoru
@@ -949,7 +952,8 @@
         fresh.canvas.className = old.className;
       }
       this._disposeEntry(e);
-      for (const k of ['canvas', 'ctx', 'mode', 'gl', 'solid']) e[k] = fresh[k];
+      for (const k of ['canvas', 'ctx', 'mode', 'gl', 'solid', 'webglFallback']) e[k] = fresh[k];
+      this._syncGradientWebGLFallback();
       this._sizeEntry(e);
       this.revived = (this.revived || 0) + 1;
     }
@@ -1074,6 +1078,24 @@
         }
       }
       this._applyStatic();
+      this._syncGradientWebGLFallback();
+    }
+
+    /* Informational only: admin shows a non-blocking notice when the K1
+       silent 2D solid path is active. Never throws / never dialogs. */
+    _syncGradientWebGLFallback() {
+      const active = this.entries.some((e) => !!(e && e.webglFallback));
+      if (this._gradientWebGLFallback === active) return;
+      this._gradientWebGLFallback = active;
+      try {
+        if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(new CustomEvent('sv-gradient-webgl-fallback', { detail: { active } }));
+        }
+      } catch { /* DOM-less / test host */ }
+    }
+
+    hasGradientWebGLFallback() {
+      return !!this._gradientWebGLFallback;
     }
 
     _create(layer, key, cfg) {
@@ -1093,9 +1115,21 @@
       const lcfg = layerConfig(cfg, layer);
       if (layer.kind === 'background') {
         if (layer.type === 'gradient') {
-          // WebGL gradyan kendi tuvalini sürer
-          try { e.mode = new window.SVModes.gradient(e.canvas); } catch { e.mode = null; }
-          e.gl = true;
+          // WebGL gradyan kendi tuvalini surer. WebGL yoksa (blocklist)
+          // kurucu firlatir: e.gl=true + e.ctx=null birakmamali — fillStyle
+          // TypeError spam'i olur. 2D duz renk yedegine dus.
+          try {
+            e.mode = new window.SVModes.gradient(e.canvas);
+            e.gl = true;
+            e.webglFallback = false;
+          } catch {
+            e.mode = null;
+            e.gl = false;
+            e.ctx = e.canvas.getContext('2d');
+            e.solid = true;
+            /* Silent K1 path: solid 2D fill. Flag drives admin info notice. */
+            e.webglFallback = true;
+          }
         } else if (window.SVBackgrounds && window.SVBackgrounds[layer.type]) {
           e.mode = new window.SVBackgrounds[layer.type]();
           e.ctx = e.canvas.getContext('2d');
@@ -1614,6 +1648,8 @@
       if (l.kind === 'background') {
         if (e.gl && e.mode) { e.mode.draw(audio, lcfg, t); return; }
         if (e.mode) { e.mode.draw(e.ctx, audio, lcfg, t, W, H, dt); return; }
+        /* WebGL fallback / solid: ctx yoksa fillStyle'a dokunma. */
+        if (!e.ctx) return;
         /* Şeffaf arkaplanda düz renk BOYANMAZ; boyasaydık pencerenin
            şeffaflığı bir işe yaramaz, altındaki masaüstü görünmezdi. */
         if (lcfg.background && lcfg.background.transparent) {
@@ -1627,8 +1663,12 @@
       }
 
       if (l.kind === 'visualizer' || l.kind === 'nowplaying') {
-        if (!e.mode) { e.ctx.clearRect(0, 0, W, H); return; }
-        if (!audio || !audio.ready) { e.ctx.clearRect(0, 0, W, H); return; }
+        if (!e.mode) { if (e.ctx) e.ctx.clearRect(0, 0, W, H); return; }
+        if (!audio) { if (e.ctx) e.ctx.clearRect(0, 0, W, H); return; }
+        /* Ses karesi gelmeden de ciz: MilkDrop/Studio WebGL kurulumu ilk
+           draw'da. audio.ready yalnizca ingestFrame'de true; aygitsiz ortamda
+           clear+return GL'yi hic acmiyordu. AudioEngine sifir tamponlarla
+           baslar; gercek kare gelince ayni yol canli sinyali surer. */
         e.mode.draw(audio, lcfg, t, dt);
         return;
       }
@@ -1863,8 +1903,19 @@
     }
   }
 
+  function isGradientWebGLFallback() {
+    try {
+      if (typeof window !== 'undefined' && window.SVPreview && typeof window.SVPreview.stack === 'function') {
+        const st = window.SVPreview.stack();
+        if (st && typeof st.hasGradientWebGLFallback === 'function') return !!st.hasGradientWebGLFallback();
+      }
+    } catch { /* preview not ready */ }
+    return false;
+  }
+
   const api = {
     LayerStack,
+    isGradientWebGLFallback,
     BLEND_MODES,
     KINDS,
     normalizeLayer,

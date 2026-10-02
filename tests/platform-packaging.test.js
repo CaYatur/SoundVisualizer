@@ -197,3 +197,12 @@ test('ses yardımcısının bağımlılıkları asar dışına çıkarılıyor',
   assert.deepStrictEqual(eksik, [],
     'asarUnpack dışında kalan yardımcı bağımlılığı: ' + eksik.join(', '));
 });
+
+test('package description lists Linux alongside Windows and macOS', () => {
+  /* Discovery/store text used to say Windows+macOS only while dist:linux
+     targets existed — Linux users (and the box smoke report) treated that
+     as the app not supporting the platform. */
+  assert.match(pkg.description, /Windows/i);
+  assert.match(pkg.description, /macOS/i);
+  assert.match(pkg.description, /Linux/i);
+});

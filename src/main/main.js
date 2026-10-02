@@ -100,13 +100,10 @@ const AUTOMATION_RUN = SMOKE || SHOTS || process.argv.includes('--diag') || !!pr
    `lightingSet`, `syncArtnet`, `syncOpenRgb`). Tanılama (`--diag`) ışıkları
    gerçekten sınamak için var; ona dokunulmuyor. */
 const HW_OFF = SMOKE || SHOTS;
-/* Electron 35, console-message olayinin imzasini degistirdi: eskiden
-   (event, level, message, line, sourceId) geliyordu ve level bir sayiydi
-   (0 verbose, 1 info, 2 warning, 3 error); artik tum alanlar olay nesnesinin
-   uzerinde ve level bir metin ("debug" | "info" | "warning" | "error").
-   Ikisini de okuyoruz: boylece kod hem yukseltme oncesi hem sonrasi dogru
-   calisir ve "level >= 2" karsilastirmasi metin gelince sessizce false
-   donup hatalari gizlemez. */
+/* Electron 35+, console-message: tum alanlar olay nesnesinde; level metin
+   ("debug"|"info"|"warning"|"error"). Dinleyici TEK arguman almali — eski
+   (e, level, message, ...) imzasi "arguments are deprecated" uyarisi basar.
+   consoleInfo olay nesnesini okur; eski konumsal arguman yedegi duruyor. */
 /* Chromium, CSP’de script-src yazılmadığında her pencere yüklenişinde bu
    notu basar. Gerçek bir ihlal mesajı ("Refused to...") eşlik etmiyor —
    arandı, yok. Üç ekran açılınca üç not geliyor ve hata listesini
@@ -133,8 +130,8 @@ function consoleInfo(e, level, message) {
 function attachSmoke(win, name) {
   if (!SMOKE) return;
   const wc = win.webContents;
-  wc.on('console-message', (e, level, message) => {
-    const c = consoleInfo(e, level, message);
+  wc.on('console-message', (e) => {
+    const c = consoleInfo(e);
     if (isConsoleNoise(c.message)) return;
     console.log(`[${name}] ${c.message}`);
   });
@@ -3645,8 +3642,8 @@ async function runSmoke() {
   if (!anyVisualizerOpen()) throw new Error('visualizer window did not open');
 
   const wc = meterWindow().webContents;
-  wc.on('console-message', (e, level, message) => {
-    const c = consoleInfo(e, level, message);
+  wc.on('console-message', (e) => {
+    const c = consoleInfo(e);
     if (isConsoleNoise(c.message)) return;
     if (c.warnOrWorse || /error|hata|failed|undefined is not/i.test(c.message)) errors.push(c.message);
   });
@@ -4443,8 +4440,8 @@ async function runSmoke() {
   if (adminWin && !adminWin.isDestroyed()) {
     const awc = adminWin.webContents;
     const adminErrors = [];
-    awc.on('console-message', (e, level, message) => {
-      const c = consoleInfo(e, level, message);
+    awc.on('console-message', (e) => {
+    const c = consoleInfo(e);
       if (isConsoleNoise(c.message)) return;
       if (c.warnOrWorse) adminErrors.push(c.message);
     });
@@ -5445,8 +5442,18 @@ async function runSmoke() {
     if (t.hata) errors.push('texture-share: ' + t.hata);
     else {
       if (t.düğümTürü !== 1) errors.push('texture-share: the panel did not return a single element node');
-      if (!(t.çocuk > 2)) errors.push('texture-share: the panel drew almost nothing (' + t.çocuk + ' children)');
-      if (!/^(Spout|Syphon)/.test(t.protokol)) errors.push('texture-share: protocol name is wrong for this platform: ' + t.protokol);
+      /* Linux (ve Spout/Syphon'siz kurulum): panel bilerek tek uyari dugumu
+         dondurur (supported===false). cocuk>2 esigi Windows/macOS UX'i icindi;
+         burada false-positive olmasin. */
+      const texAv = textureShare.available();
+      if (texAv && texAv.ok === false) {
+        console.log('[SMOKE] texture-share panel: unsupported here (' + (texAv.reason || 'n/a') + '), children=' + t.çocuk + ' (note-only OK)');
+      } else if (!(t.çocuk > 2)) {
+        errors.push('texture-share: the panel drew almost nothing (' + t.çocuk + ' children)');
+      }
+      if (texAv && texAv.ok !== false) {
+        if (!/^(Spout|Syphon)/.test(t.protokol)) errors.push('texture-share: protocol name is wrong for this platform: ' + t.protokol);
+      }
     }
   }
 
@@ -5662,8 +5669,8 @@ async function runSmoke() {
         webPreferences: { backgroundThrottling: false },
       });
       const konsol = [];
-      win.webContents.on('console-message', (e, level, message) => {
-        const c = consoleInfo(e, level, message);
+      win.webContents.on('console-message', (e) => {
+    const c = consoleInfo(e);
         if (isConsoleNoise(c.message)) return;
         if (c.level === 3 || c.level === 'error') konsol.push(c.message.slice(0, 200));
       });

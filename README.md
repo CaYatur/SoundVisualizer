@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2561%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2577%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -813,7 +813,7 @@ The styles the application shipped with, still one click away.
 The sections above show what the application looks like. This one lists what is
 actually in it, by name.
 
-### Backgrounds — 31 types
+### Backgrounds — 41 types
 
 **Fluid** — **Fluid Gradient** (an audio-reactive mesh gradient in a WebGL shader, in *Soft* and
 *Plasma* styles, with flow speed, wander, orbit, swirl, warp, scale, grain, vignette, audio burst
@@ -848,7 +848,7 @@ Five colour stops, **58 built-in palettes** in seven groups (Classics, Warm, Coo
 Dark, Light, Monochrome Families) and your own saved palettes apply to every background type, to the
 Studio engine and to the 3D engine.
 
-### Visualizer — 48 modes
+### Visualizer — 60 modes
 
 **Basic** — **Bars** · **Center** · **Segments** (LED equaliser) · **Dot Matrix** · **Skyline**
 (buildings with lit windows)
@@ -1341,7 +1341,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2561 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2577 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
