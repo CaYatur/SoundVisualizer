@@ -69,6 +69,11 @@ let warming = null;
 /* Arka plan okuması sürerken silinenler: okuma, silmeden ÖNCE aldığı ad
    listesinden bir önbellek kuruyor ve silineni geri getirebilirdi. */
 const droppedWhileWarming = new Set();
+/* Arka plan okuması sürerken kaydedilenler: remember() önbellek henüz
+   yokken dönüyordu, warm() ise okumanın başındaki ad listesini yazıyordu.
+   Dosya diskte kalıyor, açık pencereler yeniden başlatılana kadar
+   görmüyordu. */
+const savedWhileWarming = new Map();
 
 function names() {
   try { return fs.readdirSync(dir()).filter((f) => f.endsWith('.json')); } catch { return []; }
@@ -114,9 +119,15 @@ function warm() {
         } catch { /* okunamayan dosya atlanıyor */ }
       }));
     }
+    for (const pair of savedWhileWarming) map.set(pair[0], pair[1]);
+    savedWhileWarming.clear();
     for (const n of droppedWhileWarming) map.delete(n);
     droppedWhileWarming.clear();
     if (!byFile) { byFile = map; sorted = null; }
+    else {
+      for (const pair of map) if (!byFile.has(pair[0])) byFile.set(pair[0], pair[1]);
+      sorted = null;
+    }
   })();
   return warming;
 }
@@ -182,8 +193,9 @@ function prepare(preset, stamp) {
 }
 
 function remember(file, p) {
-  if (!byFile) return; // henüz okunmadı: dosya ilk okumada gelecek
-  byFile.set(path.basename(file), p);
+  const name = path.basename(file);
+  if (!byFile) { savedWhileWarming.set(name, p); return; }
+  byFile.set(name, p);
   sorted = null;
 }
 
@@ -204,7 +216,9 @@ function remove(id) {
   if (!file) return { ok: false, error: 'BAD_ID' };
   try {
     fs.unlinkSync(file);
-    if (byFile) { byFile.delete(path.basename(file)); sorted = null; } else if (warming) droppedWhileWarming.add(path.basename(file));
+    const base = path.basename(file);
+    if (byFile) { byFile.delete(base); sorted = null; }
+    else if (warming) { droppedWhileWarming.add(base); savedWhileWarming.delete(base); }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -255,6 +269,7 @@ function setDir(d) {
   sorted = null;
   warming = null;
   droppedWhileWarming.clear();
+  savedWhileWarming.clear();
 }
 
 module.exports = { list, get, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir };

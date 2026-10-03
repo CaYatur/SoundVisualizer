@@ -251,7 +251,17 @@
     for (const key of SCENE_KEYS) if (cfg[key] !== undefined) data[key] = clone(cfg[key]);
     return data;
   }
+  function layersApi() {
+    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.setStackEnabled) return window.SVLayers;
+    try { return require('../visualizer/layers.js'); } catch (e) { return null; }
+  }
   function ensureLayers(cfg) {
+    const L = layersApi();
+    if (L && L.setStackEnabled) {
+      if (!L.stackOn(cfg)) L.setStackEnabled(cfg, true);
+      if (!Array.isArray(cfg.layers)) cfg.layers = [];
+      return cfg.layers;
+    }
     if (!Array.isArray(cfg.layers)) cfg.layers = [];
     if (!cfg.layerStack || typeof cfg.layerStack !== 'object') cfg.layerStack = { enabled: true };
     cfg.layerStack.enabled = true;
@@ -521,11 +531,15 @@
       return { sceneId: found.scene.id, name: found.scene.name, visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_set_visualizer_type', 'sceneApply', 'Switch the classic visualizer to an existing mode id.', function (args, ctx) {
+  tool('sv_set_visualizer_type', 'sceneApply', 'Switch the visualizer to an existing mode id and show it on the live stack.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
     return withConfig(ctx, function (cfg) {
-      cfg.visualizer = Object.assign({}, cfg.visualizer, { type: String(args.type) });
-      return { type: cfg.visualizer.type };
+      const spec = { type: String(args.type) };
+      if (args.presetId != null) spec.presetId = args.presetId;
+      const L = layersApi();
+      if (L && L.adoptVisualizer) L.adoptVisualizer(cfg, spec);
+      else cfg.visualizer = Object.assign({}, cfg.visualizer, { type: spec.type });
+      return { type: cfg.visualizer.type, presetId: cfg.custom && cfg.custom.visualizerId || null };
     });
   });
   tool('sv_set_background_type', 'sceneApply', 'Switch the background to an existing mode id.', function (args, ctx) {
@@ -541,6 +555,11 @@
       if (!found) return fail('Layer not found.');
       ensureLayers(cfg);
       found.layer.enabled = !(args && args.enabled === false);
+      if (found.layer.enabled) {
+        const L = layersApi();
+        if (L && L.revealLayer) L.revealLayer(cfg, found.layer);
+        else found.layer.muted = false;
+      }
       return { layer: publicLayer(found.layer, found.index) };
     });
   });
@@ -659,6 +678,10 @@
       if (patch.settings) found.layer.settings = mergeObj(found.layer.settings, patch.settings);
       if (patch.audio) found.layer.audio = mergeObj(found.layer.audio, patch.audio);
       if (patch.mask) found.layer.mask = mergeObj(found.layer.mask, patch.mask);
+      if (found.layer.enabled !== false && (patch.type !== undefined || patch.presetId !== undefined || patch.kind !== undefined)) {
+        const L = layersApi();
+        if (L && L.revealLayer) L.revealLayer(cfg, found.layer);
+      }
       return { layer: publicLayer(found.layer, found.index), visual: visualState(cfg, ctx) };
     });
   });
@@ -880,9 +903,25 @@
   });
   tool('sv_save_preset', 'presetEdit', 'Write a preset file in the app preset store. Authoring.', function (args, ctx) {
     if (!ctx.presets || !ctx.presets.save) return fail('Preset store is not available.');
-    const preset = { id: args && args.id, name: (args && args.name) || 'MCP preset', kind: (args && args.kind) || 'milkdrop', source: (args && args.source) || '' };
+    const src = args || {};
+    const preset = {
+      id: src.id,
+      name: src.name || 'MCP preset',
+      kind: src.kind || 'milkdrop',
+      engine: src.engine,
+      source: src.source || '',
+      shader: src.shader,
+      controls: src.controls,
+      base: src.base,
+      overrides: src.overrides,
+      description: src.description,
+      author: src.author,
+      tags: src.tags,
+    };
     const saved = ctx.presets.save(preset);
-    return { ok: true, preset: { id: (saved && saved.id) || preset.id, name: preset.name, kind: preset.kind } };
+    if (!saved || saved.ok === false) return fail((saved && saved.error) || 'Could not save the preset.');
+    const p = saved.preset || preset;
+    return { ok: true, preset: { id: p.id, name: p.name || preset.name, kind: p.kind || preset.kind, engine: p.engine || '' } };
   });
   tool('sv_delete_preset', 'presetEdit', 'Delete a preset file. Authoring.', function (args, ctx) {
     if (!args || !args.id) return fail('id is required.');

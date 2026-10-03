@@ -213,14 +213,17 @@ test('köprüler: pencere ve panel değişikliği ve ilerlemeyi dinliyor', () =>
   const A = read('src/main/preload-admin.js');
   assert.match(A, /onPresetsDelta: \(cb\) => ipcRenderer\.on\('presets-delta', \(e, d\) => cb\(d\)\),/);
   assert.match(A, /onPresetsProgress: \(cb\) => ipcRenderer\.on\('presets-progress', \(e, p\) => cb\(p\)\),/);
-  assert.match(bare(read('src/admin/admin.js')), /window\.api\.onPresetsDelta\(\(d\) => \{\s*window\.SVPresets\.applyDelta\(d\);\s*render\(\);/);
+    const adminSrc = bare(read('src/admin/admin.js'));
+  assert.match(adminSrc, /onPresetsDelta\(onPresetDelta\)/);
+  assert.match(adminSrc, /presetsReady = true/);
+  assert.match(adminSrc, /const onPresetDelta = \(d\) => \{[\s\S]*?applyDelta\(d\);\s*render\(\);/);
 });
 
 // ------------------------------------------------------------ görselleştirici
 
 test('görselleştirici: sahne yalnız bir Studio preseti değişince yeniden kuruluyor', () => {
   const V = read('src/visualizer/visualizer.js');
-  const m = /window\.api\.onPresetsDelta\((\(d\) => \{[\s\S]*?\n {6}\})\);/.exec(V);
+  const m = /const onPresetDelta = (\(d\) => \{[\s\S]*?\n    \};)/.exec(V);
   assert.ok(m, 'değişiklik dinleyicisi bulunamadı');
   const run = (list, delta) => {
     const calls = [];

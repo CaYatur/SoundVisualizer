@@ -584,34 +584,38 @@
   // Başlat
   // --------------------------------------------------------------------------
   async function init() {
-    // Studio presetleri (kullanıcının kendi shader'ları) ana süreçte tutulur
+    // Studio presetleri (kullanıcının kendi shader'ları) ana süreçte tutulur.
+    // Dinleyici listeden ÖNCE kurulur: kayıt o sırada gelirse yayın düşmesin
+    // ve çıkış yeniden başlatılana kadar eski shader'da kalmasın.
+    let presetsReady = false;
+    const earlyDeltas = [];
+    const onPresetDelta = (d) => {
+      const S = window.SVPresets;
+      const studio = (d && Array.isArray(d.upsert) ? d.upsert : []).some((p) => p && p.kind !== 'milkdrop') ||
+        (d && Array.isArray(d.remove) ? d.remove : []).some((id) => { const p = S.get(id); return !!p && p.kind !== 'milkdrop'; });
+      S.applyDelta(d);
+      if (studio) {
+        stack.dispose();
+        applyScene();
+      }
+    };
+    if (window.api.onPresetsDelta) {
+      window.api.onPresetsDelta((d) => {
+        if (!presetsReady) { earlyDeltas.push(d); return; }
+        onPresetDelta(d);
+      });
+    }
     try {
       window.SVPresets.setUser(await window.api.getPresets());
     } catch { /* preset yoksa yerleşiklerle devam */ }
+    presetsReady = true;
+    for (let i = 0; i < earlyDeltas.length; i++) onPresetDelta(earlyDeltas[i]);
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
       // Seçili preset düzenlendiyse motorun kaynağı yenilensin
       stack.dispose();
       applyScene();
     });
-    /* DEĞİŞİKLİK YAYINI (#574): yalnız değişenler geliyor. Sahne yalnız bir
-       Studio preseti değişince yeniden kuruluyor; MilkDrop presetlerinin
-       listesi değişince (içe aktarım, silme) motor baştan başlamıyor —
-       çizdiği kaynak ayardan ya da seçimden geliyor, listeden değil.
-       Önceden her içe aktarım ekrandaki MilkDrop'u sıfırlıyordu. Silinen
-       presetin türü, liste güncellenmeden ÖNCE okunuyor. */
-    if (window.api.onPresetsDelta) {
-      window.api.onPresetsDelta((d) => {
-        const S = window.SVPresets;
-        const studio = (d && Array.isArray(d.upsert) ? d.upsert : []).some((p) => p && p.kind !== 'milkdrop') ||
-          (d && Array.isArray(d.remove) ? d.remove : []).some((id) => { const p = S.get(id); return !!p && p.kind !== 'milkdrop'; });
-        S.applyDelta(d);
-        if (studio) {
-          stack.dispose();
-          applyScene();
-        }
-      });
-    }
 
     const saved = await window.api.requestConfig();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);

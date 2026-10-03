@@ -394,6 +394,69 @@
     }
   }
 
+  /* Canlı görselleştirici.
+     Yığın açıkken resolve() yalnız cfg.layers'a bakar. Studio ve MCP
+     cfg.visualizer.type yazınca liste, çıkış ve önizleme eski katmanda
+     kalıyordu; düzeltme paneli kapatıp açınca ya da uygulamayı yeniden
+     başlatınca geliyordu. Aynı değişiklik ilk görselleştirici katmanına
+     da yazılır ve katman hemen açılır. Yığın kapalıyken ve liste boşken
+     klasik alan yeter; sentez onu çizer.
+  */
+  const OVERLAY_VIS = { text: 1, nowplaying: 1 };
+  function liveVisualizerLayers(cfg) {
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    return list.filter((l) => l && l.kind === 'visualizer' && !OVERLAY_VIS[l.type]);
+  }
+  function adoptVisualizer(cfg, spec) {
+    if (!cfg) return null;
+    const s = spec || {};
+    const type = s.type ? String(s.type) : ((cfg.visualizer && cfg.visualizer.type) || 'bars');
+    const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
+    const presetId = hasPreset ? s.presetId : (cfg.custom && cfg.custom.visualizerId) || null;
+    cfg.visualizer = Object.assign({}, cfg.visualizer, { type: type });
+    if (type === 'custom') {
+      cfg.custom = Object.assign({}, cfg.custom);
+      if (presetId) cfg.custom.visualizerId = presetId;
+    }
+    const hadLayers = Array.isArray(cfg.layers) && cfg.layers.length > 0;
+    if (!stackOn(cfg) && !hadLayers) return null;
+    if (!stackOn(cfg)) setStackEnabled(cfg, true);
+    if (!Array.isArray(cfg.layers)) cfg.layers = [];
+    let layer = liveVisualizerLayers(cfg)[0];
+    if (!layer) {
+      layer = normalizeLayer({
+        name: 'Görselleştirici',
+        kind: 'visualizer',
+        type: type,
+        presetId: type === 'custom' ? (presetId || null) : null,
+        enabled: true,
+        settings: s.visualizer ? { visualizer: JSON.parse(JSON.stringify(s.visualizer)) } : {},
+      });
+      cfg.layers.push(layer);
+      return layer;
+    }
+    layer.type = type;
+    if (type === 'custom') layer.presetId = presetId || layer.presetId || null;
+    else if (hasPreset) layer.presetId = presetId;
+    layer.enabled = true;
+    layer.muted = false;
+    if (s.visualizer) {
+      layer.settings = layer.settings || {};
+      const prev = layer.settings.visualizer || {};
+      layer.settings.visualizer = Object.assign({}, prev, JSON.parse(JSON.stringify(s.visualizer)), { type: type });
+    } else if (layer.settings && layer.settings.visualizer) {
+      layer.settings.visualizer.type = type;
+    }
+    return layer;
+  }
+  /* Katmanı göstermek, bayrağı yazmak değildir. Yığın kapalıyken resolve()
+     listeyi kullanmaz; anahtar açılır, sessiz kalkar, katman çizilir. */
+  function revealLayer(cfg, layer) {
+    if (!cfg || !layer) return;
+    if (!stackOn(cfg)) setStackEnabled(cfg, true);
+    layer.enabled = true;
+    layer.muted = false;
+  }
   function syncStackState(cfg) {
     if (!cfg || !cfg.layerStack || !cfg.layerStack.enabled) return;
     const curVis = cfg.visualizer && cfg.visualizer.type;
@@ -835,19 +898,16 @@
       const cr = Math.max(0, Math.min(0.5, lg.cornerRadius == null ? 0 : lg.cornerRadius));
       const rad = cr > 0.0001 ? cr * Math.min(w, h) : 0;
       const glowBlur = (lg.glow && lg.glow > 0) ? lg.glow * 40 * (minDim / 1080) : 0;
-      /* clip+shadowBlur oval kenar ışığını keser; siluet ara tuvalde kurulur. */
+      /* Beyaz shadowBlur kareyi perde gibi kaldırır. Parlama, opak kenarın dışında lighter hale olarak basılır. */
       if (window.SVRoundImage && window.SVRoundImage.drawImage) {
         window.SVRoundImage.drawImage(ctx, drawable.source, x - w / 2, y - h / 2, w, h, {
           radiusPx: rad,
           glowBlur,
-          shadowColor: 'rgba(255,255,255,0.7)',
+          edgeBloom: true,
           owner: this,
         });
       } else {
-        if (glowBlur > 0) {
-          ctx.shadowColor = 'rgba(255,255,255,0.7)';
-          ctx.shadowBlur = glowBlur;
-        }
+        /* SVRoundImage yoksa beyaz shadowBlur yine perde basar; parlamayı atla. */
         if (rad > 0) {
           ctx.beginPath();
           if (ctx.roundRect) ctx.roundRect(x - w / 2, y - h / 2, w, h, rad);
@@ -1926,6 +1986,8 @@
     resolve,
     stackOn,
     setStackEnabled,
+    adoptVisualizer,
+    revealLayer,
     syncStackState,
     layerConfig,
     sceneSignature,

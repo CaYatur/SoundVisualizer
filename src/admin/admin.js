@@ -4973,22 +4973,36 @@
 
     // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları).
     // render() bunlara bakacağı için ÇİZİMDEN ÖNCE yüklenmeli.
+    /* Liste isteği sürerken gelen kayıtlar kaybolmasın. Dinleyici
+       cevaptan sonra kurulursa yayın düşer, setUser eski listeyi yazar
+       ve preset yeniden başlatılana kadar arayüzde görünmez. */
+    let presetsReady = false;
+    const earlyPresetDeltas = [];
+    const onPresetDelta = (d) => {
+      if (!presetsReady) { earlyPresetDeltas.push(d); return; }
+      const S = window.SVPresets;
+      const studio = (d && Array.isArray(d.upsert) ? d.upsert : []).some((p) => p && p.kind !== 'milkdrop') ||
+        (d && Array.isArray(d.remove) ? d.remove : []).some((id) => {
+          const p = S && S.get ? S.get(id) : null;
+          return !!p && p.kind !== 'milkdrop';
+        });
+      if (S && S.applyDelta) S.applyDelta(d);
+      render();
+      if (studio && window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    };
+    if (window.api.onPresetsDelta) window.api.onPresetsDelta(onPresetDelta);
     try {
       window.SVPresets.setUser(await window.api.listPresets());
     } catch { /* preset yoksa yerleşiklerle devam */ }
+    presetsReady = true;
+    for (let i = 0; i < earlyPresetDeltas.length; i++) onPresetDelta(earlyPresetDeltas[i]);
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
       render();
-      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
-    // Değişiklik yayını (#574): bütün liste yalnız açılışta geliyor
-    if (window.api.onPresetsDelta) {
-      window.api.onPresetsDelta((d) => {
-        window.SVPresets.applyDelta(d);
-        render();
-        if (window.SVPreview) window.SVPreview.setConfig(cfg);
-      });
-    }
 
     // Uzaktan kumandadan (telefon / OBS sayfası) gelen değişiklik: panelin
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
@@ -5012,6 +5026,8 @@
       if (blackBtn) blackBtn.classList.toggle('on', !!(cfg && cfg.isBlackout) || isBlackedOut());
       render();
       renderScenes();
+      /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
+         Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
 

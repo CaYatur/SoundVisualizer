@@ -302,6 +302,15 @@
     return true;
   }
 
+  /* Studio kaydı aynı katman anahtarını taşır; setConfig eski motoru
+     yeniden kullanır ve önizleme yeniden başlatılana kadar boş kalır.
+     Çıkış penceresi presets-delta'da yığını atıyor. Aynı iş burada. */
+  function notePresets() {
+    if (!stack) return;
+    try { stack.dispose(); } catch { /* motor zaten kapanmış */ }
+    setConfig(cfg);
+  }
+
   function setConfig(next) {
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), next);
     if (!stack) return;
@@ -337,6 +346,7 @@
   window.SVPreview = {
     init,
     setConfig,
+    notePresets,
     // Panel canlı modülasyon göstergelerini buradan okur
     modulator: () => modulator,
     // Studio önizlemesi aynı ses motorunu kullanır: panelde iki ayrı analiz
