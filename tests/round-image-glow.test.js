@@ -27,6 +27,13 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
   assert.ok(plan.glow > 12.8, 'low glow still blooms, wider than the old shadow radius');
   assert.equal(full.glow, 120);
   assert.equal(full.strength, 3);
+  const early = api.edgeBloomLayout(4);
+  assert.ok(early.glow >= 20 && early.strength >= 0.5, 'visible before 20%');
+  const mid = api.edgeBloomLayout(16);
+  assert.ok(mid.glow >= 70 && mid.glow < full.glow, '40% scatters like the high end, not a tight blob');
+  const hi = api.edgeBloomLayout(32, 0.4);
+  assert.ok(Math.abs(hi.glow - mid.glow * 2) < 0.02);
+  assert.equal(hi.strength, mid.strength);
   assert.equal(api.edgeBloomLayout(0).glow, 0);
   assert.equal(api.edgeBloomLayout(0).strength, 0);
   let prevStep = api.edgeBloomLayout(0);
@@ -38,7 +45,7 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
     assert.ok(ds > 0 && ds < 0.2, 'strength step ' + step);
     prevStep = cur;
   }
-  assert.ok(full.glow > plan.glow * 4, '100% is clearly stronger than a modest setting');
+  assert.ok(full.glow > plan.glow && full.strength > plan.strength, '100% stays stronger');
   assert.ok(plan.pad >= plan.glow * 2, 'padding keeps the blur from clipping into a flat veil');
   assert.ok(full.pad >= full.glow * 2);
   const bloomStart = ri.indexOf('function drawEdgeBloom');

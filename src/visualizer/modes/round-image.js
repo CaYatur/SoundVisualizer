@@ -35,17 +35,21 @@
      tuval kenarında kırpılıp düz bir perde gibi görünmesini engeller.
      knockout: opak gövde haleden silinir.
      composite: hale zemine ışık ekler, beyaz source-over perde değil. */
-  function edgeBloomLayout(glowBlur) {
+  function edgeBloomLayout(glowBlur, amount) {
     const input = Math.max(0, Number(glowBlur) || 0);
-    /* Eski shadowBlur ölçeği: 1080p'de %100 = 40px. Opak gövde delinince
-       yalnızca soluk kuyruk kalır; %100 ince bir çizgi gibi durur.
-       Üst ucu yaklaşık 3 kat genişler ve hale lighter ile yinelenir.
-       Renk siluetindir; beyaz source-over perde yok. */
-    const u = Math.min(1, input / 40);
-    const glow = input * (1 + 2 * u);
-    /* Şiddet 0 iken kapalı, %100 iken 3. Basamak yok;
-       slider ile sürekli artar. */
-    const strength = u * (1 + 2 * u);
+    /* Girdi 1080p'de slider*40. %40'a kadar hale dar kalinca yigilip
+       topak oluyor; %80'den sonra saçilan görünüm doğru.
+       Ease-out: %10'da okunur, %40'ta saçık, %100'de 120px * çözünürlük.
+       Şiddet 0'da kapalı, %100'de 3. İkisi de sürekli; beyaz perde yok.
+       amount slider 0..1; verilmezse girdi 1080p sayılır. */
+    let u = Number(amount);
+    if (!Number.isFinite(u)) u = input > 0 ? input / 40 : 0;
+    if (u < 0) u = 0;
+    else if (u > 1) u = 1;
+    const res = u > 0.0001 ? input / (40 * u) : 1;
+    const spread = u * (2 - u);
+    const glow = 120 * res * spread;
+    const strength = 3 * spread;
     const pad = Math.max(2, Math.ceil(glow * 3));
     return {
       glow: glow,
@@ -76,8 +80,8 @@
     ctx.drawImage(source, ox, oy, rw, rh);
   }
 
-  function drawEdgeBloom(ctx, source, x, y, w, h, rad, glow, fit, owner) {
-    const layout = edgeBloomLayout(glow);
+  function drawEdgeBloom(ctx, source, x, y, w, h, rad, glow, fit, owner, amount) {
+    const layout = edgeBloomLayout(glow, amount);
     const pad = layout.pad;
     const sw = w + pad * 2;
     const sh = h + pad * 2;
@@ -150,7 +154,7 @@
     const fit = o.fit || 'stretch';
 
     if (glow > 0 && o.edgeBloom) {
-      drawEdgeBloom(ctx, source, x, y, w, h, rad, glow, fit, o.owner || drawImage);
+      drawEdgeBloom(ctx, source, x, y, w, h, rad, glow, fit, o.owner || drawImage, o.glowAmount);
       return;
     }
 

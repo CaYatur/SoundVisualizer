@@ -903,6 +903,7 @@
         window.SVRoundImage.drawImage(ctx, drawable.source, x - w / 2, y - h / 2, w, h, {
           radiusPx: rad,
           glowBlur,
+          glowAmount: lg.glow,
           edgeBloom: true,
           owner: this,
         });
