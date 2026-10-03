@@ -26,7 +26,18 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
   assert.equal(full.composite, 'lighter');
   assert.ok(plan.glow > 12.8, 'low glow still blooms, wider than the old shadow radius');
   assert.equal(full.glow, 120);
-  assert.equal(full.passes, 3);
+  assert.equal(full.strength, 3);
+  assert.equal(api.edgeBloomLayout(0).glow, 0);
+  assert.equal(api.edgeBloomLayout(0).strength, 0);
+  let prevStep = api.edgeBloomLayout(0);
+  for (let step = 1; step <= 40; step++) {
+    const cur = api.edgeBloomLayout(step);
+    const dg = cur.glow - prevStep.glow;
+    const ds = cur.strength - prevStep.strength;
+    assert.ok(dg > 0 && dg < 6, 'radius step ' + step);
+    assert.ok(ds > 0 && ds < 0.2, 'strength step ' + step);
+    prevStep = cur;
+  }
   assert.ok(full.glow > plan.glow * 4, '100% is clearly stronger than a modest setting');
   assert.ok(plan.pad >= plan.glow * 2, 'padding keeps the blur from clipping into a flat veil');
   assert.ok(full.pad >= full.glow * 2);
@@ -38,7 +49,9 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
   const blurAt = bloom.indexOf("b.filter = 'blur(");
   const knockAt = bloom.indexOf('layout.knockout');
   const lightAt = bloom.indexOf('layout.composite');
-  assert.ok(bloom.includes('layout.passes'), 'full glow repeats the fringe');
+  assert.ok(bloom.includes('layout.strength'), 'halo intensity follows the slider');
+  assert.equal(bloom.includes('layout.passes'), false);
+  assert.equal(/Math\.round/.test(ri.slice(ri.indexOf('function edgeBloomLayout'), ri.indexOf('function drawFitted'))), false);
   const haloAt = bloom.indexOf('drawImage(bc.canvas');
   const sharpAt = bloom.lastIndexOf('drawImage(sc.canvas');
   assert.ok(blurAt > 0 && blurAt < knockAt && knockAt < lightAt && lightAt < haloAt && haloAt < sharpAt,

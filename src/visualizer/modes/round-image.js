@@ -43,11 +43,13 @@
        Renk siluetindir; beyaz source-over perde yok. */
     const u = Math.min(1, input / 40);
     const glow = input * (1 + 2 * u);
-    const passes = input <= 0 ? 0 : 1 + Math.round(u * 2);
+    /* Şiddet 0 iken kapalı, %100 iken 3. Basamak yok;
+       slider ile sürekli artar. */
+    const strength = u * (1 + 2 * u);
     const pad = Math.max(2, Math.ceil(glow * 3));
     return {
       glow: glow,
-      passes: passes,
+      strength: strength,
       pad: pad,
       knockout: 'destination-out',
       composite: 'lighter',
@@ -116,12 +118,20 @@
     b.globalCompositeOperation = 'source-over';
 
     const prevOp = ctx.globalCompositeOperation;
+    const prevAlpha = ctx.globalAlpha;
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
     ctx.globalCompositeOperation = layout.composite;
-    const passes = layout.passes;
-    for (let n = 0; n < passes; n++) ctx.drawImage(bc.canvas, x - pad, y - pad);
+    const strength = layout.strength;
+    const whole = Math.floor(strength);
+    const frac = strength - whole;
+    for (let n = 0; n < whole; n++) ctx.drawImage(bc.canvas, x - pad, y - pad);
+    if (frac > 0.0001) {
+      ctx.globalAlpha = prevAlpha * frac;
+      ctx.drawImage(bc.canvas, x - pad, y - pad);
+      ctx.globalAlpha = prevAlpha;
+    }
     ctx.globalCompositeOperation = prevOp;
     ctx.drawImage(sc.canvas, pad, pad, w, h, x, y, w, h);
   }
