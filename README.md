@@ -782,6 +782,151 @@ capture, no plugin, no CPU copy.
 
 ---
 
+## MCP — Model Context Protocol
+
+An agent drives the running application over the **Model Context Protocol**. The switch is on the
+**Control** card and is off by default. The application stays open while the switch is on. The
+setup dialog gives a stdio command for Claude Desktop, Codex, Cursor, Grok and Grok Bot. Ollama is
+a local model behind an MCP client and uses that same command.
+
+The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
+versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
+version. The server name is `soundvisualizer`. There are **95 tools**.
+
+The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
+token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
+**8722** is refused, because that port belongs to the stream. A busy port stays busy: the server
+does not move, and the card reports the failure. Each start writes a new token into
+`mcp-endpoint.json` in the application data folder, next to a copy of the bridge. On Linux and
+macOS those two files are readable by this user only. A connection from anywhere else is refused,
+and so is a missing or wrong token.
+
+`sv_get_config` and the output-status read replace stream tokens with a redaction. `sv_set_stream`
+drops `token` and `remoteToken`. A full-config `sv_export_json` writes the settings as stored, to a
+path you name.
+
+Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
+agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
+the mode it needs and tells the agent to leave the mode alone and leave the panel unclicked.
+`sv_list_permissions` and `mcp_permissions` report the active mode and, when you pass a tool name,
+the minimum that tool needs.
+
+A change the mode allows is saved and pushed the same way a click is. The admin panel, open
+visualizer windows and the stream all receive it. After every call, success or error, the preset
+folder is re-read and open windows receive the delta.
+
+### Read
+
+The master switch is enough. These calls only read.
+
+- `sv_get_state` returns the show: active preset, scenes, layers, effects that are on, displays,
+  BPM and levels, now playing, the layer stack, stream status and Spout/Syphon status. In the
+  running application the analysis field on this call is empty.
+- `sv_get_visual_state`, `sv_list_layers`, `sv_get_layer` and `sv_get_layer_stack` return layer
+  position, settings and per-layer effects.
+- `sv_get_preview` adds a JPEG of the picture on screen, at most 480 pixels wide. It uses an open
+  visualizer window, then the floating window, then the preview rectangle in the admin panel.
+- `sv_get_audio` returns level, bass, mid, treble, BPM and confidence from the same meter the panel
+  draws. `sv_get_now_playing` returns the current track. `sv_list_audio_sources` lists the
+  configured inputs.
+- `sv_list_scenes` and `sv_get_scene` read saved scenes. `sv_list_effects` lists the global chain,
+  each layer's chain, and the 40 built-in effect types. `sv_list_presets` lists library presets
+  and user colour palettes. `sv_list_displays` lists screens.
+- `sv_get_output_status` reads which visualizer windows are open, the stream switch, port and LAN
+  flag, and the Spout/Syphon name. `sv_get_timeline`, `sv_get_clipdeck` and `sv_get_autovj` read
+  those panels. `sv_get_config` reads the whole configuration or one dotted path.
+
+### Apply
+
+Uses what is already saved.
+
+- `sv_apply_scene` loads a saved scene by id, or by name when that name is unique. The snapshot
+  covers background, visualizer, layers, groups, crossfade, geometry, effects, logo, images, media,
+  text, modulation, transition, Studio, MilkDrop and feedback. Window transparency and taskbar
+  cover stay as they were.
+- `sv_apply_template` applies a built-in template by id or name. `sv_set_visualizer_type` and
+  `sv_set_background_type` switch to an existing mode id. A Studio shader is shown with type
+  `custom` and its `presetId`. `sv_set_layer_enabled` shows or hides a layer and turns the stack
+  on. `sv_set_crossfade` sets the A/B fader from 0 to 1.
+- `sv_trigger_clip` fires one clip-deck slot by row and column. `sv_stop_clips` stops every playing
+  slot. The grid stays as saved. Both need the admin window open.
+- `sv_set_effect_enabled` and `sv_set_effect_param` change a global effect already on the chain.
+  The layer pair does the same for one layer. `sv_set_modulation_enabled` turns the modulation
+  matrix on or off. `sv_set_macro` sets one existing macro fader.
+- `sv_load_preset` copies an existing library preset into the live MilkDrop source.
+  `sv_apply_color_preset` paints an existing user or built-in palette onto the background gradient.
+  `sv_set_milkdrop_cycle` sets how the library advances: auto next, order, source, tag, unit, bar
+  count, track advance and hard cut.
+
+### Write
+
+Creates and edits.
+
+- Scenes: `sv_create_scene` stores the current look under a new name, `sv_update_scene` overwrites
+  one, `sv_rename_scene` renames, `sv_delete_scene` removes.
+- Layers: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
+  `sv_remove_layer`, `sv_reorder_layers`. A layer carries kind, type, preset, opacity, blend,
+  transform (x, y, scale, rotate, flip), audio response, mask, solo, mute, lock and group. Effects
+  on a layer go through the effect tools. Adding or showing a layer turns the stack on.
+- `sv_set_text` edits the text overlay, including a lyrics or now-playing source. `sv_set_logo`,
+  `sv_set_media` and `sv_set_geometry` edit those blocks.
+- Effects: `sv_add_effect` and `sv_remove_effect` on the global chain, `sv_add_layer_effect` and
+  `sv_remove_layer_effect` on one layer. The built-in types are bloom, chroma, glitch, grain, crt,
+  pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize, blur,
+  radialblur, motionblur, tiltshift, dof, sharpen, emboss, dither, halftone, ascii, hatch, paint,
+  vhs, datamosh, slitscan, lens, twirl, polar, gradientmap, levels, threshold, solarize, godrays,
+  badtv and starfilter. `sv_add_modulation_route` and `sv_remove_modulation_route` edit routes.
+- Presets: `sv_save_preset` writes a file in the preset store. Shader text with no kind is saved as
+  a Studio visualizer (`kind` `visualizer`, `engine` `shader`). Any other save with no kind is
+  MilkDrop. `sv_delete_preset` removes a file. `sv_set_milkdrop_source` writes MilkDrop source into
+  the live show. `sv_create_color_preset` saves a user palette of at least two colours.
+  `sv_delete_color_preset` removes a user palette.
+- Auto VJ: `sv_set_autovj` sets enabled, source, interval, unit, order, BPM lock, palette source
+  and per-layer visualizer targets.
+- Export and recording: `sv_start_export` renders an audio file that exists on disk to a video path
+  you name. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
+  same options as the export panel. `sv_cancel_export` stops a running export. `sv_export_json`
+  writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
+  the live picture to a path. `sv_record_start` and `sv_record_stop` drive the admin recorder.
+  Stopping opens the same save dialog as the Record card. The recorder needs the admin window open.
+
+### Full
+
+Opens the live surfaces.
+
+- `sv_open_output` opens the visualizer on the chosen displays. Passing a display id replaces the
+  selected set. `sv_close_output` closes visualizer windows. `sv_set_displays` chooses displays and
+  leaves the windows as they are.
+- `sv_set_stream` changes the OBS and browser stream. `sv_set_texture_share` changes Spout and
+  Syphon. `sv_set_aspect` changes aspect correction. `sv_set_power` changes the frame-rate cap and
+  the render scale.
+- `sv_set_floating` changes floating-window preferences, including opacity and click-through.
+  `sv_set_floating_open` opens or closes that same picture-in-picture window.
+- `sv_set_window_mode` sets a transparent background, the transparency threshold and taskbar cover.
+- `sv_set_lighting` changes Windows Dynamic Lighting. `sv_set_openrgb` changes OpenRGB.
+  `sv_set_artnet` changes Art-Net. `sv_set_audio_sources` replaces the input mix.
+- `sv_set_mapping` writes one display's projection map: enable, corners, crop, edge blend, masks,
+  mesh, colour and test pattern, and turns mapping on. It binds no new network port.
+- `sv_timeline_transport` plays, pauses, stops or seeks the timeline through the admin transport.
+  The admin window has to be open.
+- `sv_set_blackout` takes `on`, `off` or `toggle` and leaves the stored scene in place.
+  `sv_set_blackout_transition` sets the blackout transition type and duration.
+
+### Everything, and the general patch
+
+`sv_patch_config` sets any other dotted path. The mode follows the path: scene content, effects
+and presets need **Write**; export paths need **Write**; displays, stream, lighting, mapping,
+windows and the timeline need **Full**; `control.*` (MIDI and OSC bindings) needs **Everything**.
+The paths `mcp.*`, `__proto__`, `prototype` and `constructor` are refused.
+
+The tool list also names `sv_updates_download`, `sv_updates_install`, `sv_repair_audio` and
+`sv_rotate_stream_token` at **Everything**, and the reads `sv_diagnose_audio` and
+`sv_get_analysis`. The running application does not connect those six. A call returns that the
+action is not available in this process, and the analysis value comes back empty. Live levels and
+BPM stay on `sv_get_audio`.
+
+---
+
 ## The classic looks
 
 The styles the application shipped with, still one click away.
@@ -1109,22 +1254,17 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
   visualizer layer its own mode. A status line says what changed, what is next, and why nothing
   can happen when a source is empty.
 
-### MCP
+### MCP — Model Context Protocol
 
-An agent can drive the app from the **Control** card. The card is off by default. Five modes
-stack, and the one that turns on with the switch is **Read**:
-
-- **Read** sees the show and changes nothing. **Apply** can use scenes, effects and presets that
-  already exist. **Write** can create and edit, including Auto VJ. **Full** adds the live
-  surfaces: lighting, mapping, windows, timeline transport, Spout and the stream. **Everything**
-  also covers updates, audio repair and stream-token rotation.
-- The server listens on this computer only, `127.0.0.1`, port **38471** unless you confirm
-  another. A busy port is not replaced. The agent connects with the stdio command from the setup
-  dialog; that bridge talks to `http://127.0.0.1:<port>/mcp`.
-- Tools cover scenes, layers, effects, presets, displays, the floating window, the clip deck,
-  timeline transport, recording and export. A blocked call names the mode that is required and
-  tells the agent not to change the mode and not to click the panel. Changes the agent is allowed
-  to make show up in the panel the same way a click does, including which displays are selected.
+The feature section above is the full tool list. In short: **95 tools** on `127.0.0.1` port
+**38471**, reached through the stdio bridge from the Control card. **Read** sees the show, the
+live JPEG, levels and BPM. **Apply** loads scenes, templates, modes, clips, existing effects and
+library presets. **Write** authors scenes, layers, text, logo, media, geometry, effects,
+modulation, Studio and MilkDrop presets, Auto VJ, export, snapshots and the live recorder.
+**Full** opens displays, the stream, Spout/Syphon, aspect, the floating window, lighting, OpenRGB,
+Art-Net, mapping, timeline transport and blackout. **Everything** is what `sv_patch_config` needs
+before it will write MIDI and OSC bindings. The listed update, audio-repair, token-rotation,
+audio-diagnosis and analysis calls are not connected in the running application.
 
 ### Windows Dynamic Lighting
 

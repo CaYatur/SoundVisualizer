@@ -775,6 +775,157 @@ eklenti yok, CPU kopyası yok.
 
 ---
 
+## MCP — Model Context Protocol
+
+Bir ajan, çalışan uygulamayı **Model Context Protocol** üzerinden sürer. Anahtar **Kontrol**
+kartındadır ve varsayılan olarak kapalıdır. Anahtar açıkken uygulama açık kalır. Kurulum
+penceresi Claude Desktop, Codex, Cursor, Grok ve Grok Bot için bir stdio komutu verir. Ollama
+ayrı bir protokol değildir; MCP konuşan bir istemcinin arkasındaki yerel modeldir ve aynı komutu
+kullanır.
+
+Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
+`2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
+yanıt verir. Sunucu adı `soundvisualizer`. **95 araç** vardır.
+
+İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
+yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
+**8722** reddedilir; o port yayına aittir. Meşgul port meşgul kalır: sunucu başka porta geçmez,
+kart başarısızlığı yazar. Her açılış, uygulama veri klasöründeki `mcp-endpoint.json` dosyasına
+yeni bir jeton yazar; yanında köprünün bir kopyası durur. Linux ve macOS'ta bu iki dosyayı yalnız
+bu kullanıcı okur. Başka bir makineden gelen bağlantı reddedilir; eksik ya da yanlış jeton da
+reddedilir.
+
+`sv_get_config` ve çıkış durumu okuması yayın jetonlarını karartır. `sv_set_stream`, `token` ve
+`remoteToken` alanlarını atar. Tam yapılandırma için `sv_export_json`, ayarları diskte durduğu
+gibi, sizin verdiğiniz yola yazar.
+
+Beş kip birikir. Anahtar **Okuma** kipinde açılır. Üst kip altındakileri de kapsar. Ajan kendi
+iznini yükseltemez: `sv_patch_config` her `mcp.*` yolunu reddeder. Engellenen çağrı gereken kipin
+adını söyler ve ajana kipi değiştirmemesini, panele tıklamamasını bildirir.
+`sv_list_permissions` ve `mcp_permissions` etkin kipi, araç adı verirseniz o aracın en alt kipini
+bildirir.
+
+İzin verilen değişiklik, tıklamayla aynı yoldan kaydolur ve gider. Yönetici paneli, açık
+görselleştirici pencereleri ve yayın hepsini alır. Her çağrıdan sonra, başarılı ya da hatalı,
+preset klasörü yeniden okunur ve açık pencereler farkı alır.
+
+### Okuma
+
+Ana anahtar yeter. Bu çağrılar yalnız okur.
+
+- `sv_get_state` gösteriyi döner: etkin preset, sahneler, katmanlar, açık efektler, ekranlar, BPM
+  ve seviyeler, çalan parça, katman yığını, yayın durumu ve Spout/Syphon durumu. Çalışan
+  uygulamada bu çağrının çözümleme alanı boştur.
+- `sv_get_visual_state`, `sv_list_layers`, `sv_get_layer` ve `sv_get_layer_stack` katman konumu,
+  ayarları ve katman efektlerini döner.
+- `sv_get_preview` ekrandaki görüntünün JPEG'ini ekler; genişlik en çok 480 pikseldir. Sırayla
+  açık bir görselleştirici penceresine, yüzen pencereye, sonra yönetici panelindeki önizleme
+  dikdörtgenine bakar.
+- `sv_get_audio` panelin çizdiği aynı sayaçtan seviye, bas, orta, tiz, BPM ve güven döner.
+  `sv_get_now_playing` çalan parçayı döner. `sv_list_audio_sources` ayarlı girişleri listeler.
+- `sv_list_scenes` ve `sv_get_scene` kayıtlı sahneleri okur. `sv_list_effects` genel zinciri, her
+  katmanın zincirini ve 40 hazır efekt türünü listeler. `sv_list_presets` kütüphane presetlerini
+  ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
+- `sv_get_output_status` hangi görselleştirici pencerelerin açık olduğunu, yayın anahtarını,
+  portunu ve LAN bayrağını, Spout/Syphon adını okur. `sv_get_timeline`, `sv_get_clipdeck` ve
+  `sv_get_autovj` o panelleri okur. `sv_get_config` bütün yapılandırmayı ya da tek bir noktalı
+  yolu okur.
+
+### Uygula
+
+Kayıtlı olanı kullanır.
+
+- `sv_apply_scene` kayıtlı bir sahneyi kimlikle, ad tekilse adla yükler. Anlık görüntü arkaplan,
+  görselleştirici, katmanlar, gruplar, çapraz geçiş, geometri, efektler, logo, resimler, ortam,
+  yazı, modülasyon, geçiş, Studio, MilkDrop ve geri beslemeyi kapsar. Pencere saydamlığı ve görev
+  çubuğunu kaplama olduğu gibi kalır.
+- `sv_apply_template` hazır bir şablonu kimlik ya da adla uygular. `sv_set_visualizer_type` ve
+  `sv_set_background_type` var olan bir mod kimliğine geçer. Bir Studio shader'ı `custom` türü ve
+  `presetId` ile gösterilir. `sv_set_layer_enabled` bir katmanı gösterir ya da gizler ve yığını
+  açar. `sv_set_crossfade` A/B sürgüsünü 0 ile 1 arasına alır.
+- `sv_trigger_clip` klip destesinde bir yuvayı satır ve sütunla ateşler. `sv_stop_clips` çalan her
+  yuvayı durdurur. Izgara kayıtlı halinde kalır. İkisi de yönetici penceresinin açık olmasını
+  ister.
+- `sv_set_effect_enabled` ve `sv_set_effect_param` genel zincirde duran bir efekti değiştirir.
+  Katman çifti aynı işi tek katmanda yapar. `sv_set_modulation_enabled` modülasyon matrisini açar
+  ya da kapatır. `sv_set_macro` var olan bir makro sürgüsünü ayarlar.
+- `sv_load_preset` kütüphanedeki bir preseti canlı MilkDrop kaynağına kopyalar.
+  `sv_apply_color_preset` var olan bir kullanıcı ya da hazır paleti arkaplan gradyanına boyar.
+  `sv_set_milkdrop_cycle` kütüphanenin ilerleyişini ayarlar: otomatik sonraki, sıra, kaynak,
+  etiket, birim, ölçü sayısı, parça ilerleyişi ve sert kesme.
+
+### Yazma
+
+Oluşturur ve düzenler.
+
+- Sahneler: `sv_create_scene` o anki görünümü yeni bir adla saklar, `sv_update_scene` birinin
+  üstüne yazar, `sv_rename_scene` yeniden adlandırır, `sv_delete_scene` siler.
+- Katmanlar: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
+  `sv_remove_layer`, `sv_reorder_layers`. Bir katman tür, görselleştirici tipi, preset, opaklık,
+  harman, dönüşüm (x, y, ölçek, döndürme, çevirme), ses tepkisi, maske, solo, sessiz, kilit ve
+  grup taşır. Katman efektleri efekt araçlarından gider. Katman eklemek ya da göstermek yığını
+  açar.
+- `sv_set_text` yazı katmanını düzenler; şarkı sözü ya da çalan parça kaynağı buna dahildir.
+  `sv_set_logo`, `sv_set_media` ve `sv_set_geometry` o blokları düzenler.
+- Efektler: genel zincirde `sv_add_effect` ve `sv_remove_effect`, tek katmanda
+  `sv_add_layer_effect` ve `sv_remove_layer_effect`. Hazır türler bloom, chroma, glitch, grain,
+  crt, pixelate, kaleido, mirror, grade, vignette, trails, edge, zoomblur, ripple, posterize,
+  blur, radialblur, motionblur, tiltshift, dof, sharpen, emboss, dither, halftone, ascii, hatch,
+  paint, vhs, datamosh, slitscan, lens, twirl, polar, gradientmap, levels, threshold, solarize,
+  godrays, badtv ve starfilter. `sv_add_modulation_route` ve `sv_remove_modulation_route`
+  rotaları düzenler.
+- Presetler: `sv_save_preset` preset deposuna bir dosya yazar. Türü verilmemiş shader metni Studio
+  görselleştiricisi olarak kaydolur (`kind` `visualizer`, `engine` `shader`). Türü verilmemiş
+  diğer kayıt MilkDrop'dur. `sv_delete_preset` dosyayı siler. `sv_set_milkdrop_source` MilkDrop
+  kaynağını canlı gösteriye yazar. `sv_create_color_preset` en az iki renkli bir kullanıcı paleti
+  saklar. `sv_delete_color_preset` bir kullanıcı paletini siler.
+- Otomatik VJ: `sv_set_autovj` açık, kaynak, aralık, birim, sıra, BPM kilidi, palet kaynağı ve
+  katman başına görselleştirici hedeflerini ayarlar.
+- Dışa aktarma ve kayıt: `sv_start_export` diskte duran bir ses dosyasını sizin verdiğiniz video
+  yoluna çizer. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
+  dışa aktarma panelindeki seçeneklerdir. `sv_cancel_export` süren aktarmayı durdurur.
+  `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
+  `sv_save_snapshot` canlı görüntüyü bir yola yazar. `sv_record_start` ve `sv_record_stop`
+  yönetici kaydedicisini sürer. Durdurmak, Kayıt kartındakiyle aynı kaydetme penceresini açar.
+  Kaydedici, yönetici penceresinin açık olmasını ister.
+
+### Tam
+
+Canlı yüzeyleri açar.
+
+- `sv_open_output` görselleştiriciyi seçilen ekranlarda açar. Bir ekran kimliği vermek seçili
+  kümeyi değiştirir. `sv_close_output` görselleştirici pencerelerini kapatır. `sv_set_displays`
+  ekranları seçer, pencereleri olduğu gibi bırakır.
+- `sv_set_stream` OBS ve tarayıcı yayınını değiştirir. `sv_set_texture_share` Spout ve Syphon'u
+  değiştirir. `sv_set_aspect` basıklık düzeltmesini değiştirir. `sv_set_power` kare hızı tavanını
+  ve çizim ölçeğini değiştirir.
+- `sv_set_floating` yüzen pencere tercihlerini değiştirir; opaklık ve tıklamayı geçirme buna
+  dahildir. `sv_set_floating_open` aynı resim-içinde-resim penceresini açar ya da kapatır.
+- `sv_set_window_mode` saydam arkaplanı, saydamlık eşiğini ve görev çubuğunu kaplamayı ayarlar.
+- `sv_set_lighting` Windows Dynamic Lighting ayarlarını değiştirir. `sv_set_openrgb` OpenRGB'yi
+  değiştirir. `sv_set_artnet` Art-Net'i değiştirir. `sv_set_audio_sources` giriş karışımını
+  değiştirir.
+- `sv_set_mapping` bir ekranın projeksiyon haritasını yazar: açık, köşeler, kırpma, kenar
+  harmanlama, maskeler, ağ, renk ve test deseni; haritalamayı da açar. Yeni bir ağ portu açmaz.
+- `sv_timeline_transport` zaman çizelgesini yönetici taşıması üzerinden oynatır, duraklatır,
+  durdurur ya da sarar. Yönetici penceresi açık olmalıdır.
+- `sv_set_blackout` `on`, `off` ya da `toggle` alır ve kayıtlı sahneyi yerinde bırakır.
+  `sv_set_blackout_transition` karartma geçişinin türünü ve süresini ayarlar.
+
+### Her şey, ve genel yama
+
+`sv_patch_config` başka herhangi bir noktalı yolu yazar. Kip yola bağlıdır: sahne içeriği,
+efektler ve presetler **Yazma** ister; dışa aktarma yolları **Yazma** ister; ekranlar, yayın,
+ışık, eşleme, pencereler ve zaman çizelgesi **Tam** ister; `control.*` (MIDI ve OSC bağlamaları)
+**Her şey** ister. `mcp.*`, `__proto__`, `prototype` ve `constructor` yolları reddedilir.
+
+Araç listesi **Her şey** kipinde `sv_updates_download`, `sv_updates_install`, `sv_repair_audio` ve
+`sv_rotate_stream_token` adlarını, okuma olarak da `sv_diagnose_audio` ve `sv_get_analysis`
+adlarını taşır. Çalışan uygulama bu altısını bağlamaz. Çağrı, işlemin bu süreçte olmadığını
+söyler; çözümleme değeri boş döner. Canlı seviyeler ve BPM `sv_get_audio` üzerinde kalır.
+
+---
+
 ## Klasik görünüşler
 
 Uygulamanın ilk günden beri gelen biçimleri, hâlâ tek tık uzakta.
@@ -1109,22 +1260,17 @@ sayısal giriş.
   mod verebilirsiniz. Durum satırı ne değiştiğini, sıradakini ve kaynak boşsa neden hiçbir şey
   olamayacağını yazar.
 
-### MCP
+### MCP — Model Context Protocol
 
-Bir ajan uygulamayı **Kontrol** kartından sürebilir. Kart varsayılan olarak kapalıdır. Beş kip
-birikir; anahtar açılınca gelen kip **Okuma**dır:
-
-- **Okuma** gösteriyi görür, hiçbir şeyi değiştirmez. **Uygula** zaten duran sahne, efekt ve
-  presetleri kullanabilir. **Yazma** oluşturur ve düzenler, Otomatik VJ dahil. **Tam** canlı
-  yüzeyleri ekler: ışık, eşleme, pencereler, zaman çizelgesi, Spout ve yayın. **Her şey** buna
-  güncellemeyi, ses onarımını ve yayın jetonu döndürmeyi de katar.
-- Sunucu yalnız bu bilgisayarda dinler, `127.0.0.1`, port **38471** — siz başka bir port
-  onaylamadıkça. Port meşgulse kendiliğinden değişmez. Ajan, kurulum penceresindeki stdio
-  komutuyla bağlanır; bu köprü `http://127.0.0.1:<port>/mcp` adresine konuşur.
-- Araçlar sahne, katman, efekt, preset, ekran, yüzen pencere, klip destesi, zaman çizelgesi,
-  kayıt ve dışa aktarmayı kapsar. Engellenen çağrı gereken kipin adını söyler ve ajana kipi
-  değiştirmemesini, panele tıklamamasını bildirir. İzin verilen değişiklikler panelde tıklamayla
-  aynı yoldan görünür; seçili ekranlar dahil.
+Yukarıdaki özellik bölümü araç listesinin tamamıdır. Kısaca: Kontrol kartındaki stdio köprüsüyle
+`127.0.0.1` port **38471** üzerinde **95 araç**. **Okuma** gösteriyi, canlı JPEG'i, seviye ve
+BPM'i görür. **Uygula** sahne, şablon, mod, klip, duran efekt ve kütüphane preseti yükler.
+**Yazma** sahne, katman, yazı, logo, ortam, geometri, efekt, modülasyon, Studio ve MilkDrop
+preseti, Otomatik VJ, dışa aktarma, anlık görüntü ve canlı kaydı yazar. **Tam** ekranları, yayını,
+Spout/Syphon'u, basıklığı, yüzen pencereyi, ışığı, OpenRGB'yi, Art-Net'i, eşlemeyi, zaman
+çizelgesi taşımasını ve karartmayı açar. **Her şey**, `sv_patch_config` MIDI ve OSC bağlaması
+yazmadan önce gereken kiptir. Listelenen güncelleme, ses onarımı, jeton döndürme, ses tanı ve
+çözümleme çağrıları çalışan uygulamada bağlı değildir.
 
 ### Windows Dynamic Lighting
 
