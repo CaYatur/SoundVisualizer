@@ -20,10 +20,16 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
   // opaque core, add the fringe, then paint the sharp sprite on top.
   const api = require(riPath);
   const plan = api.edgeBloomLayout(0.32 * 40);
-  assert.equal(plan.glow, 12.8);
+  const full = api.edgeBloomLayout(40);
   assert.equal(plan.knockout, 'destination-out');
   assert.equal(plan.composite, 'lighter');
+  assert.equal(full.composite, 'lighter');
+  assert.ok(plan.glow > 12.8, 'low glow still blooms, wider than the old shadow radius');
+  assert.equal(full.glow, 120);
+  assert.equal(full.passes, 3);
+  assert.ok(full.glow > plan.glow * 4, '100% is clearly stronger than a modest setting');
   assert.ok(plan.pad >= plan.glow * 2, 'padding keeps the blur from clipping into a flat veil');
+  assert.ok(full.pad >= full.glow * 2);
   const bloomStart = ri.indexOf('function drawEdgeBloom');
   const bloomEnd = ri.indexOf('function drawImage');
   assert.ok(bloomStart > 0 && bloomEnd > bloomStart);
@@ -32,6 +38,7 @@ test('SVRoundImage draws rounded silhouette before glow', () => {
   const blurAt = bloom.indexOf("b.filter = 'blur(");
   const knockAt = bloom.indexOf('layout.knockout');
   const lightAt = bloom.indexOf('layout.composite');
+  assert.ok(bloom.includes('layout.passes'), 'full glow repeats the fringe');
   const haloAt = bloom.indexOf('drawImage(bc.canvas');
   const sharpAt = bloom.lastIndexOf('drawImage(sc.canvas');
   assert.ok(blurAt > 0 && blurAt < knockAt && knockAt < lightAt && lightAt < haloAt && haloAt < sharpAt,

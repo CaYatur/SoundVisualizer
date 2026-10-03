@@ -36,10 +36,18 @@
      knockout: opak gövde haleden silinir.
      composite: hale zemine ışık ekler, beyaz source-over perde değil. */
   function edgeBloomLayout(glowBlur) {
-    const glow = Math.max(0, Number(glowBlur) || 0);
+    const input = Math.max(0, Number(glowBlur) || 0);
+    /* Eski shadowBlur ölçeği: 1080p'de %100 = 40px. Opak gövde delinince
+       yalnızca soluk kuyruk kalır; %100 ince bir çizgi gibi durur.
+       Üst ucu yaklaşık 3 kat genişler ve hale lighter ile yinelenir.
+       Renk siluetindir; beyaz source-over perde yok. */
+    const u = Math.min(1, input / 40);
+    const glow = input * (1 + 2 * u);
+    const passes = input <= 0 ? 0 : 1 + Math.round(u * 2);
     const pad = Math.max(2, Math.ceil(glow * 3));
     return {
       glow: glow,
+      passes: passes,
       pad: pad,
       knockout: 'destination-out',
       composite: 'lighter',
@@ -112,7 +120,8 @@
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
     ctx.globalCompositeOperation = layout.composite;
-    ctx.drawImage(bc.canvas, x - pad, y - pad);
+    const passes = layout.passes;
+    for (let n = 0; n < passes; n++) ctx.drawImage(bc.canvas, x - pad, y - pad);
     ctx.globalCompositeOperation = prevOp;
     ctx.drawImage(sc.canvas, pad, pad, w, h, x, y, w, h);
   }
