@@ -91,6 +91,39 @@ test('depo: dosyalar bir kez okunuyor; kayıt ve silme önbelleği güncelliyor'
   assert.strictEqual(STORE.get('yok'), null);
 });
 
+test('depo: syncDisk yeni dosyayı, değişen içeriği ve silmeyi verir; kendi kaydı boş döner', () => {
+  const d = tmpStore();
+  assert.deepStrictEqual(STORE.syncDisk(), { upsert: [], remove: [] });
+  write(d, md('md_a', 2));
+  assert.deepStrictEqual(STORE.syncDisk().upsert.map((p) => p.id), ['md_a']);
+  const changed = md('md_a', 4, { source: '[preset00]\nzoom=2\n' });
+  const file = path.join(d, 'md_a.json');
+  fs.writeFileSync(file, JSON.stringify(changed));
+  const again = STORE.syncDisk(['md_a.json']);
+  assert.strictEqual(again.upsert.length, 1);
+  assert.strictEqual(again.upsert[0].source, changed.source);
+  const saved = STORE.save(md('md_b', 1));
+  assert.ok(saved.ok);
+  assert.deepStrictEqual(STORE.syncDisk([saved.preset.id + '.json']), { upsert: [], remove: [] });
+  fs.unlinkSync(file);
+  assert.deepStrictEqual(STORE.syncDisk().remove, ['md_a']);
+  assert.ok(!STORE.list().some((p) => p.id === 'md_a'));
+});
+
+test('kaynak etiketi: aynı uzunluk farklı metin', () => {
+  const ctx = { console, performance };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(read('src/shared/milkdrop.js'), ctx, { filename: 'milkdrop.js' });
+  const tag = ctx.SVMilkdrop.sourceTag;
+  const a = 'zoom=1';
+  const b = 'zoom=2';
+  assert.notStrictEqual(tag(a), tag(b));
+  assert.strictEqual(tag(a), tag(a));
+  assert.ok(String(tag(a)).endsWith(':' + a.length));
+  assert.match(read('src/visualizer/modes/milkdrop.js'), /sourceTag/);
+});
+
 test('depo: klasöre elle eklenen ya da silinen dosya yine görünüyor', () => {
   const d = tmpStore();
   write(d, md('md_a', 2));
@@ -203,8 +236,11 @@ test('ana süreç: kayıt ve silme yalnız değişeni yayınlıyor; bütün list
 });
 
 test('ana süreç: depo açılışta arka planda okunuyor; liste isteği onu bekliyor', () => {
-  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*return presetsStore\.list\(\);/);
-  assert.match(MAIN, /syncNowPlaying\(\);\s*presetsStore\.warm\(\)\.catch\(\(\) => \{\}\);/);
+  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*const list = presetsStore\.list\(\);\s*const disk = presetsStore\.syncDisk\(\);\s*if \(disk\.upsert\.length \|\| disk\.remove\.length\) broadcastPresetDelta\(disk\.upsert, disk\.remove\);\s*return list;/);
+  assert.match(MAIN, /syncNowPlaying\(\);\s*presetsStore\.warm\(\)\.then\(\(\) => \{\s*presetsStore\.watch\(/);
+  assert.match(MAIN, /ipcMain\.handle\('presets:since'/);
+  assert.match(MAIN, /presetJournal/);
+  assert.match(MAIN, /function followActivePreset/);
   assert.match(MAIN, /mdPresetSource: \(id\) => \{\s*const p = presetsStore\.get\(id\);\s*return p && p\.kind === 'milkdrop' && typeof p\.source === 'string' \? p\.source : null;/);
 });
 
@@ -217,6 +253,8 @@ test('köprüler: pencere ve panel değişikliği ve ilerlemeyi dinliyor', () =>
   assert.match(adminSrc, /onPresetsDelta\(onPresetDelta\)/);
   assert.match(adminSrc, /presetsReady = true/);
   assert.match(adminSrc, /const onPresetDelta = \(d\) => \{[\s\S]*?applyDelta\(d\);\s*render\(\);/);
+  assert.match(adminSrc, /presetsSince/);
+  assert.match(read('src/visualizer/visualizer.js'), /presetsSince/);
 });
 
 // ------------------------------------------------------------ görselleştirici
@@ -450,7 +488,7 @@ test('motor: kaynağı yolda olan seçim gelene kadar ekrandaki preset sürüyor
   resolve('[preset00]\nzoom=0.99\n');
   await new Promise((r) => setImmediate(r));
   e.m._ensurePreset(cfg);
-  assert.strictEqual(e.m.presetKey, 'm2|' + '[preset00]\nzoom=0.99\n'.length);
+  assert.strictEqual(e.m.presetKey, 'm2|' + '[preset00]\nzoom=0.99\n'.length + '#' + e.win.SVMilkdrop.sourceTag('[preset00]\nzoom=0.99\n'));
   assert.strictEqual(e.win.SVPresets.get('m2').source, '[preset00]\nzoom=0.99\n', 'kaynak listeye yazıldı');
   assert.strictEqual(e.m._lazySource('m2'), '[preset00]\nzoom=0.99\n');
   assert.strictEqual(asked, 1, 'bir daha istenmiyor');

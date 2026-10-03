@@ -2080,7 +2080,21 @@ void main(){
       /* ELLE SEÇİM OTOMATİĞİ EZER. Kullanıcı listeden bir preset seçtiğinde
          ayardaki kimlik değişiyor; o an otomatik seçim bırakılıyor ve sayaç
          sıfırlanıyor, yoksa seçtiği preset bir sonraki tik'e kadar bile
-         durmayabilirdi. */
+         durmayabilirdi.
+         Anahtar uzunluğa ek olarak kaynağın özetini de taşır: aynı
+         uzunlukta yeni bir metin (MCP kaydı) ekranda yenilensin. Tohum
+         hâlâ kimlik ve uzunluktan gelir; özet değişince rastgelelik
+         sıçramasın. */
+      const MD = window.SVMilkdrop;
+      const tagOf = (slot, text) => {
+        const t = text || '';
+        const srcKey = slot + 'Src';
+        const tagKey = slot + 'Tag';
+        if (this[srcKey] === t) return this[tagKey];
+        this[srcKey] = t;
+        this[tagKey] = (MD && MD.sourceTag) ? MD.sourceTag(t) : String(t.length);
+        return this[tagKey];
+      };
       const man = (c.presetId || '') + '|' + (c.source || '').length;
       if (man !== this._manualKey) {
         this._manualKey = man;
@@ -2099,14 +2113,15 @@ void main(){
         a.source = s;
         a.lazy = false;
       }
-      const baseKey = a ? (a.id + '|' + a.source.length) : man;
+      const baseKey = a
+        ? (a.id + '|' + (a.source || '').length + '#' + tagOf('a', a.source))
+        : (man + '#' + tagOf('m', c.source));
       /* MILKDROP 3 ÇİFT PRESETİ (.milk2, #567): iki aşamada yükleniyor.
          1. aşama birinci preseti sert geçişle kuruyor; 2. aşama ikinciye
          GEÇİŞ başlatıyor ve geçiş dosyanın söylediği yerde donduruluyor.
          Böylece iki presetin derlenmesi, iki saat ve düğüm başına karışım
          olağan geçişin aynı yolundan geçiyor. İkinci aşama birincinin
          shader'ları hazır olunca (bir sonraki kare) başlıyor. */
-      const MD = window.SVMilkdrop;
       const rawSrc = (a ? a.source : c.source) || defaultSource();
       const dbl = MD && MD.parseMilk2 ? MD.parseMilk2(rawSrc) : null;
       if (dbl) {
@@ -2158,7 +2173,8 @@ void main(){
         : cutNow ? 0 : (this._reduced ? BLEND_MAX : Math.max(0, Math.min(BLEND_MAX, want)));
       /* Değişimin tohumu (#585): otomatik seçimde seçenin (lider pencere ya
          da izlenen) verdiği, elle seçimde seçimin kendisinden. */
-      const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(key);
+      const seedIdent = a ? (a.id + '|' + (a.source || '').length) : ((c.presetId || '') + '|' + (c.source || '').length);
+      const seed = a && Number.isInteger(a.seed) ? a.seed >>> 0 : hashSeed(stage === 1 ? seedIdent + '#1' : seedIdent);
       const src = stage ? this._double.info.presets[stage - 1] : rawSrc;
       /* YENİ PRESET HAZIR OLANA KADAR ESKİSİ SÜRÜYOR (#573).
 
@@ -2291,7 +2307,14 @@ void main(){
         if (s === null) return;
         p = Object.assign({}, p, { source: s });
       }
-      const key = p.id + '|' + (p.source || '').length;
+      const text = p.source || '';
+      let tag = this._preTag;
+      if (this._preSrc !== text) {
+        const MD = window.SVMilkdrop;
+        this._preSrc = text;
+        tag = this._preTag = (MD && MD.sourceTag) ? MD.sourceTag(text) : String(text.length);
+      }
+      const key = p.id + '|' + text.length + '#' + tag;
       if (key === this.presetKey) return;
       const P = this._pending;
       if (P && (!P.early || P.key === key)) return;

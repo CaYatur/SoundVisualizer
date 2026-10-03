@@ -155,6 +155,28 @@ test('setup prompt is one text, names the configured port, and skips clients', f
   assert.deepStrictEqual(ids, ['claude', 'codex', 'cursor', 'grok', 'grok-bot', 'ollama']);
 });
 
+test('MCP kurulumu Linux ve macOS yollarını verir; izin kipleri her platformda aynıdır', function () {
+  const script = 'mcp-stdio.js';
+  assert.deepStrictEqual(mcp.MODES, ['read', 'apply', 'write', 'full', 'everything']);
+  const linux = mcp.clients(script, 38471, 'linux');
+  const mac = mcp.clients(script, 38471, 'darwin');
+  const win = mcp.clients(script, 38471, 'win32');
+  function step(list, id) { return list.find(function (c) { return c.id === id; }).steps[1]; }
+  assert.match(step(linux, 'claude'), /~\/\.config\/Claude\/claude_desktop_config\.json/);
+  assert.match(step(mac, 'claude'), /~\/Library\/Application Support\/Claude\/claude_desktop_config\.json/);
+  assert.match(step(win, 'claude'), /%APPDATA%\\Claude\\claude_desktop_config\.json/);
+  assert.match(step(linux, 'codex'), /~\/\.codex\/config\.toml/);
+  assert.match(step(mac, 'cursor'), /~\/\.cursor\/mcp\.json/);
+  assert.match(step(win, 'cursor'), /%USERPROFILE%\\.cursor\\mcp\.json/);
+  assert.doesNotMatch(step(linux, 'claude'), /APPDATA|USERPROFILE/);
+  assert.strictEqual(linux[0].platform, 'linux');
+  assert.strictEqual(mcp.commandBundle(script, 38471).command, 'node');
+  const server = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'mcp-server.js'), 'utf8');
+  assert.match(server, /process\.platform !== 'win32'/);
+  assert.match(server, /0o600/);
+  assert.doesNotMatch(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'mcp-stdio.js'), 'utf8'), /win32/);
+});
+
 test('read mode returns full state and still cannot write', async function () {
   const state = await call('sv_get_state', 'read', 'en');
   assert.strictEqual(state.ok, true);

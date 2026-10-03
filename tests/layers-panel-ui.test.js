@@ -223,3 +223,77 @@ test('open layer control gets data-sv-local-def and syncs modified on change', (
   opacity._svSyncModified();
   assert.strictEqual(modified, false, 'clears when back to default');
 });
+
+function rowOf(root, label) {
+  return all(root, (n) => n.attrs && typeof n.attrs.class === 'string' && n.attrs.class.split(/\s+/).includes('row')
+    && (n.children || []).some((c) => c.attrs && c.attrs.text === label))[0];
+}
+
+function selectOf(row) {
+  return all(row, (n) => n.tag === 'select')[0];
+}
+
+function ctrlOf(root, label) {
+  return all(root, (n) => (n.children || []).some((c) => c.attrs
+    && typeof c.attrs.class === 'string'
+    && c.attrs.class.split(/\s+/).includes('row')
+    && (c.children || []).some((g) => g.attrs && g.attrs.text === label)))[0];
+}
+
+function rangeOf(root, label) {
+  return all(ctrlOf(root, label), (n) => n.tag === 'input' && n.attrs.type === 'range')[0];
+}
+
+test('çalan parça katmanı hizalamayı ve ekranda kalma süresini yazar; linux süre alanlarını gizler', () => {
+  const prev = window.SV_PLATFORM;
+  window.SV_PLATFORM = { os: 'linux', isWindows: false, isMac: false, isLinux: true };
+  try {
+    const { cfg } = setup([{ id: 'np', kind: 'nowplaying', type: 'nowplaying', name: 'Çalan' }], ['np']);
+    let panel = window.SVScenePanels.layersPanel();
+    const align = rowOf(panel, 'Hizalama');
+    assert.ok(align, 'hizalama satırı');
+    selectOf(align).attrs.onchange({ target: { value: 'right' } });
+    const np = cfg.layers[0].settings.nowplaying;
+    assert.strictEqual(np.align, 'right');
+    assert.strictEqual(np.source, 'manual');
+    assert.strictEqual(rowOf(panel, 'Geçen Süre'), undefined);
+    assert.strictEqual(rowOf(panel, 'İlerleme Çubuğu'), undefined);
+    selectOf(rowOf(panel, 'Ne Zaman')).attrs.onchange({ target: { value: 'onChange' } });
+    panel = window.SVScenePanels.layersPanel();
+    const hold = rowOf(panel, 'Ekranda Kalma');
+    assert.ok(hold, 'ekranda kalma');
+    rangeOf(panel, 'Ekranda Kalma').attrs.oninput({ target: { value: '6.5' } });
+    assert.strictEqual(cfg.layers[0].settings.nowplaying.holdSeconds, 6.5);
+    assert.ok(rowOf(panel, 'Giriş Süresi'), 'giriş süresi');
+  } finally {
+    window.SV_PLATFORM = prev;
+  }
+});
+
+test('çalan parça katmanı Windows’ta geçen süreyi ve çubuğu gösterir', () => {
+  const prev = window.SV_PLATFORM;
+  window.SV_PLATFORM = { os: 'win32', isWindows: true, isMac: false, isLinux: false };
+  try {
+    setup([{ id: 'np', kind: 'nowplaying', type: 'nowplaying', name: 'Çalan' }], ['np']);
+    const panel = window.SVScenePanels.layersPanel();
+    assert.ok(rowOf(panel, 'Geçen Süre'));
+    assert.ok(rowOf(panel, 'İlerleme Çubuğu'));
+    assert.ok(rowOf(panel, 'Hizalama'));
+  } finally {
+    window.SV_PLATFORM = prev;
+  }
+});
+
+test('metin katmanı yatay konumu ve giriş süresini yazar', () => {
+  const { cfg } = setup([{ id: 'tx', kind: 'visualizer', type: 'text', name: 'Yazı' }], ['tx']);
+  const panel = window.SVScenePanels.layersPanel();
+  assert.ok(rowOf(panel, 'Yatay'), 'yatay');
+  rangeOf(panel, 'Yatay').attrs.oninput({ target: { value: '0.2' } });
+  assert.strictEqual(cfg.layers[0].settings.text.x, 0.2);
+  assert.ok(rowOf(panel, 'Giriş Süresi'));
+  assert.ok(rowOf(panel, 'Hizalama'));
+  selectOf(rowOf(panel, 'Metin Kaynağı')).attrs.onchange({ target: { value: 'lyrics' } });
+  const again = window.SVScenePanels.layersPanel();
+  assert.ok(rowOf(again, 'Senkron Kayması'));
+  assert.ok(rowOf(again, 'Karaoke Vurgusu'));
+});

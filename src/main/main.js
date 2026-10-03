@@ -711,13 +711,19 @@ function sendToVisualizers(channel, payload) {
   if (ts) ts.webContents.send(channel, channel === 'config' ? configForTextureShare(payload) : payload);
 }
 
-// İstenen ekran kimliklerini çöz (tek sayı, dizi veya boş kabul edilir)
+// İstenen ekran kimliklerini çöz. Boş veya bilinmeyen seçim boş döner;
+// birincil ekrana düşmek, panelde hiçbir kutu seçilmemesini geri açıyordu.
 function resolveDisplayIds(input) {
   const all = screen.getAllDisplays();
-  const raw = Array.isArray(input) ? input : input == null ? [] : [input];
-  const wanted = raw.map(Number).filter((id) => all.some((d) => d.id === id));
-  if (wanted.length) return Array.from(new Set(wanted));
-  return [screen.getPrimaryDisplay().id];
+  if (input == null || input === '') return [];
+  const raw = Array.isArray(input) ? input : [input];
+  const wanted = [];
+  for (const id of raw) {
+    const n = Number(id);
+    if (!all.some((d) => d.id === n)) continue;
+    if (wanted.indexOf(n) === -1) wanted.push(n);
+  }
+  return wanted;
 }
 
 function createVisualizerWindow(display) {
@@ -1929,6 +1935,13 @@ function ensureMcp() {
         return r;
       },
     },
+    /* Her MCP turu klasörün adlarına bakıyor. Araç dosyayı deponun
+       kaydından değil de yanından yazdıysa açık pencereler aynı turda
+       görüyor. Bütün dosyaları stat'lamıyor. */
+    syncPresets: () => {
+      const delta = presetsStore.syncDisk();
+      if (delta.upsert.length || delta.remove.length) broadcastPresetDelta(delta.upsert, delta.remove);
+    },
     openOutput: (ids) => openVisualizer(ids),
     closeOutput: (id) => closeVisualizer(id),
     setFloatingOpen: (open) => {
@@ -2224,17 +2237,78 @@ function notifyAll(channel, payload) {
    kilidi. Şimdi yalnız değişenler gidiyor (`presets-delta`); bütün liste
    yalnız sayfa açılırken isteniyor (`presets:list`). Web istemcilerine
    MilkDrop kaynakları hiç gitmiyor (stream-server.js `publicPresets`). */
+/* Açık pencere listeyi isterken kaçırdığı yayını buradan tamamlıyor.
+   Gövdeler en fazla 32 kayıt tutuluyor; büyük bir içe aktarımın kaynakları
+   ikinci kez bellekte durmuyor — kaçıran sayfa listeyi yeniden istiyor. */
+let presetGen = 0;
+const presetJournal = [];
+
+/* Seçili MilkDrop presetinin dosyası değişince ayardaki kopya da değişsin.
+   Yoksa bir sonraki kaydırıcı eski kaynağı geri yazar ve ekran eski presete
+   döner. Yapılandırmanın tamamı yeniden uygulanmıyor: ışık ve yakalama
+   durur. */
+function followActivePreset(upsert) {
+  if (!currentConfig || !currentConfig.milkdrop || !upsert || !upsert.length) return;
+  const id = currentConfig.milkdrop.presetId;
+  if (!id) return;
+  for (let i = 0; i < upsert.length; i++) {
+    const p = upsert[i];
+    if (!p || p.kind !== 'milkdrop' || p.id !== id || typeof p.source !== 'string') continue;
+    if (p.source === currentConfig.milkdrop.source) continue;
+    currentConfig.milkdrop = Object.assign({}, currentConfig.milkdrop, {
+      source: p.source,
+      name: p.name || currentConfig.milkdrop.name,
+    });
+    sendToVisualizers('config', currentConfig);
+    notifyAdmin('external-config', currentConfig);
+    streamServer.broadcast({ type: 'config', config: currentConfig });
+    saveSettings(currentConfig);
+    return;
+  }
+}
+
 function broadcastPresetDelta(upsert, remove) {
-  const delta = { upsert: upsert || [], remove: remove || [] };
-  if (!delta.upsert.length && !delta.remove.length) return;
+  const up = upsert || [];
+  const rm = remove || [];
+  if (!up.length && !rm.length) return;
+  presetGen += 1;
+  const bulk = up.length > 24;
+  presetJournal.push({ gen: presetGen, upsert: bulk ? [] : up, remove: rm, bulk: bulk });
+  if (presetJournal.length > 32) presetJournal.shift();
+  const delta = { upsert: up, remove: rm, gen: presetGen };
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
+  followActivePreset(up);
 }
 
 // Açılışta arka planda okunmuş olabilir; değilse okuma burada bitiyor
 ipcMain.handle('presets:list', async () => {
   await presetsStore.warm();
-  return presetsStore.list();
+  const list = presetsStore.list();
+  /* `list()` yeni adı önbelleğe alır ama bunu yayınlamazsa diğer pencereler
+     eski listede kalır. Aynı turda biriken fark burada gidiyor. */
+  const disk = presetsStore.syncDisk();
+  if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
+  return list;
+});
+ipcMain.handle('presets:head', () => ({ gen: presetGen }));
+ipcMain.handle('presets:since', (e, gen) => {
+  const disk = presetsStore.syncDisk();
+  if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
+  const g = Number(gen) || 0;
+  if (presetJournal.length && g > 0 && g < presetJournal[0].gen) {
+    return { gen: presetGen, reset: true, upsert: [], remove: [] };
+  }
+  const upsert = [];
+  const remove = [];
+  let bulk = false;
+  for (const entry of presetJournal) {
+    if (entry.gen <= g) continue;
+    if (entry.bulk) bulk = true;
+    else upsert.push.apply(upsert, entry.upsert);
+    remove.push.apply(remove, entry.remove);
+  }
+  return { gen: presetGen, bulk, upsert, remove };
 });
 ipcMain.handle('presets:save', (e, preset) => {
   const r = presetsStore.save(preset);
@@ -3656,7 +3730,11 @@ app.whenReady().then(async () => {
   /* Preset deposu arka planda okunmaya başlıyor (#574): pencereler açılıp
      listeyi isteyene kadar binlerce dosyanın okuması büyük ölçüde bitmiş
      oluyor ve ana süreç o arada bekletilmiyor. */
-  presetsStore.warm().catch(() => {});
+  presetsStore.warm().then(() => {
+    presetsStore.watch((delta) => {
+      if (delta && (delta.upsert.length || delta.remove.length)) broadcastPresetDelta(delta.upsert, delta.remove);
+    });
+  }).catch(() => {});
   syncMcp();
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca

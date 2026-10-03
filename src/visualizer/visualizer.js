@@ -589,27 +589,98 @@
     // ve çıkış yeniden başlatılana kadar eski shader'da kalmasın.
     let presetsReady = false;
     const earlyDeltas = [];
+    let presetGen = 0;
+    let presetCatchBusy = false;
     const onPresetDelta = (d) => {
       const S = window.SVPresets;
-      const studio = (d && Array.isArray(d.upsert) ? d.upsert : []).some((p) => p && p.kind !== 'milkdrop') ||
+      const ups = (d && Array.isArray(d.upsert)) ? d.upsert : [];
+      const studio = ups.some((p) => p && p.kind !== 'milkdrop') ||
         (d && Array.isArray(d.remove) ? d.remove : []).some((id) => { const p = S.get(id); return !!p && p.kind !== 'milkdrop'; });
+      let patched = false;
+      if (typeof cfg !== 'undefined' && cfg && cfg.milkdrop) {
+        for (let i = 0; i < ups.length; i++) {
+          const p = ups[i];
+          if (p && p.kind === 'milkdrop' && p.id === cfg.milkdrop.presetId && typeof p.source === 'string' && p.source !== cfg.milkdrop.source) {
+            cfg.milkdrop = Object.assign({}, cfg.milkdrop, { source: p.source, name: p.name || cfg.milkdrop.name });
+            patched = true;
+            break;
+          }
+        }
+      }
       S.applyDelta(d);
       if (studio) {
         stack.dispose();
         applyScene();
+      } else if (patched && typeof applyConfig === 'function') {
+        applyConfig(cfg);
       }
     };
+    async function catchPresets() {
+      if (!window.api.presetsSince || presetCatchBusy) return;
+      presetCatchBusy = true;
+      try {
+        const page = await window.api.presetsSince(presetGen);
+        if (!page) return;
+        const nextGen = Number(page.gen) || 0;
+        if (page.reset || page.bulk) {
+          presetGen = nextGen;
+          window.SVPresets.setUser(await window.api.getPresets());
+          stack.dispose();
+          applyScene();
+          return;
+        }
+        presetGen = nextGen;
+        const up = page.upsert || [];
+        const rm = page.remove || [];
+        if (!up.length && !rm.length) return;
+        onPresetDelta({ upsert: up, remove: rm, gen: nextGen });
+      } catch { /* ana süreç kapandıysa bir sonraki tur dener */ }
+      finally { presetCatchBusy = false; }
+    }
     if (window.api.onPresetsDelta) {
       window.api.onPresetsDelta((d) => {
+        if (d && d.gen) presetGen = Math.max(presetGen, Number(d.gen) || 0);
         if (!presetsReady) { earlyDeltas.push(d); return; }
         onPresetDelta(d);
       });
     }
+    let headGen = 0;
+    try {
+      if (window.api.presetsHead) {
+        const head = await window.api.presetsHead();
+        headGen = head && Number(head.gen) || 0;
+      }
+    } catch { headGen = 0; }
     try {
       window.SVPresets.setUser(await window.api.getPresets());
     } catch { /* preset yoksa yerleşiklerle devam */ }
     presetsReady = true;
-    for (let i = 0; i < earlyDeltas.length; i++) onPresetDelta(earlyDeltas[i]);
+    let maxEarly = 0;
+    for (let i = 0; i < earlyDeltas.length; i++) {
+      const d = earlyDeltas[i];
+      if (d && d.gen) maxEarly = Math.max(maxEarly, Number(d.gen) || 0);
+      onPresetDelta(d);
+    }
+    try {
+      if (window.api.presetsSince) {
+        const page = await window.api.presetsSince(headGen);
+        if (page) {
+          presetGen = Math.max(maxEarly, Number(page.gen) || 0);
+          if (page.reset || page.bulk) {
+            try { window.SVPresets.setUser(await window.api.getPresets()); } catch { /* liste yok */ }
+            stack.dispose();
+            applyScene();
+          } else if ((page.upsert && page.upsert.length) || (page.remove && page.remove.length)) {
+            onPresetDelta({ upsert: page.upsert || [], remove: page.remove || [], gen: page.gen });
+          }
+        }
+      }
+    } catch { /* yakalama yoksa yayın yeter */ }
+    presetGen = Math.max(presetGen, maxEarly);
+    setInterval(() => {
+      if (cfg && cfg.mcp && cfg.mcp.enabled) catchPresets();
+    }, 400);
+    window.addEventListener('focus', () => { catchPresets(); });
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
       // Seçili preset düzenlendiyse motorun kaynağı yenilensin

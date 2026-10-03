@@ -97,6 +97,12 @@ function create(deps) {
     const bridge = fs.readFileSync(path.join(__dirname, 'mcp-stdio.js'));
     fs.writeFileSync(scriptPath(), bridge);
     fs.writeFileSync(endpointFile, JSON.stringify({ host: BIND_HOST, port: port, token: token }, null, 2));
+    /* Uç nokta belirteci taşır. Linux ve macOS'ta dosya yalnız bu kullanıcı
+       okusun; Windows chmod'u yok sayar, orada kullanıcı profili yeter. */
+    if (process.platform !== 'win32') {
+      try { fs.chmodSync(scriptPath(), 0o600); } catch (e) { /* yok */ }
+      try { fs.chmodSync(endpointFile, 0o600); } catch (e) { /* yok */ }
+    }
   }
 
   function clearEndpoint() {
@@ -135,6 +141,7 @@ function create(deps) {
         return;
       }
       Promise.resolve(mcp.handleRpc(msg, ctx())).then(function (out) {
+        try { if (deps.syncPresets) deps.syncPresets(); } catch (e) { /* klasör okunamadı */ }
         if (out == null) {
           res.writeHead(202);
           res.end();
@@ -144,6 +151,7 @@ function create(deps) {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
         res.end(body);
       }).catch(function (e) {
+        try { if (deps.syncPresets) deps.syncPresets(); } catch (err) { /* klasör okunamadı */ }
         const body = JSON.stringify({ jsonrpc: '2.0', id: msg && msg.id, error: { code: -32603, message: String((e && e.message) || e) } });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(body);

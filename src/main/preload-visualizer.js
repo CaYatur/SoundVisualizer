@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('api', {
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
   // Değişiklik yayını (#574): bütün liste yerine yalnız değişenler
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
+  presetsHead: () => ipcRenderer.invoke('presets:head'),
+  presetsSince: (gen) => ipcRenderer.invoke('presets:since', gen),
   /* MilkDrop doku paketi: preset kendi görselini ada göre istiyor
      (`sampler_worms` -> `worms.jpg`). Yalnızca yapılandırmada seçili
      klasörün içi okunuyor; kapsam denetimi ana süreçte. */

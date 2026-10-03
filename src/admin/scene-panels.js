@@ -466,6 +466,184 @@
     setTimeout(() => input.remove(), 1000);
   }
 
+  const NP_FONT_LABELS = [
+    ['', 'Metin Katmanıyla Aynı'],
+    ['system-ui, -apple-system, Segoe UI, Roboto, sans-serif', 'Sistem'],
+    ['Georgia, "Times New Roman", serif', 'Serif'],
+    ['ui-monospace, "Cascadia Code", Consolas, monospace', 'Tek Aralıklı'],
+    ['Impact, "Arial Black", sans-serif', 'Ağır Başlık'],
+    ['"Trebuchet MS", "Segoe UI", sans-serif', 'Yuvarlak'],
+  ];
+  const TEXT_FONT_LABELS = NP_FONT_LABELS.slice(1);
+  const NP_ANIM_LABELS = [
+    ['none', 'Yok'], ['fade', 'Belirme'], ['slideUp', 'Yukarı Kayma'],
+    ['slideLeft', 'Yana Kayma'], ['scale', 'Büyüme'],
+    ['typewriter', 'Daktilo'], ['wipe', 'Perde'],
+  ];
+  const TEXT_ANIM_LABELS = NP_ANIM_LABELS.slice(0, 5);
+  const ALIGN_LABELS = [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']];
+
+  /* Çalan Parça kartı katman yığını açıkken gizlenir. Motor
+     l.settings.nowplaying alanını kök ayarın üstüne yazar; MCP de aynı
+     nesneyi sv_set_layer_settings ile doldurur. Süre ve çubuk yalnız
+     Windows medya oturumunda anlamlı. */
+  function nowplayingLayerControls(l, cfg, rerender) {
+    const el = P().el;
+    l.settings = l.settings || {};
+    const np = (l.settings.nowplaying = l.settings.nowplaying || {});
+    const root = cfg.nowplaying || {};
+    const get = (k, fb) => (np[k] !== undefined ? np[k] : (root[k] !== undefined ? root[k] : fb));
+    const set = (k, val) => { np[k] = val; };
+    const win = isWindowsPlatform();
+    if (!win && get('source', win ? 'system' : 'manual') === 'system') set('source', 'manual');
+    const fromSystem = win && get('source', 'system') === 'system';
+    const out = [];
+    const heading = (text) => out.push(el('div', { class: 'lbl', text: text }));
+
+    heading('Görünürlük');
+    if (win) {
+      out.push(miniSelect('Kaynak', [['system', 'Sistemden Oku'], ['manual', 'Elle Yaz']],
+        () => get('source', 'system'), (v) => set('source', v), rerender));
+    }
+    out.push(miniSelect('Ne Zaman', [['always', 'Sürekli Görünsün'], ['onChange', 'Parça Değişince']],
+      () => get('mode', 'always'), (v) => set('mode', v), rerender));
+    if (get('mode', 'always') === 'onChange') {
+      const sp = (window.SVNowPlaying && window.SVNowPlaying.speedOf)
+        ? window.SVNowPlaying.speedOf(get('speed', 'normal'))
+        : { anim: 0.5, hold: 4 };
+      out.push(miniSelect('Hız', [['fast', 'Hızlı'], ['normal', 'Normal'], ['slow', 'Yavaş']],
+        () => get('speed', 'normal'), (v) => {
+          set('speed', v);
+          np.animDuration = null;
+          np.holdSeconds = null;
+        }, rerender));
+      out.push(miniSlider('Ekranda Kalma', () => (get('holdSeconds', null) == null ? sp.hold : get('holdSeconds')),
+        (v) => set('holdSeconds', v), { min: 0.5, max: 20, step: 0.5, fmt: (v) => (+v).toFixed(1) + ' sn' }));
+    }
+
+    heading('Gösterilecek Alanlar');
+    const showOf = () => Object.assign({}, root.show || {}, np.show || {});
+    const setShow = (key, v) => { np.show = Object.assign({}, showOf(), { [key]: v }); };
+    const showToggle = (key, label, def) => miniToggle(label,
+      () => (showOf()[key] === undefined ? def : !!showOf()[key]),
+      (v) => setShow(key, v), rerender);
+    out.push(showToggle('title', 'Parça Adı', true));
+    out.push(showToggle('artist', 'Sanatçı', true));
+    out.push(showToggle('album', 'Albüm', false));
+    if (fromSystem) {
+      out.push(showToggle('appName', 'Oynatıcı Adı', false));
+      out.push(showToggle('elapsed', 'Geçen Süre', true));
+      out.push(showToggle('remaining', 'Kalan Süre', false));
+      out.push(showToggle('total', 'Toplam Süre', true));
+      out.push(showToggle('bar', 'İlerleme Çubuğu', true));
+    }
+    out.push(miniToggle('Parça ve Sanatçı Tek Satırda', () => !!get('oneLine', false), (v) => set('oneLine', v), rerender));
+    if (get('oneLine', false)) {
+      out.push(P().row('Ayırıcı', el('input', {
+        class: 'p-in', type: 'text', value: get('separator', ' — '),
+        oninput: (e) => { set('separator', e.target.value); P().push(false); },
+      })));
+    }
+    if (fromSystem) {
+      out.push(P().row('Süre Ayırıcı', el('input', {
+        class: 'p-in', type: 'text', value: get('timeSeparator', ' / '),
+        oninput: (e) => { set('timeSeparator', e.target.value); P().push(false); },
+      })));
+    }
+
+    heading('Yazı ve Yerleşim');
+    const style = (window.SVNowPlaying && window.SVNowPlaying.styleOf)
+      ? window.SVNowPlaying.styleOf(get('style', 'modern'))
+      : { weight: 600, outline: 0, shadow: 0.55, uppercase: false, barHeight: 0.005, barSegments: 0, barBackOpacity: 0.22 };
+    out.push(miniSelect('Kalıp', [['modern', 'Modern'], ['og', 'OG (Klasik)']],
+      () => get('style', 'modern'), (v) => {
+        set('style', v);
+        np.weight = null; np.outline = null; np.shadow = null;
+        np.uppercase = null; np.barHeight = null; np.barSegments = null;
+        np.barRadius = null; np.barBackOpacity = null;
+      }, rerender));
+    out.push(miniSelect('Yazı Tipi', NP_FONT_LABELS, () => get('font', ''), (v) => set('font', v)));
+    out.push(miniSlider('Boyut', () => (get('size', 0.042) == null ? 0.042 : get('size', 0.042)),
+      (v) => set('size', v), { min: 0.015, max: 0.16, step: 0.002, fmt: (v) => (v * 100).toFixed(1) + '%' }));
+    out.push(miniSlider('Kalınlık', () => (get('weight', null) == null ? style.weight : get('weight')),
+      (v) => set('weight', Math.round(v / 100) * 100),
+      { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100) }));
+    out.push(miniToggle('Büyük Harf', () => (get('uppercase', null) == null ? !!style.uppercase : !!get('uppercase')),
+      (v) => set('uppercase', v)));
+    out.push(miniSelect('Hizalama', ALIGN_LABELS, () => get('align', 'center'), (v) => set('align', v)));
+    out.push(miniSlider('Yatay', () => (get('x', 0.5) == null ? 0.5 : get('x', 0.5)), (v) => set('x', v),
+      { min: 0, max: 1, step: 0.005, percent: true }));
+    out.push(miniSlider('Dikey', () => (get('y', 0.86) == null ? 0.86 : get('y', 0.86)), (v) => set('y', v),
+      { min: 0, max: 1, step: 0.005, percent: true }));
+    out.push(miniSlider('Satır Aralığı', () => (get('lineGap', 0.32) == null ? 0.32 : get('lineGap', 0.32)),
+      (v) => set('lineGap', v), { min: 0, max: 1.2, step: 0.02 }));
+    out.push(miniSlider('Saydamlık', () => (get('opacity', 1) == null ? 1 : get('opacity', 1)),
+      (v) => set('opacity', v), { min: 0, max: 1, step: 0.01, percent: true }));
+    out.push(miniSlider('Kontur', () => (get('outline', null) == null ? style.outline : get('outline')),
+      (v) => set('outline', v), { min: 0, max: 1, step: 0.02 }));
+    out.push(miniSlider('Gölge', () => (get('shadow', null) == null ? style.shadow : get('shadow')),
+      (v) => set('shadow', v), { min: 0, max: 1, step: 0.02 }));
+    out.push(miniSlider('En Fazla Genişlik', () => (get('maxWidth', 0.8) == null ? 0.8 : get('maxWidth', 0.8)),
+      (v) => set('maxWidth', v), { min: 0.2, max: 1, step: 0.01, percent: true }));
+    out.push(miniToggle('Uzun Adları Kaydır', () => get('scrollLongTitles', true) !== false,
+      (v) => set('scrollLongTitles', v)));
+
+    if (fromSystem && showOf().bar !== false) {
+      heading('İlerleme Çubuğu');
+      out.push(miniSlider('Genişlik', () => (get('barWidth', 0.42) == null ? 0.42 : get('barWidth', 0.42)),
+        (v) => set('barWidth', v), { min: 0.05, max: 1, step: 0.01, percent: true }));
+      out.push(miniSlider('Kalınlık', () => (get('barHeight', null) == null ? style.barHeight : get('barHeight')),
+        (v) => set('barHeight', v), { min: 0.001, max: 0.04, step: 0.001, fmt: (v) => (v * 100).toFixed(1) + '%' }));
+      out.push(miniSlider('Bölme Sayısı', () => (get('barSegments', null) == null ? style.barSegments : get('barSegments')),
+        (v) => set('barSegments', Math.round(v)),
+        { min: 0, max: 80, step: 1, fmt: (v) => (v < 1 ? 'kesintisiz' : Math.round(v) + ' bölme') }));
+      out.push(miniSlider('Yazıyla Arası', () => (get('barGap', 0.5) == null ? 0.5 : get('barGap', 0.5)),
+        (v) => set('barGap', v), { min: 0, max: 2, step: 0.05 }));
+      out.push(miniSlider('Zemin Koyuluğu', () => (get('barBackOpacity', null) == null ? style.barBackOpacity : get('barBackOpacity')),
+        (v) => set('barBackOpacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
+    }
+
+    heading('Hareket');
+    const spAnim = (window.SVNowPlaying && window.SVNowPlaying.speedOf)
+      ? window.SVNowPlaying.speedOf(get('speed', 'normal'))
+      : { anim: 0.5 };
+    out.push(miniSelect('Giriş', NP_ANIM_LABELS, () => get('animation', 'slideUp'), (v) => set('animation', v)));
+    out.push(miniSlider('Giriş Süresi', () => (get('animDuration', null) == null ? spAnim.anim : get('animDuration')),
+      (v) => set('animDuration', v), { min: 0.05, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn' }));
+    out.push(miniSlider('Basla Nabız', () => (get('audioScale', 0.04) == null ? 0.04 : get('audioScale', 0.04)),
+      (v) => set('audioScale', v), { min: 0, max: 0.4, step: 0.01 }));
+    return out;
+  }
+
+  /* Metin kartı da yığın açıkken gizlenir. Motor settings.text okur. */
+  function textLayerAppearance(txt, out, rerender) {
+    out.push(miniSelect('Yazı Tipi', TEXT_FONT_LABELS, () => txt.font || TEXT_FONT_LABELS[0][0], (v) => { txt.font = v; }));
+    out.push(miniSlider('Kalınlık', () => txt.weight || 700, (v) => { txt.weight = Math.round(v / 100) * 100; },
+      { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100) }));
+    out.push(miniSlider('Yatay', () => (txt.x == null ? 0.5 : txt.x), (v) => { txt.x = v; },
+      { min: 0, max: 1, step: 0.005, percent: true }));
+    out.push(miniSlider('Dikey', () => (txt.y == null ? 0.5 : txt.y), (v) => { txt.y = v; },
+      { min: 0, max: 1, step: 0.005, percent: true }));
+    out.push(miniSlider('Saydamlık', () => (txt.opacity == null ? 1 : txt.opacity), (v) => { txt.opacity = v; },
+      { min: 0, max: 1, step: 0.01, percent: true }));
+    out.push(miniSlider('Kontur', () => (txt.outline == null ? 0 : txt.outline), (v) => { txt.outline = v; },
+      { min: 0, max: 1, step: 0.02 }));
+    out.push(miniSlider('Gölge', () => (txt.shadow == null ? 0 : txt.shadow), (v) => { txt.shadow = v; },
+      { min: 0, max: 1, step: 0.02 }));
+    out.push(miniSelect('Giriş', TEXT_ANIM_LABELS, () => txt.animation || 'fade', (v) => { txt.animation = v; }));
+    out.push(miniSlider('Giriş Süresi', () => (txt.animDuration == null ? 0.45 : txt.animDuration),
+      (v) => { txt.animDuration = v; }, { min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn' }));
+    out.push(miniSlider('Basla Nabız', () => (txt.audioScale == null ? 0.12 : txt.audioScale),
+      (v) => { txt.audioScale = v; }, { min: 0, max: 0.6, step: 0.01 }));
+    out.push(miniSlider('Titreşim', () => txt.audioJitter || 0, (v) => { txt.audioJitter = v; },
+      { min: 0, max: 1, step: 0.02 }));
+    out.push(miniToggle('Harf Harf Tepki', () => !!txt.perCharacter, (v) => { txt.perCharacter = v; }, rerender));
+    if (txt.perCharacter) {
+      out.push(miniSlider('Harf Yükselmesi', () => (txt.audioLift == null ? 0.25 : txt.audioLift),
+        (v) => { txt.audioLift = v; }, { min: 0, max: 1, step: 0.02 }));
+    }
+  }
+
   /* Bir katmanın kendi kaynağına ait ayarlar.
 
      Her katman eklenen modun (Barlar, Dalga, Çember, Gradyan vb.) kendine
@@ -667,6 +845,13 @@
             lg.kind = it.kind || '';
             lg.enabled = true;
             if (window.SVLogoRuntime && window.SVLogoRuntime.warm) window.SVLogoRuntime.warm(it.id);
+            P().push(true);
+            rerender();
+          },
+          onRemove: (it) => {
+            if (lg.libraryId !== it.id) return;
+            lg.libraryId = '';
+            if (!lg.src) lg.kind = '';
             P().push(true);
             rerender();
           },
@@ -927,6 +1112,10 @@
             },
           }),
         ]));
+        out.push(miniSlider('Senkron Kayması', () => txt.offset || 0, (v) => { txt.offset = v; }, {
+          min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
+        }));
+        out.push(miniToggle('Karaoke Vurgusu', () => txt.karaoke !== false, (v) => { txt.karaoke = v; }));
       }
 
       const getTxtMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
@@ -947,7 +1136,8 @@
         out.push(miniColor('Vurgu Rengi', () => txt.colorHighlight || '#ffd23f', (v) => { txt.colorHighlight = v; }));
       }
       out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
-      out.push(miniSelect('Hizalama', [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']], () => txt.align || 'center', (v) => { txt.align = v; }));
+      out.push(miniSelect('Hizalama', ALIGN_LABELS, () => txt.align || 'center', (v) => { txt.align = v; }));
+      textLayerAppearance(txt, out, rerender);
       return out;
     }
 
@@ -1020,6 +1210,7 @@
       // Album cover overlay for Now Playing layers (default off).
       // Layer stack hides the dedicated Now Playing card (notStack), so expose here.
       if (l.type === 'nowplaying') {
+        out.push.apply(out, nowplayingLayerControls(l, cfg, rerender));
         const npCover = (l.settings.nowplaying = l.settings.nowplaying || {});
         const getCover = (k, fb) => {
           if (npCover[k] !== undefined) return npCover[k];

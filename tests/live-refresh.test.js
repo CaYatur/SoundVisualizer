@@ -90,6 +90,35 @@ test('MCP visualizer type and layer enable update the stack that is drawn', asyn
   assert.ok(L.resolve(cfg).some((l) => l.type === 'circle'));
 });
 
+test('sv_save_preset without a kind stores a shader as a Studio visualizer', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-presets-'));
+  store.setDir(dir);
+  let captured = null;
+  const ctx = {
+    locale: function () { return 'en'; },
+    getConfig: function () { return { mcp: { enabled: true, mode: 'write' } }; },
+    presets: {
+      save: function (preset) {
+        captured = preset;
+        return store.save(preset);
+      },
+    },
+  };
+  const shader = await mcp.callTool('sv_save_preset', { name: 'Glow', shader: 'void mainImage(){}' }, ctx);
+  assert.strictEqual(shader.ok, true, JSON.stringify(shader));
+  assert.strictEqual(captured.kind, 'visualizer');
+  assert.strictEqual(captured.engine, 'shader');
+  const milk = await mcp.callTool('sv_save_preset', { name: 'Warp', source: 'zoom=1' }, ctx);
+  assert.strictEqual(milk.ok, true, JSON.stringify(milk));
+  assert.strictEqual(captured.kind, 'milkdrop');
+  const explicit = await mcp.callTool('sv_save_preset', { name: 'Bg', kind: 'background', engine: 'shader', shader: 'void main(){}' }, ctx);
+  assert.strictEqual(explicit.ok, true, JSON.stringify(explicit));
+  assert.strictEqual(captured.kind, 'background');
+  assert.strictEqual(captured.engine, 'shader');
+  store.setDir(null);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('a preset saved while the folder is still warming is in the list', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-presets-'));
   store.setDir(dir);

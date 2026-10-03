@@ -129,7 +129,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **2591 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2602 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 878
   on `main` since.
@@ -1738,7 +1738,9 @@ rest after. No version number yet.
   - **Store.** Files are read once — in the background at start-up — and
     kept; saves and deletes update the cache. `list()` still looks at the
     folder's file names on every call, so a file added or removed by hand
-    shows up; a file edited by hand shows up after a restart. Bulk saves are
+    shows up. A file edited by hand is re-read when the folder watcher or an
+    MCP turn names it, and open windows take that change without a restart.
+    Bulk saves are
     written in batches with pauses so the main process keeps serving audio,
     lights and IPC, report progress, and keep the pack's own order.
   - **Change broadcast.** A save or delete sends only what changed

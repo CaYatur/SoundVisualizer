@@ -10,12 +10,20 @@
         const v = attrs[k];
         if (v == null || v === false) return;
         if (k === 'class') n.className = v;
+        else if (k === 'icon') { /* SVG aşağıda; öznitelik olarak kalırsa düğme boş ve renksiz kalır */ }
         else if (k === 'text') n.textContent = v;
         else if (k === 'html') n.innerHTML = v;
         else if (k.indexOf('on') === 0 && typeof v === 'function') n.addEventListener(k.slice(2).toLowerCase(), v);
         else if (k === 'style' && typeof v === 'string') n.setAttribute('style', v);
         else n.setAttribute(k, v === true ? '' : v);
       });
+    }
+    /* admin el() ile aynı: ikon currentColor çizgisi. icon="x" özniteliği
+       SVG üretmiyordu; sil düğmesi koyu boş daire olarak kalıyordu. */
+    if (attrs && attrs.icon && window.SVIcons) {
+      const txt = n.textContent;
+      n.insertBefore(window.SVIcons.el(attrs.icon, txt ? 'svi-lead' : ''), n.firstChild);
+      n.setAttribute('data-icon', attrs.icon);
     }
     (kids || []).forEach((c) => { if (c) n.appendChild(c); });
     return n;
@@ -123,13 +131,13 @@
           type: 'button',
           icon: 'x',
           title: tr('Sil'),
+          'aria-label': tr('Sil'),
         });
         const card = el('button', {
           class: 'logo-lib-card' + (it.id === selectedId ? ' is-on' : ''),
           type: 'button',
         }, [thumb, badge, name].filter(Boolean));
-        card.addEventListener('click', (e) => {
-          if (e.target === del) return;
+        card.addEventListener('click', () => {
           selectedId = it.id;
           paint();
           if (onPick) onPick(it);
@@ -138,7 +146,16 @@
           e.preventDefault();
           e.stopPropagation();
           if (!window.api || !window.api.logoLibRemove) return;
-          await window.api.logoLibRemove(it.id);
+          let removed = false;
+          try {
+            const r = await window.api.logoLibRemove(it.id);
+            removed = !r || r.ok !== false;
+          } catch { removed = false; }
+          if (!removed) return;
+          if (selectedId === it.id) {
+            selectedId = '';
+            if (opts && opts.onRemove) opts.onRemove(it);
+          }
           await refresh();
         });
         const cell = el('div', { class: 'logo-lib-cell' }, [card, del]);

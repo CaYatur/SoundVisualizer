@@ -904,11 +904,23 @@
   tool('sv_save_preset', 'presetEdit', 'Write a preset file in the app preset store. Authoring.', function (args, ctx) {
     if (!ctx.presets || !ctx.presets.save) return fail('Preset store is not available.');
     const src = args || {};
+    /* Tür verilmediyse shader metni Studio görselleştiricisidir. Eski
+       varsayılan her kaydı MilkDrop sayıyordu; Studio listesi onu
+       göstermiyordu. Açık tür her zaman kazanır. */
+    let kind = src.kind;
+    let engine = src.engine;
+    if (!kind) {
+      const shader = typeof src.shader === 'string' ? src.shader.trim() : '';
+      if (shader) {
+        kind = 'visualizer';
+        if (!engine) engine = 'shader';
+      } else kind = 'milkdrop';
+    }
     const preset = {
       id: src.id,
       name: src.name || 'MCP preset',
-      kind: src.kind || 'milkdrop',
-      engine: src.engine,
+      kind: kind,
+      engine: engine,
       source: src.source || '',
       shader: src.shader,
       controls: src.controls,
@@ -1300,13 +1312,47 @@
       .split("{port}").join(String(bundle.port))
       .split("{url}").join(bundle.url);
   }
-  function clients(scriptPath, port) {
+  function hostPlatform(explicit) {
+    if (explicit === 'win32' || explicit === 'darwin' || explicit === 'linux') return explicit;
+    /* Panel SV_PLATFORM kullanır. Süreç önce bakılırsa testteki ya da
+       gömülü Node'daki platform, açık olan işletim sistemini ezer. */
+    try {
+      if (typeof window !== 'undefined' && window.SV_PLATFORM) {
+        if (window.SV_PLATFORM.isMac) return 'darwin';
+        if (window.SV_PLATFORM.isLinux) return 'linux';
+        if (window.SV_PLATFORM.isWindows) return 'win32';
+      }
+    } catch (e) { /* yok */ }
+    if (typeof process !== 'undefined' && (process.platform === 'win32' || process.platform === 'darwin' || process.platform === 'linux')) {
+      return process.platform;
+    }
+    return 'linux';
+  }
+  function clientFileStep(id, platform) {
+    const p = hostPlatform(platform);
+    if (id === 'claude') {
+      if (p === 'darwin') return 'macOS’ta ~/Library/Application Support/Claude/claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.';
+      if (p === 'linux') return 'Linux’ta ~/.config/Claude/claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.';
+      return 'Windows’ta %APPDATA%\\Claude\\claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.';
+    }
+    if (id === 'codex') {
+      if (p === 'win32') return 'Tablo %USERPROFILE%\\.codex\\config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.';
+      return 'Tablo ~/.codex/config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.';
+    }
+    if (id === 'cursor') {
+      if (p === 'win32') return 'Proje için .cursor/mcp.json, genel için %USERPROFILE%\\.cursor\\mcp.json kullanın.';
+      return 'Proje için .cursor/mcp.json, genel için ~/.cursor/mcp.json kullanın.';
+    }
+    return '';
+  }
+  function clients(scriptPath, port, platform) {
     const httpPort = normalizePort(port);
     const bundle = commandBundle(scriptPath, httpPort);
+    const osName = hostPlatform(platform);
     return [
-      { id: 'claude', title: 'Claude', steps: ['MCP açıkken bu uygulamayı açık tutun.', 'Windows’ta %APPDATA%\\Claude\\claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.', 'Claude Desktop’u tamamen kapatıp yeniden açın.'], snippet: bundle.json },
-      { id: 'codex', title: 'Codex', steps: ['MCP açıkken bu uygulamayı açık tutun.', 'Tablo %USERPROFILE%\\.codex\\config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.', 'Yeni bir Codex oturumu açın.'], snippet: bundle.toml },
-      { id: 'cursor', title: 'Cursor', steps: ['MCP açıkken bu uygulamayı açık tutun.', 'Proje için .cursor/mcp.json, genel için %USERPROFILE%\\.cursor\\mcp.json kullanın.', 'Cursor MCP listesini yenileyin.'], snippet: bundle.json },
+      { id: 'claude', title: 'Claude', platform: osName, steps: ['MCP açıkken bu uygulamayı açık tutun.', clientFileStep('claude', osName), 'Claude Desktop’u tamamen kapatıp yeniden açın.'], snippet: bundle.json },
+      { id: 'codex', title: 'Codex', platform: osName, steps: ['MCP açıkken bu uygulamayı açık tutun.', clientFileStep('codex', osName), 'Yeni bir Codex oturumu açın.'], snippet: bundle.toml },
+      { id: 'cursor', title: 'Cursor', platform: osName, steps: ['MCP açıkken bu uygulamayı açık tutun.', clientFileStep('cursor', osName), 'Cursor MCP listesini yenileyin.'], snippet: bundle.json },
       { id: 'grok', title: 'Grok', steps: ['Grok için yayınlanmış tek bir MCP ayar dosyası yok.', 'Stdio kabul eden istemcide aşağıdaki komutu kullanın.', 'mcpServers JSON’unu o istemcinin MCP listesine yapıştırın.'], snippet: bundle.shell + '\n\n' + bundle.json },
       { id: 'grok-bot', title: 'Grok Bot', steps: ['Grok Bot yerel bir mcp.json yolu yayınlamıyor.', 'Aynı stdio komutunu MCP sunucusu olarak ekleyin.', 'Aşağıdaki mcpServers bloğu geçerlidir. Ayrı bir protokol yok.'], snippet: bundle.shell + '\n\n' + bundle.json },
       { id: 'ollama', title: 'Ollama', steps: ['Ollama ayrı bir MCP protokolü değildir. Ücretsiz yerel model, aynı MCP sunucusuna bağlanan bir istemcidir.', 'Ollama’yı kurun, bir model çekin ve yerelde ollama serve çalışsın.', 'MCP konuşan istemcide modeli Ollama’ya yöneltin ve bu stdio sunucusunu ekleyin.', 'Aşağıdaki blok bu sunucudur.'], snippet: bundle.json },
@@ -1317,6 +1363,7 @@
     SCENE_KEYS: SCENE_KEYS, EFFECT_TYPES: EFFECT_TYPES,
     normalizeMcp: normalizeMcp, groupForPath: groupForPath, visualState: visualState,
     cardModel: cardModel, commandBundle: commandBundle, clients: clients, installPrompt: installPrompt,
+    hostPlatform: hostPlatform, clientFileStep: clientFileStep,
     tools: function (locale) { return TOOLS.map(function (t) { return publicTool(t, locale || 'en'); }); },
     MODES: MODES, DEFAULT_PORT: DEFAULT_PORT,
     callTool: callTool, handleRpc: handleRpc,

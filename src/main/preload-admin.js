@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld('api', {
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
   // Değişiklik yayını ve toplu kaydın ilerlemesi (#574)
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
+  presetsHead: () => ipcRenderer.invoke('presets:head'),
+  presetsSince: (gen) => ipcRenderer.invoke('presets:since', gen),
   onPresetsProgress: (cb) => ipcRenderer.on('presets-progress', (e, p) => cb(p)),
   /* MilkDrop kütüphanesi (#574): tarama bir özet ve kimlik döndürüyor,
      içe aktarım aynı kimlikle; dosya listeleri ana süreçte kalıyor. */
