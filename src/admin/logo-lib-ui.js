@@ -152,10 +152,10 @@
             removed = !r || r.ok !== false;
           } catch { removed = false; }
           if (!removed) return;
-          if (selectedId === it.id) {
-            selectedId = '';
-            if (opts && opts.onRemove) opts.onRemove(it);
-          }
+          if (selectedId === it.id) selectedId = '';
+          /* Seçili kart ile ekrandaki logo ayrı durabilir. Silinen kimlik
+             sahnedeyse onu da bırak; seçili değil diye ölü kimlik kalmasın. */
+          if (opts && opts.onRemove) opts.onRemove(it);
           await refresh();
         });
         const cell = el('div', { class: 'logo-lib-cell' }, [card, del]);

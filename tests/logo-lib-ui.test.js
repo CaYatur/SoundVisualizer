@@ -92,6 +92,11 @@ test('sil düğmesi çarpı çizer, dosyayı siler ve seçimi bırakır', async 
   assert.deepStrictEqual(removed, ['a']);
   assert.strictEqual(cleared, 'a');
 
+  cleared = null;
+  await dels[1].listeners.click({ preventDefault() {}, stopPropagation() {} });
+  assert.deepStrictEqual(removed, ['a', 'b']);
+  assert.strictEqual(cleared, 'b', 'seçili olmayan kart da sahnedeki logoyu bırakır');
+
   window.api.logoLibRemove = async () => ({ ok: false });
   cleared = null;
   await dels[1].listeners.click({ preventDefault() {}, stopPropagation() {} });
