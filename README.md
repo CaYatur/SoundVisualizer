@@ -1109,6 +1109,23 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
   visualizer layer its own mode. A status line says what changed, what is next, and why nothing
   can happen when a source is empty.
 
+### MCP
+
+An agent can drive the app from the **Control** card. The card is off by default. Five modes
+stack, and the one that turns on with the switch is **Read**:
+
+- **Read** sees the show and changes nothing. **Apply** can use scenes, effects and presets that
+  already exist. **Write** can create and edit, including Auto VJ. **Full** adds the live
+  surfaces: lighting, mapping, windows, timeline transport, Spout and the stream. **Everything**
+  also covers updates, audio repair and stream-token rotation.
+- The server listens on this computer only, `127.0.0.1`, port **38471** unless you confirm
+  another. A busy port is not replaced. The agent connects with the stdio command from the setup
+  dialog; that bridge talks to `http://127.0.0.1:<port>/mcp`.
+- Tools cover scenes, layers, effects, presets, displays, the floating window, the clip deck,
+  timeline transport, recording and export. A blocked call names the mode that is required and
+  tells the agent not to change the mode and not to click the panel. Changes the agent is allowed
+  to make show up in the panel the same way a click does, including which displays are selected.
+
 ### Windows Dynamic Lighting
 
 - Off by default, and available only when compatible devices are detected.

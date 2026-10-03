@@ -486,6 +486,8 @@
         return window.SVStudio ? window.SVStudio.panel() : null;
       case 'controlpanel':
         return window.SVControl ? window.SVControl.panel(def.surface) : null;
+      case 'mcppanel':
+        return window.SVMcpPanel ? window.SVMcpPanel.panel() : null;
       case 'mediapanel':
         return window.SVMediaPanel ? window.SVMediaPanel.panel() : null;
       case 'scenegen':
@@ -2827,6 +2829,15 @@
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },
       {
+        id: 'mcp',
+        category: 'control',
+        icon: 'sliders',
+        wide: true,
+        title: 'MCP',
+        desc: 'Ajan bu karttaki kiple sürer. Kapalı başlar; açılınca okuma. Her şey kipi tek tık ve varsayılan değil.',
+        controls: [{ type: 'mcppanel' }],
+      },
+      {
         id: 'studio',
         category: 'studio',
         icon: 'flask',
@@ -4983,6 +4994,22 @@
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
     window.api.onExternalConfig((incoming) => {
       cfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+      /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
+         değişkende duruyordu; render() cfg'yi çizse de menü eski kutuyu
+         işaretli bırakıyordu. Tıklamadaki gibi seçimi ve sahne vurgusunu
+         gelen duruma çek, sonra aynı çizimi çalıştır. */
+      if (cfg.display && displays.length) {
+        const ids = Array.isArray(cfg.display.ids) && cfg.display.ids.length
+          ? cfg.display.ids
+          : (cfg.display.id != null ? [cfg.display.id] : []);
+        selectedDisplayIds = ids.map(Number);
+        renderDisplays();
+      }
+      if (Object.prototype.hasOwnProperty.call(cfg, '_activeSceneId')) {
+        activeSceneId = cfg._activeSceneId || null;
+      }
+      const blackBtn = $('blackoutBtn');
+      if (blackBtn) blackBtn.classList.toggle('on', !!(cfg && cfg.isBlackout) || isBlackedOut());
       render();
       renderScenes();
       if (window.SVPreview) window.SVPreview.setConfig(cfg);

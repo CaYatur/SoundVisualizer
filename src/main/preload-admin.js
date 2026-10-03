@@ -170,6 +170,8 @@ contextBridge.exposeInMainWorld('api', {
   nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
+  mcpStatus: () => ipcRenderer.invoke('mcp:status'),
+  mcpReportLive: (data) => ipcRenderer.send('mcp:live', data),
   onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 

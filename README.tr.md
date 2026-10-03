@@ -1109,6 +1109,23 @@ sayısal giriş.
   mod verebilirsiniz. Durum satırı ne değiştiğini, sıradakini ve kaynak boşsa neden hiçbir şey
   olamayacağını yazar.
 
+### MCP
+
+Bir ajan uygulamayı **Kontrol** kartından sürebilir. Kart varsayılan olarak kapalıdır. Beş kip
+birikir; anahtar açılınca gelen kip **Okuma**dır:
+
+- **Okuma** gösteriyi görür, hiçbir şeyi değiştirmez. **Uygula** zaten duran sahne, efekt ve
+  presetleri kullanabilir. **Yazma** oluşturur ve düzenler, Otomatik VJ dahil. **Tam** canlı
+  yüzeyleri ekler: ışık, eşleme, pencereler, zaman çizelgesi, Spout ve yayın. **Her şey** buna
+  güncellemeyi, ses onarımını ve yayın jetonu döndürmeyi de katar.
+- Sunucu yalnız bu bilgisayarda dinler, `127.0.0.1`, port **38471** — siz başka bir port
+  onaylamadıkça. Port meşgulse kendiliğinden değişmez. Ajan, kurulum penceresindeki stdio
+  komutuyla bağlanır; bu köprü `http://127.0.0.1:<port>/mcp` adresine konuşur.
+- Araçlar sahne, katman, efekt, preset, ekran, yüzen pencere, klip destesi, zaman çizelgesi,
+  kayıt ve dışa aktarmayı kapsar. Engellenen çağrı gereken kipin adını söyler ve ajana kipi
+  değiştirmemesini, panele tıklamamasını bildirir. İzin verilen değişiklikler panelde tıklamayla
+  aynı yoldan görünür; seçili ekranlar dahil.
+
 ### Windows Dynamic Lighting
 
 - Varsayılan olarak kapalıdır ve yalnızca uyumlu aygıtlar algılandığında görünür.

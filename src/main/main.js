@@ -26,6 +26,7 @@ const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
+const mcpServer = require('./mcp-server');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -1810,6 +1811,119 @@ function recreateVisualizerWindows() {
 }
 
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
+
+let mcpHandle = null;
+const mcpLive = { bpm: 0, confidence: 0, level: 0, bass: 0, mid: 0, treble: 0, at: 0 };
+
+function noteMcpLive(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.level != null) mcpLive.level = data.level;
+  if (data.bass != null) mcpLive.bass = data.bass;
+  if (data.mid != null) mcpLive.mid = data.mid;
+  if (data.treble != null) mcpLive.treble = data.treble;
+  if (data.bpm != null) mcpLive.bpm = data.bpm;
+  if (data.confidence != null) mcpLive.confidence = data.confidence;
+  mcpLive.at = Date.now();
+}
+
+const MCP_PREVIEW_JS = '(() => {' +
+  'const list = Array.from(document.querySelectorAll("canvas"));' +
+  'const c = list.find((x) => x.width > 8 && x.height > 8);' +
+  'if (!c) return null;' +
+  'const maxW = 480;' +
+  'const scale = Math.min(1, maxW / c.width);' +
+  'const w = Math.max(1, Math.round(c.width * scale));' +
+  'const h = Math.max(1, Math.round(c.height * scale));' +
+  'const o = document.createElement("canvas");' +
+  'o.width = w; o.height = h;' +
+  'o.getContext("2d").drawImage(c, 0, 0, w, h);' +
+  'return { width: w, height: h, dataUrl: o.toDataURL("image/jpeg", 0.62) };' +
+  '})()';
+
+async function mcpCapturePreview() {
+  const wins = [];
+  for (const win of visualizerWins.values()) wins.push(win);
+  if (adminWin && !adminWin.isDestroyed()) wins.push(adminWin);
+  for (const win of wins) {
+    if (!win || win.isDestroyed()) continue;
+    try {
+      const img = await win.webContents.executeJavaScript(MCP_PREVIEW_JS);
+      if (img && img.dataUrl) return img;
+    } catch (e) { /* this window has no canvas yet */ }
+  }
+  return null;
+}
+
+function mcpAdminCall(js) {
+  if (!adminWin || adminWin.isDestroyed()) return Promise.resolve({ ok: false, error: 'Admin window is not open.' });
+  return adminWin.webContents.executeJavaScript(js);
+}
+
+function ensureMcp() {
+  if (mcpHandle) return mcpHandle;
+  mcpHandle = mcpServer.create({
+    userData: app.getPath('userData'),
+    getConfig: () => currentConfig,
+    setConfig: (cfg) => {
+      applyIncomingConfig(cfg);
+      notifyAdmin('external-config', currentConfig);
+    },
+    live: () => Object.assign({}, mcpLive),
+    nowPlaying: () => mediaSession.current(),
+    displays: () => getDisplayList(),
+    outputStatus: () => ({ open: anyVisualizerOpen(), ids: Array.from(visualizerWins.keys()) }),
+    presets: {
+      list: () => presetsStore.list(),
+      get: (id) => presetsStore.get(id),
+      save: (preset) => {
+        const r = presetsStore.save(preset);
+        if (r && r.ok && r.preset) broadcastPresetDelta([r.preset], []);
+        return r;
+      },
+      remove: (id) => {
+        const r = presetsStore.remove(id);
+        if (r && r.ok) broadcastPresetDelta([], [String(id)]);
+        return r;
+      },
+    },
+    openOutput: (ids) => openVisualizer(ids),
+    closeOutput: (id) => closeVisualizer(id),
+    setFloatingOpen: (open) => {
+      if (open) {
+        createFloatingWindow();
+        return { open: floatingIsOpen() };
+      }
+      closeFloatingWindow();
+      return { open: floatingIsOpen() };
+    },
+    stopClips: () => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.stopAll) return { ok:false, error:"Clip deck is not loaded." }; C.stopAll(); return { ok:true }; })()'),
+    startExport: (opts) => startExportJob(opts),
+    cancelExport: () => { if (exportState) exportState.cancel = true; return true; },
+    writeText: (file, text) => { fs.writeFileSync(file, text, 'utf8'); return true; },
+    writeBinary: (file, buf) => { fs.writeFileSync(file, buf); return true; },
+    capturePreview: () => mcpCapturePreview(),
+    recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; await R.start(window.SVPanel.cfg()); return { ok:true }; })()'),
+    recordStop: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"Recorder is not loaded." }; await R.stop(); return { ok:true }; })()'),
+    timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
+    launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return { ok:true }; })()'),
+    locale: () => appLocale(),
+  });
+  return mcpHandle;
+}
+
+function syncMcp() {
+  try {
+    const enabled = !!(currentConfig && currentConfig.mcp && currentConfig.mcp.enabled === true);
+    return ensureMcp().sync(enabled);
+  } catch (e) {
+    console.error('[MCP] sync failed:', e);
+    return Promise.resolve(null);
+  }
+}
+
+ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: false, running: false, host: '127.0.0.1', port: 0, shell: '', script: '' }));
+ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
+
 ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
 
 /* Yeni yapılandırmayı her yere uygular. Panelden gelen yapılandırma
@@ -1869,6 +1983,7 @@ function applyIncomingConfig(config, opts) {
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
+  syncMcp();
 }
 
 // Aynı ayar klasörünü kullanan kopyalar ve ayar dosyası çakışması (#564)
@@ -2019,6 +2134,7 @@ ipcMain.on('md-live', (e, mp) => {
 });
 
 ipcMain.on('audio-meter', (e, data) => {
+  noteMcpLive(data);
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
   if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
@@ -3498,6 +3614,7 @@ app.whenReady().then(async () => {
      listeyi isteyene kadar binlerce dosyanın okuması büyük ölçüde bitmiş
      oluyor ve ana süreç o arada bekletilmiyor. */
   presetsStore.warm().catch(() => {});
+  syncMcp();
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
@@ -5857,6 +5974,7 @@ function shutdownCleanup() {
   textureShare.stop().catch(() => {});
   mediaSession.stop();
   nativeAudio.stopCapture();
+  if (mcpHandle) mcpHandle.stop().catch(() => {});
 }
 
 app.on('before-quit', (e) => {

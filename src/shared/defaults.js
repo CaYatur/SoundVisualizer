@@ -1121,6 +1121,13 @@
       encoder: 'gpu', // 'gpu' (NVIDIA NVENC, hızlı) | 'cpu' (libx264, en uyumlu)
       speed: 'balanced', // 'fast' | 'balanced' | 'quality' — hız/kalite dengesi (preset)
     },
+
+    /* MCP control card. Master stays off. When enabled, the mode is read until the user picks another. */
+    mcp: {
+      enabled: false,
+      mode: 'read',
+      port: 38471,
+    },
   };
 
   // Ek görsel nesne (partikül emitör) varsayılanları.

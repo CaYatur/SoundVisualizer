@@ -3068,6 +3068,25 @@ expects.
     The light each preset leaves now matches MilkDrop's to three decimals.
   - **Not matched:** MilkDrop's thin line lands between two rows at about half brightness, where ours lights one row fully. The light is the same; the half-texel placement is Direct3D 9's rasterisation and is not chased.
 
+## Next, not yet numbered — MCP
+
+Local only, not in a numbered release. The Control card lets an agent drive
+the app. It is off by default.
+
+- Five modes stack: Read, Apply, Write, Full, Everything. Turning the card on
+  starts at Read. Read changes nothing. Apply uses what already exists. Write
+  creates and edits, including Auto VJ. Full adds lighting, mapping, windows,
+  timeline transport, Spout and the stream. Everything adds updates, audio
+  repair and stream-token rotation.
+- The server binds `127.0.0.1` only, port 38471 unless the user confirms
+  another. A busy port is left busy. Agents use the stdio command from the
+  setup dialog, which forwards to `http://127.0.0.1:<port>/mcp`.
+- Tools cover scenes, layers, effects, presets, displays, the floating window,
+  the clip deck, timeline transport, recording and export. A denied call names
+  the minimum mode and tells the agent not to change the mode or click the
+  panel. Allowed edits refresh the admin panel through the same config push a
+  click already uses, including the display selection.
+
 ## v3.1.6 — Comprehensive video export
 
 Faster export, more formats, and enough presets that a content creator never
