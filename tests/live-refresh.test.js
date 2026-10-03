@@ -8,6 +8,15 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const Module = require('module');
+
+/* CI does not install Electron. The preset store only needs app.getPath
+   until setDir points it at a temp folder. */
+const origLoad = Module._load;
+Module._load = function (request) {
+  if (request === 'electron') return { app: { getPath: () => os.tmpdir() } };
+  return origLoad.apply(this, arguments);
+};
 
 global.window = global.window || {};
 require('../src/shared/defaults.js');
