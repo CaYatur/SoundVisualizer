@@ -1826,32 +1826,75 @@ function noteMcpLive(data) {
   mcpLive.at = Date.now();
 }
 
-const MCP_PREVIEW_JS = '(() => {' +
-  'const list = Array.from(document.querySelectorAll("canvas"));' +
-  'const c = list.find((x) => x.width > 8 && x.height > 8);' +
-  'if (!c) return null;' +
-  'const maxW = 480;' +
-  'const scale = Math.min(1, maxW / c.width);' +
-  'const w = Math.max(1, Math.round(c.width * scale));' +
-  'const h = Math.max(1, Math.round(c.height * scale));' +
-  'const o = document.createElement("canvas");' +
-  'o.width = w; o.height = h;' +
-  'o.getContext("2d").drawImage(c, 0, 0, w, h);' +
-  'return { width: w, height: h, dataUrl: o.toDataURL("image/jpeg", 0.62) };' +
+const VISUALIZER_READY_JS = '(() => {' +
+  'const c = document.querySelector("canvas");' +
+  'if (!c || c.width < 8 || c.height < 8) return false;' +
+  'return true;' +
   '})()';
 
+const ADMIN_PREVIEW_RECT_JS = '(() => {' +
+  'const P = window.SVPreview;' +
+  'if (!P || typeof P.stack !== "function" || !P.stack()) return null;' +
+  'const stage = document.getElementById("previewStage");' +
+  'if (!stage) return null;' +
+  'const r = stage.getBoundingClientRect();' +
+  'if (r.width < 8 || r.height < 8) return null;' +
+  'return { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y)), width: Math.max(1, Math.round(r.width)), height: Math.max(1, Math.round(r.height)) };' +
+  '})()';
+
+const PREVIEW_NOT_READY = 'The preview canvas is not ready.';
+
+function jpegOfShown(image) {
+  if (!image || image.isEmpty()) return null;
+  const size = image.getSize();
+  if (!size || size.width < 8 || size.height < 8) return null;
+  let out = image;
+  if (size.width > 480) {
+    const height = Math.max(1, Math.round(size.height * (480 / size.width)));
+    out = image.resize({ width: 480, height: height });
+  }
+  const sized = out.getSize();
+  const buf = out.toJPEG(62);
+  if (!buf || !buf.length) return null;
+  return {
+    width: sized.width,
+    height: sized.height,
+    dataUrl: 'data:image/jpeg;base64,' + buf.toString('base64'),
+  };
+}
+
+async function captureShown(win, rect) {
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return null;
+  const image = rect ? await win.webContents.capturePage(rect) : await win.webContents.capturePage();
+  return jpegOfShown(image);
+}
+
+/* Canvas toDataURL reads the WebGL drawing buffer, which is already empty
+   after the frame is shown, so the JPEG was 480px and fully black. capturePage
+   takes the pixels the window is actually showing. */
 async function mcpCapturePreview() {
-  const wins = [];
-  for (const win of visualizerWins.values()) wins.push(win);
-  if (adminWin && !adminWin.isDestroyed()) wins.push(adminWin);
-  for (const win of wins) {
+  const shown = [];
+  for (const win of visualizerWins.values()) shown.push(win);
+  if (floatingWin && !floatingWin.isDestroyed()) shown.push(floatingWin);
+  for (const win of shown) {
     if (!win || win.isDestroyed()) continue;
     try {
-      const img = await win.webContents.executeJavaScript(MCP_PREVIEW_JS);
-      if (img && img.dataUrl) return img;
-    } catch (e) { /* this window has no canvas yet */ }
+      const ready = await win.webContents.executeJavaScript(VISUALIZER_READY_JS);
+      if (!ready) continue;
+      const img = await captureShown(win);
+      if (img) return img;
+    } catch (e) { /* this window has no frame yet */ }
   }
-  return null;
+  if (adminWin && !adminWin.isDestroyed()) {
+    try {
+      const rect = await adminWin.webContents.executeJavaScript(ADMIN_PREVIEW_RECT_JS);
+      if (rect && rect.width >= 8 && rect.height >= 8) {
+        const img = await captureShown(adminWin, rect);
+        if (img) return img;
+      }
+    } catch (e) { /* admin preview is not up */ }
+  }
+  return { error: PREVIEW_NOT_READY };
 }
 
 function mcpAdminCall(js) {

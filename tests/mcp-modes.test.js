@@ -215,22 +215,37 @@ test('stop all clips calls the deck stop and is denied in read mode', async func
 });
 
 test('HTTP stays on 38471 and does not hop when that port is busy', async function () {
-  const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-mcp-a-'));
-  const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-mcp-b-'));
+  const net = require('net');
+  const holder = net.createServer();
+  let held = false;
+  await new Promise(function (resolve, reject) {
+    let settled = false;
+    holder.once('error', function (err) {
+      if (settled) return;
+      settled = true;
+      if (err && err.code === 'EADDRINUSE') resolve();
+      else reject(err);
+    });
+    holder.listen(38471, '127.0.0.1', function () {
+      if (settled) return;
+      settled = true;
+      held = true;
+      resolve();
+    });
+  });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-mcp-busy-'));
   const cfg = { mcp: { enabled: true, mode: 'read', port: 38471 } };
-  const a = mcpServer.create({ userData: dirA, getConfig: function () { return cfg; } });
-  const b = mcpServer.create({ userData: dirB, getConfig: function () { return cfg; } });
+  const server = mcpServer.create({ userData: dir, getConfig: function () { return cfg; } });
   try {
-    const first = await a.start();
-    assert.strictEqual(first.running, true);
-    assert.strictEqual(first.port, 38471);
-    assert.strictEqual(first.host, '127.0.0.1');
-    const second = await b.start();
-    assert.strictEqual(second.portBusy, true);
-    assert.strictEqual(second.running, false);
-    assert.strictEqual(second.port, 0);
+    const status = await server.start();
+    assert.strictEqual(status.host, '127.0.0.1');
+    assert.strictEqual(status.configuredPort, 38471);
+    assert.strictEqual(status.requestedPort, 38471);
+    assert.strictEqual(status.portBusy, true);
+    assert.strictEqual(status.running, false);
+    assert.strictEqual(status.port, 0);
   } finally {
-    await a.stop();
-    await b.stop();
+    await server.stop();
+    if (held) await new Promise(function (resolve) { holder.close(function () { resolve(); }); });
   }
 });

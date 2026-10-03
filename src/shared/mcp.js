@@ -413,7 +413,12 @@
       return state;
     }
     return Promise.resolve().then(function () { return ctx.capturePreview(); }).then(function (img) {
-      state.preview = img || null;
+      if (!img || img.error || !img.dataUrl) {
+        state.preview = null;
+        state.previewError = (img && img.error) || 'The preview canvas is not ready.';
+        return state;
+      }
+      state.preview = img;
       return state;
     }).catch(function (e) {
       state.preview = null;
@@ -1004,7 +1009,7 @@
     if (!args || !args.path) return fail('path is required.');
     if (!ctx.capturePreview || !ctx.writeBinary) return fail('Snapshot capture is not available in this process.');
     return Promise.resolve(ctx.capturePreview()).then(function (img) {
-      if (!img || !img.dataUrl) return fail('No live canvas to capture.');
+      if (!img || img.error || !img.dataUrl) return fail((img && img.error) || 'The preview canvas is not ready.');
       const m = String(img.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
       if (!m) return fail('Canvas did not return a data URL.');
       return Promise.resolve(ctx.writeBinary(args.path, Buffer.from(m[2], 'base64'))).then(function () {
