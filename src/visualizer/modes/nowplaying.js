@@ -300,14 +300,16 @@
         ctx.scale(1 / pulse, 1 / pulse);
         ctx.translate(coverCx, coverCy);
         ctx.scale(coverPulse, coverPulse);
-        /* Kapak da logo/görsel gibi yuvarlatılınca dış ışık clip ile kesilmesin.
-           Metin gölgesi (shadow) varsa aynı yumuşak dış ışığı oval kenara taşı. */
-        const coverGlow = shadow > 0 ? shadow * minCover * 0.22 : 0;
+        /* Kapak parlaması logo ile aynı kenar halesi. Slider visualizer.glow.
+           Metin gölgesi kapağa shadowBlur basmaz. */
+        const glowAmt = Math.max(0, Number(cfg.visualizer && cfg.visualizer.glow) || 0);
+        const coverGlow = glowAmt > 0 ? glowAmt * 40 * (minDim / 1080) : 0;
         if (window.SVRoundImage && window.SVRoundImage.drawImage) {
           window.SVRoundImage.drawImage(ctx, coverImg, -coverW / 2, -coverH / 2, coverW, coverH, {
             radiusPx: rad,
             glowBlur: coverGlow,
-            shadowColor: 'rgba(0,0,0,0.55)',
+            glowAmount: glowAmt,
+            edgeBloom: true,
             owner: this,
             fit: drawFit,
           });

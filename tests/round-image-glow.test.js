@@ -80,6 +80,16 @@ test('logo sprites nowplaying use SVRoundImage', () => {
   const call = paint.slice(callStart, callEnd);
   assert.match(call, /edgeBloom:\s*true/);
   assert.equal(call.includes('255,255,255'), false, 'logo glow must not be a white shadow');
+  const np = fs.readFileSync(path.join(root, 'modes', 'nowplaying.js'), 'utf8');
+  const coverAt = np.indexOf('const glowAmt');
+  const coverEnd = np.indexOf('ctx.restore()', coverAt);
+  const cover = np.slice(coverAt, coverEnd);
+  assert.match(cover, /visualizer\.glow/);
+  assert.match(cover, /glowAmt \* 40 \* \(minDim \/ 1080\)/);
+  assert.match(cover, /edgeBloom:\s*true/);
+  assert.match(cover, /glowAmount:\s*glowAmt/);
+  assert.equal(cover.includes('shadowColor'), false, 'cover glow is not a shadow veil');
+  assert.match(layers, /visSettings\.glow/);
   const adminHtml = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'index.html'), 'utf8');
   assert.match(adminHtml, /round-image\.js/);
 });

@@ -588,8 +588,11 @@
       const npSettings = (layer.settings && layer.settings.nowplaying) || {};
       const defNp = (cfg && cfg.nowplaying) || (def ? def.nowplaying : {});
       const baseVis = (cfg && cfg.visualizer) || (def ? def.visualizer : {}) || {};
+      const visSettings = (layer.settings && layer.settings.visualizer) || {};
+      const vis = Object.assign({}, baseVis, { type: 'nowplaying' });
+      if (visSettings.glow != null) vis.glow = visSettings.glow;
       return Object.assign({}, base, {
-        visualizer: Object.assign({}, baseVis, { type: 'nowplaying' }),
+        visualizer: vis,
         nowplaying: Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false }),
       });
     }
