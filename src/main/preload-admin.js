@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld('api', {
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
   // Değişiklik yayını ve toplu kaydın ilerlemesi (#574)
   onPresetsDelta: (cb) => ipcRenderer.on('presets-delta', (e, d) => cb(d)),
+  presetsHead: () => ipcRenderer.invoke('presets:head'),
+  presetsSince: (gen) => ipcRenderer.invoke('presets:since', gen),
   onPresetsProgress: (cb) => ipcRenderer.on('presets-progress', (e, p) => cb(p)),
   /* MilkDrop kütüphanesi (#574): tarama bir özet ve kimlik döndürüyor,
      içe aktarım aynı kimlikle; dosya listeleri ana süreçte kalıyor. */
@@ -170,6 +172,8 @@ contextBridge.exposeInMainWorld('api', {
   nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
+  mcpStatus: () => ipcRenderer.invoke('mcp:status'),
+  mcpReportLive: (data) => ipcRenderer.send('mcp:live', data),
   onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
   onExternalConfig: (cb) => ipcRenderer.on('external-config', (e, c) => cb(c)),
 

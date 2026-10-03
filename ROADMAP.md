@@ -129,7 +129,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **2577 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2613 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 878
   on `main` since.
@@ -1738,7 +1738,9 @@ rest after. No version number yet.
   - **Store.** Files are read once — in the background at start-up — and
     kept; saves and deletes update the cache. `list()` still looks at the
     folder's file names on every call, so a file added or removed by hand
-    shows up; a file edited by hand shows up after a restart. Bulk saves are
+    shows up. A file edited by hand is re-read when the folder watcher or an
+    MCP turn names it, and open windows take that change without a restart.
+    Bulk saves are
     written in batches with pauses so the main process keeps serving audio,
     lights and IPC, report progress, and keep the pack's own order.
   - **Change broadcast.** A save or delete sends only what changed
@@ -3067,6 +3069,25 @@ expects.
 
     The light each preset leaves now matches MilkDrop's to three decimals.
   - **Not matched:** MilkDrop's thin line lands between two rows at about half brightness, where ours lights one row fully. The light is the same; the half-texel placement is Direct3D 9's rasterisation and is not chased.
+
+## Next, not yet numbered — MCP
+
+Local only, not in a numbered release. The Control card lets an agent drive
+the app. It is off by default.
+
+- Five modes stack: Read, Apply, Write, Full, Everything. Turning the card on
+  starts at Read. Read changes nothing. Apply uses what already exists. Write
+  creates and edits, including Auto VJ. Full adds lighting, mapping, windows,
+  timeline transport, Spout and the stream. Everything adds updates, audio
+  repair and stream-token rotation.
+- The server binds `127.0.0.1` only, port 38471 unless the user confirms
+  another. A busy port is left busy. Agents use the stdio command from the
+  setup dialog, which forwards to `http://127.0.0.1:<port>/mcp`.
+- Tools cover scenes, layers, effects, presets, displays, the floating window,
+  the clip deck, timeline transport, recording and export. A denied call names
+  the minimum mode and tells the agent not to change the mode or click the
+  panel. Allowed edits refresh the admin panel through the same config push a
+  click already uses, including the display selection.
 
 ## v3.1.6 — Comprehensive video export
 

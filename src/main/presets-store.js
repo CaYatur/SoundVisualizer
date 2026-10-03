@@ -15,8 +15,9 @@
    kilitliyordu. Şimdi dosyalar bir kez okunuyor — açılışta arka planda
    (`warm`) — ve kayıt ile silme önbelleği yerinde güncelliyor. `list()` her
    çağrıda klasörün yalnız ADLARINA bakıyor (10 bin adda milisaniyeler): elle
-   eklenen ya da silinen dosya yine görünüyor. Elle DEĞİŞTİRİLEN bir dosya
-   uygulama yeniden açılınca görünüyor. */
+   eklenen ya da silinen dosya yine görünüyor. İçeriği değişen dosya, izleyen
+   `syncDisk` çağrısında (dosya izleyicisi ya da MCP turu) yeniden okunuyor;
+   açık pencereler yeniden başlatılmadan listeyi alır. */
 
 const fs = require('fs');
 const path = require('path');
@@ -69,6 +70,23 @@ let warming = null;
 /* Arka plan okuması sürerken silinenler: okuma, silmeden ÖNCE aldığı ad
    listesinden bir önbellek kuruyor ve silineni geri getirebilirdi. */
 const droppedWhileWarming = new Set();
+/* Arka plan okuması sürerken kaydedilenler: remember() önbellek henüz
+   yokken dönüyordu, warm() ise okumanın başındaki ad listesini yazıyordu.
+   Dosya diskte kalıyor, açık pencereler yeniden başlatılana kadar
+   görmüyordu. */
+const savedWhileWarming = new Map();
+/* Dosya damgası: mtime + boyut. Kendi kayıtlarımız yazınca damgayı işler;
+   dışarıdan değişen dosya ancak o zaman yeniden okunur. Bütün klasörü her
+   turda stat'lamak 10 bin presette ana süreci tutuyordu. */
+const stamps = new Map();
+/* `list()` yeni ya da silinen adı önbelleğe alır ama bunu kimse yayınlamazsa
+   diğer pencereler eski listede kalır. Değişiklik burada birikir; `syncDisk`
+   onu alıp temizler. */
+let queuedUpsert = [];
+let queuedRemove = [];
+let watchTimer = null;
+let watcher = null;
+const watchHints = new Set();
 
 function names() {
   try { return fs.readdirSync(dir()).filter((f) => f.endsWith('.json')); } catch { return []; }
@@ -114,14 +132,21 @@ function warm() {
         } catch { /* okunamayan dosya atlanıyor */ }
       }));
     }
+    for (const pair of savedWhileWarming) map.set(pair[0], pair[1]);
+    savedWhileWarming.clear();
     for (const n of droppedWhileWarming) map.delete(n);
     droppedWhileWarming.clear();
     if (!byFile) { byFile = map; sorted = null; }
+    else {
+      for (const pair of map) if (!byFile.has(pair[0])) byFile.set(pair[0], pair[1]);
+      sorted = null;
+    }
   })();
   return warming;
 }
 
-// Klasörle eşitle: yeni adlar okunuyor, kaybolanlar düşüyor
+// Klasörle eşitle: yeni adlar okunuyor, kaybolanlar düşüyor.
+// Bulunan fark yayın kuyruğuna da yazılır (`syncDisk`).
 function rescan() {
   const now = names();
   const seen = new Set(now);
@@ -129,12 +154,110 @@ function rescan() {
   for (const n of now) {
     if (byFile.has(n)) continue;
     const p = readOne(n);
-    if (p) { byFile.set(n, p); changed = true; }
+    if (p) {
+      byFile.set(n, p);
+      noteStamp(path.join(dir(), n));
+      queueUpsert(p);
+      changed = true;
+    }
   }
   for (const n of Array.from(byFile.keys())) {
-    if (!seen.has(n)) { byFile.delete(n); changed = true; }
+    if (!seen.has(n)) {
+      const old = byFile.get(n);
+      byFile.delete(n);
+      stamps.delete(n);
+      if (old && old.id) queueRemove(old.id);
+      changed = true;
+    }
   }
   if (changed) sorted = null;
+}
+
+/* İzleyicinin verdiği adlar: içerik değişmişse yeniden oku. Adı olmayan
+   bir olay bütün klasörü stat'lamaz; yeni ve silinen adları `rescan` görür. */
+function refreshHints(hints) {
+  const folder = dir();
+  for (const hint of hints || []) {
+    const n = path.basename(String(hint || ''));
+    if (!n || !n.endsWith('.json')) continue;
+    const file = path.join(folder, n);
+    let stamp = '';
+    try {
+      const st = fs.statSync(file);
+      stamp = st.mtimeMs + ':' + st.size;
+    } catch {
+      continue;
+    }
+    if (!byFile.has(n)) continue;
+    if (stamps.get(n) === stamp) continue;
+    const p = readOne(n);
+    stamps.set(n, stamp);
+    if (!p) continue;
+    byFile.set(n, p);
+    sorted = null;
+    queueUpsert(p);
+  }
+}
+
+function takeQueued() {
+  const upsert = [];
+  const seen = new Set();
+  for (let i = queuedUpsert.length - 1; i >= 0; i--) {
+    const p = queuedUpsert[i];
+    if (!p || !p.id || seen.has(p.id)) continue;
+    seen.add(p.id);
+    upsert.push(p);
+  }
+  upsert.reverse();
+  const remove = [];
+  const dropped = new Set();
+  for (const id of queuedRemove) {
+    if (seen.has(id) || dropped.has(id)) continue;
+    dropped.add(id);
+    remove.push(id);
+  }
+  queuedUpsert = [];
+  queuedRemove = [];
+  return { upsert, remove };
+}
+
+/* Açık pencerelere gidecek fark. `hints` izleyicinin gördüğü dosya adları. */
+function syncDisk(hints) {
+  ensure();
+  rescan();
+  if (hints && hints.length) refreshHints(hints);
+  return takeQueued();
+}
+
+function watch(onChange) {
+  if (watcher || typeof onChange !== 'function') return;
+  let folder;
+  try { folder = dir(); } catch { return; }
+  try {
+    watcher = fs.watch(folder, { persistent: false }, (event, filename) => {
+      if (filename) watchHints.add(String(filename));
+      if (watchTimer) clearTimeout(watchTimer);
+      watchTimer = setTimeout(() => {
+        watchTimer = null;
+        const hints = Array.from(watchHints);
+        watchHints.clear();
+        try {
+          const delta = syncDisk(hints);
+          if (delta.upsert.length || delta.remove.length) onChange(delta);
+        } catch { /* klasör kaybolduysa bir sonraki tur dener */ }
+      }, 80);
+    });
+  } catch { watcher = null; }
+}
+
+function closeWatch() {
+  if (watchTimer) clearTimeout(watchTimer);
+  watchTimer = null;
+  watchHints.clear();
+  if (watcher) {
+    try { watcher.close(); } catch { /* zaten kapalı */ }
+    watcher = null;
+  }
 }
 
 function list() {
@@ -181,10 +304,26 @@ function prepare(preset, stamp) {
   return { ok: true, p, file, json };
 }
 
+function noteStamp(file) {
+  try {
+    const st = fs.statSync(file);
+    stamps.set(path.basename(file), st.mtimeMs + ':' + st.size);
+  } catch { /* dosya yok: sonraki tur silme olarak görür */ }
+}
+
 function remember(file, p) {
-  if (!byFile) return; // henüz okunmadı: dosya ilk okumada gelecek
-  byFile.set(path.basename(file), p);
+  const name = path.basename(file);
+  noteStamp(file);
+  if (!byFile) { savedWhileWarming.set(name, p); return; }
+  byFile.set(name, p);
   sorted = null;
+}
+
+function queueUpsert(p) {
+  if (p && p.id) queuedUpsert.push(p);
+}
+function queueRemove(id) {
+  if (id) queuedRemove.push(String(id));
 }
 
 function save(preset) {
@@ -204,7 +343,9 @@ function remove(id) {
   if (!file) return { ok: false, error: 'BAD_ID' };
   try {
     fs.unlinkSync(file);
-    if (byFile) { byFile.delete(path.basename(file)); sorted = null; } else if (warming) droppedWhileWarming.add(path.basename(file));
+    const base = path.basename(file);
+    if (byFile) { byFile.delete(base); sorted = null; }
+    else if (warming) { droppedWhileWarming.add(base); savedWhileWarming.delete(base); }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -250,11 +391,19 @@ async function saveManyAsync(presets, onProgress) {
 
 // Test kancası: depoyu başka bir klasöre yönelt ve önbelleği boşalt
 function setDir(d) {
+  closeWatch();
   root = d || null;
   byFile = null;
   sorted = null;
   warming = null;
   droppedWhileWarming.clear();
+  savedWhileWarming.clear();
+  stamps.clear();
+  queuedUpsert = [];
+  queuedRemove = [];
 }
 
-module.exports = { list, get, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir };
+module.exports = {
+  list, get, save, saveMany, saveManyAsync, remove, dir, warm, compare, setDir,
+  syncDisk, watch,
+};

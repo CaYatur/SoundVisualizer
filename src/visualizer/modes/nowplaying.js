@@ -69,10 +69,12 @@
       const c = cfg.nowplaying || {};
       if ((c.source || 'system') === 'manual') {
         const m = c.manual || {};
-        const any = !!(m.title || m.artist || m.album);
+        const dur = Math.max(0, Number(m.duration) || 0);
+        const any = !!(m.title || m.artist || m.album || dur > 0);
         return Object.assign({}, N.EMPTY, {
-          has: any, playing: any,
+          has: any, playing: false,
           title: m.title || '', artist: m.artist || '', album: m.album || '',
+          duration: dur,
         });
       }
       return (window.SVNowLive && window.SVNowLive.state) || N.EMPTY;
@@ -107,12 +109,15 @@
       const style = N.styleOf(c.style);
       const pick = (v, k) => (v === null || v === undefined ? style[k] : v);
 
-      /* Süre, çubuk ve oynatıcı adı yalnız Windows medya oturumundan gelir.
-         Elle yazılan parçada, ya da macOS/Linux'ta, 0:00 göstermek yanlış bilgi olur. */
+      /* Geçen süre, kalan süre, çubuk ve oynatıcı adı sistem oturumundan gelir.
+         macOS/Linux bunu okuyamaz. Elle yazılan toplam süre gösterilir;
+         geçen süre uydurulmaz. */
       const platWin = !(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isWindows === false);
       const fromSystem = platWin && (c.source || 'system') === 'system';
+      const manualDur = Math.max(0, Number((c.manual && c.manual.duration) || 0));
       const show = fromSystem ? c.show : Object.assign({}, c.show, {
-        appName: false, elapsed: false, remaining: false, total: false, bar: false,
+        appName: false, elapsed: false, remaining: false, bar: false,
+        total: manualDur > 0,
       });
       const parts = N.compose(st, Object.assign({}, c, {
         show,
@@ -300,14 +305,16 @@
         ctx.scale(1 / pulse, 1 / pulse);
         ctx.translate(coverCx, coverCy);
         ctx.scale(coverPulse, coverPulse);
-        /* Kapak da logo/görsel gibi yuvarlatılınca dış ışık clip ile kesilmesin.
-           Metin gölgesi (shadow) varsa aynı yumuşak dış ışığı oval kenara taşı. */
-        const coverGlow = shadow > 0 ? shadow * minCover * 0.22 : 0;
+        /* Kapak parlaması logo ile aynı kenar halesi. Slider visualizer.glow.
+           Metin gölgesi kapağa shadowBlur basmaz. */
+        const glowAmt = Math.max(0, Number(cfg.visualizer && cfg.visualizer.glow) || 0);
+        const coverGlow = glowAmt > 0 ? glowAmt * 40 * (minDim / 1080) : 0;
         if (window.SVRoundImage && window.SVRoundImage.drawImage) {
           window.SVRoundImage.drawImage(ctx, coverImg, -coverW / 2, -coverH / 2, coverW, coverH, {
             radiusPx: rad,
             glowBlur: coverGlow,
-            shadowColor: 'rgba(0,0,0,0.55)',
+            glowAmount: glowAmt,
+            edgeBloom: true,
             owner: this,
             fit: drawFit,
           });

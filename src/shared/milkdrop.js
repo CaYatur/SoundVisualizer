@@ -3098,7 +3098,18 @@
     };
   }
 
-  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset, parseMilk2,
+  /* Aynı uzunluktaki iki kaynak da farklıdır. Motor anahtarı yalnız
+     uzunluğa bakınca MCP'nin yerine yazdığı preset ekranda kalıyordu.
+     Aynı dizgi referansı her karede yeniden özetlenmesin diye motor
+     sonucu kendisi tutuyor. */
+  function sourceTag(src) {
+    const s = src || '';
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return (h >>> 0).toString(36) + ':' + s.length;
+  }
+
+  const api = { tokenize, parse, compile, Pool, FUNCS, parseMilk, Preset, parseMilk2, sourceTag,
     clampColor, colorNorm, borderRings, md2Versions, stagePlan, genWarpText, genCompText, md3Features, md3Auto, isMd3,
     echoFlipBits, fixedCompWeights, parseMilkMd2, readMilk, readVersions, readingsDiffer,
     resetGlobals,

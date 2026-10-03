@@ -347,5 +347,5 @@
     P().rerender();
   }
 
-  window.SVRecordPanel = { panel };
+  window.SVRecordPanel = { panel: panel, start: start, stop: stop };
 })();

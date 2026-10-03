@@ -268,12 +268,12 @@ test('ölçü kipinde vuruşa yuvarlanan süre de uzun', () => {
 });
 
 test('elle "şimdi kes" yine kesiyor: açık bir komut', () => {
-  const { m } = engine(null);
+  const { m, win } = engine(null);
   m._ensurePreset(cfgFor(PRESETS[0]));
   m._reduced = true;
   m._ensurePreset(cfgFor(PRESETS[1], {}, { cutTo: 'p2' }));
   assert.ok(!m.oldPreset, 'karışmadan yüklenmeli');
-  assert.strictEqual(m.presetKey, 'p2|' + PRESETS[1].source.length);
+  assert.strictEqual(m.presetKey, 'p2|' + PRESETS[1].source.length + '#' + win.SVMilkdrop.sourceTag(PRESETS[1].source));
 });
 
 test('izleyen: liderin sert geçişi hareketi azaltan ekranda karışarak', () => {

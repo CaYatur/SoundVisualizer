@@ -174,6 +174,16 @@
       nodes.push(man('title', 'Parça Adı'));
       nodes.push(man('artist', 'Sanatçı'));
       nodes.push(man('album', 'Albüm'));
+      const clock = window.SVScenePanels;
+      nodes.push(P().row('Süre', el('input', {
+        class: 'p-in', type: 'text',
+        value: clock ? clock.formatClock(C.manual.duration) : '',
+        placeholder: '3:24',
+        oninput: (e) => {
+          C.manual.duration = clock ? clock.parseClock(e.target.value) : 0;
+          P().push(false);
+        },
+      })));
     }
 
     // ------------------------------------------------------------ görünürlük

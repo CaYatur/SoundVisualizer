@@ -2,12 +2,12 @@
 /* Lightweight UI localization. English is the fallback; Turkish is used only
    when the operating-system/browser locale starts with "tr". */
 (function () {
-  const detected = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+  const detected = (typeof navigator !== 'undefined' && ((navigator.languages && navigator.languages[0]) || navigator.language)) || 'en';
   /* Dil tercihi. Yayın sunucusu tarafından servis edilen sayfalarda (OBS
      katmanı ve mobil kumanda) uygulamanın dili sayfaya window.__SV_LOCALE ile
      enjekte edilir; telefonun kendi dili değil, uygulamanın dili geçerlidir. */
   const injected = typeof window !== 'undefined' ? window.__SV_LOCALE : null;
-  const preference = injected || localStorage.getItem('sv-language') || 'auto';
+  const preference = injected || (typeof localStorage !== 'undefined' ? localStorage.getItem('sv-language') : null) || 'auto';
   const locale = preference === 'tr' || preference === 'en'
     ? preference
     : (/^tr(?:-|$)/i.test(detected) ? 'tr' : 'en');
@@ -2696,6 +2696,8 @@
     'Yazı': 'Typography',
     'Yazı Tipi': 'Font',
     'Hizalama': 'Alignment',
+    'Yazı Saydamlığı': 'Text Opacity',
+    'Çubuk Kalınlığı': 'Bar Thickness',
     'Kontur': 'Outline',
     'Gölge': 'Shadow',
     'Senkron Kayması': 'Sync Offset',
@@ -3028,7 +3030,44 @@
     'Renk Modu': 'Color Mode',
     'Sabit Renk': 'Fixed Color',
     'Renk Teması': 'Color Theme',
+    // MCP control card
+    'MCP': 'MCP',
+    'Kurulum': 'Setup',
+    'Efekt': 'Effect',
+    'Var olanı uygula': 'Apply what already exists',
+    'Oluştur ve düzenle': 'Create and edit',
+    'Dışa aktarma': 'Export',
+    'Karartma': 'Blackout',
+    'MCP kapalı.': 'MCP is off.',
+    'stdio dinleniyor.': 'Listening on stdio.',
+    'MCP açılıyor…': 'MCP is starting…',
+    'MCP kurulumu': 'MCP setup',
+    'Hepsi aynı stdio sunucusuna bağlanır. Ağ portu yalnız 127.0.0.1. Ollama ayrı bir protokol değildir.': 'All of them connect to the same stdio server. The socket is 127.0.0.1 only. Ollama is not a separate protocol.',
+    'Ajan sahneleri, katmanları, efektleri, presetleri, çıkışı ve karartmayı bu karttaki izinlerle sürer. Okuma (BPM, durum, önizleme) anahtar açılınca serbesttir. Yazma grupları varsayılan kapalıdır.': 'An agent drives scenes, layers, effects, presets, output, and blackout with the switches on this card. Reads (BPM, state, preview) are available when the master switch is on. Write groups stay off by default.',
+    'Ajan bu karttaki kiple sürer. Kapalı başlar; açılınca okuma. Her şey kipi tek tık ve varsayılan değil.': 'An agent drives the app through the mode on this card. It starts off; when on, the mode is read. Everything is one click and is not the default.',
+    'MCP açıkken bu uygulamayı açık tutun.': 'Keep this app open while MCP is enabled.',
+    'Windows’ta %APPDATA%\\Claude\\claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.': 'On Windows, add the mcpServers block to %APPDATA%\\Claude\\claude_desktop_config.json.',
+    'macOS’ta ~/Library/Application Support/Claude/claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.': 'On macOS, add the mcpServers block to ~/Library/Application Support/Claude/claude_desktop_config.json.',
+    'Linux’ta ~/.config/Claude/claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.': 'On Linux, add the mcpServers block to ~/.config/Claude/claude_desktop_config.json.',
+    'Claude Desktop’u tamamen kapatıp yeniden açın.': 'Quit Claude Desktop completely and open it again.',
+    'Tablo %USERPROFILE%\\.codex\\config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.': 'Add the table to %USERPROFILE%\\.codex\\config.toml. codex mcp add writes to that same file.',
+    'Tablo ~/.codex/config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.': 'Add the table to ~/.codex/config.toml. codex mcp add writes to that same file.',
+    'Yeni bir Codex oturumu açın.': 'Open a new Codex session.',
+    'Proje için .cursor/mcp.json, genel için %USERPROFILE%\\.cursor\\mcp.json kullanın.': 'Use .cursor/mcp.json for this project, or %USERPROFILE%\\.cursor\\mcp.json for every project.',
+    'Proje için .cursor/mcp.json, genel için ~/.cursor/mcp.json kullanın.': 'Use .cursor/mcp.json for this project, or ~/.cursor/mcp.json for every project.',
+    'Cursor MCP listesini yenileyin.': 'Reload the Cursor MCP list.',
+    'Grok için yayınlanmış tek bir MCP ayar dosyası yok.': 'Grok does not publish one MCP settings file path.',
+    'Stdio kabul eden istemcide aşağıdaki komutu kullanın.': 'If the client accepts stdio MCP, use the command below.',
+    'mcpServers JSON’unu o istemcinin MCP listesine yapıştırın.': 'Paste the mcpServers JSON into that client\'s MCP list.',
+    'Grok Bot yerel bir mcp.json yolu yayınlamıyor.': 'Grok Bot does not publish a local mcp.json path.',
+    'Aynı stdio komutunu MCP sunucusu olarak ekleyin.': 'Add the same stdio command as an MCP server.',
+    'Aşağıdaki mcpServers bloğu geçerlidir. Ayrı bir protokol yok.': 'The mcpServers block below is the one to use. There is no separate protocol.',
+    'Ollama ayrı bir MCP protokolü değildir. Ücretsiz yerel model, aynı MCP sunucusuna bağlanan bir istemcidir.': 'Ollama is not a separate MCP protocol. The free local-model path is a client that connects to this same MCP server.',
+    'Ollama’yı kurun, bir model çekin ve yerelde ollama serve çalışsın.': 'Install Ollama, pull a model, and run ollama serve locally.',
+    'MCP konuşan istemcide modeli Ollama’ya yöneltin ve bu stdio sunucusunu ekleyin.': 'In an MCP-capable client, point the model at Ollama and add this stdio server.',
+    'Aşağıdaki blok bu sunucudur.': 'The block below is this server.',
   };
+
 
   function normalize(value) { return String(value).replace(/\s+/g, ' ').trim(); }
   const EN_NORMALIZED = Object.fromEntries(
@@ -3201,8 +3240,706 @@
     for (const child of node.childNodes) translateNode(child);
   }
 
+
+  const MCP_I18N = {
+  "mcp.mode.read.word": {
+    "tr": "okuma",
+    "en": "read"
+  },
+  "mcp.mode.apply.word": {
+    "tr": "uygula",
+    "en": "apply"
+  },
+  "mcp.mode.write.word": {
+    "tr": "yaz",
+    "en": "write"
+  },
+  "mcp.mode.full.word": {
+    "tr": "tam",
+    "en": "full"
+  },
+  "mcp.mode.everything.word": {
+    "tr": "her şey",
+    "en": "everything"
+  },
+  "mcp.mode.read.label": {
+    "tr": "Okuma",
+    "en": "Read"
+  },
+  "mcp.mode.apply.label": {
+    "tr": "Uygula",
+    "en": "Apply"
+  },
+  "mcp.mode.write.label": {
+    "tr": "Yazma",
+    "en": "Write"
+  },
+  "mcp.mode.full.label": {
+    "tr": "Tam",
+    "en": "Full"
+  },
+  "mcp.mode.everything.label": {
+    "tr": "Her şey",
+    "en": "Everything"
+  },
+  "mcp.mode.read.hint": {
+    "tr": "Her şeyi görür (preset, efekt, ekran, durum) ama hiçbir şeyi değiştirmez.",
+    "en": "Sees everything (preset, effects, screens, state) and changes nothing."
+  },
+  "mcp.mode.apply.hint": {
+    "tr": "Var olanı da uygular; oluşturamaz ve düzenleyemez.",
+    "en": "Can also apply what already exists, and cannot create or edit."
+  },
+  "mcp.mode.write.hint": {
+    "tr": "Oluşturur ve düzenler (Otomatik VJ dahil); ışık, eşleme, pencere, zaman çizelgesi sarma/durdurma, Spout ve yayın ağı/jetonu kapalı kalır.",
+    "en": "Can create and edit, including Auto VJ; lighting, mapping, windows, timeline seek/stop, Spout, and stream LAN/token stay off."
+  },
+  "mcp.mode.full.hint": {
+    "tr": "Işık, eşleme, pencere, zaman çizelgesi, Spout ve yayın dahil normal gösteri kontrolleri; güncelleme kurma ve ses onarımı yok.",
+    "en": "Normal show controls, including those live surfaces; no app-update install and no audio repair."
+  },
+  "mcp.mode.everything.hint": {
+    "tr": "Bunların tümü, artı güncelleme, ses onarımı ve jeton döndürme.",
+    "en": "All of that, plus updates, audio repair, and token rotation."
+  },
+  "mcp.mode.read.unlocks": {
+    "tr": "Her şeyi görür (preset, efekt, ekran, durum) ama hiçbir şeyi değiştirmez.",
+    "en": "Sees everything (preset, effects, screens, state) and changes nothing."
+  },
+  "mcp.mode.apply.unlocks": {
+    "tr": "Var olanı da uygular; oluşturamaz ve düzenleyemez.",
+    "en": "Can also apply what already exists, and cannot create or edit."
+  },
+  "mcp.mode.write.unlocks": {
+    "tr": "Oluşturur ve düzenler (Otomatik VJ dahil); ışık, eşleme, pencere, zaman çizelgesi sarma/durdurma, Spout ve yayın ağı/jetonu kapalı kalır.",
+    "en": "Can create and edit, including Auto VJ; lighting, mapping, windows, timeline seek/stop, Spout, and stream LAN/token stay off."
+  },
+  "mcp.mode.full.unlocks": {
+    "tr": "Işık, eşleme, pencere, zaman çizelgesi, Spout ve yayın dahil normal gösteri kontrolleri; güncelleme kurma ve ses onarımı yok.",
+    "en": "Normal show controls, including those live surfaces; no app-update install and no audio repair."
+  },
+  "mcp.mode.everything.unlocks": {
+    "tr": "Bunların tümü, artı güncelleme, ses onarımı ve jeton döndürme.",
+    "en": "All of that, plus updates, audio repair, and token rotation."
+  },
+  "mcp.err.mode": {
+    "tr": "Bu iş için MCP modu «{mode}» gerekir. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",
+    "en": "This needs MCP mode «{mode}». Do not change the mode yourself. Do not click the admin UI. Tell the user and stop."
+  },
+  "mcp.err.disabled": {
+    "tr": "MCP kapalı. Bu iş için MCP modu «{mode}» gerekir. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",
+    "en": "MCP is off. This needs MCP mode «{mode}». Do not change the mode yourself. Do not click the admin UI. Tell the user and stop."
+  },
+  "mcp.err.mcp": {
+    "tr": "MCP izinlerini sen değiştiremezsin. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",
+    "en": "You cannot change MCP permissions. Do not change the mode yourself. Do not click the admin UI. Tell the user and stop."
+  },
+  "mcp.err.token": {
+    "tr": "Jeton döndürmek Her şey kipini ister. sv_rotate_stream_token kullanın.",
+    "en": "Rotating a token needs Everything. Use sv_rotate_stream_token."
+  },
+  "mcp.err.unavailable": {
+    "tr": "Bu işlem bu süreçte yok.",
+    "en": "This action is not available in this process."
+  },
+  "mcp.err.repairManual": {
+    "tr": "Ses onarımı uygulamada elle bir adım ister. MCP sistem penceresi açmaz.",
+    "en": "Audio repair needs a manual step in the app. MCP will not open a system dialog."
+  },
+  "mcp.perm.read": {
+    "tr": "İzin: MCP açıkken okuma.",
+    "en": "Permission: read while MCP is on."
+  },
+  "mcp.perm.routed": {
+    "tr": "İzin: yola göre, kip merdivenine bağlı.",
+    "en": "Permission: depends on the path and the mode ladder."
+  },
+  "mcp.perm.needs": {
+    "tr": "İzin: {mode} veya üstü.",
+    "en": "Permission: {mode} or higher."
+  },
+  "mcp.perm.handsOff": {
+    "tr": "Modu sen değiştirme. Yönetici panelini tıklama. Gerekli kipin adını kullanıcıya söyle ve dur.",
+    "en": "Do not change the mode yourself. Do not click the admin UI. Tell the user the minimum mode name and stop."
+  },
+  "mcp.card.note": {
+    "tr": "Beş kip birikir. Anahtar kapalıyken ajan hiçbir şey yapamaz. Açılınca varsayılan kip okumadır. Her şey tek tık ve varsayılan seçili değildir.",
+    "en": "Five modes stack. While the master switch is off the agent can do nothing. When it is on, the default mode is read. Everything is one click and is not selected by default."
+  },
+  "mcp.card.off": {
+    "tr": "MCP kapalı.",
+    "en": "MCP is off."
+  },
+  "mcp.card.listening": {
+    "tr": "stdio dinleniyor.",
+    "en": "Listening on stdio."
+  },
+  "mcp.card.starting": {
+    "tr": "MCP açılıyor…",
+    "en": "MCP is starting…"
+  },
+  "mcp.card.setup": {
+    "tr": "Kurulum",
+    "en": "Setup"
+  },
+  "mcp.card.copy": {
+    "tr": "Kopyala",
+    "en": "Copy"
+  },
+  "mcp.card.copied": {
+    "tr": "Kopyalandı.",
+    "en": "Copied."
+  },
+  "mcp.card.copyFail": {
+    "tr": "Kopyalanamadı.",
+    "en": "Could not copy."
+  },
+  "mcp.card.close": {
+    "tr": "Kapat",
+    "en": "Close"
+  },
+  "mcp.card.master": {
+    "tr": "MCP",
+    "en": "MCP"
+  },
+  "mcp.setup.note": {
+    "tr": "Hepsi aynı stdio sunucusuna bağlanır. Ağ portu yalnız 127.0.0.1. Ollama ayrı bir protokol değildir.",
+    "en": "They all connect to the same stdio server. The network port is only 127.0.0.1. Ollama is not a separate protocol."
+  },
+  "mcp.setup.title": {
+    "tr": "MCP kurulumu",
+    "en": "MCP setup"
+  },
+  "mcp.setup.keepOpen": {
+    "tr": "MCP açıkken bu uygulamayı açık tutun.",
+    "en": "Keep this app open while MCP is enabled."
+  },
+  "mcp.setup.claude.file": {
+    "tr": "Windows’ta %APPDATA%\\Claude\\claude_desktop_config.json dosyasına mcpServers bloğunu ekleyin.",
+    "en": "Add the mcpServers block to %APPDATA%\\Claude\\claude_desktop_config.json on Windows."
+  },
+  "mcp.setup.claude.restart": {
+    "tr": "Claude Desktop’u tamamen kapatıp yeniden açın.",
+    "en": "Quit Claude Desktop completely and open it again."
+  },
+  "mcp.setup.codex.file": {
+    "tr": "Tablo %USERPROFILE%\\.codex\\config.toml dosyasına eklenir. codex mcp add de aynı yere yazar.",
+    "en": "The table goes in %USERPROFILE%\\.codex\\config.toml. codex mcp add writes there too."
+  },
+  "mcp.setup.codex.session": {
+    "tr": "Yeni bir Codex oturumu açın.",
+    "en": "Open a new Codex session."
+  },
+  "mcp.setup.cursor.file": {
+    "tr": "Proje için .cursor/mcp.json, genel için %USERPROFILE%\\.cursor\\mcp.json kullanın.",
+    "en": "Use .cursor/mcp.json for this project, or %USERPROFILE%\\.cursor\\mcp.json for every project."
+  },
+  "mcp.setup.cursor.reload": {
+    "tr": "Cursor MCP listesini yenileyin.",
+    "en": "Reload the Cursor MCP list."
+  },
+  "mcp.setup.grok.none": {
+    "tr": "Grok için yayınlanmış tek bir MCP ayar dosyası yok.",
+    "en": "Grok does not publish one MCP settings file path."
+  },
+  "mcp.setup.grok.stdio": {
+    "tr": "Stdio kabul eden istemcide aşağıdaki komutu kullanın.",
+    "en": "If the client accepts stdio MCP, use the command below."
+  },
+  "mcp.setup.grok.paste": {
+    "tr": "mcpServers JSON’unu o istemcinin MCP listesine yapıştırın.",
+    "en": "Paste the mcpServers JSON into that client's MCP list."
+  },
+  "mcp.setup.grokbot.none": {
+    "tr": "Grok Bot yerel bir mcp.json yolu yayınlamıyor.",
+    "en": "Grok Bot does not publish a local mcp.json path."
+  },
+  "mcp.setup.grokbot.add": {
+    "tr": "Aynı stdio komutunu MCP sunucusu olarak ekleyin.",
+    "en": "Add the same stdio command as an MCP server."
+  },
+  "mcp.setup.grokbot.block": {
+    "tr": "Aşağıdaki mcpServers bloğu geçerlidir. Ayrı bir protokol yok.",
+    "en": "The mcpServers block below is the one to use. There is no separate protocol."
+  },
+  "mcp.setup.ollama.same": {
+    "tr": "Ollama ayrı bir MCP protokolü değildir. Ücretsiz yerel model, aynı MCP sunucusuna bağlanan bir istemcidir.",
+    "en": "Ollama is not a separate MCP protocol. The free local-model path is a client that connects to this same MCP server."
+  },
+  "mcp.setup.ollama.install": {
+    "tr": "Ollama’yı kurun, bir model çekin ve yerelde ollama serve çalışsın.",
+    "en": "Install Ollama, pull a model, and run ollama serve locally."
+  },
+  "mcp.setup.ollama.point": {
+    "tr": "MCP konuşan istemcide modeli Ollama’ya yöneltin ve bu stdio sunucusunu ekleyin.",
+    "en": "In an MCP-capable client, point the model at Ollama and add this stdio server."
+  },
+  "mcp.setup.ollama.block": {
+    "tr": "Aşağıdaki blok bu sunucudur.",
+    "en": "The block below is this server."
+  },
+  "mcp.tool.sv_get_state": {
+    "tr": "Gösteri durumunu okur: sahne, katmanlar, efektler, karartma, izinler ve ses. Salt okunur.",
+    "en": "Read show state: scene, layers, effects, blackout, permissions, and audio. Read-only."
+  },
+  "mcp.tool.sv_get_visual_state": {
+    "tr": "Canlı görsel durumu okur: katman konumları, ayarlar, katman efektleri, genel efektler, etkin sahne. Salt okunur.",
+    "en": "Read live visual state: layer positions, settings, per-layer effects, global effects, active scene. Read-only."
+  },
+  "mcp.tool.sv_get_preview": {
+    "tr": "Görsel durumu ve açık bir pencere varsa canlı tuvalin küçük JPEG görüntüsünü okur. Salt okunur. Düzenlemeler arasında kullanın.",
+    "en": "Read visual state plus a small JPEG of the live canvas when a window is open. Read-only. Use it between edits."
+  },
+  "mcp.tool.sv_get_audio": {
+    "tr": "BPM ile seviye, bas, orta ve tiz değerlerini okur. Salt okunur.",
+    "en": "Read BPM and level/bass/mid/treble. Read-only."
+  },
+  "mcp.tool.sv_get_now_playing": {
+    "tr": "Çalan parçayı okur. Salt okunur.",
+    "en": "Read the current track. Read-only."
+  },
+  "mcp.tool.sv_list_scenes": {
+    "tr": "Kayıtlı sahneleri listeler. Salt okunur.",
+    "en": "List saved scenes. Read-only."
+  },
+  "mcp.tool.sv_get_scene": {
+    "tr": "Kayıtlı bir sahneyi okur. Salt okunur.",
+    "en": "Read one saved scene. Read-only."
+  },
+  "mcp.tool.sv_list_layers": {
+    "tr": "Katmanları konum, ayar ve efektleriyle listeler. Salt okunur.",
+    "en": "List layers with position, settings, and effects. Read-only."
+  },
+  "mcp.tool.sv_get_layer": {
+    "tr": "Bir katmanı okur. Salt okunur.",
+    "en": "Read one layer. Read-only."
+  },
+  "mcp.tool.sv_list_effects": {
+    "tr": "Genel ve katman efektlerini ve hazır tür kataloğunu listeler. Salt okunur.",
+    "en": "List global and per-layer effects plus the built-in type catalog. Read-only."
+  },
+  "mcp.tool.sv_list_presets": {
+    "tr": "Kitaplık presetlerini ve kullanıcı renk presetlerini listeler. Salt okunur.",
+    "en": "List library presets and user color presets. Read-only."
+  },
+  "mcp.tool.sv_list_displays": {
+    "tr": "Ekranları listeler. Salt okunur.",
+    "en": "List displays. Read-only."
+  },
+  "mcp.tool.sv_get_output_status": {
+    "tr": "Görselleştirici ve yayın durumunu okur. Salt okunur. Yayın jetonları dahil değildir.",
+    "en": "Read visualizer and stream status. Read-only. Stream tokens are not included."
+  },
+  "mcp.tool.sv_get_config": {
+    "tr": "Yapılandırmayı veya noktalı bir yolu okur. Yayın jetonları gizlenir. Salt okunur.",
+    "en": "Read config or one dotted path. Stream tokens are redacted. Read-only."
+  },
+  "mcp.tool.sv_list_permissions": {
+    "tr": "Geçerli MCP kipini ve bir aracın en düşük kipini bildirir. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",
+    "en": "Report the current MCP mode and the minimum mode a tool needs. Do not change the mode yourself. Do not click the admin UI. Tell the user and stop."
+  },
+  "mcp.tool.sv_get_timeline": {
+    "tr": "Zaman çizelgesi verisini okur. Salt okunur.",
+    "en": "Read timeline data. Read-only."
+  },
+  "mcp.tool.sv_get_clipdeck": {
+    "tr": "Klip destesi yuvalarını okur. Salt okunur.",
+    "en": "Read clip deck slots. Read-only."
+  },
+  "mcp.tool.sv_get_autovj": {
+    "tr": "Otomatik VJ ayarlarını okur. Salt okunur.",
+    "en": "Read Auto VJ settings. Read-only."
+  },
+  "mcp.tool.sv_apply_scene": {
+    "tr": "Var olan bir sahneye kimlik veya adla geçer. Sahne içeriğini oluşturmaz veya düzenlemez.",
+    "en": "Switch to an existing scene by id or name. Does not create or edit scene contents."
+  },
+  "mcp.tool.sv_set_visualizer_type": {
+    "tr": "Klasik görselleştiriciyi var olan bir kip kimliğine alır.",
+    "en": "Switch the classic visualizer to an existing mode id."
+  },
+  "mcp.tool.sv_set_background_type": {
+    "tr": "Arkaplanı var olan bir kip kimliğine alır.",
+    "en": "Switch the background to an existing mode id."
+  },
+  "mcp.tool.sv_set_layer_enabled": {
+    "tr": "Var olan bir katmanı gösterir veya gizler ve katman yığınını açar. Katman içeriğini değiştirmez.",
+    "en": "Show or hide an existing layer and turn the layer stack on. Does not change layer contents."
+  },
+  "mcp.tool.sv_set_crossfade": {
+    "tr": "Var olan A/B geçiş sürgüsünü oynatır (0 ile 1 arası).",
+    "en": "Move the existing A/B crossfader (0..1)."
+  },
+  "mcp.tool.sv_apply_template": {
+    "tr": "Var olan yerleşik bir şablonu kimliğiyle uygular.",
+    "en": "Apply an existing built-in template by id."
+  },
+  "mcp.tool.sv_timeline_transport": {
+    "tr": "Var olan zaman çizelgesini yönetici taşımasıyla oynatır, duraklatır, durdurur veya sarar.",
+    "en": "Play, pause, stop, or seek the existing timeline via the admin transport."
+  },
+  "mcp.tool.sv_trigger_clip": {
+    "tr": "Var olan bir klip destesi yuvasını ateşler. Izgarayı düzenlemez.",
+    "en": "Fire an existing clip-deck slot. Does not edit the grid."
+  },
+  "mcp.tool.sv_stop_clips": {
+    "tr": "Klip destesindeki bütün çalan yuvaları durdurur. Izgarayı düzenlemez.",
+    "en": "Stop every playing clip-deck slot. Does not edit the grid."
+  },
+  "mcp.tool.sv_set_autovj": {
+    "tr": "Otomatik VJ'yi açar veya kapatır ve var olan sahne, kip veya paletlerde nasıl ilerleyeceğini seçer.",
+    "en": "Turn Auto VJ on or off and choose how it walks existing scenes, modes, or palettes."
+  },
+  "mcp.tool.sv_create_scene": {
+    "tr": "Geçerli görsellerden bir sahne oluşturur. Yazarlık.",
+    "en": "Create a scene from the current visuals. Authoring."
+  },
+  "mcp.tool.sv_update_scene": {
+    "tr": "Var olan bir sahnenin üzerine geçerli görselleri yazar. Yazarlık.",
+    "en": "Overwrite an existing scene with the current visuals. Authoring."
+  },
+  "mcp.tool.sv_rename_scene": {
+    "tr": "Bir sahneyi yeniden adlandırır. Yazarlık.",
+    "en": "Rename a scene. Authoring."
+  },
+  "mcp.tool.sv_delete_scene": {
+    "tr": "Bir sahneyi siler. Yazarlık.",
+    "en": "Delete a scene. Authoring."
+  },
+  "mcp.tool.sv_add_layer": {
+    "tr": "Bir katman ekler ve katman yığınını açar. Yazarlık.",
+    "en": "Add a layer and turn the layer stack on. Authoring."
+  },
+  "mcp.tool.sv_update_layer": {
+    "tr": "Katmanın adını, türünü, opaklığını, karışımını, dönüşümünü veya ayarlarını değiştirir. Efekt eklemez. Yazarlık.",
+    "en": "Change layer name, type, opacity, blend, transform, or settings. Does not add effects. Authoring."
+  },
+  "mcp.tool.sv_set_layer_position": {
+    "tr": "Katmanın x, y, ölçek ve dönüşünü ayarlar. Yazarlık.",
+    "en": "Set layer x, y, scale, and rotate. Authoring."
+  },
+  "mcp.tool.sv_set_layer_settings": {
+    "tr": "Var olan bir katmanın ayarlarını birleştirir. Yazarlık.",
+    "en": "Merge settings on an existing layer. Authoring."
+  },
+  "mcp.tool.sv_remove_layer": {
+    "tr": "Bir katmanı kaldırır. Yazarlık.",
+    "en": "Remove a layer. Authoring."
+  },
+  "mcp.tool.sv_reorder_layers": {
+    "tr": "Katmanları kimlik listesine göre sıralar. Yazarlık.",
+    "en": "Reorder layers by id list. Authoring."
+  },
+  "mcp.tool.sv_set_text": {
+    "tr": "Yazı katmanını düzenler. Söz veya çalan parça kaynağı da buna dahildir. Yazarlık.",
+    "en": "Edit the text overlay, including a lyrics or now-playing source. Authoring."
+  },
+  "mcp.tool.sv_set_logo": {
+    "tr": "Logo ayarlarını düzenler. Yazarlık.",
+    "en": "Edit logo settings. Authoring."
+  },
+  "mcp.tool.sv_set_media": {
+    "tr": "Medya katmanı ayarlarını düzenler. Yazarlık.",
+    "en": "Edit media-layer settings. Authoring."
+  },
+  "mcp.tool.sv_set_geometry": {
+    "tr": "Geometri ayarlarını düzenler. Yazarlık.",
+    "en": "Edit geometry settings. Authoring."
+  },
+  "mcp.tool.sv_set_effect_enabled": {
+    "tr": "Genel zincirde zaten duran bir efekti açar veya kapatır.",
+    "en": "Enable or disable an effect already on the global chain."
+  },
+  "mcp.tool.sv_set_effect_param": {
+    "tr": "Zaten var olan genel bir efektin parametrelerini değiştirir.",
+    "en": "Change parameters of a global effect that already exists."
+  },
+  "mcp.tool.sv_set_layer_effect_enabled": {
+    "tr": "Bir katmanda zaten duran bir efekti açar veya kapatır.",
+    "en": "Enable or disable an effect already on a layer."
+  },
+  "mcp.tool.sv_set_layer_effect_param": {
+    "tr": "Bir katmanda zaten duran bir efektin parametrelerini değiştirir.",
+    "en": "Change parameters of an effect already on a layer."
+  },
+  "mcp.tool.sv_set_modulation_enabled": {
+    "tr": "Yolları düzenlemeden modülasyon matrisini açar veya kapatır.",
+    "en": "Turn the modulation matrix on or off without editing routes."
+  },
+  "mcp.tool.sv_set_macro": {
+    "tr": "Var olan bir makro sürgüsünü ayarlar.",
+    "en": "Set an existing macro fader."
+  },
+  "mcp.tool.sv_add_effect": {
+    "tr": "Genel zincire bir efekt ekler. Yazarlık.",
+    "en": "Add an effect to the global chain. Authoring."
+  },
+  "mcp.tool.sv_remove_effect": {
+    "tr": "Genel bir efekti kaldırır. Yazarlık.",
+    "en": "Remove a global effect. Authoring."
+  },
+  "mcp.tool.sv_add_layer_effect": {
+    "tr": "Belirli bir katmana efekt ekler. Yazarlık. Devam etmek için ardından durumu okuyun.",
+    "en": "Add an effect onto a specific layer. Authoring. Read state afterwards to continue."
+  },
+  "mcp.tool.sv_remove_layer_effect": {
+    "tr": "Bir katmandan efekt kaldırır. Yazarlık.",
+    "en": "Remove an effect from a layer. Authoring."
+  },
+  "mcp.tool.sv_add_modulation_route": {
+    "tr": "Bir modülasyon yolu ekler. Yazarlık.",
+    "en": "Add a modulation route. Authoring."
+  },
+  "mcp.tool.sv_remove_modulation_route": {
+    "tr": "Bir modülasyon yolunu kaldırır. Yazarlık.",
+    "en": "Remove a modulation route. Authoring."
+  },
+  "mcp.tool.sv_load_preset": {
+    "tr": "Var olan bir kitaplık presetini MilkDrop içine yükler. Yeni bir preset dosyası yazmaz.",
+    "en": "Load an existing library preset into MilkDrop. Does not write a new preset file."
+  },
+  "mcp.tool.sv_apply_color_preset": {
+    "tr": "Var olan bir kullanıcı veya yerleşik renk presetini uygular. Yenisini oluşturmaz.",
+    "en": "Apply an existing user or built-in color preset. Does not create one."
+  },
+  "mcp.tool.sv_set_milkdrop_cycle": {
+    "tr": "Var olan MilkDrop kitaplığının nasıl ilerleyeceğini değiştirir. Preset kaynağı yazmaz.",
+    "en": "Change how the existing MilkDrop library advances. Does not write preset source."
+  },
+  "mcp.tool.sv_save_preset": {
+    "tr": "Uygulama preset deposuna bir preset dosyası yazar. Yazarlık.",
+    "en": "Write a preset file in the app preset store. Authoring."
+  },
+  "mcp.tool.sv_delete_preset": {
+    "tr": "Bir preset dosyasını siler. Yazarlık.",
+    "en": "Delete a preset file. Authoring."
+  },
+  "mcp.tool.sv_set_milkdrop_source": {
+    "tr": "MilkDrop kaynağını canlı yapılandırmaya yazar. Yazarlık. Var olan bir kimliği yüklemek sv_load_preset aracıdır.",
+    "en": "Write MilkDrop source into the live config. Authoring. Loading an existing id is sv_load_preset."
+  },
+  "mcp.tool.sv_create_color_preset": {
+    "tr": "Bir kullanıcı renk preseti kaydeder. Yazarlık.",
+    "en": "Save a user color preset. Authoring."
+  },
+  "mcp.tool.sv_delete_color_preset": {
+    "tr": "Bir kullanıcı renk presetini siler. Yazarlık.",
+    "en": "Delete a user color preset. Authoring."
+  },
+  "mcp.tool.sv_open_output": {
+    "tr": "Görselleştiriciyi seçilen ekranlarda açar.",
+    "en": "Open the visualizer on the selected displays."
+  },
+  "mcp.tool.sv_close_output": {
+    "tr": "Görselleştirici pencerelerini kapatır.",
+    "en": "Close visualizer windows."
+  },
+  "mcp.tool.sv_set_displays": {
+    "tr": "Ekranları açmadan seçer.",
+    "en": "Choose displays without opening them."
+  },
+  "mcp.tool.sv_set_stream": {
+    "tr": "OBS ve web yayın ayarlarını değiştirir. Jeton alanları burada yok sayılır.",
+    "en": "Change OBS/web stream settings. Token fields are ignored here."
+  },
+  "mcp.tool.sv_set_texture_share": {
+    "tr": "Spout veya Syphon ayarlarını değiştirir.",
+    "en": "Change Spout/Syphon settings."
+  },
+  "mcp.tool.sv_set_aspect": {
+    "tr": "En-boy ayarlarını değiştirir.",
+    "en": "Change aspect settings."
+  },
+  "mcp.tool.sv_set_floating": {
+    "tr": "Yüzen pencere tercihlerini değiştirir.",
+    "en": "Change floating window preferences."
+  },
+  "mcp.tool.sv_set_floating_open": {
+    "tr": "Yüzen pencereyi (PiP) açar veya kapatır. Ekran menüsündeki anahtarla aynı pencere. Saydamlık ve tıklama geçişini değiştirmez.",
+    "en": "Open or close the floating PiP window. Same window as the display-menu switch. Does not change opacity or click-through."
+  },
+  "mcp.tool.sv_set_power": {
+    "tr": "Kare hızı sınırı ve çizim ölçeğini değiştirir.",
+    "en": "Change fps cap and render scale."
+  },
+  "mcp.tool.sv_set_lighting": {
+    "tr": "Windows Dinamik Aydınlatma ayarlarını değiştirir.",
+    "en": "Change Windows Dynamic Lighting settings."
+  },
+  "mcp.tool.sv_set_openrgb": {
+    "tr": "OpenRGB ayarlarını değiştirir.",
+    "en": "Change OpenRGB settings."
+  },
+  "mcp.tool.sv_set_artnet": {
+    "tr": "Art-Net ve DMX ayarlarını değiştirir.",
+    "en": "Change Art-Net/DMX settings."
+  },
+  "mcp.tool.sv_set_window_mode": {
+    "tr": "Saydam arkaplanı ve görev çubuğunu örtme ayarını değiştirir.",
+    "en": "Set transparent background and taskbar cover."
+  },
+  "mcp.tool.sv_start_export": {
+    "tr": "Çevrimdışı video dışa aktarmayı başlatır. audioPath ve outputPath gerekir.",
+    "en": "Start an offline video export. Requires audioPath and outputPath."
+  },
+  "mcp.tool.sv_cancel_export": {
+    "tr": "Süren çevrimdışı dışa aktarmayı iptal eder.",
+    "en": "Cancel the running offline export."
+  },
+  "mcp.tool.sv_export_json": {
+    "tr": "Sahneleri veya tüm yapılandırma JSON dosyasını verilen yola yazar. Kayıt penceresi açmaz.",
+    "en": "Write scenes or full config JSON to an explicit path. No save dialog."
+  },
+  "mcp.tool.sv_save_snapshot": {
+    "tr": "Canlı tuvali bir dosyaya yakalar. Kaydetmeden önizleme için sv_get_preview kullanılır.",
+    "en": "Capture the live canvas to a file. Reading a preview without saving is sv_get_preview."
+  },
+  "mcp.tool.sv_record_start": {
+    "tr": "Yönetici panelindeki canlı kaydı başlatır.",
+    "en": "Start the admin live recorder."
+  },
+  "mcp.tool.sv_record_stop": {
+    "tr": "Canlı kaydı durdurur. Uygulama ardından Kayıt kartındaki gibi kayıt yerini sorar.",
+    "en": "Stop the live recorder. The app then asks where to save, same as the Record card."
+  },
+  "mcp.tool.sv_set_blackout": {
+    "tr": "Gösteriyi karartır veya geri açar. state on, off veya toggle olabilir. Sahne verisi durur.",
+    "en": "Black out or restore the show. state is on, off, or toggle. Scene data stays intact."
+  },
+  "mcp.tool.sv_set_blackout_transition": {
+    "tr": "Karartma geçişinin türünü ve süresini ayarlar.",
+    "en": "Set the blackout transition type and duration."
+  },
+  "mcp.tool.sv_patch_config": {
+    "tr": "Başka bir yapılandırma yolunu yazar. İzin yola bağlıdır. MCP izinlerini değiştiremez.",
+    "en": "Set any other config path. Permission follows the path. Cannot change mcp permissions."
+  },
+  "mcp.tool.mcp_permissions": {
+    "tr": "Geçerli MCP kipini ve bir aracın en düşük kipini bildirir. Modu sen değiştirme. Yönetici panelini tıklama. Kullanıcıya söyle ve dur.",
+    "en": "Report the current MCP mode and the minimum mode a tool needs. Do not change the mode yourself. Do not click the admin UI. Tell the user and stop."
+  },
+  "mcp.tool.sv_get_layer_stack": {
+    "tr": "Etkin katman yığınını okur. Salt okunur.",
+    "en": "Read the active layer stack. Read-only."
+  },
+  "mcp.tool.sv_list_audio_sources": {
+    "tr": "Ayarlanmış ses girişi kaynaklarını listeler. Salt okunur.",
+    "en": "List configured audio input sources. Read-only."
+  },
+  "mcp.tool.sv_get_analysis": {
+    "tr": "Canlı çözümleme ölçümlerini okur: tonalite, akor, gürlük, perde ve bantlar. Vuruş eşiği vermez.",
+    "en": "Read live analysis metrics: key, chord, loudness, pitch, bands. Does not expose onset thresholds."
+  },
+  "mcp.tool.sv_diagnose_audio": {
+    "tr": "Ses yakalama tanısını okur. Aygıt onarmaz.",
+    "en": "Read the audio capture diagnosis. Does not repair devices."
+  },
+  "mcp.tool.sv_set_audio_sources": {
+    "tr": "Ses girişi karışımını değiştirir. Aygıt onarmaz.",
+    "en": "Replace the audio input mix. Does not repair devices."
+  },
+  "mcp.tool.sv_set_mapping": {
+    "tr": "Bir ekran için projeksiyon eşlemesini ayarlar: açma, köşeler, kırpma, kenar karışımı ve maskeler. Yeni bir ağ bağı açmaz.",
+    "en": "Set projection mapping for one display: enable, corners, crop, edge blend, masks. Does not open a new network bind."
+  },
+  "mcp.tool.sv_repair_audio": {
+    "tr": "Ses onarımını çalıştırır. Her şey kipini ister. Sistem penceresi açmaz.",
+    "en": "Run audio repair. Requires Everything. Does not open a system dialog."
+  },
+  "mcp.tool.sv_rotate_stream_token": {
+    "tr": "OBS veya uzaktan kumanda yayın jetonunu döndürür. Her şey kipini ister. Bağlantı adresini değiştirmez.",
+    "en": "Rotate the OBS or remote stream token. Requires Everything. Does not change the bind address."
+  },
+  "mcp.tool.sv_updates_download": {
+    "tr": "Uygulama güncellemesini indirir. Her şey kipini ister.",
+    "en": "Download an application update. Requires Everything."
+  },
+  "mcp.tool.sv_updates_install": {
+    "tr": "İndirilen uygulama güncellemesini kurar ve yeniden başlatır. Her şey kipini ister.",
+    "en": "Install a downloaded application update and restart. Requires Everything."
+  },
+  "mcp.setup.prompt": {
+    "tr": "SoundVisualizer MCP kurulumunu yap. HTTP http://127.0.0.1:{port}/mcp, yalnız bu bilgisayar. Stdio komutu: {command}. Sunucuyu etkinleştir ve tools/list ile doğrula.",
+    "en": "Set up SoundVisualizer MCP. HTTP http://127.0.0.1:{port}/mcp, this computer only. Stdio command: {command}. Enable the server and confirm with tools/list."
+  },
+  "mcp.setup.path.claude": {
+    "tr": "%APPDATA%\\Claude\\claude_desktop_config.json içindeki mcpServers",
+    "en": "mcpServers in %APPDATA%\\Claude\\claude_desktop_config.json"
+  },
+  "mcp.setup.path.codex": {
+    "tr": "%USERPROFILE%\\.codex\\config.toml içindeki mcp_servers",
+    "en": "mcp_servers in %USERPROFILE%\\.codex\\config.toml"
+  },
+  "mcp.setup.path.cursor": {
+    "tr": ".cursor/mcp.json veya %USERPROFILE%\\.cursor\\mcp.json",
+    "en": ".cursor/mcp.json or %USERPROFILE%\\.cursor\\mcp.json"
+  },
+  "mcp.setup.path.grok": {
+    "tr": "yayınlanmış tek dosya yok; istemcinin MCP listesi",
+    "en": "no single published file; the client MCP list"
+  },
+  "mcp.setup.path.grokbot": {
+    "tr": "yerel mcp.json yolu yok; istemcinin MCP sunucu listesi",
+    "en": "no local mcp.json path; the client MCP server list"
+  },
+  "mcp.setup.path.ollama": {
+    "tr": "modeli Ollama olan MCP istemcisinin aynı stdio sunucusu, ayrı protokol yok",
+    "en": "the same stdio server on the MCP client whose model is Ollama, not a separate protocol"
+  },
+  "mcp.setup.easy": {
+    "tr": "En kolay yol: bu istemi ajan sohbetine yapıştırın. Ajan kurulumu kendisi yapar.",
+    "en": "Easiest path: paste this prompt into the agent chat. The agent does the setup."
+  },
+  "mcp.setup.manual": {
+    "tr": "Elle kurulum",
+    "en": "Manual setup"
+  },
+  "mcp.setup.http": {
+    "tr": "HTTP uç noktası {url}. Yalnız bu bilgisayar. Port meşgulse başka porta kendiliğinden geçilmez.",
+    "en": "HTTP endpoint {url}. This computer only. If that port is busy, the app does not switch ports by itself."
+  },
+  "mcp.card.failed": {
+    "tr": "Dinleyici başlamadı.",
+    "en": "Listener failed to start."
+  },
+  "mcp.port.label": {
+    "tr": "Port",
+    "en": "Port"
+  },
+  "mcp.port.apply": {
+    "tr": "Bu portu onayla",
+    "en": "Confirm this port"
+  },
+  "mcp.port.invalid": {
+    "tr": "Port 1 ile 65535 arasında olmalı ve 8722 olamaz.",
+    "en": "The port must be from 1 to 65535 and cannot be 8722."
+  },
+  "mcp.port.busy": {
+    "tr": "{port} kullanımda. MCP başka bir porta geçmedi. Farklı bir port yazıp onaylayın.",
+    "en": "{port} is in use. MCP did not switch ports. Enter a different port and confirm."
+  },
+  "mcp.port.confirm": {
+    "tr": "MCP 127.0.0.1:{port} adresine bağlansın mı? Başka porta kendiliğinden geçmez.",
+    "en": "Bind MCP on 127.0.0.1:{port}? It will not switch to another port by itself."
+  },
+  "mcp.card.copyPrompt": {
+    "tr": "Kurulum istemini kopyala",
+    "en": "Copy setup prompt"
+  }
+};
+  function mcpText(key, loc) {
+    const row = MCP_I18N[key];
+    const use = loc === 'tr' || loc === 'en' ? loc : locale;
+    if (!row) return key;
+    return use === 'tr' ? row.tr : row.en;
+  }
+  if (typeof document === 'undefined') {
+    if (typeof module !== 'undefined' && module.exports) module.exports = { mcpText: mcpText, MCP_I18N: MCP_I18N };
+    return;
+  }
+
   document.documentElement.lang = locale;
-  window.SVI18n = { locale, t: translate };
+  window.SVI18n = { locale, t: translate, mcpText: function (key, loc) { return mcpText(key, loc || locale); } };
 
   const nativeAlert = window.alert.bind(window);
   const nativeConfirm = window.confirm.bind(window);

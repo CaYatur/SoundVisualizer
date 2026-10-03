@@ -26,6 +26,7 @@ const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
+const mcpServer = require('./mcp-server');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -710,13 +711,19 @@ function sendToVisualizers(channel, payload) {
   if (ts) ts.webContents.send(channel, channel === 'config' ? configForTextureShare(payload) : payload);
 }
 
-// İstenen ekran kimliklerini çöz (tek sayı, dizi veya boş kabul edilir)
+// İstenen ekran kimliklerini çöz. Boş veya bilinmeyen seçim boş döner;
+// birincil ekrana düşmek, panelde hiçbir kutu seçilmemesini geri açıyordu.
 function resolveDisplayIds(input) {
   const all = screen.getAllDisplays();
-  const raw = Array.isArray(input) ? input : input == null ? [] : [input];
-  const wanted = raw.map(Number).filter((id) => all.some((d) => d.id === id));
-  if (wanted.length) return Array.from(new Set(wanted));
-  return [screen.getPrimaryDisplay().id];
+  if (input == null || input === '') return [];
+  const raw = Array.isArray(input) ? input : [input];
+  const wanted = [];
+  for (const id of raw) {
+    const n = Number(id);
+    if (!all.some((d) => d.id === n)) continue;
+    if (wanted.indexOf(n) === -1) wanted.push(n);
+  }
+  return wanted;
 }
 
 function createVisualizerWindow(display) {
@@ -1810,6 +1817,169 @@ function recreateVisualizerWindows() {
 }
 
 // Admin -> ana süreç -> görselleştirici (yapılandırma güncellemesi)
+
+let mcpHandle = null;
+const mcpLive = { bpm: 0, confidence: 0, level: 0, bass: 0, mid: 0, treble: 0, at: 0 };
+
+function noteMcpLive(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.level != null) mcpLive.level = data.level;
+  if (data.bass != null) mcpLive.bass = data.bass;
+  if (data.mid != null) mcpLive.mid = data.mid;
+  if (data.treble != null) mcpLive.treble = data.treble;
+  if (data.bpm != null) mcpLive.bpm = data.bpm;
+  if (data.confidence != null) mcpLive.confidence = data.confidence;
+  mcpLive.at = Date.now();
+}
+
+const VISUALIZER_READY_JS = '(() => {' +
+  'const c = document.querySelector("canvas");' +
+  'if (!c || c.width < 8 || c.height < 8) return false;' +
+  'return true;' +
+  '})()';
+
+const ADMIN_PREVIEW_RECT_JS = '(() => {' +
+  'const P = window.SVPreview;' +
+  'if (!P || typeof P.stack !== "function" || !P.stack()) return null;' +
+  'const stage = document.getElementById("previewStage");' +
+  'if (!stage) return null;' +
+  'const r = stage.getBoundingClientRect();' +
+  'if (r.width < 8 || r.height < 8) return null;' +
+  'return { x: Math.max(0, Math.floor(r.x)), y: Math.max(0, Math.floor(r.y)), width: Math.max(1, Math.round(r.width)), height: Math.max(1, Math.round(r.height)) };' +
+  '})()';
+
+const PREVIEW_NOT_READY = 'The preview canvas is not ready.';
+
+function jpegOfShown(image) {
+  if (!image || image.isEmpty()) return null;
+  const size = image.getSize();
+  if (!size || size.width < 8 || size.height < 8) return null;
+  let out = image;
+  if (size.width > 480) {
+    const height = Math.max(1, Math.round(size.height * (480 / size.width)));
+    out = image.resize({ width: 480, height: height });
+  }
+  const sized = out.getSize();
+  const buf = out.toJPEG(62);
+  if (!buf || !buf.length) return null;
+  return {
+    width: sized.width,
+    height: sized.height,
+    dataUrl: 'data:image/jpeg;base64,' + buf.toString('base64'),
+  };
+}
+
+async function captureShown(win, rect) {
+  if (!win || win.isDestroyed() || win.webContents.isDestroyed()) return null;
+  const image = rect ? await win.webContents.capturePage(rect) : await win.webContents.capturePage();
+  return jpegOfShown(image);
+}
+
+/* Canvas toDataURL reads the WebGL drawing buffer, which is already empty
+   after the frame is shown, so the JPEG was 480px and fully black. capturePage
+   takes the pixels the window is actually showing. */
+async function mcpCapturePreview() {
+  const shown = [];
+  for (const win of visualizerWins.values()) shown.push(win);
+  if (floatingWin && !floatingWin.isDestroyed()) shown.push(floatingWin);
+  for (const win of shown) {
+    if (!win || win.isDestroyed()) continue;
+    try {
+      const ready = await win.webContents.executeJavaScript(VISUALIZER_READY_JS);
+      if (!ready) continue;
+      const img = await captureShown(win);
+      if (img) return img;
+    } catch (e) { /* this window has no frame yet */ }
+  }
+  if (adminWin && !adminWin.isDestroyed()) {
+    try {
+      const rect = await adminWin.webContents.executeJavaScript(ADMIN_PREVIEW_RECT_JS);
+      if (rect && rect.width >= 8 && rect.height >= 8) {
+        const img = await captureShown(adminWin, rect);
+        if (img) return img;
+      }
+    } catch (e) { /* admin preview is not up */ }
+  }
+  return { error: PREVIEW_NOT_READY };
+}
+
+function mcpAdminCall(js) {
+  if (!adminWin || adminWin.isDestroyed()) return Promise.resolve({ ok: false, error: 'Admin window is not open.' });
+  return adminWin.webContents.executeJavaScript(js);
+}
+
+function ensureMcp() {
+  if (mcpHandle) return mcpHandle;
+  mcpHandle = mcpServer.create({
+    userData: app.getPath('userData'),
+    getConfig: () => currentConfig,
+    setConfig: (cfg) => {
+      applyIncomingConfig(cfg);
+      notifyAdmin('external-config', currentConfig);
+    },
+    live: () => Object.assign({}, mcpLive),
+    nowPlaying: () => mediaSession.current(),
+    displays: () => getDisplayList(),
+    outputStatus: () => ({ open: anyVisualizerOpen(), ids: Array.from(visualizerWins.keys()) }),
+    presets: {
+      list: () => presetsStore.list(),
+      get: (id) => presetsStore.get(id),
+      save: (preset) => {
+        const r = presetsStore.save(preset);
+        if (r && r.ok && r.preset) broadcastPresetDelta([r.preset], []);
+        return r;
+      },
+      remove: (id) => {
+        const r = presetsStore.remove(id);
+        if (r && r.ok) broadcastPresetDelta([], [String(id)]);
+        return r;
+      },
+    },
+    /* Her MCP turu klasörün adlarına bakıyor. Araç dosyayı deponun
+       kaydından değil de yanından yazdıysa açık pencereler aynı turda
+       görüyor. Bütün dosyaları stat'lamıyor. */
+    syncPresets: () => {
+      const delta = presetsStore.syncDisk();
+      if (delta.upsert.length || delta.remove.length) broadcastPresetDelta(delta.upsert, delta.remove);
+    },
+    openOutput: (ids) => openVisualizer(ids),
+    closeOutput: (id) => closeVisualizer(id),
+    setFloatingOpen: (open) => {
+      if (open) {
+        createFloatingWindow();
+        return { open: floatingIsOpen() };
+      }
+      closeFloatingWindow();
+      return { open: floatingIsOpen() };
+    },
+    stopClips: () => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.stopAll) return { ok:false, error:"Clip deck is not loaded." }; C.stopAll(); return { ok:true }; })()'),
+    startExport: (opts) => startExportJob(opts),
+    cancelExport: () => { if (exportState) exportState.cancel = true; return true; },
+    writeText: (file, text) => { fs.writeFileSync(file, text, 'utf8'); return true; },
+    writeBinary: (file, buf) => { fs.writeFileSync(file, buf); return true; },
+    capturePreview: () => mcpCapturePreview(),
+    recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; await R.start(window.SVPanel.cfg()); return { ok:true }; })()'),
+    recordStop: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"Recorder is not loaded." }; await R.stop(); return { ok:true }; })()'),
+    timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
+    launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return { ok:true }; })()'),
+    locale: () => appLocale(),
+  });
+  return mcpHandle;
+}
+
+function syncMcp() {
+  try {
+    const enabled = !!(currentConfig && currentConfig.mcp && currentConfig.mcp.enabled === true);
+    return ensureMcp().sync(enabled);
+  } catch (e) {
+    console.error('[MCP] sync failed:', e);
+    return Promise.resolve(null);
+  }
+}
+
+ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: false, running: false, host: '127.0.0.1', port: 0, shell: '', script: '' }));
+ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
+
 ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
 
 /* Yeni yapılandırmayı her yere uygular. Panelden gelen yapılandırma
@@ -1869,6 +2039,7 @@ function applyIncomingConfig(config, opts) {
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
+  syncMcp();
 }
 
 // Aynı ayar klasörünü kullanan kopyalar ve ayar dosyası çakışması (#564)
@@ -2019,6 +2190,7 @@ ipcMain.on('md-live', (e, mp) => {
 });
 
 ipcMain.on('audio-meter', (e, data) => {
+  noteMcpLive(data);
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
   if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
@@ -2065,17 +2237,78 @@ function notifyAll(channel, payload) {
    kilidi. Şimdi yalnız değişenler gidiyor (`presets-delta`); bütün liste
    yalnız sayfa açılırken isteniyor (`presets:list`). Web istemcilerine
    MilkDrop kaynakları hiç gitmiyor (stream-server.js `publicPresets`). */
+/* Açık pencere listeyi isterken kaçırdığı yayını buradan tamamlıyor.
+   Gövdeler en fazla 32 kayıt tutuluyor; büyük bir içe aktarımın kaynakları
+   ikinci kez bellekte durmuyor — kaçıran sayfa listeyi yeniden istiyor. */
+let presetGen = 0;
+const presetJournal = [];
+
+/* Seçili MilkDrop presetinin dosyası değişince ayardaki kopya da değişsin.
+   Yoksa bir sonraki kaydırıcı eski kaynağı geri yazar ve ekran eski presete
+   döner. Yapılandırmanın tamamı yeniden uygulanmıyor: ışık ve yakalama
+   durur. */
+function followActivePreset(upsert) {
+  if (!currentConfig || !currentConfig.milkdrop || !upsert || !upsert.length) return;
+  const id = currentConfig.milkdrop.presetId;
+  if (!id) return;
+  for (let i = 0; i < upsert.length; i++) {
+    const p = upsert[i];
+    if (!p || p.kind !== 'milkdrop' || p.id !== id || typeof p.source !== 'string') continue;
+    if (p.source === currentConfig.milkdrop.source) continue;
+    currentConfig.milkdrop = Object.assign({}, currentConfig.milkdrop, {
+      source: p.source,
+      name: p.name || currentConfig.milkdrop.name,
+    });
+    sendToVisualizers('config', currentConfig);
+    notifyAdmin('external-config', currentConfig);
+    streamServer.broadcast({ type: 'config', config: currentConfig });
+    saveSettings(currentConfig);
+    return;
+  }
+}
+
 function broadcastPresetDelta(upsert, remove) {
-  const delta = { upsert: upsert || [], remove: remove || [] };
-  if (!delta.upsert.length && !delta.remove.length) return;
+  const up = upsert || [];
+  const rm = remove || [];
+  if (!up.length && !rm.length) return;
+  presetGen += 1;
+  const bulk = up.length > 24;
+  presetJournal.push({ gen: presetGen, upsert: bulk ? [] : up, remove: rm, bulk: bulk });
+  if (presetJournal.length > 32) presetJournal.shift();
+  const delta = { upsert: up, remove: rm, gen: presetGen };
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
+  followActivePreset(up);
 }
 
 // Açılışta arka planda okunmuş olabilir; değilse okuma burada bitiyor
 ipcMain.handle('presets:list', async () => {
   await presetsStore.warm();
-  return presetsStore.list();
+  const list = presetsStore.list();
+  /* `list()` yeni adı önbelleğe alır ama bunu yayınlamazsa diğer pencereler
+     eski listede kalır. Aynı turda biriken fark burada gidiyor. */
+  const disk = presetsStore.syncDisk();
+  if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
+  return list;
+});
+ipcMain.handle('presets:head', () => ({ gen: presetGen }));
+ipcMain.handle('presets:since', (e, gen) => {
+  const disk = presetsStore.syncDisk();
+  if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
+  const g = Number(gen) || 0;
+  if (presetJournal.length && g > 0 && g < presetJournal[0].gen) {
+    return { gen: presetGen, reset: true, upsert: [], remove: [] };
+  }
+  const upsert = [];
+  const remove = [];
+  let bulk = false;
+  for (const entry of presetJournal) {
+    if (entry.gen <= g) continue;
+    if (entry.bulk) bulk = true;
+    else upsert.push.apply(upsert, entry.upsert);
+    remove.push.apply(remove, entry.remove);
+  }
+  return { gen: presetGen, bulk, upsert, remove };
 });
 ipcMain.handle('presets:save', (e, preset) => {
   const r = presetsStore.save(preset);
@@ -3497,7 +3730,12 @@ app.whenReady().then(async () => {
   /* Preset deposu arka planda okunmaya başlıyor (#574): pencereler açılıp
      listeyi isteyene kadar binlerce dosyanın okuması büyük ölçüde bitmiş
      oluyor ve ana süreç o arada bekletilmiyor. */
-  presetsStore.warm().catch(() => {});
+  presetsStore.warm().then(() => {
+    presetsStore.watch((delta) => {
+      if (delta && (delta.upsert.length || delta.remove.length)) broadcastPresetDelta(delta.upsert, delta.remove);
+    });
+  }).catch(() => {});
+  syncMcp();
 
   // Medya katmanının video dosyalarını okuduğu protokol. Yalnızca
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
@@ -5857,6 +6095,7 @@ function shutdownCleanup() {
   textureShare.stop().catch(() => {});
   mediaSession.stop();
   nativeAudio.stopCapture();
+  if (mcpHandle) mcpHandle.stop().catch(() => {});
 }
 
 app.on('before-quit', (e) => {

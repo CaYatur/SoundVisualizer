@@ -275,6 +275,7 @@
       if (el) el.textContent = tempo.bpm ? Math.round(tempo.bpm) + ' BPM' : '— BPM';
       const conf = document.getElementById('bpmConf');
       if (conf) conf.style.width = Math.round(tempo.confidence * 100) + '%';
+      if (window.api && window.api.mcpReportLive) window.api.mcpReportLive({ bpm: tempo.bpm || 0, confidence: tempo.confidence || 0 });
       const dot = document.getElementById('beatDot');
       if (dot) dot.classList.toggle('hit', tempo.energy > 0.35);
       /* Durum satırı yerinde güncelleniyor — paneli yeniden çizmeden.

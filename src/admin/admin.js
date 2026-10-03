@@ -486,6 +486,8 @@
         return window.SVStudio ? window.SVStudio.panel() : null;
       case 'controlpanel':
         return window.SVControl ? window.SVControl.panel(def.surface) : null;
+      case 'mcppanel':
+        return window.SVMcpPanel ? window.SVMcpPanel.panel() : null;
       case 'mediapanel':
         return window.SVMediaPanel ? window.SVMediaPanel.panel() : null;
       case 'scenegen':
@@ -1238,6 +1240,13 @@
         }
         /* Önizleme + GIF kontrolleri için paneli yenile. Kitaplık thumb'ları
            blob önbelleğinden geldiği için yeniden mount donmaya yol açmaz. */
+        render();
+      },
+      onRemove: (it) => {
+        if (!cfg.logo || cfg.logo.libraryId !== it.id) return;
+        cfg.logo.libraryId = '';
+        if (!cfg.logo.src) cfg.logo.kind = '';
+        push(true);
         render();
       },
     });
@@ -2827,6 +2836,15 @@
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },
       {
+        id: 'mcp',
+        category: 'control',
+        icon: 'sliders',
+        wide: true,
+        title: 'MCP',
+        desc: 'Ajan bu karttaki kiple sürer. Kapalı başlar; açılınca okuma. Her şey kipi tek tık ve varsayılan değil.',
+        controls: [{ type: 'mcppanel' }],
+      },
+      {
         id: 'studio',
         category: 'studio',
         icon: 'flask',
@@ -3815,13 +3833,9 @@
      ilk ekranı yansıtmayı sürdürür. */
   function syncSelectedDisplays() {
     cfg.display = cfg.display || {};
-    // Artık bağlı olmayan ekranları ayıkla
+    // Artık bağlı olmayan ekranları ayıkla. Boş liste boş kalır:
+    // kullanıcı bütün kutuları kaldırdığında bir ekran geri seçilmez.
     selectedDisplayIds = selectedDisplayIds.filter((id) => displays.some((d) => d.id === id));
-    if (!selectedDisplayIds.length && displays.length) {
-      // Varsayılan: harici ekran varsa o, yoksa birincil
-      const ext = displays.find((d) => !d.isPrimary);
-      selectedDisplayIds = [(ext || displays[0]).id];
-    }
     cfg.display.ids = selectedDisplayIds.slice();
     cfg.display.id = selectedDisplayIds[0] != null ? selectedDisplayIds[0] : null;
   }
@@ -4962,29 +4976,132 @@
 
     // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları).
     // render() bunlara bakacağı için ÇİZİMDEN ÖNCE yüklenmeli.
+    /* Liste isteği sürerken gelen kayıtlar kaybolmasın. Dinleyici
+       cevaptan sonra kurulursa yayın düşer, setUser eski listeyi yazar
+       ve preset yeniden başlatılana kadar arayüzde görünmez. */
+    let presetsReady = false;
+    const earlyPresetDeltas = [];
+    let presetGen = 0;
+    let presetCatchBusy = false;
+    const onPresetDelta = (d) => {
+      if (!presetsReady) { earlyPresetDeltas.push(d); return; }
+      if (d && d.gen) presetGen = Math.max(presetGen, Number(d.gen) || 0);
+      const S = window.SVPresets;
+      const ups = (d && Array.isArray(d.upsert)) ? d.upsert : [];
+      const studio = ups.some((p) => p && p.kind !== 'milkdrop') ||
+        (d && Array.isArray(d.remove) ? d.remove : []).some((id) => {
+          const p = S && S.get ? S.get(id) : null;
+          return !!p && p.kind !== 'milkdrop';
+        });
+      /* Seçili MilkDrop kaynağı dosyada değiştiyse panelin kopyası da
+         değişsin. Yayın bunu ayara yazıyor; burada da tutmak, aradaki
+         kaydırıcının eski metni geri göndermesini keser. */
+      if (cfg && cfg.milkdrop) {
+        for (let i = 0; i < ups.length; i++) {
+          const p = ups[i];
+          if (p && p.kind === 'milkdrop' && p.id === cfg.milkdrop.presetId && typeof p.source === 'string' && p.source !== cfg.milkdrop.source) {
+            cfg.milkdrop = Object.assign({}, cfg.milkdrop, { source: p.source, name: p.name || cfg.milkdrop.name });
+            break;
+          }
+        }
+      }
+      if (S && S.applyDelta) S.applyDelta(d);
+      render();
+      if (studio && window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    };
+    async function catchPresets() {
+      if (!window.api.presetsSince || presetCatchBusy) return;
+      presetCatchBusy = true;
+      try {
+        const page = await window.api.presetsSince(presetGen);
+        if (!page) return;
+        const nextGen = Number(page.gen) || 0;
+        if (page.reset || page.bulk) {
+          presetGen = nextGen;
+          window.SVPresets.setUser(await window.api.listPresets());
+          render();
+          if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+          else if (window.SVPreview) window.SVPreview.setConfig(cfg);
+          return;
+        }
+        presetGen = nextGen;
+        const up = page.upsert || [];
+        const rm = page.remove || [];
+        if (!up.length && !rm.length) return;
+        onPresetDelta({ upsert: up, remove: rm, gen: nextGen });
+      } catch { /* ana süreç kapandıysa bir sonraki tur dener */ }
+      finally { presetCatchBusy = false; }
+    }
+    if (window.api.onPresetsDelta) window.api.onPresetsDelta(onPresetDelta);
+    let headGen = 0;
+    try {
+      if (window.api.presetsHead) {
+        const head = await window.api.presetsHead();
+        headGen = head && Number(head.gen) || 0;
+      }
+    } catch { headGen = 0; }
     try {
       window.SVPresets.setUser(await window.api.listPresets());
     } catch { /* preset yoksa yerleşiklerle devam */ }
+    presetsReady = true;
+    let maxEarly = 0;
+    for (let i = 0; i < earlyPresetDeltas.length; i++) {
+      const d = earlyPresetDeltas[i];
+      if (d && d.gen) maxEarly = Math.max(maxEarly, Number(d.gen) || 0);
+      onPresetDelta(d);
+    }
+    try {
+      if (window.api.presetsSince) {
+        const page = await window.api.presetsSince(headGen);
+        if (page) {
+          presetGen = Math.max(maxEarly, Number(page.gen) || 0);
+          if (page.reset || page.bulk) {
+            try { window.SVPresets.setUser(await window.api.listPresets()); } catch { /* liste yok */ }
+            render();
+            if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+          } else if ((page.upsert && page.upsert.length) || (page.remove && page.remove.length)) {
+            onPresetDelta({ upsert: page.upsert || [], remove: page.remove || [], gen: page.gen });
+          }
+        }
+      }
+    } catch { /* yakalama yoksa yayın yeter */ }
+    presetGen = Math.max(presetGen, maxEarly);
+    setInterval(() => {
+      if (cfg && cfg.mcp && cfg.mcp.enabled) catchPresets();
+    }, 400);
+    window.addEventListener('focus', () => { catchPresets(); });
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
       render();
-      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
+      else if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
-    // Değişiklik yayını (#574): bütün liste yalnız açılışta geliyor
-    if (window.api.onPresetsDelta) {
-      window.api.onPresetsDelta((d) => {
-        window.SVPresets.applyDelta(d);
-        render();
-        if (window.SVPreview) window.SVPreview.setConfig(cfg);
-      });
-    }
 
     // Uzaktan kumandadan (telefon / OBS sayfası) gelen değişiklik: panelin
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
     window.api.onExternalConfig((incoming) => {
       cfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+      /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
+         değişkende duruyordu; render() cfg'yi çizse de menü eski kutuyu
+         işaretli bırakıyordu. Tıklamadaki gibi seçimi ve sahne vurgusunu
+         gelen duruma çek, sonra aynı çizimi çalıştır. */
+      if (cfg.display && displays.length) {
+        const ids = Array.isArray(cfg.display.ids) && cfg.display.ids.length
+          ? cfg.display.ids
+          : (cfg.display.id != null ? [cfg.display.id] : []);
+        selectedDisplayIds = ids.map(Number);
+        renderDisplays();
+      }
+      if (Object.prototype.hasOwnProperty.call(cfg, '_activeSceneId')) {
+        activeSceneId = cfg._activeSceneId || null;
+      }
+      const blackBtn = $('blackoutBtn');
+      if (blackBtn) blackBtn.classList.toggle('on', !!(cfg && cfg.isBlackout) || isBlackedOut());
       render();
       renderScenes();
+      /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
+         Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
 
