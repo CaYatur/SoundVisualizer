@@ -2696,6 +2696,8 @@
     'Yazı': 'Typography',
     'Yazı Tipi': 'Font',
     'Hizalama': 'Alignment',
+    'Yazı Saydamlığı': 'Text Opacity',
+    'Çubuk Kalınlığı': 'Bar Thickness',
     'Kontur': 'Outline',
     'Gölge': 'Shadow',
     'Senkron Kayması': 'Sync Offset',

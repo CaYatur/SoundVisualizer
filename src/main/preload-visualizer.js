@@ -2,6 +2,28 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+/* Son çalan parça burada durur. Sayfa dinleyiciyi geç kurar; Electron
+   aradaki mesajı tutmaz. Bu dosya kum havuzundadır: electron dışında
+   require çalışmaz, o yüzden yardımcı buraya gömülüdür. */
+function createLateEvent() {
+  let listener = null;
+  let seen = false;
+  let value;
+  return {
+    push(next) {
+      seen = true;
+      value = next;
+      if (listener) listener(next);
+    },
+    subscribe(cb) {
+      listener = typeof cb === 'function' ? cb : null;
+      if (seen && listener) listener(value);
+    },
+  };
+}
+const nowPlayingEvents = createLateEvent();
+ipcRenderer.on('now-playing', (_e, st) => nowPlayingEvents.push(st));
+
 contextBridge.exposeInMainWorld('SV_PLATFORM', {
   os: process.platform,
   isWindows: process.platform === 'win32',
@@ -26,7 +48,8 @@ contextBridge.exposeInMainWorld('api', {
   /* Çalan parça çıpası. Konum HER KARE gelmez; kaynak ancak ara sıra
      güncelliyor, aradaki değeri pencere kendisi hesaplıyor.
      (bkz. src/shared/nowplaying.js) */
-  onNowPlaying: (cb) => ipcRenderer.on('now-playing', (e, st) => cb(st)),
+  onNowPlaying: (cb) => nowPlayingEvents.subscribe(cb),
+  nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),

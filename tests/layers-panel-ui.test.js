@@ -244,6 +244,13 @@ function rangeOf(root, label) {
   return all(ctrlOf(root, label), (n) => n.tag === 'input' && n.attrs.type === 'range')[0];
 }
 
+function openTab(panel, label) {
+  const btn = all(panel, (n) => n.tag === 'button' && n.attrs && n.attrs.text === label
+    && typeof n.attrs.class === 'string' && n.attrs.class.split(/\s+/).includes('layer-tab'))[0];
+  assert.ok(btn, 'sekme ' + label);
+  btn.attrs.onclick();
+}
+
 test('çalan parça katmanı hizalamayı ve ekranda kalma süresini yazar; linux süre alanlarını gizler', () => {
   const prev = window.SV_PLATFORM;
   window.SV_PLATFORM = { os: 'linux', isWindows: false, isMac: false, isLinux: true };
@@ -264,7 +271,14 @@ test('çalan parça katmanı hizalamayı ve ekranda kalma süresini yazar; linux
     assert.ok(hold, 'ekranda kalma');
     rangeOf(panel, 'Ekranda Kalma').attrs.oninput({ target: { value: '6.5' } });
     assert.strictEqual(cfg.layers[0].settings.nowplaying.holdSeconds, 6.5);
-    assert.ok(rowOf(panel, 'Giriş Süresi'), 'giriş süresi');
+    assert.strictEqual(rowOf(panel, 'Yatay'), undefined, 'konum dönüşüm sekmesinde');
+    assert.strictEqual(rowOf(panel, 'Geçen Süre'), undefined);
+    const sure = all(ctrlOf(panel, 'Süre'), (n) => n.tag === 'input')[0];
+    assert.ok(sure, 'süre elle');
+    sure.attrs.oninput({ target: { value: '3:24' } });
+    assert.strictEqual(cfg.layers[0].settings.nowplaying.manual.duration, 204);
+    openTab(panel, 'Hareket');
+    assert.ok(rowOf(panel, 'Giriş Süresi'), 'giriş süresi hareket sekmesinde');
   } finally {
     window.SV_PLATFORM = prev;
   }
@@ -276,9 +290,11 @@ test('çalan parça katmanı Windows’ta geçen süreyi ve çubuğu gösterir',
   try {
     setup([{ id: 'np', kind: 'nowplaying', type: 'nowplaying', name: 'Çalan' }], ['np']);
     const panel = window.SVScenePanels.layersPanel();
+    assert.strictEqual(rowOf(panel, 'Süre'), undefined, 'sistem süresi elle kutusu açmaz');
+    assert.ok(rowOf(panel, 'Hizalama'));
+    openTab(panel, 'Yazı');
     assert.ok(rowOf(panel, 'Geçen Süre'));
     assert.ok(rowOf(panel, 'İlerleme Çubuğu'));
-    assert.ok(rowOf(panel, 'Hizalama'));
   } finally {
     window.SV_PLATFORM = prev;
   }
@@ -287,11 +303,15 @@ test('çalan parça katmanı Windows’ta geçen süreyi ve çubuğu gösterir',
 test('metin katmanı yatay konumu ve giriş süresini yazar', () => {
   const { cfg } = setup([{ id: 'tx', kind: 'visualizer', type: 'text', name: 'Yazı' }], ['tx']);
   const panel = window.SVScenePanels.layersPanel();
-  assert.ok(rowOf(panel, 'Yatay'), 'yatay');
-  rangeOf(panel, 'Yatay').attrs.oninput({ target: { value: '0.2' } });
-  assert.strictEqual(cfg.layers[0].settings.text.x, 0.2);
-  assert.ok(rowOf(panel, 'Giriş Süresi'));
+  assert.strictEqual(rowOf(panel, 'Yatay'), undefined, 'ikinci yatay kaydırıcı yok');
   assert.ok(rowOf(panel, 'Hizalama'));
+  const textX = cfg.layers[0].settings.text.x;
+  openTab(panel, 'Dönüşüm');
+  rangeOf(panel, 'Yatay Konum').attrs.oninput({ target: { value: '0.2' } });
+  assert.strictEqual(cfg.layers[0].transform.x, 0.2);
+  assert.strictEqual(cfg.layers[0].settings.text.x, textX);
+  openTab(panel, 'Hareket');
+  assert.ok(rowOf(panel, 'Giriş Süresi'));
   selectOf(rowOf(panel, 'Metin Kaynağı')).attrs.onchange({ target: { value: 'lyrics' } });
   const again = window.SVScenePanels.layersPanel();
   assert.ok(rowOf(again, 'Senkron Kayması'));

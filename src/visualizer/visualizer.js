@@ -584,6 +584,10 @@
   // Başlat
   // --------------------------------------------------------------------------
   async function init() {
+    if (!window.api) {
+      showError('Başlatılamadı: pencere köprüsü yok');
+      return;
+    }
     // Studio presetleri (kullanıcının kendi shader'ları) ana süreçte tutulur.
     // Dinleyici listeden ÖNCE kurulur: kayıt o sırada gelirse yayın düşmesin
     // ve çıkış yeniden başlatılana kadar eski shader'da kalmasın.
@@ -637,7 +641,7 @@
       } catch { /* ana süreç kapandıysa bir sonraki tur dener */ }
       finally { presetCatchBusy = false; }
     }
-    if (window.api.onPresetsDelta) {
+    if (window.api && window.api.onPresetsDelta) {
       window.api.onPresetsDelta((d) => {
         if (d && d.gen) presetGen = Math.max(presetGen, Number(d.gen) || 0);
         if (!presetsReady) { earlyDeltas.push(d); return; }
@@ -715,8 +719,14 @@
       if (window.api.milkdropSprite) spriteKeys();
     }
     /* Çalan parça çıpası. Her kare gelmez — kaynak konumu ancak ara sıra
-       günceller — aradaki değeri katmanlar SVNowPlaying ile hesaplar. */
-    if (window.api.onNowPlaying) {
+       günceller — aradaki değeri katmanlar SVNowPlaying ile hesaplar.
+       Müzik pencere açılmadan çalıyorsa ilk örnek bu satırdan önce
+       gitmiş olabilir. Preload son örneği saklar; burada bir de ana
+       sürecin güncel durumunu isteriz ve bu arada canlı mesaj geldiyse
+       onu ezmeyiz. */
+    if (window.SVLateEvent) {
+      await window.SVLateEvent.catchUp(window.SVNowLive, window.api);
+    } else if (window.api.onNowPlaying) {
       window.api.onNowPlaying((st) => { window.SVNowLive.state = st; });
     }
     window.addEventListener('resize', resize);
