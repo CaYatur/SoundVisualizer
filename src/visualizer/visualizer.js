@@ -312,7 +312,7 @@
     const pageBg = window.SVLayers.pageBackground(cfg);
     document.body.style.background = pageBg;
     document.documentElement.style.background = pageBg;
-    stack.bindMedia(mediaOn ? media.video : null);
+    stack.bindMedia(mediaOn && stack.shaderVideo ? stack.shaderVideo() : null);
   }
 
   /* Haritalama aşaması.
@@ -360,15 +360,17 @@
     const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
     const hasMediaLayer = isStack && Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
-    let m = Object.assign({}, cfg.media, { enabled: mediaOn });
     if (hasMediaLayer) {
-      const ml = cfg.layers.find((l) => l && l.kind === 'media' && l.enabled !== false);
-      if (ml && ml.settings && ml.settings.media) {
-        m = Object.assign({}, m, ml.settings.media, { enabled: true });
-      }
+      /* Klasik tek oynatıcıyı kapat. Açık bırakılırsa ilk kamera iki kez
+         istenir ve ikinci katmanın aygıtı hiç açılmaz. */
+      mediaOn = true;
+      media.apply({ enabled: false });
+      stack.syncMedia(cfg);
+      return;
     }
-    media.apply(m);
+    if (stack.syncMedia) stack.syncMedia(cfg);
+    mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
+    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
   }
 
   // --------------------------------------------------------------------------
@@ -701,6 +703,7 @@
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
     window.api.onConfig((c) => applyConfig(c));
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
     /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç
        liderin seçimini buraya yolluyor ve motor kendi sayacı yerine onu
        gösteriyor — her ekranda aynı preset, aynı tohum. Zaman damgası
@@ -728,6 +731,9 @@
       await window.SVLateEvent.catchUp(window.SVNowLive, window.api);
     } else if (window.api.onNowPlaying) {
       window.api.onNowPlaying((st) => { window.SVNowLive.state = st; });
+    }
+    if (window.SVLyricsSync && window.SVLyricsSync.installLibrary) {
+      window.SVLyricsSync.installLibrary(window.api);
     }
     window.addEventListener('resize', resize);
 

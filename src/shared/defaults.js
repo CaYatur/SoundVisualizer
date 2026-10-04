@@ -538,10 +538,18 @@
       perCharacter: false,
       marquee: false,
       marqueeSpeed: 0.12,
+      /* Sığmayan satır kutuya kırpılıp ileri geri kayar (çalan parça katmanı gibi). */
+      scrollOverflow: true,
+      scrollSpeed: 1,
+      maxWidth: 0.9,
       karaoke: true,
       offset: 0,        // söz senkron düzeltmesi (sn)
       lyricsSource: '', // LRC/SRT dosya içeriği
       lyricsName: '',
+      /* Windows: kütüphane, sistemdeki parçanın konumunu izler.
+         Kapalıyken ve Windows dışında elle yüklenen dosya ekran saatiyle akar. */
+      lyricsFollow: false,
+      lyricsMatch: 'exact', // 'exact' | 'partial'
       nowPlaying: { title: '', artist: '' },
       nowSource: 'system', // 'system' = sistemden oku | 'manual' = elle yazılan
       showArtwork: true, // Şarkı çaldığında albüm kapağını/resmini logo katmanında göster
@@ -606,6 +614,7 @@
       opacity: 1,
       maxWidth: 0.8,      // uzun başlıklar bu genişliğe sığdırılır
       scrollLongTitles: true,
+      scrollSpeed: 1,     // 1 = varsayılan tempo; büyüdükçe kaydırma hızlanır
 
       // İlerleme çubuğu
       barWidth: 0.42,
@@ -1043,7 +1052,9 @@
       enabled: false,
       source: 'webcam', // 'webcam' | 'file'
       deviceId: '', // boş = varsayılan kamera
-      file: null, // video dosyası (file:// URL)
+      deviceLabel: '', // Panelde görünen ad. Yayın katmanı kamerayı tarayıcıdan açmaz.
+      file: null, // video dosyası (sv-media adresi)
+      libraryId: '', // kitaplık öğesi; dosya userData/media-library altında
       fit: 'cover', // 'cover' | 'contain' | 'stretch'
       opacity: 0.85,
       blend: 'normal', // 'normal' | 'screen' | 'add' | 'multiply'

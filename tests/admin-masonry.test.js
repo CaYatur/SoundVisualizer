@@ -12,10 +12,14 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.cs
 test('yeniden çizim masonry sınıfını kartlar doğmadan kapatır', () => {
   const i = admin.indexOf('function render()');
   assert.ok(i > 0);
-  const body = admin.slice(i, i + 700);
-  const off = body.indexOf("classList.remove('masonry')");
-  const clear = body.indexOf('root.innerHTML');
-  assert.ok(off > 0 && clear > off, 'masonry, kartlar silinmeden kapanmalı');
+  const head = admin.slice(i, i + 700);
+  const off = head.indexOf("classList.remove('masonry')");
+  const clear = head.indexOf('root.innerHTML');
+  assert.ok(clear > 0 && off > clear, 'eski kartlar, masonry kalkmadan silinir');
+  const end = admin.indexOf('layoutCards(root)', i);
+  const body = admin.slice(i, end);
+  const born = body.indexOf('root.appendChild');
+  assert.ok(born > body.indexOf("classList.remove('masonry')"), 'yeni kart masonry kapalıyken doğar');
 });
 
 test('layoutCards boyu 4 px ızgara kapalıyken ölçer', () => {

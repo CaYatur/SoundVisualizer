@@ -7,6 +7,14 @@
 (function () {
   const P = () => window.SVPanel;
 
+  if (!window.__svMediaIpc && window.api && window.api.onVisualizerMessage) {
+    window.__svMediaIpc = true;
+    window.api.onVisualizerMessage((msg) => {
+      if (!msg || msg.type !== 'media-status' || typeof window.SVMediaStatus !== 'function') return;
+      window.SVMediaStatus(msg);
+    });
+  }
+
   /* Tek ayar sıfırlama: admin appendGrouped / lighting-general ile aynı
      data-path + ctrl-reset. Yalnız kategori düzeyi kontroller (yığın anahtarı,
      şeffaf arkaplan vb.); katman kartlarının içi HARİÇ — orada her alanın
@@ -81,9 +89,11 @@
           ? JSON.parse(JSON.stringify(defVal))
           : defVal;
         set(v);
-        P().push(true);
+        /* push, düğmeyi gizleyip odağı düşürür ve kaydırmayı başa alır.
+           Konum, düğme hâlâ odaktayken okunur; kayıt ondan sonra gider. */
         if (P().rerender) P().rerender();
         else if (P().apply) P().apply();
+        P().push(true);
       },
     }));
     return ctrl;
@@ -146,7 +156,7 @@
         P().push(false);
       },
     });
-    const ctrl = el('div', { class: 'ctrl' }, [
+    const ctrl = el('div', { class: 'ctrl', 'data-anchor': String(label).slice(0, 80) }, [
       el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), val]),
       input,
     ]);
@@ -166,6 +176,7 @@
       sel.appendChild(o);
     }
     const ctrl = P().row(tr(label), sel);
+    if (ctrl && ctrl.setAttribute) ctrl.setAttribute('data-anchor', String(label).slice(0, 80));
     return def !== undefined ? attachDefault(ctrl, get, (v) => { set(v); }, def) : ctrl;
   }
 
@@ -187,7 +198,7 @@
       });
       seg.appendChild(b);
     }
-    const ctrl = el('div', { class: 'ctrl' }, [
+    const ctrl = el('div', { class: 'ctrl', 'data-anchor': String(label).slice(0, 80) }, [
       el('label', { class: 'lbl', text: tr(label) }),
       seg,
     ]);
@@ -254,20 +265,23 @@
         el('span', { class: 'pill', text: opts.badge }),
       ]);
     }
-        const ctrl = P().row(labelEl, switchEl);
+    const ctrl = P().row(labelEl, switchEl);
+    if (typeof label === 'string' && ctrl && ctrl.setAttribute) ctrl.setAttribute('data-anchor', label.slice(0, 80));
     return (opts && opts.def !== undefined)
       ? attachDefault(ctrl, get, (v) => { set(!!v); }, opts.def)
       : ctrl;
   }
 
-  function miniColor(label, get, set) {
+  function miniColor(label, get, set, def) {
     const el = P().el;
     const inp = el('input', {
       type: 'color',
       value: get() || '#ff0055',
       oninput: (e) => { set(e.target.value); P().push(false); },
     });
-    return P().row(label, inp);
+    const ctrl = P().row(label, inp);
+    if (ctrl && ctrl.setAttribute && label != null) ctrl.setAttribute('data-anchor', String(label).slice(0, 80));
+    return def !== undefined ? attachDefault(ctrl, get, set, def) : ctrl;
   }
 
   const foldStates = {};
@@ -281,13 +295,18 @@
     /* Ok ayrı bir öğe ve CSS'le döndürülüyor (.fold-head.open); yazı
        kendi metin düğümünde kalıyor, çeviri onu tam metin eşliyor. */
     const head = el('button', {
-      class: 'fold-head' + (open ? ' open' : ''), type: 'button',
+      class: 'fold-head' + (open ? ' open' : ''), type: 'button', 'data-anchor': title,
       onclick: () => {
+        const root = (typeof document !== 'undefined' && document.getElementById)
+          ? document.getElementById('sections') : null;
+        const before = (root && head.getBoundingClientRect) ? head.getBoundingClientRect().top : null;
         open = !open;
         foldStates[k] = open;
         head.classList.toggle('open', open);
         body.classList.toggle('open', open);
         if (open && !body.childElementCount) buildKids().forEach((n) => n && body.appendChild(n));
+        if (before != null && head.closest) fitLayerCard(head.closest('.card'));
+        keepViewport(root, head, before);
       },
     }, [el('span', { class: 'fold-caret', icon: 'caret-right' }), el('span', { text: title })]);
     if (open) {
@@ -367,11 +386,38 @@
   /* Katmanın alt bölümleri sekme şeridi: aynı anda biri açık. Eskiden beş
      katlanır başlık alt alta diziliyordu ve kartın dibinde kayboluyordu.
      Açık sekme panel yeniden çizilince korunuyor (foldStates). */
+  /* Sekme açılınca kartın ızgara payı içeriğe göre yenilenir. Ölçüm
+     masonry kapalıyken yapılır; gözlemci küçültmediği için kapanan
+     sekme boş satır bırakmasın. Sekme şeridi ekranda yerinde kalır. */
+  function keepViewport(root, box, before) {
+    if (before == null || !root || !box || !box.getBoundingClientRect) return;
+    const d = box.getBoundingClientRect().top - before;
+    if (d > 0.5 || d < -0.5) root.scrollTop += d;
+  }
+
+  function fitLayerCard(card) {
+    if (!card || !card.parentElement || !card.getBoundingClientRect || !card.parentElement.classList) return;
+    const root = card.parentElement;
+    if (!root.classList.contains('sections')) return;
+    const gap = (typeof getComputedStyle === 'function')
+      ? (parseFloat(getComputedStyle(root).columnGap) || 14) : 14;
+    const was = root.classList.contains('masonry');
+    const keep = root.scrollTop;
+    if (was) root.classList.remove('masonry');
+    const h = card.getBoundingClientRect().height;
+    if (was) root.classList.add('masonry');
+    if (card.style) card.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / 4));
+    if (root.scrollTop !== keep) root.scrollTop = keep;
+  }
+
   function layerTabs(key, tabs) {
     const el = P().el;
     const pane = el('div', { class: 'layer-pane' });
     const bar = el('div', { class: 'layer-tabs', role: 'tablist' });
     const show = (k) => {
+      const root = (typeof document !== 'undefined' && document.getElementById)
+        ? document.getElementById('sections') : null;
+      const before = (root && bar.getBoundingClientRect) ? bar.getBoundingClientRect().top : null;
       pane.innerHTML = '';
       const t = tabs.find((x) => x.key === k);
       if (t) t.build().forEach((n) => n && pane.appendChild(n));
@@ -381,9 +427,11 @@
         b.classList.toggle('active', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
       });
+      if (before != null && bar.closest) fitLayerCard(bar.closest('.card'));
+      keepViewport(root, bar, before);
     };
     tabs.forEach((t) => bar.appendChild(el('button', {
-      type: 'button', class: 'layer-tab', role: 'tab', 'data-k': t.key, text: t.label,
+      type: 'button', class: 'layer-tab', role: 'tab', 'data-k': t.key, 'data-anchor': t.label, text: t.label,
       onclick: () => {
         const now = foldStates[key + '_tab'] === t.key ? '' : t.key;
         foldStates[key + '_tab'] = now;
@@ -565,11 +613,15 @@
           b.np.holdSeconds = null;
         }, rerender));
       out.push(miniSlider('Ekranda Kalma', () => (b.get('holdSeconds', null) == null ? sp.hold : b.get('holdSeconds')),
-        (v) => b.set('holdSeconds', v), { min: 0.5, max: 20, step: 0.5, fmt: (v) => (+v).toFixed(1) + ' sn' }));
+        (v) => b.set('holdSeconds', v), { min: 0.5, max: 20, step: 0.5, fmt: (v) => (+v).toFixed(1) + ' sn', def: sp.hold }));
     }
-    out.push(miniSelect('Hizalama', ALIGN_LABELS, () => b.get('align', 'center'), (v) => b.set('align', v)));
+    out.push(miniSelect('Hizalama', ALIGN_LABELS, () => b.get('align', 'center'), (v) => b.set('align', v), null, 'center'));
+    out.push(miniSlider('Dikey Konum', () => (b.get('y', 0.86) == null ? 0.86 : b.get('y', 0.86)),
+      (v) => b.set('y', v), { min: 0, max: 1, step: 0.005, percent: true, def: 0.86 }));
+    out.push(miniSelect('Dikey Hiza', [['top', 'Üst'], ['middle', 'Orta'], ['bottom', 'Alt']],
+      () => b.get('vAlign', 'middle'), (v) => b.set('vAlign', v), null, 'middle'));
     out.push(miniSlider('Boyut', () => (b.get('size', 0.042) == null ? 0.042 : b.get('size', 0.042)),
-      (v) => b.set('size', v), { min: 0.015, max: 0.16, step: 0.002, fmt: (v) => (v * 100).toFixed(1) + '%' }));
+      (v) => b.set('size', v), { min: 0.015, max: 0.16, step: 0.002, fmt: (v) => (v * 100).toFixed(1) + '%', def: 0.042 }));
     return out;
   }
 
@@ -614,33 +666,37 @@
     out.push(miniSelect('Yazı Tipi', NP_FONT_LABELS, () => b.get('font', ''), (v) => b.set('font', v)));
     out.push(miniSlider('Kalınlık', () => (b.get('weight', null) == null ? b.style.weight : b.get('weight')),
       (v) => b.set('weight', Math.round(v / 100) * 100),
-      { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100) }));
+      { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100), def: b.style.weight }));
     out.push(miniToggle('Büyük Harf', () => (b.get('uppercase', null) == null ? !!b.style.uppercase : !!b.get('uppercase')),
-      (v) => b.set('uppercase', v)));
+      (v) => b.set('uppercase', v), null, { def: !!b.style.uppercase }));
     out.push(miniSlider('Satır Aralığı', () => (b.get('lineGap', 0.32) == null ? 0.32 : b.get('lineGap', 0.32)),
-      (v) => b.set('lineGap', v), { min: 0, max: 1.2, step: 0.02 }));
+      (v) => b.set('lineGap', v), { min: 0, max: 1.2, step: 0.02, def: 0.32 }));
     out.push(miniSlider('Yazı Saydamlığı', () => (b.get('opacity', 1) == null ? 1 : b.get('opacity', 1)),
-      (v) => b.set('opacity', v), { min: 0, max: 1, step: 0.01, percent: true }));
+      (v) => b.set('opacity', v), { min: 0, max: 1, step: 0.01, percent: true, def: 1 }));
     out.push(miniSlider('Kontur', () => (b.get('outline', null) == null ? b.style.outline : b.get('outline')),
-      (v) => b.set('outline', v), { min: 0, max: 1, step: 0.02 }));
+      (v) => b.set('outline', v), { min: 0, max: 1, step: 0.02, def: b.style.outline }));
     out.push(miniSlider('Gölge', () => (b.get('shadow', null) == null ? b.style.shadow : b.get('shadow')),
-      (v) => b.set('shadow', v), { min: 0, max: 1, step: 0.02 }));
+      (v) => b.set('shadow', v), { min: 0, max: 1, step: 0.02, def: b.style.shadow }));
     out.push(miniSlider('En Fazla Genişlik', () => (b.get('maxWidth', 0.8) == null ? 0.8 : b.get('maxWidth', 0.8)),
-      (v) => b.set('maxWidth', v), { min: 0.2, max: 1, step: 0.01, percent: true }));
+      (v) => b.set('maxWidth', v), { min: 0.2, max: 1, step: 0.01, percent: true, def: 0.8 }));
     out.push(miniToggle('Uzun Adları Kaydır', () => b.get('scrollLongTitles', true) !== false,
-      (v) => b.set('scrollLongTitles', v)));
+      (v) => b.set('scrollLongTitles', v), rerender, { def: true }));
+    if (b.get('scrollLongTitles', true) !== false) {
+      out.push(miniSlider('Kaydırma Hızı', () => (b.get('scrollSpeed', 1) == null ? 1 : b.get('scrollSpeed', 1)),
+        (v) => b.set('scrollSpeed', v), { min: 0.25, max: 4, step: 0.05, fmt: (v) => (+v).toFixed(2) + '×', def: 1 }));
+    }
     if (b.fromSystem && b.showOf().bar !== false) {
       out.push(miniSlider('Genişlik', () => (b.get('barWidth', 0.42) == null ? 0.42 : b.get('barWidth', 0.42)),
-        (v) => b.set('barWidth', v), { min: 0.05, max: 1, step: 0.01, percent: true }));
+        (v) => b.set('barWidth', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.42 }));
       out.push(miniSlider('Çubuk Kalınlığı', () => (b.get('barHeight', null) == null ? b.style.barHeight : b.get('barHeight')),
-        (v) => b.set('barHeight', v), { min: 0.001, max: 0.04, step: 0.001, fmt: (v) => (v * 100).toFixed(1) + '%' }));
+        (v) => b.set('barHeight', v), { min: 0.001, max: 0.04, step: 0.001, fmt: (v) => (v * 100).toFixed(1) + '%', def: b.style.barHeight }));
       out.push(miniSlider('Bölme Sayısı', () => (b.get('barSegments', null) == null ? b.style.barSegments : b.get('barSegments')),
         (v) => b.set('barSegments', Math.round(v)),
-        { min: 0, max: 80, step: 1, fmt: (v) => (v < 1 ? 'kesintisiz' : Math.round(v) + ' bölme') }));
+        { min: 0, max: 80, step: 1, fmt: (v) => (v < 1 ? 'kesintisiz' : Math.round(v) + ' bölme'), def: b.style.barSegments }));
       out.push(miniSlider('Yazıyla Arası', () => (b.get('barGap', 0.5) == null ? 0.5 : b.get('barGap', 0.5)),
-        (v) => b.set('barGap', v), { min: 0, max: 2, step: 0.05 }));
+        (v) => b.set('barGap', v), { min: 0, max: 2, step: 0.05, def: 0.5 }));
       out.push(miniSlider('Zemin Koyuluğu', () => (b.get('barBackOpacity', null) == null ? b.style.barBackOpacity : b.get('barBackOpacity')),
-        (v) => b.set('barBackOpacity', v), { min: 0, max: 1, step: 0.02, percent: true }));
+        (v) => b.set('barBackOpacity', v), { min: 0, max: 1, step: 0.02, percent: true, def: b.style.barBackOpacity }));
     }
     return out;
   }
@@ -653,7 +709,7 @@
     return [
       miniSelect('Giriş', NP_ANIM_LABELS, () => b.get('animation', 'slideUp'), (v) => b.set('animation', v)),
       miniSlider('Giriş Süresi', () => (b.get('animDuration', null) == null ? spAnim.anim : b.get('animDuration')),
-        (v) => b.set('animDuration', v), { min: 0.05, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn' }),
+        (v) => b.set('animDuration', v), { min: 0.05, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn', def: spAnim.anim }),
     ];
   }
 
@@ -661,47 +717,66 @@
     const b = nowplayingBag(l, cfg);
     return [
       miniSlider('Basla Nabız', () => (b.get('audioScale', 0.04) == null ? 0.04 : b.get('audioScale', 0.04)),
-        (v) => b.set('audioScale', v), { min: 0, max: 0.4, step: 0.01 }),
+        (v) => b.set('audioScale', v), { min: 0, max: 0.4, step: 0.01, def: 0.04 }),
     ];
   }
 
   /* Metin kartı da yığın açıkken gizlenir. Konum Dönüşüm sekmesinde,
      nabız Sese Tepki sekmesinde, giriş Hareket sekmesindedir. */
   function textTypeKids(txt) {
+    const weightDef = txt.source === 'now' ? 800 : 700;
     return [
-      miniSelect('Yazı Tipi', TEXT_FONT_LABELS, () => txt.font || TEXT_FONT_LABELS[0][0], (v) => { txt.font = v; }),
-      miniSlider('Kalınlık', () => txt.weight || 700, (v) => { txt.weight = Math.round(v / 100) * 100; },
-        { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100) }),
+      miniSelect('Yazı Tipi', TEXT_FONT_LABELS, () => txt.font || TEXT_FONT_LABELS[0][0], (v) => { txt.font = v; }, null, TEXT_FONT_LABELS[0][0]),
+      miniSlider('Kalınlık', () => (txt.weight == null ? weightDef : txt.weight), (v) => { txt.weight = Math.round(v / 100) * 100; },
+        { min: 100, max: 900, step: 100, fmt: (v) => String(Math.round(v / 100) * 100), def: weightDef }),
       miniSlider('Yazı Saydamlığı', () => (txt.opacity == null ? 1 : txt.opacity), (v) => { txt.opacity = v; },
-        { min: 0, max: 1, step: 0.01, percent: true }),
+        { min: 0, max: 1, step: 0.01, percent: true, def: 1 }),
       miniSlider('Kontur', () => (txt.outline == null ? 0 : txt.outline), (v) => { txt.outline = v; },
-        { min: 0, max: 1, step: 0.02 }),
+        { min: 0, max: 1, step: 0.02, def: 0 }),
       miniSlider('Gölge', () => (txt.shadow == null ? 0 : txt.shadow), (v) => { txt.shadow = v; },
-        { min: 0, max: 1, step: 0.02 }),
+        { min: 0, max: 1, step: 0.02, def: 0 }),
     ];
   }
 
   function textMotionKids(txt) {
     return [
-      miniSelect('Giriş', TEXT_ANIM_LABELS, () => txt.animation || 'fade', (v) => { txt.animation = v; }),
+      miniSelect('Giriş', TEXT_ANIM_LABELS, () => txt.animation || 'fade', (v) => { txt.animation = v; }, null, 'fade'),
       miniSlider('Giriş Süresi', () => (txt.animDuration == null ? 0.45 : txt.animDuration),
-        (v) => { txt.animDuration = v; }, { min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn' }),
+        (v) => { txt.animDuration = v; }, { min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn', def: 0.45 }),
     ];
   }
 
   function textAudioKids(txt, rerender) {
+    const pulseDef = txt.source === 'now' ? 0 : 0.12;
     const out = [
-      miniSlider('Basla Nabız', () => (txt.audioScale == null ? 0.12 : txt.audioScale),
-        (v) => { txt.audioScale = v; }, { min: 0, max: 0.6, step: 0.01 }),
+      miniSlider('Basla Nabız', () => (txt.audioScale == null ? pulseDef : txt.audioScale),
+        (v) => { txt.audioScale = v; }, { min: 0, max: 0.6, step: 0.01, def: pulseDef }),
       miniSlider('Titreşim', () => txt.audioJitter || 0, (v) => { txt.audioJitter = v; },
-        { min: 0, max: 1, step: 0.02 }),
-      miniToggle('Harf Harf Tepki', () => !!txt.perCharacter, (v) => { txt.perCharacter = v; }, rerender),
+        { min: 0, max: 1, step: 0.02, def: 0 }),
+      miniToggle('Harf Harf Tepki', () => !!txt.perCharacter, (v) => { txt.perCharacter = v; }, rerender, { def: false }),
     ];
     if (txt.perCharacter) {
       out.push(miniSlider('Harf Yükselmesi', () => (txt.audioLift == null ? 0.25 : txt.audioLift),
-        (v) => { txt.audioLift = v; }, { min: 0, max: 1, step: 0.02 }));
+        (v) => { txt.audioLift = v; }, { min: 0, max: 1, step: 0.02, def: 0.25 }));
     }
     return out;
+  }
+
+  /* Kamera adları izin verilene kadar boş gelebilir. Liste katman kartında
+     tutulur; yığın açıkken klasik medya kartı görünmez. */
+  let mediaCameras = null;
+  function refreshMediaCameras() {
+    const md = typeof navigator !== 'undefined' ? navigator.mediaDevices : null;
+    if (!md || !md.enumerateDevices) {
+      mediaCameras = [];
+      return Promise.resolve();
+    }
+    return md.enumerateDevices().then((all) => {
+      mediaCameras = (all || []).filter((d) => d && d.kind === 'videoinput').map((d) => ({
+        id: d.deviceId,
+        label: d.label || '',
+      }));
+    }).catch(() => { mediaCameras = []; });
   }
 
   /* Bir katmanın kendi kaynağına ait ayarlar.
@@ -721,6 +796,42 @@
       out.push(miniSelect('Medya Kaynağı', [['webcam', 'Web Kamerası'], ['file', 'Video Dosyası']],
         () => m.source || 'webcam', (v) => { m.source = v; }, rerender));
 
+      if ((m.source || 'webcam') !== 'file') {
+        const opts = [['', 'Varsayılan kamera']];
+        (mediaCameras || []).forEach((c, i) => {
+          if (c && c.id) opts.push([c.id, c.label || ('Kamera ' + (i + 1))]);
+        });
+        if (m.deviceId && !opts.some((o) => o[0] === m.deviceId)) opts.push([m.deviceId, 'Kayıtlı kamera']);
+        out.push(miniSelect('Kamera', opts, () => m.deviceId || '', (v) => {
+          m.deviceId = v;
+          const cam = (mediaCameras || []).find((c) => c && c.id === v);
+          m.deviceLabel = v ? ((cam && cam.label) || '') : '';
+          m.enabled = true;
+        }, rerender, ''));
+        if (m.deviceId && !m.deviceLabel) {
+          const known = (mediaCameras || []).find((c) => c && c.id === m.deviceId && c.label);
+          if (known) {
+            m.deviceLabel = known.label;
+            P().push(true);
+          }
+        }
+        const fault = window.SVMediaWarning ? window.SVMediaWarning(m.deviceId || '') : '';
+        if (fault) out.push(el('div', { class: 'studio-note media-fault', text: fault }));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Kameraları Yenile',
+            onclick: async () => { await refreshMediaCameras(); rerender(); },
+          }),
+        ]));
+        out.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Bu katmanın kamerasıdır. İkinci bir medya katmanı başka bir kamerayı aynı anda açar. OBS yayın katmanı kamerayı tarayıcıdan açmaz; görüntü bu uygulamadan gider. Adlar, kameraya izin verilince dolar.',
+        }));
+        if (mediaCameras == null) {
+          mediaCameras = [];
+          refreshMediaCameras().then(() => rerender());
+        }
+      }
       if ((m.source || 'webcam') === 'file') {
         // Seçili dosyanın adı ve küçük bir ön izlemesi
         const info = el('div', { class: 'row' }, [
@@ -744,6 +855,7 @@
                 if (!r) return;
                 m.file = r.url;
                 m.fileName = r.name;
+                m.libraryId = '';
                 m.enabled = true;
                 P().push(true);
                 rerender();
@@ -751,6 +863,7 @@
                 pickVideoFile((url, name) => {
                   m.file = url;
                   m.fileName = name;
+                  m.libraryId = '';
                   m.enabled = true;
                   P().push(true);
                   rerender();
@@ -763,11 +876,32 @@
             onclick: () => {
               m.file = '';
               m.fileName = '';
+              m.libraryId = '';
               P().push(true);
               rerender();
             },
           }) : null,
         ].filter(Boolean)));
+        if (window.SVMediaLibUi) {
+          out.push(window.SVMediaLibUi.mount({
+            selectedId: m.libraryId || '',
+            onPick: (it) => {
+              if (!it || !it.url) return;
+              m.source = 'file';
+              m.file = it.url;
+              m.fileName = it.name || '';
+              m.libraryId = it.id || '';
+              m.enabled = true;
+              P().push(true);
+              rerender();
+            },
+            onRemove: (it) => {
+              if (!window.SVMediaLibUi.forget(P().cfg(), it)) return;
+              P().push(true);
+              rerender();
+            },
+          }));
+        }
         out.push(miniToggle('Döngüde Oynat', () => m.loop !== false, (v) => { m.loop = v; }));
       }
       out.push(miniSelect('Sığdırma', [['cover', 'Kapla'], ['contain', 'Sığdır'], ['stretch', 'Ger']],
@@ -1004,9 +1138,9 @@
           },
         });
         out.push(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı Metni' }), area]));
-        out.push(miniToggle('Kayan Yazı', () => !!txt.marquee, (v) => { txt.marquee = v; }, rerender));
+        out.push(miniToggle('Kayan Yazı', () => !!txt.marquee, (v) => { txt.marquee = v; }, rerender, { def: false }));
         if (txt.marquee) {
-          out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01 }));
+          out.push(miniSlider('Kayma Hızı', () => txt.marqueeSpeed || 0.12, (v) => { txt.marqueeSpeed = v; }, { min: 0.02, max: 0.6, step: 0.01, def: 0.12 }));
         }
       } else if (src === 'now') {
         const isWin = isWindowsPlatform();
@@ -1172,19 +1306,28 @@
             },
           }),
         ]));
+        if (txt.lyricsFollow !== true && window.SVLyricsClock && window.SVLyricsClock.controls) {
+          out.push(window.SVLyricsClock.controls({ el }));
+        }
+        if (isWindowsPlatform() && window.SVLyricsLibUi && window.SVLyricsLibUi.block) {
+          const extra = window.SVLyricsLibUi.block({ txt, rerender });
+          for (let i = 0; i < extra.length; i++) out.push(extra[i]);
+        }
         out.push(miniSlider('Senkron Kayması', () => txt.offset || 0, (v) => { txt.offset = v; }, {
-          min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
+          min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn', def: 0,
         }));
-        out.push(miniToggle('Karaoke Vurgusu', () => txt.karaoke !== false, (v) => { txt.karaoke = v; }));
+        out.push(miniToggle('Karaoke Vurgusu', () => txt.karaoke !== false, (v) => { txt.karaoke = v; }, rerender, { def: true }));
       }
 
-      const getTxtMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
-        || (txt.useCustomColor ? 'custom' : 'theme');
+      /* Kip bu yazının kendisinde durur. Sahne görselleştiricisine yazmak
+         diğer metin katmanlarının da aynı kipe geçmesine yol açıyordu. */
+      const getTxtMode = () => txt.colorMode
+        || (txt.useCustomColor ? 'custom' : null)
+        || (cfg.visualizer && cfg.visualizer.colorMode)
+        || 'theme';
       const setTxtMode = (m) => {
+        txt.colorMode = m;
         txt.useCustomColor = (m === 'custom');
-        cfg.visualizer = cfg.visualizer || {};
-        cfg.visualizer.colorMode = m;
-        cfg.visualizer.rainbow = (m === 'rainbow');
       };
       out.push(miniSegment('Renk Modu', [
         ['custom', 'Sabit Renk'],
@@ -1192,11 +1335,34 @@
         ['rainbow', 'Gökkuşağı'],
       ], getTxtMode, setTxtMode, rerender));
       if (getTxtMode() === 'custom') {
-        out.push(miniColor('Metin Rengi', () => txt.color || '#ffffff', (v) => { txt.color = v; }));
-        out.push(miniColor('Vurgu Rengi', () => txt.colorHighlight || '#ffd23f', (v) => { txt.colorHighlight = v; }));
+        out.push(miniColor('Metin Rengi', () => txt.color || '#ffffff', (v) => { txt.color = v; }, '#ffffff'));
+        /* Vurgu yalnız şarkı sözünde söylenen kelimeyi boyar. Sabit yazı ve
+           çalan parça bu rengi çizmez; orada göstermek kullanılmayan bir ayar bırakıyordu. */
+        if (src === 'lyrics' && txt.karaoke !== false) {
+          out.push(miniColor('Vurgu Rengi', () => txt.colorHighlight || '#ffd23f', (v) => { txt.colorHighlight = v; }, '#ffd23f'));
+          out.push(el('div', { class: 'studio-note dim-hint',
+            text: 'Söylenen kısmı boyar. Sabit yazı ve çalan parça bu rengi kullanmaz.' }));
+        }
       }
-      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? 0.08 : txt.size, (v) => { txt.size = v; }, { min: 0.01, max: 0.3, step: 0.005 }));
-      out.push(miniSelect('Hizalama', ALIGN_LABELS, () => txt.align || 'center', (v) => { txt.align = v; }));
+      const sizeDef = src === 'lyrics' ? 0.07 : src === 'now' ? 0.06 : 0.09;
+      const alignDef = src === 'now' ? 'left' : 'center';
+      out.push(miniSlider('Yazı Boyutu', () => txt.size == null ? sizeDef : txt.size, (v) => { txt.size = v; },
+        { min: 0.01, max: 0.3, step: 0.005, def: sizeDef }));
+      out.push(miniSelect('Hizalama', ALIGN_LABELS, () => txt.align || alignDef, (v) => { txt.align = v; }, null, alignDef));
+      const yDef = src === 'lyrics' ? 0.82 : src === 'now' ? 0.78 : 0.5;
+      out.push(miniSlider('Dikey Konum', () => (txt.y == null ? yDef : txt.y), (v) => { txt.y = v; },
+        { min: 0, max: 1, step: 0.005, percent: true, def: yDef }));
+      out.push(miniSelect('Dikey Hiza', [['top', 'Üst'], ['middle', 'Orta'], ['bottom', 'Alt']],
+        () => txt.vAlign || 'middle', (v) => { txt.vAlign = v; }, null, 'middle'));
+      out.push(miniSlider('En Fazla Genişlik', () => (txt.maxWidth == null ? 0.9 : txt.maxWidth), (v) => { txt.maxWidth = v; },
+        { min: 0.2, max: 1, step: 0.01, percent: true, def: 0.9 }));
+      out.push(miniToggle('Uzun Yazıyı Kaydır', () => txt.scrollOverflow !== false, (v) => { txt.scrollOverflow = v; }, rerender, { def: true }));
+      if (txt.scrollOverflow !== false && !txt.marquee) {
+        out.push(miniSlider('Kaydırma Hızı', () => (txt.scrollSpeed == null ? 1 : txt.scrollSpeed), (v) => { txt.scrollSpeed = v; },
+          { min: 0.25, max: 4, step: 0.05, fmt: (v) => (+v).toFixed(2) + '×', def: 1 }));
+      }
+      out.push(el('div', { class: 'studio-note dim-hint',
+        text: 'Yazı ekrana ya da bu genişliğe sığmazsa kutu ekranın içinde kalır ve yazı ileri geri kayar. Kayan yazı açıkken o döngü kullanılır.' }));
       return out;
     }
 
@@ -1229,15 +1395,8 @@
         setColorMode(m);
         if (l.type === 'nowplaying') {
           const np = (l.settings.nowplaying = l.settings.nowplaying || {});
+          np.colorMode = m;
           np.useCustomColor = (m === 'custom');
-          cfg.nowplaying = cfg.nowplaying || {};
-          cfg.nowplaying.useCustomColor = (m === 'custom');
-        }
-        if (l.type === 'text') {
-          const tx = (l.settings.text = l.settings.text || {});
-          tx.useCustomColor = (m === 'custom');
-          cfg.text = cfg.text || {};
-          cfg.text.useCustomColor = (m === 'custom');
         }
       }, rerender));
 
@@ -1245,11 +1404,7 @@
         if (l.type === 'nowplaying') {
           const np = (l.settings.nowplaying = l.settings.nowplaying || {});
           const getNp = (k, fb) => np[k] !== undefined ? np[k] : ((cfg.nowplaying && cfg.nowplaying[k]) || fb);
-          const setNp = (k, val) => {
-            np[k] = val;
-            cfg.nowplaying = cfg.nowplaying || {};
-            cfg.nowplaying[k] = val;
-          };
+          const setNp = (k, val) => { np[k] = val; };
           out.push(miniColor('Parça Adı', () => getNp('color', '#ffffff'), (v) => setNp('color', v)));
           out.push(miniColor('İkincil Yazı', () => getNp('colorDim', '#c8c8d0'), (v) => setNp('colorDim', v)));
           if (isWindowsPlatform() && ((cfg.nowplaying && cfg.nowplaying.source) || 'system') === 'system') {
@@ -1276,11 +1431,7 @@
           if (cfg.nowplaying && cfg.nowplaying[k] !== undefined) return cfg.nowplaying[k];
           return fb;
         };
-        const setCover = (k, val) => {
-          npCover[k] = val;
-          cfg.nowplaying = cfg.nowplaying || {};
-          cfg.nowplaying[k] = val;
-        };
+        const setCover = (k, val) => { npCover[k] = val; };
         out.push(miniToggle('Kapağı Göster', () => !!getCover('coverOverlay', false), (v) => {
           setCover('coverOverlay', !!v);
         }, rerender));
@@ -1308,8 +1459,6 @@
           };
           const setArt = (url) => {
             npCover.manual = Object.assign({}, npCover.manual, { artwork: url || '' });
-            cfg.nowplaying = cfg.nowplaying || {};
-            cfg.nowplaying.manual = Object.assign({}, cfg.nowplaying.manual, { artwork: url || '' });
           };
           if (artNow()) out.push(el('img', { class: 'layer-preview', src: artNow(), alt: 'Kapak Görseli' }));
           out.push(el('div', { class: 'row' }, [
@@ -1414,44 +1563,70 @@
             setB('transparentKey', v);
             cfg.background = cfg.background || {};
             cfg.background.transparentKey = v;
-          }, { min: 0, max: 1, step: 0.01, percent: true }));
+          }, { min: 0, max: 1, step: 0.01, percent: true, def: 0.2 }));
         }
       }
 
+      const bgSolid = () => (bg.solidColor != null ? bg.solidColor
+        : (cfg.background && cfg.background.solidColor) || '#0a0a12');
       if (l.type === 'solid') {
-        out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => setB('solidColor', v)));
+        out.push(miniColor('Düz Renk', bgSolid, (v) => setB('solidColor', v), '#0a0a12'));
         return out;
       }
 
-      /* Same colorMode path as the main Background card (SV.resolveBackgroundColors). */
-      const getBgColorMode = () => getB('colorMode', 'theme');
-      const setBgColorMode = (m) => { setB('colorMode', m); cfg.background = cfg.background || {}; cfg.background.colorMode = m; };
+      /* Same colorMode path as the main Background card (SV.resolveBackgroundColors).
+         Kip ve düz renk bu katmanda kalır; sahne alanına yazmak diğer
+         arkaplan katmanlarını da aynı kipe çekiyordu. */
+      const getBgColorMode = () => (bg.colorMode != null ? bg.colorMode
+        : (cfg.background && cfg.background.colorMode) || 'theme');
+      const setBgColorMode = (m) => { setB('colorMode', m); };
       out.push(miniSegment('Renk Modu', [
         ['solid', 'Düz Renk'],
         ['theme', 'Renk Teması'],
         ['rainbow', 'Gökkuşağı'],
       ], getBgColorMode, setBgColorMode, rerender));
       if (getBgColorMode() === 'solid') {
-        out.push(miniColor('Düz Renk', () => getB('solidColor', '#0a0a12'), (v) => {
-          setB('solidColor', v);
-          cfg.background = cfg.background || {};
-          cfg.background.solidColor = v;
-        }));
+        out.push(miniColor('Düz Renk', bgSolid, (v) => setB('solidColor', v), '#0a0a12'));
       }
 
       if (l.type === 'gradient') {
         const gr = (bg.gradient = bg.gradient || {});
         const defGr = defBg.gradient || {};
-        const getGr = (k, fallback) => gr[k] !== undefined ? gr[k] : (defGr[k] !== undefined ? defGr[k] : fallback);
+        const sceneGr = (cfg.background && cfg.background.gradient) || {};
+        /* Katman yazmamışsa ekrandaki sahne değeri görünür. Sıfırlama
+           fabrika varsayılanına döner ve yalnız bu katmana yazılır. */
+        const getGr = (k) => (gr[k] !== undefined ? gr[k]
+          : (sceneGr[k] !== undefined ? sceneGr[k] : defGr[k]));
         const setGr = (k, val) => { gr[k] = val; };
+        const sl = (label, key, opts) => {
+          out.push(miniSlider(label, () => getGr(key), (v) => setGr(key, v), Object.assign({ def: defGr[key] }, opts)));
+        };
+        const heading = (text) => out.push(el('div', { class: 'group-label', text }));
 
-        out.push(miniSelect('Stil', [['soft', 'Yumuşak'], ['plasma', 'Plazma']], () => getGr('style', 'soft'), (v) => setGr('style', v)));
-        out.push(miniSlider('Akış Hızı', () => getGr('speed', 1), (v) => setGr('speed', v), { min: 0, max: 2, step: 0.02, def: 1}));
-        out.push(miniSlider('Ses Tepkisi', () => getGr('audioReactivity', 1), (v) => setGr('audioReactivity', v), { min: 0, max: 2, step: 0.02, def: 1}));
-        out.push(miniSlider('Ölçek', () => getGr('scale', 1.5), (v) => setGr('scale', v), { min: 0.4, max: 3, step: 0.05, def: 1.5}));
-        out.push(miniSlider('Bozulma (Warp)', () => getGr('warp', 1), (v) => setGr('warp', v), { min: 0, max: 2, step: 0.02, def: 1}));
-        out.push(miniSlider('Parlaklık', () => getGr('brightness', 1), (v) => setGr('brightness', v), { min: 0.4, max: 1.6, step: 0.02, def: 1}));
-        out.push(miniSlider('Vinyet', () => getGr('vignette', 0.3), (v) => setGr('vignette', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0.3}));
+        out.push(miniSelect('Stil', [
+          ['soft', 'Yumuşak (Parlamasız)'],
+          ['plasma', 'Plazma (Parlamalı)'],
+        ], () => getGr('style'), (v) => setGr('style', v), undefined, defGr.style));
+        sl('Akış Hızı', 'speed', { min: 0, max: 2, step: 0.02 });
+        sl('Ses Tepkisi', 'audioReactivity', { min: 0, max: 2, step: 0.02 });
+
+        heading('Hareket');
+        sl('Tek Yönlü Kayma', 'drift', { min: 0, max: 1, step: 0.01, percent: true });
+        sl('Gezinme Alanı', 'wander', { min: 0, max: 2, step: 0.02 });
+        sl('Dolanma Miktarı', 'orbit', { min: 0, max: 2, step: 0.02 });
+        sl('İç Dönüş (Swirl)', 'swirl', { min: 0, max: 2, step: 0.02 });
+        sl('Bozulma (Akışkanlık)', 'warp', { min: 0, max: 2, step: 0.02 });
+
+        heading('Görünüm');
+        sl('Ölçek (Yoğunluk)', 'scale', { min: 0.4, max: 3, step: 0.05 });
+        sl('Parlaklık (Temel)', 'brightness', { min: 0.4, max: 1.6, step: 0.02 });
+        out.push(miniToggle('Hat Çizgilerini Gizle', () => getGr('hideLines') !== false, (v) => setGr('hideLines', v), undefined, { def: defGr.hideLines !== false }));
+        sl('Gren', 'grain', { min: 0, max: 0.2, step: 0.005, fmt: (v) => (+v).toFixed(3) });
+        sl('Vinyet', 'vignette', { min: 0, max: 1, step: 0.02, percent: true });
+
+        heading('Sese Tepki');
+        sl('Ses Patlaması (Parlaklık)', 'audioBrightness', { min: 0, max: 2, step: 0.02 });
+        sl('Ses ile Renk Kayması', 'audioHue', { min: 0, max: 1, step: 0.02, percent: true });
         return out;
       }
 
@@ -1463,7 +1638,8 @@
         const defModeObj = defBg[l.type] || {};
         own.forEach(([key, label, min, max, step, percent]) => {
           const curVal = () => modeObj[key] !== undefined ? modeObj[key] : (defModeObj[key] !== undefined ? defModeObj[key] : min);
-          out.push(miniSlider(label, curVal, (v) => { modeObj[key] = v; }, { min, max, step, percent }));
+          const fallback = defModeObj[key] !== undefined ? defModeObj[key] : min;
+          out.push(miniSlider(label, curVal, (v) => { modeObj[key] = v; }, { min, max, step, percent, def: fallback }));
         });
         return out;
       }
@@ -1628,7 +1804,8 @@
     nodes.push(el('div', { class: 'layer-toolbar' }, [
       el('span', { class: 'dim-hint', text: 'Liste çizim sırasının tersinde: en üstteki katman görüntüde de en üstte.' }),
       el('button', {
-        class: 'btn ghost tiny', type: 'button', text: allOpen ? 'Tümünü Kapat' : 'Tümünü Aç',
+        class: 'btn ghost tiny', type: 'button',
+        text: allOpen ? 'Tümünü Kapat' : 'Tümünü Aç',
         onclick: () => {
           keys.forEach((k) => { if (allOpen) openSet.delete(k); else openSet.add(k); });
           saveLayerOpen(openSet);
@@ -1692,11 +1869,11 @@
         kids.push(el('div', { class: 'layer-body locked' }, [
           el('div', { class: 'studio-note dim-hint', text: 'Katman kilitli. Düzenlemek için kilidi açın.' }),
         ]));
-        nodes.push(el('div', { class: 'stack-item layer locked' }, kids));
+        nodes.push(el('div', { class: 'stack-item layer locked', 'data-id': l.id }, kids));
         continue;
       }
       if (!open) {
-        nodes.push(el('div', { class: 'stack-item layer' }, kids));
+        nodes.push(el('div', { class: 'stack-item layer', 'data-id': l.id }, kids));
         continue;
       }
 
@@ -1740,8 +1917,8 @@
             ];
             if (l.kind !== 'logo') {
               transKids.push(
-                miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true, def: 0 }),
-                miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -0.5, max: 0.5, step: 0.005, percent: true, def: 0 })
+                miniSlider('Yatay Konum', () => l.transform.x, (v) => { l.transform.x = v; }, { min: -1, max: 1, step: 0.005, percent: true, def: 0 }),
+                miniSlider('Dikey Konum', () => l.transform.y, (v) => { l.transform.y = v; }, { min: -1, max: 1, step: 0.005, percent: true, def: 0 })
 
               );
             }
@@ -1774,15 +1951,15 @@
                   ? miniSelect('Kaynak Katman', others, () => m.from || others[0][0], (v) => { m.from = v; })
                   : el('div', { class: 'studio-note', text: 'Maske için başka katman yok.' }));
               } else {
-                out.push(miniSlider('Yatay', () => (m.x == null ? 0.5 : m.x), (v) => { m.x = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true }));
-                out.push(miniSlider('Dikey', () => (m.y == null ? 0.5 : m.y), (v) => { m.y = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true }));
-                out.push(miniSlider('Genişlik', () => (m.w == null ? 0.6 : m.w), (v) => { m.w = v; }, { min: 0.02, max: 2, step: 0.01, percent: true }));
-                out.push(miniSlider('Yükseklik', () => (m.h == null ? 0.6 : m.h), (v) => { m.h = v; }, { min: 0.02, max: 2, step: 0.01, percent: true }));
+                out.push(miniSlider('Yatay', () => (m.x == null ? 0.5 : m.x), (v) => { m.x = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true, def: 0.5 }));
+                out.push(miniSlider('Dikey', () => (m.y == null ? 0.5 : m.y), (v) => { m.y = v; }, { min: -0.2, max: 1.2, step: 0.005, percent: true, def: 0.5 }));
+                out.push(miniSlider('Genişlik', () => (m.w == null ? 0.6 : m.w), (v) => { m.w = v; }, { min: 0.02, max: 2, step: 0.01, percent: true, def: 0.6 }));
+                out.push(miniSlider('Yükseklik', () => (m.h == null ? 0.6 : m.h), (v) => { m.h = v; }, { min: 0.02, max: 2, step: 0.01, percent: true, def: 0.6 }));
                 if (m.type === 'linear') {
-                  out.push(miniSlider('Açı', () => m.angle || 0, (v) => { m.angle = v; }, { min: 0, max: 1, step: 0.005 }));
+                  out.push(miniSlider('Açı', () => m.angle || 0, (v) => { m.angle = v; }, { min: 0, max: 1, step: 0.005, def: 0 }));
                 }
               }
-              out.push(miniSlider('Yumuşaklık', () => (m.feather == null ? 0.1 : m.feather), (v) => { m.feather = v; }, { min: 0, max: 1, step: 0.01, percent: true }));
+              out.push(miniSlider('Yumuşaklık', () => (m.feather == null ? 0.1 : m.feather), (v) => { m.feather = v; }, { min: 0, max: 1, step: 0.01, percent: true, def: 0.1 }));
               out.push(miniToggle('Tersine Çevir', () => !!m.invert, (v) => { m.invert = v; }));
             }
             out.push(el('div', { class: 'studio-note dim-hint', text: 'Maske katmanın kendi tuvaline uygulanır; dönüşümle birlikte hareket etmez ve karışım modundan bağımsızdır. Shader tabanlı katmanlarda (Studio, gradyan) 2B maske uygulanamaz.' }));
@@ -1809,7 +1986,7 @@
                   f.params = f.params || {};
                   if (f.params[p.name] == null) f.params[p.name] = p.default;
                   out.push(miniSlider(p.label, () => f.params[p.name], (v) => { f.params[p.name] = v; }, {
-                    min: p.min, max: p.max, step: p.step,
+                    min: p.min, max: p.max, step: p.step, def: p.default,
                   }));
                 }
               }
@@ -1854,6 +2031,14 @@
         tabs.splice(1, 0,
           { key: 'type', label: 'Yazı', build: () => textTypeKids(txt) },
           { key: 'motion', label: 'Hareket', build: () => textMotionKids(txt) });
+        /* Kütüphane kendi katlanır başlığını taşımasın; Yazı ile aynı şeritte dursun. */
+        if ((txt.source || 'static') === 'lyrics' && isWindowsPlatform()
+          && window.SVLyricsLibUi && window.SVLyricsLibUi.library) {
+          tabs.splice(2, 0, {
+            key: 'lyricslib', label: 'Söz Kütüphanesi',
+            build: () => window.SVLyricsLibUi.library({ txt, rerender }),
+          });
+        }
         const audioTx = tabs.find((t) => t.key === 'audio');
         const prevTx = audioTx.build;
         audioTx.build = () => prevTx().concat(textAudioKids(txt, rerender));
@@ -1887,7 +2072,7 @@
       ]));
 
       kids.push(el('div', { class: 'layer-body' }, body));
-      nodes.push(el('div', { class: 'stack-item layer open' }, kids));
+      nodes.push(el('div', { class: 'stack-item layer open', 'data-id': l.id }, kids));
     }
 
     // Ekleme menüsü
@@ -2002,7 +2187,7 @@
         if (fx.params[p.name] == null) fx.params[p.name] = p.default;
         kids.push(
           miniSlider(p.label, () => fx.params[p.name], (v) => { fx.params[p.name] = v; }, {
-            min: p.min, max: p.max, step: p.step,
+            min: p.min, max: p.max, step: p.step, def: p.default,
             fmt: (v) => (p.step >= 1 ? String(Math.round(v)) : (+v).toFixed(3)),
           })
         );
@@ -2017,7 +2202,7 @@
               if (!p) continue;
               out.push(
                 miniSlider(p.label + ' ← ses', () => fx.audio[name] || 0, (v) => { fx.audio[name] = v; }, {
-                  min: 0, max: 1, step: 0.02, percent: true,
+                  min: 0, max: 1, step: 0.02, percent: true, def: 0,
                 })
               );
             }
@@ -2095,7 +2280,7 @@
           if (g.params[p.name] == null) g.params[p.name] = p.default;
           nodes.push(
             miniSlider(p.label, () => g.params[p.name], (v) => { g.params[p.name] = v; }, {
-              min: p.min, max: p.max, step: p.step,
+              min: p.min, max: p.max, step: p.step, def: p.default,
               fmt: (v) => (p.step >= 1 ? String(Math.round(v)) : (+v).toFixed(3)),
             })
           );

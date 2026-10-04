@@ -16,6 +16,25 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const smooth = (k) => k * k * (3 - 2 * k);
 
+  /* main'deki ease'li gidiş-dönüş. Kısa taşma en az 0,85 sn sürer;
+     hız çarpanı süreyi böler, pikseli bir karede yutmaz. */
+  function overflowAlong(clock, overPx, fontPx, speed) {
+    const rate = Math.max(0.15, speed || 1);
+    const cruise = Math.max(1, fontPx) * 3;
+    const travel = Math.max(0.85, overPx / cruise) / rate;
+    const pause = 0.28 / rate;
+    const half = pause + travel;
+    let local = clock % (half * 2);
+    const ease = (u) => {
+      const x = u < 0 ? 0 : u > 1 ? 1 : u;
+      return x * x * (3 - 2 * x);
+    };
+    if (local < pause) return 0;
+    if (local < half) return overPx * ease((local - pause) / travel);
+    if (local < half + pause) return overPx;
+    return overPx * (1 - ease((local - half - pause) / travel));
+  }
+
   function colorsOf(cfg) {
     const c = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
     return c.length ? c : ['#ffffff', '#7c5cff'];
@@ -92,6 +111,7 @@
       if (c.enabled === false) return;
 
       const step = Math.min(0.05, dt || 0.016);
+      const scrollSpeed = clamp(c.scrollSpeed == null ? 1 : c.scrollSpeed, 0.15, 4);
       this.scrollT += step;
 
       // ---- durum ve parça değişimi
@@ -137,9 +157,12 @@
       const bass = clamp(audio.bass * sens, 0, 1.4);
       const pulse = 1 + bass * (c.audioScale == null ? 0.04 : c.audioScale);
 
-      /* Prefer visualizer.colorMode (Sabit / Tema / Gökkuşağı); fall back to useCustomColor. */
-      const colorMode = (cfg.visualizer && cfg.visualizer.colorMode)
-        || (c.useCustomColor ? 'custom' : 'theme');
+      /* Katmanın kendi kipi önce gelir. visualizer.colorMode yedek;
+         eski kayıtlarda useCustomColor sabit rengi anlatır. */
+      const colorMode = c.colorMode
+        || (c.useCustomColor ? 'custom' : null)
+        || (cfg.visualizer && cfg.visualizer.colorMode)
+        || 'theme';
       let baseCol, dimCol, barCol;
       if (colorMode === 'custom') {
         baseCol = hexRgb(c.color);
@@ -197,6 +220,9 @@
       rows.forEach((r, i) => { total += r.size + (i ? gap : 0); });
       if (hasBar) total += barGap + barH;
       if (timeRow) total += (hasBar ? gap * 0.7 : barGap) + timeRow.size;
+
+      const vAlign = c.vAlign || 'middle';
+      const yOrigin = vAlign === 'top' ? 0 : vAlign === 'bottom' ? -total : -total / 2;
 
       const cx = W * (c.x == null ? 0.5 : c.x);
       const cy = H * (c.y == null ? 0.86 : c.y);
@@ -277,7 +303,7 @@
       // left/right cover does not sit over the progress bar.
       let textH = 0;
       rows.forEach((r, i) => { textH += r.size + (i ? gap : 0); });
-      const textCenterY = -total / 2 + textH / 2;
+      const textCenterY = yOrigin + textH / 2;
 
       ctx.save();
       ctx.globalAlpha = clamp(env.alpha * animA * (c.opacity == null ? 1 : c.opacity), 0, 1);
@@ -292,7 +318,7 @@
         let coverCy = textCenterY;
         if (side === 'top') {
           coverCx = align === 'left' ? coverW / 2 : align === 'right' ? -coverW / 2 : 0;
-          coverCy = -total / 2 - coverGapPx - coverH / 2;
+          coverCy = yOrigin - coverGapPx - coverH / 2;
         } else if (side === 'left') {
           coverCx = blockLeft - coverGapPx - coverW / 2;
         } else {
@@ -333,9 +359,18 @@
       }
 
       // Grup, verilen noktada dikeyde ortalanır
-      let y = -total / 2;
+      let y = yOrigin;
 
-      const boxLeft = align === 'left' ? 0 : align === 'right' ? -maxW : -maxW / 2;
+      /* Yazı kutusu tuvalin dışına taşmasın. Sığmayan satır bu görünür
+         aralıkta kayar; ölçü nabız ölçeğiyle ekran pikseline çevrilir. */
+      const fitScale = Math.max(0.05, scale * pulse);
+      const limitPx = Math.min(maxW, W);
+      const rawLeft = align === 'left' ? cx : align === 'right' ? cx - limitPx : cx - limitPx / 2;
+      const slotLeftPx = clamp(rawLeft, 0, W);
+      const slotRightPx = clamp(rawLeft + limitPx, 0, W);
+      const slotPx = Math.max(1, slotRightPx - slotLeftPx);
+      const slotUserLeft = (slotLeftPx - cx) / fitScale;
+      const slotUserW = slotPx / fitScale;
 
       const paint = (text, fsize, col, alpha, xOff) => {
         ctx.font = weight + ' ' + fsize.toFixed(1) + 'px ' + family;
@@ -365,20 +400,16 @@
         ctx.translate(0, y);
         ctx.font = weight + ' ' + fsize.toFixed(1) + 'px ' + family;
         const wdt = ctx.measureText(r.text).width;
-        const over = wdt - maxW;
+        const overPx = wdt * fitScale - slotPx;
 
-        if (over > 0 && r.scroll && c.scrollLongTitles !== false) {
+        if (overPx > 1 && r.scroll && c.scrollLongTitles !== false) {
           ctx.beginPath();
-          ctx.rect(boxLeft, -fsize, maxW, fsize * 2);
+          ctx.rect(slotUserLeft, -fsize, slotUserW, fsize * 2);
           ctx.clip();
-          // Uçlarda bekleyen ileri-geri gezinme
-          const cycle = 2.5 + over / Math.max(1, fsize * 3);
-          const ph = (this.scrollT % (cycle * 2)) / cycle;
-          const pp = ph < 1 ? ph : 2 - ph;
-          const e = smooth(clamp((pp - 0.18) / 0.64, 0, 1));
+          const along = overflowAlong(this.scrollT, overPx, fsize * fitScale, scrollSpeed);
           const prevAlign = ctx.textAlign;
           ctx.textAlign = 'left';
-          paint(r.text, fsize, r.col, r.a, boxLeft - over * e);
+          paint(r.text, fsize, r.col, r.a, slotUserLeft - along / fitScale);
           ctx.textAlign = prevAlign;
         } else if (anim === 'typewriter' && kIn < 1) {
           // Harf harf beliren yazı

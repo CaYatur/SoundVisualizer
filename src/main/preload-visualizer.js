@@ -23,6 +23,8 @@ function createLateEvent() {
 }
 const nowPlayingEvents = createLateEvent();
 ipcRenderer.on('now-playing', (_e, st) => nowPlayingEvents.push(st));
+const lyricsClockEvents = createLateEvent();
+ipcRenderer.on('lyrics-clock', (_e, anchor) => lyricsClockEvents.push(anchor));
 
 contextBridge.exposeInMainWorld('SV_PLATFORM', {
   os: process.platform,
@@ -45,6 +47,8 @@ contextBridge.exposeInMainWorld('api', {
   /* Gösteri saati çıpası. Yalnızca DURUM DEĞİŞTİĞİNDE gelir; zaman her
      karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
+  /* Söz saati çıpası sayfa dinleyiciyi geç kurabilir. Son çıpa burada durur. */
+  onLyricsClock: (cb) => lyricsClockEvents.subscribe(cb),
   /* Çalan parça çıpası. Konum HER KARE gelmez; kaynak ancak ara sıra
      güncelliyor, aradaki değeri pencere kendisi hesaplıyor.
      (bkz. src/shared/nowplaying.js) */
@@ -53,6 +57,10 @@ contextBridge.exposeInMainWorld('api', {
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),
+  claimCamRelay: (key) => ipcRenderer.invoke('cam-relay-claim', key),
+  releaseCamRelay: (key) => ipcRenderer.send('cam-relay-release', key),
+  sendCamFrame: (msg) => ipcRenderer.send('cam-frame', msg),
+  sendCamStatus: (msg) => ipcRenderer.send('cam-status', msg),
   // Studio presetleri ana süreçte tutulur (settings.json şişmesin diye)
   getPresets: () => ipcRenderer.invoke('presets:list'),
   onPresets: (cb) => ipcRenderer.on('presets', (e, list) => cb(list)),
@@ -66,6 +74,9 @@ contextBridge.exposeInMainWorld('api', {
   milkdropTextures: () => ipcRenderer.invoke('milkdrop:textures'),
   milkdropTexture: (name) => ipcRenderer.invoke('milkdrop:texture', name),
   logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
+  lyricsLibSnapshot: () => ipcRenderer.invoke('lyrics-lib:snapshot'),
+  lyricsLibRead: (id) => ipcRenderer.invoke('lyrics-lib:read', id),
+  onLyricsLib: (cb) => ipcRenderer.on('lyrics-lib', (e, items) => cb(items)),
   floatingClose: () => ipcRenderer.send('floating:close'),
   floatingSnap: (where) => ipcRenderer.send('floating:snap', where),
   floatingSize: (kind) => ipcRenderer.send('floating:size', kind),

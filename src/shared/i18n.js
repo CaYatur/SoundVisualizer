@@ -918,6 +918,8 @@
     // ---- Medya katmanı ----
     'Kameranızı veya bir video dosyasını sahneye katman olarak koyar. Kaleydoskop, renk kayması ve sese bağlı yakınlaşma uygulanabilir; Studio shader\'larında sv_media (iChannel3) olarak da okunur.': 'Places your camera or a video file into the scene as a layer. Kaleidoscope, hue shift, and audio-driven zoom can be applied; Studio shaders can also read it as sv_media (iChannel3).',
     'Kamera': 'Camera', 'Varsayılan kamera': 'Default camera', 'Kameraları Yenile': 'Refresh Cameras',
+    'Bu katmanın kamerasıdır. İkinci bir medya katmanı başka bir kamerayı aynı anda açar. OBS yayın katmanı kamerayı tarayıcıdan açmaz; görüntü bu uygulamadan gider. Adlar, kameraya izin verilince dolar.':
+      'This is this layer\'s camera. A second media layer opens another camera at the same time. The OBS web layer does not open a browser camera; the picture comes from this application. Names fill in after permission is granted.',
     'Video Dosyası': 'Video File', 'Video Seç': 'Choose Video',
     'seçildi': 'selected', 'seçilmedi': 'not selected', 'Döngüde Oynat': 'Loop Playback',
     'Sığdırma': 'Fit', 'Doldur': 'Cover', 'Sığdır': 'Contain', 'Ger': 'Stretch',
@@ -927,6 +929,7 @@
     'Sahneye bir resim veya GIF yerleştirin; sese göre nabız atar. GIF seçilince oynatma ve ses ayarları açılır.': 'Place an image or GIF on the scene; it pulses with the audio. Choosing a GIF unlocks playback and audio controls.',
     'Ara…': 'Search…',
     'Henüz kitaplıkta görsel yok. Aşağıdan birden fazla resim veya GIF ekleyebilirsiniz.': 'The library is empty. Add multiple images or GIFs below.',
+    'Henüz kitaplıkta video yok. Aşağıdan birden fazla video ekleyebilirsiniz.': 'The library is empty. Add multiple videos below.',
     'Kitaplığa Ekle': 'Add to Library',
     'Oynatma Hızı': 'Playback Speed',
     'Döngü': 'Loop',
@@ -982,6 +985,7 @@
     'Katmanı aç/kapat': 'Enable/disable layer',
     'Dönüşüm': 'Transform', 'Sese Tepki': 'Audio Response',
     'Yatay Konum': 'Horizontal Position', 'Dikey Konum': 'Vertical Position',
+    'Dikey Hiza': 'Vertical Alignment',
     'Yatay Aynala': 'Mirror Horizontally', 'Dikey Aynala': 'Mirror Vertically',
     'Ses → Saydamlık': 'Audio → Opacity', 'Ses → Ölçek': 'Audio → Scale', 'Ses → Dönüş': 'Audio → Rotation',
     'Henüz Studio preseti yok.': 'No Studio preset yet.',
@@ -1477,12 +1481,46 @@
     'Metin Etkin': 'Text Enabled',
     'Kayan Yazı': 'Marquee',
     'Kayma Hızı': 'Scroll Speed',
+    'Uzun Yazıyı Kaydır': 'Scroll Long Text',
+    'Kaydırma Hızı': 'Scroll Speed',
+    'Yazı bu genişliğe sığmazsa ileri geri kayar. Kayan yazı açıkken o döngü kullanılır.':
+      'Text wider than this box scrolls back and forth. When marquee is on, that loop is used instead.',
+    'Yazı ekrana ya da bu genişliğe sığmazsa kutu ekranın içinde kalır ve yazı ileri geri kayar. Kayan yazı açıkken o döngü kullanılır.':
+      'If the text does not fit the screen or this width, the box stays on screen and the text scrolls back and forth. When marquee is on, that loop is used instead.',
+    'Söylenen kısmı boyar. Sabit yazı ve çalan parça bu rengi kullanmaz.':
+      'Colors the part being sung. Static text and now playing do not use this color.',
     'Başlık': 'Title',
     'Sanatçı': 'Artist',
     'Dosya': 'File',
     'yüklü dosya yok': 'no file loaded',
     'Söz Dosyası Yükle': 'Load Lyrics File',
     'Temizle': 'Clear',
+    'Çalan Parçayı İzle': 'Follow the Playing Track',
+    'Eşleme': 'Matching',
+    'Tam Eşleme': 'Exact Match',
+    'Kısmen Eşleme': 'Partial Match',
+    'Söz Kütüphanesi': 'Lyrics Library',
+    'Söz Kütüphanesine Ekle': 'Add Lyrics to Library',
+    'Çalan Parçayı Yaz': 'Write the Playing Track',
+    'Kütüphanede söz yok. LRC veya SRT ekleyin.': 'No lyrics in the library yet. Add an LRC or SRT file.',
+    'Söz kütüphanesindeki dosyayla eşleşir ve çalan parçanın süresiyle gider.': 'Matches a file in the lyrics library and follows the playing track position.',
+    'Açık ekranlar bu saatle birlikte gider. Durdur başa alır.': 'Open screens follow this clock. Stop returns to the start.',
+    'Düzenle': 'Edit',
+    'Sözü Düzenle': 'Edit Lyrics',
+    'Düzenlemeye dön': 'Back to editing',
+    'Düzenleyici kapatılsın mı?': 'Close the editor?',
+    'Kaydedilmemiş değişiklikler silinecek.': 'Unsaved changes will be discarded.',
+    'Bu metin kütüphanedeki kopyadır. Kaydetmek bu kopyayı değiştirir; içe aktardığınız özgün dosya olduğu yerde kalır.': 'This is the copy stored in the library. Saving changes that copy. The original file you imported stays where it is.',
+    'Söz dosyası okunamadı.': 'The lyrics file could not be read.',
+    'Söz kaydedilemedi.': 'The lyrics could not be saved.',
+    'Söz boş olamaz.': 'Lyrics cannot be empty.',
+    'Söz çok büyük.': 'The lyrics file is too large.',
+    'Söz kaydedildi.': 'Lyrics saved.',
+    'Düzenleme kullanılamıyor.': 'Editing is unavailable.',
+    'Eşleşen söz': 'Matched lyrics',
+    'Oynatıcı sözü': 'Player lyrics',
+    'Eşleşme yok': 'No match',
+    'Parça algılanmadı': 'No track detected',
     'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC dosyasındaki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.':
       'LRC and SRT are both supported, and the format is detected from the file contents. If enhanced LRC word timings are present the karaoke highlight moves word by word; otherwise it sweeps evenly across the line.',
     'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.':
@@ -1727,6 +1765,14 @@
     'Sustur': 'Mute',
     'Preset çok büyük (512 KB üstü).': 'Preset is too large (over 512 KB).',
     'Kamera erişimi bu ortamda kullanılamıyor.': 'Camera access is not available in this environment.',
+    'Bu kamera başka bir uygulama tarafından kullanılıyor.': 'This camera is in use by another application.',
+    'Kamera izni verilmedi. Sistem ayarlarından izin verin.': 'Camera permission was denied. Allow it in system settings.',
+    'Seçilen kamera bulunamadı. Listeden başka bir kamera seçin.': 'The selected camera was not found. Choose another camera from the list.',
+    'Kamera açılışı yarıda kesildi. Yeniden deneyin.': 'The camera start was interrupted. Try again.',
+    'Kamera açılamadı.': 'The camera could not be opened.',
+    'Kamera görüntüsü uygulamadan bekleniyor.': 'Waiting for the camera picture from the application.',
+    'Kayıtlı kamera': 'Saved camera',
+    'Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.': 'The encoder pipe closed. Export was stopped.',
     'WebGL2 kullanılamıyor. Sürücü güncellemesi gerekebilir.': 'WebGL2 unavailable. Driver update may be required.',
     'WebGL2 kullanılamıyor': 'WebGL2 unavailable',
     'WebGL yok / desteklenmiyor: gradyan düz renge düştü':
@@ -3109,6 +3155,13 @@
     const numbered = raw.match(/^(\d+)\.\s+(.+)$/);
     if (numbered) return numbered[1] + '. ' + translate(numbered[2]);
     return raw
+      /* Hata: öneki tek başına değişince gövde Türkçe kalıyordu. Gövde
+         yeniden çevrilir; kamera ve dışa aktarma cümleleri de burada,
+         alttaki genel "çıkış" değişiminden önce yakalanır. */
+      .replace(/^Hata:\s*([\s\S]*)$/, (_, err) => (err ? ('Error: ' + translate(err)) : 'Error:'))
+      .replace(/^Video açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the video' + (rest ? ': ' + rest : '.'))
+      .replace(/^Kamera açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the camera' + (rest ? ': ' + rest : '.'))
+      .replace(/^ffmpeg çıkış kodu (\d+)([\s\S]*)$/, (_, code, rest) => 'ffmpeg exit code ' + code + rest)
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/^(\d+) süreç$/g, (_, n) => n + (Number(n) === 1 ? ' process' : ' processes'))
       /* Basıklık panelinin maliyet satırı. Satırın TAMAMI için tek kural
@@ -3132,7 +3185,6 @@
       .replace(/Yakalanıyor: /g, 'Capturing: ')
       .replace(/çıkış/g, 'output')
       .replace(/^Tamamlandı/g, 'Completed')
-      .replace(/^Hata:/g, 'Error:')
       .replace(/WebGL başlatılamadı:/g, 'WebGL could not be initialized:')
       .replace(/Shader hatası:/g, 'Shader error:')
       .replace(/Program hatası:/g, 'Program error:')
@@ -3218,7 +3270,6 @@
       .replace(/^Render ediliyor \[(.+)\]… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Rendering [$1]… $2% ($3 / $4 frames)')
       .replace(/^Tamamlandı \((.+)\) → (.+)$/g, 'Completed ($1) → $2')
       .replace(/^Tamamlandı \((.+)\)$/g, 'Completed ($1)')
-      .replace(/^Hata: (.+)$/g, (_, err) => `Error: ${translate(err)}`)
       .replace(/^Şablonum (\d+)$/g, 'My Template $1')
       .replace(/^Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\.$/g, 'Portable version only controls while app is in focus ($1/$2).')
       ;

@@ -160,6 +160,38 @@
     return buf.duration;
   }
 
+  function waitImage(src) {
+    return new Promise((resolve) => {
+      if (!src) return resolve();
+      const img = new Image();
+      const done = () => resolve();
+      img.onload = done;
+      img.onerror = done;
+      img.src = src;
+      if (img.complete) done();
+    });
+  }
+
+  /* playing kapalı: konum kare saatidir, duvar saati videoyu kaydırmaz. */
+  function publishExportTrack(t) {
+    const tag = window.SVExportTrack;
+    if (!tag) return;
+    const dur = sampleRate > 0 ? totalSamples / sampleRate : 0;
+    window.SVNowLive = window.SVNowLive || {};
+    window.SVNowLive.state = {
+      has: !!(tag.title || tag.artist || tag.album || tag.artwork),
+      playing: false,
+      title: tag.title || '',
+      artist: tag.artist || '',
+      album: tag.album || '',
+      artwork: tag.artwork || '',
+      position: Math.max(0, t),
+      duration: dur,
+      updated: 0,
+      received: 0,
+    };
+  }
+
   function loadLogo(src) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -170,6 +202,13 @@
   }
 
   async function setup(job) {
+    const os = job.platform || 'win32';
+    window.SV_PLATFORM = {
+      os: os,
+      isWindows: os === 'win32',
+      isMac: os === 'darwin',
+      isLinux: os === 'linux',
+    };
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
     // Studio presetleri işin içinde gelir; modlar kurulmadan ÖNCE kaydedilmeli
     if (window.SVPresets && Array.isArray(job.presets)) window.SVPresets.setUser(job.presets);
@@ -208,6 +247,16 @@
 
     audio.applyConfig(cfg.audio);
 
+    /* Seçilen dosyanın adı ve kapağı. Takip kapalıyken söz, yüklenen
+       dosyada kalır; kütüphane ancak Çalan Parçayı İzle açıksa gelir. */
+    window.SVExportTrack = job.track || null;
+    if (Array.isArray(job.lyricsLibrary)) {
+      window.SVLyricsLib = window.SVLyricsLib || { items: [], sig: '' };
+      window.SVLyricsLib.items = job.lyricsLibrary;
+    }
+    publishExportTrack(0);
+    if (job.track && job.track.artwork) await waitImage(job.track.artwork);
+
     if (cfg.logo.enabled && cfg.logo.src) {
       logo = await loadLogo(cfg.logo.src);
     }
@@ -238,6 +287,7 @@
   function renderFrame(i) {
     const t = i / fps;
     const dt = 1 / fps;
+    publishExportTrack(t);
     const sampleEnd = Math.round(t * sampleRate);
 
     analyzeAt(sampleEnd);

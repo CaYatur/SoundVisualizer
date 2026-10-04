@@ -133,6 +133,8 @@
       text.lyricsSource = '';
       text.lyricsName = '';
       text.karaoke = true;
+      text.lyricsFollow = false;
+      text.lyricsMatch = 'exact';
     }
     return normalizeLayer({
       name: s.name || 'Metin',
@@ -229,6 +231,14 @@
 
      Bayrak hiç yoksa eski davranış: dolu bir liste varsa açık sayılır. Bu,
      v3.0.0 öncesi ayar dosyalarının sahnesini bozmadan açılmasını sağlıyor. */
+  /* Havuz anahtarı. Aynı dosya veya aynı kamera tek akış paylaşır;
+     farklı deviceId iki getUserMedia demektir. */
+  function mediaSourceKey(m) {
+    if (!m) return 'cam|';
+    if (m.source === 'file') return 'file|' + (m.loop === false ? '0|' : '1|') + (m.file || '');
+    return 'cam|' + (m.deviceId || '');
+  }
+
   function stackOn(cfg) {
     const s = cfg && cfg.layerStack;
     if (s && typeof s.enabled === 'boolean') return s.enabled;
@@ -556,12 +566,12 @@
       const baseBg = (cfg && cfg.background) || defBg;
       const bgSettings = (layer.settings && layer.settings.background) || {};
       const mergedBg = window.SV.deepMerge(baseBg, bgSettings);
-      /* Shared colorMode + live theme palette. Dynamic theme and the
-         Renkler/Hazır Şablonlar strip write cfg.background; layer-local
-         gradient.colors must not freeze over them when mode is theme. */
+      /* Canlı tema paleti aşağıda, kip tema iken katmanın eski gradyanını ezer.
+         Rengin kipi ve düz renk katmanın kendisindeyse orada kalır; sahne
+         değeri yalnız katman seçmemişse devralınır. */
       if (cfg && cfg.background) {
-        if (cfg.background.colorMode != null) mergedBg.colorMode = cfg.background.colorMode;
-        if (cfg.background.solidColor != null) mergedBg.solidColor = cfg.background.solidColor;
+        if (bgSettings.colorMode == null && cfg.background.colorMode != null) mergedBg.colorMode = cfg.background.colorMode;
+        if (bgSettings.solidColor == null && cfg.background.solidColor != null) mergedBg.solidColor = cfg.background.solidColor;
       }
       if (mergedBg.gradient) {
         const mode = mergedBg.colorMode || 'theme';
@@ -591,6 +601,10 @@
       const visSettings = (layer.settings && layer.settings.visualizer) || {};
       const vis = Object.assign({}, baseVis, { type: 'nowplaying' });
       if (visSettings.glow != null) vis.glow = visSettings.glow;
+      if (visSettings.colorMode != null) vis.colorMode = visSettings.colorMode;
+      else if (npSettings.colorMode != null) vis.colorMode = npSettings.colorMode;
+      if (visSettings.rainbow != null) vis.rainbow = visSettings.rainbow;
+      else if (npSettings.colorMode != null) vis.rainbow = npSettings.colorMode === 'rainbow';
       return Object.assign({}, base, {
         visualizer: vis,
         nowplaying: Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false }),
@@ -611,11 +625,19 @@
         const textSettings = (layer.settings && layer.settings.text) || {};
         const defText = (cfg && cfg.text) || (def ? def.text : {});
         res.text = Object.assign({}, defText, base.text, textSettings, { enabled: layer.enabled !== false });
+        if (textSettings.colorMode) {
+          mergedVis.colorMode = textSettings.colorMode;
+          mergedVis.rainbow = textSettings.colorMode === 'rainbow';
+        }
       }
       if (layer.type === 'nowplaying') {
         const npSettings = (layer.settings && layer.settings.nowplaying) || {};
         const defNp = (cfg && cfg.nowplaying) || (def ? def.nowplaying : {});
         res.nowplaying = Object.assign({}, defNp, base.nowplaying, npSettings, { enabled: layer.enabled !== false });
+        if (visSettings.colorMode == null && npSettings.colorMode) {
+          mergedVis.colorMode = npSettings.colorMode;
+          mergedVis.rainbow = npSettings.colorMode === 'rainbow';
+        }
       }
       return res;
     }
@@ -765,7 +787,14 @@
       this.width = 2;
       this.height = 2;
       this.sprites = null; // paylaşılan sprite motoru
-      this.media = null; // paylaşılan medya katmanı
+      this.media = null; // yığın kapalıyken tek medya (klasik kart)
+      /* Yığın açıkken her kamera / dosya kendi oynatıcısı. Aynı kaynak
+         iki katmana verilirse tek akış paylaşılır; farklı kameralar
+         aynı anda açık kalır. */
+      this._mediaPool = null;
+      this._mediaByLayer = null;
+      this._ownsMedia = false;
+      this._mediaHold = null;
       this.logoEl = this.opts.logoEl || null;
       if (this.logoEl) this.logoEl.style.display = 'none';
       this._imageCache = {};
@@ -962,6 +991,98 @@
 
     setSprites(s) { this.sprites = s; }
     setMedia(m) { this.media = m; }
+
+    /* Katmanın çizimde kullanacağı oynatıcı. Havuz yoksa klasik tekil
+       örneğe düşer (yığın kapalıyken veya dışa aktarıcı havuzu kurmadıysa). */
+    mediaOf(layer) {
+      const id = layer && layer.id;
+      const key = id && this._mediaByLayer && this._mediaByLayer.get(id);
+      const inst = key && this._mediaPool && this._mediaPool.get(key);
+      return inst || this.media;
+    }
+
+    /* Shader'ların tek sv_media girişi: alttan ilk açık medya katmanı.
+       Katmanların kendi görüntüsü mediaOf ile ayrılır. */
+    shaderVideo() {
+      if (this._mediaByLayer && this._mediaByLayer.size && this._mediaPool) {
+        const key = this._mediaByLayer.values().next().value;
+        const inst = key && this._mediaPool.get(key);
+        if (inst && inst.drawable) return inst.drawable();
+        if (inst && inst.video) return inst.video;
+      }
+      if (this.media && this.media.drawable) return this.media.drawable();
+      return this.media && this.media.video ? this.media.video : null;
+    }
+
+    /* Açık medya katmanlarının kaynaklarını havuza kurar. Yeni kamera
+       eskisinin yerine yazılmaz; kullanılmayan akış kapanır. */
+    syncMedia(cfg) {
+      this._ownsMedia = true;
+      if (!this._mediaPool) this._mediaPool = new Map();
+      const byLayer = new Map();
+      const wanted = new Map();
+      if (stackOn(cfg) && cfg && Array.isArray(cfg.layers)) {
+        const defMedia = cfg.media || {};
+        cfg.layers.forEach((l, i) => {
+          if (!l || l.kind !== 'media' || l.enabled === false) return;
+          const mediaSettings = (l.settings && l.settings.media) || {};
+          const m = Object.assign({}, defMedia, mediaSettings, { enabled: true });
+          const key = mediaSourceKey(m);
+          wanted.set(key, m);
+          byLayer.set(l.id || ('media-' + i), key);
+        });
+      }
+      for (const [key, m] of wanted) {
+        let inst = this._mediaPool.get(key);
+        if (!inst && typeof window !== 'undefined' && window.SVMedia) {
+          inst = new window.SVMedia();
+          this._mediaPool.set(key, inst);
+        }
+        if (inst) inst.apply(m);
+      }
+      this._mediaByLayer = byLayer;
+      this._dropMedia(new Set(wanted.keys()));
+      return this.shaderVideo();
+    }
+
+    _dropMedia(keep) {
+      if (!this._mediaPool) return;
+      for (const [key, inst] of [...this._mediaPool]) {
+        if (keep.has(key)) continue;
+        this._mediaPool.delete(key);
+        this._retireMedia(inst);
+      }
+    }
+
+    /* Geçişteki giden sahne aynı oynatıcıyı hâlâ çiziyor olabilir.
+       Onu hemen kesmek eski kareyi kararır; geçiş bitince bırakılır. */
+    _retireMedia(inst) {
+      const outgoing = this.trans && this.trans.stack && this.trans.stack._mediaPool;
+      if (outgoing) {
+        for (const v of outgoing.values()) {
+          if (v === inst) {
+            if (!this._mediaHold) this._mediaHold = [];
+            this._mediaHold.push(inst);
+            return;
+          }
+        }
+      }
+      try { inst.dispose(); } catch { /* akış zaten kapalı */ }
+    }
+
+    _flushHeldMedia() {
+      const hold = this._mediaHold || [];
+      this._mediaHold = [];
+      for (const inst of hold) {
+        let live = false;
+        if (this._mediaPool) {
+          for (const v of this._mediaPool.values()) if (v === inst) live = true;
+        }
+        if (!live) {
+          try { inst.dispose(); } catch { /* akış zaten kapalı */ }
+        }
+      }
+    }
 
     // Katmanın kimliği: değişirse mod örneği yeniden kurulur
     _key(l) {
@@ -1417,6 +1538,9 @@
       out.height = this.height;
       out.sprites = this.sprites;
       out.media = this.media;
+      out._ownsMedia = false;
+      out._mediaPool = this._mediaPool ? new Map(this._mediaPool) : null;
+      out._mediaByLayer = this._mediaByLayer ? new Map(this._mediaByLayer) : null;
       // Giden sahnenin arkaplanı da geçiş boyunca aynı süzgeçle saydamlaşsın
       out.keyFilter = this.keyFilter;
       for (const e of out.entries) {
@@ -1440,6 +1564,7 @@
       for (const e of out.entries) if (!e.proxyOf) out._disposeEntry(e);
       out.entries = [];
       this.trans = null;
+      this._flushHeldMedia();
     }
 
     // Geçiş sürüyorsa bu karedeki ilerlemesini döndürür, yoksa null
@@ -1739,7 +1864,8 @@
 
       if (l.kind === 'media') {
         e.ctx.clearRect(0, 0, W, H);
-        if (this.media) this.media.draw(e.ctx, audio, lcfg, W, H, t);
+        const inst = this.mediaOf(l);
+        if (inst) inst.draw(e.ctx, audio, lcfg, W, H, t);
         return;
       }
 
@@ -1964,6 +2090,10 @@
       for (const e of this.entries) this._disposeEntry(e);
       this.entries = [];
       if (this.postfx) { this.postfx.dispose(); this.postfx = null; }
+      if (this._ownsMedia) {
+        this._dropMedia(new Set());
+        this._flushHeldMedia();
+      }
     }
   }
 

@@ -11,6 +11,17 @@ const MEDIA_MIME = {
   '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.avi': 'video/x-msvideo',
 };
 
+/* Tuval crossOrigin=anonymous ile okur. Aralık başlığı JS'e kapalı kalırsa
+   moov'u sonda olan MP4 hiç başlamaz; bu yüzden hepsi açıkça listelenir. */
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Range',
+  'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range, Content-Type',
+};
+function withCors(headers) {
+  return Object.assign({}, CORS, headers || {});
+}
+
 /* Video dosyasını Range destekleyerek servis eder.
 
    Range şart: <video> öğesi konum değiştirmek için parça isteği yapar ve
@@ -21,7 +32,7 @@ function serveMediaFile(file, rangeHeader) {
   try {
     stat = fs.statSync(file);
   } catch {
-    return new Response('not found', { status: 404 });
+    return new Response('not found', { status: 404, headers: withCors() });
   }
   const type = MEDIA_MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
   const size = stat.size;
@@ -42,25 +53,60 @@ function serveMediaFile(file, rangeHeader) {
     if (start >= size || start > end) {
       return new Response('range not satisfiable', {
         status: 416,
-        headers: { 'Content-Range': 'bytes */' + size },
+        headers: withCors({ 'Content-Range': 'bytes */' + size }),
       });
     }
     end = Math.min(end, size - 1);
     return new Response(toWeb(fs.createReadStream(file, { start, end })), {
       status: 206,
-      headers: {
+      headers: withCors({
         'Content-Type': type,
         'Content-Length': String(end - start + 1),
         'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
         'Accept-Ranges': 'bytes',
-      },
+      }),
     });
   }
 
   return new Response(toWeb(fs.createReadStream(file)), {
     status: 200,
-    headers: { 'Content-Type': type, 'Content-Length': String(size), 'Accept-Ranges': 'bytes' },
+    headers: withCors({
+      'Content-Type': type,
+      'Content-Length': String(size),
+      'Accept-Ranges': 'bytes',
+    }),
   });
 }
 
-module.exports = { serveMediaFile, MEDIA_MIME };
+/* Klasik karttaki tek dosya yetmez. Katman yığınındaki her medya
+   dosyası da seçilmiş sayılır. Listede olmayan yol açılmaz. */
+function configuredMediaPaths(cfg, fromMediaUrl) {
+  const from = fromMediaUrl || ((s) => String(s || ''));
+  const out = [];
+  const add = (f) => {
+    const p = from(f || '');
+    if (p) out.push(p);
+  };
+  if (cfg && cfg.media) add(cfg.media.file);
+  if (cfg && Array.isArray(cfg.layers)) {
+    for (const l of cfg.layers) {
+      const m = l && l.settings && l.settings.media;
+      if (m) add(m.file);
+    }
+  }
+  return out;
+}
+
+function isConfiguredMedia(cfg, raw, urlApi) {
+  if (!raw || !urlApi) return false;
+  let want;
+  try { want = path.resolve(raw); } catch { return false; }
+  for (const p of configuredMediaPaths(cfg, urlApi.fromMediaUrl)) {
+    let abs;
+    try { abs = path.resolve(p); } catch { continue; }
+    if (urlApi.samePath(want, abs)) return true;
+  }
+  return false;
+}
+
+module.exports = { serveMediaFile, MEDIA_MIME, configuredMediaPaths, isConfiguredMedia };

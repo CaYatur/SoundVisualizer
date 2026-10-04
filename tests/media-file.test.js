@@ -9,7 +9,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { serveMediaFile } = require('../src/main/media-file.js');
+const { serveMediaFile, isConfiguredMedia } = require('../src/main/media-file.js');
+const mediaUrl = require('../src/shared/media-url.js');
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-media-'));
 const FILE = path.join(DIR, 'klip.mp4');
@@ -24,6 +25,8 @@ test('aralıksız istek tüm dosyayı ve Accept-Ranges başlığını döner', a
   assert.strictEqual(res.headers.get('Content-Type'), 'video/mp4');
   assert.strictEqual(res.headers.get('Content-Length'), '1000');
   assert.strictEqual(res.headers.get('Accept-Ranges'), 'bytes');
+  assert.strictEqual(res.headers.get('Access-Control-Allow-Origin'), '*');
+  assert.ok(String(res.headers.get('Access-Control-Expose-Headers') || '').includes('Content-Range'));
   assert.ok(DATA.equals(await bytes(res)));
 });
 
@@ -72,6 +75,24 @@ test('bilinmeyen uzantı genel ikili tür alır', () => {
   fs.writeFileSync(other, DATA);
   const res = serveMediaFile(other, null);
   assert.strictEqual(res.headers.get('Content-Type'), 'application/octet-stream');
+});
+
+test('katman dosyası seçilmiş sayılır, listede olmayan yol sayılmaz', () => {
+  const cfg = {
+    media: { file: mediaUrl.toMediaUrl(path.join(DIR, 'klasik.mp4')) },
+    layers: [
+      { kind: 'media', settings: { media: { file: mediaUrl.toMediaUrl(FILE) } } },
+      { kind: 'text', settings: { text: { file: FILE } } },
+    ],
+  };
+  assert.strictEqual(isConfiguredMedia(cfg, FILE, mediaUrl), true);
+  assert.strictEqual(isConfiguredMedia(cfg, path.join(DIR, 'klasik.mp4'), mediaUrl), true);
+  assert.strictEqual(isConfiguredMedia(cfg, path.join(DIR, 'gizli.mp4'), mediaUrl), false);
+  assert.strictEqual(isConfiguredMedia(cfg, '', mediaUrl), false);
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /scheme: 'sv-media', privileges: \{[^}]*corsEnabled: true/);
+  const mediaJs = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'media.js'), 'utf8');
+  assert.match(mediaJs, /this\.video\.crossOrigin = 'anonymous'/);
 });
 
 test('bozuk Range başlığı tüm dosyaya düşer', async () => {

@@ -173,7 +173,13 @@ while ($true) {
         duration = $tl.EndTime.TotalSeconds
         updated = [math]::Round(($tl.LastUpdatedTime.UtcDateTime - $epoch).TotalMilliseconds)
         status = [string]$pi.PlaybackStatus
+        subtitle = ''
       }
+      try {
+        $sub = [string]$p.Subtitle
+        if ($sub.Length -gt 262144) { $sub = $sub.Substring(0, 262144) }
+        $o.subtitle = $sub
+      } catch {}
     }
   } catch {
     $o = @{ ok = $false; err = [string]$_.Exception.Message }
@@ -186,6 +192,7 @@ while ($true) {
 
 const EMPTY = {
   has: false, playing: false, title: '', artist: '', album: '', artwork: '', app: '',
+  subtitle: '',
   position: 0, duration: 0, updated: 0, received: 0,
 };
 
@@ -200,6 +207,7 @@ function differs(a, b) {
     || a.artist !== b.artist
     || a.album !== b.album
     || a.artwork !== b.artwork
+    || a.subtitle !== b.subtitle
     || a.app !== b.app
     || a.updated !== b.updated
     || Math.abs(a.duration - b.duration) > 0.5;
@@ -391,6 +399,7 @@ class MediaSession {
         artist: String(o.artist || ''),
         album: String(o.album || ''),
         artwork: String(o.artwork || ''),
+        subtitle: String(o.subtitle || '').slice(0, 262144),
         app: String(o.app || ''),
         position: Number(o.position) || 0,
         duration: Number(o.duration) || 0,

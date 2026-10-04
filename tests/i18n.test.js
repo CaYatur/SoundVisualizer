@@ -283,3 +283,35 @@ test('üretilen ve karışım adları çeviriden olduğu gibi geçiyor', () => {
     assert.strictEqual(t(n), n, n);
   }
 });
+
+/* Kamera, video ve dışa aktarma hataları ya tuvale ya da "Hata:" gövdesine
+   yazılıyor. Sözlükteki tam cümle yetmez; ön ek ve çıkış kodu da İngilizce
+   olmalı. Kaynak metin Türkçe kalır, çeviri yalnızca İngilizce arayüzde. */
+test('kamera ve dışa aktarma hataları İngilizceye çevriliyor', () => {
+  const t = loadEnglish().t;
+  assert.strictEqual(t('Bu kamera başka bir uygulama tarafından kullanılıyor.'),
+    'This camera is in use by another application.');
+  assert.strictEqual(t('Kamera izni verilmedi. Sistem ayarlarından izin verin.'),
+    'Camera permission was denied. Allow it in system settings.');
+  assert.strictEqual(t('Seçilen kamera bulunamadı. Listeden başka bir kamera seçin.'),
+    'The selected camera was not found. Choose another camera from the list.');
+  assert.strictEqual(t('Kamera açılışı yarıda kesildi. Yeniden deneyin.'),
+    'The camera start was interrupted. Try again.');
+  assert.strictEqual(t('Kamera açılamadı.'), 'The camera could not be opened.');
+  assert.strictEqual(t('Kamera erişimi bu ortamda kullanılamıyor.'),
+    'Camera access is not available in this environment.');
+  assert.strictEqual(t('Kayıtlı kamera'), 'Saved camera');
+  assert.strictEqual(t('Video açılamadı: NotSupportedError'),
+    'Could not open the video: NotSupportedError');
+  assert.strictEqual(t('Kamera açılamadı: Could not start video source'),
+    'Could not open the camera: Could not start video source');
+  assert.strictEqual(t('Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.'),
+    'The encoder pipe closed. Export was stopped.');
+  assert.strictEqual(t('Hata: Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.'),
+    'Error: The encoder pipe closed. Export was stopped.');
+  assert.strictEqual(t('Hata: ffmpeg çıkış kodu 1\nboom'),
+    'Error: ffmpeg exit code 1\nboom');
+  assert.strictEqual(t('Hata: bilinmeyen hata'), 'Error: unknown error');
+  assert.strictEqual(t('Kamera görüntüsü uygulamadan bekleniyor.'),
+    'Waiting for the camera picture from the application.');
+});

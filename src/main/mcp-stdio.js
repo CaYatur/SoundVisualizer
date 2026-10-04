@@ -57,14 +57,19 @@ function rpc(ep, msg) {
   });
 }
 
-function writeMessage(obj) {
+function writeMessage(obj, frame) {
   const body = Buffer.from(JSON.stringify(obj), 'utf8');
+  if (frame === 'line') {
+    process.stdout.write(body);
+    process.stdout.write('\n');
+    return;
+  }
   process.stdout.write('Content-Length: ' + body.length + '\r\n\r\n');
   process.stdout.write(body);
 }
 
-function fail(id, message) {
-  writeMessage({ jsonrpc: '2.0', id: id == null ? null : id, error: { code: -32000, message: message } });
+function fail(id, message, frame) {
+  writeMessage({ jsonrpc: '2.0', id: id == null ? null : id, error: { code: -32000, message: message } }, frame);
 }
 
 function main() {
@@ -81,37 +86,48 @@ function main() {
     return ep;
   }
 
-  function onMessage(msg) {
+  function onMessage(msg, frame) {
     let endpoint;
     try { endpoint = ensure(); }
     catch (e) {
       if (msg && msg.id != null) {
-        fail(msg.id, 'SoundVisualizer MCP is not running. Enable MCP on the Control card and keep the app open.');
+        fail(msg.id, 'SoundVisualizer MCP is not running. Enable MCP on the Control card and keep the app open.', frame);
       }
       return;
     }
     rpc(endpoint, msg).then((res) => {
-      if (res && msg && msg.id != null) writeMessage(res);
+      if (res && msg && msg.id != null) writeMessage(res, frame);
     }).catch(() => {
       if (msg && msg.id != null) {
-        fail(msg.id, 'SoundVisualizer MCP is not reachable on 127.0.0.1. Enable MCP and keep the app open.');
+        fail(msg.id, 'SoundVisualizer MCP is not reachable on 127.0.0.1. Enable MCP and keep the app open.', frame);
       }
     });
   }
 
+  function headerSplit(buffer) {
+    const crlf = buffer.indexOf('\r\n\r\n');
+    const lf = buffer.indexOf('\n\n');
+    if (crlf >= 0 && (lf < 0 || crlf <= lf)) return { at: crlf, sep: 4 };
+    if (lf >= 0) return { at: lf, sep: 2 };
+    return null;
+  }
+
   function pump() {
     while (buf.length) {
-      const headerEnd = buf.indexOf('\r\n\r\n');
-      if (headerEnd >= 0) {
-        const header = buf.slice(0, headerEnd).toString('utf8');
-        const m = header.match(/Content-Length:\s*(\d+)/i);
-        if (!m) { buf = buf.slice(headerEnd + 4); continue; }
+      const header = buf.indexOf('\r\n\r\n') === 0 || buf.indexOf('\n\n') === 0
+        ? null
+        : headerSplit(buf);
+      const looksLikeHeader = header && /^content-length:/i.test(buf.slice(0, header.at).toString('utf8').trim());
+      if (looksLikeHeader) {
+        const text = buf.slice(0, header.at).toString('utf8');
+        const m = text.match(/Content-Length:\s*(\d+)/i);
+        if (!m) { buf = buf.slice(header.at + header.sep); continue; }
         const len = Number(m[1]);
-        const start = headerEnd + 4;
+        const start = header.at + header.sep;
         if (buf.length < start + len) return;
         const body = buf.slice(start, start + len).toString('utf8');
         buf = buf.slice(start + len);
-        try { onMessage(JSON.parse(body)); } catch (e) { /* ignore malformed */ }
+        try { onMessage(JSON.parse(body), 'content-length'); } catch (e) { /* ignore malformed */ }
         continue;
       }
       const nl = buf.indexOf('\n');
@@ -119,7 +135,7 @@ function main() {
       const line = buf.slice(0, nl).toString('utf8').trim();
       buf = buf.slice(nl + 1);
       if (!line || line[0] !== '{') continue;
-      try { onMessage(JSON.parse(line)); } catch (e) { /* ignore */ }
+      try { onMessage(JSON.parse(line), 'line'); } catch (e) { /* ignore */ }
     }
   }
 

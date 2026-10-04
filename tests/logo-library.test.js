@@ -64,6 +64,33 @@ test('kitaplık: görsel olmayan uzantı reddedilir', () => {
   fs.rmSync(DIR, { recursive: true, force: true });
 });
 
+test('video kitaplığı aynı motoru kullanır ve yabancı yolu açmaz', async () => {
+  const M = require('../src/main/media-library.js');
+  const dir = path.join(os.tmpdir(), 'sv-media-lib-' + process.pid);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(dir, { recursive: true });
+  const src = path.join(dir, 'in.mp4');
+  fs.writeFileSync(src, Buffer.from('fake-mp4'));
+  const png = path.join(dir, 'in.png');
+  fs.writeFileSync(png, Buffer.from([0]));
+  assert.strictEqual(M.importFile(dir, png, 'in.png').error, 'TYPE');
+  const r = await M.importFileAsync(dir, src, 'Klip 01.mp4');
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.item.kind, 'video');
+  assert.strictEqual(r.item.mime, 'video/mp4');
+  assert.strictEqual(r.item.name, 'Klip 01');
+  const info = M.fileInfo(dir, r.item.id);
+  assert.strictEqual(M.ownsPath(dir, info.file), true);
+  assert.strictEqual(M.ownsPath(dir, png), false);
+  assert.strictEqual(M.ownsPath(dir, path.join(dir, '..', 'secret.mp4')), false);
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /mediaLibrary\.ownsPath\(mediaLibDir\(\), raw\)/);
+  assert.match(main, /ipcMain\.handle\('media-lib:list'/);
+  const pre = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'preload-admin.js'), 'utf8');
+  assert.match(pre, /mediaLibList: \(\) => ipcRenderer\.invoke\('media-lib:list'\)/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('kitaplık: yol kaçışı reddedilir', () => {
   fs.rmSync(DIR, { recursive: true, force: true });
   fs.mkdirSync(DIR, { recursive: true });

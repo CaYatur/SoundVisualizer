@@ -17,6 +17,43 @@
   const TAU = Math.PI * 2;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+  /* main'deki çalan parça gezintisi: uçta kısa bekleme, arada ease.
+     Süre taşma uzunluğuna bağlıdır; birkaç pikselik taşma bir karede
+     bitmez. Hız çarpanı bu süreyi böler. */
+  function overflowAlong(clock, overPx, fontPx, speed) {
+    const rate = Math.max(0.15, speed || 1);
+    const cruise = Math.max(1, fontPx) * 3;
+    const travel = Math.max(0.85, overPx / cruise) / rate;
+    const pause = 0.28 / rate;
+    const half = pause + travel;
+    let local = clock % (half * 2);
+    const ease = (u) => {
+      const x = u < 0 ? 0 : u > 1 ? 1 : u;
+      return x * x * (3 - 2 * x);
+    };
+    if (local < pause) return 0;
+    if (local < half) return overPx * ease((local - pause) / travel);
+    if (local < half + pause) return overPx;
+    return overPx * (1 - ease((local - half - pause) / travel));
+  }
+
+  /* Masaüstü süreçleri aynı Date.now() değerini görür. Tarayıcı ve OBS
+     başka bir makinedeyse SVServerNow ofseti sunucu saatine çeker. */
+  function wallNow() {
+    const box = window.SVServerNow;
+    const off = box && isFinite(box.offset) ? box.offset : 0;
+    return Date.now() + off;
+  }
+
+  /* Çıpa yoksa ekranın kendi açılış saati. Çıpa varsa bütün pencereler
+     aynı süreyi görür; oynat, duraklat ve durdur oradan gelir. */
+  function manualLyricTime(frameT) {
+    const run = window.SVLyricsRun;
+    const clock = window.SVLyricsClock;
+    if (run && run.anchor && clock && clock.resolve) return clock.resolve(run.anchor, wallNow());
+    return frameT;
+  }
+
   function colorsOf(cfg) {
     const c = (cfg.background && cfg.background.gradient && cfg.background.gradient.colors) || [];
     return c.length ? c : ['#ffffff', '#7c5cff'];
@@ -47,14 +84,19 @@
       this.lastNow = '';
       this.lineAge = 0;
       this.marquee = 0;
+      this.scrollT = 0;
+      this.scrollKey = '';
     }
     resize() {}
 
     _ensureLyrics(t) {
-      const key = (t.lyricsSource || '').length + ':' + (t.lyricsSource || '').slice(0, 40);
+      const src = t.lyricsSource || '';
+      let h = src.length;
+      for (let i = 0; i < src.length; i += 17) h = (h + src.charCodeAt(i)) | 0;
+      const key = src.length + ':' + h;
       if (key === this.docKey) return;
       this.docKey = key;
-      this.doc = t.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(t.lyricsSource) : null;
+      this.doc = src && window.SVLyrics ? window.SVLyrics.parse(src) : null;
     }
 
     draw(audio, cfg, t, dt) {
@@ -86,18 +128,42 @@
 
       const src = T.source || 'static';
       if (src === 'lyrics') {
-        this._ensureLyrics(T);
-        if (this.doc && window.SVLyrics) {
-          // Söz saati: dışa aktarımda kare saatinden, canlıda geçen süreden
-          const hit = window.SVLyrics.at(this.doc, t, T.offset || 0);
-          if (hit.index >= 0) {
-            content = hit.line.text;
-            progress = hit.progress;
-            wordIndex = hit.wordIndex;
-            words = hit.line.words && hit.line.words.length ? hit.line.words : null;
-          }
-          if (hit.index !== this.lastLine) { this.lastLine = hit.index; this.lineAge = 0; }
+        /* Takip kapalıysa ya da Windows değilse use yoktur: söz, elle
+           yüklenen dosyayla kalır. Saat, ekran açılınca başlar; panelden
+           gelen çıpa varsa bütün ekranlar onu paylaşır. */
+        const sync = window.SVLyricsSync;
+        /* İzleme yalnız Windows oturumunda açılır. Dışa aktarma da aynı
+           kuralı kullanır: macOS ve Linux yüklenen söz dosyasında kalır. */
+        const use = (sync && sync.playback) ? sync.playback({
+          windows: !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows),
+          follow: T.lyricsFollow === true,
+          match: T.lyricsMatch || 'exact',
+          library: (window.SVLyricsLib && window.SVLyricsLib.items) || [],
+          live: (window.SVNowLive && window.SVNowLive.state) || null,
+          manualText: T.lyricsSource || '',
+          nowMs: wallNow(),
+        }) : null;
+        if (use && use.line) {
+          content = use.text || '';
+          if (content !== this.lyricKey) { this.lyricKey = content; this.lineAge = 0; }
           else this.lineAge += step;
+        } else if (use && use.source === 'none') {
+          content = '';
+        } else {
+          const body = use ? (use.text || '') : (T.lyricsSource || '');
+          const clock = (use && use.time != null) ? use.time : manualLyricTime(t);
+          this._ensureLyrics({ lyricsSource: body });
+          if (this.doc && window.SVLyrics) {
+            const hit = window.SVLyrics.at(this.doc, clock, T.offset || 0);
+            if (hit.index >= 0) {
+              content = hit.line.text;
+              progress = hit.progress;
+              wordIndex = hit.wordIndex;
+              words = hit.line.words && hit.line.words.length ? hit.line.words : null;
+            }
+            if (hit.index !== this.lastLine) { this.lastLine = hit.index; this.lineAge = 0; }
+            else this.lineAge += step;
+          }
         }
       } else if (src === 'now') {
         /* Sistemden okunan parça varsa o kazanır; yoksa elle yazılana düşer.
@@ -168,8 +234,12 @@
         ctx.shadowOffsetY = 0;
       };
 
-      const colorMode = (cfg.visualizer && cfg.visualizer.colorMode)
-        || (T.useCustomColor ? 'custom' : 'theme');
+      /* Katmanın kendi kipi önce gelir. Sahne görselleştiricisi yedektir;
+         eski katmanlarda yalnız useCustomColor duruyorsa sabit renk odur. */
+      const colorMode = T.colorMode
+        || (T.useCustomColor ? 'custom' : null)
+        || (cfg.visualizer && cfg.visualizer.colorMode)
+        || 'theme';
       let baseColor, hiColor;
       if (colorMode === 'custom') {
         baseColor = window.SV.hexToRgb01(T.color || '#ffffff').map((v) => (v * 255) | 0);
@@ -195,25 +265,128 @@
         hiColor = paletteAt(cfg, 0.35);
       }
 
-      if (words && T.karaoke !== false) {
-        /* Karaoke: satır tek parça çizilmez. Söylenen kelimeler vurgulu,
-           gelecek kelimeler sönük. Kelimeleri ayrı ayrı ölçüp yerleştirmek
-           gerekiyor çünkü tek fillText çağrısı iki renk veremez. */
+      /* Kutu hizaya göre kurulur, sonra tuvalin içine kırpılır. Yazı bu
+         görünür aralıktan uzunsa (ya da olduğu yerde ekrandan taşıyorsa)
+         ileri geri kayar. Ölçü dönüşümden bağımsızdır; nabız ölçeği ekran
+         genişliğine ayrıca katılır. Kayan yazı açıksa o döngü kullanılır. */
+      const align = T.align || 'center';
+      const anchorX = cx + ox;
+      const fitScale = Math.max(0.05, scale * pulse);
+      const limitPx = Math.min(W * clamp(T.maxWidth == null ? 0.9 : T.maxWidth, 0.15, 1), W);
+      const rawLeft = align === 'left' ? anchorX : align === 'right' ? anchorX - limitPx : anchorX - limitPx / 2;
+      const slotLeftPx = clamp(rawLeft, 0, W);
+      const slotRightPx = clamp(rawLeft + limitPx, 0, W);
+      const slotPx = Math.max(0, slotRightPx - slotLeftPx);
+      const scrollOn = T.scrollOverflow !== false && !T.marquee;
+      const scrollSpeed = clamp(T.scrollSpeed == null ? 1 : T.scrollSpeed, 0.15, 4);
+      if (content !== this.scrollKey) {
+        this.scrollKey = content;
+        this.scrollT = 0;
+      }
+      if (scrollOn) this.scrollT += step;
+
+      /* Yerleşim, ölçülen genişliğe göre. Sığan yazı null döner ve eski
+         hizasında kalır. Taşan yazı kutuya kırpılır; kaydırma açıksa x
+         ileri geri gider. Karaoke ve satır silme aynı x'i kullanır, böylece
+         vurgu rengi kaydırma açıkken de söylenen kelimenin üstünde kalır. */
+      const placeInSlot = (textWidth) => {
+        const textPx = textWidth * fitScale;
+        const naturalLeft = align === 'left' ? anchorX : align === 'right' ? anchorX - textPx : anchorX - textPx / 2;
+        const hangs = naturalLeft < -0.5 || naturalLeft + textPx > W + 0.5;
+        const tooWide = textPx > slotPx + 1;
+        if (!hangs && !tooWide) return null;
+        const overUser = Math.max(0, (textPx - slotPx) / fitScale);
+        const userLeft = (slotLeftPx - anchorX) / fitScale;
+        const userW = slotPx / fitScale;
+        let x = userLeft;
+        if (overUser > 1 && scrollOn) {
+          const overPx = overUser * fitScale;
+          const along = overflowAlong(this.scrollT, overPx, size * fitScale, scrollSpeed);
+          x = userLeft - along / fitScale;
+        } else if (align === 'right') {
+          x = userLeft + userW - textWidth;
+        } else if (align === 'center') {
+          x = userLeft + (userW - textWidth) / 2;
+        }
+        return { userLeft, userW, x };
+      };
+
+      const clipSlot = (slot, paint) => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(slot.userLeft, -size * 1.2, slot.userW, size * 2.4);
+        ctx.clip();
+        const prevAlign = ctx.textAlign;
+        ctx.textAlign = 'left';
+        paint(slot.x);
+        ctx.textAlign = prevAlign;
+        ctx.restore();
+      };
+
+      const drawScrolled = (text, fill) => {
+        const slot = placeInSlot(ctx.measureText(text).width);
+        if (!slot) return false;
+        clipSlot(slot, (x) => drawOne(text, x, 0, fill));
+        return true;
+      };
+
+      const lines = String(content).split(/\r?\n/);
+      const single = lines.length === 1;
+      /* Üst hiza kutunun tepesini çapaya koyar; orta, eski gibi kutunun
+         ortasını. Böylece söz satırı ekranın tepesine de oturur. */
+      const vAlign = T.vAlign || 'middle';
+      const blockH = Math.max(1, lines.length) * size * 1.2;
+      const yBias = vAlign === 'top' ? blockH / 2 : vAlign === 'bottom' ? -blockH / 2 : 0;
+      if (yBias) ctx.translate(0, yBias);
+
+      const paintLines = (fill) => {
+        const gapY = size * 1.2;
+        const y0 = -((lines.length - 1) * gapY) / 2;
+        lines.forEach((line, i) => {
+          ctx.save();
+          ctx.translate(0, y0 + i * gapY);
+          if (!drawScrolled(line, fill)) drawOne(line, 0, 0, fill);
+          ctx.restore();
+        });
+      };
+
+      if (T.marquee) {
+        // Kayan yazı: metin genişliğinden uzun bir döngüde sürekli akar
+        this.marquee += step * (T.marqueeSpeed == null ? 0.12 : T.marqueeSpeed) * W;
+        const wdt = ctx.measureText(content).width + size * 2;
+        const off = -((this.marquee % wdt));
+        const prevAlign = ctx.textAlign;
+        ctx.textAlign = 'left';
+        drawOne(content, off - W / 2, 0, rgba(baseColor, 1));
+        drawOne(content, off - W / 2 + wdt, 0, rgba(baseColor, 1));
+        ctx.textAlign = prevAlign;
+      } else if (single && words && T.karaoke !== false) {
+        /* Karaoke: satır tek parça çizilmez. Söylenen kelimeler vurgu
+           renginde, gelecek kelimeler sönük. Tek fillText iki renk veremez.
+           Satır kutuya sığmıyorsa kelimeler birlikte kırpılıp kayar. */
         const parts = words.map((w) => w.text);
         const widths = parts.map((p) => ctx.measureText(p).width);
         const total = widths.reduce((s, w) => s + w, 0);
-        let x = ctx.textAlign === 'center' ? -total / 2
-          : ctx.textAlign === 'right' ? -total : 0;
-        const prevAlign = ctx.textAlign;
-        ctx.textAlign = 'left';
-        for (let i = 0; i < parts.length; i++) {
-          const sung = i <= wordIndex;
-          drawOne(parts[i], x, jitter * Math.sin(i * 1.7 + t * 9),
-            rgba(sung ? hiColor : baseColor, sung ? 1 : 0.45));
-          x += widths[i];
+        const paintWords = (origin) => {
+          let x = origin;
+          for (let i = 0; i < parts.length; i++) {
+            const sung = i <= wordIndex;
+            drawOne(parts[i], x, jitter * Math.sin(i * 1.7 + t * 9),
+              rgba(sung ? hiColor : baseColor, sung ? 1 : 0.45));
+            x += widths[i];
+          }
+        };
+        const slot = placeInSlot(total);
+        if (slot) clipSlot(slot, paintWords);
+        else {
+          const origin = ctx.textAlign === 'center' ? -total / 2
+            : ctx.textAlign === 'right' ? -total : 0;
+          const prevAlign = ctx.textAlign;
+          ctx.textAlign = 'left';
+          paintWords(origin);
+          ctx.textAlign = prevAlign;
         }
-        ctx.textAlign = prevAlign;
-      } else if (T.perCharacter) {
+      } else if (single && T.perCharacter) {
         // Harf harf: her harf spektrumun bir bandına tepki verir
         const chars = Array.from(content);
         const widths = chars.map((c) => ctx.measureText(c).width);
@@ -230,31 +403,27 @@
           x += widths[i];
         }
         ctx.textAlign = prevAlign;
-      } else if (T.marquee) {
-        // Kayan yazı: metin genişliğinden uzun bir döngüde sürekli akar
-        this.marquee += step * (T.marqueeSpeed == null ? 0.12 : T.marqueeSpeed) * W;
-        const wdt = ctx.measureText(content).width + size * 2;
-        const off = -((this.marquee % wdt));
-        const prevAlign = ctx.textAlign;
-        ctx.textAlign = 'left';
-        drawOne(content, off - W / 2, 0, rgba(baseColor, 1));
-        drawOne(content, off - W / 2 + wdt, 0, rgba(baseColor, 1));
-        ctx.textAlign = prevAlign;
-      } else {
-        // Tek parça. İlerleme vurgusu istenirse kırpma ile yapılır.
-        if (src === 'lyrics' && T.karaoke !== false && progress > 0) {
-          const wdt = ctx.measureText(content).width;
-          const left = ctx.textAlign === 'center' ? -wdt / 2 : ctx.textAlign === 'right' ? -wdt : 0;
-          drawOne(content, 0, 0, rgba(baseColor, 0.45));
+      } else if (single && src === 'lyrics' && T.karaoke !== false && progress > 0) {
+        /* Kelime zamanı yoksa satırın söylenen oranı vurgu rengiyle silinir.
+           Taşan satırda silme, kayan kutunun içinde kalır. */
+        const wdt = ctx.measureText(content).width;
+        const slot = placeInSlot(wdt);
+        const paintWipe = (left, at) => {
+          drawOne(content, at, 0, rgba(baseColor, 0.45));
           ctx.save();
           ctx.beginPath();
           ctx.rect(left, -size, wdt * progress, size * 2);
           ctx.clip();
-          drawOne(content, 0, 0, rgba(hiColor, 1));
+          drawOne(content, at, 0, rgba(hiColor, 1));
           ctx.restore();
-        } else {
-          drawOne(content, 0, 0, rgba(baseColor, 1));
+        };
+        if (slot) clipSlot(slot, (x) => paintWipe(x, x));
+        else {
+          const left = ctx.textAlign === 'center' ? -wdt / 2 : ctx.textAlign === 'right' ? -wdt : 0;
+          paintWipe(left, 0);
         }
+      } else {
+        paintLines(rgba(baseColor, 1));
       }
       ctx.restore();
     }

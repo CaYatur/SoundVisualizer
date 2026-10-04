@@ -23,8 +23,12 @@
      tamamıyla (kumanda sayfası listeyi kendisi tutmuyor). */
   const handlers = {
     config: [], audio: [], presets: [], presetsDelta: [], presetsList: [], status: [], nowPlaying: [],
-    showClock: [], mdFollow: [], mdSprite: [],
+    showClock: [], mdFollow: [], mdSprite: [], lyricsLib: [], lyricsClock: [],
   };
+  let lyricsLibItems = [];
+  let lyricsLibSeen = false;
+  let lyricsClockAnchor = null;
+  let lyricsClockSeen = false;
   let ws = null;
   let retry = 0;
   let firstConfig = null;
@@ -133,9 +137,23 @@
       if (typeof ev.data !== 'string') { onAudio(ev.data); return; }
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
+      if (typeof msg.serverNow === 'number' && isFinite(msg.serverNow)) {
+        window.SVServerNow = { offset: msg.serverNow - Date.now() };
+      }
       if (msg.type === 'hello') {
         status.app = String(msg.app || '');
         status.version = String(msg.version || '');
+        /* Takip kararı sunucunun işletim sistemine bakar. OBS'nin kendi
+           platformu değil: söz ve saat uygulama makinesinden gelir. */
+        const os = String(msg.platform || '');
+        if (os) {
+          window.SV_PLATFORM = {
+            os: os,
+            isWindows: os === 'win32',
+            isMac: os === 'darwin',
+            isLinux: os === 'linux',
+          };
+        }
       } else if (msg.type === 'config') {
         status.configs++;
         status.lastConfigAt = Date.now();
@@ -166,6 +184,18 @@
         if (window.SVNowLive) window.SVNowLive.state = msg.state;
         else window.SVNowLive = { state: msg.state };
         handlers.nowPlaying.forEach((h) => h(msg.state));
+      } else if (msg.type === 'lyrics-lib') {
+        lyricsLibItems = Array.isArray(msg.items) ? msg.items : [];
+        lyricsLibSeen = true;
+        window.SVLyricsLib = window.SVLyricsLib || { items: [], sig: '' };
+        window.SVLyricsLib.items = lyricsLibItems;
+        handlers.lyricsLib.forEach((h) => h(lyricsLibItems));
+      } else if (msg.type === 'lyrics-clock') {
+        lyricsClockAnchor = msg.anchor || null;
+        lyricsClockSeen = true;
+        window.SVLyricsRun = window.SVLyricsRun || { anchor: null };
+        window.SVLyricsRun.anchor = lyricsClockAnchor;
+        handlers.lyricsClock.forEach((h) => h(lyricsClockAnchor));
       } else if (msg.type === 'show-clock') {
         handlers.showClock.forEach((h) => h(msg.anchor));
       } else if (msg.type === 'md-follow') {
@@ -174,6 +204,10 @@
       } else if (msg.type === 'md-sprite') {
         // MilkDrop sprite komutu (#577): her ekranla aynı sırayla
         handlers.mdSprite.forEach((h) => h(msg.cmd || null));
+      } else if (msg.type === 'cam-frame') {
+        if (typeof window.SVCamFrame === 'function') window.SVCamFrame(String(msg.key || ''), String(msg.data || ''));
+      } else if (msg.type === 'cam-status') {
+        if (typeof window.SVCamStatus === 'function') window.SVCamStatus(String(msg.key || ''), msg.error || '', !!msg.ready);
       } else if (msg.type === 'status') {
         handlers.status.forEach((h) => h(msg));
       }
@@ -245,6 +279,16 @@
     onPresetsDelta: (cb) => handlers.presetsDelta.push(cb),
     onNowPlaying: (cb) => handlers.nowPlaying.push(cb),
     onShowClock: (cb) => handlers.showClock.push(cb),
+    /* Kütüphane ve söz saati, dinleyici kurulmadan önce gelebilir.
+       Son örnek abone olunca yeniden verilir. */
+    onLyricsLib: (cb) => {
+      handlers.lyricsLib.push(cb);
+      if (lyricsLibSeen && typeof cb === 'function') cb(lyricsLibItems);
+    },
+    onLyricsClock: (cb) => {
+      handlers.lyricsClock.push(cb);
+      if (lyricsClockSeen && typeof cb === 'function') cb(lyricsClockAnchor);
+    },
     onMdFollow: (cb) => handlers.mdFollow.push(cb),
     onMdSprite: (cb) => handlers.mdSprite.push(cb),
     sendAudioMeter: () => {}, // tarayıcı tarafında ışık senkronu yok
