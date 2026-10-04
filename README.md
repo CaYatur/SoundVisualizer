@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2613%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2677%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -694,6 +694,11 @@ does everything else: text, effects, the background.
 - **LRC and SRT import**, format detected from the content, enhanced LRC word timings supported.
 - **Timing editor** with a sync offset that writes back to LRC.
 - **Now-playing metadata**, editable, and bindable as separate title and artist layers.
+- **Play, pause, and stop** for a loaded lyrics file while the screens are open. The screens share one clock. Stop returns to the start. Apply Displays, while a screen is already open, starts a stopped file at that click. Follow the Playing Track still uses the system media clock.
+
+### Windows lyrics library
+
+On Windows a lyrics layer can keep several LRC or SRT files in a library, each with an artist and a title. **Follow the Playing Track** sits under the file load and uses the lyrics library with the system media clock, so the line moves with the song and with seek or pause. The files themselves open from the **Lyrics Library** category beside Text. Import stores a copy in the library. **Edit** opens that copy in a tall window; the lyric field fills most of it, and clicking outside does not close the window. **Coloring** is on by default and tints timestamps, inline word times, lyric text, and header tags. Saving writes the raw library copy and leaves the original file untouched. **Exact Match** requires the same title and artist. **Partial Match** accepts small spelling differences. A matching library file is used before the system session. Timed lyrics from the player are used when the library has no match. A current line alone is shown as that line. A title, an album name, or “Official Video” is not treated as lyrics. macOS and Linux keep the single loaded file. A loaded file starts when a screen opens, and Play, Pause, and Stop drive that clock on every open screen. Nothing is fetched from the network.
 
 ---
 
@@ -712,7 +717,11 @@ does everything else: text, effects, the background.
 - **PNG snapshot** at up to 4×.
 - **Export presets** for common aspect ratios.
 - **Offline video export** renders an audio file frame by frame, deterministically — the same
-  property the visual regression tests rely on.
+  property the visual regression tests rely on. Title, artist, album and cover are read from that
+  file on Windows, macOS and Linux, and feed Now Playing, the track cover and text that shows the
+  playing track. A lyrics layer that is not following the library keeps its loaded file. Follow the
+  Playing Track uses the library match for this file, and only on Windows. macOS and Linux keep the
+  loaded file, the typed Now Playing text, and an uploaded picture.
 
 ---
 
@@ -722,6 +731,7 @@ Turn on **Output → Streaming Output** and the application serves an overlay pa
 
 - Add it to OBS as a **Browser Source**. No plugin, and real transparency.
 - The overlay runs the **same engine** as the desktop window, so what you see is what streams.
+- **Lyrics on the overlay follow the app.** A loaded file uses the shared play, pause, and stop clock. On Windows, Follow the Playing Track uses the library and the system session. The browser corrects its clock to the machine running the app, including OBS on another computer.
 - Works across the network, so the visualizer can run on one machine and OBS on another.
 - **Transparency is the app's own switch.** With **Background → Transparent Background** on, the
   overlay is transparent in OBS just as the window is on the desktop; with it off, the scene streams
@@ -1166,7 +1176,10 @@ Font, weight, size, alignment, X/Y position, opacity, outline and shadow · anim
 duration · per-character audio response with scale, jitter and lift · marquee and ticker · karaoke
 highlighting · LRC and SRT import with the format detected from the content and enhanced LRC word
 timings supported · a sync offset that writes back to LRC · now-playing metadata, bindable as a
-combined line or as separate title and artist layers.
+combined line or as separate title and artist layers. On Windows, a lyrics library can follow the
+system track position, including seek, with exact or partial title matching. A library match
+comes before lyrics the player already exposes. Play, pause, and stop drive a loaded file
+on every open screen. macOS and Linux stay on the single file and the screen-open clock.
 
 ### Media layer
 
@@ -1498,7 +1511,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2613 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2677 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

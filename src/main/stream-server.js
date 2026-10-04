@@ -23,6 +23,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const mediaUrl = require('../shared/media-url');
+const { isConfiguredMedia } = require('./media-file');
 
 const ROOT = path.join(__dirname, '..'); // src/
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -186,6 +187,8 @@ function clientInfo() {
 }
 
 function broadcast(obj, kind) {
+  /* serverNow: tarayıcı kendi saatiyle sözü kaydırmasın. Ofset varışta kurulur. */
+  if (obj && typeof obj === 'object') obj = Object.assign({ serverNow: Date.now() }, obj);
   if (obj && obj.type === 'config') obj = Object.assign({}, obj, { config: publicConfig(obj.config) });
   else if (obj && obj.type === 'presets') obj = Object.assign({}, obj, { presets: publicPresets(obj.presets) });
   else if (obj && obj.type === 'presets-delta') {
@@ -272,6 +275,60 @@ function broadcastNowPlaying(st) {
   broadcast({ type: 'now-playing', state: st });
 }
 
+/* Kamera karesi uygulamadan yayın katmanına gider. OBS bu kamerayı
+   kendi tarayıcısından açmaz. Aynı anda birden fazla pencere akışı
+   tutuyorsa kareyi bir tanesi yollar. */
+const camClaims = new Map();
+const lastCamSent = new Map();
+
+function claimCam(owner, key) {
+  const k = String(key == null ? '' : key).slice(0, 300);
+  const now = Date.now();
+  const cur = camClaims.get(k);
+  if (!cur || cur.owner === owner || now - cur.at > 1000) {
+    camClaims.set(k, { owner, at: now });
+    return true;
+  }
+  return false;
+}
+
+function touchCam(owner, key) {
+  const k = String(key == null ? '' : key).slice(0, 300);
+  const cur = camClaims.get(k);
+  if (!cur || cur.owner !== owner) return false;
+  cur.at = Date.now();
+  return true;
+}
+
+function releaseCam(owner, key) {
+  const k = String(key == null ? '' : key).slice(0, 300);
+  const cur = camClaims.get(k);
+  if (cur && cur.owner === owner) camClaims.delete(k);
+}
+
+function broadcastCam(key, jpeg) {
+  if (!Buffer.isBuffer(jpeg) || !jpeg.length || jpeg.length > 700000) return false;
+  const k = String(key == null ? '' : key).slice(0, 300);
+  const now = Date.now();
+  if (now - (lastCamSent.get(k) || 0) < 50) return false;
+  let overlay = false;
+  for (const c of clients) if (c.kind === 'overlay') overlay = true;
+  if (!overlay) return false;
+  lastCamSent.set(k, now);
+  broadcast({ type: 'cam-frame', key: k, data: jpeg.toString('base64') }, 'overlay');
+  return true;
+}
+
+function broadcastCamStatus(key, error, ready) {
+  const k = String(key == null ? '' : key).slice(0, 300);
+  broadcast({
+    type: 'cam-status',
+    key: k,
+    error: String(error || '').slice(0, 400),
+    ready: !!ready,
+  }, 'overlay');
+}
+
 // ----------------------------------------------------------------------------
 // HTTP
 // ----------------------------------------------------------------------------
@@ -323,30 +380,40 @@ function serveStatic(res, urlPath) {
   });
 }
 
-// Video dosyasını istemciye aralık (range) destekli servis eder
-function serveMedia(req, res) {
-  const cfg = hooks.getConfig();
-  const file = cfg && cfg.media && cfg.media.file;
-  if (!file) { res.writeHead(404).end('no media'); return; }
-  const local = mediaUrl.fromMediaUrl(file);
+// Video dosyasını istemciye aralık (range) destekli servis eder.
+// `v` katmanın kendi dosyasıdır. Yoksa eski yol: klasik cfg.media.file.
+function serveMedia(req, res, url) {
+  const cfg = hooks.getConfig() || {};
+  const requested = url && url.searchParams.get('v');
+  let local = '';
+  if (requested) {
+    local = mediaUrl.fromMediaUrl(requested);
+    if (!isConfiguredMedia(cfg, local, mediaUrl)) {
+      res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('forbidden');
+      return;
+    }
+  } else {
+    const file = cfg.media && cfg.media.file;
+    local = mediaUrl.fromMediaUrl(file || '');
+    if (!local) { res.writeHead(404).end('no media'); return; }
+  }
   let stat;
   try { stat = fs.statSync(local); } catch { res.writeHead(404).end('not found'); return; }
   const ext = path.extname(local).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
   const range = req.headers.range;
+  const common = { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' };
   if (range) {
     const m = /bytes=(\d*)-(\d*)/.exec(range);
     const start = m && m[1] ? parseInt(m[1], 10) : 0;
     const end = m && m[2] ? parseInt(m[2], 10) : stat.size - 1;
-    res.writeHead(206, {
-      'Content-Type': type,
+    res.writeHead(206, Object.assign({}, common, {
       'Content-Range': `bytes ${start}-${end}/${stat.size}`,
-      'Accept-Ranges': 'bytes',
       'Content-Length': end - start + 1,
-    });
+    }));
     fs.createReadStream(local, { start, end }).pipe(res);
   } else {
-    res.writeHead(200, { 'Content-Type': type, 'Content-Length': stat.size, 'Accept-Ranges': 'bytes' });
+    res.writeHead(200, Object.assign({}, common, { 'Content-Length': stat.size }));
     fs.createReadStream(local).pipe(res);
   }
 }
@@ -411,7 +478,7 @@ function handleRequest(req, res) {
     }
   }
 
-  if (p === '/media-file') { serveMedia(req, res); return; }
+  if (p === '/media-file') { serveMedia(req, res, url); return; }
   if (p === '/logo-file') { serveLogoFile(res, url.searchParams.get('id') || ''); return; }
   if (p === '/milkdrop/textures') { serveTextureNames(res); return; }
   if (p === '/milkdrop/texture') { serveTexture(res, url.searchParams.get('name') || ''); return; }
@@ -575,6 +642,8 @@ function handleUpgrade(req, socket) {
     type: 'hello',
     app: 'CAYADEV Visualizer',
     kind: client.kind,
+    platform: process.platform,
+    serverNow: Date.now(),
     version: typeof hooks.getVersion === 'function' ? String(hooks.getVersion() || '') : '',
   });
   sendJson(client, { type: 'config', config: publicConfig(hooks.getConfig()) });
@@ -582,6 +651,14 @@ function handleUpgrade(req, socket) {
   const np = (typeof hooks.getNowPlaying === 'function' ? hooks.getNowPlaying() : null) || lastNowPlaying;
   if (np && np.has) {
     sendJson(client, { type: 'now-playing', state: np });
+  }
+  if (typeof hooks.getLyricsLibrary === 'function') {
+    const lyrics = hooks.getLyricsLibrary() || [];
+    if (lyrics.length) sendJson(client, { type: 'lyrics-lib', items: lyrics });
+  }
+  if (typeof hooks.getLyricsClock === 'function') {
+    const lyricClock = hooks.getLyricsClock();
+    if (lyricClock) sendJson(client, { type: 'lyrics-clock', anchor: lyricClock });
   }
 
   socket.on('data', (chunk) => {
@@ -672,6 +749,8 @@ function stop() {
   return new Promise((resolve) => {
     for (const c of Array.from(clients)) dropClient(c);
     clients = new Set();
+    camClaims.clear();
+    lastCamSent.clear();
     if (!server) {
       state.running = false;
       resolve();
@@ -769,6 +848,11 @@ module.exports = {
   broadcastAudio,
   encodeAudio,
   broadcastNowPlaying,
+  claimCam,
+  touchCam,
+  releaseCam,
+  broadcastCam,
+  broadcastCamStatus,
   newToken,
   lanAddress,
   publicConfig,

@@ -39,6 +39,10 @@
   let exportAudioPath = null;
   let exportAudioName = '';
   let exporting = false;
+  let exportPct = 0;
+  let exportStatusText = '';
+  let exportStatusCls = '';
+  let exportStatusIcon = '';
   let gpuAvailable = false;
 
   const $ = (id) => document.getElementById(id);
@@ -1509,14 +1513,21 @@
       class: 'btn ghost small', id: 'exportCancelBtn', icon: 'stop', text: 'İptal',
       onclick: () => window.api.cancelExport(),
     });
-    cancelBtn.style.display = 'none';
+    cancelBtn.style.display = exporting ? 'inline-flex' : 'none';
     cancelBtn.style.marginLeft = '8px';
+    runBtn.disabled = exporting;
 
     const fill = el('i', { id: 'exportProgressFill' });
+    fill.style.width = (exporting ? exportPct : 0) + '%';
     const bar = el('div', { class: 'export-progress', id: 'exportProgressBar' }, [fill]);
-    bar.style.display = 'none';
+    bar.style.display = exporting ? 'block' : 'none';
 
     const status = el('div', { class: 'export-status', id: 'exportStatus' });
+    if (exportStatusText) {
+      status.className = 'export-status' + (exportStatusCls ? ' ' + exportStatusCls : '');
+      if (window.SVIcons) window.SVIcons.set(status, exportStatusIcon || '', exportStatusText);
+      else status.textContent = exportStatusText;
+    }
 
     return el('div', { class: 'ctrl' }, [
       el('div', { class: 'row' }, [runBtn, cancelBtn]),
@@ -1734,7 +1745,7 @@
         cfg.layers.forEach((ly) => {
           if (!ly || ly.kind !== 'background') return;
           const bg = (ly.settings = ly.settings || {}).background = (ly.settings.background || {});
-          const mode = (cfg.background.colorMode || bg.colorMode || 'theme');
+          const mode = bg.colorMode || cfg.background.colorMode || 'theme';
           if (mode !== 'theme') return;
           bg.colorMode = 'theme';
           bg.gradient = bg.gradient || {};
@@ -2435,8 +2446,12 @@
           },
           {
             type: 'color', path: 'text.colorHighlight', label: 'Vurgu Rengi',
+            hint: 'Söylenen kısmı boyar. Sabit yazı ve çalan parça bu rengi kullanmaz.',
             show: () => v.type === 'text'
-              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom'
+              && cfg.text
+              && (cfg.text.source || 'static') === 'lyrics'
+              && cfg.text.karaoke !== false,
           },
           { type: 'slider', path: 'visualizer.sensitivity', label: 'Hassasiyet', min: 0.3, max: 3, step: 0.05, show: () => v.type !== 'none' },
           // Spektrogram kendi ısı haritasını çizer, parlama uygulanmaz
@@ -3269,11 +3284,84 @@
   // --------------------------------------------------------------------------
   // Render — yalnızca seçili kategorinin kartları
   // --------------------------------------------------------------------------
-  /* #615: hızlı ardışık render'larda eski rAF restore'ları yeni scroll'u ezmesin */
-  let sectionsScrollRestoreGen = 0;
   /* Per-category #sections scroll while Admin is open (not persisted to disk). */
   const categoryScrollById = new Map();
   let pendingCategoryScrollId = null;
+
+  /* Odak, silinecek bir kontrolün üstündeyken tarayıcı kaydırmayı başa
+     alır ve bir sonraki karede eski yerine döner. Kullanıcı o gidiş-gelişi
+     görür. Odak, çocuklar silinmeden kaydırıcıda kalır. */
+  function holdSectionsFocus(root) {
+    const ae = document.activeElement;
+    if (!ae || ae === root || !root.contains(ae)) return;
+    try { root.focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ }
+  }
+
+  let sectionsScrollWant = 0;
+  /* Son etkileşilen kutu. Kullanıcı başka yere kaydırınca görüşün
+     dışındaysa artık onu değil, ekranda duran kartı izleriz. */
+  let pinnedNode = null;
+
+  function nudgeScroll(root, el, beforeTop) {
+    if (!root || beforeTop == null || !el || !el.getBoundingClientRect) return;
+    const d = el.getBoundingClientRect().top - beforeTop;
+    if (d > 0.5 || d < -0.5) root.scrollTop += d;
+  }
+
+  function inScrollerView(root, el) {
+    if (!root.getBoundingClientRect || !el.getBoundingClientRect) return true;
+    const view = root.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return r.bottom > view.top + 1 && r.top < view.bottom - 1;
+  }
+
+  function topVisibleNode(root) {
+    if (!root.querySelectorAll || !root.getBoundingClientRect) return null;
+    const view = root.getBoundingClientRect();
+    const nodes = root.querySelectorAll('.card, .layer');
+    let best = null;
+    let bestTop = Infinity;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (!n.getBoundingClientRect) continue;
+      const r = n.getBoundingClientRect();
+      if (r.bottom <= view.top + 1 || r.top >= view.bottom - 1) continue;
+      if (r.top < bestTop) { bestTop = r.top; best = n; }
+    }
+    return best;
+  }
+
+  /* İzlenen kutu: odaktaki kontrol, yoksa az önceki etkileşim, o da
+     görüşten çıktıysa ekranın üstünde duran kart. */
+  function pinElement(root) {
+    if (!root) return null;
+    const ae = document.activeElement;
+    if (ae && ae !== root && root.contains && root.contains(ae)) {
+      const box = anchorBoxOf(ae);
+      if (box && inScrollerView(root, box)) return box;
+    }
+    if (pinnedNode && pinnedNode.isConnected !== false && root.contains && root.contains(pinnedNode)
+      && inScrollerView(root, pinnedNode)) return pinnedNode;
+    return topVisibleNode(root);
+  }
+
+  /* Sıfırlama düğmesi gizlenince tarayıcı odaklı öğeyi kaybedip
+     kaydırmayı başa alır. Odak önce kutunun içindeki alana verilir. */
+  function parkResetFocus(root) {
+    const ae = document.activeElement;
+    if (!ae || !ae.classList || !ae.classList.contains('ctrl-reset') || !root.contains(ae)) return;
+    const ctrl = ae.closest ? ae.closest('.ctrl') : null;
+    const stay = ctrl && ctrl.querySelector ? ctrl.querySelector('input, select, textarea') : null;
+    try { (stay || root).focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ }
+  }
+
+  function applySectionsScroll(root, prevScroll) {
+    if (!root || !root.isConnected) return;
+    const want = prevScroll == null ? sectionsScrollWant : prevScroll;
+    const max = Math.max(0, root.scrollHeight - root.clientHeight);
+    const next = Math.min(want, max);
+    if (root.scrollTop !== next) root.scrollTop = next;
+  }
 
   function saveCategoryScroll(catId) {
     const root = $('sections');
@@ -3281,8 +3369,195 @@
     categoryScrollById.set(catId, root.scrollTop);
   }
 
+  /* Etiket metninin kendisi. Sıfırlama düğmesi etiketin içinde; onun
+     metni eşleşmeyi kaçırıp katman başlığına zıplatıyordu. */
+  function boxLabel(node) {
+    if (!node) return '';
+    const lbl = (node.classList && node.classList.contains('ctrl') && node.querySelector)
+      ? node.querySelector('.lbl') : null;
+    const src = lbl || node;
+    let text = '';
+    const kids = src.childNodes ? [...src.childNodes] : [];
+    for (const n of kids) {
+      if (n.nodeType === 3) text += n.nodeValue || '';
+    }
+    if (!text.trim() && src.querySelector) {
+      const spans = src.querySelectorAll ? src.querySelectorAll('span') : [];
+      for (const s of spans) {
+        if (s.classList && s.classList.contains('fold-caret')) continue;
+        if (s.textContent) { text = s.textContent; break; }
+      }
+    }
+    if (!text.trim() && src.textContent) text = src.textContent;
+    return text.replace(/\s+/g, ' ').trim().slice(0, 80);
+  }
+
+  function anchorBoxOf(el) {
+    if (!el || !el.closest) return null;
+    return el.closest('.ctrl, .layer-tab, .fold-head, .layer-name');
+  }
+
+  function layerOf(el) {
+    return (el && el.closest) ? el.closest('.layer') : null;
+  }
+
+  function tabKeyOf(node) {
+    if (!node || !node.classList) return '';
+    if (node.classList.contains('layer-tab')) return node.getAttribute('data-k') || '';
+    const pane = node.closest ? node.closest('.layer-pane') : null;
+    if (!pane || !pane.parentElement || !pane.parentElement.querySelector) return '';
+    const active = pane.parentElement.querySelector('.layer-tab.active');
+    return active ? (active.getAttribute('data-k') || '') : '';
+  }
+
+  function foldKeyOf(node) {
+    if (!node || !node.classList) return '';
+    const fold = node.classList.contains('fold-head')
+      ? node.parentElement
+      : (node.closest ? node.closest('.fold') : null);
+    if (!fold || !fold.querySelector) return '';
+    const head = fold.querySelector('.fold-head') || node;
+    const stable = head.getAttribute && (head.getAttribute('data-anchor') || head.getAttribute('data-path'));
+    return stable || boxLabel(head);
+  }
+
+  function anchorIdentity(box) {
+    const kind = box.classList.contains('layer-tab') ? 'tab'
+      : box.classList.contains('fold-head') ? 'fold'
+      : box.classList.contains('layer-name') ? 'name' : 'ctrl';
+    /* Görünen yazı çeviriden sonra değişir. Eşleşme yol ya da kaynak
+       etiketindedir; yoksa ekrandaki metne düşülür. */
+    const stable = box.getAttribute && (box.getAttribute('data-path') || box.getAttribute('data-anchor'));
+    const label = stable || boxLabel(box);
+    return {
+      kind,
+      label,
+      tabKey: tabKeyOf(box),
+      fold: kind === 'fold' ? label : foldKeyOf(box),
+    };
+  }
+
+  function sameIdentity(a, b) {
+    return a.kind === b.kind && a.label === b.label && a.tabKey === b.tabKey && a.fold === b.fold;
+  }
+
+  /* Etkileşilen kutunun ekrandaki yeri. Kaydırıcı veya seçim kutusu
+     etiketin altında; etikete hizalamak her tıklamada sayfayı kaydırıyordu.
+     Aynı yazı birden fazla kutuda geçebiliyor (gövde ve sekme). Sekme,
+     katlanır başlık ve sıra onları ayırır. */
+  function sectionAnchor(root) {
+    const ae = document.activeElement;
+    if (!ae || !root || ae === root || !root.contains(ae) || !ae.getBoundingClientRect) return null;
+    const box = anchorBoxOf(ae);
+    if (!box || !box.classList || !box.getBoundingClientRect) return null;
+    const id = anchorIdentity(box);
+    if (!id.label) return null;
+    const layer = layerOf(box);
+    const nameEl = layer && layer.querySelector ? layer.querySelector('.layer-name b') : null;
+    const layerId = layer && layer.getAttribute ? (layer.getAttribute('data-id') || '') : '';
+    const host = layer || root;
+    const boxes = host.querySelectorAll ? [...host.querySelectorAll('.ctrl, .layer-tab, .fold-head, .layer-name')] : [];
+    let nth = 0;
+    for (const n of boxes) {
+      if (n === box) break;
+      if (n.classList && sameIdentity(anchorIdentity(n), id)) nth++;
+    }
+    return {
+      layerId,
+      layer: nameEl && nameEl.textContent ? nameEl.textContent : '',
+      kind: id.kind,
+      label: id.label,
+      tabKey: id.tabKey,
+      fold: id.fold,
+      nth,
+      top: box.getBoundingClientRect().top,
+    };
+  }
+
+  function findAnchorNode(root, anchor) {
+    if (!anchor || !anchor.label || !root.querySelectorAll) return null;
+    let host = root;
+    if (anchor.layerId) {
+      host = null;
+      const layers = root.querySelectorAll('.layer');
+      for (let i = 0; i < layers.length; i++) {
+        const n = layers[i];
+        if (n.getAttribute && n.getAttribute('data-id') === anchor.layerId) { host = n; break; }
+      }
+      if (!host) return null;
+    } else if (anchor.layer) {
+      host = null;
+      for (const n of root.querySelectorAll('.layer')) {
+        const b = n.querySelector && n.querySelector('.layer-name b');
+        if (b && b.textContent === anchor.layer) { host = n; break; }
+      }
+      if (!host) return null;
+    }
+    const boxes = [...host.querySelectorAll('.ctrl, .layer-tab, .fold-head, .layer-name')];
+    const hits = [];
+    for (const n of boxes) {
+      if (!n.classList) continue;
+      const id = anchorIdentity(n);
+      if (sameIdentity(id, anchor)) hits.push(n);
+    }
+    if (hits.length) return hits[Math.min(anchor.nth || 0, hits.length - 1)];
+    if (anchor.tabKey) {
+      for (const n of host.querySelectorAll('.layer-tab')) {
+        if (n.getAttribute && n.getAttribute('data-k') === anchor.tabKey) return n;
+      }
+    }
+    if (anchor.fold) {
+      for (const n of host.querySelectorAll('.fold-head')) {
+        if (boxLabel(n) === anchor.fold) return n;
+      }
+    }
+    if (anchor.layer && host.querySelector) return host.querySelector('.layer-name');
+    return null;
+  }
+
+  /* Tek hedef. Önce eski pikseli yazıp sonra kutuyu aramak, aradaki
+     konumu bir kare gösteriyordu. */
+  function anchoredScroll(root, anchor, prevScroll) {
+    const max = Math.max(0, root.scrollHeight - root.clientHeight);
+    const found = anchor ? findAnchorNode(root, anchor) : null;
+    if (!found || !found.getBoundingClientRect) return Math.min(Math.max(0, prevScroll || 0), max);
+    const next = root.scrollTop + (found.getBoundingClientRect().top - anchor.top);
+    return Math.min(Math.max(0, next), max);
+  }
+
+  /* Açık alt sekmenin kendi kaydırması. Sayfa yeniden kurulunca sıfırlanırsa
+     kontrol yukarı ışınlanır. Katman kimliği, aynı adlı ikinci katmanı ayırır. */
+  function captureLayerPaneScroll(root) {
+    const map = new Map();
+    if (!root || !root.querySelectorAll) return map;
+    const panes = root.querySelectorAll('.layer-pane.open');
+    for (let i = 0; i < panes.length; i++) {
+      const pane = panes[i];
+      const layer = pane.closest ? pane.closest('.layer') : null;
+      const id = layer && layer.getAttribute ? layer.getAttribute('data-id') : '';
+      if (id) map.set(id, pane.scrollTop || 0);
+    }
+    return map;
+  }
+
+  function restoreLayerPaneScroll(root, map) {
+    if (!root || !map || !map.size || !root.querySelectorAll) return;
+    const panes = root.querySelectorAll('.layer-pane.open');
+    for (let i = 0; i < panes.length; i++) {
+      const pane = panes[i];
+      const layer = pane.closest ? pane.closest('.layer') : null;
+      const id = layer && layer.getAttribute ? layer.getAttribute('data-id') : '';
+      if (!id || !map.has(id)) continue;
+      const max = Math.max(0, (pane.scrollHeight || 0) - (pane.clientHeight || 0));
+      const next = Math.min(map.get(id), max);
+      if (pane.scrollTop !== next) pane.scrollTop = next;
+    }
+  }
+
   function render() {
     const root = $('sections');
+    const paneScroll = captureLayerPaneScroll(root);
+    const anchor = sectionAnchor(root);
     let prevScroll;
     if (pendingCategoryScrollId === activeCategory) {
       prevScroll = categoryScrollById.has(activeCategory)
@@ -3292,12 +3567,11 @@
     } else {
       prevScroll = root.scrollTop;
     }
-    /* Masonry sınıfı bir önceki çizimden kalırsa yeni kartlar 4 px satıra
-       doğar. Linux o boyu içerik sanıp bütün kartları üst üste bindiriyor. */
-    root.classList.remove('masonry');
-    // Preview first so K1 WebGL-fallback flag is current for note show().
+    holdSectionsFocus(root);
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
     root.innerHTML = '';
+    // Masonry açıkken doğan kart Linux'ta 4 px sanılıp üst üste biner.
+    root.classList.remove('masonry');
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
     $('catTitle').textContent = tr(cat.title);
@@ -3314,22 +3588,22 @@
       const card = buildCard(sec);
       if (card) root.appendChild(card);
     });
-    layoutCards(root);
 
     renderNav();
-    /* #615: innerHTML sonrası sync scrollTop layout oturmadan clamp olur (mode/katman/tür).
-       MilkDrop listesindeki deferred restore ile aynı fikir; çift rAF + clamp. */
-    const gen = ++sectionsScrollRestoreGen;
-    const restoreSectionsScroll = () => {
-      if (gen !== sectionsScrollRestoreGen || !root.isConnected) return;
-      const max = Math.max(0, root.scrollHeight - root.clientHeight);
-      root.scrollTop = Math.min(prevScroll, max);
-    };
-    restoreSectionsScroll();
-    requestAnimationFrame(() => {
-      restoreSectionsScroll();
-      requestAnimationFrame(restoreSectionsScroll);
-    });
+    /* Konum bu görevde, boy ölçülüp ızgara oturduktan sonra yazılır.
+       Sonraki karede ikinci bir atama, kullanıcının gördüğü gidiş-gelişti. */
+    sectionsScrollWant = prevScroll;
+    layoutCards(root);
+    restoreLayerPaneScroll(root, paneScroll);
+    void root.offsetHeight;
+    const widthBeforeScroll = root.clientWidth;
+    applySectionsScroll(root, anchoredScroll(root, anchor, prevScroll));
+    if (root.clientWidth !== widthBeforeScroll) {
+      layoutCards(root);
+      applySectionsScroll(root, anchoredScroll(root, anchor, prevScroll));
+    }
+    sectionsScrollWant = root.scrollTop;
+    pinnedNode = anchor ? findAnchorNode(root, anchor) : null;
   }
 
   /* KART DÜZENİ (#622).
@@ -3399,6 +3673,15 @@
     if (masonryRO) masonryRO.disconnect();
     if (window.ResizeObserver) {
       masonryRO = new ResizeObserver((entries) => {
+        /* observe() ilk bildirimi az önce ölçtüğümüz boyu tekrarlar.
+           Span'i orada büyütmek kartları bir kare kaydırıp bırakıyordu. */
+        if (masonryRO && masonryRO._svSkip) {
+          masonryRO._svSkip = false;
+          return;
+        }
+        const scroller = root;
+        const pin = pinElement(scroller);
+        const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
         for (const e of entries) {
           const c = e.target;
           if (!c.isConnected) continue;
@@ -3411,7 +3694,11 @@
              4 px satır ölçümü span'i eritip kartları üst üste bindirir. */
           if (next > cur) c.style.gridRowEnd = s;
         }
+        /* Pay büyüyünce alttaki kartlar kayar. Eski pikseli zorlamak
+           baktığın yeri kaçırıyordu; kutu ekranda aynı yerde kalır. */
+        nudgeScroll(scroller, pin, before);
       });
+      masonryRO._svSkip = true;
       kids.forEach((c) => masonryRO.observe(c));
     }
     /* Genişlik değişince payı aynı karede yenile. Sütun sayısı aynı kalsa
@@ -3424,6 +3711,9 @@
         if (!root.isConnected) return;
         const w = root.clientWidth;
         if (w === sectionsW) return;
+        const pin = pinElement(root);
+        const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+        const keep = root.scrollTop;
         sectionsW = w;
         placeGeneratorPair(root);
         root.classList.remove('masonry');
@@ -3435,6 +3725,8 @@
           if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
         });
         sectionsW = root.clientWidth;
+        if (pin) nudgeScroll(root, pin, before);
+        else if (root.scrollTop !== keep) root.scrollTop = keep;
       });
       sectionsRO.observe(root);
     }
@@ -3520,6 +3812,7 @@
       }
       const c = buildControl(def);
       if (!c) return;
+      if (def.label) c.setAttribute('data-anchor', String(def.label).slice(0, 80));
       if (def.path) {
         c.setAttribute('data-path', def.path);
         if (isModified(def.path)) c.classList.add('modified');
@@ -3549,8 +3842,10 @@
     const dv = getPath(window.SV.defaultConfig(), path);
     if (dv === undefined) return;
     setPath(cfg, path, window.SV.clone(dv));
-    push(true);
+    /* Yeniden çizim, sıfırlama düğmesi hâlâ odaktayken konumu okur.
+       push önce çalışırsa düğme gizlenir ve kaydırma başa döner. */
     render();
+    push(true);
   }
 
   // "Varsayılandan farklı" göstergelerini yeniden çizmeden tazele.
@@ -3559,6 +3854,9 @@
   function refreshModifiedMarks() {
     const root = $('sections');
     if (!root) return;
+    parkResetFocus(root);
+    const pin = pinElement(root);
+    const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
     root.querySelectorAll('.ctrl[data-path]').forEach((node) => {
       node.classList.toggle('modified', isModified(node.getAttribute('data-path')));
     });
@@ -3601,6 +3899,7 @@
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     const catBtn = $('catResetBtn');
     if (catBtn) catBtn.classList.toggle('hidden', !resettable);
+    nudgeScroll(root, pin, before);
   }
 
   function setAdvanced(on) {
@@ -3635,8 +3934,8 @@
         if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
       });
     }
-    push(true);
     render();
+    push(true);
   }
 
   // --------------------------------------------------------------------------
@@ -4828,23 +5127,25 @@
   // Video dışa aktarma
   // --------------------------------------------------------------------------
   function setExportStatus(text, cls, icon) {
+    exportStatusText = text || '';
+    exportStatusCls = cls || '';
+    exportStatusIcon = icon || '';
     const s = $('exportStatus');
     if (!s) return;
-    window.SVIcons.set(s, icon || '', text || '');
-    s.className = 'export-status' + (cls ? ' ' + cls : '');
+    window.SVIcons.set(s, exportStatusIcon, exportStatusText);
+    s.className = 'export-status' + (exportStatusCls ? ' ' + exportStatusCls : '');
   }
 
   function setExportUI(active) {
     const run = $('exportRunBtn');
     const cancel = $('exportCancelBtn');
     const bar = $('exportProgressBar');
+    const fill = $('exportProgressFill');
     if (run) run.disabled = active;
     if (cancel) cancel.style.display = active ? 'inline-flex' : 'none';
     if (bar) bar.style.display = active ? 'block' : 'none';
-    if (!active) {
-      const fill = $('exportProgressFill');
-      if (fill) fill.style.width = '0%';
-    }
+    if (!active) exportPct = 0;
+    if (fill) fill.style.width = (active ? exportPct : 0) + '%';
   }
 
   actions.runExport = async () => {
@@ -4953,6 +5254,10 @@
         cfg.text.nowSource = 'manual';
         platformTouched = true;
       }
+      if (cfg.text && cfg.text.lyricsFollow) {
+        cfg.text.lyricsFollow = false;
+        platformTouched = true;
+      }
       if (Array.isArray(cfg.layers)) {
         cfg.layers.forEach((l) => {
           if (!l || !l.settings) return;
@@ -4966,6 +5271,7 @@
           }
           const lt = l.settings.text;
           if (lt && lt.nowSource === 'system') { lt.nowSource = 'manual'; platformTouched = true; }
+          if (lt && lt.lyricsFollow) { lt.lyricsFollow = false; platformTouched = true; }
         });
       }
       if (platformTouched) push(true);
@@ -5245,6 +5551,14 @@
         handleDynamicThemeTrackUpdate(st);
       });
     }
+    if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
+    if (window.SVLyricsSync && window.SVLyricsSync.installLibrary) {
+      window.SVLyricsSync.installLibrary(window.api, () => {
+        const ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+        if (document.getElementById('sections')) render();
+      });
+    }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds, d.floating));
 
     /* K1 admin notice: refresh when preview stack flips WebGL→solid fallback. */
@@ -5365,10 +5679,14 @@
         return;
       }
       if (d.phase === 'encode') {
+        exportPct = 100;
+        const fill = $('exportProgressFill');
+        if (fill) fill.style.width = '100%';
         setExportStatus('Kodlanıyor (' + exportEnc + ')… kareler bitti, video yazılıyor.');
         return;
       }
       const pct = d.total ? Math.round((d.done / d.total) * 100) : 0;
+      exportPct = pct;
       const fill = $('exportProgressFill');
       if (fill) fill.style.width = pct + '%';
       setExportStatus('Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)');

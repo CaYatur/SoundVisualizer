@@ -22,6 +22,7 @@ public sealed class SmtcPayload
     public string? artist { get; set; }
     public string? album { get; set; }
     public string? artwork { get; set; }
+    public string? subtitle { get; set; }
     public double position { get; set; }
     public double duration { get; set; }
     public long updated { get; set; }
@@ -251,6 +252,8 @@ public static class Program
             var title = props?.Title ?? string.Empty;
             var artist = props?.Artist ?? string.Empty;
             var album = props?.AlbumTitle ?? string.Empty;
+            var subtitle = props?.Subtitle ?? string.Empty;
+            if (subtitle.Length > 262144) subtitle = subtitle.Substring(0, 262144);
             var trackKey = $"{title}|{artist}|{album}";
 
             if (trackKey != _lastTrackKey)
@@ -281,6 +284,7 @@ public static class Program
                 artist = artist,
                 album = album,
                 artwork = _lastArtwork,
+                subtitle = subtitle,
                 position = timeline?.Position.TotalSeconds ?? 0.0,
                 duration = timeline?.EndTime.TotalSeconds ?? 0.0,
                 updated = updatedMs,

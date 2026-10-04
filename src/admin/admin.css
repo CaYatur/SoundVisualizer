@@ -300,6 +300,11 @@ body {
 
 .sections {
   flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden;
+  /* Kaydırma çubuğu gelip gidince kartlar bir piksel yatay kaymasın.
+     İçerik değişince tarayıcı kaydırmayı kendisi “demirlesin” diye de
+     kapalı: konumu render() yazar. */
+  scrollbar-gutter: stable;
+  overflow-anchor: none;
   padding: 16px 20px 26px;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
   gap: 14px; align-content: start;
@@ -429,7 +434,10 @@ body {
 .ctrl { margin-bottom: 12px; position: relative; }
 .ctrl:last-child { margin-bottom: 0; }
 .ctrl .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.ctrl label.lbl { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.ctrl label.lbl {
+  position: relative; font-size: 12px; color: var(--text);
+  display: flex; align-items: center; gap: 6px; padding-right: 20px;
+}
 .ctrl .val {
   font-size: 11px; color: var(--muted); min-width: 46px; text-align: right;
   font-variant-numeric: tabular-nums;
@@ -440,7 +448,8 @@ body {
 }
 /* Tek ayarı geri alma düğmesi — yalnızca değişmiş ayarlarda görünür */
 .ctrl-reset {
-  display: none; width: 18px; height: 18px; flex-shrink: 0;
+  display: none; position: absolute; right: 0; top: 50%; margin-top: -9px;
+  width: 18px; height: 18px; flex-shrink: 0;
   align-items: center; justify-content: center;
   border: none; background: none; padding: 0; cursor: pointer;
   color: var(--muted2); font-size: 11px; line-height: 1; border-radius: 5px;
@@ -579,6 +588,7 @@ select:focus { border-color: var(--accent); }
   border-radius: 6px;
   display: block;
 }
+video.logo-lib-thumb { pointer-events: none; }
 .logo-lib-name {
   font-size: 10px;
   color: var(--muted);
@@ -865,6 +875,40 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
 .ask-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
 .ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
 .ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.lyr-editor {
+  width: min(1040px, calc(100vw - 24px));
+  height: min(92vh, 960px);
+  max-height: calc(100vh - 20px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  padding: 18px 18px 16px;
+}
+.lyr-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.lyr-editor-head .ask-title { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lyr-editor-tools { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.lyr-editor-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 10px 0; }
+.lyr-editor-fields .ctrl { margin-bottom: 0; }
+.lyr-editor-code {
+  flex: 1 1 auto; min-height: 0; margin-top: 8px;
+  display: grid; grid-template-rows: minmax(0, 1fr);
+  border: 1px solid var(--line); border-radius: 10px; background: #12080c; overflow: hidden;
+}
+.lyr-editor-code:focus-within { border-color: var(--accent); }
+.lyr-editor-paint {
+  grid-area: 1 / 1; margin: 0; overflow: auto; pointer-events: none;
+  scrollbar-width: none; color: #f2f2f4;
+}
+.lyr-editor-paint::-webkit-scrollbar { width: 0; height: 0; }
+.lyr-k-time { color: #ffd23f; }
+.lyr-k-word { color: #8ec8ff; }
+.lyr-k-meta, .lyr-k-meta-val { color: #d2b4ff; }
+.lyr-k-meta-val { color: #efe4ff; }
+.lyr-k-lyric { color: #f4f4f6; }
+.lyr-k-arrow, .lyr-k-index { color: #9aa3b2; }
+.lyr-editor .ask-actions { margin-top: 12px; }
+@media (max-width: 640px) {
+  .lyr-editor-fields { grid-template-columns: 1fr; }
+}
 
 .toast {
   position: fixed; left: 50%; bottom: 58px; transform: translateX(-50%);
@@ -1411,6 +1455,41 @@ input[type="number"]:focus,
 textarea:not(.code-input):not(.mded-input):focus {
   border-color: var(--accent);
 }
+/* Genel kutu kuralı yükseklik ve yazı ölçüsünü ezer; bu alan pencereyi doldurur. */
+textarea.p-in.lyr-editor-text,
+.lyr-editor-paint {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  padding: 16px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  resize: none;
+  box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14.5px;
+  line-height: 1.55;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+textarea.p-in.lyr-editor-text {
+  grid-area: 1 / 1;
+  color: transparent;
+  caret-color: #fff;
+}
+textarea.p-in.lyr-editor-text::selection {
+  background: rgba(225, 29, 42, .35);
+  color: transparent;
+}
+textarea.p-in.lyr-editor-text.lyr-plain {
+  color: var(--text);
+  caret-color: var(--text);
+}
+textarea.p-in.lyr-editor-text.lyr-plain::selection { color: inherit; }
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;

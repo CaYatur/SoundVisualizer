@@ -2,6 +2,26 @@
 
 const { contextBridge, ipcRenderer, clipboard } = require('electron');
 
+/* Söz saati çıpası panel dinleyiciyi geç kurabilir. Son çıpa burada durur. */
+function createLateEvent() {
+  let listener = null;
+  let seen = false;
+  let value;
+  return {
+    push(next) {
+      seen = true;
+      value = next;
+      if (listener) listener(next);
+    },
+    subscribe(cb) {
+      listener = typeof cb === 'function' ? cb : null;
+      if (seen && listener) listener(value);
+    },
+  };
+}
+const lyricsClockEvents = createLateEvent();
+ipcRenderer.on('lyrics-clock', (_e, anchor) => lyricsClockEvents.push(anchor));
+
 /* Arayüzün platformu bilmesi gerekiyor: Windows Dynamic Lighting yalnız
    Windows'ta anlamlı, Spout yalnız Windows'ta, Syphon yalnız macOS'ta.
    IPC'ye gerek yok; preload zaten ana süreç tarafında çalışıyor. */
@@ -45,6 +65,16 @@ contextBridge.exposeInMainWorld('api', {
   logoLibRead: (id) => ipcRenderer.invoke('logo-lib:read', id),
   logoLibRemove: (id) => ipcRenderer.invoke('logo-lib:remove', id),
   logoLibImport: () => ipcRenderer.invoke('logo-lib:import'),
+  mediaLibList: () => ipcRenderer.invoke('media-lib:list'),
+  mediaLibRemove: (id) => ipcRenderer.invoke('media-lib:remove', id),
+  mediaLibImport: () => ipcRenderer.invoke('media-lib:import'),
+  lyricsLibList: () => ipcRenderer.invoke('lyrics-lib:list'),
+  lyricsLibSnapshot: () => ipcRenderer.invoke('lyrics-lib:snapshot'),
+  lyricsLibRead: (id) => ipcRenderer.invoke('lyrics-lib:read', id),
+  lyricsLibRemove: (id) => ipcRenderer.invoke('lyrics-lib:remove', id),
+  lyricsLibUpdate: (id, patch) => ipcRenderer.invoke('lyrics-lib:update', id, patch),
+  lyricsLibImport: () => ipcRenderer.invoke('lyrics-lib:import'),
+  onLyricsLib: (cb) => ipcRenderer.on('lyrics-lib', (e, items) => cb(items)),
   toggleFloating: () => ipcRenderer.invoke('floating:toggle'),
   floatingIsOpen: () => ipcRenderer.invoke('floating:is-open'),
   floatingSnap: (where) => ipcRenderer.invoke('floating:snap', where),
@@ -154,6 +184,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // Medya katmanı
   pickVideo: () => ipcRenderer.invoke('media:pick-video'),
+  claimCamRelay: (key) => ipcRenderer.invoke('cam-relay-claim', key),
+  releaseCamRelay: (key) => ipcRenderer.send('cam-relay-release', key),
+  sendCamFrame: (msg) => ipcRenderer.send('cam-frame', msg),
+  sendCamStatus: (msg) => ipcRenderer.send('cam-status', msg),
   reportVideoDevices: (devices) => ipcRenderer.send('report-video-devices', devices),
 
   // Uzaktan kumandadan gelen ayar değişikliği (panel kopyasını tazeler)
@@ -165,6 +199,9 @@ contextBridge.exposeInMainWorld('api', {
   /* Gösteri saati çıpasını tüm görselleştirici pencerelerine yolla.
      Yalnızca taşıma durumu değiştiğinde çağrılır. */
   sendShowClock: (anchor) => ipcRenderer.send('show-clock', anchor),
+  /* Söz saati. Yalnızca oynat, duraklat ve durdur çıpa yollar. */
+  sendLyricsClock: (anchor) => ipcRenderer.send('lyrics-clock', anchor),
+  onLyricsClock: (cb) => lyricsClockEvents.subscribe(cb),
   // Çalan parça: panel önizlemesi açıkken okumayı ayakta tutar
   // Uygulama başına ses yakalama: o an ses oturumu olan uygulamalar
   listAudioApps: () => ipcRenderer.invoke('app-audio:list'),

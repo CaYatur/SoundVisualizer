@@ -106,4 +106,24 @@ test('sil düğmesi çarpı çizer, dosyayı siler ve seçimi bırakır', async 
   assert.match(css, /\.logo-lib-del \{[\s\S]*z-index:\s*3/);
   assert.match(css, /\.logo-lib-del \.svi \{[^}]*color:\s*#fff/);
   assert.match(css, /\.logo-lib-del:hover,\s*\n\.logo-lib-del:focus-visible \{[^}]*background:\s*#e23b3b/);
+
+  window.api.mediaLibList = async () => [{ id: 'v1', name: 'Klip', url: 'sv-media://local/x', kind: 'video' }];
+  const media = window.SVMediaLibUi.mount({ selectedId: 'v1' });
+  await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setImmediate(r));
+  const vids = walk(media, []).filter((n) => n.tag === 'video');
+  assert.strictEqual(vids.length, 1);
+  assert.strictEqual(vids[0].attrs.preload, 'metadata');
+  const cfg = {
+    media: { libraryId: 'v1', file: 'sv-media://local/x', fileName: 'Klip' },
+    layers: [
+      { settings: { media: { libraryId: 'v1', file: 'u', fileName: 'Klip' } } },
+      { settings: { media: { libraryId: 'other', file: 'keep', fileName: 'Diger' } } },
+    ],
+  };
+  assert.strictEqual(window.SVMediaLibUi.forget(cfg, { id: 'v1' }), true);
+  assert.strictEqual(cfg.media.file, '');
+  assert.strictEqual(cfg.media.libraryId, '');
+  assert.strictEqual(cfg.layers[0].settings.media.file, '');
+  assert.strictEqual(cfg.layers[1].settings.media.file, 'keep');
 });

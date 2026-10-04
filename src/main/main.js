@@ -20,19 +20,27 @@ const openrgb = require('./openrgb');
 const textureShare = require('./texture-share');
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
-const { serveMediaFile } = require('./media-file');
+const { serveMediaFile, isConfiguredMedia } = require('./media-file');
 const { MediaSession } = require('./media-session');
 const appCapture = require('./app-capture');
 const instances = require('./instances');
 const { SettingsGuard } = require('./settings-guard');
 const logoLibrary = require('./logo-library');
+const mediaLibrary = require('./media-library');
+const lyricsLibrary = require('./lyrics-library');
+const lyricsSync = require('../shared/lyrics-sync');
 const mcpServer = require('./mcp-server');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
 // izin vermekle yetinir ve rastgele yerel dosya okuma yolu açılmaz.
+// corsEnabled şart. Görselleştirici videoyu tuvale ve shader'a vermek için
+// crossOrigin=anonymous kullanır; bu bir CORS isteğidir. Electron 43,
+// bayrak kapalıyken isteği işleyiciye hiç ulaştırmaz ve öğe
+// "no supported source" der. Paneldeki küçük <video> bu bayrağı
+// kullanmadığı için orada aynı dosya oynar.
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
+  { scheme: 'sv-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true, bypassCSP: false } },
   { scheme: 'sv-logo', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, bypassCSP: false } },
   // MilkDrop küçük resimleri (#575): yalnız anahtar, yalnız kendi klasörü
   { scheme: 'sv-thumb', privileges: { standard: true, secure: true, supportFetchAPI: true, bypassCSP: false } },
@@ -168,6 +176,8 @@ const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
    (sahne ayarlarıyla birlikte) yeniden yazmak gereksiz disk trafiği olur. */
 const FLOATING_BOUNDS_PATH = path.join(app.getPath('userData'), 'floating-window.json');
 const LOGO_LIB_DIR = path.join(app.getPath('userData'), 'logo-library');
+const MEDIA_LIB_DIR = path.join(app.getPath('userData'), 'media-library');
+const LYRICS_LIB_DIR = path.join(app.getPath('userData'), 'lyrics-library');
 
 /* ÖZ TEST KULLANICININ AYARLARINA DOKUNMAMALI.
 
@@ -813,9 +823,12 @@ function createVisualizerWindow(display) {
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    ensureLyricsClock();
+    if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     /* Calan parca durumu da hemen gitmeli. Kaynak konumu ancak on saniyede
        bir guncelliyor; beklersek yeni acilan ekran o kadar sure bos kalirdi. */
     if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
+    win.webContents.send('lyrics-lib', lyricsSnapshot());
   });
 
   /* ESC tüm ekranlardaki görselleştirmeyi kapatır: kullanıcı diğer ekrandaki
@@ -921,6 +934,7 @@ function notifyVisualizerStatus() {
 }
 
 function openVisualizer(displayIds) {
+  if (anyVisualizerOpen() || streamOutputOpen()) armLyricsOnOutput();
   const wanted = resolveDisplayIds(displayIds);
   const all = screen.getAllDisplays();
 
@@ -1680,7 +1694,10 @@ function createFloatingWindow() {
     syncCapture();
     if (currentConfig) win.webContents.send('config', currentConfig);
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    ensureLyricsClock();
+    if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
+    win.webContents.send('lyrics-lib', lyricsSnapshot());
     notifyVisualizerStatus();
   });
 
@@ -1982,10 +1999,110 @@ ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
 
 ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
 
+/* Elle yüklenen sözün ortak saati. Ekran açılınca başlar. Dosya değişince,
+   bir ekran, web veya OBS istemcisi açıksa ya da saat zaten kurulmuşsa
+   başa sarar. Oynat, duraklat ve durdur panelden bir çıpa olarak gelir;
+   süre her karede yollanmaz. */
+function streamOutputOpen() {
+  return !!(streamServer && typeof streamServer.clientCount === 'function' && streamServer.clientCount() > 0);
+}
+let lyricsClockAnchor = null;
+let lyricsClockKey = '';
+
+function lyricBodySig(src) {
+  let h = 0;
+  for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) | 0;
+  return src.length + ':' + h;
+}
+
+function manualLyricsKey(cfg) {
+  if (!cfg) return '';
+  const parts = [];
+  const take = (t) => {
+    if (!t || (t.source || 'static') !== 'lyrics' || t.lyricsFollow === true) return;
+    const src = String(t.lyricsSource || '');
+    if (!src.trim()) return;
+    parts.push(lyricBodySig(src));
+  };
+  take(cfg.text);
+  const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
+  for (let i = 0; i < layers.length; i++) {
+    const l = layers[i];
+    if (l && l.settings) take(l.settings.text);
+  }
+  return parts.join('\n');
+}
+
+function publishLyricsClock(anchor) {
+  lyricsClockAnchor = anchor;
+  sendToVisualizers('lyrics-clock', anchor);
+  notifyAdmin('lyrics-clock', anchor);
+  if (streamServer && typeof streamServer.broadcast === 'function') {
+    streamServer.broadcast({ type: 'lyrics-clock', anchor });
+  }
+}
+
+function ensureLyricsClock() {
+  const key = manualLyricsKey(currentConfig);
+  if (!key) return;
+  if (!lyricsClockAnchor || lyricsClockKey !== key) {
+    lyricsClockKey = key;
+    publishLyricsClock({ run: 'play', time: 0, epoch: Date.now() });
+  }
+}
+
+/* Ekranlar zaten açıksa Ekranları Uygula durmuş sözü hemen oynatır.
+   Saat, yapılandırma kaydından ve büyük sahne iletisinden önce gider. */
+function armLyricsOnOutput() {
+  const key = manualLyricsKey(currentConfig);
+  if (!key) return;
+  const clock = require('../shared/lyrics-clock.js');
+  if (!clock.startsOnOutput(lyricsClockAnchor) && lyricsClockKey === key) return;
+  lyricsClockKey = key;
+  publishLyricsClock({ run: 'play', time: 0, epoch: Date.now() });
+}
+
+function configFollowsLyrics(cfg) {
+  if (process.platform !== 'win32' || !cfg) return false;
+  const texts = [];
+  if (cfg.text) texts.push(cfg.text);
+  const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
+  for (let i = 0; i < layers.length; i++) {
+    const l = layers[i];
+    if (l && l.settings && l.settings.text) texts.push(l.settings.text);
+  }
+  for (let i = 0; i < texts.length; i++) {
+    const t = texts[i];
+    if (t && (t.source || 'static') === 'lyrics' && t.lyricsFollow === true) return true;
+  }
+  return false;
+}
+
+function noteLyricsFile(cfg) {
+  const key = manualLyricsKey(cfg);
+  if (key === lyricsClockKey) return;
+  lyricsClockKey = key;
+  if (!key) return;
+  if (anyVisualizerOpen() || streamOutputOpen() || lyricsClockAnchor) {
+    publishLyricsClock({ run: 'play', time: 0, epoch: Date.now() });
+  }
+}
+
+ipcMain.on('lyrics-clock', (e, anchor) => {
+  if (!anchor || typeof anchor !== 'object') return;
+  const run = anchor.run === 'pause' || anchor.run === 'stop' ? anchor.run : 'play';
+  publishLyricsClock({
+    run,
+    time: Math.max(0, Number(anchor.time) || 0),
+    epoch: Number(anchor.epoch) || Date.now(),
+  });
+});
+
 /* Yeni yapılandırmayı her yere uygular. Panelden gelen yapılandırma
    kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
    zaten diskte olduğu için kaydedilmez. */
 function applyIncomingConfig(config, opts) {
+  noteLyricsFile(config);
   const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
   const prevCover = wantsCoverTaskbar();
@@ -2211,6 +2328,21 @@ ipcMain.on('audio-meter', (e, data) => {
 ipcMain.on('visualizer-message', (e, msg) => {
   if (SMOKE) console.log('[VIS-MSG] ' + JSON.stringify(msg));
   notifyAdmin('visualizer-message', msg);
+});
+
+/* Masaüstünün açtığı kamera, OBS tarayıcı kaynağına kare olarak gider.
+   Yayın sayfası getUserMedia çağırmaz. */
+ipcMain.handle('cam-relay-claim', (e, key) => streamServer.claimCam(e.sender.id, key));
+ipcMain.on('cam-relay-release', (e, key) => streamServer.releaseCam(e.sender.id, key));
+ipcMain.on('cam-frame', (e, msg) => {
+  if (!msg || msg.jpeg == null) return;
+  if (!streamServer.touchCam(e.sender.id, msg.key)) return;
+  const jpeg = Buffer.isBuffer(msg.jpeg) ? msg.jpeg : Buffer.from(msg.jpeg);
+  streamServer.broadcastCam(msg.key, jpeg);
+});
+ipcMain.on('cam-status', (e, msg) => {
+  if (!msg) return;
+  streamServer.broadcastCamStatus(msg.key, msg.error, msg.ready);
 });
 
 // Ses giriş cihazlarını listele (renderer enumerateDevices sonucu admin'e iletilir)
@@ -2607,6 +2739,8 @@ function syncStreamServer() {
       getLocale: () => appLocale(),
       getVersion: () => app.getVersion(),
       getNowPlaying: () => mediaSession.current(),
+      getLyricsLibrary: () => lyricsSnapshot(),
+      getLyricsClock: () => lyricsClockAnchor,
       /* MilkDrop dokuları (#586): adlar ve doğrulanmış dosya. Web çıkışı
          yalnız bir ad gönderiyor; yol IPC'dekiyle aynı denetimden geçiyor. */
       mdTextureNames: () => textureNames().names,
@@ -2625,6 +2759,7 @@ function syncStreamServer() {
         notifyAdmin('stream-clients', list);
         syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
         syncNowPlaying(); // Web istemcisi bağlanınca çalan parça oturumunu senkronize et
+        ensureLyricsClock(); // OBS de açık ekran gibi aynı söz saatine bağlansın
       },
     })
     .then((st) => {
@@ -2656,7 +2791,10 @@ function syncTextureShare() {
       if (!w || w.isDestroyed()) return;
       if (currentConfig) w.webContents.send('config', configForTextureShare(currentConfig));
       if (showClockAnchor) w.webContents.send('show-clock', showClockAnchor);
+      ensureLyricsClock();
+      if (lyricsClockAnchor) w.webContents.send('lyrics-clock', lyricsClockAnchor);
       if (mediaSession.current().has) w.webContents.send('now-playing', mediaSession.current());
+      w.webContents.send('lyrics-lib', lyricsSnapshot());
     },
   }).then((st) => {
     notifyAdmin('texture-share-status', st);
@@ -2707,12 +2845,14 @@ function wantsNowPlaying(cfg) {
   if (!cfg) return false;
   const systemNow = (n) => !!n && n.enabled !== false && (n.source || 'system') === 'system';
   const systemText = (t) => !!t && t.enabled !== false && t.source === 'now' && (t.nowSource || 'system') === 'system';
+  const lyricsFollow = (t) => !!t && t.enabled !== false && t.source === 'lyrics' && t.lyricsFollow === true;
   const wantsLogoArtwork = (lg) => !!lg && lg.enabled !== false && (lg.source === 'auto' || lg.source === 'track');
   const wantsTrackLogoArtwork = (lg) => !!lg && lg.enabled !== false && lg.source === 'track';
 
   if (cfg.dynamicTheme && cfg.dynamicTheme.enabled) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'nowplaying' && systemNow(cfg.nowplaying)) return true;
   if (cfg.visualizer && cfg.visualizer.type === 'text' && systemText(cfg.text)) return true;
+  if (cfg.visualizer && cfg.visualizer.type === 'text' && lyricsFollow(cfg.text)) return true;
   if (wantsTrackLogoArtwork(cfg.logo)) return true;
 
   const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
@@ -2721,6 +2861,7 @@ function wantsNowPlaying(cfg) {
     const over = l.settings || {};
     if (l.type === 'nowplaying' && systemNow(over.nowplaying || cfg.nowplaying)) return true;
     if (l.type === 'text' && systemText(over.text || cfg.text)) return true;
+    if (l.type === 'text' && lyricsFollow(over.text || cfg.text)) return true;
     if (l.kind === 'logo' && wantsTrackLogoArtwork((l.settings && l.settings.logo) || cfg.logo)) return true;
   }
 
@@ -3304,6 +3445,9 @@ ipcMain.handle('milkdrop:sprite-image', (e, key) => {
 function logoLibDir() {
   try { return LOGO_LIB_DIR; } catch { return path.join(app.getPath('userData'), 'logo-library'); }
 }
+function mediaLibDir() {
+  try { return MEDIA_LIB_DIR; } catch { return path.join(app.getPath('userData'), 'media-library'); }
+}
 
 ipcMain.handle('logo-lib:list', () => logoLibrary.list(logoLibDir()));
 ipcMain.handle('logo-lib:read', async (e, id) => {
@@ -3319,6 +3463,56 @@ ipcMain.handle('logo-lib:read', async (e, id) => {
   };
 });
 ipcMain.handle('logo-lib:remove', (e, id) => logoLibrary.remove(logoLibDir(), id));
+function lyricsLibDir() {
+  try { return LYRICS_LIB_DIR; } catch { return path.join(app.getPath('userData'), 'lyrics-library'); }
+}
+function lyricsSnapshot() {
+  try { return lyricsLibrary.snapshot(lyricsLibDir()); } catch { return []; }
+}
+function publishLyricsLib() {
+  const items = lyricsSnapshot();
+  sendToVisualizers('lyrics-lib', items);
+  notifyAdmin('lyrics-lib', items);
+  if (streamServer && typeof streamServer.broadcast === 'function') {
+    streamServer.broadcast({ type: 'lyrics-lib', items });
+  }
+  return items;
+}
+ipcMain.handle('lyrics-lib:list', () => lyricsLibrary.list(lyricsLibDir()));
+ipcMain.handle('lyrics-lib:snapshot', () => lyricsSnapshot());
+ipcMain.handle('lyrics-lib:read', (e, id) => lyricsLibrary.read(lyricsLibDir(), id));
+ipcMain.handle('lyrics-lib:remove', (e, id) => {
+  const r = lyricsLibrary.remove(lyricsLibDir(), id);
+  publishLyricsLib();
+  return r;
+});
+ipcMain.handle('lyrics-lib:update', (e, id, patch) => {
+  const r = lyricsLibrary.update(lyricsLibDir(), id, patch || {});
+  publishLyricsLib();
+  return r;
+});
+ipcMain.handle('lyrics-lib:import', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Söz Kütüphanesine Ekle', 'Add Lyrics to Library'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: trUi('Şarkı Sözü', 'Lyrics'), extensions: ['lrc', 'srt', 'txt'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
+  const added = [];
+  for (const file of r.filePaths) {
+    let text = '';
+    try { text = fs.readFileSync(file, 'utf8'); } catch { text = ''; }
+    const meta = lyricsSync.guessMeta(text, path.basename(file));
+    const one = lyricsLibrary.importFile(lyricsLibDir(), file, path.basename(file), meta);
+    if (one && one.ok) added.push(one.item);
+  }
+  publishLyricsLib();
+  return { ok: added.length > 0, added };
+});
+
 ipcMain.handle('logo-lib:import', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
     title: trUi('Resim / GIF Ekle', 'Add Images / GIFs'),
@@ -3335,6 +3529,32 @@ ipcMain.handle('logo-lib:import', async () => {
     if (one && one.ok) added.push(one.item);
   }
   return { ok: true, added };
+});
+
+ipcMain.handle('media-lib:list', () => {
+  const dir = mediaLibDir();
+  return mediaLibrary.list(dir).map((it) => {
+    const info = mediaLibrary.fileInfo(dir, it.id);
+    return Object.assign({}, it, { url: info ? mediaUrl.toMediaUrl(info.file) : '' });
+  });
+});
+ipcMain.handle('media-lib:remove', (e, id) => mediaLibrary.remove(mediaLibDir(), id));
+ipcMain.handle('media-lib:import', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Videoyu Kitaplığa Ekle', 'Add Videos to Library'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: trUi('Video Dosyaları', 'Video Files'), extensions: ['mp4', 'webm', 'mkv', 'mov', 'avi', 'm4v'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
+  const added = [];
+  for (const file of r.filePaths) {
+    const one = await mediaLibrary.importFileAsync(mediaLibDir(), file, path.basename(file));
+    if (one && one.ok) added.push(one.item);
+  }
+  return { ok: added.length > 0, added };
 });
 
 // ----------------------------------------------------------------------------
@@ -3521,13 +3741,24 @@ async function startExportJob(opts) {
     return { ok: false, error: 'Ses dosyası okunamadı: ' + err.message };
   }
 
+  let track = {
+    title: path.basename(audioPath, path.extname(audioPath)),
+    artist: '',
+    album: '',
+    artwork: '',
+  };
   try {
-    ffmpegProc = spawn(ff, args, { windowsHide: true });
+    const read = await require('../shared/audio-tags.js').readAudioTags(ff, audioPath, track.title);
+    if (read) track = read;
+  } catch { /* etiket yoksa dosya adı yeter */ }
+
+  try {
+    ffmpegProc = spawn(ff, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
   } catch (err) {
     return { ok: false, error: 'ffmpeg başlatılamadı: ' + err.message };
   }
 
-  exportState = { outputPath, ffErr: '', encoder };
+  exportState = { outputPath, ffErr: '', encoder, finishAt: 0, cancel: false };
   notifyAdmin('export-progress', { phase: 'start', encoder });
   ffmpegProc.stderr.on('data', (d) => {
     if (!exportState) return;
@@ -3536,12 +3767,16 @@ async function startExportJob(opts) {
   });
   ffmpegProc.stdin.on('error', () => {}); // iptal/kapanışta EPIPE'i yut
   ffmpegProc.on('error', (err) => finalizeExport('error', 'ffmpeg hatası: ' + err.message));
-  ffmpegProc.on('exit', (code) => {
-    // İş bitti (stdin kapandı) ve ffmpeg başarıyla çıktıysa -> tamam.
-    if (!exportState) return; // zaten finalize edilmiş (iptal/hata)
+  const onFfClosed = (code) => {
+    // Süre dolunca değil, süreç gerçekten kapanınca. null kod ikinci
+    // olayın sayısal sonucunu bekler; erken 'tamam' arayüzü yanıltıyordu.
+    if (!exportState || code == null) return;
     if (code === 0) finalizeExport('done');
+    else if (exportState.cancel) finalizeExport('cancelled');
     else finalizeExport('error', 'ffmpeg çıkış kodu ' + code + '\n' + (exportState.ffErr || '').slice(-1200));
-  });
+  };
+  ffmpegProc.on('exit', onFfClosed);
+  ffmpegProc.on('close', onFfClosed);
 
   // Gizli render penceresi (offscreen kanvas; ekrana çizilmez)
   exportWin = new BrowserWindow({
@@ -3558,6 +3793,14 @@ async function startExportJob(opts) {
   });
   attachSmoke(exportWin, 'EXPORT');
   exportWin.on('closed', () => { exportWin = null; });
+  exportWin.webContents.on('render-process-gone', () => {
+    if (!exportState) return;
+    if (exportState.finishAt) {
+      endExportStdin();
+      return;
+    }
+    finalizeExport('error', 'Görüntü süreci kapandı. Dışa aktarma durduruldu.', { keep: true });
+  });
 
   try {
     await exportWin.loadFile(path.join(__dirname, '..', 'exporter', 'index.html'));
@@ -3575,6 +3818,11 @@ async function startExportJob(opts) {
     height: h,
     fps,
     cfg: currentConfig || {},
+    /* Dosyanın adı, kapağı ve — takip açıksa — kütüphane sözü.
+       Normal söz dosyası kütüphaneyle değiştirilmez. */
+    track,
+    platform: process.platform,
+    lyricsLibrary: configFollowsLyrics(currentConfig) ? lyricsSnapshot() : [],
   });
 
   return { ok: true };
@@ -3608,11 +3856,33 @@ ipcMain.handle('export:frame', async (e, data) => {
   const buf = Buffer.from(data); // RGBA baytları (kopyalanır)
   const ok = ffmpegProc.stdin.write(buf);
   if (!ok) {
-    await new Promise((res) => {
+    // Tampon doluysa ffmpeg işliyordur. Süre dolunca işi başarısız saymak
+    // çubuğu ve iptali kaldırıyordu; gerçek kapanış veya iptal beklenir.
+    const drained = await new Promise((res) => {
       const s = ffmpegProc && ffmpegProc.stdin;
-      if (!s) return res();
-      s.once('drain', res);
+      if (!s) return res(false);
+      let settled = false;
+      const done = (v) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(poll);
+        s.removeListener('drain', onDrain);
+        s.removeListener('close', onClose);
+        res(v);
+      };
+      const onDrain = () => done(true);
+      const onClose = () => done(false);
+      const poll = setInterval(() => {
+        if (!exportState || exportState.cancel) done(false);
+      }, 200);
+      s.once('drain', onDrain);
+      s.once('close', onClose);
     });
+    if (!exportState || exportState.cancel) return { cancel: true };
+    if (!drained) {
+      finalizeExport('error', 'Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.');
+      return { cancel: true };
+    }
   }
   return { cancel: !!(exportState && exportState.cancel) };
 });
@@ -3623,17 +3893,23 @@ ipcMain.on('export:ready', (e, total) => {
 ipcMain.on('export:progress', (e, p) => {
   notifyAdmin('export-progress', { phase: 'render', done: p.done, total: p.total });
 });
+function endExportStdin() {
+  const proc = ffmpegProc;
+  if (!proc || !proc.stdin || proc.stdin.destroyed) return;
+  try { proc.stdin.end(); } catch { /* kapalı */ }
+}
+
 ipcMain.on('export:finish', () => {
   // Tüm kareler yazıldı: stdin'i kapat -> ffmpeg kalan kodlamayı bitirip 'exit' verir.
+  // Arayüz burada kapanmaz. Tamam veya hata, sürecin çıkış koduyla gelir.
   notifyAdmin('export-progress', { phase: 'encode' });
-  if (ffmpegProc && ffmpegProc.stdin.writable) {
-    try { ffmpegProc.stdin.end(); } catch {}
-  }
+  if (exportState) exportState.finishAt = Date.now();
+  endExportStdin();
 });
 ipcMain.on('export:cancelled', () => finalizeExport('cancelled'));
 ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 
-function finalizeExport(status, message) {
+function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   const out = exportState.outputPath;
   const encoder = exportState.encoder;
@@ -3650,8 +3926,9 @@ function finalizeExport(status, message) {
   }
   exportWin = null;
 
-  // Yarım kalan dosyayı temizle (iptal/hata)
-  if (status !== 'done' && out) {
+  // Yarım kalan dosyayı temizle (iptal/hata). Çöken görüntü süreci
+  // dosyayı yazmış olabilir; o kopya yerinde kalır, süreç durur.
+  if (status !== 'done' && !(opts && opts.keep) && out) {
     setTimeout(() => { try { fs.existsSync(out) && fs.unlinkSync(out); } catch {} }, 200);
   }
 
@@ -3741,11 +4018,21 @@ app.whenReady().then(async () => {
   // yapılandırmada SEÇİLİ olan dosyayı açar; sayfaya genel dosya sistemi
   // erişimi vermez.
   protocol.handle('sv-media', (request) => {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+          'Access-Control-Allow-Headers': 'Range',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
+    }
     try {
       const raw = mediaUrl.fromMediaUrl(request.url);
-      const wanted = (currentConfig && currentConfig.media && currentConfig.media.file) || '';
-      const allowed = mediaUrl.fromMediaUrl(wanted);
-      if (!raw || !allowed || !mediaUrl.samePath(path.resolve(raw), path.resolve(allowed))) {
+      const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
+      if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary)) {
         return new Response('forbidden', { status: 403 });
       }
       return serveMediaFile(raw, request.headers.get('range'));
@@ -4826,18 +5113,30 @@ async function runSmoke() {
       await wait(900);
     };
 
+    /* Panel bu beklemeler sırasında kendi kopyasını geri yollayabiliyor
+       (dinamik tema push(true) bütün yapılandırmayı değiştirir). Kilit
+       kararı tuş anındaki ana süreç kopyasına bakıyor; pencere açıldıktan
+       sonra bayrakları yeniden yazmazsak kullanıcının kayıtlı
+       protectNoEscape değeri tuşu ezer. */
+    const pinEsc = (locked) => {
+      currentConfig.power.protect = true;
+      currentConfig.power.protectNoEscape = !!locked;
+    };
+
     // 4) Koruma AÇIK, ESC serbest: ESC kapatmalı
-    currentConfig.power.protectNoEscape = false;
+    pinEsc(false);
     openVisualizer([one]);
     await wait(1200);
+    pinEsc(false);
     await sendEsc(visualizerWins.get(one));
     console.log('[SMOKE] ESC serbest -> pencere ' + (visualizerWins.has(one) ? 'KAPANMADI' : 'kapandı'));
     if (visualizerWins.has(one)) errors.push('protection: Esc did not close while it was allowed');
 
     // 5) Koruma AÇIK, ESC kilitli: ESC kapatmamalı
-    currentConfig.power.protectNoEscape = true;
+    pinEsc(true);
     openVisualizer([one]);
     await wait(1200);
+    pinEsc(true);
     await sendEsc(visualizerWins.get(one));
     console.log('[SMOKE] ESC kilitli -> pencere ' + (visualizerWins.has(one) ? 'açık kaldı' : 'KAPANDI'));
     if (!visualizerWins.has(one)) errors.push('protection: Esc closed the window while the lock was on');

@@ -268,6 +268,8 @@
           { min: 0, max: 1, step: 0.005, percent: true }),
         SP().miniSlider('Dikey', () => (C.y == null ? 0.86 : C.y), (v) => { C.y = v; },
           { min: 0, max: 1, step: 0.005, percent: true }),
+        SP().miniSelect('Dikey Hiza', [['top', 'Üst'], ['middle', 'Orta'], ['bottom', 'Alt']],
+          () => C.vAlign || 'middle', (v) => { C.vAlign = v; }),
         SP().miniSlider('Satır Aralığı', () => (C.lineGap == null ? 0.32 : C.lineGap), (v) => { C.lineGap = v; },
           { min: 0, max: 1.2, step: 0.02 }),
         SP().miniSlider('Saydamlık', () => (C.opacity == null ? 1 : C.opacity), (v) => { C.opacity = v; },
@@ -278,7 +280,11 @@
           { min: 0, max: 1, step: 0.02 }),
         SP().miniSlider('En Fazla Genişlik', () => (C.maxWidth == null ? 0.8 : C.maxWidth), (v) => { C.maxWidth = v; },
           { min: 0.2, max: 1, step: 0.01, percent: true }),
-        SP().miniToggle('Uzun Adları Kaydır', () => C.scrollLongTitles !== false, (v) => { C.scrollLongTitles = v; }),
+        SP().miniToggle('Uzun Adları Kaydır', () => C.scrollLongTitles !== false, (v) => { C.scrollLongTitles = v; }, rerender),
+        ...(C.scrollLongTitles !== false ? [
+          SP().miniSlider('Kaydırma Hızı', () => (C.scrollSpeed == null ? 1 : C.scrollSpeed), (v) => { C.scrollSpeed = v; },
+            { min: 0.25, max: 4, step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }),
+        ] : []),
       ];
     }));
 

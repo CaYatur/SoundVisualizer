@@ -227,6 +227,7 @@
     }
  else {
       // ------------------------------------------------------------ söz
+      const isWin = !!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows);
       const doc = T.lyricsSource && window.SVLyrics ? window.SVLyrics.parse(T.lyricsSource) : null;
       const info = doc
         ? doc.lines.length + ' satır · ' + doc.format.toUpperCase() +
@@ -262,14 +263,27 @@
         }),
       ]));
 
+      if (T.lyricsFollow !== true && window.SVLyricsClock && window.SVLyricsClock.controls) {
+        nodes.push(window.SVLyricsClock.controls({ el }));
+      }
+
+      if (isWin && window.SVLyricsLibUi && window.SVLyricsLibUi.block) {
+        const extra = window.SVLyricsLibUi.block({ txt: T, rerender, sync });
+        for (let i = 0; i < extra.length; i++) nodes.push(extra[i]);
+      }
       nodes.push(SP().miniSlider('Senkron Kayması', () => T.offset || 0, (v) => { T.offset = v; sync(); }, {
         min: -10, max: 10, step: 0.05, fmt: (v) => (v > 0 ? '+' : '') + (+v).toFixed(2) + ' sn',
       }));
-      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }));
+      nodes.push(SP().miniToggle('Karaoke Vurgusu', () => T.karaoke !== false, (v) => { T.karaoke = v; sync(); }, rerender));
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'LRC ve SRT desteklenir; biçim dosyanın içeriğinden anlaşılır. Gelişmiş LRC\'deki kelime zamanları varsa karaoke vurgusu kelime kelime ilerler, yoksa satır boyunca düzgün akar.' }));
     }
 
     // ------------------------------------------------------------- görünüm
+    if ((T.source || 'static') === 'lyrics'
+      && window.SV_PLATFORM && window.SV_PLATFORM.isWindows
+      && window.SVLyricsLibUi && window.SVLyricsLibUi.library) {
+      nodes.push(SP().foldable('Söz Kütüphanesi', () => window.SVLyricsLibUi.library({ txt: T, rerender, sync }), 'lyrics-lib-text'));
+    }
     nodes.push(SP().foldable('Yazı', () => [
       SP().miniSelect('Yazı Tipi', FONT_LABELS, () => T.font, (v) => { T.font = v; sync(); }),
       SP().miniSlider('Boyut', () => T.size == null ? 0.09 : T.size, (v) => { T.size = v; sync(); }, {
@@ -281,10 +295,21 @@
       SP().miniSelect('Hizalama', ALIGN_LABELS, () => T.align || 'center', (v) => { T.align = v; sync(); }),
       SP().miniSlider('Yatay', () => T.x == null ? 0.5 : T.x, (v) => { T.x = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
       SP().miniSlider('Dikey', () => T.y == null ? 0.5 : T.y, (v) => { T.y = v; sync(); }, { min: 0, max: 1, step: 0.005, percent: true }),
+      SP().miniSelect('Dikey Hiza', [['top', 'Üst'], ['middle', 'Orta'], ['bottom', 'Alt']],
+        () => T.vAlign || 'middle', (v) => { T.vAlign = v; sync(); }),
       SP().miniSlider('Saydamlık', () => T.opacity == null ? 1 : T.opacity, (v) => { T.opacity = v; sync(); }, { min: 0, max: 1, step: 0.01, percent: true }),
       SP().miniSlider('Kontur', () => T.outline || 0, (v) => { T.outline = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
       SP().miniSlider('Gölge', () => T.shadow || 0, (v) => { T.shadow = v; sync(); }, { min: 0, max: 1, step: 0.02 }),
+      SP().miniSlider('En Fazla Genişlik', () => (T.maxWidth == null ? 0.9 : T.maxWidth), (v) => { T.maxWidth = v; sync(); },
+        { min: 0.2, max: 1, step: 0.01, percent: true }),
+      SP().miniToggle('Uzun Yazıyı Kaydır', () => T.scrollOverflow !== false, (v) => { T.scrollOverflow = v; sync(); }, rerender),
+      ...(T.scrollOverflow !== false && !T.marquee ? [
+        SP().miniSlider('Kaydırma Hızı', () => (T.scrollSpeed == null ? 1 : T.scrollSpeed), (v) => { T.scrollSpeed = v; sync(); },
+          { min: 0.25, max: 4, step: 0.05, fmt: (v) => (+v).toFixed(2) + '×' }),
+      ] : []),
     ]));
+    nodes.push(el('div', { class: 'studio-note dim-hint',
+      text: 'Yazı bu genişliğe sığmazsa ileri geri kayar. Kayan yazı açıkken o döngü kullanılır.' }));
 
     nodes.push(SP().foldable('Renk', () => {
       const cfg = P().cfg();
@@ -306,7 +331,11 @@
       ];
       if (getMode() === 'custom') {
         kids.push(P().color('Metin Rengi', 'text.color'));
-        kids.push(P().color('Vurgu Rengi', 'text.colorHighlight'));
+        if ((T.source || 'static') === 'lyrics' && T.karaoke !== false) {
+          kids.push(P().color('Vurgu Rengi', 'text.colorHighlight'));
+          kids.push(el('div', { class: 'studio-note dim-hint',
+            text: 'Söylenen kısmı boyar. Sabit yazı ve çalan parça bu rengi kullanmaz.' }));
+        }
       } else if (getMode() === 'theme') {
         kids.push(el('div', { class: 'studio-note dim-hint', text: 'Renkler sahne paletinden alınır; palet değişince metin de değişir.' }));
       }

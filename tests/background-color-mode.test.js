@@ -66,7 +66,8 @@ test('kaynak: Admin Background Renk Modu segmenti', () => {
 test('kaynak: Layers Background Renk Modu miniSegment', () => {
   assert.match(sceneSrc, /setBgColorMode|getBgColorMode|colorMode/);
   assert.match(sceneSrc, /\['solid',\s*'Düz Renk'\]/);
-  assert.match(sceneSrc, /cfg\.background\.colorMode\s*=\s*m/);
+  assert.match(sceneSrc, /setB\('colorMode', m\)/);
+  assert.doesNotMatch(sceneSrc, /cfg\.background\.colorMode\s*=\s*m/);
 });
 
 test('kaynak: nowplaying colorMode (custom/theme/rainbow) uygular', () => {
@@ -143,4 +144,48 @@ test('layerConfig: theme ignores stale layer-local colors', () => {
   assert.deepStrictEqual(out.background.gradient.colors, live);
   assert.strictEqual(out.background.gradient.speed, 0.9);
   assert.strictEqual(out.background.colorMode, 'theme');
+});
+
+test('layerConfig katmanın kendi arkaplan renk kipini korur', () => {
+  global.window = global.window || {};
+  require('../src/shared/defaults.js');
+  const L = require('../src/visualizer/layers.js');
+  const live = ['#aa0000', '#bb0000', '#cc0000', '#dd0000', '#ee0000'];
+  const cfg = {
+    background: {
+      type: 'gradient', colorMode: 'theme', solidColor: '#111111',
+      gradient: { colors: live.slice() },
+    },
+    visualizer: { type: 'bars', colorMode: 'theme' },
+    nowplaying: { color: '#ffffff' },
+    layerStack: { enabled: true },
+    layers: [],
+  };
+  const solid = L.layerConfig(cfg, L.normalizeLayer({
+    id: 's', kind: 'background', type: 'gradient',
+    settings: { background: { colorMode: 'solid', solidColor: '#abcdef', gradient: { colors: ['#010101'] } } },
+  }));
+  assert.strictEqual(solid.background.colorMode, 'solid');
+  assert.strictEqual(solid.background.solidColor, '#abcdef');
+  assert.ok(solid.background.gradient.colors.every((c) => String(c).toLowerCase() === '#abcdef'));
+  const inherit = L.layerConfig(cfg, L.normalizeLayer({
+    id: 'i', kind: 'background', type: 'gradient',
+    settings: { background: { gradient: { speed: 0.4 } } },
+  }));
+  assert.strictEqual(inherit.background.colorMode, 'theme');
+  assert.deepStrictEqual(inherit.background.gradient.colors, live);
+  const np = L.layerConfig(cfg, L.normalizeLayer({
+    id: 'n', kind: 'nowplaying', type: 'nowplaying',
+    settings: { visualizer: { colorMode: 'rainbow', glow: 0.5 }, nowplaying: { colorMode: 'rainbow' } },
+  }));
+  assert.strictEqual(np.visualizer.colorMode, 'rainbow');
+  assert.strictEqual(np.visualizer.glow, 0.5);
+  assert.strictEqual(np.nowplaying.colorMode, 'rainbow');
+  const text = L.layerConfig(cfg, L.normalizeLayer({
+    id: 't', kind: 'visualizer', type: 'text',
+    settings: { text: { content: 'A', colorMode: 'custom' } },
+  }));
+  assert.strictEqual(text.visualizer.colorMode, 'custom');
+  assert.strictEqual(text.text.colorMode, 'custom');
+  assert.strictEqual(cfg.visualizer.colorMode, 'theme');
 });

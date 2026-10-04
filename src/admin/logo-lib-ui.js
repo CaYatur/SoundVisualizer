@@ -49,11 +49,17 @@
   }
 
   function mount(opts) {
-    const onPick = opts && opts.onPick;
-    let selectedId = (opts && opts.selectedId) || '';
+    const o = opts || {};
+    const onPick = o.onPick;
+    const thumbTag = o.thumb === 'video' ? 'video' : 'img';
+    const srcForItem = o.srcFor || srcFor;
+    const listFn = o.list || listItems;
+    const removeFn = o.remove;
+    const importFn = o.import;
+    let selectedId = o.selectedId || '';
     const wrap = el('div', { class: 'logo-lib' });
     const head = el('div', { class: 'logo-lib-head' }, [
-      el('div', { class: 'lbl', text: tr('Kitaplık') }),
+      el('div', { class: 'lbl', text: o.title || tr('Kitaplık') }),
     ]);
     const search = el('input', {
       class: 'p-in logo-lib-search',
@@ -61,12 +67,12 @@
       placeholder: tr('Ara…'),
     });
     const grid = el('div', { class: 'logo-lib-grid' });
-    const empty = el('div', { class: 'studio-note dim-hint', text: tr('Henüz kitaplıkta görsel yok. Aşağıdan birden fazla resim veya GIF ekleyebilirsiniz.') });
+    const empty = el('div', { class: 'studio-note dim-hint', text: o.empty || tr('Henüz kitaplıkta görsel yok. Aşağıdan birden fazla resim veya GIF ekleyebilirsiniz.') });
     const toolbar = el('div', { class: 'up-toolbar' });
     const addBtn = el('button', {
       class: 'btn ghost small',
       type: 'button',
-      icon: 'import', text: tr('Kitaplığa Ekle'),
+      icon: 'import', text: o.addLabel || tr('Kitaplığa Ekle'),
     });
     toolbar.appendChild(addBtn);
     wrap.appendChild(head);
@@ -87,7 +93,7 @@
 
     function paint(force) {
       /* blobRefresh: runtime ısınınca thumb src'lerini protokolden blob'a çevir */
-      if (!paint._blobTimer) {
+      if (thumbTag === 'img' && !paint._blobTimer) {
         paint._blobTimer = setInterval(() => {
           if (!window.SVLogoRuntime) return;
           let pending = 0;
@@ -122,8 +128,19 @@
       lastIds = ids;
       grid.innerHTML = '';
       list.forEach((it) => {
-        const thumb = el('img', { class: 'logo-lib-thumb', alt: it.name || '', src: srcFor(it), loading: 'lazy' });
-        thumb.setAttribute('decoding', 'async');
+        const thumbAttrs = { class: 'logo-lib-thumb', alt: it.name || '', src: srcForItem(it) };
+        if (thumbTag === 'img') thumbAttrs.loading = 'lazy';
+        else {
+          thumbAttrs.muted = true;
+          thumbAttrs.preload = 'metadata';
+          thumbAttrs.playsinline = true;
+        }
+        const thumb = el(thumbTag, thumbAttrs);
+        if (thumbTag === 'img') thumb.setAttribute('decoding', 'async');
+        else {
+          thumb.muted = true;
+          thumb.preload = 'metadata';
+        }
         const name = el('div', { class: 'logo-lib-name', text: it.name || it.id });
         const badge = it.kind === 'gif' ? el('span', { class: 'logo-lib-badge', text: 'GIF' }) : null;
         const del = el('button', {
@@ -133,9 +150,12 @@
           title: tr('Sil'),
           'aria-label': tr('Sil'),
         });
-        const card = el('button', {
+        /* video düğmenin içinde etkileşimli içerik sayılır; kart div kalır. */
+        const card = el(thumbTag === 'video' ? 'div' : 'button', {
           class: 'logo-lib-card' + (it.id === selectedId ? ' is-on' : ''),
-          type: 'button',
+          type: thumbTag === 'video' ? null : 'button',
+          role: thumbTag === 'video' ? 'button' : null,
+          tabindex: thumbTag === 'video' ? '0' : null,
         }, [thumb, badge, name].filter(Boolean));
         card.addEventListener('click', () => {
           selectedId = it.id;
@@ -145,10 +165,12 @@
         del.addEventListener('click', async (e) => {
           e.preventDefault();
           e.stopPropagation();
-          if (!window.api || !window.api.logoLibRemove) return;
+          const drop = removeFn || (window.api && window.api.logoLibRemove
+            ? (id) => window.api.logoLibRemove(id) : null);
+          if (!drop) return;
           let removed = false;
           try {
-            const r = await window.api.logoLibRemove(it.id);
+            const r = await drop(it.id);
             removed = !r || r.ok !== false;
           } catch { removed = false; }
           if (!removed) return;
@@ -164,14 +186,16 @@
     }
 
     async function refresh() {
-      items = await listItems();
+      items = await listFn();
       paint(true);
     }
 
     search.addEventListener('input', () => { q = search.value || ''; paint(); });
     addBtn.addEventListener('click', async () => {
-      if (!window.api || !window.api.logoLibImport) return;
-      const r = await window.api.logoLibImport();
+      const pull = importFn || (window.api && window.api.logoLibImport
+        ? () => window.api.logoLibImport() : null);
+      if (!pull) return;
+      const r = await pull();
       if (r && r.ok) await refresh();
     });
 
@@ -179,5 +203,45 @@
     return wrap;
   }
 
+  function mountMedia(opts) {
+    const o = opts || {};
+    return mount({
+      selectedId: o.selectedId || '',
+      thumb: 'video',
+      empty: tr('Henüz kitaplıkta video yok. Aşağıdan birden fazla video ekleyebilirsiniz.'),
+      srcFor: (it) => (it && it.url) || '',
+      list: async () => {
+        if (!window.api || !window.api.mediaLibList) return [];
+        try { return (await window.api.mediaLibList()) || []; } catch { return []; }
+      },
+      remove: (id) => window.api && window.api.mediaLibRemove ? window.api.mediaLibRemove(id) : null,
+      import: () => window.api && window.api.mediaLibImport ? window.api.mediaLibImport() : null,
+      onPick: o.onPick,
+      onRemove: o.onRemove,
+    });
+  }
+
+  /* Silinen video klasik kartta ya da herhangi bir katmanda duruyor olabilir. */
+  function forget(cfg, it) {
+    const id = it && it.id;
+    if (!id || !cfg) return false;
+    let hit = false;
+    const wipe = (m) => {
+      if (!m || m.libraryId !== id) return;
+      m.libraryId = '';
+      m.file = '';
+      m.fileName = '';
+      hit = true;
+    };
+    wipe(cfg.media);
+    const layers = Array.isArray(cfg.layers) ? cfg.layers : [];
+    for (let i = 0; i < layers.length; i++) {
+      const s = layers[i] && layers[i].settings;
+      if (s) wipe(s.media);
+    }
+    return hit;
+  }
+
   window.SVLogoLibUi = { mount, srcFor, listItems };
+  window.SVMediaLibUi = { mount: mountMedia, forget };
 })();

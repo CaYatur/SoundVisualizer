@@ -48,7 +48,12 @@
     );
 
     if (m.source === 'webcam') {
-      const sel = el('select', { onchange: (e) => { m.deviceId = e.target.value; P().push(true); } });
+      const sel = el('select', { onchange: (e) => {
+        m.deviceId = e.target.value;
+        const cam = cameras.find((c) => c && c.id === m.deviceId);
+        m.deviceLabel = m.deviceId ? ((cam && cam.label) || '') : '';
+        P().push(true);
+      } });
       const def = el('option', { value: '', text: 'Varsayılan kamera' });
       if (!m.deviceId) def.selected = true;
       sel.appendChild(def);
@@ -58,6 +63,8 @@
         sel.appendChild(o);
       });
       nodes.push(P().row('Kamera', sel));
+      const fault = window.SVMediaWarning ? window.SVMediaWarning(m.deviceId || '') : '';
+      if (fault) nodes.push(el('div', { class: 'studio-note media-fault', text: fault }));
       nodes.push(
         el('button', {
           class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Kameraları Yenile',
@@ -78,12 +85,33 @@
               if (!r) return;
               m.file = r.url;
               m.fileName = r.name;
+              m.libraryId = '';
               P().push(true);
               P().rerender();
             },
           }),
         ])
       );
+      if (window.SVMediaLibUi) {
+        nodes.push(window.SVMediaLibUi.mount({
+          selectedId: m.libraryId || '',
+          onPick: (it) => {
+            if (!it || !it.url) return;
+            m.source = 'file';
+            m.file = it.url;
+            m.fileName = it.name || '';
+            m.libraryId = it.id || '';
+            m.enabled = true;
+            P().push(true);
+            P().rerender();
+          },
+          onRemove: (it) => {
+            if (!window.SVMediaLibUi.forget(P().cfg(), it)) return;
+            P().push(true);
+            P().rerender();
+          },
+        }));
+      }
       const loop = el('input', { type: 'checkbox', onchange: (e) => { m.loop = e.target.checked; P().push(true); } });
       loop.checked = m.loop !== false;
       nodes.push(P().row('Döngüde Oynat', el('label', { class: 'switch' }, [loop, el('span', { class: 'track' })])));

@@ -45,6 +45,23 @@ test('differs: özdeş durumlarda false döner', () => {
   assert.strictEqual(differs(a, b), false);
 });
 
+test('differs: altyazı değişince true döner', () => {
+  const a = Object.assign({}, EMPTY, { has: true, subtitle: '' });
+  const b = Object.assign({}, EMPTY, { has: true, subtitle: '[00:01.00]Bir\n[00:02.00]Iki' });
+  assert.strictEqual(differs(a, b), true);
+});
+
+test('MediaSession._onLine altyazıyı duruma yazar', () => {
+  const s = new MediaSession();
+  let emitted = null;
+  s.subscribe((state) => { emitted = state; });
+  s._onLine(JSON.stringify({
+    ok: true, has: true, title: 'Sarki', artist: 'Sanatci', status: 'Playing',
+    subtitle: '[00:01.00]Bir\n[00:02.00]Iki', position: 1, duration: 10, updated: 5,
+  }));
+  assert.strictEqual(emitted.subtitle, '[00:01.00]Bir\n[00:02.00]Iki');
+});
+
 test('differs: kapak görseli değişince true döner', () => {
   const a = Object.assign({}, EMPTY, { has: true, title: 'A', artist: 'B', artwork: 'data:image/jpeg;base64,OLD', updated: 500 });
   const b = Object.assign({}, EMPTY, { has: true, title: 'A', artist: 'B', artwork: 'data:image/jpeg;base64,NEW', updated: 500 });

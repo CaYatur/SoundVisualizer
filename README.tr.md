@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2613%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2677%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -691,6 +691,13 @@ efektler ve arkaplan da öyle.
   destekleniyor.
 - **Zamanlama düzenleyici**, LRC'ye geri yazan bir senkron kaydırmasıyla.
 - **Çalan parça bilgisi**, düzenlenebilir; başlık ve sanatçı ayrı katmanlara bağlanabilir.
+- **Oynat, duraklat ve durdur.** Yüklenen söz dosyası ekranlar açıkken bu düğmelerle yönetilir.
+  Ekranlar tek saat paylaşır. Durdur başa alır. Ekranlar açıkken Ekranları Uygula, durmuş
+  dosyayı tıklanınca oynatır. Çalan Parçayı İzle açıkken süre yine medya oturumundan gelir.
+
+### Windows söz kütüphanesi
+
+Windows’ta bir söz katmanı birden fazla LRC veya SRT dosyasını kütüphanede tutar; her birine sanatçı ve parça adı yazılır. **Çalan Parçayı İzle**, söz dosyası yüklemenin altında durur ve söz kütüphanesindeki dosyayla sistem saatini kullanır: satır şarkıyla, geri veya ileri sarmayla ve duraklamayla birlikte hareket eder. Dosyalar, Yazı’nın yanındaki **Söz Kütüphanesi** kategorisinden açılır. İçe aktarma kütüphaneye bir kopya yazar. **Düzenle** bu kopyayı yüksek bir pencerede açar; söz alanı pencerenin büyük kısmını doldurur ve kenara tıklamak pencereyi kapatmaz. **Renklendirme** varsayılan olarak açıktır; süreleri, satır içi kelime zamanlarını, söz metnini ve başlık etiketlerini boyar. Kaydetmek ham kütüphane kopyasını yazar, özgün dosya yerinde kalır. **Tam Eşleme** aynı parça ve sanatçıyı ister. **Kısmen Eşleme** küçük yazım farklarını kabul eder. Kütüphanede eşleşen söz dosyası varsa o önce kullanılır. Yoksa sistem oturumundaki zamanlı söz gelir. Yalnızca o anki satır varsa o satır gösterilir. Parça adı, albüm veya “Official Video” söz sanılmaz. macOS ve Linux tek yüklenen dosyada kalır. Yüklenen dosya bir ekran açılınca başlar. Oynat, Duraklat ve Durdur bu saati açık ekranların hepsinde yönetir. Ağdan söz çekilmez.
 
 ---
 
@@ -708,7 +715,12 @@ efektler ve arkaplan da öyle.
 - **PNG anlık görüntü** 4× çözünürlüğe kadar.
 - **En sık kullanılan en-boy oranları** için hazır profiller.
 - **Çevrimdışı video dışa aktarımı** bir ses dosyasını kare kare, deterministik olarak render
-  ediyor — görsel regresyon testlerinin dayandığı özellik de bu.
+  ediyor — görsel regresyon testlerinin dayandığı özellik de bu. Parça adı, sanatçı, albüm ve
+  kapak bu dosyadan okunur; Windows, macOS ve Linux’ta Çalan Parça, parça kapağı ve çalan
+  parçayı gösteren metin bu bilgiyi kullanır. Söz katmanı kütüphaneyi izlemiyorsa yüklenen
+  dosya kalır. Çalan Parçayı İzle açıksa bu dosyayla eşleşen kütüphane sözü kullanılır; bu yalnızca
+  Windows’ta açılır. macOS ve Linux yüklenen söz dosyasını, elle yazılan parça adını ve yüklenen
+  resmi kullanır.
 
 ---
 
@@ -718,6 +730,7 @@ efektler ve arkaplan da öyle.
 
 - OBS'ye **Tarayıcı Kaynağı** olarak ekleyin. Eklenti yok, gerçek saydamlık var.
 - Katman sayfası masaüstü penceresiyle **aynı motoru** çalıştırır; gördüğünüz şey yayına giden şeydir.
+- **Sözler katmanda da uygulamayla gider.** Yüklenen dosya ortak oynat, duraklat ve durdur saatini kullanır. Windows’ta Çalan Parçayı İzle kütüphaneyi ve sistem oturumunu kullanır. Tarayıcı saatini, OBS başka bilgisayardaysa bile uygulamayı çalıştıran makineye çeker.
 - Ağ üzerinden çalışır, yani görselleştirici bir bilgisayarda, OBS başka birinde olabilir.
 - **Saydamlık uygulamanın kendi anahtarıdır.** **Arkaplan → Şeffaf Arkaplan** açıkken katman OBS'te,
   pencerenin masaüstünde olduğu gibi şeffaftır; kapalıyken sahne gördüğünüz gibi yayına girer. Tek bir
@@ -1169,7 +1182,10 @@ Yazı tipi, kalınlık, boyut, hizalama, X/Y konumu, saydamlık, kontur ve gölg
 presetleri · ölçek, titreme ve kaldırmayla karakter başına ses tepkisi · kayan yazı ve bant ·
 karaoke vurgusu · biçimi içerikten anlaşılan LRC ve SRT içe aktarma, gelişmiş LRC kelime
 zamanlamalarıyla · LRC'ye geri yazan senkron kaydırması · çalan parça bilgisi; tek satır olarak ya
-da ayrı başlık ve sanatçı katmanları olarak bağlanabilir.
+da ayrı başlık ve sanatçı katmanları olarak bağlanabilir. Windows’ta söz kütüphanesi sistemdeki
+parça konumunu izleyebilir; sarma da yansır, tam veya kısmi eşleme seçilir. Kütüphane eşleşmesi
+oynatıcının verdiği sözden önce gelir. Yüklenen dosyada oynat, duraklat ve durdur açık
+ekranların hepsini birlikte yönetir. macOS ve Linux tek dosyada, ekran açılınca başlayan saatte kalır.
 
 ### Medya katmanı
 
@@ -1504,7 +1520,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2613 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2677 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

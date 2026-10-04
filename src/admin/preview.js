@@ -134,20 +134,18 @@
   }
 
   function applyMedia() {
-    if (!media) return;
+    if (!media || !stack) return;
     const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
     const hasMediaLayer = isStack && Array.isArray(cfg.layers)
       && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
-    const mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
-    let m = Object.assign({}, cfg.media, { enabled: mediaOn });
     if (hasMediaLayer) {
-      const ml = cfg.layers.find((l) => l && l.kind === 'media' && l.enabled !== false);
-      if (ml && ml.settings && ml.settings.media) {
-        m = Object.assign({}, m, ml.settings.media, { enabled: true });
-      }
+      media.apply({ enabled: false });
+      stack.syncMedia(cfg);
+      return;
     }
-    media.apply(m);
-    stack.bindMedia(mediaOn ? media.video : null);
+    if (stack.syncMedia) stack.syncMedia(cfg);
+    const mediaOn = !isStack && !!(cfg.media && cfg.media.enabled);
+    media.apply(Object.assign({}, cfg.media, { enabled: mediaOn }));
   }
 
   // --------------------------------------------------------------------------
@@ -318,7 +316,14 @@
     applyMedia();
     stack.setConfig(cfg);
     stack.setPostFX(cfg.postfx);
-    stack.bindMedia(cfg.media && cfg.media.enabled ? media.video : null);
+    /* Modlar setConfig ile yeni kurulur; sv_media bağı ondan sonra.
+       Yığındaki her kamera kendi katmanında çizilir. Shader girişi alttaki
+       ilk açık medya katmanının görüntüsüdür. */
+    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+    const hasMediaLayer = isStack && Array.isArray(cfg.layers)
+      && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
+    const mediaOn = hasMediaLayer || (!isStack && !!(cfg.media && cfg.media.enabled));
+    stack.bindMedia(mediaOn && stack.shaderVideo ? stack.shaderVideo() : null);
     applyLogo();
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);

@@ -90,8 +90,8 @@
       out.push({ path: 'layers.' + i + '.opacity', label: 'Saydamlık', group: g, min: 0, max: 1 });
       out.push({ path: 'layers.' + i + '.transform.scale', label: 'Ölçek', group: g, min: 0.2, max: 3 });
       out.push({ path: 'layers.' + i + '.transform.rotate', label: 'Dönüş', group: g, min: -180, max: 180 });
-      out.push({ path: 'layers.' + i + '.transform.x', label: 'Yatay', group: g, min: -0.5, max: 0.5 });
-      out.push({ path: 'layers.' + i + '.transform.y', label: 'Dikey', group: g, min: -0.5, max: 0.5 });
+      out.push({ path: 'layers.' + i + '.transform.x', label: 'Yatay', group: g, min: -1, max: 1 });
+      out.push({ path: 'layers.' + i + '.transform.y', label: 'Dikey', group: g, min: -1, max: 1 });
     });
     return out;
   }
