@@ -584,17 +584,35 @@ test('söz kütüphanesi yalnız Windows panelinde görünür', () => {
   }
 });
 
+/* Node 20 has no global navigator, so a bare read throws before the
+   stub exists. Node 22+ provides navigator and will not let the test
+   replace it, so only mediaDevices is swapped. */
+function stubMediaDevices(value) {
+  const had = typeof navigator !== 'undefined';
+  if (!had) {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      writable: true,
+      value: {},
+    });
+  }
+  const nav = globalThis.navigator;
+  const desc = Object.getOwnPropertyDescriptor(nav, 'mediaDevices');
+  Object.defineProperty(nav, 'mediaDevices', { configurable: true, writable: true, value });
+  return () => {
+    if (desc) Object.defineProperty(nav, 'mediaDevices', desc);
+    else delete nav.mediaDevices;
+    if (!had) delete globalThis.navigator;
+  };
+}
+
 test('medya katmanı birden fazla kameradan birini seçer', async () => {
-  const desc = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
-  Object.defineProperty(navigator, 'mediaDevices', {
-    configurable: true,
-    value: {
-      enumerateDevices: async () => [
-        { kind: 'videoinput', deviceId: 'cam-a', label: 'Ön kamera' },
-        { kind: 'videoinput', deviceId: 'cam-b', label: '' },
-        { kind: 'audioinput', deviceId: 'mic', label: 'Mikrofon' },
-      ],
-    },
+  const restore = stubMediaDevices({
+    enumerateDevices: async () => [
+      { kind: 'videoinput', deviceId: 'cam-a', label: 'Ön kamera' },
+      { kind: 'videoinput', deviceId: 'cam-b', label: '' },
+      { kind: 'audioinput', deviceId: 'mic', label: 'Mikrofon' },
+    ],
   });
   try {
     const { cfg } = setup([
@@ -617,7 +635,7 @@ test('medya katmanı birden fazla kameradan birini seçer', async () => {
     panel = window.SVScenePanels.layersPanel();
     assert.strictEqual(rowOf(panel, 'Kamera'), undefined, 'video dosyasında kamera listesi yok');
   } finally {
-    if (desc) Object.defineProperty(navigator, 'mediaDevices', desc);
+    restore();
   }
 });
 
@@ -640,16 +658,12 @@ test('meşgul kamera katmanda uyarı olarak görünür', async () => {
       set src(_) {}, set srcObject(_) {},
     }),
   };
-  const desc = Object.getOwnPropertyDescriptor(navigator, 'mediaDevices');
-  Object.defineProperty(navigator, 'mediaDevices', {
-    configurable: true,
-    value: {
-      enumerateDevices: async () => [],
-      getUserMedia: async () => {
-        const err = new Error('Could not start video source');
-        err.name = 'NotReadableError';
-        throw err;
-      },
+  const restore = stubMediaDevices({
+    enumerateDevices: async () => [],
+    getUserMedia: async () => {
+      const err = new Error('Could not start video source');
+      err.name = 'NotReadableError';
+      throw err;
     },
   });
   try {
@@ -670,8 +684,7 @@ test('meşgul kamera katmanda uyarı olarak görünür', async () => {
     panel = window.SVScenePanels.layersPanel();
     assert.strictEqual(all(panel, (n) => n.attrs && n.attrs.text === busy).length, 0, 'açık akış varken uyarı yok');
   } finally {
-    if (desc) Object.defineProperty(navigator, 'mediaDevices', desc);
-    else delete navigator.mediaDevices;
+    restore();
     if (prevDoc) global.document = prevDoc;
     else delete global.document;
   }
