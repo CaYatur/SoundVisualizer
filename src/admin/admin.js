@@ -3608,6 +3608,17 @@
   let renderWanted = false;
   let renderRaf = 0;
   let pointerHeld = false;
+  /* Açılır liste ya da renk seçici açılınca pointerup sayfaya hiç
+     gelmeyebilir; basılı bayrağı takılı kalırsa arka plan çizimleri bir
+     sonraki tıklamaya kadar bekler. change/focusout da bırakır, en geç
+     HOLD_MAX_MS sonra bayrak kendiliğinden düşer. */
+  const HOLD_MAX_MS = 8000;
+  let holdTimer = 0;
+  function holdPointer() {
+    pointerHeld = true;
+    if (holdTimer) clearTimeout(holdTimer);
+    holdTimer = setTimeout(releasePointer, HOLD_MAX_MS);
+  }
   function scheduleRender(cats) {
     if (Array.isArray(cats) && cats.indexOf(activeCategory) < 0) return;
     renderWanted = true;
@@ -3623,6 +3634,7 @@
     });
   }
   function releasePointer() {
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; }
     if (!pointerHeld) return;
     pointerHeld = false;
     if (renderWanted) scheduleRender();
@@ -5514,8 +5526,10 @@
 
     const sectionsEl = $('sections');
     if (sectionsEl) {
-      sectionsEl.addEventListener('pointerdown', (e) => { noteTouch(e); pointerHeld = true; }, true);
+      sectionsEl.addEventListener('pointerdown', (e) => { noteTouch(e); holdPointer(); }, true);
       sectionsEl.addEventListener('keydown', noteTouch, true);
+      sectionsEl.addEventListener('change', releasePointer, true);
+      sectionsEl.addEventListener('focusout', releasePointer, true);
     }
     window.addEventListener('pointerup', releasePointer, true);
     window.addEventListener('pointercancel', releasePointer, true);
