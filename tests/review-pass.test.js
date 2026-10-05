@@ -41,3 +41,16 @@ test('söz eşleme aynı kitaplık ve parça için önceki sonucu veriyor', () =
   assert.strictEqual(soft.item.id, 'b');
   assert.strictEqual(sync.matchTrack({ title: 'Gone For Good (Official Video)', artist: 'Rival' }, items, 'exact'), null);
 });
+
+/* Katman kendi değerini yazmamışsa motor sahnenin ayarını çiziyor
+   (layers.js layerConfig). Panel fabrika değerini gösteriyordu: ekranda
+   gökkuşağı çizilirken katmanda "Renk Teması" yazıyordu. */
+test('katman paneli yazılmamış değerde motorun kullandığı sahne değerini gösteriyor', () => {
+  const S = read('src/admin/scene-panels.js');
+  assert.match(S, /const defVis = Object\.assign\(\{\}, def\.visualizer \|\| \{\}, cfg\.visualizer \|\| \{\}\);/);
+  assert.match(S, /const sceneModeObj = \(cfg\.background && cfg\.background\[l\.type\]\) \|\| \{\};/);
+  const L = read('src/visualizer/layers.js');
+  // Motorun tabanı sahne: görselleştirici ve arkaplan
+  assert.match(L, /const baseVis = \(cfg && cfg\.visualizer\) \|\| defVis;/);
+  assert.match(L, /const mergedBg = window\.SV\.deepMerge\(baseBg, bgSettings\);/);
+});
