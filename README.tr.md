@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2682%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2694%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -1501,6 +1501,9 @@ eksik yüklemenin bilerek yapıldığı durumlar içindir.
 1. **Ekranlar** menüsünden bir veya **birkaç** ekran, ardından bir veya daha fazla **ses kaynağı**
    seçin.
 2. **Görselleştirmeyi Aç**'a basın; seçili her ekranda tam ekran görsel başlar.
+   İlk açılışta birincil ekran seçilir. Windows yeniden takılan bir ekrana bazen yeni bir kimlik
+   verir; uygulama o ekranı konumu ve boyutuyla yeniden bulur. Hiçbir ekran seçili değilken Aç,
+   Ekranlar menüsünü açar.
 3. Sağdaki kartlardan istediğinizi değiştirin — anında uygulanır ve kendini kaydeder.
 4. Yayın yapıyorsanız **Çıkış → Yayın Çıkışı**'nı açıp verdiği adresi OBS'de bir **Tarayıcı
    Kaynağı**'na yapıştırın.
@@ -1522,7 +1525,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2682 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2694 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

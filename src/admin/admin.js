@@ -1009,6 +1009,9 @@
           } else {
             selectedDisplayIds = selectedDisplayIds.filter((x) => x !== d.id);
           }
+          // Kullanıcının seçimi: bütün kutular kalkarsa boş liste boş kalır
+          cfg.display = cfg.display || {};
+          cfg.display.chosen = true;
           syncSelectedDisplays();
           push(false);
           renderDisplays();
@@ -4137,6 +4140,23 @@
     selectedDisplayIds = selectedDisplayIds.filter((id) => displays.some((d) => d.id === id));
     cfg.display.ids = selectedDisplayIds.slice();
     cfg.display.id = selectedDisplayIds[0] != null ? selectedDisplayIds[0] : null;
+    /* Kimlik kalıcı değil; ekranın izi kimlik değişince onu yeniden bulur. */
+    if (window.SVDisplayMatch) cfg.display.prints = window.SVDisplayMatch.prints(selectedDisplayIds, displays);
+  }
+
+  /* Kayıtlı seçimi bağlı ekranlara oturtur (shared/display-match.js).
+     Liste kayıttakinden farklı çıktıysa true döner; çağıran kaydetmeli. */
+  function adoptDisplaySelection(saved) {
+    if (window.SVDisplayMatch) {
+      const r = window.SVDisplayMatch.resolve(saved, displays);
+      selectedDisplayIds = r.ids.slice();
+      return r.changed;
+    }
+    const ids = saved && Array.isArray(saved.ids) && saved.ids.length
+      ? saved.ids
+      : (saved && saved.id != null ? [saved.id] : []);
+    selectedDisplayIds = ids.map(Number);
+    return false;
   }
 
   function displaySummary() {
@@ -4170,6 +4190,9 @@
           } else {
             selectedDisplayIds = selectedDisplayIds.filter((x) => x !== d.id);
           }
+          // Kullanıcının seçimi: bütün kutular kalkarsa boş liste boş kalır
+          cfg.display = cfg.display || {};
+          cfg.display.chosen = true;
           syncSelectedDisplays();
           push(false);
           renderDisplays();
@@ -5040,13 +5063,7 @@
     if (cfg.images && Array.isArray(cfg.images.items)) {
       cfg.images.items = cfg.images.items.map((item) => window.SV.normalizeImageItem(item));
     }
-    if (cfg.display) {
-      // Eski kayıtlar tek kimlik tutuyordu; listeye yükselt
-      const ids = Array.isArray(cfg.display.ids) && cfg.display.ids.length
-        ? cfg.display.ids
-        : cfg.display.id != null ? [cfg.display.id] : [];
-      selectedDisplayIds = ids.map(Number);
-    }
+    adoptDisplaySelection(cfg.display);
     renderDisplays();
     push(true);
     render();
@@ -5195,13 +5212,9 @@
     if (!Array.isArray(cfg.scenes)) cfg.scenes = [];
 
     displays = await window.api.getDisplays();
-    if (cfg.display) {
-      // Eski kayıtlar tek kimlik tutuyordu; listeye yükselt
-      const ids = Array.isArray(cfg.display.ids) && cfg.display.ids.length
-        ? cfg.display.ids
-        : cfg.display.id != null ? [cfg.display.id] : [];
-      selectedDisplayIds = ids.map(Number);
-    }
+    /* Eski kayıtlar tek kimlik tutuyordu, yeni kimlik kalıcı değil; ikisini
+       de eşleştirici çözer. İlk açılışta birincil ekran seçilir. */
+    const displayFixed = adoptDisplaySelection(cfg.display);
     const audioDiagnostic = await window.api.diagnoseAudio();
     audioDevices = audioDiagnostic?.devices || [];
     // Prefetch capture label from selected sources so meter promote has a name.
@@ -5393,10 +5406,7 @@
          işaretli bırakıyordu. Tıklamadaki gibi seçimi ve sahne vurgusunu
          gelen duruma çek, sonra aynı çizimi çalıştır. */
       if (cfg.display && displays.length) {
-        const ids = Array.isArray(cfg.display.ids) && cfg.display.ids.length
-          ? cfg.display.ids
-          : (cfg.display.id != null ? [cfg.display.id] : []);
-        selectedDisplayIds = ids.map(Number);
+        adoptDisplaySelection(cfg.display);
         renderDisplays();
       }
       if (Object.prototype.hasOwnProperty.call(cfg, '_activeSceneId')) {
@@ -5429,6 +5439,8 @@
     renderDisplays();
     render();
     renderScenes();
+    // Eşleştirilen ya da ilk kez seçilen ekran kayda geçsin
+    if (displayFixed) push(true);
     setupPreview();
     setupSearch();
     applyAudioDiagnostic(audioDiagnostic, false);
@@ -5457,7 +5469,18 @@
 
     // Olaylar
     setupDisplayMenu();
-    $('openBtn').addEventListener('click', async () => {
+    $('openBtn').addEventListener('click', async (e) => {
+      /* Seçim boşken açılacak ekran yok. Sessiz kalmak yerine menüyü aç.
+         Belgeye ulaşan tıklama menüyü hemen geri kapatırdı. */
+      if (!selectedDisplayIds.length) {
+        e.stopPropagation();
+        const menu = $('displayMenu');
+        if (menu) menu.classList.remove('hidden');
+        const dBtn = $('displayBtn');
+        if (dBtn) dBtn.setAttribute('aria-expanded', 'true');
+        svToast(tr('Önce görselleştirmenin açılacağı ekranı seçin.'), 'warn');
+        return;
+      }
       await window.api.openVisualizer(selectedDisplayIds);
       push(true); // en güncel yapılandırmayı gönder
     });
@@ -5602,7 +5625,10 @@
     });
     window.api.onDisplaysChanged((list) => {
       displays = list;
+      /* Ekran yeniden takılınca kimliği değişebilir; seçim izle bulunur. */
+      const moved = adoptDisplaySelection(cfg.display);
       renderDisplays();
+      if (moved) push(true);
     });
     window.api.onAudioMeter((d) => {
       /* MilkDrop `monitor` değeri doğrudan DOM'a yazılıyor, paneli yeniden
