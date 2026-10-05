@@ -100,3 +100,40 @@ test('SVRoundImage supports fit cover/contain via drawFitted', () => {
   assert.match(ri, /o\.fit \|\| 'stretch'/);
   assert.match(ri, /drawFitted\(s, source/);
 });
+
+/* Ses nabzı görselin boyunu her karede değiştiriyor. Ara tuvali her karede
+   yeniden boyutlamak 1080p'de kare başına ~0,6 ms'yi ~0,26 ms'ye karşı
+   harcıyordu (#695): tuval artık yalnız büyür, kullanılan alan sc.w × sc.h. */
+test('parlama ara tuvali yalnız büyür; küçülen boyda yeniden ayrılmaz', () => {
+  const prev = global.document;
+  let made = 0;
+  global.document = { createElement: () => { made++; return { width: 0, height: 0, getContext: () => ({}) }; } };
+  try {
+    delete require.cache[require.resolve('../src/visualizer/modes/round-image.js')];
+    const api = require('../src/visualizer/modes/round-image.js');
+    const owner = {};
+    const a = api.ensureScratch(owner, 400, 300, '_k', true);
+    const W = a.canvas.width;
+    const H = a.canvas.height;
+    assert.ok(W >= 400 && H >= 300);
+    assert.deepStrictEqual([a.w, a.h], [400, 300]);
+    const b = api.ensureScratch(owner, 380, 290, '_k', true);
+    assert.strictEqual(b, a);
+    assert.deepStrictEqual([b.canvas.width, b.canvas.height], [W, H], 'küçülünce yeniden ayrılmamalı');
+    assert.deepStrictEqual([b.w, b.h], [380, 290]);
+    api.ensureScratch(owner, 410, 305, '_k', true);
+    assert.deepStrictEqual([a.canvas.width, a.canvas.height], [W, H], 'küçük salınım pay içinde kalmalı');
+    api.ensureScratch(owner, 900, 700, '_k', true);
+    assert.ok(a.canvas.width >= 900 && a.canvas.height >= 700);
+    // grow olmadan eski davranış: tam boy
+    const c = api.ensureScratch(owner, 123, 45, '_plain');
+    assert.deepStrictEqual([c.canvas.width, c.canvas.height], [123, 45]);
+    assert.strictEqual(made, 2);
+  } finally {
+    global.document = prev;
+  }
+  const ri = fs.readFileSync(path.join(__dirname, '..', 'src', 'visualizer', 'modes', 'round-image.js'), 'utf8');
+  assert.match(ri, /ensureScratch\(host, sw, sh, '_svBloomSharp', true\)/);
+  assert.match(ri, /ensureScratch\(host, sw, sh, '_svBloomBlur', true\)/);
+  assert.match(ri, /b\.drawImage\(sc\.canvas, 0, 0, sw, sh, 0, 0, sw, sh\)/);
+});

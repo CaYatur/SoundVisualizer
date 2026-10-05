@@ -11,7 +11,12 @@
    tüm kareyi beyaz/gri bir perdeyle kaldırır (slider ~%32'de belirgin).
    Siluet bulanıklaştırılır, opak gövde delinir, hale 'lighter' ile eklenir. */
 (function () {
-  function ensureScratch(owner, w, h, slot) {
+  /* grow: tuval yalnız büyür, kullanılan alan sc.w × sc.h. Ses nabzı
+     görselin boyunu her karede değiştiriyor; tuvali her karede yeniden
+     boyutlamak belleği yeniden ayırıp çizimi ~6 kat pahalı yapıyordu
+     (1080p'de kare başına ~0,4 ms yerine ~2,5 ms, #695). Büyürken payla
+     büyür ki küçük salınım yeniden ayırmasın. */
+  function ensureScratch(owner, w, h, slot, grow) {
     const sw = Math.max(1, Math.ceil(w));
     const sh = Math.max(1, Math.ceil(h));
     const key = slot || '_svRoundScratch';
@@ -24,10 +29,17 @@
       };
     }
     const sc = host[key];
-    if (sc.canvas.width !== sw || sc.canvas.height !== sh) {
+    if (grow) {
+      if (sc.canvas.width < sw || sc.canvas.height < sh) {
+        sc.canvas.width = Math.max(sc.canvas.width, Math.ceil((sw * 1.15) / 32) * 32);
+        sc.canvas.height = Math.max(sc.canvas.height, Math.ceil((sh * 1.15) / 32) * 32);
+      }
+    } else if (sc.canvas.width !== sw || sc.canvas.height !== sh) {
       sc.canvas.width = sw;
       sc.canvas.height = sh;
     }
+    sc.w = sw;
+    sc.h = sh;
     return sc;
   }
 
@@ -86,7 +98,7 @@
     const sw = w + pad * 2;
     const sh = h + pad * 2;
     const host = owner || drawImage;
-    const sc = ensureScratch(host, sw, sh, '_svBloomSharp');
+    const sc = ensureScratch(host, sw, sh, '_svBloomSharp', true);
     const s = sc.ctx;
     s.setTransform(1, 0, 0, 1, 0, 0);
     s.globalAlpha = 1;
@@ -105,7 +117,7 @@
     drawFitted(s, source, pad, pad, w, h, fit);
     s.restore();
 
-    const bc = ensureScratch(host, sw, sh, '_svBloomBlur');
+    const bc = ensureScratch(host, sw, sh, '_svBloomBlur', true);
     const b = bc.ctx;
     b.setTransform(1, 0, 0, 1, 0, 0);
     b.globalAlpha = 1;
@@ -113,12 +125,13 @@
     b.filter = 'none';
     b.shadowBlur = 0;
     b.clearRect(0, 0, bc.canvas.width, bc.canvas.height);
+    /* Tuval büyük kalabilir; yalnız kullanılan alan (sw × sh) işlenir. */
     b.filter = 'blur(' + layout.glow.toFixed(2) + 'px)';
-    b.drawImage(sc.canvas, 0, 0);
+    b.drawImage(sc.canvas, 0, 0, sw, sh, 0, 0, sw, sh);
     b.filter = 'none';
     /* Opak gövdeyi del: hale yalnızca kenarın dışında kalsın, gövde yıkanmasın. */
     b.globalCompositeOperation = layout.knockout;
-    b.drawImage(sc.canvas, 0, 0);
+    b.drawImage(sc.canvas, 0, 0, sw, sh, 0, 0, sw, sh);
     b.globalCompositeOperation = 'source-over';
 
     const prevOp = ctx.globalCompositeOperation;
@@ -130,10 +143,10 @@
     const strength = layout.strength;
     const whole = Math.floor(strength);
     const frac = strength - whole;
-    for (let n = 0; n < whole; n++) ctx.drawImage(bc.canvas, x - pad, y - pad);
+    for (let n = 0; n < whole; n++) ctx.drawImage(bc.canvas, 0, 0, sw, sh, x - pad, y - pad, sw, sh);
     if (frac > 0.0001) {
       ctx.globalAlpha = prevAlpha * frac;
-      ctx.drawImage(bc.canvas, x - pad, y - pad);
+      ctx.drawImage(bc.canvas, 0, 0, sw, sh, x - pad, y - pad, sw, sh);
       ctx.globalAlpha = prevAlpha;
     }
     ctx.globalCompositeOperation = prevOp;
@@ -173,16 +186,16 @@
     }
 
     const owner = o.owner || drawImage;
-    const sc = ensureScratch(owner, w, h);
+    const sc = ensureScratch(owner, w, h, null, true);
     const s = sc.ctx;
-    const sw = sc.canvas.width;
-    const sh = sc.canvas.height;
+    const sw = sc.w;
+    const sh = sc.h;
     s.setTransform(1, 0, 0, 1, 0, 0);
     s.globalAlpha = 1;
     s.globalCompositeOperation = 'source-over';
     s.filter = 'none';
     s.shadowBlur = 0;
-    s.clearRect(0, 0, sw, sh);
+    s.clearRect(0, 0, sc.canvas.width, sc.canvas.height);
     s.save();
     s.beginPath();
     const rr = Math.min(rad, Math.min(sw, sh) / 2);
@@ -196,7 +209,7 @@
       ctx.shadowColor = color;
       ctx.shadowBlur = glow;
     }
-    ctx.drawImage(sc.canvas, x, y, w, h);
+    ctx.drawImage(sc.canvas, 0, 0, sw, sh, x, y, w, h);
     if (glow > 0) {
       ctx.shadowBlur = 0;
       ctx.shadowOffsetX = 0;

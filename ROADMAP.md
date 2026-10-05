@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2705 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2706 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 906
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 907
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1377,6 +1377,8 @@ Stabilisation (#695):
   - **The Spout window was restarted on every settings push.** Each restart sent it the whole configuration again and read the lyrics library from disk. It now restarts only when its own settings change.
   - Measured after: the main process answers in 0.3 ms during a drag (95th percentile about 16 ms), the Spout window drops no frame (worst 16.8 ms), and the panel has no long frame. The saved file still holds all 22 scenes and 9,734 tags.
   - **The settings file is written once a drag ends.** It was written every 300 ms while a slider moved: about 640 KB of JSON, synchronously, in the main process. It is now written 300 ms after the last change, and at most 2 s after the first unsaved one, so a long drag still saves. A pending write is still flushed on quit. With this, the main process's 95th percentile during a drag fell from about 16 ms to 10–14 ms.
+  - **The MCP preset poll is a slow fallback.** With MCP on, the panel asked for preset changes every 400 ms, and each request listed the preset folder (about 10,000 names) in the main process. The main process already broadcasts after every MCP request and when the folder watcher sees a change, so the poll now runs every 3 s and not while the window is hidden.
+  - **Logo and cover glow no longer reallocate every frame.** The audio pulse changes the picture's size every frame, and the glow's two scratch canvases were resized each time. They now only grow, with some headroom, and only the used area is drawn. With a pulsing logo at 1080p a frame took 0.56–0.76 ms before and 0.26 ms after. Compared pixel by pixel with the old code in the same page: only the soft halo differs, by at most 7/255, because the GPU blur works slightly differently on a larger canvas.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
