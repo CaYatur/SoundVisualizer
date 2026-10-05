@@ -3334,15 +3334,51 @@
     return best;
   }
 
-  /* İzlenen kutu: odaktaki kontrol, yoksa az önceki etkileşim, o da
-     görüşten çıktıysa ekranın üstünde duran kart. */
+  /* Son dokunulan öğe (fare ya da klavye). Odak her zaman ona geçmiyor:
+     anahtar etiketi, segment düğmesi veya bir sekme tıklanınca
+     document.activeElement panelin dışında kalabiliyor. Yeniden çizimde
+     tıklanan kutuyu yerinde tutan bilgi buradan gelir (#695). */
+  let lastTouch = null;
+  function noteTouch(e) { lastTouch = e && e.target; }
+
+  /* Kullanıcının o an etkileştiği kutu: önce odak, yoksa son dokunuş.
+     inView: görüşün dışında kalan kutu izlenmez (kayma düzeltmesi için).
+     Yeniden çizimde görüş dışındaki kutu da tutulabilir; ekranla arası
+     aynı kalır. */
+  function touchedBox(root, inView) {
+    if (!root || !root.contains) return null;
+    const ok = (box) => box && (!inView || inScrollerView(root, box));
+    const ae = document.activeElement;
+    if (ae && ae !== root && root.contains(ae)) {
+      const box = anchorBoxOf(ae);
+      if (ok(box)) return box;
+    }
+    if (lastTouch && lastTouch.isConnected !== false && root.contains(lastTouch)) {
+      const box = anchorBoxOf(lastTouch);
+      if (ok(box)) return box;
+    }
+    return null;
+  }
+
+  /* Etkileşim yoksa (arka plandan gelen yeniden çizim) ekranın üstünde
+     tamamen görünen ilk kutu tutulur; sayfa olduğu yerde kalır. */
+  function topVisibleBox(root) {
+    if (!root.querySelectorAll || !root.getBoundingClientRect) return null;
+    const view = root.getBoundingClientRect();
+    const nodes = root.querySelectorAll('.ctrl, .layer-tab, .fold-head, .layer-name');
+    for (let i = 0; i < nodes.length; i++) {
+      const r = nodes[i].getBoundingClientRect();
+      if (r.height > 0 && r.top >= view.top && r.top < view.bottom - 1) return nodes[i];
+    }
+    return null;
+  }
+
+  /* İzlenen kutu: odaktaki ya da son dokunulan kontrol, yoksa az önceki
+     etkileşim, o da görüşten çıktıysa ekranın üstünde duran kart. */
   function pinElement(root) {
     if (!root) return null;
-    const ae = document.activeElement;
-    if (ae && ae !== root && root.contains && root.contains(ae)) {
-      const box = anchorBoxOf(ae);
-      if (box && inScrollerView(root, box)) return box;
-    }
+    const touched = touchedBox(root, true);
+    if (touched) return touched;
     if (pinnedNode && pinnedNode.isConnected !== false && root.contains && root.contains(pinnedNode)
       && inScrollerView(root, pinnedNode)) return pinnedNode;
     return topVisibleNode(root);
@@ -3449,9 +3485,8 @@
      Aynı yazı birden fazla kutuda geçebiliyor (gövde ve sekme). Sekme,
      katlanır başlık ve sıra onları ayırır. */
   function sectionAnchor(root) {
-    const ae = document.activeElement;
-    if (!ae || !root || ae === root || !root.contains(ae) || !ae.getBoundingClientRect) return null;
-    const box = anchorBoxOf(ae);
+    if (!root) return null;
+    const box = touchedBox(root) || topVisibleBox(root);
     if (!box || !box.classList || !box.getBoundingClientRect) return null;
     const id = anchorIdentity(box);
     if (!id.label) return null;
@@ -3557,12 +3592,53 @@
     }
   }
 
+  /* Arka plandan gelen yeniden çizim (MCP, preset değişikliği, söz
+     kitaplığı, ışık aygıtları, uzaktan kumanda).
+
+     Bunlar doğrudan render() çağırıyordu: kullanıcı bir kaydırıcıyı
+     sürüklerken bile bütün kategori baştan kuruluyor, kaydırıcı imlecin
+     altından sökülüyordu. Şimdi:
+       - yalnız ilgili kategori açıksa çizilir (cats verilmişse); başka
+         kategoriye geçince zaten baştan çizilir,
+       - aynı karedeki istekler tek çizime iner,
+       - fare paneldeyken basılıysa bırakılana kadar beklenir. */
+  /* Preset listesini gösteren kategoriler: MilkDrop ve özel mod seçici
+     (Sahne), Studio, Kitaplık, Clip Deck ve Otomatik VJ (Kontrol). */
+  const PRESET_CATS = ['scene', 'studio', 'library', 'control'];
+  let renderWanted = false;
+  let renderRaf = 0;
+  let pointerHeld = false;
+  function scheduleRender(cats) {
+    if (Array.isArray(cats) && cats.indexOf(activeCategory) < 0) return;
+    renderWanted = true;
+    if (pointerHeld || renderRaf) return;
+    renderRaf = requestAnimationFrame(() => {
+      renderRaf = 0;
+      if (!renderWanted || pointerHeld) return;
+      renderWanted = false;
+      render();
+      /* Paneller çizerken cfg'yi tamamlayabiliyor (katman listesi gibi);
+         önizleme son hâli görsün. */
+      if (window.SVPreview) window.SVPreview.setConfig(cfg);
+    });
+  }
+  function releasePointer() {
+    if (!pointerHeld) return;
+    pointerHeld = false;
+    if (renderWanted) scheduleRender();
+  }
+
   function render() {
+    renderWanted = false;
     const root = $('sections');
     const paneScroll = captureLayerPaneScroll(root);
-    const anchor = sectionAnchor(root);
+    /* Kategori değişirken eski sayfanın kutusu yeni sayfada aranmaz: aynı
+       adlı bir kontrol başka kategoride de olabilir. Orada kayıtlı konum
+       geçerli. */
+    const switching = pendingCategoryScrollId === activeCategory;
+    const anchor = switching ? null : sectionAnchor(root);
     let prevScroll;
-    if (pendingCategoryScrollId === activeCategory) {
+    if (switching) {
       prevScroll = categoryScrollById.has(activeCategory)
         ? categoryScrollById.get(activeCategory)
         : 0;
@@ -5325,7 +5401,7 @@
         }
       }
       if (S && S.applyDelta) S.applyDelta(d);
-      render();
+      scheduleRender(PRESET_CATS);
       if (studio && window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
       else if (window.SVPreview) window.SVPreview.setConfig(cfg);
     };
@@ -5339,7 +5415,7 @@
         if (page.reset || page.bulk) {
           presetGen = nextGen;
           window.SVPresets.setUser(await window.api.listPresets());
-          render();
+          scheduleRender(PRESET_CATS);
           if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
           else if (window.SVPreview) window.SVPreview.setConfig(cfg);
           return;
@@ -5392,7 +5468,7 @@
     window.addEventListener('focus', () => { catchPresets(); });
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
-      render();
+      scheduleRender(PRESET_CATS);
       if (window.SVPreview && window.SVPreview.notePresets) window.SVPreview.notePresets();
       else if (window.SVPreview) window.SVPreview.setConfig(cfg);
     });
@@ -5414,7 +5490,7 @@
       }
       const blackBtn = $('blackoutBtn');
       if (blackBtn) blackBtn.classList.toggle('on', !!(cfg && cfg.isBlackout) || isBlackedOut());
-      render();
+      scheduleRender();
       renderScenes();
       /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
          Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
@@ -5435,6 +5511,15 @@
     if (window.SVStream) window.SVStream.init();
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
+
+    const sectionsEl = $('sections');
+    if (sectionsEl) {
+      sectionsEl.addEventListener('pointerdown', (e) => { noteTouch(e); pointerHeld = true; }, true);
+      sectionsEl.addEventListener('keydown', noteTouch, true);
+    }
+    window.addEventListener('pointerup', releasePointer, true);
+    window.addEventListener('pointercancel', releasePointer, true);
+    window.addEventListener('blur', releasePointer);
 
     renderDisplays();
     render();
@@ -5457,7 +5542,7 @@
         lightingAvailability = next;
         if (key !== lastLightingAvailabilityKey) {
           lastLightingAvailabilityKey = key;
-          render();
+          scheduleRender(['lighting']);
         }
       } catch {}
     };
@@ -5579,7 +5664,7 @@
       window.SVLyricsSync.installLibrary(window.api, () => {
         const ae = document.activeElement;
         if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
-        if (document.getElementById('sections')) render();
+        if (document.getElementById('sections')) scheduleRender(['scene', 'library']);
       });
     }
     window.api.onVisualizerStatus((d) => setStatus(d.open, d.displayIds, d.floating));
@@ -5594,7 +5679,7 @@
           && typeof window.SVLayers.isGradientWebGLFallback === 'function'
           && window.SVLayers.isGradientWebGLFallback());
         const has = !!document.querySelector('[data-sv-webgl-fallback-note]');
-        if (want !== has) render();
+        if (want !== has) scheduleRender(['scene']);
       });
     });
 

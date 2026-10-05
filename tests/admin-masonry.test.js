@@ -12,7 +12,7 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.cs
 test('yeniden çizim masonry sınıfını kartlar doğmadan kapatır', () => {
   const i = admin.indexOf('function render()');
   assert.ok(i > 0);
-  const head = admin.slice(i, i + 700);
+  const head = admin.slice(i, i + 1400);
   const off = head.indexOf("classList.remove('masonry')");
   const clear = head.indexOf('root.innerHTML');
   assert.ok(clear > 0 && off > clear, 'eski kartlar, masonry kalkmadan silinir');
