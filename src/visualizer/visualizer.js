@@ -696,12 +696,23 @@
 
     const saved = await window.api.requestConfig();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
+    /* Ana süreçten gelen son ham yapılandırma. Panel kaydırıcı sürüklerken
+       yalnız değişen üst düzey anahtarları yolluyor (config-patch); yama bu
+       kopyanın üstüne konur. Tam yapılandırma gelmeden yama uygulanmaz. */
+    let rawCfg = saved || null;
 
     applyConfig(cfg);
 
     // Ana süreçten gelen ses karelerini al
     window.api.onNativeAudio((frame) => audio.ingestFrame(frame));
-    window.api.onConfig((c) => applyConfig(c));
+    window.api.onConfig((c) => { rawCfg = c; applyConfig(c); });
+    if (window.api.onConfigPatch) {
+      window.api.onConfigPatch((p) => {
+        if (!rawCfg || !p || typeof p !== 'object') return;
+        rawCfg = Object.assign({}, rawCfg, p);
+        applyConfig(rawCfg);
+      });
+    }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
     if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
     /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç

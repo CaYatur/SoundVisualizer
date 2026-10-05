@@ -712,13 +712,40 @@ function configForTextureShare(cfg) {
   return c;
 }
 
+/* Görselleştirici pencerelerine giden yapılandırma. Sahne listesi ve renk
+   şablonları yalnız panelin ve telefonun işi; gerçek bir ayarda sahneler
+   yapılandırmanın yarısı (~330 KB) ve her gönderimde her pencereye
+   kopyalanıyordu (#695). */
+const RENDERER_OMIT = ['scenes', 'userPresets'];
+function rendererConfig(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  const out = Object.assign({}, cfg);
+  for (const k of RENDERER_OMIT) delete out[k];
+  return out;
+}
+
+/* Değişen üst düzey anahtarlar. Kaydırıcı sürüklenirken panel bütün
+   yapılandırma yerine yalnız bunları yolluyor (patch-config). */
+function pickKeys(cfg, keys, omit) {
+  const out = {};
+  let n = 0;
+  for (const k of keys) {
+    if (omit && omit.indexOf(k) >= 0) continue;
+    if (!Object.prototype.hasOwnProperty.call(cfg, k)) continue;
+    out[k] = cfg[k];
+    n++;
+  }
+  return n ? out : null;
+}
+
 function sendToVisualizers(channel, payload) {
+  if (channel === 'config') payload = rendererConfig(payload);
   for (const win of openWindows()) win.webContents.send(channel, payload);
   /* Spout/Syphon penceresi görünmez ve visualizerWins içinde DEĞİL
      (orası ekranlara ait). Ama aynı yapılandırmayı ve aynı ses
      karelerini alması gerekiyor, yoksa donmuş bir kare yayınlar. */
   const ts = textureShare.window();
-  if (ts) ts.webContents.send(channel, channel === 'config' ? configForTextureShare(payload) : payload);
+  if (ts) ts.webContents.send(channel, (channel === 'config' || channel === 'config-patch') ? configForTextureShare(payload) : payload);
 }
 
 // İstenen ekran kimliklerini çöz. Boş veya bilinmeyen seçim boş döner;
@@ -819,7 +846,7 @@ function createVisualizerWindow(display) {
     syncCapture();
     notifyVisualizerStatus();
     // Yeni açılan pencereye güncel yapılandırmayı ver (diğerleriyle eşleşsin)
-    if (currentConfig) win.webContents.send('config', currentConfig);
+    if (currentConfig) win.webContents.send('config', rendererConfig(currentConfig));
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
@@ -1692,7 +1719,7 @@ function createFloatingWindow() {
 
   win.webContents.on('did-finish-load', () => {
     syncCapture();
-    if (currentConfig) win.webContents.send('config', currentConfig);
+    if (currentConfig) win.webContents.send('config', rendererConfig(currentConfig));
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
     ensureLyricsClock();
     if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
@@ -2013,6 +2040,21 @@ ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: 
 ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
 
 ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
+/* Panelin kaydırıcı sürüklerken yolladığı değişen üst düzey anahtarlar.
+   Sürükleme bitince panel bütün yapılandırmayı yine yollar (#695). Tam
+   yapılandırma gelmeden yama uygulanmaz. */
+ipcMain.on('patch-config', (e, patch) => {
+  if (!currentConfig || !patch || typeof patch !== 'object' || Array.isArray(patch)) return;
+  const next = Object.assign({}, currentConfig);
+  const keys = [];
+  for (const k of Object.keys(patch)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    next[k] = patch[k];
+    keys.push(k);
+  }
+  if (!keys.length) return;
+  applyIncomingConfig(next, { patchKeys: keys });
+});
 
 /* Elle yüklenen sözün ortak saati. Ekran açılınca başlar. Dosya değişince,
    bir ekran, web veya OBS istemcisi açıksa ya da saat zaten kurulmuşsa
@@ -2137,8 +2179,14 @@ function applyIncomingConfig(config, opts) {
      pencere yeniden kurulacaksa bile önce canlı pencere yeni sahneyi
      çizsin — aksi halde şarkı çalarken sahne değişimi pencere yüklenene
      (veya bir sonraki parça olayına) kadar donmuş kalıyordu. */
+  const patchKeys = opts && Array.isArray(opts.patchKeys) ? opts.patchKeys : null;
   if (anyVisualizerOpen() || textureShare.window()) {
-    sendToVisualizers('config', config);
+    if (patchKeys) {
+      const p = pickKeys(config, patchKeys, RENDERER_OMIT);
+      if (p) sendToVisualizers('config-patch', p);
+    } else {
+      sendToVisualizers('config', config);
+    }
     if (anyVisualizerOpen()) {
       /* Live-apply when transparency or cover changes. Not only the cover
          flag: toggling transparent off/on still needs bounds + raise before
@@ -2161,7 +2209,12 @@ function applyIncomingConfig(config, opts) {
       }
     }, 40);
   }
-  streamServer.broadcast({ type: 'config', config });
+  if (patchKeys) {
+    const p = pickKeys(config, patchKeys);
+    if (p) streamServer.broadcast({ type: 'config-patch', patch: p });
+  } else {
+    streamServer.broadcast({ type: 'config', config });
+  }
   syncStreamServer();
   syncOscServer();
   syncArtnet();
@@ -2226,7 +2279,7 @@ ipcMain.on('preview:subscribe', (e, on) => {
 });
 
 // Görselleştirici açıldığında mevcut yapılandırmayı ister
-ipcMain.handle('request-config', () => currentConfig);
+ipcMain.handle('request-config', () => rendererConfig(currentConfig));
 /* Dynamic Lighting'e giden her ayar buradan geçiyor: otomasyonda ışıklar
    hep kapalı gidiyor (bkz. HW_OFF). Tarama da cihazlara bir anlığına el
    koyuyor; otomasyonda hiç yapılmıyor. */
@@ -2793,18 +2846,30 @@ function syncArtnet() {
   });
 }
 
+/* Ayarları değişmediyse ve pencere çalışıyorsa yeniden başlatılmaz. Her
+   ayar gönderiminde start() çağrılıyordu: pencereye bütün yapılandırma
+   kopyalanıp yeniden yollanıyor, söz kitaplığı diskten baştan okunuyordu.
+   Sahne değişikliği pencereye zaten sendToVisualizers ile gidiyor (#695). */
+let textureShareKey = '';
 function syncTextureShare() {
   const t = (currentConfig && currentConfig.textureShare) || {};
   if (!t.enabled) {
+    textureShareKey = '';
     return textureShare.stop().then((st) => {
       syncCapture();
       return st;
     });
   }
+  const key = JSON.stringify(t);
+  const live = textureShare.window();
+  if (key === textureShareKey && live && !live.isDestroyed() && textureShare.status().running) {
+    return Promise.resolve(textureShare.status());
+  }
+  textureShareKey = key;
   return textureShare.start(t, {
     onReady: (w) => {
       if (!w || w.isDestroyed()) return;
-      if (currentConfig) w.webContents.send('config', configForTextureShare(currentConfig));
+      if (currentConfig) w.webContents.send('config', configForTextureShare(rendererConfig(currentConfig)));
       if (showClockAnchor) w.webContents.send('show-clock', showClockAnchor);
       ensureLyricsClock();
       if (lyricsClockAnchor) w.webContents.send('lyrics-clock', lyricsClockAnchor);

@@ -32,6 +32,10 @@
   let ws = null;
   let retry = 0;
   let firstConfig = null;
+  /* Uygulamanın son ham (dönüşümden önceki) ayarı. Kaydırıcı sürüklenirken
+     uygulama yalnız değişen üst düzey anahtarları yolluyor (config-patch);
+     yama bu kopyanın üstüne konur, ilk tam ayar gelmeden uygulanmaz. */
+  let lastRawConfig = null;
   let firstPresets = null;
   let presetList = [];
   let resolveConfig;
@@ -154,15 +158,19 @@
             isLinux: os === 'linux',
           };
         }
-      } else if (msg.type === 'config') {
+      } else if (msg.type === 'config' || msg.type === 'config-patch') {
+        let raw;
+        if (msg.type === 'config') raw = msg.config || {};
+        else if (lastRawConfig && msg.patch && typeof msg.patch === 'object') raw = Object.assign({}, lastRawConfig, msg.patch);
+        else return;
+        lastRawConfig = raw;
         status.configs++;
         status.lastConfigAt = Date.now();
         /* Dönüşümden ÖNCEKİ ayar: kart uygulamanın anahtarını gösteriyor,
            URL'nin zorladığını ayrıca yazıyor. */
-        const raw = msg.config || {};
         status.appTransparent = !!(raw.background && raw.background.transparent);
         status.blackout = !!raw.isBlackout;
-        const c = transform(msg.config);
+        const c = transform(raw);
         if (!firstConfig) { firstConfig = c; resolveConfig(c); }
         handlers.config.forEach((h) => h(c));
       } else if (msg.type === 'presets') {

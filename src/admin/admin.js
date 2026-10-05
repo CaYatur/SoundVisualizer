@@ -92,14 +92,71 @@
     if (immediate) {
       if (pushTimer) clearTimeout(pushTimer);
       pushTimer = null;
-      window.api.updateConfig(cfg);
+      sendFullConfig();
       return;
     }
     if (pushTimer) return;
     pushTimer = setTimeout(() => {
       pushTimer = null;
-      window.api.updateConfig(cfg);
+      sendConfigPatch();
     }, 55);
+  }
+
+  /* AYAR GÖNDERİMİ (#695).
+
+     Gerçek bir ayar ~640 KB: 22 sahne ~330 KB, MilkDrop etiketleri
+     ~290 KB. Kaydırıcı sürüklenirken bütün yapılandırma saniyede ~18 kez
+     gidiyordu; panelde her gönderim ~15 ms, ana süreç her açık pencereye
+     ve yayına yeniden kopyalıyordu. Ölçüldü: sürüklerken ana sürecin
+     yanıtı 0,3 ms'den 14–19 ms'ye (p95 34–42 ms) çıkıyor, Spout penceresi
+     kare kaçırıyordu.
+
+     Şimdi push(false) yalnız değişen üst düzey anahtarları yollar. Ağır
+     anahtarlar karşılaştırılmaz ve yamaya girmez; sürükleme bittikten
+     FULL_AFTER_MS sonra bütün yapılandırma bir kez daha gider, yani bir
+     yerin yanlışlıkla kaçırdığı değişiklik de en geç orada yetişir.
+     push(true), anahtar kaybolması, karartma ve dış yapılandırmadan sonraki
+     ilk gönderim her zaman tamdır. */
+  const HEAVY_KEYS = { scenes: 1, milkdropLibrary: 1, userPresets: 1 };
+  const FULL_AFTER_MS = 700;
+  let sentSig = null;
+  let fullTimer = null;
+
+  function lightSig() {
+    const m = new Map();
+    for (const k of Object.keys(cfg)) {
+      if (!HEAVY_KEYS[k]) m.set(k, JSON.stringify(cfg[k]));
+    }
+    return m;
+  }
+
+  function sendFullConfig() {
+    if (fullTimer) { clearTimeout(fullTimer); fullTimer = null; }
+    window.api.updateConfig(cfg);
+    sentSig = window.api.patchConfig ? lightSig() : null;
+  }
+
+  function sendConfigPatch() {
+    if (!window.api.patchConfig || !sentSig || isBlackedOut()) { sendFullConfig(); return; }
+    const sig = lightSig();
+    for (const k of sentSig.keys()) {
+      if (!sig.has(k)) { sendFullConfig(); return; }
+    }
+    const patch = {};
+    let n = 0;
+    for (const [k, v] of sig) {
+      if (sentSig.get(k) !== v) { patch[k] = cfg[k]; n++; }
+    }
+    sentSig = sig;
+    if (n) window.api.patchConfig(patch);
+    if (fullTimer) clearTimeout(fullTimer);
+    fullTimer = setTimeout(() => { fullTimer = null; sendFullConfig(); }, FULL_AFTER_MS);
+  }
+
+  /* Pencere kapanırken bekleyen tam gönderim kaybolmasın. */
+  function flushConfig() {
+    if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; sendFullConfig(); return; }
+    if (fullTimer) sendFullConfig();
   }
 
   function getPath(o, p) {
@@ -5467,6 +5524,8 @@
     // kendi kopyası tazelenir ve geri gönderilmez — yoksa sonsuz döngü olur.
     window.api.onExternalConfig((incoming) => {
       cfg = window.SV.deepMerge(window.SV.defaultConfig(), incoming);
+      // Ana süreç yeni bir yapılandırmada; sonraki gönderim tam olsun
+      sentSig = null;
       /* MCP ve telefon aynı yapılandırmayı yollar. Ekran seçimi ayrı bir
          değişkende duruyordu; render() cfg'yi çizse de menü eski kutuyu
          işaretli bırakıyordu. Tıklamadaki gibi seçimi ve sahne vurgusunu
@@ -5509,6 +5568,7 @@
       sectionsEl.addEventListener('change', releasePointer, true);
       sectionsEl.addEventListener('focusout', releasePointer, true);
     }
+    window.addEventListener('beforeunload', flushConfig);
     window.addEventListener('pointerup', releasePointer, true);
     window.addEventListener('pointercancel', releasePointer, true);
     window.addEventListener('blur', releasePointer);

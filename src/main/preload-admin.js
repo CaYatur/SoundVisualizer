@@ -113,6 +113,8 @@ contextBridge.exposeInMainWorld('api', {
   openVisualizer: (displayId) => ipcRenderer.invoke('open-visualizer', displayId),
   closeVisualizer: () => ipcRenderer.invoke('close-visualizer'),
   updateConfig: (config) => ipcRenderer.send('update-config', config),
+  // Yalnız değişen üst düzey anahtarlar (kaydırıcı sürüklerken, #695)
+  patchConfig: (patch) => ipcRenderer.send('patch-config', patch),
   // Arayüz dili: sistem diyalogları ve yayın sayfaları da buna uysun
   setUiLanguage: (locale) => ipcRenderer.send('ui-language', locale),
 
