@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2682 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2694 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 883
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 895
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1363,6 +1363,7 @@ Stabilisation (#695):
   - "Basla Nabız" is "Bas Nabzı" again in the four places it appeared.
   - MCP was synced on every settings push, about 18 times a second while a slider moved, and tried to delete its endpoint file each time while off. It now syncs when the switch or port changes; a busy port is retried at most every five seconds.
   - The MCP file tools take only an absolute local path with the matching extension: `.mp4` for an export, `.json` for settings, `.jpg` / `.jpeg` for a snapshot. Before, a client in Write mode could leave a `.bat` anywhere, and ffmpeg would also have sent an export to `tcp://` or `pipe:`.
+- **The chosen display survives a new display id** · done on the branch. Windows gives a reconnected display a new id. The saved selection matched by id only, so it came back empty and Open did nothing — the reporter's saved display was gone this way. The selection now keeps each display's position, size and primary flag. A lost id is matched by position and size first, then by size when only one display has it. If nothing matches, the primary display is chosen. A first start selects the primary display. A selection the user emptied on purpose stays empty, and Open then opens the Displays menu with a note instead of doing nothing.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

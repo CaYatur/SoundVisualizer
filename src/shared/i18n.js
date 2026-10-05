@@ -2663,6 +2663,7 @@
     'Windows Dynamic Lighting Etkin': 'Windows Dynamic Lighting Enabled',
     'Windows Dynamic Lighting Ayarları': 'Windows Dynamic Lighting Settings',
     'Ekran seçilmedi': 'No display selected',
+    'Önce görselleştirmenin açılacağı ekranı seçin.': 'Choose a display for the visualizer first.',
     'Ekran': 'Display',
     'Açık': 'On',
     'Kapalı': 'Off',
