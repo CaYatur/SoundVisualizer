@@ -1984,9 +1984,24 @@ function ensureMcp() {
   return mcpHandle;
 }
 
+/* Yalnız anahtar ya da kapı değişince. Her ayar gönderimi (kaydırıcı
+   sürüklerken saniyede ~18) buradan geçiyordu; MCP kapalıyken her seferinde
+   uç nokta dosyasını silmeye çalışıyordu.
+   Kapı başka bir programdaysa açılış en çok beş saniyede bir yeniden
+   denenir; eskiden bu deneme her gönderimde, kendiliğinden oluyordu. */
+let mcpSyncKey = null;
+let mcpRetryAt = 0;
 function syncMcp() {
   try {
-    const enabled = !!(currentConfig && currentConfig.mcp && currentConfig.mcp.enabled === true);
+    const m = currentConfig && currentConfig.mcp;
+    const enabled = !!(m && m.enabled === true);
+    const key = enabled + '|' + (m && m.port);
+    if (key === mcpSyncKey) {
+      const down = enabled && mcpHandle && !mcpHandle.status().running;
+      if (!down || Date.now() < mcpRetryAt) return Promise.resolve(null);
+    }
+    mcpSyncKey = key;
+    mcpRetryAt = Date.now() + 5000;
     return ensureMcp().sync(enabled);
   } catch (e) {
     console.error('[MCP] sync failed:', e);

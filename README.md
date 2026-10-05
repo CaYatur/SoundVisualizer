@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2677%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2682%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -897,7 +897,9 @@ Creates and edits.
   you name. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
   same options as the export panel. `sv_cancel_export` stops a running export. `sv_export_json`
   writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
-  the live picture to a path. `sv_record_start` and `sv_record_stop` drive the admin recorder.
+  the live picture to a path as a JPEG. These three tools take only an absolute local path with
+  the matching extension: `.mp4` for the video, `.json` for the settings, `.jpg` or `.jpeg` for the
+  picture. Network paths and addresses such as `tcp://` are refused. `sv_record_start` and `sv_record_stop` drive the admin recorder.
   Stopping opens the same save dialog as the Record card. The recorder needs the admin window open.
 
 ### Full
@@ -1511,7 +1513,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2677 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2682 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor

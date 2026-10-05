@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2677%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2682%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -898,7 +898,9 @@ Oluşturur ve düzenler.
   yoluna çizer. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
   dışa aktarma panelindeki seçeneklerdir. `sv_cancel_export` süren aktarmayı durdurur.
   `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
-  `sv_save_snapshot` canlı görüntüyü bir yola yazar. `sv_record_start` ve `sv_record_stop`
+  `sv_save_snapshot` canlı görüntüyü bir yola JPEG olarak yazar. Bu üç araç yalnız uzantısı
+  uyan, mutlak ve yerel bir yol kabul eder: video için `.mp4`, ayarlar için `.json`, görüntü için
+  `.jpg` ya da `.jpeg`. Ağ yolları ve `tcp://` gibi adresler reddedilir. `sv_record_start` ve `sv_record_stop`
   yönetici kaydedicisini sürer. Durdurmak, Kayıt kartındakiyle aynı kaydetme penceresini açar.
   Kaydedici, yönetici penceresinin açık olmasını ister.
 
@@ -1520,7 +1522,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2677 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2682 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
