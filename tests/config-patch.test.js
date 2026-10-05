@@ -149,3 +149,11 @@ test('Spout penceresi ayarları değişmedikçe her gönderimde yeniden kurulmaz
   const fn = sliceFn(MAIN, 'syncTextureShare');
   assert.match(fn, /if \(key === textureShareKey && live && !live\.isDestroyed\(\) && textureShare\.status\(\)\.running\)/);
 });
+
+test('MCP preset yoklaması yedek: 3 sn, pencere gizliyken yok', () => {
+  assert.match(ADMIN, /const MCP_PRESET_POLL_MS = 3000;/);
+  assert.match(ADMIN, /cfg\.mcp\.enabled && !document\.hidden\) catchPresets\(\);\s*\}, MCP_PRESET_POLL_MS\);/);
+  // Ana süreç her MCP isteğinden sonra ve izleyiciyle farkı yayınlıyor
+  assert.match(MAIN, /syncPresets: \(\) => \{\s*const delta = presetsStore\.syncDisk\(\);/);
+  assert.match(MAIN, /presetsStore\.watch\(/);
+});

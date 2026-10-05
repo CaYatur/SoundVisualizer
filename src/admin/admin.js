@@ -3662,6 +3662,7 @@
   /* Preset listesini gösteren kategoriler: MilkDrop ve özel mod seçici
      (Sahne), Studio, Kitaplık, Clip Deck ve Otomatik VJ (Kontrol). */
   const PRESET_CATS = ['scene', 'studio', 'library', 'control'];
+  const MCP_PRESET_POLL_MS = 3000;
   let renderWanted = false;
   let renderRaf = 0;
   let pointerHeld = false;
@@ -5509,9 +5510,13 @@
       }
     } catch { /* yakalama yoksa yayın yeter */ }
     presetGen = Math.max(presetGen, maxEarly);
+    /* Yedek yoklama. Ana süreç her MCP isteğinden sonra ve dosya izleyicisi
+       bir değişiklik görünce farkı zaten yayınlıyor; bu yalnız kaçan bir
+       yayını yakalar. 400 ms'de bir, 10 bin presetlik klasörün adlarını
+       ana süreçte baştan okutuyordu (#695). */
     setInterval(() => {
-      if (cfg && cfg.mcp && cfg.mcp.enabled) catchPresets();
-    }, 400);
+      if (cfg && cfg.mcp && cfg.mcp.enabled && !document.hidden) catchPresets();
+    }, MCP_PRESET_POLL_MS);
     window.addEventListener('focus', () => { catchPresets(); });
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);
