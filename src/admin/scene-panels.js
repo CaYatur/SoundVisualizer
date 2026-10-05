@@ -305,7 +305,6 @@
         head.classList.toggle('open', open);
         body.classList.toggle('open', open);
         if (open && !body.childElementCount) buildKids().forEach((n) => n && body.appendChild(n));
-        if (before != null && head.closest) fitLayerCard(head.closest('.card'));
         keepViewport(root, head, before);
       },
     }, [el('span', { class: 'fold-caret', icon: 'caret-right' }), el('span', { text: title })]);
@@ -386,28 +385,12 @@
   /* Katmanın alt bölümleri sekme şeridi: aynı anda biri açık. Eskiden beş
      katlanır başlık alt alta diziliyordu ve kartın dibinde kayboluyordu.
      Açık sekme panel yeniden çizilince korunuyor (foldStates). */
-  /* Sekme açılınca kartın ızgara payı içeriğe göre yenilenir. Ölçüm
-     masonry kapalıyken yapılır; gözlemci küçültmediği için kapanan
-     sekme boş satır bırakmasın. Sekme şeridi ekranda yerinde kalır. */
+  /* Sekme ya da katlanır başlık açılıp kapanınca şerit ekranda yerinde
+     kalır. Kart kendi sütununda büyür; öbür sütunlar oynamaz (#695). */
   function keepViewport(root, box, before) {
     if (before == null || !root || !box || !box.getBoundingClientRect) return;
     const d = box.getBoundingClientRect().top - before;
     if (d > 0.5 || d < -0.5) root.scrollTop += d;
-  }
-
-  function fitLayerCard(card) {
-    if (!card || !card.parentElement || !card.getBoundingClientRect || !card.parentElement.classList) return;
-    const root = card.parentElement;
-    if (!root.classList.contains('sections')) return;
-    const gap = (typeof getComputedStyle === 'function')
-      ? (parseFloat(getComputedStyle(root).columnGap) || 14) : 14;
-    const was = root.classList.contains('masonry');
-    const keep = root.scrollTop;
-    if (was) root.classList.remove('masonry');
-    const h = card.getBoundingClientRect().height;
-    if (was) root.classList.add('masonry');
-    if (card.style) card.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gap) / 4));
-    if (root.scrollTop !== keep) root.scrollTop = keep;
   }
 
   function layerTabs(key, tabs) {
@@ -427,7 +410,6 @@
         b.classList.toggle('active', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
       });
-      if (before != null && bar.closest) fitLayerCard(bar.closest('.card'));
       keepViewport(root, bar, before);
     };
     tabs.forEach((t) => bar.appendChild(el('button', {
