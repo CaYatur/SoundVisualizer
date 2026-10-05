@@ -91,9 +91,25 @@
     return qArtist === artist;
   }
 
+  /* Eşleme her karede, her metin katmanında ve her ekranda çağrılıyor
+     (modes/text.js). Kitaplık dizisi yalnız kitaplık değişince yenisiyle
+     değişiyor; parça ve kip aynıysa sonuç aynıdır. Önceki sonuç bu üçlüyle
+     saklanır; aksi halde bütün kitaplık her karede baştan normalize
+     ediliyordu (#695). */
+  let lastMatch = null;
+  function matchTrack(query, items, mode) {
+    const title = query && query.title;
+    const artist = query && query.artist;
+    const m = lastMatch;
+    if (m && m.items === items && m.title === title && m.artist === artist && m.mode === mode) return m.out;
+    const out = matchTrackNow(query, items, mode);
+    lastMatch = { items, title, artist, mode, out };
+    return out;
+  }
+
   /* En yüksek skor kazanır. Tam eşleme her zaman kısmi eşlemenin önündedir.
      Eşit skorda listedeki ilk öğe kalır; sıra oynamasın. */
-  function matchTrack(query, items, mode) {
+  function matchTrackNow(query, items, mode) {
     const qTitle = normalize(query && query.title);
     const qArtist = normalize(query && query.artist);
     if (!qTitle) return null;
