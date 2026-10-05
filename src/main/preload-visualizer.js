@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('SV_FLOATING',
 contextBridge.exposeInMainWorld('api', {
   requestConfig: () => ipcRenderer.invoke('request-config'),
   onConfig: (cb) => ipcRenderer.on('config', (e, config) => cb(config)),
+  onConfigPatch: (cb) => ipcRenderer.on('config-patch', (e, patch) => cb(patch)),
   /* Gösteri saati çıpası. Yalnızca DURUM DEĞİŞTİĞİNDE gelir; zaman her
      karede yeniden yollanmaz, pencere çıpadan kapalı formülle hesaplar. */
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),

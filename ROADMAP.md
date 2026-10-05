@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2696 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2706 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 897
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 907
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1370,6 +1370,15 @@ Stabilisation (#695):
   - **Background redraws wait.** MCP and phone edits, preset changes, the lyrics library, the lighting device poll and the WebGL fallback note redrew the category directly, even while a slider was being dragged. They now redraw only when the category that shows the data is open, at most once a frame, and after the mouse button is released.
   - Opening a fold still moved a card in the other column by up to 916 px. That was the masonry grid; see the next entry.
 - **Stable card columns instead of the masonry grid** · done on the branch. The 4 px masonry grid from #622 placed each card from its height. A card that opened or closed moved the cards after it into other columns, and a shrinking card kept its old span until the next full redraw, so the gap closed all at once. Now a wide card is its own row and the half-width cards between wide cards form a band. The band has as many columns as the window allows, never more than it has cards: one card takes the full width, two share it. Each card goes to the shortest column once and stays there while the category and the column count stay the same. A card that grows only pushes the cards below it in its own column. Measured with the reporter's settings: opening the LFO fold moved another card by 916 px before and 0 px now, and the Dynamic Theme switch by 264 px before and 0 px now. Checked with screenshots of every category in Turkish and English at 1484 px, Output and Library at 1100 and 1900 px, and Control with the timeline and Clip Deck switched on.
+- **Moving a slider no longer stalls the app** · done on the branch. Measured with a copy of the reporter's settings (about 640 KB: 22 scenes take about 330 KB, the MilkDrop tags about 290 KB) and the Spout window as a receiving renderer off screen.
+  - **The problem.** While a slider moved, the panel sent the whole configuration about 18 times a second. Each send cost the panel about 15 ms, and the main process copied it again to every visualizer window, the Spout window and the stream. The main process answered in 14–19 ms (95th percentile 34–42 ms) instead of 0.3 ms, the Spout window dropped frames (worst 33–66 ms), and the panel had 14–17 long frames in three seconds. With three displays, OBS and the floating window open, every extra window adds another copy.
+  - **Only what changed.** During a drag the panel sends only the top-level keys that changed (`patch-config`). The scenes, the MilkDrop library and the colour presets are never compared or sent in a patch. 700 ms after the last change the whole configuration goes once more, so anything a patch missed still arrives. A click, a removed key, a blackout and the first send after an outside change always send everything. The main process merges a patch only onto a full configuration and skips unsafe keys. Windows and the web pages apply a patch only after their first full configuration.
+  - **Visualizer windows no longer receive the scene list or the colour presets.** Only the panel and the phone remote use them.
+  - **The Spout window was restarted on every settings push.** Each restart sent it the whole configuration again and read the lyrics library from disk. It now restarts only when its own settings change.
+  - Measured after: the main process answers in 0.3 ms during a drag (95th percentile about 16 ms), the Spout window drops no frame (worst 16.8 ms), and the panel has no long frame. The saved file still holds all 22 scenes and 9,734 tags.
+  - **The settings file is written once a drag ends.** It was written every 300 ms while a slider moved: about 640 KB of JSON, synchronously, in the main process. It is now written 300 ms after the last change, and at most 2 s after the first unsaved one, so a long drag still saves. A pending write is still flushed on quit. With this, the main process's 95th percentile during a drag fell from about 16 ms to 10–14 ms.
+  - **The MCP preset poll is a slow fallback.** With MCP on, the panel asked for preset changes every 400 ms, and each request listed the preset folder (about 10,000 names) in the main process. The main process already broadcasts after every MCP request and when the folder watcher sees a change, so the poll now runs every 3 s and not while the window is hidden.
+  - **Logo and cover glow no longer reallocate every frame.** The audio pulse changes the picture's size every frame, and the glow's two scratch canvases were resized each time. They now only grow, with some headroom, and only the used area is drawn. With a pulsing logo at 1080p a frame took 0.56–0.76 ms before and 0.26 ms after. Compared pixel by pixel with the old code in the same page: only the soft halo differs, by at most 7/255, because the GPU blur works slightly differently on a larger canvas.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

@@ -190,6 +190,7 @@ function broadcast(obj, kind) {
   /* serverNow: tarayıcı kendi saatiyle sözü kaydırmasın. Ofset varışta kurulur. */
   if (obj && typeof obj === 'object') obj = Object.assign({ serverNow: Date.now() }, obj);
   if (obj && obj.type === 'config') obj = Object.assign({}, obj, { config: publicConfig(obj.config) });
+  else if (obj && obj.type === 'config-patch') obj = Object.assign({}, obj, { patch: publicConfig(obj.patch) });
   else if (obj && obj.type === 'presets') obj = Object.assign({}, obj, { presets: publicPresets(obj.presets) });
   else if (obj && obj.type === 'presets-delta') {
     const d = obj.delta || {};
