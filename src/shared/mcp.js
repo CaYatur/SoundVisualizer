@@ -109,6 +109,23 @@
     return { ok: false, error: 'Permission denied: ' + (GROUP_LABEL[group] || group) + ' is off. Enable that switch on the MCP card under Control. Writes stay off until the matching group is allowed.' };
   }
   function fail(message) { return { ok: false, error: message }; }
+  /* Dosya yazan araçların yolu. Ajan "yazma" kipinde bile yalnız kendi
+     türünde bir dosya yazabilsin: .bat ya da başlangıç klasörüne betik
+     bırakmak kod çalıştırmaya dönüşürdü. ffmpeg çıktıyı protokol olarak da
+     okur (tcp://, pipe:); yerel ve mutlak bir dosya yolu şart. Ağ paylaşımı
+     (\\sunucu) da dışarıda kalır. */
+  function badOutPath(p, exts) {
+    const s = typeof p === 'string' ? p : '';
+    if (!s || s.length > 1024 || s.indexOf('\0') >= 0) return 'path is required.';
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(s) || /^(pipe|file|tcp|udp|rtmp|http|https|ftp):/i.test(s)) return 'path must be a local file path.';
+    const winAbs = /^[A-Za-z]:[\\/]/.test(s);
+    if (!winAbs && s.charAt(0) !== '/') return 'path must be absolute.';
+    if (/^[\\/]{2}/.test(s)) return 'Network paths are not allowed.';
+    const dot = s.lastIndexOf('.');
+    const ext = dot > Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\')) ? s.slice(dot + 1).toLowerCase() : '';
+    if (exts.indexOf(ext) < 0) return 'path must end with .' + exts.join(' or .') + '.';
+    return '';
+  }
   function groupForPath(p) {
     const path = String(p || '');
     if (!path || path === 'mcp' || path.indexOf('mcp.') === 0) return 'mcp';
@@ -1041,6 +1058,8 @@
   });
   tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
+    const outBad = badOutPath(args && args.outputPath, ['mp4']);
+    if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
   });
   tool('sv_cancel_export', 'export', 'Cancel the running offline export.', function (args, ctx) {
@@ -1048,7 +1067,8 @@
     return Promise.resolve(ctx.cancelExport()).then(function (r) { return { ok: true, result: r == null ? true : r }; });
   });
   tool('sv_export_json', 'export', 'Write scenes or full config JSON to an explicit path. No save dialog.', function (args, ctx) {
-    if (!args || !args.path) return fail('path is required.');
+    const jsonBad = badOutPath(args && args.path, ['json']);
+    if (jsonBad) return fail(jsonBad);
     if (!ctx.writeText) return fail('File export is not available in this process.');
     const cfg = configOf(ctx);
     const body = args.what === 'scenes' ? { type: 'sv-scenes', version: 1, scenes: cfg.scenes || [] } : cfg;
@@ -1057,7 +1077,9 @@
     });
   });
   tool('sv_save_snapshot', 'export', 'Capture the live canvas to a file. Reading a preview without saving is sv_get_preview.', function (args, ctx) {
-    if (!args || !args.path) return fail('path is required.');
+    /* Görüntü JPEG olarak geliyor; başka uzantı yanlış dosya üretirdi. */
+    const shotBad = badOutPath(args && args.path, ['jpg', 'jpeg']);
+    if (shotBad) return fail(shotBad);
     if (!ctx.capturePreview || !ctx.writeBinary) return fail('Snapshot capture is not available in this process.');
     return Promise.resolve(ctx.capturePreview()).then(function (img) {
       if (!img || img.error || !img.dataUrl) return fail((img && img.error) || 'The preview canvas is not ready.');

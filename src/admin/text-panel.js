@@ -347,7 +347,7 @@
       SP().miniSlider('Giriş Süresi', () => T.animDuration == null ? 0.45 : T.animDuration, (v) => { T.animDuration = v; sync(); }, {
         min: 0.05, max: 2, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn',
       }),
-      SP().miniSlider('Basla Nabız', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; sync(); }, {
+      SP().miniSlider('Bas Nabzı', () => T.audioScale == null ? 0.12 : T.audioScale, (v) => { T.audioScale = v; sync(); }, {
         min: 0, max: 0.6, step: 0.01,
       }),
       SP().miniSlider('Titreşim', () => T.audioJitter || 0, (v) => { T.audioJitter = v; sync(); }, { min: 0, max: 1, step: 0.02 }),

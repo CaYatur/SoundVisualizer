@@ -716,7 +716,7 @@
   function nowplayingAudioKids(l, cfg) {
     const b = nowplayingBag(l, cfg);
     return [
-      miniSlider('Basla Nabız', () => (b.get('audioScale', 0.04) == null ? 0.04 : b.get('audioScale', 0.04)),
+      miniSlider('Bas Nabzı', () => (b.get('audioScale', 0.04) == null ? 0.04 : b.get('audioScale', 0.04)),
         (v) => b.set('audioScale', v), { min: 0, max: 0.4, step: 0.01, def: 0.04 }),
     ];
   }
@@ -749,7 +749,7 @@
   function textAudioKids(txt, rerender) {
     const pulseDef = txt.source === 'now' ? 0 : 0.12;
     const out = [
-      miniSlider('Basla Nabız', () => (txt.audioScale == null ? pulseDef : txt.audioScale),
+      miniSlider('Bas Nabzı', () => (txt.audioScale == null ? pulseDef : txt.audioScale),
         (v) => { txt.audioScale = v; }, { min: 0, max: 0.6, step: 0.01, def: pulseDef }),
       miniSlider('Titreşim', () => txt.audioJitter || 0, (v) => { txt.audioJitter = v; },
         { min: 0, max: 1, step: 0.02, def: 0 }),
@@ -1662,16 +1662,19 @@
        Kapalıyken katman listesi silinmez, yalnızca kullanılmaz: sahne
        Arkaplan ve Görselleştirici kartlarından sürülür. Böylece yalın
        deneyimle katmanlı deneyim arasında ayar kaybetmeden gidip gelinir. */
-    if (!cfg.layerStack || typeof cfg.layerStack.enabled !== 'boolean') {
-      cfg.layerStack = { enabled: !!list.length };
-    }
-    const on = cfg.layerStack.enabled;
+    /* Bayrak yoksa (null) anlamı stackOn'daki gibi okunur, cfg'ye
+       yazılmaz. Çizim sırasında false yazmak yeni kurulumda bile Katmanlar
+       kartına "1 değişiklik" rozeti ve sıfırlama düğmesi çıkarıyordu. */
+    const on = (window.SVLayers && window.SVLayers.stackOn)
+      ? window.SVLayers.stackOn(cfg)
+      : !!(cfg.layerStack && typeof cfg.layerStack.enabled === 'boolean' ? cfg.layerStack.enabled : list.length);
     const stackSwitch = el('input', {
       type: 'checkbox',
       onchange: (e) => {
         if (window.SVLayers && window.SVLayers.setStackEnabled) {
           window.SVLayers.setStackEnabled(cfg, e.target.checked);
         } else {
+          cfg.layerStack = cfg.layerStack || {};
           cfg.layerStack.enabled = e.target.checked;
           if (e.target.checked && !list.length) cfg.layers = window.SVLayers.synthesize(cfg);
         }
@@ -1781,6 +1784,7 @@
               window.SVLayers.setStackEnabled(cfg, true);
             } else {
               cfg.layers = window.SVLayers.synthesize(cfg);
+              cfg.layerStack = cfg.layerStack || {};
               cfg.layerStack.enabled = true;
             }
             rerender();
@@ -1923,8 +1927,8 @@
               );
             }
             transKids.push(
-              miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }, { def: false }),
-              miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; }, { def: false })
+              miniToggle('Yatay Aynala', () => l.transform.flipX, (v) => { l.transform.flipX = v; }, null, { def: false }),
+              miniToggle('Dikey Aynala', () => l.transform.flipY, (v) => { l.transform.flipY = v; }, null, { def: false })
             );
             return transKids;
           },

@@ -1538,7 +1538,6 @@
     'Hareket ve Ses': 'Motion & Audio',
     'Giriş': 'Entrance',
     'Giriş Süresi': 'Entrance Duration',
-    'Basla Nabız': 'Bass Pulse',
     'Titreşim': 'Jitter',
     'Harf Harf Tepki': 'Per-Character Response',
     'Harf Yükselmesi': 'Character Lift',

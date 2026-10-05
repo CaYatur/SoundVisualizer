@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2677 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2682 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 878
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 883
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1355,6 +1355,14 @@ Icons and top bar (#665):
   - A test fails if a UI file gets an emoji outside a comment again, if code names an icon the set does not have, or if the dictionary gets a duplicate key.
 - **The Displays picker lines up with the top bar** · done on the branch. Its label sat above it and pushed the picker about 8 px below Open / Close / Blackout; the label now sits beside it.
 - Checked with screenshots of Scene, Audio, Control (timeline, Clip Deck, performance view), Library, MilkDrop and the search results in Turkish, Control in English, the floating window's bar and the phone remote at 375 px. A script opened every category and found no unknown icon and no glyph left in Turkish, and no untranslated text in English; the smoke run's English scan passed.
+
+Stabilisation (#695):
+- **Small fixes found with real settings** · done on the branch.
+  - Flip Horizontal / Vertical on a layer passed its options in the callback's place and threw "onAfter is not a function" on every click; the reset button did not appear either.
+  - The Layers panel wrote `false` into the empty layer-stack flag while drawing, so a new install showed "1 change" on Scene. The panel now reads the flag the way the renderer does and leaves it alone.
+  - "Basla Nabız" is "Bas Nabzı" again in the four places it appeared.
+  - MCP was synced on every settings push, about 18 times a second while a slider moved, and tried to delete its endpoint file each time while off. It now syncs when the switch or port changes; a busy port is retried at most every five seconds.
+  - The MCP file tools take only an absolute local path with the matching extension: `.mp4` for an export, `.json` for settings, `.jpg` / `.jpeg` for a snapshot. Before, a client in Write mode could leave a `.bat` anywhere, and ffmpeg would also have sent an export to `tcp://` or `pipe:`.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

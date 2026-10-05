@@ -387,7 +387,7 @@
         SP().miniSelect('Giriş', ANIM_LABELS, () => C.animation || 'slideUp', (v) => { C.animation = v; }),
         SP().miniSlider('Giriş Süresi', () => (C.animDuration == null ? sp.anim : C.animDuration),
           (v) => { C.animDuration = v; }, { min: 0.05, max: 3, step: 0.05, fmt: (v) => (+v).toFixed(2) + ' sn' }),
-        SP().miniSlider('Basla Nabız', () => (C.audioScale == null ? 0.04 : C.audioScale),
+        SP().miniSlider('Bas Nabzı', () => (C.audioScale == null ? 0.04 : C.audioScale),
           (v) => { C.audioScale = v; }, { min: 0, max: 0.4, step: 0.01 }),
       ];
     }));
