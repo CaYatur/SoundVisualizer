@@ -306,27 +306,30 @@ body {
   scrollbar-gutter: stable;
   overflow-anchor: none;
   padding: 16px 20px 26px;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  gap: 14px; align-content: start;
+  /* Kararlı sütunlar (#695, admin.js layoutCards): geniş kart tek satır,
+     aradaki yarım kartlar bir şerit. Şeritteki her sütun kendi kartlarını
+     alt alta dizer; bir kart büyüyünce yalnız aynı sütunda altındakiler
+     kayar, kartlar sütun değiştirmez. */
+  display: flex; flex-direction: column; gap: 14px;
 }
-.sections.single { grid-template-columns: minmax(0, 1fr); }
-/* Taşma düzeni (#622, admin.js layoutCards): satır 4 px, dikey aralığı her
-   kartın kapladığı satır sayısı taşıyor */
-.sections.masonry { grid-auto-rows: 4px; row-gap: 0; }
-.card.solo { grid-column: 1 / -1; }
+.sec-band {
+  display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr));
+  gap: 14px; align-items: start;
+}
+.sec-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 /* -------- Kartlar -------- */
 .card {
   background: linear-gradient(180deg, var(--card), rgba(16,11,18,.9));
   border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 14px 16px 15px; align-self: start;
+  padding: 14px 16px 15px;
   /* min-width: auto ızgarayı etiketin boyuna açıp yatay kaydırma çıkarıyordu. */
   min-width: 0;
-  /* 4 px satır ızgarası kartı içeriğinden kısa sanmasın (Linux). */
-  height: max-content;
+  /* Kaydırılan sütunda kart sıkışıp içeriğinden kısa kalmasın. */
+  flex-shrink: 0;
   transition: border-color .2s, box-shadow .2s;
 }
-.card.wide { grid-column: 1 / -1; }
+.sec-band { flex-shrink: 0; }
 .card-head { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 11px; }
 .card-head .ico {
   font-size: 15px; width: 28px; height: 28px; flex-shrink: 0;

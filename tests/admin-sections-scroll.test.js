@@ -48,7 +48,7 @@ test('kaynak: sections kaydırması aynı görevde, odak kaymadan yazılır', ()
   assert.doesNotMatch(body, /requestAnimationFrame\([\s\S]*scrollTop/);
   const layoutFn = adminSrc.slice(adminSrc.indexOf('function layoutCards'), adminSrc.indexOf('function buildCard'));
   assert.doesNotMatch(layoutFn, /applySectionsScroll/);
-  assert.match(layoutFn, /nudgeScroll\(scroller, pin, before\)/);
+  // Sütun sayısı değişince ekrandaki kutu yerinde kalır
   assert.match(layoutFn, /nudgeScroll\(root, pin, before\)/);
   const marks = adminSrc.slice(adminSrc.indexOf('function refreshModifiedMarks'), adminSrc.indexOf('function setAdvanced'));
   assert.match(marks, /parkResetFocus\(root\)/);
@@ -190,16 +190,13 @@ test('davranış: isConnected false iken restore atlanır', () => {
   assert.strictEqual(root.scrollTop, 0, 'bağlı değilken rAF restore yok');
 });
 
-test('katlanır alt bölüm başlığı yerinde kalır ve kart payı yenilenir', () => {
+test('katlanır alt bölüm başlığı ve sekme şeridi yerinde kalır', () => {
   const fold = panelSrc.slice(panelSrc.indexOf('function foldable'), panelSrc.indexOf('function layerOpenState'));
-  assert.match(fold, /fitLayerCard\(head\.closest\('\.card'\)\)/);
   assert.match(fold, /keepViewport\(root, head, before\)/);
-  const fit = panelSrc.slice(panelSrc.indexOf('function fitLayerCard'), panelSrc.indexOf('function layerTabs'));
-  const off = fit.indexOf("classList.remove('masonry')");
-  const measure = fit.indexOf('getBoundingClientRect().height');
-  const on = fit.indexOf("classList.add('masonry')");
-  const restore = fit.indexOf('root.scrollTop = keep');
-  assert.ok(off > 0 && measure > off && on > measure && restore > on, 'ölçüm kaydırmayı bırakıp geri almamalı');
+  // Kart kendi sütununda büyür; masonry payını yenileme adımı artık yok (#695)
+  assert.doesNotMatch(panelSrc, /fitLayerCard|masonry/);
+  const tabs = panelSrc.slice(panelSrc.indexOf('function layerTabs'), panelSrc.indexOf('function layerTabs') + 1200);
+  assert.match(tabs, /keepViewport\(root, bar, before\)/);
 });
 
 function sliceFn(src, name) {

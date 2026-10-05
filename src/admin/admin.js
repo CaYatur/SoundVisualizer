@@ -3661,8 +3661,6 @@
     holdSectionsFocus(root);
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
     root.innerHTML = '';
-    // Masonry açıkken doğan kart Linux'ta 4 px sanılıp üst üste biner.
-    root.classList.remove('masonry');
 
     const cat = CATEGORIES.find((c) => c.id === activeCategory) || CATEGORIES[0];
     $('catTitle').textContent = tr(cat.title);
@@ -3690,137 +3688,115 @@
     const widthBeforeScroll = root.clientWidth;
     applySectionsScroll(root, anchoredScroll(root, anchor, prevScroll));
     if (root.clientWidth !== widthBeforeScroll) {
-      layoutCards(root);
+      layoutCards(root, root._svCards);
       applySectionsScroll(root, anchoredScroll(root, anchor, prevScroll));
     }
     sectionsScrollWant = root.scrollTop;
     pinnedNode = anchor ? findAnchorNode(root, anchor) : null;
   }
 
-  /* KART DÜZENİ (#622).
+  /* KART DÜZENİ (#622, #695).
 
-     Kartlar satır satır diziliyordu ve bir satırın yüksekliği en uzun karta
-     göre belirleniyordu: kısa bir kartın altında büyük boşluk kalıyordu (Ses
-     Kaynakları ile Ses Analizi, Kayıt ile Basıklık Düzeltme). İki geniş kart
-     arasında tek kalan yarım kart da sağında boş bir yarım bırakıyordu
-     (Art-Net, Tempo ve Otomatik VJ, Renk Şablonlarım).
+     İlk düzen kartları satır satır diziyordu; kısa kartın altında büyük
+     boşluk kalıyordu. #622 bunu 4 px satırlı bir masonry ızgarasıyla
+     çözdü, ama o ızgarada kartın yeri boyundan hesaplanıyordu: bir kart
+     açılıp kapanınca sonraki kartlar başka sütuna geçiyordu (bir katlanır
+     başlık, öbür sütundaki kartı 916 px oynatıyordu). Küçülme bir sonraki
+     tam çizime kadar uygulanmadığı için boşluk birden kapanıyordu.
 
-     Taşma düzeni: ızgaranın satırları MASONRY_ROW piksel ve her kart kendi
-     yüksekliği kadar satır kaplıyor; yerleştirme sırası korunuyor, kart bir
-     üstteki boşluğa değil en yakın uygun yere oturuyor. Kartın boyu
-     değişince (katman açılınca, gelişmiş ayarlar görününce) aralık yeniden
-     ölçülüyor. Yalnız kalan yarım kart tam genişlik alıyor. */
-  const MASONRY_ROW = 4; // px — admin.css `.sections.masonry` ile aynı
-  let masonryRO = null;
+     Şimdi kartlar sütunlara yerleştirilir ve sütunda kalır:
+       - geniş kart kendi satırıdır;
+       - aradaki yarım kartlar bir şerittir. Şeritte sütun sayısı pencereye
+         göre hesaplanır, kart sayısından fazla olmaz (tek kart tam
+         genişlik, iki kart yarım yarım);
+       - kart sıraya göre o an en kısa sütuna konur ve bu sütun kategori
+         ve sütun sayısı aynı kaldıkça hatırlanır. Kart büyüyüp küçülünce
+         yalnız aynı sütunda altındaki kartlar kayar.
+     Sütun sayısı değişince (pencere boyu) düzen yeniden kurulur. */
+  const MIN_COL = 330; // px — eski ızgaranın minmax(330px, 1fr) değeri
+  const COL_GAP = 14; // px — admin.css .sections / .sec-band gap
+  const columnPlans = new Map(); // "kategori|sütun" -> Map(kart -> sütun)
   let sectionsRO = null;
-  let sectionsW = 0;
+  let sectionsCols = 0;
 
   function columnCount(root) {
-    const tpl = getComputedStyle(root).gridTemplateColumns;
-    if (!tpl || tpl === 'none') return 1;
-    return tpl.split(/\s+/).filter(Boolean).length || 1;
+    if (root.classList.contains('single')) return 1;
+    const cs = getComputedStyle(root);
+    const avail = root.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    return Math.max(1, Math.floor((avail + COL_GAP) / (MIN_COL + COL_GAP)));
   }
 
-  /* Sahne Üretici ile MilkDrop Preset Üretici iki tam genişlik kartın
-     arasında. Pencere büyüyünce ızgara yeni sütun açar, bu ikisi birer
-     sütunda dar kalır. Sütun sayısı 2'yi geçince satırı yarım yarım paylaşırlar. */
-  function placeGeneratorPair(root) {
-    const a = root.querySelector(':scope > [data-card="scenegen"]');
-    const b = root.querySelector(':scope > [data-card="mdgen"]');
-    if (!a || !b) return;
-    a.style.gridColumn = '';
-    b.style.gridColumn = '';
-    const cols = columnCount(root);
-    if (cols < 3) return;
-    const mid = Math.ceil(cols / 2);
-    a.style.gridColumn = '1 / ' + (mid + 1);
-    b.style.gridColumn = (mid + 1) + ' / -1';
+  function buildBand(cards, n, plan) {
+    const cols = Math.max(1, Math.min(n, cards.length));
+    const band = el('div', { class: 'sec-band' });
+    band.style.setProperty('--cols', String(cols));
+    const colEls = [];
+    for (let i = 0; i < cols; i++) {
+      const c = el('div', { class: 'sec-col' });
+      colEls.push(c);
+      band.appendChild(c);
+    }
+    return { band, colEls, cols, cards, plan };
   }
 
-  function layoutCards(root) {
-    const kids = [...root.children];
+  /* Şerit sayfadayken doldurulur: en kısa sütun ölçülerek bulunur. */
+  function fillBand(b) {
+    for (const card of b.cards) {
+      const id = card.getAttribute('data-card') || '';
+      let col = b.plan.has(id) ? b.plan.get(id) : -1;
+      if (!(col >= 0 && col < b.cols)) {
+        col = 0;
+        let best = Infinity;
+        for (let i = 0; i < b.cols; i++) {
+          const h = b.colEls[i].offsetHeight;
+          if (h < best - 0.5) { best = h; col = i; }
+        }
+        b.plan.set(id, col);
+      }
+      b.colEls[col].appendChild(card);
+    }
+  }
+
+  function layoutCards(root, given) {
+    const cards = given || [...root.children].filter((c) => c.classList && c.classList.contains('card'));
+    root._svCards = cards;
+    const n = columnCount(root);
+    sectionsCols = n;
+    const key = activeCategory + '|' + n;
+    if (!columnPlans.has(key)) columnPlans.set(key, new Map());
+    const plan = columnPlans.get(key);
+    root.textContent = '';
+    const bands = [];
     let run = [];
-    const flush = () => { if (run.length === 1) run[0].classList.add('solo'); run = []; };
-    for (const c of kids) {
-      c.classList.remove('solo');
-      if (!c.classList.contains('card') || c.classList.contains('wide')) flush();
+    const flush = () => {
+      if (!run.length) return;
+      const b = buildBand(run, n, plan);
+      root.appendChild(b.band);
+      bands.push(b);
+      run = [];
+    };
+    for (const c of cards) {
+      if (n === 1 || c.classList.contains('wide')) { flush(); root.appendChild(c); }
       else run.push(c);
     }
     flush();
-    placeGeneratorPair(root);
-    const gap = parseFloat(getComputedStyle(root).columnGap) || 14;
-    const spanFor = (h) => 'span ' + Math.max(1, Math.ceil((h + gap) / MASONRY_ROW));
-    /* İçerik boyu, 4 px'lik satır ızgarası kapalıyken okunur. Sınıf açıkken
-       Linux getBoundingClientRect'i satır yüksekliği sanıyor; span 1 kalınca
-       kartlar aynı yere yığılıyor. Çalan parça gibi yeniden çizen her işlem
-       bu yoldan geçer, o yüzden ölçüm her seferinde doğal düzende yapılır. */
-    root.classList.remove('masonry');
-    const heights = kids.map((c) => c.getBoundingClientRect().height);
-    root.classList.add('masonry');
-    kids.forEach((c, i) => {
-      const s = spanFor(heights[i]);
-      if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
+    bands.forEach(fillBand);
+    watchSectionsWidth(root);
+  }
+
+  /* Sütun sayısı değişince aynı kart düğümleriyle düzeni yeniden kur.
+     Ekranda duran kutu yerinde kalır. */
+  function watchSectionsWidth(root) {
+    if (sectionsRO || !window.ResizeObserver) return;
+    sectionsRO = new ResizeObserver(() => {
+      if (!root.isConnected || !root._svCards) return;
+      if (columnCount(root) === sectionsCols) return;
+      const pin = pinElement(root);
+      const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
+      layoutCards(root, root._svCards);
+      if (pin && pin.isConnected) nudgeScroll(root, pin, before);
     });
-    if (masonryRO) masonryRO.disconnect();
-    if (window.ResizeObserver) {
-      masonryRO = new ResizeObserver((entries) => {
-        /* observe() ilk bildirimi az önce ölçtüğümüz boyu tekrarlar.
-           Span'i orada büyütmek kartları bir kare kaydırıp bırakıyordu. */
-        if (masonryRO && masonryRO._svSkip) {
-          masonryRO._svSkip = false;
-          return;
-        }
-        const scroller = root;
-        const pin = pinElement(scroller);
-        const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
-        for (const e of entries) {
-          const c = e.target;
-          if (!c.isConnected) continue;
-          const h = Math.max(c.scrollHeight, c.getBoundingClientRect().height);
-          const s = spanFor(h);
-          const cur = parseInt(String(c.style.gridRowEnd).replace(/[^\d]/g, ''), 10) || 0;
-          const next = parseInt(s.replace(/[^\d]/g, ''), 10) || 0;
-          /* Küçültme tam yeniden çizime bırakılır; gözlemci yalnızca
-             büyüyen içeriği (yüklenen kapak gibi) takip eder. Aksi halde
-             4 px satır ölçümü span'i eritip kartları üst üste bindirir. */
-          if (next > cur) c.style.gridRowEnd = s;
-        }
-        /* Pay büyüyünce alttaki kartlar kayar. Eski pikseli zorlamak
-           baktığın yeri kaçırıyordu; kutu ekranda aynı yerde kalır. */
-        nudgeScroll(scroller, pin, before);
-      });
-      masonryRO._svSkip = true;
-      kids.forEach((c) => masonryRO.observe(c));
-    }
-    /* Genişlik değişince payı aynı karede yenile. Sütun sayısı aynı kalsa
-       da eski grid-column çizgileri yatay kaydırmayı bir sonraki çizime
-       kadar açık bırakıyordu. */
-    if (sectionsRO) sectionsRO.disconnect();
-    sectionsW = root.clientWidth;
-    if (window.ResizeObserver) {
-      sectionsRO = new ResizeObserver(() => {
-        if (!root.isConnected) return;
-        const w = root.clientWidth;
-        if (w === sectionsW) return;
-        const pin = pinElement(root);
-        const before = pin && pin.getBoundingClientRect ? pin.getBoundingClientRect().top : null;
-        const keep = root.scrollTop;
-        sectionsW = w;
-        placeGeneratorPair(root);
-        root.classList.remove('masonry');
-        const again = [...root.children];
-        const hs = again.map((c) => c.getBoundingClientRect().height);
-        root.classList.add('masonry');
-        again.forEach((c, i) => {
-          const s = spanFor(hs[i]);
-          if (c.style.gridRowEnd !== s) c.style.gridRowEnd = s;
-        });
-        sectionsW = root.clientWidth;
-        if (pin) nudgeScroll(root, pin, before);
-        else if (root.scrollTop !== keep) root.scrollTop = keep;
-      });
-      sectionsRO.observe(root);
-    }
+    sectionsRO.observe(root);
   }
 
   // Tek bir kart: başlık + gruplanmış kontroller (+ gelişmiş)
@@ -3959,9 +3935,11 @@
     });
 
     const sections = sectionSchema().filter((s) => s.category === activeCategory && (!s.show || s.show()));
-    const cards = root.querySelectorAll('.card');
-    sections.forEach((sec, i) => {
-      const card = cards[i];
+    /* Kartlar sütunlarda; belge sırası bölüm sırası değil. Kart kimliğiyle bulunur. */
+    const cardOf = {};
+    root.querySelectorAll('.card[data-card]').forEach((c) => { cardOf[c.getAttribute('data-card')] = c; });
+    sections.forEach((sec) => {
+      const card = cardOf[sec.id];
       if (!card) return;
       const n = sectionShowsResetChrome(sec) ? countModified(sectionPaths(sec)) : 0;
       let chip = card.querySelector('.chip-mod');
