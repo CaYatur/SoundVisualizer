@@ -221,10 +221,10 @@ function anchorFns() {
   const names = [
     'boxLabel', 'anchorBoxOf', 'layerOf', 'tabKeyOf', 'foldKeyOf',
     'anchorIdentity', 'sameIdentity', 'sectionAnchor', 'findAnchorNode',
-    'anchoredScroll',
+    'anchoredScroll', 'touchedBox', 'topVisibleBox', 'inScrollerView', 'noteTouch',
     'nudgeScroll', 'captureLayerPaneScroll', 'restoreLayerPaneScroll',
   ];
-  return new Function(names.map((n) => sliceFn(adminSrc, n)).join('\n') + '\nreturn { sectionAnchor, findAnchorNode, anchoredScroll, nudgeScroll, captureLayerPaneScroll, restoreLayerPaneScroll };')();
+  return new Function('let lastTouch = null;\n' + names.map((n) => sliceFn(adminSrc, n)).join('\n') + '\nreturn { noteTouch, sectionAnchor, findAnchorNode, anchoredScroll, nudgeScroll, captureLayerPaneScroll, restoreLayerPaneScroll };')();
 }
 
 function uiNode(tag, cls, text) {
@@ -423,4 +423,47 @@ test('kaynak: kategori scroll haritasi (bellekte, diske yazilmaz)', () => {
   assert.doesNotMatch(adminSrc, /localStorage\.[gs]etItem\([^)]*scroll/i);
   assert.doesNotMatch(adminSrc, /categoryScrollById[^;]*localStorage/);
   assert.match(panelSrc, /'data-id': l\.id/);
+});
+
+/* #695: anahtar girişi display:none olduğu için tıklanınca odak almıyordu;
+   yeniden çizim tıklanan kutuyu bulamıyor, "Katman Yığınını Kullan"
+   anahtarı ~1260 px kayıp gidiyordu. Son dokunuş odağın yerini tutar. */
+test('odak panelin dışındayken son dokunulan kutu tutulur', () => {
+  const api = anchorFns();
+  const root = uiNode('div', 'sections', '');
+  root.bottom = 800;
+  const a = labeledCtrl('Şeffaf Arkaplan', 100);
+  const b = labeledCtrl('Katman Yığınını Kullan', 420);
+  root.add(a.box, b.box);
+  const prevDoc = global.document;
+  global.document = { activeElement: { tag: 'body' } };
+  api.noteTouch({ target: b.input });
+  const anchor = api.sectionAnchor(root);
+  assert.strictEqual(anchor.label, 'Katman Yığınını Kullan');
+  assert.strictEqual(anchor.top, 420);
+  // Dokunuş yoksa ekranın üstünde tamamen görünen ilk kutu
+  api.noteTouch({ target: null });
+  root.scrollTop = 0;
+  const top = api.sectionAnchor(root);
+  assert.strictEqual(top.label, 'Şeffaf Arkaplan');
+  global.document = prevDoc;
+});
+
+test('anahtar girişi odaklanabilir, arka plan çizimleri zamanlayıcıdan geçer', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
+  assert.doesNotMatch(css, /\.switch input\s*\{\s*display:\s*none/);
+  assert.match(css, /\.switch input:focus-visible \+ \.track/);
+  assert.match(adminSrc, /addEventListener\('pointerdown', \(e\) => \{ noteTouch\(e\); holdPointer\(\); \}, true\)/);
+  /* Açılır liste / renk seçici pointerup'ı yutabilir: change ve focusout da
+     bırakır, bayrak en geç HOLD_MAX_MS sonra düşer. */
+  assert.match(adminSrc, /addEventListener\('change', releasePointer, true\)/);
+  assert.match(adminSrc, /addEventListener\('focusout', releasePointer, true\)/);
+  assert.match(sliceFn(adminSrc, 'holdPointer'), /setTimeout\(releasePointer, HOLD_MAX_MS\)/);
+  const sched = sliceFn(adminSrc, 'scheduleRender');
+  assert.match(sched, /cats\.indexOf\(activeCategory\) < 0\) return/);
+  assert.match(sched, /if \(pointerHeld \|\| renderRaf\) return/);
+  // Uzaktan kumanda / MCP, ışık yoklaması, söz kitaplığı doğrudan çizmiyor
+  assert.match(adminSrc, /isBlackedOut\(\)\);\s*scheduleRender\(\);/);
+  assert.match(adminSrc, /scheduleRender\(\['lighting'\]\)/);
+  assert.match(adminSrc, /scheduleRender\(\['scene', 'library'\]\)/);
 });

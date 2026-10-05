@@ -252,7 +252,9 @@ test('köprüler: pencere ve panel değişikliği ve ilerlemeyi dinliyor', () =>
     const adminSrc = bare(read('src/admin/admin.js'));
   assert.match(adminSrc, /onPresetsDelta\(onPresetDelta\)/);
   assert.match(adminSrc, /presetsReady = true/);
-  assert.match(adminSrc, /const onPresetDelta = \(d\) => \{[\s\S]*?applyDelta\(d\);\s*render\(\);/);
+  /* Yeniden çizim zamanlayıcıdan geçer: preset gösteren kategori açıksa,
+     kare başına bir kez, fare bırakılınca (#695). */
+  assert.match(adminSrc, /const onPresetDelta = \(d\) => \{[\s\S]*?applyDelta\(d\);\s*scheduleRender\(PRESET_CATS\);/);
   assert.match(adminSrc, /presetsSince/);
   assert.match(read('src/visualizer/visualizer.js'), /presetsSince/);
 });
