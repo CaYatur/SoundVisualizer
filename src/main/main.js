@@ -230,15 +230,25 @@ function loadSettings() {
    ~15-20 ms kilitliyordu (ölçüldü: gidiş-dönüş p95 0,4 → 15 ms). Ses kareleri
    pencerelere ana süreçten gittiği için bu kilit görüntüye takılma olarak
    yansıyor. Artık son yapılandırma bekletiliyor ve SAVE_DELAY_MS içinde bir
-   kez yazılıyor; kapanışta bekleyen yazılıyor (bkz. shutdownCleanup). */
+   kez yazılıyor; kapanışta bekleyen yazılıyor (bkz. shutdownCleanup).
+   Sürükleme boyunca SAVE_DELAY_MS'de bir yazmak da (gerçek ayarda
+   ~640 KB'lık JSON) ana süreci her 300 ms'de bir kilitliyordu (#695).
+   Yazım artık son değişiklikten SAVE_DELAY_MS sonra, ama ilk bekleyen
+   değişiklikten en geç SAVE_MAX_WAIT_MS sonra. */
 const SAVE_DELAY_MS = 300;
+const SAVE_MAX_WAIT_MS = 2000;
 let saveTimer = null;
 let saveQueued = null;
+let saveFirstAt = 0;
 
 function saveSettings(config) {
   if (settingsFrozen) return;
   saveQueued = config;
-  if (!saveTimer) saveTimer = setTimeout(flushSettings, SAVE_DELAY_MS);
+  const now = Date.now();
+  if (saveTimer) clearTimeout(saveTimer);
+  else saveFirstAt = now;
+  const wait = Math.max(0, Math.min(SAVE_DELAY_MS, saveFirstAt + SAVE_MAX_WAIT_MS - now));
+  saveTimer = setTimeout(flushSettings, wait);
 }
 
 // Bekleyen kayıt atılır: diskteki dosya yüklendiyse eski hâli üstüne yazılmasın

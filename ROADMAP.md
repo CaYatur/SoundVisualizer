@@ -1376,6 +1376,7 @@ Stabilisation (#695):
   - **Visualizer windows no longer receive the scene list or the colour presets.** Only the panel and the phone remote use them.
   - **The Spout window was restarted on every settings push.** Each restart sent it the whole configuration again and read the lyrics library from disk. It now restarts only when its own settings change.
   - Measured after: the main process answers in 0.3 ms during a drag (95th percentile about 16 ms), the Spout window drops no frame (worst 16.8 ms), and the panel has no long frame. The saved file still holds all 22 scenes and 9,734 tags.
+  - **The settings file is written once a drag ends.** It was written every 300 ms while a slider moved: about 640 KB of JSON, synchronously, in the main process. It is now written 300 ms after the last change, and at most 2 s after the first unsaved one, so a long drag still saves. A pending write is still flushed on quit. With this, the main process's 95th percentile during a drag fell from about 16 ms to 10–14 ms.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

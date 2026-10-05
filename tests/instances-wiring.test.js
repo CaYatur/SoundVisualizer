@@ -55,7 +55,11 @@ test('bekçi açılıştaki içeriği yapılandırmayla AYNI okumadan öğreniyo
 test('kaydetme birleştiriliyor: son yapılandırma bekliyor, bir kez yazılıyor (#621)', () => {
   const save = body(MAIN, 'function saveSettings(config) {');
   assert.match(save, /^\{\s*if \(settingsFrozen\) return;/, 'öz testin dondurması ilk satır olmalı');
-  assert.match(save, /saveQueued = config;\s*if \(!saveTimer\) saveTimer = setTimeout\(flushSettings, SAVE_DELAY_MS\);/);
+  /* Son değişiklikten SAVE_DELAY_MS sonra, ilk bekleyenden en geç
+     SAVE_MAX_WAIT_MS sonra (#695): sürükleme boyunca 300 ms'de bir yazılmıyor. */
+  assert.match(save, /saveQueued = config;/);
+  assert.match(save, /Math\.min\(SAVE_DELAY_MS, saveFirstAt \+ SAVE_MAX_WAIT_MS - now\)/);
+  assert.match(save, /saveTimer = setTimeout\(flushSettings, wait\);/);
   assert.doesNotMatch(save, /writeFileSync|writeSettingsText|JSON\.stringify/, 'gönderim başına eşzamanlı yazım geri gelmiş');
   const flush = body(MAIN, 'function flushSettings() {');
   // Öz test ayarları geri yazdıktan sonra bekleyen kayıt onu ezmemeli
