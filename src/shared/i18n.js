@@ -2681,6 +2681,8 @@
     'Sistem sesi yakalanamıyor': 'System audio cannot be captured',
     'Bu sistemde sistem sesini veren bir aygıt bulunamadı.': 'No audio output device found on this system.',
     'Ses yakalanamadı': 'Could not capture audio',
+    'Görselleştirme Açıkken Ekranı Uyanık Tut': 'Keep the Display Awake While Visualizing',
+    'Görselleştirme penceresi açıkken ekranın kararması ve uykuya geçmesi engellenir. Pencere kapanınca ya da simge durumuna küçültülünce güç ayarlarınız yeniden geçerli olur.': 'While a visualizer window is open, the display does not dim or go to sleep. When the window is closed or minimised, your power settings apply again.',
     'Beklenmedik bir hata oldu; uygulama çalışmaya devam ediyor.': 'An unexpected error occurred; the app keeps running.',
     'Ses yakalama durdu, yeniden bağlanıyor…': 'Audio capture stopped, reconnecting…',
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
@@ -3825,8 +3827,8 @@
     "en": "Open or close the floating PiP window. Same window as the display-menu switch. Does not change opacity or click-through."
   },
   "mcp.tool.sv_set_power": {
-    "tr": "Kare hızı sınırı ve çizim ölçeğini değiştirir.",
-    "en": "Change fps cap and render scale."
+    "tr": "Kare hızı sınırını, çizim ölçeğini ve ekranın uyanık kalıp kalmayacağını (keepAwake) değiştirir.",
+    "en": "Change fps cap, render scale and whether the display stays awake (keepAwake)."
   },
   "mcp.tool.sv_set_lighting": {
     "tr": "Windows Dinamik Aydınlatma ayarlarını değiştirir.",

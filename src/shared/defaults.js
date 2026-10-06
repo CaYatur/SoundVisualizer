@@ -335,6 +335,10 @@
       alwaysOnTop: false,
       /* Tam ekrandan cikinca tasima/boyut kilidi (F11 windowed). */
       geometryLock: false,
+      /* Görselleştirme penceresi açıkken ekran kararmasın ve uykuya
+         geçmesin (Windows, macOS, Linux). Varsayılan AÇIK: gösteri
+         ortasında çıkışın kararması hatadır; kapatılabilir. */
+      keepAwake: true,
 
       /* Kaza koruması. Açıkken görselleştirme penceresi beklenmedik biçimde
          kapanırsa (çökme, Alt+F4) anında geri açılır. Varsayılan KAPALI:
