@@ -5682,6 +5682,14 @@
     $('sceneExportBtn').addEventListener('click', () => actions.exportScenes());
     $('sceneImportBtn').addEventListener('click', () => actions.importScenes());
 
+    /* Ana süreçte yakalanmamış hata: uygulama durmadı, kullanıcı yine de
+       bilsin (bkz. src/main/fault-guard.js). Aynı ileti sık gelmez. */
+    if (window.api.onMainFault) {
+      window.api.onMainFault((info) => {
+        const what = info && info.message ? ' ' + info.message : '';
+        svToast(tr('Beklenmedik bir hata oldu; uygulama çalışmaya devam ediyor.') + what, 'warn');
+      });
+    }
     // Telefondan gelen eylemler paneldeki gerçek uygulamayı çağırır
     if (window.api.onRemoteAction) {
       window.api.onRemoteAction((action) => {

@@ -2681,6 +2681,7 @@
     'Sistem sesi yakalanamıyor': 'System audio cannot be captured',
     'Bu sistemde sistem sesini veren bir aygıt bulunamadı.': 'No audio output device found on this system.',
     'Ses yakalanamadı': 'Could not capture audio',
+    'Beklenmedik bir hata oldu; uygulama çalışmaya devam ediyor.': 'An unexpected error occurred; the app keeps running.',
     'Ses yakalama durdu, yeniden bağlanıyor…': 'Audio capture stopped, reconnecting…',
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
     'Seçili ses aygıtı bulunamadı. Takıldığında yakalama kendiliğinden başlar.': 'The selected audio device was not found. Capture starts by itself when it is plugged in.',

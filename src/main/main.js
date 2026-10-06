@@ -31,6 +31,7 @@ const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
 const lyricsSync = require('../shared/lyrics-sync');
 const mcpServer = require('./mcp-server');
+const faultGuardLib = require('./fault-guard');
 
 // Medya katmanının video dosyalarını okuduğu özel protokol.
 // Sayfa file:// (masaüstü) veya http:// (OBS) olsun, CSP tek bir kaynağa
@@ -91,6 +92,22 @@ let previewSubscribed = false; // yönetici panelindeki canlı önizleme kare is
 app.disableDomainBlockingFor3DAPIs();
 
 const SMOKE = process.argv.includes('--smoke');
+
+/* Yakalanmamış hata uygulamayı modal kutuda dondurmasın (bkz.
+   fault-guard.js). Panel varsa kısa bir uyarı, yoksa eski kutu. Kayıt
+   yalnız hata olunca yazılır; öz testte dosyaya hiç yazılmaz. */
+const faultGuard = faultGuardLib.createFaultGuard({
+  log: (key, stack, count, origin) => {
+    console.error('[main] yakalanmamış hata (' + count + ', ' + origin + '): ' + stack);
+    if (SMOKE) return;
+    const line = new Date().toISOString() + ' ' + origin + ' x' + count + '\n' + stack + '\n\n';
+    faultGuardLib.appendCapped(fs, path.join(app.getPath('userData'), 'main-errors.log'), line, 256 * 1024);
+  },
+  hasWindow: () => !!(adminWin && !adminWin.isDestroyed() && !adminWin.webContents.isLoading()),
+  notify: (key, count) => notifyAdmin('main-fault', { message: key, count }),
+  fallback: (key, stack) => dialog.showErrorBox('Ses Görselleştirici', stack),
+});
+process.on('uncaughtException', (err, origin) => faultGuard.handle(err, origin));
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
@@ -6585,6 +6602,8 @@ async function runSmoke() {
   // Öz testin küçük resim klasörü geçici (#575)
   closeThumbWin();
   if (smokeThumbDir) { try { fs.rmSync(smokeThumbDir, { recursive: true, force: true }); } catch { /* geçici */ } }
+  // İşleyici kutuyu kaldırdı; ana süreç hatası yine de koşuyu düşürmeli
+  for (const k of faultGuard.errors()) errors.push('main process: uncaught ' + k);
   if (errors.length) {
     console.log('[SMOKE] RESULT: FAIL (' + errors.length + ' error)');
     errors.slice(0, 20).forEach((m) => console.log('[SMOKE]   ! ' + m));

@@ -232,6 +232,7 @@ contextBridge.exposeInMainWorld('api', {
   onDisplaysChanged: (cb) =>
     ipcRenderer.on('displays-changed', (e, data) => cb(data)),
   onRemoteAction: (cb) => ipcRenderer.on('remote-action', (e, action) => cb(action)),
+  onMainFault: (cb) => ipcRenderer.on('main-fault', (e, info) => cb(info)),
   onAudioMeter: (cb) => ipcRenderer.on('audio-meter', (e, data) => cb(data)),
   onAudioSourceStatus: (cb) => ipcRenderer.on('audio-source-status', (e, data) => cb(data)),
   onVisualizerMessage: (cb) =>
