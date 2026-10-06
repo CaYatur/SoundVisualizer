@@ -84,7 +84,7 @@
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
       this.doc = null;
-      this.docKey = '';
+      this.docSrc = '';
       this.t0 = 0;
       this.lastLine = -1;
       this.lastNow = '';
@@ -96,12 +96,13 @@
     resize() {}
 
     _ensureLyrics(t) {
+      /* Anahtar metnin kendisi. Her 17. harfe bakan özet, aynı uzunlukta
+         tek rakamlık bir zaman düzeltmesini çoğu kez kaçırıyordu ve ekran
+         eski zamanlamayla çiziyordu (#695). Ayar değişmedikçe dize aynı
+         başvurudur; karşılaştırma ucuzdur. */
       const src = t.lyricsSource || '';
-      let h = src.length;
-      for (let i = 0; i < src.length; i += 17) h = (h + src.charCodeAt(i)) | 0;
-      const key = src.length + ':' + h;
-      if (key === this.docKey) return;
-      this.docKey = key;
+      if (src === this.docSrc) return;
+      this.docSrc = src;
       this.doc = src && window.SVLyrics ? window.SVLyrics.parse(src) : null;
     }
 
