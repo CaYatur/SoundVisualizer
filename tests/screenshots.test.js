@@ -42,7 +42,7 @@ test('yayın şablonunun logo katmanı logoyu tabandan alıyor, üstüne yazıla
 });
 
 test('üretici logoyu tabandan veriyor ve sahne geçişini kapatıyor', () => {
-  const a = SRC.indexOf('  const applyTemplate = async (id, over) => {');
+  const a = SRC.indexOf('  const applyTemplate = async (id, over, post) => {');
   const b = SRC.indexOf('\n  };', a);
   assert.ok(a > 0 && b > a, 'applyTemplate bulunamadı');
   const body = SRC.slice(a, b);

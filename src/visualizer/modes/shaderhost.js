@@ -587,12 +587,12 @@ void main(){ o = texture(uTex, gl_FragCoord.xy / uSize); }`;
   // Her kare bir önceki kareyi yakınlaştırıp döndürerek ve büzerek çizer,
   // üstüne dalga formunu bindirir. Klasik "sonsuz tünel" görünümü buradan gelir.
   // ==========================================================================
+  /* Denetim değişkenleri (uZoom, uDecay…) BURADA BİLDİRİLMEZ: ShaderHost
+     onları FEEDBACK_CONTROLS'tan kendisi bildiriyor (_paramDecls). İkisi
+     birden "redefinition" ile derlemeyi düşürüyordu ve mod eklendiğinden
+     beri hiçbir şey çizmiyordu; README'nin mod kolajında boş kare olarak
+     bulundu. */
   const FEEDBACK_SHADER = `
-uniform float uZoom; uniform float uRotate; uniform float uWarp; uniform float uDecay;
-uniform float uDx; uniform float uDy; uniform float uSwirl; uniform float uWaveMode;
-uniform float uWaveAmp; uniform float uWaveThick; uniform float uBassZoom;
-uniform float uBassRot; uniform float uSharpen;
-
 void mainImage(out vec4 fragColor, in vec2 fragCoord){
   vec2 res = sv_resolution;
   vec2 uv = fragCoord / res;

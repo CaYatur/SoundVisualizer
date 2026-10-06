@@ -855,7 +855,9 @@
         { icon: LAUNCH_ICONS[slot.launch] || '' },
         { icon: QUANTIZE_ICONS[qk] || '', text: QUANTIZE_SHORT[qk] || '' },
         { icon: FOLLOW_ICONS[slot.follow] || '' },
-        { text: slot.dur ? slot.dur + 's' : '' },
+        /* Süre ölçüden hesaplanınca (124 BPM'de 8 ölçü = 15,4838…) hücreye
+           ham sayı yazılıyor ve satıra sığmıyordu; bir ondalık yeter. */
+        { text: slot.dur ? +(+slot.dur).toFixed(1) + 's' : '' },
       ].filter((x) => x.icon || x.text);
       const meta = [];
       parts.forEach((x, i) => {

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2784 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2787 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 985
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 988
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1413,6 +1413,16 @@ Stabilisation (#695):
   - **A device that kept dropping out was restarted every few seconds.** The capture restart reset its wait as soon as capture started again. A device that started and then failed every time, whether it stalled or exited, was set up again about every 4 seconds for as long as it kept failing. The wait now resets only after capture has run for 15 seconds, so a device that keeps failing is retried after 1, 2, 5 and then every 10 seconds. Checked live by suspending each new helper as soon as it started: the gaps grew from about 6 to 5, 9 and 14 seconds instead of staying at 4.
   - **Removing lyrics from the library did not ask.** Changes made in the lyrics editor live only in the library's copy, so Remove deleted them for good with one click. It now asks first, and a pending title or artist change for that entry is dropped instead of being sent to an entry that is gone. The logo and video libraries still remove without asking: they keep no edits, and the original file stays where it was. Checked live: Cancel kept the entry, and confirming removed it.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
+- **The README, rewritten** · done on the branch. The page had grown into a changelog: the first screen had no download link, setup sat 1,370 lines down, 385 lines of MilkDrop measurements came before most features, and the counts were stale (41 backgrounds and 60 modes, where the catalogue has 43 and 59 plus Off; twelve modes and ten backgrounds were not listed at all). Several features had no mention: Now Playing from Spotify, OSC from Ableton or QLab, the clip deck, the update system, the MilkDrop editor.
+  - **Order.** A showreel GIF, download buttons and the figures first; then why it stands out, a gallery, quick start (download, first run, run from source), who it is for, every feature by category, privacy, an FAQ, and the MilkDrop measurements, build, tests and structure at the end. `README.tr.md` has the same structure.
+  - **Release labels.** Everything on `main` is described; what is not in the v3.1.4 download carries a <kbd>3.1.5</kbd> label, to be removed with the release.
+  - **Claims checked against the code.** Counts come from the mode catalogue, transitions, templates, formulas, solids, shaders, palettes and MCP tool list. Three earlier claims were wrong and are gone: a "Glow" effect that does not exist (the 40 are listed by id), macro knobs on the phone remote (it has none), and a GPU self-test that "measures every mode is not blank" (it checked that each mode built a canvas; see the next item).
+- **The Feedback engine drew nothing** · done on the branch. Its shader declared the control uniforms (`uZoom`, `uDecay`…) that ShaderHost already declares from the control list, and GLSL refused the redefinition: the mode has drawn an empty layer since it was added. Found as an empty tile in the README's mode sheet. The declarations are gone; checked live in an isolated copy (the preview draws the feedback tunnel, `host.error` is null). `tests/shader-control-decls.test.js` fails on the old code, and covers the built-in Studio shaders too. The self-test's mode pass now also fails when a shader-based visualizer holds a compile error, where it only checked that a canvas existed.
+- **The clip deck printed raw durations** · done on the branch. A slot whose length came from bars (8 bars at 124 BPM) showed `15.483870967741936s` in its cell. One decimal now; test included.
+- **The screenshot tool** · done on the branch. `npm start -- --shots` renders everything the README shows.
+  - It no longer captures real audio (the panel showed the user's device name, "Capturing: Speakers (…)", in the published pictures) and never writes settings: the panel is given a demo show for the timeline, clip deck and MilkDrop shots through the same path as MCP, and saving is frozen as in the self-test.
+  - New: the timeline, clip deck, MilkDrop library grid, preset editor and output page; a Now Playing scene with typed-in track details and a generated cover (never the system session, which would publish whatever is playing); six classic gradient GIFs; a showreel GIF without the strobe scene; and two sheets drawn from the mode catalogue, so every mode and background is pictured and a new one appears by itself. The old 16-mode sheet and the June stills are removed.
+  - Audio sensitivity is fixed at 0.6 for the shots. The bars read the time-domain demo signal, which is quieter than loud music, and at the factory 0.25 the pictures came out faint.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
