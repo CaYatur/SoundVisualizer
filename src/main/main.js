@@ -898,6 +898,24 @@ function createVisualizerWindow(display) {
       return;
     }
 
+    /* F11: tam ekran ile pencere arası. Electron'un kendi kısayolu, konum
+       kilidi açık (boyutlanamaz) pencereyi tam ekrana alırken ekranı
+       kaplamıyordu: 1280×1024 ekranda 1294×983 kalıyordu (#695). Tam
+       ekrana girmeden önce kilit kaldırılır; pencereye dönünce
+       leave-full-screen yeniden uygular. Şeffaf pencere tam ekran olamaz. */
+    if (key === 'f11' && !input.control && !input.alt && !input.meta && !input.shift
+        && win.isFullScreenable()) {
+      event.preventDefault();
+      if (win.isFullScreen()) {
+        win.setFullScreen(false);
+      } else {
+        try { win.setResizable(true); } catch { /* yok */ }
+        try { win.setMovable(true); } catch { /* yok */ }
+        win.setFullScreen(true);
+      }
+      return;
+    }
+
     if (isEsc) {
       if (escapeLocked()) {
         event.preventDefault();
@@ -926,6 +944,7 @@ function createVisualizerWindow(display) {
     syncChrome({ forceWindowed: true });
     setTimeout(() => {
       if (!win.isDestroyed() && win._svChromeArmed) syncChrome({ forceWindowed: true });
+      fitWindowedToWorkArea(win);
     }, 0);
   });
   win.webContents.on('did-finish-load', () => {
@@ -1058,9 +1077,29 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      if (status && status.type === 'started') captureRetry = 0;
+      if (status && status.type === 'exited') scheduleCaptureRestart();
       notifyAdmin('audio-source-status', status);
     }
   );
+}
+
+/* Yakalama yardımcısı beklenmedik biçimde kapanınca yeniden kurulur:
+   1, 2, 5, 10 sn arayla, istek sürdükçe. Kaynak listesi değişmediği için
+   syncCapture bunu fark etmiyordu; ses kalıcı olarak kesiliyordu (#695). */
+const CAPTURE_RETRY_MS = [1000, 2000, 5000, 10000];
+let captureRetry = 0;
+let captureRetryTimer = null;
+function scheduleCaptureRestart() {
+  lastCaptureSource = null;
+  if (captureRetryTimer) return;
+  const wait = CAPTURE_RETRY_MS[Math.min(captureRetry, CAPTURE_RETRY_MS.length - 1)];
+  captureRetry += 1;
+  captureRetryTimer = setTimeout(() => {
+    captureRetryTimer = null;
+    if (captureWanted()) syncCapture();
+  }, wait);
+  if (captureRetryTimer.unref) captureRetryTimer.unref();
 }
 
 // Yakalamayı istenen duruma getir (talep eden yoksa durdur, kaynak değiştiyse
@@ -1770,6 +1809,21 @@ ipcMain.on('floating:snap', (e, where) => snapFloating(where));
 ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
 
 /* Tam ekrandan (F11) cekilince tasima/yeniden boyut; kilit cfg.power.geometryLock. */
+/* Tam ekrandan çıkınca pencere ekranı birebir kaplıyorsa çalışma alanına
+   sığdırılır; yoksa pencere olduğu anlaşılmıyor ve görev çubuğunu örtüyor.
+   Electron'un kendi kısayolu bunu yapıyordu, elle geçişte yapılmıyor. */
+function fitWindowedToWorkArea(win) {
+  if (!win || win.isDestroyed() || win.isFullScreen()) return;
+  let b;
+  try { b = win.getBounds(); } catch { return; }
+  const d = screen.getDisplayMatching(b);
+  if (!d || !d.workArea) return;
+  const wa = d.workArea;
+  const full = b.width >= d.bounds.width && b.height >= d.bounds.height;
+  if (!full || (wa.width === d.bounds.width && wa.height === d.bounds.height)) return;
+  try { win.setBounds(wa); } catch { /* yok */ }
+}
+
 function geometryLocked() {
   return !!(currentConfig && currentConfig.power && currentConfig.power.geometryLock);
 }
@@ -3641,6 +3695,18 @@ ipcMain.handle('lyrics-lib:update', (e, id, patch) => {
   publishLyricsLib();
   return r;
 });
+/* Kitaplık içe aktarmalarının ortak sonucu: panel kaçının eklendiğini,
+   kaçının zaten olduğunu ve kaçının eklenemediğini söyleyebilsin. Eskiden
+   yinelenen ya da başarısız seçim sessizce hiçbir şey yapmıyordu (#695). */
+function tallyImport(one, added, tally) {
+  if (one && one.ok) added.push(one.item);
+  else if (one && one.error === 'DUPLICATE') tally.duplicates += 1;
+  else tally.failed += 1;
+}
+function importResult(added, tally) {
+  return { ok: added.length > 0, added, duplicates: tally.duplicates, failed: tally.failed };
+}
+
 ipcMain.handle('lyrics-lib:import', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
     title: trUi('Söz Kütüphanesine Ekle', 'Add Lyrics to Library'),
@@ -3652,15 +3718,16 @@ ipcMain.handle('lyrics-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     let text = '';
     try { text = fs.readFileSync(file, 'utf8'); } catch { text = ''; }
     const meta = lyricsSync.guessMeta(text, path.basename(file));
     const one = lyricsLibrary.importFile(lyricsLibDir(), file, path.basename(file), meta);
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
   publishLyricsLib();
-  return { ok: added.length > 0, added };
+  return importResult(added, tally);
 });
 
 ipcMain.handle('logo-lib:import', async () => {
@@ -3674,11 +3741,12 @@ ipcMain.handle('logo-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     const one = logoLibrary.importFile(logoLibDir(), file, path.basename(file));
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
-  return { ok: true, added };
+  return importResult(added, tally);
 });
 
 ipcMain.handle('media-lib:list', () => {
@@ -3700,11 +3768,12 @@ ipcMain.handle('media-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     const one = await mediaLibrary.importFileAsync(mediaLibDir(), file, path.basename(file));
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
-  return { ok: added.length > 0, added };
+  return importResult(added, tally);
 });
 
 // ----------------------------------------------------------------------------

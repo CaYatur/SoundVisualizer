@@ -202,6 +202,7 @@
         ? () => window.api.logoLibImport() : null);
       if (!pull) return;
       const r = await pull();
+      if (window.SVPanel && window.SVPanel.importNote) window.SVPanel.importNote(r);
       if (r && r.ok) await refresh();
     });
 

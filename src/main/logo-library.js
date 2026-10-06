@@ -159,6 +159,48 @@ function createLibrary(spec) {
     return loadManifest(dir).items.filter((x) => x && x.id).map(publicItem);
   }
 
+  /* Aynı dosya ikinci kez seçilince yeniden kopyalanıyordu; video
+     kitaplığında bu her seferinde yüzlerce MB demek (#695). Boyut aynıysa
+     baştan ve sondan 1 MB'lık parmak izi karşılaştırılır; bütün dosya
+     okunmaz. Eski kayıtların izi ilk karşılaştırmada hesaplanır. */
+  const FP_BYTES = 1024 * 1024;
+  function fingerprint(file, size) {
+    let fd;
+    try { fd = fs.openSync(file, 'r'); } catch { return ''; }
+    try {
+      const h = crypto.createHash('sha1');
+      const n = Math.min(FP_BYTES, size);
+      const head = Buffer.alloc(n);
+      fs.readSync(fd, head, 0, n, 0);
+      h.update(head);
+      if (size > FP_BYTES) {
+        const m = Math.min(FP_BYTES, size - FP_BYTES);
+        const tail = Buffer.alloc(m);
+        fs.readSync(fd, tail, 0, m, size - m);
+        h.update(tail);
+      }
+      h.update(String(size));
+      return h.digest('hex');
+    } catch {
+      return '';
+    } finally {
+      try { fs.closeSync(fd); } catch { /* kapalı */ }
+    }
+  }
+
+  function findDuplicate(dir, srcPath, size) {
+    let mine = null;
+    for (const it of loadManifest(dir).items) {
+      if (!it || it.size !== size) continue;
+      const r = resolveId(dir, it.id);
+      if (!r) continue;
+      if (mine === null) mine = fingerprint(srcPath, size);
+      if (!mine) return null;
+      if ((it.fp || fingerprint(r.file, r.size)) === mine) return it;
+    }
+    return null;
+  }
+
   function prepare(dir, srcPath, originalName) {
     if (!dir || typeof dir !== 'string') return { ok: false, error: 'DIR' };
     if (!srcPath || typeof srcPath !== 'string') return { ok: false, error: 'READ' };
@@ -168,6 +210,8 @@ function createLibrary(spec) {
     let st;
     try { st = fs.statSync(srcPath); } catch { return { ok: false, error: 'READ' }; }
     if (!st.isFile() || st.size <= 0 || st.size > MAX_BYTES) return { ok: false, error: 'SIZE' };
+    const dup = findDuplicate(dir, srcPath, st.size);
+    if (dup) return { ok: false, error: 'DUPLICATE', item: publicItem(dup) };
     ensureDir(dir);
     const id = newId();
     const fileName = id + ext;
@@ -190,6 +234,7 @@ function createLibrary(spec) {
       mime: MIME[prep.ext],
       kind: kindOf(prep.fileName),
       size: prep.st.size,
+      fp: fingerprint(prep.dest, prep.st.size),
       createdAt: Date.now(),
     };
     const man = loadManifest(dir);

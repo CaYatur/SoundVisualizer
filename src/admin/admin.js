@@ -424,6 +424,14 @@
     apply: () => { render(); push(true); },
     toast: svToast,
     confirm: svConfirm,
+    /* Kitaplık içe aktarmasının sonucu (ana süreç importResult). Yinelenen
+       ya da eklenemeyen seçim artık sessiz kalmıyor. */
+    importNote: (r) => {
+      if (!r || r.canceled) return;
+      // Tek bildirim kutusu var: eklenemeyen dosya daha önemli
+      if (r.failed > 0) svToast(tr('Dosya eklenemedi: biçim desteklenmiyor, dosya boş ya da çok büyük.'), 'warn');
+      else if (r.duplicates > 0) svToast(tr('Seçilen dosya kitaplıkta zaten var; yeniden eklenmedi.'), 'warn');
+    },
     /* Görselleştirici tür etiketleri, TEK kaynaktan: bölüm şemasındaki tür
        seçicisi. Otomatik VJ paneli bunları kendi listesinde tekrar etseydi
        yeni bir tür eklenince iki liste sessizce ayrışırdı. */
@@ -4477,6 +4485,9 @@
   let audioUiKind = 'idle';
   let audioCaptureDevice = null;
   let audioCaptureFromStatus = false; // true after onAudioSourceStatus started
+  /* Yeniden denemede aynı hata tekrar gelir; kapatılan başlık her denemede
+     yeniden açılmasın. Yakalama başlayınca sıfırlanır. */
+  let audioErrShown = null;
 
   function setAudioState(text, cls, icon) {
     const a = $('audioState');
@@ -5823,6 +5834,7 @@
     window.api.onAudioSourceStatus((s) => {
       if (s.type === 'started') {
         markAudioCapturing(s.device || 'çıkış');
+        audioErrShown = null;
         $('banner').classList.add('hidden');
         // başlatılan aygıtlardan herhangi biri listede yoksa listeyi tazele
         if (s.device) {
@@ -5843,8 +5855,20 @@
       } else if (s.type === 'error') {
         audioUiKind = 'err';
         setAudioState('Ses yakalanamadı', 'err', 'warning');
-        $('bannerDetail').textContent = s.message || 'Çıkış aygıtı yakalanamadı.';
-        $('banner').classList.remove('hidden');
+        const msg = s.message || 'Çıkış aygıtı yakalanamadı.';
+        if (msg !== audioErrShown) {
+          audioErrShown = msg;
+          $('bannerDetail').textContent = msg;
+          $('banner').classList.remove('hidden');
+        }
+      } else if (s.type === 'exited') {
+        /* Yardımcı beklenmedik biçimde kapandı; ana süreç yeniden kuruyor.
+           "started" gelince durum kendiliğinden düzelir. Hemen önce bir hata
+           geldiyse onun etiketi kalır: neden orada yazıyor. */
+        if (audioUiKind === 'err') return;
+        audioUiKind = 'idle';
+        audioCaptureFromStatus = false;
+        setAudioState('Ses yakalama durdu, yeniden bağlanıyor…', 'warn', 'warning');
       }
     });
 

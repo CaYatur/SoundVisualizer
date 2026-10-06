@@ -43,3 +43,21 @@ test('MCP sunucu sürümü paketten geliyor', async () => {
   assert.strictEqual(out.result.serverInfo.version, pkg.version);
   assert.ok(!/version: '\d+\.\d+\.\d+/.test(read('src/shared/mcp.js')), 'sürüm elle yazılmamalı');
 });
+
+/* Konum kilidi açıkken F11 ile tam ekrana dönen pencere ekranı kaplamıyordu
+   (1280×1024 ekranda 1294×983): Electron boyutlanamaz pencereyi tam ekrana
+   doğru alamıyor. F11 ana süreçte ele alınıyor; tam ekrana girmeden kilit
+   kalkıyor, pencereye dönünce geri geliyor. Gerçek tuşla doğrulandı. */
+test('F11 kilitli pencereyi tam ekrana alırken önce kilidi kaldırır', () => {
+  const M = read('src/main/main.js');
+  const at = M.indexOf("if (key === 'f11'");
+  assert.ok(at > 0, 'F11 işleyicisi');
+  const h = M.slice(at, M.indexOf('if (isEsc)', at));
+  assert.match(h, /win\.isFullScreenable\(\)/);
+  assert.match(h, /event\.preventDefault\(\);/);
+  assert.ok(h.indexOf('win.setResizable(true)') < h.indexOf('win.setFullScreen(true)'), 'kilit önce kalkmalı');
+  assert.ok(h.indexOf('win.setMovable(true)') < h.indexOf('win.setFullScreen(true)'));
+  // Pencereye dönüşte ekranı birebir kaplıyorsa çalışma alanına sığar
+  assert.match(M, /fitWindowedToWorkArea\(win\);/);
+  assert.match(M, /function fitWindowedToWorkArea\(win\)/);
+});
