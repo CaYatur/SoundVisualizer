@@ -246,6 +246,8 @@ async function start(cfg) {
   const c = cfg || {};
   wantConnected = true;
   retryIndex = 0;
+  /* Bekleyen yeniden deneme, şimdi kurulacak bağlantıyı sonradan koparırdı. */
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   setState({ running: true });
   try {
     await connect(c);

@@ -2898,14 +2898,45 @@ function syncTextureShare() {
   });
 }
 
-function syncOpenRgb() {
+/* OpenRGB bağlantısı yalnız açılınca ya da adres veya port değişince
+   kurulur. Aygıt seçimi, parlaklık ve kare hızı her karede güncel ayardan
+   okunuyor (openrgb.send). Eskiden her ayar gönderimi soketi kapatıp
+   yeniden bağlanıyor ve bütün aygıtları yeniden listeliyordu: kaydırıcı
+   sürüklenirken saniyede ~14 bağlantı, her tıklamada bir tane; ışıklara o
+   arada renk gitmiyordu (#695). Kopan bağlantıyı modülün kendi yeniden
+   deneme zamanlayıcısı kurar. */
+let openRgbKey = null;
+let openRgbStarting = null;
+let openRgbStartedAt = 0;
+/* opts.retry: panelden gelen istek. Bağlantı kopmuşsa zamanlayıcıyı
+   beklemeden hemen yeniden dener; bağlanırken gelirse onu bekler. Sunucu
+   el sıkışmada bağlantıyı sessizce kapatırsa start() hiç sonuçlanmıyor;
+   bekleyen deneme bu yüzden en çok 10 sn paylaşılır. */
+function syncOpenRgb(opts) {
   const o = (currentConfig && currentConfig.openrgb) || {};
   // Otomasyonda OpenRGB sunucusuna bağlanılmıyor (bkz. HW_OFF)
-  if (!o.enabled || HW_OFF) return openrgb.stop().then(() => openrgb.status());
-  return openrgb.start(o).then((st) => {
+  if (!o.enabled || HW_OFF) {
+    openRgbStarting = null;
+    if (openRgbKey === null && !openrgb.status().running) return Promise.resolve(openrgb.status());
+    openRgbKey = null;
+    return openrgb.stop().then(() => openrgb.status());
+  }
+  const key = (o.host || '127.0.0.1') + '|' + (Number(o.port) || 0);
+  const now = openrgb.status();
+  if (key === openRgbKey && now.running) {
+    const retry = !!(opts && opts.retry);
+    if (!retry || now.connected) return Promise.resolve(now);
+    if (openRgbStarting && Date.now() - openRgbStartedAt < 10000) return openRgbStarting;
+  }
+  openRgbKey = key;
+  const run = openrgb.start(o).then((st) => {
+    if (openRgbStarting === run) openRgbStarting = null;
     notifyAdmin('openrgb-status', st);
     return st;
   });
+  openRgbStarting = run;
+  openRgbStartedAt = Date.now();
+  return run;
 }
 
 function syncOscServer() {
@@ -3006,8 +3037,14 @@ ipcMain.handle('osc:sync', () => syncOscServer());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('openrgb:status', () => openrgb.status());
-ipcMain.handle('openrgb:sync', () => syncOpenRgb());
-ipcMain.handle('openrgb:rescan', () => (HW_OFF ? openrgb.status() : openrgb.rescan()));
+ipcMain.handle('openrgb:sync', () => syncOpenRgb({ retry: true }));
+/* Bağlı değilken "Aygıtları Yenile" bağlanmayı yeniden dener: OpenRGB
+   uygulama açıldıktan sonra başlatıldıysa beklemek gerekmesin. */
+ipcMain.handle('openrgb:rescan', () => {
+  if (HW_OFF) return openrgb.status();
+  if (!openrgb.status().connected) return syncOpenRgb({ retry: true });
+  return openrgb.rescan();
+});
 ipcMain.handle('texture:status', () => textureShare.status());
 ipcMain.handle('texture:sync', () => syncTextureShare());
 ipcMain.handle('texture:senders', () => textureShare.listSenders());

@@ -55,11 +55,18 @@ test('Dynamic Lighting: her ayar tek yoldan, otomasyonda kapalı', () => {
 
 test('OpenRGB ve Art-Net: otomasyonda hiç başlatılmıyor', () => {
   assert.match(functionBody(M, 'syncArtnet'), /if \(!a\.enabled \|\| HW_OFF\) return artnet\.stop\(\)/);
-  assert.match(functionBody(M, 'syncOpenRgb'), /if \(!o\.enabled \|\| HW_OFF\) return openrgb\.stop\(\)/);
+  /* Kapalıyken ya da otomasyonda blok start'tan önce döner (#695'ten beri
+     bağlantı her gönderimde yeniden kurulmadığı için blok çok satırlı). */
+  const orgb = functionBody(M, 'syncOpenRgb');
+  const off = orgb.match(/if \(!o\.enabled \|\| HW_OFF\) \{([\s\S]*?)\n  \}/);
+  assert.ok(off, 'kapalı/otomasyon bloğu');
+  assert.match(off[1], /return openrgb\.stop\(\)/);
+  assert.ok(orgb.indexOf(off[0]) < orgb.indexOf('openrgb.start('), 'start bloktan sonra');
   // Başlatma yalnız bu iki işlevde
   assert.strictEqual((M.match(/artnet\.start\(/g) || []).length, 1);
   assert.strictEqual((M.match(/openrgb\.start\(/g) || []).length, 1);
-  assert.match(M, /ipcMain\.handle\('openrgb:rescan', \(\) => \(HW_OFF \? openrgb\.status\(\) : openrgb\.rescan\(\)\)\);/);
+  const rescanAt = M.indexOf("ipcMain.handle('openrgb:rescan'");
+  assert.match(M.slice(rescanAt, M.indexOf('\n});', rescanAt)), /^ipcMain\.handle\('openrgb:rescan', \(\) => \{\s*if \(HW_OFF\) return openrgb\.status\(\);/);
   /* Ses karesiyle giden gönderimler başlatılmamış bir bağlantıda hiçbir şey
      yapmıyor: başlatılmayınca paket de yok. */
   assert.match(stripComments(read('src/main/artnet.js')), /function send\(cfg, frame\) \{\s*if \(!socket \|\| !state\.running/);
