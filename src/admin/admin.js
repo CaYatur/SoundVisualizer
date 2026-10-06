@@ -3122,7 +3122,7 @@
         icon: 'gear',
         title: 'Uygulama',
         desc: '',
-        roots: ['power.alwaysOnTop', 'power.keepAwake', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        roots: ['power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         controls: [
           { type: 'language', group: 'Dil' },
           {
@@ -3134,6 +3134,13 @@
             type: 'toggle', path: 'power.keepAwake', label: 'Görselleştirme Açıkken Ekranı Uyanık Tut',
             group: 'Pencere',
             hint: 'Görselleştirme penceresi açıkken ekranın kararması ve uykuya geçmesi engellenir. Pencere kapanınca ya da simge durumuna küçültülünce güç ayarlarınız yeniden geçerli olur.',
+          },
+          {
+            /* Varsayılan kapalı: donanımla çözülen video tam ekran pencerede ve
+               Spout/Syphon çıkışında kare üretmiyordu (bkz. src/main/video-decode.js). */
+            type: 'toggle', path: 'power.hwVideoDecode', label: 'Donanım Video Çözme',
+            group: 'Pencere',
+            hint: 'Medya katmanındaki videolar varsayılan olarak işlemciyle çözülür; tam ekranda ve Spout/Syphon çıkışında akıcı kalırlar. HEVC/H.265 videolar (ör. telefon kayıtları) için ya da zayıf bir işlemcide 4K için açın; o zaman tam ekran ve Spout çıkışında video donabilir. Değişiklik uygulama yeniden başlatılınca geçerli olur.',
           },
           {
             type: 'toggle', path: 'power.protect', label: 'Kaza Koruması', rebuild: true,

@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2787 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2793 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 988
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 994
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1423,6 +1423,15 @@ Stabilisation (#695):
   - It no longer captures real audio (the panel showed the user's device name, "Capturing: Speakers (…)", in the published pictures) and never writes settings: the panel is given a demo show for the timeline, clip deck and MilkDrop shots through the same path as MCP, and saving is frozen as in the self-test.
   - New: the timeline, clip deck, MilkDrop library grid, preset editor and output page; a Now Playing scene with typed-in track details and a generated cover (never the system session, which would publish whatever is playing); six classic gradient GIFs; a showreel GIF without the strobe scene; and two sheets drawn from the mode catalogue, so every mode and background is pictured and a new one appears by itself. The old 16-mode sheet and the June stills are removed.
   - Audio sensitivity is fixed at 0.6 for the shots. The bars read the time-domain demo signal, which is quieter than loud music, and at the factory 0.25 the pictures came out faint.
+- **Media layer video froze in full screen and in Spout** · done on the branch. Reported: a video file played smoothly in the OBS overlay but stuttered or stopped in every desktop output; hovering the window's taskbar thumbnail made it run, moving away stopped it again; the Spout feed froze too.
+  - **Measured** in an isolated copy with a 1080p60 test clip and the visualizer set to Off, so only the video moves. Per player `getVideoPlaybackQuality()` and loop count, plus the screen itself through DXGI capture. Full-screen visualizer, hidden Spout window and panel preview: 0.3 decoded frames a second and the clip stuck at its last frame; the screen showed one new frame in six seconds.
+  - **Variables separated** one at a time: player count (one player in a full-screen window still stalls), transparency (an opaque window taken out of full screen plays), and composition (the same full-screen window plays at 60 fps once a 1-pixel window overlaps its corner, which is what the taskbar thumbnail does). Earlier guesses, open-ended range requests, background media suspend and occlusion tracking, were each ruled out by measurement.
+  - **Cause.** The layer draws an off-DOM `<video>` into a canvas. Chromium's hardware decoder (D3D11 on Windows) only produced frames for it while the window went through the desktop compositor; a full-screen window that Windows presents directly, and the off-screen Spout window, did not, and one such player held the others back. The OBS overlay is drawn by OBS's own browser, which is why it stayed smooth.
+  - **Fix.** Video is decoded in software by default (`disable-accelerated-video-decode`, set before any window opens, `src/main/video-decode.js`). This does not depend on how the window is presented, and the switch works the same on macOS; Chromium on Linux already decodes in software. Measured after the change with no manual flags: full-screen window, Spout and preview all at 60 decoded frames a second with clean loops, and 52-56 new frames a second on the screen. Cost: about half a core per 1080p60 player (three players: 185% of one core on a 32-thread machine).
+  - **Setting.** *Settings → Application → Hardware Video Decoding* (off; applies after a restart) for HEVC/H.265, which Chromium only plays in hardware, or 4K on a weak CPU. Checked both ways: with it on, the switch is absent and an HEVC clip plays; with it off, the layer reports "This video format cannot be played. If it is HEVC/H.265, turn on …" instead of Chromium's raw message. Errors raised during playback now reach the panel (the `error` event was not listened to), and the message on the canvas wraps instead of running off the edges.
+  - **Not verified:** a real Mac or Linux desktop, and a Spout receiver (the decode in the Spout window was measured, not the received texture).
+  - Tests: `tests/video-decode.test.js` (the setting parser, the switch before `app.whenReady`, the default, the panel toggle and its English, the error text, the wrap).
+- **Package metadata in English** · done on the branch. `package.json`'s description was Turkish; it now describes the app in English, and the author and the Linux maintainer read CaYaDev. The product name and artifact names (`CAYADEV Visualizer`, `CAYADEV-Visualizer-…`) are unchanged on purpose: AppImages already installed look for their next update by the `CAYADEV-Visualizer-*` file name built into them (`scripts/appimage-update-info.sh`), the release script expects those names, and the product name decides the install folder, shortcut and app name users already have. Renaming is possible, but as its own change with a migration.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

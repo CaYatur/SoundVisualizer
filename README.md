@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2787%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2793%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -662,6 +662,11 @@ ticker · karaoke highlighting.
   contain, stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode,
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`.
+- **Smooth on every output** <kbd>3.1.5</kbd> — videos are decoded on the CPU by default, so they
+  play at full frame rate in full-screen windows and in the Spout/Syphon feed. With hardware
+  decoding, Chromium produced almost no frames there (0.3 per second, measured) and the clip froze
+  at its loop point. HEVC/H.265 videos need **Settings → Application → Hardware Video Decoding**
+  (applies after a restart); the panel says so when such a file will not open.
 
 ---
 
@@ -1120,6 +1125,11 @@ application does not register itself as an operating-system screen saver.
 Both are built on CI runners and the audio engine loads there, but neither build has yet been run on
 real hardware by the project. Windows is where everything is measured. Reports from Mac and Linux
 users are very welcome.
+
+**My video freezes in full screen or in Spout, or an iPhone video will not play.**
+Videos are decoded on the CPU by default, which keeps them smooth in full screen and in the
+Spout/Syphon feed <kbd>3.1.5</kbd>. HEVC/H.265 files (common from phones) can only be decoded in
+hardware: turn on Settings → Application → Hardware Video Decoding and restart the app.
 
 **Is my data sent anywhere?**
 No. See [Privacy and security](#privacy-and-security).
@@ -1592,7 +1602,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2787 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2793 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
