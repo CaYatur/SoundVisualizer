@@ -99,3 +99,54 @@ test('panel yeniden bağlanmayı gösterir, aynı hatayla başlığı yeniden a�
   assert.match(read('src/admin/admin.css'), /\.audio-state\.warn \{/);
   assert.ok(read('src/shared/i18n.js').includes("'Ses yakalama durdu, yeniden bağlanıyor…': 'Audio capture stopped, reconnecting…',"));
 });
+
+/* Yardımcı canlı ama kare kesildi (uykudan dönüş, askıya alınmış süreç).
+   Canlıda süreç askıya alınarak bulundu: kareler 0'a düştü, panel
+   "Yakalanıyor" dedi ve hiçbir şey yeniden kurulmadı. */
+function frame() { return Buffer.alloc(16); }
+
+test('kare kesilirse yardımcı öldürülür ve yeniden kurulur', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1000000 });
+  const { na, children } = loadWithFakeSpawn();
+  const seen = [];
+  na.startCapture(['default'], () => {}, (s) => seen.push(s.type));
+  const c = children[0];
+  let killed = 0;
+  const kill = c.kill;
+  c.kill = () => { killed++; kill(); };
+  for (let i = 0; i < 5; i++) { c.stdout.emit('data', frame()); t.mock.timers.tick(1000); }
+  assert.strictEqual(killed, 0, 'kare akarken öldürülmemeli');
+  for (let i = 0; i < 4; i++) t.mock.timers.tick(1000);
+  assert.strictEqual(killed, 1, 'kare 3 sn kesilince öldürülmeli');
+  await tick();
+  assert.deepStrictEqual(seen, ['exited']);
+});
+
+test('ilk kare gelmeden bekçi bir şey yapmaz', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1000000 });
+  const { na, children } = loadWithFakeSpawn();
+  na.startCapture(['default'], () => {}, () => {});
+  let killed = 0;
+  children[0].kill = () => { killed++; };
+  for (let i = 0; i < 20; i++) t.mock.timers.tick(1000);
+  assert.strictEqual(killed, 0);
+  na.stopCapture();
+});
+
+test('olay döngüsü tıkalıyken geçen süre kesinti sayılmaz', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'Date'], now: 1000000 });
+  const { na, children } = loadWithFakeSpawn();
+  na.startCapture(['default'], () => {}, () => {});
+  const c = children[0];
+  let killed = 0;
+  c.kill = () => { killed++; };
+  c.stdout.emit('data', frame());
+  // Ana süreç 10 sn tıkandı ya da sistem uyudu: tik geç geliyor
+  t.mock.timers.setTime(Date.now() + 10000);
+  t.mock.timers.tick(1000);
+  assert.strictEqual(killed, 0, 'geç gelen tik kesinti sayılmamalı');
+  c.stdout.emit('data', frame());
+  t.mock.timers.tick(1000);
+  assert.strictEqual(killed, 0);
+  na.stopCapture();
+});
