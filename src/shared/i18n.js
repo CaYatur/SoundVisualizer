@@ -3575,6 +3575,10 @@
     "tr": "Genel ve katman efektlerini ve hazır tür kataloğunu listeler. Salt okunur.",
     "en": "List global and per-layer effects plus the built-in type catalog. Read-only."
   },
+  "mcp.tool.sv_list_modes": {
+    "tr": "Bütün görselleştirici ve arkaplan mod kimliklerini, katman türlerini ve karışım kiplerini listeler. Salt okunur.",
+    "en": "List every visualizer and background mode id, the layer kinds and blend modes. Read-only."
+  },
   "mcp.tool.sv_list_presets": {
     "tr": "Kitaplık presetlerini ve kullanıcı renk presetlerini listeler. Salt okunur.",
     "en": "List library presets and user color presets. Read-only."

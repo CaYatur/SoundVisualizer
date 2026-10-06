@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2721%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2733%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -801,7 +801,7 @@ a local model behind an MCP client and uses that same command.
 
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
-version. The server name is `soundvisualizer`. There are **95 tools**.
+version. The server name is `soundvisualizer`. There are **96 tools**.
 
 The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
 token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
@@ -830,8 +830,8 @@ folder is re-read and open windows receive the delta.
 The master switch is enough. These calls only read.
 
 - `sv_get_state` returns the show: active preset, scenes, layers, effects that are on, displays,
-  BPM and levels, now playing, the layer stack, stream status and Spout/Syphon status. In the
-  running application the analysis field on this call is empty.
+  BPM and levels, now playing, the layer stack, stream status, Spout/Syphon status and the live
+  analysis from the panel preview (empty while the preview has no sound).
 - `sv_get_visual_state`, `sv_list_layers`, `sv_get_layer` and `sv_get_layer_stack` return layer
   position, settings and per-layer effects.
 - `sv_get_preview` adds a JPEG of the picture on screen, at most 480 pixels wide. It uses an open
@@ -839,7 +839,9 @@ The master switch is enough. These calls only read.
 - `sv_get_audio` returns level, bass, mid, treble, BPM and confidence from the same meter the panel
   draws. `sv_get_now_playing` returns the current track. `sv_list_audio_sources` lists the
   configured inputs.
-- `sv_list_scenes` and `sv_get_scene` read saved scenes. `sv_list_effects` lists the global chain,
+- `sv_list_scenes` and `sv_get_scene` read saved scenes. `sv_list_modes` lists every visualizer and
+  background id, layer kind and blend mode; the mode and layer tools reject an id it does not list.
+  `sv_list_effects` lists the global chain,
   each layer's chain, and the 40 built-in effect types. `sv_list_presets` lists library presets
   and user colour palettes. `sv_list_displays` lists screens.
 - `sv_get_output_status` reads which visualizer windows are open, the stream switch, port and LAN
@@ -929,13 +931,16 @@ Opens the live surfaces.
 `sv_patch_config` sets any other dotted path. The mode follows the path: scene content, effects
 and presets need **Write**; export paths need **Write**; displays, stream, lighting, mapping,
 windows and the timeline need **Full**; `control.*` (MIDI and OSC bindings) needs **Everything**.
-The paths `mcp.*`, `__proto__`, `prototype` and `constructor` are refused.
+A path that holds a stricter one needs that mode too: the whole `stream` object needs
+**Everything** because it holds the tokens, and the whole `power`, `audio`, `background` and
+`transition` objects need **Full**. A path the table does not know needs **Everything**. The paths
+`mcp.*`, `version`, `__proto__`, `prototype` and `constructor` are refused.
 
-The tool list also names `sv_updates_download`, `sv_updates_install`, `sv_repair_audio` and
-`sv_rotate_stream_token` at **Everything**, and the reads `sv_diagnose_audio` and
-`sv_get_analysis`. The running application does not connect those six. A call returns that the
-action is not available in this process, and the analysis value comes back empty. Live levels and
-BPM stay on `sv_get_audio`.
+`sv_updates_download` and `sv_updates_install` download and install an update the app has found.
+`sv_rotate_stream_token` replaces the OBS or remote token. `sv_repair_audio` restarts capture when
+the audio component is healthy; when it is missing it says so, because installing it needs the
+user's consent. All four need **Everything**. The reads `sv_diagnose_audio` and `sv_get_analysis`
+return the capture diagnosis and the live analysis (key, chord, pitch, loudness, drum bands).
 
 ---
 
@@ -1271,15 +1276,15 @@ crosses, colour bars and focus rings · drag, arrow-key nudge and exact numeric 
 
 ### MCP — Model Context Protocol
 
-The feature section above is the full tool list. In short: **95 tools** on `127.0.0.1` port
+The feature section above is the full tool list. In short: **96 tools** on `127.0.0.1` port
 **38471**, reached through the stdio bridge from the Control card. **Read** sees the show, the
 live JPEG, levels and BPM. **Apply** loads scenes, templates, modes, clips, existing effects and
 library presets. **Write** authors scenes, layers, text, logo, media, geometry, effects,
 modulation, Studio and MilkDrop presets, Auto VJ, export, snapshots and the live recorder.
 **Full** opens displays, the stream, Spout/Syphon, aspect, the floating window, lighting, OpenRGB,
 Art-Net, mapping, timeline transport and blackout. **Everything** is what `sv_patch_config` needs
-before it will write MIDI and OSC bindings. The listed update, audio-repair, token-rotation,
-audio-diagnosis and analysis calls are not connected in the running application.
+before it will write MIDI and OSC bindings, and it also allows the update, audio-repair and
+token-rotation calls.
 
 ### Windows Dynamic Lighting
 
@@ -1516,7 +1521,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2721 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2733 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
