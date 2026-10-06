@@ -1350,7 +1350,12 @@
 
     if (l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom')) {
       l.settings = l.settings || {};
-      const defVis = def.visualizer || {};
+      /* Katman yazmamışsa motor sahnenin görselleştirici ayarını kullanıyor
+         (layers.js layerConfig: cfg.visualizer + katman). Panel fabrika
+         değerini gösterince ekranda gökkuşağı çizilirken burada "Renk
+         Teması" yazıyordu (#695). Gösterilen değer çizilenle aynı olsun;
+         sıfırlama yine fabrika değerine döner. */
+      const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
       if (l.kind === 'nowplaying') l.type = 'nowplaying';
       const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
@@ -1618,8 +1623,14 @@
       if (own.length) {
         const modeObj = (bg[l.type] = bg[l.type] || {});
         const defModeObj = defBg[l.type] || {};
+        /* Katman yazmamışsa motor sahnedeki değeri çiziyor (layerConfig:
+           cfg.background + katman); gösterilen değer de o olsun. Sıfırlama
+           fabrika değerine döner (#695). */
+        const sceneModeObj = (cfg.background && cfg.background[l.type]) || {};
         own.forEach(([key, label, min, max, step, percent]) => {
-          const curVal = () => modeObj[key] !== undefined ? modeObj[key] : (defModeObj[key] !== undefined ? defModeObj[key] : min);
+          const curVal = () => modeObj[key] !== undefined ? modeObj[key]
+            : (sceneModeObj[key] !== undefined ? sceneModeObj[key]
+              : (defModeObj[key] !== undefined ? defModeObj[key] : min));
           const fallback = defModeObj[key] !== undefined ? defModeObj[key] : min;
           out.push(miniSlider(label, curVal, (v) => { modeObj[key] = v; }, { min, max, step, percent, def: fallback }));
         });

@@ -5322,6 +5322,10 @@
   async function init() {
     // Durağan HTML'deki ikonlar (üst çubuk, bantlar, dock): ayarları beklemeden
     if (window.SVIcons) window.SVIcons.hydrate(document);
+    /* Seçili arayüz dilini ana sürece EN BAŞTA bildir (diyaloglar, ekran
+       adları, yayın sayfaları). Ekran listesi bundan önce istenince dil
+       değiştikten sonra adlar eski dilde kalıyordu ("Display 1 (Primary)"). */
+    try { window.api.setUiLanguage(window.SVI18n.locale); } catch { /* i18n yok */ }
     const saved = await window.api.getSettings();
     if (saved) cfg = window.SV.deepMerge(window.SV.defaultConfig(), saved);
     if (window.SVLayers && window.SVLayers.syncStackState) {
@@ -5414,8 +5418,6 @@
       if (platformTouched) push(true);
     }
 
-    // Seçili arayüz dilini ana sürece bildir (diyaloglar ve yayın sayfaları)
-    try { window.api.setUiLanguage(window.SVI18n.locale); } catch { /* i18n yok */ }
 
     // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları).
     // render() bunlara bakacağı için ÇİZİMDEN ÖNCE yüklenmeli.

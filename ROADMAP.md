@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2706 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2709 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 907
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 910
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1379,6 +1379,11 @@ Stabilisation (#695):
   - **The settings file is written once a drag ends.** It was written every 300 ms while a slider moved: about 640 KB of JSON, synchronously, in the main process. It is now written 300 ms after the last change, and at most 2 s after the first unsaved one, so a long drag still saves. A pending write is still flushed on quit. With this, the main process's 95th percentile during a drag fell from about 16 ms to 10–14 ms.
   - **The MCP preset poll is a slow fallback.** With MCP on, the panel asked for preset changes every 400 ms, and each request listed the preset folder (about 10,000 names) in the main process. The main process already broadcasts after every MCP request and when the folder watcher sees a change, so the poll now runs every 3 s and not while the window is hidden.
   - **Logo and cover glow no longer reallocate every frame.** The audio pulse changes the picture's size every frame, and the glow's two scratch canvases were resized each time. They now only grow, with some headroom, and only the used area is drawn. With a pulsing logo at 1080p a frame took 0.56–0.76 ms before and 0.26 ms after. Compared pixel by pixel with the old code in the same page: only the soft halo differs, by at most 7/255, because the GPU blur works slightly differently on a larger canvas.
+- **Review pass** · done on the branch. A script added every layer kind with the reporter's settings, opened every layer and tab, and changed every switch, slider, list and segment in every category. That was 423 controls on Scene alone, with errors collected in the panel and in the Spout window. It found no error. After all the changes, the panel, its preview and the Spout window held the same 22 layers in the same order. Two small bugs were found while reading code:
+  - After a language switch, display names stayed in the old language ("Display 1 (Primary)" in Turkish), because the panel asked for the display list before it told the main process the language.
+  - With Follow the Playing Track on, lyrics matching normalised the whole lyrics library every frame, for every text layer on every screen. The result is now kept while the library, the track and the match mode stay the same.
+  - A visualizer or background layer without its own value is drawn with the scene's value: the renderer merges the scene's visualizer or background with the layer. The panel showed the factory value instead, so a layer could show "Colour Theme" in the panel while it drew a rainbow. The panel now shows the value that is drawn; a reset still returns to the factory value.
+  - The OBS overlay page was checked with the new patch protocol: during a drag it received each change, then the full configuration, and kept the 22 scenes the phone remote needs.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
