@@ -800,6 +800,7 @@ video.logo-lib-thumb { pointer-events: none; }
 }
 .audio-state.ok { color: var(--ok); }
 .audio-state.err { color: #ff7a7a; }
+.audio-state.warn { color: var(--warn); }
 
 /* --- sahneler --- */
 .scene-list {

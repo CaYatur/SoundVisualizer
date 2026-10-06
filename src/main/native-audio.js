@@ -338,6 +338,11 @@ function startCapture(devices, onFrame, onStatus) {
           message: (m && m[2].trim()) || s,
         });
       }
+    } else if (s.includes('NO-DEVICE')) {
+      /* Seçili aygıt yok (USB kulaklık çıkarılmış olabilir). Yardımcı
+         kapanır, ana süreç aralıklarla yeniden dener; aygıt takılınca
+         yakalama kendiliğinden başlar. */
+      if (onStatus) onStatus({ type: 'error', code: 'NO_DEVICE', message: 'Seçili ses aygıtı bulunamadı. Takıldığında yakalama kendiliğinden başlar.' });
     } else if (s.includes('START-FAIL') || s.includes('NO-OUTPUT')) {
       if (onStatus) onStatus({ type: 'error', message: s });
     } else {
@@ -348,8 +353,15 @@ function startCapture(devices, onFrame, onStatus) {
   child.on('error', (e) => {
     if (onStatus) onStatus({ type: 'error', message: 'ses yardımcısı çalıştırılamadı (' + e.message + ')' });
   });
-  child.on('exit', (code) => {
-    if (child === capChild) capChild = null;
+  child.on('exit', (code, signal) => {
+    if (child !== capChild) return;
+    capChild = null;
+    /* stopCapture kuşağı artırır; kuşak hâlâ bizimkiyse çıkış beklenmedik:
+       yardımcı çöktü, aygıt kalktı ya da uykuda öldürüldü. Eskiden sessiz
+       kalıyordu ve yakalama bir daha kurulmuyordu (#695). */
+    if (generation === captureGeneration && onStatus) {
+      onStatus({ type: 'exited', code: code == null ? null : code, signal: signal || null });
+    }
   });
 }
 

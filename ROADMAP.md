@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2747 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2752 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 948
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 953
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1400,6 +1400,7 @@ Stabilisation (#695):
   - **The libraries copied the same file again.** Choosing a video, logo or lyrics file that was already in the library added a second entry, and for a video a second copy of the whole file. Video, logo and lyrics imports now compare with what is there (for video and logo: size, then a fingerprint of the first and last megabyte; for lyrics: the text) and skip a match. A choice that was skipped or could not be added (wrong format, empty, too large) was silent; the panel now says which. Checked live with the import dialog stubbed in the main process.
   - **Lyrics follow, checked live.** A silent, tagged track played in a browser registered with Windows media controls. The app saw title, artist, position and length, matched the lyrics file from the library, and the karaoke line advanced on time (75 % of the first line at 2.3 s). Pausing froze it mid-line (48 % of the second line at 4.4 s, unchanged 6 s later). A 720p30 CPU export of the same track drew the library lyrics at the same timing, with the title from the file's tags. Cancelling a 1080p60 export after 2.5 s reported cancelled, removed the partial file and left no ffmpeg process.
   - **F11 with the window lock on did not cover the screen.** Tested with real key presses on an opaque visualizer on a 1280×1024 display. With the lock off, F11 went to a 1280×976 window and back to 1280×1024 full screen. With the lock on, the way back left a 1294×983 window that Windows still called full screen: Electron cannot take a window that may not be resized into full screen. F11 is now handled in the main process: the lock is lifted just before full screen and restored when the window comes back, and a window that comes back the size of the whole display is fitted to the work area as Electron's own shortcut did. Checked again with real keys, lock on and off, and Escape still closes.
+  - **Audio capture stayed dead after its helper exited.** If the capture helper crashed or was killed, the main process did not notice: it kept the source as "being captured", so choosing the same source again did nothing, the visualizer got no frames and the panel still said "Capturing". A selected device that was not present (an unplugged USB headset) ended the same way, with no reason shown. An unexpected exit is now reported, and capture is set up again after 1, 2, 5 and then every 10 seconds while something still wants audio; a successful start resets the wait. The panel says it is reconnecting, a missing device gets its own message, and a banner closed by the user does not reopen on every retry. Checked live by killing the helper three times (frames back after about 1 s each time) and by selecting a device that does not exist, then the default again.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility

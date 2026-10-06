@@ -1077,9 +1077,29 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      if (status && status.type === 'started') captureRetry = 0;
+      if (status && status.type === 'exited') scheduleCaptureRestart();
       notifyAdmin('audio-source-status', status);
     }
   );
+}
+
+/* Yakalama yardımcısı beklenmedik biçimde kapanınca yeniden kurulur:
+   1, 2, 5, 10 sn arayla, istek sürdükçe. Kaynak listesi değişmediği için
+   syncCapture bunu fark etmiyordu; ses kalıcı olarak kesiliyordu (#695). */
+const CAPTURE_RETRY_MS = [1000, 2000, 5000, 10000];
+let captureRetry = 0;
+let captureRetryTimer = null;
+function scheduleCaptureRestart() {
+  lastCaptureSource = null;
+  if (captureRetryTimer) return;
+  const wait = CAPTURE_RETRY_MS[Math.min(captureRetry, CAPTURE_RETRY_MS.length - 1)];
+  captureRetry += 1;
+  captureRetryTimer = setTimeout(() => {
+    captureRetryTimer = null;
+    if (captureWanted()) syncCapture();
+  }, wait);
+  if (captureRetryTimer.unref) captureRetryTimer.unref();
 }
 
 // Yakalamayı istenen duruma getir (talep eden yoksa durdur, kaynak değiştiyse
