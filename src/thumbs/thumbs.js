@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* MILKDROP KÜÇÜK RESİM ÇİZİCİSİ (#575). Gizli pencere; ana süreç iş
    gönderiyor: { key, source, textureDir, textureRev, recipe }.

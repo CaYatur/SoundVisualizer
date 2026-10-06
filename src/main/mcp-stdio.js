@@ -1,4 +1,10 @@
-﻿'use strict';
+﻿/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+'use strict';
 /* Stdio MCP bridge. Clients spawn this file. It speaks MCP on stdin/stdout
    and forwards JSON-RPC to the app, which listens on 127.0.0.1 only. */
 const http = require('http');

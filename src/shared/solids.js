@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Katı geometri ailesi — düzgün çokyüzlüler, jeodezik küre, L-sistemler ve
    yinelemeli fonksiyon sistemleri.

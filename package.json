@@ -48,6 +48,7 @@
   "build": {
     "appId": "com.cayadev.visualizer",
     "productName": "CAYADEV Visualizer",
+    "copyright": "Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com",
     "npmRebuild": false,
     "afterPack": "scripts/after-pack.js",
     "directories": {

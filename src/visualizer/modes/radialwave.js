@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Dairesel Dalga: dalga formu bir çemberin çevresine sarılır (dairesel
    osiloskop). Çember spektruma değil, zaman alanına tepki verir; bu yüzden

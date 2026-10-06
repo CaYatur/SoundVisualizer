@@ -1,4 +1,10 @@
-﻿'use strict';
+﻿/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+'use strict';
 /* Loopback MCP endpoint. Binds 127.0.0.1 only and only while mcp.enabled is on.
    Claude, Cursor, and Codex spawn src/main/mcp-stdio.js, which forwards here. */
 const http = require('http');

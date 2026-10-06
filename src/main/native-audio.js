@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Ana süreçte çalışır. loopback-helper.js'i alt-süreç olarak çalıştırır.
    Çalıştırıcı, uygulamanın KENDİ ikilisidir: Electron ELECTRON_RUN_AS_NODE=1

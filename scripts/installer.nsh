@@ -1,3 +1,8 @@
+; SoundVisualizer — CaYaDev Ses Görselleştirici
+; Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+; https://github.com/CaYatur/SoundVisualizer
+; SPDX-License-Identifier: MIT
+
 !macro customInstall
   DetailPrint "Registering CAYADEV Visualizer Dynamic Lighting identity..."
   nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\identity\install-identity.ps1" -ExternalLocation "$INSTDIR" -CertificateStore LocalMachine'

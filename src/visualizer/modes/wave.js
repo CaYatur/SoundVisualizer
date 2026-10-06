@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Dalga formu / osiloskop (2D canvas). Zaman alanı verisinden çizgi.
    Rainbow gradyan ya da tek renk, ayna, dolgu, parlama. */

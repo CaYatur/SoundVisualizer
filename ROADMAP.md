@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2709 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2712 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 910
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 913
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1384,6 +1384,7 @@ Stabilisation (#695):
   - With Follow the Playing Track on, lyrics matching normalised the whole lyrics library every frame, for every text layer on every screen. The result is now kept while the library, the track and the match mode stay the same.
   - A visualizer or background layer without its own value is drawn with the scene's value: the renderer merges the scene's visualizer or background with the layer. The panel showed the factory value instead, so a layer could show "Colour Theme" in the panel while it drew a rainbow. The panel now shows the value that is drawn; a reset still returns to the factory value.
   - The OBS overlay page was checked with the new patch protocol: during a drag it received each change, then the full configuration, and kept the 22 scenes the phone remote needs.
+- **Copyright notice in every source file** · done on the branch. Every JavaScript, CSS, HTML, C#, C++, shell and NSIS file under `src`, `scripts` and `native` starts with the same notice: Çağan Turgut (CaYatur), CaYaDev, cayadev.com, the repository and `SPDX-License-Identifier: MIT`. In HTML it follows the doctype, in the shell script the shebang. A BOM and the line endings of each file are kept. JSON, `binding.gyp` and the `.csproj` files are manifests and have no notice; tests have none either. LICENSE, both READMEs and `build.copyright` (the copyright in the Windows file properties and the macOS bundle) name the same holder. The native code was checked first: it uses only the public WinRT, WASAPI and N-API interfaces, and the SMTC helper follows the owner's own MIT project Windows-to-Android-Bridge. The Dynamic Lighting addon was rebuilt with the notice and compiled without warnings. A test fails when a new source file has no notice.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

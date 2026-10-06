@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 // Uygulama başına ses yakalama — Windows yardımcısı.
 //
 // NEDEN AYRI BİR SÜREÇ: WASAPI'nin süreç loopback'i (ActivateAudioInterfaceAsync

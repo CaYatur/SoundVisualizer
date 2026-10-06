@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Ayrı bir süreçte çalışır; onu uygulamanın kendi ikilisi node kipinde
    başlatır (ELECTRON_RUN_AS_NODE). Böylece üç platformda da ayrıca Node

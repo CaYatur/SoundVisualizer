@@ -1,4 +1,10 @@
-﻿'use strict';
+﻿/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+'use strict';
 /* MCP tool catalog, permission gates, and JSON-RPC handler.
    The Electron host calls into the running app. This file decides
    which write group a tool needs. Apply tools use what already exists.

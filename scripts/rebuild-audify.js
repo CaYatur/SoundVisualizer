@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Kaynaktan `npm install` sonrası audify native ikilisini Electron ABI'sine
    göre derler. Yapılmazsa loopback-helper stdout'ta geçerli JSON üretemez

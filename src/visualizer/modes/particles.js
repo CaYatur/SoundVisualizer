@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Parçacık: bas darbelerinde merkezden dışa parçacık fışkırır, yerçekimiyle
    yavaşlayıp söner. Havuz sabit boyuttadır — kare başına ayırma yapılmaz. */

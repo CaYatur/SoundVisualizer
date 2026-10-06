@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# SoundVisualizer — CaYaDev Ses Görselleştirici
+# Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+# https://github.com/CaYatur/SoundVisualizer
+# SPDX-License-Identifier: MIT
+
 # AppImage güncelleme bilgisi ve .zsync (#640).
 #
 # AppImageUpdate (ve AppImageLauncher gibi onu kullanan araçlar) güncellemeyi
