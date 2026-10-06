@@ -28,6 +28,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
+const os = require('os');
 const mediaUrl = require('../shared/media-url');
 const { isConfiguredMedia } = require('./media-file');
 
@@ -342,6 +344,42 @@ function broadcastCamStatus(key, error, ready) {
 }
 
 // ----------------------------------------------------------------------------
+// Köken denetimi
+//
+// Tarayıcı WebSocket bağlantısı CORS'a tabi değil. Token Koruması kapalıyken
+// (varsayılan) kullanıcının açtığı herhangi bir site bu sunucuya bağlanıp
+// kumanda komutu gönderebiliyor, ayarı ve söz kitaplığını okuyabiliyordu
+// (#695). Kendi sayfalarımız her zaman aynı kökenden bağlanır; Origin
+// başlığı olmayan istemciler (OBS eklentileri, araçlar) etkilenmez.
+//
+// Origin==Host tek başına DNS yeniden bağlamayı durdurmaz: saldırganın adı
+// bu makineye çözülünce ikisi de onun adı olur. Bu yüzden Host da yalnız
+// IP, localhost, makinenin adı, tek parçalı ağ adı ya da .local olabilir.
+// Kamuya açık bir adla (tünel, ters vekil) erişim bunun bedeli.
+// ----------------------------------------------------------------------------
+function hostAllowed(hostHeader) {
+  const raw = String(hostHeader || '');
+  if (!raw) return true;
+  let name;
+  try { name = new URL('http://' + raw).hostname.toLowerCase(); } catch { return false; }
+  if (name.startsWith('[') && name.endsWith(']')) name = name.slice(1, -1);
+  if (net.isIP(name)) return true;
+  if (name === 'localhost' || name.endsWith('.localhost')) return true;
+  if (name.indexOf('.') < 0) return true;
+  if (name.endsWith('.local')) return true;
+  const own = String(os.hostname() || '').toLowerCase();
+  return !!own && (name === own || name.startsWith(own + '.'));
+}
+
+function originAllowed(origin, hostHeader) {
+  if (!origin) return true;
+  let o;
+  try { o = new URL(String(origin)); } catch { return false; }
+  if (o.protocol !== 'http:' && o.protocol !== 'https:') return false;
+  return o.host.toLowerCase() === String(hostHeader || '').toLowerCase();
+}
+
+// ----------------------------------------------------------------------------
 // HTTP
 // ----------------------------------------------------------------------------
 function extractCookieToken(cookieHeader, name) {
@@ -401,7 +439,7 @@ function serveMedia(req, res, url) {
   if (requested) {
     local = mediaUrl.fromMediaUrl(requested);
     if (!isConfiguredMedia(cfg, local, mediaUrl)) {
-      res.writeHead(403, { 'Access-Control-Allow-Origin': '*' }).end('forbidden');
+      res.writeHead(403).end('forbidden');
       return;
     }
   } else {
@@ -414,7 +452,8 @@ function serveMedia(req, res, url) {
   const ext = path.extname(local).toLowerCase();
   const type = MIME[ext] || 'application/octet-stream';
   const range = req.headers.range;
-  const common = { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*' };
+  /* Katman videoyu aynı kökenden ister; başka sitelere açılmaz. */
+  const common = { 'Content-Type': type, 'Accept-Ranges': 'bytes' };
   if (range) {
     const m = /bytes=(\d*)-(\d*)/.exec(range);
     const start = m && m[1] ? parseInt(m[1], 10) : 0;
@@ -435,6 +474,9 @@ function handleRequest(req, res) {
   try { url = new URL(req.url, 'http://localhost'); } catch { res.writeHead(400).end('bad'); return; }
   const p = url.pathname;
   const hdrs = req.headers || {};
+
+  // Başka bir adla gelen istek DNS yeniden bağlama olabilir (bkz. hostAllowed)
+  if (!hostAllowed(hdrs.host)) { res.writeHead(403).end('forbidden host'); return; }
 
   // 1. Health check her zaman açık
   if (p === '/health') {
@@ -593,7 +635,7 @@ function sendPage(res, file, cookieName, tokenVal) {
       'X-Content-Type-Options': 'nosniff',
     };
     if (cookieName && tokenVal) {
-      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; SameSite=Lax`;
+      respHeaders['Set-Cookie'] = `${cookieName}=${encodeURIComponent(tokenVal)}; Path=/; SameSite=Strict`;
     }
     res.writeHead(200, respHeaders);
     res.end(injected);
@@ -604,9 +646,20 @@ function sendPage(res, file, cookieName, tokenVal) {
 // Yükseltme (HTTP -> WebSocket)
 // ----------------------------------------------------------------------------
 function handleUpgrade(req, socket) {
+  /* Reddedilen istemci bağlantıyı sert keserse (ECONNRESET) dinleyicisiz
+     soket ana süreçte yakalanmamış hata atıyordu: Electron hata kutusu
+     açılıyor ve uygulama kutu kapanana dek donuyordu (#695). Kabul edilen
+     istemcinin kendi dinleyicisi aşağıda ayrıca kurulur. */
+  socket.on('error', () => { /* istemci erken koptu */ });
   let url;
   try { url = new URL(req.url, 'http://localhost'); } catch { socket.destroy(); return; }
   const hdrs = req.headers || {};
+  /* Token Koruması açık olsa da denetlenir: çerez bağlantı noktası
+     ayırmıyor, aynı makinedeki başka bir sayfaya da gidiyor. */
+  if (!hostAllowed(hdrs.host) || !originAllowed(hdrs.origin, hdrs.host)) {
+    socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
+    return;
+  }
   const kind = url.searchParams.get('kind') === 'remote' ? 'remote' : 'overlay';
   const expected = kind === 'remote' ? (state.remoteToken || state.token) : state.token;
 
@@ -862,6 +915,8 @@ module.exports = {
   broadcastNowPlaying,
   claimCam,
   touchCam,
+  hostAllowed,
+  originAllowed,
   releaseCam,
   broadcastCam,
   broadcastCamStatus,
