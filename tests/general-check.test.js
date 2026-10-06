@@ -34,3 +34,12 @@ test('ışık kategorisinin açıklaması platforma bağlı değil ve çevrili',
   const I = read('src/shared/i18n.js');
   assert.ok(I.includes("'" + m[1] + "': 'Drive RGB devices"), 'İngilizcesi yok');
 });
+
+/* MCP sunucusu initialize yanıtında elle yazılmış '3.1.5-beta' veriyordu. */
+test('MCP sunucu sürümü paketten geliyor', async () => {
+  const mcp = require('../src/shared/mcp.js');
+  const pkg = JSON.parse(read('package.json'));
+  const out = await mcp.handleRpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2024-11-05' } }, {});
+  assert.strictEqual(out.result.serverInfo.version, pkg.version);
+  assert.ok(!/version: '\d+\.\d+\.\d+/.test(read('src/shared/mcp.js')), 'sürüm elle yazılmamalı');
+});

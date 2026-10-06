@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2715 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2716 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 916
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 917
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1389,6 +1389,7 @@ Stabilisation (#695):
   - With two lyrics layers open in the panel, only the last one's clock advanced. Each Play / Pause / Stop row started its own timer and stopped the one before. One timer now paints every open row and stops when none is left.
   - The lock on a visualizer window's bar (after F11 to a window) changed the setting but did not save it. The panel does not send an outside change back, so the lock was lost at the next start unless something else was changed. It is now saved when it is clicked; checked with a copy of the reporter's settings.
   - The Lighting category's description named only Windows Dynamic Lighting, on every system. The category also holds OpenRGB and Art-Net, and macOS and Linux have no Dynamic Lighting card. It now names all three and says Dynamic Lighting is on Windows. Found by opening the panel as macOS and as Linux (the preload's platform patched in a throwaway copy) and listing every visible text and tooltip that mentions Windows, Spout, Syphon, Dynamic Lighting or the taskbar. Nothing else turned up: the Spout card falls back to its "not on this system" note from the main process, and the Dynamic Lighting card is hidden.
+  - MCP told clients it was version 3.1.5-beta in its handshake, from a string typed into the code; after the release it would still have said beta. It now reads the version from the package.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
