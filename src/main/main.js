@@ -1457,7 +1457,8 @@ async function downloadUpdate() {
 
 ipcMain.handle('updates:download', () => downloadUpdate().catch((e) => Object.assign({}, updateState, { downloadError: String((e && e.message) || e) })));
 // Kullanıcı istedi: kaza korumasını geçip çık; kurulum ya da yeni AppImage başlar
-ipcMain.handle('updates:install', () => {
+ipcMain.handle('updates:install', () => installUpdateNow());
+function installUpdateNow() {
   if (UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
     updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
     updateReadyFile = null;
@@ -1472,8 +1473,8 @@ ipcMain.handle('updates:install', () => {
     app.quit();
     return { ok: true };
   }
-  return { ok: false };
-});
+  return { ok: false, error: 'No downloaded update is ready to install.' };
+}
 
 /* Otomatik kip: yeni sürüm kurulabiliyorsa kendiliğinden indirilir; Windows'ta
    uygulama kapanırken sessiz kurulur (tüm kullanıcılar için kurulumda Windows
@@ -2021,6 +2022,24 @@ function ensureMcp() {
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
     launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return { ok:true }; })()'),
     locale: () => appLocale(),
+    /* Panelin önizleme motorundaki canlı analiz (Ses › Ses Çözümlemesi). */
+    analysis: () => mcpAdminCall('(() => { const P = window.SVPreview; const eng = P && P.isLive && P.isLive() && P.audioEngine ? P.audioEngine() : null; const a = eng && eng.analysis; if (!a || a.silent) return null; const pick = (o) => o ? JSON.parse(JSON.stringify(o)) : null; return { key: pick(a.key), chord: pick(a.chord), pitch: pick(a.pitch), loudness: a.loudness, peak: a.peak, dynamics: a.dynamics, crest: a.crest, centroid: a.centroid, spread: a.spread, flatness: a.flatness, rolloff: a.rolloff, flux: a.flux, harmonic: a.harmonic, percussive: a.percussive, width: a.width, correlation: a.correlation, bands: pick(a.bands), hits: pick(a.hits), chroma: Array.from(a.chromaSmooth || []), humDetected: !!a.humDetected }; })()'),
+    diagnoseAudio: () => nativeAudio.diagnoseAudio(),
+    /* Sistem penceresi açmadan: bileşen eksikse kullanıcıya bırakılır
+       (kurulum onay ister); sağlamsa yakalama baştan kurulur. */
+    repairAudio: async () => {
+      const before = await nativeAudio.diagnoseAudio();
+      if (!before || !before.ok) return { ok: false, requiresManualAction: true, diagnostic: before };
+      if (lastCaptureSource) {
+        nativeAudio.stopCapture();
+        lastCaptureSource = null;
+      }
+      syncCapture();
+      return { ok: true, repaired: false, restarted: true, diagnostic: before };
+    },
+    newStreamToken: () => streamServer.newToken(),
+    downloadUpdate: () => downloadUpdate().catch((e) => Object.assign({}, updateState, { ok: false, error: String((e && e.message) || e) })),
+    installUpdate: () => installUpdateNow(),
   });
   return mcpHandle;
 }

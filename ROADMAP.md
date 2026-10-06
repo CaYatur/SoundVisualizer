@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2721 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2733 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 922
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 934
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1391,6 +1391,11 @@ Stabilisation (#695):
   - The Lighting category's description named only Windows Dynamic Lighting, on every system. The category also holds OpenRGB and Art-Net, and macOS and Linux have no Dynamic Lighting card. It now names all three and says Dynamic Lighting is on Windows. Found by opening the panel as macOS and as Linux (the preload's platform patched in a throwaway copy) and listing every visible text and tooltip that mentions Windows, Spout, Syphon, Dynamic Lighting or the taskbar. Nothing else turned up: the Spout card falls back to its "not on this system" note from the main process, and the Dynamic Lighting card is hidden.
   - MCP told clients it was version 3.1.5-beta in its handshake, from a string typed into the code; after the release it would still have said beta. It now reads the version from the package.
   - **OpenRGB reconnected on every settings change.** Each push called `openrgb.start`. That closed the socket, connected again, listed every device and switched each one to its direct mode again. No colour went out while this happened. Measured with a fake OpenRGB server that speaks the protocol, and a copy of the reporter's settings with OpenRGB pointed at it: three seconds of slider drag and five clicks opened 46 new connections and sent 92 mode switches to two devices. With real hardware, each mode switch can reset the LEDs, which is a likely cause of the reported flicker. The connection is now made only when the output is switched on or the host or port changes; the device choice, brightness and rate are read from the current settings on every frame anyway. The same test now opens no connection and sends no mode switch, and the colour packets keep flowing. The panel's switch, host and port fields still connect at once. Refresh Devices now also retries the connection when it is down, so starting OpenRGB after the app no longer means waiting for the next retry. A pending retry timer is cancelled when a new connection starts, so it can no longer drop that connection a moment later.
+  - **MCP kept up with the app only by hand, and had a permission gap.** Found while reading the MCP code line by line:
+    - Writing a whole object fell through to the lowest write mode. A client in **Write** could replace the whole `stream` object (tokens, LAN) or `power` (Escape lock, protection), which need **Everything** and **Full**. Every top-level setting now has an explicit group, a path takes the strictest group below it, and a path the table does not know needs **Everything**.
+    - Six tools were listed but not connected in the running app: `sv_get_analysis`, `sv_diagnose_audio`, `sv_repair_audio`, `sv_rotate_stream_token`, `sv_updates_download`, `sv_updates_install`. They now work. The repair restarts capture and leaves installing a missing component to the user, because that needs consent. Checked live through the MCP endpoint.
+    - The mode and layer tools accepted any id; a wrong one left the screen empty, and a client had no way to learn the valid ids. They now check against the app's own mode catalogue, layer kinds and blend modes, and the new `sv_list_modes` lists them. A background layer added without a type started as `bars`; it now starts like the panel's Add Layer button. An existing test used the id `circle`, which does not exist; it now uses `circular`.
+    - `mcp-coverage.test.js` fails when the app gains something MCP does not know: a top-level setting without a permission group, an effect missing from the MCP list, a layer field, a mode or layer kind MCP cannot set, a tool without Turkish and English text, a `ctx` member the main process does not connect, or a tool that throws on empty arguments. It also checks that the four copies of the scene keys agree. On the old code it fails in 8 places.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility

@@ -132,26 +132,58 @@
     if (exts.indexOf(ext) < 0) return 'path must end with .' + exts.join(' or .') + '.';
     return '';
   }
+  /* Ayar yolu → izin grubu. Her üst düzey anahtar burada açıkça yazılı;
+     yeni bir ayar eklenip buraya yazılmazsa en sıkı izni ister ve
+     mcp-coverage testi düşer (#695). Bir yolun izni, kendisini ya da üst
+     yolunu kapsayan en özel kuraldır; ALTINDA daha sıkı bir kural varsa o
+     geçer. Eskiden yalnız "stream." gibi alt yollar korunuyordu: "write"
+     kipindeki bir istemci `stream` nesnesinin tamamını yazıp yayın
+     anahtarını değiştirebiliyor, `power` ile ESC kilidini kaldırabiliyordu. */
+  const PATH_GROUPS = {
+    mcp: 'mcp', version: 'never',
+    updates: 'updates',
+    stream: 'output', 'stream.token': 'streamToken', 'stream.remoteToken': 'streamToken',
+    control: 'controlBindings',
+    timeline: 'timeline', clipdeck: 'timeline',
+    isBlackout: 'blackout', 'transition.blackoutType': 'blackout', 'transition.blackoutDuration': 'blackout',
+    export: 'export', recording: 'export',
+    display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output',
+    'audio.sources': 'output',
+    'background.transparent': 'output', 'background.coverTaskbar': 'output', 'background.transparentKey': 'output',
+    postfx: 'effectEdit', modulation: 'effectEdit',
+    milkdrop: 'presetEdit', milkdropLibrary: 'presetEdit', milkdropControl: 'presetEdit',
+    userPresets: 'presetEdit', custom: 'presetEdit', feedback: 'presetEdit',
+    autovj: 'autovj',
+    audio: 'sceneEdit', background: 'sceneEdit', visualizer: 'sceneEdit', logo: 'sceneEdit',
+    images: 'sceneEdit', layers: 'sceneEdit', layerStack: 'sceneEdit', layerGroups: 'sceneEdit',
+    crossfade: 'sceneEdit', text: 'sceneEdit', nowplaying: 'sceneEdit', transition: 'sceneEdit',
+    geometry: 'sceneEdit', media: 'sceneEdit', scenes: 'sceneEdit', dynamicTheme: 'sceneEdit',
+  };
+  function groupRank(group) {
+    const need = minMode(group);
+    return need ? MODE_RANK[need] : 99;
+  }
   function groupForPath(p) {
     const path = String(p || '');
-    if (!path || path === 'mcp' || path.indexOf('mcp.') === 0) return 'mcp';
-    if (path === 'updates' || path.indexOf('updates.') === 0) return 'updates';
-    if (path === 'stream.token' || path === 'stream.remoteToken') return 'streamToken';
-    if (path === 'mapping' || path.indexOf('mapping.') === 0) return 'output';
-    if (path === 'timeline' || path.indexOf('timeline.') === 0) return 'timeline';
-    if (path === 'control' || path.indexOf('control.') === 0) return 'controlBindings';
-    if (path === 'isBlackout' || path.indexOf('transition.blackout') === 0) return 'blackout';
-    if (path.indexOf('export.') === 0 || path.indexOf('recording.') === 0) return 'export';
-    if (path === 'background.transparent' || path === 'background.coverTaskbar' || path === 'background.transparentKey') return 'output';
-    if (path.indexOf('display') === 0 || path.indexOf('stream.') === 0 || path.indexOf('textureShare.') === 0 ||
-        path.indexOf('aspect.') === 0 || path.indexOf('floating.') === 0 || path.indexOf('power.') === 0 ||
-        path.indexOf('lighting.') === 0 || path.indexOf('openrgb.') === 0 || path.indexOf('artnet.') === 0 ||
-        path.indexOf('audio.sources') === 0) return 'output';
-    if (path === 'postfx' || path.indexOf('postfx.') === 0 || path.indexOf('.postfx') >= 0 ||
-        path === 'modulation' || path.indexOf('modulation.') === 0) return 'effectEdit';
-    if (path.indexOf('milkdrop') === 0 || path.indexOf('userPresets') === 0 ||
-        path.indexOf('custom.') === 0 || path.indexOf('feedback.') === 0) return 'presetEdit';
-    return 'sceneEdit';
+    if (!path) return 'mcp';
+    let base = null;
+    let baseLen = -1;
+    let strict = null;
+    for (const key of Object.keys(PATH_GROUPS)) {
+      const g = PATH_GROUPS[key];
+      if (path === key || path.indexOf(key + '.') === 0) {
+        if (key.length > baseLen) { base = g; baseLen = key.length; }
+      } else if (key.indexOf(path + '.') === 0) {
+        // Yolun altında daha sıkı bir kural: bütün nesneyi yazmak onu da yazar
+        if (!strict || groupRank(g) > groupRank(strict)) strict = g;
+      }
+    }
+    // Katman efektleri (layers.N.postfx) efekt düzenleme izniyle
+    if (base === 'sceneEdit' && /(^|\.)postfx(\.|$)/.test(path)) base = 'effectEdit';
+    if (!base) return 'everything';
+    if (strict && groupRank(strict) > groupRank(base)) return strict;
+    return base;
   }
   function unsafeKey(k) { return k === '__proto__' || k === 'prototype' || k === 'constructor'; }
   function setPath(obj, p, value) {
@@ -277,6 +309,73 @@
   function layersApi() {
     if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.setStackEnabled) return window.SVLayers;
     try { return require('../visualizer/layers.js'); } catch (e) { return null; }
+  }
+  /* Mod kimlikleri uygulamanın kendi kataloğundan (mode-catalog.js) gelir;
+     yeni bir mod eklenince MCP onu kendiliğinden tanır. Eskiden tür
+     araçları her dizgeyi kabul ediyordu: yanlış bir kimlik ekranı boş
+     bırakıyor ve istemci geçerli kimlikleri öğrenemiyordu (#695). */
+  function catalogApi() {
+    if (typeof window !== 'undefined' && window.SVModeCatalog && window.SVModeCatalog.ids) return window.SVModeCatalog;
+    try { return require('./mode-catalog.js'); } catch (e) { return null; }
+  }
+  function modeIds(kind) {
+    const C = catalogApi();
+    return C && C.ids ? C.ids(kind) : null;
+  }
+  function badMode(kind, type) {
+    const ids = modeIds(kind);
+    if (!ids) return '';
+    if (ids.indexOf(String(type)) >= 0) return '';
+    return 'Unknown ' + kind + ' type "' + type + '". sv_list_modes lists the valid ids.';
+  }
+  function layerKinds() {
+    const L = layersApi();
+    return L && Array.isArray(L.KINDS) ? L.KINDS : null;
+  }
+  /* Katmanın türü, türünün kataloğunda olmalı: görselleştirici ve
+     arkaplan katmanları mod kimliği taşır, diğerleri kendi türünü. */
+  function layerTypeIds(kind) {
+    const C = catalogApi();
+    if (!C || !C.layerPairs) return null;
+    return C.layerPairs(kind).map(function (p) { return p[0]; });
+  }
+  function badLayer(kind, type) {
+    const kinds = layerKinds();
+    if (kind != null && kinds && kinds.indexOf(String(kind)) < 0) {
+      return 'Unknown layer kind "' + kind + '". Valid: ' + kinds.join(', ') + '.';
+    }
+    if (type == null) return '';
+    const k = kind == null ? 'visualizer' : kind;
+    if (k !== 'visualizer' && k !== 'background') return '';
+    const ids = layerTypeIds(k);
+    if (!ids || ids.indexOf(String(type)) >= 0) return '';
+    return 'Unknown ' + k + ' layer type "' + type + '". sv_list_modes lists the valid ids.';
+  }
+  /* Panelin "Katman Ekle" düğmeleriyle aynı başlangıç: tür verilmezse
+     türün ilk seçeneği; Şimdi Çalıyor kendi fabrikasından. */
+  function layerStart(raw) {
+    const kind = raw.kind == null ? 'visualizer' : raw.kind;
+    const L = layersApi();
+    if (kind === 'nowplaying' && L && L.makeNowPlayingLayer) {
+      const base = L.makeNowPlayingLayer({ name: raw.name || 'Now Playing' });
+      return Object.assign({}, base, raw, {
+        kind: 'nowplaying', type: 'nowplaying',
+        settings: mergeObj(base.settings, raw.settings || {}),
+      });
+    }
+    if (raw.type != null) return raw;
+    if (kind === 'visualizer' || kind === 'background') {
+      const ids = layerTypeIds(kind);
+      return Object.assign({}, raw, { type: ids && ids.length ? ids[0] : (kind === 'background' ? 'gradient' : 'bars') });
+    }
+    return Object.assign({}, raw, { type: 'back' });
+  }
+  function badBlend(blend) {
+    if (blend == null) return '';
+    const L = layersApi();
+    const list = L && Array.isArray(L.BLEND_MODES) ? L.BLEND_MODES : null;
+    if (!list || list.indexOf(String(blend)) >= 0) return '';
+    return 'Unknown blend "' + blend + '". Valid: ' + list.join(', ') + '.';
   }
   function ensureLayers(cfg) {
     const L = layersApi();
@@ -495,6 +594,26 @@
       }),
     };
   });
+  tool('sv_list_modes', null, 'List every visualizer and background mode id, the layer kinds and blend modes. Read-only.', function () {
+    const C = catalogApi();
+    const L = layersApi();
+    const rows = function (kind) {
+      if (!C || !C.ids) return [];
+      const layerIds = layerTypeIds(kind) || [];
+      return C.ids(kind).map(function (id) {
+        const m = C.get(kind, id) || {};
+        return { id: id, label: m.label || id, group: m.group || '', layer: layerIds.indexOf(id) >= 0 };
+      });
+    };
+    return {
+      ok: true,
+      visualizers: rows('visualizer'),
+      backgrounds: rows('background'),
+      layerKinds: (L && Array.isArray(L.KINDS)) ? L.KINDS.slice() : [],
+      blendModes: (L && Array.isArray(L.BLEND_MODES)) ? L.BLEND_MODES.slice() : [],
+      effects: EFFECT_TYPES.slice(),
+    };
+  });
   tool('sv_list_presets', null, 'List library presets and user color presets. Read-only.', function (args, ctx) {
     const cfg = configOf(ctx);
     return {
@@ -556,6 +675,8 @@
   });
   tool('sv_set_visualizer_type', 'sceneApply', 'Switch the visualizer to an existing mode id and show it on the live stack.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
+    const wrong = badMode('visualizer', args.type);
+    if (wrong) return fail(wrong);
     return withConfig(ctx, function (cfg) {
       const spec = { type: String(args.type) };
       if (args.presetId != null) spec.presetId = args.presetId;
@@ -567,6 +688,8 @@
   });
   tool('sv_set_background_type', 'sceneApply', 'Switch the background to an existing mode id.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
+    const wrong = badMode('background', args.type);
+    if (wrong) return fail(wrong);
     return withConfig(ctx, function (cfg) {
       cfg.background = Object.assign({}, cfg.background, { type: String(args.type) });
       return { type: cfg.background.type };
@@ -683,7 +806,10 @@
       if (args && args.name) raw.name = args.name;
       if (args && args.settings) raw.settings = args.settings;
       if (args && args.transform) raw.transform = args.transform;
-      const layer = normalizeLayer(raw);
+      const kind = raw.kind == null ? 'visualizer' : raw.kind;
+      const wrong = badLayer(kind, raw.type) || badBlend(raw.blend);
+      if (wrong) return fail(wrong);
+      const layer = normalizeLayer(layerStart(raw));
       list.push(layer);
       return { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
     });
@@ -694,6 +820,13 @@
       if (!found) return fail('Layer not found.');
       const patch = Object.assign({}, (args && args.patch) || {});
       if (patch.postfx) return fail('Layer effects are changed with the effect tools, not sv_update_layer.');
+      if (patch.kind !== undefined || patch.type !== undefined || patch.blend !== undefined) {
+        const kind = patch.kind !== undefined ? patch.kind : found.layer.kind;
+        const typeChanges = patch.type !== undefined || patch.kind !== undefined;
+        const type = patch.type !== undefined ? patch.type : found.layer.type;
+        const wrong = badLayer(kind, typeChanges ? type : null) || badBlend(patch.blend);
+        if (wrong) return fail(wrong);
+      }
       ['name', 'kind', 'type', 'enabled', 'opacity', 'blend', 'solo', 'muted', 'locked', 'group', 'presetId'].forEach(function (k) {
         if (patch[k] !== undefined) found.layer[k] = patch[k];
       });
@@ -1397,7 +1530,8 @@
   }
   const api = {
     ALLOW_KEYS: ALLOW_KEYS, DEFAULT_MCP: DEFAULT_MCP, GROUP_LABEL: GROUP_LABEL,
-    SCENE_KEYS: SCENE_KEYS, EFFECT_TYPES: EFFECT_TYPES,
+    SCENE_KEYS: SCENE_KEYS, EFFECT_TYPES: EFFECT_TYPES, PATH_GROUPS: PATH_GROUPS, GROUP_MODE: GROUP_MODE,
+    LAYER_DEFAULTS: LAYER_DEFAULTS,
     normalizeMcp: normalizeMcp, groupForPath: groupForPath, visualState: visualState,
     cardModel: cardModel, commandBundle: commandBundle, clients: clients, installPrompt: installPrompt,
     hostPlatform: hostPlatform, clientFileStep: clientFileStep,

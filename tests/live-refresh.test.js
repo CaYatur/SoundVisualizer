@@ -76,9 +76,9 @@ test('MCP visualizer type and layer enable update the stack that is drawn', asyn
       Object.assign(cfg, next);
     },
   };
-  const typed = await mcp.callTool('sv_set_visualizer_type', { type: 'circle' }, ctx);
+  const typed = await mcp.callTool('sv_set_visualizer_type', { type: 'circular' }, ctx);
   assert.strictEqual(typed.ok, true, JSON.stringify(typed));
-  assert.strictEqual(cfg.layers[0].type, 'circle');
+  assert.strictEqual(cfg.layers[0].type, 'circular');
   assert.strictEqual(cfg.layers[0].enabled, true);
   cfg.layers[0].enabled = false;
   cfg.layers[0].muted = true;
@@ -87,7 +87,7 @@ test('MCP visualizer type and layer enable update the stack that is drawn', asyn
   assert.strictEqual(cfg.layers[0].enabled, true);
   assert.strictEqual(cfg.layers[0].muted, false);
   assert.strictEqual(L.stackOn(cfg), true);
-  assert.ok(L.resolve(cfg).some((l) => l.type === 'circle'));
+  assert.ok(L.resolve(cfg).some((l) => l.type === 'circular'));
 });
 
 test('sv_save_preset without a kind stores a shader as a Studio visualizer', async () => {

@@ -63,6 +63,14 @@ function create(deps) {
       timeline: deps.timeline,
       launchClip: deps.launchClip,
       locale: deps.locale,
+      /* Bu altısı eksikti: araçlar listede görünüyor ama uygulamada hep
+         "kullanılamıyor" ya da boş dönüyordu (#695). */
+      analysis: deps.analysis,
+      diagnoseAudio: deps.diagnoseAudio,
+      repairAudio: deps.repairAudio,
+      newStreamToken: deps.newStreamToken,
+      downloadUpdate: deps.downloadUpdate,
+      installUpdate: deps.installUpdate,
     };
   }
 

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2721%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2733%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -798,7 +798,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **95 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **96 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -827,8 +827,8 @@ preset klasörü yeniden okunur ve açık pencereler farkı alır.
 Ana anahtar yeter. Bu çağrılar yalnız okur.
 
 - `sv_get_state` gösteriyi döner: etkin preset, sahneler, katmanlar, açık efektler, ekranlar, BPM
-  ve seviyeler, çalan parça, katman yığını, yayın durumu ve Spout/Syphon durumu. Çalışan
-  uygulamada bu çağrının çözümleme alanı boştur.
+  ve seviyeler, çalan parça, katman yığını, yayın durumu, Spout/Syphon durumu ve panel
+  önizlemesinin canlı çözümlemesi (önizlemede ses yokken boş).
 - `sv_get_visual_state`, `sv_list_layers`, `sv_get_layer` ve `sv_get_layer_stack` katman konumu,
   ayarları ve katman efektlerini döner.
 - `sv_get_preview` ekrandaki görüntünün JPEG'ini ekler; genişlik en çok 480 pikseldir. Sırayla
@@ -836,7 +836,9 @@ Ana anahtar yeter. Bu çağrılar yalnız okur.
   dikdörtgenine bakar.
 - `sv_get_audio` panelin çizdiği aynı sayaçtan seviye, bas, orta, tiz, BPM ve güven döner.
   `sv_get_now_playing` çalan parçayı döner. `sv_list_audio_sources` ayarlı girişleri listeler.
-- `sv_list_scenes` ve `sv_get_scene` kayıtlı sahneleri okur. `sv_list_effects` genel zinciri, her
+- `sv_list_scenes` ve `sv_get_scene` kayıtlı sahneleri okur. `sv_list_modes` bütün görselleştirici ve
+  arkaplan kimliklerini, katman türlerini ve karışım kiplerini listeler; mod ve katman araçları
+  listede olmayan kimliği reddeder. `sv_list_effects` genel zinciri, her
   katmanın zincirini ve 40 hazır efekt türünü listeler. `sv_list_presets` kütüphane presetlerini
   ve kullanıcı renk paletlerini listeler. `sv_list_displays` ekranları listeler.
 - `sv_get_output_status` hangi görselleştirici pencerelerin açık olduğunu, yayın anahtarını,
@@ -932,12 +934,16 @@ Canlı yüzeyleri açar.
 `sv_patch_config` başka herhangi bir noktalı yolu yazar. Kip yola bağlıdır: sahne içeriği,
 efektler ve presetler **Yazma** ister; dışa aktarma yolları **Yazma** ister; ekranlar, yayın,
 ışık, eşleme, pencereler ve zaman çizelgesi **Tam** ister; `control.*` (MIDI ve OSC bağlamaları)
-**Her şey** ister. `mcp.*`, `__proto__`, `prototype` ve `constructor` yolları reddedilir.
+**Her şey** ister. Daha sıkı bir yolu içeren yol da o kipi ister: anahtarları taşıdığı için
+`stream` nesnesinin tamamı **Her şey**, `power`, `audio`, `background` ve `transition`
+nesnelerinin tamamı **Tam** ister. Tabloda olmayan bir yol **Her şey** ister. `mcp.*`, `version`,
+`__proto__`, `prototype` ve `constructor` yolları reddedilir.
 
-Araç listesi **Her şey** kipinde `sv_updates_download`, `sv_updates_install`, `sv_repair_audio` ve
-`sv_rotate_stream_token` adlarını, okuma olarak da `sv_diagnose_audio` ve `sv_get_analysis`
-adlarını taşır. Çalışan uygulama bu altısını bağlamaz. Çağrı, işlemin bu süreçte olmadığını
-söyler; çözümleme değeri boş döner. Canlı seviyeler ve BPM `sv_get_audio` üzerinde kalır.
+`sv_updates_download` ve `sv_updates_install` uygulamanın bulduğu güncellemeyi indirir ve kurar.
+`sv_rotate_stream_token` OBS ya da kumanda anahtarını yeniler. `sv_repair_audio` ses bileşeni
+sağlamsa yakalamayı baştan kurar; eksikse bunu söyler, çünkü kurulum kullanıcının onayını ister.
+Dördü de **Her şey** ister. Okuma araçları `sv_diagnose_audio` ve `sv_get_analysis` yakalama
+tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantları) döner.
 
 ---
 
@@ -1281,14 +1287,13 @@ sayısal giriş.
 ### MCP — Model Context Protocol
 
 Yukarıdaki özellik bölümü araç listesinin tamamıdır. Kısaca: Kontrol kartındaki stdio köprüsüyle
-`127.0.0.1` port **38471** üzerinde **95 araç**. **Okuma** gösteriyi, canlı JPEG'i, seviye ve
+`127.0.0.1` port **38471** üzerinde **96 araç**. **Okuma** gösteriyi, canlı JPEG'i, seviye ve
 BPM'i görür. **Uygula** sahne, şablon, mod, klip, duran efekt ve kütüphane preseti yükler.
 **Yazma** sahne, katman, yazı, logo, ortam, geometri, efekt, modülasyon, Studio ve MilkDrop
 preseti, Otomatik VJ, dışa aktarma, anlık görüntü ve canlı kaydı yazar. **Tam** ekranları, yayını,
 Spout/Syphon'u, basıklığı, yüzen pencereyi, ışığı, OpenRGB'yi, Art-Net'i, eşlemeyi, zaman
 çizelgesi taşımasını ve karartmayı açar. **Her şey**, `sv_patch_config` MIDI ve OSC bağlaması
-yazmadan önce gereken kiptir. Listelenen güncelleme, ses onarımı, jeton döndürme, ses tanı ve
-çözümleme çağrıları çalışan uygulamada bağlı değildir.
+yazmadan önce gereken kiptir; güncelleme, ses onarımı ve anahtar yenileme çağrılarını da açar.
 
 ### Windows Dynamic Lighting
 
@@ -1525,7 +1530,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2721 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2733 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı
