@@ -117,3 +117,42 @@ test('kitaplıkta aynı uzunlukta söz düzeltmesi ekranlara ulaşır', () => {
   assert.deepStrictEqual(seen, [a, b]);
   delete global.window.SVLyricsLib;
 });
+
+/* Kumandanın yazdığı sayılar aralık denetiminden geçmiyordu:
+   power.fpsCap = 0.01 görüntüyü ~100 sn'de bir kareye düşürüyordu. */
+test('kumandadan gelen sayılar güvenli aralığa çekilir', () => {
+  const M = read('src/main/main.js');
+  const a = M.indexOf('const REMOTE_RANGES = {');
+  const b = M.indexOf('function remotePathAllowed(p)');
+  assert.ok(a > 0 && b > a);
+  const vm = require('vm');
+  const ctx = { Number, Math };
+  vm.createContext(ctx);
+  vm.runInContext(M.slice(a, b) + '\nthis.f = remoteNumber;', ctx);
+  const f = ctx.f;
+  assert.strictEqual(f('power.fpsCap', 0), 0, '0 = ekranla eşitle');
+  assert.strictEqual(f('power.fpsCap', 0.01), 10);
+  assert.strictEqual(f('power.fpsCap', 60), 60);
+  assert.strictEqual(f('power.fpsCap', -5), 0);
+  assert.strictEqual(f('audio.smoothing', 1.5), 0.99);
+  assert.strictEqual(f('logo.opacity', 7), 1);
+  assert.strictEqual(f('audio.sensitivity', Infinity), undefined);
+  assert.strictEqual(f('visualizer.speed', 123), 123, 'tablo dışı yola dokunulmaz');
+  assert.strictEqual(f('power.fpsCap', true), true, 'sayı olmayan değer olduğu gibi');
+  const set = M.slice(M.indexOf("if (!remotePathAllowed(msg.path)) return;"), M.indexOf("} else {", M.indexOf("if (!remotePathAllowed(msg.path)) return;")));
+  assert.match(set, /const safe = remoteNumber\(msg\.path, v\);\s*if \(safe === undefined\) return;\s*setConfigPath\(currentConfig, msg\.path, safe\);/);
+});
+
+/* Söz kitaplığında "Kaldır" onaysız siliyordu. Düzenleyicideki zaman
+   düzeltmeleri yalnız kitaplık kopyasında durduğu için geri gelmiyordu. */
+test('söz kitaplığından kaldırma onay ister ve bekleyen güncellemeyi iptal eder', () => {
+  const U = read('src/admin/lyrics-lib-ui.js');
+  const at = U.indexOf("text: 'Kaldır'");
+  assert.ok(at > 0);
+  const h = U.slice(at, U.indexOf('rerender();', at));
+  assert.match(h, /P\(\)\.confirm\(/);
+  assert.match(h, /if \(!ok\) return;/);
+  assert.ok(h.indexOf('clearTimeout(prev.timer)') < h.indexOf('lyricsLibRemove(it.id)'), 'bekleyen ad güncellemesi önce iptal');
+  const I = read('src/shared/i18n.js');
+  assert.ok(I.includes("'Söz kaldırılsın mı?': 'Remove these lyrics?'"));
+});

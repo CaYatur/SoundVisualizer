@@ -289,6 +289,17 @@
               class: 'btn ghost small', type: 'button', text: 'Kaldır',
               onclick: async () => {
                 if (!window.api || !window.api.lyricsLibRemove) return;
+                /* Düzenleyicideki değişiklikler yalnız bu kopyada duruyor;
+                   kaldırınca geri gelmez. Onaysız siliniyordu (#695). */
+                if (P().confirm) {
+                  const ok = await P().confirm('Bu söz kütüphaneden kaldırılacak. Düzenleyicide yaptığınız değişiklikler de silinir; içe aktardığınız özgün dosya olduğu yerde kalır.', {
+                    title: 'Söz kaldırılsın mı?', okText: 'Kaldır', danger: true, defaultCancel: true,
+                  });
+                  if (!ok) return;
+                }
+                const prev = pending.get(it.id);
+                if (prev && prev.timer) clearTimeout(prev.timer);
+                pending.delete(it.id);
                 await window.api.lyricsLibRemove(it.id);
                 rerender();
               },
