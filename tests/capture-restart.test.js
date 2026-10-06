@@ -78,8 +78,8 @@ test('seçili aygıt yoksa nedeni söylenir', async () => {
 
 test('ana süreç kapanan yakalamayı artan aralıkla yeniden kurar', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /if \(status && status\.type === 'exited'\) scheduleCaptureRestart\(\);/);
-  assert.match(M, /if \(status && status\.type === 'started'\) captureRetry = 0;/);
+  assert.match(M, /if \(status && status\.type === 'exited'\) \{ disarmCaptureStable\(\); scheduleCaptureRestart\(\); \}/);
+  assert.match(M, /if \(status && status\.type === 'started'\) armCaptureStable\(\);/);
   const at = M.indexOf('function scheduleCaptureRestart()');
   assert.ok(at > 0);
   const fn = M.slice(at, M.indexOf('function syncCapture()', at));
@@ -149,4 +149,38 @@ test('olay döngüsü tıkalıyken geçen süre kesinti sayılmaz', (t) => {
   t.mock.timers.tick(1000);
   assert.strictEqual(killed, 0);
   na.stopCapture();
+});
+
+/* Bekleme 'started' gelir gelmez sıfırlanıyordu: sürekli düşüp kalkan bir
+   aygıt (bekçi 3 sn + 1 sn) her ~4 sn'de bir yeniden kuruluyor, bekleme hiç
+   uzamıyordu. Artık yakalama 15 sn ayakta kalınca sıfırlanır. */
+test('düşüp kalkan aygıtta bekleme uzar, kararlı yakalamada sıfırlanır', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const M = read('src/main/main.js');
+  const a = M.indexOf('const CAPTURE_RETRY_MS');
+  const b = M.indexOf('// Yakalamayı istenen duruma getir', a);
+  const vm = require('vm');
+  const ctx = { setTimeout, clearTimeout, lastCaptureSource: null, starts: 0 };
+  ctx.captureWanted = () => true;
+  ctx.syncCapture = () => { ctx.starts += 1; };
+  vm.createContext(ctx);
+  vm.runInContext(M.slice(a, b) + '\nthis.api = { scheduleCaptureRestart, armCaptureStable, disarmCaptureStable, retry: () => captureRetry };', ctx);
+  const api = ctx.api;
+  const waits = [];
+  // Her turda: başla, 3 sn sonra kesil, beklemeyi ölç
+  for (let i = 0; i < 5; i++) {
+    api.armCaptureStable();
+    t.mock.timers.tick(3000);
+    api.disarmCaptureStable();
+    const before = ctx.starts;
+    api.scheduleCaptureRestart();
+    let w = 0;
+    while (ctx.starts === before && w < 20000) { t.mock.timers.tick(500); w += 500; }
+    waits.push(w);
+  }
+  assert.deepStrictEqual(waits, [1000, 2000, 5000, 10000, 10000], 'bekleme uzamalı');
+  // 15 sn ayakta kalan yakalama beklemeyi sıfırlar
+  api.armCaptureStable();
+  t.mock.timers.tick(15000);
+  assert.strictEqual(api.retry(), 0);
 });

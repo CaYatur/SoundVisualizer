@@ -1516,6 +1516,8 @@
     'Düzenlemeye dön': 'Back to editing',
     'Düzenleyici kapatılsın mı?': 'Close the editor?',
     'Kaydedilmemiş değişiklikler silinecek.': 'Unsaved changes will be discarded.',
+    'Söz kaldırılsın mı?': 'Remove these lyrics?',
+    'Bu söz kütüphaneden kaldırılacak. Düzenleyicide yaptığınız değişiklikler de silinir; içe aktardığınız özgün dosya olduğu yerde kalır.': 'These lyrics will be removed from the library, along with any changes made in the editor. The original file you imported stays where it is.',
     'Bu metin kütüphanedeki kopyadır. Kaydetmek bu kopyayı değiştirir; içe aktardığınız özgün dosya olduğu yerde kalır.': 'This is the copy stored in the library. Saving changes that copy. The original file you imported stays where it is.',
     'Söz dosyası okunamadı.': 'The lyrics file could not be read.',
     'Söz kaydedilemedi.': 'The lyrics could not be saved.',

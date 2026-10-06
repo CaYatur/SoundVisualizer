@@ -1134,8 +1134,8 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
-      if (status && status.type === 'started') captureRetry = 0;
-      if (status && status.type === 'exited') scheduleCaptureRestart();
+      if (status && status.type === 'started') armCaptureStable();
+      if (status && status.type === 'exited') { disarmCaptureStable(); scheduleCaptureRestart(); }
       notifyAdmin('audio-source-status', status);
     }
   );
@@ -1147,6 +1147,19 @@ function startVisualizerCapture() {
 const CAPTURE_RETRY_MS = [1000, 2000, 5000, 10000];
 let captureRetry = 0;
 let captureRetryTimer = null;
+/* Bekleme, yakalama bir süre ayakta kaldıktan sonra sıfırlanır. 'started'
+   gelir gelmez sıfırlamak, sürekli düşüp kalkan bir aygıtı ~4 sn'de bir
+   (bekçi 3 sn + 1 sn) yeniden kurduruyordu; bekleme hiç uzamıyordu. */
+const CAPTURE_STABLE_MS = 15000;
+let captureStableTimer = null;
+function armCaptureStable() {
+  disarmCaptureStable();
+  captureStableTimer = setTimeout(() => { captureStableTimer = null; captureRetry = 0; }, CAPTURE_STABLE_MS);
+  if (captureStableTimer.unref) captureStableTimer.unref();
+}
+function disarmCaptureStable() {
+  if (captureStableTimer) { clearTimeout(captureStableTimer); captureStableTimer = null; }
+}
 function scheduleCaptureRestart() {
   lastCaptureSource = null;
   if (captureRetryTimer) return;
@@ -2855,6 +2868,28 @@ const REMOTE_ALLOWED = [
   'media.opacity', 'media.enabled', 'media.kaleido', 'media.hue',
 ];
 
+/* Kumandanın yazdığı sayıların güvenli aralığı. Üst sınırlar panelin
+   genişletilmiş aralığı (5×) kadar. Eskiden değer olduğu gibi yazılıyordu:
+   power.fpsCap = 0.01 görüntüyü ~100 sn'de bir kareye düşürüyordu (#695).
+   Önek yolları (visualizer., background., feedback.) çok alanlı; onları
+   görselleştirici kendisi sıkıştırıyor. */
+const REMOTE_RANGES = {
+  'audio.sensitivity': [0, 20], 'audio.smoothing': [0, 0.99], 'audio.bassBoost': [0, 20],
+  'logo.opacity': [0, 1], 'logo.scale': [0.01, 3], 'logo.pulse': [0, 5],
+  'power.fpsCap': [0, 1000], 'power.renderScale': [0.1, 1],
+  'media.opacity': [0, 1], 'media.kaleido': [0, 60], 'media.hue': [-360, 360],
+};
+function remoteNumber(p, v) {
+  if (typeof v !== 'number') return v;
+  if (!Number.isFinite(v)) return undefined;
+  const r = REMOTE_RANGES[p];
+  if (!r) return v;
+  let x = Math.min(r[1], Math.max(r[0], v));
+  // 0 = ekranla eşitle; sıfırın üstünde çok küçük bir sınır görüntüyü dondurur
+  if (p === 'power.fpsCap' && x > 0 && x < 10) x = 10;
+  return x;
+}
+
 function remotePathAllowed(p) {
   if (typeof p !== 'string' || p.length > 120) return false;
   if (p.includes('__proto__') || p.includes('prototype') || p.includes('constructor')) return false;
@@ -2922,7 +2957,9 @@ function applyRemoteCommand(msg, client) {
       (typeof v === 'string' && v.length <= 64) ||
       (Array.isArray(v) && v.length <= 8 && v.every((x) => typeof x === 'string' && x.length <= 16));
     if (!okType) return;
-    setConfigPath(currentConfig, msg.path, v);
+    const safe = remoteNumber(msg.path, v);
+    if (safe === undefined) return;
+    setConfigPath(currentConfig, msg.path, safe);
   } else {
     return;
   }
