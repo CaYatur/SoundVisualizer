@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* MilkDrop küçük resim penceresinin köprüsü (#575). Motorun doku istekleri
    görselleştiriciyle aynı kanallardan (aynı iki klasör, aynı denetim); iş

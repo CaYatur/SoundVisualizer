@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* assets/icon.svg -> build/icon.png (1024), build/icon.ico, build/icon.icns
    Ayrıca admin arayüzü için assets/logo-256.png üretir. */

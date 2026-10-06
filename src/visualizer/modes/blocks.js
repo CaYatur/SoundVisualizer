@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Segment Barlar: klasik LED ekolayzır. Her sütun ayrık bloklara bölünür,
    seviye yükseldikçe bloklar sırayla yanar. Tepe bloğu bir süre asılı kalır. */

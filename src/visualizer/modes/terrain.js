@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Arazi: spektrumun zaman içindeki geçmişi perspektifli bir tel kafes manzara
    olarak çizilir. Her satır bir anın spektrumu; satırlar ufka doğru kayar.

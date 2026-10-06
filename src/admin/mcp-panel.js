@@ -1,4 +1,10 @@
-﻿'use strict';
+﻿/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+'use strict';
 /* MCP card under Control. Master switch stays collapsed until it is on.
    Modes render as soon as the switch is on. Listener status is a separate line. */
 (function () {

@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Şerit: dalga formunun geçmişi. Her karede o anki dalga kaydedilir, eski
    dalgalar yukarı kayarak solar — perspektifli bir "kâğıt şerit" hissi verir.

@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Küre: merkezde, frekans bantlarına göre şekil değiştiren yumuşak bir kütle.
    Baslar küreyi şişirir, tizler kenarına titreşim ekler. Logo ile iyi çalışır. */

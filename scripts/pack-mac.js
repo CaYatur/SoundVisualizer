@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* macOS .app paketlerini Windows üzerinde üretir (@electron/packager ile).
    NOT: Bu makinede derlenen audify binary'si Windows'a aittir; macOS'ta sesin

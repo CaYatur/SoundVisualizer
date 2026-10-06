@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Tünel: üzerine doğru gelen halkalar. Her halka doğduğu andaki spektrumu
    saklar, yani müziğin son saniyeleri derinlikte katman katman görünür.

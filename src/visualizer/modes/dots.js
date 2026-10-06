@@ -1,3 +1,9 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
 'use strict';
 /* Nokta Matris: sütun başına bir frekans bandı, satırlar seviye kademesi.
    Yanan noktalar dolu ve parlak, sönükler soluk bir ızgara bırakır. */

@@ -1,9 +1,10 @@
-'use strict';
 /*
- * CaYaDev Visualizer — Ses Görselleştirici
- * Copyright (c) 2026 CaYaDev — https://cayadev.com
- * MIT License (bkz. LICENSE)
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
  */
+'use strict';
 
 const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell } = require('electron');
 const path = require('path');
