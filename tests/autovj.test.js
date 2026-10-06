@@ -348,7 +348,8 @@ test('segment düğmesi tıklanınca active sınıfını hemen günceller', () =
   const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.js'), 'utf-8');
   const i = src.indexOf('function segmentCtrl(');
   assert.ok(i > 0, 'segmentCtrl yok');
-  const block = src.slice(i, i + 1800);
+  // İşlevin tamamı: sabit bir uzunluk, işleve satır eklenince onChange'i dışarıda bırakıyordu
+  const block = src.slice(i, src.indexOf('\n  function ', i + 10));
   assert.match(block, /classList\.remove\('active'\)/);
   assert.match(block, /classList\.add\('active'\)/);
   assert.ok(block.indexOf("classList.add('active')") < block.indexOf('def.onChange'),

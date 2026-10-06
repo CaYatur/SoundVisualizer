@@ -360,13 +360,20 @@
 
     // ----------------------------------------------------------------- renk
     nodes.push(SP().foldable('Renk', () => {
-      const getMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
-        || (C.useCustomColor ? 'custom' : 'theme');
+      /* Çalan parçanın kendi kipi (modes/nowplaying.js ile aynı sıra).
+         Eskiden görselleştiricinin kipini yazıyordu (#695); çalan parça
+         görselleştiricinin kendisiyse ikisi aynı kalır. */
+      const getMode = () => C.colorMode
+        || (C.useCustomColor ? 'custom' : null)
+        || (cfg.visualizer && cfg.visualizer.colorMode)
+        || 'theme';
       const setMode = (m) => {
+        C.colorMode = m;
         C.useCustomColor = (m === 'custom');
-        cfg.visualizer = cfg.visualizer || {};
-        cfg.visualizer.colorMode = m;
-        cfg.visualizer.rainbow = (m === 'rainbow');
+        if (cfg.visualizer && cfg.visualizer.type === 'nowplaying') {
+          cfg.visualizer.colorMode = m;
+          cfg.visualizer.rainbow = (m === 'rainbow');
+        }
       };
       const kids = [
         SP().miniSegment('Renk Modu', [

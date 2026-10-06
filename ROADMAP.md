@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2733 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2741 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 934
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 942
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1396,6 +1396,7 @@ Stabilisation (#695):
     - Six tools were listed but not connected in the running app: `sv_get_analysis`, `sv_diagnose_audio`, `sv_repair_audio`, `sv_rotate_stream_token`, `sv_updates_download`, `sv_updates_install`. They now work. The repair restarts capture and leaves installing a missing component to the user, because that needs consent. Checked live through the MCP endpoint.
     - The mode and layer tools accepted any id; a wrong one left the screen empty, and a client had no way to learn the valid ids. They now check against the app's own mode catalogue, layer kinds and blend modes, and the new `sv_list_modes` lists them. A background layer added without a type started as `bars`; it now starts like the panel's Add Layer button. An existing test used the id `circle`, which does not exist; it now uses `circular`.
     - `mcp-coverage.test.js` fails when the app gains something MCP does not know: a top-level setting without a permission group, an effect missing from the MCP list, a layer field, a mode or layer kind MCP cannot set, a tool without Turkish and English text, a `ctx` member the main process does not connect, or a tool that throws on empty arguments. It also checks that the four copies of the scene keys agree. On the old code it fails in 8 places.
+  - **Text and Now Playing colour modes were tied to the visualizer.** With the layer stack off, the Colour Mode on the Text and Lyrics card and on the Now Playing card wrote the visualizer's colour mode. The text is drawn as an overlay on the visualizer, so choosing Rainbow for the text turned the Bars rainbow too, and changing the Bars changed the text. The renderers already read the text's own mode first; the cards now write it, and touch the visualizer only when the text or Now Playing is the visualizer itself. The visualizer card keeps that case in step. Checked live: Rainbow on the text left the Bars red. The layer panel was already separate.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
