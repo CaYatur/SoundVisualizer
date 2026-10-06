@@ -253,6 +253,13 @@
           if (ok && !this._pump) {
             this._relayKey = id;
             this._pump = setInterval(() => this._sendCamFrame(), 80);
+          } else if (!ok && this._pump) {
+            /* Yayın katmanı ayrıldı ya da kareyi başka pencere yolluyor:
+               kodlamayı bırak, sahipliği yeniden denemeye devam et. */
+            clearInterval(this._pump);
+            this._pump = null;
+            if (this._relayKey != null && api.releaseCamRelay) api.releaseCamRelay(this._relayKey);
+            this._relayKey = null;
           }
         }).catch(() => {});
         this._claimTimer = setTimeout(tick, this._pump ? 2000 : 400);

@@ -241,12 +241,22 @@
     return { artist: String(artist).slice(0, 200), title: String(title).slice(0, 200) };
   }
 
+  /* Metnin yalnız uzunluğu yetmez: düzenleyicide aynı uzunlukta bir zaman
+     düzeltmesi ([00:12.34] → [00:12.35]) ekranlara hiç ulaşmıyordu (#695).
+     Yalnız kitaplık değişince hesaplanır. */
+  function textSig(s) {
+    const str = String(s || '');
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+    return str.length + ':' + h;
+  }
+
   function librarySig(items) {
     const list = Array.isArray(items) ? items : [];
     let sig = String(list.length);
     for (let i = 0; i < list.length; i++) {
       const it = list[i] || {};
-      sig += '\n' + (it.id || '') + '\0' + (it.artist || '') + '\0' + (it.title || '') + '\0' + String((it.text || '').length);
+      sig += '\n' + (it.id || '') + '\0' + (it.artist || '') + '\0' + (it.title || '') + '\0' + textSig(it.text);
     }
     return sig;
   }
@@ -272,7 +282,7 @@
   }
 
   const api = {
-    normalize, dice, matchTrack, systemLyrics, playback, guessMeta, installLibrary,
+    normalize, dice, matchTrack, systemLyrics, playback, guessMeta, installLibrary, librarySig,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLyricsSync = api;

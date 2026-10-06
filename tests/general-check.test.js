@@ -61,3 +61,59 @@ test('F11 kilitli pencereyi tam ekrana alırken önce kilidi kaldırır', () => 
   assert.match(M, /fitWindowedToWorkArea\(win\);/);
   assert.match(M, /function fitWindowedToWorkArea\(win\)/);
 });
+
+/* Metin katmanı söz belgesini her 17. harften çıkan bir özetle önbelleğe
+   alıyordu. Aynı uzunlukta tek rakamlık bir zaman düzeltmesi
+   ([00:12.34] → [00:12.35]) 18 denemenin 17'sinde fark edilmiyor, ekran
+   eski zamanlamayla çiziyordu. */
+test('söz düzenlemesi aynı uzunlukta olsa da yeniden okunur', () => {
+  global.window = global.window || {};
+  require('../src/shared/defaults.js');
+  require('../src/shared/lyrics.js');
+  require('../src/visualizer/modes/text.js');
+  const TextMode = global.window.SVModes.text;
+  const m = new TextMode({ width: 800, height: 600, getContext: () => ({}) });
+  const a = '[00:01.00]Birinci satır\n[00:12.34]İkinci satır\n[00:20.00]Üçüncü';
+  let missed = 0;
+  let total = 0;
+  for (let pos = 0; pos < a.length; pos++) {
+    if (!/[0-9]/.test(a[pos])) continue;
+    const b = a.slice(0, pos) + (a[pos] === '9' ? '8' : String(+a[pos] + 1)) + a.slice(pos + 1);
+    m._ensureLyrics({ lyricsSource: a });
+    const before = m.doc;
+    m._ensureLyrics({ lyricsSource: b });
+    total++;
+    if (m.doc === before) missed++;
+  }
+  assert.ok(total > 10);
+  assert.strictEqual(missed, 0, total + ' düzeltmenin ' + missed + ' tanesi kaçtı');
+  // Değişmeyen metin yeniden ayrıştırılmaz
+  m._ensureLyrics({ lyricsSource: a });
+  const d = m.doc;
+  m._ensureLyrics({ lyricsSource: a });
+  assert.strictEqual(m.doc, d);
+});
+
+/* Kitaplık imzası metnin yalnız uzunluğuna bakıyordu. Söz düzenleyicide
+   aynı uzunlukta yapılan bir zaman düzeltmesi kaydediliyor ama ekranlar
+   eski metinle kalıyordu. */
+test('kitaplıkta aynı uzunlukta söz düzeltmesi ekranlara ulaşır', () => {
+  global.window = global.window || {};
+  const S = require('../src/shared/lyrics-sync.js');
+  const item = (text) => [{ id: 'a1', artist: 'Sanatçı', title: 'Parça', text }];
+  const a = '[00:01.00]Bir\n[00:12.34]İki';
+  const b = '[00:01.00]Bir\n[00:12.35]İki';
+  assert.strictEqual(a.length, b.length);
+  assert.notStrictEqual(S.librarySig(item(a)), S.librarySig(item(b)));
+  assert.strictEqual(S.librarySig(item(a)), S.librarySig(item(a)));
+
+  let push = null;
+  const seen = [];
+  delete global.window.SVLyricsLib;
+  S.installLibrary({ onLyricsLib: (cb) => { push = cb; } }, (items) => seen.push(items[0].text));
+  push(item(a));
+  push(item(a));
+  push(item(b));
+  assert.deepStrictEqual(seen, [a, b]);
+  delete global.window.SVLyricsLib;
+});

@@ -120,12 +120,8 @@ test('OBS kamerayı tarayıcıdan açmaz, uygulamanın karesini alır', async ()
   assert.strictEqual((src.match(/\.getUserMedia\(/g) || []).length, 1, 'getUserMedia yalnız masaüstünde kalmalı');
   assert.ok(src.includes('claimCamRelay'));
 
-  assert.strictEqual(S.claimCam('pencere-a', 'cam-1'), true);
-  assert.strictEqual(S.claimCam('pencere-b', 'cam-1'), false);
-  assert.strictEqual(S.touchCam('pencere-b', 'cam-1'), false);
-  assert.strictEqual(S.touchCam('pencere-a', 'cam-1'), true);
-  S.releaseCam('pencere-a', 'cam-1');
-  assert.strictEqual(S.claimCam('pencere-b', 'cam-1'), true);
+  /* Bağlı yayın katmanı yokken kimse kare kodlamamalı (#695) */
+  assert.strictEqual(S.claimCam('pencere-a', 'cam-1'), false);
 
   let port = 0;
   for (let i = 0; i < 20; i++) {
@@ -141,6 +137,12 @@ test('OBS kamerayı tarayıcıdan açmaz, uygulamanın karesini alır', async ()
   try {
     await overlay.next('hello');
     await remote.next('hello');
+    assert.strictEqual(S.claimCam('pencere-a', 'cam-1'), true);
+    assert.strictEqual(S.claimCam('pencere-b', 'cam-1'), false);
+    assert.strictEqual(S.touchCam('pencere-b', 'cam-1'), false);
+    assert.strictEqual(S.touchCam('pencere-a', 'cam-1'), true);
+    S.releaseCam('pencere-a', 'cam-1');
+    assert.strictEqual(S.claimCam('pencere-b', 'cam-1'), true);
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
     assert.strictEqual(S.broadcastCam('cam-1', jpeg), true);
     const frame = await overlay.next('cam-frame');
