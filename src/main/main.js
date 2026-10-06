@@ -1099,6 +1099,10 @@ function configuredSources() {
 // hiç açmadan yalnızca tarayıcı kaynağını kullanabilir — o durumda yakalama
 // başlamazsa OBS'te hareketsiz bir sahne görünürdü.
 function captureWanted() {
+  /* Ekran görüntüsü üreticisi sentetik ses enjekte ediyor; gerçek yakalama
+     hem gereksiz hem de panele kullanıcının ses aygıtının adını yazıyordu
+     ("Yakalanıyor: Hoparlör (…)") — README görüntüsüne giriyordu. */
+  if (SHOTS) return false;
   return (
     anyVisualizerOpen() ||
     previewSubscribed ||
@@ -4575,6 +4579,15 @@ async function runSmoke() {
     }
     if (!st.n) errors.push('mode ' + m + ': katman tuvali oluşmadı');
     else if (!st.w) errors.push('mode ' + m + ': katman tuvalinin genişliği sıfır');
+    /* Tuval oluşması çizildiği anlamına gelmiyor: Geri Besleme motorunun
+       shader'ı eklendiğinden beri derlenmiyordu ve bu tur onu geçiriyordu.
+       Shader barındıran bir mod derleme hatası tutuyorsa düşür. */
+    const shaderErr = await wc.executeJavaScript(
+      '(function(){var s=window.SVStage&&window.SVStage.stack();var E=(s&&s.entries)||[];' +
+      'for(var i=0;i<E.length;i++){var o=E[i].mode;var h=o&&o.host;' +
+      'if(h&&h.error&&!o.ready&&E[i].layer&&E[i].layer.kind==="visualizer")return String(h.error.message||h.error);}return "";})()'
+    ).catch(() => '');
+    if (shaderErr && m !== 'custom') errors.push('mode ' + m + ': shader derlenmedi — ' + shaderErr);
   }
   console.log('[SMOKE] visualizer modes drawn: ' + (modes.length - 1));
 
@@ -6780,6 +6793,10 @@ app.on('window-all-closed', () => {
 // "canlı" gösterip docs/screenshots/ altına PNG kaydeder. Gerçek ses yakalanmaz.
 // ----------------------------------------------------------------------------
 async function runShots() {
+  /* Üretici KULLANICININ AYARLARINA YAZMAZ. Panel görüntüleri için panele
+     gösterilmelik bir şov (zaman çizelgesi, klip destesi, MilkDrop) veriliyor;
+     panel bunu ana sürece geri yollarsa diske gitmesin. Öz testteki kural. */
+  settingsFrozen = true;
   const shotsDir = path.join(__dirname, '..', '..', 'docs', 'screenshots');
   fs.mkdirSync(shotsDir, { recursive: true });
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -6883,8 +6900,8 @@ async function runShots() {
     // ediyor ve görüntülerdeki arayüzün de İngilizce olması gerekiyor.
     try {
       uiState = await adminWin.webContents.executeJavaScript(
-        "(function(){var s={lang:localStorage.getItem('sv-language'),c:localStorage.getItem('sv-category'),a:localStorage.getItem('sv-advanced')};" +
-          "localStorage.setItem('sv-language','en');localStorage.setItem('sv-advanced','0');" +
+        "(function(){var s={lang:localStorage.getItem('sv-language'),c:localStorage.getItem('sv-category'),a:localStorage.getItem('sv-advanced'),md:localStorage.getItem('sv-md-view')};" +
+          "localStorage.setItem('sv-language','en');localStorage.setItem('sv-advanced','0');localStorage.setItem('sv-md-view','grid');" +
           'return JSON.stringify(s)})()'
       );
       adminWin.reload();
@@ -6909,6 +6926,7 @@ async function runShots() {
     ['audio', 'deepanalysis', 'panel-analysis.png'],
     ['output', 'mapping', 'panel-mapping.png'],
     ['output', 'record', 'panel-record.png'],
+    ['output', 'stream', 'panel-output.png'],
     ['library', 'templates', 'panel-templates.png'],
     ['studio', null, 'panel-studio.png'],
     ['control', null, 'panel-control.png'],
@@ -6938,6 +6956,103 @@ async function runShots() {
         console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
       }
     }
+  }
+
+  /* Gösterilmelik şov: boş bir zaman çizelgesi ya da klip destesi kartın ne
+     yaptığını anlatmıyor. Panele kaydedilmeyen bir yapılandırma veriliyor
+     (`external-config`, MCP ve telefonun yolu); ayarlar yukarıda donduruldu,
+     sonda panel gerçek yapılandırmaya döndürülüyor. Her şey şablonlardan ve
+     yerleşik paletlerden: görüntüdeki her klibe tek tıkla ulaşılabiliyor. */
+  const MD_PRESETS = require('../shared/presets-milkdrop.js');
+  const realCfg = JSON.parse(JSON.stringify(currentConfig || {}));
+  const bar = 60 / 124 * 4; // 124 BPM'de bir ölçü
+  const tlClip = (ref, startBar, bars, color) => ({ type: 'preset', ref, start: startBar * bar, dur: bars * bar, fade: 1, color });
+  const SHOW = {
+    layerStack: { enabled: false },
+    visualizer: { type: 'milkdrop' },
+    milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source },
+    timeline: {
+      enabled: true,
+      tempo: [{ t: 0, bpm: 124, beatsPerBar: 4 }, { t: 24 * bar, bpm: 140, beatsPerBar: 4 }],
+      tracks: [
+        { name: 'Scenes', color: '#e11d2a', clips: [
+          tlClip('amb-aurora', 0, 8), tlClip('club-tunnel', 8, 8), tlClip('club-milkdrop', 16, 8),
+          tlClip('geo-lorenz', 24, 8), tlClip('club-strobe', 32, 4),
+        ] },
+        { name: 'Broadcast', color: '#3b82f6', clips: [
+          tlClip('bc-label', 0, 4), tlClip('bc-line', 12, 6), tlClip('bc-minimal', 28, 8),
+        ] },
+        { name: 'Palette', color: '#a855f7', clips: [
+          { type: 'palette', ref: 'Siberpunk', start: 4 * bar, dur: 4 * bar },
+          { type: 'palette', ref: 'Neon', start: 20 * bar, dur: 6 * bar },
+        ] },
+        { kind: 'automation', name: 'Sensitivity', color: '#22c55e', target: 'audio.sensitivity', min: 0, max: 4,
+          keys: [{ t: 0, v: 0.8 }, { t: 8 * bar, v: 2.2, curve: 'scurve' }, { t: 16 * bar, v: 1.2 },
+            { t: 24 * bar, v: 3.4, curve: 'exp' }, { t: 36 * bar, v: 1 }] },
+      ],
+      markers: [{ t: 0, name: 'Intro' }, { t: 8 * bar, name: 'Build' }, { t: 16 * bar, name: 'Drop' },
+        { t: 24 * bar, name: 'Break' }, { t: 32 * bar, name: 'Outro' }],
+      loop: { enabled: true, start: 16 * bar, end: 24 * bar },
+      zoom: 9,
+      laneHeight: 44,
+    },
+    clipdeck: {
+      enabled: true,
+      activeDeck: 'deck',
+      decks: [{
+        id: 'deck', name: 'Main', rows: 5, cols: 6,
+        rowNames: { 0: 'Warm-up', 1: 'Build', 2: 'Drop', 3: 'Break', 4: 'Encore' },
+        colNames: { 0: 'Ambient', 1: 'Club', 2: '3D', 3: 'Broadcast', 4: 'Colour', 5: 'Accent' },
+        slots: [
+          ['amb-aurora', 'club-tunnel', 'geo-klein', 'bc-label', 'Siberpunk', 'scr-plasma'],
+          ['amb-caustics', 'club-laser', 'geo-lorenz', 'bc-line', 'Neon', null],
+          ['amb-flow', 'club-strobe', 'geo-supershape', 'bc-minimal', null, 'club-fireworks'],
+          ['amb-ink', 'club-milkdrop', 'geo-chladni', null, null, 'gen-synthwave'],
+          [null, 'club-mandala', null, 'bc-amber', null, null],
+        ].flatMap((row, r) => row.map((ref, c) => (ref ? {
+          row: r, col: c, ref, type: c === 4 ? 'palette' : 'preset', quantize: 'global',
+          follow: r === 2 && c === 1 ? 'next' : 'none', dur: r === 2 && c === 1 ? 8 * bar : null,
+        } : null)).filter(Boolean)),
+      }],
+    },
+  };
+  /* [kategori, kart, dosya, kaydırılacak öğe, önce tıklanacak düğme]. MCP
+     kartı bilerek yok: açıkken kurulum komutu kullanıcının uygulama veri
+     klasörünün yolunu gösteriyor. */
+  const SHOW_PANELS = [
+    ['scene', 'milkdrop', 'panel-milkdrop.png', '.md-grid'],
+    ['control', 'timeline', 'panel-timeline.png'],
+    ['control', 'clipdeck', 'panel-clipdeck.png'],
+    ['studio', 'mdedit', 'panel-mdedit.png', null, 'button'],
+  ];
+  if (adminWin && !adminWin.isDestroyed() && SHOW_PANELS.some((p) => want(p[2]))) {
+    const awc = adminWin.webContents;
+    awc.send('external-config', Object.assign({}, realCfg, SHOW));
+    await wait(1500);
+    for (const [cat, cardId, name, inner, click] of SHOW_PANELS) {
+      if (!want(name)) continue;
+      try {
+        await awc.executeJavaScript(
+          "(function(){var b=document.querySelector('.nav-item[data-cat=\"" + cat + "\"]');if(b)b.click();return !!b})()"
+        );
+        await wait(1200);
+        const card = "document.querySelector('#sections .card[data-card=\"" + cardId + "\"]')||document.getElementById('card-" + cardId + "')";
+        if (click) {
+          await awc.executeJavaScript('(function(){var c=' + card + ';var b=c&&c.querySelector(' + JSON.stringify(click) + ');if(b)b.click();return !!b})()');
+          await wait(1500);
+        }
+        await awc.executeJavaScript(
+          '(function(){var c=' + card + ';var t=c&&' + (inner ? 'c.querySelector(' + JSON.stringify(inner) + ')' : 'null') + ';' +
+            "if(t)t.scrollIntoView({block:'center'});else if(c)c.scrollIntoView({block:'start'});return !!c})()"
+        );
+        await wait(1500);
+        await save(adminWin, name);
+      } catch (e) {
+        console.log('[SHOTS] panel atlandı ' + name + ': ' + (e && e.message));
+      }
+    }
+    awc.send('external-config', realCfg);
+    await wait(600);
   }
 
   // ==========================================================================
@@ -6970,6 +7085,12 @@ async function runShots() {
   const base = loadSettings() || {};
   // Sahne dışındaki alanlar sabitlensin: güç ayarı ve imleç görüntüyü etkiler
   base.power = Object.assign({}, base.power, { fpsCap: 60, renderScale: 1, pauseOnSilence: false, hideCursor: true });
+  /* Ses hassasiyeti: fabrika değeri (0,25) gerçek, yüksek sesli müzik içindir.
+     Demo sinyali onun kadar yüklü değil; barlar zaman verisinden (Goertzel)
+     hesaplandığından beri görseller sönük çıkıyordu — kısa barlar, cılız dalgalar.
+     Görüntü kullanıcının elle çevirdiği bir ayara bağlı kalmasın diye sabit. */
+  const SHOT_SENS = 0.6;
+  base.audio = Object.assign({}, base.audio, { sensitivity: SHOT_SENS });
 
   /* Medya katmanı KAPATILIR.
 
@@ -6984,7 +7105,9 @@ async function runShots() {
 
   /* Şablonu görselleştirici penceresinin İÇİNDE uygula: şablon motoru orada
      zaten yüklü ve aynı kodu iki yerde tutmak gerekmiyor. */
-  const applyTemplate = async (id, over) => {
+  /* `post`: şablondan sonra `cfg` üzerinde koşan kısa bir JS parçası (ör.
+     katman listesini değiştirmek; deepMerge dizileri birleştiremiyor). */
+  const applyTemplate = async (id, over, post) => {
     /* Logo kullanıcınınki gibi TABANDAN veriliyor: şablon onu kendi logo
        katmanlarına taşıyor (templates.js apply). Sonradan `over` ile
        yazılan logo o katmanlara ulaşmıyordu; yayın sahneleri, şablonlar
@@ -7005,6 +7128,7 @@ async function runShots() {
         'var over=' + JSON.stringify(over || {}) + ';' +
         'var cfg=window.SV.deepMerge(out, over);' +
         'cfg.transition=Object.assign({},cfg.transition,{enabled:false});' +
+        (post || '') +
         'return cfg;' +
       '})()'
     );
@@ -7044,6 +7168,9 @@ async function runShots() {
     ['amb-aurora', 'scene-aurora.png', 2400],
     ['amb-caustics', 'scene-caustics.png', 2400],
     ['amb-flow', 'scene-flowfield.png', 3000],
+    ['geo-knot', 'scene-knot.png', 2400],
+    ['geo-chladni', 'scene-chladni.png', 2400],
+    ['scr-stained', 'scene-stained.png', 2200],
     ['mus-chroma', 'scene-chroma.png', 2600],
     ['mus-galaxy', 'scene-galaxy.png', 2600],
     ['scr-plasma', 'scene-plasma.png', 2200],
@@ -7085,6 +7212,37 @@ async function runShots() {
     await save(vw, 'scene-text.png');
   }
 
+  /* Çalan Parça katmanı: elle yazılan kaynak ve üretilmiş bir kapak. Sistem
+     kaynağı KULLANILMAZ — o an bilgisayarda ne çalıyorsa (kullanıcının kendi
+     müziği) README'ye girerdi. */
+  const SHOT_COVER = 'data:image/svg+xml;base64,' + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d95"/>' +
+    '<stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
+    '<rect width="512" height="512" fill="url(#g)"/>' +
+    '<circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="10"/>' +
+    '<circle cx="256" cy="256" r="96" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="6"/>' +
+    '<circle cx="256" cy="256" r="18" fill="#fff"/></svg>'
+  ).toString('base64');
+  if (want('scene-nowplaying.png')) {
+    const np = {
+      source: 'manual', style: 'modern', coverOverlay: true, coverSource: 'manual', coverSide: 'left',
+      coverSize: 0.24, coverGap: 0.14, coverRadius: 0.08, mode: 'always', animation: 'none',
+      align: 'left', x: 0.25, y: 0.74, size: 0.055,
+      manual: { title: 'Midnight Signal', artist: 'CAYADEV & Aurora', album: 'Night Drive', duration: 214, artwork: SHOT_COVER },
+      show: { title: true, artist: true, album: true, total: true },
+    };
+    const ok = await applyTemplate('amb-aurora', { nowplaying: np },
+      'var L=window.SVLayers;if(L&&L.synthesize&&!(cfg.layers&&cfg.layers.length)){cfg.layers=L.synthesize(cfg);}' +
+      "cfg.layers=(cfg.layers||[]).concat([{id:'np_shot',name:'Now Playing',enabled:true,kind:'nowplaying',type:'nowplaying'," +
+      'blend:"normal",opacity:1,settings:{nowplaying:' + JSON.stringify(np) + '}}]);' +
+      'cfg.layerStack=Object.assign({},cfg.layerStack,{enabled:true});');
+    if (ok) {
+      await wait(2400);
+      await save(vw, 'scene-nowplaying.png');
+    }
+  }
+
   // ==========================================================================
   // 3) Hareketli demolar
   // ==========================================================================
@@ -7092,7 +7250,7 @@ async function runShots() {
     ['club-tunnel', 'demo-tunnel.gif', 34, 60, 760],
     ['club-milkdrop', 'demo-milkdrop.gif', 34, 60, 760],
     ['geo-lorenz', 'demo-geometry.gif', 30, 65, 760],
-    ['amb-flow', 'demo-flowfield.gif', 30, 65, 760],
+    ['gen-dnb', 'demo-dnb.gif', 30, 65, 760],
   ];
   for (const [id, name, frames, delay, width] of GIFS) {
     if (!wantShot(name)) continue;
@@ -7100,6 +7258,155 @@ async function runShots() {
     await wait(1600);
     await saveGif(vw, name, frames, delay, width);
   }
+
+  /* Vitrin klibi: README'nin en üstündeki tek GIF. Birkaç şablon art arda,
+     her biri ~1 sn. Boyut sınırlı tutuluyor (GitHub büyük GIF'i geç yükler):
+     sınırlı palet ve hafif titreme. MilkDrop sahnesi kendi presetimizle.
+     Çakar ışık (club-strobe) bilerek yok: sayfanın en üstünde yanıp sönen
+     bir görüntü ışığa duyarlı okuyucuya zarar verebilir. */
+  const HERO = [
+    ['club-milkdrop', { milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source } }],
+    ['club-tunnel'],
+    ['geo-lorenz'],
+    ['bc-label', NOW_PLAYING],
+    ['gen-synthwave'],
+    ['gen-dnb'],
+  ];
+  if (want('hero.gif')) {
+    let sharp = null;
+    try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, GIF atlandı: hero.gif'); }
+    if (sharp) {
+      const bufs = [];
+      for (const [id, over] of HERO) {
+        if (!(await applyTemplate(id, over))) continue;
+        await wait(1500);
+        for (let k = 0; k < 14; k++) {
+          const img = await vw.webContents.capturePage();
+          bufs.push(await sharp(img.toPNG()).resize(800).png().toBuffer());
+          await wait(70);
+        }
+      }
+      await sharp(bufs, { join: { animated: true } })
+        .gif({ loop: 0, delay: 75, colours: 128, effort: 10, dither: 0.3 })
+        .toFile(path.join(shotsDir, 'hero.gif'));
+      console.log('[SHOTS] saved hero.gif');
+    }
+  }
+
+  /* Klasik görünüşler, hareketli: uygulamanın ilk sürümlerinden beri olan
+     parlak degrade arkaplan + bar/dalga/çember. Şablonsuz, fabrika
+     ayarlarından; logo uygulamanın kendi simgesi. */
+  let APP_LOGO = null;
+  try { APP_LOGO = 'data:image/png;base64,' + fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'logo-256.png')).toString('base64'); } catch (e) { /* logosuz */ }
+  const PAL = {
+    aurora: ['#5b4be0', '#3aa6ff', '#37e0c8', '#7be07b', '#d24bff'],
+    neon: ['#ff00cc', '#3333ff', '#00ffe0', '#9d00ff', '#ff0066'],
+    ocean: ['#0f2027', '#1c92d2', '#2af5d4', '#136a8a', '#0b486b'],
+    night: ['#020111', '#191654', '#43377c', '#7b2ff7', '#22264b'],
+    forest: ['#0b3d2e', '#1e6f5c', '#56c596', '#a3eb9d', '#0f5132'],
+    sunset: ['#ff5e62', '#ff9966', '#ffcf6b', '#c94b8e', '#5b2c83'],
+  };
+  const grad = (style, colors, b, h) => ({ type: 'gradient', gradient: { style, colors, audioBrightness: b, audioHue: h } });
+  const rainbow = (v) => Object.assign({ colorMode: 'rainbow', rainbow: true }, v);
+  const withLogo = APP_LOGO ? { logo: { enabled: true, src: APP_LOGO, scale: 0.16, glow: 0.35, pulse: 0.3, x: 0.5, y: 0.5 } } : {};
+  const CLASSIC = [
+    ['demo-visualizer.gif', Object.assign({ visualizer: rainbow({ type: 'centerBars', barCount: 84, gap: 0.2, glow: 0.55 }), background: grad('plasma', PAL.neon, 0.9, 0.12) }, withLogo)],
+    ['demo-bars.gif', { visualizer: rainbow({ type: 'bars', position: 'bottom', barCount: 72, gap: 0.28, cap: true, glow: 0.5 }), background: grad('soft', PAL.aurora, 0.6, 0.1) }],
+    ['demo-circular.gif', Object.assign({ visualizer: rainbow({ type: 'circular', barCount: 120, gap: 0.1, glow: 0.55 }), background: grad('soft', PAL.forest, 0.6, 0.1) }, withLogo)],
+    ['demo-mirror.gif', { visualizer: rainbow({ type: 'bars', position: 'bottom', mirror: true, barCount: 72, gap: 0.32, cap: true, glow: 0.6, sensitivity: 0.5 }), background: grad('plasma', PAL.ocean, 0.3, 0.05) }],
+    ['demo-wave.gif', { visualizer: rainbow({ type: 'wave', thickness: 0.75, lineWidth: 6, glow: 0.8, mirror: false, sensitivity: 1.2 }), background: grad('plasma', PAL.night, 1.0, 0.15) }],
+    ['demo-sunset.gif', { visualizer: { type: 'wave', colorMode: 'custom', rainbow: false, color: '#ffd3b6', thickness: 0.55, lineWidth: 4, glow: 0.5, mirror: true }, background: grad('soft', PAL.sunset, 0.6, 0.06) }],
+  ];
+  for (const [name, over] of CLASSIC) {
+    if (!want(name)) continue;
+    const cfg = await vw.webContents.executeJavaScript(
+      '(function(){var c=window.SV.defaultConfig();' +
+        'c=window.SV.deepMerge(c,' + JSON.stringify(over) + ');' +
+        'c.audio=Object.assign({},c.audio,{sensitivity:' + SHOT_SENS + '});' +
+        'c.power=Object.assign({},c.power,' + JSON.stringify(base.power) + ');' +
+        'c.transition=Object.assign({},c.transition,{enabled:false});' +
+        "c.media=Object.assign({},c.media,{enabled:false,source:'file'});" +
+        'return c;})()'
+    );
+    vw.webContents.send('config', cfg);
+    await wait(1600);
+    await saveGif(vw, name, 28, 60, 560);
+  }
+
+  /* Mod kolajları: kataloğun TAMAMI (mode-catalog.js), İngilizce adlarıyla.
+     Elle seçilmiş bir liste yeni modları göstermiyordu; eski kolaj 59 modun
+     on altısını gösteriyordu. Her kare fabrika ayarlarından: kullanıcının
+     ayarına bağlı değil. */
+  const MC = require('../shared/mode-catalog.js');
+  let label = (s) => s;
+  if (adminWin && !adminWin.isDestroyed()) {
+    try {
+      const names = await adminWin.webContents.executeJavaScript(
+        '(function(){var C=window.SVModeCatalog,t=window.SVI18n.t,o={};' +
+          'C.VISUALIZERS.concat(C.BACKGROUNDS).forEach(function(m){o[m.label]=t(m.label);});return o;})()'
+      );
+      label = (s) => names[s] || s;
+    } catch (e) { /* Türkçe adlarla devam */ }
+  }
+  const SHEET_EXTRA = {
+    visualizer: {
+      text: { text: { enabled: true, source: 'static', content: 'CAYADEV', size: 0.16, weight: 800, perCharacter: true } },
+      nowplaying: { nowplaying: { source: 'manual', style: 'modern', mode: 'always', animation: 'none', size: 0.1, y: 0.62, manual: { title: 'Midnight Signal', artist: 'CAYADEV & Aurora', duration: 214 } } },
+      milkdrop: { milkdrop: { presetId: MD_PRESETS[0].id, name: MD_PRESETS[0].name, source: MD_PRESETS[0].source } },
+      custom: { custom: { visualizerId: 'sh_specring' } },
+      // Fabrika ayarında barlar ortada ve Merkez moduna benziyor; kolajda alttan
+      bars: { visualizer: { position: 'bottom' } },
+    },
+    background: {
+      custom: { custom: { backgroundId: 'sh_aurora' } },
+    },
+  };
+  const modeSheet = async (kind, name) => {
+    let sharp;
+    try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, kolaj atlandı: ' + name); return; }
+    const list = (kind === 'visualizer' ? MC.VISUALIZERS : MC.BACKGROUNDS).filter((m) => m.id !== 'none');
+    const TW = 320, TH = 180, LH = 30, COLS = 6;
+    const tiles = [];
+    for (const m of list) {
+      const x = [
+        /* Fabrika hassasiyeti gerçek ses içindir; demo sesinde modların
+           yarısı soluk kalıyordu. Kolajda gökkuşağı ve biraz daha hassasiyet. */
+        kind === 'visualizer'
+          ? { audio: { sensitivity: SHOT_SENS }, background: { type: 'solid', solidColor: '#07070d' },
+            visualizer: { type: m.id, colorMode: 'rainbow', rainbow: true, glow: 0.6 } }
+          : { audio: { sensitivity: SHOT_SENS }, background: { type: m.id, solidColor: '#3b1d6e' }, visualizer: { type: 'none' } },
+        SHEET_EXTRA[kind][m.id] || {},
+      ];
+      const cfg = await vw.webContents.executeJavaScript(
+        '(function(){var c=window.SV.defaultConfig();' +
+          'c=window.SV.deepMerge(window.SV.deepMerge(c,' + JSON.stringify(x[0]) + '),' + JSON.stringify(x[1]) + ');' +
+          'c.power=Object.assign({},c.power,' + JSON.stringify(base.power) + ');' +
+          'c.transition=Object.assign({},c.transition,{enabled:false});' +
+          "c.media=Object.assign({},c.media,{enabled:false,source:'file'});" +
+          'return c;})()'
+      );
+      vw.webContents.send('config', cfg);
+      // Geçmiş biriktiren ve yavaş kurulan modlar daha uzun bekler
+      await wait(m.engine || /^(spectrogram|ribbon|wave3d|terrain|galaxy|attractorfield|fireworks|flowfield|flock|ropes)$/.test(m.id) ? 3200 : 1800);
+      const img = await vw.webContents.capturePage();
+      tiles.push({ img: await sharp(img.toPNG()).resize(TW, TH).png().toBuffer(), name: label(m.label) });
+    }
+    const rows = Math.ceil(tiles.length / COLS);
+    const W = COLS * TW, H = rows * (TH + LH);
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H + '">' +
+      tiles.map((t, i) => '<text x="' + ((i % COLS) * TW + 12) + '" y="' + (Math.floor(i / COLS) * (TH + LH) + TH + 21) +
+        '" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" fill="#e8e8f0">' + esc(t.name) + '</text>').join('') +
+      '</svg>';
+    await sharp({ create: { width: W, height: H, channels: 3, background: '#0b0b12' } })
+      .composite(tiles.map((t, i) => ({ input: t.img, left: (i % COLS) * TW, top: Math.floor(i / COLS) * (TH + LH) }))
+        .concat([{ input: Buffer.from(svg), left: 0, top: 0 }]))
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toFile(path.join(shotsDir, name));
+    console.log('[SHOTS] saved ' + name + ' (' + tiles.length + ')');
+  };
+  if (want('modes-visualizer.jpg')) await modeSheet('visualizer', 'modes-visualizer.jpg');
+  if (want('modes-background.jpg')) await modeSheet('background', 'modes-background.jpg');
 
   // Kullanıcının arayüz tercihini geri yükle
   if (uiState && adminWin && !adminWin.isDestroyed()) {
@@ -7109,6 +7416,7 @@ async function runShots() {
           "if(s.lang)localStorage.setItem('sv-language',s.lang);else localStorage.removeItem('sv-language');" +
           "if(s.c)localStorage.setItem('sv-category',s.c);else localStorage.removeItem('sv-category');" +
           "if(s.a)localStorage.setItem('sv-advanced',s.a);else localStorage.removeItem('sv-advanced');" +
+          "if(s.md)localStorage.setItem('sv-md-view',s.md);else localStorage.removeItem('sv-md-view');" +
           'return true})()'
       );
     } catch (e) { /* yoksay */ }

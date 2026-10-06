@@ -136,6 +136,15 @@ test('panel: dolu hücre adı kaynağın adı, rengi ve kısa niceleme/takip bil
   assert.ok(find(cell, (n) => n.className === 'cd-prog'), 'ilerleme çubuğu');
 });
 
+/* README görüntüsünde bulundu: ölçüden hesaplanan süre (124 BPM'de 8 ölçü)
+   hücreye "15.48387096774…" diye yazılıyordu. */
+test('panel: hücredeki süre bir ondalığa yuvarlanır', () => {
+  const cfg = deckCfg([{ row: 0, col: 0, type: 'scene', ref: 'sA', quantize: 'global', dur: 8 * 4 * 60 / 124 }]);
+  const cell = find(mount(cfg), (n) => n.props && n.props.id === 'cdc-0-0');
+  const meta = find(cell, (n) => n.className === 'cd-meta');
+  assert.deepStrictEqual(meta.kids.map((k) => k.props.icon || k.text), ['15.5s']);
+});
+
 test('panel: sütun adı yapılandırmaya yazılıyor; boş ad harfe dönüyor', () => {
   const cfg = deckCfg();
   const root = mount(cfg);
