@@ -769,7 +769,7 @@
     'Ekranda görünen her şey: arkaplan, görselleştirici, logo ve görsel nesneler.': 'Everything you see on screen: background, visualizer, logo, and visual objects.',
     'Hangi sesin yakalanacağı ve görüntüye nasıl çevrileceği.': 'Which audio is captured and how it is turned into visuals.',
     'Işık': 'Lighting',
-    'Windows Dynamic Lighting ile uyumlu RGB aygıtlarını müzikle senkronize edin.': 'Sync compatible RGB devices with the music through Windows Dynamic Lighting.',
+    'RGB aygıtlarını ve ışıkları müzikle sürün: OpenRGB, Art-Net / DMX ve Windows\'ta Dynamic Lighting.': 'Drive RGB devices and lights with the music: OpenRGB, Art-Net / DMX and, on Windows, Dynamic Lighting.',
     'Çıkış': 'Output',
     'Görüntünün nereye ve nasıl gideceği: ekran, performans ve video dosyası.': 'Where and how the visuals go out: display, performance, and video file.',
     'Kitaplık': 'Library',

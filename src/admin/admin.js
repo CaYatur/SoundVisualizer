@@ -2125,7 +2125,7 @@
     },
     {
       id: 'lighting', icon: 'bulb', title: 'Işık',
-      desc: 'Windows Dynamic Lighting ile uyumlu RGB aygıtlarını müzikle senkronize edin.',
+      desc: 'RGB aygıtlarını ve ışıkları müzikle sürün: OpenRGB, Art-Net / DMX ve Windows\'ta Dynamic Lighting.',
     },
     {
       id: 'output', icon: 'tv', title: 'Çıkış',

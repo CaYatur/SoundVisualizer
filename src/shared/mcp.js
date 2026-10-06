@@ -1283,6 +1283,15 @@
         : text('mcp.perm.needs', loc).replace('{mode}', modeWord(need, loc)));
     return { name: t.name, description: body + ' ' + perm, inputSchema: t.inputSchema };
   }
+  /* Sunucu sürümü paketten okunur. Elle yazılmış '3.1.5-beta' yayından
+     sonra da istemcilere beta diyordu (#695). */
+  function appVersion() {
+    if (appVersion.cached) return appVersion.cached;
+    let v = '';
+    try { if (typeof require === 'function') v = require('../../package.json').version; } catch (e) { v = ''; }
+    appVersion.cached = typeof v === 'string' && v ? v : '0.0.0';
+    return appVersion.cached;
+  }
   function handleRpc(message, ctx) {
     const msg = message || {};
     if (msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
@@ -1295,7 +1304,7 @@
       const protocolVersion = PROTOCOLS.indexOf(requested) >= 0 ? requested : '2024-11-05';
       return Promise.resolve({
         jsonrpc: '2.0', id: id,
-        result: { protocolVersion: protocolVersion, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'soundvisualizer', version: '3.1.5-beta' } },
+        result: { protocolVersion: protocolVersion, capabilities: { tools: { listChanged: false } }, serverInfo: { name: 'soundvisualizer', version: appVersion() } },
       });
     }
     if (msg.method === 'ping') return Promise.resolve({ jsonrpc: '2.0', id: id, result: {} });

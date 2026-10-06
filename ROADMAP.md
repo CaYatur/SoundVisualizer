@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2712 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2716 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 913
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 917
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1385,6 +1385,12 @@ Stabilisation (#695):
   - A visualizer or background layer without its own value is drawn with the scene's value: the renderer merges the scene's visualizer or background with the layer. The panel showed the factory value instead, so a layer could show "Colour Theme" in the panel while it drew a rainbow. The panel now shows the value that is drawn; a reset still returns to the factory value.
   - The OBS overlay page was checked with the new patch protocol: during a drag it received each change, then the full configuration, and kept the 22 scenes the phone remote needs.
 - **Copyright notice in every source file** · done on the branch. Every JavaScript, CSS, HTML, C#, C++, shell and NSIS file under `src`, `scripts` and `native` starts with the same notice: Çağan Turgut (CaYatur), CaYaDev, cayadev.com, the repository and `SPDX-License-Identifier: MIT`. In HTML it follows the doctype, in the shell script the shebang. A BOM and the line endings of each file are kept. JSON, `binding.gyp` and the `.csproj` files are manifests and have no notice; tests have none either. LICENSE, both READMEs and `build.copyright` (the copyright in the Windows file properties and the macOS bundle) name the same holder. The native code was checked first: it uses only the public WinRT, WASAPI and N-API interfaces, and the SMTC helper follows the owner's own MIT project Windows-to-Android-Bridge. The Dynamic Lighting addon was rebuilt with the notice and compiled without warnings. A test fails when a new source file has no notice.
+- **General check** · done on the branch. A last pass over the areas the earlier entries did not measure.
+  - With two lyrics layers open in the panel, only the last one's clock advanced. Each Play / Pause / Stop row started its own timer and stopped the one before. One timer now paints every open row and stops when none is left.
+  - The lock on a visualizer window's bar (after F11 to a window) changed the setting but did not save it. The panel does not send an outside change back, so the lock was lost at the next start unless something else was changed. It is now saved when it is clicked; checked with a copy of the reporter's settings.
+  - The Lighting category's description named only Windows Dynamic Lighting, on every system. The category also holds OpenRGB and Art-Net, and macOS and Linux have no Dynamic Lighting card. It now names all three and says Dynamic Lighting is on Windows. Found by opening the panel as macOS and as Linux (the preload's platform patched in a throwaway copy) and listing every visible text and tooltip that mentions Windows, Spout, Syphon, Dynamic Lighting or the taskbar. Nothing else turned up: the Spout card falls back to its "not on this system" note from the main process, and the Dynamic Lighting card is hidden.
+  - MCP told clients it was version 3.1.5-beta in its handshake, from a string typed into the code; after the release it would still have said beta. It now reads the version from the package.
+  - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 
