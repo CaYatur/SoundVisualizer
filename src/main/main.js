@@ -1804,9 +1804,12 @@ function applyGeometryLockToWin(win, opts) {
 function applyGeometryLockAll() {
   for (const win of visualizerWins.values()) applyGeometryLockToWin(win);
 }
+/* Pencere çubuğundaki kilit. Kayıt da burada: panel dış ayarı geri
+   göndermiyor, kaydedilmezse kilit bir sonraki açılışta kayboluyordu. */
 ipcMain.on('visualizer:geometry-lock', (e, locked) => {
-  if (!currentConfig.power) currentConfig.power = {};
-  currentConfig.power.geometryLock = !!locked;
+  if (!currentConfig) return;
+  currentConfig.power = Object.assign({}, currentConfig.power, { geometryLock: !!locked });
+  saveSettings(currentConfig);
   applyGeometryLockAll();
   notifyAdmin('external-config', currentConfig);
 });
