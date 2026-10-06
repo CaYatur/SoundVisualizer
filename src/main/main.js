@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
@@ -977,6 +977,7 @@ function createVisualizerWindow(display) {
     }
   });
 
+  watchKeepAwake(win);
   win.on('closed', () => {
     visualizerWins.delete(display.id);
     // Kapanış kasıtlı mıydı? closeVisualizer() bunu önceden işaretler;
@@ -999,7 +1000,44 @@ function floatingIsOpen() {
   return !!(floatingWin && !floatingWin.isDestroyed());
 }
 
+/* Ekranı uyanık tut. Chromium tuval çizimi için ekranı uyanık tutmaz:
+   görselleştirme açıkken kimse fareye dokunmazsa güç planı ekranı
+   karartıyor, gösteri ortasında çıkış kararıyordu (#695). Görünür bir
+   çıkış penceresi (ekran başına pencere ya da yüzen pencere) açıkken
+   'prevent-display-sleep' tutulur; gizli Spout penceresi ve dışa aktarım
+   sayılmaz. Electron bunu Windows, macOS ve Linux'ta sağlar. Ayarlardan
+   kapatılabilir (power.keepAwake, varsayılan açık). */
+let keepAwakeId = null;
+function wantsKeepAwake() {
+  const p = currentConfig && currentConfig.power;
+  if (p && p.keepAwake === false) return false;
+  return openWindows().some((w) => w.isVisible() && !w.isMinimized());
+}
+function syncKeepAwake() {
+  const want = !quitting && wantsKeepAwake();
+  const held = keepAwakeId != null && powerSaveBlocker.isStarted(keepAwakeId);
+  if (want && !held) {
+    try { keepAwakeId = powerSaveBlocker.start('prevent-display-sleep'); } catch { keepAwakeId = null; }
+  } else if (!want && keepAwakeId != null) {
+    try { if (powerSaveBlocker.isStarted(keepAwakeId)) powerSaveBlocker.stop(keepAwakeId); } catch { /* bırakıldı */ }
+    keepAwakeId = null;
+  }
+}
+/* Simge durumuna küçültülen ya da gizlenen pencere ekranı tutmasın.
+   Olaylar güvenilir değil: tam ekran pencere geri açılınca Windows
+   'restore' vermiyor, yalnız 'focus' geliyor; durum da olaydan biraz sonra
+   güncelleniyor. Değerlendirme olaydan kısa süre sonra yapılır, ayrıca
+   pencere açıkken 30 sn'de bir (ekran kapanma süreleri dakikalarla). */
+function watchKeepAwake(win) {
+  const later = () => setTimeout(syncKeepAwake, 100);
+  for (const ev of ['show', 'hide', 'minimize', 'restore', 'focus']) win.on(ev, later);
+  const tick = setInterval(syncKeepAwake, 30000);
+  if (tick.unref) tick.unref();
+  win.on('closed', () => clearInterval(tick));
+}
+
 function notifyVisualizerStatus() {
+  syncKeepAwake();
   const ids = Array.from(visualizerWins.keys());
   notifyAdmin('visualizer-status', {
     open: ids.length > 0 || floatingIsOpen(),
@@ -1798,6 +1836,7 @@ function createFloatingWindow() {
     notifyVisualizerStatus();
   });
 
+  watchKeepAwake(win);
   win.on('closed', () => {
     if (floatingWin === win) floatingWin = null;
     syncCapture();
@@ -2330,6 +2369,7 @@ function applyIncomingConfig(config, opts) {
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
   syncCapture();
+  syncKeepAwake();
   syncMcp();
 }
 
@@ -6670,6 +6710,7 @@ function shutdownCleanup() {
   textureShare.stop().catch(() => {});
   mediaSession.stop();
   nativeAudio.stopCapture();
+  syncKeepAwake(); // quitting: ekranı bırak
   if (mcpHandle) mcpHandle.stop().catch(() => {});
 }
 

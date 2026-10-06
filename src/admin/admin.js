@@ -3122,13 +3122,18 @@
         icon: 'gear',
         title: 'Uygulama',
         desc: '',
-        roots: ['power.alwaysOnTop', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        roots: ['power.alwaysOnTop', 'power.keepAwake', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         controls: [
           { type: 'language', group: 'Dil' },
           {
             type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',
             group: 'Pencere',
             hint: 'Başka bir uygulama öne çıksa bile görselleştirme ekranı üstte kalır.',
+          },
+          {
+            type: 'toggle', path: 'power.keepAwake', label: 'Görselleştirme Açıkken Ekranı Uyanık Tut',
+            group: 'Pencere',
+            hint: 'Görselleştirme penceresi açıkken ekranın kararması ve uykuya geçmesi engellenir. Pencere kapanınca ya da simge durumuna küçültülünce güç ayarlarınız yeniden geçerli olur.',
           },
           {
             type: 'toggle', path: 'power.protect', label: 'Kaza Koruması', rebuild: true,

@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#paketleme--dağıtım)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Test](https://img.shields.io/badge/test-2776%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2781%20geçiyor-2ea043.svg)](#testler)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -914,8 +914,8 @@ Canlı yüzeyleri açar.
   kümeyi değiştirir. `sv_close_output` görselleştirici pencerelerini kapatır. `sv_set_displays`
   ekranları seçer, pencereleri olduğu gibi bırakır.
 - `sv_set_stream` OBS ve tarayıcı yayınını değiştirir. `sv_set_texture_share` Spout ve Syphon'u
-  değiştirir. `sv_set_aspect` basıklık düzeltmesini değiştirir. `sv_set_power` kare hızı tavanını
-  ve çizim ölçeğini değiştirir.
+  değiştirir. `sv_set_aspect` basıklık düzeltmesini değiştirir. `sv_set_power` kare hızı tavanını,
+  çizim ölçeğini ve görselleştirme penceresi açıkken ekranı uyanık tutan `keepAwake` ayarını değiştirir.
 - `sv_set_floating` yüzen pencere tercihlerini değiştirir; opaklık ve tıklamayı geçirme buna
   dahildir. `sv_set_floating_open` aynı resim-içinde-resim penceresini açar ya da kapatır.
 - `sv_set_window_mode` saydam arkaplanı, saydamlık eşiğini ve görev çubuğunu kaplamayı ayarlar.
@@ -1369,6 +1369,9 @@ Geliştirme, kurulu ve taşınabilir (portable) derlemelerin hepsi ayarlarını 
 - **Dil** — otomatik (sistem), Türkçe ya da İngilizce.
 - **Görselleştirmeyi Her Zaman Üstte Tut** *(varsayılan kapalı)* — görselleştirme penceresi odağı
   kaybettiğinde kendini yeniden öne alır.
+- **Görselleştirme Açıkken Ekranı Uyanık Tut** *(varsayılan açık)* — görselleştirme penceresi
+  açık ve simge durumunda değilken ekran kararmaz ve uykuya geçmez; Windows, macOS ve Linux'ta.
+  Pencere kapanınca ya da küçültülünce güç ayarlarınız yeniden geçerli olur.
 - **Genişletilmiş Ayar Aralıkları** *(varsayılan kapalı)* — kaydırıcıların üst sınırını 5×
   yükseltir. Algoritma gereği gerçekten sınırlı olan birkaç ayar (yumuşatma, arkaplan çözünürlüğü)
   hariçtir. Kapatınca girilmiş yüksek değerler korunur.
@@ -1530,7 +1533,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2776 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2781 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre
   üzerinde kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı

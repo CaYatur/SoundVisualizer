@@ -12,7 +12,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#build--distribution)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
-[![Tests](https://img.shields.io/badge/tests-2776%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2781%20passing-2ea043.svg)](#tests)
 [![cayadev.com](https://img.shields.io/badge/cayadev.com-e11d2a.svg)](https://cayadev.com)
 
 </div>
@@ -912,8 +912,8 @@ Opens the live surfaces.
   selected set. `sv_close_output` closes visualizer windows. `sv_set_displays` chooses displays and
   leaves the windows as they are.
 - `sv_set_stream` changes the OBS and browser stream. `sv_set_texture_share` changes Spout and
-  Syphon. `sv_set_aspect` changes aspect correction. `sv_set_power` changes the frame-rate cap and
-  the render scale.
+  Syphon. `sv_set_aspect` changes aspect correction. `sv_set_power` changes the frame-rate cap,
+  the render scale and `keepAwake`, which keeps the display awake while a visualizer window is open.
 - `sv_set_floating` changes floating-window preferences, including opacity and click-through.
   `sv_set_floating_open` opens or closes that same picture-in-picture window.
 - `sv_set_window_mode` sets a transparent background, the transparency threshold and taskbar cover.
@@ -1361,6 +1361,9 @@ of them used to mean that whichever saved last silently replaced the other's set
 - **Language** — automatic (system), Turkish or English.
 - **Keep visualization always on top** *(off by default)* — the visualization window re-raises
   itself whenever it loses focus.
+- **Keep the display awake while visualizing** *(on by default)* — while a visualizer window is
+  open and not minimised, the display does not dim or go to sleep, on Windows, macOS and Linux.
+  Closing or minimising the window hands control back to your power settings.
 - **Extended setting ranges** *(off by default)* — raises the upper limit of the sliders 5×. A few
   settings genuinely bounded by the algorithm (smoothing, background resolution) are excluded.
   Turning it off again keeps any high values already entered.
@@ -1521,7 +1524,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2776 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2781 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor
