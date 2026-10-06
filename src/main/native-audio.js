@@ -287,6 +287,8 @@ async function listDevices() {
 // Geriye dönük uyum takma adı
 const listOutputDevices = listDevices;
 
+const STALL_MS = 3000;
+const WATCHDOG_TICK_MS = 1000;
 let capChild = null;
 let acc = Buffer.alloc(0);
 let frameCb = null;
@@ -313,8 +315,34 @@ function startCapture(devices, onFrame, onStatus) {
   }
   capChild = child;
 
+  /* Bekçi: yardımcı başladıktan sonra sessizlikte de ~70 Hz kare yollar.
+     Süreç canlı ama kare kesildiyse (uykudan dönüşte takılan ses yolu,
+     askıya alınmış süreç) eskiden hiçbir şey olmuyordu: ekran duruyor,
+     panel "Yakalanıyor" demeye devam ediyordu (#695). İlk kareden sonra
+     STALL_MS boyunca kare gelmezse yardımcı öldürülür; kuşak değişmediği
+     için çıkış "exited" olarak bildirilir ve ana süreç yeniden kurar.
+     Olay döngüsü tıkalıysa ya da sistem uyuduysa (tik geç geldiyse) o tur
+     sayılmaz: borudaki kareler henüz okunmamış olabilir. */
+  let lastFrameAt = 0;
+  let lastTick = Date.now();
+  const watchdog = setInterval(() => {
+    const now = Date.now();
+    const lag = now - lastTick;
+    lastTick = now;
+    if (child !== capChild || generation !== captureGeneration) { clearInterval(watchdog); return; }
+    if (!lastFrameAt) return;
+    if (lag > WATCHDOG_TICK_MS * 1.5) { lastFrameAt = now; return; }
+    if (now - lastFrameAt > STALL_MS) {
+      clearInterval(watchdog);
+      dbg('capture stalled for', now - lastFrameAt, 'ms; restarting helper');
+      try { child.kill(); } catch { /* zaten kapandı */ }
+    }
+  }, WATCHDOG_TICK_MS);
+  if (watchdog.unref) watchdog.unref();
+
   child.stdout.on('data', (chunk) => {
     if (generation !== captureGeneration || child !== capChild || !Buffer.isBuffer(chunk)) return;
+    lastFrameAt = Date.now();
     if (!Buffer.isBuffer(acc)) acc = Buffer.alloc(0);
     acc = acc.length ? Buffer.concat([acc, chunk]) : Buffer.from(chunk);
     parseFrames(generation);
@@ -351,9 +379,11 @@ function startCapture(devices, onFrame, onStatus) {
   });
 
   child.on('error', (e) => {
+    clearInterval(watchdog);
     if (onStatus) onStatus({ type: 'error', message: 'ses yardımcısı çalıştırılamadı (' + e.message + ')' });
   });
   child.on('exit', (code, signal) => {
+    clearInterval(watchdog);
     if (child !== capChild) return;
     capChild = null;
     /* stopCapture kuşağı artırır; kuşak hâlâ bizimkiyse çıkış beklenmedik:
