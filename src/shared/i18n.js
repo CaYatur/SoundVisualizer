@@ -1800,6 +1800,8 @@
     'Okunuyor…': 'Reading…',
     'Varsayılana Dön': 'Back to Default',
     'İçe aktarma kullanılamıyor.': 'Import is not available.',
+    'Dosya eklenemedi: biçim desteklenmiyor, dosya boş ya da çok büyük.': 'The file was not added: the format is not supported, or the file is empty or too large.',
+    'Seçilen dosya kitaplıkta zaten var; yeniden eklenmedi.': 'The chosen file is already in the library; it was not added again.',
     'Ara': 'Search',
     'preset adı': 'preset name',
     'Aramaya uyan preset yok.': 'No preset matches the search.',

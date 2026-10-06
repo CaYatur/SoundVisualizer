@@ -135,6 +135,17 @@ function importFile(dir, srcPath, originalName, meta) {
   let st;
   try { st = fs.statSync(srcPath); } catch (e) { return { ok: false, error: 'READ' }; }
   if (!st.isFile() || st.size <= 0 || st.size > MAX_BYTES) return { ok: false, error: 'SIZE' };
+  /* Aynı söz ikinci kez seçilince kitaplıkta ikinci bir kayıt oluşuyordu;
+     eşleşmede listedeki ilki kazandığı için ikincisi boşuna duruyordu (#695). */
+  let srcText;
+  try { srcText = readText(srcPath); } catch (e) { return { ok: false, error: 'READ' }; }
+  if (srcText == null) return { ok: false, error: 'TYPE' };
+  for (const it of loadManifest(dir).items) {
+    if (!it || it.size !== st.size || typeof it.file !== 'string' || !it.file) continue;
+    let theirs = null;
+    try { theirs = readText(path.join(dir, path.basename(it.file))); } catch (e) { theirs = null; }
+    if (theirs === srcText) return { ok: false, error: 'DUPLICATE', item: publicItem(it) };
+  }
   ensureDir(dir);
   const id = newId();
   const fileName = id + ext;

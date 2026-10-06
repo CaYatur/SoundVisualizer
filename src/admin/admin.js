@@ -424,6 +424,14 @@
     apply: () => { render(); push(true); },
     toast: svToast,
     confirm: svConfirm,
+    /* Kitaplık içe aktarmasının sonucu (ana süreç importResult). Yinelenen
+       ya da eklenemeyen seçim artık sessiz kalmıyor. */
+    importNote: (r) => {
+      if (!r || r.canceled) return;
+      // Tek bildirim kutusu var: eklenemeyen dosya daha önemli
+      if (r.failed > 0) svToast(tr('Dosya eklenemedi: biçim desteklenmiyor, dosya boş ya da çok büyük.'), 'warn');
+      else if (r.duplicates > 0) svToast(tr('Seçilen dosya kitaplıkta zaten var; yeniden eklenmedi.'), 'warn');
+    },
     /* Görselleştirici tür etiketleri, TEK kaynaktan: bölüm şemasındaki tür
        seçicisi. Otomatik VJ paneli bunları kendi listesinde tekrar etseydi
        yeni bir tür eklenince iki liste sessizce ayrışırdı. */

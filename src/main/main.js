@@ -3641,6 +3641,18 @@ ipcMain.handle('lyrics-lib:update', (e, id, patch) => {
   publishLyricsLib();
   return r;
 });
+/* Kitaplık içe aktarmalarının ortak sonucu: panel kaçının eklendiğini,
+   kaçının zaten olduğunu ve kaçının eklenemediğini söyleyebilsin. Eskiden
+   yinelenen ya da başarısız seçim sessizce hiçbir şey yapmıyordu (#695). */
+function tallyImport(one, added, tally) {
+  if (one && one.ok) added.push(one.item);
+  else if (one && one.error === 'DUPLICATE') tally.duplicates += 1;
+  else tally.failed += 1;
+}
+function importResult(added, tally) {
+  return { ok: added.length > 0, added, duplicates: tally.duplicates, failed: tally.failed };
+}
+
 ipcMain.handle('lyrics-lib:import', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
     title: trUi('Söz Kütüphanesine Ekle', 'Add Lyrics to Library'),
@@ -3652,15 +3664,16 @@ ipcMain.handle('lyrics-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     let text = '';
     try { text = fs.readFileSync(file, 'utf8'); } catch { text = ''; }
     const meta = lyricsSync.guessMeta(text, path.basename(file));
     const one = lyricsLibrary.importFile(lyricsLibDir(), file, path.basename(file), meta);
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
   publishLyricsLib();
-  return { ok: added.length > 0, added };
+  return importResult(added, tally);
 });
 
 ipcMain.handle('logo-lib:import', async () => {
@@ -3674,11 +3687,12 @@ ipcMain.handle('logo-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     const one = logoLibrary.importFile(logoLibDir(), file, path.basename(file));
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
-  return { ok: true, added };
+  return importResult(added, tally);
 });
 
 ipcMain.handle('media-lib:list', () => {
@@ -3700,11 +3714,12 @@ ipcMain.handle('media-lib:import', async () => {
   });
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   const added = [];
+  const tally = { duplicates: 0, failed: 0 };
   for (const file of r.filePaths) {
     const one = await mediaLibrary.importFileAsync(mediaLibDir(), file, path.basename(file));
-    if (one && one.ok) added.push(one.item);
+    tallyImport(one, added, tally);
   }
-  return { ok: added.length > 0, added };
+  return importResult(added, tally);
 });
 
 // ----------------------------------------------------------------------------

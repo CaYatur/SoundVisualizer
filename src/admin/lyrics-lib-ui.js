@@ -314,6 +314,7 @@
             return;
           }
           const r = await window.api.lyricsLibImport();
+          if (P().importNote) P().importNote(r);
           if (!r || !r.ok) return;
           rerender();
         },
