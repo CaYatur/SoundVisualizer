@@ -898,6 +898,24 @@ function createVisualizerWindow(display) {
       return;
     }
 
+    /* F11: tam ekran ile pencere arası. Electron'un kendi kısayolu, konum
+       kilidi açık (boyutlanamaz) pencereyi tam ekrana alırken ekranı
+       kaplamıyordu: 1280×1024 ekranda 1294×983 kalıyordu (#695). Tam
+       ekrana girmeden önce kilit kaldırılır; pencereye dönünce
+       leave-full-screen yeniden uygular. Şeffaf pencere tam ekran olamaz. */
+    if (key === 'f11' && !input.control && !input.alt && !input.meta && !input.shift
+        && win.isFullScreenable()) {
+      event.preventDefault();
+      if (win.isFullScreen()) {
+        win.setFullScreen(false);
+      } else {
+        try { win.setResizable(true); } catch { /* yok */ }
+        try { win.setMovable(true); } catch { /* yok */ }
+        win.setFullScreen(true);
+      }
+      return;
+    }
+
     if (isEsc) {
       if (escapeLocked()) {
         event.preventDefault();
@@ -926,6 +944,7 @@ function createVisualizerWindow(display) {
     syncChrome({ forceWindowed: true });
     setTimeout(() => {
       if (!win.isDestroyed() && win._svChromeArmed) syncChrome({ forceWindowed: true });
+      fitWindowedToWorkArea(win);
     }, 0);
   });
   win.webContents.on('did-finish-load', () => {
@@ -1770,6 +1789,21 @@ ipcMain.on('floating:snap', (e, where) => snapFloating(where));
 ipcMain.on('floating:size', (e, kind) => sizeFloating(kind));
 
 /* Tam ekrandan (F11) cekilince tasima/yeniden boyut; kilit cfg.power.geometryLock. */
+/* Tam ekrandan çıkınca pencere ekranı birebir kaplıyorsa çalışma alanına
+   sığdırılır; yoksa pencere olduğu anlaşılmıyor ve görev çubuğunu örtüyor.
+   Electron'un kendi kısayolu bunu yapıyordu, elle geçişte yapılmıyor. */
+function fitWindowedToWorkArea(win) {
+  if (!win || win.isDestroyed() || win.isFullScreen()) return;
+  let b;
+  try { b = win.getBounds(); } catch { return; }
+  const d = screen.getDisplayMatching(b);
+  if (!d || !d.workArea) return;
+  const wa = d.workArea;
+  const full = b.width >= d.bounds.width && b.height >= d.bounds.height;
+  if (!full || (wa.width === d.bounds.width && wa.height === d.bounds.height)) return;
+  try { win.setBounds(wa); } catch { /* yok */ }
+}
+
 function geometryLocked() {
   return !!(currentConfig && currentConfig.power && currentConfig.power.geometryLock);
 }
