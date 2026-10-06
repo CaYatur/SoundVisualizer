@@ -289,6 +289,11 @@ const camClaims = new Map();
 const lastCamSent = new Map();
 
 function claimCam(owner, key) {
+  /* Kareyi bekleyen bir yayın katmanı yoksa kimse kodlamasın. Pencere
+     her 80 ms'de bir JPEG üretip yolluyor, burada atılıyordu (#695). */
+  let overlay = false;
+  for (const c of clients) if (c.kind === 'overlay') { overlay = true; break; }
+  if (!overlay) return false;
   const k = String(key == null ? '' : key).slice(0, 300);
   const now = Date.now();
   const cur = camClaims.get(k);
