@@ -115,3 +115,48 @@ test('söz saati açık ekranlara çıpa olarak bağlanır', () => {
     assert.match(read(file), /lyrics-clock\.js/);
   }
 });
+
+/* İki söz katmanı açıkken her denetim kendi sayacını kurup öncekini
+   kapatıyordu; yalnız sonuncusunun süresi ilerliyordu (#695). */
+test('iki saat denetimi tek sayaçla birlikte ilerliyor', () => {
+  const timers = [];
+  const realSet = global.setInterval;
+  const realClear = global.clearInterval;
+  const realNow = Date.now;
+  const hadDoc = 'document' in global;
+  global.document = global.document || {};
+  global.setInterval = (fn, ms) => { const t = { fn, ms, live: true }; timers.push(t); return t; };
+  global.clearInterval = (t) => { if (t) t.live = false; };
+  let now = 1000000;
+  Date.now = () => now;
+  try {
+    const nodes = [];
+    const el = (tag, attrs, kids) => {
+      const n = { tag, textContent: (attrs && attrs.text) || '', isConnected: true, kids: kids || [], classList: { toggle() {} } };
+      nodes.push(n);
+      return n;
+    };
+    clock.apply(clock.command('play', now));
+    clock.controls({ el });
+    const firstLabel = nodes.find((n) => n.tag === 'span');
+    const before = nodes.length;
+    clock.controls({ el });
+    const secondLabel = nodes.slice(before).find((n) => n.tag === 'span');
+    assert.strictEqual(timers.filter((t) => t.live).length, 1, 'tek sayaç');
+    now += 65000;
+    timers.find((t) => t.live).fn();
+    assert.strictEqual(firstLabel.textContent, '1:05', 'ilk denetim ilerlemeli');
+    assert.strictEqual(secondLabel.textContent, '1:05');
+    // İkisi de sayfadan kalkınca sayaç durur
+    firstLabel.isConnected = false;
+    secondLabel.isConnected = false;
+    timers.find((t) => t.live).fn();
+    assert.strictEqual(timers.filter((t) => t.live).length, 0, 'sayaç durmalı');
+  } finally {
+    global.setInterval = realSet;
+    global.clearInterval = realClear;
+    Date.now = realNow;
+    if (!hadDoc) delete global.document;
+    clock.apply(null);
+  }
+});

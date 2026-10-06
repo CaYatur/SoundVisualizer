@@ -137,16 +137,18 @@
       paint();
     };
     painters.add(listener);
-    if (tick) clearInterval(tick);
-    if (typeof document !== 'undefined') {
+    /* Tek sayaç bütün açık denetimleri boyar. Her denetim kendi sayacını
+       kurup öncekini kapatıyordu: iki söz katmanı açıkken yalnız sonuncusunun
+       süresi ilerliyordu (#695). */
+    if (!tick && typeof document !== 'undefined') {
       tick = setInterval(() => {
-        if (label.isConnected === false) {
+        painters.forEach((fn) => {
+          try { fn(); } catch { /* düğme kopmuş olabilir */ }
+        });
+        if (!painters.size) {
           clearInterval(tick);
           tick = 0;
-          painters.delete(listener);
-          return;
         }
-        paint();
       }, 250);
       if (tick.unref) tick.unref();
     }
