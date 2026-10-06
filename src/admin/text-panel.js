@@ -319,13 +319,21 @@
 
     nodes.push(SP().foldable('Renk', () => {
       const cfg = P().cfg();
-      const getMode = () => (cfg.visualizer && cfg.visualizer.colorMode)
-        || (T.useCustomColor ? 'custom' : 'theme');
+      /* Yazının kendi kipi (modes/text.js ile aynı sıra). Eskiden bu seçim
+         görselleştiricinin kipini yazıyordu: Barlar'ın üstündeki yazıya
+         Gökkuşağı seçince Barlar da gökkuşağı oluyordu (#695). Yazı
+         görselleştiricinin kendisiyse ikisi aynı kalır. */
+      const getMode = () => T.colorMode
+        || (T.useCustomColor ? 'custom' : null)
+        || (cfg.visualizer && cfg.visualizer.colorMode)
+        || 'theme';
       const setMode = (m) => {
+        T.colorMode = m;
         T.useCustomColor = (m === 'custom');
-        cfg.visualizer = cfg.visualizer || {};
-        cfg.visualizer.colorMode = m;
-        cfg.visualizer.rainbow = (m === 'rainbow');
+        if (cfg.visualizer && cfg.visualizer.type === 'text') {
+          cfg.visualizer.colorMode = m;
+          cfg.visualizer.rainbow = (m === 'rainbow');
+        }
         sync();
       };
       const kids = [

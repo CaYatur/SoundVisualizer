@@ -759,11 +759,15 @@
           setPath(cfg, def.path, o.value);
           if (def.path === 'visualizer.colorMode' && cfg.visualizer) {
             cfg.visualizer.rainbow = (o.value === 'rainbow');
+            /* Görselleştiricinin kendisi metin ya da çalan parçaysa onun
+               kendi kipi de aynı olsun: çizici önce o kipi okuyor. */
             if (cfg.nowplaying && cfg.visualizer.type === 'nowplaying') {
               cfg.nowplaying.useCustomColor = (o.value === 'custom');
+              cfg.nowplaying.colorMode = o.value;
             }
             if (cfg.text && cfg.visualizer.type === 'text') {
               cfg.text.useCustomColor = (o.value === 'custom');
+              cfg.text.colorMode = o.value;
             }
           }
           /* Seçili görünümü hemen güncelle. rebuild/onChange olmadan
