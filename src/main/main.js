@@ -186,6 +186,8 @@ app.on('will-quit', () => {
      kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
      der. */
   stopInstanceRegistry();
+  /* Kapanırken yarıda kesilen dışa aktarımın dosyası da gitmeli. */
+  flushPartialsSync(1500);
   if (pendingExitCode) app.exit(pendingExitCode);
 });
 
@@ -3826,6 +3828,41 @@ let exportWin = null;
 let ffmpegProc = null;
 let exportState = null; // { outputPath, ffErr } — aktifken dolu, biter bitmez null
 
+/* Yarım kalan dışa aktarım dosyaları. ffmpeg öldürülünce Windows dosya
+   tutamacını hemen bırakmayabilir; silme süreç kapanınca, gerekirse birkaç
+   kez denenir. Uygulama bu arada kapanıyorsa will-quit kalanları kısa bir
+   süre bekleyerek siler: eskiden tek bir 200 ms'lik zamanlayıcı vardı,
+   süreç ondan önce bitiyor ve oynatılamayan yarım MP4 kalıyordu (#695). */
+const pendingPartials = new Set();
+function dropPartial(file) {
+  try {
+    if (fs.existsSync(file)) fs.unlinkSync(file);
+    pendingPartials.delete(file);
+    return true;
+  } catch {
+    return false; // tutamaç henüz açık
+  }
+}
+function removePartial(file, proc) {
+  if (!file) return;
+  pendingPartials.add(file);
+  let tries = 0;
+  const retry = () => {
+    if (!pendingPartials.has(file) || dropPartial(file) || ++tries >= 10) return;
+    setTimeout(retry, 200);
+  };
+  if (proc && proc.exitCode == null && proc.signalCode == null) proc.once('close', () => setTimeout(retry, 50));
+  setTimeout(retry, 200);
+}
+function flushPartialsSync(budgetMs) {
+  const end = Date.now() + budgetMs;
+  const nap = new Int32Array(new SharedArrayBuffer(4));
+  while (pendingPartials.size && Date.now() < end) {
+    for (const f of Array.from(pendingPartials)) dropPartial(f);
+    if (pendingPartials.size) Atomics.wait(nap, 0, 0, 50);
+  }
+}
+
 // Paketlenmiş ffmpeg (ffmpeg-static); yoksa sistem PATH'indeki "ffmpeg".
 function resolveFfmpeg() {
   try {
@@ -4151,6 +4188,7 @@ function finalizeExport(status, message, opts) {
   const encoder = exportState.encoder;
   exportState = null;
 
+  const proc = ffmpegProc;
   if (status !== 'done' && ffmpegProc) {
     try { ffmpegProc.stdin.destroy(); } catch {}
     try { ffmpegProc.kill(); } catch {}
@@ -4165,7 +4203,7 @@ function finalizeExport(status, message, opts) {
   // Yarım kalan dosyayı temizle (iptal/hata). Çöken görüntü süreci
   // dosyayı yazmış olabilir; o kopya yerinde kalır, süreç durur.
   if (status !== 'done' && !(opts && opts.keep) && out) {
-    setTimeout(() => { try { fs.existsSync(out) && fs.unlinkSync(out); } catch {} }, 200);
+    removePartial(out, proc);
   }
 
   notifyAdmin('export-done', { status, output: out, message: message || '', encoder });
