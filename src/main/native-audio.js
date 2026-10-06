@@ -325,14 +325,18 @@ function startCapture(devices, onFrame, onStatus) {
      sayılmaz: borudaki kareler henüz okunmamış olabilir. */
   let lastFrameAt = 0;
   let lastTick = Date.now();
+  let stalled = false;
   const watchdog = setInterval(() => {
     const now = Date.now();
     const lag = now - lastTick;
     lastTick = now;
+    if (stalled) return;
     if (child !== capChild || generation !== captureGeneration) { clearInterval(watchdog); return; }
     if (!lastFrameAt) return;
     if (lag > WATCHDOG_TICK_MS * 1.5) { lastFrameAt = now; return; }
     if (now - lastFrameAt > STALL_MS) {
+      // Tek sefer: çıkış gelene dek yeniden öldürmeye kalkmasın
+      stalled = true;
       clearInterval(watchdog);
       dbg('capture stalled for', now - lastFrameAt, 'ms; restarting helper');
       try { child.kill(); } catch { /* zaten kapandı */ }
