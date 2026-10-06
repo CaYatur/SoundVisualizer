@@ -339,6 +339,9 @@
          geçmesin (Windows, macOS, Linux). Varsayılan AÇIK: gösteri
          ortasında çıkışın kararması hatadır; kapatılabilir. */
       keepAwake: true,
+      /* Medya katmanı videoları donanımla çözülsün mü. Varsayılan kapalı
+         (yazılım): bkz. src/main/video-decode.js. Açılışta okunur. */
+      hwVideoDecode: false,
 
       /* Kaza koruması. Açıkken görselleştirme penceresi beklenmedik biçimde
          kapanırsa (çökme, Alt+F4) anında geri açılır. Varsayılan KAPALI:

@@ -34,6 +34,33 @@
     return 'Kamera açılamadı: ' + msg;
   }
 
+  /* Video dosyası hatası. Uygulama videoyu varsayılan olarak yazılımla
+     çözüyor (bkz. src/main/video-decode.js); Chromium HEVC/H.265'i yalnız
+     donanımla oynattığı için o videolar "desteklenmeyen kaynak" verir.
+     Kullanıcı nedenini ve çaresini görsün, ham Chromium iletisini değil. */
+  function videoFaultText(err) {
+    const code = err && typeof err.code === 'number' ? err.code : 0;
+    const name = (err && err.name) || '';
+    if (code === 4 || name === 'NotSupportedError') {
+      return 'Bu video biçimi oynatılamıyor. HEVC/H.265 ise Ayarlar → Uygulama → Donanım Video Çözme\'yi açıp uygulamayı yeniden başlatın.';
+    }
+    const msg = err && err.message ? String(err.message) : String(err || '');
+    return 'Video açılamadı: ' + msg;
+  }
+
+  // Metni verilen genişliğe sığan satırlara böler (sözcük sınırından)
+  function wrapText(ctx, text, maxW) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const next = cur ? cur + ' ' + w : w;
+      if (cur && ctx.measureText(next).width > maxW) { lines.push(cur); cur = w; } else cur = next;
+    }
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [''];
+  }
+
   function overlayMediaSrc(file, http, token) {
     const s = String(file || '');
     if (!http) return s;
@@ -152,6 +179,9 @@
       if (cfg.source === 'file') {
         if (!cfg.file) return;
         this.video.srcObject = null;
+        /* Oynatma sırasında çıkan hata (bozuk dosya, çözülemeyen biçim)
+           play() sözünden sonra gelir; dinlenmezse panel "hazır" kalırdı. */
+        this.video.onerror = () => { this._fail(key, this.video.error); };
         this.video.src = this._sourceUrl(cfg.file);
         this.video.play().then(() => {
           if (this.key !== key) return;
@@ -310,9 +340,7 @@
     _fail(key, err) {
       if (this.key !== key) return;
       this.ready = false;
-      this.error = this._source === 'file'
-        ? ('Video açılamadı: ' + (err && err.message ? err.message : String(err || '')))
-        : cameraFaultText(err);
+      this.error = this._source === 'file' ? videoFaultText(err) : cameraFaultText(err);
       this._publish();
     }
 
@@ -364,6 +392,7 @@
         this.stream = null;
       }
       try {
+        this.video.onerror = null;
         this.video.pause();
         this.video.srcObject = null;
         this.video.removeAttribute('src');
@@ -399,7 +428,12 @@
           ctx.textBaseline = 'middle';
           const shown = (typeof window !== 'undefined' && window.SVI18n && typeof window.SVI18n.t === 'function')
             ? window.SVI18n.t(this.error) : this.error;
-          ctx.fillText(String(shown), W / 2, H / 2);
+          /* Uzun ileti (ör. HEVC çaresi) tek satırda tuvalin dışına
+             taşıyordu; genişliğe göre satırlara bölünür. */
+          const size = Math.max(16, Math.round(Math.min(W, H) * 0.045));
+          const lines = wrapText(ctx, String(shown), W * 0.86);
+          const y0 = H / 2 - ((lines.length - 1) * size * 1.3) / 2;
+          lines.forEach((ln, i) => ctx.fillText(ln, W / 2, y0 + i * size * 1.3));
           ctx.restore();
         }
         return;
@@ -484,6 +518,8 @@
 
   window.SVMedia = MediaLayer;
   window.SVMediaFault = cameraFaultText;
+  window.SVVideoFault = videoFaultText;
+  window.SVMediaWrap = wrapText;
   window.SVMediaStatus = noteMediaStatus;
   window.SVMediaWarning = mediaWarning;
   window.SVCamFrame = noteCamFrame;

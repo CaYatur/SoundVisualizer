@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2787%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2793%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -663,6 +663,11 @@ haber bandı · karaoke vurgusu.
   sığdırma (kapla, sığdır, uzat), ayna, 3–12 dilimli kaleydoskop, ton kayması, doygunluk, karışım kipi,
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor.
+- **Her çıkışta akıcı** <kbd>3.1.5</kbd> — videolar varsayılan olarak işlemciyle çözülüyor; tam
+  ekran pencerelerde ve Spout/Syphon akışında tam kare hızında oynuyor. Donanım çözmede Chromium
+  orada neredeyse hiç kare üretmiyordu (ölçüldü: saniyede 0,3) ve klip döngü noktasında donuyordu.
+  HEVC/H.265 videolar için **Ayarlar → Uygulama → Donanım Video Çözme** gerekiyor (yeniden
+  başlatınca geçerli); böyle bir dosya açılmazsa panel bunu söylüyor.
 
 ---
 
@@ -1133,6 +1138,11 @@ kendini işletim sistemi ekran koruyucusu olarak kaydetmiyor.
 tarafından gerçek donanımda çalıştırılmadı. Her şey Windows'ta ölçülüyor. Mac ve Linux
 kullanıcılarından gelecek raporlar çok değerli.
 
+**Videom tam ekranda ya da Spout'ta donuyor, ya da iPhone videosu oynamıyor.**
+Videolar varsayılan olarak işlemciyle çözülüyor; bu, tam ekranda ve Spout/Syphon akışında akıcı
+kalmalarını sağlıyor <kbd>3.1.5</kbd>. HEVC/H.265 dosyalar (telefonlarda yaygın) yalnız donanımla
+çözülebiliyor: Ayarlar → Uygulama → Donanım Video Çözme'yi açıp uygulamayı yeniden başlatın.
+
 **Verilerim bir yere gönderiliyor mu?**
 Hayır. Bkz. [Gizlilik ve güvenlik](#gizlilik-ve-güvenlik).
 
@@ -1601,7 +1611,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2787 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2793 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

@@ -2685,6 +2685,9 @@
     'Ses yakalanamadı': 'Could not capture audio',
     'Görselleştirme Açıkken Ekranı Uyanık Tut': 'Keep the Display Awake While Visualizing',
     'Görselleştirme penceresi açıkken ekranın kararması ve uykuya geçmesi engellenir. Pencere kapanınca ya da simge durumuna küçültülünce güç ayarlarınız yeniden geçerli olur.': 'While a visualizer window is open, the display does not dim or go to sleep. When the window is closed or minimised, your power settings apply again.',
+    'Donanım Video Çözme': 'Hardware Video Decoding',
+    'Medya katmanındaki videolar varsayılan olarak işlemciyle çözülür; tam ekranda ve Spout/Syphon çıkışında akıcı kalırlar. HEVC/H.265 videolar (ör. telefon kayıtları) için ya da zayıf bir işlemcide 4K için açın; o zaman tam ekran ve Spout çıkışında video donabilir. Değişiklik uygulama yeniden başlatılınca geçerli olur.': 'Media layer videos are decoded on the CPU by default, so they stay smooth in full screen and in the Spout/Syphon output. Turn this on for HEVC/H.265 videos (such as phone recordings) or for 4K on a weak CPU; video may then freeze in full screen and in the Spout output. The change applies after the app restarts.',
+    "Bu video biçimi oynatılamıyor. HEVC/H.265 ise Ayarlar → Uygulama → Donanım Video Çözme'yi açıp uygulamayı yeniden başlatın.": 'This video format cannot be played. If it is HEVC/H.265, turn on Settings → Application → Hardware Video Decoding and restart the app.',
     'Beklenmedik bir hata oldu; uygulama çalışmaya devam ediyor.': 'An unexpected error occurred; the app keeps running.',
     'Ses yakalama durdu, yeniden bağlanıyor…': 'Audio capture stopped, reconnecting…',
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
@@ -3829,8 +3832,8 @@
     "en": "Open or close the floating PiP window. Same window as the display-menu switch. Does not change opacity or click-through."
   },
   "mcp.tool.sv_set_power": {
-    "tr": "Kare hızı sınırını, çizim ölçeğini ve ekranın uyanık kalıp kalmayacağını (keepAwake) değiştirir.",
-    "en": "Change fps cap, render scale and whether the display stays awake (keepAwake)."
+    "tr": "Kare hızı sınırını, çizim ölçeğini, ekranın uyanık kalıp kalmayacağını (keepAwake) ve videonun donanımla çözülüp çözülmeyeceğini (hwVideoDecode, yeniden başlatınca) değiştirir.",
+    "en": "Change fps cap, render scale, whether the display stays awake (keepAwake) and whether video is decoded in hardware (hwVideoDecode, applies after a restart)."
   },
   "mcp.tool.sv_set_lighting": {
     "tr": "Windows Dinamik Aydınlatma ayarlarını değiştirir.",

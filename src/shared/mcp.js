@@ -1182,7 +1182,7 @@
       return { ok: true, open: !!(r && r.open) };
     });
   });
-  tool('sv_set_power', 'output', 'Change fps cap, render scale and whether the display stays awake (keepAwake).', function (args, ctx) { return outputPatch(ctx, 'power', args && args.patch); });
+  tool('sv_set_power', 'output', 'Change fps cap, render scale, whether the display stays awake (keepAwake) and whether video is decoded in hardware (hwVideoDecode, applies after a restart).', function (args, ctx) { return outputPatch(ctx, 'power', args && args.patch); });
   tool('sv_set_lighting', 'output', 'Change Windows Dynamic Lighting settings.', function (args, ctx) { return outputPatch(ctx, 'lighting', args && args.patch); });
   tool('sv_set_openrgb', 'output', 'Change OpenRGB settings.', function (args, ctx) { return outputPatch(ctx, 'openrgb', args && args.patch); });
   tool('sv_set_artnet', 'output', 'Change Art-Net/DMX settings.', function (args, ctx) { return outputPatch(ctx, 'artnet', args && args.patch); });

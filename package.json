@@ -1,10 +1,10 @@
 {
   "name": "soundvisualizer",
   "version": "3.1.5-beta",
-  "description": "CAYADEV — çoklu ekran, OBS yayın çıkışı ve Studio shader editörü olan ses görselleştirici (Windows + macOS + Linux)",
+  "description": "CaYaDev Visualizer — free, open-source music visualizer and VJ software: multi-monitor output, a MilkDrop engine, OBS overlay, Spout/Syphon, projection mapping, RGB lighting and a GLSL shader studio (Windows, macOS, Linux)",
   "main": "src/main/main.js",
   "author": {
-    "name": "CAYADEV",
+    "name": "CaYaDev",
     "email": "contact@cayadev.com",
     "url": "https://cayadev.com"
   },
@@ -171,7 +171,7 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Multi-monitor audio visualizer",
-      "description": "Desktop audio visualizer that reacts to system audio in real time."
+      "description": "Music visualizer and VJ software that reacts to system audio in real time."
     },
     "deb": {
       "depends": [
@@ -186,7 +186,7 @@
         "libatspi2.0-0",
         "libsecret-1-0"
       ],
-      "maintainer": "CAYADEV <contact@cayadev.com>",
+      "maintainer": "CaYaDev <contact@cayadev.com>",
       "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb"
     },
     "appImage": {
