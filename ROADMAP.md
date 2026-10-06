@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2772 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2776 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 973
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 977
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1407,6 +1407,7 @@ Stabilisation (#695):
   - **A refused stream client could freeze the app.** When the server refused a connection (a wrong token with Token Protection on, or one of the new checks above) and the client then dropped the connection abruptly, the socket had no error handler. The main process raised an uncaught exception, and Electron's error box held the whole app until it was closed. Found live while testing the change above; the refused socket now has a handler.
   - **Any uncaught error in the main process froze the app.** Electron's default for an uncaught exception in the main process is a modal error box that holds the main thread until someone closes it. Audio frames stop reaching the windows, and the panel and the phone remote stop answering. In a live show nobody may be at the computer. The main process now logs the error to `main-errors.log` in the settings folder, with the file's size capped and nothing written when there is no error. The panel shows a short notice, at most once every 30 seconds for the same message, and the app keeps running. If the panel window is not up yet, as during start-up, the old error box is still shown, so a half-started app does not stay invisible. A smoke run counts any such error as a failure. Checked live: 50 errors thrown from a timer in the main process gave no error box, one notice in the panel, 50 log entries, and audio frames kept reaching the visualizer at the usual rate.
   - **Audio capture could stall without ending.** Once started, the capture helper sends a frame about 70 times a second, silence included. If it stayed alive but stopped sending, for example when the audio path hangs on the way back from sleep, nothing noticed. The visualizer stood still and the panel kept saying "Capturing". The main process now watches the frames after the first one arrives. If none come for 3 seconds, it ends the helper, and the restart added earlier in this round sets capture up again. A late watchdog tick, as after the main thread was busy or the computer slept, does not count as a stall: frames may still be waiting to be read. Checked with a simulated stall by suspending the helper process, not a real sleep. Frames stopped and came back about 4 seconds later, and the panel went from reconnecting to capturing.
+  - **Closing the app during an export left a broken file.** Closing the panel while an export ran cancelled it and stopped ffmpeg. The partial file was meant to be deleted by a single 200 ms timer, but the app exited before the timer fired. An unplayable partial MP4 stayed in the user's folder: 4.7 MB in the live test. The file is now deleted once ffmpeg has really closed, with a few retries while Windows still holds the file. On quit, the app deletes what is left, waiting at most 1.5 seconds. Checked live: closing the panel 4 seconds into a 1080p60 export left no ffmpeg process and no file. Cancelling inside the app still deletes the file.
   - A 6-second 1080p60 export with the reporter's 6-layer scene finished in about 8 seconds with the GPU encoder: 360 frames, the audio copied, none of them black, and the same layers as the live window.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
