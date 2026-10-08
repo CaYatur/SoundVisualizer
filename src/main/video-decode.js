@@ -33,7 +33,8 @@ const fs = require('fs');
 function wantsHardwareDecode(raw) {
   if (!raw) return false;
   try {
-    const cfg = JSON.parse(String(raw));
+    // Not Defteri UTF-8 BOM ekleyebiliyor; ana ayar yükleyicisi gibi ayıkla
+    const cfg = JSON.parse(String(raw).replace(/^\uFEFF/, ''));
     return !!(cfg && cfg.power && cfg.power.hwVideoDecode === true);
   } catch {
     return false;

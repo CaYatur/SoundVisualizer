@@ -193,9 +193,9 @@ app.on('will-quit', () => {
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 /* Video çözme yolu pencereler açılmadan seçilmeli (bkz. video-decode.js).
-   Panel ayarı değiştirdiğinde yeni değer ancak yeniden başlatınca geçerli;
-   o yüzden süreç boyunca bu değer kullanılır. */
-const HW_VIDEO_DECODE = require('./video-decode').applyVideoDecodePolicy(app, SETTINGS_PATH);
+   Panel ayarı değiştirdiğinde yeni değer ancak yeniden başlatınca geçerli.
+   Seçim Chromium anahtarında yaşıyor; dönüş değerini okuyan yoktu, tutulmuyor. */
+require('./video-decode').applyVideoDecodePolicy(app, SETTINGS_PATH);
 /* Yüzen pencerenin konumu ayrı tutulur: her taşımada settings.json'u
    (sahne ayarlarıyla birlikte) yeniden yazmak gereksiz disk trafiği olur. */
 const FLOATING_BOUNDS_PATH = path.join(app.getPath('userData'), 'floating-window.json');

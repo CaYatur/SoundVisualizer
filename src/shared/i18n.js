@@ -1740,6 +1740,13 @@
     'Ses aygıtı tanılaması başarısız': 'Audio device diagnosis failed',
     'Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini kullanır. Bas solda, tiz sağda ilerler.':
       'Each LED uses the color and height of the corresponding bar in the visualizer. Bass on left, treble on right.',
+    // #695 denetimi: İngilizce arayüzde Türkçe kalan metinler
+    'Her LED, görselleştiricide aynı konuma denk gelen barın renk ve yüksekliğini izler.':
+      'Each LED follows the color and height of the bar at the same position in the visualizer.',
+    'Görüntü süreci kapandı. Dışa aktarma durduruldu.': 'The render process closed. Export was stopped.',
+    'Dinamik renk teması yalnızca Windows’ta kullanılabilir.': 'The dynamic color theme is only available on Windows.',
+    'pencere köprüsü yok': 'window bridge missing',
+    'Üstte': 'Top',
     'LED dizisinin ilk kısmı bas, ortası mid ve son kısmı tiz frekanslarına ayrılır.':
       'The first part of the LED array is assigned to bass, middle to mid, and end to treble frequencies.',
     'Arka planın seçili renk şablonu, akış hızı ve ses tepkisi aynı anda ışıklara taşınır.':

@@ -689,9 +689,14 @@
       }
     } catch { /* yakalama yoksa yayın yeter */ }
     presetGen = Math.max(presetGen, maxEarly);
+    /* Yedek yoklama; paneldekiyle aynı aralık ve görünürlük koşulu. Ana
+       süreç MCP isteğinden ve dosya izleyicisinden sonra farkı zaten
+       yayınlıyor. 400 ms'de bir her görselleştirici penceresi preset
+       klasörünü ana süreçte baştan okutuyordu (#695). */
+    const MCP_PRESET_POLL_MS = 3000;
     setInterval(() => {
-      if (cfg && cfg.mcp && cfg.mcp.enabled) catchPresets();
-    }, 400);
+      if (cfg && cfg.mcp && cfg.mcp.enabled && !document.hidden) catchPresets();
+    }, MCP_PRESET_POLL_MS);
     window.addEventListener('focus', () => { catchPresets(); });
     window.api.onPresets((list) => {
       window.SVPresets.setUser(list);

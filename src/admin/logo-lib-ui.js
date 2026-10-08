@@ -100,13 +100,19 @@
     function paint(force) {
       /* blobRefresh: runtime ısınınca thumb src'lerini protokolden blob'a çevir */
       if (thumbTag === 'img' && !paint._blobTimer) {
+        /* Sınırlı: kütüphane boşken (pending hep 0 ama items yok) ya da küçük
+           resim hiç hazır olmayınca zamanlayıcı 120 ms'de bir sonsuza dek
+           dönüyordu (#695 denetimi). En çok ~30 sn; liste sonradan dolarsa
+           paint(true) yeniden kurar. */
+        let ticks = 0;
         paint._blobTimer = setInterval(() => {
+          if (++ticks > 250) {
+            clearInterval(paint._blobTimer);
+            paint._blobTimer = null;
+            return;
+          }
           if (!window.SVLogoRuntime) return;
           let pending = 0;
-          grid.querySelectorAll('.logo-lib-thumb').forEach((img) => {
-            const card = img.closest('.logo-lib-cell');
-            // id is not on img; re-filter list
-          });
           const list = filtered();
           grid.querySelectorAll('.logo-lib-thumb').forEach((img, i) => {
             const it = list[i];
@@ -115,7 +121,7 @@
             if (ready && img.src !== ready) img.src = ready;
             else if (!ready) pending++;
           });
-          if (pending === 0 && items.length) {
+          if (pending === 0) {
             clearInterval(paint._blobTimer);
             paint._blobTimer = null;
           }
