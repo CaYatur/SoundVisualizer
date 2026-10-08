@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2793%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2799%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -867,6 +867,10 @@ An agent drives the running application over the **Model Context Protocol**. The
 setup dialog gives a stdio command for Claude Desktop, Codex, Cursor, Grok and Grok Bot. Ollama is
 a local model behind an MCP client and uses that same command.
 
+> **Needs Node.js.** The stdio command runs `node`, so the computer needs
+> [Node.js](https://nodejs.org/) LTS installed and on `PATH`. The application itself does not need
+> it. Without Node.js the MCP client reports that it cannot start `node`.
+
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
 version. The server name is `soundvisualizer`. There are **96 tools**.
@@ -1111,7 +1115,8 @@ scene. It is not a screen recording, so the result does not depend on how fast y
 
 **Can AI agents control it?**
 Yes <kbd>3.1.5</kbd>. Turn on MCP on the Control page and connect Claude Desktop, Codex, Cursor or any
-MCP client with the command the setup dialog gives you. Access starts at read-only.
+MCP client with the command the setup dialog gives you. Access starts at read-only. The command needs
+[Node.js](https://nodejs.org/) LTS on the computer.
 
 **Will it slow my computer down?**
 It needs a GPU with WebGL2. Use the frame-rate cap, the background resolution scale and pause on
@@ -1602,7 +1607,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2793 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2799 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

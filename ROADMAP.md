@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2793 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2799 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 994
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1000
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1432,6 +1432,14 @@ Stabilisation (#695):
   - **Not verified:** a real Mac or Linux desktop, and a Spout receiver (the decode in the Spout window was measured, not the received texture).
   - Tests: `tests/video-decode.test.js` (the setting parser, the switch before `app.whenReady`, the default, the panel toggle and its English, the error text, the wrap).
 - **Package metadata in English** · done on the branch. `package.json`'s description was Turkish; it now describes the app in English, and the author and the Linux maintainer read CaYaDev. The product name and artifact names (`CAYADEV Visualizer`, `CAYADEV-Visualizer-…`) are unchanged on purpose: AppImages already installed look for their next update by the `CAYADEV-Visualizer-*` file name built into them (`scripts/appimage-update-info.sh`), the release script expects those names, and the product name decides the install folder, shortcut and app name users already have. Renaming is possible, but as its own change with a migration.
+- **Pre-release audit, confirmed findings** · done on the branch. An outside review of `v3.1.4..main` was checked against the code item by item; only the findings that held and are safe to change are fixed here.
+  - **Preset poll in the visualizer.** With MCP on, every visualizer window asked the main process every 400 ms, and each ask re-read the preset folder (`readdirSync`). The panel was moved to 3 s and skipped while hidden in #700; the visualizer copy was missed. It now uses the same interval and condition. The main process still pushes each MCP and folder change at once; the poll only catches a missed push.
+  - **English UI.** Five Turkish strings had no English entry: the export "render process closed" error, the Windows-only dynamic theme warning, the visualizer's "window bridge missing" start error, the spectrum-bars lighting help and the Now Playing cover position "Top". The audio "Node.js not found" text the review also listed was a false positive: in English that message comes from the helper's own English text, not the dictionary.
+  - **Logo library timer.** The thumbnail refresh timer stopped only when the library had items and all thumbnails were ready, so an empty library kept it ticking every 120 ms for as long as the panel lived. It now stops when nothing is pending and after about 30 s at most; loading the list starts it again.
+  - **BOM in `settings.json`.** The hardware video decode switch is read before the main settings loader runs. A file saved by Notepad with a UTF-8 BOM failed to parse there and the switch was ignored; the BOM is now stripped, as the main loader does. The unused `HW_VIDEO_DECODE` constant is gone.
+  - **MCP needs Node.js.** The stdio command the setup dialog gives runs `node`; both READMEs now say so in the MCP section and the FAQ.
+  - **Left as they are:** per-frame cover glow cost at 4K (suspected, not measured), the build workflow on the release commit and the ROADMAP/README version wording (release steps), the TEMP template-card gate (a product decision), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
+  - Tests: `tests/audit-695.test.js`.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
 

@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2793%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2799%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -872,6 +872,10 @@ penceresi Claude Desktop, Codex, Cursor, Grok ve Grok Bot için bir stdio komutu
 ayrı bir protokol değildir; MCP konuşan bir istemcinin arkasındaki yerel modeldir ve aynı komutu
 kullanır.
 
+> **Node.js gerekir.** stdio komutu `node` çalıştırır; bilgisayarda [Node.js](https://nodejs.org/)
+> LTS kurulu ve `PATH` üzerinde olmalıdır. Uygulamanın kendisinin Node.js'e ihtiyacı yoktur. Node.js
+> yoksa MCP istemcisi `node`'u başlatamadığını bildirir.
+
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
 yanıt verir. Sunucu adı `soundvisualizer`. **96 araç** vardır.
@@ -1123,6 +1127,7 @@ Evet. Video Dışa Aktar, güncel sahneyle bir ses dosyasını kare kare MP4'e, 
 **Yapay zekâ ajanları kontrol edebilir mi?**
 Evet <kbd>3.1.5</kbd>. Kontrol sayfasında MCP'yi açın ve kurulum penceresinin verdiği komutla Claude
 Desktop, Codex, Cursor ya da herhangi bir MCP istemcisini bağlayın. Erişim salt okumadan başlıyor.
+Komut için bilgisayarda [Node.js](https://nodejs.org/) LTS kurulu olmalı.
 
 **Bilgisayarımı yavaşlatır mı?**
 WebGL2 destekli bir GPU gerekiyor. Dizüstü bilgisayarlarda kare hızı sınırını, arkaplan çözünürlük
@@ -1611,7 +1616,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2793 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2799 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
