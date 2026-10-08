@@ -105,7 +105,7 @@ const faultGuard = faultGuardLib.createFaultGuard({
   },
   hasWindow: () => !!(adminWin && !adminWin.isDestroyed() && !adminWin.webContents.isLoading()),
   notify: (key, count) => notifyAdmin('main-fault', { message: key, count }),
-  fallback: (key, stack) => dialog.showErrorBox('Ses Görselleştirici', stack),
+  fallback: (key, stack) => dialog.showErrorBox(trUi('Ses Görselleştirici', 'Sound Visualizer'), stack),
 });
 process.on('uncaughtException', (err, origin) => faultGuard.handle(err, origin));
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
@@ -2810,7 +2810,7 @@ async function handleSnapshotSave(dataUrl) {
   const r = await dialog.showSaveDialog(adminWin || BrowserWindow.getFocusedWindow(), {
     title: trUi('Anlık Görüntüyü Kaydet', 'Save Snapshot'),
     defaultPath: path.join(app.getPath('pictures') || app.getPath('downloads'), 'cayadev-' + stamp + '.png'),
-    filters: [{ name: 'PNG', extensions: ['png'] }, { name: 'Tüm Dosyalar', extensions: ['*'] }],
+    filters: [{ name: 'PNG', extensions: ['png'] }, { name: trUi('Tüm Dosyalar', 'All Files'), extensions: ['*'] }],
   });
   if (r.canceled || !r.filePath) return { ok: false, canceled: true };
   try {

@@ -1747,6 +1747,14 @@
     'Dinamik renk teması yalnızca Windows’ta kullanılabilir.': 'The dynamic color theme is only available on Windows.',
     'pencere köprüsü yok': 'window bridge missing',
     'Üstte': 'Top',
+    // Ana süreçten gelen hata metinleri (dışa aktarma, kayıt, medya oturumu)
+    'PNG verisi geçersiz': 'Invalid PNG data',
+    'Zaten bir dışa aktarma sürüyor.': 'An export is already running.',
+    'Ses dosyası bulunamadı.': 'Audio file not found.',
+    'Çıktı yolu seçilmedi.': 'No output path was chosen.',
+    'Render penceresi yüklenemedi.': 'The render window could not be loaded.',
+    'medya oturumu yanıt vermedi': 'the media session did not respond',
+    'medya oturumu açılamadı': 'the media session could not be opened',
     'LED dizisinin ilk kısmı bas, ortası mid ve son kısmı tiz frekanslarına ayrılır.':
       'The first part of the LED array is assigned to bass, middle to mid, and end to treble frequencies.',
     'Arka planın seçili renk şablonu, akış hızı ve ses tepkisi aynı anda ışıklara taşınır.':
@@ -3187,6 +3195,14 @@
       .replace(/^Video açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the video' + (rest ? ': ' + rest : '.'))
       .replace(/^Kamera açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the camera' + (rest ? ': ' + rest : '.'))
       .replace(/^ffmpeg çıkış kodu (\d+)([\s\S]*)$/, (_, code, rest) => 'ffmpeg exit code ' + code + rest)
+      /* Ana süreç hata metinleri: önek Türkçe, gövde sistem iletisi */
+      .replace(/^geçici dosya yazılamadı: /, 'Could not write the temporary file: ')
+      .replace(/^ffmpeg başlatılamadı: /, 'Could not start ffmpeg: ')
+      .replace(/^ffmpeg hatası: /, 'ffmpeg error: ')
+      .replace(/^Ses dosyası okunamadı: /, 'Could not read the audio file: ')
+      .replace(/^Render penceresi yüklenemedi: /, 'The render window could not be loaded: ')
+      .replace(/^ses yardımcısı başlatılamadı: /, 'Could not start the audio helper: ')
+      .replace(/^ses yardımcısı çalıştırılamadı \(([\s\S]*)\)$/, 'Could not run the audio helper ($1)')
       .replace(/Ekran (\d+)( \(Birincil\))?/g, (_, n, p) => `Display ${n}${p ? ' (Primary)' : ''}`)
       .replace(/^(\d+) süreç$/g, (_, n) => n + (Number(n) === 1 ? ' process' : ' processes'))
       /* Basıklık panelinin maliyet satırı. Satırın TAMAMI için tek kural
@@ -3253,7 +3269,7 @@
       // Çalan parça dinamik metinleri
       .replace(/^([\d.]+) sn$/g, '$1 s')
       .replace(/^(\d+) bölme$/g, '$1 segments')
-      .replace(/^Sistemden okunamıyor — (.+)$/g, 'Cannot read from system — $1')
+      .replace(/^Sistemden okunamıyor — (.+)$/, (m, why) => 'Cannot read from system — ' + translate(why))
       .replace(/^Çalan Şarkıyı Alanlara Doldur \((.+)\)$/g, 'Fill Fields with Playing Track ($1)')
       .replace(/^Çalan Şarkıyı Doldur \((.+)\)$/g, 'Fill Playing Track ($1)')
       // MilkDrop list count
