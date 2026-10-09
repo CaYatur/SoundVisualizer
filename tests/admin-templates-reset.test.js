@@ -1,6 +1,8 @@
 'use strict';
-/* Ready Templates: card modified badge + reset are TEMP hidden (hideCardReset).
- * SCENE_KEYS alignment + resetScene remain so chrome can be re-enabled later. */
+/* Hazır Şablonlar: kartın rozeti ve sıfırla düğmesi bilinçli olarak gizli
+ * (hideCardReset). Sıfırlama bütün sahneyi fabrika ayarına döndürüyor;
+ * "şablonu geri al" sanılıp kullanıcının katmanlarını silmesin. SCENE_KEYS
+ * ve resetScene yerinde: bir "son şablonu geri al" bunların üstüne kurulabilir. */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
@@ -13,7 +15,7 @@ const panel = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'templa
 test('templates section hides card reset chrome via hideCardReset flag', () => {
   const start = admin.indexOf("id: 'templates'");
   assert.ok(start > 0);
-  const slice = admin.slice(start, start + 1400);
+  const slice = admin.slice(start, start + 2200);
   assert.match(slice, /hideCardReset:\s*true/);
   assert.match(admin, /function sectionShowsResetChrome/);
   assert.match(admin, /sectionShowsResetChrome\(sec\)/);
@@ -21,7 +23,7 @@ test('templates section hides card reset chrome via hideCardReset flag', () => {
 
 test('templates roots still follow SCENE_KEYS for easy re-enable', () => {
   const start = admin.indexOf("id: 'templates'");
-  const slice = admin.slice(start, start + 1400);
+  const slice = admin.slice(start, start + 2200);
   assert.match(slice, /SVTemplates\.SCENE_KEYS/);
   assert.match(slice, /rootOmit:/);
   assert.match(templates, /function resetScene/);
