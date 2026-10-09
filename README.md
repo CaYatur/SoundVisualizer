@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2801%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2806%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1607,7 +1607,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2801 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2806 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -1630,6 +1630,21 @@ and scans for untranslated strings; and asserts that automation never opens the 
 
 CI runs the unit tests on Windows and Ubuntu with Node 20 and 22 on every pull request.
 
+### Performance benchmark
+
+```bash
+npm run bench
+```
+
+The benchmark measures the frame time of every visualizer, background and post effect in the real
+visualizer page, with vsync on as in the app and the same synthetic audio every time. It never
+touches your settings or lights. `--soak=<minutes>` adds a long switching run that samples the frame
+rate and the JavaScript heap each minute. On the reference laptop (Ryzen 9 8940HX, RTX 5070 Laptop,
+75 Hz), 136 of the 139 scenes that draw without user content hold the refresh rate (95% of 75 Hz)
+at 1920×1080; Wave Field (39 fps), Voronoi (63) and Wave Interference (71) do not. A 10-minute
+switching run stayed at 73–75 fps with a flat 6–8 MB heap. How it works, its options and the full
+tables are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
 ---
 
 ## Project structure
@@ -1644,9 +1659,9 @@ src/
                transitions, warp, MilkDrop, templates, lyrics, timeline, clip deck
   web/         OBS overlay and the phone remote
 native/        Audio helpers (per-application capture, Dynamic Lighting identity)
-scripts/       Build, release, MilkDrop corpus and render harnesses
+scripts/       Build, release, benchmark, MilkDrop corpus and render harnesses
 tests/         Unit tests, run by `npm test`
-docs/          Screenshots
+docs/          Screenshots and benchmark results
 ```
 
 Shared engines are plain arithmetic with no DOM, GPU or audio device, so their tests run in Node.

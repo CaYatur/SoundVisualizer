@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2801%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2806%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1616,7 +1616,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2801 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2806 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
@@ -1641,6 +1641,21 @@ metin arıyor; ve otomasyonun kamerayı asla açmadığını doğruluyor.
 
 CI her çekme isteğinde birim testlerini Windows ve Ubuntu'da, Node 20 ve 22 ile çalıştırıyor.
 
+### Performans ölçümü
+
+```bash
+npm run bench
+```
+
+Ölçüm her görselleştiricinin, arkaplanın ve efektin kare süresini gerçek görselleştirici sayfasında,
+uygulamadaki gibi dikey senkron açıkken ve her seferinde aynı sentetik sesle ölçüyor. Ayarlarınıza ve
+ışıklarınıza dokunmuyor. `--soak=<dakika>` dakikada bir kare hızını ve JavaScript belleğini
+örnekleyen uzun bir geçiş koşusu ekliyor. Referans dizüstünde (Ryzen 9 8940HX, RTX 5070 Laptop,
+75 Hz) 1920×1080'de kullanıcı içeriği olmadan çizen 139 sahnenin 136'sı yenileme hızını (75 Hz'in
+%95'i) tutuyor; Wave Field (39 fps), Voronoi (63) ve Wave Interference (71) tutmuyor. 10 dakikalık
+geçiş koşusu 73–75 fps'te ve 6–8 MB'lık sabit bellekte kaldı. Nasıl çalıştığı, seçenekleri ve
+tabloların tamamı [docs/BENCHMARKS.md](docs/BENCHMARKS.md) dosyasında (İngilizce).
+
 ---
 
 ## Proje yapısı
@@ -1655,9 +1670,9 @@ src/
                geçişler, bükme, MilkDrop, şablonlar, şarkı sözü, zaman çizelgesi, klip destesi
   web/         OBS katmanı ve telefon kumandası
 native/        Ses yardımcıları (uygulama başına yakalama, Dynamic Lighting kimliği)
-scripts/       Derleme, sürüm, MilkDrop derlemi ve çizim ölçüm araçları
+scripts/       Derleme, sürüm, performans ölçümü, MilkDrop derlemi ve çizim ölçüm araçları
 tests/         `npm test` ile çalışan birim testleri
-docs/          Ekran görüntüleri
+docs/          Ekran görüntüleri ve ölçüm sonuçları
 ```
 
 Ortak motorlar DOM'suz, GPU'suz ve ses aygıtsız düz aritmetik; testleri Node'da çalışıyor.
