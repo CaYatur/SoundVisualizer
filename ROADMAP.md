@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2801 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2806 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1002
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1007
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1432,13 +1432,17 @@ Stabilisation (#695):
   - **Not verified:** a real Mac or Linux desktop, and a Spout receiver (the decode in the Spout window was measured, not the received texture).
   - Tests: `tests/video-decode.test.js` (the setting parser, the switch before `app.whenReady`, the default, the panel toggle and its English, the error text, the wrap).
 - **Package metadata in English** · done on the branch. `package.json`'s description was Turkish; it now describes the app in English, and the author and the Linux maintainer read CaYaDev. The product name and artifact names (`CAYADEV Visualizer`, `CAYADEV-Visualizer-…`) are unchanged on purpose: AppImages already installed look for their next update by the `CAYADEV-Visualizer-*` file name built into them (`scripts/appimage-update-info.sh`), the release script expects those names, and the product name decides the install folder, shortcut and app name users already have. Renaming is possible, but as its own change with a migration.
+- **Performance benchmark (`npm run bench`)** · done on the branch. It opens the real visualizer page with its own preload, answers the page's requests itself and feeds the shots tool's synthetic 120 BPM audio. It measures every visualizer, background and post effect alone, with vsync on and transitions off, plus an optional long switching run with the heap read after garbage collection. The main process, settings, lights, MCP and Spout are never loaded. Results and method are in `docs/BENCHMARKS.md`.
+  - **What it found.** At 1920×1080 on the reference laptop, 136 of the 139 scenes that draw without user content reach 95% of the 75 Hz refresh; Wave Field (39 fps), Voronoi (63) and Wave Interference (71) do not. At 2562×1533, Plasma, Liquid Metal, Caustics, Pulse Rings and Halftone miss it as well. A 10-minute run of 299 switches held 73–75 fps with a 6–8 MB heap. Wave Field's time goes into rasterising 26 large anti-aliased paths, filled and stroked, every frame; no visually identical fix was found, so the drawing is unchanged.
+  - **Two measurement traps, both recorded in the script.** Uncapped, a GPU-heavy scene leaves queued work that slows the next scene for seconds (Solid read 50 fps right after Wave Field, and 75 with vsync on). On Windows, Chromium ties every window to the primary display's vsync, so the refresh rate is measured rather than read from the display.
 - **Pre-release audit, confirmed findings** · done on the branch. An outside review of `v3.1.4..main` was checked against the code item by item; only the findings that held and are safe to change are fixed here.
   - **Preset poll in the visualizer.** With MCP on, every visualizer window asked the main process every 400 ms, and each ask re-read the preset folder (`readdirSync`). The panel was moved to 3 s and skipped while hidden in #700; the visualizer copy was missed. It now uses the same interval and condition. The main process still pushes each MCP and folder change at once; the poll only catches a missed push.
   - **English UI.** Five Turkish strings had no English entry: the export "render process closed" error, the Windows-only dynamic theme warning, the visualizer's "window bridge missing" start error, the spectrum-bars lighting help and the Now Playing cover position "Top". The audio "Node.js not found" text the review also listed was a false positive: in English that message comes from the helper's own English text, not the dictionary.
   - **Logo library timer.** The thumbnail refresh timer stopped only when the library had items and all thumbnails were ready, so an empty library kept it ticking every 120 ms for as long as the panel lived. It now stops when nothing is pending and after about 30 s at most; loading the list starts it again.
   - **BOM in `settings.json`.** The hardware video decode switch is read before the main settings loader runs. A file saved by Notepad with a UTF-8 BOM failed to parse there and the switch was ignored; the BOM is now stripped, as the main loader does. The unused `HW_VIDEO_DECODE` constant is gone.
   - **MCP needs Node.js.** The stdio command the setup dialog gives runs `node`; both READMEs now say so in the MCP section and the FAQ.
-  - **Left as they are:** per-frame cover glow cost at 4K (suspected, not measured), the build workflow on the release commit and the ROADMAP/README version wording (release steps), the TEMP template-card gate (a product decision), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
+  - **Cover and logo glow, measured afterwards.** On the 2560×1600 screen, a logo at half the short side read 68.0–68.3 fps with glow 0, 0.2, 0.46 and 1, with the halo drawn in each. No change was made.
+  - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), the TEMP template-card gate (a product decision), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility
