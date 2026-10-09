@@ -2904,6 +2904,29 @@ function remotePathAllowed(p) {
   return REMOTE_ALLOWED.some((pref) => (pref.endsWith('.') ? p.startsWith(pref) : p === pref));
 }
 
+/* Kumanda yığın açıkken (bkz. layers.js "GENEL KONTROLLER YIĞINDA"): mod
+   ve arkaplan düğmeleri ilk canlı katmanın türünü değiştirir, kaydırıcılar
+   katmanın kendi değerine de yazar. Eskiden yalnız genel alan yazılıyordu;
+   yığında ekran hiç değişmiyordu. Kural panelinkiyle aynı dosyadan. */
+let layersHelpers;
+function stackHelpers() {
+  if (layersHelpers === undefined) {
+    try { layersHelpers = require('../visualizer/layers.js'); } catch { layersHelpers = null; }
+  }
+  return layersHelpers;
+}
+function setRemotePath(cfg, p, value) {
+  const L = stackHelpers();
+  const stack = !!(L && L.stackOn(cfg));
+  if (stack && p === 'visualizer.type') { L.adoptVisualizer(cfg, { type: value }); return; }
+  if (stack && p === 'background.type') { L.adoptBackground(cfg, { type: value }); return; }
+  setConfigPath(cfg, p, value);
+  if (stack) {
+    const eff = L.effectivePath(cfg, p);
+    if (eff !== p) setConfigPath(cfg, eff, value);
+  }
+}
+
 function setConfigPath(obj, p, value) {
   const keys = p.split('.');
   let node = obj;
@@ -2967,7 +2990,7 @@ function applyRemoteCommand(msg, client) {
     if (!okType) return;
     const safe = remoteNumber(msg.path, v);
     if (safe === undefined) return;
-    setConfigPath(currentConfig, msg.path, safe);
+    setRemotePath(currentConfig, msg.path, safe);
   } else {
     return;
   }

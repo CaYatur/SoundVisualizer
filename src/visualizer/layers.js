@@ -350,7 +350,9 @@
   function snapshotClassic(cfg) {
     const curVis = cfg.visualizer && cfg.visualizer.type;
     return {
-      visualizerType: curVis && curVis !== 'none' ? curVis : 'bars',
+      /* 'none' de bir seçim: görselleştiricisiz (yalnız arkaplanlı) bir
+         sahne, yığın açılıp kapanınca 'bars' ile geri geliyordu. */
+      visualizerType: curVis || 'none',
       logoEnabled: !!(cfg.logo && cfg.logo.enabled),
       imagesEnabled: !!(cfg.images && cfg.images.enabled),
       mediaEnabled: !!(cfg.media && cfg.media.enabled),
@@ -380,9 +382,14 @@
     cfg.layerStack = cfg.layerStack || {};
     const on = !!enabled;
     if (on) {
+      /* Zaten açıksa klasik alanlar temizlenmiş durumda ('none'); yeniden
+         yedeklemek gerçek klasik sahneyi silerdi. Boş liste yine sentezlenir:
+         "Katmanlara Geç" düğmesi tam bu durumda (açık, liste boş) görünüyor. */
+      const already = cfg.layerStack.enabled === true;
       if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
         cfg.layers = synthesize(cfg);
       }
+      if (already) return;
       /* Fresh snapshot every time the stack is turned on — do not ratchet
          previous backup flags to true. Overlay modes added as layers while
          the stack is on must not leak into classic roots on the way back. */
@@ -472,6 +479,124 @@
     if (!stackOn(cfg)) setStackEnabled(cfg, true);
     layer.enabled = true;
     layer.muted = false;
+  }
+
+  /* GENEL KONTROLLER YIĞINDA.
+
+     Yığın açıkken ekranı katmanların kendi ayarları çiziyor ve yığın ilk
+     açıldığında sentezlenen katmanlar klasik bölümün TAM kopyasını taşıyor.
+     MIDI/OSC kaydırıcısı, telefon kumandası, modülasyon ve zaman çizelgesi
+     ise `visualizer.barCount` gibi genel yola yazıyordu: değer kopyanın
+     altında kalıyor, ekranda hiçbir şey değişmiyordu. Yalıtılmış kopyada
+     ölçüldü: klasik kipte bar sayısı 160→30 oldu, yığında 160 kaldı; mod
+     ve arkaplan düğmeleri de yığında hiçbir şey değiştirmedi.
+
+     Kural: genel bir yol, o türdeki ilk canlı katmana gider (Studio ve
+     MCP'nin görselleştirici seçimi adoptVisualizer ile zaten böyleydi).
+     Katmanın o alanda kendi değeri yoksa genel değer layerConfig'te zaten
+     akıyor; yol olduğu gibi kalır. Tür (`type`) burada değil,
+     adoptVisualizer / adoptBackground ile değişir. */
+  const SECTION_KIND = { visualizer: 'visualizer', background: 'background', logo: 'logo', media: 'media' };
+  // Önce görünen (açık, susturulmamış) ilk katman; yoksa o türün ilki
+  function firstLayerIndex(cfg, section) {
+    const kind = SECTION_KIND[section];
+    const list = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+    let first = -1;
+    for (let i = 0; i < list.length; i++) {
+      const l = list[i];
+      if (!l || l.kind !== kind) continue;
+      if (kind === 'visualizer' && OVERLAY_VIS[l.type]) continue;
+      if (l.enabled !== false && !l.muted) return i;
+      if (first < 0) first = i;
+    }
+    return first;
+  }
+  function pathValue(obj, keys) {
+    let cur = obj;
+    for (const k of keys) {
+      if (cur == null || typeof cur !== 'object') return undefined;
+      cur = cur[k];
+    }
+    return cur;
+  }
+  /* Genel yolun ekranda karşılığı olan yol: yığın kapalıyken ya da katman
+     o değeri taşımıyorken kendisi, aksi halde
+     `layers.<i>.settings.<bölüm>.<alt yol>`. */
+  function effectivePath(cfg, path) {
+    if (typeof path !== 'string' || !stackOn(cfg)) return path;
+    const keys = path.split('.');
+    const section = keys[0];
+    if (!SECTION_KIND[section] || keys.length < 2 || keys[1] === 'type') return path;
+    const i = firstLayerIndex(cfg, section);
+    if (i < 0) return path;
+    const own = cfg.layers[i].settings && cfg.layers[i].settings[section];
+    if (!own || pathValue(own, keys.slice(1)) === undefined) return path;
+    return 'layers.' + i + '.settings.' + path;
+  }
+  /* Genel alana yazılan değeri ekrandaki katmana da yazar (yerinde). Genel
+     alanı çağıran yazar; burada yalnız katmanın kopyası. */
+  function setEffective(cfg, path, value) {
+    const eff = effectivePath(cfg, path);
+    if (eff === path) return false;
+    const keys = eff.split('.');
+    let cur = cfg;
+    for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]];
+    cur[keys[keys.length - 1]] = value;
+    return true;
+  }
+
+  /* Ekranda görünen tür. Yığın açıkken klasik `visualizer.type` bilerek
+     'none'; sıradaki moda geçen bir eylem onu okursa listenin başına
+     atlıyordu. */
+  function currentType(cfg, section) {
+    if (stackOn(cfg)) {
+      const i = firstLayerIndex(cfg, section);
+      return i >= 0 ? cfg.layers[i].type : null;
+    }
+    return (cfg && cfg[section] && cfg[section].type) || null;
+  }
+  /* adoptVisualizer'ın arkaplan karşılığı. Bir farkla: yığın kapalıyken
+     yalnız klasik alan yazılır, yığın açılmaz. */
+  function adoptBackground(cfg, spec) {
+    if (!cfg) return null;
+    const s = spec || {};
+    const type = s.type ? String(s.type) : ((cfg.background && cfg.background.type) || 'gradient');
+    const hasPreset = Object.prototype.hasOwnProperty.call(s, 'presetId');
+    const presetId = hasPreset ? s.presetId : (cfg.custom && cfg.custom.backgroundId) || null;
+    cfg.background = Object.assign({}, cfg.background, { type: type });
+    if (type === 'custom') {
+      cfg.custom = Object.assign({}, cfg.custom);
+      if (presetId) cfg.custom.backgroundId = presetId;
+    }
+    if (!stackOn(cfg)) return null;
+    if (!Array.isArray(cfg.layers)) cfg.layers = [];
+    const i = firstLayerIndex(cfg, 'background');
+    let layer = i >= 0 ? cfg.layers[i] : null;
+    if (!layer) {
+      layer = normalizeLayer({
+        name: 'Arkaplan',
+        kind: 'background',
+        type: type,
+        presetId: type === 'custom' ? (presetId || null) : null,
+        enabled: true,
+        settings: s.background ? { background: JSON.parse(JSON.stringify(s.background)) } : {},
+      });
+      cfg.layers.unshift(layer); // arkaplan en altta
+      return layer;
+    }
+    layer.type = type;
+    if (type === 'custom') layer.presetId = presetId || layer.presetId || null;
+    else if (hasPreset) layer.presetId = presetId;
+    layer.enabled = true;
+    layer.muted = false;
+    if (s.background) {
+      layer.settings = layer.settings || {};
+      const prev = layer.settings.background || {};
+      layer.settings.background = Object.assign({}, prev, JSON.parse(JSON.stringify(s.background)), { type: type });
+    } else if (layer.settings && layer.settings.background) {
+      layer.settings.background.type = type;
+    }
+    return layer;
   }
   function syncStackState(cfg) {
     if (!cfg || !cfg.layerStack || !cfg.layerStack.enabled) return;
@@ -2128,6 +2253,11 @@
     setStackEnabled,
     adoptVisualizer,
     revealLayer,
+    effectivePath,
+    setEffective,
+    currentType,
+    firstLayerIndex,
+    adoptBackground,
     syncStackState,
     layerConfig,
     sceneSignature,

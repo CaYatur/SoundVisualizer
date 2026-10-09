@@ -560,7 +560,9 @@
         (out.missing || (out.missing = [])).push(path);
         continue;
       }
-      next = mod.setIn(next, path, values[path]);
+      // Yığın açıkken ilk canlı katmanın kendi değeri (bkz. modulation.js routedPath)
+      const target = mod.routedPath ? mod.routedPath(next, path) : path;
+      next = mod.setIn(next, target, values[path]);
       out.applied++;
     }
     out.cfg = next;

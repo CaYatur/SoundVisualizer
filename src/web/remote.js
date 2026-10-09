@@ -104,10 +104,23 @@
     return scenes().findIndex(sceneMatches);
   }
 
+  /* Ekranda görünen tür ve değer. Yığın açıkken klasik `visualizer.type`
+     bilerek 'none'; kumanda onu okuyunca hiçbir modu işaretlemiyordu.
+     Kural layers.js'te tek yerde (currentType / effectivePath). */
+  function shownType(c, section) {
+    const L = window.SVLayers;
+    if (L && L.currentType) return L.currentType(c, section);
+    return c && c[section] ? c[section].type : null;
+  }
+  function shownValue(c, path) {
+    const L = window.SVLayers;
+    return getPath(c, L && L.effectivePath ? L.effectivePath(c, path) : path);
+  }
+
   function activeStudioIndex() {
     if (!cfg) return -1;
-    const id = cfg.visualizer.type === 'custom' ? cfg.custom && cfg.custom.visualizerId
-      : cfg.background.type === 'custom' ? cfg.custom && cfg.custom.backgroundId
+    const id = shownType(cfg, 'visualizer') === 'custom' ? cfg.custom && cfg.custom.visualizerId
+      : shownType(cfg, 'background') === 'custom' ? cfg.custom && cfg.custom.backgroundId
         : null;
     return id ? studioPresets().findIndex((p) => p.id === id) : -1;
   }
@@ -287,13 +300,13 @@
     }
     // Karartma durumu paneldedir; düğme onu yansıtır
     $('blackoutBtn').classList.toggle('on', c.isBlackout === true);
-    markActive($('visModes'), c.visualizer && c.visualizer.type);
-    markActive($('bgModes'), c.background && c.background.type);
+    markActive($('visModes'), shownType(c, 'visualizer'));
+    markActive($('bgModes'), shownType(c, 'background'));
     renderScenes();
     renderPalettes();
     renderStudio();
     for (const s of sliders) {
-      const v = getPath(c, s.path);
+      const v = shownValue(c, s.path);
       if (v == null) continue;
       if (document.activeElement !== s.el) s.el.value = v;
       s.out.textContent = s.fmt(+v);
@@ -302,10 +315,11 @@
     const st = $('statusText');
     st.textContent = '';
     st.appendChild(document.createTextNode('Bağlı'));
-    const label = VIS_MODES.find(([v]) => v === (c.visualizer && c.visualizer.type));
+    const shown = shownType(c, 'visualizer');
+    const label = VIS_MODES.find(([v]) => v === shown);
     st.appendChild(document.createTextNode(' · '));
     const modeSpan = document.createElement('span');
-    modeSpan.textContent = label ? label[1] : (c.visualizer ? c.visualizer.type : '—');
+    modeSpan.textContent = label ? label[1] : (shown || '—');
     st.appendChild(modeSpan);
   }
 

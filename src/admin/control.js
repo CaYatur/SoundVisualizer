@@ -162,13 +162,21 @@
       if (value01 < 0.5) return;
       if (map._armed === false) return;
       map._armed = false;
-      runAction(t.action, cfg);
-      P().push(true);
-      P().rerender();
+      if (runAction(t.action, cfg) !== true) {
+        P().push(true);
+        P().rerender();
+      }
       return;
     }
 
-    P().set(t.path, mappedValue(t, map, value01));
+    /* Yığın açıkken değer ilk canlı katmana da yazılır; yalnız genel yola
+       yazılınca katmanın kopyası onu eziyordu (layers.js effectivePath).
+       Genel yol da yazılır: değer göstergesi ve klasik kip onu okuyor. */
+    const v = mappedValue(t, map, value01);
+    P().set(t.path, v);
+    const L = window.SVLayers;
+    const eff = L && L.effectivePath ? L.effectivePath(cfg, t.path) : t.path;
+    if (eff !== t.path) P().set(eff, v);
     P().push(false);
     refreshValueChips();
   }
@@ -189,22 +197,57 @@
     return v;
   }
 
+  /* Yığın açıkken ekranı katmanlar çiziyor ve klasik `visualizer.type`
+     bilerek 'none'. Eylemler eskiden yalnız klasik alanı okuyup yazıyordu:
+     yığında ekran hiç değişmiyordu, sıra da listenin başından başlıyordu.
+     Tür artık ekranda görünen katmandan okunup ona yazılıyor (layers.js
+     currentType / adoptVisualizer / adoptBackground). */
+  function stackLive(cfg) {
+    const L = window.SVLayers;
+    return !!(L && L.stackOn && L.currentType && L.stackOn(cfg));
+  }
+
+  /* Dönüş true: eylem sahneyi kendisi uyguladı ve gönderdi; çağıran yeniden
+     göndermez (göndermek etkin sahne işaretini silerdi). */
   function runAction(action, cfg) {
     if (action === 'nextVisualizer' || action === 'prevVisualizer') {
-      const i = VIS_CYCLE.indexOf(cfg.visualizer.type);
+      const stack = stackLive(cfg);
+      const cur = stack ? window.SVLayers.currentType(cfg, 'visualizer') : cfg.visualizer.type;
+      const i = VIS_CYCLE.indexOf(cur);
       const d = action === 'nextVisualizer' ? 1 : -1;
-      cfg.visualizer.type = VIS_CYCLE[(i + d + VIS_CYCLE.length) % VIS_CYCLE.length];
+      const next = VIS_CYCLE[(i + d + VIS_CYCLE.length) % VIS_CYCLE.length];
+      if (stack) window.SVLayers.adoptVisualizer(cfg, { type: next });
+      else cfg.visualizer.type = next;
     } else if (action === 'nextBackground') {
-      const i = BG_CYCLE.indexOf(cfg.background.type);
-      cfg.background.type = BG_CYCLE[(i + 1) % BG_CYCLE.length];
+      const stack = stackLive(cfg);
+      const cur = stack ? window.SVLayers.currentType(cfg, 'background') : cfg.background.type;
+      const i = BG_CYCLE.indexOf(cur);
+      const next = BG_CYCLE[(i + 1) % BG_CYCLE.length];
+      if (stack) window.SVLayers.adoptBackground(cfg, { type: next });
+      else cfg.background.type = next;
     } else if (action === 'nextScene') {
       const list = cfg.scenes || [];
-      if (!list.length) return;
+      if (!list.length) return false;
       const idx = (runAction._scene = ((runAction._scene || 0) + 1) % list.length);
+      /* Panelin sahne düğmesiyle AYNI uygulama: Şeffaf Arkaplan ve
+         karartma korunur. Eskiden alanlar burada ayrıca kopyalanıyordu ve
+         sahne şeffaflık kapalıyken kaydedildiyse yayındaki şeffaf pencere
+         opak yeniden kuruluyordu. */
+      if (P() && P().applyScene && list[idx].id) {
+        P().applyScene(list[idx].id);
+        return true;
+      }
       const data = list[idx].data || {};
+      const bg = cfg.background || {};
+      const keep = { transparent: !!bg.transparent, transparentKey: bg.transparentKey, coverTaskbar: bg.coverTaskbar };
       const SCENE_KEYS = ['background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade', 'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation', 'transition', 'custom', 'milkdrop', 'feedback'];
       for (const key of SCENE_KEYS) {
         if (data[key] !== undefined) cfg[key] = JSON.parse(JSON.stringify(data[key]));
+      }
+      if (cfg.background) {
+        cfg.background.transparent = keep.transparent;
+        if (keep.transparentKey != null) cfg.background.transparentKey = keep.transparentKey;
+        if (keep.coverTaskbar != null) cfg.background.coverTaskbar = !!keep.coverTaskbar;
       }
     } else if (action === 'nextPalette') {
       const list = (window.SV.GRADIENT_PRESETS || []).concat(cfg.userPresets || []);

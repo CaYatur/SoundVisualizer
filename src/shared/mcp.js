@@ -691,7 +691,10 @@
     const wrong = badMode('background', args.type);
     if (wrong) return fail(wrong);
     return withConfig(ctx, function (cfg) {
-      cfg.background = Object.assign({}, cfg.background, { type: String(args.type) });
+      // Yığın açıkken ilk arkaplan katmanı (sv_set_visualizer_type ile aynı kural)
+      const L = layersApi();
+      if (L && L.adoptBackground) L.adoptBackground(cfg, { type: String(args.type) });
+      else cfg.background = Object.assign({}, cfg.background, { type: String(args.type) });
       return { type: cfg.background.type };
     });
   });

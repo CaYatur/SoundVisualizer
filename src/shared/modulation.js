@@ -199,6 +199,26 @@
     return out;
   }
 
+  /* Yığın açıkken genel yol (ör. `visualizer.barCount`) ilk canlı katmanın
+     kendi değerine yönlenir (layers.js effectivePath). Yönlenmeseydi
+     katmanın kopyası değeri ezer, modülasyon ekranda görünmezdi. 'add' ve
+     'mul' kipleri de katmanın değerinden hesaplanır. Katman yardımcısı
+     yüklü değilse yol olduğu gibi kalır. */
+  let _layersCache;
+  function layersApi() {
+    if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.effectivePath) return window.SVLayers;
+    if (_layersCache !== undefined) return _layersCache;
+    _layersCache = null;
+    if (typeof module !== 'undefined' && module.exports) {
+      try { _layersCache = require('../visualizer/layers.js'); } catch (e) { _layersCache = null; }
+    }
+    return _layersCache;
+  }
+  function routedPath(cfg, path) {
+    const L = layersApi();
+    return L && L.effectivePath ? L.effectivePath(cfg, path) : path;
+  }
+
   // ==========================================================================
   // Motor
   // ==========================================================================
@@ -372,7 +392,8 @@
       for (let i = 0; i < routes.length; i++) {
         const r = routes[i];
         if (!r || r.enabled === false || !r.target) continue;
-        const base = getIn(out, r.target);
+        const target = routedPath(out, r.target);
+        const base = getIn(out, target);
         if (typeof base !== 'number') continue; // yalnızca sayısal hedefler
 
         let x = this.value(r.source);
@@ -404,8 +425,9 @@
         if (r.clamp !== false) x = clamp(x, Math.min(lo, hi), Math.max(lo, hi));
         if (!isFinite(x)) continue;
 
-        out = setIn(out, r.target, x);
+        out = setIn(out, target, x);
         this._touched.add(r.target.split('.')[0]);
+        if (target !== r.target) this._touched.add('layers');
       }
       return out;
     }
@@ -418,7 +440,7 @@
 
   const api = {
     Modulator, catalog, CURVES, CURVE_IDS, SHAPES, SHAPE_IDS,
-    DIVISIONS, divisionBeats, getIn, setIn, alphaFor, hashUnit,
+    DIVISIONS, divisionBeats, getIn, setIn, routedPath, alphaFor, hashUnit,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVModulation = api;
