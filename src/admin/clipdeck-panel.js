@@ -258,8 +258,8 @@
     const C = window.SVControl;
     if (!C || !C.runAction) return false;
     if (!actionOptions().some((o) => o[0] === ref)) return false;
-    C.runAction(ref, P().cfg());
-    P().apply();
+    // true: eylem sahneyi kendisi uyguladı (Sonraki Sahne), yeniden gönderme
+    if (C.runAction(ref, P().cfg()) !== true) P().apply();
     return true;
   }
 

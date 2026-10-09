@@ -140,7 +140,8 @@ test('kumandadan gelen sayılar güvenli aralığa çekilir', () => {
   assert.strictEqual(f('visualizer.speed', 123), 123, 'tablo dışı yola dokunulmaz');
   assert.strictEqual(f('power.fpsCap', true), true, 'sayı olmayan değer olduğu gibi');
   const set = M.slice(M.indexOf("if (!remotePathAllowed(msg.path)) return;"), M.indexOf("} else {", M.indexOf("if (!remotePathAllowed(msg.path)) return;")));
-  assert.match(set, /const safe = remoteNumber\(msg\.path, v\);\s*if \(safe === undefined\) return;\s*setConfigPath\(currentConfig, msg\.path, safe\);/);
+  // setRemotePath: yığın açıkken katmana da yazar (tests/stack-global-controls.test.js)
+  assert.match(set, /const safe = remoteNumber\(msg\.path, v\);\s*if \(safe === undefined\) return;\s*setRemotePath\(currentConfig, msg\.path, safe\);/);
 });
 
 /* Söz kitaplığında "Kaldır" onaysız siliyordu. Düzenleyicideki zaman
