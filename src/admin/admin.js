@@ -1834,6 +1834,12 @@
     if (dt.applyToVisualizer !== false && cfg.visualizer) {
       cfg.visualizer.color = res.color || res.colors[2] || '#3aa6ff';
       cfg.visualizer.color2 = res.color2 || res.colors[4] || '#d24bff';
+      /* Yığında ilk görselleştirici katmanının kopyası genel rengi eziyordu;
+         görselleştirici temayı izlemiyordu (layers.js setEffective). */
+      if (window.SVLayers && window.SVLayers.setEffective) {
+        window.SVLayers.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
+        window.SVLayers.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
+      }
     }
     if (res.nextCycleIdx !== undefined) {
       dt._cycleIdx = res.nextCycleIdx;

@@ -310,3 +310,78 @@ test('MCP arkaplan türü yığında ekrandaki katmanı değiştirir', async () 
     Module._load = orig;
   }
 });
+
+// --- ikinci tur: gözden geçirmede bulunanlar -------------------------------------
+
+test('yığın açık ve liste boşken "Katmanlara Geç" listeyi yine sentezler', () => {
+  const cfg = SV.defaultConfig();
+  cfg.layerStack = { enabled: true };
+  cfg.layers = [];
+  L.setStackEnabled(cfg, true);
+  assert.ok(cfg.layers.length > 0, 'düğme işlevsiz kalmamalı');
+});
+
+test('setEffective yığında katmanın kopyasına yazar, klasikte dokunmaz', () => {
+  const cfg = stackScene();
+  cfg.visualizer.color = '#123456';
+  assert.strictEqual(L.setEffective(cfg, 'visualizer.color', '#123456'), true);
+  assert.strictEqual(drawn(cfg, 'visualizer').visualizer.color, '#123456');
+  const classic = SV.defaultConfig();
+  assert.strictEqual(L.setEffective(classic, 'visualizer.color', '#123456'), false);
+});
+
+test('Auto VJ paleti yığında görselleştirici katmanının rengini de değiştirir', () => {
+  require('../src/shared/autovj.js');
+  const cfg = stackScene();
+  cfg.autovj = { enabled: true, source: 'palettes' };
+  const key = require.resolve('../src/admin/autovj.js');
+  delete require.cache[key];
+  window.SVPanel = { cfg: () => cfg, push() {}, rerender() {}, apply() {} };
+  require('../src/admin/autovj.js');
+  const r = window.SVAutoVJ.applySwitch();
+  assert.ok(r.ok, JSON.stringify(r));
+  assert.strictEqual(r.kind, 'palettes');
+  assert.strictEqual(drawn(cfg, 'visualizer').visualizer.color, cfg.visualizer.color);
+});
+
+test('dinamik tema görselleştirici rengini katmana da yazar', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/admin/admin.js'), 'utf8');
+  const a = src.indexOf('function applyResolvedTheme(res, isManual)');
+  const body = src.slice(a, src.indexOf('res.nextCycleIdx', a));
+  assert.match(body, /setEffective\(cfg, 'visualizer\.color', cfg\.visualizer\.color\)/);
+  assert.match(body, /setEffective\(cfg, 'visualizer\.color2', cfg\.visualizer\.color2\)/);
+});
+
+// --- Studio -------------------------------------------------------------------------
+
+function freshStudio(cfg) {
+  const key = require.resolve('../src/admin/studio.js');
+  delete require.cache[key];
+  window.SVPanel = { cfg: () => cfg, push() {}, rerender() {}, toast() {} };
+  require('../src/admin/studio.js');
+  return window.SVStudio;
+}
+
+test('Studio "Şu Anki Görünüm" yığında ekrandaki katmanı yakalar, "none" değil', () => {
+  const cfg = stackScene();
+  cfg.layers[visIndex(cfg)].type = 'blocks';
+  cfg.layers[visIndex(cfg)].settings.visualizer.barCount = 42;
+  const S = freshStudio(cfg);
+  const look = S.currentLook(cfg, 'visualizer');
+  assert.strictEqual(look.visualizer.type, 'blocks');
+  assert.strictEqual(look.visualizer.barCount, 42);
+  assert.strictEqual(S.currentLook(SV.defaultConfig(), 'visualizer').visualizer.type, 'bars', 'klasikte genel alan');
+});
+
+test('Studio arkaplan preseti ve varyasyonu yığında ekrandaki katmana uygulanır', () => {
+  const cfg = stackScene();
+  const S = freshStudio(cfg);
+  S.applyPresetToCfg(cfg, { id: 'bg_x', kind: 'background', engine: 'shader' });
+  assert.strictEqual(drawn(cfg, 'background').background.type, 'custom');
+  assert.strictEqual(drawn(cfg, 'background').custom.backgroundId, 'bg_x');
+  const bg = Object.assign(JSON.parse(JSON.stringify(cfg.background)), { type: 'aurora' });
+  bg.gradient.speed = 1.3;
+  S.applyPresetToCfg(cfg, { id: 'v1', kind: 'background', engine: 'variation', base: 'aurora', overrides: { background: bg } });
+  assert.strictEqual(drawn(cfg, 'background').background.type, 'aurora');
+  assert.strictEqual(drawn(cfg, 'background').background.gradient.speed, 1.3);
+});

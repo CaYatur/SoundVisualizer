@@ -153,6 +153,12 @@
     if (cfg.visualizer) {
       cfg.visualizer.color = colors[0];
       if (colors.length > 1) cfg.visualizer.color2 = colors[colors.length - 1];
+      // Yığında ilk görselleştirici katmanına da (kopyası genel rengi eziyordu)
+      const L = window.SVLayers;
+      if (L && L.setEffective) {
+        L.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
+        L.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
+      }
       touched = true;
     }
     return touched;

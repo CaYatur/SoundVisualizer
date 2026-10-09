@@ -383,11 +383,13 @@
     const on = !!enabled;
     if (on) {
       /* Zaten açıksa klasik alanlar temizlenmiş durumda ('none'); yeniden
-         yedeklemek gerçek klasik sahneyi silerdi. */
-      if (stackOn(cfg) && cfg.layerStack.enabled === true) return;
+         yedeklemek gerçek klasik sahneyi silerdi. Boş liste yine sentezlenir:
+         "Katmanlara Geç" düğmesi tam bu durumda (açık, liste boş) görünüyor. */
+      const already = cfg.layerStack.enabled === true;
       if (!Array.isArray(cfg.layers) || !cfg.layers.length) {
         cfg.layers = synthesize(cfg);
       }
+      if (already) return;
       /* Fresh snapshot every time the stack is turned on — do not ratchet
          previous backup flags to true. Overlay modes added as layers while
          the stack is on must not leak into classic roots on the way back. */
@@ -531,6 +533,18 @@
     if (!own || pathValue(own, keys.slice(1)) === undefined) return path;
     return 'layers.' + i + '.settings.' + path;
   }
+  /* Genel alana yazılan değeri ekrandaki katmana da yazar (yerinde). Genel
+     alanı çağıran yazar; burada yalnız katmanın kopyası. */
+  function setEffective(cfg, path, value) {
+    const eff = effectivePath(cfg, path);
+    if (eff === path) return false;
+    const keys = eff.split('.');
+    let cur = cfg;
+    for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]];
+    cur[keys[keys.length - 1]] = value;
+    return true;
+  }
+
   /* Ekranda görünen tür. Yığın açıkken klasik `visualizer.type` bilerek
      'none'; sıradaki moda geçen bir eylem onu okursa listenin başına
      atlıyordu. */
@@ -2240,6 +2254,7 @@
     adoptVisualizer,
     revealLayer,
     effectivePath,
+    setEffective,
     currentType,
     firstLayerIndex,
     adoptBackground,
