@@ -1442,7 +1442,8 @@ Stabilisation (#695):
   - **BOM in `settings.json`.** The hardware video decode switch is read before the main settings loader runs. A file saved by Notepad with a UTF-8 BOM failed to parse there and the switch was ignored; the BOM is now stripped, as the main loader does. The unused `HW_VIDEO_DECODE` constant is gone.
   - **MCP needs Node.js.** The stdio command the setup dialog gives runs `node`; both READMEs now say so in the MCP section and the FAQ.
   - **Cover and logo glow, measured afterwards.** On the 2560×1600 screen, a logo at half the short side read 68.0–68.3 fps with glow 0, 0.2, 0.46 and 1, with the halo drawn in each. No change was made.
-  - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), the TEMP template-card gate (a product decision), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
+  - **Ready Templates card reset stays hidden** (user's decision, 09.10). The badge bounce fixed in `f577c01` was checked in an isolated copy with 6 templates, layer stack on and off, and it no longer comes back. The card stays hidden for another reason: its reset is not "undo the template" but a factory reset of the whole scene. On the user's own settings the badge read 11 before any template was applied, and resetting removed all 6 layers and 3 effects. A future "undo last template" button, shown only after a template is applied, can build on `resetScene` and `SCENE_KEYS`.
+  - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 
 ## Next, not yet numbered — MilkDrop show control, library and MilkDrop 3 compatibility

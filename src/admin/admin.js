@@ -2616,9 +2616,14 @@
           'background.transparent', 'background.transparentKey', 'background.coverTaskbar',
           'logo.src', 'logo.libraryId', 'logo.kind', 'logo.source', 'logo.enabled',
         ],
-        /* TEMP: hide card modified badge + circular reset on Ready Templates.
-           Applying a template still changes SCENE_KEYS; re-enable by setting
-           hideCardReset: false once resetScene bounce is fully validated UX-wise. */
+        /* Kartın "değiştirildi" rozeti ve sıfırla düğmesi BİLİNÇLİ OLARAK gizli
+           (09.10, kullanıcı kararı). Rozetin geri dönme hatası f577c01'de
+           düzeldi ve ölçüldü (6 şablon, katman yığını açık/kapalı). Gizli
+           kalmasının nedeni anlam: bu sıfırlama "şablonu geri al" değil,
+           bütün sahneyi fabrika ayarına döndürüyor. Kullanıcının kendi
+           katmanları ve efektleri, hiç şablon uygulanmadan da rozet açtırıyor
+           ve sıfırla hepsini siliyor (6 katman → 0). Yerine düşünülen:
+           yalnız şablon uygulandıktan sonra görünen "son şablonu geri al". */
         hideCardReset: true,
         category: 'library',
         icon: 'sparkles',
@@ -3310,7 +3315,8 @@
   }
 
   function sectionShowsResetChrome(sec) {
-    /* hideCardReset: TEMP gate for Ready Templates card chrome. */
+    /* hideCardReset: Hazır Şablonlar kartının rozeti ve sıfırla düğmesi
+       gizli; neden şablonlar bölümünün tanımında. */
     return !(sec && sec.hideCardReset);
   }
 
