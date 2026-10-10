@@ -125,16 +125,24 @@
       const now = Date.now();
       if (this.tracker) this.tracker.update(raw, now);
       let st = N.resolve(raw, now);
-      if (!st.has) {
-        /* Şablon kartının yer tutucusu (`placeholder`): parça çalmıyorken
-           yalnız panel önizlemesinde "PARÇA ADI / SANATÇI ADI" görünür,
-           yerleşim çalmadan da görülsün. Çıkışlarda, yayında ve kayıtta
-           kart parça gelene kadar boş kalır. */
-        if (!(c.placeholder && typeof window !== 'undefined' && window.SVPanel)) return;
-        const I = window.SVI18n;
-        const tr = (k) => (I && typeof I.t === 'function' ? I.t(k) : k);
-        st = Object.assign({}, st, { has: true, playing: false, title: tr('PARÇA ADI'), artist: tr('SANATÇI ADI'), album: '', app: '' });
+      if (!st.has && c.placeholder) {
+        /* Şablon kartı (`placeholder`). Sistemde parça yoksa önce kartın
+           elle yazılan parçası (macOS/Linux sistemden okuyamıyor). O da
+           yoksa yalnız panel önizlemesinde "PARÇA ADI / SANATÇI ADI": yerleşim
+           çalmadan da görülsün. Önizleme yüzeyi kayda gidiyor; kayıt
+           sürerken yer tutucu çizilmez. Çıkışlarda ve yayında kart parça
+           gelene kadar boş kalır. */
+        const m = c.manual || {};
+        const rec = window.SVRecordPanel && typeof window.SVRecordPanel.isRecording === 'function' && window.SVRecordPanel.isRecording();
+        if (m.title || m.artist) {
+          st = Object.assign({}, st, { has: true, playing: false, title: m.title || '', artist: m.artist || '', album: m.album || '', app: '' });
+        } else if (typeof window !== 'undefined' && window.SVPanel && !rec) {
+          const I = window.SVI18n;
+          const tr = (k) => (I && typeof I.t === 'function' ? I.t(k) : k);
+          st = Object.assign({}, st, { has: true, playing: false, title: tr('PARÇA ADI'), artist: tr('SANATÇI ADI'), album: '', app: '' });
+        }
       }
+      if (!st.has) return;
 
       // ---- görünürlük zarfı (sürekli mi, değişimde mi)
       const age = this.tracker ? this.tracker.ageAt(now) : Infinity;

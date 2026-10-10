@@ -60,7 +60,10 @@ test('her kart tek bir Çalan Parça katmanı taşıyor; yer tutucu yalnız pane
     assert.strictEqual(np[0].settings.visualizer.glow, 0, id);
   }
   const src = read('src/visualizer/modes/nowplaying.js');
-  assert.match(src, /if \(!\(c\.placeholder && typeof window !== 'undefined' && window\.SVPanel\)\) return;/);
+  assert.match(src, /if \(!st\.has && c\.placeholder\) \{/);
+  assert.match(src, /else if \(typeof window !== 'undefined' && window\.SVPanel && !rec\) \{/, 'yer tutucu kayda girmez');
+  assert.match(src, /window\.SVRecordPanel\.isRecording\(\)/);
+  assert.match(src, /if \(m\.title \|\| m\.artist\) \{/, 'elle yazılan parçaya düşer');
   assert.match(src, /title: tr\('PARÇA ADI'\), artist: tr\('SANATÇI ADI'\)/);
   assert.match(src, /if \(side === 'left' && align === 'left'\) groupShift = coverW \+ coverGapPx;/);
   assert.match(src, /ctx\.translate\(ax \+ ox, cy \+ oy\);/);
