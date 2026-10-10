@@ -206,3 +206,25 @@ test('package description lists Linux alongside Windows and macOS', () => {
   assert.match(pkg.description, /macOS/i);
   assert.match(pkg.description, /Linux/i);
 });
+
+/* Kurulu sürümde görev çubuğu ikonunun arkasında gri zemin vardı (dış
+   görüş, 10.10). Kurulum bir paket kimliği kaydediyor; görev çubuğu o
+   zaman paketin Square44x44Logo'sunu kullanıyor ve zeminsiz
+   (altform-unplated) sürümü resources.pri ile buluyor. Kimliğin dış konumu
+   kurulum klasörü; .pri dosyaları oraya kopyalanmıyordu. Pencere ikonu
+   (build/icon.ico) da pakete girmiyordu: kurulu sürümde `icon` boş
+   kalıyordu, `npm start` ile dolu. */
+test('kimliğin .pri dosyaları kurulum köküne, pencere ikonu pakete giriyor', () => {
+  const extra = build.win.extraFiles || [];
+  const pri = extra.find((e) => e.from === 'build/identity/package');
+  assert.ok(pri, 'build/identity/package extraFiles içinde değil');
+  assert.strictEqual(pri.to, '.');
+  assert.deepStrictEqual(pri.filter, ['resources*.pri']);
+  assert.ok(build.files.indexOf('build/icon.ico') >= 0, 'build/icon.ico files listesinde değil');
+  assert.match(read('src/main/main.js'), /path\.join\(__dirname, '\.\.', '\.\.', 'build', 'icon\.ico'\)/);
+  // Kimliğin logosu kurulum klasörüne göre çözülüyor: png'ler resources/identity'de
+  assert.match(read('scripts/prepare-identity.js'), /Square44x44Logo="resources\\\\identity\\\\Square44x44Logo\.png"/);
+  assert.match(JSON.stringify(build.win.extraResources), /"to":"identity"/);
+  // Eski sürümün önbellekteki ikonu kurulumda tazelenir
+  assert.match(read('scripts/installer.nsh'), /ie4uinit\.exe" -show/);
+});

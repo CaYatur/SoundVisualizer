@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2893 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2894 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1094
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1095
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1474,6 +1474,7 @@ Stabilisation (#695):
     - **Not changed.** Template names (Y14) are still the owner's decision. A media path to a non-video file and a layer whose Studio preset was deleted behave as before; the second already says so in the panel.
     - Tests: `tests/external-review-v3.test.js` (11; 10 fail on the previous code, one checks that every template layer passes the new layer check unchanged).
   - **Outside review, fourth round** (run on 853becc). It confirmed every third-round fix live and found one more raw-path gap: `layers.N.postfx` accepted an unknown effect type and effects without ids. Probing the same path one level up in an isolated copy showed the whole class: `postfx`, `visualizer.type`, `background.type`, `background.gradient.colors`, `modulation.routes` and `autovj` all took values their own tools refuse. A write to one of those sections is now made on a copy and checked with that tool's rules: known effect types with an object `params` (ids are given), existing mode ids, hex colours (at least two), modulation routes with a known source and an existing numeric target, Auto VJ options with the interval and BPM lock pulled into range. Only changed list items are checked, so an old stale route does not block editing another one. The transparent stream background, which the app writes but the mode catalogue does not list, is accepted (`sv_set_background_type` refused it before). The OSC port floor is 1 on Windows and 1024 elsewhere; the stream port stays at 1024 because its server enforces that. Closing the floating window from the window itself turned the panel's PiP switch off, measured live, so nothing changed there. Tests: `tests/external-review-v4.test.js` (4; 3 fail on the previous code, one runs every template's sections and layer effects through the new checks and expects them unchanged).
+  - **Grey plate behind the installed app's taskbar icon** (outside report, 10.10). `npm start` showed a clean icon; the installed build showed it on a grey square. The installer registers the sparse identity package with the install folder as its external location, and the taskbar then draws the package's `Square44x44Logo`. The transparent (`altform-unplated`) variants are found through `resources.pri`, which sat only inside the package, not in the install folder the logo paths resolve against. The `.pri` files now go to the install root (`extraFiles`), the window icon `build/icon.ico` is packed (the installed build passed no window icon at all), and the installer refreshes the shell icon cache after registering the identity. Checked in an unpacked build: the five `.pri` files sit next to the exe and `build/icon.ico` is in the asar. The taskbar itself can only be checked after installing a build with this change; installing needs elevation, so that check is left to the next setup run.
   - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 

@@ -10,6 +10,10 @@
   ${If} $0 != 0
     DetailPrint "Dynamic Lighting identity registration returned code $0. The application will offer repair on first use."
   ${EndIf}
+  ; Görev çubuğu kimliğin logosunu kullanır; eski sürümün önbellekteki
+  ; (gri zeminli) ikonu kalmasın diye simge önbelleği tazelenir.
+  nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
+  Pop $0
 !macroend
 
 !macro customUnInstall

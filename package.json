@@ -59,6 +59,7 @@
     "files": [
       "src/**/*",
       "assets/**/*",
+      "build/icon.ico",
       "package.json"
     ],
     "asarUnpack": [
@@ -109,6 +110,15 @@
             "*.cer",
             "*.ps1",
             "*.png"
+          ]
+        }
+      ],
+      "extraFiles": [
+        {
+          "from": "build/identity/package",
+          "to": ".",
+          "filter": [
+            "resources*.pri"
           ]
         }
       ]
