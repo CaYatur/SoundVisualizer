@@ -591,17 +591,20 @@
   /* BASIŞ ve BIRAKIŞ (#637 CD-2): yuvanın ateşleme kipine göre. Hücre,
      klavye ve performans görünümü bunu çağırır; kapı kipinde bırakış
      sütunu önceki yuvaya döndürür. */
+  /* Yuva çalındıysa true. MCP ızgara dışındaki ya da boş yuvayı böyle
+     ayırıyor; eskiden row:99 için de ok:true dönüyordu. */
   function press(row, col) {
     const deck = CD().makeDeck(deckSpec());
     const slot = CD().getSlot(deck, row, col);
-    if (!slot) return;
+    if (!slot) return false;
     if (!slot.ref) {
       launch(row, col); // kaynaksız yuvanın uyarısı tek yerde
-      return;
+      return false;
     }
     ensureEngine().press(deck.id, row, col, clockNow(), tempoNow());
     if (window.SVTimelinePanel) window.SVTimelinePanel.start();
     paintGrid();
+    return true;
   }
 
   function release(row, col) {

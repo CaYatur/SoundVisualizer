@@ -111,6 +111,26 @@
   function revisionOf(ctx) {
     try { return ctx && ctx.revision ? ctx.revision() : 0; } catch (e) { return 0; }
   }
+  /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
+     yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
+     `sv_export_json` ham ayarı diske yazıyordu. */
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken']];
+  function redactSecrets(cfg) {
+    for (const p of SECRET_PATHS) {
+      const sec = cfg && cfg[p[0]];
+      if (sec && typeof sec === 'object' && sec[p[1]]) sec[p[1]] = '[redacted]';
+    }
+    return cfg;
+  }
+  /* Dosya yazan araçlar: uygulamanın kendi klasörlerine yazmaz, var olan
+     bir dosyanın üstüne ancak `overwrite:true` ile yazar. Denetim ana
+     süreçte (ctx.outPathGuard); burada yalnız çağrılır. */
+  function outPathError(ctx, p, exts, overwrite) {
+    const bad = badOutPath(p, exts);
+    if (bad) return bad;
+    if (ctx && ctx.outPathGuard) return ctx.outPathGuard(p, overwrite === true) || '';
+    return '';
+  }
   function denied(group) {
     return { ok: false, error: 'Permission denied: ' + (GROUP_LABEL[group] || group) + ' is off. Enable that switch on the MCP card under Control. Writes stay off until the matching group is allowed.' };
   }
@@ -186,16 +206,27 @@
     return base;
   }
   function unsafeKey(k) { return k === '__proto__' || k === 'prototype' || k === 'constructor'; }
+  /* Dizi içinden geçen yol (layers.0.opacity) yalnız VAR OLAN bir öğeye
+     yazar. Eskiden ara düğüm dizi olunca {} ile değiştiriliyordu:
+     `layers.0.opacity` bütün katman listesini silip {"0":{…}} bırakıyordu,
+     ayar dosyasına da öyle yazılıyordu. Sayı olmayan ya da listenin
+     dışındaki bir sıra reddedilir; seyrek dizi oluşmaz. Sayı ya da metin
+     olan bir değerin altına yazmak da onu nesneye çevirmez. */
   function setPath(obj, p, value) {
     const keys = String(p).split('.');
     if (keys.some(unsafeKey)) return fail('Refusing unsafe config path.');
+    if (keys.some(function (k) { return !k; })) return fail('Config path has an empty segment.');
     let node = obj;
-    for (let i = 0; i < keys.length - 1; i++) {
+    for (let i = 0; i < keys.length; i++) {
       const k = keys[i];
-      if (typeof node[k] !== 'object' || node[k] === null || Array.isArray(node[k])) node[k] = {};
+      if (Array.isArray(node) && !(/^(0|[1-9]\d*)$/.test(k) && Number(k) < node.length)) {
+        return fail('"' + keys.slice(0, i).join('.') + '" is a list of ' + node.length + ' items; "' + k + '" is not an existing index.');
+      }
+      if (i === keys.length - 1) { node[k] = value; break; }
+      if (node[k] === undefined || node[k] === null) node[k] = {};
+      else if (typeof node[k] !== 'object') return fail('"' + keys.slice(0, i + 1).join('.') + '" is a ' + typeof node[k] + ', not an object.');
       node = node[k];
     }
-    node[keys[keys.length - 1]] = value;
     return { ok: true };
   }
   function getPath(obj, p) {
@@ -211,6 +242,89 @@
       else out[k] = v;
     }
     return out;
+  }
+  /* Doğrulamalar. Aralıklar panelin kendi denetimleriyle aynı; uygulamanın
+     yazdığı her değer geçer, yalnız panelin üretemeyeceği değerler
+     reddedilir ya da panelin aralığına çekilir. Eskiden `x:"abc"`,
+     `scale:-5`, `opacity:7`, `enabled:"yes"` olduğu gibi yazılıyordu;
+     `publicLayer` NaN'ı 0 gösterdiği için hata da görünmüyordu. */
+  const TRANSFORM_RANGE = { x: [-1, 1], y: [-1, 1], scale: [0.2, 3], rotate: [-180, 180] };
+  const LAYER_FLAGS = ['enabled', 'solo', 'muted', 'locked'];
+  function finite(v) { return typeof v === 'number' && isFinite(v); }
+  function cleanTransform(src) {
+    const out = {};
+    for (const k of Object.keys(src || {})) {
+      if (unsafeKey(k)) continue;
+      const v = src[k];
+      const range = TRANSFORM_RANGE[k];
+      if (range) {
+        if (!finite(v)) return { error: 'transform.' + k + ' must be a finite number.' };
+        // Dönüş tam turlarda aynı görünür; 1e9° yerine eşdeğer açı
+        const x = k === 'rotate' ? ((v + 180) % 360 + 360) % 360 - 180 : v;
+        out[k] = Math.max(range[0], Math.min(range[1], x));
+      } else if (k === 'flipX' || k === 'flipY') {
+        if (typeof v !== 'boolean') return { error: 'transform.' + k + ' must be true or false.' };
+        out[k] = v;
+      } else return { error: 'Unknown transform key "' + k + '". Use x, y, scale, rotate, flipX, flipY.' };
+    }
+    return { value: out };
+  }
+  function layerFieldError(patch) {
+    for (const k of LAYER_FLAGS) {
+      if (patch[k] !== undefined && typeof patch[k] !== 'boolean') return k + ' must be true or false.';
+    }
+    if (patch.opacity !== undefined && !finite(patch.opacity)) return 'opacity must be a number from 0 to 1.';
+    if (patch.name !== undefined && typeof patch.name !== 'string') return 'name must be a string.';
+    if (patch.group !== undefined && patch.group !== null && typeof patch.group !== 'string') return 'group must be a string or null.';
+    if (patch.presetId !== undefined && patch.presetId !== null && typeof patch.presetId !== 'string') return 'presetId must be a string or null.';
+    return '';
+  }
+  /* Renkler panelin renk seçicisinin yazdığı biçimde (#rrggbb); #rgb
+     açılır. Şablonlar panelde olduğu gibi beş renk. Eskiden
+     ['red','#zzzzzz',5] kabul ediliyor, uygulanınca arkaplan siyah
+     kalıyordu. */
+  function hexColor(c) {
+    if (typeof c !== 'string') return null;
+    const s = c.trim();
+    if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+    if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toLowerCase();
+    return null;
+  }
+  function paletteColors(list) {
+    if (!Array.isArray(list) || list.length < 2) return { error: 'colors must be a list of at least 2 hex colors (#rrggbb).' };
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const c = hexColor(list[i]);
+      if (!c) return { error: 'colors[' + i + '] is not a hex color (#rrggbb): ' + JSON.stringify(list[i]) };
+      out.push(c);
+    }
+    const five = out.slice(0, 5);
+    while (five.length < 5) five.push(five[five.length - 1]);
+    return { value: five };
+  }
+  /* Bölüm yamaları (metin, logo, medya, geometri) yalnız o bölümün
+     bilinen anahtarlarını ve aynı türde değer yazar. Eskiden
+     `geometry.shape` ya da `media.path` gibi var olmayan anahtarlar
+     sessizce kaydediliyor, hiçbir şey olmuyordu. */
+  function sectionPatchError(section, patch) {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return 'patch must be an object.';
+    const SV = defaultsApi();
+    const base = SV && SV.defaultConfig ? SV.defaultConfig()[section] : null;
+    if (!base || typeof base !== 'object') return '';
+    const bad = [];
+    for (const k of Object.keys(patch)) {
+      if (unsafeKey(k)) return 'Refusing unsafe key.';
+      if (!Object.prototype.hasOwnProperty.call(base, k)) { bad.push(k); continue; }
+      const want = base[k];
+      const v = patch[k];
+      if (want === null || v === null) continue;
+      const wt = Array.isArray(want) ? 'array' : typeof want;
+      const vt = Array.isArray(v) ? 'array' : typeof v;
+      if (wt !== vt) return section + '.' + k + ' must be a ' + wt + ', got ' + vt + '.';
+      if (vt === 'number' && !isFinite(v)) return section + '.' + k + ' must be a finite number.';
+    }
+    if (bad.length) return 'Unknown ' + section + ' key(s): ' + bad.join(', ') + '. Known keys: ' + Object.keys(base).join(', ') + '.';
+    return '';
   }
   function summarize(v, depth) {
     if (depth == null) depth = 0;
@@ -250,6 +364,14 @@
       },
       settings: summarize(layer && layer.settings),
       postfx: ((layer && layer.postfx) || []).map(publicFx),
+      // Ham ayarda duran ama eskiden görünmeyen alanlar
+      presetId: layer && layer.presetId || null,
+      solo: !!(layer && layer.solo),
+      muted: !!(layer && layer.muted),
+      locked: !!(layer && layer.locked),
+      group: layer && layer.group || null,
+      audio: summarize(layer && layer.audio) || null,
+      mask: summarize(layer && layer.mask) || null,
     };
   }
   function visualState(cfg, ctx) {
@@ -642,11 +764,7 @@
     };
   });
   tool('sv_get_config', null, 'Read config or one dotted path. Stream tokens are redacted. Read-only.', function (args, ctx) {
-    const cfg = clone(configOf(ctx)) || {};
-    if (cfg.stream) {
-      if (cfg.stream.token) cfg.stream.token = '[redacted]';
-      if (cfg.stream.remoteToken) cfg.stream.remoteToken = '[redacted]';
-    }
+    const cfg = redactSecrets(clone(configOf(ctx)) || {});
     if (args && args.path) return { ok: true, path: args.path, value: summarize(getPath(cfg, args.path)) };
     return { ok: true, config: summarize(cfg) };
   });
@@ -742,7 +860,10 @@
   });
   tool('sv_trigger_clip', 'sceneApply', 'Fire an existing clip-deck slot. Does not edit the grid.', function (args, ctx) {
     if (!ctx.launchClip) return fail('Clip deck is not available. Keep the admin window open.');
-    return Promise.resolve(ctx.launchClip(args || {})).then(function (r) {
+    const row = Number(args && args.row);
+    const col = Number(args && args.col);
+    if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0) return fail('row and col must be whole numbers from 0.');
+    return Promise.resolve(ctx.launchClip({ row: row, col: col })).then(function (r) {
       return r && r.ok === false ? r : Object.assign({ ok: true }, r || {});
     });
   });
@@ -752,11 +873,38 @@
       return r && r.ok === false ? r : Object.assign({ ok: true }, r || {});
     });
   });
+  /* Otomatik VJ seçenekleri panelin sunduklarıyla aynı; aralık ve BPM
+     kilidi panelin kaydırıcı aralığına çekilir. Eskiden `interval:-3`
+     olduğu gibi yazılıyordu. */
+  const AUTOVJ_ENUMS = {
+    source: ['scenes', 'visualizers', 'palettes', 'all'],
+    unit: ['bars', 'seconds'],
+    order: ['sequential', 'random'],
+    paletteSource: ['both', 'builtin', 'user'],
+    visualizerTargets: ['all', 'first'],
+  };
+  const AUTOVJ_RANGES = { interval: [1, 64], bpmLock: [0, 200] };
+  function autovjError(args) {
+    if (args.enabled !== undefined && typeof args.enabled !== 'boolean') return 'enabled must be true or false.';
+    for (const k of Object.keys(AUTOVJ_ENUMS)) {
+      if (args[k] !== undefined && AUTOVJ_ENUMS[k].indexOf(args[k]) < 0) return k + ' must be one of: ' + AUTOVJ_ENUMS[k].join(', ') + '.';
+    }
+    for (const k of Object.keys(AUTOVJ_RANGES)) {
+      if (args[k] !== undefined && !finite(args[k])) return k + ' must be a number.';
+    }
+    return '';
+  }
   tool('sv_set_autovj', 'autovj', 'Turn Auto VJ on or off and choose how it walks existing scenes, modes, or palettes.', function (args, ctx) {
+    const bad = autovjError(args || {});
+    if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) {
       const next = Object.assign({ enabled: false, source: 'visualizers', unit: 'bars', interval: 8, order: 'sequential', bpmLock: 0 }, cfg.autovj);
       ['enabled', 'source', 'interval', 'unit', 'order', 'bpmLock', 'paletteSource', 'visualizerTargets'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
+      });
+      Object.keys(AUTOVJ_RANGES).forEach(function (k) {
+        const r = AUTOVJ_RANGES[k];
+        if (args && args[k] !== undefined) next[k] = Math.round(Math.max(r[0], Math.min(r[1], args[k])));
       });
       cfg.autovj = next;
       return { autovj: next };
@@ -782,12 +930,20 @@
       return { sceneId: found.scene.id };
     });
   });
-  tool('sv_rename_scene', 'sceneEdit', 'Rename a scene. Authoring.', function (args, ctx) {
-    if (!args || !args.name) return fail('name is required.');
+  /* Yeni ad `newName`; sahne `id` ya da şimdiki adıyla (`name`) bulunur.
+     Eskiden `name` hem arama hem yeni addı: yalnız id ile çalışıyordu.
+     Eski çağrı biçimi (id + name) aynen çalışır. */
+  tool('sv_rename_scene', 'sceneEdit', 'Rename a scene. Find it by id or by its current name, give the new name as newName. The old form id + name still works. Authoring.', function (args, ctx) {
+    if (!args) return fail('newName is required.');
+    const hasNew = args.newName != null && String(args.newName).trim() !== '';
+    if (!hasNew && !(args.id && args.name)) return fail('newName is required. Find the scene by id or by its current name.');
+    const next = String(hasNew ? args.newName : args.name).trim();
+    if (!next) return fail('newName is required.');
     return withConfig(ctx, function (cfg) {
-      const found = findScene(cfg, args);
+      const found = hasNew ? findScene(cfg, args) : findScene(cfg, { id: args.id });
+      if (found.error) return fail(found.error);
       if (!found.scene) return fail('Scene not found.');
-      found.scene.name = String(args.name);
+      found.scene.name = next;
       return { sceneId: found.scene.id, name: found.scene.name };
     });
   });
@@ -810,8 +966,14 @@
       if (args && args.settings) raw.settings = args.settings;
       if (args && args.transform) raw.transform = args.transform;
       const kind = raw.kind == null ? 'visualizer' : raw.kind;
-      const wrong = badLayer(kind, raw.type) || badBlend(raw.blend);
+      const wrong = badLayer(kind, raw.type) || badBlend(raw.blend) || layerFieldError(raw);
       if (wrong) return fail(wrong);
+      if (raw.transform !== undefined) {
+        const t = cleanTransform(raw.transform);
+        if (t.error) return fail(t.error);
+        raw.transform = t.value;
+      }
+      if (raw.opacity !== undefined) raw.opacity = Math.max(0, Math.min(1, raw.opacity));
       const layer = normalizeLayer(layerStart(raw));
       list.push(layer);
       return { layer: publicLayer(layer, list.length - 1), visual: visualState(cfg, ctx) };
@@ -823,6 +985,14 @@
       if (!found) return fail('Layer not found.');
       const patch = Object.assign({}, (args && args.patch) || {});
       if (patch.postfx) return fail('Layer effects are changed with the effect tools, not sv_update_layer.');
+      const fieldBad = layerFieldError(patch);
+      if (fieldBad) return fail(fieldBad);
+      let transform = null;
+      if (patch.transform !== undefined) {
+        const t = cleanTransform(patch.transform);
+        if (t.error) return fail(t.error);
+        transform = t.value;
+      }
       if (patch.kind !== undefined || patch.type !== undefined || patch.blend !== undefined) {
         const kind = patch.kind !== undefined ? patch.kind : found.layer.kind;
         const typeChanges = patch.type !== undefined || patch.kind !== undefined;
@@ -833,7 +1003,8 @@
       ['name', 'kind', 'type', 'enabled', 'opacity', 'blend', 'solo', 'muted', 'locked', 'group', 'presetId'].forEach(function (k) {
         if (patch[k] !== undefined) found.layer[k] = patch[k];
       });
-      if (patch.transform) found.layer.transform = mergeObj(found.layer.transform, patch.transform);
+      if (patch.opacity !== undefined) found.layer.opacity = Math.max(0, Math.min(1, patch.opacity));
+      if (transform) found.layer.transform = mergeObj(found.layer.transform, transform);
       if (patch.settings) found.layer.settings = mergeObj(found.layer.settings, patch.settings);
       if (patch.audio) found.layer.audio = mergeObj(found.layer.audio, patch.audio);
       if (patch.mask) found.layer.mask = mergeObj(found.layer.mask, patch.mask);
@@ -848,11 +1019,13 @@
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
-      const t = Object.assign({ scale: 1, rotate: 0, x: 0, y: 0, flipX: false, flipY: false }, found.layer.transform);
+      const given = {};
       ['x', 'y', 'scale', 'rotate', 'flipX', 'flipY'].forEach(function (k) {
-        if (args && args[k] !== undefined) t[k] = args[k];
+        if (args && args[k] !== undefined) given[k] = args[k];
       });
-      found.layer.transform = t;
+      const clean = cleanTransform(given);
+      if (clean.error) return fail(clean.error);
+      found.layer.transform = Object.assign({ scale: 1, rotate: 0, x: 0, y: 0, flipX: false, flipY: false }, found.layer.transform, clean.value);
       return { layer: publicLayer(found.layer, found.index), visual: visualState(cfg, ctx) };
     });
   });
@@ -893,16 +1066,24 @@
     });
   });
   tool('sv_set_text', 'sceneEdit', 'Edit the text overlay, including a lyrics or now-playing source. Authoring.', function (args, ctx) {
-    return withConfig(ctx, function (cfg) { cfg.text = mergeObj(cfg.text || {}, (args && args.patch) || {}); return { text: summarize(cfg.text) }; });
+    const bad = sectionPatchError('text', (args && args.patch) || {});
+    if (bad) return fail(bad);
+    return withConfig(ctx, function (cfg) { cfg.text = mergeObj(cfg.text || {}, args.patch); return { text: summarize(cfg.text) }; });
   });
   tool('sv_set_logo', 'sceneEdit', 'Edit logo settings. Authoring.', function (args, ctx) {
-    return withConfig(ctx, function (cfg) { cfg.logo = mergeObj(cfg.logo || {}, (args && args.patch) || {}); return { logo: summarize(cfg.logo) }; });
+    const bad = sectionPatchError('logo', (args && args.patch) || {});
+    if (bad) return fail(bad);
+    return withConfig(ctx, function (cfg) { cfg.logo = mergeObj(cfg.logo || {}, args.patch); return { logo: summarize(cfg.logo) }; });
   });
   tool('sv_set_media', 'sceneEdit', 'Edit media-layer settings. Authoring.', function (args, ctx) {
-    return withConfig(ctx, function (cfg) { cfg.media = mergeObj(cfg.media || {}, (args && args.patch) || {}); return { media: summarize(cfg.media) }; });
+    const bad = sectionPatchError('media', (args && args.patch) || {});
+    if (bad) return fail(bad);
+    return withConfig(ctx, function (cfg) { cfg.media = mergeObj(cfg.media || {}, args.patch); return { media: summarize(cfg.media) }; });
   });
   tool('sv_set_geometry', 'sceneEdit', 'Edit geometry settings. Authoring.', function (args, ctx) {
-    return withConfig(ctx, function (cfg) { cfg.geometry = mergeObj(cfg.geometry || {}, (args && args.patch) || {}); return { geometry: summarize(cfg.geometry) }; });
+    const bad = sectionPatchError('geometry', (args && args.patch) || {});
+    if (bad) return fail(bad);
+    return withConfig(ctx, function (cfg) { cfg.geometry = mergeObj(cfg.geometry || {}, args.patch); return { geometry: summarize(cfg.geometry) }; });
   });
 
   tool('sv_set_effect_enabled', 'effectApply', 'Enable or disable an effect already on the global chain.', function (args, ctx) {
@@ -957,8 +1138,15 @@
       return { index: index, value: macros[index].value };
     });
   });
+  /* Bilinmeyen efekt eskiden `knownType:false` ile yine ekleniyordu;
+     zincirde hiçbir şey yapmayan bir halka kalıyordu. EFFECT_TYPES
+     motorun listesiyle aynı (mcp-coverage testi). */
+  function badEffect(type) {
+    return EFFECT_TYPES.indexOf(type) < 0 ? 'Unknown effect type "' + type + '". Known types: ' + EFFECT_TYPES.join(', ') + '.' : '';
+  }
   tool('sv_add_effect', 'effectEdit', 'Add an effect to the global chain. Authoring.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
+    if (badEffect(args.type)) return fail(badEffect(args.type));
     return withConfig(ctx, function (cfg) {
       if (!Array.isArray(cfg.postfx)) cfg.postfx = [];
       const fx = normalizeFx({ type: args.type, params: args.params, enabled: args.enabled });
@@ -976,6 +1164,7 @@
   });
   tool('sv_add_layer_effect', 'effectEdit', 'Add an effect onto a specific layer. Authoring. Read state afterwards to continue.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
+    if (badEffect(args.type)) return fail(badEffect(args.type));
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
@@ -995,9 +1184,36 @@
       return { removed: found.fx.id || found.index, visual: visualState(cfg, ctx) };
     });
   });
+  function modulationApi() {
+    if (typeof window !== 'undefined' && window.SVModulation && window.SVModulation.catalog) return window.SVModulation;
+    try { return require('./modulation.js'); } catch (e) { return null; }
+  }
+  /* Rota, panelin seçtirebileceği şeyle sınırlı: kaynak modülasyon
+     kataloğunda, hedef var olan SAYISAL bir ayar. Eskiden `source:"zzz"`
+     ve `target:"__proto__.x"` kabul ediliyor, hiçbir şey sürmeyen ölü bir
+     rota kalıyordu. */
+  function routeError(cfg, route) {
+    const M = modulationApi();
+    const target = String(route.target);
+    if (target.split('.').some(function (k) { return !k || unsafeKey(k); })) return 'target is not a valid config path.';
+    if (!M) return '';
+    const sources = M.catalog(cfg).map(function (c) { return c.id; });
+    if (sources.indexOf(route.source) < 0) return 'Unknown modulation source "' + route.source + '". Known sources: ' + sources.join(', ') + '.';
+    const routed = M.routedPath ? M.routedPath(cfg, target) : target;
+    const now = M.getIn(cfg, routed);
+    if (typeof now !== 'number' || !isFinite(now)) return 'target must be an existing numeric setting (e.g. visualizer.sensitivity, layers.0.opacity); "' + target + '" is ' + (now === undefined ? 'missing' : typeof now) + '.';
+    if (route.mode !== undefined && ['set', 'add', 'mul'].indexOf(route.mode) < 0) return 'mode must be set, add, or mul.';
+    if (route.curve !== undefined && M.CURVE_IDS && M.CURVE_IDS.indexOf(route.curve) < 0) return 'curve must be one of: ' + M.CURVE_IDS.join(', ') + '.';
+    for (const k of ['min', 'max', 'amount', 'smooth', 'steps']) {
+      if (route[k] !== undefined && !finite(route[k])) return k + ' must be a number.';
+    }
+    return '';
+  }
   tool('sv_add_modulation_route', 'effectEdit', 'Add a modulation route. Authoring.', function (args, ctx) {
     const route = (args && args.route) || args;
     if (!route || !route.source || !route.target) return fail('source and target are required.');
+    const bad = routeError(configOf(ctx), route);
+    if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) {
       if (!cfg.modulation) cfg.modulation = { enabled: true, routes: [] };
       if (!Array.isArray(cfg.modulation.routes)) cfg.modulation.routes = [];
@@ -1045,9 +1261,11 @@
         return name && String(p.name || '').toLowerCase() === name;
       });
       if (!pal || !Array.isArray(pal.colors)) return fail('Color preset not found.');
+      const colors = paletteColors(pal.colors);
+      if (colors.error) return fail('This color preset is damaged: ' + colors.error);
       cfg.background = cfg.background || {};
-      cfg.background.gradient = Object.assign({}, cfg.background.gradient, { colors: pal.colors.slice() });
-      return { name: pal.name, colors: pal.colors.slice() };
+      cfg.background.gradient = Object.assign({}, cfg.background.gradient, { colors: colors.value });
+      return { name: pal.name, colors: colors.value.slice() };
     });
   });
   tool('sv_set_milkdrop_cycle', 'presetApply', 'Change how the existing MilkDrop library advances. Does not write preset source.', function (args, ctx) {
@@ -1060,6 +1278,8 @@
       return { presetId: next.presetId || '', autoNext: next.autoNext, autoOrder: next.autoOrder };
     });
   });
+  const PRESET_KINDS = ['visualizer', 'background', 'milkdrop'];
+  const ENGINE_ALIASES = { shader: 'shader', glsl: 'shader', shadertoy: 'shader', isf: 'shader', frag: 'shader', fragment: 'shader', variation: 'variation' };
   tool('sv_save_preset', 'presetEdit', 'Write a preset file in the app preset store. Authoring.', function (args, ctx) {
     if (!ctx.presets || !ctx.presets.save) return fail('Preset store is not available.');
     const src = args || {};
@@ -1068,15 +1288,38 @@
        göstermiyordu. Açık tür her zaman kazanır. */
     let kind = src.kind;
     let engine = src.engine;
+    const shaderText = typeof src.shader === 'string' ? src.shader.trim() : '';
     if (!kind) {
-      const shader = typeof src.shader === 'string' ? src.shader.trim() : '';
-      if (shader) {
+      if (shaderText) {
         kind = 'visualizer';
         if (!engine) engine = 'shader';
       } else kind = 'milkdrop';
     }
+    /* Studio yalnız 'shader' ve 'variation' tanıyor. `engine:"glsl"` eskiden
+       olduğu gibi kaydediliyor; Studio onu ne derliyor ne de varyasyon
+       sayıyordu, öbür listeler hiç göstermiyordu. Yaygın adlar 'shader'a
+       çevrilir, bilinmeyen reddedilir. */
+    if (PRESET_KINDS.indexOf(kind) < 0) return fail('kind must be one of: ' + PRESET_KINDS.join(', ') + '.');
+    if (kind === 'milkdrop') {
+      if (engine != null && engine !== 'milkdrop') return fail('A milkdrop preset has engine "milkdrop".');
+      engine = 'milkdrop';
+    } else {
+      const e = engine == null ? (shaderText ? 'shader' : '') : String(engine).toLowerCase();
+      engine = ENGINE_ALIASES[e] || '';
+      if (!engine) return fail('engine must be "shader" (GLSL code in shader) or "variation" (base + overrides).');
+      if (engine === 'shader' && !shaderText) return fail('A shader preset needs GLSL code in shader.');
+      if (engine === 'variation' && !src.base) return fail('A variation preset needs base (a mode id).');
+    }
+    /* Dosya adı kimlikten yalnız harf, rakam, _ ve - ile çıkıyor;
+       `../../evil` dosyada `evil` olurken içerideki kimlik `../../evil`
+       kalıyordu ve ikisi uyuşmuyordu. Kimlik baştan aynı biçime getirilir. */
+    let id = src.id;
+    if (id != null && id !== '') {
+      id = String(id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+      if (!id) return fail('id must contain letters, digits, _ or -.');
+    }
     const preset = {
-      id: src.id,
+      id: id || undefined,
       name: src.name || 'MCP preset',
       kind: kind,
       engine: engine,
@@ -1097,7 +1340,9 @@
   tool('sv_delete_preset', 'presetEdit', 'Delete a preset file. Authoring.', function (args, ctx) {
     if (!args || !args.id) return fail('id is required.');
     if (!ctx.presets || !ctx.presets.remove) return fail('Preset store is not available.');
-    ctx.presets.remove(args.id);
+    if (ctx.presets.get && !ctx.presets.get(args.id)) return fail('Preset not found: ' + args.id);
+    const r = ctx.presets.remove(args.id);
+    if (r && r.ok === false) return fail('Could not delete the preset: ' + (r.error || 'unknown error'));
     return { ok: true, deleted: args.id };
   });
   tool('sv_set_milkdrop_source', 'presetEdit', 'Write MilkDrop source into the live config. Authoring. Loading an existing id is sv_load_preset.', function (args, ctx) {
@@ -1114,9 +1359,10 @@
   tool('sv_create_color_preset', 'presetEdit', 'Save a user color preset. Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const colors = (args && args.colors) || (cfg.background && cfg.background.gradient && cfg.background.gradient.colors);
-      if (!Array.isArray(colors) || colors.length < 2) return fail('colors are required.');
+      const clean = paletteColors(colors);
+      if (clean.error) return fail(clean.error);
       if (!Array.isArray(cfg.userPresets)) cfg.userPresets = [];
-      const preset = { id: uid('up_'), name: (args && args.name) || ('Palette ' + (cfg.userPresets.length + 1)), colors: colors.slice() };
+      const preset = { id: uid('up_'), name: (args && args.name) ? String(args.name) : ('Palette ' + (cfg.userPresets.length + 1)), colors: clean.value };
       cfg.userPresets.push(preset);
       return { preset: preset };
     });
@@ -1200,7 +1446,7 @@
   });
   tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
-    const outBad = badOutPath(args && args.outputPath, ['mp4']);
+    const outBad = outPathError(ctx, args && args.outputPath, ['mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
   });
@@ -1209,10 +1455,10 @@
     return Promise.resolve(ctx.cancelExport()).then(function (r) { return { ok: true, result: r == null ? true : r }; });
   });
   tool('sv_export_json', 'export', 'Write scenes or full config JSON to an explicit path. No save dialog.', function (args, ctx) {
-    const jsonBad = badOutPath(args && args.path, ['json']);
+    const jsonBad = outPathError(ctx, args && args.path, ['json'], args && args.overwrite);
     if (jsonBad) return fail(jsonBad);
     if (!ctx.writeText) return fail('File export is not available in this process.');
-    const cfg = configOf(ctx);
+    const cfg = redactSecrets(clone(configOf(ctx)) || {});
     const body = args.what === 'scenes' ? { type: 'sv-scenes', version: 1, scenes: cfg.scenes || [] } : cfg;
     return Promise.resolve(ctx.writeText(args.path, JSON.stringify(body, null, 2))).then(function () {
       return { ok: true, path: args.path, what: args.what || 'config' };
@@ -1220,7 +1466,7 @@
   });
   tool('sv_save_snapshot', 'export', 'Capture the live canvas to a file. Reading a preview without saving is sv_get_preview.', function (args, ctx) {
     /* Görüntü JPEG olarak geliyor; başka uzantı yanlış dosya üretirdi. */
-    const shotBad = badOutPath(args && args.path, ['jpg', 'jpeg']);
+    const shotBad = outPathError(ctx, args && args.path, ['jpg', 'jpeg'], args && args.overwrite);
     if (shotBad) return fail(shotBad);
     if (!ctx.capturePreview || !ctx.writeBinary) return fail('Snapshot capture is not available in this process.');
     return Promise.resolve(ctx.capturePreview()).then(function (img) {
@@ -1262,6 +1508,13 @@
   });
   tool('sv_patch_config', 'routed', 'Set any other config path. Permission follows the path. Cannot change mcp permissions.', function (args, ctx) {
     if (!args || !args.path) return fail('path is required.');
+    /* Bilinmeyen üst anahtar (ör. `MCP.mode`) eskiden yeni bir anahtar
+       olarak ayar dosyasına yazılıyordu. Bilinen ya da ayarda zaten
+       bulunan anahtarlar yazılabilir. */
+    const top = String(args.path).split('.')[0];
+    if (!Object.prototype.hasOwnProperty.call(PATH_GROUPS, top) && !Object.prototype.hasOwnProperty.call(configOf(ctx), top)) {
+      return fail('Unknown config key "' + top + '". Read sv_get_config for the keys that exist.');
+    }
     const group = groupForPath(args.path);
     if (group === 'mcp') return fail(text('mcp.err.mcp', localeOf(ctx)));
     const mcp = normalizeMcp(configOf(ctx).mcp);

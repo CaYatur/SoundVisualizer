@@ -55,6 +55,7 @@ function create(deps) {
       stopClips: deps.stopClips,
       startExport: deps.startExport,
       cancelExport: deps.cancelExport,
+      outPathGuard: deps.outPathGuard,
       writeText: deps.writeText,
       writeBinary: deps.writeBinary,
       capturePreview: deps.capturePreview,
@@ -162,12 +163,12 @@ function create(deps) {
           return;
         }
         const body = JSON.stringify(out);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
         res.end(body);
       }).catch(function (e) {
         try { if (deps.syncPresets) deps.syncPresets(); } catch (err) { /* klasör okunamadı */ }
         const body = JSON.stringify({ jsonrpc: '2.0', id: msg && msg.id, error: { code: -32603, message: String((e && e.message) || e) } });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(body);
       });
     });
@@ -240,4 +241,26 @@ function create(deps) {
   return { start: start, stop: stop, sync: sync, status: status };
 }
 
-module.exports = { BIND_HOST: BIND_HOST, DEFAULT_PORT: DEFAULT_PORT, assertLoopback: assertLoopback, create: create };
+/* Dosya yazan MCP araçlarının hedefi (dışa aktarma, kare, video).
+   Uygulamanın kendi klasörlerine (ayarlar, kurulum) yazılmaz; var olan bir
+   dosyanın üstüne ancak açıkça `overwrite:true` ile yazılır. Eskiden
+   herhangi bir mutlak .json yolunun üstüne yazılabiliyordu, settings.json
+   dahil. Boş dönüş = yazılabilir. */
+function outPathGuard(file, overwrite, protectedDirs, platform) {
+  const win = (platform || process.platform) === 'win32';
+  const P = win ? path.win32 : path.posix;
+  const norm = function (p) { const r = P.resolve(String(p)); return win ? r.toLowerCase() : r; };
+  const target = norm(file);
+  for (const dir of protectedDirs || []) {
+    if (!dir) continue;
+    const d = norm(dir);
+    if (target === d || target.indexOf(d.endsWith(P.sep) ? d : d + P.sep) === 0) return "path is inside the app's own folder. Choose another folder.";
+  }
+  let st = null;
+  try { st = fs.statSync(file); } catch (e) { st = null; }
+  if (st && st.isDirectory()) return 'path is a folder.';
+  if (st && !overwrite) return 'File already exists. Pass overwrite:true to replace it.';
+  return '';
+}
+
+module.exports = { BIND_HOST: BIND_HOST, DEFAULT_PORT: DEFAULT_PORT, assertLoopback: assertLoopback, create: create, outPathGuard: outPathGuard };

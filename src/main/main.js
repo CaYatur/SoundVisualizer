@@ -1871,12 +1871,21 @@ function createFloatingWindow() {
   return win;
 }
 
+/* `close()` eşzamansız: pencere hemen ardından hâlâ açık görünüyordu ve
+   MCP `open:false` isteğine `open:true` dönüyordu. Kapanış olayı (ya da
+   en çok 3 sn) beklenir. */
 function closeFloatingWindow() {
-  if (floatingIsOpen()) floatingWin.close();
+  if (!floatingIsOpen()) return Promise.resolve();
+  const win = floatingWin;
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, 3000);
+    win.once('closed', () => { clearTimeout(timer); resolve(); });
+    win.close();
+  });
 }
 
-ipcMain.handle('floating:toggle', () => {
-  if (floatingIsOpen()) { closeFloatingWindow(); return { open: false }; }
+ipcMain.handle('floating:toggle', async () => {
+  if (floatingIsOpen()) { await closeFloatingWindow(); return { open: floatingIsOpen() }; }
   createFloatingWindow();
   return { open: true };
 });
@@ -2136,24 +2145,25 @@ function ensureMcp() {
     },
     openOutput: (ids) => openVisualizer(ids),
     closeOutput: (id) => closeVisualizer(id),
-    setFloatingOpen: (open) => {
+    setFloatingOpen: async (open) => {
       if (open) {
         createFloatingWindow();
         return { open: floatingIsOpen() };
       }
-      closeFloatingWindow();
+      await closeFloatingWindow();
       return { open: floatingIsOpen() };
     },
     stopClips: () => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.stopAll) return { ok:false, error:"Clip deck is not loaded." }; C.stopAll(); return { ok:true }; })()'),
     startExport: (opts) => startExportJob(opts),
     cancelExport: () => { if (exportState) exportState.cancel = true; return true; },
+    outPathGuard: (file, overwrite) => mcpServer.outPathGuard(file, overwrite, [app.getPath('userData'), path.dirname(process.execPath), app.getAppPath()]),
     writeText: (file, text) => { fs.writeFileSync(file, text, 'utf8'); return true; },
     writeBinary: (file, buf) => { fs.writeFileSync(file, buf); return true; },
     capturePreview: () => mcpCapturePreview(),
     recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; await R.start(window.SVPanel.cfg()); return { ok:true }; })()'),
     recordStop: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"Recorder is not loaded." }; await R.stop(); return { ok:true }; })()'),
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
-    launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return { ok:true }; })()'),
+    launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; const hit = C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return hit === false ? { ok:false, error:"No clip in that slot. Read sv_get_clipdeck for the filled slots." } : { ok:true }; })()'),
     locale: () => appLocale(),
     /* Panelin önizleme motorundaki canlı analiz (Ses › Ses Çözümlemesi). */
     analysis: () => mcpAdminCall('(() => { const P = window.SVPreview; const eng = P && P.isLive && P.isLive() && P.audioEngine ? P.audioEngine() : null; const a = eng && eng.analysis; if (!a || a.silent) return null; const pick = (o) => o ? JSON.parse(JSON.stringify(o)) : null; return { key: pick(a.key), chord: pick(a.chord), pitch: pick(a.pitch), loudness: a.loudness, peak: a.peak, dynamics: a.dynamics, crest: a.crest, centroid: a.centroid, spread: a.spread, flatness: a.flatness, rolloff: a.rolloff, flux: a.flux, harmonic: a.harmonic, percussive: a.percussive, width: a.width, correlation: a.correlation, bands: pick(a.bands), hits: pick(a.hits), chroma: Array.from(a.chromaSmooth || []), humDetected: !!a.humDetected }; })()'),
