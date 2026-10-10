@@ -7200,11 +7200,27 @@ async function runShots() {
   /* Kart şablonları parça bilgisini ve kapağı "Çalan Parça" katmanından
      çiziyor; katman sistemden okuyor ve üretim sırasında çalan parça yok.
      Görüntü için katmanlar elle yazılan parçaya ve kapağa çevrilir. */
+  /* Çalan Parça katmanı ve kartlar: elle yazılan kaynak ve üretilmiş bir
+     kapak. Sistem kaynağı KULLANILMAZ — o an bilgisayarda ne çalıyorsa (kullanıcının kendi
+     müziği) README'ye girerdi. */
+  const SHOT_COVER = 'data:image/svg+xml;base64,' + Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d95"/>' +
+    '<stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
+    '<rect width="512" height="512" fill="url(#g)"/>' +
+    '<circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="10"/>' +
+    '<circle cx="256" cy="256" r="96" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="6"/>' +
+    '<circle cx="256" cy="256" r="18" fill="#fff"/></svg>'
+  ).toString('base64');
+  const NP_TRACK = { title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA', album: '', artwork: SHOT_COVER };
+  /* Cover Ring kapağı logo katmanından alıyor: genel `nowplaying.manual`
+     kapağı da yazılır, logo katmanı onu parça resmi olarak gösterir. */
   const NP_POST = '(cfg.layers||[]).forEach(function(l){' +
     'if(l&&l.kind==="nowplaying"&&l.settings&&l.settings.nowplaying){' +
     'l.settings.nowplaying.source="manual";' +
-    'l.settings.nowplaying.manual=' + JSON.stringify({ title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA', album: '', artwork: SHOT_LOGO }) + ';' +
-    '}});';
+    'l.settings.nowplaying.manual=' + JSON.stringify(NP_TRACK) + ';' +
+    '}});' +
+    'cfg.nowplaying=Object.assign({},cfg.nowplaying,{enabled:true,manual:' + JSON.stringify(NP_TRACK) + '});';
   const postFor = (over) => (over === NOW_PLAYING ? NP_POST : '');
 
   const SCENES = [
@@ -7227,11 +7243,13 @@ async function runShots() {
     ['mus-galaxy', 'scene-galaxy.png', 2600],
     ['scr-plasma', 'scene-plasma.png', 2200],
     ['evt-gala', 'scene-gala.png', 2200],
-    // Müzik videosu düzeni: sınırlı bar, logo yanda, altında parça bilgisi
+    // Müzik videosu kartları: kapak ve parça bilgisi tek katmanda, barlar aynı kenar boşluğunda
     ['bc-label', 'scene-broadcast-label.png', 2600, NOW_PLAYING],
     ['bc-line', 'scene-broadcast-line.png', 2600, NOW_PLAYING],
     ['bc-minimal', 'scene-broadcast-minimal.png', 2600, NOW_PLAYING],
     ['bc-amber', 'scene-broadcast-amber.png', 2600, NOW_PLAYING],
+    ['bc-ring', 'scene-broadcast-ring.png', 2600, NOW_PLAYING],
+    ['bc-stage', 'scene-broadcast-stage.png', 2600, NOW_PLAYING],
   ];
 
   /* Özenle üretilmiş iki görüntü (73a7d43): README'nin MilkDrop görselleri
@@ -7264,18 +7282,6 @@ async function runShots() {
     await save(vw, 'scene-text.png');
   }
 
-  /* Çalan Parça katmanı: elle yazılan kaynak ve üretilmiş bir kapak. Sistem
-     kaynağı KULLANILMAZ — o an bilgisayarda ne çalıyorsa (kullanıcının kendi
-     müziği) README'ye girerdi. */
-  const SHOT_COVER = 'data:image/svg+xml;base64,' + Buffer.from(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">' +
-    '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff2d95"/>' +
-    '<stop offset="0.55" stop-color="#7c3aed"/><stop offset="1" stop-color="#0ea5e9"/></linearGradient></defs>' +
-    '<rect width="512" height="512" fill="url(#g)"/>' +
-    '<circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-opacity="0.85" stroke-width="10"/>' +
-    '<circle cx="256" cy="256" r="96" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="6"/>' +
-    '<circle cx="256" cy="256" r="18" fill="#fff"/></svg>'
-  ).toString('base64');
   if (want('scene-nowplaying.png')) {
     const np = {
       source: 'manual', style: 'modern', coverOverlay: true, coverSource: 'manual', coverSide: 'left',
