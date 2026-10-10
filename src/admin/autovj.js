@@ -156,11 +156,9 @@
       cfg.visualizer.color = colors[0];
       if (colors.length > 1) cfg.visualizer.color2 = colors[colors.length - 1];
       // Yığında ilk görselleştirici katmanına da (kopyası genel rengi eziyordu)
+      // Kilitli katmanın kendi rengi korunur (setEffective kilide bakar)
       const L = window.SVLayers;
-      const at = L && L.stackOn && L.firstLayerIndex && L.stackOn(cfg) ? L.firstLayerIndex(cfg, 'visualizer') : -1;
-      const locked = at >= 0 && cfg.layers[at] && cfg.layers[at].locked;
-      // Kilitli katmanın kendi rengi korunur
-      if (L && L.setEffective && !locked) {
+      if (L && L.setEffective) {
         L.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
         L.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
       }
@@ -246,6 +244,11 @@
     }
     if (lastFailure) {
       parts.push(T('Son deneme başarısız') + ': ' + T(KIND_LABELS[lastFailure.kind] || lastFailure.kind));
+      // Neden kilitse söylenir: kilitli katmana Otomatik VJ bilerek dokunmuyor
+      const full = P().cfg();
+      if (lastFailure.kind === 'visualizers' && (full.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) {
+        parts.push(T('görselleştirici katmanları kilitli'));
+      }
     }
 
     // Sıradaki değişime kalan

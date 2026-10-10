@@ -239,7 +239,10 @@
         if (!ok) svToast(tr('Seçilen dosya açılabilen bir resim değil.'), 'err');
         resolve(ok);
       };
-      if (typeof dataUrl !== 'string' || !/^data:image\//.test(dataUrl)) { done(false); return; }
+      /* Önek denetlenmez: işletim sistemi uzantıyı tanımayınca (bazı
+         Linux kurulumlarında .webp/.bmp) gerçek resim de
+         data:application/octet-stream olarak geliyor; tarayıcı yine çözer. */
+      if (typeof dataUrl !== 'string' || !/^data:/.test(dataUrl)) { done(false); return; }
       const im = new Image();
       im.onload = () => done(true);
       im.onerror = () => done(false);

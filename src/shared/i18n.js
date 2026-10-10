@@ -2817,6 +2817,7 @@
     'İçe aktarıldı.': 'Imported.',
     'Seçilen dosya açılabilen bir resim değil.': 'The selected file is not an image that can be opened.',
     'Üstteki katman kilitli': 'The layer above is locked',
+    'görselleştirici katmanları kilitli': 'visualizer layers are locked',
     'Alttaki katman kilitli': 'The layer below is locked',
     'Bu katmanın Studio preseti silinmiş; katman boş çiziliyor. Listeden başka bir preset seçin.': "This layer's Studio preset was deleted, so the layer draws nothing. Pick another preset from the list.",
     'WebGL2 kullanılamıyor.': 'WebGL2 unavailable.',

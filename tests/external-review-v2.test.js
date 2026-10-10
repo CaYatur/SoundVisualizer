@@ -67,6 +67,42 @@ function loadEnglish() {
   return win.SVI18n;
 }
 
+/* Tür denetimi uygulamanın kendi yazdığını reddetmemeli: varsayılanlar,
+   72 hazır şablon ve gerçekçi bir ayar dosyası tarandı. Aynı yolda iki tür
+   yalnız "null ile değer" olarak görüldü (display.id, layerStack.enabled,
+   mapping.outputs.*); hepsi yazılabilir. */
+test('tür denetimi uygulamanın ürettiği değer çiftlerini kabul eder', async () => {
+  const kind = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v);
+  const seen = {};
+  const walk = (o, p, depth) => {
+    if (depth > 6) return;
+    const k = kind(o);
+    (seen[p] = seen[p] || new Set()).add(k);
+    if (k === 'object') for (const key of Object.keys(o)) walk(o[key], p ? p + '.' + key : key, depth + 1);
+  };
+  const env = { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone };
+  walk(SV.defaultConfig(), '', 0);
+  for (const t of T.TEMPLATES) walk(T.apply(SV.defaultConfig(), t, env), '', 0);
+  const multi = Object.keys(seen).filter((p) => p && seen[p].size > 1);
+  for (const p of multi) {
+    const kinds = Array.from(seen[p]);
+    assert.ok(kinds.length === 2 && kinds.indexOf('null') >= 0, p + ': ' + kinds.join('/'));
+  }
+  // Her iki yönde yazılabilir
+  const c = ctx();
+  c.cfg.display = Object.assign({}, c.cfg.display, { id: 5 });
+  assert.strictEqual((await call('sv_patch_config', { path: 'display.id', value: null }, c)).ok, true);
+  assert.strictEqual((await call('sv_patch_config', { path: 'display.id', value: 7 }, c)).ok, true);
+  c.cfg.layerStack = { enabled: true };
+  assert.strictEqual((await call('sv_patch_config', { path: 'layerStack.enabled', value: null }, c)).ok, true);
+  c.cfg.mapping = { enabled: false, outputs: { default: { enabled: true } } };
+  assert.strictEqual((await call('sv_patch_config', { path: 'mapping.outputs.default', value: null }, c)).ok, true);
+  // Liste ve nesne null yapılamaz
+  c.cfg.layers = [];
+  assert.strictEqual((await call('sv_patch_config', { path: 'layers', value: null }, c)).ok, false);
+  assert.strictEqual((await call('sv_patch_config', { path: 'visualizer', value: null }, c)).ok, false);
+});
+
 /* Y1: üst anahtar yanlış türde yazılabiliyordu: "layers":"x" katmanları
    metne çevirip ayar dosyasına kaydediyordu. */
 test('sv_patch_config değerin türünü var olan değerle karşılaştırır', async () => {
@@ -136,10 +172,24 @@ test('Otomatik VJ kilitli katmanın türüne ve rengine dokunmaz', () => {
   assert.deepStrictEqual(A.visualizerLayers(layers).map((l) => l.type), ['wave']);
   const P = read('src/admin/autovj.js');
   const pal = fnBody(P, 'function applyPalette(cfg, item)');
-  assert.match(pal, /const locked = at >= 0 && cfg\.layers\[at\] && cfg\.layers\[at\]\.locked;/);
-  assert.match(pal, /if \(L && L\.setEffective && !locked\)/);
+  assert.match(pal, /L\.setEffective\(cfg, 'visualizer\.color', cfg\.visualizer\.color\);/);
+  // Gözetimsiz otomasyonun ortak yolu (Otomatik VJ paleti, dinamik tema) kilitli katmana yazmaz
+  const L = require('../src/visualizer/layers.js');
+  const cfg = SV.defaultConfig();
+  L.setStackEnabled(cfg, true);
+  const i = L.firstLayerIndex(cfg, 'visualizer');
+  assert.ok(i >= 0);
+  const was = cfg.layers[i].settings.visualizer.color;
+  cfg.layers[i].locked = true;
+  assert.strictEqual(L.setEffective(cfg, 'visualizer.color', '#123456'), false);
+  assert.strictEqual(cfg.layers[i].settings.visualizer.color, was, 'kilitli katmanın rengi aynı');
+  cfg.layers[i].locked = false;
+  assert.strictEqual(L.setEffective(cfg, 'visualizer.color', '#123456'), true);
+  assert.strictEqual(cfg.layers[i].settings.visualizer.color, '#123456');
   const vis = fnBody(P, 'function applyVisualizer(cfg, items, targets)');
   assert.match(vis, /if \(isStack && \(cfg\.layers \|\| \[\]\)\.some\(\(l\) => l && l\.kind === 'visualizer' && l\.locked\)\) return false;/);
+  // Durum satırı nedeni söyler
+  assert.match(P, /parts\.push\(T\('görselleştirici katmanları kilitli'\)\);/);
 });
 
 /* Y3: renklendirmede yer tutucunun sıra numarası sayı kuralına takılıyor,
@@ -197,6 +247,8 @@ test('her resim seçici dosyayı tarayıcıya çözdürür', () => {
   const A = read('src/admin/admin.js');
   const fn = fnBody(A, 'function imageOk(dataUrl)');
   assert.match(fn, /im\.onerror = \(\) => done\(false\);/);
+  // Tür boş gelen gerçek resim (data:application/octet-stream) de çözülür; önek şartı yok
+  assert.ok(!/data:image/.test(fn), 'önek denetimi gerçek resmi reddederdi');
   assert.match(fn, /svToast\(tr\('Seçilen dosya açılabilen bir resim değil\.'\), 'err'\)/);
   assert.match(A, /confirm: svConfirm,\s*imageOk,/);
   let sites = 0;

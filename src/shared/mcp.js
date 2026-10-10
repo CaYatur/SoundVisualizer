@@ -340,6 +340,11 @@
     if (cur === undefined || cur === null) return '';
     const want = kindOf(cur);
     const got = kindOf(value);
+    /* Uygulamanın kendisi tek değerli alanları boşaltıyor (display.id,
+       layerStack.enabled null olabiliyor) ve ekran haritasını null'a
+       çekiyor. Liste ya da nesne null yapılamaz: katman listesini silmenin
+       başka bir yolu olurdu. */
+    if (got === 'null' && (want === 'number' || want === 'string' || want === 'boolean' || /^mapping\.outputs\./.test(String(path)))) return '';
     const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
     if (want !== got) return '"' + path + '" holds ' + an(want) + '; refusing to replace it with ' + an(got) + '.';
     if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
