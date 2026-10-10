@@ -109,7 +109,13 @@
     })));
     nodes.push(P().row('Port', el('input', {
       type: 'number', min: 1, max: 65535, value: o.port || 6742,
-      onchange: (e) => { o.port = Number(e.target.value) || 6742; P().push(true); window.api.openrgbSync().catch(() => {}); },
+      onchange: (e) => {
+        const port = P().portValue(e.target, o.port || 6742, 1);
+        if (port == null) return;
+        o.port = port;
+        P().push(true);
+        window.api.openrgbSync().catch(() => {});
+      },
     })));
 
     // --- Görünüm: cfg.lighting ile ORTAK ---

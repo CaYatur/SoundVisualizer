@@ -284,6 +284,10 @@ function outPathGuard(file, overwrite, protectedDirs, platform) {
   try { st = fs.statSync(file); } catch (e) { st = null; }
   if (st && st.isDirectory()) return 'path is a folder.';
   if (st && !overwrite) return 'File already exists. Pass overwrite:true to replace it.';
+  /* Sabit bağlantı (hardlink) gerçek yolla ayırt edilemiyor: settings.json'a
+     klasör dışından açılmış bir bağlantı üzerine yazmak ayarı ezerdi. Başka
+     adı da olan bir dosyanın üzerine yazılmaz. */
+  if (st && st.nlink > 1) return 'File has other hard links, so replacing it would change another file too. Choose a new file name.';
   return '';
 }
 

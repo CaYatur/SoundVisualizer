@@ -2163,7 +2163,7 @@ function ensureMcp() {
     writeText: (file, text) => { fs.writeFileSync(file, text, 'utf8'); return true; },
     writeBinary: (file, buf) => { fs.writeFileSync(file, buf); return true; },
     capturePreview: () => mcpCapturePreview(),
-    recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; await R.start(window.SVPanel.cfg()); return { ok:true }; })()'),
+    recordStart: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.start) return { ok:false, error:"Recorder is not loaded." }; const r = await R.start(window.SVPanel.cfg()); return r && r.ok === false ? r : { ok:true }; })()'),
     recordStop: () => mcpAdminCall('(async () => { const R = window.SVRecordPanel; if (!R || !R.stop) return { ok:false, error:"Recorder is not loaded." }; await R.stop(); return { ok:true }; })()'),
     timeline: (action, time) => mcpAdminCall('(() => { const T = window.SVTimelinePanel; const a = ' + JSON.stringify({ action: action, time: time }) + '; if (!T) return { ok:false, error:"Timeline is not loaded." }; if (a.action==="play" && T.play) T.play(); else if (a.action==="pause" && T.pause) T.pause(); else if (a.action==="stop" && T.stop) T.stop(); else if (a.action==="seek" && T.seek) T.seek(Number(a.time)||0); else return { ok:false, error:"Unknown transport action." }; const tr = T.transport ? T.transport() : null; return { ok:true, playing:!!(tr&&tr.playing), time: tr ? tr.time : null }; })()'),
     launchClip: (args) => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.launchSlot) return { ok:false, error:"Clip deck is not loaded." }; const hit = C.launchSlot(' + Number(args && args.row) + ',' + Number(args && args.col) + '); return hit === false ? { ok:false, error:"No clip in that slot. Read sv_get_clipdeck for the filled slots." } : { ok:true }; })()'),
@@ -2734,7 +2734,10 @@ ipcMain.handle('presets:import-milk', async () => {
       if (stat.size > 512 * 1024) { skipped++; continue; }
       total += stat.size;
       if (total > 24 * 1024 * 1024) { skipped++; continue; }
-      out.push({ name: path.basename(file, path.extname(file)), text: fs.readFileSync(file, 'utf-8') });
+      const text = fs.readFileSync(file, 'utf-8');
+      // Boş ya da preset olmayan dosya eklenmez (bkz. milkdrop-import looksLikePreset)
+      if (!mdImport.looksLikePreset(text)) { skipped++; continue; }
+      out.push({ name: path.basename(file, path.extname(file)), text });
     } catch { skipped++; }
   }
   return { ok: true, files: out, skipped: skipped + Math.max(0, r.filePaths.length - 600) };

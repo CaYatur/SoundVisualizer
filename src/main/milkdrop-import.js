@@ -46,6 +46,15 @@ const MAX_TOTAL_BYTES = 2 * 1024 * 1024 * 1024;
 const TEX_DIRS = ['textures', 'sprites'];
 
 const lower = (s) => String(s || '').toLowerCase();
+
+/* Preset metni mi: MilkDrop dosyası `ad=değer` satırlarından oluşur.
+   Eskiden 0 baytlık ya da içi rastgele metin olan `.milk` dosyaları da
+   preset olarak ekleniyor, listede boş bir görüntü veriyordu. Derlenip
+   derlenmediğine bakılmaz (onu motor söylüyor), yalnız yapıya: 10.350
+   dosyalık korpusta (iki paket ve üç .milk2) reddedilen yok, en az
+   44 satır var. */
+const KEY_LINE = /^[ \t]*[A-Za-z_][A-Za-z0-9_]*[ \t]*=/m;
+const looksLikePreset = (text) => typeof text === 'string' && KEY_LINE.test(text);
 const extOf = (n) => path.extname(String(n || '')).toLowerCase();
 const stem = (n) => path.basename(String(n || ''), path.extname(String(n || '')));
 
@@ -116,7 +125,7 @@ function emptyPlan(kind, source, label) {
     kind, source, label,
     presets: [], textures: [], loose: [],
     bytes: 0, looseBytes: 0, complete: true,
-    skipped: { milk2: 0, tooLarge: 0, encrypted: 0, unsupported: 0, textureTooLarge: 0 },
+    skipped: { milk2: 0, tooLarge: 0, encrypted: 0, unsupported: 0, textureTooLarge: 0, empty: 0, invalid: 0 },
   };
 }
 
@@ -126,6 +135,7 @@ function addEntry(plan, parts, size, ref) {
   if (c.type === 'milk2') { plan.skipped.milk2++; return; }
   if (c.type === 'preset') {
     if (size > PRESET_MAX_BYTES) { plan.skipped.tooLarge++; return; }
+    if (!(size > 0)) { plan.skipped.empty++; return; }
     plan.presets.push({ name: c.name, dirs: c.dirs, size, ref, tag: '' });
     plan.bytes += size;
   } else if (c.type === 'texture' || c.type === 'loose') {
@@ -291,6 +301,7 @@ async function runImport(plan, deps) {
       const it = plan.presets[i];
       let source;
       try { source = decodeText(readRef(it.ref, PRESET_MAX_BYTES)); } catch { result.failed++; continue; }
+      if (!looksLikePreset(source)) { result.skipped.invalid = (result.skipped.invalid || 0) + 1; continue; }
       /* İstenen dokular TEKRAR olan presetlerden de: kullanıcı dokuyu
          silmişse aynı paketi yeniden almak onu geri getirmeli. */
       for (const s of samplerNames(source)) wanted.add(s);
@@ -528,5 +539,5 @@ async function discover(env, opts) {
 module.exports = {
   PRESET_MAX_BYTES, TEXTURE_MAX_BYTES, MAX_FILES, MAX_TOTAL_BYTES,
   scanFolder, scanZip, rescan, runImport, summary, discover, findLibraries, countLibraries,
-  candidates, homeRoots, samplerNames, decodeText, assignTags,
+  candidates, homeRoots, samplerNames, decodeText, assignTags, looksLikePreset,
 };

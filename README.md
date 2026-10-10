@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2878%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2889%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -890,7 +890,9 @@ Every tool lists its parameters in `tools/list`, with types, ranges and allowed 
 panel cannot produce are refused or pulled into the panel's range: a layer position outside -1..1,
 a colour that is not `#rrggbb`, an unknown effect type, a modulation route to a setting that does
 not exist. `sv_patch_config` writes into a list only at an index that exists (`layers.0.opacity`)
-and does not create new top-level keys.
+and does not create new top-level keys. A value must keep the type of the one it replaces, and a
+write under `layers` passes the same checks as `sv_update_layer`. Arguments a tool does not know
+are listed back as `ignored` in its reply.
 
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
@@ -1616,7 +1618,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2878 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2889 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

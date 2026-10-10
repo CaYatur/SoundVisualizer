@@ -431,9 +431,23 @@
   // yerden veriliyor. Panel dosyaları admin.js'ten ÖNCE yüklenir ama API'yi
   // ancak çizim anında kullanır.
   // --------------------------------------------------------------------------
+  /* Port alanı: tam sayı ve aralıkta değilse eski değer kalır, bildirim
+     çıkar. Eskiden parseInt "1e3"ü 1, "70000"i 65535 yapıyor ya da boş
+     değeri sessizce varsayılana çeviriyordu. `input` geçersizde eski
+     değere döner. */
+  function portValue(input, current, min) {
+    const lo = min || 1;
+    const n = Number(String(input.value).trim());
+    if (String(input.value).trim() !== '' && Number.isInteger(n) && n >= lo && n <= 65535) return n;
+    svToast(tr('Port {lo}–65535 arasında bir tam sayı olmalı.').replace('{lo}', String(lo)), 'err');
+    input.value = String(current);
+    return null;
+  }
+
   window.SVPanel = {
     el,
     cfg: () => cfg,
+    portValue,
     push,
     rerender: () => render(),
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */

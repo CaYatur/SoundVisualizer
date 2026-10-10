@@ -336,16 +336,48 @@
     return Array.isArray(v) ? 'array' : typeof v;
   }
   function valueTypeError(cfg, path, value) {
-    const cur = getPath(cfg, path);
-    if (cur === undefined || cur === null) return '';
-    const want = kindOf(cur);
     const got = kindOf(value);
+    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
+    /* Yolun ara basamakları nesne olmalı. setPath null ya da eksik basamağı
+       nesneye çeviriyor: `display.id.a = 1` null alanı {a:1} yapıyor,
+       silinmiş `visualizer.sensitivity` altına yazmak sayıyı nesneye
+       çeviriyordu. Eksik basamak varsayılandan okunur; varsayılanda da
+       yoksa yeni daldır. Ekran haritası (mapping.outputs.<id>) null'dan
+       nesneye geçebilir. */
+    const keys = String(path).split('.');
+    const SVd = defaultsApi();
+    const defs = SVd && SVd.defaultConfig ? SVd.defaultConfig() : null;
+    for (let i = 1; i < keys.length; i++) {
+      const pre = keys.slice(0, i).join('.');
+      let v = getPath(cfg, pre);
+      if (v === undefined && defs) v = getPath(defs, pre);
+      if (v === undefined) break;
+      if (v === null && /^mapping\.outputs\.[^.]+$/.test(pre)) continue;
+      if (v === null || typeof v !== 'object') return '"' + pre + '" holds ' + (v === null ? 'null' : an(kindOf(v))) + ', not an object; it has no field "' + keys[i] + '".';
+    }
+    let cur = getPath(cfg, path);
+    /* Ayarda henüz olmayan alan varsayılandaki türe göre denetlenir;
+       varsayılanda da yoksa yeni anahtardır, serbest. Eskiden alan yoksa
+       denetim hiç yapılmıyordu (ör. eski bir katmanda `enabled:"yes"`). */
+    if (cur === undefined) {
+      cur = defs ? getPath(defs, path) : undefined;
+      if (cur === undefined) return '';
+    }
+    /* Değeri null olan alan (display.id, layerStack.enabled) tek değer
+       alır; nesne ya da liste yalnız ekran haritasına yazılır. Eskiden
+       `display.id = {a:1}` kabul ediliyordu. */
+    if (cur === null) {
+      if (got === 'object' && /^mapping\.outputs\.[^.]+$/.test(String(path))) return '';
+      if (got === 'object' || got === 'array') return '"' + path + '" holds a single value (or null); refusing to replace it with ' + (got === 'array' ? 'an array' : 'an object') + '.';
+      if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
+      return '';
+    }
+    const want = kindOf(cur);
     /* Uygulamanın kendisi tek değerli alanları boşaltıyor (display.id,
        layerStack.enabled null olabiliyor) ve ekran haritasını null'a
        çekiyor. Liste ya da nesne null yapılamaz: katman listesini silmenin
        başka bir yolu olurdu. */
     if (got === 'null' && (want === 'number' || want === 'string' || want === 'boolean' || /^mapping\.outputs\./.test(String(path)))) return '';
-    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
     if (want !== got) return '"' + path + '" holds ' + an(want) + '; refusing to replace it with ' + an(got) + '.';
     if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
     return '';
@@ -383,6 +415,56 @@
     if (!l || !l.locked) return '';
     if (keys.length === 3 && LOCK_FREE.indexOf(keys[2]) >= 0) return '';
     return lockedError(l);
+  }
+  /* Ham yolla katman yazımı katman araçlarının denetiminden geçer.
+     Eskiden `layers.1.opacity = 7`, `layers.0.transform.scale = -5` ve
+     `layers.0.enabled = "yes"` sv_patch_config ile olduğu gibi yazılıyordu;
+     sv_update_layer aynılarını reddediyor ya da aralığa çekiyordu. Yazım
+     bir kopyada yapılır, etkilenen her katman sv_update_layer'ın
+     kurallarıyla denetlenir: bayraklar true/false, opaklık 0–1'e, dönüşüm
+     panelin aralığına çekilir; tür ve harmanlama değiştiyse geçerli olmalı. */
+  function checkLayer(layer, before) {
+    if (!layer || typeof layer !== 'object' || Array.isArray(layer)) return { error: 'a layer must be an object.' };
+    const bad = layerFieldError(layer);
+    if (bad) return { error: bad };
+    const out = Object.assign({}, layer);
+    if (out.opacity !== undefined) out.opacity = Math.max(0, Math.min(1, out.opacity));
+    if (out.transform !== undefined) {
+      if (!out.transform || typeof out.transform !== 'object' || Array.isArray(out.transform)) return { error: 'transform must be an object.' };
+      const t = cleanTransform(out.transform);
+      if (t.error) return { error: t.error };
+      out.transform = t.value;
+    }
+    const was = before || {};
+    if (out.kind !== was.kind || out.type !== was.type) {
+      const wrong = badLayer(out.kind, out.type);
+      if (wrong) return { error: wrong };
+    }
+    if (out.blend !== was.blend) {
+      const wrong = badBlend(out.blend);
+      if (wrong) return { error: wrong };
+    }
+    return { value: out };
+  }
+  function patchLayers(cfg, path, value) {
+    const keys = String(path).split('.');
+    const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+    const copy = { layers: JSON.parse(JSON.stringify(list)) };
+    const wrote = setPath(copy, path, value);
+    if (wrote.ok === false) return wrote;
+    if (!Array.isArray(copy.layers)) return fail('layers must be a list.');
+    const byId = {};
+    list.forEach(function (l) { if (l && l.id) byId[l.id] = l; });
+    const idx = keys.length === 1 ? copy.layers.map(function (_, i) { return i; }) : [Number(keys[1])];
+    for (const i of idx) {
+      const next = copy.layers[i];
+      const before = keys.length === 1 ? (next && byId[next.id]) : list[i];
+      const r = checkLayer(next, before);
+      if (r.error) return fail('layers.' + i + ': ' + r.error);
+      copy.layers[i] = r.value;
+    }
+    cfg.layers = copy.layers;
+    return { ok: true, value: getPath(copy, path) };
   }
   function summarize(v, depth) {
     if (depth == null) depth = 0;
@@ -830,6 +912,8 @@
     sv_set_mapping: { props: Object.assign({ displayId: ANY('Display id.'), id: ANY('Same as displayId.') }, MAPPING_KEYS) },
     sv_rotate_stream_token: { props: { which: sp('string', 'remote rotates the remote-control token; anything else the OBS/web token.', { enum: ['token', 'remote'] }) } },
   };
+  // Tanıdığı hiçbir argüman verilmezse reddeden ayar araçları (bkz. callTool)
+  const STRICT_ARGS = ['sv_set_autovj'];
   function schemaFor(name) {
     const s = SCHEMAS[name];
     const out = { type: 'object', properties: {}, additionalProperties: true };
@@ -1811,6 +1895,11 @@
     return withConfig(ctx, function (cfg) {
       const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value);
       if (bad) return fail(bad);
+      if (top === 'layers') {
+        const r = patchLayers(cfg, args.path, args.value);
+        if (r.ok === false) return r;
+        return { path: args.path, group: GROUP_LABEL[group] || group, value: r.value };
+      }
       const wrote = setPath(cfg, args.path, args.value);
       if (wrote.ok === false) return wrote;
       return { path: args.path, group: GROUP_LABEL[group] || group };
@@ -1941,12 +2030,29 @@
     const need = minMode(toolDef.group) || 'read';
     if (!mcp.enabled) return fail(text('mcp.err.disabled', loc).replace('{mode}', modeWord(need, loc)));
     if (toolDef.group && toolDef.group !== 'routed' && !modeAllows(mcp, toolDef.group)) return fail(modeBlockError(loc, need));
+    /* Aracın tanımadığı argümanlar yine kabul edilir (additionalProperties)
+       ama yanıtta `ignored` olarak söylenir. Eskiden sv_set_autovj
+       {patch:{...}} gibi bir çağrıyı hiçbir şey yazmadan ok:true ile
+       geçiyordu. Tanıdığı hiçbir argüman yoksa ayar araçları reddeder. */
+    const known = SCHEMAS[name] && SCHEMAS[name].props;
+    const unknown = known && args && typeof args === 'object' && !Array.isArray(args)
+      ? Object.keys(args).filter(function (k) { return !Object.prototype.hasOwnProperty.call(known, k); })
+      : [];
+    if (unknown.length && STRICT_ARGS.indexOf(name) >= 0 && unknown.length === Object.keys(args).length) {
+      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + Object.keys(known).join(', ') + '.');
+    }
+    const note = function (value) {
+      const out = value || { ok: true };
+      // Kopya: aracın döndürdüğü nesne canlı bir ayar parçası olabilir
+      if (unknown.length && out && typeof out === 'object' && !Array.isArray(out)) return Object.assign({}, out, { ignored: unknown });
+      return out;
+    };
     try {
       const result = toolDef.fn(args || {}, ctx || {});
       if (result && typeof result.then === 'function') {
-        return result.then(function (value) { return value || { ok: true }; }, function (e) { return fail(String((e && e.message) || e)); });
+        return result.then(note, function (e) { return fail(String((e && e.message) || e)); });
       }
-      return result || { ok: true };
+      return note(result);
     } catch (e) {
       return fail(String((e && e.message) || e));
     }

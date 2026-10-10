@@ -229,6 +229,7 @@
     if (k.milk2) lines.push(fmt('{n} .milk2 dosyası (MilkDrop 3 çift preseti) desteklenmiyor, atlanacak.', { n: k.milk2 }));
     if (k.tooLarge || k.textureTooLarge) lines.push(fmt('{n} dosya boyut sınırını aşıyor, atlanacak.', { n: (k.tooLarge || 0) + (k.textureTooLarge || 0) }));
     if (k.encrypted || k.unsupported) lines.push(fmt('{n} şifreli ya da desteklenmeyen ZIP girdisi atlanacak.', { n: (k.encrypted || 0) + (k.unsupported || 0) }));
+    if (k.empty) lines.push(fmt('{n} boş preset dosyası atlanacak.', { n: k.empty }));
     if (s.complete === false) lines.push(tr('Tarama yarıda kesildi: çok fazla dosya var; bulunanlar alınır.'));
     if (s.tags && control(P().cfg()).importFolderTags !== false) lines.push(fmt('{n} klasör adı etiket olacak.', { n: s.tags }));
     return lines.join(' ');
@@ -243,6 +244,8 @@
     if (t.same) lines.push(fmt('{s} doku zaten vardı.', { s: t.same }));
     if (t.conflicts) lines.push(fmt('{k} doku adı var olan başka bir dokuyla çakıştı; var olan kaldı.', { k: t.conflicts }));
     if (r.skipped && r.skipped.milk2) lines.push(fmt('{n} .milk2 dosyası atlandı (MilkDrop 3 çift preseti).', { n: r.skipped.milk2 }));
+    if (r.skipped && r.skipped.empty) lines.push(fmt('{n} boş preset dosyası atlandı.', { n: r.skipped.empty }));
+    if (r.skipped && r.skipped.invalid) lines.push(fmt('{n} dosya MilkDrop preseti değil; atlandı.', { n: r.skipped.invalid }));
     return lines.join(' ');
   }
 

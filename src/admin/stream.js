@@ -150,7 +150,9 @@
           el('input', {
             class: 'p-in p-num', type: 'number', min: '1024', max: '65535', value: s.port,
             onchange: async (e) => {
-              s.port = Math.max(1024, Math.min(65535, parseInt(e.target.value, 10) || 8722));
+              const port = P().portValue(e.target, s.port, 1024);
+              if (port == null) return;
+              s.port = port;
               P().push(true);
               await sync();
             },

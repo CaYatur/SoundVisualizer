@@ -2137,9 +2137,15 @@
       commit();
       p.rerender();
     };
+    // Uçtaki parçanın o yöndeki düğmesi kapalı: eskiden basınca bir şey olmuyordu
+    const edge = (b, d) => {
+      const n = ensureTransport().tl.tracks.length;
+      if (i + d < 0 || i + d >= n) { b.disabled = true; b.title = d < 0 ? 'Zaten en üstte' : 'Zaten en altta'; }
+      return b;
+    };
     box.appendChild(el('div', { class: 'tl-actions' }, [
-      act(['arrow-up', 'Yukarı'], 'Parçayı yukarı taşı', () => move(-1)),
-      act(['arrow-down', 'Aşağı'], 'Parçayı aşağı taşı', () => move(1)),
+      edge(act(['arrow-up', 'Yukarı'], 'Parçayı yukarı taşı', () => move(-1)), -1),
+      edge(act(['arrow-down', 'Aşağı'], 'Parçayı aşağı taşı', () => move(1)), 1),
       trk.kind === 'clip' ? act(['plus', 'Kafada Klip'], 'Bu parçaya, oynatma kafasına', () => {
         if (trk.locked) { p.toast('Parça kilitli.', 'warn'); return; }
         addClipAt(trk, snap(ensureTransport().time, false));

@@ -139,7 +139,7 @@ test('klasör taraması: presetler, dokular, atlananlar, kategori etiketleri', a
   const size = (list) => list.reduce((n, x) => n + x.size, 0);
   assert.strictEqual(s.bytes, size(plan.presets) + size(plan.textures));
   assert.strictEqual(plan.looseBytes, size(plan.loose));
-  assert.deepStrictEqual(s.skipped, { milk2: 0, tooLarge: 1, encrypted: 0, unsupported: 0, textureTooLarge: 0 });
+  assert.deepStrictEqual(s.skipped, { milk2: 0, tooLarge: 1, encrypted: 0, unsupported: 0, textureTooLarge: 0, empty: 0, invalid: 0 });
   assert.strictEqual(s.tags, 2);
   const byName = Object.fromEntries(plan.presets.map((p) => [p.name, p.tag]));
   assert.deepStrictEqual(byName, { 'Geiss - A': 'Fraktal', 'Martin - B': 'Fraktal', 'Flexi - C': 'Dans', cift: '' }, 'node_modules atlandı; .milk2 preset');
