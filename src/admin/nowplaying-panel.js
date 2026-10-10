@@ -108,7 +108,9 @@
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
+        // Açılamayan dosya (ör. .png adlı metin) kapak olmaz
+        if (P().imageOk && !(await P().imageOk(reader.result))) return;
         C.manual.artwork = reader.result;
         P().push(true);
         rerender();

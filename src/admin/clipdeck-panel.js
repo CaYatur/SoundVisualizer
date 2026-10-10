@@ -1115,7 +1115,11 @@
       const file = input.files && input.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => cb(reader.result);
+      // Açılamayan dosya (ör. .png adlı metin) yuvaya yazılmaz
+      reader.onload = async () => {
+        const ok = window.SVPanel && window.SVPanel.imageOk ? await window.SVPanel.imageOk(reader.result) : true;
+        if (ok) cb(reader.result);
+      };
       reader.readAsDataURL(file);
     });
     document.body.appendChild(input);

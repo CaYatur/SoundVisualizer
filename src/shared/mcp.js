@@ -326,6 +326,64 @@
     if (bad.length) return 'Unknown ' + section + ' key(s): ' + bad.join(', ') + '. Known keys: ' + Object.keys(base).join(', ') + '.';
     return '';
   }
+  /* Yazılan değerin türü var olan değerinkiyle aynı olmalı. Eskiden
+     `{"path":"layers","value":"x"}` katman listesini metne çeviriyor,
+     ayar dosyasına öyle yazılıyordu; katman araçları ".map is not a
+     function" ile düşüyordu. `visualizer.sensitivity` için "abc" de
+     geçiyordu. Yeni bir anahtar (var olan değer yok) ve null serbest. */
+  function kindOf(v) {
+    if (v === null) return 'null';
+    return Array.isArray(v) ? 'array' : typeof v;
+  }
+  function valueTypeError(cfg, path, value) {
+    const cur = getPath(cfg, path);
+    if (cur === undefined || cur === null) return '';
+    const want = kindOf(cur);
+    const got = kindOf(value);
+    /* Uygulamanın kendisi tek değerli alanları boşaltıyor (display.id,
+       layerStack.enabled null olabiliyor) ve ekran haritasını null'a
+       çekiyor. Liste ya da nesne null yapılamaz: katman listesini silmenin
+       başka bir yolu olurdu. */
+    if (got === 'null' && (want === 'number' || want === 'string' || want === 'boolean' || /^mapping\.outputs\./.test(String(path)))) return '';
+    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
+    if (want !== got) return '"' + path + '" holds ' + an(want) + '; refusing to replace it with ' + an(got) + '.';
+    if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
+    return '';
+  }
+
+  /* Kilit, paneldeki gibi: kilitli katman silinmez, taşınmaz, ayarı,
+     konumu ve efektleri değişmez; görünürlük, solo, sessiz ve kilidin
+     kendisi değişebilir. Eskiden MCP kilide hiç bakmıyordu. Kilidi açan
+     bir yama (`locked:false`) aynı çağrıda düzenleme de yapabilir. */
+  const LOCK_FREE = ['enabled', 'solo', 'muted', 'locked'];
+  function lockedError(layer) {
+    return 'Layer "' + ((layer && (layer.name || layer.id)) || '?') + '" is locked. Unlock it first (sv_update_layer with patch {"locked": false}). Show, solo and mute still work while locked.';
+  }
+  function lockBlocksPatch(layer, patch) {
+    if (!layer || !layer.locked || !patch) return false;
+    if (patch.locked === false) return false;
+    return Object.keys(patch).some(function (k) { return LOCK_FREE.indexOf(k) < 0; });
+  }
+  /* Ham yol yazımında kilit: layers.N.<alan> kilitli katmanın serbest
+     olmayan alanına, layers.N'nin tamamına ya da kilitli katmanları
+     değiştiren bir `layers` listesine yazılmaz. */
+  function lockedPathError(cfg, path, value) {
+    const keys = String(path).split('.');
+    if (keys[0] !== 'layers') return '';
+    const list = Array.isArray(cfg.layers) ? cfg.layers : [];
+    if (keys.length === 1) {
+      if (!Array.isArray(value)) return '';
+      for (let i = 0; i < list.length; i++) {
+        const l = list[i];
+        if (l && l.locked && JSON.stringify(value[i]) !== JSON.stringify(l)) return lockedError(l);
+      }
+      return '';
+    }
+    const l = /^(0|[1-9]\d*)$/.test(keys[1]) ? list[Number(keys[1])] : null;
+    if (!l || !l.locked) return '';
+    if (keys.length === 3 && LOCK_FREE.indexOf(keys[2]) >= 0) return '';
+    return lockedError(l);
+  }
   function summarize(v, depth) {
     if (depth == null) depth = 0;
     if (typeof v === 'string') {
@@ -998,7 +1056,8 @@
       const L = layersApi();
       if (L && L.adoptVisualizer) L.adoptVisualizer(cfg, spec);
       else cfg.visualizer = Object.assign({}, cfg.visualizer, { type: spec.type });
-      return { type: cfg.visualizer.type, presetId: cfg.custom && cfg.custom.visualizerId || null };
+      // Studio kimliği yalnız tür 'custom' iken anlamlı; eskiden bars için de eski kimlik dönüyordu
+      return { type: cfg.visualizer.type, presetId: cfg.visualizer.type === 'custom' ? ((cfg.custom && cfg.custom.visualizerId) || null) : null };
     });
   });
   tool('sv_set_background_type', 'sceneApply', 'Switch the background to an existing mode id.', function (args, ctx) {
@@ -1184,6 +1243,7 @@
       if (!found) return fail('Layer not found.');
       const patch = Object.assign({}, (args && args.patch) || {});
       if (patch.postfx) return fail('Layer effects are changed with the effect tools, not sv_update_layer.');
+      if (lockBlocksPatch(found.layer, patch)) return fail(lockedError(found.layer));
       const fieldBad = layerFieldError(patch);
       if (fieldBad) return fail(fieldBad);
       let transform = null;
@@ -1218,6 +1278,7 @@
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
+      if (found.layer.locked) return fail(lockedError(found.layer));
       const given = {};
       ['x', 'y', 'scale', 'rotate', 'flipX', 'flipY'].forEach(function (k) {
         if (args && args[k] !== undefined) given[k] = args[k];
@@ -1232,6 +1293,7 @@
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
+      if (found.layer.locked) return fail(lockedError(found.layer));
       if (args && args.settings && typeof args.settings === 'object') found.layer.settings = mergeObj(found.layer.settings, args.settings);
       else if (args && args.key) {
         if (unsafeKey(args.key)) return fail('Refusing unsafe settings key.');
@@ -1246,6 +1308,7 @@
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
+      if (found.layer.locked) return fail(lockedError(found.layer));
       found.list.splice(found.index, 1);
       return { removed: found.layer.id, visual: visualState(cfg, ctx) };
     });
@@ -1260,6 +1323,10 @@
       const next = [];
       ids.forEach(function (id) { if (map[id]) { next.push(map[id]); delete map[id]; } });
       list.forEach(function (layer) { if (layer && layer.id && map[layer.id]) next.push(layer); });
+      // Kilitli katman yerinden oynamaz (paneldeki oklar gibi)
+      for (let i = 0; i < list.length; i++) {
+        if (list[i] && list[i].locked && next[i] !== list[i]) return fail(lockedError(list[i]));
+      }
       cfg.layers = next;
       return { layers: next.map(publicLayer) };
     });
@@ -1305,6 +1372,7 @@
     return withConfig(ctx, function (cfg) {
       const layer = findLayer(cfg, args);
       if (!layer) return fail('Layer not found.');
+      if (layer.layer.locked) return fail(lockedError(layer.layer));
       const found = findFx(layer.layer.postfx, args);
       if (!found || found.error) return fail((found && found.error) || 'Layer effect not found.');
       found.fx.enabled = !(args && args.enabled === false);
@@ -1315,6 +1383,7 @@
     return withConfig(ctx, function (cfg) {
       const layer = findLayer(cfg, args);
       if (!layer) return fail('Layer not found.');
+      if (layer.layer.locked) return fail(lockedError(layer.layer));
       const found = findFx(layer.layer.postfx, args);
       if (!found || found.error) return fail((found && found.error) || 'Layer effect not found.');
       found.fx.params = mergeObj(found.fx.params, (args && args.params) || {});
@@ -1367,6 +1436,7 @@
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
+      if (found.layer.locked) return fail(lockedError(found.layer));
       if (!Array.isArray(found.layer.postfx)) found.layer.postfx = [];
       const fx = normalizeFx({ type: args.type, params: args.params, enabled: args.enabled });
       found.layer.postfx.push(fx);
@@ -1377,12 +1447,17 @@
     return withConfig(ctx, function (cfg) {
       const layer = findLayer(cfg, args);
       if (!layer) return fail('Layer not found.');
+      if (layer.layer.locked) return fail(lockedError(layer.layer));
       const found = findFx(layer.layer.postfx, args);
       if (!found || found.error) return fail((found && found.error) || 'Layer effect not found.');
       layer.layer.postfx.splice(found.index, 1);
       return { removed: found.fx.id || found.index, visual: visualState(cfg, ctx) };
     });
   });
+  function milkdropLibraryApi() {
+    if (typeof window !== 'undefined' && window.SVMilkdropLibrary && window.SVMilkdropLibrary.withTags) return window.SVMilkdropLibrary;
+    try { return require('./milkdrop-library.js'); } catch (e) { return null; }
+  }
   function modulationApi() {
     if (typeof window !== 'undefined' && window.SVModulation && window.SVModulation.catalog) return window.SVModulation;
     try { return require('./modulation.js'); } catch (e) { return null; }
@@ -1534,7 +1609,21 @@
     const saved = ctx.presets.save(preset);
     if (!saved || saved.ok === false) return fail((saved && saved.error) || 'Could not save the preset.');
     const p = saved.preset || preset;
-    return { ok: true, preset: { id: p.id, name: p.name || preset.name, kind: p.kind || preset.kind, engine: p.engine || '' } };
+    const out = { ok: true, preset: { id: p.id, name: p.name || preset.name, kind: p.kind || preset.kind, engine: p.engine || '' } };
+    /* MilkDrop etiketlerini panel dosyadan değil kitaplıktan
+       (`milkdropLibrary.tags`) okuyor; eskiden yalnız dosyaya yazılıyor,
+       "#dans" araması hiçbir şey bulmuyordu. */
+    const ML = milkdropLibraryApi();
+    if (kind === 'milkdrop' && src.tags !== undefined && p.id && ML && ML.withTags) {
+      const r = withConfig(ctx, function (cfg) {
+        const lib = Object.assign({}, cfg.milkdropLibrary);
+        lib.tags = ML.withTags(lib, p.id, src.tags);
+        cfg.milkdropLibrary = lib;
+        return { tags: lib.tags[p.id] || [] };
+      });
+      if (r && r.ok !== false) out.preset.tags = r.tags;
+    }
+    return out;
   });
   tool('sv_delete_preset', 'presetEdit', 'Delete a preset file. Authoring.', function (args, ctx) {
     if (!args || !args.id) return fail('id is required.');
@@ -1720,6 +1809,8 @@
     if (!mcp.enabled) return fail(text('mcp.err.disabled', localeOf(ctx)).replace('{mode}', modeWord(minMode(group) || 'everything', localeOf(ctx))));
     if (!modeAllows(mcp, group)) return fail(modeBlockError(localeOf(ctx), minMode(group) || 'everything'));
     return withConfig(ctx, function (cfg) {
+      const bad = valueTypeError(cfg, args.path, args.value) || lockedPathError(cfg, args.path, args.value);
+      if (bad) return fail(bad);
       const wrote = setPath(cfg, args.path, args.value);
       if (wrote.ok === false) return wrote;
       return { path: args.path, group: GROUP_LABEL[group] || group };

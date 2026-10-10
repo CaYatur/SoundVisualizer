@@ -70,7 +70,8 @@ test('video kitaplığı aynı motoru kullanır ve yabancı yolu açmaz', async 
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   const src = path.join(dir, 'in.mp4');
-  fs.writeFileSync(src, Buffer.from('fake-mp4'));
+  // Dosya başı bakılıyor: MP4 ftyp kutusu (sahte içerik artık reddedilir)
+  fs.writeFileSync(src, Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom', 'latin1'), Buffer.alloc(16)]));
   const png = path.join(dir, 'in.png');
   fs.writeFileSync(png, Buffer.from([0]));
   assert.strictEqual(M.importFile(dir, png, 'in.png').error, 'TYPE');

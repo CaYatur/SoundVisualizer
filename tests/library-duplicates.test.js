@@ -13,6 +13,15 @@ const path = require('path');
 const media = require('../src/main/media-library.js');
 const lyrics = require('../src/main/lyrics-library.js');
 
+/* Video kitaplığı dosyanın başına bakıyor (ftyp kutusu); sahte içerik
+   yerine MP4 başlıklı bir tampon. */
+function mp4(size, fill) {
+  const buf = Buffer.alloc(size, fill);
+  buf.writeUInt32BE(24, 0);
+  buf.write('ftypisom', 4, 'latin1');
+  return buf;
+}
+
 function tmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'sv-dupe-'));
 }
@@ -22,7 +31,7 @@ test('video kitaplığı aynı içeriği ikinci kez kopyalamaz', async () => {
   const src = tmp();
   try {
     const a = path.join(src, 'klip.mp4');
-    fs.writeFileSync(a, Buffer.alloc(3 * 1024 * 1024, 7));
+    fs.writeFileSync(a, mp4(3 * 1024 * 1024, 7));
     const first = await media.importFileAsync(dir, a, 'klip.mp4');
     assert.strictEqual(first.ok, true);
     const again = await media.importFileAsync(dir, a, 'klip.mp4');
@@ -47,7 +56,7 @@ test('aynı boyutta farklı içerik eklenir; parmak izi sonu da kapsar', async (
   try {
     const a = path.join(src, 'a.mp4');
     const b = path.join(src, 'b.mp4');
-    const buf = Buffer.alloc(3 * 1024 * 1024, 1);
+    const buf = mp4(3 * 1024 * 1024, 1);
     fs.writeFileSync(a, buf);
     buf[buf.length - 10] = 9; // yalnız sonu farklı
     fs.writeFileSync(b, buf);
@@ -65,7 +74,7 @@ test('izi olmayan eski kayıt da yineleme sayılır', async () => {
   const src = tmp();
   try {
     const a = path.join(src, 'eski.mp4');
-    fs.writeFileSync(a, Buffer.alloc(4096, 3));
+    fs.writeFileSync(a, mp4(4096, 3));
     assert.strictEqual((await media.importFileAsync(dir, a, 'eski.mp4')).ok, true);
     const manPath = path.join(dir, 'manifest.json');
     const man = JSON.parse(fs.readFileSync(manPath, 'utf8'));

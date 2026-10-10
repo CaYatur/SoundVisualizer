@@ -73,10 +73,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
       .replace(/>/g, '&gt;');
     // Yorumlar ve sayılar önce; sonrasında bunların içine girilmesin diye
     // yer tutucu kullanılıyor.
+    /* Sıra numarası RAKAMLA yazılınca sayı kuralı onu da yakalıyordu:
+       "// Shadertoy" yorumu editörde "0" olarak görünüyordu. Numara özel
+       kullanım alanı karakterleriyle yazılır; hiçbir kural onlara uymaz. */
     const holds = [];
     const hold = (cls, text) => {
       holds.push('<span class="' + cls + '">' + text + '</span>');
-      return '\u0000' + (holds.length - 1) + '\u0000';
+      const n = String(holds.length - 1).replace(/\d/g, (d) => String.fromCharCode(0xe000 + Number(d)));
+      return '\u0000' + n + '\u0000';
     };
     s = s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => hold('c-com', m));
     s = s.replace(/^[ \t]*#[^\n]*/gm, (m) => hold('c-pre', m));
@@ -84,7 +88,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     s = s.replace(TYPES, '<span class="c-typ">$1</span>');
     s = s.replace(KEYWORDS, '<span class="c-kw">$1</span>');
     s = s.replace(BUILTINS, '<span class="c-fn">$1</span>');
-    s = s.replace(/\u0000(\d+)\u0000/g, (m, i) => holds[+i]);
+    s = s.replace(/\u0000([\ue000-\ue009]+)\u0000/g, (m, n) => holds[+n.replace(/[\ue000-\ue009]/g, (c) => c.charCodeAt(0) - 0xe000)]);
     return s;
   }
 
@@ -468,7 +472,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     adopt({ upsert: [saveRes.preset] });
     selectPreset(saveRes.preset.id);
     const note = (result.notes || []).join(' ');
-    P().toast('İçe aktarıldı.' + (note ? ' ' + note : ''), 'ok');
+    /* Derlenmeyen dosya da kaydediliyor (düzeltilebilsin diye) ama
+       eskiden uyarı yoktu; hata yalnız editörde satır olarak görünüyordu. */
+    if (shaderBroken()) P().toast('İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.' + (note ? ' ' + note : ''), 'warn');
+    else P().toast('İçe aktarıldı.' + (note ? ' ' + note : ''), 'ok');
   }
 
   /* Bir sahne (ya da şimdiki görünüm) bu Studio presetini kullanıyor mu?
@@ -868,5 +875,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     ]);
   }
 
-  window.SVStudio = { panel, picker, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage };
+  window.SVStudio = { panel, picker, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage, highlight };
 })();

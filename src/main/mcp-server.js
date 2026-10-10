@@ -246,10 +246,34 @@ function create(deps) {
    dosyanın üstüne ancak açıkça `overwrite:true` ile yazılır. Eskiden
    herhangi bir mutlak .json yolunun üstüne yazılabiliyordu, settings.json
    dahil. Boş dönüş = yazılabilir. */
+/* Gerçek yol: sembolik bağlantı ve kavşaklar çözülür. Hedef henüz yoksa
+   var olan en yakın üst klasör çözülüp kalan parçalar eklenir. Eskiden
+   yalnız path.resolve vardı: /tmp/link → userData bağlantısıyla uygulamanın
+   kendi settings.json'unun üstüne yazılabiliyordu. */
+function realish(p, P) {
+  const start = P.resolve(String(p));
+  const rest = [];
+  let cur = start;
+  for (;;) {
+    try {
+      const r = fs.realpathSync.native ? fs.realpathSync.native(cur) : fs.realpathSync(cur);
+      return rest.length ? P.join.apply(P, [r].concat(rest.slice().reverse())) : r;
+    } catch (e) { /* yok ya da okunamıyor: bir üste */ }
+    const parent = P.dirname(cur);
+    if (parent === cur) return start;
+    rest.push(P.basename(cur));
+    cur = parent;
+  }
+}
+
 function outPathGuard(file, overwrite, protectedDirs, platform) {
   const win = (platform || process.platform) === 'win32';
   const P = win ? path.win32 : path.posix;
-  const norm = function (p) { const r = P.resolve(String(p)); return win ? r.toLowerCase() : r; };
+  const sameHost = win === (process.platform === 'win32');
+  const norm = function (p) {
+    const r = sameHost ? realish(p, P) : P.resolve(String(p));
+    return win ? r.toLowerCase() : r;
+  };
   const target = norm(file);
   for (const dir of protectedDirs || []) {
     if (!dir) continue;

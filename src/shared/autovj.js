@@ -111,10 +111,12 @@
 
   /* Değiştirilebilir görselleştirici katmanları. Metin dışlanır, kapalı
      katmanlar da: kapalı bir katmanın türünü değiştirmek ekranda hiçbir şey
-     yapmaz ama kullanıcının ayarını sessizce bozar. */
+     yapmaz ama kullanıcının ayarını sessizce bozar. Kilitli katman da:
+     kullanıcı onu sabitledi (eskiden kilitli "bars" 12 sn içinde başka
+     bir türe dönüyordu). */
   function visualizerLayers(layers) {
     return arr(layers).filter((l) => l && l.kind === 'visualizer'
-      && !isTextLayer(l) && l.enabled !== false);
+      && !isTextLayer(l) && l.enabled !== false && !l.locked);
   }
 
   // -------------------------------------------------------------- adaylar

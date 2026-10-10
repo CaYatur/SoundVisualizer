@@ -538,10 +538,15 @@
   }
   /* Genel alana yazılan değeri ekrandaki katmana da yazar (yerinde). Genel
      alanı çağıran yazar; burada yalnız katmanın kopyası. */
+  /* Yalnız gözetimsiz otomasyon çağırıyor (Otomatik VJ paleti, dinamik
+     tema). Kilitli katmana yazmaz: kullanıcı onu sabitledi. Operatörün
+     kendi denetimleri (fader, sonraki görselleştirici) bu yoldan geçmez. */
   function setEffective(cfg, path, value) {
     const eff = effectivePath(cfg, path);
     if (eff === path) return false;
     const keys = eff.split('.');
+    const layer = keys[0] === 'layers' ? cfg.layers[Number(keys[1])] : null;
+    if (layer && layer.locked) return false;
     let cur = cfg;
     for (let i = 0; i < keys.length - 1; i++) cur = cur[keys[i]];
     cur[keys[keys.length - 1]] = value;

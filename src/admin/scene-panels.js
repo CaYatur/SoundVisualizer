@@ -359,14 +359,18 @@
     const icon = LAYER_ICONS[(l.kind === 'visualizer' && l.type === 'text') ? 'text' : (l.kind === 'visualizer' && l.type === 'nowplaying') ? 'nowplaying' : l.kind] || 'grid';
     return el('div', { class: 'layer-head' + (open ? ' open' : '') }, [
       el('div', { class: 'layer-ord' }, [
+        /* Komşu kilitliyse ok da kapalı: eskiden etkin görünüyor, basınca
+           hiçbir şey olmuyordu. İpucu nedenini söylüyor. */
         el('button', {
-          class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: l.locked ? 'Kilitli' : 'Yukarı taşı',
-          disabled: !!l.locked,
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-up',
+          title: l.locked ? 'Kilitli' : (list[i + 1] && list[i + 1].locked ? 'Üstteki katman kilitli' : 'Yukarı taşı'),
+          disabled: !!l.locked || !!(list[i + 1] && list[i + 1].locked),
           onclick: () => { if (moveItem(list, i, 1)) onChange(); },
         }),
         el('button', {
-          class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: l.locked ? 'Kilitli' : 'Aşağı taşı',
-          disabled: !!l.locked,
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-down',
+          title: l.locked ? 'Kilitli' : (list[i - 1] && list[i - 1].locked ? 'Alttaki katman kilitli' : 'Aşağı taşı'),
+          disabled: !!l.locked || !!(list[i - 1] && list[i - 1].locked),
           onclick: () => { if (moveItem(list, i, -1)) onChange(); },
         }),
       ]),
@@ -506,7 +510,11 @@
       const file = input.files && input.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => cb(reader.result, file.name);
+      // Açılamayan dosya (ör. .png adlı metin) katmana yazılmaz
+      reader.onload = async () => {
+        if (P().imageOk && !(await P().imageOk(reader.result))) return;
+        cb(reader.result, file.name);
+      };
       reader.readAsDataURL(file);
     });
     document.body.appendChild(input);
@@ -1897,6 +1905,11 @@
           .byKind(l.kind === 'background' ? 'background' : 'visualizer')
           .filter((p) => p.engine === 'shader')
           .map((p) => [p.id, p.name]);
+        /* Katmanın preseti silinmişse katman hiçbir şey çizmiyor; eskiden
+           seçici sessizce listenin ilkini gösteriyordu. */
+        if (l.presetId && !presets.some((p) => p[0] === l.presetId)) {
+          body.push(el('div', { class: 'studio-note media-fault', text: 'Bu katmanın Studio preseti silinmiş; katman boş çiziliyor. Listeden başka bir preset seçin.' }));
+        }
         if (presets.length) {
           body.push(miniSelect('Studio Preseti', presets, () => l.presetId || presets[0][0], (v) => { l.presetId = v; }));
         } else {

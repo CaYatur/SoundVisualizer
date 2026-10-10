@@ -229,6 +229,27 @@
   }
 
   let toastTimer = null;
+  /* Seçilen dosya gerçekten açılan bir resim mi? Dosya seçici yalnız
+     uzantıya bakıyor: ".png" adlı bir metin dosyası logo, kapak ya da
+     görsel nesne olarak kaydediliyor, ekranda boş kalıyordu ve hiçbir uyarı
+     çıkmıyordu. Tarayıcıya çözdürülür; açılmazsa bildirim verilir. */
+  function imageOk(dataUrl) {
+    return new Promise((resolve) => {
+      const done = (ok) => {
+        if (!ok) svToast(tr('Seçilen dosya açılabilen bir resim değil.'), 'err');
+        resolve(ok);
+      };
+      /* Önek denetlenmez: işletim sistemi uzantıyı tanımayınca (bazı
+         Linux kurulumlarında .webp/.bmp) gerçek resim de
+         data:application/octet-stream olarak geliyor; tarayıcı yine çözer. */
+      if (typeof dataUrl !== 'string' || !/^data:/.test(dataUrl)) { done(false); return; }
+      const im = new Image();
+      im.onload = () => done(true);
+      im.onerror = () => done(false);
+      im.src = dataUrl;
+    });
+  }
+
   function svToast(message, kind) {
     let host = $('toast');
     if (!host) {
@@ -424,6 +445,7 @@
     apply: () => { render(); push(true); },
     toast: svToast,
     confirm: svConfirm,
+    imageOk,
     /* Kitaplık içe aktarmasının sonucu (ana süreç importResult). Yinelenen
        ya da eklenemeyen seçim artık sessiz kalmıyor. */
     importNote: (r) => {
@@ -1208,7 +1230,8 @@
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
+        if (!(await imageOk(reader.result))) return;
         cfg.logo.src = reader.result;
         cfg.logo.libraryId = '';
         cfg.logo.kind = (file.type === 'image/gif' || /\.gif$/i.test(file.name || '')) ? 'gif' : 'image';
@@ -1280,7 +1303,8 @@
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
+        if (!(await imageOk(reader.result))) return;
         C.manual.artwork = reader.result;
         push(true);
         render();
@@ -4925,12 +4949,27 @@
     const incoming = Array.isArray(r.data) ? r.data : (r.data && r.data.presets) || [];
     if (!Array.isArray(incoming) || !incoming.length) { svToast('Dosyada şablon bulunamadı.', 'warn'); return; }
     const arr = ensurePresets();
+    /* Renkler panelin yazdığı biçimde olmalı (#rrggbb; #rgb açılır).
+       Eskiden "#zzzzzz", "red", 123 içe aktarılıyor, kart boş görünüyor,
+       uygulanınca gradyan gri gürültüye dönüyordu. Geçersiz rengi olan
+       şablon atlanır ve sayısı bildirilir. */
+    const hex = (c) => {
+      const s = typeof c === 'string' ? c.trim() : '';
+      if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+      if (/^#[0-9a-f]{3}$/i.test(s)) return ('#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toLowerCase();
+      return null;
+    };
+    let skipped = 0;
+    let added = 0;
     incoming.forEach((p) => {
-      let colors = Array.isArray(p.colors) ? p.colors.slice(0, 5) : [];
-      if (!colors.length) return;
+      const raw = p && Array.isArray(p.colors) ? p.colors.slice(0, 5) : [];
+      const colors = raw.map(hex);
+      if (!colors.length || colors.some((c) => !c)) { skipped++; return; }
       while (colors.length < 5) colors.push(colors[colors.length - 1]);
-      arr.push({ id: uid('up_'), name: (p.name || 'İçe Aktarılan').toString(), colors });
+      arr.push({ id: uid('up_'), name: ((p && p.name) || 'İçe Aktarılan').toString(), colors });
+      added++;
     });
+    if (skipped) svToast('Geçersiz renk içeren şablon atlandı: ' + skipped, added ? 'warn' : 'err');
     push(true);
     render();
   };
@@ -5350,7 +5389,7 @@
       const file = input.files && input.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => cb(reader.result);
+      reader.onload = async () => { if (await imageOk(reader.result)) cb(reader.result); };
       reader.readAsDataURL(file);
     });
     document.body.appendChild(input);
