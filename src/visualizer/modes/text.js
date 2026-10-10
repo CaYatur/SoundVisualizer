@@ -79,6 +79,11 @@
   }
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
+  /* Yalnız şablonun kendi yer tutucuları çevrilir; bayrak kalmış olsa da
+     kullanıcının yazdığı başka bir metin ("Sahne", "Logo") olduğu gibi
+     çizilir. */
+  const PLACEHOLDERS = ['SANATÇI ADI', 'PARÇA ADI'];
+
   class TextMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -180,9 +185,15 @@
           ? window.SVNowLive.state : null;
         const n = live || T.nowPlaying || {};
         const field = T.field || 'both';
-        if (field === 'title') content = n.title || T.content || '';
-        else if (field === 'artist') content = n.artist || T.content || '';
-        else content = [n.title, n.artist].filter(Boolean).join(' — ') || (T.content || '');
+        /* Şablon yer tutucusu arayüz dilinde ("SANATÇI ADI" / "ARTIST
+           NAME"). Eskiden İngilizce yazılıydı, Türkçe arayüzde de çıkışa
+           öyle basılıyordu. Kullanıcının yazdığı metne dokunulmaz. */
+        const I = window.SVI18n;
+        const fallback = T.placeholder && PLACEHOLDERS.indexOf(T.content) >= 0 && I && typeof I.t === 'function'
+          ? I.t(T.content) : (T.content || '');
+        if (field === 'title') content = n.title || fallback;
+        else if (field === 'artist') content = n.artist || fallback;
+        else content = [n.title, n.artist].filter(Boolean).join(' — ') || fallback;
         /* Parça değişince giriş canlandırması yeniden oynasın; sabit yazı
            gibi durmasın. Söz satırlarındaki mantığın aynısı. */
         const key = (n.title || '') + ' ' + (n.artist || '');

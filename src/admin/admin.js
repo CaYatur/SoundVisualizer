@@ -997,8 +997,23 @@
     'transition', 'custom', 'milkdrop', 'feedback',
   ];
 
+  /* Küçük resim bir renk şeridi: sahnenin arkaplan renkleri, gerçek bir
+     kare değil. Yığın açıkken ekranı ilk görünen arkaplan KATMANI çiziyor;
+     eskiden genel arkaplan okunuyordu ve farklı katmanlı sahneler aynı
+     şeridi alıyordu. */
+  function sceneBackground(data) {
+    const L = window.SVLayers;
+    if (data && L && L.stackOn && L.firstLayerIndex && L.layerConfig && L.stackOn(data)) {
+      const i = L.firstLayerIndex(data, 'background');
+      if (i >= 0) {
+        try { return L.layerConfig(data, data.layers[i]).background; } catch (e) { /* eksik sahne verisi */ }
+      }
+    }
+    return data && data.background;
+  }
+
   function sceneGradient(scene) {
-    const bg = scene && scene.data && scene.data.background;
+    const bg = sceneBackground(scene && scene.data);
     if (!bg) return 'linear-gradient(135deg,#2a1f2e,#161013)';
     if (bg.type === 'solid') return bg.solidColor || '#08080f';
     const cols = (bg.gradient && bg.gradient.colors) || [];
@@ -3255,8 +3270,69 @@
   // --------------------------------------------------------------------------
   // "Varsayılandan farklı" tespiti
   // --------------------------------------------------------------------------
+  /* Bu makinede kullanılamayan seçenekler açılışta zorlanır: Windows
+     dışında sistemden çalan parça/kapak/logo okunamaz, dinamik tema ve söz
+     takibi çalışmaz; NVENC yoksa kodlayıcı CPU. Aynı düzeltme varsayılanlara
+     da uygulanır (platformDefaults): yoksa temiz kurulumda Sahne 3, Çıkış 1
+     "değiştirildi" rozeti çıkıyordu ve "Kategoriyi Sıfırla" sonrası değer
+     yeniden zorlanınca rozet geri geliyordu. Değişiklik olduysa true. */
+  function platformAdjust(c) {
+    let platformTouched = false;
+    if (!gpuAvailable && c.export && c.export.encoder === 'gpu') {
+      c.export.encoder = 'cpu';
+      platformTouched = true;
+    }
+    if (!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows)) {
+      if (c.dynamicTheme && c.dynamicTheme.enabled) {
+        c.dynamicTheme.enabled = false;
+        platformTouched = true;
+      }
+      if (c.nowplaying) {
+        if (c.nowplaying.source === 'system') { c.nowplaying.source = 'manual'; platformTouched = true; }
+        if (c.nowplaying.coverSource !== 'manual') { c.nowplaying.coverSource = 'manual'; platformTouched = true; }
+      }
+      if (c.logo && c.logo.source && c.logo.source !== 'manual') {
+        c.logo.source = 'manual';
+        platformTouched = true;
+      }
+      if (c.text && c.text.nowSource === 'system') {
+        c.text.nowSource = 'manual';
+        platformTouched = true;
+      }
+      if (c.text && c.text.lyricsFollow) {
+        c.text.lyricsFollow = false;
+        platformTouched = true;
+      }
+      if (Array.isArray(c.layers)) {
+        c.layers.forEach((l) => {
+          if (!l || !l.settings) return;
+          if (l.kind === 'logo' && l.settings.logo && l.settings.logo.source && l.settings.logo.source !== 'manual') {
+            l.settings.logo.source = 'manual';
+            platformTouched = true;
+          }
+          if (l.settings.nowplaying && l.settings.nowplaying.coverSource !== 'manual') {
+            l.settings.nowplaying.coverSource = 'manual';
+            platformTouched = true;
+          }
+          const lt = l.settings.text;
+          if (lt && lt.nowSource === 'system') { lt.nowSource = 'manual'; platformTouched = true; }
+          if (lt && lt.lyricsFollow) { lt.lyricsFollow = false; platformTouched = true; }
+        });
+      }
+    }
+    return platformTouched;
+  }
+  let platformDefaults = null;
+  function effectiveDefaults() {
+    if (!platformDefaults) {
+      platformDefaults = window.SV.clone(window.SV.DEFAULT_CONFIG);
+      platformAdjust(platformDefaults);
+    }
+    return platformDefaults;
+  }
+
   function defaultAt(path) {
-    return getPath(window.SV.DEFAULT_CONFIG, path);
+    return getPath(effectiveDefaults(), path);
   }
 
   function isModified(path) {
@@ -4006,7 +4082,7 @@
 
   // Tek bir ayarı varsayılana döndür (onay istemez — geri alması kolay)
   function resetPath(path) {
-    const dv = getPath(window.SV.defaultConfig(), path);
+    const dv = defaultAt(path);
     if (dv === undefined) return;
     setPath(cfg, path, window.SV.clone(dv));
     /* Yeniden çizim, sıfırlama düğmesi hâlâ odaktayken konumu okur.
@@ -4097,7 +4173,8 @@
         window.SVTemplatePanel.clearLastApplied();
       }
     } else {
-      const defaults = window.SV.defaultConfig();
+      // Bu makinenin varsayılanı (platformAdjust); rozet aynı değere bakıyor
+      const defaults = effectiveDefaults();
       paths.forEach((p) => {
         const dv = getPath(defaults, p);
         if (dv !== undefined) setPath(cfg, p, window.SV.clone(dv));
@@ -4276,7 +4353,7 @@
     if (!cat) return;
     const ok = await svConfirm('Bu kategorideki tüm ayarlar varsayılana dönecek.', { danger: true, okText: 'Kategoriyi sıfırla' });
     if (!ok) return;
-    const defaults = window.SV.defaultConfig();
+    const defaults = effectiveDefaults();
     sectionSchema()
       .filter((s) => s.category === catId && (!s.show || s.show()))
       .forEach((sec) => {
@@ -4491,6 +4568,8 @@
     const n = Array.isArray(displayIds) ? displayIds.length : open ? 1 : 0;
     $('statusDot').className = 'dot ' + (open ? 'on' : 'off');
     $('statusText').textContent = open ? (n > 1 ? n + ' ekranda açık' : 'Açık') : 'Kapalı';
+    // Dar pencerede yazı gizli, yalnız nokta görünür; durum ipucunda
+    if ($('statusBox')) $('statusBox').title = tr($('statusText').textContent);
     // Seçim değişmişse açıkken de yeniden uygulanabilsin
     $('openBtn').disabled = false;
     $('closeBtn').disabled = !open;
@@ -5227,6 +5306,8 @@
     const preservedScenes = Array.isArray(cfg.scenes) ? cfg.scenes : [];
     const sanitized = cloneWithoutUserContent(incoming);
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), sanitized);
+    // Başka makineden gelen yedek bu makinede çalışmayan kaynak taşıyabilir
+    platformAdjust(cfg);
     cfg.userPresets = preservedPresets;
     cfg.scenes = preservedScenes;
     if (cfg.images && Array.isArray(cfg.images.items)) {
@@ -5414,54 +5495,13 @@
 
     // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
     try { gpuAvailable = !!(await window.api.gpuAvailable()); } catch { gpuAvailable = false; }
-    if (!gpuAvailable && cfg.export && cfg.export.encoder === 'gpu') {
-      cfg.export.encoder = 'cpu';
-    }
+    platformDefaults = null;
 
     // Arayüz durumunu geri yükle
     const advBox = $('advToggle');
     if (advBox) advBox.checked = advancedOn;
     if (!CATEGORIES.some((c) => c.id === activeCategory)) activeCategory = CATEGORIES[0].id;
-    if (!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows)) {
-      let platformTouched = false;
-      if (cfg.dynamicTheme && cfg.dynamicTheme.enabled) {
-        cfg.dynamicTheme.enabled = false;
-        platformTouched = true;
-      }
-      if (cfg.nowplaying) {
-        if (cfg.nowplaying.source === 'system') { cfg.nowplaying.source = 'manual'; platformTouched = true; }
-        if (cfg.nowplaying.coverSource !== 'manual') { cfg.nowplaying.coverSource = 'manual'; platformTouched = true; }
-      }
-      if (cfg.logo && cfg.logo.source && cfg.logo.source !== 'manual') {
-        cfg.logo.source = 'manual';
-        platformTouched = true;
-      }
-      if (cfg.text && cfg.text.nowSource === 'system') {
-        cfg.text.nowSource = 'manual';
-        platformTouched = true;
-      }
-      if (cfg.text && cfg.text.lyricsFollow) {
-        cfg.text.lyricsFollow = false;
-        platformTouched = true;
-      }
-      if (Array.isArray(cfg.layers)) {
-        cfg.layers.forEach((l) => {
-          if (!l || !l.settings) return;
-          if (l.kind === 'logo' && l.settings.logo && l.settings.logo.source && l.settings.logo.source !== 'manual') {
-            l.settings.logo.source = 'manual';
-            platformTouched = true;
-          }
-          if (l.settings.nowplaying && l.settings.nowplaying.coverSource !== 'manual') {
-            l.settings.nowplaying.coverSource = 'manual';
-            platformTouched = true;
-          }
-          const lt = l.settings.text;
-          if (lt && lt.nowSource === 'system') { lt.nowSource = 'manual'; platformTouched = true; }
-          if (lt && lt.lyricsFollow) { lt.lyricsFollow = false; platformTouched = true; }
-        });
-      }
-      if (platformTouched) push(true);
-    }
+    if (platformAdjust(cfg)) push(true);
 
 
     // Studio presetleri (kullanıcının kendi shader/varyasyon tasarımları).
@@ -5682,6 +5722,7 @@
       const presets = Array.isArray(cfg.userPresets) ? cfg.userPresets.slice() : [];
       const scenes = Array.isArray(cfg.scenes) ? cfg.scenes.slice() : [];
       cfg = window.SV.defaultConfig();
+      platformAdjust(cfg);
       cfg.audio.sources = sources;
       cfg.userPresets = presets;
       cfg.scenes = scenes;

@@ -226,7 +226,7 @@
       const textLayer = (id, name, field, placeholder, over) => ({
         id, name, kind: 'visualizer', type: 'text',
         settings: { text: Object.assign({
-          enabled: true, source: 'now', field, content: placeholder,
+          enabled: true, source: 'now', field, content: placeholder, placeholder: true,
           align: 'left', weight: 800, size: 0.062, x: 0.2, y: 0.78,
           outline: 0, shadow: 0.35, animation: 'fade', audioScale: 0,
           perCharacter: false, useCustomColor: true, color: '#ffffff',
@@ -255,8 +255,8 @@
               { id: 'bcl_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcl_bars', { color: '#ff2d3a' }),
               logoLayer('bcl_logo'),
-              textLayer('bcl_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.066, weight: 800, y: 0.765 }),
-              textLayer('bcl_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.032, weight: 500, y: 0.83 })
+              textLayer('bcl_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.066, weight: 800, y: 0.765 }),
+              textLayer('bcl_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.032, weight: 500, y: 0.83 })
             ),
             { postfx: [fx('bloom', { threshold: 0.72, intensity: 0.35, radius: 2 })] }
           )),
@@ -271,8 +271,8 @@
               { id: 'bca_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bca_bars', { color: '#ff4757', barCount: 72, barHeight: 0.26, baseline: 0.52 }),
               logoLayer('bca_logo', { scale: 0.17, x: 0.115, y: 0.755 }),
-              textLayer('bca_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.07, x: 0.225, y: 0.735 }),
-              textLayer('bca_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.034, weight: 500, x: 0.225, y: 0.81 })
+              textLayer('bca_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.07, x: 0.225, y: 0.735 }),
+              textLayer('bca_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.034, weight: 500, x: 0.225, y: 0.81 })
             ),
             { postfx: [fx('bloom', { threshold: 0.75, intensity: 0.3 })] }
           )),
@@ -287,8 +287,8 @@
               { id: 'bcn_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcn_bars', { color: '#ff2d95', barCount: 96, gap: 0.3, glow: 0.32, barSpan: 0.92, barHeight: 0.24, baseline: 0.45 }),
               logoLayer('bcn_logo', { scale: 0.13, x: 0.095, y: 0.75 }),
-              textLayer('bcn_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.085, weight: 800, x: 0.2, y: 0.72 }),
-              textLayer('bcn_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.038, weight: 600, x: 0.2, y: 0.81 })
+              textLayer('bcn_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.085, weight: 800, x: 0.2, y: 0.72 }),
+              textLayer('bcn_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.038, weight: 600, x: 0.2, y: 0.81 })
             ),
             { postfx: [fx('bloom', { threshold: 0.6, intensity: 0.55 })] }
           )),
@@ -303,8 +303,8 @@
               { id: 'bcm_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcm_bars', { color: '#e8d21a', barCount: 60, gap: 0.45, barHeight: 0.3, baseline: 0.56 }),
               logoLayer('bcm_logo', { scale: 0.115, x: 0.1, y: 0.8 }),
-              textLayer('bcm_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.06, y: 0.775 }),
-              textLayer('bcm_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.031, weight: 500, y: 0.835 })
+              textLayer('bcm_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.06, y: 0.775 }),
+              textLayer('bcm_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.031, weight: 500, y: 0.835 })
             ),
             { postfx: [fx('bloom', { threshold: 0.78, intensity: 0.28 })] }
           )),
@@ -319,8 +319,8 @@
               { id: 'bcw_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcw_bars', { color: '#ffffff', barCount: 80, gap: 0.5, glow: 0.05, barSpan: 0.88, barHeight: 0.2, baseline: 0.5 }),
               logoLayer('bcw_logo', { scale: 0.1, x: 0.095, y: 0.79 }),
-              textLayer('bcw_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.055, y: 0.765 }),
-              textLayer('bcw_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.028, weight: 500, y: 0.825 })
+              textLayer('bcw_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.055, y: 0.765 }),
+              textLayer('bcw_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.028, weight: 500, y: 0.825 })
             ),
             { postfx: [] }
           )),
@@ -336,8 +336,8 @@
               barLayer('bcq_bars', { color: '#ffffff', barCount: 44, gap: 0.55, glow: 0.04,
                 barSpan: 0.26, barCenterX: 0.18, barHeight: 0.12, baseline: 0.72 }),
               logoLayer('bcq_logo', { scale: 0.085, x: 0.075, y: 0.87 }),
-              textLayer('bcq_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.042, x: 0.15, y: 0.855 }),
-              textLayer('bcq_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.024, weight: 500, x: 0.15, y: 0.9 })
+              textLayer('bcq_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.042, x: 0.15, y: 0.855 }),
+              textLayer('bcq_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.024, weight: 500, x: 0.15, y: 0.9 })
             ),
             { postfx: [] }
           )),
@@ -353,8 +353,8 @@
               barLayer('bcc_bars', { color: '#38bdf8', barCount: 52, gap: 0.4,
                 barSpan: 0.3, barCenterX: 0.8, barHeight: 0.16, baseline: 0.85 }),
               logoLayer('bcc_logo', { scale: 0.1, x: 0.08, y: 0.86 }),
-              textLayer('bcc_title', 'Parça Adı', 'title', 'TRACK TITLE', { size: 0.048, x: 0.155, y: 0.845 }),
-              textLayer('bcc_artist', 'Sanatçı', 'artist', 'ARTIST NAME', { size: 0.026, weight: 500, x: 0.155, y: 0.895 })
+              textLayer('bcc_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.048, x: 0.155, y: 0.845 }),
+              textLayer('bcc_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.026, weight: 500, x: 0.155, y: 0.895 })
             ),
             { postfx: [fx('bloom', { threshold: 0.8, intensity: 0.22 })] }
           )),
@@ -369,9 +369,9 @@
               { id: 'bcs_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
               barLayer('bcs_bars', { color: '#8b7bff', barCount: 88, gap: 0.36, position: 'center',
                 barSpan: 0.7, barHeight: 0.16, baseline: 0.55 }),
-              textLayer('bcs_title', 'Parça Adı', 'title', 'TRACK TITLE',
+              textLayer('bcs_title', 'Parça Adı', 'title', 'PARÇA ADI',
                 { size: 0.058, align: 'center', x: 0.5, y: 0.3 }),
-              textLayer('bcs_artist', 'Sanatçı', 'artist', 'ARTIST NAME',
+              textLayer('bcs_artist', 'Sanatçı', 'artist', 'SANATÇI ADI',
                 { size: 0.03, weight: 500, align: 'center', x: 0.5, y: 0.37 }),
               logoLayer('bcs_logo', { scale: 0.09, x: 0.5, y: 0.84 })
             ),

@@ -78,7 +78,15 @@
       return el('div', { class: 'txt-panel' }, nodes);
     }
 
-    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { T.source = v; sync(); }, rerender));
+    /* Şablon yer tutucusu ('now' kaynağında arayüz dilinde çizilir) başka
+       kaynağa geçince düz metne döner: o dilde sabitlenir, bayrak kalkar. */
+    const settle = () => {
+      if (!T.placeholder) return;
+      const I = window.SVI18n;
+      if (I && typeof I.t === 'function' && T.content) T.content = I.t(T.content);
+      delete T.placeholder;
+    };
+    nodes.push(SP().miniSelect('Kaynak', SOURCE_LABELS, () => T.source || 'static', (v) => { if (v !== 'now') settle(); T.source = v; sync(); }, rerender));
 
     // ------------------------------------------------------------- kaynak
     if ((T.source || 'static') === 'static') {
@@ -86,7 +94,7 @@
         el('label', { class: 'lbl', text: 'Metin' }),
         el('textarea', {
           class: 'p-in txt-area', rows: 2, value: T.content || '',
-          oninput: (e) => { T.content = e.target.value; sync(); P().push(false); },
+          oninput: (e) => { T.content = e.target.value; delete T.placeholder; sync(); P().push(false); },
         }),
       ]));
       nodes.push(SP().miniToggle('Kayan Yazı', () => !!T.marquee, (v) => { T.marquee = v; sync(); }, rerender));

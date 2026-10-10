@@ -418,7 +418,15 @@
       const m = cfg.media || {};
       if (!m.enabled) return;
       if (!this.hasFrame()) {
-        if (this.error && ctx && ctx.fillText) {
+        /* Hata yazısı yalnız yönetici panelinin önizlemesinde. Çıkış,
+           yüzen pencere ve yayın sayfası seyirciye gider: kamera yokken
+           "Seçilen kamera bulunamadı" ve %55 karartma projeksiyonda
+           görünüyordu. Çıkışta katman boş kalır. Canlı kayıt önizleme
+           yüzeyini kaydeder; kayıt sürerken panelde de çizilmez. */
+        const R = typeof window !== 'undefined' ? window.SVRecordPanel : null;
+        const recording = !!(R && typeof R.isRecording === 'function' && R.isRecording());
+        const operator = typeof window !== 'undefined' && !!window.SVPanel && !recording;
+        if (operator && this.error && ctx && ctx.fillText) {
           ctx.save();
           ctx.fillStyle = 'rgba(0,0,0,0.55)';
           ctx.fillRect(0, 0, W, H);

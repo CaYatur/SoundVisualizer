@@ -105,9 +105,12 @@
     return ctrl;
   }
 
+  /* Kilitli katman yerinden oynamaz; komşusu da onun üstünden geçemez
+     (yer değiştirmek onu da taşırdı). */
   function moveItem(list, i, dir) {
     const j = i + dir;
     if (j < 0 || j >= list.length) return false;
+    if ((list[i] && list[i].locked) || (list[j] && list[j].locked)) return false;
     const t = list[i];
     list[i] = list[j];
     list[j] = t;
@@ -357,11 +360,13 @@
     return el('div', { class: 'layer-head' + (open ? ' open' : '') }, [
       el('div', { class: 'layer-ord' }, [
         el('button', {
-          class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: 'Yukarı taşı',
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: l.locked ? 'Kilitli' : 'Yukarı taşı',
+          disabled: !!l.locked,
           onclick: () => { if (moveItem(list, i, 1)) onChange(); },
         }),
         el('button', {
-          class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: 'Aşağı taşı',
+          class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: l.locked ? 'Kilitli' : 'Aşağı taşı',
+          disabled: !!l.locked,
           onclick: () => { if (moveItem(list, i, -1)) onChange(); },
         }),
       ]),
@@ -381,9 +386,12 @@
         disabled: !!l.locked,
         onclick: toggle,
       }),
+      /* Kilit "kazara düzenlemeyi engeller" diyor; kaldırma ve taşıma da
+         düzenleme. Eskiden kilitliyken de onaysız siliniyordu. */
       el('button', {
-        class: 'btn ghost tiny layer-del', type: 'button', icon: 'x', title: 'Kaldır',
-        onclick: () => { list.splice(i, 1); onChange(); },
+        class: 'btn ghost tiny layer-del', type: 'button', icon: 'x', title: l.locked ? 'Kilitli' : 'Kaldır',
+        disabled: !!l.locked,
+        onclick: () => { if (l.locked) return; list.splice(i, 1); onChange(); },
       }),
     ]);
   }
@@ -452,7 +460,7 @@
       label: 'Sanatçı Adı',
       spec: {
         name: 'Sanatçı Adı', source: 'now', field: 'artist',
-        content: 'ARTIST NAME', size: 0.032, weight: 500, y: 0.83,
+        content: 'SANATÇI ADI', placeholder: true, size: 0.032, weight: 500, y: 0.83,
       },
     },
   ];

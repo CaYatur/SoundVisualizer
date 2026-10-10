@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// Windows'ta çalışma kopyası CRLF olabilir; gövde ayıklama LF bekliyor
+const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 
 function walk(dir, out) {
   for (const name of fs.readdirSync(dir)) {
@@ -426,4 +427,288 @@ test('medya protokolü yalnız video uzantılarını sunar', async () => {
   assert.strictEqual(ok.headers.get('Content-Type'), 'video/mp4');
   await ok.arrayBuffer();
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+/* ------------------------------------------------------- Yönetici arayüzü */
+
+function freshStudio(cfg) {
+  const key = require.resolve('../src/admin/studio.js');
+  delete require.cache[key];
+  global.window.SVPanel = { cfg: () => cfg, push() {}, rerender() {}, toast() {} };
+  require('../src/admin/studio.js');
+  return global.window.SVStudio;
+}
+function fnBody(src, name) {
+  const at = src.indexOf(name);
+  assert.ok(at >= 0, name);
+  return src.slice(at, src.indexOf('\n  }\n', at));
+}
+
+/* UX 1–2: "Sahnede Kullan" son KAYDI uyguluyordu; derlenmeyen shader için
+   de "uygulandı" diyordu; hiç kaydedilmemiş taslakta bir şey olmuyordu. */
+test('Studio Sahnede Kullan: derleme hatasında durur, kaydedilmemişi önce kaydeder', () => {
+  const S = read('src/admin/studio.js');
+  const apply = fnBody(S, 'async function applyToScene()');
+  assert.ok(!/!selectedId\) return;/.test(apply.split('\n')[1]), 'yeni taslakta sessizce çıkmamalı');
+  const compile = apply.indexOf('compileNow();');
+  const broken = apply.indexOf('if (shaderBroken())');
+  const save = apply.indexOf('await saveDraft()');
+  const applyAt = apply.indexOf('applyPresetToCfg(cfg, p);');
+  assert.ok(compile > 0 && compile < broken, 'önce şimdi derlenir');
+  assert.ok(broken < save && save < applyAt, 'derleme → kaydet → uygula sırası');
+  assert.match(apply, /if \(dirty \|\| !selectedId\)/);
+  assert.match(apply, /okText: 'Kaydet ve Uygula'/);
+  assert.match(apply, /if \(!\(await saveDraft\(\)\)\) return;/);
+  // saveDraft sonucu bildirir; WebGL yokluğu derleme hatası sayılmaz
+  const saveFn = fnBody(S, 'async function saveDraft()');
+  assert.match(saveFn, /return false;/);
+  assert.match(saveFn, /return true;/);
+  assert.match(fnBody(S, 'function shaderBroken()'), /!compileState\.noGl/);
+  const I = read('src/shared/i18n.js');
+  for (const k of ['Kaydet ve Uygula', 'Değişiklikleri At', 'Shader derlenmiyor; sahneye uygulanmadı. Önce hatayı düzeltin.',
+    'Sahnede kullanmak için önce kaydedilmesi gerekiyor. Değişiklikler kaydedilecek.',
+    'Sahnede kullanmak için önce kaydedilmesi gerekiyor. Yerleşik preset değişmez; kendi kopyan kaydedilir.']) {
+    assert.ok(I.includes("'" + k + "':"), 'İngilizcesi yok: ' + k);
+  }
+});
+
+/* UX 3: başka presete geçmek düzenlemeyi uyarısız atıyordu. */
+test('Studio kaydedilmemiş değişikliği atmadan önce sorar', () => {
+  const S = read('src/admin/studio.js');
+  assert.match(fnBody(S, 'async function confirmDiscard()'), /if \(!dirty \|\| !draft\) return true;/);
+  assert.match(S, /onclick: \(\) => guardedSelect\(p\.id\)/);
+  assert.ok(!/onclick: \(\) => selectPreset\(/.test(S), 'listede korumasız seçim kalmamalı');
+  assert.match(S, /startDraft\(\(\) => newShader\('visualizer'\)\)/);
+  assert.match(S, /startDraft\(\(\) => newVariation\('visualizer'\)\)/);
+  assert.match(fnBody(S, 'async function importAny()'), /^async function importAny\(\) \{\s*if \(!\(await confirmDiscard\(\)\)\) return;/);
+  const I = read('src/shared/i18n.js');
+  assert.match(I, /“\(\.\+\)” üzerindeki kaydedilmemiş değişiklikler kaybolacak/);
+});
+
+/* UX 7: silme onayı presetin sahnelerde kullanıldığını söylemiyordu. */
+test('Studio silme onayı presetin kullanıldığı sahneleri sayar', () => {
+  const cfg = SV.defaultConfig();
+  cfg.scenes = [
+    { id: 'a', name: 'Klasik', data: { visualizer: { type: 'custom' }, custom: { visualizerId: 'p1' } } },
+    { id: 'b', name: 'Katmanlı', data: { layerStack: { enabled: true }, layers: [{ kind: 'background', type: 'custom', presetId: 'p1' }] } },
+    { id: 'c', name: 'Devralan', data: { custom: { backgroundId: 'p1' }, layers: [{ kind: 'background', type: 'custom' }] } },
+    { id: 'd', name: 'Başka', data: { visualizer: { type: 'bars' }, custom: { visualizerId: 'p1' } } },
+  ];
+  const S = freshStudio(cfg);
+  const u = S.presetUsers(cfg, 'p1');
+  assert.deepStrictEqual(u.scenes, ['Klasik', 'Katmanlı', 'Devralan']);
+  assert.strictEqual(u.live, false);
+  const msg = S.deleteMessage(cfg, { id: 'p1', name: 'Neon' });
+  assert.match(msg, /^“Neon” kalıcı olarak silinecek\. Bu sahnelerde kullanılıyor: Klasik, Katmanlı, Devralan\./);
+  assert.strictEqual(S.deleteMessage(cfg, { id: 'p9', name: 'Boş' }), '“Boş” kalıcı olarak silinecek.');
+  cfg.visualizer.type = 'custom';
+  cfg.custom.visualizerId = 'p9';
+  assert.match(S.deleteMessage(cfg, { id: 'p9', name: 'Boş' }), /Şu anki görünümde de kullanılıyor\.$/);
+  const I = read('src/shared/i18n.js');
+  assert.ok(I.includes('Bu sahnelerde kullanılıyor: '));
+  assert.ok(I.includes('Şu anki görünümde de kullanılıyor'));
+});
+
+/* UX 4: kilitli katman kaldırılıp taşınabiliyordu. */
+test('kilitli katman kaldırılamaz ve taşınamaz; komşusu da onu kaydıramaz', () => {
+  const P = read('src/admin/scene-panels.js');
+  const head = fnBody(P, 'function layerHead(');
+  assert.strictEqual((head.match(/disabled: !!l\.locked,/g) || []).length, 4, 'iki ok, aç/kapa ve kaldır');
+  assert.match(head, /onclick: \(\) => \{ if \(l\.locked\) return; list\.splice\(i, 1\); onChange\(\); \}/);
+  const vm = require('vm');
+  const move = fnBody(P, 'function moveItem(list, i, dir)') + '\n  }';
+  const c = {};
+  vm.createContext(c);
+  vm.runInContext(move + '\nthis.moveItem = moveItem;', c);
+  const list = [{ id: 'a' }, { id: 'b', locked: true }, { id: 'c' }];
+  assert.strictEqual(c.moveItem(list, 1, 1), false, 'kilitli yukarı');
+  assert.strictEqual(c.moveItem(list, 0, 1), false, 'komşu kilitliyle yer değiştiremez');
+  assert.strictEqual(c.moveItem(list, 2, -1), false);
+  assert.deepStrictEqual(list.map((x) => x.id), ['a', 'b', 'c']);
+  const free = [{ id: 'a' }, { id: 'b' }];
+  assert.strictEqual(c.moveItem(free, 0, 1), true);
+  assert.deepStrictEqual(free.map((x) => x.id), ['b', 'a']);
+});
+
+/* UX 5: kamera yokken hata yazısı ve karartma çıkışa basılıyordu. */
+test('medya hata yazısı yalnız yönetici önizlemesinde çizilir', () => {
+  global.window = global.window || {};
+  require('../src/visualizer/modes/media.js');
+  const Media = global.window.SVMedia;
+  assert.ok(Media, 'medya modu');
+  const calls = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : (k === 'measureText' ? () => ({ width: 10 }) : (...a) => calls.push(k))),
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  const m = Object.create(Media.prototype);
+  m.error = 'Seçilen kamera bulunamadı. Listeden başka bir kamera seçin.';
+  m.hasFrame = () => false;
+  const saved = global.window.SVPanel;
+  delete global.window.SVPanel;
+  m.draw(ctx, null, { media: { enabled: true } }, 800, 600, 0);
+  assert.deepStrictEqual(calls, [], 'çıkışta hiçbir şey çizilmez');
+  global.window.SVPanel = { rerender() {} };
+  m.draw(ctx, null, { media: { enabled: true } }, 800, 600, 0);
+  assert.ok(calls.includes('fillRect') && calls.includes('fillText'), 'panelde yazı görünür');
+  // Canlı kayıt önizleme yüzeyini kaydeder: kayıt sürerken panelde de yok
+  calls.length = 0;
+  global.window.SVRecordPanel = { isRecording: () => true };
+  m.draw(ctx, null, { media: { enabled: true } }, 800, 600, 0);
+  assert.deepStrictEqual(calls, [], 'kayıtta çizilmez');
+  delete global.window.SVRecordPanel;
+  assert.match(read('src/admin/record-panel.js'), /isRecording: \(\) => pumpRaf !== 0/);
+  if (saved) global.window.SVPanel = saved; else delete global.window.SVPanel;
+});
+
+/* UX 8: Windows dışında açılışta zorlanan değerler varsayılanla
+   karşılaştırılıyordu; temiz kurulumda rozet çıkıyordu. */
+test('Windows dışı ve NVENC yok: zorlanan değerler varsayılan sayılır', () => {
+  const vm = require('vm');
+  const A = read('src/admin/admin.js');
+  const from = A.indexOf('  function platformAdjust(c) {');
+  const to = A.indexOf('  function defaultAt(path) {');
+  assert.ok(from > 0 && to > from);
+  const run = (isWindows, gpu) => {
+    const c = { window: { SV_PLATFORM: { isWindows }, SV: { clone: SV.clone, DEFAULT_CONFIG: SV.defaultConfig() } }, gpuAvailable: gpu };
+    vm.createContext(c);
+    vm.runInContext('var gpuAvailable = this.gpuAvailable;\n' + A.slice(from, to) + '\nthis.adjust = platformAdjust; this.defs = effectiveDefaults;', c);
+    return c;
+  };
+  const linux = run(false, false);
+  const fresh = SV.defaultConfig();
+  assert.strictEqual(linux.adjust(fresh), true, 'temiz kurulum zorlanır');
+  const defs = linux.defs();
+  for (const p of ['logo.source', 'text.nowSource', 'nowplaying.source', 'nowplaying.coverSource', 'export.encoder', 'text.lyricsFollow', 'dynamicTheme.enabled']) {
+    const get = (o) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
+    assert.deepStrictEqual(get(fresh), get(defs), p + ' rozet çıkarmamalı');
+  }
+  assert.strictEqual(defs.export.encoder, 'cpu');
+  assert.strictEqual(defs.logo.source, 'manual');
+  const win = run(true, true);
+  assert.strictEqual(win.adjust(SV.defaultConfig()), false, 'Windows + NVENC: dokunulmaz');
+  assert.strictEqual(win.defs().export.encoder, SV.defaultConfig().export.encoder);
+  // Sıfırlamalar ve rozet aynı varsayılanı kullanır
+  assert.match(A, /function defaultAt\(path\) \{\s*return getPath\(effectiveDefaults\(\), path\);/);
+  assert.match(A, /function resetPath\(path\) \{\s*const dv = defaultAt\(path\);/);
+  assert.strictEqual((A.match(/const defaults = effectiveDefaults\(\);/g) || []).length, 2, 'bölüm ve kategori sıfırlama');
+  assert.ok(!/const defaults = window\.SV\.defaultConfig\(\);/.test(A));
+  assert.match(A, /if \(platformAdjust\(cfg\)\) push\(true\);/);
+});
+
+/* UX 9: "ARTIST NAME" yer tutucusu Türkçe arayüzde de çıkışa basılıyordu. */
+test('şablon yer tutucusu arayüz dilinde çizilir, kullanıcının metni çevrilmez', () => {
+  const tpls = T.TEMPLATES.filter((t) => JSON.stringify(t).includes('"placeholder":true'));
+  assert.ok(tpls.length >= 8, 'yer tutuculu şablonlar: ' + tpls.length);
+  assert.ok(!JSON.stringify(T.TEMPLATES).includes('ARTIST NAME'));
+  assert.ok(!JSON.stringify(T.TEMPLATES).includes('TRACK TITLE'));
+  global.window = global.window || {};
+  require('../src/visualizer/modes/text.js');
+  const TextMode = global.window.SVModes.text;
+  const drawn = [];
+  const ctx = new Proxy({}, {
+    get: (t, k) => (k in t ? t[k] : (k === 'measureText' ? (s) => ({ width: String(s).length * 10 }) : (k === 'fillText' || k === 'strokeText') ? (s) => drawn.push(String(s)) : () => {})),
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  const m = new TextMode({ width: 800, height: 600, getContext: () => ctx });
+  const savedI = global.window.SVI18n;
+  global.window.SVI18n = { t: (s) => ({ 'SANATÇI ADI': 'ARTIST NAME', Sahne: 'Scene' }[s] || s) };
+  const base = { enabled: true, source: 'now', nowSource: 'manual', field: 'artist', size: 0.05, x: 0.5, y: 0.5, animation: 'none', shadow: 0, outline: 0 };
+  const audio = { bass: 0, mid: 0, treble: 0, level: 0, beat: false, spectrum: new Float32Array(64) };
+  const draw = (text) => { drawn.length = 0; m.draw(audio, { text }, 1, 0.016); return drawn.join('|'); };
+  assert.match(draw(Object.assign({}, base, { content: 'SANATÇI ADI', placeholder: true })), /ARTIST NAME/);
+  assert.doesNotMatch(draw(Object.assign({}, base, { content: 'SANATÇI ADI' })), /ARTIST NAME/, 'bayraksız metin çevrilmez');
+  // Bayrak kalmış olsa da kullanıcının yazdığı sözlük kelimesi çevrilmez
+  const own = draw(Object.assign({}, base, { content: 'Sahne', placeholder: true }));
+  assert.match(own, /Sahne/);
+  assert.doesNotMatch(own, /Scene/);
+  assert.match(draw(Object.assign({}, base, { content: 'SANATÇI ADI', placeholder: true, nowPlaying: { artist: 'Sezen Aksu' } })), /Sezen Aksu/);
+  if (savedI) global.window.SVI18n = savedI; else delete global.window.SVI18n;
+  const L = require('../src/visualizer/layers.js');
+  const add = L.makeTextLayer({ name: 'Sanatçı Adı', source: 'now', field: 'artist', content: 'SANATÇI ADI', placeholder: true });
+  assert.strictEqual(add.settings.text.placeholder, true);
+  assert.strictEqual(add.settings.text.nowPlaying.artist, '', 'yer tutucu parça bilgisi sayılmaz');
+  const I = read('src/shared/i18n.js');
+  assert.ok(I.includes("'SANATÇI ADI': 'ARTIST NAME'") && I.includes("'PARÇA ADI': 'TRACK TITLE'"));
+  // Panelde metin düzenlenince ya da kaynak değişince bayrak kalkar
+  const TP = read('src/admin/text-panel.js');
+  assert.match(TP, /T\.content = e\.target\.value; delete T\.placeholder;/);
+  assert.match(TP, /if \(v !== 'now'\) settle\(\);/);
+});
+
+/* UX 10: Studio listesinde iki ayrı "Sıvı Metal". */
+test('yerleşik Studio presetlerinde aynı türde aynı ad yok', () => {
+  global.window = global.window || {};
+  require('../src/shared/presets.js');
+  require('../src/shared/presets-shaders.js');
+  const seen = {};
+  const dup = [];
+  for (const p of global.window.SVPresets.all().filter((x) => x.builtin)) {
+    const k = p.kind + '|' + p.name;
+    if (seen[k]) dup.push(k);
+    seen[k] = true;
+  }
+  assert.deepStrictEqual(dup, []);
+  assert.ok(read('src/shared/i18n.js').includes("'Metal Bantlar': 'Metal Bands'"));
+});
+
+/* UX 11: küçük resim yığında genel arkaplanı okuyordu. Tema kipinde
+   katman zaten genel paleti okuyor; fark düz renk ve kendi renk kipinde. */
+test('sahne küçük resmi yığında ekrandaki arkaplan katmanını gösterir', () => {
+  const A = read('src/admin/admin.js');
+  const body = fnBody(A, 'function sceneBackground(data)');
+  assert.match(body, /L\.firstLayerIndex\(data, 'background'\)/);
+  assert.match(body, /L\.layerConfig\(data, data\.layers\[i\]\)\.background/);
+  assert.match(A, /const bg = sceneBackground\(scene && scene\.data\);/);
+  const L = require('../src/visualizer/layers.js');
+  const data = SV.defaultConfig();
+  data.layerStack = { enabled: true };
+  data.background.type = 'gradient';
+  data.layers = [{ id: 'b', kind: 'background', type: 'solid', enabled: true, settings: { background: { colorMode: 'solid', solidColor: '#123456' } } }];
+  const i = L.firstLayerIndex(data, 'background');
+  const bg = L.layerConfig(data, data.layers[i]).background;
+  assert.strictEqual(bg.type, 'solid', 'genel arkaplan gradyan olsa da katman düz renk');
+  assert.strictEqual(bg.solidColor, '#123456');
+});
+
+/* UX 12: logo kitaplığı yalnız uzantıya bakıyordu. */
+test('resim kitaplığı dosyanın başına bakar; .png adlı metin eklenmez', () => {
+  const os = require('os');
+  const LL = require('../src/main/logo-library.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-logo-'));
+  const lib = path.join(dir, 'lib');
+  const fake = path.join(dir, 'sahte.png');
+  fs.writeFileSync(fake, 'bu bir metin dosyası');
+  assert.strictEqual(LL.importFile(lib, fake, 'sahte.png').error, 'TYPE');
+  const png = path.join(dir, 'gercek.png');
+  fs.writeFileSync(png, Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]));
+  assert.strictEqual(LL.importFile(lib, png, 'gercek.png').ok, true);
+  const jpgAsPng = path.join(dir, 'aslinda-jpeg.png');
+  fs.writeFileSync(jpgAsPng, Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40, 1)]));
+  assert.strictEqual(LL.importFile(lib, jpgAsPng, 'aslinda-jpeg.png').ok, true, 'adı yanlış ama gerçek resim');
+  for (const [head, ok] of [['GIF89a', true], ['RIFF\0\0\0\0WEBP', true], ['BM', true], ['<svg', false], ['', false]]) {
+    assert.strictEqual(LL.isImageHead(Buffer.from(head + '\0\0\0\0', 'latin1')), ok, head);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+/* UX 6: en küçük pencerede (1000 px) üst çubuk 1119 px istiyordu; Karart
+   kesiliyor, durum ve Ayarlar görünmüyordu. Canlı ölçüldü (TR/EN, 984–1366
+   px, "Karartmayı Kaldır" ve "2 ekranda açık" dahil). */
+test('dar pencerede üst çubuk sıkışır; en küçük yükseklik 560', () => {
+  const css = read('src/admin/admin.css');
+  const at = css.indexOf('@media (max-width: 1280px) {');
+  assert.ok(at > 0, '1280 eşiği');
+  const block = css.slice(at, css.indexOf('\n}', at));
+  assert.match(block, /\.display-field > span, \.ts-kbd, #statusText \{ display: none; \}/);
+  assert.match(block, /#closeBtn, #blackoutBtn \{ font-size: 0;/);
+  const html = read('src/admin/index.html');
+  assert.match(html, /<button id="closeBtn"[^>]*title="Görselleştirmeyi kapat"/);
+  assert.match(html, /<button id="blackoutBtn"[^>]*title="/);
+  assert.match(html, /<div class="status" id="statusBox">/);
+  assert.match(read('src/admin/admin.js'), /\$\('statusBox'\)\.title = tr\(\$\('statusText'\)\.textContent\);/);
+  assert.ok(read('src/shared/i18n.js').includes("'Görselleştirmeyi kapat': 'Close the visualizer'"));
+  const M = read('src/main/main.js');
+  const win = M.slice(M.indexOf('function createAdminWindow()'), M.indexOf('icon: fs.existsSync(iconPath)', M.indexOf('function createAdminWindow()')));
+  assert.match(win, /minWidth: 1000,\s*minHeight: 560,/);
 });
