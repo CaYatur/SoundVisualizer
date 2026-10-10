@@ -436,6 +436,11 @@
       out.transform = t.value;
     }
     const was = before || {};
+    if (out.postfx !== undefined) {
+      const fx = fxListCheck(out.postfx, was.postfx);
+      if (fx.error) return { error: 'postfx: ' + fx.error };
+      out.postfx = fx.value;
+    }
     if (out.kind !== was.kind || out.type !== was.type) {
       const wrong = badLayer(out.kind, out.type);
       if (wrong) return { error: wrong };
@@ -466,6 +471,88 @@
     cfg.layers = copy.layers;
     return { ok: true, value: getPath(copy, path) };
   }
+  /* Efekt listesi, efekt araçlarının kurallarıyla: her öğe nesne, türü
+     bilinen bir efekt, `params` nesne; kimliği olmayana kimlik verilir.
+     Eskiden `postfx` ve `layers.N.postfx` yoluyla `{type:"zzz"}` ve
+     kimliksiz efekt yazılabiliyordu (dış inceleme v4 N1). Yalnız değişen
+     öğeler denetlenir: eskiden kalan bir öğe başka bir yazımı durdurmaz. */
+  function fxListCheck(list, before) {
+    if (!Array.isArray(list)) return { error: 'effects must be a list.' };
+    const old = Array.isArray(before) ? before : [];
+    const out = [];
+    for (let i = 0; i < list.length; i++) {
+      const fx = list[i];
+      if (!fx || typeof fx !== 'object' || Array.isArray(fx)) return { error: 'effect ' + i + ' must be an object.' };
+      if (JSON.stringify(fx) === JSON.stringify(old[i])) { out.push(fx); continue; }
+      const bad = badEffect(fx.type);
+      if (bad) return { error: bad };
+      if (fx.params !== undefined && (!fx.params || typeof fx.params !== 'object' || Array.isArray(fx.params))) return { error: 'effect ' + i + ' params must be an object.' };
+      if (fx.enabled !== undefined && typeof fx.enabled !== 'boolean') return { error: 'effect ' + i + ' enabled must be true or false.' };
+      out.push(Object.assign({}, fx, { id: fx.id || uid('fx_'), params: fx.params || {} }));
+    }
+    return { value: out };
+  }
+  /* Ham yolla bölüm yazımı o bölümün aracının denetiminden geçer (dış
+     inceleme v4): eskiden `postfx` bilinmeyen efekti, `background.type` ve
+     `visualizer.type` olmayan modu, `background.gradient.colors` "red"i,
+     `modulation.routes` olmayan kaynağı, `autovj.interval` -3'ü
+     sv_patch_config ile olduğu gibi yazıyordu. Yazım bölümün bir kopyasında
+     yapılır; denetimden geçerse yerine konur. */
+  function sectionCheck(cfg, top, next) {
+    const was = cfg[top];
+    if (top === 'postfx') {
+      const r = fxListCheck(next, was);
+      return r.error ? { error: 'postfx: ' + r.error } : r;
+    }
+    if (!next || typeof next !== 'object' || Array.isArray(next)) return { value: next };
+    const prev = was && typeof was === 'object' ? was : {};
+    if (top === 'visualizer' || top === 'background') {
+      if (next.type !== prev.type) {
+        const bad = badMode(top, next.type);
+        if (bad) return { error: bad };
+      }
+      if (top === 'background' && next.gradient && Array.isArray(next.gradient.colors)
+        && JSON.stringify(next.gradient.colors) !== JSON.stringify(prev.gradient && prev.gradient.colors)) {
+        const cols = next.gradient.colors;
+        if (cols.length < 2) return { error: 'background.gradient.colors must hold at least 2 hex colors (#rrggbb).' };
+        const clean = [];
+        for (let i = 0; i < cols.length; i++) {
+          const c = hexColor(cols[i]);
+          if (!c) return { error: 'background.gradient.colors[' + i + '] is not a hex color (#rrggbb): ' + JSON.stringify(cols[i]) };
+          clean.push(c);
+        }
+        next.gradient = Object.assign({}, next.gradient, { colors: clean });
+      }
+      return { value: next };
+    }
+    if (top === 'modulation' && next.routes !== undefined) {
+      if (!Array.isArray(next.routes)) return { error: 'modulation.routes must be a list.' };
+      const old = Array.isArray(prev.routes) ? prev.routes : [];
+      const routes = [];
+      for (let i = 0; i < next.routes.length; i++) {
+        const r = next.routes[i];
+        if (!r || typeof r !== 'object' || Array.isArray(r)) return { error: 'modulation.routes[' + i + '] must be an object.' };
+        if (JSON.stringify(r) === JSON.stringify(old[i])) { routes.push(r); continue; }
+        if (!r.source || !r.target) return { error: 'modulation.routes[' + i + '] needs source and target.' };
+        const bad = routeError(cfg, r);
+        if (bad) return { error: 'modulation.routes[' + i + ']: ' + bad };
+        routes.push(r.id ? r : Object.assign({}, r, { id: uid('mod_') }));
+      }
+      next.routes = routes;
+      return { value: next };
+    }
+    if (top === 'autovj') {
+      const bad = autovjError(next);
+      if (bad) return { error: bad };
+      Object.keys(AUTOVJ_RANGES).forEach(function (k) {
+        const r = AUTOVJ_RANGES[k];
+        if (next[k] !== undefined && next[k] !== prev[k]) next[k] = Math.round(Math.max(r[0], Math.min(r[1], next[k])));
+      });
+      return { value: next };
+    }
+    return { value: next };
+  }
+  const CHECKED_SECTIONS = ['postfx', 'visualizer', 'background', 'modulation', 'autovj'];
   function summarize(v, depth) {
     if (depth == null) depth = 0;
     if (typeof v === 'string') {
@@ -588,6 +675,8 @@
     const ids = modeIds(kind);
     if (!ids) return '';
     if (ids.indexOf(String(type)) >= 0) return '';
+    // Saydam yayın şablonlarının arkaplanı; katalogda değil, çizici tanır
+    if (kind === 'background' && type === 'transparent') return '';
     return 'Unknown ' + kind + ' type "' + type + '". sv_list_modes lists the valid ids.';
   }
   function layerKinds() {
@@ -1899,6 +1988,16 @@
         const r = patchLayers(cfg, args.path, args.value);
         if (r.ok === false) return r;
         return { path: args.path, group: GROUP_LABEL[group] || group, value: r.value };
+      }
+      if (CHECKED_SECTIONS.indexOf(top) >= 0) {
+        const scratch = {};
+        scratch[top] = clone(cfg[top]);
+        const w = setPath(scratch, args.path, args.value);
+        if (w.ok === false) return w;
+        const r = sectionCheck(cfg, top, scratch[top]);
+        if (r.error) return fail(r.error);
+        cfg[top] = r.value;
+        return { path: args.path, group: GROUP_LABEL[group] || group, value: getPath(cfg, args.path) };
       }
       const wrote = setPath(cfg, args.path, args.value);
       if (wrote.ok === false) return wrote;

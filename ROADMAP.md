@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2889 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2893 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1090
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1094
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1473,6 +1473,7 @@ Stabilisation (#695):
     - **Measured live:** `enabled:"yes"` on a locked layer and `display.id = {a:1}` were refused; `opacity 7` and `scale -5` were saved as 1 and 0.2; `display.id.a = 1` was refused and `display.id` stayed null; `{patch:{...}}` was refused and an unknown `x` came back as `ignored`; the top and bottom arrows were disabled with "Already at the top/bottom"; `1e3`, `80` and `1.5` in the OSC port field were refused with the message and `2e4` gave 20000; with the save dialog open after a recording stopped, Snapshot and Start stayed disabled. The item-list and timeline arrows and single-file `.milk` import are covered by tests, not run by hand.
     - **Not changed.** Template names (Y14) are still the owner's decision. A media path to a non-video file and a layer whose Studio preset was deleted behave as before; the second already says so in the panel.
     - Tests: `tests/external-review-v3.test.js` (11; 10 fail on the previous code, one checks that every template layer passes the new layer check unchanged).
+  - **Outside review, fourth round** (run on 853becc). It confirmed every third-round fix live and found one more raw-path gap: `layers.N.postfx` accepted an unknown effect type and effects without ids. Probing the same path one level up in an isolated copy showed the whole class: `postfx`, `visualizer.type`, `background.type`, `background.gradient.colors`, `modulation.routes` and `autovj` all took values their own tools refuse. A write to one of those sections is now made on a copy and checked with that tool's rules: known effect types with an object `params` (ids are given), existing mode ids, hex colours (at least two), modulation routes with a known source and an existing numeric target, Auto VJ options with the interval and BPM lock pulled into range. Only changed list items are checked, so an old stale route does not block editing another one. The transparent stream background, which the app writes but the mode catalogue does not list, is accepted (`sv_set_background_type` refused it before). The OSC port floor is 1 on Windows and 1024 elsewhere; the stream port stays at 1024 because its server enforces that. Closing the floating window from the window itself turned the panel's PiP switch off, measured live, so nothing changed there. Tests: `tests/external-review-v4.test.js` (4; 3 fail on the previous code, one runs every template's sections and layer effects through the new checks and expects them unchanged).
   - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 
