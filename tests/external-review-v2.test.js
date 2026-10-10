@@ -239,7 +239,7 @@ test('renk şablonu içe aktarma geçersiz renkli şablonu atlar', () => {
   assert.strictEqual(c.hex('#ABC'), '#aabbcc');
   assert.strictEqual(c.hex('#112233'), '#112233');
   for (const bad of ['#zzzzzz', 'red', 123, null, '#12345']) assert.strictEqual(c.hex(bad), null, String(bad));
-  assert.strictEqual(loadEnglish().t('Geçersiz renk içeren şablon atlandı: 2'), 'Presets with invalid colours skipped: 2');
+  assert.strictEqual(loadEnglish().t('Geçersiz renk içeren şablon atlandı: 2'), 'Presets with invalid colors skipped: 2');
 });
 
 /* Y6: "Logo Seç" ve diğer resim seçiciler resim olmayan dosyayı kabul ediyordu. */

@@ -35,12 +35,12 @@ const ctx = { scenes, builtinPalettes, userPalettes };
 test('varsayılanlar ve normalize', () => {
   const d = A.defaults();
   assert.strictEqual(d.enabled, false);
-  assert.deepStrictEqual(d.picks, { scenes: [], visualizers: [], palettes: [] });
+  assert.deepStrictEqual(d.picks, { scenes: [], visualizers: [], palettes: [], backgrounds: [] });
 
   /* Eski ayar dosyalarında picks ve yeni alanlar yok; eksik alan yüzünden
      çökmek yerine varsayılana düşmeli. */
   const n = A.normalize({ enabled: true, source: 'visualizers', interval: 8 });
-  assert.deepStrictEqual(n.picks, { scenes: [], visualizers: [], palettes: [] });
+  assert.deepStrictEqual(n.picks, { scenes: [], visualizers: [], palettes: [], backgrounds: [] });
   assert.strictEqual(n.paletteSource, 'both');
   assert.strictEqual(n.visualizerTargets, 'all');
 
@@ -274,13 +274,14 @@ test('diagnose çalışabilir durumu da bildiriyor', () => {
 
   const all = A.diagnose({ source: 'all' }, ctx);
   assert.ok(all.ok);
-  assert.deepStrictEqual(all.kinds.sort(), ['palettes', 'scenes', 'visualizers']);
+  assert.deepStrictEqual(all.kinds.sort(), ['backgrounds', 'palettes', 'scenes', 'visualizers']);
 
   /* Hepsi kipi her zaman çalışır; verdiği bilgi HANGİ türlerin sıraya
      girdiği ve hangilerinin atlandığı. */
   const bare = A.diagnose({ source: 'all' }, {});
   assert.ok(bare.ok);
-  assert.deepStrictEqual(bare.kinds, ['visualizers']);
+  // Backgrounds come from the static mode catalog, so they are always usable
+  assert.deepStrictEqual(bare.kinds, ['visualizers', 'backgrounds']);
   assert.deepStrictEqual(bare.skipped.sort(), ['palettes', 'scenes']);
 });
 
@@ -311,13 +312,13 @@ test('imleçler kaynak başına AYRI ilerliyor', () => {
 test('Hepsi kipi türler arasında gerçekten dönüyor', () => {
   let st = null;
   const kinds = [];
-  for (let k = 0; k < 6; k++) {
+  for (let k = 0; k < 8; k++) {
     const r = A.plan({ source: 'all' }, ctx, st);
     assert.ok(r.ok);
     st = r.state;
     kinds.push(r.kind);
   }
-  assert.strictEqual(new Set(kinds).size, 3, 'Hepsi kipi tüm türleri dolaşmadı: ' + kinds.join(','));
+  assert.strictEqual(new Set(kinds).size, 4, 'Hepsi kipi tüm türleri dolaşmadı: ' + kinds.join(','));
 });
 
 // ------------------------------------------------- kaynakla eşleşme koruması

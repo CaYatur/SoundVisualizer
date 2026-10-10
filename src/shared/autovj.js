@@ -30,12 +30,21 @@
  * öğe seçimi imleci ilerlettiği için tür dönüşümü düzensiz atlıyordu.
  */
 (function () {
-  const SOURCES = ['scenes', 'visualizers', 'palettes', 'all'];
-  const KINDS = ['scenes', 'visualizers', 'palettes']; // 'all' bunları dolaşır
+  const SOURCES = ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'];
+  const KINDS = ['scenes', 'visualizers', 'palettes', 'backgrounds']; // 'all' bunları dolaşır
   const PALETTE_SOURCES = ['both', 'builtin', 'user'];
   const VIS_TARGETS = ['first', 'all'];
   const ORDERS = ['sequential', 'random'];
   const UNITS = ['bars', 'seconds'];
+  /* 'custom' source: the user chooses which kinds take part.
+     sequential   one kind per step, rotating like 'all'
+     simultaneous every step changes all selected kinds at once */
+  const CUSTOM_MODES = ['sequential', 'simultaneous'];
+  const CUSTOM_DEFAULT = ['visualizers', 'backgrounds'];
+  function customKindsOf(v) {
+    const out = KINDS.filter((k) => arr(v).indexOf(k) >= 0); // KINDS order, unique
+    return out.length ? out : CUSTOM_DEFAULT.slice();
+  }
 
   /* Dolaşılabilecek görselleştiriciler — panelin tür seçicisinin tamamı,
      üç bilinçli dışlamayla:
@@ -53,6 +62,13 @@
      `cycle: false` bayrağı. */
   const MC = (typeof window !== 'undefined' && window.SVModeCatalog) || require('./mode-catalog.js');
   const VISUALIZERS = MC.cycleIds('visualizer');
+  /* Background modes that may be cycled. Same catalog flag as the
+     visualizers: 'custom' (needs a Studio preset) is excluded here and
+     user Studio background presets join the pool as 'preset:<id>'. */
+  const BACKGROUNDS = MC.cycleIds('background');
+  const PRESET_PREFIX = 'preset:';
+  const isBackgroundPick = (v) => typeof v === 'string'
+    && (BACKGROUNDS.indexOf(v) >= 0 || (v.indexOf(PRESET_PREFIX) === 0 && v.length > PRESET_PREFIX.length));
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const num = (v, def) => (Number.isFinite(Number(v)) ? Number(v) : def);
@@ -68,9 +84,11 @@
       order: 'sequential',
       bpmLock: 0,
       beatsPerBar: 4,
-      picks: { scenes: [], visualizers: [], palettes: [] },
+      picks: { scenes: [], visualizers: [], palettes: [], backgrounds: [] },
       paletteSource: 'both',
       visualizerTargets: 'all',
+      customKinds: CUSTOM_DEFAULT.slice(),
+      customMode: 'sequential',
     };
   }
 
@@ -93,9 +111,12 @@
         scenes: arr(p.scenes).map(String),
         visualizers: arr(p.visualizers).filter((v) => VISUALIZERS.indexOf(v) >= 0),
         palettes: arr(p.palettes).map(String),
+        backgrounds: arr(p.backgrounds).filter(isBackgroundPick),
       },
       paletteSource: pick(PALETTE_SOURCES, s.paletteSource, d.paletteSource),
       visualizerTargets: pick(VIS_TARGETS, s.visualizerTargets, d.visualizerTargets),
+      customKinds: customKindsOf(s.customKinds),
+      customMode: pick(CUSTOM_MODES, s.customMode, d.customMode),
     };
   }
 
@@ -119,6 +140,30 @@
       && !isTextLayer(l) && l.enabled !== false && !l.locked);
   }
 
+  /* Transparent (stream overlay) background layer. The renderer draws the
+     layer's mode before it looks at the transparency flag (layers.js
+     _drawEntryRaw), so switching its type would make the overlay opaque. */
+  function isTransparentBackground(l) {
+    if (!l || l.kind !== 'background') return false;
+    const bg = l.settings && l.settings.background;
+    return l.type === 'transparent' || !!(bg && bg.transparent);
+  }
+
+  /* Changeable background layers: enabled, not locked (same rule as
+     visualizerLayers; a locked background stays put) and not transparent. */
+  function backgroundLayers(layers) {
+    return arr(layers).filter((l) => l && l.kind === 'background' && l.enabled !== false
+      && !l.locked && !isTransparentBackground(l));
+  }
+
+  /* Studio presets usable as backgrounds: user-made shader presets of
+     kind 'background'. Built-in shader presets are left out on purpose;
+     the rotation offers the user's own work next to the stock modes. */
+  function studioBackgrounds(list) {
+    return arr(list).filter((p) => p && p.id != null && !p.builtin
+      && p.engine === 'shader' && p.kind === 'background');
+  }
+
   // -------------------------------------------------------------- adaylar
 
   /* Bir kaynağın seçilebilir öğeleri. ctx dış dünyadan gelir:
@@ -137,6 +182,13 @@
     }
     if (kind === 'visualizers') {
       return VISUALIZERS.map((v) => ({ id: v, label: v }));
+    }
+    if (kind === 'backgrounds') {
+      const out = BACKGROUNDS.map((v) => ({ id: v, label: MC.label('background', v) }));
+      studioBackgrounds(c.studioPresets).forEach((p) => {
+        out.push({ id: PRESET_PREFIX + p.id, label: p.name || String(p.id), presetId: String(p.id) });
+      });
+      return out;
     }
     if (kind === 'palettes') {
       const mode = pick(PALETTE_SOURCES, c.paletteSource, 'both');
@@ -226,9 +278,11 @@
      en az bir tür döner. Bu bir varsayım değil, listeden gelen bir güvence;
      yine de görselleştiricilere düşülüyor ki sınanamayan bir hata dalı
      yaratılmasın. */
-  function nextKind(a, ctx, kindCursor) {
-    const usable = KINDS.filter((k) => selected(k, a, ctx).length > 0);
-    const pool = usable.length ? usable : ['visualizers'];
+  function nextKind(a, ctx, kindCursor, kinds) {
+    const from = kinds || KINDS;
+    const usable = from.filter((k) => selected(k, a, ctx).length > 0);
+    const pool = usable.length ? usable : (kinds ? [] : ['visualizers']);
+    if (!pool.length) return null;
     const c = Number.isFinite(kindCursor) ? kindCursor : -1;
     return pool[(c + 1) % pool.length];
   }
@@ -245,19 +299,25 @@
   function plan(a, ctx, state, count) {
     const cfg = normalize(a);
     const st = state && typeof state === 'object' ? state : {};
-    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, all: -1 }, st.cursors);
+    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, backgrounds: -1, all: -1, custom: -1 }, st.cursors);
     const last = Object.assign({}, st.last);
 
     let kind = cfg.source;
     if (kind === 'all') {
       kind = nextKind(cfg, ctx, cursors.all);
       cursors.all = (Number.isFinite(cursors.all) ? cursors.all : -1) + 1;
+    } else if (kind === 'custom') {
+      if (cfg.customMode === 'simultaneous') return planAll(cfg, ctx, cursors, last, count);
+      kind = nextKind(cfg, ctx, cursors.custom, cfg.customKinds);
+      if (!kind) return { ok: false, code: 'EMPTY', kind: 'custom' };
+      cursors.custom = (Number.isFinite(cursors.custom) ? cursors.custom : -1) + 1;
     }
 
     const list = selected(kind, cfg, ctx);
     if (!list.length) return { ok: false, code: 'EMPTY', kind };
 
     const want = kind === 'visualizers' ? Math.max(1, Math.round(count) || 1) : 1;
+    // Backgrounds: one look per switch; several layers would just stack copies
     const draw = drawMany(list.length, cfg.order, cursors[kind], last[kind], want);
     if (!draw.indices.length) return { ok: false, code: 'EMPTY', kind };
     cursors[kind] = draw.cursor;
@@ -269,6 +329,26 @@
       index: draw.indices[0], item: items[0], items,
       state: { cursors, last },
     };
+  }
+
+  /* custom + simultaneous: one draw per selected, non-empty kind, in KINDS
+     order (scenes first, so a scene load does not wipe the other changes).
+     Returns { ok, kind:'custom', steps:[{kind,item,items}], state }. */
+  function planAll(cfg, ctx, cursors, last, count) {
+    const steps = [];
+    for (const k of cfg.customKinds) {
+      const list = selected(k, cfg, ctx);
+      if (!list.length) continue;
+      const want = k === 'visualizers' ? Math.max(1, Math.round(count) || 1) : 1;
+      const draw = drawMany(list.length, cfg.order, cursors[k], last[k], want);
+      if (!draw.indices.length) continue;
+      cursors[k] = draw.cursor;
+      last[k] = draw.previous;
+      const items = draw.indices.map((i) => list[i]);
+      steps.push({ kind: k, item: items[0], items });
+    }
+    if (!steps.length) return { ok: false, code: 'EMPTY', kind: 'custom' };
+    return { ok: true, kind: 'custom', steps, item: steps[0].item, items: steps[0].items, state: { cursors, last } };
   }
 
   /* Kullanıcının seçtiği kaynak hiç çalışabilir mi? Arayüz bunu ÖNCEDEN
@@ -286,6 +366,12 @@
       const pool = usable.length ? usable : ['visualizers'];
       return { ok: true, kinds: pool, skipped: KINDS.filter((k) => pool.indexOf(k) < 0) };
     }
+    if (cfg.source === 'custom') {
+      const pool = cfg.customKinds.filter((k) => selected(k, cfg, ctx).length > 0);
+      return pool.length
+        ? { ok: true, kinds: pool, skipped: cfg.customKinds.filter((k) => pool.indexOf(k) < 0), mode: cfg.customMode }
+        : { ok: false, code: 'EMPTY', kinds: cfg.customKinds.slice() };
+    }
     const list = selected(cfg.source, cfg, ctx);
     return list.length
       ? { ok: true, kinds: [cfg.source], count: list.length }
@@ -293,10 +379,10 @@
   }
 
   const api = {
-    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS,
-    defaults, normalize,
-    isTextLayer, visualizerLayers,
-    catalog, selected, nextIndex, drawMany, nextKind, plan, diagnose,
+    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS, BACKGROUNDS, PRESET_PREFIX, CUSTOM_MODES, CUSTOM_DEFAULT,
+    defaults, normalize, isBackgroundPick, customKindsOf,
+    isTextLayer, visualizerLayers, backgroundLayers, isTransparentBackground, studioBackgrounds,
+    catalog, selected, nextIndex, drawMany, nextKind, plan, planAll, diagnose,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

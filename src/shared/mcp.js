@@ -920,13 +920,19 @@
     sv_set_autovj: {
       props: {
         enabled: sp('boolean', 'Turn Auto VJ on or off.'),
-        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'all'] }),
+        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'] }),
+        customKinds: sp('array', 'For source custom: which kinds take part (at least one).', { items: { type: 'string', enum: ['scenes', 'visualizers', 'palettes', 'backgrounds'] }, minItems: 1 }),
+        customMode: sp('string', 'For source custom: sequential (one kind per step) or simultaneous (all selected kinds every step).', { enum: ['sequential', 'simultaneous'] }),
         interval: sp('number', 'Steps between switches (bars or seconds).', { minimum: 1, maximum: 64 }),
         unit: sp('string', 'Interval unit.', { enum: ['bars', 'seconds'] }),
         order: sp('string', 'Switch order.', { enum: ['sequential', 'random'] }),
         bpmLock: sp('number', 'Fixed BPM; 0 follows the detected tempo.', { minimum: 0, maximum: 200 }),
         paletteSource: sp('string', 'Which palettes to use.', { enum: ['both', 'builtin', 'user'] }),
         visualizerTargets: sp('string', 'Which visualizer layers change.', { enum: ['all', 'first'] }),
+        picks: sp('object', 'Selection lists; empty means all. backgrounds: background mode ids (sv_list_modes) or "preset:<id>" for your Studio background presets.', {
+          properties: { backgrounds: sp('array', 'Background ids to cycle.', { items: { type: 'string' } }) },
+          additionalProperties: false,
+        }),
       },
     },
     sv_create_scene: { props: { name: sp('string', 'Scene name. Default "Scene N".') } },
@@ -1365,7 +1371,8 @@
      kilidi panelin kaydırıcı aralığına çekilir. Eskiden `interval:-3`
      olduğu gibi yazılıyordu. */
   const AUTOVJ_ENUMS = {
-    source: ['scenes', 'visualizers', 'palettes', 'all'],
+    source: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'],
+    customMode: ['sequential', 'simultaneous'],
     unit: ['bars', 'seconds'],
     order: ['sequential', 'random'],
     paletteSource: ['both', 'builtin', 'user'],
@@ -1380,20 +1387,69 @@
     for (const k of Object.keys(AUTOVJ_RANGES)) {
       if (args[k] !== undefined && !finite(args[k])) return k + ' must be a number.';
     }
+    if (args.customKinds !== undefined) {
+      const ok = ['scenes', 'visualizers', 'palettes', 'backgrounds'];
+      if (!Array.isArray(args.customKinds) || !args.customKinds.length) return 'customKinds must be a non-empty array of: ' + ok.join(', ') + '.';
+      for (const k of args.customKinds) if (ok.indexOf(k) < 0) return 'customKinds must only contain: ' + ok.join(', ') + '.';
+    }
+    if (args.picks !== undefined && args.picks !== null) {
+      if (typeof args.picks !== 'object' || Array.isArray(args.picks)) return 'picks must be an object.';
+      const bg = args.picks.backgrounds;
+      if (bg !== undefined) {
+        if (!Array.isArray(bg)) return 'picks.backgrounds must be an array of ids.';
+        const R = autovjRules();
+        for (const id of bg) {
+          if (R && !R.isBackgroundPick(id)) return 'Unknown background id "' + id + '" in picks.backgrounds. sv_list_modes lists the background ids; Studio presets are "preset:<id>".';
+        }
+      }
+    }
+    return '';
+  }
+  function autovjRules() {
+    if (typeof window !== 'undefined' && window.SVAutoVJRules) return window.SVAutoVJRules;
+    try { return require('./autovj.js'); } catch (e) { return null; }
+  }
+  /* sv_set_autovj only: a "preset:<id>" pick must name an existing user
+     Studio background preset. */
+  function autovjPresetError(picks, ctx) {
+    const saved = ((configOf(ctx).autovj || {}).picks || {}).backgrounds;
+    if (picks && typeof picks === 'object') {
+      const extra = Object.keys(picks).filter(function (k) { return k !== 'backgrounds'; });
+      if (extra.length) return 'picks only accepts backgrounds here (got ' + extra.join(', ') + ').';
+    }
+    const bg = picks && Array.isArray(picks.backgrounds) ? picks.backgrounds : [];
+    const R = autovjRules();
+    const known = R ? R.studioBackgrounds(presetRecords(ctx)).map(function (p) { return R.PRESET_PREFIX + p.id; }) : [];
+    for (const id of bg) {
+      // A preset that was already saved and later deleted is dropped on write, not an error
+      if (Array.isArray(saved) && saved.indexOf(id) >= 0) continue;
+      if (String(id).indexOf('preset:') === 0 && known.indexOf(id) < 0) return 'Unknown Studio background preset "' + id + '" in picks.backgrounds.';
+    }
     return '';
   }
   tool('sv_set_autovj', 'autovj', 'Turn Auto VJ on or off and choose how it walks existing scenes, modes, or palettes.', function (args, ctx) {
-    const bad = autovjError(args || {});
+    const bad = autovjError(args || {}) || autovjPresetError(args && args.picks, ctx);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) {
       const next = Object.assign({ enabled: false, source: 'visualizers', unit: 'bars', interval: 8, order: 'sequential', bpmLock: 0 }, cfg.autovj);
-      ['enabled', 'source', 'interval', 'unit', 'order', 'bpmLock', 'paletteSource', 'visualizerTargets'].forEach(function (k) {
+      ['enabled', 'source', 'interval', 'unit', 'order', 'bpmLock', 'paletteSource', 'visualizerTargets', 'customMode'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
       });
       Object.keys(AUTOVJ_RANGES).forEach(function (k) {
         const r = AUTOVJ_RANGES[k];
         if (args && args[k] !== undefined) next[k] = Math.round(Math.max(r[0], Math.min(r[1], args[k])));
       });
+      if (args && Array.isArray(args.customKinds)) {
+        // Store unique kinds in canonical order
+        next.customKinds = ['scenes', 'visualizers', 'palettes', 'backgrounds'].filter(function (k) { return args.customKinds.indexOf(k) >= 0; });
+      }
+      if (args && args.picks && Array.isArray(args.picks.backgrounds)) {
+        const R = autovjRules();
+        const known = R ? R.studioBackgrounds(presetRecords(ctx)).map(function (p) { return R.PRESET_PREFIX + p.id; }) : null;
+        // Stale Studio presets (deleted since they were picked) are pruned
+        const keep = args.picks.backgrounds.filter(function (id) { return !known || String(id).indexOf('preset:') !== 0 || known.indexOf(id) >= 0; });
+        next.picks = Object.assign({ scenes: [], visualizers: [], palettes: [] }, next.picks, { backgrounds: keep });
+      }
       cfg.autovj = next;
       return { autovj: next };
     });

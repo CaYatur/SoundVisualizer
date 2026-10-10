@@ -135,7 +135,7 @@
     'Galaxy Backdrop': 'Galaxy Backdrop',
     'Arkada dönen yıldız diski; sol altta kapak ve parça bilgisi.': 'A turning star disc behind, the cover and track details bottom-left.',
     'Soft Glow': 'Soft Glow',
-    'Arkada sese göre nefes alan yumuşak renk alanı; ortada kapak.': 'A soft colour field breathing with the sound behind, the cover in the centre.',
+    'Arkada sese göre nefes alan yumuşak renk alanı; ortada kapak.': 'A soft color field breathing with the sound behind, the cover in the centre.',
     'Kapak': 'Cover',
     'Zemin': 'Ground', 'Parça Adı': 'Track Title',
     // Bar yerleşimi
@@ -413,7 +413,7 @@
     'Sütunu Durdur': 'Stop Column',
     'Bu sütunda çalan yuvayı durdur': 'Stop the slot playing in this column',
     'Yuvayı sil': 'Delete the slot',
-    'Rengi türden al': 'Take the colour from the type',
+    'Rengi türden al': 'Take the color from the type',
     'Takip eylemi süre dolunca çalışır; bu yuvanın süresi yok. Bir süre girin.': 'Follow actions run when the duration ends, and this slot has none. Enter a duration.',
     'Hedef Yuva': 'Target Slot',
     // Klip destesi CD-2: ateşleme kipleri, klavye, birden çok deste (#637)
@@ -580,14 +580,14 @@
     'Performans Görünümü': 'Performance View',
     'Karart': 'Blackout',
     'Satır seçmek için 1-9, yuva ateşlemek için A-P, satırı başlatmak için Enter, çıkmak için Esc.': '1-9 selects a row, A-P fires a slot, Enter launches the row, Esc leaves.',
-    'Renk Şablonu': 'Colour Preset',
+    'Renk Şablonu': 'Color Preset',
     '— seçin —': '— select —',
     'dosya yolu ya da kimlik': 'file path or id',
     'Henüz kayıtlı sahne yok. Sahne bölümünden bir sahne kaydedin.': 'No scenes saved yet. Save one from the Scene section.',
-    'Henüz renk şablonu yok.': 'No colour presets yet.',
+    'Henüz renk şablonu yok.': 'No color presets yet.',
     'Bu tür için seçilebilir bir kaynak yok.': 'There is nothing to pick for this type.',
-    'Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi birbirlerinin elinden alır; birini kapatmanız ya da Otomatik VJ kaynağını Renk Şablonları yapmanız daha öngörülebilir olur.': 'Auto VJ changes scenes too. With both running they take the scene from each other; turning one off, or setting Auto VJ\'s source to Colour Presets, is more predictable.',
-    'Bu yuvanın kaynağı seçilmemiş. Aşağıdaki Kaynak listesinden bir sahne, şablon ya da renk şablonu seçin.': 'This slot has no source. Pick a scene, template or colour preset from the Source list below.',
+    'Otomatik VJ de sahne değiştiriyor. İkisi aynı anda açıkken sahneyi birbirlerinin elinden alır; birini kapatmanız ya da Otomatik VJ kaynağını Renk Şablonları yapmanız daha öngörülebilir olur.': 'Auto VJ changes scenes too. With both running they take the scene from each other; turning one off, or setting Auto VJ\'s source to Color Presets, is more predictable.',
+    'Bu yuvanın kaynağı seçilmemiş. Aşağıdaki Kaynak listesinden bir sahne, şablon ya da renk şablonu seçin.': 'This slot has no source. Pick a scene, template or color preset from the Source list below.',
     'Kaynağı seçilmemiş — tıklayıp seçin': 'No source — click to pick one',
     'Oynatma Kafasını Takip Et': 'Follow the Playhead',
     'Başı Kafaya Al': 'Set Start to Playhead',
@@ -607,7 +607,7 @@
     'Tam pencere aç / kapat': 'Open / close full window',
     'Tam pencere (F). Esc ile kapanır': 'Full window (F). Esc closes it',
     'klip seçili': 'clips selected',
-    'Renk (hepsi)': 'Colour (all)',
+    'Renk (hepsi)': 'Color (all)',
     'Geçiş (sn, hepsi)': 'Transition (s, all)',
     'Grubu hemen ardına çoğalt (Ctrl+D)': 'Duplicate the group right after itself (Ctrl+D)',
     'Grubu panoya al (Ctrl+C); Ctrl+V kafaya yapıştırır': 'Copy the group (Ctrl+C); Ctrl+V pastes it at the playhead',
@@ -636,7 +636,7 @@
     'Kafada işaret': 'Marker at the playhead',
     'Döngü aç / kapat': 'Loop on / off',
     'Zaman çizelgesi düzenleyicisi': 'Timeline editor',
-    'Sahne, şablon ya da renk klipleri için bir parça': 'A track for scene, template or colour clips',
+    'Sahne, şablon ya da renk klipleri için bir parça': 'A track for scene, template or color clips',
     'Bir ayarı zamana yayan eğri': 'A curve that moves a setting over time',
     'Kafada Klip': 'Clip at Playhead',
     'Oynatma kafasının bulunduğu yere, seçili (ya da ilk) klip parçasına': 'At the playhead, on the selected (or first) clip track',
@@ -653,14 +653,14 @@
     'Yakınlaştır (+)': 'Zoom in (+)',
     'Hepsini sığdır (0)': 'Fit all (0)',
     'Parçalar': 'Tracks',
-    'Parça rengi': 'Track colour',
+    'Parça rengi': 'Track color',
     'Klip parçası': 'Clip track',
     'Otomasyon parçası': 'Automation track',
     'Solo: yalnız solo parçalar çalar': 'Solo: only soloed tracks play',
     'Kilitle: taşınamaz, silinemez': 'Lock: cannot be moved or deleted',
     'Bir klip, anahtar kare ya da parça seçin. Kısayollar için düzenleyiciye tıklayın.': 'Select a clip, keyframe or track. Click the editor to use the shortcuts.',
     'Geçiş (sn)': 'Fade (s)',
-    'Rengi parçadan / türden al': 'Take the colour from the track / type',
+    'Rengi parçadan / türden al': 'Take the color from the track / type',
     'Tempo değişimi': 'Tempo change',
     'Oynatma kafasına tempo değişimi': 'Tempo change at the playhead',
     'Bu andan sonraki ölçüler bu tempoyla sayılır. Etiketi cetvelde sürükleyerek de taşıyabilirsiniz.': 'Bars from here on are counted at this tempo. You can also drag the tag on the ruler.',
@@ -704,13 +704,13 @@
     'OpenRGB çalışmıyor gibi. 1) OpenRGB uygulamasını kurun ve çalıştırın. 2) İçinde Settings > General > Enable SDK Server seçeneğini işaretleyin. 3) Sunucu portu burada yazandan farklıysa aşağıdan düzeltin.': 'OpenRGB does not appear to be running. 1) Install and start the OpenRGB application. 2) Inside it, tick Settings > General > Enable SDK Server. 3) If its port differs from the one below, correct it here.',
     'OpenRGB indirme sayfası': 'OpenRGB download page',
     'Sunucu Adresi': 'Server Address',
-    'Aşağıdaki görünüm ayarları Windows Dynamic Lighting ile ortaktır: iki çıkış da aynı rengi üretir.': 'The look settings below are shared with Windows Dynamic Lighting: both outputs produce the same colour.',
+    'Aşağıdaki görünüm ayarları Windows Dynamic Lighting ile ortaktır: iki çıkış da aynı rengi üretir.': 'The look settings below are shared with Windows Dynamic Lighting: both outputs produce the same color.',
     'Işık Modu': 'Lighting Mode',
     'Aygıtlar': 'Devices',
     'Aygıtları Yenile': 'Refresh Devices',
     'Aygıt bulunamadı. OpenRGB içinde aygıtlarınız görünüyor mu?': 'No devices found. Do your devices appear inside OpenRGB itself?',
     'LED': 'LEDs',
-    'anlık renk kabul etmiyor': 'does not accept direct colour',
+    'anlık renk kabul etmiyor': 'does not accept direct color',
     'Ayrı çalışan OpenRGB sunucusuna bağlanır ve RGB aygıtlarını müzikle sürer. Windows, macOS ve Linux.': 'Connects to a separately running OpenRGB server and drives RGB devices with the music. Windows, macOS and Linux.',
     'Alıcı uygulamada yukarıdaki kaynak adını seçin. Görüntü, ana ekranınızın yapılandırmasıyla üretilir; ekranlarda pencere açık olmasa bile yayın sürer.': 'Pick the source name above inside the receiving application. The picture is produced from the configuration of your primary display, and sending continues even with no window open on any screen.',
     'Açıldığında görüntü, aynı bilgisayardaki alıcı uygulamalara GPU üzerinden verilir: Resolume, OBS, TouchDesigner veya başka bir alıcı. Pencere yakalamaya, eklenti kurmaya ve CPU kopyasına gerek yok.': 'Once on, the picture is handed to receiving applications on this computer over the GPU: Resolume, OBS, TouchDesigner or any other receiver. No window capture, no plugin install and no CPU copy.',
@@ -1130,6 +1130,9 @@
     'Otomatik VJ': 'Auto VJ',
     'Neyi Değiştirsin': 'What To Switch',
     'Sahneler': 'Scenes', 'Görselleştiriciler': 'Visualizers', 'Hepsi (sırayla)': 'All (in turn)',
+    'Arkaplanlar': 'Backgrounds',
+    'Hepsi': 'All',
+    'Özel': 'Custom', 'Katılan Türler': 'Included Kinds', 'Adım Kipi': 'Step Mode', 'Hepsi aynı anda': 'All at once',
     'Aralık Birimi': 'Interval Unit', 'Ölçü': 'Bars',
     'Aralık': 'Interval', 'Sıra': 'Order', 'Sırayla': 'Sequential', 'Rastgele': 'Random',
     'Şimdi Değiştir': 'Switch Now',
@@ -1176,7 +1179,7 @@
     // ---- Projeksiyon haritalama ----
     'Projeksiyon Haritalama': 'Projection Mapping',
     'Görüntüyü düz olmayan yüzeylere oturtun: köşe düzeltme, bükme ızgarası, kırpma, kenar harmanlama, ekran başına renk düzeltme, maske ve hizalama desenleri.':
-      'Fit the image onto surfaces that are not flat: corner pin, warp mesh, crop, edge blending, per-display colour correction, masks and alignment patterns.',
+      'Fit the image onto surfaces that are not flat: corner pin, warp mesh, crop, edge blending, per-display color correction, masks and alignment patterns.',
     'Haritalama Etkin': 'Mapping Enabled',
     'Haritalama kapalı: görüntü ekrana olduğu gibi gider ve bu aşamanın ölçülebilir bir maliyeti yoktur.':
       'Mapping is off: the image goes to the screen unchanged, and this stage costs nothing measurable.',
@@ -1209,7 +1212,7 @@
       'Two projectors side by side never match exactly; these controls are for matching them.',
     'Hizalama Deseni': 'Alignment Pattern',
     'Artı ve Çember': 'Cross & Circle',
-    'Renk Barları': 'Colour Bars',
+    'Renk Barları': 'Color Bars',
     'Odak Çemberleri': 'Focus Rings',
     'Bu Çıkışı Sıfırla': 'Reset This Output',
     'Bu çıkışın tüm haritalama ayarları sıfırlansın mı?': 'Reset every mapping setting for this output?',
@@ -1323,7 +1326,7 @@
     'Odak Genişliği': 'Focus Width',
     'Odak Konumu': 'Focus Position',
     'Odak Parlaklığı': 'Focus Brightness',
-    'Renk Taşması': 'Colour Bleed',
+    'Renk Taşması': 'Color Bleed',
     'Salınım': 'Wobble',
     'Senk Kaybı': 'Sync Loss',
     'Tarama Açısı': 'Screen Angle',
@@ -1336,7 +1339,7 @@
     // ---- Şablon açıklamaları ----
     'Sert barlar, bloom ve vuruşta parlayan bir duvar.': 'Hard bars, bloom, and a wall that flares on every beat.',
     'Basla nefes alan sonsuz tünel.': 'An endless tunnel that breathes with the bass.',
-    'Moiré ızgaraları ve lazer rengi.': 'Moiré grids in laser colours.',
+    'Moiré ızgaraları ve lazer rengi.': 'Moiré grids in laser colors.',
     'Simetrik mandala, vuruşta açılıp kapanır.': 'A symmetric mandala that opens and closes on the beat.',
     'İzometrik şehir; her bant bir kule.': 'An isometric city where every band is a tower.',
     'Her vuruşta havai fişek.': 'Fireworks on every beat.',
@@ -1377,7 +1380,7 @@
     'Gül eğrisi.': 'The rose curve.',
     'Çift sarmallı elektronik kaos.': 'Double-scroll electronic chaos.',
     'Tek yüzlü şerit.': 'A one-sided strip.',
-    'Sert, tek renk, yüksek kontrast.': 'Hard, single colour, high contrast.',
+    'Sert, tek renk, yüksek kontrast.': 'Hard, single color, high contrast.',
     'Sıcak, yuvarlak, akışkan.': 'Warm, round, fluid.',
     'Hızlı, parçalı, glitchli.': 'Fast, fragmented, glitched.',
     'Kalın barlar, altın tonlar.': 'Thick bars in gold tones.',
@@ -1385,10 +1388,10 @@
     'Neon ızgara ve mor gökyüzü.': 'A neon grid under a purple sky.',
     'Sert kenarlar, şimşek.': 'Hard edges and lightning.',
     'Kömür ve kor.': 'Charcoal and embers.',
-    'Sıcak, akışkan, akor renkli.': 'Warm, fluid, coloured by the chord.',
+    'Sıcak, akışkan, akor renkli.': 'Warm, fluid, colored by the chord.',
     'Ağırbaşlı, altın oran.': 'Restrained, in gold.',
     'Neredeyse hareketsiz.': 'Almost motionless.',
-    'Parlak, renkli, hareketli.': 'Bright, colourful, busy.',
+    'Parlak, renkli, hareketli.': 'Bright, colorful, busy.',
     'Uzun yükselişler, geniş alan.': 'Long builds, wide space.',
     'Ağır düşüş, blok kayması.': 'Heavy drops, block displacement.',
     'Piksel ve sınırlı palet.': 'Pixels and a limited palette.',
@@ -1563,11 +1566,11 @@
     'Tek Aralıklı': 'Monospace',
     'Ağır Başlık': 'Heavy Display',
     'Yuvarlak': 'Rounded',
-    'Kendi Rengim': 'Custom Colour',
-    'Metin Rengi': 'Text Colour',
-    'Vurgu Rengi': 'Highlight Colour',
+    'Kendi Rengim': 'Custom Color',
+    'Metin Rengi': 'Text Color',
+    'Vurgu Rengi': 'Highlight Color',
     'Renkler sahne paletinden alınır; palet değişince metin de değişir.':
-      'Colours come from the scene palette, so changing the palette changes the text too.',
+      'Colors come from the scene palette, so changing the palette changes the text too.',
     'Hareket ve Ses': 'Motion & Audio',
     'Giriş': 'Entrance',
     'Giriş Süresi': 'Entrance Duration',
@@ -1600,7 +1603,7 @@
     'Şeffaf arkaplan Spout/Syphon çıkışına uygulanmaz (GPU dokusu alfa taşımıyor). Yerel pencere ve OBS tarayıcı kaynağı şeffaf kalır; bu çıkış sahneyi opak basar.':
       'Transparent background is not applied to Spout/Syphon (the GPU texture cannot carry alpha). The local window and OBS browser source stay transparent; this output paints the scene opaque.',
     'Şeffaf arkaplan açıkken görselleştirici pencerenin arkası görünür: düz renk arkaplan boyanmaz, arkaplan efektlerinin koyu yerleri saydamlaşır. Yayın katmanı (OBS) ve Spout/Syphon aynı ayarı kullanır. Pencere şeffaflığı doğuşta kilitlendiği için açık görselleştirici pencereleri bu anahtarla yeniden kurulur.':
-      'When transparent background is on, the desktop behind the visualizer window shows through: a solid colour background is not painted, and the dark parts of background effects turn transparent. The streaming overlay (OBS) and Spout/Syphon use the same setting. Window transparency is locked at creation, so open visualizer windows are recreated when you toggle this.',
+      'When transparent background is on, the desktop behind the visualizer window shows through: a solid color background is not painted, and the dark parts of background effects turn transparent. The streaming overlay (OBS) and Spout/Syphon use the same setting. Window transparency is locked at creation, so open visualizer windows are recreated when you toggle this.',
     'Şeffaf arkaplan bu katmanın koyu yerlerini saydamlar. Görselleştirici penceresi, yayın ve Spout aynı ayarı paylaşır; açık pencereler bu anahtarla yeniden kurulur.':
       'Transparent background keys out this layer’s dark areas. The visualizer window, streaming overlay and Spout share the same setting; open windows are recreated when you toggle this.',
     'Görselleştirici penceresi, yayın katmanı ve Spout/Syphon aynı anahtarı kullanır. Açık bir görselleştirici varsa pencereler bu ayara göre yeniden kurulur.':
@@ -1658,7 +1661,7 @@
     'kesintisiz': 'continuous',
     'Yazıyla Arası': 'Gap from Text',
     'Zemin Koyuluğu': 'Background Darkness',
-    'Kendi Renklerim': 'Custom Colours',
+    'Kendi Renklerim': 'Custom Colors',
     'İkincil Yazı': 'Secondary Text',
     'Çubuk': 'Progress Bar',
     'Etkin': 'Enabled',
@@ -1693,7 +1696,7 @@
     'Çalan Şarkıyı Doldur (': 'Fill Playing Track (',
     'Çalan Şarkıyı Alanlara Doldur (': 'Fill Fields with Playing Track (',
     'Renkler sahne paletinden alınır; palet değişince yazı da değişir.':
-      'Colours come from the scene palette, so changing the palette changes the text too.',
+      'Colors come from the scene palette, so changing the palette changes the text too.',
     'Şu anda sistemde çalan parça yok (yedek kullanılır)':
       'No track currently playing on system (using fallback)',
     'Şu anda sistemde çalan parça algılanmadı (yedek kullanılır)':
@@ -2120,13 +2123,13 @@
     'Kilidi aç': 'Unlock',
     // ---- Genel Işık Ayarları (ortak görünüm + backend etiketleri) ----
     'Genel Işık Ayarları': 'General Light Settings',
-    'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, colour and audio response — the shared look for Windows Dynamic Lighting and OpenRGB. Each control names the outputs it applies to. Art-Net uses the settings on its own card.',
+    'Mod, renk ve ses tepkisi — Windows Dynamic Lighting ve OpenRGB ortak görünümü. Her ayarın hangi çıkışlarda geçerli olduğu yanında yazar. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, color and audio response — the shared look for Windows Dynamic Lighting and OpenRGB. Each control names the outputs it applies to. Art-Net uses the settings on its own card.',
     'Bu ayarlar Windows Dynamic Lighting ve OpenRGB çıkışlarının ortak görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.': 'These settings are the shared look for Windows Dynamic Lighting and OpenRGB. Art-Net uses the settings on its own card. You can edit them here even before turning an output on.',
-    'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, colour and audio response — the OpenRGB output. Art-Net uses the settings on its own card.',
+    'Mod, renk ve ses tepkisi — OpenRGB çıkışı. Art-Net kendi kartındaki ayarları kullanır.': 'Mode, color and audio response — the OpenRGB output. Art-Net uses the settings on its own card.',
     'Bu ayarlar OpenRGB çıkışının görünümüdür. Art-Net kendi kartındaki ayarları kullanır. Bir çıkışı açmadan da burada düzenleyebilirsiniz.': 'These settings are the look of the OpenRGB output. Art-Net uses the settings on its own card. You can edit them here even before turning an output on.',
     'Kayıtlı aydınlatma modu bu sistemde yok. Listeden OpenRGB\'nin sürebildiği bir mod seçin.': 'The saved lighting mode is not available on this system. Pick a mode from the list that OpenRGB can drive.',
-    'Ortak görünüm ayarları (mod, parlaklık, ses tepkisi, renkler) aşağıda Genel Işık Ayarları kartındadır. Bu kartta yalnız Windows aygıtlarına özel renk boyama vardır.': 'Shared look settings (mode, brightness, audio response, colours) are in the General Light Settings card below. This card only has colour painting that is specific to Windows devices.',
-    'Statik modlar (tek renk, aygıt başına, LED başına) yalnız Windows Dynamic Lighting ile çalışır. OpenRGB sesi izleyen dinamik modları sürer. Aygıt/LED renk boyası Windows Dynamic Lighting kartındadır.': 'Static modes (single colour, per device, per LED) work only with Windows Dynamic Lighting. OpenRGB drives the dynamic modes that follow the audio. Device/LED colour painting is on the Windows Dynamic Lighting card.',
+    'Ortak görünüm ayarları (mod, parlaklık, ses tepkisi, renkler) aşağıda Genel Işık Ayarları kartındadır. Bu kartta yalnız Windows aygıtlarına özel renk boyama vardır.': 'Shared look settings (mode, brightness, audio response, colors) are in the General Light Settings card below. This card only has color painting that is specific to Windows devices.',
+    'Statik modlar (tek renk, aygıt başına, LED başına) yalnız Windows Dynamic Lighting ile çalışır. OpenRGB sesi izleyen dinamik modları sürer. Aygıt/LED renk boyası Windows Dynamic Lighting kartındadır.': 'Static modes (single color, per device, per LED) work only with Windows Dynamic Lighting. OpenRGB drives the dynamic modes that follow the audio. Device/LED color painting is on the Windows Dynamic Lighting card.',
     'OpenRGB parlaklığı OpenRGB kartındaki Parlaklık kaydırıcısındadır; buradaki değer Windows Dynamic Lighting içindir.': 'OpenRGB brightness is the Brightness slider on the OpenRGB card; the value here is for Windows Dynamic Lighting.',
     'OpenRGB kare hızı OpenRGB kartındaki Güncelleme Hızı kaydırıcısındadır.': 'OpenRGB frame rate is the Update Rate slider on the OpenRGB card.',
 // ---- MilkDrop preset üretici (#579) ----
@@ -2226,9 +2229,9 @@
     'Presetin bütün metni. Burada yapılan değişiklik öteki sekmelere de geçer.':
       'The preset’s whole text. Changes made here carry over to the other tabs.',
     'Dalganın rengi, nokta sayısı ve açık/kapalı hâli dosyadaki wavecode satırlarında; Metin sekmesinden değiştirilebilir.':
-      'A wave’s colour, point count and on/off state are in the file’s wavecode lines; change them in the Text tab.',
+      'A wave’s color, point count and on/off state are in the file’s wavecode lines; change them in the Text tab.',
     'Şeklin kenar sayısı, konumu ve renkleri dosyadaki shapecode satırlarında; Metin sekmesinden değiştirilebilir.':
-      'A shape’s side count, position and colours are in the file’s shapecode lines; change them in the Text tab.',
+      'A shape’s side count, position and colors are in the file’s shapecode lines; change them in the Text tab.',
     'Düzenleyici': 'Editor',
     'Preset kütüphaneye kaydedildi. Asıl preset değişmedi.': 'Preset saved to the library. The original preset is unchanged.',
     'Düzenleyici yüklenemedi.': 'The editor could not be loaded.',
@@ -3286,7 +3289,7 @@
       // Studio içe aktarma: derlenmeyen dosya uyarısı ve dönüştürme notları
       .replace(/^İçe aktarıldı(, ama shader derlenmiyor\. Hata editörde gösteriliyor)?\.(?: ([\s\S]+))?$/, (_, broken, note) =>
         'Imported' + (broken ? ', but the shader does not compile. The error is shown in the editor' : '') + '.' + (note ? ' ' + translate(note) : ''))
-      .replace(/^Geçersiz renk içeren şablon atlandı: (\d+)$/, 'Presets with invalid colours skipped: $1')
+      .replace(/^Geçersiz renk içeren şablon atlandı: (\d+)$/, 'Presets with invalid colors skipped: $1')
       .replace(/^“(.+)” üzerindeki kaydedilmemiş değişiklikler kaybolacak\.$/g, 'Unsaved changes to "$1" will be lost.')
       .replace(/^“(.+)” kaydedildi, ama shader derlenmiyor\.$/g, '"$1" saved, but the shader does not compile.')
       .replace(/^“(.+)” kalıcı olarak silinecek\.$/g, '"$1" will be permanently deleted.')
