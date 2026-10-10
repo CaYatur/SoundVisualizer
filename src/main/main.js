@@ -7197,6 +7197,15 @@ async function runShots() {
     logo: { enabled: true, src: SHOT_LOGO },
     text: { nowPlaying: { title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA' } },
   };
+  /* Kart şablonları parça bilgisini ve kapağı "Çalan Parça" katmanından
+     çiziyor; katman sistemden okuyor ve üretim sırasında çalan parça yok.
+     Görüntü için katmanlar elle yazılan parçaya ve kapağa çevrilir. */
+  const NP_POST = '(cfg.layers||[]).forEach(function(l){' +
+    'if(l&&l.kind==="nowplaying"&&l.settings&&l.settings.nowplaying){' +
+    'l.settings.nowplaying.source="manual";' +
+    'l.settings.nowplaying.manual=' + JSON.stringify({ title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA', album: '', artwork: SHOT_LOGO }) + ';' +
+    '}});';
+  const postFor = (over) => (over === NOW_PLAYING ? NP_POST : '');
 
   const SCENES = [
     ['club-strobe', 'scene-club-strobe.png', 2200],
@@ -7237,7 +7246,7 @@ async function runShots() {
 
   for (const [id, name, settle, over] of SCENES) {
     if (!wantShot(name)) continue;
-    if (!(await applyTemplate(id, over))) continue;
+    if (!(await applyTemplate(id, over, postFor(over)))) continue;
     await wait(settle);
     await save(vw, name);
   }
@@ -7321,7 +7330,7 @@ async function runShots() {
     if (sharp) {
       const bufs = [];
       for (const [id, over] of HERO) {
-        if (!(await applyTemplate(id, over))) continue;
+        if (!(await applyTemplate(id, over, postFor(over)))) continue;
         await wait(1500);
         for (let k = 0; k < 14; k++) {
           const img = await vw.webContents.capturePage();

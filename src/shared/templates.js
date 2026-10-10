@@ -202,77 +202,81 @@
 
     // Ortak parçalar
     ...(() => {
-      // Sakin, yavaş, sese az tepki veren dikey zemin
+      /* Sakin, yavaş, sese az tepki veren dikey zemin. Gren yok: kartlarda
+         zemin düz ve temiz kalmalı (kullanıcı geri bildirimi, 10.10; eskiden
+         0,1–0,2 gren zemini kumlu gösteriyordu). */
       const ground = (over) => B('gradient', {
         gradient: merge({
           style: 'soft', speed: 0.1, drift: 0.02, wander: 0.2, orbit: 0.15,
           swirl: 0.1, scale: 1.6, warp: 0.08, audioReactivity: 0.22,
-          brightness: 0.9, audioBrightness: 0.5, audioHue: 0, grain: 0.1, vignette: 0.5,
+          brightness: 0.9, audioBrightness: 0.5, audioHue: 0, grain: 0, vignette: 0.42,
         }, over || {}),
       });
+
+      // Kenar boşluğu: barlar ve kart aynı dikey çizgiye hizalanır
+      const M = 0.07;
 
       // Yayın düzeninde barlar: az sayıda, ince, gökkuşağı yok
       const barLayer = (id, over) => ({
         id, name: 'Barlar', kind: 'visualizer', type: 'bars',
         settings: { visualizer: Object.assign({
           barCount: 64, gap: 0.42, rainbow: false, cap: false, glow: 0.18,
-          position: 'bottom', sensitivity: 0.8, mirror: false,
-          barSpan: 0.86, barCenterX: 0.5, barHeight: 0.3, baseline: 0.58,
-          spectrum: { scale: 'log', amplitude: 'db', floorDb: -34, attack: 0.012, release: 0.22, spread: 0.2, smooth: 0.3 },
+          position: 'bottom', sensitivity: 0.7, mirror: false,
+          barSpan: 1 - 2 * M, barCenterX: 0.5, barHeight: 0.3, baseline: 0.62,
+          spectrum: { scale: 'log', amplitude: 'db', floorDb: -38, attack: 0.012, release: 0.22, spread: 0.2, smooth: 0.3 },
         }, over || {}) },
       });
 
-      // Metin bloğu: parça bilgisinden beslenir, boşken yer tutucu gösterir
-      const textLayer = (id, name, field, placeholder, over) => ({
-        id, name, kind: 'visualizer', type: 'text',
-        settings: { text: Object.assign({
-          enabled: true, source: 'now', field, content: placeholder, placeholder: true,
-          align: 'left', weight: 800, size: 0.062, x: 0.2, y: 0.78,
-          outline: 0, shadow: 0.35, animation: 'fade', audioScale: 0,
-          perCharacter: false, useCustomColor: true, color: '#ffffff',
-        }, over || {}) },
+      /* Kart: kapak ve yanında parça adı ile sanatçı, tek "Çalan Parça"
+         katmanında. Kapak yazının yanına motor tarafından yerleşir ve yazı
+         bloğuna dikeyde ortalanır; `anchor:'group'` ile x kapağın sol
+         kenarıdır. Eskiden logo ve iki metin katmanı ayrı konumlanıyordu:
+         kapak ile yazı arası 16:9'da geniş, 9:16'da dar kalıyor, yazı kapağa
+         göre aşağı kayıyordu. Kapak yoksa yazı kenara yaslanır. */
+      const card = (id, over) => ({
+        id, name: 'Çalan Parça', kind: 'nowplaying', type: 'nowplaying',
+        settings: {
+          visualizer: { glow: 0 },
+          nowplaying: merge({
+            enabled: true, source: 'system', mode: 'always', animation: 'fade', speed: 'normal', style: 'modern',
+            coverOverlay: true, coverSource: 'auto', coverSide: 'left', anchor: 'group', placeholder: true,
+            coverFit: 'cover', coverSize: 0.19, coverGap: 0.14, coverRadius: 0.06, coverAudioScale: 0,
+            show: { title: true, artist: true, album: false, appName: false, elapsed: false, remaining: false, total: false, bar: false },
+            oneLine: false, uppercase: false,
+            x: M, y: 0.82, align: 'left', vAlign: 'middle', size: 0.058, weight: 800, lineGap: 0.3, maxWidth: 0.6,
+            scrollLongTitles: true,
+            colorMode: 'custom', useCustomColor: true, color: '#ffffff', colorDim: '#cfcfd8', colorBar: '#ffffff',
+            outline: 0, shadow: 0.25, audioScale: 0, opacity: 1,
+          }, over || {}),
+        },
       });
-
-      const logoDef = {
-        enabled: true, scale: 0.11, x: 0.1, y: 0.79, pulse: 0.06, glow: 0, opacity: 1,
-      };
-      const logoLayer = (id, over) => ({
-        id, name: 'Logo', kind: 'logo',
-        settings: { logo: Object.assign({}, logoDef, over || {}) },
-      });
-      const logoAt = (over) => ({ logo: Object.assign({}, logoDef, over || {}) });
 
       const stack = (...layers) => ({ layerStack: { enabled: true }, layers });
+      const bg = (id) => ({ id, name: 'Zemin', kind: 'background', type: 'gradient' });
 
       return [
         T('bc-label', 'Müzik Videosu', 'Label Card',
-          'Resmî kanal düzeni: bar şeridi, altında logo ve parça bilgisi.',
+          'Resmî kanal düzeni: geniş bar şeridi, altında kapak ve parça bilgisi.',
           merge(
-            ground({ brightness: 0.8 }),
+            ground({ brightness: 0.85 }),
             pal('#0b0405', '#1a0709', '#4a0d14', '#b8121f', '#ff2d3a'),
-            logoAt(),
             stack(
-              { id: 'bcl_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcl_bars', { color: '#ff2d3a' }),
-              logoLayer('bcl_logo'),
-              textLayer('bcl_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.066, weight: 800, y: 0.765 }),
-              textLayer('bcl_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.032, weight: 500, y: 0.83 })
+              bg('bcl_bg'),
+              barLayer('bcl_bars', { color: '#ff2d3a', barCount: 72, barHeight: 0.32, baseline: 0.64 }),
+              card('bcl_card')
             ),
             { postfx: [fx('bloom', { threshold: 0.72, intensity: 0.35, radius: 2 })] }
           )),
 
         T('bc-artwork', 'Müzik Videosu', 'Artwork Card',
-          'Kapak görseli solda, parça bilgisi sağında; barlar üstte.',
+          'Büyük kapak solda, parça bilgisi yanında; barlar üstte.',
           merge(
-            ground({ brightness: 0.75 }),
+            ground({ brightness: 0.8 }),
             pal('#0a0406', '#210a10', '#5c1220', '#c81f33', '#ff5566'),
-            logoAt({ scale: 0.17, x: 0.115, y: 0.755 }),
             stack(
-              { id: 'bca_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bca_bars', { color: '#ff4757', barCount: 72, barHeight: 0.26, baseline: 0.52 }),
-              logoLayer('bca_logo', { scale: 0.17, x: 0.115, y: 0.755 }),
-              textLayer('bca_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.07, x: 0.225, y: 0.735 }),
-              textLayer('bca_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.034, weight: 500, x: 0.225, y: 0.81 })
+              bg('bca_bg'),
+              barLayer('bca_bars', { color: '#ff4757', barCount: 80, barHeight: 0.28, baseline: 0.52 }),
+              card('bca_card', { coverSize: 0.27, size: 0.066, y: 0.78, coverRadius: 0.05 })
             ),
             { postfx: [fx('bloom', { threshold: 0.75, intensity: 0.3 })] }
           )),
@@ -280,15 +284,12 @@
         T('bc-line', 'Müzik Videosu', 'Baseline Bars',
           'Parlak bir taban çizgisine oturan barlar, altında büyük başlık.',
           merge(
-            ground({ brightness: 0.7, vignette: 0.55 }),
+            ground({ brightness: 0.75, vignette: 0.5 }),
             pal('#0a0410', '#1b0726', '#4a0f52', '#c81d8e', '#ff2d95'),
-            logoAt({ scale: 0.13, x: 0.095, y: 0.75 }),
             stack(
-              { id: 'bcn_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcn_bars', { color: '#ff2d95', barCount: 96, gap: 0.3, glow: 0.32, barSpan: 0.92, barHeight: 0.24, baseline: 0.45 }),
-              logoLayer('bcn_logo', { scale: 0.13, x: 0.095, y: 0.75 }),
-              textLayer('bcn_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.085, weight: 800, x: 0.2, y: 0.72 }),
-              textLayer('bcn_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.038, weight: 600, x: 0.2, y: 0.81 })
+              bg('bcn_bg'),
+              barLayer('bcn_bars', { color: '#ff2d95', barCount: 110, gap: 0.3, glow: 0.32, barHeight: 0.3, baseline: 0.6 }),
+              card('bcn_card', { coverSize: 0.17, size: 0.074, y: 0.79, coverRadius: 0.5 })
             ),
             { postfx: [fx('bloom', { threshold: 0.6, intensity: 0.55 })] }
           )),
@@ -296,86 +297,231 @@
         T('bc-amber', 'Müzik Videosu', 'Amber Room',
           'Koyu tepeden sıcak sarıya inen zemin, ortada bar şeridi.',
           merge(
-            ground({ brightness: 0.85 }),
+            ground({ brightness: 0.9 }),
             pal('#080806', '#161405', '#4a4406', '#c9b40b', '#f5e050'),
-            logoAt({ scale: 0.115, x: 0.1, y: 0.8 }),
             stack(
-              { id: 'bcm_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcm_bars', { color: '#e8d21a', barCount: 60, gap: 0.45, barHeight: 0.3, baseline: 0.56 }),
-              logoLayer('bcm_logo', { scale: 0.115, x: 0.1, y: 0.8 }),
-              textLayer('bcm_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.06, y: 0.775 }),
-              textLayer('bcm_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.031, weight: 500, y: 0.835 })
+              bg('bcm_bg'),
+              barLayer('bcm_bars', { color: '#e8d21a', barCount: 60, gap: 0.45, barHeight: 0.3, baseline: 0.62 }),
+              card('bcm_card', { colorDim: '#e9dfb0' })
             ),
             { postfx: [fx('bloom', { threshold: 0.78, intensity: 0.28 })] }
           )),
 
         T('bc-minimal', 'Müzik Videosu', 'Minimal White',
-          'İnce beyaz barlar, dokulu koyu zemin; en sade yayın düzeni.',
+          'İnce beyaz barlar, koyu ve düz zemin; en sade yayın düzeni.',
           merge(
-            ground({ brightness: 0.42, grain: 0.2, vignette: 0.62, audioReactivity: 0.12 }),
+            ground({ brightness: 0.5, vignette: 0.55, audioReactivity: 0.1 }),
             pal('#0a0908', '#141210', '#241f1b', '#3a322c', '#4a403a'),
-            logoAt({ scale: 0.1, x: 0.095, y: 0.79 }),
             stack(
-              { id: 'bcw_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcw_bars', { color: '#ffffff', barCount: 80, gap: 0.5, glow: 0.05, barSpan: 0.88, barHeight: 0.2, baseline: 0.5 }),
-              logoLayer('bcw_logo', { scale: 0.1, x: 0.095, y: 0.79 }),
-              textLayer('bcw_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.055, y: 0.765 }),
-              textLayer('bcw_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.028, weight: 500, y: 0.825 })
+              bg('bcw_bg'),
+              barLayer('bcw_bars', { color: '#ffffff', barCount: 96, gap: 0.55, glow: 0.04, barHeight: 0.22, baseline: 0.6 }),
+              card('bcw_card', { coverSize: 0.16, size: 0.05, weight: 700, coverRadius: 0.03, y: 0.81 })
             ),
             { postfx: [] }
           )),
 
         T('bc-quiet', 'Müzik Videosu', 'Quiet Frame',
-          'Neredeyse boş kadraj: köşede küçük barlar, altta parça bilgisi.',
+          'Neredeyse boş kadraj: altta küçük kart, yanında ince barlar.',
           merge(
-            ground({ brightness: 0.35, grain: 0.16, vignette: 0.7, audioReactivity: 0.08 }),
+            ground({ brightness: 0.4, vignette: 0.6, audioReactivity: 0.08 }),
             pal('#050506', '#0b0b0e', '#131318', '#1c1c24', '#2a2a36'),
-            logoAt({ scale: 0.085, x: 0.075, y: 0.87 }),
             stack(
-              { id: 'bcq_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcq_bars', { color: '#ffffff', barCount: 44, gap: 0.55, glow: 0.04,
-                barSpan: 0.26, barCenterX: 0.18, barHeight: 0.12, baseline: 0.72 }),
-              logoLayer('bcq_logo', { scale: 0.085, x: 0.075, y: 0.87 }),
-              textLayer('bcq_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.042, x: 0.15, y: 0.855 }),
-              textLayer('bcq_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.024, weight: 500, x: 0.15, y: 0.9 })
+              bg('bcq_bg'),
+              card('bcq_card', { coverSize: 0.12, size: 0.04, weight: 700, y: 0.86, coverRadius: 0.08, maxWidth: 0.42 }),
+              barLayer('bcq_bars', { color: '#ffffff', barCount: 40, gap: 0.55, glow: 0.04,
+                barSpan: 0.24, barCenterX: 1 - M - 0.12, barHeight: 0.1, baseline: 0.92 })
             ),
             { postfx: [] }
           )),
 
         T('bc-corner', 'Müzik Videosu', 'Corner Meter',
-          'Barlar sağ alt köşede, parça bilgisi sol altta.',
+          'Kart sol altta, barlar sağ altta; ikisi aynı taban çizgisinde.',
           merge(
-            ground({ brightness: 0.6, vignette: 0.55 }),
+            ground({ brightness: 0.65, vignette: 0.5 }),
             pal('#04070a', '#0a1420', '#12304a', '#1d6fa8', '#38bdf8'),
-            logoAt({ scale: 0.1, x: 0.08, y: 0.86 }),
             stack(
-              { id: 'bcc_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcc_bars', { color: '#38bdf8', barCount: 52, gap: 0.4,
-                barSpan: 0.3, barCenterX: 0.8, barHeight: 0.16, baseline: 0.85 }),
-              logoLayer('bcc_logo', { scale: 0.1, x: 0.08, y: 0.86 }),
-              textLayer('bcc_title', 'Parça Adı', 'title', 'PARÇA ADI', { size: 0.048, x: 0.155, y: 0.845 }),
-              textLayer('bcc_artist', 'Sanatçı', 'artist', 'SANATÇI ADI', { size: 0.026, weight: 500, x: 0.155, y: 0.895 })
+              bg('bcc_bg'),
+              card('bcc_card', { coverSize: 0.15, size: 0.048, y: 0.845, maxWidth: 0.34 }),
+              barLayer('bcc_bars', { color: '#38bdf8', barCount: 48, gap: 0.4,
+                barSpan: 0.3, barCenterX: 1 - M - 0.15, barHeight: 0.2, baseline: 0.92 })
             ),
             { postfx: [fx('bloom', { threshold: 0.8, intensity: 0.22 })] }
           )),
 
         T('bc-center', 'Müzik Videosu', 'Centre Strip',
-          'Ortada dar bar şeridi, üstünde başlık; simetrik ve sakin.',
+          'Ortada kapak ve başlık, altında dar bar şeridi; simetrik ve sakin.',
           merge(
-            ground({ brightness: 0.7, vignette: 0.5 }),
+            ground({ brightness: 0.75, vignette: 0.45 }),
             pal('#06060a', '#0d0d18', '#1c1b3a', '#3f3a8c', '#8b7bff'),
-            logoAt({ scale: 0.09, x: 0.5, y: 0.84 }),
             stack(
-              { id: 'bcs_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
-              barLayer('bcs_bars', { color: '#8b7bff', barCount: 88, gap: 0.36, position: 'center',
-                barSpan: 0.7, barHeight: 0.16, baseline: 0.55 }),
-              textLayer('bcs_title', 'Parça Adı', 'title', 'PARÇA ADI',
-                { size: 0.058, align: 'center', x: 0.5, y: 0.3 }),
-              textLayer('bcs_artist', 'Sanatçı', 'artist', 'SANATÇI ADI',
-                { size: 0.03, weight: 500, align: 'center', x: 0.5, y: 0.37 }),
-              logoLayer('bcs_logo', { scale: 0.09, x: 0.5, y: 0.84 })
+              bg('bcs_bg'),
+              card('bcs_card', { coverSide: 'top', align: 'center', anchor: 'text', x: 0.5, y: 0.5,
+                coverSize: 0.26, coverGap: 0.1, size: 0.052, maxWidth: 0.7 }),
+              barLayer('bcs_bars', { color: '#8b7bff', barCount: 72, gap: 0.4, position: 'center',
+                barSpan: 0.5, barHeight: 0.1, baseline: 0.82 })
             ),
             { postfx: [fx('bloom', { threshold: 0.72, intensity: 0.35 })] }
+          )),
+
+        // ---- yeni kartlar (10.10)
+        T('bc-wave', 'Müzik Videosu', 'Wave Card',
+          'Ekranı boydan boya geçen yumuşak dalga, altında kapak ve parça bilgisi.',
+          merge(
+            ground({ brightness: 0.8 }),
+            pal('#03070d', '#081a2b', '#0e3d5c', '#1aa3c9', '#7ee8fa'),
+            stack(
+              bg('bcv_bg'),
+              { id: 'bcv_wave', name: 'Dalga', kind: 'visualizer', type: 'wave',
+                settings: { visualizer: { thickness: 0.2, lineWidth: 3, glow: 0.4, rainbow: false, color: '#7ee8fa', color2: '#1aa3c9', sensitivity: 0.75 } },
+                transform: { x: 0, y: -0.12, scale: 1, rotate: 0, flipX: false, flipY: false } },
+              card('bcv_card')
+            ),
+            { postfx: [fx('bloom', { threshold: 0.6, intensity: 0.45 })] }
+          )),
+
+        T('bc-ring', 'Müzik Videosu', 'Cover Ring',
+          'Ortada yuvarlak kapak, çevresinde dairesel spektrum; altında parça bilgisi.',
+          merge(
+            ground({ brightness: 0.7, vignette: 0.5 }),
+            pal('#06040c', '#120a24', '#2c1857', '#7c4dff', '#c3a6ff'),
+            stack(
+              bg('bcr_bg'),
+              { id: 'bcr_ring', name: 'Halka', kind: 'visualizer', type: 'circular',
+                settings: { visualizer: { barCount: 120, glow: 0.35, rainbow: false, color: '#c3a6ff', color2: '#7c4dff', sensitivity: 0.55, thickness: 0.35 } },
+                transform: { x: 0, y: -0.08, scale: 1, rotate: 0, flipX: false, flipY: false } },
+              { id: 'bcr_cover', name: 'Kapak', kind: 'logo',
+                settings: { logo: { enabled: true, source: 'auto', scale: 0.3, x: 0.5, y: 0.42, cornerRadius: 0.5, pulse: 0.03, glow: 0, opacity: 1 } } },
+              card('bcr_card', { coverOverlay: false, align: 'center', anchor: 'text', x: 0.5, y: 0.88, size: 0.05, maxWidth: 0.8 })
+            ),
+            { postfx: [fx('bloom', { threshold: 0.65, intensity: 0.4 })] }
+          )),
+
+        T('bc-stage', 'Müzik Videosu', 'Stage Card',
+          'Büyük kapak ve başlık sol yarıda dikeyde ortada, barlar sağ yarıda.',
+          merge(
+            ground({ brightness: 0.75 }),
+            pal('#050807', '#0b1a14', '#14402e', '#22a06b', '#7cf0b4'),
+            stack(
+              bg('bct_bg'),
+              card('bct_card', { coverSide: 'top', anchor: 'text', x: M + 0.02, y: 0.56, coverSize: 0.34, coverGap: 0.08, size: 0.06, maxWidth: 0.36 }),
+              barLayer('bct_bars', { color: '#7cf0b4', barCount: 48, gap: 0.42, barSpan: 0.42, barCenterX: 1 - M - 0.21, barHeight: 0.42, baseline: 0.72 })
+            ),
+            { postfx: [fx('bloom', { threshold: 0.7, intensity: 0.32 })] }
+          )),
+      ];
+    })(),
+
+    /* ==================== MÜZİK ARKA PLANI ====================
+
+       Müzik çalarken arkada sade, tam ekran bir görselleştirici; önde
+       yalnız çalan parça. Görselleştirici katmanı kısık (opaklık), kart
+       okunur kalır. Kulüp şablonlarından farkı: sakin hız, az efekt. */
+    ...(() => {
+      const card = (id, over) => ({
+        id, name: 'Çalan Parça', kind: 'nowplaying', type: 'nowplaying',
+        settings: {
+          visualizer: { glow: 0 },
+          nowplaying: merge({
+            enabled: true, source: 'system', mode: 'always', animation: 'fade', speed: 'normal', style: 'modern',
+            coverOverlay: true, coverSource: 'auto', coverSide: 'left', anchor: 'group', placeholder: true,
+            coverFit: 'cover', coverSize: 0.17, coverGap: 0.14, coverRadius: 0.06, coverAudioScale: 0,
+            show: { title: true, artist: true, album: false, appName: false, elapsed: false, remaining: false, total: false, bar: false },
+            oneLine: false, uppercase: false,
+            x: 0.07, y: 0.83, align: 'left', vAlign: 'middle', size: 0.054, weight: 800, lineGap: 0.3, maxWidth: 0.6,
+            scrollLongTitles: true,
+            colorMode: 'custom', useCustomColor: true, color: '#ffffff', colorDim: '#d6d6e0', colorBar: '#ffffff',
+            outline: 0, shadow: 0.45, audioScale: 0, opacity: 1,
+          }, over || {}),
+        },
+      });
+      const centred = (id, over) => card(id, merge({ coverSide: 'top', align: 'center', anchor: 'text', x: 0.5, y: 0.6,
+        coverSize: 0.3, coverGap: 0.09, size: 0.056, maxWidth: 0.8 }, over || {}));
+      const vis = (id, name, type, opacity, settings) => ({ id, name, kind: 'visualizer', type, opacity, settings: { visualizer: settings || {} } });
+      const stack = (...layers) => ({ layerStack: { enabled: true }, layers });
+
+      return [
+        T('np-aurora', 'Müzik Arka Planı', 'Aurora Backdrop',
+          'Arkada yavaş kutup ışıkları ve ince dalga; ortada kapak ve parça bilgisi.',
+          merge(
+            B('aurora', { gradient: { speed: 0.22, brightness: 0.8, grain: 0 } }),
+            pal('#04121f', '#0f8a7a', '#3ad6c0', '#a3e4ff', '#e8fbff'),
+            stack(
+              { id: 'npa_bg', name: 'Zemin', kind: 'background', type: 'aurora' },
+              Object.assign(vis('npa_wave', 'Dalga', 'wave', 0.7, { thickness: 0.24, lineWidth: 2, glow: 0.35, rainbow: false, color: '#a3e4ff', color2: '#3ad6c0', sensitivity: 0.7 }),
+                { transform: { x: 0, y: 0.32, scale: 1, rotate: 0, flipX: false, flipY: false } }),
+              centred('npa_card', { y: 0.5 })
+            ),
+            { postfx: [fx('bloom', { threshold: 0.6, intensity: 0.45 }), fx('vignette', { amount: 0.35 })] },
+            { transition: { type: 'crossfade', duration: 2 } }
+          )),
+
+        T('np-flow', 'Müzik Arka Planı', 'Flow Backdrop',
+          'Arkada sese göre akan ince izler; sol altta kapak ve parça bilgisi.',
+          merge(
+            B('solid', { solidColor: '#05060b' }),
+            pal('#0a1220', '#2e6f8e', '#63c7b2', '#f2e9c9', '#ffffff'),
+            stack(
+              { id: 'npf_bg', name: 'Zemin', kind: 'background', type: 'solid' },
+              vis('npf_flow', 'Akış', 'flowfield', 1, { thickness: 0.6, lineWidth: 3, sensitivity: 0.9, glow: 0.4 }),
+              card('npf_card')
+            ),
+            { postfx: [fx('bloom', { intensity: 0.5 }), fx('vignette', { amount: 0.45 })] },
+            { transition: { type: 'crossfade', duration: 2 } }
+          )),
+
+        T('np-nebula', 'Müzik Arka Planı', 'Nebula Backdrop',
+          'Arkada yavaş bulutsu ve sarmal; ortada büyük kapak.',
+          merge(
+            B('nebula', { gradient: { speed: 0.2, brightness: 1, grain: 0 } }),
+            pal('#0b0620', '#3b1d7a', '#7c3aed', '#22d3ee', '#f0abfc'),
+            stack(
+              { id: 'npn_bg', name: 'Zemin', kind: 'background', type: 'nebula' },
+              Object.assign(vis('npn_dna', 'Sarmal', 'dna', 0.55, { thickness: 0.5, glow: 0.4, sensitivity: 0.7 }),
+                { transform: { x: 0, y: 0.34, scale: 1, rotate: 90, flipX: false, flipY: false } }),
+              centred('npn_card', { coverSize: 0.34, y: 0.48 })
+            ),
+            { postfx: [fx('bloom', { intensity: 0.6 }), fx('vignette', { amount: 0.4 })] },
+            { transition: { type: 'crossfade', duration: 2 } }
+          )),
+
+        T('np-milkdrop', 'Müzik Arka Planı', 'MilkDrop Backdrop',
+          'Arkada kısık bir MilkDrop akışı; sol altta kapak ve parça bilgisi.',
+          merge(
+            V('milkdrop'), B('solid', { solidColor: '#000000' }),
+            pal('#0a0020', '#7c4dff', '#00e5ff', '#ff4081'),
+            stack(
+              { id: 'npm_bg', name: 'Zemin', kind: 'background', type: 'solid' },
+              vis('npm_md', 'MilkDrop', 'milkdrop', 0.55),
+              card('npm_card')
+            ),
+            { postfx: [fx('vignette', { amount: 0.5 })] }
+          )),
+
+        T('np-galaxy', 'Müzik Arka Planı', 'Galaxy Backdrop',
+          'Arkada dönen yıldız diski; sol altta kapak ve parça bilgisi.',
+          merge(
+            B('starfield'),
+            pal('#02020a', '#4338ca', '#0ea5e9', '#fde68a', '#ffffff'),
+            stack(
+              { id: 'npg_bg', name: 'Zemin', kind: 'background', type: 'starfield' },
+              Object.assign(vis('npg_galaxy', 'Galaksi', 'galaxy', 0.9, { glow: 0.6, thickness: 0.6, sensitivity: 0.8 }),
+                { transform: { x: 0.18, y: -0.08, scale: 1.6, rotate: 0, flipX: false, flipY: false } }),
+              card('npg_card')
+            ),
+            { postfx: [fx('bloom', { intensity: 0.7 })] }
+          )),
+
+        T('np-glow', 'Müzik Arka Planı', 'Soft Glow',
+          'Arkada sese göre nefes alan yumuşak renk alanı; ortada kapak.',
+          merge(
+            B('gradient', { gradient: { style: 'soft', speed: 0.18, warp: 0.2, audioReactivity: 0.5, brightness: 0.85, audioBrightness: 0.8, grain: 0, vignette: 0.45 } }),
+            pal('#0b0b1e', '#3a1c71', '#d76d77', '#ffaf7b', '#1b1b3a'),
+            stack(
+              { id: 'npw_bg', name: 'Zemin', kind: 'background', type: 'gradient' },
+              centred('npw_card')
+            ),
+            { postfx: [] },
+            { transition: { type: 'crossfade', duration: 2 } }
           )),
       ];
     })(),

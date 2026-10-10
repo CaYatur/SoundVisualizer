@@ -124,7 +124,24 @@
       const raw = this._source(N, cfg);
       const now = Date.now();
       if (this.tracker) this.tracker.update(raw, now);
-      const st = N.resolve(raw, now);
+      let st = N.resolve(raw, now);
+      if (!st.has && c.placeholder) {
+        /* Şablon kartı (`placeholder`). Sistemde parça yoksa önce kartın
+           elle yazılan parçası (macOS/Linux sistemden okuyamıyor). O da
+           yoksa yalnız panel önizlemesinde "PARÇA ADI / SANATÇI ADI": yerleşim
+           çalmadan da görülsün. Önizleme yüzeyi kayda gidiyor; kayıt
+           sürerken yer tutucu çizilmez. Çıkışlarda ve yayında kart parça
+           gelene kadar boş kalır. */
+        const m = c.manual || {};
+        const rec = window.SVRecordPanel && typeof window.SVRecordPanel.isRecording === 'function' && window.SVRecordPanel.isRecording();
+        if (m.title || m.artist) {
+          st = Object.assign({}, st, { has: true, playing: false, title: m.title || '', artist: m.artist || '', album: m.album || '', app: '' });
+        } else if (typeof window !== 'undefined' && window.SVPanel && !rec) {
+          const I = window.SVI18n;
+          const tr = (k) => (I && typeof I.t === 'function' ? I.t(k) : k);
+          st = Object.assign({}, st, { has: true, playing: false, title: tr('PARÇA ADI'), artist: tr('SANATÇI ADI'), album: '', app: '' });
+        }
+      }
       if (!st.has) return;
 
       // ---- görünürlük zarfı (sürekli mi, değişimde mi)
@@ -311,9 +328,22 @@
       rows.forEach((r, i) => { textH += r.size + (i ? gap : 0); });
       const textCenterY = yOrigin + textH / 2;
 
+      /* `anchor: 'group'`: x kapağın dış kenarını gösterir (kapak + yazı
+         birlikte yerleşir). Varsayılan 'text' eski davranış: x yazının
+         kenarı, kapak onun dışına asılır. Konum genişliğe, kapak kısa kenara
+         oranlı olduğundan eski davranışta kapak 9:16 gibi dar kadrajlarda
+         ekrandan taşabiliyordu; grup çıpasında her oranda kenar boşluğu
+         aynı kalır, kapak yoksa yazı kenara yaslanır. */
+      let groupShift = 0;
+      if (c.anchor === 'group' && coverReady) {
+        if (side === 'left' && align === 'left') groupShift = coverW + coverGapPx;
+        else if (side === 'right' && align === 'right') groupShift = -(coverW + coverGapPx);
+      }
+      const ax = cx + groupShift;
+
       ctx.save();
       ctx.globalAlpha = clamp(env.alpha * animA * (c.opacity == null ? 1 : c.opacity), 0, 1);
-      ctx.translate(cx + ox, cy + oy);
+      ctx.translate(ax + ox, cy + oy);
       ctx.scale(scale * pulse, scale * pulse);
       ctx.textBaseline = 'middle';
 
@@ -371,11 +401,11 @@
          aralıkta kayar; ölçü nabız ölçeğiyle ekran pikseline çevrilir. */
       const fitScale = Math.max(0.05, scale * pulse);
       const limitPx = Math.min(maxW, W);
-      const rawLeft = align === 'left' ? cx : align === 'right' ? cx - limitPx : cx - limitPx / 2;
+      const rawLeft = align === 'left' ? ax : align === 'right' ? ax - limitPx : ax - limitPx / 2;
       const slotLeftPx = clamp(rawLeft, 0, W);
       const slotRightPx = clamp(rawLeft + limitPx, 0, W);
       const slotPx = Math.max(1, slotRightPx - slotLeftPx);
-      const slotUserLeft = (slotLeftPx - cx) / fitScale;
+      const slotUserLeft = (slotLeftPx - ax) / fitScale;
       const slotUserW = slotPx / fitScale;
 
       const paint = (text, fsize, col, alpha, xOff) => {

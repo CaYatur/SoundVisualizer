@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2894%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2902%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -41,7 +41,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 
 | **59** visualizer modes | **43** backgrounds | **40** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
-| **72** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
+| **81** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **96** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 
 </div>
@@ -150,7 +150,7 @@ Nothing else needs to be installed: the audio helper runs on the application's o
    **audio sources** under **Audio**.
 2. Click **Open Visualizer**. The visual opens full-screen on every selected display.
 3. Change anything on the right — it applies immediately and saves itself.
-4. Or start from a finished look: **Library → Templates** has 72 of them.
+4. Or start from a finished look: **Library → Templates** has 81 of them.
 5. For streaming, turn on **Output → Streaming Output** and paste the address into an OBS
    **Browser Source**.
 6. Press **ESC** on any visualization window to close them all.
@@ -559,7 +559,7 @@ Any parameter of any effect can be driven by the modulation matrix.
 MilkDrop and visual objects — under a name. Restore with one click, update from the current look,
 export and import as JSON.
 
-**72 templates in nine groups.** One click, and your audio device, display selection, streaming
+**81 templates in ten groups.** One click, and your audio device, display selection, streaming
 and lighting settings are left alone — trying a template must not damage a working setup, and a
 test asserts it.
 
@@ -568,8 +568,12 @@ test asserts it.
 - *Ambient (9)* — Aurora, Ink in Water, Topography, Underwater, Embers, Liquid Metal, Night Globe,
   Flow Field, Interference
 - *Streaming (6)* — Corner Bars, Clean Wave, Ring Meter, Scope Overlay, Lower Third, Studio Meters
-- *Music Video (8)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
-  Frame, Corner Meter, Centre Strip
+- *Music Video (11)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
+  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card. The cover, title and artist
+  come from one Now Playing layer, so the cover sits beside the text at the same gap in every
+  aspect ratio; in the admin preview the card shows placeholder text until a track plays.
+- *Music Backdrop (6)* — Aurora Backdrop, Flow Backdrop, Nebula Backdrop, MilkDrop Backdrop, Galaxy
+  Backdrop, Soft Glow: a plain, dimmed visualizer behind the track card while music plays
 - *Music (6)* — Chroma Wheel, Helix, Silk Ribbons, Strings, Spectrogram, Galaxy
 - *Screensaver (6)* — Plasma, Stained Glass, Circuit, Wire Tunnel, Dunes, Prism
 - *3D Geometry (8)* — Klein Bottle, Lorenz, Supershape, Trefoil Tube, Chladni, Rose Curve, Chua
@@ -1618,7 +1622,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2894 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2902 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
