@@ -583,10 +583,207 @@
     try { if (ctx.presets && ctx.presets.list) return ctx.presets.list() || []; } catch (e) { /* cold store */ }
     return [];
   }
+  /* Araç parametreleri (inputSchema). Eskiden her araç yalnız
+     `{type:'object'}` bildiriyordu; istemci `id` mi `name` mi `patch` mi
+     verileceğini tahmin ediyordu ve `engine` gibi alanlar yanlış yazılıyordu
+     (#695 dış gözden geçirme). Fazladan alan yine kabul edilir
+     (additionalProperties); doğrulama aracın kendisinde. Her aracın okuduğu
+     argüman burada yazılı olmalı: tests/external-review.test.js kaynağı
+     tarayıp eksik olanı bulur. */
+  function sp(type, description, extra) {
+    return Object.assign({ type: type, description: description }, extra || {});
+  }
+  const ANY = function (description) { return { description: description }; };
+  const LAYER_REF = {
+    id: sp('string', 'Layer id from sv_list_layers.'),
+    layerId: sp('string', 'Same as id.'),
+    index: sp('integer', 'Layer index, used when id is not given.', { minimum: 0 }),
+  };
+  const SCENE_REF = {
+    id: sp('string', 'Scene id from sv_list_scenes.'),
+    name: sp('string', 'Scene name (exact, case-insensitive), used when id is not given.'),
+  };
+  const FX_REF = {
+    effectId: sp('string', 'Effect id from sv_list_effects.'),
+    effectIndex: sp('integer', 'Effect position on the chain, used when effectId is not given.', { minimum: 0 }),
+    type: sp('string', 'Effect type, used when exactly one effect of that type is on the chain.'),
+  };
+  const PATCH = function (what) { return { patch: sp('object', 'Keys of ' + what + ' to change; other keys stay.') }; };
+  const OVERWRITE = sp('boolean', 'Replace the file if it already exists. Default false.');
+  const MAPPING_KEYS = {
+    enabled: sp('boolean', 'Turn mapping on for this display.'),
+    corners: ANY('Corner pin points.'), crop: ANY('Crop rectangle.'), edges: ANY('Edge blend settings.'),
+    masks: ANY('Mask shapes.'), testPattern: ANY('Show the test pattern.'), mesh: ANY('Warp mesh.'), color: ANY('Color correction.'),
+  };
+  const SCHEMAS = {
+    sv_get_scene: { props: SCENE_REF },
+    sv_get_layer: { props: LAYER_REF },
+    sv_get_config: { props: { path: sp('string', 'Dotted config path such as visualizer.sensitivity. Omit for the whole config.') } },
+    sv_list_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
+    mcp_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
+    sv_apply_scene: { props: SCENE_REF },
+    sv_set_visualizer_type: { props: { type: sp('string', 'Visualizer mode id from sv_list_modes.'), presetId: sp('string', 'Studio preset id when type is custom.') }, required: ['type'] },
+    sv_set_background_type: { props: { type: sp('string', 'Background mode id from sv_list_modes.') }, required: ['type'] },
+    sv_set_layer_enabled: { props: Object.assign({}, LAYER_REF, { enabled: sp('boolean', 'false hides the layer. Default true.') }) },
+    sv_set_crossfade: { props: { value: sp('number', 'Crossfader position.', { minimum: 0, maximum: 1 }) }, required: ['value'] },
+    sv_apply_template: { props: { id: sp('string', 'Template id.'), name: sp('string', 'Template name, used when id is not given.') } },
+    sv_timeline_transport: { props: { action: sp('string', 'Transport action.', { enum: ['play', 'pause', 'stop', 'seek'] }), time: sp('number', 'Seconds, for seek.', { minimum: 0 }) }, required: ['action'] },
+    sv_trigger_clip: { props: { row: sp('integer', 'Slot row from 0.', { minimum: 0 }), col: sp('integer', 'Slot column from 0.', { minimum: 0 }) }, required: ['row', 'col'] },
+    sv_set_autovj: {
+      props: {
+        enabled: sp('boolean', 'Turn Auto VJ on or off.'),
+        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'all'] }),
+        interval: sp('number', 'Steps between switches (bars or seconds).', { minimum: 1, maximum: 64 }),
+        unit: sp('string', 'Interval unit.', { enum: ['bars', 'seconds'] }),
+        order: sp('string', 'Switch order.', { enum: ['sequential', 'random'] }),
+        bpmLock: sp('number', 'Fixed BPM; 0 follows the detected tempo.', { minimum: 0, maximum: 200 }),
+        paletteSource: sp('string', 'Which palettes to use.', { enum: ['both', 'builtin', 'user'] }),
+        visualizerTargets: sp('string', 'Which visualizer layers change.', { enum: ['all', 'first'] }),
+      },
+    },
+    sv_create_scene: { props: { name: sp('string', 'Scene name. Default "Scene N".') } },
+    sv_update_scene: { props: SCENE_REF },
+    sv_rename_scene: { props: { id: sp('string', 'Scene id.'), name: sp('string', 'Current scene name, used when id is not given.'), newName: sp('string', 'New scene name.') } },
+    sv_delete_scene: { props: SCENE_REF },
+    sv_add_layer: {
+      props: {
+        kind: sp('string', 'Layer kind: background, visualizer, media, sprites, logo or nowplaying. Default visualizer.'),
+        type: sp('string', 'Mode id for background and visualizer layers (sv_list_modes).'),
+        name: sp('string', 'Layer name.'),
+        settings: sp('object', 'Layer setting overrides.'),
+        transform: sp('object', 'x and y (-1..1), scale (0.2..3), rotate (-180..180), flipX, flipY.'),
+        opacity: sp('number', 'Opacity.', { minimum: 0, maximum: 1 }),
+        blend: sp('string', 'Blend mode (sv_list_modes blendModes).'),
+        layer: sp('object', 'A whole layer object; the fields above override it.'),
+      },
+    },
+    sv_update_layer: {
+      props: Object.assign({}, LAYER_REF, {
+        patch: sp('object', 'Fields to change: name, kind, type, enabled, opacity (0..1), blend, solo, muted, locked, group, presetId, transform, settings, audio, mask.'),
+      }),
+      required: ['patch'],
+    },
+    sv_set_layer_position: {
+      props: Object.assign({}, LAYER_REF, {
+        x: sp('number', 'Horizontal offset, share of the canvas.', { minimum: -1, maximum: 1 }),
+        y: sp('number', 'Vertical offset, share of the canvas.', { minimum: -1, maximum: 1 }),
+        scale: sp('number', 'Scale.', { minimum: 0.2, maximum: 3 }),
+        rotate: sp('number', 'Rotation in degrees.', { minimum: -180, maximum: 180 }),
+        flipX: sp('boolean', 'Mirror horizontally.'),
+        flipY: sp('boolean', 'Mirror vertically.'),
+      }),
+    },
+    sv_set_layer_settings: { props: Object.assign({}, LAYER_REF, { settings: sp('object', 'Settings to merge.'), key: sp('string', 'One setting key, with value.'), value: ANY('Value for key.') }) },
+    sv_remove_layer: { props: LAYER_REF },
+    sv_reorder_layers: { props: { ids: sp('array', 'Layer ids in the new order; missing ones keep their order after these.', { items: { type: 'string' } }) }, required: ['ids'] },
+    sv_set_text: { props: PATCH('the text overlay (sv_get_config path text)'), required: ['patch'] },
+    sv_set_logo: { props: PATCH('the logo (sv_get_config path logo)'), required: ['patch'] },
+    sv_set_media: { props: PATCH('the media layer (sv_get_config path media)'), required: ['patch'] },
+    sv_set_geometry: { props: PATCH('geometry (sv_get_config path geometry)'), required: ['patch'] },
+    sv_set_effect_enabled: { props: Object.assign({}, FX_REF, { enabled: sp('boolean', 'false turns the effect off. Default true.') }) },
+    sv_set_effect_param: { props: Object.assign({}, FX_REF, { params: sp('object', 'Parameters to merge.') }), required: ['params'] },
+    sv_set_layer_effect_enabled: { props: Object.assign({}, LAYER_REF, FX_REF, { enabled: sp('boolean', 'false turns the effect off. Default true.') }) },
+    sv_set_layer_effect_param: { props: Object.assign({}, LAYER_REF, FX_REF, { params: sp('object', 'Parameters to merge.') }), required: ['params'] },
+    sv_set_modulation_enabled: { props: { enabled: sp('boolean', 'false turns the matrix off. Default true.') } },
+    sv_set_macro: { props: { index: sp('integer', 'Macro index from 0.', { minimum: 0 }), value: sp('number', 'Macro value.', { minimum: 0, maximum: 1 }) }, required: ['index', 'value'] },
+    sv_add_effect: { props: { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters.'), enabled: sp('boolean', 'Default true.') }, required: ['type'] },
+    sv_remove_effect: { props: FX_REF },
+    sv_add_layer_effect: { props: Object.assign({}, LAYER_REF, { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters.'), enabled: sp('boolean', 'Default true.') }), required: ['type'] },
+    sv_remove_layer_effect: { props: Object.assign({}, LAYER_REF, FX_REF) },
+    sv_add_modulation_route: {
+      props: {
+        source: sp('string', 'Source id: bass, mid, treble, level, onset, band0..7, lfo1.., env1.., macro1..8, an* analysis values.'),
+        target: sp('string', 'Existing numeric config path, e.g. visualizer.sensitivity or layers.0.opacity.'),
+        mode: sp('string', 'How the value is applied.', { enum: ['set', 'add', 'mul'] }),
+        curve: sp('string', 'Response curve, e.g. linear, exp, log, scurve.'),
+        min: sp('number', 'Output at source 0.'), max: sp('number', 'Output at source 1.'),
+        amount: sp('number', 'Depth.'), smooth: sp('number', 'Smoothing.'), steps: sp('number', 'Quantize steps; 0 is off.'),
+        invert: sp('boolean', 'Invert the source.'), enabled: sp('boolean', 'Default true.'),
+        route: sp('object', 'The whole route as one object, instead of the fields above.'),
+      },
+      required: ['source', 'target'],
+    },
+    sv_remove_modulation_route: { props: { id: sp('string', 'Route id.'), index: sp('integer', 'Route index, used when id is not given.', { minimum: 0 }) } },
+    sv_load_preset: { props: { id: sp('string', 'Library preset id from sv_list_presets.') }, required: ['id'] },
+    sv_apply_color_preset: { props: { id: sp('string', 'Color preset id.'), name: sp('string', 'Color preset name, used when id is not given.') } },
+    sv_set_milkdrop_cycle: {
+      props: {
+        autoNext: sp('number', 'Seconds or bars between presets; 0 is off.', { minimum: 0 }),
+        autoOrder: sp('string', 'sequential or random.'),
+        autoFrom: sp('string', 'Which presets to cycle, e.g. all, favorites or a tag.'),
+        autoTag: sp('string', 'Tag when autoFrom uses tags.'),
+        autoNextUnit: sp('string', 'seconds or bars.'),
+        autoNextBars: sp('number', 'Bars between presets when the unit is bars.', { minimum: 1 }),
+        trackAdvance: sp('boolean', 'Next preset when the track changes.'),
+        hardCut: sp('string', 'Hard cut mode; off disables it.'),
+      },
+    },
+    sv_save_preset: {
+      props: {
+        id: sp('string', 'Preset id to overwrite; letters, digits, _ and -. Omit for a new preset.'),
+        name: sp('string', 'Preset name.'),
+        kind: sp('string', 'Preset kind. Default visualizer when shader is given, otherwise milkdrop.', { enum: ['visualizer', 'background', 'milkdrop'] }),
+        engine: sp('string', 'Studio engine for visualizer and background kinds; glsl, shadertoy, isf and frag mean shader.', { enum: ['shader', 'variation'] }),
+        shader: sp('string', 'GLSL code (engine shader).'),
+        controls: sp('array', 'Shader uniforms: { name, label, type, min, max, step, default }.'),
+        base: sp('string', 'Base mode id (engine variation).'),
+        overrides: sp('object', 'Config parts the variation applies (engine variation).'),
+        source: sp('string', 'MilkDrop preset text (kind milkdrop).'),
+        description: sp('string', 'Description.'), author: sp('string', 'Author.'),
+        tags: sp('array', 'Tags.', { items: { type: 'string' } }),
+      },
+    },
+    sv_delete_preset: { props: { id: sp('string', 'Preset id.') }, required: ['id'] },
+    sv_set_milkdrop_source: { props: { source: sp('string', 'MilkDrop preset text.'), name: sp('string', 'Shown name.'), presetId: sp('string', 'Library id this source belongs to.') }, required: ['source'] },
+    sv_create_color_preset: { props: { name: sp('string', 'Preset name.'), colors: sp('array', '2 to 5 hex colors (#rrggbb); shorter lists repeat the last color. Omit to save the current gradient.', { items: { type: 'string' } }) } },
+    sv_delete_color_preset: { props: { id: sp('string', 'Color preset id.') }, required: ['id'] },
+    sv_open_output: { props: { displayIds: sp('array', 'Display ids from sv_list_displays.'), displayId: ANY('One display id.') } },
+    sv_close_output: { props: { displayId: ANY('Display id; omit to close all.') } },
+    sv_set_displays: { props: { ids: sp('array', 'Display ids from sv_list_displays.') }, required: ['ids'] },
+    sv_set_stream: { props: PATCH('stream settings (tokens are ignored)'), required: ['patch'] },
+    sv_set_texture_share: { props: PATCH('Spout/Syphon settings'), required: ['patch'] },
+    sv_set_aspect: { props: PATCH('aspect settings'), required: ['patch'] },
+    sv_set_floating: { props: PATCH('floating window preferences'), required: ['patch'] },
+    sv_set_floating_open: { props: { open: sp('boolean', 'true opens, false closes.') }, required: ['open'] },
+    sv_set_power: { props: PATCH('power settings: fpsCap, renderScale, keepAwake, hwVideoDecode'), required: ['patch'] },
+    sv_set_lighting: { props: PATCH('Dynamic Lighting settings'), required: ['patch'] },
+    sv_set_openrgb: { props: PATCH('OpenRGB settings'), required: ['patch'] },
+    sv_set_artnet: { props: PATCH('Art-Net/DMX settings'), required: ['patch'] },
+    sv_set_window_mode: { props: { transparent: sp('boolean', 'Transparent background.'), coverTaskbar: sp('boolean', 'Cover the taskbar.'), transparentKey: sp('string', 'Key color for transparency.') } },
+    sv_start_export: {
+      props: {
+        audioPath: sp('string', 'Absolute path of the audio file.'),
+        outputPath: sp('string', 'Absolute .mp4 path.'),
+        resolution: sp('string', 'Video size. Default 1080p.', { enum: ['720p', '1080p', '1440p', '2160p'] }),
+        fps: sp('integer', 'Frame rate. Default 60.', { enum: [30, 60] }),
+        encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
+        quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),
+        speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),
+        overwrite: OVERWRITE,
+      },
+      required: ['audioPath', 'outputPath'],
+    },
+    sv_export_json: { props: { path: sp('string', 'Absolute .json path.'), what: sp('string', 'config (default) or scenes. Stream tokens are never written.', { enum: ['config', 'scenes'] }), overwrite: OVERWRITE }, required: ['path'] },
+    sv_save_snapshot: { props: { path: sp('string', 'Absolute .jpg or .jpeg path.'), overwrite: OVERWRITE }, required: ['path'] },
+    sv_set_blackout: { props: { state: sp('string', 'Blackout state.', { enum: ['on', 'off', 'toggle'] }), on: sp('boolean', 'Same as state on/off.') } },
+    sv_set_blackout_transition: { props: { type: sp('string', 'crossfade, cut or dissolve.'), duration: sp('number', 'Seconds.', { minimum: 0 }) } },
+    sv_patch_config: { props: { path: sp('string', 'Dotted config path; list items by index (layers.0.opacity). The top key must exist.'), value: ANY('New value.') }, required: ['path', 'value'] },
+    sv_set_audio_sources: { props: { sources: sp('array', 'Audio sources (sv_list_audio_sources shape).') }, required: ['sources'] },
+    sv_set_mapping: { props: Object.assign({ displayId: ANY('Display id.'), id: ANY('Same as displayId.') }, MAPPING_KEYS) },
+    sv_rotate_stream_token: { props: { which: sp('string', 'remote rotates the remote-control token; anything else the OBS/web token.', { enum: ['token', 'remote'] }) } },
+  };
+  function schemaFor(name) {
+    const s = SCHEMAS[name];
+    const out = { type: 'object', properties: {}, additionalProperties: true };
+    if (!s) return out;
+    out.properties = s.props;
+    if (s.required && s.required.length) out.required = s.required.slice();
+    return out;
+  }
   function tool(name, group, description, fn) {
     TOOLS.push({
       name: name, group: group, description: description, fn: fn,
-      inputSchema: { type: 'object', additionalProperties: true },
+      inputSchema: schemaFor(name),
     });
   }
 
@@ -965,6 +1162,8 @@
       if (args && args.name) raw.name = args.name;
       if (args && args.settings) raw.settings = args.settings;
       if (args && args.transform) raw.transform = args.transform;
+      if (args && args.opacity !== undefined) raw.opacity = args.opacity;
+      if (args && args.blend !== undefined) raw.blend = args.blend;
       const kind = raw.kind == null ? 'visualizer' : raw.kind;
       const wrong = badLayer(kind, raw.type) || badBlend(raw.blend) || layerFieldError(raw);
       if (wrong) return fail(wrong);

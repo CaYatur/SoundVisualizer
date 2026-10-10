@@ -888,9 +888,14 @@ yeni bir jeton yazar; yanında köprünün bir kopyası durur. Linux ve macOS'ta
 bu kullanıcı okur. Başka bir makineden gelen bağlantı reddedilir; eksik ya da yanlış jeton da
 reddedilir.
 
-`sv_get_config` ve çıkış durumu okuması yayın jetonlarını karartır. `sv_set_stream`, `token` ve
-`remoteToken` alanlarını atar. Tam yapılandırma için `sv_export_json`, ayarları diskte durduğu
-gibi, sizin verdiğiniz yola yazar.
+`sv_get_config`, çıkış durumu okuması ve `sv_export_json` yayın jetonlarını karartır.
+`sv_set_stream`, `token` ve `remoteToken` alanlarını atar.
+
+Her araç parametrelerini türleri, aralıkları ve izin verilen değerleriyle `tools/list` içinde
+bildirir. Panelin üretemeyeceği değerler reddedilir ya da panelin aralığına çekilir: -1..1
+dışındaki katman konumu, `#rrggbb` olmayan renk, bilinmeyen efekt türü, var olmayan bir ayara
+giden modülasyon rotası. `sv_patch_config` bir listeye yalnız var olan bir sıradan yazar
+(`layers.0.opacity`) ve yeni üst anahtar oluşturmaz.
 
 Beş kip birikir. Anahtar **Okuma** kipinde açılır. Üst kip altındakileri de kapsar. Ajan kendi
 iznini yükseltemez: `sv_patch_config` her `mcp.*` yolunu reddeder. Engellenen çağrı gereken kipin
@@ -954,7 +959,8 @@ Kayıtlı olanı kullanır.
 Oluşturur ve düzenler.
 
 - Sahneler: `sv_create_scene` o anki görünümü yeni bir adla saklar, `sv_update_scene` birinin
-  üstüne yazar, `sv_rename_scene` yeniden adlandırır, `sv_delete_scene` siler.
+  üstüne yazar, `sv_rename_scene` kimliği ya da şimdiki adıyla bulduğu sahneye `newName` adını verir,
+  `sv_delete_scene` siler.
 - Katmanlar: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
   `sv_remove_layer`, `sv_reorder_layers`. Bir katman tür, görselleştirici tipi, preset, opaklık,
   harman, dönüşüm (x, y, ölçek, döndürme, çevirme), ses tepkisi, maske, solo, sessiz, kilit ve
@@ -971,9 +977,10 @@ Oluşturur ve düzenler.
   rotaları düzenler.
 - Presetler: `sv_save_preset` preset deposuna bir dosya yazar. Türü verilmemiş shader metni Studio
   görselleştiricisi olarak kaydolur (`kind` `visualizer`, `engine` `shader`). Türü verilmemiş
-  diğer kayıt MilkDrop'dur. `sv_delete_preset` dosyayı siler. `sv_set_milkdrop_source` MilkDrop
-  kaynağını canlı gösteriye yazar. `sv_create_color_preset` en az iki renkli bir kullanıcı paleti
-  saklar. `sv_delete_color_preset` bir kullanıcı paletini siler.
+  diğer kayıt MilkDrop'dur. `engine` `shader` ya da `variation` olur; `glsl`, `shadertoy`, `isf`
+  ve `frag` `shader` sayılır. `sv_delete_preset` dosyayı siler, olmayan kimliği bildirir. `sv_set_milkdrop_source` MilkDrop
+  kaynağını canlı gösteriye yazar. `sv_create_color_preset` iki ile beş `#rrggbb` renkli bir
+  kullanıcı paleti saklar; panel gibi beş renk tutar, eksikte son rengi tekrarlar. `sv_delete_color_preset` bir kullanıcı paletini siler.
 - Otomatik VJ: `sv_set_autovj` açık, kaynak, aralık, birim, sıra, BPM kilidi, palet kaynağı ve
   katman başına görselleştirici hedeflerini ayarlar.
 - Dışa aktarma ve kayıt: `sv_start_export` diskte duran bir ses dosyasını sizin verdiğiniz video
@@ -982,7 +989,8 @@ Oluşturur ve düzenler.
   `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
   `sv_save_snapshot` canlı görüntüyü bir yola JPEG olarak yazar. Bu üç araç yalnız uzantısı
   uyan, mutlak ve yerel bir yol kabul eder: video için `.mp4`, ayarlar için `.json`, görüntü için
-  `.jpg` ya da `.jpeg`. Ağ yolları ve `tcp://` gibi adresler reddedilir. `sv_record_start` ve `sv_record_stop`
+  `.jpg` ya da `.jpeg`. Ağ yolları, `tcp://` gibi adresler ve uygulamanın kendi klasörleri
+  reddedilir. Var olan bir dosyanın üstüne yalnız `overwrite: true` ile yazılır. `sv_record_start` ve `sv_record_stop`
   yönetici kaydedicisini sürer. Durdurmak, Kayıt kartındakiyle aynı kaydetme penceresini açar.
   Kaydedici, yönetici penceresinin açık olmasını ister.
 

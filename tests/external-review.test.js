@@ -363,3 +363,48 @@ test('bölüm yamaları varsayılanları ve hazır şablonları kabul eder', asy
     }
   }
 });
+
+/* Orta 5: hiçbir araç parametre bildirmiyordu. Her aracın okuduğu
+   argüman şemasında yazılı olmalı; yeni argüman eklenip şemaya
+   yazılmazsa bu test düşer. */
+test('her aracın okuduğu argümanlar şemasında bildirilir', () => {
+  const src = read('src/shared/mcp.js');
+  const HELPERS = {
+    findLayer: ['id', 'layerId', 'index'],
+    findScene: ['id', 'name'],
+    findFx: ['effectId', 'effectIndex', 'type'],
+    permissionReport: ['tool', 'name'],
+  };
+  const byName = {};
+  for (const t of mcp.tools()) byName[t.name] = t;
+  const re = /\n {2}tool\('(\w+)',/g;
+  const missing = [];
+  let m;
+  let checked = 0;
+  while ((m = re.exec(src))) {
+    // Tek satırlık araçlar kendi satırında biter; sonraki araca taşmasın
+    const ends = [src.indexOf('\n  });', m.index + 1), src.indexOf('\n  tool(', m.index + 1)].filter((i) => i > 0);
+    const end = Math.min.apply(null, ends);
+    const body = src.slice(m.index, end);
+    const used = new Set();
+    const ar = /\b(?:args|src|route)(?:\s*&&\s*(?:args|src))?\.(\w+)/g;
+    let a;
+    while ((a = ar.exec(body))) if (a[1] !== 'route' || /args/.test(a[0])) used.add(a[1]);
+    for (const [h, names] of Object.entries(HELPERS)) {
+      if (new RegExp('\\b' + h + '\\([^)]*args').test(body)) names.forEach((n) => used.add(n));
+    }
+    const schema = byName[m[1]].inputSchema;
+    assert.strictEqual(schema.type, 'object');
+    assert.strictEqual(schema.additionalProperties, true, m[1] + ' fazladan alanı reddetmemeli');
+    for (const n of used) {
+      if (!schema.properties || !schema.properties[n]) missing.push(m[1] + '.' + n);
+    }
+    for (const r of schema.required || []) assert.ok(schema.properties[r], m[1] + ' required ' + r);
+    if (used.size) checked++;
+  }
+  assert.deepStrictEqual(missing, []);
+  assert.ok(checked > 60, 'argüman okuyan araç sayısı: ' + checked);
+  // Argüman okuyan her araç parametre bildiriyor (argümansız okuma araçları boş)
+  const described = mcp.tools().filter((t) => Object.keys(t.inputSchema.properties || {}).length).length;
+  assert.ok(described >= checked, 'parametre bildiren araç: ' + described + ', argüman okuyan: ' + checked);
+});
