@@ -498,7 +498,55 @@
      `modulation.routes` olmayan kaynağı, `autovj.interval` -3'ü
      sv_patch_config ile olduğu gibi yazıyordu. Yazım bölümün bir kopyasında
      yapılır; denetimden geçerse yerine konur. */
-  function sectionCheck(cfg, top, next) {
+  /* OSC listen port rule shared with the admin panel (control.js): ports
+     below 1024 need root on Linux/macOS, so the server could not bind
+     there. Windows has no such limit and starts at 1. */
+  function oscPortMin(platform) { return hostPlatform(platform) === 'win32' ? 1 : 1024; }
+  function oscPortError(port, platform) {
+    const lo = oscPortMin(platform);
+    if (typeof port !== 'number' || !Number.isInteger(port) || port < lo || port > 65535) {
+      return 'control.osc.port must be an integer between ' + lo + ' and 65535.';
+    }
+    return '';
+  }
+  /* Validates the control section (MIDI/OSC surfaces). Only fields that
+     changed are checked, so legacy values already on disk still load. */
+  function controlError(next, prev, platform) {
+    prev = prev && typeof prev === 'object' ? prev : {};
+    const surfaces = ['midi', 'osc'];
+    for (const k of Object.keys(next)) {
+      if (surfaces.indexOf(k) < 0) return 'control.' + k + ' is not a known key. Valid: midi, osc.';
+    }
+    for (const s of surfaces) {
+      const n = next[s];
+      if (n === undefined) continue;
+      const o = prev[s] && typeof prev[s] === 'object' ? prev[s] : {};
+      if (!n || typeof n !== 'object' || Array.isArray(n)) return 'control.' + s + ' must be an object.';
+      const changed = function (key) { return n[key] !== undefined && JSON.stringify(n[key]) !== JSON.stringify(o[key]); };
+      if (changed('enabled') && typeof n.enabled !== 'boolean') return 'control.' + s + '.enabled must be true or false.';
+      if (changed('mappings')) {
+        if (!Array.isArray(n.mappings)) return 'control.' + s + '.mappings must be an array.';
+        for (let i = 0; i < n.mappings.length; i++) {
+          const m = n.mappings[i];
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return 'control.' + s + '.mappings[' + i + '] must be an object.';
+        }
+      }
+      if (s === 'midi' && changed('deviceId') && (typeof n.deviceId !== 'string' || !n.deviceId.trim())) {
+        return 'control.midi.deviceId must be a non-empty string ("all" listens to every input).';
+      }
+      if (s === 'osc') {
+        if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad; }
+        if (changed('host') && (typeof n.host !== 'string' || !n.host.trim() || n.host.length > 253)) {
+          return 'control.osc.host must be a non-empty host name or address.';
+        }
+      }
+    }
+    return '';
+  }
+  /* Anchor values the Now Playing renderer understands
+     (src/visualizer/modes/nowplaying.js): 'text' (default) and 'group'. */
+  const NOWPLAYING_ANCHORS = ['text', 'group'];
+  function sectionCheck(cfg, top, next, platform) {
     const was = cfg[top];
     if (top === 'postfx') {
       const r = fxListCheck(next, was);
@@ -541,6 +589,17 @@
       next.routes = routes;
       return { value: next };
     }
+    if (top === 'control') {
+      const bad = controlError(next, prev, platform);
+      if (bad) return { error: bad };
+      return { value: next };
+    }
+    if (top === 'nowplaying') {
+      if (next.anchor !== undefined && next.anchor !== prev.anchor && NOWPLAYING_ANCHORS.indexOf(next.anchor) < 0) {
+        return { error: 'nowplaying.anchor must be one of: ' + NOWPLAYING_ANCHORS.join(', ') + '.' };
+      }
+      return { value: next };
+    }
     if (top === 'autovj') {
       const bad = autovjError(next);
       if (bad) return { error: bad };
@@ -552,7 +611,7 @@
     }
     return { value: next };
   }
-  const CHECKED_SECTIONS = ['postfx', 'visualizer', 'background', 'modulation', 'autovj'];
+  const CHECKED_SECTIONS = ['postfx', 'visualizer', 'background', 'modulation', 'autovj', 'control', 'nowplaying'];
   function summarize(v, depth) {
     if (depth == null) depth = 0;
     if (typeof v === 'string') {
@@ -1994,7 +2053,7 @@
         scratch[top] = clone(cfg[top]);
         const w = setPath(scratch, args.path, args.value);
         if (w.ok === false) return w;
-        const r = sectionCheck(cfg, top, scratch[top]);
+        const r = sectionCheck(cfg, top, scratch[top], ctx && ctx.platform);
         if (r.error) return fail(r.error);
         cfg[top] = r.value;
         return { path: args.path, group: GROUP_LABEL[group] || group, value: getPath(cfg, args.path) };
@@ -2286,6 +2345,7 @@
     normalizeMcp: normalizeMcp, groupForPath: groupForPath, visualState: visualState,
     cardModel: cardModel, commandBundle: commandBundle, clients: clients, installPrompt: installPrompt,
     hostPlatform: hostPlatform, clientFileStep: clientFileStep,
+    oscPortMin: oscPortMin, oscPortError: oscPortError, NOWPLAYING_ANCHORS: NOWPLAYING_ANCHORS,
     tools: function (locale) { return TOOLS.map(function (t) { return publicTool(t, locale || 'en'); }); },
     MODES: MODES, DEFAULT_PORT: DEFAULT_PORT,
     callTool: callTool, handleRpc: handleRpc,
