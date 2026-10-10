@@ -514,9 +514,9 @@ test('kilitli katman kaldırılamaz ve taşınamaz; komşusu da onu kaydıramaz'
   const P = read('src/admin/scene-panels.js');
   const head = fnBody(P, 'function layerHead(');
   assert.strictEqual((head.match(/disabled: !!l\.locked,/g) || []).length, 2, 'aç/kapa ve kaldır');
-  // Oklar kendi kilidine ve kaydıracakları komşunun kilidine bakar (v2 Y10)
-  assert.match(head, /disabled: !!l\.locked \|\| !!\(list\[i \+ 1\] && list\[i \+ 1\]\.locked\),/);
-  assert.match(head, /disabled: !!l\.locked \|\| !!\(list\[i - 1\] && list\[i - 1\]\.locked\),/);
+  // Oklar kendi kilidine, uca ve kaydıracakları komşunun kilidine bakar (v2 Y10, v3 U1)
+  assert.match(head, /disabled: !!l\.locked \|\| i \+ 1 >= list\.length \|\| !!\(list\[i \+ 1\] && list\[i \+ 1\]\.locked\),/);
+  assert.match(head, /disabled: !!l\.locked \|\| i === 0 \|\| !!\(list\[i - 1\] && list\[i - 1\]\.locked\),/);
   assert.match(head, /onclick: \(\) => \{ if \(l\.locked\) return; list\.splice\(i, 1\); onChange\(\); \}/);
   const vm = require('vm');
   const move = fnBody(P, 'function moveItem(list, i, dir)') + '\n  }';

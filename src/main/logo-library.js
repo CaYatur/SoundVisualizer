@@ -210,7 +210,7 @@ function createLibrary(spec) {
     let st;
     try { st = fs.statSync(srcPath); } catch { return { ok: false, error: 'READ' }; }
     if (!st.isFile() || st.size <= 0 || st.size > MAX_BYTES) return { ok: false, error: 'SIZE' };
-    if (spec.sniff && !spec.sniff(readHead(srcPath))) return { ok: false, error: 'TYPE' };
+    if (spec.sniff && !spec.sniff(readHead(srcPath), st.size)) return { ok: false, error: 'TYPE' };
     const dup = findDuplicate(dir, srcPath, st.size);
     if (dup) return { ok: false, error: 'DUPLICATE', item: publicItem(dup) };
     ensureDir(dir);

@@ -584,9 +584,13 @@
         P().row(
           'UDP Portu',
           el('input', {
-            class: 'p-in p-num', type: 'number', min: '1', max: '65535', value: cfg.control.osc.port,
+            class: 'p-in p-num', type: 'number', min: '1024', max: '65535', value: cfg.control.osc.port,
             onchange: async (e) => {
-              cfg.control.osc.port = Math.max(1, Math.min(65535, parseInt(e.target.value, 10) || 9000));
+              /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister,
+                 sunucu açılamaz. */
+              const port = P().portValue(e.target, cfg.control.osc.port, 1024);
+              if (port == null) return;
+              cfg.control.osc.port = port;
               P().push(true);
               oscState = await window.api.oscSync();
               P().rerender();

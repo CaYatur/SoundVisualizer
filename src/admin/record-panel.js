@@ -24,6 +24,11 @@
   let timer = 0;
   let status = '';
   let busy = false;
+  /* Dosya yazılıyor (kayıt ya da anlık görüntü; kaydetme penceresi açık
+     olabilir). Panel kayıt bitince `busy`ı sıfırlıyor; bu bayrak açıkken
+     sıfırlamaz. Eskiden kaydetme penceresi açıkken panel yeniden çizilince
+     Anlık Görüntü düğmesi açılıyor, ikinci bir pencere açılabiliyordu. */
+  let saving = false;
 
   const FORMAT_LABELS = [['mp4', 'MP4 (H.264)'], ['webm', 'WebM'], ['gif', 'GIF']];
 
@@ -147,7 +152,7 @@
     const nodes = [];
 
     const recording = !!(R && R.recording);
-    if (!recording) {
+    if (!recording && !saving) {
       busy = false;
     }
     const timeLbl = el('span', { class: 'rec-time', text: recording ? fmt(R.elapsed) : '00:00' });
@@ -157,12 +162,12 @@
         class: 'btn ' + (recording ? 'danger' : 'primary'),
         type: 'button',
         icon: busy ? '' : (recording ? 'stop' : 'record'), text: busy ? 'Kaydediliyor…' : (recording ? 'Durdur' : 'Kayda Başla'),
-        disabled: busy && !recording,
+        disabled: (busy || saving) && !recording,
         onclick: () => (recording ? stop() : start(cfg)),
       }),
       el('button', {
         class: 'btn ghost', type: 'button', icon: 'camera', text: 'Anlık Görüntü',
-        disabled: busy || recording,
+        disabled: busy || saving || recording,
         onclick: () => snap(cfg),
       }),
       timeLbl,
@@ -231,6 +236,7 @@
   }
 
   async function start(cfg) {
+    if (saving) return { ok: false, error: 'The previous file is still being saved.' }; // önceki dosya daha yazılıyor
     const R = engine();
     if (!R) { status = 'Kayıt motoru yok.'; P().rerender(); return; }
     status = 'Yüzey hazırlanıyor…';
@@ -265,7 +271,20 @@
     P().rerender();
   }
 
+  // Süre sınırı kaydı kendisi de durdurabilir; bayraklar burada da kurulur
   async function finish(blob, cfg) {
+    saving = true;
+    busy = true;
+    try {
+      await writeRecording(blob, cfg);
+    } finally {
+      saving = false;
+      busy = false;
+      P().rerender();
+    }
+  }
+
+  async function writeRecording(blob, cfg) {
     stopPump();
     release();
     /* Boş kayıtta kaydetme penceresi AÇILMAZ.
@@ -316,6 +335,18 @@
      çoğu audio.bass okuduğu için hemen hata atıyordu. Yeniden çizmenin bir
      yararı da yoktu: istenen şey ekranda görünen kare. */
   async function snap(cfg) {
+    if (saving || busy) return; // çift tık ya da kayıt yazılırken
+    saving = true;
+    try {
+      await takeSnapshot(cfg);
+    } finally {
+      saving = false;
+      busy = false;
+      P().rerender();
+    }
+  }
+
+  async function takeSnapshot(cfg) {
     const r = cfg.recording || {};
     status = 'Yüzey hazırlanıyor…';
     P().rerender();

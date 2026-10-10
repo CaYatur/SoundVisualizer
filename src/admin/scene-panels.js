@@ -125,13 +125,17 @@
   function itemHeader(list, i, title, onChange, extra, reverse) {
     const el = P().el;
     const up = reverse ? 1 : -1;
+    // Uçtaki öğenin o yöndeki oku kapalı (gidecek yer yok)
+    const can = (d) => i + d >= 0 && i + d < list.length;
     const kids = [
       el('button', {
-        class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: 'Yukarı taşı',
+        class: 'btn ghost tiny', type: 'button', icon: 'chevron-up', title: can(up) ? 'Yukarı taşı' : 'Zaten en üstte',
+        disabled: !can(up),
         onclick: () => { if (moveItem(list, i, up)) onChange(); },
       }),
       el('button', {
-        class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: 'Aşağı taşı',
+        class: 'btn ghost tiny', type: 'button', icon: 'chevron-down', title: can(-up) ? 'Aşağı taşı' : 'Zaten en altta',
+        disabled: !can(-up),
         onclick: () => { if (moveItem(list, i, -up)) onChange(); },
       }),
       el('span', { class: 'item-title', text: title }),
@@ -359,18 +363,19 @@
     const icon = LAYER_ICONS[(l.kind === 'visualizer' && l.type === 'text') ? 'text' : (l.kind === 'visualizer' && l.type === 'nowplaying') ? 'nowplaying' : l.kind] || 'grid';
     return el('div', { class: 'layer-head' + (open ? ' open' : '') }, [
       el('div', { class: 'layer-ord' }, [
-        /* Komşu kilitliyse ok da kapalı: eskiden etkin görünüyor, basınca
-           hiçbir şey olmuyordu. İpucu nedenini söylüyor. */
+        /* Komşu kilitliyse ya da katman zaten en üstte/en altta ise ok da
+           kapalı: eskiden etkin görünüyor, basınca hiçbir şey olmuyordu.
+           İpucu nedenini söylüyor. */
         el('button', {
           class: 'btn ghost tiny', type: 'button', icon: 'chevron-up',
-          title: l.locked ? 'Kilitli' : (list[i + 1] && list[i + 1].locked ? 'Üstteki katman kilitli' : 'Yukarı taşı'),
-          disabled: !!l.locked || !!(list[i + 1] && list[i + 1].locked),
+          title: l.locked ? 'Kilitli' : i + 1 >= list.length ? 'Zaten en üstte' : (list[i + 1].locked ? 'Üstteki katman kilitli' : 'Yukarı taşı'),
+          disabled: !!l.locked || i + 1 >= list.length || !!(list[i + 1] && list[i + 1].locked),
           onclick: () => { if (moveItem(list, i, 1)) onChange(); },
         }),
         el('button', {
           class: 'btn ghost tiny', type: 'button', icon: 'chevron-down',
-          title: l.locked ? 'Kilitli' : (list[i - 1] && list[i - 1].locked ? 'Alttaki katman kilitli' : 'Aşağı taşı'),
-          disabled: !!l.locked || !!(list[i - 1] && list[i - 1].locked),
+          title: l.locked ? 'Kilitli' : i === 0 ? 'Zaten en altta' : (list[i - 1].locked ? 'Alttaki katman kilitli' : 'Aşağı taşı'),
+          disabled: !!l.locked || i === 0 || !!(list[i - 1] && list[i - 1].locked),
           onclick: () => { if (moveItem(list, i, -1)) onChange(); },
         }),
       ]),
