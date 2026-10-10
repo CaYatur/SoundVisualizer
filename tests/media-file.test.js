@@ -70,11 +70,13 @@ test('olmayan dosya 404 döner, istisna fırlatmaz', () => {
   assert.strictEqual(res.status, 404);
 });
 
-test('bilinmeyen uzantı genel ikili tür alır', () => {
+/* Eskiden genel ikili türle sunuluyordu. Dosya seçici ve kitaplık yalnız
+   video uzantılarını kabul ediyor; başka bir dosya sayfaya verilmez. */
+test('video olmayan uzantı sunulmaz (415)', () => {
   const other = path.join(DIR, 'klip.xyz');
   fs.writeFileSync(other, DATA);
   const res = serveMediaFile(other, null);
-  assert.strictEqual(res.headers.get('Content-Type'), 'application/octet-stream');
+  assert.strictEqual(res.status, 415);
 });
 
 test('katman dosyası seçilmiş sayılır, listede olmayan yol sayılmaz', () => {

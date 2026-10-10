@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2833%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2853%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -883,9 +883,14 @@ does not move, and the card reports the failure. Each start writes a new token i
 macOS those two files are readable by this user only. A connection from anywhere else is refused,
 and so is a missing or wrong token.
 
-`sv_get_config` and the output-status read replace stream tokens with a redaction. `sv_set_stream`
-drops `token` and `remoteToken`. A full-config `sv_export_json` writes the settings as stored, to a
-path you name.
+`sv_get_config`, the output-status read and `sv_export_json` replace stream tokens with a
+redaction. `sv_set_stream` drops `token` and `remoteToken`.
+
+Every tool lists its parameters in `tools/list`, with types, ranges and allowed values. Values the
+panel cannot produce are refused or pulled into the panel's range: a layer position outside -1..1,
+a colour that is not `#rrggbb`, an unknown effect type, a modulation route to a setting that does
+not exist. `sv_patch_config` writes into a list only at an index that exists (`layers.0.opacity`)
+and does not create new top-level keys.
 
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
@@ -947,7 +952,8 @@ Uses what is already saved.
 Creates and edits.
 
 - Scenes: `sv_create_scene` stores the current look under a new name, `sv_update_scene` overwrites
-  one, `sv_rename_scene` renames, `sv_delete_scene` removes.
+  one, `sv_rename_scene` gives a scene found by id or current name the `newName`,
+  `sv_delete_scene` removes.
 - Layers: `sv_add_layer`, `sv_update_layer`, `sv_set_layer_position`, `sv_set_layer_settings`,
   `sv_remove_layer`, `sv_reorder_layers`. A layer carries kind, type, preset, opacity, blend,
   transform (x, y, scale, rotate, flip), audio response, mask, solo, mute, lock and group. Effects
@@ -962,8 +968,10 @@ Creates and edits.
   badtv and starfilter. `sv_add_modulation_route` and `sv_remove_modulation_route` edit routes.
 - Presets: `sv_save_preset` writes a file in the preset store. Shader text with no kind is saved as
   a Studio visualizer (`kind` `visualizer`, `engine` `shader`). Any other save with no kind is
-  MilkDrop. `sv_delete_preset` removes a file. `sv_set_milkdrop_source` writes MilkDrop source into
-  the live show. `sv_create_color_preset` saves a user palette of at least two colours.
+  MilkDrop. `engine` is `shader` or `variation`; `glsl`, `shadertoy`, `isf` and `frag` are read as
+  `shader`. `sv_delete_preset` removes a file and reports an id that does not exist. `sv_set_milkdrop_source` writes MilkDrop source into
+  the live show. `sv_create_color_preset` saves a user palette of two to five `#rrggbb` colours.
+  Like the panel, it stores five, repeating the last one.
   `sv_delete_color_preset` removes a user palette.
 - Auto VJ: `sv_set_autovj` sets enabled, source, interval, unit, order, BPM lock, palette source
   and per-layer visualizer targets.
@@ -973,7 +981,8 @@ Creates and edits.
   writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
   the live picture to a path as a JPEG. These three tools take only an absolute local path with
   the matching extension: `.mp4` for the video, `.json` for the settings, `.jpg` or `.jpeg` for the
-  picture. Network paths and addresses such as `tcp://` are refused. `sv_record_start` and `sv_record_stop` drive the admin recorder.
+  picture. Network paths and addresses such as `tcp://` are refused, and so are the app's own
+  folders. An existing file is replaced only with `overwrite: true`. `sv_record_start` and `sv_record_stop` drive the admin recorder.
   Stopping opens the same save dialog as the Record card. The recorder needs the admin window open.
 
 #### Full
@@ -1607,7 +1616,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2833 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2853 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

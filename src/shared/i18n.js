@@ -3695,8 +3695,8 @@
     "en": "Overwrite an existing scene with the current visuals. Authoring."
   },
   "mcp.tool.sv_rename_scene": {
-    "tr": "Bir sahneyi yeniden adlandırır. Yazarlık.",
-    "en": "Rename a scene. Authoring."
+    "tr": "Bir sahneyi yeniden adlandırır. Sahne id ya da şimdiki adıyla (name) bulunur, yeni ad newName. Eski id + name biçimi de çalışır. Yazarlık.",
+    "en": "Rename a scene. Find it by id or by its current name, give the new name as newName. The old form id + name still works. Authoring."
   },
   "mcp.tool.sv_delete_scene": {
     "tr": "Bir sahneyi siler. Yazarlık.",
@@ -3883,8 +3883,8 @@
     "en": "Cancel the running offline export."
   },
   "mcp.tool.sv_export_json": {
-    "tr": "Sahneleri veya tüm yapılandırma JSON dosyasını verilen yola yazar. Kayıt penceresi açmaz.",
-    "en": "Write scenes or full config JSON to an explicit path. No save dialog."
+    "tr": "Sahneleri veya tüm yapılandırma JSON dosyasını verilen yola yazar. Kayıt penceresi açmaz. Yayın jetonları yazılmaz; var olan dosyanın üstüne yalnız overwrite:true ile yazar.",
+    "en": "Write scenes or full config JSON to an explicit path. No save dialog. Stream tokens are not written; an existing file is replaced only with overwrite:true."
   },
   "mcp.tool.sv_save_snapshot": {
     "tr": "Canlı tuvali bir dosyaya yakalar. Kaydetmeden önizleme için sv_get_preview kullanılır.",
