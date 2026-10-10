@@ -60,8 +60,10 @@
     ['visualizers', 'Görselleştiriciler'],
     ['palettes', 'Renk Şablonları'],
     ['backgrounds', 'Arkaplanlar'],
+    ['custom', 'Özel'],
     ['all', 'Hepsi (sırayla)'],
   ];
+  const CUSTOM_MODE_LABELS = [['sequential', 'Sırayla'], ['simultaneous', 'Hepsi aynı anda']];
   const UNIT_LABELS = [['bars', 'Ölçü'], ['seconds', 'Saniye']];
   const ORDER_LABELS = [['sequential', 'Sırayla'], ['random', 'Rastgele']];
   const PALETTE_SOURCE_LABELS = [
@@ -71,7 +73,7 @@
     ['all', 'Tüm Görselleştirici Katmanları'], ['first', 'Yalnızca İlki'],
   ];
   const KIND_LABELS = {
-    scenes: 'Sahne', visualizers: 'Görselleştirici', palettes: 'Renk Şablonu', backgrounds: 'Arkaplan',
+    scenes: 'Sahne', visualizers: 'Görselleştirici', palettes: 'Renk Şablonu', backgrounds: 'Arkaplan', custom: 'Özel',
   };
 
   /* Kullanıcıya gösterilecek görselleştirici adları. Etiketler burada
@@ -219,10 +221,31 @@
 
     let done = false;
     let pushed = false;
-    if (res.kind === 'scenes') { done = applyScene(res.item); pushed = done; }
-    else if (res.kind === 'visualizers') done = applyVisualizer(cfg, res.items, a.visualizerTargets);
-    else if (res.kind === 'palettes') done = applyPalette(cfg, res.item);
-    else if (res.kind === 'backgrounds') done = applyBackground(cfg, res.item);
+    const applyStep = (step) => {
+      // A scene load replaces the config object, so read it again per step
+      const c = P().cfg();
+      if (step.kind === 'scenes') { const ok = applyScene(step.item); if (ok) pushed = true; return ok; }
+      if (step.kind === 'visualizers') return applyVisualizer(c, step.items, a.visualizerTargets);
+      if (step.kind === 'palettes') return applyPalette(c, step.item);
+      if (step.kind === 'backgrounds') return applyBackground(c, step.item);
+      return false;
+    };
+    const stepLabel = (step) => (step.kind === 'visualizers'
+      ? step.items.map((x) => visLabel(x.id)).join(' + ')
+      : T(step.item.label));
+    if (res.steps) {
+      // custom + simultaneous: every selected kind changes in this step
+      const hit = res.steps.filter((step) => applyStep(step));
+      done = hit.length > 0;
+      if (done) {
+        lastFailure = null;
+        switchCount++;
+        lastResult = { kind: 'custom', label: hit.map((step) => T(KIND_LABELS[step.kind]) + ': ' + stepLabel(step)).join(' · ') };
+        return { ok: true, kind: 'custom', pushed };
+      }
+    } else {
+      done = applyStep(res);
+    }
 
     if (!done) {
       lastFailure = { code: 'EMPTY', kind: res.kind };
@@ -498,17 +521,44 @@
         SOURCE_LABELS.map(([v, l]) => ({ value: v, label: l })), { onChange: () => { restartTiming(); rerender(); } }));
 
       // Kaynağa özel ayarlar
-      if (a.source === 'palettes' || a.source === 'all') {
+      if (a.source === 'palettes' || a.source === 'all' || (a.source === 'custom' && a.customKinds.indexOf('palettes') >= 0)) {
         nodes.push(P().segment('Şablon Kaynağı', 'autovj.paletteSource',
           PALETTE_SOURCE_LABELS.map(([v, l]) => ({ value: v, label: l })), { onChange: rerender }));
       }
-      if (a.source === 'visualizers' || a.source === 'all') {
+      if (a.source === 'visualizers' || a.source === 'all' || (a.source === 'custom' && a.customKinds.indexOf('visualizers') >= 0)) {
         nodes.push(P().segment('Hangi Katmanlar', 'autovj.visualizerTargets',
           VIS_TARGET_LABELS.map(([v, l]) => ({ value: v, label: l }))));
       }
 
+      // Custom source: which kinds take part and how they step
+      if (a.source === 'custom') {
+        if (!Array.isArray(raw.customKinds)) raw.customKinds = a.customKinds.slice();
+        const boxes = R().KINDS.map((k) => {
+          const box = el('input', {
+            type: 'checkbox',
+            onchange: (e) => {
+              const cur = R().normalize(raw).customKinds;
+              const next = e.target.checked ? cur.concat([k]) : cur.filter((x) => x !== k);
+              // At least one kind stays selected
+              raw.customKinds = R().customKindsOf(next.length ? next : cur);
+              restartTiming();
+              P().push(true);
+              rerender();
+            },
+          });
+          box.checked = a.customKinds.indexOf(k) >= 0;
+          return el('label', { class: 'pick-row' }, [box, el('span', { class: 'pick-label', text: KIND_LABELS[k] })]);
+        });
+        nodes.push(el('div', { class: 'pick-box' }, [
+          el('div', { class: 'row' }, [el('span', { class: 'lbl', text: 'Katılan Türler' })]),
+          el('div', { class: 'pick-list' }, boxes),
+        ]));
+        nodes.push(P().segment('Adım Kipi', 'autovj.customMode',
+          CUSTOM_MODE_LABELS.map(([v, l]) => ({ value: v, label: l })), { onChange: () => { restartTiming(); rerender(); } }));
+      }
+
       // Seçim listesi — 'all' kipinde her tür için ayrı
-      const kinds = a.source === 'all' ? R().KINDS : [a.source];
+      const kinds = a.source === 'all' ? R().KINDS : a.source === 'custom' ? a.customKinds : [a.source];
       for (const k of kinds) {
         const box = pickList(k, a, ctx, rerender);
         if (box) {

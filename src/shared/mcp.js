@@ -920,7 +920,9 @@
     sv_set_autovj: {
       props: {
         enabled: sp('boolean', 'Turn Auto VJ on or off.'),
-        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'] }),
+        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'] }),
+        customKinds: sp('array', 'For source custom: which kinds take part (at least one).', { items: { type: 'string', enum: ['scenes', 'visualizers', 'palettes', 'backgrounds'] }, minItems: 1 }),
+        customMode: sp('string', 'For source custom: sequential (one kind per step) or simultaneous (all selected kinds every step).', { enum: ['sequential', 'simultaneous'] }),
         interval: sp('number', 'Steps between switches (bars or seconds).', { minimum: 1, maximum: 64 }),
         unit: sp('string', 'Interval unit.', { enum: ['bars', 'seconds'] }),
         order: sp('string', 'Switch order.', { enum: ['sequential', 'random'] }),
@@ -1369,7 +1371,8 @@
      kilidi panelin kaydırıcı aralığına çekilir. Eskiden `interval:-3`
      olduğu gibi yazılıyordu. */
   const AUTOVJ_ENUMS = {
-    source: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'],
+    source: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'],
+    customMode: ['sequential', 'simultaneous'],
     unit: ['bars', 'seconds'],
     order: ['sequential', 'random'],
     paletteSource: ['both', 'builtin', 'user'],
@@ -1383,6 +1386,11 @@
     }
     for (const k of Object.keys(AUTOVJ_RANGES)) {
       if (args[k] !== undefined && !finite(args[k])) return k + ' must be a number.';
+    }
+    if (args.customKinds !== undefined) {
+      const ok = ['scenes', 'visualizers', 'palettes', 'backgrounds'];
+      if (!Array.isArray(args.customKinds) || !args.customKinds.length) return 'customKinds must be a non-empty array of: ' + ok.join(', ') + '.';
+      for (const k of args.customKinds) if (ok.indexOf(k) < 0) return 'customKinds must only contain: ' + ok.join(', ') + '.';
     }
     if (args.picks !== undefined && args.picks !== null) {
       if (typeof args.picks !== 'object' || Array.isArray(args.picks)) return 'picks must be an object.';
@@ -1421,13 +1429,17 @@
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) {
       const next = Object.assign({ enabled: false, source: 'visualizers', unit: 'bars', interval: 8, order: 'sequential', bpmLock: 0 }, cfg.autovj);
-      ['enabled', 'source', 'interval', 'unit', 'order', 'bpmLock', 'paletteSource', 'visualizerTargets'].forEach(function (k) {
+      ['enabled', 'source', 'interval', 'unit', 'order', 'bpmLock', 'paletteSource', 'visualizerTargets', 'customMode'].forEach(function (k) {
         if (args && args[k] !== undefined) next[k] = args[k];
       });
       Object.keys(AUTOVJ_RANGES).forEach(function (k) {
         const r = AUTOVJ_RANGES[k];
         if (args && args[k] !== undefined) next[k] = Math.round(Math.max(r[0], Math.min(r[1], args[k])));
       });
+      if (args && Array.isArray(args.customKinds)) {
+        // Store unique kinds in canonical order
+        next.customKinds = ['scenes', 'visualizers', 'palettes', 'backgrounds'].filter(function (k) { return args.customKinds.indexOf(k) >= 0; });
+      }
       if (args && args.picks && Array.isArray(args.picks.backgrounds)) {
         next.picks = Object.assign({ scenes: [], visualizers: [], palettes: [] }, next.picks, { backgrounds: args.picks.backgrounds.slice() });
       }

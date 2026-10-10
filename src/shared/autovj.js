@@ -30,12 +30,21 @@
  * öğe seçimi imleci ilerlettiği için tür dönüşümü düzensiz atlıyordu.
  */
 (function () {
-  const SOURCES = ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'];
+  const SOURCES = ['scenes', 'visualizers', 'palettes', 'backgrounds', 'custom', 'all'];
   const KINDS = ['scenes', 'visualizers', 'palettes', 'backgrounds']; // 'all' bunları dolaşır
   const PALETTE_SOURCES = ['both', 'builtin', 'user'];
   const VIS_TARGETS = ['first', 'all'];
   const ORDERS = ['sequential', 'random'];
   const UNITS = ['bars', 'seconds'];
+  /* 'custom' source: the user chooses which kinds take part.
+     sequential   one kind per step, rotating like 'all'
+     simultaneous every step changes all selected kinds at once */
+  const CUSTOM_MODES = ['sequential', 'simultaneous'];
+  const CUSTOM_DEFAULT = ['visualizers', 'backgrounds'];
+  function customKindsOf(v) {
+    const out = KINDS.filter((k) => arr(v).indexOf(k) >= 0); // KINDS order, unique
+    return out.length ? out : CUSTOM_DEFAULT.slice();
+  }
 
   /* Dolaşılabilecek görselleştiriciler — panelin tür seçicisinin tamamı,
      üç bilinçli dışlamayla:
@@ -78,6 +87,8 @@
       picks: { scenes: [], visualizers: [], palettes: [], backgrounds: [] },
       paletteSource: 'both',
       visualizerTargets: 'all',
+      customKinds: CUSTOM_DEFAULT.slice(),
+      customMode: 'sequential',
     };
   }
 
@@ -104,6 +115,8 @@
       },
       paletteSource: pick(PALETTE_SOURCES, s.paletteSource, d.paletteSource),
       visualizerTargets: pick(VIS_TARGETS, s.visualizerTargets, d.visualizerTargets),
+      customKinds: customKindsOf(s.customKinds),
+      customMode: pick(CUSTOM_MODES, s.customMode, d.customMode),
     };
   }
 
@@ -255,9 +268,11 @@
      en az bir tür döner. Bu bir varsayım değil, listeden gelen bir güvence;
      yine de görselleştiricilere düşülüyor ki sınanamayan bir hata dalı
      yaratılmasın. */
-  function nextKind(a, ctx, kindCursor) {
-    const usable = KINDS.filter((k) => selected(k, a, ctx).length > 0);
-    const pool = usable.length ? usable : ['visualizers'];
+  function nextKind(a, ctx, kindCursor, kinds) {
+    const from = kinds || KINDS;
+    const usable = from.filter((k) => selected(k, a, ctx).length > 0);
+    const pool = usable.length ? usable : (kinds ? [] : ['visualizers']);
+    if (!pool.length) return null;
     const c = Number.isFinite(kindCursor) ? kindCursor : -1;
     return pool[(c + 1) % pool.length];
   }
@@ -274,13 +289,18 @@
   function plan(a, ctx, state, count) {
     const cfg = normalize(a);
     const st = state && typeof state === 'object' ? state : {};
-    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, backgrounds: -1, all: -1 }, st.cursors);
+    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, backgrounds: -1, all: -1, custom: -1 }, st.cursors);
     const last = Object.assign({}, st.last);
 
     let kind = cfg.source;
     if (kind === 'all') {
       kind = nextKind(cfg, ctx, cursors.all);
       cursors.all = (Number.isFinite(cursors.all) ? cursors.all : -1) + 1;
+    } else if (kind === 'custom') {
+      if (cfg.customMode === 'simultaneous') return planAll(cfg, ctx, cursors, last, count);
+      kind = nextKind(cfg, ctx, cursors.custom, cfg.customKinds);
+      if (!kind) return { ok: false, code: 'EMPTY', kind: 'custom' };
+      cursors.custom = (Number.isFinite(cursors.custom) ? cursors.custom : -1) + 1;
     }
 
     const list = selected(kind, cfg, ctx);
@@ -301,6 +321,26 @@
     };
   }
 
+  /* custom + simultaneous: one draw per selected, non-empty kind, in KINDS
+     order (scenes first, so a scene load does not wipe the other changes).
+     Returns { ok, kind:'custom', steps:[{kind,item,items}], state }. */
+  function planAll(cfg, ctx, cursors, last, count) {
+    const steps = [];
+    for (const k of cfg.customKinds) {
+      const list = selected(k, cfg, ctx);
+      if (!list.length) continue;
+      const want = k === 'visualizers' ? Math.max(1, Math.round(count) || 1) : 1;
+      const draw = drawMany(list.length, cfg.order, cursors[k], last[k], want);
+      if (!draw.indices.length) continue;
+      cursors[k] = draw.cursor;
+      last[k] = draw.previous;
+      const items = draw.indices.map((i) => list[i]);
+      steps.push({ kind: k, item: items[0], items });
+    }
+    if (!steps.length) return { ok: false, code: 'EMPTY', kind: 'custom' };
+    return { ok: true, kind: 'custom', steps, item: steps[0].item, items: steps[0].items, state: { cursors, last } };
+  }
+
   /* Kullanıcının seçtiği kaynak hiç çalışabilir mi? Arayüz bunu ÖNCEDEN
      sorup uyarı yazsın diye ayrı: değişim vaktinin gelmesini beklemek
      gerekmemeli — eski davranışta kullanıcı 8 ölçü bekleyip hiçbir şey
@@ -316,6 +356,12 @@
       const pool = usable.length ? usable : ['visualizers'];
       return { ok: true, kinds: pool, skipped: KINDS.filter((k) => pool.indexOf(k) < 0) };
     }
+    if (cfg.source === 'custom') {
+      const pool = cfg.customKinds.filter((k) => selected(k, cfg, ctx).length > 0);
+      return pool.length
+        ? { ok: true, kinds: pool, skipped: cfg.customKinds.filter((k) => pool.indexOf(k) < 0), mode: cfg.customMode }
+        : { ok: false, code: 'EMPTY', kinds: cfg.customKinds.slice() };
+    }
     const list = selected(cfg.source, cfg, ctx);
     return list.length
       ? { ok: true, kinds: [cfg.source], count: list.length }
@@ -323,10 +369,10 @@
   }
 
   const api = {
-    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS, BACKGROUNDS, PRESET_PREFIX,
-    defaults, normalize, isBackgroundPick,
+    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS, BACKGROUNDS, PRESET_PREFIX, CUSTOM_MODES, CUSTOM_DEFAULT,
+    defaults, normalize, isBackgroundPick, customKindsOf,
     isTextLayer, visualizerLayers, backgroundLayers, studioBackgrounds,
-    catalog, selected, nextIndex, drawMany, nextKind, plan, diagnose,
+    catalog, selected, nextIndex, drawMany, nextKind, plan, planAll, diagnose,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

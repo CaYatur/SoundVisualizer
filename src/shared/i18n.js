@@ -1131,6 +1131,7 @@
     'Neyi Değiştirsin': 'What To Switch',
     'Sahneler': 'Scenes', 'Görselleştiriciler': 'Visualizers', 'Hepsi (sırayla)': 'All (in turn)',
     'Arkaplanlar': 'Backgrounds',
+    'Özel': 'Custom', 'Katılan Türler': 'Included Kinds', 'Adım Kipi': 'Step Mode', 'Hepsi aynı anda': 'All at once',
     'Aralık Birimi': 'Interval Unit', 'Ölçü': 'Bars',
     'Aralık': 'Interval', 'Sıra': 'Order', 'Sırayla': 'Sequential', 'Rastgele': 'Random',
     'Şimdi Değiştir': 'Switch Now',
