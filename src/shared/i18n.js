@@ -1130,6 +1130,7 @@
     'Otomatik VJ': 'Auto VJ',
     'Neyi Değiştirsin': 'What To Switch',
     'Sahneler': 'Scenes', 'Görselleştiriciler': 'Visualizers', 'Hepsi (sırayla)': 'All (in turn)',
+    'Arkaplanlar': 'Backgrounds',
     'Aralık Birimi': 'Interval Unit', 'Ölçü': 'Bars',
     'Aralık': 'Interval', 'Sıra': 'Order', 'Sırayla': 'Sequential', 'Rastgele': 'Random',
     'Şimdi Değiştir': 'Switch Now',

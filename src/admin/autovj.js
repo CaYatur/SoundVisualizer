@@ -59,6 +59,7 @@
     ['scenes', 'Sahneler'],
     ['visualizers', 'Görselleştiriciler'],
     ['palettes', 'Renk Şablonları'],
+    ['backgrounds', 'Arkaplanlar'],
     ['all', 'Hepsi (sırayla)'],
   ];
   const UNIT_LABELS = [['bars', 'Ölçü'], ['seconds', 'Saniye']];
@@ -70,7 +71,7 @@
     ['all', 'Tüm Görselleştirici Katmanları'], ['first', 'Yalnızca İlki'],
   ];
   const KIND_LABELS = {
-    scenes: 'Sahne', visualizers: 'Görselleştirici', palettes: 'Renk Şablonu',
+    scenes: 'Sahne', visualizers: 'Görselleştirici', palettes: 'Renk Şablonu', backgrounds: 'Arkaplan',
   };
 
   /* Kullanıcıya gösterilecek görselleştirici adları. Etiketler burada
@@ -94,6 +95,8 @@
       builtinPalettes: window.SV.GRADIENT_PRESETS || [],
       userPalettes: cfg.userPresets || [],
       paletteSource: a.paletteSource,
+      // User Studio presets; the rules keep only shader backgrounds
+      studioPresets: window.SVPresets && window.SVPresets.all ? window.SVPresets.all() : [],
     };
   }
 
@@ -138,6 +141,33 @@
     if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
     if (cfg.visualizer) { cfg.visualizer.type = items[0].id; return true; }
     return false;
+  }
+
+  /* Background switch. Stock modes set the type; a Studio preset sets
+     type 'custom' plus the preset id, which is how the renderer resolves
+     custom backgrounds (layer.presetId, or custom.backgroundId outside the
+     layer stack). Locked or hidden background layers are never touched,
+     and a transparent (stream overlay) background is left alone so the
+     overlay keeps its alpha. */
+  function applyBackground(cfg, item) {
+    if (!item || !item.id) return false;
+    const preset = item.presetId || null;
+    const type = preset ? 'custom' : item.id;
+    const setCustom = () => {
+      if (preset) cfg.custom = Object.assign({}, cfg.custom, { backgroundId: preset });
+    };
+    const isStack = window.SVLayers && window.SVLayers.stackOn(cfg);
+    const layers = R().backgroundLayers(cfg.layers);
+    if (layers.length) {
+      layers.forEach((l) => { l.type = type; l.presetId = preset; });
+      if (!isStack && cfg.background && !cfg.background.transparent) { cfg.background.type = type; setCustom(); }
+      return true;
+    }
+    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'background' && l.locked)) return false;
+    if (!cfg.background || cfg.background.transparent || cfg.background.type === 'transparent') return false;
+    cfg.background.type = type;
+    setCustom();
+    return true;
   }
 
   function applyPalette(cfg, item) {
@@ -192,6 +222,7 @@
     if (res.kind === 'scenes') { done = applyScene(res.item); pushed = done; }
     else if (res.kind === 'visualizers') done = applyVisualizer(cfg, res.items, a.visualizerTargets);
     else if (res.kind === 'palettes') done = applyPalette(cfg, res.item);
+    else if (res.kind === 'backgrounds') done = applyBackground(cfg, res.item);
 
     if (!done) {
       lastFailure = { code: 'EMPTY', kind: res.kind };
@@ -345,7 +376,7 @@
     if (!all.length) return null;
 
     const cfg = P().cfg();
-    cfg.autovj.picks = cfg.autovj.picks || { scenes: [], visualizers: [], palettes: [] };
+    cfg.autovj.picks = cfg.autovj.picks || { scenes: [], visualizers: [], palettes: [], backgrounds: [] };
     const cur = cfg.autovj.picks[kind] || (cfg.autovj.picks[kind] = []);
     const has = (id) => cur.indexOf(String(id)) >= 0;
 
@@ -366,7 +397,7 @@
       box.checked = has(item.id);
       return el('label', { class: 'pick-row' }, [
         box,
-        el('span', { class: 'pick-label', text: kind === 'visualizers' ? visLabel(item.id) : item.label }),
+        el('span', { class: 'pick-label', text: kind === 'visualizers' ? visLabel(item.id) : kind === 'backgrounds' ? T(item.label) : item.label }),
       ]);
     });
 
@@ -525,7 +556,7 @@
   }
 
   window.SVAutoVJ = {
-    panel, init, tempoOf: () => tempo, applySwitch,
+    panel, init, tempoOf: () => tempo, applySwitch, applyBackground,
     statusOf: () => ({ lastResult, lastFailure }),
     counters: () => ({ panelRenders, switchCount }),
   };

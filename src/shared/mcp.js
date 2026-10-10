@@ -920,13 +920,17 @@
     sv_set_autovj: {
       props: {
         enabled: sp('boolean', 'Turn Auto VJ on or off.'),
-        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'all'] }),
+        source: sp('string', 'What Auto VJ walks.', { enum: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'] }),
         interval: sp('number', 'Steps between switches (bars or seconds).', { minimum: 1, maximum: 64 }),
         unit: sp('string', 'Interval unit.', { enum: ['bars', 'seconds'] }),
         order: sp('string', 'Switch order.', { enum: ['sequential', 'random'] }),
         bpmLock: sp('number', 'Fixed BPM; 0 follows the detected tempo.', { minimum: 0, maximum: 200 }),
         paletteSource: sp('string', 'Which palettes to use.', { enum: ['both', 'builtin', 'user'] }),
         visualizerTargets: sp('string', 'Which visualizer layers change.', { enum: ['all', 'first'] }),
+        picks: sp('object', 'Selection lists; empty means all. backgrounds: background mode ids (sv_list_modes) or "preset:<id>" for your Studio background presets.', {
+          properties: { backgrounds: sp('array', 'Background ids to cycle.', { items: { type: 'string' } }) },
+          additionalProperties: false,
+        }),
       },
     },
     sv_create_scene: { props: { name: sp('string', 'Scene name. Default "Scene N".') } },
@@ -1365,7 +1369,7 @@
      kilidi panelin kaydırıcı aralığına çekilir. Eskiden `interval:-3`
      olduğu gibi yazılıyordu. */
   const AUTOVJ_ENUMS = {
-    source: ['scenes', 'visualizers', 'palettes', 'all'],
+    source: ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'],
     unit: ['bars', 'seconds'],
     order: ['sequential', 'random'],
     paletteSource: ['both', 'builtin', 'user'],
@@ -1380,10 +1384,40 @@
     for (const k of Object.keys(AUTOVJ_RANGES)) {
       if (args[k] !== undefined && !finite(args[k])) return k + ' must be a number.';
     }
+    if (args.picks !== undefined && args.picks !== null) {
+      if (typeof args.picks !== 'object' || Array.isArray(args.picks)) return 'picks must be an object.';
+      const bg = args.picks.backgrounds;
+      if (bg !== undefined) {
+        if (!Array.isArray(bg)) return 'picks.backgrounds must be an array of ids.';
+        const R = autovjRules();
+        for (const id of bg) {
+          if (R && !R.isBackgroundPick(id)) return 'Unknown background id "' + id + '" in picks.backgrounds. sv_list_modes lists the background ids; Studio presets are "preset:<id>".';
+        }
+      }
+    }
+    return '';
+  }
+  function autovjRules() {
+    if (typeof window !== 'undefined' && window.SVAutoVJRules) return window.SVAutoVJRules;
+    try { return require('./autovj.js'); } catch (e) { return null; }
+  }
+  /* sv_set_autovj only: a "preset:<id>" pick must name an existing user
+     Studio background preset. */
+  function autovjPresetError(picks, ctx) {
+    if (picks && typeof picks === 'object') {
+      const extra = Object.keys(picks).filter(function (k) { return k !== 'backgrounds'; });
+      if (extra.length) return 'picks only accepts backgrounds here (got ' + extra.join(', ') + ').';
+    }
+    const bg = picks && Array.isArray(picks.backgrounds) ? picks.backgrounds : [];
+    const R = autovjRules();
+    const known = R ? R.studioBackgrounds(presetRecords(ctx)).map(function (p) { return R.PRESET_PREFIX + p.id; }) : [];
+    for (const id of bg) {
+      if (String(id).indexOf('preset:') === 0 && known.indexOf(id) < 0) return 'Unknown Studio background preset "' + id + '" in picks.backgrounds.';
+    }
     return '';
   }
   tool('sv_set_autovj', 'autovj', 'Turn Auto VJ on or off and choose how it walks existing scenes, modes, or palettes.', function (args, ctx) {
-    const bad = autovjError(args || {});
+    const bad = autovjError(args || {}) || autovjPresetError(args && args.picks, ctx);
     if (bad) return fail(bad);
     return withConfig(ctx, function (cfg) {
       const next = Object.assign({ enabled: false, source: 'visualizers', unit: 'bars', interval: 8, order: 'sequential', bpmLock: 0 }, cfg.autovj);
@@ -1394,6 +1428,9 @@
         const r = AUTOVJ_RANGES[k];
         if (args && args[k] !== undefined) next[k] = Math.round(Math.max(r[0], Math.min(r[1], args[k])));
       });
+      if (args && args.picks && Array.isArray(args.picks.backgrounds)) {
+        next.picks = Object.assign({ scenes: [], visualizers: [], palettes: [] }, next.picks, { backgrounds: args.picks.backgrounds.slice() });
+      }
       cfg.autovj = next;
       return { autovj: next };
     });

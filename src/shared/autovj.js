@@ -30,8 +30,8 @@
  * öğe seçimi imleci ilerlettiği için tür dönüşümü düzensiz atlıyordu.
  */
 (function () {
-  const SOURCES = ['scenes', 'visualizers', 'palettes', 'all'];
-  const KINDS = ['scenes', 'visualizers', 'palettes']; // 'all' bunları dolaşır
+  const SOURCES = ['scenes', 'visualizers', 'palettes', 'backgrounds', 'all'];
+  const KINDS = ['scenes', 'visualizers', 'palettes', 'backgrounds']; // 'all' bunları dolaşır
   const PALETTE_SOURCES = ['both', 'builtin', 'user'];
   const VIS_TARGETS = ['first', 'all'];
   const ORDERS = ['sequential', 'random'];
@@ -53,6 +53,13 @@
      `cycle: false` bayrağı. */
   const MC = (typeof window !== 'undefined' && window.SVModeCatalog) || require('./mode-catalog.js');
   const VISUALIZERS = MC.cycleIds('visualizer');
+  /* Background modes that may be cycled. Same catalog flag as the
+     visualizers: 'custom' (needs a Studio preset) is excluded here and
+     user Studio background presets join the pool as 'preset:<id>'. */
+  const BACKGROUNDS = MC.cycleIds('background');
+  const PRESET_PREFIX = 'preset:';
+  const isBackgroundPick = (v) => typeof v === 'string'
+    && (BACKGROUNDS.indexOf(v) >= 0 || (v.indexOf(PRESET_PREFIX) === 0 && v.length > PRESET_PREFIX.length));
 
   const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
   const num = (v, def) => (Number.isFinite(Number(v)) ? Number(v) : def);
@@ -68,7 +75,7 @@
       order: 'sequential',
       bpmLock: 0,
       beatsPerBar: 4,
-      picks: { scenes: [], visualizers: [], palettes: [] },
+      picks: { scenes: [], visualizers: [], palettes: [], backgrounds: [] },
       paletteSource: 'both',
       visualizerTargets: 'all',
     };
@@ -93,6 +100,7 @@
         scenes: arr(p.scenes).map(String),
         visualizers: arr(p.visualizers).filter((v) => VISUALIZERS.indexOf(v) >= 0),
         palettes: arr(p.palettes).map(String),
+        backgrounds: arr(p.backgrounds).filter(isBackgroundPick),
       },
       paletteSource: pick(PALETTE_SOURCES, s.paletteSource, d.paletteSource),
       visualizerTargets: pick(VIS_TARGETS, s.visualizerTargets, d.visualizerTargets),
@@ -119,6 +127,20 @@
       && !isTextLayer(l) && l.enabled !== false && !l.locked);
   }
 
+  /* Changeable background layers: enabled and not locked (same rule as
+     visualizerLayers; a locked background stays put). */
+  function backgroundLayers(layers) {
+    return arr(layers).filter((l) => l && l.kind === 'background' && l.enabled !== false && !l.locked);
+  }
+
+  /* Studio presets usable as backgrounds: user-made shader presets of
+     kind 'background'. Built-in shader presets are left out on purpose;
+     the rotation offers the user's own work next to the stock modes. */
+  function studioBackgrounds(list) {
+    return arr(list).filter((p) => p && p.id != null && !p.builtin
+      && p.engine === 'shader' && p.kind === 'background');
+  }
+
   // -------------------------------------------------------------- adaylar
 
   /* Bir kaynağın seçilebilir öğeleri. ctx dış dünyadan gelir:
@@ -137,6 +159,13 @@
     }
     if (kind === 'visualizers') {
       return VISUALIZERS.map((v) => ({ id: v, label: v }));
+    }
+    if (kind === 'backgrounds') {
+      const out = BACKGROUNDS.map((v) => ({ id: v, label: MC.label('background', v) }));
+      studioBackgrounds(c.studioPresets).forEach((p) => {
+        out.push({ id: PRESET_PREFIX + p.id, label: p.name || String(p.id), presetId: String(p.id) });
+      });
+      return out;
     }
     if (kind === 'palettes') {
       const mode = pick(PALETTE_SOURCES, c.paletteSource, 'both');
@@ -245,7 +274,7 @@
   function plan(a, ctx, state, count) {
     const cfg = normalize(a);
     const st = state && typeof state === 'object' ? state : {};
-    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, all: -1 }, st.cursors);
+    const cursors = Object.assign({ scenes: -1, visualizers: -1, palettes: -1, backgrounds: -1, all: -1 }, st.cursors);
     const last = Object.assign({}, st.last);
 
     let kind = cfg.source;
@@ -258,6 +287,7 @@
     if (!list.length) return { ok: false, code: 'EMPTY', kind };
 
     const want = kind === 'visualizers' ? Math.max(1, Math.round(count) || 1) : 1;
+    // Backgrounds: one look per switch; several layers would just stack copies
     const draw = drawMany(list.length, cfg.order, cursors[kind], last[kind], want);
     if (!draw.indices.length) return { ok: false, code: 'EMPTY', kind };
     cursors[kind] = draw.cursor;
@@ -293,9 +323,9 @@
   }
 
   const api = {
-    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS,
-    defaults, normalize,
-    isTextLayer, visualizerLayers,
+    SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS, BACKGROUNDS, PRESET_PREFIX,
+    defaults, normalize, isBackgroundPick,
+    isTextLayer, visualizerLayers, backgroundLayers, studioBackgrounds,
     catalog, selected, nextIndex, drawMany, nextKind, plan, diagnose,
   };
 
