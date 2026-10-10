@@ -243,7 +243,7 @@ test('port alanları tam sayı ve aralık ister, geçersizde eski değer kalır'
   }
   assert.strictEqual(sb.portValue(input('80'), 6742, 1), 80, 'istemci portu 1024 altı olabilir');
   assert.ok(toasts.length >= 5);
-  assert.match(read('src/admin/control.js'), /P\(\)\.portValue\(e\.target, cfg\.control\.osc\.port, 1024\)/);
+  assert.match(read('src/admin/control.js'), /P\(\)\.portValue\(e\.target, cfg\.control\.osc\.port, oscMin\)/);
   assert.match(read('src/admin/stream.js'), /P\(\)\.portValue\(e\.target, s\.port, 1024\)/);
   assert.match(read('src/admin/openrgb-panel.js'), /P\(\)\.portValue\(e\.target, o\.port \|\| 6742, 1\)/);
   assert.doesNotMatch(read('src/admin/control.js') + read('src/admin/stream.js'), /parseInt\(e\.target\.value, 10\) \|\| (9000|8722)/);

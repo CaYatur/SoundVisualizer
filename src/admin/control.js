@@ -580,15 +580,16 @@
       });
       enable.checked = !!cfg.control.osc.enabled;
       nodes.push(P().row('OSC Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister, sunucu
+         açılamaz. Windows'ta böyle bir sınır yok; orada 1'den başlar. */
+      const oscMin = window.SV_PLATFORM && window.SV_PLATFORM.isWindows ? 1 : 1024;
       nodes.push(
         P().row(
           'UDP Portu',
           el('input', {
-            class: 'p-in p-num', type: 'number', min: '1024', max: '65535', value: cfg.control.osc.port,
+            class: 'p-in p-num', type: 'number', min: String(oscMin), max: '65535', value: cfg.control.osc.port,
             onchange: async (e) => {
-              /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister,
-                 sunucu açılamaz. */
-              const port = P().portValue(e.target, cfg.control.osc.port, 1024);
+              const port = P().portValue(e.target, cfg.control.osc.port, oscMin);
               if (port == null) return;
               cfg.control.osc.port = port;
               P().push(true);
