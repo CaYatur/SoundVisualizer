@@ -121,8 +121,22 @@ test('null alan yalnız tek değer alır; olmayan alan varsayılanın türüne b
   // Ekran haritası nesneyi ve null'u alır
   c.cfg.mapping = { enabled: false, outputs: { default: null } };
   assert.strictEqual((await call('sv_patch_config', { path: 'mapping.outputs.default', value: { enabled: true } }, c)).ok !== false, true);
+  assert.strictEqual((await call('sv_patch_config', { path: 'mapping.outputs.default.enabled', value: false }, c)).ok !== false, true);
+  c.cfg.mapping.outputs.default = null;
+  assert.strictEqual((await call('sv_patch_config', { path: 'mapping.outputs.default.enabled', value: true }, c)).ok !== false, true, 'null çıkışın alanı');
+  // Bir basamak derinden de aynı: null ya da tek değerli alanın altı yazılmaz
+  c.cfg.display = { id: null, ids: [] };
+  c.cfg.layerStack = { enabled: null };
+  for (const p of ['display.id.a', 'layerStack.enabled.x', 'visualizer.sensitivity.x']) {
+    const before = JSON.stringify(c.cfg);
+    const r = await call('sv_patch_config', { path: p, value: 1 }, c);
+    assert.strictEqual(r.ok, false, p);
+    assert.strictEqual(JSON.stringify(c.cfg), before, p + ' ayarı değiştirmedi');
+  }
   // Ayarda olmayan ama varsayılanda olan alan
   delete c.cfg.visualizer.sensitivity;
+  assert.strictEqual((await call('sv_patch_config', { path: 'visualizer.sensitivity.x', value: 1 }, c)).ok, false, 'silinmiş alanın altı');
+  assert.strictEqual(c.cfg.visualizer.sensitivity, undefined);
   assert.strictEqual((await call('sv_patch_config', { path: 'visualizer.sensitivity', value: 'abc' }, c)).ok, false);
   assert.strictEqual((await call('sv_patch_config', { path: 'visualizer.sensitivity', value: 1.2 }, c)).ok !== false, true);
   // Varsayılanda da olmayan yeni anahtar serbest kalır

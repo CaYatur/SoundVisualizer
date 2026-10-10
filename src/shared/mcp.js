@@ -336,14 +336,31 @@
     return Array.isArray(v) ? 'array' : typeof v;
   }
   function valueTypeError(cfg, path, value) {
-    let cur = getPath(cfg, path);
     const got = kindOf(value);
+    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
+    /* Yolun ara basamakları nesne olmalı. setPath null ya da eksik basamağı
+       nesneye çeviriyor: `display.id.a = 1` null alanı {a:1} yapıyor,
+       silinmiş `visualizer.sensitivity` altına yazmak sayıyı nesneye
+       çeviriyordu. Eksik basamak varsayılandan okunur; varsayılanda da
+       yoksa yeni daldır. Ekran haritası (mapping.outputs.<id>) null'dan
+       nesneye geçebilir. */
+    const keys = String(path).split('.');
+    const SVd = defaultsApi();
+    const defs = SVd && SVd.defaultConfig ? SVd.defaultConfig() : null;
+    for (let i = 1; i < keys.length; i++) {
+      const pre = keys.slice(0, i).join('.');
+      let v = getPath(cfg, pre);
+      if (v === undefined && defs) v = getPath(defs, pre);
+      if (v === undefined) break;
+      if (v === null && /^mapping\.outputs\.[^.]+$/.test(pre)) continue;
+      if (v === null || typeof v !== 'object') return '"' + pre + '" holds ' + (v === null ? 'null' : an(kindOf(v))) + ', not an object; it has no field "' + keys[i] + '".';
+    }
+    let cur = getPath(cfg, path);
     /* Ayarda henüz olmayan alan varsayılandaki türe göre denetlenir;
        varsayılanda da yoksa yeni anahtardır, serbest. Eskiden alan yoksa
        denetim hiç yapılmıyordu (ör. eski bir katmanda `enabled:"yes"`). */
     if (cur === undefined) {
-      const SV = defaultsApi();
-      cur = SV && SV.defaultConfig ? getPath(SV.defaultConfig(), path) : undefined;
+      cur = defs ? getPath(defs, path) : undefined;
       if (cur === undefined) return '';
     }
     /* Değeri null olan alan (display.id, layerStack.enabled) tek değer
@@ -361,7 +378,6 @@
        çekiyor. Liste ya da nesne null yapılamaz: katman listesini silmenin
        başka bir yolu olurdu. */
     if (got === 'null' && (want === 'number' || want === 'string' || want === 'boolean' || /^mapping\.outputs\./.test(String(path)))) return '';
-    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
     if (want !== got) return '"' + path + '" holds ' + an(want) + '; refusing to replace it with ' + an(got) + '.';
     if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
     return '';
@@ -2027,7 +2043,8 @@
     }
     const note = function (value) {
       const out = value || { ok: true };
-      if (unknown.length && out && typeof out === 'object' && !Array.isArray(out)) out.ignored = unknown;
+      // Kopya: aracın döndürdüğü nesne canlı bir ayar parçası olabilir
+      if (unknown.length && out && typeof out === 'object' && !Array.isArray(out)) return Object.assign({}, out, { ignored: unknown });
       return out;
     };
     try {
