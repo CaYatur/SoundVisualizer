@@ -531,6 +531,10 @@
       source: 'static', // 'static' | 'lyrics' | 'now'
       field: 'both',    // 'title' | 'artist' | 'both' — source === 'now' iken çizilen alan
       content: 'CAYADEV',
+      /* Şablonun yer tutucusu (ör. "SANATÇI ADI"): parça bilgisi yokken
+         görünür ve arayüz dilinde çizilir. Kullanıcının yazdığı metin
+         çevrilmez; bu bayrak yalnız şablondan gelir. */
+      placeholder: false,
       font: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
       size: 0.09,       // kısa kenara oran
       weight: 700,

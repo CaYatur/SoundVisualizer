@@ -210,6 +210,7 @@ function createLibrary(spec) {
     let st;
     try { st = fs.statSync(srcPath); } catch { return { ok: false, error: 'READ' }; }
     if (!st.isFile() || st.size <= 0 || st.size > MAX_BYTES) return { ok: false, error: 'SIZE' };
+    if (spec.sniff && !spec.sniff(readHead(srcPath))) return { ok: false, error: 'TYPE' };
     const dup = findDuplicate(dir, srcPath, st.size);
     if (dup) return { ok: false, error: 'DUPLICATE', item: publicItem(dup) };
     ensureDir(dir);
@@ -314,7 +315,37 @@ function createLibrary(spec) {
   };
 }
 
+function readHead(file) {
+  let fd = null;
+  try {
+    fd = fs.openSync(file, 'r');
+    const buf = Buffer.alloc(16);
+    const n = fs.readSync(fd, buf, 0, 16, 0);
+    return buf.subarray(0, n);
+  } catch {
+    return Buffer.alloc(0);
+  } finally {
+    if (fd != null) try { fs.closeSync(fd); } catch { /* kapalı */ }
+  }
+}
+
+/* Resim kitaplığı dosyanın BAŞINA da bakar. Eskiden yalnız uzantıya
+   bakılıyordu: `.png` adlı bir metin dosyası eklenip boş logo veriyordu.
+   Uzantıyla tür uyuşmasa da (ör. .png adlı JPEG) gerçek bir resim kabul
+   edilir; tarayıcı içerikten çözer. */
+function isImageHead(b) {
+  if (!b || b.length < 4) return false;
+  const at = (i, s) => b.length >= i + s.length && b.toString('latin1', i, i + s.length) === s;
+  if (b[0] === 0x89 && at(1, 'PNG')) return true;
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return true;
+  if (at(0, 'GIF87a') || at(0, 'GIF89a')) return true;
+  if (at(0, 'RIFF') && at(8, 'WEBP')) return true;
+  if (at(0, 'BM')) return true;
+  return false;
+}
+
 const images = createLibrary({
+  sniff: isImageHead,
   ext: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'],
   mime: {
     '.png': 'image/png',
@@ -331,5 +362,6 @@ const images = createLibrary({
 
 module.exports = Object.assign({}, images, {
   createLibrary,
+  isImageHead,
   isImageFile: images.isFile,
 });

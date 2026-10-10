@@ -180,9 +180,14 @@
           ? window.SVNowLive.state : null;
         const n = live || T.nowPlaying || {};
         const field = T.field || 'both';
-        if (field === 'title') content = n.title || T.content || '';
-        else if (field === 'artist') content = n.artist || T.content || '';
-        else content = [n.title, n.artist].filter(Boolean).join(' — ') || (T.content || '');
+        /* Şablon yer tutucusu arayüz dilinde ("SANATÇI ADI" / "ARTIST
+           NAME"). Eskiden İngilizce yazılıydı, Türkçe arayüzde de çıkışa
+           öyle basılıyordu. Kullanıcının yazdığı metne dokunulmaz. */
+        const I = window.SVI18n;
+        const fallback = T.placeholder && T.content && I && typeof I.t === 'function' ? I.t(T.content) : (T.content || '');
+        if (field === 'title') content = n.title || fallback;
+        else if (field === 'artist') content = n.artist || fallback;
+        else content = [n.title, n.artist].filter(Boolean).join(' — ') || fallback;
         /* Parça değişince giriş canlandırması yeniden oynasın; sabit yazı
            gibi durmasın. Söz satırlarındaki mantığın aynısı. */
         const key = (n.title || '') + ' ' + (n.artist || '');

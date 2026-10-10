@@ -997,6 +997,9 @@
     'Henüz Studio preseti yok.': 'No Studio preset yet.',
     'Şarkı Sözü': 'Lyrics',
     'Sanatçı Adı': 'Artist Name',
+    // Şablon yer tutucuları (çıkışta, parça bilgisi yokken)
+    'SANATÇI ADI': 'ARTIST NAME',
+    'PARÇA ADI': 'TRACK TITLE',
     'Gösterilen Alan': 'Displayed Field',
     'Parça ve Sanatçı': 'Track and Artist',
 
@@ -2376,6 +2379,13 @@
     'Kutup Perdesi': 'Aurora Curtain',
     'Dikey perdeler halinde akan ışık.': 'Light flowing in vertical curtains.',
     'Sıvı Metal': 'Liquid Metal',
+    'Metal Bantlar': 'Metal Bands',
+    // Studio: Sahnede Kullan ve kaydedilmemiş değişiklik
+    'Kaydet ve Uygula': 'Save and Apply',
+    'Değişiklikleri At': 'Discard Changes',
+    'Shader derlenmiyor; sahneye uygulanmadı. Önce hatayı düzeltin.': 'The shader does not compile, so it was not applied. Fix the error first.',
+    'Sahnede kullanmak için önce kaydedilmesi gerekiyor. Değişiklikler kaydedilecek.': 'It has to be saved before it can be used on the scene. Your changes will be saved.',
+    'Sahnede kullanmak için önce kaydedilmesi gerekiyor. Yerleşik preset değişmez; kendi kopyan kaydedilir.': 'It has to be saved before it can be used on the scene. The built-in preset stays as it is; your own copy is saved.',
     'Eşyükselti bantlarıyla metalik yüzey.': 'Metallic surface with contour bands.',
     'Neon Yağmur': 'Neon Rain',
     'Düşen ışık çizgileri.': 'Falling streaks of light.',
@@ -3236,6 +3246,12 @@
       .replace(/^(\d+) ekranda açık$/g, 'Open on $1 displays')
       .replace(/^“(.+)” kaydedildi\.$/g, '"$1" saved.')
       .replace(/^“(.+)” sahneye uygulandı\.$/g, '"$1" applied to the scene.')
+      // Studio silme onayı: preset sahnelerde ya da şimdiki görünümde kullanılıyorsa
+      .replace(/^“(.+)” kalıcı olarak silinecek\. Bu sahnelerde kullanılıyor: (.+)\. O sahnelerde bu görsel boş kalır\.( Şu anki görünümde de kullanılıyor\.)?$/g,
+        (_, name, list, live) => `"${name}" will be permanently deleted. Used in these scenes: ${list}. Those scenes will show nothing in its place.` + (live ? ' It is also in use right now.' : ''))
+      .replace(/^“(.+)” kalıcı olarak silinecek\. Şu anki görünümde de kullanılıyor\.$/g, '"$1" will be permanently deleted. It is in use right now.')
+      .replace(/^“(.+)” üzerindeki kaydedilmemiş değişiklikler kaybolacak\.$/g, 'Unsaved changes to "$1" will be lost.')
+      .replace(/^“(.+)” kaydedildi, ama shader derlenmiyor\.$/g, '"$1" saved, but the shader does not compile.')
       .replace(/^“(.+)” kalıcı olarak silinecek\.$/g, '"$1" will be permanently deleted.')
       .replace(/^(\d+) preset içe aktarıldı\.$/g, (m, n) => n + ' preset' + (Number(n) === 1 ? '' : 's') + ' imported.')
       .replace(/^Kamera (\d+)$/g, 'Camera $1')

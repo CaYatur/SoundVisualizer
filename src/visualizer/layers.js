@@ -132,8 +132,11 @@
       text.nowSource = s.nowSource || 'system';
       text.nowPlaying = { title: '', artist: '' };
       text.showArtwork = s.showArtwork !== false;
-      if (text.field === 'title') text.nowPlaying.title = text.content;
-      if (text.field === 'artist') text.nowPlaying.artist = text.content;
+      /* Yer tutucu (ör. "SANATÇI ADI") elle girilen parça bilgisi sayılmaz:
+         boş kalır ki çıkış onu arayüz dilinde çizsin (modes/text.js). */
+      if (s.placeholder) text.placeholder = true;
+      else if (text.field === 'title') text.nowPlaying.title = text.content;
+      else if (text.field === 'artist') text.nowPlaying.artist = text.content;
     }
     if (source === 'lyrics') {
       text.lyricsSource = '';

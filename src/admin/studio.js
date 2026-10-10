@@ -207,7 +207,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   function compileNow() {
     if (!draft || draft.engine !== 'shader') { compileState = { ok: true, message: '', line: 0 }; return; }
     const h = ensureHost();
-    if (!h) { compileState = { ok: false, message: 'WebGL2 kullanılamıyor.', line: 0 }; return; }
+    if (!h) { compileState = { ok: false, message: 'WebGL2 kullanılamıyor.', line: 0, noGl: true }; return; }
     h.resize(64, 64);
     const r = h.setSource(draft.shader, draft.controls);
     compileState = r.ok
@@ -281,8 +281,10 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     P().rerender();
   }
 
+  /* Kaydedildiyse true. Derlenmeyen shader de kaydedilebilir (yarım iş
+     saklanır) ama kullanıcı uyarılır. */
   async function saveDraft() {
-    if (!draft) return;
+    if (!draft) return false;
     if (draft.builtin) {
       // Yerleşikler değiştirilemez: düzenleme kopya üzerinden sürer
       const baseName = trStudio(draft.name);
@@ -298,7 +300,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     const r = await window.api.savePreset(toSave);
     if (!r.ok) {
       P().toast(r.error === 'TOO_LARGE' ? 'Preset çok büyük (512 KB üstü).' : 'Kaydedilemedi: ' + r.error, 'err');
-      return;
+      return false;
     }
     adopt({ upsert: [r.preset] });
     const cfg = P().cfg();
@@ -308,11 +310,62 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     selectedId = r.preset.id;
     dirty = false;
     P().rerender();
-    P().toast('“' + r.preset.name + '” kaydedildi.', 'ok');
+    if (shaderBroken()) P().toast('“' + r.preset.name + '” kaydedildi, ama shader derlenmiyor.', 'warn');
+    else P().toast('“' + r.preset.name + '” kaydedildi.', 'ok');
+    return true;
   }
 
-  function applyToScene() {
-    if (!draft || !selectedId) return;
+  // Taslak shader'ı şimdi derlenmiyor mu (WebGL yoksa bilinemez, engel sayılmaz)
+  function shaderBroken() {
+    if (!draft || draft.engine !== 'shader') return false;
+    return !!(compileState && compileState.ok === false && !compileState.noGl);
+  }
+
+  /* Taslak kaydedilmemişse ne yapılsın? Değişiklik yoksa sormaz.
+     Eskiden başka bir presete tıklamak düzenlemeyi uyarısız atıyordu. */
+  async function confirmDiscard() {
+    if (!dirty || !draft) return true;
+    return P().confirm('“' + (draft.name || '') + '” üzerindeki kaydedilmemiş değişiklikler kaybolacak.', { danger: true, okText: 'Değişiklikleri At' });
+  }
+
+  async function guardedSelect(id) {
+    if (id === selectedId && !dirty) return;
+    if (!(await confirmDiscard())) return;
+    selectPreset(id);
+  }
+
+  async function startDraft(make) {
+    if (!(await confirmDiscard())) return;
+    draft = make();
+    selectedId = null;
+    dirty = true;
+    compileNow();
+    P().rerender();
+  }
+
+  /* Ekran presetin KAYITLI hâlini kimliğiyle çizer; kaydedilmemiş kod
+     sahneye gidemez. Eskiden düğme son kaydı uyguluyor, ekranda eski hâl
+     kalıyordu; yeni (hiç kaydedilmemiş) taslakta da hiçbir şey olmuyordu.
+     Derlenmeyen shader için de "uygulandı" deniyor, çıkış boş kalıyordu. */
+  async function applyToScene() {
+    if (!draft) return;
+    if (draft.engine === 'shader') {
+      clearTimeout(compileTimer);
+      compileNow();
+      if (shaderBroken()) {
+        P().rerender();
+        P().toast('Shader derlenmiyor; sahneye uygulanmadı. Önce hatayı düzeltin.', 'err');
+        return;
+      }
+    }
+    if (dirty || !selectedId) {
+      const ok = await P().confirm(
+        'Sahnede kullanmak için önce kaydedilmesi gerekiyor. ' + (draft.builtin ? 'Yerleşik preset değişmez; kendi kopyan kaydedilir.' : 'Değişiklikler kaydedilecek.'),
+        { okText: 'Kaydet ve Uygula' }
+      );
+      if (!ok) return;
+      if (!(await saveDraft())) return;
+    }
     const cfg = P().cfg();
     const p = IS().get(selectedId) || draft;
     applyPresetToCfg(cfg, p);
@@ -377,6 +430,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
   // İçe aktarma: hem kendi biçimimiz hem Shadertoy / ISF / MilkDrop
   async function importAny() {
+    if (!(await confirmDiscard())) return;
     const r = await window.api.importShaderText();
     if (!r || !r.ok) {
       if (r && r.error === 'FILE_TOO_LARGE') P().toast('Dosya çok büyük (2 MB üstü).', 'err');
@@ -417,9 +471,41 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     P().toast('İçe aktarıldı.' + (note ? ' ' + note : ''), 'ok');
   }
 
+  /* Bir sahne (ya da şimdiki görünüm) bu Studio presetini kullanıyor mu?
+     Klasik kipte `custom.visualizerId/backgroundId` tür 'custom' iken,
+     yığında katmanın `presetId`si ya da kimliksiz 'custom' katmanın
+     devraldığı genel kimlik. */
+  function usesPreset(data, id) {
+    if (!data || !id) return false;
+    const c = data.custom || {};
+    const layers = Array.isArray(data.layers) ? data.layers : [];
+    if (layers.some((l) => l && l.presetId === id)) return true;
+    const inherits = (kind) => layers.some((l) => l && l.kind === kind && l.type === 'custom' && !l.presetId);
+    if (c.visualizerId === id && ((data.visualizer && data.visualizer.type === 'custom') || inherits('visualizer'))) return true;
+    if (c.backgroundId === id && ((data.background && data.background.type === 'custom') || inherits('background'))) return true;
+    return false;
+  }
+  function presetUsers(cfg, id) {
+    const scenes = (Array.isArray(cfg && cfg.scenes) ? cfg.scenes : [])
+      .filter((sc) => sc && usesPreset(sc.data, id))
+      .map((sc) => sc.name || sc.id);
+    return { scenes, live: usesPreset(cfg, id) };
+  }
+
+  /* Silme onayı presetin nerede kullanıldığını söyler. Eskiden yalnız
+     "kalıcı olarak silinecek" deniyordu; sahne sonra uygulanınca katman
+     "Görselleştirici · Studio" olarak kalıyor, hiçbir şey çizmiyordu. */
+  function deleteMessage(cfg, p) {
+    const u = presetUsers(cfg, p.id);
+    let msg = '“' + p.name + '” kalıcı olarak silinecek.';
+    if (u.scenes.length) msg += ' Bu sahnelerde kullanılıyor: ' + u.scenes.join(', ') + '. O sahnelerde bu görsel boş kalır.';
+    if (u.live) msg += ' Şu anki görünümde de kullanılıyor.';
+    return msg;
+  }
+
   async function deleteDraft() {
     if (!draft || draft.builtin) return;
-    if (!(await P().confirm('“' + draft.name + '” kalıcı olarak silinecek.', { danger: true, okText: 'Sil' }))) return;
+    if (!(await P().confirm(deleteMessage(P().cfg(), draft), { danger: true, okText: 'Sil' }))) return;
     await window.api.deletePreset(draft.id);
     adopt({ remove: [draft.id] });
     selectedId = null;
@@ -452,7 +538,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
               class: 'studio-item' + (p.id === selectedId ? ' active' : ''),
               type: 'button',
               title: trStudio(p.description || p.name),
-              onclick: () => selectPreset(p.id),
+              onclick: () => guardedSelect(p.id),
             },
             [
               el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name }),
@@ -753,8 +839,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     const el = P().el;
     stopPreview();
     const toolbar = el('div', { class: 'studio-toolbar' }, [
-      el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Shader'), title: trStudio('Sıfırdan GLSL shader'), onclick: () => { draft = newShader('visualizer'); selectedId = null; dirty = true; compileNow(); P().rerender(); } }),
-      el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Varyasyon'), title: trStudio('Şu anki görünümü preset olarak sakla'), onclick: () => { draft = newVariation('visualizer'); selectedId = null; dirty = true; P().rerender(); } }),
+      el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Shader'), title: trStudio('Sıfırdan GLSL shader'), onclick: () => startDraft(() => newShader('visualizer')) }),
+      el('button', { class: 'btn small', type: 'button', icon: 'plus', text: trStudio('Varyasyon'), title: trStudio('Şu anki görünümü preset olarak sakla'), onclick: () => startDraft(() => newVariation('visualizer')) }),
       el('button', { class: 'btn ghost small', type: 'button', icon: 'import', text: trStudio('İçe Aktar'), title: trStudio('Shadertoy / ISF / MilkDrop / .svpreset / .svpack'), onclick: importAny }),
       el('button', { class: 'btn ghost small', type: 'button', icon: 'box', text: trStudio('Paket Dışa Aktar'), title: trStudio('Tüm kendi presetlerini tek dosyada paylaş'), onclick: () => exportPreset(true) }),
       el('button', { class: 'btn ghost small', type: 'button', icon: 'folder', text: trStudio('Klasör'), title: trStudio('Preset klasörünü aç'), onclick: () => window.api.openPresetsFolder() }),
@@ -782,5 +868,5 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     ]);
   }
 
-  window.SVStudio = { panel, picker, selectPreset, currentLook, applyPresetToCfg };
+  window.SVStudio = { panel, picker, selectPreset, currentLook, applyPresetToCfg, presetUsers, deleteMessage };
 })();

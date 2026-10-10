@@ -511,7 +511,9 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord){
   fragColor = vec4(col * acc * (0.6 + sv_level * 0.8), 1.0);
 }`),
 
-    SH('sh_liquidmetal', 'Sıvı Metal', 'background',
+    /* Ad eskiden "Sıvı Metal"di; aynı adda bir yerleşik (sh_metal) daha var,
+       listede hangisinin hangisi olduğu anlaşılmıyordu. Kimlik aynı kalır. */
+    SH('sh_liquidmetal', 'Metal Bantlar', 'background',
       'Eşyükselti bantlarıyla metalik yüzey.',
       [s('uBands', 'Bant', 2, 20, 1, 7), s('uScale', 'Ölçek', 1, 10, 0.1, 3),
         s('uSpeed', 'Hız', 0, 2, 0.02, 0.5)],
