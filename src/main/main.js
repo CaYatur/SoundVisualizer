@@ -5770,7 +5770,7 @@ async function runSmoke() {
     const pk = JSON.parse(pickRes);
     if (pk.scenes !== 1) errors.push('source picker: saved scenes are not listed (got ' + pk.scenes + ')');
     if (pk.sceneLabel !== 'Deneme Sahnesi') errors.push('source picker: scene is listed by id rather than by name');
-    if (!(pk.palettes > 10)) errors.push('source picker: colour presets are not listed (got ' + pk.palettes + ')');
+    if (!(pk.palettes > 10)) errors.push('source picker: color presets are not listed (got ' + pk.palettes + ')');
     if (!(pk.templates > 10)) errors.push('source picker: templates are not listed (got ' + pk.templates + ')');
 
     // 3) Klip destesi ölçüye hizalı ateşliyor mu?
@@ -7045,7 +7045,7 @@ async function runShots() {
       decks: [{
         id: 'deck', name: 'Main', rows: 5, cols: 6,
         rowNames: { 0: 'Warm-up', 1: 'Build', 2: 'Drop', 3: 'Break', 4: 'Encore' },
-        colNames: { 0: 'Ambient', 1: 'Club', 2: '3D', 3: 'Broadcast', 4: 'Colour', 5: 'Accent' },
+        colNames: { 0: 'Ambient', 1: 'Club', 2: '3D', 3: 'Broadcast', 4: 'Color', 5: 'Accent' },
         slots: [
           ['amb-aurora', 'club-tunnel', 'geo-klein', 'bc-label', 'Siberpunk', 'scr-plasma'],
           ['amb-caustics', 'club-laser', 'geo-lorenz', 'bc-line', 'Neon', null],
