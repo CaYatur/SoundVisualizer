@@ -33,14 +33,20 @@ function withCors(headers) {
    Range şart: <video> öğesi konum değiştirmek için parça isteği yapar ve
    dizini (moov atomu) sonda olan MP4'ler için ilk oynatma bile buna bağlıdır.
    Aralıksız 200 dönen bir kaynakta böyle dosyalar hiç başlamaz. */
+/* Yalnız video uzantıları sunulur; dosya seçici ve medya kitaplığı da
+   yalnız bunları kabul ediyor. Ayardaki `media.file` başka bir dosyayı
+   gösterse de (ör. MCP ile /etc/passwd) içeriği sayfaya verilmez. */
 function serveMediaFile(file, rangeHeader) {
+  if (!MEDIA_MIME[path.extname(String(file)).toLowerCase()]) {
+    return new Response('unsupported media type', { status: 415, headers: withCors() });
+  }
   let stat;
   try {
     stat = fs.statSync(file);
   } catch {
     return new Response('not found', { status: 404, headers: withCors() });
   }
-  const type = MEDIA_MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  const type = MEDIA_MIME[path.extname(file).toLowerCase()];
   const size = stat.size;
   const toWeb = (s) => Readable.toWeb(s);
 

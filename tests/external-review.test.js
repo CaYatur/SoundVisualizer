@@ -408,3 +408,22 @@ test('her aracın okuduğu argümanlar şemasında bildirilir', () => {
   const described = mcp.tools().filter((t) => Object.keys(t.inputSchema.properties || {}).length).length;
   assert.ok(described >= checked, 'parametre bildiren araç: ' + described + ', argüman okuyan: ' + checked);
 });
+
+/* Düşük 15: `media.file` herhangi bir dosyayı gösterebiliyordu; medya
+   protokolü uzantısına bakmadan sunuyordu. */
+test('medya protokolü yalnız video uzantılarını sunar', async () => {
+  const os = require('os');
+  const { serveMediaFile } = require('../src/main/media-file.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-media-'));
+  const txt = path.join(dir, 'passwd');
+  const vid = path.join(dir, 'Klip.MP4');
+  fs.writeFileSync(txt, 'root:x:0:0');
+  fs.writeFileSync(vid, Buffer.alloc(64));
+  assert.strictEqual(serveMediaFile(txt, null).status, 415);
+  assert.strictEqual(serveMediaFile(txt + '.json', null).status, 415);
+  const ok = serveMediaFile(vid, null);
+  assert.strictEqual(ok.status, 200);
+  assert.strictEqual(ok.headers.get('Content-Type'), 'video/mp4');
+  await ok.arrayBuffer();
+  fs.rmSync(dir, { recursive: true, force: true });
+});
