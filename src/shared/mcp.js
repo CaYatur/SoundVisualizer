@@ -1412,6 +1412,7 @@
   /* sv_set_autovj only: a "preset:<id>" pick must name an existing user
      Studio background preset. */
   function autovjPresetError(picks, ctx) {
+    const saved = ((configOf(ctx).autovj || {}).picks || {}).backgrounds;
     if (picks && typeof picks === 'object') {
       const extra = Object.keys(picks).filter(function (k) { return k !== 'backgrounds'; });
       if (extra.length) return 'picks only accepts backgrounds here (got ' + extra.join(', ') + ').';
@@ -1420,6 +1421,8 @@
     const R = autovjRules();
     const known = R ? R.studioBackgrounds(presetRecords(ctx)).map(function (p) { return R.PRESET_PREFIX + p.id; }) : [];
     for (const id of bg) {
+      // A preset that was already saved and later deleted is dropped on write, not an error
+      if (Array.isArray(saved) && saved.indexOf(id) >= 0) continue;
       if (String(id).indexOf('preset:') === 0 && known.indexOf(id) < 0) return 'Unknown Studio background preset "' + id + '" in picks.backgrounds.';
     }
     return '';
@@ -1441,7 +1444,11 @@
         next.customKinds = ['scenes', 'visualizers', 'palettes', 'backgrounds'].filter(function (k) { return args.customKinds.indexOf(k) >= 0; });
       }
       if (args && args.picks && Array.isArray(args.picks.backgrounds)) {
-        next.picks = Object.assign({ scenes: [], visualizers: [], palettes: [] }, next.picks, { backgrounds: args.picks.backgrounds.slice() });
+        const R = autovjRules();
+        const known = R ? R.studioBackgrounds(presetRecords(ctx)).map(function (p) { return R.PRESET_PREFIX + p.id; }) : null;
+        // Stale Studio presets (deleted since they were picked) are pruned
+        const keep = args.picks.backgrounds.filter(function (id) { return !known || String(id).indexOf('preset:') !== 0 || known.indexOf(id) >= 0; });
+        next.picks = Object.assign({ scenes: [], visualizers: [], palettes: [] }, next.picks, { backgrounds: keep });
       }
       cfg.autovj = next;
       return { autovj: next };

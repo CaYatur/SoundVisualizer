@@ -165,3 +165,44 @@ test('sv_set_autovj rejects unknown background ids', async () => {
   assert.strictEqual((await call('sv_patch_config', { path: 'autovj.picks.backgrounds', value: ['zzz'] }, c)).ok, false);
   assert.strictEqual((await call('sv_patch_config', { path: 'autovj.source', value: 'backgrounds' }, c)).ok, true);
 });
+
+test('transparent background layers are never switched', () => {
+  const layers = [
+    { kind: 'background', type: 'aurora', settings: { background: { transparent: true } } },
+    { kind: 'background', type: 'transparent' },
+    { kind: 'background', type: 'solid' },
+  ];
+  assert.deepStrictEqual(R.backgroundLayers(layers).map((l) => l.type), ['solid']);
+  const A = loadAdmin(true);
+  const cfg = { background: { type: 'aurora' }, layers: layers.slice(0, 2) };
+  assert.strictEqual(A.applyBackground(cfg, { id: R.BACKGROUNDS[0] }), false);
+  assert.strictEqual(cfg.layers[0].type, 'aurora');
+  assert.strictEqual(cfg.layers[1].type, 'transparent');
+  assert.strictEqual(cfg.background.type, 'aurora');
+  const mixed = { background: { type: 'aurora' }, layers: layers.map((l) => Object.assign({}, l)) };
+  assert.strictEqual(A.applyBackground(mixed, { id: R.BACKGROUNDS[0] }), true);
+  assert.deepStrictEqual(mixed.layers.map((l) => l.type), ['aurora', 'transparent', R.BACKGROUNDS[0]]);
+});
+
+test('sv_set_autovj prunes deleted Studio presets already in picks, rejects new unknown ones', async () => {
+  const c = mctx();
+  assert.strictEqual((await call('sv_set_autovj', { picks: { backgrounds: ['preset:u1', R.BACKGROUNDS[0]] } }, c)).ok, true);
+  // The preset is deleted
+  c.presets.list = () => OTHERS;
+  const r = await call('sv_set_autovj', { source: 'backgrounds', picks: { backgrounds: ['preset:u1', R.BACKGROUNDS[0]] } }, c);
+  assert.strictEqual(r.ok, true, JSON.stringify(r));
+  assert.deepStrictEqual(c.cfg.autovj.picks.backgrounds, [R.BACKGROUNDS[0]]);
+  // A never-saved unknown preset is still an error
+  const bad = await call('sv_set_autovj', { picks: { backgrounds: ['preset:ghost'] } }, c);
+  assert.strictEqual(bad.ok, false);
+  assert.deepStrictEqual(c.cfg.autovj.picks.backgrounds, [R.BACKGROUNDS[0]]);
+});
+
+test('EN panel strings: Hepsi translated, count has a separator', () => {
+  const fsx = require('fs');
+  const pathx = require('path');
+  const i18n = fsx.readFileSync(pathx.join(__dirname, '..', 'src/shared/i18n.js'), 'utf8');
+  assert.match(i18n, /'Hepsi': 'All'/);
+  const src = fsx.readFileSync(pathx.join(__dirname, '..', 'src/admin/autovj.js'), 'utf8');
+  assert.ok(src.indexOf("text: ' ' + countText(") >= 0);
+});

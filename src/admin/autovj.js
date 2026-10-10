@@ -165,7 +165,8 @@
       if (!isStack && cfg.background && !cfg.background.transparent) { cfg.background.type = type; setCustom(); }
       return true;
     }
-    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'background' && l.locked)) return false;
+    // Background layers exist but all are locked or transparent: report it, do not fall back
+    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'background' && (l.locked || R().isTransparentBackground(l)))) return false;
     if (!cfg.background || cfg.background.transparent || cfg.background.type === 'transparent') return false;
     cfg.background.type = type;
     setCustom();
@@ -414,7 +415,7 @@
           restartTiming();
           P().push(true);
           const c = document.getElementById('autovjPickCount');
-          if (c) c.textContent = countText(cur.length, all.length);
+          if (c) c.textContent = ' ' + countText(cur.length, all.length);
         },
       });
       box.checked = has(item.id);
@@ -427,7 +428,7 @@
     return el('div', { class: 'pick-box' }, [
       el('div', { class: 'row' }, [
         el('span', { class: 'lbl', text: 'Hangileri' }),
-        el('span', { id: 'autovjPickCount', class: 'val', text: countText(cur.length, all.length) }),
+        el('span', { id: 'autovjPickCount', class: 'val', text: ' ' + countText(cur.length, all.length) }),
       ]),
       el('div', { class: 'studio-note dim-hint', text: 'Hiçbiri seçili değilse hepsi kullanılır.' }),
       el('div', { class: 'pick-list' }, rows),

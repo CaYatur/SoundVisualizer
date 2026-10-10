@@ -140,10 +140,20 @@
       && !isTextLayer(l) && l.enabled !== false && !l.locked);
   }
 
-  /* Changeable background layers: enabled and not locked (same rule as
-     visualizerLayers; a locked background stays put). */
+  /* Transparent (stream overlay) background layer. The renderer draws the
+     layer's mode before it looks at the transparency flag (layers.js
+     _drawEntryRaw), so switching its type would make the overlay opaque. */
+  function isTransparentBackground(l) {
+    if (!l || l.kind !== 'background') return false;
+    const bg = l.settings && l.settings.background;
+    return l.type === 'transparent' || !!(bg && bg.transparent);
+  }
+
+  /* Changeable background layers: enabled, not locked (same rule as
+     visualizerLayers; a locked background stays put) and not transparent. */
   function backgroundLayers(layers) {
-    return arr(layers).filter((l) => l && l.kind === 'background' && l.enabled !== false && !l.locked);
+    return arr(layers).filter((l) => l && l.kind === 'background' && l.enabled !== false
+      && !l.locked && !isTransparentBackground(l));
   }
 
   /* Studio presets usable as backgrounds: user-made shader presets of
@@ -371,7 +381,7 @@
   const api = {
     SOURCES, KINDS, PALETTE_SOURCES, VIS_TARGETS, ORDERS, UNITS, VISUALIZERS, BACKGROUNDS, PRESET_PREFIX, CUSTOM_MODES, CUSTOM_DEFAULT,
     defaults, normalize, isBackgroundPick, customKindsOf,
-    isTextLayer, visualizerLayers, backgroundLayers, studioBackgrounds,
+    isTextLayer, visualizerLayers, backgroundLayers, isTransparentBackground, studioBackgrounds,
     catalog, selected, nextIndex, drawMany, nextKind, plan, planAll, diagnose,
   };
 
