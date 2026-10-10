@@ -79,6 +79,11 @@
   }
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
+  /* Yalnız şablonun kendi yer tutucuları çevrilir; bayrak kalmış olsa da
+     kullanıcının yazdığı başka bir metin ("Sahne", "Logo") olduğu gibi
+     çizilir. */
+  const PLACEHOLDERS = ['SANATÇI ADI', 'PARÇA ADI'];
+
   class TextMode {
     constructor(canvas) {
       this.canvas = canvas;
@@ -184,7 +189,8 @@
            NAME"). Eskiden İngilizce yazılıydı, Türkçe arayüzde de çıkışa
            öyle basılıyordu. Kullanıcının yazdığı metne dokunulmaz. */
         const I = window.SVI18n;
-        const fallback = T.placeholder && T.content && I && typeof I.t === 'function' ? I.t(T.content) : (T.content || '');
+        const fallback = T.placeholder && PLACEHOLDERS.indexOf(T.content) >= 0 && I && typeof I.t === 'function'
+          ? I.t(T.content) : (T.content || '');
         if (field === 'title') content = n.title || fallback;
         else if (field === 'artist') content = n.artist || fallback;
         else content = [n.title, n.artist].filter(Boolean).join(' — ') || fallback;

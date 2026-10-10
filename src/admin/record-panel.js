@@ -353,5 +353,6 @@
     P().rerender();
   }
 
-  window.SVRecordPanel = { panel: panel, start: start, stop: stop };
+  // Kayıt sürüyor mu: önizleme yüzeyi kayda gidiyor (medya hata yazısı gizlenir)
+  window.SVRecordPanel = { panel: panel, start: start, stop: stop, isRecording: () => pumpRaf !== 0 };
 })();

@@ -551,6 +551,13 @@ test('medya hata yazısı yalnız yönetici önizlemesinde çizilir', () => {
   global.window.SVPanel = { rerender() {} };
   m.draw(ctx, null, { media: { enabled: true } }, 800, 600, 0);
   assert.ok(calls.includes('fillRect') && calls.includes('fillText'), 'panelde yazı görünür');
+  // Canlı kayıt önizleme yüzeyini kaydeder: kayıt sürerken panelde de yok
+  calls.length = 0;
+  global.window.SVRecordPanel = { isRecording: () => true };
+  m.draw(ctx, null, { media: { enabled: true } }, 800, 600, 0);
+  assert.deepStrictEqual(calls, [], 'kayıtta çizilmez');
+  delete global.window.SVRecordPanel;
+  assert.match(read('src/admin/record-panel.js'), /isRecording: \(\) => pumpRaf !== 0/);
   if (saved) global.window.SVPanel = saved; else delete global.window.SVPanel;
 });
 
@@ -605,12 +612,16 @@ test('şablon yer tutucusu arayüz dilinde çizilir, kullanıcının metni çevr
   });
   const m = new TextMode({ width: 800, height: 600, getContext: () => ctx });
   const savedI = global.window.SVI18n;
-  global.window.SVI18n = { t: (s) => ({ 'SANATÇI ADI': 'ARTIST NAME' }[s] || s) };
+  global.window.SVI18n = { t: (s) => ({ 'SANATÇI ADI': 'ARTIST NAME', Sahne: 'Scene' }[s] || s) };
   const base = { enabled: true, source: 'now', nowSource: 'manual', field: 'artist', size: 0.05, x: 0.5, y: 0.5, animation: 'none', shadow: 0, outline: 0 };
   const audio = { bass: 0, mid: 0, treble: 0, level: 0, beat: false, spectrum: new Float32Array(64) };
   const draw = (text) => { drawn.length = 0; m.draw(audio, { text }, 1, 0.016); return drawn.join('|'); };
   assert.match(draw(Object.assign({}, base, { content: 'SANATÇI ADI', placeholder: true })), /ARTIST NAME/);
   assert.doesNotMatch(draw(Object.assign({}, base, { content: 'SANATÇI ADI' })), /ARTIST NAME/, 'bayraksız metin çevrilmez');
+  // Bayrak kalmış olsa da kullanıcının yazdığı sözlük kelimesi çevrilmez
+  const own = draw(Object.assign({}, base, { content: 'Sahne', placeholder: true }));
+  assert.match(own, /Sahne/);
+  assert.doesNotMatch(own, /Scene/);
   assert.match(draw(Object.assign({}, base, { content: 'SANATÇI ADI', placeholder: true, nowPlaying: { artist: 'Sezen Aksu' } })), /Sezen Aksu/);
   if (savedI) global.window.SVI18n = savedI; else delete global.window.SVI18n;
   const L = require('../src/visualizer/layers.js');
@@ -619,6 +630,10 @@ test('şablon yer tutucusu arayüz dilinde çizilir, kullanıcının metni çevr
   assert.strictEqual(add.settings.text.nowPlaying.artist, '', 'yer tutucu parça bilgisi sayılmaz');
   const I = read('src/shared/i18n.js');
   assert.ok(I.includes("'SANATÇI ADI': 'ARTIST NAME'") && I.includes("'PARÇA ADI': 'TRACK TITLE'"));
+  // Panelde metin düzenlenince ya da kaynak değişince bayrak kalkar
+  const TP = read('src/admin/text-panel.js');
+  assert.match(TP, /T\.content = e\.target\.value; delete T\.placeholder;/);
+  assert.match(TP, /if \(v !== 'now'\) settle\(\);/);
 });
 
 /* UX 10: Studio listesinde iki ayrı "Sıvı Metal". */
