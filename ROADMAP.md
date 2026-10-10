@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2864 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2877 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1065
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1078
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1461,6 +1461,12 @@ Stabilisation (#695):
     - **Smaller.** Outside Windows, and without NVENC, the values forced at startup are now also the defaults the badges and resets compare with, so a clean install shows no changed badges. Template placeholders are drawn in the UI language ("SANATÇI ADI" / "ARTIST NAME"). Only those two strings are translated; editing the text or leaving the now-playing source drops the flag, and the text is kept in the UI language. The second "Sıvı Metal" is "Metal Bantlar". Scene swatches follow the first background layer with the stack on. The image library checks the file header.
     - **Measured live:** a new red shader went through "Save and Apply" to the scene; a syntax error stopped at the error toast with nothing applied; cancelling the switch prompt kept the edited code; the locked layer's three buttons were disabled and the layer count stayed 6; the header fit at every width in both languages.
     - **Not changed:** scene thumbnails stay colour swatches, not rendered frames; a real snapshot per scene is a feature, not a fix. Badges outside Windows are covered by a test that stubs the platform; Linux and macOS were not run by hand.
+  - **Outside review, second round** (run on ffce67b). It confirmed most of the earlier fixes and found new gaps, measured again here in an isolated copy (MCP over HTTP, panel over CDP).
+    - **MCP.** `sv_patch_config` refuses a value whose type differs from the existing one: `{"path":"layers","value":"x"}` had turned the layer list into a string and saved it. New keys and null stay free. Layer locks now hold over MCP as in the panel: a locked layer cannot be removed, reordered, or have its fields, position, settings or effects changed. Show, solo, mute and the lock itself still work, and a patch with `locked:false` unlocks and edits in one call. The file-write guard resolves real paths, so a symlink or junction into the app's folder no longer gets past it. MilkDrop tags given to `sv_save_preset` go into `milkdropLibrary.tags`, where the panel searches. `sv_set_visualizer_type` returns a Studio id only for the Studio type. Template effects get ids, so `effectId` can target them.
+    - **Panel.** Auto VJ skips locked visualizer layers and does not write palette colours into them. Studio's highlighter showed a comment as "0", because its placeholder index was matched again by the number rule; the index is now written in private-use characters. A shader file that does not compile still imports, so it can be fixed, but now warns. The colour preset import skips presets with an invalid colour and says how many. All six image pickers have the browser decode the file first. The video library checks the container header (ISO boxes, EBML, AVI). The arrows next to a locked layer are disabled and say why. A layer whose Studio preset was deleted now says so.
+    - **Measured live:** `layers:"x"` and `sensitivity:"abc"` were refused; a locked layer refused remove and opacity but took solo; `bars` returned `presetId:null`; a MilkDrop preset tagged `#dans` was found by the panel's `#dans` search; the arrows beside the locked layer were disabled with the reason; the deleted-preset note appeared; a text file picked as a logo was refused with a message and the logo stayed; `// Shadertoy` and `#define` lines were highlighted as a comment and a directive.
+    - **Not changed.** Template names stay English in both languages: all 72 have been English since they were added, and the descriptions are translated. A global control (MIDI/OSC "next visualizer", `sv_set_visualizer_type`) still reaches the visible visualizer layer even when it is locked: the lock guards direct edits to a layer, not show control. An unknown Auto VJ argument is ignored, as with every tool (`additionalProperties`). A media path to a non-video file is still accepted in settings, but `sv-media` serves only video, so nothing reaches the page.
+    - Tests: `tests/external-review-v2.test.js` (13, all failing on the previous code).
   - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 

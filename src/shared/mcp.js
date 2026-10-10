@@ -340,7 +340,8 @@
     if (cur === undefined || cur === null) return '';
     const want = kindOf(cur);
     const got = kindOf(value);
-    if (want !== got) return '"' + path + '" holds a ' + want + '; refusing to replace it with a ' + got + '.';
+    const an = (w) => (/^[aeiou]/.test(w) ? 'an ' : 'a ') + w;
+    if (want !== got) return '"' + path + '" holds ' + an(want) + '; refusing to replace it with ' + an(got) + '.';
     if (got === 'number' && !isFinite(value)) return '"' + path + '" must be a finite number.';
     return '';
   }
