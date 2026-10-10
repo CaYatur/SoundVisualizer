@@ -2815,6 +2815,10 @@
     'Dosya çok büyük (2 MB üstü).': 'File too large (over 2 MB).',
     'JSON çözümlenemedi.': 'JSON could not be parsed.',
     'İçe aktarıldı.': 'Imported.',
+    'Seçilen dosya açılabilen bir resim değil.': 'The selected file is not an image that can be opened.',
+    'Üstteki katman kilitli': 'The layer above is locked',
+    'Alttaki katman kilitli': 'The layer below is locked',
+    'Bu katmanın Studio preseti silinmiş; katman boş çiziliyor. Listeden başka bir preset seçin.': "This layer's Studio preset was deleted, so the layer draws nothing. Pick another preset from the list.",
     'WebGL2 kullanılamıyor.': 'WebGL2 unavailable.',
     'Derlendi.': 'Compiled.',
     'Deste': 'Deck',
@@ -3251,6 +3255,10 @@
       .replace(/^“(.+)” kalıcı olarak silinecek\. Bu sahnelerde kullanılıyor: (.+)\. O sahnelerde bu görsel boş kalır\.( Şu anki görünümde de kullanılıyor\.)?$/g,
         (_, name, list, live) => `"${name}" will be permanently deleted. Used in these scenes: ${list}. Those scenes will show nothing in its place.` + (live ? ' It is also in use right now.' : ''))
       .replace(/^“(.+)” kalıcı olarak silinecek\. Şu anki görünümde de kullanılıyor\.$/g, '"$1" will be permanently deleted. It is in use right now.')
+      // Studio içe aktarma: derlenmeyen dosya uyarısı ve dönüştürme notları
+      .replace(/^İçe aktarıldı(, ama shader derlenmiyor\. Hata editörde gösteriliyor)?\.(?: ([\s\S]+))?$/, (_, broken, note) =>
+        'Imported' + (broken ? ', but the shader does not compile. The error is shown in the editor' : '') + '.' + (note ? ' ' + translate(note) : ''))
+      .replace(/^Geçersiz renk içeren şablon atlandı: (\d+)$/, 'Presets with invalid colours skipped: $1')
       .replace(/^“(.+)” üzerindeki kaydedilmemiş değişiklikler kaybolacak\.$/g, 'Unsaved changes to "$1" will be lost.')
       .replace(/^“(.+)” kaydedildi, ama shader derlenmiyor\.$/g, '"$1" saved, but the shader does not compile.')
       .replace(/^“(.+)” kalıcı olarak silinecek\.$/g, '"$1" will be permanently deleted.')

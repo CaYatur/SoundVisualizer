@@ -134,6 +134,8 @@
       if (!isStack && cfg.visualizer) cfg.visualizer.type = items[0].id;
       return true;
     }
+    // Yığında görselleştiricilerin hepsi kilitliyse değiştirilecek bir şey yok
+    if (isStack && (cfg.layers || []).some((l) => l && l.kind === 'visualizer' && l.locked)) return false;
     if (cfg.visualizer) { cfg.visualizer.type = items[0].id; return true; }
     return false;
   }
@@ -155,7 +157,10 @@
       if (colors.length > 1) cfg.visualizer.color2 = colors[colors.length - 1];
       // Yığında ilk görselleştirici katmanına da (kopyası genel rengi eziyordu)
       const L = window.SVLayers;
-      if (L && L.setEffective) {
+      const at = L && L.stackOn && L.firstLayerIndex && L.stackOn(cfg) ? L.firstLayerIndex(cfg, 'visualizer') : -1;
+      const locked = at >= 0 && cfg.layers[at] && cfg.layers[at].locked;
+      // Kilitli katmanın kendi rengi korunur
+      if (L && L.setEffective && !locked) {
         L.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
         L.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
       }

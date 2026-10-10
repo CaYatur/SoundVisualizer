@@ -745,7 +745,26 @@
       if (keepKey != null) merged.background.transparentKey = keepKey;
       if (keepCover != null) merged.background.coverTaskbar = !!keepCover;
     }
+    giveFxIds(merged);
     return merged;
+  }
+
+  /* Şablonun efektleri kimliksiz yazılıyordu (fx()); panelden eklenenler
+     kimlik alıyor. Kimliksiz efekt MCP'de `effectId` ile hedeflenemiyor,
+     yalnız sırasıyla seçilebiliyordu. Biçim postfx.js'teki gibi. */
+  let fxSeq = 0;
+  function giveFxIds(cfg) {
+    const give = (list) => {
+      if (!Array.isArray(list)) return;
+      for (const f of list) {
+        if (f && typeof f === 'object' && !f.id) {
+          fxSeq = (fxSeq + 1) % 0x7fffffff;
+          f.id = 'fx_' + Date.now().toString(36) + '_' + fxSeq.toString(36) + Math.floor(Math.random() * 0xffff).toString(36);
+        }
+      }
+    };
+    give(cfg.postfx);
+    (Array.isArray(cfg.layers) ? cfg.layers : []).forEach((l) => { if (l) give(l.postfx); });
   }
 
   function groups() {
