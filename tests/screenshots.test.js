@@ -41,7 +41,7 @@ test('yayın kartı parçayı ve kapağı Çalan Parça katmanından çiziyor; �
   }
   assert.match(SRC, /const NP_POST = '\(cfg\.layers\|\|\[\]\)\.forEach\(function\(l\)\{' \+/);
   assert.match(SRC, /'l\.settings\.nowplaying\.source="manual";' \+/);
-  assert.match(SRC, /artwork: SHOT_LOGO \}\)/);
+  assert.match(SRC, /const NP_TRACK = \{ title: 'MIDNIGHT SIGNAL', artist: 'CAYADEV & AURORA', album: '', artwork: SHOT_COVER \};/);
   assert.match(SRC, /if \(!\(await applyTemplate\(id, over, postFor\(over\)\)\)\) continue;/);
   assert.strictEqual((SRC.match(/applyTemplate\(id, over, postFor\(over\)\)/g) || []).length, 2, 'sahneler ve vitrin klibi');
 });

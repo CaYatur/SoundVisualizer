@@ -117,7 +117,7 @@ fluid gradient backgrounds that move with the music.
 
 | Layered scene | Frequency bars | Circular |
 |:---:|:---:|:---:|
-| ![Centre bars with a logo on a neon plasma gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
+| ![Rainbow centre bars around a logo on a cyan and violet gradient](docs/screenshots/demo-visualizer.gif) | ![Rainbow frequency bars on a soft gradient](docs/screenshots/demo-bars.gif) | ![Circular spectrum with a logo](docs/screenshots/demo-circular.gif) |
 | **Mirrored bars** | **Wave** | **Sunset wave** |
 | ![Mirrored bars on an ocean gradient](docs/screenshots/demo-mirror.gif) | ![Rainbow waveform on a night gradient](docs/screenshots/demo-wave.gif) | ![Warm mirrored waveform on a sunset gradient](docs/screenshots/demo-sunset.gif) |
 
@@ -583,8 +583,9 @@ test asserts it.
 - *Event (5)* — Minimal Line, Corporate, Gala, Festival, Projection Test
 
 **Music video layouts.** Restrained layouts for release videos and official channels, deliberately
-separate from the club material: bar placement as a fraction of the frame, your logo beside the
-bars rather than behind them, and the track title and artist as separate layers.
+separate from the club material: bar placement as a fraction of the frame, a plain ground with no
+grain, and the cover, title and artist as one card. The cover sits beside the text at the same gap
+in every aspect ratio, and the bars share the card's margin.
 
 <div align="center">
 
@@ -592,6 +593,7 @@ bars rather than behind them, and the track title and artist as separate layers.
 |:---:|:---:|
 | ![Label Card](docs/screenshots/scene-broadcast-label.png) | ![Minimal White](docs/screenshots/scene-broadcast-minimal.png) |
 | ![Baseline Bars](docs/screenshots/scene-broadcast-line.png) | ![Amber Room](docs/screenshots/scene-broadcast-amber.png) |
+| ![Cover Ring](docs/screenshots/scene-broadcast-ring.png) | ![Stage Card](docs/screenshots/scene-broadcast-stage.png) |
 
 </div>
 

@@ -119,7 +119,7 @@ arkaplanlar üzerinde, hâlâ tek tıkla.
 
 | Katmanlı sahne | Frekans barları | Çember |
 |:---:|:---:|:---:|
-| ![Neon plazma degrade üzerinde logolu merkez barlar](docs/screenshots/demo-visualizer.gif) | ![Yumuşak degrade üzerinde gökkuşağı frekans barları](docs/screenshots/demo-bars.gif) | ![Logolu dairesel tayf](docs/screenshots/demo-circular.gif) |
+| ![Camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar](docs/screenshots/demo-visualizer.gif) | ![Yumuşak degrade üzerinde gökkuşağı frekans barları](docs/screenshots/demo-bars.gif) | ![Logolu dairesel tayf](docs/screenshots/demo-circular.gif) |
 | **Aynalı barlar** | **Dalga** | **Gün batımı dalgası** |
 | ![Okyanus degradesi üzerinde aynalı barlar](docs/screenshots/demo-mirror.gif) | ![Gece degradesi üzerinde gökkuşağı dalga formu](docs/screenshots/demo-wave.gif) | ![Gün batımı degradesi üzerinde sıcak aynalı dalga](docs/screenshots/demo-sunset.gif) |
 
@@ -586,8 +586,9 @@ doğruluyor.
 - *Etkinlik (5)* — Minimal Line, Corporate, Gala, Festival, Projection Test
 
 **Müzik videosu düzenleri.** Yayın videoları ve resmî kanallar için sade düzenler, kulüp
-malzemesinden bilerek ayrı: karenin oranı olarak bar yerleşimi, logonuz barların arkasında değil
-yanında, ve parça adıyla sanatçı ayrı katmanlar olarak.
+malzemesinden bilerek ayrı: karenin oranı olarak bar yerleşimi, grensiz düz bir zemin, ve kapak,
+parça adı ile sanatçı tek bir kart olarak. Kapak her en-boy oranında yazının yanında aynı boşlukla
+duruyor; barlar kartla aynı kenar boşluğunda.
 
 <div align="center">
 
@@ -595,6 +596,7 @@ yanında, ve parça adıyla sanatçı ayrı katmanlar olarak.
 |:---:|:---:|
 | ![Label Card](docs/screenshots/scene-broadcast-label.png) | ![Minimal White](docs/screenshots/scene-broadcast-minimal.png) |
 | ![Baseline Bars](docs/screenshots/scene-broadcast-line.png) | ![Amber Room](docs/screenshots/scene-broadcast-amber.png) |
+| ![Cover Ring](docs/screenshots/scene-broadcast-ring.png) | ![Stage Card](docs/screenshots/scene-broadcast-stage.png) |
 
 </div>
 
