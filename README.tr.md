@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2894%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2902%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -42,7 +42,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 
 | **59** görselleştirici modu | **43** arkaplan | **40** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
-| **72** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
+| **81** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **96** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
 
 </div>
@@ -151,7 +151,7 @@ Başka hiçbir şey kurmanız gerekmiyor: ses yardımcısı uygulamanın kendi i
    fazla **ses kaynağı** seçin.
 2. **Görselleştirmeyi Aç**'a tıklayın. Görüntü seçili her ekranda tam ekran açılır.
 3. Sağdaki her şeyi değiştirin — anında uygulanır ve kendini kaydeder.
-4. Ya da hazır bir görünümden başlayın: **Kitaplık → Hazır Şablonlar**'da 72 tane var.
+4. Ya da hazır bir görünümden başlayın: **Kitaplık → Hazır Şablonlar**'da 81 tane var.
 5. Yayın için **Çıkış → Yayın Çıkışı**'nı açın ve adresi bir OBS **Tarayıcı Kaynağı**na yapıştırın.
 6. Tüm pencereleri kapatmak için herhangi bir görselleştirme penceresinde **ESC**'ye basın.
 
@@ -562,7 +562,7 @@ Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 modülasyon, MilkDrop ve görsel nesneler — bir ad altında saklıyor. Tek tıkla geri yükleyin, güncel
 görünümden güncelleyin, JSON olarak dışa ve içe aktarın.
 
-**Dokuz grupta 72 hazır şablon.** Tek tık; ses aygıtınız, ekran seçiminiz, yayın ve aydınlatma
+**On grupta 81 hazır şablon.** Tek tık; ses aygıtınız, ekran seçiminiz, yayın ve aydınlatma
 ayarlarınız olduğu gibi kalıyor — bir şablonu denemek çalışan bir kurulumu bozmamalı, bunu bir test
 doğruluyor.
 
@@ -571,8 +571,12 @@ doğruluyor.
 - *Ambiyans (9)* — Aurora, Ink in Water, Topography, Underwater, Embers, Liquid Metal, Night Globe,
   Flow Field, Interference
 - *Yayın (6)* — Corner Bars, Clean Wave, Ring Meter, Scope Overlay, Lower Third, Studio Meters
-- *Müzik Videosu (8)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
-  Frame, Corner Meter, Centre Strip
+- *Müzik Videosu (11)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
+  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card. Kapak, parça adı ve sanatçı
+  tek bir Çalan Parça katmanından geliyor; kapak her en-boy oranında yazının yanında aynı boşlukla
+  duruyor. Panel önizlemesinde parça çalmıyorken kartta yer tutucu yazı görünür.
+- *Müzik Arka Planı (6)* — Aurora Backdrop, Flow Backdrop, Nebula Backdrop, MilkDrop Backdrop, Galaxy
+  Backdrop, Soft Glow: müzik çalarken arkada sade, kısık bir görselleştirici, önde parça kartı
 - *Müzik (6)* — Chroma Wheel, Helix, Silk Ribbons, Strings, Spectrogram, Galaxy
 - *Ekran Koruyucu (6)* — Plasma, Stained Glass, Circuit, Wire Tunnel, Dunes, Prism
 - *3B Geometri (8)* — Klein Bottle, Lorenz, Supershape, Trefoil Tube, Chladni, Rose Curve, Chua
@@ -1626,7 +1630,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2894 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2902 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

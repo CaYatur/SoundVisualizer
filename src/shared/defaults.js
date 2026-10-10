@@ -596,6 +596,11 @@
       coverGap: 0.35,  // gap between cover and text (fraction of cover)
       coverRadius: 0.14, // corner radius 0..0.5 of min(coverW,coverH) (0.5 = circle/oval)
       coverSide: 'auto', // 'auto' (= top) | 'left' | 'right' | 'top'
+      /* text = x yazının kenarı (kapak dışına asılır); group = x kapak
+         dahil bütün grubun kenarı, her en-boy oranında aynı boşluk. */
+      anchor: 'text',
+      // Şablon kartı: parça yokken panel önizlemesinde yer tutucu yazı
+      placeholder: false,
       /* Fit: natural = keep aspect (default); square = legacy stretch-to-square;
          cover = square box + crop-fill; contain = square box + letterbox. */
       coverFit: 'natural', // 'natural' | 'square' | 'cover' | 'contain'

@@ -25,20 +25,25 @@ const tpl = (id) => T.TEMPLATES.find((x) => x.id === id);
 const logoLayers = (cfg) => (cfg.layers || []).filter((l) => l && l.kind === 'logo');
 const LOGO = 'data:image/svg+xml;base64,QUJD';
 
-test('yayın şablonunun logo katmanı logoyu tabandan alıyor, üstüne yazılandan değil', () => {
-  /* Katman kendi `settings.logo`sunu okuyor. Şablon kullanıcının logosunu
-     tabandan o katmanlara taşıyor; sonradan `cfg.logo`ya yazılan bir kaynak
-     katmana hiç ulaşmıyor. Üretici eskiden ikincisini yapıyordu. */
+test('yayın kartı parçayı ve kapağı Çalan Parça katmanından çiziyor; üretici onu elle besliyor', () => {
+  /* Kart şablonları (10.10) logo ve iki metin katmanı yerine tek bir
+     "Çalan Parça" katmanı taşıyor: kapak yazının yanına motor tarafından
+     yerleşiyor. Katman sistemden okuyor; README üretiminde çalan parça yok,
+     üretici katmanı elle yazılan parçaya ve kapağa çeviriyor. */
   for (const id of ['bc-label', 'bc-line', 'bc-minimal', 'bc-amber']) {
     assert.ok(tpl(id), id + ' yok');
-    const late = SV.deepMerge(T.apply(SV.defaultConfig(), tpl(id), env), { logo: { enabled: true, src: LOGO } });
-    assert.ok(logoLayers(late).length > 0, id + ' logo katmanı taşımıyor');
-    assert.ok(logoLayers(late).every((l) => !l.settings.logo.src), id + ': sonradan yazılan logo katmana ulaşmamalı (testin dayanağı)');
-    const base = SV.defaultConfig();
-    base.logo = Object.assign({}, base.logo, { src: LOGO });
-    const early = T.apply(base, tpl(id), env);
-    assert.ok(logoLayers(early).every((l) => l.settings.logo.src === LOGO), id + ': tabandaki logo katmana taşınmalı');
+    const cfg = T.apply(SV.defaultConfig(), tpl(id), env);
+    const np = (cfg.layers || []).filter((l) => l && l.kind === 'nowplaying');
+    assert.strictEqual(np.length, 1, id + ' tek kart katmanı taşımalı');
+    const c = np[0].settings.nowplaying;
+    assert.strictEqual(c.coverOverlay, true, id);
+    assert.strictEqual(c.source, 'system', id);
   }
+  assert.match(SRC, /const NP_POST = '\(cfg\.layers\|\|\[\]\)\.forEach\(function\(l\)\{' \+/);
+  assert.match(SRC, /'l\.settings\.nowplaying\.source="manual";' \+/);
+  assert.match(SRC, /artwork: SHOT_LOGO \}\)/);
+  assert.match(SRC, /if \(!\(await applyTemplate\(id, over, postFor\(over\)\)\)\) continue;/);
+  assert.strictEqual((SRC.match(/applyTemplate\(id, over, postFor\(over\)\)/g) || []).length, 2, 'sahneler ve vitrin klibi');
 });
 
 test('üretici logoyu tabandan veriyor ve sahne geçişini kapatıyor', () => {
