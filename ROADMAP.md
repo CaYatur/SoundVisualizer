@@ -129,9 +129,9 @@ npm test
 npm start -- --smoke
 ```
 
-- **2853 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **2864 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
-  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1054
+  that tag — 469 more with v3.1.4, most of them from the MilkDrop work, and 1065
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -1454,6 +1454,13 @@ Stabilisation (#695):
     - **Measured live:** `layers.0.opacity` left 9 layers in place; the export held `[redacted]`; a second export without `overwrite` and an export onto `settings.json` were refused; the floating window reported `open:false` 6 ms after the close call; the header read `application/json; charset=utf-8`.
     - **Not changed, with reasons.** A now-playing card moved down with the layer's vertical position can leave the screen. The panel's own slider allows the same move, and it is the user's choice. The white rectangle reported with a logo and screen blend did not reproduce: a transparent PNG logo with glow, under layer blends normal/screen/lighten and logo blends screen/add, drew no rectangle.
     - Tests: `tests/external-review.test.js`.
+  - **Outside review, admin panel** (second report, same run). Measured in an isolated copy with real DOM clicks; the header was measured at 984–1366 px wide in both languages.
+    - **Studio "Use on Scene".** It applied the last saved version, because the output draws a preset by id from the store; unsaved code never reached the screen, and a new draft did nothing. It also announced "applied" for a shader that does not compile, over a blank output. The draft is now compiled first and a broken shader is refused; unsaved changes are saved after a "Save and Apply" prompt (a built-in saves the user's copy). Switching presets, "+ Shader", "+ Variation" and import ask before dropping unsaved edits. Deleting a preset names the scenes that use it.
+    - **Layers and output.** A locked layer cannot be removed or moved, and a neighbour cannot swap past it. The media layer's error text and dim ("camera not found") show only in the admin preview, not on the output, floating window or stream.
+    - **Narrow window.** At the minimum width the header needed 1119 px (TR) / 1097 px (EN): Blackout was cut and the status and settings gear were off screen; with "Remove Blackout" and "Open on 2 displays" it also overflowed at 1181 px. Up to 1280 px the display label, the Ctrl K hint and the status text hide (the status moves to a tooltip) and Close and Blackout become icons. The minimum height is 560: a 1366×768 screen at 125% leaves about 574 px, and the panel works at 540 (rail and sections scroll).
+    - **Smaller.** Outside Windows, and without NVENC, the values forced at startup are now also the defaults the badges and resets compare with, so a clean install shows no changed badges. Template placeholders are drawn in the UI language ("SANATÇI ADI" / "ARTIST NAME"); typed text is never translated. The second "Sıvı Metal" is "Metal Bantlar". Scene swatches follow the first background layer with the stack on. The image library checks the file header.
+    - **Measured live:** a new red shader went through "Save and Apply" to the scene; a syntax error stopped at the error toast with nothing applied; cancelling the switch prompt kept the edited code; the locked layer's three buttons were disabled and the layer count stayed 6; the header fit at every width in both languages.
+    - **Not changed:** scene thumbnails stay colour swatches, not rendered frames; a real snapshot per scene is a feature, not a fix. Badges outside Windows are covered by a test that stubs the platform; Linux and macOS were not run by hand.
   - **Left as they are:** the build workflow on the release commit and the ROADMAP/README version wording (release steps), "Full" MCP mode reaching LAN streaming (documented by design), the unused status URL port (nothing reads it) and two pre-existing unused IPC channels.
   - Tests: `tests/audit-695.test.js`.
 

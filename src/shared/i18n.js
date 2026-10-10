@@ -856,6 +856,7 @@
     'Gökkuşağı': 'Rainbow',
     'Möbius': 'Mobius',
     'Sahneyi karart (tekrar basınca geri gelir)': 'Black out the scene (press again to restore)',
+    'Görselleştirmeyi kapat': 'Close the visualizer',
     'Birden fazla ekran seçerseniz görselleştirme hepsinde aynı anda açılır. ESC hepsini kapatır.': 'If you select more than one display, the visualization opens on all of them at once. ESC closes them all.',
     'Seçtiğiniz her ekranda ayrı bir tam ekran görselleştirme açılır. ESC hepsini kapatır.': 'A separate full-screen visualization opens on each display you select. ESC closes them all.',
 

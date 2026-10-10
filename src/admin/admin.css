@@ -1034,6 +1034,17 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   .topsearch { max-width: 240px; }
   .brand .sub { display: none; }
 }
+/* En küçük pencerede (1000 px) üst çubuk 1119 px (TR) / 1097 px (EN)
+   istiyordu: Karart düğmesi kesiliyor, durum ve Ayarlar dişlisi ekran
+   dışında kalıyordu. "Karartmayı Kaldır" ve "2 ekranda açık" iken 1181 px'te
+   de taşıyordu; eşik bu yüzden 1280. Etiket, kısayol ipucu ve durum yazısı
+   gizlenir; Kapat ve Karart yalnız simge (adları ipucunda). */
+@media (max-width: 1280px) {
+  .display-field > span, .ts-kbd, #statusText { display: none; }
+  .display-btn { min-width: 116px; }
+  #closeBtn, #blackoutBtn { font-size: 0; padding-left: 10px; padding-right: 10px; }
+  #closeBtn .svi, #blackoutBtn .svi { width: 15px; height: 15px; margin-right: 0; }
+}
 
 /* --- çoklu ekran seçimi (üst çubuk) --- */
 /* Etiket düğmenin ÜSTÜNDE değil YANINDA: .field sütun düzeninde etiket

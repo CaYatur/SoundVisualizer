@@ -676,3 +676,24 @@ test('resim kitaplığı dosyanın başına bakar; .png adlı metin eklenmez', (
   }
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+/* UX 6: en küçük pencerede (1000 px) üst çubuk 1119 px istiyordu; Karart
+   kesiliyor, durum ve Ayarlar görünmüyordu. Canlı ölçüldü (TR/EN, 984–1366
+   px, "Karartmayı Kaldır" ve "2 ekranda açık" dahil). */
+test('dar pencerede üst çubuk sıkışır; en küçük yükseklik 560', () => {
+  const css = read('src/admin/admin.css');
+  const at = css.indexOf('@media (max-width: 1280px) {');
+  assert.ok(at > 0, '1280 eşiği');
+  const block = css.slice(at, css.indexOf('\n}', at));
+  assert.match(block, /\.display-field > span, \.ts-kbd, #statusText \{ display: none; \}/);
+  assert.match(block, /#closeBtn, #blackoutBtn \{ font-size: 0;/);
+  const html = read('src/admin/index.html');
+  assert.match(html, /<button id="closeBtn"[^>]*title="Görselleştirmeyi kapat"/);
+  assert.match(html, /<button id="blackoutBtn"[^>]*title="/);
+  assert.match(html, /<div class="status" id="statusBox">/);
+  assert.match(read('src/admin/admin.js'), /\$\('statusBox'\)\.title = tr\(\$\('statusText'\)\.textContent\);/);
+  assert.ok(read('src/shared/i18n.js').includes("'Görselleştirmeyi kapat': 'Close the visualizer'"));
+  const M = read('src/main/main.js');
+  const win = M.slice(M.indexOf('function createAdminWindow()'), M.indexOf('icon: fs.existsSync(iconPath)', M.indexOf('function createAdminWindow()')));
+  assert.match(win, /minWidth: 1000,\s*minHeight: 560,/);
+});

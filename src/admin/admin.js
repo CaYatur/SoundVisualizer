@@ -4568,6 +4568,8 @@
     const n = Array.isArray(displayIds) ? displayIds.length : open ? 1 : 0;
     $('statusDot').className = 'dot ' + (open ? 'on' : 'off');
     $('statusText').textContent = open ? (n > 1 ? n + ' ekranda açık' : 'Açık') : 'Kapalı';
+    // Dar pencerede yazı gizli, yalnız nokta görünür; durum ipucunda
+    if ($('statusBox')) $('statusBox').title = tr($('statusText').textContent);
     // Seçim değişmişse açıkken de yeniden uygulanabilsin
     $('openBtn').disabled = false;
     $('closeBtn').disabled = !open;

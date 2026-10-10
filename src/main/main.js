@@ -572,8 +572,11 @@ function createAdminWindow() {
     // daha geniş varsayılan pencere
     width: 1500,
     height: 940,
+    /* 1366x768 ekranda %125 ölçekte çalışma alanı ~1093x574: 680 en küçük
+       yükseklik pencereyi ekrandan taşırıyordu. Panel 540 px görüntü
+       alanında kullanılabilir (ray ve bölümler kendi içinde kayıyor). */
     minWidth: 1000,
-    minHeight: 680,
+    minHeight: 560,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: trUi('Ses Görselleştirici — Yönetici Paneli', 'Sound Visualizer — Admin Panel'),
     backgroundColor: '#0b0910',
