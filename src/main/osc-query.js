@@ -19,7 +19,10 @@ let timer = null;
 let listening = false;
 let announcing = false;
 
-const VIRTUAL_NAME = /vethernet|virtual|vbox|vmware|host-only|wsl|hyper-?v|tap|tun|docker|tailscale|zerotier|bluetooth|npcap|vmnet|virbr/i;
+const VIRTUAL_NAME = /vethernet|veth|virtual|vbox|vmware|host-only|wsl|hyper-?v|tap|tun|docker|tailscale|zerotier|bluetooth|npcap|vmnet|virbr|awdl|llw|anpi/i;
+const WIFI_NAME = /wi-?fi|wlan|wlp|wlx/i;
+/* "en" kelimenin içinde (OpenVPN) eşleşmesin. macOS en0, Linux eth0 ve enp3s0 geçer. */
+const ETHER_NAME = /ethernet|(?:^|[^a-z])(?:eth|eno|ens|enp|enx|em|en)\d*/i;
 
 function isIPv4(family) {
   return family === 'IPv4' || family === 4;
@@ -38,8 +41,8 @@ function chooseLanIPv4(nets) {
       const addr = net.address;
       if (!addr || addr.startsWith('127.') || addr.startsWith('169.254.')) continue;
       let score = virtual ? 0 : 10;
-      if (/wi-fi|wifi|wlan/i.test(name)) score += 8;
-      else if (/ethernet|eth|en/i.test(name)) score += 5;
+      if (WIFI_NAME.test(name)) score += 8;
+      else if (ETHER_NAME.test(name)) score += 5;
       if (addr.startsWith('192.168.')) score += 4;
       else if (addr.startsWith('10.')) score += 3;
       else if (/^172\.(1[6-9]|2\d|3[01])\./.test(addr)) score += 2;

@@ -788,7 +788,9 @@ OSCQuery'nin sabit bir portu yoktur; `9010` kullanılmaz çünkü başka program
 boş bir porta geçer ve Kontrol sayfası o portu gösterir. `/?HOST_INFO` OSC portunu ve sanal
 adaptörleri atlayan bir yerel ağ adresini verir. `_oscjson._tcp` duyurusu, `5353` paylaşılabilirse
 orada sorulara da cevap verir. Portu başka bir yığın tutuyorsa duyuru yine gider; sorulara o yığın
-cevap verir. `/deck/launch` satır ve sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile
+cevap verir. Linux ve macOS aynı portları kullanır. UDP `5353` oralarda ayrıcalıklıdır
+ve çoğunlukla Avahi ya da mDNSResponder tutar; duyuru başka bir yerel porttan gider,
+OSC girişi `9000`'de durur. IPv6 soketi açılmazsa IPv4 dinlemeye devam eder. `/deck/launch` satır ve sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile
 aynı sayılardır.
 
 <div align="center">

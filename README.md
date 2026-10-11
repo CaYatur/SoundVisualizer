@@ -784,7 +784,10 @@ IANA port `5353`. If the chosen HTTP port does not answer as this app on `127.0.
 moves to a free port and the Control page shows that port. `/?HOST_INFO` gives the OSC port and a
 LAN address, skipping virtual adapters. `_oscjson._tcp` is announced on `5353` when that port can
 be shared. If another stack already holds `5353`, the announcement still goes out and queries to
-that port are answered by the stack that holds it. The A/B crossfader is `/crossfade` (0..1).
+that port are answered by the stack that holds it. Linux and macOS use these same ports.
+UDP `5353` is privileged there and is usually held by Avahi or mDNSResponder, so the
+announcement leaves from another local port while OSC input on `9000` keeps running.
+If the IPv6 socket cannot open, IPv4 keeps listening. The A/B crossfader is `/crossfade` (0..1).
 `/deck/launch` takes the row and the column as two integers, the same numbers `/deck/active` reports.
 
 <div align="center">
