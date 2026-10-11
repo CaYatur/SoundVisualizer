@@ -192,28 +192,8 @@
   }
 
   // --------------------------------------------------------------------------
-  // Çizim döngüsü
-  // --------------------------------------------------------------------------
-  function frame(now) {
-    raf = requestAnimationFrame(frame);
-    if (paused || document.hidden) return;
-
-    // Görselleştiricideki ile aynı birikimli sınırlama: "şu kadar ms geçti mi"
-    // karşılaştırması, sınır ekranın yenileme hızının tam böleni değilse hedefin
-    // çok altına düşer (75 Hz ekranda 45 sınırı => 37.5 FPS).
-    const interval = 1000 / PREVIEW_FPS;
-    const rafDt = lastRaf ? now - lastRaf : 16.7;
-    lastRaf = now;
-    frameAcc += Math.min(rafDt, interval * 2);
-    if (frameAcc < interval) return;
-    frameAcc -= interval;
-    if (frameAcc > interval) frameAcc = interval;
-
-    const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
-    lastDraw = now;
-    const t = now / 1000;
-
-    // Gerçek kare gelmiyorsa demo sinyaline geç
+  function renderFrame(now, dt, t) {
+    if (!stack || !audio) return;
     const live = now - lastRealFrame < REAL_FRAME_TIMEOUT;
     if (live !== liveSource) {
       liveSource = live;
@@ -260,6 +240,32 @@
     }
   }
 
+  function drawOnce() {
+    const now = performance.now();
+    renderFrame(now, 0.016, now / 1000);
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (paused || document.hidden) return;
+
+    // Görselleştiricideki ile aynı birikimli sınırlama: "şu kadar ms geçti mi"
+    // karşılaştırması, sınır ekranın yenileme hızının tam böleni değilse hedefin
+    // çok altına düşer (75 Hz ekranda 45 sınırı => 37.5 FPS).
+    const interval = 1000 / PREVIEW_FPS;
+    const rafDt = lastRaf ? now - lastRaf : 16.7;
+    lastRaf = now;
+    frameAcc += Math.min(rafDt, interval * 2);
+    if (frameAcc < interval) return;
+    frameAcc -= interval;
+    if (frameAcc > interval) frameAcc = interval;
+
+    const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
+    lastDraw = now;
+    const t = now / 1000;
+    renderFrame(now, dt, t);
+  }
+
   // --------------------------------------------------------------------------
   // Genel API
   // --------------------------------------------------------------------------
@@ -274,11 +280,15 @@
     if (window.api && window.api.onNowPlaying) {
       window.api.onNowPlaying((st) => {
         window.SVNowLive.state = st;
+        drawOnce();
       });
     }
     if (window.api && window.api.nowPlayingCurrent) {
       window.api.nowPlayingCurrent().then((st) => {
-        if (st) window.SVNowLive.state = st;
+        if (st) {
+          window.SVNowLive.state = st;
+          drawOnce();
+        }
       }).catch(() => {});
     }
     /* MilkDrop sprite komutları (#577): önizleme de bir motor, sprite'ları
@@ -334,6 +344,7 @@
     // Önizlemede ses ayarları da birebir uygulanır (hassasiyet/yumuşatma etkisi görünsün)
     audio.applyConfig(cfg.audio);
     resize(true);
+    drawOnce();
   }
 
   function ingest(f) {
@@ -357,6 +368,7 @@
   window.SVPreview = {
     init,
     setConfig,
+    drawOnce,
     notePresets,
     // Panel canlı modülasyon göstergelerini buradan okur
     modulator: () => modulator,

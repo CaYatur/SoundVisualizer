@@ -385,6 +385,55 @@ test('dinamik tema görselleştirici sabit renkteyken rengi değiştirmez', () =
   assert.strictEqual(cfg.visualizer.color2, '#555555', 'ikincil renk temasında güncellenmeli');
 });
 
+test('dinamik tema katmanlarda en üstteki katman sabit renkse rengini değiştirmez', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/admin/admin.js'), 'utf8');
+  const a = src.indexOf('function applyResolvedTheme(res, isManual)');
+  const end = src.indexOf('function resolveAndApplyDynamicTheme', a);
+  const fnCode = src.slice(a, end);
+
+  // Katmanlar açık, iki görselleştirici katmanı var:
+  // Üstteki (ilk) katman sabit renk, alttaki katman sabit renk, üçüncü katman renk teması
+  const cfg = stackScene();
+  cfg.visualizer.colorMode = 'theme'; // Genel ayar theme olsa bile katmanın kendi ayarı geçerli olmalı
+  const vi = visIndex(cfg);
+  cfg.layers[vi].settings.visualizer.colorMode = 'custom';
+  cfg.layers[vi].settings.visualizer.color = '#aa0000';
+  cfg.layers[vi].settings.visualizer.color2 = '#bb0000';
+
+  const secondVis = JSON.parse(JSON.stringify(cfg.layers[vi]));
+  secondVis.settings.visualizer.colorMode = 'custom';
+  secondVis.settings.visualizer.color = '#00aa00';
+  secondVis.settings.visualizer.color2 = '#00bb00';
+  cfg.layers.push(secondVis);
+
+  const themeVis = JSON.parse(JSON.stringify(cfg.layers[vi]));
+  themeVis.settings.visualizer.colorMode = 'theme';
+  themeVis.settings.visualizer.color = '#0000aa';
+  themeVis.settings.visualizer.color2 = '#0000bb';
+  cfg.layers.push(themeVis);
+
+  cfg.dynamicTheme = { enabled: true, applyToBackground: true, applyToVisualizer: true };
+
+  const sandbox = {
+    cfg,
+    push() {},
+    render() {},
+    document: { querySelector: () => null },
+    window: { SVLayers: L },
+  };
+  vm.runInNewContext(fnCode + '\napplyResolvedTheme({ colors: ["#111111", "#222222", "#333333", "#444444", "#555555"], color: "#333333", color2: "#555555" }, false);', sandbox);
+
+  // En üstteki katman sabit renk seçiliyse kesinlikle korunmalı
+  assert.strictEqual(cfg.layers[vi].settings.visualizer.color, '#aa0000', 'en üstteki görselleştirici sabit rengi korunmalı');
+  assert.strictEqual(cfg.layers[vi].settings.visualizer.color2, '#bb0000', 'en üstteki görselleştirici 2. sabit rengi korunmalı');
+
+  // Alt katmandaki sabit renkli görselleştirici de korunmalı
+  assert.strictEqual(secondVis.settings.visualizer.color, '#00aa00', 'alt katmandaki sabit renk korunmalı');
+
+  // Renk teması modundaki katman ise güncellenmeli
+  assert.strictEqual(themeVis.settings.visualizer.color, '#333333', 'tema modundaki katman güncellenmeli');
+});
+
 // --- Studio -------------------------------------------------------------------------
 
 function freshStudio(cfg) {

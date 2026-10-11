@@ -958,6 +958,11 @@
       if (!src) return null;
       if (this._imageCache[src]) return this._imageCache[src];
       const img = new Image();
+      img.onload = () => {
+        if (typeof window !== 'undefined' && window.SVPreview && typeof window.SVPreview.drawOnce === 'function') {
+          window.SVPreview.drawOnce();
+        }
+      };
       img.src = src;
       this._imageCache[src] = img;
       const keys = Object.keys(this._imageCache);
