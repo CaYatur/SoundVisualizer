@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2979%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2980%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -781,9 +781,15 @@ paket düşer.
 `/show/brightness` arkaplan parlaklığı olarak kalır. Çıkış, panel kaydırıcıları dahil yazılabilir
 adresleri geri yollar; masa fader'ı bunu izler.
 
-OSCQuery ağacı `http://<bu-bilgisayar>:9010/` adresinde sunar; tür, aralık ve güncel değer oradadır.
-`/?HOST_INFO` OSC portunu verir. `_oscjson._tcp` hizmeti mDNS ile duyurulur. `/deck/launch` satır ve
-sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile aynı sayılardır.
+OSCQuery ağacı HTTP üzerinden tür, aralık ve güncel değeri sunar. Varsayılan port `17801`'dir.
+OSCQuery'nin sabit bir portu yoktur; `9010` kullanılmaz çünkü başka programlar o portun
+`localhost` adresini sık tutar. UDP `9000` (giriş) ve `9001` (çıkış) durur. mDNS, IANA portu
+`5353`'te kalır. Seçilen HTTP portu `127.0.0.1` üzerinde bu uygulama olarak cevap vermezse sunucu
+boş bir porta geçer ve Kontrol sayfası o portu gösterir. `/?HOST_INFO` OSC portunu ve sanal
+adaptörleri atlayan bir yerel ağ adresini verir. `_oscjson._tcp` duyurusu, `5353` paylaşılabilirse
+orada sorulara da cevap verir. Portu başka bir yığın tutuyorsa duyuru yine gider; sorulara o yığın
+cevap verir. `/deck/launch` satır ve sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile
+aynı sayılardır.
 
 <div align="center">
 
@@ -1690,7 +1696,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2979 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2980 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

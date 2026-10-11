@@ -2991,7 +2991,7 @@
         category: 'control',
         icon: 'share',
         wide: true,
-        title: 'OSC',
+        title: 'OSC Girişi',
         desc: 'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.',
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },

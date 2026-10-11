@@ -685,7 +685,7 @@
         },
       });
       enable.checked = !!cfg.control.osc.enabled;
-      nodes.push(P().row('OSC Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
+      nodes.push(P().row('OSC Girişi Etkin', el('label', { class: 'switch' }, [enable, el('span', { class: 'track' })])));
       /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister, sunucu
          açılamaz. Windows'ta böyle bir sınır yok; orada 1'den başlar. */
       const oscMin = window.SV_PLATFORM && window.SV_PLATFORM.isWindows ? 1 : 1024;
@@ -708,8 +708,10 @@
           })
         )
       );
-      const queryPort = cfg.control.osc.queryPort || 9010;
+      const queryFallback = (window.SVOscTree && window.SVOscTree.DEFAULT_QUERY_PORT) || 17801;
+      const queryPort = oscState.queryPort || cfg.control.osc.queryPort || queryFallback;
       nodes.push(P().row('OSCQuery Portu', el('input', {
+        id: 'oscQueryPort',
         class: 'p-in p-num', type: 'number', min: String(oscMin), max: '65535', value: queryPort,
         onchange: async (e) => {
           const port = P().portValue(e.target, queryPort, oscMin);
@@ -740,6 +742,13 @@
         stBox.appendChild(el('span', { text: 'Port' }));
         stBox.appendChild(el('span', { class: 'st-num', text: ' ' + oscState.port + ' ' }));
         stBox.appendChild(el('span', { text: 'dinleniyor' }));
+        if (oscState.queryPort) {
+          stBox.appendChild(el('span', { text: ' · OSCQuery ' }));
+          stBox.appendChild(el('span', { class: 'st-num', text: String(oscState.queryPort) }));
+          const mdnsText = oscState.mdns ? 'mDNS' : (oscState.mdnsAnnounce ? 'duyuru gidiyor' : 'mDNS yok');
+          stBox.appendChild(el('span', { text: ' · ' }));
+          stBox.appendChild(el('span', { text: mdnsText }));
+        }
       } else if (oscState.error) {
         stBox.appendChild(el('span', { icon: 'x', text: oscState.error }));
       } else {
@@ -761,6 +770,12 @@
         class: 'studio-note',
         text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',
       }));
+      if (oscState.queryMoved) {
+        nodes.push(el('div', {
+          class: 'studio-note',
+          text: 'OSCQuery seçilen portta bu makinenin localhost adresine ulaşamıyor. Servis boş bir porta geçti; buradaki port kullanılan porttur.',
+        }));
+      }
       nodes.push(mappingRows('osc'));
     }
 
@@ -929,7 +944,15 @@
     const cfg = P().cfg();
     if (cfg.control && cfg.control.midi && cfg.control.midi.enabled) initMidi();
     window.api.onOscMessage(onOsc);
-    window.api.onOscStatus((s) => { oscState = s; });
+    window.api.onOscStatus((s) => {
+      oscState = s || oscState;
+      const live = P().cfg();
+      if (s && s.queryPort && live && live.control && live.control.osc && live.control.osc.queryPort !== s.queryPort) {
+        live.control.osc.queryPort = s.queryPort;
+        const field = document.getElementById('oscQueryPort');
+        if (field) field.value = String(s.queryPort);
+      }
+    });
     try { oscState = await window.api.oscStatus(); } catch { /* servis kapalı */ }
     if (window.api.onOscOutStatus) window.api.onOscOutStatus((s) => { oscOutState = s; });
     if (window.api.oscOutStatus) {

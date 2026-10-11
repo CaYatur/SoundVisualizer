@@ -3254,13 +3254,28 @@ function syncOpenRgb(opts) {
 }
 
 let oscInGen = 0;
+let lastOscInStatus = null;
+function oscInStatus() {
+  const st = oscServer.status();
+  if (!lastOscInStatus) return st;
+  st.queryPort = lastOscInStatus.queryPort;
+  st.query = lastOscInStatus.query;
+  st.mdns = lastOscInStatus.mdns;
+  st.mdnsAnnounce = lastOscInStatus.mdnsAnnounce;
+  st.queryMoved = lastOscInStatus.queryMoved;
+  if (lastOscInStatus.queryError) st.queryError = lastOscInStatus.queryError;
+  return st;
+}
 function syncOscServer() {
   const raw = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
   const o = oscTree.normalizeSettings(raw);
   const gen = ++oscInGen;
   /* Öz test ve ekran görüntüsü ağa soket açmaz (HW_OFF). */
   if (!o.enabled || HW_OFF) {
-    return Promise.all([oscServer.stop(), oscQuery.stop()]).then(() => oscServer.status());
+    return Promise.all([oscServer.stop(), oscQuery.stop()]).then(() => {
+      lastOscInStatus = null;
+      return oscServer.status();
+    });
   }
   return oscServer.start(o, (packet) => {
     const wait = oscTree.delayMs(packet && packet.time, Date.now());
@@ -3291,7 +3306,15 @@ function syncOscServer() {
       st.queryPort = q.port;
       st.query = q.running;
       st.mdns = q.mdns;
+      st.mdnsAnnounce = q.mdnsAnnounce;
+      st.queryMoved = q.moved === true;
       if (q.error) st.queryError = q.error;
+      if (q.running && q.port && currentConfig && currentConfig.control && currentConfig.control.osc
+          && currentConfig.control.osc.queryPort !== q.port) {
+        currentConfig.control.osc.queryPort = q.port;
+        saveSettings(currentConfig);
+      }
+      lastOscInStatus = st;
       notifyAdmin('osc-status', st);
       return st;
     });
@@ -3382,7 +3405,7 @@ ipcMain.handle('stream:open', (e, which) => {
   if (target) shell.openExternal(target);
   return target || '';
 });
-ipcMain.handle('osc:status', () => oscServer.status());
+ipcMain.handle('osc:status', () => oscInStatus());
 ipcMain.handle('osc:sync', () => syncOscServer());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());

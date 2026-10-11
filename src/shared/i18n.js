@@ -890,6 +890,7 @@
     'MIDI Denetleyici': 'MIDI Controller',
     'MIDI kumandanızın düğme ve faderlarını istediğiniz ayara bağlayın. Öğren düğmesine basıp denetleyiciyi oynatmanız yeterli.': 'Map the buttons and faders of your MIDI controller to any setting. Just press Learn and move the control.',
     'OSC': 'OSC',
+    'OSC Girişi': 'OSC Input',
     'TouchOSC, Resolume, Ableton veya QLab gibi kaynaklardan gelen OSC mesajlarını ayarlara bağlayın.': 'Map OSC messages from sources such as TouchOSC, Resolume, Ableton, or QLab to settings.',
     'Studio — Kendi Görselleştiricin': 'Studio — Your Own Visualizer',
     'Hazır bir modu kendine göre değiştir ya da sıfırdan shader yaz. Shadertoy, ISF ve MilkDrop dosyaları içe aktarılabilir.': 'Tweak a built-in mode to your taste or write a shader from scratch. Shadertoy, ISF, and MilkDrop files can be imported.',
@@ -931,7 +932,7 @@
     'Yeni jeton üretir; eski adresler geçersiz olur': 'Generates a new token; old addresses stop working',
 
     // ---- Kontrol yüzeyleri ----
-    'MIDI Etkin': 'MIDI Enabled', 'OSC Etkin': 'OSC Enabled',
+    'MIDI Etkin': 'MIDI Enabled', 'OSC Etkin': 'OSC Enabled', 'OSC Girişi Etkin': 'OSC Input Enabled',
     'Aygıt': 'Device', 'Tüm MIDI aygıtları': 'All MIDI devices',
     'MIDI girişi bulundu': 'MIDI input(s) found', 'MIDI girişi bulunamadı': 'No MIDI input found',
     'Bu ortamda Web MIDI kullanılamıyor.': 'Web MIDI is unavailable in this environment.',
@@ -951,6 +952,9 @@
     'Önek /cayadev gibi olmalı: en çok dört parça, harf, rakam, - ve _.': 'The prefix must look like /cayadev: up to four parts of letters, digits, - and _.',
     'Saat Gecikmesi (ms)': 'Clock Latency (ms)',
     'OSCQuery Portu': 'OSCQuery Port',
+    'mDNS': 'mDNS', 'duyuru gidiyor': 'announcing', 'mDNS yok': 'no mDNS',
+    'OSCQuery seçilen portta bu makinenin localhost adresine ulaşamıyor. Servis boş bir porta geçti; buradaki port kullanılan porttur.':
+      'OSCQuery cannot reach localhost on the selected port. The service moved to a free port; the port shown here is the one in use.',
     'Ana Opaklık': 'Master Opacity',
     'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.':
       'The fixed address tree is in the README. Learn mode stays. It uses the same prefix as output. A packet is applied as a whole. A future time tag waits at most 30 seconds. OSCQuery is served over HTTP and announced with mDNS.',
