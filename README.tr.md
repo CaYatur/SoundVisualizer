@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2942%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2967%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -728,9 +728,49 @@ eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemler
 **OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
 için.
 
+**OSC çıkışı** <kbd>3.1.5</kbd>. Öbür yön. Varsayılan kapalı; başka bir hedef girilene kadar bu
+bilgisayara gönderir ve geri besleme olmasın diye kendi OSC girişine göndermez. Ek hedefler satır
+satır `host:port` ya da `[ipv6]:port`. Pozitif saat gecikmesi fazı geri alır; hoparlör geç
+kalıyorsa ışık onu bekler.
+
+Adresler, değiştirilmedikçe `/cayadev` önekiyle gider. Seviye, bas, mid ve tiz tek bundle içindedir.
+Vuruş ve saat bundle'ı ana bilgisayar saatinin OSC zaman etiketini taşır. Dizeler UTF-8'dir.
+
+| Adres | Tür | Aralık | Ne zaman |
+|---|---|---|---|
+| `/level` `/bass` `/mid` `/treble` | float | 0..1 | seçilen hızda, en çok 30 Hz, tek bundle |
+| `/spectrum` | 16 float | 0..1 | seviyelerle; 30 Hz–16 kHz logaritmik bant |
+| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, sonra 0 | yakalama karesi gelince, ardından kapanış 0 |
+| `/silence` | int | 0 ya da 1 | seviye 400 ms boyunca 0,008 altında kalınca |
+| `/analysis/centroid` `/rolloff` `/flatness` `/crest` `/flux` `/spread` `/loudness` `/peak` `/dynamics` `/harmonic` `/percussive` `/width` | float | 0..1 | seviyelerle |
+| `/analysis/correlation` | float | -1..1 | seviyelerle |
+| `/analysis/pitch` | float | Hz | seviyelerle |
+| `/analysis/pitch/note` | string | nota | seviyelerle |
+| `/analysis/pitch/confidence` `/key/confidence` `/chord/confidence` | float | 0..1 | seviyelerle |
+| `/analysis/key` `/chord` | string | ad | seviyelerle |
+| `/tempo/bpm` `/tempo/confidence` | float | BPM, 0..1 | 0,01 BPM değişince, yoksa saniyede bir |
+| `/tempo/beat` | int int | vuruş 1..N, N | her vuruşta |
+| `/tempo/beat/phase` `/tempo/bar/phase` | float | 0..1 | seçilen hızda |
+| `/tempo/downbeat` | float | 1, sonra 0 | 1. vuruşta, sonraki saatte 0 |
+| `/transport` | string | `playing` ya da `stopped` | önizleme sesi hazırsa ya da değilse |
+| `/timeline/playing` | int | 0 ya da 1 | gösteri zaman çizelgesi |
+| `/scene` `/visualizer` `/background` `/milkdrop/preset` | string | ad | değişince ve 5 sn'de bir, boş preset dahil |
+| `/background/color/1` … `/8` | string | `#rrggbb` | ölçerin renkleri, yoksa tema renkleri |
+| `/show/blackout` `/show/autovj` | int | 0 ya da 1 | değişince ve 5 sn'de bir |
+| `/show/palette` `/show/transition` `/show/track` | string | ad | değişince ve 5 sn'de bir |
+| `/show/brightness` | float | panel değeri | arkaplan parlaklığı |
+| `/crossfade` | float | 0..1 | A/B ana karışımı |
+| `/audio/sensitivity` ve diğer panel kaydırıcıları | float ya da int | kaydırıcı aralığı | değişince ve 5 sn'de bir |
+| `/layer/count` | int | 0..32 | değişince |
+| `/layer/N/name` | string | ad | N 1'den başlar |
+| `/layer/N/opacity` | float | 0..1 | değişince |
+| `/layer/N/enabled` | int | 0 ya da 1 | değişince |
+| `/deck/row` `/deck/col` | int | yoksa -1 | en son çalan klip |
+| `/deck/active` | string | `satır:sütun` listesi | çalan her hücre |
+
 <div align="center">
 
-![Kontrol sayfasında MIDI, OSC ve MCP](docs/screenshots/panel-control.png)
+![Kontrol sayfasında OSC çıkışı](docs/screenshots/panel-control.png)
 
 </div>
 
@@ -1633,7 +1673,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2942 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2967 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

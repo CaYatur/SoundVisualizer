@@ -2994,6 +2994,16 @@
         controls: [{ type: 'controlpanel', surface: 'osc' }],
       },
       {
+        id: 'oscOut',
+        category: 'control',
+        icon: 'share',
+        wide: true,
+        title: 'OSC Çıkışı',
+        desc: 'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.',
+        roots: ['oscOut'],
+        controls: [{ type: 'controlpanel', surface: 'oscout' }],
+      },
+      {
         id: 'mcp',
         category: 'control',
         icon: 'sliders',
@@ -4594,6 +4604,8 @@
       btn.classList.toggle('on', !!blackoutSaved);
       window.SVIcons.set(btn, blackoutSaved ? 'sun' : 'moon', blackoutSaved ? 'Karartmayı Kaldır' : 'Karart');
     }
+    window.SVShow = window.SVShow || {};
+    window.SVShow.blackout = !!blackoutSaved;
     push(true);
     render();
   }

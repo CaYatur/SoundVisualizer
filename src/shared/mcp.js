@@ -168,7 +168,7 @@
     isBlackout: 'blackout', 'transition.blackoutType': 'blackout', 'transition.blackoutDuration': 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
-    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output',
+    power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
     'audio.sources': 'output',
     'background.transparent': 'output', 'background.coverTaskbar': 'output', 'background.transparentKey': 'output',
     postfx: 'effectEdit', modulation: 'effectEdit',

@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('api', {
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),
   onNativeAudio: (cb) => ipcRenderer.on('native-audio', (e, frame) => cb(frame)),
   sendAudioMeter: (data) => ipcRenderer.send('audio-meter', data),
+  sendOscHit: (hits) => ipcRenderer.send('osc-hit', hits),
   sendMessage: (msg) => ipcRenderer.send('visualizer-message', msg),
   claimCamRelay: (key) => ipcRenderer.invoke('cam-relay-claim', key),
   releaseCamRelay: (key) => ipcRenderer.send('cam-relay-release', key),

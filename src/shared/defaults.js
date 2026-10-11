@@ -1059,6 +1059,26 @@
     },
 
     // ------------------------------------------------------------------
+    // OSC çıkışı (#437): ses seviyeleri, vuruşlar, tempo ve sahne/mod
+    // değişimleri başka yazılımlara (Resolume, TouchDesigner, ışık masası).
+    // Varsayılan kapalı ve hedef bu bilgisayar. Adresler src/main/osc-out.js.
+    // ------------------------------------------------------------------
+    oscOut: {
+      enabled: false,
+      host: '127.0.0.1',
+      port: 9001, // OSC girişi 9000'de; aynı port geri besleme olurdu
+      rate: 30, // seviye iletileri, Hz (en çok 30: ölçer bu hızda)
+      prefix: '/cayadev',
+      levels: true,
+      hits: true,
+      tempo: true,
+      state: true,
+      analysis: true, // tayf, perde, akor ve 16 bant
+      latencyMs: 0, // pozitif: saat geri kalır (geç hoparlör)
+      extra: '', // ek hedefler, satır başına host:port ya da [ipv6]:port
+    },
+
+    // ------------------------------------------------------------------
     // Harici kontrol yüzeyleri (MIDI / OSC)
     // Eşleme: { id, source:'midi'|'osc', channel, cc, address, path, min, max, mode }
     // ------------------------------------------------------------------

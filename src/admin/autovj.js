@@ -44,6 +44,7 @@
   let lastSwitch = 0; // saniye
   let barsSince = 0;
   let lastBpmPaint = 0;
+  let lastOscClock = 0;
   let rules = null; // { cursors, last }
   let lastResult = null; // { kind, label } — durum satırı için
   let lastFailure = null; // { code, kind }
@@ -325,6 +326,59 @@
     return P().cfg().autovj;
   }
 
+  /* OSC saati (#437). Karartma admin.js'te, deste ve zaman çizelgesi kendi
+     panellerinde durur. Yoklarsa alan boş kalır; ana süreç parçayı ekler. */
+  function oscClockPayload(tempo, audio, cfg) {
+    const bg = (cfg && cfg.background) || {};
+    const show = {
+      blackout: !!(window.SVShow && window.SVShow.blackout),
+      timeline: false,
+      deck: null,
+      palette: typeof bg.colorMode === 'string' ? bg.colorMode : '',
+      brightness: bg.gradient && Number.isFinite(bg.gradient.brightness) ? bg.gradient.brightness : 1,
+      transition: cfg.transition && typeof cfg.transition.type === 'string' ? cfg.transition.type : '',
+      autovj: !!(cfg.autovj && cfg.autovj.enabled),
+      layers: Array.isArray(cfg.layers) ? cfg.layers.slice(0, 32).map((l) => ({
+        name: l && typeof l.name === 'string' ? l.name : '',
+        opacity: l && Number.isFinite(Number(l.opacity)) ? Number(l.opacity) : 1,
+        enabled: !l || l.enabled !== false,
+      })) : [],
+    };
+    try {
+      const tp = window.SVTimelinePanel;
+      const tr = tp && typeof tp.transport === 'function' ? tp.transport() : null;
+      if (tr) show.timeline = tr.playing === true;
+    } catch { /* zaman çizelgesi yok */ }
+    try {
+      const panel = window.SVClipDeckPanel;
+      const eng = panel && typeof panel.engine === 'function' ? panel.engine() : null;
+      const slots = eng && typeof eng.activeSlots === 'function' ? eng.activeSlots() : null;
+      if (slots) {
+        let best = null;
+        const parts = [];
+        for (const s of slots) {
+          if (!best || (s.startedAt || 0) >= (best.startedAt || 0)) best = s;
+          if (s.slot) parts.push(s.slot.row + ':' + s.slot.col);
+        }
+        show.deck = {
+          row: best && best.slot ? best.slot.row : -1,
+          col: best && best.slot ? best.slot.col : -1,
+          active: parts.join(','),
+        };
+      }
+    } catch { /* klip destesi yok */ }
+    return {
+      beat: tempo.barPosition + 1,
+      beatsPerBar: tempo.beatsPerBar,
+      bpm: tempo.bpm,
+      phase: tempo.phase,
+      confidence: tempo.confidence,
+      playing: !!(audio && audio.ready),
+      hostTime: Date.now(),
+      show,
+    };
+  }
+
   // --------------------------------------------------------------------------
   // Döngü
   // --------------------------------------------------------------------------
@@ -343,6 +397,24 @@
 
     const fired = tempo.update(audio, now, dt);
     if (fired && tempo.barPosition === 0) barsSince++;
+    /* OSC çıkışı (#437): tempo motorunun vuruşu, ölçüdeki yeri 1..N. Yalnız
+       çıkış açıkken: kapalıyken her vuruşta boşuna IPC olmasın. */
+    if (fired && cfg.oscOut && cfg.oscOut.enabled && window.api && window.api.reportTempoBeat) {
+      window.api.reportTempoBeat({
+        beat: tempo.barPosition + 1,
+        beatsPerBar: tempo.beatsPerBar,
+        bpm: tempo.bpm,
+        phase: tempo.phase,
+        confidence: tempo.confidence,
+        hostTime: Date.now(),
+      });
+    }
+    /* Faz ölçer hızında değil, tempo motorunun kendi karesinde gider.
+       50 ms, vuruşlar arasında bir süpürme için yeter ve paneli meşgul etmez. */
+    if (cfg.oscOut && cfg.oscOut.enabled && window.api && window.api.reportTempoClock && now - lastOscClock >= 0.05) {
+      lastOscClock = now;
+      window.api.reportTempoClock(oscClockPayload(tempo, audio, cfg));
+    }
 
     if (now - lastBpmPaint > 0.2) {
       lastBpmPaint = now;

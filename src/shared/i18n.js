@@ -937,6 +937,27 @@
     'Bu ortamda Web MIDI kullanılamıyor.': 'Web MIDI is unavailable in this environment.',
     'sinyal bekleniyor…': 'waiting for a signal…', 'mesaj bekleniyor…': 'waiting for a message…',
     'UDP Portu': 'UDP Port',
+    // OSC çıkışı (#437)
+    'OSC Çıkışı': 'OSC Output', 'OSC Çıkışı Etkin': 'OSC Output Enabled',
+    'Ses seviyelerini, davul vuruşlarını, tempoyu ve sahne değişimlerini OSC ile başka yazılımlara gönderin: Resolume, TouchDesigner, Max veya bir ışık masası.':
+      'Send audio levels, drum hits, tempo and scene changes over OSC to other software: Resolume, TouchDesigner, Max or a lighting desk.',
+    'Hedef Port': 'Target Port', 'Seviye Gönderim Hızı (Hz)': 'Level Send Rate (Hz)', 'Adres Öneki': 'Address Prefix',
+    'Ses Seviyeleri': 'Audio Levels', 'Davul Vuruşları': 'Drum Hits',
+    'Tempo ve Vuruş Saati': 'Tempo and Beat Clock', 'Sahne ve Mod Değişimleri': 'Scene and Mode Changes',
+    'Gönderiliyor': 'Sending',
+    'Adres bir IPv4, IPv6 ya da ana bilgisayar adı olmalı.': 'The address must be an IPv4 address, an IPv6 address or a host name.',
+    'Hız 1–30 arasında bir tam sayı olmalı.': 'The rate must be a whole number from 1 to 30.',
+    'Gecikme -2000 ile 2000 ms arasında bir tam sayı olmalı.': 'Latency must be a whole number of milliseconds from -2000 to 2000.',
+    'Önek /cayadev gibi olmalı: en çok dört parça, harf, rakam, - ve _.': 'The prefix must look like /cayadev: up to four parts of letters, digits, - and _.',
+    'Saat Gecikmesi (ms)': 'Clock Latency (ms)',
+    'Ek Hedefler': 'Extra Targets',
+    'Çözümleme ve Tayf': 'Analysis and Spectrum',
+    'Hedef bu bilgisayarın OSC girişi; geri besleme olmasın diye gönderilmiyor. Portu değiştirin.':
+      'The target is this computer\'s OSC input, so nothing is sent, to avoid a feedback loop. Change the port.',
+    'Seviye, bas, mid ve tiz tek pakette gider. Vuruştan sonra 0 gelir. Saat: BPM, faz (0..1), ölçü fazı, ölçü başı, çalıyor ya da durdu. Ayrıntılı adres ağacı README dosyasında.':
+      'Level, bass, mid and treble travel in one packet. A hit is followed by 0. Clock: BPM, phase (0..1), bar phase, downbeat, playing or stopped. The address tree is in the README.',
+    'Ek hedefler satır satır: 10.0.0.8:9001 ya da [::1]:9001. Pozitif gecikme saati geri alır; hoparlör geç kalıyorsa ışık onu bekler.':
+      'Extra targets, one per line: 10.0.0.8:9001 or [::1]:9001. A positive latency delays the clock, so lights wait for a late speaker.',
     'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.': 'Point the OSC sender at this computer\'s IP address and the port above. Values between 0 and 1 are used directly; values up to 127 are scaled automatically.',
     'Henüz eşleme yok. “Eşleme Ekle” ile başlayın.': 'No mappings yet. Start with "Add Mapping".',
     'Eşleme Ekle': 'Add Mapping', 'Eşlemeyi kaldır': 'Remove mapping',

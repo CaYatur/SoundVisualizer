@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2942%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2967%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -722,9 +722,50 @@ next, previous, random, cut, lock and rating.
 
 **OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 
+**OSC output** <kbd>3.1.5</kbd>. The other direction. It is off by default, sends to this computer
+until you set another target, and refuses to send to its own OSC input, which would loop. Extra
+targets are one `host:port` or `[ipv6]:port` per line. A positive clock latency delays the phase so
+lights can wait for a late speaker.
+
+Addresses use the prefix `/cayadev` unless you change it. Level, bass, mid and treble travel in one
+bundle, so one lost packet cannot tear the bands. Hits and the clock travel in a bundle with an OSC
+time tag of the host clock. Strings are UTF-8.
+
+| Address | Type | Range | When |
+|---|---|---|---|
+| `/level` `/bass` `/mid` `/treble` | float | 0..1 | at the chosen rate, up to 30 Hz, one bundle |
+| `/spectrum` | 16 floats | 0..1 | with the levels; log bands from 30 Hz to 16 kHz |
+| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, then 0 | when the capture frame arrives, then a closing 0 |
+| `/silence` | int | 0 or 1 | after the level stays under 0.008 for 400 ms |
+| `/analysis/centroid` `/rolloff` `/flatness` `/crest` `/flux` `/spread` `/loudness` `/peak` `/dynamics` `/harmonic` `/percussive` `/width` | float | 0..1 | with the levels |
+| `/analysis/correlation` | float | -1..1 | with the levels |
+| `/analysis/pitch` | float | Hz | with the levels |
+| `/analysis/pitch/note` | string | note name | with the levels |
+| `/analysis/pitch/confidence` `/key/confidence` `/chord/confidence` | float | 0..1 | with the levels |
+| `/analysis/key` `/chord` | string | name | with the levels |
+| `/tempo/bpm` `/tempo/confidence` | float | BPM, 0..1 | on a change of 0.01 BPM, otherwise once a second |
+| `/tempo/beat` | int int | beat 1..N, N | each beat |
+| `/tempo/beat/phase` `/tempo/bar/phase` | float | 0..1 | at the chosen rate |
+| `/tempo/downbeat` | float | 1, then 0 | on beat 1, then the next clock |
+| `/transport` | string | `playing` or `stopped` | when the preview audio is ready, or not |
+| `/timeline/playing` | int | 0 or 1 | the show timeline |
+| `/scene` `/visualizer` `/background` `/milkdrop/preset` | string | name | on change, and again every 5 s, including an empty preset |
+| `/background/color/1` … `/8` | string | `#rrggbb` | the meter colors, or the theme colors |
+| `/show/blackout` `/show/autovj` | int | 0 or 1 | on change, and again every 5 s |
+| `/show/palette` `/show/transition` `/show/track` | string | name | on change, and again every 5 s |
+| `/show/brightness` | float | panel value | background brightness, often around 1 |
+| `/crossfade` | float | 0..1 | the A/B master |
+| `/audio/sensitivity` and the other panel sliders | float or int | the slider range | on change, and again every 5 s |
+| `/layer/count` | int | 0..32 | on change |
+| `/layer/N/name` | string | name | N starts at 1 |
+| `/layer/N/opacity` | float | 0..1 | on change |
+| `/layer/N/enabled` | int | 0 or 1 | on change |
+| `/deck/row` `/deck/col` | int | -1 if none | the newest playing clip |
+| `/deck/active` | string | `row:col` list | every playing cell |
+
 <div align="center">
 
-![MIDI, OSC and MCP on the Control page](docs/screenshots/panel-control.png)
+![OSC output on the Control page](docs/screenshots/panel-control.png)
 
 </div>
 
@@ -1625,7 +1666,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2942 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2967 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

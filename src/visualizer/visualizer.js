@@ -186,6 +186,70 @@
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
+  /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
+     vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
+     karesi taze ise aynı vuruş ikinci kez gitmesin. */
+  let hitSent = { kick: 0, snare: 0, hat: 0 };
+
+  function oscHit(hits) {
+    if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.hits === false) return;
+    if (!window.api || !window.api.sendOscHit || !hits) return;
+    if (audio.lastFrameTs && performance.now() - audio.lastFrameTs < 250) return;
+    const msg = { kick: 0, snare: 0, hat: 0 };
+    let changed = false;
+    for (const k of ['kick', 'snare', 'hat']) {
+      const v = hits[k] > 0 ? hits[k] : 0;
+      msg[k] = v;
+      if ((v > 0 || hitSent[k] > 0) && v !== hitSent[k]) changed = true;
+    }
+    if (!changed) return;
+    hitSent = msg;
+    window.api.sendOscHit(msg);
+  }
+
+  function oscAnalysis(audio) {
+    if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.analysis === false) return null;
+    const a = audio.analysis;
+    if (!a) return null;
+    return {
+      centroid: a.centroid, rolloff: a.rolloff, flatness: a.flatness, crest: a.crest,
+      flux: a.flux, spread: a.spread, loudness: a.loudness, peak: a.peak,
+      dynamics: a.dynamics, harmonic: a.harmonic, percussive: a.percussive,
+      width: a.width, correlation: a.correlation,
+      pitchHz: a.pitch && a.pitch.hz,
+      pitchNote: a.pitch && a.pitch.note,
+      pitchConfidence: a.pitch && a.pitch.confidence,
+      key: a.key && a.key.name,
+      keyConfidence: a.key && a.key.confidence,
+      chord: a.chord && a.chord.name,
+      chordConfidence: a.chord && a.chord.confidence,
+    };
+  }
+
+  /* 16 logaritmik bant, görsel bar motorunun balistiği olmadan. Masa
+     sesi görür, çizimin yumuşatmasını değil. */
+  function oscSpectrum(audio) {
+    if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.analysis === false) return null;
+    const spec = audio.rawSpectrum ? audio.rawSpectrum() : null;
+    if (!spec || !spec.length || !audio.binHz) return null;
+    const n = 16;
+    const out = new Array(n);
+    const nyq = (audio.sampleRate || 48000) / 2;
+    const log0 = Math.log(30);
+    const log1 = Math.log(Math.min(16000, nyq));
+    for (let i = 0; i < n; i++) {
+      const f0 = Math.exp(log0 + (log1 - log0) * (i / n));
+      const f1 = Math.exp(log0 + (log1 - log0) * ((i + 1) / n));
+      let i0 = Math.max(0, Math.floor(f0 / audio.binHz));
+      let i1 = Math.min(spec.length - 1, Math.ceil(f1 / audio.binHz));
+      if (i1 < i0) i1 = i0;
+      let s = 0;
+      let c = 0;
+      for (let k = i0; k <= i1; k++) { s += spec[k]; c++; }
+      out[i] = c ? Math.min(1, s / c) : 0;
+    }
+    return out;
+  }
 
   // --------------------------------------------------------------------------
   // Boyutlandırma
@@ -425,6 +489,8 @@
     const t = now / 1000;
 
     audio.update(dt);
+    const hits = audio.analysis && audio.analysis.hits;
+    if (hits) oscHit(hits);
 
     /* Sessizlikte duraklat (güç tasarrufu).
 
@@ -517,6 +583,8 @@
            yazmıyor; panel ekranda ne olduğunu, önizleme ve diğer ekranlar
            da neyi izleyeceğini buradan öğreniyor. */
         mdPreset,
+        analysis: oscAnalysis(audio),
+        spectrum: oscSpectrum(audio),
       });
     }
   }

@@ -12,11 +12,13 @@ const fs = require('fs');
 const url = require('url');
 const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
+const { DrumHits } = require('./drum-hits');
 const dynamicLighting = require('./dynamic-lighting');
 const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
+const oscOut = require('./osc-out');
 const openrgb = require('./openrgb');
 const textureShare = require('./texture-share');
 const presetsStore = require('./presets-store');
@@ -1124,12 +1126,21 @@ function captureWanted() {
 
 // Seçili ses kaynak(lar)ının yakalamasını başlat; kareleri hem görselleştiriciye
 // hem de (istendiyse) yönetici panelinin önizlemesine ilet
+/* Yakalama karesi gelir gelmez vuruş. Çizim karesindeki algılayıcı,
+   dosya çalmada durur; yerel kare akarken o yol susar. */
+const nativeDrums = new DrumHits();
+
 function startVisualizerCapture() {
   const sources = configuredSources();
   lastCaptureSource = sources;
   nativeAudio.startCapture(
     sources,
     (frame) => {
+      if (!HW_OFF && frame && frame.freq && currentConfig && currentConfig.oscOut
+          && currentConfig.oscOut.enabled === true && currentConfig.oscOut.hits !== false) {
+        const hit = nativeDrums.push(frame.freq, frame.sampleRate, Date.now());
+        if (hit) oscOut.hit(currentConfig.oscOut, hit);
+      }
       if (SMOKE) {
         global.__smokeFrames = (global.__smokeFrames || 0) + 1;
         /* Kare iki kanalı da taşımalı (#566). Sessiz bir aygıtta sol ve sağ
@@ -2397,6 +2408,7 @@ function applyIncomingConfig(config, opts) {
   syncStreamServer();
   syncOscServer();
   syncArtnet();
+  syncOscOut();
   syncOpenRgb();
   syncTextureShare();
   syncNowPlaying();
@@ -2563,6 +2575,9 @@ ipcMain.on('audio-meter', (e, data) => {
   dynamicLighting.onAudioFrame(data, currentConfig);
   if (currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
+  }
+  if (currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
+    oscOut.send(currentConfig.oscOut, data, oscOutContext());
   }
   /* OpenRGB, Dynamic Lighting ile AYNI görünüm ayarlarını kullanır
      (cfg.lighting): iki ayrı ayar olsaydı aynı masadaki iki aygıt iki
@@ -3076,6 +3091,79 @@ function syncArtnet() {
   });
 }
 
+/* OSC çıkışı (#437). OSC girişinin ayarı da veriliyor: hedef bu
+   bilgisayarın OSC girişiyse osc-out.js göndermiyor (geri besleme). Art-Net
+   gibi otomasyonda (HW_OFF) ağa paket gitmiyor. */
+function syncOscOut() {
+  const o = (currentConfig && currentConfig.oscOut) || {};
+  if (!o.enabled || HW_OFF) return oscOut.stop().then(() => oscOut.status());
+  const oscIn = currentConfig.control && currentConfig.control.osc;
+  return oscOut.start(o, oscIn).then((st) => {
+    notifyAdmin('oscout-status', st);
+    return st;
+  });
+}
+
+/* Ana sürecin bildikleri: tempo panelden (mcpLive), sahne adı ve ekrandaki
+   görselleştirici/arkaplan türü ayardan. Yığın açıkken tür ilk görünür
+   katmandan okunuyor (layers.js currentType), Studio ve MCP gibi. */
+/* Panelin saat iletisi (tempo:clock) son fazı, çalmayı, karartmayı ve
+   desteyi bırakır. Ölçer karesi bunları da taşır; imza değişmediyse
+   planlayıcı yeniden yollamaz. */
+let oscLive = {
+  phase: null, beat: 0, beatsPerBar: 4, bpm: 0, confidence: 0,
+  playing: false, blackout: false, timeline: false, deck: null,
+};
+
+function oscTrackTitle(st) {
+  if (!st || !st.has || typeof st.title !== 'string' || !st.title) return '';
+  return st.artist ? st.artist + ' — ' + st.title : st.title;
+}
+
+function oscLayers(cfg) {
+  const layers = cfg && Array.isArray(cfg.layers) ? cfg.layers : [];
+  return layers.slice(0, 32).map((l) => ({
+    name: l && typeof l.name === 'string' ? l.name : '',
+    opacity: l && Number.isFinite(Number(l.opacity)) ? Number(l.opacity) : 1,
+    enabled: !l || l.enabled !== false,
+  }));
+}
+
+function oscOutContext() {
+  const cfg = currentConfig || {};
+  const scene = (cfg.scenes || []).find((s) => s && s.id === cfg._activeSceneId);
+  const L = stackHelpers();
+  const typeOf = (section) => (L ? L.currentType(cfg, section) : cfg[section] && cfg[section].type) || '';
+  const bg = cfg.background || {};
+  const bpm = Number.isFinite(oscLive.bpm) && oscLive.bpm > 0 ? oscLive.bpm : mcpLive.bpm;
+  const confidence = Number.isFinite(oscLive.confidence) ? oscLive.confidence : mcpLive.confidence;
+  return {
+    bpm,
+    confidence,
+    phase: oscLive.phase,
+    beat: oscLive.beat,
+    beatsPerBar: oscLive.beatsPerBar || (cfg.autovj && cfg.autovj.beatsPerBar) || 4,
+    playing: oscLive.playing === true,
+    scene: scene && typeof scene.name === 'string' ? scene.name : '',
+    visualizer: typeOf('visualizer'),
+    background: typeOf('background'),
+    colors: bg.gradient && Array.isArray(bg.gradient.colors) ? bg.gradient.colors : [],
+    show: {
+      blackout: oscLive.blackout === true,
+      palette: typeof bg.colorMode === 'string' ? bg.colorMode : '',
+      brightness: bg.gradient && Number.isFinite(bg.gradient.brightness) ? bg.gradient.brightness : 1,
+      transition: cfg.transition && typeof cfg.transition.type === 'string' ? cfg.transition.type : '',
+      autovj: !!(cfg.autovj && cfg.autovj.enabled),
+      track: oscTrackTitle(mediaSession.current()),
+      timeline: oscLive.timeline === true,
+      layers: oscLayers(cfg),
+      deck: oscLive.deck,
+      crossfade: cfg.crossfade && Number.isFinite(Number(cfg.crossfade.value)) ? Number(cfg.crossfade.value) : 0,
+      controls: oscOut.controlValues(cfg),
+    },
+  };
+}
+
 /* Ayarları değişmediyse ve pencere çalışıyorsa yeniden başlatılmaz. Her
    ayar gönderiminde start() çağrılıyordu: pencereye bütün yapılandırma
    kopyalanıp yeniden yollanıyor, söz kitaplığı diskten baştan okunuyordu.
@@ -3252,6 +3340,48 @@ ipcMain.handle('osc:status', () => oscServer.status());
 ipcMain.handle('osc:sync', () => syncOscServer());
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
+ipcMain.handle('oscout:status', () => oscOut.status());
+ipcMain.handle('oscout:sync', () => syncOscOut());
+/* Tempo motorunun vuruşu panelden geliyor (autovj.js). Yalnız panel
+   penceresinden kabul edilir: vuruş başka bir sayfadan uydurulamasın. */
+function noteOscLive(info) {
+  if (!info || typeof info !== 'object') return;
+  if (Number.isFinite(info.phase)) oscLive.phase = info.phase;
+  if (Number.isFinite(info.beat)) oscLive.beat = info.beat;
+  if (Number.isFinite(info.beatsPerBar)) oscLive.beatsPerBar = info.beatsPerBar;
+  if (Number.isFinite(info.bpm)) oscLive.bpm = info.bpm;
+  if (Number.isFinite(info.confidence)) oscLive.confidence = info.confidence;
+  if (typeof info.playing === 'boolean') oscLive.playing = info.playing;
+  const show = info.show && typeof info.show === 'object' ? info.show : null;
+  if (show) {
+    if (typeof show.blackout === 'boolean') oscLive.blackout = show.blackout;
+    if (typeof show.timeline === 'boolean') oscLive.timeline = show.timeline;
+    if (show.deck && typeof show.deck === 'object') oscLive.deck = show.deck;
+  }
+}
+
+ipcMain.on('tempo:beat', (e, info) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
+  noteOscLive(info);
+  oscOut.beat(currentConfig.oscOut, info);
+});
+/* Faz, çalma ve gösteri durumu. Vuruş kenarı tempo:beat'te kalır. */
+ipcMain.on('tempo:clock', (e, info) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
+  noteOscLive(info);
+  const track = oscTrackTitle(mediaSession.current());
+  const show = Object.assign({}, info && info.show, { track });
+  oscOut.clock(currentConfig.oscOut, Object.assign({}, info, { show }));
+});
+/* Vuruş, çizim karesinden. Yalnız ölçeri kabul edilen pencereden. */
+ipcMain.on('osc-hit', (e, hits) => {
+  const primary = meterWindow();
+  if (primary && e.sender !== primary.webContents) return;
+  if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
+  oscOut.hit(currentConfig.oscOut, hits);
+});
 ipcMain.handle('openrgb:status', () => openrgb.status());
 ipcMain.handle('openrgb:sync', () => syncOpenRgb({ retry: true }));
 /* Bağlı değilken "Aygıtları Yenile" bağlanmayı yeniden dener: OpenRGB
@@ -4504,6 +4634,7 @@ app.whenReady().then(async () => {
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
+  syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
   syncTextureShare().catch(() => {});
 
@@ -6798,6 +6929,7 @@ function shutdownCleanup() {
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
   artnet.stop().catch(() => {});
+  oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
   textureShare.stop().catch(() => {});
@@ -6972,7 +7104,7 @@ async function runShots() {
     ['output', 'stream', 'panel-output.png'],
     ['library', 'templates', 'panel-templates.png'],
     ['studio', null, 'panel-studio.png'],
-    ['control', null, 'panel-control.png'],
+    ['control', 'oscOut', 'panel-control.png'],
   ];
 
   if (adminWin && !adminWin.isDestroyed()) {

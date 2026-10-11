@@ -148,4 +148,5 @@ function status() {
   return Object.assign({}, state);
 }
 
-module.exports = { start, stop, status };
+// parsePacket testler için: OSC çıkışının ürettiği paketler bununla çözülüyor (#437)
+module.exports = { start, stop, status, parsePacket };
