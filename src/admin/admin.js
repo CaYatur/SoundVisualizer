@@ -1867,6 +1867,42 @@
     pendingDynamicTrackState = null;
   }
 
+  function syncDynamicThemePreview(st) {
+    if (typeof document === 'undefined') return;
+    const live = (st && st.has) ? st : ((window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null);
+    const panel = document.querySelector('.dynamic-theme-panel');
+    if (!panel) return;
+    const statusRow = panel.querySelector('.dynamic-theme-status-row');
+    if (!statusRow) return;
+    const statusInfo = panel.querySelector('.dynamic-theme-status-info');
+    if (statusInfo) {
+      statusInfo.innerHTML = '';
+      if (live && live.title) {
+        statusInfo.appendChild(el('div', { class: 'np-live', style: 'font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', icon: 'music', text: `${live.title} — ${live.artist || ''}` }));
+        statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', icon: live.artwork ? 'image' : 'info', text: live.artwork ? tr('Albüm kapağı algılandı') : tr('Albüm kapağı yok (parça bilgisi mevcut)') }));
+      } else {
+        statusInfo.appendChild(el('div', { style: 'font-weight: 600;', icon: 'music', text: tr('Windows Medya Oturumu Hazır') }));
+        statusInfo.appendChild(el('div', { class: 'dim-hint', style: 'margin-top: 2px;', text: tr('Müzik çaldığında (Spotify, Apple Music, YouTube vb.) renkler otomatik güncellenir.') }));
+      }
+    }
+    let artThumb = statusRow.querySelector('.dynamic-theme-art-thumb');
+    if (live && live.artwork) {
+      if (!artThumb) {
+        artThumb = el('img', {
+          class: 'dynamic-theme-art-thumb',
+          src: live.artwork,
+          style: 'width: 42px; height: 42px; border-radius: 7px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0;',
+          title: tr('Çalan Parça Kapağı'),
+        });
+        statusRow.appendChild(artThumb);
+      } else {
+        artThumb.src = live.artwork;
+      }
+    } else if (artThumb) {
+      artThumb.remove();
+    }
+  }
+
   function applyResolvedTheme(res, isManual) {
     if (!res || !res.colors || !res.colors.length) return;
     const dt = cfg.dynamicTheme || {};
@@ -1929,6 +1965,9 @@
       if (bar) {
         bar.style.background = `linear-gradient(90deg, ${res.colors.slice(0, 5).join(',')})`;
       }
+      if (typeof syncDynamicThemePreview === 'function') {
+        syncDynamicThemePreview(window.SVNowLive && window.SVNowLive.state);
+      }
     }
   }
 
@@ -1969,6 +2008,9 @@
   }
 
   function handleDynamicThemeTrackUpdate(st) {
+    if (st && st.has && typeof syncDynamicThemePreview === 'function') {
+      syncDynamicThemePreview(st);
+    }
     if (!cfg.dynamicTheme || !cfg.dynamicTheme.enabled) return;
     if (!window.SV_PLATFORM || !window.SV_PLATFORM.isWindows) return;
     if (!st || !st.has) return;
@@ -1979,7 +2021,9 @@
 
     const trackKey = `${title}|${(st.artist || '').trim()}|${(st.album || '').trim()}`;
     const hasArtwork = !!(st.artwork && typeof st.artwork === 'string' && st.artwork.length > 20);
-    const artworkKey = hasArtwork ? st.artwork.slice(0, 120) : '';
+    const artworkKey = hasArtwork
+      ? (st.artwork.length > 256 ? `${st.artwork.length}:${st.artwork.slice(0, 40)}:${st.artwork.slice(-120)}` : st.artwork)
+      : '';
 
     const mode = (cfg.dynamicTheme && cfg.dynamicTheme.mode) || 'artworkOrRandom';
     const usesArtwork = (mode === 'artwork' || mode === 'artworkOrRandom');
@@ -2056,8 +2100,8 @@
 
     // 1. Canlı Şarkı Durum Başlığı
     const live = (window.SVNowLive && window.SVNowLive.state && window.SVNowLive.state.has) ? window.SVNowLive.state : null;
-    const statusRow = el('div', { class: 'studio-note', style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;' });
-    const statusInfo = el('div', { style: 'flex: 1; min-width: 0;' });
+    const statusRow = el('div', { class: 'studio-note dynamic-theme-status-row', style: 'display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;' });
+    const statusInfo = el('div', { class: 'dynamic-theme-status-info', style: 'flex: 1; min-width: 0;' });
     if (live && live.title) {
       /* `np-live`: içerik ÇALAN PARÇANIN adı, yani çeviri yüzeyi değil.
          Sınıf olmadan i18n taraması bunu "çevrilmemiş Türkçe" sayıyor ve
@@ -2073,6 +2117,7 @@
 
     if (live && live.artwork) {
       const artThumb = el('img', {
+        class: 'dynamic-theme-art-thumb',
         src: live.artwork,
         style: 'width: 42px; height: 42px; border-radius: 7px; object-fit: cover; border: 1px solid var(--line); flex-shrink: 0;',
         title: tr('Çalan Parça Kapağı'),
@@ -5903,6 +5948,7 @@
       window.api.onNowPlaying((st) => {
         window.SVNowLive = window.SVNowLive || { state: null };
         window.SVNowLive.state = st;
+        if (typeof syncDynamicThemePreview === 'function') syncDynamicThemePreview(st);
         handleDynamicThemeTrackUpdate(st);
       });
     }

@@ -83,6 +83,11 @@
       this._coverKey = url;
       const img = new Image();
       img.decoding = 'async';
+      img.onload = () => {
+        if (typeof window !== 'undefined' && window.SVPreview && typeof window.SVPreview.drawOnce === 'function') {
+          window.SVPreview.drawOnce();
+        }
+      };
       img.src = url;
       this._coverImg = img;
       return img;
