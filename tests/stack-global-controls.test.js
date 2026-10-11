@@ -352,6 +352,39 @@ test('dinamik tema görselleştirici rengini katmana da yazar', () => {
   assert.match(body, /setEffective\(cfg, 'visualizer\.color2', cfg\.visualizer\.color2\)/);
 });
 
+test('dinamik tema görselleştirici sabit renkteyken rengi değiştirmez', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/admin/admin.js'), 'utf8');
+  const a = src.indexOf('function applyResolvedTheme(res, isManual)');
+  const end = src.indexOf('function resolveAndApplyDynamicTheme', a);
+  const fnCode = src.slice(a, end);
+
+  // Klasik modda (katmanlar kapalı) sabit renk
+  const cfg = SV.defaultConfig();
+  cfg.layerStack = { enabled: false };
+  cfg.visualizer.colorMode = 'custom';
+  cfg.visualizer.color = '#123456';
+  cfg.visualizer.color2 = '#654321';
+  cfg.dynamicTheme = { enabled: true, applyToBackground: true, applyToVisualizer: true };
+
+  const sandbox = {
+    cfg,
+    push() {},
+    render() {},
+    document: { querySelector: () => null },
+    window: { SVLayers: L },
+  };
+  vm.runInNewContext(fnCode + '\napplyResolvedTheme({ colors: ["#111111", "#222222", "#333333", "#444444", "#555555"], color: "#333333", color2: "#555555" }, false);', sandbox);
+
+  assert.strictEqual(cfg.visualizer.color, '#123456', 'sabit renk korunmalı');
+  assert.strictEqual(cfg.visualizer.color2, '#654321', 'ikincil sabit renk korunmalı');
+
+  // Renk teması modundayken renk güncellenmeli
+  cfg.visualizer.colorMode = 'theme';
+  vm.runInNewContext(fnCode + '\napplyResolvedTheme({ colors: ["#111111", "#222222", "#333333", "#444444", "#555555"], color: "#333333", color2: "#555555" }, false);', sandbox);
+  assert.strictEqual(cfg.visualizer.color, '#333333', 'renk temasında güncellenmeli');
+  assert.strictEqual(cfg.visualizer.color2, '#555555', 'ikincil renk temasında güncellenmeli');
+});
+
 // --- Studio -------------------------------------------------------------------------
 
 function freshStudio(cfg) {
