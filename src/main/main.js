@@ -19,6 +19,8 @@ const streamServer = require('./stream-server');
 const oscServer = require('./osc-server');
 const artnet = require('./artnet');
 const oscOut = require('./osc-out');
+const oscQuery = require('./osc-query');
+const oscTree = require('../shared/osc-tree');
 const openrgb = require('./openrgb');
 const textureShare = require('./texture-share');
 const presetsStore = require('./presets-store');
@@ -2568,6 +2570,12 @@ ipcMain.on('md-live', (e, mp) => {
 
 ipcMain.on('audio-meter', (e, data) => {
   noteMcpLive(data);
+  if (data && typeof data === 'object') {
+    if (Number.isFinite(data.level)) oscLive.level = data.level;
+    if (Number.isFinite(data.bass)) oscLive.bass = data.bass;
+    if (Number.isFinite(data.mid)) oscLive.mid = data.mid;
+    if (Number.isFinite(data.treble)) oscLive.treble = data.treble;
+  }
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
   if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
@@ -3113,6 +3121,7 @@ function syncOscOut() {
 let oscLive = {
   phase: null, beat: 0, beatsPerBar: 4, bpm: 0, confidence: 0,
   playing: false, blackout: false, timeline: false, deck: null,
+  level: null, bass: null, mid: null, treble: null,
 };
 
 function oscTrackTitle(st) {
@@ -3158,6 +3167,7 @@ function oscOutContext() {
       timeline: oscLive.timeline === true,
       layers: oscLayers(cfg),
       deck: oscLive.deck,
+      opacity: Number.isFinite(Number(cfg.master)) ? Math.max(0, Math.min(1, Number(cfg.master))) : 1,
       crossfade: cfg.crossfade && Number.isFinite(Number(cfg.crossfade.value)) ? Number(cfg.crossfade.value) : 0,
       controls: oscOut.controlValues(cfg),
     },
@@ -3243,12 +3253,48 @@ function syncOpenRgb(opts) {
   return run;
 }
 
+let oscInGen = 0;
 function syncOscServer() {
-  const o = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
-  if (!o.enabled) return oscServer.stop().then(() => oscServer.status());
-  return oscServer.start(o, (m) => notifyAdmin('osc-message', m)).then((st) => {
-    notifyAdmin('osc-status', st);
-    return st;
+  const raw = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
+  const o = oscTree.normalizeSettings(raw);
+  const gen = ++oscInGen;
+  /* Öz test ve ekran görüntüsü ağa soket açmaz (HW_OFF). */
+  if (!o.enabled || HW_OFF) {
+    return Promise.all([oscServer.stop(), oscQuery.stop()]).then(() => oscServer.status());
+  }
+  return oscServer.start(o, (packet) => {
+    const wait = oscTree.delayMs(packet && packet.time, Date.now());
+    const send = () => {
+      if (gen !== oscInGen) return;
+      notifyAdmin('osc-message', packet);
+    };
+    if (wait > 0) setTimeout(send, wait);
+    else send();
+  }).then((st) => {
+    if (gen !== oscInGen) return st;
+    return oscQuery.start({
+      port: o.queryPort,
+      oscPort: o.port,
+      getState: () => ({
+        cfg: currentConfig,
+        live: {
+          blackout: oscLive.blackout,
+          timeline: oscLive.timeline,
+          deck: oscLive.deck && typeof oscLive.deck.active === 'string' ? oscLive.deck.active : '',
+          level: oscLive.level,
+          bpm: oscLive.bpm > 0 ? oscLive.bpm : undefined,
+          playing: oscLive.playing,
+          track: oscTrackTitle(mediaSession.current()),
+        },
+      }),
+    }).then((q) => {
+      st.queryPort = q.port;
+      st.query = q.running;
+      st.mdns = q.mdns;
+      if (q.error) st.queryError = q.error;
+      notifyAdmin('osc-status', st);
+      return st;
+    });
   });
 }
 
@@ -6928,6 +6974,7 @@ function shutdownCleanup() {
   flushSettings(); // birleştirilmiş kayıt beklemede kalmasın
   streamServer.stop().catch(() => {});
   oscServer.stop().catch(() => {});
+  oscQuery.stop().catch(() => {});
   artnet.stop().catch(() => {});
   oscOut.stop().catch(() => {});
   dynamicLighting.stop().catch(() => {});

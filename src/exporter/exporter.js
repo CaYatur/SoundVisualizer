@@ -330,6 +330,15 @@
       compCtx.globalCompositeOperation = 'source-over';
     }
 
+    const master = Number.isFinite(Number(cfg.master)) ? Math.max(0, Math.min(1, Number(cfg.master))) : 1;
+    if (master < 1) {
+      compCtx.globalCompositeOperation = 'source-over';
+      compCtx.globalAlpha = 1 - master;
+      compCtx.fillStyle = '#000000';
+      compCtx.fillRect(0, 0, width, height);
+      compCtx.globalAlpha = 1;
+    }
+
     return compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
   }
 

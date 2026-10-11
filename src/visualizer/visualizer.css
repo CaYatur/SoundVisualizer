@@ -41,6 +41,16 @@ html, body {
   display: block;
 }
 
+/* Ana opaklık. 0 iken görünmez; kısılınca sahneyi siyaha yaklaştırır. */
+#masterVeil {
+  position: fixed;
+  inset: 0;
+  z-index: 8;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
 #logo {
   position: fixed;
   z-index: 7;

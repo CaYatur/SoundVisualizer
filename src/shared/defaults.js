@@ -10,6 +10,9 @@
 (function () {
   const DEFAULT_CONFIG = {
     version: 1,
+    /* Gösteri ana opaklığı. 1 tam görüntü, 0 siyah. Sahne anı bunu
+       değiştirmez; masa karartmadan bağımsız kısar. */
+    master: 1,
     // Görselleştirmenin açılacağı ekranlar. Birden fazla seçilirse her birinde
     // ayrı bir tam ekran pencere açılır. `id` eski sürümlerle uyum için kalır.
     display: { id: null, ids: [] },
@@ -1084,7 +1087,7 @@
     // ------------------------------------------------------------------
     control: {
       midi: { enabled: false, deviceId: 'all', mappings: [] },
-      osc: { enabled: false, port: 9000, mappings: [] },
+      osc: { enabled: false, port: 9000, queryPort: 9010, prefix: '/cayadev', mappings: [] },
     },
 
     // ------------------------------------------------------------------

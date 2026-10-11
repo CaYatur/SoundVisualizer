@@ -950,6 +950,10 @@
     'Gecikme -2000 ile 2000 ms arasında bir tam sayı olmalı.': 'Latency must be a whole number of milliseconds from -2000 to 2000.',
     'Önek /cayadev gibi olmalı: en çok dört parça, harf, rakam, - ve _.': 'The prefix must look like /cayadev: up to four parts of letters, digits, - and _.',
     'Saat Gecikmesi (ms)': 'Clock Latency (ms)',
+    'OSCQuery Portu': 'OSCQuery Port',
+    'Ana Opaklık': 'Master Opacity',
+    'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.':
+      'The fixed address tree is in the README. Learn mode stays. It uses the same prefix as output. A packet is applied as a whole. A future time tag waits at most 30 seconds. OSCQuery is served over HTTP and announced with mDNS.',
     'Ek Hedefler': 'Extra Targets',
     'Çözümleme ve Tayf': 'Analysis and Spectrum',
     'Hedef bu bilgisayarın OSC girişi; geri besleme olmasın diye gönderilmiyor. Portu değiştirin.':

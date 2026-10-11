@@ -488,7 +488,9 @@
        normalleştirme ve katman yığını eşitlemesi yalnızca buradaydı.
        Karartma açıkken kopyanın sahneyi doğrudan yazması, sahnedeki
        karartmayı kaldırırdı. */
-    applyScene: (id) => actions.applyScene(id),
+    applyScene: (id, opts) => actions.applyScene(id, opts),
+    /* Sahne uygulaması push sırasında vurguyu silmesin diye açılan bayrak. */
+    releaseSceneAction: () => { sceneActionInFlight = false; },
     get: (p) => getPath(cfg, p),
     set: (p, v) => setPath(cfg, p, v),
     syncToggles: (p, v) => syncToggleInputs(p, v),
@@ -4567,7 +4569,7 @@
     return !!blackoutSaved;
   }
 
-  function toggleBlackout() {
+  function toggleBlackout(opts) {
     const btn = $('blackoutBtn');
     if (blackoutSaved) {
       cfg.background = blackoutSaved.bg;
@@ -4606,6 +4608,8 @@
     }
     window.SVShow = window.SVShow || {};
     window.SVShow.blackout = !!blackoutSaved;
+    /* OSC paketi adımları sırayla yazar, ağa bir kez gider. */
+    if (opts && opts.quiet) return;
     push(true);
     render();
   }
@@ -5171,7 +5175,7 @@
     });
   };
 
-  actions.applyScene = (id) => {
+  actions.applyScene = (id, opts) => {
     const sc = ensureScenes().find((x) => x.id === id);
     if (!sc || !sc.data) return;
     const def = window.SV.DEFAULT_CONFIG;
@@ -5220,6 +5224,9 @@
     sceneActionInFlight = true;
     activeSceneId = id;
     cfg._activeSceneId = id;
+    /* quiet: vurgunun bu gönderimde silinmemesi için bayrak açık kalır.
+       Çağıran push'tan sonra releaseSceneAction ile kapatır. */
+    if (opts && opts.quiet) return;
     push(true);
     sceneActionInFlight = false;
     render();
