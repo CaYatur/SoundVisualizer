@@ -3273,7 +3273,7 @@ function syncOscServer() {
   /* Öz test ve ekran görüntüsü ağa soket açmaz (HW_OFF). */
   if (!o.enabled || HW_OFF) {
     return Promise.all([oscServer.stop(), oscQuery.stop()]).then(() => {
-      lastOscInStatus = null;
+      if (gen === oscInGen) lastOscInStatus = null;
       return oscServer.status();
     });
   }
@@ -3303,6 +3303,7 @@ function syncOscServer() {
         },
       }),
     }).then((q) => {
+      if (gen !== oscInGen) return st;
       st.queryPort = q.port;
       st.query = q.running;
       st.mdns = q.mdns;

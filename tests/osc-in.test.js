@@ -359,3 +359,41 @@ test('OSCQuery localhost başkasına aitse boş porta geçer', async () => {
     await new Promise((resolve) => dummy.close(() => resolve()));
   }
 });
+
+function probe(port) {
+  return new Promise((resolve) => {
+    const req = http.get({
+      host: '127.0.0.1', port, path: '/?HOST_INFO', agent: false,
+    }, (res) => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.setTimeout(400, () => { req.destroy(); resolve(0); });
+    req.on('error', () => resolve(0));
+  });
+}
+
+test('üst üste açılan OSCQuery ve mDNS tek sokette kalır', async () => {
+  const first = 21000 + Math.floor(Math.random() * 2000);
+  const second = first + 1;
+  const opt = { oscPort: 9000, ip: '127.0.0.1', getState: () => ({ cfg: cfg() }) };
+  const [a, b] = await Promise.all([
+    Query.start(Object.assign({ port: first }, opt)),
+    Query.start(Object.assign({ port: second }, opt)),
+  ]);
+  try {
+    assert.strictEqual(b.running, true, JSON.stringify(b));
+    assert.strictEqual(b.port, second);
+    assert.strictEqual(await probe(first), 0);
+    assert.strictEqual(await probe(second), 200);
+    assert.ok(Query.socketCount() <= 1, String(Query.socketCount()));
+    const again = await Query.start(Object.assign({ port: second }, opt));
+    assert.strictEqual(again.port, second);
+    assert.strictEqual(Query.socketCount(), 1);
+    assert.strictEqual(await probe(second), 200);
+  } finally {
+    await Query.stop();
+    assert.strictEqual(Query.socketCount(), 0);
+    assert.strictEqual(await probe(second), 0);
+  }
+});

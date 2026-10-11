@@ -10,6 +10,7 @@
 const http = require('http');
 const dgram = require('dgram');
 const os = require('os');
+const crypto = require('crypto');
 const tree = require('../shared/osc-tree');
 const mdns = require('../shared/osc-mdns');
 
@@ -18,6 +19,10 @@ let socket = null;
 let timer = null;
 let listening = false;
 let announcing = false;
+let epoch = 0;
+let tail = Promise.resolve();
+const mdnsSockets = new Set();
+const INSTANCE = crypto.randomBytes(8).toString('hex');
 
 const VIRTUAL_NAME = /vethernet|veth|virtual|vbox|vmware|host-only|wsl|hyper-?v|tap|tun|docker|tailscale|zerotier|bluetooth|npcap|vmnet|virbr|awdl|llw|anpi/i;
 const WIFI_NAME = /wi-?fi|wlan|wlp|wlx/i;
@@ -69,27 +74,33 @@ function status() {
   };
 }
 
-function stop() {
+function closeSocket(s) {
+  return new Promise((resolve) => {
+    if (!s) { resolve(); return; }
+    try { s.close(() => resolve()); } catch { resolve(); }
+  });
+}
+
+/* Açık olan her mDNS soketini kapat. 5353 paylaşılınca yeni bind eskisini
+   düşürmez; gecikmiş bind geri çağrısı da soketi bırakmamalı. */
+function halt() {
   if (timer) clearInterval(timer);
   timer = null;
   listening = false;
   announcing = false;
-  const closing = [];
-  if (socket) {
-    const s = socket;
-    socket = null;
-    closing.push(new Promise((resolve) => {
-      try { s.close(() => resolve()); } catch { resolve(); }
-    }));
-  }
-  if (server) {
-    const h = server;
-    server = null;
-    closing.push(new Promise((resolve) => {
-      try { h.close(() => resolve()); } catch { resolve(); }
-    }));
-  }
-  return Promise.all(closing).then(() => status());
+  socket = null;
+  const sockets = [...mdnsSockets];
+  mdnsSockets.clear();
+  const httpServer = server;
+  server = null;
+  return Promise.all(sockets.map(closeSocket).concat(httpServer ? [closeHttp(httpServer)] : []));
+}
+
+function stop() {
+  epoch += 1;
+  const job = tail.then(() => halt());
+  tail = job.then(() => {}, () => {});
+  return job.then(() => status());
 }
 
 function announceNow(opt) {
@@ -98,7 +109,22 @@ function announceNow(opt) {
   try { socket.send(buf, 5353, '224.0.0.251'); } catch { /* ağ yok */ }
 }
 
+function trackMdns(s) {
+  mdnsSockets.add(s);
+  s.once('close', () => {
+    mdnsSockets.delete(s);
+    if (socket === s) {
+      socket = null;
+      listening = false;
+      announcing = false;
+      if (timer) clearInterval(timer);
+      timer = null;
+    }
+  });
+}
+
 function armAnnounce(s, opt) {
+  if (timer) clearInterval(timer);
   socket = s;
   announcing = true;
   try { s.setMulticastTTL(255); } catch { /* platform reddi */ }
@@ -110,68 +136,63 @@ function armAnnounce(s, opt) {
 /* 5353 IANA mDNS portudur ve değişmez. Paylaşılabilirsa sorguya da cevap
    verilir. Başkası portu yalnız kendine aldıysa duyuru kısa ömürlü bir
    soketten yine gider; sorgu bu sürece ulaşmaz. */
-function startMdns(opt) {
+function bindMdns(port, mine, onUp) {
   return new Promise((resolve) => {
     let s;
     try { s = dgram.createSocket({ type: 'udp4', reuseAddr: true }); }
-    catch { resolve({ bound: false, announce: false }); return; }
+    catch { resolve(false); return; }
+    trackMdns(s);
     let done = false;
-    const finish = (bound) => {
+    const giveUp = setTimeout(() => finish(false), 1500);
+    const finish = (ok) => {
       if (done) return;
       done = true;
       clearTimeout(giveUp);
-      if (!bound) {
-        try { s.close(); } catch { /* kapalı */ }
-        if (socket === s) socket = null;
-        listening = false;
-        announceOnly(opt).then(resolve);
-        return;
-      }
-      resolve({ bound: true, announce: true });
+      if (!ok) closeSocket(s);
+      resolve(ok);
     };
-    const giveUp = setTimeout(() => finish(false), 1500);
-    s.on('error', () => { if (!done) finish(false); });
+    s.on('error', () => finish(false));
     s.on('message', (buf, rinfo) => {
-      const reply = mdns.answer(buf, opt);
+      if (socket !== s) return;
+      const reply = mdns.answer(buf, port.opt);
       if (!reply || !rinfo) return;
       try { s.send(reply, rinfo.port, rinfo.address); } catch { /* düştü */ }
     });
+    const options = port.number === 0
+      ? { port: 0, exclusive: true }
+      : { port: 5353, address: '0.0.0.0', exclusive: false };
     try {
-      s.bind({ port: 5353, address: '0.0.0.0', exclusive: false }, () => {
-        if (done) return;
-        listening = true;
-        try { s.addMembership('224.0.0.251'); } catch { /* üyelik reddi duyuruyu düşürmez */ }
-        armAnnounce(s, opt);
-        finish(true);
+      s.bind(options, () => {
+        /* Zaman aşımı veya yeni bir start bu soketi çoktan bıraktıysa
+           dinlemede tutma. Paylaşılan 5353'te bu, birikmenin kaynağıydı. */
+        if (done || mine !== epoch) {
+          done = true;
+          clearTimeout(giveUp);
+          closeSocket(s);
+          resolve(false);
+          return;
+        }
+        done = true;
+        clearTimeout(giveUp);
+        onUp(s);
+        resolve(true);
       });
     } catch { finish(false); }
   });
 }
 
-function announceOnly(opt) {
-  return new Promise((resolve) => {
-    let s;
-    try { s = dgram.createSocket({ type: 'udp4', reuseAddr: true }); }
-    catch { resolve({ bound: false, announce: false }); return; }
-    let done = false;
-    const finish = (ok) => {
-      if (done) return;
-      done = true;
-      listening = false;
-      if (!ok) {
-        announcing = false;
-        try { s.close(); } catch { /* kapalı */ }
-        if (socket === s) socket = null;
-      }
-      resolve({ bound: false, announce: ok });
-    };
-    s.on('error', () => finish(false));
-    try {
-      s.bind(0, () => {
-        armAnnounce(s, opt);
-        finish(true);
-      });
-    } catch { finish(false); }
+function startMdns(opt, mine) {
+  return bindMdns({ number: 5353, opt }, mine, (s) => {
+    listening = true;
+    try { s.addMembership('224.0.0.251'); } catch { /* üyelik reddi duyuruyu düşürmez */ }
+    armAnnounce(s, opt);
+  }).then((bound) => {
+    if (bound) return { bound: true, announce: true };
+    if (mine !== epoch) return { bound: false, announce: false };
+    listening = false;
+    return bindMdns({ number: 0, opt }, mine, (s) => {
+      armAnnounce(s, opt);
+    }).then((ok) => ({ bound: false, announce: ok }));
   });
 }
 
@@ -196,14 +217,14 @@ function queryCandidates(preferred) {
 function localhostIsOurs(port) {
   return new Promise((resolve) => {
     const req = http.get({
-      host: '127.0.0.1', port, path: '/?HOST_INFO', timeout: 400,
+      host: '127.0.0.1', port, path: '/?HOST_INFO', timeout: 400, agent: false,
     }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
         let json = null;
         try { json = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { json = null; }
-        resolve(res.statusCode === 200 && !!(json && json.NAME === 'SoundVisualizer'));
+        resolve(res.statusCode === 200 && !!(json && json.NAME === 'SoundVisualizer' && json.X_SV_INSTANCE === INSTANCE));
       });
     });
     req.on('timeout', () => { req.destroy(); resolve(false); });
@@ -213,7 +234,13 @@ function localhostIsOurs(port) {
 
 function closeHttp(httpServer) {
   return new Promise((resolve) => {
-    try { httpServer.close(() => resolve()); } catch { resolve(); }
+    if (!httpServer) { resolve(); return; }
+    try {
+      if (typeof httpServer.closeAllConnections === 'function') {
+        httpServer.closeAllConnections();
+      }
+      httpServer.close(() => resolve());
+    } catch { resolve(); }
   });
 }
 
@@ -238,6 +265,7 @@ function openQuery(o, port) {
           oscPort: o.oscPort,
           ip: o.ip || lanIPv4(),
         });
+        if (body && body.NAME === 'SoundVisualizer') body = Object.assign({ X_SV_INSTANCE: INSTANCE }, body);
       } catch { body = null; }
       if (!body) {
         res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
@@ -261,7 +289,10 @@ function openQuery(o, port) {
     httpServer.once('error', (err) => fail(err.code || err.message));
     try {
       httpServer.listen(port, '0.0.0.0', () => {
-        if (settled) return;
+        if (settled) {
+          closeHttp(httpServer);
+          return;
+        }
         settled = true;
         const addr = httpServer.address();
         resolve({ ok: true, server: httpServer, port: addr && addr.port });
@@ -272,38 +303,56 @@ function openQuery(o, port) {
   });
 }
 
-function start(opts) {
-  const o = opts || {};
+async function boot(o, mine) {
   const requested = Math.max(1, Math.min(65535, o.port | 0 || tree.DEFAULT_QUERY_PORT));
-  return stop().then(async () => {
-    let lastError = 'EADDRINUSE';
-    for (const candidate of queryCandidates(requested)) {
-      const opened = await openQuery(o, candidate);
-      if (!opened.ok) {
-        lastError = opened.error || lastError;
-        continue;
-      }
-      const ours = await localhostIsOurs(opened.port);
-      if (!ours) {
-        await closeHttp(opened.server);
-        lastError = 'shadowed';
-        continue;
-      }
-      server = opened.server;
-      const mdnsOpt = {
-        port: opened.port, ip: o.ip || lanIPv4(), name: 'SoundVisualizer', host: 'soundvisualizer',
-      };
-      const mdnsState = await startMdns(mdnsOpt);
-      const st = status();
-      st.port = opened.port;
-      st.mdns = !!(mdnsState && mdnsState.bound);
-      st.mdnsAnnounce = !!(mdnsState && mdnsState.announce);
-      st.requestedPort = requested;
-      st.moved = opened.port !== requested;
-      return st;
+  let lastError = 'EADDRINUSE';
+  for (const candidate of queryCandidates(requested)) {
+    if (mine !== epoch) return status();
+    const opened = await openQuery(o, candidate);
+    if (mine !== epoch) {
+      if (opened.ok) await closeHttp(opened.server);
+      return status();
     }
-    return { running: false, port: 0, mdns: false, mdnsAnnounce: false, error: lastError, requestedPort: requested, moved: false };
-  });
+    if (!opened.ok) {
+      lastError = opened.error || lastError;
+      continue;
+    }
+    const ours = await localhostIsOurs(opened.port);
+    if (mine !== epoch || !ours) {
+      await closeHttp(opened.server);
+      if (mine !== epoch) return status();
+      lastError = 'shadowed';
+      continue;
+    }
+    server = opened.server;
+    const mdnsOpt = {
+      port: opened.port, ip: o.ip || lanIPv4(), name: 'SoundVisualizer', host: 'soundvisualizer',
+    };
+    const mdnsState = await startMdns(mdnsOpt, mine);
+    if (mine !== epoch) {
+      await halt();
+      return status();
+    }
+    const st = status();
+    st.port = opened.port;
+    st.mdns = !!(mdnsState && mdnsState.bound);
+    st.mdnsAnnounce = !!(mdnsState && mdnsState.announce);
+    st.requestedPort = requested;
+    st.moved = opened.port !== requested;
+    return st;
+  }
+  return { running: false, port: 0, mdns: false, mdnsAnnounce: false, error: lastError, requestedPort: requested, moved: false };
 }
 
-module.exports = { start, stop, status, lanIPv4, chooseLanIPv4, queryCandidates };
+function start(opts) {
+  const mine = ++epoch;
+  const job = tail.then(() => halt()).then(() => (mine === epoch ? boot(opts || {}, mine) : status()));
+  tail = job.then(() => {}, () => {});
+  return job;
+}
+
+function socketCount() {
+  return mdnsSockets.size;
+}
+
+module.exports = { start, stop, status, lanIPv4, chooseLanIPv4, queryCandidates, socketCount };
