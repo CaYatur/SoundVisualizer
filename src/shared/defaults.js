@@ -1087,7 +1087,7 @@
     // ------------------------------------------------------------------
     control: {
       midi: { enabled: false, deviceId: 'all', mappings: [] },
-      osc: { enabled: false, port: 9000, queryPort: 9010, prefix: '/cayadev', mappings: [] },
+      osc: { enabled: false, port: 9000, queryPort: 17801, prefix: '/cayadev', mappings: [] },
     },
 
     // ------------------------------------------------------------------

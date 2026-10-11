@@ -238,6 +238,9 @@ test('OSCQuery HTTP güncel değeri döner', async () => {
     getState: () => ({ cfg: cfg(), live: { level: 0.5 } }),
   });
   assert.strictEqual(st.running, true, st.error);
+  assert.strictEqual(st.port, port);
+  assert.strictEqual(st.moved, false);
+  assert.ok(st.mdns || st.mdnsAnnounce, JSON.stringify(st));
   const body = await new Promise((resolve, reject) => {
     http.get('http://127.0.0.1:' + st.port + '/?HOST_INFO', (res) => {
       const chunks = [];
@@ -254,7 +257,8 @@ test('OSCQuery HTTP güncel değeri döner', async () => {
 test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
   const o = Tree.normalizeSettings({ enabled: true, port: 0, queryPort: 0, prefix: 'bozuk' });
   assert.strictEqual(o.port, 9000);
-  assert.strictEqual(o.queryPort, 9010);
+  assert.strictEqual(o.queryPort, 17801);
+  assert.strictEqual(Tree.DEFAULT_QUERY_PORT, 17801);
   assert.strictEqual(o.prefix, '/cayadev');
   const kept = Tree.normalizeSettings({ queryPort: 9020, prefix: '/vj' });
   assert.strictEqual(kept.queryPort, 9020);
@@ -264,6 +268,7 @@ test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
   assert.match(main, /if \(!o\.enabled \|\| HW_OFF\)/);
   assert.match(main, /oscQuery\.start\(/);
   assert.match(main, /oscQuery\.stop\(\)/);
+  assert.match(main, /currentConfig\.control\.osc\.queryPort = q\.port;\r?\n\s*saveSettings\(currentConfig\)/);
   const panel = read('src/admin/control.js');
   assert.match(panel, /tree\.plan\(messages, cfg\)/);
   assert.match(panel, /applyLearned\(cfg, messages\[i\]\)/);
@@ -275,6 +280,66 @@ test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
   const paths = new Set(Out.CONTROL_PATHS.map((s) => s.path));
   for (const s of Tree.SLIDERS) assert.ok(paths.has(s.path), s.path);
   assert.match(read('src/admin/index.html'), /shared\/osc-tree\.js/);
-  assert.match(read('README.md'), /OSCQuery/);
-  assert.match(read('README.tr.md'), /OSCQuery/);
+  assert.match(read('README.md'), /17801/);
+  assert.match(read('README.tr.md'), /17801/);
+  assert.match(read('src/admin/admin.js'), /title: 'OSC Girişi'/);
+  assert.match(panel, /OSC Girişi Etkin/);
+  assert.match(read('src/shared/i18n.js'), /'OSC Girişi': 'OSC Input'/);
+  const lan = Query.chooseLanIPv4({
+    'VirtualBox Host-Only Network': [{ family: 'IPv4', internal: false, address: '192.168.56.1' }],
+    'Wi-Fi': [{ family: 'IPv4', internal: false, address: '192.168.1.180' }],
+  });
+  assert.strictEqual(lan, '192.168.1.180');
+  const numbered = Query.chooseLanIPv4({
+    'VirtualBox Host-Only Network': [{ family: 4, internal: false, address: '192.168.56.1' }],
+    Ethernet: [{ family: 4, internal: false, address: '192.168.1.50' }],
+  });
+  assert.strictEqual(numbered, '192.168.1.50');
+  assert.strictEqual(Query.chooseLanIPv4({}), '127.0.0.1');
+  const jumped = Query.queryCandidates(9010);
+  assert.strictEqual(jumped[0], 9010);
+  assert.ok(jumped.includes(17801));
+  for (const reserved of [9000, 9001, 5353, 38471]) {
+    assert.ok(!Query.queryCandidates(reserved).includes(reserved), String(reserved));
+  }
+  assert.match(read('src/main/osc-query.js'), /o\.ip \|\| lanIPv4\(\)/);
+});
+
+test('OSCQuery localhost başkasına aitse boş porta geçer', async () => {
+  const dummy = http.createServer((req, res) => {
+    res.writeHead(426, { 'Content-Type': 'text/plain' });
+    res.end('nope');
+  });
+  const taken = await new Promise((resolve) => {
+    dummy.listen(0, '127.0.0.1', () => resolve(dummy.address().port));
+  });
+  try {
+    const st = await Query.start({
+      port: taken,
+      oscPort: 9000,
+      ip: '127.0.0.1',
+      getState: () => ({ cfg: cfg() }),
+    });
+    assert.strictEqual(st.running, true, JSON.stringify(st));
+    assert.notStrictEqual(st.port, taken);
+    assert.strictEqual(st.moved, true);
+    const body = await new Promise((resolve, reject) => {
+      http.get('http://127.0.0.1:' + st.port + '/?HOST_INFO', (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      }).on('error', reject);
+    });
+    assert.strictEqual(JSON.parse(body).NAME, 'SoundVisualizer');
+    const blocked = await new Promise((resolve, reject) => {
+      http.get('http://127.0.0.1:' + taken + '/?HOST_INFO', (res) => {
+        resolve(res.statusCode);
+        res.resume();
+      }).on('error', reject);
+    });
+    assert.strictEqual(blocked, 426);
+  } finally {
+    await Query.stop();
+    await new Promise((resolve) => dummy.close(() => resolve()));
+  }
 });

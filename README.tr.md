@@ -781,9 +781,15 @@ paket düşer.
 `/show/brightness` arkaplan parlaklığı olarak kalır. Çıkış, panel kaydırıcıları dahil yazılabilir
 adresleri geri yollar; masa fader'ı bunu izler.
 
-OSCQuery ağacı `http://<bu-bilgisayar>:9010/` adresinde sunar; tür, aralık ve güncel değer oradadır.
-`/?HOST_INFO` OSC portunu verir. `_oscjson._tcp` hizmeti mDNS ile duyurulur. `/deck/launch` satır ve
-sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile aynı sayılardır.
+OSCQuery ağacı HTTP üzerinden tür, aralık ve güncel değeri sunar. Varsayılan port `17801`'dir.
+OSCQuery'nin sabit bir portu yoktur; `9010` kullanılmaz çünkü başka programlar o portun
+`localhost` adresini sık tutar. UDP `9000` (giriş) ve `9001` (çıkış) durur. mDNS, IANA portu
+`5353`'te kalır. Seçilen HTTP portu `127.0.0.1` üzerinde bu uygulama olarak cevap vermezse sunucu
+boş bir porta geçer ve Kontrol sayfası o portu gösterir. `/?HOST_INFO` OSC portunu ve sanal
+adaptörleri atlayan bir yerel ağ adresini verir. `_oscjson._tcp` duyurusu, `5353` paylaşılabilirse
+orada sorulara da cevap verir. Portu başka bir yığın tutuyorsa duyuru yine gider; sorulara o yığın
+cevap verir. `/deck/launch` satır ve sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile
+aynı sayılardır.
 
 <div align="center">
 

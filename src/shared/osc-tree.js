@@ -91,7 +91,7 @@ function normalizeSettings(osc) {
   let port = o.port | 0;
   if (port < 1 || port > 65535) port = 9000;
   let queryPort = o.queryPort | 0;
-  if (queryPort < 1 || queryPort > 65535) queryPort = 9010;
+  if (queryPort < 1 || queryPort > 65535) queryPort = DEFAULT_QUERY_PORT;
   const prefix = prefixOf({ control: { osc: { prefix: o.prefix } }, oscOut: {} });
   return {
     enabled: o.enabled === true,
@@ -469,8 +469,13 @@ function handleQuery(url, cfg, opt) {
   return node;
 }
 
+/* OSCQuery'nin sabit portu yok; port DNS-SD kaydındadır. 9010 birçok
+   makinede localhost'u başkası tutar (Logitech G HUB gibi). 17801 bu
+   uygulamanın varsayılanıdır, bir IANA ataması değildir. */
+const DEFAULT_QUERY_PORT = 17801;
+
 const api = {
-  DEFAULT_PREFIX, MAX_WAIT_MS, SLIDERS, PALETTES,
+  DEFAULT_PREFIX, DEFAULT_QUERY_PORT, MAX_WAIT_MS, SLIDERS, PALETTES,
   prefixOf, normalizeSettings, plan, applySteps, setPath, getPath,
   delayMs, readTimetag, queryTree, handleQuery, hostInfo,
 };

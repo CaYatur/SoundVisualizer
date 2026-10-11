@@ -777,10 +777,15 @@ that does not parse is dropped.
 in a scene. `/show/brightness` stays the background gradient brightness. Output sends the same
 writable addresses back, including the panel sliders, so a desk fader can follow.
 
-OSCQuery serves the tree at `http://<this-computer>:9010/`, with type, range and the current value.
-`/?HOST_INFO` gives the OSC port. The service `_oscjson._tcp` is announced with mDNS. The A/B
-crossfader is `/crossfade` (0..1). There is no separate global opacity fader. `/deck/launch` takes
-the row and the column as two integers, the same numbers `/deck/active` reports.
+OSCQuery serves the tree over HTTP, with type, range and the current value. The default port is
+`17801`. OSCQuery has no fixed port of its own; `9010` is not used because other programs often
+own `localhost` on that port. UDP `9000` (input) and `9001` (output) stay, and mDNS stays on the
+IANA port `5353`. If the chosen HTTP port does not answer as this app on `127.0.0.1`, the server
+moves to a free port and the Control page shows that port. `/?HOST_INFO` gives the OSC port and a
+LAN address, skipping virtual adapters. `_oscjson._tcp` is announced on `5353` when that port can
+be shared. If another stack already holds `5353`, the announcement still goes out and queries to
+that port are answered by the stack that holds it. The A/B crossfader is `/crossfade` (0..1).
+`/deck/launch` takes the row and the column as two integers, the same numbers `/deck/active` reports.
 
 <div align="center">
 
