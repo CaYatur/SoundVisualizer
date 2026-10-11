@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2965%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2976%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -760,6 +760,20 @@ time tag of the host clock. Strings are UTF-8.
 | `/layer/N/enabled` | int | 0 or 1 | on change |
 | `/deck/row` `/deck/col` | int | -1 if none | the newest playing clip |
 | `/deck/active` | string | `row:col` list | every playing cell |
+
+**OSC input** <kbd>3.1.5</kbd>. The same prefix, in the other direction. It is off by default and
+listens on UDP `9000` for IPv4 and IPv6, from more than one sender. Learn mode still maps any
+address the tree does not own. A value on a fixed address is the slider's own range, not a 0..1
+guess. Strings are UTF-8.
+
+A `#bundle` is applied in order, as one packet. The time tag is not ignored: a tag up to 2 seconds
+ahead waits, and a late tag or the immediate tag is applied at once. A packet that does not parse
+is dropped.
+
+OSCQuery serves the tree at `http://<this-computer>:9010/`, with type, range and the current value.
+`/?HOST_INFO` gives the OSC port. The service `_oscjson._tcp` is announced with mDNS. The A/B
+crossfader is `/crossfade` (0..1). There is no separate global opacity fader. `/deck/launch` takes
+the row and the column as two integers, the same numbers `/deck/active` reports.
 
 <div align="center">
 
@@ -1664,7 +1678,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2965 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2976 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

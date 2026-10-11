@@ -536,6 +536,13 @@
       }
       if (s === 'osc') {
         if (changed('port')) { const bad = oscPortError(n.port, platform); if (bad) return bad; }
+        if (changed('queryPort')) {
+          const bad = oscPortError(n.queryPort, platform);
+          if (bad) return bad.replace('control.osc.port', 'control.osc.queryPort');
+        }
+        if (changed('prefix') && (typeof n.prefix !== 'string' || !/^(\/[A-Za-z0-9_-]{1,32}){1,4}$/.test(n.prefix))) {
+          return 'control.osc.prefix must look like /cayadev.';
+        }
         if (changed('host') && (typeof n.host !== 'string' || !n.host.trim() || n.host.length > 253)) {
           return 'control.osc.host must be a non-empty host name or address.';
         }

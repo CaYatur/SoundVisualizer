@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2965%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2976%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -765,6 +765,18 @@ Vuruş ve saat bundle'ı ana bilgisayar saatinin OSC zaman etiketini taşır. Di
 | `/layer/N/enabled` | int | 0 ya da 1 | değişince |
 | `/deck/row` `/deck/col` | int | yoksa -1 | en son çalan klip |
 | `/deck/active` | string | `satır:sütun` listesi | çalan her hücre |
+
+**OSC girişi** <kbd>3.1.5</kbd>. Aynı önek, ters yön. Varsayılan kapalıdır ve UDP `9000` portunda
+IPv4 ile IPv6 dinler; birden çok gönderen yazabilir. Öğrenme modu, ağacın tutmadığı her adreste
+durur. Sabit adresteki değer, kaydırıcının kendi aralığıdır. Dizeler UTF-8'dir.
+
+`#bundle` sırayla, tek paket olarak uygulanır. Zaman etiketi yok sayılmaz: 2 saniyeye kadar
+ilerideki etiket bekler, gecikmiş etiket ve anlık etiket hemen uygulanır. Ayrışmayan paket düşer.
+
+OSCQuery ağacı `http://<bu-bilgisayar>:9010/` adresinde sunar; tür, aralık ve güncel değer oradadır.
+`/?HOST_INFO` OSC portunu verir. `_oscjson._tcp` hizmeti mDNS ile duyurulur. A/B çapraz geçiş
+`/crossfade` adresindedir (0..1). Ayrı bir genel saydamlık faderi yoktur. `/deck/launch` satır ve
+sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile aynı sayılardır.
 
 <div align="center">
 
@@ -1671,7 +1683,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2965 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2976 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

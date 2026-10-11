@@ -386,17 +386,99 @@
   // --------------------------------------------------------------------------
   // OSC (ana süreçten iletilir)
   // --------------------------------------------------------------------------
-  function onOsc(msg) {
+  /* Sabit ağaç bu adresi tuttuysa öğrenilen eşleme onu bir daha sürmez.
+     Tutmadıysa eski eşleme durur. */
+  function applyLearned(cfg, msg) {
     const value = typeof msg.args[0] === 'number' ? msg.args[0] : msg.args[0] === true ? 1 : 0;
-    lastSignal.osc = msg.address + ' ' + (msg.args.length ? JSON.stringify(msg.args[0]) : '');
+    const v01 = value > 1 ? value / 127 : value;
+    for (const m of cfg.control.osc.mappings || []) {
+      if (m.address !== msg.address) continue;
+      if (v01 < 0.5) m._armed = true;
+      applyMapping(m, v01);
+    }
+  }
+
+  function sameName(a, b) {
+    return String(a || '').trim().toLocaleLowerCase() === String(b || '').trim().toLocaleLowerCase();
+  }
+
+  function applyOscStep(cfg, step) {
+    if (!step) return;
+    if (step.kind === 'set') {
+      P().set(step.path, step.value);
+      const L = window.SVLayers;
+      const eff = L && L.effectivePath ? L.effectivePath(cfg, step.path) : step.path;
+      if (eff !== step.path) P().set(eff, step.value);
+      return;
+    }
+    if (step.op === 'blackout') {
+      const on = !!(window.SVShow && window.SVShow.blackout);
+      if (on !== step.value && P().toggleBlackout) P().toggleBlackout({ quiet: true });
+      return;
+    }
+    if (step.op === 'scene') {
+      const sc = (cfg.scenes || []).find((s) => s && sameName(s.name, step.name));
+      if (sc && sc.id && P().applyScene) P().applyScene(sc.id, { quiet: true });
+      return;
+    }
+    if (step.op === 'visualizer' || step.op === 'background') {
+      const stack = stackLive(cfg);
+      const spec = { type: step.id };
+      if (step.op === 'visualizer') {
+        if (stack && window.SVLayers.adoptVisualizer) window.SVLayers.adoptVisualizer(cfg, spec);
+        else cfg.visualizer.type = step.id;
+      } else if (stack && window.SVLayers.adoptBackground) {
+        window.SVLayers.adoptBackground(cfg, spec);
+      } else {
+        cfg.background.type = step.id;
+      }
+      return;
+    }
+    if (step.op === 'milkdrop') {
+      const mp = window.SVMilkdropPanel;
+      const list = mp && mp.visibleList ? mp.visibleList() : [];
+      const hit = list.find((p) => p && sameName(p.name, step.name));
+      if (hit && mp.load) mp.load(cfg, hit);
+      return;
+    }
+    if (step.op === 'deck') {
+      const dp = window.SVClipDeckPanel;
+      if (dp && dp.press) dp.press(step.row, step.col);
+      return;
+    }
+    if (step.op === 'deck-many') {
+      const dp = window.SVClipDeckPanel;
+      if (!dp || !dp.press) return;
+      for (const cell of step.cells) dp.press(cell.row, cell.col);
+      return;
+    }
+    if (step.op === 'deck-stop') {
+      runAction('deckStopAll', cfg);
+      return;
+    }
+    if (step.op === 'timeline') {
+      const tp = window.SVTimelinePanel;
+      if (!tp) return;
+      if (step.mode === 'play' && tp.play) tp.play();
+      else if (step.mode === 'pause' && tp.pause) tp.pause();
+      else if (step.mode === 'stop' && tp.stop) tp.stop();
+    }
+  }
+
+  function onOsc(msg) {
+    const messages = msg && Array.isArray(msg.messages) ? msg.messages : [msg];
+    const last = messages[messages.length - 1] || {};
+    const args = Array.isArray(last.args) ? last.args : [];
+    lastSignal.osc = (last.address || '') + (args.length ? ' ' + JSON.stringify(args[0]) : '');
     const chip = document.getElementById('oscSignal');
     if (chip) chip.textContent = lastSignal.osc;
 
     const cfg = P().cfg();
     if (learning && learning.surface === 'osc') {
       const m = (cfg.control.osc.mappings || []).find((x) => x.id === learning.id);
-      if (m) {
-        m.address = msg.address;
+      const heard = messages.find((one) => one && one.address);
+      if (m && heard) {
+        m.address = heard.address;
         learning = null;
         P().push(true);
         P().rerender();
@@ -405,12 +487,31 @@
     }
 
     if (!cfg.control.osc.enabled) return;
-    for (const m of cfg.control.osc.mappings || []) {
-      if (m.address !== msg.address) continue;
-      // OSC 0..1 gönderir; 1'den büyük değerler 0..127 kabul edilir (TouchOSC)
-      const v01 = value > 1 ? value / 127 : value;
-      if (v01 < 0.5) m._armed = true;
-      applyMapping(m, v01);
+    const tree = window.SVOscTree;
+    const planned = tree && tree.plan ? tree.plan(messages, cfg) : { steps: [], consumed: [] };
+    const consumed = new Set(planned.consumed || []);
+    const steps = planned.steps || [];
+    /* Sahne vurgusu, sonraki adım görünümü değiştirirse son push'ta kalkar.
+       Paketin kendisi tek gönderimdir: karartma ve sahne ara push yapmaz. */
+    let holdScene = false;
+    for (const step of steps) {
+      if (holdScene && step && (step.kind === 'set' || (step.op && step.op !== 'scene'))) {
+        if (P().releaseSceneAction) P().releaseSceneAction();
+        holdScene = false;
+      }
+      applyOscStep(cfg, step);
+      if (step && step.op === 'scene') holdScene = true;
+    }
+    for (let i = 0; i < messages.length; i++) {
+      if (consumed.has(i) || !messages[i]) continue;
+      applyLearned(cfg, messages[i]);
+    }
+    if (steps.length) {
+      const structural = steps.some((s) => s && (s.op === 'blackout' || s.op === 'scene'));
+      P().push(structural);
+      if (holdScene && P().releaseSceneAction) P().releaseSceneAction();
+      P().rerender();
+      refreshValueChips();
     }
   }
 
@@ -587,6 +688,11 @@
       /* Dinlenen port: 1024 altı Linux/macOS'ta yönetici ister, sunucu
          açılamaz. Windows'ta böyle bir sınır yok; orada 1'den başlar. */
       const oscMin = window.SV_PLATFORM && window.SV_PLATFORM.isWindows ? 1 : 1024;
+      const oscSync = async () => {
+        P().push(true);
+        oscState = await window.api.oscSync();
+        P().rerender();
+      };
       nodes.push(
         P().row(
           'UDP Portu',
@@ -596,13 +702,35 @@
               const port = P().portValue(e.target, cfg.control.osc.port, oscMin);
               if (port == null) return;
               cfg.control.osc.port = port;
-              P().push(true);
-              oscState = await window.api.oscSync();
-              P().rerender();
+              await oscSync();
             },
           })
         )
       );
+      const queryPort = cfg.control.osc.queryPort || 9010;
+      nodes.push(P().row('OSCQuery Portu', el('input', {
+        class: 'p-in p-num', type: 'number', min: String(oscMin), max: '65535', value: queryPort,
+        onchange: async (e) => {
+          const port = P().portValue(e.target, queryPort, oscMin);
+          if (port == null) return;
+          cfg.control.osc.queryPort = port;
+          await oscSync();
+        },
+      })));
+      const shownPrefix = cfg.control.osc.prefix || (cfg.oscOut && cfg.oscOut.prefix) || '/cayadev';
+      nodes.push(P().row('Adres Öneki', el('input', {
+        class: 'p-in', type: 'text', value: shownPrefix, spellcheck: 'false', autocomplete: 'off',
+        onchange: async (e) => {
+          const v = String(e.target.value || '').trim().replace(/\/+$/, '');
+          if (!OSC_PREFIX.test(v) || !v) {
+            P().toast(T('Önek /cayadev gibi olmalı: en çok dört parça, harf, rakam, - ve _.'), 'err');
+            e.target.value = shownPrefix;
+            return;
+          }
+          cfg.control.osc.prefix = v;
+          await oscSync();
+        },
+      })));
       const stBox = el('label', {
         class: 'lbl studio-status ' + (oscState.running ? 'ok' : oscState.error ? 'err' : ''),
       });
@@ -627,6 +755,10 @@
       nodes.push(
         el('div', { class: 'studio-note', text: 'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.' })
       );
+      nodes.push(el('div', {
+        class: 'studio-note',
+        text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 2 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',
+      }));
       nodes.push(mappingRows('osc'));
     }
 
