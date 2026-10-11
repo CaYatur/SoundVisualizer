@@ -295,6 +295,22 @@ test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
     Ethernet: [{ family: 4, internal: false, address: '192.168.1.50' }],
   });
   assert.strictEqual(numbered, '192.168.1.50');
+  const linux = Query.chooseLanIPv4({
+    docker0: [{ family: 'IPv4', internal: false, address: '172.17.0.1' }],
+    veth12ab: [{ family: 'IPv4', internal: false, address: '172.17.0.2' }],
+    wlp3s0: [{ family: 'IPv4', internal: false, address: '192.168.1.20' }],
+  });
+  assert.strictEqual(linux, '192.168.1.20');
+  const mac = Query.chooseLanIPv4({
+    utun0: [{ family: 'IPv4', internal: false, address: '10.0.0.2' }],
+    bridge100: [{ family: 'IPv4', internal: false, address: '192.168.64.1' }],
+    en0: [{ family: 'IPv4', internal: false, address: '192.168.1.8' }],
+  });
+  assert.strictEqual(mac, '192.168.1.8');
+  assert.strictEqual(Query.chooseLanIPv4({
+    OpenVPN: [{ family: 'IPv4', internal: false, address: '10.8.0.2' }],
+    enp0s3: [{ family: 'IPv4', internal: false, address: '192.168.1.9' }],
+  }), '192.168.1.9');
   assert.strictEqual(Query.chooseLanIPv4({}), '127.0.0.1');
   const jumped = Query.queryCandidates(9010);
   assert.strictEqual(jumped[0], 9010);
