@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2977%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2979%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -735,7 +735,7 @@ time tag of the host clock. Strings are UTF-8.
 |---|---|---|---|
 | `/level` `/bass` `/mid` `/treble` | float | 0..1 | at the chosen rate, up to 30 Hz, one bundle |
 | `/spectrum` | 16 floats | 0..1 | with the levels; log bands from 30 Hz to 16 kHz |
-| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, then 0 | on the frame that detects the hit, then a closing 0 |
+| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, then 0 | when the capture frame arrives, then a closing 0 |
 | `/silence` | int | 0 or 1 | after the level stays under 0.008 for 400 ms |
 | `/analysis/centroid` `/rolloff` `/flatness` `/crest` `/flux` `/spread` `/loudness` `/peak` `/dynamics` `/harmonic` `/percussive` `/width` | float | 0..1 | with the levels |
 | `/analysis/correlation` | float | -1..1 | with the levels |
@@ -784,7 +784,7 @@ the row and the column as two integers, the same numbers `/deck/active` reports.
 
 <div align="center">
 
-![MIDI, OSC and MCP on the Control page](docs/screenshots/panel-control.png)
+![OSC output on the Control page](docs/screenshots/panel-control.png)
 
 </div>
 
@@ -1685,7 +1685,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2977 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2979 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

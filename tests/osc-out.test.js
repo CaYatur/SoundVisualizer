@@ -459,6 +459,7 @@ test('bağlantı: ana süreç, panel ve görselleştirici çıkışı doğru yer
   assert.match(main, /oscOut\.stop\(\)\.catch/, 'kapanışta soket kapanıyor');
   assert.match(read('src/visualizer/visualizer.js'), /window\.api\.sendOscHit\(msg\)/);
   assert.match(main, /ipcMain\.on\('osc-hit'/);
+  assert.match(main, /nativeDrums\.push\(frame\.freq[\s\S]{0,700}sendToVisualizers\('native-audio'/);
   assert.match(main, /ipcMain\.on\('tempo:clock'/);
   assert.match(main, /oscOut\.clock\(currentConfig\.oscOut/);
   assert.match(read('src/admin/autovj.js'), /reportTempoClock\(oscClockPayload/);

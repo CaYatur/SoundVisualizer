@@ -12,6 +12,7 @@ const fs = require('fs');
 const url = require('url');
 const { spawn } = require('child_process');
 const nativeAudio = require('./native-audio');
+const { DrumHits } = require('./drum-hits');
 const dynamicLighting = require('./dynamic-lighting');
 const lightingIdentity = require('./lighting-identity');
 const streamServer = require('./stream-server');
@@ -1127,12 +1128,21 @@ function captureWanted() {
 
 // Seçili ses kaynak(lar)ının yakalamasını başlat; kareleri hem görselleştiriciye
 // hem de (istendiyse) yönetici panelinin önizlemesine ilet
+/* Yakalama karesi gelir gelmez vuruş. Çizim karesindeki algılayıcı,
+   dosya çalmada durur; yerel kare akarken o yol susar. */
+const nativeDrums = new DrumHits();
+
 function startVisualizerCapture() {
   const sources = configuredSources();
   lastCaptureSource = sources;
   nativeAudio.startCapture(
     sources,
     (frame) => {
+      if (!HW_OFF && frame && frame.freq && currentConfig && currentConfig.oscOut
+          && currentConfig.oscOut.enabled === true && currentConfig.oscOut.hits !== false) {
+        const hit = nativeDrums.push(frame.freq, frame.sampleRate, Date.now());
+        if (hit) oscOut.hit(currentConfig.oscOut, hit);
+      }
       if (SMOKE) {
         global.__smokeFrames = (global.__smokeFrames || 0) + 1;
         /* Kare iki kanalı da taşımalı (#566). Sessiz bir aygıtta sol ve sağ
@@ -7141,7 +7151,7 @@ async function runShots() {
     ['output', 'stream', 'panel-output.png'],
     ['library', 'templates', 'panel-templates.png'],
     ['studio', null, 'panel-studio.png'],
-    ['control', null, 'panel-control.png'],
+    ['control', 'oscOut', 'panel-control.png'],
   ];
 
   if (adminWin && !adminWin.isDestroyed()) {

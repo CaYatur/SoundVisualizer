@@ -186,14 +186,15 @@
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
-  /* Davul vuruşu ölçer iletisine binmez (#437). Çözümleme onu çizim
-     karesinde üretir; vuruş o karede, kapanış 0'ı da bir sonraki sessiz
-     karede gider. Ölçerin ~30 Hz'i bir vuruşu 33 ms bekletirdi. */
+  /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
+     vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
+     karesi taze ise aynı vuruş ikinci kez gitmesin. */
   let hitSent = { kick: 0, snare: 0, hat: 0 };
 
   function oscHit(hits) {
     if (!cfg.oscOut || cfg.oscOut.enabled !== true || cfg.oscOut.hits === false) return;
     if (!window.api || !window.api.sendOscHit || !hits) return;
+    if (audio.lastFrameTs && performance.now() - audio.lastFrameTs < 250) return;
     const msg = { kick: 0, snare: 0, hat: 0 };
     let changed = false;
     for (const k of ['kick', 'snare', 'hat']) {

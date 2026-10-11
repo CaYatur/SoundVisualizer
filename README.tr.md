@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2977%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2979%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -740,7 +740,7 @@ Vuruş ve saat bundle'ı ana bilgisayar saatinin OSC zaman etiketini taşır. Di
 |---|---|---|---|
 | `/level` `/bass` `/mid` `/treble` | float | 0..1 | seçilen hızda, en çok 30 Hz, tek bundle |
 | `/spectrum` | 16 float | 0..1 | seviyelerle; 30 Hz–16 kHz logaritmik bant |
-| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, sonra 0 | vuruşu gören karede, ardından kapanış 0 |
+| `/hit/kick` `/hit/snare` `/hit/hat` | float | 0..1, sonra 0 | yakalama karesi gelince, ardından kapanış 0 |
 | `/silence` | int | 0 ya da 1 | seviye 400 ms boyunca 0,008 altında kalınca |
 | `/analysis/centroid` `/rolloff` `/flatness` `/crest` `/flux` `/spread` `/loudness` `/peak` `/dynamics` `/harmonic` `/percussive` `/width` | float | 0..1 | seviyelerle |
 | `/analysis/correlation` | float | -1..1 | seviyelerle |
@@ -787,7 +787,7 @@ sütunu iki tam sayı olarak alır; bunlar `/deck/active` ile aynı sayılardır
 
 <div align="center">
 
-![Kontrol sayfasında MIDI, OSC ve MCP](docs/screenshots/panel-control.png)
+![Kontrol sayfasında OSC çıkışı](docs/screenshots/panel-control.png)
 
 </div>
 
@@ -1690,7 +1690,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2977 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2979 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
