@@ -166,6 +166,7 @@
     control: 'controlBindings',
     timeline: 'timeline', clipdeck: 'timeline',
     isBlackout: 'blackout', 'transition.blackoutType': 'blackout', 'transition.blackoutDuration': 'blackout',
+    master: 'blackout',
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
     power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',

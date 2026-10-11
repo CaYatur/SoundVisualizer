@@ -436,8 +436,9 @@
     }
     if (step.op === 'milkdrop') {
       const mp = window.SVMilkdropPanel;
+      const named = mp && mp.presetByName ? mp.presetByName(step.name) : null;
       const list = mp && mp.visibleList ? mp.visibleList() : [];
-      const hit = list.find((p) => p && sameName(p.name, step.name));
+      const hit = named || list.find((p) => p && sameName(p.name, step.name));
       if (hit && mp.load) mp.load(cfg, hit);
       return;
     }
@@ -755,9 +756,10 @@
       nodes.push(
         el('div', { class: 'studio-note', text: 'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.' })
       );
+      nodes.push(P().slider('Ana Opaklık', 'master', { min: 0, max: 1, step: 0.01 }));
       nodes.push(el('div', {
         class: 'studio-note',
-        text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 2 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',
+        text: 'Sabit adres ağacı README dosyasında. Öğrenme duruyor. Çıkışla aynı önek. Paket bütün olarak uygulanır. Gelecek zaman etiketi en çok 30 saniye bekler. OSCQuery HTTP ve mDNS ile duyurulur.',
       }));
       nodes.push(mappingRows('osc'));
     }

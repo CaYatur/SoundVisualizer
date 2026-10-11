@@ -56,6 +56,7 @@ test('sıra korunur, aralık kaydırıcıyla aynı, adım en yakına oturur', ()
     { address: '/cayadev/show/transition', args: ['crossfade'] },
     { address: '/cayadev/show/autovj', args: [true] },
     { address: '/cayadev/crossfade', args: [0.5] },
+    { address: '/cayadev/show/opacity', args: [0.25] },
   ], c, ids);
   assert.strictEqual(plan.steps[0].op, 'blackout');
   assert.strictEqual(plan.steps[0].value, true);
@@ -67,6 +68,7 @@ test('sıra korunur, aralık kaydırıcıyla aynı, adım en yakına oturur', ()
   assert.strictEqual(c.transition.type, 'crossfade');
   assert.strictEqual(c.autovj.enabled, true);
   assert.strictEqual(c.crossfade.value, 0.5);
+  assert.strictEqual(c.master, 0.25);
 });
 
 test('sahne, görselleştirici, deste ve zaman çizelgesi çok argümanlıdır', () => {
@@ -99,11 +101,12 @@ test('bozuk tür ve yanlış önek ağaca girmez', () => {
   assert.deepStrictEqual(plan.consumed, []);
 });
 
-test('zaman etiketi: anlık ve geç hemen, iki saniyeye kadar bekler', () => {
+test('zaman etiketi: anlık ve geç hemen, otuz saniyeye kadar bekler', () => {
   assert.strictEqual(Tree.delayMs({ immediate: true, unixMs: null }, 1000), 0);
   assert.strictEqual(Tree.delayMs({ immediate: false, unixMs: 500 }, 1000), 0);
   assert.strictEqual(Tree.delayMs({ immediate: false, unixMs: 1500 }, 1000), 500);
-  assert.strictEqual(Tree.delayMs({ immediate: false, unixMs: 1000 + 5000 }, 1000), 0);
+  assert.strictEqual(Tree.delayMs({ immediate: false, unixMs: 1000 + 5000 }, 1000), 5000);
+  assert.strictEqual(Tree.delayMs({ immediate: false, unixMs: 1000 + 30001 }, 1000), 0);
   assert.deepStrictEqual(Tree.readTimetag(0, 1), { immediate: true, unixMs: null });
 });
 
@@ -191,6 +194,41 @@ test('gerçek UDP: IPv4, IPv6 ve ikinci gönderen aynı porta ulaşır', async (
   }
 });
 
+test('çıkışın UDP paketi girişte aynı adresi uygular', async () => {
+  const port = 20000 + Math.floor(Math.random() * 10000);
+  const got = [];
+  const o = Out.normalize({ enabled: true, host: '127.0.0.1', port, prefix: '/cayadev' });
+  const show = {
+    blackout: false, palette: 'theme', brightness: 1, transition: 'cut', autovj: false, track: '',
+    opacity: 0.5, crossfade: 0.75,
+    controls: [{ path: 'audio.sensitivity', value: 1.25 }],
+  };
+  const sock = dgram.createSocket('udp4');
+  try {
+    const st = await Out.start(o, { enabled: false });
+    assert.strictEqual(st.running, true, JSON.stringify(st));
+    await new Promise((resolve) => sock.bind(port, '127.0.0.1', resolve));
+    sock.on('message', (buf) => {
+      const list = [];
+      Server.parsePacket(buf, list, 0);
+      got.push(...list);
+    });
+    assert.ok(new Out.Planner().frame(o, {}, { show }, Date.now()).length > 0);
+    Out.clock(o, { show, playing: false, bpm: 120, phase: 0 });
+    for (let i = 0; i < 40 && !got.some((m) => m.address === '/cayadev/show/opacity'); i++) await wait(25);
+    const opacity = got.find((m) => m.address === '/cayadev/show/opacity');
+    const sens = got.find((m) => m.address === '/cayadev/audio/sensitivity');
+    assert.ok(opacity, got.map((m) => m.address).join(','));
+    assert.ok(Math.abs(opacity.args[0] - 0.5) < 1e-4);
+    assert.ok(sens && Math.abs(sens.args[0] - 1.25) < 1e-4);
+    const step = Tree.plan(got, cfg()).steps.find((s) => s.path === 'master');
+    assert.ok(step && Math.abs(step.value - 0.5) < 1e-4);
+  } finally {
+    try { sock.close(); } catch { /* kapalı */ }
+    await Out.stop();
+  }
+});
+
 test('OSCQuery HTTP güncel değeri döner', async () => {
   const port = 19000 + Math.floor(Math.random() * 10000);
   const st = await Query.start({
@@ -232,6 +270,10 @@ test('ayarlar ve bağlantı: öğrenme durur, öz test ağı açmaz', () => {
   assert.match(panel, /learning\.surface === 'osc'/);
   assert.match(panel, /toggleBlackout\(\{ quiet: true \}\)/);
   assert.match(panel, /applyScene\(sc\.id, \{ quiet: true \}\)/);
+  assert.match(panel, /presetByName/);
+  assert.match(panel, /Ana Opaklık/);
+  const paths = new Set(Out.CONTROL_PATHS.map((s) => s.path));
+  for (const s of Tree.SLIDERS) assert.ok(paths.has(s.path), s.path);
   assert.match(read('src/admin/index.html'), /shared\/osc-tree\.js/);
   assert.match(read('README.md'), /OSCQuery/);
   assert.match(read('README.tr.md'), /OSCQuery/);

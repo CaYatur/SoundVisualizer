@@ -279,6 +279,9 @@ test('sessizlik, çözümleme, tayf, renk, gösteri, katman ve deste', () => {
       timeline: false,
       layers: [{ name: 'Ön', opacity: 0.5, enabled: true }, { name: 'Arka', opacity: 0, enabled: false }],
       deck: { row: 2, col: 3, active: '2:3' },
+      opacity: 0.4,
+      crossfade: 0.25,
+      controls: [{ path: 'audio.sensitivity', value: 1.5 }],
     },
   }, 0));
   assert.strictEqual(show.find((m) => m[0] === '/cayadev/background/color/1')[1][0][1], '#ffffff');
@@ -289,6 +292,9 @@ test('sessizlik, çözümleme, tayf, renk, gösteri, katman ve deste', () => {
   assert.strictEqual(show.find((m) => m[0] === '/cayadev/layer/1/opacity')[1][0][1], 0.5);
   assert.deepStrictEqual(show.find((m) => m[0] === '/cayadev/deck/row')[1][0][1], 2);
   assert.strictEqual(show.find((m) => m[0] === '/cayadev/deck/active')[1][0][1], '2:3');
+  assert.strictEqual(show.find((m) => m[0] === '/cayadev/show/opacity')[1][0][1], 0.4);
+  assert.strictEqual(show.find((m) => m[0] === '/cayadev/crossfade')[1][0][1], 0.25);
+  assert.strictEqual(show.find((m) => m[0] === '/cayadev/audio/sensitivity')[1][0][1], 1.5);
 });
 
 test('bundle zaman etiketi ana bilgisayar saatini taşır', () => {

@@ -683,6 +683,13 @@
   }
 
   const byId = (id) => presets.find((p) => p.id === id);
+  /* OSC adı bütün kitaplıkta aranır. Görünen liste süzgeçlidir; masa
+     arama kutusunun gizlediği preseti de çağırabilsin. */
+  function byName(name) {
+    const want = String(name || '').trim().toLocaleLowerCase();
+    if (!want) return null;
+    return presets.find((p) => p && String(p.name || '').trim().toLocaleLowerCase() === want) || null;
+  }
 
   /* ÜRETİCİ (#579). Üretilen preset KAYDEDİLMEDEN elle seçim gibi
      yükleniyor: aynı yol, yani katman yığını MilkDrop'a dönüyor, geçmişe
@@ -1974,7 +1981,7 @@
   const visibleList = () => visible(P().cfg());
   window.SVMilkdropPanel = {
     panel, init, refresh, load, pointStackAtMilkdrop, noteLive, liveId, history, act, fillStars,
-    spriteTargets, preview, previewEdit, adopt, visibleList, presetById: byId, go,
+    spriteTargets, preview, previewEdit, adopt, visibleList, presetById: byId, presetByName: byName, go,
   };
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = window.SVMilkdropPanel;

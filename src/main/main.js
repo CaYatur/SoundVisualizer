@@ -3157,6 +3157,9 @@ function oscOutContext() {
       timeline: oscLive.timeline === true,
       layers: oscLayers(cfg),
       deck: oscLive.deck,
+      opacity: Number.isFinite(Number(cfg.master)) ? Math.max(0, Math.min(1, Number(cfg.master))) : 1,
+      crossfade: cfg.crossfade && Number.isFinite(Number(cfg.crossfade.value)) ? Number(cfg.crossfade.value) : 0,
+      controls: oscOut.controlValues(cfg),
     },
   };
 }

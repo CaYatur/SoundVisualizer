@@ -54,11 +54,63 @@ const ANALYSIS_F = [
   'centroid', 'rolloff', 'flatness', 'crest', 'flux', 'spread',
   'loudness', 'peak', 'dynamics', 'harmonic', 'percussive', 'width',
 ];
+/* Giriş ağacının kaydırıcıları. Çıkış bunları aynı yolda geri yollar. */
+const CONTROL_PATHS = [
+  { path: 'audio.sensitivity' },
+  { path: 'audio.smoothing' },
+  { path: 'audio.bassBoost' },
+  { path: 'visualizer.sensitivity' },
+  { path: 'visualizer.glow' },
+  { path: 'visualizer.barCount', int: true },
+  { path: 'visualizer.gap' },
+  { path: 'visualizer.lineWidth' },
+  { path: 'visualizer.thickness' },
+  { path: 'visualizer.trailHeight' },
+  { path: 'background.gradient.speed' },
+  { path: 'background.gradient.audioReactivity' },
+  { path: 'background.gradient.brightness' },
+  { path: 'background.gradient.audioHue' },
+  { path: 'background.gradient.vignette' },
+  { path: 'logo.opacity' },
+  { path: 'logo.scale' },
+  { path: 'feedback.zoom' },
+  { path: 'feedback.decay' },
+  { path: 'feedback.warp' },
+  { path: 'feedback.rotate' },
+  { path: 'media.opacity' },
+  { path: 'media.kaleido', int: true },
+  { path: 'milkdrop.blendTime' },
+  { path: 'milkdrop.autoNext', int: true },
+  { path: 'milkdrop.autoNextRand', int: true },
+  { path: 'milkdrop.hardCutThreshold' },
+  { path: 'milkdrop.mesh' },
+  { path: 'milkdrop.renderScale' },
+];
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const unit = (v) => (Number.isFinite(v) ? clamp(v, 0, 1) : 0);
 const int32 = (v) => clamp(Math.round(Number(v) || 0), -2147483648, 2147483647);
 const finite = (v) => (Number.isFinite(v) ? v : 0);
+
+function readPath(obj, path) {
+  let o = obj;
+  for (const k of String(path || '').split('.')) {
+    if (o == null) return undefined;
+    o = o[k];
+  }
+  return o;
+}
+
+/* Girişin yazdığı kaydırıcıların şu anki değeri. Masa fader'ı bunu duyar. */
+function controlValues(cfg) {
+  const out = [];
+  for (const s of CONTROL_PATHS) {
+    const n = Number(readPath(cfg, s.path));
+    if (!Number.isFinite(n)) continue;
+    out.push({ path: s.path, int: !!s.int, value: s.int ? Math.round(n) : n });
+  }
+  return out;
+}
 
 // --------------------------------------------------------------- ayarlar
 const HOSTNAME = /^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/;
@@ -498,6 +550,16 @@ class Planner {
         messages.push([p + '/deck/active', [['s', active]]]);
       }
     }
+    if (Number.isFinite(show.opacity)) put('opacity', p + '/show/opacity', [['f', clamp(show.opacity, 0, 1)]]);
+    if (Number.isFinite(show.crossfade)) put('crossfade', p + '/crossfade', [['f', clamp(show.crossfade, 0, 1)]]);
+    if (Array.isArray(show.controls)) {
+      for (const c of show.controls) {
+        if (!c || typeof c.path !== 'string' || !Number.isFinite(Number(c.value))) continue;
+        const addr = p + '/' + c.path.replace(/\./g, '/');
+        if (c.int) put('c:' + c.path, addr, [['i', int32(c.value)]]);
+        else put('c:' + c.path, addr, [['f', Number(c.value)]]);
+      }
+    }
     const item = asBundle(now, messages);
     if (item) out.push(item);
   }
@@ -730,6 +792,6 @@ function status() {
 module.exports = {
   start, stop, send, beat, hit, clock, status,
   normalize, encodeMessage, encodeBundle, oscString, ntpTimetag, phaseShift,
-  Planner, isLocalAddress, loopError, targetsOf, validHost,
+  Planner, isLocalAddress, loopError, targetsOf, validHost, controlValues, CONTROL_PATHS,
   DEFAULTS, LOOP, NTP_UNIX,
 };

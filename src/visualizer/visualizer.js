@@ -608,7 +608,17 @@
     applyBackgroundKey(cfg);
 
     audio.applyConfig(cfg.audio);
+    applyMaster();
     resize();
+  }
+
+  /* Ana opaklık sahnenin üstünde siyah bir tül. 1 tülü yok eder. */
+  function applyMaster() {
+    const veil = document.getElementById('masterVeil');
+    if (!veil) return;
+    const m = cfg && Number.isFinite(Number(cfg.master)) ? Number(cfg.master) : 1;
+    const o = Math.max(0, Math.min(1, m));
+    veil.style.opacity = String(1 - o);
   }
 
   /* Şeffaf arkaplanda arkaplan efektinin koyu yerleri saydamlaşır.

@@ -15,12 +15,12 @@
    uygulanmak üzere döner; bu modül yapılandırmayı kendisi yazmaz.
 
    Zaman etiketi: anlık (NTP 1) ve geçmiş etiket hemen. Gelecek etiket en
-   çok 2 saniye bekler. Daha uzağı da hemen uygulanır; masa saat sapması
+   çok 30 saniye bekler. Daha uzağı hemen uygulanır; bozuk bir saat
    gösteriyi askıda bırakmasın. */
 (function () {
 
 const DEFAULT_PREFIX = '/cayadev';
-const MAX_WAIT_MS = 2000;
+const MAX_WAIT_MS = 30000;
 const NTP_UNIX = 2208988800;
 
 /* Aralıklar panel kaydırıcılarıyla aynı (control.js TARGETS). */
@@ -220,6 +220,11 @@ function match(parts, args, cfg, opt) {
     if (!s || PALETTES.indexOf(s) < 0) return null;
     return { kind: 'set', path: 'background.colorMode', value: s };
   }
+  if (key === 'show/opacity') {
+    const n = finite(args[0]);
+    if (n == null) return null;
+    return { kind: 'set', path: 'master', value: clamp(n, 0, 1) };
+  }
   if (key === 'show/brightness') {
     const slider = SLIDERS.find((x) => x.path === 'background.gradient.brightness');
     const v = sliderValue(slider, args[0]);
@@ -378,6 +383,8 @@ function leaves(cfg, opt) {
   add('show/palette', leaf(pre + '/show/palette', 's', 3, getPath(cfg, 'background.colorMode') || 'theme', null, 'theme, solid or rainbow'));
   const bright = SLIDERS.find((s) => s.path === 'background.gradient.brightness');
   add('show/brightness', leaf(pre + '/show/brightness', 'f', 3, getPath(cfg, bright.path), sliderRange(bright), 'Background brightness'));
+  const master = Number.isFinite(Number(cfg && cfg.master)) ? Number(cfg.master) : 1;
+  add('show/opacity', leaf(pre + '/show/opacity', 'f', 3, clamp(master, 0, 1), [{ MIN: 0, MAX: 1 }], 'Master opacity'));
   add('show/transition', leaf(pre + '/show/transition', 's', 3, getPath(cfg, 'transition.type') || '', null, 'Transition id'));
   add('show/autovj', leaf(pre + '/show/autovj', 'i', 3, cfg && cfg.autovj && cfg.autovj.enabled ? 1 : 0, [{ MIN: 0, MAX: 1 }], 'Auto VJ'));
   add('crossfade', leaf(pre + '/crossfade', 'f', 3, cfg && cfg.crossfade && Number.isFinite(cfg.crossfade.value) ? cfg.crossfade.value : 0, [{ MIN: 0, MAX: 1 }], 'A/B crossfader'));
