@@ -1893,23 +1893,28 @@
       if (visMode === 'theme') {
         cfg.visualizer.color = res.color || res.colors[2] || '#3aa6ff';
         cfg.visualizer.color2 = res.color2 || res.colors[4] || '#d24bff';
-        /* Yığında ilk görselleştirici katmanının kopyası genel rengi eziyordu;
-           görselleştirici temayı izlemiyordu (layers.js setEffective). */
-        if (window.SVLayers && window.SVLayers.setEffective) {
-          window.SVLayers.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
-          window.SVLayers.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
-        }
       }
       /* sync live theme into visualizer layers */
       if (cfg.layerStack && cfg.layerStack.enabled && Array.isArray(cfg.layers)) {
         cfg.layers.forEach((ly) => {
           if (!ly || ly.kind !== 'visualizer') return;
           const vs = (ly.settings = ly.settings || {}).visualizer = (ly.settings.visualizer || {});
-          const mode = vs.colorMode || cfg.visualizer.colorMode || 'theme';
+          const mode = vs.colorMode || (vs.rainbow !== undefined ? (vs.rainbow ? 'rainbow' : 'custom') : (cfg.visualizer.colorMode || 'theme'));
           if (mode !== 'theme') return;
           vs.color = res.color || res.colors[2] || '#3aa6ff';
           vs.color2 = res.color2 || res.colors[4] || '#d24bff';
         });
+        /* Yığında ilk görselleştirici katmanının kipi 'theme' ise setEffective ile de senkronize tut */
+        if (window.SVLayers && window.SVLayers.setEffective) {
+          const firstIdx = window.SVLayers.firstLayerIndex ? window.SVLayers.firstLayerIndex(cfg, 'visualizer') : -1;
+          const firstLy = firstIdx >= 0 ? cfg.layers[firstIdx] : null;
+          const firstVs = firstLy && firstLy.settings && firstLy.settings.visualizer;
+          const firstMode = (firstVs && (firstVs.colorMode || (firstVs.rainbow !== undefined ? (firstVs.rainbow ? 'rainbow' : 'custom') : null))) || cfg.visualizer.colorMode || 'theme';
+          if (firstMode === 'theme') {
+            window.SVLayers.setEffective(cfg, 'visualizer.color', cfg.visualizer.color);
+            window.SVLayers.setEffective(cfg, 'visualizer.color2', cfg.visualizer.color2);
+          }
+        }
       }
     }
     if (res.nextCycleIdx !== undefined) {
