@@ -112,6 +112,9 @@ const faultGuard = faultGuardLib.createFaultGuard({
   fallback: (key, stack) => dialog.showErrorBox(trUi('Ses Görselleştirici', 'Sound Visualizer'), stack),
 });
 process.on('uncaughtException', (err, origin) => faultGuard.handle(err, origin));
+/* Pencereler yalnız uygulama sayfalarında kalır; https bağlantıları sistem
+   tarayıcısında açılır (nav-guard.js). */
+require('./nav-guard').install(app, shell, path.join(__dirname, '..'));
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
@@ -4315,8 +4318,15 @@ async function startExportJob(opts) {
   opts = opts || {};
   const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
-  if (!audioPath || !fs.existsSync(audioPath)) return { ok: false, error: 'Ses dosyası bulunamadı.' };
+  /* Yollar panelden ya da MCP'den gelir. ffmpeg -y ile üzerine yazar ve
+     tcp:// ya da pipe: gibi adresleri de çıktı sayar: MCP'nin kuralı burada
+     da geçerli, yerel, mutlak bir .mp4. */
+  if (typeof audioPath !== 'string' || !path.isAbsolute(audioPath) || !fs.existsSync(audioPath)) {
+    return { ok: false, error: 'Ses dosyası bulunamadı.' };
+  }
   if (!outputPath) return { ok: false, error: 'Çıktı yolu seçilmedi.' };
+  const outBad = require('../shared/mcp').badOutPath(outputPath, ['mp4']);
+  if (outBad) return { ok: false, error: 'Çıktı yolu geçersiz: ' + outBad };
 
   const [w, h] = RES_MAP[opts.resolution] || RES_MAP['1080p'];
   const fps = opts.fps === 30 ? 30 : 60;
