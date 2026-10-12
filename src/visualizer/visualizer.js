@@ -613,13 +613,17 @@
     resize();
   }
 
-  /* Ana opaklık sahnenin üstünde siyah bir tül. 1 tülü yok eder. */
+  /* Ana opaklık sahnenin üstünde siyah bir tül. 1 tülü yok eder.
+     Şeffaf arkaplanda (OBS katmanı, masaüstü üstü pencere) siyah tül
+     masaüstünü karartırdı: orada sayfanın kendisi saydamlaşır. */
   function applyMaster() {
     const veil = document.getElementById('masterVeil');
     if (!veil) return;
     const m = cfg && Number.isFinite(Number(cfg.master)) ? Number(cfg.master) : 1;
     const o = Math.max(0, Math.min(1, m));
-    veil.style.opacity = String(1 - o);
+    const see = !!(window.SVLayers && window.SVLayers.seeThrough(cfg));
+    veil.style.opacity = see ? '0' : String(1 - o);
+    document.body.style.opacity = see && o < 1 ? String(o) : '';
   }
 
   /* Şeffaf arkaplanda arkaplan efektinin koyu yerleri saydamlaşır.

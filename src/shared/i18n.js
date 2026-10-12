@@ -966,6 +966,8 @@
       'Level, bass, mid and treble travel in one packet. A hit is followed by 0. Clock: BPM, phase (0..1), bar phase, downbeat, playing or stopped. The address tree is in the README.',
     'Ek hedefler satır satır: 10.0.0.8:9001 ya da [::1]:9001. Pozitif gecikme saati geri alır; hoparlör geç kalıyorsa ışık onu bekler.':
       'Extra targets, one per line: 10.0.0.8:9001 or [::1]:9001. A positive latency delays the clock, so lights wait for a late speaker.',
+    'Seviye, tayf ve vuruşları açık bir çıkış ölçer: ekran, yüzen pencere ya da Spout/Syphon. Yalnız panel açıkken saat ve gösteri durumu gider.':
+      'Levels, the spectrum and hits are measured by an open output: a screen, the floating window or Spout/Syphon. With only the panel open, the clock and show state still go out.',
     'OSC gönderen uygulamayı bu bilgisayarın IP adresine ve yukarıdaki porta yöneltin. 0..1 arası değerler doğrudan, 0..127 arası değerler otomatik ölçeklenerek kullanılır.': 'Point the OSC sender at this computer\'s IP address and the port above. Values between 0 and 1 are used directly; values up to 127 are scaled automatically.',
     'Henüz eşleme yok. “Eşleme Ekle” ile başlayın.': 'No mappings yet. Start with "Add Mapping".',
     'Eşleme Ekle': 'Add Mapping', 'Eşlemeyi kaldır': 'Remove mapping',

@@ -3258,6 +3258,14 @@ function syncOpenRgb(opts) {
 
 let oscInGen = 0;
 let lastOscInStatus = null;
+/* Çalışan dinleyicinin anahtarı (UDP portu ve OSCQuery portu) ve süren
+   açılış. applyIncomingConfig her ayar gönderiminde buraya geliyor: kaydırıcı
+   sürüklerken ve her gelen OSC iletisinden sonra. Anahtar aynıysa UDP
+   soketleri, OSCQuery sunucusu ve mDNS duyurusu yeniden kurulmaz; önek ve
+   eşlemeler canlı okunuyor. Açılamayan bir port da her gönderimde yeniden
+   denenmez: panelin "osc:sync" çağrısı (port alanı, anahtar) zorlar. */
+let oscInKey = '';
+let oscInPending = null;
 function oscInStatus() {
   const st = oscServer.status();
   if (!lastOscInStatus) return st;
@@ -3269,18 +3277,25 @@ function oscInStatus() {
   if (lastOscInStatus.queryError) st.queryError = lastOscInStatus.queryError;
   return st;
 }
-function syncOscServer() {
+function syncOscServer(opts) {
+  const force = !!(opts && opts.force);
   const raw = (currentConfig && currentConfig.control && currentConfig.control.osc) || {};
   const o = oscTree.normalizeSettings(raw);
-  const gen = ++oscInGen;
   /* Öz test ve ekran görüntüsü ağa soket açmaz (HW_OFF). */
   if (!o.enabled || HW_OFF) {
+    const gen = ++oscInGen;
+    oscInKey = '';
+    oscInPending = null;
     return Promise.all([oscServer.stop(), oscQuery.stop()]).then(() => {
       if (gen === oscInGen) lastOscInStatus = null;
       return oscServer.status();
     });
   }
-  return oscServer.start(o, (packet) => {
+  const key = o.port + ':' + o.queryPort;
+  if (!force && oscInPending && oscInPending.key === key) return oscInPending.promise;
+  if (!force && !oscInPending && key === oscInKey) return Promise.resolve(oscInStatus());
+  const gen = ++oscInGen;
+  const job = oscServer.start(o, (packet) => {
     const wait = oscTree.delayMs(packet && packet.time, Date.now());
     const send = () => {
       if (gen !== oscInGen) return;
@@ -3319,10 +3334,15 @@ function syncOscServer() {
         saveSettings(currentConfig);
       }
       lastOscInStatus = st;
+      oscInKey = o.port + ':' + (q.running && q.port ? q.port : o.queryPort);
       notifyAdmin('osc-status', st);
       return st;
     });
+  }).finally(() => {
+    if (oscInPending && oscInPending.gen === gen) oscInPending = null;
   });
+  oscInPending = { key, gen, promise: job };
+  return job;
 }
 
 /* ---------------------------------------------------------------- calan parca
@@ -3410,7 +3430,7 @@ ipcMain.handle('stream:open', (e, which) => {
   return target || '';
 });
 ipcMain.handle('osc:status', () => oscInStatus());
-ipcMain.handle('osc:sync', () => syncOscServer());
+ipcMain.handle('osc:sync', () => syncOscServer({ force: true }));
 ipcMain.handle('artnet:status', () => artnet.status());
 ipcMain.handle('artnet:sync', () => syncArtnet());
 ipcMain.handle('oscout:status', () => oscOut.status());

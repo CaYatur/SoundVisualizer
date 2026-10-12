@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-2991%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-2998%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -735,6 +735,8 @@ kalıyorsa ışık onu bekler.
 
 Adresler, değiştirilmedikçe `/cayadev` önekiyle gider. Seviye, bas, mid ve tiz tek bundle içindedir.
 Vuruş ve saat bundle'ı ana bilgisayar saatinin OSC zaman etiketini taşır. Dizeler UTF-8'dir.
+Seviye, tayf, çözümleme ve vuruşları açık bir çıkış ölçer: bir ekran, yüzen pencere ya da Spout /
+Syphon göndericisi. Yalnız kontrol paneli açıkken saat ve gösteri durumu yine gider.
 
 | Adres | Tür | Aralık | Ne zaman |
 |---|---|---|---|
@@ -777,7 +779,8 @@ durur. Sabit adresteki değer, kaydırıcının kendi aralığıdır. Dizeler UT
 ilerideki etiket bekler. Gecikmiş etiket, anlık etiket ve daha uzağı hemen uygulanır. Ayrışmayan
 paket düşer.
 
-`/show/opacity` ana opaklıktır (0..1). Görüntüyü siyaha yaklaştırır ve sahne anına yazılmaz.
+`/show/opacity` ana opaklıktır (0..1). Görüntüyü siyaha, şeffaf arkaplanda ise saydama yaklaştırır
+ve sahne anına yazılmaz.
 `/show/brightness` arkaplan parlaklığı olarak kalır. Çıkış, panel kaydırıcıları dahil yazılabilir
 adresleri geri yollar; masa fader'ı bunu izler.
 
@@ -1698,7 +1701,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2991 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**2998 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
