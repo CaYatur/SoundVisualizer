@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2986%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2993%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -729,7 +729,9 @@ lights can wait for a late speaker.
 
 Addresses use the prefix `/cayadev` unless you change it. Level, bass, mid and treble travel in one
 bundle, so one lost packet cannot tear the bands. Hits and the clock travel in a bundle with an OSC
-time tag of the host clock. Strings are UTF-8.
+time tag of the host clock. Strings are UTF-8. Levels, the spectrum, analysis and hits are measured
+by an open output: a screen, the floating window or the Spout / Syphon sender. With only the control
+panel open, the clock and the show state still go out.
 
 | Address | Type | Range | When |
 |---|---|---|---|
@@ -773,8 +775,8 @@ A `#bundle` is applied in order, as one packet. The time tag is not ignored: a t
 ahead waits, and a late tag, the immediate tag, or a tag further ahead is applied at once. A packet
 that does not parse is dropped.
 
-`/show/opacity` is the master opacity (0..1). It fades the picture toward black and is not stored
-in a scene. `/show/brightness` stays the background gradient brightness. Output sends the same
+`/show/opacity` is the master opacity (0..1). It fades the picture toward black, or toward clear on
+a transparent background, and is not stored in a scene. `/show/brightness` stays the background gradient brightness. Output sends the same
 writable addresses back, including the panel sliders, so a desk fader can follow.
 
 OSCQuery serves the tree over HTTP, with type, range and the current value. The default port is
@@ -1693,7 +1695,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2986 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2993 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
