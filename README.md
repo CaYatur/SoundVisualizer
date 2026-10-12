@@ -1789,7 +1789,8 @@ MilkDrop shader engine in v3.1.2, per-application audio capture and aspect corre
 the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, and the MilkDrop library
 and editor, MCP, OSC in and out and in-app updates in v3.1.5. Next are a far broader and much faster
 video export in v3.1.6, the broadcast layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps an honest list of
-what is *not* done, and why.
+what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
+area.
 
 ---
 

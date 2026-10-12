@@ -1793,7 +1793,8 @@ platform derlemeler, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başı
 basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu, v3.1.5'te
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme. Sırada
 v3.1.6'da çok daha geniş ve çok daha hızlı video dışa aktarma, v3.1.7'de yayın düzeni düzenleyicisi ve v3.2.0'da yedeklilik ve kare eşitleme var. Neyin
-*yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor.
+*yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
+konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 
 ---
 
