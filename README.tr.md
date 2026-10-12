@@ -30,7 +30,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 **[SSS](#sss)** ·
 **[English](README.md)**
 
-<img src="docs/screenshots/hero.gif" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, bir MilkDrop preseti, bir tünel, 3B Lorenz çekicisi, bir müzik videosu düzeni, synthwave ve bir drum &amp; bass peteği, hepsi müziğe tepki veriyor" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer tanıtım klibi: camgöbeği ve mor degrade üzerinde logonun iki yanında gökkuşağı barlar, bir MilkDrop preseti, bir tünel, 3B Lorenz çekicisi, bir müzik videosu düzeni, synthwave ve bir drum &amp; bass peteği, hepsi müziğe tepki veriyor" width="800" />
 
 </div>
 

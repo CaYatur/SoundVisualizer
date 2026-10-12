@@ -29,7 +29,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 **[FAQ](#faq)** ·
 **[Türkçe](README.tr.md)**
 
-<img src="docs/screenshots/hero.gif" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
+<img src="docs/screenshots/hero.webp" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
 
 </div>
 
