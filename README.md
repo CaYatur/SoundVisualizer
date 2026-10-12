@@ -46,10 +46,6 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 
 </div>
 
-> **About the version labels.** The current release is **v3.1.4**. Everything on this page is in
-> the source on `main`; items marked <kbd>3.1.5</kbd> ship with the next release, v3.1.5, and are
-> not in the v3.1.4 download yet. Run from source to use them today.
-
 ---
 
 ## Why CAYADEV Visualizer
@@ -64,7 +60,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
   against a reference MilkDrop 2 renderer. Import whole libraries, browse them as thumbnails, edit presets live,
-  or generate new ones <kbd>3.1.5</kbd>. [→ MilkDrop](#milkdrop)
+  or generate new ones. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
   crossfader, 40 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
@@ -76,13 +72,13 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
   [→ Stage](#stage-projection-mapping-and-aspect-correction)
 - **Your lights follow the music.** **Windows Dynamic Lighting**, **OpenRGB** on every platform and
   **Art-Net / DMX**, all fed by one renderer — they can even take their colours from the MilkDrop
-  picture <kbd>3.1.5</kbd>. [→ Lighting](#rgb-lighting-dynamic-lighting-openrgb-and-art-net)
+  picture. [→ Lighting](#rgb-lighting-dynamic-lighting-openrgb-and-art-net)
 - **For creators.** Frame-exact **offline video export** from an audio file, one-key recording,
   music-video layouts, a **Now Playing** overlay with album art, and synced **lyrics** (LRC / SRT).
   [→ Export](#recording-and-video-export)
 - **AI-ready.** A local **MCP server** with 96 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
-  only <kbd>3.1.5</kbd>. [→ MCP](#mcp--control-from-an-ai-agent)
+  only. [→ MCP](#mcp--control-from-an-ai-agent)
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
   makes on its own is GitHub's latest-release check, and you can switch it off.
   [→ Privacy](#privacy-and-security)
@@ -140,7 +136,7 @@ Get the latest build from **[Releases](https://github.com/CaYatur/SoundVisualize
 | **Windows 10 / 11** | `…-windows-setup.exe` | Recommended. Registers the Dynamic Lighting identity so lights keep running in the background, and can update itself. |
 | Windows, portable | `…-windows-portable.exe` | No installation. Dynamic Lighting works only while the app is focused. |
 | **macOS** (Apple Silicon) | `…-macos-arm64.dmg` / `.zip` | Unsigned — see [macOS first launch](#macos-first-launch). System audio needs a virtual device such as BlackHole. |
-| **Linux** (x64) | `…-linux-x86_64.AppImage` / `…-linux-amd64.deb` | Needs PulseAudio or PipeWire. The AppImage can update itself <kbd>3.1.5</kbd>. |
+| **Linux** (x64) | `…-linux-x86_64.AppImage` / `…-linux-amd64.deb` | Needs PulseAudio or PipeWire. The AppImage can update itself. |
 
 Nothing else needs to be installed: the audio helper runs on the application's own binary.
 
@@ -232,11 +228,11 @@ The sections above are the short version. Everything below is the full list, by 
   itself, and an app that is not running yet is picked up when it starts. Needs Windows build
   20348 or newer. macOS and Linux report why it is not available there yet.
 - **Several sources at once**, mixed before analysis — "Spotify + microphone" is one selection.
-- **Both channels reach the visuals** <kbd>3.1.5</kbd>. Each frame carries the left and right
+- **Both channels reach the visuals**. Each frame carries the left and right
   channels next to the mono mix, so stereo width, correlation and the Goniometer measure the real
   stereo image. Until v3.1.5 the capture helper averaged the two channels away: width sat at 0,
   correlation at 1, and the Goniometer drew a vertical line for every song.
-- **Recovers by itself** <kbd>3.1.5</kbd>. If the capture helper exits or its frames stop (sleep and
+- **Recovers by itself**. If the capture helper exits or its frames stop (sleep and
   resume, a device unplugged), capture is rebuilt with a growing back-off, and the panel says
   "reconnecting" instead of pretending to capture. A device that drops in and out is not retried in
   a tight loop.
@@ -298,7 +294,7 @@ and 174 BPM signals), with tap tempo and a BPM lock shared by Auto VJ, the clip 
 
 These two sheets are generated from the mode catalogue itself, so a new mode appears in them the
 next time the screenshots are rendered. Any visualizer can sit on any background, and with layers
-you can stack as many of each as you like. Modes added since v3.1.4 are part of <kbd>3.1.5</kbd>.
+you can stack as many of each as you like.
 
 **Visualizer modes — 60**
 
@@ -356,7 +352,7 @@ bloom and blur glow over empty pixels without turning the window into a black re
 
 <div align="center">
 
-| Preset library with thumbnails <kbd>3.1.5</kbd> | Live preset editor <kbd>3.1.5</kbd> |
+| Preset library with thumbnails | Live preset editor |
 |:---:|:---:|
 | ![MilkDrop panel](docs/screenshots/panel-milkdrop.png) | ![MilkDrop preset editor](docs/screenshots/panel-mdedit.png) |
 
@@ -377,33 +373,33 @@ shaders are translated to GLSL and run on the GPU.
 - **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
   Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
-- **Import a whole library** <kbd>3.1.5</kbd> — from a ZIP pack, a folder, or by searching this
+- **Import a whole library** — from a ZIP pack, a folder, or by searching this
   computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
   names can become tags. A 9,795-preset folder imports in about six seconds.
-- **`.milk` and `.milk2`** <kbd>3.1.5</kbd> — MilkDrop 3's double presets load as a frozen blend of
+- **`.milk` and `.milk2`** — MilkDrop 3's double presets load as a frozen blend of
   their two presets, and a *Preset Format* setting reads files with MilkDrop 2 or MilkDrop 3 rules
   (16 custom waves and shapes, `q1`–`q64`), or picks automatically.
-- **Thumbnails** <kbd>3.1.5</kbd> — a *Grid* layout shows each preset as a small picture, drawn once
+- **Thumbnails** — a *Grid* layout shows each preset as a small picture, drawn once
   in the background and redrawn only when the preset or a texture it uses changes.
-- **Favourites, tags, ratings and search by author** <kbd>3.1.5</kbd> — `author:geiss` finds Geiss's
+- **Favourites, tags, ratings and search by author** — `author:geiss` finds Geiss's
   presets, `#calm` finds a tag; random order is weighted by rating as MilkDrop weights it; Previous
   and Next walk a 64-step history of what was actually shown.
-- **A live editor** <kbd>3.1.5</kbd> — frame and pixel equations, waves, shapes, warp and composite
+- **A live editor** — frame and pixel equations, waves, shapes, warp and composite
   shaders each have a tab; a change shows in the running picture a moment after you stop typing;
   errors point at the preset's own line. The original is never changed.
-- **A preset generator and mash-ups** <kbd>3.1.5</kbd> — write an original preset from four sliders
+- **A preset generator and mash-ups** — write an original preset from four sliders
   (energy, warmth, density, motion) and a seed that brings the same preset back, or build one from
   parts of the presets you already have. Generated presets never flash.
-- **Show control** <kbd>3.1.5</kbd> — auto advance by seconds or **on the bar**, hard cuts on loud
+- **Show control** — auto advance by seconds or **on the bar**, hard cuts on loud
   moments, *next preset on track change*, a lock, and MilkDrop actions on MIDI and OSC. Every screen
   shows the same preset with the same random seed.
-- **User textures and sprites** <kbd>3.1.5</kbd> — point at a MilkDrop `textures` folder, and launch
+- **User textures and sprites** — point at a MilkDrop `textures` folder, and launch
   `milk_img.ini` sprites with MilkDrop's own keys or from a controller.
-- **Safe to watch** <kbd>3.1.5</kbd> — flash limiting at WCAG 2.3.1's general-flash value, held per
+- **Safe to watch** — flash limiting at WCAG 2.3.1's general-flash value, held per
   second so a 144 Hz screen is as safe as a 30 fps one, and the system's *reduce motion* setting
   is honoured.
-- **Survives a GPU reset** <kbd>3.1.5</kbd> — a lost WebGL context is rebuilt on the same canvas,
+- **Survives a GPU reset** — a lost WebGL context is rebuilt on the same canvas,
   and the running preset carries on with the same equation state and clock.
 
 The **Feedback** engine is MilkDrop's family resemblance without presets: zoom, rotate, warp and
@@ -433,7 +429,7 @@ decay sliders, four wave styles, and bass-driven zoom and rotation for the class
   settings, lock prevents accidental edits.
 - Copy, paste and duplicate layers across scenes. The whole stack can be switched off, returning
   to the plain Background plus Visualizer setup without losing the list.
-- **One broken layer no longer takes the frame with it** <kbd>3.1.5</kbd>, and layers hidden under
+- **One broken layer no longer takes the frame with it**, and layers hidden under
   an opaque MilkDrop layer are not drawn at all.
 
 **Post-processing — 40 GPU effects**, orderable, each with its own opacity, toggleable, and
@@ -634,7 +630,7 @@ from Spotify, YouTube Music, a browser or most players appears on screen by itse
 album, elapsed and remaining time, a progress bar and the album cover. It can stay on screen or
 appear only when the track changes, with seven animations and *Modern* and *OG* styles. On macOS
 and Linux the title, artist and cover are entered by hand. Now Playing also shows in the panel
-preview and in exported videos <kbd>3.1.5</kbd>.
+preview and in exported videos.
 
 **Text.** Audio-reactive typography with per-character response (scale, jitter, lift) · font,
 weight, size, alignment, position, opacity, outline and shadow · animation presets · marquee and
@@ -646,7 +642,7 @@ ticker · karaoke highlighting.
 - **A timing editor** with a sync offset that writes back to LRC.
 - **Play, pause and stop** for a loaded lyrics file while the screens are open; all screens and the
   OBS overlay share one clock, corrected to the machine running the app.
-- **Lyrics library (Windows)** <kbd>3.1.5</kbd> — keep many LRC or SRT files, each with an artist and
+- **Lyrics library (Windows)** — keep many LRC or SRT files, each with an artist and
   a title. **Follow the Playing Track** finds the right file for the song from the system media
   session and moves with seek and pause. **Exact Match** or **Partial Match** for small spelling
   differences; timed lyrics from the player are used when the library has no match. Files open in a
@@ -660,7 +656,7 @@ ticker · karaoke highlighting.
 - **Logo** — an image placed anywhere in the frame, automatically sized, with size, opacity, glow,
   position and audio pulse; animated GIFs play. The logo can also show the **album cover of the
   playing track**. Applying a template keeps your logo and only changes its placement.
-- **Logo and video libraries** <kbd>3.1.5</kbd> — imported files are copied into the app's own
+- **Logo and video libraries** — imported files are copied into the app's own
   folder and referenced by id, so the settings file stays small and a moved original does not break
   a scene.
 - **Visual objects** — image sprites in front of or behind the visualizer, with count, size, drift,
@@ -669,7 +665,7 @@ ticker · karaoke highlighting.
   contain, stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode,
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`.
-- **Smooth on every output** <kbd>3.1.5</kbd> — videos are decoded on the CPU by default, so they
+- **Smooth on every output** — videos are decoded on the CPU by default, so they
   play at full frame rate in full-screen windows and in the Spout/Syphon feed. With hardware
   decoding, Chromium produced almost no frames there (0.3 per second, measured) and the clip froze
   at its loop point. HEVC/H.265 videos need **Settings → Application → Hardware Video Decoding**
@@ -692,7 +688,7 @@ one playhead drives every screen together, and offline export plays the same sho
 
 - Clip tracks for scenes, templates, palettes, video, images, shaders and actions; **automation
   lanes** for any setting, with curves; markers and a loop.
-- **A full editor** <kbd>3.1.5</kbd>, modelled on Ableton's Arrangement View: a toolbar with
+- **A full editor**, modelled on Ableton's Arrangement View: a toolbar with
   transport, clock (time and bar.beat), tempo, snap, loop, follow and zoom; track headers with
   colour, mute, solo and lock; split at the playhead, duplicate, copy and paste, nudge, 100-step
   undo; multi-select with box selection; a draggable loop brace and marker flags; per-clip
@@ -703,12 +699,12 @@ one playhead drives every screen together, and offline export plays the same sho
 
 - **Beat-quantised launching** with a global quantise setting, **follow actions** (next, random,
   go-to, loop, stop) and durations.
-- **Launch modes** <kbd>3.1.5</kbd> — trigger, toggle and **gate** (plays while held).
+- **Launch modes** — trigger, toggle and **gate** (plays while held).
 - **Several decks** with tabs, named rows and columns, colours, progress bars, a blinking countdown
   on queued cells, drag-and-drop to move or copy, and a **Performance View** for a second screen.
-- **Keyboard play** <kbd>3.1.5</kbd> — 1-9 or arrows pick the row, A-P fires a slot, Enter launches
+- **Keyboard play** — 1-9 or arrows pick the row, A-P fires a slot, Enter launches
   the row.
-- **Media and action slots** <kbd>3.1.5</kbd> — video, image and shader slots apply to a chosen layer;
+- **Media and action slots** — video, image and shader slots apply to a chosen layer;
   action slots run the same actions as MIDI and OSC mappings.
 - Fired slots can be **recorded to the timeline**, so an improvised set becomes an editable show.
 
@@ -722,7 +718,7 @@ next, previous, random, cut, lock and rating.
 
 **OSC.** A UDP listener with a hand-written OSC 1.0 parser, for TouchOSC, Resolume, Ableton or QLab.
 
-**OSC output** <kbd>3.1.5</kbd>. The other direction. It is off by default, sends to this computer
+**OSC output**. The other direction. It is off by default, sends to this computer
 until you set another target, and refuses to send to its own OSC input, which would loop. Extra
 targets are one `host:port` or `[ipv6]:port` per line. A positive clock latency delays the phase so
 lights can wait for a late speaker.
@@ -766,7 +762,7 @@ panel open, the clock and the show state still go out.
 | `/deck/row` `/deck/col` | int | -1 if none | the newest playing clip |
 | `/deck/active` | string | `row:col` list | every playing cell |
 
-**OSC input** <kbd>3.1.5</kbd>. The same prefix, in the other direction. It is off by default and
+**OSC input**. The same prefix, in the other direction. It is off by default and
 listens on UDP `9000` for IPv4 and IPv6, from more than one sender. Learn mode still maps any
 address the tree does not own. A value on a fixed address is the slider's own range, not a 0..1
 guess. Strings are UTF-8.
@@ -801,7 +797,7 @@ If the IPv6 socket cannot open, IPv4 keeps listening. The A/B crossfader is `/cr
 **Phone remote.** A phone-sized page for scenes, colour palettes, Studio presets, visualizer and
 background modes, audio sensitivity, blackout and the now-playing card, served by the same server
 as the OBS overlay. Values sent from the phone are
-range-checked before they are applied <kbd>3.1.5</kbd>.
+range-checked before they are applied.
 
 **Blackout** on <kbd>Space</kbd> or from any controller, with its own transition, leaving the stored
 scene untouched.
@@ -818,9 +814,9 @@ scene untouched.
 
 **Multi-monitor.** A separate full-screen window on every display you select. The chosen displays
 are remembered by position and size, so a monitor that Windows renumbers after reconnecting is
-found again <kbd>3.1.5</kbd>.
+found again.
 
-**Floating window** <kbd>3.1.5</kbd>. A picture-in-picture window with opacity, a 16:9 aspect lock,
+**Floating window**. A picture-in-picture window with opacity, a 16:9 aspect lock,
 a position lock and **click-through**, for keeping the visuals over your desktop while you work.
 
 **Streaming output — OBS and the browser.** Turn on **Output → Streaming Output** and the
@@ -833,7 +829,7 @@ application serves an overlay page.
 - **Transparency is the app's own switch**; add `?transparent=0` or `?transparent=1` to one source's
   address to force it either way.
 - **Lyrics follow the app**, and the browser corrects its clock to the machine running the app.
-- **A diagnostics card** <kbd>3.1.5</kbd> — add `?debug=1` to the address to see the connection,
+- **A diagnostics card** — add `?debug=1` to the address to see the connection,
   configuration, audio frame rate, canvas size, transparency, app version and last error.
 - Access is protected by tokens; the overlay and the phone remote have separate ones.
 
@@ -909,7 +905,7 @@ modes and colour maths** as Dynamic Lighting.
 byte.
 
 **Colour sources.** The lights can follow the background, the theme, or the **live MilkDrop
-picture** <kbd>3.1.5</kbd> — sampled about 30 times a second into eight slices from left to right, so
+picture** — sampled about 30 times a second into eight slices from left to right, so
 the fixtures on the left take the colours on the left of the screen.
 
 ---
@@ -936,8 +932,6 @@ the fixtures on the left take the colours on the left of the screen.
 ---
 
 ### MCP — control from an AI agent
-
-<kbd>3.1.5</kbd>
 
 An agent drives the running application over the **Model Context Protocol**. The switch is on the
 **Control** card and is off by default. The application stays open while the switch is on. The
@@ -1129,16 +1123,16 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Accidental-close protection** — a visualizer window that closes unexpectedly (a crash, Alt+F4)
   reopens at once; *Prevent accidental quit* asks before the app closes during a show; an optional
   ESC lock, with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Q</kbd> as the way out.
-- **Keeps the display awake** <kbd>3.1.5</kbd> — on by default while a visualizer window is open and
+- **Keeps the display awake** — on by default while a visualizer window is open and
   not minimised, on Windows, macOS and Linux; minimising or closing hands control back to your power
   settings.
-- **Every GPU surface recovers from a lost context** <kbd>3.1.5</kbd> — a driver reset no longer
+- **Every GPU surface recovers from a lost context** — a driver reset no longer
   leaves black layers until a restart.
-- **Main-process faults are contained** <kbd>3.1.5</kbd> — an unexpected error is logged and shown in
+- **Main-process faults are contained** — an unexpected error is logged and shown in
   the panel instead of freezing the app behind an error dialog.
-- **Two copies at once** <kbd>3.1.5</kbd> — a second copy names the one already running and offers to
+- **Two copies at once** — a second copy names the one already running and offers to
   switch to it; a copy never silently writes over settings someone else changed.
-- **Updates** <kbd>3.1.5</kbd> — *Library → Updates* checks GitHub Releases, shows the notes, and
+- **Updates** — *Library → Updates* checks GitHub Releases, shows the notes, and
   lets you skip a version. The Windows installer and the AppImage download and install in place;
   nothing runs unless the size and the SHA-256 match exactly. Off, notify (default) or automatic.
 - **Settings backup and restore** — every setting in one JSON file; palettes and scenes have their
@@ -1158,7 +1152,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   - **Stream server**: `127.0.0.1` by default. *Open to local network* listens on every interface.
     With *Token Protection* on, the overlay and the remote need the token in their address; with it
     off, any device on the network that finds the address can open them. Either way the server
-    refuses pages from other origins and host names it does not know <kbd>3.1.5</kbd>, and clients
+    refuses pages from other origins and host names it does not know, and clients
     never receive the tokens in the configuration.
   - **OSC input**: UDP `9000` on every interface, IPv4 and IPv6. Like most OSC software it has no
     password, so any device on the network can send to the mapped addresses.
@@ -1198,7 +1192,7 @@ can run on a different computer on the same network. Spout (Windows) and Syphon 
 GPU sharing as well.
 
 **Can it load my MilkDrop presets?**
-Yes: single `.milk` files, MilkDrop 3 `.milk2` double presets <kbd>3.1.5</kbd>, ZIP packs, folders, or
+Yes: single `.milk` files, MilkDrop 3 `.milk2` double presets, ZIP packs, folders, or
 a search of your computer. Point the app at a MilkDrop `textures` folder for presets that use images.
 No third-party preset pack is bundled; five original presets are.
 
@@ -1215,7 +1209,7 @@ Yes. Video Export renders an audio file to MP4 frame by frame, up to 4K at 60 fp
 scene. It is not a screen recording, so the result does not depend on how fast your computer is.
 
 **Can AI agents control it?**
-Yes <kbd>3.1.5</kbd>. Turn on MCP on the Control page and connect Claude Desktop, Codex, Cursor or any
+Yes. Turn on MCP on the Control page and connect Claude Desktop, Codex, Cursor or any
 MCP client with the command the setup dialog gives you. Access starts at read-only. The command needs
 [Node.js](https://nodejs.org/) LTS on the computer.
 
@@ -1234,7 +1228,7 @@ users are very welcome.
 
 **My video freezes in full screen or in Spout, or an iPhone video will not play.**
 Videos are decoded on the CPU by default, which keeps them smooth in full screen and in the
-Spout/Syphon feed <kbd>3.1.5</kbd>. HEVC/H.265 files (common from phones) can only be decoded in
+Spout/Syphon feed. HEVC/H.265 files (common from phones) can only be decoded in
 hardware: turn on Settings → Application → Hardware Video Decoding and restart the app.
 
 **Is my data sent anywhere?**
@@ -1792,9 +1786,9 @@ The timeline editor and the clip deck have their own shortcuts, listed in their 
 [ROADMAP.md](ROADMAP.md) records what has actually shipped and what each planned release is for —
 Timeline and Clip Deck in v3.1.0, cross-platform builds with OpenRGB and Spout/Syphon in v3.1.1, the
 MilkDrop shader engine in v3.1.2, per-application audio capture and aspect correction in v3.1.3, and
-the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4. Next are MilkDrop and
-streaming refinements in v3.1.5, a far broader and much faster video export in v3.1.6, the broadcast
-layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps an honest list of
+the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, and the MilkDrop library
+and editor, MCP, OSC in and out and in-app updates in v3.1.5. Next are a far broader and much faster
+video export in v3.1.6, the broadcast layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps an honest list of
 what is *not* done, and why.
 
 ---

@@ -47,10 +47,6 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 
 </div>
 
-> **Sürüm etiketleri hakkında.** Güncel sürüm **v3.1.4**. Bu sayfadaki her şey `main` dalındaki
-> kaynakta var; <kbd>3.1.5</kbd> ile işaretlenenler bir sonraki sürümle, v3.1.5 ile geliyor ve
-> v3.1.4 indirmesinde henüz yok. Bugün kullanmak için kaynaktan çalıştırın.
-
 ---
 
 ## Neden CAYADEV Visualizer
@@ -65,7 +61,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
   çizicisiyle ölçüldü. Bütün kütüphaneleri içe aktarın, küçük resimlerle gezin, presetleri canlı
-  düzenleyin ya da yenilerini üretin <kbd>3.1.5</kbd>. [→ MilkDrop](#milkdrop)
+  düzenleyin ya da yenilerini üretin. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
   geçiş sürgüsü, katman başına ya da tüm kareye 40 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
@@ -77,14 +73,13 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
   harmanlamalı projeksiyon haritalama; pikselleri kare olmayan LED duvarlar için **basıklık
   düzeltme**. [→ Sahne](#sahne-projeksiyon-haritalama-ve-basıklık-düzeltme)
 - **Işıklarınız müziği izler.** **Windows Dynamic Lighting**, her platformda **OpenRGB** ve **Art-Net /
-  DMX**, hepsi tek bir çiziciyle — renklerini MilkDrop görüntüsünden bile alabilirler
-  <kbd>3.1.5</kbd>. [→ Aydınlatma](#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net)
+  DMX**, hepsi tek bir çiziciyle — renklerini MilkDrop görüntüsünden bile alabilirler. [→ Aydınlatma](#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net)
 - **İçerik üreticileri için.** Bir ses dosyasından kare kare **çevrimdışı video dışa aktarma**, tek
   tuşla kayıt, müzik videosu düzenleri, albüm kapaklı bir **Çalan Parça** katmanı ve zamanlı **şarkı
   sözleri** (LRC / SRT). [→ Dışa aktarma](#kayıt-ve-video-dışa-aktarma)
 - **Yapay zekâya hazır.** 96 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
-  `127.0.0.1` üzerinde <kbd>3.1.5</kbd>. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
+  `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
   tek çağrı GitHub'ın son sürüm denetimi; onu da kapatabilirsiniz.
   [→ Gizlilik](#gizlilik-ve-güvenlik)
@@ -141,7 +136,7 @@ Son derlemeyi **[Sürümler](https://github.com/CaYatur/SoundVisualizer/releases
 | **Windows 10 / 11** | `…-windows-setup.exe` | Önerilen. Işıklar arka planda da çalışsın diye Dynamic Lighting kimliğini kaydeder ve kendini güncelleyebilir. |
 | Windows, taşınabilir | `…-windows-portable.exe` | Kurulum yok. Dynamic Lighting yalnız uygulama odaktayken çalışır. |
 | **macOS** (Apple Silicon) | `…-macos-arm64.dmg` / `.zip` | İmzasız — bkz. [macOS'ta ilk açılış](#macosta-ilk-açılış). Sistem sesi için BlackHole gibi sanal bir aygıt gerekir. |
-| **Linux** (x64) | `…-linux-x86_64.AppImage` / `…-linux-amd64.deb` | PulseAudio ya da PipeWire gerekir. AppImage kendini güncelleyebilir <kbd>3.1.5</kbd>. |
+| **Linux** (x64) | `…-linux-x86_64.AppImage` / `…-linux-amd64.deb` | PulseAudio ya da PipeWire gerekir. AppImage kendini güncelleyebilir. |
 
 Başka hiçbir şey kurmanız gerekmiyor: ses yardımcısı uygulamanın kendi ikili dosyasıyla çalışıyor.
 
@@ -233,11 +228,11 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
   başlayan bir uygulama kendiliğinden yeniden bağlanır, henüz açılmamış bir uygulama açılınca
   yakalanır. Windows 20348 ya da üstü gerekir. macOS ve Linux burada neden henüz olmadığını söyler.
 - **Aynı anda birkaç kaynak**, çözümlemeden önce karıştırılır — "Spotify + mikrofon" tek bir seçimdir.
-- **İki kanal da görsellere ulaşıyor** <kbd>3.1.5</kbd>. Her kare tek kanallı karışımın yanında sol ve
+- **İki kanal da görsellere ulaşıyor**. Her kare tek kanallı karışımın yanında sol ve
   sağ kanalı da taşıyor; stereo genişlik, korelasyon ve Gonyometre gerçek stereo görüntüyü ölçüyor.
   v3.1.5'e kadar yakalama yardımcısı iki kanalın ortalamasını alıyordu: genişlik 0'da, korelasyon
   1'de kalıyor, Gonyometre her şarkıda dikey bir çizgi çiziyordu.
-- **Kendini toparlıyor** <kbd>3.1.5</kbd>. Yakalama yardımcısı kapanırsa ya da kareleri durursa
+- **Kendini toparlıyor**. Yakalama yardımcısı kapanırsa ya da kareleri durursa
   (uykudan dönüş, çıkarılan bir aygıt) yakalama giderek uzayan aralıklarla yeniden kurulur ve panel
   yakalıyormuş gibi yapmak yerine "yeniden bağlanıyor" der. Takılıp çıkan bir aygıt sıkı bir döngüde
   denenmez.
@@ -301,7 +296,7 @@ paylaştığı bir BPM kilidiyle.
 Bu iki pafta doğrudan mod kataloğundan üretiliyor; yeni bir mod, ekran görüntüleri bir sonraki
 çizilişinde kendiliğinden içlerine giriyor. (Paftalar uluslararası okuyucu için İngilizce adlarla.)
 Her görselleştirici her arkaplanın üzerinde durabilir; katmanlarla her birinden istediğiniz kadar
-üst üste koyabilirsiniz. v3.1.4'ten sonra eklenen modlar <kbd>3.1.5</kbd>'in parçası.
+üst üste koyabilirsiniz.
 
 **Görselleştirici modları — 60**
 
@@ -357,7 +352,7 @@ dikdörtgene çevirmeden boş piksellerin üzerinde parlar.
 
 <div align="center">
 
-| Küçük resimli preset kitaplığı <kbd>3.1.5</kbd> | Canlı preset düzenleyici <kbd>3.1.5</kbd> |
+| Küçük resimli preset kitaplığı | Canlı preset düzenleyici |
 |:---:|:---:|
 | ![MilkDrop paneli](docs/screenshots/panel-milkdrop.png) | ![MilkDrop preset düzenleyici](docs/screenshots/panel-mdedit.png) |
 
@@ -379,34 +374,34 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
   *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
-- **Bütün bir kütüphaneyi içe aktarın** <kbd>3.1.5</kbd> — bir ZIP paketinden, bir klasörden ya da bu
+- **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
   bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,
   Belgeler). Bir şey kopyalanmadan önce ne ekleneceğini görüyorsunuz; aynıları atlanıyor; dokular da
   geliyor; klasör adları etikete dönüşebiliyor. 9.795 presetlik bir klasör yaklaşık altı saniyede içe
   aktarılıyor.
-- **`.milk` ve `.milk2`** <kbd>3.1.5</kbd> — MilkDrop 3'ün çift presetleri iki presetlerinin donmuş bir
+- **`.milk` ve `.milk2`** — MilkDrop 3'ün çift presetleri iki presetlerinin donmuş bir
   karışımı olarak yükleniyor; *Preset Biçimi* ayarı dosyaları MilkDrop 2 ya da MilkDrop 3 kurallarıyla
   (16 özel dalga ve şekil, `q1`–`q64`) okuyor ya da kendisi seçiyor.
-- **Küçük resimler** <kbd>3.1.5</kbd> — *Izgara* düzeninde her preset küçük bir resim olarak görünüyor;
+- **Küçük resimler** — *Izgara* düzeninde her preset küçük bir resim olarak görünüyor;
   arka planda bir kez çiziliyor, yalnız preset ya da kullandığı bir doku değişince yeniden çiziliyor.
-- **Favoriler, etiketler, puanlar ve yazara göre arama** <kbd>3.1.5</kbd> — `yazar:geiss` Geiss'in
+- **Favoriler, etiketler, puanlar ve yazara göre arama** — `yazar:geiss` Geiss'in
   presetlerini, `#sakin` bir etiketi buluyor; rastgele sıra MilkDrop'un yaptığı gibi puana göre
   ağırlıklanıyor; Önceki ve Sonraki gerçekten gösterilenlerin 64 adımlık geçmişinde yürüyor.
-- **Canlı düzenleyici** <kbd>3.1.5</kbd> — kare ve piksel denklemleri, dalgalar, şekiller, warp ve
+- **Canlı düzenleyici** — kare ve piksel denklemleri, dalgalar, şekiller, warp ve
   composite shader'ları ayrı sekmelerde; yazmayı bıraktıktan bir an sonra değişiklik çalışan görüntüde;
   hatalar presetin kendi satırını gösteriyor. Özgün dosya hiç değişmiyor.
-- **Preset üretici ve karışımlar** <kbd>3.1.5</kbd> — dört sürgüden (enerji, sıcaklık, yoğunluk,
+- **Preset üretici ve karışımlar** — dört sürgüden (enerji, sıcaklık, yoğunluk,
   hareket) ve aynı preseti geri getiren bir tohumdan özgün bir preset yazın, ya da elinizdeki
   presetlerin parçalarından bir tane kurun. Üretilen presetler asla çakmıyor.
-- **Gösteri kontrolü** <kbd>3.1.5</kbd> — saniyeyle ya da **ölçüde** otomatik geçiş, yüksek anlarda sert
+- **Gösteri kontrolü** — saniyeyle ya da **ölçüde** otomatik geçiş, yüksek anlarda sert
   geçiş, *parça değişince sıradaki preset*, bir kilit, ve MIDI ile OSC'de MilkDrop eylemleri. Her ekran
   aynı tohumla aynı preseti gösteriyor.
-- **Kullanıcı dokuları ve sprite'lar** <kbd>3.1.5</kbd> — bir MilkDrop `textures` klasörünü gösterin;
+- **Kullanıcı dokuları ve sprite'lar** — bir MilkDrop `textures` klasörünü gösterin;
   `milk_img.ini` sprite'larını MilkDrop'un kendi tuşlarıyla ya da bir denetleyiciden başlatın.
-- **İzlemesi güvenli** <kbd>3.1.5</kbd> — WCAG 2.3.1'in genel flaş değerinde flaş sınırlama, saniye
+- **İzlemesi güvenli** — WCAG 2.3.1'in genel flaş değerinde flaş sınırlama, saniye
   başına tutuluyor, yani 144 Hz bir ekran 30 fps'lik bir ekran kadar güvenli; sistemin *hareketi
   azalt* ayarına uyuluyor.
-- **GPU sıfırlamasından sağ çıkıyor** <kbd>3.1.5</kbd> — kaybolan bir WebGL bağlamı aynı tuvalde
+- **GPU sıfırlamasından sağ çıkıyor** — kaybolan bir WebGL bağlamı aynı tuvalde
   yeniden kuruluyor ve çalışan preset aynı denklem durumu ve saatle kaldığı yerden devam ediyor.
 
 **Geri Besleme** motoru, MilkDrop'un presetsiz akrabası: yakınlaşma, dönüş, bükülme ve sönme
@@ -436,7 +431,7 @@ sürgüleri, dört dalga biçimi, ve klasik sonsuz tünel için basla sürülen 
   ayarlarını kaybetmeden gizler, kilit kazara düzenlemeyi önler.
 - Katmanları sahneler arasında kopyalayın, yapıştırın, çoğaltın. Bütün yığın kapatılabilir; liste
   kaybolmadan düz Arkaplan + Görselleştirici kurulumuna dönülür.
-- **Bozuk bir katman artık bütün kareyi götürmüyor** <kbd>3.1.5</kbd>, ve opak bir MilkDrop katmanının
+- **Bozuk bir katman artık bütün kareyi götürmüyor**, ve opak bir MilkDrop katmanının
   altında kalan katmanlar hiç çizilmiyor.
 
 **Son işlem — 40 GPU efekti**; sıralanabilir, her birinin kendi opaklığı var, açılıp kapanabilir, hem
@@ -636,7 +631,7 @@ Music'ten, bir tarayıcıdan ya da çoğu oynatıcıdan gelen parça ekrana kend
 sanatçı, albüm, geçen ve kalan süre, ilerleme çubuğu ve albüm kapağı. Sürekli görünebiliyor ya da
 yalnız parça değişince beliriyor; yedi canlandırma ve *Modern* ile *OG* biçimleriyle. macOS ve
 Linux'ta ad, sanatçı ve kapak elle giriliyor. Çalan Parça panel önizlemesinde ve dışa aktarılan
-videolarda da görünüyor <kbd>3.1.5</kbd>.
+videolarda da görünüyor.
 
 **Metin.** Karakter başına tepkili (ölçek, titreme, yükselme) sese duyarlı tipografi · yazı tipi,
 kalınlık, boyut, hizalama, konum, opaklık, dış çizgi ve gölge · canlandırma kalıpları · kayan yazı ve
@@ -648,7 +643,7 @@ haber bandı · karaoke vurgusu.
 - LRC'ye geri yazan senkron kaymalı bir **zamanlama düzenleyici**.
 - Ekranlar açıkken yüklü bir söz dosyası için **oynat, duraklat ve durdur**; bütün ekranlar ve OBS
   katmanı, uygulamanın çalıştığı makineye göre düzeltilen tek bir saati paylaşıyor.
-- **Söz Kütüphanesi (Windows)** <kbd>3.1.5</kbd> — her biri sanatçı ve parça adı taşıyan birçok LRC ya
+- **Söz Kütüphanesi (Windows)** — her biri sanatçı ve parça adı taşıyan birçok LRC ya
   da SRT dosyası tutun. **Çalan Parçayı İzle**, sistem medya oturumundan şarkıya uyan dosyayı buluyor
   ve sarma ile duraklatmayla birlikte ilerliyor. **Tam Eşleme** ya da küçük yazım farklarına izin veren
   **Kısmen Eşleme**; kütüphanede eşleşme yoksa oynatıcının zamanlı sözleri kullanılıyor. Dosyalar zaman
@@ -662,7 +657,7 @@ haber bandı · karaoke vurgusu.
 - **Logo** — karenin herhangi bir yerine konan, kendiliğinden boyutlanan bir görsel; boyut, opaklık,
   parlama, konum ve ses nabzıyla; hareketli GIF'ler oynuyor. Logo **çalan parçanın albüm kapağını** da
   gösterebiliyor. Şablon uygulamak logonuzu koruyor, yalnız yerleşimini değiştiriyor.
-- **Logo ve video kitaplıkları** <kbd>3.1.5</kbd> — içe aktarılan dosyalar uygulamanın kendi klasörüne
+- **Logo ve video kitaplıkları** — içe aktarılan dosyalar uygulamanın kendi klasörüne
   kopyalanıp kimlikle anılıyor; ayar dosyası küçük kalıyor ve taşınan bir özgün dosya sahneyi bozmuyor.
 - **Görsel nesneler** — görselleştiricinin önünde ya da arkasında görsel sprite'lar; sayı, boyut,
   sürüklenme, dönme ve ses tepkisiyle.
@@ -670,7 +665,7 @@ haber bandı · karaoke vurgusu.
   sığdırma (kapla, sığdır, uzat), ayna, 3–12 dilimli kaleydoskop, ton kayması, doygunluk, karışım kipi,
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor.
-- **Her çıkışta akıcı** <kbd>3.1.5</kbd> — videolar varsayılan olarak işlemciyle çözülüyor; tam
+- **Her çıkışta akıcı** — videolar varsayılan olarak işlemciyle çözülüyor; tam
   ekran pencerelerde ve Spout/Syphon akışında tam kare hızında oynuyor. Donanım çözmede Chromium
   orada neredeyse hiç kare üretmiyordu (ölçüldü: saniyede 0,3) ve klip döngü noktasında donuyordu.
   HEVC/H.265 videolar için **Ayarlar → Uygulama → Donanım Video Çözme** gerekiyor (yeniden
@@ -694,7 +689,7 @@ gösteriyi oynatıyor.
 
 - Sahne, şablon, palet, video, görsel, shader ve eylem için klip parçaları; herhangi bir ayar için
   eğrili **otomasyon şeritleri**; işaretler ve döngü.
-- **Tam bir düzenleyici** <kbd>3.1.5</kbd>, Ableton'ın Arrangement View'ı örnek alınarak: aktarım,
+- **Tam bir düzenleyici**, Ableton'ın Arrangement View'ı örnek alınarak: aktarım,
   saat (zaman ve ölçü.vuruş), tempo, yakalama, döngü, izleme ve yakınlaştırmalı bir araç çubuğu; renk,
   sessiz, solo ve kilitli parça başlıkları; oynatma kafasında bölme, çoğaltma, kopyala-yapıştır, dürtme,
   100 adımlık geri alma; kutuyla çoklu seçim; sürüklenebilir döngü ayracı ve işaret bayrakları; klip
@@ -705,13 +700,13 @@ gösteriyi oynatıyor.
 
 - Genel bir nicemleme ayarıyla **vuruşa hizalı ateşleme**, **takip eylemleri** (sonraki, rastgele,
   git, döngü, dur) ve süreler.
-- **Ateşleme kipleri** <kbd>3.1.5</kbd> — tetik, aç/kapa ve **basılı tut** (basılıyken çalar).
+- **Ateşleme kipleri** — tetik, aç/kapa ve **basılı tut** (basılıyken çalar).
 - Sekmeli **birden çok deste**, adlandırılmış satır ve sütunlar, renkler, ilerleme çubukları, sıradaki
   hücrelerde yanıp sönen geri sayım, taşımak ya da kopyalamak için sürükle-bırak, ve ikinci bir ekran
   için **Performans Görünümü**.
-- **Klavyeyle çalma** <kbd>3.1.5</kbd> — 1-9 ya da oklar satırı seçer, A-P bir yuvayı ateşler, Enter
+- **Klavyeyle çalma** — 1-9 ya da oklar satırı seçer, A-P bir yuvayı ateşler, Enter
   satırı başlatır.
-- **Medya ve eylem yuvaları** <kbd>3.1.5</kbd> — video, görsel ve shader yuvaları seçilen bir katmana
+- **Medya ve eylem yuvaları** — video, görsel ve shader yuvaları seçilen bir katmana
   uygulanıyor; eylem yuvaları MIDI ve OSC eşlemeleriyle aynı eylemleri çalıştırıyor.
 - Ateşlenen yuvalar **zaman çizelgesine kaydedilebiliyor**; doğaçlanan bir set düzenlenebilir bir
   gösteriye dönüşüyor.
@@ -728,7 +723,7 @@ eşleyin — MilkDrop'un sonraki, önceki, rastgele, kes, kilit ve puan eylemler
 **OSC.** Elle yazılmış bir OSC 1.0 ayrıştırıcılı UDP dinleyici; TouchOSC, Resolume, Ableton ya da QLab
 için.
 
-**OSC çıkışı** <kbd>3.1.5</kbd>. Öbür yön. Varsayılan kapalı; başka bir hedef girilene kadar bu
+**OSC çıkışı**. Öbür yön. Varsayılan kapalı; başka bir hedef girilene kadar bu
 bilgisayara gönderir ve geri besleme olmasın diye kendi OSC girişine göndermez. Ek hedefler satır
 satır `host:port` ya da `[ipv6]:port`. Pozitif saat gecikmesi fazı geri alır; hoparlör geç
 kalıyorsa ışık onu bekler.
@@ -771,7 +766,7 @@ Syphon göndericisi. Yalnız kontrol paneli açıkken saat ve gösteri durumu yi
 | `/deck/row` `/deck/col` | int | yoksa -1 | en son çalan klip |
 | `/deck/active` | string | `satır:sütun` listesi | çalan her hücre |
 
-**OSC girişi** <kbd>3.1.5</kbd>. Aynı önek, ters yön. Varsayılan kapalıdır ve UDP `9000` portunda
+**OSC girişi**. Aynı önek, ters yön. Varsayılan kapalıdır ve UDP `9000` portunda
 IPv4 ile IPv6 dinler; birden çok gönderen yazabilir. Öğrenme modu, ağacın tutmadığı her adreste
 durur. Sabit adresteki değer, kaydırıcının kendi aralığıdır. Dizeler UTF-8'dir.
 
@@ -804,8 +799,7 @@ aynı sayılardır.
 
 **Telefon kumandası.** Sahneler, renk paletleri, Studio presetleri, görselleştirici ve arkaplan
 modları, ses hassasiyeti, karartma ve çalan parça kartı için telefon boyutunda bir sayfa; OBS
-katmanıyla aynı sunucudan. Telefondan gelen değerler uygulanmadan önce aralık denetiminden geçiyor
-<kbd>3.1.5</kbd>.
+katmanıyla aynı sunucudan. Telefondan gelen değerler uygulanmadan önce aralık denetiminden geçiyor.
 
 **Karartma** <kbd>Space</kbd> ile ya da herhangi bir denetleyiciden; kendi geçişiyle, kayıtlı sahneye
 dokunmadan.
@@ -821,10 +815,9 @@ dokunmadan.
 </div>
 
 **Çoklu ekran.** Seçtiğiniz her ekranda ayrı bir tam ekran pencere. Seçilen ekranlar konum ve boyutla
-hatırlanıyor; Windows'un yeniden bağlanınca numarasını değiştirdiği bir monitör yeniden bulunuyor
-<kbd>3.1.5</kbd>.
+hatırlanıyor; Windows'un yeniden bağlanınca numarasını değiştirdiği bir monitör yeniden bulunuyor.
 
-**Yüzen pencere** <kbd>3.1.5</kbd>. Opaklık, 16:9 en-boy kilidi, konum kilidi ve **tıklamayı alttaki
+**Yüzen pencere**. Opaklık, 16:9 en-boy kilidi, konum kilidi ve **tıklamayı alttaki
 pencereye geçirme** seçenekli resim-içinde-resim bir pencere; çalışırken görselleri masaüstünüzün
 üstünde tutmak için.
 
@@ -838,7 +831,7 @@ sunar.
 - **Saydamlık uygulamanın kendi anahtarı**; tek bir kaynağı zorlamak için adresine `?transparent=0` ya
   da `?transparent=1` ekleyin.
 - **Şarkı sözleri uygulamayı izliyor**; tarayıcı saatini uygulamanın çalıştığı makineye göre düzeltiyor.
-- **Bir tanı kartı** <kbd>3.1.5</kbd> — bağlantıyı, yapılandırmayı, ses kare hızını, tuval boyutunu,
+- **Bir tanı kartı** — bağlantıyı, yapılandırmayı, ses kare hızını, tuval boyutunu,
   saydamlığı, uygulama sürümünü ve son hatayı görmek için adrese `?debug=1` ekleyin.
 - Erişim jetonlarla korunuyor; katmanın ve telefon kumandasının ayrı jetonları var.
 
@@ -910,7 +903,7 @@ Lighting ile **aynı kipler ve aynı renk matematiğiyle**.
 
 **Art-Net / DMX.** Armatürlere ve ışık masalarına ArtDMX çıkışı; paket düzeni bayt bayt sınanıyor.
 
-**Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü** <kbd>3.1.5</kbd>
+**Renk kaynakları.** Işıklar arkaplanı, temayı ya da **canlı MilkDrop görüntüsünü**
 izleyebiliyor — saniyede yaklaşık 30 kez soldan sağa sekiz dilime örnekleniyor; soldaki armatürler
 ekranın solundaki renkleri alıyor.
 
@@ -938,8 +931,6 @@ ekranın solundaki renkleri alıyor.
 ---
 
 ### MCP — bir yapay zekâ ajanıyla kontrol
-
-<kbd>3.1.5</kbd>
 
 Bir ajan, çalışan uygulamayı **Model Context Protocol** üzerinden sürer. Anahtar **Kontrol**
 kartındadır ve varsayılan olarak kapalıdır. Anahtar açıkken uygulama açık kalır. Kurulum
@@ -1137,16 +1128,16 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - **Kaza koruması** — beklenmedik biçimde kapanan bir görselleştirici penceresi (çökme, Alt+F4) anında
   yeniden açılıyor; *Yanlışlıkla Kapatmayı Önle* gösteri sırasında uygulama kapanmadan önce soruyor;
   isteğe bağlı bir ESC kilidi ve çıkış yolu olarak <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Q</kbd>.
-- **Ekranı uyanık tutuyor** <kbd>3.1.5</kbd> — bir görselleştirici penceresi açık ve simge durumunda
+- **Ekranı uyanık tutuyor** — bir görselleştirici penceresi açık ve simge durumunda
   değilken varsayılan olarak açık; Windows, macOS ve Linux'ta. Küçültmek ya da kapatmak denetimi güç
   ayarlarınıza geri veriyor.
-- **Her GPU yüzeyi kaybolan bağlamdan dönüyor** <kbd>3.1.5</kbd> — bir sürücü sıfırlaması artık yeniden
+- **Her GPU yüzeyi kaybolan bağlamdan dönüyor** — bir sürücü sıfırlaması artık yeniden
   başlatmaya kadar siyah katmanlar bırakmıyor.
-- **Ana süreç hataları kapsanıyor** <kbd>3.1.5</kbd> — beklenmedik bir hata, uygulamayı bir hata
+- **Ana süreç hataları kapsanıyor** — beklenmedik bir hata, uygulamayı bir hata
   kutusunun ardında dondurmak yerine kaydediliyor ve panelde gösteriliyor.
-- **Aynı anda iki kopya** <kbd>3.1.5</kbd> — ikinci kopya zaten çalışanı adıyla söylüyor ve ona geçmeyi
+- **Aynı anda iki kopya** — ikinci kopya zaten çalışanı adıyla söylüyor ve ona geçmeyi
   öneriyor; bir kopya başkasının değiştirdiği ayarların üstüne sessizce asla yazmıyor.
-- **Güncellemeler** <kbd>3.1.5</kbd> — *Kitaplık → Güncellemeler* GitHub Sürümlerini denetliyor, notları
+- **Güncellemeler** — *Kitaplık → Güncellemeler* GitHub Sürümlerini denetliyor, notları
   gösteriyor ve bir sürümü atlamanıza izin veriyor. Windows kurulumu ve AppImage yerinde indirip
   kuruyor; boyut ve SHA-256 tam uyuşmadıkça hiçbir şey çalışmıyor. Kapalı, haber ver (varsayılan) ya da
   otomatik.
@@ -1168,7 +1159,7 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   - **Yayın sunucusu**: varsayılan `127.0.0.1`. *Yerel Ağa Aç* her ağ arayüzünü dinler. *Token
     Koruması* açıkken overlay ve kumanda adreslerinde jeton gerekir; kapalıyken ağdaki, adresi bulan
     her cihaz onları açabilir. İki durumda da sunucu başka kökenlerden gelen sayfaları ve tanımadığı
-    ana bilgisayar adlarını reddeder <kbd>3.1.5</kbd>, ve istemcilere giden yapılandırmada jetonlar
+    ana bilgisayar adlarını reddeder, ve istemcilere giden yapılandırmada jetonlar
     yoktur.
   - **OSC girişi**: her ağ arayüzünde UDP `9000`, IPv4 ve IPv6. Çoğu OSC yazılımı gibi parolası
     yoktur; ağdaki her cihaz eşlenen adreslere gönderebilir.
@@ -1206,7 +1197,7 @@ Evet. Yayın Çıkışı'nı açın ve adresi bir Tarayıcı Kaynağı olarak ek
 aynı ağdaki başka bir bilgisayarda olabilir. GPU paylaşımı için Spout (Windows) ve Syphon (macOS) da var.
 
 **MilkDrop presetlerimi yükleyebilir mi?**
-Evet: tek `.milk` dosyaları, MilkDrop 3 `.milk2` çift presetleri <kbd>3.1.5</kbd>, ZIP paketleri,
+Evet: tek `.milk` dosyaları, MilkDrop 3 `.milk2` çift presetleri, ZIP paketleri,
 klasörler ya da bilgisayarınızda bir arama. Görsel kullanan presetler için uygulamayı bir MilkDrop
 `textures` klasörüne yönlendirin. Üçüncü taraf preset paketi gelmiyor; beş özgün preset geliyor.
 
@@ -1223,7 +1214,7 @@ Evet. Video Dışa Aktar, güncel sahneyle bir ses dosyasını kare kare MP4'e, 
 çiziyor. Ekran kaydı değil; sonuç bilgisayarınızın hızına bağlı değil.
 
 **Yapay zekâ ajanları kontrol edebilir mi?**
-Evet <kbd>3.1.5</kbd>. Kontrol sayfasında MCP'yi açın ve kurulum penceresinin verdiği komutla Claude
+Evet. Kontrol sayfasında MCP'yi açın ve kurulum penceresinin verdiği komutla Claude
 Desktop, Codex, Cursor ya da herhangi bir MCP istemcisini bağlayın. Erişim salt okumadan başlıyor.
 Komut için bilgisayarda [Node.js](https://nodejs.org/) LTS kurulu olmalı.
 
@@ -1243,7 +1234,7 @@ kullanıcılarından gelecek raporlar çok değerli.
 
 **Videom tam ekranda ya da Spout'ta donuyor, ya da iPhone videosu oynamıyor.**
 Videolar varsayılan olarak işlemciyle çözülüyor; bu, tam ekranda ve Spout/Syphon akışında akıcı
-kalmalarını sağlıyor <kbd>3.1.5</kbd>. HEVC/H.265 dosyalar (telefonlarda yaygın) yalnız donanımla
+kalmalarını sağlıyor. HEVC/H.265 dosyalar (telefonlarda yaygın) yalnız donanımla
 çözülebiliyor: Ayarlar → Uygulama → Donanım Video Çözme'yi açıp uygulamayı yeniden başlatın.
 
 **Verilerim bir yere gönderiliyor mu?**
@@ -1799,9 +1790,9 @@ Zaman çizelgesi düzenleyicisinin ve klip destesinin kendi kısayolları var; p
 [ROADMAP.md](ROADMAP.md) gerçekte neyin yayımlandığını ve planlanan her sürümün ne için olduğunu
 kaydediyor — v3.1.0'da Zaman Çizelgesi ve Klip Destesi, v3.1.1'de OpenRGB ve Spout/Syphon'la çapraz
 platform derlemeler, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başına ses yakalama ve
-basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu. Sırada
-v3.1.5'te MilkDrop ve yayın iyileştirmeleri, v3.1.6'da çok daha geniş ve çok daha hızlı video dışa
-aktarma, v3.1.7'de yayın düzeni düzenleyicisi ve v3.2.0'da yedeklilik ve kare eşitleme var. Neyin
+basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu, v3.1.5'te
+MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme. Sırada
+v3.1.6'da çok daha geniş ve çok daha hızlı video dışa aktarma, v3.1.7'de yayın düzeni düzenleyicisi ve v3.2.0'da yedeklilik ve kare eşitleme var. Neyin
 *yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor.
 
 ---
