@@ -2408,7 +2408,7 @@
     LAYER_DEFAULTS: LAYER_DEFAULTS,
     normalizeMcp: normalizeMcp, groupForPath: groupForPath, visualState: visualState,
     cardModel: cardModel, commandBundle: commandBundle, clients: clients, installPrompt: installPrompt,
-    hostPlatform: hostPlatform, clientFileStep: clientFileStep,
+    hostPlatform: hostPlatform, clientFileStep: clientFileStep, badOutPath: badOutPath,
     oscPortMin: oscPortMin, oscPortError: oscPortError, NOWPLAYING_ANCHORS: NOWPLAYING_ANCHORS,
     tools: function (locale) { return TOOLS.map(function (t) { return publicTool(t, locale || 'en'); }); },
     MODES: MODES, DEFAULT_PORT: DEFAULT_PORT,

@@ -889,7 +889,8 @@
           if (tk.v === 'assign' && args.length === 2 && args[0] && args[0].k === 'var') {
             return { k: 'assign', name: args[0].name, v: args[1] };
           }
-          const def = FUNCS[tk.v];
+          // Yalnız tablonun kendi adları: "constructor" gibi miras adlar fonksiyon değil
+          const def = own(FUNCS, tk.v) ? FUNCS[tk.v] : null;
           if (!def) throw new SyntaxError(`bilinmeyen fonksiyon '${tk.v}' (satır ${tk.line})`);
           if (def[0] !== args.length) {
             throw new SyntaxError(`'${tk.v}' ${def[0]} argüman ister, ${args.length} verildi (satır ${tk.line})`);
@@ -1449,11 +1450,11 @@
     /* Ayrıştırıcı adı zaten beyaz listeye karşı doğruladı (bilinmeyen ad
        SyntaxError atar), burada da doğrudan o tablodan çözülüyor: çalışma
        anında ad üzerinden arama yok. */
-    const def = FUNCS[name];
+    const def = own(FUNCS, name) ? FUNCS[name] : null;
     const f0 = def && def[1];
     /* Uyum açıkken MilkDrop'un ham C/x87 davranışı (FUNCS_MD2, bkz. SAN);
        kapalıyken korumalı olanlar. invsqrt yalnız uyum açıkken ayrışıyor. */
-    const fm = FUNCS_MD2[name];
+    const fm = own(FUNCS_MD2, name) ? FUNCS_MD2[name] : null;
     const hot = hotCall(name, a, f0, fm, mode);
     if (hot) return hot;
     const f = fm && f0 ? (...v) => (mode.md2 ? fm : f0)(...v) : (f0 || fm);

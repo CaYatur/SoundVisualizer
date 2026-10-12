@@ -235,10 +235,22 @@ function publicPresets(list) {
 }
 
 function publicConfig(cfg) {
-  const md = cfg && cfg.milkdrop;
-  if (!md || typeof md.textureDir !== 'string' || !md.textureDir) return cfg;
-  const tag = 'textures:' + crypto.createHash('sha256').update(md.textureDir).digest('hex').slice(0, 12);
-  return Object.assign({}, cfg, { milkdrop: Object.assign({}, md, { textureDir: tag }) });
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  let out = cfg;
+  /* Jetonlar istemciye gitmez: overlay bağlantısını bilen biri kumanda
+     jetonunu yapılandırmadan okuyamamalı. Sayfalar jetonu adresten alıyor
+     (web-shim.js), yapılandırmadan değil. MCP'de aynı iki alan gizli
+     (mcp.js SECRET_PATHS). */
+  const st = cfg.stream;
+  if (st && typeof st === 'object' && ('token' in st || 'remoteToken' in st)) {
+    out = Object.assign({}, out, { stream: Object.assign({}, st, { token: '', remoteToken: '' }) });
+  }
+  const md = cfg.milkdrop;
+  if (md && typeof md.textureDir === 'string' && md.textureDir) {
+    const tag = 'textures:' + crypto.createHash('sha256').update(md.textureDir).digest('hex').slice(0, 12);
+    out = Object.assign({}, out, { milkdrop: Object.assign({}, md, { textureDir: tag }) });
+  }
+  return out;
 }
 
 /* Ses karesi (ikili). Başlık 12 bayt, küçük endian: örnekleme hızı, tayf
