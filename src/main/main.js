@@ -7567,11 +7567,18 @@ async function runShots() {
      degrade üzerinde logolu gökkuşağı barlar. Uygulamadan üretilmiyor, elle
      kaydedildi; kareleri olduğu gibi alınıp aynı genişliğe getiriliyor.
      Dosyada yalnız ilk karenin süresi yazılı, gerisi 0 (tarayıcı 0'ı
-     100 ms oynatıyor); burada bütün klip gibi 75 ms. */
+     100 ms oynatıyor); burada bütün klip gibi 75 ms.
+
+     Biçim animasyonlu WebP (12.10). GIF bütün klibe tek bir 128 renklik
+     palet veriyordu: açık degrade, koyu MilkDrop ve pembe sahneler aynı
+     paleti paylaşınca logonun kırmızısı somona döndü, synthwave gökyüzü
+     basamaklandı. Ham kareye göre ölçüldü (9 kare, PSNR): eski GIF 30,4 dB
+     (en kötü 25), WebP q90 35,2 dB (en kötü 31), 4,9 MB yerine 5,1 MB. Kare
+     başına paletli GIF 41,7 dB ama 15 MB. */
   const HERO_LEAD = path.join(shotsDir, 'demo-visualizer.gif');
-  if (want('hero.gif')) {
+  if (want('hero.webp')) {
     let sharp = null;
-    try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, GIF atlandı: hero.gif'); }
+    try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, atlandı: hero.webp'); }
     if (sharp) {
       const bufs = [];
       if (fs.existsSync(HERO_LEAD)) {
@@ -7590,9 +7597,10 @@ async function runShots() {
         }
       }
       await sharp(bufs, { join: { animated: true } })
-        .gif({ loop: 0, delay: 75, colours: 128, effort: 10, dither: 0.3 })
-        .toFile(path.join(shotsDir, 'hero.gif'));
-      console.log('[SHOTS] saved hero.gif');
+        // Süre kare başına: tek sayı verilince WebP'de yalnız ilk kare 75 ms oluyordu
+        .webp({ loop: 0, delay: bufs.map(() => 75), quality: 90, effort: 6, smartSubsample: true })
+        .toFile(path.join(shotsDir, 'hero.webp'));
+      console.log('[SHOTS] saved hero.webp');
     }
   }
 

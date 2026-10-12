@@ -83,10 +83,17 @@ test('tam koşu özenle üretilmiş iki MilkDrop görselini ezmiyor', () => {
 
 /* Vitrin klibi kullanıcının kendi kaydıyla başlıyor (12.10): demo-visualizer.gif
    uygulamadan üretilmiyor, kareleri klibin başına aynı boyda ekleniyor. */
-test('hero.gif demo-visualizer.gif kayıtlarıyla başlıyor', () => {
+test('vitrin klibi (hero.webp) demo-visualizer.gif kayıtlarıyla başlıyor', () => {
   assert.match(SRC, /const HERO_LEAD = path\.join\(shotsDir, 'demo-visualizer\.gif'\);/);
   const at = SRC.indexOf('if (fs.existsSync(HERO_LEAD))');
   assert.ok(at > 0 && at < SRC.indexOf('for (const [id, over] of HERO)'), 'kayıt sahnelerden önce');
   assert.match(SRC, /sharp\(HERO_LEAD, \{ page: i \}\)\.resize\(800, 450, \{ fit: 'cover' \}\)/);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'demo-visualizer.gif')));
+  // Tek paletli GIF renkleri bozuyordu; klip WebP ve README onu gösteriyor
+  assert.match(SRC, /\.webp\(\{ loop: 0, delay: bufs\.map\(\(\) => 75\), quality: 90, effort: 6, smartSubsample: true \}\)/);
+  assert.ok(!/hero\.gif/.test(SRC), 'eski GIF yolu kalmadı');
+  for (const f of ['README.md', 'README.tr.md']) {
+    assert.match(fs.readFileSync(path.join(__dirname, '..', f), 'utf8'), /<img src="docs\/screenshots\/hero\.webp"/, f);
+  }
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'hero.gif')));
 });
