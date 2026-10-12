@@ -80,3 +80,13 @@ test('tam koşu özenle üretilmiş iki MilkDrop görselini ezmiyor', () => {
   assert.match(SRC, /for \(const \[id, name, settle, over\] of SCENES\) \{\s*if \(!wantShot\(name\)\) continue;/);
   assert.match(SRC, /for \(const \[id, name, frames, delay, width\] of GIFS\) \{\s*if \(!wantShot\(name\)\) continue;/);
 });
+
+/* Vitrin klibi kullanıcının kendi kaydıyla başlıyor (12.10): demo-visualizer.gif
+   uygulamadan üretilmiyor, kareleri klibin başına aynı boyda ekleniyor. */
+test('hero.gif demo-visualizer.gif kayıtlarıyla başlıyor', () => {
+  assert.match(SRC, /const HERO_LEAD = path\.join\(shotsDir, 'demo-visualizer\.gif'\);/);
+  const at = SRC.indexOf('if (fs.existsSync(HERO_LEAD))');
+  assert.ok(at > 0 && at < SRC.indexOf('for (const [id, over] of HERO)'), 'kayıt sahnelerden önce');
+  assert.match(SRC, /sharp\(HERO_LEAD, \{ page: i \}\)\.resize\(800, 450, \{ fit: 'cover' \}\)/);
+  assert.ok(fs.existsSync(path.join(__dirname, '..', 'docs', 'screenshots', 'demo-visualizer.gif')));
+});

@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-2998%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-2999%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -29,7 +29,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 **[FAQ](#faq)** ·
 **[Türkçe](README.tr.md)**
 
-<img src="docs/screenshots/hero.gif" alt="CAYADEV Visualizer showreel: a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
+<img src="docs/screenshots/hero.gif" alt="CAYADEV Visualizer showreel: rainbow centre bars around a logo on a cyan and violet gradient, a MilkDrop preset, a tunnel, a 3D Lorenz attractor, a music video layout, synthwave and a drum &amp; bass honeycomb, all reacting to music" width="800" />
 
 </div>
 
@@ -1695,7 +1695,7 @@ npm test
 npm start -- --smoke
 ```
 
-**2998 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**2999 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

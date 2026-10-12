@@ -7563,11 +7563,23 @@ async function runShots() {
     ['gen-synthwave'],
     ['gen-dnb'],
   ];
+  /* Klibin başı kullanıcının kendi kaydı (demo-visualizer.gif, 10.10):
+     degrade üzerinde logolu gökkuşağı barlar. Uygulamadan üretilmiyor, elle
+     kaydedildi; kareleri olduğu gibi alınıp aynı genişliğe getiriliyor.
+     Dosyada yalnız ilk karenin süresi yazılı, gerisi 0 (tarayıcı 0'ı
+     100 ms oynatıyor); burada bütün klip gibi 75 ms. */
+  const HERO_LEAD = path.join(shotsDir, 'demo-visualizer.gif');
   if (want('hero.gif')) {
     let sharp = null;
     try { sharp = require('sharp'); } catch (e) { console.log('[SHOTS] sharp yok, GIF atlandı: hero.gif'); }
     if (sharp) {
       const bufs = [];
+      if (fs.existsSync(HERO_LEAD)) {
+        const meta = await sharp(HERO_LEAD, { animated: true }).metadata();
+        for (let i = 0; i < (meta.pages || 1); i++) {
+          bufs.push(await sharp(HERO_LEAD, { page: i }).resize(800, 450, { fit: 'cover' }).png().toBuffer());
+        }
+      }
       for (const [id, over] of HERO) {
         if (!(await applyTemplate(id, over, postFor(over)))) continue;
         await wait(1500);
