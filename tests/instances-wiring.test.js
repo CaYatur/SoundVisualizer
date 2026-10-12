@@ -96,7 +96,8 @@ test('"diskteki ayarları yükle" yeniden kaydetmiyor, "bunu kaydet" diskin üst
   assert.match(h, /choice === 'keep'[\s\S]*writeSettingsText\(text\)/);
   assert.match(h, /choice === 'load'[\s\S]*SettingsGuard\.parse\(buf\)[\s\S]*settingsGuard\.remember\(buf\)[\s\S]*applyIncomingConfig\(loaded, \{ save: false \}\)[\s\S]*notifyAdmin\('external-config', loaded\)/);
   assert.match(h, /return \{ ok: false, error: 'read' \}/, 'okunamayan dosyada çakışma sürmeli');
-  assert.match(MAIN, /ipcMain\.on\('update-config', \(e, config\) => applyIncomingConfig\(config\)\);/);
+  // Öz testin bekletmesi dışında panelin yapılandırması doğrudan uygulanır
+  assert.match(MAIN, /ipcMain\.on\('update-config', \(e, config\) => \{\s*if \(smokeHold\) \{[^}]*\}\s*applyIncomingConfig\(config\);\s*\}\);/);
   assert.match(body(MAIN, 'function applyIncomingConfig(config, opts) {'), /if \(save\) saveSettings\(config\);/);
 });
 

@@ -115,9 +115,11 @@ test('anahtar kaybolursa ya da karartmadaysa tam gönderilir', () => {
 });
 
 test('ana süreç yamayı tam yapılandırma olmadan uygulamaz, tehlikeli anahtarı atlar', () => {
-  const at = MAIN.indexOf("ipcMain.on('patch-config'");
+  // İşleyici, öz testin bekletmesi dışında yamayı applyConfigPatch'e verir
+  assert.match(MAIN, /ipcMain\.on\('patch-config', \(e, patch\) => \{\s*if \(smokeHold\) \{ smokeHold\.patches\.push\(patch\); return; \}\s*applyConfigPatch\(patch\);/);
+  const at = MAIN.indexOf('function applyConfigPatch(patch) {');
   assert.ok(at > 0);
-  const h = MAIN.slice(at, MAIN.indexOf('\n});', at));
+  const h = MAIN.slice(at, MAIN.indexOf('applyIncomingConfig(next', at) + 60);
   assert.match(h, /if \(!currentConfig \|\| !patch \|\| typeof patch !== 'object' \|\| Array\.isArray\(patch\)\) return;/);
   assert.match(h, /k === '__proto__' \|\| k === 'constructor' \|\| k === 'prototype'/);
   assert.match(h, /const next = Object\.assign\(\{\}, currentConfig\);/);

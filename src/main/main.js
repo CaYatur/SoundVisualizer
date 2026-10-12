@@ -2234,11 +2234,36 @@ function syncMcp() {
 ipcMain.handle('mcp:status', () => (mcpHandle ? mcpHandle.status() : { enabled: false, running: false, host: '127.0.0.1', port: 0, shell: '', script: '' }));
 ipcMain.on('mcp:live', (e, data) => noteMcpLive(data));
 
-ipcMain.on('update-config', (e, config) => applyIncomingConfig(config));
+/* Öz testin bir ölçümü sürerken panelin ayar gönderimleri bekletilir.
+   Öz test gerçek ayarlarla koşuyor; orada dinamik tema gibi bir şey panelden
+   kendiliğinden tam yapılandırma yollayabiliyor (ölçüldü: bir koşuda 26-29
+   gönderim, düzensiz aralıklarla). Sprite ölçümünün ortasına düşen biri hem
+   görselleştiriciyi kullanıcının sahnesine döndürüyor hem de bellekteki
+   geçici sprite dosyasını siliyordu: paketli koşuda üçte bir "NO_FILE".
+   Bekletme bitince en son tam yapılandırma, ardından yamalar sırayla
+   uygulanır. Yalnız runSmoke açar. */
+let smokeHold = null;
+function smokeHoldStart() { smokeHold = { full: null, patches: [] }; }
+function smokeHoldEnd() {
+  const h = smokeHold;
+  smokeHold = null;
+  if (!h) return;
+  if (h.full) applyIncomingConfig(h.full);
+  for (const p of h.patches) applyConfigPatch(p);
+}
+
+ipcMain.on('update-config', (e, config) => {
+  if (smokeHold) { smokeHold.full = config; smokeHold.patches = []; return; }
+  applyIncomingConfig(config);
+});
 /* Panelin kaydırıcı sürüklerken yolladığı değişen üst düzey anahtarlar.
    Sürükleme bitince panel bütün yapılandırmayı yine yollar (#695). Tam
    yapılandırma gelmeden yama uygulanmaz. */
 ipcMain.on('patch-config', (e, patch) => {
+  if (smokeHold) { smokeHold.patches.push(patch); return; }
+  applyConfigPatch(patch);
+});
+function applyConfigPatch(patch) {
   if (!currentConfig || !patch || typeof patch !== 'object' || Array.isArray(patch)) return;
   const next = Object.assign({}, currentConfig);
   const keys = [];
@@ -2249,7 +2274,7 @@ ipcMain.on('patch-config', (e, patch) => {
   }
   if (!keys.length) return;
   applyIncomingConfig(next, { patchKeys: keys });
-});
+}
 
 /* Elle yüklenen sözün ortak saati. Ekran açılınca başlar. Dosya değişince,
    bir ekran, web veya OBS istemcisi açıksa ya da saat zaten kurulmuşsa
@@ -5139,7 +5164,9 @@ async function runSmoke() {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* geçici */ }
     return { launched, killed, before, on, off };
   };
-  const spr = await spriteProbe();
+  smokeHoldStart();
+  let spr;
+  try { spr = await spriteProbe(); } finally { smokeHoldEnd(); }
   console.log('[SMOKE] sprite: ' + JSON.stringify(spr));
   {
     const red = (p) => p && p.rgb && p.rgb[0] >= 200 && p.rgb[1] <= 60 && p.rgb[2] <= 60;
