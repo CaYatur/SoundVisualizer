@@ -3,6 +3,16 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+### OSC
+
+- **OSCQuery discovery follows network changes.** The mDNS announcement kept the address it started
+  with, so after switching from Wi-Fi to cable or getting a new DHCP lease, discovery pointed at the
+  old IP until OSC was turned off and on. The address is now re-read before every announcement and
+  reply, a change is announced within 10 seconds, and the address records carry the cache-flush bit
+  so listeners replace the old address instead of keeping both.
+
 ## v3.1.5 — 2026-10-13
 
 Everything since v3.1.4: 142 pull requests and about 40 direct engine commits. 1402 tests were

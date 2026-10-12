@@ -103,8 +103,21 @@ function stop() {
   return job.then(() => status());
 }
 
+/* Ağ değişince (Wi-Fi'den kabloya, yeni DHCP adresi) duyuru açılıştaki
+   IP'de kalıyordu; OSC kapatılıp açılana kadar keşif eski adrese gidiyordu.
+   Sabit IP verilmediyse adres her gönderimden önce yeniden seçilir. Duyuru
+   ve sorgu cevabı aynı nesneyi okur. Değiştiyse true. */
+function refreshIp(opt) {
+  if (!opt || opt.fixedIp) return false;
+  const ip = lanIPv4();
+  if (ip === opt.ip) return false;
+  opt.ip = ip;
+  return true;
+}
+
 function announceNow(opt) {
   if (!socket) return;
+  refreshIp(opt);
   const buf = mdns.announce(opt);
   try { socket.send(buf, 5353, '224.0.0.251'); } catch { /* ağ yok */ }
 }
@@ -123,13 +136,31 @@ function trackMdns(s) {
   });
 }
 
+/* Grup üyeliği katılınan andaki kartta kalır; adres değişince yeniden
+   katılmazsa yeni ağdan gelen sorgu bu sürece ulaşmaz. */
+function rejoin(s) {
+  try { s.dropMembership('224.0.0.251'); } catch { /* eski kart gitmiş */ }
+  try { s.addMembership('224.0.0.251'); } catch { /* üyelik reddi duyuruyu düşürmez */ }
+}
+
+const CHECK_MS = 10000;
+const ANNOUNCE_EVERY = 6;
+
 function armAnnounce(s, opt) {
   if (timer) clearInterval(timer);
   socket = s;
   announcing = true;
   try { s.setMulticastTTL(255); } catch { /* platform reddi */ }
   announceNow(opt);
-  timer = setInterval(() => announceNow(opt), 60000);
+  /* 10 sn'de bir adrese bakılır; değiştiyse hemen, değilse dakikada bir
+     duyurulur. */
+  let ticks = 0;
+  timer = setInterval(() => {
+    ticks += 1;
+    const moved = refreshIp(opt);
+    if (moved && listening && socket === s) rejoin(s);
+    if (moved || ticks % ANNOUNCE_EVERY === 0) announceNow(opt);
+  }, CHECK_MS);
   if (timer.unref) timer.unref();
 }
 
@@ -153,9 +184,12 @@ function bindMdns(port, mine, onUp) {
     };
     s.on('error', () => finish(false));
     s.on('message', (buf, rinfo) => {
-      if (socket !== s) return;
-      const reply = mdns.answer(buf, port.opt);
-      if (!reply || !rinfo) return;
+      if (socket !== s || !rinfo) return;
+      /* Ağdaki her mDNS paketinde kartlar okunmasın: önce bizi mi soruyor. */
+      const legacy = rinfo.port !== 5353;
+      let reply = mdns.answer(buf, Object.assign({}, port.opt, { legacy }));
+      if (!reply) return;
+      if (refreshIp(port.opt)) reply = mdns.answer(buf, Object.assign({}, port.opt, { legacy }));
       try { s.send(reply, rinfo.port, rinfo.address); } catch { /* düştü */ }
     });
     const options = port.number === 0
@@ -331,7 +365,7 @@ async function boot(o, mine) {
     }
     server = opened.server;
     const mdnsOpt = {
-      port: opened.port, ip: o.ip || lanIPv4(), name: 'SoundVisualizer', host: 'soundvisualizer',
+      port: opened.port, ip: o.ip || lanIPv4(), fixedIp: !!o.ip, name: 'SoundVisualizer', host: 'soundvisualizer',
     };
     const mdnsState = await startMdns(mdnsOpt, mine);
     if (mine !== epoch) {
@@ -360,4 +394,4 @@ function socketCount() {
   return mdnsSockets.size;
 }
 
-module.exports = { start, stop, status, lanIPv4, chooseLanIPv4, queryCandidates, socketCount };
+module.exports = { start, stop, status, lanIPv4, chooseLanIPv4, queryCandidates, socketCount, refreshIp };

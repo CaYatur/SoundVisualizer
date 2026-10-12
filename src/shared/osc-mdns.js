@@ -78,12 +78,15 @@ function instanceName(opt) {
   return safe + '.' + SERVICE;
 }
 
-function record(name, type, ttl, rdata) {
+/* RFC 6762 10.2: tekil kayıtta (SRV, TXT, A) önbellek temizleme biti.
+   IP veya port değişince dinleyici eskisini yenisinin yanında 120 sn
+   tutmaz, yenisiyle değiştirir. Paylaşılan PTR'de bit olmaz. */
+function record(name, type, ttl, rdata, unique) {
   const n = encodeName(name);
   if (!n || !rdata) return null;
   const head = Buffer.alloc(10);
   head.writeUInt16BE(type, 0);
-  head.writeUInt16BE(1, 2);
+  head.writeUInt16BE(unique ? 0x8001 : 1, 2);
   head.writeUInt32BE(ttl >>> 0, 4);
   head.writeUInt16BE(rdata.length, 8);
   return Buffer.concat([n, head, rdata]);
@@ -130,11 +133,13 @@ function announce(opt) {
   const ip = ipv4Parts(opt && opt.ip) ? opt.ip : '127.0.0.1';
   const host = ((opt && opt.host) || 'soundvisualizer') + '.local';
   const inst = instanceName(opt);
+  /* 5353 dışından soran tek seferlik istemciye bit gitmez (RFC 6762 6.7). */
+  const flush = !(opt && opt.legacy);
   const records = [
     record(SERVICE, 12, 120, ptrRdata(inst)),
-    record(inst, 33, 120, srvRdata(port, host)),
-    record(inst, 16, 120, txtRdata()),
-    record(host, 1, 120, ipv4Parts(ip)),
+    record(inst, 33, 120, srvRdata(port, host), flush),
+    record(inst, 16, 120, txtRdata(), flush),
+    record(host, 1, 120, ipv4Parts(ip), flush),
   ].filter(Boolean);
   const header = Buffer.alloc(12);
   header.writeUInt16BE((opt && opt.id) || 0, 0);
