@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and ideas / Sorular ve fikirler
+    url: https://github.com/CaYatur/SoundVisualizer/discussions
+    about: Ask how to do something, or share a scene or preset.
+  - name: Contributing guide
+    url: https://github.com/CaYatur/SoundVisualizer/blob/main/CONTRIBUTING.md
+    about: How to build, test and send a pull request.

@@ -1,0 +1,26 @@
+name: Feature request
+description: An idea for something new or better. / Yeni ya da daha iyi bir şey için fikir.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You can write in English or Turkish. Türkçe de yazabilirsiniz.
+        The [roadmap](https://github.com/CaYatur/SoundVisualizer/blob/main/ROADMAP.md) lists what is already planned.
+  - type: textarea
+    id: need
+    attributes:
+      label: What you want to do
+      description: The show, video or setup you are working on, and what is missing or hard today.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Your idea of the feature. Screenshots or examples from other software help.
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What you do now
+      description: Any workaround you use today.

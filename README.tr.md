@@ -1163,13 +1163,26 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - **Hesap yok, telemetri yok, analiz yok.** Ayarlar kullanıcı klasörünüzde duruyor.
 - **Kendiliğinden yaptığı tek ağ çağrısı**: güncelleme denetimi için GitHub'ın son sürüm API'si,
   hiçbir kimlik bilgisi olmadan. Güncellemeleri *Kapalı* yapın, hiç kalmaz.
-- **Geri kalan her şey isteğe bağlı ve yerel**: yayın sunucusu (yerel ağ, jetonla korunuyor; başka
-  kökenlerden gelen sayfaları ve tanımadığı ana bilgisayar adlarını reddediyor <kbd>3.1.5</kbd>), OSC,
-  OpenRGB, Art-Net ve MCP (yalnız `127.0.0.1`'e bağlı, bir taşıyıcı jetonla).
+- **Geri kalan her şey siz açana kadar kapalı.** Her anahtarın açtığı:
+  - **MCP**: yalnız `127.0.0.1`, bir taşıyıcı jetonla.
+  - **Yayın sunucusu**: varsayılan `127.0.0.1`. *Yerel Ağa Aç* her ağ arayüzünü dinler. *Token
+    Koruması* açıkken overlay ve kumanda adreslerinde jeton gerekir; kapalıyken ağdaki, adresi bulan
+    her cihaz onları açabilir. İki durumda da sunucu başka kökenlerden gelen sayfaları ve tanımadığı
+    ana bilgisayar adlarını reddeder <kbd>3.1.5</kbd>, ve istemcilere giden yapılandırmada jetonlar
+    yoktur.
+  - **OSC girişi**: her ağ arayüzünde UDP `9000`, IPv4 ve IPv6. Çoğu OSC yazılımı gibi parolası
+    yoktur; ağdaki her cihaz eşlenen adreslere gönderebilir.
+  - **OSCQuery** (OSC girişiyle birlikte): her ağ arayüzünde HTTP, varsayılan port `17801`. Her
+    kökene adres ağacını ve güncel değerleri verir; sahne adları ve çalan parça da buna dahil. Hizmet
+    yerel ağda mDNS ile duyurulur (UDP `5353`).
+  - **OSC çıkışı**: başka hedef girilmedikçe `127.0.0.1`'e gönderir.
+  - **OpenRGB** girdiğiniz SDK sunucusuna bağlanır (varsayılan `127.0.0.1`). **Art-Net** DMX'i
+    girdiğiniz adrese gönderir (varsayılan ağın yayın adresi).
 - **Çeviriciler ve üreticiler çevrimdışı çalışıyor** — Shadertoy ve ISF içe aktarma, sahne üretici,
   MilkDrop preset üretici, şarkı sözleri.
-- **Otomasyon kamerayı asla açmıyor**, ve bir fuzz testi hiçbir MilkDrop presetinin motora JavaScript
-  kaçıramayacağını doğruluyor.
+- **Otomasyon kamerayı asla açmıyor.** MilkDrop presetleri `eval` ya da üretilmiş kaynak kod olmadan
+  derleniyor; bilinen saldırı dizileri ve bozuk dosyalarla yazılmış enjeksiyon testleri preset
+  metninin JavaScript'e ulaşamadığını doğruluyor.
 
 ---
 
@@ -1254,7 +1267,7 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
   de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
-  dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir fuzz testi bunu doğruluyor.
+  dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir enjeksiyon testi bunu doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
   bağlamında, 10.332 presetlik korpusta ölçüldü: **16.346 shader aşamasının tamamı derleniyor**,
   shader taşıyan 8.485 presetin hepsinde her aşama temiz. Ayrı bir düzenek her preseti gerçekten render edip
@@ -1712,8 +1725,8 @@ npm start -- --smoke
   ton 220 Hz olarak dönmeli.
 - **Art-Net**, ArtDMX başlığına karşı bayt bayt doğrulanıyor.
 - **Yapılandırma göçü**, 1.3 ve 2.0 ayar dosyalarını tek bir değer kaybetmeden açıyor.
-- **Preset ve paket yükleyicilerinin fuzz'lanması**, hiçbir MilkDrop presetinin JavaScript
-  kaçıramayacağını doğruluyor.
+- **Preset ve paket yükleyicilerinin enjeksiyon ve bozuk girdi testleri**, hiçbir MilkDrop
+  presetinin JavaScript kaçıramayacağını doğruluyor.
 - **MCP kapsamı**, yeni bir ayar ya da özellik ona uyan bir araç ya da yol kuralı olmadan eklenirse
   başarısız oluyor.
 
@@ -1792,6 +1805,11 @@ aktarma, v3.1.7'de yayın düzeni düzenleyicisi ve v3.2.0'da yedeklilik ve kare
 *yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor.
 
 ---
+
+## Katkıda bulunmak
+
+Hata bildirimleri, fikirler, çeviriler ve pull request'ler Türkçe ya da İngilizce olarak memnuniyetle
+karşılanır. Derleme, test ve değişiklik gönderme adımları [CONTRIBUTING.md](CONTRIBUTING.md) dosyasında.
 
 ## Lisans
 

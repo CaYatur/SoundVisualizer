@@ -1,0 +1,75 @@
+name: Bug report
+description: Something does not work as it should. / Bir şey olması gerektiği gibi çalışmıyor.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        You can write in English or Turkish. Türkçe de yazabilirsiniz.
+        For a security problem, do not open an issue: use **Report a vulnerability** on the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "*Installed Version* on the Updates card, or the name of the file you installed."
+      placeholder: v3.1.5
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Audio capture
+        - Visualizer modes and backgrounds
+        - MilkDrop
+        - Layers and effects
+        - Scenes, templates and Auto VJ
+        - Timeline and clip deck
+        - OBS overlay and stream server
+        - Spout / Syphon and screens
+        - MIDI and OSC
+        - RGB lighting
+        - Export and recording
+        - MCP
+        - Control panel
+        - Install and updates
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Steps that show the problem, what you expected and what you saw.
+      placeholder: |
+        1. Open ...
+        2. Choose ...
+        3. ...
+        Expected: ...
+        Actual: ...
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Audio source
+      description: System output, a device, one application or a file.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Errors and screenshots
+      description: |
+        `main-errors.log` from the settings folder if the panel reported an error, the overlay's
+        diagnostics card (`?debug=1`) for OBS problems, screenshots or a short recording.

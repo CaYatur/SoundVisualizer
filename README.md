@@ -1153,13 +1153,26 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **No account, no telemetry, no analytics.** Settings live in your user folder.
 - **One network call of its own**: GitHub's latest-release API for the update check, with no
   identifiers. Set updates to *Off* and there are none.
-- **Everything else is opt-in and local**: the stream server (LAN, token-protected; it refuses
-  pages from other origins and host names it does not know <kbd>3.1.5</kbd>), OSC, OpenRGB, Art-Net
-  and MCP (bound to `127.0.0.1` only, with a bearer token).
+- **Everything else is off until you turn it on.** What each switch opens:
+  - **MCP**: `127.0.0.1` only, with a bearer token.
+  - **Stream server**: `127.0.0.1` by default. *Open to local network* listens on every interface.
+    With *Token Protection* on, the overlay and the remote need the token in their address; with it
+    off, any device on the network that finds the address can open them. Either way the server
+    refuses pages from other origins and host names it does not know <kbd>3.1.5</kbd>, and clients
+    never receive the tokens in the configuration.
+  - **OSC input**: UDP `9000` on every interface, IPv4 and IPv6. Like most OSC software it has no
+    password, so any device on the network can send to the mapped addresses.
+  - **OSCQuery** (with OSC input): HTTP on every interface, port `17801` by default. It answers
+    any origin with the address tree and current values, including scene names and the playing
+    track, and the service is announced on the local network over mDNS (UDP `5353`).
+  - **OSC output**: sends to `127.0.0.1` unless you enter other targets.
+  - **OpenRGB** connects to the SDK server you set (`127.0.0.1` by default). **Art-Net** sends DMX to
+    the address you set (the network broadcast address by default).
 - **Converters and generators run offline** — Shadertoy and ISF import, the scene generator, the
   MilkDrop preset generator, lyrics.
-- **The camera is never opened by automation**, and a fuzzing test asserts that no MilkDrop preset can
-  smuggle JavaScript into the engine.
+- **The camera is never opened by automation.** MilkDrop presets are compiled without `eval` or
+  generated source, and injection tests with known attack strings and malformed files check that
+  preset text cannot reach JavaScript.
 
 ---
 
@@ -1706,7 +1719,8 @@ npm start -- --smoke
   chord, a 220 Hz tone as 220 Hz.
 - **Art-Net** is verified byte by byte against the ArtDMX header.
 - **Config migration** loads 1.3 and 2.0 settings files without losing a value.
-- **Fuzzing** the preset and pack loaders asserts no MilkDrop preset can smuggle JavaScript.
+- **Injection and malformed-input tests** on the preset and pack loaders assert that no MilkDrop
+  preset can smuggle JavaScript.
 - **MCP coverage** fails when a new setting or feature is added without a matching tool or path rule.
 
 **The GPU self-test** runs the real application on a real GPU. It draws every registered visualizer
@@ -1784,6 +1798,11 @@ layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps 
 what is *not* done, and why.
 
 ---
+
+## Contributing
+
+Bug reports, ideas, translations and pull requests are welcome, in English or Turkish. See
+[CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test and send a change.
 
 ## License
 
