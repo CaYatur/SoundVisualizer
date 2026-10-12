@@ -273,6 +273,11 @@ function openQuery(o, port) {
         return;
       }
       const json = JSON.stringify(body);
+      if (typeof json !== 'string') {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+        res.end('{}');
+        return;
+      }
       res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Content-Length': Buffer.byteLength(json),

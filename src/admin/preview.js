@@ -240,7 +240,11 @@
     }
   }
 
+  /* Duraklatılmış önizlemede tek kare: yeni kapak ya da ayar görünsün.
+     Döngü çalışıyorsa bir sonraki karesi zaten çizer; burada çizmek
+     kaydırıcı sürüklerken kareyi ikiye katlıyordu. */
   function drawOnce() {
+    if (raf && !paused && !document.hidden) return;
     const now = performance.now();
     renderFrame(now, 0.016, now / 1000);
   }

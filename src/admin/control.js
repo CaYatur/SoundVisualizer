@@ -913,6 +913,7 @@
       class: 'studio-note',
       text: 'Ek hedefler satır satır: 10.0.0.8:9001 ya da [::1]:9001. Pozitif gecikme saati geri alır; hoparlör geç kalıyorsa ışık onu bekler.',
     }));
+    nodes.push(el('div', { class: 'studio-note', text: 'Seviye, tayf ve vuruşları açık bir çıkış ölçer: ekran, yüzen pencere ya da Spout/Syphon. Yalnız panel açıkken saat ve gösteri durumu gider.' }));
     return nodes;
   }
 

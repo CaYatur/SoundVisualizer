@@ -413,6 +413,12 @@ function leaves(cfg, opt) {
   return out;
 }
 
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+/* Bir adres hem değer hem dal olabilir: /visualizer (tür adı) ile
+   /visualizer/glow (kaydırıcı) aynı düğümde. OSCQuery bir düğümde VALUE ile
+   CONTENTS'i birlikte kabul ediyor. Eskiden yaprak dalı eziyordu ve
+   görselleştirici ile arkaplan kaydırıcıları ağaçtan düşüyordu. */
 function queryTree(cfg, opt) {
   const root = { FULL_PATH: '/', ACCESS: 0, CONTENTS: {} };
   for (const node of leaves(cfg || {}, opt)) {
@@ -422,23 +428,29 @@ function queryTree(cfg, opt) {
     for (let i = 0; i < rel.length; i++) {
       acc += '/' + rel[i];
       at.CONTENTS = at.CONTENTS || {};
-      const last = i === rel.length - 1;
-      if (last) at.CONTENTS[rel[i]] = node;
-      else if (!at.CONTENTS[rel[i]] || at.CONTENTS[rel[i]].ACCESS !== 0) {
-        at.CONTENTS[rel[i]] = { FULL_PATH: acc, ACCESS: 0, CONTENTS: {} };
+      const key = rel[i];
+      const have = own(at.CONTENTS, key) ? at.CONTENTS[key] : null;
+      if (i === rel.length - 1) {
+        at.CONTENTS[key] = have && have.CONTENTS ? Object.assign({}, node, { CONTENTS: have.CONTENTS }) : node;
+      } else if (!have) {
+        at.CONTENTS[key] = { FULL_PATH: acc, ACCESS: 0, CONTENTS: {} };
+      } else if (!have.CONTENTS) {
+        have.CONTENTS = {};
       }
-      at = at.CONTENTS[rel[i]];
+      at = at.CONTENTS[key];
     }
   }
   return root;
 }
 
+/* Yol ağdan gelir: yalnız ağacın kendi düğümleri. "constructor" gibi bir
+   ad nesnenin mirasına çözülüp yanıtı kilitliyordu. */
 function nodeAt(root, urlPath) {
   if (!urlPath || urlPath === '/') return root;
   const parts = urlPath.split('/').filter(Boolean);
   let node = root;
   for (const p of parts) {
-    if (!node || !node.CONTENTS || !node.CONTENTS[p]) return null;
+    if (!node || !node.CONTENTS || !own(node.CONTENTS, p)) return null;
     node = node.CONTENTS[p];
   }
   return node;
