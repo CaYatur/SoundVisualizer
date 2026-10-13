@@ -3990,7 +3990,10 @@ void main(){
               const k = minLen / len;
               ddx *= k; ddy *= k;
             } else {
-              ddx = minLen; ddy = minLen;
+              /* Hiç hareket yoksa MilkDrop sağ-YUKARI bir teksel çiziyor
+                 (`dy = min_len`, onun `fy`si aşağıdan yukarı). Bizim y
+                 yukarıdan aşağı: işaret ters. */
+              ddx = minLen; ddy = -minLen;
             }
             ex = x + ddx; ey = y + ddy;
           } else {
