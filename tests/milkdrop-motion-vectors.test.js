@@ -129,6 +129,19 @@ test('en kısa iz bir teksel', () => {
   }
 });
 
+test('hiç hareket yoksa iz sağ-yukarı', () => {
+  /* `mv_l = 0` farkı tam sıfır yapıyor: yön kalmıyor ve MilkDrop izi
+     `dx = dy = min_len` ile çiziyor (milkdropfs.cpp:1283-1287). Onun `fy`si
+     aşağıdan yukarı, yani iz ekranda sağa ve YUKARI. Motor aşağı çiziyordu. */
+  const GW = 960;
+  const segs = vectors({ GW, vals: { mv_x: 3, mv_y: 3, mv_l: 0 } });
+  assert.ok(segs.length > 0, 'iz yok');
+  for (const [x0, y0, x1, y1] of segs) {
+    close(sx(x1) - sx(x0), 1 / GW, 'sağa');
+    close(sy(y1) - sy(y0), -1 / GW, 'yukarı');
+  }
+});
+
 test('vektör, içeriğin geldiği yere doğru', () => {
   /* Ağ 0,1 sağa kaydırılmış örnekliyor: MilkDrop'ta uç nokta o yöne
      gidiyor, motorun eski yolunda ise tam tersine. */

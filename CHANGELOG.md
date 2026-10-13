@@ -13,6 +13,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   reply, a change is announced within 10 seconds, and the address records carry the cache-flush bit
   so listeners replace the old address instead of keeping both.
 
+### MilkDrop
+
+- **A still motion-vector field draws its stubs up and to the right, as MilkDrop does.** Where
+  nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len` in its bottom-up space; ours
+  kept the sign in our top-down space, so the stubs pointed down.
+
 ## v3.1.5 — 2026-10-13
 
 Everything since v3.1.4: 142 pull requests and about 40 direct engine commits. 1402 tests were
