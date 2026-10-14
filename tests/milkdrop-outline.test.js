@@ -128,15 +128,15 @@ test('kenar yumuşatma üç çizgi biçiminde de aynı ayardan sürülüyor', ()
      Kenarlık KAPALI şerit (`closed`), vektörler bağımsız parçalar. */
   const fn = BARE.slice(BARE.indexOf('_strip(gl, kind, d, n, breakAt, GW, GH, thickMul, md)'));
   assert.match(fn, /const aa = this\._lineStyle !== 'milkdrop' && this\.aaProg;/);
-  assert.match(fn, /this\._aaSegments\(gl, d, n, GW, GH, thickMul\);/);
-  assert.match(fn, /this\._aaStrip\(gl, d, n, breakAt, GW, GH, thickMul, kind === gl\.LINE_LOOP\);/);
+  assert.match(fn, /this\._aaSegments\(gl, d, n, GW, GH, thickMul, md\);/);
+  assert.match(fn, /this\._aaStrip\(gl, d, n, breakAt, GW, GH, thickMul, kind === gl\.LINE_LOOP, md\);/);
 });
 
 test('bağımsız parçalar TEK şeritte, parça başına çizim çağrısıyla değil', () => {
   /* 64x48'lik bir ızgara 3072 vektör demek; parça başına bir çizim çağrısı
      kareyi tek başına yerdi. Dejenere bağlantı sıfır alanlı üçgen üretiyor,
      yani aradaki `side` değeri hiç örneklenmiyor. */
-  const fn = /_aaSegments\(gl, d, n, GW, GH, thickMul\) \{[\s\S]*?\n    \}/.exec(BARE);
+  const fn = /_aaSegments\(gl, d, n, GW, GH, thickMul, md\) \{[\s\S]*?\n    \}/.exec(BARE);
   assert.ok(fn, '_aaSegments bulunamadı');
   assert.strictEqual((fn[0].match(/drawArrays/g) || []).length, 1,
     'tek bir çizim çağrısı olmalı');

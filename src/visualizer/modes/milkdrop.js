@@ -560,6 +560,9 @@ void main(){ outColor = vCol; }`;
   /* Işık koruma katsayısının ölçülmüş düzeltmesi. Gerekçesi ve ölçüm
      sayıları `_aaStrip` içinde, kullanıldığı yerde. */
   const AA_TRIM = 0.86;
+  /* Uyum açıkken `smooth` çizginin MilkDrop'un izini birebir çizdiği en
+     büyük tampon genişliği; üstünde iz oranla genişliyor (`_aaSetup`). */
+  const MD_LINE_REF = 1024;
 
   /* Flaş eşiği: WCAG 2.3.1'in "genel flaş" ölçütü, bağıl parlaklıkta 0,10.
      Ölçüm ve gerekçe FLASH_FRAG'in yanında. */
@@ -1430,6 +1433,8 @@ void main(){
       this.vbo = gl.createBuffer();
       this.ibo = gl.createBuffer();
       this.verts = new Float32Array(n * (this.meshY + 1) * VSTRIDE);
+      // Yeni ağ boş: hareket vektörleri onu ancak bir kare kurulduktan sonra okuyabilir
+      this._meshBuilt = false;
       const idx = new Uint32Array(this.meshX * this.meshY * 6);
       let k = 0;
       for (let j = 0; j < this.meshY; j++) {
@@ -3458,11 +3463,30 @@ void main(){
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
       };
 
-      this._buildWarpMesh();
-
       const src = this.targets[this.cur];
       const dst = this.targets[1 - this.cur];
       this.cur = 1 - this.cur;
+
+      /* HAREKET VEKTÖRLERİ WARP'IN KAYNAĞINA, warp'tan ÖNCE (#752).
+         MilkDrop onları VS0'a, yani warp'ın okuyacağı önceki kareye
+         çiziyor (milkdropfs.cpp:950-965) ve ağı ANCAK SONRA bu kare için
+         yeniden hesaplıyor (`ComputeGridAlphaValues`, 1006). Yani vektörler
+         bir önceki karenin ağını okuyor; warp'tan bir kez geçip `decay` kadar
+         sönüyor, şekil ve dalgaların altında kalıyor, blur ve dokulu
+         şekiller de onları görüyor. Motor onları warp'tan sonra doğrudan
+         karenin üstüne çiziyordu: ölçüldü, `decay = 0` olan bir presette
+         MilkDrop hiç vektör göstermezken motor 4136 piksel çiziyordu. İlk
+         karede ağ henüz yok; o kare atlanıyor. */
+      if (this._wantAcc !== false) {
+        if (this._meshBuilt) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, src.fb);
+          gl.viewport(0, 0, GW, GH);
+          this._drawMotionVectors(gl, GW, GH);
+        }
+      }
+
+      this._buildWarpMesh();
+      this._meshBuilt = true;
 
       const ctx = {
         w: GW, h: GH, aspectx, aspecty, aspX, aspY,
@@ -3594,8 +3618,8 @@ void main(){
          görünüyor. Ölçüsü: yalnız iki presetin dalga modu farklıysa ve
          yalnız geçiş süresince. */
       this._drawWaveModes(gl, GW, GH);
-      // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
-      this._drawMotionVectors(gl, GW, GH);
+      // Uyum kapalıyken eski sıra: çizimlerden sonra, birleştirmeden önce.
+      if (this._wantAcc === false) this._drawMotionVectors(gl, GW, GH);
       /* Merkez karartma ve kenarlıklar EN SON: MilkDrop'ta da sıra bu.
          Daha önce çizilseler dalga ve şekiller üstlerini kapatırdı. */
       this._drawDarkenCenter(gl, GW, GH);
@@ -3947,12 +3971,20 @@ void main(){
       const flush = () => {
         if (count < 2) { count = 0; return; }
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
-        /* Vektörler de şişiriliyor. MilkDrop onları KALINLAŞTIRMIYOR
-           (milkdropfs.cpp:1314, tek bir LINELIST çizimi), ama kendi
-           tamponunda bir teksel olan çizgi bizim tamponumuzda yine bir
-           PİKSEL kalıyordu — 1920 genişlikte MilkDrop'un gördüğünün dörtte
-           biri. Telafi çözünürlük içindir, `thick` için değil; çarpan 1.
-           Korpusta 884 preset (%8,6) hareket vektörü çiziyor. */
+        /* UYUM AÇIKKEN MILKDROP'UN İZİ, çizgi biçimi ne olursa olsun (#752).
+           MilkDrop vektörleri KALINLAŞTIRMIYOR (milkdropfs.cpp:1314, tek bir
+           LINELIST çizimi) ve tamponu pencere boyunda: `nTexSize` varsayılanı
+           -1, yani "pencere kadar" (BeatDrop plugin.cpp:949, MilkDrop 2.25
+           plugin.cpp:498). Bir teksel orada da bir piksel. Eski `smooth`
+           şişirmesi çizgiyi 1440 genişlikte 4,5 teksele çıkarıyordu; vektörler
+           artık warp'ın kaynağına çizildiği için o ışık geri beslemeye de
+           giriyor. Artık `smooth` ve `thin` biçiminde şerit MilkDrop'un
+           iziyle ve ışığıyla çiziyor (`_aaSetup`); bir teksellik durgun izi
+           de basıyor (16x12 izde 418 piksel, MilkDrop'ta 365; düz
+           `gl.LINES` 166). `milkdrop` biçimi ham, tek geçişli çizgi. Ölçüldü (1440x896, düzeltilmiş MilkDrop'a kaba
+           fark): dörtlü alan eski `smooth`ta 6,78, şimdi 1,53; negatif
+           kaydırılmış ızgara 2,47 -> 0,29. Korpusta 884 preset (%8,6)
+           hareket vektörü çiziyor. */
         this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1, { its: 1 });
         count = 0;
       };
@@ -3960,8 +3992,13 @@ void main(){
         /* IZGARA MilkDrop'un ızgarası: (j + 0,25) / (NY + kesir + 0,25 - 1)
            (milkdropfs.cpp:1244, 1256). Ekranın bir kenarından ötekine
            uzanıyor; motorunki hücre ortalarına oturuyordu, yani alan yarım
-           hücre içeri çekilmiş ve aralıkları başka çıkıyordu. MilkDrop'un
-           `fy`si aşağıdan yukarı, bizimki yukarıdan aşağı: çevirme burada. */
+           hücre içeri çekilmiş ve aralıkları başka çıkıyordu.
+
+           DİKEY YÖN: MilkDrop'un 2B izdüşümü y'yi çeviriyor
+           (support.cpp:179, `D3DXMatrixOrthoLH(.., 2, -2, ..)`), yani `fy`
+           ekranda YUKARIDAN AŞAĞI. Bizim çizim y'miz `_toClipY` yüzünden
+           AŞAĞIDAN YUKARI (şekil ve dalga y'si gibi): `1 - fy` ikisini
+           eşliyor. Ölçüldü: satırlar MilkDrop'unkilerle aynı piksellerde. */
         const fy = acc ? (j + 0.25) / (NY + fdy + 0.25 - 1) - dy0 : 0;
         if (acc && !(fy > 0.0001 && fy < 0.9999)) continue;
         const y = acc ? 1 - fy : (j + 0.5) / NY + dy0;
@@ -3980,9 +4017,21 @@ void main(){
                kısaysa uzatıyor. Motor farkın AYNASINI çiziyordu, yani
                bütün alan ters yöne bakıyordu. Aynayı MilkDrop'un kendisi de
                denemiş ve KAPATMIŞ: milkdropfs.cpp:1266 satırındaki
-               `//fx2 = fx*2 - fx2;` tam olarak motorun çizdiği şeydi. */
-            let ddx = (uv[0] - x) * L;
-            let ddy = (uv[1] - y) * L;
+               `//fx2 = fx*2 - fx2;` tam olarak motorun çizdiği şeydi.
+
+               YARIM TEKSEL (#752). MilkDrop ağın `tu`/`tv`sine D3D9'un piksel
+               merkezi kuralı için yarım teksel ekliyor (milkdropfs.cpp:1838-
+               1839). Görüntü kaymıyor, ama `ReversePropagatePoint` o yarım
+               tekseli yer değiştirme diye okuyor: hareketsiz alanda bile her
+               vektör `mv_l` ile büyüyen bir çapraz çizgi. `mv_l = 5`'te 2,5
+               teksel; korpusta `mv_l`yi binlere çıkaran presetler bu çizgiyi
+               ekranı kesen ışınlara çeviriyor ("Sensual Enjoyment": 1500 +
+               1000·bass). Bizim GL ağımızda ofset yok, burada ekleniyor.
+               İşaret ölçüldü (#750 yamalı MilkDrop, 960x720): sağa ve ekranda
+               aşağı; `mv_l = 200` sentetik alanda kaba fark 1,56 -> 0,36, ters
+               dikey işaretle 2,56. */
+            let ddx = (uv[0] + 0.5 / GW - x) * L;
+            let ddy = (uv[1] - 0.5 / GH - y) * L;
             const len = Math.sqrt(ddx * ddx + ddy * ddy);
             if (len > minLen) {
               // olduğu gibi
@@ -3990,9 +4039,13 @@ void main(){
               const k = minLen / len;
               ddx *= k; ddy *= k;
             } else {
-              /* Hiç hareket yoksa MilkDrop sağ-YUKARI bir teksel çiziyor
-                 (`dy = min_len`, onun `fy`si aşağıdan yukarı). Bizim y
-                 yukarıdan aşağı: işaret ters. */
+              /* Hiç hareket yoksa MilkDrop sağ-AŞAĞI bir teksel çiziyor:
+                 `dy = min_len`, ve onun `fy`si ekranda yukarıdan aşağı
+                 (yukarıdaki DİKEY YÖN notu). Bizim y aşağıdan yukarı,
+                 yani işaret ters. Ölçüldü: izi geçici olarak 40 teksele
+                 uzatınca ekranda (24,73)'ten (63,97)'ye, sağa ve aşağı
+                 gidiyor; MilkDrop'un tek teksellik izinin soluk ikinci
+                 pikseli de altta. */
               ddx = minLen; ddy = -minLen;
             }
             ex = x + ddx; ey = y + ddy;
@@ -4517,6 +4570,12 @@ void main(){
        Önce tampon GL yönündeydi ve bu formül her şekli, her dalgayı dikeyde
        aynalıyordu; referans çizicide ölçüldü. */
     _toClipY(y) { return 1 - 2 * y; }
+
+    /* Kenarı yumuşatılmış çizgi (`smooth`, `thin`) MilkDrop'un iziyle ve
+       ışığıyla mı çiziliyor: uyum açıkken evet (#752). Kapalıyken eski
+       kalibrasyonlar aynen duruyor. `milkdrop` biçimi ham çizim, buraya
+       hiç gelmiyor. */
+    _mdLight() { return this._wantAcc !== false && this._lineStyle !== 'milkdrop'; }
 
     _blend(gl, additive) {
       /* Kenar yumuşatmalı yol alfa tavanını buna göre seçiyor: toplamalı
@@ -5474,39 +5533,66 @@ void main(){
        AYNI kalibrasyonu kullanması gerekiyor. İki yere kopyalanmış bir
        genişlik hesabı, biri güncellenip öteki unutulduğunda sessizce iki
        farklı kalınlık çizerdi. */
-    _aaSetup(gl, GW, thickMul) {
-      const draws = this._lineDraws(GW, thickMul);
-      /* GENİŞLİK: 320'lik referansta bir teksel, yukarısında oranla. Eski
-         yolun kademeli ağırlığından farklı olarak sürekli — 640'ta 2, 1024'te
-         3,2, 1920'de 6 teksel. Görünen kalınlık çözünürlükten bağımsız
-         kalıyor, ki presetin amacı buydu.
+    _aaSetup(gl, GW, thickMul, md) {
+      let half, gain;
+      if (this._mdLight()) {
+        /* MILKDROP'UN İZİ, KENARI YUMUŞAK (#752). MilkDrop bir çizgiyi ya
+           tek geçişte bir teksel çiziyor ya da dört geçişte bir teksellik
+           2x2 bloğa kaydırarak (milkdropfs.cpp:2371, 2654, 3259): iz 1 ya da
+           2 teksel. Şerit o izi çiziyor ve her geçişin bıraktığı ışığı
+           bırakıyor — kapsanan piksel çizginin kendi alfasını alıyor,
+           ışık koruma çarpanı yok.
 
-         `ince` kipinde referans 512: MilkDrop'un kendi çizgisi o boyuttaki
-         tamponda bir tekseldi, yani bu GERÇEK kalınlık. Işık koruma yok,
-         dolayısıyla dalga taşıyan presetler sönükleşiyor — kullanıcı bunu
-         bilerek seçiyor. */
-      const ref = this._lineStyle === 'thin' ? 512 : 320;
-      const wPx = Math.max(1, (GW / ref) * (thickMul || 1));
-      const half = Math.max(0.5, wPx * 0.5);
-      /* IŞIK KORUMA: şerit `2*half` teksel boyunca ışık bırakıyor, eski yol
-         `draws` kez bir teksel. Oran ikisini eşitliyor. İnce kipte 1.
+           Eski kalibrasyon eski yolun kaydırmalı kopyalarını hedefliyordu
+           ve MilkDrop'un 2-5 katı ışık bırakıyordu; doyma sınırındaki geri
+           besleme döngüleri geç karelerde patlıyordu (De-Orbit: parlaklık
+           0,24, MilkDrop'ta 0,03).
 
-         AA_TRIM ÖLÇÜLMÜŞ BİR KALİBRASYON, türetilmiş değil. Kâğıt üstünde
-         oran yeterli olmalıydı; ölçünce şerit tutarlı biçimde daha fazla
-         ışık bıraktı. Sebebi `gl.LINE_STRIP`in tarama kuralı: her segmentin
-         yalnızca baskın eksende piksel basıyor ve segment sonlarını
-         düşürüyor, yani GL'nin çizdiği "uzunluk" gerçek uzunluktan kısa.
-         Segment başına bir etki olduğu için tek bir sayıyla tam
-         kapatılamıyor.
+           ÇÖZÜNÜRLÜK: `MD_LINE_REF` genişliğe kadar iz MilkDrop'unki;
+           üstünde oranla genişliyor, piksel başına ışık aynı kalıyor. Görüntü
+           o genişlikte çizilmiş MilkDrop görüntüsünün büyütülmüş hâli: 4K'da
+           çizgi presetin yazıldığı tampondaki oranını koruyor, geri besleme
+           dinamiği değişmiyor. */
+        const foot = md && md.its >= 4 ? 2 : 1;
+        /* Ölçek yalnız `smooth`ta. `thin` "gerçek kalınlık": her çözünürlükte
+           MilkDrop'un pencere boyu tampondaki izi. */
+        const sc = this._lineStyle === 'smooth' ? Math.max(1, GW / MD_LINE_REF) : 1;
+        half = 0.5 * foot * sc;
+        gain = AA_TRIM * ((md && md.its) || 1) / foot;
+      } else {
+        const draws = this._lineDraws(GW, thickMul);
+        /* GENİŞLİK: 320'lik referansta bir teksel, yukarısında oranla. Eski
+           yolun kademeli ağırlığından farklı olarak sürekli — 640'ta 2, 1024'te
+           3,2, 1920'de 6 teksel. Görünen kalınlık çözünürlükten bağımsız
+           kalıyor, ki presetin amacı buydu.
 
-         Ölçüm (512x384, `decay=0`, shader yok — yani yalnızca o karenin
-         bıraktığı ışık, döngünün kazancı karışmadan; dalga modu 0/1/2/4/7):
-         katsayısız +19,3 / +22,0 / +3,0 / +18,8 / +20,6 yüzde;
-         0,86 ile   +3,9 / +12,2 / -9,3 / +3,4 / +4,8.
-         Tam sıfır olmuyor ve olamaz: sapma segment SAYISINA bağlı, tek bir
-         çarpanla kapatılamaz. Mod 2 en kısa çizgiyi çiziyor, GL'nin segment
-         başına fazladan pikseli orada oransal olarak ağır basıyor. */
-      const gain = this._lineStyle === 'thin' ? 1 : AA_TRIM * draws / (2 * half);
+           `ince` kipinde referans 512: MilkDrop'un kendi çizgisi o boyuttaki
+           tamponda bir tekseldi, yani bu GERÇEK kalınlık. Işık koruma yok,
+           dolayısıyla dalga taşıyan presetler sönükleşiyor — kullanıcı bunu
+           bilerek seçiyor. */
+        const ref = this._lineStyle === 'thin' ? 512 : 320;
+        const wPx = Math.max(1, (GW / ref) * (thickMul || 1));
+        half = Math.max(0.5, wPx * 0.5);
+        /* IŞIK KORUMA: şerit `2*half` teksel boyunca ışık bırakıyor, eski yol
+           `draws` kez bir teksel. Oran ikisini eşitliyor. İnce kipte 1.
+
+           AA_TRIM ÖLÇÜLMÜŞ BİR KALİBRASYON, türetilmiş değil. Kâğıt üstünde
+           oran yeterli olmalıydı; ölçünce şerit tutarlı biçimde daha fazla
+           ışık bıraktı. Sebebi `gl.LINE_STRIP`in tarama kuralı: her segmentin
+           yalnızca baskın eksende piksel basıyor ve segment sonlarını
+           düşürüyor, yani GL'nin çizdiği "uzunluk" gerçek uzunluktan kısa.
+           Segment başına bir etki olduğu için tek bir sayıyla tam
+           kapatılamıyor.
+
+           Ölçüm (512x384, `decay=0`, shader yok — yani yalnızca o karenin
+           bıraktığı ışık, döngünün kazancı karışmadan; dalga modu 0/1/2/4/7):
+           katsayısız +19,3 / +22,0 / +3,0 / +18,8 / +20,6 yüzde;
+           0,86 ile   +3,9 / +12,2 / -9,3 / +3,4 / +4,8.
+           Tam sıfır olmuyor ve olamaz: sapma segment SAYISINA bağlı, tek bir
+           çarpanla kapatılamaz. Mod 2 en kısa çizgiyi çiziyor, GL'nin segment
+           başına fazladan pikseli orada oransal olarak ağır basıyor. */
+        gain = this._lineStyle === 'thin' ? 1 : AA_TRIM * draws / (2 * half);
+      }
       const L = this.locAA;
       gl.useProgram(this.aaProg);
       /* Şerit yarı genişlikten BİR TEKSEL daha geniş: yumuşama oraya
@@ -5525,13 +5611,13 @@ void main(){
     }
 
     /* Kenar yumuşatmalı çizim. `d` şerit verisi, `n` nokta sayısı. */
-    _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed) {
+    _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed, md) {
       if (n < 2) return;
-      const ext = this._aaSetup(gl, GW, thickMul);
+      const ext = this._aaSetup(gl, GW, thickMul, md);
       const seg = (off, cnt) => {
         if (cnt < 2) return;
         const v = this._ribbon(d.subarray(off * 6, (off + cnt) * 6), cnt,
-          closed, ext, GW, GH, this._lineStyle !== 'thin');
+          closed, ext, GW, GH, this._lineStyle !== 'thin' || this._mdLight());
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.aaData, 0, v * 7);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, v);
       };
@@ -5548,12 +5634,12 @@ void main(){
        çizim çağrısı kareyi tek başına yerdi. Parçalar arasına DEJENERE
        bağlantı konuyor — sıfır alanlı üçgen hiç parça üretmiyor, dolayısıyla
        aradaki `side` değeri hiç örneklenmiyor. */
-    _aaSegments(gl, d, n, GW, GH, thickMul) {
+    _aaSegments(gl, d, n, GW, GH, thickMul, md) {
       if (n < 2) return;
-      const ext = this._aaSetup(gl, GW, thickMul);
+      const ext = this._aaSetup(gl, GW, thickMul, md);
       const out = this.aaData;
       const sx = GW * 0.5, sy = GH * 0.5;
-      const lenCorr = this._lineStyle !== 'thin';
+      const lenCorr = this._lineStyle !== 'thin' || this._mdLight();
       let w = 0;
       /* Tampon sınırı: parça başına en çok altı tepe (dört köşe + iki
          dejenere). Sığmayan parça çizilmiyor değil, o noktada boşaltılıyor. */
@@ -5638,17 +5724,19 @@ void main(){
       /* KENAR YUMUŞATMALI YOL artık üç çizgi biçiminde de: dalga şeridi,
          şekil kenarlığı (kapalı şerit) ve hareket vektörleri (bağımsız
          parçalar). Aynı `lineStyle` ayarı üçünü birden sürüyor — biri
-         yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı. */
+         yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı. Uyum açıkken
+         `smooth` ve `thin` MilkDrop'un iziyle ve ışığıyla çiziyor
+         (`_mdLight`, #752). */
       const aa = this._lineStyle !== 'milkdrop' && this.aaProg;
       if (aa && kind === gl.LINES) {
-        this._aaSegments(gl, d, n, GW, GH, thickMul);
+        this._aaSegments(gl, d, n, GW, GH, thickMul, md);
         gl.useProgram(this.lineProg);
         gl.bindVertexArray(this.lineVao);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.lineVbo);
         return;
       }
       if (aa && (kind === gl.LINE_STRIP || kind === gl.LINE_LOOP)) {
-        this._aaStrip(gl, d, n, breakAt, GW, GH, thickMul, kind === gl.LINE_LOOP);
+        this._aaStrip(gl, d, n, breakAt, GW, GH, thickMul, kind === gl.LINE_LOOP, md);
         /* Çağıran `lineProg`/`lineVao`yu bağlı bırakmıştı; AA yolu ikisini
            de değiştirdi. Sıradaki çizim kendi programını bağlamazsa yanlış
            gölgelendiriciyle çizerdi. */

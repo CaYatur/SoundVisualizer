@@ -15,9 +15,29 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### MilkDrop
 
-- **A still motion-vector field draws its stubs up and to the right, as MilkDrop does.** Where
-  nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len` in its bottom-up space; ours
-  kept the sign in our top-down space, so the stubs pointed down.
+- **A still motion-vector field draws its stubs down and to the right, as MilkDrop does [751].**
+  Where nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len`. Its 2D projection
+  flips y, so on screen that stub points down; ours pointed up.
+- **Motion vectors are drawn into the warp's source, before the warp, as MilkDrop does [752].**
+  They were drawn on top of the finished frame. Now, as in MilkDrop, they read the previous frame's
+  mesh, pass through the warp once, fade with `decay`, sit under shapes and waves, and reach blur and
+  textured shapes. A preset with `decay = 0` showed vectors that MilkDrop never shows.
+- **Motion vectors include MilkDrop's half-texel offset [752].** MilkDrop adds half a texel to its
+  mesh coordinates for Direct3D 9's pixel centres, and the motion vectors read that half texel as
+  movement. So even a still field draws short diagonal strokes that grow with `mv_l`, and presets
+  that push `mv_l` into the thousands turn them into rays across the screen ("Sensual Enjoyment").
+  The engine had no such offset and drew those presets almost empty.
+- **Anti-aliased lines draw MilkDrop's footprint and leave MilkDrop's light in accurate mode
+  [752].** The "Smooth" style used to leave 2 to 5 times MilkDrop's light, and feedback presets near
+  saturation blew out (De-Orbit, Answer42, Music Box). Waves, shape outlines and motion vectors now
+  draw MilkDrop's one-texel line, or its two-texel block for thick lines, with soft edges. Above
+  1024 wide the line grows with the resolution, so at 4K it keeps the share of the picture it had in
+  the buffer the preset was written for. "Thin" draws MilkDrop's footprint at every resolution. With
+  accurate mode off, both styles keep their old calibration.
+  - The "Smooth" option is renamed "Anti-aliased (scales with resolution)".
+  - Measured against patched MilkDrop on 120 presets that draw motion vectors, over the presets
+    without user textures or randomness: the median frame-59 difference fell from 28.1 to 5.3, with
+    no preset worse at frames 2, 10, 30 or 59.
 
 ## v3.1.5 — 2026-10-13
 
