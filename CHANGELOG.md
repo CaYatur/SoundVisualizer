@@ -36,7 +36,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   accurate mode off, both styles keep their old calibration.
   - The "Smooth" option is renamed "Anti-aliased (scales with resolution)".
   - Measured against patched MilkDrop on 120 presets that draw motion vectors, over the presets
-    without user textures or randomness: the median frame-59 difference fell from 28.1 to 7.0, with
+    without user textures or randomness: the median frame-59 difference fell from 28.1 to 5.3, with
     no preset worse at frames 2, 10, 30 or 59.
 
 ## v3.1.5 — 2026-10-13
