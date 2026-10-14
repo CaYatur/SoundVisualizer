@@ -620,6 +620,16 @@
     return { value: next };
   }
   const CHECKED_SECTIONS = ['postfx', 'visualizer', 'background', 'modulation', 'autovj', 'control', 'nowplaying'];
+  // Cover art is a data URI that can run to hundreds of KB. A small model
+  // that receives it loses the track title in it, so MCP readers send only
+  // whether a cover exists unless the caller asks for it.
+  function publicTrack(track, includeArtwork) {
+    if (!track || typeof track !== 'object') return null;
+    const out = Object.assign({}, track);
+    out.hasArtwork = !!track.artwork;
+    if (!includeArtwork) delete out.artwork;
+    return out;
+  }
   function summarize(v, depth) {
     if (depth == null) depth = 0;
     if (typeof v === 'string') {
@@ -915,6 +925,7 @@
     sv_get_scene: { props: SCENE_REF },
     sv_get_layer: { props: LAYER_REF },
     sv_get_config: { props: { path: sp('string', 'Dotted config path such as visualizer.sensitivity. Omit for the whole config.') } },
+    sv_get_now_playing: { props: { includeArtwork: sp('boolean', 'true also returns the cover as a data URI, which can be hundreds of KB. Default false.') } },
     sv_list_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
     mcp_permissions: { props: { tool: sp('string', 'Tool name to check.'), name: sp('string', 'Same as tool.') } },
     sv_apply_scene: { props: SCENE_REF },
@@ -1142,7 +1153,7 @@
       displayConfig: cfg.display || null,
       audio: audioState(cfg, ctx),
       audioSources: audioCfg.sources || [],
-      nowPlaying: nowPlaying,
+      nowPlaying: publicTrack(nowPlaying, false),
       stack: { enabled: !!(cfg.layerStack && cfg.layerStack.enabled), layerStack: cfg.layerStack || null, layers: layers },
       stream: stream,
       textureShare: texture,
@@ -1184,10 +1195,10 @@
   tool('sv_get_audio', null, 'Read BPM and level/bass/mid/treble. Read-only.', function (args, ctx) {
     return Object.assign({ ok: true, revision: revisionOf(ctx) }, audioState(configOf(ctx), ctx));
   });
-  tool('sv_get_now_playing', null, 'Read the current track. Read-only.', function (args, ctx) {
+  tool('sv_get_now_playing', null, 'Read the current track. Cover art only with includeArtwork: true. Read-only.', function (args, ctx) {
     let track = null;
     try { track = ctx.nowPlaying ? ctx.nowPlaying() : null; } catch (e) { track = null; }
-    return { ok: true, nowPlaying: track || null };
+    return { ok: true, nowPlaying: publicTrack(track, !!(args && args.includeArtwork === true)) };
   });
   tool('sv_list_scenes', null, 'List saved scenes. Read-only.', function (args, ctx) {
     return { ok: true, scenes: (configOf(ctx).scenes || []).map(function (s) { return { id: s.id, name: s.name, createdAt: s.createdAt || null }; }) };
