@@ -63,17 +63,14 @@ function vectors(opts) {
     lineData: new Float32Array(4096 * 6),
     _toClipY: new Function('y', /_toClipY\(y\) \{([^}]*)\}/.exec(SRC)[1]),
     _blend() {},
-    _strip(gl, kind, d, n) {
-      if (opts.viaStrip) opts.viaStrip.push(n);
+    _strip(gl, kind, d, n, breakAt, gw, gh, thickMul, md) {
+      if (opts.viaStrip) opts.viaStrip.push(md);
       take(d, n);
     },
     lineProg: 1, lineVao: 1, lineVbo: 1,
   };
-  /* Uyum açıkken vektörler doğrudan `drawArrays` ile çiziliyor, `_strip`
-     ile değil: o anki tampon okunuyor. */
   const gl = new Proxy({}, {
     get(_, k) {
-      if (k === 'drawArrays') return (kind, first, n) => take(self.lineData, n);
       if (typeof k === 'string' && /^[A-Z_0-9]+$/.test(k)) return k;
       return () => {};
     },
@@ -157,17 +154,32 @@ test('vektör, içeriğin geldiği yere doğru', () => {
   /* Ağ 0,1 sağa kaydırılmış örnekliyor: MilkDrop'ta uç nokta o yöne
      gidiyor, motorun eski yolunda ise tam tersine. */
   const segs = vectors({ shiftU: 0.1, vals: { mv_x: 2, mv_y: 2, mv_l: 1 } });
-  for (const [x0, , x1] of segs) close(sx(x1) - sx(x0), 0.1, 'yeni yön');
+  // + MilkDrop'un yarım tekseli (aşağıdaki test)
+  for (const [x0, , x1] of segs) close(sx(x1) - sx(x0), 0.1 + 0.5 / 960, 'yeni yön');
   const old = vectors({ shiftU: 0.1, acc: false, vals: { mv_x: 2, mv_y: 2, mv_l: 1 } });
   for (const [x0, , x1] of old) close(sx(x1) - sx(x0), -0.1, 'eski yön');
 });
 
 test('mv_l uzunluğu ölçekliyor, mv_dx/mv_dy ızgarayı kaydırıyor', () => {
   const half = vectors({ shiftU: 0.2, vals: { mv_x: 2, mv_y: 2, mv_l: 0.5 } });
-  for (const [x0, , x1] of half) close(sx(x1) - sx(x0), 0.1, 'yarım uzunluk');
+  for (const [x0, , x1] of half) close(sx(x1) - sx(x0), (0.2 + 0.5 / 960) * 0.5, 'yarım uzunluk');
   const base = vectors({ vals: { mv_x: 3, mv_y: 3 } });
   const moved = vectors({ vals: { mv_x: 3, mv_y: 3, mv_dx: 0.05 } });
   close(sx(moved[0][0]) - sx(base[0][0]), 0.05, 'yatay kaydırma');
+});
+
+test('hareketsiz alanda MilkDrop\'un yarım tekseli: sağa ve aşağı, mv_l ile büyüyor', () => {
+  /* MilkDrop ağın tu/tv'sine yarım teksel ekliyor (milkdropfs.cpp:1838-
+     1839) ve ters yayılım onu yer değiştirme diye okuyor. #750 yamalı
+     MilkDrop'ta ölçüldü: sağa ve ekranda aşağı. `mv_l` binlere çıkınca bu
+     çizgi ekranı kesiyor ("Sensual Enjoyment"). */
+  const GW = 960, GH = 720;
+  const segs = vectors({ GW, GH, vals: { mv_x: 3, mv_y: 3, mv_l: 200 } });
+  assert.ok(segs.length > 0, 'iz yok');
+  for (const [x0, y0, x1, y1] of segs) {
+    close(sx(x1) - sx(x0), 0.5 / GW * 200, 'sağa');
+    close(sy(y1) - sy(y0), 0.5 / GH * 200, 'aşağı');
+  }
 });
 
 test('ekran dışına düşen noktalar çizilmiyor', () => {
@@ -176,17 +188,78 @@ test('ekran dışına düşen noktalar çizilmiyor', () => {
   for (const [x0] of segs) assert.ok(sx(x0) < 0.9999, 'ekran dışı nokta çizildi');
 });
 
-test('uyum açıkken tek teksel: çizgi biçimi şişirmiyor', () => {
+test('vektörler MilkDrop\'un tek geçişiyle, çizgi biçiminin yolundan', () => {
   /* MilkDrop vektörleri tek bir LINELIST ile, bir teksel çiziyor
-     (milkdropfs.cpp:1314) ve tamponu pencere boyunda. Uyum açıkken çizim
-     `_strip`e, yani `smooth`/`thin` şeridine hiç gitmiyor (#752). */
-  const viaStrip = [];
-  const segs = vectors({ viaStrip, vals: { mv_x: 4, mv_y: 3 } });
+     (milkdropfs.cpp:1314): tek geçiş, `its = 1`. Genişlik ve ışık çizgi
+     biçiminin yolundan geliyor; uyum açıkken `smooth`/`thin` o yolda
+     MilkDrop'un izini çiziyor (`_aaSetup` testleri aşağıda). */
+  const md = [];
+  const segs = vectors({ viaStrip: md, vals: { mv_x: 4, mv_y: 3 } });
   assert.ok(segs.length > 0, 'iz yok');
-  assert.deepStrictEqual(viaStrip, [], 'uyum açıkken şeritten geçti');
-  const old = [];
-  vectors({ acc: false, viaStrip: old, vals: { mv_x: 4, mv_y: 3 } });
-  assert.ok(old.length > 0, 'uyum kapalıyken eski yol (çizgi biçimi) kalmalı');
+  assert.ok(md.length > 0 && md.every((m) => m && m.its === 1), JSON.stringify(md));
+});
+
+/* `_aaSetup` gövdesini sahte bir GL ile koşturup şeridin yarı genişliğini ve
+   kazancını okur. */
+function aaSetup(o) {
+  const fn = new Function('gl', 'GW', 'thickMul', 'md', 'AA_TRIM', 'MD_LINE_REF',
+    body(method('_aaSetup(gl, GW, thickMul, md)')));
+  const u = {};
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (k === 'uniform1f') return (loc, v) => { u[loc] = v; };
+      if (typeof k === 'string' && /^[A-Z_0-9]+$/.test(k)) return k;
+      return () => {};
+    },
+  });
+  const self = {
+    _wantAcc: o.acc !== false,
+    _lineStyle: o.style || 'smooth',
+    _aaAdditive: false,
+    locAA: { uHalf: 'half', uExt: 'ext', uGain: 'gain', uMax: 'max' },
+    _mdLight: new Function(/_mdLight\(\) \{([^}]*)\}/.exec(SRC)[1]),
+    _lineDraws: new Function('GW', 'thickMul', body(method('_lineDraws(GW, thickMul)'))),
+  };
+  const trim = +/const AA_TRIM = ([0-9.]+);/.exec(SRC)[1];
+  const ref = +/const MD_LINE_REF = ([0-9.e]+);/.exec(SRC)[1];
+  fn.call(self, gl, o.GW, o.thick || 1, o.md, trim, ref);
+  return { half: u.half, gain: u.gain, trim, ref };
+}
+
+test('smooth, uyum açıkken MilkDrop\'un izini ve ışığını çiziyor', () => {
+  /* İz 1 teksel, dört geçişli çizimde (kalın, ya da nokta) 2x2 blok =
+     2 teksel; piksel başına ışık geçişlerin bıraktığı kadar (#752). Eski
+     kalibrasyon 960'ta 3 teksel genişlik ve 1,8 kazançla MilkDrop'un 2-5
+     katı ışık bırakıyordu. */
+  const thin = aaSetup({ GW: 960, md: { its: 1 } });
+  close(thin.half, 0.5, 'ince iz');
+  close(thin.gain, thin.trim, 'ince kazanç');
+  const thick = aaSetup({ GW: 960, thick: 2, md: { its: 4 } });
+  close(thick.half, 1, 'kalın iz');
+  close(thick.gain, thick.trim * 2, 'kalın kazanç');
+  // Referansın üstünde iz oranla genişliyor, piksel başına ışık aynı
+  const big = aaSetup({ GW: 2048, md: { its: 1 } });
+  close(big.half, 0.5 * 2048 / big.ref, '2048 iz');
+  close(big.gain, big.trim, '2048 kazanç');
+  // Uyum kapalıyken eski ışık korumalı kalibrasyon
+  const legacy = aaSetup({ GW: 960, acc: false, md: { its: 1 } });
+  close(legacy.half, 1.5, 'eski iz');
+  assert.ok(legacy.gain > 1.5, 'eski kazanç: ' + legacy.gain);
+});
+
+test('thin, uyum açıkken her çözünürlükte MilkDrop\'un gerçek izi', () => {
+  /* "Gerçek kalınlık": pencere boyu tampondaki MilkDrop izi, ölçek yok.
+     Eski `thin` 512 referanslıydı ve ışık çarpanı 1'di — 960'ta 1,9
+     teksel, yani MilkDrop'un iki katı ışık. */
+  const r = aaSetup({ GW: 2048, style: 'thin', md: { its: 1 } });
+  close(r.half, 0.5, 'thin iz');
+  close(r.gain, r.trim, 'thin kazanç');
+  const thick = aaSetup({ GW: 2048, style: 'thin', thick: 2, md: { its: 4 } });
+  close(thick.half, 1, 'thin kalın iz');
+  // Uyum kapalıyken eski `thin`: 512 referansı, kazanç 1
+  const legacy = aaSetup({ GW: 2048, style: 'thin', acc: false, md: { its: 1 } });
+  close(legacy.half, 2, 'eski thin iz');
+  close(legacy.gain, 1, 'eski thin kazanç');
 });
 
 test('vektörler warp\'ın kaynağına, ağ yeniden kurulmadan önce', () => {

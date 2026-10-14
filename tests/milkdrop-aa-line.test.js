@@ -211,11 +211,13 @@ test('alfa tavanı karışım kipine bağlı', () => {
   assert.match(BARE, /gl\.uniform1f\(L\.uMax, this\._aaAdditive \? 64 : 1\)/);
 });
 
-test('ince kipte ışık koruma yok, yumuşatılmışta var', () => {
+test('uyum kapalıyken: ince kipte ışık koruma yok, yumuşatılmışta var', () => {
   /* Genişlik ve kazanç `_aaSetup` içinde: şerit yolu iki yerden çağrılıyor
      (bağlı çizgi ve bağımsız parçalar) ve ikisi de aynı kalibrasyonu
-     kullanmak zorunda. */
-  const fn = BARE.slice(BARE.indexOf('_aaSetup(gl, GW, thickMul)'));
+     kullanmak zorunda. Uyum açıkken ikisi de MilkDrop'un izini çiziyor;
+     o yol `milkdrop-motion-vectors.test.js` içinde ölçülüyor (#752). */
+  const fn = BARE.slice(BARE.indexOf('_aaSetup(gl, GW, thickMul, md)'));
+  assert.match(fn, /if \(this\._mdLight\(\)\) \{/);
   assert.match(fn, /const ref = this\._lineStyle === 'thin' \? 512 : 320;/);
   assert.match(fn, /this\._lineStyle === 'thin' \? 1 : AA_TRIM \* draws \/ \(2 \* half\)/);
 });

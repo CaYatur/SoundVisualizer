@@ -22,10 +22,22 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   They were drawn on top of the finished frame. Now, as in MilkDrop, they read the previous frame's
   mesh, pass through the warp once, fade with `decay`, sit under shapes and waves, and reach blur and
   textured shapes. A preset with `decay = 0` showed vectors that MilkDrop never shows.
-- **Motion vectors stay one texel wide in accurate mode [752].** MilkDrop draws them as a plain line
-  list at window resolution. The "Smooth" line style widened them to about 4.5 texels at 1440 wide,
-  which made the layer three to four times brighter than MilkDrop's. Waves and shape outlines still
-  follow the line style setting.
+- **Motion vectors include MilkDrop's half-texel offset [752].** MilkDrop adds half a texel to its
+  mesh coordinates for Direct3D 9's pixel centres, and the motion vectors read that half texel as
+  movement. So even a still field draws short diagonal strokes that grow with `mv_l`, and presets
+  that push `mv_l` into the thousands turn them into rays across the screen ("Sensual Enjoyment").
+  The engine had no such offset and drew those presets almost empty.
+- **Anti-aliased lines draw MilkDrop's footprint and leave MilkDrop's light in accurate mode
+  [752].** The "Smooth" style used to leave 2 to 5 times MilkDrop's light, and feedback presets near
+  saturation blew out (De-Orbit, Answer42, Music Box). Waves, shape outlines and motion vectors now
+  draw MilkDrop's one-texel line, or its two-texel block for thick lines, with soft edges. Above
+  1024 wide the line grows with the resolution, so at 4K it keeps the share of the picture it had in
+  the buffer the preset was written for. "Thin" draws MilkDrop's footprint at every resolution. With
+  accurate mode off, both styles keep their old calibration.
+  - The "Smooth" option is renamed "Anti-aliased (scales with resolution)".
+  - Measured against patched MilkDrop on 120 presets that draw motion vectors, over the presets
+    without user textures or randomness: the median frame-59 difference fell from 28.1 to 7.0, with
+    no preset worse at frames 2, 10, 30 or 59.
 
 ## v3.1.5 — 2026-10-13
 

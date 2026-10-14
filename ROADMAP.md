@@ -130,10 +130,10 @@ npm test
 npm start -- --smoke
 ```
 
-- **3007 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3010 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
-  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 8
+  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 11
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -3297,24 +3297,37 @@ of this release, not a side effect.
     - The engine draws what the preset asks for, which is also what BeatDrop draws with the #750 patch. That patched build is the reference for motion vectors from here on.
   - **Draw order.** MilkDrop draws the vectors into VS0, the warp's source, before the warp (milkdropfs.cpp:950-965). It rebuilds the mesh only afterwards (`ComputeGridAlphaValues`, :1006), so the vectors read the previous frame's mesh. The engine drew them on top of the finished frame.
     - In accurate mode it now matches. A `decay = 0` preset showed 4136 lit pixels where MilkDrop shows none.
-  - **Width.** MilkDrop draws one line list into a window-sized buffer: `nTexSize` defaults to -1 in BeatDrop (plugin.cpp:949) and MilkDrop 2.25 (plugin.cpp:498). The `smooth` line style widened vectors to about 4.5 texels at 1440 wide. In accurate mode they are now one texel in every style.
+  - **The half-texel offset.** MilkDrop adds half a texel to the mesh's `tu`/`tv` for Direct3D 9's pixel centres (milkdropfs.cpp:1838-1839).
+    - The picture doesn't move, but `ReversePropagatePoint` reads that half texel as displacement. A still field therefore draws diagonal strokes of `0.5 × mv_l` texels.
+    - "Rovastar - Sensual Enjoyment" sets `mv_l = 1500 + 1000·bass`, which turns those strokes into rays across the screen. The engine had no offset and drew the preset nearly empty.
+    - The direction was measured: right, and down on screen. A `mv_l = 200` synthetic field went from 1.56 to 0.36; the opposite vertical sign gives 2.56.
+  - **Width and light: the line styles.** Measured on single layers (`decay = 0`), the old `smooth` calibration left 2–5× MilkDrop's light. It aimed at the old offset-redraw path, not at MilkDrop. Feedback presets near saturation blew out late: De-Orbit's luminance was 0.35 against MilkDrop's 0.04. In accurate mode:
+    - `smooth` draws MilkDrop's footprint with soft edges and leaves its light. The footprint is one texel, or two for the four-pass block of thick lines (milkdropfs.cpp:2371, 2654, 3259). Above 1024 wide the footprint grows with the buffer and the light per pixel stays the same. The picture is then MilkDrop's picture at 1024 wide, scaled up, so a 4K screen keeps the line weight the preset was written for. The option is renamed "Anti-aliased (scales with resolution)".
+    - `thin` ("true width") draws MilkDrop's footprint at every size. Before, it used a 512-wide reference with gain 1, which was about 2× MilkDrop's light at 960 wide.
+    - `milkdrop` stays the raw offset-redraw style. Its vectors are plain one-texel lines.
+    - Motion vectors follow the same rules. MilkDrop draws them as one line list into a window-sized buffer: `nTexSize` defaults to -1 in BeatDrop (plugin.cpp:949) and MilkDrop 2.25 (plugin.cpp:498).
+    - The soft-edged path also draws a one-texel still stub: a 16×12 field lights 418 pixels against MilkDrop's 365, where a plain `gl.LINES` lit 166.
   - **Measuring at the right size.** MilkDrop rounds its buffer up to a multiple of 16 (plugin.cpp:1886) and crops it on display. At 1440×900 every row sat 5 px off. All comparisons here use sizes that are multiples of 16.
-  - **Measured.** Reference: BeatDrop 53d83ee with the #750 patch. Mean difference on a 16-pixel grid (0..255).
+  - **Measuring only what can be compared.** A preset using `rand()`, `rand_frame`, `rand_preset` or user textures can't be compared frame by frame. The harness had only looked for `rand(`. Three apparent regressions turned out to be warp shaders sampling noise at `rand_frame`.
+  - **Measured.** Reference: BeatDrop 53d83ee with the #750 patch. Mean difference on a 16-pixel grid (0..255), median over the presets that can be compared, v3.1.5 → now.
 
-    | | before | after |
-    |---|---|---|
-    | 120 corpus presets that draw vectors, `smooth`, frame 10 / 59, median without user textures or `rand()` | 14.8 / 27.1 | 5.75 / 16.6 |
-    | the same, `milkdrop` line style | 5.52 / 8.62 | 4.84 / 8.45 |
-    | #750's 21 test and Vectrip presets, `smooth`, median | 18.1 | 6.28 |
+    | set | `smooth` (default) | `thin` | `milkdrop` |
+    |---|---|---|---|
+    | 120 presets that draw motion vectors (30 comparable), frame 10 / 59 | 12.8 / 28.1 → 2.5 / 5.3 | 9.8 / 20.7 → 2.5 / 5.3 | 4.0 / 6.0 → 2.7 / 3.9 |
+    | 150 random library presets (44 comparable), frame 30 / 59 | 7.0 / 10.6 → 3.6 / 4.8 | 4.9 / 7.1 → 3.6 / 4.8 | 3.4 / 4.0 → 2.8 / 3.6 |
+    | #750's 21 test and Vectrip presets, 1440×896 | 18.1 → 3.8 | 13.8 → 3.5 | 3.6 → 3.0 |
+    | six presets at 1920×1072 | 50.5 → 11.8 | | |
 
-    - In the `milkdrop` style, frame 59 has 14 presets better and 12 worse by more than 2, and all 12 use user textures or `rand()`.
-    - Every one of #750's 21 presets is better or within 0.06 in both styles.
-  - **Still open: the `smooth` style's light.** Waves and outlines in `smooth` leave 2–5× MilkDrop's light (measured on single layers, `decay = 0`). A feedback loop near saturation crosses it late. Under `smooth`, three presets end worse at frame 59 even though they are better at frames 2 and 10:
-    - De-Orbit (Internal Mix) (Jelly V3): luminance 0.35 against MilkDrop's 0.04;
-    - Answer42 (Trippy Sperm Mix);
-    - Twist (Hue Shaded Mirror) 2.
-
-    Under the `milkdrop` style all three match (De-Orbit 4.1). The fix that keeps anti-aliased edges is to calibrate `smooth` to MilkDrop's light instead of the old offset-redraw path.
+    - **`smooth` among the comparable presets.**
+      - Of the 120, none is worse by more than 2 at frames 2, 10, 30 or 59.
+      - Of #750's 21, none is worse by more than 0.3, in any style.
+      - Of the 150 random presets, two are worse by about 2 at frame 59:
+        - "liquid circuitry from the oblivion hive rw6": 47.5 → 49.6;
+        - "Tricolors (have you listened anyway)": 55.7 → 58.0.
+      - On both, the `milkdrop` style lands at the same place (49.2 and 58.5), and earlier frames are equal or better. Both sit about 50 from MilkDrop for a reason unrelated to lines. The old excess light happened to sit closer late in the run.
+    - **The other styles.**
+      - `thin` has one late outlier: "willing you sick of every shader", 52.3 → 55.0 at frame 59 (better at 2, 10 and 30).
+      - `milkdrop` has two: spincycle at frame 10 (15.2 → 18.0) and "truth, rarity" at frame 30 (19.6 → 22.1). Both are equal again at frame 59.
 
 ## v3.1.7 — Broadcast layout editor
 

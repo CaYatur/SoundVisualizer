@@ -1180,18 +1180,19 @@
     /* ÇİZGİ ÇİZİMİ. MilkDrop çizgiyi kaydırılmış kopyalarıyla
        kalınlaştırıyor; kalınlık oluyor ama kenar merdiven kalıyor.
        Yumuşatılmış yol çizgiyi şerit olarak çizip kenarı bir teksel
-       içinde söndürüyor. "Işık korumalı" seçeneği eski yolun bıraktığı
-       ışığı hedefliyor (ölçüldü: ±%12), yani presetlerin parlaklığı
-       yerinde kalıyor. "Gerçek kalınlık" fiziksel olarak doğru ama
-       dalga taşıyan presetler gözle görülür biçimde sönükleşiyor.
+       içinde söndürüyor. Uyum açıkken iki yumuşatılmış seçenek de
+       MilkDrop'un izini ve ışığını çiziyor (#752): "çözünürlükle ölçekli"
+       1024 genişliğin üstünde izi oranla büyütüyor, böylece 4K'da çizgi
+       presetin yazıldığı tampondaki oranını koruyor; "gerçek kalınlık"
+       her çözünürlükte MilkDrop'un pencere boyu tampondaki izi. Eski
+       "ışık korumalı" kalibrasyon MilkDrop'un 2-5 katı ışık bırakıyor ve
+       geri besleme döngülerini doyuruyordu; uyum kapalıyken duruyor.
 
-       Ayar dalgayı ve şekil kenarlığını birlikte sürüyor. Yalnız dalgaya
-       uygulansaydı aynı karede yumuşak bir dalga ile tırtıklı bir kenarlık
-       yan yana dururdu. Hareket vektörleri uyum açıkken ayarın DIŞINDA:
-       MilkDrop onları warp'tan önce, tek teksel çiziyor ve şişirilmiş ışık
-       geri beslemeye giriyordu (#752). Uyum kapalıyken ayarı izliyorlar. */
+       Ayar dalgayı, şekil kenarlığını ve hareket vektörlerini birlikte
+       sürüyor. Yalnız dalgaya uygulansaydı aynı karede yumuşak bir dalga
+       ile tırtıklı bir kenarlık yan yana dururdu. */
     nodes.push(P().row('Çizgi Çizimi', selOf([
-      ['smooth', 'Yumuşatılmış (ışık korumalı)'],
+      ['smooth', 'Yumuşatılmış (çözünürlükle ölçekli)'],
       ['thin', 'Yumuşatılmış (gerçek kalınlık)'],
       ['milkdrop', 'MilkDrop (kaydırmalı kalınlaştırma)'],
     ], md.lineStyle || 'smooth', (v) => { md.lineStyle = String(v); })));
