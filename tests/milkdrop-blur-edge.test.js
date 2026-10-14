@@ -56,6 +56,16 @@ test('shader: karartma karekök eğrisiyle uygulanıyor', () => {
   assert.match(FRAG[1], /outColor = vec4\(uSat > 0\.5 \? clamp\(r, 0\.0, 1\.0\) : r, 1\.0\);/);
 });
 
+test('shader: kaynak her zaman temel seviyeden okunuyor (bayat mipmap yok)', () => {
+  /* Bir önceki kademenin `out` dokusu mipmapli ve mipmap'ler kademeler
+     bittikten sonra üretiliyor. Küçültülerek `texture()` ile okunsaydı
+     GEÇEN KARENİN mipmap'i gelirdi: blur2 bir, blur3 iki kare geriden
+     (ölçüldü). MilkDrop kademeleri mipmapsiz, bilinear okuyor. */
+  assert.ok(FRAG, 'BLUR_FRAG bulunamadı');
+  assert.doesNotMatch(FRAG[1], /\btexture\(uSrc/);
+  assert.strictEqual((FRAG[1].match(/textureLod\(uSrc, [^)]*, 0\.0\)/g) || []).length, 3);
+});
+
 /* Eğrinin kendisi çalıştırılıyor: doğrusal bir eğri de "kenarda koyu"
    verirdi ama kareyi ortasına kadar karartırdı. Karekök karartmayı kenara
    sıkıştırıyor. */

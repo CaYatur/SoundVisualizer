@@ -38,6 +38,21 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   - Measured against patched MilkDrop on 120 presets that draw motion vectors, over the presets
     without user textures or randomness: the median frame-59 difference fell from 28.1 to 5.3, with
     no preset worse at frames 2, 10, 30 or 59.
+- **Blur levels 2 and 3 are no longer one and two frames behind [752].** Each blur level read the
+  previous level through mipmaps that were only rebuilt after the whole chain, so it got last
+  frame's image. Each level now reads the base level, as MilkDrop does ("liquid firesticks" frame 2:
+  26.7 → 2.3; "Tricolors" frame 30: 71.0 → 8.8).
+- **`sampler_main` wraps in preset shaders, as MilkDrop does [752].** MilkDrop sets the wrap mode
+  from the sampler's name; a plain `sampler_main` wraps, and `bTexWrap` only applies to presets
+  without a warp shader. The engine followed `bTexWrap` in shaders too, so content leaving the
+  screen stuck to the edge. This covers 3,325 corpus presets (34%). Blur now always reads clamped,
+  and textured shapes read clamped after a blur pass, both as in MilkDrop ("truth, rarity" frame 30:
+  23.8 → 8.4).
+- **The feedback rounds to 8 bits, as MilkDrop's does [752].** MilkDrop's buffer rounds every write to
+  the nearest 1/255, so a small per-frame increment either always moves a level or never does, and a
+  decay stops at a floor. Our 10-bit buffer ran these differently: "Dead CellWerx" flooded with red
+  (frame 59: 20.0 → 8.7). In accurate mode the warp's output is now rounded the same way. The buffer
+  stays 10-bit, so waves, shapes and lines drawn after the warp keep their soft edges.
 
 ## v3.1.5 — 2026-10-13
 
