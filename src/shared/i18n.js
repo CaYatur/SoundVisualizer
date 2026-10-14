@@ -3676,8 +3676,8 @@
     "en": "Read BPM and level/bass/mid/treble. Read-only."
   },
   "mcp.tool.sv_get_now_playing": {
-    "tr": "Çalan parçayı okur. Salt okunur.",
-    "en": "Read the current track. Read-only."
+    "tr": "Çalan parçayı okur. Kapak görseli yalnızca includeArtwork: true ile gelir. Salt okunur.",
+    "en": "Read the current track. Cover art only with includeArtwork: true. Read-only."
   },
   "mcp.tool.sv_list_scenes": {
     "tr": "Kayıtlı sahneleri listeler. Salt okunur.",
