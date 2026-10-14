@@ -196,8 +196,13 @@ in float vBlend;
 out vec4 outColor;
 uniform sampler2D uPrev;
 uniform float uDecay;
+uniform float uQuant;   // 255: MilkDrop'un 8 bit yuvarlaması (uyum açık), 0: yok
 void main(){
-  outColor = vec4(texture(uPrev, vUV).rgb * uDecay, vBlend);
+  vec3 c = texture(uPrev, vUV).rgb * uDecay;
+  /* MilkDrop'un shader'sız warp'ı da 8 bit tampona yazıyor: x0,9 sönme
+     4/255'te duruyor (ölçüldü, #752). Preset shader'ındaki aynı kural. */
+  if (uQuant > 0.0) c = floor(clamp(c, 0.0, 1.0) * uQuant + 0.5) / uQuant;
+  outColor = vec4(c, vBlend);
 }`;
 
   const QUAD_VERT = `#version 300 es
@@ -1249,6 +1254,7 @@ void main(){
         this.locWarpFixed = {
           uPrev: gl.getUniformLocation(this.warpFixed, 'uPrev'),
           uDecay: gl.getUniformLocation(this.warpFixed, 'uDecay'),
+          uQuant: gl.getUniformLocation(this.warpFixed, 'uQuant'),
         };
         this.locComp = {
           uSrc: gl.getUniformLocation(this.compFixed, 'uSrc'),
@@ -3714,6 +3720,7 @@ void main(){
         // Geçişte sarma eşiği atlama noktası (#580), uyum kapalıyken 0,5
         this._bindMain(src.tex, this.oldPreset && this._wantAcc !== false ? this._snapPoint() : 0.5);
         gl.uniform1i(this.locWarpFixed.uPrev, 0);
+        gl.uniform1f(this.locWarpFixed.uQuant, this._wantAcc !== false ? 255 : 0);
         /* `decay` artik dosyadaki fDecay ile eslesiyor. Eskiden bulunamayip
            0,98'e dusuyordu; 0,5 yazan bir preset sonmek yerine birikiyordu.
 
