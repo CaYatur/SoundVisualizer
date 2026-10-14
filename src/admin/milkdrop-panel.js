@@ -1185,9 +1185,11 @@
        yerinde kalıyor. "Gerçek kalınlık" fiziksel olarak doğru ama
        dalga taşıyan presetler gözle görülür biçimde sönükleşiyor.
 
-       Ayar ÜÇ çizgiyi birden sürüyor: dalga, şekil kenarlığı ve hareket
-       vektörleri. Yalnız dalgaya uygulansaydı aynı karede yumuşak bir
-       dalga ile tırtıklı bir kenarlık yan yana dururdu. */
+       Ayar dalgayı ve şekil kenarlığını birlikte sürüyor. Yalnız dalgaya
+       uygulansaydı aynı karede yumuşak bir dalga ile tırtıklı bir kenarlık
+       yan yana dururdu. Hareket vektörleri uyum açıkken ayarın DIŞINDA:
+       MilkDrop onları warp'tan önce, tek teksel çiziyor ve şişirilmiş ışık
+       geri beslemeye giriyordu (#752). Uyum kapalıyken ayarı izliyorlar. */
     nodes.push(P().row('Çizgi Çizimi', selOf([
       ['smooth', 'Yumuşatılmış (ışık korumalı)'],
       ['thin', 'Yumuşatılmış (gerçek kalınlık)'],

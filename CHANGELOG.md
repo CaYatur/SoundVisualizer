@@ -15,9 +15,17 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### MilkDrop
 
-- **A still motion-vector field draws its stubs up and to the right, as MilkDrop does.** Where
-  nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len` in its bottom-up space; ours
-  kept the sign in our top-down space, so the stubs pointed down.
+- **A still motion-vector field draws its stubs down and to the right, as MilkDrop does [751].**
+  Where nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len`. Its 2D projection
+  flips y, so on screen that stub points down; ours pointed up.
+- **Motion vectors are drawn into the warp's source, before the warp, as MilkDrop does [752].**
+  They were drawn on top of the finished frame. Now, as in MilkDrop, they read the previous frame's
+  mesh, pass through the warp once, fade with `decay`, sit under shapes and waves, and reach blur and
+  textured shapes. A preset with `decay = 0` showed vectors that MilkDrop never shows.
+- **Motion vectors stay one texel wide in accurate mode [752].** MilkDrop draws them as a plain line
+  list at window resolution. The "Smooth" line style widened them to about 4.5 texels at 1440 wide,
+  which made the layer three to four times brighter than MilkDrop's. Waves and shape outlines still
+  follow the line style setting.
 
 ## v3.1.5 — 2026-10-13
 

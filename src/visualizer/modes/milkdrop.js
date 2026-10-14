@@ -1430,6 +1430,8 @@ void main(){
       this.vbo = gl.createBuffer();
       this.ibo = gl.createBuffer();
       this.verts = new Float32Array(n * (this.meshY + 1) * VSTRIDE);
+      // Yeni ağ boş: hareket vektörleri onu ancak bir kare kurulduktan sonra okuyabilir
+      this._meshBuilt = false;
       const idx = new Uint32Array(this.meshX * this.meshY * 6);
       let k = 0;
       for (let j = 0; j < this.meshY; j++) {
@@ -3458,11 +3460,30 @@ void main(){
         bass, mid, treb, bass_att: bassA, mid_att: midA, treb_att: trebA,
       };
 
-      this._buildWarpMesh();
-
       const src = this.targets[this.cur];
       const dst = this.targets[1 - this.cur];
       this.cur = 1 - this.cur;
+
+      /* HAREKET VEKTÖRLERİ WARP'IN KAYNAĞINA, warp'tan ÖNCE (#752).
+         MilkDrop onları VS0'a, yani warp'ın okuyacağı önceki kareye
+         çiziyor (milkdropfs.cpp:950-965) ve ağı ANCAK SONRA bu kare için
+         yeniden hesaplıyor (`ComputeGridAlphaValues`, 1006). Yani vektörler
+         bir önceki karenin ağını okuyor; warp'tan bir kez geçip `decay` kadar
+         sönüyor, şekil ve dalgaların altında kalıyor, blur ve dokulu
+         şekiller de onları görüyor. Motor onları warp'tan sonra doğrudan
+         karenin üstüne çiziyordu: ölçüldü, `decay = 0` olan bir presette
+         MilkDrop hiç vektör göstermezken motor 4136 piksel çiziyordu. İlk
+         karede ağ henüz yok; o kare atlanıyor. */
+      if (this._wantAcc !== false) {
+        if (this._meshBuilt) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, src.fb);
+          gl.viewport(0, 0, GW, GH);
+          this._drawMotionVectors(gl, GW, GH);
+        }
+      }
+
+      this._buildWarpMesh();
+      this._meshBuilt = true;
 
       const ctx = {
         w: GW, h: GH, aspectx, aspecty, aspX, aspY,
@@ -3594,8 +3615,8 @@ void main(){
          görünüyor. Ölçüsü: yalnız iki presetin dalga modu farklıysa ve
          yalnız geçiş süresince. */
       this._drawWaveModes(gl, GW, GH);
-      // Hareket vektörleri: çizimlerden sonra, birleştirmeden önce.
-      this._drawMotionVectors(gl, GW, GH);
+      // Uyum kapalıyken eski sıra: çizimlerden sonra, birleştirmeden önce.
+      if (this._wantAcc === false) this._drawMotionVectors(gl, GW, GH);
       /* Merkez karartma ve kenarlıklar EN SON: MilkDrop'ta da sıra bu.
          Daha önce çizilseler dalga ve şekiller üstlerini kapatırdı. */
       this._drawDarkenCenter(gl, GW, GH);
@@ -3947,21 +3968,32 @@ void main(){
       const flush = () => {
         if (count < 2) { count = 0; return; }
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, d, 0, count * 6);
-        /* Vektörler de şişiriliyor. MilkDrop onları KALINLAŞTIRMIYOR
-           (milkdropfs.cpp:1314, tek bir LINELIST çizimi), ama kendi
-           tamponunda bir teksel olan çizgi bizim tamponumuzda yine bir
-           PİKSEL kalıyordu — 1920 genişlikte MilkDrop'un gördüğünün dörtte
-           biri. Telafi çözünürlük içindir, `thick` için değil; çarpan 1.
+        /* UYUM AÇIKKEN TEK TEKSEL, çizgi biçimi ne olursa olsun (#752).
+           MilkDrop vektörleri KALINLAŞTIRMIYOR (milkdropfs.cpp:1314, tek bir
+           LINELIST çizimi) ve tamponu pencere boyunda: `nTexSize` varsayılanı
+           -1, yani "pencere kadar" (BeatDrop plugin.cpp:949, MilkDrop 2.25
+           plugin.cpp:498). Bir teksel orada da bir piksel. Şişirme
+           `smooth` biçiminde çizgiyi 1440 genişlikte 4,5 teksele
+           çıkarıyordu; vektörler artık warp'ın kaynağına çizildiği için o
+           ışık geri beslemeye de giriyor. Ölçüldü (1440x896, düzeltilmiş
+           MilkDrop'a kaba fark, `milkdrop` / `smooth`): dörtlü alan 1,97 /
+           6,78, dönen alan 1,30 / 7,03. Dalga ve şekil kenarlığı ayarı izlemeye devam ediyor.
            Korpusta 884 preset (%8,6) hareket vektörü çiziyor. */
-        this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1, { its: 1 });
+        if (acc) gl.drawArrays(gl.LINES, 0, count);
+        else this._strip(gl, gl.LINES, d, count, -1, GW, GH, 1, { its: 1 });
         count = 0;
       };
       for (let j = 0; j < NY; j++) {
         /* IZGARA MilkDrop'un ızgarası: (j + 0,25) / (NY + kesir + 0,25 - 1)
            (milkdropfs.cpp:1244, 1256). Ekranın bir kenarından ötekine
            uzanıyor; motorunki hücre ortalarına oturuyordu, yani alan yarım
-           hücre içeri çekilmiş ve aralıkları başka çıkıyordu. MilkDrop'un
-           `fy`si aşağıdan yukarı, bizimki yukarıdan aşağı: çevirme burada. */
+           hücre içeri çekilmiş ve aralıkları başka çıkıyordu.
+
+           DİKEY YÖN: MilkDrop'un 2B izdüşümü y'yi çeviriyor
+           (support.cpp:179, `D3DXMatrixOrthoLH(.., 2, -2, ..)`), yani `fy`
+           ekranda YUKARIDAN AŞAĞI. Bizim çizim y'miz `_toClipY` yüzünden
+           AŞAĞIDAN YUKARI (şekil ve dalga y'si gibi): `1 - fy` ikisini
+           eşliyor. Ölçüldü: satırlar MilkDrop'unkilerle aynı piksellerde. */
         const fy = acc ? (j + 0.25) / (NY + fdy + 0.25 - 1) - dy0 : 0;
         if (acc && !(fy > 0.0001 && fy < 0.9999)) continue;
         const y = acc ? 1 - fy : (j + 0.5) / NY + dy0;
@@ -3990,9 +4022,13 @@ void main(){
               const k = minLen / len;
               ddx *= k; ddy *= k;
             } else {
-              /* Hiç hareket yoksa MilkDrop sağ-YUKARI bir teksel çiziyor
-                 (`dy = min_len`, onun `fy`si aşağıdan yukarı). Bizim y
-                 yukarıdan aşağı: işaret ters. */
+              /* Hiç hareket yoksa MilkDrop sağ-AŞAĞI bir teksel çiziyor:
+                 `dy = min_len`, ve onun `fy`si ekranda yukarıdan aşağı
+                 (yukarıdaki DİKEY YÖN notu). Bizim y aşağıdan yukarı,
+                 yani işaret ters. Ölçüldü: izi geçici olarak 40 teksele
+                 uzatınca ekranda (24,73)'ten (63,97)'ye, sağa ve aşağı
+                 gidiyor; MilkDrop'un tek teksellik izinin soluk ikinci
+                 pikseli de altta. */
               ddx = minLen; ddy = -minLen;
             }
             ex = x + ddx; ey = y + ddy;
@@ -5638,7 +5674,9 @@ void main(){
       /* KENAR YUMUŞATMALI YOL artık üç çizgi biçiminde de: dalga şeridi,
          şekil kenarlığı (kapalı şerit) ve hareket vektörleri (bağımsız
          parçalar). Aynı `lineStyle` ayarı üçünü birden sürüyor — biri
-         yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı. */
+         yumuşak öteki tırtıklı çizilseydi ayar yarım kalırdı. Uyum açıkken
+         hareket vektörleri buraya hiç gelmiyor: `_drawMotionVectors` onları
+         MilkDrop gibi tek teksel çiziyor (#752). */
       const aa = this._lineStyle !== 'milkdrop' && this.aaProg;
       if (aa && kind === gl.LINES) {
         this._aaSegments(gl, d, n, GW, GH, thickMul);
