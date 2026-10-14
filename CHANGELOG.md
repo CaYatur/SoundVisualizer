@@ -13,6 +13,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   reply, a change is announced within 10 seconds, and the address records carry the cache-flush bit
   so listeners replace the old address instead of keeping both.
 
+### MCP
+
+- **`sv_get_now_playing` leaves the cover art out unless asked [755].** The cover is a data URI
+  that can run to hundreds of KB, and a small model that receives it can lose the track title in it.
+  The tool now returns `hasArtwork` and sends the cover only with `includeArtwork: true`.
+  `sv_get_state` never carries it. Clients that showed the cover need to pass the flag.
+
 ### MilkDrop
 
 - **A still motion-vector field draws its stubs down and to the right, as MilkDrop does [751].**
