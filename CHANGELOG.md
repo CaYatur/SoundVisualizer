@@ -48,6 +48,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   screen stuck to the edge. This covers 3,325 corpus presets (34%). Blur now always reads clamped,
   and textured shapes read clamped after a blur pass, both as in MilkDrop ("truth, rarity" frame 30:
   23.8 → 8.4).
+- **The feedback rounds to 8 bits, as MilkDrop's does [752].** MilkDrop's buffer rounds every write to
+  the nearest 1/255, so a small per-frame increment either always moves a level or never does, and a
+  decay stops at a floor. Our 10-bit buffer ran these differently: "Dead CellWerx" flooded with red
+  (frame 59: 20.0 → 8.7). In accurate mode the warp's output is now rounded the same way. The buffer
+  stays 10-bit, so waves, shapes and lines drawn after the warp keep their soft edges.
 
 ## v3.1.5 — 2026-10-13
 

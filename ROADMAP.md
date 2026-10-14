@@ -130,10 +130,10 @@ npm test
 npm start -- --smoke
 ```
 
-- **3015 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3020 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
-  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 16
+  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 21
   on `main` since.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
@@ -3347,15 +3347,45 @@ of this release, not a side effect.
 
     - Over all 150 wrap presets, the frame-59 median fell from 21.1 to 15.5. 41 are better by more than 2 and 9 worse.
     - Large single wins: "liquid firesticks" at frame 2 (26.7 → 2.3), "Tricolors" at frame 30 (71.0 → 8.8), "Furry Synthesis" at frame 59 (40.7 → 24.2), "Accelerator" at frame 59 (26.4 → 14.7). "fed - DSC-011 LSD Edit 4" was black in the engine and now shows MilkDrop's coloured fields. Its number got worse (65.8 → 98.3) because the fields sit at a different place.
-    - **Known trade-offs, each looked at frame by frame.**
-      - "out of the paradigm" at frame 30: 67.3 → 72.7. Its brightness is now closer to MilkDrop (0.49 against MilkDrop's 0.43; the old engine had 0.32). No artifact.
+    - **Presets that sample noise can't be compared across MilkDrop runs.** BeatDrop seeds its noise textures from `std::random_device` and the performance counter (plugin.cpp:645-646, 2863). The same preset rendered twice gives different frames, up to 17.6 apart at frame 59 on "liquid firesticks". Noise-free presets come out byte-identical. Every main → branch comparison here uses one copy of MilkDrop's frames for both sides, so the deltas are the engine's own. Across separate MilkDrop runs, only noise-free presets count.
+    - **Looked at frame by frame.**
+      - "out of the paradigm" (noise) at frame 30: 67.3 → 72.7. Its brightness is now closer to MilkDrop (0.49 against MilkDrop's 0.43; the old engine had 0.32). No artifact.
       - "various artists - 1200773722134" at frame 59: 4.2 → 8.5, a few percent darker. The blur chain alone causes it, and the chain now reads what MilkDrop reads (VS0 before the flip, milkdropfs.cpp:1239, 1332-1334).
-      - "Dead CellWerx" at frame 59: 17.3 → 20.1. It is better at frames 2–40 (23.0 → 10.6 at frame 2), but a stepped ring appears around the centre. Over 300 frames both builds drift from MilkDrop and grow red frames from the screen edges.
-    - **The root of the remaining Dead CellWerx gap is buffer precision.** Its warp adds 0.004 per frame. Our 10-bit feedback buffer (RGB10_A2) keeps that, and MilkDrop's 8-bit buffer doesn't. With an 8-bit buffer the preset lands at 8.9 with no red background. An 8-bit buffer is not a net win, though:
-      - "EoS - 7th galaxy" at frame 59: 43.8 → 63.3;
-      - the motion-vector median at frame 30: 3.86 → 4.72;
-      - banding comes back.
-      It stays 10-bit. Emulating 8-bit rounding only where presets rely on it is open.
+      - "Dead CellWerx": with the blur fix alone, frame 59 went 17.3 → 20.1 and a stepped ring appeared. The 8-bit rounding below takes it to 8.7, with no ring and no red background.
+- **The feedback rounds to 8 bits, as MilkDrop's does (#752 quality round 2)** · on the branch.
+  - **Measured in MilkDrop.** Synthetic warps with fixed behaviour, patched MilkDrop, 960×720:
+
+    | warp | MilkDrop | 10-bit buffer | now |
+    |---|---|---|---|
+    | `+0.0025` a frame, value at frame 59 | 59 | 39 | 60 |
+    | `+0.0015` a frame, value at frame 59 | 0 | 19 | 0 |
+    | `×0.9` decay, floor (warp shader) | 4 | 1 | 4 |
+    | `×0.9` decay, floor (no warp shader) | 4 | 1 | 4 |
+
+    MilkDrop's buffer is 8-bit and rounds every write to the nearest 1/255. Presets were written against that: a small increment either always moves a level or never does, and a decay stops at a floor. butterchurn (`RGBA`/`UNSIGNED_BYTE`) and projectM (#895 is open for more depth) are 8-bit too. The engine's 10-bit buffer (RGB10_A2, 43ed486) ran all of these differently. "Dead CellWerx" adds 0.004 a frame and flooded with red.
+  - **Only the warp's output is rounded.** The preset warp shader and the shader-less warp both round to 1/255 in accurate mode. The buffer stays 10-bit. Waves, shapes and lines drawn after the warp keep their soft edges on screen. The comp pass isn't fed back and isn't rounded.
+  - **A plain 8-bit buffer was measured and rejected.** It rounds those soft edges away in the feedback, so line presets darkened:
+    - "vector exp 1" at frame 30: 24.4 → 26.3;
+    - "EoS - 7th galaxy" at frame 59: 43.8 → 63.3;
+    - the motion-vector median at frame 30: 3.86 → 4.72.
+    Rounding only the warp keeps those at the 10-bit values (43.81 → 43.81).
+  - **The threshold is the standard one.** On this card MilkDrop's threshold sits between 0.52 and 0.6 of a level (100.5 → 100, 100.6 → 101). D3D allows tolerance in float → UNORM conversion, so it changes between cards. Round-to-nearest was chosen, not this card's threshold. It is why "Isosceles mashup04", which uses the same `+0.004` warp, moves by 1.2–1.9.
+  - **Measured.** Branch before → after rounding, same MilkDrop frames, comparable presets.
+
+    | set | frame 10 | frame 59 |
+    |---|---|---|
+    | 150 presets with a shader and `bTexWrap = 0` (26) | 3.48 → 2.84 | 11.51 → 11.11 |
+    | 150 random library presets (44) | 1.89 → 1.86 | 4.75 → 4.68 |
+    | 100 presets without a warp shader (68) | 1.24 → 1.24 | mean −0.06, 11 better and 8 worse, none by more than 0.67 |
+    | 120 presets that draw motion vectors (30) | 2.49 → 2.54 | 5.00 → 4.73 |
+    | #750's 21 presets | | 4.25 → 4.19 |
+
+  - **Main → branch, both rounds together**, noise-free comparable presets:
+    - the wrap set at frame 30: 7.13 → 3.62;
+    - the random 150 at frame 59: 3.93 → 3.60;
+    - the motion-vector 120 at frame 10: 2.16 → 2.00.
+    Nothing is worse by more than 1.03 except "fed - DSC-011", which went from black to MilkDrop's coloured fields.
+  - **The harness runs in parallel** (`--jobs=N`). MilkDrop instances and engine processes share the list. On 100 presets, MilkDrop's 60 frames took 113 s on 8 jobs, against about 98 s for 13 presets before. Results match the sequential run for every noise-free preset.
 
 ## v3.1.7 — Broadcast layout editor
 
