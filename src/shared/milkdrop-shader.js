@@ -2136,7 +2136,21 @@
          preset aynı hedefin üstüne çiziliyor ve karışımı bu alfa
          sürüyor. Geçiş yokken düğümlerin hepsi 1 taşıyor, yani sonuç
          eskisiyle birebir aynı. */
-      '  outColor = vec4(clamp(ret, 0.0, 1.0), vBlend);', '}']);
+      /* WARP ÇIKTISI 8 BİT SEVİYEYE YUVARLANIYOR, uyum açıkken (#752 kalite
+         turu). MilkDrop'un geri besleme tamponu 8 bit ve her yazımda en
+         yakın 1/255'e yuvarlıyor; presetler buna göre yazılmış. Ölçüldü
+         (yamalı MilkDrop, sabit artışlı sentetik warp'lar): kare başına
+         +0,0025 MilkDrop'ta her kare bir seviye büyüyor, +0,0015 hiç
+         büyümüyor, ×0,9 sönme 4/255'te duruyor. 10 bitlik tamponumuz
+         bunların üçünü de farklı yürütüyordu: "Dead CellWerx"in `+0,004`ü
+         ekranı kırmızıya boğuyordu (59. kare: 20,0 -> 8,7). Tampon 10 bit
+         KALIYOR: warp'tan sonra çizilen dalga, şekil ve çizgilerin yumuşak
+         kenarı ekranda korunuyor; düz 8 bit tampon onları geri beslemede
+         yutup çizgi presetlerini karartıyordu. Comp hiç geri beslenmiyor,
+         yuvarlanmıyor. */
+      stage === 'warp' && o.acc
+        ? '  outColor = vec4(floor(clamp(ret, 0.0, 1.0) * 255.0 + 0.5) / 255.0, vBlend);'
+        : '  outColor = vec4(clamp(ret, 0.0, 1.0), vBlend);', '}']);
 
     return {
       glsl: head.concat(mid, main).join('\n'),

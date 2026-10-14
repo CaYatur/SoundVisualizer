@@ -78,9 +78,9 @@ test('motor: uniform ayarı ve doku bağlama aynı listeyi geziyor', () => {
 });
 
 /* Sampler NESNESİ birime bağlanınca o birimde dokunun kendi
-   parametrelerini EZER. 0. birimde `_bindMain` sarmayı presetin `wrap`
-   ayarından kuruyor; oraya sampler nesnesi bağlanırsa o mantık sessizce
-   ölür ve `wrap=0` yazan presetler kenardan sarmaya devam eder. */
+   parametrelerini EZER. 0. birimin sarmasını motor kendisi kuruyor (uyum
+   açıkken REPEAT, kapalıyken presetin `wrap`ı); oraya sampler nesnesi
+   bağlanırsa o mantık sessizce ölür. */
 test('motor: yerleşik birimlere sampler nesnesi bağlanmıyor', () => {
   assert.match(CODE,
     /if \(e\.p\.unit < SAMPLER_UNITS\.length\) continue;/,
@@ -113,4 +113,55 @@ test('motor: dört süzme/sarma kombinasyonu için sampler nesnesi var', () => {
   for (const k of ["'linear|repeat'", "'linear|clamp'", "'nearest|repeat'", "'nearest|clamp'"]) {
     assert.ok(CODE.indexOf(k) >= 0, k + ' sampler nesnesi tanımlı olmalı');
   }
+});
+
+// ------------------------------------------------- sarma (#752 kalite turu)
+
+/* MilkDrop sampler'ın sarmasını ADINDAN kuruyor: ön eksiz `sampler_main`
+   süzülmüş ve SARMALI (plugin.cpp:3445-3446), presetin `bTexWrap`ı yalnız
+   shader'sız warp'ta okunuyor (milkdropfs.cpp:2217). Ölçüldü: `bTexWrap=0`
+   ve warp'ı kaydıran bir shader'da MilkDrop'un izi karşı kenardan geri
+   giriyor; `sampler_fw_main` ile birebir aynı. Motor shader'da da `wrap`a
+   bakıyordu ve iz kenara yapışıyordu (kaba fark 3,02 -> 0,15). */
+const fnBody = (sig) => {
+  const i = CODE.indexOf(sig + ' {');
+  assert.ok(i >= 0, sig + ' bulunamadı');
+  const end = /\r?\n {4}\}\r?\n/.exec(CODE.slice(i));
+  assert.ok(end, sig + ' sonu bulunamadı');
+  return CODE.slice(i, i + end.index);
+};
+
+test('sarma: preset shader\'ında sampler_main uyum açıkken hep sarıyor', () => {
+  const b = fnBody('_bindTextures(mainTex, L)');
+  assert.match(b,
+    /if \(this\._wantAcc !== false\) \{\s*gl\.activeTexture\(gl\.TEXTURE0\);\s*gl\.bindTexture\(gl\.TEXTURE_2D, mainTex\);\s*gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_WRAP_S, gl\.REPEAT\);\s*gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_WRAP_T, gl\.REPEAT\);\s*\} else \{\s*this\._bindMain\(mainTex\);\s*\}/,
+    'uyum açıkken REPEAT, kapalıyken eski yol');
+});
+
+test('sarma: shader\'sız warp hâlâ presetin wrap ayarını izliyor', () => {
+  const b = fnBody('_drawWarpPass(gl, src, prog, ctx, step)');
+  assert.match(b, /this\._bindMain\(src\.tex, /);
+});
+
+test('sarma: bulanıklık kaynağını kenetli okuyor ve sampler\'ı geri alıyor', () => {
+  /* MilkDrop `BlurPasses`te sarmayı CLAMP kuruyor. Kaynak kare tamponu ve
+     preset shader'ı onu REPEAT bırakıyor: sarmalı okunsa kenardaki
+     bulanıklık karşı kenarın ışığını alırdı. */
+  const b = fnBody('_buildBlur(srcTex, need)');
+  assert.match(b, /const clampS = acc && this\.samplers \? this\.samplers\['linear\|clamp'\] : null;/);
+  assert.match(b, /if \(clampS\) gl\.bindSampler\(0, clampS\);/);
+  assert.match(b, /if \(clampS\) gl\.bindSampler\(0, null\);/);
+  assert.ok(b.indexOf('bindSampler(0, clampS)') < b.indexOf('drawArrays'),
+    'sampler çizimden önce bağlanmalı');
+  assert.ok(b.lastIndexOf('bindSampler(0, null)') > b.lastIndexOf('drawArrays'),
+    'sampler son çizimden sonra kaldırılmalı');
+});
+
+test('sarma: dokulu şekil bulanıklık koştuysa kenetli okuyor', () => {
+  /* Şekiller bulanıklıktan sonra çiziliyor ve `BlurPasses` 0. aşamayı
+     CLAMP'te bırakıyor (milkdropfs.cpp, `DrawCustomShapes` sarmaya hiç
+     dokunmuyor). */
+  assert.match(fnBody('_buildBlur(srcTex, need)'), /this\._blurRan = acc && levels > 0;\s*if \(levels === 0\) return;/);
+  assert.match(CODE,
+    /gl\.bindTexture\(gl\.TEXTURE_2D, this\._shapeSrcTex\);\s*if \(this\._blurRan\) \{\s*gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_WRAP_S, gl\.CLAMP_TO_EDGE\);\s*gl\.texParameteri\(gl\.TEXTURE_2D, gl\.TEXTURE_WRAP_T, gl\.CLAMP_TO_EDGE\);\s*\}/);
 });
