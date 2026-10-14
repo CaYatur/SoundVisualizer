@@ -3285,6 +3285,37 @@ of this release, not a side effect.
 | Frame sequence | PNG/EXR sequences for post — slow but lossless |
 | Two render modes | (1) realtime encode that follows the playhead, (2) offline maximum-speed render. They stay separate modes |
 
+### MilkDrop fidelity since v3.1.5
+
+- **Motion vectors: draw order, width and the vertical axis (#750, #751, #752)** · on the branch.
+  - **The vertical axis, settled by measurement.** MilkDrop's 2D projection flips y (support.cpp:179, `D3DXMatrixOrthoLH(.., 2, -2, ..)`), so a motion vector's `fy` runs top-down on screen. The engine's drawing `y` runs bottom-up, like shape and wave `y`.
+    - Grid rows land on MilkDrop's pixels.
+    - The still-field stub points down and to the right in both engines.
+    - #751 changed the stub to this direction, but its comments, test and changelog line described the axes the other way round. They are corrected.
+  - **MilkDrop's own field is mirrored.** `ReversePropagatePoint(fx, fy)` reads the mesh row at the mirrored height, so stock MilkDrop shows the motion at the mirrored height and pointing the mirrored way.
+    - #750's test presets show it plainly. "Motion Vectors Test - Align" asks for diagonal motion at the top left and gets it at the bottom left. In "Y slide" the band sits at the top instead of `y` 0.55–1.0 at t = 5 s.
+    - The engine draws what the preset asks for, which is also what BeatDrop draws with the #750 patch. That patched build is the reference for motion vectors from here on.
+  - **Draw order.** MilkDrop draws the vectors into VS0, the warp's source, before the warp (milkdropfs.cpp:950-965). It rebuilds the mesh only afterwards (`ComputeGridAlphaValues`, :1006), so the vectors read the previous frame's mesh. The engine drew them on top of the finished frame.
+    - In accurate mode it now matches. A `decay = 0` preset showed 4136 lit pixels where MilkDrop shows none.
+  - **Width.** MilkDrop draws one line list into a window-sized buffer: `nTexSize` defaults to -1 in BeatDrop (plugin.cpp:949) and MilkDrop 2.25 (plugin.cpp:498). The `smooth` line style widened vectors to about 4.5 texels at 1440 wide. In accurate mode they are now one texel in every style.
+  - **Measuring at the right size.** MilkDrop rounds its buffer up to a multiple of 16 (plugin.cpp:1886) and crops it on display. At 1440×900 every row sat 5 px off. All comparisons here use sizes that are multiples of 16.
+  - **Measured.** Reference: BeatDrop 53d83ee with the #750 patch. Mean difference on a 16-pixel grid (0..255).
+
+    | | before | after |
+    |---|---|---|
+    | 120 corpus presets that draw vectors, `smooth`, frame 10 / 59, median without user textures or `rand()` | 14.8 / 27.1 | 5.75 / 16.6 |
+    | the same, `milkdrop` line style | 5.52 / 8.62 | 4.84 / 8.45 |
+    | #750's 21 test and Vectrip presets, `smooth`, median | 18.1 | 6.28 |
+
+    - In the `milkdrop` style, frame 59 has 14 presets better and 12 worse by more than 2, and all 12 use user textures or `rand()`.
+    - Every one of #750's 21 presets is better or within 0.06 in both styles.
+  - **Still open: the `smooth` style's light.** Waves and outlines in `smooth` leave 2–5× MilkDrop's light (measured on single layers, `decay = 0`). A feedback loop near saturation crosses it late. Under `smooth`, three presets end worse at frame 59 even though they are better at frames 2 and 10:
+    - De-Orbit (Internal Mix) (Jelly V3): luminance 0.35 against MilkDrop's 0.04;
+    - Answer42 (Trippy Sperm Mix);
+    - Twist (Hue Shaded Mirror) 2.
+
+    Under the `milkdrop` style all three match (De-Orbit 4.1). The fix that keeps anti-aliased edges is to calibrate `smooth` to MilkDrop's light instead of the old offset-redraw path.
+
 ## v3.1.7 — Broadcast layout editor
 
 v3.0.0 already ships the broadcast template group: a restrained bar
