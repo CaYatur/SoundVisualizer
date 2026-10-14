@@ -364,10 +364,16 @@ uniform float uBias;
 uniform vec3 uEdge;      // kenar karartma: (1-b1ed, b1ed, 5.0); kapaliyken (1,0,5)
 uniform float uSat;      // 1: sonuc [0,1]'e doyuyor (MilkDrop'un 8 bit hedefi, #580)
 void main(){
-  vec3 c = texture(uSrc, vUV).rgb * uCenter;
+  /* KAYNAK HER ZAMAN TEMEL SEVIYEDEN (textureLod 0). Bir onceki kademenin
+     \`out\` dokusu mipmapli ve mipmap kademeler bittikten SONRA uretiliyor:
+     kucultulerek okununca GECEN KARENIN mipmap'i geliyordu, yani blur2 bir,
+     blur3 iki kare geriden geliyordu (#752 kalite turu; olculdu: preset
+     basinda blur2 1., blur3 2. karede bos, MilkDrop'ta dolu). MilkDrop
+     kademeleri mipmapsiz, bilinear okuyor. */
+  vec3 c = textureLod(uSrc, vUV, 0.0).rgb * uCenter;
   for (int i = 0; i < 4; i++) {
     vec2 o = uStep * uD[i];
-    c += (texture(uSrc, vUV + o).rgb + texture(uSrc, vUV - o).rgb) * uW[i];
+    c += (textureLod(uSrc, vUV + o, 0.0).rgb + textureLod(uSrc, vUV - o, 0.0).rgb) * uW[i];
   }
   /* KENAR KARARTMA. Bulaniklik kenarda kendi disindan ornek almak
      zorunda ve orada kenetlenmis teksel duruyor: kenar cizgisi
@@ -3199,7 +3205,23 @@ void main(){
         gl.activeTexture(gl.TEXTURE0 + unit);
         gl.bindTexture(target || gl.TEXTURE_2D, tex);
       };
-      this._bindMain(mainTex);
+      /* PRESET SHADER'INDA `sampler_main` HER ZAMAN SARIYOR (#752 kalite
+         turu). MilkDrop sampler'ın sarmasını ADINDAN kuruyor: önek yoksa
+         süzülmüş ve sarmalı (plugin.cpp:3445-3446, `fc_`/`pc_` kenetliyor),
+         `bTexWrap` yalnız shader'sız warp'ta okunuyor (milkdropfs.cpp:2217).
+         Biz shader'da da `wrap`a bakıyorduk: ekran dışına taşan uv kenara
+         yapışıp sürükleniyordu. Ölçüldü (960x720, `bTexWrap=0`, warp'ta
+         kayan, comp'ta uzaklaşan sentetik preset): MilkDrop sarıyor,
+         `fw_main` ile birebir aynı. Korpusta shader'lı ve `bTexWrap=0`
+         3.325 preset var (%34). */
+      if (this._wantAcc !== false) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, mainTex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      } else {
+        this._bindMain(mainTex);
+      }
       bind(1, this.blur[0].out.tex);
       bind(2, this.blur[1].out.tex);
       bind(3, this.blur[2].out.tex);
@@ -4477,11 +4499,22 @@ void main(){
          görüntü değil, yalnızca eski maliyet demek. */
       const levels = typeof need === 'number'
         ? Math.max(0, Math.min(this.blur.length, need)) : this.blur.length;
+      // Dokulu şekiller bu karede kenetli mi okuyacak (`_drawShapes`)
+      this._blurRan = acc && levels > 0;
       if (levels === 0) return;
       gl.useProgram(this.blurProg);
       gl.uniform1i(this.locBlur.uSrc, 0);
       gl.bindVertexArray(this.quadVao);
       gl.activeTexture(gl.TEXTURE0);
+      /* KAYNAK KENETLİ OKUNUYOR (#752 kalite turu). MilkDrop bulanıklık
+         geçişlerinde sarmayı açıkça CLAMP kuruyor (milkdropfs.cpp,
+         `BlurPasses`). Bizde ilk kademenin kaynağı kare tamponu ve onun
+         sarması en son kim bağladıysa onunki: preset shader'ı `sampler_main`
+         için REPEAT kuruyor. Sarmalı okunursa kenardaki bulanıklık karşı
+         kenarın ışığını alıyordu. Sampler nesnesi dokunun kendi ayarını
+         ezer ve bu çizimden sonra kaldırılıyor. */
+      const clampS = acc && this.samplers ? this.samplers['linear|clamp'] : null;
+      if (clampS) gl.bindSampler(0, clampS);
       const L = this.locBlur;
       const setK = (k) => {
         gl.uniform4f(L.uW, k.w[0], k.w[1], k.w[2], k.w[3]);
@@ -4547,6 +4580,7 @@ void main(){
         input = b.out.tex;
         iw = b.w;
       }
+      if (clampS) gl.bindSampler(0, null);
       gl.bindVertexArray(null);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       /* MIPMAP (#560, madde 1). Cerceve tamponu birakildiktan SONRA
@@ -4687,6 +4721,15 @@ void main(){
             gl.useProgram(this.shapeTexProg);
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, this._shapeSrcTex);
+            /* SARMA, MilkDrop'ta o anda 0. aşamada ne kaldıysa (#752 kalite
+               turu). Şekiller bulanıklıktan sonra çiziliyor ve `BlurPasses`
+               0. aşamayı CLAMP'e çevirip geri almıyor: bulanıklık koştuysa
+               dokulu şekil kenetli okuyor. Koşmadıysa warp'ın bıraktığı
+               ayar kalıyor — dokunun kendi ayarı da tam olarak o. */
+            if (this._blurRan) {
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+              gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            }
             gl.uniform1i(this.locShapeTexSrc, 0);
             gl.bindVertexArray(this.shapeTexVao);
             gl.bindBuffer(gl.ARRAY_BUFFER, this.shapeTexVbo);
