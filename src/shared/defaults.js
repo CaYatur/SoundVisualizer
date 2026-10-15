@@ -1172,8 +1172,9 @@
     // Video dışa aktarma (MP3/ses -> kayıpsız video). Ekran/ses kaydı değil:
     // her kare offline ve birebir render edilir, ses kaynaktan kopyalanır.
     export: {
-      resolution: '1080p', // '720p' | '1080p' | '1440p' | '2160p'
-      fps: 60, // 30 | 60
+      format: 'mp4-h264', // export-formats.js FORMATS kimliği (#521)
+      resolution: '1080p', // export-formats.js RESOLUTIONS anahtarı
+      fps: 60, // 24 | 25 | 30 | 50 | 60
       quality: 'visually-lossless', // 'visually-lossless' | 'high' | 'balanced'
       encoder: 'gpu', // 'gpu' (NVIDIA NVENC, hızlı) | 'cpu' (libx264, en uyumlu)
       speed: 'balanced', // 'fast' | 'balanced' | 'quality' — hız/kalite dengesi (preset)

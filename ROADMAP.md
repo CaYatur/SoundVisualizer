@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | The picker lists and remembers applications but shows an audible/silent icon, not a moving level |
-| Comprehensive video export | v3.1.6 | Not started |
+| Comprehensive video export | v3.1.6 | Formats, alpha and frame sequences done (#521, #525, #529); speed, profiles, queue, chapters and the rest in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -130,7 +130,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3026 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3041 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3284,6 +3284,39 @@ of this release, not a side effect.
 | Metadata | Title, BPM and scene name written into the file name and ffmetadata |
 | Frame sequence | PNG/EXR sequences for post — slow but lossless |
 | Two render modes | (1) realtime encode that follows the playhead, (2) offline maximum-speed render. They stay separate modes |
+
+### Formats, alpha and frame sequences (#521, #525, #529) · done
+
+- **The format list is data.** `src/shared/export-formats.js` holds eleven formats, the encoders for each, the quality and speed tables and the ffmpeg arguments. The panel, the MCP schema (`format`, `resolution`, `fps` enums) and the output path check are derived from it.
+- **An encoder is offered only if it works.** At start every encoder is test-encoded with the same arguments a real export uses. On this machine (RTX 5070 Laptop, Radeon 610M iGPU) NVENC, AMF and every CPU encoder pass. Quick Sync fails for want of an Intel GPU and is not offered. Its arguments are therefore unverified on hardware, and the probe is what keeps a wrong one from reaching a user.
+- **Colour.** Frames were converted with ffmpeg's default BT.601 matrix and left untagged, and players read untagged HD as BT.709. Measured on testsrc2, lossless x264, decoded the way a player does:
+
+  | path | mean error | worst |
+  |---|---|---|
+  | BT.601, untagged (before) | 8.90 | 45 |
+  | BT.709, tagged (now) | 1.17 | 36 |
+
+- **Alpha.** The exporter turns on the same see-through rule as the streaming overlay and installs the same key filter. Measured alpha on a test pattern survives ProRes 4444 and VP9 within 1–2 levels. MilkDrop's WebGL context is opaque (`alpha: false`), in the live overlay and in the export alike.
+- **EXR is linear.** Colour and alpha take separate filter paths. Measured against the sRGB formula on every pixel:
+
+  | path | colour | alpha |
+  |---|---|---|
+  | zscale only | 0.00013 | 0.091 (treated as limited range) |
+  | swscale to float, then zscale | 0.0042 | 0.0005 |
+  | separate paths (shipped) | 0.00013 | 0 |
+
+- **Verified end to end** in the app with an isolated profile: all eleven formats exported, ffprobe shows the expected codec, pixel format (`yuva444p12le` for ProRes 4444), BT.709 tags, metadata and audio codec per container, and the GIF capped to 30 fps. `--smoke-export` now round-trips ProRes 4444, WebM and a PNG sequence. The H.264 frames hash the same as before the change (`40ff27e4…`), so the rendered picture did not move.
+- **Baseline for #531**, `--bench-export` on main 14e17db, 20 s of audio, frames hashed. Wall time and the renderer's two largest stages:
+
+  | job | wall | draw | readback |
+  |---|---|---|---|
+  | fireworks 1080p60, NVENC | 66.5 s | 8.7 s | 20.7 s |
+  | MilkDrop 1080p60, NVENC | 48.3 s | 12.4 s | 13.4 s |
+  | bars 1080p60, NVENC | 61.3 s | 7.2 s | 22.8 s |
+  | fireworks 1080p60, x264 | 51.7 s | 5.4 s | 17.6 s |
+  | MilkDrop 2160p30, NVENC | 138.6 s | 6.1 s | 90.2 s |
+
+  At 4K `getImageData` costs 150 ms a frame, two thirds of the run. Two runs of the same MilkDrop job hash identically.
 
 ### MilkDrop fidelity since v3.1.5
 

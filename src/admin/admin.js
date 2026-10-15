@@ -50,6 +50,9 @@
   let exportStatusCls = '';
   let exportStatusIcon = '';
   let gpuAvailable = false;
+  /* Bu makinede çalışan dışa aktarma biçimleri ve kodlayıcıları (#521).
+     Ana süreç her kodlayıcıyı deneme kodlamasıyla ölçüp bildiriyor. */
+  let exportCaps = null;
 
   const $ = (id) => document.getElementById(id);
   // Mod listeleri tek kaynaktan (shared/mode-catalog.js, #638)
@@ -859,6 +862,15 @@
       }
       sel.appendChild(opt);
     });
+    /* Kayıtlı değer bu bağlamda geçerli değilse (GIF'te 60 FPS, yalnız CPU
+       kodlayıcısı olan bir biçimde "gpu") kutu GERÇEKTE uygulanacak olanı
+       gösterir; ayar silinmez, başka biçime dönülünce yine geçerli olur. */
+    if (!found && typeof def.fallback === 'function') {
+      const fb = def.fallback(cur, opts);
+      for (const opt of sel.options) {
+        if (String(opt.value) === String(fb)) { opt.selected = true; found = true; }
+      }
+    }
     if (!found && cur != null) {
       const opt = el('option', { value: cur, text: String(cur) });
       opt.selected = true;
@@ -3334,31 +3346,42 @@
         controls: [
           { type: 'audiofile' },
           {
+            type: 'select', path: 'export.format', label: 'Biçim', rebuild: true,
+            options: () => exportFormatOptions(),
+          },
+          {
             type: 'select', path: 'export.resolution', label: 'Çözünürlük',
             options: [
               { value: '720p', label: '720p — 1280×720' },
               { value: '1080p', label: '1080p — 1920×1080 (Full HD)' },
               { value: '1440p', label: '1440p — 2560×1440 (2K)' },
               { value: '2160p', label: '2160p — 3840×2160 (4K)' },
+              { value: '1080x1920', label: 'Dikey — 1080×1920 (Reels / Shorts)' },
+              { value: '1080x1080', label: 'Kare — 1080×1080' },
             ],
           },
           {
             type: 'select', path: 'export.fps', label: 'Kare Hızı (FPS)', numeric: true,
-            options: [
-              { value: 30, label: '30 FPS' },
-              { value: 60, label: '60 FPS (Akıcı)' },
-            ],
+            options: () => {
+              const f = exportFormat();
+              const max = f && f.fpsMax ? f.fpsMax : 60;
+              return [
+                { value: 24, label: '24 FPS (sinema)' },
+                { value: 25, label: '25 FPS (PAL)' },
+                { value: 30, label: '30 FPS' },
+                { value: 50, label: '50 FPS' },
+                { value: 60, label: '60 FPS (Akıcı)' },
+              ].filter((o) => o.value <= max);
+            },
+            // Biçimin sınırının üstündeki değer sınıra iner (ana süreç de öyle yapar)
+            fallback: (cur, opts) => opts.reduce((a, o) => (o.value <= Number(cur) ? o.value : a), opts[0].value),
           },
           {
             type: 'select', path: 'export.encoder', label: 'Kodlayıcı (Hız)',
             group: 'Kodlama', advanced: true,
-            options: () =>
-              gpuAvailable
-                ? [
-                    { value: 'gpu', label: 'GPU — NVIDIA NVENC (çok hızlı)' },
-                    { value: 'cpu', label: 'CPU — libx264 (en uyumlu, yavaş)' },
-                  ]
-                : [{ value: 'cpu', label: 'CPU — libx264 (GPU bulunamadı)' }],
+            options: () => exportEncoderOptions(),
+            // GPU kodlayıcısı olmayan biçimde iş CPU'da koşar
+            fallback: () => 'cpu',
           },
           {
             type: 'select', path: 'export.quality', label: 'Kalite',
@@ -3381,6 +3404,38 @@
           { type: 'exportpanel', tail: true },
         ],
       },
+    ];
+  }
+
+  /* Seçili biçimin ana süreçten gelen tanımı; liste henüz gelmediyse null. */
+  function exportFormat() {
+    const id = (cfg.export && cfg.export.format) || 'mp4-h264';
+    const list = (exportCaps && exportCaps.formats) || [];
+    return list.find((f) => f.id === id) || null;
+  }
+
+  /* Biçim listesi bu makinede ÇALIŞANLARDAN oluşur. Liste gelmeden (ya da
+     yoklama başarısızsa) yalnız MP4 sunulur; eski davranış. */
+  function exportFormatOptions() {
+    const list = ((exportCaps && exportCaps.formats) || []).filter((f) => f.available);
+    if (!list.length) return [{ value: 'mp4-h264', label: 'MP4 — H.264 (her yerde oynar)' }];
+    return list.map((f) => ({ value: f.id, label: f.label[0] }));
+  }
+
+  /* Kodlayıcı seçimi GPU/CPU olarak kalır; GPU satırı bu biçim için bu
+     makinede çalışan donanım kodlayıcılarını adıyla söyler. */
+  function exportEncoderOptions() {
+    const f = exportFormat();
+    const gpus = f ? f.encoders.filter((e) => e.gpu) : [];
+    const cpu = f ? f.encoders.find((e) => !e.gpu) : null;
+    const cpuLabel = cpu ? cpu.label : 'CPU';
+    if (!gpus.length) {
+      // GPU kodlayıcısı olan bir biçimde yokluğu söylenir; ProRes gibi yalnız CPU olanlarda değil
+      return [{ value: 'cpu', label: f && f.gpuCapable ? cpuLabel + ' ' + tr('(GPU bulunamadı)') : cpuLabel }];
+    }
+    return [
+      { value: 'gpu', label: 'GPU — ' + gpus.map((e) => e.label).join(' / ') + ' ' + tr('(çok hızlı)') },
+      { value: 'cpu', label: cpuLabel + ' ' + tr('(en uyumlu, yavaş)') },
     ];
   }
 
@@ -5561,7 +5616,9 @@
       return;
     }
     const base = (exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
-    const outputPath = await window.api.pickExportOutput(base + '.mp4');
+    const fmt = exportFormat();
+    const fmtId = fmt ? fmt.id : 'mp4-h264';
+    const outputPath = await window.api.pickExportOutput(base + '.' + (fmt ? fmt.ext : 'mp4'), fmtId);
     if (!outputPath) return;
 
     push(true); // en güncel görsel ayarları ana sürece gönder
@@ -5569,6 +5626,7 @@
     const r = await window.api.startExport({
       audioPath: exportAudioPath,
       outputPath,
+      format: fmtId,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
       quality: cfg.export.quality,
@@ -5634,6 +5692,7 @@
 
     // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
     try { gpuAvailable = !!(await window.api.gpuAvailable()); } catch { gpuAvailable = false; }
+    try { exportCaps = await window.api.exportCapabilities(); } catch { exportCaps = null; }
     platformDefaults = null;
 
     // Arayüz durumunu geri yükle
@@ -6112,7 +6171,7 @@
       exporting = false;
       setExportUI(false);
       if (d.status === 'done') {
-        const enc = d.encoder === 'gpu' ? 'GPU/NVENC' : 'CPU/libx264';
+        const enc = d.encoderLabel || (d.encoder === 'gpu' ? 'GPU' : 'CPU');
         setExportStatus('Tamamlandı (' + enc + ') → ' + d.output, 'ok', 'check-circle');
       } else if (d.status === 'cancelled') {
         setExportStatus('İptal edildi.');

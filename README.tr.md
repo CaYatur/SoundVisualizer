@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3026%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3041%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -917,11 +917,17 @@ ekranın solundaki renkleri alıyor.
 
 </div>
 
-- **Çevrimdışı video dışa aktarma (ses dosyası → MP4).** Bir parçayı kare kare çiziyor — ekran kaydı
+- **Çevrimdışı video dışa aktarma (ses dosyası → video).** Bir parçayı kare kare çiziyor — ekran kaydı
   değil — 720p, 1080p, 1440p ya da 4K, 30 ya da 60 fps; kalite, CPU ya da GPU kodlayıcı, ilerleme,
   iptal ve GPU'dan CPU'ya geri düşmeyle. Deterministik: aynı iş aynı videoyu veriyor; görsel gerileme
   testlerinin dayandığı özellik bu. Ad, sanatçı, albüm ve kapak dosyadan okunup Çalan Parça'ya ve metin
   katmanlarına veriliyor.
+- <kbd>3.1.6</kbd> **On bir dışa aktarma biçimi.** H.264 ya da H.265 MP4, kurgu için ProRes 422 HQ ve
+  DNxHR HQ, VP9 WebM, GIF ve APNG döngüleri, PNG ya da doğrusal OpenEXR kare dizileri. ProRes 4444,
+  VP9, APNG, PNG ve EXR bindirme için alfa kanalını koruyor. Dikey 1080×1920 ve kare 1080×1080,
+  24–60 fps. GPU kodlayıcısı NVIDIA NVENC, AMD AMF ya da Intel Quick Sync; hangisi bilgisayarınızda
+  deneme kodlamasını geçerse. Renkler BT.709 olarak çevrilip etiketleniyor, oynatıcı ekranda
+  görüneni gösteriyor.
 - Çıkışın göründüğü gibi **canlı kaydı** — canlı ses, modülasyon, geçişler ve efektlerle — MP4 ya da
   WebM'e, tek tuşla.
 - Tek geçiş gözle görülür bantlandığı için iki geçişli palet üretimli **GIF dışa aktarma**.
@@ -1210,7 +1216,7 @@ Evet — seçilen her ekranda tam ekran bir pencere, artı projektörler ve LED 
 haritalama, kenar harmanlama ve basıklık düzeltme.
 
 **Bir parçadan müzik videosu yapabilir miyim?**
-Evet. Video Dışa Aktar, güncel sahneyle bir ses dosyasını kare kare MP4'e, 60 fps'de 4K'ya kadar
+Evet. Video Dışa Aktar, güncel sahneyle bir ses dosyasını kare kare videoya, 60 fps'de 4K'ya kadar
 çiziyor. Ekran kaydı değil; sonuç bilgisayarınızın hızına bağlı değil.
 
 **Yapay zekâ ajanları kontrol edebilir mi?**
@@ -1705,7 +1711,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3026 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3041 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

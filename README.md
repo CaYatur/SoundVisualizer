@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3026%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3041%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -918,11 +918,17 @@ the fixtures on the left take the colours on the left of the screen.
 
 </div>
 
-- **Offline video export (audio file → MP4).** Renders a track frame by frame — not a screen
+- **Offline video export (audio file → video).** Renders a track frame by frame — not a screen
   recording — at 720p, 1080p, 1440p or 4K, 30 or 60 fps, with quality, a CPU or GPU encoder, progress,
   cancellation and a GPU-to-CPU fallback. It is deterministic: the same job gives the same video, the
   property the visual regression tests rely on. Title, artist, album and cover are read from the
   file and feed Now Playing and text layers.
+- <kbd>3.1.6</kbd> **Eleven export formats.** H.264 or H.265 MP4, ProRes 422 HQ and DNxHR HQ for
+  editing, VP9 WebM, GIF and APNG loops, and PNG or linear OpenEXR frame sequences. ProRes 4444,
+  VP9, APNG, PNG and EXR keep the alpha channel for overlay stock. Portrait 1080×1920 and square
+  1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF or Intel Quick Sync, whichever
+  passes a test encode on your machine. Colours are converted and tagged as BT.709, so players
+  show what the screen showed.
 - **Live recording** of the output exactly as it appears — with the live audio, modulation,
   transitions and effects — to MP4 or WebM, on one key.
 - **GIF export** with two-pass palette generation, because one pass bands visibly.
@@ -1205,7 +1211,7 @@ Yes — a full-screen window on every selected display, plus projection mapping,
 aspect correction for projectors and LED walls.
 
 **Can I make a music video from a track?**
-Yes. Video Export renders an audio file to MP4 frame by frame, up to 4K at 60 fps, using the current
+Yes. Video Export renders an audio file to video frame by frame, up to 4K at 60 fps, using the current
 scene. It is not a screen recording, so the result does not depend on how fast your computer is.
 
 **Can AI agents control it?**
@@ -1702,7 +1708,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3026 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3041 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

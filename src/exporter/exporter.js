@@ -99,6 +99,10 @@
   let height = 1080;
   let fps = 60;
   let totalFrames = 1;
+  /* Aşama süreleri (#531). Yalnız iş `profile` isterse tutulur; hızlandırma
+     iddiası ölçümle yapılsın diye: çizim, geri okuma, kodlayıcıyı bekleme. */
+  let prof = null;
+  let alpha = false;
 
   const ring = new Float32Array(FFT_SIZE);
   const ringL = new Float32Array(FFT_SIZE);
@@ -216,6 +220,12 @@
       isLinux: os === 'linux',
     };
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    alpha = !!job.alpha;
+    /* Saydam biçim (#525): sahne yayın katmanıyla AYNI kuralla çizilir —
+       "Şeffaf Arkaplan" açılmış gibi. Arkaplan boyanmaz; bir arkaplan
+       efekti varsa koyu yerleri saydamlaşır. Ayrı bir kural yazılsaydı
+       dışa aktarılan bindirme ekrandakinden farklı çıkardı. */
+    if (alpha) cfg.background = Object.assign({}, cfg.background, { transparent: true });
     // Studio presetleri işin içinde gelir; modlar kurulmadan ÖNCE kaydedilmeli
     if (window.SVPresets && Array.isArray(job.presets)) window.SVPresets.setUser(job.presets);
     // Dışa aktarımda her zaman tam çözünürlük çizilir
@@ -240,6 +250,7 @@
 
     stack = new window.SVLayers.LayerStack(stageEl, {});
     if (sprites) stack.setSprites(sprites);
+    if (alpha) installKeyFilter();
     stack.resize(width, height);
     stack.setConfig(cfg);
     // Son-işlem zinciri dışa aktarımda da uygulanır; efektler ekrandakiyle
@@ -268,6 +279,30 @@
     }
   }
 
+  /* Arkaplanın koyu yerlerini saydamlaştıran süzgeç. Görselleştirici
+     penceresindekinin aynısı (visualizer.js): katman yığını onu tuvale
+     çizerken uyguluyor. */
+  function installKeyFilter() {
+    const L = window.SVLayers;
+    if (!L || typeof L.keyMatrix !== 'function') return;
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('width', '0');
+    svg.setAttribute('height', '0');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.style.position = 'absolute';
+    const filter = document.createElementNS(NS, 'filter');
+    filter.setAttribute('id', 'sv-bg-key');
+    filter.setAttribute('color-interpolation-filters', 'sRGB');
+    const m = document.createElementNS(NS, 'feColorMatrix');
+    m.setAttribute('type', 'matrix');
+    m.setAttribute('values', L.keyMatrix(cfg));
+    filter.appendChild(m);
+    svg.appendChild(filter);
+    document.body.appendChild(svg);
+    stack.setKeyFilter('url(#sv-bg-key)');
+  }
+
   function drawLogo() {
     if (!logo || !cfg.logo.enabled) return;
     const l = cfg.logo;
@@ -291,6 +326,7 @@
 
   // Tek kareyi çiz ve birleştirme yüzeyinin RGBA baytlarını döndür.
   function renderFrame(i) {
+    const t0 = prof ? performance.now() : 0;
     const t = i / fps;
     const dt = 1 / fps;
     publishExportTrack(t);
@@ -332,14 +368,21 @@
 
     const master = Number.isFinite(Number(cfg.master)) ? Math.max(0, Math.min(1, Number(cfg.master))) : 1;
     if (master < 1) {
-      compCtx.globalCompositeOperation = 'source-over';
-      compCtx.globalAlpha = 1 - master;
+      /* Saydam biçimde ana opaklık görüntüyü SAYDAMLAŞTIRIR; siyaha
+         boyamak bindirmenin arkasını örterdi. */
+      compCtx.globalCompositeOperation = alpha ? 'destination-in' : 'source-over';
+      compCtx.globalAlpha = alpha ? master : 1 - master;
       compCtx.fillStyle = '#000000';
       compCtx.fillRect(0, 0, width, height);
       compCtx.globalAlpha = 1;
+      compCtx.globalCompositeOperation = 'source-over';
     }
 
-    return compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
+    if (prof) prof.drawMs += performance.now() - t0;
+    const t1 = prof ? performance.now() : 0;
+    const data = compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
+    if (prof) prof.readMs += performance.now() - t1;
+    return data;
   }
 
   /* MilkDrop dokuları (#586) diskten ASENKRON geliyor. Canlı pencere
@@ -363,8 +406,12 @@
   }
 
   async function run(job) {
+    prof = job.profile ? { decodeMs: 0, setupMs: 0, drawMs: 0, readMs: 0, waitMs: 0, settleMs: 0 } : null;
+    let tp = performance.now();
     const duration = await decodeAudio(job.audioBuffer);
+    if (prof) { prof.decodeMs = performance.now() - tp; tp = performance.now(); }
     await setup(job);
+    if (prof) prof.setupMs = performance.now() - tp;
     totalFrames = Math.max(1, Math.ceil(duration * fps));
     window.exp.ready(totalFrames);
 
@@ -388,21 +435,26 @@
         if (res && res.cancel) cancelled = true;
       });
       pending.push(p);
+      let tw = prof ? performance.now() : 0;
       if (pending.length >= WINDOW) await pending.shift();
+      if (prof) { prof.waitMs += performance.now() - tw; tw = performance.now(); }
       if (i % progStep === 0) window.exp.progress(i + 1, totalFrames);
       if (!(await settleAssets())) {
         window.exp.error(ASSET_LATE);
         return;
       }
+      if (prof) prof.settleMs += performance.now() - tw;
     }
 
+    const tw = prof ? performance.now() : 0;
     await Promise.all(pending);
+    if (prof) prof.waitMs += performance.now() - tw;
     if (cancelled) {
       window.exp.cancelled();
       return;
     }
     window.exp.progress(totalFrames, totalFrames);
-    window.exp.finish();
+    window.exp.finish(prof ? Object.assign({ frames: totalFrames }, prof) : null);
   }
 
   window.exp.onJob((job) => {

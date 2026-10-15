@@ -5,6 +5,31 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Video export
+
+- **Eleven formats instead of one MP4 [521].** H.264 and H.265 in MP4, ProRes 422 HQ and DNxHR HQ
+  in MOV for editing, VP9 in WebM, GIF and APNG for short loops, and PNG and OpenEXR frame
+  sequences. The list is data in one module (`src/shared/export-formats.js`): the panel, the MCP
+  schema, the path check and the ffmpeg arguments all come from it.
+- **AMD and Intel GPUs encode too [521].** "GPU" meant NVIDIA only and quietly fell back to the CPU
+  elsewhere. It now picks the first working encoder of NVENC, AMF and Quick Sync. Every encoder is
+  test-encoded at start with the exact arguments a real export uses, and one that fails is not
+  offered. AMF and NVENC were verified on this machine; Quick Sync was not, for lack of an Intel GPU.
+- **Colours match the screen [521].** ffmpeg converted HD frames to YUV with the BT.601 matrix and
+  left the file untagged, so players read it as BT.709 and shifted the colours. Frames are now
+  converted with BT.709 and tagged. On a test pattern the average error fell from 8.9 to 1.2
+  levels (worst case 45 to 36).
+- **Transparent exports [525].** ProRes 4444, VP9 with alpha, APNG, PNG and EXR keep the alpha
+  channel. The scene is drawn under the same rule as the streaming overlay: no background is
+  painted, and a background effect's dark areas key out. The master fader fades to transparent
+  rather than to black. MilkDrop stays opaque, as it does in the live overlay.
+- **Frame sequences [529].** PNG or OpenEXR, one file per frame, written into a new folder named
+  after the chosen file. EXR holds linear light in half floats; colour and alpha take separate
+  paths, because zscale alone treated alpha as limited range (0.091 off) and swscale's float
+  conversion was 0.004 off. A cancelled sequence removes its folder.
+- **Portrait, square and more frame rates.** 1080×1920 and 1080×1080, and 24, 25, 30, 50 and
+  60 fps. GIF and APNG cap at 30.
+
 ### OSC
 
 - **OSCQuery discovery follows network changes.** The mDNS announcement kept the address it started
