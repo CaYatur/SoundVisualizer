@@ -622,9 +622,13 @@ function createAdminWindow() {
      kimseye görünmüyor; yardımcı da o sürece çalışmasın. */
   for (const ev of ['minimize', 'restore', 'hide', 'show']) adminWin.on(ev, () => syncAppMeters());
   /* Panel yeniden yüklenince (dil değişimi) ya da çökünce abonelik sayfayla
-     birlikte gider; yeni sayfa seçiciyi gösterirse yeniden abone olur. */
+     birlikte gider; yeni sayfa seçiciyi gösterirse yeniden abone olur.
+     Gezinmenin BAŞINDA bırakılıyor: yeni sayfanın ilk aboneliği her
+     durumda bundan sonra gelir, bırakma onu silemez. */
   const dropAppMeters = () => { adminWantsAppMeters = false; syncAppMeters(); };
-  adminWin.webContents.on('did-navigate', dropAppMeters); // yalnız ana çerçeve
+  adminWin.webContents.on('did-start-navigation', (details) => {
+    if (details && details.isMainFrame && !details.isSameDocument) dropAppMeters();
+  });
   adminWin.webContents.on('render-process-gone', dropAppMeters);
 
   adminWin.on('closed', () => {
@@ -1662,8 +1666,10 @@ ipcMain.handle('app-audio:status', () => {
 
 /* Seçicideki canlı ölçerler (#516). Panel seçiciyi gösterdiği sürece
    abone; ayrıca pencere küçültülmüş ya da gizliyse akış durur. Panelde
-   backgroundThrottling kapalı olduğu için document.hidden küçültmeyi
-   bildirmiyor, o yüzden pencere durumu burada ayrıca denetleniyor. */
+   backgroundThrottling kapalı; document.hidden'a tek başına güvenmemek
+   için pencere durumu burada ayrıca denetleniyor. (Ölçüldü: başka
+   pencerelerin tamamen örttüğü panelde document.hidden yine true oluyor
+   ve panel aboneliği bırakıyor.) */
 let adminWantsAppMeters = false;
 const appMeters = appCapture.createMeterStream({
   send: (payload) => notifyAdmin('app-audio-levels', payload),

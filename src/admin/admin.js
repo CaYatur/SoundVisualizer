@@ -21,6 +21,7 @@
   const appMeterEls = new Map();
   let appMetersOn = false;
   let appMetersBroken = false;     // yardımcı akışı veremedi: simgelerle yetin
+  let appMeterRaf = 0;             // düşüş döngüsünün karesi
   let lightingInfo = { ok: true, supported: false, devices: [] };
   let lightingAvailability = { ok: true, devices: [], availableCount: 0, totalCount: 0 };
   let lightingIdentity = { portable: false, packaged: false, hasIdentity: false, canInstall: false };
@@ -1570,7 +1571,8 @@
       const prev = appMeterEls.get(key);
       const level = prev ? prev.level : 0;
       fill.style.transform = 'scaleX(' + level.toFixed(3) + ')';
-      appMeterEls.set(key, { fill, level, at: prev ? prev.at : 0 });
+      appMeterEls.set(key, { fill, level, target: prev ? prev.target : 0, at: 0 });
+      if (level > 0) stepAppMeters(); // yeni çubuk düşüşe kaldığı yerden devam etsin
       return el('span', { class: 'source-meter', title: 'Anlık ses seviyesi', 'aria-hidden': 'true' }, [fill]);
     }
 
@@ -5034,6 +5036,8 @@
       // Akış durdu: çubuklar son değerde donmasın
       for (const m of appMeterEls.values()) {
         m.level = 0;
+        m.target = 0;
+        m.at = 0;
         m.fill.style.transform = 'scaleX(0)';
       }
     }
@@ -5058,16 +5062,37 @@
     if (!appMetersOn) return;
     const AA = window.SVAppAudio;
     const levels = payload.levels || {};
-    const t = performance.now();
-    for (const [key, m] of appMeterEls) {
-      const target = AA.meterFraction(levels[key] || 0);
-      const dt = m.at ? t - m.at : 0;
-      m.at = t;
-      m.level = AA.meterBallistics(m.level, target, dt);
-      const tf = 'scaleX(' + m.level.toFixed(3) + ')';
-      // Sessiz satırlar her pakette yeniden yazılmasın
-      if (m.fill.style.transform !== tf) m.fill.style.transform = tf;
-    }
+    for (const [key, m] of appMeterEls) m.target = AA.meterFraction(levels[key] || 0);
+    stepAppMeters();
+  }
+
+  /* Düşüş kare kare yürütülüyor, paket gelince değil: yardımcı yalnız
+     değişince (en az saniyede bir) yazıyor, son ses kesilince tek bir
+     sıfır satırı gelir ve çubuk yarı yolda bir saniye asılı kalırdı.
+     Döngü yalnız akış açıkken ve dolu bir çubuk varken döner; sessizlik
+     bedava. */
+  function stepAppMeters() {
+    if (appMeterRaf) return;
+    appMeterRaf = requestAnimationFrame(() => {
+      appMeterRaf = 0;
+      if (!appMetersOn) return;
+      const AA = window.SVAppAudio;
+      const t = performance.now();
+      let moving = false;
+      for (const m of appMeterEls.values()) {
+        const target = m.target || 0;
+        const dt = m.at ? Math.min(t - m.at, 250) : 0;
+        m.at = t;
+        m.level = AA.meterBallistics(m.level, target, dt);
+        const tf = 'scaleX(' + m.level.toFixed(3) + ')';
+        // Sessiz satırlar her karede yeniden yazılmasın
+        if (m.fill.style.transform !== tf) m.fill.style.transform = tf;
+        if (m.level > target) moving = true;
+      }
+      if (moving) stepAppMeters();
+      // Döngü durunca saat de dursun: sonraki ilk kare birikmiş süreyle sıçramasın
+      else for (const m of appMeterEls.values()) m.at = 0;
+    });
   }
 
   actions.toggleFloating = async () => {
