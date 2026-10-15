@@ -214,11 +214,99 @@
     });
   }
 
+  // ------------------------------------------------------ canlı seviye (#516)
+
+  /* Yardımcının `--meters` kipi her satıra bir JSON dizi yazıyor:
+       [[pid,"ad.exe",tepe],...]
+     tepe 0..1 doğrusal genlik (IAudioMeterInformation::GetPeakValue).
+     Satırlar borudan parça parça geliyor; bir parça satırın ortasında
+     bitebilir. Bu yüzden ayrıştırma ve birleştirme burada, saf: hem
+     sınanabilsin hem ana süreçteki akış kodu ince kalsın. */
+
+  // Sonu gelmeyen bir satır sınırsız büyümesin (bozuk ya da yanlış ikili)
+  const METER_CARRY_MAX = 64 * 1024;
+
+  /* Boru parçasını satırlara böler. `carry` önceki parçadan kalan yarım
+     satır; dönen `carry` bir sonrakine verilir. */
+  function splitMeterChunk(carry, chunk) {
+    const text = String(carry || '') + String(chunk || '');
+    const parts = text.split('\n');
+    let rest = parts.pop();
+    if (rest.length > METER_CARRY_MAX) rest = '';
+    const lines = parts.map((l) => l.trim()).filter(Boolean);
+    return { lines, carry: rest };
+  }
+
+  const clamp01 = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return n >= 1 ? 1 : n;
+  };
+
+  /* Tek satırı ayrıştırır. Bozuk satır null döner (yok sayılır); bozuk
+     tek bir giriş satırın geri kalanını düşürmez. */
+  function parseMeterLine(line) {
+    let data;
+    try { data = JSON.parse(String(line || '')); } catch { return null; }
+    if (!Array.isArray(data)) return null;
+    const out = [];
+    for (const row of data) {
+      if (!Array.isArray(row) || row.length < 3) continue;
+      const pid = Number(row[0]);
+      const name = typeof row[1] === 'string' ? row[1] : '';
+      if (!(pid > 0) || !name) continue;
+      out.push({ pid, name, peak: clamp01(row[2]) });
+    }
+    return out;
+  }
+
+  /* Süreç satırlarını uygulama başına toplar. Anahtar baseName (küçük
+     harf), seçicideki satırların anahtarıyla aynı. Bir uygulamanın birden
+     çok süreci varsa (tarayıcılar) EN YÜKSEK tepe gösterilir: toplamak
+     seviyeyi şişirirdi, ortalamak sessiz alt süreçlerle bastırırdı. */
+  function meterLevels(rows) {
+    const out = {};
+    for (const r of Array.isArray(rows) ? rows : []) {
+      if (!r || !r.name) continue;
+      const key = baseName(r.name);
+      const p = clamp01(r.peak);
+      if (!(key in out) || p > out[key]) out[key] = p;
+    }
+    return out;
+  }
+
+  /* Ölçer çubuğunun doluluğu. Doğrusal genlik gözle okunmuyor: -20 dB
+     (0,1) çubuğun onda birinde kalır ve sessiz sanılır. Bu yüzden dB
+     ölçeği: METER_FLOOR_DB altı boş, 0 dB dolu. */
+  const METER_FLOOR_DB = -48;
+  function meterFraction(peak) {
+    const p = clamp01(peak);
+    if (p <= 0) return 0;
+    const db = 20 * Math.log10(p);
+    if (db <= METER_FLOOR_DB) return 0;
+    return Math.min(1, (db - METER_FLOOR_DB) / -METER_FLOOR_DB);
+  }
+
+  /* Ölçer balistiği: yükseliş anında, düşüş yavaş. Yalnız anlık değer
+     gösterilseydi çubuk her pakette titrerdi ve kısa vuruşlar hiç
+     görünmezdi. `releasePerSec` dolu çubuğun saniyede ne kadar indiği. */
+  const METER_RELEASE_PER_SEC = 1.6;
+  function meterBallistics(prev, next, dtMs, releasePerSec) {
+    const target = clamp01(next);
+    const from = clamp01(prev);
+    if (target >= from) return target;
+    const dt = Math.max(0, Number(dtMs) || 0) / 1000;
+    const rate = releasePerSec > 0 ? releasePerSec : METER_RELEASE_PER_SEC;
+    return Math.max(target, from - rate * dt);
+  }
+
   const api = {
     WIN_MIN_BUILD, MAC_MIN_MAJOR, MODES, DEFAULT_MODE,
     support, macMajorFromDarwin,
     isAppSource, normalizeApp, splitSources, limitExclude,
     resolveTarget, candidates, baseName,
+    METER_CARRY_MAX, METER_FLOOR_DB, METER_RELEASE_PER_SEC,
+    splitMeterChunk, parseMeterLine, meterLevels, meterFraction, meterBallistics,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

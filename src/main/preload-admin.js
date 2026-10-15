@@ -221,6 +221,10 @@ contextBridge.exposeInMainWorld('api', {
   // Uygulama başına ses yakalama: o an ses oturumu olan uygulamalar
   listAudioApps: () => ipcRenderer.invoke('app-audio:list'),
   appAudioStatus: () => ipcRenderer.invoke('app-audio:status'),
+  /* Seçicideki canlı ölçerler (#516): seçici görünürken abone ol, gizlenince
+     bırak. Seviyeler { available, levels: { 'ad.exe': 0..1 } } olarak gelir. */
+  appAudioMeters: (on) => ipcRenderer.send('app-audio:meters', !!on),
+  onAppAudioLevels: (cb) => ipcRenderer.on('app-audio-levels', (e, data) => cb(data)),
   nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),

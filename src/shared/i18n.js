@@ -3136,6 +3136,7 @@
     'Yalnızca Seçilenler': 'Selected Only',
     'Seçilen Hariç': 'Except Selected',
     'çalışmıyor': 'not running',
+    'Anlık ses seviyesi': 'Live audio level',
     'Birden fazla kaynak seçilip karıştırılabilir: sistem sesi, mikrofon ve tek tek uygulamalar.':
       'Several sources can be selected and mixed: system audio, microphone and individual applications.',
     'Şu anda ses çalan bir uygulama yok. Bir şey çaldırıp Aygıtları Yenile’ye basın.':

@@ -109,6 +109,161 @@ function spawnCapture(pid, mode) {
   });
 }
 
+// ------------------------------------------------------ canlı seviye (#516)
+
+/* Seçicideki canlı ölçerler için yardımcının `--meters` akışı.
+
+   Akış YALNIZ seçici görünürken açık: ana süreç `setWanted(true)` deyince
+   yardımcı başlar, `false` deyince stdin kapatılır ve yardımcı kendisi
+   çıkar (çıkmazsa kısa bir süre sonra öldürülür). Panel kapalıyken arka
+   planda hiçbir şey çalışmıyor.
+
+   Yardımcı ≈16 Hz yazıyor; panele en fazla METER_SEND_MS'de bir, en son
+   satır gidiyor (aradakiler bayat, atılır). Uygulama başına birleştirme
+   burada yapılıyor ki IPC yükü süreç sayısıyla büyümesin.
+
+   Yardımcı ölürse sınırlı sayıda yeniden denenir; `--meters` bilmeyen eski
+   bir ikili (BAD-ARGS, çıkış kodu 2) ya da hiç ikili yoksa hemen vazgeçilir
+   ve panele `{ available: false }` gider — panel o zaman ölçerleri gizler,
+   eski simge davranışı kalır. */
+const METER_INTERVAL_MS = 60;
+const METER_SEND_MS = 66;
+const METER_STOP_GRACE_MS = 1500;
+const METER_RETRY_MS = 2000;
+const METER_MAX_FAILURES = 3;
+const METER_HEALTHY_MS = 10000; // bu kadar yaşayan yardımcının ölümü sayaçı sıfırlar
+const EXIT_BAD_ARGS = 2;
+
+function createMeterStream(opts) {
+  const o = opts || {};
+  const spawnFn = o.spawn || spawn;
+  const findExe = o.helperPath || helperPath;
+  const send = typeof o.send === 'function' ? o.send : () => {};
+  const setT = o.setTimeout || setTimeout;
+  const clearT = o.clearTimeout || clearTimeout;
+  const now = o.now || Date.now;
+
+  let wanted = false;
+  let child = null;
+  let carry = '';
+  let startedAt = 0;
+  let failures = 0;
+  let gaveUp = false;
+  let latest = null;
+  let lastSent = -Infinity;
+  let sendTimer = null;
+  let retryTimer = null;
+
+  function flush() {
+    sendTimer = null;
+    if (!latest || !wanted) return;
+    const levels = latest;
+    latest = null;
+    lastSent = now();
+    send({ available: true, levels });
+  }
+
+  function queue(levels) {
+    latest = levels;
+    if (sendTimer) return;
+    const wait = Math.max(0, METER_SEND_MS - (now() - lastSent));
+    sendTimer = setT(flush, wait);
+  }
+
+  function giveUp() {
+    gaveUp = true;
+    send({ available: false });
+  }
+
+  function onData(chunk) {
+    const r = appAudio.splitMeterChunk(carry, chunk.toString('utf8'));
+    carry = r.carry;
+    // Yalnız en son geçerli satır önemli; öncekiler zaten bayat
+    for (let i = r.lines.length - 1; i >= 0; i--) {
+      const rows = appAudio.parseMeterLine(r.lines[i]);
+      if (rows) { queue(appAudio.meterLevels(rows)); return; }
+    }
+  }
+
+  function onExit(c, code) {
+    if (child !== c) return; // durdurulmuş eski çocuk
+    child = null;
+    if (!wanted) return;
+    if (code === EXIT_BAD_ARGS) { giveUp(); return; }
+    if (now() - startedAt >= METER_HEALTHY_MS) failures = 0;
+    failures++;
+    if (failures >= METER_MAX_FAILURES) { giveUp(); return; }
+    retryTimer = setT(() => { retryTimer = null; start(); }, METER_RETRY_MS);
+  }
+
+  function start() {
+    if (child || !wanted || gaveUp) return;
+    const exe = findExe();
+    if (!exe) { giveUp(); return; }
+    let c = null;
+    try {
+      c = spawnFn(exe, ['--meters', String(METER_INTERVAL_MS)], {
+        windowsHide: true,
+        // stdin BORU olmalı: yardımcı onun kapanmasını çıkış işareti sayıyor
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch { c = null; }
+    if (!c) { giveUp(); return; }
+    child = c;
+    carry = '';
+    startedAt = now();
+    let ended = false;
+    const end = (code) => {
+      if (ended) return;
+      ended = true;
+      onExit(c, code);
+    };
+    if (c.stdout) c.stdout.on('data', (b) => { if (child === c) onData(b); });
+    // stderr okunmazsa boru dolar ve yardımcı yazarken takılır
+    if (c.stderr) c.stderr.on('data', () => {});
+    if (c.stdin) c.stdin.on('error', () => {}); // yardımcı önce öldüyse EPIPE
+    c.on('error', () => end(-1));
+    c.on('exit', (code) => end(code));
+  }
+
+  function stopChild() {
+    const c = child;
+    child = null;
+    if (!c) return;
+    try { if (c.stdin) c.stdin.end(); } catch { /* boru zaten kapalı */ }
+    const killer = setT(() => { try { c.kill(); } catch { /* zaten çıktı */ } }, METER_STOP_GRACE_MS);
+    if (killer && typeof killer.unref === 'function') killer.unref();
+    c.on('exit', () => clearT(killer));
+  }
+
+  function setWanted(on) {
+    const next = !!on;
+    if (next === wanted) {
+      if (next && gaveUp) send({ available: false });
+      return;
+    }
+    wanted = next;
+    if (wanted) {
+      if (gaveUp) { send({ available: false }); return; }
+      failures = 0;
+      start();
+      return;
+    }
+    if (retryTimer) { clearT(retryTimer); retryTimer = null; }
+    if (sendTimer) { clearT(sendTimer); sendTimer = null; }
+    latest = null;
+    stopChild();
+  }
+
+  return {
+    setWanted,
+    stop: () => setWanted(false),
+    running: () => !!child,
+    wanted: () => wanted,
+  };
+}
+
 module.exports = {
   helperPath, availability, list, resolve, spawn: spawnCapture, linuxServers,
+  createMeterStream, METER_SEND_MS, METER_STOP_GRACE_MS, METER_MAX_FAILURES,
 };
