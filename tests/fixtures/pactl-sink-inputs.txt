@@ -1,0 +1,59 @@
+Sink Input #0
+	Driver: protocol-native.c
+	Owner Module: 21
+	Client: 3
+	Sink: 1
+	Sample Specification: s16le 2ch 44100Hz
+	Channel Map: front-left,front-right
+	Format: pcm, format.sample_format = "\"s16le\""  format.rate = "44100"  format.channels = "2"  format.channel_map = "\"front-left,front-right\""
+	Corked: no
+	Mute: no
+	Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB
+	        balance 0.00
+	Buffer Latency: 2000000 usec
+	Sink Latency: 588965 usec
+	Resample method: n/a
+	Properties:
+		application.name = "toneA"
+		media.format = "WAV (Microsoft)"
+		media.name = "/home/user/sv-test/a440.wav"
+		native-protocol.peer = "UNIX socket client"
+		native-protocol.version = "35"
+		application.process.id = "553"
+		application.process.user = "user"
+		application.process.host = "host"
+		application.process.binary = "pacat"
+		application.language = "C.UTF-8"
+		window.x11.display = ":0"
+		application.process.machine_id = "0123456789abcdef0123456789abcdef"
+		module-stream-restore.id = "sink-input-by-application-name:toneA"
+
+Sink Input #1
+	Driver: protocol-native.c
+	Owner Module: 21
+	Client: 4
+	Sink: 1
+	Sample Specification: s16le 2ch 44100Hz
+	Channel Map: front-left,front-right
+	Format: pcm, format.sample_format = "\"s16le\""  format.rate = "44100"  format.channels = "2"  format.channel_map = "\"front-left,front-right\""
+	Corked: no
+	Mute: no
+	Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB
+	        balance 0.00
+	Buffer Latency: 2000000 usec
+	Sink Latency: 588965 usec
+	Resample method: n/a
+	Properties:
+		media.format = "WAV (Microsoft)"
+		application.name = "othertone"
+		media.name = "/home/user/sv-test/b1000.wav"
+		native-protocol.peer = "UNIX socket client"
+		native-protocol.version = "35"
+		application.process.id = "555"
+		application.process.user = "user"
+		application.process.host = "host"
+		application.process.binary = "othertone"
+		application.language = "C.UTF-8"
+		window.x11.display = ":0"
+		application.process.machine_id = "0123456789abcdef0123456789abcdef"
+		module-stream-restore.id = "sink-input-by-application-name:othertone"

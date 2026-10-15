@@ -69,7 +69,9 @@
       "node_modules/ffmpeg-static/**",
       "src/shared/audio-devices.js",
       "src/shared/app-audio.js",
+      "src/shared/app-audio-linux.js",
       "src/main/app-capture.js",
+      "src/main/app-capture-linux.js",
       "src/main/audio-frame.js",
       "src/main/loopback-helper.js"
     ],

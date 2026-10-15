@@ -59,9 +59,61 @@ test('Linux ses sunucusu olmadan desteklenmiyor', () => {
   assert.strictEqual(r.code, 'NO_SOUND_SERVER');
 });
 
-test('Linux PipeWire ya da PulseAudio ile destekliyor', () => {
-  assert.strictEqual(A.support('linux', '6.1.0', { pipewire: true }).supported, true);
-  assert.strictEqual(A.support('linux', '6.1.0', { pulse: true }).supported, true);
+/* Yakalama pactl ve parec ile yapılıyor (bkz. app-audio-linux.js). İkisi ve
+   ulaşılabilir bir sunucu varsa destekleniyor — PipeWire'da da, çünkü
+   pipewire-pulse aynı arayüzü veriyor. */
+test('Linux pactl, parec ve sunucuyla destekliyor', () => {
+  assert.strictEqual(A.support('linux', '6.1.0', { pactl: true, parec: true, server: true }).supported, true);
+  assert.strictEqual(
+    A.support('linux', '6.1.0', { pactl: true, parec: true, pipewire: true, server: true }).supported, true);
+  // Sunucu ölçülmediyse engellemiyoruz; asıl karar yakalama anında
+  assert.strictEqual(A.support('linux', '6.1.0', { pactl: true, parec: true }).supported, true);
+});
+
+/* Eskiden PipeWire'ın varlığı "destekleniyor" demeye yetiyordu ve özellik
+   Linux'ta hiç yazılmamıştı. Yakalanacak araç yokken desteklenir demek,
+   sessizce hiçbir şey yapmayan bir denetim göstermek olurdu (#517). */
+test('yalnız PipeWire varken araç eksikliği söylenir', () => {
+  const r = A.support('linux', '6.1.0', { pipewire: true });
+  assert.strictEqual(r.supported, false);
+  assert.strictEqual(r.code, 'LINUX_NO_TOOLS');
+  assert.strictEqual(r.missing, 'pactl, parec');
+  assert.match(r.message, /pulseaudio-utils/);
+});
+
+test('eksik tek araç adıyla söylenir', () => {
+  const r = A.support('linux', '6.1.0', { pactl: true, parec: false });
+  assert.strictEqual(r.code, 'LINUX_NO_TOOLS');
+  assert.strictEqual(r.missing, 'parec');
+});
+
+test('sunucuya ulaşılamıyorsa ayrı kod', () => {
+  const r = A.support('linux', '6.1.0', { pactl: true, parec: true, server: false });
+  assert.strictEqual(r.supported, false);
+  assert.strictEqual(r.code, 'SOUND_SERVER_DOWN');
+});
+
+/* Ekran Kaydı izni yokken ScreenCaptureKit boş liste veriyor. Kullanıcı
+   "çalan uygulama yok" sanmamalı: sebep ayrı bir kodla ve istenebilir
+   olarak geliyor. */
+test('macOS izin yoksa söylenir ve istenebilir', () => {
+  const r = A.support('darwin', '23.0.0', { helper: true, permission: false });
+  assert.strictEqual(r.supported, false);
+  assert.strictEqual(r.code, 'MAC_NO_PERMISSION');
+  assert.strictEqual(r.canRequest, true);
+});
+
+test('macOS yardımcı yoksa söylenir', () => {
+  assert.strictEqual(A.support('darwin', '23.0.0', { helper: false }).code, 'NO_HELPER');
+});
+
+test('macOS eski sürüm izin sorusundan önce gelir', () => {
+  assert.strictEqual(A.support('darwin', '21.6.0', { helper: true, permission: false }).code, 'MAC_TOO_OLD');
+});
+
+test('macOS izin ölçülemediyse engellenmez', () => {
+  assert.strictEqual(A.support('darwin', '23.0.0', { helper: true }).supported, true);
+  assert.strictEqual(A.support('darwin', '23.0.0', { helper: true, permission: true }).supported, true);
 });
 
 test('bilinmeyen platform desteklenmiyor', () => {
@@ -316,4 +368,51 @@ test('aygıt değişiminde yeni varsayılan seçilebiliyor', () => {
   const after = devices.pickDefault([{ name: 'Hoparlör' }], 'win32');
   assert.ok(after, 'aygıt kaybolunca yerine geçecek bulunamadı');
   assert.notStrictEqual(after.name, 'Kaybolan Arayüz');
+});
+
+// ------------------------------------------------------ İngilizce iletiler
+
+/* Durum iletisi ana süreçten Türkçe geliyor ve panelde sözlükten geçiyor.
+   Her kodun iletisinin İngilizcesi olmalı; yoksa İngilizce arayüzde Türkçe
+   bir hata satırı görünür. */
+test('her durum iletisinin İngilizcesi var', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const doc = {
+    documentElement: { lang: '' }, readyState: 'complete', title: '', body: {},
+    addEventListener: () => {},
+  };
+  const win = {
+    navigator: { languages: ['en-US'], language: 'en-US' },
+    localStorage: { getItem: () => 'en', setItem: () => {} },
+    alert: () => {}, confirm: () => {}, document: doc,
+    MutationObserver: function () { this.observe = () => {}; },
+    Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 },
+  };
+  win.window = win;
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'shared', 'i18n.js'), 'utf8');
+  vm.runInContext(src, vm.createContext(win), { filename: 'i18n.js' });
+  const t = win.SVI18n.t;
+  const TR = /[çğıöşüÇĞİÖŞÜ]/;
+
+  const cases = [
+    A.support('win32', '10.0.19045'),
+    A.support('darwin', '21.6.0'),
+    A.support('darwin', '23.0.0', { helper: false }),
+    A.support('darwin', '23.0.0', { helper: true, permission: false }),
+    A.support('linux', '6.1.0', {}),
+    A.support('linux', '6.1.0', { pipewire: true }),
+    A.support('linux', '6.1.0', { pactl: true }),
+    A.support('linux', '6.1.0', { pactl: true, parec: true, server: false }),
+    A.support('sunos', '5.11'),
+  ];
+  for (const c of cases) {
+    const en = t(c.message);
+    assert.notStrictEqual(en, c.message, 'çevrilmedi: ' + c.message);
+    assert.ok(!TR.test(en), 'çeviride Türkçe harf: ' + en);
+  }
+  assert.strictEqual(t(A.support('linux', '6.1.0', { pactl: true }).message),
+    'Per-application audio capture needs parec; install the pulseaudio-utils package.');
+  assert.strictEqual(t('Ekran Kaydı İzni İste'), 'Request Screen Recording Permission');
 });

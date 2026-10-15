@@ -3144,10 +3144,15 @@
     'Seçilen uygulama hariç sistemdeki her şey dinlenir. Bu kipte tek uygulama seçilebilir.':
       'Everything on the system is captured except the selected application. Only one application can be selected in this mode.',
     'Uygulama başına ses yakalama kullanılamıyor.': 'Per-application audio capture is unavailable.',
-    'Uygulama başına ses yakalama şimdilik yalnızca Windows üzerinde çalışıyor.':
-      'Per-application audio capture currently works on Windows only.',
     'Ses yakalama yardımcısı bulunamadı; bu paket .NET olmadan derlenmiş olabilir.':
       'The audio capture helper was not found; this build may have been made without .NET.',
+    'Ses yakalama yardımcısı bulunamadı; bu paket Swift yardımcısı olmadan derlenmiş olabilir.':
+      'The audio capture helper was not found; this build may have been made without the Swift helper.',
+    'Uygulama sesini dinlemek için Ekran Kaydı izni gerekiyor: Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı.':
+      'Listening to an application needs the Screen Recording permission: System Settings › Privacy & Security › Screen & System Audio Recording.',
+    'Ekran Kaydı İzni İste': 'Request Screen Recording Permission',
+    'Ses sunucusuna bağlanılamadı; PulseAudio ya da pipewire-pulse çalışıyor mu?':
+      'Could not connect to the sound server; is PulseAudio or pipewire-pulse running?',
     'Uygulama başına ses yakalama macOS 13 ve üstünü gerektiriyor (ScreenCaptureKit).':
       'Per-application audio capture requires macOS 13 or newer (ScreenCaptureKit).',
     'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.':
@@ -3319,6 +3324,8 @@
       .replace(/^([\d.]+) kat piksel$/g, '$1× the pixels')
       .replace(/^Uygulama başına ses yakalama Windows yapı (\d+) ve üstünü gerektiriyor; bu bilgisayarda yapı (\d+)\.$/g,
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
+      .replace(/^Uygulama başına ses yakalama için ([a-z, ]+) gerekiyor; pulseaudio-utils paketini kurun\.$/g,
+        'Per-application audio capture needs $1; install the pulseaudio-utils package.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
       .replace(/Görsel (\d+)/g, 'Image $1')
       .replace(/(\d+) uyumlu aydınlatma aygıtı bulundu/g, '$1 compatible lighting device(s) found')

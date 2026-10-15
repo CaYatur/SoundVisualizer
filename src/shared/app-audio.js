@@ -70,17 +70,62 @@
             + ' ve üstünü gerektiriyor (ScreenCaptureKit).',
         };
       }
+      /* Yardımcı (native/app-audio-helper-mac) Swift ile derleniyor; Xcode
+         araçları olmadan derlenmiş bir pakette yok. */
+      if (o.helper === false) {
+        return {
+          supported: false,
+          code: 'NO_HELPER',
+          message: 'Ses yakalama yardımcısı bulunamadı; bu paket Swift yardımcısı olmadan derlenmiş olabilir.',
+        };
+      }
+      /* ScreenCaptureKit, ses için bile Ekran Kaydı iznini istiyor. İzin
+         yokken liste boş gelir; kullanıcı "çalan uygulama yok" sanmasın
+         diye sebebi ayrı bir kodla söylüyoruz. */
+      if (o.permission === false) {
+        return {
+          supported: false,
+          code: 'MAC_NO_PERMISSION',
+          canRequest: true,
+          message: 'Uygulama sesini dinlemek için Ekran Kaydı izni gerekiyor: Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı.',
+        };
+      }
       return { supported: true, code: 'OK', message: '' };
     }
     if (p === 'linux') {
-      /* PipeWire ya da PulseAudio olmadan uygulama akışları görünmez.
-         Hangisinin var olduğunu çağıran söyler; burada karar kuralı durur. */
-      if (o.pipewire || o.pulse) return { supported: true, code: 'OK', message: '' };
-      return {
-        supported: false,
-        code: 'NO_SOUND_SERVER',
-        message: 'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.',
-      };
+      /* Uygulama akışlarını PulseAudio ya da pipewire-pulse gösteriyor;
+         yakalama pactl ve parec ile yapılıyor (bkz. app-audio-linux.js).
+         Çağıran ölçtüğünü veriyor: {pactl, parec, pipewire, server}.
+         `server` "pactl info"nun sonucu; ölçülmediyse undefined.
+
+         Yalnızca PipeWire'ın varlığı YETMEZ: pactl/parec yoksa yakalanacak
+         bir şey yok, desteklenir demek sessizce çalışmayan bir denetim
+         göstermek olurdu. */
+      if (!o.pactl && !o.parec && !o.pipewire) {
+        return {
+          supported: false,
+          code: 'NO_SOUND_SERVER',
+          message: 'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.',
+        };
+      }
+      if (!o.pactl || !o.parec) {
+        const missing = [!o.pactl && 'pactl', !o.parec && 'parec'].filter(Boolean).join(', ');
+        return {
+          supported: false,
+          code: 'LINUX_NO_TOOLS',
+          missing,
+          message: 'Uygulama başına ses yakalama için ' + missing
+            + ' gerekiyor; pulseaudio-utils paketini kurun.',
+        };
+      }
+      if (o.server === false) {
+        return {
+          supported: false,
+          code: 'SOUND_SERVER_DOWN',
+          message: 'Ses sunucusuna bağlanılamadı; PulseAudio ya da pipewire-pulse çalışıyor mu?',
+        };
+      }
+      return { supported: true, code: 'OK', message: '' };
     }
     return {
       supported: false,
