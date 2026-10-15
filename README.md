@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3064%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3114%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -226,7 +226,9 @@ The sections above are the short version. Everything below is the full list, by 
 - **Single applications** (Windows) — WASAPI process loopback. Capture only the chosen apps, or
   everything *except* one. Targets are stored by executable name, so a restarted app reattaches by
   itself, and an app that is not running yet is picked up when it starts. Needs Windows build
-  20348 or newer. macOS and Linux report why it is not available there yet.
+  20348 or newer. <kbd>3.1.6</kbd> On Linux it uses PulseAudio's per-stream monitors (`pactl`
+  and `parec` from pulseaudio-utils). On macOS 13+ it uses ScreenCaptureKit and needs the Screen
+  Recording permission; the macOS path has not yet been run on a real Mac.
   <kbd>3.1.6</kbd> Each application in the picker shows a live level meter, so you can see which
   one is making sound before you choose it.
 - **Several sources at once**, mixed before analysis — "Spotify + microphone" is one selection.
@@ -1710,7 +1712,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3064 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3114 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

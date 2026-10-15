@@ -91,7 +91,7 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Per-app audio capture on macOS and Linux | v3.1.6 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
+| Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
 | Comprehensive video export | v3.1.6 | Formats, alpha and frame sequences done (#521, #525, #529); speed, profiles, queue, chapters and the rest in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
@@ -110,7 +110,8 @@ shipped" — but calling them proven would be a lie.
 | Linux build | Builds on a Linux runner; `audify` loads there in CI, and the `.deb` declares `libpulse0` | Never launched on a desktop. Monitor-source enumeration is untested against a real PulseAudio or PipeWire server |
 | OpenRGB | Protocol encoded and decoded against a server implementing the wire format, 38 tests | Never driven a physical LED. Vendor quirks and per-device direct-mode support are unknown |
 | Syphon | Shares the whole code path with Spout, which was measured end to end on Windows. The macOS handle conversion is unit-tested | Never run on a Mac. The IOSurface path has never touched a real GPU |
-| Per-app audio capture on macOS and Linux | The platform rules are a pure module with 36 tests: Windows build 20348, macOS 13 via ScreenCaptureKit, Linux via PipeWire or PulseAudio, and each unsupported case reports its own reason | Neither has a capture backend at all. Nothing has been run on a Mac or a Linux desktop |
+| Per-app audio capture on Linux | Implemented with `pactl`/`parec` and measured in WSLg (PulseAudio 17): include, exclude, exclude while the target is silent, and reattach by name after a restart. `pactl` parsing runs against real output as fixtures | Not run on a Linux desktop or under PipeWire's pipewire-pulse. The full Electron app was not run in WSL; the capture module was |
+| Per-app audio capture on macOS | A ScreenCaptureKit helper (`native/app-audio-helper-mac`) compiles with `--strict` on CI's macOS runner, is signed ad hoc, starts, and rejects bad arguments with exit 2 | Never run on a Mac. Unobserved: whether the permission attaches to the app or the helper, whether include and exclude isolate audio, whether a browser's audio process counts as the browser, the real buffer format, buffers during silence, menu-bar-only players, a grant without restart, and re-granting after an update |
 
 This table shrinks as the hardware becomes available; nothing is moved out of
 it on the strength of an argument.
@@ -130,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3064 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3114 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3317,6 +3318,18 @@ of this release, not a side effect.
   | MilkDrop 2160p30, NVENC | 138.6 s | 6.1 s | 90.2 s |
 
   At 4K `getImageData` costs 150 ms a frame, two thirds of the run. Two runs of the same MilkDrop job hash identically.
+
+### Per-application capture on Linux and macOS (#514, #517) · done, macOS unverified
+
+- **Linux** needs no new binary. It lists applications from `pactl list sink-inputs` (always under `LC_ALL=C`; JSON on pactl 16+, text before) and captures each matching stream with `parec --monitor-stream=<idx>` as 48 kHz stereo float32, the format the Windows helper delivers. A clock-driven mixer adds the streams and sends silence when nothing plays.
+  - Include captures every stream of the target; exclude captures every stream except the target's and works while the target is silent or closed.
+  - `pactl subscribe` and a 2 s poll pick up new streams; a closed target reattaches by name.
+  - `availability()` says what is missing: `NO_SOUND_SERVER`, `LINUX_NO_TOOLS` (names the package) or `SOUND_SERVER_DOWN`. PipeWire on its own no longer counts as supported.
+  - **Measured in WSLg** (PulseAudio 17.0, pactl 16.1) with two processes playing 440 Hz at 0.5 and 1000 Hz at 0.2: include read 0.5 and 0.0001; exclude read 0 and 0.2; exclude while the target was silent read 0.2; killing and restarting the other app reattached it by name with 6.00 s of PCM in a 6 s session. Capture follows the app's own volume (50% gave 0.0625). The first audio arrives 0.6–1.3 s after start, which is WSLg's sink latency.
+- **macOS** has a Swift helper on ScreenCaptureKit with the Windows helper's contract: `--list`, `--capture <pid> include|exclude`, plus `--check` (reads the Screen Recording permission without prompting) and `--request`. `--list` never prompts, so a Mac user is not asked at launch. The panel shows a "Request Screen Recording Permission" button; later presses open System Settings, because macOS asks only once.
+  - It compiles in its own workflow (`mac-helper.yml`), which runs only when the helper or its build script changes. `build.yml` compiles it again before packaging, so no `.dmg` ships without it.
+  - Everything about its behaviour on a real Mac is unverified; see "Shipped, but never run on real hardware".
+- The app's own processes are left out of the Linux list too.
 
 ### Live level meters in the application picker (#516) · done
 

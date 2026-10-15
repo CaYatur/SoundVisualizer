@@ -75,11 +75,17 @@ test('ana süreç derleme çıktısının yolunu biliyor', () => {
 });
 
 /* build.yml yalnız etiket ve elle tetiklemede koşuyor; derleme hatası
-   ancak yayın günü görülürdü. */
+   ancak yayın günü görülürdü. Derleme ayrı bir iş akışında ve yalnız
+   yardımcı ya da betiği değişince koşuyor: her PR'da macOS dakikası
+   harcanmasın. */
 test('CI yardımcıyı her değişiklikte derliyor', () => {
-  const t = read('.github/workflows/test.yml');
+  const t = read('.github/workflows/mac-helper.yml');
   assert.match(t, /runs-on: macos-latest/);
   assert.match(t, /prepare-app-audio-mac\.js --strict/);
+  for (const p of ["'native/app-audio-helper-mac/**'", "'scripts/prepare-app-audio-mac.js'"]) {
+    assert.strictEqual(t.split(p).length - 1, 2, p + ' hem push hem PR süzgecinde');
+  }
+  assert.doesNotMatch(read('.github/workflows/test.yml'), /macos-latest/, 'birim iş akışı macOS koşmuyor');
   const b = read('.github/workflows/build.yml');
   assert.match(b, /prepare-app-audio-mac\.js --strict/);
 });

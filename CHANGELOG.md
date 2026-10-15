@@ -32,6 +32,18 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Audio
 
+- **Per-application audio capture on Linux [514].** Pick one or more applications as the source,
+  or capture everything except one. It uses PulseAudio's per-stream monitors through `pactl` and
+  `parec` (pulseaudio-utils), so no new binary ships, and it should work under pipewire-pulse too,
+  although only PulseAudio was tested. Streams that start mid-capture are picked up, and a closed
+  application is re-attached by name when it reopens. When the tools or the sound server are
+  missing, the panel says what to install or start. Verified in WSLg: a captured 440 Hz tone read
+  0.5 while another app at 0.2 stayed out, and the reverse in exclude mode.
+- **Per-application audio capture on macOS 13+ [517], not yet run on a Mac.** A ScreenCaptureKit
+  helper captures one application or everything except one. It needs the Screen Recording
+  permission; the panel explains this and has a "Request Screen Recording Permission" button, and
+  the app never asks on its own. The helper compiles on CI's macOS runner, but nothing about its
+  behaviour has been observed on real hardware.
 - **A live level meter for every application in the picker [516].** Choosing an application only
   works if you can see which one is making sound. Each row now has a moving bar on a dB scale next
   to its audible/silent icon. The helper reads every audio session's peak meter
