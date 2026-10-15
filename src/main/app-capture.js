@@ -141,7 +141,7 @@ function list() {
 /* Kaydedilmiş hedefi o anki süreçler arasında bulur. Kimlik her açılışta
    değiştiği için eşleşme ADA göre yapılıyor (bkz. app-audio.resolveTarget). */
 function resolve(app) {
-  return appAudio.resolveTarget(app, list());
+  return appAudio.resolveTarget(app, list(), process.platform);
 }
 
 /* Yakalamayı başlatır. `name` hedefin eşleşme adı: Linux'ta oturum akışları
@@ -149,10 +149,13 @@ function resolve(app) {
    Windows ve macOS yardımcıları süreç kimliğiyle çalışıyor. */
 function spawnCapture(pid, mode, name) {
   const m = mode === 'exclude' ? 'exclude' : 'include';
-  if (!(pid > 0)) return null;
+  /* Linux oturumu hedefi ADLA seçiyor; hariç tutmada hedef o an çalmıyor
+     olabilir (kimlik 0), yine de geri kalan her şey yakalanmalı. */
   if (process.platform === 'linux') {
-    return linux().startCapture({ pid, match: name || '' }, m);
+    if (!(pid > 0) && !name) return null;
+    return linux().startCapture({ pid: pid > 0 ? pid : 0, match: name || '' }, m);
   }
+  if (!(pid > 0)) return null;
   const exe = helperPath();
   if (!exe) return null;
   return spawn(exe, ['--capture', String(pid), m], {

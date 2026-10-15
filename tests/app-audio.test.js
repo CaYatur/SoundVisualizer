@@ -251,6 +251,23 @@ test('uygulama çalışmıyorsa hedef bulunamaz', () => {
   assert.strictEqual(A.resolveTarget({ kind: 'app', match: 'a.exe' }, []), null);
 });
 
+/* Linux'ta liste yalnız çalan akışlar; hariç tutulan uygulama susunca
+   listeden düşüyor. Hedef bulunamadı diye hiçbir şey yakalamamak, "şu
+   hariç her şey" isteğinin tam tersi olurdu. */
+test('Linux hariç tutmada hedef çalmıyorsa yine de başlar', () => {
+  const r = A.resolveTarget({ kind: 'app', match: 'spotify', mode: 'exclude' }, [], 'linux');
+  assert.deepStrictEqual(r, { pid: 0, name: 'spotify', matched: 'absent' });
+});
+
+test('Linux dahil etmede hedef yoksa beklenir', () => {
+  assert.strictEqual(A.resolveTarget({ kind: 'app', match: 'spotify', mode: 'include' }, [], 'linux'), null);
+});
+
+test('Windows hariç tutmada süreç kimliği şart', () => {
+  // Windows yardımcısı hariç tutulacak süreci kimlikle istiyor
+  assert.strictEqual(A.resolveTarget({ kind: 'app', match: 'a.exe', mode: 'exclude' }, [], 'win32'), null);
+});
+
 test('yol içeren ad yalnızca dosya adıyla eşleşir', () => {
   const r = A.resolveTarget({ kind: 'app', match: 'C:\\Program Files\\Spotify\\Spotify.exe' }, procs);
   assert.strictEqual(r.pid, 300);

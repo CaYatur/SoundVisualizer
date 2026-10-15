@@ -202,11 +202,19 @@
 
      Kimliği tek başına saklamak yetmezdi: kullanıcı uygulamayı kapatıp
      açtığında kimlik değişir ve kaynak sessizce boşa düşerdi. */
-  function resolveTarget(app, processes) {
+  function resolveTarget(app, processes, platform) {
     const a = normalizeApp(app);
     if (!a) return null;
     const list = Array.isArray(processes) ? processes : [];
     const want = baseName(a.match);
+    /* Linux'ta liste yalnız O AN çalan akışlardan oluşuyor; oynatıcı
+       durunca uygulama listeden düşüyor (Windows'ta ses oturumu süreç
+       yaşadıkça duruyor). Hariç tutmada bu, hariç tutulan uygulama
+       susunca HİÇBİR ŞEYİN yakalanmaması demekti. Linux oturumu hedefi
+       adla seçtiği için hedefin çalıyor olması gerekmiyor. */
+    const fallback = platform === 'linux' && a.mode === 'exclude'
+      ? { pid: 0, name: a.match, matched: 'absent' }
+      : null;
 
     if (a.pid) {
       const byPid = list.find((p) => Number(p.pid) === a.pid);
@@ -216,7 +224,7 @@
     }
 
     const byName = list.filter((p) => baseName(p.name) === want);
-    if (!byName.length) return null;
+    if (!byName.length) return fallback;
 
     /* Aynı addan birden çok süreç olabiliyor (tarayıcılar). Ses çıkaranı
        tercih et; hiçbiri çıkarmıyorsa en eskisini (ana süreç genelde odur). */

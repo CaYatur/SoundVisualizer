@@ -31,6 +31,14 @@ const { PassThrough } = require('stream');
 const L = require('../shared/app-audio-linux.js');
 
 const ENV = Object.assign({}, process.env, L.C_LOCALE_ENV);
+/* AppImage'ın başlatıcısı (AppRun) kendi usr/lib'ini LD_LIBRARY_PATH'in başına
+   ekliyor. Sistemin pactl/parec'i o yolu miras alıp paketteki kütüphaneyle
+   yüklenmesin; bugün pakette pulse kütüphanesi yok ama bu tesadüf. */
+if (process.env.APPDIR && ENV.LD_LIBRARY_PATH) {
+  const appdir = process.env.APPDIR;
+  ENV.LD_LIBRARY_PATH = ENV.LD_LIBRARY_PATH.split(':').filter((p) => p && !p.startsWith(appdir)).join(':');
+  if (!ENV.LD_LIBRARY_PATH) delete ENV.LD_LIBRARY_PATH;
+}
 const RESCAN_MS = 2000;   // olay kaçarsa yedek yoklama
 const TICK_MS = 10;       // karıştırıcı saati
 const RESPAWN_MS = 1000;  // aynı akış için parec'i bu sıklıktan sık açma
@@ -120,13 +128,19 @@ function startCapture(target, mode) {
   let started = false;
   let stopped = false;
   let lastCount = -1;
+  let lastScanMs = 0;
 
   const log = (s) => { if (!stopped) session.stderr.write(s + '\n'); };
 
   function openStream(index) {
     const now = Date.now();
-    if (now - (lastSpawn.get(index) || 0) < RESPAWN_MS) return;
+    const wait = RESPAWN_MS - (now - (lastSpawn.get(index) || 0));
+    /* Az önce açılıp ölen akışı hemen yeniden açma (döngüye girmesin), ama
+       bırakma da: süre dolunca yeniden tara. Bırakılsaydı akış bir sonraki
+       2 sn'lik yoklamaya kadar sessiz kalırdı. */
+    if (wait > 0) { schedule(wait + 10); return; }
     lastSpawn.set(index, now);
+    const opened = now;
     let child;
     try {
       child = spawn('parec', L.parecArgs(index), { env: ENV, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -136,15 +150,22 @@ function startCapture(target, mode) {
     }
     recs.set(index, child);
     mixer.add(index);
-    child.stdout.on('data', (d) => mixer.push(index, d));
+    let first = true;
+    child.stdout.on('data', (d) => {
+      // Başlangıç gecikmesi ölçülebilsin (WSLg'de 0,7-1 sn ölçüldü)
+      if (first) { first = false; log('APP-STREAM-DATA #' + index + ' after=' + (Date.now() - opened) + 'ms'); }
+      mixer.push(index, d);
+    });
     child.stderr.on('data', (d) => {
       const t = String(d).trim();
       // Akış bittiğinde "Stream error: Entity killed" normal; gürültü yapmasın
       if (t && !/Entity killed/i.test(t)) log('APP-STREAM-ERR #' + index + ' ' + t);
     });
     child.on('error', (e) => log('APP-STREAM-FAIL #' + index + ' ' + e.message));
-    child.on('exit', () => {
+    child.on('exit', (code, signal) => {
       if (recs.get(index) === child) {
+        log('APP-STREAM-EXIT #' + index + ' code=' + code + (signal ? ' signal=' + signal : '')
+          + ' after=' + (Date.now() - opened) + 'ms');
         recs.delete(index);
         mixer.remove(index);
         schedule(50);
@@ -165,7 +186,7 @@ function startCapture(target, mode) {
     for (const idx of want) if (!recs.has(idx)) openStream(idx);
     if (want.size !== lastCount) {
       lastCount = want.size;
-      log('APP-STREAMS ' + want.size + ' [' + Array.from(want).join(',') + ']');
+      log('APP-STREAMS ' + want.size + ' [' + Array.from(want).join(',') + '] scan=' + lastScanMs + 'ms');
     }
   }
 
@@ -173,9 +194,11 @@ function startCapture(target, mode) {
     if (stopped) return;
     if (scanning) { rescanAgain = true; return; }
     scanning = true;
+    const scanStart = Date.now();
     listStreamsAsync((err, streams) => {
       scanning = false;
       if (stopped) return;
+      lastScanMs = Date.now() - scanStart;
       if (!err) apply(streams);
       if (!started) {
         started = true;
