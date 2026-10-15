@@ -225,6 +225,8 @@ contextBridge.exposeInMainWorld('api', {
      bırak. Seviyeler { available, levels: { 'ad.exe': 0..1 } } olarak gelir. */
   appAudioMeters: (on) => ipcRenderer.send('app-audio:meters', !!on),
   onAppAudioLevels: (cb) => ipcRenderer.on('app-audio-levels', (e, data) => cb(data)),
+  // macOS: Ekran Kaydı iznini iste (ScreenCaptureKit ses için de istiyor)
+  requestAppAudioPermission: () => ipcRenderer.invoke('app-audio:request-permission'),
   nowPlayingSubscribe: (on) => ipcRenderer.send('nowplaying:subscribe', !!on),
   nowPlayingStatus: () => ipcRenderer.invoke('nowplaying:status'),
   nowPlayingCurrent: () => ipcRenderer.invoke('nowplaying:current'),

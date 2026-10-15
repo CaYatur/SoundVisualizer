@@ -69,6 +69,20 @@ jobs:
       - name: Audio runtime check
         run: npm run check:runtime
 
+      # Uygulama başına ses yakalama yardımcısı (Swift, ScreenCaptureKit).
+      # Windows'ta yazıldı ve gerçek bir Mac'te DENENMEDİ; derlendiğini
+      # gösteren tek yer burası. --strict: derleme hatası işi kırmızı yapar.
+      # --check izin penceresi açmaz; sonucu yalnız yazdırılır, koşucuda
+      # Ekran Kaydı izni olup olmaması işi düşürmez.
+      - name: macOS app audio helper
+        if: runner.os == 'macOS'
+        run: |
+          node scripts/prepare-app-audio-mac.js --strict
+          file native/app-audio-helper-mac/build/app-audio-helper
+          codesign -dv native/app-audio-helper-mac/build/app-audio-helper
+          native/app-audio-helper-mac/build/app-audio-helper --check
+          native/app-audio-helper-mac/build/app-audio-helper --bogus && exit 1 || test $? -eq 2
+
       - name: Unit tests
         run: node scripts/test.js
 
@@ -117,6 +131,13 @@ jobs:
             sleep 20
           done
           exit 1
+
+      # Paketleme betiği yardımcıyı da derliyor ama sessizce geçebiliyor;
+      # burada önceden ve --strict ile derleniyor ki yardımcısız bir .dmg
+      # çıkmasın.
+      - name: macOS app audio helper
+        if: runner.os == 'macOS'
+        run: node scripts/prepare-app-audio-mac.js --strict --arch=arm64
 
       - name: Package
         run: npm run ${{ matrix.script }}

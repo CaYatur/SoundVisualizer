@@ -70,17 +70,62 @@
             + ' ve üstünü gerektiriyor (ScreenCaptureKit).',
         };
       }
+      /* Yardımcı (native/app-audio-helper-mac) Swift ile derleniyor; Xcode
+         araçları olmadan derlenmiş bir pakette yok. */
+      if (o.helper === false) {
+        return {
+          supported: false,
+          code: 'NO_HELPER',
+          message: 'Ses yakalama yardımcısı bulunamadı; bu paket Swift yardımcısı olmadan derlenmiş olabilir.',
+        };
+      }
+      /* ScreenCaptureKit, ses için bile Ekran Kaydı iznini istiyor. İzin
+         yokken liste boş gelir; kullanıcı "çalan uygulama yok" sanmasın
+         diye sebebi ayrı bir kodla söylüyoruz. */
+      if (o.permission === false) {
+        return {
+          supported: false,
+          code: 'MAC_NO_PERMISSION',
+          canRequest: true,
+          message: 'Uygulama sesini dinlemek için Ekran Kaydı izni gerekiyor: Sistem Ayarları › Gizlilik ve Güvenlik › Ekran ve Sistem Sesi Kaydı.',
+        };
+      }
       return { supported: true, code: 'OK', message: '' };
     }
     if (p === 'linux') {
-      /* PipeWire ya da PulseAudio olmadan uygulama akışları görünmez.
-         Hangisinin var olduğunu çağıran söyler; burada karar kuralı durur. */
-      if (o.pipewire || o.pulse) return { supported: true, code: 'OK', message: '' };
-      return {
-        supported: false,
-        code: 'NO_SOUND_SERVER',
-        message: 'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.',
-      };
+      /* Uygulama akışlarını PulseAudio ya da pipewire-pulse gösteriyor;
+         yakalama pactl ve parec ile yapılıyor (bkz. app-audio-linux.js).
+         Çağıran ölçtüğünü veriyor: {pactl, parec, pipewire, server}.
+         `server` "pactl info"nun sonucu; ölçülmediyse undefined.
+
+         Yalnızca PipeWire'ın varlığı YETMEZ: pactl/parec yoksa yakalanacak
+         bir şey yok, desteklenir demek sessizce çalışmayan bir denetim
+         göstermek olurdu. */
+      if (!o.pactl && !o.parec && !o.pipewire) {
+        return {
+          supported: false,
+          code: 'NO_SOUND_SERVER',
+          message: 'Uygulama başına ses yakalama için PipeWire ya da PulseAudio gerekiyor.',
+        };
+      }
+      if (!o.pactl || !o.parec) {
+        const missing = [!o.pactl && 'pactl', !o.parec && 'parec'].filter(Boolean).join(', ');
+        return {
+          supported: false,
+          code: 'LINUX_NO_TOOLS',
+          missing,
+          message: 'Uygulama başına ses yakalama için ' + missing
+            + ' gerekiyor; pulseaudio-utils paketini kurun.',
+        };
+      }
+      if (o.server === false) {
+        return {
+          supported: false,
+          code: 'SOUND_SERVER_DOWN',
+          message: 'Ses sunucusuna bağlanılamadı; PulseAudio ya da pipewire-pulse çalışıyor mu?',
+        };
+      }
+      return { supported: true, code: 'OK', message: '' };
     }
     return {
       supported: false,
@@ -157,11 +202,19 @@
 
      Kimliği tek başına saklamak yetmezdi: kullanıcı uygulamayı kapatıp
      açtığında kimlik değişir ve kaynak sessizce boşa düşerdi. */
-  function resolveTarget(app, processes) {
+  function resolveTarget(app, processes, platform) {
     const a = normalizeApp(app);
     if (!a) return null;
     const list = Array.isArray(processes) ? processes : [];
     const want = baseName(a.match);
+    /* Linux'ta liste yalnız O AN çalan akışlardan oluşuyor; oynatıcı
+       durunca uygulama listeden düşüyor (Windows'ta ses oturumu süreç
+       yaşadıkça duruyor). Hariç tutmada bu, hariç tutulan uygulama
+       susunca HİÇBİR ŞEYİN yakalanmaması demekti. Linux oturumu hedefi
+       adla seçtiği için hedefin çalıyor olması gerekmiyor. */
+    const fallback = platform === 'linux' && a.mode === 'exclude'
+      ? { pid: 0, name: a.match, matched: 'absent' }
+      : null;
 
     if (a.pid) {
       const byPid = list.find((p) => Number(p.pid) === a.pid);
@@ -171,7 +224,7 @@
     }
 
     const byName = list.filter((p) => baseName(p.name) === want);
-    if (!byName.length) return null;
+    if (!byName.length) return fallback;
 
     /* Aynı addan birden çok süreç olabiliyor (tarayıcılar). Ses çıkaranı
        tercih et; hiçbiri çıkarmıyorsa en eskisini (ana süreç genelde odur). */

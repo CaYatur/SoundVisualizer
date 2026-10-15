@@ -1,0 +1,44 @@
+name: mac helper
+
+# Compiles the macOS per-application audio helper. It lives in its own
+# workflow so a macOS runner is spent only when the helper, its build
+# script or this file changes, not on every pull request.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native/app-audio-helper-mac/**'
+      - 'scripts/prepare-app-audio-mac.js'
+      - '.github/workflows/mac-helper.yml'
+  pull_request:
+    paths:
+      - 'native/app-audio-helper-mac/**'
+      - 'scripts/prepare-app-audio-mac.js'
+      - '.github/workflows/mac-helper.yml'
+  workflow_dispatch:
+
+jobs:
+  # The macOS per-application audio helper (Swift, ScreenCaptureKit) was
+  # written without a Mac and has NOT been run on real hardware. build.yml
+  # only runs on tags and manual dispatch, so without this job a broken
+  # Swift file would first be noticed at release time. This only proves it
+  # compiles, links, is signed (arm64 needs at least the linker's ad-hoc
+  # signature) and starts; --check reports the permission without prompting
+  # and its result is printed, not asserted.
+  mac-helper:
+    name: macOS app audio helper (compile only)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compile
+        run: node scripts/prepare-app-audio-mac.js --strict
+      - name: Inspect and start
+        run: |
+          file native/app-audio-helper-mac/build/app-audio-helper
+          codesign -dv native/app-audio-helper-mac/build/app-audio-helper
+          native/app-audio-helper-mac/build/app-audio-helper --check
+          native/app-audio-helper-mac/build/app-audio-helper --bogus && exit 1 || test $? -eq 2

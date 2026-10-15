@@ -7,10 +7,14 @@
 'use strict';
 /* Uygulama başına ses yakalama — yardımcı süreci bulur ve çalıştırır.
  *
- * Yakalamanın kendisi ayrı bir ikilide (bkz. native/app-audio-helper):
- * WASAPI'nin süreç loopback'i COM üzerinden geliyor ve Node'dan
- * çağrılamıyor. Burada yalnızca "ikili nerede, hangi süreci hedefleyeceğiz,
- * nasıl başlatacağız" var.
+ * Yakalamanın kendisi platforma göre ayrı bir yerde:
+ *   win32   native/app-audio-helper (C#, WASAPI süreç loopback'i — COM
+ *           üzerinden geliyor ve Node'dan çağrılamıyor)
+ *   darwin  native/app-audio-helper-mac (Swift, ScreenCaptureKit)
+ *   linux   pactl + parec (bkz. app-capture-linux.js); ayrı ikili yok
+ * Üçü de aynı şeyi veriyor: 48 kHz stereo float32 ham PCM, stdout'tan.
+ * Burada yalnızca "ikili nerede, hangi süreci hedefleyeceğiz, nasıl
+ * başlatacağız" var.
  *
  * Kural kısmı ayrı ve saf tutuldu (src/shared/app-audio.js) ki
  * çalıştıramadığımız platformlar da sınanabilsin.
@@ -22,41 +26,72 @@ const os = require('os');
 const { spawn, spawnSync } = require('child_process');
 const appAudio = require('../shared/app-audio.js');
 
-const EXE = 'app-audio-helper.exe';
+const EXE = process.platform === 'win32' ? 'app-audio-helper.exe' : 'app-audio-helper';
 
-/* Paketlenmiş uygulamada ikili resources/bin altında; geliştirmede dotnet'in
-   yayımladığı klasörde. Sıra önemli: paketlenmiş yol önce gelmeli, yoksa
-   geliştirme makinesinde eski bir derleme gölgeler. */
+/* Linux modülü yalnız Linux'ta yükleniyor; öteki platformlarda pactl'yi
+   arayan kod hiç çalışmasın. */
+let _linux = null;
+function linux() {
+  if (!_linux) _linux = require('./app-capture-linux.js');
+  return _linux;
+}
+
+/* Paketlenmiş uygulamada ikili resources/bin altında; geliştirmede derleme
+   klasöründe. Sıra önemli: paketlenmiş yol önce gelmeli, yoksa geliştirme
+   makinesinde eski bir derleme gölgeler. */
 function helperPath() {
-  if (process.platform !== 'win32') return null;
+  if (process.platform !== 'win32' && process.platform !== 'darwin') return null;
   const candidates = [];
   if (process.resourcesPath) candidates.push(path.join(process.resourcesPath, 'bin', EXE));
   // __dirname paketlenmişken .../resources/app.asar.unpacked/src/main
   candidates.push(path.join(__dirname, '..', '..', '..', 'bin', EXE));
-  candidates.push(path.join(
-    __dirname, '..', '..', 'native', 'app-audio-helper',
-    'bin', 'Release', 'net8.0-windows10.0.19041.0', 'win-x64', 'publish', EXE
-  ));
+  if (process.platform === 'win32') {
+    candidates.push(path.join(
+      __dirname, '..', '..', 'native', 'app-audio-helper',
+      'bin', 'Release', 'net8.0-windows10.0.19041.0', 'win-x64', 'publish', EXE
+    ));
+  } else {
+    // scripts/prepare-app-audio-mac.js'in çıktısı
+    candidates.push(path.join(__dirname, '..', '..', 'native', 'app-audio-helper-mac', 'build', EXE));
+  }
   for (const c of candidates) {
     try { if (c && fs.existsSync(c)) return c; } catch { /* erişilemeyen yol */ }
   }
   return null;
 }
 
-/* Özellik bu makinede kullanılabilir mi? İki ayrı sebep var ve kullanıcıya
-   hangisi olduğu söylenmeli: işletim sistemi desteklemiyor mu, yoksa
-   yardımcı ikili mi yok (dotnet olmadan derlenmiş bir paket). */
+/* macOS: Ekran Kaydı izni var mı? Yardımcı CGPreflightScreenCaptureAccess
+   ile bakıyor — bu çağrı izin penceresi AÇMAZ. Pencere yalnızca kullanıcı
+   isteyince (requestPermission) açılıyor; yoksa her açılışta, özelliği hiç
+   kullanmayan herkese Ekran Kaydı sorulurdu. */
+function macPermission(exe, flag) {
+  try {
+    const r = spawnSync(exe, [flag || '--check'], { encoding: 'utf-8', timeout: 5000 });
+    if (r.status !== 0 || !r.stdout) return undefined;
+    const j = JSON.parse(r.stdout.trim());
+    return typeof j.permission === 'boolean' ? j.permission : undefined;
+  } catch { return undefined; }
+}
+
+/* Özellik bu makinede kullanılabilir mi? Sebepler platforma göre değişiyor
+   ve kullanıcıya hangisi olduğu söylenmeli: işletim sistemi eski mi,
+   yardımcı mı yok, izin mi yok, araç mı eksik. */
 function availability() {
-  const sup = appAudio.support(process.platform, os.release(), linuxServers());
-  if (!sup.supported) return { available: false, code: sup.code, message: sup.message };
-  if (process.platform !== 'win32') {
-    return {
-      available: false,
-      code: 'NOT_IMPLEMENTED',
-      message: 'Uygulama başına ses yakalama şimdilik yalnızca Windows üzerinde çalışıyor.',
-    };
+  const plat = process.platform;
+  let opts = {};
+  if (plat === 'linux') opts = linux().probe();
+  if (plat === 'darwin') {
+    const exe = helperPath();
+    opts = { helper: !!exe };
+    if (exe) opts.permission = macPermission(exe, '--check');
   }
-  if (!helperPath()) {
+  const sup = appAudio.support(plat, os.release(), opts);
+  if (!sup.supported) {
+    const r = { available: false, code: sup.code, message: sup.message };
+    if (sup.canRequest) r.canRequest = true;
+    return r;
+  }
+  if (plat === 'win32' && !helperPath()) {
     return {
       available: false,
       code: 'NO_HELPER',
@@ -66,25 +101,34 @@ function availability() {
   return { available: true, code: 'OK', message: '' };
 }
 
-/* Linux'ta hangi ses sunucusu var? Karar kuralı saf modülde, tespit burada. */
+/* macOS: izin penceresini aç (yalnız ilk seferde görünür; reddedildiyse
+   macOS bir daha sormaz, kullanıcı Sistem Ayarları'ndan açmalı). Dönen
+   değer izin şu an var mı. */
+function requestPermission() {
+  if (process.platform !== 'darwin') return { permission: true };
+  const exe = helperPath();
+  if (!exe) return { permission: false };
+  return { permission: macPermission(exe, '--request') === true };
+}
+
+/* Geriye dönük: Linux'ta hangi ses sunucusu araçları var. */
 function linuxServers() {
   if (process.platform !== 'linux') return {};
-  const has = (cmd) => {
-    try {
-      return spawnSync('sh', ['-c', 'command -v ' + cmd], { encoding: 'utf-8' }).status === 0;
-    } catch { return false; }
-  };
-  return { pipewire: has('pw-cli'), pulse: has('pactl') };
+  return linux().probe();
 }
 
 /* Şu anda ses oturumu olan uygulamalar. Ham süreç listesi değil: kullanıcı
    yüzlerce arka plan süreci arasından seçmemeli. */
 function list() {
+  if (process.platform === 'linux') {
+    // Kendi akışlarımız (önizleme, sistem karışımı yakalayıcısı) hedef olamaz
+    try { return appAudio.withoutSelf(linux().list(), process.execPath); } catch { return []; }
+  }
   const exe = helperPath();
   if (!exe) return [];
   try {
     const r = spawnSync(exe, ['--list'], {
-      encoding: 'utf-8', windowsHide: true, timeout: 5000,
+      encoding: 'utf-8', windowsHide: true, timeout: 10000,
     });
     if (r.status !== 0 || !r.stdout) return [];
     const parsed = JSON.parse(r.stdout.trim() || '[]');
@@ -97,13 +141,24 @@ function list() {
 /* Kaydedilmiş hedefi o anki süreçler arasında bulur. Kimlik her açılışta
    değiştiği için eşleşme ADA göre yapılıyor (bkz. app-audio.resolveTarget). */
 function resolve(app) {
-  return appAudio.resolveTarget(app, list());
+  return appAudio.resolveTarget(app, list(), process.platform);
 }
 
-function spawnCapture(pid, mode) {
+/* Yakalamayı başlatır. `name` hedefin eşleşme adı: Linux'ta oturum akışları
+   ada göre seçiyor (bir uygulamanın birden çok süreci ve akışı olabiliyor);
+   Windows ve macOS yardımcıları süreç kimliğiyle çalışıyor. */
+function spawnCapture(pid, mode, name) {
+  const m = mode === 'exclude' ? 'exclude' : 'include';
+  /* Linux oturumu hedefi ADLA seçiyor; hariç tutmada hedef o an çalmıyor
+     olabilir (kimlik 0), yine de geri kalan her şey yakalanmalı. */
+  if (process.platform === 'linux') {
+    if (!(pid > 0) && !name) return null;
+    return linux().startCapture({ pid: pid > 0 ? pid : 0, match: name || '' }, m);
+  }
+  if (!(pid > 0)) return null;
   const exe = helperPath();
-  if (!exe || !(pid > 0)) return null;
-  return spawn(exe, ['--capture', String(pid), mode === 'exclude' ? 'exclude' : 'include'], {
+  if (!exe) return null;
+  return spawn(exe, ['--capture', String(pid), m], {
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -267,4 +322,5 @@ function createMeterStream(opts) {
 module.exports = {
   helperPath, availability, list, resolve, spawn: spawnCapture, linuxServers,
   createMeterStream, METER_SEND_MS, METER_STOP_GRACE_MS, METER_MAX_FAILURES,
+  requestPermission,
 };

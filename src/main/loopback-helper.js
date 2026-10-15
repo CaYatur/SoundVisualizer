@@ -262,8 +262,11 @@ for (const d of resolved) {
    alır ve aşağıdaki zamanlayıcı hepsini birlikte karıştırır. Böylece
    "yalnızca Spotify" da, "Spotify + mikrofon" da aynı yolla çalışıyor.
 
-   PCM ayrı bir süreçten geliyor (bkz. native/app-audio-helper): WASAPI'nin
-   süreç loopback'i COM üzerinden ve Node'dan çağrılamıyor. */
+   PCM ayrı bir süreçten geliyor (bkz. app-capture.js): Windows'ta
+   native/app-audio-helper (WASAPI süreç loopback'i COM üzerinden ve
+   Node'dan çağrılamıyor), macOS'ta native/app-audio-helper-mac
+   (ScreenCaptureKit), Linux'ta parec süreçlerini yöneten ve alt süreç gibi
+   davranan bir oturum (app-capture-linux.js). Üçü de aynı biçimi veriyor. */
 const appProcs = [];
 /* Her uygulama kaynağı için tamponlar AYRILIR, süreç sonradan bağlansa bile
    karışımdaki yeri sabit kalsın diye. */
@@ -290,7 +293,7 @@ function attachApp(app, index) {
   }
   if (!target) return false;
 
-  const child = appCapture.spawn(target.pid, app.mode);
+  const child = appCapture.spawn(target.pid, app.mode, target.name);
   if (!child) return false;
   appProcs[index] = child;
   const src = appSources[index];
