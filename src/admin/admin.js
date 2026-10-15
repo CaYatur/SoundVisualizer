@@ -16,6 +16,12 @@
   let audioDevices = [];
   let audioApps = [];              // o an ses oturumu olan uygulamalar
   let appAudioStatus = null;       // özellik bu makinede kullanılabilir mi
+  /* Seçicideki canlı ölçerler (#516): uygulama adı (baseName) -> çubuk.
+     Her çizimde yeniden kurulur; akış yalnız çubuklar sayfadayken açık. */
+  const appMeterEls = new Map();
+  let appMetersOn = false;
+  let appMetersBroken = false;     // yardımcı akışı veremedi: simgelerle yetin
+  let appMeterRaf = 0;             // düşüş döngüsünün karesi
   let lightingInfo = { ok: true, supported: false, devices: [] };
   let lightingAvailability = { ok: true, devices: [], availableCount: 0, totalCount: 0 };
   let lightingIdentity = { portable: false, packaged: false, hasIdentity: false, canInstall: false };
@@ -1541,7 +1547,7 @@
       checkboxes.forEach((cb, k) => { cb.checked = cur.includes(k); });
     }
 
-    function makeRow(entry, icon, label, extra) {
+    function makeRow(entry, icon, label, extra, meter) {
       const cb = el('input', { type: 'checkbox' });
       checkboxes.set(keyOf(entry), cb);
       cb.addEventListener('change', () => toggle(entry));
@@ -1550,8 +1556,24 @@
         el('span', { class: 'source-icon', icon }),
         el('span', { class: 'source-name', text: label }),
       ];
+      if (meter) kids.push(meter);
       if (extra) kids.push(el('span', { class: 'source-note', text: extra }));
       return el('label', { class: 'source-item' }, kids);
+    }
+
+    /* Uygulama satırının canlı ölçeri (#516). Simge yerinde kalıyor:
+       ölçer akışı gelmezse (eski yardımcı, Windows dışı) satır eskisi gibi
+       sesli / sessiz simgesiyle okunur. */
+    function appMeter(match) {
+      if (appMetersBroken || !window.api || !window.api.appAudioMeters) return null;
+      const fill = el('i');
+      const key = AA.baseName(match);
+      const prev = appMeterEls.get(key);
+      const level = prev ? prev.level : 0;
+      fill.style.transform = 'scaleX(' + level.toFixed(3) + ')';
+      appMeterEls.set(key, { fill, level, target: prev ? prev.target : 0, at: 0 });
+      if (level > 0) stepAppMeters(); // yeni çubuk düşüşe kaldığı yerden devam etsin
+      return el('span', { class: 'source-meter', title: 'Anlık ses seviyesi', 'aria-hidden': 'true' }, [fill]);
     }
 
     const devices = typeof def.devices === 'function' ? def.devices() : (def.devices || []);
@@ -1578,13 +1600,18 @@
     } else {
       const appRows = [];
       const shown = new Set();
+      /* Önceki çizimin seviyeleri yeni çubuklara taşınsın diye eski harita
+         appMeter içinde okunuyor; bu çizimde olmayan uygulamalar düşüyor. */
+      const keepMeters = new Set(apps.map((a) => AA.baseName(a.match)));
+      for (const k of Array.from(appMeterEls.keys())) if (!keepMeters.has(k)) appMeterEls.delete(k);
       for (const a of apps) {
         shown.add(AA.baseName(a.match));
         appRows.push(makeRow(
           { kind: 'app', match: a.match, label: a.label },
           a.audible ? 'music' : 'mute',
           a.label,
-          a.count > 1 ? a.count + ' süreç' : ''
+          a.count > 1 ? a.count + ' süreç' : '',
+          appMeter(a.match)
         ));
       }
       /* Seçili ama şu an çalışmayan uygulama listeden DÜŞMEMELİ; aksi halde
@@ -4041,6 +4068,7 @@
     }
     sectionsScrollWant = root.scrollTop;
     pinnedNode = anchor ? findAnchorNode(root, anchor) : null;
+    syncAppMeters(); // seçici sayfaya girdi ya da çıktı (#516)
   }
 
   /* KART DÜZENİ (#622, #695).
@@ -4988,6 +5016,83 @@
       audioApps = (await window.api.listAudioApps()) || [];
       if (window.api.appAudioStatus) appAudioStatus = await window.api.appAudioStatus();
     } catch (_) { audioApps = []; }
+  }
+
+  /* Canlı ölçer akışına abonelik (#516). Akış yalnız en az bir çubuk
+     sayfada ve görünürken açık; başka kategoriye geçince, panel gizlenince
+     ya da yardımcı akışı veremeyince bırakılır. Ana süreç ayrıca pencere
+     küçültülünce durduruyor. Değişmedikçe IPC gönderilmiyor. */
+  function syncAppMeters() {
+    if (!window.api || !window.api.appAudioMeters) return;
+    let present = false;
+    for (const m of appMeterEls.values()) {
+      if (m.fill.isConnected && m.fill.getClientRects().length) { present = true; break; }
+    }
+    const want = present && !document.hidden && !appMetersBroken;
+    if (want === appMetersOn) return;
+    appMetersOn = want;
+    window.api.appAudioMeters(want);
+    if (!want) {
+      // Akış durdu: çubuklar son değerde donmasın
+      for (const m of appMeterEls.values()) {
+        m.level = 0;
+        m.target = 0;
+        m.at = 0;
+        m.fill.style.transform = 'scaleX(0)';
+      }
+    }
+  }
+
+  /* Seviyeler doğrudan çubuklara yazılıyor, panel yeniden çizilmeden:
+     saniyede ~15 kez çizim odakları ve kaydırmayı bozardı (onAudioMeter
+     ile aynı gerekçe). Doluluk dB ölçeğinde, düşüş yavaş. */
+  function applyAppLevels(payload) {
+    if (!payload) return;
+    if (payload.available === false) {
+      if (appMetersBroken) return;
+      appMetersBroken = true;
+      syncAppMeters();
+      for (const m of appMeterEls.values()) {
+        const box = m.fill.parentNode;
+        if (box && box.parentNode) box.parentNode.removeChild(box);
+      }
+      appMeterEls.clear();
+      return;
+    }
+    if (!appMetersOn) return;
+    const AA = window.SVAppAudio;
+    const levels = payload.levels || {};
+    for (const [key, m] of appMeterEls) m.target = AA.meterFraction(levels[key] || 0);
+    stepAppMeters();
+  }
+
+  /* Düşüş kare kare yürütülüyor, paket gelince değil: yardımcı yalnız
+     değişince (en az saniyede bir) yazıyor, son ses kesilince tek bir
+     sıfır satırı gelir ve çubuk yarı yolda bir saniye asılı kalırdı.
+     Döngü yalnız akış açıkken ve dolu bir çubuk varken döner; sessizlik
+     bedava. */
+  function stepAppMeters() {
+    if (appMeterRaf) return;
+    appMeterRaf = requestAnimationFrame(() => {
+      appMeterRaf = 0;
+      if (!appMetersOn) return;
+      const AA = window.SVAppAudio;
+      const t = performance.now();
+      let moving = false;
+      for (const m of appMeterEls.values()) {
+        const target = m.target || 0;
+        const dt = m.at ? Math.min(t - m.at, 250) : 0;
+        m.at = t;
+        m.level = AA.meterBallistics(m.level, target, dt);
+        const tf = 'scaleX(' + m.level.toFixed(3) + ')';
+        // Sessiz satırlar her karede yeniden yazılmasın
+        if (m.fill.style.transform !== tf) m.fill.style.transform = tf;
+        if (m.level > target) moving = true;
+      }
+      if (moving) stepAppMeters();
+      // Döngü durunca saat de dursun: sonraki ilk kare birikmiş süreyle sıçramasın
+      else for (const m of appMeterEls.values()) m.at = 0;
+    });
   }
 
   actions.toggleFloating = async () => {
@@ -6067,6 +6172,13 @@
       renderDisplays();
       if (moved) push(true);
     });
+    if (window.api.onAppAudioLevels) {
+      window.api.onAppAudioLevels(applyAppLevels);
+      document.addEventListener('visibilitychange', syncAppMeters);
+      /* Çizim dışında da görünürlük değişebiliyor (üstte açılan bir görünüm
+         bölümleri gizleyebilir); ucuz bir yoklama aboneliği doğru tutar. */
+      setInterval(syncAppMeters, 1000);
+    }
     window.api.onAudioMeter((d) => {
       /* MilkDrop `monitor` değeri doğrudan DOM'a yazılıyor, paneli yeniden
          çizerek değil: panel her karede yeniden çizilseydi ayar

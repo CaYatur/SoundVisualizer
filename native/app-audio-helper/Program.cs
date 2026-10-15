@@ -23,9 +23,13 @@
 //   app-audio-helper --capture <pid> [include|exclude]
 //       48 kHz stereo float32 ham PCM'i stdout'a akıtır. Durum satırları
 //       stderr'e gider.
+//   app-audio-helper --meters [aralık_ms]
+//       Her oturumun anlık tepe seviyesini (#516) satır satır JSON olarak
+//       akıtır: [[pid,"ad.exe",0.123],...]. stdin kapanınca çıkar.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -198,6 +202,17 @@ internal static class Program
         [PreserveSig] int SetDuckingPreference(bool optOut);
     }
 
+    /* Oturumun tepe ölçeri. Ayrı bir etkinleştirme gerekmiyor: oturum
+       denetiminin kendisi bu arabirimi de veriyor (QueryInterface). C#'ta
+       `ctrl is IAudioMeterInformation` tam olarak o çağrı. GUID ve yöntem
+       sırası Windows SDK endpointvolume.h'den. */
+    [ComImport, Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064"),
+     InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioMeterInformation
+    {
+        [PreserveSig] int GetPeakValue(out float peak);
+    }
+
     sealed class Handler : IActivateAudioInterfaceCompletionHandler
     {
         public readonly ManualResetEventSlim Done = new(false);
@@ -229,6 +244,11 @@ internal static class Program
         try
         {
             if (args.Length > 0 && args[0] == "--list") return ListSessions();
+            if (args.Length > 0 && args[0] == "--meters")
+            {
+                int ms = args.Length > 1 && int.TryParse(args[1], out var v) ? v : METER_INTERVAL_MS;
+                return Meters(Math.Clamp(ms, 20, 1000));
+            }
             if (args.Length > 1 && args[0] == "--capture")
             {
                 uint pid = uint.TryParse(args[1], out var p) ? p : 0;
@@ -237,7 +257,7 @@ internal static class Program
                 if (pid == 0) { Err("BAD-ARGS gecersiz surec kimligi"); return 2; }
                 return Capture(pid, mode);
             }
-            Err("BAD-ARGS kullanim: --list | --capture <pid> [include|exclude]");
+            Err("BAD-ARGS kullanim: --list | --meters [ms] | --capture <pid> [include|exclude]");
             return 2;
         }
         catch (Exception e)
@@ -367,6 +387,213 @@ internal static class Program
         Console.Out.WriteLine("[" + string.Join(",", rows) + "]");
         Console.Out.Flush();
         return 0;
+    }
+
+    // ------------------------------------------------------- canlı seviye (#516)
+
+    /* Uygulama seçicisindeki canlı ölçerler için oturum başına tepe seviyesi.
+
+       Maliyet bilerek düşük tutuldu: süreç adı (Process.GetProcessById) ve
+       oturum listesi her karede değil, yalnız yenilemede alınıyor; karede
+       yapılan tek iş önbellekteki ölçerlerden GetPeakValue okumak. Pencere
+       başlığına (MainWindowTitle) hiç bakılmıyor — o, her süreçte pencere
+       mesajı gönderiyor ve listede yalnız bir kez gerekiyor.
+
+       Oturum sayacı bir anlık görüntü: sonradan açılan oturum ancak yeniden
+       sayıldığında görünür. Varsayılan çıkış aygıtı da değişebildiği için
+       yenilemede aygıt da baştan alınıyor. */
+    const int METER_INTERVAL_MS = 60;     // ≈16 Hz
+    const int METER_REFRESH_MS = 1500;    // oturum listesi ve aygıt yenileme
+    const int METER_HEARTBEAT_MS = 1000;  // değişmese de en az bu sıklıkta yaz
+
+    sealed class MeterSession
+    {
+        public uint Pid;
+        public string Name;
+        public IAudioMeterInformation Meter;
+    }
+
+    static volatile bool meterStop;
+
+    static void Release(object o)
+    {
+        if (o == null) return;
+        try { if (Marshal.IsComObject(o)) Marshal.FinalReleaseComObject(o); } catch { }
+    }
+
+    static int Meters(int intervalMs)
+    {
+        /* Ana süreç boruyu kapatınca (ya da kendisi ölünce) stdin EOF verir;
+           o an çıkıyoruz. Yardımcı ana süreçten uzun yaşamamalı. */
+        var watcher = new Thread(() =>
+        {
+            try
+            {
+                var stdin = Console.OpenStandardInput();
+                var buf = new byte[64];
+                while (stdin.Read(buf, 0, buf.Length) > 0) { }
+            }
+            catch { }
+            meterStop = true;
+        }) { IsBackground = true, Name = "stdin-watch" };
+        watcher.Start();
+
+        var stdout = Console.OpenStandardOutput();
+        var names = new Dictionary<uint, string>();
+        var sessions = new List<MeterSession>();
+        var held = new List<object>(); // aygıt, yönetici, sayaç — yenilemede bırakılır
+        var peaks = new Dictionary<uint, float>();
+        var order = new List<uint>();
+        var sb = new StringBuilder(256);
+        string lastLine = null;
+        var clock = Stopwatch.StartNew();
+        long lastRefresh = long.MinValue / 2;
+        long lastEmit = long.MinValue / 2;
+
+        IMMDeviceEnumerator enumerator = null;
+        try { enumerator = (IMMDeviceEnumerator)new MMDeviceEnumerator(); }
+        catch (Exception e) { Err("METER-FAIL " + e.Message); }
+
+        Err("APP-METERS-START interval=" + intervalMs);
+        try
+        {
+            while (!meterStop)
+            {
+                long now = clock.ElapsedMilliseconds;
+                if (now - lastRefresh >= METER_REFRESH_MS)
+                {
+                    lastRefresh = now;
+                    /* ÖNCE bırak, SONRA yeniden say: aynı COM nesnesi yeniden
+                       gelirse .NET aynı sarmalayıcıyı verir; sonradan
+                       bırakmak yeni listedeki ölçeri de öldürürdü. */
+                    foreach (var s in sessions) Release(s.Meter);
+                    sessions.Clear();
+                    foreach (var o in held) Release(o);
+                    held.Clear();
+                    if (enumerator != null) EnumerateMeters(enumerator, sessions, held, names);
+                }
+
+                peaks.Clear();
+                order.Clear();
+                foreach (var s in sessions)
+                {
+                    float p;
+                    try { if (s.Meter.GetPeakValue(out p) != 0) continue; }
+                    catch { continue; }
+                    if (float.IsNaN(p) || p < 0) p = 0;
+                    if (p > 1) p = 1;
+                    if (peaks.TryGetValue(s.Pid, out float prev))
+                    {
+                        if (p > prev) peaks[s.Pid] = p;
+                    }
+                    else
+                    {
+                        peaks[s.Pid] = p;
+                        order.Add(s.Pid);
+                    }
+                }
+
+                sb.Clear();
+                sb.Append('[');
+                for (int i = 0; i < order.Count; i++)
+                {
+                    uint pid = order[i];
+                    if (i > 0) sb.Append(',');
+                    sb.Append('[').Append(pid).Append(",\"")
+                      .Append(JsonEscape(names.TryGetValue(pid, out var n) ? n : ""))
+                      .Append("\",")
+                      // Türkçe sistemde 0,5 yazılırdı ve JSON bozulurdu
+                      .Append(peaks[pid].ToString("0.###", CultureInfo.InvariantCulture))
+                      .Append(']');
+                }
+                sb.Append(']');
+                string line = sb.ToString();
+
+                if (line != lastLine || now - lastEmit >= METER_HEARTBEAT_MS)
+                {
+                    var bytes = Encoding.ASCII.GetBytes(line + "\n");
+                    stdout.Write(bytes, 0, bytes.Length); // boru kapandıysa atar, çıkarız
+                    stdout.Flush();
+                    lastLine = line;
+                    lastEmit = now;
+                }
+                Thread.Sleep(intervalMs);
+            }
+        }
+        catch (Exception)
+        {
+            // Boru kapandı — normal kapanış
+        }
+        finally
+        {
+            foreach (var s in sessions) Release(s.Meter);
+            foreach (var o in held) Release(o);
+            Release(enumerator);
+        }
+        return 0;
+    }
+
+    /* Varsayılan çıkış aygıtındaki oturumların ölçerleri. --list'teki süzgeç
+       aynen: süreci olmayan ve sistem sesleri oturumu atlanır. */
+    static void EnumerateMeters(IMMDeviceEnumerator enumerator, List<MeterSession> sessions,
+        List<object> held, Dictionary<uint, string> names)
+    {
+        var alive = new HashSet<uint>();
+        try
+        {
+            if (enumerator.GetDefaultAudioEndpoint(0, 0, out IMMDevice dev) != 0 || dev == null) return;
+            held.Add(dev);
+            var iid = typeof(IAudioSessionManager2).GUID;
+            if (dev.Activate(ref iid, 1 /* CLSCTX_INPROC_SERVER */, IntPtr.Zero, out object mgrObj) != 0) return;
+            held.Add(mgrObj);
+            var mgr = (IAudioSessionManager2)mgrObj;
+            if (mgr.GetSessionEnumerator(out IAudioSessionEnumerator list) != 0 || list == null) return;
+            held.Add(list);
+            list.GetCount(out int count);
+            for (int i = 0; i < count; i++)
+            {
+                if (list.GetSession(i, out IAudioSessionControl ctrl) != 0 || ctrl == null) continue;
+                bool keep = false;
+                try
+                {
+                    if (ctrl is not IAudioSessionControl2 c2) continue;
+                    if (c2.GetProcessId(out uint pid) != 0 || pid == 0) continue;
+                    if (c2.IsSystemSoundsSession() == 0) continue; // S_OK => sistem sesleri
+                    if (ctrl is not IAudioMeterInformation meter) continue;
+                    if (!names.TryGetValue(pid, out var name))
+                    {
+                        name = "";
+                        try
+                        {
+                            using var proc = Process.GetProcessById((int)pid);
+                            name = proc.ProcessName + ".exe";
+                        }
+                        catch { /* süreç kapanmış olabilir */ }
+                        names[pid] = name;
+                    }
+                    if (string.IsNullOrEmpty(name)) continue;
+                    alive.Add(pid);
+                    sessions.Add(new MeterSession { Pid = pid, Name = name, Meter = meter });
+                    keep = true;
+                }
+                finally
+                {
+                    if (!keep) Release(ctrl);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Err("METER-ENUM-FAIL " + e.Message);
+        }
+        finally
+        {
+            /* Kapanan süreçlerin adları önbellekte birikmesin; kimlik yeniden
+               kullanılırsa da eski ad yeni sürece yapışmasın. */
+            var gone = new List<uint>();
+            foreach (var k in names.Keys) if (!alive.Contains(k)) gone.Add(k);
+            foreach (var k in gone) names.Remove(k);
+        }
     }
 
     // --------------------------------------------------------------- yakalama

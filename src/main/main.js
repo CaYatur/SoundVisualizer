@@ -618,9 +618,24 @@ function createAdminWindow() {
     }
   });
 
+  /* Seçicideki canlı ölçerler (#516) küçültülmüş ya da gizli pencerede
+     kimseye görünmüyor; yardımcı da o sürece çalışmasın. */
+  for (const ev of ['minimize', 'restore', 'hide', 'show']) adminWin.on(ev, () => syncAppMeters());
+  /* Panel yeniden yüklenince (dil değişimi) ya da çökünce abonelik sayfayla
+     birlikte gider; yeni sayfa seçiciyi gösterirse yeniden abone olur.
+     Gezinmenin BAŞINDA bırakılıyor: yeni sayfanın ilk aboneliği her
+     durumda bundan sonra gelir, bırakma onu silemez. */
+  const dropAppMeters = () => { adminWantsAppMeters = false; syncAppMeters(); };
+  adminWin.webContents.on('did-start-navigation', (details) => {
+    if (details && details.isMainFrame && !details.isSameDocument) dropAppMeters();
+  });
+  adminWin.webContents.on('render-process-gone', dropAppMeters);
+
   adminWin.on('closed', () => {
     adminWin = null;
     previewSubscribed = false; // panel gitti, önizleme kare akışı da biter
+    adminWantsAppMeters = false; // ölçer yardımcısı da kapanır
+    syncAppMeters();
     /* Panel gitti: onun için ayakta tutulan medya oturumu okuması da bitsin.
        Yapılandırma zaten kullanıyorsa syncNowPlaying yeniden başlatır. */
     adminWantsNowPlaying = false;
@@ -1647,6 +1662,27 @@ ipcMain.handle('app-audio:status', () => {
   try { return appCapture.availability(); } catch (e) {
     return { available: false, code: 'ERROR', message: (e && e.message) || String(e) };
   }
+});
+
+/* Seçicideki canlı ölçerler (#516). Panel seçiciyi gösterdiği sürece
+   abone; ayrıca pencere küçültülmüş ya da gizliyse akış durur. Panelde
+   backgroundThrottling kapalı; document.hidden'a tek başına güvenmemek
+   için pencere durumu burada ayrıca denetleniyor. (Ölçüldü: başka
+   pencerelerin tamamen örttüğü panelde document.hidden yine true oluyor
+   ve panel aboneliği bırakıyor.) */
+let adminWantsAppMeters = false;
+const appMeters = appCapture.createMeterStream({
+  send: (payload) => notifyAdmin('app-audio-levels', payload),
+});
+function syncAppMeters() {
+  const win = adminWin && !adminWin.isDestroyed() ? adminWin : null;
+  const visible = !!win && win.isVisible() && !win.isMinimized();
+  appMeters.setWanted(!quitting && adminWantsAppMeters && visible);
+}
+ipcMain.on('app-audio:meters', (e, on) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  adminWantsAppMeters = !!on;
+  syncAppMeters();
 });
 ipcMain.handle('diagnose-audio', () => nativeAudio.diagnoseAudio());
 
@@ -7194,6 +7230,7 @@ function shutdownCleanup() {
   openrgb.stop().catch(() => {});
   textureShare.stop().catch(() => {});
   mediaSession.stop();
+  appMeters.stop(); // seçicinin ölçer yardımcısı (#516)
   nativeAudio.stopCapture();
   syncKeepAwake(); // quitting: ekranı bırak
   if (mcpHandle) mcpHandle.stop().catch(() => {});

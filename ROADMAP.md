@@ -92,7 +92,7 @@ hands, and a row only moves up once it ships.
 | Feature | Target | State today |
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | Rules implemented and tested, no capture backend. macOS needs ScreenCaptureKit on 13+, Linux PipeWire or PulseAudio. Windows shipped in v3.1.3 |
-| Live level meter per application | v3.1.6 | The picker lists and remembers applications but shows an audible/silent icon, not a moving level |
+| Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
 | Comprehensive video export | v3.1.6 | Formats, alpha and frame sequences done (#521, #525, #529); speed, profiles, queue, chapters and the rest in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
@@ -130,7 +130,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3041 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3064 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3317,6 +3317,18 @@ of this release, not a side effect.
   | MilkDrop 2160p30, NVENC | 138.6 s | 6.1 s | 90.2 s |
 
   At 4K `getImageData` costs 150 ms a frame, two thirds of the run. Two runs of the same MilkDrop job hash identically.
+
+### Live level meters in the application picker (#516) · done
+
+- The C# helper has a `--meters` mode. It reads each audio session's `IAudioMeterInformation::GetPeakValue` about every 60 ms and writes one line per tick, only when it changes, plus a heartbeat each second. It re-reads the device and the session list every 1.5 s and exits when stdin closes.
+- The main process runs it only while the panel is subscribed, visible and not minimised. Levels are combined per executable, and the newest line is sent to the panel at most every 66 ms. An older helper that does not know `--meters` exits with code 2, and the panel then keeps the old icons.
+- The bar uses a dB scale from −48 dB to 0 dB. It rises at once and falls at 1.6 full-scale per second.
+- **Measured:**
+  - A 440 Hz tone played by a PowerShell process read 0.093 while it played and 0 afterwards. The bar sat at 0.57 and then fell 0.57 → 0.53 → 0.42 → 0.29 → 0.18 → 0.07 → 0.
+  - The helper exited 52 ms after stdin closed.
+  - CPU use was 125 ms over 30 s, about 0.42% of one core.
+  - Helper processes across the panel's states: 0 with the Audio page hidden, 1 when shown, 0 when minimised, 0 when fully covered, 1 after a reload, 0 after quit, and 0 after the main process was hard-killed.
+- **The app left itself out of the list.** Its system-mix capture child runs from the same executable and showed up as a source whose meter followed the whole mix. Rows whose executable name matches ours are now dropped from the list and from the meter stream. This is covered by unit tests; the self-listing did not reproduce in an isolated run, so it was not seen end to end.
 
 ### MilkDrop fidelity since v3.1.5
 

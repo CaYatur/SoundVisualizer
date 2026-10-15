@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3041%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3064%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -227,6 +227,8 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
   uygulama *dışındaki* her şeyi yakalayın. Hedefler çalıştırılabilir dosya adıyla saklanır: yeniden
   başlayan bir uygulama kendiliğinden yeniden bağlanır, henüz açılmamış bir uygulama açılınca
   yakalanır. Windows 20348 ya da üstü gerekir. macOS ve Linux burada neden henüz olmadığını söyler.
+  <kbd>3.1.6</kbd> Seçicideki her uygulamanın yanında canlı bir seviye göstergesi var; seçmeden önce
+  hangisinin ses çıkardığını görürsünüz.
 - **Aynı anda birkaç kaynak**, çözümlemeden önce karıştırılır — "Spotify + mikrofon" tek bir seçimdir.
 - **İki kanal da görsellere ulaşıyor**. Her kare tek kanallı karışımın yanında sol ve
   sağ kanalı da taşıyor; stereo genişlik, korelasyon ve Gonyometre gerçek stereo görüntüyü ölçüyor.
@@ -1711,7 +1713,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3041 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3064 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
