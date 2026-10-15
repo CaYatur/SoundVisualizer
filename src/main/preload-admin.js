@@ -131,7 +131,8 @@ contextBridge.exposeInMainWorld('api', {
   // Video dışa aktarma
   gpuAvailable: () => ipcRenderer.invoke('export:gpu-available'),
   pickExportAudio: () => ipcRenderer.invoke('export:pick-audio'),
-  pickExportOutput: (name) => ipcRenderer.invoke('export:pick-output', name),
+  pickExportOutput: (name, format) => ipcRenderer.invoke('export:pick-output', name, format),
+  exportCapabilities: () => ipcRenderer.invoke('export:capabilities'),
   startExport: (opts) => ipcRenderer.invoke('export:start', opts),
   cancelExport: () => ipcRenderer.invoke('export:cancel'),
   onExportProgress: (cb) => ipcRenderer.on('export-progress', (e, d) => cb(d)),

@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('exp', {
   // Dönen { cancel: true } ise render durdurulur.
   sendFrame: (data, index) => ipcRenderer.invoke('export:frame', data, index),
   progress: (done, total) => ipcRenderer.send('export:progress', { done, total }),
-  finish: () => ipcRenderer.send('export:finish'),
+  finish: (stats) => ipcRenderer.send('export:finish', stats || null),
   cancelled: () => ipcRenderer.send('export:cancelled'),
   error: (msg) => ipcRenderer.send('export:error', msg),
 });

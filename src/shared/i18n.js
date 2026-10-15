@@ -2959,6 +2959,27 @@
     'Arkaplan Çözünürlüğü': 'Background Resolution',
     'Ayarları Yedekle / Geri Yükle': 'Back Up / Restore Settings',
     'Video Dışa Aktar (MP3 → Video)': 'Video Export (MP3 → Video)',
+    /* Dışa aktarma biçimleri (#521); export-formats.js etiketleriyle aynı */
+    'Dikey — 1080×1920 (Reels / Shorts)': 'Vertical — 1080×1920 (Reels / Shorts)',
+    'Kare — 1080×1080': 'Square — 1080×1080',
+    '24 FPS (sinema)': '24 FPS (cinema)',
+    '25 FPS (PAL)': '25 FPS (PAL)',
+    '30 FPS': '30 FPS',
+    '50 FPS': '50 FPS',
+    '(GPU bulunamadı)': '(no GPU found)',
+    '(çok hızlı)': '(very fast)',
+    '(en uyumlu, yavaş)': '(most compatible, slow)',
+    'MP4 — H.264 (her yerde oynar)': 'MP4 — H.264 (plays everywhere)',
+    'MP4 — H.265/HEVC (yarı boyut)': 'MP4 — H.265/HEVC (half the size)',
+    'MOV — ProRes 422 HQ (kurgu için)': 'MOV — ProRes 422 HQ (for editing)',
+    'MOV — ProRes 4444 + alfa (bindirme)': 'MOV — ProRes 4444 + alpha (overlay)',
+    'MOV — DNxHR HQ (kurgu için)': 'MOV — DNxHR HQ (for editing)',
+    'WebM — VP9': 'WebM — VP9',
+    'WebM — VP9 + alfa (bindirme)': 'WebM — VP9 + alpha (overlay)',
+    'GIF — kısa döngü': 'GIF — short loop',
+    'APNG — kısa döngü, alfa': 'APNG — short loop, alpha',
+    'PNG kare dizisi (kayıpsız, alfa)': 'PNG frame sequence (lossless, alpha)',
+    'OpenEXR kare dizisi (doğrusal, alfa)': 'OpenEXR frame sequence (linear, alpha)',
     'Gelişmiş': 'Advanced',
     'Kırmızı nokta ve rakamlar, varsayılandan farklı ayarları gösterir.': 'Red dots and numbers show settings that differ from defaults.',
     'Varsayılandan farklı ayar sayısı': 'Number of settings differing from defaults',
@@ -3964,8 +3985,8 @@
     "en": "Set transparent background and taskbar cover."
   },
   "mcp.tool.sv_start_export": {
-    "tr": "Çevrimdışı video dışa aktarmayı başlatır. audioPath ve outputPath gerekir.",
-    "en": "Start an offline video export. Requires audioPath and outputPath."
+    "tr": "Çevrimdışı video dışa aktarmayı başlatır. audioPath ve outputPath gerekir. format kabı ve kodeki seçer; outputPath o biçimin uzantısıyla bitmeli. Kare dizisi, outputPath adıyla açılan yeni bir klasöre yazılır.",
+    "en": "Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath."
   },
   "mcp.tool.sv_cancel_export": {
     "tr": "Süren çevrimdışı dışa aktarmayı iptal eder.",

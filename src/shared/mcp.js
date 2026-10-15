@@ -732,6 +732,12 @@
     for (const key of SCENE_KEYS) if (cfg[key] !== undefined) data[key] = clone(cfg[key]);
     return data;
   }
+  /* Dışa aktarma biçimleri (#521): şema, enum'lar ve uzantı denetimi aynı
+     tablodan; yeni bir biçim MCP'ye kendiliğinden gelir. */
+  function formatsApi() {
+    if (typeof window !== 'undefined' && window.SVExportFormats) return window.SVExportFormats;
+    try { return require('./export-formats.js'); } catch (e) { return null; }
+  }
   function layersApi() {
     if (typeof window !== 'undefined' && window.SVLayers && window.SVLayers.setStackEnabled) return window.SVLayers;
     try { return require('../visualizer/layers.js'); } catch (e) { return null; }
@@ -915,6 +921,10 @@
     type: sp('string', 'Effect type, used when exactly one effect of that type is on the chain.'),
   };
   const PATCH = function (what) { return { patch: sp('object', 'Keys of ' + what + ' to change; other keys stay.') }; };
+  const EXPORT_FX = formatsApi();
+  const EXPORT_FORMAT_IDS = EXPORT_FX ? EXPORT_FX.FORMATS.map(function (f) { return f.id; }) : ['mp4-h264'];
+  const EXPORT_RESOLUTIONS = EXPORT_FX ? Object.keys(EXPORT_FX.RESOLUTIONS) : ['720p', '1080p', '1440p', '2160p'];
+  const EXPORT_FPS = EXPORT_FX ? EXPORT_FX.FPS.slice() : [30, 60];
   const OVERWRITE = sp('boolean', 'Replace the file if it already exists. Default false.');
   const MAPPING_KEYS = {
     enabled: sp('boolean', 'Turn mapping on for this display.'),
@@ -1066,9 +1076,10 @@
     sv_start_export: {
       props: {
         audioPath: sp('string', 'Absolute path of the audio file.'),
-        outputPath: sp('string', 'Absolute .mp4 path.'),
-        resolution: sp('string', 'Video size. Default 1080p.', { enum: ['720p', '1080p', '1440p', '2160p'] }),
-        fps: sp('integer', 'Frame rate. Default 60.', { enum: [30, 60] }),
+        outputPath: sp('string', 'Absolute path ending with the extension of the format (.mp4, .mov, .webm, .gif, .png, .exr).'),
+        format: sp('string', 'Container and codec. Default mp4-h264. Alpha: mov-prores4444, webm-vp9-alpha, apng, png-seq, exr-seq.', { enum: EXPORT_FORMAT_IDS }),
+        resolution: sp('string', 'Video size. Default 1080p.', { enum: EXPORT_RESOLUTIONS }),
+        fps: sp('integer', 'Frame rate. Default 60. GIF and APNG cap at 30.', { enum: EXPORT_FPS }),
         encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
         quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),
         speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),
@@ -2039,9 +2050,12 @@
       return { transparent: !!cfg.background.transparent, coverTaskbar: !!cfg.background.coverTaskbar };
     });
   });
-  tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath.', function (args, ctx) {
+  tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
-    const outBad = outPathError(ctx, args && args.outputPath, ['mp4'], args && args.overwrite);
+    const FX = formatsApi();
+    const fmt = FX ? FX.format((args && args.format) || FX.DEFAULT_FORMAT) : null;
+    if (FX && !fmt) return fail('Unknown format: ' + (args && args.format));
+    const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
   });

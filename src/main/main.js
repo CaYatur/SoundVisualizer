@@ -4199,6 +4199,7 @@ ipcMain.on('report-video-devices', (e, devices) => notifyAdmin('video-devices', 
 let exportWin = null;
 let ffmpegProc = null;
 let exportState = null; // { outputPath, ffErr } — aktifken dolu, biter bitmez null
+let lastExportProfile = null; // son ölçümlü işin aşama süreleri (#531)
 
 /* Yarım kalan dışa aktarım dosyaları. ffmpeg öldürülünce Windows dosya
    tutamacını hemen bırakmayabilir; silme süreç kapanınca, gerekirse birkaç
@@ -4226,6 +4227,13 @@ function removePartial(file, proc) {
   if (proc && proc.exitCode == null && proc.signalCode == null) proc.once('close', () => setTimeout(retry, 50));
   setTimeout(retry, 200);
 }
+/* Yarım kare dizisi: klasörü bu iş açtı, içindekiler yalnız bu işin
+   kareleri. ffmpeg kapanınca bütünüyle kaldırılır. */
+function removePartialDir(dir, proc) {
+  const drop = () => { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* tutamaç açık */ } };
+  if (proc && proc.exitCode == null && proc.signalCode == null) proc.once('close', () => setTimeout(drop, 50));
+  else setTimeout(drop, 50);
+}
 function flushPartialsSync(budgetMs) {
   const end = Date.now() + budgetMs;
   const nap = new Int32Array(new SharedArrayBuffer(4));
@@ -4247,69 +4255,68 @@ function resolveFfmpeg() {
   return 'ffmpeg';
 }
 
-const RES_MAP = {
-  '720p': [1280, 720],
-  '1080p': [1920, 1080],
-  '1440p': [2560, 1440],
-  '2160p': [3840, 2160],
-};
-const CRF_MAP = { 'visually-lossless': 14, high: 18, balanced: 22 }; // libx264 (CPU)
-const CQ_MAP = { 'visually-lossless': 16, high: 20, balanced: 25 }; // h264_nvenc (GPU)
+const exportFormats = require('../shared/export-formats.js');
 
-// NVIDIA NVENC donanım kodlayıcısının bu makinede gerçekten çalışıp çalışmadığını
-// fonksiyonel olarak doğrula (kodlayıcının listede olması yetmez — sürücü/GPU şart).
-// Sonuç önbelleğe alınır.
-let _gpuCache = null;
-function detectGpuEncoder() {
-  if (_gpuCache !== null) return Promise.resolve(_gpuCache);
+/* Bu makinede hangi kodlayıcılar GERÇEKTEN çalışıyor (#521)?
+
+   Listede olmak yetmez: NVENC, AMF ve QSV sürücü ve GPU ister, ffmpeg-static
+   de her işletim sisteminde farklı bir ikili getirir. Her kodlayıcı, gerçek
+   işin argümanlarının AYNISIYLA kısa bir deneme kodlamasından geçiyor
+   (export-formats.js `probeArgs`); geçemeyen sunulmuyor. Sonuç önbellekte. */
+let _encCache = null;
+function probeOne(args) {
   return new Promise((resolve) => {
     let done = false;
-    const finish = (v) => { if (done) return; done = true; _gpuCache = v; resolve(v); };
+    const finish = (v) => { if (done) return; done = true; resolve(v); };
     let p;
     try {
-      p = spawn(resolveFfmpeg(), [
-        '-hide_banner', '-loglevel', 'error',
-        '-f', 'lavfi', '-i', 'testsrc=size=256x256:rate=30:duration=1',
-        '-c:v', 'h264_nvenc', '-preset', 'p7', '-cq', '19', '-f', 'null', '-',
-      ], { windowsHide: true });
+      p = spawn(resolveFfmpeg(), args, { windowsHide: true, stdio: ['ignore', 'ignore', 'ignore'] });
     } catch {
       return finish(false);
     }
     p.on('error', () => finish(false));
     p.on('exit', (code) => finish(code === 0));
-    setTimeout(() => { try { p.kill(); } catch {} finish(false); }, 10000);
+    setTimeout(() => { try { p.kill(); } catch {} finish(false); }, 15000);
   });
 }
+function probeEncoders() {
+  if (_encCache) return _encCache;
+  const names = Object.keys(exportFormats.ENCODERS);
+  _encCache = Promise.all(names.map((n) => {
+    const args = exportFormats.probeArgs(n);
+    return args ? probeOne(args) : Promise.resolve(false);
+  })).then((oks) => {
+    const map = {};
+    names.forEach((n, i) => { map[n] = oks[i]; });
+    return map;
+  });
+  return _encCache;
+}
+// Eski sorgu: H.264 için çalışan bir GPU kodlayıcısı var mı
+async function detectGpuEncoder() {
+  const ok = await probeEncoders();
+  return exportFormats.encodersFor(exportFormats.format('mp4-h264'))
+    .some((e) => exportFormats.ENCODERS[e].gpu && ok[e]);
+}
 
-// NVENC preset/ince ayar tablosu (hız/kalite dengesi). p1=en hızlı … p7=en yavaş.
-// 'fast' düşük gecikme (ll) + lookahead/B-kare yok -> maksimum hız.
-const NVENC_SPEED = {
-  fast: { preset: 'p2', extra: ['-tune', 'ull', '-rc-lookahead', '0', '-bf', '0'] },
-  balanced: { preset: 'p4', extra: ['-tune', 'hq', '-rc-lookahead', '8', '-bf', '2'] },
-  quality: { preset: 'p6', extra: ['-tune', 'hq', '-rc-lookahead', '20', '-bf', '3', '-multipass', 'qres'] },
-};
-// libx264 preset'leri (hız/kalite dengesi).
-const X264_SPEED = { fast: 'veryfast', balanced: 'medium', quality: 'slow' };
-
-// Kodlayıcıya göre video argümanları (GPU = NVENC, CPU = libx264). Her ikisi de
-// yuv420p H.264 üretir; görsel-kayıpsız kalite kademeleri eşlenmiştir.
-// quality = sıkıştırma kalitesi (CQ/CRF), speed = hız/kalite preset'i.
-function buildVideoArgs(encoder, quality, speed) {
-  if (encoder === 'gpu') {
-    const cq = CQ_MAP[quality] != null ? CQ_MAP[quality] : 16;
-    const s = NVENC_SPEED[speed] || NVENC_SPEED.balanced;
-    return [
-      '-c:v', 'h264_nvenc', '-preset', s.preset, ...s.extra,
-      '-rc', 'vbr', '-cq', String(cq), '-b:v', '0',
-      '-profile:v', 'high', '-pix_fmt', 'yuv420p',
-    ];
-  }
-  const crf = CRF_MAP[quality] != null ? CRF_MAP[quality] : 14;
-  const preset = X264_SPEED[speed] || 'medium';
-  return ['-c:v', 'libx264', '-preset', preset, '-crf', String(crf), '-pix_fmt', 'yuv420p', '-threads', '0'];
+/* Panelin ve MCP'nin göreceği biçim listesi: her biçim, bu makinede
+   kullanılabilir mi ve hangi kodlayıcılarla. */
+async function exportCapabilities() {
+  const ok = await probeEncoders();
+  return {
+    formats: exportFormats.FORMATS.map((f) => ({
+      id: f.id, ext: f.ext, kind: f.kind, alpha: f.alpha, audio: !!f.audio, fpsMax: f.fpsMax || 0,
+      label: f.label,
+      available: exportFormats.available(f, (e) => ok[e]),
+      gpuCapable: exportFormats.encodersFor(f).some((e) => exportFormats.ENCODERS[e].gpu),
+      encoders: exportFormats.encodersFor(f).filter((e) => ok[e])
+        .map((e) => ({ id: e, gpu: exportFormats.ENCODERS[e].gpu, label: exportFormats.ENCODERS[e].label })),
+    })),
+  };
 }
 
 ipcMain.handle('export:gpu-available', () => detectGpuEncoder());
+ipcMain.handle('export:capabilities', () => exportCapabilities());
 
 ipcMain.handle('export:pick-audio', async () => {
   const r = await dialog.showOpenDialog(adminWin, {
@@ -4324,11 +4331,15 @@ ipcMain.handle('export:pick-audio', async () => {
   return r.filePaths[0];
 });
 
-ipcMain.handle('export:pick-output', async (e, defaultName) => {
+ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
+  const fmt = exportFormats.format(formatId) || exportFormats.format(exportFormats.DEFAULT_FORMAT);
+  const seq = fmt.kind === 'sequence';
   const r = await dialog.showSaveDialog(adminWin, {
-    title: trUi('Videoyu Kaydet', 'Save Video'),
-    defaultPath: defaultName || 'gorsellestirme.mp4',
-    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+    /* Kare dizisinde seçilen ad bir KLASÖRÜN adı olur: kareler yanına,
+       o adla açılan klasöre yazılır (ad_000001.png …). */
+    title: seq ? trUi('Kare Dizisini Kaydet', 'Save Frame Sequence') : trUi('Videoyu Kaydet', 'Save Video'),
+    defaultPath: defaultName || ('gorsellestirme.' + fmt.ext),
+    filters: [{ name: fmt.label[appLocale() === 'tr' ? 0 : 1], extensions: [fmt.ext] }],
   });
   if (r.canceled || !r.filePath) return null;
   return r.filePath;
@@ -4350,40 +4361,46 @@ async function startExportJob(opts) {
     return { ok: false, error: 'Ses dosyası bulunamadı.' };
   }
   if (!outputPath) return { ok: false, error: 'Çıktı yolu seçilmedi.' };
-  const outBad = require('../shared/mcp').badOutPath(outputPath, ['mp4']);
+  const fmt = exportFormats.format(opts.format || exportFormats.DEFAULT_FORMAT);
+  if (!fmt) return { ok: false, error: trUi('Bilinmeyen biçim: ', 'Unknown format: ') + opts.format };
+  const outBad = require('../shared/mcp').badOutPath(outputPath, [fmt.ext]);
   if (outBad) return { ok: false, error: 'Çıktı yolu geçersiz: ' + outBad };
 
-  const [w, h] = RES_MAP[opts.resolution] || RES_MAP['1080p'];
-  const fps = opts.fps === 30 ? 30 : 60;
+  const res = exportFormats.RESOLUTIONS[opts.resolution] || exportFormats.RESOLUTIONS['1080p'];
+  const w = res[0];
+  const h = res[1];
+  let fps = exportFormats.FPS.includes(Number(opts.fps)) ? Number(opts.fps) : 60;
+  if (fmt.fpsMax && fps > fmt.fpsMax) fps = fmt.fpsMax;
 
-  // Kodlayıcı seçimi: GPU (NVENC) istendi ama yoksa sessizce CPU'ya düş.
-  let encoder = opts.encoder === 'gpu' ? 'gpu' : 'cpu';
-  if (encoder === 'gpu' && !(await detectGpuEncoder())) encoder = 'cpu';
-  const speed = ['fast', 'balanced', 'quality'].includes(opts.speed) ? opts.speed : 'balanced';
-  const videoArgs = buildVideoArgs(encoder, opts.quality, speed);
+  /* Kodlayıcı: GPU istendiyse bu makinede çalışan ilk GPU kodlayıcısı
+     (NVIDIA, AMD, Intel sırasıyla), yoksa CPU. Deneme kodlamasını geçmemiş
+     bir kodlayıcı hiç seçilmez. */
+  const okMap = await probeEncoders();
+  const encoderId = exportFormats.pickEncoder(fmt, opts.encoder === 'gpu' ? 'gpu' : 'cpu', (e) => okMap[e]);
+  if (!encoderId) {
+    return { ok: false, error: trUi('Bu biçimin kodlayıcısı bu bilgisayarda çalışmıyor: ', 'No working encoder for this format on this computer: ') + fmt.id };
+  }
+  const encoder = exportFormats.ENCODERS[encoderId].gpu ? 'gpu' : 'cpu';
+  const speed = exportFormats.SPEEDS.includes(opts.speed) ? opts.speed : 'balanced';
+  const quality = exportFormats.QUALITIES.includes(opts.quality) ? opts.quality : 'visually-lossless';
 
-  // Ses akışını kayıpsız kopyala (mp4 uyumlu kodek). Değilse şeffaf AAC'e dön.
-  const ext = path.extname(audioPath).toLowerCase();
-  const audioCopy = ['.mp3', '.m4a', '.aac'].includes(ext);
-  const audioArgs = audioCopy ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '320k'];
-
-  const args = [
-    '-y',
-    '-f', 'rawvideo',
-    '-pixel_format', 'rgba',
-    '-video_size', `${w}x${h}`,
-    '-framerate', String(fps),
-    '-thread_queue_size', '1024', // ham kare girişi için geniş kuyruk (boru hattı stall'ını önler)
-    '-i', 'pipe:0',
-    '-i', audioPath,
-    '-map', '0:v:0',
-    '-map', '1:a:0',
-    ...videoArgs,
-    ...audioArgs,
-    '-movflags', '+faststart',
-    '-shortest',
-    outputPath,
-  ];
+  /* Kare dizisi: seçilen adla bir KLASÖR açılır, kareler içine yazılır
+     (ad_000001.png …). Klasör zaten varsa yanına numaralı yenisi açılır;
+     başka bir işin karelerinin üstüne yazılmaz. */
+  let target = outputPath;
+  let seqDir = null;
+  if (fmt.kind === 'sequence') {
+    const stem = path.basename(outputPath, path.extname(outputPath));
+    const parent = path.dirname(outputPath);
+    seqDir = path.join(parent, stem);
+    for (let n = 2; fs.existsSync(seqDir) && n < 1000; n++) seqDir = path.join(parent, stem + ' (' + n + ')');
+    try {
+      fs.mkdirSync(seqDir, { recursive: true });
+    } catch (err) {
+      return { ok: false, error: trUi('Klasör açılamadı: ', 'Could not create the folder: ') + err.message };
+    }
+    target = exportFormats.sequencePattern(seqDir, stem, fmt.ext);
+  }
 
   const ff = resolveFfmpeg();
   let audioBuf;
@@ -4404,13 +4421,25 @@ async function startExportJob(opts) {
     if (read) track = read;
   } catch { /* etiket yoksa dosya adı yeter */ }
 
+  const args = exportFormats.buildArgs({
+    fmt, encoder: encoderId, w, h, fps, quality, speed,
+    audioPath, audioExt: path.extname(audioPath), output: target,
+    meta: { title: track.title, artist: track.artist, album: track.album },
+  });
+
   try {
     ffmpegProc = spawn(ff, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
   } catch (err) {
     return { ok: false, error: 'ffmpeg başlatılamadı: ' + err.message };
   }
 
-  exportState = { outputPath, ffErr: '', encoder, finishAt: 0, cancel: false };
+  exportState = { outputPath: seqDir || outputPath, seqDir, format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false };
+  /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
+     özetleri. Özet, hızlandırmanın görüntüyü değiştirmediğini kanıtlamak
+     için: aynı iş aynı kareleri vermeli. */
+  if (opts.profile) {
+    exportState.prof = { t0: Date.now(), writeMs: 0, drainMs: 0, frames: 0, digest: require('crypto').createHash('sha1') };
+  }
   notifyAdmin('export-progress', { phase: 'start', encoder });
   ffmpegProc.stderr.on('data', (d) => {
     if (!exportState) return;
@@ -4473,6 +4502,10 @@ async function startExportJob(opts) {
     /* Dosyanın adı, kapağı ve — takip açıksa — kütüphane sözü.
        Normal söz dosyası kütüphaneyle değiştirilmez. */
     track,
+    profile: !!opts.profile,
+    /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
+       arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
+    alpha: !!fmt.alpha,
     platform: process.platform,
     lyricsLibrary: configFollowsLyrics(currentConfig) ? lyricsSnapshot() : [],
   });
@@ -4505,9 +4538,14 @@ ipcMain.handle('export:frame', async (e, data) => {
   if (!exportState || exportState.cancel || !ffmpegProc || !ffmpegProc.stdin.writable) {
     return { cancel: true };
   }
+  const prof = exportState.prof;
+  const tw = prof ? performance.now() : 0;
   const buf = Buffer.from(data); // RGBA baytları (kopyalanır)
+  if (prof) { prof.digest.update(buf); prof.frames++; }
   const ok = ffmpegProc.stdin.write(buf);
+  if (prof) prof.writeMs += performance.now() - tw;
   if (!ok) {
+    const td = prof ? performance.now() : 0;
     // Tampon doluysa ffmpeg işliyordur. Süre dolunca işi başarısız saymak
     // çubuğu ve iptali kaldırıyordu; gerçek kapanış veya iptal beklenir.
     const drained = await new Promise((res) => {
@@ -4530,6 +4568,7 @@ ipcMain.handle('export:frame', async (e, data) => {
       s.once('drain', onDrain);
       s.once('close', onClose);
     });
+    if (prof) prof.drainMs += performance.now() - td;
     if (!exportState || exportState.cancel) return { cancel: true };
     if (!drained) {
       finalizeExport('error', 'Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.');
@@ -4551,11 +4590,12 @@ function endExportStdin() {
   try { proc.stdin.end(); } catch { /* kapalı */ }
 }
 
-ipcMain.on('export:finish', () => {
+ipcMain.on('export:finish', (e, stats) => {
   // Tüm kareler yazıldı: stdin'i kapat -> ffmpeg kalan kodlamayı bitirip 'exit' verir.
   // Arayüz burada kapanmaz. Tamam veya hata, sürecin çıkış koduyla gelir.
   notifyAdmin('export-progress', { phase: 'encode' });
   if (exportState) exportState.finishAt = Date.now();
+  if (exportState && exportState.prof && stats && typeof stats === 'object') exportState.prof.renderer = stats;
   endExportStdin();
 });
 ipcMain.on('export:cancelled', () => finalizeExport('cancelled'));
@@ -4564,7 +4604,22 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   const out = exportState.outputPath;
+  const seqDir = exportState.seqDir;
   const encoder = exportState.encoder;
+  const encoderId = exportState.encoderId;
+  const prof = exportState.prof;
+  if (prof) {
+    lastExportProfile = {
+      status,
+      wallMs: Date.now() - prof.t0,
+      tailMs: exportState.finishAt ? Date.now() - exportState.finishAt : 0,
+      writeMs: Math.round(prof.writeMs),
+      drainMs: Math.round(prof.drainMs),
+      frames: prof.frames,
+      sha1: prof.digest.digest('hex'),
+      renderer: prof.renderer || null,
+    };
+  }
   exportState = null;
 
   const proc = ffmpegProc;
@@ -4582,10 +4637,14 @@ function finalizeExport(status, message, opts) {
   // Yarım kalan dosyayı temizle (iptal/hata). Çöken görüntü süreci
   // dosyayı yazmış olabilir; o kopya yerinde kalır, süreç durur.
   if (status !== 'done' && !(opts && opts.keep) && out) {
-    removePartial(out, proc);
+    if (seqDir) removePartialDir(seqDir, proc);
+    else removePartial(out, proc);
   }
 
-  notifyAdmin('export-done', { status, output: out, message: message || '', encoder });
+  notifyAdmin('export-done', {
+    status, output: out, message: message || '', encoder,
+    encoderLabel: encoderId && exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
+  });
 }
 
 // ----------------------------------------------------------------------------
@@ -4785,7 +4844,42 @@ app.whenReady().then(async () => {
       failAndQuit(1);
     });
   }
+
+  const benchArg = process.argv.find((a) => a.startsWith('--bench-export='));
+  if (benchArg) {
+    runExportBench(benchArg.slice('--bench-export='.length)).catch((e) => {
+      console.log('[BENCH] FAIL ' + (e && e.stack));
+      app.exit(1);
+    });
+  }
 });
+
+/* Dışa aktarma ölçümü (#531): `--bench-export=<iş.json>`.
+
+   Hızlandırma bir iddia değil ölçüm olsun diye: aynı işler aynı sabit
+   yapılandırmayla koşuyor, aşama süreleri ve kare özetleri bir dosyaya
+   yazılıyor. Özet aynı kalmalı; değişirse görüntü değişmiş demektir.
+   Yalıtılmış bir --user-data-dir ile çalıştırılmalı. */
+async function runExportBench(file) {
+  const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const results = [];
+  const base = JSON.parse(JSON.stringify(currentConfig || {}));
+  for (const job of spec.jobs || []) {
+    currentConfig = Object.assign({}, base, JSON.parse(JSON.stringify(job.cfg || {})));
+    lastExportProfile = null;
+    const out = path.join(spec.outDir, job.name + '.' + (job.ext || 'mp4'));
+    try { fs.unlinkSync(out); } catch { /* yok */ }
+    const t0 = Date.now();
+    const res = await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out, profile: true }));
+    const done = res && res.ok ? await awaitExportDone(30 * 60 * 1000) : false;
+    const row = { name: job.name, ok: !!(res && res.ok) && done, error: res && res.error, ms: Date.now() - t0,
+      size: fs.existsSync(out) ? fs.statSync(out).size : 0, profile: lastExportProfile };
+    console.log('[BENCH] ' + JSON.stringify(row));
+    results.push(row);
+  }
+  fs.writeFileSync(spec.result, JSON.stringify(results, null, 2));
+  app.exit(0);
+}
 
 
 // ----------------------------------------------------------------------------
@@ -6617,6 +6711,44 @@ async function runSmoke() {
         else if (!finished) errors.push('export ' + c.name + ' zaman aşımına uğradı');
         else if (size < 20000) errors.push('export ' + c.name + ' çok küçük dosya üretti (' + size + ' B)');
         else if (blackSpans > 2.5) errors.push('export ' + c.name + ' neredeyse tamamen siyah (' + blackSpans.toFixed(1) + ' sn)');
+      }
+
+      /* Biçimler (#521, #525, #529). Her biri gerçekten kodlanıp ffmpeg'e
+         geri okutuluyor: kodek, piksel biçimi (alfa için yuva…) ve renk
+         etiketi dosyada olmalı. Kare dizisinde kare sayısı tutmalı.
+         Paket ffprobe taşımıyor; `ffmpeg -i` dökümü okunuyor. */
+      const fmtCases = [
+        { format: 'mov-prores4444', ext: 'mov', want: [/Video: prores/, /yuva444p/, /bt709/, /Audio: pcm_s24le/] },
+        { format: 'webm-vp9', ext: 'webm', want: [/Video: vp9/, /bt709/, /Audio: opus/] },
+        { format: 'png-seq', ext: 'png', frames: 120 },
+      ];
+      for (const fc of fmtCases) {
+        const out = path.join(outDir, 'fmt-' + fc.format + '.' + fc.ext);
+        const seqDir = path.join(outDir, 'fmt-' + fc.format);
+        try { fs.unlinkSync(out); } catch { /* yok */ }
+        try { fs.rmSync(seqDir, { recursive: true, force: true }); } catch { /* yok */ }
+        currentConfig = Object.assign({}, JSON.parse(JSON.stringify(PINNED)), {
+          visualizer: { type: 'bars', rainbow: true, sensitivity: 0.7 },
+          background: { type: 'corridor' },
+        });
+        const res = await startExportJob({
+          audioPath: wav, outputPath: out, format: fc.format,
+          resolution: '720p', fps: 30, quality: 'balanced', encoder: 'cpu', speed: 'fast',
+        });
+        const finished = res && res.ok ? await awaitExportDone(150000) : false;
+        let verdict = '';
+        if (!res || !res.ok) verdict = 'başlatılamadı: ' + (res && res.error);
+        else if (!finished) verdict = 'zaman aşımı';
+        else if (fc.frames) {
+          const n = fs.existsSync(seqDir) ? fs.readdirSync(seqDir).filter((f) => f.endsWith('.' + fc.ext)).length : 0;
+          if (n !== fc.frames) verdict = n + ' kare (beklenen ' + fc.frames + ')';
+        } else {
+          const info = (await runFf(['-hide_banner', '-i', out])).err;
+          const miss = fc.want.filter((re) => !re.test(info));
+          if (miss.length) verdict = 'dökümde yok: ' + miss.map(String).join(', ');
+        }
+        console.log('[SMOKE] export biçim ' + fc.format + ': ' + (verdict || 'tamam'));
+        if (verdict) errors.push('export biçim ' + fc.format + ' ' + verdict);
       }
 
       currentConfig = baseCfg;

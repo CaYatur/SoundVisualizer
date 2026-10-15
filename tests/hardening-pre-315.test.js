@@ -90,7 +90,7 @@ test('gezinme kilidi: her pencereye kurulur, açılır pencere yok', () => {
   assert.match(read('src/main/main.js'), /require\('\.\/nav-guard'\)\.install\(app, shell, path\.join\(__dirname, '\.\.'\)\);/);
 });
 
-test('dışa aktarma: çıktı yerel ve mutlak .mp4, ses yolu mutlak', () => {
+test('dışa aktarma: çıktı yerel ve mutlak, uzantı biçimin kendisi; ses yolu mutlak', () => {
   const mcp = require('../src/shared/mcp.js');
   assert.strictEqual(mcp.badOutPath('C:/Videos/a.mp4', ['mp4']), '');
   for (const bad of ['tcp://10.0.0.1:9/a.mp4', 'pipe:1', 'a.mp4', 'C:/Users/x/AppData/Roaming/run.bat', '//server/share/a.mp4']) {
@@ -99,7 +99,10 @@ test('dışa aktarma: çıktı yerel ve mutlak .mp4, ses yolu mutlak', () => {
   const main = read('src/main/main.js');
   const body = main.slice(main.indexOf('async function startExportJob(opts)'), main.indexOf('async function startExportJob(opts)') + 1400);
   assert.match(body, /typeof audioPath !== 'string' \|\| !path\.isAbsolute\(audioPath\)/);
-  assert.match(body, /require\('\.\.\/shared\/mcp'\)\.badOutPath\(outputPath, \['mp4'\]\)/);
+  // Uzantı serbest değil: seçilen biçimin tablodaki uzantısı (#521)
+  assert.match(body, /require\('\.\.\/shared\/mcp'\)\.badOutPath\(outputPath, \[fmt\.ext\]\)/);
+  assert.ok(main.indexOf('badOutPath(outputPath', main.indexOf('async function startExportJob')) < main.indexOf('spawn(ff, args', main.indexOf('async function startExportJob')), 'yol denetimi ffmpeg başlamadan');
+  assert.ok(mcp.badOutPath('C:/Videos/a.mov', ['mp4']), 'başka biçimin uzantısı reddedilmeli');
 });
 
 test('MilkDrop: miras adlar fonksiyon değildir (#560)', () => {
