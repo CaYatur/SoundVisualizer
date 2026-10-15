@@ -13,7 +13,7 @@ const { execFileSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const HOLDER = 'Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com';
-const EXTS = ['.js', '.css', '.html', '.cs', '.cpp', '.sh', '.nsh'];
+const EXTS = ['.js', '.css', '.html', '.cs', '.cpp', '.sh', '.nsh', '.swift'];
 
 function sources() {
   let out;

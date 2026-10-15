@@ -1684,6 +1684,26 @@ ipcMain.on('app-audio:meters', (e, on) => {
   adminWantsAppMeters = !!on;
   syncAppMeters();
 });
+/* macOS: izin penceresi yalnızca ilk istekte çıkıyor. Kullanıcı daha önce
+   reddettiyse macOS bir daha sormuyor; o zaman ilgili ayar sayfası açılıyor,
+   yoksa düğme hiçbir şey yapmıyormuş gibi görünürdü. İlk basışta yalnız
+   sistemin kendi penceresi açılıyor (iki pencere üst üste çıkmasın); hâlâ
+   izin yoksa sonraki basışlar ayar sayfasını açıyor. */
+let appAudioPermissionAsked = false;
+ipcMain.handle('app-audio:request-permission', () => {
+  if (process.platform !== 'darwin') return { permission: true, openedSettings: false };
+  let r = { permission: false };
+  try { r = appCapture.requestPermission(); } catch (_) { /* yardımcı yok */ }
+  const firstAsk = !appAudioPermissionAsked;
+  appAudioPermissionAsked = true;
+  let openedSettings = false;
+  if (!r.permission && !firstAsk) {
+    shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+      .catch(() => {});
+    openedSettings = true;
+  }
+  return { permission: !!r.permission, openedSettings };
+});
 ipcMain.handle('diagnose-audio', () => nativeAudio.diagnoseAudio());
 
 function runProcess(executable, args, timeoutMs = 10 * 60 * 1000) {

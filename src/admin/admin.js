@@ -1597,6 +1597,16 @@
     if (!AA || (status && status.available === false)) {
       kids.push(el('div', { class: 'studio-note dim-hint',
         text: (status && status.message) || 'Uygulama başına ses yakalama kullanılamıyor.' }));
+      /* macOS: izin eksikse sebebi yazmak yetmez, istemenin yolu da olmalı.
+         Pencere açılışta kendiliğinden çıkmıyor (özelliği hiç kullanmayan
+         herkese Ekran Kaydı sorulurdu); yalnız bu düğmeyle. */
+      if (status && status.canRequest && window.api && window.api.requestAppAudioPermission) {
+        const req = el('button', {
+          class: 'btn small', type: 'button', icon: 'lock', text: 'Ekran Kaydı İzni İste',
+        });
+        req.addEventListener('click', () => actions.requestAppAudioPermission());
+        kids.push(req);
+      }
     } else {
       const appRows = [];
       const shown = new Set();
@@ -5094,6 +5104,16 @@
       else for (const m of appMeterEls.values()) m.at = 0;
     });
   }
+
+  /* macOS Ekran Kaydı izni. İzin verildiyse liste hemen yenilenir; macOS
+     bazen uygulama yeniden başlatılana kadar izni görmüyor, o durumda
+     durum satırı yine sebebi söyler. */
+  actions.requestAppAudioPermission = async () => {
+    if (!window.api || !window.api.requestAppAudioPermission) return;
+    try { await window.api.requestAppAudioPermission(); } catch (_) { /* köprü yok */ }
+    await refreshAudioApps();
+    render();
+  };
 
   actions.toggleFloating = async () => {
     if (!window.api || !window.api.toggleFloating) return;
