@@ -30,6 +30,18 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **Portrait, square and more frame rates.** 1080×1920 and 1080×1080, and 24, 25, 30, 50 and
   60 fps. GIF and APNG cap at 30.
 
+### Audio
+
+- **A live level meter for every application in the picker [516].** Choosing an application only
+  works if you can see which one is making sound. Each row now has a moving bar on a dB scale next
+  to its audible/silent icon. The helper reads every audio session's peak meter
+  (`IAudioMeterInformation`) about 16 times a second, and only while the picker is on screen and
+  the panel is neither minimised nor hidden; it costs about 0.4% of one core. Several processes of
+  one app share one bar, which shows the loudest. A missing or older helper keeps the icons.
+- **The app no longer lists itself as a source [516].** The capture child that records the system
+  mix runs from our own executable and opened an audio session of its own, so the picker offered
+  the visualizer itself, and its meter followed the whole mix. Our own processes are now left out.
+
 ### OSC
 
 - **OSCQuery discovery follows network changes.** The mDNS announcement kept the address it started
