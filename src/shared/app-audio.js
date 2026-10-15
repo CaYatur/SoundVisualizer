@@ -264,6 +264,17 @@
      harf), seçicideki satırların anahtarıyla aynı. Bir uygulamanın birden
      çok süreci varsa (tarayıcılar) EN YÜKSEK tepe gösterilir: toplamak
      seviyeyi şişirirdi, ortalamak sessiz alt süreçlerle bastırırdı. */
+  /* Uygulamanın KENDİ süreçleri listeden çıkar. Sistem karışımını
+     yakalayan alt süreç (loopback-helper) bizim yürütülebilir dosyamızla
+     çalışıyor ve kendi ses oturumunu açıyor: seçicide "Ses Görselleştirici"
+     diye görünüyor, ölçeri de bütün sistem karışımını izliyordu. Kendimizi
+     yakalamanın bir anlamı yok; ad eşleşmesi büyük-küçük harfe duyarsız. */
+  function withoutSelf(rows, selfName) {
+    const self = baseName(selfName);
+    if (!self) return Array.isArray(rows) ? rows : [];
+    return (Array.isArray(rows) ? rows : []).filter((r) => !(r && baseName(r.name) === self));
+  }
+
   function meterLevels(rows) {
     const out = {};
     for (const r of Array.isArray(rows) ? rows : []) {
@@ -304,7 +315,7 @@
     WIN_MIN_BUILD, MAC_MIN_MAJOR, MODES, DEFAULT_MODE,
     support, macMajorFromDarwin,
     isAppSource, normalizeApp, splitSources, limitExclude,
-    resolveTarget, candidates, baseName,
+    resolveTarget, candidates, baseName, withoutSelf,
     METER_CARRY_MAX, METER_FLOOR_DB, METER_RELEASE_PER_SEC,
     splitMeterChunk, parseMeterLine, meterLevels, meterFraction, meterBallistics,
   };

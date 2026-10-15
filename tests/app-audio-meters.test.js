@@ -282,3 +282,26 @@ test('uzun süre çalışmış yardımcının ölümü sayacı sıfırlar', () =
   assert.strictEqual(spawned.length, 7);
   assert.strictEqual(stream.running(), true);
 });
+
+/* Uygulama kendini listelemesin: sistem karışımını yakalayan alt süreç
+   bizim yürütülebilir dosyamızla çalışıyor ve seçicide "Ses
+   Görselleştirici" diye görünüyordu; ölçeri bütün karışımı izliyordu. */
+test('uygulamanın kendi süreçleri listeden çıkar', () => {
+  const rows = [
+    { pid: 1, name: 'CAYADEV Visualizer.exe' },
+    { pid: 2, name: 'cayadev visualizer.EXE' },
+    { pid: 3, name: 'Spotify.exe' },
+  ];
+  const self = 'C:/Program Files/CAYADEV Visualizer/CAYADEV Visualizer.exe';
+  assert.deepStrictEqual(A.withoutSelf(rows, self).map((r) => r.pid), [3]);
+  assert.strictEqual(A.withoutSelf(rows, '').length, 3, 'ad yoksa hiçbir şey düşmez');
+  assert.deepStrictEqual(A.withoutSelf(null, self), []);
+});
+
+test('ölçer akışı da kendi süreçlerimizi göndermez', () => {
+  const { stream, spawned, sent, clock } = setup({ selfName: 'D:/app/electron.exe' });
+  stream.setWanted(true);
+  spawned[0].stdout.emit('data', Buffer.from('[[1,"electron.exe",0.9],[2,"Spotify.exe",0.2]]\n'));
+  clock.tick(0);
+  assert.deepStrictEqual(sent, [{ available: true, levels: { 'spotify.exe': 0.2 } }]);
+});

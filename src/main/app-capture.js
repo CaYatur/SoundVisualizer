@@ -88,7 +88,7 @@ function list() {
     });
     if (r.status !== 0 || !r.stdout) return [];
     const parsed = JSON.parse(r.stdout.trim() || '[]');
-    return Array.isArray(parsed) ? parsed : [];
+    return appAudio.withoutSelf(Array.isArray(parsed) ? parsed : [], process.execPath);
   } catch {
     return [];
   }
@@ -142,6 +142,7 @@ function createMeterStream(opts) {
   const setT = o.setTimeout || setTimeout;
   const clearT = o.clearTimeout || clearTimeout;
   const now = o.now || Date.now;
+  const selfName = o.selfName === undefined ? process.execPath : o.selfName;
 
   let wanted = false;
   let child = null;
@@ -181,7 +182,7 @@ function createMeterStream(opts) {
     // Yalnız en son geçerli satır önemli; öncekiler zaten bayat
     for (let i = r.lines.length - 1; i >= 0; i--) {
       const rows = appAudio.parseMeterLine(r.lines[i]);
-      if (rows) { queue(appAudio.meterLevels(rows)); return; }
+      if (rows) { queue(appAudio.meterLevels(appAudio.withoutSelf(rows, selfName))); return; }
     }
   }
 
