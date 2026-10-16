@@ -42,6 +42,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   CPU choice and the speed balance stay yours. The profile is read from the settings themselves, so
   changing any of them by hand shows "Custom", and every setting stays available underneath. MCP's
   `sv_start_export` takes a `profile` too, with explicit arguments taking precedence.
+- **A batch queue [526].** Queue the current song with the current settings, or several audio
+  files at once into one folder, and start the queue. Each job keeps the scene and settings from
+  the moment it was added, so you can change the scene and queue the next variation; one song at
+  three resolutions gets three distinctly named files. A failing job is marked and the next one
+  runs. Each row shows its status, failed or cancelled jobs can be retried, and Stop cancels the
+  running job without leaving a half-written file.
 - **Split a long show at the timeline markers [527].** One render is cut at forced keyframes into
   a folder of files named after the markers ("01 - Intro.mp4", "02 - Drop.mp4"), so feedback
   layers like MilkDrop run continuously across the cuts instead of restarting cold in each part.
