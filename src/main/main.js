@@ -4620,7 +4620,7 @@ async function startExportJob(opts, bench, extra) {
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
      (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
   const jobCfg = (extra && extra.cfg) || currentConfig;
-  if (exportState) return { ok: false, error: 'Zaten bir dışa aktarma sürüyor.' };
+  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
   opts = opts || {};
   const audioPath = opts.audioPath;
   const outputPath = opts.outputPath;
@@ -4628,13 +4628,13 @@ async function startExportJob(opts, bench, extra) {
      tcp:// ya da pipe: gibi adresleri de çıktı sayar: MCP'nin kuralı burada
      da geçerli, yerel, mutlak bir .mp4. */
   if (typeof audioPath !== 'string' || !path.isAbsolute(audioPath) || !fs.existsSync(audioPath)) {
-    return { ok: false, error: 'Ses dosyası bulunamadı.' };
+    return { ok: false, error: trUi('Ses dosyası bulunamadı.', 'Audio file not found.') };
   }
-  if (!outputPath) return { ok: false, error: 'Çıktı yolu seçilmedi.' };
+  if (!outputPath) return { ok: false, error: trUi('Çıktı yolu seçilmedi.', 'No output path was chosen.') };
   const fmt = exportFormats.format(opts.format || exportFormats.DEFAULT_FORMAT);
   if (!fmt) return { ok: false, error: trUi('Bilinmeyen biçim: ', 'Unknown format: ') + opts.format };
   const outBad = require('../shared/mcp').badOutPath(outputPath, [fmt.ext]);
-  if (outBad) return { ok: false, error: 'Çıktı yolu geçersiz: ' + outBad };
+  if (outBad) return { ok: false, error: trUi('Çıktı yolu geçersiz: ', 'Invalid output path: ') + outBad };
 
   const res = exportFormats.RESOLUTIONS[opts.resolution] || exportFormats.RESOLUTIONS['1080p'];
   const w = res[0];
@@ -4683,7 +4683,7 @@ async function startExportJob(opts, bench, extra) {
   try {
     audioBuf = fs.readFileSync(audioPath);
   } catch (err) {
-    return { ok: false, error: 'Ses dosyası okunamadı: ' + err.message };
+    return { ok: false, error: trUi('Ses dosyası okunamadı: ', 'Could not read the audio file: ') + err.message };
   }
 
   let track = {
@@ -4782,7 +4782,7 @@ async function startExportJob(opts, bench, extra) {
   try {
     ffmpegProc = spawn(ff, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
   } catch (err) {
-    return { ok: false, error: 'ffmpeg başlatılamadı: ' + err.message };
+    return { ok: false, error: trUi('ffmpeg başlatılamadı: ', 'Could not start ffmpeg: ') + err.message };
   }
 
   exportState = {
@@ -4802,23 +4802,29 @@ async function startExportJob(opts, bench, extra) {
     phase: 'start', encoder,
     encoderLabel: exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
   });
-  ffmpegProc.stderr.on('data', (d) => {
-    if (!exportState) return;
+  /* Every handler below is bound to THIS job. After a cancel the old
+     ffmpeg's late 'exit'/'close' used to finalize the NEXT export (it
+     checked the current exportState), destroying its render window. */
+  const job = exportState;
+  const proc = ffmpegProc;
+  const isMine = () => exportState === job;
+  proc.stderr.on('data', (d) => {
+    if (!isMine()) return;
     exportState.ffErr += d.toString();
     if (exportState.ffErr.length > 8000) exportState.ffErr = exportState.ffErr.slice(-8000);
   });
-  ffmpegProc.stdin.on('error', () => {}); // iptal/kapanışta EPIPE'i yut
-  ffmpegProc.on('error', (err) => finalizeExport('error', 'ffmpeg hatası: ' + err.message));
+  proc.stdin.on('error', () => {}); // iptal/kapanışta EPIPE'i yut
+  proc.on('error', (err) => { if (isMine()) finalizeExport('error', trUi('ffmpeg hatası: ', 'ffmpeg error: ') + err.message); });
   const onFfClosed = (code) => {
     // Süre dolunca değil, süreç gerçekten kapanınca. null kod ikinci
     // olayın sayısal sonucunu bekler; erken 'tamam' arayüzü yanıltıyordu.
-    if (!exportState || code == null) return;
+    if (!isMine() || code == null) return;
     if (code === 0) finalizeExport('done');
     else if (exportState.cancel) finalizeExport('cancelled');
-    else finalizeExport('error', 'ffmpeg çıkış kodu ' + code + '\n' + (exportState.ffErr || '').slice(-1200));
+    else finalizeExport('error', trUi('ffmpeg çıkış kodu ', 'ffmpeg exit code ') + code + '\n' + (exportState.ffErr || '').slice(-1200));
   };
-  ffmpegProc.on('exit', onFfClosed);
-  ffmpegProc.on('close', onFfClosed);
+  proc.on('exit', onFfClosed);
+  proc.on('close', onFfClosed);
 
   // Gizli render penceresi (offscreen kanvas; ekrana çizilmez)
   exportWin = new BrowserWindow({
@@ -4833,23 +4839,27 @@ async function startExportJob(opts, bench, extra) {
       backgroundThrottling: false,
     },
   });
-  attachSmoke(exportWin, 'EXPORT');
-  exportWin.on('closed', () => { exportWin = null; });
-  exportWin.webContents.on('render-process-gone', () => {
-    if (!exportState) return;
+  const win = exportWin;
+  attachSmoke(win, 'EXPORT');
+  // Only clear the global if it still points at this job's window
+  win.on('closed', () => { if (exportWin === win) exportWin = null; });
+  win.webContents.on('render-process-gone', () => {
+    if (!isMine()) return;
     if (exportState.finishAt) {
       endExportStdin();
       return;
     }
-    finalizeExport('error', 'Görüntü süreci kapandı. Dışa aktarma durduruldu.', { keep: true });
+    finalizeExport('error', trUi('Görüntü süreci kapandı. Dışa aktarma durduruldu.', 'The render process exited. Export stopped.'), { keep: true });
   });
 
   try {
-    await exportWin.loadFile(path.join(__dirname, '..', 'exporter', 'index.html'));
+    await win.loadFile(path.join(__dirname, '..', 'exporter', 'index.html'));
   } catch (err) {
-    finalizeExport('error', 'Render penceresi yüklenemedi: ' + err.message);
-    return { ok: false, error: 'Render penceresi yüklenemedi.' };
+    if (isMine()) finalizeExport('error', trUi('Render penceresi yüklenemedi: ', 'Could not load the render window: ') + err.message);
+    return { ok: false, error: trUi('Render penceresi yüklenemedi.', 'Could not load the render window.') };
   }
+  // Cancelled or failed while the window was loading: do not send the job
+  if (!isMine() || win.isDestroyed()) return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
 
   const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
   exportWin.webContents.send('export:job', {
@@ -4982,7 +4992,7 @@ ipcMain.handle('export:frame', async (e, data) => {
     if (prof) prof.drainMs += performance.now() - td;
     if (!exportState || exportState.cancel) return { cancel: true };
     if (!drained) {
-      finalizeExport('error', 'Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.');
+      finalizeExport('error', trUi('Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.', 'The encoder pipe closed. Export stopped.'));
       return { cancel: true };
     }
   }
@@ -7715,6 +7725,22 @@ app.on('before-quit', (e) => {
   }
   shutdownCleanup();
 });
+
+/* SIGTERM/SIGINT (systemd, kill, Ctrl+C) must not wait on a confirm-close
+   dialog or a running export: the dialog never answers on a headless
+   session and the process ignored the signal. Skip the prompt, let the
+   normal cleanup cancel the export, and exit anyway if quitting stalls. */
+let signalQuit = false;
+function quitOnSignal(sig) {
+  if (signalQuit) { app.exit(0); return; } // second signal: no more waiting
+  signalQuit = true;
+  forceQuitApp = true;
+  exportQueue.stopping = true;
+  if (exportState) exportState.cancel = true;
+  setTimeout(() => app.exit(0), 5000).unref();
+  try { app.quit(); } catch { app.exit(0); }
+}
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => quitOnSignal(sig));
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

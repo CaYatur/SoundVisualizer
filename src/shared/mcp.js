@@ -2068,6 +2068,10 @@
     }
     const fmt = FX ? FX.format((args && args.format) || FX.DEFAULT_FORMAT) : null;
     if (FX && !fmt) return fail('Unknown format: ' + (args && args.format));
+    /* Invalid values used to be replaced silently ('8k', 144 fps rendered
+       as 1080p60). Reject them with the allowed values instead. */
+    const badOpt = FX && FX.validateOptions ? FX.validateOptions(args) : null;
+    if (badOpt) return fail('Invalid ' + badOpt.field + ': ' + JSON.stringify(badOpt.value) + '. Allowed: ' + badOpt.allowed.join(', ') + '.');
     const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });

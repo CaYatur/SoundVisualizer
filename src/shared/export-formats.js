@@ -528,12 +528,33 @@
     return { pct: Math.min(100, (d / t) * 100), fps, eta };
   }
 
+  /* Rejects explicit but unknown export options instead of silently
+     replacing them with defaults. Omitted (undefined/null/'') values are
+     fine: the job falls back to its defaults. Returns null when valid,
+     otherwise { field, value, allowed }. */
+  function validateOptions(opts) {
+    const o = opts || {};
+    const given = (v) => v !== undefined && v !== null && v !== '';
+    const checks = [
+      ['resolution', Object.keys(RESOLUTIONS), (v) => Object.prototype.hasOwnProperty.call(RESOLUTIONS, v)],
+      ['fps', FPS, (v) => FPS.includes(Number(v))],
+      ['quality', QUALITIES, (v) => QUALITIES.includes(v)],
+      ['speed', SPEEDS, (v) => SPEEDS.includes(v)],
+      ['encoder', ['cpu', 'gpu'], (v) => v === 'cpu' || v === 'gpu'],
+    ];
+    for (const [field, allowed, ok] of checks) {
+      if (given(o[field]) && !ok(o[field])) return { field, value: o[field], allowed: allowed.slice() };
+    }
+    return null;
+  }
+
   const api = {
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
     PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
+    validateOptions,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
