@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522) done; queue, chapters and the two render modes in progress |
+| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527) done; queue and the two render modes in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3138 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3145 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3351,6 +3351,24 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
   - The panel no longer waits for the probe; the format list fills in when it arrives.
   - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
   - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
+
+### Chapters at the timeline markers (#527) · done
+
+- **One render, cut afterwards.** The markers inside the export become forced keyframes, and ffmpeg's segment muxer cuts the single render at them. Rendering each chapter on its own would start MilkDrop and other feedback layers cold at every boundary, so the cut would show.
+- **Output.**
+  - Files go to a folder named after the chosen file, one per chapter, named from the marker: `01 - Intro.mp4`, `02 - Drop.mp4`.
+  - A marker at 0 names the first chapter. Without one, the first chapter is called "Start".
+  - Markers that land on the same frame count once.
+  - The folder is written as `.partial` and renamed when the job succeeds, like a frame sequence.
+  - If the number of files does not match the plan, the job fails instead of silently missing a chapter.
+- **Two measured traps:**
+  - **Exact split times drop cuts.** Given the exact time, the segment muxer skipped the cut whose packet time rounded a hair below it: x264 produced 2 files instead of 3. Split times are now half a frame early, and the keyframe stays at the exact frame.
+  - **AMF ignores forced keyframes.** It produced one file, and none of its options enforces an IDR at a given time. Chapters therefore pick the next GPU encoder that honours forced keyframes (NVENC with `-forced-idr 1`, Quick Sync), and fall back to the CPU.
+- **Measured.** 5 s of audio, markers at 2.0 s ("Nakarat") and 3.5 s ("Son: Bitiş"), 30 fps.
+  - x264, NVENC, x265, VP9 and ProRes each give 60 / 45 / 45 frames, and every file starts on a keyframe.
+  - The names come out as `01 - Başlangıç`, `02 - Nakarat` and `03 - Son Bitiş`.
+  - Audio is cut on AAC frame boundaries, so it differs from the video by up to a few tens of milliseconds per file: 2.043 / 1.486 / 1.494 s against 2.0 / 1.5 / 1.5 s.
+- **Found on the way.** The bench driver's first job sometimes ran on the panel's settings instead of its own, because the panel sends its config while it loads. This is what produced the odd first-job hash noted under #531. The driver now holds panel updates the same way the self-test does.
 
 ### Preset profiles (#522) · done
 
