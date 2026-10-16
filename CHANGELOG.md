@@ -40,6 +40,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   a time, and a saved "GPU" choice is no longer rewritten to "CPU" on a machine without one; the
   export runs on the CPU and the box shows it.
 
+### Studio
+
+- **Imported presets follow the app language [759].** A `.milk`, Shadertoy or ISF file imported
+  through Studio got a Turkish description even in English, and the import notes stayed Turkish.
+  The description is the user's own editable text once saved, so it is now written in the UI
+  language at import. The notes are translated one by one rather than as a joined sentence, the
+  three missing ones were added, and the ISF note that carries an input name from the file
+  translates through a pattern.
+
 ### Audio
 
 - **Per-application audio capture on Linux [514].** Pick one or more applications as the source,

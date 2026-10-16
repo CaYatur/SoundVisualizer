@@ -467,15 +467,22 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     else result = IS().fromShadertoy(r.text, r.name);
 
     if (!result.ok) { P().toast(result.error, 'err'); return; }
+    /* İçe aktarıcı (presets.js) dil bilmiyor ve Türkçe kaynak metin
+       üretiyor. Açıklama bundan sonra kullanıcının kendi, düzenlenebilir
+       metni: editör onu çevirmeden gösteriyor. Bu yüzden KAYITTAN ÖNCE
+       arayüz dilinde yazılıyor (#759). Dosyanın kendi açıklaması (ISF
+       DESCRIPTION) sözlükte olmadığı için olduğu gibi kalıyor. */
+    result.preset.description = trStudio(result.preset.description || '');
     const saveRes = await window.api.savePreset(result.preset);
     if (!saveRes.ok) { P().toast('Kaydedilemedi: ' + saveRes.error, 'err'); return; }
     adopt({ upsert: [saveRes.preset] });
     selectPreset(saveRes.preset.id);
-    const note = (result.notes || []).join(' ');
+    // Parçalar AYRI çevriliyor: birleşik cümle sözlükte eşleşmez (#759)
+    const note = (result.notes || []).map(trStudio).join(' ');
     /* Derlenmeyen dosya da kaydediliyor (düzeltilebilsin diye) ama
        eskiden uyarı yoktu; hata yalnız editörde satır olarak görünüyordu. */
-    if (shaderBroken()) P().toast('İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.' + (note ? ' ' + note : ''), 'warn');
-    else P().toast('İçe aktarıldı.' + (note ? ' ' + note : ''), 'ok');
+    if (shaderBroken()) P().toast(trStudio('İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.') + (note ? ' ' + note : ''), 'warn');
+    else P().toast(trStudio('İçe aktarıldı.') + (note ? ' ' + note : ''), 'ok');
   }
 
   /* Bir sahne (ya da şimdiki görünüm) bu Studio presetini kullanıyor mu?
