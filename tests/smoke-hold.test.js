@@ -23,9 +23,15 @@ test('panel gönderimleri bekletilirken saklanır, bitince uygulanır', () => {
   assert.ok(end.indexOf('applyIncomingConfig(h.full)') < end.indexOf('applyConfigPatch(p)'), 'önce tam yapılandırma, sonra yamalar');
 });
 
-test('bekletmeyi yalnız öz test açar ve sprite ölçümünü sarar', () => {
+test('bekletmeyi yalnız öz test ve dışa aktarma ölçümü açar, sprite ölçümünü sarar', () => {
+  /* İki çağıran: öz test ve --bench-export (#527: panelin açılış
+     güncellemesi ölçülen işin yapılandırmasını değiştiriyordu). */
   const starts = SRC.split('smokeHoldStart();').length - 1;
-  assert.strictEqual(starts, 1, 'tek çağıran');
+  assert.strictEqual(starts, 2, 'iki çağıran');
+  const bench = SRC.indexOf('async function runExportBench(');
+  const inBench = SRC.indexOf('smokeHoldStart();', bench);
+  const fnEnd = /\r?\n\}\r?\n/.exec(SRC.slice(bench)); // CRLF ile çekilen kopyada da
+  assert.ok(bench > 0 && fnEnd && inBench > bench && inBench < bench + fnEnd.index, 'ikincisi runExportBench içinde');
   assert.match(SRC, /smokeHoldStart\(\);\n  let spr;\n  try \{ spr = await spriteProbe\(\); \} finally \{ smokeHoldEnd\(\); \}/);
   const at = SRC.indexOf('smokeHoldStart();\n  let spr;');
   assert.ok(at > SRC.indexOf('async function runSmoke()'), 'runSmoke içinde');

@@ -91,7 +91,8 @@ test('ana süreç: geçici çıktı, başarıda taşıma, iptalde silme, kapanı
   assert.match(job, /workDir = seqDir \+ '\.partial';/);
   assert.match(job, /audioSec, durationSec, output: target,/);
   const fin = M.slice(M.indexOf('function finalizeExport('), M.indexOf("notifyAdmin('export-done'"));
-  assert.ok(fin.indexOf('promotePartial(') > 0 && fin.indexOf("status = 'error';") > fin.indexOf('promotePartial('));
+  // Taşınamazsa iş hataya dönüyor (taşımadan SONRAKİ ilk hata ataması)
+  assert.ok(fin.indexOf('promotePartial(') > 0 && fin.indexOf("status = 'error';", fin.indexOf('promotePartial(')) > 0);
   assert.match(fin, /else if \(status !== 'done' && partial && !\(opts && opts\.keep\)\)/);
   assert.match(M, /function shutdownCleanup\(\) \{[\s\S]{0,400}if \(exportState\) finalizeExport\('cancelled'\);/);
   // Dışa aktarıcı süreyi işten alıyor

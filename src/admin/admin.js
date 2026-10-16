@@ -3426,6 +3426,12 @@
             show: () => exportDuration().mode === 'bars',
           },
           {
+            /* Bölümler (#527): tek render, zaman çizelgesi işaretçilerinde
+               kesilip işaretçi adlarıyla bir klasöre. Yalnız video biçimleri. */
+            type: 'toggle', path: 'export.chapters', label: 'İşaretçilerden bölümlere ayır',
+            show: () => { const f = exportFormat(); return !f || f.kind === 'video'; },
+          },
+          {
             type: 'select', path: 'export.resolution', label: 'Çözünürlük', rebuild: true, // profil seçimi güncellensin (#522)
             options: [
               { value: '720p', label: '720p — 1280×720' },
@@ -5830,6 +5836,7 @@
       outputPath,
       format: fmtId,
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
+      chapters: !!(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind === 'video'),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,

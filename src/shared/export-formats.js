@@ -39,11 +39,13 @@
   const ENCODERS = {
     libx264: { codec: 'h264', gpu: false, label: 'CPU — x264' },
     h264_nvenc: { codec: 'h264', gpu: true, label: 'NVIDIA NVENC' },
-    h264_amf: { codec: 'h264', gpu: true, label: 'AMD AMF' },
+    /* AMF zorunlu anahtar kareyi yok sayıyor (ölçüldü: işaretçilerde
+       kesilmedi, tek dosya çıktı); bölümlemede seçilmiyor (#527). */
+    h264_amf: { codec: 'h264', gpu: true, label: 'AMD AMF', noForcedKeys: true },
     h264_qsv: { codec: 'h264', gpu: true, label: 'Intel Quick Sync' },
     libx265: { codec: 'hevc', gpu: false, label: 'CPU — x265' },
     hevc_nvenc: { codec: 'hevc', gpu: true, label: 'NVIDIA NVENC' },
-    hevc_amf: { codec: 'hevc', gpu: true, label: 'AMD AMF' },
+    hevc_amf: { codec: 'hevc', gpu: true, label: 'AMD AMF', noForcedKeys: true },
     hevc_qsv: { codec: 'hevc', gpu: true, label: 'Intel Quick Sync' },
     prores_ks: { codec: 'prores', gpu: false, label: 'ProRes' },
     dnxhd: { codec: 'dnxhr', gpu: false, label: 'DNxHR' },
@@ -245,9 +247,11 @@
   function encodersFor(fmt) {
     return ORDER.filter(function (e) { return ENCODERS[e].codec === fmt.codec; });
   }
-  function pickEncoder(fmt, want, ok) {
+  function pickEncoder(fmt, want, ok, needs) {
     const list = encodersFor(fmt);
-    const can = typeof ok === 'function' ? ok : function () { return true; };
+    const okFn = typeof ok === 'function' ? ok : function () { return true; };
+    const forced = !!(needs && needs.forcedKeys);
+    const can = function (e) { return okFn(e) && !(forced && ENCODERS[e].noForcedKeys); };
     if (want === 'gpu') {
       for (let i = 0; i < list.length; i++) if (ENCODERS[list[i]].gpu && can(list[i])) return list[i];
     }
@@ -305,6 +309,21 @@
     }
     if (aArgs) args.push('-map', '1:a:0');
     args.push.apply(args, v.args);
+    /* Bölümler (#527): kesim anlarında zorunlu anahtar kare. NVENC ve QSV
+       bunu IDR yapmazsa bölüm bir önceki dosyaya bağımlı başlar. */
+    const cuts = Array.isArray(o.chapters) && o.chapters.length && fmt.kind === 'video' ? o.chapters : null;
+    const cutList = cuts ? cuts.map((t) => Number(t).toFixed(6)).join(',') : '';
+    /* Yazıcının kesim zamanı YARIM KARE ÖNCE: kesim, o andan sonraki ilk
+       anahtar karede yapılıyor ve tam zamanda verilince paket zamanı bir
+       tık altında kalan kare atlanıyordu (x264, 3 yerine 2 bölüm).
+       Ölçüldü: x264, NVENC, x265, VP9, ProRes'te bölümler 60/45/45 kare. */
+    const half = 0.5 / (Number(o.fps) > 0 ? Number(o.fps) : 30);
+    const segList = cuts ? cuts.map((t) => Math.max(0, Number(t) - half).toFixed(6)).join(',') : '';
+    if (cuts) {
+      args.push('-force_key_frames', cutList);
+      if (/_nvenc$/.test(o.encoder)) args.push('-forced-idr', '1');
+      if (/_qsv$/.test(o.encoder)) args.push('-forced_idr', '1');
+    }
     if (v.tags) args.push.apply(args, BT709_TAGS);
     if (aArgs) {
       if (pad) args.push('-af', 'apad');
@@ -324,10 +343,15 @@
         if (fields[k]) args.push('-metadata', k + '=' + String(fields[k]).replace(/[\r\n]+/g, ' ').slice(0, 512));
       }
     }
-    if (fmt.ext === 'mp4' || fmt.ext === 'mov') args.push('-movflags', '+faststart');
+    if (!cuts && (fmt.ext === 'mp4' || fmt.ext === 'mov')) args.push('-movflags', '+faststart');
     if (dur > 0) args.push('-t', dur.toFixed(6));
     else if (aArgs) args.push('-shortest');
     if (fmt.kind === 'sequence') args.push('-f', 'image2', '-start_number', '1');
+    if (cuts) {
+      args.push('-f', 'segment', '-segment_times', segList, '-reset_timestamps', '1',
+        '-segment_format', fmt.ext, '-segment_start_number', '1');
+      if (fmt.ext === 'mp4' || fmt.ext === 'mov') args.push('-segment_format_options', 'movflags=+faststart');
+    }
     if (fmt.id === 'apng') args.push('-f', 'apng');
     args.push(o.output);
     return args;
@@ -391,6 +415,44 @@
   function applyProfile(exp, id) {
     const p = profile(id);
     return Object.assign({}, exp || {}, p ? p.set : {});
+  }
+
+  // ----------------------------------------------------------- bölümler (#527)
+
+  /* Zaman çizelgesi işaretçilerinden bölüm planı. Kesimler kare sınırına
+     yuvarlanıyor; 0'daki ya da son karedeki işaretçi kesim değil (ilk
+     işaretçi 0'daysa ilk bölüm onun adını alıyor), aynı kareye düşenler
+     tekleniyor. Bölüm k, k'inci kesimden bir sonrakine kadar sürüyor.
+     markers: [{ t, name }]. Dönen: { cuts: [s…], names: [ad…] } —
+     names.length === cuts.length + 1. */
+  function chapterPlan(markers, durationSec, fps, firstName) {
+    const f = Number(fps) > 0 ? Number(fps) : 30;
+    const end = Math.round((Number(durationSec) || 0) * f);
+    const list = (Array.isArray(markers) ? markers : [])
+      .map((m) => ({ frame: Math.round((Number(m && m.t) || 0) * f), name: String((m && m.name) || '').trim() }))
+      .filter((m) => m.frame >= 0 && m.frame < end)
+      .sort((a, b) => a.frame - b.frame);
+    const cuts = [];
+    const names = [];
+    const atZero = list.find((m) => m.frame === 0);
+    names.push(atZero && atZero.name ? atZero.name : String(firstName || ''));
+    for (const m of list) {
+      if (m.frame === 0) continue;
+      if (cuts.length && Math.round(cuts[cuts.length - 1] * f) === m.frame) {
+        if (m.name && !names[names.length - 1]) names[names.length - 1] = m.name;
+        continue;
+      }
+      cuts.push(m.frame / f);
+      names.push(m.name);
+    }
+    return { cuts, names };
+  }
+
+  /* Bölüm dosyasının adı: "01 - Nakarat.mp4". Adsız işaretçi "Bölüm N". */
+  function chapterFileName(index, name, ext, fallbackWord) {
+    const n = String(index + 1).padStart(2, '0');
+    const label = sanitizeFileName(name, (fallbackWord || 'Chapter') + ' ' + (index + 1));
+    return n + ' - ' + label + '.' + ext;
   }
 
   // ------------------------------------------------------------ süre (#523)
@@ -470,7 +532,7 @@
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
-    PROFILES, profile, matchProfile, applyProfile,
+    PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
   };
 

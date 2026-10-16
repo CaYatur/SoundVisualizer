@@ -42,6 +42,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   CPU choice and the speed balance stay yours. The profile is read from the settings themselves, so
   changing any of them by hand shows "Custom", and every setting stays available underneath. MCP's
   `sv_start_export` takes a `profile` too, with explicit arguments taking precedence.
+- **Split a long show at the timeline markers [527].** One render is cut at forced keyframes into
+  a folder of files named after the markers ("01 - Intro.mp4", "02 - Drop.mp4"), so feedback
+  layers like MilkDrop run continuously across the cuts instead of restarting cold in each part.
+  Measured on H.264 (x264 and NVENC), H.265, VP9 and ProRes: chapters of exactly 60, 45 and 45
+  frames for markers at 2 s and 3.5 s, each starting on a keyframe. AMD's AMF ignores forced
+  keyframes, so chapters use the next encoder that honours them.
 - **Choose how long the export runs [523].** The length of the audio file (as before), a fixed
   number of seconds, the length of the timeline, or N bars at a BPM (or at the timeline's tempo).
   Video and audio come out exactly that long: shorter audio is padded with silence, and longer
