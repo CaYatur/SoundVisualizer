@@ -227,7 +227,7 @@
     if (a.pid) {
       const byPid = list.find((p) => Number(p.pid) === a.pid);
       if (byPid && sameApp(byPid.name, want)) {
-        return { pid: Number(byPid.pid), name: byPid.name, matched: 'pid' };
+        return { pid: Number(byPid.pid), name: baseName(byPid.name) === want ? byPid.name : a.match, matched: 'pid' };
       }
     }
 
@@ -239,7 +239,11 @@
     const active = byName.filter((p) => p.audible);
     const pool = active.length ? active : byName;
     const best = pool.slice().sort((x, y) => (Number(x.pid) || 0) - (Number(y.pid) || 0))[0];
-    return { pid: Number(best.pid), name: best.name, matched: active.length ? 'audible' : 'name' };
+    /* A legacy plain key ("pacat") must keep capturing EVERY stream of that
+       binary, so the capture target stays the plain key, not one app's
+       "pacat|ToneA" key. */
+    const name = baseName(best.name) === want ? best.name : a.match;
+    return { pid: Number(best.pid), name, matched: active.length ? 'audible' : 'name' };
   }
 
   /* Arayüzde gösterilecek aday listesi. Ses oturumu olan süreçler önce,
@@ -376,7 +380,7 @@
     WIN_MIN_BUILD, MAC_MIN_MAJOR, MODES, DEFAULT_MODE,
     support, macMajorFromDarwin,
     isAppSource, normalizeApp, splitSources, limitExclude,
-    resolveTarget, candidates, baseName, withoutSelf,
+    resolveTarget, candidates, baseName, sameApp, withoutSelf,
     METER_CARRY_MAX, METER_FLOOR_DB, METER_RELEASE_PER_SEC,
     splitMeterChunk, parseMeterLine, meterLevels, meterFraction, meterBallistics,
   };

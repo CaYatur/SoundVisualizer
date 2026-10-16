@@ -1634,6 +1634,19 @@
          tarafı da uygulama açılınca kendiliğinden bağlanıyor. */
       for (const s of selectedApps) {
         if (shown.has(AA.baseName(s.match))) continue;
+        /* A plain key saved before Linux split apps by name ("pacat")
+           still captures every app of that binary: show it as running. */
+        const live = AA.sameApp ? apps.filter((a) => AA.sameApp(a.match, AA.baseName(s.match))) : [];
+        if (live.length) {
+          appRows.push(makeRow(
+            { kind: 'app', match: s.match, label: s.label },
+            live.some((a) => a.audible) ? 'music' : 'mute',
+            s.label || s.match,
+            live.length > 1 ? live.length + ' süreç' : '',
+            appMeter(s.match)
+          ));
+          continue;
+        }
         appRows.push(makeRow(
           { kind: 'app', match: s.match, label: s.label },
           'pause', s.label || s.match, 'çalışmıyor'

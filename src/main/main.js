@@ -526,6 +526,33 @@ if (process.platform === 'win32') {
 let forceQuitApp = false;
 let isConfirmingClose = false;
 
+/* SIGTERM/SIGINT (systemd, kill, Ctrl+C) must not wait on the confirm-close
+   prompt or a running export: on a headless session nobody answers it.
+   The force flag is set BEFORE any window closes so the admin window's
+   'close' handler and 'before-quit' skip the prompt; the fallback exit
+   does not depend on dialogs or the quit sequence finishing. */
+let signalQuit = false;
+function quitOnSignal() {
+  if (signalQuit) { process.exit(0); return; } // second signal: no more waiting
+  signalQuit = true;
+  forceQuitApp = true;
+  try { exportQueue.stopping = true; } catch { /* not ready yet */ }
+  try { if (exportState) exportState.cancel = true; } catch { /* not ready yet */ }
+  setTimeout(() => { try { app.exit(0); } finally { process.exit(0); } }, 5000);
+  try { app.quit(); } catch { app.exit(0); }
+}
+/* Chromium installs its own SIGTERM handler during startup, which closes
+   windows without telling us. Re-registering after it (on ready and after
+   the first window) puts Node's handler back in charge. */
+function installSignalHandlers() {
+  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
+    process.removeListener(sig, quitOnSignal);
+    process.on(sig, quitOnSignal);
+  }
+}
+installSignalHandlers();
+app.whenReady().then(() => { installSignalHandlers(); setTimeout(installSignalHandlers, 1000); });
+
 ipcMain.on('confirm-close-approved', () => {
   forceQuitApp = true;
   if (adminWin && !adminWin.isDestroyed()) adminWin.close();
@@ -533,7 +560,7 @@ ipcMain.on('confirm-close-approved', () => {
 });
 
 async function confirmCloseIfNeeded(parentWin) {
-  if (forceQuitApp || SMOKE) return true;
+  if (forceQuitApp || signalQuit || SMOKE) return true;
   const cfg = currentConfig || loadSettings();
   const confirmClose = !!(cfg && cfg.power && cfg.power.confirmClose);
   if (!confirmClose || !anyVisualizerOpen()) return true;
@@ -608,7 +635,7 @@ function createAdminWindow() {
   }
 
   adminWin.on('close', (e) => {
-    if (forceQuitApp || SMOKE) return;
+    if (forceQuitApp || signalQuit || SMOKE) return;
     const cfg = currentConfig || loadSettings();
     if (cfg?.power?.confirmClose && anyVisualizerOpen()) {
       e.preventDefault();
@@ -7708,7 +7735,7 @@ function shutdownCleanup() {
 }
 
 app.on('before-quit', (e) => {
-  if (forceQuitApp || SMOKE) {
+  if (forceQuitApp || signalQuit || SMOKE) {
     shutdownCleanup();
     return;
   }
@@ -7725,22 +7752,6 @@ app.on('before-quit', (e) => {
   }
   shutdownCleanup();
 });
-
-/* SIGTERM/SIGINT (systemd, kill, Ctrl+C) must not wait on a confirm-close
-   dialog or a running export: the dialog never answers on a headless
-   session and the process ignored the signal. Skip the prompt, let the
-   normal cleanup cancel the export, and exit anyway if quitting stalls. */
-let signalQuit = false;
-function quitOnSignal(sig) {
-  if (signalQuit) { app.exit(0); return; } // second signal: no more waiting
-  signalQuit = true;
-  forceQuitApp = true;
-  exportQueue.stopping = true;
-  if (exportState) exportState.cancel = true;
-  setTimeout(() => app.exit(0), 5000).unref();
-  try { app.quit(); } catch { app.exit(0); }
-}
-for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => quitOnSignal(sig));
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

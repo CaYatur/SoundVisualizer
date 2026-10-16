@@ -148,12 +148,50 @@ test('Linux app audio: one binary hosting two apps gives two selectable rows', (
   assert.strictEqual(A.resolveTarget({ kind: 'app', match: 'pacat|ToneB' }, procs, 'linux').pid, 11);
 });
 
-test('SIGTERM/SIGINT quit skips the confirm dialog and has a forced exit', () => {
+test('SIGTERM/SIGINT quit skips the confirm prompt and has a forced exit', () => {
   const a = MAIN.indexOf('function quitOnSignal(');
   assert.ok(a > 0);
   const s = MAIN.slice(a, MAIN.indexOf('\n}', a));
   assert.match(s, /forceQuitApp = true;/);
   assert.match(s, /exportState\.cancel = true/);
-  assert.match(s, /setTimeout\(\(\) => app\.exit\(0\), 5000\)\.unref\(\)/);
-  assert.match(MAIN, /for \(const sig of \['SIGTERM', 'SIGINT'\]\) process\.on\(sig/);
+  assert.match(s, /setTimeout\(\(\) => \{ try \{ app\.exit\(0\); \} finally \{ process\.exit\(0\); \} \}, 5000\);/);
+  assert.doesNotMatch(s, /unref|showMessageBoxSync/);
+  // Chromium's own SIGTERM handler (installed at startup) closes windows
+  // without telling Node; handlers are re-registered after ready.
+  assert.match(MAIN, /process\.removeListener\(sig, quitOnSignal\);\s*process\.on\(sig, quitOnSignal\);/);
+  assert.match(MAIN, /app\.whenReady\(\)\.then\(\(\) => \{ installSignalHandlers\(\);/);
+  // Declared before the admin window's close handler and checked there
+  assert.ok(a < MAIN.indexOf("adminWin.on('close'"));
+  assert.match(MAIN, /adminWin\.on\('close', \(e\) => \{\s*if \(forceQuitApp \|\| signalQuit \|\| SMOKE\) return;/);
+  assert.match(MAIN, /app\.on\('before-quit', \(e\) => \{\s*if \(forceQuitApp \|\| signalQuit \|\| SMOKE\)/);
+});
+
+test('Linux app audio: a legacy plain key still captures every stream of its binary', () => {
+  const streams = [
+    { index: 1, pid: 10, binary: 'pacat', appName: 'ToneA' },
+    { index: 2, pid: 11, binary: 'pacat', appName: 'ToneB' },
+    { index: 3, pid: 12, binary: 'python3', appName: 'Synth' },
+  ];
+  const procs = L.toProcesses(streams);
+  for (const [key, want] of [['pacat', [1, 2]], ['python3', [3]]]) {
+    const t = A.resolveTarget({ kind: 'app', match: key, pid: 0 }, procs, 'linux');
+    assert.strictEqual(t.name, key, 'capture target stays the plain key');
+    assert.deepStrictEqual(L.selectStreams(streams, { pid: t.pid, match: t.name }, 'include'), want);
+  }
+  // Saved pid hint path too
+  const byPid = A.resolveTarget({ kind: 'app', match: 'pacat', pid: 11 }, procs, 'linux');
+  assert.strictEqual(byPid.name, 'pacat');
+  // New per-app keys stay per-app
+  assert.strictEqual(A.resolveTarget({ kind: 'app', match: 'pacat|ToneB' }, procs, 'linux').name, 'pacat|ToneB');
+});
+
+test('picker: a legacy plain selection matching running apps is not shown as "not running"', () => {
+  assert.strictEqual(A.sameApp('pacat|ToneA', 'pacat'), true);
+  assert.strictEqual(A.sameApp('pacat|ToneA', 'pacat|toneb'), false);
+  assert.strictEqual(A.sameApp('firefox', 'pacat'), false);
+  const admin = read('src/admin/admin.js');
+  const a = admin.indexOf('for (const s of selectedApps) {');
+  const body = admin.slice(a, admin.indexOf("'çalışmıyor'", a));
+  assert.match(body, /apps\.filter\(\(a\) => AA\.sameApp\(a\.match, AA\.baseName\(s\.match\)\)\)/);
+  assert.match(body, /if \(live\.length\) \{/);
 });
