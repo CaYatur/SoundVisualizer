@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3123%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3132%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -933,7 +933,9 @@ the fixtures on the left take the colours on the left of the screen.
   1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF or Intel Quick Sync, whichever
   passes a test encode on your machine. Colours are converted and tagged as BT.709, so players
   show what the screen showed. MP4 and WebM export about three times faster than in v3.1.5: a
-  1080p60 song renders in about half its own length.
+  1080p60 song renders in about half its own length. The length can be the audio file, a fixed
+  time, the timeline or a number of bars; the file is named and tagged with the track, scene and
+  BPM, and a cancelled export leaves no half-written file.
 - **Live recording** of the output exactly as it appears — with the live audio, modulation,
   transitions and effects — to MP4 or WebM, on one key.
 - **GIF export** with two-pass palette generation, because one pass bands visibly.
@@ -1713,7 +1715,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3123 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3132 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

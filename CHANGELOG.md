@@ -36,6 +36,19 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   31 s to 11 s, MilkDrop at 1080p60 from 31 s to 13 s, and MilkDrop at 4K from 60–67 s to 18–19 s.
   The conversion matches ffmpeg's to within one level on luma; the scene itself is drawn exactly as
   before.
+- **Choose how long the export runs [523].** The length of the audio file (as before), a fixed
+  number of seconds, the length of the timeline, or N bars at a BPM (or at the timeline's tempo).
+  Video and audio come out exactly that long: shorter audio is padded with silence, and longer
+  audio is cut (a trimmed MP3 is still copied, not re-encoded). An empty timeline is refused with
+  a reason instead of rendering nothing.
+- **Scene and BPM go into the file [528].** The save dialog suggests "Track - Scene - 128 BPM",
+  with characters Windows forbids and reserved names like CON removed. The file's comment carries
+  the scene name and BPM next to the title, artist and album.
+- **A cancelled export leaves nothing behind [532].** The file is written under a `.partial` name
+  and moved to its real name only when ffmpeg finishes cleanly, so a cancel, an error or quitting
+  the app never leaves a half-written file at the chosen path. Quitting during an export used to
+  leave ffmpeg running; it is now stopped and its partial output removed. The status line shows
+  frames per second and the time left.
 - **The panel opens without waiting for the encoder probe [521].** GPU encoders are tested one at
   a time, and a saved "GPU" choice is no longer rewritten to "CPU" on a machine without one; the
   export runs on the CPU and the box shows it.
