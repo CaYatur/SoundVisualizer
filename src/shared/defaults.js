@@ -672,6 +672,8 @@
       fps: 60,
       bitrate: 16000000,
       limit: 0, // saniye; 0 = sınırsız
+      // Zaman çizelgesi çalınca başla, durunca bitir (#530)
+      followTimeline: false,
       gifFps: 15,
       gifWidth: 640,
       snapshotScale: 1,

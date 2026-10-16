@@ -2968,6 +2968,10 @@
     /* Dışa aktarma profilleri (#522); export-formats.js etiketleriyle aynı */
     'İşaretçilerden bölümlere ayır': 'Split into chapters at the markers',
     'Hazır Profil': 'Preset Profile',
+    /* İki render kipi (#530) */
+    'Zaman çizelgesini izle (çalınca başla, durunca bitir)': 'Follow the timeline (start on play, stop on stop)',
+    'Gerçek zamanlı kip: ekranda göründüğü gibi, canlı sesle kaydedin; modülasyon, geçiş ve efektler dahil. Zaman çizelgesini izleyebilir. MP4, WebM, GIF ve PNG.': 'Realtime mode: record what is on screen with the live audio, including modulation, transitions and effects. It can follow the timeline. MP4, WebM, GIF and PNG.',
+    'Çevrimdışı kip: bir ses dosyası seçin, sahne kare kare ve olabildiğince hızlı çizilir. Ekran kaydı değildir; aynı iş her seferinde aynı videoyu verir.': 'Offline mode: choose an audio file and the scene is drawn frame by frame, as fast as possible. It is not a screen recording; the same job gives the same video every time.',
     /* Dışa aktarma kuyruğu (#526) */
     'Kuyruğa Ekle': 'Add to Queue', 'Birden Çok Ses Ekle': 'Add Several Audio Files',
     'Kuyruğu Başlat': 'Start Queue', 'Kuyruğu Durdur': 'Stop Queue', 'Bitenleri Temizle': 'Clear Finished',

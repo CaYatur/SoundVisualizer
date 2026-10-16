@@ -2946,7 +2946,7 @@
         category: 'output',
         icon: 'record',
         title: 'Kayıt ve Anlık Görüntü',
-        desc: 'Ekranda göründüğü gibi kaydedin: canlı sesle, modülasyon, geçiş ve efektler dahil. MP4, WebM, GIF ve PNG.',
+        desc: 'Gerçek zamanlı kip: ekranda göründüğü gibi, canlı sesle kaydedin; modülasyon, geçiş ve efektler dahil. Zaman çizelgesini izleyebilir. MP4, WebM, GIF ve PNG.',
         controls: [{ type: 'recordpanel' }],
       },
       {
@@ -3510,7 +3510,7 @@
         icon: 'film',
         wide: true,
         title: 'Video Dışa Aktar (MP3 → Video)',
-        desc: 'Bir ses dosyası seçin; mevcut sahne ayarlarıyla kayıpsız videoya dönüştürülür. Ekran kaydı değildir — her kare birebir render edilir.',
+        desc: 'Çevrimdışı kip: bir ses dosyası seçin, sahne kare kare ve olabildiğince hızlı çizilir. Ekran kaydı değildir; aynı iş her seferinde aynı videoyu verir.',
         controls: [
           { type: 'audiofile' },
           {
@@ -6032,6 +6032,8 @@
     }
 
     // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
+    // Çalma kafasını izleyen kayıt (#530) kart açılmadan da çalışsın
+    if (window.SVRecordPanel && cfg.recording && cfg.recording.followTimeline) window.SVRecordPanel.ensureFollow(true);
     /* Biçim listesi açılışı BEKLETMİYOR: kodlayıcı yoklaması (GPU'lar sırayla)
        birkaç saniye sürebiliyor. Kart gelene kadar yalnız MP4'ü gösterir,
        liste gelince yeniden çizilir. */

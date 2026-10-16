@@ -105,6 +105,76 @@
     pumpRaf = 0;
   }
 
+  /* ÇALMA KAFASINI İZLE (#530).
+
+     İki kip ayrı kalıyor: bu kart GERÇEK ZAMANLI kayıt (ekranda olan, o
+     anki sesle), dışa aktarma kartı ÇEVRİMDIŞI render (ses dosyasından,
+     kare kare, belirlenimli). Bu seçenekle gerçek zamanlı kayıt zaman
+     çizelgesini izliyor: çalma başlayınca kayıt başlıyor; duraklatma,
+     durdurma ya da çizelgenin sonu (döngü kapalıyken) kaydı bitiriyor.
+     MIDI, OSC ve MCP'den gelen oynat/durdur da aynı taşımayı sürdüğü için
+     onları da izliyor.
+
+     Karar saf bir fonksiyon. Kayıt yalnız çalmanın BAŞLADIĞI anda açılıyor:
+     çalarken elle durdurulan kayıt kendiliğinden yeniden başlamasın.
+     Yalnız izleyicinin açtığı kayıt durmayla bitiyor; elle başlatılana
+     dokunulmuyor. */
+  function followDecision(s) {
+    if (!s || !s.enabled) return null;
+    if (!s.recording && !s.busy && s.playing && !s.wasPlaying && !s.atEnd) return 'start';
+    if (s.recording && s.byFollow && (!s.playing || s.atEnd)) return 'stop';
+    return null;
+  }
+
+  let followTimer = 0;
+  let followWasPlaying = false;
+  let followRec = false; // şu anki kaydı izleyici mi açtı
+  let followPending = false; // başlatma sürüyor (yüzey bekleniyor, 1,5 sn'ye kadar)
+  function transportState() {
+    const T = window.SVTimelinePanel;
+    const tr = T && typeof T.transport === 'function' ? T.transport() : null;
+    if (!tr) return { playing: false, atEnd: false };
+    let atEnd = false;
+    try {
+      const len = window.SVTimeline && tr.tl ? window.SVTimeline.timelineLength(tr.tl) : 0;
+      const loop = !!(tr.tl && tr.tl.loop && tr.tl.loop.enabled);
+      atEnd = !loop && len > 0 && tr.time >= len - 0.02;
+    } catch { atEnd = false; }
+    return { playing: !!tr.playing, atEnd };
+  }
+  function followTick() {
+    const panel = P();
+    const cfg = panel && panel.cfg ? panel.cfg() : null;
+    const r = cfg && cfg.recording;
+    const R = rec;
+    const st = transportState();
+    const decision = followDecision({
+      enabled: !!(r && r.followTimeline),
+      playing: st.playing,
+      wasPlaying: followWasPlaying,
+      atEnd: st.atEnd,
+      recording: !!(R && R.recording),
+      busy: busy || saving || followPending,
+      byFollow: followRec,
+    });
+    followWasPlaying = st.playing;
+    if (decision === 'start') {
+      followRec = true;
+      followPending = true;
+      Promise.resolve(start(cfg)).finally(() => { followPending = false; });
+    } else if (decision === 'stop') {
+      followRec = false;
+      stop();
+    } else if (!followPending && !(R && R.recording)) {
+      // Kayıt başka yoldan bitti (süre sınırı, elle): izleyicinin değil artık
+      followRec = false;
+    }
+  }
+  function ensureFollow(on) {
+    if (on && !followTimer) followTimer = setInterval(followTick, 150);
+    if (!on && followTimer) { clearInterval(followTimer); followTimer = 0; followWasPlaying = false; }
+  }
+
   function engine() {
     if (!rec && window.SVRecorder) rec = new window.SVRecorder.Recorder();
     return rec;
@@ -217,6 +287,10 @@
       }));
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'GIF iki geçişte üretilir: önce sahneye özel renk paleti çıkarılır, sonra o paletle kodlanır. Tek geçişte sonuç gözle görülür biçimde bantlanır.' }));
     }
+
+    nodes.push(SP().miniToggle('Zaman çizelgesini izle (çalınca başla, durunca bitir)',
+      () => !!r.followTimeline, (v) => { r.followTimeline = !!v; ensureFollow(!!v); }, () => P().apply()));
+    ensureFollow(!!r.followTimeline);
 
     nodes.push(SP().miniSlider('Anlık Görüntü Ölçeği', () => r.snapshotScale || 1, (v) => { r.snapshotScale = v; }, {
       min: 1, max: 4, step: 0.5, fmt: (v) => (+v).toFixed(1) + '×',
@@ -385,5 +459,8 @@
   }
 
   // Kayıt sürüyor mu: önizleme yüzeyi kayda gidiyor (medya hata yazısı gizlenir)
-  window.SVRecordPanel = { panel: panel, start: start, stop: stop, isRecording: () => pumpRaf !== 0 };
+  window.SVRecordPanel = {
+    panel: panel, start: start, stop: stop, isRecording: () => pumpRaf !== 0,
+    followDecision: followDecision, ensureFollow: ensureFollow,
+  };
 })();
