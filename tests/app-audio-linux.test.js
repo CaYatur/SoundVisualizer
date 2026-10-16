@@ -91,7 +91,8 @@ test('özellik değerindeki kaçışlı tırnak çözülür', () => {
 test('liste Windows yardımcısıyla aynı biçimde', () => {
   const p = L.toProcesses(L.parseSinkInputs(JSONOUT));
   assert.deepStrictEqual(p, [
-    { pid: 553, name: 'pacat', label: 'toneA', audible: true },
+    // pacat hosts many apps: the key carries the app name (QA finding)
+    { pid: 553, name: 'pacat|toneA', label: 'toneA', audible: true },
     { pid: 555, name: 'othertone', label: 'othertone', audible: true },
   ]);
 });

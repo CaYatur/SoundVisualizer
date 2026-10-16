@@ -195,6 +195,14 @@
   // ------------------------------------------------------------ hedef eşleme
 
   const baseName = (s) => String(s || '').split(/[\\/]/).pop().toLowerCase();
+  /* Linux keys can be "binary|app name" (app-audio-linux.js streamName).
+     A plain saved key ("pacat", "chrome") still finds such a process by its
+     binary, so targets saved before the split keep working. */
+  const sameApp = (name, want) => {
+    const n = baseName(name);
+    if (n === want) return true;
+    return want.indexOf('|') < 0 && n.indexOf('|') > 0 && n.slice(0, n.indexOf('|')) === want;
+  };
 
   /* Kaydedilmiş hedefi çalışan süreçler arasında bulur.
      Sıra önemli: önce kaydedilmiş kimlik HÂLÂ aynı uygulamaya aitse o,
@@ -218,12 +226,12 @@
 
     if (a.pid) {
       const byPid = list.find((p) => Number(p.pid) === a.pid);
-      if (byPid && baseName(byPid.name) === want) {
+      if (byPid && sameApp(byPid.name, want)) {
         return { pid: Number(byPid.pid), name: byPid.name, matched: 'pid' };
       }
     }
 
-    const byName = list.filter((p) => baseName(p.name) === want);
+    const byName = list.filter((p) => sameApp(p.name, want));
     if (!byName.length) return fallback;
 
     /* Aynı addan birden çok süreç olabiliyor (tarayıcılar). Ses çıkaranı
