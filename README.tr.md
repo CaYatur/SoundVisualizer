@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3114%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3120%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -931,7 +931,8 @@ ekranın solundaki renkleri alıyor.
   VP9, APNG, PNG ve EXR bindirme için alfa kanalını koruyor. Dikey 1080×1920 ve kare 1080×1080,
   24–60 fps. GPU kodlayıcısı NVIDIA NVENC, AMD AMF ya da Intel Quick Sync; hangisi bilgisayarınızda
   deneme kodlamasını geçerse. Renkler BT.709 olarak çevrilip etiketleniyor, oynatıcı ekranda
-  görüneni gösteriyor.
+  görüneni gösteriyor. MP4 ve WebM dışa aktarımı v3.1.5'e göre yaklaşık üç kat hızlı: 1080p60
+  bir şarkı kendi süresinin yarısında çıkıyor.
 - Çıkışın göründüğü gibi **canlı kaydı** — canlı ses, modülasyon, geçişler ve efektlerle — MP4 ya da
   WebM'e, tek tuşla.
 - Tek geçiş gözle görülür bantlandığı için iki geçişli palet üretimli **GIF dışa aktarma**.
@@ -1715,7 +1716,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3114 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3120 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

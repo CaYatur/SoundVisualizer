@@ -29,6 +29,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   conversion was 0.004 off. A cancelled sequence removes its folder.
 - **Portrait, square and more frame rates.** 1080×1920 and 1080×1080, and 24, 25, 30, 50 and
   60 fps. GIF and APNG cap at 30.
+- **Export is about three times faster [531].** For H.264, H.265 and VP9 the frame is converted
+  to BT.709 I420 on the GPU, so 3.1 MB crosses to ffmpeg instead of 8.3 MB and ffmpeg converts
+  nothing. The main process no longer copies each frame a second time, and the colour conversion
+  that remains runs on several threads. With 20 s of audio, fireworks at 1080p60 went from about
+  31 s to 11 s, MilkDrop at 1080p60 from 31 s to 13 s, and MilkDrop at 4K from 60–67 s to 18–19 s.
+  The conversion matches ffmpeg's to within one level on luma; the scene itself is drawn exactly as
+  before.
+- **The panel opens without waiting for the encoder probe [521].** GPU encoders are tested one at
+  a time, and a saved "GPU" choice is no longer rewritten to "CPU" on a machine without one; the
+  export runs on the CPU and the box shows it.
 
 ### Audio
 

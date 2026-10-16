@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha and frame sequences done (#521, #525, #529); speed, profiles, queue, chapters and the rest in progress |
+| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529) and about 3× faster export (#531) done; profiles, queue, chapters and the rest in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3114 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3120 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3307,17 +3307,50 @@ of this release, not a side effect.
   | separate paths (shipped) | 0.00013 | 0 |
 
 - **Verified end to end** in the app with an isolated profile: all eleven formats exported, ffprobe shows the expected codec, pixel format (`yuva444p12le` for ProRes 4444), BT.709 tags, metadata and audio codec per container, and the GIF capped to 30 fps. `--smoke-export` now round-trips ProRes 4444, WebM and a PNG sequence. The H.264 frames hash the same as before the change (`40ff27e4…`), so the rendered picture did not move.
-- **Baseline for #531**, `--bench-export` on main 14e17db, 20 s of audio, frames hashed. Wall time and the renderer's two largest stages:
+- **The first #531 baseline was wrong and is withdrawn.** It read 66.5 s for fireworks at 1080p60 and 138.6 s for MilkDrop at 4K. Re-measured the same evening, the same code took about 30 s and 60 s. Two things were off: the machine was under an unknown load, and the bench driver laid each job over the profile's saved settings, which were empty on the first run and full after the panel had saved once (fireworks and bars hashed differently, MilkDrop did not). The driver now uses only the job's own settings, and the numbers below come from one session.
 
-  | job | wall | draw | readback |
+### Export speed (#531) · done
+
+Export is about three times faster for MP4 and WebM, with no change to the picture.
+
+- **Where the time went.** `--bench-export` times each stage and hashes every frame. With the profile fixed, a 1080p60 frame cost:
+
+  | stage | ms |
+  |---|---|
+  | draw | 2–5 |
+  | `getImageData` readback | 6–9 |
+  | IPC serialisation of 8.3 MB in the renderer | 10–11 |
+  | `Buffer.from` copy in the main process | 7 |
+
+  ffmpeg was not the bottleneck: fed from a file it encodes 150–270 frames a second at 1080p, and a plain Node pipe carries a frame in 3–4 ms.
+- **Three changes:**
+  1. **No second copy.** IPC already decodes each frame into fresh memory; `Buffer.from(typedArray)` copied the `Uint8ClampedArray` element by element again. The main process now wraps the IPC buffer. Frames hash the same.
+  2. **`-filter_threads`.** The colour conversion runs on up to eight threads. `framemd5` is identical with one and eight threads for yuv420p, yuv422p10le and yuva444p10le.
+  3. **I420 from the GPU.** For 8-bit 4:2:0 targets (H.264, H.265, VP9 without alpha), the composited frame is uploaded to a WebGL2 texture and converted to BT.709 limited-range I420 there (`src/exporter/yuv-readout.js`), so 3.1 MB crosses to ffmpeg instead of 8.3 MB and ffmpeg converts nothing. The scene is still drawn on the same CPU canvas, so no pixel of the drawing changes. Alpha, 4:2:2/4:4:4, GIF, APNG and frame sequences keep the RGBA path, as does any size whose width is not a multiple of 4 or height not even.
+- **The conversion matches ffmpeg's.** Raw frames from the same jobs were compared byte for byte: the GPU's I420 against ffmpeg's BT.709 conversion of the identical RGBA frames (720p, 150 frames each).
+
+  | plane | identical | worst |
+  |---|---|---|
+  | Y (MilkDrop / fireworks) | 99.28% / 99.97% | 1 |
+  | U, V (MilkDrop) | 87–89%, the rest almost all ±1 | 5 |
+  | U, V (fireworks) | 96%, the rest almost all ±1 | 6 |
+
+  Chroma is the average of each 2×2 block. That was measured to be what ffmpeg does (U mean error 0.13 against ffmpeg), not left-sited [1/4 1/2 1/4] (0.38) or a single sample (0.63).
+- **Result**, 20 s of audio on NVENC. Each pair was measured in one session, and the GPU path ran twice in alternation with the RGBA path:
+
+  | job | before | after | frames per second |
   |---|---|---|---|
-  | fireworks 1080p60, NVENC | 66.5 s | 8.7 s | 20.7 s |
-  | MilkDrop 1080p60, NVENC | 48.3 s | 12.4 s | 13.4 s |
-  | bars 1080p60, NVENC | 61.3 s | 7.2 s | 22.8 s |
-  | fireworks 1080p60, x264 | 51.7 s | 5.4 s | 17.6 s |
-  | MilkDrop 2160p30, NVENC | 138.6 s | 6.1 s | 90.2 s |
+  | fireworks 1080p60 | 30.0–32.7 s | 10.3–11.0 s | 109–117 |
+  | MilkDrop 1080p60 | 30.0–32.5 s | 12.7–13.1 s | 92–95 |
+  | MilkDrop 2160p30 | 59.8–67.1 s | 18.1–19.5 s | 31–33 |
 
-  At 4K `getImageData` costs 150 ms a frame, two thirds of the run. Two runs of the same MilkDrop job hash identically.
+  A 20 s song at 1080p60 now exports in about half its own length, where it took one and a half times as long. "Before" is the RGBA path with the old copy, equivalent to main before this change.
+- **Still deterministic.** Each job hashed identically on every repeat: four times at 1080p60 and five times at 720p, each as the first job in a fresh process. One earlier RGBA run produced a different hash for its first job under load; that did not reproduce.
+- **Also in this change:**
+  - Encoders are probed CPU-first, then the GPU encoders one at a time, so launch no longer starts fifteen ffmpeg processes at once.
+  - The panel no longer waits for the probe; the format list fills in when it arrives.
+  - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
+  - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
 
 ### Per-application capture on Linux and macOS (#514, #517) · done, macOS unverified
 
