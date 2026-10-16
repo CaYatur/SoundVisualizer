@@ -217,7 +217,8 @@ test('Studio renklendirmesi yorumları ve önişlemci satırlarını korur', () 
 test('Studio içe aktarması derlenmeyen shader için uyarır', () => {
   const S = read('src/admin/studio.js');
   const imp = fnBody(S, 'async function importAny()');
-  assert.match(imp, /if \(shaderBroken\(\)\) P\(\)\.toast\('İçe aktarıldı, ama shader derlenmiyor\. Hata editörde gösteriliyor\.'/);
+  // Metin çeviriden geçerek gösteriliyor (#759); not ayrıca eklenir
+  assert.match(imp, /if \(shaderBroken\(\)\) P\(\)\.toast\(trStudio\('İçe aktarıldı, ama shader derlenmiyor\. Hata editörde gösteriliyor\.'\)/);
   const en = loadEnglish();
   assert.strictEqual(en.t('İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.'), 'Imported, but the shader does not compile. The error is shown in the editor.');
   assert.strictEqual(en.t('İçe aktarıldı.'), 'Imported.');
