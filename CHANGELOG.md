@@ -42,6 +42,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   CPU choice and the speed balance stay yours. The profile is read from the settings themselves, so
   changing any of them by hand shows "Custom", and every setting stays available underneath. MCP's
   `sv_start_export` takes a `profile` too, with explicit arguments taking precedence.
+- **Two render modes, named apart [530].** The export card is the offline mode: an audio file
+  drawn frame by frame as fast as possible, the same video every time. The recording card is the
+  realtime mode: what is on screen with the live audio. Realtime recording can now follow the
+  timeline: it starts when playback starts and stops on pause, stop or the end of the timeline,
+  whether the transport is driven from the panel, MIDI, OSC or MCP.
 - **A batch queue [526].** Queue the current song with the current settings, or several audio
   files at once into one folder, and start the queue. Each job keeps the scene and settings from
   the moment it was added, so you can change the scene and queue the next variation; one song at

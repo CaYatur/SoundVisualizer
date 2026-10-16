@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526) done; the two render modes in progress |
+| Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3151 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3154 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3351,6 +3351,19 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
   - The panel no longer waits for the probe; the format list fills in when it arrives.
   - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
   - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
+
+### Two render modes (#530) · done
+
+- **Two modes, two cards.** Offline render is the export card: an audio file drawn frame by frame as fast as possible, deterministic, the regression net. Realtime capture is the recording card: what is on screen, with the live audio. The cards now say which mode they are, in both languages, rather than leaving it to be inferred.
+- **Realtime follows the playhead.** With "Follow the timeline" on, recording starts when playback starts. It stops on pause or stop, or at the end of the timeline when the loop is off. MIDI, OSC and MCP drive the same transport, so they start and stop it too.
+- **The decision is a pure function.**
+  - It starts only on the transition into playing, so a recording stopped by hand during playback does not restart itself.
+  - It stops only a recording it started; a manual one is left alone.
+  - `start()` waits up to 1.5 s for the preview surface. A pending start keeps the follower's flag, because otherwise the recording would have looked finished and pause would not have stopped it.
+  - The follower is armed at launch when the option is saved, not only after the recording card has been opened.
+- **Measured in the panel:**
+  - Play gave a recording after 2.5 s, and pause stopped it.
+  - On a 2 s timeline with the loop off, recording was on at 1 s and off after the end. The transport itself kept playing to 3.7 s.
 
 ### Batch queue (#526) · done
 
