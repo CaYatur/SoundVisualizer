@@ -350,6 +350,49 @@
     return args;
   }
 
+  // ---------------------------------------------------------- profiller (#522)
+
+  /* Tek tıkla ayar. Her profil biçimi, çözünürlüğü, kare hızını ve kaliteyi
+     sabitliyor; renk her biçimde zaten BT.709. Kodlayıcı (GPU/CPU) ve hız
+     dengesi kullanıcının tercihi olarak kalıyor. Ayrıntılı ayarlar profilin
+     altında duruyor: bir alan değişince seçim kendiliğinden "Özel" oluyor. */
+  const PROFILES = [
+    { id: 'youtube-1080p60', label: ['YouTube 1080p60', 'YouTube 1080p60'],
+      set: { format: 'mp4-h264', resolution: '1080p', fps: 60, quality: 'high' } },
+    { id: 'youtube-4k60', label: ['YouTube 4K60 (H.265)', 'YouTube 4K60 (H.265)'],
+      set: { format: 'mp4-hevc', resolution: '2160p', fps: 60, quality: 'high' } },
+    { id: 'reels-shorts', label: ['Reels / Shorts / TikTok — 1080×1920', 'Reels / Shorts / TikTok — 1080×1920'],
+      set: { format: 'mp4-h264', resolution: '1080x1920', fps: 30, quality: 'high' } },
+    { id: 'instagram-square', label: ['Instagram kare — 1080×1080', 'Instagram square — 1080×1080'],
+      set: { format: 'mp4-h264', resolution: '1080x1080', fps: 30, quality: 'high' } },
+    { id: 'twitch-overlay', label: ['Twitch / OBS bindirme — WebM alfa', 'Twitch / OBS overlay — WebM alpha'],
+      set: { format: 'webm-vp9-alpha', resolution: '1080p', fps: 60, quality: 'high' } },
+    { id: 'master-4k', label: ['Ana kopya 4K — ProRes 422 HQ', 'Master 4K — ProRes 422 HQ'],
+      set: { format: 'mov-prores', resolution: '2160p', fps: 60, quality: 'visually-lossless' } },
+    { id: 'gif-loop', label: ['GIF döngü — 720p', 'GIF loop — 720p'],
+      set: { format: 'gif', resolution: '720p', fps: 24, quality: 'high' } },
+  ];
+
+  function profile(id) {
+    for (let i = 0; i < PROFILES.length; i++) if (PROFILES[i].id === id) return PROFILES[i];
+    return null;
+  }
+
+  /* Şu anki ayarlara birebir uyan profil, yoksa 'custom'. */
+  function matchProfile(exp) {
+    const e = exp || {};
+    for (const p of PROFILES) {
+      if (Object.keys(p.set).every((k) => String(e[k]) === String(p.set[k]))) return p.id;
+    }
+    return 'custom';
+  }
+
+  /* Profili ayarlara uygular (yeni nesne); bilinmeyen profilde aynı ayar. */
+  function applyProfile(exp, id) {
+    const p = profile(id);
+    return Object.assign({}, exp || {}, p ? p.set : {});
+  }
+
   // ------------------------------------------------------------ süre (#523)
 
   const DURATION_MODES = ['audio', 'seconds', 'timeline', 'bars'];
@@ -427,6 +470,7 @@
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
+    PROFILES, profile, matchProfile, applyProfile,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
   };
 

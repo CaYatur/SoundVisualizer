@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532) done; profiles, queue, chapters and the two render modes in progress |
+| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522) done; queue, chapters and the two render modes in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3132 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3138 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3351,6 +3351,14 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
   - The panel no longer waits for the probe; the format list fills in when it arrives.
   - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
   - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
+
+### Preset profiles (#522) · done
+
+- **The profiles are data** in `export-formats.js`: YouTube 1080p60, YouTube 4K60 (H.265), Reels / Shorts / TikTok 1080×1920 at 30 fps, Instagram square 1080×1080, a Twitch / OBS overlay as 1080p60 WebM VP9 with alpha, a 4K60 ProRes 422 HQ master, and a 720p GIF loop at 24 fps.
+- **What a profile sets.** Each one fixes format, resolution, frame rate and quality. Colour is BT.709 for every format already. The encoder (GPU/CPU) and the speed balance remain the user's choice.
+- **No stored field.** The panel derives the profile from the current settings (`matchProfile`). Choosing one fills the fields, and changing any of them by hand shows "Custom". In the panel, changing the frame rate first left the old profile showing, because only the format select rebuilt the card. Resolution, frame rate and quality now rebuild it too.
+- **Availability.** Only profiles whose format works on this machine are listed.
+- **MCP.** `profile` supplies defaults, explicit arguments override them, and the profile's format decides the allowed extension.
 
 ### Duration, audio, metadata and clean cancel (#523, #524, #528, #532) · done
 

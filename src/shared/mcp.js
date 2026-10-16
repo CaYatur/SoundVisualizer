@@ -925,6 +925,7 @@
   const EXPORT_FORMAT_IDS = EXPORT_FX ? EXPORT_FX.FORMATS.map(function (f) { return f.id; }) : ['mp4-h264'];
   const EXPORT_RESOLUTIONS = EXPORT_FX ? Object.keys(EXPORT_FX.RESOLUTIONS) : ['720p', '1080p', '1440p', '2160p'];
   const EXPORT_FPS = EXPORT_FX ? EXPORT_FX.FPS.slice() : [30, 60];
+  const EXPORT_PROFILE_IDS = EXPORT_FX ? EXPORT_FX.PROFILES.map(function (p) { return p.id; }) : [];
   const OVERWRITE = sp('boolean', 'Replace the file if it already exists. Default false.');
   const MAPPING_KEYS = {
     enabled: sp('boolean', 'Turn mapping on for this display.'),
@@ -1077,6 +1078,7 @@
       props: {
         audioPath: sp('string', 'Absolute path of the audio file.'),
         outputPath: sp('string', 'Absolute path ending with the extension of the format (.mp4, .mov, .webm, .gif, .png, .exr).'),
+        profile: sp('string', 'One-click preset for format, resolution, fps and quality; explicit arguments override it.', { enum: EXPORT_PROFILE_IDS }),
         format: sp('string', 'Container and codec. Default mp4-h264. Alpha: mov-prores4444, webm-vp9-alpha, apng, png-seq, exr-seq.', { enum: EXPORT_FORMAT_IDS }),
         resolution: sp('string', 'Video size. Default 1080p.', { enum: EXPORT_RESOLUTIONS }),
         fps: sp('integer', 'Frame rate. Default 60. GIF and APNG cap at 30.', { enum: EXPORT_FPS }),
@@ -2055,6 +2057,14 @@
   tool('sv_start_export', 'export', 'Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath.', function (args, ctx) {
     if (!ctx.startExport) return fail('Export is not available in this process.');
     const FX = formatsApi();
+    /* Profil (#522): biçim, çözünürlük, kare hızı ve kalite için varsayılan;
+       açıkça verilen argüman profilin üstüne yazılır. */
+    if (args && args.profile != null) {
+      const prof = FX && FX.profile(args.profile);
+      if (!prof) return fail('Unknown profile: ' + args.profile);
+      args = Object.assign({}, prof.set, args);
+      delete args.profile;
+    }
     const fmt = FX ? FX.format((args && args.format) || FX.DEFAULT_FORMAT) : null;
     if (FX && !fmt) return fail('Unknown format: ' + (args && args.format));
     const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);

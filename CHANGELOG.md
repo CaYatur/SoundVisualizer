@@ -36,6 +36,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   31 s to 11 s, MilkDrop at 1080p60 from 31 s to 13 s, and MilkDrop at 4K from 60–67 s to 18–19 s.
   The conversion matches ffmpeg's to within one level on luma; the scene itself is drawn exactly as
   before.
+- **One-click profiles [522].** YouTube 1080p60, YouTube 4K60 (H.265), Reels / Shorts / TikTok
+  1080×1920, Instagram square, a Twitch / OBS overlay in WebM with alpha, a ProRes 422 HQ 4K
+  master and a 720p GIF loop. A profile sets the format, size, frame rate and quality; the GPU or
+  CPU choice and the speed balance stay yours. The profile is read from the settings themselves, so
+  changing any of them by hand shows "Custom", and every setting stays available underneath. MCP's
+  `sv_start_export` takes a `profile` too, with explicit arguments taking precedence.
 - **Choose how long the export runs [523].** The length of the audio file (as before), a fixed
   number of seconds, the length of the timeline, or N bars at a BPM (or at the timeline's tempo).
   Video and audio come out exactly that long: shorter audio is padded with silence, and longer
