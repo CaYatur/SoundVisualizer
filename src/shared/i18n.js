@@ -2780,6 +2780,10 @@
     'Shadertoy kodundan içe aktarıldı.': 'Imported from Shadertoy code.',
     'ISF dosyasından içe aktarıldı.': 'Imported from ISF file.',
     '.milk dosyasından içe aktarılan geri besleme ayarları.': 'Feedback settings imported from .milk file.',
+    'MilkDrop dosyasının sabit parametreleri geri besleme motoruna çevrildi; per-frame denklemleri desteklenmiyor.': 'The fixed parameters of the MilkDrop file were converted to the feedback engine; per-frame equations are not supported.',
+    'İçe aktarıldı, ama shader derlenmiyor. Hata editörde gösteriliyor.': 'Imported, but the shader does not compile. The error is shown in the editor.',
+    'iChannel0 = spektrum, iChannel1 = dalga formu, iChannel2 = önceki kare, iChannel3 = medya katmanı olarak bağlandı.': 'iChannel0 = spectrum, iChannel1 = waveform, iChannel2 = previous frame, iChannel3 = media layer.',
+    'Çok geçişli (PASSES) ISF shader\'ı tek geçişe indirgendi; sonuç farklı görünebilir.': 'The multi-pass (PASSES) ISF shader was reduced to a single pass; the result may look different.',
 
     // Sahne Üretici (SceneGen)
     'Tamamen bu bilgisayarda çalışır — hiçbir servise bağlanmaz. Yazdığınız metin enerji, sıcaklık, aydınlık ve doku eksenlerine çevrilir; sahne bu eksenlerden tohumlanmış deterministik bir üreticiyle kurulur. Beğendiğinizi sağdaki Sahneler bölümünden kaydedin.': 'Runs entirely on this computer — connects to no external service. Your text is translated into energy, temperature, brightness and texture axes; the scene is built with a deterministic generator seeded from these axes. Save the ones you like in the Scenes section on the right.',
@@ -3324,6 +3328,8 @@
       .replace(/^([\d.]+) kat piksel$/g, '$1× the pixels')
       .replace(/^Uygulama başına ses yakalama Windows yapı (\d+) ve üstünü gerektiriyor; bu bilgisayarda yapı (\d+)\.$/g,
         'Per-application audio capture requires Windows build $1 or newer; this computer has build $2.')
+      // ISF içe aktarma notu (#759): giriş adı dosyadan geliyor
+      .replace(/^"(.+)" görsel girişi medya katmanına bağlandı\.$/, '"$1" image input is bound to the media layer.')
       .replace(/^Uygulama başına ses yakalama için ([a-z, ]+) gerekiyor; pulseaudio-utils paketini kurun\.$/g,
         'Per-application audio capture needs $1; install the pulseaudio-utils package.')
       .replace(/Şablonum (\d+)/g, 'My Preset $1')
