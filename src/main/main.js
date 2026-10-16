@@ -4335,17 +4335,22 @@ function probeOne(args) {
     setTimeout(() => { try { p.kill(); } catch {} finish(false); }, 15000);
   });
 }
+/* CPU kodlayıcıları birlikte, GPU kodlayıcıları SIRAYLA yoklanıyor: her
+   GPU denemesi bir sürücü aygıtı açıyor ve hepsi birden görselleştirici
+   açılırken GPU'yu meşgul ediyordu. */
 function probeEncoders() {
   if (_encCache) return _encCache;
   const names = Object.keys(exportFormats.ENCODERS);
-  _encCache = Promise.all(names.map((n) => {
+  const map = {};
+  const run = (n) => {
     const args = exportFormats.probeArgs(n);
-    return args ? probeOne(args) : Promise.resolve(false);
-  })).then((oks) => {
-    const map = {};
-    names.forEach((n, i) => { map[n] = oks[i]; });
-    return map;
-  });
+    return (args ? probeOne(args) : Promise.resolve(false)).then((ok) => { map[n] = ok; });
+  };
+  const cpu = names.filter((n) => !exportFormats.ENCODERS[n].gpu);
+  const gpu = names.filter((n) => exportFormats.ENCODERS[n].gpu);
+  _encCache = Promise.all(cpu.map(run))
+    .then(() => gpu.reduce((p, n) => p.then(() => run(n)), Promise.resolve()))
+    .then(() => map);
   return _encCache;
 }
 // Eski sorgu: H.264 için çalışan bir GPU kodlayıcısı var mı
@@ -4405,7 +4410,12 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    sebebi, öz testin (--smoke-export) aynı yolu bir pencere olmadan
    çağırabilmesi: dışa aktarıcı ayrı bir pencere ve ayrı bir preload kullandığı
    için orada bozulan bir şey başka hiçbir testte görünmez. */
-async function startExportJob(opts) {
+/* `bench` yalnız ölçüm sürücüsünden (--bench-export) gelir: aşama süreleri,
+   kare özeti, ham kare dökümü ve karşılaştırma için RGBA yolu. Panel ve MCP
+   yalnız `opts` verebiliyor; dosya yazan `dumpRaw` gibi bir seçeneğin oradan
+   açılamaması için ikisi ayrı parametre. */
+async function startExportJob(opts, bench) {
+  bench = bench || null;
   if (exportState) return { ok: false, error: 'Zaten bir dışa aktarma sürüyor.' };
   opts = opts || {};
   const audioPath = opts.audioPath;
@@ -4477,8 +4487,14 @@ async function startExportJob(opts) {
     if (read) track = read;
   } catch { /* etiket yoksa dosya adı yeter */ }
 
+  /* Kare GPU'da I420'ye çevrilsin mi (#531)? 4:2:0 biçimlerde ve boyut
+     uygunsa evet. Ölçüm sürücüsü karşılaştırma için RGBA yolunu
+     zorlayabiliyor (`bench.rgba`). */
+  const pix = !(bench && bench.rgba) && exportFormats.takesYuv420(fmt, encoderId)
+    && w % 4 === 0 && h % 2 === 0 ? 'yuv420p' : 'rgba';
   const args = exportFormats.buildArgs({
-    fmt, encoder: encoderId, w, h, fps, quality, speed,
+    fmt, encoder: encoderId, w, h, fps, quality, speed, inputPix: pix,
+    threads: Math.max(1, Math.min(8, require('os').cpus().length)),
     audioPath, audioExt: path.extname(audioPath), output: target,
     meta: { title: track.title, artist: track.artist, album: track.album },
   });
@@ -4493,8 +4509,9 @@ async function startExportJob(opts) {
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
      özetleri. Özet, hızlandırmanın görüntüyü değiştirmediğini kanıtlamak
      için: aynı iş aynı kareleri vermeli. */
-  if (opts.profile) {
-    exportState.prof = { t0: Date.now(), writeMs: 0, drainMs: 0, frames: 0, digest: require('crypto').createHash('sha1') };
+  if (bench) {
+    exportState.prof = { t0: Date.now(), copyMs: 0, writeMs: 0, drainMs: 0, frames: 0, digest: require('crypto').createHash('sha1'),
+      dump: bench.dumpRaw ? fs.createWriteStream(bench.dumpRaw) : null, pix };
   }
   notifyAdmin('export-progress', { phase: 'start', encoder });
   ffmpegProc.stderr.on('data', (d) => {
@@ -4558,10 +4575,11 @@ async function startExportJob(opts) {
     /* Dosyanın adı, kapağı ve — takip açıksa — kütüphane sözü.
        Normal söz dosyası kütüphaneyle değiştirilmez. */
     track,
-    profile: !!opts.profile,
+    profile: !!bench,
     /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
     alpha: !!fmt.alpha,
+    pix,
     platform: process.platform,
     lyricsLibrary: configFollowsLyrics(currentConfig) ? lyricsSnapshot() : [],
   });
@@ -4596,10 +4614,20 @@ ipcMain.handle('export:frame', async (e, data) => {
   }
   const prof = exportState.prof;
   const tw = prof ? performance.now() : 0;
-  const buf = Buffer.from(data); // RGBA baytları (kopyalanır)
-  if (prof) { prof.digest.update(buf); prof.frames++; }
+  /* IPC kareyi zaten yeni bir belleğe çözüyor; ikinci kopya gereksiz.
+     Buffer.from(typedArray) Uint8ClampedArray'i öğe öğe kopyalıyordu: 1080p'de
+     kare başına 7 ms, 4K'da 28 ms (#531). Bellek ffmpeg yazana kadar bu
+     Buffer'da kalıyor, kimse onu yeniden kullanmıyor. */
+  const buf = Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  if (prof) {
+    prof.copyMs += performance.now() - tw;
+    prof.digest.update(buf);
+    prof.frames++;
+    if (prof.dump) prof.dump.write(buf); // ölçüm: gönderilen ham kareler
+  }
+  const tw2 = prof ? performance.now() : 0;
   const ok = ffmpegProc.stdin.write(buf);
-  if (prof) prof.writeMs += performance.now() - tw;
+  if (prof) prof.writeMs += performance.now() - tw2;
   if (!ok) {
     const td = prof ? performance.now() : 0;
     // Tampon doluysa ffmpeg işliyordur. Süre dolunca işi başarısız saymak
@@ -4664,11 +4692,14 @@ function finalizeExport(status, message, opts) {
   const encoder = exportState.encoder;
   const encoderId = exportState.encoderId;
   const prof = exportState.prof;
+  if (prof && prof.dump) prof.dump.end();
   if (prof) {
     lastExportProfile = {
+      pix: prof.pix,
       status,
       wallMs: Date.now() - prof.t0,
       tailMs: exportState.finishAt ? Date.now() - exportState.finishAt : 0,
+      copyMs: Math.round(prof.copyMs),
       writeMs: Math.round(prof.writeMs),
       drainMs: Math.round(prof.drainMs),
       frames: prof.frames,
@@ -4919,20 +4950,27 @@ app.whenReady().then(async () => {
 async function runExportBench(file) {
   const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
   const results = [];
-  const base = JSON.parse(JSON.stringify(currentConfig || {}));
+  const base = currentConfig;
   for (const job of spec.jobs || []) {
-    currentConfig = Object.assign({}, base, JSON.parse(JSON.stringify(job.cfg || {})));
+    /* Profilin kayıtlı ayarları MİRAS ALINMIYOR: dışa aktarıcı iş
+       yapılandırmasını varsayılanlarla birleştiriyor. Miras alınsaydı aynı
+       iş, profil ilk açılışta boşken ve panel ayarları kaydettikten sonra
+       farklı kareler verirdi (ölçüldü: fireworks ve bars özetleri değişti,
+       MilkDrop değişmedi). */
+    currentConfig = JSON.parse(JSON.stringify(job.cfg || {}));
     lastExportProfile = null;
     const out = path.join(spec.outDir, job.name + '.' + (job.ext || 'mp4'));
     try { fs.unlinkSync(out); } catch { /* yok */ }
     const t0 = Date.now();
-    const res = await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out, profile: true }));
+    const res = await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out }),
+      { rgba: !!job.rgba, dumpRaw: job.dumpRaw || null });
     const done = res && res.ok ? await awaitExportDone(30 * 60 * 1000) : false;
     const row = { name: job.name, ok: !!(res && res.ok) && done, error: res && res.error, ms: Date.now() - t0,
       size: fs.existsSync(out) ? fs.statSync(out).size : 0, profile: lastExportProfile };
     console.log('[BENCH] ' + JSON.stringify(row));
     results.push(row);
   }
+  currentConfig = base;
   fs.writeFileSync(spec.result, JSON.stringify(results, null, 2));
   app.exit(0);
 }

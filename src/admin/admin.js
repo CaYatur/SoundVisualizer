@@ -55,7 +55,6 @@
   let exportStatusText = '';
   let exportStatusCls = '';
   let exportStatusIcon = '';
-  let gpuAvailable = false;
   /* Bu makinede çalışan dışa aktarma biçimleri ve kodlayıcıları (#521).
      Ana süreç her kodlayıcıyı deneme kodlamasıyla ölçüp bildiriyor. */
   let exportCaps = null;
@@ -3481,16 +3480,16 @@
   // --------------------------------------------------------------------------
   /* Bu makinede kullanılamayan seçenekler açılışta zorlanır: Windows
      dışında sistemden çalan parça/kapak/logo okunamaz, dinamik tema ve söz
-     takibi çalışmaz; NVENC yoksa kodlayıcı CPU. Aynı düzeltme varsayılanlara
+     takibi çalışmaz. Aynı düzeltme varsayılanlara
      da uygulanır (platformDefaults): yoksa temiz kurulumda Sahne 3, Çıkış 1
      "değiştirildi" rozeti çıkıyordu ve "Kategoriyi Sıfırla" sonrası değer
      yeniden zorlanınca rozet geri geliyordu. Değişiklik olduysa true. */
   function platformAdjust(c) {
+    /* Kodlayıcı tercihi ZORLANMIYOR (#521): GPU kodlayıcısı yoksa ana
+       süreç işi CPU'da koşuyor, seçim kutusu da bunu gösteriyor. Eskiden
+       kayıtlı "gpu" açılışta "cpu"ya yazılıyordu ve bunun için panel her
+       açılışta kodlayıcı yoklamasının bitmesini bekliyordu. */
     let platformTouched = false;
-    if (!gpuAvailable && c.export && c.export.encoder === 'gpu') {
-      c.export.encoder = 'cpu';
-      platformTouched = true;
-    }
     if (!(window.SV_PLATFORM && window.SV_PLATFORM.isWindows)) {
       if (c.dynamicTheme && c.dynamicTheme.enabled) {
         c.dynamicTheme.enabled = false;
@@ -5816,8 +5815,13 @@
     }
 
     // GPU (NVENC) kodlayıcı var mı? Yoksa CPU'ya zorla.
-    try { gpuAvailable = !!(await window.api.gpuAvailable()); } catch { gpuAvailable = false; }
-    try { exportCaps = await window.api.exportCapabilities(); } catch { exportCaps = null; }
+    /* Biçim listesi açılışı BEKLETMİYOR: kodlayıcı yoklaması (GPU'lar sırayla)
+       birkaç saniye sürebiliyor. Kart gelene kadar yalnız MP4'ü gösterir,
+       liste gelince yeniden çizilir. */
+    window.api.exportCapabilities().then((c) => {
+      exportCaps = c || null;
+      if (activeCategory === 'output') render();
+    }).catch(() => { exportCaps = null; });
     platformDefaults = null;
 
     // Arayüz durumunu geri yükle

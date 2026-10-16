@@ -103,6 +103,7 @@
      iddiası ölçümle yapılsın diye: çizim, geri okuma, kodlayıcıyı bekleme. */
   let prof = null;
   let alpha = false;
+  let yuv = null; // GPU I420 dönüştürücüsü (#531); RGBA yolunda null
 
   const ring = new Float32Array(FFT_SIZE);
   const ringL = new Float32Array(FFT_SIZE);
@@ -236,6 +237,15 @@
 
     comp.width = width;
     comp.height = height;
+
+    /* Ana süreç ffmpeg'i I420 girdiyle başlattıysa kare GPU'da çevrilmek
+       ZORUNDA: dönüştürücü kurulamazsa iş açıkça duruyor, RGBA'ya sessizce
+       düşmek ffmpeg'e yanlış boyutta kare göndermek olurdu. */
+    yuv = null;
+    if (job.pix === 'yuv420p') {
+      yuv = window.SVYuvReadout && window.SVYuvReadout.create(width, height);
+      if (!yuv) throw new Error('GPU renk dönüştürücüsü kurulamadı (WebGL2).');
+    }
 
     /* Katman yığını. Canlı pencerelerle AYNI sınıf kullanılır; tek fark,
        burada tuvaller belgeye eklenmeyip tek bir birleştirme yüzeyine
@@ -380,7 +390,8 @@
 
     if (prof) prof.drawMs += performance.now() - t0;
     const t1 = prof ? performance.now() : 0;
-    const data = compCtx.getImageData(0, 0, width, height).data; // Uint8ClampedArray RGBA
+    // I420 (GPU'da çevrilmiş) ya da ham RGBA
+    const data = yuv ? yuv.read(comp) : compCtx.getImageData(0, 0, width, height).data;
     if (prof) prof.readMs += performance.now() - t1;
     return data;
   }
@@ -406,7 +417,7 @@
   }
 
   async function run(job) {
-    prof = job.profile ? { decodeMs: 0, setupMs: 0, drawMs: 0, readMs: 0, waitMs: 0, settleMs: 0 } : null;
+    prof = job.profile ? { decodeMs: 0, setupMs: 0, drawMs: 0, readMs: 0, sendMs: 0, waitMs: 0, settleMs: 0 } : null;
     let tp = performance.now();
     const duration = await decodeAudio(job.audioBuffer);
     if (prof) { prof.decodeMs = performance.now() - tp; tp = performance.now(); }
@@ -429,11 +440,13 @@
 
     for (let i = 0; i < totalFrames && !cancelled; i++) {
       const data = renderFrame(i);
+      const ts = prof ? performance.now() : 0;
       // Geri basınç: ana süreç kareyi ffmpeg.stdin'e yazana kadar bekler; ama
       // hemen await etmeyip pencereyi dolduruyoruz (render/encode örtüşmesi).
       const p = window.exp.sendFrame(data, i).then((res) => {
         if (res && res.cancel) cancelled = true;
       });
+      if (prof) prof.sendMs += performance.now() - ts; // invoke kareyi burada, eşzamanlı serileştiriyor
       pending.push(p);
       let tw = prof ? performance.now() : 0;
       if (pending.length >= WINDOW) await pending.shift();

@@ -566,7 +566,7 @@ test('medya hata yazısı yalnız yönetici önizlemesinde çizilir', () => {
 
 /* UX 8: Windows dışında açılışta zorlanan değerler varsayılanla
    karşılaştırılıyordu; temiz kurulumda rozet çıkıyordu. */
-test('Windows dışı ve NVENC yok: zorlanan değerler varsayılan sayılır', () => {
+test('Windows dışı: zorlanan değerler varsayılan sayılır; kodlayıcı tercihi zorlanmaz', () => {
   const vm = require('vm');
   const A = read('src/admin/admin.js');
   const from = A.indexOf('  function platformAdjust(c) {');
@@ -586,7 +586,10 @@ test('Windows dışı ve NVENC yok: zorlanan değerler varsayılan sayılır', (
     const get = (o) => p.split('.').reduce((x, k) => (x == null ? x : x[k]), o);
     assert.deepStrictEqual(get(fresh), get(defs), p + ' rozet çıkarmamalı');
   }
-  assert.strictEqual(defs.export.encoder, 'cpu');
+  /* GPU yoksa iş CPU'da koşuyor ama kayıtlı tercih yazılmıyor (#521):
+     panel açılışta kodlayıcı yoklamasını beklemiyor. */
+  assert.strictEqual(defs.export.encoder, SV.defaultConfig().export.encoder);
+  assert.ok(!/gpuAvailable/.test(A), 'panel GPU yoklamasına bağlı değil');
   assert.strictEqual(defs.logo.source, 'manual');
   const win = run(true, true);
   assert.strictEqual(win.adjust(SV.defaultConfig()), false, 'Windows + NVENC: dokunulmaz');

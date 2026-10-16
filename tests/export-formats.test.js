@@ -166,3 +166,71 @@ test('MCP: çıktı uzantısı seçilen biçiminki olmalı', async () => {
   const good = await call({ audioPath: 'C:/a.wav', outputPath: 'C:/v/x.mov', format: 'mov-prores' });
   assert.strictEqual(good.ok, true, JSON.stringify(good));
 });
+
+// ------------------------------------------------------------ hız (#531)
+
+/* GPU I420: yalnız 8 bit 4:2:0 hedefler. Ölçüldü (720p, 150 kare, aynı
+   RGBA karelerden ffmpeg'in BT.709 dönüşümüne karşı): Y'nin %99,3–99,97'si
+   aynı, en çok 1; U/V'nin %87–96'sı aynı, kalanın neredeyse tamamı ±1. */
+test('GPU I420 yalnız 4:2:0 biçimlerde', () => {
+  const yes = [['mp4-h264', 'libx264'], ['mp4-h264', 'h264_nvenc'], ['mp4-h264', 'h264_amf'], ['mp4-h264', 'h264_qsv'],
+    ['mp4-hevc', 'libx265'], ['mp4-hevc', 'hevc_nvenc'], ['webm-vp9', 'libvpx-vp9']];
+  for (const [f, e] of yes) assert.strictEqual(F.takesYuv420(fmt(f), e), true, f + ' ' + e);
+  const no = [['webm-vp9-alpha', 'libvpx-vp9'], ['mov-prores', 'prores_ks'], ['mov-prores4444', 'prores_ks'],
+    ['mov-dnxhr', 'dnxhd'], ['gif', 'gif'], ['apng', 'apng'], ['png-seq', 'png'], ['exr-seq', 'exr']];
+  for (const [f, e] of no) assert.strictEqual(F.takesYuv420(fmt(f), e), false, f + ' ' + e);
+});
+
+test('I420 girdide ffmpeg dönüşüm yapmıyor, etiketler duruyor', () => {
+  const a = args('mp4-h264', 'h264_nvenc', { inputPix: 'yuv420p' });
+  assert.strictEqual(after(a, '-pixel_format'), 'yuv420p');
+  assert.ok(!a.includes('-vf'), 'renk dönüşümü GPU yaptı');
+  assert.strictEqual(after(a, '-colorspace'), 'bt709');
+  // QSV nv12 sırası istiyor: kayıpsız yer değiştirme, dönüşüm değil
+  assert.strictEqual(after(args('mp4-h264', 'h264_qsv', { inputPix: 'yuv420p' }), '-vf'), 'format=nv12');
+  // Alfa biçimi I420 istese de RGBA kalır
+  const p = args('mov-prores4444', 'prores_ks', { inputPix: 'yuv420p' });
+  assert.strictEqual(after(p, '-pixel_format'), 'rgba');
+  assert.match(after(p, '-vf'), /yuva444p10le$/);
+});
+
+/* framemd5 ile ölçüldü: tek ve sekiz iş parçacığı yuv420p, yuv422p10le ve
+   yuva444p10le'de birebir aynı kareleri veriyor. */
+test('süzgeç iş parçacıkları girdiden önce, tek çekirdekte yok', () => {
+  const a = args('mp4-h264', 'libx264', { threads: 8 });
+  assert.strictEqual(after(a, '-filter_threads'), '8');
+  assert.ok(a.indexOf('-filter_threads') < a.indexOf('-i'));
+  assert.ok(!args('mp4-h264', 'libx264', { threads: 1 }).includes('-filter_threads'));
+});
+
+test('GPU dönüştürücüsü: BT.709 sınırlı aralık, 2x2 renk, kendi hedefine çiziyor', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'exporter', 'yuv-readout.js'), 'utf8');
+  assert.match(src, /16\.0 \+ 219\.0 \* dot\(c, vec3\(0\.2126, 0\.7152, 0\.0722\)\)/);
+  assert.match(src, /128\.0 \+ 224\.0 \* \(c\.b - y\) \/ 1\.8556/);
+  assert.match(src, /128\.0 \+ 224\.0 \* \(c\.r - y\) \/ 1\.5748/);
+  assert.match(src, /\(px\(x, y\) \+ px\(x \+ 1, y\) \+ px\(x, y \+ 1\) \+ px\(x \+ 1, y \+ 1\)\) \* 0\.25/);
+  // Varsayılan çerçeve tamponu alfasız: her dördüncü bayt 255 dönerdi
+  assert.match(src, /framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT0/);
+  assert.match(src, /UNPACK_PREMULTIPLY_ALPHA_WEBGL, false/);
+  const html = fs.readFileSync(path.join(__dirname, '..', 'src', 'exporter', 'index.html'), 'utf8');
+  assert.ok(html.indexOf('yuv-readout.js') > 0 && html.indexOf('yuv-readout.js') < html.indexOf('exporter.js'));
+});
+
+test('I420 yalnız uygun boyutta; dönüştürücü kurulamazsa iş açıkça duruyor', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /w % 4 === 0 && h % 2 === 0 \? 'yuv420p' : 'rgba'/);
+  const ex = fs.readFileSync(path.join(__dirname, '..', 'src', 'exporter', 'exporter.js'), 'utf8');
+  assert.match(ex, /if \(!yuv\) throw new Error\(/);
+  assert.match(ex, /const data = yuv \? yuv\.read\(comp\) : compCtx\.getImageData\(0, 0, width, height\)\.data;/);
+});
+
+/* Ölçüm seçenekleri (kare dökümü dosyaya YAZIYOR) panelden ya da MCP'den
+   açılamamalı: ayrı bir parametrede ve yalnız ölçüm sürücüsü veriyor. */
+test('ölçüm seçenekleri MCP ve panelden açılamıyor', () => {
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /async function startExportJob\(opts, bench\)/);
+  assert.match(main, /ipcMain\.handle\('export:start', \(e, opts\) => startExportJob\(opts\)\);/);
+  assert.match(main, /startExport: \(opts\) => startExportJob\(opts\),/);
+  assert.ok(!/opts\.(profile|dumpRaw|_rgba)/.test(main), 'opts ölçüm seçeneği taşımıyor');
+  assert.match(main, /dump: bench\.dumpRaw \?/);
+});

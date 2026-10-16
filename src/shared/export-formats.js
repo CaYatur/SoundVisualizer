@@ -214,6 +214,15 @@
     }
   }
 
+  /* Kare GPU'da I420'ye çevrilip gönderilebilir mi (#531)? Yalnız 8 bit
+     4:2:0 hedefler: H.264, H.265, alfasız VP9. ffmpeg'in BT.709 dönüşümünü
+     GPU yapıyor; QSV'ye yine nv12 sırası gerekiyor (kayıpsız yer değiştirme).
+     Alfa, 4:2:2/4:4:4, paletli GIF ve kare dizileri RGBA kalıyor. */
+  function takesYuv420(fmt, enc) {
+    const v = videoArgs(fmt, enc, 'high', 'balanced');
+    return !!v && (v.vf === yuvFilter('yuv420p') || v.vf === yuvFilter('nv12'));
+  }
+
   /* Ses kuralı, kaba göre. Kaynak dosya mp4'e uygunsa kopyalanıyor. */
   function audioArgs(fmt, audioExt) {
     if (!fmt.audio) return null;
@@ -263,15 +272,22 @@
     const fmt = o.fmt;
     const v = videoArgs(fmt, o.encoder, o.quality, o.speed);
     if (!v) return null;
-    const args = [
-      '-y',
+    const args = ['-y'];
+    /* Süzgeç iş parçacıkları: renk dönüşümü dilimlere bölünüyor. Ölçüldü
+       (#531): 1080p'de dönüşüm yaklaşık iki kat hızlı, kareler birebir
+       aynı (framemd5; yuv420p, yuv422p10le, yuva444p10le). */
+    if (o.threads > 1) args.push('-filter_threads', String(o.threads));
+    // Girdi: ham RGBA ya da GPU'nun çevirdiği I420 (o.inputPix)
+    const yuvIn = o.inputPix === 'yuv420p' && takesYuv420(fmt, o.encoder);
+    if (yuvIn) v.vf = v.vf === yuvFilter('nv12') ? 'format=nv12' : null;
+    args.push(
       '-f', 'rawvideo',
-      '-pixel_format', 'rgba',
+      '-pixel_format', yuvIn ? 'yuv420p' : 'rgba',
       '-video_size', o.w + 'x' + o.h,
       '-framerate', String(o.fps),
       '-thread_queue_size', '1024', // ham kare girişi için geniş kuyruk
       '-i', 'pipe:0',
-    ];
+    );
     const aArgs = o.audioPath ? audioArgs(fmt, o.audioExt) : null;
     if (aArgs) args.push('-i', o.audioPath);
     if (v.complex) {
@@ -319,7 +335,7 @@
   const api = {
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
-    videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern,
+    videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
