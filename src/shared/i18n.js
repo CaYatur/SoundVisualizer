@@ -2965,6 +2965,9 @@
     'Video Dışa Aktar (MP3 → Video)': 'Video Export (MP3 → Video)',
     /* Dışa aktarma biçimleri (#521); export-formats.js etiketleriyle aynı */
     'Dikey — 1080×1920 (Reels / Shorts)': 'Vertical — 1080×1920 (Reels / Shorts)',
+    'Ses dosyasının süresi': 'Length of the audio file', 'Sabit süre': 'Fixed length',
+    'Zaman çizelgesinin uzunluğu': 'Length of the timeline', 'Ölçü sayısı (BPM\'den)': 'Number of bars (from the BPM)',
+    'Süre (saniye)': 'Duration (seconds)', 'Zaman çizelgesi': 'Timeline',
     'Kare — 1080×1080': 'Square — 1080×1080',
     '24 FPS (sinema)': '24 FPS (cinema)',
     '25 FPS (PAL)': '25 FPS (PAL)',
@@ -3433,6 +3436,8 @@
       .replace(/^Yakalanıyor: (.+)$/g, (m, dev) => `Capturing: ${translate(dev)}`)
       .replace(/^Kodlanıyor \((.+)\)… kareler bitti, video yazılıyor\.$/g, 'Encoding ($1)… frames finished, writing video.')
       .replace(/^Render ediliyor \[(.+)\]… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Rendering [$1]… $2% ($3 / $4 frames)')
+      // Dışa aktarımın kalan süresi (#532): "kalan 1:05"
+      .replace(/^kalan (\d+(?::\d\d){1,2})$/, '$1 left')
       .replace(/^Tamamlandı \((.+)\) → (.+)$/g, 'Completed ($1) → $2')
       .replace(/^Tamamlandı \((.+)\)$/g, 'Completed ($1)')
       .replace(/^Şablonum (\d+)$/g, 'My Template $1')

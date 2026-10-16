@@ -1080,6 +1080,8 @@
         format: sp('string', 'Container and codec. Default mp4-h264. Alpha: mov-prores4444, webm-vp9-alpha, apng, png-seq, exr-seq.', { enum: EXPORT_FORMAT_IDS }),
         resolution: sp('string', 'Video size. Default 1080p.', { enum: EXPORT_RESOLUTIONS }),
         fps: sp('integer', 'Frame rate. Default 60. GIF and APNG cap at 30.', { enum: EXPORT_FPS }),
+        duration: sp('object', 'How long to render. {mode: audio (default, the file length) | seconds | timeline | bars, seconds, bars, bpm (0 = timeline tempo)}. Audio shorter than the video is padded with silence; longer audio is cut.'),
+        sceneName: sp('string', 'Scene name for the file metadata. Default: the active scene.'),
         encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
         quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),
         speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),

@@ -423,7 +423,12 @@
     if (prof) { prof.decodeMs = performance.now() - tp; tp = performance.now(); }
     await setup(job);
     if (prof) prof.setupMs = performance.now() - tp;
-    totalFrames = Math.max(1, Math.ceil(duration * fps));
+    /* Süre ana süreçten gelebilir (#523): sabit saniye, zaman çizelgesi ya
+       da N ölçü. Ses bittikten sonraki kareler sessizlikle çiziliyor
+       (analyzeAt dosya dışını sıfır okuyor); ffmpeg sesi de aynı süreye
+       dolduruyor ya da kesiyor. */
+    const renderSec = Number(job.durationSec) > 0 ? Number(job.durationSec) : duration;
+    totalFrames = Math.max(1, Math.ceil(renderSec * fps));
     window.exp.ready(totalFrames);
 
     // Boru hattı (pipeline): render, IPC ve ffmpeg kodlaması ÜST ÜSTE çalışsın.

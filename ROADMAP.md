@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529) and about 3× faster export (#531) done; profiles, queue, chapters and the rest in progress |
+| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532) done; profiles, queue, chapters and the two render modes in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3123 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3132 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3351,6 +3351,35 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
   - The panel no longer waits for the probe; the format list fills in when it arrives.
   - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
   - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
+
+### Duration, audio, metadata and clean cancel (#523, #524, #528, #532) · done
+
+- **Duration.** The export lasts the audio file's length (the default), a fixed number of seconds, the timeline's length (latest clip, marker or loop end), or N bars. Bars use a typed BPM or, when it is 0, the timeline's tempo map. The main process measures the audio with ffmpeg and resolves the length before it starts. The renderer draws exactly `ceil(seconds × fps)` frames, and the frames past the end of the audio are drawn with silence.
+- **Audio follows the video's length (#524).** If the audio is shorter, it is padded with `apad` and re-encoded, because a copied stream cannot be filtered. If it is longer, it is cut with `-t`, and an MP3 or AAC source is still copied. Each container keeps its codec: AAC or a copy in MP4, PCM s24 in MOV, Opus in WebM, and no audio for GIF, APNG or frame sequences.
+- **Metadata (#528).**
+  - The save dialog suggests "Track - Scene - 128 BPM".
+  - Characters Windows forbids, reserved names (CON, NUL, COM1…) and trailing dots or spaces are removed, and the name is capped at 150 characters.
+  - The file's `comment` carries `Scene: … · BPM: …` next to the title, artist and album. MP4 and MOV do not write custom keys, and `comment` is read everywhere.
+  - Over MCP, an export without a scene name takes the active scene.
+- **No partial file at the final path (#532).**
+  - **Rename on success.** Output goes to `name.partial.ext`, or `folder.partial` for a sequence, and is renamed only after ffmpeg exits with 0. If the rename fails, the job reports an error and points at the partial file instead of losing it.
+  - **Cancel or error.** The partial output is removed. A renderer crash still keeps what was written.
+  - **Quitting.** Quitting during an export now stops ffmpeg and removes the partial file. Before, ffmpeg could keep running after the app closed.
+  - **Status line.** It shows frames per second and the time left. The clock starts at the first frame, so decoding and scene setup do not inflate it.
+- **Measured in the app** with 5 s of audio:
+
+  | job | frames | video / audio | audio |
+  |---|---|---|---|
+  | 8 s fixed | 240 | 8.000 / 8.000 s | AAC; silence after 5 s (−inf dB) |
+  | 3 s fixed, WAV | 90 | 3.000 / 3.000 s | AAC |
+  | 3 s fixed, MP3 | 90 | 3.000 / 3.005 s | copied; packet boundary |
+  | 8 bars at 120 BPM | 480 | 16.000 / 16.000 s | comment "BPM: 120" |
+  | timeline, marker at 6 s | 180 | 6.000 / 6.000 s | |
+  | empty timeline | — | refused with a reason | |
+  | cancel after 2.5 s | — | no file, no `.partial` | |
+  | quit after 3 s | — | no file, no `.partial`, no ffmpeg left | |
+
+  A 6 s PNG sequence over 5 s of audio wrote 180 frames into the final folder.
 
 ### Per-application capture on Linux and macOS (#514, #517) · done, macOS unverified
 

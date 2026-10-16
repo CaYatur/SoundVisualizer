@@ -4290,6 +4290,30 @@ function removePartialDir(dir, proc) {
   if (proc && proc.exitCode == null && proc.signalCode == null) proc.once('close', () => setTimeout(drop, 50));
   else setTimeout(drop, 50);
 }
+/* Geçici çıktıyı asıl adına taşır. Dosyada hedef varsa üstüne yazılır
+   (kaydetme penceresi bunu zaten sordu); kare dizisinde klasör adı
+   doluysa yanına numaralı yenisi seçilir. Windows tutamacı hemen
+   bırakmayabildiği için birkaç kez denenir. */
+function promotePartial(partial, workDir, finalPath) {
+  let dest = finalPath;
+  if (workDir) {
+    const base = finalPath;
+    for (let n = 2; fs.existsSync(dest) && n < 1000; n++) dest = base + ' (' + n + ')';
+  }
+  const src = workDir || partial;
+  let last = null;
+  const nap = new Int32Array(new SharedArrayBuffer(4));
+  for (let i = 0; i < 10; i++) {
+    try {
+      fs.renameSync(src, dest);
+      return { ok: true, path: dest };
+    } catch (err) {
+      last = err;
+      Atomics.wait(nap, 0, 0, 100);
+    }
+  }
+  return { ok: false, error: (last && last.message) || 'rename' };
+}
 function flushPartialsSync(budgetMs) {
   const end = Date.now() + budgetMs;
   const nap = new Int32Array(new SharedArrayBuffer(4));
@@ -4297,6 +4321,21 @@ function flushPartialsSync(budgetMs) {
     for (const f of Array.from(pendingPartials)) dropPartial(f);
     if (pendingPartials.size) Atomics.wait(nap, 0, 0, 50);
   }
+}
+
+/* Ses dosyasının süresi, saniye (ffmpeg dökümündeki "Duration:"). Ölçülemezse 0. */
+function audioDurationSec(ff, file) {
+  return new Promise((resolve) => {
+    let err = '';
+    let p;
+    try { p = spawn(ff, ['-hide_banner', '-i', file], { windowsHide: true }); } catch { return resolve(0); }
+    p.stderr.on('data', (d) => { err += d.toString(); });
+    p.on('error', () => resolve(0));
+    p.on('close', () => {
+      const m = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(err);
+      resolve(m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0);
+    });
+  });
 }
 
 // Paketlenmiş ffmpeg (ffmpeg-static); yoksa sistem PATH'indeki "ffmpeg".
@@ -4454,18 +4493,21 @@ async function startExportJob(opts, bench) {
      (ad_000001.png …). Klasör zaten varsa yanına numaralı yenisi açılır;
      başka bir işin karelerinin üstüne yazılmaz. */
   let target = outputPath;
+  /* Yarım dosya asıl yolda hiç olmuyor (#532): çıktı önce `.partial`
+     adıyla yazılıyor, ffmpeg başarıyla kapanınca asıl adına taşınıyor.
+     Kare dizisinde aynısı klasör için. */
   let seqDir = null;
+  let workDir = null;
   if (fmt.kind === 'sequence') {
     const stem = path.basename(outputPath, path.extname(outputPath));
     const parent = path.dirname(outputPath);
     seqDir = path.join(parent, stem);
     for (let n = 2; fs.existsSync(seqDir) && n < 1000; n++) seqDir = path.join(parent, stem + ' (' + n + ')');
-    try {
-      fs.mkdirSync(seqDir, { recursive: true });
-    } catch (err) {
-      return { ok: false, error: trUi('Klasör açılamadı: ', 'Could not create the folder: ') + err.message };
-    }
-    target = exportFormats.sequencePattern(seqDir, stem, fmt.ext);
+    workDir = seqDir + '.partial';
+    for (let n = 2; fs.existsSync(workDir) && n < 1000; n++) workDir = seqDir + '.partial' + n;
+    target = exportFormats.sequencePattern(workDir, stem, fmt.ext);
+  } else {
+    target = exportFormats.partialPath(outputPath);
   }
 
   const ff = resolveFfmpeg();
@@ -4487,6 +4529,44 @@ async function startExportJob(opts, bench) {
     if (read) track = read;
   } catch { /* etiket yoksa dosya adı yeter */ }
 
+  /* Süre (#523): sesin kendisi, sabit saniye, zaman çizelgesinin
+     uzunluğu ya da N ölçü. Ses süresi ffmpeg'den ölçülüyor; video ve ses
+     tam bu süre kadar yazılıyor (ses kısaysa sessizlikle doluyor). */
+  const audioSec = await audioDurationSec(ff, audioPath);
+  const durSpec = opts.duration && typeof opts.duration === 'object' ? opts.duration : { mode: 'audio' };
+  const TL = require('../shared/timeline.js');
+  const tlCfg = (currentConfig && currentConfig.timeline) || {};
+  let tempoMap = null;
+  try {
+    tempoMap = Number(durSpec.bpm) > 0
+      ? TL.makeTempoMap([{ t: 0, bpm: Number(durSpec.bpm), beatsPerBar: Number(durSpec.beatsPerBar) > 0 ? Number(durSpec.beatsPerBar) : 4 }])
+      : TL.makeTimeline(tlCfg).tempo;
+  } catch { tempoMap = null; }
+  const dur = exportFormats.resolveDuration(durSpec, {
+    audioSec,
+    timelineSec: (() => { try { return TL.timelineLength(TL.makeTimeline(tlCfg)); } catch { return 0; } })(),
+    barsToSeconds: tempoMap ? (n) => TL.barsToSeconds(tempoMap, n + 1, 1) : null,
+  });
+  if (!dur.ok) {
+    const msg = {
+      TIMELINE_EMPTY: trUi('Zaman çizelgesi boş; süre ondan alınamaz.', 'The timeline is empty, so it cannot set the duration.'),
+      BAD_BARS: trUi('Ölçü sayısı geçersiz.', 'The number of bars is not valid.'),
+      NO_DURATION: trUi('Süre belirlenemedi.', 'The duration could not be determined.'),
+    }[dur.code] || dur.code;
+    return { ok: false, error: msg };
+  }
+  /* "Sesin süresi" seçiliyken eski kural geçerli (-shortest): ffmpeg'in
+     ölçtüğü süreyle çözülen süre arasındaki küçük fark sesi kesmesin. */
+  const durationSec = dur.mode === 'audio' ? 0 : dur.seconds;
+  /* Sahne adı meta veriye (#528): panel gönderiyor; MCP vermezse etkin sahne. */
+  let sceneName = typeof opts.sceneName === 'string' ? opts.sceneName.slice(0, 120) : '';
+  if (!sceneName && currentConfig && currentConfig._activeSceneId && Array.isArray(currentConfig.scenes)) {
+    const sc = currentConfig.scenes.find((x) => x && x.id === currentConfig._activeSceneId);
+    if (sc && typeof sc.name === 'string') sceneName = sc.name.slice(0, 120);
+  }
+  const bpmMeta = Number(durSpec.bpm) > 0 ? Number(durSpec.bpm)
+    : (tlCfg.enabled && tempoMap && tempoMap[0] ? tempoMap[0].bpm : 0);
+
   /* Kare GPU'da I420'ye çevrilsin mi (#531)? 4:2:0 biçimlerde ve boyut
      uygunsa evet. Ölçüm sürücüsü karşılaştırma için RGBA yolunu
      zorlayabiliyor (`bench.rgba`). */
@@ -4495,9 +4575,17 @@ async function startExportJob(opts, bench) {
   const args = exportFormats.buildArgs({
     fmt, encoder: encoderId, w, h, fps, quality, speed, inputPix: pix,
     threads: Math.max(1, Math.min(8, require('os').cpus().length)),
-    audioPath, audioExt: path.extname(audioPath), output: target,
-    meta: { title: track.title, artist: track.artist, album: track.album },
+    audioPath, audioExt: path.extname(audioPath), audioSec, durationSec, output: target,
+    meta: { title: track.title, artist: track.artist, album: track.album, scene: sceneName, bpm: bpmMeta },
   });
+
+  if (workDir) {
+    try {
+      fs.mkdirSync(workDir, { recursive: true });
+    } catch (err) {
+      return { ok: false, error: trUi('Klasör açılamadı: ', 'Could not create the folder: ') + err.message };
+    }
+  }
 
   try {
     ffmpegProc = spawn(ff, args, { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
@@ -4505,7 +4593,11 @@ async function startExportJob(opts, bench) {
     return { ok: false, error: 'ffmpeg başlatılamadı: ' + err.message };
   }
 
-  exportState = { outputPath: seqDir || outputPath, seqDir, format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false };
+  exportState = {
+    outputPath: seqDir || outputPath, seqDir, workDir, partial: workDir || target,
+    format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false,
+    startedAt: 0, total: 0,
+  };
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
      özetleri. Özet, hızlandırmanın görüntüyü değiştirmediğini kanıtlamak
      için: aynı iş aynı kareleri vermeli. */
@@ -4513,7 +4605,10 @@ async function startExportJob(opts, bench) {
     exportState.prof = { t0: Date.now(), copyMs: 0, writeMs: 0, drainMs: 0, frames: 0, digest: require('crypto').createHash('sha1'),
       dump: bench.dumpRaw ? fs.createWriteStream(bench.dumpRaw) : null, pix };
   }
-  notifyAdmin('export-progress', { phase: 'start', encoder });
+  notifyAdmin('export-progress', {
+    phase: 'start', encoder,
+    encoderLabel: exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
+  });
   ffmpegProc.stderr.on('data', (d) => {
     if (!exportState) return;
     exportState.ffErr += d.toString();
@@ -4580,6 +4675,8 @@ async function startExportJob(opts, bench) {
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
     alpha: !!fmt.alpha,
     pix,
+    // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523)
+    durationSec,
     platform: process.platform,
     lyricsLibrary: configFollowsLyrics(currentConfig) ? lyricsSnapshot() : [],
   });
@@ -4662,11 +4759,19 @@ ipcMain.handle('export:frame', async (e, data) => {
   return { cancel: !!(exportState && exportState.cancel) };
 });
 
+/* İlerleme, saniyedeki kare ve kalan süre (#532). Saat ilk kareden
+   başlıyor: ses çözme ve sahne kurulumu kalan süreyi şişirmesin. */
 ipcMain.on('export:ready', (e, total) => {
+  if (exportState) { exportState.startedAt = Date.now(); exportState.total = Number(total) || 0; }
   notifyAdmin('export-progress', { phase: 'render', done: 0, total });
 });
 ipcMain.on('export:progress', (e, p) => {
-  notifyAdmin('export-progress', { phase: 'render', done: p.done, total: p.total });
+  const st = exportState && exportState.startedAt
+    ? exportFormats.progressStats(p.done, p.total, Date.now() - exportState.startedAt) : null;
+  notifyAdmin('export-progress', {
+    phase: 'render', done: p.done, total: p.total,
+    fps: st ? Math.round(st.fps * 10) / 10 : 0, eta: st ? st.eta : null,
+  });
 });
 function endExportStdin() {
   const proc = ffmpegProc;
@@ -4689,6 +4794,8 @@ function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
   const out = exportState.outputPath;
   const seqDir = exportState.seqDir;
+  const workDir = exportState.workDir;
+  const partial = exportState.partial;
   const encoder = exportState.encoder;
   const encoderId = exportState.encoderId;
   const prof = exportState.prof;
@@ -4721,15 +4828,30 @@ function finalizeExport(status, message, opts) {
   }
   exportWin = null;
 
-  // Yarım kalan dosyayı temizle (iptal/hata). Çöken görüntü süreci
-  // dosyayı yazmış olabilir; o kopya yerinde kalır, süreç durur.
-  if (status !== 'done' && !(opts && opts.keep) && out) {
-    if (seqDir) removePartialDir(seqDir, proc);
-    else removePartial(out, proc);
+  /* Başarıda geçici çıktı asıl adına taşınıyor; taşınamazsa iş HATA
+     sayılıyor ve geçici dosya yerinde kalıyor (kaybolmasın). İptal ve
+     hatada geçici çıktı siliniyor; asıl yolda hiçbir zaman yarım dosya
+     olmuyor. */
+  let finalOut = out;
+  if (status === 'done' && partial) {
+    const moved = promotePartial(partial, seqDir ? workDir : null, seqDir || out);
+    if (moved.ok) {
+      finalOut = moved.path;
+    } else {
+      status = 'error';
+      finalOut = partial;
+      message = trUi('Dosya asıl adına taşınamadı: ', 'Could not move the file to its final name: ') + moved.error + ' (' + partial + ')';
+    }
+  } else if (status !== 'done' && partial && !(opts && opts.keep)) {
+    if (workDir) removePartialDir(workDir, proc);
+    else removePartial(partial, proc);
+  } else if (opts && opts.keep) {
+    // Çöken görüntü süreci: yazılmış kısım saklanıyor, yeri söyleniyor
+    finalOut = partial;
   }
 
   notifyAdmin('export-done', {
-    status, output: out, message: message || '', encoder,
+    status, output: finalOut, message: message || '', encoder,
     encoderLabel: encoderId && exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
   });
 }
@@ -4964,8 +5086,11 @@ async function runExportBench(file) {
     const t0 = Date.now();
     const res = await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out }),
       { rgba: !!job.rgba, dumpRaw: job.dumpRaw || null });
+    /* İptal ve kapanış denemesi (#532): asıl yolda yarım dosya kalmamalı. */
+    if (res && res.ok && job.cancelAfterMs) setTimeout(() => { if (exportState) exportState.cancel = true; }, job.cancelAfterMs);
+    if (res && res.ok && job.quitAfterMs) setTimeout(() => app.quit(), job.quitAfterMs);
     const done = res && res.ok ? await awaitExportDone(30 * 60 * 1000) : false;
-    const row = { name: job.name, ok: !!(res && res.ok) && done, error: res && res.error, ms: Date.now() - t0,
+    const row = { name: job.name, ok: !!(res && res.ok) && done, error: res && res.error, ms: Date.now() - t0, out,
       size: fs.existsSync(out) ? fs.statSync(out).size : 0, profile: lastExportProfile };
     console.log('[BENCH] ' + JSON.stringify(row));
     results.push(row);
@@ -7277,6 +7402,10 @@ async function runSmoke() {
    her iki dalda da eksikti. textureShare'inki görünür bir hataya yol açıyordu —
    Spout göndericisi uygulama kapandıktan sonra da kayıtlı kalıyordu. */
 function shutdownCleanup() {
+  /* Süren dışa aktarım: ffmpeg durdurulur, geçici çıktı silinir
+     (will-quit'teki flushPartialsSync bekler). Eskiden ffmpeg arkada
+     kalabiliyor ve yarım dosya yerinde duruyordu. */
+  if (exportState) finalizeExport('cancelled');
   quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
   flushSettings(); // birleştirilmiş kayıt beklemede kalmasın
   streamServer.stop().catch(() => {});
