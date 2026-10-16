@@ -4256,6 +4256,147 @@ let exportWin = null;
 let ffmpegProc = null;
 let exportState = null; // { outputPath, ffErr } — aktifken dolu, biter bitmez null
 let lastExportProfile = null; // son ölçümlü işin aşama süreleri (#531)
+const exportDoneWaiters = []; // finalizeExport sonucu bekleyenler (kuyruk)
+
+/* DIŞA AKTARMA KUYRUĞU (#526).
+
+   "Bir sahne on şarkıya", "bir şarkı üç çözünürlükte": işler sırayla,
+   biri hata verse de sonraki koşuyor. Her iş eklendiği anın sahne
+   yapılandırmasını taşıyor. Kuyruk bellekte; uygulama kapanınca biter.
+   Panel her değişikliği `export-queue` ile görüyor. */
+const exportQueue = { items: [], running: false, stopping: false, seq: 0 };
+const QUEUE_MAX = 200;
+
+function queueState() {
+  return {
+    running: exportQueue.running,
+    items: exportQueue.items.map((it) => ({
+      id: it.id, name: path.basename(it.outputPath), outputPath: it.outputPath, audioName: path.basename(it.audioPath),
+      format: it.opts.format, resolution: it.opts.resolution, fps: it.opts.fps,
+      status: it.status, message: it.message || '', output: it.output || '',
+    })),
+  };
+}
+function queueNotify() { notifyAdmin('export-queue', queueState()); }
+
+/* Aynı adlı çıktı kuyrukta ya da diskte varsa "(2)" eklenir: on şarkı aynı
+   klasöre giderken biri ötekinin üstüne yazmasın. */
+function queueUniquePath(p) {
+  const taken = (q) => fs.existsSync(q) || exportQueue.items.some((it) => it.status !== 'done' && it.outputPath === q);
+  if (!taken(p)) return p;
+  const ext = path.extname(p);
+  const stem = p.slice(0, p.length - ext.length);
+  for (let n = 2; n < 1000; n++) {
+    const q = stem + ' (' + n + ')' + ext;
+    if (!taken(q)) return q;
+  }
+  return p;
+}
+
+function queueAdd(list) {
+  const added = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    if (exportQueue.items.length >= QUEUE_MAX) break;
+    const r = raw || {};
+    const opts = Object.assign({}, r.opts || {});
+    const fmt = exportFormats.format(opts.format || exportFormats.DEFAULT_FORMAT);
+    if (!fmt || typeof r.audioPath !== 'string' || !path.isAbsolute(r.audioPath)) continue;
+    if (typeof r.outputPath !== 'string' || require('../shared/mcp').badOutPath(r.outputPath, [fmt.ext])) continue;
+    const item = {
+      id: 'q' + (++exportQueue.seq),
+      audioPath: r.audioPath,
+      outputPath: queueUniquePath(r.outputPath),
+      opts,
+      // Sahne o anki hâliyle donduruluyor
+      cfg: JSON.parse(JSON.stringify(currentConfig || {})),
+      status: 'waiting',
+    };
+    exportQueue.items.push(item);
+    added.push(item.id);
+  }
+  queueNotify();
+  return { ok: true, added };
+}
+
+async function queueRun() {
+  if (exportQueue.running) return { ok: false, error: 'running' };
+  exportQueue.running = true;
+  exportQueue.stopping = false;
+  queueNotify();
+  try {
+    for (;;) {
+      if (exportQueue.stopping) break;
+      const item = exportQueue.items.find((it) => it.status === 'waiting');
+      if (!item) break;
+      // Elle başlatılmış bir iş sürüyorsa bitmesini bekle
+      while (exportState) await new Promise((r) => setTimeout(r, 300));
+      item.status = 'running';
+      item.message = '';
+      queueNotify();
+      let resolveDone = null;
+      const done = new Promise((resolve) => { resolveDone = resolve; exportDoneWaiters.push(resolve); });
+      let res;
+      try {
+        res = await startExportJob(Object.assign({}, item.opts, { audioPath: item.audioPath, outputPath: item.outputPath }), null, { cfg: item.cfg });
+      } catch (err) {
+        res = { ok: false, error: (err && err.message) || String(err) };
+      }
+      if (!res || !res.ok) {
+        // Başlamadı: bekleyeni geri al, sonraki işe geç
+        const i = exportDoneWaiters.indexOf(resolveDone);
+        if (i >= 0) exportDoneWaiters.splice(i, 1);
+        item.status = 'error';
+        item.message = (res && res.error) || 'error';
+        queueNotify();
+        continue;
+      }
+      const out = await done;
+      item.status = out.status === 'done' ? 'done' : (out.status === 'cancelled' ? 'cancelled' : 'error');
+      item.message = out.message || '';
+      item.output = out.output || '';
+      queueNotify();
+    }
+  } finally {
+    exportQueue.running = false;
+    exportQueue.stopping = false;
+    // Durdurulan kuyrukta koşan iş iptal edildi; kalanlar bekliyor
+    queueNotify();
+  }
+  return { ok: true };
+}
+
+function queueStop() {
+  if (!exportQueue.running) return { ok: true };
+  exportQueue.stopping = true;
+  if (exportState) exportState.cancel = true;
+  queueNotify();
+  return { ok: true };
+}
+
+function queueRemove(id) {
+  const i = exportQueue.items.findIndex((it) => it.id === id && it.status !== 'running');
+  if (i >= 0) exportQueue.items.splice(i, 1);
+  queueNotify();
+  return { ok: i >= 0 };
+}
+
+function queueClearFinished() {
+  exportQueue.items = exportQueue.items.filter((it) => it.status === 'waiting' || it.status === 'running');
+  queueNotify();
+  return { ok: true };
+}
+
+/* Bitmemiş ya da hatalı işi yeniden sıraya al. */
+function queueRetry(id) {
+  const it = exportQueue.items.find((x) => x.id === id);
+  if (it && it.status !== 'running' && it.status !== 'waiting') {
+    it.status = 'waiting';
+    it.message = '';
+    it.outputPath = queueUniquePath(it.outputPath);
+  }
+  queueNotify();
+  return { ok: !!it };
+}
 
 /* Yarım kalan dışa aktarım dosyaları. ffmpeg öldürülünce Windows dosya
    tutamacını hemen bırakmayabilir; silme süreç kapanınca, gerekirse birkaç
@@ -4474,8 +4615,11 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    kare özeti, ham kare dökümü ve karşılaştırma için RGBA yolu. Panel ve MCP
    yalnız `opts` verebiliyor; dosya yazan `dumpRaw` gibi bir seçeneğin oradan
    açılamaması için ikisi ayrı parametre. */
-async function startExportJob(opts, bench) {
+async function startExportJob(opts, bench, extra) {
   bench = bench || null;
+  /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
+     (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
+  const jobCfg = (extra && extra.cfg) || currentConfig;
   if (exportState) return { ok: false, error: 'Zaten bir dışa aktarma sürüyor.' };
   opts = opts || {};
   const audioPath = opts.audioPath;
@@ -4559,7 +4703,7 @@ async function startExportJob(opts, bench) {
   const audioSec = await audioDurationSec(ff, audioPath);
   const durSpec = opts.duration && typeof opts.duration === 'object' ? opts.duration : { mode: 'audio' };
   const TL = require('../shared/timeline.js');
-  const tlCfg = (currentConfig && currentConfig.timeline) || {};
+  const tlCfg = (jobCfg && jobCfg.timeline) || {};
   let tempoMap = null;
   try {
     tempoMap = Number(durSpec.bpm) > 0
@@ -4607,8 +4751,8 @@ async function startExportJob(opts, bench) {
   }
   /* Sahne adı meta veriye (#528): panel gönderiyor; MCP vermezse etkin sahne. */
   let sceneName = typeof opts.sceneName === 'string' ? opts.sceneName.slice(0, 120) : '';
-  if (!sceneName && currentConfig && currentConfig._activeSceneId && Array.isArray(currentConfig.scenes)) {
-    const sc = currentConfig.scenes.find((x) => x && x.id === currentConfig._activeSceneId);
+  if (!sceneName && jobCfg && jobCfg._activeSceneId && Array.isArray(jobCfg.scenes)) {
+    const sc = jobCfg.scenes.find((x) => x && x.id === jobCfg._activeSceneId);
     if (sc && typeof sc.name === 'string') sceneName = sc.name.slice(0, 120);
   }
   const bpmMeta = Number(durSpec.bpm) > 0 ? Number(durSpec.bpm)
@@ -4715,7 +4859,7 @@ async function startExportJob(opts, bench) {
     width: w,
     height: h,
     fps,
-    cfg: currentConfig || {},
+    cfg: jobCfg || {},
     /* Dosyanın adı, kapağı ve — takip açıksa — kütüphane sözü.
        Normal söz dosyası kütüphaneyle değiştirilmez. */
     track,
@@ -4727,13 +4871,16 @@ async function startExportJob(opts, bench) {
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523)
     durationSec,
     platform: process.platform,
-    lyricsLibrary: configFollowsLyrics(currentConfig) ? lyricsSnapshot() : [],
+    lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot() : [],
   });
 
   return { ok: true };
 }
 
-ipcMain.handle('export:start', (e, opts) => startExportJob(opts));
+ipcMain.handle('export:start', (e, opts) => {
+  if (exportQueue.running) return { ok: false, error: trUi('Dışa aktarma kuyruğu çalışıyor.', 'The export queue is running.') };
+  return startExportJob(opts);
+});
 
 // Dışa aktarma bitene kadar bekler (yalnızca öz test kullanır)
 function awaitExportDone(timeoutMs) {
@@ -4747,6 +4894,40 @@ function awaitExportDone(timeoutMs) {
     tick();
   });
 }
+
+// Kuyruk (#526). Başlat beklemiyor: kuyruk arka planda koşuyor, panel
+// durumu `export-queue` ile görüyor.
+ipcMain.handle('export:queue-state', () => queueState());
+ipcMain.handle('export:queue-add', (e, items) => queueAdd(items));
+ipcMain.handle('export:queue-start', () => {
+  if (exportQueue.running) return { ok: false, error: 'running' };
+  if (exportState) return { ok: false, error: trUi('Bir dışa aktarma sürüyor.', 'An export is already running.') };
+  queueRun().catch(() => {});
+  return { ok: true };
+});
+ipcMain.handle('export:queue-stop', () => queueStop());
+ipcMain.handle('export:queue-remove', (e, id) => queueRemove(String(id || '')));
+ipcMain.handle('export:queue-retry', (e, id) => queueRetry(String(id || '')));
+ipcMain.handle('export:queue-clear', () => queueClearFinished());
+ipcMain.handle('export:pick-audio-multi', async () => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Ses Dosyaları Seç', 'Choose Audio Files'),
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      { name: trUi('Ses Dosyaları', 'Audio Files'), extensions: ['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'opus'] },
+      { name: trUi('Tümü', 'All Files'), extensions: ['*'] },
+    ],
+  });
+  return r.canceled ? [] : r.filePaths.slice(0, QUEUE_MAX);
+});
+ipcMain.handle('export:pick-folder', async (e, defaultPath) => {
+  const r = await dialog.showOpenDialog(adminWin, {
+    title: trUi('Çıktı Klasörü Seç', 'Choose Output Folder'),
+    defaultPath: typeof defaultPath === 'string' && defaultPath ? defaultPath : undefined,
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  return r.canceled || !r.filePaths[0] ? null : r.filePaths[0];
+});
 
 ipcMain.handle('export:cancel', () => {
   if (exportState) exportState.cancel = true;
@@ -4905,6 +5086,9 @@ function finalizeExport(status, message, opts) {
     finalOut = partial;
   }
 
+  // Kuyruk işin sonucunu bekliyor (#526)
+  const waiters = exportDoneWaiters.splice(0);
+  for (const w of waiters) { try { w({ status, message: message || '', output: finalOut }); } catch { /* yok */ } }
   // Ölçüm kaydı SON durumu taşısın: ad verme ya da taşıma işi hataya çevirebiliyor
   if (prof && lastExportProfile) { lastExportProfile.status = status; lastExportProfile.message = message || ''; }
   notifyAdmin('export-done', {
@@ -5135,6 +5319,29 @@ async function runExportBench(file) {
      Ölçüm boyunca panelin güncellemeleri öz testteki gibi bekletiliyor. */
   smokeHoldStart();
   const base = currentConfig;
+  /* Kuyruk denemesi (#526): işler kuyruğa eklenip kuyruk koşturuluyor.
+     İşin sahnesi eklendiği anın yapılandırması; sonradan değişmesi
+     sıradaki işleri etkilememeli (`changeAfterAdd`). */
+  if (spec.queue) {
+    for (const q of spec.queue.items || []) {
+      currentConfig = JSON.parse(JSON.stringify(q.cfg || {}));
+      queueAdd([{ audioPath: q.audio || spec.audio, outputPath: path.join(spec.outDir, q.name), opts: q.opts || {} }]);
+    }
+    if (spec.queue.changeAfterAdd) currentConfig = JSON.parse(JSON.stringify(spec.queue.changeAfterAdd));
+    if (spec.queue.stopAfterMs) setTimeout(() => queueStop(), spec.queue.stopAfterMs);
+    const t0 = Date.now();
+    await queueRun();
+    const state = queueState();
+    console.log('[BENCH] ' + JSON.stringify({ queue: state, ms: Date.now() - t0 }));
+    currentConfig = base;
+    smokeHoldEnd();
+    fs.writeFileSync(spec.result, JSON.stringify(state, null, 2));
+    // app.exit will-quit'i atlıyor: bekleyen yarım dosya silmeleri burada
+    await new Promise((r) => setTimeout(r, 500));
+    flushPartialsSync(3000);
+    app.exit(0);
+    return;
+  }
   for (const job of spec.jobs || []) {
     /* Profilin kayıtlı ayarları MİRAS ALINMIYOR: dışa aktarıcı iş
        yapılandırmasını varsayılanlarla birleştiriyor. Miras alınsaydı aynı
@@ -5160,6 +5367,8 @@ async function runExportBench(file) {
   currentConfig = base;
   smokeHoldEnd();
   fs.writeFileSync(spec.result, JSON.stringify(results, null, 2));
+  await new Promise((r) => setTimeout(r, 500));
+  flushPartialsSync(3000);
   app.exit(0);
 }
 
@@ -7468,6 +7677,8 @@ function shutdownCleanup() {
   /* Süren dışa aktarım: ffmpeg durdurulur, geçici çıktı silinir
      (will-quit'teki flushPartialsSync bekler). Eskiden ffmpeg arkada
      kalabiliyor ve yarım dosya yerinde duruyordu. */
+  // Kuyruk da durmalı: iptal edilen işin ardından sıradaki başlamasın
+  exportQueue.stopping = true;
   if (exportState) finalizeExport('cancelled');
   quitting = true; // kapanış sırasında kaza koruması devreye girmemeli
   flushSettings(); // birleştirilmiş kayıt beklemede kalmasın

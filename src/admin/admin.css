@@ -1559,3 +1559,15 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 800;
   letter-spacing: .01em;
 }
+
+/* Dışa aktarma kuyruğu (#526) */
+.export-queue { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.export-queue-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--card2); }
+.export-queue-row .q-main { flex: 1; min-width: 0; }
+.export-queue-row .q-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-queue-row .q-meta { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-queue-row .q-status { font-size: 12px; white-space: nowrap; }
+.export-queue-row .q-actions { display: flex; gap: 4px; }
+.export-queue-row.q-running { border-color: var(--accent); }
+.export-queue-row.q-done .q-status { color: var(--ok, #4caf50); }
+.export-queue-row.q-error .q-status { color: var(--err, #ff6b6b); }

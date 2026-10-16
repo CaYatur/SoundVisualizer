@@ -35,7 +35,7 @@ test('dışa aktarma dosyanın kapağını ve söz kuralını taşır', () => {
   assert.match(main, /function configFollowsLyrics/);
   assert.match(main, /if \(process\.platform !== 'win32' \|\| !cfg\) return false/);
   assert.match(main, /platform: process\.platform/);
-  assert.match(main, /lyricsLibrary: configFollowsLyrics\(currentConfig\) \? lyricsSnapshot\(\) : \[\]/);
+  assert.match(main, /lyricsLibrary: configFollowsLyrics\(jobCfg\) \? lyricsSnapshot\(\) : \[\]/);
   // Windows dışı zorlama platformAdjust(c) içinde: açılışta cfg ile, varsayılanlarda kopyayla
   assert.match(admin, /c\.text\.lyricsFollow = false/);
   assert.match(admin, /if \(platformAdjust\(cfg\)\) push\(true\);/);

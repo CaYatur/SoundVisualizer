@@ -107,7 +107,7 @@ test('dışa aktarım üreten makinenin ayarına bağlı değil; "Her zaman" ora
 test('dışa aktarımda "Her zaman" motora ulaşıyor: ayarın tamamı taşınıyor', () => {
   /* `milkdropControl` sahne anahtarı değil; dışa aktarıcı yalnız sahneyi
      alsaydı 'on' motora hiç varmaz, belgelerdeki söz boşa çıkardı. */
-  assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: currentConfig \|\| \{\},/);
+  assert.match(read('src/main/main.js'), /exportWin\.webContents\.send\('export:job', \{[\s\S]*?cfg: jobCfg \|\| \{\},/);
   assert.match(read('src/exporter/exporter.js'), /cfg = window\.SV\.deepMerge\(window\.SV\.defaultConfig\(\), job\.cfg \|\| \{\}\);/);
   require('../src/visualizer/layers.js');
   const cfg = SV.defaultConfig();

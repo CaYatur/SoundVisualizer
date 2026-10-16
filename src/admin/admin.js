@@ -595,6 +595,8 @@
         return audioFileCtrl(def);
       case 'exportpanel':
         return exportPanelCtrl(def);
+      case 'exportqueue':
+        return exportQueueCtrl(def);
       case 'lightingpanel':
         return lightingPanelCtrl(def);
       case 'lightinggeneralpanel':
@@ -1685,6 +1687,133 @@
       }
     });
     return el('div', { class: 'ctrl' }, [btn, name]);
+  }
+
+  // --- Video dışa aktarma kuyruğu (#526) ---
+  /* Kuyruk ana süreçte; panel yalnız durumu çiziyor ve komut gönderiyor.
+     Liste kendi kutusunda yeniden çiziliyor, kartın geri kalanı değil. */
+  let exportQueueSt = { running: false, items: [] };
+  let exportQueueDir = '';
+  let exportByQueue = false; // panelin "çalışıyor" hâlini kuyruk mu açtı
+  const QUEUE_STATUS = {
+    waiting: ['Bekliyor', ''], running: ['Çalışıyor', 'play'], done: ['Bitti', 'check'],
+    error: ['Hata', 'warning'], cancelled: ['İptal edildi', 'stop'],
+  };
+
+  /* Kuyruk işinin önerilen adı: "Parça - Sahne - 1080p.mp4". Çözünürlük
+     adda: aynı şarkı üç çözünürlükte aynı klasöre gidebilsin. */
+  function queueItemName(audioPath, fmt) {
+    const FX = window.SVExportFormats;
+    const title = String(audioPath || '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+    const e = cfg.export || {};
+    const base = FX ? FX.outputName({ title, scene: activeSceneName() }, '') : title;
+    const name = base + ' - ' + (e.resolution || '1080p');
+    return (FX ? FX.sanitizeFileName(name, 'export') : name) + '.' + (fmt ? fmt.ext : 'mp4');
+  }
+
+  function queueItemOpts() {
+    const e = cfg.export || {};
+    const dur = exportDuration();
+    const fmt = exportFormat();
+    return {
+      format: fmt ? fmt.id : 'mp4-h264',
+      resolution: e.resolution, fps: e.fps, quality: e.quality, encoder: e.encoder, speed: e.speed,
+      duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
+      chapters: !!e.chapters && (!fmt || fmt.kind === 'video'),
+      sceneName: activeSceneName(),
+    };
+  }
+
+  async function queueAddFiles(files) {
+    if (!files || !files.length) return;
+    const dir = await window.api.pickExportFolder(exportQueueDir || undefined);
+    if (!dir) return;
+    exportQueueDir = dir;
+    push(true); // eklenen işler sahnenin şu anki hâlini dondursun
+    const fmt = exportFormat();
+    const sep = dir.indexOf('\\') >= 0 ? '\\' : '/';
+    const items = files.map((a) => ({
+      audioPath: a, outputPath: dir.replace(/[\\/]+$/, '') + sep + queueItemName(a, fmt), opts: queueItemOpts(),
+    }));
+    const r = await window.api.exportQueueAdd(items);
+    if (r && r.added && r.added.length < items.length) {
+      P().toast(tr('Bazı işler eklenemedi (en çok 200 iş, geçerli bir yol gerekir).'), 'warn');
+    }
+  }
+
+  function renderExportQueue() {
+    const box = $('exportQueueList');
+    if (!box) return;
+    box.innerHTML = '';
+    const st = exportQueueSt || { items: [] };
+    if (!st.items.length) {
+      box.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Kuyruk boş.' }));
+    }
+    for (const it of st.items) {
+      const [label, icon] = QUEUE_STATUS[it.status] || [it.status, ''];
+      const meta = [it.format, it.resolution, it.fps ? it.fps + ' fps' : '', it.audioName].filter(Boolean).join(' · ');
+      const actions = [];
+      if (it.status === 'error' || it.status === 'cancelled') {
+        actions.push(el('button', { class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeniden Dene',
+          onclick: () => window.api.exportQueueRetry(it.id) }));
+      }
+      if (it.status !== 'running') {
+        actions.push(el('button', { class: 'btn ghost small', type: 'button', icon: 'trash', text: 'Kaldır',
+          onclick: () => window.api.exportQueueRemove(it.id) }));
+      }
+      const row = el('div', { class: 'export-queue-row q-' + it.status, title: it.message || it.output || it.outputPath }, [
+        el('div', { class: 'q-main' }, [
+          el('div', { class: 'q-name', text: it.name }),
+          el('div', { class: 'q-meta', text: meta }),
+        ]),
+        el('div', { class: 'q-status', icon, text: label }),
+        el('div', { class: 'q-actions' }, actions),
+      ]);
+      box.appendChild(row);
+    }
+    const run = $('exportQueueRun');
+    if (run) {
+      const waiting = st.items.some((x) => x.status === 'waiting');
+      if (window.SVIcons) window.SVIcons.set(run, st.running ? 'stop' : 'play', st.running ? 'Kuyruğu Durdur' : 'Kuyruğu Başlat');
+      run.className = 'btn ' + (st.running ? 'danger' : 'primary') + ' small';
+      run.disabled = !st.running && !waiting;
+    }
+  }
+
+  function exportQueueCtrl() {
+    const add = el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'plus', text: 'Kuyruğa Ekle',
+      onclick: async () => {
+        if (!exportAudioPath) { setExportStatus('Önce bir ses dosyası seçin.', 'err'); return; }
+        await queueAddFiles([exportAudioPath]);
+      },
+    });
+    const addMany = el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'music', text: 'Birden Çok Ses Ekle',
+      onclick: async () => queueAddFiles(await window.api.pickExportAudioMulti()),
+    });
+    const run = el('button', {
+      class: 'btn primary small', type: 'button', id: 'exportQueueRun', icon: 'play', text: 'Kuyruğu Başlat',
+      onclick: async () => {
+        if (exportQueueSt.running) { await window.api.exportQueueStop(); return; }
+        push(true);
+        const r = await window.api.exportQueueStart();
+        if (r && r.ok === false && r.error && r.error !== 'running') setExportStatus(r.error, 'err', 'warning');
+      },
+    });
+    const clear = el('button', {
+      class: 'btn ghost small', type: 'button', icon: 'check-circle', text: 'Bitenleri Temizle',
+      onclick: () => window.api.exportQueueClear(),
+    });
+    const list = el('div', { class: 'export-queue', id: 'exportQueueList' });
+    const box = el('div', { class: 'ctrl' }, [
+      el('label', { class: 'lbl', text: 'Kuyruk' }),
+      el('div', { class: 'studio-note dim-hint', text: 'Her iş eklendiği andaki sahneyi ve ayarları kullanır; biri hata verse de sonraki çalışır. Bir sahneyi birden çok şarkıya ya da bir şarkıyı birden çok çözünürlüğe aynı klasöre çıkarmak için.' }),
+      el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, [add, addMany, run, clear]),
+      list,
+    ]);
+    setTimeout(renderExportQueue, 0);
+    return box;
   }
 
   // --- Video dışa aktarma: çalıştır düğmesi + ilerleme ---
@@ -3484,6 +3613,7 @@
             ],
           },
           { type: 'exportpanel', tail: true },
+          { type: 'exportqueue', tail: true },
         ],
       },
     ];
@@ -6395,6 +6525,19 @@
       if (d.eta != null) line += ' · kalan ' + fmtClock(d.eta);
       setExportStatus(line);
     });
+    // Kuyruk durumu (#526): liste kendi kutusunda tazeleniyor
+    try { exportQueueSt = (await window.api.exportQueueState()) || exportQueueSt; } catch { /* eski ana süreç */ }
+    if (window.api.onExportQueue) {
+      window.api.onExportQueue((d) => {
+        exportQueueSt = d || { running: false, items: [] };
+        /* Kuyruk koşarken ilerleme çubuğu ve İptal (o anki işi iptal eder)
+           görünür. Kuyruk bitince açtığı durumu kapatıyor: son işin bitiş
+           olayından SONRA gelen bildirim düğmeyi kilitli bırakıyordu. */
+        if (exportQueueSt.running && !exporting) { exporting = true; exportByQueue = true; setExportUI(true); }
+        else if (!exportQueueSt.running && exportByQueue) { exporting = false; exportByQueue = false; setExportUI(false); }
+        renderExportQueue();
+      });
+    }
     window.api.onExportDone((d) => {
       exporting = false;
       setExportUI(false);

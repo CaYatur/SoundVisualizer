@@ -93,7 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527) done; queue and the two render modes in progress |
+| Comprehensive video export | v3.1.6 | Formats, alpha, frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526) done; the two render modes in progress |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
@@ -131,7 +131,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3145 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3151 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3351,6 +3351,27 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
   - The panel no longer waits for the probe; the format list fills in when it arrives.
   - A saved "GPU" preference is no longer rewritten to "CPU" on a machine without one: the export runs on the CPU and the box says so.
   - The bench-only options, a raw frame dump and a forced RGBA path, are a separate argument that neither the panel nor MCP can set, because the dump writes a file.
+
+### Batch queue (#526) · done
+
+- **Where it lives.** The queue is in the main process and runs jobs one after another. Each job carries a copy of the scene configuration taken when it was added, and `startExportJob` renders that copy rather than the live config. You can therefore change the scene and queue the next variation.
+- **Adding jobs.**
+  - "Add to Queue" adds the chosen song with the current settings.
+  - "Add Several Audio Files" adds one job per file into a chosen folder.
+  - Names follow "Track - Scene - 1080p". A name already on disk or in the queue gets " (2)", so one song at three resolutions, or ten songs into one folder, never overwrite each other.
+  - The path rule is the same as for a single export.
+  - The queue is capped at 200 jobs.
+- **Failure handling.**
+  - A job that fails is marked with its message, and the queue moves on.
+  - A job that never started gives back its completion waiter. Otherwise the next job's result would have been reported against it.
+  - Failed or cancelled jobs can be retried.
+- **Stopping.** Stop cancels the running job and leaves the rest waiting. Quitting the app stops the queue before cancelling the running job, so the next job does not start during shutdown.
+- **Single exports.** A single export is refused while the queue runs.
+- **Measured end to end:**
+  - **Bench queue mode.** Two jobs with the same name came out as `q1.mp4` and `q1 (2).mp4`. A job with a missing audio file failed with "Ses dosyası bulunamadı." and the WebM and ProRes jobs after it ran. The scene was changed after the jobs were added, and the first two videos still decode to identical frames (`framemd5`).
+  - **Stopping mid-run.** The running job was cancelled, the rest stayed waiting, and the folder was empty. A `.partial` first seemed to remain, but only because the bench exited with `app.exit()`, which skips the delayed delete; the driver now flushes pending deletes before it exits.
+  - **Panel.** Driven by its own buttons over CDP, the rows went Waiting → Running → Done, and the button switched between Start and Stop. After the queue ended, "Export to Video" stayed disabled: a queue update arriving after the last job's done event re-marked the panel as busy. The panel now releases the state it set when the queue stops.
+- **Not in MCP yet.** `sv_start_export` remains one job at a time.
 
 ### Chapters at the timeline markers (#527) · done
 
