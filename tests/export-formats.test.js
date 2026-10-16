@@ -228,8 +228,13 @@ test('I420 yalnız uygun boyutta; dönüştürücü kurulamazsa iş açıkça du
    açılamamalı: ayrı bir parametrede ve yalnız ölçüm sürücüsü veriyor. */
 test('ölçüm seçenekleri MCP ve panelden açılamıyor', () => {
   const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
-  assert.match(main, /async function startExportJob\(opts, bench\)/);
-  assert.match(main, /ipcMain\.handle\('export:start', \(e, opts\) => startExportJob\(opts\)\);/);
+  assert.match(main, /async function startExportJob\(opts, bench, extra\)/);
+  // Panelin tek işi yalnız opts veriyor; kuyruk koşarken reddediliyor (#526)
+  const h = main.slice(main.indexOf("ipcMain.handle('export:start'"), main.indexOf("ipcMain.handle('export:start'") + 400);
+  assert.match(h, /return startExportJob\(opts\);/);
+  assert.match(h, /if \(exportQueue\.running\) return \{ ok: false/);
+  // Kuyruk işi yalnız sahne kopyasını veriyor, ölçüm parametresi null
+  assert.match(main, /startExportJob\(Object\.assign\(\{\}, item\.opts, \{ audioPath: item\.audioPath, outputPath: item\.outputPath \}\), null, \{ cfg: item\.cfg \}\)/);
   assert.match(main, /startExport: \(opts\) => startExportJob\(opts\),/);
   assert.ok(!/opts\.(profile|dumpRaw|_rgba)/.test(main), 'opts ölçüm seçeneği taşımıyor');
   assert.match(main, /dump: bench\.dumpRaw \?/);
