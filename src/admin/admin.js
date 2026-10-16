@@ -3386,6 +3386,30 @@
             options: () => exportFormatOptions(),
           },
           {
+            type: 'select', path: 'export.duration.mode', label: 'Süre', rebuild: true,
+            options: [
+              { value: 'audio', label: 'Ses dosyasının süresi' },
+              { value: 'seconds', label: 'Sabit süre' },
+              { value: 'timeline', label: 'Zaman çizelgesinin uzunluğu' },
+              { value: 'bars', label: 'Ölçü sayısı (BPM\'den)' },
+            ],
+          },
+          {
+            type: 'slider', path: 'export.duration.seconds', label: 'Süre (saniye)',
+            min: 1, max: 1800, step: 1, fmt: (v) => fmtClock(v),
+            show: () => exportDuration().mode === 'seconds',
+          },
+          {
+            type: 'slider', path: 'export.duration.bars', label: 'Ölçü',
+            min: 1, max: 512, step: 1,
+            show: () => exportDuration().mode === 'bars',
+          },
+          {
+            type: 'slider', path: 'export.duration.bpm', label: 'BPM',
+            min: 0, max: 300, step: 1, fmt: (v) => (Math.round(v) > 0 ? String(Math.round(v)) : 'Zaman çizelgesi'),
+            show: () => exportDuration().mode === 'bars',
+          },
+          {
             type: 'select', path: 'export.resolution', label: 'Çözünürlük',
             options: [
               { value: '720p', label: '720p — 1280×720' },
@@ -3441,6 +3465,27 @@
         ],
       },
     ];
+  }
+
+  /* Süre kaynağı (#523); eski kayıtlarda alan yok. */
+  function exportDuration() {
+    const e = cfg.export || (cfg.export = {});
+    if (!e.duration || typeof e.duration !== 'object') e.duration = { mode: 'audio', seconds: 30, bars: 16, bpm: 0 };
+    return e.duration;
+  }
+  // 75 -> "1:15", 3725 -> "1:02:05"
+  function fmtClock(sec) {
+    const t = Math.max(0, Math.round(Number(sec) || 0));
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = String(t % 60).padStart(2, '0');
+    return h ? h + ':' + String(m).padStart(2, '0') + ':' + s : m + ':' + s;
+  }
+  /* Dosya adı ve içine yazılan meta veri için o anki sahne (#528). */
+  function activeSceneName() {
+    const id = activeSceneId || cfg._activeSceneId;
+    const sc = id && Array.isArray(cfg.scenes) ? cfg.scenes.find((x) => x && x.id === id) : null;
+    return sc && sc.name ? String(sc.name) : '';
   }
 
   /* Seçili biçimin ana süreçten gelen tanımı; liste henüz gelmediyse null. */
@@ -5742,7 +5787,14 @@
     const base = (exportAudioName || 'gorsellestirme').replace(/\.[^.]+$/, '');
     const fmt = exportFormat();
     const fmtId = fmt ? fmt.id : 'mp4-h264';
-    const outputPath = await window.api.pickExportOutput(base + '.' + (fmt ? fmt.ext : 'mp4'), fmtId);
+    const dur = exportDuration();
+    const sceneName = activeSceneName();
+    /* Varsayılan ad: "Parça - Sahne - 128 BPM" (#528); kullanıcı değiştirebilir */
+    const FX = window.SVExportFormats;
+    const suggested = FX
+      ? FX.outputName({ title: base, scene: sceneName, bpm: dur.mode === 'bars' ? dur.bpm : 0 }, fmt ? fmt.ext : 'mp4')
+      : base + '.' + (fmt ? fmt.ext : 'mp4');
+    const outputPath = await window.api.pickExportOutput(suggested, fmtId);
     if (!outputPath) return;
 
     push(true); // en güncel görsel ayarları ana sürece gönder
@@ -5751,6 +5803,8 @@
       audioPath: exportAudioPath,
       outputPath,
       format: fmtId,
+      duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
+      sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
       quality: cfg.export.quality,
@@ -6287,7 +6341,7 @@
     let exportEnc = '';
     window.api.onExportProgress((d) => {
       if (d.phase === 'start') {
-        exportEnc = d.encoder === 'gpu' ? 'GPU/NVENC' : 'CPU/libx264';
+        exportEnc = d.encoderLabel || (d.encoder === 'gpu' ? 'GPU' : 'CPU');
         return;
       }
       if (d.phase === 'encode') {
@@ -6301,7 +6355,12 @@
       exportPct = pct;
       const fill = $('exportProgressFill');
       if (fill) fill.style.width = pct + '%';
-      setExportStatus('Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)');
+      /* Hız ve kalan süre (#532) ' · ' ile ekleniyor: çevirici satırı bu
+         ayırıcıdan bölüp parçaları ayrı çeviriyor. */
+      let line = 'Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)';
+      if (d.fps > 0) line += ' · ' + (d.fps >= 10 ? Math.round(d.fps) : d.fps) + ' fps';
+      if (d.eta != null) line += ' · kalan ' + fmtClock(d.eta);
+      setExportStatus(line);
     });
     window.api.onExportDone((d) => {
       exporting = false;

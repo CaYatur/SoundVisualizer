@@ -223,12 +223,14 @@
     return !!v && (v.vf === yuvFilter('yuv420p') || v.vf === yuvFilter('nv12'));
   }
 
-  /* Ses kuralı, kaba göre. Kaynak dosya mp4'e uygunsa kopyalanıyor. */
-  function audioArgs(fmt, audioExt) {
+  /* Ses kuralı, kaba göre. Kaynak dosya mp4'e uygunsa kopyalanıyor; ama
+     video sesten uzunsa ses sessizlikle doldurulacak (apad) ve kopyalanan
+     akışa süzgeç uygulanamıyor, o zaman yeniden kodlanıyor. */
+  function audioArgs(fmt, audioExt, pad) {
     if (!fmt.audio) return null;
     const ext = String(audioExt || '').toLowerCase().replace(/^\./, '');
     if (fmt.audio === 'mp4') {
-      return ['mp3', 'm4a', 'aac'].indexOf(ext) >= 0 ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '320k'];
+      return !pad && ['mp3', 'm4a', 'aac'].indexOf(ext) >= 0 ? ['-c:a', 'copy'] : ['-c:a', 'aac', '-b:a', '320k'];
     }
     if (fmt.audio === 'pcm') return ['-c:a', 'pcm_s24le'];
     if (fmt.audio === 'opus') return ['-c:a', 'libopus', '-b:a', '256k'];
@@ -288,7 +290,12 @@
       '-thread_queue_size', '1024', // ham kare girişi için geniş kuyruk
       '-i', 'pipe:0',
     );
-    const aArgs = o.audioPath ? audioArgs(fmt, o.audioExt) : null;
+    /* Süre (#523): verilmişse video ve ses tam o kadar. Ses kısaysa
+       sessizlikle dolar, uzunsa kesilir; verilmemişse eski kural (-shortest,
+       sesin süresi). */
+    const dur = Number(o.durationSec) > 0 ? Number(o.durationSec) : 0;
+    const pad = dur > 0 && Number(o.audioSec) > 0 && dur > Number(o.audioSec) + 0.001;
+    const aArgs = o.audioPath ? audioArgs(fmt, o.audioExt, pad) : null;
     if (aArgs) args.push('-i', o.audioPath);
     if (v.complex) {
       args.push('-filter_complex', '[0:v]' + v.complex + '[v]', '-map', '[v]');
@@ -299,16 +306,27 @@
     if (aArgs) args.push('-map', '1:a:0');
     args.push.apply(args, v.args);
     if (v.tags) args.push.apply(args, BT709_TAGS);
-    if (aArgs) args.push.apply(args, aArgs);
-    else args.push('-an');
+    if (aArgs) {
+      if (pad) args.push('-af', 'apad');
+      args.push.apply(args, aArgs);
+    } else {
+      args.push('-an');
+    }
     const meta = o.meta || {};
     if (fmt.kind !== 'sequence') {
+      /* Sahne adı ve BPM açıklama alanına (#528): mp4 ve mov yazıcısı özel
+         anahtar yazmıyor, `comment` her kapta okunuyor. */
+      const extra = [];
+      if (meta.scene) extra.push('Scene: ' + meta.scene);
+      if (Number(meta.bpm) > 0) extra.push('BPM: ' + Math.round(Number(meta.bpm) * 100) / 100);
+      const fields = Object.assign({}, meta, { comment: [meta.comment].concat(extra).filter(Boolean).join(' · ') });
       for (const k of ['title', 'artist', 'album', 'comment']) {
-        if (meta[k]) args.push('-metadata', k + '=' + String(meta[k]).replace(/[\r\n]+/g, ' ').slice(0, 512));
+        if (fields[k]) args.push('-metadata', k + '=' + String(fields[k]).replace(/[\r\n]+/g, ' ').slice(0, 512));
       }
     }
     if (fmt.ext === 'mp4' || fmt.ext === 'mov') args.push('-movflags', '+faststart');
-    if (aArgs) args.push('-shortest');
+    if (dur > 0) args.push('-t', dur.toFixed(6));
+    else if (aArgs) args.push('-shortest');
     if (fmt.kind === 'sequence') args.push('-f', 'image2', '-start_number', '1');
     if (fmt.id === 'apng') args.push('-f', 'apng');
     args.push(o.output);
@@ -332,10 +350,84 @@
     return args;
   }
 
+  // ------------------------------------------------------------ süre (#523)
+
+  const DURATION_MODES = ['audio', 'seconds', 'timeline', 'bars'];
+  const MAX_SECONDS = 4 * 3600;
+
+  /* Dışa aktarımın süresi, saniye. spec: { mode, seconds, bars, bpm }.
+     ctx: { audioSec, timelineSec, barsToSeconds(n) } — çağıran ölçer.
+     Dönen: { ok, mode, seconds } ya da { ok: false, code }. */
+  function resolveDuration(spec, ctx) {
+    const sp = spec || {};
+    const c = ctx || {};
+    const mode = DURATION_MODES.indexOf(sp.mode) >= 0 ? sp.mode : 'audio';
+    let sec = 0;
+    if (mode === 'audio') sec = Number(c.audioSec) || 0;
+    else if (mode === 'seconds') sec = Number(sp.seconds) || 0;
+    else if (mode === 'timeline') {
+      sec = Number(c.timelineSec) || 0;
+      if (!(sec > 0)) return { ok: false, code: 'TIMELINE_EMPTY' };
+    } else if (mode === 'bars') {
+      const n = Math.round(Number(sp.bars) || 0);
+      if (!(n > 0) || typeof c.barsToSeconds !== 'function') return { ok: false, code: 'BAD_BARS' };
+      sec = Number(c.barsToSeconds(n)) || 0;
+    }
+    if (!(sec > 0)) return { ok: false, code: 'NO_DURATION' };
+    return { ok: true, mode, seconds: Math.min(sec, MAX_SECONDS) };
+  }
+
+  // -------------------------------------------------- dosya adı (#528)
+
+  /* Windows'un ve öteki sistemlerin yasak karakterleri, ayrılmış adlar
+     (CON, NUL, COM1…) ve sondaki nokta/boşluk. Boş kalırsa yedek ad. */
+  const RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+  function sanitizeFileName(name, fallback) {
+    let s = String(name == null ? '' : name)
+      .replace(/[\u0000-\u001f<>:"/\\|?*]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[. ]+$/, '');
+    if (s.length > 150) s = s.slice(0, 150).trim();
+    if (!s || RESERVED.test(s)) s = fallback || 'export';
+    return s;
+  }
+
+  /* Varsayılan dosya adı: "Parça - Sahne - 128 BPM". Boş parçalar atlanır. */
+  function outputName(meta, ext) {
+    const m = meta || {};
+    const parts = [m.title, m.scene, Number(m.bpm) > 0 ? Math.round(Number(m.bpm)) + ' BPM' : '']
+      .map((x) => String(x || '').trim()).filter(Boolean);
+    return sanitizeFileName(parts.join(' - '), 'export') + (ext ? '.' + ext : '');
+  }
+
+  // -------------------------------------------- yarım dosya yok (#532)
+
+  /* Dosya önce bu adla yazılıyor, iş başarıyla bitince asıl adına
+     taşınıyor: iptal, hata ya da kapanışta asıl yolda yarım bir dosya
+     hiç olmuyor. Uzantı sonda kalıyor, ffmpeg kabı ondan seçiyor. */
+  function partialPath(file) {
+    const s = String(file);
+    const dot = s.lastIndexOf('.');
+    const sep = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+    return dot > sep ? s.slice(0, dot) + '.partial' + s.slice(dot) : s + '.partial';
+  }
+
+  /* Kalan süre: bitmiş kare oranından. İlk saniyede tahmin yok. */
+  function progressStats(done, total, elapsedMs) {
+    const d = Math.max(0, Number(done) || 0);
+    const t = Math.max(1, Number(total) || 1);
+    const ms = Math.max(0, Number(elapsedMs) || 0);
+    const fps = ms > 0 ? d / (ms / 1000) : 0;
+    const eta = ms >= 1000 && fps > 0 ? Math.max(0, (t - d) / fps) : null;
+    return { pct: Math.min(100, (d / t) * 100), fps, eta };
+  }
+
   const api = {
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
+    DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

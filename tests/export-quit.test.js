@@ -77,7 +77,11 @@ test('silinemeyen dosya kapanışı en çok verilen süre kadar bekletir', () =>
 
 test('dışa aktarım sonu ve will-quit yeni silme yolunu kullanır', () => {
   const fin = M.slice(M.indexOf('function finalizeExport('), M.indexOf("notifyAdmin('export-done'"));
-  assert.match(fin, /removePartial\(out, proc\);/);
+  // Silinen GEÇİCİ çıktı (#532); asıl yolda yarım dosya hiç olmuyor
+  assert.match(fin, /removePartial\(partial, proc\);/);
+  assert.match(fin, /promotePartial\(partial, seqDir \? workDir : null, seqDir \|\| out\)/);
+  const sc = M.slice(M.indexOf('function shutdownCleanup() {'), M.indexOf('function shutdownCleanup() {') + 400);
+  assert.match(sc, /if \(exportState\) finalizeExport\('cancelled'\);/, 'kapanışta süren iş durur');
   assert.ok(!/setTimeout\(\(\) => \{ try \{ fs\.existsSync\(out\)/.test(fin), 'eski tek seferlik zamanlayıcı');
   const wq = M.slice(M.indexOf("app.on('will-quit', () => {"), M.indexOf('if (pendingExitCode) app.exit(pendingExitCode);'));
   assert.match(wq, /flushPartialsSync\(1500\);/, 'app.exit öncesinde silinmeli');
