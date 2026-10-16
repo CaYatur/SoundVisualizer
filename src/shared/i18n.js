@@ -2976,7 +2976,7 @@
     'Kuyruğa Ekle': 'Add to Queue', 'Birden Çok Ses Ekle': 'Add Several Audio Files',
     'Kuyruğu Başlat': 'Start Queue', 'Kuyruğu Durdur': 'Stop Queue', 'Bitenleri Temizle': 'Clear Finished',
     'Bekliyor': 'Waiting', 'Çalışıyor': 'Running', 'Bitti': 'Done', 'İptal edildi': 'Cancelled',
-    'Yeniden Dene': 'Retry', 'Kuyruk boş.': 'The queue is empty.',
+    'Yeniden Dene': 'Retry', 'Kuyruk boş.': 'The queue is empty.', 'Dışa Aktarma Kuyruğu': 'Export Queue',
     'Bazı işler eklenemedi (en çok 200 iş, geçerli bir yol gerekir).': 'Some jobs could not be added (at most 200 jobs, and each needs a valid path).',
     'Her iş eklendiği andaki sahneyi ve ayarları kullanır; biri hata verse de sonraki çalışır. Bir sahneyi birden çok şarkıya ya da bir şarkıyı birden çok çözünürlüğe aynı klasöre çıkarmak için.': 'Each job uses the scene and settings from the moment it was added; if one fails, the next still runs. Use it to render one scene across several songs, or one song at several resolutions, into the same folder.', 'Instagram kare — 1080×1080': 'Instagram square — 1080×1080',
     'Twitch / OBS bindirme — WebM alfa': 'Twitch / OBS overlay — WebM alpha',

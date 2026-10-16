@@ -264,7 +264,8 @@
       host = el('div', { class: 'toast hidden', id: 'toast' });
       document.body.appendChild(host);
     }
-    host.textContent = message;
+    // Messages from the main process and modules are Turkish source text
+    host.textContent = window.SVI18n && window.SVI18n.t ? window.SVI18n.t(String(message)) : message;
     host.className = 'toast' + (kind ? ' ' + kind : '');
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => host.classList.add('hidden'), 4200);
@@ -1807,7 +1808,7 @@
     });
     const list = el('div', { class: 'export-queue', id: 'exportQueueList' });
     const box = el('div', { class: 'ctrl' }, [
-      el('label', { class: 'lbl', text: 'Kuyruk' }),
+      el('label', { class: 'lbl', text: 'Dışa Aktarma Kuyruğu' }),
       el('div', { class: 'studio-note dim-hint', text: 'Her iş eklendiği andaki sahneyi ve ayarları kullanır; biri hata verse de sonraki çalışır. Bir sahneyi birden çok şarkıya ya da bir şarkıyı birden çok çözünürlüğe aynı klasöre çıkarmak için.' }),
       el('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, [add, addMany, run, clear]),
       list,
@@ -6182,6 +6183,11 @@
       /* render() önizlemeyi katman paneli cfg'yi düzeltmeden önce kuruyor.
          Panel açılıp kapanmadan çıkış ve önizleme aynı cfg'yi görsün. */
       if (window.SVPreview) window.SVPreview.setConfig(cfg);
+      /* Timeline-follow recording turned on/off by MCP or another client
+         must take effect now, not only when the Output card renders. */
+      if (window.SVRecordPanel && window.SVRecordPanel.ensureFollow) {
+        window.SVRecordPanel.ensureFollow(!!(cfg.recording && cfg.recording.followTimeline));
+      }
     });
 
     // Aynı ayar klasörünü kullanan başka kopyalar ve ayar çakışması (#564)
