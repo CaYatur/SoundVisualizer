@@ -97,7 +97,8 @@ test('dışa aktarma: çıktı yerel ve mutlak, uzantı biçimin kendisi; ses yo
     assert.ok(mcp.badOutPath(bad, ['mp4']), bad);
   }
   const main = read('src/main/main.js');
-  const body = main.slice(main.indexOf('async function startExportJob(opts)'), main.indexOf('async function startExportJob(opts)') + 1400);
+  const start = main.indexOf('async function startExportJob(opts');
+  const body = main.slice(start, main.indexOf('\n}\n', start)); // fonksiyonun tamamı
   assert.match(body, /typeof audioPath !== 'string' \|\| !path\.isAbsolute\(audioPath\)/);
   // Uzantı serbest değil: seçilen biçimin tablodaki uzantısı (#521)
   assert.match(body, /require\('\.\.\/shared\/mcp'\)\.badOutPath\(outputPath, \[fmt\.ext\]\)/);
