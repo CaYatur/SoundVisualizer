@@ -137,7 +137,24 @@
      hedef ancak adla yeniden bulunur. İkili adı bildirmeyen istemcilerde
      uygulamanın kendi verdiği ad kullanılıyor. */
   function streamName(s) {
-    return (s && (s.binary || s.appName)) || '';
+    if (!s) return '';
+    /* Generic hosts (pacat, python3, electron, java) run many different
+       apps under one binary. Grouping by binary alone merged them into one
+       row ("ToneB · 2 processes"), so the key carries the app name too
+       when it differs from the binary: "pacat|ToneA". A plain binary key
+       saved by an older version still matches (see belongsTo). */
+    const bin = s.binary || '';
+    const app = String(s.appName || '').replace(/[\\/|]/g, '-');
+    if (!bin) return app;
+    if (!app || app.toLowerCase() === baseName(bin)) return bin;
+    return bin + APP_SEP + app;
+  }
+  const APP_SEP = '|';
+  /* Splits a target key into its binary and optional app name. */
+  function splitKey(match) {
+    const m = String(match || '');
+    const i = m.indexOf(APP_SEP);
+    return i < 0 ? { bin: baseName(m), app: '' } : { bin: baseName(m.slice(0, i)), app: m.slice(i + 1).toLowerCase() };
   }
 
   /* Ortak süreç biçimi — Windows yardımcısının --list çıktısıyla aynı:
@@ -172,7 +189,14 @@
      içinden bildiriyor. Ad verilmemişse kimlik. */
   function belongsTo(stream, target) {
     if (!stream || !target) return false;
-    const want = baseName(target.match || target.name);
+    const raw = target.match || target.name;
+    const want = baseName(raw);
+    if (want && String(raw).indexOf(APP_SEP) >= 0) {
+      // Binary + app name key: only that app's streams, not the whole host
+      const k = splitKey(raw);
+      return baseName(stream.binary) === k.bin
+        && String(stream.appName || '').replace(/[\\/|]/g, '-').toLowerCase() === k.app;
+    }
     if (want) {
       return baseName(stream.binary) === want || (!stream.binary && baseName(stream.appName) === want);
     }
@@ -299,7 +323,7 @@
   const api = {
     SAMPLE_RATE, CHANNELS, BYTES_PER_FRAME, C_LOCALE_ENV,
     parseSinkInputsJson, parseSinkInputsText, parseSinkInputs,
-    streamName, toProcesses, belongsTo, selectStreams, parecArgs,
+    streamName, splitKey, toProcesses, belongsTo, selectStreams, parecArgs,
     parseSubscribeLine, PcmMixer,
   };
 
