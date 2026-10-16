@@ -1176,6 +1176,7 @@
       /* Süre kaynağı (#523): ses dosyası, sabit saniye, zaman çizelgesinin
          uzunluğu ya da N ölçü (bpm 0 = zaman çizelgesinin temposu). */
       duration: { mode: 'audio', seconds: 30, bars: 16, bpm: 0 },
+      chapters: false, // zaman çizelgesi işaretçilerinden bölümlere ayır (#527)
       resolution: '1080p', // export-formats.js RESOLUTIONS anahtarı
       fps: 60, // 24 | 25 | 30 | 50 | 60
       quality: 'visually-lossless', // 'visually-lossless' | 'high' | 'balanced'

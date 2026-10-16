@@ -4290,6 +4290,27 @@ function removePartialDir(dir, proc) {
   if (proc && proc.exitCode == null && proc.signalCode == null) proc.once('close', () => setTimeout(drop, 50));
   else setTimeout(drop, 50);
 }
+/* Segment yazıcısının 001.mp4, 002.mp4… dosyalarına işaretçi adı verir
+   (#527). Sayı tutmazsa iş hata sayılıyor: eksik bölüm sessizce geçmesin. */
+function nameChapters(dir, names, ext) {
+  let files;
+  try {
+    files = fs.readdirSync(dir).filter((f) => /^\d{3}\./.test(f)).sort();
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  if (files.length !== names.length) {
+    return { ok: false, error: trUi('Bölüm sayısı tutmuyor: ', 'Chapter count does not match: ') + files.length + ' / ' + names.length };
+  }
+  const word = trUi('Bölüm', 'Chapter');
+  try {
+    files.forEach((f, i) => fs.renameSync(path.join(dir, f), path.join(dir, exportFormats.chapterFileName(i, names[i], ext, word))));
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  return { ok: true };
+}
+
 /* Geçici çıktıyı asıl adına taşır. Dosyada hedef varsa üstüne yazılır
    (kaydetme penceresi bunu zaten sordu); kare dizisinde klasör adı
    doluysa yanına numaralı yenisi seçilir. Windows tutamacı hemen
@@ -4481,7 +4502,10 @@ async function startExportJob(opts, bench) {
      (NVIDIA, AMD, Intel sırasıyla), yoksa CPU. Deneme kodlamasını geçmemiş
      bir kodlayıcı hiç seçilmez. */
   const okMap = await probeEncoders();
-  const encoderId = exportFormats.pickEncoder(fmt, opts.encoder === 'gpu' ? 'gpu' : 'cpu', (e) => okMap[e]);
+  // Bölümleme zorunlu anahtar kare istiyor; AMF onu yok sayıyor (#527)
+  const wantChapters = opts.chapters === true && fmt.kind === 'video';
+  const encoderId = exportFormats.pickEncoder(fmt, opts.encoder === 'gpu' ? 'gpu' : 'cpu', (e) => okMap[e],
+    { forcedKeys: wantChapters });
   if (!encoderId) {
     return { ok: false, error: trUi('Bu biçimin kodlayıcısı bu bilgisayarda çalışmıyor: ', 'No working encoder for this format on this computer: ') + fmt.id };
   }
@@ -4558,6 +4582,29 @@ async function startExportJob(opts, bench) {
   /* "Sesin süresi" seçiliyken eski kural geçerli (-shortest): ffmpeg'in
      ölçtüğü süreyle çözülen süre arasındaki küçük fark sesi kesmesin. */
   const durationSec = dur.mode === 'audio' ? 0 : dur.seconds;
+
+  /* Bölümler (#527): TEK render, işaretçilerde zorunlu anahtar kare ve
+     ffmpeg'in segment yazıcısıyla kesim. Her bölümü ayrı çizmek MilkDrop
+     gibi geri beslemeli katmanları sınırda farklı başlatırdı. Dosyalar bir
+     klasöre gidiyor ve işaretçinin adını alıyor; kare dizisindeki gibi önce
+     `.partial` klasörüne. */
+  let chapters = null;
+  if (wantChapters) {
+    let markers = [];
+    try { markers = TL.makeTimeline(tlCfg).markers; } catch { markers = []; }
+    chapters = exportFormats.chapterPlan(markers, dur.seconds, fps, trUi('Başlangıç', 'Start'));
+    if (!chapters.cuts.length) {
+      return { ok: false, error: trUi('Bölmek için zaman çizelgesinde bu süre içinde bir işaretçi yok.',
+        'There is no timeline marker within this length to split at.') };
+    }
+    const stem = path.basename(outputPath, path.extname(outputPath));
+    const parent = path.dirname(outputPath);
+    seqDir = path.join(parent, stem);
+    for (let n = 2; fs.existsSync(seqDir) && n < 1000; n++) seqDir = path.join(parent, stem + ' (' + n + ')');
+    workDir = seqDir + '.partial';
+    for (let n = 2; fs.existsSync(workDir) && n < 1000; n++) workDir = seqDir + '.partial' + n;
+    target = workDir.replace(/%/g, '%%') + '/%03d.' + fmt.ext;
+  }
   /* Sahne adı meta veriye (#528): panel gönderiyor; MCP vermezse etkin sahne. */
   let sceneName = typeof opts.sceneName === 'string' ? opts.sceneName.slice(0, 120) : '';
   if (!sceneName && currentConfig && currentConfig._activeSceneId && Array.isArray(currentConfig.scenes)) {
@@ -4576,6 +4623,7 @@ async function startExportJob(opts, bench) {
     fmt, encoder: encoderId, w, h, fps, quality, speed, inputPix: pix,
     threads: Math.max(1, Math.min(8, require('os').cpus().length)),
     audioPath, audioExt: path.extname(audioPath), audioSec, durationSec, output: target,
+    chapters: chapters ? chapters.cuts : null,
     meta: { title: track.title, artist: track.artist, album: track.album, scene: sceneName, bpm: bpmMeta },
   });
 
@@ -4596,6 +4644,7 @@ async function startExportJob(opts, bench) {
   exportState = {
     outputPath: seqDir || outputPath, seqDir, workDir, partial: workDir || target,
     format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false,
+    chapterNames: chapters ? chapters.names : null, ext: fmt.ext,
     startedAt: 0, total: 0,
   };
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
@@ -4796,6 +4845,8 @@ function finalizeExport(status, message, opts) {
   const seqDir = exportState.seqDir;
   const workDir = exportState.workDir;
   const partial = exportState.partial;
+  const chapterNames = exportState.chapterNames;
+  const ext = exportState.ext;
   const encoder = exportState.encoder;
   const encoderId = exportState.encoderId;
   const prof = exportState.prof;
@@ -4833,6 +4884,10 @@ function finalizeExport(status, message, opts) {
      hatada geçici çıktı siliniyor; asıl yolda hiçbir zaman yarım dosya
      olmuyor. */
   let finalOut = out;
+  if (status === 'done' && chapterNames && workDir) {
+    const named = nameChapters(workDir, chapterNames, ext);
+    if (!named.ok) { status = 'error'; message = named.error; }
+  }
   if (status === 'done' && partial) {
     const moved = promotePartial(partial, seqDir ? workDir : null, seqDir || out);
     if (moved.ok) {
@@ -4850,6 +4905,8 @@ function finalizeExport(status, message, opts) {
     finalOut = partial;
   }
 
+  // Ölçüm kaydı SON durumu taşısın: ad verme ya da taşıma işi hataya çevirebiliyor
+  if (prof && lastExportProfile) { lastExportProfile.status = status; lastExportProfile.message = message || ''; }
   notifyAdmin('export-done', {
     status, output: finalOut, message: message || '', encoder,
     encoderLabel: encoderId && exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
@@ -5072,6 +5129,11 @@ app.whenReady().then(async () => {
 async function runExportBench(file) {
   const spec = JSON.parse(fs.readFileSync(file, 'utf8'));
   const results = [];
+  /* Panel açılırken kendi ayarlarını gönderiyor (update-config) ve bu,
+     işin yapılandırmasını DEĞİŞTİRİYORDU: ilk iş bazen panelin ayarıyla
+     çizildi (farklı kare özeti), bölümleme ilk işte işaretçi göremedi.
+     Ölçüm boyunca panelin güncellemeleri öz testteki gibi bekletiliyor. */
+  smokeHoldStart();
   const base = currentConfig;
   for (const job of spec.jobs || []) {
     /* Profilin kayıtlı ayarları MİRAS ALINMIYOR: dışa aktarıcı iş
@@ -5096,6 +5158,7 @@ async function runExportBench(file) {
     results.push(row);
   }
   currentConfig = base;
+  smokeHoldEnd();
   fs.writeFileSync(spec.result, JSON.stringify(results, null, 2));
   app.exit(0);
 }

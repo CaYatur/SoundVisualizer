@@ -2966,6 +2966,7 @@
     /* Dışa aktarma biçimleri (#521); export-formats.js etiketleriyle aynı */
     'Dikey — 1080×1920 (Reels / Shorts)': 'Vertical — 1080×1920 (Reels / Shorts)',
     /* Dışa aktarma profilleri (#522); export-formats.js etiketleriyle aynı */
+    'İşaretçilerden bölümlere ayır': 'Split into chapters at the markers',
     'Hazır Profil': 'Preset Profile', 'Instagram kare — 1080×1080': 'Instagram square — 1080×1080',
     'Twitch / OBS bindirme — WebM alfa': 'Twitch / OBS overlay — WebM alpha',
     'Ana kopya 4K — ProRes 422 HQ': 'Master 4K — ProRes 422 HQ', 'GIF döngü — 720p': 'GIF loop — 720p',
