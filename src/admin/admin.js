@@ -847,13 +847,16 @@
   }
 
   function selectCtrl(def) {
-    const cur = getPath(cfg, def.path);
+    /* `value`/`onChange`: ayarda kendi alanı olmayan, başka alanlardan
+       türeyen seçimler için (dışa aktarma profili). */
+    const cur = typeof def.value === 'function' ? def.value() : getPath(cfg, def.path);
     const opts = typeof def.options === 'function' ? def.options() : def.options;
     const sel = el('select', {
       onchange: (e) => {
         let v = e.target.value;
         if (def.numeric) v = parseFloat(v);
-        setPath(cfg, def.path, v);
+        if (typeof def.onChange === 'function') def.onChange(v);
+        else setPath(cfg, def.path, v);
         if (def.rebuild) render();
         push(true);
       },
@@ -3382,6 +3385,19 @@
         controls: [
           { type: 'audiofile' },
           {
+            /* Hazır profil (#522): ayarların kendisinden türüyor, ayrı bir
+               alanı yok. Seçmek alanları dolduruyor; bir alan elle
+               değişince "Özel"e dönüyor. */
+            type: 'select', path: 'export.profile', label: 'Hazır Profil', rebuild: true,
+            value: () => (window.SVExportFormats ? window.SVExportFormats.matchProfile(cfg.export) : 'custom'),
+            options: () => exportProfileOptions(),
+            onChange: (id) => {
+              const FX = window.SVExportFormats;
+              if (!FX || id === 'custom') return;
+              cfg.export = FX.applyProfile(cfg.export, id);
+            },
+          },
+          {
             type: 'select', path: 'export.format', label: 'Biçim', rebuild: true,
             options: () => exportFormatOptions(),
           },
@@ -3410,7 +3426,7 @@
             show: () => exportDuration().mode === 'bars',
           },
           {
-            type: 'select', path: 'export.resolution', label: 'Çözünürlük',
+            type: 'select', path: 'export.resolution', label: 'Çözünürlük', rebuild: true, // profil seçimi güncellensin (#522)
             options: [
               { value: '720p', label: '720p — 1280×720' },
               { value: '1080p', label: '1080p — 1920×1080 (Full HD)' },
@@ -3421,7 +3437,7 @@
             ],
           },
           {
-            type: 'select', path: 'export.fps', label: 'Kare Hızı (FPS)', numeric: true,
+            type: 'select', path: 'export.fps', label: 'Kare Hızı (FPS)', numeric: true, rebuild: true,
             options: () => {
               const f = exportFormat();
               const max = f && f.fpsMax ? f.fpsMax : 60;
@@ -3444,7 +3460,7 @@
             fallback: () => 'cpu',
           },
           {
-            type: 'select', path: 'export.quality', label: 'Kalite',
+            type: 'select', path: 'export.quality', label: 'Kalite', rebuild: true,
             group: 'Kodlama', advanced: true,
             options: [
               { value: 'visually-lossless', label: 'Görsel Kayıpsız (en yüksek)' },
@@ -3465,6 +3481,16 @@
         ],
       },
     ];
+  }
+
+  /* Profiller: yalnız biçimi bu makinede çalışanlar. */
+  function exportProfileOptions() {
+    const FX = window.SVExportFormats;
+    if (!FX) return [{ value: 'custom', label: 'Özel' }];
+    const list = (exportCaps && exportCaps.formats) || [];
+    const ok = (fid) => !list.length || list.some((f) => f.id === fid && f.available);
+    return [{ value: 'custom', label: 'Özel' }]
+      .concat(FX.PROFILES.filter((p) => ok(p.set.format)).map((p) => ({ value: p.id, label: p.label[0] })));
   }
 
   /* Süre kaynağı (#523); eski kayıtlarda alan yok. */
