@@ -7085,7 +7085,11 @@ async function runSmoke() {
         // Yer tutucu ve başlık metinleri de taranır: gözle görünür oldukları
         // halde metin düğümü olmadıkları için kolayca gözden kaçarlar.
         var attrs = document.querySelectorAll('#sections [placeholder], #sections [title]');
+        /* Kullanıcı içeriği (preset, sahne, katman, klip adları) çevrilmez ve
+           taranmaz: onu çizen öğe data-user-text (metni ve altı) ya da
+           data-user-attr (yalnız title/placeholder) ile işaretlenir. */
         for (var ai = 0; ai < attrs.length; ai++) {
+          if (attrs[ai].closest('[data-user-attr],[data-user-text]')) continue;
           var av = (attrs[ai].getAttribute('placeholder') || '') + ' ' + (attrs[ai].getAttribute('title') || '');
           if (/[çğıöşüÇĞİÖŞÜ]/.test(av)) out.push(av.trim().slice(0, 90));
         }
@@ -7099,6 +7103,7 @@ async function runSmoke() {
           while (el && el.id !== 'sections') {
             for (var k = 0; k < skip.length; k++) if (el.classList && el.classList.contains(skip[k])) skipIt = true;
             if (el.tagName === 'OPTION' || el.tagName === 'INPUT') skipIt = true;
+            if (el.hasAttribute && el.hasAttribute('data-user-text')) skipIt = true;
             el = el.parentElement;
           }
           if (!skipIt) out.push(text.slice(0, 90));

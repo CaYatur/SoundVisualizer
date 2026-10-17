@@ -118,6 +118,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Studio
 
+- **New presets start in the app language [772].** In English, Studio → "+ Shader" opened a visualizer
+  named "Yeni Görselleştirici", and the discard-changes prompt showed that Turkish name. The name,
+  the default "Amount" slider label, the variation names and the starter shader's comment header
+  become the user's own editable text, so they are now written in the UI language at creation,
+  like the import fix in [759].
+  A new draft that was not edited no longer asks before it is discarded (it did in both languages
+  before), and the self-test's untranslated-text scan skips user content marked with
+  `data-user-text` / `data-user-attr`, so saved preset names are no longer flagged.
 - **Imported presets follow the app language [759].** A `.milk`, Shadertoy or ISF file imported
   through Studio got a Turkish description even in English, and the import notes stayed Turkish.
   The description is the user's own editable text once saved, so it is now written in the UI
