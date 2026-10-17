@@ -103,14 +103,18 @@
 
     function draw() {
       const c = cv.getContext('2d');
+      // Renkler arayüz temasından (#770)
+      const UT = window.SVUiTheme;
+      const tint = (name, a) => (UT ? UT.alpha(name, a) : 'transparent');
+      const solid = (name) => (UT ? UT.color(name) : '');
       c.clearRect(0, 0, W, H);
       // Zemin
-      c.fillStyle = 'rgba(255,255,255,0.03)';
+      c.fillStyle = tint('--fg-rgb', 0.03);
       c.fillRect(0, 0, W, H);
       // Referans dikdörtgeni (haritalanmamış görüntü)
       const a = toPx(0, 0);
       const b = toPx(1, 1);
-      c.strokeStyle = 'rgba(255,255,255,0.16)';
+      c.strokeStyle = tint('--fg-rgb', 0.16);
       c.setLineDash([4, 4]);
       c.lineWidth = 1;
       c.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
@@ -124,16 +128,16 @@
         if (i === 0) c.moveTo(q[0], q[1]); else c.lineTo(q[0], q[1]);
       });
       c.closePath();
-      c.fillStyle = 'rgba(124,92,255,0.12)';
+      c.fillStyle = tint('--sel-rgb', 0.12);
       c.fill();
-      c.strokeStyle = 'rgba(124,92,255,0.85)';
+      c.strokeStyle = tint('--sel-rgb', 0.85);
       c.lineWidth = 1.5;
       c.stroke();
 
       // Bükme ızgarası
       if (editMode === 'mesh') {
         const g = meshFromPlain(out.mesh) || window.SVWarp.identityGrid(3, 3);
-        c.strokeStyle = 'rgba(33,212,253,0.4)';
+        c.strokeStyle = tint('--info-rgb', 0.4);
         c.lineWidth = 1;
         const STEPS = 12;
         for (let j = 0; j < g.rows; j++) {
@@ -165,9 +169,9 @@
           if (i === 0) c.moveTo(q[0], q[1]); else c.lineTo(q[0], q[1]);
         });
         c.closePath();
-        c.fillStyle = mi === activeMask && editMode === 'mask' ? 'rgba(255,80,80,0.28)' : 'rgba(0,0,0,0.45)';
+        c.fillStyle = mi === activeMask && editMode === 'mask' ? tint('--danger-rgb', 0.28) : tint('--shadow-rgb', 0.45);
         c.fill();
-        c.strokeStyle = 'rgba(255,120,120,0.8)';
+        c.strokeStyle = tint('--danger-rgb', 0.8);
         c.stroke();
       });
 
@@ -177,13 +181,13 @@
         const on = hover === k || (drag && drag.k === k);
         c.beginPath();
         c.arc(q[0], q[1], on ? 7 : 5, 0, Math.PI * 2);
-        c.fillStyle = on ? '#fff' : (pt.kind === 'mask' ? '#ff7070' : '#7c5cff');
+        c.fillStyle = on ? solid('--text-strong') : (pt.kind === 'mask' ? solid('--danger-text') : tint('--sel-rgb', 1));
         c.fill();
-        c.strokeStyle = 'rgba(0,0,0,0.6)';
+        c.strokeStyle = tint('--shadow-rgb', 0.6);
         c.lineWidth = 1;
         c.stroke();
         if (pt.kind === 'corner') {
-          c.fillStyle = 'rgba(255,255,255,0.6)';
+          c.fillStyle = tint('--fg-rgb', 0.6);
           c.font = '10px system-ui, sans-serif';
           c.textAlign = 'center';
           c.fillText(String(pt.i + 1), q[0], q[1] - 10);
@@ -272,6 +276,13 @@
     });
 
     draw();
+    // Tema değişince yeniden çiz; panel yeniden kurulunca eski tuval bırakılır (#770)
+    if (window.SVUiTheme) {
+      const off = window.SVUiTheme.onChange(() => {
+        if (!cv.isConnected) { off(); return; }
+        draw();
+      });
+    }
     return { node: box, redraw: draw };
   }
 

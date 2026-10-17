@@ -2391,10 +2391,10 @@
     if (artnetState.running) {
       st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Yayında' }));
-      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       st.appendChild(el('span', { text: 'Evren' }));
       st.appendChild(el('span', { class: 'st-num', text: ' ' + artnetState.universe }));
-      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: String(artnetState.packets || 0) + ' ' }));
       st.appendChild(el('span', { text: 'paket' }));
     } else if (artnetState.error) {

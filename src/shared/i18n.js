@@ -2968,6 +2968,15 @@
     /* Dışa aktarma profilleri (#522); export-formats.js etiketleriyle aynı */
     'İşaretçilerden bölümlere ayır': 'Split into chapters at the markers',
     'Hazır Profil': 'Preset Profile',
+    /* Arayüz teması (#770). Karanlık ve Aydınlık palet gruplarından. */
+    'Dil, arayüz teması, pencere koruması, genişletilmiş aralıklar ve güncellemeler.': 'Language, interface theme, window protection, extended ranges and updates.',
+    'Arayüz Teması': 'Interface Theme',
+    'Cihaz varsayılanı': 'Device default',
+    'Yüksek Karşıtlık': 'High Contrast',
+    'Gece Mavisi': 'Midnight',
+    'Sepya': 'Sepia',
+    'Cihazınız şu an {0} kullanıyor; değişince panel de değişir.': 'Your device is using {0} right now; the panel follows it when it changes.',
+    'Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.': 'Changes the panel only; the visualizer output, the stream overlay and your own colours are not affected.',
     /* İki render kipi (#530) */
     'Zaman çizelgesini izle (çalınca başla, durunca bitir)': 'Follow the timeline (start on play, stop on stop)',
     'Gerçek zamanlı kip: ekranda göründüğü gibi, canlı sesle kaydedin; modülasyon, geçiş ve efektler dahil. Zaman çizelgesini izleyebilir. MP4, WebM, GIF ve PNG.': 'Realtime mode: record what is on screen with the live audio, including modulation, transitions and effects. It can follow the timeline. MP4, WebM, GIF and PNG.',

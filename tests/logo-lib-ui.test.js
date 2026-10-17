@@ -104,8 +104,9 @@ test('sil düğmesi çarpı çizer, dosyayı siler ve seçimi bırakır', async 
 
   const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'admin', 'admin.css'), 'utf8');
   assert.match(css, /\.logo-lib-del \{[\s\S]*z-index:\s*3/);
-  assert.match(css, /\.logo-lib-del \.svi \{[^}]*color:\s*#fff/);
-  assert.match(css, /\.logo-lib-del:hover,\s*\n\.logo-lib-del:focus-visible \{[^}]*background:\s*#e23b3b/);
+  // Renkler temadan (#770): görüntünün üstünde beyaz, üzerine gelince tehlike rengi
+  assert.match(css, /\.logo-lib-del \.svi \{[^}]*color:\s*rgb\(var\(--on-media-rgb\)\)/);
+  assert.match(css, /\.logo-lib-del:hover,\s*\n\.logo-lib-del:focus-visible \{[^}]*background:\s*var\(--danger\)/);
 
   window.api.mediaLibList = async () => [{ id: 'v1', name: 'Klip', url: 'sv-media://local/x', kind: 'video' }];
   const media = window.SVMediaLibUi.mount({ selectedId: 'v1' });
