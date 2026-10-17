@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3165%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3178%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -984,6 +984,24 @@ and does not create new top-level keys. A value must keep the type of the one it
 write under `layers` passes the same checks as `sv_update_layer`. Arguments a tool does not know
 are listed back as `ignored` in its reply.
 
+**Replies and errors.** A refused call answers `{ "ok": false, "error": "…" }`; the message says
+what was wrong and, where another tool is the right one, names it. A write answers `ok: true` with
+`changed: true` when the configuration changed, or `changed: false` when the result equals the
+previous state (nothing is saved). Setter replies carry the stored values back (`applied`, and
+`visual` on layer and effect tools). A mutating tool called only with arguments it does not know is
+refused with the list of arguments it takes. `params`/`settings` may be an object or a JSON string
+of an object; anything else is an error. Booleans accept `true`/`false` or `"true"`/`"false"`.
+
+**GLOBAL vs LAYER effects.** Effect tools start with `GLOBAL:` (the output-wide chain, `postfx`:
+`sv_add_effect`, `sv_set_effect_param`, …) or `LAYER:` (one layer's chain, `layers[n].postfx`:
+`sv_add_layer_effect`, `sv_set_layer_effect_param`, …). `sv_list_effects` lists both.
+`sv_set_layer_settings` refuses `postfx`; a stray `settings.postfx` saved by older versions is
+dropped.
+
+**Compact tool list.** "Compact tool list" on the MCP card makes `tools/list` return only the core
+read and common edit tools with one-sentence descriptions, for small-context local models. Every
+tool stays callable by name. The default is the full list.
+
 Five modes stack. The switch turns on in **Read**. A higher mode includes the ones below it. The
 agent cannot raise its own access: `sv_patch_config` refuses any `mcp.*` path. A blocked call names
 the mode it needs and tells the agent to leave the mode alone and leave the panel unclicked.
@@ -1721,7 +1739,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3165 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3178 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
