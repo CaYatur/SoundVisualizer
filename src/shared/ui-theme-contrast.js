@@ -31,7 +31,7 @@
     const ui = (fg, on, why) => out.push({ fg, on, min: UI, why });
 
     // Gövde yazısı ve ikincil yazılar her yüzeyde
-    ['--text', '--muted', '--muted2', '--accent2', '--ok', '--warn',
+    ['--text', '--muted', '--muted2', '--accent2', '--ok', '--warn', '--cue-armed',
       '--danger-text', '--ok-text', '--warn-text', '--accent-text', '--accent-label'].forEach((fg) => {
       SURFACES.forEach((s) => text(fg, s, 'yazı ' + fg + ' / ' + s));
     });
@@ -61,10 +61,13 @@
       text(fg, '--code-bg', 'kod ' + fg);
     });
     text('--muted2', '--code-gutter', 'satır numaraları');
-    // Zaman çizelgesi cetvelindeki tempo etiketi
+    // Zaman çizelgesi cetvelindeki tempo ve işaret etiketleri
     ['--card', '--card2'].forEach((base) => {
       out.push({ fg: '--tempo', on: { tint: '--fg-rgb', alpha: 0.04, base }, min: 'text', why: 'tempo etiketi / ' + base });
+      out.push({ fg: '--cue-armed', on: { tint: '--fg-rgb', alpha: 0.04, base }, min: 'text', why: 'işaret etiketi / ' + base });
     });
+    // Medya önizlemesinin üstündeki rozet ve düğmeler (görüntünün koyu perdesinde)
+    out.push({ fg: '--on-media-rgb', on: { scrim: '--media-scrim', base: '--media-bg' }, min: 'text', why: 'önizleme rozeti' });
     // Marka yazısı
     text('--brand-ink', '--bg', 'yazı işareti');
     text('--brand-ink', '--bg2', 'yazı işareti');
@@ -88,6 +91,7 @@
 
   function background(theme, on) {
     if (typeof on === 'string') return T.solid(theme, on);
+    if (on.scrim) return T.solid(theme, on.scrim, T.solid(theme, on.base));
     if (on.mix) {
       const a = T.solid(theme, on.mix[0]);
       const b = T.solid(theme, on.mix[1]);

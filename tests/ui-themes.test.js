@@ -470,3 +470,23 @@ test('süs ayraçları ekran okuyucudan ve ölçümden gizli', () => {
     assert.deepStrictEqual(bad, [], f);
   });
 });
+
+/* Yazı rengi olarak kullanılan her değişkenin bir karşıtlık kuralı olmalı.
+   Kural yoksa o değişken yalnız çizgi ya da süs için ayarlanmıştır ve
+   bir temada yazı olarak okunmayabilir (ör. --cue-armed aydınlık temada
+   3.1:1'di). Büyük yazı olan logo 3:1 kuralıyla kapsanır. */
+test('yazı rengi olarak kullanılan her değişkenin karşıtlık kuralı var', () => {
+  const fgs = new Set(C.rules().map((r) => r.fg));
+  const missing = [];
+  CSS_FILES.forEach((file) => {
+    S.cssRules(read(file)).forEach((r) => r.decls.forEach((d) => {
+      if (!/^(color|caret-color|fill|-webkit-text-fill-color)$/.test(d.prop)) return;
+      const re = /var\((--[\w-]+)\)/g;
+      let m;
+      while ((m = re.exec(d.value))) {
+        if (T.TOKENS[m[1]] && !fgs.has(m[1])) missing.push(file + ' "' + r.sel + '" ' + d.prop + ': ' + m[1]);
+      }
+    }));
+  });
+  assert.deepStrictEqual(missing, [], 'src/shared/ui-theme-contrast.js içine bu değişken için bir kural ekleyin');
+});

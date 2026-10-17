@@ -1350,7 +1350,8 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
   font-size: 11px; text-align: left; overflow: hidden; font-family: inherit;
 }
 .cd-cell.empty { align-items: center; justify-content: center; padding: 0; }
-.cd-plus { font-size: 18px; line-height: 1; color: var(--line2); transition: color .12s, transform .12s; }
+/* Boş hücrenin "+" işareti tek ekleme ipucu: çizgi rengiyle 1.5:1'di (#770) */
+.cd-plus { font-size: 18px; line-height: 1; color: var(--muted2); transition: color .12s, transform .12s; }
 .cd-cell.empty:hover { border-color: var(--line2); background: rgb(var(--fg-rgb) / .02); }
 .cd-cell.empty:hover .cd-plus { color: var(--text); transform: scale(1.15); }
 .cd-cell.filled { border: 1px solid color-mix(in srgb, var(--slot) 45%, var(--line)); background: color-mix(in srgb, var(--slot) 14%, var(--card)); color: var(--text); }
@@ -1446,7 +1447,7 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .perf-cell.filled .perf-thumb { opacity: .32; }
 
 /* Çakışma uyarısı — engellemiyoruz ama görünür olmalı. */
-.settings-io-note.warn { color: var(--cue-armed); border-left: 2px solid var(--cue-armed); padding-left: 8px; }
+.settings-io-note.warn { color: var(--warn-text); border-left: 2px solid var(--warn); padding-left: 8px; }
 
 /* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar
    ve soluk metin bunu ateşlemeden önce belli eder. */
