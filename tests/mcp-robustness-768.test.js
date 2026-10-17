@@ -232,3 +232,25 @@ test('#768-8 main drops stray settings.postfx at load and wires takeStartupClean
   assert.match(main, /takeStartupCleaned: \(\) => \{/);
   assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'mcp-server.js'), 'utf8'), /takeStartupCleaned: deps\.takeStartupCleaned/);
 });
+
+test('#768-8 repeated settings reads at startup log and report each stray id once', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const vm = require('vm');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  const a = main.indexOf('let startupCleaned = [];');
+  const b = main.indexOf('\n}', main.indexOf('function sanitizeLoaded(cfg)')) + 2;
+  const logs = [];
+  const sandbox = { require: (m) => (m === '../shared/mcp' ? mcp : require(m)), console: { log: (s) => logs.push(s) } };
+  vm.createContext(sandbox);
+  vm.runInContext(main.slice(a, b) + '\nthis.api = { sanitizeLoaded, take: () => { const i = startupCleaned; startupCleaned = []; return i; } };', sandbox);
+  const file = () => ({ layers: [{ id: 'A', settings: { postfx: [] } }, { id: 'B', settings: {} }] });
+  sandbox.api.sanitizeLoaded(file()); // startup parse
+  const again = sandbox.api.sanitizeLoaded(file()); // panel get-settings, file not saved yet
+  assert.ok(!('postfx' in again.layers[0].settings), 'still cleaned on every read');
+  assert.deepStrictEqual(logs, ['[settings] dropped stray layers[].settings.postfx on A']);
+  assert.deepStrictEqual(Array.from(sandbox.api.take()), ['A']);
+  sandbox.api.sanitizeLoaded(file()); // a later read before the save
+  assert.deepStrictEqual(Array.from(sandbox.api.take()), [], 'reported once');
+  assert.strictEqual(logs.length, 1);
+});

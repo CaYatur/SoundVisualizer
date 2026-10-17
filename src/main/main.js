@@ -260,11 +260,18 @@ function loadSettings() {
    is dropped here (no migration into the real chain) and the layer ids are
    kept so the next MCP write can report them as `cleaned`. */
 let startupCleaned = [];
+/* The file is read more than once at startup (startup parse, then the
+   panel's get-settings via loadSettings) and still holds the stray key until
+   the cleaned config is saved, so the same ids come back each read. Log
+   each id once per run. */
+const strayPostfxLogged = new Set();
 function sanitizeLoaded(cfg) {
   if (!cfg || typeof cfg !== 'object') return cfg;
   const ids = require('../shared/mcp').dropStrayLayerPostfx(cfg);
-  for (const id of ids) if (!startupCleaned.includes(id)) startupCleaned.push(id);
-  if (ids.length) console.log('[settings] dropped stray layers[].settings.postfx on ' + ids.join(', '));
+  // First sighting only: logged once and reported once (cleaned)
+  const fresh = ids.filter((id) => !strayPostfxLogged.has(id));
+  fresh.forEach((id) => { strayPostfxLogged.add(id); startupCleaned.push(id); });
+  if (fresh.length) console.log('[settings] dropped stray layers[].settings.postfx on ' + fresh.join(', '));
   return cfg;
 }
 
