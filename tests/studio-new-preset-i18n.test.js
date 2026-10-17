@@ -11,7 +11,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const norm = (v) => String(v).replace(/\s+/g, ' ').trim();
 
 function dictionary() {
@@ -70,4 +70,31 @@ test('i18n sözlüğünde yinelenen anahtar yok (yeni satırlar)', () => {
     const n = src.split("'" + k + "':").length - 1;
     assert.strictEqual(n, 1, k + ' ' + n + ' kez');
   }
+});
+
+/* Öz testin "çevrilmemiş metin" taraması kullanıcının kendi adlarını
+   (ör. kaydedilmiş "A Yeni Görselleştirici") işaretliyordu. Kullanıcı içeriği
+   genel bir öznitelikle hariç tutulur; tek tek metin istisnası yok. */
+test('öz test çeviri taraması kullanıcı içeriği özniteliklerini atlıyor', () => {
+  const main = read('src/main/main.js');
+  const i = main.indexOf("untranslated string(s) in English UI");
+  const scan = main.slice(main.lastIndexOf('createTreeWalker(document.getElementById', i) - 1500, i);
+  assert.match(scan, /closest\('\[data-user-attr\],\[data-user-text\]'\)\) continue;/);
+  assert.match(scan, /hasAttribute\('data-user-text'\)\) skipIt = true;/);
+  assert.doesNotMatch(scan, /Yeni Görselleştirici/, 'metne özel istisna olmamalı');
+});
+
+test('Studio listesi kendi preset adlarını kullanıcı içeriği olarak işaretliyor', () => {
+  assert.match(studio, /class: 'si-name', text: p\.builtin \? trStudio\(p\.name\) : p\.name, \.\.\.\(p\.builtin \? \{\} : \{ 'data-user-text': '' \}\)/);
+  assert.match(studio, /\.\.\.\(p\.builtin \? \{\} : \{ 'data-user-attr': '' \}\)/);
+});
+
+test('dokunulmamış yeni taslak atılırken onay sorulmuyor', () => {
+  const body = fnBody('startDraft');
+  assert.match(body, /dirty = false;/);
+  assert.doesNotMatch(body, /dirty = true/);
+  const confirm = fnBody('confirmDiscard');
+  assert.match(confirm, /if \(!dirty \|\| !draft\) return true;/);
+  // Kaydedilmemiş yeni taslakta Kaydet yine vurgulu
+  assert.match(studio, /class: 'btn ' \+ \(dirty \|\| !selectedId \? 'primary' : ''\)/);
 });

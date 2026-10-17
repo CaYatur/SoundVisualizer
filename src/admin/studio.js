@@ -349,7 +349,10 @@
     if (!(await confirmDiscard())) return;
     draft = make();
     selectedId = null;
-    dirty = true;
+    /* Dokunulmamış yeni taslak "değişmiş" sayılmaz: atılırken sormaya gerek
+       yok. Eskiden burada true'ydu ve TR/EN fark etmeden onay çıkıyordu.
+       Kaydedilmemiş olduğu yine belli: Kaydet düğmesi !selectedId ile vurgulu. */
+    dirty = false;
     compileNow();
     P().rerender();
   }
@@ -559,10 +562,12 @@
               class: 'studio-item' + (p.id === selectedId ? ' active' : ''),
               type: 'button',
               title: trStudio(p.description || p.name),
+              // Kendi presetinin adı/açıklaması kullanıcı içeriği: öz test çeviri aramaz
+              ...(p.builtin ? {} : { 'data-user-attr': '' }),
               onclick: () => guardedSelect(p.id),
             },
             [
-              el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name }),
+              el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name, ...(p.builtin ? {} : { 'data-user-text': '' }) }),
               el('span', { class: 'si-tag', text: trStudio(p.builtin ? 'yerleşik' : p.engine === 'shader' ? 'shader' : 'varyasyon') }),
             ]
           )
@@ -767,7 +772,7 @@
     }
 
     const actions = el('div', { class: 'studio-actions' }, [
-      el('button', { id: 'studioSave', class: 'btn ' + (dirty ? 'primary' : ''), type: 'button', icon: 'save', text: 'Kaydet', onclick: saveDraft }),
+      el('button', { id: 'studioSave', class: 'btn ' + (dirty || !selectedId ? 'primary' : ''), type: 'button', icon: 'save', text: 'Kaydet', onclick: saveDraft }),
       el('button', { class: 'btn', type: 'button', icon: 'play', text: 'Sahnede Kullan', onclick: applyToScene }),
       el('button', {
         class: 'btn ghost small', type: 'button', icon: 'copy', text: 'Çoğalt',
