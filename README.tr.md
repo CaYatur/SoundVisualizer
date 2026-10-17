@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3178%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3182%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -995,7 +995,10 @@ JSON metni olabilir; başka her şey hatadır. Mantıksal değerler `true`/`fals
 **GENEL ve KATMAN efektleri.** Efekt araçlarının açıklaması `GLOBAL:` (tüm çıkışın zinciri,
 `postfx`) ya da `LAYER:` (tek katmanın zinciri, `layers[n].postfx`) ile başlar (Türkçe arayüzde de).
 `sv_list_effects` ikisini de listeler. `sv_set_layer_settings` `postfx`
-kabul etmez; eski sürümlerin yazdığı `settings.postfx` silinir.
+kabul etmez; eski sürümlerin yazdığı `settings.postfx` ayarlar yüklenirken silinir ve sonraki MCP
+yazması bu katmanları `cleaned` altında bildirir. Tanınmayan argümanlarla çağrılıp hata veren ya da
+hiçbir şey değiştirmeyen yazma aracı onları adlandırır ve kabul ettiklerini sayar; `patch` alan
+bir araca dışarıda gönderilen alanlar için "patch içine koyun" ipucu verilir.
 
 **Kısa araç listesi.** MCP kartındaki "Kısa araç listesi" açıkken `tools/list` yalnız temel okuma
 ve sık düzenleme araçlarını tek cümlelik açıklamalarla döner; küçük bağlamlı yerel modeller için.
@@ -1741,7 +1744,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3178 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3182 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş

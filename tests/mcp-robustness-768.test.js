@@ -189,3 +189,46 @@ test('#768-9 tools/list honours the compact profile from MCP settings', async ()
   assert.strictEqual(full.result.tools.length, mcp.tools('en').length);
   assert.strictEqual(mcp.normalizeMcp({ toolProfile: 'weird' }).toolProfile, 'full');
 });
+
+test('#768-5 unknown args next to a layer ref: accepted args listed, not "settings or key is required"', async () => {
+  const c = ctx();
+  const r = await call('sv_set_layer_settings', { id: 'L1', patch: { a: 1 } }, c);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /^Unknown argument\(s\): patch\. sv_set_layer_settings takes: .*settings.*key/);
+  // Generic: same shape on another write tool
+  const e = await call('sv_set_effect_param', { effectId: 'g1', values: { amount: 1 } }, c);
+  assert.match(e.error, /^Unknown argument\(s\): values\. sv_set_effect_param takes: .*params/);
+  assert.strictEqual(c.writes(), 0);
+});
+
+test('#768 sv_update_layer with fields at the top level errors with a "put inside patch" hint', async () => {
+  const c = ctx();
+  const r = await call('sv_update_layer', { id: 'L1', locked: true }, c);
+  assert.strictEqual(r.ok, false);
+  assert.match(r.error, /Unknown argument\(s\): locked/);
+  assert.match(r.error, /inside patch/);
+  assert.notStrictEqual(c.cfg().layers[0].locked, true);
+  const ok = await call('sv_update_layer', { id: 'L1', patch: { locked: true } }, c);
+  assert.strictEqual(ok.ok, true);
+  assert.strictEqual(c.cfg().layers[0].locked, true);
+});
+
+test('#768-8 keys dropped when settings were loaded are reported once by the next write', async () => {
+  const c = ctx();
+  let pending = ['Lx'];
+  c.takeStartupCleaned = () => { const ids = pending; pending = []; return ids; };
+  const r = await call('sv_set_effect_param', { effectId: 'g1', params: { amount: 0.05 } }, c);
+  assert.deepStrictEqual(r.cleaned, { strayLayerSettingsPostfx: ['Lx'] });
+  const r2 = await call('sv_set_effect_param', { effectId: 'g1', params: { amount: 0.06 } }, c);
+  assert.strictEqual(r2.cleaned, undefined);
+});
+
+test('#768-8 main drops stray settings.postfx at load and wires takeStartupCleaned', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8');
+  assert.match(main, /return sanitizeLoaded\(SettingsGuard\.parse\(fs\.readFileSync\(SETTINGS_PATH\)\)\);/);
+  assert.match(main, /\n  sanitizeLoaded\(currentConfig\); \/\/ stray layer settings\.postfx/);
+  assert.match(main, /takeStartupCleaned: \(\) => \{/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'mcp-server.js'), 'utf8'), /takeStartupCleaned: deps\.takeStartupCleaned/);
+});

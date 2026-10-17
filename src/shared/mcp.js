@@ -774,11 +774,18 @@
     const result = mutator(cfg);
     if (result && result.ok === false) return result;
     const cleaned = dropStrayLayerPostfx(cfg);
+    // Keys already dropped when the settings were loaded, reported once
+    let atLoad = [];
+    try { atLoad = (ctx.takeStartupCleaned && ctx.takeStartupCleaned()) || []; } catch (e) { atLoad = []; }
+    atLoad.forEach(function (id) { if (cleaned.indexOf(id) < 0) cleaned.push(id); });
     const changed = JSON.stringify(cfg) !== JSON.stringify(before || {});
-    if (!changed) return Object.assign({ ok: true, revision: revisionOf(ctx), changed: false }, result || {});
-    if (ctx.setConfig) ctx.setConfig(cfg);
-    const rev = ctx.noteWrite ? ctx.noteWrite() : revisionOf(ctx);
-    const out = Object.assign({ ok: true, revision: rev, changed: true }, result || {});
+    let out;
+    if (!changed) out = Object.assign({ ok: true, revision: revisionOf(ctx), changed: false }, result || {});
+    else {
+      if (ctx.setConfig) ctx.setConfig(cfg);
+      const rev = ctx.noteWrite ? ctx.noteWrite() : revisionOf(ctx);
+      out = Object.assign({ ok: true, revision: rev, changed: true }, result || {});
+    }
     if (cleaned.length) out.cleaned = { strayLayerSettingsPostfx: cleaned };
     return out;
   }
@@ -2418,9 +2425,24 @@
        names. Some unknown next to known ones are reported as `ignored`. */
     const mutating = !!toolDef.group || STRICT_ARGS.indexOf(name) >= 0;
     if (unknown.length && mutating && unknown.length === Object.keys(args).length) {
-      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + Object.keys(known).join(', ') + '.');
+      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + Object.keys(known).join(', ') + '.'
+        + (Object.prototype.hasOwnProperty.call(known, 'patch') ? ' Put these fields inside patch.' : ''));
     }
+    const takes = known ? Object.keys(known) : [];
+    const unknownError = function (why) {
+      // Fields sent at the top level of a tool that takes `patch` (#768)
+      const patchable = takes.indexOf('patch') >= 0 && !(args && args.patch !== undefined)
+        ? ' Put these fields inside patch, e.g. {"id": "...", "patch": {"' + unknown[0] + '": ...}}.' : '';
+      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + takes.join(', ') + '.' + patchable + (why ? ' (' + why + ')' : ''));
+    };
     const note = function (value) {
+      /* A write that failed or changed nothing while unknown arguments were
+         sent: the unknown ones are the likely cause, so say so and list the
+         accepted names instead of a bare "x is required" or a silent no-op. */
+      if (mutating && unknown.length && value && typeof value === 'object') {
+        if (value.ok === false) return unknownError(value.error);
+        if (value.changed === false) return unknownError('nothing was changed');
+      }
       const out = value || { ok: true };
       // Kopya: aracın döndürdüğü nesne canlı bir ayar parçası olabilir
       if (unknown.length && out && typeof out === 'object' && !Array.isArray(out)) return Object.assign({}, out, { ignored: unknown });

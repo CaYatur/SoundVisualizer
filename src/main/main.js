@@ -249,10 +249,23 @@ function loadSettings() {
        düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
        JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
        biçimi de çözüyor (source: string -> sources: [string]). */
-    return SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH));
+    return sanitizeLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)));
   } catch {
     return null;
   }
+}
+
+/* Load-time cleanup (#768): layers saved while MCP sv_set_layer_settings
+   accepted `postfx` carry a stray settings.postfx that never renders. It
+   is dropped here (no migration into the real chain) and the layer ids are
+   kept so the next MCP write can report them as `cleaned`. */
+let startupCleaned = [];
+function sanitizeLoaded(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  const ids = require('../shared/mcp').dropStrayLayerPostfx(cfg);
+  for (const id of ids) if (!startupCleaned.includes(id)) startupCleaned.push(id);
+  if (ids.length) console.log('[settings] dropped stray layers[].settings.postfx on ' + ids.join(', '));
+  return cfg;
 }
 
 /* KAYIT BİRLEŞTİRİLİYOR (#621). Panel kaydırıcı sürüklenirken 55 ms'de bir
@@ -2216,6 +2229,8 @@ function ensureMcp() {
   mcpHandle = mcpServer.create({
     userData: app.getPath('userData'),
     getConfig: () => currentConfig,
+    // Load-time cleanup to report once (see sanitizeLoaded)
+    takeStartupCleaned: () => { const ids = startupCleaned; startupCleaned = []; return ids; },
     setConfig: (cfg) => {
       applyIncomingConfig(cfg);
       notifyAdmin('external-config', currentConfig);
@@ -5199,6 +5214,7 @@ app.whenReady().then(async () => {
   } catch {
     currentConfig = null;
   }
+  sanitizeLoaded(currentConfig); // stray layer settings.postfx (#768)
   if (currentConfig?.lighting?.enabled) {
     lightingSet(currentConfig.lighting).catch(() => {});
   }

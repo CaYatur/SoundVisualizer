@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3178%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3182%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -996,7 +996,9 @@ of an object; anything else is an error. Booleans accept `true`/`false` or `"tru
 `sv_add_effect`, `sv_set_effect_param`, …) or `LAYER:` (one layer's chain, `layers[n].postfx`:
 `sv_add_layer_effect`, `sv_set_layer_effect_param`, …). `sv_list_effects` lists both.
 `sv_set_layer_settings` refuses `postfx`; a stray `settings.postfx` saved by older versions is
-dropped.
+dropped when the settings load, and the next MCP write lists those layers under `cleaned`. A write
+tool that fails or changes nothing while unknown arguments were sent names them and lists the
+accepted ones; fields sent next to a tool's `patch` argument get the hint to put them inside it.
 
 **Compact tool list.** "Compact tool list" on the MCP card makes `tools/list` return only the core
 read and common edit tools with one-sentence descriptions, for small-context local models. Every
@@ -1739,7 +1741,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3178 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3182 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
