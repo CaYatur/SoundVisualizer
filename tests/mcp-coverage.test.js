@@ -250,3 +250,26 @@ test('her araç boş argümanla çağrılınca atmıyor, yanıtı biçimli', asy
     if (r.ok === false) assert.ok(typeof r.error === 'string' && r.error.length > 0, t.name + ' hata metni boş');
   }
 });
+
+test('every effect tool description starts with GLOBAL: or LAYER: (both languages)', () => {
+  const fx = mcp.tools('en').filter((t) => /effect/.test(t.name) && t.name !== 'sv_list_effects');
+  assert.ok(fx.length >= 8);
+  for (const t of fx) assert.match(t.description, /^(GLOBAL|LAYER): /, t.name);
+  for (const t of mcp.tools('tr').filter((x) => fx.some((f) => f.name === x.name))) assert.match(t.description, /^(GLOBAL|LAYER): /, t.name);
+  for (const t of fx) {
+    const want = /^GLOBAL/.test(t.description) ? 'postfx' : 'layers[n].postfx';
+    assert.ok(t.description.includes(want), t.name + ' names its target list');
+  }
+});
+
+test('compact tool profile: subset with short descriptions; default list unchanged', () => {
+  const full = mcp.tools('en');
+  assert.deepStrictEqual(mcp.tools('en', 'full').map((t) => t.name), full.map((t) => t.name));
+  const compact = mcp.tools('en', 'compact');
+  assert.ok(compact.length > 10 && compact.length < full.length / 2);
+  for (const t of compact) {
+    assert.ok(full.some((f) => f.name === t.name), t.name);
+    assert.ok(!/\. \S/.test(t.description), 'one sentence: ' + t.name);
+  }
+  for (const n of mcp.COMPACT_TOOLS) assert.ok(full.some((f) => f.name === n), 'compact tool exists: ' + n);
+});

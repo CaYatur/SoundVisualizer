@@ -31,7 +31,20 @@
     controlBindings: 'control',
   };
   const DEFAULT_PORT = 38471;
-  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT };
+  const DEFAULT_MCP = { enabled: false, mode: 'read', port: DEFAULT_PORT, toolProfile: 'full' };
+  /* Tool list profiles (#768). "full" (default) lists every tool with its
+     full description. "compact" lists only core read + common edit tools
+     with one-sentence descriptions, for small-context local models. It only
+     shortens tools/list: every tool stays callable by name. */
+  const TOOL_PROFILES = ['full', 'compact'];
+  const COMPACT_TOOLS = [
+    'sv_get_state', 'sv_get_visual_state', 'sv_get_config', 'sv_list_layers', 'sv_list_effects', 'sv_list_scenes',
+    'sv_list_modes', 'sv_list_presets', 'sv_apply_scene', 'sv_load_preset', 'sv_set_visualizer_type', 'sv_set_background_type',
+    'sv_add_layer', 'sv_update_layer', 'sv_set_layer_settings', 'sv_set_layer_enabled', 'sv_remove_layer',
+    'sv_add_effect', 'sv_set_effect_param', 'sv_set_effect_enabled', 'sv_remove_effect',
+    'sv_add_layer_effect', 'sv_set_layer_effect_param', 'sv_set_layer_effect_enabled', 'sv_remove_layer_effect',
+    'sv_patch_config', 'sv_set_blackout',
+  ];
   const SCENE_KEYS = [
     'background', 'visualizer', 'layers', 'layerStack', 'layerGroups', 'crossfade',
     'geometry', 'postfx', 'logo', 'images', 'media', 'text', 'modulation',
@@ -67,7 +80,7 @@
   function normalizeMcp(raw) {
     const src = raw && typeof raw === 'object' ? raw : {};
     const mode = MODES.indexOf(src.mode) >= 0 ? src.mode : 'read';
-    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port) };
+    return { enabled: src.enabled === true, mode: mode, port: normalizePort(src.port), toolProfile: TOOL_PROFILES.indexOf(src.toolProfile) >= 0 ? src.toolProfile : 'full' };
   }
   function mcpI18n() {
     if (mcpI18n.cached !== undefined) return mcpI18n.cached;
@@ -244,6 +257,61 @@
     }
     return out;
   }
+  /* Input coercion shared by every tool (#768). Small models send params
+     as a JSON string and booleans as "false"/0; those used to be dropped
+     or read as "on" while the tool still answered ok. */
+  function hasUnsafeKey(v) {
+    if (!v || typeof v !== 'object') return false;
+    if (Array.isArray(v)) return v.some(hasUnsafeKey);
+    return Object.keys(v).some(function (k) { return unsafeKey(k) || hasUnsafeKey(v[k]); });
+  }
+  /* -> { value } or { error }. `required`: missing/empty is an error. */
+  function coerceParams(v, required, name) {
+    const label = name || 'params';
+    if (v === undefined || v === null) {
+      return required ? { error: label + ' is required: an object such as {"amount": 0.5}.' } : { value: undefined };
+    }
+    let val = v;
+    if (typeof val === 'string') {
+      try { val = JSON.parse(val); } catch (e) { return { error: label + ' is a string but not valid JSON. Pass an object such as {"amount": 0.5}.' }; }
+    }
+    if (!val || typeof val !== 'object' || Array.isArray(val)) {
+      return { error: label + ' must be a JSON object such as {"amount": 0.5}, not ' + (Array.isArray(val) ? 'an array' : (val === null ? 'null' : typeof val)) + '.' };
+    }
+    if (hasUnsafeKey(val)) return { error: 'Refusing unsafe key in ' + label + '.' };
+    if (required && !Object.keys(val).length) return { error: label + ' is empty; nothing to change.' };
+    return { value: val };
+  }
+  /* -> { value } or { error }. Accepts true/false and "true"/"false". */
+  function coerceBool(v, dflt, name) {
+    if (v === undefined) return { value: dflt };
+    if (v === true || v === false) return { value: v };
+    if (typeof v === 'string' && /^(true|false)$/i.test(v.trim())) return { value: v.trim().toLowerCase() === 'true' };
+    return { error: (name || 'enabled') + ' must be true or false, got ' + JSON.stringify(v) + '.' };
+  }
+  /* Layers saved while sv_set_layer_settings accepted `postfx` carry a
+     stray settings.postfx that never renders. Drop it (not migrated into
+     the real chain); returns the ids of the cleaned layers. */
+  function dropStrayLayerPostfx(cfg) {
+    const cleaned = [];
+    (Array.isArray(cfg && cfg.layers) ? cfg.layers : []).forEach(function (l) {
+      if (l && l.settings && typeof l.settings === 'object' && Object.prototype.hasOwnProperty.call(l.settings, 'postfx')) {
+        delete l.settings.postfx;
+        cleaned.push(l.id || null);
+      }
+    });
+    return cleaned;
+  }
+  const GLOBAL_FX_HINT = 'GLOBAL effects live in postfx; sv_list_effects lists them. For an effect on a layer use the sv_*_layer_effect_* tools.';
+  const LAYER_FX_LIST_HINT = 'LAYER effects live in layers[n].postfx; sv_list_effects lists them. For a global effect use sv_set_effect_param / sv_set_effect_enabled.';
+  // Read-after-write: stored values for the keys that were sent
+  function pick(obj, keysFrom) {
+    const out = {};
+    Object.keys(keysFrom || {}).forEach(function (k) { if (!unsafeKey(k)) out[k] = clone(obj && obj[k]); });
+    return out;
+  }
+  const LAYER_FX_HINT = 'Layer effects live in layers[n].postfx, not in settings. Use sv_add_layer_effect to add one and sv_set_layer_effect_param to change it (sv_list_effects lists them).';
+
   /* Doğrulamalar. Aralıklar panelin kendi denetimleriyle aynı; uygulamanın
      yazdığı her değer geçer, yalnız panelin üretemeyeceği değerler
      reddedilir ya da panelin aralığına çekilir. Eskiden `x:"abc"`,
@@ -696,13 +764,30 @@
       crossfade: cfg.crossfade || null,
     };
   }
+  /* Every write reports `changed` (#768): false when the resulting config
+     equals the previous one, so a client can tell "applied" from "no-op".
+     A no-op is not written. Stray layer settings.postfx keys are dropped
+     on the way (reported as `cleaned`). */
   function withConfig(ctx, mutator) {
-    const cfg = clone(configOf(ctx)) || {};
+    const before = configOf(ctx);
+    const cfg = clone(before) || {};
     const result = mutator(cfg);
     if (result && result.ok === false) return result;
-    if (ctx.setConfig) ctx.setConfig(cfg);
-    const rev = ctx.noteWrite ? ctx.noteWrite() : revisionOf(ctx);
-    return Object.assign({ ok: true, revision: rev }, result || {});
+    const cleaned = dropStrayLayerPostfx(cfg);
+    // Keys already dropped when the settings were loaded, reported once
+    let atLoad = [];
+    try { atLoad = (ctx.takeStartupCleaned && ctx.takeStartupCleaned()) || []; } catch (e) { atLoad = []; }
+    atLoad.forEach(function (id) { if (cleaned.indexOf(id) < 0) cleaned.push(id); });
+    const changed = JSON.stringify(cfg) !== JSON.stringify(before || {});
+    let out;
+    if (!changed) out = Object.assign({ ok: true, revision: revisionOf(ctx), changed: false }, result || {});
+    else {
+      if (ctx.setConfig) ctx.setConfig(cfg);
+      const rev = ctx.noteWrite ? ctx.noteWrite() : revisionOf(ctx);
+      out = Object.assign({ ok: true, revision: rev, changed: true }, result || {});
+    }
+    if (cleaned.length) out.cleaned = { strayLayerSettingsPostfx: cleaned };
+    return out;
   }
   function findScene(cfg, args) {
     const list = Array.isArray(cfg.scenes) ? cfg.scenes : [];
@@ -839,6 +924,7 @@
     out.audio = Object.assign({}, LAYER_DEFAULTS.audio, src.audio || {});
     out.mask = Object.assign({}, LAYER_DEFAULTS.mask, src.mask || {});
     out.settings = src.settings && typeof src.settings === 'object' ? clone(src.settings) : {};
+    delete out.settings.postfx; // stray key, see dropStrayLayerPostfx
     out.postfx = Array.isArray(src.postfx) ? src.postfx.map(normalizeFx) : [];
     if (!out.id) out.id = uid('ly_');
     return out;
@@ -997,22 +1083,22 @@
         flipY: sp('boolean', 'Mirror vertically.'),
       }),
     },
-    sv_set_layer_settings: { props: Object.assign({}, LAYER_REF, { settings: sp('object', 'Settings to merge.'), key: sp('string', 'One setting key, with value.'), value: ANY('Value for key.') }) },
+    sv_set_layer_settings: { props: Object.assign({}, LAYER_REF, { settings: sp('object', 'Settings to merge (layer type settings only; postfx is refused, use the LAYER effect tools).'), key: sp('string', 'One setting key, with value.'), value: ANY('Value for key.') }) },
     sv_remove_layer: { props: LAYER_REF },
     sv_reorder_layers: { props: { ids: sp('array', 'Layer ids in the new order; missing ones keep their order after these.', { items: { type: 'string' } }) }, required: ['ids'] },
     sv_set_text: { props: PATCH('the text overlay (sv_get_config path text)'), required: ['patch'] },
     sv_set_logo: { props: PATCH('the logo (sv_get_config path logo)'), required: ['patch'] },
     sv_set_media: { props: PATCH('the media layer (sv_get_config path media)'), required: ['patch'] },
     sv_set_geometry: { props: PATCH('geometry (sv_get_config path geometry)'), required: ['patch'] },
-    sv_set_effect_enabled: { props: Object.assign({}, FX_REF, { enabled: sp('boolean', 'false turns the effect off. Default true.') }) },
-    sv_set_effect_param: { props: Object.assign({}, FX_REF, { params: sp('object', 'Parameters to merge.') }), required: ['params'] },
-    sv_set_layer_effect_enabled: { props: Object.assign({}, LAYER_REF, FX_REF, { enabled: sp('boolean', 'false turns the effect off. Default true.') }) },
-    sv_set_layer_effect_param: { props: Object.assign({}, LAYER_REF, FX_REF, { params: sp('object', 'Parameters to merge.') }), required: ['params'] },
+    sv_set_effect_enabled: { props: Object.assign({}, FX_REF, { enabled: sp('boolean', 'false turns the GLOBAL effect (postfx) off. Default true.') }) },
+    sv_set_effect_param: { props: Object.assign({}, FX_REF, { params: sp('object', 'Parameters to merge into the GLOBAL effect (postfx), e.g. {"amount": 0.5}.') }), required: ['params'] },
+    sv_set_layer_effect_enabled: { props: Object.assign({}, LAYER_REF, FX_REF, { enabled: sp('boolean', 'false turns the LAYER effect (layers[n].postfx) off. Default true.') }) },
+    sv_set_layer_effect_param: { props: Object.assign({}, LAYER_REF, FX_REF, { params: sp('object', 'Parameters to merge into the LAYER effect (layers[n].postfx), e.g. {"amount": 0.5}.') }), required: ['params'] },
     sv_set_modulation_enabled: { props: { enabled: sp('boolean', 'false turns the matrix off. Default true.') } },
     sv_set_macro: { props: { index: sp('integer', 'Macro index from 0.', { minimum: 0 }), value: sp('number', 'Macro value.', { minimum: 0, maximum: 1 }) }, required: ['index', 'value'] },
-    sv_add_effect: { props: { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters.'), enabled: sp('boolean', 'Default true.') }, required: ['type'] },
+    sv_add_effect: { props: { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters for the GLOBAL chain (postfx).'), enabled: sp('boolean', 'Default true.') }, required: ['type'] },
     sv_remove_effect: { props: FX_REF },
-    sv_add_layer_effect: { props: Object.assign({}, LAYER_REF, { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters.'), enabled: sp('boolean', 'Default true.') }), required: ['type'] },
+    sv_add_layer_effect: { props: Object.assign({}, LAYER_REF, { type: sp('string', 'Effect type.', { enum: EFFECT_TYPES.slice() }), params: sp('object', 'Effect parameters for the LAYER chain (layers[n].postfx).'), enabled: sp('boolean', 'Default true.') }), required: ['type'] },
     sv_remove_layer_effect: { props: Object.assign({}, LAYER_REF, FX_REF) },
     sv_add_modulation_route: {
       props: {
@@ -1565,7 +1651,8 @@
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
       const patch = Object.assign({}, (args && args.patch) || {});
-      if (patch.postfx) return fail('Layer effects are changed with the effect tools, not sv_update_layer.');
+      if (patch.postfx) return fail('Layer effects are changed with the effect tools, not sv_update_layer. ' + LAYER_FX_HINT);
+      if (patch.settings && typeof patch.settings === 'object' && Object.prototype.hasOwnProperty.call(patch.settings, 'postfx')) return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
       if (lockBlocksPatch(found.layer, patch)) return fail(lockedError(found.layer));
       const fieldBad = layerFieldError(patch);
       if (fieldBad) return fail(fieldBad);
@@ -1612,19 +1699,31 @@
       return { layer: publicLayer(found.layer, found.index), visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_set_layer_settings', 'sceneEdit', 'Merge settings on an existing layer. Authoring.', function (args, ctx) {
+  tool('sv_set_layer_settings', 'sceneEdit', 'Merge settings on an existing layer. Not for effects: use sv_add_layer_effect / sv_set_layer_effect_param. Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
       if (found.layer.locked) return fail(lockedError(found.layer));
-      if (args && args.settings && typeof args.settings === 'object') found.layer.settings = mergeObj(found.layer.settings, args.settings);
-      else if (args && args.key) {
+      let applied;
+      if (args && args.settings !== undefined && args.settings !== null) {
+        const p = coerceParams(args.settings, true, 'settings');
+        if (p.error) return fail(p.error);
+        if (Object.prototype.hasOwnProperty.call(p.value, 'postfx')) return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
+        applied = p.value;
+        found.layer.settings = mergeObj(found.layer.settings, applied);
+      } else if (args && args.key) {
         if (unsafeKey(args.key)) return fail('Refusing unsafe settings key.');
+        if (args.key === 'postfx' || String(args.key).split('.')[0] === 'postfx') return fail('postfx is not a layer setting. ' + LAYER_FX_HINT);
+        if (args.value === undefined) return fail('value is required with key.');
         const settings = Object.assign({}, found.layer.settings);
         settings[args.key] = args.value;
         found.layer.settings = settings;
+        applied = {}; applied[args.key] = args.value;
       } else return fail('settings or key is required.');
-      return { layer: publicLayer(found.layer, found.index) };
+      // Read-after-write: the values now stored for the keys that were sent
+      const now = {};
+      Object.keys(applied).forEach(function (k) { if (!unsafeKey(k)) now[k] = clone(found.layer.settings[k]); });
+      return { layer: publicLayer(found.layer, found.index), applied: now, visual: visualState(cfg, ctx) };
     });
   });
   tool('sv_remove_layer', 'sceneEdit', 'Remove a layer. Authoring.', function (args, ctx) {
@@ -1675,47 +1774,57 @@
     return withConfig(ctx, function (cfg) { cfg.geometry = mergeObj(cfg.geometry || {}, args.patch); return { geometry: summarize(cfg.geometry) }; });
   });
 
-  tool('sv_set_effect_enabled', 'effectApply', 'Enable or disable an effect already on the global chain.', function (args, ctx) {
+  tool('sv_set_effect_enabled', 'effectApply', 'GLOBAL: Turn an effect on the global chain (postfx) on or off. For a layer effect use sv_set_layer_effect_enabled; sv_list_effects lists both.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const found = findFx(cfg.postfx, args);
-      if (!found || found.error) return fail((found && found.error) || 'Effect not found.');
-      found.fx.enabled = !(args && args.enabled === false);
-      return { effect: publicFx(found.fx, found.index) };
+      if (!found || found.error) return fail((found && found.error) || 'GLOBAL effect not found. ' + GLOBAL_FX_HINT);
+      const en = coerceBool(args && args.enabled, true);
+      if (en.error) return fail(en.error);
+      found.fx.enabled = en.value;
+      return { effect: publicFx(found.fx, found.index), visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_set_effect_param', 'effectApply', 'Change parameters of a global effect that already exists.', function (args, ctx) {
+  tool('sv_set_effect_param', 'effectApply', 'GLOBAL: Change parameters of an effect on the global chain (postfx). For a layer effect use sv_set_layer_effect_param; sv_list_effects lists both.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const found = findFx(cfg.postfx, args);
-      if (!found || found.error) return fail((found && found.error) || 'Effect not found.');
-      found.fx.params = mergeObj(found.fx.params, (args && args.params) || {});
-      return { effect: publicFx(found.fx, found.index) };
+      if (!found || found.error) return fail((found && found.error) || 'GLOBAL effect not found. ' + GLOBAL_FX_HINT);
+      const p = coerceParams(args && args.params, true);
+      if (p.error) return fail(p.error);
+      found.fx.params = mergeObj(found.fx.params, p.value);
+      return { effect: publicFx(found.fx, found.index), applied: pick(found.fx.params, p.value), visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_set_layer_effect_enabled', 'effectApply', 'Enable or disable an effect already on a layer.', function (args, ctx) {
+  tool('sv_set_layer_effect_enabled', 'effectApply', 'LAYER: Turn an effect on a layer\'s chain (layers[n].postfx) on or off. For a global effect use sv_set_effect_enabled; sv_list_effects lists both.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const layer = findLayer(cfg, args);
       if (!layer) return fail('Layer not found.');
       if (layer.layer.locked) return fail(lockedError(layer.layer));
       const found = findFx(layer.layer.postfx, args);
-      if (!found || found.error) return fail((found && found.error) || 'Layer effect not found.');
-      found.fx.enabled = !(args && args.enabled === false);
-      return { layerId: layer.layer.id, effect: publicFx(found.fx, found.index) };
-    });
-  });
-  tool('sv_set_layer_effect_param', 'effectApply', 'Change parameters of an effect already on a layer.', function (args, ctx) {
-    return withConfig(ctx, function (cfg) {
-      const layer = findLayer(cfg, args);
-      if (!layer) return fail('Layer not found.');
-      if (layer.layer.locked) return fail(lockedError(layer.layer));
-      const found = findFx(layer.layer.postfx, args);
-      if (!found || found.error) return fail((found && found.error) || 'Layer effect not found.');
-      found.fx.params = mergeObj(found.fx.params, (args && args.params) || {});
+      if (!found || found.error) return fail((found && found.error) || 'LAYER effect not found on this layer. ' + LAYER_FX_LIST_HINT);
+      const en = coerceBool(args && args.enabled, true);
+      if (en.error) return fail(en.error);
+      found.fx.enabled = en.value;
       return { layerId: layer.layer.id, effect: publicFx(found.fx, found.index), visual: visualState(cfg, ctx) };
+    });
+  });
+  tool('sv_set_layer_effect_param', 'effectApply', 'LAYER: Change parameters of an effect on a layer\'s chain (layers[n].postfx). For a global effect use sv_set_effect_param; sv_list_effects lists both.', function (args, ctx) {
+    return withConfig(ctx, function (cfg) {
+      const layer = findLayer(cfg, args);
+      if (!layer) return fail('Layer not found.');
+      if (layer.layer.locked) return fail(lockedError(layer.layer));
+      const found = findFx(layer.layer.postfx, args);
+      if (!found || found.error) return fail((found && found.error) || 'LAYER effect not found on this layer. ' + LAYER_FX_LIST_HINT);
+      const p = coerceParams(args && args.params, true);
+      if (p.error) return fail(p.error);
+      found.fx.params = mergeObj(found.fx.params, p.value);
+      return { layerId: layer.layer.id, effect: publicFx(found.fx, found.index), applied: pick(found.fx.params, p.value), visual: visualState(cfg, ctx) };
     });
   });
   tool('sv_set_modulation_enabled', 'effectApply', 'Turn the modulation matrix on or off without editing routes.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
-      cfg.modulation = Object.assign({}, cfg.modulation, { enabled: !(args && args.enabled === false) });
+      const en = coerceBool(args && args.enabled, true);
+      if (en.error) return fail(en.error);
+      cfg.modulation = Object.assign({}, cfg.modulation, { enabled: en.value });
       return { enabled: cfg.modulation.enabled };
     });
   });
@@ -1735,17 +1844,21 @@
   function badEffect(type) {
     return EFFECT_TYPES.indexOf(type) < 0 ? 'Unknown effect type "' + type + '". Known types: ' + EFFECT_TYPES.join(', ') + '.' : '';
   }
-  tool('sv_add_effect', 'effectEdit', 'Add an effect to the global chain. Authoring.', function (args, ctx) {
+  tool('sv_add_effect', 'effectEdit', 'GLOBAL: Add an effect to the global chain (postfx), applied to the whole output. For one layer use sv_add_layer_effect. Authoring.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
     if (badEffect(args.type)) return fail(badEffect(args.type));
+    const p = coerceParams(args.params, false);
+    if (p.error) return fail(p.error);
+    const en = coerceBool(args.enabled, true);
+    if (en.error) return fail(en.error);
     return withConfig(ctx, function (cfg) {
       if (!Array.isArray(cfg.postfx)) cfg.postfx = [];
-      const fx = normalizeFx({ type: args.type, params: args.params, enabled: args.enabled });
+      const fx = normalizeFx({ type: args.type, params: p.value, enabled: en.value });
       cfg.postfx.push(fx);
       return { effect: publicFx(fx, cfg.postfx.length - 1), knownType: EFFECT_TYPES.indexOf(args.type) >= 0 };
     });
   });
-  tool('sv_remove_effect', 'effectEdit', 'Remove a global effect. Authoring.', function (args, ctx) {
+  tool('sv_remove_effect', 'effectEdit', 'GLOBAL: Remove an effect from the global chain (postfx). For a layer effect use sv_remove_layer_effect. Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const found = findFx(cfg.postfx, args);
       if (!found || found.error) return fail((found && found.error) || 'Effect not found.');
@@ -1753,20 +1866,25 @@
       return { removed: found.fx.id || found.index };
     });
   });
-  tool('sv_add_layer_effect', 'effectEdit', 'Add an effect onto a specific layer. Authoring. Read state afterwards to continue.', function (args, ctx) {
+  tool('sv_add_layer_effect', 'effectEdit', 'LAYER: Add an effect to one layer\'s own chain (layers[n].postfx). For the whole output use sv_add_effect. Authoring.', function (args, ctx) {
     if (!args || !args.type) return fail('type is required.');
     if (badEffect(args.type)) return fail(badEffect(args.type));
     return withConfig(ctx, function (cfg) {
       const found = findLayer(cfg, args);
       if (!found) return fail('Layer not found.');
+      // Locked layers are rejected before input validation
       if (found.layer.locked) return fail(lockedError(found.layer));
+      const p = coerceParams(args.params, false);
+      if (p.error) return fail(p.error);
+      const en = coerceBool(args.enabled, true);
+      if (en.error) return fail(en.error);
       if (!Array.isArray(found.layer.postfx)) found.layer.postfx = [];
-      const fx = normalizeFx({ type: args.type, params: args.params, enabled: args.enabled });
+      const fx = normalizeFx({ type: args.type, params: p.value, enabled: en.value });
       found.layer.postfx.push(fx);
       return { layerId: found.layer.id, effect: publicFx(fx, found.layer.postfx.length - 1), knownType: EFFECT_TYPES.indexOf(args.type) >= 0, visual: visualState(cfg, ctx) };
     });
   });
-  tool('sv_remove_layer_effect', 'effectEdit', 'Remove an effect from a layer. Authoring.', function (args, ctx) {
+  tool('sv_remove_layer_effect', 'effectEdit', 'LAYER: Remove an effect from a layer\'s chain (layers[n].postfx). For a global effect use sv_remove_effect. Authoring.', function (args, ctx) {
     return withConfig(ctx, function (cfg) {
       const layer = findLayer(cfg, args);
       if (!layer) return fail('Layer not found.');
@@ -2302,10 +2420,29 @@
     const unknown = known && args && typeof args === 'object' && !Array.isArray(args)
       ? Object.keys(args).filter(function (k) { return !Object.prototype.hasOwnProperty.call(known, k); })
       : [];
-    if (unknown.length && STRICT_ARGS.indexOf(name) >= 0 && unknown.length === Object.keys(args).length) {
-      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + Object.keys(known).join(', ') + '.');
+    /* Mutating tools (#768): when NONE of the given arguments is known the
+       call would be a silent no-op, so it is refused with the accepted
+       names. Some unknown next to known ones are reported as `ignored`. */
+    const mutating = !!toolDef.group || STRICT_ARGS.indexOf(name) >= 0;
+    if (unknown.length && mutating && unknown.length === Object.keys(args).length) {
+      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + Object.keys(known).join(', ') + '.'
+        + (Object.prototype.hasOwnProperty.call(known, 'patch') ? ' Put these fields inside patch.' : ''));
     }
+    const takes = known ? Object.keys(known) : [];
+    const unknownError = function (why) {
+      // Fields sent at the top level of a tool that takes `patch` (#768)
+      const patchable = takes.indexOf('patch') >= 0 && !(args && args.patch !== undefined)
+        ? ' Put these fields inside patch, e.g. {"id": "...", "patch": {"' + unknown[0] + '": ...}}.' : '';
+      return fail('Unknown argument(s): ' + unknown.join(', ') + '. ' + name + ' takes: ' + takes.join(', ') + '.' + patchable + (why ? ' (' + why + ')' : ''));
+    };
     const note = function (value) {
+      /* A write that failed or changed nothing while unknown arguments were
+         sent: the unknown ones are the likely cause, so say so and list the
+         accepted names instead of a bare "x is required" or a silent no-op. */
+      if (mutating && unknown.length && value && typeof value === 'object') {
+        if (value.ok === false) return unknownError(value.error);
+        if (value.changed === false) return unknownError('nothing was changed');
+      }
       const out = value || { ok: true };
       // Kopya: aracın döndürdüğü nesne canlı bir ayar parçası olabilir
       if (unknown.length && out && typeof out === 'object' && !Array.isArray(out)) return Object.assign({}, out, { ignored: unknown });
@@ -2331,6 +2468,27 @@
       : (t.group === 'routed' ? text('mcp.perm.routed', loc)
         : text('mcp.perm.needs', loc).replace('{mode}', modeWord(need, loc)));
     return { name: t.name, description: body + ' ' + perm, inputSchema: t.inputSchema };
+  }
+  function firstSentence(str) {
+    const m = /^(.*?[.!?])(\s|$)/.exec(String(str || ''));
+    return m ? m[1] : String(str || '');
+  }
+  /* Compact entry: first sentence (keeps the GLOBAL:/LAYER: prefix) and
+     property descriptions cut to their first sentence. */
+  function compactTool(t, locale) {
+    const full = publicTool(t, locale);
+    const schema = clone(full.inputSchema) || { type: 'object', properties: {} };
+    Object.keys(schema.properties || {}).forEach(function (k) {
+      const pr = schema.properties[k];
+      if (pr && pr.description) pr.description = firstSentence(pr.description);
+    });
+    return { name: full.name, description: firstSentence(full.description), inputSchema: schema };
+  }
+  function listTools(locale, profile) {
+    if (profile === 'compact') {
+      return TOOLS.filter(function (t) { return COMPACT_TOOLS.indexOf(t.name) >= 0; }).map(function (t) { return compactTool(t, locale); });
+    }
+    return TOOLS.map(function (t) { return publicTool(t, locale); });
   }
   /* Sunucu sürümü paketten okunur. Elle yazılmış '3.1.5-beta' yayından
      sonra da istemcilere beta diyordu (#695). */
@@ -2359,7 +2517,8 @@
     if (msg.method === 'ping') return Promise.resolve({ jsonrpc: '2.0', id: id, result: {} });
     if (msg.method === 'tools/list') {
       const loc = localeOf(ctx);
-      return Promise.resolve({ jsonrpc: '2.0', id: id, result: { tools: TOOLS.map(function (t) { return publicTool(t, loc); }) } });
+      const profile = normalizeMcp(configOf(ctx).mcp).toolProfile;
+      return Promise.resolve({ jsonrpc: '2.0', id: id, result: { tools: listTools(loc, profile) } });
     }
     if (msg.method === 'tools/call') {
       const params = msg.params || {};
@@ -2375,6 +2534,8 @@
       enabled: mcp.enabled,
       mode: mcp.mode,
       port: mcp.port,
+      toolProfile: mcp.toolProfile,
+      profiles: TOOL_PROFILES.slice(),
       setupVisible: mcp.enabled === true,
       modes: MODES.slice(),
     };
@@ -2452,7 +2613,9 @@
     cardModel: cardModel, commandBundle: commandBundle, clients: clients, installPrompt: installPrompt,
     hostPlatform: hostPlatform, clientFileStep: clientFileStep, badOutPath: badOutPath,
     oscPortMin: oscPortMin, oscPortError: oscPortError, NOWPLAYING_ANCHORS: NOWPLAYING_ANCHORS,
-    tools: function (locale) { return TOOLS.map(function (t) { return publicTool(t, locale || 'en'); }); },
+    tools: function (locale, profile) { return listTools(locale || 'en', profile); },
+    TOOL_PROFILES: TOOL_PROFILES, COMPACT_TOOLS: COMPACT_TOOLS,
+    coerceParams: coerceParams, coerceBool: coerceBool, dropStrayLayerPostfx: dropStrayLayerPostfx,
     MODES: MODES, DEFAULT_PORT: DEFAULT_PORT,
     callTool: callTool, handleRpc: handleRpc,
   };

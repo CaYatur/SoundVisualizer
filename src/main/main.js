@@ -249,10 +249,30 @@ function loadSettings() {
        düzenleyicide açılıp kaydedildiğinde (Notepad varsayılan olarak ekler)
        JSON.parse patlar ve kullanıcı tüm ayarlarını sessizce kaybederdi. Eski
        biçimi de çözüyor (source: string -> sources: [string]). */
-    return SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH));
+    return sanitizeLoaded(SettingsGuard.parse(fs.readFileSync(SETTINGS_PATH)));
   } catch {
     return null;
   }
+}
+
+/* Load-time cleanup (#768): layers saved while MCP sv_set_layer_settings
+   accepted `postfx` carry a stray settings.postfx that never renders. It
+   is dropped here (no migration into the real chain) and the layer ids are
+   kept so the next MCP write can report them as `cleaned`. */
+let startupCleaned = [];
+/* The file is read more than once at startup (startup parse, then the
+   panel's get-settings via loadSettings) and still holds the stray key until
+   the cleaned config is saved, so the same ids come back each read. Log
+   each id once per run. */
+const strayPostfxLogged = new Set();
+function sanitizeLoaded(cfg) {
+  if (!cfg || typeof cfg !== 'object') return cfg;
+  const ids = require('../shared/mcp').dropStrayLayerPostfx(cfg);
+  // First sighting only: logged once and reported once (cleaned)
+  const fresh = ids.filter((id) => !strayPostfxLogged.has(id));
+  fresh.forEach((id) => { strayPostfxLogged.add(id); startupCleaned.push(id); });
+  if (fresh.length) console.log('[settings] dropped stray layers[].settings.postfx on ' + fresh.join(', '));
+  return cfg;
 }
 
 /* KAYIT BİRLEŞTİRİLİYOR (#621). Panel kaydırıcı sürüklenirken 55 ms'de bir
@@ -2216,6 +2236,8 @@ function ensureMcp() {
   mcpHandle = mcpServer.create({
     userData: app.getPath('userData'),
     getConfig: () => currentConfig,
+    // Load-time cleanup to report once (see sanitizeLoaded)
+    takeStartupCleaned: () => { const ids = startupCleaned; startupCleaned = []; return ids; },
     setConfig: (cfg) => {
       applyIncomingConfig(cfg);
       notifyAdmin('external-config', currentConfig);
@@ -5199,6 +5221,7 @@ app.whenReady().then(async () => {
   } catch {
     currentConfig = null;
   }
+  sanitizeLoaded(currentConfig); // stray layer settings.postfx (#768)
   if (currentConfig?.lighting?.enabled) {
     lightingSet(currentConfig.lighting).catch(() => {});
   }

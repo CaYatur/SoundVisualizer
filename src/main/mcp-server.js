@@ -43,6 +43,7 @@ function create(deps) {
         if (deps.setConfig) deps.setConfig(cfg);
       },
       noteWrite: function () { revision += 1; return revision; },
+      takeStartupCleaned: deps.takeStartupCleaned,
       revision: function () { return revision; },
       live: deps.live,
       nowPlaying: deps.nowPlaying,
