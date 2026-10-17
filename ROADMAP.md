@@ -93,6 +93,7 @@ hands, and a row only moves up once it ships.
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
+| Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
 | Broadcast layout editor | v3.1.7 | Not started |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
@@ -131,7 +132,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3183 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3215 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3566,6 +3567,47 @@ Export is about three times faster for MP4 and WebM, with no change to the pictu
     - the motion-vector 120 at frame 10: 2.16 → 2.00.
     Nothing is worse by more than 1.03 except "fed - DSC-011", which went from black to MilkDrop's coloured fields.
   - **The harness runs in parallel** (`--jobs=N`). MilkDrop instances and engine processes share the list. On 100 presets, MilkDrop's 60 frames took 113 s on 8 jobs, against about 98 s for 13 presets before. Results match the sequential run for every noise-free preset.
+
+### Interface themes (#770) · done
+
+The panel had one look. It now has seven themes and Device default, chosen under Settings → Application → Interface Theme.
+
+- **One table.** `src/shared/ui-themes.js` holds 64 colour tokens per theme: surfaces, text, accent, states, overlays, the clip deck and performance view, the code editors and the media backdrop. Some tokens are channels (`--fg-rgb: 255 255 255`) that the CSS uses with an alpha, as `rgb(var(--fg-rgb) / .05)`. A white hover tint on a dark theme becomes a dark tint on a light theme, and the alpha stays in the CSS.
+- **Nothing else holds a colour.**
+  - About 320 colour literals in `admin.css` and `studio.css` became tokens.
+  - Undefined variables with fallbacks (`--fg`, `--bad`, `--err`) now point at real tokens.
+  - The timeline and projection-mapping canvases read tokens at draw time and redraw on a theme change.
+  - Colours left in panel scripts are user content: palette defaults, clip colours, the recording's own frame. They are listed with a reason.
+- **What stays fixed.**
+  - The media preview backdrop is dark in every theme, because a picture sits on it.
+  - The visualizer output, the stream overlay and user colours are not themed.
+  - `nativeTheme.themeSource` is never set, because it would change `prefers-color-scheme` in the visualizer window too.
+- **No dark flash.**
+  - The main process opens the panel window in the theme's background colour and passes the theme in the page address.
+  - A script in `<head>` applies it before the body paints.
+  - The address is updated on change, so the language switch's reload opens in the same theme.
+- **Device default** resolves to Dark or Light from `prefers-color-scheme` and follows a change live, measured with an emulated scheme flip.
+- **Contrast thresholds** come from WCAG 2.2. Text is 4.5:1, since most panel text is 10.5–13 px. Focus rings, meaningful borders and switch knobs are 3:1. High Contrast is held to 7:1.
+  - `--accent2` is both heading text and the end of the button gradient. It cannot be both: a red that reads at 4.5:1 on a dark card cannot carry white text at 4.5:1. So the gradient end became its own token, `--accent-grad`.
+- **Measured before and after in CaYaDev.**
+  - Panel screenshots of every category in both languages, taken before any CSS change, were compared pixel by pixel.
+  - With the four intentional changes set back to their old values, the remaining differences were live content (BPM, the app list, meters), the new picker, and one consolidated green on the lighting status.
+- **Tests that fail on misuse.**
+  - Every theme defines exactly the token set.
+  - `:root` equals the CaYaDev table.
+  - No colour literal outside `:root`.
+  - Every `var()` is defined, and channel tokens are used only as channels.
+  - Panel scripts carry no colour outside the content list, and the list cannot go stale.
+  - 128 contrast rules per theme.
+  - Every CSS rule with both a text colour and a background is measured in every theme. This caught the "Live" pill in Light and Sepia at 4.17:1.
+  - The head script was tested in a fake DOM.
+- **Self-test.** Every theme is picked from the panel's own picker, every category is scrolled through, and the colour Chromium draws for each visible text is measured against its composited background.
+  - About 2,600 texts per theme, none below the threshold.
+  - The lowest ratio per theme: CaYaDev 4.54, Dark 4.54, Light 4.96, High Contrast 7.8, Midnight 4.54, Sepia 5.12, Neon 4.54.
+  - The first run found the decorative status separators and a dimmed link.
+  - Two measurement traps:
+    - A gradient's `transparent` stop was averaged as black.
+    - In a background window, CSS transitions do not advance, so the old theme's colour was measured. Pending transitions are now finished before measuring.
 
 ## v3.1.7 — Broadcast layout editor
 

@@ -5,6 +5,46 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
+### Control panel
+
+- **Interface themes [770].** Settings → Application → Interface Theme offers seven themes and
+  Device default:
+  - CaYaDev, the existing look and still the default;
+  - Dark, a neutral graphite;
+  - Light;
+  - High Contrast, black with yellow, held to WCAG AAA (7:1 for text);
+  - Midnight, Sepia and Neon.
+
+  Device default follows the operating system's light or dark preference and switches live.
+  The theme changes the panel only. The visualizer output, the stream overlay and your own
+  colours stay as they are. It is saved in the settings file, so a backup carries it, and
+  "Reset to Defaults" keeps it.
+- **Every panel colour comes from one table.** `src/shared/ui-themes.js` defines 64 colour tokens
+  per theme. `admin.css` and `studio.css` no longer contain a colour outside the CaYaDev `:root`
+  block. The timeline and projection-mapping canvases read the same tokens and redraw when the
+  theme changes. The window opens in the theme's background, so a light theme does not flash
+  dark first.
+- **Readability is tested, not assumed.**
+  - Every theme is checked against 128 contrast rules: 4.5:1 for text on every surface, button
+    text in the middle of the gradient, the code editors, focus rings and switch knobs at 3:1.
+  - Every rule in the panel's CSS that sets both a text colour and a background is measured in
+    every theme.
+  - A guard fails when a colour is written into the panel CSS or a panel script outside the
+    table, so a new panel cannot break a theme quietly.
+  - The self-test selects every theme from the picker, walks every category, and measures the
+    colour Chromium actually draws for each visible text against its background: about 2,600
+    texts per theme, none below the threshold.
+- **Three CaYaDev colours moved so the default theme passes the same test.**
+  - The small hint text was 3.4–4.4:1 on cards and is now at least 4.5:1.
+  - Code comments in the shader editor were 3.3:1.
+  - White text on the solid red danger button was 3.9:1.
+  - The end of the red gradient on filled buttons is slightly deeper, so white text reads in the
+    middle of the gradient too.
+- **Two labels were unreadable in every theme.** The empty side of the A/B crossfader and the
+  "built-in" tag in Studio's list were dimmed with opacity to 2.9:1 and 3.7:1. They now use the
+  secondary text colour. The decorative "·" separators in status lines are hidden from screen
+  readers.
+
 ### Video export
 
 - **Eleven formats instead of one MP4 [521].** H.264 and H.265 in MP4, ProRes 422 HQ and DNxHR HQ
