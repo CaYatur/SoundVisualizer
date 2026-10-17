@@ -32,16 +32,20 @@
   let compileState = { ok: true, message: '', line: 0 };
   let compileTimer = null;
 
-  const STARTER_SHADER = `// Kendi görselleştiricin.
-// Kullanabileceklerin:
-//   sv_resolution, sv_time, sv_level, sv_bass, sv_mid, sv_treble, sv_beat
-//   sv_spec(x)   -> 0..1 konumundaki spektrum değeri
-//   sv_waveAt(x) -> dalga formu (-1..1)
-//   sv_col(x)    -> senin 5 renkli paletinden renk
-//   sv_prev      -> bir önceki kare (geri besleme), sv_media -> kamera/video
-// Aşağıya kendi kaydırıcılarını da ekleyebilirsin (Parametreler bölümü).
-
-void mainImage(out vec4 fragColor, in vec2 fragCoord) {
+  /* Şablonun başlık yorumu kullanıcının düzenleyeceği koda giriyor; içe aktarılan
+     açıklamalar gibi (#759) oluşturulurken arayüz dilinde yazılıyor. Satırlar
+     ayrı çevriliyor: birleşik metin sözlükte eşleşmez. */
+  const STARTER_HEADER = [
+    '// Kendi görselleştiricin.',
+    '// Kullanabileceklerin:',
+    '//   sv_resolution, sv_time, sv_level, sv_bass, sv_mid, sv_treble, sv_beat',
+    '//   sv_spec(x)   -> 0..1 konumundaki spektrum değeri',
+    '//   sv_waveAt(x) -> dalga formu (-1..1)',
+    '//   sv_col(x)    -> senin 5 renkli paletinden renk',
+    '//   sv_prev      -> bir önceki kare (geri besleme), sv_media -> kamera/video',
+    '// Aşağıya kendi kaydırıcılarını da ekleyebilirsin (Parametreler bölümü).',
+  ];
+  const STARTER_BODY = `void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 uv = (fragCoord - 0.5 * sv_resolution) / min(sv_resolution.x, sv_resolution.y);
   float r = length(uv);
   float a = atan(uv.y, uv.x);
@@ -54,6 +58,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
   fragColor = vec4(col, clamp(ring + sv_bass * 0.2, 0.0, 1.0));
 }`;
+  const starterShader = () => STARTER_HEADER.map(trStudio).join('\n') + '\n\n' + STARTER_BODY;
 
   // ==========================================================================
   // GLSL renklendirme
@@ -224,12 +229,14 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   // ==========================================================================
   function newShader(kind) {
     return IS().normalize({
-      name: kind === 'background' ? 'Yeni Arkaplan' : 'Yeni Görselleştirici',
+      /* Ad ve etiket kullanıcının kendi düzenlenebilir metni oluyor; editör onu
+         çevirmiyor. Bu yüzden oluşturulurken arayüz dilinde yazılıyor (#759 gibi). */
+      name: trStudio(kind === 'background' ? 'Yeni Arkaplan' : 'Yeni Görselleştirici'),
       kind,
       engine: 'shader',
-      shader: STARTER_SHADER,
+      shader: starterShader(),
       controls: [
-        { name: 'uAmount', label: 'Miktar', type: 'slider', min: 0, max: 2, step: 0.01, default: 1 },
+        { name: 'uAmount', label: trStudio('Miktar'), type: 'slider', min: 0, max: 2, step: 0.01, default: 1 },
       ],
     });
   }
@@ -250,7 +257,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   function newVariation(kind) {
     const look = currentLook(P().cfg(), kind);
     return IS().normalize({
-      name: kind === 'background' ? 'Arkaplan Varyasyonum' : 'Görselleştiricim',
+      name: trStudio(kind === 'background' ? 'Arkaplan Varyasyonum' : 'Görselleştiricim'),
       kind,
       engine: 'variation',
       base: kind === 'background' ? look.background.type : look.visualizer.type,
