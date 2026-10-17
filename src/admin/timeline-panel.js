@@ -332,13 +332,13 @@
     return v.scroll + (x - HEAD_W) / v.zoom;
   }
 
-  function css(name, fallback) {
-    try {
-      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-      return v || fallback;
-    } catch (e) {
-      return fallback;
-    }
+  /* Renkler arayüz temasından (#770). Tuval CSS'i görmez; tema değişince
+     yeniden çizilir (aşağıda onChange). */
+  function css(name) {
+    return window.SVUiTheme ? window.SVUiTheme.color(name) : '';
+  }
+  function tint(name, a) {
+    return window.SVUiTheme ? window.SVUiTheme.alpha(name, a) : 'transparent';
   }
 
   function rgba(hex, a) {
@@ -377,10 +377,11 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const fg = css('--text', '#e8e8ec');
-    const dim = css('--muted', '#8b8b96');
-    const line = css('--line', '#2a2a33');
-    const accent = css('--accent', '#e11d2a');
+    const fg = css('--text');
+    const dim = css('--muted');
+    const line = css('--line');
+    const accent = css('--accent');
+    const strong = css('--text-strong');
     const solo = TL().anySolo ? TL().anySolo(tl) : false;
 
     // --- Şerit zeminleri: tek ve çift şerit ayrı tonda, seçili parça belirgin ---
@@ -388,7 +389,7 @@
       const y = RULER_H + i * TRACK_H;
       const trk = tl.tracks[i];
       const picked = selection && selection.trackId === trk.id;
-      ctx.fillStyle = picked ? 'rgba(255,255,255,.05)' : i % 2 ? 'rgba(255,255,255,.018)' : 'rgba(0,0,0,0)';
+      ctx.fillStyle = picked ? tint('--fg-rgb', 0.05) : i % 2 ? tint('--fg-rgb', 0.018) : 'transparent';
       ctx.fillRect(0, y, w, TRACK_H);
     }
 
@@ -404,12 +405,12 @@
       const lw = (tl.loop.end - tl.loop.start) * view().zoom;
       const on = tl.loop.enabled;
       if (on) {
-        ctx.fillStyle = 'rgba(120,180,255,.08)';
+        ctx.fillStyle = tint('--info-rgb', 0.08);
         ctx.fillRect(lx, RULER_H, lw, h - RULER_H);
       }
-      ctx.fillStyle = on ? 'rgba(120,180,255,.55)' : 'rgba(120,180,255,.2)';
+      ctx.fillStyle = tint('--info-rgb', on ? 0.55 : 0.2);
       ctx.fillRect(lx, 0, lw, LOOP_BAND);
-      ctx.fillStyle = on ? 'rgba(160,205,255,.95)' : 'rgba(160,205,255,.4)';
+      ctx.fillStyle = tint('--info-rgb', on ? 0.95 : 0.4);
       ctx.fillRect(lx - 1, 0, 3, LOOP_BAND + 3);
       ctx.fillRect(lx + lw - 2, 0, 3, LOOP_BAND + 3);
     }
@@ -434,14 +435,14 @@
     for (const m of tl.markers) {
       const x = xOf(m.t);
       if (x < -2 || x > w + 2) continue;
-      ctx.strokeStyle = 'rgba(240,180,41,.7)';
+      ctx.strokeStyle = tint('--cue-armed', 0.7);
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(Math.round(x) + 0.5, RULER_H);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
       // Bayrak cetvelin alt bandında: ölçü ve süre yazılarının altında
-      ctx.fillStyle = '#f0b429';
+      ctx.fillStyle = css('--cue-armed');
       ctx.beginPath();
       ctx.moveTo(x, RULER_H - 11);
       ctx.lineTo(x + 7, RULER_H - 7);
@@ -460,13 +461,13 @@
       const x = xOf(e.t);
       if (x < -TEMPO_TAG_W || x > w + 2) continue;
       const on = i === tsel;
-      ctx.strokeStyle = on ? '#b8f6ff' : 'rgba(80,210,230,.85)';
+      ctx.strokeStyle = on ? strong : tint('--tempo', 0.85);
       ctx.lineWidth = on ? 2 : 1;
       ctx.beginPath();
       ctx.moveTo(Math.round(x) + 0.5, RULER_H - 14);
       ctx.lineTo(Math.round(x) + 0.5, h);
       ctx.stroke();
-      ctx.fillStyle = on ? '#b8f6ff' : '#50d2e6';
+      ctx.fillStyle = on ? strong : css('--tempo');
       const sig = e.beatsPerBar !== tl.tempo[i - 1].beatsPerBar ? ' ' + e.beatsPerBar + '/4' : '';
       ctx.fillText('♩' + (Math.round(e.bpm * 10) / 10) + sig, x + 3, RULER_H - 4);
     }
@@ -492,9 +493,9 @@
     if (drag && drag.kind === 'marquee' && drag.moved) {
       const x0 = Math.min(drag.x0, drag.x1);
       const y0 = Math.min(drag.y0, drag.y1);
-      ctx.fillStyle = 'rgba(255,255,255,.06)';
+      ctx.fillStyle = tint('--fg-rgb', 0.06);
       ctx.fillRect(x0, y0, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
-      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.strokeStyle = tint('--fg-rgb', 0.55);
       ctx.lineWidth = 1;
       ctx.setLineDash([4, 3]);
       ctx.strokeRect(x0 + 0.5, y0 + 0.5, Math.abs(drag.x1 - drag.x0), Math.abs(drag.y1 - drag.y0));
@@ -509,7 +510,7 @@
   function drawRuler(w, h, tl, fg, dim, line) {
     const cfg = tlCfg();
     const v = view();
-    ctx.fillStyle = 'rgba(255,255,255,.04)';
+    ctx.fillStyle = tint('--fg-rgb', 0.04);
     ctx.fillRect(0, 0, w, RULER_H);
 
     const showBars = cfg.ruler !== 'time';
@@ -519,7 +520,7 @@
     const b0 = TL().secondsToBars(tl.tempo, v.scroll);
     const barSec = TL().barsToSeconds(tl.tempo, b0.bar + 1, 1) - TL().barsToSeconds(tl.tempo, b0.bar, 1);
     if (barSec * v.zoom >= 14) {
-      ctx.strokeStyle = 'rgba(255,255,255,.05)';
+      ctx.strokeStyle = tint('--fg-rgb', 0.05);
       ctx.lineWidth = 1;
       for (let bar = b0.bar; ; bar++) {
         const x = Math.round(xOf(TL().barsToSeconds(tl.tempo, bar, 1))) + 0.5;
@@ -631,14 +632,14 @@
          tamamlanıyor. */
       const fw = Math.min(cw, (c.fade || 0) * view().zoom);
       if (fw > 1) {
-        ctx.fillStyle = 'rgba(0,0,0,.28)';
+        ctx.fillStyle = tint('--shadow-rgb', 0.28);
         ctx.beginPath();
         ctx.moveTo(x, top);
         ctx.lineTo(x + fw, top);
         ctx.lineTo(x, top + hh);
         ctx.closePath();
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,.55)';
+        ctx.strokeStyle = tint('--fg-rgb', 0.55);
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(x, top + hh);
@@ -646,12 +647,12 @@
         ctx.stroke();
       }
       if ((sel || fw > 1) && cw > 14) {
-        ctx.fillStyle = sel ? '#ffffff' : 'rgba(255,255,255,.7)';
+        ctx.fillStyle = sel ? css('--text-strong') : tint('--fg-rgb', 0.7);
         ctx.fillRect(x + fw - 3, top - 1, 6, 6);
       }
       // Kaynağı seçilmemiş klip çizgili: ateşlendiğinde hiçbir şey olmayacak
       if (!c.ref) {
-        ctx.strokeStyle = 'rgba(255,255,255,.18)';
+        ctx.strokeStyle = tint('--fg-rgb', 0.18);
         ctx.lineWidth = 1;
         ctx.save();
         ctx.beginPath();
@@ -665,7 +666,7 @@
         }
         ctx.restore();
       }
-      ctx.strokeStyle = sel ? '#ffffff' : rgba(col, 0.9);
+      ctx.strokeStyle = sel ? css('--text-strong') : rgba(col, 0.9);
       ctx.lineWidth = sel ? 2 : 1;
       ctx.strokeRect(x + 0.5, top + 0.5, cw - 1, hh - 1);
       if (cw > 26) {
@@ -680,7 +681,7 @@
         ctx.fillText(clipLabel(c), x + (ico && window.SVIcons ? 22 : 6), top + 16);
         if (cw > 80) {
           ctx.font = '10px system-ui, sans-serif';
-          ctx.fillStyle = 'rgba(255,255,255,.6)';
+          ctx.fillStyle = tint('--fg-rgb', 0.6);
           ctx.fillText(fmtTime(c.dur) + (c.fade > 0 ? ' · ' + tt('geçiş') + ' ' + c.fade.toFixed(2) : ''), x + 6, top + hh - 5);
         }
         ctx.restore();
@@ -718,7 +719,7 @@
       if (x < -6 || x > w + 6) continue;
       const yy = bot - (bot - top) * Math.max(0, Math.min(1, k.v));
       const sel = selection && selection.kind === 'key' && selection.trackId === trk.id && selection.keyIndex === ki;
-      ctx.fillStyle = sel ? '#fff' : col;
+      ctx.fillStyle = sel ? css('--text-strong') : col;
       ctx.beginPath();
       ctx.arc(x, yy, sel ? 4.5 : 3.5, 0, Math.PI * 2);
       ctx.fill();
@@ -2365,4 +2366,7 @@
     box.appendChild(marks);
     return box;
   }
+
+  // Tema değişince tuval yeni renklerle (#770)
+  if (window.SVUiTheme) window.SVUiTheme.onChange(() => draw());
 })();

@@ -183,6 +183,8 @@
     export: 'export', recording: 'export',
     display: 'output', mapping: 'output', textureShare: 'output', aspect: 'output', floating: 'output',
     power: 'output', lighting: 'output', openrgb: 'output', artnet: 'output', oscOut: 'output',
+    // Panelin arayüz teması (#770): uygulama ayarı, power ile aynı izin
+    ui: 'output',
     'audio.sources': 'output',
     'background.transparent': 'output', 'background.coverTaskbar': 'output', 'background.transparentKey': 'output',
     postfx: 'effectEdit', modulation: 'effectEdit',

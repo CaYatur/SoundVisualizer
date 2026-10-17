@@ -326,6 +326,14 @@
       mode: 'notify',
     },
 
+    /* Panelin arayüz teması (#770): src/shared/ui-themes.js'teki bir kimlik
+       ya da 'system' (cihazın açık/koyu tercihi). Görselleştirici çıktısını
+       etkilemez. "Varsayılanlara Sıfırla" bunu korur: okunabilirlik için
+       seçilmiş bir tema sıfırlamayla kaybolmamalı. */
+    ui: {
+      theme: 'cayadev',
+    },
+
     power: {
       // 0 = ekranla eşitle (her yenilemede bir kare). En akıcı sonuç budur:
       // ekranın yenileme hızının tam böleni olmayan bir sınır (75 Hz'de 60 gibi)

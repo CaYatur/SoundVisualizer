@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
@@ -34,6 +34,7 @@ const logoLibrary = require('./logo-library');
 const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
 const lyricsSync = require('../shared/lyrics-sync');
+const uiThemes = require('../shared/ui-themes');
 const mcpServer = require('./mcp-server');
 const faultGuardLib = require('./fault-guard');
 
@@ -572,6 +573,8 @@ function installSignalHandlers() {
 }
 installSignalHandlers();
 app.whenReady().then(() => { installSignalHandlers(); setTimeout(installSignalHandlers, 1000); });
+// "Cihaz varsayılanı" teması: sistem açık/koyu değişince pencere zemini de (#770)
+app.whenReady().then(() => { nativeTheme.on('updated', syncAdminBackground); });
 
 ipcMain.on('confirm-close-approved', () => {
   forceQuitApp = true;
@@ -619,8 +622,31 @@ async function confirmCloseIfNeeded(parentWin) {
   }
 }
 
+/* ARAYÜZ TEMASI (#770). Panel penceresinin zemini temanın zemini: pencere
+   ilk karesini çizmeden önce bu renkle görünür, aydınlık temada koyu bir
+   kare parlamasın. README görüntüleri her zaman CaYaDev. "Cihaz varsayılanı"
+   işletim sisteminin tercihini okur; nativeTheme.themeSource değiştirilmez
+   (görselleştiricinin tercihini de değiştirirdi). */
+function adminUiTheme(cfg) {
+  if (SHOTS) return uiThemes.DEFAULT_ID;
+  return uiThemes.normalizeId(cfg && cfg.ui && cfg.ui.theme);
+}
+function adminBackground(cfg) {
+  return uiThemes.resolve(adminUiTheme(cfg), nativeTheme.shouldUseDarkColors).tokens['--bg'];
+}
+let adminBgShown = null;
+function syncAdminBackground() {
+  if (!adminWin || adminWin.isDestroyed()) return;
+  const bg = adminBackground(currentConfig);
+  if (bg === adminBgShown) return;
+  adminBgShown = bg;
+  try { adminWin.setBackgroundColor(bg); } catch { /* pencere kapanıyor */ }
+}
+
 function createAdminWindow() {
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.ico');
+  const startCfg = currentConfig || loadSettings();
+  adminBgShown = adminBackground(startCfg);
   adminWin = new BrowserWindow({
     // Üç sütunlu düzen (kategori rayı + çalışma alanı + önizleme dock'u) için
     // daha geniş varsayılan pencere
@@ -633,7 +659,7 @@ function createAdminWindow() {
     minHeight: 560,
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: trUi('Ses Görselleştirici — Yönetici Paneli', 'Sound Visualizer — Admin Panel'),
-    backgroundColor: '#0b0910',
+    backgroundColor: adminBgShown,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload-admin.js'),
@@ -647,7 +673,7 @@ function createAdminWindow() {
     },
   });
 
-  adminWin.loadFile(path.join(__dirname, '..', 'admin', 'index.html'));
+  adminWin.loadFile(path.join(__dirname, '..', 'admin', 'index.html'), { query: { uiTheme: adminUiTheme(startCfg) } });
   attachSmoke(adminWin, 'ADMIN');
 
   if (process.argv.includes('--dev')) {
@@ -1830,7 +1856,12 @@ ipcMain.handle('repair-audio', async () => {
   return { ok: after.ok, repaired: after.ok, diagnostic: after, install };
 });
 
-ipcMain.handle('get-settings', () => loadSettings());
+ipcMain.handle('get-settings', () => {
+  const s = loadSettings();
+  // README görüntüleri kullanıcının temasıyla değil, CaYaDev ile (#770)
+  if (SHOTS && s && typeof s === 'object') s.ui = Object.assign({}, s.ui, { theme: uiThemes.DEFAULT_ID });
+  return s;
+});
 
 // ----------------------------------------------------------------------------
 // Yüzen / resim-içinde-resim penceresi
@@ -2491,6 +2522,7 @@ function applyIncomingConfig(config, opts) {
   const prevLightingJson = JSON.stringify((currentConfig && currentConfig.lighting) || null);
   currentConfig = config;
   if (save) saveSettings(config);
+  syncAdminBackground();
   /* Every config push used to call lightingSet; in dynamic modes that hits
      addon.setAll(baseLevel) and flickers the lights. Re-apply only when the
      lighting tree actually changed. */
@@ -7112,6 +7144,68 @@ async function runSmoke() {
     }
 
     await awc3.executeJavaScript("localStorage.removeItem('sv-language')");
+  }
+
+  /* --- Arayüz temaları: ekrandaki yazıların karşıtlığı (#770) ---
+     Her tema panelin kendi seçicisinden seçilir, bütün kategoriler
+     kaydırılarak taranır ve doğrudan yazı taşıyan her görünür öğenin
+     tarayıcının çizdiği rengi zeminiyle ölçülür (src/shared/ui-contrast-audit.js).
+     Statik testler tablodaki ikilileri ölçüyor; bu, satır içi bir renk ya da
+     yanlış zemine konmuş bir yazı gibi yalnız çizimde görünen hatayı yakalar.
+     Sonunda kullanıcının teması geri seçilir. */
+  if (adminWin && !adminWin.isDestroyed()) {
+    const awc4 = adminWin.webContents;
+    try {
+      await awc4.executeJavaScript(fs.readFileSync(path.join(__dirname, '..', 'shared', 'ui-contrast-audit.js'), 'utf8') + '; 1');
+      const report = await awc4.executeJavaScript(`(async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        const A = window.SVUiContrastAudit, U = window.SVUiTheme, UT = window.SVUiThemes;
+        if (!A || !U || !UT) return { error: 'theme scripts missing' };
+        const click = (sel) => { const e = document.querySelector(sel); if (e) e.click(); return !!e; };
+        const original = U.choice();
+        const cats = Array.from(document.querySelectorAll('[data-cat]')).map((b) => b.dataset.cat);
+        const out = [];
+        for (const t of UT.THEMES) {
+          click('[data-cat="settings"]'); await sleep(450);
+          if (!click('.ui-theme-opt[data-theme="' + t.id + '"]')) { out.push({ theme: t.id, error: 'not in the picker' }); continue; }
+          await sleep(250);
+          let checked = 0, min = Infinity;
+          const fails = [];
+          for (const c of cats) {
+            click('[data-cat="' + c + '"]'); await sleep(400);
+            const s = document.getElementById('sections');
+            const steps = Math.min(8, Math.ceil(s.scrollHeight / Math.max(1, s.clientHeight)));
+            for (let k = 0; k < steps; k++) {
+              s.scrollTop = k * s.clientHeight; await sleep(100);
+              const r = A.audit(document, window, { pageBg: getComputedStyle(document.body).backgroundColor, aaa: !!U.current().aaa });
+              checked += r.checked;
+              if (r.min < min) min = r.min;
+              r.fails.forEach((f) => { if (!fails.some((x) => x.path === f.path && x.text === f.text)) fails.push(Object.assign({ cat: c }, f)); });
+            }
+          }
+          out.push({ theme: t.id, applied: document.documentElement.getAttribute('data-ui-theme'), checked, min, failCount: fails.length, fails: fails.slice(0, 8) });
+        }
+        click('[data-cat="settings"]'); await sleep(350);
+        click('.ui-theme-opt[data-theme="' + original + '"]');
+        await sleep(200);
+        return { themes: out, restored: U.choice() === original };
+      })()`);
+      if (!report || report.error) {
+        errors.push('ui themes: ' + ((report && report.error) || 'no report'));
+      } else {
+        report.themes.forEach((r) => {
+          if (r.error) { errors.push('ui theme ' + r.theme + ': ' + r.error); return; }
+          console.log('[SMOKE] tema ' + r.theme + ': ' + r.checked + ' yazı, en düşük karşıtlık ' + r.min + ', eşik altı ' + r.failCount);
+          r.fails.forEach((f) => console.log('[SMOKE]   ~ ' + f.cat + ' ' + f.ratio + ' < ' + f.need + ' ' + f.path + ' «' + f.text + '»'));
+          if (r.applied !== r.theme) errors.push('ui theme ' + r.theme + ' was not applied (' + r.applied + ')');
+          if (r.checked < 500) errors.push('ui theme ' + r.theme + ': only ' + r.checked + ' text elements measured');
+          if (r.failCount) errors.push('ui theme ' + r.theme + ': ' + r.failCount + ' text element(s) below the contrast threshold');
+        });
+        if (!report.restored) errors.push('ui themes: the user\'s theme was not restored');
+      }
+    } catch (e) {
+      errors.push('ui themes: ' + (e && e.message ? e.message : e));
+    }
   }
 
   /* --- Panel ekran görüntüleri (--smoke-shots) ---

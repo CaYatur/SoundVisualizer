@@ -70,13 +70,13 @@
     if (state.running && !state.error) {
       st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Yayında' }));
-      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: state.width + '×' + state.height }));
-      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: String(state.frames || 0) + ' ' }));
       st.appendChild(el('span', { text: 'kare' }));
       if (state.dropped) {
-        st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+        st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
         st.appendChild(el('span', { class: 'st-num', text: String(state.dropped) + ' ' }));
         st.appendChild(el('span', { text: 'düşen' }));
       }

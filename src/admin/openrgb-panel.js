@@ -63,11 +63,11 @@
     if (state.connected) {
       st.appendChild(el('span', { icon: 'check' }));
       st.appendChild(el('span', { text: 'Bağlı' }));
-      st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       st.appendChild(el('span', { class: 'st-num', text: String(state.drivable || 0) + ' ' }));
       st.appendChild(el('span', { text: 'sürülebilir aygıt' }));
       if (state.devices && state.devices.length > (state.drivable || 0)) {
-        st.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+        st.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
         st.appendChild(el('span', { class: 'st-num', text: String(state.devices.length - (state.drivable || 0)) + ' ' }));
         st.appendChild(el('span', { text: 'yalnız kendi efektini oynatıyor' }));
       }

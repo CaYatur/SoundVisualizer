@@ -105,10 +105,10 @@
     if (status.running) {
       statusBox.appendChild(el('span', { icon: 'check' }));
       statusBox.appendChild(el('span', { text: status.lan ? 'Ağa açık' : 'Yalnızca bu bilgisayar' }));
-      statusBox.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      statusBox.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       statusBox.appendChild(el('span', { text: 'Port' }));
       statusBox.appendChild(el('span', { class: 'st-num', text: ' ' + status.port }));
-      statusBox.appendChild(el('span', { class: 'st-sep', text: ' · ' }));
+      statusBox.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
       if (status.clients.length) {
         statusBox.appendChild(el('span', { class: 'st-num', text: status.clients.length + ' ' }));
         statusBox.appendChild(el('span', { text: 'bağlı istemci' }));

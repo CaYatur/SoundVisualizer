@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3189%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3222%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1154,6 +1154,9 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   slider limits 5×.
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is
   left untranslated.
+- <kbd>3.1.6</kbd> **Interface themes**: CaYaDev, Dark, Light, High Contrast, Midnight, Sepia and
+  Neon, or Device default to follow your system's light or dark setting. Every theme is
+  contrast-tested: the self-test measures every text it draws.
 
 ---
 
@@ -1741,7 +1744,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3189 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3222 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 - **Formulas** are checked against values derived by hand from their definitions — Viviani's curve
   staying on its sphere, the torus tube radius, Chladni's m↔n antisymmetry, every attractor staying

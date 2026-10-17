@@ -662,6 +662,8 @@
         return window.SVUpdatesPanel ? window.SVUpdatesPanel.panel() : null;
       case 'language':
         return languageCtrl();
+      case 'uitheme':
+        return uiThemeCtrl();
       case 'extendedrange':
         return extendedRangeCtrl();
       case 'nowplayingpanel':
@@ -1012,6 +1014,94 @@
     return el('div', { class: 'ctrl' }, [
       sel,
       el('div', { class: 'studio-note dim-hint', text: tr('Dil değişikliği uygulamayı yeniden yükler.'), style: 'margin-top:4px;' }),
+    ]);
+  }
+
+  // --- Arayüz teması (#770) ---
+  /* Kartlar temanın kendi renkleriyle küçük bir panel çizer: zemin, kart,
+     yazı, vurgu. Renkler src/shared/ui-themes.js tablosundan; bu dosyada
+     renk yazılmaz. Seçim hemen uygulanır ve ayar dosyasına gider. */
+  function uiThemeCtrl() {
+    const UT = window.SVUiThemes;
+    if (!UT || !window.SVUiTheme) return null;
+    const current = () => UT.normalizeId(cfg.ui && cfg.ui.theme);
+    const prefersDark = () => !(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    const opts = [];
+    const pick = (id) => {
+      if (!cfg.ui || typeof cfg.ui !== 'object') cfg.ui = {};
+      cfg.ui.theme = id;
+      window.SVUiTheme.set(id);
+      opts.forEach((o) => {
+        const on = o.dataset.theme === id;
+        o.classList.toggle('active', on);
+        o.setAttribute('aria-checked', on ? 'true' : 'false');
+        o.tabIndex = on ? 0 : -1;
+      });
+      push(true);
+      scheduleRender();
+    };
+    const preview = (t) => {
+      const k = t.tokens;
+      const box = el('span', { class: 'ui-theme-preview', 'aria-hidden': 'true' });
+      box.style.background = k['--bg'];
+      box.style.borderColor = k['--line2'];
+      const card = el('span', { class: 'ui-theme-card' });
+      card.style.background = k['--card'];
+      card.style.borderColor = k['--line'];
+      const l1 = el('span', { class: 'ui-theme-line' });
+      l1.style.background = k['--text'];
+      const l2 = el('span', { class: 'ui-theme-line short' });
+      l2.style.background = k['--muted2'];
+      const btn = el('span', { class: 'ui-theme-btn' });
+      btn.style.background = 'linear-gradient(135deg, ' + k['--accent'] + ', ' + k['--accent-grad'] + ')';
+      card.append(l1, l2, btn);
+      box.appendChild(card);
+      return box;
+    };
+    const grid = el('div', { class: 'ui-theme-grid', role: 'radiogroup', 'aria-label': tr('Arayüz Teması') });
+    UT.CHOICES.forEach((c) => {
+      const isSystem = c.id === UT.SYSTEM_ID;
+      let swatch;
+      if (isSystem) {
+        // Yarısı Karanlık, yarısı Aydınlık
+        swatch = el('span', { class: 'ui-theme-split', 'aria-hidden': 'true' }, [
+          preview(UT.byId('dark')), preview(UT.byId('light')),
+        ]);
+      } else {
+        swatch = preview(UT.byId(c.id));
+      }
+      const label = el('span', { class: 'ui-theme-name', text: tr(c.name) });
+      const o = el('button', {
+        type: 'button', class: 'ui-theme-opt', role: 'radio',
+        'data-theme': c.id, onclick: () => pick(c.id),
+      }, [swatch, label]);
+      opts.push(o);
+      grid.appendChild(o);
+    });
+    // Ok tuşlarıyla gezinme (radyo grubu davranışı)
+    grid.addEventListener('keydown', (e) => {
+      const i = opts.findIndex((o) => o.dataset.theme === current());
+      let j = -1;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % opts.length;
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i - 1 + opts.length) % opts.length;
+      if (j < 0) return;
+      e.preventDefault();
+      pick(opts[j].dataset.theme);
+      opts[j].focus();
+    });
+    const sel = current();
+    opts.forEach((o) => {
+      const on = o.dataset.theme === sel;
+      o.classList.toggle('active', on);
+      o.setAttribute('aria-checked', on ? 'true' : 'false');
+      o.tabIndex = on ? 0 : -1;
+    });
+    const sysNote = sel === UT.SYSTEM_ID
+      ? tr('Cihazınız şu an {0} kullanıyor; değişince panel de değişir.').replace('{0}', tr(prefersDark() ? 'Karanlık' : 'Aydınlık'))
+      : tr('Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.');
+    return el('div', { class: 'ctrl' }, [
+      grid,
+      el('div', { class: 'studio-note dim-hint', text: sysNote, style: 'margin-top:6px;' }),
     ]);
   }
 
@@ -2478,7 +2568,7 @@
     },
     {
       id: 'settings', icon: 'gear', title: 'Ayarlar',
-      desc: 'Dil, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
+      desc: 'Dil, arayüz teması, pencere koruması, genişletilmiş aralıklar ve güncellemeler.',
     },
   ];
 
@@ -3459,9 +3549,10 @@
         icon: 'gear',
         title: 'Uygulama',
         desc: '',
-        roots: ['power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        roots: ['ui.theme', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
         controls: [
           { type: 'language', group: 'Dil' },
+          { type: 'uitheme', group: 'Arayüz Teması' },
           {
             type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',
             group: 'Pencere',
@@ -4245,8 +4336,22 @@
     if (renderWanted) scheduleRender();
   }
 
+  /* Ayardaki tema her çizimde uygulanır: MCP, yedekten dönüş ve sıfırlama
+     cfg'yi değiştirip render() çağırıyor (#770). */
+  function syncUiTheme() {
+    if (!window.SVUiTheme || !window.SVUiThemes) return;
+    const id = window.SVUiThemes.normalizeId(cfg && cfg.ui && cfg.ui.theme);
+    if (window.SVUiTheme.choice() !== id) window.SVUiTheme.set(id);
+  }
+  /* "Cihaz varsayılanı" seçiliyken sistem açık/koyu değişince Ayarlar'daki
+     "cihazınız şu an …" notu da güncellensin. */
+  if (window.SVUiTheme) {
+    window.SVUiTheme.onChange(() => { if (activeCategory === 'settings') scheduleRender(); });
+  }
+
   function render() {
     renderWanted = false;
+    syncUiTheme();
     const root = $('sections');
     const paneScroll = captureLayerPaneScroll(root);
     /* Kategori değişirken eski sayfanın kutusu yeni sayfada aranmaz: aynı
@@ -6286,11 +6391,14 @@
       // Kullanıcı içeriği (renk şablonları ve sahneler) sıfırlamada korunur
       const presets = Array.isArray(cfg.userPresets) ? cfg.userPresets.slice() : [];
       const scenes = Array.isArray(cfg.scenes) ? cfg.scenes.slice() : [];
+      // Okunabilirlik için seçilmiş tema sıfırlamada kalır (#770)
+      const uiTheme = cfg.ui && cfg.ui.theme;
       cfg = window.SV.defaultConfig();
       platformAdjust(cfg);
       cfg.audio.sources = sources;
       cfg.userPresets = presets;
       cfg.scenes = scenes;
+      if (uiTheme) cfg.ui.theme = uiTheme;
       activeSceneId = null;
       push(true);
       render();
