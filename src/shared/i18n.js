@@ -3615,6 +3615,14 @@
     "tr": "MCP açılıyor…",
     "en": "MCP is starting…"
   },
+  "mcp.profile.compact": {
+    "tr": "Kısa araç listesi (küçük yerel modeller için)",
+    "en": "Compact tool list (for small local models)"
+  },
+  "mcp.profile.hint": {
+    "tr": "Yalnız temel okuma ve sık düzenleme araçlarını kısa açıklamalarla listeler. Diğer araçlar adıyla çağrılabilir.",
+    "en": "Lists only core read and common edit tools with short descriptions. Other tools can still be called by name."
+  },
   "mcp.card.setup": {
     "tr": "Kurulum",
     "en": "Setup"
@@ -3860,8 +3868,8 @@
     "en": "Set layer x, y, scale, and rotate. Authoring."
   },
   "mcp.tool.sv_set_layer_settings": {
-    "tr": "Var olan bir katmanın ayarlarını birleştirir. Yazarlık.",
-    "en": "Merge settings on an existing layer. Authoring."
+    "tr": "Var olan bir katmanın ayarlarını birleştirir. Efektler için değil: sv_add_layer_effect / sv_set_layer_effect_param. Yazarlık.",
+    "en": "Merge settings on an existing layer. Not for effects: use sv_add_layer_effect / sv_set_layer_effect_param. Authoring."
   },
   "mcp.tool.sv_remove_layer": {
     "tr": "Bir katmanı kaldırır. Yazarlık.",
@@ -3888,20 +3896,20 @@
     "en": "Edit geometry settings. Authoring."
   },
   "mcp.tool.sv_set_effect_enabled": {
-    "tr": "Genel zincirde zaten duran bir efekti açar veya kapatır.",
-    "en": "Enable or disable an effect already on the global chain."
+    "tr": "GENEL: Genel zincirdeki (postfx) bir efekti açar veya kapatır. Katman efekti için sv_set_layer_effect_enabled; ikisini de sv_list_effects listeler.",
+    "en": "GLOBAL: Turn an effect on the global chain (postfx) on or off. For a layer effect use sv_set_layer_effect_enabled; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_effect_param": {
-    "tr": "Zaten var olan genel bir efektin parametrelerini değiştirir.",
-    "en": "Change parameters of a global effect that already exists."
+    "tr": "GENEL: Genel zincirdeki (postfx) bir efektin parametrelerini değiştirir. Katman efekti için sv_set_layer_effect_param; ikisini de sv_list_effects listeler.",
+    "en": "GLOBAL: Change parameters of an effect on the global chain (postfx). For a layer effect use sv_set_layer_effect_param; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_layer_effect_enabled": {
-    "tr": "Bir katmanda zaten duran bir efekti açar veya kapatır.",
-    "en": "Enable or disable an effect already on a layer."
+    "tr": "KATMAN: Bir katmanın zincirindeki (layers[n].postfx) efekti açar veya kapatır. Genel efekt için sv_set_effect_enabled; ikisini de sv_list_effects listeler.",
+    "en": "LAYER: Turn an effect on a layer's chain (layers[n].postfx) on or off. For a global effect use sv_set_effect_enabled; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_layer_effect_param": {
-    "tr": "Bir katmanda zaten duran bir efektin parametrelerini değiştirir.",
-    "en": "Change parameters of an effect already on a layer."
+    "tr": "KATMAN: Bir katmanın zincirindeki (layers[n].postfx) efektin parametrelerini değiştirir. Genel efekt için sv_set_effect_param; ikisini de sv_list_effects listeler.",
+    "en": "LAYER: Change parameters of an effect on a layer's chain (layers[n].postfx). For a global effect use sv_set_effect_param; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_modulation_enabled": {
     "tr": "Yolları düzenlemeden modülasyon matrisini açar veya kapatır.",
@@ -3912,20 +3920,20 @@
     "en": "Set an existing macro fader."
   },
   "mcp.tool.sv_add_effect": {
-    "tr": "Genel zincire bir efekt ekler. Yazarlık.",
-    "en": "Add an effect to the global chain. Authoring."
+    "tr": "GENEL: Genel zincire (postfx) efekt ekler; tüm çıkışa uygulanır. Tek katman için sv_add_layer_effect. Yazarlık.",
+    "en": "GLOBAL: Add an effect to the global chain (postfx), applied to the whole output. For one layer use sv_add_layer_effect. Authoring."
   },
   "mcp.tool.sv_remove_effect": {
-    "tr": "Genel bir efekti kaldırır. Yazarlık.",
-    "en": "Remove a global effect. Authoring."
+    "tr": "GENEL: Genel zincirden (postfx) efekt kaldırır. Katman efekti için sv_remove_layer_effect. Yazarlık.",
+    "en": "GLOBAL: Remove an effect from the global chain (postfx). For a layer effect use sv_remove_layer_effect. Authoring."
   },
   "mcp.tool.sv_add_layer_effect": {
-    "tr": "Belirli bir katmana efekt ekler. Yazarlık. Devam etmek için ardından durumu okuyun.",
-    "en": "Add an effect onto a specific layer. Authoring. Read state afterwards to continue."
+    "tr": "KATMAN: Tek bir katmanın kendi zincirine (layers[n].postfx) efekt ekler. Tüm çıkış için sv_add_effect. Yazarlık.",
+    "en": "LAYER: Add an effect to one layer's own chain (layers[n].postfx). For the whole output use sv_add_effect. Authoring."
   },
   "mcp.tool.sv_remove_layer_effect": {
-    "tr": "Bir katmandan efekt kaldırır. Yazarlık.",
-    "en": "Remove an effect from a layer. Authoring."
+    "tr": "KATMAN: Bir katmanın zincirinden (layers[n].postfx) efekt kaldırır. Genel efekt için sv_remove_effect. Yazarlık.",
+    "en": "LAYER: Remove an effect from a layer's chain (layers[n].postfx). For a global effect use sv_remove_effect. Authoring."
   },
   "mcp.tool.sv_add_modulation_route": {
     "tr": "Bir modülasyon yolu ekler. Yazarlık.",

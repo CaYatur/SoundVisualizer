@@ -98,6 +98,12 @@
     out.mask = Object.assign({}, LAYER_DEFAULTS.mask, (l && l.mask) || {});
     out.postfx = Array.isArray(l && l.postfx) ? l.postfx : [];
     out.settings = (l && l.settings) || {};
+    /* Stray settings.postfx (stored by an older MCP sv_set_layer_settings)
+       never renders; drop it. Not migrated into the real chain (#768). */
+    if (out.settings && typeof out.settings === 'object' && Object.prototype.hasOwnProperty.call(out.settings, 'postfx')) {
+      out.settings = Object.assign({}, out.settings);
+      delete out.settings.postfx;
+    }
     if (KINDS.indexOf(out.kind) < 0) out.kind = 'visualizer';
     if (out.kind === 'nowplaying') out.type = 'nowplaying';
     if (!out.id) out.id = newLayerId();

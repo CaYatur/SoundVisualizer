@@ -229,6 +229,14 @@
         el('span', { class: 'mcp-mode-hint', text: tx('mcp.mode.' + id + '.hint') }),
       ]);
     })));
+    // Tool list profile (#768): compact for small-context local models
+    nodes.push(toggle(tx('mcp.profile.compact'), model.toolProfile === 'compact', function (v) {
+      const mcp = ensure(P().cfg());
+      mcp.toolProfile = v ? 'compact' : 'full';
+      if (P().rerender) P().rerender();
+      P().push(true);
+    }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: tx('mcp.profile.hint') }));
     if (model.setupVisible) {
       nodes.push(el('button', { class: 'btn', type: 'button', text: tx('mcp.card.setup'), onclick: openSetup }));
     }
