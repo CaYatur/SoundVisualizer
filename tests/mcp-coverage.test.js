@@ -251,11 +251,11 @@ test('her araç boş argümanla çağrılınca atmıyor, yanıtı biçimli', asy
   }
 });
 
-test('every effect tool description starts with GLOBAL: or LAYER: (TR: GENEL:/KATMAN:)', () => {
+test('every effect tool description starts with GLOBAL: or LAYER: (both languages)', () => {
   const fx = mcp.tools('en').filter((t) => /effect/.test(t.name) && t.name !== 'sv_list_effects');
   assert.ok(fx.length >= 8);
   for (const t of fx) assert.match(t.description, /^(GLOBAL|LAYER): /, t.name);
-  for (const t of mcp.tools('tr').filter((x) => fx.some((f) => f.name === x.name))) assert.match(t.description, /^(GENEL|KATMAN): /, t.name);
+  for (const t of mcp.tools('tr').filter((x) => fx.some((f) => f.name === x.name))) assert.match(t.description, /^(GLOBAL|LAYER): /, t.name);
   for (const t of fx) {
     const want = /^GLOBAL/.test(t.description) ? 'postfx' : 'layers[n].postfx';
     assert.ok(t.description.includes(want), t.name + ' names its target list');

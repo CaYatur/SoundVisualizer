@@ -993,8 +993,8 @@ JSON metni olabilir; başka her şey hatadır. Mantıksal değerler `true`/`fals
 `"true"`/`"false"` kabul eder.
 
 **GENEL ve KATMAN efektleri.** Efekt araçlarının açıklaması `GLOBAL:` (tüm çıkışın zinciri,
-`postfx`) ya da `LAYER:` (tek katmanın zinciri, `layers[n].postfx`) ile başlar (Türkçe arayüzde
-`GENEL:` / `KATMAN:`). `sv_list_effects` ikisini de listeler. `sv_set_layer_settings` `postfx`
+`postfx`) ya da `LAYER:` (tek katmanın zinciri, `layers[n].postfx`) ile başlar (Türkçe arayüzde de).
+`sv_list_effects` ikisini de listeler. `sv_set_layer_settings` `postfx`
 kabul etmez; eski sürümlerin yazdığı `settings.postfx` silinir.
 
 **Kısa araç listesi.** MCP kartındaki "Kısa araç listesi" açıkken `tools/list` yalnız temel okuma

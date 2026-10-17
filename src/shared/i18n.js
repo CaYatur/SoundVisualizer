@@ -3896,19 +3896,19 @@
     "en": "Edit geometry settings. Authoring."
   },
   "mcp.tool.sv_set_effect_enabled": {
-    "tr": "GENEL: Genel zincirdeki (postfx) bir efekti açar veya kapatır. Katman efekti için sv_set_layer_effect_enabled; ikisini de sv_list_effects listeler.",
+    "tr": "GLOBAL: Genel zincirdeki (postfx) bir efekti açar veya kapatır. Katman efekti için sv_set_layer_effect_enabled; ikisini de sv_list_effects listeler.",
     "en": "GLOBAL: Turn an effect on the global chain (postfx) on or off. For a layer effect use sv_set_layer_effect_enabled; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_effect_param": {
-    "tr": "GENEL: Genel zincirdeki (postfx) bir efektin parametrelerini değiştirir. Katman efekti için sv_set_layer_effect_param; ikisini de sv_list_effects listeler.",
+    "tr": "GLOBAL: Genel zincirdeki (postfx) bir efektin parametrelerini değiştirir. Katman efekti için sv_set_layer_effect_param; ikisini de sv_list_effects listeler.",
     "en": "GLOBAL: Change parameters of an effect on the global chain (postfx). For a layer effect use sv_set_layer_effect_param; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_layer_effect_enabled": {
-    "tr": "KATMAN: Bir katmanın zincirindeki (layers[n].postfx) efekti açar veya kapatır. Genel efekt için sv_set_effect_enabled; ikisini de sv_list_effects listeler.",
+    "tr": "LAYER: Bir katmanın zincirindeki (layers[n].postfx) efekti açar veya kapatır. Genel efekt için sv_set_effect_enabled; ikisini de sv_list_effects listeler.",
     "en": "LAYER: Turn an effect on a layer's chain (layers[n].postfx) on or off. For a global effect use sv_set_effect_enabled; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_layer_effect_param": {
-    "tr": "KATMAN: Bir katmanın zincirindeki (layers[n].postfx) efektin parametrelerini değiştirir. Genel efekt için sv_set_effect_param; ikisini de sv_list_effects listeler.",
+    "tr": "LAYER: Bir katmanın zincirindeki (layers[n].postfx) efektin parametrelerini değiştirir. Genel efekt için sv_set_effect_param; ikisini de sv_list_effects listeler.",
     "en": "LAYER: Change parameters of an effect on a layer's chain (layers[n].postfx). For a global effect use sv_set_effect_param; sv_list_effects lists both."
   },
   "mcp.tool.sv_set_modulation_enabled": {
@@ -3920,19 +3920,19 @@
     "en": "Set an existing macro fader."
   },
   "mcp.tool.sv_add_effect": {
-    "tr": "GENEL: Genel zincire (postfx) efekt ekler; tüm çıkışa uygulanır. Tek katman için sv_add_layer_effect. Yazarlık.",
+    "tr": "GLOBAL: Genel zincire (postfx) efekt ekler; tüm çıkışa uygulanır. Tek katman için sv_add_layer_effect. Yazarlık.",
     "en": "GLOBAL: Add an effect to the global chain (postfx), applied to the whole output. For one layer use sv_add_layer_effect. Authoring."
   },
   "mcp.tool.sv_remove_effect": {
-    "tr": "GENEL: Genel zincirden (postfx) efekt kaldırır. Katman efekti için sv_remove_layer_effect. Yazarlık.",
+    "tr": "GLOBAL: Genel zincirden (postfx) efekt kaldırır. Katman efekti için sv_remove_layer_effect. Yazarlık.",
     "en": "GLOBAL: Remove an effect from the global chain (postfx). For a layer effect use sv_remove_layer_effect. Authoring."
   },
   "mcp.tool.sv_add_layer_effect": {
-    "tr": "KATMAN: Tek bir katmanın kendi zincirine (layers[n].postfx) efekt ekler. Tüm çıkış için sv_add_effect. Yazarlık.",
+    "tr": "LAYER: Tek bir katmanın kendi zincirine (layers[n].postfx) efekt ekler. Tüm çıkış için sv_add_effect. Yazarlık.",
     "en": "LAYER: Add an effect to one layer's own chain (layers[n].postfx). For the whole output use sv_add_effect. Authoring."
   },
   "mcp.tool.sv_remove_layer_effect": {
-    "tr": "KATMAN: Bir katmanın zincirinden (layers[n].postfx) efekt kaldırır. Genel efekt için sv_remove_effect. Yazarlık.",
+    "tr": "LAYER: Bir katmanın zincirinden (layers[n].postfx) efekt kaldırır. Genel efekt için sv_remove_effect. Yazarlık.",
     "en": "LAYER: Remove an effect from a layer's chain (layers[n].postfx). For a global effect use sv_remove_effect. Authoring."
   },
   "mcp.tool.sv_add_modulation_route": {
