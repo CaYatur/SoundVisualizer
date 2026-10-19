@@ -264,9 +264,12 @@ test('paket node_modules olarak yalnız çalışma anı modüllerini alıyor', (
   });
   const missing = [...used].filter((m) => !RUNTIME_MODULES.includes(m) && !DEV_ONLY.includes(m));
   assert.deepStrictEqual(missing, [], 'pakete girmeyen modül isteniyor');
-  // Çalışma anı modüllerinin kendi bağımlılıkları da listede
+  /* Çalışma anı modüllerinin kendi bağımlılıkları da listede. test.yml
+     bağımlılık kurmuyor; tam kurulumla koşan build.yml denetimi bunu da ölçer. */
   ['audify', 'bindings'].forEach((m) => {
-    const main = read(path.join('node_modules', m, require(path.join(root, 'node_modules', m, 'package.json')).main || 'index.js'));
+    const pj = path.join(root, 'node_modules', m, 'package.json');
+    if (!fs.existsSync(pj)) return;
+    const main = read(path.join('node_modules', m, require(pj).main || 'index.js'));
     (main.match(/require\(['"]([^'"./][^'"]*)['"]\)/g) || []).map((r) => /['"](.+)['"]/.exec(r)[1])
       .filter((n) => !builtin.has(n))
       .forEach((n) => assert.ok(RUNTIME_MODULES.includes(n), m + ' → ' + n));
