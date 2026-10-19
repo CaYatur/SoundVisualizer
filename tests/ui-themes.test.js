@@ -42,7 +42,8 @@ test('tema tablosu: istenen temalar ve seçimler var', () => {
   const choices = T.CHOICES.map((c) => c.id);
   assert.deepStrictEqual(choices.filter((c) => c !== T.SYSTEM_ID).sort(), ids.slice().sort(), 'her tema seçilebilir');
   assert.ok(choices.includes(T.SYSTEM_ID), 'Cihaz varsayılanı seçilebilir');
-  assert.strictEqual(choices[0], 'cayadev', 'ilk seçenek varsayılan tema');
+  assert.strictEqual(T.DEFAULT_CHOICE, T.SYSTEM_ID, 'varsayılan: cihazın tercihi');
+  assert.strictEqual(choices[0], T.DEFAULT_CHOICE, 'ilk seçenek varsayılan');
   T.THEMES.forEach((t) => {
     assert.ok(t.scheme === 'dark' || t.scheme === 'light', t.id + ' scheme');
     assert.ok(typeof t.name === 'string' && t.name.trim(), t.id + ' adı');
@@ -375,12 +376,13 @@ test('index.html: renk yalnız logo çiziminde; tema betikleri <head> içinde', 
 test('normalizeId ve resolve', () => {
   assert.strictEqual(T.normalizeId('light'), 'light');
   assert.strictEqual(T.normalizeId('system'), 'system');
-  ['', null, undefined, 'yok', '__proto__', 'constructor', 42].forEach((v) => assert.strictEqual(T.normalizeId(v), 'cayadev', String(v)));
+  ['', null, undefined, 'yok', '__proto__', 'constructor', 42].forEach((v) => assert.strictEqual(T.normalizeId(v), 'system', String(v)));
   assert.strictEqual(T.resolve('system', true).id, 'dark');
   assert.strictEqual(T.resolve('system', false).id, 'light');
   assert.strictEqual(T.resolve('system').id, 'dark', 'tercih bilinmiyorsa koyu');
   assert.strictEqual(T.resolve('neon', false).id, 'neon', 'somut tema tercihe bakmaz');
-  assert.strictEqual(T.resolve('bilinmeyen', false).id, 'cayadev');
+  assert.strictEqual(T.resolve('bilinmeyen', false).id, 'light', 'tanınmayan ayar cihazın tercihine düşer');
+  assert.strictEqual(T.resolve('bilinmeyen', true).id, 'dark');
 });
 
 function fakeDom(search, prefersDarkInit) {
@@ -434,9 +436,12 @@ test('theme-boot: CaYaDev satır içi değerleri siler (admin.css :root geçerli
   assert.ok(d.replaced.some((u) => /uiTheme=cayadev/.test(u)), 'adres güncellendi (yeniden yükleme aynı temayla)');
 });
 
-test('theme-boot: bilinmeyen tema CaYaDev, sorgu yoksa CaYaDev', () => {
-  assert.strictEqual(fakeDom('?uiTheme=<script>', true).win.SVUiTheme.choice(), 'cayadev');
-  assert.strictEqual(fakeDom('', true).win.SVUiTheme.choice(), 'cayadev');
+test('theme-boot: bilinmeyen tema ve sorgusuz açılış cihazın tercihini izler', () => {
+  assert.strictEqual(fakeDom('?uiTheme=<script>', true).win.SVUiTheme.choice(), 'system');
+  const d = fakeDom('', false);
+  assert.strictEqual(d.win.SVUiTheme.choice(), 'system');
+  assert.strictEqual(d.win.SVUiTheme.current().id, 'light');
+  assert.strictEqual(fakeDom('?uiTheme=cayadev', false).win.SVUiTheme.current().id, 'cayadev', 'seçilen tema cihaza bakmaz');
 });
 
 test('theme-boot: Cihaz varsayılanı sistemi canlı izliyor ve tuvallere haber veriyor', () => {
@@ -465,13 +470,15 @@ test('theme-boot: tuval yardımcıları temanın rengini veriyor', () => {
 // ---------------------------------------------------------------------------
 // Ayar, panel, ana süreç
 // ---------------------------------------------------------------------------
-test('varsayılan ayar CaYaDev; mevcut kullanıcıların görünüşü değişmez', () => {
+test('varsayılan ayar Cihaz varsayılanı; seçilmiş tema korunur', () => {
   global.window = global.window || {};
   require('../src/shared/defaults.js');
   const SV = global.window.SV;
-  assert.strictEqual(SV.defaultConfig().ui.theme, 'cayadev');
+  assert.strictEqual(SV.defaultConfig().ui.theme, T.DEFAULT_CHOICE);
   // Eski ayar dosyasında ui yoksa birleştirme varsayılanı verir
-  assert.strictEqual(SV.deepMerge(SV.defaultConfig(), { power: {} }).ui.theme, 'cayadev');
+  assert.strictEqual(SV.deepMerge(SV.defaultConfig(), { power: {} }).ui.theme, 'system');
+  // Kullanıcının seçtiği tema varsayılanla ezilmez
+  assert.strictEqual(SV.deepMerge(SV.defaultConfig(), { ui: { theme: 'cayadev' } }).ui.theme, 'cayadev');
 });
 
 test('panel: Ayarlar kartında tema seçici; sıfırlama temayı koruyor', () => {

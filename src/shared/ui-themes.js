@@ -34,8 +34,12 @@
    aynı renk olamaz: koyu kartta 4.5:1 okunan bir kırmızının üstünde beyaz
    yazı 4.5:1 okunamaz. */
 (function () {
+  /* DEFAULT_ID: taban tema (admin.css :root, README görüntüleri).
+     DEFAULT_CHOICE: ayarın varsayılanı — panel cihazın açık/koyu tercihini
+     izler. Eksik ya da tanınmayan ayar da buna düşer. */
   const DEFAULT_ID = 'cayadev';
   const SYSTEM_ID = 'system';
+  const DEFAULT_CHOICE = SYSTEM_ID;
 
   /* Bütün temaların tanımlaması ZORUNLU değişkenler ve rolleri. Rol,
      karşıtlık testinin ve yeni bir değişken ekleyenin rehberi. */
@@ -236,13 +240,13 @@
   /* Seçim listesi: temalar + "Cihaz varsayılanı". Sıra panelde görünen
      sıra. */
   const CHOICES = [
-    { id: 'cayadev' }, { id: SYSTEM_ID, name: 'Cihaz varsayılanı' },
+    { id: SYSTEM_ID, name: 'Cihaz varsayılanı' }, { id: 'cayadev' },
     { id: 'dark' }, { id: 'light' }, { id: 'contrast' },
     { id: 'midnight' }, { id: 'sepia' }, { id: 'neon' },
   ].map((c) => (c.id === SYSTEM_ID ? c : { id: c.id, name: BY_ID[c.id].name }));
 
   function normalizeId(id) {
-    return id === SYSTEM_ID || Object.prototype.hasOwnProperty.call(BY_ID, id) ? id : DEFAULT_ID;
+    return id === SYSTEM_ID || Object.prototype.hasOwnProperty.call(BY_ID, id) ? id : DEFAULT_CHOICE;
   }
 
   // Seçimi (system dahil) somut bir temaya çevirir
@@ -326,7 +330,7 @@
   }
 
   const api = {
-    DEFAULT_ID, SYSTEM_ID, TOKENS, TOKEN_NAMES, THEMES, CHOICES,
+    DEFAULT_ID, SYSTEM_ID, DEFAULT_CHOICE, TOKENS, TOKEN_NAMES, THEMES, CHOICES,
     byId: (id) => BY_ID[id] || null,
     normalizeId, resolve, apply,
     parseColor, over, luminance, contrast, solid, tint,

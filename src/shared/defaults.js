@@ -331,7 +331,8 @@
        etkilemez. "Varsayılanlara Sıfırla" bunu korur: okunabilirlik için
        seçilmiş bir tema sıfırlamayla kaybolmamalı. */
     ui: {
-      theme: 'cayadev',
+      // Cihazın açık/koyu tercihini izler (Cihaz varsayılanı)
+      theme: 'system',
     },
 
     power: {

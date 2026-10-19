@@ -10,15 +10,17 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 
 ### Control panel
 
-- **Interface themes [770].** Settings → Application → Interface Theme offers seven themes and
-  Device default:
-  - CaYaDev, the existing look and still the default;
+- **Interface themes [770].** Settings → Application → Interface Theme offers Device default,
+  which is the default, and seven themes:
+  - CaYaDev, the existing look;
   - Dark, a neutral graphite;
   - Light;
   - High Contrast, black with yellow, held to WCAG AAA (7:1 for text);
   - Midnight, Sepia and Neon.
 
-  Device default follows the operating system's light or dark preference and switches live.
+  Device default follows the operating system's light or dark preference and switches live: a
+  dark system shows Dark, a light one shows Light. If you never chose a theme, the panel follows
+  your system from this version on. A theme you picked is kept.
   The theme changes the panel only. The visualizer output, the stream overlay and your own
   colours stay as they are. It is saved in the settings file, so a backup carries it, and
   "Reset to Defaults" keeps it.
