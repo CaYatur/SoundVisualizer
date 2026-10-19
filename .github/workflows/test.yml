@@ -16,6 +16,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Read-only: these jobs never write to the repository (#777).
+permissions:
+  contents: read
+
 jobs:
   unit:
     name: unit (${{ matrix.os }}, node ${{ matrix.node }})
