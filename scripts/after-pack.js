@@ -28,7 +28,42 @@ function findMt() {
   return matches[0].candidate;
 }
 
+/* Paketin çalışma anında ihtiyaç duyduğu ikililer (#777). npm 12 bağımlılık
+   kurulum betiklerini `allowScripts` dışında sessizce atlıyor: ffmpeg-static
+   ikilisini indirmeyince paket ffmpeg'siz çıkıyor ve dışa aktarma o paketi
+   kuran herkeste bozuluyordu. Eksikse paketleme durur. */
+function requiredFiles(platform) {
+  const nm = path.join('app.asar.unpacked', 'node_modules');
+  const list = [
+    path.join(nm, 'ffmpeg-static', platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'),
+    path.join(nm, 'audify', 'build', 'Release', 'audify.node'),
+    path.join(nm, 'bindings', 'bindings.js'),
+    path.join(nm, 'file-uri-to-path', 'index.js'),
+  ];
+  // Spout (Windows) dokusu; Syphon ve Linux bu modülü kullanmıyor
+  if (platform === 'win32') list.push(path.join(nm, '@napolab', 'texture-bridge-win32-x64-msvc'));
+  return list;
+}
+
+function resourcesDir(context) {
+  if (context.electronPlatformName === 'darwin') {
+    return path.join(context.appOutDir, `${context.packager.appInfo.productFilename}.app`, 'Contents', 'Resources');
+  }
+  return path.join(context.appOutDir, 'resources');
+}
+
+function checkRuntimeFiles(context) {
+  const dir = resourcesDir(context);
+  const missing = requiredFiles(context.electronPlatformName).filter((f) => !fs.existsSync(path.join(dir, f)));
+  if (missing.length) {
+    throw new Error('Packaged app is missing runtime files (run `npm rebuild` with install scripts allowed): ' + missing.join(', '));
+  }
+  const ffmpeg = path.join(dir, requiredFiles(context.electronPlatformName)[0]);
+  if (fs.statSync(ffmpeg).size < 1024 * 1024) throw new Error(`ffmpeg binary looks truncated: ${ffmpeg}`);
+}
+
 module.exports = async function afterPack(context) {
+  checkRuntimeFiles(context);
   if (context.electronPlatformName !== 'win32') return;
 
   const root = context.packager.projectDir;
@@ -50,3 +85,5 @@ module.exports = async function afterPack(context) {
   if (result.status !== 0) throw new Error(`mt.exe failed with exit code ${result.status}.`);
   console.log(`Sparse identity metadata embedded into ${executable}`);
 };
+
+module.exports.requiredFiles = requiredFiles;
