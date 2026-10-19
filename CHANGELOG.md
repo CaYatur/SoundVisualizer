@@ -3,7 +3,10 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v3.1.6-beta — in code, not released
+
+`package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
+updater sees v3.1.5 as the latest release and does not offer it to the beta as an update.
 
 ### Control panel
 

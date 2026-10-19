@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.5** · **Next release: v3.1.6**
+**Current release: v3.1.5** · **Next release: v3.1.6** · `main` is versioned **3.1.6-beta**, which is not published (no tag, no GitHub Release)
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
