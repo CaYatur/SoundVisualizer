@@ -239,6 +239,17 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 
 ### MilkDrop
 
+- **Motion vectors can be drawn mirrored, as MilkDrop 2 draws them [750].**
+  - MilkDrop 2 draws each vector in its place but reads its direction from the vertically
+    mirrored row of the mesh. So motion a preset asks for in the top half shows in the bottom
+    half. BeatDrop fixed this upstream after #750.
+  - Our engine draws what the preset asks for, and that stays the default.
+  - Settings → MilkDrop → Motion Vectors → "Mirrored, as in MilkDrop" gives MilkDrop's own
+    picture for presets tuned against it. It applies while MilkDrop Fidelity is on.
+  - Measured at 960×720, frame 59, on four presets, as the coarse difference out of 255. The
+    mirrored mode against stock MilkDrop came out at 1.66, 0.53, 0.95 and 5.47. The default
+    mode against patched MilkDrop came out at 0.82, 1.73, 0.92 and 4.8. Across the two (the
+    default mode against stock MilkDrop) the differences were 12.9, 31.2, 6.6 and 25.
 - **A still motion-vector field draws its stubs down and to the right, as MilkDrop does [751].**
   Where nothing moves, MilkDrop draws a one-texel stub at `dx = dy = min_len`. Its 2D projection
   flips y, so on screen that stub points down; ours pointed up.

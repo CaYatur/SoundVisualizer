@@ -1197,6 +1197,21 @@
       ['milkdrop', 'MilkDrop (kaydırmalı kalınlaştırma)'],
     ], md.lineStyle || 'smooth', (v) => { md.lineStyle = String(v); })));
 
+    /* HAREKET VEKTÖRLERİ (#750). MilkDrop 2 vektör alanını dikey aynalı
+       çiziyor: yönü ağın aynalanmış satırından okuyor. Varsayılan presetin
+       istediği alan; yazarların o aynalı alana bakarak ayarladığı presetler
+       için MilkDrop'un kendi görüntüsü ek seçenek. */
+    nodes.push(P().row('Hareket Vektörleri', selOf([
+      ['fixed', 'Presetin istediği yön (düzeltilmiş)'],
+      ['mirrored', 'MilkDrop\'taki gibi aynalı'],
+    ], md.motionVectors === 'mirrored' ? 'mirrored' : 'fixed', (v) => { md.motionVectors = String(v); })));
+    nodes.push(el('div', {
+      class: 'studio-note dim-hint',
+      text: md.accurate === false
+        ? 'MilkDrop Uyumu kapalıyken geçerli değil: motorun eski yaklaşımı kendi vektörlerini çizer.'
+        : 'MilkDrop 2 vektörlerin yönünü ekranın dikey aynasından okur: bir presetin üst yarıda istediği hareketi alt yarıda gösterir. Düzeltilmiş hâl presetin yazdığını çizer; aynalı hâl MilkDrop\'un kendisinde görülen görüntüyü verir.',
+    }));
+
     /* FLAŞ SINIRLAMA. MilkDrop'ta yok; erişilebilirlik için eklendi.
        Korpusta "Definitly Not For The Epileptic" gibi adlar var; yazarı
        ne yaptığını biliyor, izleyen herkes bilmiyor. Ölçüldü: presetlerin
