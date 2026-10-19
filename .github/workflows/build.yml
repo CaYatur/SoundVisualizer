@@ -26,6 +26,11 @@ on:
   push:
     tags: ['v*']
 
+# Yalnız okuma: bu iş depoya yazmıyor ve sürüm açmıyor; kurulum dosyaları
+# Actions artefaktı olarak yükleniyor (#777).
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: checks (${{ matrix.os }})

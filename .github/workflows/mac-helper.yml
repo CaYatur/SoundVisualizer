@@ -18,6 +18,10 @@ on:
       - '.github/workflows/mac-helper.yml'
   workflow_dispatch:
 
+# Read-only: this job never writes to the repository (#777).
+permissions:
+  contents: read
+
 jobs:
   # The macOS per-application audio helper (Swift, ScreenCaptureKit) was
   # written without a Mac and has NOT been run on real hardware. build.yml

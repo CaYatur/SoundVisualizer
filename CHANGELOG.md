@@ -300,6 +300,15 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 - **Electron 43.6.0 → 43.8.0 [777].** The 43.7 and 43.8 releases carry fixes backported from
   upstream Chromium, V8, ANGLE, PDFium, Skia, Dawn and WebRTC. 43.8.0 also fixes Linux start-up
   crashes when GTK fails to load. It is the same major version, and 43 is still supported.
+- **Build tools updated [777].** The non-breaking `npm audit` fixes move electron-builder from
+  26.15.3 to 26.17.0, along with axios, form-data, undici, xmldom and others in the build chain.
+  This takes the audit from 21 findings to 13. The rest have no non-breaking fix:
+  - `tar` 6 under `cmake-js` runs only if audify has to be compiled from source, and it no longer
+    ships;
+  - `sharp` 0.35 is a major version, and sharp is used only for README images;
+  - DoS findings deep in electron-builder's dependencies.
+- **CI runs with read-only tokens [777].** Every workflow declares `permissions: contents: read`,
+  and a test fails if one does not.
 
 ## v3.1.5 — 2026-10-13
 
