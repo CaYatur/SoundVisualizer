@@ -92,6 +92,7 @@ hands, and a row only moves up once it ships.
 | Feature | Target | State today |
 |---|:--:|---|
 | Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
+| Electron 44 | v3.1.6 | On `main` (44.9.0), up from 43. macOS 13 Ventura becomes the minimum, ANGLE is linked into the binary, and builds are 64-bit only (as ours already were) |
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
 | Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |

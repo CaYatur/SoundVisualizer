@@ -1693,6 +1693,8 @@ needs a certificate the runner does not have — a CI-built installer would be a
 
 ### macOS first launch
 
+<kbd>3.1.6</kbd> The app needs **macOS 13 Ventura or later**, because Electron 44 dropped macOS 12.
+
 **macOS packages are unsigned** and not notarised. macOS quarantines unsigned downloads and reports
 them as *damaged and can’t be opened*; right-clicking and choosing **Open** does not clear that on
 macOS 15 or later. Drag the app to Applications and remove the flag once:

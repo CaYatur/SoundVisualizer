@@ -308,6 +308,16 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
   - `allowScripts` now allows the scripts of audify, ffmpeg-static and sharp.
   - The packaging step stops if ffmpeg, audify's native module or the Spout bridge is missing.
   - Published builds were not affected: v3.1.5 shipped with ffmpeg.
+- **Electron 44 [777].** The app moves from Electron 43 to 44.9.0, Chromium 152.
+  - **macOS 13 Ventura or later is now required.** Electron 44 dropped macOS 12.
+  - ANGLE is linked into the Electron binary, so `libEGL.dll` and `libGLESv2.dll` no longer ship
+    beside it.
+  - Electron no longer publishes 32-bit builds; ours were already 64-bit only.
+  - None of the other breaking changes reach our code. The `clipboard` module leaves the
+    renderer, but ours never used it. The new `net.request` rule does not apply, because the
+    updater uses `net.fetch`. And the login-item fields that went away were never used.
+  - `node-abi` is updated so `@electron/rebuild` recognises Electron 44.
+  - The Dynamic Lighting module, audify and the Spout bridge all load in Electron 44.
 - **Electron 43.6.0 → 43.8.0 [777].** The 43.7 and 43.8 releases carry fixes backported from
   upstream Chromium, V8, ANGLE, PDFium, Skia, Dawn and WebRTC. 43.8.0 also fixes Linux start-up
   crashes when GTK fails to load. It is the same major version, and 43 is still supported.
