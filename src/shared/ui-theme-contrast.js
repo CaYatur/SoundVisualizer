@@ -43,7 +43,9 @@
       ['--ok-text', '--ok-rgb', 0.14], ['--warn-text', '--warn-rgb', 0.16],
       ['--danger-text', '--danger-rgb', 0.14], ['--danger-text', '--danger-rgb', 0.22],
       ['--ok', '--ok-rgb', 0.14], ['--text-strong', '--accent-rgb', 0.3],
-      ['--text', '--sel-rgb', 0.22], ['--text', '--fg-rgb', 0.08]].forEach(([fg, rgb, a]) => {
+      ['--text', '--sel-rgb', 0.22], ['--text', '--fg-rgb', 0.08],
+      // Seçili satır (accent-soft, arama sonucu): gövde ve ikincil yazı. --muted2 burada yetmez
+      ['--text', '--accent-rgb', 0.16], ['--muted', '--accent-rgb', 0.16]].forEach(([fg, rgb, a]) => {
       ['--bg2', '--card', '--card2'].forEach((base) => {
         out.push({ fg, on: { tint: rgb, alpha: a, base }, min: 'text', why: fg + ' / ' + rgb + ' ' + a + ' / ' + base });
       });

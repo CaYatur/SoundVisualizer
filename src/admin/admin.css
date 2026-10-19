@@ -926,6 +926,8 @@ video.logo-lib-thumb { pointer-events: none; }
 }
 .scene-name:focus { background: var(--card); border-bottom: 1px solid var(--accent); }
 .scene-meta { font-size: 9.5px; color: var(--muted2); padding-left: 3px; }
+/* Seçili satırın vurgu zemininde --muted2 Aydınlık'ta 3.9:1'e iniyordu (#770) */
+.scene-item.active .scene-meta { color: var(--muted); }
 .scene-acts { display: flex; gap: 4px; flex-shrink: 0; }
 .scene-toolbar { display: flex; gap: 6px; margin-top: 10px; flex-shrink: 0; }
 .scene-toolbar .btn { flex: 1; }
@@ -1445,9 +1447,21 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .cd-thumb, .perf-thumb {
   position: absolute; inset: 0; opacity: .40; pointer-events: none; border-radius: inherit;
 }
-.cd-name, .perf-name { position: relative; z-index: 1; }
+.cd-name, .cd-meta, .perf-name { position: relative; z-index: 1; }
 .cd-count, .perf-count { z-index: 2; }
 .perf-cell.filled .perf-thumb { opacity: .32; }
+/* Önizleme kullanıcının sahne rengi ya da görseli: beyaz bir sahnede yazı
+   3:1'in altına iniyordu. Önizlemeli hücrede yazılar kendi kart zeminiyle
+   durur; önizleme etraflarında görünmeye devam eder (#770). */
+.cd-cell:has(> .cd-thumb) > .cd-name,
+.cd-cell:has(> .cd-thumb) > .cd-meta,
+.cd-cell:has(> .cd-thumb) > .cd-count:not(:empty),
+.perf-cell:has(> .perf-thumb) > .perf-name,
+.perf-cell:has(> .perf-thumb) > .perf-count:not(:empty) {
+  background: var(--card); border-radius: 4px; padding: 0 4px;
+}
+.cd-cell:has(> .cd-thumb) > .cd-name,
+.cd-cell:has(> .cd-thumb) > .cd-meta { align-self: flex-start; max-width: 100%; }
 
 /* Çakışma uyarısı — engellemiyoruz ama görünür olmalı. */
 .settings-io-note.warn { color: var(--warn-text); border-left: 2px solid var(--warn); padding-left: 8px; }
