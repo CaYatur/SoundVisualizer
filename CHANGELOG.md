@@ -72,6 +72,20 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 - **The selected scene's info line** was 3.9:1 in Light and 4.1–4.4:1
   in Midnight and CaYaDev. On the selected row's accent tint it now uses the secondary text
   colour, and the contrast rules cover body and secondary text on selected rows.
+- **The self-test scans a populated panel [777].**
+  - The self-test's settings had no saved scenes, no clip cells with a preview and no slot without
+    a source. So the untranslated-text scan and the contrast audit never drew those screens. The
+    selected scene's 3.9:1 label above was found by hand.
+  - The self-test now adds representative content to the panel in memory:
+    - three saved scenes (white, black and gradient backgrounds) and a selected one that changes
+      nothing;
+    - clip slots that reference them;
+    - a white image, white and black colour slots, and a slot with no source.
+  - It also opens every fold, and puts the panel back afterwards.
+  - It counts what it actually scanned and fails if the selected row, four preview cells or the
+    sourceless slot were not drawn. On the first run they were not: an earlier step leaves the
+    deck at 2×2.
+  - Each theme now measures about 3,040 texts, with none below the threshold.
 - **Two labels were unreadable in every theme.** The empty side of the A/B crossfader and the
   "built-in" tag in Studio's list were dimmed with opacity to 2.9:1 and 3.7:1. They now use the
   secondary text colour. The decorative "·" separators in status lines are hidden from screen

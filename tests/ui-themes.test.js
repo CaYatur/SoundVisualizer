@@ -560,6 +560,31 @@ test('öz test her temayı panelin seçicisinden tarıyor ve kullanıcının tem
   assert.match(step, /restored/);
 });
 
+/* Dolu panel (#777): öz testin ayarlarında kayıtlı sahne ve önizlemeli
+   hücre yoktu; tarama o ekranları hiç görmüyordu. İçerik ekleniyor, gerçekten
+   tarandığı sayılıyor ve sonra geri alınıyor. */
+test('öz test çeviri ve karşıtlık taramalarını dolu panelde yapıyor', () => {
+  const m = read('src/main/main.js');
+  const p = m.indexOf('DOLU PANEL (#777)');
+  assert.ok(p > 0, 'dolu panel adımı');
+  const pop = m.slice(p, p + 4000);
+  ['smoke-same', 'smoke-white', 'smoke-black', 'smoke-grad'].forEach((id) => assert.ok(pop.includes(id), id));
+  assert.match(pop, /type: 'image', ref: img/);
+  assert.match(pop, /ref: ''/, 'kaynağı seçilmemiş yuva');
+  assert.match(pop, /P\.applyScene\('smoke-same'\)/, 'seçili sahne satırı');
+  assert.match(pop, /c\.clipdeck\.activeDeck/, 'görünen desteye yazılıyor');
+  assert.match(pop, /deck\.cols = Math\.max/, 'yuvalar ızgaranın içinde');
+  // Çeviri taraması katlanır bölümleri açıyor
+  assert.match(m, /if \(await awc3\.executeJavaScript\(openFolds\)\)/);
+  // Karşıtlık taraması kapsamı sayıyor ve eksikse düşüyor
+  const t = m.indexOf('Arayüz temaları: ekrandaki yazıların karşıtlığı (#770)');
+  const step = m.slice(t, t + 7000);
+  assert.match(step, /\.fold-head:not\(\.open\)/);
+  assert.match(step, /window\.SVPanel\.applyScene\('smoke-same'\)/);
+  assert.match(step, /!sn\.active \|\| sn\.thumbs < 4 \|\| sn\.noref < 1/);
+  assert.match(step, /__smokePopulateBackup/, 'içerik geri alınıyor');
+});
+
 test('süs ayraçları ekran okuyucudan ve ölçümden gizli', () => {
   const dir = path.join(root, 'src', 'admin');
   fs.readdirSync(dir).filter((f) => f.endsWith('.js')).forEach((f) => {

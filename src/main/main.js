@@ -7070,6 +7070,55 @@ async function runSmoke() {
     if (opened !== 'açıldı') errors.push('i18n scan could not open timeline/clipdeck: ' + opened);
     await wait(900);
 
+    /* DOLU PANEL (#777). Öz testin ayarlarında kayıtlı sahne, önizlemeli
+       klip hücresi ya da kaynağı seçilmemiş yuva yok; çeviri ve karşıtlık
+       taramaları o ekranları hiç görmüyordu (seçili sahnenin alt yazısı
+       Aydınlık'ta 3,9:1 kalmıştı, #775). Panelin kendi nesnesine temsilî
+       içerik eklenir, seçili sahne görüntüyü değiştirmeyen bir kopyadır;
+       tema adımından sonra eski hâline döner. Disk zaten korunuyor. */
+    const populated = await awc3.executeJavaScript(`(function(){
+      var P = window.SVPanel; if (!P) return { error: 'panel yok' };
+      var c = P.cfg();
+      // Önceki adımlar başka bir desteyi etkin bırakabiliyor: görünen deste
+      var decks = (c.clipdeck && c.clipdeck.decks) || [];
+      var deck = decks.filter(function (d) { return d && d.id === c.clipdeck.activeDeck; })[0] || decks[0];
+      if (!deck) return { error: 'deste yok' };
+      window.__smokePopulateDeck = deck.id;
+      window.__smokePopulateBackup = JSON.stringify({ scenes: c.scenes || [], slots: deck.slots || [], rows: deck.rows, cols: deck.cols, active: c._activeSceneId || null });
+      // Önceki deste adımı ızgarayı 2x2 bırakıyor; yuvalar ızgaranın içinde kalmalı
+      deck.rows = Math.max(+deck.rows || 0, 3);
+      deck.cols = Math.max(+deck.cols || 0, 4);
+      var same = JSON.parse(JSON.stringify(c)); delete same.scenes;
+      var bgScene = function (id, name, bg) {
+        var d = JSON.parse(JSON.stringify(same));
+        d.background = Object.assign({}, d.background, bg);
+        return { id: id, name: name, data: d };
+      };
+      c.scenes = (c.scenes || []).concat([
+        { id: 'smoke-same', name: 'Smoke current', data: same },
+        bgScene('smoke-white', 'Smoke white', { type: 'solid', solidColor: '#ffffff' }),
+        bgScene('smoke-black', 'Smoke black', { type: 'solid', solidColor: '#000000' }),
+        bgScene('smoke-grad', 'Smoke gradient', { type: 'gradient', gradient: { colors: ['#ffffff', '#ffe066', '#00ffff'] } }),
+      ]);
+      var img = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="white"/></svg>');
+      deck.slots = [
+        { row: 0, col: 0, name: 'White scene', type: 'scene', ref: 'smoke-white' },
+        { row: 0, col: 1, name: 'Black scene', type: 'scene', ref: 'smoke-black' },
+        { row: 0, col: 2, name: 'Gradient scene', type: 'scene', ref: 'smoke-grad' },
+        { row: 0, col: 3, name: 'White image', type: 'image', ref: img },
+        { row: 1, col: 0, name: 'White slot', type: 'palette', ref: 'x', color: '#ffffff' },
+        { row: 1, col: 1, name: 'Black slot', type: 'palette', ref: 'x', color: '#000000' },
+        { row: 1, col: 2, name: 'No source', type: 'video', ref: '' },
+      ];
+      P.applyScene('smoke-same');
+      P.rerender();
+      return { scenes: c.scenes.length, slots: deck.slots.length };
+    })()`);
+    console.log('[SMOKE] dolu panel: ' + JSON.stringify(populated));
+    if (!populated || populated.error) errors.push('populated panel: ' + ((populated && populated.error) || 'no result'));
+    await wait(700);
+    const openFolds = "(function(){var h=document.querySelectorAll('#sections .fold-head:not(.open)');for(var i=0;i<h.length;i++)h[i].click();return h.length;})()";
+
     const cats = await awc3.executeJavaScript(
       "Array.from(document.querySelectorAll('.nav-item .nav-label')).map(function(n){return n.textContent;})"
     );
@@ -7079,6 +7128,8 @@ async function runSmoke() {
     for (let i = 0; i < cats.length; i++) {
       await awc3.executeJavaScript("(function(){var b=document.querySelectorAll('.nav-item')[" + i + "]; if(b) b.click();})()");
       await wait(340);
+      // Katlanır bölümler kapalıyken içerikleri DOM'da yok
+      if (await awc3.executeJavaScript(openFolds)) await wait(300);
       const found = await awc3.executeJavaScript(`(function(){
         var skip = 'source-name,audio-state,scene-name,up-name,map-signal,url-field,client-addr,gen-pair,np-live'.split(',');
         var out = [];
@@ -7165,16 +7216,28 @@ async function runSmoke() {
         const original = U.choice();
         const cats = Array.from(document.querySelectorAll('[data-cat]')).map((b) => b.dataset.cat);
         const out = [];
+        // Dolu panelin ekranları gerçekten tarandı mı (#777)
+        const seen = { active: false, thumbs: 0, noref: 0, folds: 0 };
         for (const t of UT.THEMES) {
           click('[data-cat="settings"]'); await sleep(450);
           if (!click('.ui-theme-opt[data-theme="' + t.id + '"]')) { out.push({ theme: t.id, error: 'not in the picker' }); continue; }
           await sleep(250);
+          /* Her ayar değişikliği seçili sahne vurgusunu kaldırıyor (bilerek):
+             dolu panelin seçili satırı her temada yeniden seçilir. */
+          if (window.__smokePopulateBackup && window.SVPanel) { window.SVPanel.applyScene('smoke-same'); await sleep(250); }
           let checked = 0, min = Infinity;
           const fails = [];
           for (const c of cats) {
             click('[data-cat="' + c + '"]'); await sleep(400);
+            // Katlanır bölümlerin içeriği kapalıyken DOM'da yok
+            const folds = document.querySelectorAll('#sections .fold-head:not(.open)');
+            folds.forEach((h) => h.click());
+            if (folds.length) { seen.folds += folds.length; await sleep(250); }
+            if (document.querySelector('#sceneList .scene-item.active')) seen.active = true;
+            seen.thumbs = Math.max(seen.thumbs, document.querySelectorAll('.cd-cell > .cd-thumb').length);
+            seen.noref = Math.max(seen.noref, document.querySelectorAll('.cd-cell.noref').length);
             const s = document.getElementById('sections');
-            const steps = Math.min(8, Math.ceil(s.scrollHeight / Math.max(1, s.clientHeight)));
+            const steps = Math.min(14, Math.ceil(s.scrollHeight / Math.max(1, s.clientHeight)));
             for (let k = 0; k < steps; k++) {
               s.scrollTop = k * s.clientHeight; await sleep(100);
               const r = A.audit(document, window, { pageBg: getComputedStyle(document.body).backgroundColor, aaa: !!U.current().aaa });
@@ -7188,7 +7251,7 @@ async function runSmoke() {
         click('[data-cat="settings"]'); await sleep(350);
         click('.ui-theme-opt[data-theme="' + original + '"]');
         await sleep(200);
-        return { themes: out, restored: U.choice() === original };
+        return { themes: out, restored: U.choice() === original, seen };
       })()`);
       if (!report || report.error) {
         errors.push('ui themes: ' + ((report && report.error) || 'no report'));
@@ -7202,10 +7265,30 @@ async function runSmoke() {
           if (r.failCount) errors.push('ui theme ' + r.theme + ': ' + r.failCount + ' text element(s) below the contrast threshold');
         });
         if (!report.restored) errors.push('ui themes: the user\'s theme was not restored');
+        console.log('[SMOKE] dolu panel tarandı: ' + JSON.stringify(report.seen));
+        const sn = report.seen || {};
+        if (!sn.active || sn.thumbs < 4 || sn.noref < 1) {
+          errors.push('ui themes: the populated panel was not scanned (' + JSON.stringify(sn) + ')');
+        }
       }
     } catch (e) {
       errors.push('ui themes: ' + (e && e.message ? e.message : e));
     }
+    // Dolu panel eski hâline (sahneler, yuvalar, seçili sahne)
+    try {
+      await awc4.executeJavaScript(`(function(){
+        var raw = window.__smokePopulateBackup; if (!raw || !window.SVPanel) return false;
+        var b = JSON.parse(raw), c = window.SVPanel.cfg();
+        c.scenes = b.scenes;
+        var d = ((c.clipdeck && c.clipdeck.decks) || []).filter(function (x) { return x && x.id === window.__smokePopulateDeck; })[0];
+        if (d) { d.slots = b.slots; d.rows = b.rows; d.cols = b.cols; }
+        delete window.__smokePopulateDeck;
+        c._activeSceneId = b.active;
+        delete window.__smokePopulateBackup;
+        window.SVPanel.apply();
+        return true;
+      })()`);
+    } catch (e) { /* panel kapanıyor */ }
   }
 
   /* --- Panel ekran görüntüleri (--smoke-shots) ---
