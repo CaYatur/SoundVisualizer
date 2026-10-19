@@ -1696,6 +1696,8 @@ olmayan bir sertifika gerekiyor — CI'de derlenen bir kurulum farklı bir ürü
 
 ### macOS'ta ilk açılış
 
+<kbd>3.1.6</kbd> Uygulama **macOS 13 Ventura veya sonrasını** istiyor; Electron 44 macOS 12 desteğini bıraktı.
+
 **macOS paketleri imzasız** ve onaylı değil. macOS imzasız indirmeleri karantinaya alıyor ve *hasarlı,
 açılamıyor* diyor; macOS 15 ve sonrasında sağ tıklayıp **Aç**'ı seçmek bunu kaldırmıyor. Uygulamayı
 Uygulamalar'a sürükleyin ve bayrağı bir kez kaldırın:
