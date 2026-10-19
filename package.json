@@ -61,7 +61,17 @@
       "src/**/*",
       "assets/**/*",
       "build/icon.ico",
-      "package.json"
+      "package.json",
+      "!node_modules/**/*",
+      "node_modules/audify/**/*",
+      "!node_modules/audify/{src,vendor}/**/*",
+      "!node_modules/audify/CMakeLists.txt",
+      "node_modules/audify/vendor/opus/{COPYING,LICENSE_PLEASE_READ.txt}",
+      "node_modules/audify/vendor/rtaudio/LICENSE",
+      "node_modules/bindings/**/*",
+      "node_modules/file-uri-to-path/**/*",
+      "node_modules/ffmpeg-static/**/*",
+      "node_modules/@napolab/**/*"
     ],
     "asarUnpack": [
       "node_modules/audify/**",
@@ -212,5 +222,11 @@
     "appImage": {
       "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.AppImage"
     }
+  },
+  "allowScripts": {
+    "audify": true,
+    "ffmpeg-static": true,
+    "sharp": true,
+    "electron-winstaller": false
   }
 }
