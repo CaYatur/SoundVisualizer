@@ -779,6 +779,10 @@
                         yok, dalga tasiyan presetler sonukleseiyor.
            'milkdrop' — MilkDrop'un kendi kaydirmali kalinlastirmasi. */
       lineStyle: 'smooth',
+      /* HAREKET VEKTORLERI (#750): 'fixed' presetin istedigi alan
+         (varsayilan); 'mirrored' MilkDrop 2'deki gibi dikey aynali alan.
+         Yalnizca MilkDrop uyumu acikken gecerli. */
+      motionVectors: 'fixed',
       /* FLAS SINIRLAMA. Nobet riski tasiyan yanip sonmeyi keser.
          Olcut WCAG 2.3.1'in "genel flas" tanimi: bagil parlaklikta
          0,10'dan buyuk ve saniyede ucten fazla degisim.

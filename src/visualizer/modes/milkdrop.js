@@ -3303,6 +3303,10 @@ void main(){
          çizgileri yok etmemeli. */
       const ls = cfg.milkdrop && cfg.milkdrop.lineStyle;
       this._lineStyle = (ls === 'thin' || ls === 'milkdrop') ? ls : 'smooth';
+      /* HAREKET VEKTÖRÜ YÖNÜ (#750). Varsayılan presetin istediği alan.
+         'mirrored' MilkDrop 2'nin kendi hatasını yeniden üretiyor: yazarlar
+         vektörlerini yıllarca o aynalı alana bakarak ayarladı. */
+      this._mvMirror = !!(cfg.milkdrop && cfg.milkdrop.motionVectors === 'mirrored');
       /* Flaş sınırlama VARSAYILAN AÇIK. Ölçtük: presetlerin %90'ı eşiğin
          altında kalıyor ve hiç etkilenmiyor; devreye yalnızca WCAG'in
          riskli dediği %7,1'de giriyor. Kapatmak isteyen ayardan kapatıyor.
@@ -4036,7 +4040,14 @@ void main(){
           if (acc && !(fx > 0.0001 && fx < 0.9999)) continue;
           const x = acc ? fx : (i + 0.5) / NX + dx0;
           if (!acc && (x < 0 || x > 1 || y < 0 || y > 1)) continue;
-          sampleUV(x, y, uv);
+          /* MİLKDROP'TAKİ GİBİ AYNALI (#750, seçenek). MilkDrop vektörü
+             ekrandaki yerine çiziyor ama `ReversePropagatePoint`'i ağın
+             aynalanmış satırında (`1 - y`) okuyor ve dikey farkı ters
+             uyguluyor (milkdropfs.cpp ~1537; BeatDrop bunu 14.10'da
+             düzeltti). Konum aynı, yalnız yön başka satırdan geliyor. */
+          const mir = acc && this._mvMirror;
+          const ys = mir ? 1 - y : y;
+          sampleUV(x, ys, uv);
           if (!isFinite(uv[0]) || !isFinite(uv[1])) continue;
           let ex, ey;
           if (acc) {
@@ -4060,7 +4071,7 @@ void main(){
                aşağı; `mv_l = 200` sentetik alanda kaba fark 1,56 -> 0,36, ters
                dikey işaretle 2,56. */
             let ddx = (uv[0] + 0.5 / GW - x) * L;
-            let ddy = (uv[1] - 0.5 / GH - y) * L;
+            let ddy = (uv[1] - 0.5 / GH - ys) * L;
             const len = Math.sqrt(ddx * ddx + ddy * ddy);
             if (len > minLen) {
               // olduğu gibi
@@ -4075,9 +4086,10 @@ void main(){
                  uzatınca ekranda (24,73)'ten (63,97)'ye, sağa ve aşağı
                  gidiyor; MilkDrop'un tek teksellik izinin soluk ikinci
                  pikseli de altta. */
-              ddx = minLen; ddy = -minLen;
+              ddx = minLen; ddy = mir ? minLen : -minLen;
             }
-            ex = x + ddx; ey = y + ddy;
+            // Aynalı kipte dikey fark ters uygulanıyor; durgun iz yine sağ-aşağı
+            ex = x + ddx; ey = mir ? y - ddy : y + ddy;
           } else {
             ex = x + (x - uv[0]) * L;
             ey = y + (y - uv[1]) * L;

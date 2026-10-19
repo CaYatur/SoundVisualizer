@@ -1990,6 +1990,11 @@
     'Yumuşatılmış (çözünürlükle ölçekli)': 'Anti-aliased (scales with resolution)',
     'Yumuşatılmış (gerçek kalınlık)': 'Anti-aliased (true width)',
     'MilkDrop (kaydırmalı kalınlaştırma)': 'MilkDrop (fattened by offset redraws)',
+    'Hareket Vektörleri': 'Motion Vectors',
+    'Presetin istediği yön (düzeltilmiş)': 'As the preset asks (corrected)',
+    'MilkDrop\'taki gibi aynalı': 'Mirrored, as in MilkDrop',
+    'MilkDrop Uyumu kapalıyken geçerli değil: motorun eski yaklaşımı kendi vektörlerini çizer.': 'Has no effect while MilkDrop Fidelity is off: the engine\'s older approach draws its own vectors.',
+    'MilkDrop 2 vektörlerin yönünü ekranın dikey aynasından okur: bir presetin üst yarıda istediği hareketi alt yarıda gösterir. Düzeltilmiş hâl presetin yazdığını çizer; aynalı hâl MilkDrop\'un kendisinde görülen görüntüyü verir.': 'MilkDrop 2 reads each vector\'s direction from the vertically mirrored row, so motion a preset asks for in the top half shows in the bottom half. Corrected draws what the preset says; Mirrored gives the picture MilkDrop itself shows.',
     // ---- Flaş sınırlama ----
     'Flaş Sınırlama': 'Flash Limiting',
     'Açık (nöbet riskini kes)': 'On (cut seizure risk)',
