@@ -114,6 +114,23 @@ test('karşıtlık kuralları: yazı, düğme, kod ve odak halkası kapsanıyor'
   assert.strictEqual(C.AAA, 7);
 });
 
+/* Kullanıcının seçebileceği uç yuva renkleri: zemin bunlarla boyandığında
+   da yazı okunmalı (#770). */
+const SLOT_EXTREMES = ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#00ffff', '#ff00ff', '#808080'];
+
+function mixVars(value) {
+  const m = /^color-mix\(in srgb,\s*var\((--[\w-]+)(?:,\s*var\((--[\w-]+)\))?\)\s+([\d.]+)%,\s*var\((--[\w-]+)\)\)$/.exec(String(value).trim());
+  return m ? { top: m[1], fallback: m[2] || null, p: parseFloat(m[3]) / 100, base: m[4] } : null;
+}
+
+function mixBases(t, mx) {
+  const base = T.solid(t, mx.base);
+  const tops = mx.top === '--slot'
+    ? SLOT_EXTREMES.map((h) => T.parseColor(h)).concat([T.solid(t, '--slot-default')])
+    : [T.solid(t, mx.top)];
+  return tops.map((c) => [0, 1, 2].map((i) => c[i] * mx.p + base[i] * (1 - mx.p)).concat(1));
+}
+
 /* Aynı kuralda yazı rengi ve düz zemin değişkenle verilmişse o ikili her
    temada okunmalı. Yeni bir kart kendi zeminini ve yazısını seçtiğinde
    bunu ayrıca listeye yazmak gerekmiyor. */
@@ -139,7 +156,9 @@ test('CSS kuralları: aynı kuraldaki yazı ve zemin her temada okunuyor', () =>
       const g = b ? null : gradVars(bg.value);
       // Örtülü zemin: rgb(var(--x-rgb) / a), kartların ve rayın üstünde
       const tm = b || g ? null : /^rgb\(var\((--[\w-]+)\) \/ ([\d.]+)\)$/.exec(bg.value.trim());
-      if (!b && !g && !tm) return;
+      // color-mix(in srgb, var(--a) N%, var(--b)); --slot kullanıcının rengi
+      const mx = b || g || tm ? null : mixVars(bg.value);
+      if (!b && !g && !tm && !mx) return;
       pairs++;
       T.THEMES.forEach((t) => {
         const min = t.aaa ? C.AAA : C.TEXT;
@@ -149,6 +168,8 @@ test('CSS kuralları: aynı kuraldaki yazı ve zemin her temada okunuyor', () =>
           const a = T.solid(t, g[0]);
           const c = T.solid(t, g[1]);
           bases.push([0, 1, 2].map((i) => (a[i] + c[i]) / 2).concat(1));
+        } else if (mx) {
+          mixBases(t, mx).forEach((x) => bases.push(x));
         } else {
           ['--bg2', '--card', '--card2'].forEach((s) => bases.push(T.tint(t, tm[1], parseFloat(tm[2]), s)));
         }
@@ -160,6 +181,56 @@ test('CSS kuralları: aynı kuraldaki yazı ve zemin her temada okunuyor', () =>
     });
   });
   assert.ok(pairs >= 10, 'denetlenen ikili sayısı: ' + pairs);
+  assert.deepStrictEqual(fails, []);
+});
+
+/* Klip hücresindeki yazılar rengini kendi kuralından, zemini hücrenin
+   kuralından alıyor; yukarıdaki aynı-kural taraması bunları eşleştiremez.
+   Zemin kullanıcının yuva rengiyle boyalı: beyaz yuvada üzerine gelince
+   ikincil yazı 3.3:1'e, Aydınlık'ta geri sayım 3.5:1'e düşüyordu (#770). */
+test('klip hücreleri: içindeki yazılar her yuva renginde ve her durumda okunuyor', () => {
+  const rules = S.cssRules(read('src/admin/admin.css'));
+  const prop = (sel, name) => {
+    const hit = rules.filter((r) => r.sel.split(',').map((x) => x.trim()).includes(sel))
+      .map((r) => r.decls.find((d) => d.prop === name)).filter(Boolean).pop();
+    assert.ok(hit, sel + ' { ' + name + ' }');
+    return hit.value;
+  };
+  const token = (sel) => {
+    const m = /^var\((--[\w-]+)\)$/.exec(prop(sel, 'color'));
+    assert.ok(m && T.TOKENS[m[1]] === 'color', sel + ' yazı rengi bir tema değişkeni');
+    return m[1];
+  };
+  const cases = [
+    { bg: ['.cd-cell.filled', '.cd-cell.filled:hover'], fg: ['.cd-cell.filled', '.cd-meta', '.cd-count'] },
+    { bg: ['.perf-cell.filled'], fg: ['.perf-cell.filled'] },
+    { bg: ['.perf-cell.armed'], fg: ['.perf-cell.filled', '.perf-count'] },
+    { bg: ['.perf-cell.active'], fg: ['.perf-cell.active', '.perf-count'] },
+    { bg: ['.cd-cell.filled.noref'], fg: ['.cd-cell.filled.noref', '.cd-meta', '.cd-count'] },
+  ];
+  const fails = [];
+  let checked = 0;
+  cases.forEach((c) => c.bg.forEach((bgSel) => {
+    const bgValue = prop(bgSel, 'background');
+    const solid = /^var\((--[\w-]+)\)$/.exec(bgValue);
+    const mx = solid ? { top: solid[1], p: 0, base: solid[1] } : mixVars(bgValue);
+    assert.ok(mx, bgSel + ' zemini düz değişken ya da color-mix(in srgb, var(--a) N%, var(--b))');
+    c.fg.forEach((fgSel) => {
+      const fg = token(fgSel);
+      T.THEMES.forEach((t) => {
+        const min = t.aaa ? C.AAA : C.TEXT;
+        mixBases(t, mx).forEach((base) => {
+          checked++;
+          const ratio = T.contrast(T.solid(t, fg, base), base);
+          if (ratio < min) fails.push(t.id + ' ' + fgSel + ' (' + fg + ') on ' + bgSel + ' = ' + ratio.toFixed(2));
+        });
+      });
+    });
+  }));
+  assert.ok(checked > 300, 'ölçülen: ' + checked);
+  // Soluk gösterim opaklıkla değil renkle: opaklık yazıyı da soldurur
+  rules.filter((r) => r.sel.split(',').some((x) => /\.(cd|perf)-cell[\w.:-]*$/.test(x.trim())) && r.decls.some((d) => d.prop === 'opacity'))
+    .forEach((r) => fails.push(r.sel + ' { opacity }'));
   assert.deepStrictEqual(fails, []);
 });
 
@@ -436,6 +507,10 @@ test('ekran taraması: renk çözme, geçiş ortalaması, katman bindirme, eşik
   const m = A.mean([[200, 100, 50, 1], [0, 0, 0, 0]]);
   assert.deepStrictEqual(m.slice(0, 3), [200, 100, 50]);
   assert.strictEqual(m[3], 0.5);
+  // color-mix() sonucu color(srgb …) olarak gelir; çözülmezse zemin atlanırdı
+  assert.deepStrictEqual(A.parse('color(srgb 1 0.5 0)'), [255, 127.5, 0, 1]);
+  assert.deepStrictEqual(A.parse('color(srgb 0 0 1 / 0.25)'), [0, 0, 255, 0.25]);
+  assert.strictEqual(A.gradientStops('linear-gradient(color(srgb 0 0 0), rgb(1, 2, 3))').length, 2);
   assert.strictEqual(A.gradientStops('url(x.png)'), null);
   assert.strictEqual(A.gradientStops('none'), null);
   assert.strictEqual(A.gradientStops('linear-gradient(rgb(1, 2, 3), rgba(4, 5, 6, 0.5))').length, 2);

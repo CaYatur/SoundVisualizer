@@ -22,18 +22,26 @@
    Eşik: 4.5:1; büyük yazı (24 px ya da 18.66 px kalın) 3:1. AAA temada 7 ve
    4.5. */
 (function () {
+  /* color-mix() sonucu `color(srgb 0.1 0.2 0.3 / 0.5)` olarak hesaplanır
+     (0–1 arası). Çözülemeyen zemin sessizce atlanıyor ve yazı alttaki
+     karta göre ölçülüyordu: kullanıcı renkli klip hücreleri böyle geçti. */
   const parse = (s) => {
-    const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)/.exec(String(s || ''));
+    const str = String(s || '');
+    const alpha = (v) => {
+      let a = v === undefined ? 1 : v.endsWith('%') ? parseFloat(v) / 100 : parseFloat(v);
+      return Number.isFinite(a) ? a : 1;
+    };
+    const c = /color\(srgb\s+([-\d.e]+)\s+([-\d.e]+)\s+([-\d.e]+)(?:\s*\/\s*([\d.]+%?))?\s*\)/.exec(str);
+    if (c) return [+c[1] * 255, +c[2] * 255, +c[3] * 255, alpha(c[4])];
+    const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)/.exec(str);
     if (!m) return null;
-    let a = m[4] === undefined ? 1 : m[4].endsWith('%') ? parseFloat(m[4]) / 100 : parseFloat(m[4]);
-    if (!Number.isFinite(a)) a = 1;
-    return [+m[1], +m[2], +m[3], a];
+    return [+m[1], +m[2], +m[3], alpha(m[4])];
   };
 
-  // Geçişin renk durakları (hesaplanan değer rgb()/rgba() biçiminde gelir)
+  // Geçişin renk durakları (hesaplanan değer rgb()/rgba()/color() biçiminde gelir)
   function gradientStops(img) {
     if (!img || img === 'none' || img.indexOf('gradient') < 0 || img.indexOf('url(') >= 0) return null;
-    const re = /rgba?\([^)]*\)/g;
+    const re = /(?:rgba?|color)\([^)]*\)/g;
     const stops = [];
     let m;
     while ((m = re.exec(img))) {
@@ -91,7 +99,10 @@
   const SKIP = [
     '.preview-stage', '.studio-preview', '.md-thumb-box', '.logo-lib-thumb', '.img-thumb',
     '.scene-thumb', '.layer-preview', '.md-cell .md-fav', '.preset', '.up-swatch',
-    '.tpl-swatch', '.tl-swatch', '.cd-cell', '.perf-cell', '[aria-hidden="true"]',
+    /* Klip hücreleri ölçülür (zemin kullanıcının rengiyle boyalı ama oran
+       her renkte yetecek kadar düşük); yalnız sahne önizlemesi taşıyanlar
+       görüntü üstünde sayılır. */
+    '.tpl-swatch', '.tl-swatch', '.cd-cell:has(> .cd-thumb)', '.perf-cell:has(> .perf-thumb)', '[aria-hidden="true"]',
     '.ui-theme-preview',
   ].join(',');
 
