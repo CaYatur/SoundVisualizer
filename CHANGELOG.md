@@ -3,7 +3,10 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v3.1.6-beta — in code, not released
+
+`package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
+updater sees v3.1.5 as the latest release and does not offer it to the beta as an update.
 
 ### Control panel
 
@@ -142,6 +145,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The panel opens without waiting for the encoder probe [521].** GPU encoders are tested one at
   a time, and a saved "GPU" choice is no longer rewritten to "CPU" on a machine without one; the
   export runs on the CPU and the box shows it.
+- **Exporting right after a cancel works [767].** The cancelled job's ffmpeg exited late and closed
+  the new export's render window ("The render window could not be loaded"). Every ffmpeg and window
+  handler is now bound to its own job.
+- **Wrong export settings are refused, not replaced [767].** `sv_start_export` with `8k` or 144 fps
+  quietly exported 1080p60. It now answers with the allowed values. The panel still falls back to
+  defaults for stale saved values.
+- **Timeline-follow recording set over MCP or a settings file takes effect at once [767].** Before,
+  it waited until the Output card was drawn.
+- **English fixes [767].** The queue heading said "Tail", and export errors, MCP export replies and
+  some toasts were in Turkish.
 
 ### Studio
 
@@ -183,6 +196,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 - **The app no longer lists itself as a source [516].** The capture child that records the system
   mix runs from our own executable and opened an audio session of its own, so the picker offered
   the visualizer itself, and its meter followed the whole mix. Our own processes are now left out.
+- **Linux: two apps that share one program are separate rows [767].** Two `pacat` clients showed as
+  one app with two processes, and capturing it took both. Streams are told apart by the stream's
+  application name, so each is its own row. A plain key saved earlier still captures every stream of
+  that program.
+- **Linux: the app quits on SIGTERM [767].** Chromium's own handler closed the windows. With "confirm
+  before closing" on, the close dialog then blocked and the process stayed alive. SIGTERM, SIGINT and
+  SIGHUP now skip the dialog, stop the queue and the export, and exit within 5 seconds. A second
+  signal exits at once.
 
 ### OSC
 
@@ -198,6 +219,21 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   that can run to hundreds of KB, and a small model that receives it can lose the track title in it.
   The tool now returns `hasArtwork` and sends the cover only with `includeArtwork: true`.
   `sv_get_state` never carries it. Clients that showed the cover need to pass the flag.
+- **Every write tool applies its input or says why not [768].**
+  - Parameters can be an object or a JSON string. Invalid JSON, arrays, `null` and keys such as
+    `__proto__` are errors.
+  - `enabled` accepts `true`/`false` or `"true"`/`"false"`. `0` and `"yes"` are errors.
+  - A call whose arguments are all unknown is refused, and the error lists the arguments the tool
+    takes.
+  - Replies say `changed: true/false`. A call that changes nothing is not saved or broadcast.
+  - Setting tools return the stored values (`applied`).
+- **GLOBAL and LAYER effect tools are named apart [768].** Every effect tool's description, in
+  English and Turkish, starts with `GLOBAL:` or `LAYER:` and names the matching tool of the other
+  family. `sv_set_layer_settings` refuses `postfx` and points to the layer effect tools. A stray
+  `postfx` inside a layer's settings is dropped on load and reported once.
+- **A compact tool list for small models [768].** "Compact tool list" on the MCP card (setting
+  `mcp.toolProfile`) lists 27 core tools with one-sentence descriptions. Every tool stays callable
+  by name, and the default list is unchanged.
 
 ### MilkDrop
 
