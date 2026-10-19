@@ -41,8 +41,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
     - white text on the solid red danger button was 3.9:1;
     - the end of the red gradient on filled buttons is slightly deeper, so white text reads in
       the middle of the gradient too.
-  - Near-identical shades became one per role. There were five reds for error text, for example,
-    and now there is one. The same goes for the greens and ambers of the status texts.
+  - Near-identical shades became one per role. Error text had six reds across the panel and
+    Studio, and now uses one. The status greens and ambers each come down to one fill shade and
+    one text shade.
   - The Performance View had its own neutral greys. It now uses the panel's surfaces.
   - The lyric editor and the MCP setup snippets use the code editor's background and text colour.
   - Studio's solid danger button is the panel's red.

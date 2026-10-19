@@ -3593,7 +3593,7 @@ The panel had one look. It now has seven themes and Device default, chosen under
   - Panel screenshots of every category in both languages, taken before any CSS change, were compared pixel by pixel.
   - With the four contrast fixes set back to their old values, the remaining differences in those screenshots were live content (BPM, the app list, meters), the new picker, and one consolidated green on the lighting status.
   - The screenshots did not cover every surface. Reading the old CSS afterwards found more visible CaYaDev changes:
-    - near-identical status shades merged into one per role;
+    - near-identical status shades merged: six error reds became `--danger-text`, and greens and ambers became one fill and one text shade each;
     - the Performance View moved from its own neutral greys to the panel's surfaces;
     - the lyric editor and MCP snippets moved to the code editor's colours;
     - Studio's solid danger button became the panel's red;
