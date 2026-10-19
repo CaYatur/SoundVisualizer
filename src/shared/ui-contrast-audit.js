@@ -99,10 +99,10 @@
   const SKIP = [
     '.preview-stage', '.studio-preview', '.md-thumb-box', '.logo-lib-thumb', '.img-thumb',
     '.scene-thumb', '.layer-preview', '.md-cell .md-fav', '.preset', '.up-swatch',
-    /* Klip hücreleri ölçülür (zemin kullanıcının rengiyle boyalı ama oran
-       her renkte yetecek kadar düşük); yalnız sahne önizlemesi taşıyanlar
-       görüntü üstünde sayılır. */
-    '.tpl-swatch', '.tl-swatch', '.cd-cell:has(> .cd-thumb)', '.perf-cell:has(> .perf-thumb)', '[aria-hidden="true"]',
+    /* Klip hücreleri ölçülür: zemin kullanıcının rengiyle boyalı ama oran
+       her renkte yetecek kadar düşük; önizlemeli hücrede yazılar kendi kart
+       zeminiyle duruyor. */
+    '.tpl-swatch', '.tl-swatch', '[aria-hidden="true"]',
     '.ui-theme-preview',
   ].join(',');
 

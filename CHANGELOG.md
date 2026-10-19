@@ -25,7 +25,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   theme changes. The window opens in the theme's background, so a light theme does not flash
   dark first.
 - **Readability is tested, not assumed.**
-  - Every theme is checked against 128 contrast rules: 4.5:1 for text on every surface, button
+  - Every theme is checked against 143 contrast rules: 4.5:1 for text on every surface, button
     text in the middle of the gradient, the code editors, focus rings and switch knobs at 3:1.
   - Every rule in the panel's CSS that sets both a text colour and a background is measured in
     every theme.
@@ -61,7 +61,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   - A test checks every text in a cell, in every state, on white, black, grey and the six primary
     and secondary colours. The self-test now measures clip cells too and reads `color-mix()`
     backgrounds. Before, it skipped them and measured the text against the card underneath.
-    Only cells that show a scene preview are left out, because their text sits on a picture.
+  - In a cell that shows a scene preview or an image, the name, info line and countdown now sit on
+    their own card-coloured backing. The preview stays visible around them. On a white scene
+    the text used to fall below 3:1, and the info line was drawn underneath the preview.
+- **The selected scene's info line** was 3.9:1 in Light and 4.1–4.4:1
+  in Midnight and CaYaDev. On the selected row's accent tint it now uses the secondary text
+  colour, and the contrast rules cover body and secondary text on selected rows.
 - **Two labels were unreadable in every theme.** The empty side of the A/B crossfader and the
   "built-in" tag in Studio's list were dimmed with opacity to 2.9:1 and 3.7:1. They now use the
   secondary text colour. The decorative "·" separators in status lines are hidden from screen

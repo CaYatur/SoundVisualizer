@@ -207,6 +207,15 @@ test('klip hücreleri: içindeki yazılar her yuva renginde ve her durumda okunu
     { bg: ['.perf-cell.armed'], fg: ['.perf-cell.filled', '.perf-count'] },
     { bg: ['.perf-cell.active'], fg: ['.perf-cell.active', '.perf-count'] },
     { bg: ['.cd-cell.filled.noref'], fg: ['.cd-cell.filled.noref', '.cd-meta', '.cd-count'] },
+    // Önizlemeli hücre: yazı sahnenin resminin değil kendi zemininin üstünde
+    {
+      bg: ['.cd-cell:has(> .cd-thumb) > .cd-name', '.cd-cell:has(> .cd-thumb) > .cd-meta', '.cd-cell:has(> .cd-thumb) > .cd-count:not(:empty)'],
+      fg: ['.cd-cell.filled', '.cd-meta', '.cd-count'],
+    },
+    {
+      bg: ['.perf-cell:has(> .perf-thumb) > .perf-name', '.perf-cell:has(> .perf-thumb) > .perf-count:not(:empty)'],
+      fg: ['.perf-cell.filled', '.perf-cell.active', '.perf-count'],
+    },
   ];
   const fails = [];
   let checked = 0;
@@ -231,6 +240,13 @@ test('klip hücreleri: içindeki yazılar her yuva renginde ve her durumda okunu
   // Soluk gösterim opaklıkla değil renkle: opaklık yazıyı da soldurur
   rules.filter((r) => r.sel.split(',').some((x) => /\.(cd|perf)-cell[\w.:-]*$/.test(x.trim())) && r.decls.some((d) => d.prop === 'opacity'))
     .forEach((r) => fails.push(r.sel + ' { opacity }'));
+  /* Önizleme konumlu ve yazıların üstüne çizilir: yazı konumlu değilse
+     önizlemenin altında kalır (.cd-meta öyleydi). */
+  ['.cd-name', '.cd-meta', '.perf-name'].forEach((sel) => {
+    if (prop(sel, 'position') !== 'relative') fails.push(sel + ' önizlemenin altında kalıyor');
+  });
+  // Tarama önizlemeli hücreleri artık atlamıyor
+  assert.doesNotMatch(read('src/shared/ui-contrast-audit.js'), /(cd|perf)-(thumb|cell)/);
   assert.deepStrictEqual(fails, []);
 });
 

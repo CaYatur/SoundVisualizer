@@ -3607,14 +3607,16 @@ The panel had one look. It now has seven themes and Device default, chosen under
   - A slot with no source was faded with opacity, which brought its name to 3.3:1.
   - The tint is now 10% (12% on hover), the countdowns use `--warn-text`, and the sourceless slot is dimmed with colour instead of opacity.
   - A test measures every text in a cell, in every state, against nine extreme slot colours, and forbids opacity on the cell.
-  - The self-test also read `color-mix()` backgrounds (`color(srgb …)`) as nothing and measured the text against the card underneath. It now parses them and measures clip cells. Only cells with a scene preview are skipped.
+  - The self-test also read `color-mix()` backgrounds (`color(srgb …)`) as nothing and measured the text against the card underneath. It now parses them and measures every clip cell.
+  - A cell with a scene preview or an image puts its texts on their own `--card` backing. On a white scene the text was below 3:1, and `.cd-meta` was not positioned, so the preview was drawn over it.
+- **Profile with content.** Running the audit through every category with scenes, preview cells, a lyric file and open folds found the selected scene's info line (`--muted2` on `accent-soft`) at 3.90:1 in Light. The self-test missed it because it loads its own settings with no saved scenes. That row now uses `--muted`, and the rules cover `--text` and `--muted` on `--accent-rgb .16`. After the fix, every category in every theme measured 2,966–3,005 texts, none below the threshold.
 - **Tests that fail on misuse.**
   - Every theme defines exactly the token set.
   - `:root` equals the CaYaDev table.
   - No colour literal outside `:root`.
   - Every `var()` is defined, and channel tokens are used only as channels.
   - Panel scripts carry no colour outside the content list, and the list cannot go stale.
-  - 128 contrast rules per theme.
+  - 143 contrast rules per theme.
   - Every CSS rule with both a text colour and a background is measured in every theme. This caught the "Live" pill in Light and Sepia at 4.17:1.
   - The head script was tested in a fake DOM.
 - **Self-test.** Every theme is picked from the panel's own picker, every category is scrolled through, and the colour Chromium draws for each visible text is measured against its composited background.
