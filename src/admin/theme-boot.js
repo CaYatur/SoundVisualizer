@@ -25,7 +25,7 @@
   if (!T) return;
   const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   const listeners = new Set();
-  let choice = T.DEFAULT_ID;
+  let choice = T.DEFAULT_CHOICE;
   let theme = null;
 
   function prefersDark() {
@@ -73,7 +73,7 @@
 
   let initial = null;
   try { initial = new URLSearchParams(window.location.search).get('uiTheme'); } catch { initial = null; }
-  set(initial || T.DEFAULT_ID);
+  set(initial || T.DEFAULT_CHOICE);
 
   window.SVUiTheme = {
     set,

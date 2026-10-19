@@ -1155,7 +1155,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is
   left untranslated.
 - <kbd>3.1.6</kbd> **Interface themes**: CaYaDev, Dark, Light, High Contrast, Midnight, Sepia and
-  Neon, or Device default to follow your system's light or dark setting. Every theme is
+  Neon, or Device default, which follows your system's light or dark setting and is the default. Every theme is
   contrast-tested: the self-test measures every text it draws.
 
 ---

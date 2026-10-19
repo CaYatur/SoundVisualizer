@@ -1160,7 +1160,7 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - Çalışırken değiştirilebilen **Türkçe ve İngilizce**; çevrilmemiş tek bir arayüz metni kalırsa öz test
   başarısız oluyor.
 - <kbd>3.1.6</kbd> **Arayüz temaları**: CaYaDev, Karanlık, Aydınlık, Yüksek Karşıtlık, Gece Mavisi, Sepya
-  ve Neon; ya da sistemin açık/koyu ayarını izleyen Cihaz varsayılanı. Her temanın karşıtlığı
+  ve Neon; ya da sistemin açık/koyu ayarını izleyen, varsayılan olarak seçili Cihaz varsayılanı. Her temanın karşıtlığı
   sınanıyor: öz test çizdiği her yazıyı ölçüyor.
 
 ---
