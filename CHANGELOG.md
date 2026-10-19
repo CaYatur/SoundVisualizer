@@ -34,12 +34,33 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   - The self-test selects every theme from the picker, walks every category, and measures the
     colour Chromium actually draws for each visible text against its background: about 2,600
     texts per theme, none below the threshold.
-- **Three CaYaDev colours moved so the default theme passes the same test.**
-  - The small hint text was 3.4–4.4:1 on cards and is now at least 4.5:1.
-  - Code comments in the shader editor were 3.3:1.
-  - White text on the solid red danger button was 3.9:1.
-  - The end of the red gradient on filled buttons is slightly deeper, so white text reads in the
-    middle of the gradient too.
+- **CaYaDev looks the same, with these visible changes.**
+  - Four colours moved so the default theme passes the same test:
+    - the small hint text was 3.4–4.4:1 on cards and is now at least 4.5:1;
+    - code comments in the shader editor were 3.3:1;
+    - white text on the solid red danger button was 3.9:1;
+    - the end of the red gradient on filled buttons is slightly deeper, so white text reads in
+      the middle of the gradient too.
+  - Near-identical shades became one per role. There were five reds for error text, for example,
+    and now there is one. The same goes for the greens and ambers of the status texts.
+  - The Performance View had its own neutral greys. It now uses the panel's surfaces.
+  - The lyric editor and the MCP setup snippets use the code editor's background and text colour.
+  - Studio's solid danger button is the panel's red.
+  - The projection-mapping guide line is the panel's info blue instead of cyan. A selected tempo
+    marker on the timeline is drawn in the strong text colour.
+- **Clip Deck cells stay readable in any slot colour.**
+  - A cell's background is tinted with the slot colour. On a white slot, the small info line fell
+    to 3.3:1 on hover. The tint is now 10%, and 12% on hover, with a stronger border showing the
+    hover.
+  - Countdown numbers use the readable amber. They were 3.5:1 in Light.
+  - A slot with no source was faded with opacity, so its name fell to 3.3:1. It now has a dashed
+    border, no tint and secondary text.
+  - The empty-cell "+" was drawn in the line colour, at 1.5:1. It is now secondary text.
+  - The Auto VJ conflict note uses the amber meant for text, which is paler in CaYaDev.
+  - A test checks every text in a cell, in every state, on white, black, grey and the six primary
+    and secondary colours. The self-test now measures clip cells too and reads `color-mix()`
+    backgrounds. Before, it skipped them and measured the text against the card underneath.
+    Only cells that show a scene preview are left out, because their text sits on a picture.
 - **Two labels were unreadable in every theme.** The empty side of the A/B crossfader and the
   "built-in" tag in Studio's list were dimmed with opacity to 2.9:1 and 3.7:1. They now use the
   secondary text colour. The decorative "·" separators in status lines are hidden from screen

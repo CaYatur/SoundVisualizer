@@ -132,7 +132,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3222 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3223 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3591,7 +3591,23 @@ The panel had one look. It now has seven themes and Device default, chosen under
   - `--accent2` is both heading text and the end of the button gradient. It cannot be both: a red that reads at 4.5:1 on a dark card cannot carry white text at 4.5:1. So the gradient end became its own token, `--accent-grad`.
 - **Measured before and after in CaYaDev.**
   - Panel screenshots of every category in both languages, taken before any CSS change, were compared pixel by pixel.
-  - With the four intentional changes set back to their old values, the remaining differences were live content (BPM, the app list, meters), the new picker, and one consolidated green on the lighting status.
+  - With the four contrast fixes set back to their old values, the remaining differences in those screenshots were live content (BPM, the app list, meters), the new picker, and one consolidated green on the lighting status.
+  - The screenshots did not cover every surface. Reading the old CSS afterwards found more visible CaYaDev changes:
+    - near-identical status shades merged into one per role;
+    - the Performance View moved from its own neutral greys to the panel's surfaces;
+    - the lyric editor and MCP snippets moved to the code editor's colours;
+    - Studio's solid danger button became the panel's red;
+    - the mapping guide line became info blue;
+    - the selected tempo marker became the strong text colour.
+
+    The CHANGELOG lists them.
+- **Clip cells, checked afterwards.** The Performance View, the Auto VJ conflict note, the lyric editor and the MCP setup were opened in all seven themes and measured. The clip cells were not covered by the self-test, which skipped them because the background is the user's slot colour.
+  - Measured with them included, a white slot dropped the small info line to 3.3:1 on hover in CaYaDev.
+  - In Light, the countdown was 3.5:1.
+  - A slot with no source was faded with opacity, which brought its name to 3.3:1.
+  - The tint is now 10% (12% on hover), the countdowns use `--warn-text`, and the sourceless slot is dimmed with colour instead of opacity.
+  - A test measures every text in a cell, in every state, against nine extreme slot colours, and forbids opacity on the cell.
+  - The self-test also read `color-mix()` backgrounds (`color(srgb …)`) as nothing and measured the text against the card underneath. It now parses them and measures clip cells. Only cells with a scene preview are skipped.
 - **Tests that fail on misuse.**
   - Every theme defines exactly the token set.
   - `:root` equals the CaYaDev table.

@@ -1354,8 +1354,11 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .cd-plus { font-size: 18px; line-height: 1; color: var(--muted2); transition: color .12s, transform .12s; }
 .cd-cell.empty:hover { border-color: var(--line2); background: rgb(var(--fg-rgb) / .02); }
 .cd-cell.empty:hover .cd-plus { color: var(--text); transform: scale(1.15); }
-.cd-cell.filled { border: 1px solid color-mix(in srgb, var(--slot) 45%, var(--line)); background: color-mix(in srgb, var(--slot) 14%, var(--card)); color: var(--text); }
-.cd-cell.filled:hover { background: color-mix(in srgb, var(--slot) 22%, var(--card)); }
+/* Zemin, kullanıcının yuva rengiyle boyanıyor: beyaz ya da siyah bir yuvada
+   da ikincil yazı 4.5:1'in altına düşmesin diye karışım en çok %12 (#770).
+   Üzerine gelmeyi kenar da gösteriyor. */
+.cd-cell.filled { border: 1px solid color-mix(in srgb, var(--slot) 45%, var(--line)); background: color-mix(in srgb, var(--slot) 10%, var(--card)); color: var(--text); }
+.cd-cell.filled:hover { background: color-mix(in srgb, var(--slot) 12%, var(--card)); border-color: color-mix(in srgb, var(--slot) 75%, var(--line)); }
 .cd-color { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
 .cd-name { font-weight: 600; font-size: 11.5px; }
 .cd-meta { font-size: 10px; color: var(--muted); min-height: 12px; }
@@ -1374,7 +1377,7 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .cd-cell.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .cd-cell.armed { animation: none; } }
 .cd-name, .cd-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cd-count { position: absolute; right: 5px; top: 3px; font-size: 10px; font-weight: 700; color: var(--warn);
+.cd-count { position: absolute; right: 5px; top: 3px; font-size: 10px; font-weight: 700; color: var(--warn-text);
   font-variant-numeric: tabular-nums; }
 .cd-editor { border-top: 1px solid var(--line); padding-top: 8px; margin-top: 8px; }
 .cd-editor-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
@@ -1432,7 +1435,7 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 .perf-cell.active { border-color: var(--cue-live); background: color-mix(in srgb, var(--cue-live) 22%, var(--bg2)); color: var(--text-strong); }
 .perf-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .perf-count {
-  position: absolute; right: 8px; bottom: 4px; font-size: 13px; color: var(--cue-armed);
+  position: absolute; right: 8px; bottom: 4px; font-size: 13px; color: var(--warn-text);
   font-variant-numeric: tabular-nums;
 }
 .perf-hint { color: var(--muted2); font-size: 12px; text-align: center; }
@@ -1449,9 +1452,10 @@ input[type=color].tl-swatch.big { width: 34px; height: 24px; }
 /* Çakışma uyarısı — engellemiyoruz ama görünür olmalı. */
 .settings-io-note.warn { color: var(--warn-text); border-left: 2px solid var(--warn); padding-left: 8px; }
 
-/* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar
-   ve soluk metin bunu ateşlemeden önce belli eder. */
-.cd-cell.filled.noref { border-style: dashed; opacity: .65; }
+/* Kaynağı seçilmemiş yuva: dolu görünüyor ama ateşlenemez. Kesikli kenar,
+   boyasız zemin ve ikincil yazı bunu ateşlemeden önce belli eder. Opaklık
+   adı 3.3:1'e düşürüyordu; adın okunması gerekiyor ki düzeltilsin (#770). */
+.cd-cell.filled.noref { border-style: dashed; background: var(--card); color: var(--muted); }
 
 
 /* OpenRGB aygıt listesi. Sürülemeyen aygıtlar sönük çizilir: renk kabul
