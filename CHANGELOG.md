@@ -297,6 +297,9 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
   - `allowScripts` now allows the scripts of audify, ffmpeg-static and sharp.
   - The packaging step stops if ffmpeg, audify's native module or the Spout bridge is missing.
   - Published builds were not affected: v3.1.5 shipped with ffmpeg.
+- **Electron 43.6.0 → 43.8.0 [777].** The 43.7 and 43.8 releases carry fixes backported from
+  upstream Chromium, V8, ANGLE, PDFium, Skia, Dawn and WebRTC. 43.8.0 also fixes Linux start-up
+  crashes when GTK fails to load. It is the same major version, and 43 is still supported.
 
 ## v3.1.5 — 2026-10-13
 
