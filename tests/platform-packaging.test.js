@@ -228,3 +228,65 @@ test('kimliğin .pri dosyaları kurulum köküne, pencere ikonu pakete giriyor',
   // Eski sürümün önbellekteki ikonu kurulumda tazelenir
   assert.match(read('scripts/installer.nsh'), /ie4uinit\.exe" -show/);
 });
+
+/* Paket yalnız çalışma anında yüklenen node_modules'u taşır (#777). Kurulum
+   araçları (cmake-js, prebuild-install, tar, axios, ffmpeg indiricisi…) eskiden
+   app.asar'a giriyordu: ~120 paket, bir kısmı bilinen açıklarla, hiç
+   çağrılmadan. Kaynak yeni bir modül isterse buradaki liste de büyümeli. */
+const RUNTIME_MODULES = ['audify', 'bindings', 'file-uri-to-path', 'ffmpeg-static', '@napolab'];
+const DEV_ONLY = ['sharp']; // yalnız README görüntüleri (SHOTS), try/catch içinde
+
+function srcFiles(dir, out = []) {
+  for (const e of fs.readdirSync(path.join(root, dir), { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) srcFiles(p, out);
+    else if (e.name.endsWith('.js')) out.push(p);
+  }
+  return out;
+}
+
+test('paket node_modules olarak yalnız çalışma anı modüllerini alıyor', () => {
+  const files = build.files;
+  assert.ok(files.includes('!node_modules/**/*'), 'önce bütün node_modules dışarıda');
+  RUNTIME_MODULES.forEach((m) => assert.ok(files.includes('node_modules/' + m + '/**/*'), m));
+  // Kaynağın istediği her üçüncü taraf modül listede
+  const builtin = new Set(require('module').builtinModules);
+  const used = new Set();
+  srcFiles('src').forEach((f) => {
+    const re = /require\(\s*['"]([^'"./][^'"]*)['"]\s*\)/g;
+    let m;
+    const s = read(f);
+    while ((m = re.exec(s))) {
+      const name = m[1].replace(/^node:/, '');
+      const top = name.startsWith('@') ? name.split('/')[0] : name.split('/')[0];
+      if (!builtin.has(name) && !builtin.has(top) && top !== 'electron') used.add(top);
+    }
+  });
+  const missing = [...used].filter((m) => !RUNTIME_MODULES.includes(m) && !DEV_ONLY.includes(m));
+  assert.deepStrictEqual(missing, [], 'pakete girmeyen modül isteniyor');
+  // Çalışma anı modüllerinin kendi bağımlılıkları da listede
+  ['audify', 'bindings'].forEach((m) => {
+    const main = read(path.join('node_modules', m, require(path.join(root, 'node_modules', m, 'package.json')).main || 'index.js'));
+    (main.match(/require\(['"]([^'"./][^'"]*)['"]\)/g) || []).map((r) => /['"](.+)['"]/.exec(r)[1])
+      .filter((n) => !builtin.has(n))
+      .forEach((n) => assert.ok(RUNTIME_MODULES.includes(n), m + ' → ' + n));
+  });
+  // audify'ın kaynakları çıkıyor, bağlanan kütüphanelerin lisansları kalıyor
+  assert.ok(files.includes('!node_modules/audify/{src,vendor}/**/*'));
+  assert.ok(files.some((f) => /audify\/vendor\/opus\/\{COPYING/.test(f)));
+  assert.ok(files.includes('node_modules/audify/vendor/rtaudio/LICENSE'));
+});
+
+test('npm 12: ikili indiren kurulum betiklerine izin var; paketleme ikililer eksikse duruyor', () => {
+  /* npm 12 bağımlılık kurulum betiklerini allowScripts dışında sessizce
+     atlıyor; ffmpeg-static ikilisi inmiyor, paket ffmpeg'siz çıkıyordu. */
+  assert.strictEqual(pkg.allowScripts['ffmpeg-static'], true);
+  assert.strictEqual(pkg.allowScripts.audify, true);
+  const after = require('../scripts/after-pack.js');
+  const list = (p) => after.requiredFiles(p).map((f) => f.split(path.sep).join('/'));
+  assert.ok(list('win32').includes('app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg.exe'));
+  assert.ok(list('win32').includes('app.asar.unpacked/node_modules/audify/build/Release/audify.node'));
+  assert.ok(list('linux').includes('app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg'));
+  assert.ok(list('darwin').includes('app.asar.unpacked/node_modules/ffmpeg-static/ffmpeg'));
+  assert.match(read('scripts/after-pack.js'), /checkRuntimeFiles\(context\);\s*\n\s*if \(context\.electronPlatformName !== 'win32'\) return;/);
+});

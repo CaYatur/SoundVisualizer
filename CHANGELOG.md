@@ -276,6 +276,26 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
   (frame 59: 20.0 → 8.7). In accurate mode the warp's output is now rounded the same way. The buffer
   stays 10-bit, so waves, shapes and lines drawn after the warp keep their soft edges.
 
+### Packaging
+
+- **The app no longer ships its dependencies' install tools [777].**
+  - `app.asar` carried about 120 packages that only run while `npm install` downloads or builds
+    native parts. Among them were `cmake-js`, `prebuild-install`, `tar` 6, `axios` and the ffmpeg
+    downloader, and some had known vulnerabilities. The app never loads any of them.
+  - The package now takes only what the app requires at run time: `audify` with `bindings`,
+    `ffmpeg-static` and the Spout texture bridge.
+  - audify's C++ sources (17.7 MB) are left out too. The licence texts of the libraries it links,
+    Opus and RtAudio, stay in.
+  - On Windows, `resources` went from 132 MB to 108 MB.
+  - A test fails if the source starts requiring a module the package leaves out.
+- **A package without ffmpeg can no longer be built [777].**
+  - npm 12 silently skips dependency install scripts that `package.json` does not allow. So on a
+    machine with npm 12, `npm install` left out `ffmpeg.exe`, and a package built there would
+    have had no working video export.
+  - `allowScripts` now allows the scripts of audify, ffmpeg-static and sharp.
+  - The packaging step stops if ffmpeg, audify's native module or the Spout bridge is missing.
+  - Published builds were not affected: v3.1.5 shipped with ffmpeg.
+
 ## v3.1.5 — 2026-10-13
 
 Everything since v3.1.4: 142 pull requests and about 40 direct engine commits. 1402 tests were
