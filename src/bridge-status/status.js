@@ -5,22 +5,32 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
-/* KÖPRÜ DURUM PENCERESİ (#813). Çalışıyor mu, kaynak (aygıt ya da tek
-   uygulama; canlı değişir), seviye, alıcılar, kayıp kare, çalan parça,
-   hatalar. Seviye ölçeri ayrı ve sık gelir (~20 Hz); geri kalanı durum
+/* KÖPRÜ DURUM PENCERESİ (#813). Çalışıyor mu, kaynaklar (uygulamanın Ses
+   Kaynakları seçicisinin AYNISI: çıkışlar, girişler ve tek tek uygulamalar,
+   birlikte karıştırılır; canlı değişir), seviye, alıcılar, kayıp kare,
+   çalan parça, hatalar. Seviye ölçeri ayrı ve sık gelir (~20 Hz); geri kalanı durum
    değişince çizilir. */
 (function () {
   const W = window.bridgeWin;
   const V = window.SVBridgeView;
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
   if (!W || !V) return;
-  const el = V.el;
+  // Ortak seçici simgeli öğe istiyor (panelin el'i gibi)
+  const el = (tag, props, kids) => {
+    const p = Object.assign({}, props || {});
+    const icon = p.icon;
+    delete p.icon;
+    const n = V.el(tag, p, kids);
+    if (icon && window.SVIcons) n.insertBefore(window.SVIcons.el(icon, p.text ? 'svi-lead' : ''), n.firstChild);
+    return n;
+  };
   const app = document.getElementById('app');
   let st = null;
   let devices = [];
-  let apps = null; // { available, code, message, apps }
-  let mode = null; // 'device' | 'app'
-  let srcMsg = '';
+  let apps = [];          // ses oturumu olan uygulamalar (app-audio:list ile aynı)
+  let appStatus = null;   // uygulama başına yakalama kullanılabilir mi
+  const meters = new Map(); // uygulama anahtarı -> { fill }
+  let metersOn = false;
   let levelBox = null;
   let beatDot = null;
   let lastSig = '';
@@ -41,11 +51,9 @@
     UNSUPPORTED_PLATFORM: 'Bu işletim sisteminde uygulama başına yakalama yok; aygıt yakalanıyor.',
   };
 
-  function current() {
-    const w = (st && st.wantedSources) || ['default'];
-    return w[0];
+  function sources() {
+    return (st && st.wantedSources) || ['default'];
   }
-  function isApp(x) { return !!x && typeof x === 'object' && x.kind === 'app'; }
 
   function header() {
     const live = st && st.sender && st.sender.listening && !st.paused;
@@ -71,60 +79,65 @@
     ]);
   }
 
+  /* Uygulama satırının canlı ölçeri: panelinkiyle aynı akış, aynı ölçek. */
+  function appMeter(match) {
+    const AA = window.SVAppAudio;
+    if (!AA || !W.appMeters) return null;
+    const fill = el('i');
+    fill.style.transform = 'scaleX(0)';
+    meters.set(AA.baseName(match), { fill });
+    return el('span', { class: 'source-meter', title: 'Anlık ses seviyesi', 'aria-hidden': 'true' }, [fill]);
+  }
+  function syncMeters() {
+    const want = meters.size > 0 && !document.hidden;
+    if (want === metersOn) return;
+    metersOn = want;
+    W.appMeters(want);
+  }
+  const SRC_STATE = {
+    missing: 'bulunamadı; öteki kaynaklar sürüyor',
+    failed: 'açılamadı; öteki kaynaklar sürüyor',
+    waiting: 'çalışmıyor; açılınca kendiliğinden bağlanır',
+  };
+
   function sourceCard() {
-    const cur = current();
-    if (mode == null) mode = isApp(cur) ? 'app' : 'device';
-    const seg = el('div', { class: 'bs-seg', role: 'tablist' }, [
-      el('button', { type: 'button', class: mode === 'device' ? 'on' : '', text: 'Aygıt', onclick: () => { mode = 'device'; draw(true); } }),
-      el('button', { type: 'button', class: mode === 'app' ? 'on' : '', text: 'Tek Uygulama', onclick: () => { mode = 'app'; loadApps(); draw(true); } }),
-    ]);
-    const nodes = [el('div', { class: 'br-head' }, [el('div', { class: 'group-label', text: 'Kaynak' }), seg])];
-    if (mode === 'device') {
-      const sel = el('select', { class: 'p-in wide', 'aria-label': tr('Ses aygıtı') });
-      const add = (value, label, user) => sel.appendChild(el('option', Object.assign({ value, text: label }, user ? { 'data-user-text': '' } : {})));
-      add('default', tr('Varsayılan çıkış (sistem sesi)'));
-      const outs = devices.filter((d) => d.kind === 'output');
-      const ins = devices.filter((d) => d.kind !== 'output');
-      const group = (label, list, suffix) => {
-        if (!list.length) return;
-        const g = el('optgroup', { label: tr(label) });
-        list.forEach((d) => g.appendChild(el('option', { value: d.name, text: d.name + suffix, 'data-user-text': '' })));
-        sel.appendChild(g);
-      };
-      group('Çıkışlar (loopback)', outs, '');
-      group('Girişler', ins, '');
-      const curName = typeof cur === 'string' ? cur : 'default';
-      if (curName !== 'default' && !devices.some((d) => d.name === curName)) add(curName, curName + ' (' + tr('bulunamadı') + ')', true);
-      sel.value = curName;
-      sel.addEventListener('change', async () => { const r = await W.setSource(sel.value); srcMsg = r && r.ok ? '' : (r && r.message) || ''; });
-      nodes.push(sel);
-      nodes.push(el('div', { class: 'bs-note', text: 'Çıkış seçilirse o aygıtın çaldığı ses (loopback), giriş seçilirse mikrofon ya da hat girişi yakalanır. Değişiklik köprüyü kesmez.' }));
-    } else {
-      if (!apps) nodes.push(el('div', { class: 'bs-note', text: 'Uygulamalar listeleniyor…' }));
-      else if (!apps.available) nodes.push(el('div', { class: 'bs-warn', text: APP_ERR[apps.code] || apps.message || APP_ERR.UNSUPPORTED_PLATFORM }));
-      else {
-        const sel = el('select', { class: 'p-in wide', 'aria-label': tr('Uygulama') });
-        sel.appendChild(el('option', { value: '', text: tr('Bir uygulama seçin') }));
-        const list = apps.apps || [];
-        list.forEach((a, i) => sel.appendChild(el('option', { value: String(i), text: (a.label || a.name || a.match) + (a.pid ? ' (' + a.pid + ')' : ''), 'data-user-text': '' })));
-        if (isApp(cur)) {
-          const i = list.findIndex((a) => (a.match || a.name) === cur.match);
-          if (i >= 0) sel.value = String(i);
-          else { sel.appendChild(el('option', { value: 'cur', text: (cur.label || cur.match) + ' (' + tr('çalışmıyor') + ')', 'data-user-text': '' })); sel.value = 'cur'; }
-        }
-        sel.addEventListener('change', async () => {
-          const a = list[Number(sel.value)];
-          if (!a) return;
-          const r = await W.setSource({ match: a.match || a.name, label: a.label || a.name || a.match, pid: a.pid });
-          srcMsg = r && r.ok ? '' : (APP_ERR[r && r.code] || (r && r.message) || '');
+    const S = window.SVAudioSources;
+    const AA = window.SVAppAudio;
+    meters.clear();
+    const nodes = [el('div', { class: 'group-label', text: 'Kaynaklar' })];
+    if (S) {
+      nodes.push(S.control({
+        label: 'Aktif Kaynaklar',
+        devices: () => devices,
+        apps: () => (AA ? AA.candidates(apps) : []),
+        appStatus: () => appStatus,
+      }, {
+        el,
+        tr,
+        get: () => sources(),
+        set: async (list) => {
+          if (st) st.wantedSources = list;
           draw(true);
-        });
-        nodes.push(el('div', { class: 'url-row' }, [sel, el('button', { class: 'btn small', type: 'button', text: 'Yenile', onclick: () => { apps = null; loadApps(); draw(true); } })]));
-        nodes.push(el('div', { class: 'bs-note', text: 'Yalnız seçilen uygulamanın sesi yakalanır. Uygulama kapanırsa açılınca kendiliğinden bağlanır.' }));
-      }
+          try { await W.setSources(list); } catch { /* */ }
+        },
+        appMeter,
+        requestPermission: async () => { try { await W.requestPermission(); } catch { /* */ } refresh(); },
+      }));
+      nodes.push(el('button', { class: 'btn small', type: 'button', icon: 'refresh', text: 'Aygıtları Yenile', onclick: () => refresh() }));
+    }
+    nodes.push(el('div', { class: 'bs-note', text: 'Seçilen kaynakların hepsi tek akışta karıştırılır ve köprü o karışımı gönderir. Değişiklik köprüyü kesmez.' }));
+    // Kaynak başına hata: biri düşünce ötekiler karışımda sürer
+    const states = (st && st.sourceStates) || {};
+    for (const k of Object.keys(states)) {
+      const x = states[k];
+      if (!x || !SRC_STATE[x.state]) continue;
+      const name = k === 'default' ? tr('Varsayılan Çıkış (Aktif Hoparlör)') : k.startsWith('app:') ? k.slice(4) : k;
+      nodes.push(el('div', { class: x.state === 'failed' ? 'br-err' : 'bs-warn' }, [
+        el('span', { 'data-user-text': '', text: name }),
+        el('span', { text: ': ' + tr(SRC_STATE[x.state]) }),
+      ]));
     }
     if (st && st.appFallback) nodes.push(el('div', { class: 'bs-warn', text: APP_ERR[st.appFallback.code] || st.appFallback.message || APP_ERR.UNSUPPORTED_PLATFORM }));
-    if (srcMsg) nodes.push(el('div', { class: 'bs-warn', text: srcMsg }));
     const cs = st && st.captureStatus;
     if (cs && cs.type === 'error') nodes.push(el('div', { class: 'br-err', text: ERR[cs.code] || cs.message || tr('Ses yakalanamadı') }));
     if (cs && cs.type === 'no-loopback') nodes.push(el('div', { class: 'bs-warn', text: cs.message }));
@@ -201,29 +214,41 @@
   function sig() {
     if (!st) return '';
     const s = st.sender || {};
-    return JSON.stringify([st.paused, st.problem, st.tray, s.listening, s.error, s.name, s.port, (s.peers || []).map((p) => [p.addr, p.name, Math.round((p.rttMs || 0) / 5), Math.round((p.ageMs || 0) / 5), p.lost, p.dropped]), (s.authFails || []).map((f) => f.addr), st.wantedSources, st.captureStatus, st.capturing, st.nowPlaying, st.appFallback, st.analysis && [st.analysis.bpm, st.analysis.onsets, Math.round((st.analysis.ageMs || 0) / 20)], devices.length, apps && apps.apps && apps.apps.length, mode, srcMsg]);
+    return JSON.stringify([st.paused, st.problem, st.tray, s.listening, s.error, s.name, s.port, (s.peers || []).map((p) => [p.addr, p.name, Math.round((p.rttMs || 0) / 5), Math.round((p.ageMs || 0) / 5), p.lost, p.dropped]), (s.authFails || []).map((f) => f.addr), st.wantedSources, st.sourceStates, st.captureStatus, st.capturing, st.nowPlaying, st.appFallback, st.analysis && [st.analysis.bpm, st.analysis.onsets, Math.round((st.analysis.ageMs || 0) / 20)], devices.length, apps.map((a) => [a.match, a.audible]), appStatus && appStatus.available]);
   }
   function draw(force) {
     const a = document.activeElement;
     if (!force && a && app.contains(a) && a.tagName === 'SELECT') return;
+    // Ölçerler canlı: yeniden çizim yalnız durum değişince
     const s = sig();
     if (!force && s === lastSig) return;
     lastSig = s;
     app.replaceChildren(header(), sourceCard(), levelCard(), receiversCard(), nowCard());
+    syncMeters();
   }
-  async function loadApps() {
-    try { apps = await W.apps(); } catch { apps = { available: false, code: 'ERROR', apps: [] }; }
+  // "Aygıtları Yenile": aygıtlar, uygulamalar ve uygulama yakalamanın durumu
+  async function refresh() {
+    try { devices = await W.devices(); } catch { devices = []; }
+    try { appStatus = await W.appStatus(); } catch { appStatus = { available: false }; }
+    try { apps = appStatus && appStatus.available !== false ? ((await W.appList()) || []) : []; } catch { apps = []; }
     draw(true);
   }
+  if (W.onAppLevels) {
+    W.onAppLevels((p) => {
+      const AA = window.SVAppAudio;
+      if (!p || !AA || !metersOn) return;
+      const lv = p.levels || {};
+      for (const [k, m] of meters) m.fill.style.transform = 'scaleX(' + AA.meterFraction(lv[k] || 0).toFixed(3) + ')';
+    });
+  }
+  document.addEventListener('visibilitychange', syncMeters);
 
   W.onStatus((s) => { st = s; draw(false); });
   W.onLevel((l) => setLevel(l));
   (async () => {
     try { st = await W.status(); } catch { /* */ }
     draw(true);
-    try { devices = await W.devices(); } catch { devices = []; }
-    if (isApp(current())) loadApps();
-    draw(true);
+    refresh();
   })();
   // Ölçümler (yaş) ilerlesin
   setInterval(async () => { try { st = await W.status(); draw(false); } catch { /* */ } }, 1000);

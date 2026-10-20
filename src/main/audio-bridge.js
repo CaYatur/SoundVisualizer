@@ -686,9 +686,30 @@ function createDiscovery(opts) {
   };
 }
 
+/* Durum penceresinin gönderdiği kaynak listesi (#813): uygulamanın Ses
+   Kaynakları seçicisinin biçimi (audio.sources). Aygıt adları ve uygulama
+   hedefleri karışık; yinelenen atılır, en çok 16; boşsa varsayılan çıkış
+   (tek kaynak, eskisi gibi). */
+function sanitizeSources(list) {
+  const AA = require('../shared/app-audio.js');
+  const next = [];
+  const seen = new Set();
+  for (const x of Array.isArray(list) ? list.slice(0, 16) : []) {
+    let v = null;
+    if (typeof x === 'string' && x.trim()) v = x.slice(0, 300);
+    else if (x && typeof x === 'object') v = AA.normalizeApp(Object.assign({}, x, { kind: 'app' }));
+    if (v == null) continue;
+    const k = typeof v === 'string' ? v : 'app:' + AA.baseName(v.match);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    next.push(v);
+  }
+  return next.length ? next : ['default'];
+}
+
 module.exports = {
   WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, KIND, FRAME_HEAD, DEFAULTS, RETRY_MS,
-  normalize, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
+  normalize, sanitizeSources, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
   packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta,
   createSender, createReceiver, createClock,
   broadcastAddresses, beaconMessage, verifyBeacon, createBeacon, createDiscovery,

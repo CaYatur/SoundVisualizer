@@ -49,7 +49,7 @@ Bridge-only mode opens a compact status window (`src/bridge-status/`, 460×640, 
 no visuals and runs with hardware acceleration off. It shows:
 
 - broadcasting / stopped, the bridge's name and port;
-- the source: a **device** picker (outputs as loopback, inputs) or a **single app** picker;
+- the sources: the app's Audio Sources picker (any mix of outputs, inputs and single apps, with live app meters), and an error line for each source that is missing or failed;
 - a live level meter with peak, B/M/T bands, BPM, beats and analysis age;
 - connected receivers with name, address, round trip, frame age, lost frames, and failed
   pairing attempts (wrong secret);
@@ -65,20 +65,36 @@ the main UI, and closing it quits the bridge.
 without the window, for autostart and headless use. Without a tray, `--hidden` is ignored so the
 bridge can always be stopped.
 
-### Source: device or a single app
+### Sources: the app's Audio Sources
 
-Switching the source is live: the capture helper restarts with the new source, while the TCP
-server, the beacon and the connected receivers stay up (receivers see a short gap of a few frames).
+The bridge does not have its own source picker. The status window and the bridge's settings card
+show the app's **Audio Sources** picker itself (`src/admin/audio-sources.js`, the same part the
+Audio Sources card uses): "Active Sources" with every output (loopback) and input, "Application
+Audio" with each app that is playing, its live meter and the include/exclude mode, and "Refresh
+Devices". Any mix can be selected; the capture helper (`loopback-helper.js`) captures them all
+and mixes them into one stream, as it does for the visualizer, and the bridge sends and analyses
+that mix. The default is a single source, the default output, as before.
+
+The list is `audio.sources`. In bridge-only mode it lives in the bridge's own settings folder
+(`<userData>/bridge/settings.json`), separate from the normal app's list. When the primary is the
+bridge, it is the primary's own list, because there is one capture.
+
+Changing the list is live: the capture helper restarts with the new list, while the TCP server,
+the beacon and the connected receivers stay up (receivers see a short gap of a few frames).
+
+If one source fails, the others keep running. The helper reports each source that is missing,
+failed to open, or (for an app) is not running, and the status window names it in TR/EN under
+the picker.
 
 | OS | Single-app capture | Needs |
 |---|---|---|
 | Windows | WASAPI process loopback | Windows 10 2004 (build 19041) or newer |
 | macOS | ScreenCaptureKit app audio | macOS 13 or newer and the Screen Recording permission |
-| Linux | PulseAudio / PipeWire (`pipewire-pulse`) per-app sink-input monitor | `pactl` |
+| Linux | PulseAudio / PipeWire (`pactl`) per-app stream | `pactl`, `parec` |
 
 Where single-app capture is not possible (older OS, permission denied, helper or tools missing),
-the window says why in TR/EN and the bridge keeps capturing the default device. The choice is
-saved and comes back at the next start.
+the window says why in TR/EN and the bridge keeps capturing the selected devices (or the default output if only apps were
+selected). The choice is saved and comes back at the next start.
 
 Two bridge processes on the same machine capture the same output device side by side. WASAPI
 loopback, PulseAudio/PipeWire monitor sources and CoreAudio inputs all allow more than one client.
@@ -256,6 +272,13 @@ after an outage of at least 8 s (`SV_RIG_OUTAGE_MS`); the input must be back on 
 once with a normal-mode primary as the bridge. `SV_RIG_FALLBACK` sets the fallback device name.
 The unit tests add a beacon heard from several source addresses and a receiver that must not
 reconnect when the order changes.
+
+`npm run bridge-sources-rig` (Linux, `pactl`) adds two synthetic sources, null sinks with a
+440 Hz and a 1000 Hz sine. It checks that the helper's mix of both has both tones in its spectrum
+(one source alone has one), that a missing third device is reported while the others keep
+running, and, end to end, a `--bridge` with those three sources: the receiver switches to the
+bridge, the status window shows the shared picker and the missing source, a live change of the
+list keeps the receiver connected, and the new list is saved in `<userData>/bridge`.
 
 Ubuntu 24.04 on the CI-class box, PulseAudio null sink with a 440 Hz sine, both on one host
 (Electron 44):

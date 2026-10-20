@@ -23,3 +23,7 @@ body.bridge-status { height: auto; min-height: 100vh; overflow-y: auto; display:
 .bs-big-meter .br-meter { height: 12px; }
 .bs-beat { width: 10px; height: 10px; border-radius: 50%; background: var(--card3, var(--line)); transition: background .05s; flex-shrink: 0; }
 .bs-beat.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+/* Ses Kaynakları seçicisi (panelin parçası, #813): pencerede de aynı görünsün */
+.bs-src .ctrl > .lbl { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.bs-src .studio-note { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--card2); font-size: 12px; color: var(--muted); line-height: 1.4; }
+.bs-src > .btn { align-self: flex-start; margin-top: 8px; }

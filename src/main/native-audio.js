@@ -357,7 +357,11 @@ function startCapture(devices, onFrame, onStatus, opts) {
   });
 
   child.stderr.on('data', (d) => {
-    const s = d.toString().trim();
+    /* Kaynak başına durum (#813): biri düşerse ötekiler sürer; hangisi
+       düştüğü ayrı bildirilir. Satırlar ayıklanır, geri kalan eski yoldan. */
+    const split = splitSourceLines(d.toString());
+    if (onStatus && generation === captureGeneration) for (const x of split.sources) onStatus(x);
+    const s = split.rest;
     if (!s) return;
     if (s.includes('CAPTURE-START')) {
       const name = s.replace(/^CAPTURE-START\s*/, '').split(' sr=')[0];
@@ -403,6 +407,22 @@ function startCapture(devices, onFrame, onStatus, opts) {
   });
 }
 
+/* Yardımcının "SRC {json}" satırları: kaynak başına durum (#813). Geri
+   kalan metin eski yoldan (CAPTURE-START, NO-LOOPBACK, …) okunur. */
+function splitSourceLines(text) {
+  const rest = [];
+  const sources = [];
+  for (const ln of String(text || '').split(/\r?\n/)) {
+    const m = /^SRC (\{.*\})\s*$/.exec(ln.trim());
+    if (!m) { rest.push(ln); continue; }
+    let j = null;
+    try { j = JSON.parse(m[1]); } catch { j = null; }
+    if (!j || typeof j.key !== 'string') continue;
+    sources.push({ type: 'source', key: j.key.slice(0, 300), state: String(j.state || '').slice(0, 20), message: String(j.message || '').slice(0, 200) });
+  }
+  return { sources, rest: rest.join('\n').trim() };
+}
+
 function parseFrames(generation) {
   if (generation !== captureGeneration || !Buffer.isBuffer(acc)) return;
   // Kareler ve (istenmişse) PCM paketleri; hiza kayarsa yeniden aranır
@@ -434,4 +454,4 @@ function resetNodeCache() {
   _runner = null;
 }
 
-module.exports = { listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture, selfRunner, externalRunner, runnerOrder, classifyListError, noDevicesMessage, accessDeniedMessage };
+module.exports = { splitSourceLines, listDevices, listOutputDevices, diagnoseAudio, resetNodeCache, startCapture, stopCapture, selfRunner, externalRunner, runnerOrder, classifyListError, noDevicesMessage, accessDeniedMessage };

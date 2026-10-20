@@ -91,35 +91,6 @@
     return el('div', { class: 'group' }, [top].concat(nodes.filter(Boolean)));
   }
 
-  // Köprünün yakaladığı kaynak: tek seçim, açık etiketli (#813, Windows'ta karışıyordu)
-  function captureSourceRow(push) {
-    const c = P().cfg();
-    if (!c.audio || typeof c.audio !== 'object') c.audio = {};
-    const list = Array.isArray(c.audio.sources) && c.audio.sources.length ? c.audio.sources : ['default'];
-    const cur = list[0];
-    const sel = el('select', { class: 'p-in' });
-    const opt = (value, label, user) => el('option', Object.assign({ value, text: label }, user ? { 'data-user-text': '' } : {}));
-    sel.appendChild(opt('default', tr('Varsayılan çıkış (sistem sesi)')));
-    const devs = (P().audioDevices ? P().audioDevices() : []).filter((d) => d && d.name);
-    const outs = devs.filter((d) => d.kind === 'output');
-    const ins = devs.filter((d) => d.kind !== 'output');
-    const og = (label, arr) => { if (!arr.length) return; const g = el('optgroup', { label: tr(label) }); arr.forEach((d) => g.appendChild(opt(d.name, d.name, true))); sel.appendChild(g); };
-    og('Çıkışlar (loopback)', outs);
-    og('Girişler', ins);
-    let multi = false;
-    if (cur && typeof cur === 'object') { sel.appendChild(opt('__app', (cur.label || cur.match) + ' (' + tr('uygulama') + ')', true)); sel.value = '__app'; }
-    else {
-      if (cur !== 'default' && !devs.some((d) => d.name === cur)) sel.appendChild(opt(cur, cur + ' (' + tr('bulunamadı') + ')', true));
-      sel.value = cur;
-    }
-    if (list.length > 1) multi = true;
-    sel.addEventListener('change', () => { if (sel.value === '__app') return; c.audio.sources = [sel.value]; push(); P().rerender(); });
-    return ctlRow('Köprünün Kaynağı', [sel], {
-      sub: multi ? tr('Ses Kaynakları\'nda birden çok kaynak seçili; köprü hepsini karıştırır. Burada seçince yalnız bu kaynak kalır.') : '',
-      help: 'Köprünün ağa verdiği ses. Çıkış seçilirse o aygıtın çaldığı ses (loopback), giriş seçilirse mikrofon ya da hat girişi yakalanır. Tek bir uygulamanın sesi için köprü durum penceresini kullanın.',
-    });
-  }
-
   function fallbackSelect(b, push) {
     const sel = el('select', { class: 'p-in' });
     const add = (value, label, user) => sel.appendChild(el('option', Object.assign({ value, text: label }, user ? { 'data-user-text': '' } : {})));
@@ -234,7 +205,6 @@
     conn.push(ctlRow(tr('Köprü Portu'), [numInput(b.port || 8741, 1024, 65535, (v) => { b.port = v; push(); })], { help: 'TCP bu port, keşif UDP 8742. Güvenlik duvarı ikisine de izin vermeli.' }));
     if (sending) {
       conn.push(ctlRow(tr('Köprünün Adı'), [textInput(b.name, (v) => { b.name = v; push(); }, { placeholder: tr('Bilgisayarın adı'), 'data-user-attr': '' })]));
-      conn.push(captureSourceRow(push));
     }
     if (receiving) {
       conn.push(ctlRow(tr('Köprünün Adresi'), [textInput(b.host, (v) => { b.host = v; push(); }, { placeholder: tr('Boş: ağda kendiliğinden bulunur'), 'data-user-attr': '' })]));
@@ -252,6 +222,16 @@
       }
     }
     groups.push(group(tr('Bağlantı'), conn));
+
+    /* 3) Köprünün kaynakları: uygulamanın Ses Kaynakları kartının AYNISI
+       (aynı seçici, aynı yakalama ve karıştırma). Köprü bu karışımı yollar.
+       Yalnız köprü kipinde liste köprünün kendi ayar klasöründe durur. */
+    if (sending && P().audioSources) {
+      groups.push(group(tr('Köprünün Kaynakları'), [
+        el('div', { class: 'br-sub', text: tr('Köprü, burada seçilen kaynakların karışımını gönderir; Ses Kaynakları kartıyla aynı liste.') }),
+        P().audioSources(),
+      ]));
+    }
 
     // 3) Durum
     if (sending || receiving) {

@@ -126,6 +126,10 @@ for (const name of wanted) {
   if (d && !seen.has(d.id)) {
     seen.add(d.id);
     resolved.push(d);
+  } else if (!d) {
+    /* Kaynaklardan biri yok (çıkarılmış USB aygıt): ötekiler yine açılır;
+       hangisinin eksik olduğu ana sürece söylenir (SRC satırı). */
+    process.stderr.write('SRC ' + JSON.stringify({ key: name, state: 'missing' }) + '\n');
   }
 }
 if (resolved.length === 0 && wantedApps.length === 0) {
@@ -270,6 +274,7 @@ for (const d of resolved) {
     startedSr = d.sampleRate || startedSr;
   } catch (e) {
     process.stderr.write('DEV-FAIL ' + d.name + ' ' + e.message + '\n');
+    process.stderr.write('SRC ' + JSON.stringify({ key: wanted.find((n) => resolveDevice(n) === d) || d.name, state: 'failed', message: String(e.message || '').slice(0, 200) }) + '\n');
   }
 }
 
@@ -306,6 +311,7 @@ function attachApp(app, index) {
     target = appCapture.resolve(app);
   } catch (e) {
     process.stderr.write('APP-FAIL ' + app.match + ' ' + e.message + '\n');
+    process.stderr.write('SRC ' + JSON.stringify({ key: 'app:' + appAudio.baseName(app.match), state: 'failed', message: String(e.message || '').slice(0, 200) }) + '\n');
     return false;
   }
   if (!target) return false;
@@ -345,11 +351,13 @@ function attachApp(app, index) {
       appProcs[index] = null;
       src.reset();
       process.stderr.write('APP-DETACHED ' + app.match + '\n');
+      process.stderr.write('SRC ' + JSON.stringify({ key: 'app:' + appAudio.baseName(app.match), state: 'waiting' }) + '\n');
     }
   });
 
   process.stderr.write('APP-ATTACHED ' + app.match + ' pid=' + target.pid
     + ' (' + target.matched + ')\n');
+  process.stderr.write('SRC ' + JSON.stringify({ key: 'app:' + appAudio.baseName(app.match), state: 'ok' }) + '\n');
   return true;
 }
 
@@ -357,6 +365,7 @@ wantedApps.forEach((app, i) => {
   appProcs[i] = null;
   if (!attachApp(app, i)) {
     process.stderr.write('APP-NOT-RUNNING ' + app.match + '\n');
+    process.stderr.write('SRC ' + JSON.stringify({ key: 'app:' + appAudio.baseName(app.match), state: 'waiting' }) + '\n');
   }
   started.push(app.label || app.match);
 });

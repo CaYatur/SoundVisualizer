@@ -93,5 +93,8 @@ test('CI yardımcıyı her değişiklikte derliyor', () => {
 test('izin isteme köprüsü panele bağlı', () => {
   assert.match(read('src/main/preload-admin.js'), /requestAppAudioPermission: \(\) => ipcRenderer\.invoke\('app-audio:request-permission'\)/);
   assert.match(read('src/main/main.js'), /ipcMain\.handle\('app-audio:request-permission'/);
-  assert.match(read('src/admin/admin.js'), /status\.canRequest/);
+  // Seçici ortak parçada; panel ve köprünün durum penceresi izni aynı yoldan ister (#813)
+  assert.match(read('src/admin/audio-sources.js'), /status\.canRequest && host\.requestPermission/);
+  assert.match(read('src/admin/admin.js'), /requestPermission: \(\) => actions\.requestAppAudioPermission\(\),/);
+  assert.match(read('src/main/main.js'), /ipcMain\.handle\('bridge-win:request-permission', \(e\) => \{\n  if \(!fromBridgeWin\(e\)\) return \{ permission: false \};\n  return requestAppAudioPermission\(\);/);
 });

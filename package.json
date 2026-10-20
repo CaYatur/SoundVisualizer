@@ -35,7 +35,8 @@
     "bench": "node scripts/bench.js",
     "parity": "node scripts/parity.js",
     "failover": "node scripts/failover.js",
-    "bridge-rig": "node scripts/bridge-rig.js"
+    "bridge-rig": "node scripts/bridge-rig.js",
+    "bridge-sources-rig": "node scripts/bridge-sources-rig.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

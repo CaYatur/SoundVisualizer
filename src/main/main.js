@@ -1306,6 +1306,7 @@ function startVisualizerCapture() {
   const sources = configuredSources();
   lastCaptureSource = sources;
   lastCapturePcm = bridgePcmWanted();
+  bridge.sourceStates = {};
   nativeAudio.startCapture(
     sources,
     (frame) => {
@@ -1326,6 +1327,13 @@ function startVisualizerCapture() {
     },
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      /* Kaynak başına durum (#813): biri eksik ya da açılamadıysa ötekiler
+         karışımda sürer; durum penceresi o kaynağın satırında söyler. */
+      if (status && status.type === 'source') {
+        bridge.sourceStates[status.key] = { state: status.state, message: status.message };
+        notifyBridgeWindow();
+        return;
+      }
       if (status && status.type === 'started') armCaptureStable();
       /* Giriş bu arada köprüye geçtiyse yerel yakalamanın geç gelen "başladı"
          bildirimi paneldeki etiketi eski aygıta çevirmesin (#813). */
@@ -1379,6 +1387,7 @@ const bridge = {
   sig: '', cfg: audioBridge.normalize(null), sender: null, beacon: null, receiver: null,
   discovery: null, input: null, tickTimer: null, found: [], meta: null, senderStatus: null,
   receiverStatus: null, id: '', statusTimer: null, analyser: null, analysisN: 0, lastAnalysis: null,
+  sourceStates: {}, // kaynak başına durum: anahtar -> { state, message } (#813)
   remoteAnalysis: null,
 };
 
@@ -1754,12 +1763,13 @@ function openBridgeWindow() {
   attachSmoke(win, 'BRIDGE-STATUS');
   win.loadFile(path.join(__dirname, '..', 'bridge-status', 'index.html'), { query: { uiTheme: adminUiTheme(currentConfig || {}) } });
   win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
-  const vis = () => { syncCapture(); syncNowPlaying(); };
+  const vis = () => { syncCapture(); syncNowPlaying(); syncAppMeters(); };
   win.on('show', vis); win.on('hide', vis); win.on('minimize', vis); win.on('restore', vis);
   /* Kapatmak pencereyi gerçekten kapatır: köprü tepside sürer, çizim süreci
      (~130 MB) bellekten çıkar; tepsiden açınca yeniden kurulur. */
   win.on('closed', () => {
     if (bridgeWin === win) bridgeWin = null;
+    bridgeWinWantsAppMeters = false;
     // Tepsi yoksa pencere ana arayüz: kapanınca uygulama da kapanır
     if (!bridgeTray && !quitting && BRIDGE_ONLY && !(adminWin && !adminWin.isDestroyed())) { forceQuitApp = true; app.quit(); }
     vis();
@@ -1781,6 +1791,7 @@ function bridgeWindowStatus() {
     tray: !!bridgeTray,
     platform: process.platform,
     sources: configuredSources(),
+    sourceStates: bridge.sourceStates,
     wantedSources: (currentConfig && currentConfig.audio && Array.isArray(currentConfig.audio.sources) && currentConfig.audio.sources.length) ? currentConfig.audio.sources : ['default'],
     captureStatus: lastCaptureStatus,
     nowPlaying: np && np.has ? { title: np.title || '', artist: np.artist || '', app: np.app || '' } : null,
@@ -1804,34 +1815,40 @@ ipcMain.handle('bridge-win:devices', async (e) => {
   if (!fromBridgeWin(e)) return [];
   try { return await nativeAudio.listDevices(); } catch { return []; }
 });
-ipcMain.handle('bridge-win:apps', (e) => {
-  if (!fromBridgeWin(e)) return { available: false, apps: [] };
-  let avail;
-  try { avail = appCapture.availability(); } catch (err) { avail = { available: false, code: 'ERROR', message: (err && err.message) || '' }; }
-  appAvailCache = { at: Date.now(), value: avail };
-  let apps = [];
-  if (avail.available) { try { apps = appCapture.list(); } catch { apps = []; } }
-  return Object.assign({}, avail, { apps: (apps || []).slice(0, 60) });
-});
-/* Kaynağı CANLI değiştirir: köprü yayında kalır, yalnız yakalama yardımcısı
-   yeni kaynakla yeniden kurulur. src: 'default' | aygıt adı | uygulama. */
-ipcMain.handle('bridge-win:set-source', (e, src) => {
-  if (!fromBridgeWin(e) || !currentConfig) return { ok: false };
-  let next;
-  if (src === 'default') next = 'default';
-  else if (typeof src === 'string' && src.trim()) next = src.slice(0, 300);
-  else if (src && typeof src === 'object') {
-    const n = require('../shared/app-audio.js').normalizeApp(Object.assign({}, src, { kind: 'app', mode: 'include' }));
-    if (!n) return { ok: false };
-    const avail = appAvailability();
-    if (!avail.available) return { ok: false, code: avail.code, message: avail.message };
-    next = { kind: 'app', match: n.match, mode: 'include', label: n.label };
-  } else return { ok: false };
-  applyConfigPatch({ audio: Object.assign({}, currentConfig.audio || {}, { sources: [next] }) });
+/* Kaynakları CANLI değiştirir: köprü yayında kalır, yalnız yakalama yardımcısı
+   yeni listeyle yeniden kurulur. Liste uygulamanın Ses Kaynakları seçicisinin
+   ürettiği biçimde (audio.sources): aygıt adları ve uygulama hedefleri, karışık.
+   Yalnız köprü kipinde bu liste köprünün kendi ayar klasöründe (#813). */
+ipcMain.handle('bridge-win:set-sources', (e, list) => {
+  if (!fromBridgeWin(e) || !currentConfig || !Array.isArray(list)) return { ok: false };
+  const next = audioBridge.sanitizeSources(list);
+  applyConfigPatch({ audio: Object.assign({}, currentConfig.audio || {}, { sources: next }) });
   notifyAdmin('external-config', currentConfig);
   syncCapture();
   notifyBridgeWindow();
   return { ok: true };
+});
+ipcMain.handle('bridge-win:app-status', (e) => {
+  if (!fromBridgeWin(e)) return { available: false };
+  let avail;
+  try { avail = appCapture.availability(); } catch (err) { avail = { available: false, code: 'ERROR', message: (err && err.message) || '' }; }
+  appAvailCache = { at: Date.now(), value: avail };
+  return avail;
+});
+ipcMain.handle('bridge-win:app-list', (e) => {
+  if (!fromBridgeWin(e)) return [];
+  try { return appCapture.list(); } catch { return []; }
+});
+ipcMain.handle('bridge-win:request-permission', (e) => {
+  if (!fromBridgeWin(e)) return { permission: false };
+  return requestAppAudioPermission();
+});
+// Uygulama satırlarının canlı ölçerleri: panelinkiyle aynı akış (#516)
+let bridgeWinWantsAppMeters = false;
+ipcMain.on('bridge-win:app-meters', (e, on) => {
+  if (!fromBridgeWin(e)) return;
+  bridgeWinWantsAppMeters = !!on;
+  syncAppMeters();
 });
 ipcMain.on('bridge-win:action', (e, what) => {
   if (!fromBridgeWin(e)) return;
@@ -2346,12 +2363,17 @@ ipcMain.handle('app-audio:status', () => {
    ve panel aboneliği bırakıyor.) */
 let adminWantsAppMeters = false;
 const appMeters = appCapture.createMeterStream({
-  send: (payload) => notifyAdmin('app-audio-levels', payload),
+  send: (payload) => {
+    notifyAdmin('app-audio-levels', payload);
+    if (bridgeWin && !bridgeWin.isDestroyed()) bridgeWin.webContents.send('bridge-win:app-levels', payload);
+  },
 });
 function syncAppMeters() {
   const win = adminWin && !adminWin.isDestroyed() ? adminWin : null;
   const visible = !!win && win.isVisible() && !win.isMinimized();
-  appMeters.setWanted(!quitting && adminWantsAppMeters && visible);
+  // Köprü kipinin durum penceresi de aynı seçiciyi gösteriyor (#813)
+  const bw = typeof bridgeWinVisible === 'function' && bridgeWinVisible() && bridgeWinWantsAppMeters;
+  appMeters.setWanted(!quitting && ((adminWantsAppMeters && visible) || bw));
 }
 ipcMain.on('app-audio:meters', (e, on) => {
   if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
@@ -2364,7 +2386,9 @@ ipcMain.on('app-audio:meters', (e, on) => {
    sistemin kendi penceresi açılıyor (iki pencere üst üste çıkmasın); hâlâ
    izin yoksa sonraki basışlar ayar sayfasını açıyor. */
 let appAudioPermissionAsked = false;
-ipcMain.handle('app-audio:request-permission', () => {
+ipcMain.handle('app-audio:request-permission', () => requestAppAudioPermission());
+// Panel ve ses köprüsünün durum penceresi aynı yoldan ister (#813)
+function requestAppAudioPermission() {
   if (process.platform !== 'darwin') return { permission: true, openedSettings: false };
   let r = { permission: false };
   try { r = appCapture.requestPermission(); } catch (_) { /* yardımcı yok */ }
@@ -2377,7 +2401,7 @@ ipcMain.handle('app-audio:request-permission', () => {
     openedSettings = true;
   }
   return { permission: !!r.permission, openedSettings };
-});
+}
 ipcMain.handle('diagnose-audio', () => nativeAudio.diagnoseAudio());
 
 function runProcess(executable, args, timeoutMs = 10 * 60 * 1000) {
