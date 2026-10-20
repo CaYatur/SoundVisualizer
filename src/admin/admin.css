@@ -1737,3 +1737,15 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
 .preview-stage.lay-stage .preview-badge { display: none; }
 .lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+
+/* Logo değişimi görselleri (#535): küçük, seçilebilir kutucuklar */
+.swap-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.swap-item {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; cursor: pointer;
+  padding: 4px 8px 4px 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card2); color: var(--text); font-size: 11.5px;
+}
+.swap-item:has(input:checked) { border-color: var(--accent); }
+.swap-item input { margin: 0; }
+.swap-thumb { width: 32px; height: 32px; flex: none; object-fit: contain; border-radius: 5px; background: var(--media-bg); }
+.swap-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -10,6 +10,18 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Logo swapping [535].** A logo layer can cycle through images picked from the logo library:
+  every N seconds, every N bars, on a bass hit or at random intervals. It crossfades or cuts,
+  and it is off by default.
+  - The order is the same live and in video export.
+    - The seconds and bars rules follow the clock. The bars rule takes its tempo from the
+      settings: the timeline when it is on, otherwise the locked tempo, otherwise 120 BPM.
+    - Random intervals come from a fixed seed, never from `Math.random`.
+    - The bass rule follows the kick detector and restarts when export starts over.
+  - The exporter now loads every layer logo, swap images included, before the first frame. A
+    library logo used to arrive a few frames late.
+  - It works in the layer stack, which is what broadcast layouts use. Animated GIFs swap as
+    their first frame.
 - **Text styles and metadata binding [536].**
   - The Layout Editor offers five restrained broadcast styles for text layers and the now-playing
     card: Clean, Lower Third (condensed type), Label, Bold Screen and Thin. A style sets the

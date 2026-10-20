@@ -1060,6 +1060,8 @@
           },
         }));
       }
+      // Logo değişimi (#535): kitaplıktan seçilen görseller kurala göre sırayla
+      if (window.SVLogoSwapPanel) out.push(...window.SVLogoSwapPanel.controls(lg, rerender));
       return out;
     }
 

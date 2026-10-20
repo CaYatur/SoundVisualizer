@@ -2051,6 +2051,29 @@
         const lg = (l.settings && l.settings.logo) || (cfg && cfg.logo);
         if (!lg) return;
         if (l.settings && l.settings.logo && l.settings.logo.enabled === false) return;
+        /* LOGO DEĞİŞİMİ (#535): kitaplıktan seçilen görseller kurala göre
+           sırayla; geçiş çapraz ya da kesme. Sıra zamandan/sesten
+           belirlenimli (shared/logo-swap.js), canlı ve dışa aktarım aynı. */
+        const SW = typeof window !== 'undefined' ? window.SVLogoSwap : null;
+        if (SW && SW.active(lg.swap)) {
+          const pick = SW.step(e._swap || (e._swap = {}), lg.swap, cfg, t, audio);
+          if (pick) {
+            const base = lg.opacity == null ? 1 : lg.opacity;
+            const paintId = (id, a) => {
+              if (!(a > 0.001)) return null;
+              const one = Object.assign({}, lg, { source: 'manual', src: '', libraryId: id, opacity: base * a });
+              const src = logoFileSrc(one);
+              const img = src ? this._getImage(src) : null;
+              if (!img || !img.naturalWidth) return null;
+              return this._paintLogo(e.ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, one, audio, W, H);
+            };
+            // Sıradakiler önceden ısınsın: geçiş anında görsel hazır olsun
+            lg.swap.items.forEach((id) => { const u = logoFileSrc({ source: 'manual', libraryId: id }); if (u) this._getImage(u); });
+            if (pick.prev) paintId(pick.prev, 1 - pick.k);
+            e.layoutBounds = paintId(pick.cur, pick.prev ? pick.k : 1) || e.layoutBounds;
+            return;
+          }
+        }
         const effectiveSrc = resolveLogoSrc(lg, cfg);
         if (!effectiveSrc) {
           e._lastImg = null;
