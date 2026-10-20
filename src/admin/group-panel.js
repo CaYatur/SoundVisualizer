@@ -48,6 +48,8 @@
       const slider = el('input', {
         type: 'range', min: 0, max: 1, step: 0.005, value: x.value == null ? 0 : x.value,
         class: 'xf-slider',
+        // Etiketi yok, iki ucunda A ve B yazıyor (#777)
+        'aria-label': 'A/B Çapraz Geçiş',
         oninput: (e) => {
           x.value = parseFloat(e.target.value);
           val.textContent = label(x.value);

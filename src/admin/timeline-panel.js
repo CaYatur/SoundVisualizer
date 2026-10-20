@@ -1799,18 +1799,23 @@
          tempo değişimleri sessizce siliniyordu. Değişimler cetvelde (♩). */
       group([
         el('span', { class: 'tl-lbl', text: 'BPM', title: 'Oynatma kafasındaki tempo. Tempo değişimleri cetvelde (♩)' }),
-        bpmIn,
+        // Araç çubuğunda etiketler ayrı öğe: denetimlerin kendi adı (#777)
+        (bpmIn.setAttribute('aria-label', 'Oynatma kafasındaki tempo (BPM)'), bpmIn),
         el('span', { class: 'tl-lbl', text: '/' }),
-        bpbIn,
+        (bpbIn.setAttribute('aria-label', 'Ölçüdeki vuruş sayısı'), bpbIn),
         btn(['plus', '♩'], 'Oynatma kafasına tempo değişimi', () => addTempoAtHead()),
       ]),
       group([
         el('span', { class: 'tl-lbl', icon: 'magnet', title: 'Yakalama. Sürüklerken Alt tuşu yakalamayı geçici olarak kapatır' }),
-        select(
-          [['off', 'Kapalı'], ['bar', 'Ölçü'], ['beat', 'Vuruş'], ['half', 'Yarım Vuruş'], ['quarter', 'Çeyrek Vuruş'], ['frame', 'Kare']],
-          cfg.snap,
-          (v) => { cfg.snap = v; p.push(true); }
-        ),
+        (() => {
+          const s = select(
+            [['off', 'Kapalı'], ['bar', 'Ölçü'], ['beat', 'Vuruş'], ['half', 'Yarım Vuruş'], ['quarter', 'Çeyrek Vuruş'], ['frame', 'Kare']],
+            cfg.snap,
+            (v) => { cfg.snap = v; p.push(true); }
+          );
+          s.setAttribute('aria-label', 'Yakalama');
+          return s;
+        })(),
       ]),
       group([loopBtn, followBtn]),
       group([

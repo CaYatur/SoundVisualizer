@@ -7274,6 +7274,86 @@ async function runSmoke() {
     } catch (e) {
       errors.push('ui themes: ' + (e && e.message ? e.message : e));
     }
+    /* --- Erişilebilirlik (#777): adsız denetim ve görünmeyen klavye odağı ---
+       Ad Chromium'un kendi erişilebilirlik ağacından okunur (ekran okuyucunun
+       duyduğu ad). Odak gerçek Tab tuşlarıyla dolaşılır; odaklanan öğenin
+       görünüşü odaksız anlık görüntüsüyle aynıysa odak görünmüyordur.
+       İlk ölçümde 139 adsız denetim ve 68 görünmeyen odak vardı. */
+    try {
+      const dbg = awc4.debugger;
+      let attached = false;
+      try { dbg.attach('1.3'); attached = true; } catch (e) { console.log('[SMOKE] erişilebilirlik: hata ayıklayıcı bağlanamadı, atlandı'); }
+      if (attached) {
+        await dbg.sendCommand('Accessibility.enable');
+        await dbg.sendCommand('DOM.enable');
+        const ROLES = new Set(['button', 'link', 'checkbox', 'radio', 'switch', 'tab', 'combobox', 'textbox', 'slider',
+          'spinbutton', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'listbox', 'searchbox', 'treeitem']);
+        const cats = await awc4.executeJavaScript("Array.from(document.querySelectorAll('[data-cat]')).map(function (b) { return b.dataset.cat; })");
+        const unnamed = new Map();
+        const hidden = new Map();
+        let named = 0;
+        let tabbed = 0;
+        const tab = async () => {
+          await dbg.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+          await dbg.sendCommand('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+        };
+        for (const c of cats) {
+          await awc4.executeJavaScript(`(async function () {
+            var b = document.querySelector('[data-cat="${c}"]'); if (b) b.click();
+            await new Promise(function (r) { setTimeout(r, 400); });
+            var h = document.querySelectorAll('#sections .fold-head:not(.open)');
+            for (var i = 0; i < h.length; i++) h[i].click();
+            await new Promise(function (r) { setTimeout(r, 300); });
+            var P = ['outline-style','outline-width','outline-color','box-shadow','border-top-color','border-bottom-color','background-color','color'];
+            window.__a11ySnap = function (e) { var s = getComputedStyle(e); return P.map(function (p) { return s.getPropertyValue(p); }).join('|'); };
+            window.__a11yBase = new Map();
+            document.querySelectorAll('#sections button, #sections a[href], #sections input, #sections select, #sections textarea, #sections [tabindex]').forEach(function (e) { window.__a11yBase.set(e, window.__a11ySnap(e)); });
+            if (document.activeElement) document.activeElement.blur();
+            return 1;
+          })()`);
+          const tree = (await dbg.sendCommand('Accessibility.getFullAXTree')).nodes || [];
+          for (const n of tree) {
+            if (n.ignored || !n.role || !ROLES.has(n.role.value)) continue;
+            if (String((n.name && n.name.value) || '').trim()) { named++; continue; }
+            let d = n.role.value;
+            try {
+              const nd = (await dbg.sendCommand('DOM.describeNode', { backendNodeId: n.backendDOMNodeId })).node;
+              const at = nd.attributes || [];
+              const cls = at[at.indexOf('class') + 1];
+              d += ' ' + nd.nodeName.toLowerCase() + (at.indexOf('class') >= 0 && cls ? '.' + cls.split(/\s+/).slice(0, 2).join('.') : '');
+            } catch (e) { /* düğüm gitti */ }
+            unnamed.set(d, (unnamed.get(d) || 0) + 1);
+          }
+          const seen = new Set();
+          for (let k = 0; k < 400; k++) {
+            await tab();
+            const r = await awc4.executeJavaScript(`(function () {
+              var a = document.activeElement; if (!a || a === document.body || !a.closest('#sections')) return null;
+              if (a.getAnimations) a.getAnimations().forEach(function (x) { try { x.finish(); } catch (e) { /* sonsuz */ } });
+              var base = window.__a11yBase.get(a);
+              if (!a.dataset.a11yk) a.dataset.a11yk = String(Math.random()).slice(2);
+              var d = a.tagName.toLowerCase() + (typeof a.className === 'string' && a.className ? '.' + a.className.trim().split(/\\s+/).slice(0, 2).join('.') : '');
+              return { k: a.dataset.a11yk, d: d, same: base !== undefined && base === window.__a11ySnap(a) };
+            })()`);
+            if (!r) { if (seen.size > 5) break; continue; }
+            if (seen.has(r.k)) break;
+            seen.add(r.k);
+            tabbed++;
+            if (r.same) hidden.set(r.d, (hidden.get(r.d) || 0) + 1);
+          }
+        }
+        try { dbg.detach(); } catch (e) { /* zaten ayrıldı */ }
+        console.log('[SMOKE] erişilebilirlik: ' + named + ' adlı denetim, ' + tabbed + ' odaklanan öğe');
+        unnamed.forEach((n, d) => console.log('[SMOKE]   ~ adsız ' + n + ' × ' + d));
+        hidden.forEach((n, d) => console.log('[SMOKE]   ~ odak görünmüyor ' + n + ' × ' + d));
+        if (unnamed.size) errors.push('a11y: ' + [...unnamed.values()].reduce((a, b) => a + b, 0) + ' control(s) without an accessible name');
+        if (hidden.size) errors.push('a11y: ' + [...hidden.values()].reduce((a, b) => a + b, 0) + ' focusable element(s) without a visible focus change');
+        if (named < 500) errors.push('a11y: only ' + named + ' named controls seen');
+        if (tabbed < 300) errors.push('a11y: only ' + tabbed + ' elements reached with Tab');
+      }
+    } catch (e) {
+      errors.push('a11y: ' + (e && e.message ? e.message : e));
+    }
     // Dolu panel eski hâline (sahneler, yuvalar, seçili sahne)
     try {
       await awc4.executeJavaScript(`(function(){

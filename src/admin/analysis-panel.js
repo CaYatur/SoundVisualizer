@@ -63,6 +63,8 @@
     const guardSwitch = el('input', {
       type: 'checkbox',
       'data-path': 'audio.humGuard',
+      // Başlığı anahtarın yanında ayrı bir öğe (#777)
+      'aria-label': 'Akıllı Sessizlik Filtresi',
       onchange: (e) => {
         const val = e.target.checked;
         if (P().set) P().set('audio.humGuard', val);
