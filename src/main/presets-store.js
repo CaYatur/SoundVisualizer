@@ -100,7 +100,9 @@ function names() {
 
 function parse(raw) {
   try {
-    const p = JSON.parse(raw);
+    /* BOM'lu dosya (PowerShell, Notepad): JSON.parse ilk karakterde düşüyor,
+       preset diskte durduğu hâlde "yok" sayılıyordu. */
+    const p = JSON.parse(String(raw).replace(/^\uFEFF/, ''));
     return p && typeof p === 'object' && p.id ? p : null;
   } catch { return null; } // bozuk dosya atlanıyor
 }

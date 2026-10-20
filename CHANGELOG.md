@@ -192,6 +192,45 @@ They were built ahead of time and ship in 3.1.6, together with video export.
   each output keeps its frame rate. Output windows now report their drawn frame rate with the
   level meter. Checked in an isolated profile: with no output open the page warns; with one
   output open it shows 75 / 75 fps and audio arriving.
+
+  Rows with details open on click:
+  - **Outputs.** Each output is listed with its display, refresh rate and measured frame rate.
+    - A window still in its first second of measuring shows "measuring". It used to report
+      0 / 60 fps and warn.
+    - A window that stops reporting is flagged as not drawing; it may be minimised or covered.
+  - **Shared rate.** On Windows, every output window draws at one rate: the slowest of the
+    primary display and the open outputs. Measured with a 75 Hz primary, a 60 Hz and a
+    165 Hz display, rAF per window:
+
+    | Open outputs | Rate per window |
+    |---|---|
+    | 165 Hz only | 75 |
+    | 75 Hz primary + 165 Hz | 75, 75 |
+    | 60 Hz + 165 Hz | 60, 60 |
+    | 75 Hz primary + 60 Hz | 60, 60 |
+
+    - The check now uses this shared rate as the target. Before, a 165 Hz output running at
+      60 next to a 60 Hz output was reported as "below target", as if the graphics card could
+      not keep up.
+    - A row names the display setting the rate and suggests a fix: close or move the slow
+      output, or try making the fast display the main one if the primary limits it.
+    - `--disable-frame-rate-limit` lifts the limit only by dropping vsync, giving 533–629 fps
+      unaligned to the display, so it is not used.
+    - Making the faster display primary was not tested here.
+  - **Missing files.** Each item shows its type, reason and full path, and where it is used:
+    live scene or saved scene by name, layer number and name, and field.
+    - A file missing only from a saved scene is now a warning instead of making the whole rig
+      "not ready".
+    - Fixes ask for confirmation first:
+      - locate a moved video, which switches every reference to it;
+      - show the file or folder;
+      - remove the reference from every scene.
+  - **No lost cursor.** The page refreshes every 3 s, and Redundancy is on the same page.
+    While a field outside the check has focus, a refresh waits until you leave the field.
+    Before, typing an address lost the cursor whenever the result changed.
+- **Presets saved with a BOM load.** A preset file starting with a UTF-8 byte order mark, as
+  PowerShell and Notepad write it, was skipped as unreadable. The pre-show check then reported
+  it missing although it was on disk. JSON import from a file picker had the same problem.
 - **The backup keeps the primary's time [544].**
   - **Clock offset.** The backup estimates the difference between the two machines' clocks from
     the heartbeats. It takes the smallest "arrived minus sent" over the last 10 s: a stalled

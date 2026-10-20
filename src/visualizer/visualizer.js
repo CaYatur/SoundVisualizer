@@ -193,6 +193,7 @@
   let drawCount = 0;
   let fpsT = 0;
   let drawFps = 0;
+  let fpsMeasured = false;
   let lastSilent = false;
   /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
      vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
@@ -558,7 +559,7 @@
     }
     lastSilent = silent;
     if (!fpsT) fpsT = now;
-    if (now - fpsT >= 1000) { drawFps = (drawCount * 1000) / (now - fpsT); drawCount = 0; fpsT = now; }
+    if (now - fpsT >= 1000) { drawFps = (drawCount * 1000) / (now - fpsT); drawCount = 0; fpsT = now; fpsMeasured = true; }
 
     // logo LayerStack tuval katmanı tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {
@@ -604,7 +605,8 @@
         time: now / 1000,
         backgroundColors,
         ready: audio.ready,
-        fps: drawFps,
+        // İlk ölçüm bitene kadar null: denetim açılıştaki ilk saniyeyi "0 fps" sanıyordu
+        fps: fpsMeasured ? drawFps : null,
         paused: lastSilent,
         fpsCap: cfg.power.fpsCap || 0,
         /* MilkDrop presetinin `monitor` değişkeni. Yeni bir IPC kanalı

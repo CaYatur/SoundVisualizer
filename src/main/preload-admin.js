@@ -193,6 +193,7 @@ contextBridge.exposeInMainWorld('api', {
   redundancyPush: () => ipcRenderer.invoke('redundancy:push'),
   // Gösteri öncesi denetim (#545)
   preshowCheck: () => ipcRenderer.invoke('preshow:check'),
+  preshowReveal: (p) => ipcRenderer.invoke('preshow:reveal', p),
   onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
   // Yedek birincili izlerken taşıma onun çıpasından (#544)
   onShowClockFollow: (cb) => ipcRenderer.on('show-clock-follow', (e, a) => cb(a)),
