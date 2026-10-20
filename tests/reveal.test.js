@@ -223,8 +223,26 @@ test('canlı (CSS) yolu: saydamlık, dönüşüm ve kırpma aynı hesaptan; biti
   w.stack.draw(AUDIO, w.cfg, 0, 1 / 60);
   w.stack.draw(AUDIO, w.cfg, 0.5, 1 / 60);
   assert.match(we.canvas.style.clipPath, /^inset\(0% 50% 0% 0%\)$/);
-  w.stack.draw(AUDIO, w.cfg, 2, 1 / 60);
+  w.stack.draw(AUDIO, w.cfg, 1.0, 1 / 60);
+  w.stack.draw(AUDIO, w.cfg, 1.5, 1 / 60);
   assert.strictEqual(we.canvas.style.clipPath, '');
+});
+
+/* Saat sıçraması (#543): ortak saatin gelişi ileri, yedeğin saat değişimi
+   geri sıçratabilir. Geçen süre korunur: açılış ne yarıda kesilir ne de
+   yeniden oynar. */
+test('saat sıçrayınca açılış kaldığı yerden sürer', () => {
+  const s = scene({ type: 'fade', duration: 1, ease: 'linear' });
+  const alphaAt = (t) => { const ctx = ctx2d(); s.stack.drawTo(ctx, AUDIO, s.cfg, t, 1 / 30, null); const d = ctx.drawn.find((x) => x.name === 'txt'); return d ? d.alpha : 0; };
+  alphaAt(0);
+  assert.ok(Math.abs(alphaAt(0.3) - 0.3) < 1e-9);
+  // İleri sıçrama: uygulama saatinden ortak saate (ör. +3600 sn)
+  assert.ok(Math.abs(alphaAt(3600.3) - 0.3) < 0.05, 'yarıda kesilmedi');
+  assert.ok(Math.abs(alphaAt(3600.5) - 0.5) < 0.05);
+  // Geri sıçrama: yeniden oynamaz
+  const back = alphaAt(100.5);
+  assert.ok(back > 0.45, 'yeniden başlamadı: ' + back);
+  assert.strictEqual(alphaAt(101.2), 1);
 });
 
 test('bağlantılar: sayfalar modülü yüklüyor, düzen editörü ayarı yazıyor', () => {

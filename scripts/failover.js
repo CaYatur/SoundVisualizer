@@ -137,6 +137,7 @@ async function scenario(name, takeover, opts) {
     ] }));
   }
   const A = launch(dirA, cdpA);
+  let A2 = null;
   const B = launch(dirB, cdpB);
   const res = { name, takeover, timeoutMs: opts.timeout, heartbeatMs: opts.beat };
   let pa = null;
@@ -229,6 +230,18 @@ async function scenario(name, takeover, opts) {
       res.takeoverMs = Date.now() - t0;
       res.takenBy = act.takenBy;
       res.tookOver = !!act.ok;
+      if (opts.relaunch && act.ok) {
+        /* Birincil aynı profille yeniden açılır (#543): yayındaki yedeğin
+           ortak saati sıçramamalı, yetki de geri gitmemeli. */
+        const epochBefore = act.sharedEpoch;
+        A2 = launch(dirA, cdpA);
+        const back = await until(async () => { const s = await pb.eval(STATUS); return Object.assign({ ok: !!s.connected && s.lastSeq >= 0 && Date.now() - t0 > 4000 }, s); }, 40000, 250);
+        await wait(1500);
+        const s2 = await pb.eval(STATUS);
+        res.primaryBack = !!back.ok;
+        res.epochKept = s2.sharedEpoch === epochBefore;
+        res.stayedActive = s2.state === 'active';
+      }
     } else {
       const lost = await until(async () => { const s = await pb.eval(STATUS); return Object.assign({ ok: s.state === 'lost' }, s); }, opts.timeout * 4 + 3000, 25);
       res.lostMs = Date.now() - t0;
@@ -249,6 +262,7 @@ async function scenario(name, takeover, opts) {
     res.limitMs = limit;
     res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept &&
       (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
+      (!opts.relaunch || (res.primaryBack && res.epochKept && res.stayedActive)) &&
       (!opts.sync || (res.diffFound && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
         && !(res.maxGapDuringPush > opts.timeout / 2))) &&
       (takeover === 'auto' ? res.takeoverMs <= limit : (res.waitedForOperator && res.stillWaiting && res.lostMs <= limit));
@@ -261,6 +275,7 @@ async function scenario(name, takeover, opts) {
     if (pa) pa.close();
     if (pb) pb.close();
     killTree(A);
+    killTree(A2);
     killTree(B);
     await wait(800);
     for (const d of [dirA, dirB]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* kilitli */ } }
@@ -271,7 +286,7 @@ async function scenario(name, takeover, opts) {
 (async () => {
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
-    await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true }),
+    await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true, relaunch: true }),
     await scenario('manual takeover', 'manual', { beat: 100, timeout: 1500 }),
   ];
   for (const r of runs) {
