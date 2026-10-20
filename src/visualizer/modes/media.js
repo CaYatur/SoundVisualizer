@@ -48,6 +48,48 @@
     return 'Video açılamadı: ' + msg;
   }
 
+  /* Chromium, kaynak 404 döndüğünde de "desteklenmeyen kaynak" (kod 4)
+     veriyor; dosyası silinmiş bir katman HEVC çaresini gösteriyordu ve
+     kullanıcı çözücü ayarıyla uğraşıyordu. Bu iki durum yalnız sunucunun
+     yanıtıyla ayrılır. */
+  function isFormatFault(err) {
+    const code = err && typeof err.code === 'number' ? err.code : 0;
+    return code === 4 || ((err && err.name) || '') === 'NotSupportedError';
+  }
+
+  // Ayardaki adresten (sv-media://local/..., /media-file?v=..., düz yol) dosya adı
+  function videoName(file) {
+    let s = String(file || '');
+    if (s.startsWith('/media-file')) {
+      try { s = new URLSearchParams(s.split('?')[1] || '').get('v') || ''; } catch { s = ''; }
+    }
+    const U = typeof window !== 'undefined' ? window.SVMediaUrl : null;
+    if (U && typeof U.fromMediaUrl === 'function') s = U.fromMediaUrl(s);
+    else if (/^sv-media:\/\//.test(s)) {
+      s = s.replace(/^sv-media:\/\/(local\/)?/, '').split('?')[0].split('#')[0];
+      try { s = decodeURIComponent(s); } catch { /* adı ham bırak */ }
+    }
+    return s.split(/[\\/]/).filter(Boolean).pop() || '';
+  }
+
+  function missingVideoText(file) {
+    const name = videoName(file);
+    return name ? 'Video dosyası bulunamadı: ' + name : 'Video dosyası bulunamadı.';
+  }
+
+  /* Kaynağın bir baytını ister. Yalnız 404 "dosya yok" sayılır: 403 seçili
+     olmayan yol (ayar değişirken), 415/500 ya da ağ hatası biçim sorunundan
+     ayrılamaz; o durumlarda eski ileti kalır. */
+  function probeMissing(url) {
+    if (!url || typeof fetch !== 'function') return Promise.resolve(false);
+    return fetch(url, { headers: { Range: 'bytes=0-0' }, cache: 'no-store' })
+      .then((res) => {
+        try { if (res.body && typeof res.body.cancel === 'function') res.body.cancel(); } catch { /* */ }
+        return res.status === 404;
+      })
+      .catch(() => false);
+  }
+
   // Metni verilen genişliğe sığan satırlara böler (sözcük sınırından)
   function wrapText(ctx, text, maxW) {
     const words = String(text).split(/\s+/).filter(Boolean);
@@ -365,6 +407,22 @@
     _fail(key, err) {
       if (this.key !== key) return;
       this.ready = false;
+      if (this._source === 'file' && isFormatFault(err)) {
+        /* onerror ve play() reddi aynı hatayı iki kez getirir: anahtar
+           başına tek yoklama. Yanıt gelene kadar ileti boş kalır; önce
+           çözücü çaresini gösterip sonra değiştirmek yanıltıcı olurdu. */
+        if (this._probeKey === key) return;
+        this._probeKey = key;
+        this.error = null;
+        const file = this._deviceId;
+        probeMissing(this._sourceUrl(file)).then((missing) => {
+          if (this.key !== key) return;
+          this.ready = false;
+          this.error = missing ? missingVideoText(file) : videoFaultText(err);
+          this._publish();
+        });
+        return;
+      }
       this.error = this._source === 'file' ? videoFaultText(err) : cameraFaultText(err);
       this._publish();
     }
@@ -418,6 +476,7 @@
       this.ready = false;
       this._loaded = null;
       this.error = null;
+      this._probeKey = null;
       if (this.stream) {
         this.stream.getTracks().forEach((t) => t.stop());
         this.stream = null;
@@ -583,6 +642,7 @@
   window.SVMedia = MediaLayer;
   window.SVMediaFault = cameraFaultText;
   window.SVVideoFault = videoFaultText;
+  window.SVMissingVideo = missingVideoText;
   window.SVMediaWrap = wrapText;
   window.SVMediaStatus = noteMediaStatus;
   window.SVMediaWarning = mediaWarning;

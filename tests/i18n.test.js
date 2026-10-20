@@ -303,6 +303,9 @@ test('kamera ve dışa aktarma hataları İngilizceye çevriliyor', () => {
   assert.strictEqual(t('Kayıtlı kamera'), 'Saved camera');
   assert.strictEqual(t('Video açılamadı: NotSupportedError'),
     'Could not open the video: NotSupportedError');
+  assert.strictEqual(t('Video dosyası bulunamadı: konser-giris.mp4'),
+    'Video file not found: konser-giris.mp4');
+  assert.strictEqual(t('Video dosyası bulunamadı.'), 'Video file not found.');
   assert.strictEqual(t('Kamera açılamadı: Could not start video source'),
     'Could not open the camera: Could not start video source');
   assert.strictEqual(t('Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.'),
