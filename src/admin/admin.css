@@ -972,7 +972,7 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   background: var(--card); box-shadow: 0 28px 80px rgb(var(--shadow-rgb) / .6);
 }
 .ask-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-.ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
 .ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .lyr-editor {
   width: min(1040px, calc(100vw - 24px));

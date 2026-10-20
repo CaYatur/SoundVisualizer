@@ -29,17 +29,23 @@ test('gönderme onayı: yedekte olmayanlar ile farklı olanlar ayrı listeleniyo
   const body = PANEL.slice(PANEL.indexOf('async function pushDiff'), PANEL.indexOf('/* YALITILMIŞ GÖSTERİ'));
   assert.match(body, /const missing = items\.filter\(\(d\) => d\.status !== 'different'\);/);
   assert.match(body, /const differing = items\.filter\(\(d\) => d\.status === 'different'\);/);
-  assert.ok(body.indexOf("block('Yedekte olmayanlar:', missing)") > 0);
-  assert.ok(body.indexOf("block('Yedekte farklı olanlar (yedeğin kendi sürümü kalır):', differing)") > 0);
+  assert.ok(body.indexOf("block('Yedekte olmayanlar', missing)") > 0);
+  assert.ok(body.indexOf("block('Yedekte farklı olanlar', differing, 'yedeğin kendi sürümü kalır')") > 0);
   assert.ok(!/Yedekte olmayan şu öğeler gönderilecek/.test(PANEL + I18N), 'eski karışık başlık kalmış');
-  for (const k of ['Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.', 'Yedekte olmayanlar:', 'Yedekte farklı olanlar (yedeğin kendi sürümü kalır):']) {
+  for (const k of ['Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.', 'Yedekte olmayanlar', 'Yedekte farklı olanlar', 'yedeğin kendi sürümü kalır']) {
     assert.ok(has(k), 'İngilizcesi yok: ' + k);
   }
+  // Sayı iki noktadan önce; satırlar onay penceresinde ayrı kalır
+  assert.match(body, /tr\(title\) \+ ' \(' \+ list\.length \+ '\):'/);
+  assert.match(require('fs').readFileSync(require('path').join(__dirname, '../src/admin/admin.css'), 'utf8'), /\.ask-text \{[^}]*white-space: pre-line;/);
 });
 
 test('otomatik kip bekletmesi: çelişkili iki cümle yerine tek, açık durum', () => {
   assert.match(PANEL, /const heldLost = status\.autoHeld && status\.state === 'lost';/);
   assert.ok(!/'Otomatik devralma bekletiliyor'/.test(PANEL + I18N), 'eski metin kalmış');
+  // Alttaki ipucu da aynı sözcüğü kullanıyor: "duraklatıldı" / "paused"
+  assert.ok(!/bekletiliyor\.'|is on hold until/.test(PANEL + I18N), 'ipucu hâlâ "on hold"');
+  assert.ok(I18N.includes("auto takeover is paused until the primary is seen again."));
   for (const k of ['Birincil yanıt vermiyor', 'Otomatik devralma elle bırakıştan beri duraklatıldı: elle devralın ya da yeniden kurun', 'Otomatik devralma duraklatıldı (elle bırakıldı)']) {
     assert.ok(PANEL.includes("'" + k + "'"), 'panelde yok: ' + k);
     assert.ok(has(k), 'İngilizcesi yok: ' + k);

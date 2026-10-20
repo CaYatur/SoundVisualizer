@@ -165,15 +165,16 @@
     const missing = items.filter((d) => d.status !== 'different');
     const differing = items.filter((d) => d.status === 'different');
     let left = 20;
-    const block = (title, list) => {
+    // Sayı iki noktadan önce: "Yedekte olmayanlar (3):" (#812)
+    const block = (title, list, note) => {
       if (!list.length) return '';
       const shown = list.slice(0, Math.max(0, left));
       left -= shown.length;
-      return '\n\n' + tr(title) + ' (' + list.length + ')\n' + shown.map(name).join('\n') + (list.length > shown.length ? '\n… +' + (list.length - shown.length) : '');
+      return '\n\n' + tr(title) + ' (' + list.length + '):' + (note ? ' ' + tr(note) : '') + '\n' + shown.map((d) => '• ' + name(d)).join('\n') + (list.length > shown.length ? '\n… +' + (list.length - shown.length) : '');
     };
     const text = tr('Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.') +
-      block('Yedekte olmayanlar:', missing) +
-      block('Yedekte farklı olanlar (yedeğin kendi sürümü kalır):', differing) +
+      block('Yedekte olmayanlar', missing) +
+      block('Yedekte farklı olanlar', differing, 'yedeğin kendi sürümü kalır') +
       (sh.pushable > items.length ? '\n… +' + (sh.pushable - items.length) : '');
     const ok = await P().confirm(text, { okText: tr('Yedeğe Gönder') });
     if (!ok) return;
@@ -488,7 +489,7 @@
          geri gelince ya da operatör yeniden kurunca biter. */
       if (status.autoHeld && !active && r.takeover !== 'manual') {
         nodes.push(el('div', { class: 'studio-status warn', role: 'status' }, [el('span', { icon: 'warning' }),
-          el('span', { text: 'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma bekletiliyor.' })]));
+          el('span', { text: 'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma duraklatıldı.' })]));
         nodes.push(el('div', { class: 'lay-file' }, [
           el('button', { class: 'btn small ghost', type: 'button', icon: 'bolt', text: 'Otomatik Devralmayı Yeniden Kur', onclick: () => rearm() }),
         ]));

@@ -1003,8 +1003,9 @@
       'Presets and logos the backup does not have are sent; the backup keeps them in a separate area without adding them to its library, and its items with the same ID are not changed. For videos and items that differ, use "Request Package from Primary" on the backup.',
     'Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.':
       'These items will be sent; the backup keeps them in a separate area, and its items with the same ID are not changed.',
-    'Yedekte olmayanlar:': 'Missing on the backup:',
-    'Yedekte farklı olanlar (yedeğin kendi sürümü kalır):': 'Different on the backup (the backup keeps its own version):',
+    'Yedekte olmayanlar': 'Missing on the backup',
+    'Yedekte farklı olanlar': 'Different on the backup',
+    'yedeğin kendi sürümü kalır': 'the backup keeps its own version',
     // ---- Yalıtılmış gösteri ve gösteri paketi (#812) ----
     'Birincilin kopyası': 'Primary\'s copy',
     'Bu makinenin gösterisi': 'This machine\'s show',
@@ -1065,7 +1066,7 @@
     'Birincil yanıt vermiyor': 'The primary is not responding',
     'Otomatik devralma elle bırakıştan beri duraklatıldı: elle devralın ya da yeniden kurun': 'Auto takeover is paused since the manual hand-back: take over manually or re-arm it',
     'Otomatik devralma duraklatıldı (elle bırakıldı)': 'Auto takeover paused (handed back manually)',
-    'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma bekletiliyor.': 'Control was released by hand: auto takeover is on hold until the primary is seen again.',
+    'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma duraklatıldı.': 'Control was released by hand: auto takeover is paused until the primary is seen again.',
     'Otomatik Devralmayı Yeniden Kur': 'Re-arm Auto Takeover',
     'Birincil hâlâ yoksa yedek yetkiyi hemen kendiliğinden alır. Otomatik devralma yeniden kurulsun mu?': 'If the primary is still down, the backup takes control right away. Re-arm auto takeover?',
     'bu makinede zaten var': 'already on this machine',
