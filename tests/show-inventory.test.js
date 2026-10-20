@@ -116,7 +116,8 @@ test('birincilde silinen anahtar yedekte de silinir (anlık görüntü ve yama)'
 
 test('bağlantılar: yedek envanter gönderebilir, birincil karşılaştırır ve onayla gönderir', () => {
   const ss = read('src/main/stream-server.js');
-  assert.match(ss, /msg\.type === 'peer-state' \|\| msg\.type === 'peer-inventory'/);
+  assert.match(ss, /const PEER_MESSAGES = \['peer-state', 'peer-inventory',/);
+  assert.match(ss, /PEER_MESSAGES\.indexOf\(msg\.type\) >= 0/);
   const main = read('src/main/main.js');
   assert.match(main, /if \(msg\.type === 'inventory-request'\) \{ sendInventory\(msg\.id\)/);
   assert.match(main, /if \(msg\.type === 'asset'\) \{ onPrimaryAsset\(msg\); return; \}/);

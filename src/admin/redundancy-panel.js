@@ -140,7 +140,7 @@
         onclick: pushDiff,
       }),
     ]));
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Presetler ve logolar birincilden gönderilir ve yedekteki aynı kimlikli öğenin yerine geçer. Video dosyaları gönderilmez: gigabaytlar kalp atışıyla aynı bağlantıyı tıkardı; yedeğe aynı yola elle kopyalayın.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedekte olmayan presetler ve logolar gönderilir; yedekteki aynı kimlikli öğe değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.' }));
     return el('div', { class: 'red-show' }, nodes);
   }
 
@@ -150,7 +150,7 @@
     // Açık onay: neyin değişeceği listelenir
     const names = sh.items.filter((d) => d.pushable && d.status !== 'extra').map((d) => (d.kind === 'logo' ? 'Logo' : 'Preset') + ': ' + (d.label || d.id));
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-    const text = tr('Yedekteki şu öğeler birincildekiyle değiştirilecek ya da eklenecek:') + '\n\n' + names.slice(0, 20).join('\n') +
+    const text = tr('Yedekte olmayan şu öğeler eklenecek; yedekteki aynı kimlikli öğeler değişmez:') + '\n\n' + names.slice(0, 20).join('\n') +
       (sh.pushable > 20 ? '\n… +' + (sh.pushable - 20) : '');
     const ok = await P().confirm(text, { okText: tr('Yedeğe Gönder') });
     if (!ok) return;
@@ -158,6 +158,181 @@
       const r = await window.api.redundancyPush();
       P().toast(r && r.ok ? tr('Yedeğe gönderildi.') : tr('Gönderilemedi.'), r && r.ok ? 'ok' : 'err');
     } catch { P().toast(tr('Gönderilemedi.'), 'err'); }
+  }
+
+  /* YALITILMIŞ GÖSTERİ ve GÖSTERİ PAKETİ (#812). Yedekte: hangi gösterinin
+     çizildiği, devralmada hangisinin kullanılacağı, birincilin sahnelerini
+     tek tek yerel gösteriye aktarma, paket kopyası (ilerleme, hız, hatalar),
+     paket çakışmaları ve MilkDrop eşliği. Sayılar ayrı öğede: çeviri tam
+     metni eşliyor. */
+  const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+  const SOURCE_TEXT = { primary: 'Birincilin kopyası', local: 'Bu makinenin gösterisi' };
+  const PKG_STATE_TEXT = {
+    idle: 'Paket istenmedi',
+    offered: 'Paket hazır: içeriği gözden geçirip onaylayın',
+    transferring: 'Kopyalanıyor',
+    verifying: 'Doğrulanıyor',
+    done: 'Paket doğrulandı ve yerine kondu',
+    error: 'Kopyalama durdu',
+  };
+  const PKG_KIND_TEXT = { presets: 'Preset', logos: 'Logo', media: 'Video dosyası' };
+  const PARITY_TEXT = { missing: 'birincilin preseti bu makinede yok', different: 'bu makinedeki preset farklı' };
+
+  function bytes(n) {
+    const v = Number(n) || 0;
+    if (v >= 1e9) return (v / 1e9).toFixed(2) + ' GB';
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + ' MB';
+    if (v >= 1e3) return Math.round(v / 1e3) + ' KB';
+    return v + ' B';
+  }
+  function line(kids) { return P().el('div', { class: 'studio-note' }, kids); }
+  function num(t) { return P().el('span', { class: 'st-num', text: String(t) }); }
+  function sep() { return P().el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }); }
+
+  function spaceBox() {
+    const el = P().el;
+    const sp = status.space;
+    const nodes = [el('div', { class: 'group-label', text: 'Gösteri Verisi' })];
+    nodes.push(selectRow('Devralmada Kullanılacak Gösteri', [['primary', 'Birincilin kopyası'], ['local', 'Bu makinenin gösterisi']],
+      red().takeoverData === 'local' ? 'local' : 'primary', (v) => { red().takeoverData = v; P().push(true); }));
+    if (!sp) {
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yerel gösteri ayrı tutulamadı; ayrıntı geliştirici konsolunda.' }));
+      return el('div', { class: 'red-space' }, nodes);
+    }
+    nodes.push(line([el('span', { text: 'Şu an çizilen' }), sep(), el('span', { text: SOURCE_TEXT[sp.source] || sp.source })]));
+    if (status.state === 'active') {
+      const toLocal = sp.source !== 'local';
+      nodes.push(el('div', { class: 'lay-file' }, [
+        el('button', {
+          class: 'btn small', type: 'button', icon: 'swap',
+          text: toLocal ? 'Bu Makinenin Gösterisine Geç' : 'Birincilin Kopyasına Geç',
+          onclick: async () => {
+            const ok = await P().confirm(tr(toLocal ? 'Canlı görüntü bu makinenin kendi gösterisine geçecek.' : 'Canlı görüntü birincilin kopyasına geçecek.'), { okText: tr('Geç') });
+            if (!ok) return;
+            try { status = await window.api.redundancyUseShow(toLocal ? 'local' : 'primary'); } catch { /* */ }
+            P().rerender();
+          },
+        }),
+      ]));
+    }
+    const scenes = Array.isArray(sp.primaryScenes) ? sp.primaryScenes : [];
+    nodes.push(line([el('span', { text: 'Birincilin kayıtlı sahneleri' }), sep(), num(scenes.length)]));
+    if (scenes.length) {
+      const list = el('ul', { class: 'red-diff' });
+      scenes.slice(0, 50).forEach((sc) => {
+        list.appendChild(el('li', {}, [
+          el('span', { text: sc.name, 'data-user-text': '' }),
+          sep(),
+          el('button', { class: 'btn small ghost', type: 'button', icon: 'import', text: 'Yerel Gösteriye Aktar', onclick: () => importScene(sc) }),
+        ]));
+      });
+      nodes.push(list);
+    }
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Birincilden gelenler ayrı bir alanda tutulur; bu makinenin kendi sahneleri, presetleri ve logoları değişmez. Rol kapatılınca kendi gösteriniz olduğu gibi geri gelir.' }));
+    return el('div', { class: 'red-space' }, nodes);
+  }
+
+  async function importScene(sc) {
+    const ok = await P().confirm(tr('Bu sahne bu makinenin kendi gösterisine kopyalanacak. Aynı kimlikte bir sahne varsa yeni bir kimlik alır; mevcut sahneler değişmez.') + '\n\n' + sc.name, { okText: tr('Aktar') });
+    if (!ok) return;
+    let r = null;
+    try { r = await window.api.redundancyImportScene(sc.id); } catch { /* */ }
+    P().toast(r && r.ok ? tr('Sahne yerel gösteriye aktarıldı.') : tr('Aktarılamadı.'), r && r.ok ? 'ok' : 'err');
+  }
+
+  function packageBox() {
+    const el = P().el;
+    const pk = status.pkg || { state: 'idle' };
+    const nodes = [el('div', { class: 'group-label', text: 'Gösteri Paketi' })];
+    const box = el('div', { class: 'studio-status' + (pk.state === 'done' ? ' ok' : pk.state === 'error' ? ' err' : ''), role: 'status' }, [
+      el('span', { icon: pk.state === 'done' ? 'check' : pk.state === 'error' ? 'warning' : 'broadcast' }),
+      el('span', { text: PKG_STATE_TEXT[pk.state] || pk.state }),
+    ]);
+    if (pk.state === 'error' && pk.error) { box.appendChild(sep()); box.appendChild(el('span', { class: 'st-num', text: pk.error })); }
+    nodes.push(box);
+    if (pk.summary) {
+      for (const k of ['presets', 'logos', 'media']) {
+        const g = pk.summary[k];
+        if (!g || !g.n) continue;
+        nodes.push(line([el('span', { text: PKG_KIND_TEXT[k] }), sep(), num(g.n), sep(), num(bytes(g.bytes))]));
+      }
+    }
+    if (pk.progress && (pk.state === 'transferring' || pk.state === 'verifying' || pk.state === 'done' || pk.state === 'error')) {
+      const pr = pk.progress;
+      nodes.push(el('progress', { class: 'red-progress', max: String(pr.total || 1), value: String(pr.bytes || 0), 'aria-label': tr('Kopyalama ilerlemesi') }));
+      nodes.push(line([num(bytes(pr.bytes) + ' / ' + bytes(pr.total)), sep(), num(pr.files + ' / ' + pr.of), sep(), num(bytes(pk.speed) + '/s')]));
+    }
+    if (pk.state === 'offered' || pk.state === 'transferring') {
+      const files = el('ul', { class: 'red-diff' });
+      (pk.files || []).slice(0, 30).forEach((f) => files.appendChild(el('li', {}, [
+        el('span', { text: PKG_KIND_TEXT[f.kind] || f.kind }), sep(), el('span', { text: f.name, 'data-user-text': '' }), sep(), num(bytes(f.size)),
+      ])));
+      nodes.push(files);
+    }
+    const buttons = [];
+    if (pk.state === 'offered') {
+      const media = pk.summary && pk.summary.media && pk.summary.media.n ? pk.summary.media : null;
+      const box2 = el('input', { type: 'checkbox', id: 'redPkgMedia' });
+      if (media) nodes.push(el('label', { class: 'chk', for: 'redPkgMedia' }, [box2, el('span', { text: 'Video dosyalarını da kopyala' }), sep(), num(bytes(media.bytes))]));
+      buttons.push(el('button', {
+        class: 'btn small primary', type: 'button', icon: 'import', text: 'Kopyalamayı Başlat',
+        onclick: async () => {
+          const withMedia = !!(media && box2.checked);
+          const msg = tr('Birincilin presetleri ve logoları bu makinenin yedeklilik klasörüne kopyalanacak. Bu makinede olmayanlar kütüphaneye eklenir; aynı kimlikli yerel öğeler değişmez.') +
+            (withMedia ? '\n\n' + tr('Video dosyaları da kopyalanacak:') + ' ' + bytes(media.bytes) : '');
+          const ok = await P().confirm(msg, { okText: tr('Kopyala') });
+          if (!ok) return;
+          try { status = await window.api.redundancyPkgConfirm({ media: withMedia }); } catch { /* */ }
+          P().rerender();
+        },
+      }));
+    }
+    if (pk.state === 'transferring' || pk.state === 'offered') {
+      buttons.push(el('button', { class: 'btn small ghost', type: 'button', icon: 'x', text: 'Vazgeç', onclick: async () => { try { status = await window.api.redundancyPkgCancel(); } catch { /* */ } P().rerender(); } }));
+    } else {
+      buttons.push(el('button', {
+        class: 'btn small', type: 'button', icon: 'refresh', text: 'Birincilden Paket İste',
+        disabled: status.state === 'connecting' || status.connected === false ? 'disabled' : null,
+        onclick: async () => { try { status = await window.api.redundancyPkgRequest(); } catch { /* */ } P().rerender(); },
+      }));
+    }
+    nodes.push(el('div', { class: 'lay-file' }, buttons));
+    const res = status.pkgResult;
+    if (res) {
+      nodes.push(line([el('span', { text: 'Eklenen' }), sep(), num(res.added), sep(), el('span', { text: 'Aynı' }), sep(), num(res.same), sep(), el('span', { text: 'Video dosyası' }), sep(), num(res.media)]));
+      if (res.conflicts && res.conflicts.length) {
+        nodes.push(el('div', { class: 'studio-note', text: 'Bu makinede aynı kimlikle farklı içerik var; yerel öğe korundu:' }));
+        const list = el('ul', { class: 'red-diff' });
+        res.conflicts.slice(0, 40).forEach((c) => list.appendChild(el('li', {}, [
+          el('span', { text: c.kind === 'logo' ? 'Logo' : 'Preset' }), sep(), el('span', { text: c.name, 'data-user-text': '' }), sep(),
+          el('button', { class: 'btn small ghost', type: 'button', text: 'Birincilinkini Kullan', onclick: () => usePrimaryAsset(c) }),
+        ])));
+        nodes.push(list);
+      }
+    }
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Paket parça parça, her parçanın özetiyle gelir; bağlantı koparsa kaldığı yerden sürer. Doğrulanmadan hiçbir şey yerine geçmez. Video dosyaları yalnız onaylarsanız kopyalanır ve birincilin sahnesi bu kopyalara eşlenir.' }));
+    return el('div', { class: 'red-pkg' }, nodes);
+  }
+
+  async function usePrimaryAsset(c) {
+    const ok = await P().confirm(tr('Bu makinedeki öğe birincilin sürümüyle değiştirilecek:') + '\n\n' + c.name, { okText: tr('Değiştir') });
+    if (!ok) return;
+    let r = null;
+    try { r = await window.api.redundancyUsePrimaryAsset({ kind: c.kind, id: c.id }); } catch { /* */ }
+    P().toast(r && r.ok ? tr('Birincilin sürümü kullanılıyor.') : tr('Değiştirilemedi.'), r && r.ok ? 'ok' : 'err');
+  }
+
+  function parityBox() {
+    const el = P().el;
+    const list = Array.isArray(status.parity) ? status.parity : [];
+    if (!list.length) return null;
+    const ul = el('ul', { class: 'red-diff' });
+    list.forEach((p) => ul.appendChild(el('li', {}, [el('span', { text: 'MilkDrop' }), sep(), el('span', { text: p.name, 'data-user-text': '' }), sep(), el('span', { class: 'dim-hint', text: PARITY_TEXT[p.status] || p.status })])));
+    return el('div', { class: 'red-parity' }, [
+      el('div', { class: 'studio-status err', role: 'status' }, [el('span', { icon: 'warning' }), el('span', { text: 'Görüntü birincilden farklı olabilir' })]),
+      ul,
+      el('div', { class: 'studio-note dim-hint', text: 'Birincilden paket isteyin: eksik presetler eklenir, farklı olanlar listede tek tek seçilir.' }),
+    ]);
   }
 
   async function act(which) {
@@ -205,6 +380,12 @@
         el('button', { class: 'btn small ghost', type: 'button', icon: 'reset', text: 'Yetkiyi Bırak', disabled: active ? null : 'disabled', onclick: () => act('release') }),
       ]));
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek izlerken sahne birincilden gelir; burada yapılan sahne değişikliği birincilin bir sonraki değişikliğiyle ezilir. Yetkiyi alan yedek, birincil geri gelse de "Yetkiyi Bırak" denene kadar yetkide kalır.' }));
+      if (!status.problem) {
+        const pb = parityBox();
+        if (pb) nodes.push(pb);
+        nodes.push(spaceBox());
+        nodes.push(packageBox());
+      }
     } else {
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
       if (status.peers) nodes.push(showBox());
@@ -217,12 +398,18 @@
     if (started || !window.api || !window.api.redundancyStatus) return;
     started = true;
     window.api.onRedundancyStatus((s) => {
-      const sig = (x) => JSON.stringify([x.role, x.state, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences]);
+      const sig = (x) => JSON.stringify([x.role, x.state, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences,
+        // Yalıtılmış gösteri ve paket (#812); ilerleme en çok saniyede dört kez gelir
+        x.space, x.pkg, x.pkgResult, x.parity]);
       const prev = sig(status);
       status = s || { role: 'off' };
       window.SVRedundancyState = status;
       const next = sig(status);
-      if (prev !== next && document.querySelector('.redundancy-panel')) P().rerender();
+      /* Yazarken imleç kaybolmasın: ilerleme güncellemesi odak bir alandayken
+         beklenir (#812, aynı kural gösteri öncesi denetimde). */
+      const ae = document.activeElement;
+      const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'SELECT' || ae.tagName === 'TEXTAREA') && ae.type !== 'checkbox';
+      if (prev !== next && document.querySelector('.redundancy-panel') && !typing) P().rerender();
     });
     // Birincilin taşıması (#544): zaman çizelgesi paneli onu izler
     if (window.api.onShowClockFollow) {

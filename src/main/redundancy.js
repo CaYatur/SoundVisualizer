@@ -40,6 +40,8 @@ const ShowKeys = require('../shared/show-keys');
 const DEFAULTS = {
   role: 'off', host: '', port: 8722, secret: '',
   heartbeatMs: 250, timeoutMs: 1500, takeover: 'auto',
+  // Devralmada çizilecek gösteri (#812): birincilin yalıtılmış kopyası ya da yerel gösteri
+  takeoverData: 'primary',
 };
 const MIN_SECRET = 16;
 
@@ -56,7 +58,37 @@ function normalize(c) {
   // Eşik en az üç atış: tek kaybolan paket devralma yaptırmasın
   s.timeoutMs = clamp(Math.round(num(s.timeoutMs, 1500)), s.heartbeatMs * 3, 60000);
   if (s.takeover !== 'manual') s.takeover = 'auto';
+  if (s.takeoverData !== 'local') s.takeoverData = 'primary';
   return s;
+}
+
+/* Bağlantıyı yeniden kurmayı gerektiren ayarların imzası. Devralma verisi
+   (#812) yalnız devralma anında okunur: değiştirmek bağlantıyı koparmasın. */
+function linkSig(c) {
+  const s = normalize(c);
+  delete s.takeoverData;
+  return JSON.stringify(s);
+}
+
+/* Yedeğin şu an çizdiği gösteri (#812). İzlerken (ve bağlantı beklerken)
+   her zaman birincilin kopyası; yetkiyi alınca önceden seçilen ya da
+   operatörün o an seçtiği. */
+function showSource(state, cfg, override) {
+  if (state !== 'active') return 'primary';
+  if (override === 'local' || override === 'primary') return override;
+  return normalize(cfg).takeoverData;
+}
+
+/* MilkDrop eşliği (#812): birincilin seçtiği kullanıcı presetinin içerik
+   özeti (`hash`) yedekteki presetinkiyle karşılaştırılır. Yerleşik preset
+   (özet yok) uygulamayla gelir; sürüm aynıysa aynıdır.
+     ''          — eşit ya da denetlenemez
+     'missing'   — birincilin preseti bu makinede yok: pencere eski presette kalır
+     'different' — aynı kimlik, farklı içerik: aynı ad, farklı görüntü */
+function mdParity(follow, localFp) {
+  if (!follow || !follow.id || typeof follow.hash !== 'string' || !follow.hash) return '';
+  if (!localFp) return 'missing';
+  return localFp === follow.hash ? '' : 'different';
 }
 
 // Rol çalışabilir mi; değilse nedeni (arayüz ve sağlık denetimi gösterir)
@@ -254,6 +286,6 @@ function createClient(opts) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, normalize, problem, createFollower,
+  DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, mdParity, problem, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, createClient,
 };
