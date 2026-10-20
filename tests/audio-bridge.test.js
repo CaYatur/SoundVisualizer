@@ -104,6 +104,10 @@ test('TCP: eşleşen alıcı kare ve meta alıyor, saat farkı ölçülüyor', a
     assert.strictEqual(frames[4][1].seq, 5);
     assert.strictEqual(meta.title, 'Parça');
     assert.ok(!('artwork' in meta), 'büyük kapak resmi ağa gitmiyor');
+    // Kare yaşı saat farkı ölçüldükten sonra gelen karede hesaplanır;
+    // yavaş bir makinede ilk kareler ölçümden önce gelebilir.
+    sender.frame(sampleFrame(5));
+    await until(() => frames.length === 6 && rx.status().ageMs != null);
     const s = rx.status();
     assert.strictEqual(s.state, 'connected');
     assert.strictEqual(s.name, 'Köprü');
