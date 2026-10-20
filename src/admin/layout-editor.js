@@ -141,6 +141,8 @@
     setAspect(st.aspectKey);
     st.panel = panel;
     st.onKey = (e) => {
+      // Üstte başka bir pencere (onay) varsa tuşlar onun
+      if (document.querySelector('.ask-backdrop:not(.lay-backdrop)')) return;
       if (e.key === 'Escape' && !st.drag) { e.preventDefault(); close(); return; }
       /* Kipli pencere: Tab arkadaki panele kaçmasın, içeride döner. */
       if (e.key === 'Tab') {
@@ -337,12 +339,47 @@
     renderSide();
   }
 
+  /* DÜZEN DOSYASI (#538): yerleştirilebilir öğeler, kullanıcı içeriği
+     olmadan (src/shared/layout.js exportLayout). */
+  function effectiveLayers() {
+    const cfg = P().cfg();
+    if (LY().stackOn(cfg)) return cfg.layers || [];
+    return window.SVLayers && window.SVLayers.resolve ? window.SVLayers.resolve(cfg) : [];
+  }
+
+  async function exportFile() {
+    const data = LY().exportLayout(effectiveLayers(), P().cfg(), { aspect: st && st.aspectKey });
+    if (!data.elements.length) { P().toast(tr('Dışa aktarılacak öğe yok.'), 'warn'); return; }
+    await window.api.exportJson('duzen.json', data);
+  }
+
+  async function importFile() {
+    const r = await window.api.importJson(tr('Düzeni İçe Aktar'));
+    if (!r || !r.ok) { if (r && r.error) P().toast('İçe aktarılamadı: ' + r.error, 'err'); return; }
+    const data = r.data;
+    if (!data || data.type !== LY().LAYOUT_TYPE) { P().toast(tr('Bu bir düzen dosyası değil.'), 'err'); return; }
+    const ok = await P().confirm(tr('Dosyadaki öğeler bu sahnede aynı türdeki öğelerin konumunu ve görünüşünü değiştirecek; eksik olanlar eklenecek. Logo görseliniz ve parça bilgileriniz değişmez.'), { okText: tr('Düzeni Uygula') });
+    if (!ok) return;
+    const cfg = P().cfg();
+    if (!LY().stackOn(cfg) && window.SVLayers && window.SVLayers.setStackEnabled) window.SVLayers.setStackEnabled(cfg, true);
+    const res = LY().importLayout(cfg, data, (spec) => (window.SVLayers ? window.SVLayers.normalizeLayer(spec) : spec));
+    if (!res.ok) { P().toast('İçe aktarılamadı: ' + res.error, 'err'); return; }
+    if (window.SVLayers && window.SVLayers.syncStackState) window.SVLayers.syncStackState(cfg);
+    P().push(true);
+    renderSide();
+    P().toast(tr('Düzen uygulandı.'));
+  }
+
   // Seçili öğenin sayısal alanları ve öğe listesi
   function renderSide() {
     if (!st) return;
     const el = P().el;
     const side = st.side;
     side.textContent = '';
+    side.appendChild(el('div', { class: 'lay-file' }, [
+      el('button', { type: 'button', class: 'btn ghost small', icon: 'export', text: 'Düzeni Dışa Aktar', onclick: exportFile }),
+      el('button', { type: 'button', class: 'btn ghost small', icon: 'import', text: 'Düzeni İçe Aktar', onclick: importFile }),
+    ]));
     const els = elements();
     if (!els.length) {
       side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Bu sahnede yerleştirilebilir öğe yok. Barlar, çalan parça kartı, metin ya da logo katmanı ekleyin.' }));

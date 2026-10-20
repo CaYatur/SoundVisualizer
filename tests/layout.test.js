@@ -175,3 +175,81 @@ test('eşlik: barlar ve metin kutusu önizleme ve dışa aktarım çözünürlü
   ['x', 'y', 'w', 'h'].forEach((k) => assert.ok(Math.abs(t1[k] - t2[k]) < 0.003, 'text ' + k + ' ' + t1[k] + ' / ' + t2[k]));
   assert.ok(Math.abs(t1.x - 0.3) < 1e-9, 'sol hizada x çapa');
 });
+
+// ---- Düzen dosyası (#538)
+test('düzen dosyası: öğeler sırayla, kullanıcı içeriği olmadan', () => {
+  const cfg = {
+    layerStack: { enabled: true },
+    logo: { src: 'data:image/png;base64,AAAA', libraryId: 'lib1', source: 'library', x: 0.9, y: 0.1, scale: 0.12 },
+    layers: [
+      { id: 'bg', kind: 'background', type: 'gradient' },
+      { id: 'b', kind: 'visualizer', type: 'bars', name: 'Barlar', opacity: 0.8, settings: { visualizer: { barCenterX: 0.5, baseline: 0.64 } } },
+      { id: 'c', kind: 'nowplaying', type: 'nowplaying', settings: { nowplaying: { x: 0.07, y: 0.82, manual: { title: 'Gizli', artist: 'Kişi' } } } },
+      { id: 'l', kind: 'logo', settings: {} },
+      { id: 't', kind: 'visualizer', type: 'text', settings: { text: { content: 'CAYADEV', lyricsSource: '[00:01]söz', x: 0.5 } } },
+    ],
+  };
+  const d = L.exportLayout(cfg.layers, cfg, { aspect: '16:9' });
+  assert.strictEqual(d.type, 'sv-layout');
+  assert.strictEqual(d.version, 1);
+  assert.deepStrictEqual(d.elements.map((e) => e.kind), ['bars', 'nowplaying', 'logo', 'text'], 'arkaplan yok, sıra korunur');
+  assert.strictEqual(d.elements[0].layer.opacity, 0.8);
+  assert.strictEqual(d.elements[1].params.manual, undefined, 'elle girilen parça bilgisi yok');
+  const logo = d.elements[2].params;
+  assert.ok(logo.x === 0.9 && logo.scale === 0.12);
+  ['src', 'libraryId', 'source'].forEach((k) => assert.strictEqual(logo[k], undefined, 'logo ' + k));
+  assert.strictEqual(d.elements[3].params.content, 'CAYADEV', 'metnin kendisi düzenin parçası');
+  assert.strictEqual(d.elements[3].params.lyricsSource, undefined, 'söz gövdesi yok');
+  assert.ok(!JSON.stringify(d).includes('base64'));
+});
+
+test('düzen içe aktarımı: aynı türü günceller, eksiği ekler, logo görseline dokunmaz', () => {
+  const file = {
+    type: 'sv-layout', version: 1,
+    elements: [
+      { kind: 'bars', layer: { name: 'Şerit', opacity: 0.5 }, params: { barCenterX: 0.3, baseline: 0.4, barSpan: 0.5 } },
+      { kind: 'logo', params: { x: 0.1, y: 0.9, scale: 0.3, src: 'kötü.png' } },
+      { kind: 'nowplaying', params: { x: 0.2, y: 0.2 } },
+      { kind: 'unknown', params: {} },
+    ],
+  };
+  const cfg = {
+    layerStack: { enabled: true },
+    logo: { src: 'benim.png', x: 0.5 },
+    layers: [
+      { id: 'b', kind: 'visualizer', type: 'bars', settings: { visualizer: { barCenterX: 0.5, color: '#ff0000' } } },
+      { id: 'l', kind: 'logo', settings: {} },
+    ],
+  };
+  let made = 0;
+  const r = L.importLayout(cfg, file, (spec) => Object.assign({ id: 'new' + (++made) }, spec));
+  assert.deepStrictEqual(r, { ok: true, updated: 2, added: 1, skipped: 1 });
+  const bars = cfg.layers[0];
+  assert.strictEqual(bars.settings.visualizer.barCenterX, 0.3);
+  assert.strictEqual(bars.settings.visualizer.color, '#ff0000', 'dosyada olmayan ayar korunur');
+  assert.strictEqual(bars.name, 'Şerit');
+  assert.strictEqual(cfg.logo.src, 'benim.png', 'logo görseli değişmedi');
+  assert.strictEqual(cfg.logo.x, 0.1);
+  const card = cfg.layers.find((l) => l.kind === 'nowplaying');
+  assert.ok(card && card.settings.nowplaying.x === 0.2, 'eksik kart eklendi');
+});
+
+test('düzen içe aktarımı: yanlış dosya, sürüm ve tehlikeli anahtarlar', () => {
+  const cfg = { layerStack: { enabled: true }, layers: [{ kind: 'visualizer', type: 'bars', settings: {} }] };
+  assert.strictEqual(L.importLayout(cfg, { type: 'sv-scenes' }).ok, false);
+  assert.strictEqual(L.importLayout(cfg, { type: 'sv-layout', version: 9, elements: [{}] }).ok, false);
+  assert.strictEqual(L.importLayout(cfg, { type: 'sv-layout', version: 1, elements: [] }).ok, false);
+  const evil = JSON.parse('{"type":"sv-layout","version":1,"elements":[{"kind":"bars","params":{"__proto__":{"polluted":1},"constructor":{"x":1},"nested":{"__proto__":{"p":1},"ok":2},"barSpan":0.4}}]}');
+  const r = L.importLayout(cfg, evil);
+  assert.strictEqual(r.ok, true);
+  const s = cfg.layers[0].settings.visualizer;
+  assert.strictEqual(({}).polluted, undefined, 'prototip kirlenmedi');
+  assert.ok(!Object.prototype.hasOwnProperty.call(s, 'constructor'));
+  assert.deepStrictEqual(Object.keys(s.nested), ['ok']);
+  assert.strictEqual(s.barSpan, 0.4);
+  // Gidiş-dönüş: dışa aktarılan dosya içe alınınca aynı konum
+  const out = L.exportLayout(cfg.layers, cfg);
+  const cfg2 = { layerStack: { enabled: true }, layers: [{ kind: 'visualizer', type: 'bars', settings: {} }] };
+  L.importLayout(cfg2, JSON.parse(JSON.stringify(out)));
+  assert.strictEqual(cfg2.layers[0].settings.visualizer.barSpan, 0.4);
+});

@@ -10,6 +10,16 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Layouts as files [538].** "Export Layout" and "Import Layout" in the Layout Editor.
+  - A layout file holds the scene's bars, now-playing card, text and logo, in order: each layer's
+    name, blend, opacity and group, and the element's own settings.
+  - It does not hold your content: the logo image and its library entry, track details you
+    typed, and lyric text all stay out. So the file opens on another installation with that
+    installation's logo.
+  - Importing asks first. It then updates the same kinds of element in the scene, in order, and
+    adds any that are missing. Everything else in the scene stays as it was.
+  - The file is checked: wrong type, wrong version and empty files are refused. Keys such as
+    `__proto__` are dropped, and depth and size are limited.
 - **Layout editor [534].** The grid button above the live preview opens the preview large,
   framed as 16:9, 9:16 or 1:1.
   - Drag the bars, the now-playing card, a text layer or the logo. They snap to the frame's edges

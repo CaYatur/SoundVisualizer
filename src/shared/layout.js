@@ -268,9 +268,112 @@
     return { x: px / W, y: py / H, w: pw / W, h: ph / H };
   }
 
+  /* DÜZEN DOSYASI (#538). Sahnedeki yerleştirilebilir öğeler sırayla:
+     katman özellikleri ve öğenin kendi ayar bölümü (birleşik hâl, dosya
+     kendi başına yetsin). KULLANICI İÇERİĞİ TAŞINMAZ: logo görseli ve
+     kitaplık kimliği, elle girilen parça bilgisi, şarkı sözü gövdesi —
+     dosya başka bir kurulumda açılacak ve oradaki logo kullanılacak. */
+  const LAYOUT_TYPE = 'sv-layout';
+  const LAYOUT_VERSION = 1;
+  const LAYER_KEYS = ['name', 'blend', 'opacity', 'enabled', 'group'];
+  const STRIP = {
+    logo: ['source', 'src', 'libraryId', 'kind'],
+    nowplaying: ['manual'],
+    text: ['lyricsSource', 'lyricsName', 'nowPlaying'],
+    bars: [],
+  };
+  const MAX_ELEMENTS = 32;
+  // Nesne değişmezinde `__proto__: 1` anahtar değil prototip atar: küme şart
+  const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+  // Düz veri kopyası: işlev, döngü ve tehlikeli anahtar yok; derinlik sınırlı
+  function plain(v, depth) {
+    if (v === null || typeof v === 'number' || typeof v === 'boolean') return Number.isNaN(v) ? null : v;
+    if (typeof v === 'string') return v.length > 4000 ? v.slice(0, 4000) : v;
+    if (depth > 5) return undefined;
+    if (Array.isArray(v)) return v.slice(0, 256).map((x) => plain(x, depth + 1)).filter((x) => x !== undefined);
+    if (typeof v === 'object') {
+      const out = {};
+      Object.keys(v).forEach((k) => {
+        if (BAD_KEYS.has(k)) return;
+        const c = plain(v[k], depth + 1);
+        if (c !== undefined) out[k] = c;
+      });
+      return out;
+    }
+    return undefined;
+  }
+
+  function cleanParams(kind, params) {
+    const out = plain(params || {}, 0) || {};
+    (STRIP[kind] || []).forEach((k) => { delete out[k]; });
+    return out;
+  }
+
+  // Dışa aktarım: `layers` etkin katman listesi (katmansız kipte sentezlenen)
+  function exportLayout(layers, cfg, meta) {
+    const elements = [];
+    (layers || []).forEach((l) => {
+      const kind = kindOf2(l);
+      if (!kind || elements.length >= MAX_ELEMENTS) return;
+      const layer = {};
+      LAYER_KEYS.forEach((k) => { if (l[k] !== undefined) layer[k] = plain(l[k], 0); });
+      elements.push({ kind, layer, params: cleanParams(kind, sectionOf(l, cfg, false)) });
+    });
+    return Object.assign({ type: LAYOUT_TYPE, version: LAYOUT_VERSION }, meta && meta.aspect ? { aspect: String(meta.aspect) } : {}, { elements });
+  }
+
+  /* İçe aktarım. Her öğe aynı türdeki sıradaki mevcut katmanı günceller;
+     yoksa `make(spec)` ile yeni katman eklenir. Sahnedeki diğer öğelere
+     dokunulmaz. Katman yığını açık olmalı (çağıran açar). */
+  function importLayout(cfg, data, make) {
+    if (!data || data.type !== LAYOUT_TYPE) return { ok: false, error: 'not a layout file' };
+    if (data.version !== LAYOUT_VERSION) return { ok: false, error: 'unsupported layout version ' + data.version };
+    if (!Array.isArray(data.elements) || !data.elements.length) return { ok: false, error: 'no elements' };
+    if (!Array.isArray(cfg.layers)) cfg.layers = [];
+    const used = new Set();
+    let updated = 0;
+    let added = 0;
+    let skipped = 0;
+    data.elements.slice(0, MAX_ELEMENTS).forEach((el) => {
+      const kind = el && el.kind;
+      if (!kind || !Object.prototype.hasOwnProperty.call(KINDS, kind)) { skipped++; return; }
+      const params = cleanParams(kind, el.params);
+      const props = {};
+      LAYER_KEYS.forEach((k) => { if (el.layer && el.layer[k] !== undefined) props[k] = plain(el.layer[k], 0); });
+      let target = cfg.layers.find((l) => l && !used.has(l) && kindOf2(l) === kind);
+      if (!target) {
+        if (typeof make !== 'function') { skipped++; return; }
+        const spec = kind === 'bars' ? { kind: 'visualizer', type: 'bars' }
+          : kind === 'text' ? { kind: 'visualizer', type: 'text' }
+          : kind === 'nowplaying' ? { kind: 'nowplaying', type: 'nowplaying' }
+          : { kind: 'logo' };
+        target = make(Object.assign(spec, { settings: {} }));
+        if (!target) { skipped++; return; }
+        cfg.layers.push(target);
+        added++;
+      } else {
+        updated++;
+      }
+      used.add(target);
+      Object.keys(props).forEach((k) => { target[k] = props[k]; });
+      if (kind === 'logo') {
+        // Logo görseli yerinde kalır: konum ve görünüş onun nesnesine
+        const own = target.settings && target.settings.logo;
+        Object.assign(own || (cfg.logo || (cfg.logo = {})), params);
+      } else {
+        const sec = KINDS[kind].section;
+        target.settings = target.settings || {};
+        target.settings[sec] = Object.assign({}, target.settings[sec] || {}, params);
+      }
+    });
+    return { ok: true, updated, added, skipped };
+  }
+
   const api = {
     SAFE, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
     kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
+    LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayout = api;
