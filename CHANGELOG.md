@@ -10,6 +10,16 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Text styles and metadata binding [536].**
+  - The Layout Editor offers five restrained broadcast styles for text layers and the now-playing
+    card: Clean, Lower Third (condensed type), Label, Bold Screen and Thin. A style sets the
+    typeface, weight, outline, shadow and, on the card, capitals. It never changes colour. When
+    you change a value by hand, the style shows as "Custom".
+  - A text layer's source can be fixed text or the now-playing title, artist or both. Track
+    details typed on the text card stay as the fallback when the system reports nothing.
+  - Capitals now follow the track's language. They always used the Turkish rule, so an English
+    "Mind" became "MİND". Now Turkish letters get the Turkish rule and everything else the
+    general one.
 - **Layouts as files [538].** "Export Layout" and "Import Layout" in the Layout Editor.
   - A layout file holds the scene's bars, now-playing card, text and logo, in order: each layer's
     name, blend, opacity and group, and the element's own settings.

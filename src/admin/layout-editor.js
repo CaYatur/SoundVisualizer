@@ -409,6 +409,44 @@
       });
       side.appendChild(el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: f.label }), inp])]));
     });
+    /* Biçem önayarı ve metin kaynağı (#536). Seçim katmanın kendi
+       ayarına yazılır; renk değişmez. */
+    if (cur.kind === 'text' || cur.kind === 'nowplaying') {
+      const sel = el('select', { class: 'sel-ctrl' });
+      const now = LY().styleIdOf(cur.layer, cfg);
+      if (!now) sel.appendChild(el('option', { value: '', text: 'Özel' }));
+      Object.keys(LY().STYLES).forEach((id) => {
+        const o = el('option', { value: id, text: LY().STYLES[id].name });
+        if (id === now) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.addEventListener('change', () => {
+        if (LY().applyStyle(cur.layer, P().cfg(), sel.value)) { P().push(true); renderSide(); }
+      });
+      side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Biçem' }), sel]));
+    }
+    if (cur.kind === 'text') {
+      const src = el('select', { class: 'sel-ctrl' });
+      const v = LY().textSourceOf(cur.layer, cfg);
+      LY().TEXT_SOURCES.forEach(([a, b, label]) => {
+        const val = a === 'static' ? 'static' : a + ':' + b;
+        const o = el('option', { value: val, text: label });
+        if (val === v) o.selected = true;
+        src.appendChild(o);
+      });
+      src.addEventListener('change', () => {
+        if (LY().setTextSource(cur.layer, P().cfg(), src.value)) { P().push(true); renderSide(); }
+      });
+      side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı Kaynağı' }), src]));
+      if (v === 'static') {
+        const sec = LY().sectionOf(cur.layer, cfg, false);
+        const inp = el('input', { type: 'text', class: 'txt', value: sec.content || '', 'data-user-attr': '' });
+        inp.addEventListener('change', () => { LY().sectionOf(cur.layer, P().cfg(), true).content = inp.value; P().push(true); });
+        side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Yazı İçeriği' }), inp]));
+      } else {
+        side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Çalan parça sistemden okunur; okunamazsa metin kartındaki elle girilen parça bilgisi çizilir.' }));
+      }
+    }
     side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Değerler karenin oranı (0–1). Güvenli alanlar SMPTE ST 2046-1 ve EBU R 95: kesikli çizgi aksiyon (%93), noktalı çizgi başlık (%90).' }));
   }
 
