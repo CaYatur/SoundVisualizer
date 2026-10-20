@@ -13,7 +13,7 @@ still open is listed at the end.
 
 ## Where to find it
 
-Panel → **Audio** category → **Audio Bridge** card, right below Audio Sources. It is not behind
+Panel → **Audio** category → **Audio Bridge** card, below Audio Sources and Audio Analysis. It is not behind
 the Advanced toggle. The settings search finds it under "köprü" or "bridge", Settings → App has
 an "Open Audio Bridge Settings" button, and "Open Bridge Settings" in the bridge's status window
 or tray opens the panel on that card.

@@ -172,12 +172,12 @@ test('desteklenmeyen sistem: uygulama satırı yerine neden; aygıtlar seçilebi
   assert.match(read('src/main/main.js'), /const devs = list\.filter\(\(x\) => typeof x === 'string'\);\n\s+return devs\.length \? devs : \['default'\];/);
 });
 
-test('Ses Köprüsü kartı Ses kategorisinde, Ses Kaynakları’nın altında; aranabilir; Ayarlar’dan bağlantı', () => {
+test('Ses Köprüsü kartı Ses kategorisinde, Ses Kaynakları ve Ses Analizi’nin altında; aranabilir; Ayarlar’dan bağlantı', () => {
   const A = read('src/admin/admin.js');
   const iSrc = A.indexOf("id: 'sources',\n        category: 'audio',");
   const iBr = A.indexOf("id: 'audiobridge',\n        category: 'audio',");
   const iAn = A.indexOf("id: 'analysis',\n        category: 'audio',");
-  assert.ok(iSrc > 0 && iBr > iSrc && iBr < iAn, 'Ses Kaynakları ile Ses Analizi arasında');
+  assert.ok(iSrc > 0 && iAn > iSrc && iBr > iAn, 'sıra: Ses Kaynakları, Ses Analizi, Ses Köprüsü');
   assert.ok(!/id: 'audiobridge',\n\s+category: 'show'/.test(A));
   assert.match(A, /keywords: \['köprü', [^\]]*'bridge'/);
   assert.match(A, /\.concat\(e\.keywords \|\| \[\]\)/);
@@ -190,5 +190,5 @@ test('Ses Köprüsü kartı Ses kategorisinde, Ses Kaynakları’nın altında; 
   assert.match(read('src/main/main.js'), /const BRIDGE_CARD = \{ category: 'audio', section: 'Ses Köprüsü' \};/);
   assert.ok(read('src/main/preload-admin.js').includes("onGoto: (cb) => ipcRenderer.on('admin-goto'"));
   const I = read('src/shared/i18n.js');
-  for (const k of ['Ses Köprüsü Ayarlarını Aç', 'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.']) assert.ok(I.includes("'" + k + "':"), k);
+  for (const k of ['Ses Köprüsü Ayarlarını Aç', 'Ses köprüsü Ses kategorisinde, Ses Kaynakları ve Ses Analizi kartlarının altında.']) assert.ok(I.includes("'" + k + "':"), k);
 });

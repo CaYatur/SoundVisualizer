@@ -1016,7 +1016,7 @@
     'Ses yakalama': 'Audio capture',
     'Bu çıkış, bu makinede yakalanan sesle aynı olabilir: köprünün sesi yeniden yakalanıp yankı yapar. Başka bir çıkış seçin ya da sesi kısık tutun.': 'This output may be the device captured on this machine: the bridge audio would be captured again and echo. Pick another output or keep the volume low.',
     'Ses Köprüsü Ayarlarını Aç': 'Open Audio Bridge Settings',
-    'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.': 'The audio bridge is in the Audio category, below the Audio Sources card.',
+    'Ses köprüsü Ses kategorisinde, Ses Kaynakları ve Ses Analizi kartlarının altında.': 'The audio bridge is in the Audio category, below the Audio Sources and Audio Analysis cards.',
     'çalıyor': 'playing',
     'duraklatıldı': 'paused',
     'gönderiliyor': 'sending',

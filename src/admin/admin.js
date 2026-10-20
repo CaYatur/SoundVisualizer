@@ -2571,18 +2571,6 @@
         ],
       },
       {
-        /* Ses kategorisinde, Ses Kaynakları'nın hemen altında (#813): köprü
-           bir ses girişi. Ayarlar'dan bağlantı, aramada 'köprü'/'bridge'. */
-        id: 'audiobridge',
-        category: 'audio',
-        icon: 'wave',
-        wide: true,
-        title: 'Ses Köprüsü',
-        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
-        keywords: ['köprü', 'ağ köprüsü', 'ağdan ses', 'alıcı', 'gönderici', 'bridge', 'network bridge', 'receiver', 'sender'],
-        controls: [{ type: 'bridgepanel' }],
-      },
-      {
         id: 'analysis',
         category: 'audio',
         icon: 'chart-line',
@@ -2599,6 +2587,18 @@
             hint: 'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).',
           },
         ],
+      },
+      {
+        /* Ses kategorisinde, Ses Kaynakları ve Ses Analizi'nin altında (#813): köprü
+           bir ses girişi. Ayarlar'dan bağlantı, aramada 'köprü'/'bridge'. */
+        id: 'audiobridge',
+        category: 'audio',
+        icon: 'wave',
+        wide: true,
+        title: 'Ses Köprüsü',
+        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
+        keywords: ['köprü', 'ağ köprüsü', 'ağdan ses', 'alıcı', 'gönderici', 'bridge', 'network bridge', 'receiver', 'sender'],
+        controls: [{ type: 'bridgepanel' }],
       },
       {
         id: 'lighting',
@@ -3544,7 +3544,7 @@
           },
           { type: 'extendedrange', group: 'Panel' },
           { type: 'sectionlink', group: 'Ses Köprüsü', category: 'audio', section: 'Ses Köprüsü', text: 'Ses Köprüsü Ayarlarını Aç',
-            hint: 'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.' },
+            hint: 'Ses köprüsü Ses kategorisinde, Ses Kaynakları ve Ses Analizi kartlarının altında.' },
         ],
       },
       {
