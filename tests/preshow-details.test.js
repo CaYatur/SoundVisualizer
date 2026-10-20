@@ -126,15 +126,30 @@ test('çıkışlar: açılışta ölçülüyor (0 fps uyarısı yok), çizmeyen 
   assert.deepStrictEqual(two.items.map((i) => [i.label, i.state, i.hz]), [['Ekran 2', 'ok', 60], ['Ekran 3', 'info', 165]]);
 });
 
-test('ekran birincilden hızlıysa neden ve öneri; yavaş ekranda satır yok', () => {
-  const r = S.evaluate({ outputs: [{ label: 'Ekran 3', displayId: 3, fps: 75, target: 75, hz: 165, primaryHz: 75 }] });
+test('ekran ortak hızdan hızlıysa neden, sınırlayan ekran ve öneri; yavaş ekranda satır yok', () => {
+  // Ölçüldü: 75 Hz birincil + 165 Hz → ikisi 75; 60 Hz + 165 Hz → ikisi 60
+  const r = S.evaluate({
+    sharedRate: { hz: 75, label: 'Ekran 1 (Birincil)', primary: true },
+    outputs: [{ label: 'Ekran 3', displayId: 3, fps: 75, target: 75, hz: 165 }],
+  });
   const lim = by(r, 'refresh');
   assert.strictEqual(lim.state, 'info');
+  assert.strictEqual(lim.text, 'Windows bütün çıkış pencerelerini tek hızda çiziyor: birincil ekranın ve açık çıkışların en yavaşı');
   assert.deepStrictEqual(lim.parts, ['Ekran 3: 165 Hz → 75 fps']);
+  assert.deepStrictEqual(lim.limiter, { label: 'Ekran 1 (Birincil)', hz: 75, primary: true });
   assert.match(lim.hint, /ana ekran yapmayı deneyin/);
   assert.strictEqual(r.overall, 'ok');
+  const slow = S.evaluate({
+    sharedRate: { hz: 60, label: 'Ekran 2', primary: false },
+    outputs: [{ label: 'Ekran 2', fps: 60, target: 60, hz: 60 }, { label: 'Ekran 3', fps: 60, target: 60, hz: 165 }],
+  });
+  assert.strictEqual(by(slow, 'outputs').state, 'ok', '165 Hz ekranın 60 çizmesi kart yetersizliği değil');
+  assert.deepStrictEqual(by(slow, 'refresh').parts, ['Ekran 3: 165 Hz → 60 fps'], 'yalnız hızlı ekran');
+  assert.match(by(slow, 'refresh').hint, /o ekrandaki çıkışı kapatın/);
   assert.ok(!by(S.evaluate({ outputs: [{ label: 'Ekran 2', fps: 60, target: 60, hz: 60, primaryHz: 75 }] }), 'refresh'));
   assert.ok(!by(S.evaluate({ outputs: [{ label: 'Ekran 3', fps: 75, target: 75, hz: 165, primaryHz: 0 }] }), 'refresh'), 'Windows dışı: birincil sınırı yok');
+  assert.ok(!by(S.evaluate({ outputs: [{ label: 'Ekran 3', fps: 60, target: 60, cap: 60, hz: 165, primaryHz: 75 }] }), 'refresh'), 'sınır kullanıcının kendi kare sınırı');
+  assert.ok(by(S.evaluate({ outputs: [{ label: 'Ekran 3', fps: 75, target: 75, cap: 120, hz: 165, primaryHz: 75 }] }), 'refresh'), 'birincilden yüksek sınır yine Windows sınırına takılır');
 });
 
 test('bağlantılar: ölçüm null, açılış payı, güvenli klasör açma, betik sırası, çeviriler', () => {
@@ -146,11 +161,21 @@ test('bağlantılar: ölçüm null, açılış payı, güvenli klasör açma, be
   assert.match(main, /outputOpenedAt\.set\(win, Date\.now\(\)\);/);
   assert.match(main, /const young = now - \(outputOpenedAt\.get\(win\) \|\| 0\) < 3000;/);
   assert.match(main, /if \(typeof p !== 'string' \|\| !preshowPaths\.has\(p\)\) return false;/, 'yalnız denetimin verdiği yol');
+  // Ortak hız: birincil + açık çıkışların en yavaşı; hedef ve satır ona göre
+  assert.match(main, /if \(d && d\.refreshRate && \(!best \|\| d\.refreshRate < best\.hz\)\) best = /);
+  assert.match(main, /target: outputTarget\(displayId, fresh \? m\.cap : 0, shared\),/);
+  assert.match(main, /sharedRate: shared,/);
+  for (const k of ['Hızı en yavaş çıkış belirliyor.', 'Hızı birincil ekran belirliyor.']) assert.ok(read('src/main/preshow.js').includes(k));
   assert.match(main, /preshowPaths = new Set\(missing\.map\(\(x\) => x\.reveal\)\.filter\(Boolean\)\);/);
   // Açılacak yol yalnız VAR OLAN dosya/klasör: kayıp videonun klasörü yoksa düğme yok
   assert.match(main, /reveal: dir && fs\.existsSync\(dir\) \? dir : '', revealFile: false,/);
   assert.match(main, /kind === 'logo'\) \{\n      if \(libIds\.has\(r\.id\)\) continue;\n      out\.push\(Object\.assign\(\{\}, r, \{ name: r\.id, reason: 'absent', path: '', reveal: '', revealFile: false \}\)\);/);
   assert.match(read('src/admin/preshow-panel.js'), /if \(item\.reveal && window\.api\.preshowReveal\) \{/);
+  // Aynı sayfada yazan kişinin imleci 3 sn'lik sonuçla gitmesin (ölçüldü)
+  const pp = read('src/admin/preshow-panel.js');
+  assert.match(pp, /return !!\(a && \/\^\(INPUT\|TEXTAREA\|SELECT\)\$\/\.test\(a\.tagName\) && !a\.closest\('\.preshow-panel'\)\);/);
+  assert.match(pp, /document\.addEventListener\('focusout', \(\) => \{ deferred = false; setTimeout\(redraw, 0\); \}, \{ once: true \}\);/);
+  assert.match(pp, /if \(changed\) redraw\(\);/);
   assert.match(read('src/main/preload-admin.js'), /preshowReveal: \(p\) => ipcRenderer\.invoke\('preshow:reveal', p\)/);
   const html = read('src/admin/index.html');
   assert.ok(html.indexOf('../shared/preshow-refs.js') > 0 && html.indexOf('../shared/preshow-refs.js') < html.indexOf('preshow-panel.js'));
@@ -177,6 +202,9 @@ test('bağlantılar: ölçüm null, açılış payı, güvenli klasör açma, be
   for (const m of panel.matchAll(/tr\('([^']+)'\)/g)) strs.add(m[1]);
   for (const m of pre.matchAll(/add\('[a-z]+', '[a-z]+', '([^']+)'/g)) strs.add(m[1]);
   for (const m of pre.matchAll(/hint: '([^']+)'/g)) strs.add(m[1]);
+  // Ayrıntı başlıkları (group() bağımsız değişkeni) ve sayı etiketi
+  ['Canlı sahnede', 'Yalnız kayıtlı sahnelerde', 'Geçtiği yer sayısı:'].forEach((s) => { assert.ok(panel.includes("'" + s + "'"), s); strs.add(s); });
+  assert.ok(!panel.includes("tr('yer')"), 'İngilizcede "1 places" çıkıyordu');
   assert.ok(strs.size >= 40, String(strs.size));
   const quoted = (s) => "'" + s.replace(/'/g, "\\'") + "':";
   for (const s of strs) assert.ok(i18n.includes(quoted(s)), 'çeviri yok: ' + s);

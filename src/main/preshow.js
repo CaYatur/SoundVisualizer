@@ -50,11 +50,13 @@ function missingItems(m) {
 
 /* Denetimler. Girdi:
      displays: [{ id, label }]
-     outputs: [{ displayId, label, fps, target, hz, primaryHz, paused,
+     outputs: [{ displayId, label, fps, target, cap, hz, primaryHz, paused,
                  measuring, stale }]
        measuring — pencere ilk kare hızı ölçümünü henüz bitirmedi (ilk ~1 sn)
        stale     — pencere açık ama ölçer iletisi kesildi: çizmiyor
-       hz / primaryHz — ekranın ve birincil ekranın yenileme hızı
+       hz — ekranın yenileme hızı; cap — kullanıcının kare sınırı
+     sharedRate: { hz, label, primary } — Windows'ta bütün pencerelerin
+       ortak hızı ve onu belirleyen ekran (yoksa çıkışların primaryHz'i)
      wantedDisplays: [id]   — ayarda çıkış için seçili ekranlar
      audio: { wanted, ageMs, level }
      redundancy: { role, state, peers, problem, show }
@@ -110,15 +112,26 @@ function evaluate(input) {
     } else {
       add('outputs', 'info', 'Çıkışlar sessizlikte duraklatılmış', [], extra);
     }
-    /* Ekran birincilden hızlıysa: Windows'ta Chromium her pencereyi
-       birincil ekranın dikey senkronuna bağlıyor (ölçüldü: 165 Hz ekran
-       75 Hz birincille 75 fps). Hedef doğru; kullanıcı ekranın hızını
-       bekliyor, nedeni burada. */
-    const capped = outputs.filter((w) => num(w.primaryHz, 0) > 0 && num(w.hz, 0) > num(w.primaryHz, 0) + 1);
+    /* Ekran ortak hızdan hızlıysa: Windows'ta Chromium bütün pencereleri tek
+       dikey senkronla çiziyor — birincil ekranın ve açık çıkışların en
+       yavaşı (ölçümler main.js sharedOutputRate'te). Hedef doğru; kullanıcı
+       ekranın kendi hızını bekliyor, nedeni ve sınırlayan ekran burada.
+       `sharedRate` yoksa eski girdi: her çıkışın `primaryHz`'i. */
+    const sr = o.sharedRate && num(o.sharedRate.hz, 0) > 0 ? o.sharedRate : null;
+    const limitOf = (w) => (sr ? num(sr.hz, 0) : num(w.primaryHz, 0));
+    // Kullanıcının kendi kare sınırı ortak hızın altındaysa sınır o: satır yok
+    const capped = outputs.filter((w) => limitOf(w) > 0 && num(w.hz, 0) > limitOf(w) + 1 &&
+      !(num(w.cap, 0) > 0 && num(w.cap, 0) <= limitOf(w)));
     if (capped.length) {
-      add('refresh', 'info', 'Windows uygulama pencerelerini birincil ekranın yenileme hızına bağlıyor',
-        capped.map((w) => (w.label || String(w.displayId)) + ': ' + Math.round(num(w.hz, 0)) + ' Hz → ' + Math.round(num(w.primaryHz, 0)) + ' fps'),
-        { hint: 'Daha yüksek kare hızı için bu ekranı Windows ekran ayarlarında ana ekran yapmayı deneyin. Birincil ekrandan yavaş ekranlar kendi hızlarında kalır.' });
+      const byOutput = sr && !sr.primary;
+      add('refresh', 'info', 'Windows bütün çıkış pencerelerini tek hızda çiziyor: birincil ekranın ve açık çıkışların en yavaşı',
+        capped.map((w) => (w.label || String(w.displayId)) + ': ' + Math.round(num(w.hz, 0)) + ' Hz → ' + Math.round(limitOf(w)) + ' fps'),
+        {
+          limiter: sr ? { label: sr.label || '', hz: Math.round(num(sr.hz, 0)), primary: !!sr.primary } : null,
+          hint: byOutput
+            ? 'Hızı en yavaş çıkış belirliyor. Hızlı ekranların kendi hızında çizmesi için o ekrandaki çıkışı kapatın ya da daha hızlı bir ekrana taşıyın.'
+            : 'Hızı birincil ekran belirliyor. Daha yüksek kare hızı için hızlı ekranı Windows ekran ayarlarında ana ekran yapmayı deneyin.',
+        });
     }
   }
 

@@ -3696,15 +3696,35 @@ let preshowPaths = new Set();
 let lastAudioFrameAt = 0;
 let lastMeterLevel = 0;
 
-function outputTarget(displayId, cap) {
+/* Windows'ta Chromium bütün pencereleri TEK bir dikey senkronla çiziyor:
+   birincil ekranın ve çıkış penceresi açık ekranların EN YAVAŞI. Ölçüldü
+   (75 Hz birincil, 60 Hz ve 165 Hz ikincil; pencere başına rAF):
+     yalnız 165           → 75
+     75 birincil + 165    → 75, 75
+     60 + 165             → 60, 60
+     75 birincil + 60     → 60, 60   (birincil bile 60'a iniyor)
+   Kilidi kaldıran --disable-frame-rate-limit dikey senkronu da bırakıyor
+   (ölçüldü: 533–629 fps, kareler ekrana hizasız); kullanılmıyor.
+   Dönen: { hz, label, primary } — ortak hız ve onu belirleyen ekran;
+   Windows dışında null (her pencere kendi ekranında). */
+function sharedOutputRate(list) {
+  if (process.platform !== 'win32') return null;
+  const displays = list || getDisplayList();
+  const primary = displays.find((d) => d.isPrimary);
+  let best = primary && primary.refreshRate ? { hz: primary.refreshRate, label: primary.label, primary: true } : null;
+  for (const [displayId, win] of visualizerWins) {
+    if (!win || win.isDestroyed()) continue;
+    const d = displays.find((x) => String(x.id) === String(displayId));
+    if (d && d.refreshRate && (!best || d.refreshRate < best.hz)) best = { hz: d.refreshRate, label: d.label, primary: !!d.isPrimary };
+  }
+  return best;
+}
+
+function outputTarget(displayId, cap, shared) {
   const all = screen.getAllDisplays();
   const d = all.find((x) => String(x.id) === String(displayId));
   let hz = (d && d.displayFrequency) || 60;
-  /* Windows'ta Chromium her pencereyi BİRİNCİL ekranın dikey senkronuna
-     bağlıyor (ölçüldü: 165 Hz ekrandaki pencere 75 fps); hedef ikisinin
-     küçüğü. Kilidi kaldıran --disable-frame-rate-limit dikey senkronu da
-     bırakıyor (ölçüldü: 533–629 fps, kareler ekrana hizasız). */
-  if (process.platform === 'win32') hz = Math.min(hz, screen.getPrimaryDisplay().displayFrequency || hz);
+  if (shared && shared.hz) hz = Math.min(hz, shared.hz);
   return cap > 0 ? Math.min(cap, hz) : hz;
 }
 
@@ -3749,7 +3769,7 @@ async function preshowCheck() {
   const cfg = currentConfig || {};
   const list = getDisplayList();
   const displays = list.map((d) => ({ id: d.id, label: d.label }));
-  const primaryHz = (screen.getPrimaryDisplay().displayFrequency) || 0;
+  const shared = sharedOutputRate(list);
   const now = Date.now();
   const outputs = [];
   for (const [displayId, win] of visualizerWins) {
@@ -3766,9 +3786,9 @@ async function preshowCheck() {
       measuring: fresh ? !!m.measuring : young,
       stale: !fresh && !young,
       paused: fresh ? !!m.paused : false,
-      target: outputTarget(displayId, fresh ? m.cap : 0),
+      target: outputTarget(displayId, fresh ? m.cap : 0, shared),
+      cap: fresh ? m.cap : 0,
       hz: d ? d.refreshRate : 0,
-      primaryHz: process.platform === 'win32' ? Math.round(primaryHz) : 0,
     });
   }
   // Sahnenin başvurduğu dosyalar: video yolları, logo kitaplığı, kullanıcı presetleri
@@ -3785,6 +3805,7 @@ async function preshowCheck() {
     displays,
     wantedDisplays: (cfg.display && Array.isArray(cfg.display.ids)) ? cfg.display.ids : [],
     outputs,
+    sharedRate: shared,
     audio: { wanted: captureWanted(), ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
     missing,
     redundancy: redundancyStatus(),

@@ -49,6 +49,26 @@
     'media:absent': 'Dosya taşındıysa yeni yerini gösterin; bütün başvurular ona çevrilir.',
   };
 
+  /* Yeniden çizim bütün sayfayı kurar. Aynı sayfadaki Yedeklilik kartında
+     adres ya da parola yazan kişi her 3 sn'lik sonuçta imleci kaybediyordu
+     (ölçüldü: değer kaldı, odak gitti). Odak başka bir giriş alanındaysa
+     çizim, alandan çıkılınca yapılır. */
+  let deferred = false;
+  function typingElsewhere() {
+    const a = document.activeElement;
+    return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('.preshow-panel'));
+  }
+  function redraw() {
+    if (!document.querySelector('.preshow-panel')) return;
+    if (typingElsewhere()) {
+      if (deferred) return;
+      deferred = true;
+      document.addEventListener('focusout', () => { deferred = false; setTimeout(redraw, 0); }, { once: true });
+      return;
+    }
+    P().rerender();
+  }
+
   async function run() {
     if (busy || !window.api || !window.api.preshowCheck) return;
     busy = true;
@@ -56,7 +76,7 @@
       const r = await window.api.preshowCheck();
       const changed = JSON.stringify(r) !== JSON.stringify(last);
       last = r;
-      if (changed && document.querySelector('.preshow-panel')) P().rerender();
+      if (changed) redraw();
     } catch { /* ana süreç yanıt vermedi */ } finally { busy = false; }
   }
 
@@ -108,7 +128,7 @@
     const r = await window.api.pickVideo();
     if (!r) return;
     const ok = await confirmed(tr('Bu videonun bütün başvuruları seçilen dosyaya çevrilecek:') + '\n\n' + (item.name || item.id) + '\n→ ' + r.name +
-      '\n\n' + item.where.length + ' ' + tr('yer'), 'Çevir');
+      '\n\n' + tr('Geçtiği yer sayısı:') + ' ' + item.where.length, 'Çevir');
     if (!ok) return;
     const n = applyReplace(item, r.url);
     P().toast(n ? tr('Başvurular güncellendi.') : tr('Değişecek başvuru bulunamadı.'), n ? 'ok' : 'warn');
@@ -116,7 +136,7 @@
 
   async function drop(item) {
     const ok = await confirmed(tr('Bu başvuru bütün sahnelerden kaldırılacak:') + '\n\n' + (KIND[item.kind] ? tr(KIND[item.kind]) + ': ' : '') + (item.name || item.id) +
-      '\n\n' + item.where.length + ' ' + tr('yer'), 'Kaldır');
+      '\n\n' + tr('Geçtiği yer sayısı:') + ' ' + item.where.length, 'Kaldır');
     if (!ok) return;
     const n = applyReplace(item, null);
     P().toast(n ? tr('Başvuru kaldırıldı.') : tr('Değişecek başvuru bulunamadı.'), n ? 'ok' : 'warn');
@@ -172,8 +192,27 @@
   function detail(c) {
     const el = P().el;
     const box = el('div', { class: 'preshow-detail', id: 'preshow-detail-' + c.id });
-    if (c.id === 'files') (c.items || []).forEach((it) => box.appendChild(fileItem(it)));
+    if (c.id === 'files') {
+      /* Satırın sayısı canlı sahnedekiler; liste hepsini gösterir — iki
+         başlıkla ayrılır ki "1" yazan satırın altında 3 öğe kafa karıştırmasın. */
+      const items = c.items || [];
+      const live = items.filter((it) => Refs().live(it));
+      const saved = items.filter((it) => !Refs().live(it));
+      const group = (title, list) => {
+        if (!list.length) return;
+        if (live.length && saved.length) box.appendChild(el('div', { class: 'group-label', text: title }));
+        list.forEach((it) => box.appendChild(fileItem(it)));
+      };
+      group('Canlı sahnede', live);
+      group('Yalnız kayıtlı sahnelerde', saved);
+    }
     else if (c.id === 'outputs') (c.items || []).forEach((it) => box.appendChild(outputItem(it)));
+    else if (c.id === 'refresh' && c.limiter) {
+      box.appendChild(el('div', { class: 'preshow-out info' }, [
+        el('span', { text: 'Hızı belirleyen ekran' }), el('span', { text: ': ' }),
+        user(c.limiter.label), sep(), user(c.limiter.hz + ' Hz'),
+      ]));
+    }
     if (c.hint) box.appendChild(el('div', { class: 'preshow-fix dim-hint', text: c.hint }));
     return box;
   }
