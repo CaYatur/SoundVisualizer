@@ -70,6 +70,13 @@
     });
     return P().row(label, inp);
   }
+  function checkRow(label, value, onSet) {
+    const el = P().el;
+    const c = el('input', { type: 'checkbox' });
+    c.checked = !!value;
+    c.addEventListener('change', () => onSet(c.checked));
+    return el('label', { class: 'chk red-chk' }, [c, el('span', { text: label })]);
+  }
   function selectRow(label, options, value, onSet) {
     const el = P().el;
     const sel = el('select', { class: 'sel-ctrl' });
@@ -190,6 +197,10 @@
     out.push(['miss', 'Kayıp atış', String(s.missed || 0), { tone: s.missed ? 'warn' : '', note: (s.beats || 0) + ' ' + tr('alındı') }]);
     const off = s.offsetMs;
     out.push(['clk', 'Saat farkı', off == null ? '—' : (off > 0 ? '+' : '') + Math.round(off) + ' ms', { tone: (s.offsetSamples || 0) < 20 ? 'dim' : '', note: (s.offsetSamples || 0) + ' ' + tr('örnek') }]);
+    // Vuruş eşlemesi (#815): birincilin temposu ve bu makinenin algısının ızgaraya uzaklığı
+    const tr0 = s.tempoRemote;
+    out.push(['bpm', 'Birincilin temposu', tr0 && tr0.bpm ? Math.round(tr0.bpm) + ' BPM' : '—', { tone: tr0 && tr0.bpm ? '' : 'dim', note: s.tempo && s.tempo.following ? tr('ızgara izleniyor') : '' }]);
+    out.push(['perr', 'Faz farkı p95', s.tempo && s.tempo.phaseErrP95 != null ? s.tempo.phaseErrP95 + ' ms' : '—', { tone: s.tempo && s.tempo.phaseErrP95 > 30 ? 'warn' : '', note: tr('kendi algısı') }]);
     out.push(['since', s.state === 'active' ? 'Yetkide' : 'Bu durumda', s.since ? dur(now - s.since) : '—', { tone: beating ? '' : 'dim', note: s.state === 'active' && s.takenBy ? tr(s.takenBy === 'auto' ? 'kendiliğinden' : 'elle') : '' }]);
     return out;
   }
@@ -249,6 +260,7 @@
     } else if (status.role === 'primary' && status.holder === 'peer') {
       nodes.push(el('div', { class: 'br-warn', text: 'Yetki yedekte: bu makinenin ışık ve OSC çıkışı kapalı, Otomatik VJ ve zaman çizelgesi karar vermiyor.' }));
     }
+    nodes.push(checkRow('Alarmda Ses Çal', red().alarmSound === true, (v) => { red().alarmSound = v; P().push(true); }));
     if (status.role === 'backup' && status.autoHeld && status.state !== 'active') {
       const heldLost = status.autoHeld && status.state === 'lost';
       nodes.push(el('div', { class: 'br-warn', text: heldLost
@@ -407,9 +419,27 @@
       });
       nodes.push(fold('scenes', 'Birincilin kayıtlı sahneleri', scenes.length, list));
     }
-    if (vids.length) nodes.push(fold('videos', 'Bu makineye kopyalanmış videolar', vids.length, mediaList(vids)));
+    if (vids.length) {
+      nodes.push(fold('videos', 'Bu makineye kopyalanmış videolar', vids.length, mediaList(vids)));
+      nodes.push(el('div', { class: 'lay-file' }, [el('button', { class: 'btn small danger', type: 'button', icon: 'trash', text: 'Kopyalanmış Videoları Kaldır', onclick: () => removeVideos(vids) })]));
+    }
     else nodes.push(el('div', { class: 'br-sub', text: 'Birincilin sahnesindeki videolar bu makinede yoksa boş görünür; "Birincilden Paket İste" ile "Video dosyalarını da kopyala"yı seçin.' }));
     return group(nodes, 'red-space');
+  }
+
+  /* Kopyalanmış videoları kaldır (#815): yalnız paket klasörü; presetler ve
+     logolar kalır. Oynayan video kilitliyse sonraki temizlikte gider. */
+  async function removeVideos(vids) {
+    if (!window.api.redundancyRemoveVideos) return;
+    const total = vids.reduce((n, v) => n + (Number(v.size) || 0), 0);
+    const msg = tr('Bu makineye kopyalanan videolar silinecek; presetler ve logolar kalır. Birincilin kopyası çizilirken bu videolar boş görünür.') + '\n\n' + vids.length + ' · ' + bytes(total);
+    if (!(await P().confirm(msg, { okText: tr('Kaldır') }))) return;
+    let r = null;
+    try { r = await window.api.redundancyRemoveVideos(); } catch { /* */ }
+    if (r && r.ok) P().toast(tr('Videolar kaldırıldı:') + ' ' + bytes(r.freed) + (r.locked ? ' · ' + r.locked + ' ' + tr('kullanımda, sonra silinecek') : ''), 'ok');
+    else P().toast(tr('Kaldırılamadı.'), 'err');
+    try { status = await window.api.redundancyStatus(); } catch { /* */ }
+    P().rerender();
   }
 
   async function importScene(sc) {
@@ -765,8 +795,8 @@
     const push = () => P().push(true);
     const nodes = [head('Bağlantı', {
       help: role === 'backup'
-        ? 'Yedek, birincilin yayın sunucusuna bağlanır. Parola iki makinede aynı olmalı. Atış aralığı ve kayıp eşiği Gelişmiş görünümde; eşik en az üç atış.'
-        : 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.',
+        ? 'Yedek, birincilin yayın sunucusuna bağlanır. Parola iki makinede aynı olmalı. Atış aralığı ve kayıp eşiği Gelişmiş görünümde; eşik en az üç atış. Yedek adres: OBS sayfası bu makineye ulaşamazsa öbür makinenin yayın sayfasına geçer; iki makineye de birbirinin adresini (jetonuyla) yazın.'
+        : 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın. Yedek adres: OBS sayfası bu makineye ulaşamazsa öbür makinenin yayın sayfasına geçer; iki makineye de birbirinin adresini (jetonuyla) yazın.',
     })];
     // Eşleşme parolası: iki makinede aynı
     const secret = el('input', { class: 'p-in wide', type: 'text', value: r.secret || '', autocomplete: 'off', spellcheck: 'false', 'data-user-attr': '' });
@@ -788,7 +818,17 @@
         nodes.push(numRow('Kalp Atışı (ms)', r.heartbeatMs || 250, 50, 5000, 10, (v) => { r.heartbeatMs = v; push(); }));
         nodes.push(numRow('Kayıp Eşiği (ms)', r.timeoutMs || 1500, 150, 60000, 50, (v) => { r.timeoutMs = v; push(); }));
       }
+      nodes.push(checkRow('İzlerken Birincilin Vuruşunu Kullan', r.phaseLock !== false, (v) => { r.phaseLock = v; push(); }));
     }
+    /* Yayın sayfasının yedek adresleri (#815): OBS/tarayıcı kaynağı bu
+       makineye ulaşamazsa sırayla bunlara geçer. Ayar yayın çıkışında
+       saklanır (kurulum ayarı, aktarılmaz). */
+    const cfgAll = P().cfg();
+    if (!cfgAll.stream || typeof cfgAll.stream !== 'object') cfgAll.stream = {};
+    const fb = el('textarea', { class: 'p-in wide red-fallback', rows: '2', spellcheck: 'false', placeholder: 'http://192.168.1.21:8722/overlay?token=…', 'data-user-attr': '' });
+    fb.value = cfgAll.stream.fallbackUrls || '';
+    fb.addEventListener('change', () => { cfgAll.stream.fallbackUrls = fb.value.trim(); push(); });
+    nodes.push(P().row('Yayın Sayfasının Yedek Adresleri', fb));
     return group(nodes, 'red-conn');
   }
 
@@ -830,6 +870,82 @@
     return el('div', { class: 'redundancy-panel' }, nodes);
   }
 
+  /* DURUM BANDI ve ALARM (#815). Rol açıkken her sekmenin üstünde: rol ve
+     durum, yetki ve dönem, son atış, saat farkı, titreme, ses girişi. Renk:
+     yeşil izliyor / yedek bağlı, sarı kayıp / bekliyor / çitli, kırmızı
+     yetkide yedek ya da iki yönetici. Devralma, iki yönetici ve birincilin
+     geri çekilmesi alarm: bant yanıp söner, "Tamam" susturur; ayar açıksa
+     kısa bir ses (varsayılan kapalı: canlı mekânda karışıma sızmasın). */
+  let alarm = null;
+  let prevBanner = null;
+  function beep() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const ac = new AC();
+      [0, 0.28].forEach((d) => {
+        const o = ac.createOscillator();
+        const g = ac.createGain();
+        o.frequency.value = 880;
+        g.gain.setValueAtTime(0.0001, ac.currentTime + d);
+        g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + d + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + d + 0.22);
+        o.connect(g).connect(ac.destination);
+        o.start(ac.currentTime + d);
+        o.stop(ac.currentTime + d + 0.25);
+      });
+      setTimeout(() => { try { ac.close(); } catch { /* */ } }, 900);
+    } catch { /* ses yok */ }
+  }
+  const ALARM_TEXT = { takeover: 'Yedek yetkiyi aldı', split: 'İki yönetici: iki makine de yetkide', stepped: 'Yetki yedekte' };
+  function noteAlarm(s, p) {
+    if (!p || s.role !== p.role) return;
+    let kind = '';
+    if (s.split && !p.split) kind = 'split';
+    else if (s.role === 'backup' && s.state === 'active' && p.state !== 'active') kind = 'takeover';
+    else if (s.role === 'primary' && s.holder === 'peer' && p.holder !== 'peer') kind = 'stepped';
+    if (!kind) return;
+    alarm = { kind, at: Date.now() };
+    if (red().alarmSound === true) beep();
+  }
+  function bannerTone(s) {
+    if (s.split) return 'err';
+    if (s.role === 'backup') return s.state === 'active' ? 'err' : s.state === 'following' && !s.autoHeld ? 'ok' : 'warn';
+    if (s.role === 'primary') return !s.serverRunning || s.fenced || s.holder === 'peer' ? 'warn' : s.peers ? 'ok' : 'warn';
+    return 'off';
+  }
+  function updateBanner(s) {
+    if (typeof document === 'undefined' || !document.getElementById) return;
+    const b = document.getElementById('redBanner');
+    if (!b) return;
+    noteAlarm(s, prevBanner);
+    prevBanner = { role: s.role, state: s.state, holder: s.holder, split: s.split };
+    if (!s || s.role === 'off' || !s.role) { b.classList.add('hidden'); alarm = null; return; }
+    const el = P().el;
+    const tone = bannerTone(s);
+    b.className = 'red-banner ' + tone + (alarm ? ' alarm' : '');
+    b.textContent = '';
+    const role = tr(s.role === 'primary' ? 'Birincil' : 'Yedek');
+    b.appendChild(el('span', { class: 'rb-main' }, [el('span', { class: 'rb-dot' }), el('span', { text: role + ' · ' + tr(alarm ? ALARM_TEXT[alarm.kind] : stateText(s)) })]));
+    const stat = (k, v) => el('span', { class: 'rb-stat' }, [el('span', { text: tr(k) + ' ' }), el('b', { text: String(v) })]);
+    b.appendChild(stat('Yetki', tr(HOLDER_TEXT[s.holder] || '—') + ' · ' + (s.term || 0)));
+    if (s.role === 'backup' && !s.problem) {
+      const since = s.lastBeat ? Date.now() - s.lastBeat : null;
+      b.appendChild(stat('Son atış', since == null ? '—' : Math.round(since) + ' ms'));
+      b.appendChild(stat('Saat farkı', s.offsetMs == null ? '—' : Math.round(s.offsetMs) + ' ms'));
+      b.appendChild(stat('Titreme', s.jitterMs == null ? '—' : s.jitterMs + ' ms'));
+    } else if (s.role === 'primary') {
+      b.appendChild(stat('Yedek', tr(s.peers ? 'Bağlı' : 'Yok')));
+      if (s.peerBeat) b.appendChild(stat('Son atış', Math.round(s.peerBeat.ageMs) + ' ms'));
+    }
+    const pi = s.peerInfo;
+    if (pi && pi.bridge) b.appendChild(stat('Ses', pi.bridge));
+    const acts = el('span', { class: 'rb-acts' });
+    if (alarm) acts.appendChild(el('button', { class: 'btn small', type: 'button', text: 'Tamam', onclick: () => { alarm = null; updateBanner(status); } }));
+    acts.appendChild(el('button', { class: 'btn small ghost', type: 'button', text: 'Yedekliliği Aç', onclick: () => { if (P().jumpTo) P().jumpTo({ category: 'show', section: 'redundancy' }); } }));
+    b.appendChild(acts);
+  }
+
   async function init() {
     if (started || !window.api || !window.api.redundancyStatus) return;
     started = true;
@@ -842,6 +958,7 @@
       const prev = sig(status);
       status = s || { role: 'off' };
       window.SVRedundancyState = status;
+      updateBanner(status);
       const next = sig(status);
       /* Yazarken imleç kaybolmasın: ilerleme güncellemesi odak bir alandayken
          beklenir (#812, aynı kural gösteri öncesi denetimde). */
@@ -850,6 +967,8 @@
       if (prev !== next && document.querySelector('.redundancy-panel') && !typing) P().rerender();
       else updateTiles(status);
     });
+    // Birincilin tempo ızgarası (#815): izleyen yedeğin tempo motoru onu kullanır
+    if (window.api.onRedundancyTempo) window.api.onRedundancyTempo((g) => { if (window.SVAutoVJ && window.SVAutoVJ.followGrid) window.SVAutoVJ.followGrid(g); });
     // Öteki makineden gelen gösteri komutu ve önizleme karesi (#814)
     if (window.api.onRedundancyCtl) window.api.onRedundancyCtl((d) => runCtl(d));
     if (window.api.onRedundancyMonitor) {
@@ -865,7 +984,7 @@
     if (window.api.onShowClockFollow) {
       window.api.onShowClockFollow((a) => { if (window.SVTimelinePanel && window.SVTimelinePanel.followAnchor) window.SVTimelinePanel.followAnchor(a); });
     }
-    try { status = await window.api.redundancyStatus(); window.SVRedundancyState = status; } catch { /* */ }
+    try { status = await window.api.redundancyStatus(); window.SVRedundancyState = status; updateBanner(status); } catch { /* */ }
   }
 
   // Otomatik VJ gibi kendi karar veren işler: yedek birincili izlerken durur
@@ -881,5 +1000,5 @@
     return !!(s && s.role === 'primary' && s.holder === 'peer');
   }
 
-  window.SVRedundancyPanel = { panel, init, following, steppedBack, _tileSpecs: tileSpecs };
+  window.SVRedundancyPanel = { panel, init, following, steppedBack, _tileSpecs: tileSpecs, _bannerTone: bannerTone, _noteAlarm: (s, p) => { noteAlarm(s, p); const a = alarm; alarm = null; return a; } };
 })();

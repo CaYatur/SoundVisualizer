@@ -474,6 +474,28 @@ function collect(root, keptItems, fsi) {
   try { for (const d of F.readdirSync(root)) if (/^(old|next)-[0-9a-f]+$/.test(d)) rmrf(path.join(root, d), F); } catch { /* */ }
 }
 
+/* KOPYALANMIŞ VİDEOLARI KALDIR (#815). Videolar yalnız operatör açıkça
+   kaldırınca gider (#812). Manifest videosuz yeniden yazılır (tek adım),
+   sonra depodaki kullanılmayan dosyalar silinir; oynayan, kilitli bir
+   video kalır ve sonraki temizlikte gider. Preset ve logolara dokunulmaz;
+   paket klasörünün dışında hiçbir şey silinmez. Dönen: kaldırılan video
+   sayısı, boşalan bayt ve kilitli kalan sayısı. */
+function removeMedia(root, fsi) {
+  const F = fsi || fs;
+  const man = readJson(path.join(root, 'current', 'manifest.json'), F);
+  if (!man || !Array.isArray(man.items)) return { ok: false, error: 'none' };
+  const media = man.items.filter((it) => it && it.kind === 'media');
+  if (!media.length) return { ok: true, removed: 0, freed: 0, locked: 0 };
+  const kept = man.items.filter((it) => it && it.kind !== 'media');
+  const files = media.map((it) => ({ file: itemFile(root, it), size: Number(it.size) || 0 }));
+  writeJsonAtomic(path.join(root, 'current', 'manifest.json'), Object.assign({}, man, { items: kept, mediaRemovedAt: Date.now() }), F);
+  collect(root, kept, F);
+  let freed = 0;
+  let locked = 0;
+  for (const f of files) { if (F.existsSync(f.file)) locked++; else freed += f.size; }
+  return { ok: true, removed: media.length, freed, locked };
+}
+
 // Son doğrulanmış kopyanın manifesti (yoksa null)
 function currentManifest(root, fsi) {
   return readJson(path.join(root, 'current', 'manifest.json'), fsi);
@@ -627,5 +649,5 @@ function createPull(opts) {
 module.exports = {
   linkOrCopy,
   FORMAT, CHUNK, KINDS, sha256, entryName, hashFile, chunkCount, buildManifest, validateManifest,
-  readChunk, retrySync, retryAsync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, storePath, collect, createPull,
+  readChunk, retrySync, retryAsync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, storePath, collect, removeMedia, createPull,
 };

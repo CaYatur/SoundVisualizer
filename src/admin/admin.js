@@ -523,6 +523,8 @@
     rerender: () => render(),
     // "Gelişmiş" görünüm açık mı (yedeklilik: atış aralığı ve eşik)
     advanced: () => advancedOn,
+    // Bir bölüme git (yedeklilik durum bandı, #815)
+    jumpTo: (e) => jumpTo(Object.assign({ path: null, advanced: false }, e)),
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
     openSettings: () => setCategory('settings'),
     isBlackedOut: () => isBlackedOut(),

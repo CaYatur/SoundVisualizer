@@ -77,11 +77,41 @@
   };
   window.SVOverlayStatus = status;
 
-  function wsUrl() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  /* YEDEK ADRESLER (#815). İlk uç bu sayfanın kendi sunucusu; ardından
+     uygulamanın yazdığı öbür makineler (window.__SV_FALLBACK). Aynı uca üç
+     deneme tutmazsa sıradakine geçilir. Yedekteyken 5 sn'de bir ilk uç
+     yoklanır; açılınca ona dönülür. Sayfa son karesini ve ayarını korur:
+     geçişte boş kalmaz. */
+  const proto0 = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const endpoints = [{ ws: `${proto0}//${location.host}/ws`, token }].concat(
+    (Array.isArray(window.__SV_FALLBACK) ? window.__SV_FALLBACK : []).filter((f) => f && typeof f.ws === 'string').slice(0, 4)
+      .map((f) => ({ ws: f.ws, token: typeof f.token === 'string' ? f.token : '' })));
+  let cur = 0;
+  let failsHere = 0;
+  let probeTimer = null;
+  function urlFor(i) {
+    const e = endpoints[i] || endpoints[0];
     const q = new URLSearchParams({ kind });
-    if (token) q.set('token', token);
-    return `${proto}//${location.host}/ws?${q.toString()}`;
+    if (e.token) q.set('token', e.token);
+    return `${e.ws}?${q.toString()}`;
+  }
+  function wsUrl() { return urlFor(cur); }
+  function probeHome() {
+    if (probeTimer || endpoints.length < 2) return;
+    probeTimer = setInterval(() => {
+      if (cur === 0) { clearInterval(probeTimer); probeTimer = null; return; }
+      let p;
+      try { p = new WebSocket(urlFor(0)); } catch { return; }
+      p.onopen = () => {
+        try { p.close(); } catch { /* */ }
+        cur = 0;
+        failsHere = 0;
+        status.endpoint = 0;
+        // Yedekteki bağlantı kapanır; onclose hemen ilk uca bağlanır
+        try { if (ws) ws.close(); } catch { /* */ }
+      };
+      p.onerror = () => { try { p.close(); } catch { /* */ } };
+    }, 5000);
   }
 
   /* Saydamlık yayın katmanında uygulama penceresiyle AYNI ayardır
@@ -139,8 +169,11 @@
 
     ws.onopen = () => {
       retry = 0;
+      failsHere = 0;
       status.connectedAt = Date.now();
+      status.endpoint = cur;
       setStatus('connected');
+      if (cur !== 0) probeHome();
     };
 
     ws.onmessage = (ev) => {
@@ -236,8 +269,17 @@
   }
 
   function scheduleRetry() {
+    // Aynı uca üç deneme: tutmazsa sıradaki uç, hemen
+    if (endpoints.length > 1 && ++failsHere >= 3) {
+      failsHere = 0;
+      cur = (cur + 1) % endpoints.length;
+      status.endpoint = cur;
+      retry = 0;
+      setTimeout(connect, 100);
+      return;
+    }
     retry = Math.min(retry + 1, 10);
-    setTimeout(connect, Math.min(5000, 250 * retry));
+    setTimeout(connect, cur === 0 && !status.connectedAt ? Math.min(5000, 250 * retry) : Math.min(1000, 250 * retry));
   }
 
   function onAudio(buffer) {

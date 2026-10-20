@@ -1784,6 +1784,26 @@ input[type="number"]::-webkit-inner-spin-button {
 .red-mon { display: block; width: 100%; height: auto; border-radius: var(--radius-sm, 8px); border: 1px solid var(--line); background: var(--card2); }
 .red-split { font-size: 12px; }
 @media (max-width: 640px) { .red-peer { grid-template-columns: 1fr; } }
+/* Yedeklilik durum bandı (#815): rol açıkken her sekmede; renk durumdan.
+   Alarmda (devralma, iki yönetici) yanıp söner, "Tamam" ile susar. */
+.red-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 6px 18px; font-size: 12px; border-bottom: 1px solid var(--line); background: var(--card2); color: var(--text); flex-shrink: 0; }
+.red-banner.ok { background: rgb(var(--ok-rgb) / .1); border-bottom-color: rgb(var(--ok-rgb) / .35); }
+.red-banner.warn { background: rgb(var(--warn-rgb) / .12); border-bottom-color: rgb(var(--warn-rgb) / .4); }
+.red-banner.err { background: rgb(var(--danger-rgb) / .14); border-bottom-color: rgb(var(--danger-rgb) / .45); }
+.red-banner .rb-main { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.red-banner .rb-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.red-banner.ok .rb-main { color: var(--ok-text); }
+.red-banner.warn .rb-main { color: var(--warn-text); }
+.red-banner.err .rb-main { color: var(--danger-text); }
+.red-banner .rb-stat { color: var(--muted); font-variant-numeric: tabular-nums; }
+.red-banner .rb-stat b { color: var(--text); font-weight: 600; }
+.red-banner .rb-acts { margin-left: auto; display: inline-flex; gap: 6px; }
+.red-banner.alarm { animation: rb-pulse 1s ease-in-out infinite; }
+.red-banner.alarm .rb-main { font-size: 13px; }
+@keyframes rb-pulse { 50% { background: rgb(var(--danger-rgb) / .32); } }
+@media (prefers-reduced-motion: reduce) { .red-banner.alarm { animation: none; } }
+.red-chk { display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; }
+.red-fallback { min-height: 44px; resize: vertical; font-family: inherit; }
 .red-progress { width: 100%; height: 8px; accent-color: var(--accent); }
 /* Yedeklilik: gösteri karşılaştırması (#541) */
 .red-show { display: flex; flex-direction: column; gap: 8px; }

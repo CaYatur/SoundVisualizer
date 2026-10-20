@@ -279,8 +279,9 @@ function publicConfig(cfg) {
      (web-shim.js), yapılandırmadan değil. MCP'de aynı iki alan gizli
      (mcp.js SECRET_PATHS). */
   const st = cfg.stream;
-  if (st && typeof st === 'object' && ('token' in st || 'remoteToken' in st)) {
-    out = Object.assign({}, out, { stream: Object.assign({}, st, { token: '', remoteToken: '' }) });
+  if (st && typeof st === 'object' && ('token' in st || 'remoteToken' in st || 'fallbackUrls' in st)) {
+    // Yedek adresler öbür makinenin jetonunu taşır (#815): o da gitmez
+    out = Object.assign({}, out, { stream: Object.assign({}, st, { token: '', remoteToken: '', fallbackUrls: '' }) });
   }
   // Yedeklilik eşleşme parolası (#540) web istemcisine gitmez
   const rd = cfg.redundancy;
@@ -430,7 +431,37 @@ function originAllowed(origin, hostHeader) {
   let o;
   try { o = new URL(String(origin)); } catch { return false; }
   if (o.protocol !== 'http:' && o.protocol !== 'https:') return false;
-  return o.host.toLowerCase() === String(hostHeader || '').toLowerCase();
+  if (o.host.toLowerCase() === String(hostHeader || '').toLowerCase()) return true;
+  /* Yedek adres (#815): birincilden yüklenmiş yayın sayfası birincil
+     düşünce bu makineye bağlanır; kökeni birincilinkidir. Yalnız ayarda
+     yazılı adreslerin kökeni kabul edilir. */
+  return fallbackList().some((f) => f.host === o.host.toLowerCase());
+}
+
+/* YAYIN SAYFASININ YEDEK ADRESLERİ (#815). `stream.fallbackUrls`: öbür
+   makinenin yayın sayfası adresleri (boşluk, virgül ya da satırla ayrık,
+   en çok 4), ör. http://192.168.1.21:8722/overlay?token=... Sayfa kendi
+   adresine ulaşamazsa sırayla bunlara geçer, ilk adres yeniden açılınca
+   ona döner. Jeton adresin içinde: her makinenin kendi jetonu. */
+function parseFallbacks(text) {
+  const out = [];
+  for (const raw of String(text || '').split(/[\s,]+/)) {
+    if (!raw || out.length >= 4) continue;
+    let u;
+    try { u = new URL(raw); } catch { continue; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') continue;
+    out.push({
+      host: u.host.toLowerCase(),
+      ws: (u.protocol === 'https:' ? 'wss://' : 'ws://') + u.host + '/ws',
+      http: u.protocol + '//' + u.host,
+      token: u.searchParams.get('token') || '',
+    });
+  }
+  return out;
+}
+function fallbackList() {
+  const cfg = typeof hooks.getConfig === 'function' ? hooks.getConfig() : null;
+  return parseFallbacks(cfg && cfg.stream && cfg.stream.fallbackUrls);
 }
 
 // ----------------------------------------------------------------------------
@@ -680,9 +711,11 @@ function sendPage(res, file, cookieName, tokenVal) {
   fs.readFile(file, 'utf-8', (err, html) => {
     if (err) { res.writeHead(500).end('page missing'); return; }
     const locale = hooks.getLocale() === 'tr' ? 'tr' : 'en';
+    // Yedek adresler (#815): yalnız ws adresi ve o makinenin jetonu
+    const fb = fallbackList().map((f) => ({ ws: f.ws, http: f.http, token: f.token }));
     const injected = html.replace(
       '<head>',
-      '<head>\n    <script>window.__SV_LOCALE=' + JSON.stringify(locale) + ';</script>'
+      '<head>\n    <script>window.__SV_LOCALE=' + JSON.stringify(locale) + ';window.__SV_FALLBACK=' + JSON.stringify(fb).replace(/</g, '\\u003c') + ';</script>'
     );
     const respHeaders = {
       'Content-Type': 'text/html; charset=utf-8',
@@ -1021,6 +1054,7 @@ function newToken() {
 }
 
 module.exports = {
+  parseFallbacks,
   start,
   stop,
   status,

@@ -388,9 +388,10 @@
     if (!audio || !tempo) return;
     /* Yedek makine birincili izlerken Otomatik VJ karar vermez (#540):
        seçimler birincilden gelir; kendi seçimi görüntüyü ayrıştırırdı.
-       Yetkiyi alınca kaldığı yerden sürer. */
+       Yetkiyi alınca kaldığı yerden sürer. Tempo motoru yine de çalışır
+       (#815): devralmada soğuk başlamasın, izlerken birincilin ızgarasında. */
     // Yedek izlerken ya da yetki yedekteyken (birincil geri çekildi, #814) karar yok
-    if (window.SVRedundancyPanel && (window.SVRedundancyPanel.following() || window.SVRedundancyPanel.steppedBack())) return;
+    const held = !!(window.SVRedundancyPanel && (window.SVRedundancyPanel.following() || window.SVRedundancyPanel.steppedBack()));
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const now = performance.now() / 1000;
@@ -402,6 +403,7 @@
 
     const fired = tempo.update(audio, now, dt);
     if (fired && tempo.barPosition === 0) barsSince++;
+    reportGrid(tempo, now);
     /* OSC çıkışı (#437): tempo motorunun vuruşu, ölçüdeki yeri 1..N. Yalnız
        çıkış açıkken: kapalıyken her vuruşta boşuna IPC olmasın. */
     if (fired && cfg.oscOut && cfg.oscOut.enabled && window.api && window.api.reportTempoBeat) {
@@ -436,7 +438,7 @@
       if (st) paintStatus(st, statusText(a, ctxOf(cfg)));
     }
 
-    if (!a.enabled) return;
+    if (!a.enabled || held) return;
 
     let due = false;
     if (a.unit === 'seconds') {
@@ -458,6 +460,44 @@
        anda yaptığı tıklamayı düşürüyordu. Sahne yükleyicisi kendi push'unu
        yaptığı için orada tekrar gönderilmiyor. */
     if (res.ok && !res.pushed) P().push(true);
+  }
+
+  /* VURUŞ EŞLEMESİ (#815). Rol açıkken ızgara saniyede on kez ana sürece
+     (birincil atışa koyar); yedekte birincilin ızgarası gelince izlenir.
+     `beatAt` son vuruşun duvar saati: iki makinenin performance.now()
+     başlangıcı farklı, duvar saati farkı yedeklilik ölçüyor. */
+  let lastGrid = 0;
+  const errs = [];
+  function wallOf(perfSec) { return Date.now() - (performance.now() / 1000 - perfSec) * 1000; }
+  function reportGrid(t, now) {
+    const st = window.SVRedundancyState;
+    if (!st || st.role === 'off' || now - lastGrid < 0.1 || !window.api || !window.api.reportRedTempo) return;
+    lastGrid = now;
+    const sorted = errs.slice().sort((x, y) => x - y);
+    window.api.reportRedTempo({
+      bpm: t.bpm || 0, beatAt: t.lastBeat > 0 ? wallOf(t.lastBeat) : 0, bar: t.barPosition, beatsPerBar: t.beatsPerBar,
+      confidence: t.confidence || 0, following: t.following(now),
+      phaseErrP95: sorted.length >= 10 ? Math.round(sorted[Math.floor(sorted.length * 0.95)] * 10) / 10 : null,
+    });
+  }
+  /* Birincilin ızgarası (bu makinenin duvar saatinde). Yalnız izlerken ve
+     ayar açıksa; yetkiyi alınca kendi algısına döner (ttl dolar). Faz farkı:
+     kendi akısının son vuruşu ile ızgaranın en yakın vuruşu arası (ms). */
+  function followGrid(g) {
+    if (!tempo || !g || !(g.bpm > 0)) return;
+    const rc = (P().cfg() || {}).redundancy || {};
+    const lock = rc.phaseLock !== false;
+    const nowPerf = performance.now() / 1000;
+    const beatAt = nowPerf - (Date.now() - g.beatAt) / 1000;
+    if (lock) tempo.follow({ bpm: g.bpm, beatAt, bar: g.bar, beatsPerBar: g.beatsPerBar, confidence: g.confidence }, nowPerf, 1.5);
+    const period = 60 / g.bpm;
+    // Kendi algısının son vuruşu (ızgara izlenirken de akı ölçülüyor)
+    const own = tempo.lastFlux > 0 ? tempo.lastFlux : tempo.lastBeat;
+    if (!(own > 0)) return;
+    const d = ((own - beatAt) / period) % 1;
+    const err = Math.abs((d > 0.5 ? d - 1 : d < -0.5 ? d + 1 : d) * period * 1000);
+    errs.push(err);
+    if (errs.length > 120) errs.shift();
   }
 
   /* Zamanlayıcıyı sıfırla. Kullanıcı bir ayarı değiştirdiğinde çağrılır:
@@ -684,7 +724,7 @@
   }
 
   window.SVAutoVJ = {
-    panel, init, tempoOf: () => tempo, applySwitch, applyBackground,
+    panel, init, tempoOf: () => tempo, followGrid, applySwitch, applyBackground,
     statusOf: () => ({ lastResult, lastFailure }),
     counters: () => ({ panelRenders, switchCount }),
   };

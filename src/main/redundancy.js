@@ -52,6 +52,10 @@ const DEFAULTS = {
   handbackAt: 'scene',
   // Art-Net tanığı: ağda başka bir kaynaktan aynı evrene gelen kareyi dinle
   artnetWitness: true,
+  // Devralma ve iki yönetici alarmında ses (#815); canlı mekânda dinleti karışımına sızmasın: kapalı
+  alarmSound: false,
+  // İzleyen yedek birincilin tempo ızgarasını kullanır (#815): iki makine aynı vuruşta
+  phaseLock: true,
 };
 const MIN_SECRET = 16;
 
@@ -73,6 +77,8 @@ function normalize(c) {
   if (s.artnetOnLoss !== 'zero') s.artnetOnLoss = 'hold';
   if (HANDBACK_AT.indexOf(s.handbackAt) < 0) s.handbackAt = 'scene';
   s.artnetWitness = s.artnetWitness !== false;
+  s.alarmSound = s.alarmSound === true;
+  s.phaseLock = s.phaseLock !== false;
   return s;
 }
 
@@ -81,7 +87,7 @@ function normalize(c) {
 function linkSig(c) {
   const s = normalize(c);
   // Bağlantıyı etkilemeyenler (#812, #814): değişince bağlantı kopmasın
-  for (const k of ['takeoverData', 'outputs', 'artnetOnLoss', 'handbackAt', 'artnetWitness']) delete s[k];
+  for (const k of ['takeoverData', 'outputs', 'artnetOnLoss', 'handbackAt', 'artnetWitness', 'alarmSound', 'phaseLock']) delete s[k];
   return JSON.stringify(s);
 }
 

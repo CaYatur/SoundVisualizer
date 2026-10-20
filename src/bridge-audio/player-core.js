@@ -56,6 +56,26 @@
         st.chunks++;
         return at;
       },
+      /* ORTAK SAATE KİLİTLİ YERLEŞTİRME (#815). `target`: parçanın çalması
+         gereken bağlam zamanı = köprünün damgası (bu makinenin saatine
+         çevrilmiş) + sabit gecikme. Aynı köprüyü dinleyen iki alıcı aynı
+         gecikmeyle aynı örneği aynı anda çalar; ağ titremesi tampona girer.
+         Hedef öncekinin bitişine 4 ms'den yakınsa ardına eklenir (çıt
+         olmasın); daha geride ya da geçmişteyse parça atılır (saat ileri,
+         hizayı koru); ileride boşluk varsa hedefe konur. */
+      placeAt(now, dur, target) {
+        const tol = 0.004;
+        if (!Number.isFinite(target)) return this.place(now, dur);
+        if (target < now + 0.005) { st.dropped++; st.late = (st.late || 0) + 1; return null; }
+        let at;
+        if (next && Math.abs(target - next) <= tol) at = next;
+        else if (next && target < next - tol) { st.dropped++; st.early = (st.early || 0) + 1; return null; }
+        else { if (st.chunks && next) st.underruns++; at = target; }
+        next = at + dur;
+        st.chunks++;
+        st.alignMs = Math.round((at - target) * 10000) / 10;
+        return at;
+      },
       buffered(now) { return Math.max(0, next - now); },
       reset() { next = 0; debt = 0; winStart = -1; },
       status() { return Object.assign({}, st); },

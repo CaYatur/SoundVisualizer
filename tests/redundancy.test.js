@@ -178,7 +178,9 @@ test('bağlantılar: ana süreç, panel, kontrol eylemleri, Otomatik VJ, MCP ve 
   const ctl = read('src/admin/control.js');
   assert.match(ctl, /\{ action: 'redTakeover', label: 'Yedeklilik · Yetkiyi Al' \}/);
   assert.match(ctl, /\{ action: 'redRelease', label: 'Yedeklilik · Yetkiyi Bırak' \}/);
-  assert.match(read('src/admin/autovj.js'), /if \(window\.SVRedundancyPanel && \(window\.SVRedundancyPanel\.following\(\) \|\| window\.SVRedundancyPanel\.steppedBack\(\)\)\) return;/);
+  // Tempo motoru çalışır, kararlar yalnız yetkide (#815)
+  assert.match(read('src/admin/autovj.js'), /const held = !!\(window\.SVRedundancyPanel && \(window\.SVRedundancyPanel\.following\(\) \|\| window\.SVRedundancyPanel\.steppedBack\(\)\)\);/);
+  assert.match(read('src/admin/autovj.js'), /if \(!a\.enabled \|\| held\) return;/);
   assert.match(read('src/shared/mcp.js'), /redundancy: 'never',/);
   assert.match(read('src/shared/mcp.js'), /\['redundancy', 'secret'\]/);
   assert.match(read('src/main/stream-server.js'), /rd && typeof rd === 'object' && rd\.secret/, 'parola web istemcisine gitmez');
