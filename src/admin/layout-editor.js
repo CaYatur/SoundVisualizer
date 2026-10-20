@@ -447,7 +447,83 @@
         side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Çalan parça sistemden okunur; okunamazsa metin kartındaki elle girilen parça bilgisi çizilir.' }));
       }
     }
+    renderReveal(side, cur);
     side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Değerler karenin oranı (0–1). Güvenli alanlar SMPTE ST 2046-1 ve EBU R 95: kesikli çizgi aksiyon (%93), noktalı çizgi başlık (%90).' }));
+  }
+
+  /* AÇILIŞ ANİMASYONU (#537): seçili öğenin türü, süresi, gecikmesi.
+     Ayar katmana (yığın) ya da bölüme (katmansız) yazılır; çizim
+     shared/reveal.js'ten, canlı ve dışa aktarımda aynı. */
+  const REVEAL_TYPES = [
+    ['none', 'Yok'], ['fade', 'Belirme'], ['slideUp', 'Yukarı Kayma'], ['slideDown', 'Aşağı Kayma'],
+    ['slideLeft', 'Sola Kayma'], ['slideRight', 'Sağa Kayma'], ['scale', 'Büyüme'], ['wipe', 'Silme'],
+  ];
+  const REVEAL_EASES = [['out', 'Yavaşlayarak'], ['smooth', 'Yumuşak Giriş-Çıkış'], ['linear', 'Doğrusal'], ['back', 'Esneyerek']];
+
+  function revealNum(label, value, min, max, step, onSet) {
+    const el = P().el;
+    const inp = el('input', { type: 'number', class: 'num', min: String(min), max: String(max), step: String(step) });
+    inp.value = String(value);
+    inp.addEventListener('change', () => {
+      const v = Number(inp.value);
+      if (!Number.isFinite(v)) { inp.value = String(value); return; }
+      onSet(Math.max(min, Math.min(max, v)));
+    });
+    return el('div', { class: 'ctrl' }, [el('div', { class: 'row' }, [el('label', { class: 'lbl', text: label }), inp])]);
+  }
+
+  function renderReveal(side, cur) {
+    const el = P().el;
+    const R = window.SVReveal;
+    if (!R || !LY().revealOf) return;
+    const spec = LY().revealOf(cur.layer, P().cfg());
+    // Yazılan nesne her değişiklikte yeniden alınır (bölüm yoksa kurulur)
+    const write = (patch, again) => {
+      const h = LY().revealHolder(cur.layer, P().cfg());
+      if (!h) return;
+      const next = R.normalize(Object.assign({}, h.reveal || {}, patch));
+      if (R.active(next)) h.reveal = next; else delete h.reveal;
+      P().push(true);
+      if (again) renderSide();
+    };
+    side.appendChild(el('div', { class: 'group-label', text: 'Açılış Animasyonu' }));
+    const type = el('select', { class: 'sel-ctrl' });
+    REVEAL_TYPES.forEach(([v, label]) => { const o = el('option', { value: v, text: label }); if (v === spec.type) o.selected = true; type.appendChild(o); });
+    type.addEventListener('change', () => write({ type: type.value }, true));
+    side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Açılış Türü' }), type]));
+    if (R.active(spec)) {
+      side.appendChild(revealNum('Açılış Süresi (sn)', spec.duration, 0, 10, 0.05, (v) => write({ duration: v })));
+      side.appendChild(revealNum('Gecikme (sn)', spec.delay, 0, 60, 0.05, (v) => write({ delay: v })));
+      const ez = el('select', { class: 'sel-ctrl' });
+      REVEAL_EASES.forEach(([v, label]) => { const o = el('option', { value: v, text: label }); if (v === spec.ease) o.selected = true; ez.appendChild(o); });
+      ez.addEventListener('change', () => write({ ease: ez.value }));
+      side.appendChild(el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: 'Hız Eğrisi' }), ez]));
+      if (/^slide/.test(spec.type)) side.appendChild(revealNum('Kayma Mesafesi', spec.distance, 0, 0.5, 0.01, (v) => write({ distance: v })));
+    }
+    side.appendChild(el('div', { class: 'lay-file' }, [
+      el('button', { type: 'button', class: 'btn ghost small', icon: 'play', text: 'Açılışı Oynat', onclick: replayReveal }),
+      el('button', { type: 'button', class: 'btn ghost small', text: 'Sırayla Geciktir', onclick: staggerReveal }),
+    ]));
+    side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Öğe videonun başında, sahne yüklenince ya da "Açılışı Oynat" ile gelir; aynı sahnede kalan öğe yeniden oynamaz. Yazının ve parça kartının kendi giriş canlandırması içerik değişince oynar; açılış onun üstüne bir kez uygulanır.' }));
+  }
+
+  // Bütün öğelerin açılışı baştan: canlı çıktı ve önizleme sayacı görür
+  function replayReveal() {
+    const cfg = P().cfg();
+    cfg.revealReplay = ((cfg.revealReplay | 0) + 1) % 1000000;
+    P().push(true);
+  }
+
+  // Öğeler listedeki sırayla 0,3 sn arayla gelir (animasyonu olmayan yukarı kayar)
+  function staggerReveal() {
+    const R = window.SVReveal;
+    if (!R) return;
+    const cfg = P().cfg();
+    const holders = elements().map((e) => LY().revealHolder(e.layer, cfg)).filter(Boolean);
+    if (!holders.length) return;
+    R.stagger(holders, 0.3, 'slideUp');
+    P().push(true);
+    renderSide();
   }
 
   window.SVLayoutEditor = { open, close, isOpen: () => !!st };

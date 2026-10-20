@@ -191,6 +191,23 @@
     return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
   }
 
+  // Açılış modülü (#537): tarayıcıda pencereden, testte modülden
+  function reveal() {
+    if (typeof window !== 'undefined' && window.SVReveal) return window.SVReveal;
+    try { return typeof require === 'function' ? require('./reveal') : null; } catch (e) { return null; }
+  }
+
+  /* Öğenin açılış ayarı ve onu tutan nesne: katman yığınında katman,
+     katmansız kipte bölüm (shared/reveal.js holderOf). */
+  function revealOf(layer, cfg) {
+    const R = reveal();
+    return R ? R.normalize(R.specOf(layer, cfg, stackOn(cfg)) || { type: 'none' }) : null;
+  }
+  function revealHolder(layer, cfg) {
+    const R = reveal();
+    return R ? R.holderOf(layer, cfg, stackOn(cfg), true) : null;
+  }
+
   // Katman hangi öğe türü (yoksa null: düzenlenemez)
   function kindOf2(layer) {
     if (!layer) return null;
@@ -211,7 +228,10 @@
        yoksa genel logoyu kullanıyor (layers.js `l.settings.logo || cfg.logo`).
        Katmana kısmi bir `{ x }` yazmak logonun kaynağını kaybettirirdi. */
     if (kind === 'logo') {
-      const own = layer.settings && layer.settings.logo;
+      /* Katmansız kipte katman sentezlenmiş: `settings.logo` genel logonun
+         o anki KOPYASI, bir sonraki yapılandırmada yeniden kuruluyor. Yazılan
+         kaybolurdu (sürüklenen logo geri zıplıyordu) — kaynak genel logo. */
+      const own = stackOn(cfg) && layer.settings && layer.settings.logo;
       if (own) return own;
       if (!cfg.logo) { if (!create) return {}; cfg.logo = {}; }
       return cfg.logo;
@@ -307,6 +327,8 @@
   function cleanParams(kind, params) {
     const out = plain(params || {}, 0) || {};
     (STRIP[kind] || []).forEach((k) => { delete out[k]; });
+    // Katmansız kipte açılış ayarı bölümde duruyor; dosyada öğenin kendi alanı
+    delete out.reveal;
     return out;
   }
 
@@ -318,7 +340,14 @@
       if (!kind || elements.length >= MAX_ELEMENTS) return;
       const layer = {};
       LAYER_KEYS.forEach((k) => { if (l[k] !== undefined) layer[k] = plain(l[k], 0); });
-      elements.push({ kind, layer, params: cleanParams(kind, sectionOf(l, cfg, false)) });
+      const el = { kind, layer, params: cleanParams(kind, sectionOf(l, cfg, false)) };
+      // Açılış animasyonu görünüşün parçası (#537); yoksa 'none' (içe aktarım temizlesin)
+      const R = reveal();
+      if (R) {
+        const spec = R.specOf(l, cfg, stackOn(cfg));
+        el.reveal = spec ? R.normalize(spec) : { type: 'none' };
+      }
+      elements.push(el);
     });
     return Object.assign({ type: LAYOUT_TYPE, version: LAYOUT_VERSION }, meta && meta.aspect ? { aspect: String(meta.aspect) } : {}, { elements });
   }
@@ -357,6 +386,12 @@
       }
       used.add(target);
       Object.keys(props).forEach((k) => { target[k] = props[k]; });
+      // Eski dosyada alan yok: hedefinki kalır
+      const R = reveal();
+      if (R && el.reveal && typeof el.reveal === 'object') {
+        const spec = R.normalize(plain(el.reveal, 0));
+        if (R.active(spec)) target.reveal = spec; else delete target.reveal;
+      }
       if (kind === 'logo') {
         // Logo görseli yerinde kalır: konum ve görünüş onun nesnesine
         const own = target.settings && target.settings.logo;
@@ -438,6 +473,7 @@
     kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
+    revealOf, revealHolder,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayout = api;
