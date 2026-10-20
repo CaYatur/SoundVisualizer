@@ -162,12 +162,22 @@
   /* Çizilecek metin parçaları. Hangi alanın görüneceğine buradaki bayraklar
      karar verir — kullanıcı yalnızca şarkı adını ya da yalnızca dakikayı
      gösterebilsin diye her alan tek tek açılıp kapanıyor. */
+  /* BÜYÜK HARF parçanın diline göre (#536). Her zaman Türkçe kural
+     İngilizce bir başlıkta "Mind"ı "MİND" yapıyordu; her zaman genel kural
+     Türkçe "istanbul"u "ISTANBUL" yapardı. Türkçeye özgü harf varsa Türkçe,
+     yoksa genel kural. */
+  const TR_CHARS = /[çğıöşüÇĞİÖŞÜ]/;
+  function upper(s) {
+    const t = String(s);
+    return TR_CHARS.test(t) ? t.toLocaleUpperCase('tr') : t.toUpperCase();
+  }
+
   function compose(state, cfg) {
     const c = cfg || {};
     const show = c.show || {};
     const on = (k, def) => (show[k] === undefined ? !!def : !!show[k]);
     const st = state || resolve(EMPTY, 0);
-    const up = (s) => (c.uppercase ? String(s).toLocaleUpperCase('tr') : String(s));
+    const up = (s) => (c.uppercase ? upper(s) : String(s));
 
     const title = on('title', true) && st.title ? up(st.title) : '';
     const artist = on('artist', true) && st.artist ? up(st.artist) : '';
@@ -262,7 +272,7 @@
     positionAt, resolve,
     fmtTime, prettyApp,
     SPEEDS, speedOf, STYLES, styleOf,
-    envelope, compose, Tracker,
+    envelope, compose, upper, Tracker,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

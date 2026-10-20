@@ -370,10 +370,74 @@
     return { ok: true, updated, added, skipped };
   }
 
+  /* YAZI BİÇEMLERİ (#536). Ölçülü yayın görünümü: yazı tipi, kalınlık,
+     kontur, gölge ve (kartta) büyük harf. RENGE DOKUNULMAZ — renk
+     kullanıcının paletinden ya da kendi seçiminden gelir. Metin katmanı ve
+     çalan parça kartı aynı biçemi kendi anahtarlarıyla alır. */
+  const SYS = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  const CONDENSED = 'Bahnschrift, "Arial Narrow", "Roboto Condensed", system-ui, sans-serif';
+  const STYLES = {
+    clean: { name: 'Sade', text: { font: SYS, weight: 600, outline: 0, shadow: 0.3 }, nowplaying: { font: SYS, weight: 600, outline: 0, shadow: 0.35, uppercase: false, style: 'modern' } },
+    lower: { name: 'Alt Bant', text: { font: CONDENSED, weight: 700, outline: 0, shadow: 0.2 }, nowplaying: { font: CONDENSED, weight: 700, outline: 0, shadow: 0.2, uppercase: true, style: 'modern' } },
+    label: { name: 'Etiket', text: { font: SYS, weight: 800, outline: 0, shadow: 0 }, nowplaying: { font: SYS, weight: 800, outline: 0, shadow: 0, uppercase: false, style: 'modern' } },
+    bold: { name: 'Kalın Ekran', text: { font: SYS, weight: 900, outline: 0.18, shadow: 0.45 }, nowplaying: { font: SYS, weight: 900, outline: 0.18, shadow: 0.45, uppercase: true, style: 'modern' } },
+    thin: { name: 'İnce', text: { font: SYS, weight: 400, outline: 0, shadow: 0 }, nowplaying: { font: SYS, weight: 400, outline: 0, shadow: 0, uppercase: false, style: 'modern' } },
+  };
+
+  function applyStyle(layer, cfg, id) {
+    const kind = kindOf2(layer);
+    const st = STYLES[id];
+    if (!st || !st[kind]) return false;
+    Object.assign(sectionOf(layer, cfg, true), st[kind]);
+    return true;
+  }
+
+  // Öğenin şu anki biçemi (hiçbiri tutmuyorsa null: kullanıcı değiştirmiş)
+  function styleIdOf(layer, cfg) {
+    const kind = kindOf2(layer);
+    if (kind !== 'text' && kind !== 'nowplaying') return null;
+    const cur = sectionOf(layer, cfg, false);
+    const hit = Object.keys(STYLES).find((id) => {
+      const want = STYLES[id][kind];
+      return Object.keys(want).every((k) => cur[k] === want[k]);
+    });
+    return hit || null;
+  }
+
+  /* METİN KAYNAĞI (#536): sabit yazı ya da çalan parçanın başlığı,
+     sanatçısı veya ikisi. Elle girilen parça bilgisi (nowPlaying) yedek
+     olarak kalır: sistemden parça gelmezse o çizilir. */
+  const TEXT_SOURCES = [
+    ['static', '', 'Sabit Yazı'],
+    ['now', 'title', 'Çalan Parça — Başlık'],
+    ['now', 'artist', 'Çalan Parça — Sanatçı'],
+    ['now', 'both', 'Çalan Parça — Başlık ve Sanatçı'],
+  ];
+  function textSourceOf(layer, cfg) {
+    const s = sectionOf(layer, cfg, false);
+    const src = s.source || 'static';
+    if (src !== 'now') return src === 'static' ? 'static' : src;
+    return 'now:' + (s.field || 'both');
+  }
+  function setTextSource(layer, cfg, value) {
+    if (kindOf2(layer) !== 'text') return false;
+    const [src, field] = String(value).split(':');
+    const s = sectionOf(layer, cfg, true);
+    if (src === 'static') { s.source = 'static'; return true; }
+    if (src === 'now' && ['title', 'artist', 'both'].indexOf(field) >= 0) {
+      s.source = 'now';
+      s.field = field;
+      if (!s.nowSource) s.nowSource = 'system';
+      return true;
+    }
+    return false;
+  }
+
   const api = {
     SAFE, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
     kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
+    STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayout = api;

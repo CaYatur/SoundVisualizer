@@ -253,3 +253,53 @@ test('düzen içe aktarımı: yanlış dosya, sürüm ve tehlikeli anahtarlar', 
   L.importLayout(cfg2, JSON.parse(JSON.stringify(out)));
   assert.strictEqual(cfg2.layers[0].settings.visualizer.barSpan, 0.4);
 });
+
+// ---- Yazı biçemleri ve kaynak (#536)
+test('biçem önayarı metne ve karta kendi anahtarlarıyla; renge dokunmuyor', () => {
+  const cfg = { layerStack: { enabled: true } };
+  const text = { kind: 'visualizer', type: 'text', settings: { text: { color: '#ff0000', useCustomColor: true } } };
+  const card = { kind: 'nowplaying', type: 'nowplaying', settings: { nowplaying: { color: '#00ff00' } } };
+  assert.strictEqual(L.applyStyle(text, cfg, 'lower'), true);
+  assert.strictEqual(L.applyStyle(card, cfg, 'lower'), true);
+  assert.strictEqual(text.settings.text.weight, 700);
+  assert.match(text.settings.text.font, /Bahnschrift/);
+  assert.strictEqual(text.settings.text.color, '#ff0000', 'renk değişmedi');
+  assert.strictEqual(card.settings.nowplaying.uppercase, true);
+  assert.strictEqual(card.settings.nowplaying.color, '#00ff00');
+  assert.strictEqual(L.styleIdOf(text, cfg), 'lower');
+  text.settings.text.weight = 650;
+  assert.strictEqual(L.styleIdOf(text, cfg), null, 'elle değişen biçem "özel"');
+  assert.strictEqual(L.applyStyle(text, cfg, 'yok'), false);
+  assert.strictEqual(L.applyStyle({ kind: 'visualizer', type: 'bars', settings: {} }, cfg, 'clean'), false);
+  Object.keys(L.STYLES).forEach((id) => {
+    const s = L.STYLES[id];
+    ['text', 'nowplaying'].forEach((k) => {
+      assert.ok(s[k] && !('color' in s[k]) && !('useCustomColor' in s[k]), id + ' ' + k + ' renk taşımıyor');
+    });
+  });
+});
+
+test('metin kaynağı: sabit ya da çalan parçanın alanı; elle girilen bilgi yedek kalıyor', () => {
+  const cfg = { layerStack: { enabled: true } };
+  const text = { kind: 'visualizer', type: 'text', settings: { text: { source: 'static', content: 'CAYADEV', nowPlaying: { title: 'Elle', artist: '' } } } };
+  assert.strictEqual(L.textSourceOf(text, cfg), 'static');
+  assert.strictEqual(L.setTextSource(text, cfg, 'now:artist'), true);
+  assert.strictEqual(text.settings.text.source, 'now');
+  assert.strictEqual(text.settings.text.field, 'artist');
+  assert.strictEqual(text.settings.text.nowSource, 'system');
+  assert.strictEqual(text.settings.text.nowPlaying.title, 'Elle', 'elle girilen yedek durdu');
+  assert.strictEqual(L.textSourceOf(text, cfg), 'now:artist');
+  assert.strictEqual(L.setTextSource(text, cfg, 'now:xyz'), false);
+  assert.strictEqual(L.setTextSource(text, cfg, 'static'), true);
+  assert.strictEqual(text.settings.text.content, 'CAYADEV');
+});
+
+test('büyük harf parçanın diline göre (İngilizce "MIND", Türkçe "İSTANBUL")', () => {
+  const N = require('../src/shared/nowplaying');
+  assert.strictEqual(N.upper('Mind the Gap'), 'MIND THE GAP');
+  assert.strictEqual(N.upper('İstanbul\'da gece'), 'İSTANBUL\'DA GECE');
+  assert.strictEqual(N.upper('şiir'), 'ŞİİR');
+  const parts = N.compose({ has: true, title: 'Mind', artist: 'Sezen Aksu', album: '', app: '' }, { uppercase: true, show: { title: true, artist: true } });
+  assert.strictEqual(parts.title, 'MIND');
+  assert.strictEqual(parts.artist, 'SEZEN AKSU');
+});
