@@ -3,6 +3,11 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## v3.2.0-beta — development branch `dev/v3.2.0`, not released
+
+Work for v3.2.0 (redundancy, failover and frame sync, #540) lands on `dev/v3.2.0`, which branches
+from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release candidate.
+
 ## v3.1.7-beta — development branch `dev/v3.1.7`, not released
 
 Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main` stays the

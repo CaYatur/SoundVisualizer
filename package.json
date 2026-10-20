@@ -1,6 +1,6 @@
 {
   "name": "soundvisualizer",
-  "version": "3.1.7-beta",
+  "version": "3.2.0-beta",
   "description": "CaYaDev Visualizer — free, open-source music visualizer and VJ software: multi-monitor output, a MilkDrop engine, OBS overlay, Spout/Syphon, projection mapping, RGB lighting and a GLSL shader studio (Windows, macOS, Linux)",
   "main": "src/main/main.js",
   "author": {
