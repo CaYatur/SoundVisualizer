@@ -282,7 +282,7 @@ renderer goes away; the tray reopens it), `--hidden` creates no window at all, a
 helper runs only while someone needs it. The GPU process, the network utility process and the
 zygotes are Chromium's own and cannot be turned off from the app. A slim standalone bridge (a
 plain Node process with the capture helper, no Chromium) would drop most of this, but it would be
-a separate product to build, sign and ship on three OSes; it is left as a future option (#814).
+a separate product to build, sign and ship on three OSes; it is left as a future option (#815).
 
 On the LAN the round trip and frame age add the network's latency. On Wi-Fi expect a few
 milliseconds, with jitter.
@@ -293,6 +293,6 @@ milliseconds, with jitter.
 - Opus instead of PCM, for Wi-Fi or many listeners (PCM is ~1.5 Mbit/s per listener).
 - PCM playback is scheduled on the receiver's clock; it is not yet locked sample-accurately to
   the shared show clock across two receivers.
-- A slim standalone bridge package without Chromium (future option, see Measurements).
+- A slim standalone bridge package without Chromium (future option, #815; see Measurements).
 - The bridge is a single point of failure for the analysis; two bridges with automatic choice
   between them are not in this phase.
