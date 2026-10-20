@@ -2854,6 +2854,7 @@ function broadcastPresetDelta(upsert, remove) {
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
   followActivePreset(up);
+  scheduleCompare(); // yedekle gösteri karşılaştırması bayatladı (#541)
 }
 
 // Açılışta arka planda okunmuş olabilir; değilse okuma burada bitiyor
@@ -3292,7 +3293,7 @@ const red = {
 function redundancyStatus() {
   const base = { role: red.role, problem: redundancy.problem(red.cfg) };
   if (red.role === 'primary') {
-    return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running });
+    return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null });
   }
   if (red.role === 'backup' && red.follower) return Object.assign(base, red.follower.status);
   return base;
@@ -3307,6 +3308,10 @@ function stopRedundancy() {
   red.sent = {};
   red.peerState = '';
   red.mirror = null;
+  red.show = null;
+  red.backupInv = null;
+  red.invParts = null;
+  if (red.compareTimer) { clearTimeout(red.compareTimer); red.compareTimer = null; }
   streamServer.setPeerSecret('');
 }
 
@@ -3356,13 +3361,25 @@ function onPeerOpen(client) {
   streamServer.sendJson(client, redundancy.snapshotMsg(currentConfig, Date.now()));
   red.sent = {};
   for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
+  // Anlık görüntü uygulandıktan sonra gösteri karşılaştırması (#541)
+  requestInventory();
   notifyRedundancy();
 }
 function onPeerMessage(msg) {
   if (msg && msg.type === 'peer-state' && typeof msg.state === 'string') {
     red.peerState = msg.state.slice(0, 20);
     notifyRedundancy();
+  } else if (msg && msg.type === 'peer-inventory') {
+    onPeerInventory(msg);
   }
+}
+
+/* İçerik değişti (preset, logo, ayar): karşılaştırma bayatladı. Birincil
+   kısa bir aradan sonra yeniden ister (sürüklemede her yamada değil). */
+function scheduleCompare() {
+  if (red.role !== 'primary' || !streamServer.peerCount()) return;
+  if (red.compareTimer) clearTimeout(red.compareTimer);
+  red.compareTimer = setTimeout(() => { red.compareTimer = null; requestInventory(); }, 1500);
 }
 
 /* Birincil: yapılandırma değişince yedeğe değişen anahtarlar. Sürüklemede
@@ -3377,7 +3394,7 @@ function redundancyPush(patchKeys) {
     if (j !== red.sent[k]) { red.sent[k] = j; changed.push(k); }
   }
   const msg = redundancy.patchMsg(currentConfig, changed, Date.now());
-  if (msg) streamServer.sendPeers(msg);
+  if (msg) { streamServer.sendPeers(msg); scheduleCompare(); }
 }
 
 /* Yedek birincili izlerken görüntü ve gösteri birincilden (#540): yerel
@@ -3405,6 +3422,8 @@ function onPrimaryMessage(msg) {
     if (f.beat(msg, Date.now())) onFollowerChanged();
     return;
   }
+  if (msg.type === 'inventory-request') { sendInventory(msg.id).catch(() => {}); return; }
+  if (msg.type === 'asset') { onPrimaryAsset(msg); return; }
   if (msg.type === 'md-follow') {
     // Birincilin MilkDrop seçimi bu makinenin BÜTÜN ekranlarına
     if (!f.follows() || !msg.follow) return;
@@ -3436,6 +3455,156 @@ function onFollowerChanged() {
   if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ')');
   notifyRedundancy();
 }
+
+/* ---------------------------------------------------------------------------
+   GÖSTERİ KARŞILAŞTIRMASI (#541, show-inventory.js). Birincil yedekten
+   envanter ister, kendi envanteriyle karşılaştırır; fark listesi panelde.
+   Operatör onaylarsa presetler ve logolar birincilden gönderilir; video
+   dosyaları yalnız bildirilir.
+   --------------------------------------------------------------------------- */
+const showInventory = require('./show-inventory');
+const presetFpCache = new Map();
+let localInvBusy = null;
+
+// Sahnenin ve kayıtlı sahnelerin video dosyaları (yol → parmak izi)
+function showMediaPaths(cfg) {
+  const files = new Set(exportMedia.mediaFiles(cfg));
+  for (const sc of (cfg && Array.isArray(cfg.scenes) ? cfg.scenes : [])) {
+    if (sc && sc.data) for (const f of exportMedia.mediaFiles(sc.data)) files.add(f);
+  }
+  const out = {};
+  for (const f of files) {
+    const raw = mediaUrl.fromMediaUrl(f);
+    out[raw] = raw && fs.existsSync(raw) ? showInventory.fileFp(raw) : 'missing';
+  }
+  return out;
+}
+
+/* Yerel envanter. Büyük MilkDrop kütüphanesinde preset özeti önbellekten
+   (kimlik|güncelleme); hesap 200 presette bir olay döngüsüne bırakılır —
+   kalp atışı aynı iş parçacığında. */
+function buildLocalInventory() {
+  if (localInvBusy) return localInvBusy;
+  localInvBusy = (async () => {
+    const presets = [];
+    let i = 0;
+    for (const p of presetsStore.list()) {
+      if (!p || !p.id) continue;
+      const key = p.id + '|' + (p.updatedAt || 0);
+      let fp = presetFpCache.get(key);
+      if (!fp) { fp = showInventory.presetFp(p); presetFpCache.set(key, fp); }
+      presets.push({ id: p.id, fp });
+      if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+    }
+    /* Logo: dosyanın kendisinden (boyut + baş/son özeti). Kitaplık
+       kaydındaki `fp` eski öğelerde yok; ona güvenmek aynı dosyayı farklı
+       gösteriyordu. Logolar küçük ve az. */
+    const logos = logoLibrary.loadManifest(logoLibDir()).items.filter((it) => it && it.id).map((it) => {
+      const info = logoLibrary.fileInfo(logoLibDir(), it.id);
+      return { id: it.id, size: info ? info.size : 0, fp: info && info.file ? showInventory.fileFp(info.file) : 'missing' };
+    });
+    return showInventory.build({ version: app.getVersion(), cfg: currentConfig, presets, logos, media: showMediaPaths(currentConfig) });
+  })().finally(() => { localInvBusy = null; });
+  return localInvBusy;
+}
+
+// Birincil: farkın okunur listesi (panel)
+function labelDiff(d) {
+  if (d.kind === 'preset') { const p = presetsStore.get(d.id); return p && p.name ? p.name : d.id; }
+  if (d.kind === 'logo') {
+    const it = logoLibrary.loadManifest(logoLibDir()).items.find((x) => x && x.id === d.id);
+    return it && it.name ? it.name : d.id;
+  }
+  if (d.kind === 'media') return path.basename(d.id);
+  return d.id;
+}
+
+async function compareShow() {
+  if (red.role !== 'primary' || !red.backupInv) return null;
+  const own = await buildLocalInventory();
+  const list = showInventory.diff(own, red.backupInv);
+  red.show = {
+    hash: own.hash, peerHash: red.backupInv.hash, checkedAt: Date.now(),
+    differences: list.filter((d) => d.status !== 'extra').length,
+    pushable: list.filter((d) => d.pushable && d.status !== 'extra').length,
+    items: list.slice(0, 40).map((d) => Object.assign({}, d, { label: labelDiff(d) })),
+  };
+  notifyRedundancy();
+  return red.show;
+}
+
+function requestInventory() {
+  if (red.role === 'primary' && streamServer.peerCount()) {
+    red.invReq = (red.invReq || 0) + 1;
+    streamServer.sendPeers({ type: 'inventory-request', id: red.invReq });
+  }
+}
+
+// Birincil: yedeğin envanter parçaları
+function onPeerInventory(msg) {
+  if (!msg || typeof msg.items !== 'object' || !Number.isInteger(msg.part) || !Number.isInteger(msg.of)) return;
+  if (msg.part === 0 || !red.invParts || red.invParts.id !== msg.id) red.invParts = { id: msg.id, items: {}, got: 0 };
+  Object.assign(red.invParts.items, msg.items);
+  red.invParts.got++;
+  if (red.invParts.got >= msg.of) {
+    red.backupInv = { items: red.invParts.items, hash: showInventory.hashOf(red.invParts.items) };
+    red.invParts = null;
+    compareShow().catch(() => {});
+  }
+}
+
+// Yedek: envanteri parça parça gönder
+async function sendInventory(reqId) {
+  if (!red.client) return;
+  const inv = await buildLocalInventory();
+  const parts = showInventory.chunks(inv.items, 2000);
+  parts.forEach((items, part) => red.client.send({ type: 'peer-inventory', id: reqId, part, of: parts.length, items }));
+}
+
+/* Yedek: birincilden gelen öğe. Bağlantı eşleşme parolasıyla doğrulandı;
+   yalnız uygulamanın kendi kitaplıklarına yazılır ve içe aktarmadaki
+   denetimlerden geçer. */
+function onPrimaryAsset(msg) {
+  if (msg.kind === 'preset' && msg.preset && typeof msg.preset === 'object' && typeof msg.preset.id === 'string') {
+    const r = presetsStore.save(Object.assign({}, msg.preset, { builtin: false }));
+    if (r.ok) broadcastPresetDelta([r.preset], []);
+    return r.ok;
+  }
+  if (msg.kind === 'logo' && typeof msg.b64 === 'string') {
+    const r = logoLibrary.importBytes(logoLibDir(), { id: msg.id, name: msg.name, ext: msg.ext, bytes: Buffer.from(msg.b64, 'base64') });
+    return r.ok;
+  }
+  return false;
+}
+
+// Birincil: farkı gönder (operatör panelde onayladı)
+ipcMain.handle('redundancy:push', async () => {
+  if (red.role !== 'primary' || !streamServer.peerCount() || !red.show) return { ok: false, sent: 0 };
+  const own = await buildLocalInventory();
+  const list = showInventory.diff(own, red.backupInv).filter((d) => d.pushable && d.status !== 'extra');
+  let sent = 0;
+  for (const d of list) {
+    if (d.kind === 'preset') {
+      const p = presetsStore.get(d.id);
+      if (!p) continue;
+      streamServer.sendPeers({ type: 'asset', kind: 'preset', preset: p });
+      sent++;
+    } else if (d.kind === 'logo') {
+      const info = logoLibrary.fileInfo(logoLibDir(), d.id);
+      if (!info || !info.file) continue;
+      const it = logoLibrary.loadManifest(logoLibDir()).items.find((x) => x && x.id === d.id) || {};
+      let bytes;
+      try { bytes = fs.readFileSync(info.file); } catch { continue; }
+      streamServer.sendPeers({ type: 'asset', kind: 'logo', id: d.id, name: it.name || d.id, ext: path.extname(info.file).toLowerCase(), b64: bytes.toString('base64') });
+      sent++;
+    }
+    // Büyük gönderimde kalp atışı arada gitsin
+    if (sent % 25 === 0) await new Promise((r) => setImmediate(r));
+  }
+  requestInventory();
+  return { ok: true, sent };
+});
+ipcMain.handle('redundancy:compare', () => { requestInventory(); return redundancyStatus(); });
 
 ipcMain.handle('redundancy:status', () => redundancyStatus());
 ipcMain.handle('redundancy:takeover', () => {

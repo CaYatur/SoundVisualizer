@@ -44,8 +44,31 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     the primary process tree it started, and measures the takeover. Automatic takeover came in
     352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
     loss in 405–462 ms, waited, and took over on command.
-  - Not yet: show-file hash and push (#541), the modulation phase and timeline clock on the
-    backup (#544), the pre-show health page (#545), and frame sync (#543).
+  - Not yet: the modulation phase and timeline clock on the backup (#544), the pre-show health
+    page (#545), and frame sync (#543).
+- **Both machines can prove they run the same show [541].**
+  - **The comparison.** On the primary, Redundancy shows a show comparison: a hash of each
+    machine's inventory, then the differences, each named.
+  - **What the inventory covers:** the app version, every replicated setting, every user preset
+    (Studio and MilkDrop), every logo-library item and every video file the scenes use. Logos and
+    videos are compared by content, not by path.
+  - **When it runs:** when the backup connects, after any preset or setting change, and on
+    "Compare".
+  - **Sending differences.** "Send Differences to Backup" lists what will change and asks first.
+    It then sends the presets and logos, which keep their IDs (the scenes refer to them by ID),
+    and checks again. Video files are reported but not sent: gigabytes on the connection that
+    carries the heartbeat would cause the very failover they are meant to prevent.
+  - **Large libraries.** Preset fingerprints are cached and computed 200 at a time, so a
+    10,000-preset MilkDrop library does not stall the heartbeat. The backup sends its inventory
+    in parts, because a client message is capped at 256 KB.
+  - **Pushed items are checked like imports.** A received logo goes through the same checks as an
+    import: type, size and image signature.
+  - **A setting deleted on the primary is now deleted on the backup too.** JSON drops undefined
+    values, so a removed key used to linger.
+  - `npm run failover` now seeds a logo and a preset that only the primary has. The comparison
+    must report exactly those two, with no setting differences. After the push, both hashes must
+    be equal and the backup must have both items. All of this passes, and takeover in the same
+    run came in 361 ms.
 
 ## v3.1.7-beta — development branch `dev/v3.1.7`, not released
 

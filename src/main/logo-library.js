@@ -262,6 +262,41 @@ function createLibrary(spec) {
     return commit(dir, prep);
   }
 
+  /* Yedekliliğin gösteri aktarımı (#541): birincildeki öğe AYNI kimlikle
+     yazılır (sahneler kimlikle başvuruyor). Dosya içe aktarmadaki denetimin
+     aynısından geçer: uzantı, boyut, içerik imzası. Aynı kimlik varsa
+     yerine geçer. */
+  function importBytes(dir, spec2) {
+    const s2 = spec2 || {};
+    const id = String(s2.id || '');
+    if (!id || safeId(id) !== id) return { ok: false, error: 'BAD_ID' };
+    const ext = String(s2.ext || '').toLowerCase();
+    if (EXT.indexOf(ext) < 0) return { ok: false, error: 'TYPE' };
+    const bytes = Buffer.isBuffer(s2.bytes) ? s2.bytes : null;
+    if (!bytes || !bytes.length || bytes.length > MAX_BYTES) return { ok: false, error: 'SIZE' };
+    if (spec.sniff && !spec.sniff(bytes.subarray(0, 16), bytes.length)) return { ok: false, error: 'TYPE' };
+    ensureDir(dir);
+    const man = loadManifest(dir);
+    const old = man.items.find((x) => x && x.id === id);
+    if (old && old.file) { try { fs.unlinkSync(path.join(dir, path.basename(old.file))); } catch { /* yok */ } }
+    const fileName = id + ext;
+    const dest = path.join(dir, fileName);
+    try { fs.writeFileSync(dest, bytes); } catch (e) { return { ok: false, error: e.message || 'WRITE' }; }
+    const item = {
+      id,
+      name: String(s2.name || id).slice(0, 200),
+      file: fileName,
+      mime: MIME[ext],
+      kind: kindOf(fileName),
+      size: bytes.length,
+      fp: fingerprint(dest, bytes.length),
+      createdAt: Date.now(),
+    };
+    man.items = [item].concat(man.items.filter((x) => x && x.id !== id));
+    saveManifest(dir, man);
+    return { ok: true, item: publicItem(item) };
+  }
+
   function remove(dir, id) {
     const resolved = resolveId(dir, id);
     const man = loadManifest(dir);
@@ -310,7 +345,7 @@ function createLibrary(spec) {
   return {
     EXT, MIME, MAX_BYTES,
     isFile, mimeFor, kindOf, safeId,
-    list, importFile, importFileAsync, remove, read, resolveId, fileInfo, readBytes, ownsPath,
+    list, importFile, importFileAsync, importBytes, remove, read, resolveId, fileInfo, readBytes, ownsPath,
     loadManifest, publicItem, invalidateCache,
   };
 }
