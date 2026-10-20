@@ -3,6 +3,11 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## v3.1.7-beta — development branch `dev/v3.1.7`, not released
+
+Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main` stays the
+3.1.6-beta release candidate until 3.1.6 is published.
+
 ## v3.1.6-beta — in code, not released
 
 `package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
