@@ -111,6 +111,12 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
   secondary text colour. The decorative "·" separators in status lines are hidden from screen
   readers.
 
+### Now playing
+
+- **Capitals follow the track's language.** The card's capitals option always used the Turkish
+  rule, so an English "Mind" became "MİND". Text with Turkish letters gets the Turkish rule,
+  and everything else gets the general one.
+
 ### Video export
 
 - **Eleven formats instead of one MP4 [521].** H.264 and H.265 in MP4, ProRes 422 HQ and DNxHR HQ
