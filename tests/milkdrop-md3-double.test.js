@@ -59,7 +59,7 @@ test('motor: iki aşamalı yükleme — birinci sert, ikinci geçişle ve donuk'
 });
 
 test('motor: donmuşken geçiş ilerlemiyor; desen dosyadan', () => {
-  assert.match(MODE, /if \(this\.blendFrozen != null\) this\.blendProg = this\.blendFrozen;\s*else this\.blendProg \+= step \/ Math\.max\(1e-3, this\.blendDur\);/);
+  assert.match(MODE, /if \(this\.blendFrozen != null\) this\.blendProg = this\.blendFrozen;\s*else \{\s*this\.blendProg \+= step \/ Math\.max\(1e-3, this\.blendDur\);\s*this\._alignBlend\(Date\.now\(\)\);/);
   const bp = /_ensureBlendPattern\(\) \{[\s\S]*?\n    \}\n/.exec(MODE)[0];
   assert.match(bp, /const FORCED = \{ side: 1, wipe: 1, plasma: 2, radial: 3, circle: 3, zoom: 3 \};/);
   assert.match(bp, /const type = F \? \(FORCED\[F\.pattern\] \|\| 2\) : 1 \+ Math\.floor\(R\(\) \* 3\);/);

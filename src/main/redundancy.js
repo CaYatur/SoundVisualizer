@@ -40,6 +40,8 @@ const ShowKeys = require('../shared/show-keys');
 const DEFAULTS = {
   role: 'off', host: '', port: 8722, secret: '',
   heartbeatMs: 250, timeoutMs: 1500, takeover: 'auto',
+  // Devralmada çizilecek gösteri (#812): birincilin yalıtılmış kopyası ya da yerel gösteri
+  takeoverData: 'primary',
 };
 const MIN_SECRET = 16;
 
@@ -56,7 +58,56 @@ function normalize(c) {
   // Eşik en az üç atış: tek kaybolan paket devralma yaptırmasın
   s.timeoutMs = clamp(Math.round(num(s.timeoutMs, 1500)), s.heartbeatMs * 3, 60000);
   if (s.takeover !== 'manual') s.takeover = 'auto';
+  if (s.takeoverData !== 'local') s.takeoverData = 'primary';
   return s;
+}
+
+/* Bağlantıyı yeniden kurmayı gerektiren ayarların imzası. Devralma verisi
+   (#812) yalnız devralma anında okunur: değiştirmek bağlantıyı koparmasın. */
+function linkSig(c) {
+  const s = normalize(c);
+  delete s.takeoverData;
+  return JSON.stringify(s);
+}
+
+/* Yedeğin şu an çizdiği gösteri (#812). İzlerken (ve bağlantı beklerken)
+   her zaman birincilin kopyası; yetkiyi alınca önceden seçilen ya da
+   operatörün o an seçtiği. */
+function showSource(state, cfg, override) {
+  if (state !== 'active') return 'primary';
+  if (override === 'local' || override === 'primary') return override;
+  return normalize(cfg).takeoverData;
+}
+
+/* MilkDrop eşliği (#812): birincilin seçtiği kullanıcı presetinin içerik
+   özeti (`hash`) yedekteki presetinkiyle karşılaştırılır. Yerleşik preset
+   (özet yok) uygulamayla gelir; sürüm aynıysa aynıdır.
+     ''          — eşit ya da denetlenemez
+     'missing'   — birincilin preseti bu makinede yok: pencere eski presette kalır
+     'different' — aynı kimlik, farklı içerik: aynı ad, farklı görüntü */
+/* Birincilin MilkDrop seçimi bu makinenin pencerelerine giderken (#812):
+   geçiş anı birincilin saatinden yerel saate çevrilir; pencere bunu
+   `Date.now()` ile karşılaştırıyor. `at` alanı TAŞINMAZ: pencere mesajın
+   geliş anını (`performance.now()`) o adla tutuyor ve 1,5 sn sonra izlemeyi
+   bırakıyor — dışarıdan gelen bir `at` bu zamanlayıcıyı bozardı. */
+function localFollow(follow, toLocal) {
+  if (!follow || typeof follow !== 'object') return follow;
+  const out = Object.assign({}, follow);
+  delete out.at;
+  delete out.hash;
+  if (Number.isFinite(out.startedAt) && typeof toLocal === 'function') {
+    const t = toLocal(out.startedAt);
+    out.startedAt = Number.isFinite(t) ? t : null;
+  } else {
+    out.startedAt = null;
+  }
+  return out;
+}
+
+function mdParity(follow, localFp) {
+  if (!follow || !follow.id || typeof follow.hash !== 'string' || !follow.hash) return '';
+  if (!localFp) return 'missing';
+  return localFp === follow.hash ? '' : 'different';
 }
 
 // Rol çalışabilir mi; değilse nedeni (arayüz ve sağlık denetimi gösterir)
@@ -92,6 +143,12 @@ function createFollower(cfg, now) {
        1 ms kayar: iki makineden birinin saati (NTP) oynarsa görüntü zıplamaz. */
     offsetMs: null,
     offsetSamples: 0,
+    /* EL İLE BIRAKILDI, OTOMATİK BEKLİYOR (#812, Windows'ta bulundu).
+       Birincil kapalıyken "Yetkiyi Bırak" denince kendiliğinden devralma
+       aynı anda yeniden alıyordu. Bırakıştan sonra otomatik devralma,
+       birincil yeniden canlı görülene (atış) ya da operatör yeniden
+       kurana dek durur; el ile devralma her zaman çalışır. */
+    autoHeld: false,
   };
   const samples = [];
   function noteOffset(at, t) {
@@ -133,6 +190,8 @@ function createFollower(cfg, now) {
       st.lastBeat = t;
       if (msg && Number.isFinite(msg.seq)) st.lastSeq = msg.seq;
       if (msg && typeof msg.scene === 'string') st.scene = msg.scene;
+      // Birincil canlı görüldü: el ile bırakıştan sonraki bekleme biter
+      st.autoHeld = false;
       if (st.state === 'active') return false;
       return set('following', t);
     },
@@ -142,7 +201,7 @@ function createFollower(cfg, now) {
        da kayıp sayılır. */
     tick(t) {
       if (st.state === 'active' || st.state === 'lost') {
-        if (st.state === 'lost' && s.takeover === 'auto') { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+        if (st.state === 'lost' && s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
         return false;
       }
       if (st.state === 'connecting') {
@@ -150,14 +209,17 @@ function createFollower(cfg, now) {
       } else if (t - st.lastBeat <= lossLimit()) {
         return false;
       }
-      if (s.takeover === 'auto') { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+      if (s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
       return set('lost', t);
     },
-    takeover(t) { st.takenAt = t; st.takenBy = 'manual'; return set('active', t); },
+    takeover(t) { st.autoHeld = false; st.takenAt = t; st.takenBy = 'manual'; return set('active', t); },
+    // Operatör otomatik devralmayı yeniden kurar (birincil hâlâ yoksa sonraki tikte devralır)
+    rearm() { if (!st.autoHeld) return false; st.autoHeld = false; return true; },
     release(t) {
       if (st.state !== 'active') return false;
       st.takenAt = 0;
       st.takenBy = '';
+      if (s.takeover === 'auto') st.autoHeld = true;
       // Birincil hâlâ atıyorsa izlemeye, atmıyorsa bağlantı beklemeye
       return set(st.lastBeat && t - st.lastBeat <= s.timeoutMs ? 'following' : 'connecting', t);
     },
@@ -254,6 +316,6 @@ function createClient(opts) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, normalize, problem, createFollower,
+  DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, createClient,
 };

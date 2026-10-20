@@ -972,7 +972,7 @@ kbd { background: var(--card2); border: 1px solid var(--line); border-radius: 5p
   background: var(--card); box-shadow: 0 28px 80px rgb(var(--shadow-rgb) / .6);
 }
 .ask-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-.ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.ask-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; white-space: pre-line; overflow-wrap: anywhere; }
 .ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .lyr-editor {
   width: min(1040px, calc(100vw - 24px));
@@ -1741,6 +1741,13 @@ input[type="number"]::-webkit-inner-spin-button {
 .red-show { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .red-diff { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
 .red-diff li { padding: 3px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+/* Gösteri paketi (#812, #817): satırlar üst üste binmez; liste kaydırılır,
+   video onay satırı kendi satırında, listenin altında. */
+.red-pkg { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.red-pkg > * { flex-shrink: 0; min-width: 0; }
+.red-pkg-files { max-height: 180px; }
+.red-pkg-media { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 0 4px; border-top: 1px solid var(--line); cursor: pointer; line-height: 1.3; }
+.red-pkg-media input[type=checkbox] { margin: 0; flex: 0 0 auto; }
 /* Gösteri öncesi denetim (#545): renk yalnız tema belirteçlerinden */
 .preshow-list { list-style: none; margin: 6px 0; padding: 0; }
 .preshow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }

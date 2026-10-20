@@ -2128,11 +2128,39 @@ void main(){
         seed: a && Number.isInteger(a.seed) ? a.seed : null,
         // Önceden derlenen sıradaki (#573): izleyenler de onu hazırlıyor
         next: this._pending && this._pending.early ? this._pending.id : null,
+        /* Bu seçimin geçişinin başladığı an (#812, duvar saati ms). İzleyen
+           geç başladıysa geçişini buna göre öne alıyor. Seçim değişti ama
+           geçiş henüz başlamadıysa (derleniyor) null. */
+        startedAt: a && this._blendStart && this._blendStart.id === a.id ? this._blendStart.at : null,
         bars: tp && this.cycle ? {
           bpm: Math.round(tp.bpm || 0), count: this.cycle.barCount, of: this._barsOf || 0,
           noTempo: this.cycle.reason === 'NOTEMPO',
         } : null,
       };
+    }
+
+    /* GEÇİŞİ LİDERE HİZALAMA (#812). İzleyen pencere ya da yedek makine
+       değişimi liderden geç alır (ağ, derleme); geçişi kendi başladığı
+       andan saysa lider bittiğinde o hâlâ yarıdadır ve iki ekran aynı anda
+       farklı karışım gösterir. Lider geçişin başladığı anı (`startedAt`,
+       yedekte birincilin saatinden yerel saate çevrilmiş) yolluyor; burada
+       ilerleme yalnız İLERİ alınıyor — geri sarmak görüntüyü zıplatırdı.
+       Bir geçişte bir kez: sonraki kareler kendi saatiyle ilerliyor.
+       Lider kendine mesaj almadığı için onda hiçbir şey değişmiyor. */
+    _alignBlend(now) {
+      const b = this._blendStart;
+      if (!b || b.aligned || !b.id) return false;
+      const F = typeof window !== 'undefined' && window.SVMdFollow;
+      if (!F || F.id !== b.id || !Number.isFinite(F.startedAt)) return false;
+      b.aligned = true;
+      const dur = Math.max(1e-3, this.blendDur);
+      // Saat farkı ölçülemediyse (gelecekte bir an) ya da çok eskiyse dokunulmuyor
+      const lag = (now - F.startedAt) / 1000;
+      if (!(lag > 0) || lag > dur + 5) return false;
+      const want = Math.min(0.999, lag / dur);
+      if (want <= this.blendProg) return false;
+      this.blendProg = want;
+      return true;
     }
 
     _ensurePreset(cfg) {
@@ -2280,6 +2308,12 @@ void main(){
         this.blendDirty = true;
         // Geçiş deseni aynı tohumun ayrı bir akışından
         this._blendSeed = (seed ^ 0x85ebca6b) >>> 0;
+        /* Geçişin başladığı an (#812): lider bunu izleyenlere duyurur,
+           izleyen (öteki pencere ya da yedek makine) geç başladıysa
+           ilerlemesini o ana göre öne alır. */
+        this._blendStart = { id: a ? a.id : '', at: Date.now(), aligned: false };
+      } else {
+        this._blendStart = null;
       }
       /* Çift presetin ikinci aşaması: geçiş hiç bitmiyor, karışım dosyanın
          noktasında duruyor ve desen dosyadan. Başka bir preset gelince
@@ -3510,7 +3544,10 @@ void main(){
         this.oldTime += step;
         this.oldPresetTime += step;
         if (this.blendFrozen != null) this.blendProg = this.blendFrozen;
-        else this.blendProg += step / Math.max(1e-3, this.blendDur);
+        else {
+          this.blendProg += step / Math.max(1e-3, this.blendDur);
+          this._alignBlend(Date.now());
+        }
         if (this.blendProg >= 1) {
           this._dropOld();
         } else {
