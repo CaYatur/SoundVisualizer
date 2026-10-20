@@ -74,6 +74,10 @@
     { action: 'tlNextMarker', label: 'Çizelge · Sonraki İşaret' },
     { action: 'tlPrevMarker', label: 'Çizelge · Önceki İşaret' },
     { action: 'deckStopAll', label: 'Deste · Hepsini Durdur' },
+    /* Yedeklilik (#546): yetkiyi ağ ayarına dokunmadan al/bırak. Yalnız
+       yedek makinede bir şey yapar. */
+    { action: 'redTakeover', label: 'Yedeklilik · Yetkiyi Al' },
+    { action: 'redRelease', label: 'Yedeklilik · Yetkiyi Bırak' },
     /* MilkDrop eylemleri panelin kendi düğmeleriyle AYNI yoldan gidiyor
        (milkdrop-panel.js `act`): geçmiş, puan ağırlığı ve kilit
        denetleyiciden de aynı çalışsın. */
@@ -260,6 +264,11 @@
       if (P().toggleBlackout) {
         P().toggleBlackout();
       }
+    } else if (action === 'redTakeover' || action === 'redRelease') {
+      const api = typeof window !== 'undefined' ? window.api : null;
+      const fn = api && (action === 'redTakeover' ? api.redundancyTakeover : api.redundancyRelease);
+      if (fn) fn().catch(() => {});
+      return true; // yapılandırma değişmedi
     } else if (action.indexOf('tl') === 0) {
       runTimeline(action);
     } else if (action.indexOf('deck') === 0) {

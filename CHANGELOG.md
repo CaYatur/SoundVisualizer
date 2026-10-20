@@ -8,6 +8,45 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 Work for v3.2.0 (redundancy, failover and frame sync, #540) lands on `dev/v3.2.0`, which branches
 from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release candidate.
 
+### Redundancy
+
+- **Primary and backup machines [542, 546, 547].** Output → Redundancy sets this machine's role.
+  - **Backup.** It connects to the primary and renders the same picture the whole time as a hot
+    standby. When the primary stops, it takes over, automatically or on command, chosen in
+    advance. Taking over switches who makes decisions, so the backup's screen never goes black.
+    Your video switcher decides which output the audience sees.
+  - **What is copied.** Only the picture and the show: the scene and its layers, saved scenes,
+    the timeline, the Clip Deck, Auto VJ settings and the MilkDrop library's ratings. Audio
+    device, displays, ports, lighting, mapping, export and MCP settings stay on each machine;
+    `src/shared/show-keys.js` holds the one list.
+  - **While following.** The backup's Auto VJ makes no picks, its MilkDrop windows take the
+    primary's preset choices, and a scene change made on the backup is overwritten by the
+    primary's next change. A backup that has taken over keeps control, even when the primary
+    returns, until you release it, so the show is not shaken twice.
+  - **How the link works.** The backup connects to the primary's streaming server as its own
+    client kind. It always needs a pairing secret of at least 16 characters, even when the
+    overlay needs no token, and it never receives overlay traffic. If the streaming output is
+    off, the primary opens the server for the backup only, with no overlay pages and no tokens.
+    The secret never reaches web clients and MCP cannot change any redundancy setting.
+  - **Two signals of a failure, measured apart.**
+    - When the primary process ends, the operating system closes the connection. The backup then
+      decides within 300 ms, or three heartbeats if that is longer, and reconnects first in case
+      the primary only restarted its server.
+    - When the connection stays open but heartbeats stop, the full threshold applies (1.5 s by
+      default). A primary's main thread was measured stalling 0.2–0.7 s on a scene change; a
+      600 ms threshold took over while the primary was alive.
+    - A backup started while the primary is down takes over after a start-up grace of at least
+      5 s.
+  - **Taking over by hand.** "Take Over" and "Release" are buttons in the panel and controller
+    actions (MIDI or OSC), so an operator can force it without touching the network setup.
+  - **`npm run failover`** starts a real primary and backup with separate profiles and ports.
+    It changes the scene on the primary and checks that the backup follows. Then it kills only
+    the primary process tree it started, and measures the takeover. Automatic takeover came in
+    352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
+    loss in 405–462 ms, waited, and took over on command.
+  - Not yet: show-file hash and push (#541), the modulation phase and timeline clock on the
+    backup (#544), the pre-show health page (#545), and frame sync (#543).
+
 ## v3.1.7-beta — development branch `dev/v3.1.7`, not released
 
 Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main` stays the

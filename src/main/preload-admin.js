@@ -184,6 +184,13 @@ contextBridge.exposeInMainWorld('api', {
   onStreamStatus: (cb) => ipcRenderer.on('stream-status', (e, d) => cb(d)),
   onStreamClients: (cb) => ipcRenderer.on('stream-clients', (e, d) => cb(d)),
 
+  // Yedeklilik (#540)
+  redundancyStatus: () => ipcRenderer.invoke('redundancy:status'),
+  redundancyTakeover: () => ipcRenderer.invoke('redundancy:takeover'),
+  redundancyRelease: () => ipcRenderer.invoke('redundancy:release'),
+  redundancyNewSecret: () => ipcRenderer.invoke('redundancy:new-secret'),
+  onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
+
   // OSC alıcısı
   artnetStatus: () => ipcRenderer.invoke('artnet:status'),
   artnetSync: () => ipcRenderer.invoke('artnet:sync'),

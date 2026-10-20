@@ -127,7 +127,7 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['redundancy', 'secret']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];
@@ -174,6 +174,8 @@
      anahtarını değiştirebiliyor, `power` ile ESC kilidini kaldırabiliyordu. */
   const PATH_GROUPS = {
     mcp: 'mcp', version: 'never',
+    // Yedeklilik (#540): ağ ve eşleşme parolası; ajan hiç yazamaz
+    redundancy: 'never',
     updates: 'updates',
     stream: 'output', 'stream.token': 'streamToken', 'stream.remoteToken': 'streamToken',
     control: 'controlBindings',

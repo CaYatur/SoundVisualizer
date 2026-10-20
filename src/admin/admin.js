@@ -664,6 +664,8 @@
         return dynamicThemeCtrl(def);
       case 'streampanel':
         return window.SVStream ? window.SVStream.panel() : null;
+      case 'redundancypanel':
+        return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
       case 'studiopanel':
         return window.SVStudio ? window.SVStudio.panel() : null;
       case 'controlpanel':
@@ -3296,6 +3298,15 @@
         title: 'Yayın Çıkışı (OBS / Web)',
         desc: 'OBS ve benzeri programlara "Tarayıcı Kaynağı" olarak eklenebilen bir sayfa yayınlar; telefondan uzaktan kumanda da buradan açılır.',
         controls: [{ type: 'streampanel' }],
+      },
+      {
+        id: 'redundancy',
+        category: 'output',
+        icon: 'copy',
+        wide: true,
+        title: 'Yedeklilik',
+        desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
+        controls: [{ type: 'redundancypanel' }],
       },
       {
         id: 'timeline',
@@ -6403,6 +6414,7 @@
     if (window.SVMilkdropPanel) window.SVMilkdropPanel.init();
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
+    if (window.SVRedundancyPanel) window.SVRedundancyPanel.init();
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
 

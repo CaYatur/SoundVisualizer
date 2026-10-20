@@ -98,7 +98,7 @@ hands, and a row only moves up once it ships.
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
 | Broadcast layout editor | v3.1.7 | Done on `dev/v3.1.7` (#533): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
-| Redundancy / genlock | v3.2.0 | Not started |
+| Redundancy / genlock | v3.2.0 | In progress on `dev/v3.2.0` (#540): primary/backup link, heartbeat and failover, manual takeover, and a two-instance failover test (#542, #546, #547); show-file hash, live clock replication, health page and frame sync to follow |
 
 ### Shipped, but never run on real hardware
 
@@ -133,7 +133,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3286 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3294 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3689,6 +3689,22 @@ will be built carefully rather than quickly.
 
 This is close to mandatory at large festivals and corporate events, and is
 standard in media servers of that class.
+
+**Status on `dev/v3.2.0`.**
+- **Done: the link, the heartbeat and both takeover modes** (#542, #546). The backup follows the
+  primary's scene and MilkDrop choices as a hot standby and takes over, automatically or by hand.
+- **Done: failover test** (#547). `npm run failover` kills the primary in a real two-instance
+  run. Automatic takeover came 352–425 ms after the kill, on the right scene.
+- **Measured: process exit and a busy primary are different signals.** When the primary process
+  exits, its connection closes, and a short grace is enough. A primary that is only busy keeps
+  the connection open while heartbeats arrive late: its main thread stalls 0.2–0.7 s on a scene
+  change. That case uses the full threshold.
+- **Still open:**
+  - the show-file content hash and push (#541);
+  - modulation phase and timeline clock on the backup (#544);
+  - the pre-show health page (#545);
+  - software frame sync with a drift measurement (#543). Hardware genlock cannot be verified
+    here without sync hardware.
 
 ---
 

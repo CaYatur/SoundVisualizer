@@ -2515,6 +2515,7 @@ ipcMain.on('lyrics-clock', (e, anchor) => {
    kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
    zaten diskte olduğu için kaydedilmez. */
 function applyIncomingConfig(config, opts) {
+  opts = redundancyGuard(config, opts); // yedek izlerken görüntü birincilden (#540)
   noteLyricsFile(config);
   const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
@@ -2572,6 +2573,8 @@ function applyIncomingConfig(config, opts) {
   } else {
     streamServer.broadcast({ type: 'config', config });
   }
+  syncRedundancy();
+  redundancyPush(patchKeys);
   syncStreamServer();
   syncOscServer();
   syncArtnet();
@@ -2716,6 +2719,9 @@ function relayMdFollow(sender, mp) {
     next: typeof mp.next === 'string' ? mp.next : null };
   const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
   const now = Date.now();
+  /* Yedek birincili izlerken kendi seçimini dağıtmaz (#540): ekranları
+     birincilin seçimini alıyor (onPrimaryMessage). */
+  if (red.role === 'backup' && red.follower && red.follower.follows() && now - red.mdFromPrimaryAt < 1500) return;
   if (key === mdFollowSent.key && now - mdFollowSent.at < 250) return;
   mdFollowSent = { key, at: now };
   for (const win of openWindows()) {
@@ -2724,6 +2730,7 @@ function relayMdFollow(sender, mp) {
   const ts = textureShare.window();
   if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
   streamServer.broadcast({ type: 'md-follow', follow }, 'overlay');
+  if (red.role === 'primary') streamServer.sendPeers({ type: 'md-follow', follow });
 }
 
 /* Görselleştirici penceresi ve Spout/Syphon yokken lider panel
@@ -3215,11 +3222,21 @@ function syncStreamServer() {
     streamSyncing = false;
     return r;
   };
-  if (!s.enabled) return streamServer.stop().then(() => done(streamServer.status()));
-  if (!s.token) s.token = streamServer.newToken();
-  if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = streamServer.newToken();
+  // Birincil makine (#540) yedeğe yayın sunucusundan ulaşır: kapalıysa da açılır
+  const peerHost = red.role === 'primary' && !redundancy.problem(red.cfg);
+  if (!s.enabled && !peerHost) return streamServer.stop().then(() => done(streamServer.status()));
+  /* Yayın çıkışı kapalı, makine birincil: sunucu YALNIZ yedek için açılır —
+     yayın sayfası ve jeton yok. Eskiden burada jeton üretiliyordu; panelin
+     kopyasında jeton olmadığından her panel gönderiminde jeton değişiyor,
+     sunucu yeniden başlıyor ve yedeğin bağlantısı kopuyordu (ölçüldü:
+     yedeğe geçiş denemesinde birincil yaşarken yetki alındı). */
+  const peerOnly = !s.enabled;
+  if (!peerOnly) {
+    if (!s.token) s.token = streamServer.newToken();
+    if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = streamServer.newToken();
+  }
   return streamServer
-    .start(s, {
+    .start(peerOnly ? { port: s.port, lan: !!s.lan, peerOnly: true } : s, {
       getConfig: () => currentConfig,
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
@@ -3241,6 +3258,8 @@ function syncStreamServer() {
       },
       logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
+      onPeerOpen: (client) => onPeerOpen(client),
+      onPeerMessage: (msg) => onPeerMessage(msg),
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
         syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
@@ -3253,6 +3272,183 @@ function syncStreamServer() {
       return done(st);
     });
 }
+
+/* ---------------------------------------------------------------------------
+   YEDEKLİLİK (#540, redundancy.js). Birincil: yayın sunucusundan yedeğe
+   anlık görüntü, değişen anahtarlar, MilkDrop seçimi ve kalp atışı. Yedek:
+   birincile bağlanır, izlerken görüntüyü ondan alır (kurulum hiç değişmez),
+   atış eşiği aşılınca kendiliğinden ya da elle yetkiyi alır.
+   --------------------------------------------------------------------------- */
+const redundancy = require('./redundancy');
+const ShowKeys = require('../shared/show-keys');
+const red = {
+  sig: '', role: 'off', cfg: redundancy.normalize(null),
+  follower: null, client: null, beatTimer: null, tickTimer: null,
+  seq: 0, sent: {}, peerState: '', mdFromPrimaryAt: 0, adminTimer: null,
+  // Yedek: birincilden gelen son görüntü ve gösteri (yerel panel ezmesin)
+  mirror: null,
+};
+
+function redundancyStatus() {
+  const base = { role: red.role, problem: redundancy.problem(red.cfg) };
+  if (red.role === 'primary') {
+    return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running });
+  }
+  if (red.role === 'backup' && red.follower) return Object.assign(base, red.follower.status);
+  return base;
+}
+function notifyRedundancy() { notifyAdmin('redundancy-status', redundancyStatus()); }
+
+function stopRedundancy() {
+  if (red.beatTimer) { clearInterval(red.beatTimer); red.beatTimer = null; }
+  if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
+  if (red.client) { red.client.close(); red.client = null; }
+  red.follower = null;
+  red.sent = {};
+  red.peerState = '';
+  red.mirror = null;
+  streamServer.setPeerSecret('');
+}
+
+// Yapılandırmadaki rol değiştiyse yeniden kur
+function syncRedundancy() {
+  const c = redundancy.normalize(currentConfig && currentConfig.redundancy);
+  const sig = JSON.stringify(c);
+  if (sig === red.sig) return;
+  red.sig = sig;
+  stopRedundancy();
+  red.cfg = c;
+  red.role = c.role;
+  if (c.role === 'off' || redundancy.problem(c)) { notifyRedundancy(); return; }
+  if (c.role === 'primary') {
+    streamServer.setPeerSecret(c.secret);
+    syncStreamServer();
+    let prevBeat = 0;
+    red.beatTimer = setInterval(() => {
+      const now = Date.now();
+      // Kendi gecikmesi: yedek, atış arasının hangi tarafta uzadığını görsün
+      const gap = prevBeat ? now - prevBeat : 0;
+      prevBeat = now;
+      if (streamServer.peerCount()) streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap }));
+    }, c.heartbeatMs);
+  } else {
+    red.follower = redundancy.createFollower(c, Date.now());
+    red.client = redundancy.createClient({
+      url: redundancy.peerUrl(c),
+      onOpen: () => { red.follower.connected(); notifyRedundancy(); },
+      onClose: () => { if (red.follower) red.follower.disconnected(); notifyRedundancy(); },
+      onMessage: onPrimaryMessage,
+    });
+    /* Denetim setImmediate ile: ana iş parçacığı meşgul kaldıysa bekleyen
+       atışlar önce okunsun (zamanlayıcı → G/Ç → setImmediate). Yoksa
+       yoğun bir anın ardından gelen ilk denetim eski atışa bakıp
+       birincil yaşarken yetkiyi alabilirdi. */
+    red.tickTimer = setInterval(() => {
+      setImmediate(() => { if (red.follower && red.follower.tick(Date.now())) onFollowerChanged(); });
+    }, Math.max(25, Math.min(100, Math.round(c.heartbeatMs / 2))));
+  }
+  notifyRedundancy();
+}
+
+// Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
+function onPeerOpen(client) {
+  streamServer.sendJson(client, { type: 'hello', version: app.getVersion(), role: 'primary' });
+  streamServer.sendJson(client, redundancy.snapshotMsg(currentConfig, Date.now()));
+  red.sent = {};
+  for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
+  notifyRedundancy();
+}
+function onPeerMessage(msg) {
+  if (msg && msg.type === 'peer-state' && typeof msg.state === 'string') {
+    red.peerState = msg.state.slice(0, 20);
+    notifyRedundancy();
+  }
+}
+
+/* Birincil: yapılandırma değişince yedeğe değişen anahtarlar. Sürüklemede
+   gelen yama anahtarları doğrudan; tam yapılandırmada son yollananla
+   karşılaştırılır (yalnız bağlı yedek varken). */
+function redundancyPush(patchKeys) {
+  if (red.role !== 'primary' || !streamServer.peerCount() || !currentConfig) return;
+  const keys = patchKeys ? patchKeys.filter((k) => ShowKeys.REPLICATED.indexOf(k) >= 0) : ShowKeys.REPLICATED;
+  const changed = [];
+  for (const k of keys) {
+    const j = JSON.stringify(currentConfig[k]);
+    if (j !== red.sent[k]) { red.sent[k] = j; changed.push(k); }
+  }
+  const msg = redundancy.patchMsg(currentConfig, changed, Date.now());
+  if (msg) streamServer.sendPeers(msg);
+}
+
+/* Yedek birincili izlerken görüntü ve gösteri birincilden (#540): yerel
+   panelin gönderdiği eski kopya onu geri almasın; panel kendi kopyasını
+   tazeler. Kurulum anahtarları serbest. Yapılandırmayı yerinde düzeltir,
+   (gerekirse süzülmüş) seçenekleri döndürür. */
+function redundancyGuard(config, opts) {
+  if (red.role !== 'backup' || !red.mirror || !red.follower || !red.follower.follows() || (opts && opts.fromPrimary) || !config) return opts;
+  let overrode = false;
+  for (const k of Object.keys(red.mirror)) {
+    if (JSON.stringify(config[k]) !== JSON.stringify(red.mirror[k])) { config[k] = JSON.parse(JSON.stringify(red.mirror[k])); overrode = true; }
+  }
+  if (overrode && !red.adminTimer) {
+    red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
+  }
+  if (opts && Array.isArray(opts.patchKeys)) return Object.assign({}, opts, { patchKeys: opts.patchKeys.filter((k) => !(k in red.mirror)) });
+  return opts;
+}
+
+// Yedek: birincilden gelen ileti
+function onPrimaryMessage(msg) {
+  const f = red.follower;
+  if (!f) return;
+  if (msg.type === 'beat') {
+    if (f.beat(msg, Date.now())) onFollowerChanged();
+    return;
+  }
+  if (msg.type === 'md-follow') {
+    // Birincilin MilkDrop seçimi bu makinenin BÜTÜN ekranlarına
+    if (!f.follows() || !msg.follow) return;
+    red.mdFromPrimaryAt = Date.now();
+    for (const win of openWindows()) win.webContents.send('md-follow', msg.follow);
+    const ts = textureShare.window();
+    if (ts) ts.webContents.send('md-follow', msg.follow);
+    streamServer.broadcast({ type: 'md-follow', follow: msg.follow }, 'overlay');
+    return;
+  }
+  if ((msg.type === 'snapshot' || msg.type === 'patch') && f.follows() && currentConfig) {
+    if (!red.mirror || msg.type === 'snapshot') red.mirror = {};
+    redundancy.applyIncoming(red.mirror, msg);
+    const next = Object.assign({}, currentConfig);
+    const changed = redundancy.applyIncoming(next, msg);
+    if (!changed.length) return;
+    applyIncomingConfig(next, { patchKeys: changed, fromPrimary: true });
+    // Panelin kopyası da tazelensin: yoksa paneldeki ilk değişiklik geri alırdı
+    if (!red.adminTimer) {
+      red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
+    }
+  }
+}
+
+function onFollowerChanged() {
+  if (!red.follower) return;
+  const st = red.follower.status;
+  if (red.client) red.client.send({ type: 'peer-state', state: st.state });
+  if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ')');
+  notifyRedundancy();
+}
+
+ipcMain.handle('redundancy:status', () => redundancyStatus());
+ipcMain.handle('redundancy:takeover', () => {
+  if (red.role !== 'backup' || !red.follower) return redundancyStatus();
+  if (red.follower.takeover(Date.now())) onFollowerChanged();
+  return redundancyStatus();
+});
+ipcMain.handle('redundancy:release', () => {
+  if (red.role !== 'backup' || !red.follower) return redundancyStatus();
+  if (red.follower.release(Date.now())) onFollowerChanged();
+  return redundancyStatus();
+});
+ipcMain.handle('redundancy:new-secret', () => require('crypto').randomBytes(18).toString('base64url'));
 
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
@@ -5428,6 +5624,7 @@ app.whenReady().then(async () => {
   scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
+  syncRedundancy(); // birincilse yayın sunucusunu da açar (#540)
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
