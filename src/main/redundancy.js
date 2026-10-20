@@ -84,7 +84,27 @@ function createFollower(cfg, now) {
     maxGap: 0,
     // Birincilin kendi ölçtüğü en uzun gönderim arası (ms)
     maxPrimaryGap: 0,
+    /* SAAT FARKI (#544): yedeğin saati − birincilin saati (ms). Atış
+       birincilde gönderilirken damgalanıyor (`at`); örnek = varış − at =
+       fark + gecikme. Son 10 sn'nin EN KÜÇÜĞÜ: birincilin duraklaması
+       örneği etkilemez (damga gönderimde), yedeğin duraklaması örneği
+       büyütür ve en küçük onu eler. Düzeltme sıçramaz, atış başına en çok
+       1 ms kayar: iki makineden birinin saati (NTP) oynarsa görüntü zıplamaz. */
+    offsetMs: null,
+    offsetSamples: 0,
   };
+  const samples = [];
+  function noteOffset(at, t) {
+    if (!Number.isFinite(at)) return;
+    samples.push({ t, v: t - at });
+    while (samples.length && t - samples[0].t > 10000) samples.shift();
+    let best = Infinity;
+    for (const x of samples) if (x.v < best) best = x.v;
+    st.offsetSamples = samples.length;
+    if (st.offsetMs == null) { st.offsetMs = best; return; }
+    const d = best - st.offsetMs;
+    st.offsetMs += d > 1 ? 1 : d < -1 ? -1 : d;
+  }
   /* İki ayrı belirti. Bağlantı KAPANDIYSA süreç ölmüştür (işletim sistemi
      soketi hemen kapatır): kısa pay yeter. Bağlantı açık ama atış gecikiyorsa
      birincil yalnız meşgul olabilir — ölçüldü, ana iş parçacığı sahne
@@ -109,6 +129,7 @@ function createFollower(cfg, now) {
     beat(msg, t) {
       if (st.lastBeat && st.state === 'following') st.maxGap = Math.max(st.maxGap, t - st.lastBeat);
       if (msg && Number.isFinite(msg.gap)) st.maxPrimaryGap = Math.max(st.maxPrimaryGap, msg.gap);
+      if (msg) noteOffset(msg.at, t);
       st.lastBeat = t;
       if (msg && Number.isFinite(msg.seq)) st.lastSeq = msg.seq;
       if (msg && typeof msg.scene === 'string') st.scene = msg.scene;
@@ -140,6 +161,8 @@ function createFollower(cfg, now) {
       // Birincil hâlâ atıyorsa izlemeye, atmıyorsa bağlantı beklemeye
       return set(st.lastBeat && t - st.lastBeat <= s.timeoutMs ? 'following' : 'connecting', t);
     },
+    // Birincilin zaman damgası (ms) bu makinenin saatinde; fark yoksa olduğu gibi
+    toLocal(ms) { return Number.isFinite(ms) ? ms + (st.offsetMs || 0) : ms; },
     // Yedek birincilden gelen görüntüyü uygulamalı mı
     follows() { return st.state === 'following' || st.state === 'lost' || st.state === 'connecting'; },
   };

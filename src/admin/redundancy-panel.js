@@ -223,6 +223,10 @@
       const next = sig(status);
       if (prev !== next && document.querySelector('.redundancy-panel')) P().rerender();
     });
+    // Birincilin taşıması (#544): zaman çizelgesi paneli onu izler
+    if (window.api.onShowClockFollow) {
+      window.api.onShowClockFollow((a) => { if (window.SVTimelinePanel && window.SVTimelinePanel.followAnchor) window.SVTimelinePanel.followAnchor(a); });
+    }
     try { status = await window.api.redundancyStatus(); window.SVRedundancyState = status; } catch { /* */ }
   }
 

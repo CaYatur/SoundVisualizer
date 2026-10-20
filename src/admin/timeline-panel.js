@@ -1465,6 +1465,17 @@
     ensureTransport().seek(t);
     reanchor();
   }
+  /* Yedek makine birincili izlerken (#544): taşıma birincilin çıpasından
+     (ana süreç bu makinenin saatine çevirdi). Geri yollanmaz — çıpa zaten
+     ana süreçte ve pencerelerde. Yetkiyi alınca taşıma kaldığı yerden sürer. */
+  function followAnchor(a) {
+    if (!a || typeof a !== 'object' || !window.SVShowClock) return;
+    clockAnchor = a;
+    lastAnchorKey = a.playing + '|' + Number(a.time || 0).toFixed(4) + '|' + a.rate +
+      '|' + (a.loop ? a.loop.start + ',' + a.loop.end : '-');
+    syncTransportFromAnchor();
+    if (a.playing) start();
+  }
 
   // --------------------------------------------------------------------------
   // Klavye (#636). Yalnız düzenleyici odaktayken ve bir metin alanına
@@ -1532,6 +1543,7 @@
     pause,
     stop,
     seek,
+    followAnchor,
     transport: () => syncTransportFromAnchor(),
     anchor: () => clockAnchor || (window.SVShowClock ? window.SVShowClock.anchorFrom(syncTransportFromAnchor(), Date.now(), syncTransportFromAnchor().tl && syncTransportFromAnchor().tl.loop) : null),
     /* Öz test ve dış denetim için: paneli açmadan taşımayı sürebilmek. */

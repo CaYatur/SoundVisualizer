@@ -98,7 +98,7 @@ hands, and a row only moves up once it ships.
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
 | Broadcast layout editor | v3.1.7 | Done on `dev/v3.1.7` (#533): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
-| Redundancy / genlock | v3.2.0 | In progress on `dev/v3.2.0` (#540): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, and show comparison with push (#542, #546, #547, #541); live clock replication, health page and frame sync to follow |
+| Redundancy / genlock | v3.2.0 | In progress on `dev/v3.2.0` (#540): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, show comparison with push, and shared timeline and modulation clock (#542, #546, #547, #541, #544); health page and frame sync to follow |
 
 ### Shipped, but never run on real hardware
 
@@ -133,7 +133,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3302 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3307 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3702,8 +3702,10 @@ standard in media servers of that class.
 - **Done: show comparison and push** (#541). Both machines hash their inventory; the primary
   lists differences and, after confirmation, sends presets and logos. Video files are only
   reported.
+- **Done: same time on both machines** (#544). A heartbeat-based clock offset (rolling
+  minimum, slewed) converts the primary's timeline anchors, and a shared session clock aligns
+  modulation phase. On one computer: 0 ms median, 1 ms p95.
 - **Still open:**
-  - modulation phase and timeline clock on the backup (#544);
   - the pre-show health page (#545);
   - software frame sync with a drift measurement (#543). Hardware genlock cannot be verified
     here without sync hardware.

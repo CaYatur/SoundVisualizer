@@ -982,6 +982,8 @@ function createVisualizerWindow(display) {
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    // Ortak oturum saati (#544): sonradan açılan ekran da aynı modülasyon evresinde
+    if (red.sharedSent != null) win.webContents.send('shared-clock', { epoch: red.sharedSent });
     ensureLyricsClock();
     if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     /* Calan parca durumu da hemen gitmeli. Kaynak konumu ancak on saniyede
@@ -2003,6 +2005,8 @@ function createFloatingWindow() {
     syncCapture();
     if (currentConfig) win.webContents.send('config', rendererConfig(currentConfig));
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    // Ortak oturum saati (#544): sonradan açılan ekran da aynı modülasyon evresinde
+    if (red.sharedSent != null) win.webContents.send('shared-clock', { epoch: red.sharedSent });
     ensureLyricsClock();
     if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
@@ -2130,6 +2134,8 @@ let showClockAnchor = null;
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);
+  // Yedeklilik (#544): birincilin taşıması yedeğe de gider
+  if (red.role === 'primary' && streamServer.peerCount()) streamServer.sendPeers({ type: 'show-clock', anchor: showClockAnchor });
 });
 
 ipcMain.handle('visualizer-open-displays', () => Array.from(visualizerWins.keys()));
@@ -3288,6 +3294,13 @@ const red = {
   seq: 0, sent: {}, peerState: '', mdFromPrimaryAt: 0, adminTimer: null,
   // Yedek: birincilden gelen son görüntü ve gösteri (yerel panel ezmesin)
   mirror: null,
+  /* Ortak oturum saati (#544): birincilin oturum başlangıcı, birincilin
+     saatinde. Modülasyon evresi bundan sayılır; iki makinede aynı evre.
+     Unix zamanı değil, yakın bir başlangıç: shader'lara giden float32
+     zaman büyük sayıda adım adım ilerlerdi. */
+  sessionStart: Date.now(),
+  primaryStart: null,
+  sharedSent: null,
 };
 
 function redundancyStatus() {
@@ -3310,6 +3323,7 @@ function stopRedundancy() {
   red.mirror = null;
   red.show = null;
   red.backupInv = null;
+  red.primaryStart = null;
   red.invParts = null;
   if (red.compareTimer) { clearTimeout(red.compareTimer); red.compareTimer = null; }
   streamServer.setPeerSecret('');
@@ -3324,7 +3338,7 @@ function syncRedundancy() {
   stopRedundancy();
   red.cfg = c;
   red.role = c.role;
-  if (c.role === 'off' || redundancy.problem(c)) { notifyRedundancy(); return; }
+  if (c.role === 'off' || redundancy.problem(c)) { syncSharedClock(); notifyRedundancy(); return; }
   if (c.role === 'primary') {
     streamServer.setPeerSecret(c.secret);
     syncStreamServer();
@@ -3334,7 +3348,7 @@ function syncRedundancy() {
       // Kendi gecikmesi: yedek, atış arasının hangi tarafta uzadığını görsün
       const gap = prevBeat ? now - prevBeat : 0;
       prevBeat = now;
-      if (streamServer.peerCount()) streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap }));
+      if (streamServer.peerCount()) streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart }));
     }, c.heartbeatMs);
   } else {
     red.follower = redundancy.createFollower(c, Date.now());
@@ -3352,12 +3366,14 @@ function syncRedundancy() {
       setImmediate(() => { if (red.follower && red.follower.tick(Date.now())) onFollowerChanged(); });
     }, Math.max(25, Math.min(100, Math.round(c.heartbeatMs / 2))));
   }
+  syncSharedClock(true);
   notifyRedundancy();
 }
 
 // Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
 function onPeerOpen(client) {
-  streamServer.sendJson(client, { type: 'hello', version: app.getVersion(), role: 'primary' });
+  streamServer.sendJson(client, { type: 'hello', version: app.getVersion(), role: 'primary', start: red.sessionStart });
+  if (showClockAnchor) streamServer.sendJson(client, { type: 'show-clock', anchor: showClockAnchor });
   streamServer.sendJson(client, redundancy.snapshotMsg(currentConfig, Date.now()));
   red.sent = {};
   for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
@@ -3418,8 +3434,21 @@ function redundancyGuard(config, opts) {
 function onPrimaryMessage(msg) {
   const f = red.follower;
   if (!f) return;
-  if (msg.type === 'beat') {
-    if (f.beat(msg, Date.now())) onFollowerChanged();
+  if (msg.type === 'hello' || msg.type === 'beat') {
+    if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
+    if (msg.type === 'beat' && f.beat(msg, Date.now())) onFollowerChanged();
+    syncSharedClock();
+    return;
+  }
+  if (msg.type === 'show-clock') {
+    /* Birincilin çıpası bu makinenin saatine çevrilir: çıpa birincilin
+       Date.now'uyla damgalı, pencereler yedeğin Date.now'uyla hesaplıyor. */
+    if (!f.follows()) return;
+    const a = msg.anchor && typeof msg.anchor === 'object' ? Object.assign({}, msg.anchor) : null;
+    if (a && Number.isFinite(a.epoch)) a.epoch = f.toLocal(a.epoch);
+    showClockAnchor = a;
+    sendToVisualizers('show-clock', showClockAnchor);
+    notifyAdmin('show-clock-follow', showClockAnchor);
     return;
   }
   if (msg.type === 'inventory-request') { sendInventory(msg.id).catch(() => {}); return; }
@@ -3446,6 +3475,25 @@ function onPrimaryMessage(msg) {
       red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
     }
   }
+}
+
+/* Pencerelere ortak oturum saati: birincilde kendi başlangıcı, yedekte
+   birincilinki bu makinenin saatine çevrilmiş; rol kapalıysa yok (pencere
+   eski davranışta, kendi saatinde). Fark atış başına en çok 1 ms kaydığı
+   için 2 ms'den büyük değişimde yollanır. */
+function sharedEpoch() {
+  if (red.role === 'primary' && !redundancy.problem(red.cfg)) return red.sessionStart;
+  if (red.role === 'backup' && red.follower && red.primaryStart != null && red.follower.status.offsetMs != null) {
+    return red.follower.toLocal(red.primaryStart);
+  }
+  return null;
+}
+function syncSharedClock(force) {
+  const e = sharedEpoch();
+  const prev = red.sharedSent;
+  if (!force && (e === prev || (e != null && prev != null && Math.abs(e - prev) <= 2))) return;
+  red.sharedSent = e;
+  sendToVisualizers('shared-clock', { epoch: e });
 }
 
 function onFollowerChanged() {
