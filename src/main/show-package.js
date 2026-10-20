@@ -436,6 +436,15 @@ function createPull(opts) {
     return m.items.filter((it) => it.kind === 'media').slice(0, 100)
       .map((it) => ({ name: it.name, size: it.size, have: haveCache.set.has(it.path + '|' + it.sha256) }));
   }
+  /* EKSİK YOKSA HEMEN DOĞRULAMAYA (#812, Linux'ta bulundu). Yeniden
+     çekilen paketin her dosyası öncekinden geldiyse (prefill) istek
+     çıkmıyordu; doğrulama yalnız parça gelince (chunk) başladığı için
+     aktarım %100'de, "transferring" durumunda sonsuza dek kalıyordu.
+     Onay ve sürdürme de burada bitişi görüyor; çağıran `finish()`'i çalıştırır. */
+  function settle(requests) {
+    if (rx && st.state === 'transferring' && !requests.length && st.inflight === 0 && !rx.missing(1).length) st.state = 'verifying';
+    return requests;
+  }
   function next() {
     if (!rx || st.state !== 'transferring') return [];
     const want = rx.missing(window * 4).filter((r) => !sent.has(r.path + '#' + r.c));
@@ -485,7 +494,7 @@ function createPull(opts) {
       st.inflight = 0;
       st.startedAt = Date.now();
       sent.clear();
-      return next();
+      return settle(next());
     },
     // Parça geldi. Dönen: yeni istekler; bitti mi?
     chunk(msg, t) {
@@ -515,7 +524,7 @@ function createPull(opts) {
     resume() {
       if (st.state !== 'transferring' && !(st.state === 'error' && rx)) return [];
       st.state = 'transferring'; st.error = ''; st.inflight = 0; sent.clear();
-      return next();
+      return settle(next());
     },
     async finish() {
       if (st.state !== 'verifying' || !rx) return false;

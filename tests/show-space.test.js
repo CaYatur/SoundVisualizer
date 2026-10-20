@@ -160,3 +160,36 @@ test('eski gönderim yedeğin öğesini ezmiyor; paket çakışması yerel öğe
   const serve = main.slice(main.indexOf('async function servePackageChunk('), main.indexOf('function pkgSend('));
   assert.match(serve, /const e = sv\.byPath\.get\(msg\.path\);/);
 });
+
+/* İZLERKEN OLAY DÖNGÜSÜ BEKLEMESİN (#812). Birincilin kopyası arka planda
+   yazılıyor; çağıranın JSON metni kullanılıyor, bellekteki kopya hemen
+   güncel; üst üste gelen yazımlardan yalnız sonuncusu diske gidiyor. */
+test('birincilin kopyası arka planda yazılıyor; son yazım kazanıyor; bellekte hemen', async () => {
+  const dir = tmp();
+  const sp = S.createShowSpace(dir);
+  let writes = 0;
+  const realWrite = fs.promises.writeFile;
+  fs.promises.writeFile = async (...a) => { writes++; return realWrite.apply(fs.promises, a); };
+  try {
+    const p1 = sp.savePrimaryJson(JSON.stringify({ scenes: [{ id: 'a' }] }), { version: '3.1.6' });
+    sp.savePrimaryJson(JSON.stringify({ scenes: [{ id: 'b' }] }), { version: '3.1.6' });
+    sp.savePrimaryJson(JSON.stringify({ scenes: [{ id: 'c' }] }), { version: '3.1.6' });
+    // Henüz diskte olmasa da bellekteki kopya son hâl
+    assert.deepStrictEqual(sp.loadPrimary().show.scenes.map((x) => x.id), ['c']);
+    assert.strictEqual(sp.loadPrimary().version, '3.1.6');
+    await p1;
+    await sp.flushPrimary();
+    assert.ok(writes <= 2, 'ara hâller atlanır (' + writes + ')');
+    const disk = JSON.parse(fs.readFileSync(sp.primaryFile, 'utf8'));
+    assert.deepStrictEqual(disk.show.scenes.map((x) => x.id), ['c']);
+    assert.ok(Number.isFinite(disk.receivedAt) && disk.format >= 1);
+    assert.deepStrictEqual(fs.readdirSync(dir).filter((f) => f.endsWith('.tmp')), []);
+    // Yeni bir alan diskten okur
+    assert.deepStrictEqual(S.createShowSpace(dir).loadPrimary().show.scenes.map((x) => x.id), ['c']);
+  } finally {
+    fs.promises.writeFile = realWrite;
+  }
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(main, /sp\.savePrimaryJson\(sig, \{ version: red\.primaryVersion \|\| '' \}\);/);
+  assert.match(main, /if \(text === lastSettingsText && fs\.existsSync\(SETTINGS_PATH\) && \(!settingsGuardOn \|\| settingsGuard\.changed\(\) === false\)\) return true;/);
+});

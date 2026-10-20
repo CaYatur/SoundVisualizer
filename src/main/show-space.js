@@ -58,7 +58,11 @@ function createShowSpace(dir, opts) {
     if (!local) local = readShow(localFile);
     return local;
   }
+  let primaryText = null; // son kopya, diske yazılmayı beklerken bellekte
   function loadPrimary() {
+    if (!primary && primaryText) {
+      try { primary = JSON.parse(primaryText); } catch { primary = null; }
+    }
     if (!primary) primary = readShow(primaryFile);
     return primary;
   }
@@ -77,6 +81,53 @@ function createShowSpace(dir, opts) {
     local = { format: FORMAT, capturedAt: (local && local.capturedAt) || Date.now(), updatedAt: Date.now(), show: clone(show) || {} };
     Pkg.writeJsonAtomic(localFile, local, F);
   }
+
+  /* İZLERKEN OLAY DÖNGÜSÜ BEKLEMESİN (#812). Birincilin her değişikliğinde
+     kopya yazılıyordu: iki kez JSON'a çevirme, bir kez geri ayrıştırma ve
+     girintili, eşzamanlı bir dosya yazımı. Windows'ta virüs taraması her
+     yeni dosyayı tutarken bu, kalp atışının ve karelerin işlendiği iş
+     parçacığını durdurur. Burada çağıranın zaten ürettiği JSON metni
+     kullanılır; dosya arka planda yazılır, üst üste gelen yazımlardan
+     yalnız sonuncusu gider. Bellekteki kopya hemen günceldir. */
+  let writing = null;
+  let queued = null;
+  function savePrimaryJson(showJson, meta) {
+    const m = meta || {};
+    primaryText = '{"format":' + FORMAT + ',"version":' + JSON.stringify(String(m.version || '')) +
+      ',"receivedAt":' + Date.now() + ',"show":' + (showJson || '{}') + '}\n';
+    primary = null;
+    queued = primaryText;
+    if (!writing) writing = drain();
+    return writing;
+  }
+  async function drain() {
+    const P = F.promises || fs.promises;
+    try {
+      while (queued != null) {
+        const text = queued;
+        queued = null;
+        const tmp = primaryFile + '.' + process.pid + '.' + Date.now().toString(36) + '.tmp';
+        try {
+          await P.mkdir(path.dirname(primaryFile), { recursive: true });
+          await P.writeFile(tmp, text, 'utf-8');
+          // Windows: dosyayı başka biri kısa süre tutuyorsa yeniden dene
+          for (let i = 0; ; i++) {
+            try { await P.rename(tmp, primaryFile); break; } catch (e) {
+              if (i >= 8 || !(e && (e.code === 'EPERM' || e.code === 'EBUSY' || e.code === 'EACCES'))) throw e;
+              await new Promise((r) => setTimeout(r, 25 * (i + 1)));
+            }
+          }
+        } catch (e) {
+          try { await P.unlink(tmp); } catch { /* */ }
+          if (opts && typeof opts.onError === 'function') opts.onError(e);
+        }
+      }
+    } finally {
+      writing = null;
+    }
+  }
+  // Bekleyen yazım bitsin (kapanış, test)
+  function flushPrimary() { return writing || Promise.resolve(); }
 
   function savePrimary(show, meta) {
     primary = Object.assign({ format: FORMAT }, meta || {}, { receivedAt: Date.now(), show: clone(show) || {} });
@@ -179,7 +230,7 @@ function createShowSpace(dir, opts) {
     };
   }
 
-  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary, listArchives, readArchive, archiveShow };
+  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary, savePrimaryJson, flushPrimary, listArchives, readArchive, archiveShow };
 }
 
 /* Video yollarını gösteri paketindeki kopyaya eşler. `map`: birincilin

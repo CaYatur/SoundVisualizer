@@ -330,10 +330,16 @@ function flushSettings() {
   writeSettingsText(text);
 }
 
+/* Aynı metin yeniden yazılmaz (#812). Yedek birincili izlerken her
+   değişiklikte kayıt sıraya giriyor ama diske giden yerel gösteri
+   değişmiyor; eşzamanlı yazım olay döngüsünü boşuna bekletiyordu. */
+let lastSettingsText = null;
 function writeSettingsText(text) {
+  if (text === lastSettingsText && fs.existsSync(SETTINGS_PATH) && (!settingsGuardOn || settingsGuard.changed() === false)) return true;
   try {
     fs.writeFileSync(SETTINGS_PATH, text, 'utf-8');
     if (settingsGuardOn) settingsGuard.remember(text);
+    lastSettingsText = text;
     return true;
   } catch (e) {
     console.error('Ayarlar kaydedilemedi:', e);
@@ -3483,7 +3489,8 @@ function redundancyDiskView(config) {
     const sig = JSON.stringify(show);
     if (sig !== red.primarySavedSig) {
       red.primarySavedSig = sig;
-      sp.savePrimary(show, { version: red.primaryVersion || '' });
+      // Arka planda; aynı metin dosyaya gider (#812, olay döngüsü beklemesin)
+      sp.savePrimaryJson(sig, { version: red.primaryVersion || '' });
     }
     return sp.forDisk(config);
   } catch (e) {
@@ -3724,7 +3731,7 @@ function syncRedundancy() {
       onOpen: () => {
         red.follower.connected();
         // Yarıda kalan paket aktarımı kaldığı yerden (#812)
-        if (red.pull) for (const r of red.pull.resume()) red.client.send(Object.assign({ type: 'pkg-get', pkg: red.pull.status.pkg }, r));
+        if (red.pull) { for (const r of red.pull.resume()) red.client.send(Object.assign({ type: 'pkg-get', pkg: red.pull.status.pkg }, r)); finishPull(); }
         notifyRedundancy();
       },
       onClose: () => { if (red.follower) red.follower.disconnected(); notifyRedundancy(); },
@@ -4020,6 +4027,7 @@ function onPackageManifest(msg) {
   if (auto && (auto.any || red.pull.status.pkg === auto.pkg)) {
     try {
       pkgSend(red.pull.confirm({ media: auto.media }, pkgReceiver));
+      finishPull();
       red.pullAuto = { pkg: red.pull.status.pkg, media: auto.media };
     } catch (err) {
       red.pull.fail('stage');
@@ -4035,14 +4043,18 @@ function onPackageChunk(msg) {
   if (!red.pull) return;
   const r = red.pull.chunk(msg, Date.now());
   pkgSend(r.requests);
-  if (r.done) {
-    red.pull.finish().then((ok) => {
-      if (ok && ok.retry) pkgSend(ok.retry);
-      else if (ok === true) { red.pullAuto = null; installPackage(); }
-      notifyRedundancy();
-    }).catch(() => notifyRedundancy());
-  }
+  if (r.done) finishPull();
   notifyRedundancySoon();
+}
+/* Doğrulama ve takas. Parça gelince (chunk) ya da hiçbir şey eksik değilken
+   onay/sürdürme anında (#812: öncekinden dolan pakette parça hiç gelmez). */
+function finishPull() {
+  if (!red.pull || red.pull.status.state !== 'verifying') return;
+  red.pull.finish().then((ok) => {
+    if (ok && ok.retry) pkgSend(ok.retry);
+    else if (ok === true) { red.pullAuto = null; installPackage(); }
+    notifyRedundancy();
+  }).catch(() => notifyRedundancy());
 }
 function onPackageError(msg) {
   if (!red.pull) return;
@@ -4582,6 +4594,7 @@ ipcMain.handle('redundancy:pkg-confirm', (e, choice) => {
   const media = !!(choice && choice.media);
   try {
     pkgSend(red.pull.confirm({ media }, pkgReceiver));
+    finishPull();
     red.pullAuto = { pkg: red.pull.status.pkg, media };
   } catch (err) {
     red.pull.fail('stage');

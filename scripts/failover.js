@@ -225,6 +225,16 @@ async function scenario(name, takeover, opts) {
       res.mediaKeptOnSecondPkg = !!done2.ok && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1 &&
         Array.isArray(done2.media) && done2.media.length === 1 && done2.media[0].carried === true;
       if (!res.mediaListedBeforeTick || !res.mediaKeptOnSecondPkg) throw new Error('second package: ' + JSON.stringify({ mf, media: done2.media, files: fs.existsSync(mediaDir) ? fs.readdirSync(mediaDir) : null }));
+      /* Aynı paket yeniden (#812, Linux'ta bulundu): her dosya öncekinden
+         gelir, parça istenmez. Aktarım %100'de "transferring"de kalıyordu;
+         doğrudan doğrulanıp bitmeli. */
+      await pb.eval('window.api.redundancyPkgRequest()');
+      const off3 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'offered', pkg: s.pkg }; }, 15000, 100);
+      if (!off3.ok) throw new Error('third package not offered: ' + JSON.stringify(off3.pkg));
+      await pb.eval('window.api.redundancyPkgConfirm({ media: true })');
+      const done3 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'done', pkg: s.pkg }; }, 10000, 100);
+      res.repullNothingMissing = !!done3.ok;
+      if (!res.repullNothingMissing) throw new Error('re-pull with nothing missing did not finish: ' + JSON.stringify(done3.pkg && { state: done3.pkg.state, progress: done3.pkg.progress }));
     }
     if (opts.sync) {
       // Birincilde bir Studio preseti; karşılaştırma iki farkı bulmalı, ayar farkı olmamalı

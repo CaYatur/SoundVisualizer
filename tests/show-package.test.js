@@ -306,3 +306,45 @@ test('sabit bağ olmazsa kopya; hedef varsa üstüne', () => {
   assert.strictEqual(Pkg.linkOrCopy(a, c, fake), 'copy');
   assert.strictEqual(fs.readFileSync(c, 'utf8'), 'abc');
 });
+
+/* EKSİK YOKSA TAKILMIYOR (#812, Linux'ta bulundu). Yeniden çekilen paketin
+   her dosyası öncekinden geldiğinde parça istenmiyor; doğrulama yalnız
+   parça gelince başladığı için aktarım %100'de "transferring"de kalıyordu. */
+test('aktarım: hiçbir şey eksik değilse onay ve sürdürme doğrudan doğrulamaya geçiyor', async () => {
+  const root = tmp();
+  const m = Pkg.buildManifest(ENTRIES);
+  const get = server(ENTRIES);
+  const mk = (man, only) => Pkg.createReceiver({ root, manifest: man, only });
+  // İlk kopya
+  const first = Pkg.createPull({ window: 2 });
+  first.offer(m);
+  let reqs = first.confirm({ media: true }, mk);
+  let r = { requests: reqs };
+  while (r.requests.length) {
+    const out = [];
+    for (const q of r.requests) { r = first.chunk(get(q)); out.push(...r.requests); }
+    r = { requests: out };
+  }
+  assert.strictEqual(first.status.state, 'verifying');
+  assert.strictEqual(await first.finish(), true);
+  // Aynı paket yeniden: her dosya öncekinden, istek yok
+  const again = Pkg.createPull({ window: 2 });
+  again.offer(m);
+  assert.deepStrictEqual(again.confirm({ media: true }, mk), []);
+  assert.strictEqual(again.status.state, 'verifying', 'transferring\'de takılmamalı');
+  assert.strictEqual(again.status.progress.bytes, again.status.progress.total);
+  assert.strictEqual(await again.finish(), true);
+  assert.strictEqual(again.status.state, 'done');
+  // Sürdürme de: bağlantı kopup geri geldiğinde eksik yoksa bitiyor
+  const third = Pkg.createPull({ window: 2 });
+  third.offer(m);
+  third.confirm({ media: false }, mk);
+  third.fail('net');
+  assert.deepStrictEqual(third.resume(), []);
+  assert.strictEqual(third.status.state, 'verifying');
+  assert.strictEqual(await third.finish(), true);
+  // Ana süreç onay ve sürdürmeden sonra bitişi çalıştırıyor
+  const main = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'main.js'), 'utf8').replace(/\r\n/g, '\n');
+  assert.strictEqual((main.match(/pkgSend\(red\.pull\.confirm\([^\n]*\);\n\s*finishPull\(\);/g) || []).length, 2);
+  assert.match(main, /red\.pull\.resume\(\)\) red\.client\.send\([^\n]*\); finishPull\(\); \}/);
+});
