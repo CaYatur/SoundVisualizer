@@ -56,6 +56,8 @@ contextBridge.exposeInMainWorld('api', {
   onShowClock: (cb) => ipcRenderer.on('show-clock', (e, anchor) => cb(anchor)),
   // Yedeklilik (#544): iki makinede ortak oturum saati (modülasyon evresi)
   onSharedClock: (cb) => ipcRenderer.on('shared-clock', (e, c) => cb(c)),
+  // Dinleyici kurulmadan gelen ileti kaybolur: pencere açılışta ister (#543)
+  getSharedClock: () => ipcRenderer.invoke('shared-clock:get'),
   /* Söz saati çıpası sayfa dinleyiciyi geç kurabilir. Son çıpa burada durur. */
   onLyricsClock: (cb) => lyricsClockEvents.subscribe(cb),
   /* Çalan parça çıpası. Konum HER KARE gelmez; kaynak ancak ara sıra
