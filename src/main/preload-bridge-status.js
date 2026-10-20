@@ -10,6 +10,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('bridgeWin', {
   status: () => ipcRenderer.invoke('bridge-win:status'),
+  onTheme: (cb) => ipcRenderer.on('bridge-win:theme', (e, t) => cb(t)),
   devices: () => ipcRenderer.invoke('bridge-win:devices'),
   // Uygulamanın Ses Kaynakları seçicisiyle aynı veriler (#813)
   setSources: (list) => ipcRenderer.invoke('bridge-win:set-sources', list),

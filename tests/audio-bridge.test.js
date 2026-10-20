@@ -384,8 +384,10 @@ test('keşif: adres sırası yerel alt ağı öne alıyor, sonra ilk duyulanı',
 test('alıcı: bağlıyken köprünün başka adresi bildirilince yeniden bağlanmıyor; kurulamayan adresten sonrakine geçiyor', async () => {
   const sender = B.createSender({ port: 0, host: '127.0.0.1', secret: SECRET, name: 'Köprü', id: 'abc' });
   const st = await sender.start();
+  // Yalnız GEÇİŞLER sayılır: bağlıyken de durum yayılıyor (gidiş-dönüş ölçümü)
   let conns = 0;
-  const rx = B.createReceiver({ host: '', port: st.port, secret: SECRET, onStatus: (s) => { if (s.state === 'connected') conns++; } });
+  let prev = '';
+  const rx = B.createReceiver({ host: '', port: st.port, secret: SECRET, onStatus: (s) => { if (s.state === 'connected' && prev !== 'connected') conns++; prev = s.state; } });
   rx.start();
   try {
     // İlk adres bu makinede dinlenmiyor (bağlantı reddedilir), ikincisi köprü

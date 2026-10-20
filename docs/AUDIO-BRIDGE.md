@@ -104,6 +104,15 @@ Where single-app capture is not possible (older OS, permission denied, helper or
 the window says why in TR/EN and the bridge keeps capturing the selected devices (or the default output if only apps were
 selected). The choice is saved and comes back at the next start.
 
+**Known gap (Windows): packaged apps such as the new Media Player (`Microsoft.Media.Player`).**
+The app list comes from the app-audio helper (`native/app-audio-helper/Program.cs --list`), which
+walks the audio sessions of the *default* render endpoint only and names each session by its
+process. A player that renders to another output, or whose session the helper cannot name, is
+not listed. The same helper serves the normal app's Application Audio list, so this predates the
+bridge. Workaround: capture the output device the player uses. Listing sessions on every active
+endpoint and resolving packaged-app names is tracked for #815 (it needs a rebuilt, signed helper
+and a Windows test round).
+
 Two bridge processes on the same machine capture the same output device side by side. WASAPI
 loopback, PulseAudio/PipeWire monitor sources and CoreAudio inputs all allow more than one client.
 
@@ -112,8 +121,9 @@ loopback, PulseAudio/PipeWire monitor sources and CoreAudio inputs all allow mor
 Each frame is the capture helper's own analysis frame (`src/main/audio-frame.js`, 7174 bytes):
 the sample rate, 1024 spectrum bytes, and 2048-sample mono, left and right windows. Bands, beat,
 BPM, onsets and the MilkDrop inputs are computed from this frame in the visualizer, so two
-machines that get the same frame get the same numbers. At about 70 frames per second that is
-roughly 500 KB/s (4 Mbit/s).
+machines that get the same frame get the same numbers. The rate follows the OS capture buffer:
+measured 63.6 frames per second on Windows (WASAPI) and about 69 on Linux (PulseAudio/PipeWire),
+so roughly 455-500 KB/s (3.7-4 Mbit/s).
 
 The bridge also runs its own analysis (`src/main/bridge-analysis.js`) and sends it next to the
 frames: bass, mid and treble bands, RMS level and peak, beat, BPM and confidence, beat phase and
@@ -164,13 +174,19 @@ would go over the bridge unchanged; that is not part of this phase. Where single
 not possible, the Application Audio list is replaced by the reason (old build, no permission
 with a button to ask for it, no sound server, unsupported OS) and the devices stay selectable.
 
-**Listenable audio (PCM).** A receiver can also play the bridge's audio: Settings → "Play the
+**Listenable audio (PCM).** A receiver can also play the bridge's audio: Audio → Audio Bridge → "Play the
 Bridge's Audio on This Machine", with an output device, a volume and a jitter buffer (40–1000 ms,
 default 120 ms). The receiver asks for audio in its `auth` message (`audio: true`) or later with
 `{type:'audio', on}`, so receivers that only analyse get no PCM. The capture helper emits 16-bit
 stereo PCM next to its frames (same pipe, its own marker) only while a sender exists. A hidden
 player window (`src/bridge-audio/`) schedules the chunks with Web Audio and `setSinkId`; gaps and
-late chunks are counted. 48 kHz stereo is about 1.5 Mbit/s per listening receiver. PCM was chosen
+late chunks are counted. Drift control keeps the buffer at the target: if even the lowest fill
+over half a second stays above the target (the bridge's clock runs fast, or chunks piled up after
+an output change), the excess is dropped one chunk (~10 ms) at a time; bursts that drain again
+are left alone, and above 3× the target a chunk is dropped at once. Playback starts at 30 %
+volume the first time it is turned on. The panel warns about an echo when the output is probably
+the device this machine captures (system default output while the bridge runs on this machine,
+or an output whose name matches a captured source). 48 kHz stereo is about 1.5 Mbit/s per listening receiver. PCM was chosen
 over Opus: no native or wasm encoder to ship on three OSes, and the LAN has the bandwidth.
 
 ## Capture per OS
@@ -205,6 +221,8 @@ JSON messages after the handshake:
 - `{type:'analysis', a:{t, level, peak, bands:{bass, mid, treble}, beat, bpm, confidence, phase, bar, onset, onsets}}`
 - `{type:'meta', meta:{has?, title?, artist?, album?, duration?, position?, playing?, app?, subtitle?, updated?, received?, artworkId?}, t}`
 - `{type:'artwork', id, data}` (the cover as a JPEG data URL, once per track and receiver)
+- `{type:'switching', ms, t}`: the bridge is changing its sources; receivers do not fall back for
+  up to `ms` (at most 5000) while the capture helper restarts
 - `{type:'ping', t0, r:{name, rttMs, ageMs, lost}}` and `{type:'pong', t0, t1}` (the report
   feeds the bridge's receiver list)
 - `{type:'audio', on}` (receiver → bridge, start or stop PCM)

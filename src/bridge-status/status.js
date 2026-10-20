@@ -253,6 +253,8 @@
 
   W.onStatus((s) => { st = s; draw(false); });
   W.onLevel((l) => setLevel(l));
+  // Tema canlı: paneldeki seçim ya da sistemin koyu/açık değişimi (#813)
+  if (W.onTheme) W.onTheme((t) => { if (t && window.SVUiThemes) window.SVUiThemes.apply(document, t.id, !!t.dark); });
   (async () => {
     try { st = await W.status(); } catch { /* */ }
     draw(true);

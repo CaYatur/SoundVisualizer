@@ -149,11 +149,14 @@ async function endToEnd() {
     const after = await pb.eval('window.api.bridgeStatus()');
     const sa = await pa.eval('window.bridgeWin.status()');
     res.liveSwitchKeptLink = after.receiver && after.receiver.state === 'connected' && after.input.state === 'bridge' && (conn0 == null || after.receiver.connects === conn0);
+    // Kaynak değişirken alıcı yedeğe dönüp geri gelmedi (köprü haber veriyor)
+    res.noFallbackFlip = !!(before.input && after.input && after.input.switches === before.input.switches);
+    res.inputSwitches = [before.input && before.input.switches, after.input && after.input.switches];
     res.switchedTo = sa.wantedSources;
     res.missingCleared = !(sa.sourceStates && sa.sourceStates[MISSING]);
     const saved = JSON.parse(fs.readFileSync(path.join(dirA, 'bridge', 'settings.json'), 'utf8'));
     res.persistedInBridgeFolder = JSON.stringify(saved.audio && saved.audio.sources) === JSON.stringify([SRC_B]);
-    res.pass = res.receiverOnBridge && res.missingReported && res.capturing && res.sharedPicker && res.liveSwitchKeptLink && res.missingCleared && res.persistedInBridgeFolder;
+    res.pass = res.noFallbackFlip && res.receiverOnBridge && res.missingReported && res.capturing && res.sharedPicker && res.liveSwitchKeptLink && res.missingCleared && res.persistedInBridgeFolder;
   } catch (e) { res.pass = false; res.error = String(e.message || e); }
   finally {
     if (pa) pa.close(); if (pb) pb.close(); kill(A); kill(B); await wait(300);

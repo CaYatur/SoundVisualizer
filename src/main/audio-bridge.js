@@ -56,7 +56,8 @@ const DEFAULTS = Object.freeze({
   fallback: true, // köprü kesilince yerel girişe dön
   fallbackSource: '', // yedek giriş aygıtı (mikser split); boşsa olağan ses girişi
   play: false, // alıcı: köprünün dinlenebilir sesini bu makinede çal
-  playVolume: 1, // 0..1
+  playVolume: 0.3, // 0..1; kısık başlar (yankı riski, #813)
+  playVolumeSet: false, // kullanıcı ses düzeyini kendisi seçti mi
   playDevice: '', // çıkış aygıtının kimliği; boşsa sistemin varsayılanı
   playLatencyMs: 120, // titreme tamponu
   startHidden: false, // köprü kipi: durum penceresi açılışta açılmaz (--hidden)
@@ -77,7 +78,8 @@ function normalize(c) {
   s.play = s.play === true;
   s.startHidden = s.startHidden === true;
   const vol = Number(s.playVolume);
-  s.playVolume = Number.isFinite(vol) ? Math.max(0, Math.min(1, vol)) : 1;
+  s.playVolume = Number.isFinite(vol) ? Math.max(0, Math.min(1, vol)) : 0.3;
+  s.playVolumeSet = s.playVolumeSet === true;
   s.playDevice = typeof s.playDevice === 'string' ? s.playDevice.slice(0, 300) : '';
   const lat = Math.round(Number(s.playLatencyMs));
   s.playLatencyMs = Number.isFinite(lat) ? Math.max(40, Math.min(1000, lat)) : 120;
@@ -332,6 +334,11 @@ function createSender(opts) {
       }
     },
     wantsAudio() { for (const c of clients) if (c.authed && c.audio && !c.sock.destroyed) return true; return false; },
+    // Kaynak değişiyor: alıcılar kısa kare boşluğunda yedeğe dönmesin
+    switching(ms) {
+      const pkt = jsonPacket({ type: 'switching', ms: Math.max(0, Math.min(5000, Number(ms) || 0)), t: now() });
+      for (const c of clients) if (c.authed && !c.sock.destroyed) c.sock.write(pkt);
+    },
     meta(st) {
       lastMeta = slimMeta(st);
       const id = st && artworkId(st.artwork);
@@ -485,6 +492,9 @@ function createReceiver(opts) {
         const a = Object.assign({}, m.a, { localT: b && Number.isFinite(m.a.t) ? m.a.t - b.offset : null });
         st.analysis = a;
         if (o.onAnalysis) o.onAnalysis(a);
+      } else if (m.type === 'switching') {
+        if (!authed) return;
+        if (o.onSwitching) o.onSwitching(Math.max(0, Math.min(5000, Number(m.ms) || 0)));
       } else if (m.type === 'artwork') {
         if (!authed) return;
         if (typeof m.id !== 'string' || !/^[0-9a-f]{1,32}$/.test(m.id) || !artworkOk(m.data)) return;

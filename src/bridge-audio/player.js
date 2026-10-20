@@ -69,7 +69,7 @@
   setInterval(() => {
     const s = sched.status();
     B.status({
-      state: ctx.state, bufferedMs: sched.buffered(ctx.currentTime) * 1000, underruns: s.underruns, dropped: s.dropped,
+      state: ctx.state, bufferedMs: sched.buffered(ctx.currentTime) * 1000, underruns: s.underruns, dropped: s.dropped, trimmed: s.trimmed,
       chunks: s.chunks, rate: ctx.sampleRate, inputRate, sinkError,
       outputLatencyMs: Number.isFinite(ctx.outputLatency) ? ctx.outputLatency * 1000 : null,
     });

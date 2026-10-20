@@ -80,3 +80,6 @@
   .br-tile.wide { grid-column: span 1; }
   .br-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
 }
+.br-grid + .br-live { margin-top: 8px; }
+.br-live:empty { display: none; }
+.br-warn { margin-top: 8px; font-size: 11px; color: var(--warn-text); background: rgb(var(--warn-rgb) / .08); border: 1px solid rgb(var(--warn-rgb) / .3); border-radius: var(--radius-sm, 8px); padding: 6px 10px; }

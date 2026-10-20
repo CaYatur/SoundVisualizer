@@ -680,7 +680,22 @@ function adminBackground(cfg) {
   return uiThemes.resolve(adminUiTheme(cfg), nativeTheme.shouldUseDarkColors).tokens['--bg'];
 }
 let adminBgShown = null;
+/* Açık köprü durum penceresi de temayı canlı izler (#813): panelde tema
+   değişince ya da "sistemle aynı" temada işletim sistemi koyu/açık
+   değiştirince. */
+let bridgeWinThemeShown = '';
+function syncBridgeWinTheme() {
+  if (!bridgeWin || bridgeWin.isDestroyed()) return;
+  const id = adminUiTheme(currentConfig || {});
+  const dark = !!nativeTheme.shouldUseDarkColors;
+  const key = id + '|' + dark;
+  if (key === bridgeWinThemeShown) return;
+  bridgeWinThemeShown = key;
+  try { bridgeWin.setBackgroundColor(adminBackground(currentConfig || {})); } catch { /* */ }
+  bridgeWin.webContents.send('bridge-win:theme', { id, dark });
+}
 function syncAdminBackground() {
+  syncBridgeWinTheme();
   if (!adminWin || adminWin.isDestroyed()) return;
   const bg = adminBackground(currentConfig);
   if (bg === adminBgShown) return;
@@ -1304,6 +1319,9 @@ function bridgePcmWanted() { return !!bridge.sender; }
 let lastCapturePcm = false;
 function startVisualizerCapture() {
   const sources = configuredSources();
+  /* Köprü yayındayken kaynak değişti: alıcılara önceden haber, yardımcı
+     yeniden kurulurken yedeğe dönüp geri gelmesinler (#813). */
+  if (bridge.sender && lastCaptureSource && JSON.stringify(sources) !== JSON.stringify(lastCaptureSource)) bridge.sender.switching(3000);
   lastCaptureSource = sources;
   lastCapturePcm = bridgePcmWanted();
   bridge.sourceStates = {};
@@ -1405,6 +1423,17 @@ function bridgeName(c) {
   return c.name || require('os').hostname().slice(0, 60);
 }
 
+function isLocalAddress(h) {
+  const a = String(h || '').replace(/^::ffff:/, '');
+  if (!a) return false;
+  if (a === 'localhost' || a === '::1' || /^127\./.test(a)) return true;
+  try {
+    for (const list of Object.values(require('os').networkInterfaces())) {
+      for (const n of list || []) if (n && String(n.address).replace(/^::ffff:/, '') === a) return true;
+    }
+  } catch { /* */ }
+  return false;
+}
 function bridgeStatus() {
   const c = bridge.cfg;
   const now = Date.now();
@@ -1426,6 +1455,8 @@ function bridgeStatus() {
     localSources: configuredSources(),
     // Dinlenebilir ses: alıcıda çalar, çıkış aygıtları; gönderende dinleyen sayısı
     play: c.play && c.receive && !BRIDGE_ONLY,
+    // Köprü bu makinedeyse (aynı PC'de köprü kopyası) varsayılan çıkışta çalmak yankı yapar
+    rxLocal: !!(bridge.receiver && isLocalAddress(bridge.receiver.status().host)),
     player: bridgePlayer.status,
     outputs: bridgePlayer.outputs,
     // Damgaların saati: yedeklilik açıksa ortak gösteri saati (#544)
@@ -1519,6 +1550,7 @@ function syncBridge() {
         if (changed) onBridgeInputChanged();
       },
       onAnalysis: (a) => { a.sharedT = bridgeSharedT(a.localT); bridge.remoteAnalysis = a; },
+      onSwitching: (ms) => { if (bridge.input) bridge.input.hold(Date.now(), ms); },
       onMeta: (m) => {
         if (m) m.sharedT = bridgeSharedT(m.localT);
         bridge.meta = m;
@@ -1795,6 +1827,7 @@ function openBridgeWindow() {
   bridgeWin = win;
   attachSmoke(win, 'BRIDGE-STATUS');
   win.loadFile(path.join(__dirname, '..', 'bridge-status', 'index.html'), { query: { uiTheme: adminUiTheme(currentConfig || {}) } });
+  bridgeWinThemeShown = adminUiTheme(currentConfig || {}) + '|' + !!nativeTheme.shouldUseDarkColors;
   win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
   const vis = () => { syncCapture(); syncNowPlaying(); syncAppMeters(); };
   win.on('show', vis); win.on('hide', vis); win.on('minimize', vis); win.on('restore', vis);
@@ -1836,7 +1869,19 @@ function bridgeWindowStatus() {
 function notifyBridgeWindow() {
   if (bridgeWin && !bridgeWin.isDestroyed()) bridgeWin.webContents.send('bridge-win:status', bridgeWindowStatus());
 }
+/* Panelin Ses Köprüsü kartının canlı kutuları (seviye, bantlar, vuruş):
+   durum olayları yalnız durum değişince geliyor, ölçüm ayrı ve seyrek
+   (~6 Hz) gider; panel görünmüyorsa hiç gitmez (#813). */
+let adminBridgeLevelAt = 0;
+function pushAdminBridgeLevel(a) {
+  if (!bridge.sender || !adminWin || adminWin.isDestroyed() || !adminWin.isVisible() || adminWin.isMinimized()) return;
+  const now = Date.now();
+  if (now - adminBridgeLevelAt < 150) return;
+  adminBridgeLevelAt = now;
+  adminWin.webContents.send('bridge-live', { level: a.level, peak: a.peak, bands: a.bands, bpm: a.bpm, confidence: a.confidence, onsets: a.onsets, beat: !!a.beat, phase: a.phase, bar: a.bar, ageMs: 0 });
+}
 function pushBridgeLevel(a) {
+  if (a) pushAdminBridgeLevel(a);
   if (!a || !bridgeWinVisible()) return;
   const now = Date.now();
   if (now - bridgeLevelAt < 50) return;

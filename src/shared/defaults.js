@@ -1238,7 +1238,8 @@
       fallbackSource: '',
       // Alıcı: köprünün dinlenebilir sesini çal (PCM), ses düzeyi, çıkış aygıtı, tampon
       play: false,
-      playVolume: 1,
+      playVolume: 0.3,
+      playVolumeSet: false,
       playDevice: '',
       playLatencyMs: 120,
       // Köprü kipi: durum penceresi açılışta açılmasın (yalnız tepsi; --hidden ile aynı)

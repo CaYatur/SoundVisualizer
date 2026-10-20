@@ -14,7 +14,10 @@
   function createScheduler(opts) {
     const o = Object.assign({ latency: 0.12 }, opts || {});
     let next = 0;
-    const st = { chunks: 0, underruns: 0, dropped: 0 };
+    let winStart = -1;
+    let winMin = Infinity;
+    let debt = 0;
+    const st = { chunks: 0, underruns: 0, dropped: 0, trimmed: 0 };
     return {
       setLatency(sec) { o.latency = Math.max(0.04, Math.min(1, Number(sec) || 0.12)); },
       // now: bağlamın şimdiki zamanı (sn); dur: parçanın süresi (sn). null: at
@@ -23,8 +26,30 @@
           if (st.chunks) st.underruns++;
           next = now + o.latency;
         } else if (next - now > o.latency * 3 + dur) {
-          st.dropped++;
+          st.dropped++; // patlama: hemen at
           return null;
+        } else {
+          /* Kayma denetimi: tampon hedefin (latency) üstünde KALICI olarak
+             duruyorsa (köprünün saati hızlı, ya da çıkış değişiminden sonra
+             birikti) fazlası tek tek parça atlanarak geri alınır. Kalıcı mı:
+             yarım saniyelik pencerede en AZ doluluk bile hedefin üstündeyse.
+             Böylece toplu gelen parçalar (ağ ya da yardımcı patlaması) atılmaz.
+             Önceden tampon hiç geri inmiyordu: 120 ms ayarında ~245 ms, çıkış
+             değişince ~360 ms. */
+          const lead = next - now;
+          if (winStart < 0 || now < winStart) { winStart = now; winMin = lead; }
+          winMin = Math.min(winMin, lead);
+          if (now - winStart >= 0.5) {
+            const excess = winMin - o.latency;
+            if (excess > Math.max(0.01, dur)) debt = excess;
+            winStart = now; winMin = lead;
+          }
+          if (debt > 0) {
+            debt -= dur;
+            st.dropped++;
+            st.trimmed++;
+            return null;
+          }
         }
         const at = next;
         next += dur;
@@ -32,7 +57,7 @@
         return at;
       },
       buffered(now) { return Math.max(0, next - now); },
-      reset() { next = 0; },
+      reset() { next = 0; debt = 0; winStart = -1; },
       status() { return Object.assign({}, st); },
     };
   }

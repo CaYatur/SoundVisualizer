@@ -104,6 +104,23 @@
     return sel;
   }
 
+  /* Yankı riski: çıkış bu makinede yakalanan aygıtın kendisi olabilir.
+     Varsayılan çıkış + köprü bu makinede (aynı PC) ya da bu makine de
+     gönderiyorsa; ya da seçilen çıkışın adı yakalanan bir kaynağın adıyla
+     eşleşiyorsa ("Monitor of X" = X). */
+  const bare = (s) => String(s || '').replace(/^Monitor of /i, '').trim().toLocaleLowerCase('tr');
+  function echoRisk(b) {
+    if (!status) return false;
+    const captured = []
+      .concat(Array.isArray(status.localSources) ? status.localSources : [])
+      .concat(status.fallbackSource ? [status.fallbackSource] : [])
+      .filter((x) => typeof x === 'string');
+    if (!b.playDevice) return !!(status.rxLocal || status.send);
+    const out = ((status.outputs || []).find((o) => o.id === b.playDevice) || {}).label;
+    if (!out) return false;
+    const o = bare(out);
+    return captured.some((c) => c !== 'default' && (bare(c) === o || o.includes(bare(c)) || bare(c).includes(o)));
+  }
   function outputSelect(b, push) {
     const sel = el('select', { class: 'p-in' });
     sel.appendChild(el('option', { value: '', text: tr('Sistemin varsayılan çıkışı') }));
@@ -113,6 +130,19 @@
     sel.value = b.playDevice || '';
     sel.addEventListener('change', () => { b.playDevice = sel.value; push(); });
     return sel;
+  }
+
+  function liveTiles(a) {
+    if (!a) return [];
+    const v = V();
+    return [v.levelTile(a.level, a.peak), v.bandsTile(a.bands)].concat(v.analysisTiles(a));
+  }
+  function onLive(d) {
+    if (!d || !status) return;
+    status.analysis = Object.assign({}, status.analysis || {}, d);
+    const box = document.querySelector('.bridge-panel .br-live');
+    if (!box) return;
+    box.replaceChildren(...liveTiles(status.analysis));
   }
 
   function senderStatus() {
@@ -126,10 +156,10 @@
     ];
     if (s.listeners) tiles.push(v.tile(tr('Ses dinleyen'), s.listeners));
     if (s.dropped) tiles.push(v.tile(tr('Atlanan kare'), s.dropped, { tone: 'warn' }));
-    if (a) tiles.push(v.levelTile(a.level, a.peak), v.bandsTile(a.bands));
-    if (a) v.analysisTiles(a).forEach((t) => tiles.push(t));
     if (status.meta && (status.meta.title || status.meta.artist)) tiles.push(v.tile(tr('Çalan'), [status.meta.artist, status.meta.title].filter(Boolean).join(' — '), { wide: true, user: true }));
     const nodes = [v.grid(tiles)];
+    // Canlı kutular ayrı ızgarada: ölçüm gelince yalnız bunlar yenilenir
+    nodes.push(el('div', { class: 'br-grid br-live' }, liveTiles(a)));
     if (s.error) nodes.push(el('div', { class: 'br-err', text: tr(ERR_TEXT[s.error] || 'Köprü açılamadı') }));
     return el('div', { class: 'bridge-send' }, nodes);
   }
@@ -211,13 +241,16 @@
       if (!b.host) conn.push(foundList(b));
       conn.push(switchRow(tr('Köprü Susarsa Yerel Girişe Dön'), b.fallback !== false, (v) => { b.fallback = v; push(); P().rerender(); }));
       if (b.fallback !== false) conn.push(ctlRow(tr('Yedek Giriş'), [fallbackSelect(b, push)], { help: 'Köprü susunca kullanılacak giriş: olağan ses girişi ya da ayrı bir aygıt, örneğin mikserin bu makineye giden ayrı çıkışı (split).' }));
-      conn.push(switchRow(tr('Köprünün Sesini Bu Makinede Çal'), b.play, (v) => { b.play = v; push(); P().rerender(); },
+      /* İlk açılışta kısık başlar (#813): varsayılan çıkış köprünün yakaladığı
+         aygıtla aynıysa tam ses hemen yankı yapardı. */
+      conn.push(switchRow(tr('Köprünün Sesini Bu Makinede Çal'), b.play, (v) => { b.play = v; if (v && !b.playVolumeSet) { b.playVolume = Math.min(b.playVolume == null ? 0.3 : b.playVolume, 0.3); b.playVolumeSet = true; } push(); P().rerender(); },
         'Köprü dinlenebilir sesi de yollar (sıkıştırılmamış PCM, yaklaşık 1,5 Mbit/sn). Ses bu makinenin seçilen çıkışından, tampon kadar gecikmeyle çalar. Görüntü için gerekmez.'));
       if (b.play) {
-        const vol = el('input', { type: 'range', min: '0', max: '1', step: '0.01', value: String(b.playVolume == null ? 1 : b.playVolume), 'aria-label': tr('Ses düzeyi') });
-        vol.addEventListener('change', () => { b.playVolume = Number(vol.value); push(); });
+        const vol = el('input', { type: 'range', min: '0', max: '1', step: '0.01', value: String(b.playVolume == null ? 0.3 : b.playVolume), 'aria-label': tr('Ses düzeyi') });
+        vol.addEventListener('change', () => { b.playVolume = Number(vol.value); b.playVolumeSet = true; push(); });
         conn.push(ctlRow(tr('Ses Düzeyi'), [vol]));
         conn.push(ctlRow(tr('Çıkış Aygıtı'), [outputSelect(b, push)]));
+        if (echoRisk(b)) conn.push(el('div', { class: 'br-warn', text: tr('Bu çıkış, bu makinede yakalanan sesle aynı olabilir: köprünün sesi yeniden yakalanıp yankı yapar. Başka bir çıkış seçin ya da sesi kısık tutun.') }));
         conn.push(ctlRow(tr('Ses Tamponu (ms)'), [numInput(b.playLatencyMs || 120, 40, 1000, (v) => { b.playLatencyMs = v; push(); })], { help: 'Kısa tampon daha az gecikme, uzun tampon kablosuz ağda daha az kesinti demek.' }));
       }
     }
@@ -257,6 +290,7 @@
     if (started || !window.api || !window.api.bridgeStatus) return;
     started = true;
     const sig = (x) => JSON.stringify(x ? [x.problem, x.sender && [x.sender.listening, x.sender.clients, x.sender.error], x.receiver && [x.receiver.state, x.receiver.host, x.receiver.error], x.input && x.input.state, (x.found || []).map((f) => f.id + f.paired + f.host), x.capturing, x.play, (x.outputs || []).length] : null);
+    if (window.api.onBridgeLive) window.api.onBridgeLive(onLive);
     window.api.onBridgeStatus((s) => {
       const prev = sig(status);
       status = s || null;

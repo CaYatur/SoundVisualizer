@@ -31,6 +31,7 @@ function createInputSwitch(opts) {
   let everBridged = false;
   let switches = 0;
   let since = 0;
+  let graceUntil = 0; // köprü kaynak değiştiriyor: bu ana dek yedeğe dönülmez
 
   function set(next, now) {
     if (next === state) return false;
@@ -55,16 +56,22 @@ function createInputSwitch(opts) {
     },
     // Düzenli denetim (ör. 100 ms). Dönüş: durum değişti mi
     tick(now) {
-      if (state === 'bridge' && lastFrame != null && now - lastFrame > o.lossMs) return set(everBridged ? 'fallback' : 'waiting', now);
+      if (now < graceUntil) return false;
+      // Hoşgörü bitince boşluk o andan sayılır: kare gelmezse lossMs sonra yedek
+      if (state === 'bridge' && lastFrame != null && now - Math.max(lastFrame, graceUntil) > o.lossMs) return set(everBridged ? 'fallback' : 'waiting', now);
       return false;
     },
     configure(next) { Object.assign(o, next || {}); },
+    /* Köprü kaynağını değiştiriyor (#813): yakalama yardımcısı yeniden
+       kurulurken kısa bir kare boşluğu olur; alıcı o arada yedeğe dönüp geri
+       gelmesin. En çok 5 sn. */
+    hold(now, ms) { graceUntil = Math.max(graceUntil, now + Math.max(0, Math.min(5000, Number(ms) || 0))); },
     get state() { return state; },
     get useBridge() { return state === 'bridge'; },
     get wantLocal() { return state !== 'bridge' && o.fallback !== false; },
     status(now) {
       return {
-        state, since, switches,
+        state, since, switches, holding: (now || 0) < graceUntil,
         fallback: o.fallback !== false,
         silentMs: lastFrame != null ? Math.max(0, (now || 0) - lastFrame) : null,
       };
