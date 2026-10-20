@@ -514,6 +514,8 @@
   window.SVPanel = {
     el,
     cfg: () => cfg,
+    // Ses aygıtı listesi (ses köprüsünün yedek girişi, #813)
+    audioDevices: () => audioDevices.slice(),
     portValue,
     push,
     rerender: () => render(),

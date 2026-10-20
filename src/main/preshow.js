@@ -177,8 +177,9 @@ function evaluate(input) {
   const b = o.bridge || null;
   if (b && b.receive) {
     if (b.problem) add('bridge', 'fail', 'Ses köprüsü ayarı eksik');
-    else if (b.state === 'bridge') add('bridge', 'ok', 'Ses köprüden');
-    else if (b.state === 'fallback') add('bridge', 'warn', 'Ses köprüsü sessiz: yerel giriş');
+    else if (b.state === 'bridge') add('bridge', 'ok', 'Ses köprüden', b.from ? [String(b.from)] : undefined);
+    // Etkin kaynak: olağan giriş ya da ayrı yedek aygıt (mikser split)
+    else if (b.state === 'fallback') add('bridge', 'warn', b.fallbackSource ? 'Ses köprüsü sessiz: yedek giriş' : 'Ses köprüsü sessiz: yerel giriş', b.fallbackSource ? [String(b.fallbackSource)] : undefined);
     else add('bridge', b.fallback === false ? 'fail' : 'warn', 'Ses köprüsü bekleniyor');
   }
 

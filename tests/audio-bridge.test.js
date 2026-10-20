@@ -258,7 +258,8 @@ test('ana süreç: köprü kipi, yakalama ve dağıtım bağlantıları', () => 
   assert.match(M, /if \(!BRIDGE_ONLY \|\| process\.argv\.includes\('--panel'\)\) createAdminWindow\(\);/);
   assert.match(M, /if \(BRIDGE_ONLY && bridgeTray && !forceQuitApp\) return;/);
   // Yerel kare köprüye; köprüdeyken yerel kare görüntüye gitmez; köprünün karesi aynı dağıtımdan
-  assert.match(M, /if \(bridge\.sender\) bridge\.sender\.frame\(frame\);\n[^\n]*\n      if \(bridge\.input && bridge\.input\.useBridge\) return;\n      deliverAudioFrame\(frame\);/);
+  assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) \{\n        bridge\.sender\.frame\(frame\);/);
+  assert.match(M, /\n      \}\n[^\n]*\n      if \(bridge\.input && bridge\.input\.useBridge\) return;\n      deliverAudioFrame\(frame\);/);
   assert.match(M, /if \(bridge\.input\.useBridge\) deliverAudioFrame\(frame\);/);
   // Yakalama: alıcı varken açık, köprü girişindeyken yalnız yedek gerekince
   assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) return true;\n[^\n]*\n  if \(bridge\.input && !bridge\.input\.wantLocal\) return false;/);

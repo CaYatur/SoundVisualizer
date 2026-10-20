@@ -158,6 +158,8 @@ function treeUsage(pid) {
   } catch { return null; }
 }
 
+// Köprü kesilince yakalanacak ayrı aygıt (mikser split yerine); Linux'ta null-sink monitörü
+const FALLBACK = process.env.SV_RIG_FALLBACK || 'Mixer Split (rig)';
 async function scenario(name, bridgeOnly) {
   const secret = require('crypto').randomBytes(18).toString('base64url');
   const port = await freePort();
@@ -172,7 +174,7 @@ async function scenario(name, bridgeOnly) {
   const ARGS = bridgeOnly ? ['--bridge'] : [];
   fs.mkdirSync(aDir, { recursive: true });
   fs.writeFileSync(path.join(aDir, 'settings.json'), JSON.stringify(Object.assign({}, base, { bridge: { send: !bridgeOnly, secret, port, name: 'Rig Bridge' } })));
-  fs.writeFileSync(path.join(dirB, 'settings.json'), JSON.stringify(Object.assign({}, base, { bridge: { receive: true, secret, port, host: '' } })));
+  fs.writeFileSync(path.join(dirB, 'settings.json'), JSON.stringify(Object.assign({}, base, { bridge: { receive: true, secret, port, host: '', fallbackSource: FALLBACK } })));
   const res = { name, platform: process.platform };
   let A = launch(dirA, cdpA, ARGS);
   const B = launch(dirB, cdpB);
@@ -198,6 +200,10 @@ async function scenario(name, bridgeOnly) {
     res.ageMedianMs = ages[Math.floor(ages.length / 2)];
     res.ageP95Ms = ages[Math.floor(ages.length * 0.95)];
     res.lostFrames = s.receiver.lost;
+    // Köprünün çözümlemesi (bantlar, seviye, vuruş, BPM) köprünün saatiyle damgalı geliyor
+    res.analysis = s.analysis;
+    res.analysisArrives = !!(s.analysis && s.analysis.bands && s.analysis.ageMs != null && s.analysis.ageMs < 2000);
+    res.bridgeSourceWhileLinked = JSON.stringify(s.localSources) !== JSON.stringify([FALLBACK]);
     res.bridgeUsage = await steadyUsage(A.pid);
     const pagesA = (await (await fetch('http://127.0.0.1:' + cdpA + '/json/list')).json()).filter((p) => p.type === 'page');
     // Yalnız köprüde hiç sayfa yok; olağan kipte panel açık ve görüntü çıkışı yine açılabilir
@@ -208,13 +214,15 @@ async function scenario(name, bridgeOnly) {
     const fell = await until(async () => { const x = await pb.eval(STATUS); return { ok: x.input && x.input.state === 'fallback', x }; }, 5000, 25);
     res.fallbackMs = Date.now() - t1;
     res.fellBack = !!fell.ok;
+    res.fallbackDevice = fell.x && JSON.stringify(fell.x.localSources) === JSON.stringify([FALLBACK]);
     // Köprü geri gelir: kararlı olunca köprüye dönüş
     A = launch(dirA, cdpA, ARGS);
     const t2 = Date.now();
     const back = await until(async () => { const x = await pb.eval(STATUS); return { ok: x.input && x.input.state === 'bridge', x }; }, 30000, 100);
     res.recoverMs = Date.now() - t2;
     res.recovered = !!back.ok;
-    res.pass = res.linked && res.foundByBeacon && res.framesArrive && res.bridgeHasNoWindow && res.fellBack && res.recovered;
+    res.pass = res.linked && res.foundByBeacon && res.framesArrive && res.bridgeHasNoWindow && res.fellBack && res.recovered &&
+      res.analysisArrives && res.bridgeSourceWhileLinked && res.fallbackDevice;
   } catch (e) {
     res.pass = false;
     res.error = String(e && e.message || e);

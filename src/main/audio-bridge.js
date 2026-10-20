@@ -51,6 +51,7 @@ const DEFAULTS = Object.freeze({
   secret: '',
   host: '', // alıcı: elle adres; boşsa keşfedilen ilk köprü
   fallback: true, // köprü kesilince yerel girişe dön
+  fallbackSource: '', // yedek giriş aygıtı (mikser split); boşsa olağan ses girişi
 });
 
 function normalize(c) {
@@ -64,6 +65,7 @@ function normalize(c) {
   s.name = String(s.name || '').trim().slice(0, 60);
   s.secret = String(s.secret || '').trim().slice(0, 200);
   s.host = String(s.host || '').trim().slice(0, 200);
+  s.fallbackSource = typeof s.fallbackSource === 'string' ? s.fallbackSource.slice(0, 300) : '';
   return s;
 }
 
@@ -227,6 +229,17 @@ function createSender(opts) {
         stats.sent++;
       }
     },
+    /* Köprünün kendi çözümlemesi (bridge-analysis.js): bantlar, seviye,
+       vuruş, BPM, başlangıç; `a.t` köprünün saati. Yavaş alıcıya atlanır. */
+    analysis(a) {
+      if (!clients.size || !a) return;
+      const pkt = jsonPacket({ type: 'analysis', a });
+      for (const c of clients) {
+        if (!c.authed || c.sock.destroyed) continue;
+        if (c.sock.writableLength > MAX_QUEUE) continue;
+        c.sock.write(pkt);
+      }
+    },
     meta(st) {
       lastMeta = slimMeta(st);
       const pkt = jsonPacket({ type: 'meta', meta: lastMeta, t: now() });
@@ -336,8 +349,18 @@ function createReceiver(opts) {
         const b = clock.add(Number(m.t0), Number(m.t1), now());
         if (b) { st.rttMs = Math.round(b.rtt * 10) / 10; st.offsetMs = Math.round(b.offset * 10) / 10; }
         emit();
+      } else if (m.type === 'analysis') {
+        if (!authed || !m.a || typeof m.a !== 'object') return;
+        const b = clock.best();
+        // Damga bizim saate: alıcı vuruşu kendi zamanında konumlayabilsin
+        const a = Object.assign({}, m.a, { localT: b && Number.isFinite(m.a.t) ? m.a.t - b.offset : null });
+        st.analysis = a;
+        if (o.onAnalysis) o.onAnalysis(a);
       } else if (m.type === 'meta') {
-        if (o.onMeta) o.onMeta(m.meta || null);
+        if (!authed) return;
+        const b = clock.best();
+        const meta = m.meta && typeof m.meta === 'object' ? Object.assign({}, m.meta, { bridgeT: Number.isFinite(m.t) ? m.t : null, localT: b && Number.isFinite(m.t) ? m.t - b.offset : null }) : null;
+        if (o.onMeta) o.onMeta(meta);
       } else if (m.type === 'error') {
         st.error = String(m.code || 'error').slice(0, 20);
       }

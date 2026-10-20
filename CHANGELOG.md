@@ -7,16 +7,19 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
 
-### Audio bridge, redundancy overhaul phase 2, first part [813, 816]
+### Audio bridge, redundancy overhaul phase 2 [813, 816]
 
 - **What it solves.** Every machine captured its own device. A backup without the same signal drew a flat picture. Now one machine's capture can go to the others, so the primary and the backup analyse the same signal. Details, the wire format and the measurements are in [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
 - **Inside the app, not a separate program.**
   - "Send This Machine's Audio to the Bridge" works in normal mode, so the primary can be the bridge itself. It uses the same capture, so nothing competes for the device.
   - `--bridge`, or Settings → "Audio Bridge Only", starts without visual output or renderer windows, without lighting, streaming or OSC, and without hardware acceleration. It sits in the system tray.
   - `--bridge` keeps its settings in `<userData>/bridge`, so it can run next to the normal app on the same machine.
+  - Bridge-only mode is a single instance. Starting it again opens the running bridge's panel instead of a second bridge.
+  - On Windows the installer adds a "CAYADEV Visualizer Audio Bridge" Start menu shortcut, and the taskbar jump list has "Audio Bridge" (installed and portable). On macOS use `open -n -a "CAYADEV Visualizer" --args --bridge`, and on Linux pass `--bridge` to the AppImage.
 - **What is sent.**
   - The capture helper's own analysis frame (spectrum and stereo waveform), about 70 a second and 4 Mbit/s, plus the now-playing track.
-  - Packets carry a format version and the bridge's timestamp.
+  - The bridge's own analysis: bands, level and peak, beat, BPM and confidence, beat phase, onsets. Beat and BPM use the visualizer's tempo engine. It goes out every second frame and right away on a beat.
+  - Every frame, analysis packet and track update carries a format version and the bridge's timestamp. The receiver converts it to its own clock with the measured offset.
   - It runs on its own TCP socket (8741), not on the redundancy link.
   - Listenable audio is not sent in this part.
 - **Pairing and discovery.**
@@ -25,14 +28,17 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
 - **"Audio Input: Network Bridge".**
   - The bridge's frames replace local capture, and local capture stops.
   - If the bridge is silent for 600 ms, the input falls back to the local device. It returns after 2 s of steady frames.
-  - The pre-show check shows the active source.
+  - "Fallback Input" chooses what is captured meanwhile: the normal input, or another device such as a mixer split.
+  - The pre-show check shows the active source, with the bridge's name or the fallback device.
+  - While the input is on the bridge, the bridge's track is used everywhere: outputs, panel, OSC track title, the stream page and MCP.
   - The panel shows the round trip, the clock offset, the frame age and lost frames.
 - **Measured** with `npm run bridge-rig`, on Linux with PulseAudio:
   - Discovery took about 1 s.
   - The p95 frame age on one host was 2.5–4.5 ms.
   - The fallback came 610–680 ms after the bridge was killed.
   - The bridge-only process used about 5 % of one core and about 610 MB RSS across all processes.
-- **Tests.** New tests for the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings.
+- **Self-test.** `npm run smoke:bridge` checks that bridge-only mode opens no window or visual output, has hardware acceleration off, has a tray and listens. It also checks that the panel's Audio Bridge section is fully translated in English.
+- **Tests.** New tests for the bridge's analysis (bands, level, a 120 BPM beat train), analysis and track timestamps across a 5 s clock skew, the fallback device, the single-instance lock, the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings.
 
 ## v3.1.6-beta — in code, not released
 

@@ -72,6 +72,38 @@
     return el('div', { class: 'lay-file' }, [el('span', { text: label }), el('span', { text: ' ' }), el('strong', Object.assign({ text: String(value) }, user ? { 'data-user-text': '' } : {}))]);
   }
 
+  function fallbackRow(b, push) {
+    const el = P().el;
+    const sel = el('select', { class: 'p-in wide' });
+    const add = (value, label, user) => {
+      const o = el('option', Object.assign({ value, text: label }, user ? { 'data-user-text': '' } : {}));
+      sel.appendChild(o);
+    };
+    add('', tr('Olağan ses girişi'));
+    const seen = new Set(['']);
+    const devs = (P().audioDevices ? P().audioDevices() : []).filter((d) => d && d.name);
+    devs.forEach((d) => { if (seen.has(d.name)) return; seen.add(d.name); add(d.name, d.name, true); });
+    // Kayıtlı aygıt bu makinede şimdi yoksa da listede kalsın
+    if (b.fallbackSource && !seen.has(b.fallbackSource)) add(b.fallbackSource, b.fallbackSource + ' (' + tr('bulunamadı') + ')', true);
+    sel.value = b.fallbackSource || '';
+    sel.addEventListener('change', () => { b.fallbackSource = sel.value; push(); });
+    return P().row('Yedek Giriş', sel);
+  }
+
+  function analysisBox() {
+    const el = P().el;
+    const a = status && status.analysis;
+    if (!a) return null;
+    const pct = (v) => Math.round((Number(v) || 0) * 100) + '%';
+    const nodes = [];
+    nodes.push(kv(tr('BPM') + ':', a.bpm ? a.bpm + (a.confidence < 0.3 ? ' (' + tr('belirsiz') + ')' : '') : '—'));
+    nodes.push(kv(tr('Seviye') + ':', pct(a.level)));
+    if (a.bands) nodes.push(kv(tr('Bas / Orta / Tiz') + ':', [pct(a.bands.bass), pct(a.bands.mid), pct(a.bands.treble)].join(' / ')));
+    nodes.push(kv(tr('Vuruş sayısı') + ':', a.onsets || 0));
+    if (a.ageMs != null) nodes.push(kv(tr('Çözümlemenin yaşı') + ':', ms(a.ageMs)));
+    return el('div', { class: 'bridge-analysis' }, [el('div', { class: 'studio-note', text: 'Köprünün çözümlemesi:' })].concat(nodes));
+  }
+
   function senderBox() {
     const el = P().el;
     const s = status && status.sender;
@@ -85,6 +117,8 @@
     nodes.push(kv(tr('Bağlı alıcı') + ':', s.clients || 0));
     if (s.dropped) nodes.push(kv(tr('Yavaş alıcıya atlanan kare') + ':', s.dropped));
     nodes.push(kv(tr('Yakalama') + ':', status.capturing ? tr('açık') : tr('kapalı (alıcı yok)')));
+    const ab = analysisBox();
+    if (ab) nodes.push(ab);
     return el('div', { class: 'bridge-send' }, nodes);
   }
 
@@ -109,6 +143,7 @@
     if (status.meta && (status.meta.title || status.meta.artist)) {
       nodes.push(kv(tr('Köprüde çalan') + ':', [status.meta.artist, status.meta.title].filter(Boolean).join(' — '), true));
     }
+    if (inp.state === 'bridge') { const ab = analysisBox(); if (ab) nodes.push(ab); }
     return el('div', { class: 'bridge-recv' }, nodes);
   }
 
@@ -158,14 +193,17 @@
     }
     if (b.receive && !(status && status.only)) {
       nodes.push(textRow('Köprünün Adresi', b.host, (v) => { b.host = v; push(); }, { placeholder: tr('Boş: ağda kendiliğinden bulunur'), 'data-user-attr': '' }));
-      nodes.push(toggleRow('Köprü Susarsa Yerel Girişe Dön', b.fallback !== false, (v) => { b.fallback = v; push(); }));
+      nodes.push(toggleRow('Köprü Susarsa Yerel Girişe Dön', b.fallback !== false, (v) => { b.fallback = v; push(); P().rerender(); }));
+      /* Yedek giriş (#813): olağan ses girişi ya da ayrı bir aygıt — örneğin
+         mikserin bu makineye giden ayrı çıkışı (split). */
+      if (b.fallback !== false) nodes.push(fallbackRow(b, push));
       const rb = receiverBox();
       if (rb) nodes.push(rb);
       nodes.push(foundBox(b));
     }
     nodes.push(toggleRow('Yalnız Ses Köprüsü (sonraki açılışta)', b.only, (v) => { b.only = v; push(); }));
     nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yalnız köprü kipinde uygulama görüntü çıkışı, ışık ve yayın açmaz, GPU kullanmaz; sistem tepsisinde durur. Aynı makinede olağan uygulamanın yanında çalıştırmak için uygulamayı --bridge ile açın: ayarlarını ayrı bir klasörde tutar.' }));
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Köprü yakalama yardımcısının analiz karelerini (tayf ve dalga biçimi) ve çalan parça bilgisini gönderir; iki makine aynı sesi aynı sayılarla çözümler. Dinlenebilir ses gönderilmez.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Köprü yakalama yardımcısının analiz karelerini (tayf ve dalga biçimi), kendi çözümlemesini (bantlar, seviye, vuruş, BPM) ve çalan parça bilgisini köprünün saatiyle damgalı gönderir; iki makine aynı sesi aynı sayılarla çözümler. Dinlenebilir ses gönderilmez.' }));
     return el('div', { class: 'bridge-panel' }, nodes);
   }
 

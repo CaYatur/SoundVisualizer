@@ -1234,6 +1234,8 @@
       secret: '',
       host: '',
       fallback: true,
+      // Köprü kesilince kullanılacak giriş (mikserin ayrı çıkışı); boşsa olağan giriş
+      fallbackSource: '',
     },
   };
 

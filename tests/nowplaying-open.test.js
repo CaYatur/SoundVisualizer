@@ -168,6 +168,7 @@ test('görselleştirici açılışta güncel parçayı ister', () => {
 
 test('açılan pencere eldeki çalan parçayı yine yollar', () => {
   const main = read('src/main/main.js');
-  const sends = main.match(/mediaSession\.current\(\)\.has\)[^\n]*send\('now-playing'/g) || [];
+  // Ses girişi köprüdeyse köprünün parçası (#813): shownNowPlaying()
+  const sends = main.match(/(?:mediaSession\.current|shownNowPlaying)\(\)\.has\)[^\n]*send\('now-playing'/g) || [];
   assert.ok(sends.length >= 2, 'ekran ve yüzen pencere açılışta durumu yollamalı');
 });

@@ -4,9 +4,10 @@ The audio bridge sends the audio one machine captures to other SoundVisualizer m
 network, so that the primary and the backup (#540) analyse the same signal. Before this, every
 machine captured its own device, and a backup without the same signal drew a flat picture.
 
-This is phase 2 of the redundancy overhaul (#816). The first part covers capture, transport,
-pairing, discovery, the "Network bridge" audio input with automatic fallback, bridge-only mode,
-the panel and the pre-show check. What is still open is listed at the end.
+This is phase 2 of the redundancy overhaul (#816). It covers capture, transport, pairing,
+discovery, the bridge's own analysis, timestamps, the "Network bridge" audio input with automatic
+fallback to the local input or a separate fallback device (a mixer split), bridge-only mode, the
+panel and the pre-show check. What is still open is listed at the end.
 
 ## Modes
 
@@ -22,6 +23,20 @@ the panel and the pre-show check. What is still open is listed at the end.
 `--panel` also opens the panel at start. `--bridge-shared-profile` keeps the normal settings
 folder.
 
+| OS / build | How to start the bridge |
+|---|---|
+| Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer), or right-click the taskbar icon → "Audio Bridge" |
+| Windows, portable | Taskbar jump list → "Audio Bridge", or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` |
+| macOS | `open -n -a "CAYADEV Visualizer" --args --bridge` (`-n` starts a second copy next to the normal app) |
+| Linux, AppImage | `./CAYADEV-Visualizer-<version>-linux-x86_64.AppImage --bridge` |
+| Linux, deb | `"/opt/CAYADEV Visualizer/soundvisualizer" --bridge` |
+| Dev | `npm start -- --bridge` |
+
+Bridge-only mode runs as a single instance per settings folder. Starting it again (shortcut,
+jump list, `--bridge`) does not open a second bridge that would fight over the port and the
+device. It opens the running bridge's panel instead. The normal app uses another folder, so it
+is not affected. `--bridge-multi` turns the lock off, which the test rigs use.
+
 In bridge-only mode the panel opens from the tray icon. On Linux desktops without a tray (stock
 GNOME), start the app with `--bridge --panel` instead.
 
@@ -35,6 +50,18 @@ the sample rate, 1024 spectrum bytes, and 2048-sample mono, left and right windo
 BPM, onsets and the MilkDrop inputs are computed from this frame in the visualizer, so two
 machines that get the same frame get the same numbers. At about 70 frames per second that is
 roughly 500 KB/s (4 Mbit/s).
+
+The bridge also runs its own analysis (`src/main/bridge-analysis.js`) and sends it next to the
+frames: bass, mid and treble bands, RMS level and peak, beat, BPM and confidence, beat phase and
+bar position, onset strength and an onset counter. Beat and BPM use the same engine as the
+visualizer (`src/shared/tempo.js`), fed from the frame's spectrum. The packet goes out every
+second frame, and right away on a beat. The receiver shows it in the panel. Its own windows still
+analyse the frame themselves, so the picture uses the same numbers in both places.
+
+**Timestamps.** Every frame, analysis packet and track update carries the bridge's wall-clock
+time in ms (`t`). The receiver converts it to its own clock with the measured offset
+(`localT = t - offset`). The frame age, the analysis age and the track's `localT` in the panel all
+come from this.
 
 The bridge also sends the now-playing track (title, artist, album, duration, position; artwork
 only when it is under 256 KB). While the receiver's input is on the bridge, that track replaces
@@ -65,6 +92,13 @@ payload. The maximum is 1 MB. A bad length closes the connection.
 - **kind 0, JSON:** UTF-8 JSON. Every object carries `v` (the format version, currently `1`) and
   `type`.
 - **kind 1, frame:** `[u8 version][u32 BE sequence][f64 BE sender time, ms][7174-byte frame]`.
+
+JSON messages after the handshake:
+
+- `{type:'analysis', a:{t, level, peak, bands:{bass, mid, treble}, beat, bpm, confidence, phase, bar, onset, onsets}}`
+- `{type:'meta', meta:{has, title, artist, album, duration, position, playing, app, artwork?}, t}`
+- `{type:'ping', t0}` and `{type:'pong', t0, t1}`
+- `{type:'error', code}`
 
 Handshake:
 
@@ -126,13 +160,32 @@ Discovery does not cross routers or VLANs. Type the address there.
 The first switch to the bridge happens after 300 ms of steady frames. Going back after a loss
 needs 2 s of uninterrupted frames, so a flaky link does not flip back and forth. With "Fall Back
 to the Local Input if the Bridge Goes Silent" off, audio simply stops while the bridge is gone.
-The pre-show check shows the active source: bridge, fallback (local), or waiting.
+
+**Fallback input.** "Fallback Input" picks what is captured while the bridge is silent: the
+normal audio input (the default), or any other device on this machine. For a mixer split, wire
+a second output of the mixer into this machine's audio interface and pick that input. The
+choice is kept even when the device is not plugged in, and it is shown as "not found".
+
+The pre-show check shows the active source: bridge (with its name and address), fallback (the
+local input, or the fallback device by name), or waiting.
+
+While the input is on the bridge, the bridge's track is used everywhere: the outputs, the panel,
+the OSC track title, the stream page and MCP.
+
+## Self-test
+
+`npm run smoke:bridge` starts the app with `--smoke --bridge` on a fresh profile. It checks that
+no window or visual output opens, that hardware acceleration is off, that the tray exists and
+that the bridge listens. It then opens the panel from the tray path, switches it to English and
+checks that the Audio Bridge section has no untranslated text.
 
 ## Measurements
 
 `npm run bridge-rig` starts two real instances, a bridge and a receiver whose address field is
-empty. It checks discovery, frames, the fallback when the bridge is killed and the recovery when
-it comes back. It runs once with `--bridge` and once with a normal-mode primary as the bridge.
+empty. It checks discovery, frames, the analysis packets, the fallback when the bridge is killed
+(including that the fallback device is the one captured) and the recovery when it comes back.
+It runs once with `--bridge` and once with a normal-mode primary as the bridge.
+`SV_RIG_FALLBACK` sets the fallback device name.
 
 Ubuntu 24.04 on the CI-class box, PulseAudio null sink with a 440 Hz sine, both on one host
 (Electron 44):
@@ -159,11 +212,12 @@ milliseconds, with jitter.
 
 ## Not done yet
 
-- Listenable audio (Opus/PCM) and a "play the bridge audio" output.
+- Listenable audio (Opus/PCM) and a "play the bridge audio" output. Nothing in the app plays
+  network audio, and the frames already carry full 2048-sample stereo windows for analysis. A
+  continuous PCM stream needs a second packet type from the capture helper (it mixes into ring
+  buffers today), so it is left for a follow-up.
 - Measurements on Windows and macOS (PC Agent test steps are in the PR).
-- The receiver uses the bridge's track only for outputs and the panel. Code paths that call
-  `mediaSession.current()` directly (OSC track title, the stream page's first message) still see
-  the local session.
 - Timestamps use the bridge's own clock plus the measured offset, not the redundancy shared clock
   (#544). When the bridge runs on the primary they are the same machine clock.
+- Linux deb: no desktop action for the bridge yet. Use the command line.
 - A slim standalone bridge package built from the same code (future option, not in scope).

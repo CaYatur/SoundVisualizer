@@ -26,6 +26,7 @@
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
+    "smoke:bridge": "node scripts/start.js --smoke --bridge",
     "dist:linux": "npm run icons && electron-builder --linux --x64 --publish never",
     "prepare:appaudio:mac": "node scripts/prepare-app-audio-mac.js",
     "dist:mac:arm64": "node scripts/prepare-app-audio-mac.js --arch=arm64 && npm run icons && electron-builder --mac --arm64 --publish never",

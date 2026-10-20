@@ -14,9 +14,12 @@
   ; (gri zeminli) ikonu kalmasın diye simge önbelleği tazelenir.
   nsExec::ExecToLog '"$SYSDIR\ie4uinit.exe" -show'
   Pop $0
+  ; Ses köprüsü kipi (#813): Başlat menüsünde --bridge ile açan ayrı kısayol
+  CreateShortCut "$SMPROGRAMS\CAYADEV Visualizer Audio Bridge.lnk" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" "--bridge" "$INSTDIR\${APP_EXECUTABLE_FILENAME}" 0
 !macroend
 
 !macro customUnInstall
+  Delete "$SMPROGRAMS\CAYADEV Visualizer Audio Bridge.lnk"
   DetailPrint "Removing CAYADEV Visualizer Dynamic Lighting identity..."
   nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\resources\identity\uninstall-identity.ps1"'
   Pop $0
