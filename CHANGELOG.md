@@ -9,6 +9,11 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
 
 ### Redundancy overhaul, phase 1: isolated show, show package, scene parity [812, 816]
 
+- **Panel polish from the Windows test round.**
+  - The show package's file list no longer runs into the "Also copy video files" row: the box is laid out as a column with its own spacing, the list scrolls, and the video row sits on its own line. File kinds read "Preset" and "Logo" instead of the raw `preset`/`logo`.
+  - "Send Differences to Backup" asks with two lists, "Missing on the backup" and "Different on the backup (the backup keeps its own version)", instead of counting both as missing.
+  - With auto takeover paused after a manual hand-back, the backup's status read "waiting for a manual takeover · Auto takeover on hold". It now reads "The primary is not responding · Auto takeover is paused since the manual hand-back: take over manually or re-arm it", and while following, "Auto takeover paused (handed back manually)".
+  - The docs say the test count is the runner's total, so environment-dependent skips (0 on one machine, 1 on another) do not change it.
 - **The backup keeps its own show.**
   - Before, everything the backup received from the primary was written into its own settings. That covered the scene, saved scenes, Studio presets, timeline, Clip Deck and Auto VJ. "Send Differences to Backup" also replaced presets and logos with the same ID.
   - Now the primary's copy lives in `<userData>/redundancy/primary-show.json`.

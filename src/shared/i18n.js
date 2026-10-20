@@ -1001,8 +1001,10 @@
     'Farkları Yedeğe Gönder': 'Send Differences to Backup',
     'Yedekte olmayan presetler ve logolar gönderilir; yedek onları kütüphanesine eklemeden ayrı alanda tutar, aynı kimlikli öğesi değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.':
       'Presets and logos the backup does not have are sent; the backup keeps them in a separate area without adding them to its library, and its items with the same ID are not changed. For videos and items that differ, use "Request Package from Primary" on the backup.',
-    'Yedekte olmayan şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez:':
-      'These items the backup does not have will be sent; the backup keeps them in a separate area, and its items with the same ID are not changed:',
+    'Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.':
+      'These items will be sent; the backup keeps them in a separate area, and its items with the same ID are not changed.',
+    'Yedekte olmayanlar:': 'Missing on the backup:',
+    'Yedekte farklı olanlar (yedeğin kendi sürümü kalır):': 'Different on the backup (the backup keeps its own version):',
     // ---- Yalıtılmış gösteri ve gösteri paketi (#812) ----
     'Birincilin kopyası': 'Primary\'s copy',
     'Bu makinenin gösterisi': 'This machine\'s show',
@@ -1060,7 +1062,9 @@
     'El ile seçildi': 'Picked by hand',
     'Otomatik seçim': 'Auto-pick',
     'Otomatik seçimin denetimi birincilin görselleştirici penceresi açıkken çalışır; el ile seçilen preset sahne kopyasıyla her zaman denetlenir.': 'The auto-pick check runs while the primary\'s visualizer window is open; a preset picked by hand is always checked through the scene copy.',
-    'Otomatik devralma bekletiliyor': 'Auto takeover on hold',
+    'Birincil yanıt vermiyor': 'The primary is not responding',
+    'Otomatik devralma elle bırakıştan beri duraklatıldı: elle devralın ya da yeniden kurun': 'Auto takeover is paused since the manual hand-back: take over manually or re-arm it',
+    'Otomatik devralma duraklatıldı (elle bırakıldı)': 'Auto takeover paused (handed back manually)',
     'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma bekletiliyor.': 'Control was released by hand: auto takeover is on hold until the primary is seen again.',
     'Otomatik Devralmayı Yeniden Kur': 'Re-arm Auto Takeover',
     'Birincil hâlâ yoksa yedek yetkiyi hemen kendiliğinden alır. Otomatik devralma yeniden kurulsun mu?': 'If the primary is still down, the backup takes control right away. Re-arm auto takeover?',

@@ -83,14 +83,19 @@
       if (status.state === 'following') box.classList.add('ok');
       if (status.state === 'lost') box.classList.add('err');
       box.appendChild(el('span', { icon: status.state === 'active' ? 'bolt' : status.state === 'following' ? 'check' : 'broadcast' }));
-      box.appendChild(el('span', { text: STATE_TEXT[status.state] || 'Kapalı' }));
+      /* Elle bırakıştan sonra otomatik devralma duruyor; "elle devralma
+         bekleniyor · otomatik devralma bekletiliyor" çelişkili okunuyordu. */
+      const heldLost = status.autoHeld && status.state === 'lost';
+      box.appendChild(el('span', { text: heldLost ? 'Birincil yanıt vermiyor' : (STATE_TEXT[status.state] || 'Kapalı') }));
       if (status.state === 'active' && status.takenBy) {
         box.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
         box.appendChild(el('span', { text: status.takenBy === 'auto' ? 'kendiliğinden' : 'elle' }));
       }
       if (status.autoHeld && status.state !== 'active') {
         box.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
-        box.appendChild(el('span', { text: 'Otomatik devralma bekletiliyor' }));
+        box.appendChild(el('span', { text: heldLost
+          ? 'Otomatik devralma elle bırakıştan beri duraklatıldı: elle devralın ya da yeniden kurun'
+          : 'Otomatik devralma duraklatıldı (elle bırakıldı)' }));
       }
       return box;
     }
@@ -152,10 +157,24 @@
     const sh = status.show;
     if (!sh || !sh.pushable) return;
     // Açık onay: neyin değişeceği listelenir
-    const names = sh.items.filter((d) => d.pushable && d.status !== 'extra').map((d) => (d.kind === 'logo' ? 'Logo' : 'Preset') + ': ' + (d.label || d.id));
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-    const text = tr('Yedekte olmayan şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez:') + '\n\n' + names.slice(0, 20).join('\n') +
-      (sh.pushable > 20 ? '\n… +' + (sh.pushable - 20) : '');
+    const name = (d) => (d.kind === 'logo' ? 'Logo' : 'Preset') + ': ' + (d.label || d.id);
+    const items = sh.items.filter((d) => d.pushable && d.status !== 'extra');
+    /* Yedekte HİÇ olmayanlar ile yedekte FARKLI olanlar ayrı listelenir;
+       ikisi tek "yedekte olmayan" başlığı altında yanıltıcıydı. */
+    const missing = items.filter((d) => d.status !== 'different');
+    const differing = items.filter((d) => d.status === 'different');
+    let left = 20;
+    const block = (title, list) => {
+      if (!list.length) return '';
+      const shown = list.slice(0, Math.max(0, left));
+      left -= shown.length;
+      return '\n\n' + tr(title) + ' (' + list.length + ')\n' + shown.map(name).join('\n') + (list.length > shown.length ? '\n… +' + (list.length - shown.length) : '');
+    };
+    const text = tr('Şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez.') +
+      block('Yedekte olmayanlar:', missing) +
+      block('Yedekte farklı olanlar (yedeğin kendi sürümü kalır):', differing) +
+      (sh.pushable > items.length ? '\n… +' + (sh.pushable - items.length) : '');
     const ok = await P().confirm(text, { okText: tr('Yedeğe Gönder') });
     if (!ok) return;
     try {
@@ -179,7 +198,7 @@
     done: 'Paket doğrulandı ve yerine kondu',
     error: 'Kopyalama durdu',
   };
-  const PKG_KIND_TEXT = { presets: 'Preset', logos: 'Logo', media: 'Video dosyası' };
+  const PKG_KIND_TEXT = { presets: 'Preset', logos: 'Logo', media: 'Video dosyası', preset: 'Preset', logo: 'Logo' };
   const PARITY_TEXT = { missing: 'birincilin preseti bu makinede yok', different: 'bu makinedeki preset farklı' };
 
   function bytes(n) {
@@ -284,7 +303,7 @@
       nodes.push(line([num(bytes(pr.bytes) + ' / ' + bytes(pr.total)), sep(), num(pr.files + ' / ' + pr.of), sep(), num(bytes(pk.speed) + '/s')]));
     }
     if (pk.state === 'offered' || pk.state === 'transferring') {
-      const files = el('ul', { class: 'red-diff' });
+      const files = el('ul', { class: 'red-diff red-pkg-files' });
       (pk.files || []).slice(0, 30).forEach((f) => files.appendChild(el('li', {}, [
         el('span', { text: PKG_KIND_TEXT[f.kind] || f.kind }), sep(), el('span', { text: f.name, 'data-user-text': '' }), sep(), num(bytes(f.size)),
       ])));
@@ -295,7 +314,8 @@
       const media = pk.summary && pk.summary.media && pk.summary.media.n ? pk.summary.media : null;
       const box2 = el('input', { type: 'checkbox', id: 'redPkgMedia' });
       if (media) {
-        nodes.push(el('label', { class: 'chk', for: 'redPkgMedia' }, [box2, el('span', { text: 'Video dosyalarını da kopyala' }), sep(), num(bytes(media.bytes))]));
+        // Kendi satırında: dosya listesinin üstüne binmesin (#817, Windows)
+        nodes.push(el('label', { class: 'chk red-pkg-media', for: 'redPkgMedia' }, [box2, el('span', { text: 'Video dosyalarını da kopyala' }), sep(), num(bytes(media.bytes))]));
         // Kutu işaretlenmeden de görünsün: hangi videolar, ne kadar (#812)
         nodes.push(mediaList(pk.mediaFiles || []));
       }
