@@ -1059,6 +1059,10 @@
       const h = w * aspect;
       const x = (lg.x == null ? 0.5 : lg.x) * W;
       const y = (lg.y == null ? 0.5 : lg.y) * H;
+      /* Yerleşim kutusu (#534): nabız olmadan, logonun durduğu yer. */
+      const restW = minDim * scale;
+      const restH = restW * aspect;
+      const rest = W > 0 && H > 0 ? { x: (x - restW / 2) / W, y: (y - restH / 2) / H, w: restW / W, h: restH / H } : null;
       let opacity = Math.max(0, Math.min(1, lg.opacity == null ? 1 : lg.opacity));
       if (lg.audioOpacity > 0) {
         opacity *= (1 - lg.audioOpacity) + lg.audioOpacity * Math.min(1, level * 1.5);
@@ -1100,6 +1104,7 @@
         ctx.drawImage(drawable.source, x - w / 2, y - h / 2, w, h);
       }
       ctx.restore();
+      return rest;
     }
 
     // Logo'yu birleştirme yüzeyine çizer (efekt modunda ve dışa aktarımda,
@@ -2040,6 +2045,8 @@
 
       if (l.kind === 'logo') {
         e.ctx.clearRect(0, 0, W, H);
+        // Yerleşim kutusu (#534): çizilmeyen karede yok
+        e.layoutBounds = null;
         if (l.enabled === false) return;
         const lg = (l.settings && l.settings.logo) || (cfg && cfg.logo);
         if (!lg) return;
@@ -2052,7 +2059,7 @@
         }
         const gif = this._logoDrawable(lg, effectiveSrc, audio, t);
         if (gif) {
-          this._paintLogo(e.ctx, gif, lg, audio, W, H);
+          e.layoutBounds = this._paintLogo(e.ctx, gif, lg, audio, W, H);
           return;
         }
         if (typeof window !== 'undefined' && window.SVGif && window.SVGif.isAnimatedLogo(lg, effectiveSrc)) {
@@ -2071,13 +2078,25 @@
           e._lastImg = img;
           e._lastImgSrc = effectiveSrc;
         }
-        this._paintLogo(e.ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, lg, audio, W, H);
+        e.layoutBounds = this._paintLogo(e.ctx, { source: img, width: img.naturalWidth, height: img.naturalHeight }, lg, audio, W, H);
         return;
       }
     }
 
     /* Çevrimdışı birleştirme (dışa aktarıcı). Katmanlar tek bir hedef tuvale
        CSS ile aynı karışım adlarıyla basılır. */
+    /* Öğe kutuları (#534): katman kimliği → çizicinin bildirdiği normalize
+       yerleşim kutusu. Düzen editörü yönetici önizlemesinden okuyor. */
+    layoutBounds() {
+      const out = {};
+      for (const e of this.entries) {
+        if (!e || !e.layer || !e.layer.id) continue;
+        const b = (e.mode && e.mode.layoutBounds) || e.layoutBounds || null;
+        if (b) out[e.layer.id] = { x: b.x, y: b.y, w: b.w, h: b.h };
+      }
+      return out;
+    }
+
     drawTo(ctx, audio, cfg, t, dt, drawLogo) {
       const W = this.width;
       const H = this.height;

@@ -117,6 +117,8 @@
       const H = this.canvas.height;
       const step = Math.min(0.05, dt || 0.016);
       ctx.clearRect(0, 0, W, H);
+      // Yerleşim kutusu (#534): çizilmeyen karede yok
+      this.layoutBounds = null;
       const T = cfg.text || {};
       const isStandaloneText = cfg.visualizer && cfg.visualizer.type === 'text';
       if (!isStandaloneText && T.enabled === false) return;
@@ -355,6 +357,22 @@
       const vAlign = T.vAlign || 'middle';
       const blockH = Math.max(1, lines.length) * size * 1.2;
       const yBias = vAlign === 'top' ? blockH / 2 : vAlign === 'bottom' ? -blockH / 2 : 0;
+      /* Yerleşim kutusu (#534): giriş canlandırması ve nabız OLMADAN, yani
+         yazının durduğu yer. Taşan yazı görünür aralığa kırpılıyor, kutu da. */
+      if (!T.marquee) {
+        let tw = 0;
+        lines.forEach((ln) => { tw = Math.max(tw, ctx.measureText(ln).width); });
+        const lim = Math.min(W * clamp(T.maxWidth == null ? 0.9 : T.maxWidth, 0.15, 1), W);
+        const rl = align === 'left' ? cx : align === 'right' ? cx - lim : cx - lim / 2;
+        const sl = clamp(rl, 0, W);
+        const sr = clamp(rl + lim, 0, W);
+        let left = align === 'left' ? cx : align === 'right' ? cx - tw : cx - tw / 2;
+        let right = left + tw;
+        if (tw > sr - sl + 1 || left < -0.5 || right > W + 0.5) { left = Math.max(left, sl); right = Math.min(right, sr); }
+        const top = cy + yBias - blockH / 2;
+        this.layoutBounds = right > left && W > 0 && H > 0
+          ? { x: left / W, y: top / H, w: (right - left) / W, h: blockH / H } : null;
+      }
       if (yBias) ctx.translate(0, yBias);
 
       const paintLines = (fill) => {
