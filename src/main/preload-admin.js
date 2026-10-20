@@ -188,9 +188,18 @@ contextBridge.exposeInMainWorld('api', {
   redundancyStatus: () => ipcRenderer.invoke('redundancy:status'),
   redundancyTakeover: () => ipcRenderer.invoke('redundancy:takeover'),
   redundancyRelease: () => ipcRenderer.invoke('redundancy:release'),
+  redundancyRearm: () => ipcRenderer.invoke('redundancy:rearm'),
+  redundancyRestoreArchive: (name) => ipcRenderer.invoke('redundancy:restore-archive', name),
   redundancyNewSecret: () => ipcRenderer.invoke('redundancy:new-secret'),
   redundancyCompare: () => ipcRenderer.invoke('redundancy:compare'),
   redundancyPush: () => ipcRenderer.invoke('redundancy:push'),
+  // Yalıtılmış gösteri ve gösteri paketi (#812)
+  redundancyUseShow: (which) => ipcRenderer.invoke('redundancy:use-show', which),
+  redundancyImportScene: (id) => ipcRenderer.invoke('redundancy:import-scene', id),
+  redundancyUsePrimaryAsset: (spec) => ipcRenderer.invoke('redundancy:use-primary-asset', spec),
+  redundancyPkgRequest: () => ipcRenderer.invoke('redundancy:pkg-request'),
+  redundancyPkgConfirm: (choice) => ipcRenderer.invoke('redundancy:pkg-confirm', choice),
+  redundancyPkgCancel: () => ipcRenderer.invoke('redundancy:pkg-cancel'),
   // Gösteri öncesi denetim (#545)
   preshowCheck: () => ipcRenderer.invoke('preshow:check'),
   preshowReveal: (p) => ipcRenderer.invoke('preshow:reveal', p),

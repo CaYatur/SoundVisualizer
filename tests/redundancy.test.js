@@ -170,7 +170,7 @@ test('bağlantılar: ana süreç, panel, kontrol eylemleri, Otomatik VJ, MCP ve 
   const main = read('src/main/main.js');
   assert.match(main, /syncRedundancy\(\);\n\s*redundancyPush\(patchKeys\);/);
   assert.match(main, /syncRedundancy\(\); \/\/ birincilse yayın sunucusunu da açar/);
-  assert.match(main, /if \(red\.role === 'primary'\) streamServer\.sendPeers\(\{ type: 'md-follow', follow \}\);/);
+  assert.match(main, /if \(red\.role === 'primary' && streamServer\.peerCount\(\)\) \{\n    streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow,/);
   assert.match(main, /setImmediate\(\(\) => \{ if \(red\.follower && red\.follower\.tick\(Date\.now\(\)\)\) onFollowerChanged\(\); \}\);/);
   assert.match(main, /applyIncomingConfig\(next, \{ patchKeys: changed, fromPrimary: true \}\);/);
   assert.match(main, /const peerOnly = !s\.enabled;/, 'yalnız-yedek sunucuda jeton üretilmez');
@@ -186,4 +186,24 @@ test('bağlantılar: ana süreç, panel, kontrol eylemleri, Otomatik VJ, MCP ve 
   assert.match(read('package.json'), /"failover": "node scripts\/failover\.js"/);
   const i18n = read('src/shared/i18n.js');
   ['Yetkiyi Al', 'Yetkiyi Bırak', 'Eşleşme Parolası', 'Birincili izliyor', 'Yedeklilik · Yetkiyi Al'].forEach((k) => assert.ok(i18n.includes("'" + k + "':"), k));
+});
+
+test('MilkDrop eşliği (#812): birincil tohum, içerik özeti ve anı gönderiyor; yedek eksik/farklıyı biliyor', () => {
+  assert.strictEqual(R.mdParity({ id: 'u1', hash: 'abc' }, 'abc'), '');
+  assert.strictEqual(R.mdParity({ id: 'u1', hash: 'abc' }, ''), 'missing');
+  assert.strictEqual(R.mdParity({ id: 'u1', hash: 'abc' }, 'def'), 'different');
+  // Yerleşik preset (özet yok) uygulamayla gelir: denetlenmez
+  assert.strictEqual(R.mdParity({ id: 'builtin:1', hash: '' }, ''), '');
+  assert.strictEqual(R.mdParity(null, 'x'), '');
+  const main = read('src/main/main.js');
+  const relay = main.slice(main.indexOf('function relayMdFollow(sender, mp) {'), main.indexOf('function mdPresetHash(id) {'));
+  // Tohum (#585) seçimin içinde; yedeğe özet ve an eklenir
+  assert.match(relay, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
+  assert.match(relay, /streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ hash: mdPresetHash\(follow\.id\) \}\) \}\)/);
+  const onMsg = main.slice(main.indexOf("if (msg.type === 'md-follow') {"), main.indexOf("if (msg.type === 'md-follow') {") + 400);
+  assert.match(onMsg, /noteMdParity\(msg\.follow\);/);
+  // İzleyen pencere tohumu seçimden alıyor (aynı rand_preset ve geçiş deseni)
+  const md = read('src/visualizer/modes/milkdrop.js');
+  assert.match(md, /seed: Number\.isInteger\(F\.seed\) \? F\.seed : null,/);
+  assert.match(md, /const seed = a && Number\.isInteger\(a\.seed\) \? a\.seed >>> 0 : hashSeed\(/);
 });

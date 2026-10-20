@@ -7,8 +7,77 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
 
+### Redundancy overhaul, phase 1: isolated show, show package, scene parity [812, 816]
+
+- **Panel polish from the Windows test round.**
+  - The show package's file list no longer runs into the "Also copy video files" row: the box is laid out as a column with its own spacing, the list scrolls, and the video row sits on its own line. File kinds read "Preset" and "Logo" instead of the raw `preset`/`logo`.
+  - "Send Differences to Backup" asks with two lists, "Missing on the backup" and "Different on the backup (the backup keeps its own version)", instead of counting both as missing.
+  - With auto takeover paused after a manual hand-back, the backup's status read "waiting for a manual takeover · Auto takeover on hold". It now reads "The primary is not responding · Auto takeover is paused since the manual hand-back: take over manually or re-arm it", and while following, "Auto takeover paused (handed back manually)".
+  - The docs say the test count is the runner's total, so environment-dependent skips (0 on one machine, 1 on another) do not change it.
+- **Review fixes.**
+  - **Fixed: a new package failed while the backup played a copied video.** Measured on Windows: a folder that holds an open file cannot be renamed, and an open file cannot be replaced (EPERM). The swap renamed the whole package folder, so every new package (including the one "Send Differences to Backup" pulls) ended in "Copying stopped" while a copied video was on screen. Files now live in a content-addressed store (`package/store/<hash>/<name>`) and are never moved or overwritten; the swap is a single atomic write of `current/manifest.json`. Unused files are removed after the swap, and a locked one is left for the next swap. Packages installed by the earlier layout keep working. The failover rig now holds the video open during the second package.
+  - Unchanged files from the last package are read in place instead of hard-linked. Before, a corrupt earlier file that was downloaded again was written through the shared link into the verified copy.
+  - Retrying a locked rename no longer blocks the main process (it used `Atomics.wait`, up to about 0.6 s per rename).
+  - A different package no longer deletes a half-downloaded one: the two newest staging folders are kept and can resume.
+  - The primary's version was never recorded (the `hello` branch returned before it), so `primary-show.json` always had an empty version.
+  - Local show archives are capped at the newest 20.
+- **The backup keeps its own show.**
+  - Before, everything the backup received from the primary was written into its own settings. That covered the scene, saved scenes, Studio presets, timeline, Clip Deck and Auto VJ. "Send Differences to Backup" also replaced presets and logos with the same ID.
+  - Now the primary's copy lives in `<userData>/redundancy/primary-show.json`.
+  - The backup's own show is kept in `local-show.json`, and `settings.json` keeps being written from it.
+  - Turning the role off puts the local show back exactly as it was. The file is archived as `local-show.restored-<time>.json`, not deleted.
+  - **Upgrading:** a machine that already ran as a backup on 3.1.6-beta keeps whatever its settings hold at the first start, as its local show. Nothing is deleted.
+- **Importing is per item and confirmed.**
+  - Each of the primary's saved scenes has "Import to Local Show". On an ID clash the copy gets a new ID, and existing scenes are never changed.
+  - "Send Differences to Backup" no longer writes into the backup's library. The backup pulls the package without video files, and the items stay in the separate area.
+- **Fixed: a panel edit after turning the role off could overwrite the backup's show.** Found on Linux. Turning the role off put the local show back into `settings.json`, but the backup's panel kept showing the primary's show. The panel's next edit sent that copy back and wrote the primary's scenes to disk. Now the panel gets the restored show straight away. The same immediate update now happens on takeover, Release, switching the takeover show, and importing a scene while the local show is rendering.
+- **Fixed: pulling the same package again hung at 100%.** Found on Linux. When every file was already present from the last copy, no chunk was requested, and the verify-and-install step only ran when a chunk arrived. The pull stayed in "transferring" with every file done and a speed of 0. Now confirming or resuming a pull with nothing missing goes straight to verifying and installing. A unit test and a failover-rig step (a third identical package) cover it.
+- **Following the primary no longer blocks the main process on disk writes.** One rig run showed a 750 ms heartbeat gap, half the limit, before Push. It did not reproduce (the largest gap in later runs was 182 ms, also with a cold disk cache), but the follow path did work that could block on a slow disk or under a virus scan: every change of the primary's show was serialized twice, parsed back and written synchronously, and `settings.json` was rewritten even when nothing in it had changed. The copy of the primary's show is now written in the background from the text that was already computed, and only the newest of several queued writes goes to disk. `settings.json` is not rewritten when the text is the same and the file was not changed by someone else.
+- **Fixed: a package copied without video files deleted the videos from an earlier package.** Found on Windows, where 2.8 GB disappeared. The swap replaced the whole package folder. Now every verified video in the old copy that the new package does not bring is carried into the new copy and stays in its manifest. This also happens when the primary no longer lists the video. The carry uses a hard link, so nothing is copied or doubled on disk. On a file system without hard links (FAT32, exFAT) it falls back to a copy. If a carry fails, the swap does not happen and the old copy stays. Unchanged files from the last package are also hard-linked now instead of copied. There is no "remove copied videos" action yet, so videos are only removed by deleting `<userData>/redundancy/package` by hand.
+- **Fixed: auto takeover took control straight back after a manual Release.** Found on Windows. With the primary still down, "Release" handed control back, and auto takeover took it again at once. After a manual Release, auto takeover is now on hold until the primary is seen alive again or the operator re-arms it. The panel shows "Auto takeover on hold" with a "Re-arm Auto Takeover" button, which asks for confirmation. Manual takeover always works.
+- **Local show archives can be restored.** The panel lists the last ten `local-show.restored-<time>.json` archives in every role, with date and size. "Restore" asks for confirmation and archives the current show first, so a restore can be undone. On a backup that is rendering the primary's copy, the restored show becomes the local show without touching the live picture.
+- **Videos are listed before you tick the box.** The package offer lists every video by name and size before "Also copy video files" is ticked, and marks the ones already on this machine. Under "Show Data", the backup lists the videos already copied to it, which the primary's copy uses on takeover.
+- **"Send Differences to Backup" no longer pauses the heartbeat.** It used to send each logo whole in a single message on the link. On a cold start that held the heartbeat for 1.7 s, against a 0.75 s limit. A backup on this version now reports that it pulls packages, so the primary only sends a short notice and the items arrive in 256 KB chunks. An older backup still gets items one by one, with a yield after each one.
+- **Takeover data.**
+  - "Show to Use on Takeover" chooses between the primary's copy (the default) and this machine's own show.
+  - While in control, the operator can switch between the two.
+  - Changing the choice does not reconnect the link.
+- **Resync after Release.**
+  - While in control, the backup still records what the primary sends.
+  - On Release it applies that, then asks the primary for a fresh snapshot and show clock. Before, it kept a stale picture until the primary's next change.
+- **Show package.**
+  - "Request Package from Primary" builds a versioned manifest with a SHA-256 for each file and a hash for the package.
+  - The package holds every user preset, every logo and the video files used by the scenes.
+  - The backup lists the contents and asks first. Video files are copied only if you tick them; the size is shown.
+  - Files arrive in 256 KB chunks, two at a time on the existing link, each with its own checksum. A corrupt chunk is requested again.
+  - The transfer resumes after a dropped connection or a restart, and files that are unchanged since the last package are not downloaded again.
+  - Every file is verified before anything is put in place. The swap takes two steps and is retried on the brief file locks that are common on Windows. A swap that fails halfway is rolled back, so the last good copy stays.
+  - The panel shows a progress bar, the file list, speed and errors.
+  - Nothing from the package is written into the backup's library on its own.
+    - Presets and logos the backup does not have stay in the package folder. While the primary's copy is rendering, the windows see them as if they were in the library. They disappear again with the local show or with the role off.
+    - Each one has "Add to Library", with its own confirmation.
+    - An item with the same ID but different content is listed as a conflict, the local one is kept, and "Use the Primary's" replaces it after confirmation.
+  - Video files stay in the package, and the primary's scene is mapped to those copies. A file that already exists at the same path on the backup is left as it is.
+- **MilkDrop parity.**
+  - The primary's MilkDrop choice now also carries the preset's content hash and the moment of the switch. The seed already travelled with it (#585).
+  - The backup lists a preset that is missing or different there, under "The picture may differ from the primary".
+  - A preset picked by hand is checked too. Found on Windows: the warning only came from auto-pick, so a primary-only preset picked by hand gave no warning. The scene copy carries the preset's ID and source, and the backup compares them with its own library and the separate area. That covers the panel, Clip Deck, Auto VJ and the timeline, which all write the scene's MilkDrop preset or a MilkDrop layer's preset. Built-in presets ship with the app and are not checked. The list says whether each entry came from auto-pick or a manual pick.
+  - The auto-pick check needs the primary's visualizer window (or Spout/Syphon window, or panel preview) to be open, because the leader window sends the choice. The manual check works from the scene copy alone. The panel notes this.
+  - Found in the code:
+    - When the chosen preset is missing on the backup, its windows silently stay on the previous preset.
+    - Per-frame equations follow each machine's own audio.
+    - The `rand_frame` input and one random rotation source are drawn per frame.
+    - Frame rate and feedback history differ per machine.
+  - The leader now sends the moment its transition started. A window or backup that starts the same transition late moves its blend forward to that moment, once and never backwards, so both screens finish the blend together. On the backup the moment is converted from the primary's clock. Web pages on other machines do not get it, since their clock is separate.
+  - Fixed: the backup's windows got the primary's wall-clock `at` field, which overwrote the window's own receive time. Following then never timed out after 1.5 s.
+  - Hash, seed and timing remove the first cause. Audio is phase 2 (#813); the rest is documented in #812.
+- **Tests.**
+  - New unit tests for the manifest, safe names (path traversal, absolute paths, backslashes, case-insensitive collisions), chunk checksums, resume, verification, the atomic swap with Windows rename failures, media confirmation, isolation and restore, scene import, media mapping, the takeover data choice, MilkDrop parity, the isolated package layer, per-item import and blend alignment.
+  - `npm run failover` now also checks that the backup's `settings.json` keeps its own scenes and that the copy lands in `primary-show.json`. It copies a show package with a video and a conflicting preset, and takes over with the local show and then turns the role off. It checks that pushed and packaged items stay out of the backup's library until each one is imported. It also turns the role off while the primary's copy is rendering, makes a panel edit, and checks that `settings.json` keeps the backup's own show. It copies a second package without videos and checks that the earlier video stays and was listed before the box was ticked. It releases control with the primary down and checks that auto takeover waits past the 5 s start grace until it is re-armed. It also restores a local show archive.
+
 ### Audio bridge, redundancy overhaul phase 2 [813, 816]
 
+- **Review fixes.** The bridge refuses a 17th connection that has not paired yet (each one held a buffer and a 5 s timer), and a packet split over many TCP segments (cover art up to 400 KB) is joined once instead of being copied again on every segment.
 - **Fixed: starting the audio bridge a second time crashed on Windows** with "ReferenceError: Cannot access 'instanceTimer' before initialization". The second copy called `app.quit()` while the main process was still loading, and Electron ran the `will-quit` cleanup at once, before the state it touches existed. The second copy now exits right away (the running bridge brings its status window to the front), and the `will-quit` cleanup is skipped until the main process has fully loaded, which also covers a quit signal during startup.
 - **What it solves.** Every machine captured its own device. A backup without the same signal drew a flat picture. Now one machine's capture can go to the others, so the primary and the backup analyse the same signal. Details, the wire format and the measurements are in [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
 - **Inside the app, not a separate program.**

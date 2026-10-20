@@ -68,6 +68,8 @@ let clients = new Set();
 /* Yedeklilik (#540): birincil makinede yedeğin bağlanacağı eşleşme parolası.
    Boşsa `kind=peer` bağlantısı hiç kabul edilmez. */
 let peerSecret = '';
+// Yedeğin gönderebileceği iletiler (#540, #541, #812)
+const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-request', 'pkg-get'];
 /* Yalnız yedek için açık sunucu (yayın çıkışı kapalı, makine birincil):
    yayın sayfaları, kumanda ve jetonlar YOK; yalnız `kind=peer` ve /health.
    Kullanıcının açmadığı yayın sayfaları ağa açılmasın. */
@@ -766,8 +768,9 @@ function handleUpgrade(req, socket) {
         if (opcode !== 0x1) return;
         let msg;
         try { msg = JSON.parse(payload.toString('utf-8')); } catch { return; }
-        // Yedek yalnız kendi hâlini ve envanterini bildirir; komut çalıştıramaz
-        if (msg && (msg.type === 'peer-state' || msg.type === 'peer-inventory') && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
+        /* Yedek yalnız kendi hâlini ve envanterini bildirir, gösteri paketini
+           (#812) ister ve yeniden eşleme ister; komut çalıştıramaz. */
+        if (msg && PEER_MESSAGES.indexOf(msg.type) >= 0 && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
       }, () => dropClient(client));
     });
     socket.on('error', () => dropClient(client));

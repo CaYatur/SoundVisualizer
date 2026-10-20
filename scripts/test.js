@@ -160,6 +160,8 @@ child.on('exit', (code, signal) => {
   if (tap) {
     let total = null;
     try {
+      /* "# tests" toplamdır: ortama bağlı atlanan testler de içinde. "# pass"
+         kullanılsaydı sayı makineden makineye (0-4 atlanan) değişirdi. */
       const m = fs.readFileSync(tap, 'utf8').match(/^# tests (\d+)$/m);
       if (m) total = Number(m[1]);
     } catch {}

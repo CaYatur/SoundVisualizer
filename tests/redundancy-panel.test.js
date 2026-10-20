@@ -121,3 +121,52 @@ test('bir bölümün hatası sayfanın kalanını düşürmüyor', () => {
     assert.doesNotMatch(read(f), /classList\.(add|remove|toggle)\([^)]*\? *'[^']*' *: *''/, f);
   }
 });
+
+// Yalıtılmış gösteri ve gösteri paketi (#812): her durumda çiziliyor
+const SPACE = { source: 'primary', override: null, takeoverData: 'primary', local: { scenes: 2 }, primary: { scenes: 1 }, primaryScenes: [{ id: 'a', name: 'Sahne A' }] };
+const SUMMARY = { presets: { n: 3, bytes: 900 }, logos: { n: 1, bytes: 5000 }, media: { n: 1, bytes: 2e9 } };
+const PKG_CASES = [
+  { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'idle' } },
+  { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'offered', summary: SUMMARY, files: [{ kind: 'media', name: 'a.mp4', size: 2e9 }] } },
+  { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'transferring', summary: SUMMARY, files: [], progress: { bytes: 5e8, total: 2e9, files: 3, of: 5 }, speed: 4e7 } },
+  { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'error', error: 'changed', progress: { bytes: 1, total: 2, files: 0, of: 1 } } },
+  { role: 'backup', state: 'active', takenBy: 'auto', space: Object.assign({}, SPACE, { source: 'local' }), pkg: { state: 'done', progress: { bytes: 2, total: 2, files: 1, of: 1 } },
+    pkgResult: { added: 2, same: 1, media: 1, conflicts: [{ kind: 'preset', id: 'u1', name: 'Benim' }, { kind: 'logo', id: 'l', name: 'Logo' }],
+      isolated: [{ kind: 'preset', id: 'p-only', name: 'Yalnız birincilde' }, { kind: 'logo', id: 'lg', name: 'Afiş' }], isolatedCount: 41 },
+    parity: [{ id: 'u9', name: 'X', status: 'missing' }, { id: 'u8', name: 'Y', status: 'different' }] },
+  { role: 'backup', state: 'connecting', connected: false, space: null, pkg: null },
+];
+
+test('yedek paneli: gösteri verisi, paket ve eşlik her durumda çiziliyor', async () => {
+  for (const st of PKG_CASES) {
+    const cfg = { redundancy: { role: 'backup', secret: SECRET, host: '192.168.1.20' } };
+    const { P, setStatus } = load(cfg, st);
+    await P.init();
+    setStatus(st);
+    let panel;
+    assert.doesNotThrow(() => { panel = P.panel(); }, JSON.stringify(st));
+    const texts = [];
+    (function walk(n) { if (!n) return; if (n.attrs && typeof n.attrs.text === 'string') texts.push(n.attrs.text); (n.children || []).forEach(walk); })(panel);
+    assert.ok(texts.includes('Gösteri Verisi') && texts.includes('Gösteri Paketi'), JSON.stringify(st.pkg));
+    if (st.pkg && st.pkg.state === 'offered') assert.ok(texts.includes('Video dosyalarını da kopyala'), 'videolar ayrıca onaylanır');
+    if (st.parity) assert.ok(texts.includes('Görüntü birincilden farklı olabilir'));
+    // Eksikler ayrı alanda; her biri ayrı onayla kütüphaneye (#812)
+    if (st.pkgResult && st.pkgResult.isolated) {
+      assert.ok(texts.includes('Bu makinede yok; ayrı alanda tutuluyor ve birincilin kopyası çizilirken kullanılıyor:'));
+      assert.strictEqual(texts.filter((t) => t === 'Kütüphaneye Ekle').length, 2);
+      assert.ok(texts.includes('İlk 40 öğe gösteriliyor.'));
+    }
+  }
+});
+
+test('yedeklilik paneli: her Türkçe metnin İngilizcesi var', () => {
+  const src = read('src/admin/redundancy-panel.js');
+  const i18n = read('src/shared/i18n.js');
+  const missing = [];
+  for (const m of src.matchAll(/(?:text: |tr\(|: )'((?:[^'\\]|\\.)*)'/g)) {
+    const t = m[1].replace(/\\'/g, "'");
+    if (!/[çğıöşüÇĞİÖŞÜ]/.test(t)) continue;
+    if (!i18n.includes("'" + t.replace(/'/g, "\\'") + "':")) missing.push(t);
+  }
+  assert.deepStrictEqual(missing, []);
+});

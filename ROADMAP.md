@@ -136,7 +136,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3403 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3456 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3700,6 +3700,17 @@ standard in media servers of that class.
 - **Not done, and why: hardware genlock.** Sync cards have no interface in Chromium, and there is
   no sync hardware here to verify against. Two machines therefore line up frames only as closely
   as their displays' refresh clocks; the shared time keeps the content in step.
+- **Redundancy overhaul (#816), in progress.**
+  - **Phase 1 (#812) is on a branch:**
+    - an isolated show space, so the backup never overwrites its own show;
+    - a takeover data choice;
+    - a show package with a hash manifest, chunk checksums, resume, verification and an atomic swap, including video files after confirmation;
+    - MilkDrop preset-hash parity;
+    - resync after Release.
+  - **Next:**
+    - phase 2 (#813), an audio bridge mode inside the app;
+    - phase 3 (#814), output authority, fencing and guarded failback;
+    - phase 4 (#815), beat sync, overlay fallback, a status banner, two-PC tests and a setup guide.
 
 
 ## v3.1.7 — NDI output
