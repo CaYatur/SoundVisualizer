@@ -115,9 +115,12 @@ async function scenario(name, takeover, opts) {
     stream: { enabled: false, port: streamPort, lan: false },
     redundancy: { role: 'primary', secret, heartbeatMs: opts.beat },
   })));
+  /* Yedeğin kendi gösterisi (#812): birincili izlemek onu ezmemeli;
+     settings.json'da kalmalı, birincilinki yedeklilik klasörüne gitmeli. */
   fs.writeFileSync(path.join(dirB, 'settings.json'), JSON.stringify(Object.assign({}, base, {
+    scenes: [{ id: 'backup-own', name: 'Backup Own', data: {} }],
     stream: { enabled: false, port: backupStream, lan: false },
-    redundancy: { role: 'backup', host: '127.0.0.1', port: streamPort, secret, heartbeatMs: opts.beat, timeoutMs: opts.timeout, takeover },
+    redundancy: { role: 'backup', host: '127.0.0.1', port: streamPort, secret, heartbeatMs: opts.beat, timeoutMs: opts.timeout, takeover, takeoverData: opts.local ? 'local' : 'primary' },
   })));
   if (opts.sync) {
     // Birincilde bir logo (yedekte yok): gösteri karşılaştırması bulmalı (#541)
@@ -136,6 +139,20 @@ async function scenario(name, takeover, opts) {
       { id: 'logo_big', name: 'Big GIF', file: 'logo_big.gif', mime: 'image/gif', kind: 'gif', size: gif.length, createdAt: 2 },
     ] }));
   }
+  if (opts.pkg) {
+    /* Gösteri paketi (#812): birincilde bir video dosyası (sahnede) ve bir
+       preset; yedekte aynı kimlikli FARKLI bir preset — yerel olan kalmalı. */
+    const media = path.join(dirA, 'rig-clip.mp4');
+    fs.writeFileSync(media, require('crypto').randomBytes(700 * 1024));
+    const cfgA = JSON.parse(fs.readFileSync(path.join(dirA, 'settings.json'), 'utf8'));
+    cfgA.media = { enabled: true, source: 'file', file: media };
+    fs.writeFileSync(path.join(dirA, 'settings.json'), JSON.stringify(cfgA));
+    for (const [d, name] of [[dirA, 'Primary Version'], [dirB, 'Backup Version']]) {
+      fs.mkdirSync(path.join(d, 'presets'), { recursive: true });
+      fs.writeFileSync(path.join(d, 'presets', 'usr_conf.json'), JSON.stringify({ id: 'usr_conf', kind: 'visualizer', engine: 'shader', name, controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(' + (d === dirA ? '1.0' : '0.5') + '); }' }));
+    }
+    fs.writeFileSync(path.join(dirA, 'presets', 'usr_only_primary.json'), JSON.stringify({ id: 'usr_only_primary', kind: 'visualizer', engine: 'shader', name: 'Only Primary', controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(0.2); }' }));
+  }
   const A = launch(dirA, cdpA);
   let A2 = null;
   const B = launch(dirB, cdpB);
@@ -145,6 +162,8 @@ async function scenario(name, takeover, opts) {
   try {
     pa = await connect(await adminPage(cdpA, 30000));
     pb = await connect(await adminPage(cdpB, 30000));
+    // Panel betikleri yüklenene kadar (CDP sayfası bundan önce görünebiliyor)
+    for (const pg of [pa, pb]) await until(async () => ({ ok: await pg.eval('typeof window.SVPanel !== "undefined" && !!window.SVPanel.cfg') }), 20000, 100);
     const follow = await until(async () => { const s = await pb.eval(STATUS); return Object.assign({ ok: s && s.state === 'following' }, s); }, 20000);
     res.followed = !!follow.ok;
     if (!follow.ok) throw new Error('backup never followed: ' + JSON.stringify(follow));
@@ -160,6 +179,30 @@ async function scenario(name, takeover, opts) {
       return { vis: c.visualizer.type, scene: c._activeSceneId, grad: c.background.gradient.colors.join(',') };
     })()`);
     const same = await until(async () => { const s = await pb.eval(SCENE); return Object.assign({ ok: s.vis === want.vis && s.scene === want.scene && s.grad === want.grad }, s); }, 5000);
+    // Yalıtım (#812): kayıt birleştirmesi en geç 2 sn; sonra diskteki dosyalar
+    await wait(2600);
+    const diskB = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
+    const primB = JSON.parse(fs.readFileSync(path.join(dirB, 'redundancy', 'primary-show.json'), 'utf8'));
+    res.localKept = Array.isArray(diskB.scenes) && diskB.scenes.some((x) => x && x.id === 'backup-own') && diskB._activeSceneId !== 'failover-rig';
+    res.primaryCopied = primB.show && primB.show._activeSceneId === 'failover-rig';
+    if (!res.localKept || !res.primaryCopied) throw new Error('isolation: ' + JSON.stringify({ localKept: res.localKept, primaryCopied: res.primaryCopied }));
+    if (opts.pkg) {
+      await pb.eval('window.api.redundancyPkgRequest()');
+      const offered = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'offered', pkg: s.pkg }; }, 15000, 100);
+      if (!offered.ok) throw new Error('package not offered: ' + JSON.stringify(offered.pkg));
+      res.pkgMedia = offered.pkg.summary.media.n;
+      const tp = Date.now();
+      await pb.eval('window.api.redundancyPkgConfirm({ media: true })');
+      const done = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'done' && !!s.pkgResult, pkg: s.pkg, r: s.pkgResult }; }, 30000, 100);
+      res.pkgMs = Date.now() - tp;
+      if (!done.ok) throw new Error('package not done: ' + JSON.stringify(done));
+      res.pkgConflicts = done.r.conflicts.map((c) => c.id);
+      const has = await pb.eval(`(async () => { const l = await window.api.listPresets(); const c = l.find((x) => x.id === 'usr_conf'); return { only: !!l.find((x) => x.id === 'usr_only_primary'), conf: c && c.name }; })()`);
+      const mediaDir = path.join(dirB, 'redundancy', 'package', 'current', 'media');
+      res.pkgOk = res.pkgMedia === 1 && has.only && has.conf === 'Backup Version' && res.pkgConflicts.indexOf('usr_conf') >= 0 &&
+        fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1;
+      if (!res.pkgOk) throw new Error('package result: ' + JSON.stringify({ has, conflicts: res.pkgConflicts, media: res.pkgMedia }));
+    }
     if (opts.sync) {
       // Birincilde bir Studio preseti; karşılaştırma iki farkı bulmalı, ayar farkı olmamalı
       await pa.eval(`window.api.savePreset({ id: 'usr_rig_1', kind: 'visualizer', engine: 'shader', name: 'Rig Preset', controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(1.0); }' })`);
@@ -254,13 +297,26 @@ async function scenario(name, takeover, opts) {
       res.tookOver = s.state === 'active' && s.takenBy === 'manual';
     }
     const after = await pb.eval(SCENE);
-    res.sceneKept = after.vis === want.vis && after.scene === want.scene && after.grad === want.grad;
+    if (opts.local) {
+      /* Devralma yerel gösteriyle (#812): birincilin sahnesi değil, yedeğin
+         kendi sahne listesi; rol kapatılınca da yerel gösteri yerinde. */
+      const sc = await until(async () => ({ ok: await pb.eval('(() => { const c = SVPanel.cfg(); return c._activeSceneId !== "failover-rig" && (c.scenes || []).some((x) => x.id === "backup-own"); })()') }), 3000, 50);
+      res.sceneKept = !!sc.ok;
+      await pb.eval('(() => { SVPanel.cfg().redundancy.role = "off"; SVPanel.apply(); return true; })()');
+      await wait(2600);
+      const disk = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
+      res.restoredOnOff = disk.redundancy.role === 'off' && (disk.scenes || []).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig' &&
+        fs.readdirSync(path.join(dirB, 'redundancy')).some((f) => /^local-show\.restored-\d+\.json$/.test(f));
+    } else {
+      res.sceneKept = after.vis === want.vis && after.scene === want.scene && after.grad === want.grad;
+    }
     /* Süreç öldü: işletim sistemi bağlantıyı kapatır, yedek kısa payla
        (en az 300 ms, üç atış) karar verir. + son atıştan öldürmeye kadar
        en çok bir atış, bir denetim aralığı ve ölçüm payı (taskkill + CDP). */
     const limit = Math.min(opts.timeout, Math.max(300, opts.beat * 3)) + opts.beat + Math.max(25, opts.beat / 2) + 500;
     res.limitMs = limit;
-    res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept &&
+    res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept && res.localKept && res.primaryCopied &&
+      (!opts.pkg || res.pkgOk) && (!opts.local || res.restoredOnOff) &&
       (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
       (!opts.relaunch || (res.primaryBack && res.epochKept && res.stayedActive)) &&
       (!opts.sync || (res.diffFound && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
@@ -287,7 +343,8 @@ async function scenario(name, takeover, opts) {
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
     await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true, relaunch: true }),
-    await scenario('manual takeover', 'manual', { beat: 100, timeout: 1500 }),
+    await scenario('manual takeover + show package', 'manual', { beat: 100, timeout: 1500, pkg: true }),
+    await scenario('auto takeover with the local show, then role off', 'auto', { beat: 100, timeout: 1500, local: true }),
   ];
   for (const r of runs) {
     say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));
