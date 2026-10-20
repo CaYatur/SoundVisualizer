@@ -438,7 +438,10 @@
       if (st) paintStatus(st, statusText(a, ctxOf(cfg)));
     }
 
-    if (!a.enabled || held) return;
+    /* Yetkisizken ölçü sayılmaz (#815): tempo izlerken akıyor; sayaç
+       birikseydi devralma ya da geri verme anında hemen geçiş yapılırdı. */
+    if (held) { barsSince = 0; lastSwitch = now; return; }
+    if (!a.enabled) return;
 
     let due = false;
     if (a.unit === 'seconds') {

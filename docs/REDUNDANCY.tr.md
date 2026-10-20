@@ -139,10 +139,13 @@ makineye ulaşan trafiği görür; DMX'te kesin çit tek bir fiziksel çıkış 
 - **Köprünün dinlenebilir sesi** ortak saate göre çalınır: aynı gecikmedeki iki alıcı aynı örneği
   aynı anda çalar.
 - **OBS / tarayıcı kaynağı yedeği.** Öbür makinenin yayın sayfası adresini (jetonuyla) Yedeklilik →
-  Bağlantı → "Yayın Sayfasının Yedek Adresleri"ne iki makinede de yazın. Sayfa kendi makinesine üç
-  denemede ulaşamazsa sıradaki adrese geçer, ilk adres yanıt verince ona döner. Sayfa son karesini
-  ve ayarını korur; yedek adreslerdeki jetonlar web istemcisine gitmez. Sayfadaki video dosyası
-  katmanları sayfanın yüklendiği makineden gelir.
+  Bağlantı → "Yayın Sayfasının Yedek Adresleri"ne iki makinede de yazın ve Çıkış → Yayın Çıkışı'nı
+  **iki makinede de** açın (devralmadan sonra sayfayı yedek sunar). Sunucu sayfaya saniyede iki kez
+  küçük bir canlılık iletisi yollar; 1,5 sn sessizlikte (ölmüş, donmuş ya da kablosu çekilmiş makine —
+  kablo çekilince soket kapanmaz) sayfa bağlantıyı kapanmasını beklemeden bırakır ve sıradaki adrese
+  geçer, ilk adres yanıt verince ona döner. Ölçüm: donmuş birincilde 2,2 sn, öldürülende 2,1 sn; birincil
+  dönünce 5,3 sn'de geri. Sayfa son karesini ve ayarını korur; yedek adreslerdeki jetonlar web
+  istemcisine gitmez. Sayfadaki video dosyası katmanları sayfanın yüklendiği makineden gelir.
 
 ## 9. Gösteri günü listesi
 
@@ -161,11 +164,13 @@ makineye ulaşan trafiği görür; DMX'te kesin çit tek bir fiziksel çıkış 
 `npm run failover` aynı makinede iki gerçek uygulama kopyası çalıştırır (yerel döngü, 100 ms atış,
 1,5 sn eşik) ve bir denetim tutmazsa düşer. `npm run failover -- --report=out.json` sayıları yazar.
 Sayıların tamamı ve iki bilgisayarlı yöntem İngilizce sayfada: [REDUNDANCY.md §10](REDUNDANCY.md#10-measured).
-Öne çıkanlar (Windows 11, iki tam koşunun aralığı): birincil ölünce devralma 371–501 ms; izlerken
-tek Art-Net göndericisi; elle devralmada yetki 299–314 ms'de geçer, çakışma yok; bırakınca yedek
-164–167 ms'de birincile eşit; geri verme 251–266 ms; yetkideki yedeğin yanında yeniden açılan
-birincil 0 paket; soket açıkken ağ kesintisinde devralma 1434–1471 ms, bağlantı gelince birincil
-~316 ms'de geri çekilir, alarm yok; önizleme en uzun atış aralığını değiştirmiyor.
+Öne çıkanlar (Windows 11, beşi ardışık yedi tam koşu, her koşuda her senaryo geçti): birincil
+ölünce devralma 371–501 ms; izlerken tek Art-Net göndericisi; elle devralmada yetki 290–330 ms'de
+geçer, çakışma yok; bırakınca yedek 164–167 ms'de birincile eşit; geri verme 251–266 ms; yetkideki
+yedeğin yanında yeniden açılan birincil 0 paket; soket açıkken ağ kesintisinde devralma 1415–1515 ms, bağlantı gelince birincil
+~316 ms'de geri çekilir, alarm yok; önizleme açıkken birincil yedeğin atışını en çok 96 ms eski gördü.
+Düzenek CI'da koşmaz; CI birim testlerini Ubuntu ve Windows'ta koşar. Vuruş ızgarasının p95 < 20 ms
+sonucu benzetimdir; canlı sesle ölçüm iki bilgisayarlı yöntemde.
 
 ## Yapılmayanlar
 

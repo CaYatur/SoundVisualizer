@@ -141,11 +141,14 @@ priority.
 - **Listenable bridge audio** is scheduled on the shared clock: two receivers with the same
   latency play the same sample at the same time.
 - **OBS / browser source fallback.** Enter the other machine's streaming page address (with its
-  token) under Redundancy → Connection → "Streaming Page Fallback Addresses", on both machines.
-  If the page cannot reach its own machine after three tries it moves to the next address, and
-  returns to the first as soon as that answers again. The page keeps its last frame and settings;
-  the fallback tokens never reach web clients. Video file layers on the page are served by the
-  machine the page was loaded from.
+  token) under Redundancy → Connection → "Streaming Page Fallback Addresses", on both machines,
+  and turn on Output → Streaming Output on **both** machines (the backup serves the page after a
+  failover). The server sends a small heartbeat to the page twice a second; after 1.5 s of silence
+  (a dead, hung or unplugged machine — an unplugged cable never closes the socket) the page drops
+  the connection without waiting for it to close and moves to the next address, and it returns to
+  the first address as soon as that answers again. The page keeps its last frame and settings; the
+  fallback tokens never reach web clients. Video file layers on the page are served by the machine
+  the page was loaded from.
 
 ## 9. Show-day checklist
 
@@ -164,22 +167,25 @@ priority.
 
 `npm run failover` runs two real app copies on one machine (loopback, 100 ms heartbeat, 1.5 s
 limit) and fails if any check fails. `npm run failover -- --report=out.json` writes the numbers.
-Windows 11, this version, two full runs (range):
+Windows 11, this version: seven full runs, five of them back to back, every scenario passing in
+every run (range). The rig is not part of CI: CI runs the unit tests on Ubuntu and Windows.
 
 | Check | Result |
 |---|---|
 | Takeover when the primary's process dies | 371–501 ms |
 | Art-Net senders while following | 1 |
-| Manual takeover moves authority | 299–314 ms, overlap 0 ms |
+| Manual takeover moves authority | 290–330 ms, overlap 0 ms |
 | Backup matches the primary after Release | 164–167 ms |
 | Hand-back | 251–266 ms, overlap 0 ms; refused while the shows differ |
 | Restarted primary while the backup is active | 0 Art-Net packets |
-| Network cut with the socket open | takeover 1434–1471 ms; both send during the cut; primary steps back 316–317 ms after the link returns, no alarm |
-| Hung primary (process suspended) | takeover 2058–2459 ms (includes the PowerShell suspend command); primary steps back on resume |
-| Peer preview open | longest heartbeat gap unchanged by the preview (the same value before and during it) |
+| Network cut with the socket open | takeover 1415–1515 ms; both send during the cut; primary steps back 316–317 ms after the link returns, no alarm |
+| Hung primary (process suspended) | takeover 2044–2459 ms (includes the PowerShell suspend command); primary steps back on resume |
+| Peer preview open (real visualizer window) | the primary saw the backup's beat at most 96 ms old during the preview; the backup's longest gap stayed far under the 1.5 s limit |
+| OBS page, primary hung (suspended) | page on the backup after 2.2 s (incl. ~0.5 s for the suspend command); back on the primary 5.3 s after it resumes |
+| OBS page, primary killed | page on the backup after 2.1 s |
 | Both machines restarted | term kept (2 → 2), backup follows, primary unfenced |
 | Bridge fallback when the bridge dies | 610–680 ms (`npm run bridge-rig`) |
-| Beat grid transfer (simulated, 0–15 ms delivery jitter) | p95 < 20 ms (unit test) |
+| Beat grid transfer (simulated, 0–15 ms delivery jitter) | p95 < 20 ms (unit test; not measured with live audio, see the two-PC procedure) |
 | Bridge audio, two receivers (simulated jitter 2–60 ms) | max 5 ms apart (unit test) |
 
 ### Two-PC procedure

@@ -89,6 +89,33 @@
   let cur = 0;
   let failsHere = 0;
   let probeTimer = null;
+  /* Canlılık (#815): sunucu saniyede bir `tick` yollar. Kablo çekilince
+     soket kapanmaz (FIN yok) ve sayfa sonsuza dek beklerdi; 1,5 sn hiç
+     ileti gelmezse bağlantı ölü sayılır. Bağlanma denemesi de 1,5 sn'de
+     kesilir: Windows'ta kapalı bir uca deneme ~2 sn sürüyor. */
+  let lastMsgAt = 0;
+  let connectTimer = null;
+  /* Ölü bağlantıyı bırak: karşı taraf donmuşken close() el sıkışması
+     bitmiyor ve onclose saniyelerce gelmiyor (ölçüldü: askıdaki birincilde
+     sayfa hiç geçmedi). İşleyiciler sökülür, yeniden deneme hemen. */
+  function abandon(sock) {
+    if (!sock) return;
+    sock.onopen = null; sock.onmessage = null; sock.onerror = null; sock.onclose = null;
+    try { sock.close(); } catch { /* */ }
+    if (ws === sock) ws = null;
+    status.lastCloseAt = Date.now();
+    setStatus('closed');
+    scheduleRetry();
+  }
+  // Test ortamlarında (vm) zamanlayıcı yok: bekçi yalnız tarayıcıda
+  if (typeof setInterval === 'function') setInterval(() => {
+    if (ws && ws.readyState === 1 && lastMsgAt && Date.now() - lastMsgAt > 1500) {
+      lastMsgAt = 0;
+      // 1,5 sn sessiz uç ölü: yeniden denemeden sıradaki uca (ölçüldü: 5 sn → ~2,5 sn)
+      if (endpoints.length > 1) failsHere = 1;
+      abandon(ws);
+    }
+  }, 250);
   function urlFor(i) {
     const e = endpoints[i] || endpoints[0];
     const q = new URLSearchParams({ kind });
@@ -108,7 +135,7 @@
         failsHere = 0;
         status.endpoint = 0;
         // Yedekteki bağlantı kapanır; onclose hemen ilk uca bağlanır
-        try { if (ws) ws.close(); } catch { /* */ }
+        abandon(ws);
       };
       p.onerror = () => { try { p.close(); } catch { /* */ } };
     }, 5000);
@@ -166,10 +193,15 @@
     status.attempts++;
     try { ws = new WebSocket(wsUrl()); } catch { scheduleRetry(); return; }
     ws.binaryType = 'arraybuffer';
+    const me = ws;
+    if (connectTimer) clearTimeout(connectTimer);
+    connectTimer = setTimeout(() => { if (me.readyState === 0) abandon(me); }, 1500);
 
     ws.onopen = () => {
       retry = 0;
       failsHere = 0;
+      lastMsgAt = Date.now();
+      if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
       status.connectedAt = Date.now();
       status.endpoint = cur;
       setStatus('connected');
@@ -177,6 +209,7 @@
     };
 
     ws.onmessage = (ev) => {
+      lastMsgAt = Date.now();
       if (typeof ev.data !== 'string') { onAudio(ev.data); return; }
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
@@ -269,8 +302,9 @@
   }
 
   function scheduleRetry() {
-    // Aynı uca üç deneme: tutmazsa sıradaki uç, hemen
-    if (endpoints.length > 1 && ++failsHere >= 3) {
+    /* Aynı uca iki deneme (çalışan bir uç düştüyse ilki 250 ms sonra):
+       tutmazsa sıradaki uç, hemen. Ölçüldü: üç denemeyle geçiş ~5 sn. */
+    if (endpoints.length > 1 && ++failsHere >= 2) {
       failsHere = 0;
       cur = (cur + 1) % endpoints.length;
       status.endpoint = cur;

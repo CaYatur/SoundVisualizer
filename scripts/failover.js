@@ -520,6 +520,15 @@ async function authorityScenario(name, opts) {
     res.packetsFollowing = hits.filter((h) => h.at >= t1).length;
     if (s1.length !== 1) throw new Error('expected one Art-Net sender while following, got ' + JSON.stringify(s1) + ' (packets ' + res.packetsFollowing + ')');
     const srcA = s1[0];
+    /* 1b. Çalışırken çıkış ayarı (#815 incelemesi): yedekte Art-Net "Her
+       zaman" → iki gönderici; geri "Yalnız yetkiyle" → yine tek. Ayar
+       bağlantıyı yeniden kurmamalı, kapı hemen değişmeli. */
+    await pb.eval('(() => { const c = SVPanel.cfg(); c.redundancy.outputs = Object.assign({}, c.redundancy.outputs, { artnet: "always" }); SVPanel.apply(); return true; })()');
+    const always = await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 2, r }; }, 3000, 25);
+    await pb.eval('(() => { const c = SVPanel.cfg(); c.redundancy.outputs = Object.assign({}, c.redundancy.outputs, { artnet: "authority" }); SVPanel.apply(); return true; })()');
+    const backOne = await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && r[0] === srcA, r }; }, 3000, 25);
+    const stillFollowing = (await pb.eval(STATUS)).state === 'following';
+    res.runtimeModeSwitch = !!always.ok && !!backOne.ok && stillFollowing;
     // 2. Elle devralma: gönderici yedeğe geçer
     const t2 = Date.now();
     await pb.eval('window.api.redundancyTakeover()');
@@ -593,7 +602,7 @@ async function authorityScenario(name, opts) {
     const sa2 = await pa.eval(STATUS);
     res.fencedRestartSilent = fs2.length === 1 && fs2[0] === srcB && sa2.holder === 'peer';
     res.restartSenders = fs2;
-    const pass = res.followed && res.primaryStepsBack && res.authorityMoveMs <= opts.timeout + opts.beat + 500 && res.overlapMs <= opts.beat + 100 &&
+    const pass = res.followed && res.runtimeModeSwitch && res.primaryStepsBack && res.authorityMoveMs <= opts.timeout + opts.beat + 500 && res.overlapMs <= opts.beat + 100 &&
       res.ctlForwarded && res.backupKeptOwnWhileActive && res.resynced && res.releaseReturnsOutputs &&
       res.handbackRefusedEarly && res.handback && res.handbackTerm && res.fencedRestartSilent;
     res.pass = !!pass;

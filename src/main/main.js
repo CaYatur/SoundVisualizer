@@ -4560,19 +4560,33 @@ function isolatedPreset(id) {
 }
 // Gösterinin çizdiği preset: önce kütüphane, sonra (açıksa) katman
 // Yerel gösteri arşivleri (#812), en yenisi önce, en çok 10
+/* Durum saniyede bir kuruluyor (#814 authTick, panel, gösteri öncesi
+   denetim): arşiv listesi klasörün değişme anına göre önbellekte. */
+let archivesCache = { key: '', list: [] };
 function showArchives() {
-  try { return redSpace().listArchives().slice(0, 10); } catch { return []; }
+  try {
+    let key = '';
+    try { key = String(fs.statSync(redSpace().dir).mtimeMs); } catch { return []; }
+    if (key !== archivesCache.key) archivesCache = { key, list: redSpace().listArchives().slice(0, 10) };
+    return archivesCache.list;
+  } catch { return []; }
 }
 /* Bu makinede kopyalanmış videolar (#812): devralma seçeneklerinde adı ve
    boyutuyla listelenir. Manifest değişmedikçe yeniden okunmaz. */
-let pkgMediaCache = { key: '', list: [] };
+let pkgMediaCache = { key: '', mt: '', list: [] };
 function packagedMedia() {
+  /* Manifest yalnız dosyası değişince okunur (#815): durum saniyede bir
+     kuruluyor, manifest 50 000 öğeye dek çıkabiliyor. */
+  let mt = '';
+  try { mt = String(fs.statSync(path.join(redSpace().pkgRoot, 'current', 'manifest.json')).mtimeMs); } catch { mt = 'none'; }
+  if (mt === pkgMediaCache.mt) return pkgMediaCache.list;
   let m = null;
   try { m = showPackage.currentManifest(redSpace().pkgRoot); } catch { m = null; }
-  const key = m ? m.pkg + '|' + (m.installedAt || 0) : '';
+  const key = m ? m.pkg + '|' + (m.installedAt || 0) + '|' + (m.mediaRemovedAt || 0) : '';
+  pkgMediaCache.mt = mt;
   if (key !== pkgMediaCache.key) {
     const items = m && Array.isArray(m.items) ? m.items.filter((it) => it && it.kind === 'media') : [];
-    pkgMediaCache = { key, list: items.slice(0, 100).map((it) => ({ name: String(it.name || it.path).slice(0, 200), size: it.size, carried: !!it.carried })) };
+    pkgMediaCache = { key, mt, list: items.slice(0, 100).map((it) => ({ name: String(it.name || it.path).slice(0, 200), size: it.size, carried: !!it.carried })) };
   }
   return pkgMediaCache.list;
 }
@@ -4742,10 +4756,18 @@ function stopRedundancy() {
 // Yapılandırmadaki rol değiştiyse yeniden kur
 function syncRedundancy() {
   const c = redundancy.normalize(currentConfig && currentConfig.redundancy);
-  // Devralma verisi bağlantıyı yeniden kurdurmaz (#812)
-  red.cfg = Object.assign({}, red.cfg, { takeoverData: c.takeoverData });
+  /* Bağlantıyı kurdurmayan ayarlar (#812, #814, #815) her eşitlemede
+     alınır: devralma verisi, çıkış yetkisi, Art-Net davranışı ve tanığı,
+     geri verme anı, alarm sesi, vuruş kilidi. Eskiden yalnız devralma
+     verisi alınıyordu; "Her zaman"a çevrilen bir çıkış bağlantı ayarı da
+     değişene (ya da uygulama yeniden açılana) dek eski kapıda kalırdı. */
+  const prevSoft = JSON.stringify(redundancy.SOFT_KEYS.map((k) => red.cfg[k]));
+  for (const k of redundancy.SOFT_KEYS) red.cfg[k] = c[k];
   const sig = redundancy.linkSig(c);
-  if (sig === red.sig) return;
+  if (sig === red.sig) {
+    if (JSON.stringify(redundancy.SOFT_KEYS.map((k) => red.cfg[k])) !== prevSoft) { updateAuthority(); syncWitness(); notifyRedundancySoon(); }
+    return;
+  }
   red.sig = sig;
   const wasIsolated = red.isolated;
   stopRedundancy();

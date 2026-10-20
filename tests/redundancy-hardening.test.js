@@ -96,7 +96,7 @@ test('yedek adres: ayrıştırma, sayfaya enjeksiyon, yapılandırmadan gizleme,
   assert.strictEqual(S.publicConfig({ stream: { token: 't', fallbackUrls: 'http://x/?token=secret' } }).stream.fallbackUrls, '', 'öbür makinenin jetonu gitmez');
   assert.match(read('src/shared/mcp.js'), /\['stream', 'fallbackUrls'\]/);
   const shim = read('src/web/web-shim.js');
-  assert.match(shim, /if \(endpoints\.length > 1 && \+\+failsHere >= 3\)/);
+  assert.match(shim, /if \(endpoints\.length > 1 && \+\+failsHere >= 2\)/);
   assert.match(shim, /cur = \(cur \+ 1\) % endpoints\.length;/);
   assert.match(shim, /p\.onopen = \(\) => \{/);
 });
@@ -212,4 +212,35 @@ test('köprü sesi: iki alıcı farklı gecikmeyle aynı parçayı aynı anda ç
   assert.strictEqual(c.placeAt(1.0, dur, 0.9), null);
   assert.ok(c.status().late >= 1);
   assert.match(read('src/bridge-audio/player.js'), /sched\.placeAt\(ctx\.currentTime, dur, ctxTimeFor\(m\.localT \+ latencyMs\)\)/);
+});
+
+// #815 incelemesi: bağlantıyı kurdurmayan ayarlar çalışırken de uygulanır; devralmada Otomatik VJ hemen geçmez
+test('çalışırken: çıkış yetkisi ve tanık bağlantıyı kurmadan uygulanıyor; yetki dönünce Otomatik VJ sayaçtan başlıyor', () => {
+  const R = require('../src/main/redundancy');
+  assert.deepStrictEqual(R.SOFT_KEYS.slice().sort(), ['alarmSound', 'artnetOnLoss', 'artnetWitness', 'handbackAt', 'outputs', 'phaseLock', 'takeoverData']);
+  for (const k of R.SOFT_KEYS) assert.strictEqual(R.linkSig({ role: 'backup', [k]: 'x' }), R.linkSig({ role: 'backup' }), k);
+  const fn = MAIN.slice(MAIN.indexOf('function syncRedundancy() {'), MAIN.indexOf('const wasIsolated = red.isolated;', MAIN.indexOf('function syncRedundancy() {')));
+  assert.match(fn, /for \(const k of redundancy\.SOFT_KEYS\) red\.cfg\[k\] = c\[k\];/);
+  assert.match(fn, /\{ updateAuthority\(\); syncWitness\(\); notifyRedundancySoon\(\); \}/);
+  assert.match(read('src/admin/autovj.js'), /if \(held\) \{ barsSince = 0; lastSwitch = now; return; \}/);
+  // Durumdaki disk okumaları önbellekte
+  assert.match(MAIN, /if \(key !== archivesCache\.key\) archivesCache = /);
+  assert.match(MAIN, /if \(mt === pkgMediaCache\.mt\) return pkgMediaCache\.list;/);
+});
+
+/* OBS yedeği canlılığı (#815 incelemesi, ölçüldü). Kablo çekilince ya da
+   birincil donunca soket kapanmaz; sayfa sonsuza dek bekliyordu. Sunucu
+   yarım saniyede bir `tick` yollar, sayfa 1,5 sn sessizlikte ucu bırakır
+   (kapanış el sıkışmasını beklemeden) ve sıradaki uca geçer. Ölçüm:
+   askıdaki birincilde 2,2 sn, öldürülende 2,1 sn. */
+test('yedek adres: sunucu canlılık iletisi, sessiz uç beklemeden bırakılıyor', () => {
+  const S = read('src/main/stream-server.js');
+  assert.match(S, /for \(const c of clients\) if \(c\.kind !== 'peer'\) sendJson\(c, \{ type: 'tick', serverNow: now \}\);\n  \}, 500\);/);
+  assert.match(S, /startTick\(\);\n          resolve\(status\(\)\);/);
+  assert.match(S, /function stop\(\) \{\n  stopTick\(\);/);
+  const W = read('src/web/web-shim.js');
+  assert.match(W, /sock\.onopen = null; sock\.onmessage = null; sock\.onerror = null; sock\.onclose = null;/);
+  assert.match(W, /if \(ws && ws\.readyState === 1 && lastMsgAt && Date\.now\(\) - lastMsgAt > 1500\)/);
+  assert.match(W, /connectTimer = setTimeout\(\(\) => \{ if \(me\.readyState === 0\) abandon\(me\); \}, 1500\);/);
+  assert.match(W, /lastMsgAt = Date\.now\(\);\n      if \(typeof ev\.data !== 'string'\)/);
 });

@@ -206,6 +206,20 @@ function clientInfo() {
 /* Yedek makine (`peer`) yayın katmanı değil: ona ses karesi, yapılandırma ya
    da preset listesi gitmez; yalnız kendi iletileri (sendPeers). İzleyici
    sayısına da girmez. */
+/* Canlılık iletisi (#815): yayın sayfası ve kumanda yarım saniyede bir
+   alır; sayfa 1,5 sn ileti görmezse bağlantıyı ölü sayar ve yedek adrese
+   geçer (kablo çekilince soket kapanmaz). Yedek makine almaz. */
+let tickTimer = null;
+function startTick() {
+  if (tickTimer) return;
+  tickTimer = setInterval(() => {
+    const now = Date.now();
+    for (const c of clients) if (c.kind !== 'peer') sendJson(c, { type: 'tick', serverNow: now });
+  }, 500);
+  if (tickTimer.unref) tickTimer.unref();
+}
+function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
+
 function sendPeers(obj) {
   for (const c of clients) if (c.kind === 'peer' && c.peerAuthed) sendJson(c, obj);
 }
@@ -952,6 +966,7 @@ function start(cfgStream, newHooks) {
         });
         server.listen(port, host, () => {
           state = { running: true, port, host, token, remoteToken, requireToken, error: null };
+          startTick();
           resolve(status());
         });
       })
@@ -959,6 +974,7 @@ function start(cfgStream, newHooks) {
 }
 
 function stop() {
+  stopTick();
   return new Promise((resolve) => {
     for (const c of Array.from(clients)) dropClient(c);
     clients = new Set();
