@@ -18,7 +18,7 @@ const has = (k) => I18N.includes("'" + k.replace(/'/g, "\\'") + "':");
 test('paket: video satırı kendi satırında, liste ve kutu üst üste binmiyor', () => {
   assert.match(PANEL, /class: 'chk red-pkg-media', for: 'redPkgMedia'/);
   assert.match(PANEL, /el\('ul', \{ class: 'red-diff red-pkg-files' \}\)/);
-  assert.match(CSS, /\.red-pkg \{ display: flex; flex-direction: column; gap: 6px;/);
+  assert.match(CSS, /\.red-pkg \{ display: flex; flex-direction: column; gap: 8px;/);
   assert.match(CSS, /\.red-pkg > \* \{ flex-shrink: 0;/);
   assert.match(CSS, /\.red-pkg-media \{ display: flex;[^}]*border-top:/);
   // Dosya türü tekil gelir ("preset"); çevrilmemiş ham ad görünmesin

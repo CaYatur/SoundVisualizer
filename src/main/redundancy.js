@@ -149,7 +149,24 @@ function createFollower(cfg, now) {
        birincil yeniden canlı görülene (atış) ya da operatör yeniden
        kurana dek durur; el ile devralma her zaman çalışır. */
     autoHeld: false,
+    /* İSTATİSTİK (panelin kutucukları): gelen atış, kaybolan atış (sıra
+       boşluğu), birincilin yeniden başlaması. Atış aralığının p95'i ve
+       titremesi `status`'ta son RING aralıktan hesaplanır. */
+    beats: 0,
+    missed: 0,
   };
+  const RING = 128;
+  const gaps = new Float64Array(RING);
+  let gapN = 0;
+  function gapStats() {
+    const n = Math.min(gapN, RING);
+    if (!n) return { gapP95Ms: null, jitterMs: null };
+    const a = Array.from(gaps.subarray(0, n)).sort((x, y) => x - y);
+    const p95 = a[Math.min(n - 1, Math.floor(n * 0.95))];
+    // Titreme: aralığın beklenen atış aralığından sapmasının p95'i
+    const dev = a.map((g) => Math.abs(g - s.heartbeatMs)).sort((x, y) => x - y);
+    return { gapP95Ms: Math.round(p95), jitterMs: Math.round(dev[Math.min(n - 1, Math.floor(n * 0.95))]) };
+  }
   const samples = [];
   function noteOffset(at, t) {
     if (!Number.isFinite(at)) return;
@@ -178,13 +195,19 @@ function createFollower(cfg, now) {
   }
   return {
     get status() {
-      return Object.assign({}, st, { takeover: s.takeover, timeoutMs: s.timeoutMs, lossLimitMs: lossLimit() });
+      return Object.assign({}, st, gapStats(), { takeover: s.takeover, heartbeatMs: s.heartbeatMs, timeoutMs: s.timeoutMs, lossLimitMs: lossLimit() });
     },
     connected() { st.connected = true; },
     disconnected() { st.connected = false; },
     // Atış geldi: etkin değilse izlemeye döner
     beat(msg, t) {
-      if (st.lastBeat && st.state === 'following') st.maxGap = Math.max(st.maxGap, t - st.lastBeat);
+      if (st.lastBeat && st.state === 'following') {
+        st.maxGap = Math.max(st.maxGap, t - st.lastBeat);
+        gaps[gapN++ % RING] = t - st.lastBeat;
+      }
+      st.beats++;
+      // Sıra boşluğu: arada kaybolan atış (birincil yeniden başlayınca sıra 0'dan)
+      if (msg && Number.isFinite(msg.seq) && st.lastSeq >= 0 && msg.seq > st.lastSeq + 1) st.missed += msg.seq - st.lastSeq - 1;
       if (msg && Number.isFinite(msg.gap)) st.maxPrimaryGap = Math.max(st.maxPrimaryGap, msg.gap);
       if (msg) noteOffset(msg.at, t);
       st.lastBeat = t;

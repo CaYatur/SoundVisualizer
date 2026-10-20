@@ -170,3 +170,62 @@ test('yedeklilik paneli: her Türkçe metnin İngilizcesi var', () => {
   }
   assert.deepStrictEqual(missing, []);
 });
+
+/* GÖSTERİ DÜZENİ (#816). Elle devralma eskiden izleyen yedeğin en göze
+   çarpan (mavi birincil, üzerine gelince parlayan) düğmesiydi ve sormadan
+   yetkiyi alıyordu. Artık uyarı tonunda ve onay istiyor. */
+test('elle devralma: birincil mavi değil, onay istiyor; bırakma da soruyor', () => {
+  const src = read('src/admin/redundancy-panel.js');
+  assert.match(src, /class: 'btn small warn-btn', type: 'button', icon: 'bolt', text: 'Elle Devral'/);
+  assert.doesNotMatch(src, /text: 'Yetkiyi Al'/);
+  const act = src.slice(src.indexOf('async function act('), src.indexOf('function authorityBox('));
+  assert.match(act, /if \(!\(await P\(\)\.confirm\(msg, \{ okText: tr\('Elle Devral'\) \}\)\)\) return;/);
+  assert.match(act, /if \(!\(await P\(\)\.confirm\(msg, \{ okText: tr\('Yetkiyi Bırak'\) \}\)\)\) return;/);
+  // Birincil yaşarken ayrıca uyarı
+  assert.match(act, /const alive = status\.state === 'following';/);
+  assert.match(read('src/admin/admin.css'), /\.btn\.warn-btn \{[^}]*--warn/);
+});
+
+test('durum kutucukları: son atış eşiğe göre renkleniyor, değerler sayısal', async () => {
+  const cfg = { redundancy: { role: 'backup', secret: SECRET, host: '10.0.0.2' } };
+  const st = { role: 'backup', state: 'following', lastBeat: Date.now() - 1200, lossLimitMs: 1500, maxGap: 300, maxPrimaryGap: 280, gapP95Ms: 260, heartbeatMs: 250, jitterMs: 12, missed: 2, beats: 400, offsetMs: -3, offsetSamples: 40, since: Date.now() - 65000 };
+  const { P } = load(cfg, st);
+  const specs = P._tileSpecs(st);
+  const by = Object.fromEntries(specs.map(([k, label, v, o]) => [k, { label, v, o }]));
+  assert.strictEqual(by.last.o.tone, 'err', '1200/1500 ms: eşiğe yakın');
+  assert.strictEqual(by.miss.v, '2');
+  assert.strictEqual(by.miss.o.tone, 'warn');
+  assert.strictEqual(by.clk.v, '-3 ms');
+  assert.strictEqual(by.since.v, '1:05', 'süre dilden bağımsız');
+  assert.strictEqual(by.p95.v, '260 ms');
+  // Birincil: yedek bağlı, gönderilen atış
+  const ps = { role: 'primary', peers: 1, peerState: 'following', serverRunning: true, heartbeatMs: 250, beatsSent: 12, ownMaxGap: 270, peerSince: Date.now() - 5000, show: { differences: 3 } };
+  const pk = Object.fromEntries(P._tileSpecs(ps).map(([k, , v, o]) => [k, { v, o }]));
+  assert.strictEqual(pk.peer.o.tone, 'ok');
+  assert.strictEqual(pk.show.o.tone, 'warn');
+  // Rol kapalı: kutucuk yok
+  assert.strictEqual(P._tileSpecs({ role: 'off' }).length, 0);
+});
+
+test('takipçi: alınan ve kaybolan atış, aralık p95 ve titreme', () => {
+  const R = require('../src/main/redundancy');
+  const f = R.createFollower({ role: 'backup', secret: SECRET, host: 'h', heartbeatMs: 100 }, 0);
+  let t = 0;
+  for (let i = 0; i < 40; i++) { t += i === 20 ? 160 : 100; f.beat({ seq: i < 30 ? i : i + 3, at: t }, t); }
+  const s = f.status;
+  assert.strictEqual(s.beats, 40);
+  assert.strictEqual(s.missed, 3, 'sıra boşluğu');
+  assert.strictEqual(s.gapP95Ms, 100);
+  assert.ok(s.jitterMs >= 0 && s.jitterMs <= 60);
+  assert.strictEqual(s.maxGap, 160);
+  assert.strictEqual(s.heartbeatMs, 100);
+});
+
+test('gösteri öncesi denetim: durum, sayılar, düğme ve yardım tek satırda', () => {
+  const src = read('src/admin/preshow-panel.js');
+  assert.match(src, /const nodes = \[header\(\)\];/);
+  assert.match(src, /class: 'br-head preshow-head'/);
+  assert.doesNotMatch(src, /nodes\.push\(el\('div', \{ class: 'lay-file' \}/, 'düğme artık üst satırda');
+  const i18n = read('src/shared/i18n.js');
+  for (const k of ['tamam', 'uyarı', 'hata']) assert.ok(i18n.includes("'" + k + "':"), k);
+});

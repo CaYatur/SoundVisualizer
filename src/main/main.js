@@ -4139,7 +4139,12 @@ function redSpace() {
 function redundancyStatus() {
   const base = { role: red.role, problem: redundancy.problem(red.cfg), archives: showArchives() };
   if (red.role === 'primary') {
-    return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null });
+    const peers = streamServer.peerCount();
+    return Object.assign(base, {
+      peers, peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null,
+      // Panelin kutucukları: atış aralığı, gönderilen atış, kendi en uzun gecikmesi, bağlantı süresi
+      heartbeatMs: red.cfg.heartbeatMs, beatsSent: red.beatsSent || 0, ownMaxGap: red.ownMaxGap || 0, peerSince: peers ? red.peerSince || 0 : 0,
+    });
   }
   if (red.role === 'backup' && red.follower) {
     return Object.assign(base, red.follower.status, { sharedEpoch: red.sharedSent, space: spaceStatus(), pkg: red.pull ? red.pull.status : null, pkgResult: red.pkgResult, parity: Object.values(red.parity).slice(-20), pkgMedia: packagedMedia() });
@@ -4395,6 +4400,9 @@ function stopRedundancy() {
   red.invParts = null;
   red.pkgServe = null;
   red.parity = {};
+  red.beatsSent = 0;
+  red.ownMaxGap = 0;
+  red.peerSince = 0;
   red.wasActive = false;
   if (red.compareTimer) { clearTimeout(red.compareTimer); red.compareTimer = null; }
   streamServer.setPeerSecret('');
@@ -4425,7 +4433,8 @@ function syncRedundancy() {
       // Kendi gecikmesi: yedek, atış arasının hangi tarafta uzadığını görsün
       const gap = prevBeat ? now - prevBeat : 0;
       prevBeat = now;
-      if (streamServer.peerCount()) streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart }));
+      if (gap > (red.ownMaxGap || 0)) red.ownMaxGap = gap;
+      if (streamServer.peerCount()) { streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart })); red.beatsSent = (red.beatsSent || 0) + 1; }
     }, c.heartbeatMs);
   } else {
     red.follower = redundancy.createFollower(c, Date.now());
@@ -4454,6 +4463,7 @@ function syncRedundancy() {
 
 // Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
 function onPeerOpen(client) {
+  red.peerSince = Date.now();
   sendPeerSnapshot(client);
   // Anlık görüntü uygulandıktan sonra gösteri karşılaştırması (#541)
   requestInventory();

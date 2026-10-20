@@ -521,6 +521,8 @@
     portValue,
     push,
     rerender: () => render(),
+    // "Gelişmiş" görünüm açık mı (yedeklilik: atış aralığı ve eşik)
+    advanced: () => advancedOn,
     /* Tek Ayarlar: üst sağ dişli ve sol ray aynı kategoriye gider. */
     openSettings: () => setCategory('settings'),
     isBlackedOut: () => isBlackedOut(),

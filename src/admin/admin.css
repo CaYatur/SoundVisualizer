@@ -1741,20 +1741,57 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
 .preview-stage.lay-stage .preview-badge { display: none; }
 .lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+/* Yedeklilik (#540, düzen #816): gruplar arası tek çizgi ve boşluk; durum
+   hapı ve kutucuklar bridge.css'ten (br-pill, br-tile). Renk yalnız tema
+   belirteçlerinden. */
+.redundancy-panel { display: flex; flex-direction: column; gap: 0; }
+.red-group { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
+.red-group > * { min-width: 0; }
+.redundancy-panel > .row + .red-group { margin-top: 6px; }
+.red-head { margin-bottom: 0; }
+.red-head-l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.red-head-l .group-label { margin: 0; }
+/* "?" yardımı grubun genişliğinde, başlığın hemen altında açılır */
+.red-group { position: relative; }
+.br-help.red-help { position: static; display: inline-flex; }
+.br-help.red-help > .br-help-body { position: absolute; z-index: 5; left: 0; right: 0; top: 38px; margin: 0; max-width: none; font-size: 11.5px; padding: 8px 10px; border-radius: var(--radius-sm, 8px); background: var(--card); border: 1px solid var(--line2, var(--line)); box-shadow: 0 6px 18px rgb(var(--shadow-rgb) / .28); }
+.red-intro { padding: 6px 0 2px; }
+.red-group .lay-file { border-bottom: none; padding-bottom: 0; }
+.red-group .studio-note { margin: 0; }
+.red-auth-note { margin-top: -2px; }
+/* Elle devralma: göze batan birincil mavi değil, uyarı tonu (#816) */
+.btn.warn-btn { color: var(--warn-text, var(--warn)); border-color: rgb(var(--warn-rgb) / .45); background: rgb(var(--warn-rgb) / .08); }
+.btn.warn-btn:hover { background: rgb(var(--warn-rgb) / .16); }
+.red-fold { border: 1px solid var(--line); border-radius: var(--radius-sm, 8px); background: var(--card2); }
+.red-fold > summary { cursor: pointer; padding: 6px 10px; font-size: 12px; color: var(--text); list-style: revert; }
+.red-fold[open] > summary { border-bottom: 1px solid var(--line); }
+.red-fold > :not(summary) { padding: 4px 10px 8px; }
+.red-fold .red-diff li { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.red-fold .red-diff li > .btn { margin-left: auto; }
+.red-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+.red-grid .br-tile-k { white-space: normal; line-height: 1.25; }
+.red-progress { width: 100%; height: 8px; accent-color: var(--accent); }
 /* Yedeklilik: gösteri karşılaştırması (#541) */
-.red-show { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.red-show { display: flex; flex-direction: column; gap: 8px; }
 .red-diff { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
-.red-diff li { padding: 3px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.red-diff li { padding: 4px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.red-diff li:last-child { border-bottom: none; }
 /* Gösteri paketi (#812, #817): satırlar üst üste binmez; liste kaydırılır,
    video onay satırı kendi satırında, listenin altında. */
-.red-pkg { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.red-pkg { display: flex; flex-direction: column; gap: 8px; }
 .red-pkg > * { flex-shrink: 0; min-width: 0; }
 .red-pkg-files { max-height: 180px; }
 .red-pkg-media { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 0 4px; border-top: 1px solid var(--line); cursor: pointer; line-height: 1.3; }
 .red-pkg-media input[type=checkbox] { margin: 0; flex: 0 0 auto; }
 /* Gösteri öncesi denetim (#545): renk yalnız tema belirteçlerinden */
-.preshow-list { list-style: none; margin: 6px 0; padding: 0; }
-.preshow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }
+.preshow-panel { position: relative; }
+.preshow-head { margin-bottom: 4px; }
+.preshow-head .red-head-l { flex-wrap: wrap; }
+.preshow-counts { font-size: 11.5px; color: var(--muted); }
+.preshow-panel .br-help.red-help > .br-help-body { top: 34px; }
+.preshow-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.preshow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; border-radius: 4px; }
+.preshow-row:last-child { border-bottom: none; }
 .preshow-row .preshow-icon .svi { width: 1em; height: 1em; }
 .preshow-row.ok .preshow-icon { color: var(--ok-text); }
 .preshow-row.warn .preshow-icon { color: var(--warn-text); }
