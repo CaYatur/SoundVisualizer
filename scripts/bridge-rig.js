@@ -5,6 +5,11 @@
  * SPDX-License-Identifier: MIT
  */
 'use strict';
+// Node 20'de genel WebSocket yok: aynı betik Electron'un Node'uyla yeniden çalışır
+if (typeof WebSocket === 'undefined' && !process.env.ELECTRON_RUN_AS_NODE) {
+  const r = require('child_process').spawnSync(require('electron'), [__filename].concat(process.argv.slice(2)), { stdio: 'inherit', env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }) });
+  process.exit(r.status == null ? 1 : r.status);
+}
 /* SES KÖPRÜSÜ DENEMESİ (#813). Gerçek uygulamanın iki kopyası:
      köprü   `--bridge` (yalnız köprü kipi, ayrı ayar klasörü, görüntü yok)
      alıcı   olağan kip, "Ses girişi: Ağ köprüsü", adres BOŞ (keşifle bulur)
