@@ -133,7 +133,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3239 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3244 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3156,7 +3156,7 @@ expects.
 - **Now Playing in the panel preview and in exports (#638)** · done on `main`.
   - The Now Playing mode was not loaded on these two pages, so a Now Playing visualizer or layer drew nothing in the panel preview or in an exported video. The page check listed both as deliberate exceptions, saying the live system media information is missing there.
   - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
-  - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
+  - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope followed the wall clock, not the export clock, so "on change" timing in an export was approximate; since #539 it follows the frame clock and is exact.
   - Checked in the app: a manual Now Playing visualizer shows its title and artist in the panel preview.
 - **Tempo changes on the ruler, lane height (#636)** · done on `main`.
   - **Bug fixed:** the header BPM edited only the first tempo entry and replaced the whole tempo list with that one entry, so tempo changes from an imported show file were silently deleted. The model always supported a tempo map; the panel did not.

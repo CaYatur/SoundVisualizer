@@ -35,9 +35,11 @@
     'color-dodge', 'color-burn', 'hard-light', 'soft-light',
     'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity',
   ];
-  // 'add' CSS'te yok; canvas'ta 'lighter'. Canlı yolda 'screen'e en yakın
-  // görsel karşılığıyla eşlenir (ikisi de aydınlatır).
-  const CSS_BLEND = (b) => (b === 'add' ? 'screen' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
+  /* 'add': canvas'ta 'lighter', CSS'te 'plus-lighter' (ikisi de toplayıp
+     kırpar). Canlı yol eskiden 'screen' kullanıyordu: dışa aktarım aynı
+     katmanı belirgin biçimde parlak veriyordu — eşlik ölçümünde (#539)
+     piksellerin %13,5'i 8 düzeyden fazla, en çok 64 farklıydı. */
+  const CSS_BLEND = (b) => (b === 'add' ? 'plus-lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
   const CANVAS_BLEND = (b) => (b === 'add' ? 'lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'source-over');
 
   const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying'];

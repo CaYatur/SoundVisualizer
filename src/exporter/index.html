@@ -8,7 +8,7 @@
 <html lang="tr">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: sv-logo:; connect-src 'self' sv-logo:; style-src 'self' 'unsafe-inline';" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob: sv-logo:; connect-src 'self' sv-logo:; media-src 'self' sv-media: blob: data:; style-src 'self' 'unsafe-inline';" />
     <title>Dışa Aktarma Render</title>
     <style>
       html, body { margin: 0; background: #000; overflow: hidden; }
@@ -24,6 +24,8 @@
     <canvas id="comp"></canvas>
 
     <script src="../shared/defaults.js"></script>
+    <!-- Metin modunun yer tutucuları canlıdaki dilde çizilsin (#539) -->
+    <script src="../shared/i18n.js"></script>
     <script src="../visualizer/audio.js"></script>
     <script src="../visualizer/modes/glow.js"></script>
     <script src="../visualizer/modes/round-image.js"></script>
@@ -50,6 +52,8 @@
     <script src="../shared/logo-runtime.js"></script>
 <script src="../shared/gif-anim.js"></script>
     <script src="../visualizer/gif-player.js"></script>
+    <!-- Medya katmanı: video dosyası kare saatine sarılarak (#539) -->
+    <script src="../visualizer/modes/media.js"></script>
     <script src="../visualizer/layers.js"></script>
     <script src="../shared/presets.js"></script>
     <script src="../shared/presets-shaders.js"></script>
