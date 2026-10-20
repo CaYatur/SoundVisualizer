@@ -90,6 +90,15 @@ bridge, it is the primary's own list, because there is one capture.
 Changing the list is live: the capture helper restarts with the new list, while the TCP server,
 the beacon and the connected receivers stay up (receivers see a short gap of a few frames).
 
+A ticked app is remembered by name (exe or binary name), not by its process ID. When it quits,
+its row turns "closed, waiting" within about 2 s and the stale capture helper is stopped. When it
+starts again, it is found by name and reattached on its new process automatically (the list is
+polled every 2 s while waiting). On Windows and macOS a watchdog checks once a second whether the
+captured process still exists, and whether a capture that has been silent for 2 s now belongs to
+a different process. An app that is only paused (same process) is left alone. On Linux the
+capture session already follows the app's streams by name, and the row follows the stream count.
+`npm run bridge-sources-rig` checks both paths with a fake app.
+
 If one source fails, the others keep running. The helper reports each source that is missing,
 failed to open, or (for an app) is not running, and the status window names it in TR/EN under
 the picker.

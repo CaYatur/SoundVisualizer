@@ -1786,3 +1786,4 @@ input[type="number"]::-webkit-inner-spin-button {
 .swap-item input { margin: 0; }
 .swap-thumb { width: 32px; height: 32px; flex: none; object-fit: contain; border-radius: 5px; background: var(--media-bg); }
 .swap-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-note.is-state { color: var(--warn-text, var(--warn)); }

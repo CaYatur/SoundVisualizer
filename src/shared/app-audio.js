@@ -334,6 +334,14 @@
      çalışıyor ve kendi ses oturumunu açıyor: seçicide "Ses Görselleştirici"
      diye görünüyor, ölçeri de bütün sistem karışımını izliyordu. Kendimizi
      yakalamanın bir anlamı yok; ad eşleşmesi büyük-küçük harfe duyarsız. */
+  /* Süreç yaşıyor mu (sinyal 0: yalnız sınar; Windows'ta da çalışır).
+     Yetki yoksa (EPERM) süreç VAR demektir. */
+  function pidAlive(pid, kill) {
+    const k = kill || (typeof process !== 'undefined' && process.kill ? process.kill.bind(process) : null);
+    if (!(pid > 0) || !k) return false;
+    try { k(pid, 0); return true; } catch (e) { return !!(e && e.code === 'EPERM'); }
+  }
+
   function withoutSelf(rows, selfName) {
     const self = baseName(selfName);
     if (!self) return Array.isArray(rows) ? rows : [];
@@ -380,7 +388,7 @@
     WIN_MIN_BUILD, MAC_MIN_MAJOR, MODES, DEFAULT_MODE,
     support, macMajorFromDarwin,
     isAppSource, normalizeApp, splitSources, limitExclude,
-    resolveTarget, candidates, baseName, sameApp, withoutSelf,
+    resolveTarget, candidates, baseName, sameApp, withoutSelf, pidAlive,
     METER_CARRY_MAX, METER_FLOOR_DB, METER_RELEASE_PER_SEC,
     splitMeterChunk, parseMeterLine, meterLevels, meterFraction, meterBallistics,
   };

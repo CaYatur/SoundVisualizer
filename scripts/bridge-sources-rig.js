@@ -85,6 +85,54 @@ function captureSpectrum(sources, ms) {
   });
 }
 
+// 1b) Uygulama kaynağının yaşam döngüsü: sahte uygulama (pacat, adı svrigapp)
+//     kapanınca satır ~2 sn içinde "closed", yeniden açılınca adla yeniden "ok"
+function fakeApp() {
+  return spawn('pacat', ['--device=rig', '-p', '--property=application.name=SvRigApp', '--property=application.process.binary=svrigapp', '/dev/urandom'], { stdio: 'ignore' });
+}
+async function appLifecycle(watch) {
+  let app = fakeApp();
+  await wait(800);
+  const env = Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }, watch ? { SV_APP_WATCH: '1' } : {});
+  const child = spawn(electron(), [path.join(ROOT, 'src/main/loopback-helper.js'), '--capture', JSON.stringify({ devices: [SRC_B, { kind: 'app', match: 'svrigapp', label: 'SvRigApp', mode: 'include' }] })], { cwd: ROOT, env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const ev = [];
+  let frames = 0;
+  let acc = Buffer.alloc(0);
+  child.stdout.on('data', (c) => { acc = F.splitHelperStream(Buffer.concat([acc, c]), () => { frames++; }); });
+  let stale = '';
+  child.stderr.on('data', (d) => {
+    const sm = /APP-STALE \S+ pid=\d+ \((\w[\w-]*)\)/.exec(d.toString()); if (sm) stale = sm[1];
+    for (const ln of d.toString().split(/\r?\n/)) { const m = /^SRC (\{.*\})/.exec(ln.trim()); if (m) { try { const j = JSON.parse(m[1]); if (j.key === 'app:svrigapp') ev.push({ t: Date.now(), state: j.state }); } catch { /* */ } } }
+  });
+  const res = {};
+  const waitFor = async (state, after, ms) => { const end = Date.now() + ms; while (Date.now() < end) { const e = ev.find((x) => x.t >= after && x.state === state); if (e) return e.t - after; await wait(50); } return null; };
+  try {
+    res.okAtStart = (await waitFor('ok', 0, 4000)) != null;
+    const killed = Date.now();
+    try { app.kill('SIGKILL'); } catch { /* */ }
+    res.closedAfterMs = await waitFor('closed', killed, 5000);
+    const framesBefore = frames;
+    await wait(500);
+    res.otherSourceKeptRunning = frames > framesBefore + 10;
+    const relaunched = Date.now();
+    app = fakeApp();
+    res.reattachedAfterMs = await waitFor('ok', relaunched, 8000);
+    if (watch) {
+      // Bekçi saniyede bir bakıyor; ölü pid'i görüp yeniden bağlamasını bekle
+      await wait(2500);
+      res.watchdog = stale || 'none';
+      const last = ev[ev.length - 1];
+      res.finalState = last && last.state;
+      if (res.finalState !== 'ok') res.reattachedAfterMs = null;
+    }
+    res.pass = (!watch || stale === 'pid-gone') && res.okAtStart && res.closedAfterMs != null && res.closedAfterMs <= 2500 && res.otherSourceKeptRunning && res.reattachedAfterMs != null && res.reattachedAfterMs <= 4000;
+  } finally {
+    try { app.kill('SIGKILL'); } catch { /* */ }
+    try { child.stdin.end(); child.kill(); } catch { /* */ }
+  }
+  return res;
+}
+
 // 2) Uçtan uca: CDP ile iki gerçek kopya
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -181,6 +229,13 @@ async function endToEnd() {
     say((pass1 ? 'ok   ' : 'FAIL ') + 'one source (440 Hz only): ' + JSON.stringify(r1));
     say((pass2 ? 'ok   ' : 'FAIL ') + 'two sources + a missing one (440 and 1000 Hz, missing reported): ' + JSON.stringify(r2));
     if (!pass1 || !pass2) { ok = false; if (!pass2) say(two.err); }
+    const lc = await appLifecycle(false);
+    say((lc.pass ? 'ok   ' : 'FAIL ') + 'app source closes and reattaches by name: ' + JSON.stringify(lc));
+    if (!lc.pass) ok = false;
+    // Windows/macOS yolu: bekçi ölü pid'i görüp bayat yardımcıyı durduruyor
+    const lw = await appLifecycle(true);
+    say((lw.pass ? 'ok   ' : 'FAIL ') + 'watchdog (Windows/macOS path) stops the stale helper and reattaches: ' + JSON.stringify(lw));
+    if (!lw.pass) ok = false;
     const e2e = await endToEnd();
     say((e2e.pass ? 'ok   ' : 'FAIL ') + 'bridge with the Audio Sources list, live change: ' + JSON.stringify(e2e));
     if (!e2e.pass) ok = false;

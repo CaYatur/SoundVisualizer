@@ -120,7 +120,9 @@ test('kaynak başına durum: biri düşünce ötekiler sürer, hangisi düştü�
   const H = read('src/main/loopback-helper.js');
   assert.match(H, /'SRC ' \+ JSON\.stringify\(\{ key: name, state: 'missing' \}\)/);
   assert.match(H, /state: 'failed', message:/);
-  assert.match(H, /key: 'app:' \+ appAudio\.baseName\(app\.match\), state: 'ok'/);
+  assert.match(H, /srcState\(app, 'failed', String\(e\.message \|\| ''\)\.slice\(0, 200\)\);/);
+  assert.match(H, /const key = 'app:' \+ appAudio\.baseName\(app\.match\);/);
+  assert.match(H, /srcState\(app, 'ok'\);/);
   const M = read('src/main/main.js');
   assert.match(M, /if \(status && status\.type === 'source'\) \{\n\s+bridge\.sourceStates\[status\.key\] = \{ state: status\.state, message: status\.message \};/);
   assert.match(M, /bridge\.sourceStates = \{\};\n  nativeAudio\.startCapture\(/);

@@ -98,7 +98,10 @@
     missing: 'bulunamadı; öteki kaynaklar sürüyor',
     failed: 'açılamadı; öteki kaynaklar sürüyor',
     waiting: 'çalışmıyor; açılınca kendiliğinden bağlanır',
+    closed: 'kapandı; yeniden açılınca kendiliğinden bağlanır',
   };
+  // Satırın yanındaki kısa not (ortak seçici host.stateOf)
+  const SRC_SHORT = { missing: 'bulunamadı', failed: 'açılamadı', waiting: 'bekleniyor', closed: 'kapandı, bekleniyor' };
 
   function sourceCard() {
     const S = window.SVAudioSources;
@@ -121,6 +124,7 @@
           try { await W.setSources(list); } catch { /* */ }
         },
         appMeter,
+        stateOf: (key) => { const x = st && st.sourceStates && st.sourceStates[key]; return x && SRC_SHORT[x.state] ? tr(SRC_SHORT[x.state]) : ''; },
         requestPermission: async () => { try { await W.requestPermission(); } catch { /* */ } refresh(); },
       }));
       nodes.push(el('button', { class: 'btn small', type: 'button', icon: 'refresh', text: 'Aygıtları Yenile', onclick: () => refresh() }));

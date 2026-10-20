@@ -4805,6 +4805,11 @@ let adminWantsNowPlaying = false;
 mediaSession.subscribe((st) => {
   // Köprü çalan parçayı da verir (#813)
   if (bridge.sender) bridge.sender.meta(bridgeMetaOut(st));
+  /* Durum penceresinin Çalan Parça kartı HER parça/kapak değişiminde en son
+     durumdan çizilsin (#813). Önceden pencereye haber gitmiyordu; kart bir
+     sonraki başka bir durum olayına kadar eski uygulama/albümü ve "Kapak: yok"
+     gösteriyordu. */
+  if (bridgeWinVisible()) notifyBridgeWindow();
   // Ses girişi köprüdeyken parça bilgisi de köprünün
   if (bridge.input && bridge.input.useBridge && bridge.meta) return;
   sendToVisualizers('now-playing', st);

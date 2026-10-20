@@ -75,6 +75,10 @@
     }
 
     function makeRow(entry, icon, label, extra, meter) {
+      /* Yakalamanın bildirdiği satır durumu (köprü penceresi, #813):
+         "kapandı, bekleniyor" gibi; yoksa satırın kendi notu. */
+      const stNote = host.stateOf ? host.stateOf(keyOf(entry)) : '';
+      if (stNote) extra = stNote;
       const cb = el('input', { type: 'checkbox' });
       checkboxes.set(keyOf(entry), cb);
       cb.addEventListener('change', () => toggle(entry));
@@ -84,7 +88,7 @@
         el('span', { class: 'source-name', text: label, title: label }),
       ];
       if (meter) kids.push(meter);
-      if (extra) kids.push(el('span', { class: 'source-note', text: extra }));
+      if (extra) kids.push(el('span', { class: 'source-note' + (stNote ? ' is-state' : ''), text: extra }));
       return el('label', { class: 'source-item' }, kids);
     }
 
