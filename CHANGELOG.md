@@ -216,6 +216,25 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 
 ### Video export
 
+- **Exports match the live picture [539].** A pixel comparison of the live window against the
+  export path, built for v3.1.7, found these differences in what 3.1.6 exports. All are fixed
+  here.
+  - **Video layers were missing.** The exporter never loaded the media layer, so a video
+    background was simply absent from the exported video. Each export frame now seeks the video
+    to that frame's time and waits for it to decode, looping as it does live. A camera is a live
+    source, so it stays empty in export; the export panel says so when the scene has one. The
+    export page's content policy also blocked video. A queued scene's video was also refused by
+    the media protocol when that scene was not the current one.
+  - **Additive blend.** A layer set to "add" used `screen` live and real addition in export, so
+    the video was visibly brighter: 13.5% of pixels were off by more than 8 levels. Live now uses
+    `plus-lighter`, which is the same addition.
+  - **Now-playing timing.** The card's entrance and its "show on change" envelope followed the
+    wall clock, so in export they depended on render speed. They now follow the frame clock.
+  - **Text placeholders.** The exporter did not load the dictionary, so the "ARTIST NAME"
+    placeholder stayed in Turkish in an English interface.
+  - The export smoke test now renders a video whose frames carry their own number and checks
+    every exported frame. A test checks that every script drawn on the live page is also loaded
+    by the exporter and the overlay.
 - **Eleven formats instead of one MP4 [521].** H.264 and H.265 in MP4, ProRes 422 HQ and DNxHR HQ
   in MOV for editing, VP9 in WebM, GIF and APNG for short loops, and PNG and OpenEXR frame
   sequences. The list is data in one module (`src/shared/export-formats.js`): the panel, the MCP
