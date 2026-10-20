@@ -183,16 +183,30 @@ function parseJson(payload) {
   } catch { return null; }
 }
 
-/* Çalan parça bilgisi ağa giderken: kapak resmi büyükse atılır (alıcı adı,
-   sanatçıyı ve süreyi yine alır). */
+/* Çalan parça bilgisi ağa giderken (#813). HER ALAN İSTEĞE BAĞLI: kaynağın
+   vermediği alan (macOS/Linux'ta oturum yok, kapaksız parça, canlı yayında
+   süre yok) pakete hiç girmez; alıcı eksik alanı boş sayar. Türü tutmayan
+   alan da atılır. Kapak ayrı iletiyle, parça başına BİR kez gider (bkz.
+   artworkId); burada yalnız kimliği taşınır. */
+const META_STR = { title: 512, artist: 512, album: 512, app: 256, subtitle: 65536 };
+const META_NUM = ['duration', 'position', 'updated', 'received'];
+const META_BOOL = ['has', 'playing'];
+const MAX_ARTWORK = 400 * 1024; // veri URL'si, base64 dahil
 function slimMeta(st) {
   if (!st || typeof st !== 'object') return null;
   const out = {};
-  for (const k of ['has', 'title', 'artist', 'album', 'duration', 'position', 'playing', 'app', 'updatedAt']) {
-    if (st[k] !== undefined) out[k] = st[k];
-  }
-  if (typeof st.artwork === 'string' && st.artwork.length <= 256 * 1024) out.artwork = st.artwork;
+  for (const k of META_BOOL) if (typeof st[k] === 'boolean') out[k] = st[k];
+  for (const k of Object.keys(META_STR)) if (typeof st[k] === 'string' && st[k]) out[k] = st[k].slice(0, META_STR[k]);
+  for (const k of META_NUM) if (typeof st[k] === 'number' && Number.isFinite(st[k]) && st[k] >= 0) out[k] = st[k];
+  if (out.has === undefined) out.has = !!(out.title || out.artist);
   return out;
+}
+// Kapak: yalnız resim veri URL'si, sınır içinde; değilse yok sayılır
+function artworkOk(a) {
+  return typeof a === 'string' && a.length > 30 && a.length <= MAX_ARTWORK && /^data:image\/(jpeg|png|webp|gif);base64,/.test(a);
+}
+function artworkId(a) {
+  return artworkOk(a) ? crypto.createHash('sha1').update(a).digest('hex').slice(0, 16) : '';
 }
 
 /* ---- Gönderen (köprü) ----------------------------------------------------
@@ -205,6 +219,7 @@ function createSender(opts) {
   let seq = 0;
   let pcmSeq = 0;
   let lastMeta = null;
+  let lastArt = null; // { id, data }: son kapak; her alıcıya bir kez
   const authFails = [];
   const stats = { sent: 0, dropped: 0, clients: 0, listening: false, error: '' };
   const now = o.now || Date.now;
@@ -246,6 +261,7 @@ function createSender(opts) {
         clearTimeout(t);
         // Köprü de parolayı bildiğini gösterir: alıcının nonce'u
         send({ type: 'welcome', mac: mac(o.secret, 'sv-bridge|s|' + String(m.nonce || '')), t: now() });
+        if (lastArt) { send({ type: 'artwork', id: lastArt.id, data: lastArt.data }); c.artId = lastArt.id; }
         if (lastMeta) send({ type: 'meta', meta: lastMeta, t: now() });
         emit();
         return;
@@ -318,8 +334,24 @@ function createSender(opts) {
     wantsAudio() { for (const c of clients) if (c.authed && c.audio && !c.sock.destroyed) return true; return false; },
     meta(st) {
       lastMeta = slimMeta(st);
+      const id = st && artworkId(st.artwork);
+      if (lastMeta && id) {
+        lastMeta.artworkId = id;
+        if (!lastArt || lastArt.id !== id) lastArt = { id, data: st.artwork };
+      }
       const pkt = jsonPacket({ type: 'meta', meta: lastMeta, t: now() });
-      for (const c of clients) if (c.authed && !c.sock.destroyed) c.sock.write(pkt);
+      let artPkt = null;
+      for (const c of clients) {
+        if (!c.authed || c.sock.destroyed) continue;
+        // Kapak parça değişince bir kez; konum güncellemeleri hafif kalır
+        if (id && c.artId !== id) {
+          if (!artPkt) artPkt = jsonPacket({ type: 'artwork', id, data: lastArt.data });
+          c.sock.write(artPkt);
+          c.artId = id;
+          stats.artworkSent = (stats.artworkSent || 0) + 1;
+        }
+        c.sock.write(pkt);
+      }
     },
     peerCount() { return Array.from(clients).filter((c) => c.authed).length; },
     status,
@@ -363,6 +395,8 @@ function createReceiver(opts) {
   let lastKick = 0;
   let lastAttempt = 0;
   let candidates = o.host ? [o.host] : [];
+  let art = null;        // köprüden gelen son kapak { id, data }
+  let lastRxMeta = null; // kapak sonra gelirse parça yeniden bildirilir
   const st = { state: 'idle', host: o.host, port: o.port, name: '', id: '', rttMs: null, offsetMs: null, ageMs: null, frames: 0, lost: 0, error: '', lastSeq: 0, audio: o.audio === true, pcm: 0, pcmLost: 0, pcmRate: 0, lastPcmSeq: 0 };
   function emit() { if (o.onStatus) o.onStatus(Object.assign({}, st)); }
 
@@ -451,10 +485,36 @@ function createReceiver(opts) {
         const a = Object.assign({}, m.a, { localT: b && Number.isFinite(m.a.t) ? m.a.t - b.offset : null });
         st.analysis = a;
         if (o.onAnalysis) o.onAnalysis(a);
+      } else if (m.type === 'artwork') {
+        if (!authed) return;
+        if (typeof m.id !== 'string' || !/^[0-9a-f]{1,32}$/.test(m.id) || !artworkOk(m.data)) return;
+        art = { id: m.id, data: m.data };
+        // Kapak parça bilgisinden sonra geldiyse parça yeniden bildirilir
+        if (lastRxMeta && lastRxMeta.artworkId === art.id && !lastRxMeta.artwork && o.onMeta) {
+          lastRxMeta = Object.assign({}, lastRxMeta, { artwork: art.data });
+          o.onMeta(lastRxMeta);
+        }
       } else if (m.type === 'meta') {
         if (!authed) return;
         const b = clock.best();
-        const meta = m.meta && typeof m.meta === 'object' ? Object.assign({}, m.meta, { bridgeT: Number.isFinite(m.t) ? m.t : null, localT: b && Number.isFinite(m.t) ? m.t - b.offset : null }) : null;
+        const off = b ? b.offset : 0;
+        /* Alanlar yeniden süzülür (eski ya da yabancı köprü); damgalar
+           köprünün saatinden bu makinenin saatine çevrilir ki konum doğru
+           ilerlesin (shared/nowplaying.js çıpayı updated/received'dan alır). */
+        let meta = null;
+        if (m.meta && typeof m.meta === 'object') {
+          meta = slimMeta(m.meta);
+          for (const k of ['updated', 'received']) if (meta[k] > 0) meta[k] = meta[k] - off;
+          if (typeof m.meta.artworkId === 'string' && /^[0-9a-f]{1,32}$/.test(m.meta.artworkId)) {
+            meta.artworkId = m.meta.artworkId;
+            if (art && art.id === meta.artworkId) meta.artwork = art.data;
+          } else if (artworkOk(m.meta.artwork)) {
+            meta.artwork = m.meta.artwork; // eski köprü: kapak parçanın içinde
+          }
+          meta.bridgeT = Number.isFinite(m.t) ? m.t : null;
+          meta.localT = b && Number.isFinite(m.t) ? m.t - b.offset : null;
+        }
+        lastRxMeta = meta;
         if (o.onMeta) o.onMeta(meta);
       } else if (m.type === 'error') {
         st.error = String(m.code || 'error').slice(0, 20);
@@ -710,7 +770,7 @@ function sanitizeSources(list) {
 module.exports = {
   WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, KIND, FRAME_HEAD, DEFAULTS, RETRY_MS,
   normalize, sanitizeSources, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
-  packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta,
+  packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta, artworkOk, artworkId, MAX_ARTWORK,
   createSender, createReceiver, createClock,
   broadcastAddresses, beaconMessage, verifyBeacon, createBeacon, createDiscovery,
 };

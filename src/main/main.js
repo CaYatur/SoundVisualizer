@@ -1504,7 +1504,7 @@ function syncBridge() {
       onStatus: () => { syncCapture(); syncNowPlaying(); notifyBridge(); },
     });
     bridge.sender.start().then((st) => { if (st && st.error) console.error('[bridge] port ' + c.port + ' açılamadı: ' + st.error); });
-    if (mediaSession.current().has) bridge.sender.meta(mediaSession.current());
+    if (mediaSession.current().has) bridge.sender.meta(bridgeMetaOut(mediaSession.current()));
     bridge.beacon = audioBridge.createBeacon({ id: bridgeId(), name: bridgeName(c), port: c.port, secret: c.secret });
     bridge.beacon.start();
   }
@@ -1664,6 +1664,32 @@ function shownNowPlaying() {
   if (bridge.input && bridge.input.useBridge && bridge.meta && bridge.meta.has) return bridge.meta;
   return mediaSession.current();
 }
+/* Köprüye giden parça bilgisi (#813): kapak küçültülür (en çok 512 px,
+   JPEG) ve parça başına bir kez hazırlanır; köprü de her alıcıya bir kez
+   yollar (audio-bridge.js artworkId). Kapak yoksa, okunamazsa ya da sınırı
+   aşarsa yalnız kapaksız gider; öteki alanlar etkilenmez. */
+let bridgeArtCache = { src: '', out: '' };
+function bridgeArtwork(a) {
+  if (typeof a !== 'string' || !a.startsWith('data:image/')) return '';
+  if (bridgeArtCache.src === a) return bridgeArtCache.out;
+  let out = '';
+  try {
+    let img = require('electron').nativeImage.createFromDataURL(a);
+    if (!img.isEmpty()) {
+      const { width, height } = img.getSize();
+      const k = Math.min(1, 512 / Math.max(width || 1, height || 1));
+      if (k < 1) img = img.resize({ width: Math.max(1, Math.round(width * k)), height: Math.max(1, Math.round(height * k)), quality: 'good' });
+      out = 'data:image/jpeg;base64,' + img.toJPEG(85).toString('base64');
+      if (!audioBridge.artworkOk(out)) out = '';
+    }
+  } catch { out = ''; }
+  bridgeArtCache = { src: a, out };
+  return out;
+}
+function bridgeMetaOut(st) {
+  if (!st || typeof st !== 'object') return st;
+  return Object.assign({}, st, { artwork: bridgeArtwork(st.artwork) });
+}
 function forwardBridgeMeta(st) {
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
@@ -1794,7 +1820,8 @@ function bridgeWindowStatus() {
     sourceStates: bridge.sourceStates,
     wantedSources: (currentConfig && currentConfig.audio && Array.isArray(currentConfig.audio.sources) && currentConfig.audio.sources.length) ? currentConfig.audio.sources : ['default'],
     captureStatus: lastCaptureStatus,
-    nowPlaying: np && np.has ? { title: np.title || '', artist: np.artist || '', app: np.app || '' } : null,
+    // Her alan isteğe bağlı: kaynağın vermediği boş kalır (#813)
+    nowPlaying: np && np.has ? { title: np.title || '', artist: np.artist || '', album: np.album || '', app: np.app || '', duration: Number(np.duration) || 0, playing: !!np.playing, cover: !!bridgeArtwork(np.artwork) } : null,
     nowPlayingInfo: { supported: !!mediaSession.supported, running: !!ms.running, error: ms.error || '' },
     appFallback: bridge.appFallback || null,
   });
@@ -4725,7 +4752,7 @@ let adminWantsNowPlaying = false;
 
 mediaSession.subscribe((st) => {
   // Köprü çalan parçayı da verir (#813)
-  if (bridge.sender) bridge.sender.meta(st);
+  if (bridge.sender) bridge.sender.meta(bridgeMetaOut(st));
   // Ses girişi köprüdeyken parça bilgisi de köprünün
   if (bridge.input && bridge.input.useBridge && bridge.meta) return;
   sendToVisualizers('now-playing', st);

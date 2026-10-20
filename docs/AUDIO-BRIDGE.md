@@ -53,7 +53,8 @@ no visuals and runs with hardware acceleration off. It shows:
 - a live level meter with peak, B/M/T bands, BPM, beats and analysis age;
 - connected receivers with name, address, round trip, frame age, lost frames, and failed
   pairing attempts (wrong secret);
-- now playing (the bridge's own media session: SMTC on Windows, MPRIS on Linux, macOS Now Playing);
+- now playing (the bridge's own media session, SMTC, on Windows only; title, artist, album, state,
+  duration and whether a cover is being sent). Elsewhere the window says it cannot be read there;
 - errors: device missing, capture failed, port busy, app capture unavailable.
 
 Buttons: "Bridge Settings" (opens the panel), "Stop Bridge" / "Start Bridge" (stops sending and the
@@ -88,7 +89,7 @@ the picker.
 
 | OS | Single-app capture | Needs |
 |---|---|---|
-| Windows | WASAPI process loopback | Windows 10 2004 (build 19041) or newer |
+| Windows | WASAPI process loopback | Windows build 20348 or newer (Windows 11, Server 2022) |
 | macOS | ScreenCaptureKit app audio | macOS 13 or newer and the Screen Recording permission |
 | Linux | PulseAudio / PipeWire (`pactl`) per-app stream | `pactl`, `parec` |
 
@@ -122,9 +123,39 @@ the backup's is the primary's, converted with the redundancy link's measured off
 bridge moment then gives the same `sharedT` on both machines, even when the bridge is a third
 device. The panel shows which clock is in use ("shared clock" or "this machine's clock").
 
-The bridge also sends the now-playing track (title, artist, album, duration, position; artwork
-only when it is under 256 KB). While the receiver's input is on the bridge, that track replaces
-the local one in the outputs and the panel.
+The bridge also sends its own now-playing track. While the receiver's input is on the bridge,
+that track, cover included, replaces the local one in the outputs (now-playing card, text layers,
+lyrics) and the panel.
+
+- **Every field is optional.** The bridge sends only the fields its media session gives and drops
+  any field of the wrong type. A receiver treats a missing field as empty, so a bridge without a
+  media session, a track without a cover or a stream without a duration never breaks anything.
+- **Cover once per track.** The bridge shrinks the cover to at most 512 px, re-encodes it as JPEG
+  (quality 85, at most 400 KB) and sends it once per receiver as `{type:'artwork', id, data}`,
+  with `id` the first 16 hex digits of its SHA-1. Each `meta` message then carries only
+  `artworkId`; position updates do not resend it. A receiver that connects later gets the
+  current cover right after pairing. A cover that is not an image data URL, or too big, is left
+  out and the rest of the track still goes.
+- **Timing.** `updated` and `received` are moved onto the receiver's clock with the measured
+  offset, so the position runs correctly on the other machine.
+
+### Platform support
+
+Detected at run time; nothing is assumed from the build. What a platform lacks is left out and
+the status window says so in TR/EN; the bridge keeps running.
+
+| | Title | Artist | Album | Cover | Position / state | Single-app capture |
+|---|---|---|---|---|---|---|
+| Windows | yes (SMTC) | yes | yes | yes | yes | build 20348+ (WASAPI process loopback) |
+| macOS | no | no | no | no | no | macOS 13+ with Screen Recording (ScreenCaptureKit) |
+| Linux | no | no | no | no | no | with PulseAudio or PipeWire (`pactl`, `parec`) |
+
+The app reads the media session only on Windows, locally too, so on macOS and Linux the bridge
+sends no track and the receiver's own now-playing stays as it is (empty there as well). A macOS
+(MediaRemote) or Linux (MPRIS) reader would plug into the same media session and its fields
+would go over the bridge unchanged; that is not part of this phase. Where single-app capture is
+not possible, the Application Audio list is replaced by the reason (old build, no permission
+with a button to ask for it, no sound server, unsupported OS) and the devices stay selectable.
 
 **Listenable audio (PCM).** A receiver can also play the bridge's audio: Settings → "Play the
 Bridge's Audio on This Machine", with an output device, a volume and a jitter buffer (40–1000 ms,
@@ -165,7 +196,8 @@ payload. The maximum is 1 MB. A bad length closes the connection.
 JSON messages after the handshake:
 
 - `{type:'analysis', a:{t, level, peak, bands:{bass, mid, treble}, beat, bpm, confidence, phase, bar, onset, onsets}}`
-- `{type:'meta', meta:{has, title, artist, album, duration, position, playing, app, artwork?}, t}`
+- `{type:'meta', meta:{has?, title?, artist?, album?, duration?, position?, playing?, app?, subtitle?, updated?, received?, artworkId?}, t}`
+- `{type:'artwork', id, data}` (the cover as a JPEG data URL, once per track and receiver)
 - `{type:'ping', t0, r:{name, rttMs, ageMs, lost}}` and `{type:'pong', t0, t1}` (the report
   feeds the bridge's receiver list)
 - `{type:'audio', on}` (receiver → bridge, start or stop PCM)

@@ -203,10 +203,18 @@
     if (np && (np.title || np.artist)) {
       nodes.push(el('div', { class: 'br-item' }, [el('div', { class: 'br-item-main' }, [
         el('span', { class: 'br-item-t', 'data-user-text': '', text: np.title || '—' }),
-        el('span', { class: 'br-item-s', 'data-user-text': '', text: [np.artist, np.app].filter(Boolean).join(' · ') }),
+        el('span', { class: 'br-item-s', 'data-user-text': '', text: [np.artist, np.album, np.app].filter(Boolean).join(' · ') }),
       ])]));
+      const dur = np.duration > 0 ? Math.floor(np.duration / 60) + ':' + String(Math.floor(np.duration % 60)).padStart(2, '0') : '—';
+      nodes.push(V.grid([
+        V.tile(tr('Durum'), np.playing ? tr('çalıyor') : tr('duraklatıldı')),
+        V.tile(tr('Süre'), dur),
+        V.tile(tr('Kapak'), np.cover ? tr('gönderiliyor') : tr('yok'), { tone: np.cover ? 'ok' : '' }),
+      ]));
     } else {
-      nodes.push(el('div', { class: 'bs-note', text: info.supported === false ? 'Bu sistemde çalan parça bilgisi okunamıyor.' : info.error ? 'Çalan parça okunamadı.' : 'Çalan parça yok.' }));
+      /* Yalnız Windows'ta okunuyor (SMTC). Öteki sistemlerde köprü parça
+         bilgisi göndermez; ses ve çözümleme etkilenmez. */
+      nodes.push(el('div', { class: 'bs-note', text: info.supported === false ? 'Çalan parça bilgisi bu sistemde okunamıyor (yalnız Windows: SMTC). Köprü parça bilgisi göndermez; ses ve çözümleme etkilenmez.' : info.error ? 'Çalan parça okunamadı.' : 'Çalan parça yok.' }));
     }
     return el('section', { class: 'bs-card' }, nodes);
   }

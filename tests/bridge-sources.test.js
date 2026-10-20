@@ -144,3 +144,30 @@ test('TR/EN: yeni metinlerin İngilizcesi var', () => {
   }
   assert.match(read('package.json'), /"bridge-sources-rig": "node scripts\/bridge-sources-rig\.js"/);
 });
+
+test('desteklenmeyen sistem: uygulama satırı yerine neden; aygıtlar seçilebilir kalıyor', () => {
+  const A = require('../src/shared/app-audio.js');
+  const cases = [
+    ['win32', '10.0.19041', {}, 'WIN_TOO_OLD'],
+    ['darwin', '21.6.0', { helper: true, permission: true }, 'MAC_TOO_OLD'],
+    ['darwin', '22.1.0', { helper: true, permission: false }, 'MAC_NO_PERMISSION'],
+    ['linux', '6.1', {}, 'NO_SOUND_SERVER'],
+    ['freebsd', '13', {}, 'UNSUPPORTED_PLATFORM'],
+  ];
+  for (const [plat, rel, opts, code] of cases) {
+    const sup = A.support(plat, rel, opts);
+    assert.strictEqual(sup.supported, false, plat);
+    assert.strictEqual(sup.code, code, plat);
+    const S = load();
+    const { el } = fakeDom();
+    const n = S.control({ label: 'x', devices: () => [{ name: 'Mic', kind: 'input' }], apps: () => [{ match: 'a.exe', label: 'A' }], appStatus: () => ({ available: false, code: sup.code, message: sup.message, canRequest: sup.canRequest }) },
+      { el, tr: (t) => t, get: () => ['default'], set() {} });
+    const texts = []; let boxes = 0;
+    walk(n, (x) => { if (x.attrs.text) texts.push(x.attrs.text); if (x.tag === 'input') boxes++; });
+    assert.ok(texts.includes(sup.message), code);
+    assert.strictEqual(boxes, 2, code + ': varsayılan + aygıt; uygulama satırı yok');
+    delete global.window;
+  }
+  // Ana süreç: uygulama seçili ama yakalama yoksa aygıtlarla sürer (çökmez)
+  assert.match(read('src/main/main.js'), /const devs = list\.filter\(\(x\) => typeof x === 'string'\);\n\s+return devs\.length \? devs : \['default'\];/);
+});
