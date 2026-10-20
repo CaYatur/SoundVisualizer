@@ -33,7 +33,8 @@
     "release:assets": "node scripts/release-assets.js",
     "bench": "node scripts/bench.js",
     "parity": "node scripts/parity.js",
-    "failover": "node scripts/failover.js"
+    "failover": "node scripts/failover.js",
+    "bridge-rig": "node scripts/bridge-rig.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",

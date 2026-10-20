@@ -160,7 +160,26 @@ function parseFrame(frame) {
   };
 }
 
+/* `parseFrame`ın tersi: okuyucuya giden nesneden ikili kare. Ses köprüsü
+   (#813) kareyi ağa bu baytlarla koyuyor; alıcı aynı `parseFrame` ile
+   açıyor. Eksik ya da kısa dizi sıfırla doldurulur (128 = sessiz zaman). */
+function encodeFrame(f) {
+  const buf = Buffer.alloc(FRAME_BYTES);
+  buf[0] = MARKER0;
+  buf[1] = MARKER1;
+  buf.writeUInt32LE((f && f.sampleRate) >>> 0, OFFSET.sampleRate);
+  const put = (src, at, n, fill) => {
+    if (fill) buf.fill(fill, at, at + n);
+    if (src && src.length) buf.set(src.length > n ? src.subarray(0, n) : src, at);
+  };
+  put(f && f.freq, OFFSET.freq, BINS, 0);
+  put(f && f.time, OFFSET.time, FFT_SIZE, 128);
+  put(f && (f.left || f.time), OFFSET.left, FFT_SIZE, 128);
+  put(f && (f.right || f.time), OFFSET.right, FFT_SIZE, 128);
+  return buf;
+}
+
 module.exports = {
   FFT_SIZE, BINS, MARKER0, MARKER1, OFFSET, FRAME_BYTES,
-  SourceRings, mixSources, writeTime, parseFrame,
+  SourceRings, mixSources, writeTime, parseFrame, encodeFrame,
 };

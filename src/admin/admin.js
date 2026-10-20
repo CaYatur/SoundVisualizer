@@ -666,6 +666,8 @@
         return window.SVStream ? window.SVStream.panel() : null;
       case 'redundancypanel':
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
+      case 'bridgepanel':
+        return window.SVBridgePanel ? window.SVBridgePanel.panel() : null;
       case 'preshowpanel':
         return window.SVPreshowPanel ? window.SVPreshowPanel.panel() : null;
       case 'studiopanel':
@@ -3322,6 +3324,15 @@
         title: 'Yedeklilik',
         desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
         controls: [{ type: 'redundancypanel' }],
+      },
+      {
+        id: 'audiobridge',
+        category: 'show',
+        icon: 'wave',
+        wide: true,
+        title: 'Ses Köprüsü',
+        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
+        controls: [{ type: 'bridgepanel' }],
       },
       {
         id: 'timeline',
@@ -6451,6 +6462,7 @@
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
     if (window.SVRedundancyPanel) window.SVRedundancyPanel.init();
+    if (window.SVBridgePanel) window.SVBridgePanel.init();
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
 

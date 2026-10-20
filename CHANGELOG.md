@@ -3,6 +3,37 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
+
+### Audio bridge, redundancy overhaul phase 2, first part [813, 816]
+
+- **What it solves.** Every machine captured its own device. A backup without the same signal drew a flat picture. Now one machine's capture can go to the others, so the primary and the backup analyse the same signal. Details, the wire format and the measurements are in [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
+- **Inside the app, not a separate program.**
+  - "Send This Machine's Audio to the Bridge" works in normal mode, so the primary can be the bridge itself. It uses the same capture, so nothing competes for the device.
+  - `--bridge`, or Settings → "Audio Bridge Only", starts without visual output or renderer windows, without lighting, streaming or OSC, and without hardware acceleration. It sits in the system tray.
+  - `--bridge` keeps its settings in `<userData>/bridge`, so it can run next to the normal app on the same machine.
+- **What is sent.**
+  - The capture helper's own analysis frame (spectrum and stereo waveform), about 70 a second and 4 Mbit/s, plus the now-playing track.
+  - Packets carry a format version and the bridge's timestamp.
+  - It runs on its own TCP socket (8741), not on the redundancy link.
+  - Listenable audio is not sent in this part.
+- **Pairing and discovery.**
+  - The pairing secret is checked in both directions with HMAC, and is never sent.
+  - The bridge sends a signed UDP beacon on 8742. With the address field empty, the receiver connects to the first bridge whose signature matches. It needs no mDNS daemon. A typed address still works.
+- **"Audio Input: Network Bridge".**
+  - The bridge's frames replace local capture, and local capture stops.
+  - If the bridge is silent for 600 ms, the input falls back to the local device. It returns after 2 s of steady frames.
+  - The pre-show check shows the active source.
+  - The panel shows the round trip, the clock offset, the frame age and lost frames.
+- **Measured** with `npm run bridge-rig`, on Linux with PulseAudio:
+  - Discovery took about 1 s.
+  - The p95 frame age on one host was 2.5–4.5 ms.
+  - The fallback came 610–680 ms after the bridge was killed.
+  - The bridge-only process used about 5 % of one core and about 610 MB RSS across all processes.
+- **Tests.** New tests for the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings.
+
 ## v3.1.6-beta — in code, not released
 
 `package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app

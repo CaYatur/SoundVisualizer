@@ -1219,6 +1219,22 @@
       timeoutMs: 1500,
       takeover: 'auto', // 'auto' | 'manual'
     },
+
+    /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.
+       send: bu makinenin yakaladığı ses ağa verilir (olağan kipte de).
+       only: açılışta yalnız köprü — görüntü çıkışı ve GPU yok (sonraki açılış).
+       receive: ses girişi ağ köprüsünden; köprü susarsa `fallback` yerel girişe.
+       host boşsa köprü ağda kendiliğinden bulunur. Parola en az 16 karakter. */
+    bridge: {
+      send: false,
+      only: false,
+      receive: false,
+      port: 8741,
+      name: '',
+      secret: '',
+      host: '',
+      fallback: true,
+    },
   };
 
   // Ek görsel nesne (partikül emitör) varsayılanları.

@@ -98,6 +98,17 @@ app.disableDomainBlockingFor3DAPIs();
 
 const SMOKE = process.argv.includes('--smoke');
 
+/* SES KÖPRÜSÜ KİPİ (#813). `--bridge` ile açılan kopya görüntü çıkışı ve
+   görselleştirici penceresi açmaz, GPU kullanmaz; yalnız sesi yakalayıp ağa
+   verir. Ayarları ayrı bir klasörde (<userData>/bridge) tutar: aynı makinede
+   olağan uygulamayla birlikte çalışabilsin, iki kopya aynı settings.json'a
+   yazmasın. Ayarlardaki "Yalnız ses köprüsü" seçeneği aynı kipi olağan
+   klasörle açar (bir sonraki açılışta). */
+const BRIDGE_FLAG = process.argv.includes('--bridge');
+if (BRIDGE_FLAG && !process.argv.includes('--bridge-shared-profile')) {
+  try { app.setPath('userData', path.join(app.getPath('userData'), 'bridge')); } catch { /* yol değişmedi */ }
+}
+
 /* Yakalanmamış hata uygulamayı modal kutuda dondurmasın (bkz.
    fault-guard.js). Panel varsa kısa bir uyarı, yoksa eski kutu. Kayıt
    yalnız hata olunca yazılır; öz testte dosyaya hiç yazılmaz. */
@@ -200,6 +211,14 @@ app.on('will-quit', () => {
 });
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const audioBridge = require('./audio-bridge');
+const { createInputSwitch } = require('./bridge-input');
+// Ayarda "yalnız köprü" açıksa da aynı kip; GPU kapatma `ready`den önce olmalı
+function bridgeOnlyInSettings(file) {
+  try { return !!(JSON.parse(fs.readFileSync(file, 'utf8')).bridge || {}).only; } catch { return false; }
+}
+const BRIDGE_ONLY = BRIDGE_FLAG || bridgeOnlyInSettings(SETTINGS_PATH);
+if (BRIDGE_ONLY) app.disableHardwareAcceleration();
 /* Video çözme yolu pencereler açılmadan seçilmeli (bkz. video-decode.js).
    Panel ayarı değiştirdiğinde yeni değer ancak yeniden başlatınca geçerli.
    Seçim Chromium anahtarında yaşıyor; dönüş değerini okuyan yoktu, tutulmuyor. */
@@ -1154,6 +1173,8 @@ function notifyVisualizerStatus() {
 }
 
 function openVisualizer(displayIds) {
+  // Köprü kipinde görüntü çıkışı yok (#813)
+  if (BRIDGE_ONLY) { notifyAdmin('bridge-status', bridgeStatus()); return; }
   if (anyVisualizerOpen() || streamOutputOpen()) armLyricsOnOutput();
   const wanted = resolveDisplayIds(displayIds);
   const all = screen.getAllDisplays();
@@ -1209,6 +1230,11 @@ function captureWanted() {
      hem gereksiz hem de panele kullanıcının ses aygıtının adını yazıyordu
      ("Yakalanıyor: Hoparlör (…)") — README görüntüsüne giriyordu. */
   if (SHOTS) return false;
+  // Köprü bu makinenin sesini birine veriyor (#813)
+  if (bridge.sender && bridge.sender.peerCount() > 0) return true;
+  // Ses girişi köprüde: yerel yakalama yalnız yedek giriş gerekince
+  if (bridge.input && !bridge.input.wantLocal) return false;
+  if (BRIDGE_ONLY) return false;
   return (
     anyVisualizerOpen() ||
     previewSubscribed ||
@@ -1233,6 +1259,26 @@ function startVisualizerCapture() {
   nativeAudio.startCapture(
     sources,
     (frame) => {
+      // Bu makinenin yakaladığı kare köprüye (#813); köprüden gelen geri gitmez
+      if (bridge.sender) bridge.sender.frame(frame);
+      // Ses girişi köprüdeyse yerel kare görüntüye gitmez (yakalama zaten durur)
+      if (bridge.input && bridge.input.useBridge) return;
+      deliverAudioFrame(frame);
+    },
+    (status) => {
+      if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
+      if (status && status.type === 'started') armCaptureStable();
+      if (status && status.type === 'exited') { disarmCaptureStable(); scheduleCaptureRestart(); }
+      notifyAdmin('audio-source-status', status);
+    }
+  );
+}
+
+/* Ses karesinin görüntüye, ışığa ve web katmanına dağıtımı. Kare yerel
+   yakalamadan ya da ses köprüsünden (#813) gelir; iki yol da buradan. */
+function deliverAudioFrame(frame) {
+  {
+    {
       if (!HW_OFF && frame && frame.freq && currentConfig && currentConfig.oscOut
           && currentConfig.oscOut.enabled === true && currentConfig.oscOut.hits !== false) {
         const hit = nativeDrums.push(frame.freq, frame.sampleRate, Date.now());
@@ -1251,14 +1297,185 @@ function startVisualizerCapture() {
       if (previewSubscribed) notifyAdmin('native-audio', frame);
       // OBS tarayıcı kaynağı ve diğer web istemcileri
       streamServer.broadcastAudio(frame);
-    },
-    (status) => {
-      if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
-      if (status && status.type === 'started') armCaptureStable();
-      if (status && status.type === 'exited') { disarmCaptureStable(); scheduleCaptureRestart(); }
-      notifyAdmin('audio-source-status', status);
     }
-  );
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   SES KÖPRÜSÜ (#813, audio-bridge.js, bridge-input.js)
+     gönderen  bu makinenin yakaladığı kareyi ve çalan parçayı ağa verir;
+               yalnız biri bağlıyken yakalama açık kalır
+     alıcı     "Ses girişi: Ağ köprüsü". Köprünün kareleri yerel yakalamanın
+               yerine geçer; köprü susarsa yerel girişe döner, gelince geri
+     keşif     gönderen saniyede bir imzalı UDP işareti yollar; alıcı adres
+               boşsa eşleşen ilk köprüye bağlanır
+   --------------------------------------------------------------------------- */
+const bridge = {
+  sig: '', cfg: audioBridge.normalize(null), sender: null, beacon: null, receiver: null,
+  discovery: null, input: null, tickTimer: null, found: [], meta: null, senderStatus: null,
+  receiverStatus: null, id: '', statusTimer: null,
+};
+
+function bridgeId() {
+  if (bridge.id) return bridge.id;
+  const file = path.join(app.getPath('userData'), 'bridge-id');
+  try { bridge.id = fs.readFileSync(file, 'utf8').trim().slice(0, 64); } catch { /* ilk açılış */ }
+  if (!bridge.id) {
+    bridge.id = require('crypto').randomBytes(8).toString('hex');
+    try { fs.writeFileSync(file, bridge.id); } catch { /* salt okunur: her açılışta yeni kimlik */ }
+  }
+  return bridge.id;
+}
+function bridgeName(c) {
+  return c.name || require('os').hostname().slice(0, 60);
+}
+
+function bridgeStatus() {
+  const c = bridge.cfg;
+  const now = Date.now();
+  return {
+    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
+    send: c.send || BRIDGE_ONLY, receive: c.receive && !BRIDGE_ONLY,
+    sender: bridge.sender ? Object.assign({ name: bridgeName(c) }, bridge.sender.status()) : null,
+    receiver: bridge.receiver ? bridge.receiver.status() : null,
+    input: bridge.input ? bridge.input.status(now) : null,
+    found: bridge.found.map((b) => ({ id: b.id, name: b.name, host: b.host, port: b.port, paired: b.paired, reason: b.reason })),
+    meta: bridge.meta ? { title: bridge.meta.title || '', artist: bridge.meta.artist || '' } : null,
+    capturing: !!lastCaptureSource,
+  };
+}
+function notifyBridge() {
+  if (bridge.statusTimer) return;
+  bridge.statusTimer = setTimeout(() => {
+    bridge.statusTimer = null;
+    notifyAdmin('bridge-status', bridgeStatus());
+    updateBridgeTray();
+  }, 200);
+}
+
+function stopBridge() {
+  if (bridge.tickTimer) { clearInterval(bridge.tickTimer); bridge.tickTimer = null; }
+  if (bridge.beacon) { bridge.beacon.stop(); bridge.beacon = null; }
+  if (bridge.discovery) { bridge.discovery.stop(); bridge.discovery = null; }
+  if (bridge.receiver) { bridge.receiver.stop(); bridge.receiver = null; }
+  if (bridge.sender) { bridge.sender.stop().catch(() => {}); bridge.sender = null; }
+  bridge.input = null;
+  bridge.found = [];
+  bridge.meta = null;
+}
+
+// Ayara göre kur; ayar değişmediyse dokunma
+function syncBridge() {
+  const c = audioBridge.normalize(currentConfig && currentConfig.bridge);
+  const sig = JSON.stringify([c, BRIDGE_ONLY]);
+  if (sig === bridge.sig) return;
+  bridge.sig = sig;
+  stopBridge();
+  bridge.cfg = c;
+  if (audioBridge.problem(Object.assign({}, c, { send: c.send || BRIDGE_ONLY })) || HW_OFF) { notifyBridge(); syncCapture(); return; }
+  if (c.send || BRIDGE_ONLY) {
+    bridge.sender = audioBridge.createSender({
+      port: c.port, secret: c.secret, name: bridgeName(c), id: bridgeId(),
+      onStatus: () => { syncCapture(); syncNowPlaying(); notifyBridge(); },
+    });
+    bridge.sender.start().then((st) => { if (st && st.error) console.error('[bridge] port ' + c.port + ' açılamadı: ' + st.error); });
+    if (mediaSession.current().has) bridge.sender.meta(mediaSession.current());
+    bridge.beacon = audioBridge.createBeacon({ id: bridgeId(), name: bridgeName(c), port: c.port, secret: c.secret });
+    bridge.beacon.start();
+  }
+  if (c.receive && !BRIDGE_ONLY) {
+    bridge.input = createInputSwitch({ fallback: c.fallback });
+    bridge.receiver = audioBridge.createReceiver({
+      host: c.host, port: c.port, secret: c.secret,
+      onFrame: (frame) => {
+        const changed = bridge.input.frame(Date.now());
+        if (bridge.input.useBridge) deliverAudioFrame(frame);
+        if (changed) onBridgeInputChanged();
+      },
+      onMeta: (m) => {
+        bridge.meta = m;
+        if (m && bridge.input && bridge.input.useBridge) forwardBridgeMeta(m);
+      },
+      onStatus: () => notifyBridge(),
+    });
+    // Adres boşsa keşif: imzası tutan ilk köprü
+    bridge.discovery = audioBridge.createDiscovery({
+      secret: c.secret, selfId: bridgeId(),
+      onChange: (list) => {
+        bridge.found = list;
+        if (!c.host && bridge.receiver) {
+          const first = list.find((b) => b.paired);
+          if (first) bridge.receiver.setTarget(first.host, first.port);
+        }
+        notifyBridge();
+      },
+    });
+    bridge.discovery.start();
+    bridge.receiver.start();
+    bridge.tickTimer = setInterval(() => {
+      if (bridge.input && bridge.input.tick(Date.now())) onBridgeInputChanged();
+    }, 100);
+    if (bridge.tickTimer.unref) bridge.tickTimer.unref();
+  }
+  syncCapture();
+  notifyBridge();
+}
+
+// Köprü ↔ yerel giriş geçişi: yakalama açılır/kapanır, parça bilgisi el değiştirir
+function onBridgeInputChanged() {
+  const st = bridge.input ? bridge.input.state : '';
+  console.log('[bridge] ses girişi: ' + st);
+  syncCapture();
+  if (bridge.input && bridge.input.useBridge && bridge.meta) forwardBridgeMeta(bridge.meta);
+  else if (mediaSession.current().has) forwardBridgeMeta(mediaSession.current());
+  notifyAdmin('audio-source-status', { type: st === 'bridge' ? 'bridge' : 'bridge-lost', state: st });
+  notifyBridge();
+}
+function forwardBridgeMeta(st) {
+  sendToVisualizers('now-playing', st);
+  notifyAdmin('now-playing', st);
+  if (typeof streamServer.broadcastNowPlaying === 'function') streamServer.broadcastNowPlaying(st);
+}
+
+ipcMain.handle('bridge:status', () => bridgeStatus());
+ipcMain.handle('bridge:new-secret', () => audioBridge.newSecret());
+
+/* Köprü kipinin sistem tepsisi: durum, panel ve çıkış. Linux'ta tepsi
+   masaüstüne bağlı (GNOME'da eklenti ister); panel uygulamayı yeniden
+   çalıştırınca ya da `--panel` ile açılır. */
+const BRIDGE_TRAY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA4ElEQVR4nO1XWxKDIAyMDuexh7D3sEfTe7SHaC9kPxw6GiEPGh4f7hczkuyShYAAldFpA4Z5XKnvn8dLlVM8mSNOFcJO0hJrhfQ5ySU5ogIsyCW5ggIsybmcJ3805O/p+RvflrsoBu+JQwVyrBwDc5CbsAScH0hWz5Vcaskwj6u3onoFeoAy3mN4TkdNStnl2vg2LLgEXAJqwgFsF0SoF6QcPWl8W50QQP+Y/Ad7LrITYnCWpFh2sKBEFcgHSW4RodxRMusbMraw6CmwrASVizyGFiK4HO3/mmmFlOwnJvgC21Rjjrt201wAAAAASUVORK5CYII=';
+let bridgeTray = null;
+function createBridgeTray() {
+  if (bridgeTray) return;
+  try {
+    const { Tray, nativeImage } = require('electron');
+    bridgeTray = new Tray(nativeImage.createFromDataURL('data:image/png;base64,' + BRIDGE_TRAY_PNG));
+    bridgeTray.on('click', () => openPanelFromBridge());
+    updateBridgeTray();
+  } catch (e) {
+    console.error('[bridge] tepsi kurulamadı, panel açılıyor:', e && e.message);
+    openPanelFromBridge();
+  }
+}
+function openPanelFromBridge() {
+  if (adminWin && !adminWin.isDestroyed()) { adminWin.show(); adminWin.focus(); return; }
+  createAdminWindow();
+}
+function updateBridgeTray() {
+  if (!bridgeTray) return;
+  const { Menu } = require('electron');
+  const s = bridgeStatus();
+  const peers = s.sender ? s.sender.clients : 0;
+  const line = s.problem ? trUi('Ses köprüsü: eşleşme parolası eksik', 'Audio bridge: pairing secret missing')
+    : trUi('Ses köprüsü: ' + peers + ' alıcı', 'Audio bridge: ' + peers + ' receiver(s)');
+  bridgeTray.setToolTip(line);
+  bridgeTray.setContextMenu(Menu.buildFromTemplate([
+    { label: line, enabled: false },
+    { label: s.capturing ? trUi('Ses yakalanıyor', 'Capturing audio') : trUi('Ses yakalanmıyor (alıcı yok)', 'Not capturing (no receivers)'), enabled: false },
+    { type: 'separator' },
+    { label: trUi('Paneli Aç', 'Open Panel'), click: () => openPanelFromBridge() },
+    { label: trUi('Çık', 'Quit'), click: () => { forceQuitApp = true; app.quit(); } },
+  ]));
 }
 
 /* Yakalama yardımcısı beklenmedik biçimde kapanınca yeniden kurulur:
@@ -2582,14 +2799,18 @@ function applyIncomingConfig(config, opts) {
   } else {
     streamServer.broadcast({ type: 'config', config });
   }
-  syncRedundancy();
-  redundancyPush(patchKeys);
-  syncStreamServer();
-  syncOscServer();
-  syncArtnet();
-  syncOscOut();
-  syncOpenRgb();
-  syncTextureShare();
+  syncBridge(); // ses köprüsü (#813)
+  // Köprü kipinde görüntü, ışık, yayın ve OSC çıkışları kapalı kalır
+  if (!BRIDGE_ONLY) {
+    syncRedundancy();
+    redundancyPush(patchKeys);
+    syncStreamServer();
+    syncOscServer();
+    syncArtnet();
+    syncOscOut();
+    syncOpenRgb();
+    syncTextureShare();
+  }
   syncNowPlaying();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
   // yalnızca panel önizlemesi dinliyor olsa da geçerlidir.
@@ -3806,9 +4027,11 @@ async function preshowCheck() {
     wantedDisplays: (cfg.display && Array.isArray(cfg.display.ids)) ? cfg.display.ids : [],
     outputs,
     sharedRate: shared,
-    audio: { wanted: captureWanted(), ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
+    audio: { wanted: captureWanted() || !!bridge.input, ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
     missing,
     redundancy: redundancyStatus(),
+    bridge: bridge.input ? { receive: true, state: bridge.input.state, fallback: bridge.cfg.fallback, problem: audioBridge.problem(bridge.cfg) }
+      : (bridge.cfg.receive ? { receive: true, state: 'waiting', fallback: bridge.cfg.fallback, problem: audioBridge.problem(bridge.cfg) } : null),
     disks,
   });
 }
@@ -4097,6 +4320,10 @@ const mediaSession = new MediaSession();
 let adminWantsNowPlaying = false;
 
 mediaSession.subscribe((st) => {
+  // Köprü çalan parçayı da verir (#813)
+  if (bridge.sender) bridge.sender.meta(st);
+  // Ses girişi köprüdeyken parça bilgisi de köprünün
+  if (bridge.input && bridge.input.useBridge && bridge.meta) return;
   sendToVisualizers('now-playing', st);
   notifyAdmin('now-playing', st);
   if (typeof streamServer.broadcastNowPlaying === 'function') {
@@ -4146,7 +4373,9 @@ function wantsNowPlaying(cfg) {
 
 function syncNowPlaying() {
   const streamWants = streamServer.status && streamServer.status().running && typeof streamServer.clientCount === 'function' && streamServer.clientCount() > 0;
-  const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig) || streamWants;
+  // Köprü çalan parçayı alıcılara da veriyor (#813)
+  const bridgeWants = !!(bridge.sender && bridge.sender.peerCount() > 0);
+  const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig) || streamWants || bridgeWants;
   if (want) mediaSession.start();
   else mediaSession.stop();
 }
@@ -6004,9 +6233,18 @@ app.whenReady().then(async () => {
   if (AUTOMATION && sess.setDevicePermissionHandler) {
     sess.setDevicePermissionHandler(() => false);
   }
-  createAdminWindow();
+  if (!BRIDGE_ONLY || process.argv.includes('--panel')) createAdminWindow();
   scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
+  // Ses köprüsü (#813): gönderen, alıcı ve keşif ayara göre
+  syncBridge();
+  if (BRIDGE_ONLY) {
+    /* Yalnız köprü: görüntü, ışık, yayın ve OSC çıkışları açılmaz. Panel
+       açılmaz; sistem tepsisinden ya da uygulamayı yeniden çalıştırarak
+       açılır (`--panel` ile açılışta da). */
+    createBridgeTray();
+    syncCapture();
+  } else {
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
   syncRedundancy(); // birincilse yayın sunucusunu da açar (#540)
   syncStreamServer().catch(() => {});
@@ -6015,6 +6253,7 @@ app.whenReady().then(async () => {
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
   syncTextureShare().catch(() => {});
+  }
 
   // Ekran değişikliklerini admin'e bildir
   screen.on('display-added', () => notifyAdmin('displays-changed', getDisplayList()));
@@ -8763,6 +9002,8 @@ app.on('before-quit', (e) => {
 });
 
 app.on('window-all-closed', () => {
+  // Köprü kipi panel kapanınca da sürer; tepsiden "Çık" ile kapanır (#813)
+  if (BRIDGE_ONLY && bridgeTray && !forceQuitApp) return;
   if (process.platform !== 'darwin') app.quit();
 });
 
