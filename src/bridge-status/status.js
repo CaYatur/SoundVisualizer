@@ -140,7 +140,7 @@
     if (st && st.appFallback) nodes.push(el('div', { class: 'bs-warn', text: APP_ERR[st.appFallback.code] || st.appFallback.message || APP_ERR.UNSUPPORTED_PLATFORM }));
     const cs = st && st.captureStatus;
     if (cs && cs.type === 'error') nodes.push(el('div', { class: 'br-err', text: ERR[cs.code] || cs.message || tr('Ses yakalanamadı') }));
-    if (cs && cs.type === 'no-loopback') nodes.push(el('div', { class: 'bs-warn', text: cs.message }));
+    if (cs && cs.type === 'no-loopback' && cs.message) nodes.push(el('div', { class: 'bs-warn', text: cs.message }));
     return el('section', { class: 'bs-card bs-src' }, nodes);
   }
 

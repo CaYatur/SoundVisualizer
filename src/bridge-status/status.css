@@ -27,3 +27,29 @@ body.bridge-status { height: auto; min-height: 100vh; overflow-y: auto; display:
 .bs-src .ctrl > .lbl { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
 .bs-src .studio-note { margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--card2); font-size: 12px; color: var(--muted); line-height: 1.4; }
 .bs-src > .btn { align-self: flex-start; margin-top: 8px; }
+
+/* DUYARLI YERLEŞİM (#813): 360 px'e dek taşma yok. Izgara ve esnek
+   kutuların çocukları içerik genişliğine kilitlenmesin (min-width:0); uzun
+   adlar üç noktayla kısalır (tam ad title'da), açıklamalar sarar, boş kutular
+   gizlenir, kaynak listesi kendi alanında kayar. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body.bridge-status { overflow-x: hidden; }
+.bs-main { grid-template-columns: minmax(0, 1fr); width: 100%; }
+.bs-main > *, .bs-card > *, .bs-src > *, .bs-src .ctrl, .bs-src .ctrl > * { min-width: 0; max-width: 100%; }
+.bs-top > * { min-width: 0; }
+.bs-title { flex: 1 1 160px; }
+.bs-note, .bs-warn, .br-err, .bs-src .studio-note, .br-sub { white-space: normal; overflow-wrap: anywhere; }
+.bs-note:empty, .bs-warn:empty, .br-err:empty, .br-warn:empty, .studio-note:empty, .br-grid:empty, .bs-card:empty { display: none; }
+.bs-src .source-list { max-height: min(46vh, 340px); overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.bs-src .segment { display: flex; flex-wrap: wrap; }
+.bs-src .segment button { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-main .br-grid { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.bs-main .br-tile { min-width: 0; }
+.bs-main .br-tile-v, .bs-main .br-tile-k { overflow: hidden; text-overflow: ellipsis; }
+.bs-main .br-tile.wide { grid-column: 1 / -1; }
+@media (max-width: 420px) {
+  .bs-main { padding: 10px; gap: 10px; }
+  .bs-card { padding: 12px; }
+  .bs-main .br-grid { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
+  .bs-actions .btn { flex: 1 1 auto; }
+}

@@ -793,12 +793,16 @@ video.logo-lib-thumb { pointer-events: none; }
   accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; flex-shrink: 0;
 }
 .source-icon { font-size: 14px; flex-shrink: 0; }
-.source-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Dar pencerede uzun adlar satırı taşırmasın; tam ad title'da (#813) */
+.source-list { min-width: 0; }
+.source-item { min-width: 0; }
+.source-note { flex-shrink: 0; font-size: 11px; color: var(--muted); }
 .source-item:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 /* Uygulama satırının canlı ölçeri (#516). Doluluk .meter .bar i gibi
    `transform` ile: yerleşim yeniden hesaplanmasın (#621). */
 .source-meter {
-  flex: 0 0 64px; height: 5px; border-radius: 4px; overflow: hidden;
+  flex: 0 1 64px; min-width: 28px; height: 5px; border-radius: 4px; overflow: hidden;
   background: var(--card); border: 1px solid var(--line);
 }
 .source-meter i {

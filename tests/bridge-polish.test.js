@@ -44,3 +44,17 @@ test('köprü kaynak değiştirirken alıcılara haber veriyor', () => {
   assert.match(M, /if \(bridge\.sender && lastCaptureSource && JSON\.stringify\(sources\) !== JSON\.stringify\(lastCaptureSource\)\) bridge\.sender\.switching\(3000\);/);
   assert.match(M, /onSwitching: \(ms\) => \{ if \(bridge\.input\) bridge\.input\.hold\(Date\.now\(\), ms\); \},/);
 });
+
+test('durum penceresi dar genişlikte taşmıyor: min-width:0, üç nokta + title, sarma, boş kutu yok', () => {
+  const C = read('src/bridge-status/status.css');
+  assert.match(C, /\.bs-main \{ grid-template-columns: minmax\(0, 1fr\); width: 100%; \}/);
+  assert.match(C, /\.bs-src \.source-list \{ max-height: min\(46vh, 340px\); overflow-y: auto;/);
+  assert.match(C, /\.bs-main \.br-grid \{ grid-template-columns: repeat\(auto-fit, minmax\(118px, 1fr\)\); \}/);
+  assert.match(C, /\.bs-note:empty, \.bs-warn:empty, \.br-err:empty/);
+  assert.match(C, /\.bs-note, \.bs-warn, \.br-err, \.bs-src \.studio-note, \.br-sub \{ white-space: normal; overflow-wrap: anywhere; \}/);
+  const A = read('src/admin/admin.css');
+  assert.match(A, /\.source-name \{ flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; \}/);
+  assert.match(read('src/admin/audio-sources.js'), /el\('span', \{ class: 'source-name', text: label, title: label \}\)/);
+  assert.match(read('src/main/main.js'), /width: 460, height: 640, minWidth: 360, minHeight: 480,/);
+  assert.match(read('src/bridge-status/status.js'), /cs\.type === 'no-loopback' && cs\.message\)/);
+});

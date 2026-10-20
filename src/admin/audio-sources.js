@@ -81,7 +81,7 @@
       const kids = [
         cb,
         el('span', { class: 'source-icon', icon }),
-        el('span', { class: 'source-name', text: label }),
+        el('span', { class: 'source-name', text: label, title: label }),
       ];
       if (meter) kids.push(meter);
       if (extra) kids.push(el('span', { class: 'source-note', text: extra }));

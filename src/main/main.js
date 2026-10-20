@@ -1811,7 +1811,7 @@ function openBridgeWindow() {
   }
   const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.png');
   const win = new BrowserWindow({
-    width: 460, height: 640, minWidth: 340, minHeight: 420,
+    width: 460, height: 640, minWidth: 360, minHeight: 480,
     title: trUi('Ses Köprüsü', 'Audio Bridge'),
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: adminBackground(currentConfig || {}),
