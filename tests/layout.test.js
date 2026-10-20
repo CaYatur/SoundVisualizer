@@ -141,3 +141,37 @@ test('metin, kart ve logo kutularını dinlenme hâlinde bildiriyor (kaynak söz
   assert.match(layers, /const restW = minDim \* scale;/, 'logo kutusu nabızsız');
   assert.match(layers, /layoutBounds\(\) \{/);
 });
+
+/* EŞLİK (#539'un temeli): önizleme küçük, dışa aktarım büyük tuvalde çiziyor.
+   Aynı ayar her çözünürlükte aynı normalize kutuyu vermeli; yoksa editörde
+   yerleştirilen öğe videoda başka yerde durur. */
+function measuringCanvas(W, H) {
+  let font = 16;
+  const ctx = new Proxy({}, {
+    get: (_, k) => (k === 'measureText' ? (s) => ({ width: String(s).length * font * 0.5 }) : k === 'font' ? font + 'px' : () => {}),
+    set: (_, k, v) => { if (k === 'font') { const m = /([\d.]+)px/.exec(String(v)); if (m) font = +m[1]; } return true; },
+  });
+  return { width: W, height: H, getContext: () => ctx };
+}
+
+test('eşlik: barlar ve metin kutusu önizleme ve dışa aktarım çözünürlüğünde aynı', () => {
+  const Bars = loadMode('src/visualizer/modes/bars.js', 'bars');
+  const v = { barCount: 48, gap: 0.3, sensitivity: 1, position: 'bottom', barSpan: 0.7, barCenterX: 0.42, baseline: 0.7, barHeight: 0.25, color: '#fff' };
+  const audio = { getBars: (n) => new Float32Array(n).fill(0.5), level: 0.5, bass: 0.5 };
+  const boxAt = (Mode, W, H, cfg) => { const m = new Mode(measuringCanvas(W, H)); m.draw(audio, cfg, 1, 0.016); return m.layoutBounds; };
+  const a = boxAt(Bars, 940, 529, { visualizer: v });
+  const b = boxAt(Bars, 1920, 1080, { visualizer: v });
+  ['x', 'y', 'w', 'h'].forEach((k) => assert.ok(Math.abs(a[k] - b[k]) < 0.003, 'bars ' + k + ' ' + a[k] + ' / ' + b[k]));
+  // Dikey çıktı (9:16) da aynı kural
+  const p1 = boxAt(Bars, 410, 729, { visualizer: v });
+  const p2 = boxAt(Bars, 1080, 1920, { visualizer: v });
+  ['x', 'y', 'w', 'h'].forEach((k) => assert.ok(Math.abs(p1[k] - p2[k]) < 0.003, 'bars 9:16 ' + k));
+
+  const Text = loadMode('src/visualizer/modes/text.js', 'text', { SVI18n: { t: (s) => s } });
+  const tcfg = { visualizer: { type: 'text', sensitivity: 1 }, text: { enabled: true, source: 'static', content: 'CAYADEV', size: 0.09, x: 0.3, y: 0.4, align: 'left', animation: 'none', audioScale: 0 } };
+  const t1 = boxAt(Text, 940, 529, tcfg);
+  const t2 = boxAt(Text, 1920, 1080, tcfg);
+  assert.ok(t1 && t2, 'metin kutusu bildirildi');
+  ['x', 'y', 'w', 'h'].forEach((k) => assert.ok(Math.abs(t1[k] - t2[k]) < 0.003, 'text ' + k + ' ' + t1[k] + ' / ' + t2[k]));
+  assert.ok(Math.abs(t1.x - 0.3) < 1e-9, 'sol hizada x çapa');
+});

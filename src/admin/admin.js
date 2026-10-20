@@ -5689,6 +5689,10 @@
       ensureAudioListeningFromLevels(l);
     }, 50);
 
+    // Düzen editörü (#534): önizlemeyi büyük bir pencerede düzenler
+    const layBtn = $('layoutEditBtn');
+    if (layBtn) layBtn.addEventListener('click', () => { if (window.SVLayoutEditor) window.SVLayoutEditor.open(layBtn); });
+
     const btn = $('previewToggle');
     if (btn) {
       btn.addEventListener('click', () => {

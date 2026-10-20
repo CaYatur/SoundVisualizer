@@ -10,6 +10,17 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Layout editor [534].** The grid button above the live preview opens the preview large,
+  framed as 16:9, 9:16 or 1:1.
+  - Drag the bars, the now-playing card, a text layer or the logo. They snap to the frame's edges
+    and centre, to the safe areas and to each other. Hold Alt to place freely.
+  - Arrow keys move the selected element; with Shift the step is ten times larger. The numeric
+    fields take exact values.
+  - The values land in each element's own settings, so the other cards show the same numbers.
+    The output is drawn from the same settings as the preview.
+  - It is the same preview, not a second renderer.
+  - The self-test opens the editor and checks that every control in it has a name and that the
+    preview returns to its place.
 - **Groundwork [534].**
   - Bars, text, the now-playing card and the logo report the box they actually draw, in their
     rest pose, without the entrance animation or the audio pulse.
