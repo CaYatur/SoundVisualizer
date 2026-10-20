@@ -402,6 +402,11 @@
        yayın sunucusundan http:// ile alır; orada özel protokol diye bir şey
        yoktur, dosyayı sunucunun /media-file yolu servis eder. */
     _sourceUrl(file) {
+      /* Dışa aktarımda ana süreç her video için her karesi anahtar kare bir
+         ara kopya hazırlıyor (#539, main/export-media.js): kare başı sarma
+         ucuz. Kopya yoksa özgün dosya. */
+      const map = this.offline && typeof window !== 'undefined' ? window.SVExportMediaMap : null;
+      if (map && typeof map[file] === 'string' && map[file]) return map[file];
       const http = typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
       let token = '';
       try { token = new URLSearchParams(location.search).get('token') || ''; } catch { /* */ }
@@ -432,7 +437,8 @@
        bekler. Canlı oynatıcıda katman göründüğü anda başlıyor; dışa
        aktarımda o an t = 0. */
     async seekTo(sec) {
-      if (!this.offline || this._source !== 'file' || !this._loaded) return false;
+      // null: sarılacak bir şey yok (kamera, dosya seçilmemiş); false: kare okunamadı
+      if (!this.offline || this._source !== 'file' || !this._loaded) return null;
       const ok = await this._loaded;
       if (!ok) return false;
       const v = this.video;

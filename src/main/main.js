@@ -4698,6 +4698,59 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    açılamaması için ikisi ayrı parametre. */
 // Son dışa aktarma işinin yapılandırması: sv-media o işin videolarını da sunar
 let exportMediaCfg = null;
+/* Dışa aktarımda video katmanının ara kopyaları (#539, export-media.js):
+   her karesi anahtar kare, kare başı sarma ucuz. İş bitince silinir. */
+const exportMedia = require('./export-media');
+const exportMediaTemp = { dir: null, paths: new Set() };
+
+function runFfmpegCapture(ff, args) {
+  return new Promise((resolve) => {
+    let err = '';
+    let proc;
+    try { proc = spawn(ff, args, { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] }); }
+    catch { return resolve({ code: -1, err: 'spawn failed' }); }
+    proc.stderr.on('data', (d) => { if (err.length < 64000) err += d.toString(); });
+    proc.on('error', () => resolve({ code: -1, err }));
+    proc.on('close', (code) => resolve({ code, err }));
+  });
+}
+
+/* Sahnedeki her video dosyası için ara kopya; { cfg değeri: kopyanın
+   sv-media adresi }. Kopyalanamayan (yok, saydamlıklı, çevirme hatası)
+   eşlemeye girmez, dışa aktarıcı özgün dosyayı kullanır. */
+async function prepareExportMedia(ff, cfg, maxSec, w, h) {
+  const files = exportMedia.mediaFiles(cfg);
+  const map = {};
+  if (!files.length) return map;
+  cleanupExportMedia();
+  let i = 0;
+  for (const file of files) {
+    const raw = mediaUrl.fromMediaUrl(file);
+    if (!raw || !fs.existsSync(raw)) continue;
+    const probe = await runFfmpegCapture(ff, ['-hide_banner', '-i', raw]);
+    if (exportMedia.hasAlpha(probe.err)) continue;
+    if (!exportMediaTemp.dir) {
+      try { exportMediaTemp.dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'sv-export-media-')); }
+      catch { return map; }
+    }
+    const out = exportMedia.tempName(exportMediaTemp.dir, i++);
+    const res = await runFfmpegCapture(ff, exportMedia.transcodeArgs(raw, out, { maxSec, width: w, height: h }));
+    if (res.code === 0 && fs.existsSync(out) && fs.statSync(out).size > 0) {
+      exportMediaTemp.paths.add(path.resolve(out));
+      map[file] = mediaUrl.toMediaUrl(out);
+    } else {
+      console.warn('[export] video ara kopyası yapılamadı, özgün dosya kullanılacak: ' + (res.err || '').slice(-300));
+    }
+  }
+  return map;
+}
+
+function cleanupExportMedia() {
+  const dir = exportMediaTemp.dir;
+  exportMediaTemp.dir = null;
+  exportMediaTemp.paths.clear();
+  if (dir) { try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* kilitli: işletim sistemi temizler */ } }
+}
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
@@ -4912,6 +4965,14 @@ async function startExportJob(opts, bench, extra) {
   proc.on('exit', onFfClosed);
   proc.on('close', onFfClosed);
 
+  /* Video katmanlarının ara kopyaları (#539). Süre sesin süresiyse ses
+     dosyasınınki; bilinmiyorsa kaynak kısaltılmaz. */
+  const mediaMap = await prepareExportMedia(ff, jobCfg, durationSec > 0 ? durationSec : (audioSec || 0), w, h);
+  if (!isMine() || exportState.cancel) {
+    if (isMine()) finalizeExport('cancelled');
+    return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
+  }
+
   // Gizli render penceresi (offscreen kanvas; ekrana çizilmez)
   exportWin = new BrowserWindow({
     width: 320,
@@ -4968,6 +5029,8 @@ async function startExportJob(opts, bench, extra) {
     durationSec,
     platform: process.platform,
     lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot() : [],
+    // Video katmanı: cfg'deki dosya → her karesi anahtar kare ara kopya (#539)
+    mediaMap,
   });
 
   return { ok: true };
@@ -5118,6 +5181,7 @@ ipcMain.on('export:error', (e, msg) => finalizeExport('error', msg));
 
 function finalizeExport(status, message, opts) {
   if (!exportState) return; // tek sefer
+  cleanupExportMedia();
   const out = exportState.outputPath;
   const seqDir = exportState.seqDir;
   const workDir = exportState.workDir;
@@ -5291,7 +5355,8 @@ app.whenReady().then(async () => {
     try {
       const raw = mediaUrl.fromMediaUrl(request.url);
       const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
-      const inExport = !!(raw && exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl));
+      const inExport = !!(raw && ((exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl))
+        || exportMediaTemp.paths.has(path.resolve(raw))));
       if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport)) {
         return new Response('forbidden', { status: 403 });
       }
@@ -7573,7 +7638,8 @@ async function runSmoke() {
         const out = path.join(outDir, 'media-layer.mp4');
         try { fs.unlinkSync(out); } catch { /* yok */ }
         const mk = await runFf(['-y', '-f', 'lavfi', '-i', "color=c=black:s=320x180:r=30:d=2,format=rgb24,geq=r='N*4':g='0':b='0'",
-          '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-qp', '0', '-g', '1', src]);
+          // Varsayılan GOP (tek anahtar kare): dışa aktarım ara kopyayı kullanmalı
+          '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-qp', '0', src]);
         if (!mk.ok) {
           errors.push('export media-layer: test videosu üretilemedi');
         } else {
