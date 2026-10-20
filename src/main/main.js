@@ -929,7 +929,8 @@ function createVisualizerWindow(display) {
       backgroundThrottling: false, // arka planda da akıcı kalsın
       // Projeksiyon haritalaması ekran başına saklanıyor; pencere hangi
       // ekranda olduğunu bilmeli
-      additionalArguments: ['--sv-display-id=' + display.id],
+      // Ortak saat İLK karede hazır olsun (#543): eşzamansız gelirse t ilk karelerde sıçrar
+      additionalArguments: ['--sv-display-id=' + display.id, '--sv-shared-epoch=' + sharedEpochNow()],
     },
   };
   if (see) {
@@ -982,6 +983,8 @@ function createVisualizerWindow(display) {
     /* Gösteri saati çıpası da hemen gitmeli: sonradan açılan bir ekran,
        bir sonraki durum değişikliğine kadar oynatma kafasını 0 sanardı. */
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    // Ortak oturum saati (#544): sonradan açılan ekran da aynı modülasyon evresinde
+    if (red.sharedSent != null) win.webContents.send('shared-clock', { epoch: red.sharedSent });
     ensureLyricsClock();
     if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     /* Calan parca durumu da hemen gitmeli. Kaynak konumu ancak on saniyede
@@ -1242,6 +1245,7 @@ function startVisualizerCapture() {
           global.__smokeMonoFrames = (global.__smokeMonoFrames || 0) + 1;
         }
       }
+      lastAudioFrameAt = Date.now(); // gösteri öncesi denetim (#545)
       sendToVisualizers('native-audio', frame);
       if (previewSubscribed) notifyAdmin('native-audio', frame);
       // OBS tarayıcı kaynağı ve diğer web istemcileri
@@ -1973,7 +1977,7 @@ function createFloatingWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false,
-      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1'],
+      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1', '--sv-shared-epoch=' + sharedEpochNow()],
     },
   });
   floatingWin = win;
@@ -2003,6 +2007,8 @@ function createFloatingWindow() {
     syncCapture();
     if (currentConfig) win.webContents.send('config', rendererConfig(currentConfig));
     if (showClockAnchor) win.webContents.send('show-clock', showClockAnchor);
+    // Ortak oturum saati (#544): sonradan açılan ekran da aynı modülasyon evresinde
+    if (red.sharedSent != null) win.webContents.send('shared-clock', { epoch: red.sharedSent });
     ensureLyricsClock();
     if (lyricsClockAnchor) win.webContents.send('lyrics-clock', lyricsClockAnchor);
     if (mediaSession.current().has) win.webContents.send('now-playing', mediaSession.current());
@@ -2130,6 +2136,8 @@ let showClockAnchor = null;
 ipcMain.on('show-clock', (e, anchor) => {
   showClockAnchor = anchor || null;
   sendToVisualizers('show-clock', showClockAnchor);
+  // Yedeklilik (#544): birincilin taşıması yedeğe de gider
+  if (red.role === 'primary' && streamServer.peerCount()) streamServer.sendPeers({ type: 'show-clock', anchor: showClockAnchor });
 });
 
 ipcMain.handle('visualizer-open-displays', () => Array.from(visualizerWins.keys()));
@@ -2515,6 +2523,7 @@ ipcMain.on('lyrics-clock', (e, anchor) => {
    kaydedilir; diskten YÜKLENEN (ayar çakışmasında "diskteki ayarları yükle")
    zaten diskte olduğu için kaydedilmez. */
 function applyIncomingConfig(config, opts) {
+  opts = redundancyGuard(config, opts); // yedek izlerken görüntü birincilden (#540)
   noteLyricsFile(config);
   const save = !(opts && opts.save === false);
   const prevSee = wantsTransparent();
@@ -2572,6 +2581,8 @@ function applyIncomingConfig(config, opts) {
   } else {
     streamServer.broadcast({ type: 'config', config });
   }
+  syncRedundancy();
+  redundancyPush(patchKeys);
   syncStreamServer();
   syncOscServer();
   syncArtnet();
@@ -2716,6 +2727,9 @@ function relayMdFollow(sender, mp) {
     next: typeof mp.next === 'string' ? mp.next : null };
   const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
   const now = Date.now();
+  /* Yedek birincili izlerken kendi seçimini dağıtmaz (#540): ekranları
+     birincilin seçimini alıyor (onPrimaryMessage). */
+  if (red.role === 'backup' && red.follower && red.follower.follows() && now - red.mdFromPrimaryAt < 1500) return;
   if (key === mdFollowSent.key && now - mdFollowSent.at < 250) return;
   mdFollowSent = { key, at: now };
   for (const win of openWindows()) {
@@ -2724,6 +2738,7 @@ function relayMdFollow(sender, mp) {
   const ts = textureShare.window();
   if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
   streamServer.broadcast({ type: 'md-follow', follow }, 'overlay');
+  if (red.role === 'primary') streamServer.sendPeers({ type: 'md-follow', follow });
 }
 
 /* Görselleştirici penceresi ve Spout/Syphon yokken lider panel
@@ -2735,6 +2750,9 @@ ipcMain.on('md-live', (e, mp) => {
 
 ipcMain.on('audio-meter', (e, data) => {
   noteMcpLive(data);
+  // Gösteri öncesi denetim (#545): her çıkışın kare hızı, ilk pencere süzgecinden önce
+  if (data && Number.isFinite(data.fps)) outputFps.set(e.sender.id, { fps: data.fps, paused: !!data.paused, cap: Number(data.fpsCap) || 0, at: Date.now() });
+  if (data && Number.isFinite(data.level)) lastMeterLevel = data.level;
   if (data && typeof data === 'object') {
     if (Number.isFinite(data.level)) oscLive.level = data.level;
     if (Number.isFinite(data.bass)) oscLive.bass = data.bass;
@@ -2847,6 +2865,7 @@ function broadcastPresetDelta(upsert, remove) {
   notifyAll('presets-delta', delta);
   streamServer.broadcast({ type: 'presets-delta', delta });
   followActivePreset(up);
+  scheduleCompare(); // yedekle gösteri karşılaştırması bayatladı (#541)
 }
 
 // Açılışta arka planda okunmuş olabilir; değilse okuma burada bitiyor
@@ -3215,11 +3234,21 @@ function syncStreamServer() {
     streamSyncing = false;
     return r;
   };
-  if (!s.enabled) return streamServer.stop().then(() => done(streamServer.status()));
-  if (!s.token) s.token = streamServer.newToken();
-  if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = streamServer.newToken();
+  // Birincil makine (#540) yedeğe yayın sunucusundan ulaşır: kapalıysa da açılır
+  const peerHost = red.role === 'primary' && !redundancy.problem(red.cfg);
+  if (!s.enabled && !peerHost) return streamServer.stop().then(() => done(streamServer.status()));
+  /* Yayın çıkışı kapalı, makine birincil: sunucu YALNIZ yedek için açılır —
+     yayın sayfası ve jeton yok. Eskiden burada jeton üretiliyordu; panelin
+     kopyasında jeton olmadığından her panel gönderiminde jeton değişiyor,
+     sunucu yeniden başlıyor ve yedeğin bağlantısı kopuyordu (ölçüldü:
+     yedeğe geçiş denemesinde birincil yaşarken yetki alındı). */
+  const peerOnly = !s.enabled;
+  if (!peerOnly) {
+    if (!s.token) s.token = streamServer.newToken();
+    if (!s.remoteToken || s.remoteToken === s.token) s.remoteToken = streamServer.newToken();
+  }
   return streamServer
-    .start(s, {
+    .start(peerOnly ? { port: s.port, lan: !!s.lan, peerOnly: true } : s, {
       getConfig: () => currentConfig,
       getPresets: () => presetsStore.list(),
       getLocale: () => appLocale(),
@@ -3241,6 +3270,8 @@ function syncStreamServer() {
       },
       logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
+      onPeerOpen: (client) => onPeerOpen(client),
+      onPeerMessage: (msg) => onPeerMessage(msg),
       onClientsChanged: (list) => {
         notifyAdmin('stream-clients', list);
         syncCapture(); // ilk istemci bağlanınca yakalamayı başlat, son ayrılınca durdur
@@ -3253,6 +3284,464 @@ function syncStreamServer() {
       return done(st);
     });
 }
+
+/* ---------------------------------------------------------------------------
+   YEDEKLİLİK (#540, redundancy.js). Birincil: yayın sunucusundan yedeğe
+   anlık görüntü, değişen anahtarlar, MilkDrop seçimi ve kalp atışı. Yedek:
+   birincile bağlanır, izlerken görüntüyü ondan alır (kurulum hiç değişmez),
+   atış eşiği aşılınca kendiliğinden ya da elle yetkiyi alır.
+   --------------------------------------------------------------------------- */
+const redundancy = require('./redundancy');
+const ShowKeys = require('../shared/show-keys');
+const red = {
+  sig: '', role: 'off', cfg: redundancy.normalize(null),
+  follower: null, client: null, beatTimer: null, tickTimer: null,
+  seq: 0, sent: {}, peerState: '', mdFromPrimaryAt: 0, adminTimer: null,
+  // Yedek: birincilden gelen son görüntü ve gösteri (yerel panel ezmesin)
+  mirror: null,
+  /* Ortak oturum saati (#544): birincilin oturum başlangıcı, birincilin
+     saatinde. Modülasyon evresi bundan sayılır; iki makinede aynı evre.
+     Unix zamanı değil, yakın bir başlangıç: shader'lara giden float32
+     zaman büyük sayıda adım adım ilerlerdi. */
+  sessionStart: Date.now(),
+  primaryStart: null,
+  sharedSent: null,
+};
+
+function redundancyStatus() {
+  const base = { role: red.role, problem: redundancy.problem(red.cfg) };
+  if (red.role === 'primary') {
+    return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null });
+  }
+  if (red.role === 'backup' && red.follower) return Object.assign(base, red.follower.status, { sharedEpoch: red.sharedSent });
+  return base;
+}
+function notifyRedundancy() { notifyAdmin('redundancy-status', redundancyStatus()); }
+
+function stopRedundancy() {
+  if (red.beatTimer) { clearInterval(red.beatTimer); red.beatTimer = null; }
+  if (red.tickTimer) { clearInterval(red.tickTimer); red.tickTimer = null; }
+  if (red.client) { red.client.close(); red.client = null; }
+  red.follower = null;
+  red.sent = {};
+  red.peerState = '';
+  red.mirror = null;
+  red.show = null;
+  red.backupInv = null;
+  red.primaryStart = null;
+  red.invParts = null;
+  if (red.compareTimer) { clearTimeout(red.compareTimer); red.compareTimer = null; }
+  streamServer.setPeerSecret('');
+}
+
+// Yapılandırmadaki rol değiştiyse yeniden kur
+function syncRedundancy() {
+  const c = redundancy.normalize(currentConfig && currentConfig.redundancy);
+  const sig = JSON.stringify(c);
+  if (sig === red.sig) return;
+  red.sig = sig;
+  stopRedundancy();
+  red.cfg = c;
+  red.role = c.role;
+  if (c.role === 'off' || redundancy.problem(c)) { syncSharedClock(); notifyRedundancy(); return; }
+  if (c.role === 'primary') {
+    streamServer.setPeerSecret(c.secret);
+    syncStreamServer();
+    let prevBeat = 0;
+    red.beatTimer = setInterval(() => {
+      const now = Date.now();
+      // Kendi gecikmesi: yedek, atış arasının hangi tarafta uzadığını görsün
+      const gap = prevBeat ? now - prevBeat : 0;
+      prevBeat = now;
+      if (streamServer.peerCount()) streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart }));
+    }, c.heartbeatMs);
+  } else {
+    red.follower = redundancy.createFollower(c, Date.now());
+    red.client = redundancy.createClient({
+      url: redundancy.peerUrl(c),
+      onOpen: () => { red.follower.connected(); notifyRedundancy(); },
+      onClose: () => { if (red.follower) red.follower.disconnected(); notifyRedundancy(); },
+      onMessage: onPrimaryMessage,
+    });
+    /* Denetim setImmediate ile: ana iş parçacığı meşgul kaldıysa bekleyen
+       atışlar önce okunsun (zamanlayıcı → G/Ç → setImmediate). Yoksa
+       yoğun bir anın ardından gelen ilk denetim eski atışa bakıp
+       birincil yaşarken yetkiyi alabilirdi. */
+    red.tickTimer = setInterval(() => {
+      setImmediate(() => { if (red.follower && red.follower.tick(Date.now())) onFollowerChanged(); });
+    }, Math.max(25, Math.min(100, Math.round(c.heartbeatMs / 2))));
+  }
+  syncSharedClock(true);
+  notifyRedundancy();
+}
+
+// Birincil: yeni bağlanan yedeğe kim olduğu ve bütün görüntü
+function onPeerOpen(client) {
+  streamServer.sendJson(client, { type: 'hello', version: app.getVersion(), role: 'primary', start: red.sessionStart });
+  if (showClockAnchor) streamServer.sendJson(client, { type: 'show-clock', anchor: showClockAnchor });
+  streamServer.sendJson(client, redundancy.snapshotMsg(currentConfig, Date.now()));
+  red.sent = {};
+  for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
+  // Anlık görüntü uygulandıktan sonra gösteri karşılaştırması (#541)
+  requestInventory();
+  notifyRedundancy();
+}
+function onPeerMessage(msg) {
+  if (msg && msg.type === 'peer-state' && typeof msg.state === 'string') {
+    red.peerState = msg.state.slice(0, 20);
+    notifyRedundancy();
+  } else if (msg && msg.type === 'peer-inventory') {
+    onPeerInventory(msg);
+  }
+}
+
+/* İçerik değişti (preset, logo, ayar): karşılaştırma bayatladı. Birincil
+   kısa bir aradan sonra yeniden ister (sürüklemede her yamada değil). */
+function scheduleCompare() {
+  if (red.role !== 'primary' || !streamServer.peerCount()) return;
+  if (red.compareTimer) clearTimeout(red.compareTimer);
+  red.compareTimer = setTimeout(() => { red.compareTimer = null; requestInventory(); }, 1500);
+}
+
+/* Birincil: yapılandırma değişince yedeğe değişen anahtarlar. Sürüklemede
+   gelen yama anahtarları doğrudan; tam yapılandırmada son yollananla
+   karşılaştırılır (yalnız bağlı yedek varken). */
+function redundancyPush(patchKeys) {
+  if (red.role !== 'primary' || !streamServer.peerCount() || !currentConfig) return;
+  const keys = patchKeys ? patchKeys.filter((k) => ShowKeys.REPLICATED.indexOf(k) >= 0) : ShowKeys.REPLICATED;
+  const changed = [];
+  for (const k of keys) {
+    const j = JSON.stringify(currentConfig[k]);
+    if (j !== red.sent[k]) { red.sent[k] = j; changed.push(k); }
+  }
+  const msg = redundancy.patchMsg(currentConfig, changed, Date.now());
+  if (msg) { streamServer.sendPeers(msg); scheduleCompare(); }
+}
+
+/* Yedek birincili izlerken görüntü ve gösteri birincilden (#540): yerel
+   panelin gönderdiği eski kopya onu geri almasın; panel kendi kopyasını
+   tazeler. Kurulum anahtarları serbest. Yapılandırmayı yerinde düzeltir,
+   (gerekirse süzülmüş) seçenekleri döndürür. */
+function redundancyGuard(config, opts) {
+  if (red.role !== 'backup' || !red.mirror || !red.follower || !red.follower.follows() || (opts && opts.fromPrimary) || !config) return opts;
+  let overrode = false;
+  for (const k of Object.keys(red.mirror)) {
+    if (JSON.stringify(config[k]) !== JSON.stringify(red.mirror[k])) { config[k] = JSON.parse(JSON.stringify(red.mirror[k])); overrode = true; }
+  }
+  if (overrode && !red.adminTimer) {
+    red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
+  }
+  if (opts && Array.isArray(opts.patchKeys)) return Object.assign({}, opts, { patchKeys: opts.patchKeys.filter((k) => !(k in red.mirror)) });
+  return opts;
+}
+
+// Yedek: birincilden gelen ileti
+function onPrimaryMessage(msg) {
+  const f = red.follower;
+  if (!f) return;
+  if (msg.type === 'hello' || msg.type === 'beat') {
+    if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
+    if (msg.type === 'beat' && f.beat(msg, Date.now())) onFollowerChanged();
+    syncSharedClock();
+    return;
+  }
+  if (msg.type === 'show-clock') {
+    /* Birincilin çıpası bu makinenin saatine çevrilir: çıpa birincilin
+       Date.now'uyla damgalı, pencereler yedeğin Date.now'uyla hesaplıyor. */
+    if (!f.follows()) return;
+    const a = msg.anchor && typeof msg.anchor === 'object' ? Object.assign({}, msg.anchor) : null;
+    if (a && Number.isFinite(a.epoch)) a.epoch = f.toLocal(a.epoch);
+    showClockAnchor = a;
+    sendToVisualizers('show-clock', showClockAnchor);
+    notifyAdmin('show-clock-follow', showClockAnchor);
+    return;
+  }
+  if (msg.type === 'inventory-request') { sendInventory(msg.id).catch(() => {}); return; }
+  if (msg.type === 'asset') { onPrimaryAsset(msg); return; }
+  if (msg.type === 'md-follow') {
+    // Birincilin MilkDrop seçimi bu makinenin BÜTÜN ekranlarına
+    if (!f.follows() || !msg.follow) return;
+    red.mdFromPrimaryAt = Date.now();
+    for (const win of openWindows()) win.webContents.send('md-follow', msg.follow);
+    const ts = textureShare.window();
+    if (ts) ts.webContents.send('md-follow', msg.follow);
+    streamServer.broadcast({ type: 'md-follow', follow: msg.follow }, 'overlay');
+    return;
+  }
+  if ((msg.type === 'snapshot' || msg.type === 'patch') && f.follows() && currentConfig) {
+    if (!red.mirror || msg.type === 'snapshot') red.mirror = {};
+    redundancy.applyIncoming(red.mirror, msg);
+    const next = Object.assign({}, currentConfig);
+    const changed = redundancy.applyIncoming(next, msg);
+    if (!changed.length) return;
+    applyIncomingConfig(next, { patchKeys: changed, fromPrimary: true });
+    // Panelin kopyası da tazelensin: yoksa paneldeki ilk değişiklik geri alırdı
+    if (!red.adminTimer) {
+      red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
+    }
+  }
+}
+
+/* Pencerelere ortak oturum saati: birincilde kendi başlangıcı, yedekte
+   birincilinki bu makinenin saatine çevrilmiş; rol kapalıysa yok (pencere
+   eski davranışta, kendi saatinde). Fark atış başına en çok 1 ms kaydığı
+   için 2 ms'den büyük değişimde yollanır. */
+function sharedEpoch() {
+  /* Yetkiyi almış yedek yayında: saat DONAR. Yeniden açılan birincilin yeni
+     başlangıcı burada t'yi geri sıçratırdı — açılış canlandırmaları yeniden
+     oynar, logo sırası atlar, bazı modlar kesinti süresi kadar durur.
+     Yeni başlangıç ancak yedek yeniden izlemeye geçince alınır. */
+  if (red.role === 'backup' && red.follower && red.follower.status.state === 'active' && red.sharedSent != null) {
+    return red.sharedSent;
+  }
+  if (red.role === 'backup' && red.follower && red.primaryStart != null && red.follower.status.offsetMs != null) {
+    return red.follower.toLocal(red.primaryStart);
+  }
+  /* Kare eşlemesi (#543): yedeklilik kapalıyken (ve birincilde) bu
+     makinenin oturum başlangıcı — aynı makinedeki pencereler aynı evrede. */
+  return red.sessionStart;
+}
+function sharedEpochNow() { return red.sharedSent != null ? red.sharedSent : sharedEpoch(); }
+ipcMain.handle('shared-clock:get', () => ({ epoch: sharedEpochNow() }));
+function syncSharedClock(force) {
+  const e = sharedEpoch();
+  const prev = red.sharedSent;
+  if (!force && (e === prev || (e != null && prev != null && Math.abs(e - prev) <= 2))) return;
+  red.sharedSent = e;
+  sendToVisualizers('shared-clock', { epoch: e });
+}
+
+function onFollowerChanged() {
+  if (!red.follower) return;
+  const st = red.follower.status;
+  if (red.client) red.client.send({ type: 'peer-state', state: st.state });
+  if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ')');
+  notifyRedundancy();
+}
+
+/* ---------------------------------------------------------------------------
+   GÖSTERİ KARŞILAŞTIRMASI (#541, show-inventory.js). Birincil yedekten
+   envanter ister, kendi envanteriyle karşılaştırır; fark listesi panelde.
+   Operatör onaylarsa presetler ve logolar birincilden gönderilir; video
+   dosyaları yalnız bildirilir.
+   --------------------------------------------------------------------------- */
+const showInventory = require('./show-inventory');
+const presetFpCache = new Map();
+let localInvBusy = null;
+
+// Sahnenin ve kayıtlı sahnelerin video dosyaları (yol → parmak izi)
+function showMediaPaths(cfg) {
+  const files = new Set(exportMedia.mediaFiles(cfg));
+  for (const sc of (cfg && Array.isArray(cfg.scenes) ? cfg.scenes : [])) {
+    if (sc && sc.data) for (const f of exportMedia.mediaFiles(sc.data)) files.add(f);
+  }
+  const out = {};
+  for (const f of files) {
+    const raw = mediaUrl.fromMediaUrl(f);
+    out[raw] = raw && fs.existsSync(raw) ? showInventory.fileFp(raw) : 'missing';
+  }
+  return out;
+}
+
+/* Yerel envanter. Büyük MilkDrop kütüphanesinde preset özeti önbellekten
+   (kimlik|güncelleme); hesap 200 presette bir olay döngüsüne bırakılır —
+   kalp atışı aynı iş parçacığında. */
+function buildLocalInventory() {
+  if (localInvBusy) return localInvBusy;
+  localInvBusy = (async () => {
+    const presets = [];
+    let i = 0;
+    for (const p of presetsStore.list()) {
+      if (!p || !p.id) continue;
+      const key = p.id + '|' + (p.updatedAt || 0);
+      let fp = presetFpCache.get(key);
+      if (!fp) { fp = showInventory.presetFp(p); presetFpCache.set(key, fp); }
+      presets.push({ id: p.id, fp });
+      if (++i % 200 === 0) await new Promise((r) => setImmediate(r));
+    }
+    /* Logo: dosyanın kendisinden (boyut + baş/son özeti). Kitaplık
+       kaydındaki `fp` eski öğelerde yok; ona güvenmek aynı dosyayı farklı
+       gösteriyordu. Logolar küçük ve az. */
+    const logos = logoLibrary.loadManifest(logoLibDir()).items.filter((it) => it && it.id).map((it) => {
+      const info = logoLibrary.fileInfo(logoLibDir(), it.id);
+      return { id: it.id, size: info ? info.size : 0, fp: info && info.file ? showInventory.fileFp(info.file) : 'missing' };
+    });
+    return showInventory.build({ version: app.getVersion(), cfg: currentConfig, presets, logos, media: showMediaPaths(currentConfig) });
+  })().finally(() => { localInvBusy = null; });
+  return localInvBusy;
+}
+
+// Birincil: farkın okunur listesi (panel)
+function labelDiff(d) {
+  if (d.kind === 'preset') { const p = presetsStore.get(d.id); return p && p.name ? p.name : d.id; }
+  if (d.kind === 'logo') {
+    const it = logoLibrary.loadManifest(logoLibDir()).items.find((x) => x && x.id === d.id);
+    return it && it.name ? it.name : d.id;
+  }
+  if (d.kind === 'media') return path.basename(d.id);
+  return d.id;
+}
+
+async function compareShow() {
+  if (red.role !== 'primary' || !red.backupInv) return null;
+  const own = await buildLocalInventory();
+  const list = showInventory.diff(own, red.backupInv);
+  red.show = {
+    hash: own.hash, peerHash: red.backupInv.hash, checkedAt: Date.now(),
+    differences: list.filter((d) => d.status !== 'extra').length,
+    pushable: list.filter((d) => d.pushable && d.status !== 'extra').length,
+    items: list.slice(0, 40).map((d) => Object.assign({}, d, { label: labelDiff(d) })),
+  };
+  notifyRedundancy();
+  return red.show;
+}
+
+function requestInventory() {
+  if (red.role === 'primary' && streamServer.peerCount()) {
+    red.invReq = (red.invReq || 0) + 1;
+    streamServer.sendPeers({ type: 'inventory-request', id: red.invReq });
+  }
+}
+
+// Birincil: yedeğin envanter parçaları
+function onPeerInventory(msg) {
+  if (!msg || typeof msg.items !== 'object' || !Number.isInteger(msg.part) || !Number.isInteger(msg.of)) return;
+  if (msg.part === 0 || !red.invParts || red.invParts.id !== msg.id) red.invParts = { id: msg.id, items: {}, got: 0 };
+  Object.assign(red.invParts.items, msg.items);
+  red.invParts.got++;
+  if (red.invParts.got >= msg.of) {
+    red.backupInv = { items: red.invParts.items, hash: showInventory.hashOf(red.invParts.items) };
+    red.invParts = null;
+    compareShow().catch(() => {});
+  }
+}
+
+// Yedek: envanteri parça parça gönder
+async function sendInventory(reqId) {
+  if (!red.client) return;
+  const inv = await buildLocalInventory();
+  const parts = showInventory.chunks(inv.items, 2000);
+  parts.forEach((items, part) => red.client.send({ type: 'peer-inventory', id: reqId, part, of: parts.length, items }));
+}
+
+/* Yedek: birincilden gelen öğe. Bağlantı eşleşme parolasıyla doğrulandı;
+   yalnız uygulamanın kendi kitaplıklarına yazılır ve içe aktarmadaki
+   denetimlerden geçer. */
+function onPrimaryAsset(msg) {
+  if (msg.kind === 'preset' && msg.preset && typeof msg.preset === 'object' && typeof msg.preset.id === 'string') {
+    const r = presetsStore.save(Object.assign({}, msg.preset, { builtin: false }));
+    if (r.ok) broadcastPresetDelta([r.preset], []);
+    return r.ok;
+  }
+  if (msg.kind === 'logo' && typeof msg.b64 === 'string') {
+    const r = logoLibrary.importBytes(logoLibDir(), { id: msg.id, name: msg.name, ext: msg.ext, bytes: Buffer.from(msg.b64, 'base64') });
+    return r.ok;
+  }
+  return false;
+}
+
+// Birincil: farkı gönder (operatör panelde onayladı)
+ipcMain.handle('redundancy:push', async () => {
+  if (red.role !== 'primary' || !streamServer.peerCount() || !red.show) return { ok: false, sent: 0 };
+  const own = await buildLocalInventory();
+  const list = showInventory.diff(own, red.backupInv).filter((d) => d.pushable && d.status !== 'extra');
+  let sent = 0;
+  for (const d of list) {
+    if (d.kind === 'preset') {
+      const p = presetsStore.get(d.id);
+      if (!p) continue;
+      streamServer.sendPeers({ type: 'asset', kind: 'preset', preset: p });
+      sent++;
+    } else if (d.kind === 'logo') {
+      const info = logoLibrary.fileInfo(logoLibDir(), d.id);
+      if (!info || !info.file) continue;
+      const it = logoLibrary.loadManifest(logoLibDir()).items.find((x) => x && x.id === d.id) || {};
+      let bytes;
+      try { bytes = fs.readFileSync(info.file); } catch { continue; }
+      streamServer.sendPeers({ type: 'asset', kind: 'logo', id: d.id, name: it.name || d.id, ext: path.extname(info.file).toLowerCase(), b64: bytes.toString('base64') });
+      sent++;
+    }
+    // Büyük gönderimde kalp atışı arada gitsin
+    if (sent % 25 === 0) await new Promise((r) => setImmediate(r));
+  }
+  requestInventory();
+  return { ok: true, sent };
+});
+ipcMain.handle('redundancy:compare', () => { requestInventory(); return redundancyStatus(); });
+
+/* ---------------------------------------------------------------------------
+   GÖSTERİ ÖNCESİ DENETİM (#545, preshow.js). Durum burada toplanır:
+   ekranlar, çıkışların kare hızı (ölçer iletisinden), ses karesinin yaşı,
+   sahnenin dosyaları, yedeklilik, disk.
+   --------------------------------------------------------------------------- */
+const preshow = require('./preshow');
+const outputFps = new Map(); // webContents kimliği -> { fps, paused, cap, at }
+let lastAudioFrameAt = 0;
+let lastMeterLevel = 0;
+
+function outputTarget(displayId, cap) {
+  const all = screen.getAllDisplays();
+  const d = all.find((x) => String(x.id) === String(displayId));
+  let hz = (d && d.displayFrequency) || 60;
+  /* Windows'ta Chromium her pencereyi BİRİNCİL ekranın dikey senkronuna
+     bağlıyor (ölçüldü: 165 Hz ekrandaki pencere 75 fps); hedef ikisinin
+     küçüğü. */
+  if (process.platform === 'win32') hz = Math.min(hz, screen.getPrimaryDisplay().displayFrequency || hz);
+  return cap > 0 ? Math.min(cap, hz) : hz;
+}
+
+function freeBytes(dir) {
+  try { const st = fs.statfsSync(dir); return st.bavail * st.bsize; } catch { return Infinity; }
+}
+
+async function preshowCheck() {
+  const cfg = currentConfig || {};
+  const displays = screen.getAllDisplays().map((d) => ({ id: d.id, label: d.label || String(d.id) }));
+  const now = Date.now();
+  const outputs = [];
+  for (const [displayId, win] of visualizerWins) {
+    if (!win || win.isDestroyed()) continue;
+    const m = outputFps.get(win.webContents.id);
+    const fresh = m && now - m.at < 3000;
+    outputs.push({ displayId, fps: fresh ? m.fps : 0, paused: fresh ? !!m.paused : false, target: outputTarget(displayId, fresh ? m.cap : 0) });
+  }
+  // Sahnenin başvurduğu dosyalar: video yolları, logo kitaplığı, kullanıcı presetleri
+  const refs = preshow.references(cfg);
+  const media = Object.keys(showMediaPaths(cfg)).filter((p) => !p || !fs.existsSync(p)).map((p) => path.basename(p));
+  const libIds = new Set(logoLibrary.loadManifest(logoLibDir()).items.map((x) => x && x.id));
+  const logos = refs.logos.filter((id) => !libIds.has(id));
+  const presets = refs.presets.filter((id) => !presetsStore.get(id));
+  let exportDir = '';
+  try { exportDir = app.getPath('videos'); } catch { exportDir = app.getPath('userData'); }
+  const disks = [
+    { label: 'userData', free: freeBytes(app.getPath('userData')) },
+    { label: 'temp', free: freeBytes(require('os').tmpdir()) },
+    { label: 'export', free: freeBytes(exportDir) },
+  ];
+  return preshow.evaluate({
+    displays,
+    wantedDisplays: (cfg.display && Array.isArray(cfg.display.ids)) ? cfg.display.ids : [],
+    outputs,
+    audio: { wanted: captureWanted(), ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
+    missing: { media, logos, presets },
+    redundancy: redundancyStatus(),
+    disks,
+  });
+}
+ipcMain.handle('preshow:check', () => preshowCheck());
+
+ipcMain.handle('redundancy:status', () => redundancyStatus());
+ipcMain.handle('redundancy:takeover', () => {
+  if (red.role !== 'backup' || !red.follower) return redundancyStatus();
+  if (red.follower.takeover(Date.now())) onFollowerChanged();
+  return redundancyStatus();
+});
+ipcMain.handle('redundancy:release', () => {
+  if (red.role !== 'backup' || !red.follower) return redundancyStatus();
+  if (red.follower.release(Date.now())) onFollowerChanged();
+  return redundancyStatus();
+});
+ipcMain.handle('redundancy:new-secret', () => require('crypto').randomBytes(18).toString('base64url'));
 
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
@@ -5428,6 +5917,7 @@ app.whenReady().then(async () => {
   scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
+  syncRedundancy(); // birincilse yayın sunucusunu da açar (#540)
   syncStreamServer().catch(() => {});
   syncOscServer().catch(() => {});
   syncArtnet().catch(() => {});
@@ -7413,6 +7903,36 @@ async function runSmoke() {
             if (r.same) hidden.set(r.d, (hidden.get(r.d) || 0) + 1);
           }
         }
+        /* Düzen editörü (#534): açılınca önizleme pencereye taşınır, içindeki
+           her denetimin adı olmalı, kapanınca önizleme yerine döner. */
+        const lay = await awc4.executeJavaScript(`(async function () {
+          var b = document.getElementById('layoutEditBtn');
+          if (!b || !window.SVLayoutEditor) return { err: 'no editor' };
+          b.click();
+          await new Promise(function (r) { setTimeout(r, 900); });
+          var stage = document.getElementById('previewStage');
+          return { open: window.SVLayoutEditor.isOpen(), inDialog: !!(stage && stage.closest('.lay-editor')), boxes: document.querySelectorAll('.lay-box').length };
+        })()`);
+        let layUnnamed = 0;
+        if (lay && lay.inDialog) {
+          const tree = (await dbg.sendCommand('Accessibility.getFullAXTree')).nodes || [];
+          const dlg = await awc4.executeJavaScript("(function(){var p=document.querySelector('.lay-editor');return p?p.querySelectorAll('button, input, select, textarea').length:0})()");
+          for (const n of tree) {
+            if (n.ignored || !n.role || !ROLES.has(n.role.value)) continue;
+            if (!String((n.name && n.name.value) || '').trim()) layUnnamed++;
+          }
+          lay.controls = dlg;
+        }
+        const back = await awc4.executeJavaScript(`(async function () {
+          if (window.SVLayoutEditor) window.SVLayoutEditor.close();
+          await new Promise(function (r) { setTimeout(r, 300); });
+          var stage = document.getElementById('previewStage');
+          return !!(stage && stage.closest('#dock')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
+        })()`);
+        console.log('[SMOKE] düzen editörü: ' + JSON.stringify(lay) + ', adsız ' + layUnnamed + ', önizleme yerine döndü ' + back);
+        if (!lay || lay.err || !lay.open || !lay.inDialog) errors.push('layout editor did not open with the preview: ' + JSON.stringify(lay));
+        if (layUnnamed) errors.push('layout editor: ' + layUnnamed + ' control(s) without an accessible name');
+        if (!back) errors.push('layout editor: the preview did not return to the dock');
         try { dbg.detach(); } catch (e) { /* zaten ayrıldı */ }
         console.log('[SMOKE] erişilebilirlik: ' + named + ' adlı denetim, ' + tabbed + ' odaklanan öğe');
         unnamed.forEach((n, d) => console.log('[SMOKE]   ~ adsız ' + n + ' × ' + d));

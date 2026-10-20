@@ -30,7 +30,7 @@
   const ANIM_LABELS = [
     ['none', 'Yok'], ['fade', 'Belirme'], ['slideUp', 'Yukarı Kayma'],
     ['slideLeft', 'Yana Kayma'], ['scale', 'Büyüme'],
-    ['typewriter', 'Daktilo'], ['wipe', 'Perde'],
+    ['typewriter', 'Daktilo'], ['wipe', 'Silme'],
   ];
   const ALIGN_LABELS = [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']];
   const FONT_LABELS = [

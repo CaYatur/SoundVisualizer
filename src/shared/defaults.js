@@ -1205,6 +1205,20 @@
       mode: 'read',
       port: 38471,
     },
+
+    /* Yedeklilik (#540). Kurulum ayarı: makineye özgü, aktarılmaz.
+       primary: yayın sunucusu yedeğe görüntüyü ve kalp atışını yollar.
+       backup: birincile bağlanır, sıcak bekler; atış eşiği aşılınca
+       kendiliğinden ya da elle yetkiyi alır. Parola en az 16 karakter. */
+    redundancy: {
+      role: 'off', // 'off' | 'primary' | 'backup'
+      host: '', // yedek: birincilin adresi
+      port: 8722, // yedek: birincilin yayın sunucusu bağlantı noktası
+      secret: '', // eşleşme parolası (iki makinede aynı)
+      heartbeatMs: 250,
+      timeoutMs: 1500,
+      takeover: 'auto', // 'auto' | 'manual'
+    },
   };
 
   // Ek görsel nesne (partikül emitör) varsayılanları.

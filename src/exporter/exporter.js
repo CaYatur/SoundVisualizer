@@ -293,6 +293,7 @@
     if (cfg.logo.enabled && cfg.logo.src) {
       logo = await loadLogo(cfg.logo.src);
     }
+    await preloadLayerLogos();
   }
 
   /* MEDYA KATMANLARI (#539). Dışa aktarıcı medya modunu hiç yüklemiyordu:
@@ -325,6 +326,34 @@
     if (!list.length) return true;
     const res = await Promise.all(list.map((m) => m.seekTo(t)));
     return res.every((r) => r !== false);
+  }
+
+  /* KATMAN LOGOLARI ÖNCEDEN (#535, #539). Yığındaki logo katmanları
+     görselini ilk karede eşzamansız istiyordu: kitaplık logosu videonun ilk
+     karelerinde eksik kalabiliyordu. Değişim listesindeki her görsel de
+     render başlamadan yüklenip çözülür — sıra canlıdakiyle aynı olsun ve
+     geçiş anında görsel hazır olsun. */
+  async function preloadLayerLogos() {
+    const L = window.SVLayers;
+    if (!L || !stack || typeof L.logoFileSrc !== 'function' || !Array.isArray(cfg.layers)) return;
+    const urls = new Set();
+    cfg.layers.forEach((l) => {
+      if (!l || l.kind !== 'logo' || l.enabled === false) return;
+      const lg = (l.settings && l.settings.logo) || cfg.logo;
+      if (!lg) return;
+      const own = L.logoFileSrc(lg);
+      if (own) urls.add(own);
+      const sw = lg.swap;
+      if (sw && sw.enabled && Array.isArray(sw.items)) {
+        sw.items.forEach((id) => { const u = L.logoFileSrc({ source: 'manual', libraryId: id }); if (u) urls.add(u); });
+      }
+    });
+    await Promise.all(Array.from(urls).map((u) => {
+      const img = stack._getImage(u);
+      if (!img) return null;
+      if (img.complete && img.naturalWidth) return null;
+      return (img.decode ? img.decode() : new Promise((r) => { img.onload = r; img.onerror = r; })).catch(() => null);
+    }));
   }
 
   /* Arkaplanın koyu yerlerini saydamlaştıran süzgeç. Görselleştirici

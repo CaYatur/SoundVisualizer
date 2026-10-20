@@ -664,6 +664,10 @@
         return dynamicThemeCtrl(def);
       case 'streampanel':
         return window.SVStream ? window.SVStream.panel() : null;
+      case 'redundancypanel':
+        return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
+      case 'preshowpanel':
+        return window.SVPreshowPanel ? window.SVPreshowPanel.panel() : null;
       case 'studiopanel':
         return window.SVStudio ? window.SVStudio.panel() : null;
       case 'controlpanel':
@@ -3298,6 +3302,24 @@
         controls: [{ type: 'streampanel' }],
       },
       {
+        id: 'redundancy',
+        category: 'output',
+        icon: 'copy',
+        wide: true,
+        title: 'Yedeklilik',
+        desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
+        controls: [{ type: 'redundancypanel' }],
+      },
+      {
+        id: 'preshow',
+        category: 'output',
+        icon: 'check',
+        wide: true,
+        title: 'Gösteri Öncesi Denetim',
+        desc: 'Kapılar açılmadan tek bakışta: ekranlar, ses, çıkışların kare hızı, sahnenin dosyaları, yedek ve disk.',
+        controls: [{ type: 'preshowpanel' }],
+      },
+      {
         id: 'timeline',
         category: 'control',
         icon: 'timeline',
@@ -5709,6 +5731,10 @@
       ensureAudioListeningFromLevels(l);
     }, 50);
 
+    // Düzen editörü (#534): önizlemeyi büyük bir pencerede düzenler
+    const layBtn = $('layoutEditBtn');
+    if (layBtn) layBtn.addEventListener('click', () => { if (window.SVLayoutEditor) window.SVLayoutEditor.open(layBtn); });
+
     const btn = $('previewToggle');
     if (btn) {
       btn.addEventListener('click', () => {
@@ -6399,6 +6425,7 @@
     if (window.SVMilkdropPanel) window.SVMilkdropPanel.init();
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
+    if (window.SVRedundancyPanel) window.SVRedundancyPanel.init();
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
 

@@ -8,6 +8,231 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 `package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
 updater sees v3.1.5 as the latest release and does not offer it to the beta as an update.
 
+The broadcast layout editor (#533) and redundancy (#540) were first planned for v3.1.7 and v3.2.0.
+They were built ahead of time and ship in 3.1.6, together with video export.
+
+### Broadcast layout editor
+
+- **Live and export parity [539].** `npm run parity` opens the real visualizer page and draws
+  each case once with a fixed audio frame and clock. It composites the same layer canvases
+  through the live CSS path and through the export canvas path, then compares the two pictures
+  pixel by pixel. There are 23 cases: broadcast layouts, opacity and transforms, every blend
+  mode, a mask, the A/B crossfade and reveals caught midway. All now match, with a mean
+  difference of at most 0.08 levels. The check and the review behind it found these
+  differences, now fixed:
+  - **Additive blend.** A layer set to "add" used `screen` live and real addition in export, so
+    the video was visibly brighter: 13.5% of pixels were off by more than 8 levels. Live now uses
+    `plus-lighter`, which is the same addition.
+  - **Video layers in export.** The exporter never loaded the media layer, so a video background
+    was simply missing from the exported video. Each export frame now seeks the video to that
+    frame's time and waits for it to decode, looping as it does live. A camera is a live source,
+    so it stays empty in export; the export panel says so when the scene has one. The export
+    smoke test now renders a video whose frames carry their own number and checks every frame.
+  - The export page's content policy also blocked video, and a queued scene's video was refused
+    by the media protocol when that scene was not the current one.
+  - **Now-playing timing.** The card's entrance and its "show on change" envelope followed the
+    wall clock, so in export they depended on render speed. They now follow the frame clock.
+  - **Text placeholders.** The exporter did not load the dictionary, so the "ARTIST NAME"
+    placeholder stayed in Turkish in an English interface.
+  - **Wipe edge.** The reveal wipe snaps to whole pixels on both paths.
+  - A test now checks that every script drawn on the live page is also loaded by the exporter
+    and the overlay. Each live-only script is listed with its reason.
+- **Reveal animations per element [537].** In the Layout Editor every element can arrive at the
+  start of the video with a fade, a slide (up, down, left or right), a zoom or a wipe. Each has
+  its own duration, delay and easing, so the elements do not all land at once.
+  - "Stagger" gives the elements rising delays in list order. "Play Reveal" plays them again
+    live.
+  - Reveals are applied where the layers are composited, so the live output, the overlay and
+    video export use the same calculation. In export the clock starts at frame 0.
+  - An element plays its reveal when it first appears: at the start of an export, when a scene
+    loads, or after "Play Reveal". An element that stays across a scene change does not play
+    again. The text and now-playing entrance that plays on a content change still plays; the
+    reveal is applied once on top of it.
+  - While a layer is still revealing, it no longer hides the layers beneath it.
+  - Layout files carry the reveal. An older file leaves the existing reveal as it is.
+  - Fixed: without the layer stack, a logo dragged in the Layout Editor jumped back. The
+    position was written to a copy that was rebuilt on the next update.
+  - Fixed: in English the "wipe" entrance of text and the now-playing card was labelled "Pitch".
+- **Logo swapping [535].** A logo layer can cycle through images picked from the logo library:
+  every N seconds, every N bars, on a bass hit or at random intervals. It crossfades or cuts,
+  and it is off by default.
+  - The order is the same live and in video export.
+    - The seconds and bars rules follow the clock. The bars rule takes its tempo from the
+      settings: the timeline when it is on, otherwise the locked tempo, otherwise 120 BPM.
+    - Random intervals come from a fixed seed, never from `Math.random`.
+    - The bass rule follows the kick detector and restarts when export starts over.
+  - The exporter now loads every layer logo, swap images included, before the first frame. A
+    library logo used to arrive a few frames late.
+  - It works in the layer stack, which is what broadcast layouts use. Animated GIFs swap as
+    their first frame.
+- **Text styles and metadata binding [536].**
+  - The Layout Editor offers five restrained broadcast styles for text layers and the now-playing
+    card: Clean, Lower Third (condensed type), Label, Bold Screen and Thin. A style sets the
+    typeface, weight, outline, shadow and, on the card, capitals. It never changes colour. When
+    you change a value by hand, the style shows as "Custom".
+  - A text layer's source can be fixed text or the now-playing title, artist or both. Track
+    details typed on the text card stay as the fallback when the system reports nothing.
+  - Capitals now follow the track's language. They always used the Turkish rule, so an English
+    "Mind" became "MİND". Now Turkish letters get the Turkish rule and everything else the
+    general one.
+- **Layouts as files [538].** "Export Layout" and "Import Layout" in the Layout Editor.
+  - A layout file holds the scene's bars, now-playing card, text and logo, in order: each layer's
+    name, blend, opacity and group, and the element's own settings.
+  - It does not hold your content: the logo image and its library entry, track details you
+    typed, and lyric text all stay out. So the file opens on another installation with that
+    installation's logo.
+  - Importing asks first. It then updates the same kinds of element in the scene, in order, and
+    adds any that are missing. Everything else in the scene stays as it was.
+  - The file is checked: wrong type, wrong version and empty files are refused. Keys such as
+    `__proto__` are dropped, and depth and size are limited.
+- **Layout editor [534].** The grid button above the live preview opens the preview large,
+  framed as 16:9, 9:16 or 1:1.
+  - Drag the bars, the now-playing card, a text layer or the logo. They snap to the frame's edges
+    and centre, to the safe areas and to each other. Hold Alt to place freely.
+  - Arrow keys move the selected element; with Shift the step is ten times larger. The numeric
+    fields take exact values.
+  - The values land in each element's own settings, so the other cards show the same numbers.
+    The output is drawn from the same settings as the preview.
+  - It is the same preview, not a second renderer.
+  - The self-test opens the editor and checks that every control in it has a name and that the
+    preview returns to its place.
+- **Groundwork [534].**
+  - Bars, text, the now-playing card and the logo report the box they actually draw, in their
+    rest pose, without the entrance animation or the audio pulse.
+  - Safe areas follow SMPTE ST 2046-1 and EBU R 95: 93% action-safe and 90% title-safe.
+  - Snapping uses the frame's edges and centre, the safe areas and the other elements' edges and
+    centres.
+
+### Redundancy
+
+- **Primary and backup machines [542, 546, 547].** Output → Redundancy sets this machine's role.
+  - **Backup.** It connects to the primary and renders the same picture the whole time as a hot
+    standby. When the primary stops, it takes over, automatically or on command, chosen in
+    advance. Taking over switches who makes decisions, so the backup's screen never goes black.
+    Your video switcher decides which output the audience sees.
+  - **What is copied.** Only the picture and the show: the scene and its layers, saved scenes,
+    the timeline, the Clip Deck, Auto VJ settings and the MilkDrop library's ratings. Audio
+    device, displays, ports, lighting, mapping, export and MCP settings stay on each machine;
+    `src/shared/show-keys.js` holds the one list.
+  - **While following.** The backup's Auto VJ makes no picks, its MilkDrop windows take the
+    primary's preset choices, and a scene change made on the backup is overwritten by the
+    primary's next change. A backup that has taken over keeps control, even when the primary
+    returns, until you release it, so the show is not shaken twice.
+  - **How the link works.** The backup connects to the primary's streaming server as its own
+    client kind. It always needs a pairing secret of at least 16 characters, even when the
+    overlay needs no token, and it never receives overlay traffic. If the streaming output is
+    off, the primary opens the server for the backup only, with no overlay pages and no tokens.
+    The secret never reaches web clients and MCP cannot change any redundancy setting.
+  - **Two signals of a failure, measured apart.**
+    - When the primary process ends, the operating system closes the connection. The backup then
+      decides within 300 ms, or three heartbeats if that is longer, and reconnects first in case
+      the primary only restarted its server.
+    - When the connection stays open but heartbeats stop, the full threshold applies (1.5 s by
+      default). A primary's main thread was measured stalling 0.2–0.7 s on a scene change; a
+      600 ms threshold took over while the primary was alive.
+    - A backup started while the primary is down takes over after a start-up grace of at least
+      5 s.
+  - **Taking over by hand.** "Take Over" and "Release" are buttons in the panel and controller
+    actions (MIDI or OSC), so an operator can force it without touching the network setup.
+  - **`npm run failover`** starts a real primary and backup with separate profiles and ports.
+    It changes the scene on the primary and checks that the backup follows. Then it kills only
+    the primary process tree it started, and measures the takeover. Automatic takeover came in
+    352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
+    loss in 405–462 ms, waited, and took over on command.
+- **Frame sync across the app's own windows [543].** Every output window now computes its
+  time from one shared session clock and the vsync timestamp of the frame, not from the moment
+  that window opened.
+  - **What it fixes.** Windows on one machine already advance on the same vsync: Chromium ties
+    them to the primary display. But each counted time from its own opening. Animation phase,
+    logo-swap order and modulation were therefore off between screens by as much as the windows'
+    opening times differed.
+  - **Measured on two displays over 4 s (241 frames):** 187–196 frames fell on the same vsync
+    within 1 ms. On those frames the time of the two windows now differs by 0 ms (median) and
+    at most 0.1 ms; before, by the windows' opening gap of 49–53 ms.
+  - **A lost message, also fixed.** The shared clock was sent as soon as a window loaded, before
+    the window had set up its listener, so it was often lost. That is why both windows still
+    differed by 53 ms in the first measurement. A window now asks for it once its listener is in
+    place. This also applies to the backup's modulation phase from #544.
+  - **No jumps on a live output.**
+    - A new output window receives the shared clock as it is created, so its first frame
+      already uses it. A clock arriving a few frames late made the time jump forward by the
+      app's uptime, and a reveal could finish before it was seen. Checked: an output opened
+      25 s after start played its reveal from 0 to 1.
+    - A backup that has taken over keeps its clock when the primary comes back. A restarted
+      primary has a new session start, which used to step the backup's time backward on air.
+      The new start is adopted only when the backup is following again. `npm run failover`
+      now relaunches the primary after the takeover: the backup's clock stayed the same and
+      it kept control.
+    - A reveal keeps its progress when the clock jumps either way, for example after a long
+      pause in silence. Before, a backward jump replayed it and a forward jump cut it short.
+  - **Long uptimes.** Time now grows with the app's uptime rather than the window's. A
+    machine left running for a week hands shaders a time whose 32-bit step is about 0.06 s;
+    restart the app between long installations.
+  - **Hardware genlock is not included.** Sync cards (such as NVIDIA Quadro Sync or AMD FirePro
+    S400) have no interface that Chromium exposes, and none was available to test. Between two
+    machines, frames line up only as closely as the two displays' refresh clocks; the shared time
+    still keeps the content in step.
+- **Pre-show check [545].** Output → Pre-show Check shows on one page whether the rig is
+  ready, refreshing every 3 s while it is open:
+  - every display selected for output is connected;
+  - each output window holds its target frame rate: the display's refresh rate, or the frame
+    cap if one is set. On Windows the primary display's refresh also counts, because Chromium
+    ties every window to it;
+  - audio frames are arriving and are not silent;
+  - every video file, logo-library item and user preset the scene and the saved scenes refer to
+    is present;
+  - the backup is connected and the shows match (or, on the backup, that it follows the
+    primary);
+  - at least 2 GB is free for settings, temporary files and video export.
+
+  A graphics card's load cannot be read on every system. The page measures what is: whether
+  each output keeps its frame rate. Output windows now report their drawn frame rate with the
+  level meter. Checked in an isolated profile: with no output open the page warns; with one
+  output open it shows 75 / 75 fps and audio arriving.
+- **The backup keeps the primary's time [544].**
+  - **Clock offset.** The backup estimates the difference between the two machines' clocks from
+    the heartbeats. It takes the smallest "arrived minus sent" over the last 10 s: a stalled
+    backup inflates samples and the minimum discards them, while a stalled primary does not
+    matter, because heartbeats are stamped when sent. The first estimate is applied directly.
+    After that, corrections slew by at most 1 ms per heartbeat, so a clock adjustment on either
+    machine never makes the picture jump.
+  - **Timeline.** The primary's timeline transport (play, pause, seek, loop) reaches the backup.
+    Its moment is converted to the backup's clock, then given to the backup's windows and
+    timeline panel. After a takeover, the backup's timeline carries on from the same point.
+  - **Modulation.** While redundancy is on, both machines count LFOs, random sources, the time
+    source and beat phase from the primary's session start, so they are in the same phase.
+    Windows on one machine now share that phase too. Since #543 this shared clock is also used
+    with redundancy off, for every output window. The count runs from the session start, not
+    Unix time: shaders receive time as 32-bit floats, which at 1.7 billion seconds advance in
+    64-second steps.
+  - **Measured by `npm run failover`** on one computer, with the timeline playing on the primary
+    and 40 paired readings: the backup's panel was within 0 ms (median) and 1 ms (p95). Between
+    two computers the accuracy is bounded by the network's one-way delay, which this rig cannot
+    measure.
+- **Both machines can prove they run the same show [541].**
+  - **The comparison.** On the primary, Redundancy shows a show comparison: a hash of each
+    machine's inventory, then the differences, each named.
+  - **What the inventory covers:** the app version, every replicated setting, every user preset
+    (Studio and MilkDrop), every logo-library item and every video file the scenes use. Logos and
+    videos are compared by content, not by path.
+  - **When it runs:** when the backup connects, after any preset or setting change, and on
+    "Compare".
+  - **Sending differences.** "Send Differences to Backup" lists what will change and asks first.
+    It then sends the presets and logos, which keep their IDs (the scenes refer to them by ID),
+    and checks again. Video files are reported but not sent: gigabytes on the connection that
+    carries the heartbeat would cause the very failover they are meant to prevent.
+  - **Large libraries.** Preset fingerprints are cached and computed 200 at a time, so a
+    10,000-preset MilkDrop library does not stall the heartbeat. The backup sends its inventory
+    in parts, because a client message is capped at 256 KB.
+  - **Pushed items are checked like imports.** A received logo goes through the same checks as an
+    import: type, size and image signature.
+  - **A setting deleted on the primary is now deleted on the backup too.** JSON drops undefined
+    values, so a removed key used to linger.
+  - `npm run failover` now seeds a logo and a preset that only the primary has. The comparison
+    must report exactly those two, with no setting differences. After the push, both hashes must
+    be equal and the backup must have both items. All of this passes, and takeover in the same
+    run came in 361 ms.
+
 ### Control panel
 
 - **Interface themes [770].** Settings → Application → Interface Theme offers Device default,
@@ -119,9 +344,9 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 
 ### Video export
 
-- **Exports match the live picture [539].** A pixel comparison of the live window against the
-  export path, built for v3.1.7, found these differences in what 3.1.6 exports. All are fixed
-  here.
+- **Exports match the live picture [539].** The pixel comparison of the live window against the
+  export path (`npm run parity`, under "Broadcast layout editor" above) found these differences.
+  All are fixed.
   - **Video layers were missing.** The exporter never loaded the media layer, so a video
     background was simply absent from the exported video. Each export frame now seeks the video
     to that frame's time and waits for it to decode, looping as it does live. A camera is a live

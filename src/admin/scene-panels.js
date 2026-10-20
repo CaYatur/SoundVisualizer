@@ -555,7 +555,7 @@
   const NP_ANIM_LABELS = [
     ['none', 'Yok'], ['fade', 'Belirme'], ['slideUp', 'Yukarı Kayma'],
     ['slideLeft', 'Yana Kayma'], ['scale', 'Büyüme'],
-    ['typewriter', 'Daktilo'], ['wipe', 'Perde'],
+    ['typewriter', 'Daktilo'], ['wipe', 'Silme'],
   ];
   const TEXT_ANIM_LABELS = NP_ANIM_LABELS.slice(0, 5);
   const ALIGN_LABELS = [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']];
@@ -1060,6 +1060,8 @@
           },
         }));
       }
+      // Logo değişimi (#535): kitaplıktan seçilen görseller kurala göre sırayla
+      if (window.SVLogoSwapPanel) out.push(...window.SVLogoSwapPanel.controls(lg, rerender));
       return out;
     }
 
