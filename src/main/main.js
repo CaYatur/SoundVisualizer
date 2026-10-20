@@ -3528,6 +3528,7 @@ function syncOverlay() {
 
 function applyRedShow(show, source) {
   if (saveQueued) flushSettings();
+  const switched = red.source !== source;
   red.source = source;
   // Katman yapılandırmadan ÖNCE: pencere sahnenin presetini listede bulsun
   syncOverlay();
@@ -3538,7 +3539,9 @@ function applyRedShow(show, source) {
   const changed = redSpace().place(next, s2);
   if (source === 'primary') red.mirror = ShowKeys.pick(next, ShowKeys.REPLICATED);
   if (changed.length) applyIncomingConfig(next, { patchKeys: changed, fromPrimary: true });
-  if (!red.adminTimer) {
+  // Gösteri değişti (devralma, bırakma, gösteri seçimi): panel beklemeden
+  if (switched) notifyAdminConfigNow();
+  else if (!red.adminTimer) {
     red.adminTimer = setTimeout(() => { red.adminTimer = null; notifyAdmin('external-config', currentConfig); }, 150);
   }
   notifyRedundancy();
@@ -3566,6 +3569,15 @@ function enterBackupSpace() {
   if (p) setImmediate(() => { if (red.isolated && red.source === 'primary' && !red.primaryLatest) applyRedShow(p.show, 'primary'); });
 }
 
+/* Panelin kopyası HEMEN güncellenir (#812). Panel yapılandırmanın tamamını
+   geri yolluyor: bayat kopyadaki bir düzenleme, ana sürecin az önce geri
+   koyduğu gösteriyi ezip settings.json'a yazardı (rol kapatılınca yerel
+   gösteri geri geliyor, panel birincilinkini göstermeye devam ediyordu). */
+function notifyAdminConfigNow() {
+  if (red.adminTimer) { clearTimeout(red.adminTimer); red.adminTimer = null; }
+  if (currentConfig) notifyAdmin('external-config', currentConfig);
+}
+
 function leaveBackupSpace() {
   if (!red.isolated) return;
   if (saveQueued) flushSettings();
@@ -3581,6 +3593,7 @@ function leaveBackupSpace() {
     const changed = redSpace().restoreLocal(next);
     if (changed && changed.length) applyIncomingConfig(next, { patchKeys: changed });
     else if (changed) saveSettings(currentConfig);
+    notifyAdminConfigNow();
     console.log('[redundancy] yerel gösteri geri kondu');
   });
 }
@@ -3595,6 +3608,7 @@ function stopRedundancy() {
   red.mirror = null;
   red.show = null;
   red.backupInv = null;
+  red.backupCaps = [];
   red.primaryStart = null;
   red.invParts = null;
   red.pkgServe = null;
@@ -3750,6 +3764,7 @@ function onPrimaryMessage(msg) {
   }
   if (msg.type === 'inventory-request') { sendInventory(msg.id).catch(() => {}); return; }
   if (msg.type === 'asset') { onPrimaryAsset(msg); return; }
+  if (msg.type === 'push-notice') { if (red.isolated) pullPackageForPush(); return; }
   if (msg.type === 'md-follow') {
     // Birincilin MilkDrop seçimi bu makinenin BÜTÜN ekranlarına
     if (!f.follows() || !msg.follow) return;
@@ -4111,6 +4126,8 @@ function requestInventory() {
 function onPeerInventory(msg) {
   if (!msg || typeof msg.items !== 'object' || !Number.isInteger(msg.part) || !Number.isInteger(msg.of)) return;
   if (msg.part === 0 || !red.invParts || red.invParts.id !== msg.id) red.invParts = { id: msg.id, items: {}, got: 0 };
+  // Yedeğin yetenekleri (#812): 'pkg' = gönderimi gösteri paketiyle çeker
+  if (msg.part === 0) red.backupCaps = Array.isArray(msg.caps) ? msg.caps.filter((c) => typeof c === 'string').slice(0, 10) : [];
   Object.assign(red.invParts.items, msg.items);
   red.invParts.got++;
   if (red.invParts.got >= msg.of) {
@@ -4125,7 +4142,10 @@ async function sendInventory(reqId) {
   if (!red.client) return;
   const inv = await buildLocalInventory();
   const parts = showInventory.chunks(inv.items, 2000);
-  parts.forEach((items, part) => red.client.send({ type: 'peer-inventory', id: reqId, part, of: parts.length, items }));
+  /* Yalıtılmış yedek "farkı gönder"i paketle çeker (#812): birincil öğeleri
+     tek tek, logonun tamamını tek iletide yollamaz. */
+  const caps = red.isolated ? ['pkg'] : [];
+  parts.forEach((items, part) => red.client.send(Object.assign({ type: 'peer-inventory', id: reqId, part, of: parts.length, items }, part === 0 ? { caps } : {})));
 }
 
 /* Yedek: birincilden gelen öğe. Bağlantı eşleşme parolasıyla doğrulandı;
@@ -4173,6 +4193,14 @@ ipcMain.handle('redundancy:push', async () => {
   if (red.role !== 'primary' || !streamServer.peerCount() || !red.show) return { ok: false, sent: 0 };
   const own = await buildLocalInventory();
   const list = showInventory.diff(own, red.backupInv).filter((d) => d.pushable && d.status !== 'extra');
+  /* Yeni yedek (#812) öğeleri gösteri paketinden, 256 KB'lık parçalarla
+     çeker: burada yalnız küçük bir haber gider. Büyük bir logoyu tek
+     iletide yollamak aynı bağlantıdaki kalp atışını saniyelerce bekletiyordu
+     (soğuk açılışta 1,7 sn ölçüldü). */
+  if (Array.isArray(red.backupCaps) && red.backupCaps.indexOf('pkg') >= 0) {
+    streamServer.sendPeers({ type: 'push-notice', n: list.length });
+    return { ok: true, sent: list.length, via: 'package' };
+  }
   let sent = 0;
   for (const d of list) {
     if (d.kind === 'preset') {
@@ -4189,8 +4217,8 @@ ipcMain.handle('redundancy:push', async () => {
       streamServer.sendPeers({ type: 'asset', kind: 'logo', id: d.id, name: it.name || d.id, ext: path.extname(info.file).toLowerCase(), b64: bytes.toString('base64') });
       sent++;
     }
-    // Büyük gönderimde kalp atışı arada gitsin
-    if (sent % 25 === 0) await new Promise((r) => setImmediate(r));
+    // Eski yedek: her öğeden sonra olay döngüsü nefes alsın, kalp atışı arada gitsin
+    await new Promise((r) => setImmediate(r));
   }
   requestInventory();
   return { ok: true, sent };
@@ -4371,6 +4399,7 @@ ipcMain.handle('redundancy:import-scene', (e, id) => {
   if (red.source === 'local' && currentConfig) {
     const next = Object.assign({}, currentConfig, { scenes: (Array.isArray(currentConfig.scenes) ? currentConfig.scenes : []).concat([copy]) });
     applyIncomingConfig(next, { patchKeys: ['scenes'], fromPrimary: true });
+    notifyAdminConfigNow();
   }
   notifyRedundancy();
   return { ok: true, id: copy.id, name: copy.name || copy.id };

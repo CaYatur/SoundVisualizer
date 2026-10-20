@@ -145,3 +145,35 @@ test('tek tek kütüphaneye alma ve yalıtılmış yedekte eski gönderim', () =
   const panel = read('src/admin/redundancy-panel.js');
   assert.match(panel, /async function addIsolated\(c\) \{\n    const ok = await P\(\)\.confirm\(tr\('Bu öğe bu makinenin kütüphanesine eklenecek:'\)/);
 });
+
+/* PANEL KOPYASI (#812, Linux'ta bulundu). Rol kapatılınca settings.json yerel
+   gösteriye dönüyordu ama panel birincilin gösterisini göstermeye devam
+   ediyordu; paneldeki ilk düzenleme yapılandırmanın tamamını geri yollayıp
+   diske birincilin sahnelerini yazıyordu. Gösteriyi değiştiren her geçiş
+   panele HEMEN bildirmeli. */
+test('gösteri geçişleri panelin kopyasını hemen güncelliyor', () => {
+  assert.match(MAIN, /function notifyAdminConfigNow\(\) \{\n  if \(red\.adminTimer\) \{ clearTimeout\(red\.adminTimer\); red\.adminTimer = null; \}\n  if \(currentConfig\) notifyAdmin\('external-config', currentConfig\);\n\}/);
+  const leave = MAIN.slice(MAIN.indexOf('function leaveBackupSpace() {'), MAIN.indexOf('function stopRedundancy() {'));
+  assert.match(leave, /const changed = redSpace\(\)\.restoreLocal\(next\);\n[^\n]*applyIncomingConfig[^\n]*\n[^\n]*saveSettings[^\n]*\n    notifyAdminConfigNow\(\);/);
+  // Devralma, bırakma ve gösteri seçimi applyRedShow'dan geçiyor
+  const apply = MAIN.slice(MAIN.indexOf('function applyRedShow(show, source) {'), MAIN.indexOf('function enterBackupSpace() {'));
+  assert.match(apply, /const switched = red\.source !== source;/);
+  assert.match(apply, /if \(switched\) notifyAdminConfigNow\(\);/);
+  // Yerel gösteri çizilirken sahne aktarımı
+  const imp = MAIN.slice(MAIN.indexOf("ipcMain.handle('redundancy:import-scene'"), MAIN.indexOf("ipcMain.handle('redundancy:use-primary-asset'"));
+  assert.match(imp, /applyIncomingConfig\(next, \{ patchKeys: \['scenes'\], fromPrimary: true \}\);\n    notifyAdminConfigNow\(\);/);
+});
+
+/* "Farkı gönder" kalp atışını bekletmiyor (#812): yalıtılmış yedek yeteneğini
+   envanterle bildirir, birincil yalnız küçük bir haber yollar; yedek öğeleri
+   256 KB'lık parçalarla paketten çeker. Eski yedeğe öğeler tek tek ve her
+   birinden sonra olay döngüsüne dönülerek gider. */
+test('farkı gönder: yeni yedeğe yalnız haber, eski yedeğe öğe öğe', () => {
+  const inv = MAIN.slice(MAIN.indexOf('async function sendInventory('), MAIN.indexOf('function onPrimaryAsset(msg) {'));
+  assert.match(inv, /const caps = red\.isolated \? \['pkg'\] : \[\];/);
+  assert.match(MAIN, /if \(msg\.part === 0\) red\.backupCaps = Array\.isArray\(msg\.caps\)/);
+  const push = MAIN.slice(MAIN.indexOf("ipcMain.handle('redundancy:push'"), MAIN.indexOf("ipcMain.handle('redundancy:compare'"));
+  assert.match(push, /red\.backupCaps\.indexOf\('pkg'\) >= 0\) \{\n    streamServer\.sendPeers\(\{ type: 'push-notice', n: list\.length \}\);\n    return/);
+  assert.match(push, /await new Promise\(\(r\) => setImmediate\(r\)\);\n  \}/);
+  assert.match(MAIN, /if \(msg\.type === 'push-notice'\) \{ if \(red\.isolated\) pullPackageForPush\(\); return; \}/);
+});

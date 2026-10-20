@@ -336,13 +336,27 @@ async function scenario(name, takeover, opts) {
     } else {
       res.sceneKept = after.vis === want.vis && after.scene === want.scene && after.grad === want.grad;
     }
+    if (opts.offSave) {
+      /* Birincilin kopyası çizilirken rol kapatılır (#812, Linux'ta bulundu):
+         yerel gösteri geri gelir; panelin kopyası da gelmeli. Sonra panelde
+         bir düzenleme (tam yapılandırma gönderimi) settings.json'u
+         birincilin sahneleriyle ezmemeli. */
+      await pb.eval('(() => { SVPanel.cfg().redundancy.role = "off"; SVPanel.apply(); return true; })()');
+      const PANEL_LOCAL = '(() => { const c = SVPanel.cfg(); return c._activeSceneId !== "failover-rig" && (c.scenes || []).some((x) => x.id === "backup-own"); })()';
+      const pl = await until(async () => ({ ok: await pb.eval(PANEL_LOCAL) }), 4000, 50);
+      res.panelLocalAfterOff = !!pl.ok;
+      await pb.eval('(() => { const c = SVPanel.cfg(); c.master = Object.assign({}, c.master || {}, { brightness: 0.9 }); SVPanel.apply(); return true; })()');
+      await wait(2600);
+      const disk = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
+      res.saveAfterOffKept = disk.redundancy.role === 'off' && (disk.scenes || []).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig';
+    }
     /* Süreç öldü: işletim sistemi bağlantıyı kapatır, yedek kısa payla
        (en az 300 ms, üç atış) karar verir. + son atıştan öldürmeye kadar
        en çok bir atış, bir denetim aralığı ve ölçüm payı (taskkill + CDP). */
     const limit = Math.min(opts.timeout, Math.max(300, opts.beat * 3)) + opts.beat + Math.max(25, opts.beat / 2) + 500;
     res.limitMs = limit;
     res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept && res.localKept && res.primaryCopied &&
-      (!opts.pkg || res.pkgOk) && (!opts.local || res.restoredOnOff) &&
+      (!opts.pkg || res.pkgOk) && (!opts.local || res.restoredOnOff) && (!opts.offSave || (res.panelLocalAfterOff && res.saveAfterOffKept)) &&
       (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
       (!opts.relaunch || (res.primaryBack && res.epochKept && res.stayedActive)) &&
       (!opts.sync || (res.diffFound && res.pushIsolated && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
@@ -369,7 +383,7 @@ async function scenario(name, takeover, opts) {
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
     await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true, relaunch: true }),
-    await scenario('manual takeover + show package', 'manual', { beat: 100, timeout: 1500, pkg: true }),
+    await scenario('manual takeover + show package', 'manual', { beat: 100, timeout: 1500, pkg: true, offSave: true }),
     await scenario('auto takeover with the local show, then role off', 'auto', { beat: 100, timeout: 1500, local: true }),
   ];
   for (const r of runs) {

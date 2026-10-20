@@ -410,7 +410,7 @@
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
       if (status.peers) nodes.push(showBox());
     }
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Aktarılan yalnız görüntü ve gösteri: sahne, katmanlar, kayıtlı sahneler, zaman çizelgesi, Clip Deck. Ses aygıtı, ekranlar, ağ, ışık ve dışa aktarım ayarları her makinenin kendisinde kalır. Video ve logo dosyaları iki makinede aynı yerde olmalı.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Aktarılan yalnız görüntü ve gösteri: sahne, katmanlar, kayıtlı sahneler, zaman çizelgesi, Clip Deck. Ses aygıtı, ekranlar, ağ, ışık ve dışa aktarım ayarları her makinenin kendisinde kalır. Presetleri, logoları ve videoları yedeğe "Birincilden Paket İste" kopyalar; birincilin sahnesi bu kopyalara eşlenir, dosyaların iki makinede aynı yerde olması gerekmez.' }));
     return el('div', { class: 'redundancy-panel' }, nodes);
   }
 
