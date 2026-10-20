@@ -119,6 +119,23 @@ async function scenario(name, takeover, opts) {
     stream: { enabled: false, port: backupStream, lan: false },
     redundancy: { role: 'backup', host: '127.0.0.1', port: streamPort, secret, heartbeatMs: opts.beat, timeoutMs: opts.timeout, takeover },
   })));
+  if (opts.sync) {
+    // Birincilde bir logo (yedekte yok): gösteri karşılaştırması bulmalı (#541)
+    const lib = path.join(dirA, 'logo-library');
+    fs.mkdirSync(lib, { recursive: true });
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    fs.writeFileSync(path.join(lib, 'logo_rig.png'), png);
+    /* Kitaplığın sınırına yakın bir GIF (24 MB sınır, 23 MB): tek bir
+       ~31 MB'lık base64 çerçevesi. Yedeğin WebSocket'i kabul etmeli,
+       gönderim sırasında kalp atışı eşiğin çok altında kalmalı. */
+    const gif = Buffer.alloc(23 * 1024 * 1024, 7);
+    gif.write('GIF89a', 0, 'latin1');
+    fs.writeFileSync(path.join(lib, 'logo_big.gif'), gif);
+    fs.writeFileSync(path.join(lib, 'manifest.json'), JSON.stringify({ items: [
+      { id: 'logo_rig', name: 'Rig Logo', file: 'logo_rig.png', mime: 'image/png', kind: 'image', size: png.length, createdAt: 1 },
+      { id: 'logo_big', name: 'Big GIF', file: 'logo_big.gif', mime: 'image/gif', kind: 'gif', size: gif.length, createdAt: 2 },
+    ] }));
+  }
   const A = launch(dirA, cdpA);
   const B = launch(dirB, cdpB);
   const res = { name, takeover, timeoutMs: opts.timeout, heartbeatMs: opts.beat };
@@ -142,6 +159,38 @@ async function scenario(name, takeover, opts) {
       return { vis: c.visualizer.type, scene: c._activeSceneId, grad: c.background.gradient.colors.join(',') };
     })()`);
     const same = await until(async () => { const s = await pb.eval(SCENE); return Object.assign({ ok: s.vis === want.vis && s.scene === want.scene && s.grad === want.grad }, s); }, 5000);
+    if (opts.sync) {
+      // Birincilde bir Studio preseti; karşılaştırma iki farkı bulmalı, ayar farkı olmamalı
+      await pa.eval(`window.api.savePreset({ id: 'usr_rig_1', kind: 'visualizer', engine: 'shader', name: 'Rig Preset', controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(1.0); }' })`);
+      await pa.eval('window.api.redundancyCompare()');
+      const diffd = await until(async () => {
+        const s = await pa.eval(STATUS);
+        const sh = s && s.show;
+        const keys = sh ? sh.items.map((d) => d.key) : [];
+        return Object.assign({ ok: !!sh && keys.indexOf('preset:usr_rig_1') >= 0 && keys.indexOf('logo:logo_rig') >= 0 && keys.indexOf('logo:logo_big') >= 0 }, { show: sh });
+      }, 10000, 200);
+      res.diffFound = !!diffd.ok;
+      res.cfgDiffs = diffd.show ? diffd.show.items.filter((d) => d.kind === 'cfg').map((d) => d.id) : null;
+      if (!diffd.ok) throw new Error('comparison did not report the preset and logo: ' + JSON.stringify(diffd.show));
+      const gapBefore = (await pb.eval(STATUS)).maxGap;
+      const tp = Date.now();
+      const pushed = await pa.eval('window.api.redundancyPush()');
+      res.pushed = pushed && pushed.sent;
+      res.pushCallMs = Date.now() - tp;
+      const same = await until(async () => {
+        const s = await pa.eval(STATUS);
+        const sh = s && s.show;
+        return { ok: !!sh && sh.differences === 0 && sh.hash === sh.peerHash, show: sh && { hash: sh.hash, peerHash: sh.peerHash, differences: sh.differences, items: sh.items } };
+      }, 15000, 200);
+      res.showMatches = !!same.ok;
+      // Gönderim sırasındaki en uzun atış arası (öncekinden büyükse gönderimin payı)
+      const gapAfter = (await pb.eval(STATUS)).maxGap;
+      res.maxGapDuringPush = gapAfter > gapBefore ? gapAfter : null;
+      res.syncMs = Date.now() - tp;
+      if (!same.ok) throw new Error('show did not match after push: ' + JSON.stringify(same.show));
+      const has = await pb.eval(`(async () => { const p = (await window.api.listPresets()).find((x) => x.id === 'usr_rig_1'); const ls = await window.api.logoLibList(); return { preset: !!p, logo: !!ls.find((x) => x.id === 'logo_rig') && !!ls.find((x) => x.id === 'logo_big') }; })()`);
+      res.backupHasAssets = has.preset && has.logo;
+    }
     const before = await pb.eval(STATUS);
     res.maxGapBeforeKill = before.maxGap;
     res.maxPrimaryGap = before.maxPrimaryGap;
@@ -176,6 +225,8 @@ async function scenario(name, takeover, opts) {
     const limit = Math.min(opts.timeout, Math.max(300, opts.beat * 3)) + opts.beat + Math.max(25, opts.beat / 2) + 500;
     res.limitMs = limit;
     res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept &&
+      (!opts.sync || (res.diffFound && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
+        && !(res.maxGapDuringPush > opts.timeout / 2))) &&
       (takeover === 'auto' ? res.takeoverMs <= limit : (res.waitedForOperator && res.stillWaiting && res.lostMs <= limit));
   } catch (e) {
     res.pass = false;
@@ -196,7 +247,7 @@ async function scenario(name, takeover, opts) {
 (async () => {
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
-    await scenario('auto takeover', 'auto', { beat: 100, timeout: 1500 }),
+    await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true }),
     await scenario('manual takeover', 'manual', { beat: 100, timeout: 1500 }),
   ];
   for (const r of runs) {

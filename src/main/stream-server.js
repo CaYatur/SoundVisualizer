@@ -766,8 +766,8 @@ function handleUpgrade(req, socket) {
         if (opcode !== 0x1) return;
         let msg;
         try { msg = JSON.parse(payload.toString('utf-8')); } catch { return; }
-        // Yedek yalnız kendi hâlini bildirir; komut çalıştıramaz
-        if (msg && msg.type === 'peer-state' && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
+        // Yedek yalnız kendi hâlini ve envanterini bildirir; komut çalıştıramaz
+        if (msg && (msg.type === 'peer-state' || msg.type === 'peer-inventory') && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
       }, () => dropClient(client));
     });
     socket.on('error', () => dropClient(client));

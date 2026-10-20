@@ -189,6 +189,8 @@ contextBridge.exposeInMainWorld('api', {
   redundancyTakeover: () => ipcRenderer.invoke('redundancy:takeover'),
   redundancyRelease: () => ipcRenderer.invoke('redundancy:release'),
   redundancyNewSecret: () => ipcRenderer.invoke('redundancy:new-secret'),
+  redundancyCompare: () => ipcRenderer.invoke('redundancy:compare'),
+  redundancyPush: () => ipcRenderer.invoke('redundancy:push'),
   onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
 
   // OSC alıcısı

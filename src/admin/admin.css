@@ -1737,6 +1737,10 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
 .preview-stage.lay-stage .preview-badge { display: none; }
 .lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+/* Yedeklilik: gösteri karşılaştırması (#541) */
+.red-show { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.red-diff { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
+.red-diff li { padding: 3px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 
 /* Logo değişimi görselleri (#535): küçük, seçilebilir kutucuklar */
 .swap-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }

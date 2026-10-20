@@ -93,6 +93,72 @@
     return box;
   }
 
+  /* GÖSTERİ KARŞILAŞTIRMASI (#541): iki makinenin gösteri özeti ve fark
+     listesi. Presetler ve logolar onayla gönderilir; video dosyaları elle
+     kopyalanır. */
+  const KIND_TEXT = { cfg: 'Ayar', preset: 'Preset', logo: 'Logo', media: 'Video dosyası', app: 'Uygulama sürümü' };
+  const DIFF_TEXT = { missing: 'yedekte yok', different: 'farklı', extra: 'yalnız yedekte' };
+
+  function showBox() {
+    const el = P().el;
+    const sh = status.show;
+    const nodes = [el('div', { class: 'group-label', text: 'Gösteri Karşılaştırması' })];
+    if (!sh) {
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedekten envanter bekleniyor.' }));
+    } else {
+      const same = sh.differences === 0;
+      const box = el('div', { class: 'studio-status ' + (same ? 'ok' : 'err'), role: 'status' }, [
+        el('span', { icon: same ? 'check' : 'warning' }),
+        el('span', { text: same ? 'İki makine aynı gösteriyi çalıştırıyor' : 'Gösteriler farklı' }),
+        el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }),
+        el('span', { class: 'st-num', text: String(sh.hash || '').slice(0, 12) }),
+      ]);
+      nodes.push(box);
+      if (!same) {
+        const list = el('ul', { class: 'red-diff' });
+        sh.items.filter((d) => d.status !== 'extra').forEach((d) => {
+          list.appendChild(el('li', {}, [
+            el('span', { text: KIND_TEXT[d.kind] || d.kind }),
+            el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }),
+            el('span', { text: d.label || d.id, 'data-user-text': '' }),
+            el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }),
+            el('span', { class: 'dim-hint', text: DIFF_TEXT[d.status] || d.status }),
+          ]));
+        });
+        nodes.push(list);
+        if (sh.differences > sh.items.filter((d) => d.status !== 'extra').length) {
+          nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Listede ilk 40 fark gösteriliyor.' }));
+        }
+      }
+    }
+    nodes.push(el('div', { class: 'lay-file' }, [
+      el('button', { class: 'btn small ghost', type: 'button', icon: 'refresh', text: 'Karşılaştır', onclick: async () => { try { await window.api.redundancyCompare(); } catch { /* */ } } }),
+      el('button', {
+        class: 'btn small', type: 'button', icon: 'export', text: 'Farkları Yedeğe Gönder',
+        disabled: sh && sh.pushable > 0 ? null : 'disabled',
+        onclick: pushDiff,
+      }),
+    ]));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Presetler ve logolar birincilden gönderilir ve yedekteki aynı kimlikli öğenin yerine geçer. Video dosyaları gönderilmez: gigabaytlar kalp atışıyla aynı bağlantıyı tıkardı; yedeğe aynı yola elle kopyalayın.' }));
+    return el('div', { class: 'red-show' }, nodes);
+  }
+
+  async function pushDiff() {
+    const sh = status.show;
+    if (!sh || !sh.pushable) return;
+    // Açık onay: neyin değişeceği listelenir
+    const names = sh.items.filter((d) => d.pushable && d.status !== 'extra').map((d) => (d.kind === 'logo' ? 'Logo' : 'Preset') + ': ' + (d.label || d.id));
+    const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
+    const text = tr('Yedekteki şu öğeler birincildekiyle değiştirilecek ya da eklenecek:') + '\n\n' + names.slice(0, 20).join('\n') +
+      (sh.pushable > 20 ? '\n… +' + (sh.pushable - 20) : '');
+    const ok = await P().confirm(text, { okText: tr('Yedeğe Gönder') });
+    if (!ok) return;
+    try {
+      const r = await window.api.redundancyPush();
+      P().toast(r && r.ok ? tr('Yedeğe gönderildi.') : tr('Gönderilemedi.'), r && r.ok ? 'ok' : 'err');
+    } catch { P().toast(tr('Gönderilemedi.'), 'err'); }
+  }
+
   async function act(which) {
     try {
       status = which === 'takeover' ? await window.api.redundancyTakeover() : await window.api.redundancyRelease();
@@ -140,6 +206,7 @@
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek izlerken sahne birincilden gelir; burada yapılan sahne değişikliği birincilin bir sonraki değişikliğiyle ezilir. Yetkiyi alan yedek, birincil geri gelse de "Yetkiyi Bırak" denene kadar yetkide kalır.' }));
     } else {
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
+      if (status.peers) nodes.push(showBox());
     }
     nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Aktarılan yalnız görüntü ve gösteri: sahne, katmanlar, kayıtlı sahneler, zaman çizelgesi, Clip Deck. Ses aygıtı, ekranlar, ağ, ışık ve dışa aktarım ayarları her makinenin kendisinde kalır. Video ve logo dosyaları iki makinede aynı yerde olmalı.' }));
     return el('div', { class: 'redundancy-panel' }, nodes);
@@ -149,10 +216,11 @@
     if (started || !window.api || !window.api.redundancyStatus) return;
     started = true;
     window.api.onRedundancyStatus((s) => {
-      const prev = JSON.stringify([status.role, status.state, status.peers, status.peerState, status.problem, status.serverRunning]);
+      const sig = (x) => JSON.stringify([x.role, x.state, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences]);
+      const prev = sig(status);
       status = s || { role: 'off' };
       window.SVRedundancyState = status;
-      const next = JSON.stringify([status.role, status.state, status.peers, status.peerState, status.problem, status.serverRunning]);
+      const next = sig(status);
       if (prev !== next && document.querySelector('.redundancy-panel')) P().rerender();
     });
     try { status = await window.api.redundancyStatus(); window.SVRedundancyState = status; } catch { /* */ }

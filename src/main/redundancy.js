@@ -153,7 +153,11 @@ function patchMsg(cfg, keys, at) {
   const allow = new Set(ShowKeys.REPLICATED);
   const k = (keys || []).filter((x) => allow.has(x));
   if (!k.length) return null;
-  return { type: 'patch', part: ShowKeys.pick(cfg, k), at };
+  // Silinen anahtar JSON'da kaybolur: ayrıca adıyla gider
+  const removed = k.filter((x) => !cfg || cfg[x] === undefined);
+  const msg = { type: 'patch', part: ShowKeys.pick(cfg, k), at };
+  if (removed.length) msg.removed = removed;
+  return msg;
 }
 function beatMsg(seq, cfg, at) {
   return { type: 'beat', seq, at, scene: (cfg && typeof cfg._activeSceneId === 'string') ? cfg._activeSceneId : '' };
@@ -164,9 +168,17 @@ function beatMsg(seq, cfg, at) {
 function applyIncoming(target, msg) {
   if (!msg || typeof msg !== 'object') return [];
   if (msg.type === 'snapshot') {
-    return ShowKeys.apply(target, Object.assign({}, msg.live || {}, msg.show || {}));
+    // Anlık görüntüde olmayan aktarılan anahtar birincilde yok: yedekten de silinir
+    const all = Object.assign({}, msg.live || {}, msg.show || {});
+    const part = {};
+    for (const k of ShowKeys.REPLICATED) part[k] = Object.prototype.hasOwnProperty.call(all, k) ? all[k] : undefined;
+    return ShowKeys.apply(target, part);
   }
-  if (msg.type === 'patch') return ShowKeys.apply(target, msg.part || {});
+  if (msg.type === 'patch') {
+    const part = Object.assign({}, msg.part || {});
+    for (const k of Array.isArray(msg.removed) ? msg.removed : []) if (typeof k === 'string') part[k] = undefined;
+    return ShowKeys.apply(target, part);
+  }
   return [];
 }
 

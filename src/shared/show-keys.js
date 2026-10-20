@@ -49,6 +49,7 @@
     for (const k of Object.keys(part)) {
       if (!allow.has(k)) continue;
       const v = clone(part[k]);
+      if (v === undefined && !Object.prototype.hasOwnProperty.call(target, k)) continue;
       if (JSON.stringify(target[k]) === JSON.stringify(v)) continue;
       if (v === undefined) delete target[k]; else target[k] = v;
       changed.push(k);
