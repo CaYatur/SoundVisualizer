@@ -14,6 +14,13 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
   - "Send Differences to Backup" asks with two lists, "Missing on the backup" and "Different on the backup (the backup keeps its own version)", instead of counting both as missing.
   - With auto takeover paused after a manual hand-back, the backup's status read "waiting for a manual takeover · Auto takeover on hold". It now reads "The primary is not responding · Auto takeover is paused since the manual hand-back: take over manually or re-arm it", and while following, "Auto takeover paused (handed back manually)".
   - The docs say the test count is the runner's total, so environment-dependent skips (0 on one machine, 1 on another) do not change it.
+- **Review fixes.**
+  - **Fixed: a new package failed while the backup played a copied video.** Measured on Windows: a folder that holds an open file cannot be renamed, and an open file cannot be replaced (EPERM). The swap renamed the whole package folder, so every new package (including the one "Send Differences to Backup" pulls) ended in "Copying stopped" while a copied video was on screen. Files now live in a content-addressed store (`package/store/<hash>/<name>`) and are never moved or overwritten; the swap is a single atomic write of `current/manifest.json`. Unused files are removed after the swap, and a locked one is left for the next swap. Packages installed by the earlier layout keep working. The failover rig now holds the video open during the second package.
+  - Unchanged files from the last package are read in place instead of hard-linked. Before, a corrupt earlier file that was downloaded again was written through the shared link into the verified copy.
+  - Retrying a locked rename no longer blocks the main process (it used `Atomics.wait`, up to about 0.6 s per rename).
+  - A different package no longer deletes a half-downloaded one: the two newest staging folders are kept and can resume.
+  - The primary's version was never recorded (the `hello` branch returned before it), so `primary-show.json` always had an empty version.
+  - Local show archives are capped at the newest 20.
 - **The backup keeps its own show.**
   - Before, everything the backup received from the primary was written into its own settings. That covered the scene, saved scenes, Studio presets, timeline, Clip Deck and Auto VJ. "Send Differences to Backup" also replaced presets and logos with the same ID.
   - Now the primary's copy lives in `<userData>/redundancy/primary-show.json`.

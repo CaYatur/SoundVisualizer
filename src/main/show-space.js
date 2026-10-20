@@ -37,6 +37,7 @@ const ShowKeys = require('../shared/show-keys');
 const Pkg = require('./show-package');
 
 const FORMAT = 1;
+const KEEP_ARCHIVES = 20;
 
 function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
 
@@ -161,6 +162,7 @@ function createShowSpace(dir, opts) {
       Pkg.retrySync(() => F.renameSync(localFile, path.join(dir, 'local-show.restored-' + Date.now() + '.json')));
     } catch { /* yerinde kalır; sonraki yedek oturumu onu kullanır */ }
     local = null;
+    pruneArchives();
     return changed;
   }
 
@@ -217,7 +219,15 @@ function createShowSpace(dir, opts) {
     const name = 'local-show.restored-' + t + '.json';
     F.mkdirSync(dir, { recursive: true });
     Pkg.writeJsonAtomic(path.join(dir, name), { format: FORMAT, capturedAt: Date.now(), show: clone(show) || {} }, F);
+    pruneArchives();
     return name;
+  }
+  /* Arşivler sınırsız birikmesin: rol her kapanışta bir tane yazılıyor,
+     prova haftalarında yüzlercesi olurdu. En yeni KEEP_ARCHIVES kalır. */
+  function pruneArchives() {
+    for (const a of listArchives().slice(KEEP_ARCHIVES)) {
+      try { F.unlinkSync(path.join(dir, a.name)); } catch { /* sonra */ }
+    }
   }
 
   function summary() {
@@ -230,7 +240,7 @@ function createShowSpace(dir, opts) {
     };
   }
 
-  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary, savePrimaryJson, flushPrimary, listArchives, readArchive, archiveShow };
+  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary, savePrimaryJson, flushPrimary, listArchives, readArchive, archiveShow, pruneArchives };
 }
 
 /* Video yollarını gösteri paketindeki kopyaya eşler. `map`: birincilin
@@ -265,4 +275,4 @@ function remapMedia(obj, map, opts) {
   return n;
 }
 
-module.exports = { createShowSpace, remapMedia, FORMAT };
+module.exports = { createShowSpace, remapMedia, FORMAT, KEEP_ARCHIVES };

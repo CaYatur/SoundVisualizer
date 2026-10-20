@@ -3504,7 +3504,7 @@ function packageMediaMap() {
   const man = showPackage.currentManifest(redSpace().pkgRoot);
   const map = {};
   for (const it of (man && Array.isArray(man.items) ? man.items : [])) {
-    if (it && it.kind === 'media' && typeof it.ref === 'string') map[it.ref] = showPackage.currentFile(redSpace().pkgRoot, it.path);
+    if (it && it.kind === 'media' && typeof it.ref === 'string') map[it.ref] = showPackage.currentFile(redSpace().pkgRoot, it);
   }
   return map;
 }
@@ -3826,6 +3826,9 @@ function onPrimaryMessage(msg) {
   if (!f) return;
   if (msg.type === 'hello' || msg.type === 'beat') {
     if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
+    /* Birincilin sürümü: bu dal döndüğü için aşağıdaki eski satıra hiç
+       ulaşılmıyordu; primary-show.json sürümü hep boş yazılıyordu. */
+    if (msg.type === 'hello' && typeof msg.version === 'string') red.primaryVersion = msg.version.slice(0, 40);
     const held = f.status.autoHeld;
     if (msg.type === 'beat' && f.beat(msg, Date.now())) onFollowerChanged();
     else if (held && !f.status.autoHeld) notifyRedundancySoon();
@@ -3859,7 +3862,6 @@ function onPrimaryMessage(msg) {
   streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
     return;
   }
-  if (msg.type === 'hello' && typeof msg.version === 'string') red.primaryVersion = msg.version.slice(0, 40);
   if (msg.type === 'pkg-manifest') { onPackageManifest(msg); return; }
   if (msg.type === 'pkg-chunk') { onPackageChunk(msg); return; }
   if (msg.type === 'pkg-error') { onPackageError(msg); return; }
@@ -4085,7 +4087,7 @@ function loadPackageOverlay() {
   }
   const res = { at: Date.now(), added: 0, same: 0, media: 0, conflicts: [], isolated: [], isolatedCount: 0 };
   for (const it of man.items) {
-    const file = showPackage.currentFile(root, it.path);
+    const file = showPackage.currentFile(root, it);
     if (it.kind === 'presets') {
       const p = showPackage.readJson(file);
       if (!p || typeof p.id !== 'string') continue;
@@ -4547,7 +4549,7 @@ ipcMain.handle('redundancy:use-primary-asset', (e, spec) => {
   const kind = spec.kind === 'logo' ? 'logos' : 'presets';
   const it = man && man.items.find((x) => x && x.kind === kind && x.id === spec.id);
   if (!it) return { ok: false };
-  const file = showPackage.currentFile(root, it.path);
+  const file = showPackage.currentFile(root, it);
   let ok = false;
   if (kind === 'presets') {
     const p = showPackage.readJson(file);

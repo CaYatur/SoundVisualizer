@@ -23,6 +23,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const net = require('net');
+const Pkg = require('../src/main/show-package');
 
 const ROOT = path.join(__dirname, '..');
 const say = (s) => process.stdout.write(s + '\n');
@@ -198,7 +199,9 @@ async function scenario(name, takeover, opts) {
       if (!done.ok) throw new Error('package not done: ' + JSON.stringify(done));
       res.pkgConflicts = done.r.conflicts.map((c) => c.id);
       const has = await pb.eval(`(async () => { const l = await window.api.listPresets(); const c = l.find((x) => x.id === 'usr_conf'); return { only: !!l.find((x) => x.id === 'usr_only_primary'), conf: c && c.name }; })()`);
-      const mediaDir = path.join(dirB, 'redundancy', 'package', 'current', 'media');
+      // Kurulu videolar: manifestteki her video ve dosyası (içerik adresli depo)
+      const pkgRootB = path.join(dirB, 'redundancy', 'package');
+      const mediaFiles = () => { const man = Pkg.currentManifest(pkgRootB); return (man ? man.items : []).filter((it) => it.kind === 'media' && fs.existsSync(Pkg.currentFile(pkgRootB, it))).map((it) => it.name); };
       /* Yalnız birincilde olan preset pencerelere görünüyor (yalıtılmış katman)
          ama yedeğin kütüphanesine yazılmadı; operatör tek tek alıyor. */
       const onlyFile = path.join(dirB, 'presets', 'usr_only_primary.json');
@@ -207,7 +210,7 @@ async function scenario(name, takeover, opts) {
       const imp = await pb.eval(`window.api.redundancyUsePrimaryAsset({ kind: 'preset', id: 'usr_only_primary' })`);
       res.pkgImported = !!(imp && imp.ok) && fs.existsSync(onlyFile);
       res.pkgOk = res.pkgMedia === 1 && has.only && has.conf === 'Backup Version' && res.pkgConflicts.indexOf('usr_conf') >= 0 &&
-        res.pkgIsolated && res.pkgImported && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1;
+        res.pkgIsolated && res.pkgImported && mediaFiles().length === 1;
       if (!res.pkgOk) throw new Error('package result: ' + JSON.stringify({ has, conflicts: res.pkgConflicts, isolated: isolatedIds, pkgIsolated: res.pkgIsolated, pkgImported: res.pkgImported, media: res.pkgMedia }));
       /* İkinci paket videosuz (#812, Windows'ta bulundu: önceki videolar
          silindi). Birincilde bir preset değişir; video kutusu işaretlenmeden
@@ -220,11 +223,22 @@ async function scenario(name, takeover, opts) {
       if (!off2.ok) throw new Error('second package not offered: ' + JSON.stringify(off2.pkg));
       const mf = off2.pkg.mediaFiles || [];
       res.mediaListedBeforeTick = mf.length === 1 && mf[0].size === 700 * 1024 && mf[0].have === true && /rig-clip/.test(mf[0].name);
+      /* Video OYNARKEN takas (#817 incelemesi): yedek kopyalanmış videoyu
+         çiziyor gibi dosyayı açık tut. Windows'ta açık dosyanın klasörü
+         taşınamıyor; eski takas burada "kopyalama durdu"da kalıyordu. */
+      const manB = Pkg.currentManifest(pkgRootB);
+      const vidItem = manB && manB.items.find((it) => it.kind === 'media');
+      const vidPath = vidItem ? Pkg.currentFile(pkgRootB, vidItem) : '';
+      const holder = vidPath ? fs.openSync(vidPath, 'r') : null;
       await pb.eval('window.api.redundancyPkgConfirm({ media: false })');
-      const done2 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'done', pkg: s.pkg, media: s.pkgMedia }; }, 30000, 100);
-      res.mediaKeptOnSecondPkg = !!done2.ok && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1 &&
+      const done2 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && (s.pkg.state === 'done' || s.pkg.state === 'error'), pkg: s.pkg, media: s.pkgMedia }; }, 30000, 100);
+      if (holder != null) fs.closeSync(holder);
+      const manB2 = Pkg.currentManifest(pkgRootB);
+      const vidItem2 = manB2 && manB2.items.find((it) => it.kind === 'media');
+      res.videoStayedPut = !!vidItem2 && Pkg.currentFile(pkgRootB, vidItem2) === vidPath;
+      res.mediaKeptOnSecondPkg = !!done2.ok && done2.pkg.state === 'done' && res.videoStayedPut && mediaFiles().length === 1 &&
         Array.isArray(done2.media) && done2.media.length === 1 && done2.media[0].carried === true;
-      if (!res.mediaListedBeforeTick || !res.mediaKeptOnSecondPkg) throw new Error('second package: ' + JSON.stringify({ mf, media: done2.media, files: fs.existsSync(mediaDir) ? fs.readdirSync(mediaDir) : null }));
+      if (!res.mediaListedBeforeTick || !res.mediaKeptOnSecondPkg) throw new Error('second package: ' + JSON.stringify({ mf, state: done2.pkg && done2.pkg.state, error: done2.pkg && done2.pkg.error, stayed: res.videoStayedPut, media: done2.media, files: mediaFiles() }));
       /* Aynı paket yeniden (#812, Linux'ta bulundu): her dosya öncekinden
          gelir, parça istenmez. Aktarım %100'de "transferring"de kalıyordu;
          doğrudan doğrulanıp bitmeli. */

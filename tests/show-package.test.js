@@ -13,6 +13,8 @@ const crypto = require('crypto');
 const Pkg = require('../src/main/show-package.js');
 
 function tmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'sv-pkg-')); }
+// Kurulu kopyadaki öğe (dosyası içerik adresli depoda)
+function installed(root, p) { return Pkg.currentManifest(root).items.find((x) => x.path === p); }
 function entry(kind, id, buf, extra) {
   return Object.assign({ kind, id, name: id, ext: kind === 'presets' ? '.json' : '.bin', size: buf.length, sha256: Pkg.sha256(buf), bytes: buf }, extra || {});
 }
@@ -94,10 +96,10 @@ test('alıcı: bozuk parça yazılmıyor; sürdürme kaldığı yerden; doğrula
   assert.strictEqual(rest.length, all.length - half.length);
   for (const r of rest) { const ch = get(r); assert.strictEqual(rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha), ''); }
   assert.deepStrictEqual(await rx.verify(), []);
-  const cur = rx.commit();
+  const cur = await rx.commit();
   for (const e of ENTRIES) {
     const it = m.items.find((x) => x.id === e.id);
-    assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, it.path)), e.bytes);
+    assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, installed(root, it.path))), e.bytes);
   }
   assert.strictEqual(Pkg.currentManifest(root).pkg, m.pkg);
   assert.ok(!fs.existsSync(path.join(root, 'staging', m.pkg.slice(0, 16))), 'hazırlık temizlendi');
@@ -111,7 +113,7 @@ test('doğrulama tutmazsa önceki kopya yerinde kalır; aynı dosyalar yeniden i
   let rx = Pkg.createReceiver({ root, manifest: m1 });
   for (const r of rx.missing()) { const ch = get(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
   await rx.verify();
-  rx.commit();
+  await rx.commit();
   // İkinci paket: bir preset değişti
   const changed = entry('presets', 'usr_A', Buffer.from('{"id":"usr_A","name":"A2"}'));
   const E2 = [changed].concat(ENTRIES.slice(1));
@@ -131,16 +133,15 @@ test('doğrulama tutmazsa önceki kopya yerinde kalır; aynı dosyalar yeniden i
   assert.strictEqual(rx.missing().length, 1, 'bozuk dosya yeniden inecek');
 });
 
-test('takas: Windows rename hatası yeniden deneniyor; düşerse eski kopya geri konuyor', async () => {
+test('takas: Windows rename hatası yeniden deneniyor; düşerse eski kopya yerinde kalıyor', async () => {
   const root = tmp();
   const E = ENTRIES.slice(0, 2);
   const m = Pkg.buildManifest(E);
   const get = server(E);
-  // Önce bir "current" kur
+  // Önce bir kopya kur
   let rx = Pkg.createReceiver({ root, manifest: m });
   for (const r of rx.missing()) { const ch = get(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
-  await rx.verify(); rx.commit();
-  const before = fs.readdirSync(Pkg.currentFile(root, 'presets'));
+  await rx.verify(); await rx.commit();
   // EPERM bir kez: yeniden deneme geçer
   let fail = 1;
   const flaky = Object.assign({}, fs, { renameSync: (a, b) => { if (fail-- > 0) { const e = new Error('busy'); e.code = 'EPERM'; throw e; } return fs.renameSync(a, b); } });
@@ -149,18 +150,96 @@ test('takas: Windows rename hatası yeniden deneniyor; düşerse eski kopya geri
   rx = Pkg.createReceiver({ root, manifest: m2, fs: flaky });
   for (const r of rx.missing()) { const ch = server(E2)(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
   await rx.verify();
-  rx.commit();
+  await rx.commit();
   assert.strictEqual(Pkg.currentManifest(root).pkg, m2.pkg);
-  // Son rename hep düşerse: eski kopya geri
+  // Depoya taşıma hep düşerse: manifest değişmez, eski kopya geçerli kalır
   const E3 = [entry('presets', 'usr_C', Buffer.from('{"id":"usr_C"}'))];
   const m3 = Pkg.buildManifest(E3);
-  const broken = Object.assign({}, fs, { renameSync: (a, b) => { if (path.basename(a).startsWith('next-')) { const e = new Error('locked'); e.code = 'EBUSY'; throw e; } return fs.renameSync(a, b); } });
+  const broken = Object.assign({}, fs, { renameSync: (a, b) => { if (String(b).includes(path.sep + 'store' + path.sep)) { const e = new Error('locked'); e.code = 'EBUSY'; throw e; } return fs.renameSync(a, b); } });
   rx = Pkg.createReceiver({ root, manifest: m3, fs: broken });
   for (const r of rx.missing()) { const ch = server(E3)(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
   await rx.verify();
-  assert.throws(() => rx.commit(), (e) => e.code === 'EBUSY');
-  assert.strictEqual(Pkg.currentManifest(root).pkg, m2.pkg, 'yarıda kalan takas geri alındı');
-  assert.ok(before.length > 0);
+  await assert.rejects(rx.commit(), (e) => e.code === 'EBUSY');
+  assert.strictEqual(Pkg.currentManifest(root).pkg, m2.pkg, 'yarıda kalan takas eski kopyayı değiştirmedi');
+  const it2 = Pkg.currentManifest(root).items[0];
+  assert.strictEqual(fs.readFileSync(Pkg.currentFile(root, it2), 'utf8'), '{"id":"usr_B"}');
+});
+
+/* OYNAYAN VİDEO (#817 incelemesi, Windows'ta ölçüldü). Açık bir dosyanın
+   klasörü yeniden adlandırılamıyor, dosyanın üstüne de yazılamıyor (EPERM).
+   Yedek kopyalanmış bir videoyu çizerken gelen her yeni paket eskiden
+   "kopyalama durdu"da kalıyordu. Artık takas o dosyaya ve klasörüne hiç
+   dokunmuyor; Windows'un kilidi sahte fs ile. */
+test('takas: oynayan (kilitli) videonun dosyasına ve klasörüne dokunulmuyor', async () => {
+  const root = tmp();
+  const get = server(ENTRIES);
+  const m1 = Pkg.buildManifest(ENTRIES);
+  let rx = Pkg.createReceiver({ root, manifest: m1 });
+  for (const r of rx.missing()) { const ch = get(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
+  await rx.verify(); await rx.commit();
+  const vid = Pkg.currentManifest(root).items.find((it) => it.kind === 'media');
+  const vidFile = path.resolve(Pkg.currentFile(root, vid));
+  // Kilitli: dosyanın kendisi ve kökle dosya arasındaki her klasör
+  const locked = (p) => {
+    const r = path.resolve(String(p));
+    return r === vidFile || (r.length > path.resolve(root).length && vidFile.startsWith(r + path.sep));
+  };
+  const deny = (fn) => (...a) => { if (a.slice(0, 2).some(locked)) { const e = new Error('EPERM: open in player'); e.code = 'EPERM'; throw e; } return fn(...a); };
+  const win = Object.assign({}, fs, { renameSync: deny(fs.renameSync), unlinkSync: deny(fs.unlinkSync), rmSync: deny(fs.rmSync), linkSync: deny(fs.linkSync), copyFileSync: deny(fs.copyFileSync) });
+  // Videosuz ikinci paket (bir preset değişti), "Farkları Yedeğe Gönder" gibi
+  const E2 = [entry('presets', 'usr_A', Buffer.from('{"id":"usr_A","name":"A9"}'))].concat(ENTRIES.slice(1));
+  const m2 = Pkg.buildManifest(E2);
+  const only = m2.items.filter((it) => it.kind !== 'media').map((it) => it.path);
+  rx = Pkg.createReceiver({ root, manifest: m2, only, fs: win });
+  rx.prefill();
+  for (const r of rx.missing()) { const ch = server(E2)(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
+  assert.deepStrictEqual(await rx.verify(), []);
+  await rx.commit();
+  const man = Pkg.currentManifest(root);
+  assert.strictEqual(man.pkg, m2.pkg, 'takas oldu');
+  const kept = man.items.find((it) => it.path === vid.path);
+  assert.ok(kept && kept.carried, 'video manifestte');
+  assert.strictEqual(path.resolve(Pkg.currentFile(root, kept)), vidFile, 'video aynı yerde: oynatıcı kesilmez');
+  const pa = man.items.find((it) => it.id === 'usr_A');
+  assert.strictEqual(fs.readFileSync(Pkg.currentFile(root, pa), 'utf8'), '{"id":"usr_A","name":"A9"}');
+  // Eski preset içeriği kullanılmıyor: depodan silindi
+  const oldA = m1.items.find((it) => it.id === 'usr_A');
+  assert.ok(!fs.existsSync(path.join(root, ...Pkg.storePath(oldA).split('/'))), 'kullanılmayan dosya temizlendi');
+});
+
+/* Önceki kopya yerinde okunuyor, sabit bağ yok. Bozuk önceki dosya yeniden
+   iniyor ve doğrulanmış kopyaya yazılmıyor (eskiden bağlı dosyaya 'r+' ile
+   yazılıp current yerinde değişiyordu). */
+test('önceki kopya bozuksa yeniden iniyor; doğrulanmış kopya yerinde değişmiyor', async () => {
+  const root = tmp();
+  const get = server(ENTRIES);
+  const m = Pkg.buildManifest(ENTRIES);
+  let rx = Pkg.createReceiver({ root, manifest: m });
+  for (const r of rx.missing()) { const ch = get(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
+  await rx.verify(); await rx.commit();
+  const logo = Pkg.currentManifest(root).items.find((it) => it.id === 'logo1');
+  const file = Pkg.currentFile(root, logo);
+  const bad = Buffer.alloc(logo.size, 0x55);
+  fs.writeFileSync(file, bad);
+  rx = Pkg.createReceiver({ root, manifest: m });
+  assert.ok(rx.prefill() >= 4);
+  assert.deepStrictEqual(await rx.verify(), [logo.path]);
+  for (const r of rx.missing()) { const ch = get(r); assert.strictEqual(rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha), ''); }
+  assert.deepStrictEqual(fs.readFileSync(file), bad, 'yeniden inen parçalar doğrulanmış kopyaya yazılmadı');
+  assert.deepStrictEqual(await rx.verify(), []);
+});
+
+// Araya giren paket yarım büyük paketi silmiyor (#817 incelemesi)
+test('hazırlık: başka bir paket yarım kalan büyük paketi silmiyor', () => {
+  const root = tmp();
+  const big1 = Pkg.buildManifest([ENTRIES[3]]);
+  const rx1 = Pkg.createReceiver({ root, manifest: big1 });
+  const ch = server([ENTRIES[3]])(rx1.missing()[0]);
+  rx1.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha);
+  rx1.cancel();
+  Pkg.createReceiver({ root, manifest: Pkg.buildManifest(ENTRIES.slice(0, 1)) });
+  const again = Pkg.createReceiver({ root, manifest: big1 });
+  assert.strictEqual(again.missing().length, 2, 'ilk parça hâlâ alınmış');
 });
 
 test('aktarım: videolar yalnız ayrıca onaylanırsa; pencere en çok iki istek; hız ve bitiş', async () => {
@@ -204,7 +283,7 @@ test('aktarım: videolar yalnız ayrıca onaylanırsa; pencere en çok iki istek
   assert.ok([...asked2].every((p) => p.startsWith('media/')), 'öncekiler kopyadan, yalnız video indi');
   assert.strictEqual(await pull.finish(), true);
   const media = Pkg.currentManifest(root).items.find((it) => it.kind === 'media');
-  assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, media.path)), big);
+  assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, installed(root, media.path))), big);
 });
 
 test('aktarım: kopan bağlantıda bekleyen istekler yeniden gidiyor; birincil hatası durduruyor', () => {
@@ -257,9 +336,9 @@ test('takas: videosuz paket önceki videoları silmiyor; manifestte kalıyorlar'
   let rx = Pkg.createReceiver({ root, manifest: m1 });
   for (const r of rx.missing()) { const ch = get(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
   assert.deepStrictEqual(await rx.verify(), []);
-  rx.commit();
+  await rx.commit();
   const media = m1.items.find((it) => it.kind === 'media');
-  const mediaFile = Pkg.currentFile(root, media.path);
+  const mediaFile = Pkg.currentFile(root, installed(root, media.path));
   assert.ok(fs.existsSync(mediaFile));
 
   // 1) Aynı paket, videolar işaretlenmeden (yalnız preset ve logolar)
@@ -271,8 +350,8 @@ test('takas: videosuz paket önceki videoları silmiyor; manifestte kalıyorlar'
   const get2 = server(E2);
   for (const r of rx.missing()) { const ch = get2(r); rx.accept(ch.path, ch.c, Buffer.from(ch.b64, 'base64'), ch.sha); }
   assert.deepStrictEqual(await rx.verify(), []);
-  rx.commit();
-  assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, media.path)), big, 'video yerinde ve aynı');
+  await rx.commit();
+  assert.deepStrictEqual(fs.readFileSync(Pkg.currentFile(root, installed(root, media.path))), big, 'video yerinde ve aynı');
   const man2 = Pkg.currentManifest(root);
   const kept = man2.items.find((it) => it.path === media.path);
   assert.ok(kept && kept.carried === true && kept.sha256 === media.sha256, 'manifestte, taşındığı işaretli');
@@ -283,10 +362,10 @@ test('takas: videosuz paket önceki videoları silmiyor; manifestte kalıyorlar'
   const m3 = Pkg.buildManifest(E3);
   rx = Pkg.createReceiver({ root, manifest: m3 });
   rx.prefill();
-  assert.deepStrictEqual(rx.missing(), [], 'aynı dosyalar öncekinden (sabit bağ ya da kopya)');
+  assert.deepStrictEqual(rx.missing(), [], 'aynı dosyalar öncekinden (yerinde)');
   assert.deepStrictEqual(await rx.verify(), []);
-  rx.commit();
-  assert.ok(fs.existsSync(Pkg.currentFile(root, media.path)));
+  await rx.commit();
+  assert.ok(fs.existsSync(Pkg.currentFile(root, installed(root, media.path))));
   assert.ok(Pkg.currentManifest(root).items.some((it) => it.path === media.path && it.kind === 'media'));
   // Eski kopyalar temizlendi, video tek yerde
   assert.deepStrictEqual(fs.readdirSync(root).filter((d) => /^(old|next)-/.test(d)), []);

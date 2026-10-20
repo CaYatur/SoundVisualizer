@@ -36,7 +36,7 @@ test('birincil yedeğe `at` yollamıyor; yedek pencerelere çevrilmiş seçimi v
   const relay = MAIN.slice(MAIN.indexOf('function relayMdFollow('), MAIN.indexOf('function mdPresetHash('));
   assert.match(relay, /startedAt: Number\.isFinite\(mp\.startedAt\) \? mp\.startedAt : null \};/);
   assert.doesNotMatch(relay, /at: now \}\) \}\)/);
-  const on = MAIN.slice(MAIN.indexOf("if (msg.type === 'md-follow') {"), MAIN.indexOf("if (msg.type === 'hello' && typeof msg.version"));
+  const on = MAIN.slice(MAIN.indexOf("if (msg.type === 'md-follow') {"), MAIN.indexOf("if (msg.type === 'pkg-manifest')"));
   assert.match(on, /const follow = redundancy\.localFollow\(msg\.follow, \(ms\) => f\.toLocal\(ms\)\);/);
   assert.match(on, /win\.webContents\.send\('md-follow', follow\)/);
   // Web sayfası başka makinede: geçiş anı ona gitmiyor
@@ -177,4 +177,12 @@ test('farkı gönder: yeni yedeğe yalnız haber, eski yedeğe öğe öğe', () 
   assert.match(push, /red\.backupCaps\.indexOf\('pkg'\) >= 0\) \{\n    streamServer\.sendPeers\(\{ type: 'push-notice', n: list\.length \}\);\n    return/);
   assert.match(push, /await new Promise\(\(r\) => setImmediate\(r\)\);\n  \}/);
   assert.match(MAIN, /if \(msg\.type === 'push-notice'\) \{ if \(red\.isolated\) pullPackageForPush\(\); return; \}/);
+});
+
+// #817 incelemesi: `hello` dalı erken döndüğü için birincilin sürümü hiç kaydedilmiyordu
+test('yedek birincilin sürümünü hello dalında kaydediyor', () => {
+  const start = MAIN.indexOf('function onPrimaryMessage(');
+  const branch = MAIN.slice(MAIN.indexOf("if (msg.type === 'hello' || msg.type === 'beat') {", start), MAIN.indexOf('    return;\n  }', start));
+  assert.match(branch, /if \(msg\.type === 'hello' && typeof msg\.version === 'string'\) red\.primaryVersion = msg\.version\.slice\(0, 40\);/);
+  assert.strictEqual((MAIN.match(/red\.primaryVersion = /g) || []).length, 1, 'ulaşılamayan eski satır kalmadı');
 });

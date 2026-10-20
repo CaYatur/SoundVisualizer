@@ -20,11 +20,14 @@
      koparsa ya da uygulama yeniden açılırsa aynı paket kaldığı yerden sürer.
      Önceki kopyada aynı özetle duran dosya yeniden indirilmez.
    - DOĞRULAMA ve TAKAS: her dosyanın SHA-256'sı tutmadan hiçbir şey yerine
-     geçmez. Takas iki adımlı: `current` → `old-*`, `next-*` → `current`.
-     Windows'ta var olan bir klasörün üstüne rename yapılamıyor ve açık bir
-     tutamaç (virüs tarayıcısı, Explorer önizlemesi) EPERM/EBUSY veriyor; bu
-     yüzden tek adımlı üstüne yazma yok, her rename kısa aralıklarla yeniden
-     deneniyor ve yarıda kalan takas geri alınıyor.
+     geçmez. Dosyalar içerik adresli bir depoda (`store/<özet>/<ad>`) durur
+     ve HİÇ taşınmaz ya da üstüne yazılmaz; takas yalnız `current/manifest.json`
+     dosyasının tek adımda yeniden yazılmasıdır. Windows'ta oynayan bir videonun
+     klasörü yeniden adlandırılamıyor, dosyanın üstüne de yazılamıyor (EPERM;
+     ölçüldü): eski tasarım `current` klasörünü taşıdığı için yedek kopyalanmış
+     bir videoyu çizerken her yeni paket "kopyalama durdu"da kalıyordu.
+     Kullanılmayan eski dosyalar takastan sonra silinir; kilitliyse bir
+     sonraki takasa kalır.
 
    Adlar: `<tür>/<kısa-ad>-<kimlik özeti><uzantı>`, küçük harf, en çok ~70
    karakter. Kimlik özeti büyük/küçük harf ayrımı olmayan dosya sistemlerinde
@@ -187,9 +190,55 @@ function rmrf(p, fsi) {
   try { retrySync(() => F.rmSync(p, { recursive: true, force: true })); } catch { /* sonraki temizlikte */ }
 }
 
+/* Ana iş parçacığını bloklamadan yeniden deneme: takas ana süreçte koşuyor;
+   Atomics.wait ile beklemek kalp atışını ve pencere iletilerini durdururdu. */
+async function retryAsync(fn, opts) {
+  const tries = (opts && opts.tries) || 6;
+  let wait = (opts && opts.wait) || 20;
+  for (let i = 0; ; i++) {
+    try { return fn(); } catch (e) {
+      if (i >= tries - 1 || RETRY.indexOf(e && e.code) < 0) throw e;
+      await new Promise((r) => setTimeout(r, wait));
+      wait = Math.min(500, wait * 2);
+    }
+  }
+}
+
+/* İçerik adresli depo: `store/<sha256 ilk 16>/<manifestteki adın son
+   parçası>`. Aynı içerik aynı yerde kalır; içerik değişirse yeni bir yer
+   alır — oynayan dosyanın üstüne hiç yazılmaz. */
+function storePath(it) {
+  return 'store/' + String(it.sha256).slice(0, 16) + '/' + String(it.path).split('/').pop();
+}
+// Manifest öğesinin diskteki yeri (depo; eski sürümün `current/<yol>` düzeni de)
+function itemFile(root, it) {
+  if (it && typeof it === 'object') {
+    if (typeof it.store === 'string' && /^store\/[0-9a-f]{16}\/[a-z0-9][a-z0-9._-]{0,90}$/.test(it.store)) return path.join(root, ...it.store.split('/'));
+    return path.join(root, 'current', ...String(it.path).split('/'));
+  }
+  return path.join(root, 'current', ...String(it).split('/'));
+}
+
+/* Başka paketlerin yarım hazırlıkları: en yeni ikisi sürdürülebilsin diye
+   kalır (büyük bir video paketinin yarısı, araya giren "farkı gönder"
+   paketiyle silinmesin); daha eskileri silinir. */
+const KEEP_STAGES = 2;
+function pruneStages(stageRoot, keep, F) {
+  let list = [];
+  try {
+    list = F.readdirSync(stageRoot).filter((d) => d !== keep).map((d) => {
+      let t = 0;
+      try { t = F.statSync(path.join(stageRoot, d)).mtimeMs; } catch { /* */ }
+      return { d, t };
+    }).sort((a, b) => b.t - a.t);
+  } catch { return; }
+  for (const x of list.slice(KEEP_STAGES)) rmrf(path.join(stageRoot, x.d), F);
+}
+
 /* YEDEK: paketin alıcısı. `root` yedeklilik klasöründeki paket alanı:
-     root/current/          — son doğrulanmış kopya (+ manifest.json)
-     root/staging/<pkg>/    — inen paket (+ state.json: alınan parçalar)
+     root/current/manifest.json — son doğrulanmış kopyanın listesi (takas noktası)
+     root/store/<özet>/<ad>     — doğrulanmış dosyalar (içerik adresli)
+     root/staging/<pkg>/        — inen paket (+ state.json: alınan parçalar)
    Aynı paket için yeniden kurulursa state.json'dan sürer. */
 function createReceiver(opts) {
   const o = opts || {};
@@ -205,11 +254,11 @@ function createReceiver(opts) {
   const wanted = new Set((o.only || m.items.map((it) => it.path)));
   const items = m.items.filter((it) => wanted.has(it.path));
   const byPath = new Map(items.map((it) => [it.path, it]));
+  /* Önceki kopyadan gelen dosyalar: yol → diskteki dosya. Kopyalanmaz,
+     bağlanmaz; doğrulama yerinde okur, takas dokunmaz. */
+  const fromPrev = new Map();
 
-  // Başka paketlerin yarım hazırlıkları: yalnız bu uygulamanın geçici verisi
-  try {
-    for (const d of F.readdirSync(stageRoot)) if (d !== m.pkg.slice(0, 16)) rmrf(path.join(stageRoot, d), F);
-  } catch { /* yok */ }
+  pruneStages(stageRoot, m.pkg.slice(0, 16), F);
   F.mkdirSync(filesDir, { recursive: true });
 
   const prev = readJson(stateFile, F);
@@ -250,7 +299,9 @@ function createReceiver(opts) {
   }
 
   /* Önceki doğrulanmış kopyada aynı ad ve aynı SHA-256 ile duran dosya
-     kopyalanır, ağdan inmez. */
+     ağdan inmez ve kopyalanmaz: yerinde kalır (sabit bağ da yok — eskiden
+     bağlanan dosyaya yeniden yazılan parçalar doğrulanmış kopyayı yerinde
+     değiştirebiliyordu). */
   function prefill() {
     const cur = readJson(path.join(root, 'current', 'manifest.json'), F);
     if (!cur || !Array.isArray(cur.items)) return 0;
@@ -258,16 +309,14 @@ function createReceiver(opts) {
     for (const old of cur.items) {
       const it = byPath.get(old && old.path);
       if (!it || old.sha256 !== it.sha256 || old.size !== it.size) continue;
-      const s = have.get(it.path);
-      if (s && s.size === it.chunks) continue;
-      try {
-        const d = diskPath(it.path);
-        F.mkdirSync(path.dirname(d), { recursive: true });
-        // Sabit bağ: gigabaytlık video kopyalanmaz, disk iki kat dolmaz
-        linkOrCopy(path.join(root, 'current', ...it.path.split('/')), d, F);
-        have.set(it.path, new Set(Array.from({ length: it.chunks }, (_, i) => i)));
-        n++;
-      } catch { /* inecek */ }
+      if (fromPrev.has(it.path)) continue;
+      const src = itemFile(root, old);
+      let ok = false;
+      try { ok = F.statSync(src).size === it.size; } catch { ok = false; }
+      if (!ok) continue;
+      fromPrev.set(it.path, src);
+      have.set(it.path, new Set(Array.from({ length: it.chunks }, (_, i) => i)));
+      n++;
     }
     if (n) saveState(true);
     return n;
@@ -322,71 +371,72 @@ function createReceiver(opts) {
     const errors = [];
     for (const it of items) {
       let h = '';
-      try { h = it.size === 0 ? sha256(Buffer.alloc(0)) : await hashFile(diskPath(it.path)); } catch { h = ''; }
-      if (h !== it.sha256) { errors.push(it.path); have.set(it.path, new Set()); }
+      const file = fromPrev.get(it.path) || diskPath(it.path);
+      try { h = it.size === 0 ? sha256(Buffer.alloc(0)) : await hashFile(file); } catch { h = ''; }
+      if (h !== it.sha256) {
+        errors.push(it.path);
+        // Önceki kopya bozulmuş: o dosya hazırlık alanına baştan iner
+        fromPrev.delete(it.path);
+        have.set(it.path, new Set());
+      }
     }
     if (errors.length) saveState(true);
     return errors;
   }
 
-  /* Doğrulanmış paketi yerine koyar. Sıra:
-       staging/<pkg>/files → next-<pkg>   (manifest.json yazılır)
-       current            → old-<zaman>   (varsa)
-       next-<pkg>         → current
-       old-<zaman>        silinir (olmazsa bir sonraki takasta)
-     İkinci ya da üçüncü adım düşerse eski kopya geri konur. */
-  function commit() {
-    const next = path.join(root, 'next-' + m.pkg.slice(0, 16));
-    const cur = path.join(root, 'current');
-    const old = path.join(root, 'old-' + Date.now());
-    rmrf(next, F);
-    // Boş dosyalar (0 bayt) hiç parça almamış olabilir
-    for (const it of items) ensureFile(it);
-    retrySync(() => F.renameSync(filesDir, next));
-    const keptItems = items.map((it) => Object.assign({}, it));
+  /* Doğrulanmış paketi yerine koyar:
+       1. Hazırlıktaki her dosya depodaki YENİ yerine taşınır (içerik
+          adresli: hedef ya yoktur ya aynı içeriktir; üstüne yazılmaz).
+       2. `current/manifest.json` tek adımda yazılır — takas budur. Buraya
+          kadar düşen bir adım eski kopyayı hiç değiştirmez.
+       3. Artık kullanılmayan depo dosyaları silinir; kilitliyse kalır,
+          sonraki takasta yeniden denenir. */
+  async function commit() {
+    const curDir = path.join(root, 'current');
+    const curMan = readJson(path.join(curDir, 'manifest.json'), F);
+    const keptItems = [];
+    for (const it of items) {
+      const store = storePath(it);
+      const dst = path.join(root, ...store.split('/'));
+      const prev = fromPrev.get(it.path);
+      let have0 = false;
+      try { have0 = F.statSync(dst).size === it.size; } catch { have0 = false; }
+      if (!have0) {
+        if (prev) {
+          /* Önceki kopya eski düzende (`current/<yol>`): depoya sabit bağla
+             (olmazsa kopya); kaynağa dokunulmaz. */
+          F.mkdirSync(path.dirname(dst), { recursive: true });
+          const tmp = dst + '.' + process.pid + '.tmp';
+          linkOrCopy(prev, tmp, F);
+          await retryAsync(() => F.renameSync(tmp, dst));
+        } else {
+          const src = ensureFile(it);
+          F.mkdirSync(path.dirname(dst), { recursive: true });
+          await retryAsync(() => F.renameSync(src, dst));
+        }
+      }
+      keptItems.push(Object.assign({}, it, { store }));
+    }
     /* ÖNCEKİ VİDEOLAR KALIR (#812, Windows'ta bulundu). "Videoları da
-       kopyala" işaretlenmeden inen paket current'ı değiştiriyor ve önceki
-       pakette kopyalanmış videoları (2,8 GB) siliyordu. Artık eski kopyadaki,
-       yeni pakette olmayan her doğrulanmış video yeni kopyaya taşınır (sabit
-       bağ; olmazsa kopya) ve manifestte kalır. Video yalnız operatör açıkça
-       kaldırınca gider. Aynı yolda yeni paketin dosyası varsa o geçerli. */
-    const curMan = readJson(path.join(cur, 'manifest.json'), F);
+       kopyala" işaretlenmeden inen paket önceki pakette kopyalanmış
+       videoları (2,8 GB) siliyordu. Eski kopyadaki, yeni pakette olmayan her
+       video manifestte kalır; dosyası yerinden kımıldamaz. Video yalnız
+       operatör açıkça kaldırınca gider. */
     const newPaths = new Set(items.map((it) => it.path));
-    const carried = [];
     if (curMan && Array.isArray(curMan.items)) {
       for (const it of curMan.items) {
         if (!it || it.kind !== 'media' || newPaths.has(it.path) || typeof it.path !== 'string') continue;
-        const src = path.join(cur, ...it.path.split('/'));
-        const dst = path.join(next, ...it.path.split('/'));
         let st = null;
-        try { st = F.statSync(src); } catch { continue; }
+        try { st = F.statSync(itemFile(root, it)); } catch { continue; }
         if (!st || st.size !== it.size) continue;
-        try {
-          F.mkdirSync(path.dirname(dst), { recursive: true });
-          linkOrCopy(src, dst, F);
-          keptItems.push(Object.assign({}, it, { carried: true }));
-          carried.push(it.path);
-        } catch (e) {
-          // Taşınamadıysa takas YAPILMAZ: eski kopya ve videoları yerinde kalır
-          rmrf(next, F);
-          throw Object.assign(new Error('carry:' + it.path + ': ' + (e && e.message)), { code: 'CARRY' });
-        }
+        keptItems.push(Object.assign({}, it, { carried: true }));
       }
     }
-    writeJsonAtomic(path.join(next, 'manifest.json'), Object.assign({}, m, { items: keptItems, installedAt: Date.now() }), F);
-    let moved = false;
-    try {
-      if (F.existsSync(cur)) { retrySync(() => F.renameSync(cur, old)); moved = true; }
-      retrySync(() => F.renameSync(next, cur));
-    } catch (e) {
-      if (moved && !F.existsSync(cur)) { try { retrySync(() => F.renameSync(old, cur)); } catch { /* */ } }
-      throw e;
-    }
-    rmrf(old, F);
+    F.mkdirSync(curDir, { recursive: true });
+    writeJsonAtomic(path.join(curDir, 'manifest.json'), Object.assign({}, m, { items: keptItems, installedAt: Date.now() }), F);
     rmrf(stage, F);
-    // Eski takasların kalıntıları
-    try { for (const d of F.readdirSync(root)) if (/^old-\d+$/.test(d)) rmrf(path.join(root, d), F); } catch { /* */ }
-    return cur;
+    collect(root, keptItems, F);
+    return curDir;
   }
 
   function cancel() { saveState(true); }
@@ -394,11 +444,42 @@ function createReceiver(opts) {
   return { pkg: m.pkg, items, prefill, missing, accept, progress, verify, commit, cancel, stage };
 }
 
+/* Kullanılmayan dosyaları siler: depoda manifestin göstermediği klasörler
+   ve eski düzenin (`current/<tür>/`) artık başvurulmayan dosyaları, ayrıca
+   eski takasların `old-*`/`next-*` kalıntıları. Kilitli olan kalır. */
+function collect(root, keptItems, fsi) {
+  const F = fsi || fs;
+  const used = new Set(keptItems.map((it) => path.resolve(itemFile(root, it))));
+  const usedDirs = new Set(Array.from(used).map((f) => path.dirname(f)));
+  const storeRoot = path.join(root, 'store');
+  try {
+    for (const d of F.readdirSync(storeRoot)) {
+      const dir = path.resolve(storeRoot, d);
+      if (!usedDirs.has(dir)) { rmrf(dir, F); continue; }
+      for (const f of F.readdirSync(dir)) {
+        const file = path.join(dir, f);
+        if (!used.has(file)) { try { F.unlinkSync(file); } catch { /* kilitli: sonra */ } }
+      }
+    }
+  } catch { /* depo yok */ }
+  for (const kind of KINDS) {
+    const dir = path.join(root, 'current', kind);
+    let names = [];
+    try { names = F.readdirSync(dir); } catch { continue; }
+    for (const f of names) {
+      const file = path.resolve(dir, f);
+      if (!used.has(file)) { try { F.unlinkSync(file); } catch { /* kilitli: sonra */ } }
+    }
+  }
+  try { for (const d of F.readdirSync(root)) if (/^(old|next)-[0-9a-f]+$/.test(d)) rmrf(path.join(root, d), F); } catch { /* */ }
+}
+
 // Son doğrulanmış kopyanın manifesti (yoksa null)
 function currentManifest(root, fsi) {
   return readJson(path.join(root, 'current', 'manifest.json'), fsi);
 }
-function currentFile(root, p) { return path.join(root, 'current', ...String(p).split('/')); }
+// Manifest öğesinin (ya da eski düzende yolun) diskteki dosyası
+function currentFile(root, it) { return itemFile(root, it); }
 
 /* Aynı birimde sabit bağ (NTFS, ext4, APFS); desteklemeyen dosya
    sisteminde (FAT32/exFAT) ya da bağ reddedilince kopya. */
@@ -535,7 +616,7 @@ function createPull(opts) {
         st.error = '';
         return { retry: next() };
       }
-      try { rx.commit(); } catch (e) { st.state = 'error'; st.error = (e && e.code) || 'commit'; return false; }
+      try { await rx.commit(); } catch (e) { st.state = 'error'; st.error = (e && e.code) || 'commit'; return false; }
       st.state = 'done';
       return true;
     },
@@ -546,5 +627,5 @@ function createPull(opts) {
 module.exports = {
   linkOrCopy,
   FORMAT, CHUNK, KINDS, sha256, entryName, hashFile, chunkCount, buildManifest, validateManifest,
-  readChunk, retrySync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, createPull,
+  readChunk, retrySync, retryAsync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, storePath, collect, createPull,
 };
