@@ -11,8 +11,8 @@
    Ağa giden şey yakalama yardımcısının kendi analiz karesi (audio-frame.js):
    tayf, 2048 örneklik mono/sol/sağ pencere ve örnekleme hızı. Görselleştirici
    bantları, vuruşu, BPM'i ve MilkDrop girdilerini bu kareden hesaplıyor; iki
-   makine aynı kareyi alınca aynı sayıları buluyor. Dinlenebilir ses (Opus /
-   PCM) bu sürümde yok: görüntünün eşliği için gerekmiyor (bkz. docs).
+   makine aynı kareyi alınca aynı sayıları buluyor. Dinlenebilir ses isteğe
+   bağlı: alıcı isterse köprü ham PCM de yollar (tür 2; Opus değil, bkz. docs).
 
    Taşıma: TCP, uzunluk önekli paketler. Yedeklilik bağlantısından AYRI bir
    soket: saniyede ~70 kare kalp atışının önünü tıkamasın. Biçim belgesi:
@@ -37,10 +37,13 @@ const DEFAULT_PORT = 8741;
 const BEACON_PORT = 8742;
 const MIN_SECRET = 16;
 const MAX_PACKET = 1 << 20; // 1 MB: kare 7 KB, meta (kapak resmiyle) sınırlı
-const KIND = Object.freeze({ JSON: 0, FRAME: 1 });
+const KIND = Object.freeze({ JSON: 0, FRAME: 1, PCM: 2 });
 const FRAME_HEAD = 1 + 4 + 8; // sürüm, sıra, gönderenin saati (ms, float64)
+const PCM_HEAD = FRAME_HEAD + 4 + 1; // + örnekleme hızı (u32), kanal (u8)
+const PCM_MAX = 64 * 1024; // bir PCM paketinin en büyük ses yükü
 const MAX_QUEUE = 256 * 1024; // yavaş alıcı: kuyruk bunu aşarsa kare atlanır
 const HELLO_MS = 5000;
+const RETRY_MS = [250, 500, 1000];
 
 const DEFAULTS = Object.freeze({
   send: false, // bu makine yakaladığını köprüye verir
@@ -52,6 +55,11 @@ const DEFAULTS = Object.freeze({
   host: '', // alıcı: elle adres; boşsa keşfedilen ilk köprü
   fallback: true, // köprü kesilince yerel girişe dön
   fallbackSource: '', // yedek giriş aygıtı (mikser split); boşsa olağan ses girişi
+  play: false, // alıcı: köprünün dinlenebilir sesini bu makinede çal
+  playVolume: 1, // 0..1
+  playDevice: '', // çıkış aygıtının kimliği; boşsa sistemin varsayılanı
+  playLatencyMs: 120, // titreme tamponu
+  startHidden: false, // köprü kipi: durum penceresi açılışta açılmaz (--hidden)
 });
 
 function normalize(c) {
@@ -66,6 +74,13 @@ function normalize(c) {
   s.secret = String(s.secret || '').trim().slice(0, 200);
   s.host = String(s.host || '').trim().slice(0, 200);
   s.fallbackSource = typeof s.fallbackSource === 'string' ? s.fallbackSource.slice(0, 300) : '';
+  s.play = s.play === true;
+  s.startHidden = s.startHidden === true;
+  const vol = Number(s.playVolume);
+  s.playVolume = Number.isFinite(vol) ? Math.max(0, Math.min(1, vol)) : 1;
+  s.playDevice = typeof s.playDevice === 'string' ? s.playDevice.slice(0, 300) : '';
+  const lat = Math.round(Number(s.playLatencyMs));
+  s.playLatencyMs = Number.isFinite(lat) ? Math.max(40, Math.min(1000, lat)) : 120;
   return s;
 }
 
@@ -93,7 +108,10 @@ function safeEqual(a, b) {
 /* ---- Paketler ------------------------------------------------------------
    [u32 BE uzunluk (tür + yük)][u8 tür][yük]
    tür 0: UTF-8 JSON, her nesnede `v` (biçim sürümü) ve `type`
-   tür 1: kare — [u8 sürüm][u32 BE sıra][f64 BE gönderenin saati][7174 bayt] */
+   tür 1: kare — [u8 sürüm][u32 BE sıra][f64 BE gönderenin saati][7174 bayt]
+   tür 2: PCM — [u8 sürüm][u32 BE sıra][f64 BE saat][u32 BE hız][u8 kanal][s16 LE]
+          yalnız isteyen alıcıya ("auth"ta ya da sonra "audio" ile) gider;
+          eski alıcı bu türü hiç almaz */
 function packet(kind, payload) {
   const head = Buffer.alloc(5);
   head.writeUInt32BE(payload.length + 1, 0);
@@ -110,6 +128,26 @@ function framePacket(frameBytes, seq, t) {
   p.writeDoubleBE(t, 5);
   frameBytes.copy(p, FRAME_HEAD);
   return packet(KIND.FRAME, p);
+}
+function pcmPacket(s16, seq, t, sampleRate, channels) {
+  const p = Buffer.alloc(PCM_HEAD + s16.length);
+  p[0] = WIRE_VERSION;
+  p.writeUInt32BE(seq >>> 0, 1);
+  p.writeDoubleBE(t, 5);
+  p.writeUInt32BE(sampleRate >>> 0, 13);
+  p[17] = channels;
+  s16.copy(p, PCM_HEAD);
+  return packet(KIND.PCM, p);
+}
+function readPcm(payload) {
+  if (!payload || payload.length < PCM_HEAD) return { error: 'size' };
+  if (payload[0] !== WIRE_VERSION) return { error: 'version', version: payload[0] };
+  const sampleRate = payload.readUInt32BE(13);
+  const channels = payload[17];
+  const data = payload.subarray(PCM_HEAD);
+  if (channels < 1 || channels > 2 || sampleRate < 8000 || sampleRate > 192000) return { error: 'format' };
+  if (data.length > PCM_MAX || data.length % (2 * channels)) return { error: 'size' };
+  return { seq: payload.readUInt32BE(1), t: payload.readDoubleBE(5), sampleRate, channels, data: Buffer.from(data) };
 }
 function readFrame(payload) {
   if (!payload || payload.length !== FRAME_HEAD + frameFormat.FRAME_BYTES) return { error: 'size' };
@@ -165,15 +203,25 @@ function createSender(opts) {
   const clients = new Set();
   let server = null;
   let seq = 0;
+  let pcmSeq = 0;
   let lastMeta = null;
+  const authFails = [];
   const stats = { sent: 0, dropped: 0, clients: 0, listening: false, error: '' };
   const now = o.now || Date.now;
 
   function emit() { stats.clients = Array.from(clients).filter((c) => c.authed).length; if (o.onStatus) o.onStatus(status()); }
-  function status() { return Object.assign({ port: o.port, peers: Array.from(clients).filter((c) => c.authed).map((c) => ({ addr: c.addr, dropped: c.dropped })) }, stats); }
+  function status() {
+    const t = now();
+    return Object.assign({
+      port: o.port,
+      listeners: Array.from(clients).filter((c) => c.authed && c.audio).length,
+      peers: Array.from(clients).filter((c) => c.authed).map((c) => Object.assign({ addr: c.addr, dropped: c.dropped, audio: c.audio }, c.report || {})),
+      authFails: authFails.filter((f) => t - f.at < 60000).map((f) => ({ addr: f.addr, agoMs: t - f.at })),
+    }, stats);
+  }
 
   function onConn(sock) {
-    const c = { sock, authed: false, nonce: crypto.randomBytes(16).toString('hex'), addr: (sock.remoteAddress || '').replace(/^::ffff:/, ''), dropped: 0 };
+    const c = { sock, authed: false, audio: false, nonce: crypto.randomBytes(16).toString('hex'), addr: (sock.remoteAddress || '').replace(/^::ffff:/, ''), dropped: 0 };
     clients.add(c);
     sock.setNoDelay(true);
     const t = setTimeout(() => { if (!c.authed) sock.destroy(); }, HELLO_MS);
@@ -186,8 +234,15 @@ function createSender(opts) {
       if (!m) return fail('json');
       if (m.v !== WIRE_VERSION) return fail('version');
       if (!c.authed) {
-        if (m.type !== 'auth' || !safeEqual(m.mac, mac(o.secret, 'sv-bridge|c|' + c.nonce))) return fail('auth');
+        if (m.type !== 'auth' || !safeEqual(m.mac, mac(o.secret, 'sv-bridge|c|' + c.nonce))) {
+          // Durum penceresi için: son eşleşmeyen denemeler (adres, an)
+          authFails.unshift({ addr: c.addr, at: now() });
+          authFails.length = Math.min(authFails.length, 8);
+          emit();
+          return fail('auth');
+        }
         c.authed = true;
+        c.audio = m.audio === true;
         clearTimeout(t);
         // Köprü de parolayı bildiğini gösterir: alıcının nonce'u
         send({ type: 'welcome', mac: mac(o.secret, 'sv-bridge|s|' + String(m.nonce || '')), t: now() });
@@ -195,7 +250,15 @@ function createSender(opts) {
         emit();
         return;
       }
-      if (m.type === 'ping') send({ type: 'pong', t0: m.t0, t1: now() });
+      if (m.type === 'ping') {
+        send({ type: 'pong', t0: m.t0, t1: now() });
+        // Alıcının kendi ölçtüğü: ad, gidiş-dönüş, kare yaşı, kayıp
+        if (m.r && typeof m.r === 'object') {
+          const num = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+          c.report = { name: String(m.r.name || '').slice(0, 60), rttMs: num(m.r.rttMs), ageMs: num(m.r.ageMs), lost: num(m.r.lost) || 0, at: now() };
+        }
+      }
+      else if (m.type === 'audio') { const was = c.audio; c.audio = m.on === true; if (was !== c.audio) emit(); }
     }, () => sock.destroy()));
     sock.on('error', () => {});
     sock.on('close', () => { clearTimeout(t); clients.delete(c); emit(); });
@@ -240,6 +303,19 @@ function createSender(opts) {
         c.sock.write(pkt);
       }
     },
+    /* Dinlenebilir ses: s16 LE, kendi örnekleme hızında; yalnız isteyen
+       alıcıya. Kuyruğu dolu alıcıya atlanır (gecikme birikmesin). */
+    pcm(s16, sampleRate, channels) {
+      if (!clients.size || !s16 || !s16.length) return;
+      let pkt = null;
+      for (const c of clients) {
+        if (!c.authed || !c.audio || c.sock.destroyed) continue;
+        if (c.sock.writableLength > MAX_QUEUE) { stats.pcmDropped = (stats.pcmDropped || 0) + 1; continue; }
+        if (!pkt) pkt = pcmPacket(s16.length > PCM_MAX ? s16.subarray(0, PCM_MAX) : s16, ++pcmSeq, now(), sampleRate, channels || 2);
+        c.sock.write(pkt);
+      }
+    },
+    wantsAudio() { for (const c of clients) if (c.authed && c.audio && !c.sock.destroyed) return true; return false; },
     meta(st) {
       lastMeta = slimMeta(st);
       const pkt = jsonPacket({ type: 'meta', meta: lastMeta, t: now() });
@@ -284,12 +360,18 @@ function createReceiver(opts) {
   let retry = 0;
   let retryTimer = null;
   let pingTimer = null;
-  const st = { state: 'idle', host: o.host, port: o.port, name: '', id: '', rttMs: null, offsetMs: null, ageMs: null, frames: 0, lost: 0, error: '', lastSeq: 0 };
+  let lastKick = 0;
+  let lastAttempt = 0;
+  let candidates = o.host ? [o.host] : [];
+  const st = { state: 'idle', host: o.host, port: o.port, name: '', id: '', rttMs: null, offsetMs: null, ageMs: null, frames: 0, lost: 0, error: '', lastSeq: 0, audio: o.audio === true, pcm: 0, pcmLost: 0, pcmRate: 0, lastPcmSeq: 0 };
   function emit() { if (o.onStatus) o.onStatus(Object.assign({}, st)); }
 
   function schedule() {
     if (stopped || retryTimer) return;
-    const wait = [500, 1000, 2000, 5000][Math.min(retry, 3)];
+    /* Bekleme en çok 1 sn (#813, Linux'ta ölçüldü): eskiden 0,5-1-2-5 sn
+       idi; 8 sn'lik bir kesintiden sonra yeniden açılan köprüye 4,8 sn sonra
+       bağlanılıyordu. Bağlanma denemesi ucuz (yerel ağ, tek TCP). */
+    const wait = RETRY_MS[Math.min(retry, RETRY_MS.length - 1)];
     retry++;
     retryTimer = setTimeout(() => { retryTimer = null; connect(); }, wait);
   }
@@ -302,6 +384,7 @@ function createReceiver(opts) {
     if (!o.host) { st.state = 'searching'; emit(); return; }
     cleanup();
     clock.reset();
+    lastAttempt = now();
     st.state = 'connecting';
     st.error = '';
     emit();
@@ -313,6 +396,18 @@ function createReceiver(opts) {
     const send = (obj) => { if (!s.destroyed) s.write(jsonPacket(obj)); };
     const helloTimer = setTimeout(() => { if (!authed) { st.error = 'timeout'; s.destroy(); } }, HELLO_MS);
     s.on('data', createParser((kind, payload) => {
+      if (kind === KIND.PCM) {
+        if (!authed) return s.destroy();
+        const p = readPcm(payload);
+        if (p.error) { st.error = 'pcm-' + p.error; return s.destroy(); }
+        if (st.lastPcmSeq && p.seq > st.lastPcmSeq + 1) st.pcmLost += p.seq - st.lastPcmSeq - 1;
+        st.lastPcmSeq = p.seq;
+        st.pcm++;
+        st.pcmRate = p.sampleRate;
+        const b = clock.best();
+        if (st.audio && o.onPcm) o.onPcm(p.data, { seq: p.seq, t: p.t, localT: b ? p.t - b.offset : null, sampleRate: p.sampleRate, channels: p.channels });
+        return;
+      }
       if (kind === KIND.FRAME) {
         if (!authed) return s.destroy();
         const f = readFrame(payload);
@@ -333,7 +428,7 @@ function createReceiver(opts) {
       if (m.type === 'hello') {
         st.name = String(m.name || '').slice(0, 60);
         st.id = String(m.id || '').slice(0, 64);
-        send({ type: 'auth', mac: mac(o.secret, 'sv-bridge|c|' + String(m.nonce || '')), nonce: myNonce });
+        send({ type: 'auth', mac: mac(o.secret, 'sv-bridge|c|' + String(m.nonce || '')), nonce: myNonce, audio: st.audio });
       } else if (m.type === 'welcome') {
         // Köprü de parolayı bilmeli: yoksa sahte bir köprüye ses için bağlanmayız
         if (!safeEqual(m.mac, mac(o.secret, 'sv-bridge|s|' + myNonce))) { st.error = 'auth'; st.state = 'error'; emit(); return s.destroy(); }
@@ -342,7 +437,7 @@ function createReceiver(opts) {
         clearTimeout(helloTimer);
         st.state = 'connected';
         emit();
-        const ping = () => send({ type: 'ping', t0: now() });
+        const ping = () => send({ type: 'ping', t0: now(), r: { name: o.name || '', rttMs: st.rttMs, ageMs: st.ageMs, lost: st.lost } });
         ping();
         pingTimer = setInterval(ping, 1000);
       } else if (m.type === 'pong') {
@@ -372,6 +467,13 @@ function createReceiver(opts) {
       if (sock === s) sock = null;
       if (st.state !== 'error' || st.error !== 'auth') st.state = stopped ? 'idle' : 'connecting';
       st.ageMs = null;
+      /* Kurulamayan bağlantı: köprünün bir sonraki adresi denenir (ör. bu
+         makineden ulaşılamayan bir sanal kart adresi). */
+      if (!authed && candidates.length > 1) {
+        const i = candidates.indexOf(o.host);
+        const nextHost = candidates[(i + 1) % candidates.length];
+        if (nextHost && nextHost !== o.host) { o.host = nextHost; st.host = nextHost; retry = 0; }
+      }
       emit();
       // Parola tutmuyorsa yine denenir ama yavaş: ayar düzelince bağlanır
       schedule();
@@ -387,13 +489,38 @@ function createReceiver(opts) {
       st.state = 'idle';
       emit();
     },
-    // Keşifle bulunan ya da elle değişen adres
-    setTarget(host, port) {
+    /* Keşifle bulunan ya da elle değişen adres. `alts`: aynı köprünün öbür
+       adresleri (sıralı). Bağlıyken ve bağlı adres hâlâ köprünün adresiyse
+       DOKUNULMAZ; adres yalnız bağlantı kurulamayınca değişir. */
+    setTarget(host, port, alts) {
       const h = String(host || '');
       const p = Number(port) || o.port;
+      const list = Array.isArray(alts) && alts.length ? alts.map(String) : (h ? [h] : []);
+      if (st.state === 'connected' && p === o.port && list.indexOf(o.host) >= 0) { candidates = list; return; }
+      candidates = list;
       if (h === o.host && p === o.port) return;
       o.host = h; o.port = p; st.host = h; st.port = p;
       if (!stopped) { cleanup(); retry = 0; if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } connect(); }
+    },
+    /* Köprünün işareti duyuldu: bağlı değilse bekleme beklenmeden hemen
+       denenir. Süren bir deneme bozulmaz; en çok 300 ms'de bir. */
+    kick() {
+      if (stopped || st.state === 'connected' || !o.host) return false;
+      if (sock && !sock.destroyed && st.state === 'connecting' && now() - lastAttempt < 1500) return false;
+      if (now() - lastKick < 300) return false;
+      lastKick = now();
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      connect();
+      return true;
+    },
+    // Dinlenebilir sesi iste / bırak; bağlantı kopmaz
+    setAudio(on) {
+      const v = on === true;
+      if (v === st.audio) return;
+      st.audio = v;
+      st.lastPcmSeq = 0;
+      if (sock && !sock.destroyed && st.state === 'connected') sock.write(jsonPacket({ type: 'audio', on: v }));
+      emit();
     },
     status() { return Object.assign({}, st); },
   };
@@ -462,14 +589,57 @@ function createBeacon(opts) {
   };
 }
 
+/* Yerel ağ kartlarının IPv4 alt ağları; bir adres bunlardan biriyle aynı
+   alt ağdaysa doğrudan ulaşılabilir sayılır (yönlendirici gerekmez). */
+function localSubnets(ifaces) {
+  const out = [];
+  const all = ifaces || os.networkInterfaces();
+  for (const name of Object.keys(all || {})) {
+    for (const a of all[name] || []) {
+      if (!a || a.internal || (a.family !== 'IPv4' && a.family !== 4) || !a.netmask) continue;
+      out.push({ addr: ipNum(a.address), mask: ipNum(a.netmask) });
+    }
+  }
+  return out;
+}
+function ipNum(ip) {
+  const p = String(ip || '').split('.').map(Number);
+  if (p.length !== 4 || p.some((x) => !(x >= 0 && x <= 255))) return null;
+  return ((p[0] << 24) >>> 0) + (p[1] << 16) + (p[2] << 8) + p[3];
+}
+function sameSubnet(ip, subnets) {
+  const n = ipNum(ip);
+  if (n == null) return false;
+  return subnets.some((s) => s.addr != null && s.mask != null && ((n & s.mask) >>> 0) === ((s.addr & s.mask) >>> 0));
+}
+/* Aynı köprünün işareti birden çok adresten gelebilir (#813, Windows'ta
+   görüldü: vEthernet / Hyper-V / VPN kartları; saniyede dört adres). Sıra:
+   yerel bir kartla aynı alt ağda olan önce, sonra ilk duyulan. Sıra
+   kararlı: adres her işarette değişmiyor. */
+function rankHosts(hosts, subnets) {
+  return hosts.slice().sort((a, b) => {
+    const sa = sameSubnet(a.host, subnets) ? 0 : 1;
+    const sb = sameSubnet(b.host, subnets) ? 0 : 1;
+    return sa - sb || a.first - b.first;
+  }).map((h) => h.host);
+}
+
 function createDiscovery(opts) {
   const o = Object.assign({ beaconPort: BEACON_PORT, secret: '', expireMs: 5000 }, opts || {});
   const seen = new Map();
   let sock = null;
   let sweep = null;
   const st = { listening: false, error: '' };
+  let subnetCache = null;
+  let subnetAt = 0;
+  function subnets() {
+    if (o.subnets) return o.subnets;
+    if (!subnetCache || Date.now() - subnetAt > 10000) { subnetCache = localSubnets(); subnetAt = Date.now(); }
+    return subnetCache;
+  }
   function list() {
-    return Array.from(seen.values()).sort((a, b) => (b.paired - a.paired) || a.name.localeCompare(b.name));
+    return Array.from(seen.values()).sort((a, b) => (b.paired - a.paired) || a.name.localeCompare(b.name))
+      .map((e) => { const { hostsSeen, ...rest } = e; return rest; });
   }
   function changed() { if (o.onChange) o.onChange(list(), Object.assign({}, st)); }
   return {
@@ -482,9 +652,19 @@ function createDiscovery(opts) {
         const b = verifyBeacon(buf, o.secret, Date.now());
         if (!b || (o.selfId && b.id === o.selfId)) return;
         const prev = seen.get(b.id);
-        const entry = Object.assign(b, { host: rinfo.address, at: Date.now() });
+        const t = Date.now();
+        /* Köprü kimliğine göre TEK kayıt; adresler kaydın içinde. Adres
+           değişince eskiden "değişti" bildiriliyor ve alıcı her saniye
+           yeniden bağlanıyordu. */
+        const hosts = prev ? prev.hostsSeen.filter((h) => t - h.at <= o.expireMs) : [];
+        const known = hosts.find((h) => h.host === rinfo.address);
+        if (known) known.at = t; else hosts.push({ host: rinfo.address, first: t, at: t });
+        const ranked = rankHosts(hosts, subnets());
+        const entry = Object.assign(b, { host: ranked[0], hosts: ranked, hostsSeen: hosts, at: t });
         seen.set(b.id, entry);
-        if (!prev || prev.host !== entry.host || prev.paired !== entry.paired || prev.port !== entry.port || prev.name !== entry.name) changed();
+        if (!prev || prev.host !== entry.host || prev.paired !== entry.paired || prev.port !== entry.port || prev.name !== entry.name || prev.hosts.length !== ranked.length) changed();
+        // Her işaret: köprü yeniden açıldıysa alıcı beklemeden bağlansın
+        if (o.onBeacon) o.onBeacon(entry);
       });
       sock.bind(o.beaconPort, () => { st.listening = true; st.error = ''; changed(); });
       sweep = setInterval(() => {
@@ -507,9 +687,9 @@ function createDiscovery(opts) {
 }
 
 module.exports = {
-  WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, KIND, FRAME_HEAD, DEFAULTS,
-  normalize, problem, newSecret, mac,
-  packet, jsonPacket, framePacket, readFrame, createParser, slimMeta,
+  WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, KIND, FRAME_HEAD, DEFAULTS, RETRY_MS,
+  normalize, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
+  packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta,
   createSender, createReceiver, createClock,
   broadcastAddresses, beaconMessage, verifyBeacon, createBeacon, createDiscovery,
 };

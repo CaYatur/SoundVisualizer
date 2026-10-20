@@ -1,0 +1,25 @@
+/*
+ * SoundVisualizer — CaYaDev Ses Görselleştirici
+ * Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+ * https://github.com/CaYatur/SoundVisualizer
+ * SPDX-License-Identifier: MIT
+ */
+/* Köprü durum penceresi (#813): kartların görünümü, tek sütun. */
+body.bridge-status { height: auto; min-height: 100vh; overflow-y: auto; display: block; user-select: text; }
+.bs-main { padding: 14px; display: grid; gap: 12px; max-width: 720px; margin: 0 auto; }
+.bs-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius, 12px); padding: 14px; }
+.bs-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.bs-title { display: flex; flex-direction: column; min-width: 0; }
+.bs-title h1 { font-size: 15px; font-weight: 700; color: var(--text-strong, var(--text)); }
+.bs-title .bs-name { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.bs-src { display: grid; gap: 8px; }
+.bs-src select { width: 100%; }
+.bs-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.bs-seg button { background: var(--card2); color: var(--muted); border: 0; padding: 5px 12px; font: inherit; font-size: 11.5px; cursor: pointer; }
+.bs-seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent-grad)); color: var(--on-accent); }
+.bs-note { font-size: 11px; color: var(--muted); }
+.bs-warn { font-size: 11px; color: var(--warn-text, var(--warn)); background: rgb(var(--warn-rgb) / .08); border: 1px solid rgb(var(--warn-rgb) / .3); border-radius: 8px; padding: 6px 10px; }
+.bs-big-meter .br-meter { height: 12px; }
+.bs-beat { width: 10px; height: 10px; border-radius: 50%; background: var(--card3, var(--line)); transition: background .05s; flex-shrink: 0; }
+.bs-beat.on { background: var(--accent); box-shadow: 0 0 8px var(--accent); }

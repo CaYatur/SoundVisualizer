@@ -28,6 +28,9 @@ const ROOT = path.join(__dirname, '..');
 const say = (s) => process.stdout.write(s + '\n');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const OUTAGE_MS = Math.max(8000, +process.env.SV_RIG_OUTAGE_MS || 8000);
+const RECOVER_LIMIT_MS = +process.env.SV_RIG_RECOVER_MS || 6000;
+
 function freePort() {
   return new Promise((resolve, reject) => {
     const s = net.createServer();
@@ -206,8 +209,11 @@ async function scenario(name, bridgeOnly) {
     res.bridgeSourceWhileLinked = JSON.stringify(s.localSources) !== JSON.stringify([FALLBACK]);
     res.bridgeUsage = await steadyUsage(A.pid);
     const pagesA = (await (await fetch('http://127.0.0.1:' + cdpA + '/json/list')).json()).filter((p) => p.type === 'page');
-    // Yalnız köprüde hiç sayfa yok; olağan kipte panel açık ve görüntü çıkışı yine açılabilir
-    res.bridgeHasNoWindow = bridgeOnly ? pagesA.length === 0 : pagesA.some((p) => /admin\/index\.html/.test(p.url));
+    /* Yalnız köprüde tek sayfa küçük durum penceresi (görüntü yok); olağan
+       kipte panel açık ve görüntü çıkışı yine açılabilir. */
+    res.bridgeHasNoWindow = bridgeOnly
+      ? pagesA.length === 1 && /bridge-status\/index\.html/.test(pagesA[0].url)
+      : pagesA.some((p) => /admin\/index\.html/.test(p.url));
     // Köprü düşer: yerel girişe dönüş
     killTree(A);
     const t1 = Date.now();
@@ -215,12 +221,15 @@ async function scenario(name, bridgeOnly) {
     res.fallbackMs = Date.now() - t1;
     res.fellBack = !!fell.ok;
     res.fallbackDevice = fell.x && JSON.stringify(fell.x.localSources) === JSON.stringify([FALLBACK]);
-    // Köprü geri gelir: kararlı olunca köprüye dönüş
+    /* Uzun kesinti (#813, Linux sınaması): köprü en az 8 sn kapalı kalır;
+       alıcının geri çekilmesi büyümemeli, işareti görünce hemen bağlanmalı. */
+    await wait(OUTAGE_MS);
     A = launch(dirA, cdpA, ARGS);
     const t2 = Date.now();
     const back = await until(async () => { const x = await pb.eval(STATUS); return { ok: x.input && x.input.state === 'bridge', x }; }, 30000, 100);
     res.recoverMs = Date.now() - t2;
-    res.recovered = !!back.ok;
+    // Soğuk açılış dahil; hedef köprü ayağa kalktıktan sonra 2 sn
+    res.recovered = !!back.ok && res.recoverMs < RECOVER_LIMIT_MS;
     res.pass = res.linked && res.foundByBeacon && res.framesArrive && res.bridgeHasNoWindow && res.fellBack && res.recovered &&
       res.analysisArrives && res.bridgeSourceWhileLinked && res.fallbackDevice;
   } catch (e) {
@@ -239,6 +248,7 @@ async function scenario(name, bridgeOnly) {
 }
 
 (async () => {
+  say('outage ' + OUTAGE_MS + ' ms, recovery limit ' + RECOVER_LIMIT_MS + ' ms (cold start included)');
   const a = await scenario('bridge-only mode (--bridge)', true);
   const b = await scenario('normal mode, the primary is the bridge', false);
   process.exitCode = a && b ? 0 : 1;

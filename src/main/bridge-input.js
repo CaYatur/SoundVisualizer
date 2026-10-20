@@ -21,7 +21,10 @@
    operatörün açıkça seçtiği davranış. */
 
 function createInputSwitch(opts) {
-  const o = Object.assign({ lossMs: 600, recoverMs: 2000, firstMs: 300, fallback: true }, opts || {});
+  /* recoverMs 2 sn idi; Windows'ta köprü yeniden açılınca giriş 5-6 sn
+     sonra dönüyordu (#813). 0,5 sn kesintisiz kare (~35 kare) titremeyi
+     önlemeye yetiyor. */
+  const o = Object.assign({ lossMs: 600, recoverMs: 500, firstMs: 300, fallback: true }, opts || {});
   let state = 'waiting';
   let lastFrame = null;
   let runStart = 0; // kesintisiz kare dizisinin başı

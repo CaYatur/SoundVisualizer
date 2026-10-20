@@ -179,7 +179,87 @@ function encodeFrame(f) {
   return buf;
 }
 
+/* DİNLENEBİLİR SES (#813, ses köprüsü). Yardımcı istenirse analiz
+   karelerinin arasına ham PCM paketleri de yazar; aynı boru, ayrı işaret:
+     [0xAA][0x56][u32 LE örnekleme hızı][u8 kanal][u16 LE örnek sayısı][s16 LE]
+   Ayrı bir boru (fd 3) Windows'ta da çalışırdı ama tek boru sırayı korur ve
+   yardımcının geri basıncı (backpressure) ikisi için aynı. */
+const PCM_MARKER1 = 0x56;
+const PCM_HEAD = 2 + 4 + 1 + 2;
+const PCM_MAX_SAMPLES = 8192;
+
+// float32 araya serpiştirilmiş (1 ya da 2+ kanal) -> s16 LE stereo
+function floatToS16Stereo(f, nCh) {
+  const ch = Math.max(1, nCh | 0);
+  const n = Math.min((f.length / ch) | 0, PCM_MAX_SAMPLES);
+  const out = Buffer.allocUnsafe(n * 4);
+  for (let i = 0; i < n; i++) {
+    let l = f[i * ch];
+    let r = ch > 1 ? f[i * ch + 1] : l;
+    l = l > 1 ? 1 : l < -1 ? -1 : (l || 0);
+    r = r > 1 ? 1 : r < -1 ? -1 : (r || 0);
+    out.writeInt16LE(Math.round(l * 32767), i * 4);
+    out.writeInt16LE(Math.round(r * 32767), i * 4 + 2);
+  }
+  return out;
+}
+// float32 LE stereo bayt dizisi (uygulama yakalaması) -> s16 LE stereo
+function stereoLEToS16(buf, frames) {
+  const n = Math.min(frames, PCM_MAX_SAMPLES);
+  const out = Buffer.allocUnsafe(n * 4);
+  for (let i = 0; i < n * 2; i++) {
+    let v = buf.readFloatLE(i * 4);
+    v = v > 1 ? 1 : v < -1 ? -1 : (v || 0);
+    out.writeInt16LE(Math.round(v * 32767), i * 2);
+  }
+  return out;
+}
+function encodePcm(sampleRate, s16stereo) {
+  const samples = (s16stereo.length / 4) | 0;
+  const buf = Buffer.allocUnsafe(PCM_HEAD + samples * 4);
+  buf[0] = MARKER0;
+  buf[1] = PCM_MARKER1;
+  buf.writeUInt32LE(sampleRate >>> 0, 2);
+  buf[6] = 2;
+  buf.writeUInt16LE(samples, 7);
+  s16stereo.copy(buf, PCM_HEAD, 0, samples * 4);
+  return buf;
+}
+
+/* Yardımcının akışından kareleri ve PCM paketlerini ayıklar; artan baytları
+   döndürür. Hiza kayarsa iki işaretten birini arar. */
+function splitHelperStream(acc, onFrame, onPcm) {
+  let a = acc;
+  for (;;) {
+    if (a.length < 2) return a;
+    if (a[0] !== MARKER0 || (a[1] !== MARKER1 && a[1] !== PCM_MARKER1)) {
+      let k = 1;
+      while (k < a.length - 1 && !(a[k] === MARKER0 && (a[k + 1] === MARKER1 || a[k + 1] === PCM_MARKER1))) k++;
+      a = a.subarray(k);
+      continue;
+    }
+    if (a[1] === MARKER1) {
+      if (a.length < FRAME_BYTES) return a;
+      const frame = parseFrame(a.subarray(0, FRAME_BYTES));
+      a = a.subarray(FRAME_BYTES);
+      if (onFrame) onFrame(frame);
+      continue;
+    }
+    if (a.length < PCM_HEAD) return a;
+    const samples = a.readUInt16LE(7);
+    const ch = a[6];
+    if (ch !== 2 || samples > PCM_MAX_SAMPLES) { a = a.subarray(1); continue; }
+    const len = PCM_HEAD + samples * 4;
+    if (a.length < len) return a;
+    const sr = a.readUInt32LE(2);
+    const data = Buffer.from(a.subarray(PCM_HEAD, len));
+    a = a.subarray(len);
+    if (onPcm && samples) onPcm(data, sr, 2);
+  }
+}
+
 module.exports = {
   FFT_SIZE, BINS, MARKER0, MARKER1, OFFSET, FRAME_BYTES,
   SourceRings, mixSources, writeTime, parseFrame, encodeFrame,
+  PCM_MARKER1, PCM_HEAD, PCM_MAX_SAMPLES, floatToS16Stereo, stereoLEToS16, encodePcm, splitHelperStream,
 };

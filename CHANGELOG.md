@@ -9,26 +9,32 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
 
 ### Audio bridge, redundancy overhaul phase 2 [813, 816]
 
-- **Fixed: starting the audio bridge a second time crashed on Windows** with "ReferenceError: Cannot access 'instanceTimer' before initialization". The second copy called `app.quit()` while the main process was still loading, and Electron ran the `will-quit` cleanup at once, before the state it touches existed. The second copy now exits right away (the running bridge opens its panel), and the `will-quit` cleanup is skipped until the main process has fully loaded, which also covers a quit signal during startup.
+- **Fixed: starting the audio bridge a second time crashed on Windows** with "ReferenceError: Cannot access 'instanceTimer' before initialization". The second copy called `app.quit()` while the main process was still loading, and Electron ran the `will-quit` cleanup at once, before the state it touches existed. The second copy now exits right away (the running bridge brings its status window to the front), and the `will-quit` cleanup is skipped until the main process has fully loaded, which also covers a quit signal during startup.
 - **What it solves.** Every machine captured its own device. A backup without the same signal drew a flat picture. Now one machine's capture can go to the others, so the primary and the backup analyse the same signal. Details, the wire format and the measurements are in [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
 - **Inside the app, not a separate program.**
   - "Send This Machine's Audio to the Bridge" works in normal mode, so the primary can be the bridge itself. It uses the same capture, so nothing competes for the device.
-  - `--bridge`, or Settings → "Audio Bridge Only", starts without visual output or renderer windows, without lighting, streaming or OSC, and without hardware acceleration. It sits in the system tray.
+  - `--bridge`, or Settings → "Audio Bridge Only", starts without visual output or visualizer windows, without lighting, streaming or OSC, and without hardware acceleration. It opens a small status window and sits in the system tray.
+  - **Status window:** broadcasting or stopped, the source, a live level meter with bands, BPM and beats, the connected receivers (name, address, round trip, frame age, lost frames, failed pairings), now playing and errors (device missing, capture failed, port busy). Buttons open the bridge settings, stop or start the bridge, or quit. Closing it keeps the bridge in the tray; the tray reopens it. Without a tray (stock GNOME) the window is the main UI. `--bridge --hidden`, or "Do Not Open the Status Window at Start", starts without it.
+  - **Source picker:** a device (outputs as loopback, or inputs) or a single app: WASAPI process loopback on Windows 10 2004+, ScreenCaptureKit on macOS 13+ (Screen Recording permission), the app's PulseAudio/PipeWire stream on Linux. Switching is live; receivers stay connected. Where single-app capture is not possible, the window says why and the device is used.
   - `--bridge` keeps its settings in `<userData>/bridge`, so it can run next to the normal app on the same machine.
-  - Bridge-only mode is a single instance. Starting it again opens the running bridge's panel instead of a second bridge.
-  - On Windows the installer adds a "CAYADEV Visualizer Audio Bridge" Start menu shortcut, and the taskbar jump list has "Audio Bridge" (installed and portable). On macOS use `open -n -a "CAYADEV Visualizer" --args --bridge`, and on Linux pass `--bridge` to the AppImage.
+  - Bridge-only mode is a single instance. Starting it again brings the running bridge's status window to the front instead of a second bridge.
+  - On Windows the installer adds a "CAYADEV Visualizer Audio Bridge" Start menu shortcut, and the taskbar jump list has "Audio Bridge" (installed and portable). The Linux deb adds an "Audio Bridge" action to the launcher. On macOS use `open -n -a "CAYADEV Visualizer" --args --bridge`, and on the AppImage pass `--bridge`.
 - **What is sent.**
   - The capture helper's own analysis frame (spectrum and stereo waveform), about 70 a second and 4 Mbit/s, plus the now-playing track.
   - The bridge's own analysis: bands, level and peak, beat, BPM and confidence, beat phase, onsets. Beat and BPM use the visualizer's tempo engine. It goes out every second frame and right away on a beat.
-  - Every frame, analysis packet and track update carries a format version and the bridge's timestamp. The receiver converts it to its own clock with the measured offset.
+  - Every frame, analysis packet, audio chunk and track update carries a format version and the bridge's timestamp. The receiver converts it to its own clock with the measured offset, and with redundancy on, onto the shared show clock, so the same bridge moment has the same time on the primary and the backup.
   - It runs on its own TCP socket (8741), not on the redundancy link.
-  - Listenable audio is not sent in this part.
+  - **Listenable audio:** "Play the Bridge's Audio on This Machine" plays the bridge's sound (16-bit stereo PCM, about 1.5 Mbit/s) on a chosen output, with a volume and a jitter buffer. Only receivers that ask for it get it.
+  - The bridge's own now-playing track (SMTC, MPRIS, macOS Now Playing) is sent and shown in the status window.
 - **Pairing and discovery.**
   - The pairing secret is checked in both directions with HMAC, and is never sent.
   - The bridge sends a signed UDP beacon on 8742. With the address field empty, the receiver connects to the first bridge whose signature matches. It needs no mDNS daemon. A typed address still works.
+  - A bridge with several network adapters (Hyper-V, WSL, VPN) is listed once. While connected the receiver keeps its address; it switches only after a failure, preferring an address on its own subnet, and closes the old socket. Before, every new beacon address caused a reconnect about once a second on Windows.
+  - After a drop the receiver retries within 250 ms to 1 s (no more 5 s back-off), and a beacon from its bridge triggers an immediate reconnect.
 - **"Audio Input: Network Bridge".**
   - The bridge's frames replace local capture, and local capture stops.
-  - If the bridge is silent for 600 ms, the input falls back to the local device. It returns after 2 s of steady frames.
+  - If the bridge is silent for 600 ms, the input falls back to the local device. It returns after 0.5 s of steady frames; after an 8 s outage the input is back on the bridge about 1 s after the bridge restarts.
+  - The panel's capture label switches to the bridge when the input does, and a late local "started" message no longer overwrites it.
   - "Fallback Input" chooses what is captured meanwhile: the normal input, or another device such as a mixer split.
   - The pre-show check shows the active source, with the bridge's name or the fallback device.
   - While the input is on the bridge, the bridge's track is used everywhere: outputs, panel, OSC track title, the stream page and MCP.
@@ -37,9 +43,10 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
   - Discovery took about 1 s.
   - The p95 frame age on one host was 2.5–4.5 ms.
   - The fallback came 610–680 ms after the bridge was killed.
-  - The bridge-only process used about 5 % of one core and about 610 MB RSS across all processes.
-- **Self-test.** `npm run smoke:bridge` checks that bridge-only mode opens no window or visual output, has hardware acceleration off, has a tray and listens. It also checks that the panel's Audio Bridge section is fully translated in English.
-- **Tests.** New tests for the bridge's analysis (bands, level, a 120 BPM beat train), analysis and track timestamps across a 5 s clock skew, the fallback device, the single-instance lock, the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings.
+  - The bridge-only process used about 5 % of one core and about 610 MB RSS across all processes while capturing, about 400 MB hidden and idle. Closing the status window frees its renderer.
+- **Settings card redesign.** The Audio Bridge card is grouped into Mode, Connection and Status, with the same switches, rows and separators as the other cards, a status pill and stat tiles. Long explanations moved into "?" hints. The bridge source is one clear picker (default output, outputs, inputs) instead of a tickbox list.
+- **Self-test.** `npm run smoke:bridge` checks that bridge-only mode opens only the status window and no visual output, has hardware acceleration off, has a tray and listens. It also checks that the status window and the panel's Audio Bridge section are fully translated in English.
+- **Tests.** New tests for the bridge's analysis (bands, level, a 120 BPM beat train), analysis and track timestamps across a 5 s clock skew, the fallback device, the single-instance lock, the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings, a beacon heard from several addresses, the receiver keeping its address and rotating on failure, the capped back-off, PCM packets and the helper's mixed frame/PCM stream, the audio player's scheduler, the early-quit guard, and the deb desktop action. The bridge rig now waits 8 s before relaunching the bridge and fails if the input is not back within 6 s, cold start included.
 
 ## v3.1.6-beta — in code, not released
 

@@ -221,7 +221,19 @@
         "libsecret-1-0"
       ],
       "maintainer": "CaYaDev <contact@cayadev.com>",
-      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb"
+      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb",
+      "desktop": {
+        "entry": {
+          "Actions": "bridge;"
+        },
+        "desktopActions": {
+          "bridge": {
+            "Name": "Audio Bridge",
+            "Name[tr]": "Ses Köprüsü",
+            "Exec": "\"/opt/CAYADEV Visualizer/soundvisualizer\" --bridge"
+          }
+        }
+      }
     },
     "appImage": {
       "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.AppImage"

@@ -292,17 +292,21 @@ const WATCHDOG_TICK_MS = 1000;
 let capChild = null;
 let acc = Buffer.alloc(0);
 let frameCb = null;
+let pcmCb = null;
 let captureGeneration = 0;
 
-function startCapture(devices, onFrame, onStatus) {
+/* opts.pcm: yardımcı dinlenebilir sesi de (s16 stereo) verir; opts.onPcm
+   (buf, sampleRate, kanal) ile gelir. Ses köprüsü (#813) kullanıyor. */
+function startCapture(devices, onFrame, onStatus, opts) {
   stopCapture();
   const generation = ++captureGeneration;
   frameCb = onFrame;
+  pcmCb = opts && typeof opts.onPcm === 'function' ? opts.onPcm : null;
   acc = Buffer.alloc(0);
 
   // Geriye dönük uyum: tek string veya dizi kabul edilir
   const arr = Array.isArray(devices) ? devices : [devices || 'default'];
-  const arg = JSON.stringify({ devices: arr });
+  const arg = JSON.stringify(opts && opts.pcm ? { devices: arr, pcm: true } : { devices: arr });
   let child;
   /* Listeleme hangi çalıştırıcıyla başardıysa yakalama da onunla olsun. */
   const runner = _runner || selfRunner();
@@ -401,19 +405,12 @@ function startCapture(devices, onFrame, onStatus) {
 
 function parseFrames(generation) {
   if (generation !== captureGeneration || !Buffer.isBuffer(acc)) return;
-  while (acc.length >= FRAME_BYTES) {
-    const M0 = frameFormat.MARKER0, M1 = frameFormat.MARKER1;
-    if (acc[0] !== M0 || acc[1] !== M1) {
-      // yeniden hizala
-      let k = 1;
-      while (k < acc.length - 1 && !(acc[k] === M0 && acc[k + 1] === M1)) k++;
-      acc = acc.subarray(k);
-      if (acc.length < FRAME_BYTES) return;
-    }
-    const frame = frameFormat.parseFrame(acc.subarray(0, FRAME_BYTES));
-    acc = acc.subarray(FRAME_BYTES);
-    if (frameCb) frameCb(frame);
-  }
+  // Kareler ve (istenmişse) PCM paketleri; hiza kayarsa yeniden aranır
+  acc = frameFormat.splitHelperStream(acc, (frame) => {
+    if (generation === captureGeneration && frameCb) frameCb(frame);
+  }, (buf, sr, ch) => {
+    if (generation === captureGeneration && pcmCb) pcmCb(buf, sr, ch);
+  });
 }
 
 function stopCapture() {
@@ -421,6 +418,7 @@ function stopCapture() {
   const child = capChild;
   capChild = null;
   frameCb = null;
+  pcmCb = null;
   acc = Buffer.alloc(0);
 
   if (child) {

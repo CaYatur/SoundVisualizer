@@ -6741,6 +6741,18 @@
           const anyMissing = devNames.some((n) => n !== 'default' && !audioDevices.some((d) => d.name === n));
           if (anyMissing) actions.refreshDevices();
         }
+      } else if (s.type === 'bridge') {
+        /* Ses girişi köprüde (#813): etiket yerel aygıtta kalmasın */
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'capture';
+        audioErrShown = null;
+        setAudioState('Ses köprüden: ' + (s.name || 'köprü'), 'ok', 'wave');
+      } else if (s.type === 'bridge-lost') {
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = false;
+        audioUiKind = 'idle';
+        setAudioState(s.state === 'fallback' ? 'Köprü sessiz: yerel giriş kullanılıyor' : 'Köprüden ses bekleniyor', 'warn', 'warning');
       } else if (s.type === 'no-loopback') {
         /* Bu platformda sistem sesini veren bir aygıt yok. Hata değil,
            eksik bir kurulum: macOS'ta CoreAudio loopback vermez ve

@@ -264,11 +264,11 @@ test('ana süreç: köprü kipi, yakalama ve dağıtım bağlantıları', () => 
   assert.match(M, /if \(!BRIDGE_ONLY \|\| process\.argv\.includes\('--panel'\)\) createAdminWindow\(\);/);
   assert.match(M, /if \(BRIDGE_ONLY && bridgeTray && !forceQuitApp\) return;/);
   // Yerel kare köprüye; köprüdeyken yerel kare görüntüye gitmez; köprünün karesi aynı dağıtımdan
-  assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) \{\n        bridge\.sender\.frame\(frame\);/);
+  assert.match(M, /if \(peers > 0\) bridge\.sender\.frame\(frame\);/);
   assert.match(M, /\n      \}\n[^\n]*\n      if \(bridge\.input && bridge\.input\.useBridge\) return;\n      deliverAudioFrame\(frame\);/);
   assert.match(M, /if \(bridge\.input\.useBridge\) deliverAudioFrame\(frame\);/);
   // Yakalama: alıcı varken açık, köprü girişindeyken yalnız yedek gerekince
-  assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) return true;\n[^\n]*\n  if \(bridge\.input && !bridge\.input\.wantLocal\) return false;/);
+  assert.match(M, /if \(bridge\.sender && bridge\.sender\.peerCount\(\) > 0\) return true;\n[^\n]*\n  if \(BRIDGE_ONLY && bridge\.sender && bridgeWinVisible\(\)\) return true;\n[^\n]*\n  if \(bridge\.input && !bridge\.input\.wantLocal\) return false;/);
   // Ayar değişince köprü kurulur; köprü kipinde çıkışlar kapalı
   assert.match(M, /syncBridge\(\); \/\/ ses köprüsü \(#813\)\n[^\n]*\n  if \(!BRIDGE_ONLY\) \{/);
   // Gösteri öncesi denetim etkin kaynağı görür
@@ -305,20 +305,219 @@ test('panel: her Türkçe metnin İngilizcesi var; durumlar çiziliyor', () => {
   assert.deepStrictEqual(missing, []);
 
   // Panel düz bir DOM taklidiyle her durumda çiziliyor
-  const node = (tag, attrs, children) => ({ tag, attrs: attrs || {}, children: [].concat(children || []).filter(Boolean), addEventListener() {}, appendChild(c) { this.children.push(c); } });
+  const node = (tag, attrs, children) => ({
+    tag, attrs: attrs || {}, style: {}, classList: { add() {}, remove() {}, toggle() {} },
+    children: [].concat(children || []).filter(Boolean),
+    set textContent(v) { this.attrs.text = String(v); }, get textContent() { return this.attrs.text || ''; },
+    setAttribute(k, v) { this.attrs[k] = v; }, removeAttribute(k) { delete this.attrs[k]; }, addEventListener() {},
+    appendChild(c) { this.children.push(c); return c; }, append(...c) { this.children.push(...c); },
+    replaceChildren(...c) { this.children = c; }, querySelector: () => null,
+  });
   const cfg = { bridge: { send: true, receive: true, secret: SECRET } };
   global.document = { querySelector: () => null, activeElement: null };
   global.window = {
     SVPanel: { el: node, cfg: () => cfg, row: (l, c) => node('row', { text: l }, [c]), push() {}, rerender() {} },
     api: {},
   };
+  global.document.createElement = (tag) => node(tag, {}, []);
+  global.document.createTextNode = (t) => ({ text: t });
+  delete require.cache[require.resolve('../src/admin/bridge-view.js')];
+  require('../src/admin/bridge-view.js');
   delete require.cache[require.resolve('../src/admin/bridge-panel.js')];
   require('../src/admin/bridge-panel.js');
   const P = global.window.SVBridgePanel;
   const texts = (n, out) => { if (!n) return out; if (n.attrs && typeof n.attrs.text === 'string') out.push(n.attrs.text); (n.children || []).forEach((c) => texts(c, out)); return out; };
   const t = texts(P.panel(), []);
   assert.ok(t.includes('Bu Makinenin Sesini Köprüye Ver') && t.includes('Ses Girişi: Ağ Köprüsü'));
-  assert.ok(t.includes('Ağda köprü bulunamadı. Köprünün açık olduğundan ve güvenlik duvarının UDP 8742 ile köprü portuna izin verdiğinden emin olun; adresi elle de yazabilirsiniz.'));
+  assert.ok(t.includes('Ağda köprü bulunamadı. Güvenlik duvarı UDP 8742 ve köprü portuna izin vermeli; adresi elle de yazabilirsiniz.'));
   delete global.window;
   delete global.document;
+});
+
+/* ÇOK KARTLI MAKİNE (#813, Windows'ta görüldü): aynı köprünün işareti
+   saniyede dört ayrı adresten (vEthernet, Hyper-V, VPN) geliyordu. Her adres
+   değişimi alıcıyı yeniden bağlatıyordu: saniyede bir kopuş, yüzlerce artık
+   soket, 200+ ms gidiş-dönüş, kayıp kareler. Kayıt köprü kimliğine göre
+   tek; adres kararlı, yerel alt ağdaki adres önce. */
+test('keşif: aynı köprü birden çok adresten — tek kayıt, adres kararlı', async (t) => {
+  const port = 20000 + Math.floor(Math.random() * 20000);
+  let changes = 0;
+  let found = [];
+  const subnets = [{ addr: B.localSubnets({ x: [{ family: 'IPv4', address: '127.0.0.3', netmask: '255.255.255.255', internal: false }] })[0].addr, mask: 0xffffffff }];
+  const d = B.createDiscovery({ beaconPort: port, secret: SECRET, subnets, onChange: (l) => { changes++; found = l; } });
+  d.start();
+  const dgram = require('dgram');
+  const socks = [];
+  try {
+    await until(() => d.status().listening || d.status().error, 2000);
+    if (!d.status().listening) { t.skip('UDP dinlenemedi: ' + d.status().error); return; }
+    for (const a of ['127.0.0.1', '127.0.0.2', '127.0.0.3', '127.0.0.4']) {
+      const s = dgram.createSocket('udp4');
+      const ok = await new Promise((r) => { s.once('error', () => r(false)); s.bind(0, a, () => r(true)); });
+      if (ok) socks.push(s); else s.close();
+    }
+    if (socks.length < 3) { t.skip('bu sistemde 127.0.0.x kaynak adresleri yok'); return; }
+    const before = changes;
+    for (let round = 0; round < 5; round++) {
+      for (const s of socks) s.send(B.beaconMessage({ id: 'multi', name: 'Köprü', port: 8741, secret: SECRET }, Date.now()), port, '127.0.0.1');
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    await until(() => found.length === 1 && found[0].hosts && found[0].hosts.length === socks.length, 2000);
+    assert.strictEqual(found.length, 1, 'kimlik başına tek kayıt');
+    assert.strictEqual(found[0].hosts.length, socks.length);
+    // Yerel alt ağdaki (127.0.0.3) adres önce; sonra ilk duyulan
+    assert.strictEqual(found[0].host, '127.0.0.3');
+    assert.ok(changes - before <= socks.length, 'adres her işarette değişmiyor (' + (changes - before) + ' bildirim)');
+    assert.ok(!('hostsSeen' in found[0]));
+  } finally { socks.forEach((s) => s.close()); d.stop(); }
+});
+
+test('keşif: adres sırası yerel alt ağı öne alıyor, sonra ilk duyulanı', () => {
+  const subnets = B.localSubnets({ eth: [{ family: 'IPv4', address: '192.168.1.20', netmask: '255.255.255.0', internal: false }], lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', internal: true }] });
+  assert.strictEqual(subnets.length, 1);
+  assert.ok(B.sameSubnet('192.168.1.77', subnets));
+  assert.ok(!B.sameSubnet('172.20.0.5', subnets));
+  const ranked = B.rankHosts([{ host: '172.20.0.5', first: 1 }, { host: '10.8.0.2', first: 2 }, { host: '192.168.1.77', first: 3 }], subnets);
+  assert.deepStrictEqual(ranked, ['192.168.1.77', '172.20.0.5', '10.8.0.2']);
+});
+
+test('alıcı: bağlıyken köprünün başka adresi bildirilince yeniden bağlanmıyor; kurulamayan adresten sonrakine geçiyor', async () => {
+  const sender = B.createSender({ port: 0, host: '127.0.0.1', secret: SECRET, name: 'Köprü', id: 'abc' });
+  const st = await sender.start();
+  let conns = 0;
+  const rx = B.createReceiver({ host: '', port: st.port, secret: SECRET, onStatus: (s) => { if (s.state === 'connected') conns++; } });
+  rx.start();
+  try {
+    // İlk adres bu makinede dinlenmiyor (bağlantı reddedilir), ikincisi köprü
+    rx.setTarget('127.0.0.9', st.port, ['127.0.0.9', '127.0.0.1']);
+    await until(() => rx.status().state === 'connected', 5000);
+    assert.strictEqual(rx.status().state, 'connected');
+    assert.strictEqual(rx.status().host, '127.0.0.1');
+    const c0 = conns;
+    // Keşif başka bir adresi öne aldı: bağlantı korunur
+    rx.setTarget('127.0.0.9', st.port, ['127.0.0.9', '127.0.0.1']);
+    rx.setTarget('127.0.0.5', st.port, ['127.0.0.5', '127.0.0.1']);
+    await new Promise((r) => setTimeout(r, 300));
+    assert.strictEqual(rx.status().state, 'connected');
+    assert.strictEqual(rx.status().host, '127.0.0.1');
+    assert.strictEqual(conns, c0, 'yeniden bağlanmadı');
+    assert.strictEqual(sender.peerCount(), 1, 'artık soket yok');
+  } finally { rx.stop(); await sender.stop(); }
+});
+
+test('alıcı: bekleme en çok 1 sn; işaret duyulunca hemen deniyor', async () => {
+  assert.ok(Math.max(...B.RETRY_MS) <= 1000, 'bekleme sınırı');
+  const port = 30000 + Math.floor(Math.random() * 20000);
+  const rx = B.createReceiver({ host: '127.0.0.1', port, secret: SECRET });
+  rx.start();
+  try {
+    await until(() => rx.status().state === 'connecting' && rx.status().error, 3000);
+    // Köprü şimdi açılıyor; işaret gelince bekleme beklenmez
+    const sender = B.createSender({ port, host: '127.0.0.1', secret: SECRET });
+    await sender.start();
+    const t0 = Date.now();
+    rx.kick();
+    await until(() => rx.status().state === 'connected', 3000);
+    assert.strictEqual(rx.status().state, 'connected');
+    assert.ok(Date.now() - t0 < 900, 'işaretten sonra hemen bağlandı (' + (Date.now() - t0) + ' ms)');
+    rx.stop();
+    await sender.stop();
+  } finally { rx.stop(); }
+});
+
+test('giriş: köprü geri gelince 0,5 sn kesintisiz kareyle döner (varsayılan)', () => {
+  const sw = createInputSwitch({});
+  let t = 0;
+  for (; t <= 300; t += 15) sw.frame(t);
+  assert.strictEqual(sw.state, 'bridge');
+  sw.tick(t + 700);
+  assert.strictEqual(sw.state, 'fallback');
+  const back = t + 2000;
+  let at = null;
+  for (let k = back; k <= back + 1500; k += 15) { if (sw.frame(k) && sw.state === 'bridge') { at = k; break; } }
+  assert.ok(at != null && at - back <= 520, 'dönüş ' + (at - back) + ' ms');
+});
+
+/* DİNLENEBİLİR SES (#813): yalnız isteyen alıcıya PCM; eski alıcı almaz. */
+test('PCM: isteyen alıcı alıyor, istemeyen almıyor; setAudio bağlantıyı koparmıyor', async () => {
+  const sender = B.createSender({ port: 0, host: '127.0.0.1', secret: SECRET });
+  const st = await sender.start();
+  const got = [];
+  const rxA = B.createReceiver({ host: '127.0.0.1', port: st.port, secret: SECRET, audio: true, onPcm: (d, info) => got.push([d, info]) });
+  const plain = [];
+  const rxB = B.createReceiver({ host: '127.0.0.1', port: st.port, secret: SECRET, onPcm: (d) => plain.push(d) });
+  rxA.start(); rxB.start();
+  try {
+    await until(() => sender.peerCount() === 2, 3000);
+    assert.strictEqual(sender.wantsAudio(), true);
+    assert.strictEqual(sender.status().listeners, 1);
+    const pcm = Buffer.alloc(512 * 4);
+    for (let i = 0; i < 512; i++) { pcm.writeInt16LE(i * 10, i * 4); pcm.writeInt16LE(-i * 10, i * 4 + 2); }
+    sender.pcm(pcm, 48000, 2);
+    sender.pcm(pcm, 48000, 2);
+    await until(() => got.length === 2, 2000);
+    assert.strictEqual(got.length, 2);
+    assert.strictEqual(got[0][1].sampleRate, 48000);
+    assert.strictEqual(got[0][1].channels, 2);
+    assert.ok(got[0][0].equals(pcm));
+    assert.strictEqual(got[1][1].seq, got[0][1].seq + 1);
+    assert.strictEqual(plain.length, 0, 'istemeyen almadı');
+    // B ister, A bırakır; bağlantı kopmaz
+    rxB.setAudio(true);
+    rxA.setAudio(false);
+    await until(() => sender.status().listeners === 1 && sender.status().peers.find((p) => p.audio), 2000);
+    await new Promise((r) => setTimeout(r, 100));
+    sender.pcm(pcm, 44100, 2);
+    await until(() => plain.length === 1, 2000);
+    assert.strictEqual(plain.length, 1);
+    assert.strictEqual(got.length, 2);
+    assert.strictEqual(rxA.status().state, 'connected');
+    assert.strictEqual(sender.peerCount(), 2);
+  } finally { rxA.stop(); rxB.stop(); await sender.stop(); }
+});
+
+test('PCM paketi: biçim ve sınırlar', () => {
+  const data = Buffer.alloc(400);
+  const pkt = B.pcmPacket(data, 7, 1234.5, 44100, 2);
+  const payload = pkt.subarray(5);
+  assert.strictEqual(pkt[4], B.KIND.PCM);
+  const r = B.readPcm(payload);
+  assert.strictEqual(r.seq, 7); assert.strictEqual(r.t, 1234.5); assert.strictEqual(r.sampleRate, 44100); assert.strictEqual(r.channels, 2);
+  assert.strictEqual(r.data.length, 400);
+  assert.strictEqual(B.readPcm(B.pcmPacket(Buffer.alloc(3), 1, 0, 48000, 2).subarray(5)).error, 'size');
+  assert.strictEqual(B.readPcm(B.pcmPacket(Buffer.alloc(4), 1, 0, 1000, 2).subarray(5)).error, 'format');
+  assert.strictEqual(B.normalize({ playVolume: 3, playLatencyMs: 5 }).playVolume, 1);
+  assert.strictEqual(B.normalize({ playLatencyMs: 5 }).playLatencyMs, 40);
+  assert.strictEqual(B.normalize({}).play, false);
+});
+
+test('yardımcı akışı: kareler ve PCM paketleri ayrılıyor, hiza kayınca yeniden bulunuyor', () => {
+  const frame = F.encodeFrame(sampleFrame(3));
+  const s16 = F.floatToS16Stereo(new Float32Array([0.5, -0.5, 1.5, -2]), 2);
+  assert.deepStrictEqual([s16.readInt16LE(0), s16.readInt16LE(2), s16.readInt16LE(4), s16.readInt16LE(6)], [16384, -16383, 32767, -32767]);
+  const mono = F.floatToS16Stereo(new Float32Array([0.25]), 1);
+  assert.strictEqual(mono.readInt16LE(0), mono.readInt16LE(2));
+  const pcm = F.encodePcm(48000, s16);
+  const stream = Buffer.concat([Buffer.from([1, 2, 3]), frame, pcm, frame, pcm]);
+  const frames = [];
+  const pcms = [];
+  let rest = Buffer.alloc(0);
+  // Parça parça gelsin
+  for (let i = 0; i < stream.length; i += 997) {
+    rest = F.splitHelperStream(Buffer.concat([rest, stream.subarray(i, i + 997)]), (f) => frames.push(f), (d, sr, ch) => pcms.push([d, sr, ch]));
+  }
+  assert.strictEqual(frames.length, 2);
+  assert.strictEqual(pcms.length, 2);
+  assert.strictEqual(pcms[0][1], 48000);
+  assert.ok(pcms[0][0].equals(s16));
+  assert.strictEqual(rest.length, 0);
+});
+
+test('yardımcı ve ana süreç PCM isteğini taşıyor', () => {
+  const helper = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'loopback-helper.js'), 'utf8');
+  assert.match(helper, /const wantPcm = opts\.pcm === true;/);
+  assert.match(helper, /makeCallback\(src, nCh, instances\.length === 0 \? d\.sampleRate \|\| 48000 : 0\)/);
+  const na = fs.readFileSync(path.join(__dirname, '..', 'src', 'main', 'native-audio.js'), 'utf8');
+  assert.match(na, /opts && opts\.pcm \? \{ devices: arr, pcm: true \}/);
+  assert.match(na, /frameFormat\.splitHelperStream\(acc,/);
 });

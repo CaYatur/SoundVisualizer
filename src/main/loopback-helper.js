@@ -223,10 +223,27 @@ const sources = []; // her kaynak için ayrı tamponlar: mono + iki kanal
 const started = [];
 let startedSr = 48000;
 
-function makeCallback(src, nCh) {
+/* DİNLENEBİLİR SES (#813). İstenirse (opts.pcm) İLK kaynağın sesi s16
+   stereo olarak, kendi örnekleme hızında karelerin arasına yazılır (bkz.
+   audio-frame.js encodePcm). Yalnız ilk kaynak: kaynakların hızları farklı
+   olabilir ve burada örnek hızı dönüştürülmüyor. Boru doluysa (geri basınç)
+   PCM atılır; görüntünün karesi önceliklidir. */
+const wantPcm = opts.pcm === true;
+// Uygulama yakalama yardımcılarının üçü de 48 kHz veriyor (app-capture.js)
+const APP_RATE = 48000;
+let pcmSent = false;
+function writePcm(sr, s16) {
+  if (backpressure || !s16.length) return;
+  const ok = process.stdout.write(frameFormat.encodePcm(sr, s16));
+  if (!pcmSent) { pcmSent = true; process.stderr.write('PCM-START sr=' + sr + '\n'); }
+  if (!ok) backpressure = true;
+}
+
+function makeCallback(src, nCh, pcmRate) {
   return (pcm) => {
     const f = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength / 4);
     src.pushFloat32(f, nCh);
+    if (pcmRate && wantPcm) writePcm(pcmRate, frameFormat.floatToS16Stereo(f, nCh));
   };
 }
 
@@ -243,7 +260,7 @@ for (const d of resolved) {
       d.sampleRate,
       FRAME,
       'cap' + d.id,
-      makeCallback(src, nCh),
+      makeCallback(src, nCh, instances.length === 0 ? d.sampleRate || 48000 : 0),
       null
     );
     inst.start();
@@ -308,6 +325,8 @@ function attachApp(app, index) {
     if (frames > 0) {
       const usable = frames * 8;
       src.pushStereoLE(buf, frames);
+      // Aygıt yoksa dinlenebilir ses ilk uygulamadan
+      if (wantPcm && instances.length === 0 && index === 0) writePcm(APP_RATE, frameFormat.stereoLEToS16(buf, frames));
       carry = Buffer.from(buf.subarray(usable));
     } else {
       carry = Buffer.from(buf);

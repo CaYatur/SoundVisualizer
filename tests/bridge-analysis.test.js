@@ -94,7 +94,7 @@ test('ayar: yedek giriş aygıtı; ana süreç köprü kesilince onu yakalıyor'
   const MAIN = read('src/main/main.js');
   assert.match(MAIN, /if \(bridge\.input && !bridge\.input\.useBridge && bc && typeof bc\.fallbackSource === 'string' && bc\.fallbackSource\) return \[bc\.fallbackSource\];/);
   // Çözümleme yalnız alıcı varken, iki karede bir ya da vuruşta
-  assert.match(MAIN, /if \(a && \(a\.beat \|\| \(\+\+bridge\.analysisN & 1\) === 0\)\) bridge\.sender\.analysis\(a\);/);
+  assert.match(MAIN, /if \(peers > 0 && a && \(a\.beat \|\| \(\+\+bridge\.analysisN & 1\) === 0\)\) bridge\.sender\.analysis\(a\);/);
   const P = require('../src/main/preshow');
   assert.strictEqual(typeof P.evaluate, 'function');
   const r = P.evaluate({ bridge: { receive: true, state: 'fallback', fallback: true, fallbackSource: 'Mixer Split' } });
@@ -107,11 +107,16 @@ test('ayar: yedek giriş aygıtı; ana süreç köprü kesilince onu yakalıyor'
 test('köprü kipi: tek kopya, öz test, Windows görevi ve kısayol', () => {
   const MAIN = read('src/main/main.js');
   assert.match(MAIN, /if \(BRIDGE_ONLY && !SMOKE && !process\.argv\.includes\('--bridge-multi'\)\) \{\n  if \(!app\.requestSingleInstanceLock\(\)\) \{/);
-  assert.match(MAIN, /app\.on\('second-instance', \(\) => \{ if \(app\.isReady\(\)\) openPanelFromBridge\(\); \}\);/);
+  assert.match(MAIN, /app\.on\('second-instance', \(ev, argv\) => \{\n      if \(!app\.isReady\(\)\) return;\n      openBridgeWindow\(\);\n      if \(Array\.isArray\(argv\) && argv\.includes\('--panel'\)\) openPanelFromBridge\(\);/);
   assert.match(MAIN, /if \(BRIDGE_ONLY\) return runBridgeSmoke\(\);/);
   assert.match(MAIN, /app\.setUserTasks\(\[\{ program: exe, arguments: '--bridge'/);
   const nsh = read('scripts/installer.nsh');
   assert.match(nsh, /CreateShortCut "\$SMPROGRAMS\\CAYADEV Visualizer Audio Bridge\.lnk" "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" "--bridge"/);
   assert.match(nsh, /Delete "\$SMPROGRAMS\\CAYADEV Visualizer Audio Bridge\.lnk"/);
   assert.match(read('package.json'), /"smoke:bridge": "node scripts\/start\.js --smoke --bridge"/);
+  // Linux deb: masaüstü girdisinde "Ses Köprüsü" eylemi
+  const deb = JSON.parse(read('package.json')).build.deb.desktop;
+  assert.strictEqual(deb.entry.Actions, 'bridge;');
+  assert.strictEqual(deb.desktopActions.bridge.Exec, '"/opt/CAYADEV Visualizer/soundvisualizer" --bridge');
+  assert.strictEqual(deb.desktopActions.bridge['Name[tr]'], 'Ses Köprüsü');
 });

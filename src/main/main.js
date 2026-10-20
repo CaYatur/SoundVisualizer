@@ -238,7 +238,11 @@ if (BRIDGE_ONLY && !SMOKE && !process.argv.includes('--bridge-multi')) {
     bridgeSecondInstance = true;
     app.exit(0);
   } else {
-    app.on('second-instance', () => { if (app.isReady()) openPanelFromBridge(); });
+    app.on('second-instance', (ev, argv) => {
+      if (!app.isReady()) return;
+      openBridgeWindow();
+      if (Array.isArray(argv) && argv.includes('--panel')) openPanelFromBridge();
+    });
   }
 }
 /* Video çözme yolu pencereler açılmadan seçilmeli (bkz. video-decode.js).
@@ -1239,9 +1243,21 @@ function configuredSources() {
   const bc = currentConfig && currentConfig.bridge;
   if (bridge.input && !bridge.input.useBridge && bc && typeof bc.fallbackSource === 'string' && bc.fallbackSource) return [bc.fallbackSource];
   const audio = currentConfig && currentConfig.audio;
-  if (audio && Array.isArray(audio.sources) && audio.sources.length > 0) return audio.sources;
-  if (audio && audio.source) return [audio.source];
-  return ['default'];
+  let list = ['default'];
+  if (audio && Array.isArray(audio.sources) && audio.sources.length > 0) list = audio.sources;
+  else if (audio && audio.source) list = [audio.source];
+  /* Köprü kipi (#813): tek uygulama seçili ama bu sistemde uygulama başına
+     yakalama yok -> aygıt. Durum penceresi nedeni gösterir. */
+  if (BRIDGE_ONLY && list.some((x) => x && typeof x === 'object' && x.kind === 'app')) {
+    const av = appAvailability();
+    if (!av.available) {
+      bridge.appFallback = { code: av.code || '', message: av.message || '' };
+      const devs = list.filter((x) => typeof x === 'string');
+      return devs.length ? devs : ['default'];
+    }
+  }
+  bridge.appFallback = null;
+  return list;
 }
 
 // Yakalamayı isteyen var mı? Görselleştirici penceresi, paneldeki canlı
@@ -1258,6 +1274,8 @@ function captureWanted() {
   if (SHOTS) return false;
   // Köprü bu makinenin sesini birine veriyor (#813)
   if (bridge.sender && bridge.sender.peerCount() > 0) return true;
+  // Köprü kipinde durum penceresi görünürken seviye ölçeri için
+  if (BRIDGE_ONLY && bridge.sender && bridgeWinVisible()) return true;
   // Ses girişi köprüde: yerel yakalama yalnız yedek giriş gerekince
   if (bridge.input && !bridge.input.wantLocal) return false;
   if (BRIDGE_ONLY) return false;
@@ -1279,21 +1297,28 @@ function captureWanted() {
    dosya çalmada durur; yerel kare akarken o yol susar. */
 const nativeDrums = new DrumHits();
 
+/* Dinlenebilir ses (#813): köprü gönderiyorsa yardımcı PCM de verir. Alıcı
+   bağlandı diye yakalama yeniden kurulmasın (birincil köprüyse görüntü bir
+   an durur); dönüşüm ucuz, gönderim yalnız isteyen alıcıya. */
+function bridgePcmWanted() { return !!bridge.sender; }
+let lastCapturePcm = false;
 function startVisualizerCapture() {
   const sources = configuredSources();
   lastCaptureSource = sources;
+  lastCapturePcm = bridgePcmWanted();
   nativeAudio.startCapture(
     sources,
     (frame) => {
       // Bu makinenin yakaladığı kare köprüye (#813); köprüden gelen geri gitmez
-      if (bridge.sender && bridge.sender.peerCount() > 0) {
-        bridge.sender.frame(frame);
+      const peers = bridge.sender ? bridge.sender.peerCount() : 0;
+      if (bridge.sender && (peers > 0 || (BRIDGE_ONLY && bridgeWinVisible()))) {
+        if (peers > 0) bridge.sender.frame(frame);
         /* Köprünün çözümlemesi de (bantlar, vuruş, BPM, başlangıç); iki
            karede bir ya da vuruş anında, köprünün saatiyle damgalı. */
         if (!bridge.analyser) bridge.analyser = bridgeAnalysis.createAnalyser();
         const a = bridge.analyser.push(frame, Date.now());
-        if (a && (a.beat || (++bridge.analysisN & 1) === 0)) bridge.sender.analysis(a);
-        if (a) bridge.lastAnalysis = a;
+        if (peers > 0 && a && (a.beat || (++bridge.analysisN & 1) === 0)) bridge.sender.analysis(a);
+        if (a) { bridge.lastAnalysis = a; pushBridgeLevel(a); }
       }
       // Ses girişi köprüdeyse yerel kare görüntüye gitmez (yakalama zaten durur)
       if (bridge.input && bridge.input.useBridge) return;
@@ -1302,9 +1327,15 @@ function startVisualizerCapture() {
     (status) => {
       if (SMOKE) console.log('[AUDIO-STATUS] ' + JSON.stringify(status));
       if (status && status.type === 'started') armCaptureStable();
+      /* Giriş bu arada köprüye geçtiyse yerel yakalamanın geç gelen "başladı"
+         bildirimi paneldeki etiketi eski aygıta çevirmesin (#813). */
+      if (status && status.type === 'started' && bridge.input && bridge.input.useBridge) return;
       if (status && status.type === 'exited') { disarmCaptureStable(); scheduleCaptureRestart(); }
       notifyAdmin('audio-source-status', status);
-    }
+      lastCaptureStatus = status ? { type: status.type, code: status.code || '', message: String(status.message || '').slice(0, 300), device: status.device || '' } : null;
+      notifyBridge();
+    },
+    lastCapturePcm ? { pcm: true, onPcm: (buf, sr, ch) => { if (bridge.sender) bridge.sender.pcm(buf, sr, ch); } } : undefined
   );
 }
 
@@ -1375,14 +1406,39 @@ function bridgeStatus() {
     receiver: bridge.receiver ? bridge.receiver.status() : null,
     input: bridge.input ? bridge.input.status(now) : null,
     found: bridge.found.map((b) => ({ id: b.id, name: b.name, host: b.host, port: b.port, paired: b.paired, reason: b.reason })),
-    meta: bridge.meta ? { title: bridge.meta.title || '', artist: bridge.meta.artist || '' } : null,
+    // Alıcıda köprünün parçası; köprüde (gönderen) kendi oturumu (Windows SMTC vb.)
+    meta: bridge.meta ? { title: bridge.meta.title || '', artist: bridge.meta.artist || '' }
+      : (bridge.sender && mediaSession.current().has ? { title: mediaSession.current().title || '', artist: mediaSession.current().artist || '', own: true } : null),
     capturing: !!lastCaptureSource,
     // Köprünün çözümlemesi: gönderende kendi hesabı, alıcıda köprüden gelen
     analysis: slimAnalysis(BRIDGE_ONLY || !c.receive ? bridge.lastAnalysis : bridge.remoteAnalysis),
     fallbackSource: c.fallbackSource || '',
     // Yerel yakalamanın seçtiği kaynak (köprü kesikken yedek giriş dahil)
     localSources: configuredSources(),
+    // Dinlenebilir ses: alıcıda çalar, çıkış aygıtları; gönderende dinleyen sayısı
+    play: c.play && c.receive && !BRIDGE_ONLY,
+    player: bridgePlayer.status,
+    outputs: bridgePlayer.outputs,
+    // Damgaların saati: yedeklilik açıksa ortak gösteri saati (#544)
+    clock: bridgeClockKind(),
   };
+}
+/* ZAMAN DAMGALARI (#813, #544). Köprü kendi saatiyle damgalar; alıcı ölçtüğü
+   farkla kendi saatine çevirir (localT). Yedeklilik açıksa bir adım daha:
+   ortak gösteri saati (sharedT = localT − ortak çıpa). Birincilde çıpa
+   kendi oturum başlangıcı, yedekte birincilinki bu makinenin saatine
+   çevrilmiş; aynı köprü anı iki makinede AYNI sharedT'yi verir. Köprü
+   yedeklilik bağlantısının parçası değil (üçüncü bir cihaz olabilir), o
+   yüzden ortak saati doğrudan kullanamıyor; dönüşüm alıcıda. */
+function bridgeClockKind() {
+  if (red.role === 'primary') return 'shared';
+  if (red.role === 'backup' && red.follower && red.follower.status.offsetMs != null && red.primaryStart != null) return 'shared';
+  return 'local';
+}
+function bridgeSharedT(localT) {
+  if (!Number.isFinite(localT) || bridgeClockKind() !== 'shared') return null;
+  const e = sharedEpochNow();
+  return Number.isFinite(e) ? localT - e : null;
 }
 function slimAnalysis(a) {
   if (!a) return null;
@@ -1393,6 +1449,7 @@ function notifyBridge() {
   bridge.statusTimer = setTimeout(() => {
     bridge.statusTimer = null;
     notifyAdmin('bridge-status', bridgeStatus());
+    notifyBridgeWindow();
     updateBridgeTray();
   }, 200);
 }
@@ -1410,18 +1467,29 @@ function stopBridge() {
   bridge.lastAnalysis = null;
   bridge.remoteAnalysis = null;
 }
+// Durum penceresinin 'Durdur'u: köprü yayını ve yakalama durur, uygulama açık kalır
+bridge.paused = false;
 
 // Ayara göre kur; ayar değişmediyse dokunma
 function syncBridge() {
   const c = audioBridge.normalize(currentConfig && currentConfig.bridge);
-  const sig = JSON.stringify([c, BRIDGE_ONLY]);
-  if (sig === bridge.sig) return;
+  /* Dinlenebilir sesin ayarları (çal, ses düzeyi, çıkış, tampon) bağlantıyı
+     yeniden kurdurmasın: ses düzeyi kaydırılırken köprü kopmasın. */
+  const { play, playVolume, playDevice, playLatencyMs, ...linkCfg } = c;
+  const sig = JSON.stringify([linkCfg, BRIDGE_ONLY, !!bridge.paused]);
+  if (sig === bridge.sig) {
+    bridge.cfg = c;
+    if (bridge.receiver) bridge.receiver.setAudio(c.play);
+    syncBridgePlayer();
+    notifyBridge();
+    return;
+  }
   bridge.sig = sig;
   stopBridge();
   bridge.cfg = c;
   // Öz testte ağ kapalı; köprü kipinin öz testi köprüyü sınamak için açar
   if (audioBridge.problem(Object.assign({}, c, { send: c.send || BRIDGE_ONLY })) || (HW_OFF && !(SMOKE && BRIDGE_ONLY))) { notifyBridge(); syncCapture(); return; }
-  if (c.send || BRIDGE_ONLY) {
+  if ((c.send || BRIDGE_ONLY) && !bridge.paused) {
     bridge.sender = audioBridge.createSender({
       port: c.port, secret: c.secret, name: bridgeName(c), id: bridgeId(),
       onStatus: () => { syncCapture(); syncNowPlaying(); notifyBridge(); },
@@ -1434,14 +1502,16 @@ function syncBridge() {
   if (c.receive && !BRIDGE_ONLY) {
     bridge.input = createInputSwitch({ fallback: c.fallback });
     bridge.receiver = audioBridge.createReceiver({
-      host: c.host, port: c.port, secret: c.secret,
+      host: c.host, port: c.port, secret: c.secret, audio: c.play, name: bridgeName(c),
+      onPcm: (data, info) => bridgePlayPcm(data, info),
       onFrame: (frame) => {
         const changed = bridge.input.frame(Date.now());
         if (bridge.input.useBridge) deliverAudioFrame(frame);
         if (changed) onBridgeInputChanged();
       },
-      onAnalysis: (a) => { bridge.remoteAnalysis = a; },
+      onAnalysis: (a) => { a.sharedT = bridgeSharedT(a.localT); bridge.remoteAnalysis = a; },
       onMeta: (m) => {
+        if (m) m.sharedT = bridgeSharedT(m.localT);
         bridge.meta = m;
         if (m && bridge.input && bridge.input.useBridge) forwardBridgeMeta(m);
       },
@@ -1454,9 +1524,18 @@ function syncBridge() {
         bridge.found = list;
         if (!c.host && bridge.receiver) {
           const first = list.find((b) => b.paired);
-          if (first) bridge.receiver.setTarget(first.host, first.port);
+          // Bağlıyken adres değişmez; köprünün bütün adresleri yedek olarak
+          if (first) bridge.receiver.setTarget(first.host, first.port, first.hosts);
         }
         notifyBridge();
+      },
+      /* Eşleşen köprünün işareti: kopuksak hemen bağlan (yeniden açılan
+         köprü). Elle adreste yalnız o adresin işareti sayılır. */
+      onBeacon: (b) => {
+        if (!b.paired || !bridge.receiver) return;
+        const r = bridge.receiver.status();
+        const hosts = b.hosts || [b.host];
+        if (c.host ? (hosts.indexOf(r.host) >= 0 && b.port === r.port) : hosts.indexOf(r.host) >= 0) bridge.receiver.kick();
       },
     });
     bridge.discovery.start();
@@ -1466,9 +1545,98 @@ function syncBridge() {
     }, 100);
     if (bridge.tickTimer.unref) bridge.tickTimer.unref();
   }
+  syncBridgePlayer();
   syncCapture();
   notifyBridge();
 }
+
+/* ---------------------------------------------------------------------------
+   KÖPRÜNÜN SESİNİ ÇALMA (#813). Alıcı isterse köprü ham PCM yollar; burada
+   gizli, küçük bir pencerede Web Audio ile çalınır (src/bridge-audio). Üç
+   platformda aynı yol: Chromium'un ses çıkışı (Windows WASAPI, macOS
+   CoreAudio, Linux PulseAudio/PipeWire). Çıkış aygıtı setSinkId ile seçilir.
+   --------------------------------------------------------------------------- */
+const bridgePlayer = { win: null, ready: false, status: null, outputs: [], sentCfg: '', closed: false };
+function bridgePlayerWanted() {
+  const c = bridge.cfg;
+  return !!(c.play && c.receive && !BRIDGE_ONLY && bridge.receiver && !SHOTS && !bridgePlayer.closed);
+}
+/* Gizli pencere (bkz. closeHelperWindows): panel kapanınca uygulama çıkar;
+   çalan pencere ayakta kalırsa 'window-all-closed' gelmez. */
+function closeBridgePlayer() {
+  bridgePlayer.closed = true;
+  syncBridgePlayer();
+}
+function syncBridgePlayer() {
+  if (!bridgePlayerWanted()) {
+    const w = bridgePlayer.win;
+    bridgePlayer.win = null;
+    bridgePlayer.ready = false;
+    bridgePlayer.status = null;
+    bridgePlayer.sentCfg = '';
+    if (w && !w.isDestroyed()) w.destroy();
+    return;
+  }
+  if (!bridgePlayer.win || bridgePlayer.win.isDestroyed()) {
+    const win = new BrowserWindow({
+      width: 200, height: 100, show: false, skipTaskbar: true, focusable: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload-bridge-audio.js'),
+        contextIsolation: true, nodeIntegration: false, backgroundThrottling: false,
+        autoplayPolicy: 'no-user-gesture-required',
+      },
+    });
+    bridgePlayer.win = win;
+    bridgePlayer.ready = false;
+    bridgePlayer.sentCfg = '';
+    attachSmoke(win, 'BRIDGE-AUDIO');
+    win.on('closed', () => { if (bridgePlayer.win === win) { bridgePlayer.win = null; bridgePlayer.ready = false; } });
+    // Çizim süreci çökerse yeniden kurulur
+    win.webContents.on('render-process-gone', () => {
+      try { win.destroy(); } catch { /* */ }
+      setTimeout(() => syncBridgePlayer(), 1000);
+    });
+    win.loadFile(path.join(__dirname, '..', 'bridge-audio', 'index.html'));
+  }
+  sendBridgePlayerCfg();
+}
+function sendBridgePlayerCfg() {
+  const w = bridgePlayer.win;
+  if (!w || w.isDestroyed() || !bridgePlayer.ready) return;
+  const c = bridge.cfg;
+  const cfg = { volume: c.playVolume, device: c.playDevice, latencyMs: c.playLatencyMs };
+  const sig = JSON.stringify(cfg);
+  if (sig === bridgePlayer.sentCfg) return;
+  bridgePlayer.sentCfg = sig;
+  w.webContents.send('bridge-audio:config', cfg);
+}
+function bridgePlayPcm(data, info) {
+  const w = bridgePlayer.win;
+  if (!w || w.isDestroyed() || !bridgePlayer.ready) return;
+  w.webContents.send('bridge-audio:pcm', { data, sampleRate: info.sampleRate, channels: info.channels, seq: info.seq, localT: info.localT, sharedT: bridgeSharedT(info.localT) });
+}
+const fromBridgePlayer = (e) => !!(bridgePlayer.win && !bridgePlayer.win.isDestroyed() && e.sender === bridgePlayer.win.webContents);
+ipcMain.on('bridge-audio:ready', (e) => {
+  if (!fromBridgePlayer(e)) return;
+  bridgePlayer.ready = true;
+  bridgePlayer.sentCfg = '';
+  sendBridgePlayerCfg();
+});
+ipcMain.on('bridge-audio:status', (e, st) => {
+  if (!fromBridgePlayer(e) || !st || typeof st !== 'object') return;
+  const num = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
+  bridgePlayer.status = {
+    state: String(st.state || '').slice(0, 20), bufferedMs: num(st.bufferedMs), underruns: num(st.underruns) || 0,
+    dropped: num(st.dropped) || 0, chunks: num(st.chunks) || 0, rate: num(st.rate), inputRate: num(st.inputRate),
+    sinkError: String(st.sinkError || '').slice(0, 120), outputLatencyMs: num(st.outputLatencyMs),
+  };
+  notifyBridge();
+});
+ipcMain.on('bridge-audio:outputs', (e, list) => {
+  if (!fromBridgePlayer(e) || !Array.isArray(list)) return;
+  bridgePlayer.outputs = list.slice(0, 50).map((d) => ({ id: String((d && d.id) || '').slice(0, 300), label: String((d && d.label) || '').slice(0, 200) }));
+  notifyBridge();
+});
 
 // Köprü ↔ yerel giriş geçişi: yakalama açılır/kapanır, parça bilgisi el değiştirir
 function onBridgeInputChanged() {
@@ -1477,7 +1645,8 @@ function onBridgeInputChanged() {
   syncCapture();
   if (bridge.input && bridge.input.useBridge && bridge.meta) forwardBridgeMeta(bridge.meta);
   else if (mediaSession.current().has) forwardBridgeMeta(mediaSession.current());
-  notifyAdmin('audio-source-status', { type: st === 'bridge' ? 'bridge' : 'bridge-lost', state: st });
+  const rs = bridge.receiver ? bridge.receiver.status() : {};
+  notifyAdmin('audio-source-status', { type: st === 'bridge' ? 'bridge' : 'bridge-lost', state: st, name: rs.name || rs.host || '' });
   notifyBridge();
 }
 /* Çalan parça (#813): ses girişi köprüdeyse köprünün parçası, değilse bu
@@ -1505,11 +1674,13 @@ function createBridgeTray() {
   try {
     const { Tray, nativeImage } = require('electron');
     bridgeTray = new Tray(nativeImage.createFromDataURL('data:image/png;base64,' + BRIDGE_TRAY_PNG));
-    bridgeTray.on('click', () => openPanelFromBridge());
+    bridgeTray.on('click', () => openBridgeWindow());
     updateBridgeTray();
   } catch (e) {
-    console.error('[bridge] tepsi kurulamadı, panel açılıyor:', e && e.message);
-    openPanelFromBridge();
+    // Tepsi yoksa (ör. GNOME) durum penceresi ana arayüz: gizli açılış yok sayılır
+    console.error('[bridge] tepsi kurulamadı, durum penceresi açılıyor:', e && e.message);
+    bridgeTray = null;
+    openBridgeWindow();
   }
 }
 function openPanelFromBridge() {
@@ -1528,9 +1699,159 @@ function updateBridgeTray() {
     { label: line, enabled: false },
     { label: s.capturing ? trUi('Ses yakalanıyor', 'Capturing audio') : trUi('Ses yakalanmıyor (alıcı yok)', 'Not capturing (no receivers)'), enabled: false },
     { type: 'separator' },
-    { label: trUi('Paneli Aç', 'Open Panel'), click: () => openPanelFromBridge() },
+    { label: trUi('Durum Penceresini Göster', 'Show Status Window'), click: () => openBridgeWindow() },
+    { label: trUi('Köprü Ayarlarını Aç', 'Open Bridge Settings'), click: () => openPanelFromBridge() },
+    { label: bridge.paused ? trUi('Köprüyü Başlat', 'Start Bridge') : trUi('Köprüyü Durdur', 'Stop Bridge'), click: () => setBridgePaused(!bridge.paused) },
     { label: trUi('Çık', 'Quit'), click: () => { forceQuitApp = true; app.quit(); } },
   ]));
+}
+
+/* ---------------------------------------------------------------------------
+   KÖPRÜ DURUM PENCERESİ (#813). Köprü kipinde küçük, basit bir pencere:
+   çalışıyor mu, yakalanan kaynak (aygıt ya da tek uygulama, canlı
+   değiştirilir), seviye ölçeri, bağlı alıcılar, kayıp kare, çalan parça ve
+   hatalar. Görüntü çizmez, GPU kapalı kalır. Kapatınca gizlenir, köprü
+   tepside çalışmaya devam eder; tepsi yoksa (GNOME) uygulamayı yeniden
+   açmak pencereyi geri getirir. `--hidden` ya da "Durum Penceresi Açılmasın"
+   ayarı açılışta pencereyi açmaz (otomatik başlatma).
+   --------------------------------------------------------------------------- */
+const BRIDGE_HIDDEN_FLAG = process.argv.includes('--hidden');
+let bridgeWin = null;
+function closeBridgeWin() {
+  const w = bridgeWin;
+  bridgeWin = null;
+  if (w && !w.isDestroyed()) w.destroy();
+}
+let bridgeLevelAt = 0;
+let lastCaptureStatus = null;
+function bridgeWinVisible() {
+  return !!(bridgeWin && !bridgeWin.isDestroyed() && bridgeWin.isVisible() && !bridgeWin.isMinimized());
+}
+function openBridgeWindow() {
+  if (!BRIDGE_ONLY) return;
+  if (bridgeWin && !bridgeWin.isDestroyed()) {
+    if (bridgeWin.isMinimized()) bridgeWin.restore();
+    bridgeWin.show(); bridgeWin.focus();
+    syncCapture(); syncNowPlaying();
+    return;
+  }
+  const iconPath = path.join(__dirname, '..', '..', 'build', 'icon.png');
+  const win = new BrowserWindow({
+    width: 460, height: 640, minWidth: 340, minHeight: 420,
+    title: trUi('Ses Köprüsü', 'Audio Bridge'),
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    backgroundColor: adminBackground(currentConfig || {}),
+    autoHideMenuBar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-bridge-status.js'),
+      contextIsolation: true, nodeIntegration: false,
+      // Görünmezken ölçer durur; pencere görünür olunca yeniden
+      backgroundThrottling: true,
+    },
+  });
+  bridgeWin = win;
+  attachSmoke(win, 'BRIDGE-STATUS');
+  win.loadFile(path.join(__dirname, '..', 'bridge-status', 'index.html'), { query: { uiTheme: adminUiTheme(currentConfig || {}) } });
+  win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
+  const vis = () => { syncCapture(); syncNowPlaying(); };
+  win.on('show', vis); win.on('hide', vis); win.on('minimize', vis); win.on('restore', vis);
+  /* Kapatmak pencereyi gerçekten kapatır: köprü tepside sürer, çizim süreci
+     (~130 MB) bellekten çıkar; tepsiden açınca yeniden kurulur. */
+  win.on('closed', () => {
+    if (bridgeWin === win) bridgeWin = null;
+    // Tepsi yoksa pencere ana arayüz: kapanınca uygulama da kapanır
+    if (!bridgeTray && !quitting && BRIDGE_ONLY && !(adminWin && !adminWin.isDestroyed())) { forceQuitApp = true; app.quit(); }
+    vis();
+  });
+}
+function setBridgePaused(on) {
+  bridge.paused = !!on;
+  bridge.sig = '';
+  syncBridge();
+  updateBridgeTray();
+}
+// Pencereye giden durum: köprünün bütün durumu + yakalama + çalan parça
+function bridgeWindowStatus() {
+  const s = bridgeStatus();
+  const np = mediaSession.current();
+  const ms = mediaSession.status();
+  return Object.assign(s, {
+    paused: !!bridge.paused,
+    tray: !!bridgeTray,
+    platform: process.platform,
+    sources: configuredSources(),
+    wantedSources: (currentConfig && currentConfig.audio && Array.isArray(currentConfig.audio.sources) && currentConfig.audio.sources.length) ? currentConfig.audio.sources : ['default'],
+    captureStatus: lastCaptureStatus,
+    nowPlaying: np && np.has ? { title: np.title || '', artist: np.artist || '', app: np.app || '' } : null,
+    nowPlayingInfo: { supported: !!mediaSession.supported, running: !!ms.running, error: ms.error || '' },
+    appFallback: bridge.appFallback || null,
+  });
+}
+function notifyBridgeWindow() {
+  if (bridgeWin && !bridgeWin.isDestroyed()) bridgeWin.webContents.send('bridge-win:status', bridgeWindowStatus());
+}
+function pushBridgeLevel(a) {
+  if (!a || !bridgeWinVisible()) return;
+  const now = Date.now();
+  if (now - bridgeLevelAt < 50) return;
+  bridgeLevelAt = now;
+  bridgeWin.webContents.send('bridge-win:level', { level: a.level, peak: a.peak, bands: a.bands, bpm: a.bpm, confidence: a.confidence, onsets: a.onsets, beat: !!a.beat });
+}
+const fromBridgeWin = (e) => !!(bridgeWin && !bridgeWin.isDestroyed() && e.sender === bridgeWin.webContents);
+ipcMain.handle('bridge-win:status', (e) => (fromBridgeWin(e) ? bridgeWindowStatus() : null));
+ipcMain.handle('bridge-win:devices', async (e) => {
+  if (!fromBridgeWin(e)) return [];
+  try { return await nativeAudio.listDevices(); } catch { return []; }
+});
+ipcMain.handle('bridge-win:apps', (e) => {
+  if (!fromBridgeWin(e)) return { available: false, apps: [] };
+  let avail;
+  try { avail = appCapture.availability(); } catch (err) { avail = { available: false, code: 'ERROR', message: (err && err.message) || '' }; }
+  appAvailCache = { at: Date.now(), value: avail };
+  let apps = [];
+  if (avail.available) { try { apps = appCapture.list(); } catch { apps = []; } }
+  return Object.assign({}, avail, { apps: (apps || []).slice(0, 60) });
+});
+/* Kaynağı CANLI değiştirir: köprü yayında kalır, yalnız yakalama yardımcısı
+   yeni kaynakla yeniden kurulur. src: 'default' | aygıt adı | uygulama. */
+ipcMain.handle('bridge-win:set-source', (e, src) => {
+  if (!fromBridgeWin(e) || !currentConfig) return { ok: false };
+  let next;
+  if (src === 'default') next = 'default';
+  else if (typeof src === 'string' && src.trim()) next = src.slice(0, 300);
+  else if (src && typeof src === 'object') {
+    const n = require('../shared/app-audio.js').normalizeApp(Object.assign({}, src, { kind: 'app', mode: 'include' }));
+    if (!n) return { ok: false };
+    const avail = appAvailability();
+    if (!avail.available) return { ok: false, code: avail.code, message: avail.message };
+    next = { kind: 'app', match: n.match, mode: 'include', label: n.label };
+  } else return { ok: false };
+  applyConfigPatch({ audio: Object.assign({}, currentConfig.audio || {}, { sources: [next] }) });
+  notifyAdmin('external-config', currentConfig);
+  syncCapture();
+  notifyBridgeWindow();
+  return { ok: true };
+});
+ipcMain.on('bridge-win:action', (e, what) => {
+  if (!fromBridgeWin(e)) return;
+  if (what === 'panel') openPanelFromBridge();
+  else if (what === 'stop') setBridgePaused(true);
+  else if (what === 'start') setBridgePaused(false);
+  else if (what === 'quit') { forceQuitApp = true; app.quit(); }
+  notifyBridgeWindow();
+});
+/* Uygulama başına yakalama bu sistemde yoksa (eski Windows/macOS, izin
+   yok, Linux'ta pactl/parec yok) seçili uygulama yerine aygıt yakalanır;
+   pencere nedenini gösterir. Denetim pahalı olabilir (macOS izin
+   yardımcısı): 30 sn önbellek. */
+let appAvailCache = null;
+function appAvailability() {
+  if (appAvailCache && Date.now() - appAvailCache.at < 30000) return appAvailCache.value;
+  let v;
+  try { v = appCapture.availability(); } catch (err) { v = { available: false, code: 'ERROR', message: (err && err.message) || '' }; }
+  appAvailCache = { at: Date.now(), value: v };
+  return v;
 }
 
 /* Yakalama yardımcısı beklenmedik biçimde kapanınca yeniden kurulur:
@@ -1577,7 +1898,7 @@ function syncCapture() {
     return;
   }
   const wanted = configuredSources();
-  if (current && JSON.stringify(current) === JSON.stringify(wanted)) return;
+  if (current && JSON.stringify(current) === JSON.stringify(wanted) && lastCapturePcm === bridgePcmWanted()) return;
   startVisualizerCapture();
 }
 
@@ -1706,6 +2027,9 @@ function closeHelperWindows() {
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
   finalizeExport('cancelled');
   closeThumbWin();
+  closeBridgePlayer();
+  // Köprü kipinde durum penceresi köprünün kendisidir; panel kapanınca kalır
+  if (!BRIDGE_ONLY) closeBridgeWin();
 }
 
 // ----------------------------------------------------------------------------
@@ -4430,7 +4754,7 @@ function wantsNowPlaying(cfg) {
 function syncNowPlaying() {
   const streamWants = streamServer.status && streamServer.status().running && typeof streamServer.clientCount === 'function' && streamServer.clientCount() > 0;
   // Köprü çalan parçayı alıcılara da veriyor (#813)
-  const bridgeWants = !!(bridge.sender && bridge.sender.peerCount() > 0);
+  const bridgeWants = !!(bridge.sender && (bridge.sender.peerCount() > 0 || (BRIDGE_ONLY && bridgeWinVisible())));
   const want = adminWantsNowPlaying || wantsNowPlaying(currentConfig) || streamWants || bridgeWants;
   if (want) mediaSession.start();
   else mediaSession.stop();
@@ -6311,6 +6635,8 @@ app.whenReady().then(async () => {
        açılmaz; sistem tepsisinden ya da uygulamayı yeniden çalıştırarak
        açılır (`--panel` ile açılışta da). */
     createBridgeTray();
+    const startHidden = BRIDGE_HIDDEN_FLAG || (currentConfig && currentConfig.bridge && currentConfig.bridge.startHidden === true);
+    if (!startHidden || !bridgeTray) openBridgeWindow();
     syncCapture();
   } else {
   // Yayın sunucusu ve OSC alıcısı kayıtlı ayarlara göre açılır
@@ -6450,11 +6776,43 @@ async function runBridgeSmoke() {
   console.log('[SMOKE] köprü kipi: ' + JSON.stringify({ only: st.only, flag: st.flag, listening: !!(st.sender && st.sender.listening), port: st.sender && st.sender.port, problem: st.problem }));
   if (!st.only) errors.push('bridge smoke: not in bridge-only mode');
   if (!st.problem && !(st.sender && st.sender.listening)) errors.push('bridge smoke: sender is not listening (' + (st.sender && st.sender.error) + ')');
-  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed());
-  if (wins.length) errors.push('bridge smoke: ' + wins.length + ' window(s) open in bridge mode');
+  // Yalnız köprünün durum penceresi açık olmalı (görüntü penceresi yok)
+  const wins = BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w !== bridgeWin);
+  if (wins.length) errors.push('bridge smoke: ' + wins.length + ' window(s) open in bridge mode besides the status window');
+  if (!process.argv.includes('--hidden') && !(bridgeWin && !bridgeWin.isDestroyed())) errors.push('bridge smoke: the status window did not open');
+  if (process.argv.includes('--hidden') && bridgeWin && bridgeWin.isVisible()) errors.push('bridge smoke: --hidden still showed the status window');
   if (openWindows().length || textureShare.window()) errors.push('bridge smoke: a visual output is open');
   if (app.isHardwareAccelerationEnabled()) errors.push('bridge smoke: GPU acceleration is still on');
   if (!bridgeTray) errors.push('bridge smoke: no tray');
+  // Durum penceresi İngilizce: çevrilmemiş metin yok
+  if (bridgeWin && !bridgeWin.isDestroyed()) {
+    const bw = bridgeWin.webContents;
+    await new Promise((r) => (bw.isLoading() ? bw.once('did-finish-load', r) : r()));
+    await bw.executeJavaScript("localStorage.setItem('sv-language','en')");
+    bw.reload();
+    await new Promise((r) => bw.once('did-finish-load', r));
+    await wait(1500);
+    const out = await bw.executeJavaScript(`(async function(){
+      var out = [];
+      var segs = document.querySelectorAll('.bs-seg button');
+      for (var k = 0; k < Math.max(1, segs.length); k++) {
+        if (segs[k]) { segs[k].click(); await new Promise(function(r){ setTimeout(r, 400); }); }
+        var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+        while ((n = walker.nextNode())) {
+          var t = (n.nodeValue || '').trim();
+          if (t.length < 2 || !/[çğıöşüÇĞİÖŞÜ]/.test(t)) continue;
+          if (n.parentElement && n.parentElement.closest('[data-user-text],option,script,style')) continue;
+          out.push(t.slice(0, 90));
+        }
+      }
+      return { title: document.title, out: out, cards: document.querySelectorAll('.bs-card').length };
+    })()`);
+    if (!out.cards) errors.push('bridge smoke: the status window drew nothing');
+    if (/[çğıöşüÇĞİÖŞÜ]/.test(out.title)) out.out.push(out.title);
+    if (out.out.length) errors.push('bridge smoke: untranslated in the English status window: ' + Array.from(new Set(out.out)).slice(0, 10).join(' | '));
+    else console.log('[SMOKE] i18n (köprü durum penceresi): İngilizce arayüzde çevrilmemiş metin yok');
+    await bw.executeJavaScript("localStorage.removeItem('sv-language')");
+  }
   // Panel: tepsiden açılan yol
   openPanelFromBridge();
   const wc = adminWin.webContents;

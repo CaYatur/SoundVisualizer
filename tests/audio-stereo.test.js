@@ -184,7 +184,7 @@ test('yardımcı ve ana süreç yerleşimi aynı modülden alıyor', () => {
   assert.doesNotMatch(helper, /\(f\[idx\] \+ f\[idx \+ 1\]\) \* 0\.5/, 'kanalları atan eski geri çağrı kalmış');
   const na = read('src/main/native-audio.js');
   assert.match(na, /require\('\.\/audio-frame\.js'\)/);
-  assert.match(na, /frameFormat\.parseFrame\(acc\.subarray\(0, FRAME_BYTES\)\)/);
+  assert.match(na, /acc = frameFormat\.splitHelperStream\(acc, /);
   assert.doesNotMatch(na, /2 \+ 4 \+ 1024 \+ 2048/);
 });
 

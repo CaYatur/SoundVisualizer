@@ -1236,6 +1236,13 @@
       fallback: true,
       // Köprü kesilince kullanılacak giriş (mikserin ayrı çıkışı); boşsa olağan giriş
       fallbackSource: '',
+      // Alıcı: köprünün dinlenebilir sesini çal (PCM), ses düzeyi, çıkış aygıtı, tampon
+      play: false,
+      playVolume: 1,
+      playDevice: '',
+      playLatencyMs: 120,
+      // Köprü kipi: durum penceresi açılışta açılmasın (yalnız tepsi; --hidden ile aynı)
+      startHidden: false,
     },
   };
 
