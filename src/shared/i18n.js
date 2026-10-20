@@ -998,9 +998,10 @@
     'Listede ilk 40 fark gösteriliyor.': 'The list shows the first 40 differences.',
     'Karşılaştır': 'Compare',
     'Farkları Yedeğe Gönder': 'Send Differences to Backup',
-    'Yedekte olmayan presetler ve logolar gönderilir; yedekteki aynı kimlikli öğe değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.':
-      'Presets and logos the backup does not have are sent; an item with the same ID on the backup is not changed. For videos and items that differ, use "Request Package from Primary" on the backup.',
-    'Yedekte olmayan şu öğeler eklenecek; yedekteki aynı kimlikli öğeler değişmez:': 'These items the backup does not have will be added; items with the same ID on the backup are not changed:',
+    'Yedekte olmayan presetler ve logolar gönderilir; yedek onları kütüphanesine eklemeden ayrı alanda tutar, aynı kimlikli öğesi değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.':
+      'Presets and logos the backup does not have are sent; the backup keeps them in a separate area without adding them to its library, and its items with the same ID are not changed. For videos and items that differ, use "Request Package from Primary" on the backup.',
+    'Yedekte olmayan şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez:':
+      'These items the backup does not have will be sent; the backup keeps them in a separate area, and its items with the same ID are not changed:',
     // ---- Yalıtılmış gösteri ve gösteri paketi (#812) ----
     'Birincilin kopyası': 'Primary\'s copy',
     'Bu makinenin gösterisi': 'This machine\'s show',
@@ -1034,11 +1035,12 @@
     'Kopyalama ilerlemesi': 'Copy progress',
     'Video dosyalarını da kopyala': 'Also copy video files',
     'Kopyalamayı Başlat': 'Start Copying',
-    'Birincilin presetleri ve logoları bu makinenin yedeklilik klasörüne kopyalanacak. Bu makinede olmayanlar kütüphaneye eklenir; aynı kimlikli yerel öğeler değişmez.':
-      'The primary\'s presets and logos will be copied into this machine\'s redundancy folder. Items this machine does not have are added to the library; local items with the same ID are not changed.',
+    'Birincilin presetleri ve logoları bu makinenin yedeklilik klasörüne kopyalanacak. Hiçbiri kütüphaneye kendiliğinden eklenmez: bu makinede olmayanlar ayrı alanda kalır ve birincilin kopyası çizilirken kullanılır; aynı kimlikli yerel öğeler değişmez.':
+      'The primary\'s presets and logos will be copied into this machine\'s redundancy folder. None of them is added to the library on its own: items this machine does not have stay in a separate area and are used while the primary\'s copy is rendering; local items with the same ID are not changed.',
     'Video dosyaları da kopyalanacak:': 'Video files will be copied too:',
     'Birincilden Paket İste': 'Request Package from Primary',
-    'Eklenen': 'Added',
+    'Kütüphaneye alınan':
+      'Added to library',
     'Aynı': 'Same',
     'Bu makinede aynı kimlikle farklı içerik var; yerel öğe korundu:': 'This machine has different content under the same ID; the local item was kept:',
     'Birincilinkini Kullan': 'Use the Primary\'s',
@@ -1047,8 +1049,16 @@
     'Bu makinedeki öğe birincilin sürümüyle değiştirilecek:': 'The item on this machine will be replaced by the primary\'s version:',
     'Birincilin sürümü kullanılıyor.': 'Using the primary\'s version.',
     'Değiştirilemedi.': 'Could not replace.',
+    'Ayrı alanda': 'In the separate area',
+    'Bu makinede yok; ayrı alanda tutuluyor ve birincilin kopyası çizilirken kullanılıyor:': 'Not on this machine; kept in a separate area and used while the primary\'s copy is rendering:',
+    'Kütüphaneye Ekle': 'Add to Library',
+    'Bu öğe bu makinenin kütüphanesine eklenecek:': 'This item will be added to this machine\'s library:',
+    'Kütüphaneye eklendi.': 'Added to the library.',
+    'Eklenemedi.': 'Could not add.',
+    'İlk 40 öğe gösteriliyor.': 'Showing the first 40 items.',
     'Görüntü birincilden farklı olabilir': 'The picture may differ from the primary',
-    'Birincilden paket isteyin: eksik presetler eklenir, farklı olanlar listede tek tek seçilir.': 'Request a package from the primary: missing presets are added, and differing ones can be chosen one by one in the list.',
+    'Birincilden paket isteyin: eksik presetler ayrı alandan kullanılır, farklı olanlar listede tek tek seçilir.':
+      'Request a package from the primary: missing presets are used from the separate area, and differing ones can be chosen one by one in the list.',
     'Yedeğe Gönder': 'Send to Backup',
     'Yedeğe gönderildi.': 'Sent to the backup.',
     'Gönderilemedi.': 'Could not send.',

@@ -85,6 +85,25 @@ function showSource(state, cfg, override) {
      ''          — eşit ya da denetlenemez
      'missing'   — birincilin preseti bu makinede yok: pencere eski presette kalır
      'different' — aynı kimlik, farklı içerik: aynı ad, farklı görüntü */
+/* Birincilin MilkDrop seçimi bu makinenin pencerelerine giderken (#812):
+   geçiş anı birincilin saatinden yerel saate çevrilir; pencere bunu
+   `Date.now()` ile karşılaştırıyor. `at` alanı TAŞINMAZ: pencere mesajın
+   geliş anını (`performance.now()`) o adla tutuyor ve 1,5 sn sonra izlemeyi
+   bırakıyor — dışarıdan gelen bir `at` bu zamanlayıcıyı bozardı. */
+function localFollow(follow, toLocal) {
+  if (!follow || typeof follow !== 'object') return follow;
+  const out = Object.assign({}, follow);
+  delete out.at;
+  delete out.hash;
+  if (Number.isFinite(out.startedAt) && typeof toLocal === 'function') {
+    const t = toLocal(out.startedAt);
+    out.startedAt = Number.isFinite(t) ? t : null;
+  } else {
+    out.startedAt = null;
+  }
+  return out;
+}
+
 function mdParity(follow, localFp) {
   if (!follow || !follow.id || typeof follow.hash !== 'string' || !follow.hash) return '';
   if (!localFp) return 'missing';
@@ -286,6 +305,6 @@ function createClient(opts) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, mdParity, problem, createFollower,
+  DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, createClient,
 };

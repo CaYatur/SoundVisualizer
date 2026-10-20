@@ -149,8 +149,11 @@ test('eski gönderim yedeğin öğesini ezmiyor; paket çakışması yerel öğe
   const asset = main.slice(main.indexOf('function onPrimaryAsset(msg) {'), main.indexOf("ipcMain.handle('redundancy:push'"));
   assert.match(asset, /if \(presetsStore\.get\(msg\.preset\.id\)\) return false;/);
   assert.match(asset, /if \(own && own\.file\) return false;/);
-  const inst = main.slice(main.indexOf('function installPackage() {'), main.indexOf('/* ---', main.indexOf('function installPackage() {')));
-  assert.match(inst, /if \(!own\) \{\n        const r = presetsStore\.save/);
+  const inst = main.slice(main.indexOf('function loadPackageOverlay() {'), main.indexOf('/* ---', main.indexOf('function installPackage() {')));
+  // Paket kütüphaneye hiçbir şey yazmaz: eksikler yalıtılmış katmana (#812)
+  assert.doesNotMatch(inst, /presetsStore\.save|logoLibrary\.importBytes/);
+  assert.match(inst, /presets\.set\(p\.id, Object\.assign\(\{\}, p, \{ builtin: false, fromPrimary: true \}\)\);/);
+  assert.match(inst, /res\.isolated\.push\(\{ kind: 'logo'/);
   assert.match(inst, /else res\.conflicts\.push\(\{ kind: 'preset'/);
   assert.match(inst, /else res\.conflicts\.push\(\{ kind: 'logo'/);
   // Birincil yalnız son manifestteki dosyayı, adıyla verir (yedek yol veremez)

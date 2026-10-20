@@ -17,7 +17,7 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
   - **Upgrading:** a machine that already ran as a backup on 3.1.6-beta keeps whatever its settings hold at the first start, as its local show. Nothing is deleted.
 - **Importing is per item and confirmed.**
   - Each of the primary's saved scenes has "Import to Local Show". On an ID clash the copy gets a new ID, and existing scenes are never changed.
-  - "Send Differences to Backup" now only adds items the backup does not have.
+  - "Send Differences to Backup" no longer writes into the backup's library. The backup pulls the package without video files, and the items stay in the separate area.
 - **Takeover data.**
   - "Show to Use on Takeover" chooses between the primary's copy (the default) and this machine's own show.
   - While in control, the operator can switch between the two.
@@ -33,7 +33,10 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
   - The transfer resumes after a dropped connection or a restart, and files that are unchanged since the last package are not downloaded again.
   - Every file is verified before anything is put in place. The swap takes two steps and is retried on the brief file locks that are common on Windows. A swap that fails halfway is rolled back, so the last good copy stays.
   - The panel shows a progress bar, the file list, speed and errors.
-  - Presets and logos that the backup does not have are added. An item with the same ID but different content is listed as a conflict, the local one is kept, and "Use the Primary's" replaces it after confirmation.
+  - Nothing from the package is written into the backup's library on its own.
+    - Presets and logos the backup does not have stay in the package folder. While the primary's copy is rendering, the windows see them as if they were in the library. They disappear again with the local show or with the role off.
+    - Each one has "Add to Library", with its own confirmation.
+    - An item with the same ID but different content is listed as a conflict, the local one is kept, and "Use the Primary's" replaces it after confirmation.
   - Video files stay in the package, and the primary's scene is mapped to those copies. A file that already exists at the same path on the backup is left as it is.
 - **MilkDrop parity.**
   - The primary's MilkDrop choice now also carries the preset's content hash and the moment of the switch. The seed already travelled with it (#585).
@@ -43,10 +46,12 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
     - Per-frame equations follow each machine's own audio.
     - The `rand_frame` input and one random rotation source are drawn per frame.
     - Frame rate and feedback history differ per machine.
+  - The leader now sends the moment its transition started. A window or backup that starts the same transition late moves its blend forward to that moment, once and never backwards, so both screens finish the blend together. On the backup the moment is converted from the primary's clock. Web pages on other machines do not get it, since their clock is separate.
+  - Fixed: the backup's windows got the primary's wall-clock `at` field, which overwrote the window's own receive time. Following then never timed out after 1.5 s.
   - Hash, seed and timing remove the first cause. Audio is phase 2 (#813); the rest is documented in #812.
 - **Tests.**
-  - New unit tests for the manifest, safe names (path traversal, absolute paths, backslashes, case-insensitive collisions), chunk checksums, resume, verification, the atomic swap with Windows rename failures, media confirmation, isolation and restore, scene import, media mapping, the takeover data choice and MilkDrop parity.
-  - `npm run failover` now also checks that the backup's `settings.json` keeps its own scenes and that the copy lands in `primary-show.json`. It copies a show package with a video and a conflicting preset, and takes over with the local show and then turns the role off.
+  - New unit tests for the manifest, safe names (path traversal, absolute paths, backslashes, case-insensitive collisions), chunk checksums, resume, verification, the atomic swap with Windows rename failures, media confirmation, isolation and restore, scene import, media mapping, the takeover data choice, MilkDrop parity, the isolated package layer, per-item import and blend alignment.
+  - `npm run failover` now also checks that the backup's `settings.json` keeps its own scenes and that the copy lands in `primary-show.json`. It copies a show package with a video and a conflicting preset, and takes over with the local show and then turns the role off. It checks that pushed and packaged items stay out of the backup's library until each one is imported.
 
 ## v3.1.6-beta — in code, not released
 

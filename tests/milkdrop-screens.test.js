@@ -166,7 +166,7 @@ test('ana süreç: liderin seçimi diğer pencerelere, Spout/Syphon\'a ve web\'e
   assert.match(f, /if \(key === mdFollowSent\.key && now - mdFollowSent\.at < 250\) return;/);
   assert.match(f, /for \(const win of openWindows\(\)\) \{\s*if \(win\.webContents !== sender\) win\.webContents\.send\('md-follow', follow\);/);
   assert.match(f, /if \(ts && ts\.webContents !== sender\) ts\.webContents\.send\('md-follow', follow\);/);
-  assert.match(f, /streamServer\.broadcast\(\{ type: 'md-follow', follow \}, 'overlay'\);/);
+  assert.match(f, /streamServer\.broadcast\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ startedAt: null \}\) \}, 'overlay'\);/);
   assert.match(f, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
   // Lider: ölçer mesajı geçirilen pencere. Birincil pencere yoksa Spout/Syphon.
   assert.match(M, /if \(primary && e\.sender !== primary\.webContents\) return;\s*if \(data && data\.mdPreset\) relayMdFollow\(e\.sender, data\.mdPreset\);/);

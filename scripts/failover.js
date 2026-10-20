@@ -199,9 +199,16 @@ async function scenario(name, takeover, opts) {
       res.pkgConflicts = done.r.conflicts.map((c) => c.id);
       const has = await pb.eval(`(async () => { const l = await window.api.listPresets(); const c = l.find((x) => x.id === 'usr_conf'); return { only: !!l.find((x) => x.id === 'usr_only_primary'), conf: c && c.name }; })()`);
       const mediaDir = path.join(dirB, 'redundancy', 'package', 'current', 'media');
+      /* Yalnız birincilde olan preset pencerelere görünüyor (yalıtılmış katman)
+         ama yedeğin kütüphanesine yazılmadı; operatör tek tek alıyor. */
+      const onlyFile = path.join(dirB, 'presets', 'usr_only_primary.json');
+      const isolatedIds = (done.r.isolated || []).map((c) => c.id);
+      res.pkgIsolated = has.only && !fs.existsSync(onlyFile) && isolatedIds.indexOf('usr_only_primary') >= 0;
+      const imp = await pb.eval(`window.api.redundancyUsePrimaryAsset({ kind: 'preset', id: 'usr_only_primary' })`);
+      res.pkgImported = !!(imp && imp.ok) && fs.existsSync(onlyFile);
       res.pkgOk = res.pkgMedia === 1 && has.only && has.conf === 'Backup Version' && res.pkgConflicts.indexOf('usr_conf') >= 0 &&
-        fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1;
-      if (!res.pkgOk) throw new Error('package result: ' + JSON.stringify({ has, conflicts: res.pkgConflicts, media: res.pkgMedia }));
+        res.pkgIsolated && res.pkgImported && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1;
+      if (!res.pkgOk) throw new Error('package result: ' + JSON.stringify({ has, conflicts: res.pkgConflicts, isolated: isolatedIds, pkgIsolated: res.pkgIsolated, pkgImported: res.pkgImported, media: res.pkgMedia }));
     }
     if (opts.sync) {
       // Birincilde bir Studio preseti; karşılaştırma iki farkı bulmalı, ayar farkı olmamalı
@@ -221,6 +228,25 @@ async function scenario(name, takeover, opts) {
       const pushed = await pa.eval('window.api.redundancyPush()');
       res.pushed = pushed && pushed.sent;
       res.pushCallMs = Date.now() - tp;
+      /* Yalıtılmış yedek (#812) gönderileni kütüphanesine yazmaz: videosuz
+         paketi çeker, eksikler ayrı alanda kalır ve pencerelere görünür. */
+      const WANT = ['usr_rig_1', 'logo_rig', 'logo_big'];
+      const iso = await until(async () => {
+        const s = await pb.eval(STATUS);
+        const ids = s && s.pkgResult && s.pkgResult.isolated ? s.pkgResult.isolated.map((c) => c.id) : [];
+        return { ok: s.pkg && s.pkg.state === 'done' && WANT.every((id) => ids.indexOf(id) >= 0), ids, pkg: s.pkg };
+      }, 15000, 200);
+      const libFile = path.join(dirB, 'presets', 'usr_rig_1.json');
+      const seen = await pb.eval(`(async () => !!(await window.api.listPresets()).find((x) => x.id === 'usr_rig_1'))()`);
+      res.pushIsolated = !!iso.ok && !fs.existsSync(libFile) && seen;
+      if (!res.pushIsolated) throw new Error('push was not kept in the isolated area: ' + JSON.stringify({ iso, onDisk: fs.existsSync(libFile), seen }));
+      // Operatör her öğeyi ayrı onaylar: üçü de kütüphaneye, sonra gösteriler aynı
+      for (const id of WANT) {
+        const kind = id.indexOf('logo_') === 0 ? 'logo' : 'preset';
+        const r = await pb.eval(`window.api.redundancyUsePrimaryAsset(${JSON.stringify({ kind, id })})`);
+        if (!r || !r.ok) throw new Error('import failed: ' + id);
+      }
+      await pa.eval('window.api.redundancyCompare()');
       const same = await until(async () => {
         const s = await pa.eval(STATUS);
         const sh = s && s.show;
@@ -231,9 +257,9 @@ async function scenario(name, takeover, opts) {
       const gapAfter = (await pb.eval(STATUS)).maxGap;
       res.maxGapDuringPush = gapAfter > gapBefore ? gapAfter : null;
       res.syncMs = Date.now() - tp;
-      if (!same.ok) throw new Error('show did not match after push: ' + JSON.stringify(same.show));
+      if (!same.ok) throw new Error('show did not match after import: ' + JSON.stringify(same.show));
       const has = await pb.eval(`(async () => { const p = (await window.api.listPresets()).find((x) => x.id === 'usr_rig_1'); const ls = await window.api.logoLibList(); return { preset: !!p, logo: !!ls.find((x) => x.id === 'logo_rig') && !!ls.find((x) => x.id === 'logo_big') }; })()`);
-      res.backupHasAssets = has.preset && has.logo;
+      res.backupHasAssets = has.preset && has.logo && fs.existsSync(libFile);
     }
     if (opts.clock) {
       /* Gösteri saati (#544): birincilde zaman çizelgesi oynar; yedeğin
@@ -319,7 +345,7 @@ async function scenario(name, takeover, opts) {
       (!opts.pkg || res.pkgOk) && (!opts.local || res.restoredOnOff) &&
       (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
       (!opts.relaunch || (res.primaryBack && res.epochKept && res.stayedActive)) &&
-      (!opts.sync || (res.diffFound && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
+      (!opts.sync || (res.diffFound && res.pushIsolated && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
         && !(res.maxGapDuringPush > opts.timeout / 2))) &&
       (takeover === 'auto' ? res.takeoverMs <= limit : (res.waitedForOperator && res.stillWaiting && res.lostMs <= limit));
   } catch (e) {

@@ -131,7 +131,8 @@ const PKG_CASES = [
   { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'transferring', summary: SUMMARY, files: [], progress: { bytes: 5e8, total: 2e9, files: 3, of: 5 }, speed: 4e7 } },
   { role: 'backup', state: 'following', connected: true, space: SPACE, pkg: { state: 'error', error: 'changed', progress: { bytes: 1, total: 2, files: 0, of: 1 } } },
   { role: 'backup', state: 'active', takenBy: 'auto', space: Object.assign({}, SPACE, { source: 'local' }), pkg: { state: 'done', progress: { bytes: 2, total: 2, files: 1, of: 1 } },
-    pkgResult: { added: 2, same: 1, media: 1, conflicts: [{ kind: 'preset', id: 'u1', name: 'Benim' }, { kind: 'logo', id: 'l', name: 'Logo' }] },
+    pkgResult: { added: 2, same: 1, media: 1, conflicts: [{ kind: 'preset', id: 'u1', name: 'Benim' }, { kind: 'logo', id: 'l', name: 'Logo' }],
+      isolated: [{ kind: 'preset', id: 'p-only', name: 'Yalnız birincilde' }, { kind: 'logo', id: 'lg', name: 'Afiş' }], isolatedCount: 41 },
     parity: [{ id: 'u9', name: 'X', status: 'missing' }, { id: 'u8', name: 'Y', status: 'different' }] },
   { role: 'backup', state: 'connecting', connected: false, space: null, pkg: null },
 ];
@@ -149,6 +150,12 @@ test('yedek paneli: gösteri verisi, paket ve eşlik her durumda çiziliyor', as
     assert.ok(texts.includes('Gösteri Verisi') && texts.includes('Gösteri Paketi'), JSON.stringify(st.pkg));
     if (st.pkg && st.pkg.state === 'offered') assert.ok(texts.includes('Video dosyalarını da kopyala'), 'videolar ayrıca onaylanır');
     if (st.parity) assert.ok(texts.includes('Görüntü birincilden farklı olabilir'));
+    // Eksikler ayrı alanda; her biri ayrı onayla kütüphaneye (#812)
+    if (st.pkgResult && st.pkgResult.isolated) {
+      assert.ok(texts.includes('Bu makinede yok; ayrı alanda tutuluyor ve birincilin kopyası çizilirken kullanılıyor:'));
+      assert.strictEqual(texts.filter((t) => t === 'Kütüphaneye Ekle').length, 2);
+      assert.ok(texts.includes('İlk 40 öğe gösteriliyor.'));
+    }
   }
 });
 

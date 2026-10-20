@@ -140,7 +140,7 @@
         onclick: pushDiff,
       }),
     ]));
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedekte olmayan presetler ve logolar gönderilir; yedekteki aynı kimlikli öğe değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.' }));
+    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedekte olmayan presetler ve logolar gönderilir; yedek onları kütüphanesine eklemeden ayrı alanda tutar, aynı kimlikli öğesi değişmez. Videolar ve farklı öğeler için yedekte "Birincilden Paket İste"yi kullanın.' }));
     return el('div', { class: 'red-show' }, nodes);
   }
 
@@ -150,7 +150,7 @@
     // Açık onay: neyin değişeceği listelenir
     const names = sh.items.filter((d) => d.pushable && d.status !== 'extra').map((d) => (d.kind === 'logo' ? 'Logo' : 'Preset') + ': ' + (d.label || d.id));
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
-    const text = tr('Yedekte olmayan şu öğeler eklenecek; yedekteki aynı kimlikli öğeler değişmez:') + '\n\n' + names.slice(0, 20).join('\n') +
+    const text = tr('Yedekte olmayan şu öğeler gönderilecek; yedek onları ayrı alanda tutar, aynı kimlikli öğeleri değişmez:') + '\n\n' + names.slice(0, 20).join('\n') +
       (sh.pushable > 20 ? '\n… +' + (sh.pushable - 20) : '');
     const ok = await P().confirm(text, { okText: tr('Yedeğe Gönder') });
     if (!ok) return;
@@ -278,7 +278,7 @@
         class: 'btn small primary', type: 'button', icon: 'import', text: 'Kopyalamayı Başlat',
         onclick: async () => {
           const withMedia = !!(media && box2.checked);
-          const msg = tr('Birincilin presetleri ve logoları bu makinenin yedeklilik klasörüne kopyalanacak. Bu makinede olmayanlar kütüphaneye eklenir; aynı kimlikli yerel öğeler değişmez.') +
+          const msg = tr('Birincilin presetleri ve logoları bu makinenin yedeklilik klasörüne kopyalanacak. Hiçbiri kütüphaneye kendiliğinden eklenmez: bu makinede olmayanlar ayrı alanda kalır ve birincilin kopyası çizilirken kullanılır; aynı kimlikli yerel öğeler değişmez.') +
             (withMedia ? '\n\n' + tr('Video dosyaları da kopyalanacak:') + ' ' + bytes(media.bytes) : '');
           const ok = await P().confirm(msg, { okText: tr('Kopyala') });
           if (!ok) return;
@@ -299,7 +299,19 @@
     nodes.push(el('div', { class: 'lay-file' }, buttons));
     const res = status.pkgResult;
     if (res) {
-      nodes.push(line([el('span', { text: 'Eklenen' }), sep(), num(res.added), sep(), el('span', { text: 'Aynı' }), sep(), num(res.same), sep(), el('span', { text: 'Video dosyası' }), sep(), num(res.media)]));
+      nodes.push(line([el('span', { text: 'Kütüphaneye alınan' }), sep(), num(res.added), sep(), el('span', { text: 'Ayrı alanda' }), sep(), num(res.isolatedCount || 0), sep(), el('span', { text: 'Aynı' }), sep(), num(res.same), sep(), el('span', { text: 'Video dosyası' }), sep(), num(res.media)]));
+      /* Bu makinede olmayanlar (#812): kütüphaneye kendiliğinden girmez,
+         her biri ayrı onayla alınır. */
+      if (res.isolated && res.isolated.length) {
+        nodes.push(el('div', { class: 'studio-note', text: 'Bu makinede yok; ayrı alanda tutuluyor ve birincilin kopyası çizilirken kullanılıyor:' }));
+        const iso = el('ul', { class: 'red-diff red-isolated' });
+        res.isolated.slice(0, 40).forEach((c) => iso.appendChild(el('li', {}, [
+          el('span', { text: c.kind === 'logo' ? 'Logo' : 'Preset' }), sep(), el('span', { text: c.name, 'data-user-text': '' }), sep(),
+          el('button', { class: 'btn small ghost', type: 'button', icon: 'plus', text: 'Kütüphaneye Ekle', onclick: () => addIsolated(c) }),
+        ])));
+        nodes.push(iso);
+        if ((res.isolatedCount || res.isolated.length) > 40) nodes.push(el('div', { class: 'studio-note dim-hint', text: 'İlk 40 öğe gösteriliyor.' }));
+      }
       if (res.conflicts && res.conflicts.length) {
         nodes.push(el('div', { class: 'studio-note', text: 'Bu makinede aynı kimlikle farklı içerik var; yerel öğe korundu:' }));
         const list = el('ul', { class: 'red-diff' });
@@ -322,6 +334,14 @@
     P().toast(r && r.ok ? tr('Birincilin sürümü kullanılıyor.') : tr('Değiştirilemedi.'), r && r.ok ? 'ok' : 'err');
   }
 
+  async function addIsolated(c) {
+    const ok = await P().confirm(tr('Bu öğe bu makinenin kütüphanesine eklenecek:') + '\n\n' + c.name, { okText: tr('Ekle') });
+    if (!ok) return;
+    let r = null;
+    try { r = await window.api.redundancyUsePrimaryAsset({ kind: c.kind, id: c.id }); } catch { /* */ }
+    P().toast(r && r.ok ? tr('Kütüphaneye eklendi.') : tr('Eklenemedi.'), r && r.ok ? 'ok' : 'err');
+  }
+
   function parityBox() {
     const el = P().el;
     const list = Array.isArray(status.parity) ? status.parity : [];
@@ -331,7 +351,7 @@
     return el('div', { class: 'red-parity' }, [
       el('div', { class: 'studio-status err', role: 'status' }, [el('span', { icon: 'warning' }), el('span', { text: 'Görüntü birincilden farklı olabilir' })]),
       ul,
-      el('div', { class: 'studio-note dim-hint', text: 'Birincilden paket isteyin: eksik presetler eklenir, farklı olanlar listede tek tek seçilir.' }),
+      el('div', { class: 'studio-note dim-hint', text: 'Birincilden paket isteyin: eksik presetler ayrı alandan kullanılır, farklı olanlar listede tek tek seçilir.' }),
     ]);
   }
 

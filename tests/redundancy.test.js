@@ -199,7 +199,7 @@ test('MilkDrop eşliği (#812): birincil tohum, içerik özeti ve anı gönderiy
   const relay = main.slice(main.indexOf('function relayMdFollow(sender, mp) {'), main.indexOf('function mdPresetHash(id) {'));
   // Tohum (#585) seçimin içinde; yedeğe özet ve an eklenir
   assert.match(relay, /seed: Number\.isInteger\(mp\.seed\) \? mp\.seed : null/);
-  assert.match(relay, /streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ hash: mdPresetHash\(follow\.id\), at: now \}\) \}\)/);
+  assert.match(relay, /streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow, \{ hash: mdPresetHash\(follow\.id\) \}\) \}\)/);
   const onMsg = main.slice(main.indexOf("if (msg.type === 'md-follow') {"), main.indexOf("if (msg.type === 'md-follow') {") + 400);
   assert.match(onMsg, /noteMdParity\(msg\.follow\);/);
   // İzleyen pencere tohumu seçimden alıyor (aynı rand_preset ve geçiş deseni)

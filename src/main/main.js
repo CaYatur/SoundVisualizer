@@ -2728,7 +2728,10 @@ function relayMdFollow(sender, mp) {
     blend: typeof mp.blend === 'number' ? mp.blend : null, seed: Number.isInteger(mp.seed) ? mp.seed : null,
     /* Liderin önceden derlediği SIRADAKİ preset (#573): izleyenler de onu
        önceden derliyor, değişim geldiğinde hepsi aynı anda geçebiliyor. */
-    next: typeof mp.next === 'string' ? mp.next : null };
+    next: typeof mp.next === 'string' ? mp.next : null,
+    /* Liderin geçişi başlattığı an (#812, duvar saati): izleyen geç
+       başladıysa geçişini öne alıp hizalanıyor. Anahtara girmiyor. */
+    startedAt: Number.isFinite(mp.startedAt) ? mp.startedAt : null };
   const key = [follow.id, follow.base, follow.cut, follow.blend, follow.seed, follow.next].join('|');
   const now = Date.now();
   /* Yedek birincili izlerken kendi seçimini dağıtmaz (#540): ekranları
@@ -2741,11 +2744,12 @@ function relayMdFollow(sender, mp) {
   }
   const ts = textureShare.window();
   if (ts && ts.webContents !== sender) ts.webContents.send('md-follow', follow);
-  streamServer.broadcast({ type: 'md-follow', follow }, 'overlay');
+  // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
+  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
   /* Yedeğe preset içerik özeti ve seçim anı da gider (#812): yedek kendi
      presetinin aynı olup olmadığını bilsin; tohum (#585) zaten seçimde. */
   if (red.role === 'primary' && streamServer.peerCount()) {
-    streamServer.sendPeers({ type: 'md-follow', follow: Object.assign({}, follow, { hash: mdPresetHash(follow.id), at: now }) });
+    streamServer.sendPeers({ type: 'md-follow', follow: Object.assign({}, follow, { hash: mdPresetHash(follow.id) }) });
   }
 }
 
@@ -2763,7 +2767,7 @@ function mdPresetHash(id) {
    pencere eski presette kalıyordu (milkdrop.js izleyici yolu) ve kimse
    bilmiyordu; artık durumda listelenir, paket kopyası giderir. */
 function noteMdParity(follow) {
-  const own = follow && follow.id ? presetsStore.get(follow.id) : null;
+  const own = follow && follow.id ? presetForShow(follow.id) : null;
   const status = redundancy.mdParity(follow, own && !own.builtin ? showInventory.presetFp(own) : '');
   const id = String(follow && follow.id || '');
   if (!id) return;
@@ -2912,7 +2916,8 @@ ipcMain.handle('presets:list', async () => {
      eski listede kalır. Aynı turda biriken fark burada gidiyor. */
   const disk = presetsStore.syncDisk();
   if (disk.upsert.length || disk.remove.length) broadcastPresetDelta(disk.upsert, disk.remove);
-  return list;
+  // Yedek birincilin kopyasını çizerken paketteki eksik presetler (#812)
+  return withOverlayPresets(list);
 });
 ipcMain.handle('presets:head', () => ({ gen: presetGen }));
 ipcMain.handle('presets:since', (e, gen) => {
@@ -3308,10 +3313,10 @@ function syncStreamServer() {
       /* MilkDrop preset kaynağı (#574): listede kaynaksız gidiyor, sayfa
          çizeceği presetin kaynağını kimliğiyle istiyor. */
       mdPresetSource: (id) => {
-        const p = presetsStore.get(id);
+        const p = presetForShow(id);
         return p && p.kind === 'milkdrop' && typeof p.source === 'string' ? p.source : null;
       },
-      logoFile: (id) => logoLibrary.fileInfo(logoLibDir(), id),
+      logoFile: (id) => logoInfoForShow(id),
       onCommand: (msg, client) => applyRemoteCommand(msg, client),
       onPeerOpen: (client) => onPeerOpen(client),
       onPeerMessage: (msg, client) => onPeerMessage(msg, client),
@@ -3357,6 +3362,10 @@ const red = {
   space: null, isolated: false, source: 'primary', override: null, primaryLatest: null,
   primarySavedSig: '', pull: null, pullAuto: null, pkgServe: null, pkgResult: null, parity: {},
   statusTimer: null,
+  /* Paketteki, bu makinede OLMAYAN presetler ve logolar (#812). Kütüphaneye
+     eklenmez; yalnız birincilin kopyası çizilirken pencerelere görünür.
+     `overlayShown`: pencerelere şu an duyurulmuş preset kimlikleri. */
+  overlay: { presets: new Map(), logos: new Map() }, overlayShown: new Set(),
 };
 const showSpaceMod = require('./show-space');
 const showPackage = require('./show-package');
@@ -3450,9 +3459,78 @@ function remapShowMedia(show) {
 
 /* Seçili gösteriyi canlıya koyar. Önce bekleyen kayıt yazılır: değişiklik
    doğru gösterinin dosyasına gitsin. */
+/* ---------------------------------------------------------------------------
+   YALITILMIŞ PAKET KATMANI (#812). Birincilin paketindeki, yedekte olmayan
+   preset ve logolar yedeğin kütüphanesine EKLENMEZ: paket klasöründe kalır.
+   Birincilin kopyası çizilirken (izleme ya da birincil verisiyle devralma)
+   pencereler onları kütüphanedeymiş gibi görür; yerel gösteriye geçince ya
+   da rol kapanınca kaybolur. Operatör tek tek "kütüphaneye ekle" diyebilir.
+   --------------------------------------------------------------------------- */
+function overlayOn() {
+  return red.role === 'backup' && red.isolated && red.source === 'primary';
+}
+function isolatedPreset(id) {
+  if (!overlayOn() || !id) return null;
+  return red.overlay.presets.get(String(id)) || null;
+}
+// Gösterinin çizdiği preset: önce kütüphane, sonra (açıksa) katman
+function presetForShow(id) {
+  return presetsStore.get(id) || isolatedPreset(id);
+}
+function logoInfoForShow(id) {
+  const own = logoLibrary.fileInfo(logoLibDir(), id);
+  if (own || !overlayOn()) return own;
+  const it = red.overlay.logos.get(String(id || ''));
+  if (!it) return null;
+  let st = null;
+  try { st = fs.statSync(it.file); } catch { return null; }
+  return { file: it.file, mime: logoLibrary.mimeFor(it.file), size: st.size, kind: logoLibrary.kindOf(it.file), name: it.name };
+}
+async function logoBytesForShow(id) {
+  const own = await logoLibrary.readBytes(logoLibDir(), id);
+  if (own || !overlayOn()) return own;
+  const info = logoInfoForShow(id);
+  if (!info) return null;
+  try {
+    const buf = await fs.promises.readFile(info.file);
+    return { file: info.file, size: info.size, mime: info.mime, buf };
+  } catch { return null; }
+}
+// Kütüphane listesine katmandakiler (pencereler ve panel aynı listeyi görür)
+function withOverlayPresets(list) {
+  if (!red.overlayShown.size) return list;
+  const have = new Set(list.map((p) => p && p.id));
+  const out = list.slice();
+  for (const id of red.overlayShown) {
+    const p = red.overlay.presets.get(id);
+    if (p && !have.has(id)) out.push(p);
+  }
+  return out;
+}
+/* Pencerelere duyurulan katmanı istenen hâle getirir: açılınca eksikler
+   eklenir, kapanınca çıkarılır (kütüphaneye eklenmişse oradaki sürüm kalır). */
+function syncOverlay() {
+  const want = new Set();
+  if (overlayOn()) {
+    for (const id of red.overlay.presets.keys()) if (!presetsStore.get(id)) want.add(id);
+  }
+  const up = [];
+  const rm = [];
+  for (const id of want) if (!red.overlayShown.has(id)) up.push(red.overlay.presets.get(id));
+  for (const id of red.overlayShown) {
+    if (want.has(id)) continue;
+    const own = presetsStore.get(id);
+    if (own) up.push(own); else rm.push(id);
+  }
+  red.overlayShown = want;
+  if (up.length || rm.length) broadcastPresetDelta(up, rm);
+}
+
 function applyRedShow(show, source) {
   if (saveQueued) flushSettings();
   red.source = source;
+  // Katman yapılandırmadan ÖNCE: pencere sahnenin presetini listede bulsun
+  syncOverlay();
   if (!currentConfig) return;
   const next = Object.assign({}, currentConfig);
   const s2 = JSON.parse(JSON.stringify(show || {}));
@@ -3482,6 +3560,8 @@ function enterBackupSpace() {
   red.primaryLatest = null;
   const p = sp.loadPrimary();
   red.primarySavedSig = p ? JSON.stringify(p.show) : '';
+  // Önceki oturumda kurulmuş paket: katmanı ve sonucu oradan
+  try { loadPackageOverlay(); } catch (e) { console.error('[redundancy] paket okunamadı:', e && e.message); }
   // Önceki oturumdan birincilin kopyası: birincil kapalıyken açılan yedek de onu çizer
   if (p) setImmediate(() => { if (red.isolated && red.source === 'primary' && !red.primaryLatest) applyRedShow(p.show, 'primary'); });
 }
@@ -3493,6 +3573,8 @@ function leaveBackupSpace() {
   red.primaryLatest = null;
   red.override = null;
   red.source = 'primary';
+  // Birincilin presetleri pencerelerden çekilir; kütüphaneye hiçbiri girmedi
+  syncOverlay();
   setImmediate(() => {
     if (red.isolated || !currentConfig) return;
     const next = Object.assign({}, currentConfig);
@@ -3673,10 +3755,12 @@ function onPrimaryMessage(msg) {
     if (!f.follows() || !msg.follow) return;
     red.mdFromPrimaryAt = Date.now();
     noteMdParity(msg.follow);
-    for (const win of openWindows()) win.webContents.send('md-follow', msg.follow);
+    const follow = redundancy.localFollow(msg.follow, (ms) => f.toLocal(ms));
+    for (const win of openWindows()) win.webContents.send('md-follow', follow);
     const ts = textureShare.window();
-    if (ts) ts.webContents.send('md-follow', msg.follow);
-    streamServer.broadcast({ type: 'md-follow', follow: msg.follow }, 'overlay');
+    if (ts) ts.webContents.send('md-follow', follow);
+    // Başka makinedeki web sayfasının saati ayrı: geçiş anı ona gitmiyor
+  streamServer.broadcast({ type: 'md-follow', follow: Object.assign({}, follow, { startedAt: null }) }, 'overlay');
     return;
   }
   if (msg.type === 'hello' && typeof msg.version === 'string') red.primaryVersion = msg.version.slice(0, 40);
@@ -3840,7 +3924,17 @@ function onPackageManifest(msg) {
   const auto = red.pullAuto;
   red.pull.offer(msg.manifest);
   // Birincil yeniden başladıysa aynı paket (aynı özet) onay istemeden sürer
-  if (auto && red.pull.status.pkg === auto.pkg) pkgSend(red.pull.confirm({ media: auto.media }, pkgReceiver));
+  /* `any`: birincilin "farkı gönder"i (#812) — videosuz paket onay istemeden
+     iner; sonra aynı paket gibi sürdürülür. */
+  if (auto && (auto.any || red.pull.status.pkg === auto.pkg)) {
+    try {
+      pkgSend(red.pull.confirm({ media: auto.media }, pkgReceiver));
+      red.pullAuto = { pkg: red.pull.status.pkg, media: auto.media };
+    } catch (err) {
+      red.pull.fail('stage');
+      console.error('[redundancy] paket hazırlanamadı:', err && err.message);
+    }
+  }
   notifyRedundancy();
 }
 function pkgReceiver(manifest, only) {
@@ -3870,45 +3964,61 @@ function onPackageError(msg) {
   notifyRedundancy();
 }
 
-/* Doğrulanmış paket: presetler ve logolar YALNIZ bu makinede o kimlik
-   yoksa yerel kütüphaneye eklenir; aynı kimlik farklı içerikle varsa yerel
-   olan kalır ve çakışma olarak listelenir (operatör tek tek seçer). Videolar
-   paketin içinde kalır; birincilin sahnesi onlara eşlenir. */
-function installPackage() {
+/* Doğrulanmış paketin okunuşu (#812). Hiçbir şey yedeğin kütüphanesine
+   YAZILMAZ:
+     - bu makinede olmayan preset/logo → yalıtılmış katman (`red.overlay`),
+       `isolated` listesinde; operatör tek tek kütüphaneye ekleyebilir
+     - aynı kimlik, aynı içerik → `same`
+     - aynı kimlik, farklı içerik → yerel olan kalır, `conflicts` listesinde
+   Videolar paketin içinde kalır; birincilin sahnesi onlara eşlenir. */
+function loadPackageOverlay() {
   const root = redSpace().pkgRoot;
   const man = showPackage.currentManifest(root);
-  if (!man) return;
-  const res = { at: Date.now(), added: 0, same: 0, media: 0, conflicts: [] };
-  const added = [];
+  const presets = new Map();
+  const logos = new Map();
+  if (!man) {
+    red.overlay = { presets, logos };
+    return null;
+  }
+  const res = { at: Date.now(), added: 0, same: 0, media: 0, conflicts: [], isolated: [], isolatedCount: 0 };
   for (const it of man.items) {
     const file = showPackage.currentFile(root, it.path);
     if (it.kind === 'presets') {
       const p = showPackage.readJson(file);
       if (!p || typeof p.id !== 'string') continue;
       const own = presetsStore.get(p.id);
+      const name = String(p.name || p.id).slice(0, 120);
       if (!own) {
-        const r = presetsStore.save(Object.assign({}, p, { builtin: false }));
-        if (r.ok) { added.push(r.preset); res.added++; }
+        presets.set(p.id, Object.assign({}, p, { builtin: false, fromPrimary: true }));
+        res.isolatedCount++;
+        res.isolated.push({ kind: 'preset', id: p.id, name });
       } else if (showInventory.presetFp(own) === showInventory.presetFp(p)) res.same++;
-      else res.conflicts.push({ kind: 'preset', id: p.id, name: String(p.name || p.id).slice(0, 120) });
+      else res.conflicts.push({ kind: 'preset', id: p.id, name });
     } else if (it.kind === 'logos') {
       const own = logoLibrary.fileInfo(logoLibDir(), it.id);
+      const name = String(it.name || it.id).slice(0, 120);
       if (!own || !own.file) {
-        let bytes = null;
-        try { bytes = fs.readFileSync(file); } catch { /* */ }
-        const r = bytes ? logoLibrary.importBytes(logoLibDir(), { id: it.id, name: it.name, ext: path.extname(it.path), bytes }) : { ok: false };
-        if (r.ok) res.added++;
+        logos.set(String(it.id), { file, name: it.name || it.id });
+        res.isolatedCount++;
+        res.isolated.push({ kind: 'logo', id: it.id, name });
       } else if (showInventory.fileFp(own.file) === showInventory.fileFp(file)) res.same++;
-      else res.conflicts.push({ kind: 'logo', id: it.id, name: String(it.name || it.id).slice(0, 120) });
+      else res.conflicts.push({ kind: 'logo', id: it.id, name });
     } else if (it.kind === 'media') res.media++;
   }
-  if (added.length) broadcastPresetDelta(added, []);
   res.conflicts = res.conflicts.slice(0, 200);
+  res.isolated = res.isolated.slice(0, 200);
+  red.overlay = { presets, logos };
   red.pkgResult = res;
-  // Çizilen birincil kopyasının videoları pakettekine
+  return res;
+}
+
+function installPackage() {
+  if (!loadPackageOverlay()) return;
+  // Çizilen birincil kopyasının videoları pakettekine, presetleri katmana
   if (red.isolated && red.source === 'primary') {
     const show = primaryShowNow();
     if (show) applyRedShow(show, 'primary');
+    else syncOverlay();
   }
   notifyRedundancy();
 }
@@ -4022,6 +4132,10 @@ async function sendInventory(reqId) {
    yalnız uygulamanın kendi kitaplıklarına yazılır ve içe aktarmadaki
    denetimlerden geçer. */
 function onPrimaryAsset(msg) {
+  /* Yalıtılmış yedek (#812) kütüphanesine doğrudan yazmaz: birincilin
+     "farkı gönder"i gösteri paketini (videosuz) çektirir; eksikler paketin
+     katmanında kalır, operatör tek tek kütüphaneye alır. */
+  if (red.isolated) { pullPackageForPush(); return false; }
   /* Yedeğin kendi öğesi ezilmez (#812): aynı kimlik varsa gönderim atlanır;
      birincilin sürümü gösteri paketiyle gelir ve operatör tek tek seçer. */
   if (msg.kind === 'preset' && msg.preset && typeof msg.preset === 'object' && typeof msg.preset.id === 'string') {
@@ -4037,6 +4151,21 @@ function onPrimaryAsset(msg) {
     return r.ok;
   }
   return false;
+}
+
+function pullPackageForPush() {
+  const st = red.pull && red.pull.status ? red.pull.status.state : 'idle';
+  if (st === 'transferring' || st === 'verifying') return;
+  // Gönderim öğe öğe gelir: ilk öğe paketi ister, gerisi aynı isteğe düşer
+  const now = Date.now();
+  if (now - (red.pushPullAt || 0) < 3000) return;
+  red.pushPullAt = now;
+  if (!red.client) return;
+  if (!red.pull) red.pull = showPackage.createPull({ window: 2 });
+  red.pull.cancel();
+  red.pullAuto = { any: true, media: false };
+  red.client.send({ type: 'pkg-request' });
+  notifyRedundancySoon();
 }
 
 // Birincil: farkı gönder (operatör panelde onayladı)
@@ -4247,6 +4376,10 @@ ipcMain.handle('redundancy:import-scene', (e, id) => {
   return { ok: true, id: copy.id, name: copy.name || copy.id };
 });
 // Paket çakışması: operatör onayladı, birincilin sürümü yerelin yerine
+/* Paketteki bir preseti/logoyu yerel kütüphaneye al (#812): panel her öğe
+   için ayrı onay ister. Çakışmada yerelin üstüne yazar (operatör seçti);
+   yalıtılmış katmandakini kütüphaneye ekler. İkisinde de kimlik aynı kalır:
+   birincilin sahnesi o kimliği gösteriyor. */
 ipcMain.handle('redundancy:use-primary-asset', (e, spec) => {
   if (red.role !== 'backup' || !spec || !red.pkgResult) return { ok: false };
   const root = redSpace().pkgRoot;
@@ -4258,15 +4391,32 @@ ipcMain.handle('redundancy:use-primary-asset', (e, spec) => {
   let ok = false;
   if (kind === 'presets') {
     const p = showPackage.readJson(file);
-    const r = p ? presetsStore.save(Object.assign({}, p, { builtin: false })) : { ok: false };
-    if (r.ok) broadcastPresetDelta([r.preset], []);
+    const clean = p ? Object.assign({}, p, { builtin: false }) : null;
+    if (clean) delete clean.fromPrimary;
+    const r = clean ? presetsStore.save(clean) : { ok: false };
+    if (r.ok) {
+      red.overlay.presets.delete(spec.id);
+      // Katmanda duyurulmuşsa kütüphanedeki sürümle değişir (aynı kimlik)
+      red.overlayShown.delete(spec.id);
+      broadcastPresetDelta([r.preset], []);
+    }
     ok = !!r.ok;
   } else {
     let bytes = null;
     try { bytes = fs.readFileSync(file); } catch { /* */ }
     ok = !!(bytes && logoLibrary.importBytes(logoLibDir(), { id: it.id, name: it.name, ext: path.extname(it.path), bytes }).ok);
+    if (ok) red.overlay.logos.delete(String(spec.id));
   }
-  if (ok) red.pkgResult.conflicts = red.pkgResult.conflicts.filter((c) => !(c.kind === spec.kind && c.id === spec.id));
+  if (ok) {
+    const keep = (c) => !(c.kind === spec.kind && c.id === spec.id);
+    const before = red.pkgResult.isolated ? red.pkgResult.isolated.length : 0;
+    red.pkgResult.conflicts = red.pkgResult.conflicts.filter(keep);
+    if (red.pkgResult.isolated) {
+      red.pkgResult.isolated = red.pkgResult.isolated.filter(keep);
+      if (red.pkgResult.isolated.length < before) red.pkgResult.isolatedCount = Math.max(0, (red.pkgResult.isolatedCount || 0) - 1);
+    }
+    red.pkgResult.added = (red.pkgResult.added || 0) + 1;
+  }
   notifyRedundancy();
   return { ok };
 });
@@ -5227,9 +5377,10 @@ function mediaLibDir() {
 
 ipcMain.handle('logo-lib:list', () => logoLibrary.list(logoLibDir()));
 ipcMain.handle('logo-lib:read', async (e, id) => {
-  const entry = await logoLibrary.readBytes(logoLibDir(), id);
+  // Yedekte birincilin kopyası çizilirken paketteki logo da (#812)
+  const entry = await logoBytesForShow(id);
   if (!entry || !entry.buf) return null;
-  const info = logoLibrary.fileInfo(logoLibDir(), id);
+  const info = logoInfoForShow(id);
   return {
     id: String(id || ''),
     name: info && info.name,
@@ -6414,7 +6565,7 @@ app.whenReady().then(async () => {
     try {
       const u = new URL(request.url);
       const id = decodeURIComponent((u.pathname || '').replace(/^\//, '') || u.hostname || '');
-      const entry = await logoLibrary.readBytes(logoLibDir(), id);
+      const entry = await logoBytesForShow(id);
       if (!entry || !entry.buf) return new Response('not found', { status: 404 });
       const headers = new Headers();
       if (entry.mime) headers.set('Content-Type', entry.mime);

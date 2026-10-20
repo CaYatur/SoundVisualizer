@@ -236,12 +236,12 @@ test('ana süreç: kayıt ve silme yalnız değişeni yayınlıyor; bütün list
 });
 
 test('ana süreç: depo açılışta arka planda okunuyor; liste isteği onu bekliyor', () => {
-  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*const list = presetsStore\.list\(\);\s*const disk = presetsStore\.syncDisk\(\);\s*if \(disk\.upsert\.length \|\| disk\.remove\.length\) broadcastPresetDelta\(disk\.upsert, disk\.remove\);\s*return list;/);
+  assert.match(MAIN, /ipcMain\.handle\('presets:list', async \(\) => \{\s*await presetsStore\.warm\(\);\s*const list = presetsStore\.list\(\);\s*const disk = presetsStore\.syncDisk\(\);\s*if \(disk\.upsert\.length \|\| disk\.remove\.length\) broadcastPresetDelta\(disk\.upsert, disk\.remove\);\s*return withOverlayPresets\(list\);/);
   assert.match(MAIN, /syncNowPlaying\(\);\s*presetsStore\.warm\(\)\.then\(\(\) => \{\s*presetsStore\.watch\(/);
   assert.match(MAIN, /ipcMain\.handle\('presets:since'/);
   assert.match(MAIN, /presetJournal/);
   assert.match(MAIN, /function followActivePreset/);
-  assert.match(MAIN, /mdPresetSource: \(id\) => \{\s*const p = presetsStore\.get\(id\);\s*return p && p\.kind === 'milkdrop' && typeof p\.source === 'string' \? p\.source : null;/);
+  assert.match(MAIN, /mdPresetSource: \(id\) => \{\s*const p = presetForShow\(id\);\s*return p && p\.kind === 'milkdrop' && typeof p\.source === 'string' \? p\.source : null;/);
 });
 
 test('köprüler: pencere ve panel değişikliği ve ilerlemeyi dinliyor', () => {
