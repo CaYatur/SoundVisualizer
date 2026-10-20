@@ -3695,6 +3695,14 @@
             options: () => exportFormatOptions(),
           },
           {
+            /* Kamera canlı bir kaynak (#539): dışa aktarım çevrimdışı
+               çiziyor, kamera katmanı videoda boş kalır. Video dosyası
+               katmanı kare saatine sarılarak çizilir. */
+            type: 'note', warn: true,
+            text: 'Sahnede kamera katmanı var: kamera canlı bir kaynak, videoda boş kalır. Video dosyası katmanları videoya girer.',
+            show: () => sceneHasCamera(),
+          },
+          {
             type: 'select', path: 'export.duration.mode', label: 'Süre', rebuild: true,
             options: [
               { value: 'audio', label: 'Ses dosyasının süresi' },
@@ -3812,6 +3820,18 @@
     const id = activeSceneId || cfg._activeSceneId;
     const sc = id && Array.isArray(cfg.scenes) ? cfg.scenes.find((x) => x && x.id === id) : null;
     return sc && sc.name ? String(sc.name) : '';
+  }
+
+  /* Sahnede açık bir kamera katmanı var mı (#539): yığında medya katmanı
+     ya da katmansız kipte medya bölümü, kaynağı dosya değilse. */
+  function sceneHasCamera() {
+    const L = window.SVLayers;
+    const cam = (m) => !!(m && m.source !== 'file');
+    if (L && L.stackOn(cfg) && Array.isArray(cfg.layers)) {
+      return cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false && !l.muted
+        && cam(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {})));
+    }
+    return !!(cfg.media && cfg.media.enabled && cam(cfg.media));
   }
 
   /* Seçili biçimin ana süreçten gelen tanımı; liste henüz gelmediyse null. */

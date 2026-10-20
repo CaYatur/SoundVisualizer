@@ -4696,11 +4696,16 @@ ipcMain.handle('export:pick-output', async (e, defaultName, formatId) => {
    kare özeti, ham kare dökümü ve karşılaştırma için RGBA yolu. Panel ve MCP
    yalnız `opts` verebiliyor; dosya yazan `dumpRaw` gibi bir seçeneğin oradan
    açılamaması için ikisi ayrı parametre. */
+// Son dışa aktarma işinin yapılandırması: sv-media o işin videolarını da sunar
+let exportMediaCfg = null;
 async function startExportJob(opts, bench, extra) {
   bench = bench || null;
   /* Sahne yapılandırması: kuyruk işi eklendiği anın kopyasını taşıyor
      (#526); sonradan yapılan değişiklik sıradaki işleri değiştirmesin. */
   const jobCfg = (extra && extra.cfg) || currentConfig;
+  /* Kuyruktaki sahnenin videosu o anki ayarda olmayabilir (#539):
+     sv-media işleyicisi dışa aktarılan işin medyasını da sunar. */
+  exportMediaCfg = jobCfg;
   if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
   opts = opts || {};
   const audioPath = opts.audioPath;
@@ -5286,7 +5291,8 @@ app.whenReady().then(async () => {
     try {
       const raw = mediaUrl.fromMediaUrl(request.url);
       const inLibrary = raw && mediaLibrary.ownsPath(mediaLibDir(), raw);
-      if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary)) {
+      const inExport = !!(raw && exportMediaCfg && isConfiguredMedia(exportMediaCfg, raw, mediaUrl));
+      if (!raw || (!isConfiguredMedia(currentConfig, raw, mediaUrl) && !inLibrary && !inExport)) {
         return new Response('forbidden', { status: 403 });
       }
       return serveMediaFile(raw, request.headers.get('range'));
@@ -7524,6 +7530,47 @@ async function runSmoke() {
         else if (!finished) errors.push('export ' + c.name + ' zaman aşımına uğradı');
         else if (size < 20000) errors.push('export ' + c.name + ' çok küçük dosya üretti (' + size + ' B)');
         else if (blackSpans > 2.5) errors.push('export ' + c.name + ' neredeyse tamamen siyah (' + blackSpans.toFixed(1) + ' sn)');
+      }
+
+      /* Video dosyası katmanı (#539). Dışa aktarıcı medya modunu hiç
+         yüklemiyordu: video arkaplanlı düzen videoda arkaplansız çıkıyordu.
+         Kaynak videonun her karesinin kırmızısı kare numarasını taşıyor
+         (N × 4, 30 fps, 2 sn, döngü). Dışa aktarılan videonun i. karesi
+         kaynağın i mod 60. karesi olmalı: oynayan video işleme hızına göre
+         ilerlerdi, kare saatine sarılan video kareyi tam verir. */
+      {
+        const src = path.join(outDir, 'media-src.mp4');
+        const out = path.join(outDir, 'media-layer.mp4');
+        try { fs.unlinkSync(out); } catch { /* yok */ }
+        const mk = await runFf(['-y', '-f', 'lavfi', '-i', "color=c=black:s=320x180:r=30:d=2,format=rgb24,geq=r='N*4':g='0':b='0'",
+          '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-qp', '0', '-g', '1', src]);
+        if (!mk.ok) {
+          errors.push('export media-layer: test videosu üretilemedi');
+        } else {
+          currentConfig = Object.assign({}, JSON.parse(JSON.stringify(PINNED)), {
+            isBlackout: false,
+            layerStack: { enabled: false },
+            visualizer: { type: 'none' },
+            background: { type: 'solid', solidColor: '#000000' },
+            media: { enabled: true, source: 'file', file: mediaUrl.toMediaUrl(src), loop: true, fit: 'cover', layer: 'back', opacity: 1 },
+          });
+          const res = await startExportJob({ audioPath: wav, outputPath: out, resolution: '720p', fps: 30, quality: 'balanced', encoder: 'cpu', speed: 'fast' });
+          const finished = res && res.ok ? await awaitExportDone(150000) : false;
+          // Kare başına ortadaki pikselin kırmızısı: 1x1'e küçült, ham oku
+          let reds = [];
+          if (finished && fs.existsSync(out)) {
+            const raw = path.join(outDir, 'media-layer.rgb');
+            const rd = await runFf(['-y', '-i', out, '-vf', 'crop=64:64:(iw-64)/2:(ih-64)/2,scale=1:1:flags=area', '-f', 'rawvideo', '-pix_fmt', 'rgb24', raw]);
+            if (rd.ok) { const b = fs.readFileSync(raw); for (let i = 0; i + 2 < b.length; i += 3) reds.push(b[i]); }
+          }
+          let worst = 0;
+          reds.forEach((r, i) => { worst = Math.max(worst, Math.abs(r - (i % 60) * 4)); });
+          console.log('[SMOKE] export media-layer: ' + (finished ? 'bitti' : 'BİTMEDİ') + ' · ' + reds.length + ' kare · en kötü kırmızı farkı ' + worst +
+            (reds.length ? ' · ilk ' + reds.slice(0, 4).join(',') + ' · 60. ' + reds.slice(60, 63).join(',') : ''));
+          if (!finished) errors.push('export media-layer bitmedi');
+          else if (reds.length < 100) errors.push('export media-layer: kare okunamadı (' + reds.length + ')');
+          else if (worst > 8) errors.push('export media-layer: video kare saatini izlemiyor (en kötü fark ' + worst + ')');
+        }
       }
 
       /* Biçimler (#521, #525, #529). Her biri gerçekten kodlanıp ffmpeg'e

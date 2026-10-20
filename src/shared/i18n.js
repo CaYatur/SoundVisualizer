@@ -27,6 +27,8 @@
     'Türkçe': 'Turkish',
     'Dil değişikliği uygulamayı yeniden yükler.': 'Changing the language reloads the application.',
     'Kapat': 'Close',
+    // Canlı / dışa aktarım eşliği (#539)
+    'Sahnede kamera katmanı var: kamera canlı bir kaynak, videoda boş kalır. Video dosyası katmanları videoya girer.': 'The scene has a camera layer: a camera is a live source and stays empty in the video. Video file layers are exported.',
     'Ses çıkışı yakalanamadı.': 'Audio output could not be captured.',
     "Farklı bir Çıkış Aygıtı seçmeyi deneyin veya Aygıtları Yenile'ye basın. Aygıt başka bir uygulama tarafından özel (exclusive) modda kullanılıyorsa serbest bırakın.": 'Try selecting a different Output Device or press Refresh Devices. If another application is using the device in exclusive mode, release it there first.',
     'Çıkış Aygıtı': 'Output Device',
