@@ -149,7 +149,7 @@
      kareyi gösterir ve kare başına IPC gerekmez. */
   let showAnchor = window.SVShowClock ? window.SVShowClock.idle() : null;
   // Ortak oturum saati (#544): yedeklilik açıkken modülasyon evresi buradan; yoksa null
-  let sharedEpoch = null;
+  let sharedEpoch = typeof window.SV_SHARED_EPOCH === 'number' && Number.isFinite(window.SV_SHARED_EPOCH) ? window.SV_SHARED_EPOCH : null;
   /* Karşılığı olmayan otomasyon hedefleri bir kez bildirilir. Her karede
      yazmak konsolu boğardı; hiç yazmamak da "otomasyon çalışmıyor" diye
      bildirilen ama sebebi görünmeyen bir hataya dönüşürdü. */

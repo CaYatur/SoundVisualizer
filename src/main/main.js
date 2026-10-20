@@ -929,7 +929,8 @@ function createVisualizerWindow(display) {
       backgroundThrottling: false, // arka planda da akıcı kalsın
       // Projeksiyon haritalaması ekran başına saklanıyor; pencere hangi
       // ekranda olduğunu bilmeli
-      additionalArguments: ['--sv-display-id=' + display.id],
+      // Ortak saat İLK karede hazır olsun (#543): eşzamansız gelirse t ilk karelerde sıçrar
+      additionalArguments: ['--sv-display-id=' + display.id, '--sv-shared-epoch=' + sharedEpochNow()],
     },
   };
   if (see) {
@@ -1976,7 +1977,7 @@ function createFloatingWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       backgroundThrottling: false,
-      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1'],
+      additionalArguments: ['--sv-display-id=' + primaryId, '--sv-floating=1', '--sv-shared-epoch=' + sharedEpochNow()],
     },
   });
   floatingWin = win;
@@ -3312,7 +3313,7 @@ function redundancyStatus() {
   if (red.role === 'primary') {
     return Object.assign(base, { peers: streamServer.peerCount(), peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null });
   }
-  if (red.role === 'backup' && red.follower) return Object.assign(base, red.follower.status);
+  if (red.role === 'backup' && red.follower) return Object.assign(base, red.follower.status, { sharedEpoch: red.sharedSent });
   return base;
 }
 function notifyRedundancy() { notifyAdmin('redundancy-status', redundancyStatus()); }
@@ -3486,6 +3487,13 @@ function onPrimaryMessage(msg) {
    eski davranışta, kendi saatinde). Fark atış başına en çok 1 ms kaydığı
    için 2 ms'den büyük değişimde yollanır. */
 function sharedEpoch() {
+  /* Yetkiyi almış yedek yayında: saat DONAR. Yeniden açılan birincilin yeni
+     başlangıcı burada t'yi geri sıçratırdı — açılış canlandırmaları yeniden
+     oynar, logo sırası atlar, bazı modlar kesinti süresi kadar durur.
+     Yeni başlangıç ancak yedek yeniden izlemeye geçince alınır. */
+  if (red.role === 'backup' && red.follower && red.follower.status.state === 'active' && red.sharedSent != null) {
+    return red.sharedSent;
+  }
   if (red.role === 'backup' && red.follower && red.primaryStart != null && red.follower.status.offsetMs != null) {
     return red.follower.toLocal(red.primaryStart);
   }
@@ -3493,7 +3501,8 @@ function sharedEpoch() {
      makinenin oturum başlangıcı — aynı makinedeki pencereler aynı evrede. */
   return red.sessionStart;
 }
-ipcMain.handle('shared-clock:get', () => ({ epoch: red.sharedSent != null ? red.sharedSent : sharedEpoch() }));
+function sharedEpochNow() { return red.sharedSent != null ? red.sharedSent : sharedEpoch(); }
+ipcMain.handle('shared-clock:get', () => ({ epoch: sharedEpochNow() }));
 function syncSharedClock(force) {
   const e = sharedEpoch();
   const prev = red.sharedSent;

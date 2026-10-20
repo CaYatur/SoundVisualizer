@@ -42,12 +42,28 @@ test('ortak saat her zaman var: yedeklilik kapalıyken bu makinenin oturum başl
 
 test('pencere açılışta saati ister: dinleyiciden önce gelen ileti kaybolmasın', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /ipcMain\.handle\('shared-clock:get', \(\) => \(\{ epoch: red\.sharedSent != null \? red\.sharedSent : sharedEpoch\(\) \}\)\);/);
+  assert.match(main, /ipcMain\.handle\('shared-clock:get', \(\) => \(\{ epoch: sharedEpochNow\(\) \}\)\);/);
   assert.match(read('src/main/preload-visualizer.js'), /getSharedClock: \(\) => ipcRenderer\.invoke\('shared-clock:get'\)/);
   const vis = read('src/visualizer/visualizer.js');
   const reg = vis.indexOf('window.api.onSharedClock((c)');
   const ask = vis.indexOf('window.api.getSharedClock().then(');
   assert.ok(reg > 0 && ask > reg, 'önce dinleyici, sonra istek');
+});
+
+test('ortak saat pencere kurulurken komut satırında: ilk kare onunla çizilir', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /'--sv-display-id=' \+ display\.id, '--sv-shared-epoch=' \+ sharedEpochNow\(\)/);
+  assert.match(main, /'--sv-floating=1', '--sv-shared-epoch=' \+ sharedEpochNow\(\)/);
+  assert.match(read('src/main/preload-visualizer.js'), /exposeInMainWorld\('SV_SHARED_EPOCH', Number\.isFinite\(epochVal\) \? epochVal : null\)/);
+  assert.match(read('src/visualizer/visualizer.js'), /let sharedEpoch = typeof window\.SV_SHARED_EPOCH === 'number'/);
+});
+
+test('yetkiyi almış yedekte saat donar: yeniden açılan birincil t\'yi geri sıçratmaz', () => {
+  const main = read('src/main/main.js');
+  const fn = main.slice(main.indexOf('function sharedEpoch()'), main.indexOf('function syncSharedClock('));
+  const freeze = fn.indexOf("red.follower.status.state === 'active' && red.sharedSent != null");
+  const adopt = fn.indexOf('red.follower.toLocal(red.primaryStart)');
+  assert.ok(freeze > 0 && freeze < adopt, 'donma, yeni başlangıcı almadan önce');
 });
 
 test('ölçüm kancası yalnız açıkça kurulunca yazar ve sınırlı', () => {

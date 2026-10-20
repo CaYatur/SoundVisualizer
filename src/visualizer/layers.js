@@ -1630,10 +1630,16 @@
       const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
       if (!spec) { e._rv = null; e._revealDone = true; return null; }
       const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
-      if (!e._rv || e._rv.sig !== sig || t < e._rv.t0) {
-        e._rv = { t0: t, sig };
+      if (!e._rv || e._rv.sig !== sig) {
+        e._rv = { t0: t, sig, last: t };
         e._revealDone = false;
+      } else if (e._rv.last != null && (t < e._rv.last || t - e._rv.last > 1)) {
+        /* Saat sıçradı (ortak saatin gelişi, yedeğin saat değişimi, uzun
+           sessizlik duraklaması): geçen süre KORUNUR. Eskiden geri sıçrama
+           açılışı yeniden oynatıyor, ileri sıçrama yarıda kesiyordu. */
+        e._rv.t0 += t - e._rv.last;
       }
+      e._rv.last = t;
       const box = (e.mode && e.mode.layoutBounds) || e.layoutBounds || null;
       const f = R.frame(spec, t - e._rv.t0, box, this.height > 0 ? this.width / this.height : 0);
       e._revealDone = f.done;

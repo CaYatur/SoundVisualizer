@@ -58,6 +58,21 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     the window had set up its listener, so it was often lost. That is why both windows still
     differed by 53 ms in the first measurement. A window now asks for it once its listener is in
     place. This also applies to the backup's modulation phase from #544.
+  - **No jumps on a live output.**
+    - A new output window receives the shared clock as it is created, so its first frame
+      already uses it. A clock arriving a few frames late made the time jump forward by the
+      app's uptime, and a reveal could finish before it was seen. Checked: an output opened
+      25 s after start played its reveal from 0 to 1.
+    - A backup that has taken over keeps its clock when the primary comes back. A restarted
+      primary has a new session start, which used to step the backup's time backward on air.
+      The new start is adopted only when the backup is following again. `npm run failover`
+      now relaunches the primary after the takeover: the backup's clock stayed the same and
+      it kept control.
+    - A reveal keeps its progress when the clock jumps either way, for example after a long
+      pause in silence. Before, a backward jump replayed it and a forward jump cut it short.
+  - **Long uptimes.** Time now grows with the app's uptime rather than the window's. A
+    machine left running for a week hands shaders a time whose 32-bit step is about 0.06 s;
+    restart the app between long installations.
   - **Hardware genlock is not included.** Sync cards (such as NVIDIA Quadro Sync or AMD FirePro
     S400) have no interface that Chromium exposes, and none was available to test. Between two
     machines, frames line up only as closely as the two displays' refresh clocks; the shared time
@@ -91,9 +106,10 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     timeline panel. After a takeover, the backup's timeline carries on from the same point.
   - **Modulation.** While redundancy is on, both machines count LFOs, random sources, the time
     source and beat phase from the primary's session start, so they are in the same phase.
-    Windows on one machine now share that phase too. With redundancy off, nothing changes. The
-    count runs from the session start, not Unix time: shaders receive time as 32-bit floats,
-    which at 1.7 billion seconds advance in 64-second steps.
+    Windows on one machine now share that phase too. Since #543 this shared clock is also used
+    with redundancy off, for every output window. The count runs from the session start, not
+    Unix time: shaders receive time as 32-bit floats, which at 1.7 billion seconds advance in
+    64-second steps.
   - **Measured by `npm run failover`** on one computer, with the timeline playing on the primary
     and 40 paired readings: the backup's panel was within 0 ms (median) and 1 ms (p95). Between
     two computers the accuracy is bounded by the network's one-way delay, which this rig cannot

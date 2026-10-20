@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('SV_PLATFORM', {
 const displayArg = process.argv.find((a) => a.startsWith('--sv-display-id='));
 contextBridge.exposeInMainWorld('SV_DISPLAY_ID',
   displayArg ? Number(displayArg.split('=')[1]) : null);
+// Ortak oturum saati (#543): ilk kareden itibaren; sonraki değişimler iletiyle
+const epochArg = process.argv.find((a) => a.startsWith('--sv-shared-epoch='));
+const epochVal = epochArg ? Number(epochArg.split('=')[1]) : NaN;
+contextBridge.exposeInMainWorld('SV_SHARED_EPOCH', Number.isFinite(epochVal) ? epochVal : null);
 contextBridge.exposeInMainWorld('SV_FLOATING',
   process.argv.some((a) => a === '--sv-floating=1' || a.startsWith('--sv-floating=')));
 
