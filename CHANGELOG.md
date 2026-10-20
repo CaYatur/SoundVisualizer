@@ -8,6 +8,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main` stays the
 3.1.6-beta release candidate until 3.1.6 is published.
 
+### Broadcast layout editor
+
+- **Groundwork [534].**
+  - Bars, text, the now-playing card and the logo report the box they actually draw, in their
+    rest pose, without the entrance animation or the audio pulse.
+  - Safe areas follow SMPTE ST 2046-1 and EBU R 95: 93% action-safe and 90% title-safe.
+  - Snapping uses the frame's edges and centre, the safe areas and the other elements' edges and
+    centres.
+
 ## v3.1.6-beta — in code, not released
 
 `package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
