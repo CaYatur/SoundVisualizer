@@ -88,6 +88,16 @@
      listeyi motorun kaynakta GERÇEKTEN kurduklarıyla karşılaştırıyor —
      yeni bir nesne eklenip buraya yazılmazsa kayıptan sonra ölü bağlamın
      nesnesiyle çizilir ve ekran sessizce eksik kalırdı. */
+  /* AYGIT SABİTLERİ bir kez soruluyor (#777). `getParameter` eşzamanlı bir
+     gidiş-dönüş; anizotropi her doku için ayrı soruluyordu ve katman
+     kurulumunda ~19 ms bekletiyordu. Değerler aynı süreçteki bütün
+     bağlamlarda aynı GPU'nun değerleri. */
+  const DEVICE = { maxAniso: 0, units: 0 };
+  function maxAniso(gl, aniso) {
+    if (!DEVICE.maxAniso) DEVICE.maxAniso = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 1;
+    return DEVICE.maxAniso;
+  }
+
   const GL_NAMES = [
     'vao', 'vbo', 'ibo', 'quadVao', 'quadVbo', 'lineVao', 'lineVbo', 'aaVao', 'aaVbo',
     'shapeTexVao', 'shapeTexVbo', 'spriteVao', 'spriteVbo',
@@ -1175,6 +1185,8 @@ void main(){
       // Arka planda derlenen preset ölü bağlamdaydı: istek yeniden başlıyor
       this._pending = null;
       this._parallel = null;
+      // Yarım kalan sabit derleme de ölü bağlamdaydı
+      this._staticJobs = null;
       /* Sprite dokuları da gitti; sprite'ların KENDİSİ (kodları, değişkenleri,
          saatleri) kalıyor, dokular bir sonraki karede yeniden isteniyor.
          Resmini bekleyen başlatmaların süresi yeni bağlamda baştan
@@ -1215,12 +1227,36 @@ void main(){
         /* Arka planda derleme (#573). Burada, çünkü bağlam geri geldiğinde
            uzantı yeniden istenmeli: kayıptan önceki nesne geçersiz. */
         this._parallel = gl.getExtension('KHR_parallel_shader_compile') || null;
-        const warp = this._link(MESH_VERT, WARP_FIXED_FRAG);
-        const comp = this._link(COMP_MESH_VERT, COMP_FIXED_FRAG);
-        const blur = this._link(QUAD_VERT, BLUR_FRAG);
-        const line = this._link(LINE_VERT, LINE_FRAG);
-        const aal = this._link(AALINE_VERT, AALINE_FRAG);
-        const fls = this._link(QUAD_VERT, FLASH_FRAG);
+        /* SABİT PROGRAMLAR DA ARKA PLANDA (#777). Katman kurulurken yedi
+           programın durumu hemen soruluyordu; ilk soru bağlamın GPU
+           sürecinde hazır olmasını da bekliyordu. Ölçüldü (1920x1080,
+           MilkDrop'a geçiş): uzun kare ılıkta 53-67 ms, soğukta 133 ms;
+           bunun ~13 ms'si derleme beklemesi, ~13-24 ms'si ilk eşzamanlı
+           sorgu. Şimdi derleme başlatılıyor ve hazır olana kadar katman
+           çizmiyor (birkaç kare). Uzantı yoksa ya da çevrimdışı işte
+           (`SVMilkdropSync`, dışa aktarım) eskisi gibi bekleniyor: bir
+           videonun ilk karesi derleme hızına kalamaz. */
+        const later = !!this._parallel && !(typeof window !== 'undefined' && window.SVMilkdropSync === true);
+        if (!this._staticJobs) {
+          this._staticJobs = {
+            warp: this._linkBegin(MESH_VERT, WARP_FIXED_FRAG),
+            comp: this._linkBegin(COMP_MESH_VERT, COMP_FIXED_FRAG),
+            blur: this._linkBegin(QUAD_VERT, BLUR_FRAG),
+            line: this._linkBegin(LINE_VERT, LINE_FRAG),
+            aal: this._linkBegin(AALINE_VERT, AALINE_FRAG),
+            fls: this._linkBegin(QUAD_VERT, FLASH_FRAG),
+            shtex: this._linkBegin(SHAPE_TEX_VERT, SHAPE_TEX_FRAG),
+          };
+        }
+        const jobs = this._staticJobs;
+        if (later && !Object.keys(jobs).every((k) => this._linkReady(jobs[k]))) return 'pending';
+        this._staticJobs = null;
+        const warp = this._linkEnd(jobs.warp);
+        const comp = this._linkEnd(jobs.comp);
+        const blur = this._linkEnd(jobs.blur);
+        const line = this._linkEnd(jobs.line);
+        const aal = this._linkEnd(jobs.aal);
+        const fls = this._linkEnd(jobs.fls);
         if (fls.ok) {
           this.flashProg = fls.prog;
           this.locFlash = {
@@ -1229,7 +1265,7 @@ void main(){
             uThresh: gl.getUniformLocation(fls.prog, 'uThresh'),
           };
         }
-        const shtex = this._link(SHAPE_TEX_VERT, SHAPE_TEX_FRAG);
+        const shtex = this._linkEnd(jobs.shtex);
         if (!warp.ok || !comp.ok || !blur.ok || !line.ok || !aal.ok || !shtex.ok) {
           this.error = (warp.log || comp.log || blur.log || line.log ||
                         aal.log || shtex.log || 'shader');
@@ -1340,7 +1376,7 @@ void main(){
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
           if (aniso) {
             gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
-              gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+              maxAniso(gl, aniso));
           }
           gl.generateMipmap(gl.TEXTURE_2D);
         }
@@ -1684,7 +1720,7 @@ void main(){
         if (depth > 1) gl.texParameteri(tgt, gl.TEXTURE_WRAP_R, gl.REPEAT);
         if (aniso) {
           gl.texParameterf(tgt, aniso.TEXTURE_MAX_ANISOTROPY_EXT,
-            gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT));
+            maxAniso(gl, aniso));
         }
         gl.bindTexture(tgt, null);
         return { tex, size, target: tgt };
@@ -1771,7 +1807,8 @@ void main(){
          ve WebGL2'nin asgari garantisi olan 16'ya tam oturuyor. Sınır yine
          de sürücüden soruluyor — asgariden düşük bir sürücü olamaz ama
          yüksek olan varsa fazlası kullanılır. */
-      this.unitMax = Math.min(32, gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 16);
+      if (!DEVICE.units) DEVICE.units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) || 16;
+      this.unitMax = Math.min(32, DEVICE.units);
     }
 
     /* Flaş sınırlama geçişi. Sırası:
@@ -3322,7 +3359,10 @@ void main(){
         this.gl2 = document.createElement('canvas');
         this._noCtxAt = 0;
       }
-      if (!this._initGL(GW, GH)) { this._fallback(W, H); return; }
+      const init = this._initGL(GW, GH);
+      // Sabit programlar arka planda derleniyor: hazır olana kadar çizim yok
+      if (init === 'pending') return;
+      if (!init) { this._fallback(W, H); return; }
       /* Anahtar cizim sirasinda degistiyse gurultu dokulari yeniden
          uretiliyor: uretecin PARAMETRELERI degisti, dokular degismedi. */
       if (this.noise && this._noiseAcc !== this._wantAcc) this._buildNoise(this._wantAcc);
