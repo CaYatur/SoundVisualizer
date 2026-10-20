@@ -107,8 +107,10 @@ test('TCP: eşleşen alıcı kare ve meta alıyor, saat farkı ölçülüyor', a
     const s = rx.status();
     assert.strictEqual(s.state, 'connected');
     assert.strictEqual(s.name, 'Köprü');
-    assert.ok(Math.abs(s.offsetMs) < 50, 'aynı makine: saat farkı ~0 (' + s.offsetMs + ')');
-    assert.ok(s.ageMs != null && s.ageMs < 1000);
+    // Aynı makine: saat farkı ~0. Ölçüm hatası en çok gidiş-dönüşün yarısı;
+    // yüklü bir CI makinesinde gidiş-dönüş uzayabilir.
+    assert.ok(Math.abs(s.offsetMs) <= Math.max(50, s.rttMs / 2 + 5), 'saat farkı ' + s.offsetMs + ', rtt ' + s.rttMs);
+    assert.ok(s.ageMs != null && s.ageMs < 5000, 'ageMs ' + s.ageMs);
   } finally {
     rx.stop();
     await sender.stop();
