@@ -55,7 +55,7 @@ test('bağlantılar: birincil çıpayı ve oturum başlangıcını yollar; yedek
   const main = read('src/main/main.js');
   assert.match(main, /if \(red\.role === 'primary' && streamServer\.peerCount\(\)\) streamServer\.sendPeers\(\{ type: 'show-clock', anchor: showClockAnchor \}\);/);
   assert.match(main, /type: 'hello', version: app\.getVersion\(\), role: 'primary', start: red\.sessionStart/);
-  assert.match(main, /\{ gap, start: red\.sessionStart \}/);
+  assert.match(main, /\{ gap, start: red\.sessionStart, term: redTerms\(\)\.term, holder: redAuth\.holder, black: blackedOut\(\) \}/);
   assert.match(main, /if \(a && Number\.isFinite\(a\.epoch\)\) a\.epoch = f\.toLocal\(a\.epoch\);/);
   assert.match(main, /notifyAdmin\('show-clock-follow', showClockAnchor\);/);
   assert.match(main, /sendToVisualizers\('shared-clock', \{ epoch: e \}\);/);

@@ -141,7 +141,7 @@ test('ana süreç: diske yerel gösteri, yetkide son kopya tutuluyor, bırakınc
   const changed = main.slice(main.indexOf('function onFollowerChanged() {'), main.indexOf('const pkgHashCache'));
   assert.match(changed, /red\.client\.send\(\{ type: 'peer-resync' \}\)/);
   assert.match(main, /msg\.type === 'peer-resync' && client && red\.role === 'primary'\) \{\n    sendPeerSnapshot\(client\);/);
-  assert.ok(read('src/main/stream-server.js').includes("const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-request', 'pkg-get'];"));
+  assert.ok(read('src/main/stream-server.js').includes("const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-request', 'pkg-get', 'peer-beat', 'peer-info', 'ctl', 'ctl-result', 'mon', 'mon-frame', 'handback'];"));
 });
 
 test('eski gönderim yedeğin öğesini ezmiyor; paket çakışması yerel öğeyi koruyor', () => {

@@ -35,6 +35,7 @@
    birincil geri gelse de etkin kalır: operatör "Bırak" demeden yetki geri
    gitmez — gidip gelme (flapping) gösteriyi iki kez sarsar. */
 
+const crypto = require('crypto');
 const ShowKeys = require('../shared/show-keys');
 
 const DEFAULTS = {
@@ -42,6 +43,15 @@ const DEFAULTS = {
   heartbeatMs: 250, timeoutMs: 1500, takeover: 'auto',
   // Devralmada çizilecek gösteri (#812): birincilin yalıtılmış kopyası ya da yerel gösteri
   takeoverData: 'primary',
+  /* Çıkış yetkisi (#814): her çıkış 'authority' (yalnız yetkideki makine
+     gönderir) ya da 'always'. Art-Net yetki gidince son kareyi tutar
+     ('hold', ışıklar yanıp sönmez) ya da bir kez sıfır kare yollar ('zero'). */
+  outputs: { artnet: 'authority', oscOut: 'authority', openrgb: 'authority', lighting: 'authority' },
+  artnetOnLoss: 'hold',
+  // Korumalı geri vermenin anı: 'now' | 'scene' | 'black'
+  handbackAt: 'scene',
+  // Art-Net tanığı: ağda başka bir kaynaktan aynı evrene gelen kareyi dinle
+  artnetWitness: true,
 };
 const MIN_SECRET = 16;
 
@@ -59,6 +69,10 @@ function normalize(c) {
   s.timeoutMs = clamp(Math.round(num(s.timeoutMs, 1500)), s.heartbeatMs * 3, 60000);
   if (s.takeover !== 'manual') s.takeover = 'auto';
   if (s.takeoverData !== 'local') s.takeoverData = 'primary';
+  s.outputs = outputModes(s);
+  if (s.artnetOnLoss !== 'zero') s.artnetOnLoss = 'hold';
+  if (HANDBACK_AT.indexOf(s.handbackAt) < 0) s.handbackAt = 'scene';
+  s.artnetWitness = s.artnetWitness !== false;
   return s;
 }
 
@@ -66,7 +80,8 @@ function normalize(c) {
    (#812) yalnız devralma anında okunur: değiştirmek bağlantıyı koparmasın. */
 function linkSig(c) {
   const s = normalize(c);
-  delete s.takeoverData;
+  // Bağlantıyı etkilemeyenler (#812, #814): değişince bağlantı kopmasın
+  for (const k of ['takeoverData', 'outputs', 'artnetOnLoss', 'handbackAt', 'artnetWitness']) delete s[k];
   return JSON.stringify(s);
 }
 
@@ -154,6 +169,10 @@ function createFollower(cfg, now) {
        titremesi `status`'ta son RING aralıktan hesaplanır. */
     beats: 0,
     missed: 0,
+    /* KENDİLİĞİNDEN DEVRALMAYA VETO (#814): Art-Net tanığı birincilin hâlâ
+       ışık sürdüğünü görüyorsa (ağ yalnız aramızda bölünmüş) ya da iki
+       yönetici alarmı çalıyorsa otomatik devralma beklemede; elle her zaman. */
+    veto: '',
   };
   const RING = 128;
   const gaps = new Float64Array(RING);
@@ -224,7 +243,7 @@ function createFollower(cfg, now) {
        da kayıp sayılır. */
     tick(t) {
       if (st.state === 'active' || st.state === 'lost') {
-        if (st.state === 'lost' && s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+        if (st.state === 'lost' && s.takeover === 'auto' && !st.autoHeld && !st.veto) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
         return false;
       }
       if (st.state === 'connecting') {
@@ -232,10 +251,12 @@ function createFollower(cfg, now) {
       } else if (t - st.lastBeat <= lossLimit()) {
         return false;
       }
-      if (s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+      if (s.takeover === 'auto' && !st.autoHeld && !st.veto) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
       return set('lost', t);
     },
     takeover(t) { st.autoHeld = false; st.takenAt = t; st.takenBy = 'manual'; return set('active', t); },
+    // Otomatik devralmaya veto: neden ('' kaldırır)
+    setVeto(why) { st.veto = typeof why === 'string' ? why : ''; },
     // Operatör otomatik devralmayı yeniden kurar (birincil hâlâ yoksa sonraki tikte devralır)
     rearm() { if (!st.autoHeld) return false; st.autoHeld = false; return true; },
     release(t) {
@@ -299,14 +320,23 @@ function peerUrl(c) {
 /* YEDEĞİN BAĞLANTISI. `WS` yerleşik WebSocket (Node 22+); test sahtesini
    verir. Kopunca artan aralıkla (0,1 → 5 sn) yeniden dener: ilk deneme
    kopma payından (300 ms) önce — birincilin sunucusu yeniden başladıysa
-   yedek yetkiyi almadan geri bağlanır. */
+   yedek yetkiyi almadan geri bağlanır.
+
+   EŞLEŞME (#814): `urls` sırayla denenir — önce HMAC sınaması, birincil
+   eskiyse (sınama gelmeden kapanır) açık parolalı eski adres. Bir adres
+   açılıp eşleşince ona bağlı kalınır. HMAC'te `onOpen` yalnız birincil
+   parolayı bildiğini kanıtlayınca çağrılır; o ana dek gelen iletiler
+   işlenmez. */
 function createClient(opts) {
   const o = opts || {};
   const WS = o.WebSocket || (typeof WebSocket !== 'undefined' ? WebSocket : null);
+  const urls = Array.isArray(o.urls) && o.urls.length ? o.urls : [o.url];
+  let ui = 0;
   let ws = null;
   let closed = false;
   let delay = 100;
   let timer = null;
+  let mode = '';
   function schedule() {
     if (closed || timer) return;
     timer = setTimeout(() => { timer = null; open(); }, delay);
@@ -314,21 +344,46 @@ function createClient(opts) {
   }
   function open() {
     if (closed || !WS) return;
+    const url = urls[ui % urls.length];
+    const hmac = /[?&]auth=hmac(&|$)/.test(url);
     let sock;
-    try { sock = new WS(o.url); } catch (e) { schedule(); return; }
+    try { sock = new WS(url); } catch (e) { ui++; schedule(); return; }
     ws = sock;
-    sock.onopen = () => { delay = 100; if (o.onOpen) o.onOpen(); };
+    let ready = false;
+    const myNonce = crypto.randomBytes(16).toString('hex');
+    const ok = () => { ready = true; delay = 100; mode = hmac ? 'hmac' : 'token'; if (o.onOpen) o.onOpen(); };
+    sock.onopen = () => { if (!hmac) ok(); };
     sock.onmessage = (ev) => {
       let msg = null;
       try { msg = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); } catch { return; }
-      if (msg && typeof msg.type === 'string' && o.onMessage) o.onMessage(msg);
+      if (!msg || typeof msg.type !== 'string') return;
+      if (!ready) {
+        if (!hmac) return;
+        if (msg.type === 'peer-challenge') {
+          try { sock.send(JSON.stringify({ type: 'peer-auth', mac: peerMac(o.secret, 'c', msg.nonce), nonce: myNonce })); } catch { /* */ }
+        } else if (msg.type === 'peer-welcome') {
+          // Birincil de parolayı bilmeli: yoksa sahte bir birincile bağlanmayız
+          if (typeof msg.mac === 'string' && msg.mac === peerMac(o.secret, 's', myNonce)) ok();
+          else { try { sock.close(); } catch { /* */ } }
+        }
+        return;
+      }
+      if (o.onMessage) o.onMessage(msg);
     };
-    sock.onclose = () => { if (ws === sock) ws = null; if (o.onClose) o.onClose(); schedule(); };
+    sock.onclose = () => {
+      if (ws === sock) ws = null;
+      // Eşleşmeden kapandı: öteki adres (eski birincil ya da yeni) denenir
+      if (!ready) ui++;
+      if (ready && o.onClose) o.onClose();
+      else if (!ready && o.onFail) o.onFail(url);
+      schedule();
+    };
     sock.onerror = () => { /* onclose ardından gelir */ };
   }
   open();
   return {
     send(obj) { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); } catch { /* kopuk */ } },
+    get mode() { return mode; },
     close() {
       closed = true;
       if (timer) { clearTimeout(timer); timer = null; }
@@ -338,7 +393,166 @@ function createClient(opts) {
   };
 }
 
+/* ===========================================================================
+   YETKİ, DÖNEM VE ÇİT (#814). Eskiden yetki yalnız kimin karar verdiğini
+   değiştiriyordu: Art-Net, OSC çıkışı ve OpenRGB iki makinede de
+   gönderiyordu, birincil yedeğin yetkiyi aldığını görse de geri
+   çekilmiyordu. Burada saf kararlar; ağ ve çıkışlar main.js'te.
+   =========================================================================== */
+/* Kimin yetkisi var: 'self' | 'peer' | 'unknown'.
+     rol kapalı          → self (yedeklilik yokken davranış aynı)
+     birincil, çitli     → unknown (yeniden açılan birincil yedeğin
+                           durumunu görmeden çıkış sürmez)
+     birincil            → peer, yedek DAHA YENİ dönemle yetkideyse; yoksa self
+     yedek, yetkide      → self; değilse peer */
+function authority(o) {
+  const s = o || {};
+  if (s.role !== 'primary' && s.role !== 'backup') return 'self';
+  if (s.role === 'primary') {
+    if (s.fenced) return 'unknown';
+    if (s.peerState === 'active' && (Number(s.peerTerm) || 0) > (Number(s.term) || 0)) return 'peer';
+    return 'self';
+  }
+  return s.state === 'active' ? 'self' : 'peer';
+}
+
+/* Çıkış kapısı: çıkışın ayarı 'always' ise her zaman; 'authority' ise
+   yalnız yetki bu makinedeyse. Bilinmeyen çıkış (görüntü, Spout, yayın)
+   kapıdan geçmez: görüntü anahtarlayıcısı seçer. */
+const GATED = ['artnet', 'oscOut', 'openrgb', 'lighting'];
+function outputModes(c) {
+  const src = (c && c.outputs && typeof c.outputs === 'object') ? c.outputs : {};
+  const out = {};
+  for (const k of GATED) out[k] = src[k] === 'always' ? 'always' : 'authority';
+  return out;
+}
+function gates(holder, c) {
+  const m = outputModes(c);
+  const out = {};
+  for (const k of GATED) out[k] = m[k] === 'always' || holder === 'self';
+  return out;
+}
+
+/* Dönem (term): her devralmada artan tamsayı; diskte, yeniden açılışta da
+   küçülmez. Parola değişirse sıfırlanır: eski bir kopyadan dönen term.json
+   yeni bir eşleşmede seçimleri hep kaybettirmesin. */
+function secretTag(secret) { return crypto.createHash('sha256').update(String(secret || '')).digest('hex').slice(0, 16); }
+function createTermStore(file, opts) {
+  const fs = (opts && opts.fs) || require('fs');
+  const path = require('path');
+  let term = 0;
+  let tag = '';
+  function load(secret) {
+    tag = secretTag(secret);
+    term = 0;
+    try {
+      let t = fs.readFileSync(file, 'utf8');
+      if (t.charCodeAt(0) === 0xfeff) t = t.slice(1);
+      const j = JSON.parse(t);
+      if (j && j.tag === tag && Number.isInteger(j.term) && j.term >= 0) term = j.term;
+    } catch { /* yok ya da bozuk: 0 */ }
+    return term;
+  }
+  function save() {
+    const tmp = file + '.' + process.pid + '.tmp';
+    try {
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(tmp, JSON.stringify({ term, tag, at: Date.now() }) + '\n');
+      fs.renameSync(tmp, file);
+    } catch { try { fs.unlinkSync(tmp); } catch { /* */ } }
+  }
+  return {
+    load,
+    get term() { return term; },
+    // Görülen dönem: daha büyükse benimsenir (küçülmez)
+    see(t) { const n = Number(t); if (Number.isInteger(n) && n > term) { term = n; save(); return true; } return false; },
+    // Devralma: görülenlerin en büyüğünden bir fazlası
+    bump(seen) { const n = Math.max(term, Number(seen) || 0) + 1; term = n; save(); return n; },
+  };
+}
+
+/* İKİ YÖNETİCİ (split brain). Yetkideki yedek, birincilden "yetki bende"
+   diyen ve dönemi en az kendisininki kadar olan bir atış alırsa iki makine
+   de karar veriyordur: ağ bölünmüş ve geri gelmiş, ya da birincil yedeği
+   hiç görmeden yeniden açılmış. Yedek bir daha kendiliğinden devralmaz,
+   iki makinede de alarm çalar; operatör birinde bırakır ya da geri verir. */
+function splitBrain(o) {
+  const s = o || {};
+  if (s.role !== 'backup' || s.state !== 'active') return false;
+  return s.beatHolder === 'self' && (Number(s.beatTerm) || 0) >= (Number(s.term) || 0);
+}
+
+/* KORUMALI GERİ VERME (handback). Her koşul ayrı adla döner: panel listeler,
+   hangisi tutmuyorsa onu söyler. */
+const HANDBACK_MIN_ALIVE_MS = 5000;
+const HANDBACK_MIN_SAMPLES = 20;
+function handbackCheck(o) {
+  const s = o || {};
+  const failed = [];
+  if (s.role !== 'backup' || s.state !== 'active') failed.push('not-active');
+  if (!(Number(s.aliveMs) >= HANDBACK_MIN_ALIVE_MS)) failed.push('primary-alive');
+  if (s.differences == null) failed.push('show-unknown');
+  else if (Number(s.differences) !== 0) failed.push('show-differs');
+  if (!(Number(s.offsetSamples) >= HANDBACK_MIN_SAMPLES)) failed.push('clock');
+  if (!s.primaryVersion || s.primaryVersion !== s.version) failed.push('version');
+  return failed;
+}
+// Geçiş anı: hemen, sonraki sahne değişimi ya da karartma
+const HANDBACK_AT = ['now', 'scene', 'black'];
+function handbackDue(at, prev, now) {
+  if (at === 'now') return true;
+  if (at === 'scene') return !!(prev && now && prev.scene !== now.scene);
+  if (at === 'black') return !!(now && now.black);
+  return false;
+}
+
+/* İKİ YÖNLÜ KOMUT (ctl). Yalnız bu eylemler; gösteri komutlarını yalnız
+   yetkideki makine uygular, öteki ileterek "gönderildi" der. Yedeklilik
+   komutları her zaman yedeğe gider (yetki yedekte değişir). */
+const CTL_SHOW = ['nextVisualizer', 'prevVisualizer', 'nextBackground', 'nextScene', 'sceneGo', 'blackout',
+  'tlPlay', 'tlPause', 'tlStop', 'tlNextMarker', 'tlPrevMarker', 'deckStopAll', 'mdNext', 'mdPrev', 'mdRandom', 'mdCut'];
+const CTL_RED = ['redTakeover', 'redRelease', 'redRearm', 'redHandback', 'redPkgRequest'];
+function ctlKind(action) {
+  if (CTL_SHOW.indexOf(action) >= 0) return 'show';
+  if (CTL_RED.indexOf(action) >= 0) return 'red';
+  return '';
+}
+/* Aynı komut iki kez uygulanmasın (yeniden bağlanmada yinelenen ileti):
+   son 256 kimlik akılda. */
+function createCtlDedupe(size) {
+  const n = size || 256;
+  const seen = new Set();
+  const order = [];
+  return function fresh(id) {
+    const k = String(id || '');
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    order.push(k);
+    if (order.length > n) seen.delete(order.shift());
+    return true;
+  };
+}
+
+/* EŞLEŞME: HMAC sınaması (#814). Parola URL'de açık gidiyordu
+   (?token=...). Artık birincil bir sınama (nonce) yollar, yedek
+   HMAC(parola, 'sv-peer|c|' + nonce) ile yanıtlar ve kendi sınamasını
+   ekler; birincil de HMAC(parola, 'sv-peer|s|' + yedeğin nonce'u) ile
+   kendini kanıtlar. Parola ağa hiç çıkmaz, sahte bir birincile de
+   bağlanılmaz. Eski sürümle eşleşme için `token=` bir sürüm daha kabul
+   edilir; gösteri öncesi denetim uyarır. */
+function peerMac(secret, side, nonce) {
+  return crypto.createHmac('sha256', String(secret || '')).update('sv-peer|' + side + '|' + String(nonce || '')).digest('hex');
+}
+function peerUrlHmac(c) {
+  const s = normalize(c);
+  const host = /:/.test(s.host) && !/^\[/.test(s.host) ? '[' + s.host + ']' : s.host;
+  return 'ws://' + host + ':' + s.port + '/ws?kind=peer&auth=hmac';
+}
+
 module.exports = {
   DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
-  snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, createClient,
+  snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, peerUrlHmac, createClient,
+  authority, GATED, outputModes, gates, secretTag, createTermStore, splitBrain,
+  HANDBACK_MIN_ALIVE_MS, HANDBACK_MIN_SAMPLES, HANDBACK_AT, handbackCheck, handbackDue,
+  CTL_SHOW, CTL_RED, ctlKind, createCtlDedupe, peerMac,
 };

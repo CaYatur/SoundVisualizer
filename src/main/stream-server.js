@@ -69,7 +69,7 @@ let clients = new Set();
    Boşsa `kind=peer` bağlantısı hiç kabul edilmez. */
 let peerSecret = '';
 // Yedeğin gönderebileceği iletiler (#540, #541, #812)
-const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-request', 'pkg-get'];
+const PEER_MESSAGES = ['peer-state', 'peer-inventory', 'peer-resync', 'pkg-request', 'pkg-get', 'peer-beat', 'peer-info', 'ctl', 'ctl-result', 'mon', 'mon-frame', 'handback'];
 /* Yalnız yedek için açık sunucu (yayın çıkışı kapalı, makine birincil):
    yayın sayfaları, kumanda ve jetonlar YOK; yalnız `kind=peer` ve /health.
    Kullanıcının açmadığı yayın sayfaları ağa açılmasın. */
@@ -207,17 +207,27 @@ function clientInfo() {
    da preset listesi gitmez; yalnız kendi iletileri (sendPeers). İzleyici
    sayısına da girmez. */
 function sendPeers(obj) {
-  for (const c of clients) if (c.kind === 'peer') sendJson(c, obj);
+  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed) sendJson(c, obj);
 }
 function peerCount() {
   let n = 0;
-  for (const c of clients) if (c.kind === 'peer') n++;
+  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed) n++;
+  return n;
+}
+// Eski (açık parolalı) eşleşmeyle bağlı yedek sayısı: gösteri öncesi denetim uyarır
+function legacyPeerCount() {
+  let n = 0;
+  for (const c of clients) if (c.kind === 'peer' && c.peerAuthed && c.peerLegacy) n++;
   return n;
 }
 function setPeerSecret(secret) {
   peerSecret = typeof secret === 'string' ? secret : '';
   // Parola değiştiyse ya da kalktıysa bağlı yedekler düşürülür
-  for (const c of Array.from(clients)) if (c.kind === 'peer' && !safeCompare(c.peerToken, peerSecret)) dropClient(c);
+  for (const c of Array.from(clients)) {
+    if (c.kind !== 'peer') continue;
+    const same = c.peerLegacy ? safeCompare(c.peerToken, peerSecret) : !!peerSecret && c.peerSecretAt === peerSecret;
+    if (!same) dropClient(c);
+  }
 }
 
 function broadcast(obj, kind) {
@@ -716,7 +726,12 @@ function handleUpgrade(req, socket) {
     socket.end('HTTP/1.1 404 Not Found\r\n\r\n');
     return;
   }
-  if (kind === 'peer' && !(peerSecret && safeCompare(urlToken, peerSecret))) {
+  /* Eşleşme (#814): `auth=hmac` ile parola URL'de gitmez; bağlantı açılır,
+     sınama yollanır, yedek kanıtlayana dek yedek sayılmaz ve ileti almaz.
+     Eski sürümün `token=` adresi bir sürüm daha kabul edilir (`legacy`);
+     gösteri öncesi denetim uyarır. */
+  const peerHmac = kind === 'peer' && url.searchParams.get('auth') === 'hmac';
+  if (kind === 'peer' && (!peerSecret || (!peerHmac && !safeCompare(urlToken, peerSecret)))) {
     socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
     return;
   }
@@ -754,25 +769,48 @@ function handleUpgrade(req, socket) {
     fragments: [],
     fragmentOpcode: 0x1,
     backpressure: false,
-    peerToken: kind === 'peer' ? urlToken : '',
+    peerToken: kind === 'peer' && !peerHmac ? urlToken : '',
+    // HMAC'te sınama geçilene dek false: sendPeers ve peerCount onu görmez
+    peerAuthed: kind === 'peer' && !peerHmac,
+    peerLegacy: kind === 'peer' && !peerHmac,
+    peerNonce: peerHmac ? crypto.randomBytes(16).toString('hex') : '',
+    peerSecretAt: peerHmac ? peerSecret : '',
   };
   clients.add(client);
   hooks.onClientsChanged(clientInfo());
 
   if (kind === 'peer') {
     // Yedek: yayın katmanının açılış iletileri yerine kendi anlık görüntüsü
-    if (typeof hooks.onPeerOpen === 'function') hooks.onPeerOpen(client);
+    let authTimer = null;
+    if (client.peerAuthed) {
+      if (typeof hooks.onPeerOpen === 'function') hooks.onPeerOpen(client);
+    } else {
+      sendJson(client, { type: 'peer-challenge', nonce: client.peerNonce });
+      authTimer = setTimeout(() => { if (!client.peerAuthed) dropClient(client); }, 5000);
+    }
     socket.on('data', (chunk) => {
       client.buf = Buffer.concat([client.buf, chunk]);
       client.buf = decodeFrames(client, (payload, opcode) => {
         if (opcode !== 0x1) return;
         let msg;
         try { msg = JSON.parse(payload.toString('utf-8')); } catch { return; }
-        /* Yedek yalnız kendi hâlini ve envanterini bildirir, gösteri paketini
-           (#812) ister ve yeniden eşleme ister; komut çalıştıramaz. */
+        if (!client.peerAuthed) {
+          const want = crypto.createHmac('sha256', client.peerSecretAt).update('sv-peer|c|' + client.peerNonce).digest('hex');
+          if (!msg || msg.type !== 'peer-auth' || !safeCompare(String(msg.mac || ''), want)) { dropClient(client); return; }
+          client.peerAuthed = true;
+          if (authTimer) { clearTimeout(authTimer); authTimer = null; }
+          const mine = crypto.createHmac('sha256', client.peerSecretAt).update('sv-peer|s|' + String(msg.nonce || '')).digest('hex');
+          sendJson(client, { type: 'peer-welcome', mac: mine });
+          if (typeof hooks.onPeerOpen === 'function') hooks.onPeerOpen(client);
+          return;
+        }
+        /* Yedek kendi hâlini, envanterini ve atışını (#814) bildirir, gösteri
+           paketini (#812) ve yeniden eşlemeyi ister. Komutları (ctl) birincil
+           yalnız izin listesindeyse ve yetkisi varsa uygular (main.js). */
         if (msg && PEER_MESSAGES.indexOf(msg.type) >= 0 && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
       }, () => dropClient(client));
     });
+    socket.on('close', () => { if (authTimer) clearTimeout(authTimer); });
     socket.on('error', () => dropClient(client));
     socket.on('close', () => dropClient(client));
     return;
@@ -1005,6 +1043,7 @@ module.exports = {
   clientCount: () => { let n = 0; for (const c of clients) if (c.kind !== 'peer') n++; return n; },
   sendPeers,
   peerCount,
+  legacyPeerCount,
   setPeerSecret,
   sendJson,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)

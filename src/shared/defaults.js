@@ -1218,6 +1218,13 @@
       heartbeatMs: 250,
       timeoutMs: 1500,
       takeover: 'auto', // 'auto' | 'manual'
+      takeoverData: 'primary', // devralmada: birincilin kopyası | 'local' (#812)
+      /* Çıkış yetkisi (#814): 'authority' = yalnız yetkideki makine gönderir,
+         'always' = her zaman (iki makine de). */
+      outputs: { artnet: 'authority', oscOut: 'authority', openrgb: 'authority', lighting: 'authority' },
+      artnetOnLoss: 'hold', // yetki gidince: son kareyi tut | 'zero' (bir kez sıfır)
+      handbackAt: 'scene', // geri verme anı: 'now' | 'scene' | 'black'
+      artnetWitness: true, // ağda aynı evrene başka kaynak gönderiyor mu (iki yönetici ipucu)
     },
 
     /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.

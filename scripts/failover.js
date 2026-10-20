@@ -37,11 +37,11 @@ function freePort() {
   });
 }
 
-function launch(dir, cdpPort) {
+function launch(dir, cdpPort, extra) {
   const electronPath = require('electron');
   const env = Object.assign({}, process.env);
   delete env.ELECTRON_RUN_AS_NODE;
-  const child = spawn(electronPath, ['.', '--user-data-dir=' + dir, '--remote-debugging-port=' + cdpPort], {
+  const child = spawn(electronPath, ['.', '--user-data-dir=' + dir, '--remote-debugging-port=' + cdpPort].concat(extra || []), {
     cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
     detached: process.platform !== 'win32', // POSIX: süreç grubu, ağaçla birlikte öldürülsün
   });
@@ -437,12 +437,196 @@ async function scenario(name, takeover, opts) {
   return res;
 }
 
+/* Ana süreçte ifade (--inspect): yetki senaryosu ölçer karesini burada
+   üretir. Çıkışları yalnız görselleştirici penceresinin karesi sürüyor;
+   kullanıcının ekranında pencere açmak yerine aynı işleyiciye (audio-meter)
+   sentetik kare verilir — kapı tam o işleyicide. */
+async function mainEval(inspectPort, expr, timeoutMs) {
+  const end = Date.now() + (timeoutMs || 20000);
+  let url = '';
+  while (!url && Date.now() < end) {
+    try { const l = await (await fetch('http://127.0.0.1:' + inspectPort + '/json/list')).json(); url = l[0] && l[0].webSocketDebuggerUrl; } catch { /* henüz yok */ }
+    if (!url) await wait(200);
+  }
+  if (!url) throw new Error('main inspector did not open on ' + inspectPort);
+  const c = await connect(url);
+  try { return await c.eval(expr); } finally { c.close(); }
+}
+const METER = "(() => { const { ipcMain } = process.mainModule.require('electron'); if (global.__rigMeter) clearInterval(global.__rigMeter); global.__rigMeter = setInterval(() => ipcMain.emit('audio-meter', { sender: { id: -7 } }, { level: 0.6, bass: 0.7, mid: 0.4, treble: 0.3, backgroundColors: ['#ff0000', '#00ff00'] }), 33); return true; })()";
+
+/* YETKİ SENARYOSU (#814). İki kopya da Art-Net'i aynı yerel UDP portuna
+   yollar; burada her kaynağın (kaynak bağlantı noktası: iki kopya aynı
+   adresten gönderiyor) paketleri sayılır. Ölçülen:
+     1. İzlerken yalnız birincil gönderiyor (tek gönderici).
+     2. Elle devralma: gönderici yedeğe geçer; birincil geri çekilir.
+     3. Yetkideyken birincilde değişiklik; bırakınca yedek 1 sn içinde aynı.
+     4. Korumalı geri verme: koşullar, sonra gönderici birincile döner.
+     5. İki yönlü komut: yetkisiz makineden gönderilen komut öbüründe uygulanır.
+     6. Çitli açılış: yedek yetkideyken yeniden açılan birincil hiç göndermez. */
+async function authorityScenario(name, opts) {
+  const dgram = require('dgram');
+  const secret = require('crypto').randomBytes(18).toString('base64url');
+  const streamPort = await freePort();
+  const backupStream = await freePort();
+  const cdpA = await freePort();
+  const cdpB = await freePort();
+  const udpPort = await freePort();
+  const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-auth-a-'));
+  const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-auth-b-'));
+  const art = { enabled: true, host: '127.0.0.1', port: udpPort, universe: 3, fps: 30, fixtures: 2 };
+  const base = { autovj: { enabled: false }, lighting: { enabled: false }, updates: { auto: false }, artnet: art };
+  const red = { secret, heartbeatMs: opts.beat, timeoutMs: opts.timeout, artnetWitness: false, handbackAt: 'now' };
+  fs.writeFileSync(path.join(dirA, 'settings.json'), JSON.stringify(Object.assign({}, base, {
+    stream: { enabled: false, port: streamPort, lan: false }, redundancy: Object.assign({ role: 'primary' }, red),
+  })));
+  fs.writeFileSync(path.join(dirB, 'settings.json'), JSON.stringify(Object.assign({}, base, {
+    scenes: [{ id: 'backup-own', name: 'Backup Own', data: {} }],
+    stream: { enabled: false, port: backupStream, lan: false },
+    redundancy: Object.assign({ role: 'backup', host: '127.0.0.1', port: streamPort, takeover: 'manual' }, red),
+  })));
+  // Kaynak bağlantı noktasına göre ArtDmx sayacı
+  const sock = dgram.createSocket('udp4');
+  const hits = [];
+  sock.on('message', (buf, rinfo) => { if (buf.toString('ascii', 0, 8) === 'Art-Net\0') hits.push({ at: Date.now(), src: rinfo.port, zero: buf.subarray(18).every((x) => x === 0) }); });
+  await new Promise((r) => sock.bind(udpPort, '127.0.0.1', r));
+  const sources = (from, to) => Array.from(new Set(hits.filter((h) => h.at >= from && h.at <= (to || Date.now())).map((h) => h.src)));
+  const res = { name, heartbeatMs: opts.beat, timeoutMs: opts.timeout };
+  const inA = await freePort();
+  const inB = await freePort();
+  let A = launch(dirA, cdpA, ['--inspect=' + inA]);
+  const B = launch(dirB, cdpB, ['--inspect=' + inB]);
+  let pa = null;
+  let pb = null;
+  try {
+    pa = await connect(await adminPage(cdpA, 30000));
+    pb = await connect(await adminPage(cdpB, 30000));
+    for (const pg of [pa, pb]) await until(async () => ({ ok: await pg.eval('typeof window.SVPanel !== "undefined" && !!window.SVPanel.cfg') }), 20000, 100);
+    const follow = await until(async () => { const s = await pb.eval(STATUS); return Object.assign({ ok: s && s.state === 'following' && s.linkMode === 'hmac' }, s); }, 20000);
+    res.followed = !!follow.ok;
+    res.linkMode = follow.linkMode;
+    if (!follow.ok) throw new Error('backup never followed over HMAC: ' + JSON.stringify({ state: follow.state, linkMode: follow.linkMode }));
+    // Birincilin çiti kalksın, ölçer kareleri aksın
+    await until(async () => { const s = await pa.eval(STATUS); return { ok: s.holder === 'self' && !s.fenced }; }, 5000, 50);
+    await mainEval(inA, METER);
+    await mainEval(inB, METER);
+    await wait(1500);
+    // 1. Tek gönderici
+    const t1 = Date.now();
+    await wait(1200);
+    const s1 = sources(t1);
+    res.sendersFollowing = s1.length;
+    res.packetsFollowing = hits.filter((h) => h.at >= t1).length;
+    if (s1.length !== 1) throw new Error('expected one Art-Net sender while following, got ' + JSON.stringify(s1) + ' (packets ' + res.packetsFollowing + ')');
+    const srcA = s1[0];
+    // 2. Elle devralma: gönderici yedeğe geçer
+    const t2 = Date.now();
+    await pb.eval('window.api.redundancyTakeover()');
+    const moved = await until(async () => {
+      const recent = sources(Date.now() - 300);
+      return { ok: recent.length === 1 && recent[0] !== srcA, recent };
+    }, opts.timeout + 2000, 20);
+    res.authorityMoveMs = Date.now() - t2;
+    const srcB = moved.recent && moved.recent[0];
+    const sa = await pa.eval(STATUS);
+    const sb = await pb.eval(STATUS);
+    res.primaryStepsBack = sa.holder === 'peer' && sb.holder === 'self' && sb.term > 0 && sa.peerBeat && sa.peerBeat.term === sb.term;
+    // Çakışma: iki kaynağın da gönderdiği süre (en çok bir atış + bir kare)
+    const both = hits.filter((h) => h.at >= t2 && h.at <= t2 + res.authorityMoveMs + 200);
+    const lastA = Math.max(0, ...both.filter((h) => h.src === srcA).map((h) => h.at));
+    const firstB = Math.min(Infinity, ...both.filter((h) => h.src === srcB).map((h) => h.at));
+    res.overlapMs = Number.isFinite(firstB) && lastA ? Math.max(0, lastA - firstB) : 0;
+    if (!moved.ok || !res.primaryStepsBack) throw new Error('authority did not move: ' + JSON.stringify({ moved, a: { holder: sa.holder, peerBeat: sa.peerBeat }, b: { holder: sb.holder, term: sb.term } }));
+    // 5. İki yönlü komut: birincilden (yetkisiz) gönderilen komut yedekte uygulanır
+    const ctl = await pa.eval("window.api.redundancyCtl({ action: 'tlPause' })");
+    res.ctlForwarded = !!(ctl && ctl.ok && ctl.remote && ctl.applied === 'backup');
+    // 3. Yetkideyken birincilde değişiklik; bırakınca yedek aynı
+    const want = await pa.eval(`(() => { const c = SVPanel.cfg(); const ids = window.SVModeCatalog.ids('visualizer').filter((x) => x !== c.visualizer.type && x !== 'none' && x !== 'milkdrop'); c.visualizer.type = ids[5] || ids[0]; c._activeSceneId = 'auth-rig'; SVPanel.apply(); return { vis: c.visualizer.type, scene: c._activeSceneId }; })()`);
+    await wait(400);
+    const stale = await pb.eval(SCENE);
+    res.backupKeptOwnWhileActive = stale.scene !== 'auth-rig';
+    const tr = Date.now();
+    await pb.eval('window.api.redundancyRelease()');
+    const resync = await until(async () => { const s = await pb.eval(SCENE); return Object.assign({ ok: s.vis === want.vis && s.scene === want.scene }, s); }, 3000, 25);
+    res.resyncMs = Date.now() - tr;
+    res.resynced = !!resync.ok && res.resyncMs <= 1000;
+    const back = await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && r[0] === srcA, r }; }, 3000, 20);
+    res.releaseReturnsOutputs = !!back.ok;
+    // 4. Korumalı geri verme
+    await pb.eval('window.api.redundancyTakeover()');
+    await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && r[0] === srcB }; }, 3000, 20);
+    /* Gösteriler farklıyken reddedilmeli: birincile yalnız orada olan bir
+       preset; karşılaştırma farkı bulunca geri verme "gösteriler aynı"
+       koşulunu adıyla söyler. Preset silinince koşul yeniden tutar. */
+    await pa.eval(`window.api.savePreset({ id: 'usr_hb_only', kind: 'visualizer', engine: 'shader', name: 'HB Only', controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(0.1); }' })`);
+    await pa.eval('window.api.redundancyCompare()');
+    await until(async () => { const s = await pb.eval(STATUS); return { ok: s.compare && s.compare.differences > 0 }; }, 10000, 100);
+    const early = await pb.eval("window.api.redundancyHandback('now')");
+    res.handbackRefusedEarly = !!(early && !early.ok && Array.isArray(early.failed) && early.failed.indexOf('show-differs') >= 0);
+    await pa.eval("window.api.deletePreset('usr_hb_only')");
+    await pa.eval('window.api.redundancyCompare()');
+    const ready = await until(async () => { const s = await pb.eval(STATUS); return { ok: Array.isArray(s.handbackFailed) && s.handbackFailed.length === 0, failed: s.handbackFailed }; }, 15000, 200);
+    if (!ready.ok) throw new Error('hand-back preconditions never met: ' + JSON.stringify(ready.failed));
+    const th = Date.now();
+    const hb = await pb.eval("window.api.redundancyHandback('now')");
+    const handed = await until(async () => { const r = sources(Date.now() - 250); const s = await pb.eval(STATUS); return { ok: r.length === 1 && r[0] === srcA && s.state === 'following', r, state: s.state }; }, 3000, 20);
+    res.handbackMs = Date.now() - th;
+    res.handback = !!(hb && hb.ok) && !!handed.ok;
+    const ta = await pa.eval(STATUS);
+    const tb = await pb.eval(STATUS);
+    res.handbackTerm = ta.term === tb.term && ta.holder === 'self';
+    // 6. Çitli açılış: yedek yetkide, birincil çöküp yeniden açılıyor
+    await pb.eval('window.api.redundancyTakeover()');
+    await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && r[0] === srcB }; }, 3000, 20);
+    pa.close(); pa = null;
+    killTree(A);
+    await wait(500);
+    const tf = Date.now();
+    A = launch(dirA, cdpA, ['--inspect=' + inA]);
+    pa = await connect(await adminPage(cdpA, 30000));
+    await mainEval(inA, METER);
+    await until(async () => ({ ok: await pa.eval('typeof window.SVPanel !== "undefined" && !!window.SVPanel.cfg') }), 20000, 100);
+    await until(async () => { const s = await pa.eval(STATUS); return { ok: s.peers > 0 && s.peerBeat && s.peerBeat.state === 'active' }; }, 15000, 50);
+    await wait(2500);
+    const fs2 = sources(tf);
+    const sa2 = await pa.eval(STATUS);
+    res.fencedRestartSilent = fs2.length === 1 && fs2[0] === srcB && sa2.holder === 'peer';
+    res.restartSenders = fs2;
+    const pass = res.followed && res.primaryStepsBack && res.authorityMoveMs <= opts.timeout + opts.beat + 500 && res.overlapMs <= opts.beat + 100 &&
+      res.ctlForwarded && res.backupKeptOwnWhileActive && res.resynced && res.releaseReturnsOutputs &&
+      res.handbackRefusedEarly && res.handback && res.handbackTerm && res.fencedRestartSilent;
+    res.pass = !!pass;
+  } catch (e) {
+    res.pass = false;
+    res.error = String(e.message || e);
+    res.logA = A.log.slice(-1500);
+    res.logB = B.log.slice(-1500);
+  } finally {
+    if (pa) pa.close();
+    if (pb) pb.close();
+    killTree(A);
+    killTree(B);
+    try { sock.close(); } catch { /* */ }
+    await wait(800);
+    for (const d of [dirA, dirB]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* kilitli */ } }
+  }
+  return res;
+}
+
 (async () => {
+  const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
+  if (only === 'authority') {
+    const r = await authorityScenario('output authority, hand-back, fenced restart', { beat: 100, timeout: 1500 });
+    say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));
+    if (!r.pass) say('  primary log: ' + (r.logA || '').replace(/\s+/g, ' ').slice(-800) + '\n  backup log: ' + (r.logB || '').replace(/\s+/g, ' ').slice(-800));
+    process.exit(r.pass ? 0 : 1);
+  }
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
     await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true, relaunch: true }),
     await scenario('manual takeover + show package', 'manual', { beat: 100, timeout: 1500, pkg: true, offSave: true }),
     await scenario('auto takeover with the local show, then role off', 'auto', { beat: 100, timeout: 1500, local: true }),
+    // Çıkış yetkisi, geri verme, çitli açılış (#814)
+    await authorityScenario('output authority, hand-back, fenced restart', { beat: 100, timeout: 1500 }),
   ];
   for (const r of runs) {
     say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));

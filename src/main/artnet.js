@@ -207,4 +207,65 @@ function status() {
   return Object.assign({}, state);
 }
 
-module.exports = { start, stop, send, status, buildChannels, buildPacket, ART_PORT };
+/* Yetki gidince (#814, `artnetOnLoss: 'zero'`): bir kez bütün kanalları
+   sıfır kare. Varsayılan 'hold': hiç yollanmaz, düğüm son kareyi tutar
+   (ışıklar yanıp sönmez). */
+function sendZero(cfg) {
+  if (!socket || !state.running || !cfg || !cfg.enabled) return false;
+  const n = buildChannels(cfg, {}).length || 3;
+  const packet = buildPacket(cfg, Buffer.alloc(n));
+  try { socket.send(packet, cfg.port | 0 || ART_PORT, cfg.host || '255.255.255.255', () => {}); } catch { return false; }
+  return true;
+}
+
+/* ArtDmx paketini çözer: Art-Net kimliği, işlem kodu ve evren. Değilse null. */
+function parseDmx(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 18) return null;
+  if (buf.toString('ascii', 0, 8) !== 'Art-Net\0') return null;
+  if (buf.readUInt16LE(8) !== OPCODE_DMX) return null;
+  return { universe: buf[14] | ((buf[15] & 0x7f) << 8), length: buf.readUInt16BE(16) };
+}
+
+/* ART-NET TANIĞI (#814). İki makine birbirini göremiyorsa (ağ bölündü) ikisi
+   de yetkiyi kendinde sanır. Bu dinleyici 6454'te, aynı evrene BAŞKA bir
+   adresten gelen ArtDmx'i görür: öteki makine hâlâ gönderiyordur. Yalnız
+   ipucu: düğüme tek adrese (unicast) giden kare buraya hiç gelmez. Bağlantı
+   noktası başka bir Art-Net uygulamasındaysa (ışık masası) sessizce açılmaz.
+   `own`: bu makinenin adresleri (kendi yayınımız sayılmaz). */
+function createWitness(opts) {
+  const o = Object.assign({ port: ART_PORT, windowMs: 2000 }, opts || {});
+  const seen = new Map(); // adres -> son görülme
+  let sock = null;
+  const st = { listening: false, error: '' };
+  const own = () => new Set(typeof o.own === 'function' ? o.own() : (o.own || []));
+  return {
+    start() {
+      if (sock) return;
+      sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
+      sock.on('error', (e) => { st.listening = false; st.error = (e && e.code) || 'error'; try { sock.close(); } catch { /* */ } sock = null; });
+      sock.on('message', (buf, rinfo) => {
+        const p = parseDmx(buf);
+        if (!p || p.universe !== ((typeof o.universe === 'function' ? o.universe() : o.universe) | 0)) return;
+        if (own().has(rinfo.address)) return;
+        seen.set(rinfo.address, Date.now());
+        if (o.onForeign) o.onForeign(rinfo.address);
+      });
+      try { sock.bind(o.port, () => { st.listening = true; st.error = ''; }); } catch (e) { st.error = (e && e.code) || 'error'; }
+    },
+    stop() {
+      if (sock) { try { sock.close(); } catch { /* */ } sock = null; }
+      st.listening = false;
+      seen.clear();
+    },
+    // Son `windowMs` içinde görülen yabancı kaynaklar
+    foreign(now) {
+      const t = now || Date.now();
+      const out = [];
+      for (const [a, at] of seen) if (t - at <= o.windowMs) out.push(a); else seen.delete(a);
+      return out;
+    },
+    status() { return Object.assign({}, st); },
+  };
+}
+
+module.exports = { start, stop, send, sendZero, status, buildChannels, buildPacket, parseDmx, createWitness, ART_PORT };

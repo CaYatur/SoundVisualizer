@@ -229,7 +229,10 @@
       reanchor();
     }
     tr = syncTransportFromAnchor();
-    if (tr.playing && tlOn) applyClipsAt(tr.time);
+    /* Yetki yedekteyse (#814) birincil karar vermez: taşıma akar, klipler
+       ve deste uygulanmaz; yetki geri gelince kaldığı yerden. */
+    const held = !!(window.SVRedundancyPanel && window.SVRedundancyPanel.steppedBack && window.SVRedundancyPanel.steppedBack());
+    if (tr.playing && tlOn && !held) applyClipsAt(tr.time);
     /* Oynatma kafasını görüş alanında tut. Yapılandırmada bu ayar vardı
        ama hiç uygulanmamıştı: oynatınca kafa sağdan çıkıp kayboluyor ve
        çizelge donmuş gibi görünüyordu. */
@@ -240,7 +243,7 @@
         full.timeline.scroll = Math.max(0, tr.time - span * 0.15);
       }
     }
-    if (deckOn && window.SVClipDeckPanel && window.SVClipDeckPanel.tick) {
+    if (deckOn && !held && window.SVClipDeckPanel && window.SVClipDeckPanel.tick) {
       window.SVClipDeckPanel.tick(tr.time, tr.tl.tempo);
     }
     pushAnchor(false);
