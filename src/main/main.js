@@ -205,15 +205,11 @@ function failAndQuit(code) {
    ile tanımlanan durum (instanceTimer, pendingPartials) henüz yok ve erişim
    ReferenceError atar (TDZ). Windows'ta köprünün ikinci kopyasında görüldü. */
 let mainLoaded = false;
+/* Kayıt defterinden çıkış app.exit()'ten ÖNCE: başarısız bir öz test de
+   kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
+   der. Yüklenmeden kapanışta temizlenecek bir şey yok; çıkış kodu geçerli. */
 app.on('will-quit', () => {
-  if (!mainLoaded) {
-    // Temizlenecek bir şey yok; çıkış kodu yine geçerli olsun
-    if (pendingExitCode) process.exit(pendingExitCode);
-    return;
-  }
-  /* Kayıt defterinden çıkış app.exit()'ten ÖNCE: başarısız bir öz test de
-     kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
-     der. */
+  if (!mainLoaded) { if (pendingExitCode) process.exit(pendingExitCode); return; }
   stopInstanceRegistry();
   /* Kapanırken yarıda kesilen dışa aktarımın dosyası da gitmeli. */
   flushPartialsSync(1500);
