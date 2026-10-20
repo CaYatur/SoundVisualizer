@@ -96,7 +96,7 @@ hands, and a row only moves up once it ships.
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
 | Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
-| Broadcast layout editor | v3.1.7 | Not started |
+| Broadcast layout editor | v3.1.7 | Done on `dev/v3.1.7` (#533): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
 | NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.2.0 | Not started |
 
@@ -133,7 +133,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3275 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3282 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3156,7 +3156,7 @@ expects.
 - **Now Playing in the panel preview and in exports (#638)** · done on `main`.
   - The Now Playing mode was not loaded on these two pages, so a Now Playing visualizer or layer drew nothing in the panel preview or in an exported video. The page check listed both as deliberate exceptions, saying the live system media information is missing there.
   - That reason held only half-way. The preview already receives the live information (`preview.js`, `SVNowLive`), and the manually entered source needs none. Both pages now load the mode, and the exceptions are gone.
-  - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope follows the wall clock, not the export clock, so "on change" timing in an export is approximate. "Always" is exact.
+  - **In exports** the live system source stays empty: an offline render has no system media session. Manual text works. Its visibility envelope followed the wall clock, not the export clock, so "on change" timing in an export was approximate; since #539 it follows the frame clock and is exact.
   - Checked in the app: a manual Now Playing visualizer shows its title and artist in the panel preview.
 - **Tempo changes on the ruler, lane height (#636)** · done on `main`.
   - **Bug fixed:** the header BPM edited only the first tempo entry and replaced the whole tempo list with that one entry, so tempo changes from an imported show file were silently deleted. The model always supported a tempo map; the panel did not.
@@ -3642,6 +3642,23 @@ v3.1.7 turns that from a set of templates into an editor.
 - Text styling presets, automatic track metadata, and per-element reveal
   animations.
 - Everything usable live and as an export preset.
+
+**Status:** all of the above is done on `dev/v3.1.7` (#534, #538, #536, #535,
+#537). Live and export parity (#539) is checked by `npm run parity`. It
+composites the same layer canvases through the live CSS path and the export
+canvas path, and compares the pictures pixel by pixel across 23 cases. The
+check and the review behind it found and fixed six differences:
+- The `add` blend was `screen` live but additive in export: 13.5% of pixels
+  were off by more than 8 levels.
+- The exporter never loaded the media layer, so a video background was
+  missing from the video. Each export frame now seeks the video to its own
+  time; a camera is a live source and stays empty, with a note in the export
+  panel.
+- The now-playing card's "on change" envelope followed the wall clock.
+- The exporter did not load the dictionary, so text placeholders stayed in
+  Turkish.
+- The export page's content policy blocked video.
+- A queued scene's video was refused by the media protocol.
 
 ## v3.1.8 — NDI output
 

@@ -161,6 +161,12 @@
       this._deviceId = '';
       this.scratch = null;
       this.sctx = null;
+      /* Çevrimdışı (dışa aktarım, #539): video kendiliğinden OYNAMAZ, her
+         kareden önce kare saatine sarılır (seekTo). Oynayan video işleme
+         hızına göre ilerlerdi; aynı iş iki kez farklı video verirdi.
+         Kamera canlı bir kaynak: çevrimdışında açılmaz, katman boş kalır. */
+      this.offline = typeof window !== 'undefined' && window.SV_OFFLINE === true;
+      this._loaded = null;
     }
 
     // Yapılandırma değiştiğinde kaynağı (yeniden) kurar. Aynı kaynak için
@@ -176,6 +182,25 @@
       if (!cfg.enabled) return;
 
       this.video.loop = cfg.loop !== false;
+      if (cfg.source === 'file' && this.offline) {
+        if (!cfg.file) return;
+        this.video.autoplay = false;
+        this.video.preload = 'auto';
+        this.video.srcObject = null;
+        this._loaded = new Promise((resolve) => {
+          const done = (ok) => { this.video.onloadeddata = null; this.video.onerror = null; resolve(ok); };
+          this.video.onloadeddata = () => {
+            if (this.key !== key) return done(false);
+            this.ready = true;
+            this.error = null;
+            done(true);
+          };
+          this.video.onerror = () => { this._fail(key, this.video.error); done(false); };
+        });
+        this.video.src = this._sourceUrl(cfg.file);
+        return;
+      }
+      if (this.offline) return;
       if (cfg.source === 'file') {
         if (!cfg.file) return;
         this.video.srcObject = null;
@@ -386,6 +411,7 @@
     stop() {
       this._stopRelay();
       this.ready = false;
+      this._loaded = null;
       this.error = null;
       if (this.stream) {
         this.stream.getTracks().forEach((t) => t.stop());
@@ -399,6 +425,30 @@
         this.video.load();
       } catch { /* öğe zaten temiz */ }
       this._publish();
+    }
+
+    /* Çevrimdışı: videoyu `sec` saniyesinin karesine getirir (döngüdeyse
+       süresine göre sarar, değilse son karede durur) ve kare çözülene kadar
+       bekler. Canlı oynatıcıda katman göründüğü anda başlıyor; dışa
+       aktarımda o an t = 0. */
+    async seekTo(sec) {
+      if (!this.offline || this._source !== 'file' || !this._loaded) return false;
+      const ok = await this._loaded;
+      if (!ok) return false;
+      const v = this.video;
+      const d = v.duration;
+      if (!(d > 0) || !isFinite(d)) return false;
+      const s = Math.max(0, Number(sec) || 0);
+      const target = v.loop ? s % d : Math.min(s, Math.max(0, d - 0.001));
+      if (Math.abs(v.currentTime - target) < 1e-6 && !v.seeking && v.readyState >= 2) return true;
+      return new Promise((resolve) => {
+        let timer = null;
+        const fin = (r) => { clearTimeout(timer); v.removeEventListener('seeked', onSeek); resolve(r); };
+        const onSeek = () => fin(true);
+        v.addEventListener('seeked', onSeek);
+        timer = setTimeout(() => fin(false), 5000);
+        v.currentTime = target;
+      });
     }
 
     hasFrame() {

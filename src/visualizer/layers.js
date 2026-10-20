@@ -35,9 +35,12 @@
     'color-dodge', 'color-burn', 'hard-light', 'soft-light',
     'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity',
   ];
-  // 'add' CSS'te yok; canvas'ta 'lighter'. Canlı yolda 'screen'e en yakın
-  // görsel karşılığıyla eşlenir (ikisi de aydınlatır).
-  const CSS_BLEND = (b) => (b === 'add' ? 'screen' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
+  /* 'add': canvas'ta 'lighter', CSS'te 'plus-lighter' (ikisi de toplayıp
+     kırpar). Canlı yol eskiden 'screen' kullanıyordu: dışa aktarım aynı
+     katmanı belirgin biçimde parlak veriyordu — eşlik ölçümünde (#539,
+     scripts/parity.js) piksellerin %13,5'i 8 düzeyden fazla, en çok 64
+     farklıydı. */
+  const CSS_BLEND = (b) => (b === 'add' ? 'plus-lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
   const CANVAS_BLEND = (b) => (b === 'add' ? 'lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'source-over');
 
   /* Açılış animasyonunun (#537) CSS karşılığı: tuval tam kare olduğundan
@@ -53,6 +56,17 @@
       s += ` translate(${ox}%, ${oy}%) scale(${r(rv.scale)}) translate(${r(-ox)}%, ${r(-oy)}%)`;
     }
     return s.trim();
+  }
+
+  /* Kırpma TAM PİKSELE oturur: kesirli kenar iki yolda farklı
+     yumuşatılıyordu (eşlik ölçümünde tek sütun, 100 düzeye kadar). */
+  function clipPx(c, W, H) {
+    return { x0: Math.round(c.x0 * W), y0: Math.round(c.y0 * H), x1: Math.round(c.x1 * W), y1: Math.round(c.y1 * H) };
+  }
+  function revealInset(c, W, H) {
+    const p = clipPx(c, W, H);
+    const pc = (v, d) => (d > 0 ? Math.round((v / d) * 1e6) / 1e4 : 0);
+    return `inset(${pc(p.y0, H)}% ${pc(W - p.x1, W)}% ${pc(H - p.y1, H)}% ${pc(p.x0, W)}%)`;
   }
 
   const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying'];
@@ -1888,7 +1902,7 @@
             ? `translate(${d.x * 100}%, ${d.y * 100}%) rotate(${d.rotate}deg) scale(${d.flipX ? -d.scale : d.scale}, ${d.flipY ? -d.scale : d.scale})`
             : '';
           e.canvas.style.transform = rv ? (base + ' ' + revealCss(rv)).trim() : base;
-          const clip = rv && rv.clip ? `inset(${rv.clip.y0 * 100}% ${(1 - rv.clip.x1) * 100}% ${(1 - rv.clip.y1) * 100}% ${rv.clip.x0 * 100}%)` : '';
+          const clip = rv && rv.clip ? revealInset(rv.clip, this.width, this.height) : '';
           if (e._clipCss !== clip) { e.canvas.style.clipPath = clip; e._clipCss = clip; }
           if (l.kind === 'background') {
             e.canvas.classList.toggle('sv-bgkey', !!(this.keyFilter && layerWantsKey(l, cfg)));
@@ -2176,7 +2190,11 @@
       return out;
     }
 
-    drawTo(ctx, audio, cfg, t, dt, drawLogo) {
+    /* `reuse`: katmanları yeniden çizmeden, tuvallerin o anki hâlini
+       birleştirir. Yalnız eşlik ölçümü (#539, scripts/parity.js) için:
+       canlı CSS birleştirmesiyle aynı kareyi bu yoldan da kurup piksel
+       piksel karşılaştırır; ikinci çizim durumlu modları ilerletirdi. */
+    drawTo(ctx, audio, cfg, t, dt, drawLogo, reuse) {
       const W = this.width;
       const H = this.height;
       ctx.save();
@@ -2200,7 +2218,7 @@
         const e = this.entries[i];
         if (this._covered(e, i, floor)) continue;
         const l = this._live(e, cfg);
-        this._drawEntry(e, audio, cfg, t, dt, l);
+        if (!reuse) this._drawEntry(e, audio, cfg, t, dt, l);
         const rv = this._reveal(e, l, cfg, t);
         if (!drawable(e.canvas)) continue;
 
@@ -2221,8 +2239,9 @@
           ctx.scale(d.flipX ? -d.scale : d.scale, d.flipY ? -d.scale : d.scale);
           ctx.translate(-W / 2, -H / 2);
           if (rv.clip) {
+            const c = clipPx(rv.clip, W, H);
             ctx.beginPath();
-            ctx.rect(rv.clip.x0 * W, rv.clip.y0 * H, (rv.clip.x1 - rv.clip.x0) * W, (rv.clip.y1 - rv.clip.y0) * H);
+            ctx.rect(c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0);
             ctx.clip();
           }
           ctx.translate(rv.dx * W, rv.dy * H);
