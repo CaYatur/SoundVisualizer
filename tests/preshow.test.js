@@ -72,9 +72,10 @@ test('sahnenin başvurduğu logo ve kullanıcı presetleri, kayıtlı sahneler d
 test('bağlantılar ve çeviriler', () => {
   const main = read('src/main/main.js');
   assert.match(main, /ipcMain\.handle\('preshow:check', \(\) => preshowCheck\(\)\);/);
-  assert.match(main, /outputFps\.set\(e\.sender\.id, \{ fps: data\.fps/, 'ilk pencere süzgecinden önce');
+  assert.match(main, /outputFps\.set\(e\.sender\.id, \{ fps: Number\(data\.fps\) \|\| 0, measuring:/, 'ilk pencere süzgecinden önce');
+  assert.ok(main.indexOf('outputFps.set(e.sender.id') < main.indexOf('const primary = meterWindow();'), 'ilk pencere süzgecinden önce');
   assert.match(main, /lastAudioFrameAt = Date\.now\(\); \/\/ gösteri öncesi denetim/);
-  assert.match(read('src/visualizer/visualizer.js'), /\n        fps: drawFps,\n        paused: lastSilent,/);
+  assert.match(read('src/visualizer/visualizer.js'), /\n        fps: fpsMeasured \? drawFps : null,\n        paused: lastSilent,/);
   assert.match(read('src/admin/index.html'), /<script src="preshow-panel\.js"><\/script>/);
   assert.match(read('src/admin/admin.js'), /case 'preshowpanel':/);
   const i18n = read('src/shared/i18n.js');

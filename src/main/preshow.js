@@ -18,47 +18,55 @@
    şey çıkışın hedef kare hızını TUTUP TUTMADIĞI. Hedef ekranın yenileme
    hızı (kare sınırı varsa o); %90'ın altı uyarı. */
 
+const Refs = require('../shared/preshow-refs');
+
 function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
 
 const MIN_FREE = 2 * 1024 * 1024 * 1024; // 2 GB: bir 1080p dışa aktarımın ara kopyası + video payı
 
-/* Sahnenin başvurduğu dosyalar ve kitaplık öğeleri (sahne + kayıtlı
-   sahneler): logo kitaplığı kimlikleri, kullanıcı preset kimlikleri. */
+/* Sahnenin başvurduğu kitaplık öğeleri (sahne + kayıtlı sahneler): logo
+   kitaplığı kimlikleri, kullanıcı preset kimlikleri. Yerleriyle birlikte
+   liste shared/preshow-refs.js `collect`'te. */
 function references(cfg) {
-  const logos = new Set();
-  const presets = new Set();
-  const visit = (c) => {
-    if (!c || typeof c !== 'object') return;
-    const lg = c.logo;
-    if (lg && lg.libraryId) logos.add(lg.libraryId);
-    if (lg && lg.swap && Array.isArray(lg.swap.items)) lg.swap.items.forEach((x) => typeof x === 'string' && logos.add(x));
-    const cu = c.custom || {};
-    [cu.visualizerId, cu.backgroundId].forEach((x) => { if (typeof x === 'string' && x) presets.add(x); });
-    (Array.isArray(c.layers) ? c.layers : []).forEach((l) => {
-      if (!l) return;
-      if (typeof l.presetId === 'string' && l.presetId) presets.add(l.presetId);
-      const ll = l.settings && l.settings.logo;
-      if (ll && ll.libraryId) logos.add(ll.libraryId);
-      if (ll && ll.swap && Array.isArray(ll.swap.items)) ll.swap.items.forEach((x) => typeof x === 'string' && logos.add(x));
-    });
+  const all = Refs.collect(cfg);
+  return {
+    logos: all.filter((r) => r.kind === 'logo').map((r) => r.id),
+    presets: all.filter((r) => r.kind === 'preset').map((r) => r.id),
   };
-  visit(cfg);
-  for (const sc of (cfg && Array.isArray(cfg.scenes) ? cfg.scenes : [])) visit(sc && sc.data);
-  // Yerleşik presetler koddan gelir; yalnız kullanıcı presetleri (usr_) denetlenir
-  return { logos: [...logos], presets: [...presets].filter((x) => /^usr_/.test(x)) };
+}
+
+/* Eski girdi biçimi { media: [ad], logos: [kimlik], presets: [kimlik] }:
+   yeri bilinmiyor, canlı sahnede sayılır. */
+function missingItems(m) {
+  if (Array.isArray(m)) return m;
+  const o = m || {};
+  const at = [{ scene: null, layer: null, field: '' }];
+  return [].concat(
+    (o.media || []).map((x) => ({ kind: 'media', id: x, name: x, reason: 'absent', where: at })),
+    (o.logos || []).map((x) => ({ kind: 'logo', id: x, reason: 'absent', where: at })),
+    (o.presets || []).map((x) => ({ kind: 'preset', id: x, reason: 'absent', where: at })),
+  );
 }
 
 /* Denetimler. Girdi:
-     displays: [{ id, label }], outputs: [{ displayId, fps, target, paused }]
+     displays: [{ id, label }]
+     outputs: [{ displayId, label, fps, target, hz, primaryHz, paused,
+                 measuring, stale }]
+       measuring — pencere ilk kare hızı ölçümünü henüz bitirmedi (ilk ~1 sn)
+       stale     — pencere açık ama ölçer iletisi kesildi: çizmiyor
+       hz / primaryHz — ekranın ve birincil ekranın yenileme hızı
      wantedDisplays: [id]   — ayarda çıkış için seçili ekranlar
      audio: { wanted, ageMs, level }
      redundancy: { role, state, peers, problem, show }
      disks: [{ label, free }]
-     missing: { media: [ad], logos: [ad], presets: [kimlik] } */
+     missing: [{ kind, id, name, path, reason, where }] (preshow-refs
+       `collect` kayıtları + neden); eski biçim de kabul edilir
+   Çıktıda bir denetim `items` (satır ayrıntısı) ve `hint` (düzeltme önerisi,
+   sabit çevrilebilir cümle) taşıyabilir. */
 function evaluate(input) {
   const o = input || {};
   const out = [];
-  const add = (id, state, text, parts) => out.push({ id, state, text, parts: parts || [] });
+  const add = (id, state, text, parts, extra) => out.push(Object.assign({ id, state, text, parts: parts || [] }, extra || {}));
 
   // --- Ekranlar ---
   const displays = Array.isArray(o.displays) ? o.displays : [];
@@ -73,16 +81,45 @@ function evaluate(input) {
   if (!outputs.length) {
     add('outputs', wanted.length ? 'warn' : 'info', 'Açık çıkış penceresi yok');
   } else {
-    let worst = null;
-    for (const w of outputs) {
-      if (w.paused) continue;
+    // Her çıkış kendi satırında: hangi ekran, kaç fps, hedef ne
+    const items = outputs.map((w) => {
+      const fps = num(w.fps, 0);
       const target = num(w.target, 60);
-      const ratio = target > 0 ? num(w.fps, 0) / target : 1;
-      if (!worst || ratio < worst.ratio) worst = { ratio, fps: num(w.fps, 0), target };
+      let state = 'ok';
+      if (w.stale) state = 'fail';
+      else if (w.measuring || w.paused) state = 'info';
+      else if (target > 0 && fps / target < 0.9) state = 'warn';
+      return {
+        label: w.label || String(w.displayId), fps: Math.round(fps), target: Math.round(target),
+        hz: num(w.hz, 0), state, measuring: !!w.measuring, paused: !!w.paused, stale: !!w.stale,
+      };
+    });
+    const rate = (it) => it.fps + ' / ' + it.target + ' fps';
+    const measured = items.filter((it) => it.state !== 'info');
+    const worst = measured.slice().sort((a, b) => (a.target ? a.fps / a.target : 1) - (b.target ? b.fps / b.target : 1))[0];
+    const extra = { items };
+    if (items.some((it) => it.stale)) {
+      add('outputs', 'fail', 'Bir çıkış çizmiyor: pencere küçültülmüş, örtülü ya da gizli olabilir',
+        items.filter((it) => it.stale).map((it) => it.label), extra);
+    } else if (worst && worst.state === 'warn') {
+      add('outputs', 'warn', 'Bir çıkış hedef kare hızının altında', [rate(worst)], extra);
+    } else if (worst) {
+      add('outputs', 'ok', 'Çıkışlar hedef kare hızında', [String(outputs.length), rate(worst)], extra);
+    } else if (items.some((it) => it.measuring)) {
+      add('outputs', 'info', 'Çıkışların kare hızı ölçülüyor', [], extra);
+    } else {
+      add('outputs', 'info', 'Çıkışlar sessizlikte duraklatılmış', [], extra);
     }
-    if (!worst) add('outputs', 'info', 'Çıkışlar sessizlikte duraklatılmış');
-    else if (worst.ratio < 0.9) add('outputs', 'warn', 'Bir çıkış hedef kare hızının altında', [Math.round(worst.fps) + ' / ' + Math.round(worst.target) + ' fps']);
-    else add('outputs', 'ok', 'Çıkışlar hedef kare hızında', [String(outputs.length), Math.round(worst.fps) + ' / ' + Math.round(worst.target) + ' fps']);
+    /* Ekran birincilden hızlıysa: Windows'ta Chromium her pencereyi
+       birincil ekranın dikey senkronuna bağlıyor (ölçüldü: 165 Hz ekran
+       75 Hz birincille 75 fps). Hedef doğru; kullanıcı ekranın hızını
+       bekliyor, nedeni burada. */
+    const capped = outputs.filter((w) => num(w.primaryHz, 0) > 0 && num(w.hz, 0) > num(w.primaryHz, 0) + 1);
+    if (capped.length) {
+      add('refresh', 'info', 'Windows uygulama pencerelerini birincil ekranın yenileme hızına bağlıyor',
+        capped.map((w) => (w.label || String(w.displayId)) + ': ' + Math.round(num(w.hz, 0)) + ' Hz → ' + Math.round(num(w.primaryHz, 0)) + ' fps'),
+        { hint: 'Daha yüksek kare hızı için bu ekranı Windows ekran ayarlarında ana ekran yapmayı deneyin. Birincil ekrandan yavaş ekranlar kendi hızlarında kalır.' });
+    }
   }
 
   // --- Ses ---
@@ -93,10 +130,19 @@ function evaluate(input) {
   else add('audio', 'ok', 'Ses geliyor');
 
   // --- Sahnenin dosyaları ---
-  const m = o.missing || {};
-  const nMissing = (m.media || []).length + (m.logos || []).length + (m.presets || []).length;
-  if (nMissing) add('files', 'fail', 'Sahnenin başvurduğu dosyalar eksik', [String(nMissing)].concat((m.media || []).concat(m.logos || [], m.presets || []).slice(0, 8)));
-  else add('files', 'ok', 'Sahnenin dosyaları yerinde');
+  /* Canlı sahnede eksik dosya gösteriyi bozar (hazır değil); yalnız kayıtlı
+     bir sahnede eksikse o sahne açılana kadar sorun yok (uyarı). Eskiden
+     eski bir deneme sahnesi bütün düzeni "hazır değil" yapıyordu. */
+  const missing = missingItems(o.missing);
+  const liveMissing = missing.filter((r) => Refs.live(r));
+  const short = (r) => r.name || r.id;
+  if (liveMissing.length) {
+    add('files', 'fail', 'Canlı sahnenin başvurduğu dosyalar eksik', [String(liveMissing.length)].concat(liveMissing.slice(0, 4).map(short)), { items: missing });
+  } else if (missing.length) {
+    add('files', 'warn', 'Kayıtlı sahnelerde eksik dosya var', [String(missing.length)].concat(missing.slice(0, 4).map(short)), { items: missing });
+  } else {
+    add('files', 'ok', 'Sahnenin dosyaları yerinde');
+  }
 
   // --- Yedeklilik ---
   const r = o.redundancy || {};
@@ -124,4 +170,4 @@ function evaluate(input) {
   return { overall: overall === 'info' ? 'ok' : overall, checks: out };
 }
 
-module.exports = { references, evaluate, MIN_FREE };
+module.exports = { references, evaluate, missingItems, MIN_FREE };

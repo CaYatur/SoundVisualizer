@@ -939,6 +939,7 @@ function createVisualizerWindow(display) {
   }
   const win = new BrowserWindow(opts);
   visualizerWins.set(display.id, win);
+  outputOpenedAt.set(win, Date.now()); // gösteri öncesi denetim: açılış payı
   notifyVisualizerStatus();
 
   win.loadFile(path.join(__dirname, '..', 'visualizer', 'index.html'));
@@ -2694,7 +2695,8 @@ ipcMain.handle('file:import-json', async (e, title) => {
     });
     if (r.canceled || !r.filePaths[0]) return { ok: false, canceled: true };
     const raw = fs.readFileSync(r.filePaths[0], 'utf-8');
-    return { ok: true, data: JSON.parse(raw) };
+    // Notepad/PowerShell BOM'u: JSON.parse ilk karakterde düşer
+    return { ok: true, data: JSON.parse(raw.replace(/^\uFEFF/, '')) };
   } catch (err) {
     return { ok: false, error: err.message };
   }
@@ -2751,7 +2753,10 @@ ipcMain.on('md-live', (e, mp) => {
 ipcMain.on('audio-meter', (e, data) => {
   noteMcpLive(data);
   // Gösteri öncesi denetim (#545): her çıkışın kare hızı, ilk pencere süzgecinden önce
-  if (data && Number.isFinite(data.fps)) outputFps.set(e.sender.id, { fps: data.fps, paused: !!data.paused, cap: Number(data.fpsCap) || 0, at: Date.now() });
+  // fps null: pencere ilk ölçümünü henüz bitirmedi (ilk saniye), 0 değil
+  if (data && (Number.isFinite(data.fps) || data.fps === null)) {
+    outputFps.set(e.sender.id, { fps: Number(data.fps) || 0, measuring: data.fps === null, paused: !!data.paused, cap: Number(data.fpsCap) || 0, at: Date.now() });
+  }
   if (data && Number.isFinite(data.level)) lastMeterLevel = data.level;
   if (data && typeof data === 'object') {
     if (Number.isFinite(data.level)) oscLive.level = data.level;
@@ -3682,7 +3687,12 @@ ipcMain.handle('redundancy:compare', () => { requestInventory(); return redundan
    sahnenin dosyaları, yedeklilik, disk.
    --------------------------------------------------------------------------- */
 const preshow = require('./preshow');
-const outputFps = new Map(); // webContents kimliği -> { fps, paused, cap, at }
+const PreshowRefs = require('../shared/preshow-refs');
+const outputFps = new Map(); // webContents kimliği -> { fps, measuring, paused, cap, at }
+const outputOpenedAt = new WeakMap(); // pencere -> açılış zamanı
+/* Son denetimin gösterdiği eksik dosya yolları: panel yalnız bunları
+   klasörde açtırabilir (IPC'den gelen keyfi yol açılmaz). */
+let preshowPaths = new Set();
 let lastAudioFrameAt = 0;
 let lastMeterLevel = 0;
 
@@ -3692,7 +3702,8 @@ function outputTarget(displayId, cap) {
   let hz = (d && d.displayFrequency) || 60;
   /* Windows'ta Chromium her pencereyi BİRİNCİL ekranın dikey senkronuna
      bağlıyor (ölçüldü: 165 Hz ekrandaki pencere 75 fps); hedef ikisinin
-     küçüğü. */
+     küçüğü. Kilidi kaldıran --disable-frame-rate-limit dikey senkronu da
+     bırakıyor (ölçüldü: 533–629 fps, kareler ekrana hizasız). */
   if (process.platform === 'win32') hz = Math.min(hz, screen.getPrimaryDisplay().displayFrequency || hz);
   return cap > 0 ? Math.min(cap, hz) : hz;
 }
@@ -3701,23 +3712,68 @@ function freeBytes(dir) {
   try { const st = fs.statfsSync(dir); return st.bavail * st.bsize; } catch { return Infinity; }
 }
 
+/* Eksik dosyalar, nedeni ve yeriyle. Preset için diskte dosyası varsa ama
+   okunamıyorsa (bozuk JSON) bu ayrı söylenir: çözüm başka.
+   `path` gösterilecek tam yol (var olmasa da: kullanıcı nerede aradığını
+   görsün); `reveal` açılabilecek VAR OLAN dosya ya da klasör, yoksa boş.
+   Logo kitaplığı klasörü verilmez: dosyalar orada kimlikle duruyor. */
+function preshowMissing(cfg) {
+  const libIds = new Set(logoLibrary.loadManifest(logoLibDir()).items.map((x) => x && x.id));
+  const out = [];
+  for (const r of PreshowRefs.collect(cfg)) {
+    if (r.kind === 'preset') {
+      if (presetsStore.get(r.id)) continue;
+      const file = path.join(presetsStore.dir(), String(r.id).replace(/[^A-Za-z0-9_-]/g, '') + '.json');
+      const exists = fs.existsSync(file);
+      out.push(Object.assign({}, r, {
+        name: r.id, reason: exists ? 'unreadable' : 'absent', path: exists ? file : '',
+        reveal: exists ? file : presetsStore.dir(), revealFile: exists,
+      }));
+    } else if (r.kind === 'logo') {
+      if (libIds.has(r.id)) continue;
+      out.push(Object.assign({}, r, { name: r.id, reason: 'absent', path: '', reveal: '', revealFile: false }));
+    } else {
+      const raw = mediaUrl.fromMediaUrl(r.id);
+      if (raw && fs.existsSync(raw)) continue;
+      const dir = raw ? path.dirname(raw) : '';
+      out.push(Object.assign({}, r, {
+        name: raw ? path.basename(raw) : String(r.id), reason: 'absent', path: raw || '',
+        reveal: dir && fs.existsSync(dir) ? dir : '', revealFile: false,
+      }));
+    }
+  }
+  return out;
+}
+
 async function preshowCheck() {
   const cfg = currentConfig || {};
-  const displays = screen.getAllDisplays().map((d) => ({ id: d.id, label: d.label || String(d.id) }));
+  const list = getDisplayList();
+  const displays = list.map((d) => ({ id: d.id, label: d.label }));
+  const primaryHz = (screen.getPrimaryDisplay().displayFrequency) || 0;
   const now = Date.now();
   const outputs = [];
   for (const [displayId, win] of visualizerWins) {
     if (!win || win.isDestroyed()) continue;
     const m = outputFps.get(win.webContents.id);
     const fresh = m && now - m.at < 3000;
-    outputs.push({ displayId, fps: fresh ? m.fps : 0, paused: fresh ? !!m.paused : false, target: outputTarget(displayId, fresh ? m.cap : 0) });
+    // Açılışın ilk 3 sn'si ölçüm payı; sonra ileti yoksa pencere çizmiyor
+    const young = now - (outputOpenedAt.get(win) || 0) < 3000;
+    const d = list.find((x) => String(x.id) === String(displayId));
+    outputs.push({
+      displayId,
+      label: d ? d.label : String(displayId),
+      fps: fresh ? m.fps : 0,
+      measuring: fresh ? !!m.measuring : young,
+      stale: !fresh && !young,
+      paused: fresh ? !!m.paused : false,
+      target: outputTarget(displayId, fresh ? m.cap : 0),
+      hz: d ? d.refreshRate : 0,
+      primaryHz: process.platform === 'win32' ? Math.round(primaryHz) : 0,
+    });
   }
   // Sahnenin başvurduğu dosyalar: video yolları, logo kitaplığı, kullanıcı presetleri
-  const refs = preshow.references(cfg);
-  const media = Object.keys(showMediaPaths(cfg)).filter((p) => !p || !fs.existsSync(p)).map((p) => path.basename(p));
-  const libIds = new Set(logoLibrary.loadManifest(logoLibDir()).items.map((x) => x && x.id));
-  const logos = refs.logos.filter((id) => !libIds.has(id));
-  const presets = refs.presets.filter((id) => !presetsStore.get(id));
+  const missing = preshowMissing(cfg);
+  preshowPaths = new Set(missing.map((x) => x.reveal).filter(Boolean));
   let exportDir = '';
   try { exportDir = app.getPath('videos'); } catch { exportDir = app.getPath('userData'); }
   const disks = [
@@ -3730,12 +3786,19 @@ async function preshowCheck() {
     wantedDisplays: (cfg.display && Array.isArray(cfg.display.ids)) ? cfg.display.ids : [],
     outputs,
     audio: { wanted: captureWanted(), ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
-    missing: { media, logos, presets },
+    missing,
     redundancy: redundancyStatus(),
     disks,
   });
 }
 ipcMain.handle('preshow:check', () => preshowCheck());
+// Eksik dosyayı/klasörü göster: yalnız son denetimin verdiği yollar
+ipcMain.handle('preshow:reveal', (e, p) => {
+  if (typeof p !== 'string' || !preshowPaths.has(p)) return false;
+  if (fs.existsSync(p) && fs.statSync(p).isFile()) shell.showItemInFolder(p);
+  else shell.openPath(p);
+  return true;
+});
 
 ipcMain.handle('redundancy:status', () => redundancyStatus());
 ipcMain.handle('redundancy:takeover', () => {

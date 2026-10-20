@@ -1749,6 +1749,27 @@ input[type="number"]::-webkit-inner-spin-button {
 .preshow-row.warn .preshow-icon { color: var(--warn-text); }
 .preshow-row.fail .preshow-icon { color: var(--danger-text); }
 .preshow-row.info .preshow-icon { color: var(--muted); }
+/* Ayrıntılı satır: tıklanınca açılır (çıkışlar, eksik dosyalar, yenileme) */
+.preshow-row.has-more { cursor: pointer; }
+.preshow-row.has-more:hover { background: var(--card2); }
+.preshow-row .preshow-more { margin-left: auto; }
+.preshow-detail-row { list-style: none; border-bottom: 1px solid var(--line); padding: 4px 0 8px 18px; }
+.preshow-detail { display: flex; flex-direction: column; gap: 8px; }
+.preshow-item { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--card2); padding: 8px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.preshow-item-head { font-size: 13px; color: var(--text-strong); }
+.preshow-kind { color: var(--muted); }
+.preshow-path { font-family: ui-monospace, Consolas, monospace; color: var(--muted); user-select: text; }
+.preshow-wheres { list-style: none; margin: 2px 0; padding: 0; }
+.preshow-where { padding: 1px 0; }
+.preshow-where .preshow-live { color: var(--danger-text); }
+.preshow-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.preshow-out { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 12px; }
+.preshow-out .preshow-icon .svi { width: 1em; height: 1em; }
+.preshow-out.ok .preshow-icon { color: var(--ok-text); }
+.preshow-out.warn .preshow-icon { color: var(--warn-text); }
+.preshow-out.fail .preshow-icon { color: var(--danger-text); }
+.preshow-out.info .preshow-icon { color: var(--muted); }
+.preshow-fix { font-size: 12px; }
 
 /* Logo değişimi görselleri (#535): küçük, seçilebilir kutucuklar */
 .swap-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }

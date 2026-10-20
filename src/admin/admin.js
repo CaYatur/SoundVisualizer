@@ -3596,7 +3596,7 @@
           },
           {
             type: 'note',
-            text: 'Ekranla Eşitle varsayılandır: kare hızı ekranınızdan otomatik gelir, elle ayarlamak gerekmez. Yenileme hızınızın tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapar. Panel önizlemesi ayrıca 45 FPS ile sınırlıdır; akıcılığı görselleştirici penceresinden değerlendirin.',
+            text: 'Ekranla Eşitle varsayılandır: kare hızı ekranınızdan otomatik gelir, elle ayarlamak gerekmez. Yenileme hızınızın tam böleni olmayan bir sınır (75 Hz ekranda 60 gibi) kare aralıklarını eşitsiz yapar. Panel önizlemesi ayrıca 45 FPS ile sınırlıdır; akıcılığı görselleştirici penceresinden değerlendirin. Windows\'ta pencereler birincil ekranın hızını aşamaz: 75 Hz birincille 165 Hz ekran 75 FPS çizer.',
           },
           {
             // Bulunan hız ayrı not: sözlükte kalıp olarak çevrilir
