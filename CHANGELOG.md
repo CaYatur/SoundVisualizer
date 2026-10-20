@@ -7,6 +7,15 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
 
+### Show category: a tidier layout and live redundancy statistics [816]
+
+- **One layout for both cards.** The Show category used a separate bordered box for every line, a status box with its icon pressed against the text, and long explanations stacked under each other. Both cards now use the audio bridge card's parts: a status pill, stat tiles, groups with one divider, and "?" help that opens over the card instead of pushing it down.
+- **Pre-Show Check:** the overall pill, "4 / 6 passed · 1 warning", the "?" help and "Check Now" sit on one line above the list.
+- **Redundancy, live statistics.** The tiles update once a second while the card is open, without redrawing it, so a field being typed in keeps its cursor.
+  - On the backup: time since the last beat (coloured against the loss limit), the longest gap (and the primary's own), the beat interval p95, jitter, missed beats (sequence gaps) and beats received, the clock offset with its sample count, and the time in the current state.
+  - On the primary: whether the backup is connected and what it is doing, how long it has been connected, the heartbeat interval and beats sent, this machine's longest send delay, and whether the shows match.
+- **Groups:** Status, Authority, Connection, Show Data, Show Package, Archives. Long lists (the primary's scenes, copied videos, package files, isolated and conflicting items, archives) are folded with their count in the title. The heartbeat and loss limit fields moved to the Advanced view.
+- **Manual takeover is no longer the glowing blue button.** On a following backup the most prominent control was "Take Over", in the primary blue style that glows on hover, and it took control at once without asking. It is now "Take Over Manually" in the warning tone, it says what it does, and it asks first; when the primary is still running it warns that you should only take over if the primary failed or for a rehearsal. "Release" also asks first.
 ### Redundancy overhaul, phase 1: isolated show, show package, scene parity [812, 816]
 
 - **Panel polish from the Windows test round.**

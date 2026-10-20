@@ -217,16 +217,45 @@
     return box;
   }
 
+  /* Üst satır (#816): genel durum hapı, kaç denetimin geçtiği, uyarı ve
+     hata sayısı, "Şimdi Denetle" ve "?" aynı satırda. Eskiden durum kutusu,
+     liste, düğme ve uzun bir açıklama alt alta diziliyordu. */
+  let helpOpen = false;
+  function header() {
+    const el = P().el;
+    const n = { ok: 0, warn: 0, fail: 0, info: 0 };
+    if (last) last.checks.forEach((c) => { n[c.state] = (n[c.state] || 0) + 1; });
+    const tone = !last ? 'off' : last.overall === 'ok' ? 'ok' : last.overall === 'fail' ? 'err' : 'warn';
+    const counts = el('span', { class: 'preshow-counts' });
+    if (last) {
+      counts.appendChild(user(n.ok + ' / ' + last.checks.length));
+      counts.appendChild(el('span', { text: ' ' }));
+      counts.appendChild(el('span', { text: 'tamam' }));
+      if (n.warn) { counts.appendChild(sep()); counts.appendChild(user(String(n.warn))); counts.appendChild(el('span', { text: ' ' })); counts.appendChild(el('span', { text: 'uyarı' })); }
+      if (n.fail) { counts.appendChild(sep()); counts.appendChild(user(String(n.fail))); counts.appendChild(el('span', { text: ' ' })); counts.appendChild(el('span', { text: 'hata' })); }
+    }
+    const help = el('details', { class: 'br-help red-help' }, [
+      el('summary', { 'aria-label': tr('Yardım'), title: tr('Yardım'), text: '?' }),
+      el('div', { class: 'br-help-body', text: 'Ekranlar, ses, çıkışların kare hızı, sahnenin dosyaları, yedek ve disk. Kare hızı ekran kartının payını gösterir: çıkış ekranın yenileme hızını (kare sınırı varsa onu) tutmuyorsa kart yetişmiyordur. Ayrıntısı olan satıra tıklayın.' }),
+    ]);
+    if (helpOpen) help.open = true;
+    help.addEventListener('toggle', () => { helpOpen = help.open; });
+    return el('div', { class: 'br-head preshow-head' }, [
+      el('div', { class: 'red-head-l' }, [
+        el('span', { class: 'br-pill ' + tone, role: 'status' }, [el('span', { class: 'br-dot' }), el('span', { text: last ? (OVERALL[last.overall] || OVERALL.ok) : 'Denetleniyor…' })]),
+        counts,
+        help,
+      ]),
+      el('button', { class: 'btn small', type: 'button', icon: 'refresh', text: 'Şimdi Denetle', onclick: () => run() }),
+    ]);
+  }
+
   function panel() {
     const el = P().el;
     ensureTimer();
     if (!last) run();
-    const nodes = [];
+    const nodes = [header()];
     if (last) {
-      nodes.push(el('div', { class: 'studio-status ' + (last.overall === 'ok' ? 'ok' : last.overall === 'fail' ? 'err' : ''), role: 'status' }, [
-        el('span', { icon: ICON[last.overall] || 'info' }),
-        el('span', { text: OVERALL[last.overall] || OVERALL.ok }),
-      ]));
       const list = el('ul', { class: 'preshow-list' });
       last.checks.forEach((c) => {
         const more = !!((c.items && c.items.length) || c.hint);
@@ -249,13 +278,7 @@
         if (isOpen) list.appendChild(el('li', { class: 'preshow-detail-row' }, [detail(c)]));
       });
       nodes.push(list);
-    } else {
-      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Denetleniyor…' }));
     }
-    nodes.push(el('div', { class: 'lay-file' }, [
-      el('button', { class: 'btn small', type: 'button', icon: 'refresh', text: 'Şimdi Denetle', onclick: () => run() }),
-    ]));
-    nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Ekranlar, ses, çıkışların kare hızı, sahnenin dosyaları, yedek ve disk. Kare hızı ekran kartının payını gösterir: çıkış ekranın yenileme hızını (kare sınırı varsa onu) tutmuyorsa kart yetişmiyordur. Ayrıntısı olan satıra tıklayın.' }));
     return el('div', { class: 'preshow-panel' }, nodes);
   }
 
