@@ -65,7 +65,8 @@
       return box;
     }
     if (status.role === 'primary') {
-      box.classList.add(status.peers ? 'ok' : '');
+      // classList.add('') hata fırlatır: yedek yokken bütün sayfa çizilemiyordu
+      if (status.peers) box.classList.add('ok');
       box.appendChild(el('span', { icon: status.peers ? 'check' : 'broadcast' }));
       box.appendChild(el('span', { text: status.peers ? 'Yedek bağlı' : 'Yedek bekleniyor' }));
       if (status.peerState === 'active') {
@@ -205,7 +206,7 @@
       ]));
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek izlerken sahne birincilden gelir; burada yapılan sahne değişikliği birincilin bir sonraki değişikliğiyle ezilir. Yetkiyi alan yedek, birincil geri gelse de "Yetkiyi Bırak" denene kadar yetkide kalır.' }));
     } else {
-      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
+      nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
       if (status.peers) nodes.push(showBox());
     }
     nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Aktarılan yalnız görüntü ve gösteri: sahne, katmanlar, kayıtlı sahneler, zaman çizelgesi, Clip Deck. Ses aygıtı, ekranlar, ağ, ışık ve dışa aktarım ayarları her makinenin kendisinde kalır. Video ve logo dosyaları iki makinede aynı yerde olmalı.' }));

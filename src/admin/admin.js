@@ -2618,6 +2618,10 @@
       desc: 'Görüntünün nereye ve nasıl gideceği: ekran, yayın, performans ve video dosyası.',
     },
     {
+      id: 'show', icon: 'check-circle', title: 'Gösteri',
+      desc: 'Gösterinin aksamadan sürmesi için: başlamadan önce denetim ve ikinci makineyle sıcak yedek.',
+    },
+    {
       id: 'control', icon: 'sliders', title: 'Kontrol',
       desc: 'MIDI denetleyicileri ve OSC ile ayarları canlı sürün.',
     },
@@ -3302,22 +3306,22 @@
         controls: [{ type: 'streampanel' }],
       },
       {
-        id: 'redundancy',
-        category: 'output',
-        icon: 'copy',
-        wide: true,
-        title: 'Yedeklilik',
-        desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
-        controls: [{ type: 'redundancypanel' }],
-      },
-      {
         id: 'preshow',
-        category: 'output',
+        category: 'show',
         icon: 'check',
         wide: true,
         title: 'Gösteri Öncesi Denetim',
         desc: 'Kapılar açılmadan tek bakışta: ekranlar, ses, çıkışların kare hızı, sahnenin dosyaları, yedek ve disk.',
         controls: [{ type: 'preshowpanel' }],
+      },
+      {
+        id: 'redundancy',
+        category: 'show',
+        icon: 'copy',
+        wide: true,
+        title: 'Yedeklilik',
+        desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
+        controls: [{ type: 'redundancypanel' }],
       },
       {
         id: 'timeline',
@@ -4484,8 +4488,16 @@
     const resettable = sections.some((s) => sectionShowsResetChrome(s) && countModified(sectionPaths(s)) > 0);
     $('catResetBtn').classList.toggle('hidden', !resettable);
 
+    /* Bir bölümün hatası yalnız o kartı düşürür: eskiden döngü kesiliyor,
+       altındaki bölümler ve düzen hiç çizilmiyordu. */
     sections.forEach((sec) => {
-      const card = buildCard(sec);
+      let card;
+      try {
+        card = buildCard(sec);
+      } catch (e) {
+        console.error('Bölüm çizilemedi:', sec.id, e);
+        card = brokenCard(sec);
+      }
       if (card) root.appendChild(card);
     });
 
@@ -4612,6 +4624,19 @@
   }
 
   // Tek bir kart: başlık + gruplanmış kontroller (+ gelişmiş)
+  function brokenCard(sec) {
+    return el('div', { class: 'card' + (sec.wide ? ' wide' : ''), 'data-card': sec.id }, [
+      el('div', { class: 'card-head' }, [
+        el('span', { class: 'ico', icon: sec.icon }),
+        el('div', { class: 'ch-main' }, [el('h3', { text: tr(sec.title) })]),
+      ]),
+      el('div', { class: 'studio-status err', role: 'alert' }, [
+        el('span', { icon: 'x' }),
+        el('span', { text: tr('Bu bölüm çizilemedi. Öteki bölümler çalışıyor; ayrıntı geliştirici konsolunda.') }),
+      ]),
+    ]);
+  }
+
   function buildCard(sec) {
     const visible = sec.controls.filter((def) => !def.show || def.show());
     // tail: eylem panelleri (ör. dışa aktarma düğmesi) en sona, gelişmiş bloğun
