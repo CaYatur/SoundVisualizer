@@ -12,7 +12,8 @@ const path = require('path');
 const EM = require('../src/main/export-media.js');
 
 const root = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+// Windows CI CRLF ile çekiyor: satır sonları birleştirilir
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
 
 test('dışa aktarıma girecek video dosyaları: yığında açık medya katmanları, katmansız kipte medya bölümü', () => {
   const stack = {
