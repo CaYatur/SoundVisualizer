@@ -79,26 +79,51 @@
   }
   function grid(nodes) { return el('div', { class: 'br-grid' }, nodes.filter(Boolean)); }
 
-  // '?' yardımı: kısa açıklama tıklayınca açılır
-  function help(text) {
-    return el('details', { class: 'br-help' }, [
-      el('summary', { 'aria-label': tr('Yardım'), title: tr('Yardım'), text: '?' }),
-      el('div', { class: 'br-help-body', text }),
-    ]);
+  /* '?' yardımı (#813). Açık olanlar metniyle burada tutulur: kart her
+     saniye yeniden çizildiğinde açık yardım AÇIK kalır (önceden yeni çizim
+     onu kapalı başlatıyordu, tıklar tıklamaz kapanıyor gibiydi). Açar/kapar:
+     aynı düğmeye ikinci tık; kapatır: dışarı tık ya da Esc. Düğme odaklanabilir,
+     Enter/Boşluk da çalışır. */
+  const openHelp = new Set();
+  let docWired = false;
+  function syncHelp(root) {
+    const r = root || document;
+    if (!r.querySelectorAll) return;
+    r.querySelectorAll('.br-help-body[data-help-key]').forEach((b) => { b.hidden = !openHelp.has(b.getAttribute('data-help-key')); });
+    r.querySelectorAll('.br-q[data-help-key]').forEach((q) => {
+      const on = openHelp.has(q.getAttribute('data-help-key'));
+      q.setAttribute('aria-expanded', on ? 'true' : 'false');
+      q.classList.toggle('on', on);
+    });
   }
-
-  // Etiketin yanındaki '?' ve satırın altındaki açıklama (gizli başlar)
-  function helpBody(text) { return el('div', { class: 'br-help-body', hidden: true, text }); }
+  function closeAllHelp() { if (!openHelp.size) return; openHelp.clear(); syncHelp(); }
+  function wireDoc() {
+    if (docWired || typeof document === 'undefined' || !document.addEventListener) return;
+    docWired = true;
+    document.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && (t.closest('.br-q') || t.closest('.br-help-body'))) return;
+      closeAllHelp();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllHelp(); });
+  }
+  function helpBody(text) {
+    return el('div', { class: 'br-help-body', hidden: !openHelp.has(text), 'data-help-key': text, text });
+  }
   function helpButton(body) {
-    const b = el('button', { class: 'br-q', type: 'button', 'aria-label': tr('Yardım'), 'aria-expanded': 'false', title: tr('Yardım'), text: '?' });
+    wireDoc();
+    const key = body && body.getAttribute ? body.getAttribute('data-help-key') : '';
+    const on = openHelp.has(key);
+    const b = el('button', { class: 'br-q' + (on ? ' on' : ''), type: 'button', 'aria-label': tr('Yardım'), 'aria-expanded': on ? 'true' : 'false', title: tr('Yardım'), 'data-help-key': key, text: '?' });
     b.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
-      body.hidden = !body.hidden;
+      if (openHelp.has(key)) openHelp.delete(key); else openHelp.add(key);
+      body.hidden = !openHelp.has(key);
       b.setAttribute('aria-expanded', body.hidden ? 'false' : 'true');
       b.classList.toggle('on', !body.hidden);
     });
     return b;
   }
 
-  window.SVBridgeView = { el, ms, pct, pill, tile, meter, levelTile, bandsTile, analysisTiles, grid, help, helpBody, helpButton };
+  window.SVBridgeView = { el, ms, pct, pill, tile, meter, levelTile, bandsTile, analysisTiles, grid, helpBody, helpButton, closeAllHelp, _openHelp: openHelp };
 })();
