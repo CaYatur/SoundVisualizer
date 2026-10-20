@@ -555,7 +555,7 @@
   const NP_ANIM_LABELS = [
     ['none', 'Yok'], ['fade', 'Belirme'], ['slideUp', 'Yukarı Kayma'],
     ['slideLeft', 'Yana Kayma'], ['scale', 'Büyüme'],
-    ['typewriter', 'Daktilo'], ['wipe', 'Perde'],
+    ['typewriter', 'Daktilo'], ['wipe', 'Silme'],
   ];
   const TEXT_ANIM_LABELS = NP_ANIM_LABELS.slice(0, 5);
   const ALIGN_LABELS = [['left', 'Sola'], ['center', 'Ortaya'], ['right', 'Sağa']];

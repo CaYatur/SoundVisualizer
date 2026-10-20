@@ -40,6 +40,21 @@
   const CSS_BLEND = (b) => (b === 'add' ? 'screen' : BLEND_MODES.indexOf(b) >= 0 ? b : 'normal');
   const CANVAS_BLEND = (b) => (b === 'add' ? 'lighter' : BLEND_MODES.indexOf(b) >= 0 ? b : 'source-over');
 
+  /* Açılış animasyonunun (#537) CSS karşılığı: tuval tam kare olduğundan
+     yüzde karenin oranı. Büyüme öğenin kutusunun merkezinde; dönüşüm
+     merkezi tuvalin ortası, fark öteleme ile kapatılır. */
+  function revealCss(rv) {
+    const r = (v) => Math.round(v * 10000) / 10000 || 0;
+    let s = '';
+    if (rv.dx || rv.dy) s += `translate(${r(rv.dx * 100)}%, ${r(rv.dy * 100)}%)`;
+    if (rv.scale !== 1) {
+      const ox = r((rv.cx - 0.5) * 100);
+      const oy = r((rv.cy - 0.5) * 100);
+      s += ` translate(${ox}%, ${oy}%) scale(${r(rv.scale)}) translate(${r(-ox)}%, ${r(-oy)}%)`;
+    }
+    return s.trim();
+  }
+
   const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying'];
 
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
@@ -1561,6 +1576,8 @@
         if (src.opacity !== undefined) e._liveCache.opacity = src.opacity;
         if (src.settings) e._liveCache.settings = src.settings;
         if (src.enabled !== undefined) e._liveCache.enabled = src.enabled;
+        // Açılış animasyonu (#537): kaldırılınca da önbellekten düşsün
+        e._liveCache.reveal = src.reveal;
         return e._liveCache;
       }
       e._liveSrc = src;
@@ -1589,6 +1606,36 @@
       return d.scale !== 1 || d.rotate !== 0 || d.x !== 0 || d.y !== 0 || d.flipX || d.flipY;
     }
 
+    /* AÇILIŞ ANİMASYONU (#537): bu karede öğenin hâli ya da null (yok ya da
+       bitti). Saat öğenin ilk çizildiği an; ayar değişince ya da
+       `cfg.revealReplay` sayacı artınca baştan, zaman geri sarınca da
+       (dışa aktarım t = 0'dan başlar). Kutu çizicinin bir önceki karede
+       bildirdiği yerleşim kutusu: kırpma ve büyüme merkezi öğeye göre. */
+    _reveal(e, l, cfg, t) {
+      const R = typeof window !== 'undefined' ? window.SVReveal : null;
+      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      if (!spec) { e._rv = null; e._revealDone = true; return null; }
+      const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
+      if (!e._rv || e._rv.sig !== sig || t < e._rv.t0) {
+        e._rv = { t0: t, sig };
+        e._revealDone = false;
+      }
+      const box = (e.mode && e.mode.layoutBounds) || e.layoutBounds || null;
+      const f = R.frame(spec, t - e._rv.t0, box, this.height > 0 ? this.width / this.height : 0);
+      e._revealDone = f.done;
+      return f.done ? null : f;
+    }
+
+    // Açılışı bitmemiş katman: altını örtemez (saydam ya da kırpılı)
+    _revealPending(e, l, cfg) {
+      const R = typeof window !== 'undefined' ? window.SVReveal : null;
+      const spec = R ? R.specOf(l, cfg, stackOn(cfg)) : null;
+      if (!spec) return false;
+      // Ayar bu karede değiştiyse çizim saati baştan alacak: daha bitmedi
+      const sig = R.sig(spec) + '|' + ((cfg && cfg.revealReplay) || 0);
+      return !e._rv || e._rv.sig !== sig || e._revealDone !== true;
+    }
+
     /* ÖRTÜLEN KATMANLAR ÇİZİLMİYOR (#560, madde 8).
 
        Katmansız kipte MilkDrop seçilince arkaplan yine kuruluyor ve her
@@ -1614,6 +1661,7 @@
         if (l.mask && l.mask.type && l.mask.type !== 'none') continue;
         if (Array.isArray(l.postfx) && l.postfx.some((f) => f && f.enabled !== false)) continue;
         if (l.kind === 'visualizer' && !(audio && audio.ready)) continue;
+        if (this._revealPending(e, l, cfg)) continue;
         const d = this._dynamics(l, audio, cfg);
         if (d.opacity < 1 || this._hasTransform(d)) continue;
         if (e.mode.covers()) return i;
@@ -1830,10 +1878,18 @@
 
         if (this.container && e.canvas) {
           const d = this._dynamics(l, audio, cfg);
-          e.canvas.style.opacity = d.opacity === 1 ? '' : d.opacity.toFixed(3);
-          e.canvas.style.transform = this._hasTransform(d)
+          const rv = this._reveal(e, l, cfg, t);
+          const op = rv ? d.opacity * rv.alpha : d.opacity;
+          e.canvas.style.opacity = op === 1 ? '' : op.toFixed(3);
+          /* Açılış dönüşümü katmanın dönüşümünün İÇİNDE (tuvalin kendi
+             koordinatında): drawTo ile aynı sıra. Kırpma da tuvalin kendi
+             kutusunda, dönüşümden önce. */
+          const base = this._hasTransform(d)
             ? `translate(${d.x * 100}%, ${d.y * 100}%) rotate(${d.rotate}deg) scale(${d.flipX ? -d.scale : d.scale}, ${d.flipY ? -d.scale : d.scale})`
             : '';
+          e.canvas.style.transform = rv ? (base + ' ' + revealCss(rv)).trim() : base;
+          const clip = rv && rv.clip ? `inset(${rv.clip.y0 * 100}% ${(1 - rv.clip.x1) * 100}% ${(1 - rv.clip.y1) * 100}% ${rv.clip.x0 * 100}%)` : '';
+          if (e._clipCss !== clip) { e.canvas.style.clipPath = clip; e._clipCss = clip; }
           if (l.kind === 'background') {
             e.canvas.classList.toggle('sv-bgkey', !!(this.keyFilter && layerWantsKey(l, cfg)));
           }
@@ -2145,17 +2201,38 @@
         if (this._covered(e, i, floor)) continue;
         const l = this._live(e, cfg);
         this._drawEntry(e, audio, cfg, t, dt, l);
+        const rv = this._reveal(e, l, cfg, t);
         if (!drawable(e.canvas)) continue;
 
         const d = this._dynamics(l, audio, cfg);
+        if (rv && !(rv.alpha > 0)) continue;
         ctx.save();
         ctx.globalCompositeOperation = CANVAS_BLEND(l.blend);
-        ctx.globalAlpha = d.opacity;
+        ctx.globalAlpha = rv ? d.opacity * rv.alpha : d.opacity;
         /* Tek yüzey yolunda (efekt zinciri, sahne geçişi) katman tuvalleri
            gizli, CSS süzgeci onlara ulaşmıyor: arkaplanın koyu yerleri burada,
            çizerken saydamlaşıyor — aynı süzgeç, aynı görüntü. */
         if (this.keyFilter && layerWantsKey(l, cfg)) ctx.filter = this.keyFilter;
-        if (this._hasTransform(d)) {
+        if (rv) {
+          /* Açılış (#537): katman dönüşümü, ardından tuvalin kendi
+             koordinatında kayma/büyüme ve kırpma — CSS yolundaki sıra. */
+          ctx.translate(W / 2 + d.x * W, H / 2 + d.y * H);
+          ctx.rotate((d.rotate * Math.PI) / 180);
+          ctx.scale(d.flipX ? -d.scale : d.scale, d.flipY ? -d.scale : d.scale);
+          ctx.translate(-W / 2, -H / 2);
+          if (rv.clip) {
+            ctx.beginPath();
+            ctx.rect(rv.clip.x0 * W, rv.clip.y0 * H, (rv.clip.x1 - rv.clip.x0) * W, (rv.clip.y1 - rv.clip.y0) * H);
+            ctx.clip();
+          }
+          ctx.translate(rv.dx * W, rv.dy * H);
+          if (rv.scale !== 1) {
+            ctx.translate(rv.cx * W, rv.cy * H);
+            ctx.scale(rv.scale, rv.scale);
+            ctx.translate(-rv.cx * W, -rv.cy * H);
+          }
+          ctx.drawImage(e.canvas, 0, 0, W, H);
+        } else if (this._hasTransform(d)) {
           ctx.translate(W / 2 + d.x * W, H / 2 + d.y * H);
           ctx.rotate((d.rotate * Math.PI) / 180);
           ctx.scale(d.flipX ? -d.scale : d.scale, d.flipY ? -d.scale : d.scale);

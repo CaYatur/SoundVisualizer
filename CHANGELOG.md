@@ -10,6 +10,22 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Reveal animations per element [537].** In the Layout Editor every element can arrive at the
+  start of the video with a fade, a slide (up, down, left or right), a zoom or a wipe. Each has
+  its own duration, delay and easing, so the elements do not all land at once.
+  - "Stagger" gives the elements rising delays in list order. "Play Reveal" plays them again
+    live.
+  - Reveals are applied where the layers are composited, so the live output, the overlay and
+    video export use the same calculation. In export the clock starts at frame 0.
+  - An element plays its reveal when it first appears: at the start of an export, when a scene
+    loads, or after "Play Reveal". An element that stays across a scene change does not play
+    again. The text and now-playing entrance that plays on a content change still plays; the
+    reveal is applied once on top of it.
+  - While a layer is still revealing, it no longer hides the layers beneath it.
+  - Layout files carry the reveal. An older file leaves the existing reveal as it is.
+  - Fixed: without the layer stack, a logo dragged in the Layout Editor jumped back. The
+    position was written to a copy that was rebuilt on the next update.
+  - Fixed: in English the "wipe" entrance of text and the now-playing card was labelled "Pitch".
 - **Logo swapping [535].** A logo layer can cycle through images picked from the logo library:
   every N seconds, every N bars, on a bass hit or at random intervals. It crossfades or cuts,
   and it is off by default.
