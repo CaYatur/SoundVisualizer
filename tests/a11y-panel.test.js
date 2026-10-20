@@ -54,7 +54,8 @@ test('öz test adsız denetimi ve görünmeyen odağı FAIL sayıyor', () => {
   const m = read('src/main/main.js');
   const i = m.indexOf('Erişilebilirlik (#777)');
   assert.ok(i > 0, 'öz test adımı');
-  const step = m.slice(i, i + 7000);
+  // Adımın sonu: dolu panelin geri alınması (adım büyüdükçe kesit kaymasın)
+  const step = m.slice(i, m.indexOf('Dolu panel eski hâline', i));
   assert.match(step, /Accessibility\.getFullAXTree/);
   assert.match(step, /Input\.dispatchKeyEvent', \{ type: 'keyDown', key: 'Tab'/);
   assert.match(step, /control\(s\) without an accessible name/);
