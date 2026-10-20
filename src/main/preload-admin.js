@@ -193,6 +193,10 @@ contextBridge.exposeInMainWorld('api', {
   redundancyHandback: (at) => ipcRenderer.invoke('redundancy:handback', at),
   redundancyCtl: (req) => ipcRenderer.invoke('redundancy:ctl', req),
   redundancyMonitor: (on) => ipcRenderer.invoke('redundancy:monitor', on),
+  // Vuruş eşlemesi ve kopyalanmış videolar (#815)
+  reportRedTempo: (t) => ipcRenderer.send('redundancy:tempo', t),
+  onRedundancyTempo: (cb) => ipcRenderer.on('redundancy-tempo', (e, d) => cb(d)),
+  redundancyRemoveVideos: () => ipcRenderer.invoke('redundancy:remove-videos'),
   onRedundancyCtl: (cb) => ipcRenderer.on('redundancy-ctl', (e, d) => cb(d)),
   onRedundancyMonitor: (cb) => ipcRenderer.on('redundancy-monitor', (e, d) => cb(d)),
   redundancyRestoreArchive: (name) => ipcRenderer.invoke('redundancy:restore-archive', name),

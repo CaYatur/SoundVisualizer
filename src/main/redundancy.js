@@ -52,6 +52,10 @@ const DEFAULTS = {
   handbackAt: 'scene',
   // Art-Net tanığı: ağda başka bir kaynaktan aynı evrene gelen kareyi dinle
   artnetWitness: true,
+  // Devralma ve iki yönetici alarmında ses (#815); canlı mekânda dinleti karışımına sızmasın: kapalı
+  alarmSound: false,
+  // İzleyen yedek birincilin tempo ızgarasını kullanır (#815): iki makine aynı vuruşta
+  phaseLock: true,
 };
 const MIN_SECRET = 16;
 
@@ -73,15 +77,20 @@ function normalize(c) {
   if (s.artnetOnLoss !== 'zero') s.artnetOnLoss = 'hold';
   if (HANDBACK_AT.indexOf(s.handbackAt) < 0) s.handbackAt = 'scene';
   s.artnetWitness = s.artnetWitness !== false;
+  s.alarmSound = s.alarmSound === true;
+  s.phaseLock = s.phaseLock !== false;
   return s;
 }
+
+// Bağlantıyı kurdurmayan ayarlar: değişince yalnız yetki/kapı yeniden hesaplanır
+const SOFT_KEYS = ['takeoverData', 'outputs', 'artnetOnLoss', 'handbackAt', 'artnetWitness', 'alarmSound', 'phaseLock'];
 
 /* Bağlantıyı yeniden kurmayı gerektiren ayarların imzası. Devralma verisi
    (#812) yalnız devralma anında okunur: değiştirmek bağlantıyı koparmasın. */
 function linkSig(c) {
   const s = normalize(c);
   // Bağlantıyı etkilemeyenler (#812, #814): değişince bağlantı kopmasın
-  for (const k of ['takeoverData', 'outputs', 'artnetOnLoss', 'handbackAt', 'artnetWitness']) delete s[k];
+  for (const k of SOFT_KEYS) delete s[k];
   return JSON.stringify(s);
 }
 
@@ -550,7 +559,7 @@ function peerUrlHmac(c) {
 }
 
 module.exports = {
-  DEFAULTS, MIN_SECRET, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
+  DEFAULTS, MIN_SECRET, SOFT_KEYS, normalize, linkSig, showSource, localFollow, mdParity, problem, createFollower,
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, peerUrlHmac, createClient,
   authority, GATED, outputModes, gates, secretTag, createTermStore, splitBrain,
   HANDBACK_MIN_ALIVE_MS, HANDBACK_MIN_SAMPLES, HANDBACK_AT, handbackCheck, handbackDue,

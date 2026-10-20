@@ -127,7 +127,7 @@
   /* Ayardaki gizli değerler: yayın ve kumanda jetonları. Okuma ve dosyaya
      yazma aynı yardımcıdan geçer; eskiden `sv_get_config` gizliyor,
      `sv_export_json` ham ayarı diske yazıyordu. */
-  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['redundancy', 'secret'], ['bridge', 'secret']];
+  const SECRET_PATHS = [['stream', 'token'], ['stream', 'remoteToken'], ['stream', 'fallbackUrls'], ['redundancy', 'secret'], ['bridge', 'secret']];
   function redactSecrets(cfg) {
     for (const p of SECRET_PATHS) {
       const sec = cfg && cfg[p[0]];

@@ -16,6 +16,15 @@
   const gain = ctx.createGain();
   gain.connect(ctx.destination);
   const sched = core.createScheduler({ latency: 0.12 });
+  let latencyMs = 120;
+  // Duvar saati (ms) → bağlam zamanı: çıkışın şu an çaldığı anın eşlemesi
+  function ctxTimeFor(wallMs) {
+    const ts = typeof ctx.getOutputTimestamp === 'function' ? ctx.getOutputTimestamp() : null;
+    if (ts && Number.isFinite(ts.contextTime) && Number.isFinite(ts.performanceTime) && ts.performanceTime > 0) {
+      return ts.contextTime + ((wallMs - performance.timeOrigin) - ts.performanceTime) / 1000;
+    }
+    return ctx.currentTime + (wallMs - Date.now()) / 1000;
+  }
   let inputRate = 0;
   let sinkError = '';
   let device = '';
@@ -33,6 +42,7 @@
     if (!c) return;
     gain.gain.value = Math.max(0, Math.min(1, Number(c.volume)));
     sched.setLatency((Number(c.latencyMs) || 120) / 1000);
+    latencyMs = Number(c.latencyMs) || 120;
     setDevice(c.device);
   });
 
@@ -44,7 +54,10 @@
     if (!n) return;
     inputRate = m.sampleRate;
     const dur = n / m.sampleRate;
-    const at = sched.place(ctx.currentTime, dur);
+    /* Ortak saate kilitli (#815): damga (bu makinenin duvar saati, ms) +
+       gecikme, çıkışın zaman damgasıyla bağlam zamanına çevrilir; iki alıcı
+       aynı anda çalar. Damga yoksa (eski köprü) önceki gibi arka arkaya. */
+    const at = Number.isFinite(m.localT) ? sched.placeAt(ctx.currentTime, dur, ctxTimeFor(m.localT + latencyMs)) : sched.place(ctx.currentTime, dur);
     if (at == null) return;
     const buf = ctx.createBuffer(chans.length, n, m.sampleRate);
     chans.forEach((d, i) => buf.copyToChannel(d, i));
@@ -70,6 +83,7 @@
     const s = sched.status();
     B.status({
       state: ctx.state, bufferedMs: sched.buffered(ctx.currentTime) * 1000, underruns: s.underruns, dropped: s.dropped, trimmed: s.trimmed,
+      alignMs: s.alignMs == null ? null : s.alignMs, late: s.late || 0, early: s.early || 0,
       chunks: s.chunks, rate: ctx.sampleRate, inputRate, sinkError,
       outputLatencyMs: Number.isFinite(ctx.outputLatency) ? ctx.outputLatency * 1000 : null,
     });

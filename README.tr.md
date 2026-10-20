@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3473%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3483%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -205,6 +205,7 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
 - [MCP — bir yapay zekâ ajanıyla kontrol](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - [Yönetici paneli](#yönetici-paneli)
 - [Güvenilirlik, güç ve güncellemeler](#güvenilirlik-güç-ve-güncellemeler)
+- [Gösteri güvencesi: gösteri öncesi denetim, yedeklilik ve ses köprüsü](#gösteri-güvencesi-gösteri-öncesi-denetim-yedeklilik-ve-ses-köprüsü)
 - [Gizlilik ve güvenlik](#gizlilik-ve-güvenlik)
 
 ---
@@ -1191,6 +1192,35 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 
 ---
 
+### Gösteri güvencesi: gösteri öncesi denetim, yedeklilik ve ses köprüsü
+
+- <kbd>3.1.6</kbd> **Gösteri Öncesi Denetim** (Gösteri kategorisi) — ekranlar, ses, her çıkışın kare
+  hızı ve yenileme hızı, sahnenin kullandığı dosyalar (nerede kullanıldığı ve düzeltmesiyle), yedek,
+  yetki ve disk; 3 saniyede bir yenilenir.
+- <kbd>3.1.6</kbd> **İki makineyle sıcak yedek** — yedek aynı görüntüyü sürekli çizer; birincilin
+  süreci ölünce ~0,4–0,5 sn'de, takılır ya da ağ koparsa kayıp eşiğinde (1,5 sn) yetkiyi alır. Ekran
+  kararmaz; seyirciye gideni görüntü anahtarlayıcısı seçer.
+  - Yedek kendi gösterisini korur: birincilin kopyası ayrı alanda, presetler ve logolar tek tek
+    alınır; sürümlü **gösteri paketi** presetleri, logoları ve (işaretlerseniz) videoları parça
+    parça, özetle denetleyerek, kopunca sürerek ve yerine koymadan önce doğrulayarak kopyalar.
+  - **Işık ve OSC'yi yalnız yetkideki makine sürer** (Art-Net, OSC çıkışı, OpenRGB, Dynamic
+    Lighting); yeniden açılışta kalan dönemler, çitli açılış, kırmızı **iki yönetici** alarmı,
+    korumalı **birincile geri verme** ve öteki makinenin canlı önizlemesiyle iki yönlü kontrol.
+  - Her kategorinin üstünde **durum bandı**, devralmada alarm, iki makinenin ölçüleri birlikte
+    sayması için vuruş ızgarası eşlemesi ve tarayıcı kaynağı yedeğe geçsin diye **OBS yedek adresi**.
+  - İki yönlü HMAC sınamasıyla eşleşme; parola ağa hiç çıkmaz.
+- <kbd>3.1.6</kbd> **Ses köprüsü** — bir makine (ya da üçüncü bir aygıt) sesi, çözümlemeyi ve çalan
+  parçayı yerel ağdan gönderir; birincil ve yedek aynı sinyali çözümler. Yerel girişe kendiliğinden
+  dönüş, ağda bulma, tepsi simgeli yalnız köprü kipi ve ortak saate göre çalınan dinlenebilir ses.
+  Bkz. [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
+
+Kurulum rehberi, Windows, macOS ve Linux güvenlik duvarı kuralları, gösteri günü listesi ve ölçülen
+sayılar: **[docs/REDUNDANCY.tr.md](docs/REDUNDANCY.tr.md)**. `npm run failover` iki gerçek uygulama
+kopyası çalıştırır; devralmayı, çıkış yetkisini, geri vermeyi, ağ kesintisini, askıda kalan
+birincili ve iki makinenin yeniden açılışını denetler.
+
+---
+
 ### Gizlilik ve güvenlik
 
 - **Hesap yok, telemetri yok, analiz yok.** Ayarlar kullanıcı klasörünüzde duruyor.
@@ -1211,6 +1241,10 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
   - **OSC çıkışı**: başka hedef girilmedikçe `127.0.0.1`'e gönderir.
   - **OpenRGB** girdiğiniz SDK sunucusuna bağlanır (varsayılan `127.0.0.1`). **Art-Net** DMX'i
     girdiğiniz adrese gönderir (varsayılan ağın yayın adresi).
+  - **Yedeklilik**: yedek, birincilin yayın sunucusuna HMAC sınamasıyla bağlanır; eşleşme parolası
+    ağa hiç çıkmaz. İsteğe bağlı Art-Net tanığı UDP `6454`'te dinler.
+  - **Ses köprüsü**: TCP `8741` (ses, çözümleme, parça) ve UDP `8742`'de imzalı işaret; ikisi de iki
+    yönlü HMAC parolasıyla eşleşir.
 - **Çeviriciler ve üreticiler çevrimdışı çalışıyor** — Shadertoy ve ISF içe aktarma, sahne üretici,
   MilkDrop preset üretici, şarkı sözleri.
 - **Otomasyon kamerayı asla açmıyor.** MilkDrop presetleri `eval` ya da üretilmiş kaynak kod olmadan
@@ -1749,7 +1783,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3473 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3483 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

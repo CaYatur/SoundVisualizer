@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, dialog, protocol, net, shell, powerSaveBlocker, nativeTheme, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const url = require('url');
@@ -1678,6 +1678,8 @@ ipcMain.on('bridge-audio:status', (e, st) => {
     state: String(st.state || '').slice(0, 20), bufferedMs: num(st.bufferedMs), underruns: num(st.underruns) || 0,
     dropped: num(st.dropped) || 0, chunks: num(st.chunks) || 0, rate: num(st.rate), inputRate: num(st.inputRate),
     sinkError: String(st.sinkError || '').slice(0, 120), outputLatencyMs: num(st.outputLatencyMs),
+    // Ortak saate kilitli çalma (#815): son parçanın hedeften sapması, geç/erken atılan
+    alignMs: num(st.alignMs), late: num(st.late) || 0, early: num(st.early) || 0,
   };
   notifyBridge();
 });
@@ -4157,7 +4159,25 @@ const redAuth = {
   monWanted: false, monTimer: null, monFrame: null, monPeerWants: false,
   snapRev: 0, lastRev: 0, beatHolder: '', beatTerm: 0,
   suspendId: null,
+  /* Vuruş ve faz eşlemesi (#815): bu makinenin tempo ızgarası (panelden) ve
+     yedekte birincilinki (atıştan, bu makinenin saatine çevrilmiş). */
+  tempoLocal: null, tempoRemote: null,
 };
+
+/* İşletim sistemi bildirimi (#815): devralma, iki yönetici, birincilin
+   geri çekilmesi. Ses panelde ve isteğe bağlı (canlı mekânda dinleti
+   karışımına sızmasın: varsayılan kapalı). */
+const RED_NOTES = {
+  takeover: { tr: ['Yedek yetkiyi aldı', 'Bu makine gösteriyi yönetiyor.'], en: ['Backup took over', 'This machine is running the show.'] },
+  split: { tr: ['İki yönetici', 'İki makine de yetkide. Birinde yetkiyi bırakın.'], en: ['Two masters', 'Both machines hold authority. Release on one of them.'] },
+  stepped: { tr: ['Yetki yedekte', 'Yedek gösteriyi yönetiyor; bu makinenin ışık ve OSC çıkışı kapalı.'], en: ['The backup holds authority', 'The backup is running the show; this machine\'s lighting and OSC output are off.'] },
+};
+function redNotify(kind) {
+  const n = RED_NOTES[kind];
+  if (!n || SMOKE || !Notification || !Notification.isSupported || !Notification.isSupported()) return;
+  const [title, body] = n[appLocale() === 'tr' ? 'tr' : 'en'];
+  try { new Notification({ title: 'CAYADEV Visualizer · ' + title, body, silent: true }).show(); } catch { /* bildirim yok */ }
+}
 function redTerms() {
   if (!redAuth.terms) redAuth.terms = redundancy.createTermStore(path.join(app.getPath('userData'), 'redundancy', 'term.json'));
   return redAuth.terms;
@@ -4183,6 +4203,7 @@ function updateAuthority() {
   if (!changed) return false;
   if (was.artnet && !gates.artnet && red.cfg.artnetOnLoss === 'zero' && currentConfig && currentConfig.artnet) artnet.sendZero(currentConfig.artnet);
   console.log('[redundancy] yetki: ' + holder + ' (dönem ' + redTerms().term + ')' + (redAuth.fenced ? ' · çitli' : ''));
+  if (red.role === 'primary' && holder === 'peer') redNotify('stepped');
   notifyRedundancySoon();
   return true;
 }
@@ -4197,7 +4218,7 @@ function unfence(why) {
 }
 
 function raiseSplit(why) {
-  if (!redAuth.split) console.warn('[redundancy] İKİ YÖNETİCİ: ' + why);
+  if (!redAuth.split) { console.warn('[redundancy] İKİ YÖNETİCİ: ' + why); redNotify('split'); }
   const fresh = !redAuth.split;
   redAuth.split = why;
   redAuth.splitAt = Date.now();
@@ -4425,6 +4446,8 @@ function redundancyStatus() {
     holder: redAuth.holder, term: red.role === 'off' ? 0 : redTerms().term, fenced: redAuth.fenced, gates: redAuth.gates,
     split: redAuth.split, witness: redAuth.witness ? Object.assign(redAuth.witness.status(), { foreign: witnessForeign() }) : null,
     peerInfo: redAuth.peerInfo, outputs: red.cfg.outputs,
+    // Vuruş eşlemesi (#815): bu makinenin ızgarası ve (yedekte) birincilinki
+    tempo: redAuth.tempoLocal, tempoRemote: redAuth.tempoRemote, alarmSound: red.cfg.alarmSound === true,
   };
   if (red.role === 'primary') {
     const peers = streamServer.peerCount();
@@ -4537,19 +4560,33 @@ function isolatedPreset(id) {
 }
 // Gösterinin çizdiği preset: önce kütüphane, sonra (açıksa) katman
 // Yerel gösteri arşivleri (#812), en yenisi önce, en çok 10
+/* Durum saniyede bir kuruluyor (#814 authTick, panel, gösteri öncesi
+   denetim): arşiv listesi klasörün değişme anına göre önbellekte. */
+let archivesCache = { key: '', list: [] };
 function showArchives() {
-  try { return redSpace().listArchives().slice(0, 10); } catch { return []; }
+  try {
+    let key = '';
+    try { key = String(fs.statSync(redSpace().dir).mtimeMs); } catch { return []; }
+    if (key !== archivesCache.key) archivesCache = { key, list: redSpace().listArchives().slice(0, 10) };
+    return archivesCache.list;
+  } catch { return []; }
 }
 /* Bu makinede kopyalanmış videolar (#812): devralma seçeneklerinde adı ve
    boyutuyla listelenir. Manifest değişmedikçe yeniden okunmaz. */
-let pkgMediaCache = { key: '', list: [] };
+let pkgMediaCache = { key: '', mt: '', list: [] };
 function packagedMedia() {
+  /* Manifest yalnız dosyası değişince okunur (#815): durum saniyede bir
+     kuruluyor, manifest 50 000 öğeye dek çıkabiliyor. */
+  let mt = '';
+  try { mt = String(fs.statSync(path.join(redSpace().pkgRoot, 'current', 'manifest.json')).mtimeMs); } catch { mt = 'none'; }
+  if (mt === pkgMediaCache.mt) return pkgMediaCache.list;
   let m = null;
   try { m = showPackage.currentManifest(redSpace().pkgRoot); } catch { m = null; }
-  const key = m ? m.pkg + '|' + (m.installedAt || 0) : '';
+  const key = m ? m.pkg + '|' + (m.installedAt || 0) + '|' + (m.mediaRemovedAt || 0) : '';
+  pkgMediaCache.mt = mt;
   if (key !== pkgMediaCache.key) {
     const items = m && Array.isArray(m.items) ? m.items.filter((it) => it && it.kind === 'media') : [];
-    pkgMediaCache = { key, list: items.slice(0, 100).map((it) => ({ name: String(it.name || it.path).slice(0, 200), size: it.size, carried: !!it.carried })) };
+    pkgMediaCache = { key, mt, list: items.slice(0, 100).map((it) => ({ name: String(it.name || it.path).slice(0, 200), size: it.size, carried: !!it.carried })) };
   }
   return pkgMediaCache.list;
 }
@@ -4719,10 +4756,18 @@ function stopRedundancy() {
 // Yapılandırmadaki rol değiştiyse yeniden kur
 function syncRedundancy() {
   const c = redundancy.normalize(currentConfig && currentConfig.redundancy);
-  // Devralma verisi bağlantıyı yeniden kurdurmaz (#812)
-  red.cfg = Object.assign({}, red.cfg, { takeoverData: c.takeoverData });
+  /* Bağlantıyı kurdurmayan ayarlar (#812, #814, #815) her eşitlemede
+     alınır: devralma verisi, çıkış yetkisi, Art-Net davranışı ve tanığı,
+     geri verme anı, alarm sesi, vuruş kilidi. Eskiden yalnız devralma
+     verisi alınıyordu; "Her zaman"a çevrilen bir çıkış bağlantı ayarı da
+     değişene (ya da uygulama yeniden açılana) dek eski kapıda kalırdı. */
+  const prevSoft = JSON.stringify(redundancy.SOFT_KEYS.map((k) => red.cfg[k]));
+  for (const k of redundancy.SOFT_KEYS) red.cfg[k] = c[k];
   const sig = redundancy.linkSig(c);
-  if (sig === red.sig) return;
+  if (sig === red.sig) {
+    if (JSON.stringify(redundancy.SOFT_KEYS.map((k) => red.cfg[k])) !== prevSoft) { updateAuthority(); syncWitness(); notifyRedundancySoon(); }
+    return;
+  }
   red.sig = sig;
   const wasIsolated = red.isolated;
   stopRedundancy();
@@ -4758,7 +4803,11 @@ function syncRedundancy() {
       if (gap > (red.ownMaxGap || 0)) red.ownMaxGap = gap;
       if (streamServer.peerCount()) {
         // Dönem ve yetki her atışta (#814): yedek iki yöneticiyi buradan görür
-        streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart, term: redTerms().term, holder: redAuth.holder, black: blackedOut() }));
+        const beat = Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart, term: redTerms().term, holder: redAuth.holder, black: blackedOut() });
+        // Tempo ızgarası (#815): iki atışta bir, tazeyse (panel saniyede on kez bildirir)
+        const tl = redAuth.tempoLocal;
+        if (tl && (red.seq & 1) === 0 && now - tl.at < 1000) beat.tempo = tl;
+        streamServer.sendPeers(beat);
         red.beatsSent = (red.beatsSent || 0) + 1;
       }
     }, c.heartbeatMs);
@@ -4920,6 +4969,17 @@ function onPrimaryBeatAuth(msg) {
   redAuth.prevBeatAt = now;
   const term = Number.isInteger(msg.term) ? msg.term : 0;
   redAuth.beatTerm = term;
+  if (msg.tempo && typeof msg.tempo === 'object' && red.follower) {
+    const t = msg.tempo;
+    const bpm = Number(t.bpm);
+    if (bpm > 0 && bpm < 400 && Number.isFinite(t.beatAt)) {
+      redAuth.tempoRemote = {
+        bpm, beatAt: red.follower.toLocal(t.beatAt), bar: (t.bar | 0) % 16, beatsPerBar: Math.max(1, Math.min(16, t.beatsPerBar | 0 || 4)),
+        confidence: Math.max(0, Math.min(1, Number(t.confidence) || 0)), at: now,
+      };
+      if (red.follower.follows()) notifyAdmin('redundancy-tempo', redAuth.tempoRemote);
+    }
+  }
   redAuth.beatHolder = msg.holder === 'self' ? 'self' : msg.holder === 'peer' ? 'peer' : '';
   const st = red.follower ? red.follower.status.state : '';
   // İzlerken birincilin dönemi benimsenir (yeni bir devralma ondan büyük olsun)
@@ -5057,6 +5117,7 @@ function onFollowerChanged() {
   }
   red.prevFollowState = st.state;
   if (st.state !== 'active') redAuth.handback = null;
+  if (st.state === 'active' && !red.wasActive) redNotify('takeover');
   if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ', dönem ' + redTerms().term + ')');
   if (red.isolated) {
     const want = redundancy.showSource(st.state, red.cfg, red.override);
@@ -5771,6 +5832,27 @@ ipcMain.handle('redundancy:ctl', async (e, req) => {
   if (red.role === 'backup') return ctlApply(action, req.args);
   return ctlRemote(action, req.args);
 });
+/* Tempo ızgarası (#815): panelin tempo motoru saniyede on kez bildirir.
+   `beatAt` son vuruşun duvar saati (ms). Birincil bunu atışa koyar; yedek
+   kendi izleme durumunu ve faz farkını bildirir (panelde kutucuk). */
+ipcMain.on('redundancy:tempo', (e, t) => {
+  if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents || !t || typeof t !== 'object') return;
+  const bpm = Number(t.bpm);
+  redAuth.tempoLocal = {
+    bpm: Number.isFinite(bpm) ? Math.round(bpm * 100) / 100 : 0, beatAt: Number(t.beatAt) || 0, bar: t.bar | 0, beatsPerBar: t.beatsPerBar | 0 || 4,
+    confidence: Number(t.confidence) || 0, following: !!t.following, phaseErrP95: Number.isFinite(t.phaseErrP95) ? t.phaseErrP95 : null, at: Date.now(),
+  };
+});
+/* Kopyalanmış videoları kaldır (#815; operatör onayladı). Yalnız paket
+   klasörü; preset ve logolar kalır. */
+ipcMain.handle('redundancy:remove-videos', () => {
+  if (red.role !== 'backup' || !red.isolated) return { ok: false, error: 'not-backup' };
+  let r;
+  try { r = showPackage.removeMedia(redSpace().pkgRoot); } catch (err) { return { ok: false, error: String(err && err.message || err).slice(0, 80) }; }
+  console.log('[redundancy] kopyalanmış videolar kaldırıldı: ' + JSON.stringify(r));
+  notifyRedundancy();
+  return r;
+});
 // Öteki makinenin önizlemesi yalnız panel bu bölümü gösterirken (#814)
 ipcMain.handle('redundancy:monitor', (e, on) => { requestMonitor(on === true); return redAuth.monFrame; });
 
@@ -6161,6 +6243,8 @@ function noteOscLive(info) {
 
 ipcMain.on('tempo:beat', (e, info) => {
   if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  // Yetki kapısı (#814/#815): vuruş, saat ve çarpma da ölçer karesi gibi
+  if (!redAuth.gates.oscOut) return;
   if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
   noteOscLive(info);
   oscOut.beat(currentConfig.oscOut, info);
@@ -6168,6 +6252,7 @@ ipcMain.on('tempo:beat', (e, info) => {
 /* Faz, çalma ve gösteri durumu. Vuruş kenarı tempo:beat'te kalır. */
 ipcMain.on('tempo:clock', (e, info) => {
   if (!adminWin || adminWin.isDestroyed() || e.sender !== adminWin.webContents) return;
+  if (!redAuth.gates.oscOut) return;
   if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
   noteOscLive(info);
   const track = oscTrackTitle(shownNowPlaying());
@@ -6178,6 +6263,7 @@ ipcMain.on('tempo:clock', (e, info) => {
 ipcMain.on('osc-hit', (e, hits) => {
   const primary = meterWindow();
   if (primary && e.sender !== primary.webContents) return;
+  if (!redAuth.gates.oscOut) return;
   if (!currentConfig || !currentConfig.oscOut || !currentConfig.oscOut.enabled) return;
   oscOut.hit(currentConfig.oscOut, hits);
 });

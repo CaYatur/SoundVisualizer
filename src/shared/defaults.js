@@ -510,6 +510,8 @@
       remote: true, // /remote mobil kumanda sayfası açık mı
       overlayFps: 60, // tarayıcı kaynağının kare hızı sınırı
       quality: 1.0, // tarayıcı kaynağı çözünürlük ölçeği
+      // Yedeklilik (#815): öbür makinenin yayın sayfası adresleri; sayfa buraya düşer
+      fallbackUrls: '',
     },
 
     // ------------------------------------------------------------------
@@ -1225,6 +1227,8 @@
       artnetOnLoss: 'hold', // yetki gidince: son kareyi tut | 'zero' (bir kez sıfır)
       handbackAt: 'scene', // geri verme anı: 'now' | 'scene' | 'black'
       artnetWitness: true, // ağda aynı evrene başka kaynak gönderiyor mu (iki yönetici ipucu)
+      alarmSound: false, // devralma ve iki yönetici alarmında ses (#815); varsayılan yalnız görsel
+      phaseLock: true, // izleyen yedek birincilin tempo ızgarasını kullanır (#815)
     },
 
     /* Ses köprüsü (#813). Kurulum ayarı: makineye özgü, aktarılmaz.

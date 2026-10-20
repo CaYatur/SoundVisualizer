@@ -470,7 +470,11 @@ async function authorityScenario(name, opts) {
   const backupStream = await freePort();
   const cdpA = await freePort();
   const cdpB = await freePort();
-  const udpPort = await freePort();
+  /* UDP portu işletim sisteminden (bağlama 0): TCP'den alınan boş numara
+     Windows'un ayırdığı aralığa düşüp EACCES verebiliyor. */
+  const sock = require('dgram').createSocket('udp4');
+  await new Promise((r) => sock.bind(0, '127.0.0.1', r));
+  const udpPort = sock.address().port;
   const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-auth-a-'));
   const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-auth-b-'));
   const art = { enabled: true, host: '127.0.0.1', port: udpPort, universe: 3, fps: 30, fixtures: 2 };
@@ -485,10 +489,8 @@ async function authorityScenario(name, opts) {
     redundancy: Object.assign({ role: 'backup', host: '127.0.0.1', port: streamPort, takeover: 'manual' }, red),
   })));
   // Kaynak bağlantı noktasına göre ArtDmx sayacı
-  const sock = dgram.createSocket('udp4');
   const hits = [];
   sock.on('message', (buf, rinfo) => { if (buf.toString('ascii', 0, 8) === 'Art-Net\0') hits.push({ at: Date.now(), src: rinfo.port, zero: buf.subarray(18).every((x) => x === 0) }); });
-  await new Promise((r) => sock.bind(udpPort, '127.0.0.1', r));
   const sources = (from, to) => Array.from(new Set(hits.filter((h) => h.at >= from && h.at <= (to || Date.now())).map((h) => h.src)));
   const res = { name, heartbeatMs: opts.beat, timeoutMs: opts.timeout };
   const inA = await freePort();
@@ -518,6 +520,15 @@ async function authorityScenario(name, opts) {
     res.packetsFollowing = hits.filter((h) => h.at >= t1).length;
     if (s1.length !== 1) throw new Error('expected one Art-Net sender while following, got ' + JSON.stringify(s1) + ' (packets ' + res.packetsFollowing + ')');
     const srcA = s1[0];
+    /* 1b. Çalışırken çıkış ayarı (#815 incelemesi): yedekte Art-Net "Her
+       zaman" → iki gönderici; geri "Yalnız yetkiyle" → yine tek. Ayar
+       bağlantıyı yeniden kurmamalı, kapı hemen değişmeli. */
+    await pb.eval('(() => { const c = SVPanel.cfg(); c.redundancy.outputs = Object.assign({}, c.redundancy.outputs, { artnet: "always" }); SVPanel.apply(); return true; })()');
+    const always = await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 2, r }; }, 3000, 25);
+    await pb.eval('(() => { const c = SVPanel.cfg(); c.redundancy.outputs = Object.assign({}, c.redundancy.outputs, { artnet: "authority" }); SVPanel.apply(); return true; })()');
+    const backOne = await until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && r[0] === srcA, r }; }, 3000, 25);
+    const stillFollowing = (await pb.eval(STATUS)).state === 'following';
+    res.runtimeModeSwitch = !!always.ok && !!backOne.ok && stillFollowing;
     // 2. Elle devralma: gönderici yedeğe geçer
     const t2 = Date.now();
     await pb.eval('window.api.redundancyTakeover()');
@@ -591,7 +602,7 @@ async function authorityScenario(name, opts) {
     const sa2 = await pa.eval(STATUS);
     res.fencedRestartSilent = fs2.length === 1 && fs2[0] === srcB && sa2.holder === 'peer';
     res.restartSenders = fs2;
-    const pass = res.followed && res.primaryStepsBack && res.authorityMoveMs <= opts.timeout + opts.beat + 500 && res.overlapMs <= opts.beat + 100 &&
+    const pass = res.followed && res.runtimeModeSwitch && res.primaryStepsBack && res.authorityMoveMs <= opts.timeout + opts.beat + 500 && res.overlapMs <= opts.beat + 100 &&
       res.ctlForwarded && res.backupKeptOwnWhileActive && res.resynced && res.releaseReturnsOutputs &&
       res.handbackRefusedEarly && res.handback && res.handbackTerm && res.fencedRestartSilent;
     res.pass = !!pass;
@@ -612,8 +623,228 @@ async function authorityScenario(name, opts) {
   return res;
 }
 
+/* Askıya alma: Windows'ta NtSuspendProcess (PowerShell), POSIX'te
+   SIGSTOP/SIGCONT. Yalnız başlattığımız ana süreç: ana iş parçacığı durur,
+   soket açık kalır (askıda kalan birincil). */
+function suspend(child, on) {
+  if (process.platform === 'win32') {
+    const fn = on ? 'NtSuspendProcess' : 'NtResumeProcess';
+    const ps = 'Add-Type -Name N -Namespace W -MemberDefinition \'[DllImport("ntdll.dll")] public static extern int ' + fn + '(IntPtr h);\'; ' +
+      '$p = [System.Diagnostics.Process]::GetProcessById(' + child.pid + '); [W.N]::' + fn + '($p.Handle) | Out-Null';
+    execFileSync('powershell', ['-NoProfile', '-Command', ps], { stdio: 'ignore' });
+  } else {
+    process.kill(child.pid, on ? 'SIGSTOP' : 'SIGCONT');
+  }
+}
+
+/* TCP aracısı: yedek birincile bunun üzerinden bağlanır. `cut(true)` iki
+   yönde de okumayı durdurur — soket AÇIK kalır, atışlar gelmez (kablo
+   kopması ya da yalnız aradaki bağlantının düşmesi gibi). `cut(false)`
+   sürdürür; arada biriken veri TCP'de bekler ve sonra gelir. */
+function tcpProxy(target) {
+  const pairs = new Set();
+  let cutOn = false;
+  const server = net.createServer((a) => {
+    const b = net.connect(target, '127.0.0.1');
+    const pair = { a, b };
+    pairs.add(pair);
+    a.pipe(b); b.pipe(a);
+    if (cutOn) { a.pause(); b.pause(); a.unpipe(b); b.unpipe(a); }
+    const end = () => { pairs.delete(pair); a.destroy(); b.destroy(); };
+    a.on('error', end); b.on('error', end); a.on('close', end); b.on('close', end);
+  });
+  return {
+    listen: () => new Promise((r) => server.listen(0, '127.0.0.1', () => r(server.address().port))),
+    cut(on) {
+      cutOn = on;
+      for (const { a, b } of pairs) {
+        if (on) { a.unpipe(b); b.unpipe(a); a.pause(); b.pause(); } else { a.pipe(b); b.pipe(a); a.resume(); b.resume(); }
+      }
+    },
+    close() { for (const { a, b } of pairs) { a.destroy(); b.destroy(); } server.close(); },
+  };
+}
+
+/* SAĞLAMLAŞTIRMA SENARYOLARI (#815). Yetki senaryosunun düzeni (Art-Net
+   kaynak başına sayılır), yedek otomatik devralır, bağlantı bir aracıdan:
+     a. ağ kesintisi (soket açık): yedek tam eşikte devralır; kesinti
+        sürerken iki makine de gönderir (birbirini göremez — belgelendi);
+        bağlantı gelince birincil yeni dönemi görüp geri çekilir, alarm yok.
+     b. askıda birincil (süreç durdurulur): yedek eşikte devralır; birincil
+        sürdürülünce geri çekilir.
+     f. iki makine de yeniden açılır: dönem diskte kalır, küçülmez; yedek
+        izler, birincil çitten çıkıp tek gönderici olur.
+     p. öteki makinenin önizlemesi açıkken (yedekte gerçek bir pencere) en
+        uzun atış aralığı eşiğin altında kalır. */
+async function hardeningScenario(name, opts) {
+  const dgram = require('dgram');
+  const secret = require('crypto').randomBytes(18).toString('base64url');
+  const streamPort = await freePort();
+  const backupStream = await freePort();
+  const cdpA = await freePort();
+  const cdpB = await freePort();
+  /* UDP portu işletim sisteminden (bağlama 0): TCP'den alınan boş numara
+     Windows'un ayırdığı aralığa düşüp EACCES verebiliyor. */
+  const sock = require('dgram').createSocket('udp4');
+  await new Promise((r) => sock.bind(0, '127.0.0.1', r));
+  const udpPort = sock.address().port;
+  const inA = await freePort();
+  const inB = await freePort();
+  const proxy = tcpProxy(streamPort);
+  const proxyPort = await proxy.listen();
+  const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-hard-a-'));
+  const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-hard-b-'));
+  const art = { enabled: true, host: '127.0.0.1', port: udpPort, universe: 3, fps: 30, fixtures: 2 };
+  const base = { autovj: { enabled: false }, lighting: { enabled: false }, updates: { auto: false }, artnet: art };
+  const red = { secret, heartbeatMs: opts.beat, timeoutMs: opts.timeout, artnetWitness: false };
+  fs.writeFileSync(path.join(dirA, 'settings.json'), JSON.stringify(Object.assign({}, base, {
+    stream: { enabled: false, port: streamPort, lan: false }, redundancy: Object.assign({ role: 'primary' }, red),
+  })));
+  fs.writeFileSync(path.join(dirB, 'settings.json'), JSON.stringify(Object.assign({}, base, {
+    stream: { enabled: false, port: backupStream, lan: false },
+    redundancy: Object.assign({ role: 'backup', host: '127.0.0.1', port: proxyPort, takeover: 'auto' }, red),
+  })));
+  const hits = [];
+  sock.on('message', (buf, rinfo) => { if (buf.toString('ascii', 0, 8) === 'Art-Net\0') hits.push({ at: Date.now(), src: rinfo.port }); });
+  const sources = (from, to) => Array.from(new Set(hits.filter((h) => h.at >= from && h.at <= (to || Date.now())).map((h) => h.src)));
+  const res = { name, heartbeatMs: opts.beat, timeoutMs: opts.timeout };
+  let A = null;
+  let B = null;
+  let pa = null;
+  let pb = null;
+  async function start(which) {
+    if (which === 'A') {
+      A = launch(dirA, cdpA, ['--inspect=' + inA]);
+      pa = await connect(await adminPage(cdpA, 30000));
+      await until(async () => ({ ok: await pa.eval('typeof window.SVPanel !== "undefined" && !!window.SVPanel.cfg') }), 20000, 100);
+      await mainEval(inA, METER);
+    } else {
+      B = launch(dirB, cdpB, ['--inspect=' + inB]);
+      pb = await connect(await adminPage(cdpB, 30000));
+      await until(async () => ({ ok: await pb.eval('typeof window.SVPanel !== "undefined" && !!window.SVPanel.cfg') }), 20000, 100);
+      await mainEval(inB, METER);
+    }
+  }
+  const single = async (want, ms) => until(async () => { const r = sources(Date.now() - 300); return { ok: r.length === 1 && (!want || r[0] === want), r }; }, ms || 4000, 25);
+  try {
+    await start('A');
+    await start('B');
+    const follow = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.state === 'following' && s.linkMode === 'hmac' }; }, 20000);
+    if (!follow.ok) throw new Error('backup never followed');
+    await wait(1500);
+    const one = await single();
+    if (!one.ok) throw new Error('expected one sender: ' + JSON.stringify(one.r));
+    const srcA = one.r[0];
+
+    // a. Ağ kesintisi, soket açık
+    const ta = Date.now();
+    proxy.cut(true);
+    const act = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.state === 'active', s }; }, opts.timeout * 3 + 3000, 25);
+    res.cutTakeoverMs = Date.now() - ta;
+    const both = await until(async () => { const r = sources(Date.now() - 400); return { ok: r.length === 2, r }; }, 4000, 50);
+    res.cutBothSend = !!both.ok; // beklenen: birbirini göremiyorlar
+    const srcB = (both.r || []).find((x) => x !== srcA);
+    const tr = Date.now();
+    proxy.cut(false);
+    const back = await single(srcB, 5000);
+    res.cutRecoverMs = Date.now() - tr;
+    const sa = await pa.eval(STATUS);
+    res.cutNoAlarm = !sa.split && sa.holder === 'peer';
+    res.cutOk = !!act.ok && res.cutTakeoverMs <= opts.timeout + 1200 && !!back.ok && res.cutRecoverMs <= 3000 && res.cutNoAlarm;
+    // Birincile geri: bırak, otomatik devralma birincil görülünce kurulur
+    await pb.eval('window.api.redundancyRelease()');
+    await single(srcA, 4000);
+
+    // b. Askıda birincil
+    await wait(800);
+    const tb = Date.now();
+    suspend(A, true);
+    const actB = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.state === 'active' }; }, opts.timeout * 3 + 3000, 25);
+    res.hungTakeoverMs = Date.now() - tb;
+    suspend(A, false);
+    const back2 = await single(srcB, 6000);
+    const sa2 = await pa.eval(STATUS);
+    res.hungOk = !!actB.ok && res.hungTakeoverMs <= opts.timeout + 1200 && !!back2.ok && sa2.holder === 'peer' && !sa2.split;
+    await pb.eval('window.api.redundancyRelease()');
+    await single(srcA, 4000);
+
+    // p. Önizleme açıkken atış aralığı (yedekte gerçek pencere: en küçük ekran)
+    if (!opts.noWindow) {
+      const disp = await pb.eval('(async () => { const d = await window.api.getDisplays(); const s = d.slice().sort((x, y) => (x.bounds.width * x.bounds.height) - (y.bounds.width * y.bounds.height)); return s[0] && s[0].id; })()');
+      await pb.eval('window.api.openVisualizer(' + JSON.stringify(disp) + ')');
+      await wait(2500);
+      const gap0 = (await pb.eval(STATUS)).maxGap;
+      await pa.eval('window.api.redundancyMonitor(true)');
+      const frames = await until(async () => ({ ok: !!(await pa.eval('window.api.redundancyMonitor(true)')) }), 6000, 250);
+      res.previewFrames = !!frames.ok;
+      let maxPeerAge = 0;
+      for (let i = 0; i < 20; i++) { const s = await pa.eval(STATUS); if (s.peerBeat) maxPeerAge = Math.max(maxPeerAge, s.peerBeat.ageMs); await wait(200); }
+      const sb = await pb.eval(STATUS);
+      res.previewMaxGap = sb.maxGap;
+      res.previewGapBefore = gap0;
+      res.previewMaxPeerBeatAge = maxPeerAge;
+      await pa.eval('window.api.redundancyMonitor(false)');
+      await pb.eval('window.api.closeVisualizer()');
+      res.previewOk = res.previewFrames && sb.maxGap < opts.timeout && maxPeerAge < opts.timeout;
+    } else {
+      res.previewOk = true;
+    }
+
+    // f. İki makine de yeniden açılır: dönem diskte
+    const termBefore = (await pb.eval(STATUS)).term;
+    pa.close(); pb.close(); pa = null; pb = null;
+    killTree(A); killTree(B);
+    await wait(1200);
+    const tf = Date.now();
+    await start('A');
+    await start('B');
+    const f2 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.state === 'following', s }; }, 20000);
+    const one2 = await single(null, 6000);
+    const sA = await pa.eval(STATUS);
+    const sB = await pb.eval(STATUS);
+    const termFile = JSON.parse(fs.readFileSync(path.join(dirB, 'redundancy', 'term.json'), 'utf8'));
+    res.restartTerm = { before: termBefore, a: sA.term, b: sB.term, file: termFile.term };
+    res.restartOk = !!f2.ok && !!one2.ok && sB.term >= termBefore && termFile.term >= termBefore && sA.holder === 'self' && !sA.fenced && Date.now() - tf < 60000;
+    res.pass = !!(res.cutOk && res.hungOk && res.previewOk && res.restartOk);
+  } catch (e) {
+    res.pass = false;
+    res.error = String(e.message || e);
+    res.logA = A ? A.log.slice(-1500) : '';
+    res.logB = B ? B.log.slice(-1500) : '';
+  } finally {
+    if (pa) pa.close();
+    if (pb) pb.close();
+    try { if (A) suspend(A, false); } catch { /* */ }
+    killTree(A);
+    killTree(B);
+    proxy.close();
+    try { sock.close(); } catch { /* */ }
+    await wait(800);
+    for (const d of [dirA, dirB]) { try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* kilitli */ } }
+  }
+  return res;
+}
+
+// `--report=<dosya>`: sonuçlar JSON olarak (iki bilgisayarlı koşu belgeye yapıştırılsın)
+function writeReport(runs) {
+  const arg = process.argv.find((a) => a.startsWith('--report'));
+  if (!arg) return;
+  const file = arg.indexOf('=') > 0 ? arg.slice(arg.indexOf('=') + 1) : path.join(process.cwd(), 'failover-report.json');
+  const out = { at: new Date().toISOString(), platform: process.platform, arch: process.arch, node: process.version, version: require(path.join(ROOT, 'package.json')).version,
+    runs: runs.map((r) => Object.assign({}, r, { logA: undefined, logB: undefined })) };
+  fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n');
+  say('report: ' + file);
+}
+
 (async () => {
   const only = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
+  if (only === 'hardening') {
+    const r = await hardeningScenario('network cut, hung primary, preview, double restart', { beat: 100, timeout: 1500, noWindow: process.argv.includes('--no-window') });
+    say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));
+    if (!r.pass) say('  primary log: ' + (r.logA || '').replace(/\s+/g, ' ').slice(-800) + '\n  backup log: ' + (r.logB || '').replace(/\s+/g, ' ').slice(-800));
+    writeReport([r]);
+    process.exit(r.pass ? 0 : 1);
+  }
   if (only === 'authority') {
     const r = await authorityScenario('output authority, hand-back, fenced restart', { beat: 100, timeout: 1500 });
     say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));
@@ -627,10 +858,13 @@ async function authorityScenario(name, opts) {
     await scenario('auto takeover with the local show, then role off', 'auto', { beat: 100, timeout: 1500, local: true }),
     // Çıkış yetkisi, geri verme, çitli açılış (#814)
     await authorityScenario('output authority, hand-back, fenced restart', { beat: 100, timeout: 1500 }),
+    // Ağ kesintisi, askıda birincil, önizleme, iki makine yeniden açılış (#815)
+    await hardeningScenario('network cut, hung primary, preview, double restart', { beat: 100, timeout: 1500, noWindow: process.argv.includes('--no-window') }),
   ];
   for (const r of runs) {
     say((r.pass ? 'ok   ' : 'FAIL ') + r.name + ': ' + JSON.stringify(Object.assign({}, r, { logA: undefined, logB: undefined })));
     if (!r.pass && (r.logA || r.logB)) say('  primary log: ' + (r.logA || '').replace(/\s+/g, ' ').slice(-600) + '\n  backup log: ' + (r.logB || '').replace(/\s+/g, ' ').slice(-600));
   }
+  writeReport(runs);
   process.exit(runs.every((r) => r.pass) ? 0 : 1);
 })().catch((e) => { say('failover: ' + (e && e.stack || e)); process.exit(2); });

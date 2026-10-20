@@ -376,12 +376,20 @@ a separate product to build, sign and ship on three OSes; it is left as a future
 On the LAN the round trip and frame age add the network's latency. On Wi-Fi expect a few
 milliseconds, with jitter.
 
+## Shared-clock playback (#815)
+
+Each PCM chunk carries the bridge's timestamp converted to the receiver's clock. The player
+schedules the chunk at that moment plus the configured latency, mapped to the audio context
+through the output timestamp (so the output latency is included). Two receivers with the same
+latency setting play the same sample at the same moment; network jitter goes into the buffer.
+A chunk that would play late, or overlaps the previous one, is dropped instead of shifting the
+timeline. The player reports the last chunk's offset from its target (`alignMs`) and the number
+of late and early chunks. Simulated with 2–60 ms delivery jitter: two receivers stay within 5 ms.
+
 ## Not done yet
 
 - Measurements on Windows and macOS with real hardware (PC Agent test steps are in the PR).
 - Opus instead of PCM, for Wi-Fi or many listeners (PCM is ~1.5 Mbit/s per listener).
-- PCM playback is scheduled on the receiver's clock; it is not yet locked sample-accurately to
-  the shared show clock across two receivers.
 - A slim standalone bridge package without Chromium (future option, #815; see Measurements).
 - The bridge is a single point of failure for the analysis; two bridges with automatic choice
   between them are not in this phase.

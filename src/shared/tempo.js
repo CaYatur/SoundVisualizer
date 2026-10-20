@@ -46,7 +46,24 @@
       this.locked = 0; // >0 ise BPM elle sabitlenmiş
       this.taps = [];
       this._justFired = false;
+      this.lastFlux = -999; // akıdan bulunan son vuruş (ızgara izlenirken de)
+      this.ext = null; // dış ızgara (#815): { bpm, beatAt (s, bu saat), bar, beatsPerBar, confidence, until }
+      this._extK = null;
     }
+
+    /* DIŞ IZGARAYI İZLE (#815). Yedek birincili izlerken birincilin vuruş
+       ızgarasını kullanır: vuruşlar, faz ve ölçüdeki yer birincilinki; iki
+       makine aynı vuruşta. Kendi akı ölçümü sürer (eşik ısınık kalsın) ama
+       vuruş üretmez. `ttl` saniye içinde yenilenmezse kendi algısına döner. */
+    follow(g, now, ttl) {
+      if (!g || !(g.bpm > 0) || !Number.isFinite(g.beatAt)) { this.ext = null; return; }
+      const t = now == null ? performance.now() / 1000 : now;
+      const was = this.ext;
+      this.ext = { bpm: g.bpm, beatAt: g.beatAt, bar: g.bar | 0, beatsPerBar: g.beatsPerBar | 0 || this.beatsPerBar, confidence: g.confidence || 0, until: t + (ttl || 2) };
+      if (!was) this._extK = null;
+    }
+    unfollow() { this.ext = null; this._extK = null; }
+    following(now) { return !!(this.ext && (now == null ? performance.now() / 1000 : now) < this.ext.until); }
 
     setLock(bpm) {
       this.locked = bpm > 0 ? bpm : 0;
@@ -105,6 +122,29 @@
       this.energy = Math.max(0, this.energy - (dt || 0.016) * 3.2);
 
       let fired = false;
+      // Dış ızgara (#815): vuruş ızgaranın kenarında, akıdan değil
+      // Kendi algısının vuruşu: ızgara izlenirken de kaydedilir (faz farkı ölçüsü)
+      if (flux > threshold && t - this.lastFlux > MIN_GAP) this.lastFlux = t;
+      if (this.ext && t < this.ext.until) {
+        const e = this.ext;
+        const period = 60 / e.bpm;
+        const k = Math.floor((t - e.beatAt) / period);
+        this.bpm = e.bpm;
+        this.confidence = e.confidence;
+        this.beatsPerBar = e.beatsPerBar;
+        this.phase = (t - e.beatAt) / period - k;
+        if (this._extK != null && k > this._extK) {
+          this.lastBeat = e.beatAt + k * period;
+          this.beatCount++;
+          this.energy = Math.max(this.energy, 0.7);
+          fired = true;
+          this._justFired = true;
+        }
+        this._extK = k;
+        this.barPosition = ((e.bar + k) % e.beatsPerBar + e.beatsPerBar) % e.beatsPerBar;
+        return fired;
+      }
+      if (this.ext) this.unfollow();
       if (flux > threshold && t - this.lastBeat > MIN_GAP) {
         this.lastBeat = t;
         this.beats.push(t);
