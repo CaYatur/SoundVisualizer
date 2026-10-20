@@ -188,6 +188,12 @@
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
+  /* Çizilen kare sayısı (#545, gösteri öncesi denetim): çıkış hedef kare
+     hızını tutuyor mu. Saniyede bir güncellenir, ölçer iletisine biner. */
+  let drawCount = 0;
+  let fpsT = 0;
+  let drawFps = 0;
+  let lastSilent = false;
   /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
      vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
      karesi taze ise aynı vuruş ikinci kez gitmesin. */
@@ -541,8 +547,12 @@
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       stack.draw(audio, mcfg, t, dt);
+      drawCount++;
       applyMapping(mcfg);
     }
+    lastSilent = silent;
+    if (!fpsT) fpsT = now;
+    if (now - fpsT >= 1000) { drawFps = (drawCount * 1000) / (now - fpsT); drawCount = 0; fpsT = now; }
 
     // logo LayerStack tuval katmanı tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {
@@ -588,6 +598,9 @@
         time: now / 1000,
         backgroundColors,
         ready: audio.ready,
+        fps: drawFps,
+        paused: lastSilent,
+        fpsCap: cfg.power.fpsCap || 0,
         /* MilkDrop presetinin `monitor` değişkeni. Yeni bir IPC kanalı
            açmak yerine bu ~30 Hz mesaja biniyor: değer yazar aracı, kare
            başına doğruluk gerekmiyor ve ek kanal ek bakım demek. */

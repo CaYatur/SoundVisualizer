@@ -44,7 +44,24 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     the primary process tree it started, and measures the takeover. Automatic takeover came in
     352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
     loss in 405–462 ms, waited, and took over on command.
-  - Not yet: the pre-show health page (#545) and frame sync (#543).
+  - Not yet: frame sync (#543).
+- **Pre-show check [545].** Output → Pre-show Check shows on one page whether the rig is
+  ready, refreshing every 3 s while it is open:
+  - every display selected for output is connected;
+  - each output window holds its target frame rate: the display's refresh rate, or the frame
+    cap if one is set. On Windows the primary display's refresh also counts, because Chromium
+    ties every window to it;
+  - audio frames are arriving and are not silent;
+  - every video file, logo-library item and user preset the scene and the saved scenes refer to
+    is present;
+  - the backup is connected and the shows match (or, on the backup, that it follows the
+    primary);
+  - at least 2 GB is free for settings, temporary files and video export.
+
+  A graphics card's load cannot be read on every system. The page measures what is: whether
+  each output keeps its frame rate. Output windows now report their drawn frame rate with the
+  level meter. Checked in an isolated profile: with no output open the page warns; with one
+  output open it shows 75 / 75 fps and audio arriving.
 - **The backup keeps the primary's time [544].**
   - **Clock offset.** The backup estimates the difference between the two machines' clocks from
     the heartbeats. It takes the smallest "arrived minus sent" over the last 10 s: a stalled

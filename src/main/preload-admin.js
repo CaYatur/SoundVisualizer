@@ -191,6 +191,8 @@ contextBridge.exposeInMainWorld('api', {
   redundancyNewSecret: () => ipcRenderer.invoke('redundancy:new-secret'),
   redundancyCompare: () => ipcRenderer.invoke('redundancy:compare'),
   redundancyPush: () => ipcRenderer.invoke('redundancy:push'),
+  // Gösteri öncesi denetim (#545)
+  preshowCheck: () => ipcRenderer.invoke('preshow:check'),
   onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
   // Yedek birincili izlerken taşıma onun çıpasından (#544)
   onShowClockFollow: (cb) => ipcRenderer.on('show-clock-follow', (e, a) => cb(a)),

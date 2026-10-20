@@ -1741,6 +1741,14 @@ input[type="number"]::-webkit-inner-spin-button {
 .red-show { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .red-diff { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
 .red-diff li { padding: 3px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+/* Gösteri öncesi denetim (#545): renk yalnız tema belirteçlerinden */
+.preshow-list { list-style: none; margin: 6px 0; padding: 0; }
+.preshow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }
+.preshow-row .preshow-icon .svi { width: 1em; height: 1em; }
+.preshow-row.ok .preshow-icon { color: var(--ok-text); }
+.preshow-row.warn .preshow-icon { color: var(--warn-text); }
+.preshow-row.fail .preshow-icon { color: var(--danger-text); }
+.preshow-row.info .preshow-icon { color: var(--muted); }
 
 /* Logo değişimi görselleri (#535): küçük, seçilebilir kutucuklar */
 .swap-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }

@@ -666,6 +666,8 @@
         return window.SVStream ? window.SVStream.panel() : null;
       case 'redundancypanel':
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
+      case 'preshowpanel':
+        return window.SVPreshowPanel ? window.SVPreshowPanel.panel() : null;
       case 'studiopanel':
         return window.SVStudio ? window.SVStudio.panel() : null;
       case 'controlpanel':
@@ -3307,6 +3309,15 @@
         title: 'Yedeklilik',
         desc: 'İkinci bir makine aynı gösteriyi sıcak yedekte çizer; birincil düşerse yetkiyi kendiliğinden ya da elle alır.',
         controls: [{ type: 'redundancypanel' }],
+      },
+      {
+        id: 'preshow',
+        category: 'output',
+        icon: 'check',
+        wide: true,
+        title: 'Gösteri Öncesi Denetim',
+        desc: 'Kapılar açılmadan tek bakışta: ekranlar, ses, çıkışların kare hızı, sahnenin dosyaları, yedek ve disk.',
+        controls: [{ type: 'preshowpanel' }],
       },
       {
         id: 'timeline',
