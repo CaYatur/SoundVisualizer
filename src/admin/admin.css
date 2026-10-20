@@ -1691,3 +1691,73 @@ input[type="number"]::-webkit-inner-spin-button {
 .ui-theme-split .ui-theme-preview { border-radius: 0; height: 100%; min-width: 0; padding: 8px 5px; }
 .ui-theme-split .ui-theme-preview:first-child { border-radius: 7px 0 0 7px; }
 .ui-theme-split .ui-theme-preview + .ui-theme-preview { border-left: 0; border-radius: 0 7px 7px 0; }
+
+/* ================= DÜZEN EDİTÖRÜ (#534) =================
+   Önizleme sahnesi buraya taşınır; boyutu JS sığdırır (oran seçimine göre).
+   Kılavuzlar görüntünün üstünde: medya üstü renkler (on-media / media-scrim). */
+.lay-editor {
+  width: min(1280px, calc(100vw - 24px)); height: min(92vh, 900px); max-height: calc(100vh - 20px);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; overflow: hidden;
+}
+.lay-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.lay-head h3 { font-size: 15px; margin: 0 auto 0 0; }
+.lay-aspect { display: flex; gap: 4px; }
+.lay-aspect .btn.active, .lay-list .btn.active { border-color: var(--accent); color: var(--text); }
+.lay-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text); cursor: pointer; }
+.lay-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; }
+.lay-stage-wrap {
+  position: relative; min-width: 0; min-height: 0; display: grid; place-items: center;
+  background: var(--bg2); border-radius: 10px; overflow: hidden;
+}
+.preview-stage.lay-stage { aspect-ratio: auto; }
+.lay-overlay { position: absolute; inset: 0; z-index: 5; }
+.lay-safe { position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .55); }
+.lay-safe.title { border-style: dotted; }
+.lay-center { position: absolute; pointer-events: none; background: rgb(var(--on-media-rgb) / .22); }
+.lay-center.v { left: 50%; top: 0; bottom: 0; width: 1px; }
+.lay-center.h { top: 50%; left: 0; right: 0; height: 1px; }
+.lay-guide { position: absolute; pointer-events: none; background: var(--warn); }
+.lay-guide.x { top: 0; bottom: 0; width: 1px; }
+.lay-guide.y { left: 0; right: 0; height: 1px; }
+.lay-box {
+  position: absolute; margin: 0; padding: 0; background: transparent; cursor: move; touch-action: none;
+  border: 1px dashed rgb(var(--on-media-rgb) / .7); border-radius: 3px;
+}
+.lay-box:hover { background: rgb(var(--accent-rgb) / .08); }
+.lay-box.sel { border: 2px solid var(--accent); background: rgb(var(--accent-rgb) / .1); }
+.lay-box:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lay-tag {
+  position: absolute; left: -1px; top: 0; transform: translateY(-100%); pointer-events: none;
+  font-size: 10px; line-height: 1; padding: 3px 5px; border-radius: 3px 3px 0 0; white-space: nowrap;
+  color: rgb(var(--on-media-rgb)); background: var(--media-scrim);
+}
+.lay-side { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.lay-list { display: flex; flex-wrap: wrap; gap: 4px; }
+@media (max-width: 860px) { .lay-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } }
+/* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
+.preview-stage.lay-stage .preview-badge { display: none; }
+.lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+/* Yedeklilik: gösteri karşılaştırması (#541) */
+.red-show { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.red-diff { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
+.red-diff li { padding: 3px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+/* Gösteri öncesi denetim (#545): renk yalnız tema belirteçlerinden */
+.preshow-list { list-style: none; margin: 6px 0; padding: 0; }
+.preshow-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; overflow-wrap: anywhere; }
+.preshow-row .preshow-icon .svi { width: 1em; height: 1em; }
+.preshow-row.ok .preshow-icon { color: var(--ok-text); }
+.preshow-row.warn .preshow-icon { color: var(--warn-text); }
+.preshow-row.fail .preshow-icon { color: var(--danger-text); }
+.preshow-row.info .preshow-icon { color: var(--muted); }
+
+/* Logo değişimi görselleri (#535): küçük, seçilebilir kutucuklar */
+.swap-items { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.swap-item {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; cursor: pointer;
+  padding: 4px 8px 4px 4px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card2); color: var(--text); font-size: 11.5px;
+}
+.swap-item:has(input:checked) { border-color: var(--accent); }
+.swap-item input { margin: 0; }
+.swap-thumb { width: 32px; height: 32px; flex: none; object-fit: contain; border-radius: 5px; background: var(--media-bg); }
+.swap-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

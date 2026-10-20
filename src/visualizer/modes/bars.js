@@ -61,6 +61,14 @@
       const baseY = H * (v.baseline == null ? defBase : clamp01(v.baseline));
       const defH = v.position === 'center' ? 0.46 : v.position === 'full' ? 0.95 : 0.92;
       const maxH = H * (v.barHeight == null ? defH : clamp01(v.barHeight));
+      /* Yerleşim kutusu (#534): barların alanı, sesten bağımsız. Düzen
+         editörü yakalamayı bununla yapıyor. Normalize, tuvale göre. */
+      this.layoutBounds = W > 0 && H > 0 ? {
+        x: areaX / W,
+        y: (baseY - maxH) / H,
+        w: areaW / W,
+        h: (v.position === 'center' ? 2 * maxH : maxH) / H,
+      } : null;
 
       // Parlama tek geçişte (bloom) uygulanır; şekiller burada düz çizilir.
       ctx.save();

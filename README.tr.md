@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3248%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3321%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1749,7 +1749,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3248 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3321 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 - **Formüller**, tanımlarından elle türetilmiş değerlerle sınanıyor — Viviani eğrisinin küre üzerinde
   kalması, simidin boru yarıçapı, Chladni'nin m↔n antisimetrisi, her çekicinin sınırlı kalması ve görüş
@@ -1788,6 +1788,19 @@ uygulamadaki gibi dikey senkron açıkken ve her seferinde aynı sentetik sesle 
 %95'i) tutuyor; Wave Field (39 fps), Voronoi (63) ve Wave Interference (71) tutmuyor. 10 dakikalık
 geçiş koşusu 73–75 fps'te ve 6–8 MB'lık sabit bellekte kaldı. Nasıl çalıştığı, seçenekleri ve
 tabloların tamamı [docs/BENCHMARKS.md](docs/BENCHMARKS.md) dosyasında (İngilizce).
+
+### Canlı ve dışa aktarım eşliği
+
+```bash
+npm run parity
+```
+
+Canlı pencere katmanları CSS ile birleştiriyor; video dışa aktarımı aynı katmanları tek bir tuvale
+basıyor. Eşlik denetimi gerçek görselleştirici sayfasını açıyor ve her durumu sabit bir ses karesi ve
+saatle bir kez çiziyor. Ardından aynı katman tuvallerini dışa aktarıcının yolundan birleştiriyor ve
+iki görüntüyü piksel piksel karşılaştırıyor. 23 durum var: yayın düzenleri, saydamlık ve dönüşüm,
+bütün karışım kipleri, maske, A/B geçişi ve yarı yolda yakalanan açılış animasyonları.
+`--shots=<klasör>` canlı, dışa aktarım ve fark görüntülerini yazıyor.
 
 ---
 

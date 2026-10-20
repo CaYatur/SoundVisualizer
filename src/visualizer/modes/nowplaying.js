@@ -115,6 +115,8 @@
       const W = this.canvas.width;
       const H = this.canvas.height;
       ctx.clearRect(0, 0, W, H);
+      // Yerleşim kutusu (#534): çizilmeyen karede yok
+      this.layoutBounds = null;
 
       const N = window.SVNowPlaying;
       if (!N) return;
@@ -350,6 +352,50 @@
         else if (side === 'right' && align === 'right') groupShift = -(coverW + coverGapPx);
       }
       const ax = cx + groupShift;
+
+      /* Yerleşim kutusu (#534): kapak, satırlar, çubuk ve süre; giriş
+         canlandırması ve nabız OLMADAN, yani kartın durduğu yer. Satırlar
+         ölçülüyor ve çizimdeki gibi görünür aralığa kırpılıyor. */
+      {
+        const limR = Math.min(maxW, W);
+        const rawL = align === 'left' ? ax : align === 'right' ? ax - limR : ax - limR / 2;
+        const sl = clamp(rawL, 0, W);
+        const sr = clamp(rawL + limR, 0, W);
+        let minX = Infinity;
+        let maxX = -Infinity;
+        const addX = (l, r) => { if (r > l) { if (l < minX) minX = l; if (r > maxX) maxX = r; } };
+        const textSpan = (wdt) => {
+          let l = align === 'left' ? ax : align === 'right' ? ax - wdt : ax - wdt / 2;
+          let r = l + wdt;
+          if (wdt > sr - sl + 1 || l < -0.5 || r > W + 0.5) { l = Math.max(l, sl); r = Math.min(r, sr); }
+          addX(l, r);
+        };
+        ctx.save();
+        rows.forEach((r) => { ctx.font = weight + ' ' + r.size.toFixed(1) + 'px ' + family; textSpan(ctx.measureText(r.text).width); });
+        if (timeRow) { ctx.font = weight + ' ' + timeRow.size.toFixed(1) + 'px ' + family; textSpan(ctx.measureText(timeRow.text).width); }
+        ctx.restore();
+        if (hasBar) {
+          const bwL = W * clamp(c.barWidth == null ? 0.42 : c.barWidth, 0.05, 1);
+          const bxL = align === 'left' ? 0 : align === 'right' ? -bwL : -bwL / 2;
+          addX(ax + bxL, ax + bxL + bwL);
+        }
+        let minY = cy + yOrigin;
+        let maxY = cy + yOrigin + total;
+        if (coverReady) {
+          let ccx = 0;
+          let ccy = textCenterY;
+          if (side === 'top') {
+            ccx = align === 'left' ? coverW / 2 : align === 'right' ? -coverW / 2 : 0;
+            ccy = yOrigin - coverGapPx - coverH / 2;
+          } else if (side === 'left') ccx = blockLeft - coverGapPx - coverW / 2;
+          else ccx = blockRight + coverGapPx + coverW / 2;
+          addX(ax + ccx - coverW / 2, ax + ccx + coverW / 2);
+          minY = Math.min(minY, cy + ccy - coverH / 2);
+          maxY = Math.max(maxY, cy + ccy + coverH / 2);
+        }
+        this.layoutBounds = maxX > minX && maxY > minY && W > 0 && H > 0
+          ? { x: minX / W, y: minY / H, w: (maxX - minX) / W, h: (maxY - minY) / H } : null;
+      }
 
       ctx.save();
       ctx.globalAlpha = clamp(env.alpha * animA * (c.opacity == null ? 1 : c.opacity), 0, 1);

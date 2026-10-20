@@ -65,6 +65,13 @@ let state = {
   error: null,
 };
 let clients = new Set();
+/* Yedeklilik (#540): birincil makinede yedeğin bağlanacağı eşleşme parolası.
+   Boşsa `kind=peer` bağlantısı hiç kabul edilmez. */
+let peerSecret = '';
+/* Yalnız yedek için açık sunucu (yayın çıkışı kapalı, makine birincil):
+   yayın sayfaları, kumanda ve jetonlar YOK; yalnız `kind=peer` ve /health.
+   Kullanıcının açmadığı yayın sayfaları ağa açılmasın. */
+let peerOnly = false;
 let hooks = {
   getConfig: () => null,
   getPresets: () => [],
@@ -194,6 +201,23 @@ function clientInfo() {
   return Array.from(clients).map((c) => ({ kind: c.kind, since: c.since, address: c.address }));
 }
 
+/* Yedek makine (`peer`) yayın katmanı değil: ona ses karesi, yapılandırma ya
+   da preset listesi gitmez; yalnız kendi iletileri (sendPeers). İzleyici
+   sayısına da girmez. */
+function sendPeers(obj) {
+  for (const c of clients) if (c.kind === 'peer') sendJson(c, obj);
+}
+function peerCount() {
+  let n = 0;
+  for (const c of clients) if (c.kind === 'peer') n++;
+  return n;
+}
+function setPeerSecret(secret) {
+  peerSecret = typeof secret === 'string' ? secret : '';
+  // Parola değiştiyse ya da kalktıysa bağlı yedekler düşürülür
+  for (const c of Array.from(clients)) if (c.kind === 'peer' && !safeCompare(c.peerToken, peerSecret)) dropClient(c);
+}
+
 function broadcast(obj, kind) {
   /* serverNow: tarayıcı kendi saatiyle sözü kaydırmasın. Ofset varışta kurulur. */
   if (obj && typeof obj === 'object') obj = Object.assign({ serverNow: Date.now() }, obj);
@@ -205,6 +229,7 @@ function broadcast(obj, kind) {
     obj = Object.assign({}, obj, { delta: { upsert: publicPresets(d.upsert), remove: Array.isArray(d.remove) ? d.remove : [] } });
   }
   for (const c of clients) {
+    if (c.kind === 'peer') continue;
     if (kind && c.kind !== kind) continue;
     sendJson(c, obj);
   }
@@ -244,6 +269,11 @@ function publicConfig(cfg) {
   const st = cfg.stream;
   if (st && typeof st === 'object' && ('token' in st || 'remoteToken' in st)) {
     out = Object.assign({}, out, { stream: Object.assign({}, st, { token: '', remoteToken: '' }) });
+  }
+  // Yedeklilik eşleşme parolası (#540) web istemcisine gitmez
+  const rd = cfg.redundancy;
+  if (rd && typeof rd === 'object' && rd.secret) {
+    out = Object.assign({}, out, { redundancy: Object.assign({}, rd, { secret: '' }) });
   }
   const md = cfg.milkdrop;
   if (md && typeof md.textureDir === 'string' && md.textureDir) {
@@ -496,6 +526,7 @@ function handleRequest(req, res) {
     res.end(JSON.stringify({ ok: true, app: 'CAYADEV Visualizer', clients: clients.size }));
     return;
   }
+  if (peerOnly) { res.writeHead(404).end('not found'); return; }
 
   // 2. Sayfa giriş noktaları: / (overlay) ve /remote
   // Token zorunluluğu kapalıysa doğrulama atlanır; açıksa URL veya başlıktan token beklenir.
@@ -672,16 +703,27 @@ function handleUpgrade(req, socket) {
     socket.end('HTTP/1.1 403 Forbidden\r\n\r\n');
     return;
   }
-  const kind = url.searchParams.get('kind') === 'remote' ? 'remote' : 'overlay';
+  const askKind = url.searchParams.get('kind');
+  const kind = askKind === 'remote' ? 'remote' : askKind === 'peer' ? 'peer' : 'overlay';
   const expected = kind === 'remote' ? (state.remoteToken || state.token) : state.token;
 
   const urlToken = url.searchParams.get('token') || hdrs['x-sv-token'] || '';
+  /* Yedek makine: Token Koruması kapalı olsa da HER ZAMAN eşleşme parolası.
+     Çerez ve yönlendiren adres sayılmaz: tarayıcı değil, uygulama bağlanır. */
+  if (peerOnly && kind !== 'peer') {
+    socket.end('HTTP/1.1 404 Not Found\r\n\r\n');
+    return;
+  }
+  if (kind === 'peer' && !(peerSecret && safeCompare(urlToken, peerSecret))) {
+    socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    return;
+  }
   const cookieName = kind === 'remote' ? 'sv_remote_token' : 'sv_token';
   const cookieToken = extractCookieToken(hdrs['cookie'], cookieName);
   const refererToken = extractRefererToken(hdrs['referer']);
   const candidates = [urlToken, cookieToken, refererToken].filter(Boolean);
 
-  if (state.requireToken) {
+  if (state.requireToken && kind !== 'peer') {
     const ok = expected && candidates.some((t) => safeCompare(t, expected));
     if (!ok) {
       socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n');
@@ -710,9 +752,28 @@ function handleUpgrade(req, socket) {
     fragments: [],
     fragmentOpcode: 0x1,
     backpressure: false,
+    peerToken: kind === 'peer' ? urlToken : '',
   };
   clients.add(client);
   hooks.onClientsChanged(clientInfo());
+
+  if (kind === 'peer') {
+    // Yedek: yayın katmanının açılış iletileri yerine kendi anlık görüntüsü
+    if (typeof hooks.onPeerOpen === 'function') hooks.onPeerOpen(client);
+    socket.on('data', (chunk) => {
+      client.buf = Buffer.concat([client.buf, chunk]);
+      client.buf = decodeFrames(client, (payload, opcode) => {
+        if (opcode !== 0x1) return;
+        let msg;
+        try { msg = JSON.parse(payload.toString('utf-8')); } catch { return; }
+        // Yedek yalnız kendi hâlini ve envanterini bildirir; komut çalıştıramaz
+        if (msg && (msg.type === 'peer-state' || msg.type === 'peer-inventory') && typeof hooks.onPeerMessage === 'function') hooks.onPeerMessage(msg, client);
+      }, () => dropClient(client));
+    });
+    socket.on('error', () => dropClient(client));
+    socket.on('close', () => dropClient(client));
+    return;
+  }
 
   // açılışta mevcut durum
   sendJson(client, {
@@ -769,6 +830,7 @@ function start(cfgStream, newHooks) {
   let token = cfg.token || '';
   let remoteToken = cfg.remoteToken || '';
   const requireToken = !!cfg.requireToken; // varsayılan false
+  peerOnly = !!cfg.peerOnly;
   overlayFps = cfg.overlayFps || 60;
 
   if (!token && cfg.enabled) token = newToken();
@@ -936,7 +998,12 @@ module.exports = {
   lanAddress,
   publicConfig,
   publicPresets,
-  clientCount: () => clients.size,
+  // Yedek makine izleyici sayılmaz
+  clientCount: () => { let n = 0; for (const c of clients) if (c.kind !== 'peer') n++; return n; },
+  sendPeers,
+  peerCount,
+  setPeerSecret,
+  sendJson,
   // Ses karesi tüketen istemci sayısı (mobil kumanda sayılmaz)
   overlayCount: () => {
     let n = 0;

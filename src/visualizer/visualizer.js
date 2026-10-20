@@ -148,6 +148,8 @@
      zaman o çıpadan kapalı formülle hesaplanır, böylece tüm ekranlar aynı
      kareyi gösterir ve kare başına IPC gerekmez. */
   let showAnchor = window.SVShowClock ? window.SVShowClock.idle() : null;
+  // Ortak oturum saati (#544): yedeklilik açıkken modülasyon evresi buradan; yoksa null
+  let sharedEpoch = typeof window.SV_SHARED_EPOCH === 'number' && Number.isFinite(window.SV_SHARED_EPOCH) ? window.SV_SHARED_EPOCH : null;
   /* Karşılığı olmayan otomasyon hedefleri bir kez bildirilir. Her karede
      yazmak konsolu boğardı; hiç yazmamak da "otomasyon çalışmıyor" diye
      bildirilen ama sebebi görünmeyen bir hataya dönüşürdü. */
@@ -186,6 +188,12 @@
   let frameAcc = 0; // kare hızı sınırı için birikim sayacı
   let dpr = window.devicePixelRatio || 1;
   let meterT = 0;
+  /* Çizilen kare sayısı (#545, gösteri öncesi denetim): çıkış hedef kare
+     hızını tutuyor mu. Saniyede bir güncellenir, ölçer iletisine biner. */
+  let drawCount = 0;
+  let fpsT = 0;
+  let drawFps = 0;
+  let lastSilent = false;
   /* Davul vuruşu ölçer iletisine binmez (#437). Yerel yakalama karesi
      vuruşu ana süreçte gider. Bu yol dosya çalma içindir: yakalama
      karesi taze ise aynı vuruş ikinci kez gitmesin. */
@@ -486,7 +494,13 @@
 
     const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
     lastDraw = now;
-    const t = now / 1000;
+    /* KARE EŞLEMESİ (#543). Ortak oturum saati varsa (ana süreç her zaman
+       yolluyor; yedeklilikte birincilinki) `t` ondan ve rAF'ın dikey senkron
+       damgasından: aynı makinedeki bütün pencereler aynı karede AYNI `t`yi
+       hesaplar — canlandırma evresi, logo değişimi sırası, modülasyon. Eskiden
+       her pencere kendi açılışından sayıyordu. */
+    const t = sharedEpoch != null ? (performance.timeOrigin + now - sharedEpoch) / 1000 : now / 1000;
+    if (window.__svFrameLog && window.__svFrameLog.length < 5000) window.__svFrameLog.push([performance.timeOrigin + now, t]);
 
     audio.update(dt);
     const hits = audio.analysis && audio.analysis.hits;
@@ -522,14 +536,29 @@
           }
         }
       }
-      modulator.update(base, audio, t, dt);
+      /* Yedeklilik (#544): ortak oturum saati varsa modülasyon evresi ondan
+         — iki makinede (ve aynı makinenin pencerelerinde) aynı LFO, rastgele
+         ve vuruş evresi. Yoksa eski davranış: pencerenin kendi saati. */
+      if (sharedEpoch != null) {
+        // `t` zaten ortak saatte (yukarıda); vuruş evresi de ondan
+        const md = base.modulation || {};
+        const bpm = md.bpm > 0 ? md.bpm : 120;
+        const beats = (t * bpm) / 60;
+        modulator.update(base, audio, t, dt, { bpm, beatPhase: beats - Math.floor(beats), barPhase: beats / 4 - Math.floor(beats / 4) });
+      } else {
+        modulator.update(base, audio, t, dt);
+      }
       const mcfg = modulator.apply(base, dt);
       // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
       if (modulator.touches('postfx')) stack.setPostFX(mcfg.postfx);
       stack.draw(audio, mcfg, t, dt);
+      drawCount++;
       applyMapping(mcfg);
     }
+    lastSilent = silent;
+    if (!fpsT) fpsT = now;
+    if (now - fpsT >= 1000) { drawFps = (drawCount * 1000) / (now - fpsT); drawCount = 0; fpsT = now; }
 
     // logo LayerStack tuval katmanı tarafından çizilir; DOM öğesi gizli kalır
     if (logoImg && logoImg.style.display !== 'none') {
@@ -575,6 +604,9 @@
         time: now / 1000,
         backgroundColors,
         ready: audio.ready,
+        fps: drawFps,
+        paused: lastSilent,
+        fpsCap: cfg.power.fpsCap || 0,
         /* MilkDrop presetinin `monitor` değişkeni. Yeni bir IPC kanalı
            açmak yerine bu ~30 Hz mesaja biniyor: değer yazar aracı, kare
            başına doğruluk gerekmiyor ve ek kanal ek bakım demek. */
@@ -807,6 +839,12 @@
       });
     }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
+    /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki
+       pencerenin `t`si kendi açılışları kadar, 53 ms ayrıktı): istenir. */
+    if (window.api.getSharedClock) {
+      window.api.getSharedClock().then((c) => { if (c && Number.isFinite(c.epoch)) sharedEpoch = c.epoch; }).catch(() => {});
+    }
     if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
     /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç
        liderin seçimini buraya yolluyor ve motor kendi sayacı yerine onu

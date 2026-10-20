@@ -1,8 +1,8 @@
 'use strict';
 /* CANLI / DIŞA AKTARIM EŞLİĞİ (#539).
  *
- * Piksel karşılaştırması v3.1.7 dalında (`npm run parity`). Burada o
- * ölçümün bulduğu ve 3.1.6'yı da etkileyen farkların kalıcı denetimleri:
+ * Gerçek piksel karşılaştırması `npm run parity` (Electron gerekir). Burada
+ * onun saf kısmı ve ölçümün bulduğu farkların kalıcı denetimleri:
  *   - 'add' karışımı canlıda 'screen'di, dışa aktarımda 'lighter';
  *   - çalan parça kartının giriş/görünürlük zarfı duvar saatindeydi;
  *   - dışa aktarıcı medya modunu ve sözlüğü yüklemiyordu;
@@ -17,6 +17,7 @@ const vm = require('vm');
 
 const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+const P = require('../scripts/parity-lib.js');
 
 // Sayfanın yüklediği betikler, depo yoluna göre
 function scripts(page) {
@@ -119,4 +120,30 @@ test('çalan parça kartının "değişince göster" zarfı kare saatiyle ilerli
   assert.ok(at(11) > 0.9, 'tutma: tam görünür');
   // fast: giriş 0,28 + tutma 2,5 + çıkış 0,28 → 3,06 sn sonra görünmez
   assert.strictEqual(at(13.5), 0, 'süre doldu: gizlendi');
+});
+
+test('eşlik ölçümü: karşılaştırma kanal sırasını ve sınırı doğru uyguluyor', () => {
+  // Canlı BGRA, dışa aktarım RGBA: aynı renk farksız
+  const live = Buffer.from([30, 20, 10, 255]);
+  const exp = Buffer.from([10, 20, 30, 255]);
+  assert.strictEqual(P.compare(live, 1, 1, exp, 1, 1, true).max, 0);
+  const off = Buffer.from([10, 20, 60, 255]);
+  const r = P.compare(live, 1, 1, off, 1, 1, true);
+  assert.strictEqual(r.max, 30);
+  assert.strictEqual(r.over8, 1);
+  assert.strictEqual(P.passes(r), false);
+  assert.strictEqual(P.passes({ mean: 0.2, over8: 0.0001 }), true);
+  assert.strictEqual(P.passes({ mean: 0, over8: 0, sizeNote: 'x' }), false, 'boyut tutmazsa geçmez');
+});
+
+test('eşlik ölçümü durumları: karışımların hepsi, açılış, dönüşüm, maske, grup; canlı yol karartmaya inmez', () => {
+  const names = P.cases('data:,').map((c) => c.name);
+  P.BLENDS.forEach((b) => assert.ok(names.includes('blend-' + b), b));
+  assert.ok(names.includes('blend-add'));
+  ['opacity-transform', 'mask-rect', 'group-crossfade', 'reveal-wipe', 'reveal-scale', 'layout-basic'].forEach((n) => assert.ok(names.includes(n), n));
+  assert.strictEqual(P.baseConfig().isBlackout, false, 'düz siyah + görselleştirici yok karartma sayılırdı');
+  assert.strictEqual(P.baseConfig().power.pauseOnSilence, true, 'sayfanın döngüsü durmalı');
+  assert.match(read('scripts/parity.js'), /single: !!st\._surface/, 'tek yüzeye inen canlı yol yakalanır');
+  assert.match(read('src/visualizer/layers.js'), /if \(!reuse\) this\._drawEntry\(e, audio, cfg, t, dt, l\);/);
+  assert.match(read('package.json'), /"parity": "node scripts\/parity\.js"/);
 });
