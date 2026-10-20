@@ -3486,12 +3486,14 @@ function onPrimaryMessage(msg) {
    eski davranışta, kendi saatinde). Fark atış başına en çok 1 ms kaydığı
    için 2 ms'den büyük değişimde yollanır. */
 function sharedEpoch() {
-  if (red.role === 'primary' && !redundancy.problem(red.cfg)) return red.sessionStart;
   if (red.role === 'backup' && red.follower && red.primaryStart != null && red.follower.status.offsetMs != null) {
     return red.follower.toLocal(red.primaryStart);
   }
-  return null;
+  /* Kare eşlemesi (#543): yedeklilik kapalıyken (ve birincilde) bu
+     makinenin oturum başlangıcı — aynı makinedeki pencereler aynı evrede. */
+  return red.sessionStart;
 }
+ipcMain.handle('shared-clock:get', () => ({ epoch: red.sharedSent != null ? red.sharedSent : sharedEpoch() }));
 function syncSharedClock(force) {
   const e = sharedEpoch();
   const prev = red.sharedSent;

@@ -494,7 +494,13 @@
 
     const dt = lastDraw ? Math.min(0.05, (now - lastDraw) / 1000) : 0.016;
     lastDraw = now;
-    const t = now / 1000;
+    /* KARE EŞLEMESİ (#543). Ortak oturum saati varsa (ana süreç her zaman
+       yolluyor; yedeklilikte birincilinki) `t` ondan ve rAF'ın dikey senkron
+       damgasından: aynı makinedeki bütün pencereler aynı karede AYNI `t`yi
+       hesaplar — canlandırma evresi, logo değişimi sırası, modülasyon. Eskiden
+       her pencere kendi açılışından sayıyordu. */
+    const t = sharedEpoch != null ? (performance.timeOrigin + now - sharedEpoch) / 1000 : now / 1000;
+    if (window.__svFrameLog && window.__svFrameLog.length < 5000) window.__svFrameLog.push([performance.timeOrigin + now, t]);
 
     audio.update(dt);
     const hits = audio.analysis && audio.analysis.hits;
@@ -534,11 +540,11 @@
          — iki makinede (ve aynı makinenin pencerelerinde) aynı LFO, rastgele
          ve vuruş evresi. Yoksa eski davranış: pencerenin kendi saati. */
       if (sharedEpoch != null) {
-        const ts = (performance.timeOrigin + performance.now() - sharedEpoch) / 1000;
+        // `t` zaten ortak saatte (yukarıda); vuruş evresi de ondan
         const md = base.modulation || {};
         const bpm = md.bpm > 0 ? md.bpm : 120;
-        const beats = (ts * bpm) / 60;
-        modulator.update(base, audio, ts, dt, { bpm, beatPhase: beats - Math.floor(beats), barPhase: beats / 4 - Math.floor(beats / 4) });
+        const beats = (t * bpm) / 60;
+        modulator.update(base, audio, t, dt, { bpm, beatPhase: beats - Math.floor(beats), barPhase: beats / 4 - Math.floor(beats / 4) });
       } else {
         modulator.update(base, audio, t, dt);
       }
@@ -834,6 +840,11 @@
     }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
     if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
+    /* Açılışta gelen ileti dinleyiciden önce düşebiliyor (ölçüldü: iki
+       pencerenin `t`si kendi açılışları kadar, 53 ms ayrıktı): istenir. */
+    if (window.api.getSharedClock) {
+      window.api.getSharedClock().then((c) => { if (c && Number.isFinite(c.epoch)) sharedEpoch = c.epoch; }).catch(() => {});
+    }
     if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
     /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç
        liderin seçimini buraya yolluyor ve motor kendi sayacı yerine onu

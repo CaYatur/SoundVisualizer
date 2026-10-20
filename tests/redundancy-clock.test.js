@@ -62,8 +62,8 @@ test('bağlantılar: birincil çıpayı ve oturum başlangıcını yollar; yedek
   // Sonradan açılan ekran da ortak saati alır (iki yerde)
   assert.strictEqual((main.match(/win\.webContents\.send\('shared-clock', \{ epoch: red\.sharedSent \}\)/g) || []).length, 2);
   const vis = read('src/visualizer/visualizer.js');
-  assert.match(vis, /const ts = \(performance\.timeOrigin \+ performance\.now\(\) - sharedEpoch\) \/ 1000;/);
-  assert.match(vis, /modulator\.update\(base, audio, ts, dt, \{ bpm, beatPhase:/);
+  assert.match(vis, /const t = sharedEpoch != null \? \(performance\.timeOrigin \+ now - sharedEpoch\) \/ 1000 : now \/ 1000;/);
+  assert.match(vis, /modulator\.update\(base, audio, t, dt, \{ bpm, beatPhase:/);
   assert.match(vis, /modulator\.update\(base, audio, t, dt\);/, 'rol kapalıyken eski davranış');
   assert.match(read('src/main/preload-visualizer.js'), /onSharedClock: \(cb\) => ipcRenderer\.on\('shared-clock'/);
   const tl = read('src/admin/timeline-panel.js');

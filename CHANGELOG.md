@@ -44,7 +44,24 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     the primary process tree it started, and measures the takeover. Automatic takeover came in
     352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
     loss in 405–462 ms, waited, and took over on command.
-  - Not yet: frame sync (#543).
+- **Frame sync across the app's own windows [543].** Every output window now computes its
+  time from one shared session clock and the vsync timestamp of the frame, not from the moment
+  that window opened.
+  - **What it fixes.** Windows on one machine already advance on the same vsync: Chromium ties
+    them to the primary display. But each counted time from its own opening. Animation phase,
+    logo-swap order and modulation were therefore off between screens by as much as the windows'
+    opening times differed.
+  - **Measured on two displays over 4 s (241 frames):** 187–196 frames fell on the same vsync
+    within 1 ms. On those frames the time of the two windows now differs by 0 ms (median) and
+    at most 0.1 ms; before, by the windows' opening gap of 49–53 ms.
+  - **A lost message, also fixed.** The shared clock was sent as soon as a window loaded, before
+    the window had set up its listener, so it was often lost. That is why both windows still
+    differed by 53 ms in the first measurement. A window now asks for it once its listener is in
+    place. This also applies to the backup's modulation phase from #544.
+  - **Hardware genlock is not included.** Sync cards (such as NVIDIA Quadro Sync or AMD FirePro
+    S400) have no interface that Chromium exposes, and none was available to test. Between two
+    machines, frames line up only as closely as the two displays' refresh clocks; the shared time
+    still keeps the content in step.
 - **Pre-show check [545].** Output → Pre-show Check shows on one page whether the rig is
   ready, refreshing every 3 s while it is open:
   - every display selected for output is connected;
