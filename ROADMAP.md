@@ -6,6 +6,10 @@ covered by a test or by the GPU self-test.
 
 **Current release: v3.1.5** · **Next release: v3.1.6** · `main` is versioned **3.1.6-beta**, which is not published (no tag, no GitHub Release)
 
+Each planned version stays its own release and ships in order, one after another. Work for later
+versions lives on its own branch and is not in `main`: v3.1.7 on `dev/v3.1.7` (3.1.7-beta) and v3.2.0 on
+`dev/v3.2.0` (3.2.0-beta). A version merges into `main` only after the one before it is published.
+
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
 | v1.3.1 | Modes, backgrounds, recording | 2026-08-06 | Shipped |
@@ -18,10 +22,10 @@ covered by a test or by the GPU self-test.
 | v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | 2026-09-08 | Shipped |
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | **v3.1.5** | **MilkDrop library and editor, MCP, OSC in and out, updates** | **2026-10-13** | **Current** |
-| v3.1.6 | Comprehensive video export | — | Planned |
-| v3.1.7 | Broadcast layout editor | — | Planned |
-| v3.1.8 | NDI output | — | Deferred |
-| v3.2.0 | Redundancy, failover and frame sync | — | Planned |
+| v3.1.6 | Comprehensive video export | — | Release candidate on `main` |
+| v3.1.7 | Broadcast layout editor | — | Built on `dev/v3.1.7` |
+| v3.2.0 | Redundancy, failover and frame sync | — | Built on `dev/v3.2.0` |
+| v3.3.0 | NDI output (first planned as v3.1.8) | — | Waiting for a licence decision |
 
 ---
 
@@ -96,9 +100,9 @@ hands, and a row only moves up once it ships.
 | Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
 | Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
-| Broadcast layout editor | v3.1.7 | Not started |
-| NDI | v3.1.8 | Deferred for licence reasons, not difficulty — see "Not done, and why" |
-| Redundancy / genlock | v3.2.0 | Not started |
+| Broadcast layout editor | v3.1.7 | Built on `dev/v3.1.7` (#533); ships after v3.1.6 |
+| Redundancy / genlock | v3.2.0 | Built on `dev/v3.2.0` (#540); ships after v3.1.7. Hardware genlock not verifiable here |
+| NDI | v3.3.0 | Was v3.1.8. Deferred for licence reasons, not difficulty — see "Not done, and why" |
 
 ### Shipped, but never run on real hardware
 
@@ -327,7 +331,7 @@ rather than replacing anything.
 On Windows it is an **addition, not a replacement**: Dynamic Lighting stays, and
 the two can be used separately or together.
 
-NDI was originally part of this release. It moved to v3.1.8 — not because it
+NDI was originally part of this release. It moved to v3.1.8, and later to v3.3.0 — not because it
 is harder to build, but because it is the only one of the three with a licence
 burden. Spout is BSD 2-Clause and Syphon is Simplified BSD: both need nothing
 more than a copyright notice. The reasoning is under "Not done, and why".
@@ -3643,7 +3647,22 @@ v3.1.7 turns that from a set of templates into an editor.
   animations.
 - Everything usable live and as an export preset.
 
-## v3.1.8 — NDI output
+## v3.2.0 — Redundancy, failover and frame sync
+
+The release aimed at staged, professional shows. This category is large and
+will be built carefully rather than quickly.
+
+- A backup machine takes over automatically, or very quickly, if the main one
+  fails.
+- The same show file runs synchronised on two machines.
+- Genlock / frame-sync so multiple outputs advance on the same frame boundary.
+- Health monitoring and a pre-show check that reports what is not ready.
+
+This is close to mandatory at large festivals and corporate events, and is
+standard in media servers of that class.
+
+
+## v3.3.0 — NDI output
 
 The same picture across a network: one machine runs the visualizer, another
 running Resolume or a mixing console receives it over IP. This is the standard
@@ -3659,19 +3678,8 @@ EULA-bound binary inside an MIT-licensed project is the actual obstacle, which
 is why it ships as a separate optional package. `grandiose` provides the
 bindings.
 
-## v3.2.0 — Redundancy, failover and frame sync
-
-The release aimed at staged, professional shows. This category is large and
-will be built carefully rather than quickly.
-
-- A backup machine takes over automatically, or very quickly, if the main one
-  fails.
-- The same show file runs synchronised on two machines.
-- Genlock / frame-sync so multiple outputs advance on the same frame boundary.
-- Health monitoring and a pre-show check that reports what is not ready.
-
-This is close to mandatory at large festivals and corporate events, and is
-standard in media servers of that class.
+First planned as v3.1.8. It now follows v3.2.0: the licence and the NDI SDK download need the
+owner's decision, and the versions before it are already built.
 
 ---
 
@@ -3685,7 +3693,7 @@ is the whole difficulty. The application EULA must cover the NDI SDK terms, a
 `ndi.video` link is required in the application, on the website and in the
 documentation, and the NDI tools may not be redistributed. An EULA-bound
 binary inside an MIT-licensed project is a packaging problem rather than an
-engineering one, so NDI ships as a separate optional package in v3.1.8.
+engineering one, so NDI ships as a separate optional package in v3.3.0 (first planned as v3.1.8).
 
 Spout (BSD 2-Clause) and Syphon (Simplified BSD) carry none of this, which is
 why they go first in v3.1.1.
