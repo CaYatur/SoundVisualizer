@@ -386,6 +386,10 @@
     raf = requestAnimationFrame(loop);
     const audio = window.SVPreview && window.SVPreview.audioEngine ? window.SVPreview.audioEngine() : null;
     if (!audio || !tempo) return;
+    /* Yedek makine birincili izlerken Otomatik VJ karar vermez (#540):
+       seçimler birincilden gelir; kendi seçimi görüntüyü ayrıştırırdı.
+       Yetkiyi alınca kaldığı yerden sürer. */
+    if (window.SVRedundancyPanel && window.SVRedundancyPanel.following()) return;
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const now = performance.now() / 1000;
