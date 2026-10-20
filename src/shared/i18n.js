@@ -2007,6 +2007,7 @@
     'Seçilen kamera bulunamadı. Listeden başka bir kamera seçin.': 'The selected camera was not found. Choose another camera from the list.',
     'Kamera açılışı yarıda kesildi. Yeniden deneyin.': 'The camera start was interrupted. Try again.',
     'Kamera açılamadı.': 'The camera could not be opened.',
+    'Video dosyası bulunamadı.': 'Video file not found.',
     'Kamera görüntüsü uygulamadan bekleniyor.': 'Waiting for the camera picture from the application.',
     'Kayıtlı kamera': 'Saved camera',
     'Kodlayıcı borusu kapandı. Dışa aktarma durduruldu.': 'The encoder pipe closed. Export was stopped.',
@@ -3500,6 +3501,7 @@
          alttaki genel "çıkış" değişiminden önce yakalanır. */
       .replace(/^Hata:\s*([\s\S]*)$/, (_, err) => (err ? ('Error: ' + translate(err)) : 'Error:'))
       .replace(/^Video açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the video' + (rest ? ': ' + rest : '.'))
+      .replace(/^Video dosyası bulunamadı:\s*([\s\S]*)$/, (_, name) => 'Video file not found' + (name ? ': ' + name : '.'))
       .replace(/^Kamera açılamadı:\s*([\s\S]*)$/, (_, rest) => 'Could not open the camera' + (rest ? ': ' + rest : '.'))
       .replace(/^ffmpeg çıkış kodu (\d+)([\s\S]*)$/, (_, code, rest) => 'ffmpeg exit code ' + code + rest)
       /* Ana süreç hata metinleri: önek Türkçe, gövde sistem iletisi */
