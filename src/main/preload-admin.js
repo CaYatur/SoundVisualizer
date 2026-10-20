@@ -192,6 +192,8 @@ contextBridge.exposeInMainWorld('api', {
   redundancyCompare: () => ipcRenderer.invoke('redundancy:compare'),
   redundancyPush: () => ipcRenderer.invoke('redundancy:push'),
   onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
+  // Yedek birincili izlerken taşıma onun çıpasından (#544)
+  onShowClockFollow: (cb) => ipcRenderer.on('show-clock-follow', (e, a) => cb(a)),
 
   // OSC alıcısı
   artnetStatus: () => ipcRenderer.invoke('artnet:status'),

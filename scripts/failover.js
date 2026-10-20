@@ -191,6 +191,29 @@ async function scenario(name, takeover, opts) {
       const has = await pb.eval(`(async () => { const p = (await window.api.listPresets()).find((x) => x.id === 'usr_rig_1'); const ls = await window.api.logoLibList(); return { preset: !!p, logo: !!ls.find((x) => x.id === 'logo_rig') && !!ls.find((x) => x.id === 'logo_big') }; })()`);
       res.backupHasAssets = has.preset && has.logo;
     }
+    if (opts.clock) {
+      /* Gösteri saati (#544): birincilde zaman çizelgesi oynar; yedeğin
+         paneli aynı zamanı göstermeli. Eşli örnek: her biri kendi okuma
+         anını da verir, fark aynı ana çevrilir (aynı bilgisayar). */
+      await pa.eval('window.SVTimelinePanel.seek(0); window.SVTimelinePanel.play(); true');
+      await wait(800);
+      const READ = '(() => ({ t: window.SVTimelinePanel.transport().time, playing: window.SVTimelinePanel.transport().playing, now: Date.now() }))()';
+      const d = [];
+      let playing = true;
+      for (let i = 0; i < 40; i++) {
+        const a = await pa.eval(READ);
+        const b = await pb.eval(READ);
+        playing = playing && a.playing && b.playing;
+        d.push(Math.abs((b.t - (a.t + (b.now - a.now) / 1000)) * 1000));
+        await wait(50);
+      }
+      d.sort((x, y) => x - y);
+      res.clockPlaying = playing;
+      res.clockMedianMs = Math.round(d[Math.floor(d.length / 2)] * 10) / 10;
+      res.clockP95Ms = Math.round(d[Math.floor(d.length * 0.95)] * 10) / 10;
+      res.offsetMs = (await pb.eval(STATUS)).offsetMs;
+      await pa.eval('window.SVTimelinePanel.pause(); true');
+    }
     const before = await pb.eval(STATUS);
     res.maxGapBeforeKill = before.maxGap;
     res.maxPrimaryGap = before.maxPrimaryGap;
@@ -225,6 +248,7 @@ async function scenario(name, takeover, opts) {
     const limit = Math.min(opts.timeout, Math.max(300, opts.beat * 3)) + opts.beat + Math.max(25, opts.beat / 2) + 500;
     res.limitMs = limit;
     res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept &&
+      (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
       (!opts.sync || (res.diffFound && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0
         && !(res.maxGapDuringPush > opts.timeout / 2))) &&
       (takeover === 'auto' ? res.takeoverMs <= limit : (res.waitedForOperator && res.stillWaiting && res.lostMs <= limit));
@@ -247,7 +271,7 @@ async function scenario(name, takeover, opts) {
 (async () => {
   const runs = [
     // Varsayılan eşik (1,5 sn): birincil sahne değişiminde 0,2–0,7 sn duraklıyor
-    await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true }),
+    await scenario('auto takeover + show sync', 'auto', { beat: 100, timeout: 1500, sync: true, clock: true }),
     await scenario('manual takeover', 'manual', { beat: 100, timeout: 1500 }),
   ];
   for (const r of runs) {

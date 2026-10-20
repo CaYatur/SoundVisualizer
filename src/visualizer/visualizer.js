@@ -148,6 +148,8 @@
      zaman o çıpadan kapalı formülle hesaplanır, böylece tüm ekranlar aynı
      kareyi gösterir ve kare başına IPC gerekmez. */
   let showAnchor = window.SVShowClock ? window.SVShowClock.idle() : null;
+  // Ortak oturum saati (#544): yedeklilik açıkken modülasyon evresi buradan; yoksa null
+  let sharedEpoch = null;
   /* Karşılığı olmayan otomasyon hedefleri bir kez bildirilir. Her karede
      yazmak konsolu boğardı; hiç yazmamak da "otomasyon çalışmıyor" diye
      bildirilen ama sebebi görünmeyen bir hataya dönüşürdü. */
@@ -522,7 +524,18 @@
           }
         }
       }
-      modulator.update(base, audio, t, dt);
+      /* Yedeklilik (#544): ortak oturum saati varsa modülasyon evresi ondan
+         — iki makinede (ve aynı makinenin pencerelerinde) aynı LFO, rastgele
+         ve vuruş evresi. Yoksa eski davranış: pencerenin kendi saati. */
+      if (sharedEpoch != null) {
+        const ts = (performance.timeOrigin + performance.now() - sharedEpoch) / 1000;
+        const md = base.modulation || {};
+        const bpm = md.bpm > 0 ? md.bpm : 120;
+        const beats = (ts * bpm) / 60;
+        modulator.update(base, audio, ts, dt, { bpm, beatPhase: beats - Math.floor(beats), barPhase: beats / 4 - Math.floor(beats / 4) });
+      } else {
+        modulator.update(base, audio, t, dt);
+      }
       const mcfg = modulator.apply(base, dt);
       // Efekt zinciri nesneleri setChain() ile yakalandığı için modüle edilmiş
       // parametrelerin ulaşması ancak zincir yeniden verilerek olur
@@ -807,6 +820,7 @@
       });
     }
     if (window.api.onShowClock) window.api.onShowClock((a) => { showAnchor = a; });
+    if (window.api.onSharedClock) window.api.onSharedClock((c) => { sharedEpoch = c && Number.isFinite(c.epoch) ? c.epoch : null; });
     if (window.SVLyricsClock && window.SVLyricsClock.install) window.SVLyricsClock.install(window.api);
     /* LİDERİN MILKDROP SEÇİMİ (#585). Bu sayfa lider değilse ana süreç
        liderin seçimini buraya yolluyor ve motor kendi sayacı yerine onu

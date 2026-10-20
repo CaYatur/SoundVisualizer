@@ -44,8 +44,26 @@ from `dev/v3.1.7`. Neither is released; `main` stays the 3.1.6-beta release cand
     the primary process tree it started, and measures the takeover. Automatic takeover came in
     352–425 ms over three runs, on the scene the primary was showing. Manual mode reported the
     loss in 405–462 ms, waited, and took over on command.
-  - Not yet: the modulation phase and timeline clock on the backup (#544), the pre-show health
-    page (#545), and frame sync (#543).
+  - Not yet: the pre-show health page (#545) and frame sync (#543).
+- **The backup keeps the primary's time [544].**
+  - **Clock offset.** The backup estimates the difference between the two machines' clocks from
+    the heartbeats. It takes the smallest "arrived minus sent" over the last 10 s: a stalled
+    backup inflates samples and the minimum discards them, while a stalled primary does not
+    matter, because heartbeats are stamped when sent. The first estimate is applied directly.
+    After that, corrections slew by at most 1 ms per heartbeat, so a clock adjustment on either
+    machine never makes the picture jump.
+  - **Timeline.** The primary's timeline transport (play, pause, seek, loop) reaches the backup.
+    Its moment is converted to the backup's clock, then given to the backup's windows and
+    timeline panel. After a takeover, the backup's timeline carries on from the same point.
+  - **Modulation.** While redundancy is on, both machines count LFOs, random sources, the time
+    source and beat phase from the primary's session start, so they are in the same phase.
+    Windows on one machine now share that phase too. With redundancy off, nothing changes. The
+    count runs from the session start, not Unix time: shaders receive time as 32-bit floats,
+    which at 1.7 billion seconds advance in 64-second steps.
+  - **Measured by `npm run failover`** on one computer, with the timeline playing on the primary
+    and 40 paired readings: the backup's panel was within 0 ms (median) and 1 ms (p95). Between
+    two computers the accuracy is bounded by the network's one-way delay, which this rig cannot
+    measure.
 - **Both machines can prove they run the same show [541].**
   - **The comparison.** On the primary, Redundancy shows a show comparison: a hash of each
     machine's inventory, then the differences, each named.
