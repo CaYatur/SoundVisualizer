@@ -18,6 +18,9 @@
      an derlemenin hızına bağlı. Dışa aktarımda bir presetin hangi karede
      göründüğü buna kalamaz: aynı iş aynı videoyu vermeli. */
   window.SVMilkdropSync = true;
+  /* Medya katmanı çevrimdışı (#539): video kendiliğinden oynamaz, her kare
+     kare saatine sarılır; kamera açılmaz (canlı kaynak). */
+  window.SV_OFFLINE = true;
 
   // ---- loopback-helper.js ile birebir aynı sabitler/ölçek ----
   const FFT_SIZE = 2048;
@@ -263,6 +266,7 @@
     if (alpha) installKeyFilter();
     stack.resize(width, height);
     stack.setConfig(cfg);
+    setupMedia();
     // Son-işlem zinciri dışa aktarımda da uygulanır; efektler ekrandakiyle
     // aynı sırada ve aynı parametrelerle çalışır.
     if (Array.isArray(cfg.postfx) && cfg.postfx.length && window.SVPostFX) {
@@ -288,6 +292,36 @@
       logo = await loadLogo(cfg.logo.src);
     }
     await preloadLayerLogos();
+  }
+
+  /* MEDYA KATMANLARI (#539). Dışa aktarıcı medya modunu hiç yüklemiyordu:
+     video arkaplanlı bir yayın düzeni videoda arkaplansız çıkıyordu. Canlı
+     pencerenin kurduğu gibi kurulur (visualizer.js applyMedia): yığında
+     katman başına oynatıcı havuzu, katmansız kipte tek oynatıcı. Videolar
+     ilk kare çizilmeden yüklenir; her kareden önce o karenin zamanına
+     sarılır (seekMedia). */
+  let mediaSingle = null;
+  function setupMedia() {
+    const L = window.SVLayers;
+    if (!window.SVMedia || !L || !stack) return;
+    const isStack = L.stackOn(cfg);
+    const hasLayer = isStack && Array.isArray(cfg.layers) && cfg.layers.some((l) => l && l.kind === 'media' && l.enabled !== false);
+    if (hasLayer) { stack.syncMedia(cfg); return; }
+    if (!isStack && cfg.media && cfg.media.enabled) {
+      mediaSingle = new window.SVMedia();
+      stack.setMedia(mediaSingle);
+      mediaSingle.apply(Object.assign({}, cfg.media, { enabled: true }));
+    }
+  }
+  function mediaPlayers() {
+    const out = [];
+    if (stack && stack._mediaPool) for (const m of stack._mediaPool.values()) out.push(m);
+    if (mediaSingle) out.push(mediaSingle);
+    return out;
+  }
+  async function seekMedia(t) {
+    const list = mediaPlayers().filter((m) => typeof m.seekTo === 'function');
+    if (list.length) await Promise.all(list.map((m) => m.seekTo(t)));
   }
 
   /* KATMAN LOGOLARI ÖNCEDEN (#535, #539). Yığındaki logo katmanları
@@ -473,6 +507,7 @@
     const pending = [];
 
     for (let i = 0; i < totalFrames && !cancelled; i++) {
+      await seekMedia(i / fps);
       const data = renderFrame(i);
       const ts = prof ? performance.now() : 0;
       // Geri basınç: ana süreç kareyi ffmpeg.stdin'e yazana kadar bekler; ama

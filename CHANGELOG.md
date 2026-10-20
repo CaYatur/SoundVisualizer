@@ -10,6 +10,30 @@ Work for v3.1.7 (the broadcast layout editor, #533) lands on `dev/v3.1.7`. `main
 
 ### Broadcast layout editor
 
+- **Live and export parity [539].** `npm run parity` opens the real visualizer page and draws
+  each case once with a fixed audio frame and clock. It composites the same layer canvases
+  through the live CSS path and through the export canvas path, then compares the two pictures
+  pixel by pixel. There are 23 cases: broadcast layouts, opacity and transforms, every blend
+  mode, a mask, the A/B crossfade and reveals caught midway. All now match, with a mean
+  difference of at most 0.08 levels. The check and the review behind it found these
+  differences, now fixed:
+  - **Additive blend.** A layer set to "add" used `screen` live and real addition in export, so
+    the video was visibly brighter: 13.5% of pixels were off by more than 8 levels. Live now uses
+    `plus-lighter`, which is the same addition.
+  - **Video layers in export.** The exporter never loaded the media layer, so a video background
+    was simply missing from the exported video. Each export frame now seeks the video to that
+    frame's time and waits for it to decode, looping as it does live. A camera is a live source,
+    so it stays empty in export; the export panel says so when the scene has one. The export
+    smoke test now renders a video whose frames carry their own number and checks every frame.
+  - The export page's content policy also blocked video, and a queued scene's video was refused
+    by the media protocol when that scene was not the current one.
+  - **Now-playing timing.** The card's entrance and its "show on change" envelope followed the
+    wall clock, so in export they depended on render speed. They now follow the frame clock.
+  - **Text placeholders.** The exporter did not load the dictionary, so the "ARTIST NAME"
+    placeholder stayed in Turkish in an English interface.
+  - **Wipe edge.** The reveal wipe snaps to whole pixels on both paths.
+  - A test now checks that every script drawn on the live page is also loaded by the exporter
+    and the overlay. Each live-only script is listed with its reason.
 - **Reveal animations per element [537].** In the Layout Editor every element can arrive at the
   start of the video with a fade, a slide (up, down, left or right), a zoom or a wipe. Each has
   its own duration, delay and easing, so the elements do not all land at once.

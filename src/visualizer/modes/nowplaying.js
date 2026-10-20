@@ -130,7 +130,12 @@
       // ---- durum ve parça değişimi
       const raw = this._source(N, cfg);
       const now = Date.now();
-      if (this.tracker) this.tracker.update(raw, now);
+      /* Parça değişiminin yaşı (giriş canlandırması, "değişince göster"
+         zarfı) KARE SAATİNDEN (#539). Duvar saatiyle dışa aktarımda kart,
+         videonun zamanına değil işleme hızına göre girip çıkıyordu. Çalma
+         konumu çıpası duvar saatinde kalır (sistemden gelen damga). */
+      const clock = Number.isFinite(t) ? t * 1000 : now;
+      if (this.tracker) this.tracker.update(raw, clock);
       let st = N.resolve(raw, now);
       if (!st.has && c.placeholder) {
         /* Şablon kartı (`placeholder`). Sistemde parça yoksa önce kartın
@@ -152,7 +157,7 @@
       if (!st.has) return;
 
       // ---- görünürlük zarfı (sürekli mi, değişimde mi)
-      const age = this.tracker ? this.tracker.ageAt(now) : Infinity;
+      const age = this.tracker ? this.tracker.ageAt(clock) : Infinity;
       const env = N.envelope(age, c);
       if (env.alpha <= 0.001) return;
 

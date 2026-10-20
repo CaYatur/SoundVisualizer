@@ -345,6 +345,8 @@
     'Yatay Merkez': 'Horizontal Centre',
     'Yazı Boyu': 'Text Size',
     'En Büyük Genişlik': 'Maximum Width',
+    // ---- Canlı / dışa aktarım eşliği (#539) ----
+    'Sahnede kamera katmanı var: kamera canlı bir kaynak, videoda boş kalır. Video dosyası katmanları videoya girer.': 'The scene has a camera layer: a camera is a live source and stays empty in the video. Video file layers are exported.',
     // ---- Açılış animasyonu (#537) ----
     'Açılış Animasyonu': 'Reveal Animation',
     'Açılış Türü': 'Reveal Type',
