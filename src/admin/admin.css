@@ -1736,3 +1736,4 @@ input[type="number"]::-webkit-inner-spin-button {
 @media (max-width: 860px) { .lay-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; } }
 /* Oran düğmeleri gösteriyor; sahnenin sabit "16:9" etiketi editörde yanıltır */
 .preview-stage.lay-stage .preview-badge { display: none; }
+.lay-file { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
