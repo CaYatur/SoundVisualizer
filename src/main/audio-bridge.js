@@ -43,6 +43,7 @@ const PCM_HEAD = FRAME_HEAD + 4 + 1; // + örnekleme hızı (u32), kanal (u8)
 const PCM_MAX = 64 * 1024; // bir PCM paketinin en büyük ses yükü
 const MAX_QUEUE = 256 * 1024; // yavaş alıcı: kuyruk bunu aşarsa kare atlanır
 const HELLO_MS = 5000;
+const MAX_PENDING = 16; // aynı anda doğrulanmayı bekleyen bağlantı
 const RETRY_MS = [250, 500, 1000];
 
 const DEFAULTS = Object.freeze({
@@ -163,14 +164,33 @@ function readFrame(payload) {
    verir; çağıran bağlantıyı kapatır — hizayı yeniden aramak yerine. */
 function createParser(onPacket, onError) {
   let acc = Buffer.alloc(0);
+  /* Yarım paketin parçaları: paket tamamlanana dek BİRLEŞTİRİLMEZ. Her
+     parçada concat, 400 KB'lık kapağı 16 KB'lık parçalarla ~25 kez
+     kopyalıyordu (ana iş parçacığında, saniyede 64 karenin yanında). */
+  let parts = [];
+  let partsLen = 0;
+  let need = 0; // bekleyen paketin toplam boyu (4 + len); 0: bilinmiyor
   let dead = false;
   return function push(chunk) {
     if (dead) return;
-    acc = acc.length ? Buffer.concat([acc, chunk]) : chunk;
+    if (need) {
+      parts.push(chunk);
+      partsLen += chunk.length;
+      if (partsLen < need) return;
+      acc = Buffer.concat(parts, partsLen);
+      parts = []; partsLen = 0; need = 0;
+    } else {
+      acc = acc.length ? Buffer.concat([acc, chunk]) : chunk;
+    }
     while (acc.length >= 4) {
       const len = acc.readUInt32BE(0);
       if (len < 1 || len > MAX_PACKET) { dead = true; if (onError) onError('length'); return; }
-      if (acc.length < 4 + len) return;
+      if (acc.length < 4 + len) {
+        need = 4 + len;
+        parts = [acc]; partsLen = acc.length;
+        acc = Buffer.alloc(0);
+        return;
+      }
       const kind = acc[4];
       const payload = acc.subarray(5, 4 + len);
       acc = acc.subarray(4 + len);
@@ -238,6 +258,12 @@ function createSender(opts) {
   }
 
   function onConn(sock) {
+    /* Doğrulanmamış bağlantı sınırı: ağdaki bir tarayıcı ya da bozuk aygıt
+       saniyede yüzlerce bağlantı açsa her biri 5 sn tampon ve zamanlayıcı
+       tutardı. Gerçek alıcılar birkaç tane. */
+    let pending = 0;
+    for (const x of clients) if (!x.authed) pending++;
+    if (pending >= MAX_PENDING) { sock.destroy(); stats.refused = (stats.refused || 0) + 1; return; }
     const c = { sock, authed: false, audio: false, nonce: crypto.randomBytes(16).toString('hex'), addr: (sock.remoteAddress || '').replace(/^::ffff:/, ''), dropped: 0 };
     clients.add(c);
     sock.setNoDelay(true);
@@ -778,7 +804,7 @@ function sanitizeSources(list) {
 }
 
 module.exports = {
-  WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, KIND, FRAME_HEAD, DEFAULTS, RETRY_MS,
+  WIRE_VERSION, DEFAULT_PORT, BEACON_PORT, MIN_SECRET, MAX_PACKET, MAX_PENDING, KIND, FRAME_HEAD, DEFAULTS, RETRY_MS,
   normalize, sanitizeSources, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
   packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta, artworkOk, artworkId, MAX_ARTWORK,
   createSender, createReceiver, createClock,

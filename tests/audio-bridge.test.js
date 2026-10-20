@@ -523,3 +523,30 @@ test('yardımcı ve ana süreç PCM isteğini taşıyor', () => {
   assert.match(na, /opts && opts\.pcm \? \{ devices: arr, pcm: true \}/);
   assert.match(na, /frameFormat\.splitHelperStream\(acc,/);
 });
+
+// #818 incelemesi: yarım paket parça parça gelince her parçada birleştirilmiyor
+test('ayrıştırıcı: büyük paket küçük parçalarla, araya giren küçük paketle birlikte', () => {
+  const got = [];
+  const push = B.createParser((kind, payload) => got.push([kind, payload.length, payload[0], payload[payload.length - 1]]));
+  const big = Buffer.alloc(300 * 1024, 7); big[0] = 1; big[big.length - 1] = 9;
+  const stream = Buffer.concat([B.packet(0, Buffer.from('{"a":1}')), B.packet(2, big), B.packet(1, Buffer.from([5, 6]))]);
+  for (let i = 0; i < stream.length; i += 1000) push(stream.subarray(i, i + 1000));
+  assert.deepStrictEqual(got, [[0, 7, 123, 125], [2, big.length, 1, 9], [1, 2, 5, 6]]);
+});
+
+test('köprü: doğrulanmamış bağlantılar sınırlı', async () => {
+  const s = B.createSender({ port: 0, host: '127.0.0.1', secret: 'x'.repeat(20) });
+  const st = await s.start();
+  const net = require('net');
+  const socks = [];
+  for (let i = 0; i < B.MAX_PENDING + 4; i++) {
+    const k = net.connect({ host: '127.0.0.1', port: st.port });
+    k.on('error', () => {});
+    socks.push(k);
+    await new Promise((r) => k.on('connect', r));
+  }
+  await new Promise((r) => setTimeout(r, 100));
+  assert.ok(s.status().refused >= 4, 'sınırın üstündekiler kapatıldı');
+  socks.forEach((k) => k.destroy());
+  await s.stop();
+});
