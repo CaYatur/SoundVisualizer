@@ -168,7 +168,7 @@ test('yayın sunucusu: yedek parolası şart, yedek izleyici sayılmaz, yayın i
 
 test('bağlantılar: ana süreç, panel, kontrol eylemleri, Otomatik VJ, MCP ve yayın sayfası', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /syncRedundancy\(\);\n  redundancyPush\(patchKeys\);/);
+  assert.match(main, /syncRedundancy\(\);\n\s*redundancyPush\(patchKeys\);/);
   assert.match(main, /syncRedundancy\(\); \/\/ birincilse yayın sunucusunu da açar/);
   assert.match(main, /if \(red\.role === 'primary' && streamServer\.peerCount\(\)\) \{\n    streamServer\.sendPeers\(\{ type: 'md-follow', follow: Object\.assign\(\{\}, follow,/);
   assert.match(main, /setImmediate\(\(\) => \{ if \(red\.follower && red\.follower\.tick\(Date\.now\(\)\)\) onFollowerChanged\(\); \}\);/);

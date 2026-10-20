@@ -189,7 +189,8 @@ test('picker: a legacy plain selection matching running apps is not shown as "no
   assert.strictEqual(A.sameApp('pacat|ToneA', 'pacat'), true);
   assert.strictEqual(A.sameApp('pacat|ToneA', 'pacat|toneb'), false);
   assert.strictEqual(A.sameApp('firefox', 'pacat'), false);
-  const admin = read('src/admin/admin.js');
+  // Seçici ortak parçada (panel ve ses köprüsünün durum penceresi, #813)
+  const admin = read('src/admin/audio-sources.js');
   const a = admin.indexOf('for (const s of selectedApps) {');
   const body = admin.slice(a, admin.indexOf("'çalışmıyor'", a));
   assert.match(body, /apps\.filter\(\(a\) => AA\.sameApp\(a\.match, AA\.baseName\(s\.match\)\)\)/);

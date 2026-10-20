@@ -164,6 +164,25 @@ function spawnCapture(pid, mode, name) {
   });
 }
 
+/* Bağlı bir uygulama yakalamasının bekçi kararı (#813), saf:
+     'pid-gone'   hedef süreç yok (uygulama kapandı)
+     'restarted'  ~2 sn veri yok ve uygulama artık başka bir pid'de
+     'gone'       ~2 sn veri yok ve uygulama listede de yok
+     'ok'         sürüyor (susmuş olabilir; aynı pid'e dokunulmaz)
+   Uygulama listesi pahalı (Windows'ta yardımcı süreç): yalnız veri kesikken
+   ve en çok 3 sn'de bir sorulur. */
+const STALE_MS = 2000;
+const STALE_CHECK_MS = 3000;
+function staleVerdict(w, now, alive, resolvePid) {
+  if (!w) return 'ok';
+  if (!alive) return 'pid-gone';
+  if (now - w.lastData < STALE_MS || now - w.attachedAt < STALE_MS) return 'ok';
+  if (now - (w.lastCheck || 0) < STALE_CHECK_MS) return 'ok';
+  const p = Number(resolvePid()) || 0;
+  if (p === w.pid) return 'ok';
+  return p ? 'restarted' : 'gone';
+}
+
 // ------------------------------------------------------ canlı seviye (#516)
 
 /* Seçicideki canlı ölçerler için yardımcının `--meters` akışı.
@@ -320,7 +339,7 @@ function createMeterStream(opts) {
 }
 
 module.exports = {
-  helperPath, availability, list, resolve, spawn: spawnCapture, linuxServers,
+  helperPath, availability, list, resolve, spawn: spawnCapture, linuxServers, staleVerdict, STALE_MS,
   createMeterStream, METER_SEND_MS, METER_STOP_GRACE_MS, METER_MAX_FAILURES,
   requestPermission,
 };

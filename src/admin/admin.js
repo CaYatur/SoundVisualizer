@@ -514,6 +514,10 @@
   window.SVPanel = {
     el,
     cfg: () => cfg,
+    // Ses aygıtı listesi (ses köprüsünün yedek girişi, #813)
+    audioDevices: () => audioDevices.slice(),
+    // Ses Kaynakları kartının kendisi (ses köprüsü kartı, #813)
+    audioSources: () => el('div', { class: 'br-sources' }, [buildControl(audioSourcesDef()), buildControl(AUDIO_REFRESH_DEF)]),
     portValue,
     push,
     rerender: () => render(),
@@ -666,6 +670,13 @@
         return window.SVStream ? window.SVStream.panel() : null;
       case 'redundancypanel':
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
+      case 'sectionlink': {
+        const b = el('button', { class: 'btn small', type: 'button', icon: 'wave', text: tr(def.text) });
+        b.addEventListener('click', () => jumpTo({ category: def.category, section: def.section, path: null, advanced: false }));
+        return el('div', { class: 'ctrl' }, [b, def.hint ? el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }) : null]);
+      }
+      case 'bridgepanel':
+        return window.SVBridgePanel ? window.SVBridgePanel.panel() : null;
       case 'preshowpanel':
         return window.SVPreshowPanel ? window.SVPreshowPanel.panel() : null;
       case 'studiopanel':
@@ -1644,197 +1655,52 @@
     auto.style.marginTop = '6px';
     return el('div', {}, [mk('x', 'Yatay Konum'), mk('y', 'Dikey Konum'), auto]);
   }
+  /* Ses Kaynakları kartının denetimleri; ses köprüsünün kartı da aynısını
+     gösteriyor (#813): köprü bu kaynakların karışımını gönderir. */
+  function audioSourcesDef() {
+    return {
+      type: 'multisource',
+      path: 'audio.sources',
+      label: 'Aktif Kaynaklar',
+      devices: () => audioDevices,
+      apps: () => (window.SVAppAudio ? window.SVAppAudio.candidates(audioApps) : []),
+      appStatus: () => appAudioStatus,
+    };
+  }
+  const AUDIO_REFRESH_DEF = { type: 'button', icon: 'refresh', label: 'Aygıtları Yenile', action: 'refreshDevices' };
+
+  /* Ses Kaynakları seçicisi ortak parçada (audio-sources.js): ses
+     köprüsünün durum penceresi de aynısını çiziyor (#813). */
   function multisourceCtrl(def) {
-    const checkboxes = new Map();
-    const AA = window.SVAppAudio;
-
-    /* Kaynaklar iki türlü: aygıt adı (metin) ve uygulama hedefi (nesne).
-       İkisi aynı listede duruyor çünkü karışım zaten çoklu kaynak
-       destekliyor — "Spotify + mikrofon" tek bir seçim kümesi. */
-    const keyOf = (s) => (AA && AA.isAppSource(s)
-      ? 'app:' + AA.baseName(s.match)
-      : String(s));
-
-    function getCur() {
-      const v = getPath(cfg, def.path);
-      return Array.isArray(v) ? v : (v ? [v] : ['default']);
-    }
-
-    function appMode() {
-      const cur = getCur().filter((s) => AA && AA.isAppSource(s));
-      return cur.length && cur[0].mode === 'exclude' ? 'exclude' : 'include';
-    }
-
-    function toggle(entry) {
-      const key = keyOf(entry);
-      let arr = getCur().slice();
-      if (arr.some((s) => keyOf(s) === key)) {
-        arr = arr.filter((s) => keyOf(s) !== key);
-      } else {
-        const add = AA && AA.isAppSource(entry)
-          ? Object.assign({}, entry, { mode: appMode() })
-          : entry;
-        /* Hariç tutma tek uygulamayla sınırlı (bkz. shared/app-audio.js):
-           iki hariç-tutma akışı birbirinin sesini taşır ve karıştırılınca
-           o ses iki kez sayılırdı. */
-        if (AA && AA.isAppSource(add) && add.mode === 'exclude') {
-          arr = arr.filter((s) => !(AA && AA.isAppSource(s)));
-        }
-        arr.push(add);
-      }
-      if (arr.length === 0) arr = ['default']; // en az bir kaynak her zaman seçili
-      setPath(cfg, def.path, arr);
-      push(true);
-      render();
-    }
-
-    function setAppMode(mode) {
-      let arr = getCur().slice();
-      const apps = arr.filter((s) => AA && AA.isAppSource(s));
-      arr = arr.filter((s) => !(AA && AA.isAppSource(s)));
-      const kept = mode === 'exclude' ? apps.slice(0, 1) : apps;
-      for (const a of kept) arr.push(Object.assign({}, a, { mode }));
-      if (arr.length === 0) arr = ['default'];
-      setPath(cfg, def.path, arr);
-      push(true);
-      render();
-    }
-
-    function updateChecks() {
-      const cur = getCur().map(keyOf);
-      checkboxes.forEach((cb, k) => { cb.checked = cur.includes(k); });
-    }
-
-    function makeRow(entry, icon, label, extra, meter) {
-      const cb = el('input', { type: 'checkbox' });
-      checkboxes.set(keyOf(entry), cb);
-      cb.addEventListener('change', () => toggle(entry));
-      const kids = [
-        cb,
-        el('span', { class: 'source-icon', icon }),
-        el('span', { class: 'source-name', text: label }),
-      ];
-      if (meter) kids.push(meter);
-      if (extra) kids.push(el('span', { class: 'source-note', text: extra }));
-      return el('label', { class: 'source-item' }, kids);
-    }
-
-    /* Uygulama satırının canlı ölçeri (#516). Simge yerinde kalıyor:
-       ölçer akışı gelmezse (eski yardımcı, Windows dışı) satır eskisi gibi
-       sesli / sessiz simgesiyle okunur. */
-    function appMeter(match) {
-      if (appMetersBroken || !window.api || !window.api.appAudioMeters) return null;
-      const fill = el('i');
-      const key = AA.baseName(match);
-      const prev = appMeterEls.get(key);
-      const level = prev ? prev.level : 0;
-      fill.style.transform = 'scaleX(' + level.toFixed(3) + ')';
-      appMeterEls.set(key, { fill, level, target: prev ? prev.target : 0, at: 0 });
-      if (level > 0) stepAppMeters(); // yeni çubuk düşüşe kaldığı yerden devam etsin
-      return el('span', { class: 'source-meter', title: 'Anlık ses seviyesi', 'aria-hidden': 'true' }, [fill]);
-    }
-
-    const devices = typeof def.devices === 'function' ? def.devices() : (def.devices || []);
-    const rows = [makeRow('default', 'speaker', 'Varsayılan Çıkış (Aktif Hoparlör)')];
-    devices.forEach((d) => {
-      const icon = d.kind === 'input' ? 'mic' : 'speaker';
-      const suffix = d.isDefault ? ' (' + tr('varsayılan') + ')' : '';
-      rows.push(makeRow(d.name, icon, d.name + suffix));
-    });
-    const kids = [
-      el('label', { class: 'lbl', text: def.label }),
-      el('div', { class: 'source-list' }, rows),
-    ];
-
-    // --------------------------------------------- uygulama başına yakalama
-    const apps = typeof def.apps === 'function' ? def.apps() : (def.apps || []);
-    const status = typeof def.appStatus === 'function' ? def.appStatus() : null;
-    const selectedApps = getCur().filter((s) => AA && AA.isAppSource(s));
-
-    kids.push(el('label', { class: 'lbl', text: 'Uygulama Sesi' }));
-    if (!AA || (status && status.available === false)) {
-      kids.push(el('div', { class: 'studio-note dim-hint',
-        text: (status && status.message) || 'Uygulama başına ses yakalama kullanılamıyor.' }));
-      /* macOS: izin eksikse sebebi yazmak yetmez, istemenin yolu da olmalı.
-         Pencere açılışta kendiliğinden çıkmıyor (özelliği hiç kullanmayan
-         herkese Ekran Kaydı sorulurdu); yalnız bu düğmeyle. */
-      if (status && status.canRequest && window.api && window.api.requestAppAudioPermission) {
-        const req = el('button', {
-          class: 'btn small', type: 'button', icon: 'lock', text: 'Ekran Kaydı İzni İste',
-        });
-        req.addEventListener('click', () => actions.requestAppAudioPermission());
-        kids.push(req);
-      }
-    } else {
-      const appRows = [];
-      const shown = new Set();
+    return window.SVAudioSources.control(def, {
+      el,
+      tr,
+      get: () => getPath(cfg, def.path),
+      set: (arr) => { setPath(cfg, def.path, arr); push(true); render(); },
+      appMeter,
       /* Önceki çizimin seviyeleri yeni çubuklara taşınsın diye eski harita
          appMeter içinde okunuyor; bu çizimde olmayan uygulamalar düşüyor. */
-      const keepMeters = new Set(apps.map((a) => AA.baseName(a.match)));
-      for (const k of Array.from(appMeterEls.keys())) if (!keepMeters.has(k)) appMeterEls.delete(k);
-      for (const a of apps) {
-        shown.add(AA.baseName(a.match));
-        appRows.push(makeRow(
-          { kind: 'app', match: a.match, label: a.label },
-          a.audible ? 'music' : 'mute',
-          a.label,
-          a.count > 1 ? a.count + ' süreç' : '',
-          appMeter(a.match)
-        ));
-      }
-      /* Seçili ama şu an çalışmayan uygulama listeden DÜŞMEMELİ; aksi halde
-         kullanıcı seçimini kaybeder ve neden kaybettiğini göremez. Yakalama
-         tarafı da uygulama açılınca kendiliğinden bağlanıyor. */
-      for (const s of selectedApps) {
-        if (shown.has(AA.baseName(s.match))) continue;
-        /* A plain key saved before Linux split apps by name ("pacat")
-           still captures every app of that binary: show it as running. */
-        const live = AA.sameApp ? apps.filter((a) => AA.sameApp(a.match, AA.baseName(s.match))) : [];
-        if (live.length) {
-          appRows.push(makeRow(
-            { kind: 'app', match: s.match, label: s.label },
-            live.some((a) => a.audible) ? 'music' : 'mute',
-            s.label || s.match,
-            live.length > 1 ? live.length + ' süreç' : '',
-            appMeter(s.match)
-          ));
-          continue;
-        }
-        appRows.push(makeRow(
-          { kind: 'app', match: s.match, label: s.label },
-          'pause', s.label || s.match, 'çalışmıyor'
-        ));
-      }
-      if (!appRows.length) {
-        kids.push(el('div', { class: 'studio-note dim-hint',
-          text: 'Şu anda ses çalan bir uygulama yok. Bir şey çaldırıp Aygıtları Yenile’ye basın.' }));
-      } else {
-        kids.push(el('div', { class: 'source-list' }, appRows));
-      }
-
-      if (selectedApps.length) {
-        const mode = appMode();
-        const seg = el('div', { class: 'segment' });
-        for (const opt of [['include', 'Yalnızca Seçilenler'], ['exclude', 'Seçilen Hariç']]) {
-          const b = el('button', {
-            class: mode === opt[0] ? 'active' : '', type: 'button', text: tr(opt[1]),
-          });
-          b.addEventListener('click', () => setAppMode(opt[0]));
-          seg.appendChild(b);
-        }
-        kids.push(el('div', { class: 'ctrl' }, [
-          el('label', { class: 'lbl', text: 'Uygulama Kipi' }), seg,
-        ]));
-        if (mode === 'exclude') {
-          kids.push(el('div', { class: 'studio-note dim-hint',
-            text: 'Seçilen uygulama hariç sistemdeki her şey dinlenir. Bu kipte tek uygulama seçilebilir.' }));
-        }
-      }
-    }
-
-    updateChecks();
-    return el('div', { class: 'ctrl' }, kids);
+      keepMeters: (keep) => { for (const k of Array.from(appMeterEls.keys())) if (!keep.has(k)) appMeterEls.delete(k); },
+      requestPermission: () => actions.requestAppAudioPermission(),
+    });
   }
+
+  /* Uygulama satırının canlı ölçeri (#516). Simge yerinde kalıyor:
+     ölçer akışı gelmezse (eski yardımcı, Windows dışı) satır eskisi gibi
+     sesli / sessiz simgesiyle okunur. */
+  function appMeter(match) {
+    const AA = window.SVAppAudio;
+    if (appMetersBroken || !window.api || !window.api.appAudioMeters) return null;
+    const fill = el('i');
+    const key = AA.baseName(match);
+    const prev = appMeterEls.get(key);
+    const level = prev ? prev.level : 0;
+    fill.style.transform = 'scaleX(' + level.toFixed(3) + ')';
+    appMeterEls.set(key, { fill, level, target: prev ? prev.target : 0, at: 0 });
+    if (level > 0) stepAppMeters(); // yeni çubuk düşüşe kaldığı yerden devam etsin
+    return el('span', { class: 'source-meter', title: 'Anlık ses seviyesi', 'aria-hidden': 'true' }, [fill]);
+  }
+
 
   // --- Video dışa aktarma: ses dosyası seçici ---
   function audioFileCtrl() {
@@ -2700,15 +2566,8 @@
         title: 'Ses Kaynakları',
         desc: 'Birden fazla kaynak seçilip karıştırılabilir: sistem sesi, mikrofon ve tek tek uygulamalar.',
         controls: [
-          {
-            type: 'multisource',
-            path: 'audio.sources',
-            label: 'Aktif Kaynaklar',
-            devices: () => audioDevices,
-            apps: () => (window.SVAppAudio ? window.SVAppAudio.candidates(audioApps) : []),
-            appStatus: () => appAudioStatus,
-          },
-          { type: 'button', icon: 'refresh', label: 'Aygıtları Yenile', action: 'refreshDevices' },
+          audioSourcesDef(),
+          AUDIO_REFRESH_DEF,
         ],
       },
       {
@@ -2728,6 +2587,18 @@
             hint: 'Açıkken 50/60 Hz donanım uğultusu ve boşta dip gürültüsü sessizlik sayılır. Temiz stüdyo donanımında ham analiz için kapatılabilir (müzikte kayıp olmaz; yalnızca çok kısık saf test sinyallerinde etkilidir).',
           },
         ],
+      },
+      {
+        /* Ses kategorisinde, Ses Kaynakları ve Ses Analizi'nin altında (#813): köprü
+           bir ses girişi. Ayarlar'dan bağlantı, aramada 'köprü'/'bridge'. */
+        id: 'audiobridge',
+        category: 'audio',
+        icon: 'wave',
+        wide: true,
+        title: 'Ses Köprüsü',
+        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
+        keywords: ['köprü', 'ağ köprüsü', 'ağdan ses', 'alıcı', 'gönderici', 'bridge', 'network bridge', 'receiver', 'sender'],
+        controls: [{ type: 'bridgepanel' }],
       },
       {
         id: 'lighting',
@@ -3672,6 +3543,8 @@
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
           { type: 'extendedrange', group: 'Panel' },
+          { type: 'sectionlink', group: 'Ses Köprüsü', category: 'audio', section: 'Ses Köprüsü', text: 'Ses Köprüsü Ayarlarını Aç',
+            hint: 'Ses köprüsü Ses kategorisinde, Ses Kaynakları ve Ses Analizi kartlarının altında.' },
         ],
       },
       {
@@ -4896,6 +4769,7 @@
         section: sec.title,
         path: null,
         advanced: false,
+        keywords: sec.keywords || [],
       });
       sec.controls.forEach((def) => {
         if (!def.label || !def.path) return;
@@ -4919,13 +4793,14 @@
     if (!q) return [];
     const score = (e) => {
       // Hem Türkçe anahtar hem de görüntülenen çeviri üzerinde eşleşme aranır
-      const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)];
+      const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)].concat(e.keywords || []);
       let best = -1;
       hay.forEach((h, i) => {
         const idx = (h || '').toLocaleLowerCase('tr').indexOf(q);
         if (idx < 0) return;
         // Etiket eşleşmesi bölüm/kategori eşleşmesinden değerli, baştan eşleşme daha da değerli
-        const weight = i < 2 ? 0 : i < 4 ? 40 : 80;
+        // Anahtar sözcükler (6+) bölüm adı kadar değerli
+        const weight = i < 2 ? 0 : i < 4 || i >= 6 ? 40 : 80;
         const s = weight + idx;
         if (best < 0 || s < best) best = s;
       });
@@ -6451,6 +6326,9 @@
     // Yayın sunucusu durumu
     if (window.SVStream) window.SVStream.init();
     if (window.SVRedundancyPanel) window.SVRedundancyPanel.init();
+    if (window.SVBridgePanel) window.SVBridgePanel.init();
+    // Köprü penceresinin / tepsinin "Köprü Ayarlarını Aç"ı doğrudan karta götürür
+    if (window.api.onGoto) window.api.onGoto((d) => { if (d && d.category && d.section) jumpTo({ category: d.category, section: d.section, path: null, advanced: false }); });
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
 
@@ -6727,6 +6605,18 @@
           const anyMissing = devNames.some((n) => n !== 'default' && !audioDevices.some((d) => d.name === n));
           if (anyMissing) actions.refreshDevices();
         }
+      } else if (s.type === 'bridge') {
+        /* Ses girişi köprüde (#813): etiket yerel aygıtta kalmasın */
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = true;
+        audioUiKind = 'capture';
+        audioErrShown = null;
+        setAudioState('Ses köprüden: ' + (s.name || 'köprü'), 'ok', 'wave');
+      } else if (s.type === 'bridge-lost') {
+        audioCaptureDevice = null;
+        audioCaptureFromStatus = false;
+        audioUiKind = 'idle';
+        setAudioState(s.state === 'fallback' ? 'Köprü sessiz: yerel giriş kullanılıyor' : 'Köprüden ses bekleniyor', 'warn', 'warning');
       } else if (s.type === 'no-loopback') {
         /* Bu platformda sistem sesini veren bir aygıt yok. Hata değil,
            eksik bir kurulum: macOS'ta CoreAudio loopback vermez ve

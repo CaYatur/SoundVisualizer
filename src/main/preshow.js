@@ -173,6 +173,16 @@ function evaluate(input) {
     else add('redundancy', 'fail', 'Birincile ulaşılamıyor');
   }
 
+  // --- Ses köprüsü (#813): yalnız ses girişi köprüdeyken; etkin kaynak ---
+  const b = o.bridge || null;
+  if (b && b.receive) {
+    if (b.problem) add('bridge', 'fail', 'Ses köprüsü ayarı eksik');
+    else if (b.state === 'bridge') add('bridge', 'ok', 'Ses köprüden', b.from ? [String(b.from)] : undefined);
+    // Etkin kaynak: olağan giriş ya da ayrı yedek aygıt (mikser split)
+    else if (b.state === 'fallback') add('bridge', 'warn', b.fallbackSource ? 'Ses köprüsü sessiz: yedek giriş' : 'Ses köprüsü sessiz: yerel giriş', b.fallbackSource ? [String(b.fallbackSource)] : undefined);
+    else add('bridge', b.fallback === false ? 'fail' : 'warn', 'Ses köprüsü bekleniyor');
+  }
+
   // --- Disk ---
   const low = (Array.isArray(o.disks) ? o.disks : []).filter((d) => num(d.free, Infinity) < MIN_FREE);
   if (low.length) add('disk', 'warn', 'Diskte yer az', low.map((d) => d.label + ': ' + (Math.round(num(d.free, 0) / 1e8) / 10) + ' GB'));

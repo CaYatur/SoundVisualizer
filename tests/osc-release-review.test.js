@@ -93,7 +93,7 @@ test('ayar gönderimi OSC dinleyicisini yeniden kurmaz', () => {
   // Kısa yol nesli artırmadan döner: süren dinleyicinin iletileri düşmez
   assert.ok(body.indexOf('const gen = ++oscInGen;\n  const job') > body.indexOf('key === oscInKey'));
   assert.match(main, /ipcMain\.handle\('osc:sync', \(\) => syncOscServer\(\{ force: true \}\)\);/);
-  assert.match(main, /syncOscServer\(\);\n  syncArtnet\(\);/, 'applyIncomingConfig zorlamaz');
+  assert.match(main, /syncOscServer\(\);\n\s*syncArtnet\(\);/, 'applyIncomingConfig zorlamaz');
 });
 
 test('ana opaklık şeffaf arkaplanda saydamlaştırır, karartmaz', () => {

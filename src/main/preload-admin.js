@@ -204,6 +204,12 @@ contextBridge.exposeInMainWorld('api', {
   preshowCheck: () => ipcRenderer.invoke('preshow:check'),
   preshowReveal: (p) => ipcRenderer.invoke('preshow:reveal', p),
   onRedundancyStatus: (cb) => ipcRenderer.on('redundancy-status', (e, d) => cb(d)),
+  // Ses köprüsü (#813)
+  bridgeStatus: () => ipcRenderer.invoke('bridge:status'),
+  bridgeNewSecret: () => ipcRenderer.invoke('bridge:new-secret'),
+  onBridgeStatus: (cb) => ipcRenderer.on('bridge-status', (e, d) => cb(d)),
+  onBridgeLive: (cb) => ipcRenderer.on('bridge-live', (e, d) => cb(d)),
+  onGoto: (cb) => ipcRenderer.on('admin-goto', (e, d) => cb(d)),
   // Yedek birincili izlerken taşıma onun çıpasından (#544)
   onShowClockFollow: (cb) => ipcRenderer.on('show-clock-follow', (e, a) => cb(a)),
 

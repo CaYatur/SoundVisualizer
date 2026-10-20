@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<!--
+  SoundVisualizer — CaYaDev Ses Görselleştirici
+  Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com
+  https://github.com/CaYatur/SoundVisualizer
+  SPDX-License-Identifier: MIT
+-->
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+    <title>Ses Köprüsü</title>
+    <link rel="stylesheet" href="../admin/admin.css" />
+    <link rel="stylesheet" href="../admin/bridge.css" />
+    <link rel="stylesheet" href="status.css" />
+    <script src="../shared/ui-themes.js"></script>
+    <script src="../admin/theme-boot.js"></script>
+  </head>
+  <body class="bridge-status">
+    <!-- Köprü kipinin küçük durum penceresi (#813). Görüntü çizmez. -->
+    <main id="app" class="bs-main"></main>
+    <script src="../shared/i18n.js"></script>
+    <script src="../shared/icons.js"></script>
+    <script src="../shared/app-audio.js"></script>
+    <script src="../admin/bridge-view.js"></script>
+    <script src="../admin/audio-sources.js"></script>
+    <script src="status.js"></script>
+  </body>
+</html>

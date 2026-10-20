@@ -126,6 +126,10 @@ for (const name of wanted) {
   if (d && !seen.has(d.id)) {
     seen.add(d.id);
     resolved.push(d);
+  } else if (!d) {
+    /* Kaynaklardan biri yok (çıkarılmış USB aygıt): ötekiler yine açılır;
+       hangisinin eksik olduğu ana sürece söylenir (SRC satırı). */
+    process.stderr.write('SRC ' + JSON.stringify({ key: name, state: 'missing' }) + '\n');
   }
 }
 if (resolved.length === 0 && wantedApps.length === 0) {
@@ -223,10 +227,27 @@ const sources = []; // her kaynak için ayrı tamponlar: mono + iki kanal
 const started = [];
 let startedSr = 48000;
 
-function makeCallback(src, nCh) {
+/* DİNLENEBİLİR SES (#813). İstenirse (opts.pcm) İLK kaynağın sesi s16
+   stereo olarak, kendi örnekleme hızında karelerin arasına yazılır (bkz.
+   audio-frame.js encodePcm). Yalnız ilk kaynak: kaynakların hızları farklı
+   olabilir ve burada örnek hızı dönüştürülmüyor. Boru doluysa (geri basınç)
+   PCM atılır; görüntünün karesi önceliklidir. */
+const wantPcm = opts.pcm === true;
+// Uygulama yakalama yardımcılarının üçü de 48 kHz veriyor (app-capture.js)
+const APP_RATE = 48000;
+let pcmSent = false;
+function writePcm(sr, s16) {
+  if (backpressure || !s16.length) return;
+  const ok = process.stdout.write(frameFormat.encodePcm(sr, s16));
+  if (!pcmSent) { pcmSent = true; process.stderr.write('PCM-START sr=' + sr + '\n'); }
+  if (!ok) backpressure = true;
+}
+
+function makeCallback(src, nCh, pcmRate) {
   return (pcm) => {
     const f = new Float32Array(pcm.buffer, pcm.byteOffset, pcm.byteLength / 4);
     src.pushFloat32(f, nCh);
+    if (pcmRate && wantPcm) writePcm(pcmRate, frameFormat.floatToS16Stereo(f, nCh));
   };
 }
 
@@ -243,7 +264,7 @@ for (const d of resolved) {
       d.sampleRate,
       FRAME,
       'cap' + d.id,
-      makeCallback(src, nCh),
+      makeCallback(src, nCh, instances.length === 0 ? d.sampleRate || 48000 : 0),
       null
     );
     inst.start();
@@ -253,6 +274,7 @@ for (const d of resolved) {
     startedSr = d.sampleRate || startedSr;
   } catch (e) {
     process.stderr.write('DEV-FAIL ' + d.name + ' ' + e.message + '\n');
+    process.stderr.write('SRC ' + JSON.stringify({ key: wanted.find((n) => resolveDevice(n) === d) || d.name, state: 'failed', message: String(e.message || '').slice(0, 200) }) + '\n');
   }
 }
 
@@ -268,6 +290,15 @@ for (const d of resolved) {
    (ScreenCaptureKit), Linux'ta parec süreçlerini yöneten ve alt süreç gibi
    davranan bir oturum (app-capture-linux.js). Üçü de aynı biçimi veriyor. */
 const appProcs = [];
+const appWatch = []; // bağlı uygulamanın bekçisi: { pid, lastData, attachedAt, lastCheck }
+let lastSrc = {};
+// Uygulama satırının durumu ana sürece (SRC satırı); aynısı yinelenmez
+function srcState(app, state, message) {
+  const key = 'app:' + appAudio.baseName(app.match);
+  if (lastSrc[key] === state && !message) return;
+  lastSrc[key] = state;
+  process.stderr.write('SRC ' + JSON.stringify(message ? { key, state, message } : { key, state }) + '\n');
+}
 /* Her uygulama kaynağı için tamponlar AYRILIR, süreç sonradan bağlansa bile
    karışımdaki yeri sabit kalsın diye. */
 const appSources = wantedApps.map(() => {
@@ -289,6 +320,7 @@ function attachApp(app, index) {
     target = appCapture.resolve(app);
   } catch (e) {
     process.stderr.write('APP-FAIL ' + app.match + ' ' + e.message + '\n');
+    srcState(app, 'failed', String(e.message || '').slice(0, 200));
     return false;
   }
   if (!target) return false;
@@ -296,6 +328,10 @@ function attachApp(app, index) {
   const child = appCapture.spawn(target.pid, app.mode, target.name);
   if (!child) return false;
   appProcs[index] = child;
+  /* Kimlik: süreç kimliği (pid) her açılışta değişir; uygulama ADIYLA
+     (app.match: exe adı / paket adı) yeniden bulunur. pid yalnız bu
+     bağlantının bekçisi için tutuluyor (#813). */
+  appWatch[index] = { pid: target.pid, lastData: Date.now(), attachedAt: Date.now(), lastCheck: 0 };
   const src = appSources[index];
 
   /* stdout ham float32 stereo akıtıyor. Parçalar kare sınırına düşmek zorunda
@@ -305,9 +341,12 @@ function attachApp(app, index) {
   child.stdout.on('data', (chunk) => {
     const buf = carry.length ? Buffer.concat([carry, chunk]) : chunk;
     const frames = Math.floor(buf.length / 8); // 2 kanal x float32
+    if (appWatch[index] && appProcs[index] === child) appWatch[index].lastData = Date.now();
     if (frames > 0) {
       const usable = frames * 8;
       src.pushStereoLE(buf, frames);
+      // Aygıt yoksa dinlenebilir ses ilk uygulamadan
+      if (wantPcm && instances.length === 0 && index === 0) writePcm(APP_RATE, frameFormat.stereoLEToS16(buf, frames));
       carry = Buffer.from(buf.subarray(usable));
     } else {
       carry = Buffer.from(buf);
@@ -316,7 +355,13 @@ function attachApp(app, index) {
   });
   child.stderr.on('data', (d) => {
     const t = String(d).trim();
-    if (t) process.stderr.write(t + '\n');
+    if (!t) return;
+    process.stderr.write(t + '\n');
+    /* Linux oturumu uygulamayı ADLA izliyor ve akışlar (sink-input dizini)
+       değişince kendisi yeniden bağlanıyor; burada yalnız satırın durumu:
+       dahil kipinde akış yoksa uygulama kapalı. */
+    const m = /APP-STREAMS (\d+)/.exec(t);
+    if (m && app.mode !== 'exclude' && appProcs[index] === child) srcState(app, Number(m[1]) > 0 ? 'ok' : 'closed');
   });
   child.on('error', (e) => process.stderr.write('APP-SPAWN-FAIL ' + e.message + '\n'));
   /* Hedef uygulama kapanırsa yardımcı da biter. Tamponu sıfırlayıp yeniden
@@ -324,13 +369,16 @@ function attachApp(app, index) {
   child.on('exit', () => {
     if (appProcs[index] === child) {
       appProcs[index] = null;
+      appWatch[index] = null;
       src.reset();
       process.stderr.write('APP-DETACHED ' + app.match + '\n');
+      srcState(app, 'closed');
     }
   });
 
   process.stderr.write('APP-ATTACHED ' + app.match + ' pid=' + target.pid
     + ' (' + target.matched + ')\n');
+  srcState(app, 'ok');
   return true;
 }
 
@@ -338,6 +386,7 @@ wantedApps.forEach((app, i) => {
   appProcs[i] = null;
   if (!attachApp(app, i)) {
     process.stderr.write('APP-NOT-RUNNING ' + app.match + '\n');
+    srcState(app, 'waiting');
   }
   started.push(app.label || app.match);
 });
@@ -348,13 +397,46 @@ const retryTimer = wantedApps.length ? setInterval(() => {
   for (let i = 0; i < wantedApps.length; i++) {
     if (!appProcs[i]) attachApp(wantedApps[i], i);
   }
-}, 3000) : null;
+}, 2000) : null;
 if (retryTimer && retryTimer.unref) retryTimer.unref();
+
+/* BEKÇİ (#813). Windows ve macOS yardımcısı hedef süreç ölünce her zaman
+   çıkmıyor: satır "bağlı" kalıyor, uygulama yeniden açılınca da eski pid'e
+   bakıyordu (yalnız işareti kaldırıp yeniden koymak düzeltiyordu). Saniyede
+   bir: pid yaşamıyorsa ya da ~2 sn veri gelmediyse ve uygulama artık başka
+   bir pid'deyse (yeniden açıldı) bayat yardımcı durdurulur, satır "kapandı"
+   olur ve uygulama adıyla yeniden bağlanılır. Uygulama yalnız susmuşsa
+   (aynı pid) dokunulmaz. Linux'ta oturum zaten adla izliyor. */
+// SV_APP_WATCH=1: Linux'ta da (deneme düzeneği bekçiyi gerçek süreçle sınar)
+const watchTimer = wantedApps.length && (process.platform !== 'linux' || process.env.SV_APP_WATCH === '1') ? setInterval(() => {
+  const now = Date.now();
+  for (let i = 0; i < wantedApps.length; i++) {
+    const w = appWatch[i];
+    const child = appProcs[i];
+    if (!w || !child) continue;
+    const verdict = appCapture.staleVerdict(w, now, appAudio.pidAlive(w.pid), () => {
+      w.lastCheck = now;
+      let t = null;
+      try { t = appCapture.resolve(wantedApps[i]); } catch { t = null; }
+      return t ? t.pid : 0;
+    });
+    if (verdict === 'ok') continue;
+    process.stderr.write('APP-STALE ' + wantedApps[i].match + ' pid=' + w.pid + ' (' + verdict + ')\n');
+    appProcs[i] = null;
+    appWatch[i] = null;
+    appSources[i].reset();
+    try { child.kill(); } catch { /* zaten öldü */ }
+    srcState(wantedApps[i], 'closed');
+    attachApp(wantedApps[i], i); // yeniden açıldıysa hemen bağlan
+  }
+}, 1000) : null;
+if (watchTimer && watchTimer.unref) watchTimer.unref();
 
 /* Yardımcı süreçler bizimle birlikte ölmeli; yoksa görselleştirici
    kapandıktan sonra arka planda ses yakalamaya devam ederler. */
 function killApps() {
   if (retryTimer) clearInterval(retryTimer);
+  if (watchTimer) clearInterval(watchTimer);
   for (const c of appProcs) {
     if (!c) continue;
     try { c.kill(); } catch { /* zaten öldü */ }

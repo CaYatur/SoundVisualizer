@@ -42,7 +42,8 @@ const main = () => stripComments(read('src/main/main.js'));
 const HIDDEN_WINDOW_SITES = [
   { file: 'src/main/texture-share.js', count: 1, teardown: ['textureShare.stop()'] },
   // Dışa aktarma render penceresi ve MilkDrop küçük resim penceresi (#575)
-  { file: 'src/main/main.js', count: 2, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()'] },
+  // Köprünün çalan penceresi ve köprü kipinin durum penceresi (#813)
+  { file: 'src/main/main.js', count: 4, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()', 'closeBridgePlayer()', 'closeBridgeWin()'] },
 ];
 
 /* Ana süreçte gizli pencere açan yerleri sayar: dosya -> adet.

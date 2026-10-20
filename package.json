@@ -26,6 +26,7 @@
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",
+    "smoke:bridge": "node scripts/start.js --smoke --bridge",
     "dist:linux": "npm run icons && electron-builder --linux --x64 --publish never",
     "prepare:appaudio:mac": "node scripts/prepare-app-audio-mac.js",
     "dist:mac:arm64": "node scripts/prepare-app-audio-mac.js --arch=arm64 && npm run icons && electron-builder --mac --arm64 --publish never",
@@ -33,7 +34,9 @@
     "release:assets": "node scripts/release-assets.js",
     "bench": "node scripts/bench.js",
     "parity": "node scripts/parity.js",
-    "failover": "node scripts/failover.js"
+    "failover": "node scripts/failover.js",
+    "bridge-rig": "node scripts/bridge-rig.js",
+    "bridge-sources-rig": "node scripts/bridge-sources-rig.js"
   },
   "devDependencies": {
     "@electron/packager": "^20.0.0",
@@ -219,7 +222,19 @@
         "libsecret-1-0"
       ],
       "maintainer": "CaYaDev <contact@cayadev.com>",
-      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb"
+      "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.deb",
+      "desktop": {
+        "entry": {
+          "Actions": "bridge;"
+        },
+        "desktopActions": {
+          "bridge": {
+            "Name": "Audio Bridge",
+            "Name[tr]": "Ses Köprüsü",
+            "Exec": "\"/opt/CAYADEV Visualizer/soundvisualizer\" --bridge"
+          }
+        }
+      }
     },
     "appImage": {
       "artifactName": "CAYADEV-Visualizer-${version}-linux-${arch}.AppImage"

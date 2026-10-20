@@ -112,7 +112,9 @@ test('açılış sorusu yalnız uygulama kopyalarını sayıyor ve en eskisini �
 test('odak isteğini yalnız uygulama kopyası karşılıyor; kapanışta kayıt siliniyor', () => {
   const tick = body(MAIN, 'function instanceTick() {');
   assert.match(tick, /if \(selfInstance\.role === 'app'\) takeFocusRequest\(\);/);
-  const quit = MAIN.slice(MAIN.indexOf("app.on('will-quit'"), MAIN.indexOf("app.on('will-quit'") + 200);
+  // İşleyicinin tamamı (Windows'ta CRLF ile sabit uzunluklu dilim kısa kalıyordu)
+  const qs = MAIN.indexOf("app.on('will-quit'");
+  const quit = MAIN.slice(qs, MAIN.indexOf('\n});', qs));
   assert.ok(quit.indexOf('stopInstanceRegistry();') >= 0, 'will-quit kaydı silmiyor');
   assert.ok(quit.indexOf('stopInstanceRegistry();') < quit.indexOf('app.exit('), 'app.exit kayıt silinmeden çıkıyor');
   assert.match(MAIN, /role: SMOKE \? 'selftest' : SHOTS \? 'screenshots' : 'app',/);
