@@ -11,14 +11,21 @@ the local input or a separate fallback device (a mixer split), bridge-only mode 
 window and a source picker (device or a single app), the panel and the pre-show check. What is
 still open is listed at the end.
 
+## Where to find it
+
+Panel → **Audio** category → **Audio Bridge** card, right below Audio Sources. It is not behind
+the Advanced toggle. The settings search finds it under "köprü" or "bridge", Settings → App has
+an "Open Audio Bridge Settings" button, and "Open Bridge Settings" in the bridge's status window
+or tray opens the panel on that card.
+
 ## Modes
 
 | Where | How | What runs |
 |---|---|---|
-| Normal app, the primary is also the bridge | Settings → Audio Bridge → "Send This Machine's Audio to the Bridge" | Everything as usual. The capture the outputs already use is also sent to receivers. There is one capture, so nothing competes for the device. |
+| Normal app, the primary is also the bridge | Audio → Audio Bridge → "Send This Machine's Audio to the Bridge" | Everything as usual. The capture the outputs already use is also sent to receivers. There is one capture, so nothing competes for the device. |
 | Bridge-only, separate process | Start the app with `--bridge` | No visual output, no visualizer windows, no lighting, streaming or OSC, and hardware acceleration is off. A small status window opens (see below) and an icon sits in the system tray. Settings are kept in `<userData>/bridge`, so it can run next to the normal app on the same machine without both writing the same `settings.json`. |
-| Bridge-only, same settings | Settings → "Audio Bridge Only (next start)" | Like `--bridge`, but with the normal settings folder. Takes effect at the next start. |
-| Receiver | Settings → "Audio Input: Network Bridge" | The bridge's frames replace local capture. |
+| Bridge-only, same settings | Audio → Audio Bridge → "Audio Bridge Only (next start)" | Like `--bridge`, but with the normal settings folder. Takes effect at the next start. |
+| Receiver | Audio → Audio Bridge → "Audio Input: Network Bridge" | The bridge's frames replace local capture. |
 
 `--bridge` works with the installed build, the portable build, the AppImage and the dev build
 (`npm start -- --bridge`), because it is a plain command-line flag read by the main process.

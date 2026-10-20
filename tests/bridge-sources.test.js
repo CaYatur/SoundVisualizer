@@ -171,3 +171,24 @@ test('desteklenmeyen sistem: uygulama satırı yerine neden; aygıtlar seçilebi
   // Ana süreç: uygulama seçili ama yakalama yoksa aygıtlarla sürer (çökmez)
   assert.match(read('src/main/main.js'), /const devs = list\.filter\(\(x\) => typeof x === 'string'\);\n\s+return devs\.length \? devs : \['default'\];/);
 });
+
+test('Ses Köprüsü kartı Ses kategorisinde, Ses Kaynakları’nın altında; aranabilir; Ayarlar’dan bağlantı', () => {
+  const A = read('src/admin/admin.js');
+  const iSrc = A.indexOf("id: 'sources',\n        category: 'audio',");
+  const iBr = A.indexOf("id: 'audiobridge',\n        category: 'audio',");
+  const iAn = A.indexOf("id: 'analysis',\n        category: 'audio',");
+  assert.ok(iSrc > 0 && iBr > iSrc && iBr < iAn, 'Ses Kaynakları ile Ses Analizi arasında');
+  assert.ok(!/id: 'audiobridge',\n\s+category: 'show'/.test(A));
+  assert.match(A, /keywords: \['köprü', [^\]]*'bridge'/);
+  assert.match(A, /\.concat\(e\.keywords \|\| \[\]\)/);
+  assert.match(A, /type: 'sectionlink', group: 'Ses Köprüsü', category: 'audio', section: 'Ses Köprüsü'/);
+  // Kart "Gelişmiş"e bağlı değil
+  const blk = A.slice(iBr, A.indexOf('},', iBr));
+  assert.ok(!/advanced/.test(blk));
+  assert.ok(!/advanced/.test(read('src/admin/bridge-panel.js')));
+  // Köprü penceresi/tepsi "Köprü Ayarlarını Aç" kartın kendisine götürür
+  assert.match(read('src/main/main.js'), /const BRIDGE_CARD = \{ category: 'audio', section: 'Ses Köprüsü' \};/);
+  assert.ok(read('src/main/preload-admin.js').includes("onGoto: (cb) => ipcRenderer.on('admin-goto'"));
+  const I = read('src/shared/i18n.js');
+  for (const k of ['Ses Köprüsü Ayarlarını Aç', 'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.']) assert.ok(I.includes("'" + k + "':"), k);
+});

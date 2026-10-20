@@ -1718,9 +1718,16 @@ function createBridgeTray() {
     openBridgeWindow();
   }
 }
+const BRIDGE_CARD = { category: 'audio', section: 'Ses Köprüsü' };
 function openPanelFromBridge() {
-  if (adminWin && !adminWin.isDestroyed()) { adminWin.show(); adminWin.focus(); return; }
+  if (adminWin && !adminWin.isDestroyed()) {
+    adminWin.show(); adminWin.focus();
+    adminWin.webContents.send('admin-goto', BRIDGE_CARD);
+    return;
+  }
   createAdminWindow();
+  // Panel ilk açılışta yüklenince köprü kartına gider
+  if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.once('did-finish-load', () => setTimeout(() => { if (adminWin && !adminWin.isDestroyed()) adminWin.webContents.send('admin-goto', BRIDGE_CARD); }, 400));
 }
 function updateBridgeTray() {
   if (!bridgeTray) return;

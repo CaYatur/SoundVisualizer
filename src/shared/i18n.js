@@ -1014,6 +1014,8 @@
     'Köprü yakalama yardımcısının analiz karelerini (tayf ve dalga biçimi), kendi çözümlemesini (bantlar, seviye, vuruş, BPM) ve çalan parça bilgisini köprünün saatiyle damgalı gönderir; iki makine aynı sesi aynı sayılarla çözümler. Dinlenebilir ses gönderilmez.': 'The bridge sends the capture helper\'s analysis frames (spectrum and waveform), its own analysis (bands, level, beat, BPM) and the now-playing track, stamped with the bridge\'s clock, so both machines analyse the same audio with the same numbers. Listenable audio is not sent.',
     'Olağan ses girişi': 'Normal audio input',
     'Ses yakalama': 'Audio capture',
+    'Ses Köprüsü Ayarlarını Aç': 'Open Audio Bridge Settings',
+    'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.': 'The audio bridge is in the Audio category, below the Audio Sources card.',
     'çalıyor': 'playing',
     'duraklatıldı': 'paused',
     'gönderiliyor': 'sending',

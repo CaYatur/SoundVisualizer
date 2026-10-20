@@ -670,6 +670,11 @@
         return window.SVStream ? window.SVStream.panel() : null;
       case 'redundancypanel':
         return window.SVRedundancyPanel ? window.SVRedundancyPanel.panel() : null;
+      case 'sectionlink': {
+        const b = el('button', { class: 'btn small', type: 'button', icon: 'wave', text: tr(def.text) });
+        b.addEventListener('click', () => jumpTo({ category: def.category, section: def.section, path: null, advanced: false }));
+        return el('div', { class: 'ctrl' }, [b, def.hint ? el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }) : null]);
+      }
       case 'bridgepanel':
         return window.SVBridgePanel ? window.SVBridgePanel.panel() : null;
       case 'preshowpanel':
@@ -2566,6 +2571,18 @@
         ],
       },
       {
+        /* Ses kategorisinde, Ses Kaynakları'nın hemen altında (#813): köprü
+           bir ses girişi. Ayarlar'dan bağlantı, aramada 'köprü'/'bridge'. */
+        id: 'audiobridge',
+        category: 'audio',
+        icon: 'wave',
+        wide: true,
+        title: 'Ses Köprüsü',
+        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
+        keywords: ['köprü', 'ağ köprüsü', 'ağdan ses', 'alıcı', 'gönderici', 'bridge', 'network bridge', 'receiver', 'sender'],
+        controls: [{ type: 'bridgepanel' }],
+      },
+      {
         id: 'analysis',
         category: 'audio',
         icon: 'chart-line',
@@ -3178,15 +3195,6 @@
         controls: [{ type: 'redundancypanel' }],
       },
       {
-        id: 'audiobridge',
-        category: 'show',
-        icon: 'wave',
-        wide: true,
-        title: 'Ses Köprüsü',
-        desc: 'Bir makinenin yakaladığı ses ağdaki başka makinelere gider; birincil ve yedek aynı sinyali çözümler.',
-        controls: [{ type: 'bridgepanel' }],
-      },
-      {
         id: 'timeline',
         category: 'control',
         icon: 'timeline',
@@ -3535,6 +3543,8 @@
             hint: 'Görselleştirici açıkken uygulamanın yanlışlıkla kapatılmasını engeller; çıkışta onay ister.',
           },
           { type: 'extendedrange', group: 'Panel' },
+          { type: 'sectionlink', group: 'Ses Köprüsü', category: 'audio', section: 'Ses Köprüsü', text: 'Ses Köprüsü Ayarlarını Aç',
+            hint: 'Ses köprüsü Ses kategorisinde, Ses Kaynakları kartının altında.' },
         ],
       },
       {
@@ -4759,6 +4769,7 @@
         section: sec.title,
         path: null,
         advanced: false,
+        keywords: sec.keywords || [],
       });
       sec.controls.forEach((def) => {
         if (!def.label || !def.path) return;
@@ -4782,13 +4793,14 @@
     if (!q) return [];
     const score = (e) => {
       // Hem Türkçe anahtar hem de görüntülenen çeviri üzerinde eşleşme aranır
-      const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)];
+      const hay = [e.label, tr(e.label), e.section, tr(e.section), e.categoryTitle, tr(e.categoryTitle)].concat(e.keywords || []);
       let best = -1;
       hay.forEach((h, i) => {
         const idx = (h || '').toLocaleLowerCase('tr').indexOf(q);
         if (idx < 0) return;
         // Etiket eşleşmesi bölüm/kategori eşleşmesinden değerli, baştan eşleşme daha da değerli
-        const weight = i < 2 ? 0 : i < 4 ? 40 : 80;
+        // Anahtar sözcükler (6+) bölüm adı kadar değerli
+        const weight = i < 2 ? 0 : i < 4 || i >= 6 ? 40 : 80;
         const s = weight + idx;
         if (best < 0 || s < best) best = s;
       });
@@ -6315,6 +6327,8 @@
     if (window.SVStream) window.SVStream.init();
     if (window.SVRedundancyPanel) window.SVRedundancyPanel.init();
     if (window.SVBridgePanel) window.SVBridgePanel.init();
+    // Köprü penceresinin / tepsinin "Köprü Ayarlarını Aç"ı doğrudan karta götürür
+    if (window.api.onGoto) window.api.onGoto((d) => { if (d && d.category && d.section) jumpTo({ category: d.category, section: d.section, path: null, advanced: false }); });
     // Kamera listesi (medya katmanı için)
     if (window.SVMediaPanel) window.SVMediaPanel.init();
 
