@@ -9,6 +9,7 @@ Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any bui
 
 ### Audio bridge, redundancy overhaul phase 2 [813, 816]
 
+- **Fixed: starting the audio bridge a second time crashed on Windows** with "ReferenceError: Cannot access 'instanceTimer' before initialization". The second copy called `app.quit()` while the main process was still loading, and Electron ran the `will-quit` cleanup at once, before the state it touches existed. The second copy now exits right away (the running bridge opens its panel), and the `will-quit` cleanup is skipped until the main process has fully loaded, which also covers a quit signal during startup.
 - **What it solves.** Every machine captured its own device. A backup without the same signal drew a flat picture. Now one machine's capture can go to the others, so the primary and the backup analyse the same signal. Details, the wire format and the measurements are in [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
 - **Inside the app, not a separate program.**
   - "Send This Machine's Audio to the Bridge" works in normal mode, so the primary can be the bridge itself. It uses the same capture, so nothing competes for the device.

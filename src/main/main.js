@@ -200,7 +200,17 @@ function failAndQuit(code) {
   restoreSmokeSettings();
   app.quit();
 }
+/* Modül sonuna kadar yüklendi mi. Yüklenirken kapanış (ikinci kopya, erken
+   sinyal) will-quit'i EŞZAMANLI tetikleyebilir; o anda aşağıda `let`/`const`
+   ile tanımlanan durum (instanceTimer, pendingPartials) henüz yok ve erişim
+   ReferenceError atar (TDZ). Windows'ta köprünün ikinci kopyasında görüldü. */
+let mainLoaded = false;
 app.on('will-quit', () => {
+  if (!mainLoaded) {
+    // Temizlenecek bir şey yok; çıkış kodu yine geçerli olsun
+    if (pendingExitCode) process.exit(pendingExitCode);
+    return;
+  }
   /* Kayıt defterinden çıkış app.exit()'ten ÖNCE: başarısız bir öz test de
      kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
      der. */
@@ -227,8 +237,10 @@ if (BRIDGE_ONLY) app.disableHardwareAcceleration();
 let bridgeSecondInstance = false;
 if (BRIDGE_ONLY && !SMOKE && !process.argv.includes('--bridge-multi')) {
   if (!app.requestSingleInstanceLock()) {
+    /* Çalışan köprü 'second-instance' ile panelini açar. Burada temizlenecek
+       bir şey yok: app.quit() modül yüklenirken will-quit'i tetikliyordu. */
     bridgeSecondInstance = true;
-    app.quit();
+    app.exit(0);
   } else {
     app.on('second-instance', () => { if (app.isReady()) openPanelFromBridge(); });
   }
@@ -9816,3 +9828,6 @@ async function runShots() {
   closeVisualizer(); // kasıtlı: koruma geri açmasın
   app.quit();
 }
+
+// Bu satıra kadar her üst düzey tanım çalıştı: kapanış temizliği güvenli
+mainLoaded = true;
