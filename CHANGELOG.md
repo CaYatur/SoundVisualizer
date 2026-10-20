@@ -72,6 +72,26 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 - **The selected scene's info line** was 3.9:1 in Light and 4.1–4.4:1
   in Midnight and CaYaDev. On the selected row's accent tint it now uses the secondary text
   colour, and the contrast rules cover body and secondary text on selected rows.
+- **Screen readers and keyboards [777].**
+  - Chromium's accessibility tree showed 139 controls without a name: 54 sliders, 53 switches,
+    21 lists and some number and text boxes. A screen reader said only "slider". The setting's
+    label sat beside the control but was not tied to it.
+  - Each row's label text is now linked to its controls. The "reset to default" button inside the
+    label stays out of the name. The name follows the language, because the linked text is the
+    same node the translation updates.
+  - A few controls with their own layout got a name of their own: the A/B crossfader, the Smart
+    Silence Filter switch, the MCP port, and the timeline's BPM, beats-per-bar and snapping
+    controls.
+  - Pressing Tab through the panel reached 606 elements. On 68 of them focus could not be seen:
+    - sliders, which removed the outline and changed only on mouse hover;
+    - the export and update lists, where an inline border overrode the focus style;
+    - the lighting picker.
+
+    All of them now show focus.
+  - The self-test reads the accessibility tree in every category with folds open and walks
+    every category with real Tab presses. It fails on any control without a name or any
+    focusable element whose look does not change on focus. In the self-test's panel that is
+    872 named controls and 595 focusable elements.
 - **The self-test scans a populated panel [777].**
   - The self-test's settings had no saved scenes, no clip cells with a preview and no slot without
     a source. So the untranslated-text scan and the contrast audit never drew those screens. The

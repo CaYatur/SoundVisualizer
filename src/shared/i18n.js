@@ -335,6 +335,8 @@
     'Sonraki işaret': 'Next marker',
     'Tempo (BPM)': 'Tempo (BPM)',
     'Yakalama': 'Snapping',
+    'Oynatma kafasındaki tempo (BPM)': 'Tempo at the playhead (BPM)',
+    'Ölçüdeki vuruş sayısı': 'Beats per bar',
     'Cetvel': 'Ruler',
     'Süre ve Ölçü': 'Time and Bars',
     'Yalnızca Süre': 'Time Only',
@@ -1506,6 +1508,7 @@
 
     // ---- Katman grupları, maskeler, bayraklar ----
     'A/B Çapraz Geçiş Etkin': 'A/B Crossfade Enabled',
+    'A/B Çapraz Geçiş': 'A/B Crossfade',
     'Fader': 'Fader',
     'Fader Eğrisi': 'Fader Curve',
     'Grup': 'Group',

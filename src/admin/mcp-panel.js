@@ -210,7 +210,7 @@
       const busy = status.requestedPort || status.configuredPort || model.port;
       nodes.push(el('div', { class: 'studio-note', text: tx('mcp.port.busy').split('{port}').join(String(busy)) }));
     }
-    const portInput = el('input', { type: 'number', min: '1', max: '65535', value: String(model.port || 38471) });
+    const portInput = el('input', { type: 'number', min: '1', max: '65535', value: String(model.port || 38471), 'aria-label': tx('mcp.port.label') });
     nodes.push(el('div', { class: 'mcp-port' }, [
       el('label', { class: 'lbl', text: tx('mcp.port.label') }),
       portInput,

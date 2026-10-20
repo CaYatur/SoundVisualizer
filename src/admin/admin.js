@@ -280,6 +280,64 @@
     hidden: 1, required: 1, open: 1, autofocus: 1, novalidate: 1,
   };
 
+  /* ERİŞİLEBİLİR ADLAR (#777). Ayar satırı `.ctrl` içinde bir `label.lbl`
+     ve bir denetim, ama etiket denetime bağlı değildi: Chromium'un
+     erişilebilirlik ağacında 139 denetimin (54 kaydırıcı, 53 anahtar, 21
+     liste…) adı boştu ve ekran okuyucu yalnız "kaydırıcı" diyordu. Etiketin
+     YALNIZ METNİ bir span'e alınıyor (içindeki "varsayılana döndür" düğmesi
+     adın parçası olmasın) ve aynı satırdaki adsız denetimler ona
+     `aria-labelledby` ile bağlanıyor. Metin düğümü taşınıyor, değişmiyor:
+     çeviri onu yine buluyor ve ad dil değişince kendiliğinden güncel.
+     Etiketi olmayan satırda grubun başlığı (`.group-label`) kullanılıyor.
+     Paneller sonradan da çizildiği için bir gözlemci çalıştırıyor. */
+  let labelSeq = 0;
+  function hasName(c) {
+    if (c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || c.getAttribute('title')) return true;
+    const ls = c.labels;
+    if (ls) for (let i = 0; i < ls.length; i++) if (ls[i].textContent.trim()) return true;
+    return false;
+  }
+  function labelTextOf(lbl) {
+    let t = lbl.querySelector(':scope > .lbl-t');
+    if (t) return t;
+    const kids = Array.from(lbl.childNodes).filter((n) => !(n.nodeType === 1 && /^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(n.tagName)));
+    if (!kids.some((n) => (n.textContent || '').trim())) return null;
+    t = document.createElement('span');
+    t.className = 'lbl-t';
+    lbl.insertBefore(t, kids[0]);
+    kids.forEach((n) => t.appendChild(n));
+    return t;
+  }
+  function linkLabels(root) {
+    root.querySelectorAll('.ctrl').forEach((c) => {
+      const ctls = Array.from(c.querySelectorAll('input:not([type=hidden]), select, textarea'))
+        .filter((x) => x.closest('.ctrl') === c && !hasName(x));
+      if (!ctls.length) return;
+      const lbl = c.querySelector(':scope > label.lbl, :scope > .row > label.lbl');
+      let t = lbl ? labelTextOf(lbl) : null;
+      if (!t) {
+        const prev = c.previousElementSibling;
+        if (prev && prev.classList.contains('group-label') && prev.textContent.trim()) t = prev;
+      }
+      if (!t) return;
+      if (!t.id) t.id = 'svlbl-' + (++labelSeq);
+      ctls.forEach((x) => x.setAttribute('aria-labelledby', t.id));
+    });
+  }
+  /* Gözlemci geri çağrısı zaten toplu (mikro görev). requestAnimationFrame
+     KULLANILMIYOR: arka plandaki ya da küçültülmüş pencerede hiç çalışmıyor
+     ve adlar pencere görünene kadar boş kalıyordu. Bağlayıcının kendi
+     değişiklikleri gözlemciyi bir kez daha tetikler; ikinci tur bir şey
+     bulamaz ve durur. */
+  if (typeof MutationObserver === 'function' && typeof document !== 'undefined' && document.body) {
+    let busy = false;
+    new MutationObserver(() => {
+      if (busy) return;
+      busy = true;
+      try { linkLabels(document); } finally { busy = false; }
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
   function el(tag, props, kids) {
     const e = document.createElement(tag);
     if (props) {
@@ -889,8 +947,9 @@
       opt.selected = true;
       sel.appendChild(opt);
     }
-    sel.style.width = '100%';
-    sel.style.cssText += 'background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;margin-top:6px;outline:none;';
+    /* Görünüş sınıfta: satır içi kenarlık `select:focus`u eziyor ve
+       klavye odağı görünmüyordu (#777). */
+    sel.classList.add('sel-ctrl');
     return el('div', { class: 'ctrl' }, [el('label', { class: 'lbl', text: def.label }), sel]);
   }
 
