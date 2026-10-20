@@ -128,6 +128,15 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
     source, so it stays empty in export; the export panel says so when the scene has one. The
     export page's content policy also blocked video. A queued scene's video was also refused by
     the media protocol when that scene was not the current one.
+  - **Video layers export fast.** In an ordinary video, keyframes come seconds apart, so each
+    seek decoded forward from the last one: about 150 ms per frame. A 20 s 1080p export took 98 s
+    instead of 8 s. Before the export starts, each video now gets a temporary copy in which every
+    frame is a keyframe. The copy is cut to the export length and scaled down to the output when
+    the source is larger, and it is deleted when the export ends. The same export now takes 11 s
+    (20 s at 60 fps, which took 195 s before), and two runs give identical frames. Videos with
+    transparency keep the original file, because H.264 has no alpha; they export correctly but
+    slowly. If a frame of a video cannot be read, the export stops with a message instead of
+    drawing whatever frame happens to be current.
   - **Additive blend.** A layer set to "add" used `screen` live and real addition in export, so
     the video was visibly brighter: 13.5% of pixels were off by more than 8 levels. Live now uses
     `plus-lighter`, which is the same addition.

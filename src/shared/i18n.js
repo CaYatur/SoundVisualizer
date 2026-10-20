@@ -2786,6 +2786,7 @@
     'Çıkış aygıtı yakalanamadı.': 'Could not capture output device.',
     'Seçili ses aygıtı bulunamadı. Takıldığında yakalama kendiliğinden başlar.': 'The selected audio device was not found. Capture starts by itself when it is plugged in.',
     'İptal edildi.': 'Cancelled.',
+    'Video katmanının karesi okunamadı: dosya açılamadı ya da çözülemedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.': 'A frame of the video layer could not be read: the file could not be opened or decoded. The export was stopped because the video would not come out the same on every run.',
     'MilkDrop dokusu 20 saniyede yüklenmedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.': 'A MilkDrop texture did not load within 20 seconds. The export was stopped because the video would not come out the same on every run.',
     'Shadertoy kodundan içe aktarıldı.': 'Imported from Shadertoy code.',
     'ISF dosyasından içe aktarıldı.': 'Imported from ISF file.',

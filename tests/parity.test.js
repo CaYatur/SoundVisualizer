@@ -73,7 +73,9 @@ test('dışa aktarıcı medya katmanını kurar ve her kareden önce kare saatin
   const ex = read('src/exporter/exporter.js');
   assert.match(ex, /window\.SV_OFFLINE = true;/);
   assert.match(ex, /stack\.setConfig\(cfg\);\s*\n\s*setupMedia\(\);/);
-  assert.match(ex, /await seekMedia\(i \/ fps\);\s*\n\s*const data = renderFrame\(i\);/);
+  // Sarma her kareden ÖNCE; okunamazsa kare çizilmez
+  const seekAt = ex.indexOf('const seekOk = await seekMedia(i / fps);');
+  assert.ok(seekAt > 0 && seekAt < ex.indexOf('const data = renderFrame(i);'));
   const media = read('src/visualizer/modes/media.js');
   assert.match(media, /async seekTo\(sec\) \{/);
   assert.match(media, /const target = v\.loop \? s % d : Math\.min\(s, Math\.max\(0, d - 0\.001\)\);/);

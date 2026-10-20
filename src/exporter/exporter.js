@@ -224,6 +224,8 @@
       isLinux: os === 'linux',
     };
     cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    // Video katmanlarının ara kopyaları (ana süreç hazırladı, #539)
+    window.SVExportMediaMap = job.mediaMap && typeof job.mediaMap === 'object' ? job.mediaMap : {};
     alpha = !!job.alpha;
     /* Saydam biçim (#525): sahne yayın katmanıyla AYNI kuralla çizilir —
        "Şeffaf Arkaplan" açılmış gibi. Arkaplan boyanmaz; bir arkaplan
@@ -320,7 +322,9 @@
   }
   async function seekMedia(t) {
     const list = mediaPlayers().filter((m) => typeof m.seekTo === 'function');
-    if (list.length) await Promise.all(list.map((m) => m.seekTo(t)));
+    if (!list.length) return true;
+    const res = await Promise.all(list.map((m) => m.seekTo(t)));
+    return res.every((r) => r !== false);
   }
 
   /* Arkaplanın koyu yerlerini saydamlaştıran süzgeç. Görselleştirici
@@ -440,6 +444,7 @@
      kadar beklemesin. Süre dolarsa iş AÇIKÇA duruyor — beklemeden devam
      etmek, sessizce farklı bir video yazmak olurdu. */
   const ASSET_WAIT_MS = 20000;
+  const MEDIA_LATE = 'Video katmanının karesi okunamadı: dosya açılamadı ya da çözülemedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.';
   const ASSET_LATE = 'MilkDrop dokusu 20 saniyede yüklenmedi. Video her çalıştırmada aynı çıkmayacağı için dışa aktarım durduruldu.';
   async function settleAssets() {
     if (!stack || typeof stack.assetsPending !== 'function' || !stack.assetsPending()) return true;
@@ -451,7 +456,7 @@
   }
 
   async function run(job) {
-    prof = job.profile ? { decodeMs: 0, setupMs: 0, drawMs: 0, readMs: 0, sendMs: 0, waitMs: 0, settleMs: 0 } : null;
+    prof = job.profile ? { decodeMs: 0, setupMs: 0, drawMs: 0, readMs: 0, sendMs: 0, waitMs: 0, settleMs: 0, mediaMs: 0, mediaFail: 0 } : null;
     let tp = performance.now();
     const duration = await decodeAudio(job.audioBuffer);
     if (prof) { prof.decodeMs = performance.now() - tp; tp = performance.now(); }
@@ -478,7 +483,15 @@
     const pending = [];
 
     for (let i = 0; i < totalFrames && !cancelled; i++) {
-      await seekMedia(i / fps);
+      const tm = prof ? performance.now() : 0;
+      const seekOk = await seekMedia(i / fps);
+      if (prof) { prof.mediaMs += performance.now() - tm; if (!seekOk) prof.mediaFail++; }
+      /* Kare okunamadıysa o anki (yanlış) kare çizilirdi: aynı iş her
+         çalıştırmada farklı video verir. Durdurup söylemek daha dürüst. */
+      if (!seekOk) {
+        window.exp.error(MEDIA_LATE);
+        return;
+      }
       const data = renderFrame(i);
       const ts = prof ? performance.now() : 0;
       // Geri basınç: ana süreç kareyi ffmpeg.stdin'e yazana kadar bekler; ama
