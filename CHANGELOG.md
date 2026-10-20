@@ -253,6 +253,18 @@ updater sees v3.1.5 as the latest release and does not offer it to the beta as a
 
 ### MilkDrop
 
+- **Switching to a MilkDrop layer stutters less [777].**
+  - Building a MilkDrop layer took one long frame: 133 ms the first time and 53–67 ms after that,
+    measured on a 1920×1080, 74 Hz display. The seven built-in programs were compiled and their
+    status was asked at once, and the first such question also waited for the new context to
+    get ready on the GPU.
+  - They now compile in the background, as preset shaders have since #573. The layer starts
+    drawing once they are ready, a few frames later.
+  - Device limits (anisotropy, texture units) are asked once per process instead of once per
+    texture.
+  - The first switch now takes 80 ms, and the next ones 27–53 ms, mostly 40.
+  - Video export and thumbnails still wait for the compile, so the first frame of a video is
+    unchanged. The MilkDrop export in the self-test is byte-for-byte the same size.
 - **Motion vectors can be drawn mirrored, as MilkDrop 2 draws them [750].**
   - MilkDrop 2 draws each vector in its place but reads its direction from the vertically
     mirrored row of the mesh. So motion a preset asks for in the top half shows in the bottom
