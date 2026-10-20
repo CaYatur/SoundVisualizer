@@ -105,7 +105,10 @@ They were built ahead of time and ship in 3.1.6, together with video export.
 
 ### Redundancy
 
-- **Primary and backup machines [542, 546, 547].** Output → Redundancy sets this machine's role.
+- **Show category.** The admin panel has a new category, Show, between Output and Control. It
+  holds what keeps a show running rather than where the picture goes: Pre-show Check first,
+  then Redundancy.
+- **Primary and backup machines [542, 546, 547].** Show → Redundancy sets this machine's role.
   - **Backup.** It connects to the primary and renders the same picture the whole time as a hot
     standby. When the primary stops, it takes over, automatically or on command, chosen in
     advance. Taking over switches who makes decisions, so the backup's screen never goes black.
@@ -172,7 +175,7 @@ They were built ahead of time and ship in 3.1.6, together with video export.
     S400) have no interface that Chromium exposes, and none was available to test. Between two
     machines, frames line up only as closely as the two displays' refresh clocks; the shared time
     still keeps the content in step.
-- **Pre-show check [545].** Output → Pre-show Check shows on one page whether the rig is
+- **Pre-show check [545].** Show → Pre-show Check shows on one page whether the rig is
   ready, refreshing every 3 s while it is open:
   - every display selected for output is connected;
   - each output window holds its target frame rate: the display's refresh rate, or the frame

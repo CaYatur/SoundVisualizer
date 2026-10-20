@@ -3226,12 +3226,19 @@ function applyRemoteCommand(msg, client) {
 }
 
 let streamSyncing = false;
+let streamResync = false;
 function syncStreamServer() {
   const s = (currentConfig && currentConfig.stream) || {};
-  if (streamSyncing) return Promise.resolve(streamServer.status());
+  /* Sürerken gelen çağrı düşmez, bitince bir kez daha koşar: ayar arada
+     değişmiş olabilir (ör. rol Birincil → Kapalı). start() aynı ayarla
+     sunucuyu yeniden başlatmaz. */
+  if (streamSyncing) { streamResync = true; return Promise.resolve(streamServer.status()); }
   streamSyncing = true;
   const done = (r) => {
     streamSyncing = false;
+    // Sunucu birincilin yedeğe kapısı: panel "açılamadı"da kalmasın
+    if (red.role === 'primary') notifyRedundancy();
+    if (streamResync) { streamResync = false; syncStreamServer(); }
     return r;
   };
   // Birincil makine (#540) yedeğe yayın sunucusundan ulaşır: kapalıysa da açılır
