@@ -184,6 +184,13 @@
 
   function round(v) { return Math.round(v * 10000) / 10000; }
 
+  // layers.js stackOn ile aynı kural: anahtar yoksa katman listesi belirler
+  function stackOn(cfg) {
+    const s = cfg && cfg.layerStack;
+    if (s && typeof s.enabled === 'boolean') return s.enabled;
+    return !!(cfg && Array.isArray(cfg.layers) && cfg.layers.length);
+  }
+
   // Katman hangi öğe türü (yoksa null: düzenlenemez)
   function kindOf2(layer) {
     if (!layer) return null;
@@ -209,7 +216,7 @@
       if (!cfg.logo) { if (!create) return {}; cfg.logo = {}; }
       return cfg.logo;
     }
-    const stack = !!(cfg && cfg.layerStack && cfg.layerStack.enabled);
+    const stack = stackOn(cfg);
     if (stack) {
       if (!layer.settings) { if (!create) return {}; layer.settings = {}; }
       if (!layer.settings[sec]) { if (!create) return Object.assign({}, cfg && cfg[sec]); layer.settings[sec] = {}; }
@@ -263,7 +270,7 @@
 
   const api = {
     SAFE, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
-    kindOf: kindOf2, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
+    kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVLayout = api;

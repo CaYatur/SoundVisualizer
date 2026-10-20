@@ -7342,6 +7342,36 @@ async function runSmoke() {
             if (r.same) hidden.set(r.d, (hidden.get(r.d) || 0) + 1);
           }
         }
+        /* Düzen editörü (#534): açılınca önizleme pencereye taşınır, içindeki
+           her denetimin adı olmalı, kapanınca önizleme yerine döner. */
+        const lay = await awc4.executeJavaScript(`(async function () {
+          var b = document.getElementById('layoutEditBtn');
+          if (!b || !window.SVLayoutEditor) return { err: 'no editor' };
+          b.click();
+          await new Promise(function (r) { setTimeout(r, 900); });
+          var stage = document.getElementById('previewStage');
+          return { open: window.SVLayoutEditor.isOpen(), inDialog: !!(stage && stage.closest('.lay-editor')), boxes: document.querySelectorAll('.lay-box').length };
+        })()`);
+        let layUnnamed = 0;
+        if (lay && lay.inDialog) {
+          const tree = (await dbg.sendCommand('Accessibility.getFullAXTree')).nodes || [];
+          const dlg = await awc4.executeJavaScript("(function(){var p=document.querySelector('.lay-editor');return p?p.querySelectorAll('button, input, select, textarea').length:0})()");
+          for (const n of tree) {
+            if (n.ignored || !n.role || !ROLES.has(n.role.value)) continue;
+            if (!String((n.name && n.name.value) || '').trim()) layUnnamed++;
+          }
+          lay.controls = dlg;
+        }
+        const back = await awc4.executeJavaScript(`(async function () {
+          if (window.SVLayoutEditor) window.SVLayoutEditor.close();
+          await new Promise(function (r) { setTimeout(r, 300); });
+          var stage = document.getElementById('previewStage');
+          return !!(stage && stage.closest('#dock')) && !(window.SVLayoutEditor && window.SVLayoutEditor.isOpen());
+        })()`);
+        console.log('[SMOKE] düzen editörü: ' + JSON.stringify(lay) + ', adsız ' + layUnnamed + ', önizleme yerine döndü ' + back);
+        if (!lay || lay.err || !lay.open || !lay.inDialog) errors.push('layout editor did not open with the preview: ' + JSON.stringify(lay));
+        if (layUnnamed) errors.push('layout editor: ' + layUnnamed + ' control(s) without an accessible name');
+        if (!back) errors.push('layout editor: the preview did not return to the dock');
         try { dbg.detach(); } catch (e) { /* zaten ayrıldı */ }
         console.log('[SMOKE] erişilebilirlik: ' + named + ' adlı denetim, ' + tabbed + ' odaklanan öğe');
         unnamed.forEach((n, d) => console.log('[SMOKE]   ~ adsız ' + n + ' × ' + d));
