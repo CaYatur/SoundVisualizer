@@ -189,6 +189,12 @@ contextBridge.exposeInMainWorld('api', {
   redundancyTakeover: () => ipcRenderer.invoke('redundancy:takeover'),
   redundancyRelease: () => ipcRenderer.invoke('redundancy:release'),
   redundancyRearm: () => ipcRenderer.invoke('redundancy:rearm'),
+  // Yetki (#814): korumalı geri verme, iki yönlü komut, öteki makinenin önizlemesi
+  redundancyHandback: (at) => ipcRenderer.invoke('redundancy:handback', at),
+  redundancyCtl: (req) => ipcRenderer.invoke('redundancy:ctl', req),
+  redundancyMonitor: (on) => ipcRenderer.invoke('redundancy:monitor', on),
+  onRedundancyCtl: (cb) => ipcRenderer.on('redundancy-ctl', (e, d) => cb(d)),
+  onRedundancyMonitor: (cb) => ipcRenderer.on('redundancy-monitor', (e, d) => cb(d)),
   redundancyRestoreArchive: (name) => ipcRenderer.invoke('redundancy:restore-archive', name),
   redundancyNewSecret: () => ipcRenderer.invoke('redundancy:new-secret'),
   redundancyCompare: () => ipcRenderer.invoke('redundancy:compare'),

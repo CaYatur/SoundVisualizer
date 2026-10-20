@@ -7,6 +7,22 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
 
+### Redundancy overhaul, phase 3: output authority, terms, fencing, hand-back and two-way control [814, 816]
+
+Details and measurements: [docs/REDUNDANCY.md](docs/REDUNDANCY.md).
+
+- **Only the machine with authority drives lights and OSC.** Before, Art-Net, OSC output, OpenRGB and Dynamic Lighting ran on both machines whenever they were on, so a primary and a backup could drive one DMX universe together. Each of them is now "Only with authority" (default) or "Always". The picture, Spout/Syphon and the overlay page are not gated. Art-Net holds its last frame when authority leaves (default) or sends one black frame.
+- **Terms.** Every takeover opens a new term, stored in `<userData>/redundancy/term.json`; it never goes down and resets with a new pairing secret. The primary sends its term and authority in every heartbeat; the backup now sends its own beat back. A primary that sees the backup active with a newer term steps back: its gated outputs stop, and Auto VJ, the timeline and Clip Deck make no decisions.
+- **Fenced restart.** A primary that starts with the role on sends nothing to gated outputs until it has seen the backup's state, or no backup for twice the loss limit. Measured: a primary restarted while the backup was active sent zero Art-Net packets.
+- **Two masters.** When both machines act as authority (equal terms, or the optional Art-Net witness on UDP 6454 sees our universe from another address while this machine sends), both panels and the pre-show check say so in red, and the backup does not take over by itself. The witness also holds automatic takeover when the backup loses the primary's beats but still sees it sending Art-Net.
+- **Resync on every return to following**, not only after Release; snapshots carry a revision number. Measured: 164 ms from Release to the backup showing the primary's live scene.
+- **Hand back to primary.** On an active backup, with every condition listed (primary beating for 5 s, shows match, clock synced, same version) and a switch moment (now, next scene change, blackout). Measured: 266 ms, no overlap; refused with the condition named when the shows differ.
+- **Two-way control and monitoring.** Each machine shows the other's authority, term, state, frame rate, audio level, open outputs and a small preview (two frames a second, at most about 30 KB, only while the section is on screen). Show commands run on the machine with authority and are forwarded otherwise, applied once and acknowledged.
+- **Pairing without the secret in the URL.** HMAC challenge in both directions; a backup will not follow a primary that cannot prove the secret. The old `token=` address still works for one release, with a pre-show warning.
+- **Pre-show check:** two masters, a fenced primary, a primary that stepped back, old pairing, both machines always sending to one Art-Net universe, and a backup whose Art-Net target differs from the primary's.
+- **macOS:** the app holds an App Nap exception while a role is on.
+- **Tests.** Unit tests for authority, gates, terms (persistence, never down, reset on a new secret, BOM and broken files), the split-brain rule, the takeover veto, hand-back conditions and moments, the command allow list and de-duplication, the HMAC client against a fake and a real streaming server (wrong secret, fake primary, old primary fallback), the Art-Net witness and black frame, and the pre-show rows. `npm run failover` has a fourth scenario that counts Art-Net packets per sender across takeover, Release, hand-back and a fenced restart.
+- **Not done:** the bridge as a third witness (it would tie the optional bridge to redundancy) and a real two-PC network cut (phase 4).
 ### Show category: a tidier layout and live redundancy statistics [816]
 
 - **One layout for both cards.** The Show category used a separate bordered box for every line, a status box with its icon pressed against the text, and long explanations stacked under each other. Both cards now use the audio bridge card's parts: a status pill, stat tiles, groups with one divider, and "?" help that opens over the card instead of pushing it down.

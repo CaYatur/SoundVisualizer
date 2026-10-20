@@ -389,7 +389,8 @@
     /* Yedek makine birincili izlerken Otomatik VJ karar vermez (#540):
        seçimler birincilden gelir; kendi seçimi görüntüyü ayrıştırırdı.
        Yetkiyi alınca kaldığı yerden sürer. */
-    if (window.SVRedundancyPanel && window.SVRedundancyPanel.following()) return;
+    // Yedek izlerken ya da yetki yedekteyken (birincil geri çekildi, #814) karar yok
+    if (window.SVRedundancyPanel && (window.SVRedundancyPanel.following() || window.SVRedundancyPanel.steppedBack())) return;
     const cfg = P().cfg();
     const a = R().normalize(cfg.autovj);
     const now = performance.now() / 1000;

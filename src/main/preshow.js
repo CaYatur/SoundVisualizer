@@ -59,7 +59,8 @@ function missingItems(m) {
        ortak hızı ve onu belirleyen ekran (yoksa çıkışların primaryHz'i)
      wantedDisplays: [id]   — ayarda çıkış için seçili ekranlar
      audio: { wanted, ageMs, level }
-     redundancy: { role, state, peers, problem, show }
+     redundancy: { role, state, peers, problem, show, split, fenced, holder, ... } (#814)
+     artnet: bu makinenin Art-Net hedefi { host, universe } ya da null
      disks: [{ label, free }]
      missing: [{ kind, id, name, path, reason, where }] (preshow-refs
        `collect` kayıtları + neden); eski biçim de kabul edilir
@@ -171,6 +172,26 @@ function evaluate(input) {
     if (st === 'following') add('redundancy', 'ok', 'Birincili izliyor');
     else if (st === 'active') add('redundancy', 'warn', 'Yetki bu makinede (yedek)');
     else add('redundancy', 'fail', 'Birincile ulaşılamıyor');
+  }
+  /* Yetki ve çıkışlar (#814). İki yönetici: iki makine de karar veriyor.
+     Çit: yeniden açılan birincil yedeğin durumunu bekliyor. Eski eşleşme:
+     parola URL'de açık gidiyor. Art-Net: iki makine aynı evrene "her
+     zaman" gönderiyorsa ya da yedeğin hedefi birincilinkinden farklıysa. */
+  if (r.role && r.role !== 'off' && !r.problem) {
+    if (r.split) add('authority', 'fail', 'İki yönetici: iki makine de yetkide', [r.split === 'artnet' ? 'Art-Net' : String(r.term)]);
+    else if (r.fenced) add('authority', 'warn', 'Birincil yedeğin durumunu bekliyor; ışık ve OSC çıkışı kapalı');
+    else if (r.holder === 'peer' && r.role === 'primary') add('authority', 'warn', 'Yetki yedekte; bu makinenin ışık ve OSC çıkışı kapalı');
+    if ((r.role === 'primary' && r.legacyPeers > 0) || (r.role === 'backup' && r.linkMode === 'token')) {
+      add('pairing', 'warn', 'Eski eşleşme: parola ağda açık gidiyor; iki makineyi de güncelleyin');
+    }
+    const own = o.artnet;
+    const peer = r.peerInfo && r.peerInfo.artnet;
+    const modes = r.outputs || {};
+    if (own && peer) {
+      const sameU = own.universe === peer.universe;
+      if (sameU && modes.artnet === 'always' && peer.mode === 'always') add('artnet', 'warn', 'İki makine aynı Art-Net evrenine her zaman gönderiyor', [String(own.universe)]);
+      else if (r.role === 'backup' && (!sameU || own.host !== peer.host)) add('artnet', 'warn', 'Yedeğin Art-Net hedefi birincilinkinden farklı', [own.host + ' / ' + own.universe, peer.host + ' / ' + peer.universe]);
+    }
   }
 
   // --- Ses köprüsü (#813): yalnız ses girişi köprüdeyken; etkin kaynak ---

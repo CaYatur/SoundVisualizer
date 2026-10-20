@@ -1770,6 +1770,20 @@ input[type="number"]::-webkit-inner-spin-button {
 .red-fold .red-diff li > .btn { margin-left: auto; }
 .red-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
 .red-grid .br-tile-k { white-space: normal; line-height: 1.25; }
+.red-gate { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 1 62%; min-width: 0; }
+.red-gate .sel-ctrl { flex: 0 1 200px; min-width: 0; }
+.red-check { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12px; }
+.red-check li { display: flex; align-items: center; gap: 6px; }
+.red-check li .svi { width: 1em; height: 1em; }
+.red-check li.good { color: var(--ok-text); }
+.red-check li.bad { color: var(--danger-text); }
+.red-handback { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+.red-peer { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 10px; align-items: start; }
+.red-mon-box { min-width: 0; }
+.red-mon[hidden] { display: none; }
+.red-mon { display: block; width: 100%; height: auto; border-radius: var(--radius-sm, 8px); border: 1px solid var(--line); background: var(--card2); }
+.red-split { font-size: 12px; }
+@media (max-width: 640px) { .red-peer { grid-template-columns: 1fr; } }
 .red-progress { width: 100%; height: 8px; accent-color: var(--accent); }
 /* Yedeklilik: gösteri karşılaştırması (#541) */
 .red-show { display: flex; flex-direction: column; gap: 8px; }

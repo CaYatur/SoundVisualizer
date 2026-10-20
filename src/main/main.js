@@ -3565,17 +3565,20 @@ ipcMain.on('audio-meter', (e, data) => {
   if (primary && e.sender !== primary.webContents) return;
   if (data && data.mdPreset) relayMdFollow(e.sender, data.mdPreset);
   notifyAdmin('audio-meter', data);
-  dynamicLighting.onAudioFrame(data, currentConfig);
-  if (currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
+  /* Çıkış yetkisi (#814): ışık ve OSC yalnız kapısı açıksa. Kapı yetki
+     değişince bir kez hesaplanır (redAuth.gates); burada tek okuma. */
+  const g = redAuth.gates;
+  if (g.lighting) dynamicLighting.onAudioFrame(data, currentConfig);
+  if (g.artnet && currentConfig && currentConfig.artnet && currentConfig.artnet.enabled) {
     artnet.send(currentConfig.artnet, data);
   }
-  if (currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
+  if (g.oscOut && currentConfig && currentConfig.oscOut && currentConfig.oscOut.enabled) {
     oscOut.send(currentConfig.oscOut, data, oscOutContext());
   }
   /* OpenRGB, Dynamic Lighting ile AYNI görünüm ayarlarını kullanır
      (cfg.lighting): iki ayrı ayar olsaydı aynı masadaki iki aygıt iki
      farklı renk yakardı. Windows'ta ikisi birlikte de çalışabilir. */
-  if (currentConfig && currentConfig.openrgb && currentConfig.openrgb.enabled) {
+  if (g.openrgb && currentConfig && currentConfig.openrgb && currentConfig.openrgb.enabled) {
     openrgb.send(currentConfig.openrgb, currentConfig.lighting, data, currentConfig);
   }
 });
@@ -4131,23 +4134,314 @@ const red = {
 };
 const showSpaceMod = require('./show-space');
 const showPackage = require('./show-package');
+
+/* ---------------------------------------------------------------------------
+   YETKİ VE ÇIKIŞ KAPISI (#814). Kim karar veriyor (holder), dönem (term,
+   diskte), yeniden açılan birincilin çiti (fenced), yedeğin atışı
+   (peer-beat), iki yönetici alarmı, Art-Net tanığı, korumalı geri verme,
+   iki yönlü komut ve öteki makinenin izlenmesi. Kararlar redundancy.js'te.
+   --------------------------------------------------------------------------- */
+const ALL_OPEN = Object.freeze({ artnet: true, oscOut: true, openrgb: true, lighting: true });
+const redAuth = {
+  terms: null, holder: 'self', gates: ALL_OPEN,
+  fenced: false, fenceTimer: null,
+  peerBeat: null, // birincilde: yedeğin son atışı { state, term, at }
+  peerBeatTimer: null, infoTimer: null, authTimer: null,
+  split: '', splitAt: 0, // iki yönetici: neden ('term' | 'artnet')
+  witness: null,
+  handback: null, // yedekte: { at, armedAt, scene, black }
+  aliveSince: 0, prevBeatAt: 0, // yedekte: birincilin kesintisiz atış başlangıcı
+  compare: null, // yedekte: birincilin son karşılaştırma sonucu
+  dedupe: redundancy.createCtlDedupe(256), pending: new Map(), ctlSeq: 0,
+  peerInfo: null, // öteki makinenin özeti (izleme kutucuğu)
+  monWanted: false, monTimer: null, monFrame: null, monPeerWants: false,
+  snapRev: 0, lastRev: 0, beatHolder: '', beatTerm: 0,
+  suspendId: null,
+};
+function redTerms() {
+  if (!redAuth.terms) redAuth.terms = redundancy.createTermStore(path.join(app.getPath('userData'), 'redundancy', 'term.json'));
+  return redAuth.terms;
+}
+function blackedOut() { return oscLive && oscLive.blackout === true; }
+
+/* Yetkiyi ve kapıları yeniden hesaplar. Değişince: Art-Net için seçilen
+   davranış (son kareyi tut ya da bir kez sıfır), günlük ve panel. */
+function updateAuthority() {
+  const st = red.follower ? red.follower.status.state : '';
+  const pb = redAuth.peerBeat;
+  const holder = redundancy.authority({
+    role: red.role, state: st, fenced: redAuth.fenced,
+    peerState: pb ? pb.state : '', peerTerm: pb ? pb.term : 0, term: redTerms().term,
+  });
+  // Rol kapalı ya da ayarı eksik (yedeklilik çalışmıyor): kapılar açık, eskisi gibi
+  const live = (red.role === 'primary' || red.role === 'backup') && !redundancy.problem(red.cfg);
+  const gates = live ? Object.freeze(redundancy.gates(holder, red.cfg)) : ALL_OPEN;
+  const was = redAuth.gates;
+  const changed = holder !== redAuth.holder || JSON.stringify(gates) !== JSON.stringify(was);
+  redAuth.holder = holder;
+  redAuth.gates = gates;
+  if (!changed) return false;
+  if (was.artnet && !gates.artnet && red.cfg.artnetOnLoss === 'zero' && currentConfig && currentConfig.artnet) artnet.sendZero(currentConfig.artnet);
+  console.log('[redundancy] yetki: ' + holder + ' (dönem ' + redTerms().term + ')' + (redAuth.fenced ? ' · çitli' : ''));
+  notifyRedundancySoon();
+  return true;
+}
+
+// Birincil: çit kalkar (yedeğin durumu görüldü ya da yedek hiç yok)
+function unfence(why) {
+  if (!redAuth.fenced) return;
+  redAuth.fenced = false;
+  if (redAuth.fenceTimer) { clearTimeout(redAuth.fenceTimer); redAuth.fenceTimer = null; }
+  console.log('[redundancy] çit kalktı: ' + why);
+  updateAuthority();
+}
+
+function raiseSplit(why) {
+  if (!redAuth.split) console.warn('[redundancy] İKİ YÖNETİCİ: ' + why);
+  const fresh = !redAuth.split;
+  redAuth.split = why;
+  redAuth.splitAt = Date.now();
+  if (red.follower) red.follower.setVeto('split');
+  if (fresh) notifyRedundancy();
+}
+function clearSplit() {
+  if (!redAuth.split) return;
+  redAuth.split = '';
+  if (red.follower) red.follower.setVeto(witnessVeto());
+  notifyRedundancySoon();
+}
+// Art-Net tanığı: başka bir kaynak aynı evrene gönderiyor mu (son 2 sn)
+function witnessForeign() { return redAuth.witness ? redAuth.witness.foreign(Date.now()) : []; }
+function witnessVeto() {
+  return red.role === 'backup' && witnessForeign().length && red.follower && red.follower.status.state !== 'active' ? 'artnet' : '';
+}
+function syncWitness() {
+  const want = red.role !== 'off' && red.cfg.artnetWitness && !HW_OFF && currentConfig && currentConfig.artnet && currentConfig.artnet.enabled;
+  if (want && !redAuth.witness) {
+    redAuth.witness = artnet.createWitness({
+      universe: () => (currentConfig && currentConfig.artnet ? currentConfig.artnet.universe | 0 : 0),
+      own: () => {
+        const out = ['127.0.0.1'];
+        const nets = require('os').networkInterfaces();
+        for (const k of Object.keys(nets)) for (const a of nets[k] || []) if (a && a.address) out.push(a.address);
+        return out;
+      },
+    });
+    redAuth.witness.start();
+  } else if (!want && redAuth.witness) {
+    redAuth.witness.stop();
+    redAuth.witness = null;
+  }
+}
+
+/* Saniyede bir: tanık, çit, öteki makinenin atışının tazeliği, iki yönetici
+   kuralının yeniden değerlendirilmesi ve öteki makineye özet. */
+function authTick() {
+  const now = Date.now();
+  // Birincil: yedeğin atışı eşiği aştıysa (yedek gitti) kendi yetkisine döner
+  if (red.role === 'primary' && redAuth.peerBeat && now - redAuth.peerBeat.at > red.cfg.timeoutMs) {
+    redAuth.peerBeat = null;
+    updateAuthority();
+  }
+  const foreign = witnessForeign();
+  if (red.role === 'backup' && red.follower) red.follower.setVeto(redAuth.split ? 'split' : witnessVeto());
+  // Yetkideyken başka bir kaynak da aynı evrene gönderiyorsa iki yönetici
+  if (foreign.length && redAuth.holder === 'self' && redAuth.gates.artnet && red.role !== 'off') raiseSplit('artnet');
+  else if (redAuth.split === 'artnet' && !foreign.length && now - redAuth.splitAt > 3000) clearSplit();
+  sendPeerInfo();
+  if (red.role !== 'off') notifyRedundancySoon();
+}
+
+// Öteki makineye özet (izleme kutucuğu, gösteri öncesi denetim)
+function peerInfoMsg() {
+  let fps = 0;
+  let n = 0;
+  for (const v of outputFps.values()) if (Date.now() - v.at < 3000 && v.fps) { fps += v.fps; n++; }
+  const a = (currentConfig && currentConfig.artnet) || {};
+  return {
+    type: 'peer-info', role: red.role, state: red.follower ? red.follower.status.state : '',
+    holder: redAuth.holder, term: redTerms().term, fenced: redAuth.fenced, split: redAuth.split,
+    fps: n ? Math.round(fps / n) : 0, level: Math.round((Number(lastMeterLevel) || 0) * 1000) / 1000,
+    bridge: bridge.input ? bridge.input.state : '', gates: redAuth.gates,
+    artnet: a.enabled ? { host: a.host || '255.255.255.255', universe: a.universe | 0, mode: (red.cfg.outputs || {}).artnet || 'authority' } : null,
+    version: app.getVersion(), at: Date.now(),
+  };
+}
+function sendPeerInfo() {
+  if (red.role === 'primary' && streamServer.peerCount()) streamServer.sendPeers(peerInfoMsg());
+  else if (red.role === 'backup' && red.client) red.client.send(peerInfoMsg());
+}
+function onPeerInfo(msg) {
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const str = (v, n) => String(v == null ? '' : v).slice(0, n || 40);
+  redAuth.peerInfo = {
+    role: str(msg.role, 10), state: str(msg.state, 12), holder: str(msg.holder, 8), term: num(msg.term), fenced: !!msg.fenced, split: str(msg.split, 10),
+    fps: num(msg.fps), level: num(msg.level), bridge: str(msg.bridge, 12), version: str(msg.version, 40),
+    gates: msg.gates && typeof msg.gates === 'object' ? Object.fromEntries(redundancy.GATED.map((k) => [k, msg.gates[k] !== false])) : null,
+    artnet: msg.artnet && typeof msg.artnet === 'object' ? { host: str(msg.artnet.host, 64), universe: num(msg.artnet.universe), mode: msg.artnet.mode === 'always' ? 'always' : 'authority' } : null,
+    at: Date.now(),
+  };
+}
+
+/* İZLEME ÖNİZLEMESİ (#814): öteki makinenin panelinde bu bölüm açıkken
+   saniyede iki küçük JPEG (≈320 px, en çok ~30 KB). Atış aynı bağlantıda:
+   kare büyükse kalite düşer, yine büyükse o kare atlanır. */
+function syncMonitorSender() {
+  const want = redAuth.monPeerWants && red.role !== 'off';
+  if (want && !redAuth.monTimer) {
+    redAuth.monTimer = setInterval(() => { sendMonitorFrame().catch(() => {}); }, 500);
+  } else if (!want && redAuth.monTimer) {
+    clearInterval(redAuth.monTimer);
+    redAuth.monTimer = null;
+  }
+}
+let monBusy = false;
+async function sendMonitorFrame() {
+  if (monBusy) return;
+  const w = openWindows()[0] || textureShare.window();
+  if (!w || w.isDestroyed()) return;
+  monBusy = true;
+  try {
+    const img = await w.webContents.capturePage();
+    if (!img || img.isEmpty()) return;
+    const small = img.resize({ width: 320, quality: 'good' });
+    let jpg = small.toJPEG(55);
+    if (jpg.length > 30 * 1024) jpg = small.toJPEG(35);
+    if (jpg.length > 30 * 1024) return;
+    const sz = small.getSize();
+    const msg = { type: 'mon-frame', w: sz.width, h: sz.height, at: Date.now(), jpg: jpg.toString('base64') };
+    if (red.role === 'primary') streamServer.sendPeers(msg);
+    else if (red.client) red.client.send(msg);
+  } finally { monBusy = false; }
+}
+function onMonFrame(msg) {
+  if (!redAuth.monWanted || typeof msg.jpg !== 'string' || msg.jpg.length > 48 * 1024) return;
+  redAuth.monFrame = { src: 'data:image/jpeg;base64,' + msg.jpg, w: msg.w | 0, h: msg.h | 0, at: Date.now() };
+  notifyAdmin('redundancy-monitor', redAuth.monFrame);
+}
+function requestMonitor(on) {
+  redAuth.monWanted = !!on;
+  if (!on) redAuth.monFrame = null;
+  const msg = { type: 'mon', on: !!on };
+  if (red.role === 'primary') streamServer.sendPeers(msg);
+  else if (red.client) red.client.send(msg);
+}
+
+/* İKİ YÖNLÜ KOMUT (#814). Gösteri komutu: yetki bu makinedeyse burada
+   uygulanır, değilse öteki makineye gider ve sonucu beklenir. Yedeklilik
+   komutu her zaman yedekte uygulanır. */
+function ctlSend(msg) {
+  if (red.role === 'primary') streamServer.sendPeers(msg);
+  else if (red.client) red.client.send(msg);
+}
+function ctlRemote(action, args) {
+  return new Promise((resolve) => {
+    const id = process.pid + '-' + Date.now().toString(36) + '-' + (++redAuth.ctlSeq);
+    const timer = setTimeout(() => { redAuth.pending.delete(id); resolve({ ok: false, error: 'timeout' }); }, 3000);
+    redAuth.pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
+    ctlSend({ type: 'ctl', id, action, args: args || {}, term: redTerms().term });
+  });
+}
+// Bu makinede uygula: gösteri komutu panele, yedeklilik komutu ana sürece
+function ctlApply(action, args) {
+  const kind = redundancy.ctlKind(action);
+  if (kind === 'show') {
+    if (redAuth.holder !== 'self') return { ok: false, error: 'not-authority' };
+    notifyAdmin('redundancy-ctl', { action, args: args && typeof args === 'object' ? { id: String(args.id || '').slice(0, 120) } : {} });
+    return { ok: true, applied: red.role };
+  }
+  if (kind === 'red') {
+    if (red.role !== 'backup' || !red.follower) return { ok: false, error: 'not-backup' };
+    const now = Date.now();
+    if (action === 'redTakeover') { if (red.follower.takeover(now)) onFollowerChanged(); }
+    else if (action === 'redRelease') { if (red.follower.release(now)) onFollowerChanged(); }
+    else if (action === 'redRearm') { if (red.follower.rearm() && red.follower.tick(now)) onFollowerChanged(); }
+    else if (action === 'redHandback') { const r = armHandback(args && args.at); if (!r.ok) return r; }
+    else if (action === 'redPkgRequest') { if (red.client) red.client.send({ type: 'pkg-request' }); }
+    notifyRedundancySoon();
+    return { ok: true, applied: 'backup' };
+  }
+  return { ok: false, error: 'action' };
+}
+function onCtl(msg) {
+  if (!msg || typeof msg.id !== 'string' || !redAuth.dedupe(msg.id)) return;
+  const r = ctlApply(String(msg.action || ''), msg.args);
+  ctlSend({ type: 'ctl-result', id: msg.id, ok: !!r.ok, error: r.error || '', applied: r.applied || '' });
+}
+function onCtlResult(msg) {
+  const fn = msg && redAuth.pending.get(msg.id);
+  if (!fn) return;
+  redAuth.pending.delete(msg.id);
+  fn({ ok: !!msg.ok, error: String(msg.error || '').slice(0, 30), applied: String(msg.applied || '').slice(0, 10), remote: true });
+}
+
+/* KORUMALI GERİ VERME (#814). Koşullar tutarsa kurulur; seçilen anda
+   (hemen, sonraki sahne, karartma) yedek dönemi artırır, birincile bildirir
+   ve yetkiyi bırakır. Birincil bildirimi alınca aynı dönemle yetkiyi alır:
+   ikisinin de yetkide (ya da hiçbirinin) olduğu süre en çok bir atış. */
+function handbackPre() {
+  const f = red.follower ? red.follower.status : {};
+  return redundancy.handbackCheck({
+    role: red.role, state: f.state, aliveMs: redAuth.aliveSince ? Date.now() - redAuth.aliveSince : 0,
+    differences: redAuth.compare ? redAuth.compare.differences : null, offsetSamples: f.offsetSamples,
+    primaryVersion: red.primaryVersion || '', version: app.getVersion(),
+  });
+}
+function armHandback(at) {
+  const when = redundancy.HANDBACK_AT.indexOf(at) >= 0 ? at : red.cfg.handbackAt;
+  const failed = handbackPre();
+  if (failed.length) return { ok: false, error: 'precondition', failed };
+  redAuth.handback = { at: when, armedAt: Date.now(), scene: currentConfig ? currentConfig._activeSceneId || '' : '', black: blackedOut() };
+  console.log('[redundancy] geri verme kuruldu (' + when + ')');
+  checkHandback();
+  notifyRedundancy();
+  return { ok: true, at: when };
+}
+function checkHandback() {
+  const h = redAuth.handback;
+  if (!h || red.role !== 'backup' || !red.follower) return;
+  if (red.follower.status.state !== 'active') { redAuth.handback = null; return; }
+  const now = { scene: currentConfig ? currentConfig._activeSceneId || '' : '', black: blackedOut() };
+  if (!redundancy.handbackDue(h.at, h, now)) return;
+  // Koşullar o anda da tutmalı (birincil yeniden düşmüş olabilir)
+  const failed = handbackPre();
+  if (failed.length) { redAuth.handback = null; console.warn('[redundancy] geri verme iptal: ' + failed.join(',')); notifyRedundancy(); return; }
+  redAuth.handback = null;
+  const term = redTerms().bump(redAuth.beatTerm);
+  if (red.client) red.client.send({ type: 'handback', term });
+  console.log('[redundancy] yetki birincile geri verildi (dönem ' + term + ')');
+  if (red.follower.release(Date.now())) onFollowerChanged();
+}
+
 function redSpace() {
   if (!red.space) red.space = showSpaceMod.createShowSpace(path.join(app.getPath('userData'), 'redundancy'));
   return red.space;
 }
 
 function redundancyStatus() {
-  const base = { role: red.role, problem: redundancy.problem(red.cfg), archives: showArchives() };
+  const base = {
+    role: red.role, problem: redundancy.problem(red.cfg), archives: showArchives(),
+    // Yetki (#814): kimde, dönem, çit, kapılar, iki yönetici, tanık, öteki makine
+    holder: redAuth.holder, term: red.role === 'off' ? 0 : redTerms().term, fenced: redAuth.fenced, gates: redAuth.gates,
+    split: redAuth.split, witness: redAuth.witness ? Object.assign(redAuth.witness.status(), { foreign: witnessForeign() }) : null,
+    peerInfo: redAuth.peerInfo, outputs: red.cfg.outputs,
+  };
   if (red.role === 'primary') {
     const peers = streamServer.peerCount();
     return Object.assign(base, {
       peers, peerState: red.peerState, serverRunning: !!streamServer.status().running, show: red.show || null,
       // Panelin kutucukları: atış aralığı, gönderilen atış, kendi en uzun gecikmesi, bağlantı süresi
       heartbeatMs: red.cfg.heartbeatMs, beatsSent: red.beatsSent || 0, ownMaxGap: red.ownMaxGap || 0, peerSince: peers ? red.peerSince || 0 : 0,
+      legacyPeers: streamServer.legacyPeerCount ? streamServer.legacyPeerCount() : 0,
+      peerBeat: redAuth.peerBeat ? { state: redAuth.peerBeat.state, term: redAuth.peerBeat.term, ageMs: Date.now() - redAuth.peerBeat.at } : null,
     });
   }
   if (red.role === 'backup' && red.follower) {
-    return Object.assign(base, red.follower.status, { sharedEpoch: red.sharedSent, space: spaceStatus(), pkg: red.pull ? red.pull.status : null, pkgResult: red.pkgResult, parity: Object.values(red.parity).slice(-20), pkgMedia: packagedMedia() });
+    return Object.assign(base, red.follower.status, {
+      // Yetki (#814): eşleşme biçimi, geri verme koşulları ve kurulu geri verme
+      linkMode: red.client ? red.client.mode : '', handback: redAuth.handback, handbackFailed: handbackPre(),
+      compare: redAuth.compare, primaryVersion: red.primaryVersion || '', version: app.getVersion(), rev: redAuth.lastRev,
+    }, { sharedEpoch: red.sharedSent, space: spaceStatus(), pkg: red.pull ? red.pull.status : null, pkgResult: red.pkgResult, parity: Object.values(red.parity).slice(-20), pkgMedia: packagedMedia() });
   }
   return base;
 }
@@ -4406,6 +4700,20 @@ function stopRedundancy() {
   red.wasActive = false;
   if (red.compareTimer) { clearTimeout(red.compareTimer); red.compareTimer = null; }
   streamServer.setPeerSecret('');
+  // Yetki (#814): zamanlayıcılar ve öteki makinenin bilgisi
+  for (const k of ['peerBeatTimer', 'infoTimer', 'monTimer']) if (redAuth[k]) { clearInterval(redAuth[k]); redAuth[k] = null; }
+  if (redAuth.fenceTimer) { clearTimeout(redAuth.fenceTimer); redAuth.fenceTimer = null; }
+  redAuth.fenced = false;
+  redAuth.peerBeat = null;
+  redAuth.peerInfo = null;
+  redAuth.split = '';
+  redAuth.handback = null;
+  redAuth.compare = null;
+  redAuth.aliveSince = 0;
+  redAuth.monPeerWants = false;
+  redAuth.monFrame = null;
+  for (const fn of redAuth.pending.values()) fn({ ok: false, error: 'closed' });
+  redAuth.pending.clear();
 }
 
 // Yapılandırmadaki rol değiştiyse yeniden kur
@@ -4423,7 +4731,21 @@ function syncRedundancy() {
   const runsBackup = c.role === 'backup' && !redundancy.problem(c);
   if (wasIsolated && !runsBackup) leaveBackupSpace();
   if (runsBackup && !wasIsolated) enterBackupSpace();
-  if (c.role === 'off' || redundancy.problem(c)) { syncSharedClock(); notifyRedundancy(); return; }
+  redTerms().load(c.secret);
+  const prevRole = red.prevRole;
+  red.prevRole = c.role;
+  syncWitness();
+  syncAppSuspension();
+  if (c.role === 'off' || redundancy.problem(c)) { updateAuthority(); syncSharedClock(); notifyRedundancy(); return; }
+  redAuth.infoTimer = setInterval(authTick, 1000);
+  if (c.role === 'primary') {
+    /* ÇİTLİ AÇILIŞ (#814): çöküp yeniden açılan birincil, yedeğin yetkide
+       olup olmadığını görmeden ışık ve OSC sürmez. Yedeğin atışı gelince ya
+       da eşiğin iki katı boyunca hiç yedek yoksa çit kalkar. */
+    redAuth.fenced = prevRole !== 'primary';
+    if (redAuth.fenced) redAuth.fenceTimer = setTimeout(() => { if (!streamServer.peerCount() || !redAuth.peerBeat) unfence('yedek yok'); }, c.timeoutMs * 2);
+  }
+  updateAuthority();
   if (c.role === 'primary') {
     streamServer.setPeerSecret(c.secret);
     syncStreamServer();
@@ -4434,12 +4756,18 @@ function syncRedundancy() {
       const gap = prevBeat ? now - prevBeat : 0;
       prevBeat = now;
       if (gap > (red.ownMaxGap || 0)) red.ownMaxGap = gap;
-      if (streamServer.peerCount()) { streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart })); red.beatsSent = (red.beatsSent || 0) + 1; }
+      if (streamServer.peerCount()) {
+        // Dönem ve yetki her atışta (#814): yedek iki yöneticiyi buradan görür
+        streamServer.sendPeers(Object.assign(redundancy.beatMsg(red.seq++, currentConfig, now), { gap, start: red.sessionStart, term: redTerms().term, holder: redAuth.holder, black: blackedOut() }));
+        red.beatsSent = (red.beatsSent || 0) + 1;
+      }
     }, c.heartbeatMs);
   } else {
     red.follower = redundancy.createFollower(c, Date.now());
+    /* Eşleşme (#814): önce HMAC sınaması; birincil eskiyse açık parolalı
+       eski adres (bir sürüm daha). */
     red.client = redundancy.createClient({
-      url: redundancy.peerUrl(c),
+      urls: [redundancy.peerUrlHmac(c), redundancy.peerUrl(c)], secret: c.secret,
       onOpen: () => {
         red.follower.connected();
         // Yarıda kalan paket aktarımı kaldığı yerden (#812)
@@ -4449,6 +4777,13 @@ function syncRedundancy() {
       onClose: () => { if (red.follower) red.follower.disconnected(); notifyRedundancy(); },
       onMessage: onPrimaryMessage,
     });
+    // Yedeğin atışı (#814): birincil yedeğin durumunu ve dönemini görür
+    redAuth.peerBeatTimer = setInterval(() => {
+      if (!red.client || !red.follower) return;
+      const fs0 = red.follower.status;
+      red.client.send({ type: 'peer-beat', at: Date.now(), state: fs0.state, term: redTerms().term });
+      checkHandback();
+    }, c.heartbeatMs);
     /* Denetim setImmediate ile: ana iş parçacığı meşgul kaldıysa bekleyen
        atışlar önce okunsun (zamanlayıcı → G/Ç → setImmediate). Yoksa
        yoğun bir anın ardından gelen ilk denetim eski atışa bakıp
@@ -4474,7 +4809,8 @@ function onPeerOpen(client) {
 function sendPeerSnapshot(client) {
   streamServer.sendJson(client, { type: 'hello', version: app.getVersion(), role: 'primary', start: red.sessionStart });
   if (showClockAnchor) streamServer.sendJson(client, { type: 'show-clock', anchor: showClockAnchor });
-  streamServer.sendJson(client, redundancy.snapshotMsg(currentConfig, Date.now()));
+  // `rev`: yedek taze bir anlık görüntüyü yeniden oynatılandan ayırır (#814)
+  streamServer.sendJson(client, Object.assign(redundancy.snapshotMsg(currentConfig, Date.now()), { rev: ++redAuth.snapRev }));
   red.sent = {};
   for (const k of ShowKeys.REPLICATED) red.sent[k] = JSON.stringify(currentConfig ? currentConfig[k] : undefined);
 }
@@ -4490,7 +4826,48 @@ function onPeerMessage(msg, client) {
     servePackageManifest(client).catch((e) => streamServer.sendJson(client, { type: 'pkg-error', code: 'build', detail: String(e && e.message || e).slice(0, 120) }));
   } else if (msg && msg.type === 'pkg-get' && client && red.role === 'primary') {
     servePackageChunk(client, msg).catch(() => streamServer.sendJson(client, { type: 'pkg-error', pkg: msg.pkg, code: 'read' }));
+  } else if (msg && msg.type === 'peer-beat' && red.role === 'primary') {
+    onPeerBeat(msg);
+  } else if (msg && msg.type === 'peer-info') {
+    onPeerInfo(msg);
+  } else if (msg && msg.type === 'ctl') {
+    onCtl(msg);
+  } else if (msg && msg.type === 'ctl-result') {
+    onCtlResult(msg);
+  } else if (msg && msg.type === 'mon') {
+    redAuth.monPeerWants = msg.on === true;
+    syncMonitorSender();
+  } else if (msg && msg.type === 'mon-frame') {
+    onMonFrame(msg);
+  } else if (msg && msg.type === 'handback' && red.role === 'primary') {
+    // Yedek yetkiyi bu dönemle geri verdi: atışını beklemeden yetki burada
+    const t = Number(msg.term);
+    if (Number.isInteger(t)) redTerms().see(t);
+    redAuth.peerBeat = { state: 'following', term: redTerms().term, at: Date.now() };
+    clearSplit();
+    console.log('[redundancy] yedek yetkiyi geri verdi (dönem ' + redTerms().term + ')');
+    updateAuthority();
   }
+}
+
+/* Birincil: yedeğin atışı (#814). Yedek yetkide ve dönemi daha yeniyse
+   birincil geri çekilir (kapılar kapanır, Otomatik VJ ve çizelge panelde
+   durur). Yedek yetkide DEĞİLSE dönemi benimsenir: geri verilen yetki
+   sonraki karşılaştırmada yeniden yedeğe geçmesin. Eşit dönemle iki
+   tarafın da yetkide olması iki yönetici sayılır. */
+function onPeerBeat(msg) {
+  const state = typeof msg.state === 'string' ? msg.state.slice(0, 12) : '';
+  const term = Number.isInteger(msg.term) ? msg.term : 0;
+  redAuth.peerBeat = { state, term, at: Date.now() };
+  if (red.peerState !== state) { red.peerState = state; notifyRedundancySoon(); }
+  if (redAuth.fenced) unfence('yedeğin atışı');
+  if (state !== 'active') {
+    redTerms().see(term);
+    if (redAuth.split === 'term') clearSplit();
+  } else if (term <= redTerms().term && redAuth.holder === 'self') {
+    raiseSplit('term');
+  }
+  updateAuthority();
 }
 
 /* İçerik değişti (preset, logo, ayar): karşılaştırma bayatladı. Birincil
@@ -4533,12 +4910,31 @@ function redundancyGuard(config, opts) {
   return opts;
 }
 
+/* Yedek: birincilin atışındaki dönem ve yetki (#814). Kesintisiz atış
+   başlangıcı geri verme koşulu için tutulur. Yetkideyken birincil de
+   "yetki bende" diyorsa ve dönemi en az bizimki kadarsa iki yönetici. */
+function onPrimaryBeatAuth(msg) {
+  const now = Date.now();
+  const limit = red.follower ? red.follower.status.lossLimitMs || red.cfg.timeoutMs : red.cfg.timeoutMs;
+  if (!redAuth.aliveSince || now - redAuth.prevBeatAt > limit) redAuth.aliveSince = now;
+  redAuth.prevBeatAt = now;
+  const term = Number.isInteger(msg.term) ? msg.term : 0;
+  redAuth.beatTerm = term;
+  redAuth.beatHolder = msg.holder === 'self' ? 'self' : msg.holder === 'peer' ? 'peer' : '';
+  const st = red.follower ? red.follower.status.state : '';
+  // İzlerken birincilin dönemi benimsenir (yeni bir devralma ondan büyük olsun)
+  if (st !== 'active') redTerms().see(term);
+  if (redundancy.splitBrain({ role: red.role, state: st, beatHolder: redAuth.beatHolder, beatTerm: term, term: redTerms().term })) raiseSplit('term');
+  else if (redAuth.split === 'term' && (redAuth.beatHolder !== 'self' || st !== 'active')) clearSplit();
+}
+
 // Yedek: birincilden gelen ileti
 function onPrimaryMessage(msg) {
   const f = red.follower;
   if (!f) return;
   if (msg.type === 'hello' || msg.type === 'beat') {
     if (Number.isFinite(msg.start)) red.primaryStart = msg.start;
+    if (msg.type === 'beat') onPrimaryBeatAuth(msg);
     /* Birincilin sürümü: bu dal döndüğü için aşağıdaki eski satıra hiç
        ulaşılmıyordu; primary-show.json sürümü hep boş yazılıyordu. */
     if (msg.type === 'hello' && typeof msg.version === 'string') red.primaryVersion = msg.version.slice(0, 40);
@@ -4560,6 +4956,17 @@ function onPrimaryMessage(msg) {
     return;
   }
   if (msg.type === 'inventory-request') { sendInventory(msg.id).catch(() => {}); return; }
+  // Yetki (#814): karşılaştırma sonucu, öteki makinenin özeti, komut, izleme
+  if (msg.type === 'compare-result') {
+    redAuth.compare = { differences: Number.isInteger(msg.differences) ? msg.differences : null, hash: String(msg.hash || '').slice(0, 64), at: Date.now() };
+    notifyRedundancySoon();
+    return;
+  }
+  if (msg.type === 'peer-info') { onPeerInfo(msg); return; }
+  if (msg.type === 'ctl') { onCtl(msg); return; }
+  if (msg.type === 'ctl-result') { onCtlResult(msg); return; }
+  if (msg.type === 'mon') { redAuth.monPeerWants = msg.on === true; syncMonitorSender(); return; }
+  if (msg.type === 'mon-frame') { onMonFrame(msg); return; }
   if (msg.type === 'asset') { onPrimaryAsset(msg); return; }
   if (msg.type === 'push-notice') { if (red.isolated) pullPackageForPush(); return; }
   if (msg.type === 'md-follow') {
@@ -4578,6 +4985,7 @@ function onPrimaryMessage(msg) {
   if (msg.type === 'pkg-manifest') { onPackageManifest(msg); return; }
   if (msg.type === 'pkg-chunk') { onPackageChunk(msg); return; }
   if (msg.type === 'pkg-error') { onPackageError(msg); return; }
+  if (msg.type === 'snapshot' && Number.isInteger(msg.rev)) redAuth.lastRev = msg.rev;
   if ((msg.type === 'snapshot' || msg.type === 'patch') && red.isolated) {
     /* Birincilin son kopyası her zaman tutulur (#812): yetkideyken canlıya
        uygulanmaz, "Yetkiyi Bırak"ta uygulanır. */
@@ -4634,8 +5042,22 @@ function syncSharedClock(force) {
 function onFollowerChanged() {
   if (!red.follower) return;
   const st = red.follower.status;
-  if (red.client) red.client.send({ type: 'peer-state', state: st.state });
-  if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ')');
+  /* Devralma yeni bir dönem açar (#814): görülenlerin en büyüğünden bir
+     fazlası, diskte. Birincil bunu görünce geri çekilir. */
+  if (st.state === 'active' && !red.wasActive) redTerms().bump(redAuth.beatTerm);
+  if (red.client) {
+    red.client.send({ type: 'peer-state', state: st.state });
+    red.client.send({ type: 'peer-beat', at: Date.now(), state: st.state, term: redTerms().term });
+  }
+  /* İzlemeye her dönüşte taze kopya (#814): eskiden yalnız yetkiden
+     dönüşte isteniyordu; kayıptan dönen yedek de birincilin son hâlini
+     bir anlık görüntüyle doğrular. */
+  if (st.state === 'following' && red.prevFollowState && red.prevFollowState !== 'following' && red.prevFollowState !== 'connecting' && !red.wasActive && red.client) {
+    red.client.send({ type: 'peer-resync' });
+  }
+  red.prevFollowState = st.state;
+  if (st.state !== 'active') redAuth.handback = null;
+  if (st.state === 'active') console.log('[redundancy] yedek yetkiyi aldı (' + st.takenBy + ', dönem ' + redTerms().term + ')');
   if (red.isolated) {
     const want = redundancy.showSource(st.state, red.cfg, red.override);
     if (st.state === 'active' && want === 'local' && red.source !== 'local') {
@@ -4652,6 +5074,7 @@ function onFollowerChanged() {
     }
   }
   red.wasActive = st.state === 'active';
+  updateAuthority();
   notifyRedundancy();
 }
 
@@ -4914,6 +5337,8 @@ async function compareShow() {
     pushable: list.filter((d) => d.pushable && d.status !== 'extra').length,
     items: list.slice(0, 40).map((d) => Object.assign({}, d, { label: labelDiff(d) })),
   };
+  // Yedek de bilsin (#814): geri verme "gösteriler aynı" koşulunu buradan okur
+  streamServer.sendPeers({ type: 'compare-result', differences: red.show.differences, hash: red.show.hash, at: Date.now() });
   notifyRedundancy();
   return red.show;
 }
@@ -5156,6 +5581,7 @@ async function preshowCheck() {
     audio: { wanted: captureWanted() || !!bridge.input, ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
     missing,
     redundancy: redundancyStatus(),
+    artnet: cfg.artnet && cfg.artnet.enabled ? { host: cfg.artnet.host || '255.255.255.255', universe: cfg.artnet.universe | 0 } : null,
     bridge: bridge.input ? { receive: true, state: bridge.input.state, fallback: bridge.cfg.fallback, fallbackSource: bridge.cfg.fallbackSource || '', problem: audioBridge.problem(bridge.cfg),
       from: bridge.receiver ? (function (r) { return r.host ? (r.name ? r.name + ' — ' : '') + r.host + ':' + r.port : ''; })(bridge.receiver.status()) : '' }
       : (bridge.cfg.receive ? { receive: true, state: 'waiting', fallback: bridge.cfg.fallback, problem: audioBridge.problem(bridge.cfg) } : null),
@@ -5326,13 +5752,47 @@ ipcMain.handle('redundancy:pkg-cancel', () => {
   return redundancyStatus();
 });
 ipcMain.handle('redundancy:new-secret', () => require('crypto').randomBytes(18).toString('base64url'));
+// Korumalı geri verme (#814): koşullar tutmazsa hangisi olduğu döner
+ipcMain.handle('redundancy:handback', (e, at) => {
+  if (red.role !== 'backup' || !red.follower) return { ok: false, error: 'not-backup' };
+  if (at === 'cancel') { redAuth.handback = null; notifyRedundancy(); return { ok: true, canceled: true }; }
+  return armHandback(at);
+});
+/* İki yönlü komut (#814): yetki bu makinedeyse panel kendisi uygular
+   (`local`), değilse öteki makineye gider; yedeklilik komutları yedeğe. */
+ipcMain.handle('redundancy:ctl', async (e, req) => {
+  const action = req && typeof req.action === 'string' ? req.action : '';
+  const kind = redundancy.ctlKind(action);
+  if (!kind || red.role === 'off') return { ok: false, error: 'action' };
+  if (kind === 'show') {
+    if (redAuth.holder === 'self') return { ok: true, local: true };
+    return ctlRemote(action, req.args);
+  }
+  if (red.role === 'backup') return ctlApply(action, req.args);
+  return ctlRemote(action, req.args);
+});
+// Öteki makinenin önizlemesi yalnız panel bu bölümü gösterirken (#814)
+ipcMain.handle('redundancy:monitor', (e, on) => { requestMonitor(on === true); return redAuth.monFrame; });
+
+/* macOS App Nap ve zamanlayıcı kısması (#814): rol açıkken uygulama askıya
+   alınmasın; yedek arka plandayken atış zamanlayıcıları gecikmesin. */
+function syncAppSuspension() {
+  const want = red.role === 'primary' || red.role === 'backup';
+  if (want && redAuth.suspendId == null) {
+    try { redAuth.suspendId = powerSaveBlocker.start('prevent-app-suspension'); } catch { redAuth.suspendId = null; }
+  } else if (!want && redAuth.suspendId != null) {
+    try { if (powerSaveBlocker.isStarted(redAuth.suspendId)) powerSaveBlocker.stop(redAuth.suspendId); } catch { /* */ }
+    redAuth.suspendId = null;
+  }
+}
 
 function syncArtnet() {
   const a = (currentConfig && currentConfig.artnet) || {};
   // Otomasyonda ağdaki sahne ışıklarına paket gitmiyor (bkz. HW_OFF)
-  if (!a.enabled || HW_OFF) return artnet.stop().then(() => artnet.status());
+  if (!a.enabled || HW_OFF) return artnet.stop().then(() => { syncWitness(); return artnet.status(); });
   return artnet.start(a).then((st) => {
     notifyAdmin('artnet-status', st);
+    syncWitness();
     return st;
   });
 }

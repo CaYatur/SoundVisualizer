@@ -32,6 +32,18 @@
     host: 'Birincilin adresini yazın.',
   };
   const PEER_STATE_TEXT = { following: 'izliyor', active: 'yetkide', lost: 'birincili kaybetti', connecting: 'bağlanıyor' };
+  // Yetki (#814)
+  const HOLDER_TEXT = { self: 'Bu makinede', peer: 'Öteki makinede', unknown: 'Bekleniyor' };
+  const OUTPUT_TEXT = { artnet: 'Art-Net', oscOut: 'OSC Çıkışı', openrgb: 'OpenRGB', lighting: 'Dynamic Lighting' };
+  const PRE_TEXT = {
+    'not-active': 'Yetki bu makinede',
+    'primary-alive': 'Birincil en az 5 sn kesintisiz atıyor',
+    'show-unknown': 'Gösteriler aynı',
+    'show-differs': 'Gösteriler aynı',
+    clock: 'Saat eşlendi (en az 20 örnek)',
+    version: 'İki makinede aynı uygulama sürümü',
+  };
+  const PRE_ORDER = ['not-active', 'primary-alive', 'show-differs', 'clock', 'version'];
 
   const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
 
@@ -153,7 +165,9 @@
   function tileSpecs(s) {
     const now = Date.now();
     const out = [];
+    const auth = (k) => ['auth', 'Yetki', tr(HOLDER_TEXT[s.holder] || '—'), { tone: s.split ? 'err' : s.holder === 'self' ? 'ok' : s.holder === 'peer' ? '' : 'warn', note: tr('dönem') + ' ' + (s.term || 0) }];
     if (s.role === 'primary') {
+      out.push(auth());
       const conn = s.peers > 0;
       out.push(['peer', 'Yedek', tr(conn ? 'Bağlı' : 'Yok'), { tone: conn ? 'ok' : 'dim', note: conn && s.peerState ? tr(PEER_STATE_TEXT[s.peerState] || s.peerState) : '' }]);
       out.push(['up', 'Bağlantı süresi', conn && s.peerSince ? dur(now - s.peerSince) : '—', { tone: conn ? '' : 'dim' }]);
@@ -164,6 +178,7 @@
       return out;
     }
     if (s.role !== 'backup' || s.problem) return out;
+    out.push(auth());
     const limit = s.lossLimitMs || s.timeoutMs || 1500;
     const since = s.lastBeat ? now - s.lastBeat : null;
     const ratio = since == null ? 0 : since / limit;
@@ -187,7 +202,8 @@
   function updateTiles(s) {
     const root = document.querySelector('.redundancy-panel');
     if (!root) return;
-    for (const [k, , v, o] of tileSpecs(s)) {
+    const specs = tileSpecs(s).concat(s.peerInfo ? peerSpecs(s.peerInfo) : []);
+    for (const [k, , v, o] of specs) {
       const t = root.querySelector('[data-stat="' + k + '"]');
       if (!t) continue;
       const vEl = t.querySelector('.br-tile-v');
@@ -199,8 +215,15 @@
   }
   function ensureLive() {
     if (liveTimer || typeof setInterval !== 'function') return;
+    // Öteki makinenin önizlemesi yalnız bu bölüm görünürken (#814)
+    if (window.api.redundancyMonitor) window.api.redundancyMonitor(true).catch(() => {});
     liveTimer = setInterval(async () => {
-      if (!document.querySelector('.redundancy-panel') || status.role === 'off') { clearInterval(liveTimer); liveTimer = null; return; }
+      if (!document.querySelector('.redundancy-panel') || status.role === 'off') {
+        clearInterval(liveTimer); liveTimer = null;
+        monFrame = null;
+        if (window.api.redundancyMonitor) window.api.redundancyMonitor(false).catch(() => {});
+        return;
+      }
       try { status = Object.assign({}, status, await window.api.redundancyStatus()); window.SVRedundancyState = status; } catch { return; }
       updateTiles(status);
     }, 1000);
@@ -211,6 +234,21 @@
     const t = tiles(status);
     if (t) nodes.push(t);
     const el = P().el;
+    /* İKİ YÖNETİCİ (#814): iki makine de karar veriyor. Panelde en üstte,
+       ne yapılacağıyla. Çit: yeniden açılan birincil yedeği bekliyor. */
+    if (status.split) {
+      nodes.push(el('div', { class: 'br-err red-split', role: 'alert' }, [
+        el('strong', { text: 'İki yönetici: iki makine de yetkide.' }),
+        el('span', { text: ' ' }),
+        el('span', { text: status.split === 'artnet' ? 'Ağda aynı Art-Net evrenine başka bir makine de gönderiyor.' : 'Öteki makine de yetkiyi kendinde görüyor.' }),
+        el('span', { text: ' ' }),
+        el('span', { text: 'Birinde yetkiyi bırakın ya da birincile geri verin.' }),
+      ]));
+    } else if (status.fenced) {
+      nodes.push(el('div', { class: 'br-warn', text: 'Birincil, yedeğin yetkide olup olmadığını bekliyor; ışık ve OSC çıkışı o zamana dek kapalı.' }));
+    } else if (status.role === 'primary' && status.holder === 'peer') {
+      nodes.push(el('div', { class: 'br-warn', text: 'Yetki yedekte: bu makinenin ışık ve OSC çıkışı kapalı, Otomatik VJ ve zaman çizelgesi karar vermiyor.' }));
+    }
     if (status.role === 'backup' && status.autoHeld && status.state !== 'active') {
       const heldLost = status.autoHeld && status.state === 'lost';
       nodes.push(el('div', { class: 'br-warn', text: heldLost
@@ -596,7 +634,130 @@
       btns.push(el('button', { class: 'btn small ghost', type: 'button', icon: 'bolt', text: 'Otomatik Devralmayı Yeniden Kur', onclick: () => rearm() }));
     }
     nodes.push(el('div', { class: 'lay-file' }, btns));
+    if (active) nodes.push(handbackBox(r));
     return group(nodes, 'red-auth');
+  }
+
+  /* KORUMALI GERİ VERME (#814): koşullar tek tek, tutmayan çarpıyla. Seçilen
+     anda (hemen, sonraki sahne, karartma) yetki birincile geçer. */
+  function handbackBox(r) {
+    const el = P().el;
+    const failed = Array.isArray(status.handbackFailed) ? status.handbackFailed : [];
+    const nodes = [el('div', { class: 'br-subhead', text: 'Birincile Geri Ver' })];
+    const ul = el('ul', { class: 'red-check' });
+    for (const k of PRE_ORDER) {
+      if (k === 'not-active') continue;
+      const bad = failed.indexOf(k) >= 0 || (k === 'show-differs' && failed.indexOf('show-unknown') >= 0);
+      ul.appendChild(el('li', { class: bad ? 'bad' : 'good' }, [el('span', { icon: bad ? 'x' : 'check', 'aria-hidden': 'true' }), el('span', { text: PRE_TEXT[k] })]));
+    }
+    nodes.push(ul);
+    nodes.push(selectRow('Geçiş Anı', [['scene', 'Sonraki sahne değişiminde'], ['black', 'Karartmada'], ['now', 'Hemen']], r.handbackAt || 'scene', (v) => { r.handbackAt = v; P().push(true); }));
+    if (status.handback) {
+      nodes.push(el('div', { class: 'br-warn', text: 'Geri verme kuruldu: seçilen anda yetki birincile geçecek.' }));
+      nodes.push(el('div', { class: 'lay-file' }, [el('button', { class: 'btn small ghost', type: 'button', icon: 'x', text: 'Geri Vermeyi İptal Et', onclick: () => handback('cancel') })]));
+    } else {
+      nodes.push(el('div', { class: 'lay-file' }, [el('button', {
+        class: 'btn small primary', type: 'button', icon: 'reset', text: 'Birincile Geri Ver',
+        disabled: failed.filter((f) => f !== 'not-active').length ? 'disabled' : null, onclick: () => handback(r.handbackAt || 'scene'),
+      })]));
+    }
+    return el('div', { class: 'red-handback' }, nodes);
+  }
+  async function handback(at) {
+    if (!window.api.redundancyHandback) return;
+    let res = null;
+    try { res = await window.api.redundancyHandback(at); } catch { /* */ }
+    if (res && res.ok && !res.canceled) P().toast(tr('Geri verme kuruldu.'), 'ok');
+    else if (res && res.failed) P().toast(tr('Geri verilemez:') + ' ' + res.failed.map((f) => tr(PRE_TEXT[f] || f)).join(', '), 'warn');
+    try { status = await window.api.redundancyStatus(); } catch { /* */ }
+    P().rerender();
+  }
+
+  /* ÇIKIŞ KAPILARI (#814): her ışık/OSC çıkışı "yalnız yetkiyle" (varsayılan)
+     ya da "her zaman". Durum: şu an gönderiyor mu. */
+  function gatesBox(r) {
+    const el = P().el;
+    const push = () => P().push(true);
+    if (!r.outputs || typeof r.outputs !== 'object') r.outputs = {};
+    const gates = status.gates || {};
+    const nodes = [head('Çıkış Yetkisi', {
+      help: 'Art-Net, OSC çıkışı, OpenRGB ve Dynamic Lighting varsayılan olarak yalnız yetkideki makineden gider: iki makine aynı ışığı sürmez. "Her zaman" seçilen çıkış iki makinede de çalışır. Görüntü, Spout/Syphon ve yayın sayfası her zaman çalışır; seyirciye hangisinin gideceğini görüntü anahtarlayıcısı seçer.',
+    })];
+    for (const k of ['artnet', 'oscOut', 'openrgb', 'lighting']) {
+      const sel = el('select', { class: 'sel-ctrl' });
+      [['authority', 'Yalnız yetkiyle'], ['always', 'Her zaman']].forEach(([v, t]) => { const o = el('option', { value: v, text: t }); if ((r.outputs[k] || 'authority') === v) o.selected = true; sel.appendChild(o); });
+      sel.addEventListener('change', () => { r.outputs[k] = sel.value; push(); });
+      const open = gates[k] !== false;
+      nodes.push(P().row(OUTPUT_TEXT[k], el('div', { class: 'red-gate' }, [
+        el('span', { class: 'br-pill ' + (open ? 'ok' : 'off') }, [el('span', { class: 'br-dot' }), el('span', { text: open ? 'açık' : 'yetki yok' })]),
+        sel,
+      ])));
+    }
+    if (P().advanced ? P().advanced() : true) {
+      nodes.push(selectRow('Yetki Gidince Art-Net', [['hold', 'Son kareyi tut'], ['zero', 'Bir kez karart']], r.artnetOnLoss === 'zero' ? 'zero' : 'hold', (v) => { r.artnetOnLoss = v; push(); }));
+      const w = status.witness;
+      nodes.push(el('label', { class: 'chk' }, [
+        (function () { const c = el('input', { type: 'checkbox' }); c.checked = r.artnetWitness !== false; c.addEventListener('change', () => { r.artnetWitness = c.checked; push(); }); return c; })(),
+        el('span', { text: 'Art-Net tanığı: aynı evrene başka bir kaynak gönderiyorsa uyar' }),
+      ]));
+      if (w && w.error) nodes.push(el('div', { class: 'br-sub', text: 'Art-Net tanığı açılamadı: 6454 başka bir uygulamada.' }));
+    }
+    return group(nodes, 'red-gates');
+  }
+
+  /* ÖTEKİ MAKİNE (#814): durumu, yetkisi, kare hızı, ses seviyesi, ses
+     girişi ve çıkış kapıları; panel açıkken saniyede iki küçük önizleme.
+     Komutlar yetkideki makinede uygulanır. */
+  let monFrame = null;
+  function peerBox() {
+    const el = P().el;
+    const pi = status.peerInfo;
+    if (!pi || Date.now() - (pi.at || 0) > 5000) return null;
+    const nodes = [head(status.role === 'primary' ? 'Yedek Makine' : 'Birincil Makine', { pill: pi.split ? pill('err', 'İki yönetici') : null })];
+    const img = el('img', { class: 'red-mon', alt: tr('Öteki makinenin önizlemesi'), src: monFrame ? monFrame.src : '' });
+    if (!monFrame) img.hidden = true;
+    nodes.push(el('div', { class: 'red-peer' }, [
+      el('div', { class: 'red-mon-box' }, [img, monFrame ? null : el('div', { class: 'br-sub', text: 'Önizleme: öteki makinede görselleştirici penceresi açık olmalı.' })].filter(Boolean)),
+      grid(peerSpecs(pi).map(([k, label, v, o]) => tile(k, label, v, o))),
+    ]));
+    const cmd = (action, label, icon) => el('button', { class: 'btn small', type: 'button', icon, text: label, onclick: () => ctl(action) });
+    nodes.push(el('div', { class: 'lay-file' }, [
+      cmd('nextScene', 'Sonraki Sahne', 'skip'), cmd('blackout', 'Karart', 'moon'), cmd('nextVisualizer', 'Sonraki Görselleştirici', 'next'),
+      cmd('tlPlay', 'Çizelge Oynat', 'play'), cmd('tlPause', 'Çizelge Duraklat', 'pause'),
+    ]));
+    nodes.push(el('div', { class: 'br-sub', text: 'Komut yetkideki makinede uygulanır: yetki buradaysa burada, değilse öteki makineye gönderilir.' }));
+    return group(nodes, 'red-peerbox');
+  }
+  // Öteki makinenin kutucukları: ilk çizim ve canlı güncelleme aynı yerden
+  function peerSpecs(pi) {
+    const gatesOn = pi.gates ? Object.keys(pi.gates).filter((k) => pi.gates[k]).length : 0;
+    return [
+      // Öteki makinenin gözünden "bu makinede" burada yanıltırdı: yetkide mi değil mi
+      ['p-auth', 'Yetki', tr(pi.holder === 'self' ? 'Yetkide' : pi.holder === 'unknown' ? 'Bekleniyor' : 'Yetkide değil'), { note: tr('dönem') + ' ' + pi.term, tone: pi.split ? 'err' : pi.holder === 'self' ? 'ok' : '' }],
+      ['p-state', 'Durum', pi.state ? tr(PEER_STATE_TEXT[pi.state] || pi.state) : tr(pi.role === 'primary' ? 'Birincil' : 'Yedek'), {}],
+      ['p-fps', 'Kare hızı', pi.fps ? pi.fps + ' fps' : '—', { tone: pi.fps ? '' : 'dim' }],
+      ['p-lvl', 'Ses seviyesi', Math.round((pi.level || 0) * 100) + '%', {}],
+      ['p-gate', 'Açık çıkış', gatesOn + ' / 4', { tone: gatesOn ? 'ok' : '' }],
+    ];
+  }
+  async function ctl(action, args) {
+    if (!window.api.redundancyCtl) return;
+    let r = null;
+    try { r = await window.api.redundancyCtl({ action, args: args || {} }); } catch { /* */ }
+    if (r && r.local) { runCtl({ action, args }); P().toast(tr('Bu makinede uygulandı.'), 'ok'); return; }
+    if (r && r.ok) { P().toast(tr('Öteki makinede uygulandı.'), 'ok'); return; }
+    const why = r && r.error === 'timeout' ? 'Öteki makine yanıt vermedi.' : r && r.error === 'not-authority' ? 'Yetki öteki makinede değil; komut uygulanmadı.' : 'Komut gönderilemedi.';
+    P().toast(tr(why), 'warn');
+  }
+  // Öteki makineden ya da buradan gelen gösteri komutu: panelin kendi eylemi
+  function runCtl(d) {
+    if (!d || typeof d.action !== 'string') return;
+    if (d.action === 'sceneGo') { if (d.args && d.args.id && P().applyScene) P().applyScene(String(d.args.id)); return; }
+    const C = window.SVControl;
+    if (!C || !C.runAction) return;
+    const cfg = P().cfg();
+    const done = C.runAction(d.action, cfg);
+    if (!done && d.action !== 'blackout') P().apply();
   }
 
   function connectionBox(r, role) {
@@ -648,8 +809,10 @@
     }
     ensureLive();
     nodes.push(statusBlock());
+    if (!status.problem) { const pb0 = peerBox(); if (pb0) nodes.push(pb0); }
     if (role === 'backup') {
       if (!status.problem) nodes.push(authorityBox(r));
+      if (!status.problem) nodes.push(gatesBox(r));
       nodes.push(connectionBox(r, 'backup'));
       if (!status.problem) {
         const pb = parityBox();
@@ -658,6 +821,7 @@
         nodes.push(packageBox());
       }
     } else {
+      if (!status.problem) nodes.push(gatesBox(r));
       nodes.push(connectionBox(r, 'primary'));
       if (status.peers) nodes.push(showBox());
     }
@@ -672,7 +836,9 @@
     window.api.onRedundancyStatus((s) => {
       const sig = (x) => JSON.stringify([x.role, x.state, x.autoHeld, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences,
         // Yalıtılmış gösteri ve paket (#812); ilerleme en çok saniyede dört kez gelir
-        x.space, x.pkg, x.pkgResult, x.parity, x.pkgMedia, x.archives]);
+        x.space, x.pkg, x.pkgResult, x.parity, x.pkgMedia, x.archives,
+        // Yetki (#814): kimde, çit, iki yönetici, kapılar, geri verme, öteki makine var mı
+        x.holder, x.fenced, x.split, x.gates, x.handback, x.handbackFailed, !!x.peerInfo]);
       const prev = sig(status);
       status = s || { role: 'off' };
       window.SVRedundancyState = status;
@@ -684,6 +850,17 @@
       if (prev !== next && document.querySelector('.redundancy-panel') && !typing) P().rerender();
       else updateTiles(status);
     });
+    // Öteki makineden gelen gösteri komutu ve önizleme karesi (#814)
+    if (window.api.onRedundancyCtl) window.api.onRedundancyCtl((d) => runCtl(d));
+    if (window.api.onRedundancyMonitor) {
+      window.api.onRedundancyMonitor((f) => {
+        const had = !!monFrame;
+        monFrame = f && f.src ? f : null;
+        const img = document.querySelector('.redundancy-panel .red-mon');
+        if (img && monFrame) { img.src = monFrame.src; img.hidden = false; }
+        if (!had && monFrame && !img && document.querySelector('.red-peerbox')) P().rerender();
+      });
+    }
     // Birincilin taşıması (#544): zaman çizelgesi paneli onu izler
     if (window.api.onShowClockFollow) {
       window.api.onShowClockFollow((a) => { if (window.SVTimelinePanel && window.SVTimelinePanel.followAnchor) window.SVTimelinePanel.followAnchor(a); });
@@ -697,5 +874,12 @@
     return !!(s && s.role === 'backup' && (s.state === 'following' || s.state === 'lost' || s.state === 'connecting') && !s.problem);
   }
 
-  window.SVRedundancyPanel = { panel, init, following, _tileSpecs: tileSpecs };
+  /* Birincil geri çekildi (#814): yetki yedekte. Otomatik VJ ve zaman
+     çizelgesi karar vermez. */
+  function steppedBack() {
+    const s = window.SVRedundancyState;
+    return !!(s && s.role === 'primary' && s.holder === 'peer');
+  }
+
+  window.SVRedundancyPanel = { panel, init, following, steppedBack, _tileSpecs: tileSpecs };
 })();
