@@ -1244,6 +1244,7 @@ function startVisualizerCapture() {
           global.__smokeMonoFrames = (global.__smokeMonoFrames || 0) + 1;
         }
       }
+      lastAudioFrameAt = Date.now(); // gösteri öncesi denetim (#545)
       sendToVisualizers('native-audio', frame);
       if (previewSubscribed) notifyAdmin('native-audio', frame);
       // OBS tarayıcı kaynağı ve diğer web istemcileri
@@ -2748,6 +2749,9 @@ ipcMain.on('md-live', (e, mp) => {
 
 ipcMain.on('audio-meter', (e, data) => {
   noteMcpLive(data);
+  // Gösteri öncesi denetim (#545): her çıkışın kare hızı, ilk pencere süzgecinden önce
+  if (data && Number.isFinite(data.fps)) outputFps.set(e.sender.id, { fps: data.fps, paused: !!data.paused, cap: Number(data.fpsCap) || 0, at: Date.now() });
+  if (data && Number.isFinite(data.level)) lastMeterLevel = data.level;
   if (data && typeof data === 'object') {
     if (Number.isFinite(data.level)) oscLive.level = data.level;
     if (Number.isFinite(data.bass)) oscLive.bass = data.bass;
@@ -3653,6 +3657,67 @@ ipcMain.handle('redundancy:push', async () => {
   return { ok: true, sent };
 });
 ipcMain.handle('redundancy:compare', () => { requestInventory(); return redundancyStatus(); });
+
+/* ---------------------------------------------------------------------------
+   GÖSTERİ ÖNCESİ DENETİM (#545, preshow.js). Durum burada toplanır:
+   ekranlar, çıkışların kare hızı (ölçer iletisinden), ses karesinin yaşı,
+   sahnenin dosyaları, yedeklilik, disk.
+   --------------------------------------------------------------------------- */
+const preshow = require('./preshow');
+const outputFps = new Map(); // webContents kimliği -> { fps, paused, cap, at }
+let lastAudioFrameAt = 0;
+let lastMeterLevel = 0;
+
+function outputTarget(displayId, cap) {
+  const all = screen.getAllDisplays();
+  const d = all.find((x) => String(x.id) === String(displayId));
+  let hz = (d && d.displayFrequency) || 60;
+  /* Windows'ta Chromium her pencereyi BİRİNCİL ekranın dikey senkronuna
+     bağlıyor (ölçüldü: 165 Hz ekrandaki pencere 75 fps); hedef ikisinin
+     küçüğü. */
+  if (process.platform === 'win32') hz = Math.min(hz, screen.getPrimaryDisplay().displayFrequency || hz);
+  return cap > 0 ? Math.min(cap, hz) : hz;
+}
+
+function freeBytes(dir) {
+  try { const st = fs.statfsSync(dir); return st.bavail * st.bsize; } catch { return Infinity; }
+}
+
+async function preshowCheck() {
+  const cfg = currentConfig || {};
+  const displays = screen.getAllDisplays().map((d) => ({ id: d.id, label: d.label || String(d.id) }));
+  const now = Date.now();
+  const outputs = [];
+  for (const [displayId, win] of visualizerWins) {
+    if (!win || win.isDestroyed()) continue;
+    const m = outputFps.get(win.webContents.id);
+    const fresh = m && now - m.at < 3000;
+    outputs.push({ displayId, fps: fresh ? m.fps : 0, paused: fresh ? !!m.paused : false, target: outputTarget(displayId, fresh ? m.cap : 0) });
+  }
+  // Sahnenin başvurduğu dosyalar: video yolları, logo kitaplığı, kullanıcı presetleri
+  const refs = preshow.references(cfg);
+  const media = Object.keys(showMediaPaths(cfg)).filter((p) => !p || !fs.existsSync(p)).map((p) => path.basename(p));
+  const libIds = new Set(logoLibrary.loadManifest(logoLibDir()).items.map((x) => x && x.id));
+  const logos = refs.logos.filter((id) => !libIds.has(id));
+  const presets = refs.presets.filter((id) => !presetsStore.get(id));
+  let exportDir = '';
+  try { exportDir = app.getPath('videos'); } catch { exportDir = app.getPath('userData'); }
+  const disks = [
+    { label: 'userData', free: freeBytes(app.getPath('userData')) },
+    { label: 'temp', free: freeBytes(require('os').tmpdir()) },
+    { label: 'export', free: freeBytes(exportDir) },
+  ];
+  return preshow.evaluate({
+    displays,
+    wantedDisplays: (cfg.display && Array.isArray(cfg.display.ids)) ? cfg.display.ids : [],
+    outputs,
+    audio: { wanted: captureWanted(), ageMs: lastAudioFrameAt ? now - lastAudioFrameAt : Infinity, level: lastMeterLevel },
+    missing: { media, logos, presets },
+    redundancy: redundancyStatus(),
+    disks,
+  });
+}
+ipcMain.handle('preshow:check', () => preshowCheck());
 
 ipcMain.handle('redundancy:status', () => redundancyStatus());
 ipcMain.handle('redundancy:takeover', () => {
