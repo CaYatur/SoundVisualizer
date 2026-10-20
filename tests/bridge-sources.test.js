@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
+const read = (f) => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g, '\n');
 const B = require('../src/main/audio-bridge.js');
 const NA = require('../src/main/native-audio.js');
 

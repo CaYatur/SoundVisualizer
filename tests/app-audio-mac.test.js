@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
+const read = (p) => fs.readFileSync(path.join(root, p), 'utf8').replace(/\r\n/g, '\n');
 const SWIFT = read('native/app-audio-helper-mac/AppAudioHelper.swift');
 const pkg = JSON.parse(read('package.json'));
 

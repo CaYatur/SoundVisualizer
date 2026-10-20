@@ -10,7 +10,7 @@ const path = require('path');
 const B = require('../src/main/audio-bridge.js');
 
 const SECRET = 'bridge-secret-0123456789';
-const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
 const until = async (fn, ms) => { const end = Date.now() + (ms || 3000); while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 15)); } return false; };
 const COVER_A = 'data:image/jpeg;base64,' + Buffer.alloc(4000, 1).toString('base64');
 const COVER_B = 'data:image/jpeg;base64,' + Buffer.alloc(5000, 2).toString('base64');
