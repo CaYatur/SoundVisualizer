@@ -263,7 +263,8 @@ function createReceiver(opts) {
       try {
         const d = diskPath(it.path);
         F.mkdirSync(path.dirname(d), { recursive: true });
-        F.copyFileSync(path.join(root, 'current', ...it.path.split('/')), d);
+        // Sabit bağ: gigabaytlık video kopyalanmaz, disk iki kat dolmaz
+        linkOrCopy(path.join(root, 'current', ...it.path.split('/')), d, F);
         have.set(it.path, new Set(Array.from({ length: it.chunks }, (_, i) => i)));
         n++;
       } catch { /* inecek */ }
@@ -343,6 +344,35 @@ function createReceiver(opts) {
     for (const it of items) ensureFile(it);
     retrySync(() => F.renameSync(filesDir, next));
     const keptItems = items.map((it) => Object.assign({}, it));
+    /* ÖNCEKİ VİDEOLAR KALIR (#812, Windows'ta bulundu). "Videoları da
+       kopyala" işaretlenmeden inen paket current'ı değiştiriyor ve önceki
+       pakette kopyalanmış videoları (2,8 GB) siliyordu. Artık eski kopyadaki,
+       yeni pakette olmayan her doğrulanmış video yeni kopyaya taşınır (sabit
+       bağ; olmazsa kopya) ve manifestte kalır. Video yalnız operatör açıkça
+       kaldırınca gider. Aynı yolda yeni paketin dosyası varsa o geçerli. */
+    const curMan = readJson(path.join(cur, 'manifest.json'), F);
+    const newPaths = new Set(items.map((it) => it.path));
+    const carried = [];
+    if (curMan && Array.isArray(curMan.items)) {
+      for (const it of curMan.items) {
+        if (!it || it.kind !== 'media' || newPaths.has(it.path) || typeof it.path !== 'string') continue;
+        const src = path.join(cur, ...it.path.split('/'));
+        const dst = path.join(next, ...it.path.split('/'));
+        let st = null;
+        try { st = F.statSync(src); } catch { continue; }
+        if (!st || st.size !== it.size) continue;
+        try {
+          F.mkdirSync(path.dirname(dst), { recursive: true });
+          linkOrCopy(src, dst, F);
+          keptItems.push(Object.assign({}, it, { carried: true }));
+          carried.push(it.path);
+        } catch (e) {
+          // Taşınamadıysa takas YAPILMAZ: eski kopya ve videoları yerinde kalır
+          rmrf(next, F);
+          throw Object.assign(new Error('carry:' + it.path + ': ' + (e && e.message)), { code: 'CARRY' });
+        }
+      }
+    }
     writeJsonAtomic(path.join(next, 'manifest.json'), Object.assign({}, m, { items: keptItems, installedAt: Date.now() }), F);
     let moved = false;
     try {
@@ -370,6 +400,16 @@ function currentManifest(root, fsi) {
 }
 function currentFile(root, p) { return path.join(root, 'current', ...String(p).split('/')); }
 
+/* Aynı birimde sabit bağ (NTFS, ext4, APFS); desteklemeyen dosya
+   sisteminde (FAT32/exFAT) ya da bağ reddedilince kopya. */
+function linkOrCopy(src, dst, F) {
+  const fsi = F || fs;
+  try { fsi.unlinkSync(dst); } catch { /* yok */ }
+  try { fsi.linkSync(src, dst); return 'link'; } catch { /* kopyaya düş */ }
+  fsi.copyFileSync(src, dst);
+  return 'copy';
+}
+
 /* YEDEK: aktarımın durum makinesi (ağ ve dosya işi dışarıda).
      idle → offered (manifest geldi, operatör listeyi görüyor)
           → transferring (onaylandı) → verifying → done | error
@@ -384,6 +424,17 @@ function createPull(opts) {
     const by = { presets: { n: 0, bytes: 0 }, logos: { n: 0, bytes: 0 }, media: { n: 0, bytes: 0 } };
     for (const it of m.items) { by[it.kind].n++; by[it.kind].bytes += it.size; }
     return by;
+  }
+  let haveCache = { pkg: '', set: null };
+  function mediaList(m) {
+    if (haveCache.pkg !== m.pkg) {
+      const cur = o.root ? readJson(path.join(o.root, 'current', 'manifest.json'), o.fs || fs) : null;
+      const set = new Set();
+      if (cur && Array.isArray(cur.items)) for (const it of cur.items) if (it && it.kind === 'media') set.add(it.path + '|' + it.sha256);
+      haveCache = { pkg: m.pkg, set };
+    }
+    return m.items.filter((it) => it.kind === 'media').slice(0, 100)
+      .map((it) => ({ name: it.name, size: it.size, have: haveCache.set.has(it.path + '|' + it.sha256) }));
   }
   function next() {
     if (!rx || st.state !== 'transferring') return [];
@@ -405,6 +456,10 @@ function createPull(opts) {
         pkg: st.manifest ? st.manifest.pkg : '',
         summary: st.manifest ? summary(st.manifest) : null,
         files: st.manifest ? st.manifest.items.filter((it) => st.media || it.kind !== 'media').slice(0, 200).map((it) => ({ kind: it.kind, name: it.name, size: it.size })) : [],
+        /* Videolar kutu işaretlenmeden de listelenir (#812): operatör neyi ve
+           ne kadarını kopyalayacağını görsün. `have`: bu makinede aynı özetle
+           zaten var (yeniden inmez). */
+        mediaFiles: st.manifest ? mediaList(st.manifest) : [],
         progress: p, speed: st.speed,
       };
     },
@@ -412,6 +467,7 @@ function createPull(opts) {
       const bad = validateManifest(manifest);
       if (bad) { st = Object.assign(st, { state: 'error', error: 'manifest:' + bad }); return false; }
       st = { state: 'offered', error: '', manifest, media: false, inflight: 0, startedAt: 0, bytesAt: [], speed: 0 };
+      haveCache = { pkg: '', set: null };
       rx = null;
       sent.clear();
       return true;
@@ -479,6 +535,7 @@ function createPull(opts) {
 }
 
 module.exports = {
+  linkOrCopy,
   FORMAT, CHUNK, KINDS, sha256, entryName, hashFile, chunkCount, buildManifest, validateManifest,
   readChunk, retrySync, writeJsonAtomic, readJson, rmrf, createReceiver, currentManifest, currentFile, createPull,
 };

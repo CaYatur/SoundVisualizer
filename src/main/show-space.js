@@ -134,6 +134,41 @@ function createShowSpace(dir, opts) {
     return copy;
   }
 
+  /* ARŞİVDEN GERİ YÜKLEME (#812). Rol her kapanışta yerel gösteriyi
+     `local-show.restored-<zaman>.json` olarak arşivliyor; operatör
+     bunlardan birini panelden onayla geri yükleyebilir. Ad katı biçimde
+     denetlenir: klasör dışına ya da başka dosyaya çıkılamaz. */
+  const ARCHIVE_RE = /^local-show\.restored-(\d{1,16})\.json$/;
+  function listArchives() {
+    let names = [];
+    try { names = F.readdirSync(dir); } catch { return []; }
+    const out = [];
+    for (const name of names) {
+      const m = ARCHIVE_RE.exec(name);
+      if (!m) continue;
+      let size = 0;
+      try { size = F.statSync(path.join(dir, name)).size; } catch { continue; }
+      out.push({ name, at: Number(m[1]), size });
+    }
+    return out.sort((a, b) => b.at - a.at);
+  }
+  function readArchive(name) {
+    if (typeof name !== 'string' || !ARCHIVE_RE.test(name)) return null;
+    const j = readShow(path.join(dir, name));
+    if (!j) return null;
+    const count = Array.isArray(j.show.scenes) ? j.show.scenes.length : 0;
+    return { name, show: j.show, scenes: count, capturedAt: j.capturedAt || 0 };
+  }
+  // Geri yüklemeden önce o anki gösteri de arşivlenir: geri yükleme geri alınabilir
+  function archiveShow(show) {
+    let t = Date.now();
+    while (F.existsSync(path.join(dir, 'local-show.restored-' + t + '.json'))) t++;
+    const name = 'local-show.restored-' + t + '.json';
+    F.mkdirSync(dir, { recursive: true });
+    Pkg.writeJsonAtomic(path.join(dir, name), { format: FORMAT, capturedAt: Date.now(), show: clone(show) || {} }, F);
+    return name;
+  }
+
   function summary() {
     const l = loadLocal();
     const p = loadPrimary();
@@ -144,7 +179,7 @@ function createShowSpace(dir, opts) {
     };
   }
 
-  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary };
+  return { dir, pkgRoot, localFile, primaryFile, loadLocal, loadPrimary, captureLocal, saveLocal, savePrimary, place, forDisk, restoreLocal, importScene, summary, listArchives, readArchive, archiveShow };
 }
 
 /* Video yollarını gösteri paketindeki kopyaya eşler. `map`: birincilin

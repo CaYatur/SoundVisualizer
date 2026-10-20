@@ -88,6 +88,10 @@
         box.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
         box.appendChild(el('span', { text: status.takenBy === 'auto' ? 'kendiliğinden' : 'elle' }));
       }
+      if (status.autoHeld && status.state !== 'active') {
+        box.appendChild(el('span', { class: 'st-sep', 'aria-hidden': 'true', text: ' · ' }));
+        box.appendChild(el('span', { text: 'Otomatik devralma bekletiliyor' }));
+      }
       return box;
     }
     box.appendChild(el('span', { text: 'Kapalı' }));
@@ -200,6 +204,12 @@
       return el('div', { class: 'red-space' }, nodes);
     }
     nodes.push(line([el('span', { text: 'Şu an çizilen' }), sep(), el('span', { text: SOURCE_TEXT[sp.source] || sp.source })]));
+    /* Devralmada birincilin kopyası çizilirse kullanılacak videolar (#812):
+       paketle bu makineye kopyalananlar, adı ve boyutuyla. */
+    const vids = Array.isArray(status.pkgMedia) ? status.pkgMedia : [];
+    nodes.push(line([el('span', { text: 'Bu makineye kopyalanmış videolar' }), sep(), num(vids.length), sep(), num(bytes(vids.reduce((n, v) => n + (Number(v.size) || 0), 0)))]));
+    if (vids.length) nodes.push(mediaList(vids));
+    else nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Birincilin sahnesindeki videolar bu makinede yoksa boş görünür; "Birincilden Paket İste" ile "Video dosyalarını da kopyala"yı seçin.' }));
     if (status.state === 'active') {
       const toLocal = sp.source !== 'local';
       nodes.push(el('div', { class: 'lay-file' }, [
@@ -240,6 +250,17 @@
     P().toast(r && r.ok ? tr('Sahne yerel gösteriye aktarıldı.') : tr('Aktarılamadı.'), r && r.ok ? 'ok' : 'err');
   }
 
+  function mediaList(list) {
+    const el = P().el;
+    const ul = el('ul', { class: 'red-diff red-media' });
+    list.slice(0, 50).forEach((f) => ul.appendChild(el('li', {}, [
+      el('span', { text: f.name, 'data-user-text': '' }), sep(), num(bytes(f.size)),
+      f.have ? sep() : null, f.have ? el('span', { class: 'dim-hint', text: tr('bu makinede zaten var') }) : null,
+    ].filter(Boolean))));
+    if (list.length > 50) ul.appendChild(el('li', { class: 'dim-hint', text: tr('İlk 50 öğe gösteriliyor.') }));
+    return ul;
+  }
+
   function packageBox() {
     const el = P().el;
     const pk = status.pkg || { state: 'idle' };
@@ -273,7 +294,11 @@
     if (pk.state === 'offered') {
       const media = pk.summary && pk.summary.media && pk.summary.media.n ? pk.summary.media : null;
       const box2 = el('input', { type: 'checkbox', id: 'redPkgMedia' });
-      if (media) nodes.push(el('label', { class: 'chk', for: 'redPkgMedia' }, [box2, el('span', { text: 'Video dosyalarını da kopyala' }), sep(), num(bytes(media.bytes))]));
+      if (media) {
+        nodes.push(el('label', { class: 'chk', for: 'redPkgMedia' }, [box2, el('span', { text: 'Video dosyalarını da kopyala' }), sep(), num(bytes(media.bytes))]));
+        // Kutu işaretlenmeden de görünsün: hangi videolar, ne kadar (#812)
+        nodes.push(mediaList(pk.mediaFiles || []));
+      }
       buttons.push(el('button', {
         class: 'btn small primary', type: 'button', icon: 'import', text: 'Kopyalamayı Başlat',
         onclick: async () => {
@@ -347,12 +372,50 @@
     const list = Array.isArray(status.parity) ? status.parity : [];
     if (!list.length) return null;
     const ul = el('ul', { class: 'red-diff' });
-    list.forEach((p) => ul.appendChild(el('li', {}, [el('span', { text: 'MilkDrop' }), sep(), el('span', { text: p.name, 'data-user-text': '' }), sep(), el('span', { class: 'dim-hint', text: PARITY_TEXT[p.status] || p.status })])));
+    list.forEach((p) => ul.appendChild(el('li', {}, [el('span', { text: 'MilkDrop' }), sep(), el('span', { text: p.name, 'data-user-text': '' }), sep(), el('span', { class: 'dim-hint', text: PARITY_TEXT[p.status] || p.status }), sep(), el('span', { class: 'dim-hint', text: p.via === 'manual' ? 'El ile seçildi' : 'Otomatik seçim' })])));
     return el('div', { class: 'red-parity' }, [
       el('div', { class: 'studio-status err', role: 'status' }, [el('span', { icon: 'warning' }), el('span', { text: 'Görüntü birincilden farklı olabilir' })]),
       ul,
       el('div', { class: 'studio-note dim-hint', text: 'Birincilden paket isteyin: eksik presetler ayrı alandan kullanılır, farklı olanlar listede tek tek seçilir.' }),
+      el('div', { class: 'studio-note dim-hint', text: 'Otomatik seçimin denetimi birincilin görselleştirici penceresi açıkken çalışır; el ile seçilen preset sahne kopyasıyla her zaman denetlenir.' }),
     ]);
+  }
+
+  /* Yerel gösteri arşivleri (#812): rol her kapanışta yerel gösteriyi
+     arşivliyor; buradan onayla geri yüklenir. */
+  function archiveBox() {
+    const el = P().el;
+    const list = Array.isArray(status.archives) ? status.archives : [];
+    if (!list.length) return null;
+    const ul = el('ul', { class: 'red-diff red-archives' });
+    list.forEach((a) => ul.appendChild(el('li', {}, [
+      el('span', { class: 'st-num', text: new Date(a.at).toLocaleString() }), sep(), num(bytes(a.size)), sep(),
+      el('button', { class: 'btn small ghost', type: 'button', icon: 'reset', text: tr('Geri Yükle'), onclick: () => restoreArchive(a) }),
+    ])));
+    return el('div', { class: 'red-archive' }, [
+      el('div', { class: 'group-label', text: 'Yerel Gösteri Arşivleri' }),
+      ul,
+      el('div', { class: 'studio-note dim-hint', text: 'Rol her kapatıldığında yerel gösteri burada arşivlenir. Geri yüklemeden önce şu anki gösteri de arşivlenir; işlem geri alınabilir.' }),
+    ]);
+  }
+
+  async function restoreArchive(a) {
+    if (!window.api.redundancyRestoreArchive) return;
+    const msg = tr('Bu makinenin sahneleri, kayıtlı sahneleri, zaman çizelgesi ve Clip Deck\'i bu arşivdekilerle değiştirilecek. Şu anki gösteri önce arşivlenir.') + '\n\n' + new Date(a.at).toLocaleString();
+    if (!(await P().confirm(msg, { okText: tr('Geri Yükle') }))) return;
+    let r = null;
+    try { r = await window.api.redundancyRestoreArchive(a.name); } catch { /* */ }
+    if (r && r.ok) P().toast(r.live ? tr('Gösteri arşivden geri yüklendi.') : tr('Yerel gösteri arşivden geri yüklendi; birincilin kopyası çizilmeye devam ediyor.'), 'ok');
+    else P().toast(tr('Geri yüklenemedi.'), 'err');
+    try { status = await window.api.redundancyStatus(); } catch { /* */ }
+    P().rerender();
+  }
+
+  async function rearm() {
+    if (!window.api.redundancyRearm) return;
+    if (!(await P().confirm(tr('Birincil hâlâ yoksa yedek yetkiyi hemen kendiliğinden alır. Otomatik devralma yeniden kurulsun mu?')))) return;
+    try { status = await window.api.redundancyRearm(); } catch { /* */ }
+    P().rerender();
   }
 
   async function act(which) {
@@ -373,6 +436,8 @@
     nodes.push(statusBox());
     if (role === 'off') {
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'İki makineyle sıcak yedek: yedek aynı sahneyi sürekli çizer, birincil düşerse yetkiyi alır. Ekran kararmaz; hangi çıkışın seyirciye gittiğini görüntü anahtarlayıcısı seçer.' }));
+      const ab0 = archiveBox();
+      if (ab0) nodes.push(ab0);
       return el('div', { class: 'redundancy-panel' }, nodes);
     }
 
@@ -399,6 +464,15 @@
         el('button', { class: 'btn small' + (active ? '' : ' primary'), type: 'button', icon: 'bolt', text: 'Yetkiyi Al', disabled: active ? 'disabled' : null, onclick: () => act('takeover') }),
         el('button', { class: 'btn small ghost', type: 'button', icon: 'reset', text: 'Yetkiyi Bırak', disabled: active ? null : 'disabled', onclick: () => act('release') }),
       ]));
+      /* El ile bırakıştan sonra otomatik devralma bekler (#812): birincil
+         geri gelince ya da operatör yeniden kurunca biter. */
+      if (status.autoHeld && !active && r.takeover !== 'manual') {
+        nodes.push(el('div', { class: 'studio-status warn', role: 'status' }, [el('span', { icon: 'warning' }),
+          el('span', { text: 'Yetki el ile bırakıldı: birincil yeniden görülene dek otomatik devralma bekletiliyor.' })]));
+        nodes.push(el('div', { class: 'lay-file' }, [
+          el('button', { class: 'btn small ghost', type: 'button', icon: 'bolt', text: 'Otomatik Devralmayı Yeniden Kur', onclick: () => rearm() }),
+        ]));
+      }
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek izlerken sahne birincilden gelir; burada yapılan sahne değişikliği birincilin bir sonraki değişikliğiyle ezilir. Yetkiyi alan yedek, birincil geri gelse de "Yetkiyi Bırak" denene kadar yetkide kalır.' }));
       if (!status.problem) {
         const pb = parityBox();
@@ -410,6 +484,8 @@
       nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Yedek bu bilgisayarın yayın sunucusuna bağlanır. Yedek başka bir bilgisayardaysa Çıkış → Yayın Çıkışı\'nda ağa açmayı etkinleştirin; yedeğe bu bilgisayarın adresini ve yayın portunu yazın.' }));
       if (status.peers) nodes.push(showBox());
     }
+    const ab = archiveBox();
+    if (ab) nodes.push(ab);
     nodes.push(el('div', { class: 'studio-note dim-hint', text: 'Aktarılan yalnız görüntü ve gösteri: sahne, katmanlar, kayıtlı sahneler, zaman çizelgesi, Clip Deck. Ses aygıtı, ekranlar, ağ, ışık ve dışa aktarım ayarları her makinenin kendisinde kalır. Presetleri, logoları ve videoları yedeğe "Birincilden Paket İste" kopyalar; birincilin sahnesi bu kopyalara eşlenir, dosyaların iki makinede aynı yerde olması gerekmez.' }));
     return el('div', { class: 'redundancy-panel' }, nodes);
   }
@@ -418,9 +494,9 @@
     if (started || !window.api || !window.api.redundancyStatus) return;
     started = true;
     window.api.onRedundancyStatus((s) => {
-      const sig = (x) => JSON.stringify([x.role, x.state, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences,
+      const sig = (x) => JSON.stringify([x.role, x.state, x.autoHeld, x.peers, x.peerState, x.problem, x.serverRunning, x.show && x.show.hash, x.show && x.show.peerHash, x.show && x.show.differences,
         // Yalıtılmış gösteri ve paket (#812); ilerleme en çok saniyede dört kez gelir
-        x.space, x.pkg, x.pkgResult, x.parity]);
+        x.space, x.pkg, x.pkgResult, x.parity, x.pkgMedia, x.archives]);
       const prev = sig(status);
       status = s || { role: 'off' };
       window.SVRedundancyState = status;

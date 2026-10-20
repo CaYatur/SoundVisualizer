@@ -209,6 +209,22 @@ async function scenario(name, takeover, opts) {
       res.pkgOk = res.pkgMedia === 1 && has.only && has.conf === 'Backup Version' && res.pkgConflicts.indexOf('usr_conf') >= 0 &&
         res.pkgIsolated && res.pkgImported && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1;
       if (!res.pkgOk) throw new Error('package result: ' + JSON.stringify({ has, conflicts: res.pkgConflicts, isolated: isolatedIds, pkgIsolated: res.pkgIsolated, pkgImported: res.pkgImported, media: res.pkgMedia }));
+      /* İkinci paket videosuz (#812, Windows'ta bulundu: önceki videolar
+         silindi). Birincilde bir preset değişir; video kutusu işaretlenmeden
+         kopyalanan paket önceki videoyu silmemeli. Videolar kutudan önce
+         adı ve boyutuyla listelenmeli. */
+      await pa.eval(`window.api.savePreset({ id: 'usr_only_primary', kind: 'visualizer', engine: 'shader', name: 'Only Primary 2', controls: [], shader: 'void mainImage(out vec4 o, in vec2 fc){ o = vec4(0.3); }' })`);
+      await wait(300);
+      await pb.eval('window.api.redundancyPkgRequest()');
+      const off2 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'offered', pkg: s.pkg }; }, 15000, 100);
+      if (!off2.ok) throw new Error('second package not offered: ' + JSON.stringify(off2.pkg));
+      const mf = off2.pkg.mediaFiles || [];
+      res.mediaListedBeforeTick = mf.length === 1 && mf[0].size === 700 * 1024 && mf[0].have === true && /rig-clip/.test(mf[0].name);
+      await pb.eval('window.api.redundancyPkgConfirm({ media: false })');
+      const done2 = await until(async () => { const s = await pb.eval(STATUS); return { ok: s.pkg && s.pkg.state === 'done', pkg: s.pkg, media: s.pkgMedia }; }, 30000, 100);
+      res.mediaKeptOnSecondPkg = !!done2.ok && fs.existsSync(mediaDir) && fs.readdirSync(mediaDir).length === 1 &&
+        Array.isArray(done2.media) && done2.media.length === 1 && done2.media[0].carried === true;
+      if (!res.mediaListedBeforeTick || !res.mediaKeptOnSecondPkg) throw new Error('second package: ' + JSON.stringify({ mf, media: done2.media, files: fs.existsSync(mediaDir) ? fs.readdirSync(mediaDir) : null }));
     }
     if (opts.sync) {
       // Birincilde bir Studio preseti; karşılaştırma iki farkı bulmalı, ayar farkı olmamalı
@@ -328,11 +344,29 @@ async function scenario(name, takeover, opts) {
          kendi sahne listesi; rol kapatılınca da yerel gösteri yerinde. */
       const sc = await until(async () => ({ ok: await pb.eval('(() => { const c = SVPanel.cfg(); return c._activeSceneId !== "failover-rig" && (c.scenes || []).some((x) => x.id === "backup-own"); })()') }), 3000, 50);
       res.sceneKept = !!sc.ok;
+      /* El ile bırakış, birincil hâlâ yok (#812, Windows'ta bulundu): yedek
+         yetkiyi kendiliğinden geri almamalı (açılış payı 5 sn'yi aşan
+         bekleme); operatör yeniden kurunca almalı. */
+      const rel = await pb.eval('window.api.redundancyRelease()');
+      await wait(Math.max(5000, opts.timeout * 2) + 2000);
+      const held = await pb.eval(STATUS);
+      res.releaseHeld = rel.state !== 'active' && held.state !== 'active' && held.autoHeld === true;
+      const re = await pb.eval('window.api.redundancyRearm()');
+      const back = await until(async () => { const s = await pb.eval(STATUS); return Object.assign({ ok: s.state === 'active' && s.takenBy === 'auto' }, s); }, 3000, 50);
+      res.rearmTookOver = !!back.ok && re.autoHeld === false;
       await pb.eval('(() => { SVPanel.cfg().redundancy.role = "off"; SVPanel.apply(); return true; })()');
       await wait(2600);
       const disk = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
       res.restoredOnOff = disk.redundancy.role === 'off' && (disk.scenes || []).some((x) => x.id === 'backup-own') && disk._activeSceneId !== 'failover-rig' &&
         fs.readdirSync(path.join(dirB, 'redundancy')).some((f) => /^local-show\.restored-\d+\.json$/.test(f));
+      // Arşivden geri yükleme (#812): şu anki gösteri önce arşivlenir, panel güncellenir
+      const st0 = await pb.eval('window.api.redundancyStatus()');
+      const arch = (st0.archives || [])[0];
+      const rr = arch ? await pb.eval('window.api.redundancyRestoreArchive(' + JSON.stringify(arch.name) + ')') : null;
+      await wait(2600);
+      const disk2 = JSON.parse(fs.readFileSync(path.join(dirB, 'settings.json'), 'utf8'));
+      const n2 = fs.readdirSync(path.join(dirB, 'redundancy')).filter((f) => /^local-show\.restored-\d+\.json$/.test(f)).length;
+      res.archiveRestored = !!(rr && rr.ok && rr.backup) && n2 >= 2 && (disk2.scenes || []).some((x) => x.id === 'backup-own');
     } else {
       res.sceneKept = after.vis === want.vis && after.scene === want.scene && after.grad === want.grad;
     }
@@ -356,7 +390,7 @@ async function scenario(name, takeover, opts) {
     const limit = Math.min(opts.timeout, Math.max(300, opts.beat * 3)) + opts.beat + Math.max(25, opts.beat / 2) + 500;
     res.limitMs = limit;
     res.pass = res.followed && res.sceneReplicated && res.tookOver && res.sceneKept && res.localKept && res.primaryCopied &&
-      (!opts.pkg || res.pkgOk) && (!opts.local || res.restoredOnOff) && (!opts.offSave || (res.panelLocalAfterOff && res.saveAfterOffKept)) &&
+      (!opts.pkg || res.pkgOk) && (!opts.local || (res.restoredOnOff && res.releaseHeld && res.rearmTookOver && res.archiveRestored)) && (!opts.offSave || (res.panelLocalAfterOff && res.saveAfterOffKept)) &&
       (!opts.clock || (res.clockPlaying && res.clockP95Ms <= 20)) &&
       (!opts.relaunch || (res.primaryBack && res.epochKept && res.stayedActive)) &&
       (!opts.sync || (res.diffFound && res.pushIsolated && res.showMatches && res.backupHasAssets && res.cfgDiffs && res.cfgDiffs.length === 0

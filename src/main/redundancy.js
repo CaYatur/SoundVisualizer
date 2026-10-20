@@ -143,6 +143,12 @@ function createFollower(cfg, now) {
        1 ms kayar: iki makineden birinin saati (NTP) oynarsa görüntü zıplamaz. */
     offsetMs: null,
     offsetSamples: 0,
+    /* EL İLE BIRAKILDI, OTOMATİK BEKLİYOR (#812, Windows'ta bulundu).
+       Birincil kapalıyken "Yetkiyi Bırak" denince kendiliğinden devralma
+       aynı anda yeniden alıyordu. Bırakıştan sonra otomatik devralma,
+       birincil yeniden canlı görülene (atış) ya da operatör yeniden
+       kurana dek durur; el ile devralma her zaman çalışır. */
+    autoHeld: false,
   };
   const samples = [];
   function noteOffset(at, t) {
@@ -184,6 +190,8 @@ function createFollower(cfg, now) {
       st.lastBeat = t;
       if (msg && Number.isFinite(msg.seq)) st.lastSeq = msg.seq;
       if (msg && typeof msg.scene === 'string') st.scene = msg.scene;
+      // Birincil canlı görüldü: el ile bırakıştan sonraki bekleme biter
+      st.autoHeld = false;
       if (st.state === 'active') return false;
       return set('following', t);
     },
@@ -193,7 +201,7 @@ function createFollower(cfg, now) {
        da kayıp sayılır. */
     tick(t) {
       if (st.state === 'active' || st.state === 'lost') {
-        if (st.state === 'lost' && s.takeover === 'auto') { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+        if (st.state === 'lost' && s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
         return false;
       }
       if (st.state === 'connecting') {
@@ -201,14 +209,17 @@ function createFollower(cfg, now) {
       } else if (t - st.lastBeat <= lossLimit()) {
         return false;
       }
-      if (s.takeover === 'auto') { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
+      if (s.takeover === 'auto' && !st.autoHeld) { st.takenAt = t; st.takenBy = 'auto'; return set('active', t); }
       return set('lost', t);
     },
-    takeover(t) { st.takenAt = t; st.takenBy = 'manual'; return set('active', t); },
+    takeover(t) { st.autoHeld = false; st.takenAt = t; st.takenBy = 'manual'; return set('active', t); },
+    // Operatör otomatik devralmayı yeniden kurar (birincil hâlâ yoksa sonraki tikte devralır)
+    rearm() { if (!st.autoHeld) return false; st.autoHeld = false; return true; },
     release(t) {
       if (st.state !== 'active') return false;
       st.takenAt = 0;
       st.takenBy = '';
+      if (s.takeover === 'auto') st.autoHeld = true;
       // Birincil hâlâ atıyorsa izlemeye, atmıyorsa bağlantı beklemeye
       return set(st.lastBeat && t - st.lastBeat <= s.timeoutMs ? 'following' : 'connecting', t);
     },
