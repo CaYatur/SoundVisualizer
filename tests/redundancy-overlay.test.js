@@ -16,7 +16,8 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 
-const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+// Windows'ta git CRLF ile çıkarabilir: düzenli ifadeler \n bekliyor
+const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
 const R = require('../src/main/redundancy');
 const MAIN = read('src/main/main.js');
 
