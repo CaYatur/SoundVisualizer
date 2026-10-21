@@ -12,10 +12,13 @@
  * katmanı, dışa aktarıcı) presetleri gördüğü için paket JS olarak gömülür:
  * bu betik `src/shared/presets-milkdrop-pack.js`i üretir.
  *
- *   node scripts/preset-pack.js                 gömülü dosyayı yeniden üretir
- *   node scripts/preset-pack.js --check         güncel değilse 1 ile çıkar
- *   node scripts/preset-pack.js --zip[=<dosya>] sürüm eki: .milk + LICENSE.md + README.md
+ *   node scripts/preset-pack.js                 gömülü dosyayı ve README galerisini yeniden üretir
+ *   node scripts/preset-pack.js --check         ikisinden biri güncel değilse 1 ile çıkar
+ *   node scripts/preset-pack.js --zip[=<dosya>] sürüm eki: .milk + önizlemeler + LICENSE.md + README.md
  *                                               (varsayılan dist/CaYaDev-MilkDrop-Presets-<sürüm>.zip)
+ *
+ * Her presetin bir önizleme görseli var: previews/<ad-kısa>.jpg (960x540). README'deki galeri
+ * pack.json'dan üretilir; elle eklenen tablo satırları bir kez tablonun dışına düşmüştü.
  *
  * Paket CC BY 4.0, uygulama MIT: üretilen dosya da paketin lisansını taşır. */
 const fs = require('fs');
@@ -25,6 +28,10 @@ const zlib = require('zlib');
 const root = path.join(__dirname, '..');
 const DIR = path.join(root, 'presets', 'cayadev');
 const OUT = path.join(root, 'src', 'shared', 'presets-milkdrop-pack.js');
+const README = path.join(DIR, 'README.md');
+const GALLERY = ['<!-- gallery: node scripts/preset-pack.js -->', '<!-- /gallery -->'];
+
+const previewOf = (name) => 'previews/' + name.toLowerCase().replace(/ /g, '-') + '.jpg';
 
 function load() {
   const meta = JSON.parse(fs.readFileSync(path.join(DIR, 'pack.json'), 'utf-8'));
@@ -37,10 +44,15 @@ function load() {
     const source = fs.readFileSync(path.join(DIR, p.file), 'latin1');
     // Başka oynatıcılar UTF-8'i bozuyor; paket dosyaları ASCII
     if (/[^\x09\x0a\x0d\x20-\x7e]/.test(source)) throw new Error('ASCII dışı karakter: ' + p.file);
+    const preview = previewOf(m[1]);
+    if (!fs.existsSync(path.join(DIR, preview))) throw new Error('Önizleme görseli yok: ' + preview);
     listed.add(p.file);
-    return { id: p.id, name: m[1], category: p.category, md3: !!p.md3, description: p.description, file: p.file, source };
+    listed.add(preview);
+    return { id: p.id, name: m[1], category: p.category, md3: !!p.md3, description: p.description, file: p.file, preview, source };
   });
-  const stray = fs.readdirSync(DIR).filter((f) => /\.milk$/i.test(f) && !listed.has(f));
+  const pv = path.join(DIR, 'previews');
+  const stray = fs.readdirSync(DIR).filter((f) => /\.milk$/i.test(f) && !listed.has(f))
+    .concat(fs.existsSync(pv) ? fs.readdirSync(pv).map((f) => 'previews/' + f).filter((f) => !listed.has(f)) : []);
   if (stray.length) throw new Error('pack.json\'da olmayan dosya: ' + stray.join(', '));
   const ids = list.map((p) => p.id);
   if (new Set(ids).size !== ids.length) throw new Error('Yinelenen kimlik');
@@ -70,6 +82,27 @@ function render(list) {
     '})();',
     '',
   ].join('\n');
+}
+
+// README galerisi: üçlü sıralar, görsel .milk dosyasına bağlı; alt metin İngilizce açıklama
+function gallery(list) {
+  const esc = (t) => t.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const cell = (p) => '<td align="center" valign="top" width="33%"><a href="' + encodeURI(p.file) + '"><img src="' + p.preview +
+    '" width="100%" alt="' + esc(p.name + (/^[aeiou]/.test(p.category) ? ', an ' : ', a ') + p.category + ' MilkDrop preset by CaYaDev. ' + p.description.en) + '"></a><br><b>' +
+    esc(p.name) + '</b><br><sub>' + p.category + ' · ' + (p.md3 ? 'MilkDrop 3' : 'MilkDrop 2') + '</sub></td>';
+  const out = [GALLERY[0], '<table>'];
+  for (let i = 0; i < list.length; i += 3) out.push('<tr>', ...list.slice(i, i + 3).map(cell), '</tr>');
+  return out.concat(['</table>', GALLERY[1]]);
+}
+
+// README'nin işaretler arasını galeriyle değiştirir (CRLF kopyada da)
+function renderReadme(text, list) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const a = lines.indexOf(GALLERY[0]);
+  const b = lines.indexOf(GALLERY[1]);
+  if (a < 0 || b < a) throw new Error('README galeri işaretleri yok: ' + GALLERY.join(' ... '));
+  lines.splice(a, b - a + 1, ...gallery(list));
+  return lines.join('\n');
 }
 
 // En küçük ZIP yazıcısı (deflate, UTF-8 adlar); yalnız düz dosyalar
@@ -110,12 +143,14 @@ function zipName() {
   return 'CaYaDev-MilkDrop-Presets-' + require(path.join(root, 'package.json')).version + '.zip';
 }
 
-module.exports = { load, render, zip, zipName, OUT, DIR };
+module.exports = { load, render, gallery, renderReadme, zip, zipName, OUT, DIR, README };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
   const list = load();
   const text = render(list);
+  const readmeNow = fs.readFileSync(README, 'utf-8').replace(/\r\n/g, '\n');
+  const readme = renderReadme(readmeNow, list);
   const zipArg = args.find((a) => a === '--zip' || a.startsWith('--zip='));
   if (args.includes('--check')) {
     const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf-8').replace(/\r\n/g, '\n') : '';
@@ -123,17 +158,23 @@ if (require.main === module) {
       console.error('src/shared/presets-milkdrop-pack.js güncel değil: node scripts/preset-pack.js');
       process.exit(1);
     }
+    if (readmeNow !== readme) {
+      console.error('presets/cayadev/README.md galerisi güncel değil: node scripts/preset-pack.js');
+      process.exit(1);
+    }
     console.log('Paket güncel: ' + list.length + ' preset');
   } else if (zipArg) {
     const out = zipArg.includes('=') ? path.resolve(zipArg.slice(6)) : path.join(root, 'dist', zipName());
     const folder = 'CaYaDev MilkDrop Presets/';
     const files = list.map((p) => ({ name: folder + p.file, data: Buffer.from(p.source, 'latin1') }))
+      .concat(list.map((p) => ({ name: folder + p.preview, data: fs.readFileSync(path.join(DIR, p.preview)) })))
       .concat(['LICENSE.md', 'README.md'].map((f) => ({ name: folder + f, data: fs.readFileSync(path.join(DIR, f)) })));
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, zip(files));
     console.log(out + ' (' + list.length + ' preset)');
   } else {
     fs.writeFileSync(OUT, text);
-    console.log(path.relative(root, OUT) + ': ' + list.length + ' preset');
+    if (readmeNow !== readme) fs.writeFileSync(README, readme);
+    console.log(path.relative(root, OUT) + ' ve README galerisi: ' + list.length + ' preset');
   }
 }
