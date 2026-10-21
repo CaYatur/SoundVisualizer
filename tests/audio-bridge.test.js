@@ -282,7 +282,7 @@ test('giriş: yedek giriş kapalıysa köprü susunca yerel yakalama açılmıyo
 test('ana süreç: köprü kipi, yakalama ve dağıtım bağlantıları', () => {
   const M = read('src/main/main.js');
   // --bridge ayrı ayar klasörü, GPU kapalı, görüntü çıkışı yok
-  assert.match(M, /const BRIDGE_FLAG = process\.argv\.includes\('--bridge'\);\nconst BRIDGE_OWN_PROFILE = BRIDGE_FLAG && !process\.argv\.includes\('--bridge-shared-profile'\);\nif \(BRIDGE_OWN_PROFILE\) \{\n  try \{ app\.setPath\('userData', path\.join\(app\.getPath\('userData'\), 'bridge'\)\); \}/);
+  assert.match(M, /const BRIDGE_FLAG = process\.argv\.includes\('--bridge'\);\nconst BRIDGE_OWN_PROFILE = BRIDGE_FLAG && !process\.argv\.includes\('--bridge-shared-profile'\);\n(?:[^\n]*\n){2}if \(BRIDGE_OWN_PROFILE\) \{\n  try \{ app\.setPath\('userData', path\.join\(app\.getPath\('userData'\), 'bridge'\)\); \}/);
   assert.ok(M.indexOf("app.setPath('userData'") < M.indexOf('const SETTINGS_PATH ='), 'ayar yolu klasör değişince hesaplanmalı');
   assert.match(M, /if \(BRIDGE_ONLY\) app\.disableHardwareAcceleration\(\);/);
   assert.match(M, /function openVisualizer\(displayIds\) \{\n  \/\/[^\n]*\n  if \(BRIDGE_ONLY\) \{/);

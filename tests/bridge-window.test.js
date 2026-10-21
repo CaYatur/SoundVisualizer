@@ -145,9 +145,25 @@ test('saat: bağlanınca ilk yoklamalar 100 ms arayla', () => {
 
 test('panel: "Ses Köprüsünü Ayrı Aç" ayrı --bridge kopyası başlatır; hata ayıklama portu taşınmaz', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /ipcMain\.handle\('bridge:open-separate', \(\) => \{\n  if \(BRIDGE_ONLY \|\| AUTOMATION_RUN\) return \{ ok: false \};\n  const args = process\.argv\.slice\(1\)\.filter\(\(a\) => !BRIDGE_ARGS\.includes\(a\) && !\/\^--\(inspect\|remote-debugging-port\)\/\.test\(a\)\)\.concat\('--bridge'\);/);
+  assert.match(M, /ipcMain\.handle\('bridge:open-separate', \(\) => \{\n  if \(BRIDGE_ONLY \|\| AUTOMATION_RUN\) return \{ ok: false \};\n[^\n]*\n  if \(PORTABLE_BUILD\) return \{ ok: false, error: 'portable' \};\n  const args = process\.argv\.slice\(1\)\.filter\(\(a\) => !BRIDGE_ARGS\.includes\(a\) && !\/\^--\(inspect\|remote-debugging-port\)\/\.test\(a\)\)\.concat\('--bridge'\);/);
   assert.match(M, /const c = require\('child_process'\)\.spawn\(exe, args, \{ detached: true, stdio: 'ignore' \}\);\n    c\.unref\(\);/);
   assert.ok(read('src/main/preload-admin.js').includes("bridgeOpenSeparate: () => ipcRenderer.invoke('bridge:open-separate'),"));
-  assert.match(read('src/admin/bridge-panel.js'), /!only && window\.api\.bridgeOpenSeparate \? ctlRow\(tr\('Ayrı Köprü'\)/);
+  assert.match(read('src/admin/bridge-panel.js'), /!only && !\(status && status\.portable\) && window\.api\.bridgeOpenSeparate \? ctlRow\(tr\('Ayrı Köprü'\)/);
   assert.ok(read('src/shared/i18n.js').includes("'Ses Köprüsünü Ayrı Aç': 'Open Audio Bridge Separately',"));
+});
+
+/* Taşınabilir sürümde ölçüldü: uygulama ve yanında açılan köprü aynı sabit
+   geçici klasörden çalışıyor; uygulama kapanınca taşınabilir kabuk klasörü
+   sildi (resources'ta yalnız kilitli app.asar kaldı), köprü yardımcılarını
+   kaybetti. Kabuk açılışta da siliyor. Taşınabilirde ayrı kopya açılmaz. */
+test('taşınabilir: ayrı köprü düğmesi ve atlama listesi görevi yok, nedeni panelde', () => {
+  const M = read('src/main/main.js');
+  assert.match(M, /const PORTABLE_BUILD = !!process\.env\.PORTABLE_EXECUTABLE_FILE;/);
+  assert.match(M, /if \(PORTABLE_BUILD\) return \{ ok: false, error: 'portable' \};/);
+  assert.match(M, /if \(process\.platform === 'win32' && app\.isPackaged && !AUTOMATION_RUN && !PORTABLE_BUILD\) \{/);
+  assert.match(M, /ownProfile: BRIDGE_OWN_PROFILE, portable: PORTABLE_BUILD,/);
+  const P = read('src/admin/bridge-panel.js');
+  assert.match(P, /!only && status && status\.portable \? el\('div', \{ class: 'br-sub', text: tr\('Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz:/);
+  assert.match(P, /!only && !\(status && status\.portable\) && window\.api\.bridgeOpenSeparate \? ctlRow\(/);
+  assert.ok(read('src/shared/i18n.js').includes("'Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz:"));
 });

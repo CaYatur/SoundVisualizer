@@ -35,9 +35,9 @@ folder.
 
 | OS / build | How to start the bridge |
 |---|---|
-| Any build | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
+| Installed, AppImage, deb, dev | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
 | Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer) |
-| Windows, portable | Taskbar jump list → "Audio Bridge", or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` |
+| Windows, portable | "Audio Bridge Only" (the machine runs only the bridge), or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` while the normal app is closed. Not next to the app: see below. |
 | macOS | `open -n -a "CAYADEV Visualizer" --args --bridge` (`-n` starts a second copy next to the normal app) |
 | Linux, AppImage | `./CAYADEV-Visualizer-<version>-linux-x86_64.AppImage --bridge` |
 | Linux, deb | `"/opt/CAYADEV Visualizer/soundvisualizer" --bridge` |
@@ -45,13 +45,21 @@ folder.
 
 Linux deb also adds an "Audio Bridge" action to the app's desktop entry (right-click the launcher).
 
-The taskbar jump list entry appears only for builds that run without the app's package identity
-(the portable build, measured: the jump list file gets the `--bridge` task). The installed build
-runs with the sparse package identity that Dynamic Lighting needs, and in such a process Windows
-writes the jump list nowhere: `app.setUserTasks` returns true and no jump list file changes
-(measured on `win-unpacked`, which ran with the identity, `process.windowsStore` true). Showing the
-task there would need the WinRT `JumpList` API through the native helper; until then the installed
-build has the Start menu shortcut and the panel button.
+Two findings from the packaged Windows build (#822):
+
+- **Portable: no bridge next to the app.** The portable exe unpacks into one fixed temporary folder
+  (`%TEMP%\CAYADEV-Visualizer-Portable`) and its stub deletes that folder both before unpacking and
+  after the app exits. Measured: with the app and a bridge started from the portable exe, quitting
+  the app left only the locked `app.asar` in `resources`; the bridge kept running without its
+  helpers and native modules. So the portable build does not offer "Open Audio Bridge Separately"
+  or the jump list task, and the panel says why. Restarting into "Audio Bridge Only" works
+  (measured: it comes back in bridge mode with the folder intact).
+- **Installed: no jump list task.** The installed build runs with the sparse package identity that
+  Dynamic Lighting needs. In such a process `app.setUserTasks` returns true but no jump list is
+  written (measured on `win-unpacked`, which ran with that identity, `process.windowsStore` true;
+  the installed build is inferred because it registers the same identity). Showing the task there
+  would need the WinRT `JumpList` API through the native helper. The Start menu shortcut and the
+  panel button cover it.
 
 Bridge-only mode runs as a single instance per settings folder. Starting it again (shortcut,
 jump list, `--bridge`) does not open a second bridge that would fight over the port and the

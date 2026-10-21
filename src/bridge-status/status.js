@@ -286,7 +286,8 @@
       const r = await W.setConfig(patch);
       if (r && r.cfg && st) st.cfg = r.cfg;
     } catch { /* */ }
-    draw(true);
+    // Zorlamadan: sekmeyle bir sonraki alana geçildiyse odak orada kalsın
+    draw(false);
   }
   function field(label, control, note) {
     return el('label', { class: 'bs-field' }, [el('span', { class: 'bs-field-k', text: label }), control, note ? el('span', { class: 'bs-field-n', text: note }) : null]);

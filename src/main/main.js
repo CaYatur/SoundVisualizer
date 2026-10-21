@@ -106,6 +106,8 @@ const SMOKE = process.argv.includes('--smoke');
    klasörle açar (bir sonraki açılışta). */
 const BRIDGE_FLAG = process.argv.includes('--bridge');
 const BRIDGE_OWN_PROFILE = BRIDGE_FLAG && !process.argv.includes('--bridge-shared-profile');
+// Windows taşınabilir sürümü: exe kendini sabit bir geçici klasöre açıyor
+const PORTABLE_BUILD = !!process.env.PORTABLE_EXECUTABLE_FILE;
 if (BRIDGE_OWN_PROFILE) {
   try { app.setPath('userData', path.join(app.getPath('userData'), 'bridge')); } catch { /* yol değişmedi */ }
 }
@@ -1447,7 +1449,7 @@ function bridgeStatus() {
   const c = bridge.cfg;
   const now = Date.now();
   return {
-    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
+    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, portable: PORTABLE_BUILD, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
     send: c.send || BRIDGE_ONLY, receive: c.receive && !BRIDGE_ONLY,
     sender: bridge.sender ? Object.assign({ name: bridgeName(c) }, bridge.sender.status()) : null,
     receiver: bridge.receiver ? bridge.receiver.status() : null,
@@ -2121,6 +2123,8 @@ ipcMain.handle('bridge:relaunch', async () => {
    taşınmaz (çakışırdı). */
 ipcMain.handle('bridge:open-separate', () => {
   if (BRIDGE_ONLY || AUTOMATION_RUN) return { ok: false };
+  // Taşınabilirde iki kopya aynı geçici klasörü paylaşıp birbirini bozar (atlama listesinin notu)
+  if (PORTABLE_BUILD) return { ok: false, error: 'portable' };
   const args = process.argv.slice(1).filter((a) => !BRIDGE_ARGS.includes(a) && !/^--(inspect|remote-debugging-port)/.test(a)).concat('--bridge');
   const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE || process.execPath;
   try {
@@ -8241,12 +8245,18 @@ app.whenReady().then(async () => {
   if (!BRIDGE_ONLY || process.argv.includes('--panel')) createAdminWindow();
   scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
-  /* Windows görev çubuğu atlama listesi (#813): kurulu ve taşınabilir
-     sürümde "Ses Köprüsü" görevi uygulamayı --bridge ile açar. Taşınabilir
-     exe kendini geçici klasöre açıyor; asıl dosya PORTABLE_EXECUTABLE_FILE. */
-  if (process.platform === 'win32' && app.isPackaged && !AUTOMATION_RUN) {
+  /* Windows görev çubuğu atlama listesi (#813): "Ses Köprüsü" görevi
+     uygulamayı --bridge ile açar. Ölçüldü (#822):
+       - Kurulu sürüm Dynamic Lighting için paket kimliğiyle çalışıyor; o
+         süreçte setUserTasks true dönüyor ama atlama listesi hiç yazılmıyor.
+         Görev yalnız kimliği kaydedilemeyen kurulumda görünür.
+       - Taşınabilir sürümde KAPALI: iki kopya aynı sabit geçici klasörden
+         çalışıyor (unpackDirName) ve taşınabilir kabuk açılışta da kapanışta
+         da o klasörü siliyor (RMDir /r). Yanında açılan köprü, uygulama
+         kapanınca yardımcılarını ve yerel modüllerini kaybediyordu. */
+  if (process.platform === 'win32' && app.isPackaged && !AUTOMATION_RUN && !PORTABLE_BUILD) {
     try {
-      const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+      const exe = process.execPath;
       app.setUserTasks([{ program: exe, arguments: '--bridge', iconPath: exe, iconIndex: 0,
         title: trUi('Ses Köprüsü', 'Audio Bridge'), description: trUi('Yalnız ses köprüsü kipinde aç', 'Open in audio bridge mode') }]);
     } catch { /* atlama listesi yok */ }
