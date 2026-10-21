@@ -1449,7 +1449,7 @@ function bridgeStatus() {
   const c = bridge.cfg;
   const now = Date.now();
   return {
-    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, portable: PORTABLE_BUILD, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
+    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
     send: c.send || BRIDGE_ONLY, receive: c.receive && !BRIDGE_ONLY,
     sender: bridge.sender ? Object.assign({ name: bridgeName(c) }, bridge.sender.status()) : null,
     receiver: bridge.receiver ? bridge.receiver.status() : null,
@@ -2120,11 +2120,10 @@ ipcMain.handle('bridge:relaunch', async () => {
    çubuğu görevini hiçbir yere yazmıyor (ölçüldü: setUserTasks true dönüyor,
    atlama listesi boş); Başlat menüsü kısayolu ve bu düğme kalıyor. Köprü
    zaten açıksa tek kopya kilidi onu öne getirir. Hata ayıklama portları
-   taşınmaz (çakışırdı). */
+   taşınmaz (çakışırdı). Taşınabilirde köprü taşınabilir exe'den açılır;
+   kabuk, klasördeki exe çalışırken klasörü silmez (prepare-portable-stub). */
 ipcMain.handle('bridge:open-separate', () => {
   if (BRIDGE_ONLY || AUTOMATION_RUN) return { ok: false };
-  // Taşınabilirde iki kopya aynı geçici klasörü paylaşıp birbirini bozar (atlama listesinin notu)
-  if (PORTABLE_BUILD) return { ok: false, error: 'portable' };
   const args = process.argv.slice(1).filter((a) => !BRIDGE_ARGS.includes(a) && !/^--(inspect|remote-debugging-port)/.test(a)).concat('--bridge');
   const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE || process.execPath;
   try {
@@ -8248,18 +8247,23 @@ app.whenReady().then(async () => {
   /* Windows görev çubuğu atlama listesi (#813): "Ses Köprüsü" görevi
      uygulamayı --bridge ile açar. Ölçüldü (#822):
        - Kurulu sürüm Dynamic Lighting için paket kimliğiyle çalışıyor; o
-         süreçte setUserTasks true dönüyor ama atlama listesi hiç yazılmıyor.
-         Görev yalnız kimliği kaydedilemeyen kurulumda görünür.
-       - Taşınabilir sürümde KAPALI: iki kopya aynı sabit geçici klasörden
-         çalışıyor (unpackDirName) ve taşınabilir kabuk açılışta da kapanışta
-         da o klasörü siliyor (RMDir /r). Yanında açılan köprü, uygulama
-         kapanınca yardımcılarını ve yerel modüllerini kaybediyordu. */
+         süreçte görev çubuğu düğmesi paketin uygulamasına bağlı ve
+         setUserTasks hiçbir şey yazmıyor. Kimlik varsa liste paketin WinRT
+         JumpList'ine yazılır (yerel eklenti), yoksa setUserTasks.
+       - Taşınabilir sürümde yok: atlama listesi exe'nin yolunu saklar, o yol
+         geçici klasör; kurulu sürümle aynı uygulama kimliğini de paylaşır. */
   if (process.platform === 'win32' && app.isPackaged && !AUTOMATION_RUN && !PORTABLE_BUILD) {
-    try {
-      const exe = process.execPath;
-      app.setUserTasks([{ program: exe, arguments: '--bridge', iconPath: exe, iconIndex: 0,
-        title: trUi('Ses Köprüsü', 'Audio Bridge'), description: trUi('Yalnız ses köprüsü kipinde aç', 'Open in audio bridge mode') }]);
-    } catch { /* atlama listesi yok */ }
+    const title = trUi('Ses Köprüsü', 'Audio Bridge');
+    const description = trUi('Yalnız ses köprüsü kipinde aç', 'Open in audio bridge mode');
+    const packaged = dynamicLighting.setPackageJumpList('--bridge', title, description);
+    if (packaged !== 'no-identity') {
+      if (!packaged.startsWith('ok:')) console.warn('[jump-list]', packaged);
+    } else {
+      try {
+        const exe = process.execPath;
+        app.setUserTasks([{ program: exe, arguments: '--bridge', iconPath: exe, iconIndex: 0, title, description }]);
+      } catch { /* atlama listesi yok */ }
+    }
   }
 
   // Ses köprüsü (#813): gönderen, alıcı ve keşif ayara göre
