@@ -7,6 +7,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
+### CaYaDev MilkDrop Presets [825]
+
+- **Our own shader presets, built in.** The first five of a planned 50+: *Neon Monsoon* (liquid), *Event Horizon* (tunnel), *Prism Lattice* (geometric), *Northern Veil* (ambient scene) and *Twelve Moons* (MilkDrop 3). They sit next to the five original built-ins in the preset list and auto advance, with English names and author "CaYaDev".
+- **Free to use elsewhere under CC BY 4.0.** The `.milk` files are in [`presets/cayadev`](presets/cayadev) with a license and a README, and `node scripts/preset-pack.js --zip` builds the release zip (`CaYaDev-MilkDrop-Presets-<version>.zip`, now in the release asset list). The app embeds them from that folder; a test fails if the embedded copy drifts from the files.
+- **Checked before they were added.** Each preset has warp and comp shaders. Each was run for 90 s on looped music (no fade to black, white-out or freeze), measured at 1080p (12–13.5 ms per frame on a Radeon 610M iGPU, 5.5–7 ms on an RTX 5070 Laptop), and compared at 60 and 144 Hz (same average brightness). The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop): same picture. The MilkDrop 3 preset was checked only in our engine.
+- **Two MilkDrop 2 rules the comparison caught, now enforced by tests.** MilkDrop 2 does not pass `aspectx`/`aspecty` to custom wave and shape code, so the presets carry them in q31/q32. Prefixed noise samplers such as `sampler_pw_noise_lq` must be declared in the shader; otherwise MilkDrop drops the comp shader while our engine runs it anyway.
+
 ### Audio bridge: its own window for everything, mode switch with restart, clock fix [822]
 
 - **The bridge window is the bridge's whole UI.** Three tabs, Status, Sources and Settings, under a header that stays on top. Settings has the bridge name, the pairing secret (show, copy, New Secret with a warning that receivers drop), the port, this computer's addresses with the port and a copy button (for a receiver that has to type the address), the firewall rule, "Start the Bridge at Sign-in" (installed and portable builds; Windows startup list, Linux autostart), "Don't Open the Status Window at Start", and the way out of bridge mode. The panel is still there as "Advanced Settings (Panel)" but is no longer needed. Fields are saved when you leave them, and the window no longer redraws under a field while you type.

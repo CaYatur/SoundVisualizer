@@ -1,0 +1,53 @@
+{
+  "name": "CaYaDev MilkDrop Presets",
+  "author": "CaYaDev",
+  "license": "CC-BY-4.0",
+  "presets": [
+    {
+      "file": "CaYaDev - Neon Monsoon.milk",
+      "id": "md_caya_neon_monsoon",
+      "category": "liquid",
+      "description": {
+        "tr": "İki renkli mürekkep yavaş bir akıntıda ipek gibi kıvrılıyor; yüzey ıslak cam gibi ışık alıyor. Bas akıntıyı hızlandırıyor.",
+        "en": "Two inks curl like silk in a slow current, and the surface catches light like wet glass. Bass speeds up the current."
+      }
+    },
+    {
+      "file": "CaYaDev - Event Horizon.milk",
+      "id": "md_caya_event_horizon",
+      "category": "tunnel",
+      "description": {
+        "tr": "Akışkan krom duvarlı bir tünel; ucunda vuruşla parlayan bir kara delik halkası. Renk tonu yavaşça dönüyor.",
+        "en": "A tunnel with liquid chrome walls, ending in a black-hole ring that flares on the beat. The hue turns slowly."
+      }
+    },
+    {
+      "file": "CaYaDev - Prism Lattice.milk",
+      "id": "md_caya_prism_lattice",
+      "category": "geometric",
+      "description": {
+        "tr": "Altıgen çerçeveler ve dönen bir dalga altı kollu bir kaleydoskopta katlanıyor; kenarlar iki tonlu bir paletle parlıyor.",
+        "en": "Hexagon frames and an orbiting scope fold into a six-way kaleidoscope, with edges lit in a two-tone palette."
+      }
+    },
+    {
+      "file": "CaYaDev - Northern Veil.milk",
+      "id": "md_caya_northern_veil",
+      "category": "ambient",
+      "description": {
+        "tr": "Dağların üstünde kuzey ışıkları ve göldeki dalgalı yansımaları. Bas perdeleri aydınlatıyor, tizler yıldızları kırptırıyor.",
+        "en": "Northern lights over a mountain ridge, mirrored in a rippling lake. Bass brightens the curtains, treble makes the stars twinkle."
+      }
+    },
+    {
+      "file": "CaYaDev - Twelve Moons.milk",
+      "id": "md_caya_twelve_moons",
+      "category": "space",
+      "md3": true,
+      "description": {
+        "tr": "Halkalı bir gaz devinin çevresinde, her biri dalga biçimiyle şekillenen on iki ay. MilkDrop 3 presetidir; MilkDrop 2 oynatıcıları ilk dört ayı gösterir.",
+        "en": "Twelve moons shaped by the waveform orbit a ringed gas giant. A MilkDrop 3 preset; MilkDrop 2 players show the first four moons."
+      }
+    }
+  ]
+}

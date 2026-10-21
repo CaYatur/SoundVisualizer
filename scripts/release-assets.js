@@ -45,6 +45,9 @@ const ASSETS = [
      güncelleme bilgisi bu adı arıyor; yüklenmezse AppImageUpdate çalışmaz. */
   { file: 'CAYADEV-Visualizer-' + version + '-linux-x86_64.AppImage.zsync', desc: 'Linux — AppImageUpdate delta file' },
   { file: 'CAYADEV-Visualizer-' + version + '-linux-amd64.deb', desc: 'Linux — Debian / Ubuntu' },
+  /* CaYaDev MilkDrop preset paketi (#825, CC BY 4.0): `node scripts/preset-pack.js --zip`
+     dist/ altına üretir; uygulamanın içinde de gömülü geliyor. */
+  { file: 'CaYaDev-MilkDrop-Presets-' + version + '.zip', desc: 'MilkDrop presets — CC BY 4.0' },
 ];
 
 const labelOf = (a) => a.file + ' (' + a.desc + ')';
@@ -128,7 +131,7 @@ if (CHECK) {
     console.log('\n' + tag + ': ' + bad + ' sorun, ' + extra.length + ' beklenmeyen dosya');
     process.exit(1);
   }
-  console.log('\n' + tag + ': altı varlık da yerinde ve etiketli');
+  console.log('\n' + tag + ': ' + ASSETS.length + ' varlığın hepsi yerinde ve etiketli');
   process.exit(0);
 }
 
@@ -148,6 +151,7 @@ for (const f of found) console.log('bulundu     ' + path.relative(root, f.path))
 if (missing.length && !PARTIAL) {
   console.error('\n' + missing.length + ' dosya eksik, hiçbiri yüklenmedi.\n' +
     '  Windows: npm run dist:win\n' +
+    '  Preset paketi: node scripts/preset-pack.js --zip\n' +
     '  macOS/Linux: gh run download <run-id> -D <klasör>, sonra --dir=<klasör>\n' +
     '  Bilerek eksik yüklüyorsanız --partial ekleyin.');
   process.exit(1);

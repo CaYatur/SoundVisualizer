@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3498%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3507%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -379,6 +379,11 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
   *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
+- **CaYaDev MilkDrop Presetleri: 5 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
+  Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
+  ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
+  ücretsiz kullanılabilirler: [`presets/cayadev`](presets/cayadev) klasöründen ya da her sürümdeki zip'ten
+  indirebilirsiniz.
 - **Bütün bir kütüphaneyi içe aktarın** — bir ZIP paketinden, bir klasörden ya da bu
   bilgisayarı arayarak (Winamp, foobar2000 ve projectM klasörleri, İndirilenler, Masaüstü, Müzik,
   Belgeler). Bir şey kopyalanmadan önce ne ekleneceğini görüyorsunuz; aynıları atlanıyor; dokular da
@@ -1335,6 +1340,9 @@ kapatmak motorun önceki görünümünü geri getiriyor.
   *Nabız Örgüsü* (hareket vektörlerinin dokuduğu örgünün üstünde vuruşla zıplayan kareler) — hepsi
   burada yazıldı, yani kendi paketinizi eklemeden de motorun ne yaptığı görünüyor. Otomatik geçişe
   de öteki presetler gibi giriyorlar. Bu sayfadaki iki görsel onlardan alındı.
+- **CaYaDev MilkDrop Presetleri** ([`presets/cayadev`](presets/cayadev), CC BY 4.0) onların yanında gömülü
+  geliyor: sıfırdan yazılmış, MilkDrop 2 ve MilkDrop 3 shader presetleri. Her birinin geçtiği denetimler
+  klasörün README'sinde; her sürümdeki zip aynı dosyaları taşıyor.
 - **Preset metninden üretilen koda hiçbir şey kopyalanmıyor.** Tanımlayıcılar havuz indekslerine
   dönüşüyor, yani bir preset JavaScript kaçıramaz. Bir enjeksiyon testi bunu doğruluyor.
 - **HLSL warp ve composite shader'ları GLSL'e çevrilip GPU'da koşuyor.** Gerçek bir WebGL2
@@ -1785,7 +1793,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3498 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3507 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 
@@ -1854,6 +1862,7 @@ src/
                geçişler, bükme, MilkDrop, şablonlar, şarkı sözü, zaman çizelgesi, klip destesi
   web/         OBS katmanı ve telefon kumandası
 native/        Ses yardımcıları (uygulama başına yakalama, Dynamic Lighting kimliği)
+presets/       CaYaDev MilkDrop Presetleri (.milk, CC BY 4.0); scripts/preset-pack.js gömüyor
 scripts/       Derleme, sürüm, performans ölçümü, MilkDrop derlemi ve çizim ölçüm araçları
 tests/         `npm test` ile çalışan birim testleri
 docs/          Ekran görüntüleri ve ölçüm sonuçları

@@ -238,7 +238,11 @@ const MD2_SHAPE_KEYS = ['enabled', 'sides', 'additive', 'thickOutline', 'texture
   'x', 'y', 'rad', 'ang', 'tex_ang', 'tex_zoom', 'r', 'g', 'b', 'a', 'r2', 'g2', 'b2', 'a2',
   'border_r', 'border_g', 'border_b', 'border_a'];
 const MD2_CODE = /^(per_frame_init_|per_frame_|per_pixel_|warp_|comp_|wave_[0-3]_(?:init|per_frame|per_point)|shape_[0-3]_(?:init|per_frame))([1-9]\d*)$/;
-function md2Reads(key) {
+/* MilkDrop 3 presetleri (paketteki `md3`) 16 dalga ve şekil yuvası okuyor. */
+const MD3_SLOT = /^(?:wave_|shape_|wavecode_|shapecode_)(?:[4-9]|1[0-5])_/;
+const MD3_CODE = /^(wave_\d+_(?:init|per_frame|per_point)|shape_\d+_(?:init|per_frame))([1-9]\d*)$/;
+function md2Reads(key, md3) {
+  if (md3 && MD3_SLOT.test(key)) return md2Reads(key.replace(/_(?:[4-9]|1[0-5])_/, '_0_'));
   if (MD2_KEYS.has(key) || MD2_CODE.test(key)) return true;
   const w = /^wavecode_[0-3]_(\w+)$/.exec(key);
   if (w) return MD2_WAVE_KEYS.includes(w[1]);
@@ -250,7 +254,7 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
   const B = require('../src/shared/presets-milkdrop.js');
   const G = require('../src/shared/milkdrop-generator.js');
   const X = require('../src/shared/milkdrop-mashup.js');
-  const texts = B.map((p) => [p.id, p.source]);
+  const texts = B.map((p) => [p.id, p.source, p.md3]);
   for (let i = 0; i < 64; i++) {
     const r = G.generate({ energy: (i * 37) % 101, warmth: (i * 53) % 101,
       density: (i * 71) % 101, motion: (i * 89) % 101, seed: i * 7919 });
@@ -264,7 +268,7 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
     texts.push(['karışım ' + i, X.compose(d)]);
   }
   let checked = 0;
-  for (const [id, text] of texts) {
+  for (const [id, text, md3] of texts) {
     const seen = new Set();
     const code = new Map();
     for (const line of text.split(/\r?\n/)) {
@@ -273,10 +277,10 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
       const eq = line.indexOf('=');
       assert.ok(eq > 0, id + ': anahtarsız satır: ' + line);
       const key = line.slice(0, eq);
-      assert.ok(md2Reads(key), id + ': MilkDrop bu anahtarı okumuyor: ' + key);
+      assert.ok(md2Reads(key, md3), id + ': MilkDrop bu anahtarı okumuyor: ' + key);
       assert.ok(!seen.has(key), id + ': anahtar iki kez (MilkDrop ilkini okuyor): ' + key);
       seen.add(key);
-      const c = MD2_CODE.exec(key);
+      const c = MD2_CODE.exec(key) || (md3 && MD3_CODE.exec(key));
       if (c) code.set(c[1], (code.get(c[1]) || []).concat(+c[2]));
       checked++;
     }
@@ -284,10 +288,11 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
       const sorted = nums.slice().sort((a, b) => a - b);
       sorted.forEach((n, k) => assert.strictEqual(n, k + 1, id + ': ' + prefix + ' numarasında boşluk'));
     }
-    // İki okuyuş kendi presetlerimizde aynı: uyum anahtarı onları değiştirmiyor
-    assert.strictEqual(M.readingsDiffer(text), false, id + ': iki okuyuş ayrışıyor');
+    /* İki okuyuş kendi presetlerimizde aynı: uyum anahtarı onları değiştirmiyor.
+       MilkDrop 3 presetinde ayrışmak doğru: MilkDrop 2 okuyuşu dört yuvada duruyor. */
+    if (!md3) assert.strictEqual(M.readingsDiffer(text), false, id + ': iki okuyuş ayrışıyor');
   }
-  assert.ok(texts.length === 5 + 64 + 30 && checked > 10000, 'yeterince satır denetlendi: ' + checked);
+  assert.ok(texts.length === B.length + 64 + 30 && checked > 10000, 'yeterince satır denetlendi: ' + checked);
 });
 
 // ----------------------------------------------------------------- motor
