@@ -12,6 +12,7 @@
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.UI.h>
+#include <winrt/Windows.UI.StartScreen.h>
 
 #include <algorithm>
 #include <condition_variable>
@@ -425,6 +426,52 @@ napi_value HasPackageIdentity(napi_env env, napi_callback_info info) {
   return MakeBoolean(env, status == ERROR_INSUFFICIENT_BUFFER || status == ERROR_SUCCESS);
 }
 
+/* Paket kimliğiyle çalışan süreçte görev çubuğu düğmesi paketin uygulamasına
+   bağlı; Win32 atlama listesi (ICustomDestinationList) oraya yazılmıyor
+   (#822). Paketin kendi listesi WinRT JumpList ile yazılır. Bekleme ana
+   iş parçacığında yapılmaz: ayrı bir MTA iş parçacığında koşar. */
+napi_value SetPackageJumpList(napi_env env, napi_callback_info info) {
+  size_t argc = 3;
+  napi_value args[3];
+  napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  const std::string arguments = argc > 0 ? GetString(env, args[0]) : std::string();
+  const std::string title = argc > 1 ? GetString(env, args[1]) : std::string();
+  const std::string description = argc > 2 ? GetString(env, args[2]) : std::string();
+  std::string status;
+  std::thread worker([&] {
+    try {
+      winrt::init_apartment(winrt::apartment_type::multi_threaded);
+      using winrt::Windows::UI::StartScreen::JumpList;
+      using winrt::Windows::UI::StartScreen::JumpListItem;
+      if (!JumpList::IsSupported()) {
+        status = "unsupported";
+      } else {
+        const auto list = JumpList::LoadCurrentAsync().get();
+        list.Items().Clear();
+        if (!arguments.empty()) {
+          const auto item = JumpListItem::CreateWithArguments(winrt::to_hstring(arguments), winrt::to_hstring(title));
+          item.Description(winrt::to_hstring(description));
+          item.Logo(winrt::Windows::Foundation::Uri(L"ms-appx:///resources/identity/Square44x44Logo.png"));
+          list.Items().Append(item);
+        }
+        list.SaveAsync().get();
+        status = "ok:" + std::to_string(JumpList::LoadCurrentAsync().get().Items().Size());
+      }
+    } catch (const winrt::hresult_error& ex) {
+      std::ostringstream text;
+      text << "error:0x" << std::hex << static_cast<uint32_t>(ex.code()) << " " << winrt::to_string(ex.message());
+      status = text.str();
+    } catch (const std::exception& ex) {
+      status = std::string("error:") + ex.what();
+    }
+    winrt::uninit_apartment();
+  });
+  worker.join();
+  napi_value result;
+  napi_create_string_utf8(env, status.c_str(), status.size(), &result);
+  return result;
+}
+
 napi_value Shutdown(napi_env env, napi_callback_info info) {
   Controller().Stop();
   napi_value undefined;
@@ -441,6 +488,7 @@ napi_value Init(napi_env env, napi_value exports) {
     {"setLeds", nullptr, SetLeds, nullptr, nullptr, nullptr, napi_default, nullptr},
     {"release", nullptr, Release, nullptr, nullptr, nullptr, napi_default, nullptr},
     {"hasPackageIdentity", nullptr, HasPackageIdentity, nullptr, nullptr, nullptr, napi_default, nullptr},
+    {"setPackageJumpList", nullptr, SetPackageJumpList, nullptr, nullptr, nullptr, napi_default, nullptr},
     {"shutdown", nullptr, Shutdown, nullptr, nullptr, nullptr, napi_default, nullptr},
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);

@@ -185,10 +185,18 @@ function hasPackageIdentity() {
   catch { return false; }
 }
 
+/* Paket kimliğindeki görev çubuğu atlama listesi (#822). Dönüş: 'ok:<adet>',
+   'unsupported', 'error:...' ya da kimlik/eklenti yoksa 'no-identity'. */
+function setPackageJumpList(args, title, description) {
+  if (!hasPackageIdentity()) return 'no-identity';
+  try { return String(ensureAddon().setPackageJumpList(String(args || ''), String(title || ''), String(description || ''))); }
+  catch (error) { return 'error:' + error.message; }
+}
+
 async function stop() {
   if (!nativeAddon) return;
   try { nativeAddon.shutdown(); } catch {}
   nativeAddon = null;
 }
 
-module.exports = { scan, setConfig, onAudioFrame, availability, hasPackageIdentity, stop };
+module.exports = { scan, setConfig, onAudioFrame, availability, hasPackageIdentity, setPackageJumpList, stop };

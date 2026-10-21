@@ -35,9 +35,9 @@ folder.
 
 | OS / build | How to start the bridge |
 |---|---|
-| Installed, AppImage, deb, dev | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
+| Installed, portable, AppImage, deb, dev | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
 | Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer) |
-| Windows, portable | "Audio Bridge Only" (the machine runs only the bridge), or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` while the normal app is closed. Not next to the app: see below. |
+| Windows, portable | Panel → Audio Bridge → "Open Audio Bridge Separately", "Audio Bridge Only" (the machine runs only the bridge), or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` |
 | macOS | `open -n -a "CAYADEV Visualizer" --args --bridge` (`-n` starts a second copy next to the normal app) |
 | Linux, AppImage | `./CAYADEV-Visualizer-<version>-linux-x86_64.AppImage --bridge` |
 | Linux, deb | `"/opt/CAYADEV Visualizer/soundvisualizer" --bridge` |
@@ -45,21 +45,33 @@ folder.
 
 Linux deb also adds an "Audio Bridge" action to the app's desktop entry (right-click the launcher).
 
-Two findings from the packaged Windows build (#822):
+Findings from the packaged Windows build (#822):
 
-- **Portable: no bridge next to the app.** The portable exe unpacks into one fixed temporary folder
-  (`%TEMP%\CAYADEV-Visualizer-Portable`) and its stub deletes that folder both before unpacking and
-  after the app exits. Measured: with the app and a bridge started from the portable exe, quitting
-  the app left only the locked `app.asar` in `resources`; the bridge kept running without its
-  helpers and native modules. So the portable build does not offer "Open Audio Bridge Separately"
-  or the jump list task, and the panel says why. Restarting into "Audio Bridge Only" works
-  (measured: it comes back in bridge mode with the folder intact).
-- **Installed: no jump list task.** The installed build runs with the sparse package identity that
-  Dynamic Lighting needs. In such a process `app.setUserTasks` returns true but no jump list is
-  written (measured on `win-unpacked`, which ran with that identity, `process.windowsStore` true;
-  the installed build is inferred because it registers the same identity). Showing the task there
-  would need the WinRT `JumpList` API through the native helper. The Start menu shortcut and the
-  panel button cover it.
+- **Message boxes crashed the packaged app (fixed).** Packaging embedded the Dynamic Lighting
+  identity manifest in place of Electron's own, so the exe lost Common Controls v6, the Windows 10
+  `supportedOS` entries and the DPI setting. Every native message box (`dialog.showMessageBox`:
+  "already running", "Back to Normal Mode", "settings not saved") ended the process with
+  0x80000003; the dev build was fine. `after-pack.js` now merges the identity into the existing
+  manifest and checks the result. Measured on `win-unpacked`: the dialogs open and the package
+  identity stays (`process.windowsStore` true). Builds up to 3.1.5 have this bug.
+- **Portable: a second launch deleted the running copy's files (fixed).** The portable exe unpacks
+  into one fixed temporary folder (`%TEMP%\CAYADEV-Visualizer-Portable`; fixed so the firewall
+  rule, which is tied to the exe path, survives) and its stub deleted that folder before unpacking
+  and after the app exited. Measured: opening the exe while it ran left 7 of 177 files. The stub
+  template is now patched before packaging (`scripts/prepare-portable-stub.js`): if the exe in the
+  folder is in use, the stub neither deletes nor unpacks and runs the existing exe; on exit it keeps
+  the folder while that exe is still in use (a bridge next to the app). Measured afterwards: 177 of
+  177 files, a separate bridge keeps running after the app quits, and the folder is removed when
+  the last copy exits. So the portable build offers "Open Audio Bridge Separately" too. A newer
+  portable exe opened while an older one runs uses the running copy's files until it exits.
+- **Installed: the jump list goes through the package.** The installed build runs with the sparse
+  package identity that Dynamic Lighting needs; its taskbar button belongs to the package app, and
+  `app.setUserTasks` writes nothing there. With the identity the "Audio Bridge" task is written
+  with the WinRT `JumpList` API from the native helper. Measured on `win-unpacked`: the list was
+  written under the package's app ID with the `--bridge` item. Not checked by installing: that the
+  task shows on the taskbar, and the installer's Start menu shortcut (installing the beta would
+  replace the installed release on the test machine; Windows Sandbox did not run the script).
+  Without the identity `setUserTasks` is used. The portable build has no jump list task.
 
 Bridge-only mode runs as a single instance per settings folder. Starting it again (shortcut,
 jump list, `--bridge`) does not open a second bridge that would fight over the port and the

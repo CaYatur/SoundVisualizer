@@ -22,7 +22,7 @@
     "icons": "node scripts/gen-icons.js",
     "prepare:smtc": "node scripts/prepare-smtc.js",
     "prepare:appaudio": "node scripts/prepare-app-audio.js",
-    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-smtc.js && node scripts/prepare-app-audio.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
+    "dist:win": "node scripts/prepare-lighting.js && node scripts/prepare-portable-stub.js && node scripts/prepare-smtc.js && node scripts/prepare-app-audio.js && node scripts/prepare-identity.js && npm run icons && electron-builder --win --x64 --publish never",
     "pack:dir": "electron-builder --dir",
     "test": "node scripts/test.js",
     "smoke": "node scripts/start.js --smoke",

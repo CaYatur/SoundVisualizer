@@ -145,25 +145,83 @@ test('saat: bağlanınca ilk yoklamalar 100 ms arayla', () => {
 
 test('panel: "Ses Köprüsünü Ayrı Aç" ayrı --bridge kopyası başlatır; hata ayıklama portu taşınmaz', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /ipcMain\.handle\('bridge:open-separate', \(\) => \{\n  if \(BRIDGE_ONLY \|\| AUTOMATION_RUN\) return \{ ok: false \};\n[^\n]*\n  if \(PORTABLE_BUILD\) return \{ ok: false, error: 'portable' \};\n  const args = process\.argv\.slice\(1\)\.filter\(\(a\) => !BRIDGE_ARGS\.includes\(a\) && !\/\^--\(inspect\|remote-debugging-port\)\/\.test\(a\)\)\.concat\('--bridge'\);/);
+  assert.match(M, /ipcMain\.handle\('bridge:open-separate', \(\) => \{\n  if \(BRIDGE_ONLY \|\| AUTOMATION_RUN\) return \{ ok: false \};\n  const args = process\.argv\.slice\(1\)\.filter\(\(a\) => !BRIDGE_ARGS\.includes\(a\) && !\/\^--\(inspect\|remote-debugging-port\)\/\.test\(a\)\)\.concat\('--bridge'\);/);
   assert.match(M, /const c = require\('child_process'\)\.spawn\(exe, args, \{ detached: true, stdio: 'ignore' \}\);\n    c\.unref\(\);/);
   assert.ok(read('src/main/preload-admin.js').includes("bridgeOpenSeparate: () => ipcRenderer.invoke('bridge:open-separate'),"));
-  assert.match(read('src/admin/bridge-panel.js'), /!only && !\(status && status\.portable\) && window\.api\.bridgeOpenSeparate \? ctlRow\(tr\('Ayrı Köprü'\)/);
+  assert.match(read('src/admin/bridge-panel.js'), /!only && window\.api\.bridgeOpenSeparate \? ctlRow\(tr\('Ayrı Köprü'\)/);
   assert.ok(read('src/shared/i18n.js').includes("'Ses Köprüsünü Ayrı Aç': 'Open Audio Bridge Separately',"));
 });
 
-/* Taşınabilir sürümde ölçüldü: uygulama ve yanında açılan köprü aynı sabit
-   geçici klasörden çalışıyor; uygulama kapanınca taşınabilir kabuk klasörü
-   sildi (resources'ta yalnız kilitli app.asar kaldı), köprü yardımcılarını
-   kaybetti. Kabuk açılışta da siliyor. Taşınabilirde ayrı kopya açılmaz. */
-test('taşınabilir: ayrı köprü düğmesi ve atlama listesi görevi yok, nedeni panelde', () => {
+/* Taşınabilir sürümde ölçüldü: exe ikinci kez açılınca kabuk, çalışan
+   kopyanın klasöründeki 177 dosyanın 170'ini siliyordu. Kabuk şablonu
+   paketlemeden önce yamalanıyor: klasördeki exe kullanımdaysa silmez, açmaz;
+   kapanışta exe hâlâ kullanımdaysa (yanında köprü) klasör kalır. Yamadan
+   sonra ölçüldü: 177/177, ayrı köprü uygulama kapanınca yaşıyor. */
+const STUB = require('../scripts/prepare-portable-stub');
+const STUB_FIXTURE = [
+  'Section',
+  '  StrCpy $INSTDIR "$TEMP\${UNPACK_DIR_NAME}"',
+  '  RMDir /r $INSTDIR',
+  '  SetOutPath $INSTDIR',
+  '  File /r "${APP_DIR_64}\*.*"',
+  '  System::Call \'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_DIR", "$EXEDIR").r0\'',
+  '\tExecWait "$INSTDIR\${APP_EXECUTABLE_FILENAME} $R0" $0',
+  '  SetOutPath $EXEDIR',
+  '\tRMDir /r $INSTDIR',
+  'SectionEnd',
+  '',
+].join('\r\n');
+
+test('taşınabilir kabuk: kullanımdaki klasör silinmez, yama bir kez uygulanır', () => {
+  const { text, changed } = STUB.patch(STUB_FIXTURE);
+  assert.ok(changed);
+  assert.ok(text.includes('\r\n') && !/[^\r]\n/.test(text), 'satır sonu korunur');
+  const t = text.replace(/\r\n/g, '\n');
+  // Açılış: exe açılamıyorsa (çalışıyor) silme/açma atlanır, var olan exe çalışır
+  assert.match(t, /FileOpen \$R8 "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" a\n  IfErrors cayadev_in_use\n  FileClose \$R8\n  Goto cayadev_extract\ncayadev_in_use:\n  SetOutPath \$INSTDIR\n  Goto cayadev_run\ncayadev_extract:\n  RMDir \/r \$INSTDIR\n/);
+  assert.ok(t.indexOf('cayadev_run:') < t.indexOf('PORTABLE_EXECUTABLE_DIR'));
+  assert.ok(t.indexOf('cayadev_extract:') < t.indexOf('File /r'));
+  // Kapanış: exe hâlâ kullanımdaysa klasör kalır
+  assert.match(t, /SetOutPath \$EXEDIR\n  ClearErrors\n  FileOpen \$R8 "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" a\n  IfErrors cayadev_keep\n  FileClose \$R8\n\tRMDir \/r \$INSTDIR\ncayadev_keep:\n/);
+  assert.strictEqual((t.match(/RMDir \/r \$INSTDIR/g) || []).length, 2);
+  assert.strictEqual(STUB.patch(text).changed, false);
+  assert.throws(() => STUB.patch(STUB_FIXTURE.replace('\tRMDir /r $INSTDIR', '  RMDir $INSTDIR')), /portable\.nsi changed/);
+  assert.match(JSON.parse(read('package.json')).scripts['dist:win'], /node scripts\/prepare-portable-stub\.js && .*electron-builder --win/);
+});
+
+test('taşınabilir: ayrı köprü açılabiliyor (kabuk yamasından sonra), atlama listesi yok', () => {
   const M = read('src/main/main.js');
-  assert.match(M, /const PORTABLE_BUILD = !!process\.env\.PORTABLE_EXECUTABLE_FILE;/);
-  assert.match(M, /if \(PORTABLE_BUILD\) return \{ ok: false, error: 'portable' \};/);
+  assert.ok(!/if \(PORTABLE_BUILD\) return \{ ok: false/.test(M));
   assert.match(M, /if \(process\.platform === 'win32' && app\.isPackaged && !AUTOMATION_RUN && !PORTABLE_BUILD\) \{/);
-  assert.match(M, /ownProfile: BRIDGE_OWN_PROFILE, portable: PORTABLE_BUILD,/);
-  const P = read('src/admin/bridge-panel.js');
-  assert.match(P, /!only && status && status\.portable \? el\('div', \{ class: 'br-sub', text: tr\('Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz:/);
-  assert.match(P, /!only && !\(status && status\.portable\) && window\.api\.bridgeOpenSeparate \? ctlRow\(/);
-  assert.ok(read('src/shared/i18n.js').includes("'Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz:"));
+  assert.ok(!read('src/admin/bridge-panel.js').includes('status.portable'));
+  assert.ok(!read('src/shared/i18n.js').includes('Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz'));
+});
+
+/* Paket kimliğiyle görev çubuğu düğmesi paketin uygulamasına bağlı;
+   setUserTasks oraya yazmıyor. Ölçüldü: WinRT JumpList listeyi paketin
+   kimliğiyle (…!CAYADEVSoundVisualizer) "--bridge" girdisiyle yazdı. */
+test('atlama listesi: kimlik varsa paketin WinRT listesi, yoksa setUserTasks', () => {
+  const M = read('src/main/main.js');
+  assert.match(M, /const packaged = dynamicLighting\.setPackageJumpList\('--bridge', title, description\);\n    if \(packaged !== 'no-identity'\) \{\n      if \(!packaged\.startsWith\('ok:'\)\) console\.warn\('\[jump-list\]', packaged\);\n    \} else \{\n      try \{\n        const exe = process\.execPath;\n        app\.setUserTasks\(/);
+  const L = read('src/main/dynamic-lighting.js');
+  assert.match(L, /function setPackageJumpList\(args, title, description\) \{\n  if \(!hasPackageIdentity\(\)\) return 'no-identity';/);
+  assert.match(L, /module\.exports = \{[^}]*setPackageJumpList/);
+  const C = read('native/dynamic-lighting/addon.cpp');
+  assert.ok(C.includes('#include <winrt/Windows.UI.StartScreen.h>'));
+  assert.match(C, /std::thread worker\(\[&\] \{\n    try \{\n      winrt::init_apartment\(winrt::apartment_type::multi_threaded\);/);
+  assert.ok(C.includes('JumpList::IsSupported()') && C.includes('list.SaveAsync().get();') && C.includes('worker.join();'));
+  assert.ok(C.includes('{"setPackageJumpList", nullptr, SetPackageJumpList,'));
+});
+
+/* Paketli Windows exe'sinde Electron'un bildirimi kimlik bildirimiyle
+   değiştiriliyordu (Common Controls v6 yok): her dialog.showMessageBox
+   0x80000003 ile çöküyordu. Ölçüldü: birleştirince ileti kutusu açılıyor,
+   kimlik (process.windowsStore) kalıyor. */
+test('paketleme: kimlik exe bildirimine eklenir, Electron bildirimi silinmez', () => {
+  const A = read('scripts/after-pack.js');
+  assert.match(A, /'-nologo',\n    `-inputresource:\$\{executable\};#1`,\n    '-manifest', manifest,\n    `-outputresource:\$\{executable\};#1`,/);
+  const { checkManifest } = require('../scripts/after-pack');
+  const ok = '<dependency><assemblyIdentity name="Microsoft.Windows.Common-Controls"/></dependency><supportedOS Id="x"/><dpiAware>true/pm</dpiAware><msix packageName="CAYADEV.SoundVisualizer.Identity"/>';
+  assert.doesNotThrow(() => checkManifest(ok));
+  assert.throws(() => checkManifest('<msix packageName="CAYADEV.SoundVisualizer.Identity"/>'), /Common-Controls, supportedOS, dpiAware/);
 });
