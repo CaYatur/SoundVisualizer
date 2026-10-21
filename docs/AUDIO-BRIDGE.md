@@ -15,8 +15,9 @@ still open is listed at the end.
 
 Panel → **Audio** category → **Audio Bridge** card, below Audio Sources and Audio Analysis. It is not behind
 the Advanced toggle. The settings search finds it under "köprü" or "bridge", Settings → App has
-an "Open Audio Bridge Settings" button, and "Open Bridge Settings" in the bridge's status window
-or tray opens the panel on that card.
+an "Open Audio Bridge Settings" button. In bridge-only mode everything is also in the bridge's own
+window (see below), so the panel is not needed; "Advanced Settings (Panel)" in that window or the
+tray opens the panel on that card.
 
 ## Modes
 
@@ -24,7 +25,7 @@ or tray opens the panel on that card.
 |---|---|---|
 | Normal app, the primary is also the bridge | Audio → Audio Bridge → "Send This Machine's Audio to the Bridge" | Everything as usual. The capture the outputs already use is also sent to receivers. There is one capture, so nothing competes for the device. |
 | Bridge-only, separate process | Start the app with `--bridge` | No visual output, no visualizer windows, no lighting, streaming or OSC, and hardware acceleration is off. A small status window opens (see below) and an icon sits in the system tray. Settings are kept in `<userData>/bridge`, so it can run next to the normal app on the same machine without both writing the same `settings.json`. |
-| Bridge-only, same settings | Audio → Audio Bridge → "Audio Bridge Only (next start)" | Like `--bridge`, but with the normal settings folder. Takes effect at the next start. |
+| Bridge-only, same settings | Audio → Audio Bridge → "Audio Bridge Only" | Like `--bridge`, but with the normal settings folder. Turning it on or off asks "Restart now?": **Restart Now** saves the setting, checks that it reached the disk and reopens the app in the new mode; **At Next Start** keeps it for the next start. |
 | Receiver | Audio → Audio Bridge → "Audio Input: Network Bridge" | The bridge's frames replace local capture. |
 
 `--bridge` works with the installed build, the portable build, the AppImage and the dev build
@@ -34,14 +35,31 @@ folder.
 
 | OS / build | How to start the bridge |
 |---|---|
-| Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer), or right-click the taskbar icon → "Audio Bridge" |
-| Windows, portable | Taskbar jump list → "Audio Bridge", or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` |
+| Installed, AppImage, deb, dev | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
+| Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer) |
+| Windows, portable | "Audio Bridge Only" (the machine runs only the bridge), or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` while the normal app is closed. Not next to the app: see below. |
 | macOS | `open -n -a "CAYADEV Visualizer" --args --bridge` (`-n` starts a second copy next to the normal app) |
 | Linux, AppImage | `./CAYADEV-Visualizer-<version>-linux-x86_64.AppImage --bridge` |
 | Linux, deb | `"/opt/CAYADEV Visualizer/soundvisualizer" --bridge` |
 | Dev | `npm start -- --bridge` |
 
 Linux deb also adds an "Audio Bridge" action to the app's desktop entry (right-click the launcher).
+
+Two findings from the packaged Windows build (#822):
+
+- **Portable: no bridge next to the app.** The portable exe unpacks into one fixed temporary folder
+  (`%TEMP%\CAYADEV-Visualizer-Portable`) and its stub deletes that folder both before unpacking and
+  after the app exits. Measured: with the app and a bridge started from the portable exe, quitting
+  the app left only the locked `app.asar` in `resources`; the bridge kept running without its
+  helpers and native modules. So the portable build does not offer "Open Audio Bridge Separately"
+  or the jump list task, and the panel says why. Restarting into "Audio Bridge Only" works
+  (measured: it comes back in bridge mode with the folder intact).
+- **Installed: no jump list task.** The installed build runs with the sparse package identity that
+  Dynamic Lighting needs. In such a process `app.setUserTasks` returns true but no jump list is
+  written (measured on `win-unpacked`, which ran with that identity, `process.windowsStore` true;
+  the installed build is inferred because it registers the same identity). Showing the task there
+  would need the WinRT `JumpList` API through the native helper. The Start menu shortcut and the
+  panel button cover it.
 
 Bridge-only mode runs as a single instance per settings folder. Starting it again (shortcut,
 jump list, `--bridge`) does not open a second bridge that would fight over the port and the
@@ -50,10 +68,40 @@ the panel). The second copy exits before the main module finishes loading, witho
 quit cleanup. The normal app uses another folder, so it is not affected. `--bridge-multi` turns
 the lock off, which the test rigs use.
 
-### Status window
+### Bridge window
 
-Bridge-only mode opens a compact status window (`src/bridge-status/`, 460×640, resizable). It draws
-no visuals and runs with hardware acceleration off. It shows:
+Bridge-only mode opens a compact window (`src/bridge-status/`, 460×640, resizable). It draws no
+visuals and runs with hardware acceleration off. The header (name, port, state, Stop/Start, Quit)
+and three tabs stay at the top while the page scrolls (#822):
+
+- **Status**: receivers, source, worst frame age and lost frames at a glance; then the level, the
+  receivers and now playing (below).
+- **Sources**: the app's Audio Sources picker.
+- **Settings**: everything the bridge needs, without the panel:
+  - bridge name, pairing secret (show/hide, copy, New Secret, which asks first because receivers
+    drop) and port. Fields are saved when you leave them, not while typing, because a new port or
+    secret restarts the bridge and the receivers reconnect;
+  - this computer's IPv4 addresses with the port and a copy button, virtual adapters last, for a
+    receiver that has to type the address (UDP blocked, another subnet), and the firewall rule;
+  - **Start the Bridge at Sign-in** (installed and portable builds) and **Don't Open the Status
+    Window at Start**. On Windows this is a shortcut in the user's Startup folder, not the `Run`
+    registry key: the installed build runs with the package identity Dynamic Lighting needs, and
+    there its registry writes go to a private copy. Measured on the packaged build: the app wrote
+    and read back its `Run` entry while the real key had nothing, so Windows would never have
+    started it; a file written to the Startup folder lands in the real folder. A shortcut turned
+    off in Task Manager → Startup reads as off. Linux uses `~/.config/autostart`; macOS login items
+    cannot carry the `--bridge` flag, so the window says to add it there by hand;
+  - **Back to Normal Mode** (bridge opened from the setting: the setting is turned off, written,
+    checked and the app reopens normally) or **Close Bridge, Open the App** (bridge opened with
+    `--bridge`: if the normal app is already running it comes to the front, otherwise it opens;
+    the bridge keeps its own settings for next time). A native dialog asks first, says how many
+    receivers will fall back to their local input, and turns starting at sign-in off as well.
+  - **Advanced Settings (Panel)** opens the full panel on the Audio Bridge card.
+
+The tray menu has the same entries: Show Status Window, Bridge Settings (opens the Settings tab),
+Stop/Start, Back to Normal Mode, Advanced Settings (Panel), Quit.
+
+The Status tab shows:
 
 - broadcasting / stopped, the bridge's name and port;
 - the sources: the app's Audio Sources picker (any mix of outputs, inputs and single apps, with live app meters), and an error line for each source that is missing or failed;
@@ -64,8 +112,7 @@ no visuals and runs with hardware acceleration off. It shows:
   duration and whether a cover is being sent). Elsewhere the window says it cannot be read there;
 - errors: device missing, capture failed, port busy, app capture unavailable.
 
-Buttons: "Bridge Settings" (opens the panel), "Stop Bridge" / "Start Bridge" (stops sending and the
-beacon, the process stays), "Quit". Closing the window keeps the bridge running in the tray and
+"Stop Bridge" / "Start Bridge" stops sending and the beacon; the process stays. Closing the window keeps the bridge running in the tray and
 frees the window's renderer; the tray menu reopens it. Without a tray (stock GNOME) the window is
 the main UI, and closing it quits the bridge.
 
@@ -324,8 +371,8 @@ the OSC track title, the stream page and MCP.
 
 `npm run smoke:bridge` starts the app with `--smoke --bridge` on a fresh profile. It checks that
 only the status window opens (no visual output), that hardware acceleration is off, that the tray
-exists and that the bridge listens. It switches the status window to English (both source tabs)
-and checks for untranslated text, then opens the panel from the tray path and checks the Audio
+exists and that the bridge listens. It switches the bridge window to English, opens every tab and
+checks for untranslated text (device and app names come from the system and are not translated), then opens the panel from the tray path and checks the Audio
 Bridge section the same way.
 
 ## Measurements
@@ -373,6 +420,30 @@ zygotes are Chromium's own and cannot be turned off from the app. A slim standal
 plain Node process with the capture helper, no Chromium) would drop most of this, but it would be
 a separate product to build, sign and ship on three OSes; it is left as a future option (#815).
 
+Windows 11, the same rig on one host with the default output as the source (Electron 44,
+#822):
+
+| | bridge-only (`--bridge`) | normal mode as bridge |
+|---|---|---|
+| discovery to connected | 1.6 s | 1.7 s |
+| round trip / clock offset | 0 ms / 1 ms | 0 ms / 0 ms |
+| frame age median / p95 | 1 ms / 2 ms | 0 ms / 1.5 ms |
+| lost frames | 0 | 0 |
+| fallback after the bridge is killed | 592 ms | 696 ms |
+| back on the bridge after an 8 s outage (from relaunch) | 1.2 s | 1.2 s |
+
+A first Windows run showed a frame age p95 of 105 ms with a median of 0. Recording every frame
+for 30 s (a plain Node receiver next to a real `--bridge`) showed that the frames were not late:
+they arrived every 16 ms and their real age was about 1 ms. The clock was wrong for the first
+second after connecting. The first ping is answered while the bridge is busy starting the capture
+helper, so it came back after 204 ms, and the offset from that one sample was off by half of it,
+102 ms. The next ping, and with it the correction, came a second later. In that second the frame
+age showed ~102 ms, and audio scheduled on the shared clock and the beat timestamps were off by
+the same amount. The receiver now sends its first five pings 100 ms apart, then one a second;
+the shortest round trip wins as before. Measured afterwards over 30 s: frame age p99 1 ms, max
+1.5 ms. A unit test delays the bridge's first answer by 200 ms and checks that the offset is
+right within 0.7 s.
+
 On the LAN the round trip and frame age add the network's latency. On Wi-Fi expect a few
 milliseconds, with jitter.
 
@@ -388,7 +459,8 @@ of late and early chunks. Simulated with 2–60 ms delivery jitter: two receiver
 
 ## Not done yet
 
-- Measurements on Windows and macOS with real hardware (PC Agent test steps are in the PR).
+- A measured run across two PCs on a real LAN, and measurements on macOS. (A user ran an early
+  version on two machines and it worked; that was not a measured run.)
 - Opus instead of PCM, for Wi-Fi or many listeners (PCM is ~1.5 Mbit/s per listener).
 - A slim standalone bridge package without Chromium (future option, #815; see Measurements).
 - The bridge is a single point of failure for the analysis; two bridges with automatic choice

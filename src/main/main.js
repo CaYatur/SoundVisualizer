@@ -105,7 +105,10 @@ const SMOKE = process.argv.includes('--smoke');
    yazmasın. Ayarlardaki "Yalnız ses köprüsü" seçeneği aynı kipi olağan
    klasörle açar (bir sonraki açılışta). */
 const BRIDGE_FLAG = process.argv.includes('--bridge');
-if (BRIDGE_FLAG && !process.argv.includes('--bridge-shared-profile')) {
+const BRIDGE_OWN_PROFILE = BRIDGE_FLAG && !process.argv.includes('--bridge-shared-profile');
+// Windows taşınabilir sürümü: exe kendini sabit bir geçici klasöre açıyor
+const PORTABLE_BUILD = !!process.env.PORTABLE_EXECUTABLE_FILE;
+if (BRIDGE_OWN_PROFILE) {
   try { app.setPath('userData', path.join(app.getPath('userData'), 'bridge')); } catch { /* yol değişmedi */ }
 }
 
@@ -1446,7 +1449,7 @@ function bridgeStatus() {
   const c = bridge.cfg;
   const now = Date.now();
   return {
-    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
+    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, portable: PORTABLE_BUILD, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
     send: c.send || BRIDGE_ONLY, receive: c.receive && !BRIDGE_ONLY,
     sender: bridge.sender ? Object.assign({ name: bridgeName(c) }, bridge.sender.status()) : null,
     receiver: bridge.receiver ? bridge.receiver.status() : null,
@@ -1784,8 +1787,12 @@ function updateBridgeTray() {
     { label: s.capturing ? trUi('Ses yakalanıyor', 'Capturing audio') : trUi('Ses yakalanmıyor (alıcı yok)', 'Not capturing (no receivers)'), enabled: false },
     { type: 'separator' },
     { label: trUi('Durum Penceresini Göster', 'Show Status Window'), click: () => openBridgeWindow() },
-    { label: trUi('Köprü Ayarlarını Aç', 'Open Bridge Settings'), click: () => openPanelFromBridge() },
+    // Ayarlar köprünün kendi penceresinde (#822); panel gelişmiş ayarlar için
+    { label: trUi('Köprü Ayarları', 'Bridge Settings'), click: () => openBridgeWindow('settings') },
     { label: bridge.paused ? trUi('Köprüyü Başlat', 'Start Bridge') : trUi('Köprüyü Durdur', 'Stop Bridge'), click: () => setBridgePaused(!bridge.paused) },
+    { type: 'separator' },
+    { label: BRIDGE_OWN_PROFILE ? trUi('Köprüyü Kapat, Uygulamayı Aç…', 'Close Bridge, Open the App…') : trUi('Olağan Kipe Dön…', 'Back to Normal Mode…'), click: () => { exitBridgeMode().catch(() => {}); } },
+    { label: trUi('Gelişmiş Ayarlar (Panel)', 'Advanced Settings (Panel)'), click: () => openPanelFromBridge() },
     { label: trUi('Çık', 'Quit'), click: () => { forceQuitApp = true; app.quit(); } },
   ]));
 }
@@ -1811,11 +1818,12 @@ let lastCaptureStatus = null;
 function bridgeWinVisible() {
   return !!(bridgeWin && !bridgeWin.isDestroyed() && bridgeWin.isVisible() && !bridgeWin.isMinimized());
 }
-function openBridgeWindow() {
+function openBridgeWindow(tab) {
   if (!BRIDGE_ONLY) return;
   if (bridgeWin && !bridgeWin.isDestroyed()) {
     if (bridgeWin.isMinimized()) bridgeWin.restore();
     bridgeWin.show(); bridgeWin.focus();
+    if (tab) bridgeWin.webContents.send('bridge-win:goto', tab);
     syncCapture(); syncNowPlaying();
     return;
   }
@@ -1839,6 +1847,7 @@ function openBridgeWindow() {
   win.loadFile(path.join(__dirname, '..', 'bridge-status', 'index.html'), { query: { uiTheme: adminUiTheme(currentConfig || {}) } });
   bridgeWinThemeShown = adminUiTheme(currentConfig || {}) + '|' + !!nativeTheme.shouldUseDarkColors;
   win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
+  if (tab) win.webContents.once('did-finish-load', () => { if (!win.isDestroyed()) win.webContents.send('bridge-win:goto', tab); });
   const vis = () => { syncCapture(); syncNowPlaying(); syncAppMeters(); };
   win.on('show', vis); win.on('hide', vis); win.on('minimize', vis); win.on('restore', vis);
   /* Kapatmak pencereyi gerçekten kapatır: köprü tepside sürer, çizim süreci
@@ -1874,7 +1883,121 @@ function bridgeWindowStatus() {
     nowPlaying: np && np.has ? { title: np.title || '', artist: np.artist || '', album: np.album || '', app: np.app || '', duration: Number(np.duration) || 0, playing: !!np.playing, cover: !!bridgeArtwork(np.artwork) } : null,
     nowPlayingInfo: { supported: !!mediaSession.supported, running: !!ms.running, error: ms.error || '' },
     appFallback: bridge.appFallback || null,
+    // Pencerenin Ayarlar sekmesi (#822): panel açmadan düzenlenen alanlar
+    cfg: bridgeWinCfg(),
+    ownProfile: BRIDGE_OWN_PROFILE,
+    autostart: bridgeAutostartState(),
   });
+}
+const BRIDGE_WIN_KEYS = ['name', 'port', 'secret', 'startHidden'];
+function bridgeWinCfg() {
+  const c = audioBridge.normalize(currentConfig && currentConfig.bridge);
+  const out = {};
+  for (const k of BRIDGE_WIN_KEYS) out[k] = c[k];
+  out.defaultName = require('os').hostname().slice(0, 60);
+  return out;
+}
+const bridgeAutostart = require('./bridge-autostart');
+function bridgeAutostartSpec() {
+  return bridgeAutostart.spec({ platform: process.platform, packaged: app.isPackaged, env: process.env, execPath: process.execPath, ownProfile: BRIDGE_OWN_PROFILE });
+}
+function bridgeAutostartDeps() {
+  const reg = (args) => require('child_process').execFileSync('reg', args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 });
+  return { fs, reg, shell, appData: app.getPath('appData'), home: app.getPath('home') };
+}
+// Sistemin listesini okumak ucuz değil (kayıt defteri): 5 sn önbellek
+let bridgeAutostartCache = null;
+function bridgeAutostartState() {
+  const sp = bridgeAutostartSpec();
+  if (!sp.supported) return { supported: false, reason: sp.reason, on: false };
+  if (!bridgeAutostartCache || Date.now() - bridgeAutostartCache.at > 5000) bridgeAutostartCache = { at: Date.now(), on: bridgeAutostart.get(bridgeAutostartDeps(), sp) };
+  return { supported: true, on: bridgeAutostartCache.on };
+}
+function setBridgeAutostart(on) {
+  const sp = bridgeAutostartSpec();
+  if (!sp.supported) return false;
+  let v = false;
+  try { v = bridgeAutostart.set(bridgeAutostartDeps(), sp, !!on); } catch (e) { console.error('[bridge] oturum açılışı ayarlanamadı:', e && e.message); v = bridgeAutostart.get(bridgeAutostartDeps(), sp); }
+  bridgeAutostartCache = { at: Date.now(), on: v };
+  return v;
+}
+
+/* YENİDEN AÇILIŞ (#822): köprü kipine girerken ya da çıkarken uygulama
+   kendini yeniden açar. Taşınabilir exe kendini geçici klasöre açıyor
+   (asıl dosya PORTABLE_EXECUTABLE_FILE), AppImage'ın yolu APPIMAGE.
+   Geliştirmede argv'deki uygulama yolu ve --user-data-dir korunur.
+   Otomasyon koşuları yeniden açılmaz. */
+const BRIDGE_ARGS = ['--bridge', '--hidden', '--panel', '--bridge-shared-profile'];
+function relaunchApp(dropBridgeArgs) {
+  if (AUTOMATION_RUN) return false;
+  const args = process.argv.slice(1).filter((a) => !(dropBridgeArgs && BRIDGE_ARGS.includes(a)));
+  const execPath = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE || process.execPath;
+  app.relaunch({ execPath, args });
+  forceQuitApp = true;
+  app.quit();
+  return true;
+}
+/* "Yalnız köprü" ayarı diske GERÇEKTEN yazıldı mı. Kayıt gecikmeli
+   (saveSettings) ve dosya bekçisi çakışmada yazmıyor (#564); yazılmadan
+   yeniden açılan uygulama eski kipte açılırdı. */
+function persistBridgeOnly(on) {
+  if (!currentConfig) return false;
+  applyConfigPatch({ bridge: Object.assign({}, currentConfig.bridge || {}, { only: !!on }) });
+  flushSettings();
+  try { return !!(JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')).bridge || {}).only === !!on; } catch { return false; }
+}
+function settingsNotSavedBox(parent) {
+  const o = {
+    type: 'error', noLink: true,
+    title: trUi('Ses Köprüsü', 'Audio Bridge'),
+    message: trUi('Ayar kaydedilemedi; uygulama yeniden açılmadı.', 'The setting could not be saved; the app was not restarted.'),
+    detail: trUi('Ayar dosyası başka bir kopya tarafından değiştirilmiş olabilir. Paneldeki uyarıyı çözüp yeniden deneyin.', 'Another copy may have changed the settings file. Resolve the warning in the panel and try again.'),
+  };
+  return parent ? dialog.showMessageBox(parent, o) : dialog.showMessageBox(o);
+}
+/* Köprü kipinden çık (#822): köprü kapanır, bağlı alıcılar yerel girişe
+   döner, uygulama olağan kipte açılır.
+     Ayardan açılan köprü (olağan klasör): "yalnız köprü" kapatılır, yeniden açılır.
+     `--bridge` ile ayrı açılan köprü (kendi klasörü): olağan uygulama
+     zaten açıksa öne gelir, değilse bayraksız açılır. Köprünün kendi
+     ayarları korunur; bir sonraki `--bridge` aynı ayarla açılır.
+   Oturum açılınca başlatma da kapatılır: yoksa bir sonraki açılışta köprü
+   yine başlardı. */
+async function exitBridgeMode() {
+  if (!BRIDGE_ONLY || quitting) return { ok: false };
+  const parent = bridgeWin && !bridgeWin.isDestroyed() ? bridgeWin : undefined;
+  const auto = bridgeAutostartState();
+  const peers = bridge.sender ? bridge.sender.peerCount() : 0;
+  const detail = [
+    peers ? trUi(peers + ' alıcı bağlı; köprü kapanınca kendi yerel girişlerine döner.', peers + ' receiver(s) connected; they fall back to their local input when the bridge closes.') : '',
+    auto.on ? trUi('Oturum açılınca köprüyü başlatma da kapatılır.', 'Starting the bridge at sign-in is turned off as well.') : '',
+    BRIDGE_OWN_PROFILE ? trUi('Köprünün ayarları korunur; Ses Köprüsü kısayolu onu aynı ayarlarla yeniden açar.', 'The bridge keeps its settings; the Audio Bridge shortcut opens it again with them.') : '',
+  ].filter(Boolean).join('\n');
+  const o = {
+    type: 'question', noLink: true, defaultId: 0, cancelId: 1,
+    title: trUi('Ses Köprüsü', 'Audio Bridge'),
+    message: trUi('Köprü kapatılıp uygulama olağan kipte açılsın mı?', 'Close the bridge and open the app in normal mode?'),
+    detail,
+    buttons: [trUi('Olağan Kipte Aç', 'Open in Normal Mode'), trUi('Vazgeç', 'Cancel')],
+  };
+  const r = parent ? await dialog.showMessageBox(parent, o) : await dialog.showMessageBox(o);
+  if (r.response !== 0) return { ok: false, cancelled: true };
+  if (auto.on) setBridgeAutostart(false);
+  if (!BRIDGE_OWN_PROFILE) {
+    if (!persistBridgeOnly(false)) { await settingsNotSavedBox(parent); return { ok: false, error: 'save' }; }
+    return { ok: relaunchApp(true) };
+  }
+  // Olağan uygulama açıksa yenisi açılmaz: o öne gelir (kopya sorusu çıkmasın)
+  const appDir = path.dirname(app.getPath('userData'));
+  let running = [];
+  try { running = instances.live(path.join(appDir, 'instances'), { selfPid: process.pid }).filter((x) => x.role === 'app'); } catch { running = []; }
+  if (running.length) {
+    try { fs.writeFileSync(path.join(appDir, 'instances', running[0].pid + '.focus'), String(process.pid), 'utf8'); } catch { /* öne gelmezse de köprü kapanır */ }
+    forceQuitApp = true;
+    app.quit();
+    return { ok: true, focused: running[0].pid };
+  }
+  return { ok: relaunchApp(true) };
 }
 function notifyBridgeWindow() {
   if (bridgeWin && !bridgeWin.isDestroyed()) bridgeWin.webContents.send('bridge-win:status', bridgeWindowStatus());
@@ -1946,6 +2069,69 @@ ipcMain.on('bridge-win:action', (e, what) => {
   else if (what === 'start') setBridgePaused(false);
   else if (what === 'quit') { forceQuitApp = true; app.quit(); }
   notifyBridgeWindow();
+});
+/* Ayarlar sekmesi (#822): ad, port, parola, penceresiz açılış. Yalnız bu
+   anahtarlar; değerler panelinkiyle aynı süzgeçten (normalize) geçer.
+   Port ya da parola değişince köprü yeniden kurulur, alıcılar yeniden
+   bağlanır; pencere bu yüzden yazarken değil alandan çıkınca yollar. */
+ipcMain.handle('bridge-win:set-config', (e, patch) => {
+  if (!fromBridgeWin(e) || !currentConfig || !patch || typeof patch !== 'object' || Array.isArray(patch)) return { ok: false };
+  const cur = Object.assign({}, currentConfig.bridge || {});
+  for (const k of BRIDGE_WIN_KEYS) if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k];
+  const n = audioBridge.normalize(cur);
+  const next = Object.assign({}, currentConfig.bridge || {});
+  for (const k of BRIDGE_WIN_KEYS) next[k] = n[k];
+  applyConfigPatch({ bridge: next });
+  notifyAdmin('external-config', currentConfig);
+  updateBridgeTray();
+  notifyBridgeWindow();
+  return { ok: true, cfg: bridgeWinCfg() };
+});
+ipcMain.handle('bridge-win:new-secret', (e) => (fromBridgeWin(e) ? audioBridge.newSecret() : ''));
+ipcMain.handle('bridge-win:addresses', (e) => (fromBridgeWin(e) ? audioBridge.lanAddresses() : []));
+ipcMain.handle('bridge-win:autostart', (e, on) => {
+  if (!fromBridgeWin(e)) return null;
+  if (typeof on === 'boolean') setBridgeAutostart(on);
+  notifyBridgeWindow();
+  return bridgeAutostartState();
+});
+ipcMain.handle('bridge-win:exit-mode', (e) => (fromBridgeWin(e) ? exitBridgeMode() : { ok: false }));
+// Adres ve parolayı kopyala: yalnız kısa metin
+ipcMain.handle('bridge-win:copy', (e, text) => {
+  if (!fromBridgeWin(e) || typeof text !== 'string' || text.length > 300) return false;
+  require('electron').clipboard.writeText(text);
+  return true;
+});
+/* Paneldeki "Yalnız Ses Köprüsü" anahtarı (#822): değişince "şimdi yeniden
+   başlatılsın mı" sorulur; evetse ayar diske yazılır, doğrulanır, uygulama
+   yeni kipte açılır. Köprü kipine geçerken `--bridge` bayrakları atılmaz
+   (zaten yok); çıkarken atılır. */
+ipcMain.handle('bridge:relaunch', async () => {
+  if (!currentConfig) return { ok: false };
+  const on = audioBridge.normalize(currentConfig.bridge).only;
+  if (BRIDGE_OWN_PROFILE) return { ok: false, error: 'own-profile' };
+  if (!persistBridgeOnly(on)) { await settingsNotSavedBox(adminWin && !adminWin.isDestroyed() ? adminWin : undefined); return { ok: false, error: 'save' }; }
+  if (!on && bridgeAutostartState().on) setBridgeAutostart(false);
+  return { ok: relaunchApp(!on) };
+});
+/* Paneldeki "Ses Köprüsünü Ayrı Aç" (#822): `--bridge` ile ayrı bir kopya
+   (kendi klasörü) başlatır; bu uygulama açık kalır. Kurulu sürüm Dynamic
+   Lighting için uygulama kimliğiyle çalışıyor ve Windows o süreçte görev
+   çubuğu görevini hiçbir yere yazmıyor (ölçüldü: setUserTasks true dönüyor,
+   atlama listesi boş); Başlat menüsü kısayolu ve bu düğme kalıyor. Köprü
+   zaten açıksa tek kopya kilidi onu öne getirir. Hata ayıklama portları
+   taşınmaz (çakışırdı). */
+ipcMain.handle('bridge:open-separate', () => {
+  if (BRIDGE_ONLY || AUTOMATION_RUN) return { ok: false };
+  // Taşınabilirde iki kopya aynı geçici klasörü paylaşıp birbirini bozar (atlama listesinin notu)
+  if (PORTABLE_BUILD) return { ok: false, error: 'portable' };
+  const args = process.argv.slice(1).filter((a) => !BRIDGE_ARGS.includes(a) && !/^--(inspect|remote-debugging-port)/.test(a)).concat('--bridge');
+  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE || process.execPath;
+  try {
+    const c = require('child_process').spawn(exe, args, { detached: true, stdio: 'ignore' });
+    c.unref();
+    return { ok: true };
+  } catch (e) { return { ok: false, error: (e && e.message) || '' }; }
 });
 /* Uygulama başına yakalama bu sistemde yoksa (eski Windows/macOS, izin
    yok, Linux'ta pactl/parec yok) seçili uygulama yerine aygıt yakalanır;
@@ -8059,12 +8245,18 @@ app.whenReady().then(async () => {
   if (!BRIDGE_ONLY || process.argv.includes('--panel')) createAdminWindow();
   scheduleUpdateChecks(); // yalnız paketlenmiş gerçek kullanımda (#640)
 
-  /* Windows görev çubuğu atlama listesi (#813): kurulu ve taşınabilir
-     sürümde "Ses Köprüsü" görevi uygulamayı --bridge ile açar. Taşınabilir
-     exe kendini geçici klasöre açıyor; asıl dosya PORTABLE_EXECUTABLE_FILE. */
-  if (process.platform === 'win32' && app.isPackaged && !AUTOMATION_RUN) {
+  /* Windows görev çubuğu atlama listesi (#813): "Ses Köprüsü" görevi
+     uygulamayı --bridge ile açar. Ölçüldü (#822):
+       - Kurulu sürüm Dynamic Lighting için paket kimliğiyle çalışıyor; o
+         süreçte setUserTasks true dönüyor ama atlama listesi hiç yazılmıyor.
+         Görev yalnız kimliği kaydedilemeyen kurulumda görünür.
+       - Taşınabilir sürümde KAPALI: iki kopya aynı sabit geçici klasörden
+         çalışıyor (unpackDirName) ve taşınabilir kabuk açılışta da kapanışta
+         da o klasörü siliyor (RMDir /r). Yanında açılan köprü, uygulama
+         kapanınca yardımcılarını ve yerel modüllerini kaybediyordu. */
+  if (process.platform === 'win32' && app.isPackaged && !AUTOMATION_RUN && !PORTABLE_BUILD) {
     try {
-      const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+      const exe = process.execPath;
       app.setUserTasks([{ program: exe, arguments: '--bridge', iconPath: exe, iconIndex: 0,
         title: trUi('Ses Köprüsü', 'Audio Bridge'), description: trUi('Yalnız ses köprüsü kipinde aç', 'Open in audio bridge mode') }]);
     } catch { /* atlama listesi yok */ }

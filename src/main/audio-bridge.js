@@ -45,6 +45,7 @@ const MAX_QUEUE = 256 * 1024; // yavaş alıcı: kuyruk bunu aşarsa kare atlan�
 const HELLO_MS = 5000;
 const MAX_PENDING = 16; // aynı anda doğrulanmayı bekleyen bağlantı
 const RETRY_MS = [250, 500, 1000];
+const QUICK_PINGS = 5; // bağlanınca 100 ms arayla, saat çabuk otursun
 
 const DEFAULTS = Object.freeze({
   send: false, // bu makine yakaladığını köprüye verir
@@ -505,8 +506,16 @@ function createReceiver(opts) {
         st.state = 'connected';
         emit();
         const ping = () => send({ type: 'ping', t0: now(), r: { name: o.name || '', rttMs: st.rttMs, ageMs: st.ageMs, lost: st.lost } });
+        /* Saat ilk saniyede otursun. İlk örnek köprü meşgulken alınıyor
+           (yakalama yardımcısı o an açılıyor) ve fark gecikmenin yarısı
+           kadar kayıyor. Windows'ta ölçüldü: ilk gidiş-dönüş 204 ms, fark
+           102 ms yanlış; düzeltme bir sonraki yoklamaya, 1 sn sonraya
+           kalıyordu. O sürede kare yaşı ~102 ms görünüyor, ortak saate göre
+           çalınan ses de o kadar kayıyordu. */
+        let quick = 0;
+        const fast = () => { ping(); pingTimer = ++quick < QUICK_PINGS ? setTimeout(fast, 100) : setInterval(ping, 1000); };
         ping();
-        pingTimer = setInterval(ping, 1000);
+        pingTimer = setTimeout(fast, 100);
       } else if (m.type === 'pong') {
         const b = clock.add(Number(m.t0), Number(m.t1), now());
         if (b) { st.rttMs = Math.round(b.rtt * 10) / 10; st.offsetMs = Math.round(b.offset * 10) / 10; }
@@ -627,6 +636,24 @@ function createReceiver(opts) {
    arayüzünün yayın adresi (bazı yönlendiriciler genel yayını geçirmiyor).
    İşaret imzalı: mac = HMAC(parola, id|port|ts). Alıcı yalnız imzası tutan
    ve 30 sn'den taze olan işareti kabul eder; 5 sn duyulmayan köprü düşer. */
+/* Bu makinenin ağ adresleri (#822): alıcıda adres elle yazılacaksa (keşif
+   UDP'si engelliyse) durum penceresi bunları gösterir. Sanal bağdaştırıcılar
+   (WSL, Hyper-V, VPN) sona, kendi kendine atanmış (169.254) adresler hiç. */
+const VIRTUAL_IFACE = /vethernet|virtual|vbox|vmware|wsl|hyper-v|tap|tun|docker|tailscale|zerotier|loopback/i;
+function lanAddresses(ifaces) {
+  const out = [];
+  const all = ifaces || os.networkInterfaces();
+  for (const name of Object.keys(all || {})) {
+    for (const a of all[name] || []) {
+      if (!a || a.internal || (a.family !== 'IPv4' && a.family !== 4)) continue;
+      const ip = String(a.address || '');
+      if (!/^\d+\.\d+\.\d+\.\d+$/.test(ip) || ip.startsWith('127.') || ip.startsWith('169.254.')) continue;
+      out.push({ name: String(name).slice(0, 60), address: ip, virtual: VIRTUAL_IFACE.test(name) });
+    }
+  }
+  return out.sort((x, y) => (x.virtual - y.virtual) || x.name.localeCompare(y.name));
+}
+
 function broadcastAddresses(ifaces) {
   const out = new Set(['255.255.255.255']);
   const all = ifaces || os.networkInterfaces();
@@ -808,5 +835,5 @@ module.exports = {
   normalize, sanitizeSources, problem, newSecret, mac, localSubnets, sameSubnet, rankHosts,
   packet, jsonPacket, framePacket, readFrame, pcmPacket, readPcm, PCM_HEAD, PCM_MAX, createParser, slimMeta, artworkOk, artworkId, MAX_ARTWORK,
   createSender, createReceiver, createClock,
-  broadcastAddresses, beaconMessage, verifyBeacon, createBeacon, createDiscovery,
+  broadcastAddresses, lanAddresses, beaconMessage, verifyBeacon, createBeacon, createDiscovery, QUICK_PINGS,
 };

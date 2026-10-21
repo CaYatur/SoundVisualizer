@@ -85,7 +85,9 @@
       const kids = [
         cb,
         el('span', { class: 'source-icon', icon }),
-        el('span', { class: 'source-name', text: label, title: label }),
+        /* Aygıt ve uygulama adları sistemden gelir (Türkçe Windows'ta "Hoparlör");
+           çevrilmez. Yalnız Varsayılan Çıkış satırı uygulamanın metni. */
+        el('span', Object.assign({ class: 'source-name', text: label, title: label }, entry === 'default' ? {} : { 'data-user-text': '' })),
       ];
       if (meter) kids.push(meter);
       if (extra) kids.push(el('span', { class: 'source-note' + (stNote ? ' is-state' : ''), text: extra }));

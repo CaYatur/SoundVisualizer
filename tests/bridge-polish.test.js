@@ -54,7 +54,8 @@ test('durum penceresi dar genişlikte taşmıyor: min-width:0, üç nokta + titl
   assert.match(C, /\.bs-note, \.bs-warn, \.br-err, \.bs-src \.studio-note, \.br-sub \{ white-space: normal; overflow-wrap: anywhere; \}/);
   const A = read('src/admin/admin.css');
   assert.match(A, /\.source-name \{ flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; \}/);
-  assert.match(read('src/admin/audio-sources.js'), /el\('span', \{ class: 'source-name', text: label, title: label \}\)/);
+  // Aygıt ve uygulama adı sistemin metni: çevrilmez (Türkçe Windows'ta "Hoparlör")
+  assert.match(read('src/admin/audio-sources.js'), /el\('span', Object\.assign\(\{ class: 'source-name', text: label, title: label \}, entry === 'default' \? \{\} : \{ 'data-user-text': '' \}\)\)/);
   assert.match(read('src/main/main.js'), /width: 460, height: 640, minWidth: 360, minHeight: 480,/);
   assert.match(read('src/bridge-status/status.js'), /cs\.type === 'no-loopback' && cs\.message\)/);
 });

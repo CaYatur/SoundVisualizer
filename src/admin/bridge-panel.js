@@ -220,9 +220,26 @@
     groups.push(group(tr('Kip'), [
       switchRow(tr('Bu Makinenin Sesini Köprüye Ver'), b.send, (v) => { b.send = v; push(); P().rerender(); }),
       switchRow(tr('Ses Girişi: Ağ Köprüsü'), b.receive, (v) => { b.receive = v; push(); P().rerender(); }),
-      switchRow(tr('Yalnız Ses Köprüsü (sonraki açılışta)'), b.only, (v) => { b.only = v; push(); },
-        'Yalnız köprü kipinde görüntü çıkışı, ışık ve yayın açılmaz, GPU kullanılmaz; küçük bir durum penceresi ve sistem tepsisi kalır. Olağan uygulamanın yanında çalıştırmak için uygulamayı --bridge ile açın (ayarları ayrı klasörde). --hidden pencereyi açmadan başlatır.'),
+      /* Kip değişince "şimdi yeniden başlatılsın mı" sorulur (#822). Hayır
+         denirse ayar kalır, bir sonraki açılışta geçerli olur. `--bridge`
+         ile ayrı açılan köprüde anahtarın etkisi yok: kipten köprünün
+         kendi penceresinden çıkılır. */
+      status && status.ownProfile ? null : switchRow(tr('Yalnız Ses Köprüsü'), b.only, async (v) => {
+        b.only = v;
+        push();
+        // Çalışan kiple aynıya dönüldüyse (sonraki açılış seçimi geri alındı) sorulmaz
+        if (v === !!(status && status.only)) { P().rerender(); return; }
+        const ok = await P().confirm(tr(v
+          ? 'Uygulama yalnız ses köprüsü kipinde yeniden açılacak: görüntü, ışık ve yayın kapanır, köprü penceresi ve sistem tepsisi kalır. Köprü kipinden köprü penceresindeki Ayarlar sekmesinden çıkılır.'
+          : 'Uygulama olağan kipte yeniden açılacak.'), { title: tr('Şimdi yeniden başlatılsın mı?'), okText: tr('Şimdi Yeniden Başlat'), cancelText: tr('Sonraki Açılışta') });
+        if (ok && window.api.bridgeRelaunch) await window.api.bridgeRelaunch();
+        P().rerender();
+      }, 'Yalnız köprü kipinde görüntü çıkışı, ışık ve yayın açılmaz, GPU kullanılmaz; köprü penceresi ve sistem tepsisi kalır. Olağan uygulamanın yanında ayrıca çalıştırmak için Başlat menüsündeki ya da görev çubuğundaki Ses Köprüsü kısayolunu kullanın (ayarları ayrı klasörde).'),
       only ? switchRow(tr('Durum Penceresi Açılışta Açılmasın'), b.startHidden, (v) => { b.startHidden = v; push(); }) : null,
+      // Uygulamanın yanında ayrı köprü (#822): kısayol aramadan, panelden
+      !only && status && status.portable ? el('div', { class: 'br-sub', text: tr('Taşınabilir sürümde köprü uygulamanın yanında ayrı açılmaz: iki kopya aynı geçici klasörü kullanır ve biri kapanınca öbürünün dosyalarını siler. Bu bilgisayar yalnız köprü olacaksa yukarıdaki Yalnız Ses Köprüsü anahtarını açın; uygulamayla yan yana köprü için kurulu sürümü kullanın.') }) : null,
+      !only && !(status && status.portable) && window.api.bridgeOpenSeparate ? ctlRow(tr('Ayrı Köprü'), [el('button', { class: 'btn small', type: 'button', text: tr('Ses Köprüsünü Ayrı Aç'), onclick: () => window.api.bridgeOpenSeparate() })],
+        { help: 'Bu uygulama açık kalır; yanında yalnız ses köprüsü olarak ayrı bir kopya açılır (ayarları ayrı klasörde, kendi penceresi ve tepsi simgesiyle). Zaten açıksa öne gelir. Başlat menüsündeki Ses Köprüsü kısayolu da aynısını açar.' }) : null,
     ]));
 
     // 2) Bağlantı

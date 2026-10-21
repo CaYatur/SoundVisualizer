@@ -53,3 +53,38 @@ html, body.bridge-status { overflow-x: hidden; }
   .bs-main .br-grid { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px; }
   .bs-actions .btn { flex: 1 1 auto; }
 }
+
+/* SEKMELER VE AYARLAR (#822). Başlık ve sekmeler kaydırınca üstte kalır;
+   ayar alanları etiket üstte, açıklama altta, tek sütun. */
+.bs-head { position: sticky; top: 0; z-index: 2; display: grid; gap: 10px; box-shadow: 0 6px 14px -10px rgb(0 0 0 / .5); }
+.bs-head .bs-note { margin: 0; }
+.bs-tabs { display: flex; width: 100%; }
+.bs-tabs button { flex: 1 1 0; min-width: 0; padding: 7px 10px; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bs-tabs button + button { border-left: 1px solid var(--line); }
+.bs-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.bs-inline { display: flex; align-items: center; gap: 8px; }
+.bs-card > .br-grid + .br-grid, .bs-big-meter + .br-grid { margin-top: 8px; }
+.bs-card > .bs-note { margin-top: 8px; }
+.bs-form { display: grid; gap: 12px; }
+.bs-form > .group-label { margin-bottom: -2px; }
+.bs-field { display: grid; gap: 5px; min-width: 0; }
+.bs-field-k { font-size: 12px; font-weight: 600; color: var(--text); }
+.bs-field-n { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.bs-field > input { width: 100%; }
+.bs-field > input.bs-port { width: 120px; }
+.bs-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+.bs-row > input { flex: 1 1 160px; min-width: 0; }
+.bs-secret { font-family: ui-monospace, Consolas, monospace; }
+.bs-check { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.bs-check-t { display: grid; gap: 3px; min-width: 0; }
+.bs-check-k { font-size: 12px; font-weight: 600; color: var(--text); }
+.bs-check.off .bs-check-k { color: var(--muted); }
+.bs-check.off .switch { opacity: .45; }
+.bs-mono { font-family: ui-monospace, Consolas, monospace; }
+.bs-addr { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bs-peer .br-grid { margin-top: 8px; }
+.bs-link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.bs-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+/* Özet: dar pencerede 2×2, genişte tek sıra */
+.bs-main .bs-sum .br-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 620px) { .bs-main .bs-sum .br-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
