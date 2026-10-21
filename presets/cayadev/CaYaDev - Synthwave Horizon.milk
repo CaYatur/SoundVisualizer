@@ -1,7 +1,7 @@
 MILKDROP_PRESET_VERSION=201
-PSVERSION=3
-PSVERSION_WARP=3
-PSVERSION_COMP=3
+PSVERSION=4
+PSVERSION_WARP=4
+PSVERSION_COMP=4
 [preset00]
 fRating=5
 fGammaAdj=1
@@ -87,77 +87,110 @@ wavecode_0_b=1
 wavecode_0_a=0.8
 wave_0_per_frame1=a = 0.8*min(1, q30);
 wave_0_per_point1=x = sample;
-wave_0_per_point2=y = 1 - 0.585 + value1*0.06*sin(sample*3.14159);
+wave_0_per_point2=y = 1 - 0.585 + value1*0.05*sin(sample*3.14159);
 wave_0_per_point3=r = 0.2;
 wave_0_per_point4=g = 0.9;
 wave_0_per_point5=b = 1;
 per_frame_init_1=travel = 0;
 per_frame_init_2=last = 0;
 per_frame_init_3=glow = 0;
+per_frame_init_4=pulse = 9;
+per_frame_init_5=stripes = 0;
 per_frame_1=q30 = 60/max(fps, 15);
 per_frame_2=q31 = aspectx;
 per_frame_3=q32 = aspecty;
-per_frame_4=travel = travel + (0.8 + 1.4*bass_att)/fps;
-per_frame_5=beat = (bass > 1.25)*((time - last) > 0.25);
-per_frame_6=last = if(beat, time, last);
-per_frame_7=glow = max(glow*pow(0.9, q30), beat);
-per_frame_8=q1 = travel;
-per_frame_9=q2 = glow;
-per_frame_10=q3 = time*0.05 + mid_att*0.02;
-per_frame_11=q4 = treb_att;
-per_frame_12=q5 = 0.5 + 0.5*bass_att;
+per_frame_4=travel = travel + (0.7 + 1.3*bass_att)/fps;
+per_frame_5=stripes = stripes + (0.08 + 0.12*mid_att)/fps;
+per_frame_6=beat = (bass > 1.25)*((time - last) > 0.25);
+per_frame_7=last = if(beat, time, last);
+per_frame_8=glow = max(glow*pow(0.9, q30), beat);
+per_frame_9=pulse = if(beat, 0, pulse + 1.4/fps);
+per_frame_10=q1 = travel;
+per_frame_11=q2 = glow;
+per_frame_12=q3 = stripes;
+per_frame_13=q4 = treb_att;
+per_frame_14=q5 = pulse;
+per_frame_15=q6 = 0.004*sin(time*0.21);
+per_frame_16=q7 = time;
+per_frame_17=q8 = 0.6 + 0.5*bass_att;
 warp_1=`shader_body
 warp_2=`{
 warp_3=`  ret = tex2D(sampler_main, uv).xyz * pow(0.8, q30);
 warp_4=`  ret = max(ret - 0.004 * q30, 0.0);
 warp_5=`}
 comp_1=`sampler sampler_pw_noise_lq;
-comp_2=`shader_body
+comp_2=`float ridge(float x, float s, float o)
 comp_3=`{
-comp_4=`  float hor = 0.585;
-comp_5=`  float2 p = (uv - float2(0.5, hor)) * aspect.xy;
-comp_6=`  float3 col;
-comp_7=`  if (uv.y < hor) {
-comp_8=`    float h = (hor - uv.y) / hor;
-comp_9=`    col = lerp(float3(0.55, 0.08, 0.45), float3(0.04, 0.01, 0.12), saturate(h * 1.4));
-comp_10=`    float2 sc = p - float2(0.0, -0.17);
-comp_11=`    float sr = length(sc);
-comp_12=`    float sun = saturate((0.165 - sr) * 300.0);
-comp_13=`    float sy = (sc.y + 0.165) / 0.33;
-comp_14=`    float cut = step(frac(sy * 9.0 + q3), lerp(1.0, 0.45, saturate((sy - 0.45) * 2.0)));
-comp_15=`    cut = lerp(1.0, cut, step(0.45, sy));
-comp_16=`    float3 suncol = lerp(float3(1.0, 0.25, 0.55), float3(1.0, 0.85, 0.25), saturate(1.0 - sy));
-comp_17=`    col = lerp(col, suncol, sun * cut);
-comp_18=`    col += float3(1.0, 0.3, 0.5) * exp(-max(sr - 0.165, 0.0) * 14.0) * 0.35;
-comp_19=`    float m1 = tex2D(sampler_noise_hq, float2(uv.x * 1.7, 0.31)).x;
-comp_20=`    float m2 = tex2D(sampler_noise_hq, float2(uv.x * 5.3, 0.77)).x;
-comp_21=`    float ridge = hor - 0.03 - 0.12 * m1 * m1 - 0.012 * m2;
-comp_22=`    float mtn = saturate((uv.y - ridge) * 500.0);
-comp_23=`    float edge = exp(-abs(uv.y - ridge) * 900.0);
-comp_24=`    float3 rock = float3(0.03, 0.0, 0.07) + float3(0.0, 0.3, 0.5) * saturate(1.0 - (uv.y - ridge) * 30.0) * 0.4;
-comp_25=`    col = lerp(col, rock, mtn);
-comp_26=`    col += float3(0.2, 0.9, 1.0) * edge * 0.9;
-comp_27=`    float2 sp = uv * texsize.xy / 512.0;
-comp_28=`    float4 st = tex2D(sampler_pw_noise_lq, sp);
-comp_29=`    float star = saturate((st.x * st.y - 0.975) * 45.0) * (0.5 + 0.5 * sin(time * 2.0 + st.z * 30.0)) * (1.0 - mtn) * saturate(h * 2.0 - 0.3);
-comp_30=`    col += star * (0.6 + 0.5 * q4);
-comp_31=`  } else {
-comp_32=`    float dz = uv.y - hor;
-comp_33=`    float z = 0.12 / (dz + 0.004);
-comp_34=`    float wx = (uv.x - 0.5) * aspect.x * z * 9.0;
-comp_35=`    float wz = z * 5.0 + q1 * 2.0;
-comp_36=`    float aa = 0.04 * z;
-comp_37=`    float lx = saturate(1.0 - abs(frac(wx) - 0.5) / (0.03 + aa));
-comp_38=`    float lz = saturate(1.0 - abs(frac(wz) - 0.5) / (0.03 + aa));
-comp_39=`    float fog = saturate(dz * 6.0);
-comp_40=`    float3 neon = lerp(float3(1.0, 0.2, 0.8), float3(0.2, 0.8, 1.0), saturate(abs(uv.x - 0.5) * 2.5));
-comp_41=`    col = float3(0.03, 0.0, 0.07) + neon * max(lx, lz) * fog * (0.8 + 0.9 * q2);
-comp_42=`    col += float3(1.0, 0.4, 0.5) * exp(-abs(uv.x - 0.5) * 12.0) * exp(-dz * 10.0) * 0.4;
-comp_43=`    col += float3(0.5, 0.1, 0.5) * exp(-dz * 40.0) * 0.8;
-comp_44=`  }
-comp_45=`  float3 m = tex2D(sampler_main, uv).xyz;
-comp_46=`  col += m * float3(0.6, 0.9, 1.0) + GetBlur1(uv) * 0.8 + GetBlur2(uv) * float3(0.9, 0.5, 1.0) * 0.6;
-comp_47=`  float2 v = uv - 0.5;
-comp_48=`  col *= 1.0 - dot(v, v) * 0.5;
-comp_49=`  ret = 1.0 - exp(-col * 1.5);
-comp_50=`}
+comp_4=`  float a = tex2D(sampler_noise_hq, float2(x * s, o)).x;
+comp_5=`  float b = tex2D(sampler_noise_hq, float2(x * s * 2.3, o + 0.37)).x;
+comp_6=`  return a * a * 0.85 + b * 0.12;
+comp_7=`}
+comp_8=`shader_body
+comp_9=`{
+comp_10=`  float2 u = uv;
+comp_11=`  u.y += (u.x - 0.5) * q6;
+comp_12=`  float hor = 0.585;
+comp_13=`  float2 p = (u - float2(0.5, hor)) * aspect.xy;
+comp_14=`  float3 col;
+comp_15=`  float2 sc = p - float2(0.0, -0.16);
+comp_16=`  float sr = length(sc);
+comp_17=`  float sy = (sc.y + 0.17) / 0.34;
+comp_18=`  if (u.y < hor) {
+comp_19=`    float h = (hor - u.y) / hor;
+comp_20=`    col = lerp(float3(0.75, 0.12, 0.5), float3(0.03, 0.01, 0.1), saturate(h * 1.3));
+comp_21=`    col = lerp(col, float3(1.0, 0.45, 0.35), exp(-h * 9.0) * 0.6);
+comp_22=`    float sun = saturate((0.17 - sr) * 400.0);
+comp_23=`    float band = frac(sy * 8.0 + q3);
+comp_24=`    float width = lerp(0.0, 0.6, saturate((sy - 0.4) * 1.7));
+comp_25=`    float cut = step(width, band);
+comp_26=`    float3 suncol = lerp(float3(1.0, 0.85, 0.2), float3(1.0, 0.12, 0.5), smoothstep(0.1, 0.95, sy));
+comp_27=`    col = lerp(col, suncol * 2.2, sun * cut);
+comp_28=`    col += float3(1.0, 0.35, 0.55) * exp(-max(sr - 0.17, 0.0) * 10.0) * 0.45 * q8 * (1.0 - sun);
+comp_29=`    float far = hor - 0.06 - 0.13 * ridge(u.x + 0.1, 1.3, 0.21);
+comp_30=`    float farm = saturate((u.y - far) * 400.0);
+comp_31=`    col = lerp(col, float3(0.22, 0.05, 0.3) + float3(0.5, 0.1, 0.5) * saturate(1.0 - (u.y - far) * 25.0) * 0.4, farm);
+comp_32=`    col += float3(1.0, 0.3, 0.8) * exp(-abs(u.y - far) * 700.0) * 0.5 * (1.0 - farm * 0.5);
+comp_33=`    float near = hor - 0.015 - 0.09 * ridge(u.x - 0.3, 1.6, 0.63);
+comp_34=`    float nearm = saturate((u.y - near) * 500.0);
+comp_35=`    col = lerp(col, float3(0.02, 0.0, 0.05), nearm);
+comp_36=`    col += float3(0.2, 0.9, 1.0) * exp(-abs(u.y - near) * 800.0) * (0.8 + 0.5 * q2);
+comp_37=`    float2 sp = u * texsize.xy / 512.0;
+comp_38=`    float4 st = tex2D(sampler_pw_noise_lq, sp);
+comp_39=`    float star = saturate((st.x * st.y - 0.975) * 45.0) * (0.5 + 0.5 * sin(q7 * 2.0 + st.z * 30.0)) * saturate(h * 2.2 - 0.6) * (1.0 - sun);
+comp_40=`    col += star * (0.5 + 0.5 * q4);
+comp_41=`    float sh = frac(q7 * 0.13);
+comp_42=`    float2 sp0 = float2(0.1 + sh * 0.9, 0.08 + sh * 0.16);
+comp_43=`    float2 dd = u - sp0;
+comp_44=`    float along = dot(dd, float2(-0.94, -0.34));
+comp_45=`    float across = abs(dot(dd, float2(0.34, -0.94)));
+comp_46=`    float trail = exp(-across * 900.0) * saturate(1.0 - along * 12.0) * step(0.0, along) * step(sh, 0.35);
+comp_47=`    col += float3(0.9, 0.95, 1.0) * trail;
+comp_48=`  } else {
+comp_49=`    float dz = u.y - hor;
+comp_50=`    float z = 0.12 / (dz + 0.004);
+comp_51=`    float wx = (u.x - 0.5) * aspect.x * z * 9.0;
+comp_52=`    float wz = z * 5.0 + q1 * 2.0;
+comp_53=`    float aa = 0.04 * z;
+comp_54=`    float lx = abs(frac(wx) - 0.5);
+comp_55=`    float lz = abs(frac(wz) - 0.5);
+comp_56=`    float grid = max(saturate(1.0 - lx / (0.03 + aa)), saturate(1.0 - lz / (0.03 + aa)));
+comp_57=`    float halo = max(exp(-lx * 10.0 / (1.0 + aa * 6.0)), exp(-lz * 10.0 / (1.0 + aa * 6.0))) * 0.25;
+comp_58=`    float fog = saturate(dz * 6.0);
+comp_59=`    float3 neon = lerp(float3(1.0, 0.2, 0.8), float3(0.2, 0.8, 1.0), saturate(abs(u.x - 0.5) * 2.5));
+comp_60=`    float wave = exp(-pow((z - (10.0 - q5 * 9.0)) * 0.6, 2.0)) * saturate(1.0 - q5 * 0.8);
+comp_61=`    col = float3(0.03, 0.0, 0.07) + neon * (grid + halo) * fog * (0.75 + 0.8 * q2 + 1.5 * wave);
+comp_62=`    float2 mu = float2(u.x, hor - dz * 0.9);
+comp_63=`    float2 mp = (mu - float2(0.5, hor)) * aspect.xy - float2(0.0, -0.16);
+comp_64=`    float msun = saturate((0.17 - length(mp)) * 60.0) * exp(-dz * 6.0);
+comp_65=`    float ripple = 0.6 + 0.4 * sin(z * 6.0 - q1 * 4.0);
+comp_66=`    col += float3(1.0, 0.5, 0.45) * msun * 0.45 * ripple;
+comp_67=`    col += float3(1.0, 0.4, 0.5) * exp(-abs(u.x - 0.5) * 10.0) * exp(-dz * 9.0) * 0.35;
+comp_68=`    col += float3(0.6, 0.12, 0.55) * exp(-dz * 40.0) * 0.9;
+comp_69=`  }
+comp_70=`  float3 m = tex2D(sampler_main, uv).xyz;
+comp_71=`  col += m * float3(0.6, 0.9, 1.0) + GetBlur1(uv) * 0.8 + GetBlur2(uv) * float3(0.9, 0.5, 1.0) * 0.6;
+comp_72=`  float2 v = uv - 0.5;
+comp_73=`  col *= 1.0 - dot(v, v) * 0.55;
+comp_74=`  col *= 0.94 + 0.06 * sin(uv.y * 700.0);
+comp_75=`  ret = 1.0 - exp(-col * 1.45);
+comp_76=`}

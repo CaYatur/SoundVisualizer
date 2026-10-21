@@ -44,7 +44,9 @@ Copy the `.milk` files into your player's preset folder:
 - MilkDrop 2 / BeatDrop / Milkwave: the `presets` folder next to the player.
 - projectM: the preset directory from its settings.
 
-Each file has `PSVERSION=3` (pixel shader model 3.0) and needs DirectX 9.0c-class hardware or newer.
+Most files have `PSVERSION=3`, which in MilkDrop 2 means pixel shader 2.x (ps_2_a, or ps_2_b). Synthwave
+Horizon has `PSVERSION=4` (pixel shader 3.0) because it needs more constants. Both run on any DirectX 9.0c-class
+GPU.
 
 ## License
 
