@@ -29,7 +29,8 @@ const LIST = require('../src/shared/presets-milkdrop.js');
 const PACK = PP.load();
 
 test('gömülü paket dosyası presets/cayadev ile aynı', () => {
-  assert.strictEqual(fs.readFileSync(PP.OUT, 'utf-8'), PP.render(PACK),
+  // Windows'ta autocrlf dosyayı CRLF açabilir; karşılaştırma satır sonundan bağımsız
+  assert.strictEqual(fs.readFileSync(PP.OUT, 'utf-8').replace(/\r\n/g, '\n'), PP.render(PACK),
     'node scripts/preset-pack.js ile yeniden üretin');
   // Yerleşik listeye ekleniyor, elle yazılmış beşin ardından
   const own = LIST.filter((p) => !p.pack);
@@ -147,4 +148,32 @@ test('her sayfa paketi presets-milkdrop.js\'ten ÖNCE yüklüyor; çeviri pakett
   const i18n = fs.readFileSync(path.join(root, 'src/shared/i18n.js'), 'utf-8');
   assert.match(i18n, /window\.SVMilkdropPack/);
   assert.match(i18n, /hit\.description\.en/);
+});
+
+/* MilkDrop 2 shader metnini kendi başlığıyla (include.fx) derliyor ve şu adları #define
+   ediyor: ses ve zaman girdileri, q1..q32, aspect/texsize ve aşama başına rad, ang, uv,
+   uv_orig (comp'ta hue_shader). Bu adla bir değişken ya da parametre tanımlamak orada
+   derlemeyi düşürüyor ("unexpected token '.'"); bizim motorda ise sıradan bir küresel.
+   PSVERSION 3, MilkDrop'ta ps_3_0 değil ps_2_x demek: dinamik `break` yok ve döngüler
+   açılarak 512 komuta sığmalı. İkisi de BeatDrop'ta ve SDK derleyicisinde ölçüldü. */
+test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
+  const macros = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'vol', 'bass_att', 'mid_att',
+    'treb_att', 'vol_att', 'aspect', 'texsize', 'roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin',
+    'mip_x', 'mip_y', 'mip_xy', 'mip_avg', 'blur1_min', 'blur1_max', 'blur2_min', 'blur2_max', 'blur3_min',
+    'blur3_max', 'rad', 'ang', 'uv', 'uv_orig', 'hue_shader'];
+  for (let i = 1; i <= 32; i++) macros.push('q' + i);
+  const decl = new RegExp('\\b(?:float|half|int|bool)[1-4]?(?:x[1-4])?\\s+(' + macros.join('|') + ')\\b');
+  for (const p of PACK) {
+    assert.match(p.source, /\r\nPSVERSION_WARP=3\r\nPSVERSION_COMP=3\r\n/, p.name);
+    const f = MD.parseMilk(p.source);
+    for (const [stage, text] of [['warp', f.warpShader], ['comp', f.compShader]]) {
+      const code = text.replace(/\/\/[^\n]*/g, '');
+      const m = decl.exec(code);
+      assert.ok(!m, p.name + ' ' + stage + ': MilkDrop makrosu ad olarak kullanılmış: ' + (m && m[0]));
+      assert.doesNotMatch(code, /\bbreak\b|\bwhile\b/, p.name + ' ' + stage + ': ps_2_x döngüden çıkamaz');
+      // Yardımcı işlevler PS gövdesinin dışında: aşama makroları orada tanımsız bir parametreye açılır
+      const helpers = code.slice(0, code.indexOf('shader_body'));
+      assert.doesNotMatch(helpers, /\b(uv|uv_orig|rad|ang|hue_shader|ret)\b/, p.name + ' ' + stage + ': yardımcı işlev aşama girdisi okuyor');
+    }
+  }
 });

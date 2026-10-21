@@ -118,7 +118,7 @@ if (require.main === module) {
   const text = render(list);
   const zipArg = args.find((a) => a === '--zip' || a.startsWith('--zip='));
   if (args.includes('--check')) {
-    const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf-8') : '';
+    const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf-8').replace(/\r\n/g, '\n') : '';
     if (cur !== text) {
       console.error('src/shared/presets-milkdrop-pack.js güncel değil: node scripts/preset-pack.js');
       process.exit(1);
