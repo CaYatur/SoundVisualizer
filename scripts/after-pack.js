@@ -72,9 +72,15 @@ module.exports = async function afterPack(context) {
   if (!fs.existsSync(manifest)) throw new Error(`Identity manifest is missing: ${manifest}`);
   if (!fs.existsSync(executable)) throw new Error(`Packaged executable is missing: ${executable}`);
 
+  /* Kimlik exe'nin KENDİ bildirimine eklenir (-inputresource ile birleştirme).
+     Eskiden yalnız -manifest veriliyordu: Electron'un bildirimi (Common
+     Controls v6, Windows 10 supportedOS, dpiAware) tümüyle siliniyordu ve
+     paketli Windows sürümünde her dialog.showMessageBox uygulamayı
+     0x80000003 ile kapatıyordu (#822, ölçüldü; ikinci kopya uyarısı da). */
   const mt = findMt();
   const result = spawnSync(mt, [
     '-nologo',
+    `-inputresource:${executable};#1`,
     '-manifest', manifest,
     `-outputresource:${executable};#1`,
   ], { encoding: 'utf8', windowsHide: true });
@@ -83,7 +89,23 @@ module.exports = async function afterPack(context) {
   if (result.stderr) process.stderr.write(result.stderr);
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`mt.exe failed with exit code ${result.status}.`);
-  console.log(`Sparse identity metadata embedded into ${executable}`);
+  checkManifest(readManifest(mt, executable));
+  console.log(`Sparse identity metadata merged into ${executable}`);
 };
 
+function readManifest(mt, executable) {
+  const out = path.join(path.dirname(executable), '.manifest-check.xml');
+  const r = spawnSync(mt, ['-nologo', `-inputresource:${executable};#1`, `-out:${out}`], { encoding: 'utf8', windowsHide: true });
+  if (r.status !== 0) throw new Error(`mt.exe could not read the manifest back (exit ${r.status}).`);
+  try { return fs.readFileSync(out, 'utf8'); } finally { fs.rmSync(out, { force: true }); }
+}
+
+// Gömülen bildirimde hem Electron'un hem kimliğin parçaları olmalı
+function checkManifest(xml) {
+  const need = ['Microsoft.Windows.Common-Controls', 'supportedOS', 'dpiAware', 'packageName="CAYADEV.SoundVisualizer.Identity"'];
+  const missing = need.filter((s) => !xml.includes(s));
+  if (missing.length) throw new Error('Embedded manifest is missing: ' + missing.join(', '));
+}
+
 module.exports.requiredFiles = requiredFiles;
+module.exports.checkManifest = checkManifest;
