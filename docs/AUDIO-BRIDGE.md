@@ -35,7 +35,8 @@ folder.
 
 | OS / build | How to start the bridge |
 |---|---|
-| Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer), or right-click the taskbar icon → "Audio Bridge" |
+| Any build | Panel → Audio Bridge → "Open Audio Bridge Separately" (the app stays open; a running bridge comes to the front) |
+| Windows, installer | Start menu → "CAYADEV Visualizer Audio Bridge" (added by the installer) |
 | Windows, portable | Taskbar jump list → "Audio Bridge", or `CAYADEV-Visualizer-<version>-windows-portable.exe --bridge` |
 | macOS | `open -n -a "CAYADEV Visualizer" --args --bridge` (`-n` starts a second copy next to the normal app) |
 | Linux, AppImage | `./CAYADEV-Visualizer-<version>-linux-x86_64.AppImage --bridge` |
@@ -43,6 +44,14 @@ folder.
 | Dev | `npm start -- --bridge` |
 
 Linux deb also adds an "Audio Bridge" action to the app's desktop entry (right-click the launcher).
+
+The taskbar jump list entry appears only for builds that run without the app's package identity
+(the portable build, measured: the jump list file gets the `--bridge` task). The installed build
+runs with the sparse package identity that Dynamic Lighting needs, and in such a process Windows
+writes the jump list nowhere: `app.setUserTasks` returns true and no jump list file changes
+(measured on `win-unpacked`, which ran with the identity, `process.windowsStore` true). Showing the
+task there would need the WinRT `JumpList` API through the native helper; until then the installed
+build has the Start menu shortcut and the panel button.
 
 Bridge-only mode runs as a single instance per settings folder. Starting it again (shortcut,
 jump list, `--bridge`) does not open a second bridge that would fight over the port and the
@@ -66,10 +75,14 @@ and three tabs stay at the top while the page scrolls (#822):
     secret restarts the bridge and the receivers reconnect;
   - this computer's IPv4 addresses with the port and a copy button, virtual adapters last, for a
     receiver that has to type the address (UDP blocked, another subnet), and the firewall rule;
-  - **Start the Bridge at Sign-in** (installed and portable builds on Windows: the system's startup
-    list under its own name; Linux: `~/.config/autostart`; macOS login items cannot carry the
-    `--bridge` flag, so the window says to add it there by hand) and **Don't Open the Status Window
-    at Start**;
+  - **Start the Bridge at Sign-in** (installed and portable builds) and **Don't Open the Status
+    Window at Start**. On Windows this is a shortcut in the user's Startup folder, not the `Run`
+    registry key: the installed build runs with the package identity Dynamic Lighting needs, and
+    there its registry writes go to a private copy. Measured on the packaged build: the app wrote
+    and read back its `Run` entry while the real key had nothing, so Windows would never have
+    started it; a file written to the Startup folder lands in the real folder. A shortcut turned
+    off in Task Manager → Startup reads as off. Linux uses `~/.config/autostart`; macOS login items
+    cannot carry the `--bridge` flag, so the window says to add it there by hand;
   - **Back to Normal Mode** (bridge opened from the setting: the setting is turned off, written,
     checked and the app reopens normally) or **Close Bridge, Open the App** (bridge opened with
     `--bridge`: if the normal app is already running it comes to the front, otherwise it opens;

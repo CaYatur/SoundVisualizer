@@ -218,6 +218,7 @@ contextBridge.exposeInMainWorld('api', {
   bridgeStatus: () => ipcRenderer.invoke('bridge:status'),
   bridgeNewSecret: () => ipcRenderer.invoke('bridge:new-secret'),
   bridgeRelaunch: () => ipcRenderer.invoke('bridge:relaunch'),
+  bridgeOpenSeparate: () => ipcRenderer.invoke('bridge:open-separate'),
   onBridgeStatus: (cb) => ipcRenderer.on('bridge-status', (e, d) => cb(d)),
   onBridgeLive: (cb) => ipcRenderer.on('bridge-live', (e, d) => cb(d)),
   onGoto: (cb) => ipcRenderer.on('admin-goto', (e, d) => cb(d)),

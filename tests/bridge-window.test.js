@@ -51,20 +51,36 @@ test('oturum açılışı Linux: XDG girdisi, boşluklu yol tırnakta; aç, oku,
   assert.strictEqual(files.size, 0);
 });
 
-test('oturum açılışı Windows: ayrı adla kayıt; durum sistemin listesinden', () => {
+/* Windows'ta ölçüldü (paketli sürüm, paket kimliğiyle): HKCU Run'a yazılan
+   girdi sanal bir kopyaya gidiyor, gerçek anahtarda yok; Başlangıç klasörüne
+   yazılan kısayol gerçek klasöre düşüyor. Bu yüzden kısayol. */
+test('oturum açılışı Windows: Başlangıç klasöründe kısayol; Görev Yöneticisi\'nde kapalıysa kapalı', () => {
   const sp = AS.spec({ platform: 'win32', packaged: true, execPath: 'C:\\P\\app.exe', env: {}, ownProfile: true });
-  let items = [];
-  const calls = [];
-  const app = {
-    setLoginItemSettings: (o) => { calls.push(o); items = o.openAtLogin ? [{ name: o.name, path: o.path, args: o.args, enabled: true }] : []; },
-    getLoginItemSettings: () => ({ openAtLogin: false, launchItems: items }),
+  const files = new Map();
+  const approved = new Map();
+  const fakeFs = { mkdirSync() {}, existsSync: (f) => files.has(f), unlinkSync: (f) => files.delete(f) };
+  const shell = {
+    writeShortcutLink: (f, op, o) => { files.set(f, Object.assign({ op }, o)); return true; },
+    readShortcutLink: (f) => { if (!files.has(f)) throw new Error('no link'); return files.get(f); },
   };
-  assert.strictEqual(AS.set({ app }, sp, true), true);
-  assert.deepStrictEqual(calls[0], { openAtLogin: true, path: 'C:\\P\\app.exe', args: ['--bridge', '--hidden'], name: AS.NAME });
-  // Kullanıcı Görev Yöneticisi'nden kapattıysa kapalı görünür
-  items[0].enabled = false;
-  assert.strictEqual(AS.get({ app }, sp), false);
-  assert.strictEqual(AS.set({ app }, sp, false), false);
+  const reg = (a) => {
+    if (a[0] !== 'query' || a[1] !== AS.APPROVED_KEY || a[2] !== '/v' || !approved.has(a[3])) throw new Error('not found');
+    return '\r\n' + a[1] + '\r\n    ' + a[3] + '    REG_BINARY    ' + approved.get(a[3]) + '\r\n';
+  };
+  const deps = { fs: fakeFs, shell, reg, appData: 'C:\\Users\\u\\AppData\\Roaming' };
+  const lnk = AS.startupLink(deps.appData);
+  assert.strictEqual(lnk, path.join('C:\\Users\\u\\AppData\\Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'CAYADEV Visualizer Audio Bridge.lnk'));
+  assert.strictEqual(AS.get(deps, sp), false);
+  assert.strictEqual(AS.set(deps, sp, true), true);
+  assert.deepStrictEqual(files.get(lnk), { op: 'create', target: 'C:\\P\\app.exe', args: '--bridge --hidden', description: AS.NAME, icon: 'C:\\P\\app.exe', iconIndex: 0 });
+  approved.set(AS.LNK, '030000000000000000000000');
+  assert.strictEqual(AS.get(deps, sp), false, 'Görev Yöneticisi\'nden kapatıldı');
+  approved.set(AS.LNK, '020000000000000000000000');
+  assert.strictEqual(AS.get(deps, sp), true);
+  assert.strictEqual(AS.set(deps, sp, false), false);
+  assert.ok(!files.has(lnk));
+  // Kayıt defterine yazılmaz (paket kimliğinde sanallaşıyor)
+  assert.ok(!/setLoginItemSettings/.test(read('src/main/bridge-autostart.js').replace(/\/\*[\s\S]*?\*\//g, '')));
 });
 
 test('adresler: IPv4, iç ve 169.254 yok; sanal bağdaştırıcı sona', () => {
@@ -125,4 +141,13 @@ test('pencere: üç sekme (.bs-seg, öz testin İngilizce taraması gezer), yaza
 test('saat: bağlanınca ilk yoklamalar 100 ms arayla', () => {
   assert.strictEqual(B.QUICK_PINGS, 5);
   assert.match(read('src/main/audio-bridge.js'), /const fast = \(\) => \{ ping\(\); pingTimer = \+\+quick < QUICK_PINGS \? setTimeout\(fast, 100\) : setInterval\(ping, 1000\); \};\n\s+ping\(\);\n\s+pingTimer = setTimeout\(fast, 100\);/);
+});
+
+test('panel: "Ses Köprüsünü Ayrı Aç" ayrı --bridge kopyası başlatır; hata ayıklama portu taşınmaz', () => {
+  const M = read('src/main/main.js');
+  assert.match(M, /ipcMain\.handle\('bridge:open-separate', \(\) => \{\n  if \(BRIDGE_ONLY \|\| AUTOMATION_RUN\) return \{ ok: false \};\n  const args = process\.argv\.slice\(1\)\.filter\(\(a\) => !BRIDGE_ARGS\.includes\(a\) && !\/\^--\(inspect\|remote-debugging-port\)\/\.test\(a\)\)\.concat\('--bridge'\);/);
+  assert.match(M, /const c = require\('child_process'\)\.spawn\(exe, args, \{ detached: true, stdio: 'ignore' \}\);\n    c\.unref\(\);/);
+  assert.ok(read('src/main/preload-admin.js').includes("bridgeOpenSeparate: () => ipcRenderer.invoke('bridge:open-separate'),"));
+  assert.match(read('src/admin/bridge-panel.js'), /!only && window\.api\.bridgeOpenSeparate \? ctlRow\(tr\('Ayrı Köprü'\)/);
+  assert.ok(read('src/shared/i18n.js').includes("'Ses Köprüsünü Ayrı Aç': 'Open Audio Bridge Separately',"));
 });

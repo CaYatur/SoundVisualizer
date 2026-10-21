@@ -234,6 +234,9 @@
         P().rerender();
       }, 'Yalnız köprü kipinde görüntü çıkışı, ışık ve yayın açılmaz, GPU kullanılmaz; köprü penceresi ve sistem tepsisi kalır. Olağan uygulamanın yanında ayrıca çalıştırmak için Başlat menüsündeki ya da görev çubuğundaki Ses Köprüsü kısayolunu kullanın (ayarları ayrı klasörde).'),
       only ? switchRow(tr('Durum Penceresi Açılışta Açılmasın'), b.startHidden, (v) => { b.startHidden = v; push(); }) : null,
+      // Uygulamanın yanında ayrı köprü (#822): kısayol aramadan, panelden
+      !only && window.api.bridgeOpenSeparate ? ctlRow(tr('Ayrı Köprü'), [el('button', { class: 'btn small', type: 'button', text: tr('Ses Köprüsünü Ayrı Aç'), onclick: () => window.api.bridgeOpenSeparate() })],
+        { help: 'Bu uygulama açık kalır; yanında yalnız ses köprüsü olarak ayrı bir kopya açılır (ayarları ayrı klasörde, kendi penceresi ve tepsi simgesiyle). Zaten açıksa öne gelir. Başlat menüsündeki Ses Köprüsü kısayolu da aynısını açar.' }) : null,
     ]));
 
     // 2) Bağlantı

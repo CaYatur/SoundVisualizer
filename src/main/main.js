@@ -1899,7 +1899,10 @@ const bridgeAutostart = require('./bridge-autostart');
 function bridgeAutostartSpec() {
   return bridgeAutostart.spec({ platform: process.platform, packaged: app.isPackaged, env: process.env, execPath: process.execPath, ownProfile: BRIDGE_OWN_PROFILE });
 }
-function bridgeAutostartDeps() { return { app, fs, home: app.getPath('home') }; }
+function bridgeAutostartDeps() {
+  const reg = (args) => require('child_process').execFileSync('reg', args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 });
+  return { fs, reg, shell, appData: app.getPath('appData'), home: app.getPath('home') };
+}
 // Sistemin listesini okumak ucuz değil (kayıt defteri): 5 sn önbellek
 let bridgeAutostartCache = null;
 function bridgeAutostartState() {
@@ -2108,6 +2111,23 @@ ipcMain.handle('bridge:relaunch', async () => {
   if (!persistBridgeOnly(on)) { await settingsNotSavedBox(adminWin && !adminWin.isDestroyed() ? adminWin : undefined); return { ok: false, error: 'save' }; }
   if (!on && bridgeAutostartState().on) setBridgeAutostart(false);
   return { ok: relaunchApp(!on) };
+});
+/* Paneldeki "Ses Köprüsünü Ayrı Aç" (#822): `--bridge` ile ayrı bir kopya
+   (kendi klasörü) başlatır; bu uygulama açık kalır. Kurulu sürüm Dynamic
+   Lighting için uygulama kimliğiyle çalışıyor ve Windows o süreçte görev
+   çubuğu görevini hiçbir yere yazmıyor (ölçüldü: setUserTasks true dönüyor,
+   atlama listesi boş); Başlat menüsü kısayolu ve bu düğme kalıyor. Köprü
+   zaten açıksa tek kopya kilidi onu öne getirir. Hata ayıklama portları
+   taşınmaz (çakışırdı). */
+ipcMain.handle('bridge:open-separate', () => {
+  if (BRIDGE_ONLY || AUTOMATION_RUN) return { ok: false };
+  const args = process.argv.slice(1).filter((a) => !BRIDGE_ARGS.includes(a) && !/^--(inspect|remote-debugging-port)/.test(a)).concat('--bridge');
+  const exe = process.env.PORTABLE_EXECUTABLE_FILE || process.env.APPIMAGE || process.execPath;
+  try {
+    const c = require('child_process').spawn(exe, args, { detached: true, stdio: 'ignore' });
+    c.unref();
+    return { ok: true };
+  } catch (e) { return { ok: false, error: (e && e.message) || '' }; }
 });
 /* Uygulama başına yakalama bu sistemde yoksa (eski Windows/macOS, izin
    yok, Linux'ta pactl/parec yok) seçili uygulama yerine aygıt yakalanır;

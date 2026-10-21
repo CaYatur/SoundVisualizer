@@ -7,9 +7,16 @@
 'use strict';
 /* KÖPRÜ: OTURUM AÇILINCA BAŞLAT (#822). Köprü makinesi çoğu zaman başında
    kimsenin olmadığı bir bilgisayar; açılınca köprü kendiliğinden, penceresiz
-   başlamalı. Doğrusu ayar dosyası değil sistemin listesi: kullanıcı oradan
-   silerse durum penceresi de kapalı gösterir.
-     Windows  sistemin başlangıç listesi (HKCU Run), ayrı adla
+   başlamalı. Doğrusu ayar dosyası değil sistemin kendisi: kullanıcı oradan
+   silerse ya da kapatırsa pencere de kapalı gösterir.
+     Windows  kullanıcının Başlangıç klasöründe kısayol. Kayıt defteri
+              (HKCU Run, app.setLoginItemSettings) KULLANILMAZ: kurulu sürüm
+              Dynamic Lighting için paket kimliğiyle çalışıyor ve o süreçte
+              HKCU yazımı sanal bir kopyaya gidiyor. Ölçüldü (paketli sürüm,
+              Windows 11): uygulama girdiyi yazıp "açık" okuyor, gerçek Run
+              anahtarında girdi yok; Windows açılışta görmezdi. Başlangıç
+              klasörüne yazılan dosya gerçek klasöre düşüyor (ölçüldü).
+              Görev Yöneticisi > Başlangıç'tan kapatılırsa kapalı okunur.
      Linux    ~/.config/autostart/*.desktop (XDG)
      macOS    giriş öğesi argüman taşımıyor; köprü kipi seçilemediği için
               burada sunulmuyor, pencere nedenini söyler
@@ -17,6 +24,9 @@
 const path = require('path');
 
 const NAME = 'CAYADEV Visualizer Audio Bridge';
+const LNK = NAME + '.lnk';
+// Görev Yöneticisi > Başlangıç'tan kapatılan kısayol burada: ilk bayt tekse kapalı
+const APPROVED_KEY = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\StartupFolder';
 const DESKTOP_FILE = 'cayadev-visualizer-bridge.desktop';
 
 /* Başlatılacak komut. Köprünün kendi klasörü (`--bridge`) ya da olağan
@@ -48,33 +58,35 @@ function desktopEntry(sp) {
   ].join('\n');
 }
 function desktopPath(home) { return path.join(home, '.config', 'autostart', DESKTOP_FILE); }
+function startupLink(appData) { return path.join(appData, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', LNK); }
 
 function get(deps, sp) {
   if (!sp || !sp.supported) return false;
   if (sp.platform === 'linux') {
     try { return deps.fs.readFileSync(desktopPath(deps.home), 'utf8').indexOf('Name=' + NAME) >= 0; } catch { return false; }
   }
+  const file = startupLink(deps.appData);
+  let link = null;
+  try { link = deps.fs.existsSync(file) ? deps.shell.readShortcutLink(file) : null; } catch { link = null; }
+  if (!link || String(link.args || '').indexOf('--bridge') < 0) return false;
   try {
-    const s = deps.app.getLoginItemSettings({ path: sp.exe, args: sp.args });
-    if (Array.isArray(s.launchItems)) return s.launchItems.some((i) => i && String(i.name).toLowerCase() === NAME.toLowerCase() && i.enabled !== false);
-    return !!s.openAtLogin;
-  } catch { return false; }
+    const m = /REG_BINARY\s+([0-9A-Fa-f]{2})/.exec(deps.reg(['query', APPROVED_KEY, '/v', LNK]));
+    if (m && (parseInt(m[1], 16) & 1)) return false;
+  } catch { /* onay kaydı yok: açık */ }
+  return true;
 }
 
 function set(deps, sp, on) {
   if (!sp || !sp.supported) return false;
-  if (sp.platform === 'linux') {
-    const file = desktopPath(deps.home);
-    if (on) {
-      deps.fs.mkdirSync(path.dirname(file), { recursive: true });
-      deps.fs.writeFileSync(file, desktopEntry(sp));
-    } else {
-      try { deps.fs.unlinkSync(file); } catch { /* zaten yoktu */ }
-    }
-    return get(deps, sp);
+  const file = sp.platform === 'linux' ? desktopPath(deps.home) : startupLink(deps.appData);
+  if (on) {
+    deps.fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (sp.platform === 'linux') deps.fs.writeFileSync(file, desktopEntry(sp));
+    else deps.shell.writeShortcutLink(file, 'create', { target: sp.exe, args: sp.args.join(' '), description: NAME, icon: sp.exe, iconIndex: 0 });
+  } else {
+    try { deps.fs.unlinkSync(file); } catch { /* zaten yoktu */ }
   }
-  deps.app.setLoginItemSettings({ openAtLogin: !!on, path: sp.exe, args: sp.args, name: NAME });
   return get(deps, sp);
 }
 
-module.exports = { NAME, DESKTOP_FILE, spec, desktopEntry, desktopPath, quoteExec, get, set };
+module.exports = { NAME, LNK, APPROVED_KEY, DESKTOP_FILE, spec, desktopEntry, desktopPath, startupLink, quoteExec, get, set };
