@@ -21,19 +21,22 @@ require('../src/shared/defaults.js');
 require('../src/shared/presets.js');
 const PR = global.window.SVPresets;
 const LIST = require('../src/shared/presets-milkdrop.js');
+/* Elle yazılmış beş preset; CaYaDev paketi (#825) aynı listeye ekleniyor ve
+   kendi denetimleri tests/preset-pack.test.js'te. */
+const OWN = LIST.filter((p) => !p.pack);
 const MD = require('../src/shared/milkdrop.js');
 
 const SRC = fs.readFileSync(path.join(root, 'src/admin/milkdrop-panel.js'), 'utf-8');
 const MODE = fs.readFileSync(path.join(root, 'src/visualizer/modes/milkdrop.js'), 'utf-8');
 
 test('beş preset kayıtlı ve kimlikleri deposuyla çakışmıyor', () => {
-  assert.strictEqual(LIST.length, 5);
+  assert.strictEqual(OWN.length, 5);
   const ids = LIST.map((p) => p.id);
-  assert.strictEqual(new Set(ids).size, 5, 'kimlik yinelenmiş');
+  assert.strictEqual(new Set(ids).size, ids.length, 'kimlik yinelenmiş');
   for (const id of ids) {
     /* Depo kimliği `md_<rastgele>` ya da `usr_<rastgele>` üretiyor; önek
        ayrı olmalı ki kullanıcının preseti bir yerleşiği gölgelemesin. */
-    assert.match(id, /^md_caya_[a-z]+$/, id);
+    assert.match(id, /^md_caya_[a-z0-9_]+$/, id);
     /* presets-store.js `safeName` kimlikten dosya adı türetiyor ve bu küme
        dışındaki her karakteri atıyor: kimlik o kümede kalmalı. */
     assert.strictEqual(id.replace(/[^A-Za-z0-9_-]/g, ''), id, id);
@@ -48,7 +51,7 @@ test('her preset motorda hatasız derleniyor', () => {
 });
 
 test('her preset hareket ve ışık üretiyor', () => {
-  for (const p of LIST) {
+  for (const p of OWN) {
     const parsed = new MD.Preset(p.source, { seed: 1234 });
     /* Hareket: per_frame ve per_pixel'in ikisi de yazılmış olmalı. Yalnız
        başlıkla gelen bir preset duran bir görüntü çizer. */
@@ -127,7 +130,7 @@ test('kaynaklar bize ait: hiçbiri bir pakete işaret etmiyor', () => {
   /* Yerleşikler kendi yazdıklarımız. Bir preset paketinden alınmış olsaydı
      dosya başlığında adı ya da yazarı kalırdı; ayrıca kullanıcı dokusu
      isteyen bir preset doku paketi olmadan gürültüyle çizilirdi. */
-  for (const p of LIST) {
+  for (const p of OWN) {
     assert.strictEqual(p.author, 'CAYADEV', p.id);
     assert.doesNotMatch(p.source, /sampler_(?!fw_|fc_|pw_|pc_|main|blur|noise|pw_main)/i, p.id + ': kullanıcı dokusu istiyor');
     assert.doesNotMatch(p.source, /^\s*MILKDROP_PRESET_VERSION/im, p.id);

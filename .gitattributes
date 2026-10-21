@@ -1,0 +1,3 @@
+# CaYaDev presetleri (#825): .milk dosyaları CRLF olarak birebir saklanır;
+# gömülü kopya ve sürüm zip'i her işletim sisteminde aynı baytları taşısın.
+presets/cayadev/*.milk -text

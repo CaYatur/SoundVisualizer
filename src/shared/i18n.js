@@ -3912,6 +3912,15 @@
        Bütün birleşimleri sözlüğe yazmak kombinatoryal olurdu; onun yerine
        ayırıcıdan bölünüp parçalar ayrı ayrı çevriliyor. Sözlükte tam
        karşılığı olan bir metin buraya hiç gelmez, yukarıda yakalanır. */
+    /* CaYaDev paketinin açıklamaları (#825): İngilizcesi pack.json'dan gömülü
+       paketle geliyor, burada yinelenmiyor. Paket dosyası bu dosyadan sonra
+       yüklendiği için çağrı anında okunuyor. */
+    const pack = typeof window !== 'undefined' && window.SVMilkdropPack;
+    if (Array.isArray(pack)) {
+      const hit = pack.find((p) => p.description && p.description.tr === raw.trim());
+      if (hit) return hit.description.en;
+    }
+
     const seg = raw.match(/^(.+?) · (.+)$/);
     if (seg) return translate(seg[1]) + ' · ' + translate(seg[2]);
     const breadcrumb = raw.match(/^(.+?)\s+›\s+(.+)$/);

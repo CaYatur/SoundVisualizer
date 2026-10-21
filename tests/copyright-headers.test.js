@@ -14,6 +14,9 @@ const { execFileSync } = require('child_process');
 const root = path.join(__dirname, '..');
 const HOLDER = 'Copyright (c) 2026 Çağan Turgut (CaYatur) — CaYaDev, https://cayadev.com';
 const EXTS = ['.js', '.css', '.html', '.cs', '.cpp', '.sh', '.nsh', '.swift'];
+/* İçeriği ayrı lisanslı, üretilen dosyalar: CaYaDev preset paketi (#825) CC BY 4.0. Bunlar
+   kendi lisans satırını taşır; MIT başlığı yanlış olurdu. */
+const CONTENT = { 'src/shared/presets-milkdrop-pack.js': ['CaYaDev MilkDrop Presets', 'SPDX-License-Identifier: CC-BY-4.0'] };
 
 function sources() {
   let out;
@@ -32,7 +35,8 @@ test('her kaynak dosyanın başında telif bildirimi var', (t) => {
   const missing = [];
   for (const rel of files) {
     const head = fs.readFileSync(path.join(root, rel), 'utf8').split(/\r?\n/).slice(0, 8).join('\n');
-    if (!head.includes(HOLDER) || !head.includes('SPDX-License-Identifier: MIT')) missing.push(rel);
+    const need = CONTENT[rel] || [HOLDER, 'SPDX-License-Identifier: MIT'];
+    if (!need.every((s) => head.includes(s))) missing.push(rel);
   }
   assert.deepStrictEqual(missing, [], 'başlığı olmayan dosyalar');
 });

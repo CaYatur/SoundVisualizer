@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3498%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3508%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -378,6 +378,10 @@ shaders are translated to GLSL and run on the GPU.
 - **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
   Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
+- **CaYaDev MilkDrop Presets: 5 shader presets of our own, built in.** Each one has warp and comp shaders, and
+  each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
+  an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
+  [`presets/cayadev`](presets/cayadev) or as the zip on each release.
 - **Import a whole library** — from a ZIP pack, a folder, or by searching this
   computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
@@ -1329,6 +1333,9 @@ it off restores the engine's earlier look.
   classic tunnel) and *Nabız Örgüsü* (squares on the beat over a motion-vector weave) — written
   here, so the engine shows what it does before you import a pack of your own. They join auto
   advance like any other preset. The two pictures on this page are rendered from them.
+- **The CaYaDev MilkDrop Presets** ([`presets/cayadev`](presets/cayadev), CC BY 4.0) are built in next to
+  them: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
+  one passed; the zip on each release holds the same files.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:
   each node becomes a closure, identifiers become pool indices, and function names are resolved
   against a fixed table at compile time.
@@ -1781,7 +1788,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3498 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3508 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
@@ -1849,6 +1856,7 @@ src/
                transitions, warp, MilkDrop, templates, lyrics, timeline, clip deck
   web/         OBS overlay and the phone remote
 native/        Audio helpers (per-application capture, Dynamic Lighting identity)
+presets/       CaYaDev MilkDrop Presets (.milk, CC BY 4.0), embedded by scripts/preset-pack.js
 scripts/       Build, release, benchmark, MilkDrop corpus and render harnesses
 tests/         Unit tests, run by `npm test`
 docs/          Screenshots and benchmark results
