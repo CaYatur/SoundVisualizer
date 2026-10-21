@@ -48,6 +48,97 @@
         "tr": "Halkalı bir gaz devinin çevresinde, her biri dalga biçimiyle şekillenen on iki ay. MilkDrop 3 presetidir; MilkDrop 2 oynatıcıları ilk dört ayı gösterir.",
         "en": "Twelve moons shaped by the waveform orbit a ringed gas giant. A MilkDrop 3 preset; MilkDrop 2 players show the first four moons."
       }
+    },
+    {
+      "file": "CaYaDev - Phosphor Scope.milk",
+      "id": "md_caya_phosphor_scope",
+      "category": "retro",
+      "description": {
+        "tr": "Kavisli bir CRT ekranında yeşil fosforlu bir vektör osiloskop: dönen bir Lissajous eğrisi stereo sesi taşıyor. Ölçek çizgileri, tarama satırları ve parlama da var.",
+        "en": "A green-phosphor vector oscilloscope on a curved CRT: a turning Lissajous figure carries the stereo signal, with a graticule, scanlines and bloom."
+      }
+    },
+    {
+      "file": "CaYaDev - Synthwave Horizon.milk",
+      "id": "md_caya_synthwave_horizon",
+      "category": "retro",
+      "description": {
+        "tr": "Çizgili bir gün batımı güneşi, neon kenarlı dağlar ve izleyiciye doğru akan bir perspektif ızgarası. Bas ızgarayı hem nabız gibi attırıyor hem hızlandırıyor.",
+        "en": "A striped sunset sun, neon-edged mountains and a perspective grid rushing toward you. Bass pulses the grid and sets the speed."
+      }
+    },
+    {
+      "file": "CaYaDev - Coral Script.milk",
+      "id": "md_caya_coral_script",
+      "category": "organic",
+      "description": {
+        "tr": "Bulanıklık farkı kuralıyla büyüyen bir Turing labirenti, su altı mercanı gibi ışıklanıyor. Bas deseni yırtan tohumlar bırakıyor.",
+        "en": "A Turing labyrinth grown by a difference-of-blurs rule, lit like coral under water. Bass drops seeds that tear the pattern open."
+      }
+    },
+    {
+      "file": "CaYaDev - Hyperlane.milk",
+      "id": "md_caya_hyperlane",
+      "category": "space",
+      "description": {
+        "tr": "Işık hızında yolculuk: yıldızlar kaybolma noktasında doğup ışık çizgilerine uzuyor, arkada yavaş bir bulutsu tüneli var. Bas gaz pedalı, her vuruş bir şok halkası.",
+        "en": "Light-speed travel: stars are born at the vanishing point and stretch into streaks over a slow nebula tunnel. Bass is the throttle; a beat throws a shock ring."
+      }
+    },
+    {
+      "file": "CaYaDev - Cymatics.milk",
+      "id": "md_caya_cymatics",
+      "category": "geometric",
+      "description": {
+        "tr": "Titreşen bir plaka: kum taneleri Chladni deseninin düğüm çizgilerinde toplanıyor. Birkaç ölçüde bir plaka bir sonraki moda geçiyor ve kum yeniden diziliyor.",
+        "en": "A vibrating plate: grains of sand gather on the nodal lines of a Chladni pattern. Every few bars the plate moves to the next mode and the sand settles again."
+      }
+    },
+    {
+      "file": "CaYaDev - Ember Storm.milk",
+      "id": "md_caya_ember_storm",
+      "category": "organic",
+      "description": {
+        "tr": "Katmanlı gürültüden alevler, ısı dalgalanması ve dalgalı bir çekişle yükselen kıvılcımlar. Bas alevleri besliyor, tizler kıvılcım saçıyor.",
+        "en": "Flames from layered noise, heat haze, and embers that rise on a wavering draft. Bass feeds the flames, treble throws sparks."
+      }
+    },
+    {
+      "file": "CaYaDev - Kintsugi.milk",
+      "id": "md_caya_kintsugi",
+      "category": "abstract",
+      "description": {
+        "tr": "Altınla onarılmış koyu sırlı bir seramik yüzey. Müzik yükseldikçe yeni çatlaklar açılıyor ve altın parlıyor; ışık yüzeyin üstünde yavaşça geziyor.",
+        "en": "A dark glazed ceramic surface repaired with gold. As the music builds, more cracks open and the gold glows, while a light moves slowly across the glaze."
+      }
+    },
+    {
+      "file": "CaYaDev - Laser Cathedral.milk",
+      "id": "md_caya_laser_cathedral",
+      "category": "club",
+      "description": {
+        "tr": "Üç lazer kafası sahnenin üstünden sisin içine yelpaze açıyor; yelpazeler müzikle tarıyor ve vuruşta parlıyor. Parlak bir zemin yansıması da var, tam ekran flaş yok.",
+        "en": "Three laser heads fan their beams through drifting haze above a glossy floor; the fans sweep with the music and flare on the beat, with no full-screen strobe."
+      }
+    },
+    {
+      "file": "CaYaDev - Julia Bloom.milk",
+      "id": "md_caya_julia_bloom",
+      "category": "fractal",
+      "description": {
+        "tr": "Sabiti Mandelbrot kalbinin kıyısında gezen bir Julia kümesi, toz ile dantel arasında açılıp kapanıyor ve yumuşak izler bırakıyor.",
+        "en": "A Julia set whose constant travels along the edge of the Mandelbrot cardioid, blooming between dust and lace and leaving soft echoes."
+      }
+    },
+    {
+      "file": "CaYaDev - Night Bloom.milk",
+      "id": "md_caya_night_bloom",
+      "category": "space",
+      "md3": true,
+      "description": {
+        "tr": "Bir şehrin üstünde havai fişek gösterisi: her vuruş sıradaki fişeği patlatıyor. MilkDrop 3 presetidir (sekiz fişek); MilkDrop 2 oynatıcıları dördünü gösterir.",
+        "en": "A fireworks show over a city skyline; each beat fires the next shell. A MilkDrop 3 preset (eight shells); MilkDrop 2 players show four."
+      }
     }
   ]
 }

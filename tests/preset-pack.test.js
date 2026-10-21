@@ -111,8 +111,9 @@ test('söndürmeler kare hızından bağımsız', () => {
   for (const p of PACK) {
     assert.match(p.source, /\r\nper_frame_1=q30 = 60\/max\(fps, 15\);\r\n/, p.name);
     const warp = MD.parseMilk(p.source).warpShader;
-    // Geri besleme tamponunu kare başına çarpan her söndürme q30 ile ölçekli
-    assert.match(warp, /pow\([^)]*q30\)/, p.name + ': warp söndürmesi q30\'suz');
+    /* Geri besleme tamponunu kare başına değiştiren adım (söndürme pow(k, q30), kural adımı
+       min(1, q30) ile) q30'a bağlı */
+    assert.match(warp, /\bq30\b/, p.name + ': warp adımı q30\'suz');
   }
 });
 

@@ -1,3 +1,13 @@
+| Phosphor Scope | retro | MilkDrop 2 |
+| Synthwave Horizon | retro | MilkDrop 2 |
+| Coral Script | organic | MilkDrop 2 |
+| Hyperlane | space | MilkDrop 2 |
+| Cymatics | geometric | MilkDrop 2 |
+| Ember Storm | organic | MilkDrop 2 |
+| Kintsugi | abstract | MilkDrop 2 |
+| Laser Cathedral | club | MilkDrop 2 |
+| Julia Bloom | fractal | MilkDrop 2 |
+| Night Bloom | space | MilkDrop 3 |
 # CaYaDev MilkDrop Presets
 
 Original MilkDrop presets made for [CAYADEV Visualizer](https://github.com/CaYatur/SoundVisualizer). They are

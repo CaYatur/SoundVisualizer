@@ -378,7 +378,7 @@ shaders are translated to GLSL and run on the GPU.
 - **Five presets of our own ship with the app** — *Aurora*, *Molten Gold*, *Still Rings*, *Endless
   Tunnel* and *Pulse Weave* — so the engine shows what it does before you import anything. No
   third-party preset pack is bundled.
-- **CaYaDev MilkDrop Presets: 5 shader presets of our own, built in.** Each one has warp and comp shaders, and
+- **CaYaDev MilkDrop Presets: 15 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
   [`presets/cayadev`](presets/cayadev) or as the zip on each release.

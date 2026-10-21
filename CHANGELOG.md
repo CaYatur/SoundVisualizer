@@ -9,10 +9,29 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
 
 ### CaYaDev MilkDrop Presets [825]
 
-- **Our own shader presets, built in.** The first five of a planned 50+: *Neon Monsoon* (liquid), *Event Horizon* (tunnel), *Prism Lattice* (geometric), *Northern Veil* (ambient scene) and *Twelve Moons* (MilkDrop 3). They sit next to the five original built-ins in the preset list and auto advance, with English names and author "CaYaDev".
+- **Our own shader presets, built in.** 15 so far of a planned 50+:
+  - liquid: *Neon Monsoon*;
+  - tunnel: *Event Horizon*;
+  - geometric: *Prism Lattice*, *Cymatics*;
+  - ambient scene: *Northern Veil*;
+  - retro: *Phosphor Scope*, *Synthwave Horizon*;
+  - organic: *Coral Script*, *Ember Storm*;
+  - space: *Hyperlane*;
+  - abstract: *Kintsugi*;
+  - club: *Laser Cathedral*;
+  - fractal: *Julia Bloom*;
+  - MilkDrop 3: *Twelve Moons* and *Night Bloom*.
+
+  They sit next to the five original built-ins in the preset list and auto advance, with English names and author "CaYaDev".
 - **Free to use elsewhere under CC BY 4.0.** The `.milk` files are in [`presets/cayadev`](presets/cayadev) with a license and a README, and `node scripts/preset-pack.js --zip` builds the release zip (`CaYaDev-MilkDrop-Presets-<version>.zip`, now in the release asset list). The app embeds them from that folder; a test fails if the embedded copy drifts from the files.
-- **Checked before they were added.** Each preset has warp and comp shaders. Each was run for 90 s on looped music (no fade to black, white-out or freeze), measured at 1080p (12–13.5 ms per frame on a Radeon 610M iGPU, 5.5–7 ms on an RTX 5070 Laptop), and compared at 60 and 144 Hz (same average brightness). The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop): same picture. The MilkDrop 3 preset was checked only in our engine.
-- **Two MilkDrop 2 rules the comparison caught, now enforced by tests.** MilkDrop 2 does not pass `aspectx`/`aspecty` to custom wave and shape code, so the presets carry them in q31/q32. Prefixed noise samplers such as `sampler_pw_noise_lq` must be declared in the shader; otherwise MilkDrop drops the comp shader while our engine runs it anyway.
+- **Checked before they were added.** Each preset has warp and comp shaders. Each was run for 90 s on looped music (no fade to black, white-out or freeze), measured at 1080p (11–13.7 ms per frame on a Radeon 610M iGPU, 5–7.4 ms on an RTX 5070 Laptop), and compared at 60 and 144 Hz (same average brightness). The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop): same picture. The MilkDrop 3 presets were checked only in our engine.
+- **MilkDrop 2 rules the comparison caught, now enforced by tests.** Our engine accepted all of these; MilkDrop 2 did not:
+  - MilkDrop 2 does not pass `aspectx`/`aspecty` to custom wave and shape code, so the presets carry them in q31/q32.
+  - Prefixed noise samplers such as `sampler_pw_noise_lq` must be declared in the shader, or MilkDrop drops the comp shader.
+  - MilkDrop `#define`s its shader inputs (`time`, `bass`, `q1`…`q32`, and per stage `rad`, `ang`, `uv`, `uv_orig`, `hue_shader`), so a variable with one of those names does not compile there.
+  - `PSVERSION=3` means ps_2_x, not ps_3_0, so there is no dynamic `break`, and loops have to unroll within 512 instructions.
+
+  Every preset is compiled the way MilkDrop does it (its header and wrapper, the SDK shader compiler, ps_2_a then ps_2_b) before it is added.
 
 ### Audio bridge: its own window for everything, mode switch with restart, clock fix [822]
 
