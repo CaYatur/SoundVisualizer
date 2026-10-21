@@ -220,8 +220,19 @@
     groups.push(group(tr('Kip'), [
       switchRow(tr('Bu Makinenin Sesini Köprüye Ver'), b.send, (v) => { b.send = v; push(); P().rerender(); }),
       switchRow(tr('Ses Girişi: Ağ Köprüsü'), b.receive, (v) => { b.receive = v; push(); P().rerender(); }),
-      switchRow(tr('Yalnız Ses Köprüsü (sonraki açılışta)'), b.only, (v) => { b.only = v; push(); },
-        'Yalnız köprü kipinde görüntü çıkışı, ışık ve yayın açılmaz, GPU kullanılmaz; küçük bir durum penceresi ve sistem tepsisi kalır. Olağan uygulamanın yanında çalıştırmak için uygulamayı --bridge ile açın (ayarları ayrı klasörde). --hidden pencereyi açmadan başlatır.'),
+      /* Kip değişince "şimdi yeniden başlatılsın mı" sorulur (#822). Hayır
+         denirse ayar kalır, bir sonraki açılışta geçerli olur. `--bridge`
+         ile ayrı açılan köprüde anahtarın etkisi yok: kipten köprünün
+         kendi penceresinden çıkılır. */
+      status && status.ownProfile ? null : switchRow(tr('Yalnız Ses Köprüsü'), b.only, async (v) => {
+        b.only = v;
+        push();
+        const ok = await P().confirm(tr(v
+          ? 'Uygulama yalnız ses köprüsü kipinde yeniden açılacak: görüntü, ışık ve yayın kapanır, köprü penceresi ve sistem tepsisi kalır. Köprü kipinden köprü penceresindeki Ayarlar sekmesinden çıkılır.'
+          : 'Uygulama olağan kipte yeniden açılacak.'), { title: tr('Şimdi yeniden başlatılsın mı?'), okText: tr('Şimdi Yeniden Başlat'), cancelText: tr('Sonraki Açılışta') });
+        if (ok && window.api.bridgeRelaunch) await window.api.bridgeRelaunch();
+        P().rerender();
+      }, 'Yalnız köprü kipinde görüntü çıkışı, ışık ve yayın açılmaz, GPU kullanılmaz; köprü penceresi ve sistem tepsisi kalır. Olağan uygulamanın yanında ayrıca çalıştırmak için Başlat menüsündeki ya da görev çubuğundaki Ses Köprüsü kısayolunu kullanın (ayarları ayrı klasörde).'),
       only ? switchRow(tr('Durum Penceresi Açılışta Açılmasın'), b.startHidden, (v) => { b.startHidden = v; push(); }) : null,
     ]));
 

@@ -37,6 +37,7 @@
 
 const crypto = require('crypto');
 const ShowKeys = require('../shared/show-keys');
+const SETTLE_BEATS = 8; // bağlanınca saat farkının sıçrayabildiği atış sayısı (~2 sn)
 
 const DEFAULTS = {
   role: 'off', host: '', port: 8722, secret: '',
@@ -196,6 +197,12 @@ function createFollower(cfg, now) {
     return { gapP95Ms: Math.round(p95), jitterMs: Math.round(dev[Math.min(n - 1, Math.floor(n * 0.95))]) };
   }
   const samples = [];
+  /* Oturma payı: bağlanır bağlanmaz gelen atış yedek meşgulken (açılış,
+     yeniden bağlanma) okunur ve örnek şişer. Köprüde ölçüldü (Windows):
+     ilk yanıt 200 ms gecikti. Eskiden ilk örnek doğrudan fark oluyor, sonra
+     atış başına 1 ms iniyordu: 100 ms'lik bir hata ~25 sn sürerdi. İlk
+     SETTLE_BEATS atışta fark doğrudan en küçüğe gider, sonra yine kayarak. */
+  let settle = 0;
   function noteOffset(at, t) {
     if (!Number.isFinite(at)) return;
     samples.push({ t, v: t - at });
@@ -203,7 +210,7 @@ function createFollower(cfg, now) {
     let best = Infinity;
     for (const x of samples) if (x.v < best) best = x.v;
     st.offsetSamples = samples.length;
-    if (st.offsetMs == null) { st.offsetMs = best; return; }
+    if (st.offsetMs == null || settle > 0) { if (settle > 0) settle--; st.offsetMs = best; return; }
     const d = best - st.offsetMs;
     st.offsetMs += d > 1 ? 1 : d < -1 ? -1 : d;
   }
@@ -225,7 +232,7 @@ function createFollower(cfg, now) {
     get status() {
       return Object.assign({}, st, gapStats(), { takeover: s.takeover, heartbeatMs: s.heartbeatMs, timeoutMs: s.timeoutMs, lossLimitMs: lossLimit() });
     },
-    connected() { st.connected = true; },
+    connected() { st.connected = true; settle = SETTLE_BEATS; },
     disconnected() { st.connected = false; },
     // Atış geldi: etkin değilse izlemeye döner
     beat(msg, t) {
@@ -563,5 +570,5 @@ module.exports = {
   snapshotMsg, patchMsg, beatMsg, applyIncoming, peerUrl, peerUrlHmac, createClient,
   authority, GATED, outputModes, gates, secretTag, createTermStore, splitBrain,
   HANDBACK_MIN_ALIVE_MS, HANDBACK_MIN_SAMPLES, HANDBACK_AT, handbackCheck, handbackDue,
-  CTL_SHOW, CTL_RED, ctlKind, createCtlDedupe, peerMac,
+  CTL_SHOW, CTL_RED, ctlKind, createCtlDedupe, peerMac, SETTLE_BEATS,
 };

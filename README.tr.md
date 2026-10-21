@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3483%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3493%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -1212,7 +1212,9 @@ tanısını ve canlı çözümlemeyi (ton, akor, perde, gürlük, davul bantlar�
 - <kbd>3.1.6</kbd> **Ses köprüsü** — bir makine (ya da üçüncü bir aygıt) sesi, çözümlemeyi ve çalan
   parçayı yerel ağdan gönderir; birincil ve yedek aynı sinyali çözümler. Yerel girişe kendiliğinden
   dönüş, ağda bulma, tepsi simgeli yalnız köprü kipi ve ortak saate göre çalınan dinlenebilir ses.
-  Bkz. [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
+  Köprünün kendi penceresi var: durum, kaynaklar ve ayarlar (ad, parola, port, bu makinenin
+  adresleri, oturum açılınca başlatma); köprü kipinden oradan çıkılır, kip değişince yeniden
+  başlatma sorulur. Bkz. [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
 
 Kurulum rehberi, Windows, macOS ve Linux güvenlik duvarı kuralları, gösteri günü listesi ve ölçülen
 sayılar: **[docs/REDUNDANCY.tr.md](docs/REDUNDANCY.tr.md)**. `npm run failover` iki gerçek uygulama
@@ -1783,7 +1785,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3483 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3493 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

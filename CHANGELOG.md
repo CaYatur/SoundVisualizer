@@ -5,7 +5,16 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## Unreleased
 
-Changes on a branch, after 3.1.6-beta. Not merged into `main` and not in any build yet.
+Changes on `main` after 3.1.6-beta, not in any build yet.
+
+### Audio bridge: its own window for everything, mode switch with restart, clock fix [822]
+
+- **The bridge window is the bridge's whole UI.** Three tabs, Status, Sources and Settings, under a header that stays on top. Settings has the bridge name, the pairing secret (show, copy, New Secret with a warning that receivers drop), the port, this computer's addresses with the port and a copy button (for a receiver that has to type the address), the firewall rule, "Start the Bridge at Sign-in" (installed and portable builds; Windows startup list, Linux autostart), "Don't Open the Status Window at Start", and the way out of bridge mode. The panel is still there as "Advanced Settings (Panel)" but is no longer needed. Fields are saved when you leave them, and the window no longer redraws under a field while you type.
+- **Leaving bridge mode from the bridge.** "Back to Normal Mode" turns the setting off, checks that it reached the disk and reopens the app normally. A bridge opened with `--bridge` (its own settings folder) offers "Close Bridge, Open the App" instead: if the normal app is already running it comes to the front, otherwise it opens. A dialog asks first and says how many receivers will fall back to their local input; starting at sign-in is turned off too. The tray menu has the same entries.
+- **"Audio Bridge Only" asks to restart.** Turning it on or off in the panel asks "Restart now?": Restart Now saves, verifies and reopens the app in the new mode; At Next Start keeps it for later. In a bridge opened with `--bridge` the switch is hidden, because the flag decides there.
+- **Fixed: frame age and the shared clock were ~100 ms off for a second after connecting (Windows).** The receiver's first clock ping is answered while the bridge starts its capture helper; that one slow round trip (204 ms) set the offset 102 ms wrong until the next ping a second later. The bridge rig read it as a frame age p95 of 105 ms. The first five pings now go 100 ms apart. Windows bridge rig afterwards: frame age p95 2 ms (bridge-only) and 1.5 ms (normal mode), no lost frames.
+- **Fixed: the redundancy clock offset could start too high and take ~25 s to settle.** The backup took its first heartbeat sample as the offset and then moved 1 ms per beat; a sample read while the backup was busy right after connecting would linger. For the first eight beats after a (re)connect the offset now goes straight to the best sample, then slews as before.
+- **Fixed: Turkish device names counted as untranslated text.** Device and app names come from the system ("Hoparlör" on a Turkish Windows) and are now marked as user text in the shared source picker, so the English self-test no longer fails on them.
 
 ### Redundancy overhaul, phase 4: beat sync, OBS fallback, status banner, failover tests and the setup guide [815, 816]
 

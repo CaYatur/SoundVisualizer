@@ -29,9 +29,27 @@ test('saat farkı: son 10 sn\'nin en küçük örneği; yedeğin duraklaması ö
   assert.strictEqual(f.toLocal(1234), 6236);
 });
 
-test('düzeltme sıçramaz: atış başına en çok 1 ms', () => {
+/* Oturma payı: bağlanınca ilk örnek yedek meşgulken şişebilir (köprüde
+   Windows'ta ölçüldü: ilk yanıt 200 ms gecikti). İlk atışlarda fark doğrudan
+   en küçüğe iner; 1 ms'lik kayma ancak sonra başlar. */
+test('saat farkı: bağlanınca şişen ilk örnek ilk atışlarda düzeliyor, 25 sn beklemiyor', () => {
   const f = follower();
-  f.beat({ at: 0 }, 100); // fark 100
+  f.beat({ at: 0 }, 5200); // yedek meşguldü: örnek 5200, gerçek fark 5002
+  assert.strictEqual(f.status.offsetMs, 5200);
+  f.beat({ at: 100 }, 5102);
+  assert.strictEqual(f.status.offsetMs, 5002, 'ikinci atışta doğrudan');
+  // Yeniden bağlanınca pay yeniden açılır
+  f.disconnected();
+  f.connected();
+  f.beat({ at: 200 }, 5260);
+  assert.strictEqual(f.status.offsetMs, 5002, 'pencerede daha küçüğü var');
+});
+
+test('düzeltme sıçramaz: oturduktan sonra atış başına en çok 1 ms', () => {
+  const f = follower();
+  // Oturma payı biter (fark 100)
+  for (let i = -R.SETTLE_BEATS; i <= 0; i++) f.beat({ at: i * 100 }, i * 100 + 100);
+  assert.strictEqual(f.status.offsetMs, 100);
   // Birincilin saati 40 ms ileri alındı (NTP): yeni örnekler 60, en küçük hemen 60
   for (let i = 1; i <= 10; i++) f.beat({ at: i * 100 + 40 }, i * 100 + 100);
   assert.strictEqual(f.status.offsetMs, 90, 'atış başına 1 ms iniyor, sıçramıyor');
