@@ -56,7 +56,28 @@ test('dosya adı, kimlik, açıklama ve lisans', () => {
   assert.match(lic, /CC BY 4\.0/);
   assert.match(lic, /CaYaDev/);
   const readme = fs.readFileSync(path.join(PP.DIR, 'README.md'), 'utf-8');
-  for (const p of PACK) assert.ok(readme.includes('| ' + p.name + ' |'), 'README tablosunda yok: ' + p.name);
+  // Galeri pack.json'dan üretilir (elle eklenen tablo satırları bir kez tablonun dışına düşmüştü)
+  assert.strictEqual(readme.replace(/\r\n/g, '\n'), PP.renderReadme(readme, PACK), 'README galerisi güncel değil: node scripts/preset-pack.js');
+  for (const p of PACK) {
+    const cell = PP.gallery(PACK).find((l) => l.includes('"' + p.preview + '"'));
+    assert.ok(cell && cell.includes('<b>' + p.name + '</b>') && cell.includes(encodeURI(p.file)), 'galeride yok: ' + p.name);
+  }
+});
+
+test('her presetin 960x540 JPEG önizlemesi var', () => {
+  for (const p of PACK) {
+    const b = fs.readFileSync(path.join(PP.DIR, p.preview));
+    assert.ok(b[0] === 0xff && b[1] === 0xd8, p.preview + ': JPEG değil');
+    // SOF0/SOF2 başlığından boyut
+    let i = 2, size = null;
+    while (i < b.length - 9 && !size) {
+      const marker = b[i + 1], len = b.readUInt16BE(i + 2);
+      if (marker === 0xc0 || marker === 0xc2) size = [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)];
+      i += 2 + len;
+    }
+    assert.deepStrictEqual(size, [960, 540], p.preview);
+    assert.ok(b.length < 250 * 1024, p.preview + ': ' + Math.round(b.length / 1024) + ' KB, 250 KB sınırı');
+  }
 });
 
 test('her preset MilkDrop 2 başlığı, warp ve comp shader\'ı taşıyor ve hatasız çevriliyor', () => {
