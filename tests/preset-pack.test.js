@@ -61,7 +61,7 @@ test('dosya adı, kimlik, açıklama ve lisans', () => {
 
 test('her preset MilkDrop 2 başlığı, warp ve comp shader\'ı taşıyor ve hatasız çevriliyor', () => {
   for (const p of PACK) {
-    assert.ok(p.source.startsWith('MILKDROP_PRESET_VERSION=201\r\nPSVERSION=3\r\nPSVERSION_WARP=3\r\nPSVERSION_COMP=3\r\n'), p.name);
+    assert.match(p.source, /^MILKDROP_PRESET_VERSION=201\r\nPSVERSION=([34])\r\nPSVERSION_WARP=\1\r\nPSVERSION_COMP=\1\r\n/, p.name);
     const parsed = new MD.Preset(p.source, { seed: 1234 });
     assert.deepStrictEqual(parsed.errors, [], p.name + ': ' + parsed.errors.join(' | '));
     const f = MD.parseMilk(p.source);
@@ -111,8 +111,9 @@ test('söndürmeler kare hızından bağımsız', () => {
   for (const p of PACK) {
     assert.match(p.source, /\r\nper_frame_1=q30 = 60\/max\(fps, 15\);\r\n/, p.name);
     const warp = MD.parseMilk(p.source).warpShader;
-    // Geri besleme tamponunu kare başına çarpan her söndürme q30 ile ölçekli
-    assert.match(warp, /pow\([^)]*q30\)/, p.name + ': warp söndürmesi q30\'suz');
+    /* Geri besleme tamponunu kare başına değiştiren adım (söndürme pow(k, q30), kural adımı
+       min(1, q30) ile) q30'a bağlı */
+    assert.match(warp, /\bq30\b/, p.name + ': warp adımı q30\'suz');
   }
 });
 
@@ -164,13 +165,16 @@ test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   for (let i = 1; i <= 32; i++) macros.push('q' + i);
   const decl = new RegExp('\\b(?:float|half|int|bool)[1-4]?(?:x[1-4])?\\s+(' + macros.join('|') + ')\\b');
   for (const p of PACK) {
-    assert.match(p.source, /\r\nPSVERSION_WARP=3\r\nPSVERSION_COMP=3\r\n/, p.name);
+    /* 3 (ps_2_x) varsayılan; 32 sabit yazmacını aşan preset 4 (ps_3_0) yazar ve
+       break'siz kuralı ona uygulanmaz. */
+    const ps2 = /\r\nPSVERSION_WARP=3\r\nPSVERSION_COMP=3\r\n/.test(p.source);
+    assert.ok(ps2 || /\r\nPSVERSION_WARP=4\r\nPSVERSION_COMP=4\r\n/.test(p.source), p.name);
     const f = MD.parseMilk(p.source);
     for (const [stage, text] of [['warp', f.warpShader], ['comp', f.compShader]]) {
       const code = text.replace(/\/\/[^\n]*/g, '');
       const m = decl.exec(code);
       assert.ok(!m, p.name + ' ' + stage + ': MilkDrop makrosu ad olarak kullanılmış: ' + (m && m[0]));
-      assert.doesNotMatch(code, /\bbreak\b|\bwhile\b/, p.name + ' ' + stage + ': ps_2_x döngüden çıkamaz');
+      if (ps2) assert.doesNotMatch(code, /\bbreak\b|\bwhile\b/, p.name + ' ' + stage + ': ps_2_x döngüden çıkamaz');
       // Yardımcı işlevler PS gövdesinin dışında: aşama makroları orada tanımsız bir parametreye açılır
       const helpers = code.slice(0, code.indexOf('shader_body'));
       assert.doesNotMatch(helpers, /\b(uv|uv_orig|rad|ang|hue_shader|ret)\b/, p.name + ' ' + stage + ': yardımcı işlev aşama girdisi okuyor');

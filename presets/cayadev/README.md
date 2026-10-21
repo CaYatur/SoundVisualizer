@@ -1,3 +1,13 @@
+| Phosphor Scope | retro | MilkDrop 2 |
+| Synthwave Horizon | retro | MilkDrop 2 |
+| Coral Script | organic | MilkDrop 2 |
+| Hyperlane | space | MilkDrop 2 |
+| Cymatics | geometric | MilkDrop 2 |
+| Ember Storm | organic | MilkDrop 2 |
+| Kintsugi | abstract | MilkDrop 2 |
+| Laser Cathedral | club | MilkDrop 2 |
+| Julia Bloom | fractal | MilkDrop 2 |
+| Night Bloom | space | MilkDrop 3 |
 # CaYaDev MilkDrop Presets
 
 Original MilkDrop presets made for [CAYADEV Visualizer](https://github.com/CaYatur/SoundVisualizer). They are
@@ -34,7 +44,9 @@ Copy the `.milk` files into your player's preset folder:
 - MilkDrop 2 / BeatDrop / Milkwave: the `presets` folder next to the player.
 - projectM: the preset directory from its settings.
 
-Each file has `PSVERSION=3` (pixel shader model 3.0) and needs DirectX 9.0c-class hardware or newer.
+Most files have `PSVERSION=3`, which in MilkDrop 2 means pixel shader 2.x (ps_2_a, or ps_2_b). Synthwave
+Horizon has `PSVERSION=4` (pixel shader 3.0) because it needs more constants. Both run on any DirectX 9.0c-class
+GPU.
 
 ## License
 

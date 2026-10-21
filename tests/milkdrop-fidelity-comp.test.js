@@ -261,10 +261,12 @@ test('kendi presetlerimiz yalnız MilkDrop\'un okuduğu anahtarları, birer kez 
     texts.push([r.code, r.source]);
   }
   // Karışımlar: satırlar vericilerden olduğu gibi, sürüm satırları yeniden
-  const own = texts.length;
+  /* Vericiler MilkDrop 2 presetleri: MilkDrop 3 vericisinin 5. ve sonraki yuvaları karışıma
+     olduğu gibi geçer ve karışım da MilkDrop 3 olur (motor onu öyle tanır). */
+  const donors = texts.filter((t) => !t[2]);
   for (let i = 0; i < 30; i++) {
     const d = {};
-    X.SLOTS.forEach((slot, k) => { d[slot] = texts[(i + k * 7) % own][1]; });
+    X.SLOTS.forEach((slot, k) => { d[slot] = donors[(i + k * 7) % donors.length][1]; });
     texts.push(['karışım ' + i, X.compose(d)]);
   }
   let checked = 0;
