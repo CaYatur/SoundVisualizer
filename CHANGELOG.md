@@ -33,6 +33,7 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
   - `PSVERSION=3` means ps_2_x, not ps_3_0, so there is no dynamic `break`, and loops have to unroll within 512 instructions.
 
   Every preset is compiled the way MilkDrop does it (its header and wrapper, the SDK shader compiler, ps_2_a then ps_2_b) before it is added.
+- **Engine: HLSL C-style casts compile.** `(float)k * 0.2`, `(float2)x` and `(int)(a + b)` are valid HLSL and MilkDrop compiles them; our shader translator did not, and the stage was dropped as "not compiled" (found while building a preset). They are now turned into GLSL constructors, binding to the term right after the cast as in HLSL. No preset in the 10,347-file test corpus uses them, so no existing preset changes.
 
 ### Audio bridge: its own window for everything, mode switch with restart, clock fix [822]
 

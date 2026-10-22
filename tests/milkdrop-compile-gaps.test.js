@@ -41,6 +41,27 @@ test('`int(x)` bir TİP DEĞİL dönüşüm — float(x) yapılamaz', () => {
   assert.match(g, /trunc\(/, 'HLSL dönüşümü trunc olarak kalmalı');
 });
 
+test('C biçimli dönüştürme `(float)k` kurucuya çevriliyor', () => {
+  /* HLSL `(float)k * 0.2` yazmayı kabul ediyor, GLSL etmiyor. MilkDrop'un
+     derleyicisi geçiriyordu, bizde aşama "derlenmedi" diye düşüyordu (#825:
+     kendi presetimizde ölçüldü; korpusta bu yazım yok). Dönüştürme yalnız
+     hemen ardındaki terime bağlanır: `(float)k * 0.2` -> `float(k) * 0.2`. */
+  const g = gövde('shader_body { float a = 0; for (int k = 0; k < 3; k++) { a += (float)k * 0.2; } ret = a; }');
+  assert.doesNotMatch(g, /\(\s*float\s*\)/, 'C biçimi kalmamalı');
+  assert.match(g, /float\(k\)\s*\*\s*0\.2/);
+});
+
+test('C biçimli dönüştürme vektöre, gruba ve üye zincirine de uyuyor', () => {
+  const g = gövde('shader_body { float2 p = (float2)q1; float m = (int)(q2 * 3.0); ' +
+    'float3 c = (float3)GetBlur1(uv).x; ret = c + p.x + m; }');
+  assert.match(g, /vec2 p = (?:toV2\()?vec2\(q1\)/);
+  assert.match(g, /trunc\(\(q2 \* 3\.0\)\)/, '(int) HLSL gibi sıfıra doğru kırpar');
+  assert.match(g, /vec3\(GetBlur1\(uv\)\.x\)/, 'çağrı ve .üye zinciri terime dahil');
+  // Fonksiyon parametresi ya da önünde ad olan parantez dönüştürme değil
+  const f = tr('float sq(float x) { return x * x; }\nshader_body { ret = sq(q1); }');
+  assert.match(f, /float sq\(float x\)/);
+});
+
 test('vektör bileşeni de tamsayı indeks istiyor', () => {
   /* `retish` bir DİZİ değil, vec3. HLSL float indeksi kabul ediyor,
      GLSL etmiyor — dizi adlarının yanına vektör adları da giriyor. */

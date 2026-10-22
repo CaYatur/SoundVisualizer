@@ -1436,6 +1436,52 @@
     return s;
   }
 
+  /* HLSL'in C biçimli dönüştürmesi: `(float)k * 0.2`, `(float2)x`, `(int)(a+b)`.
+     GLSL'de bu sözdizimi yok, kurucu biçimi var: `float(k)`. MilkDrop'un
+     derleyicisi kabul ediyor; bizde aşama "derlenmedi" diye düşüyordu (#825'te
+     kendi presetimizde ölçüldü). Dönüştürme yalnız hemen ardındaki terime
+     bağlanıyor — ad, sayı ya da parantezli grup, sonrasında çağrı, `.üye` ve
+     `[indeks]` zinciri — öncelik HLSL'deki gibi. Önünde ad karakteri olan
+     `(float)` (`sizeof(float)` gibi) dönüştürme değil, dokunulmuyor. */
+  const C_CAST = /\(\s*((?:float|half|double|int|uint|bool)[1-4]?)\s*\)\s*(?=[A-Za-z0-9_.(])/g;
+  function cCast(s) {
+    let out = '';
+    let last = 0;
+    let m;
+    C_CAST.lastIndex = 0;
+    while ((m = C_CAST.exec(s)) !== null) {
+      const before = s.slice(0, m.index).replace(/\s+$/, '');
+      if (/[A-Za-z0-9_]$/.test(before)) continue;
+      const group = (i) => {
+        let depth = 0;
+        for (let j = i; j < s.length; j++) {
+          if (s[j] === '(' || s[j] === '[') depth++;
+          else if (s[j] === ')' || s[j] === ']') { if (--depth === 0) return j + 1; }
+        }
+        return -1;
+      };
+      let i = C_CAST.lastIndex;
+      if (s[i] === '(') i = group(i);
+      else {
+        const w = /^(?:\d+\.?\d*(?:[eE][-+]?\d+)?[fFhH]?|\.\d+(?:[eE][-+]?\d+)?[fFhH]?|[A-Za-z_][A-Za-z0-9_]*)/.exec(s.slice(i));
+        i = w ? i + w[0].length : -1;
+      }
+      while (i > 0) {
+        const t = /^\s*/.exec(s.slice(i))[0].length;
+        const c = s[i + t];
+        if (c === '(' || c === '[') i = group(i + t);
+        else if (c === '.' && /[A-Za-z_]/.test(s[i + t + 1] || '')) i += t + 1 + /^[A-Za-z0-9_]*/.exec(s.slice(i + t + 1))[0].length;
+        else break;
+      }
+      if (i < 0) continue;
+      const type = m[1].replace(/^(?:half|double|uint|bool)/, 'float');
+      out += s.slice(last, m.index) + type + '(' + s.slice(C_CAST.lastIndex, i) + ')';
+      last = i;
+      C_CAST.lastIndex = i;
+    }
+    return last ? out + s.slice(last) : s;
+  }
+
   function rewriteText(s) {
     /* Presetlerin %25,9'u kendi doku değişkenini bildiriyor
        (`sampler2D sampler_lichen;`). Bunu biz uniform olarak zaten
@@ -1509,6 +1555,7 @@
        dönüşümüyle aynı şeyi yapıyor — sıfıra doğru kırpıyor — ama float
        kalıyor. İndeks olarak kullanılan yerleri `arrayIndex` zaten `int()`
        ile sarıyor. */
+    s = cCast(s);
     s = s.replace(/\bint\s*\(/g, 'trunc(');
     for (const t of TYPES) s = s.replace(new RegExp('\\b' + t[0] + '\\b', 'g'), t[1]);
     /* Presetler yerleşiklerin adını bazen küçük harfle yazıyor (`tex2d`).
