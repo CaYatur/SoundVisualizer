@@ -194,6 +194,8 @@
   /* Yerleşiklerin dönüş tipi. `same` ilk argümanın tipini döndürüyor. */
   const FN = {
     tex2D: 'vec3', tex3D: 'vec3', tex2Dlod: 'vec3', tex2Dbias: 'vec3',
+    // Alfayı koruyan okumalar: yalnız gürültü dokularına (bkz. noiseTex)
+    tex2D4: 'vec4', tex3D4: 'vec4',
     texture: 'vec4', textureLod: 'vec4',
     GetBlur0: 'vec3', GetBlur1: 'vec3', GetBlur2: 'vec3', GetBlur3: 'vec3',
     GetPixel: 'vec3',
@@ -360,6 +362,13 @@
     smoothstep: 1, atan: 1, reflect: 1,
   };
 
+  // Gürültü dokusundan okuyan tex2D/tex3D çağrısı mı (önekli: sampler_pw_noise_lq)
+  const NOISE_SAMPLER = /^sampler_(?:[a-z]{2}_)?noise/i;
+  function noiseTex(node) {
+    return !!(node && node.k === 'call' && (node.name === 'tex2D' || node.name === 'tex3D') &&
+      node.args.length && node.args[0].k === 'id' && NOISE_SAMPLER.test(node.args[0].name));
+  }
+
   function collect(node, env, patches) {
     if (!node) return;
     switch (node.k) {
@@ -393,12 +402,22 @@
            `tex2D(...).ag` yazıyor ve GLSL "vector field selection out of
            range" diyor.
 
-           Alfa 1,0 ile karşılanıyor. Motorun bütün dokuları RGB: bağlam
-           `alpha: false` ile kuruluyor, geri besleme hedefinin alfası
-           preset geçişinin karışım değeri, gürültü dokularının alfası yok.
-           Yani kırpılan bileşenin GERÇEK karşılığı 1,0 — uydurma değil. */
+           Alfa 1,0 ile karşılanıyor. Bağlam `alpha: false` ile kuruluyor ve
+           geri besleme hedefinin alfası preset geçişinin karışım değeri;
+           ana tampon ve bulanıklıklar için kırpılan bileşenin karşılığı 1,0.
+           Gürültü dokuları bunun dışında (aşağıda). */
         if (SWIZZLE.test(node.name) && typeOf(node.a, env) === 'vec3' &&
             /[aw]/.test(node.name)) {
+          /* GÜRÜLTÜ DOKUSUNUN alfası ise gerçek: MilkDrop dört kanalı da
+             rastgele üretiyor, bizim üretecimiz de. `tex2D(sampler_pw_noise_lq,
+             p).w` 1,0 değil o rastgele değer olmalı — 1,0 vermek "hücre başına
+             rastgele renk" isteyen presette bütün hücreleri aynı renge
+             boyuyordu (#825, Crystal Shards; MilkDrop 2'yle yan yana ölçüldü).
+             Çağrı alfayı koruyan vec4 sürümüne çevriliyor. */
+          if (noiseTex(node.a)) {
+            patches.push({ s: node.a.s, e: node.a.s + node.a.name.length, rename: node.a.name + '4' });
+            return;
+          }
           patches.push({ s: node.s, e: node.e, alfa: node.name, inner: [node.a.s, node.a.e] });
         }
         return;
@@ -559,7 +578,8 @@
       if (p.e > lastS) continue;
       const seg = out.slice(p.s, p.e);
       let rep;
-      if (p.notZero) rep = '(' + out.slice(p.inner[0], p.inner[1]) + ' == 0.0)';
+      if (p.rename) rep = p.rename;
+      else if (p.notZero) rep = '(' + out.slice(p.inner[0], p.inner[1]) + ' == 0.0)';
       // Sayıyı doğruluk değerine çevirir: `&&`, `||` ve `?:` bool istiyor.
       else if (p.isTrue) rep = '((' + seg + ')' + (p.swz || '') + ' != 0.0)';
       else if (p.wrap) rep = p.wrap + '(' + seg + ')';
@@ -579,7 +599,7 @@
     return out;
   }
 
-  const api = { tokenize, parse, typeOf, narrowExpr, FN, WIDTH };
+  const api = { tokenize, parse, typeOf, narrowExpr, noiseTex, FN, WIDTH };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVMilkdropHLSL = api;
 })();
