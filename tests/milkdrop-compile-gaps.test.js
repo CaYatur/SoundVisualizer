@@ -62,6 +62,20 @@ test('C biçimli dönüştürme vektöre, gruba ve üye zincirine de uyuyor', ()
   assert.match(f, /float sq\(float x\)/);
 });
 
+test('gürültü dokusunun alfası gerçek, ana tamponunki 1,0', () => {
+  /* tex2D bilerek vec3 döndürüyor; kırpılan alfa 1,0 ile karşılanıyordu.
+     Gürültü dokularında alfa da rastgele (MilkDrop'ta ve bizim üretecimizde);
+     1,0 vermek `.w`'den hücre rengi alan presette bütün hücreleri aynı renge
+     boyuyordu (#825, MilkDrop 2'yle yan yana ölçüldü). */
+  const g = gövde('sampler sampler_pw_noise_lq;\nshader_body { float4 h = tex2D(sampler_pw_noise_lq, uv); ' +
+    'float n = tex2D(sampler_noise_hq, uv).w; float2 c = tex3D(sampler_noisevol_lq, float3(uv, 0.5)).xa; ' +
+    'float m = tex2D(sampler_main, uv).a; ret = h.w + n + c.y + m; }');
+  assert.match(g, /vec4 h = toV4\(tex2D4\(sampler_pw_noise_lq, uv\)\)/, 'float4 ataması alfayı korur');
+  assert.match(g, /tex2D4\(sampler_noise_hq, uv\)\.w/, '.w okuması alfayı korur');
+  assert.match(g, /tex3D4\(sampler_noisevol_lq, [^;]*\)\.xa/, 'hacim gürültüsü de');
+  assert.match(g, /float m = toF\(1\.0\)|float m = 1\.0/, 'ana tamponun alfası 1,0 kalır');
+});
+
 test('vektör bileşeni de tamsayı indeks istiyor', () => {
   /* `retish` bir DİZİ değil, vec3. HLSL float indeksi kabul ediyor,
      GLSL etmiyor — dizi adlarının yanına vektör adları da giriyor. */
@@ -307,10 +321,13 @@ test('vec3\'ten istenen DÖRDÜNCÜ bileşen 1,0 ile karşılanıyor', () => {
      çoğunluğu üç bileşen bekliyor). Kalan azınlık `.ag` yazıyor ve GLSL
      "vector field selection out of range" diyor.
 
-     1,0 uydurma değil: motorun bütün dokuları RGB — bağlam `alpha: false`
-     ile kuruluyor ve gürültü dokularının alfası yok. */
-  const g = gövde('shader_body { float2 n = tex2D(sampler_noise_lq, uv).ag*2-1; ret = vec3(n,0); }');
-  assert.match(g, /vec2\(1\.0, \(tex2D\(sampler_noise_lq, uv\)\)\.g\)/);
+     Ana tampon ve bulanıklıklar için 1,0 uydurma değil: bağlam `alpha: false`
+     ile kuruluyor. Gürültü dokularının alfası ise GERÇEK (bkz. sonraki test);
+     orada alfayı koruyan okuma kullanılıyor. */
+  const g = gövde('shader_body { float2 n = tex2D(sampler_main, uv).ag*2-1; ret = vec3(n,0); }');
+  assert.match(g, /vec2\(1\.0, \(tex2D\(sampler_main, uv\)\)\.g\)/);
+  const z = gövde('shader_body { float2 n = tex2D(sampler_noise_lq, uv).ag*2-1; ret = vec3(n,0); }');
+  assert.match(z, /tex2D4\(sampler_noise_lq, uv\)\.ag/);
 });
 
 // ------------------------------------------------ fonksiyon parametreleri

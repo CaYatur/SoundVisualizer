@@ -503,6 +503,14 @@
     'vec3 tex2D(sampler2D s, vec3 uv2){ return texture(s, uv2.xy).xyz; }',
     // float4 koordinat da geçiyor; HLSL fazlasını kırpar.
     'vec3 tex2D(sampler2D s, vec4 uv2){ return texture(s, uv2.xy).xyz; }',
+    /* Alfayı koruyan okuma: çevirici yalnız GÜRÜLTÜ dokusundan alfa
+       istendiğinde buna geçiyor (milkdrop-hlsl.js noiseTex). */
+    'vec4 tex2D4(sampler2D s, vec2 uv2){ return texture(s, uv2); }',
+    'vec4 tex2D4(sampler2D s, float u){ return texture(s, vec2(u, u)); }',
+    'vec4 tex2D4(sampler2D s, vec3 uv2){ return texture(s, uv2.xy); }',
+    'vec4 tex2D4(sampler2D s, vec4 uv2){ return texture(s, uv2.xy); }',
+    'vec4 tex3D4(sampler3D s, vec3 uv2){ return texture(s, uv2); }',
+    'vec4 tex3D4(sampler2D s, vec3 uv2){ return texture(s, uv2.xy); }',
     'vec3 tex2Dlod(sampler2D s, vec4 uv2){ return textureLod(s, uv2.xy, uv2.w).xyz; }',
     'vec3 tex2Dbias(sampler2D s, vec4 uv2){ return texture(s, uv2.xy, uv2.w).xyz; }',
     /* Üç boyutlu okuma z'yi KULLANIYOR. Korpustaki 4.322 `tex3D` çağrısının
@@ -1089,7 +1097,17 @@
          hataların çoğunluğuydu ve metinle çözülemiyordu — hangi tarafın
          geniş olduğunu bilmek ifadenin tipini bilmeyi gerektiriyor. */
       const H = hl();
-      const body = H ? H.narrowExpr(rhs.trim(), types) : rhs.trim();
+      let src = rhs.trim();
+      /* `float4 h = tex2D(sampler_pw_noise_lq, p);` — toV4 vec3'ü alfa 1,0 ile
+         genişletirdi; gürültünün alfası ise gerçek ve rastgele (bkz.
+         milkdrop-hlsl.js noiseTex). Tek çağrıdan oluşan sağ taraf alfayı
+         koruyan okumaya çevriliyor. */
+      if (H && t === 'vec4') {
+        let root = null;
+        try { root = H.parse(H.tokenize(src)); } catch (e) { root = null; }
+        if (root && H.noiseTex(root) && root.s === 0 && root.e === src.length) src = root.name + '4' + src.slice(root.name.length);
+      }
+      const body = H ? H.narrowExpr(src, types) : src;
       return st.slice(0, i + 1) + ' ' + CAST[t] + '(' + body + ')';
     }
     return st;

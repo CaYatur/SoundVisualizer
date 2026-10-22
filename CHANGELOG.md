@@ -34,6 +34,7 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
 
   Every preset is compiled the way MilkDrop does it (its header and wrapper, the SDK shader compiler, ps_2_a then ps_2_b) before it is added.
 - **Engine: HLSL C-style casts compile.** `(float)k * 0.2`, `(float2)x` and `(int)(a + b)` are valid HLSL and MilkDrop compiles them; our shader translator did not, and the stage was dropped as "not compiled" (found while building a preset). They are now turned into GLSL constructors, binding to the term right after the cast as in HLSL. No preset in the 10,347-file test corpus uses them, so no existing preset changes.
+- **Engine: noise textures keep their alpha.** Reading `.w`/`.a` from a noise texture (`tex2D(sampler_pw_noise_lq, p).w`, or `float4 h = tex2D(sampler_noise_hq, p)`) gave 1.0 in our engine; MilkDrop gives the texture's random alpha. A preset that picked a colour per cell from `.w` showed every cell in the same hue next to MilkDrop 2's many hues (measured side by side). Those reads now keep the alpha; the main buffer and blur textures still read 1.0 as before. The corpus still compiles in full (16,346 of 16,346 stages before and after).
 
 ### Audio bridge: its own window for everything, mode switch with restart, clock fix [822]
 
