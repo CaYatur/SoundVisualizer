@@ -106,7 +106,7 @@ warp_12=`  float len = 0.05 + 0.25 * q2 * r;
 warp_13=`  float dy = (f.y - (0.2 + 0.6 * h.z)) / rows;
 warp_14=`  float w = exp(-dx * dx * 2.5e5);
 warp_15=`  float s = saturate(1.0 - abs(dy + len * 0.5) / (len * 0.5 + 0.002));
-warp_16=`  return on * w * s * saturate(r * 3.0 - 0.1) * (0.5 + h.w);
+warp_16=`  return on * w * s * saturate(r * 3.0 - 0.1) * (0.75 + h.w * 1.5);
 warp_17=`}
 warp_18=`shader_body
 warp_19=`{
@@ -114,7 +114,7 @@ warp_20=`  float2 p = (uv - 0.5 - float2(q6, q7)) * aspect.xy;
 warp_21=`  float s = stars(p, 140.0, 14.0, q1, 0.72);
 warp_22=`  s += stars(p * 1.7, 260.0, 20.0, q1 * 1.3, 0.85) * 0.6 * saturate(q4 - 0.3);
 warp_23=`  ret = tex2D(sampler_main, uv).xyz * pow(0.82, q30);
-warp_24=`  ret += s * float3(0.85, 0.92, 1.0);
+warp_24=`  ret += s * float3(0.85, 0.92, 1.0) * min(1.0, q30);
 warp_25=`}
 comp_1=`shader_body
 comp_2=`{

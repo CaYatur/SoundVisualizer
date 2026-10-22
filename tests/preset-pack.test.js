@@ -11,7 +11,9 @@
  *    gibi) shader'da bildirilmiş: bildirilmezse MilkDrop comp'u düşürüyor,
  *    bizim motor ise sessizce çalıştırıyor (BeatDrop'ta ölçüldü);
  *  - dalga ve şekil kodu aspectx/aspecty okumuyor: MilkDrop 2 onları bu
- *    bloklara vermiyor (0 görünüyor), paket q31/q32 ile taşıyor;
+ *    bloklara vermiyor (0 görünüyor), paket q31/q32 ile taşıyor; dalga
+ *    koordinatı ise zaten eşit ölçekli (y en-boyla geriliyor), q31/q32 ile
+ *    çarpılan dalga dikeyde 1,78 kat uzuyordu;
  *  - söndürmeler kare hızına bağlı değil (q30), 144 Hz'te izler kısalmıyor. */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -128,12 +130,28 @@ test('dalga ve şekil kodu en-boy oranını q31/q32\'den okuyor', () => {
   }
 });
 
+test('özel dalga koordinatı en-boyla çarpılmıyor', () => {
+  /* MilkDrop dalga noktasını y'de 1/aspecty ile geriyor (milkdropfs.cpp:2485):
+     dalga birimi iki eksende aynı piksel, daire çarpansız yuvarlak. q31/q32
+     (aspectx/aspecty = 1/en-boy) ile ÇARPMAK geniş ekranda dikeyi 1,78 kat
+     uzatıyordu: Phosphor Scope'un Lissajous'u ekrandan taşıyordu. Ekran
+     kenarına uzanmak için BÖLMEK doğru (Infinite Frame). Şekil konumu ise ekran
+     kesri; orada çarpmak doğru. */
+  for (const p of PACK) {
+    for (const line of p.source.split(/\r\n/)) {
+      if (/^wave_\d+_per_point\d+=/.test(line)) assert.doesNotMatch(line, /\*\s*q3[12]\b/, p.name + ': ' + line);
+    }
+  }
+});
+
 test('söndürmeler kare hızından bağımsız', () => {
   for (const p of PACK) {
     assert.match(p.source, /\r\nper_frame_1=q30 = 60\/max\(fps, 15\);\r\n/, p.name);
     const warp = MD.parseMilk(p.source).warpShader;
     /* Geri besleme tamponunu kare başına değiştiren adım (söndürme pow(k, q30), kural adımı
-       min(1, q30) ile) q30'a bağlı */
+       min(1, q30) ile) q30'a bağlı. Önceki kareyi hiç okumayan warp (Spectral Ridges tamponu
+       her karede temizleyip veri satırı olarak kullanıyor) geri besleme değil. */
+    if (!/sampler_(\w\w_)?main\b/.test(warp)) continue;
     assert.match(warp, /\bq30\b/, p.name + ': warp adımı q30\'suz');
   }
 });
