@@ -139,6 +139,97 @@
         "tr": "Bir şehrin üstünde havai fişek gösterisi: her vuruş sıradaki fişeği patlatıyor. MilkDrop 3 presetidir (sekiz fişek); MilkDrop 2 oynatıcıları dördünü gösterir.",
         "en": "A fireworks show over a city skyline; each beat fires the next shell. A MilkDrop 3 preset (eight shells); MilkDrop 2 players show four."
       }
+    },
+    {
+      "file": "CaYaDev - Galaxy Spiral.milk",
+      "id": "md_caya_galaxy_spiral",
+      "category": "space",
+      "description": {
+        "tr": "Yavaşça dönen eğik bir sarmal gökada: mavi yıldız bulutlu kollar, kolların iç kenarında koyu toz şeritleri, pembe yıldız doğum bölgeleri ve sıcak bir çekirdek. Bas çekirdeği aydınlatıyor, tizler yıldızları kırpıştırıyor.",
+        "en": "A tilted spiral galaxy turning slowly: blue star-cloud arms with dark dust lanes along their inner edges, pink star-forming knots and a warm core. Bass lights the core, treble twinkles the stars."
+      }
+    },
+    {
+      "file": "CaYaDev - Crystal Shards.milk",
+      "id": "md_caya_crystal_shards",
+      "category": "geometric",
+      "description": {
+        "tr": "Yavaşça kayan kristal hücrelerden bir vitray: her parça kendi yüzey açısıyla ışık alıyor, ekler prizma gibi renk saçıyor. Her vuruşta merkezden bir ışık dalgası hücrelerin içinden geçiyor.",
+        "en": "Stained glass of slowly drifting crystal cells: each shard catches the light at its own facet angle and the seams split it like a prism. Every beat sends a wave of light through the cells from the centre."
+      }
+    },
+    {
+      "file": "CaYaDev - Oil Slick.milk",
+      "id": "md_caya_oil_slick",
+      "category": "liquid",
+      "description": {
+        "tr": "Karanlık suyun üstünde bir yağ tabakası: akıntı tabakayı girdaplarla karıştırıyor, kalınlığı ince film girişim renklerine dönüşüyor ve yüzey parlıyor. Bas yeni yağ döküyor, ortalar akıntıyı karıştırıyor.",
+        "en": "A film of oil on dark water: a slow current curls it into eddies, its thickness turns into thin-film interference colours and the surface glints. Bass pours more oil, mids stir the current."
+      }
+    },
+    {
+      "file": "CaYaDev - Solar Flare.milk",
+      "id": "md_caya_solar_flare",
+      "category": "space",
+      "description": {
+        "tr": "Yakından güneş: kenara doğru kararan, granülasyonlu bir disk, yüzeyle birlikte dönen güneş lekeleri, ışınsal bir korona ve kenardan kıvrılarak yükselen püskürmeler. Bas koronayı alevlendiriyor, tizler püskürmeleri parlatıyor.",
+        "en": "The sun up close: a granulated, limb-darkened disc, sunspots turning with the surface, a rayed corona and prominences curling up from the limb. Bass flares the corona, treble brightens the prominences."
+      }
+    },
+    {
+      "file": "CaYaDev - Mercury Rain.milk",
+      "id": "md_caya_mercury_rain",
+      "category": "liquid",
+      "description": {
+        "tr": "Karanlık bir stüdyoda düşen sıvı metal damlaları: birbirine değince birleşip ayrılıyor, cilalı yüzeyleri çevredeki ışığı yansıtıyor. Bas damlaları büyütüyor, ortalar hızlandırıyor, tizler parıltı katıyor.",
+        "en": "Drops of liquid metal falling through a dark studio: they merge and split when they touch, and their polished surfaces mirror the lights around them. Bass swells the drops, mids speed them up, treble adds glints."
+      }
+    },
+    {
+      "file": "CaYaDev - Infinite Frame.milk",
+      "id": "md_caya_infinite_frame",
+      "category": "geometric",
+      "description": {
+        "tr": "İç içe çerçevelerden sonsuz bir düşüş: her vuruşta ekranın kenarına kenarları dalga biçimini taşıyan yeni bir renkli çerçeve basılıyor ve çerçeveler dönerek merkeze doğru küçülüyor. Bas düşüşü hızlandırıyor, ortalar dönüşü artırıyor.",
+        "en": "An endless fall through nested frames: each beat stamps a new coloured frame at the screen edge, its sides carrying the waveform, and the frames spiral down toward the centre. Bass speeds the fall, mids turn it."
+      }
+    },
+    {
+      "file": "CaYaDev - Data Corridor.milk",
+      "id": "md_caya_data_corridor",
+      "category": "tunnel",
+      "description": {
+        "tr": "Veri panellerinden kare bir koridorda hızla ilerleme: paneller yanıp sönen karakterlerle doluyor, hızlı paneller kısa hız izleri bırakıyor ve her vuruşta izleyiciye doğru bir ışık halkası geliyor. Bas hızı, ortalar rengi belirliyor.",
+        "en": "Racing down a square corridor of data panels: the panels fill with blinking glyphs, fast panels leave short speed trails and each beat sends a ring of light toward you. Bass sets the speed, mids the colour."
+      }
+    },
+    {
+      "file": "CaYaDev - Bioluminescence.milk",
+      "id": "md_caya_bioluminescence",
+      "category": "organic",
+      "description": {
+        "tr": "Gece derin denizde: karanlıkta doğan plankton kıvılcımları akıntıyla sürükleniyor, üç denizanası kubbesini kasıp gevşetiyor ve dalgalanan dokunaçlarını arkasından sürüklüyor. Bas kubbeleri attırıyor, tizler plankton ve dokunaç hareketi katıyor.",
+        "en": "The deep sea at night: plankton sparks are born in the dark and drift on the current while three jellyfish pulse their bells and trail swaying tentacles. Bass drives the pulses, treble wakes plankton and sways the tentacles."
+      }
+    },
+    {
+      "file": "CaYaDev - Glitch Pulse.milk",
+      "id": "md_caya_glitch_pulse",
+      "category": "club",
+      "description": {
+        "tr": "Tepe tutmalı, LED bloklu bir neon spektrum analizörü ve zemin yansıması. Her güçlü vuruşta görüntü kayan bloklara bölünüyor, RGB kanalları ayrılıyor, birkaç karo tersine dönüyor; sonra temizce toparlanıyor. Tam ekran flaş yok.",
+        "en": "A neon LED spectrum analyser with peak caps and a floor reflection. Each strong beat tears the picture into shifted blocks, splits RGB and inverts a few tiles, then it settles back clean. No full-screen flash."
+      }
+    },
+    {
+      "file": "CaYaDev - Spectral Ridges.milk",
+      "id": "md_caya_spectral_ridges",
+      "category": "abstract",
+      "md3": true,
+      "description": {
+        "tr": "Perspektifte üst üste on iki sırt çizgisi, bir pulsar çizimi gibi: her sırt sinyali farklı bir kanal kaymasıyla gösteriyor ve öndeki sırt arkadakileri gerçekten gizliyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında öndeki dört sırt hareket eder.",
+        "en": "Twelve stacked ridgelines in perspective, like a plot of pulsar pulses: each ridge shows the signal at a different channel offset and every ridge truly hides the ones behind it. A MilkDrop 3 preset; MilkDrop 2 players move the front four ridges."
+      }
     }
   ]
 }

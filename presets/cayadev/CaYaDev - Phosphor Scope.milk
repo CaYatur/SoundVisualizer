@@ -90,8 +90,8 @@ wave_0_per_frame2=t1 = time*0.37;
 wave_0_per_point1=an = sample*6.28318;
 wave_0_per_point2=bx = sin(an*3 + t1)*0.26;
 wave_0_per_point3=by = sin(an*2)*0.26;
-wave_0_per_point4=x = 0.5 + (bx + value1*0.3)*q31;
-wave_0_per_point5=y = 0.5 + (by + value2*0.3)*q32*0.95;
+wave_0_per_point4=x = 0.5 + (bx + value1*0.3)*0.9;
+wave_0_per_point5=y = 0.5 + (by + value2*0.3)*0.9;
 wave_0_per_point6=r = 0.6;
 wave_0_per_point7=g = 1;
 wave_0_per_point8=b = 0.6;
@@ -111,8 +111,8 @@ wavecode_1_a=0.45
 wave_1_per_frame1=a = 0.45*min(1, q30);
 wave_1_per_point1=an = sample*6.28318 - time*0.2;
 wave_1_per_point2=rr = 0.27 + value1*0.08;
-wave_1_per_point3=x = 0.5 + rr*cos(an)*q31;
-wave_1_per_point4=y = 0.5 + rr*sin(an)*q32*0.95;
+wave_1_per_point3=x = 0.5 + rr*cos(an)*0.9;
+wave_1_per_point4=y = 0.5 + rr*sin(an)*0.9;
 wave_1_per_point5=r = 0.4;
 wave_1_per_point6=g = 1;
 wave_1_per_point7=b = 0.5;
@@ -126,7 +126,7 @@ warp_1=`shader_body
 warp_2=`{
 warp_3=`  float3 m = tex2D(sampler_main, uv).xyz;
 warp_4=`  ret = lerp(m, GetBlur1(uv), 0.12 * min(1.0, q30)) * pow(0.88, q30);
-warp_5=`  ret = max(ret - 0.003 * q30, 0.0);
+warp_5=`  ret = max(ret - 0.003 * max(q30, 1.0), 0.0);
 warp_6=`}
 comp_1=`shader_body
 comp_2=`{
