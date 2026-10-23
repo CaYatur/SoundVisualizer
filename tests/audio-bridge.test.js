@@ -432,24 +432,74 @@ test('alıcı: bağlıyken köprünün başka adresi bildirilince yeniden bağla
   } finally { rx.stop(); await sender.stop(); }
 });
 
+/* Boş TCP portu: işletim sistemi verir (port 0), sınama hemen bırakır.
+   Rastgele seçilen port her makinede dinlenemiyor: windows-latest'te
+   49694-49893 dışlanmış (Hyper-V, EACCES); Windows'ta 49152-65535, Linux'ta
+   32768-60999 geçici port aralığı, yani başka bir bağlantı o portu
+   tutabiliyor (EADDRINUSE). createSender().start() o zaman hata vermiyor,
+   listening:false ile dönüyor; alıcı da 3 sn 'connecting' kalıyordu (#831'in
+   CI koşusu). Ölçüldü: eski sınama 600 koşuda 3 kez (Windows ve Ubuntu),
+   bu hâli 600 koşuda hiç düşmedi. */
+const freePort = () => new Promise((resolve, reject) => {
+  const srv = require('net').createServer();
+  srv.once('error', reject);
+  srv.listen(0, '127.0.0.1', () => { const p = srv.address().port; srv.close(() => resolve(p)); });
+});
+
 test('alıcı: bekleme en çok 1 sn; işaret duyulunca hemen deniyor', async () => {
   assert.ok(Math.max(...B.RETRY_MS) <= 1000, 'bekleme sınırı');
-  const port = 30000 + Math.floor(Math.random() * 20000);
-  const rx = B.createReceiver({ host: '127.0.0.1', port, secret: SECRET });
-  rx.start();
-  try {
-    await until(() => rx.status().state === 'connecting' && rx.status().error, 3000);
-    // Köprü şimdi açılıyor; işaret gelince bekleme beklenmez
-    const sender = B.createSender({ port, host: '127.0.0.1', secret: SECRET });
-    await sender.start();
-    const t0 = Date.now();
-    rx.kick();
-    await until(() => rx.status().state === 'connected', 3000);
-    assert.strictEqual(rx.status().state, 'connected');
-    assert.ok(Date.now() - t0 < 900, 'işaretten sonra hemen bağlandı (' + (Date.now() - t0) + ' ms)');
-    rx.stop();
-    await sender.stop();
-  } finally { rx.stop(); }
+  /* Port bırakıldıktan sonra köprü açılana kadar başka bir süreç onu
+     alabilir; o durumda köprü dinleyemez (listening:false) ve bu alıcının
+     değil ortamın sorunudur: yeni portla baştan denenir. Doğrulama her
+     turda aynı; tur yalnız ölçülemeyince (port alındı, bekleme bitti)
+     tekrarlanır, başarısız doğrulama tekrarlanmaz. */
+  let done = false;
+  for (let round = 0; round < 5 && !done; round++) {
+    const port = await freePort();
+    let attempts = 0;
+    let failed = null;
+    const firstFail = new Promise((r) => { failed = r; });
+    const rx = B.createReceiver({
+      host: '127.0.0.1', port, secret: SECRET,
+      onStatus: (s) => {
+        // connect() her denemede hatasız 'connecting' yayıyor; kapanınca hata ile
+        if (s.state === 'connecting' && !s.error) attempts++;
+        if (s.state === 'connecting' && s.error) failed();
+      },
+    });
+    rx.start();
+    let sender = null;
+    try {
+      // İlk deneme köprü yokken düşüyor: bekleme süresi işliyor
+      let timer = null;
+      const ok = await Promise.race([firstFail.then(() => true), new Promise((r) => { timer = setTimeout(() => r(false), 3000); })]);
+      clearTimeout(timer);
+      assert.ok(ok, 'köprü yokken deneme düşmeli (' + rx.status().state + ')');
+      const atFail = attempts;
+      // Köprü şimdi açılıyor; işaret gelince bekleme beklenmez
+      sender = B.createSender({ port, host: '127.0.0.1', secret: SECRET });
+      const st = await sender.start();
+      if (!st.listening) continue; // port bu arada alındı: yeni portla
+      /* Yavaş koşucuda köprü açılırken 250 ms'lik bekleme bitmiş olabilir:
+         o zaman deneme zaten yolda ve işaretin etkisi bu turda ölçülemez. */
+      if (attempts !== atFail) continue;
+      const before = attempts;
+      const t0 = Date.now();
+      assert.strictEqual(rx.kick(), true, 'işaret denemeyi hemen başlattı');
+      /* Deneme kick() içinde, eşzamanlı başlıyor: saate bağlı değil. Bekleme
+         zamanlayıcısını bekleseydi sayı burada artmamış olurdu (250 ms'lik
+         bekleme 900 ms sınırının içinde kaldığı için süre tek başına bunu
+         ayırt etmiyor). */
+      assert.strictEqual(attempts, before + 1, 'deneme işaretle başladı');
+      await until(() => rx.status().state === 'connected', 3000);
+      assert.strictEqual(rx.status().state, 'connected');
+      assert.ok(Date.now() - t0 < 900, 'işaretten sonra hemen bağlandı (' + (Date.now() - t0) + ' ms)');
+      // Bağlanan, işaretin başlattığı deneme: bekleme zamanlayıcısı beklenmedi
+      assert.strictEqual(attempts - before, 1, 'tek deneme (' + (attempts - before) + ')');
+      done = true;
+    } finally { rx.stop(); if (sender) await sender.stop(); }
+  }
+  assert.ok(done, '5 turun hiçbiri ölçülemedi (köprü dinleyemedi ya da bekleme hep önce bitti)');
 });
 
 test('giriş: köprü geri gelince 0,5 sn kesintisiz kareyle döner (varsayılan)', () => {
