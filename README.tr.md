@@ -379,7 +379,7 @@ composite shader'ları GLSL'e çevrilip GPU'da çalışıyor.
 - **Uygulama kendi beş presetiyle geliyor** — *Kutup Işığı*, *Erimiş Altın*, *Dingin Halkalar*,
   *Sonsuz Tünel* ve *Nabız Örgüsü* — böylece motor, siz hiçbir şey içe aktarmadan ne yaptığını
   gösteriyor. Üçüncü taraf preset paketi gelmiyor.
-- **CaYaDev MilkDrop Presetleri: 25 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
+- **CaYaDev MilkDrop Presetleri: 35 shader presetimiz uygulamaya gömülü.** Her birinde warp ve comp shader'ı var.
   Her biri MilkDrop 2'nin kendisiyle karşılaştırıldı, 90 sn kararlılık testinden geçti, 60 ve 144 Hz'te denendi
   ve giriş seviyesi bir tümleşik GPU'da 1080p'de 60 fps'ye ölçüldü. CC BY 4.0 ile her MilkDrop oynatıcısında
   ücretsiz kullanılabilirler: [`presets/cayadev`](presets/cayadev) klasöründen (her birinin görseliyle) ya da

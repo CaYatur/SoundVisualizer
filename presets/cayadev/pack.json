@@ -230,6 +230,99 @@
         "tr": "Perspektifte üst üste on iki sırt çizgisi, bir pulsar çizimi gibi: her sırt sinyali farklı bir kanal kaymasıyla gösteriyor ve öndeki sırt arkadakileri gerçekten gizliyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında öndeki dört sırt hareket eder.",
         "en": "Twelve stacked ridgelines in perspective, like a plot of pulsar pulses: each ridge shows the signal at a different channel offset and every ridge truly hides the ones behind it. A MilkDrop 3 preset; MilkDrop 2 players move the front four ridges."
       }
+    },
+    {
+      "file": "CaYaDev - Halo Spectrum.milk",
+      "id": "md_caya_halo_spectrum",
+      "category": "club",
+      "description": {
+        "tr": "Yavaşça dönen parlak bir diskin çevresinde aynalı, dairesel bir spektrum halkası: yüksek çubukların uçları renkli kıvılcımlar saçıyor, kıvılcımlar dışa doğru sürüklenip sönüyor. Her vuruşta halkadan bir şok dalgası yayılıyor. Bas halkayı büyütüyor, ortalar paleti döndürüyor, tizler kıvılcım akışını yoğunlaştırıyor.",
+        "en": "A mirrored circular spectrum around a slowly turning, glowing disc: loud bar tips shed coloured sparks that drift outward and fade, and each beat sends a shock ring out from the halo. Bass swells the ring, mids turn the palette, treble thickens the spark stream."
+      }
+    },
+    {
+      "file": "CaYaDev - Ink Bloom.milk",
+      "id": "md_caya_ink_bloom",
+      "category": "abstract",
+      "description": {
+        "tr": "Kâğıt üstünde, suda yayılan mürekkep: her vuruşta dört mürekkepten biri yeni bir noktaya damlıyor, yavaş ve girdaplı bir akıntı onu ince kıvrımlara çekiyor. Mürekkepler gerçek boya gibi karışıyor, kenarları ıslak ve koyu kalıyor. Bas akıntıyı karıştırıyor, ortalar ince bir kalem çizgisini yönlendiriyor, tizler sıçratıyor.",
+        "en": "Ink spreading through water, seen on paper: each beat drops one of four inks at a fresh spot and a slow, swirling current draws it into fine curls. The inks mix like real pigment and keep wet, dark edges. Bass stirs the current, mids steer a fine pen stroke, treble flicks spatter."
+      }
+    },
+    {
+      "file": "CaYaDev - Contour Survey.milk",
+      "id": "md_caya_contour_survey",
+      "category": "abstract",
+      "description": {
+        "tr": "Yaşayan bir harita: yavaşça kayan ve biçim değiştiren bir arazi; derinliğe göre renklenen deniz, yeşil ovadan karlı zirvelere uzanan kara, kuzeybatıdan gölgelendirme ve her beşincisi kalın eş yükselti eğrileri. Her vuruşta yeni bir noktadan sonar halkası yayılıyor ve geçtiği eğrileri aydınlatıyor. Bas rölyefi yükseltiyor.",
+        "en": "A living survey map: a slowly drifting, reshaping terrain with depth-tinted sea, land shading from green lowland to snowy peaks, north-west hillshade and contour lines with every fifth one bold. Each beat sends a sonar ring from a fresh point that lights the contours it crosses. Bass raises the relief."
+      }
+    },
+    {
+      "file": "CaYaDev - Vinyl Groove.milk",
+      "id": "md_caya_vinyl_groove",
+      "category": "retro",
+      "description": {
+        "tr": "Yukarıdan bir pikap, müziği plağa kazıyor: iğnenin altından geçen her an, genişliği ses yüksekliğine, rengi bas/orta/tiz dengesine göre parlayan bir oluk olarak kalıyor ve şarkı plak üstünde ışıyan bir sarmal hâlinde birikiyor. Eski oluklar yavaşça soğuyor, doksan saniyede bir yeni yüze geçiliyor. Bas tabla kenarındaki strob noktalarını yakıyor.",
+        "en": "A turntable from above, engraving the music: every moment under the stylus stays behind as a groove whose width follows the loudness and whose colour follows the bass/mid/treble balance, so the song builds up as a glowing spiral on the record. Old grooves slowly cool and a new side starts every ninety seconds. Bass lights the strobe dots on the platter."
+      }
+    },
+    {
+      "file": "CaYaDev - Mandala Mirror.milk",
+      "id": "md_caya_mandala_mirror",
+      "category": "fractal",
+      "description": {
+        "tr": "Geri beslemeli bir kaleydoskop: dalga biçimi ve spektrumun çizdiği her şey her dilime kopyalanıyor, sonra giderek incelen kopya halkaları hâlinde dışa akıyor ve yolda renk çarkında dönüyor. Bas akışı, ortalar dönüşü belirliyor; sessizlikten sonraki güçlü bir vuruş dilim sayısını değiştiriyor.",
+        "en": "A feedback kaleidoscope: whatever the waveform and spectrum draw is copied into every wedge, then flows outward through ever finer rings of copies, drifting round the colour wheel as it goes. Bass sets the flow, mids the turn, and a strong beat after a quiet spell changes the number of wedges."
+      }
+    },
+    {
+      "file": "CaYaDev - Caustic Floor.milk",
+      "id": "md_caya_caustic_floor",
+      "category": "ambient",
+      "description": {
+        "tr": "Sığ suyun içinden kumlu bir zemine bakış: hareketli yüzeyin odakladığı ışık ağı prizma gibi hafifçe renklere ayrılarak dalgalı kumun üstünde titriyor. Her vuruşta bir yağmur damlası düşüyor, halkası ışığı büküyor. Bas halkaları derinleştiriyor, ortalar akıntıyı hızlandırıyor, tizler en parlak çizgilere parıltı katıyor.",
+        "en": "Looking down through shallow water at a sandy floor: the net of light focused by the moving surface shimmers over rippled sand with a faint prism split. Each beat drops a raindrop whose ring bends the light. Bass deepens the rings, mids speed the current, treble adds glints on the brightest lines."
+      }
+    },
+    {
+      "file": "CaYaDev - Halftone Pop.milk",
+      "id": "md_caya_halftone_pop",
+      "category": "retro",
+      "description": {
+        "tr": "Pop-art baskı: üç kalın renk lekesi dönerek girdaplı izler bırakıyor ve görüntü krem kâğıda dört renkli tram olarak basılıyor; her renk kendi açısında, noktalar mürekkep ihtiyacına göre büyüyor, kenarlar kalın siyahla çiziliyor. Her vuruşta arkada çizgi roman hız çizgileri patlıyor. Bas lekeleri büyütüyor, tizler bir dalga karalaması ekliyor.",
+        "en": "A pop-art print: three bold blobs orbit and leave swirling trails, and the picture is printed on cream paper as a four-colour halftone, each ink on its own screen angle with dots sized by how much ink the cell needs, and heavy black outlines on the edges. Each beat bursts comic speed lines behind it. Bass swells the blobs, treble adds a waveform scribble."
+      }
+    },
+    {
+      "file": "CaYaDev - Tesla Coil.milk",
+      "id": "md_caya_tesla_coil",
+      "category": "club",
+      "md3": true,
+      "description": {
+        "tr": "Karanlık bir laboratuvarda Tesla bobini: toroidden havaya kıvrılarak uzanan sekiz deşarj saniyede bir düzine kez yön değiştiriyor, her vuruşta topraklı küreye ana ark çakıyor. Bobin, toroid, küre ve ıslak zemin deşarjların ışığıyla aydınlanıyor; dalga biçimi arkların şekline karışıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında ana ark ve üç deşarj görünür.",
+        "en": "A Tesla coil in a dark lab: eight streamers crawl off the toroid into the air and re-roll their path a dozen times a second, and each beat strikes the main arc to the grounded sphere. The coil, toroid, sphere and wet floor are lit by the discharges, and the waveform is folded into the arcs. A MilkDrop 3 preset; MilkDrop 2 players show the main arc and three streamers."
+      }
+    },
+    {
+      "file": "CaYaDev - Harmonograph.milk",
+      "id": "md_caya_harmonograph",
+      "category": "geometric",
+      "md3": true,
+      "description": {
+        "tr": "Harmonograf levhalarından bir duvar: on kalem, eski sarkaçlı çizim makinesi gibi her biri kendi levhasında sönümlü bir iki sarkaç figürü çiziyor; frekans oranları yavaşça kayıyor ve figürler rozetlerden düğümlere içe doğru sarmallanıyor. Çizim levhada kalıyor; sessizlikten sonraki güçlü bir vuruş yeni bir salınım başlatıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört figür çizilir.",
+        "en": "A wall of harmonograph plates: like the old pendulum drawing machine, ten pens each trace a damped two-pendulum figure on their own plate, the frequency ratios slowly detune and the figures spiral inward from rosettes to knots. The drawing stays on the plate, and a strong beat after a quiet spell starts a new swing. A MilkDrop 3 preset; MilkDrop 2 players draw four figures."
+      }
+    },
+    {
+      "file": "CaYaDev - Smoke Ribbons.milk",
+      "id": "md_caya_smoke_ribbons",
+      "category": "ambient",
+      "md3": true,
+      "description": {
+        "tr": "Karanlık bir odada sekiz tütsü çubuğu, her biri renkli bir duman şeridi bırakıyor: duman alçakta düzgün yükseliyor, yukarıda kıvrımlara bölünüp inceliyor. Bas türbülansı artırıyor, dalga biçimi dumanı salındırıyor, tizler çubuk uçlarını parlatıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört şerit görünür.",
+        "en": "Eight incense sticks in a dark room, each releasing a ribbon of coloured smoke that rises smoothly low down and breaks into thinning curls higher up. Bass gusts the turbulence, the waveform sways the plumes, treble makes the tips glow. A MilkDrop 3 preset; MilkDrop 2 players show four ribbons."
+      }
     }
   ]
 }

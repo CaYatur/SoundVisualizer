@@ -150,9 +150,11 @@ test('söndürmeler kare hızından bağımsız', () => {
     const warp = MD.parseMilk(p.source).warpShader;
     /* Geri besleme tamponunu kare başına değiştiren adım (söndürme pow(k, q30), kural adımı
        min(1, q30) ile) q30'a bağlı. Önceki kareyi hiç okumayan warp (Spectral Ridges tamponu
-       her karede temizleyip veri satırı olarak kullanıyor) geri besleme değil. */
+       her karede temizleyip veri satırı olarak kullanıyor) geri besleme değil. Söndürmesi kare kodundaki
+       bir zaman tıkıyla (saniyede sabit sayıda 8 bit adım) inen warp da kare hızından bağımsız; bunu
+       shader'daki "time tick" açıklamasıyla söylüyor (Vinyl Groove: oluklar dakikalarca kalıyor). */
     if (!/sampler_(\w\w_)?main\b/.test(warp)) continue;
-    assert.match(warp, /\bq30\b/, p.name + ': warp adımı q30\'suz');
+    assert.match(warp, /\bq30\b|time tick/, p.name + ': warp adımı q30\'suz');
   }
 });
 
