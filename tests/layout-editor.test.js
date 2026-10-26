@@ -54,3 +54,18 @@ test('kipli pencere: adlar, odak tuzağı, Escape; kullanıcı içeriği çevril
   ["'Düzen Editörü': 'Layout Editor'", "'Güvenli alanlar': 'Safe areas'", "'ok tuşlarıyla taşıyın':", "'Yatay Merkez':", "'Yazı Boyu':", "'En Büyük Genişlik':"]
     .forEach((k) => assert.ok(i18n.includes(k), k));
 });
+
+test('dışa aktarım: varsayılan dosya adı ve katman adı arayüz diline uyuyor', () => {
+  assert.match(ED, /exportJson\(tr\('duzen\.json'\), data\)/);
+  assert.match(ED, /el\.layer\.name = tr\(el\.layer\.name\)/);
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(i18n.includes("'duzen.json': 'layout.json'"));
+  assert.ok(i18n.includes("'Görselleştirici': 'Visualizer'"));
+});
+
+test('tema kartları: yeniden çizimden sonra odak yeni karta dönüyor, tıklama odak veriyor', () => {
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /classList\.contains\('ui-theme-opt'\) \? aeTheme\.dataset\.theme : null/);
+  assert.match(admin, /if \(themeFocus\) \{[\s\S]{0,200}\.ui-theme-opt[\s\S]{0,200}back\.focus/);
+  assert.match(admin, /o\.focus\(\{ preventScroll: true \}\);\s*\n\s*pick\(c\.id\)/);
+});

@@ -338,6 +338,7 @@
     'Oynatma kafasındaki tempo (BPM)': 'Tempo at the playhead (BPM)',
     // ---- Düzen editörü (#534) ----
     'Düzen Editörü': 'Layout Editor',
+    'duzen.json': 'layout.json',
     'Çıktı oranı': 'Output aspect',
     'Güvenli alanlar': 'Safe areas',
     'Öğeler': 'Elements',
