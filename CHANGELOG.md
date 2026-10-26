@@ -11,6 +11,12 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
 
 - **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
 
+### Layout Editor and theme card fixes
+
+- **Fresh profile no longer breaks on the first drag.** The Visualizer fields showed 0, 0, 0, 0 and the first drag wrote those zeros back, collapsing the bars into a small icon. Empty bar placement now resolves to the real defaults (position-aware, same as the renderer).
+- **Theme cards keep keyboard focus.** After a mouse click or an arrow key the focus returns to the newly selected card, so the arrow keys keep working.
+- **Layout export follows the UI language.** The default file name (`layout.json`) and the default layer names are English in an English UI.
+
 ### CaYaDev MilkDrop Presets [825]
 
 - **Our own shader presets, built in.** 35 so far of a planned 50+:

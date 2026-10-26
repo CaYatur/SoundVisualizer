@@ -29,7 +29,15 @@
   const SAFE = { action: 0.035, title: 0.05 };
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function num(v, d) { const n = Number(v); return Number.isFinite(n) ? n : d; }
+  /* null / undefined / boş metin "değer yok" demek: varsayılana düşer.
+     Number(null) sonlu bir 0 verdiği için eskiden null alanlar (barSpan,
+     barCenterX, barHeight, baseline) 0 sayılıyor, ilk sürüklemede barlar
+     küçük bir simgeye çöküyordu. */
+  function num(v, d) {
+    if (v == null || v === '') return d;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  }
 
   // Yakalama çizgileri: karenin kenarları ve merkezi, güvenli alan kenarları
   function frameGuides() {
@@ -264,7 +272,20 @@
     const kind = kindOf2(layer);
     const f = kind && KINDS[kind].fields.find((x) => x.key === key);
     if (!f) return null;
-    return num(sectionOf(layer, cfg, false)[key], f.def);
+    const sec = sectionOf(layer, cfg, false);
+    return num(sec[key], defaultOf(kind, f, sec));
+  }
+
+  /* Alanın etkin varsayılanı. Barlarda taban çizgisi ve yükseklik konuma
+     (center / full) bağlı; bars.js ile aynı değerler, böylece editörün
+     gösterdiği sayı çizicinin gerçekten kullandığıyla aynı olur. */
+  function defaultOf(kind, f, sec) {
+    if (kind === 'bars') {
+      const center = sec && sec.position === 'center';
+      if (f.key === 'baseline') return center ? 0.5 : 1;
+      if (f.key === 'barHeight') return center ? 0.46 : sec && sec.position === 'full' ? 0.95 : 0.92;
+    }
+    return f.def;
   }
   function setField(layer, cfg, key, value) {
     const kind = kindOf2(layer);

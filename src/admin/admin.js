@@ -1151,7 +1151,12 @@
       const label = el('span', { class: 'ui-theme-name', text: tr(c.name) });
       const o = el('button', {
         type: 'button', class: 'ui-theme-opt', role: 'radio',
-        'data-theme': c.id, onclick: () => pick(c.id),
+        'data-theme': c.id,
+        onclick: () => {
+          // Fareyle tıklanınca da odak karta gelsin (bazı platformlarda düğme odak almaz)
+          o.focus({ preventScroll: true });
+          pick(c.id);
+        },
       }, [swatch, label]);
       opts.push(o);
       grid.appendChild(o);
@@ -4357,6 +4362,12 @@
     } else {
       prevScroll = root.scrollTop;
     }
+    /* Tema kartı odaktayken yeniden çizim kartı siler; odak kaybolup ok
+       tuşları işlemez olurdu. Hangi kart olduğunu not et, çizimden sonra
+       yeni karta geri ver. */
+    const aeTheme = document.activeElement;
+    const themeFocus = aeTheme && aeTheme !== root && root.contains(aeTheme) && aeTheme.classList
+      && aeTheme.classList.contains('ui-theme-opt') ? aeTheme.dataset.theme : null;
     holdSectionsFocus(root);
     if (window.SVPreview) window.SVPreview.setConfig(cfg);
     root.innerHTML = '';
@@ -4400,6 +4411,10 @@
     }
     sectionsScrollWant = root.scrollTop;
     pinnedNode = anchor ? findAnchorNode(root, anchor) : null;
+    if (themeFocus) {
+      const back = Array.from(root.querySelectorAll('.ui-theme-opt')).find((o) => o.dataset.theme === themeFocus);
+      if (back) { try { back.focus({ preventScroll: true }); } catch (e) { /* odak verilemez */ } }
+    }
     syncAppMeters(); // seçici sayfaya girdi ya da çıktı (#516)
   }
 

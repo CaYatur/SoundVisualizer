@@ -350,7 +350,13 @@
   async function exportFile() {
     const data = LY().exportLayout(effectiveLayers(), P().cfg(), { aspect: st && st.aspectKey });
     if (!data.elements.length) { P().toast(tr('Dışa aktarılacak öğe yok.'), 'warn'); return; }
-    await window.api.exportJson('duzen.json', data);
+    /* Varsayılan katman adları ('Görselleştirici', 'Metin'…) Türkçe sabit;
+       dışa aktarılan dosya arayüz diline uysun. Çeviri tablosunda olmayan
+       (kullanıcının verdiği) ad olduğu gibi kalır. */
+    data.elements.forEach((el) => {
+      if (el.layer && typeof el.layer.name === 'string' && el.layer.name) el.layer.name = tr(el.layer.name);
+    });
+    await window.api.exportJson(tr('duzen.json'), data);
   }
 
   async function importFile() {

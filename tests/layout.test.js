@@ -303,3 +303,58 @@ test('büyük harf parçanın diline göre (İngilizce "MIND", Türkçe "İSTANB
   assert.strictEqual(parts.title, 'MIND');
   assert.strictEqual(parts.artist, 'SEZEN AKSU');
 });
+
+test('taze profil: null bar alanları etkin varsayılanı gösterir, 0 değil (sürükleme çökmesi)', () => {
+  // defaults.js: barSpan / barCenterX / barHeight / baseline null gelir
+  const mk = (position) => ({ visualizer: { type: 'bars', position, barSpan: null, barCenterX: null, barHeight: null, baseline: null } });
+  const layer = { kind: 'visualizer', type: 'bars' };
+  let cfg = mk('bottom');
+  const get = (c, k) => L.getField(layer, c, k);
+  assert.strictEqual(get(cfg, 'barCenterX'), 0.5);
+  assert.strictEqual(get(cfg, 'baseline'), 1);
+  assert.strictEqual(get(cfg, 'barSpan'), 1);
+  assert.strictEqual(get(cfg, 'barHeight'), 0.92);
+  // Konuma bağlı varsayılanlar bars.js ile aynı
+  cfg = mk('center');
+  assert.strictEqual(get(cfg, 'baseline'), 0.5);
+  assert.strictEqual(get(cfg, 'barHeight'), 0.46);
+  cfg = mk('full');
+  assert.strictEqual(get(cfg, 'barHeight'), 0.95);
+  // Boş metin ve undefined de "değer yok"
+  cfg = mk('bottom');
+  cfg.visualizer.barSpan = '';
+  delete cfg.visualizer.barHeight;
+  assert.strictEqual(get(cfg, 'barSpan'), 1);
+  assert.strictEqual(get(cfg, 'barHeight'), 0.92);
+});
+
+test('taze profilde ilk sürükleme: varsayılanlar +0,1 / -0,05 kayar, 0\'a çökmez', () => {
+  const layer = { kind: 'visualizer', type: 'bars' };
+  const cfg = { visualizer: { type: 'bars', position: 'bottom', barSpan: null, barCenterX: null, barHeight: null, baseline: null } };
+  // Editörün applyMove sırası: başlangıç değerleri geri yazılır, sonra toplam kayma
+  const startVals = {};
+  L.KINDS.bars.fields.forEach((f) => { startVals[f.key] = L.getField(layer, cfg, f.key); });
+  Object.keys(startVals).forEach((k) => L.setField(layer, cfg, k, startVals[k]));
+  L.moveBy(layer, cfg, 0.1, -0.05);
+  const v = cfg.visualizer;
+  assert.ok(close(v.barCenterX, 0.6), String(v.barCenterX));
+  assert.ok(close(v.baseline, 0.95), String(v.baseline));
+  assert.strictEqual(v.barSpan, 1);
+  assert.strictEqual(v.barHeight, 0.92);
+  // Dışa aktarılan değerler de çökmüş değil
+  const out = L.exportLayout([Object.assign({ id: 'a', name: 'Görselleştirici' }, layer)], cfg);
+  const p = out.elements[0].params;
+  assert.ok(p.barSpan >= 0.05 && p.barHeight >= 0.02);
+  // Katman yığınında da aynı
+  const stackCfg = { layers: [{ id: 'a', kind: 'visualizer', type: 'bars', settings: { visualizer: {} } }], visualizer: { type: 'bars', barSpan: null, barCenterX: null, barHeight: null, baseline: null } };
+  const l2 = stackCfg.layers[0];
+  assert.strictEqual(L.getField(l2, stackCfg, 'barSpan'), 1);
+  L.moveBy(l2, stackCfg, 0.1, -0.05);
+  assert.ok(close(l2.settings.visualizer.barCenterX, 0.6));
+  assert.ok(close(l2.settings.visualizer.baseline, 0.95));
+});
+
+test('fallbackBox: null bar alanları varsayılan kutuyu verir (sıfır genişlik değil)', () => {
+  const b = L.fallbackBox({ kind: 'visualizer', type: 'bars' }, { visualizer: { barSpan: null, barCenterX: null, barHeight: null, baseline: null } });
+  assert.ok(close(b.x, 0) && close(b.w, 1) && close(b.h, 0.92) && close(b.y, 0.08), JSON.stringify(b));
+});
