@@ -3749,13 +3749,13 @@ void main(){
          parlatma anahtarları) zaten karıştırılmış değerler. */
       const compBothFixed = !this.compPreset && (!oldCtx || !this.oldCompPreset);
       if (oldCtx && !compBothFixed) {
-        this._drawCompPass(gl, dst, this.oldCompPreset, oldCtx);
+        this._drawCompPass(gl, dst, this.oldCompPreset, oldCtx, src);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        this._drawCompPass(gl, dst, this.compPreset, ctx);
+        this._drawCompPass(gl, dst, this.compPreset, ctx, src);
         gl.disable(gl.BLEND);
       } else {
-        this._drawCompPass(gl, dst, this.compPreset, ctx);
+        this._drawCompPass(gl, dst, this.compPreset, ctx, src);
       }
 
       /* SPRITE'LAR (#577) birleştirilmiş görüntünün ÜSTÜNE — MilkDrop'ta
@@ -3842,10 +3842,26 @@ void main(){
        üçgende taşınamaz. Geçiş yokken bütün düğümlerin alfası 1, yani
        sonuç eskisiyle birebir aynı — sadece üç köşe yerine ağ kadar
        üçgen çiziliyor. */
-    _drawCompPass(gl, dst, prog, ctx) {
+    /* COMP SHADER'I `sampler_main` olarak ÖNCEKİ KAREYİ okuyor (#560).
+       MilkDrop her preset shader'ında `main`i `TEX_VS`e bağlıyor
+       (plugin.cpp:2415-2418) ve `TEX_VS` her zaman `m_lpVS[0]`
+       (milkdropfs.cpp:3678-3679). Comp çalışırken `m_lpVS[0]` hâlâ warp'ın
+       girdisi, yani bir önceki karenin tamamlanmış görüntüsü; tamponlar kare
+       SONUNDA takas ediliyor (1149-1151). Blur zinciri de aynı tampondan
+       (1481), yani comp'ta `main` ile `GetBlur` AYNI kareyi gösteriyor.
+       Shader'sız comp ise `m_lpVS[1]`i, bu kareyi gösteriyor (3803).
+
+       Motor comp shader'ına `dst`i, bu kareyi veriyordu: blur bir önceki
+       kareden geldiği için ana görüntüyle blur arasında bir karelik kayma
+       vardı. Hızlı hareket eden şekillerde parıltı geride kalıyor, `main -
+       blur` ile kenar bulan presetlerde kalın, renkli kenarlar çıkıyordu.
+       Ölçüldü (sabit hızla kayan beyaz daire, comp'ta kırmızı = main, yeşil
+       = blur1): MilkDrop'ta iki kanal üst üste, bizde yeşil bir kare geride.
+       Uyum kapalıyken eski davranış (bu kare) duruyor. */
+    _drawCompPass(gl, dst, prog, ctx, src) {
       if (prog) {
         gl.useProgram(prog.prog);
-        this._bindTextures(dst.tex, prog.locs);
+        this._bindTextures(this._wantAcc !== false && src ? src.tex : dst.tex, prog.locs);
         this._setPresetUniforms(prog.locs, ctx);
       } else {
         gl.useProgram(this.compFixed);
