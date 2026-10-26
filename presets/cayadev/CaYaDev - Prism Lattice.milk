@@ -165,9 +165,12 @@ per_frame_10=q4 = treb_att;
 warp_1=`shader_body
 warp_2=`{
 warp_3=`  ret = tex2D(sampler_main, uv).xyz;
-warp_4=`  ret += (ret - GetBlur1(uv)) * 0.1 * q30;
-warp_5=`  ret = ret * pow(0.968, q30) - 0.003 * q30;
-warp_6=`}
+warp_4=`  // each resample of the feedback softens the thin rings, and more frames per second soften them more
+warp_5=`  // than the per-second blur alone would; sharpening by pow(q30, 0.4) per frame keeps 30/60/144 Hz alike
+warp_6=`  // (measured: 50/44/43 mean brightness, was 75/44/28 with a linear q30)
+warp_7=`  ret += (ret - GetBlur1(uv)) * 0.1 * pow(q30, 0.4);
+warp_8=`  ret = ret * pow(0.968, q30) - 0.003 * q30;
+warp_9=`}
 comp_1=`shader_body
 comp_2=`{
 comp_3=`  float2 p = (uv - 0.5) * aspect.xy;
