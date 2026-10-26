@@ -523,6 +523,8 @@
     'Yeni sürüm var (atlandı).': 'A new release is available (skipped).',
     'Yeni sürüm var.': 'A new release is available.',
     'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.': 'Could not check. Check the internet connection and try again.',
+    'GitHub istek sınırına takıldı. Bir süre sonra yeniden deneyin.': 'GitHub rate limit reached. Try again later.',
+    'Son denetim tamamlanamadı; görünen sürüm bir önceki başarılı denetimden.': 'The latest check did not finish; the release shown is from the previous successful check.',
     'Yeni sürüm:': 'New release:',
     'Dil, pencere koruması ve genişletilmiş aralıklar.': 'Language, window protection and extended ranges.',
     'Pencere': 'Window',

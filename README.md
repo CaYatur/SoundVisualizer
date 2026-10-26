@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3513%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3516%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1179,7 +1179,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   the panel instead of freezing the app behind an error dialog.
 - **Two copies at once** — a second copy names the one already running and offers to
   switch to it; a copy never silently writes over settings someone else changed.
-- **Updates** — *Library → Updates* checks GitHub Releases, shows the notes, and
+- **Updates** — *Settings → Updates* checks GitHub Releases, shows the notes, and
   lets you skip a version. The Windows installer and the AppImage download and install in place;
   nothing runs unless the size and the SHA-256 match exactly. Off, notify (default) or automatic.
 - **Settings backup and restore** — every setting in one JSON file; palettes and scenes have their
@@ -1788,7 +1788,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3513 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3516 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

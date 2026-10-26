@@ -34,6 +34,17 @@ function allowedUrl(u) {
   return h === 'github.com' || h === 'api.github.com' || h.endsWith('.githubusercontent.com');
 }
 
+/* Sıkıştırılmış gövde GitHub'ın ham SHA-256'ı ile tutmaz. identity ve boş
+   başlık ham bayttır; gzip, deflate, br reddedilir. */
+function refusedEncoding(headers) {
+  const h = headers || {};
+  let enc = h['content-encoding'];
+  if (enc == null && typeof h.get === 'function') enc = h.get('content-encoding');
+  enc = String(Array.isArray(enc) ? enc[0] : (enc || '')).trim().toLowerCase();
+  if (!enc || enc === 'identity') return '';
+  return 'compressed body refused: ' + enc;
+}
+
 /* request(url) -> Promise<{ status, headers, body }>; body okunabilir akış.
    fsx: { createWriteStream, rename, unlink }. */
 async function download(opts) {
@@ -57,7 +68,15 @@ async function download(opts) {
     break;
   }
   if (!res) throw new Error('too many redirects');
-  if (res.status !== 200) throw new Error('HTTP ' + res.status);
+  if (res.status !== 200) {
+    if (res.body && res.body.destroy) res.body.destroy();
+    throw new Error('HTTP ' + res.status);
+  }
+  const encoding = refusedEncoding(res.headers);
+  if (encoding) {
+    if (res.body && res.body.destroy) res.body.destroy();
+    throw new Error(encoding);
+  }
 
   const part = o.dest + '.part';
   const hash = crypto.createHash('sha256');
@@ -122,8 +141,36 @@ function installerArgs(silent) {
 }
 function runInstaller(file, silent, spawn) {
   const child = spawn(file, installerArgs(silent), { detached: true, stdio: 'ignore' });
+  /* Başlatılamayan kurucu (antivirüs silmiş, izin yok) 'error' yayar.
+     Dinleyici yoksa bu olay yakalanmamış hata olur ve uygulama kapanır.
+     Karar whenInstallerStarted'da: hata varsa çıkış yapılmaz. */
+  if (child && typeof child.on === 'function') {
+    child.on('error', (err) => {
+      child.spawnError = err || new Error('installer failed to start');
+    });
+  }
   if (child && child.unref) child.unref();
   return child;
+}
+
+/* spawn gelirse kurucu başladı. error gelirse ya da ikisi de gelmezse
+   başarısız: çağıran uygulamayı kapatmamalı. */
+function whenInstallerStarted(child, timeoutMs) {
+  const fail = (err) => ({ ok: false, error: String((err && err.message) || err || 'installer failed to start') });
+  if (child && child.spawnError) return Promise.resolve(fail(child.spawnError));
+  if (!child || typeof child.once !== 'function') return Promise.resolve(fail());
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const timer = setTimeout(() => finish(fail()), timeoutMs == null ? 5000 : timeoutMs);
+    child.once('error', (err) => finish(fail(err)));
+    child.once('spawn', () => finish({ ok: true }));
+  });
 }
 
 /* AppImage: yeni dosya AYNI klasöre (aynı dosya sistemi) iner, çalıştırılabilir
@@ -138,4 +185,4 @@ async function replaceAppImage(file, target, fsx) {
   return target;
 }
 
-module.exports = { MAX_REDIRECTS, allowedUrl, download, installerArgs, runInstaller, appImageTemp, replaceAppImage };
+module.exports = { MAX_REDIRECTS, allowedUrl, refusedEncoding, download, installerArgs, runInstaller, whenInstallerStarted, appImageTemp, replaceAppImage };

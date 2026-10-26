@@ -2441,7 +2441,13 @@ async function fetchJsonHttps(url, headers) {
   const timer = setTimeout(() => ctl.abort(), 15000);
   try {
     const res = await net.fetch(url, { headers, signal: ctl.signal });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+      let body = '';
+      try { body = await res.text(); } catch (e) { body = ''; }
+      const limited = updater.rateLimitError(res.status, res.headers, body);
+      if (limited) throw new Error(limited);
+      throw new Error('HTTP ' + res.status);
+    }
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -2451,7 +2457,8 @@ async function fetchJsonHttps(url, headers) {
 async function runUpdateCheck(manual) {
   // Denetim sürerken, indirirken ya da kurulum hazırken durumu ezme
   if (['checking', 'downloading', 'ready', 'installed'].indexOf(updateState.status) >= 0) return updateState;
-  updateState = Object.assign({}, updateState, { status: 'checking' });
+  const previous = updateState;
+  updateState = Object.assign({}, previous, { status: 'checking', checkError: '' });
   notifyAdmin('updates:status', updateState);
   const store = readUpdateStore();
   const res = await updater.check({
@@ -2461,9 +2468,10 @@ async function runUpdateCheck(manual) {
     skipVersion: manual ? '' : store.skipVersion,
     fetchJson: fetchJsonHttps,
   });
-  updateState = Object.assign(res, { manual: !!manual, auto: UPDATE_AUTO, mode: updateMode() });
+  updateState = updater.applyCheckResult(previous, res, { manual: !!manual, auto: UPDATE_AUTO, mode: updateMode() });
   notifyAdmin('updates:status', updateState);
-  autoUpdateAfterCheck(updateState);
+  // Başarısız yeniden denetim, duran "yeni sürüm" haberini indirmenin bahanesi yapmasın
+  if (!(updateState.status === 'available' && updateState.checkError)) autoUpdateAfterCheck(updateState);
   return updateState;
 }
 
@@ -2506,14 +2514,82 @@ const updateInstall = require('./update-install');
 let updateReadyFile = null; // indirilip doğrulanmış Windows kurulum dosyası
 let updateBusy = false;
 
+/* İndirme, denetimle aynı Chromium yığınından gider; sistem vekili (proxy)
+   böylece indirmeye de uygulanır. Node https.get vekili kullanmaz, istek
+   orada takılıyordu. Yönlendirme burada izlenmez: indirme kodu adresi
+   izinli GitHub alan adlarına karşı denetler. 30 sn veri gelmezse kesilir.
+   Kimlik soran vekil yanıtlanmazsa istek sonsuza kadar bekler; boş kimlik
+   isteği hatayla bitirir. */
 function updateRequest(url) {
   return new Promise((resolve, reject) => {
-    const req = require('https').get(url, {
-      headers: { 'User-Agent': 'CAYADEV-Visualizer/' + app.getVersion(), Accept: 'application/octet-stream' },
-      timeout: 30000, // takılan bağlantı: 30 sn veri gelmezse kes
-    }, (res) => resolve({ status: res.statusCode, headers: res.headers, body: res }));
-    req.on('timeout', () => req.destroy(new Error('timeout')));
-    req.on('error', reject);
+    let req;
+    try {
+      // Kimlik ve çerez yok: yalnız dosyanın kendisi. manual:
+      // yönlendirmeyi indirme kodu, izinli alan adından sonra izler.
+      // identity: Chromium gövdeyi açarsa GitHub SHA-256'ı tutmaz.
+      req = net.request({
+        method: 'GET',
+        url,
+        redirect: 'manual',
+        credentials: 'omit',
+      });
+    } catch (e) {
+      reject(e);
+      return;
+    }
+    req.setHeader('User-Agent', 'CAYADEV-Visualizer/' + app.getVersion());
+    req.setHeader('Accept', 'application/octet-stream');
+    req.setHeader('Accept-Encoding', 'identity');
+    let settled = false;
+    let idle = null;
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      if (idle) clearTimeout(idle);
+      reject(err instanceof Error ? err : new Error(String((err && err.message) || err || 'download failed')));
+    };
+    const arm = (kill) => {
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(kill, 30000);
+    };
+    arm(() => {
+      try { req.abort(); } catch (e) { /* iptal */ }
+      fail(new Error('timeout'));
+    });
+    req.on('login', (_auth, callback) => {
+      fail(new Error('proxy authentication required'));
+      try { callback('', ''); } catch (e) { /* vekil kimliği yok */ }
+    });
+    req.on('redirect', (statusCode, _method, redirectUrl) => {
+      if (settled) return;
+      settled = true;
+      if (idle) clearTimeout(idle);
+      resolve({
+        status: statusCode,
+        headers: { location: redirectUrl },
+        body: { resume() {}, destroy() {} },
+      });
+    });
+    req.on('response', (res) => {
+      if (settled) return;
+      settled = true;
+      const bump = () => arm(() => {
+        try { res.destroy(new Error('timeout')); } catch (e) { /* akış kapandı */ }
+      });
+      bump();
+      res.on('data', bump);
+      res.on('end', () => { if (idle) clearTimeout(idle); });
+      res.on('error', () => { if (idle) clearTimeout(idle); });
+      const headers = {};
+      const raw = res.headers || {};
+      Object.keys(raw).forEach((k) => {
+        const v = raw[k];
+        headers[String(k).toLowerCase()] = Array.isArray(v) ? v[0] : v;
+      });
+      resolve({ status: res.statusCode, headers, body: res });
+    });
+    req.on('error', fail);
+    req.end();
   });
 }
 
@@ -2576,11 +2652,21 @@ ipcMain.handle('updates:download', () => downloadUpdate().catch((e) => Object.as
 ipcMain.handle('updates:install', () => installUpdateNow());
 function installUpdateNow() {
   if (UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
-    updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
-    updateReadyFile = null;
-    forceQuitApp = true;
-    setTimeout(() => app.quit(), 200);
-    return { ok: true };
+    let child;
+    try {
+      child = updateInstall.runInstaller(updateReadyFile, false, require('child_process').spawn);
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+    // Kurucu gerçekten doğmadan çıkma: dosya silinmiş ya da izin yoksa
+    // kullanıcı hatayı görsün, indirilen dosya yerinde kalsın.
+    return updateInstall.whenInstallerStarted(child).then((r) => {
+      if (!r || !r.ok) return r || { ok: false, error: 'installer failed to start' };
+      updateReadyFile = null;
+      forceQuitApp = true;
+      setTimeout(() => app.quit(), 200);
+      return { ok: true };
+    });
   }
   if (UPDATE_KIND === 'appimage' && updateState.status === 'installed' && process.env.APPIMAGE) {
     // process.execPath eski imajın içinde; yeniden açılış yeni dosyadan
@@ -2599,16 +2685,43 @@ function autoUpdateAfterCheck(res) {
   if (!UPDATE_AUTO || updateMode() !== 'auto') return;
   if (res.status === 'available' && res.installable && !res.skipped) downloadUpdate().catch(() => {});
 }
-app.on('will-quit', () => {
-  if (UPDATE_AUTO && updateMode() === 'auto' && UPDATE_KIND === 'nsis' && updateReadyFile && fs.existsSync(updateReadyFile)) {
-    try {
-      updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn);
-    } catch (e) {
-      /* kurulum başlatılamadı: bir sonraki açılışta yeniden denenir */
-    }
-    updateReadyFile = null;
+/* Otomatik kipte sessiz kurulum kapanırken. Kurucu doğmadan çıkılırsa
+   kullanıcı hata görmeden güncelleme kayboluyordu. before-quit çıkışı
+   kurucu spawn olana kadar tutar; hata kutusundan sonra kapanır. */
+let silentInstallClaimed = false;
+function silentInstallPending() {
+  return !!(UPDATE_AUTO && updateMode() === 'auto' && UPDATE_KIND === 'nsis'
+    && updateReadyFile && fs.existsSync(updateReadyFile));
+}
+function armSilentInstall(e) {
+  if (silentInstallClaimed || !silentInstallPending()) return false;
+  e.preventDefault();
+  silentInstallClaimed = true;
+  let pending;
+  try {
+    const child = updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn);
+    pending = updateInstall.whenInstallerStarted(child);
+  } catch (err) {
+    pending = Promise.resolve({ ok: false, error: String((err && err.message) || err) });
   }
-});
+  pending.then((r) => {
+    if (r && r.ok) updateReadyFile = null;
+    else {
+      try {
+        dialog.showErrorBox(
+          trUi('Güncelleme', 'Update'),
+          trUi(
+            'Kurulum başlatılamadı. Uygulama kapanıyor; bir sonraki açılışta güncelleme yeniden indirilecek.',
+            'The installer could not be started. The app is closing; the update will be downloaded again next time it opens.'
+          )
+        );
+      } catch (box) { /* kutu yok */ }
+    }
+    forceQuitApp = true;
+    app.quit();
+  });
+  return true;
+}
 
 // ----------------------------------------------------------------------------
 // IPC
@@ -11122,6 +11235,12 @@ function shutdownCleanup() {
 
 app.on('before-quit', (e) => {
   if (forceQuitApp || signalQuit || SMOKE) {
+    // Sinyal çıkışını tutma: kurucuyu yine başlat, sonra temizle
+    if (signalQuit && silentInstallPending() && !silentInstallClaimed) {
+      silentInstallClaimed = true;
+      try { updateInstall.runInstaller(updateReadyFile, true, require('child_process').spawn); } catch (err) { /* sinyal */ }
+      updateReadyFile = null;
+    } else if (!signalQuit && !SMOKE && armSilentInstall(e)) return;
     shutdownCleanup();
     return;
   }
@@ -11136,6 +11255,7 @@ app.on('before-quit', (e) => {
     });
     return;
   }
+  if (armSilentInstall(e)) return;
   shutdownCleanup();
 });
 
