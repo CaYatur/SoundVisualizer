@@ -455,6 +455,58 @@
     return n + ' - ' + label + '.' + ext;
   }
 
+  // ------------------------------------------- YouTube bölüm listesi (#837)
+
+  /* "1:23", saat varsa "1:02:03". YouTube tam saniye okuyor: aşağı yuvarla. */
+  function chapterStamp(sec, long) {
+    const s = Math.max(0, Math.floor(Number(sec) || 0));
+    const pad = (n) => String(n).padStart(2, '0');
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return long ? h + ':' + pad(m) + ':' + pad(s % 60) : (h * 60 + m) + ':' + pad(s % 60);
+  }
+
+  /* Zaman çizelgesi işaretçilerinden video açıklamasına yapıştırılacak bölüm
+     listesi: "0:00 Başlangıç", "1:23 Drop". YouTube listeyi yalnız ilk satır
+     0:00 olduğunda, en az üç bölüm varsa ve her bölüm en az 10 saniye
+     sürdüğünde bölüm olarak tanıyor. Liste yine üretiliyor; tutmayan kural
+     `problems` içinde koduyla dönüyor ki panel nedenini söyleyebilsin:
+     'FEW' (üçten az bölüm), 'SHORT' (10 saniyeden kısa bölüm; `short` hangi
+     sıradakiler olduğunu veriyor). 0'da işaretçi yoksa ilk satır
+     `words.first` adıyla ekleniyor; adsız işaretçi "<words.chapter> N".
+     Süre verilirse ondan sonraki işaretçiler atlanıyor ve son bölüm de
+     ölçülüyor. Dönen: { text, rows: [{ t, name }], problems, short }. */
+  function youtubeChapters(markers, durationSec, words) {
+    const w = words || {};
+    const dur = Math.max(0, Number(durationSec) || 0);
+    const list = (Array.isArray(markers) ? markers : [])
+      .map((m) => ({ t: Math.floor(Number(m && m.t) || 0), name: String((m && m.name) || '').trim() }))
+      .filter((m) => m.t >= 0 && (!(dur > 0) || m.t < Math.floor(dur)))
+      .sort((a, b) => a.t - b.t);
+    const rows = [];
+    for (const m of list) {
+      const last = rows[rows.length - 1];
+      if (last && last.t === m.t) {
+        if (!last.name && m.name) last.name = m.name;
+        continue;
+      }
+      rows.push({ t: m.t, name: m.name });
+    }
+    if (!rows.length || rows[0].t !== 0) rows.unshift({ t: 0, name: String(w.first || '') });
+    rows.forEach((r, i) => { if (!r.name) r.name = i === 0 && w.first ? String(w.first) : (w.chapter || 'Chapter') + ' ' + (i + 1); });
+    const short = [];
+    rows.forEach((r, i) => {
+      const end = i + 1 < rows.length ? rows[i + 1].t : (dur > 0 ? Math.floor(dur) : Infinity);
+      if (end - r.t < 10) short.push(i);
+    });
+    const problems = [];
+    if (rows.length < 3) problems.push('FEW');
+    if (short.length) problems.push('SHORT');
+    const long = Math.max(dur, rows[rows.length - 1].t) >= 3600;
+    const text = rows.map((r) => chapterStamp(r.t, long) + ' ' + r.name).join('\n');
+    return { text, rows, problems, short };
+  }
+
   // ------------------------------------------------------------ süre (#523)
 
   const DURATION_MODES = ['audio', 'seconds', 'timeline', 'bars'];
@@ -552,7 +604,7 @@
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
-    PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName,
+    PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
     validateOptions,
   };

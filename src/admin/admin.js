@@ -1757,6 +1757,7 @@
       resolution: e.resolution, fps: e.fps, quality: e.quality, encoder: e.encoder, speed: e.speed,
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
       chapters: !!e.chapters && (!fmt || fmt.kind === 'video'),
+      chapterList: !!e.chapterList && (!fmt || fmt.kind === 'video'),
       sceneName: activeSceneName(),
     };
   }
@@ -3633,6 +3634,12 @@
             /* Bölümler (#527): tek render, zaman çizelgesi işaretçilerinde
                kesilip işaretçi adlarıyla bir klasöre. Yalnız video biçimleri. */
             type: 'toggle', path: 'export.chapters', label: 'İşaretçilerden bölümlere ayır',
+            show: () => { const f = exportFormat(); return !f || f.kind === 'video'; },
+          },
+          {
+            /* YouTube bölüm listesi (#837): işaretçiler "0:00 Başlangıç"
+               satırları olarak videonun yanına bir .txt'ye. */
+            type: 'toggle', path: 'export.chapterList', label: 'YouTube bölüm listesini yanına yaz (.txt)',
             show: () => { const f = exportFormat(); return !f || f.kind === 'video'; },
           },
           {
@@ -6095,6 +6102,7 @@
       format: fmtId,
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
       chapters: !!(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind === 'video'),
+      chapterList: !!(cfg.export && cfg.export.chapterList) && (!fmt || fmt.kind === 'video'),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
