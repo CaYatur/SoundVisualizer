@@ -83,6 +83,13 @@ test('indirme: bildirilenden büyük dosya kesiliyor; eksik dosya reddediliyor',
   fsx = memFs();
   await assert.rejects(I.download({ url: GH, size: DATA.length + 10, digest: SHA, dest: '/t/x.exe', request: net({ [GH]: {} }), fsx }), /size mismatch/);
   assert.deepStrictEqual(Object.keys(fsx.files), []);
+  fsx = memFs();
+  const gzip = async () => ({ status: 200, headers: { 'content-encoding': 'gzip' }, body: Readable.from(chunks(DATA)) });
+  await assert.rejects(I.download({ url: GH, size: DATA.length, digest: SHA, dest: '/t/x.exe', request: gzip, fsx }), /compressed body refused/);
+  assert.deepStrictEqual(Object.keys(fsx.files), [], 'sıkıştırılmış gövde diske yazılmaz');
+  assert.strictEqual(I.refusedEncoding({}), '');
+  assert.strictEqual(I.refusedEncoding({ 'content-encoding': 'identity' }), '');
+  assert.match(I.refusedEncoding({ get: (n) => (n === 'content-encoding' ? 'br' : '') }), /br/);
 });
 
 test('indirme: GitHub dışına yönlendirme, düz http, yönlendirme döngüsü ve özetsiz dosya reddediliyor', async () => {
@@ -94,6 +101,29 @@ test('indirme: GitHub dışına yönlendirme, düz http, yönlendirme döngüsü
   assert.strictEqual(loop.seen.length, I.MAX_REDIRECTS + 1);
   await assert.rejects(I.download({ url: GH, size: 1, digest: '', dest: '/t/x', request: net({ [GH]: {} }), fsx }), /digest/);
   assert.deepStrictEqual(Object.keys(fsx.files), []);
+});
+
+test('kurulum: başlatılamayan kurucu hata döner, başlayan kurucu onaylanır', async () => {
+  const { EventEmitter } = require('events');
+  const failed = new EventEmitter();
+  failed.unref = () => {};
+  I.runInstaller('C:/t/x.exe', false, () => failed);
+  const pending = I.whenInstallerStarted(failed, 1000);
+  failed.emit('error', new Error('spawn EACCES'));
+  const denied = await pending;
+  assert.strictEqual(denied.ok, false);
+  assert.match(denied.error, /EACCES/);
+  const started = new EventEmitter();
+  const ok = I.whenInstallerStarted(started, 1000);
+  started.emit('spawn');
+  assert.deepStrictEqual(await ok, { ok: true });
+  const quiet = new EventEmitter();
+  const timed = await I.whenInstallerStarted(quiet, 20);
+  assert.strictEqual(timed.ok, false);
+  const early = new EventEmitter();
+  early.spawnError = new Error('spawn ENOENT');
+  const already = await I.whenInstallerStarted(early, 1000);
+  assert.match(already.error, /ENOENT/);
 });
 
 test('kurulum: NSIS bayrakları ve bağımsız süreç; AppImage aynı klasöre inip yerine taşınıyor', async () => {
@@ -123,9 +153,37 @@ test('ana süreç: geliştirme kopyası indirmiyor; kurulum kullanıcı isteğiy
   assert.match(dl, /if \(!app\.isPackaged\) throw/);
   assert.match(dl, /s\.installable/);
   assert.match(dl, /fs\.constants\.W_OK/, 'AppImage klasörü yazılabilir mi');
-  const wq = main.slice(main.indexOf("app.on('will-quit', () => {\n  if (UPDATE_AUTO") >= 0 ? main.indexOf("app.on('will-quit', () => {\n  if (UPDATE_AUTO") : main.indexOf("app.on('will-quit', () => {\r\n  if (UPDATE_AUTO"));
-  assert.match(wq.slice(0, 300), /UPDATE_AUTO && updateMode\(\) === 'auto' && UPDATE_KIND === 'nsis'/);
+  const pending = main.slice(main.indexOf('function silentInstallPending'), main.indexOf('function armSilentInstall'));
+  assert.match(pending, /UPDATE_AUTO && updateMode\(\) === 'auto' && UPDATE_KIND === 'nsis'/);
+  const arm = main.slice(main.indexOf('function armSilentInstall'), main.indexOf("ipcMain.handle('get-displays'"));
+  assert.match(arm, /whenInstallerStarted\(child\)/);
+  assert.match(arm, /if \(r && r\.ok\) updateReadyFile = null/);
+  assert.match(arm, /showErrorBox/);
+  assert.match(arm, /forceQuitApp = true;\s*app\.quit\(\)/);
+  const bq = main.slice(main.indexOf("app.on('before-quit'"), main.indexOf("app.on('window-all-closed'"));
+  assert.match(bq, /armSilentInstall\(e\)/);
+  assert.match(bq, /shutdownCleanup\(\)/);
+  const firstQuit = main.indexOf("app.on('will-quit'");
+  const quitHandlers = main.slice(firstQuit, main.indexOf('const SETTINGS_PATH'));
+  assert.doesNotMatch(quitHandlers, /runInstaller/, 'erken will-quit kurucu başlatmaz');
   assert.match(main, /app\.relaunch\(\{ execPath: process\.env\.APPIMAGE/, 'yeniden açılış yeni AppImage dosyasından');
+  const inst = main.slice(main.indexOf('function installUpdateNow'), main.indexOf('function autoUpdateAfterCheck'));
+  assert.match(inst, /whenInstallerStarted\(child\)[\s\S]{0,220}if \(!r \|\| !r\.ok\) return[\s\S]{0,280}app\.quit\(\)/);
+  const req = main.slice(main.indexOf('function updateRequest'), main.indexOf('async function downloadUpdate'));
+  assert.match(req, /net\.request\(/);
+  assert.match(req, /redirect:\s*'manual'/);
+  assert.match(req, /credentials:\s*'omit'/);
+  assert.match(req, /setHeader\('Accept-Encoding', 'identity'\)/);
+  assert.match(req, /on\('redirect'/);
+  assert.doesNotMatch(req, /followRedirect\(/);
+  assert.doesNotMatch(req, /https\.get\(/);
+  assert.match(req, /proxy authentication required/);
+  const fetchFn = main.slice(main.indexOf('async function fetchJsonHttps'), main.indexOf('async function runUpdateCheck'));
+  assert.match(fetchFn, /updater\.rateLimitError\(res\.status, res\.headers, body\)/);
+  const run = main.slice(main.indexOf('async function runUpdateCheck'), main.indexOf('function scheduleUpdateChecks'));
+  assert.match(run, /const previous = updateState;/);
+  assert.match(run, /updater\.applyCheckResult\(previous, res,/);
+  assert.match(run, /if \(!\(updateState\.status === 'available' && updateState\.checkError\)\) autoUpdateAfterCheck\(updateState\);/);
 });
 
 function el(tag, props, kids) {

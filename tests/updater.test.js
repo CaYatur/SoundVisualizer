@@ -97,6 +97,32 @@ test('denetim: güncel, atlanan sürüm, yalnız haber verilen türler, ağ hata
   assert.strictEqual(pre.status, 'error', 'ön sürüm önerilmiyor');
 });
 
+test('başarısız denetim görülen yeni sürümü silmez; başarılı denetim yazar', () => {
+  const seen = { status: 'available', latest: '3.1.6', current: '3.1.5', notes: 'not', asset: { name: 'a' }, installable: true };
+  const kept = U.applyCheckResult(seen, { status: 'error', error: 'offline', checkedAt: 5 }, { manual: true });
+  assert.strictEqual(kept.status, 'available');
+  assert.strictEqual(kept.latest, '3.1.6');
+  assert.strictEqual(kept.notes, 'not');
+  assert.strictEqual(kept.checkError, 'offline');
+  assert.strictEqual(kept.manual, true);
+  const fresh = U.applyCheckResult({ status: 'idle' }, { status: 'error', error: 'offline' }, {});
+  assert.strictEqual(fresh.status, 'error');
+  assert.strictEqual(fresh.checkError, '');
+  const replaced = U.applyCheckResult(seen, { status: 'latest', latest: '3.1.6' }, {});
+  assert.strictEqual(replaced.status, 'latest');
+  assert.strictEqual(replaced.checkError, '');
+});
+
+test('hız sınırı: 429, kalan hak 0 ve gövde metni; sıradan 403 değil', () => {
+  assert.match(U.rateLimitError(429, {}, ''), /^rate limit$/);
+  assert.match(U.rateLimitError(403, { 'x-ratelimit-remaining': '0', 'retry-after': '30' }, ''), /^rate limit 30$/);
+  const headers = { get: (n) => (n === 'x-ratelimit-remaining' ? '0' : null) };
+  assert.match(U.rateLimitError(403, headers, ''), /^rate limit$/);
+  assert.match(U.rateLimitError(403, {}, 'You have exceeded a secondary rate limit'), /^rate limit$/);
+  assert.strictEqual(U.rateLimitError(403, {}, 'forbidden'), '');
+  assert.strictEqual(U.rateLimitError(500, {}, ''), '');
+});
+
 // ------------------------------------------------------------------ ana süreç bağlantısı
 
 test('ana süreç: otomatik denetim yalnız paketlenmiş gerçek kullanımda; adres arayüzden alınmıyor', () => {
@@ -108,6 +134,12 @@ test('ana süreç: otomatik denetim yalnız paketlenmiş gerçek kullanımda; ad
   const open = main.slice(main.indexOf("ipcMain.handle('updates:open'"), main.indexOf("ipcMain.handle('updates:open'") + 600);
   assert.match(open, /\^https:\\\/\\\/github\\\.com\\\//);
   assert.doesNotMatch(open, /shell\.openExternal\(which\)/);
+  const readme = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
+  const readmeTr = fs.readFileSync(path.join(__dirname, '..', 'README.tr.md'), 'utf8');
+  assert.match(readme, /\*Settings → Updates\*/);
+  assert.doesNotMatch(readme, /Library → Updates/);
+  assert.match(readmeTr, /\*Ayarlar → Güncellemeler\*/);
+  assert.doesNotMatch(readmeTr, /Kitaplık → Güncellemeler/);
 });
 
 // ------------------------------------------------------------------ panel
@@ -142,6 +174,19 @@ test('panel: sürüm notları yalnız metin; yeni sürüm bildirimi sürüm baş
   walk(root, (n) => { if (n.tag === 'pre') pre = n; });
   assert.ok(pre, 'notlar gösteriliyor');
   assert.strictEqual(pre.text, '<img src=x onerror=alert(1)> notlar', 'HTML değil metin');
+  UP._onStatus({ status: 'error', error: 'rate limit', current: '3.1.5', kind: 'nsis' });
+  let statusLine = '';
+  walk(UP.panel(), (n) => { if (String(n.className).indexOf('upd-status') >= 0) statusLine = n.text; });
+  assert.match(statusLine, /istek sınırına/);
+  UP._onStatus({ status: 'error', error: 'HTTP 500', current: '3.1.5', kind: 'nsis' });
+  walk(UP.panel(), (n) => { if (String(n.className).indexOf('upd-status') >= 0) statusLine = n.text; });
+  assert.match(statusLine, /İnternet bağlantısını/);
+  UP._onStatus({ status: 'available', latest: '3.1.6', current: '3.1.5', kind: 'nsis', checkError: 'offline', asset: null, notes: '', installable: false });
+  let note = '';
+  walk(UP.panel(), (n) => { if (/Son denetim tamamlanamadı/.test(n.text || '')) note = n.text; });
+  assert.ok(note, 'başarısız yeniden denetim sürümün yanına not düşer');
+  walk(UP.panel(), (n) => { if (String(n.className).indexOf('upd-status') >= 0) statusLine = n.text; });
+  assert.match(statusLine, /Yeni sürüm var/);
   const texts = [];
   walk(root, (n) => { if (n.tag === 'button') texts.push(n.text); });
   assert.deepStrictEqual(texts, ['Şimdi Denetle', 'İndir', 'Sürüm Sayfası', 'Bu Sürümü Atla']);

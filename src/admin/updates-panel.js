@@ -53,7 +53,11 @@ function statusText(s) {
     if (s.status === 'checking') return 'Denetleniyor…';
     if (s.status === 'latest') return 'Güncel: en yeni sürüm kurulu.';
     if (s.status === 'available') return s.skipped ? 'Yeni sürüm var (atlandı).' : 'Yeni sürüm var.';
-    if (s.status === 'error') return 'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.';
+    if (s.status === 'error') {
+      const err = String(s.error || '');
+      if (/rate limit/i.test(err) || /\b429\b/.test(err)) return 'GitHub istek sınırına takıldı. Bir süre sonra yeniden deneyin.';
+      return 'Denetlenemedi. İnternet bağlantısını kontrol edip yeniden deneyin.';
+    }
     if (s.status === 'downloading') return tt('İndiriliyor…') + ' %' + Math.round((s.progress || 0) * 100);
     if (s.status === 'ready') return 'İndirildi ve doğrulandı. Kurmak için uygulama kapanıp yeniden açılacak.';
     if (s.status === 'installed') return 'Yeni sürüm yerine kondu; yeniden başlatınca açılır.';
@@ -101,6 +105,9 @@ function buildPanel() {
     root.appendChild(p.row('Kurulu Sürüm', el('span', { class: 'upd-ver', text: s.current ? 'v' + s.current : '—' })));
     root.appendChild(p.row('Kurulum Türü', el('span', { text: KIND_LABELS[kind] || kind })));
     root.appendChild(el('div', { class: 'ctrl upd-status ' + (s.status || 'idle'), text: statusText(s) }));
+    if (s.checkError && s.status === 'available') {
+      root.appendChild(el('div', { class: 'ctrl settings-io-note dim', text: 'Son denetim tamamlanamadı; görünen sürüm bir önceki başarılı denetimden.' }));
+    }
 
     const check = btn(['refresh', 'Şimdi Denetle'], 'GitHub sürümlerine bir kez sorar', async () => {
       if (!window.api || !window.api.updatesCheck) return;

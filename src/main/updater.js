@@ -113,6 +113,42 @@ function parseRelease(json) {
   };
 }
 
+/* GitHub hız sınırı 429, ya da 403 ile x-ratelimit-remaining: 0, ya da
+   gövdede "rate limit" olarak gelir. Boş dizgi: bu bir hız sınırı değil. */
+function headerValue(headers, name) {
+  if (!headers) return '';
+  if (typeof headers.get === 'function') {
+    const v = headers.get(name);
+    return v == null ? '' : String(v);
+  }
+  const raw = headers[name] != null ? headers[name] : headers[String(name).toLowerCase()];
+  if (raw == null) return '';
+  return String(Array.isArray(raw) ? raw[0] : raw);
+}
+function rateLimitError(status, headers, body) {
+  const remain = headerValue(headers, 'x-ratelimit-remaining');
+  const msg = String(body || '');
+  if (Number(status) === 429 || remain === '0' || /rate limit/i.test(msg)) {
+    const retry = headerValue(headers, 'retry-after');
+    return retry ? 'rate limit ' + retry : 'rate limit';
+  }
+  return '';
+}
+
+/* Başarısız denetim, daha önce görülen yeni sürümü silmesin. Başarılı
+   denetim her zaman yeni sonucu yazar. meta: manual, auto, mode. */
+function applyCheckResult(previous, res, meta) {
+  const extra = meta || {};
+  const keep = !!(res && res.status === 'error' && previous && previous.status === 'available' && previous.latest);
+  if (keep) {
+    return Object.assign({}, previous, extra, {
+      checkedAt: res.checkedAt || Date.now(),
+      checkError: res.error || 'error',
+    });
+  }
+  return Object.assign({}, res, extra, { checkError: '' });
+}
+
 /* DENETİM. fetchJson(url, headers) -> Promise<object> dışarıdan veriliyor.
    Dönen durum arayüzün doğrudan gösterebileceği biçimde. */
 async function check(opts) {
@@ -159,5 +195,7 @@ module.exports = {
   pickAsset,
   canInstall,
   parseRelease,
+  rateLimitError,
+  applyCheckResult,
   check,
 };
