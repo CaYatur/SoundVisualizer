@@ -28,6 +28,31 @@
      tutuluyor; her en-boy oranında karenin kendisine göre. */
   const SAFE = { action: 0.035, title: 0.05 };
 
+  /* PLATFORM ARAYÜZ ALANLARI (#838). Dikey kısa video uygulamaları videonun
+     üstüne kendi arayüzünü çiziyor: üstte sekme ve başlık çubuğu, sağda
+     beğen/yorum/paylaş sütunu, altta açıklama, ses adı ve gezinme. Ortak,
+     yayımlanmış bir standart yok ve yerleşim uygulama sürümüyle oynuyor;
+     buradaki değerler büyük üç platformun arayüzlerinin birleşimi, bilerek
+     geniş (1080×1920'de üst 230, alt 480, sağ 150, sol 60 piksel). Kare
+     gönderiyi profil ızgarası 3:4 kırparak gösteriyor: ızgarada sol ve
+     sağdan %12,5 görünmüyor. Yalnız kılavuz, çıktıya hiçbir şey girmiyor.
+     Kutular arayüzün KAPLADIĞI bölgeler, kareye göre: { id, x, y, w, h }. */
+  const PLATFORM_ZONES = {
+    '9:16': [
+      { id: 'top', x: 0, y: 0, w: 1, h: 0.12 },
+      { id: 'bottom', x: 0, y: 0.75, w: 1, h: 0.25 },
+      { id: 'right', x: 0.86, y: 0.12, w: 0.14, h: 0.63 },
+      { id: 'left', x: 0, y: 0.12, w: 0.055, h: 0.63 },
+    ],
+    '1:1': [
+      { id: 'grid-left', x: 0, y: 0, w: 0.125, h: 1 },
+      { id: 'grid-right', x: 0.875, y: 0, w: 0.125, h: 1 },
+    ],
+  };
+  function platformZones(aspectKey) {
+    return (PLATFORM_ZONES[aspectKey] || []).map((z) => Object.assign({}, z));
+  }
+
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   /* null / undefined / boş metin "değer yok" demek: varsayılana düşer.
      Number(null) sonlu bir 0 verdiği için eskiden null alanlar (barSpan,
@@ -490,7 +515,7 @@
   }
 
   const api = {
-    SAFE, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
+    SAFE, PLATFORM_ZONES, platformZones, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
     kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,

@@ -358,3 +358,33 @@ test('fallbackBox: null bar alanları varsayılan kutuyu verir (sıfır genişli
   const b = L.fallbackBox({ kind: 'visualizer', type: 'bars' }, { visualizer: { barSpan: null, barCenterX: null, barHeight: null, baseline: null } });
   assert.ok(close(b.x, 0) && close(b.w, 1) && close(b.h, 0.92) && close(b.y, 0.08), JSON.stringify(b));
 });
+
+/* Kısa video uygulamalarının arayüz bölgeleri (#838): yalnız kılavuz. */
+test('platform arayüz bölgeleri: 9:16 ve 1:1, kareye göre, çıktıya girmiyor', () => {
+  const v = L.platformZones('9:16');
+  assert.deepStrictEqual(v.map((z) => z.id), ['top', 'bottom', 'right', 'left']);
+  for (const z of v.concat(L.platformZones('1:1'))) {
+    assert.ok(z.x >= 0 && z.y >= 0 && z.x + z.w <= 1 + 1e-9 && z.y + z.h <= 1 + 1e-9, z.id + ' karenin içinde');
+  }
+  // 1080×1920'de üst 230, alt 480, sağ ~150, sol ~60 piksel
+  const px = (id, k, n) => Math.round(v.find((z) => z.id === id)[k] * n);
+  assert.strictEqual(px('top', 'h', 1920), 230);
+  assert.strictEqual(px('bottom', 'h', 1920), 480);
+  assert.strictEqual(px('right', 'w', 1080), 151);
+  assert.strictEqual(px('left', 'w', 1080), 59);
+  // Kare: profil ızgarası 3:4 kırpıyor, iki yandan %12,5
+  const sq = L.platformZones('1:1');
+  assert.ok(close(sq[0].w, 0.125) && close(sq[1].x, 0.875) && close(sq[1].w, 0.125));
+  assert.deepStrictEqual(L.platformZones('16:9'), [], '16:9 için bölge yok');
+  // Kopya dönüyor: çağıran değiştirse de tablo bozulmuyor
+  L.platformZones('9:16')[0].h = 0.9;
+  assert.ok(close(L.platformZones('9:16')[0].h, 0.12));
+  const ed = fs.readFileSync(path.join(root, 'src', 'admin', 'layout-editor.js'), 'utf-8');
+  assert.match(ed, /toggle\('Platform arayüzü', st\.platform,/);
+  assert.match(ed, /L\.platformZones\(st\.aspectKey\)/);
+  assert.match(ed, /fit\(\);\s+paintGuides\(\);/, 'oran değişince bölgeler yeniden çiziliyor');
+  const css = fs.readFileSync(path.join(root, 'src', 'admin', 'admin.css'), 'utf-8');
+  assert.match(css, /\.lay-platform \{[^}]*pointer-events: none/);
+  const i18n = fs.readFileSync(path.join(root, 'src', 'shared', 'i18n.js'), 'utf-8');
+  assert.ok(i18n.includes("'Platform arayüzü': 'Platform interface'"));
+});

@@ -1717,6 +1717,14 @@ input[type="number"]::-webkit-inner-spin-button {
 .lay-overlay { position: absolute; inset: 0; z-index: 5; }
 .lay-safe { position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .55); }
 .lay-safe.title { border-style: dotted; }
+/* Kısa video uygulamalarının arayüzünün kapladığı bölgeler (#838): taralı, tıklamayı geçirir */
+.lay-platform-wrap { position: absolute; inset: 0; pointer-events: none; }
+.lay-platform {
+  position: absolute; pointer-events: none; border: 1px dashed rgb(var(--on-media-rgb) / .6);
+  /* Açık zeminde de seçilsin: koyu örtü + açık tarama */
+  background: repeating-linear-gradient(135deg, rgb(var(--on-media-rgb) / .22) 0 6px, transparent 6px 12px), var(--media-scrim);
+  opacity: .7;
+}
 .lay-center { position: absolute; pointer-events: none; background: rgb(var(--on-media-rgb) / .22); }
 .lay-center.v { left: 50%; top: 0; bottom: 0; width: 1px; }
 .lay-center.h { top: 50%; left: 0; right: 0; height: 1px; }

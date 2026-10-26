@@ -7,7 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837]
+### For music videos and short video [837, 838]
+
+- **Short-video interface guides in the layout editor [838].** At 9:16 and 1:1 the editor also shows hatched areas where short-video apps draw over the video. At 9:16 these are a top bar, a column of side buttons and a caption and navigation band, sized as the union of the three big platforms' current layouts and kept generous: at 1080×1920, 230 px top, 480 px bottom, about 150 px right and 60 px left. At 1:1 the hatched areas are the 12.5% on each side that the profile grid's 3:4 crop hides. These are guides only, under a "Platform interface" switch next to "Safe areas", and nothing reaches the output. Checked in the running app at both ratios.
 
 - **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
 
