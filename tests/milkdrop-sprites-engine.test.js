@@ -233,7 +233,7 @@ test('hiçbir sprite\'ın kullanmadığı doku hemen bırakılıyor', () => {
 
 test('çizim yerinde: birleştirmeden sonra, flaş sınırlayıcıdan önce; bağlam kaybı ve atma', () => {
   const d = SRC.indexOf('this._drawSprites(gl, dst, fl ? fl.raw.fb : null, GW, GH);');
-  const comp = SRC.lastIndexOf('this._drawCompPass(gl, dst, this.compPreset, ctx);', d);
+  const comp = SRC.lastIndexOf('this._drawCompPass(gl, dst, this.compPreset, ctx, src);', d);
   const flash = SRC.indexOf('if (fl) this._flashPass(gl, fl, GW, GH, step);', d);
   assert.ok(d > 0 && comp > 0 && comp < d && flash > d, 'sıra: birleştirme → sprite → flaş');
   const names = /const GL_NAMES = \[([\s\S]*?)\];/.exec(SRC)[1];

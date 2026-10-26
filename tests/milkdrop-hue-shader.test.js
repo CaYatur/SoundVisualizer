@@ -186,7 +186,7 @@ test('sabit birleştirme yolu köşe rengini ağırlıklarla dörtgene uyguluyor
   assert.match(frag, /uniform vec3 uWEcho\[4\];/);
   assert.doesNotMatch(frag, /uHue/, 'eski tek çarpanlı renk kalmamalı');
 
-  const pass = method('_drawCompPass(gl, dst, prog, ctx)');
+  const pass = method('_drawCompPass(gl, dst, prog, ctx, src)');
   const acc = /if \(acc\) \{([\s\S]*?)\} else \{([\s\S]*?)\}\s*gl\.uniform4f/.exec(pass);
   assert.ok(acc, 'uyum dalları bulunamadı');
   assert.match(acc[1], /this\._hueCorners\(this\._fileVal\('fshader', 0\), this\.time\)/);

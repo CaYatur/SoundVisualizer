@@ -128,7 +128,7 @@ test('decay de COLOR_NORM\'dan geçiyor', () => {
 test('shader rengi COLOR_NORM görmüyor', () => {
   /* Shader\'ın ürettiği renk 8 bitlik tepe rengi yolundan geçmiyor;
      oraya uygulamak MilkDrop\'un yapmadığı bir niceleme eklerdi. */
-  const m = /_drawCompPass\(gl, dst, prog, ctx\) \{[\s\S]*?\n    \}/.exec(BARE);
+  const m = /_drawCompPass\(gl, dst, prog, ctx, src\) \{[\s\S]*?\n    \}/.exec(BARE);
   assert.ok(m, '_drawCompPass bulunamadı');
   assert.doesNotMatch(m[0], /colorNorm|\bcn\(/);
   const warp = /_drawWarpPass\(gl, src, prog, ctx, step\) \{[\s\S]*?\n    \}/.exec(BARE);

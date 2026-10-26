@@ -82,3 +82,19 @@ test('tampon her karede dönüyor — src gerçekten ÖNCEKİ kare', () => {
   assert.match(DRAW, /const dst = this\.targets\[1 - this\.cur\]/);
   assert.match(DRAW, /this\.cur = 1 - this\.cur/);
 });
+
+test('comp shader\'ı main olarak ÖNCEKİ kareyi okuyor, blur ile aynı kareyi', () => {
+  /* MilkDrop her preset shader'ında `sampler_main`i `m_lpVS[0]`a bağlıyor
+     (plugin.cpp:2415-2418, milkdropfs.cpp:3678-3679); comp anında bu, blur
+     zincirinin de kaynağı olan önceki kare. Bu karenin görüntüsünü vermek
+     main ile blur arasında bir karelik kayma demekti (hızlı şekilde parıltı
+     geride, `main - blur` kenarları kalın). Shader'sız comp ise bu kareyi
+     gösteriyor (3803, `m_lpVS[1]`). */
+  const fn = /_drawCompPass\(gl, dst, prog, ctx, src\) \{[\s\S]*?\n    \}/.exec(BARE);
+  assert.ok(fn, '_drawCompPass bulunamadı');
+  assert.match(fn[0], /this\._bindTextures\(this\._wantAcc !== false && src \? src\.tex : dst\.tex,/);
+  assert.match(fn[0], /gl\.bindTexture\(gl\.TEXTURE_2D, dst\.tex\)/, 'sabit yol bu kareyi göstermeli');
+  const calls = DRAW.match(/this\._drawCompPass\([^)]*\)/g) || [];
+  assert.ok(calls.length >= 2, 'comp çağrıları bulunamadı');
+  for (const c of calls) assert.match(c, /, src\)$/, c + ': önceki kare geçirilmeli');
+});
