@@ -2382,7 +2382,31 @@
       p.rerender();
       p.toast(tl.markers.length + ' işaret üretildi.', 'ok');
     });
-    marks.appendChild(el('div', { class: 'tl-actions' }, [fromLyrics]));
+    /* YouTube bölüm listesi (#837): işaretçiler "0:00 Başlangıç" satırları
+       olarak panoya. Süre zaman çizelgesinin uzunluğu; YouTube'un kuralı
+       tutmuyorsa liste yine kopyalanıyor, uyarı nedenini söylüyor. */
+    const ytChapters = el('button', { class: 'btn small', type: 'button', text: 'YouTube Bölümlerini Kopyala',
+      title: 'İşaretçileri video açıklamasına yapıştırılacak bölüm listesi olarak kopyalar' });
+    ytChapters.addEventListener('click', () => {
+      const FX = window.SVExportFormats;
+      if (!FX || !tl.markers.length) {
+        p.toast('Önce zaman çizelgesine işaret ekleyin.', 'warn');
+        return;
+      }
+      // Satırlar videonun diliyle değil arayüzün diliyle; 'Bölüm' sözlükte başka anlamda kayıtlı
+      const en = window.SVI18n && window.SVI18n.locale === 'en';
+      const r = FX.youtubeChapters(tl.markers, TL().timelineLength(tl),
+        en ? { first: 'Start', chapter: 'Chapter' } : { first: 'Başlangıç', chapter: 'Bölüm' });
+      const ok = window.api && typeof window.api.copyToClipboard === 'function' && window.api.copyToClipboard(r.text);
+      if (!ok) {
+        p.toast('Pano kullanılamadı.', 'warn');
+        return;
+      }
+      if (r.problems.indexOf('FEW') >= 0) p.toast('Kopyalandı; YouTube en az üç bölüm istiyor.', 'warn');
+      else if (r.problems.indexOf('SHORT') >= 0) p.toast('Kopyalandı; YouTube her bölümün en az 10 saniye sürmesini istiyor.', 'warn');
+      else p.toast(r.rows.length + ' bölüm kopyalandı.', 'ok');
+    });
+    marks.appendChild(el('div', { class: 'tl-actions' }, [fromLyrics, ytChapters]));
     box.appendChild(marks);
     return box;
   }

@@ -7795,6 +7795,19 @@ async function startExportJob(opts, bench, extra) {
      ölçtüğü süreyle çözülen süre arasındaki küçük fark sesi kesmesin. */
   const durationSec = dur.mode === 'audio' ? 0 : dur.seconds;
 
+  /* YouTube bölüm listesi (#837): işaretçilerden, videonun süresine göre.
+     Metin şimdi hazırlanıyor, dosya iş başarıyla bitince yazılıyor. İşaretçi
+     yoksa dosya da yok. */
+  let chapterListText = '';
+  if (opts.chapterList === true && fmt.kind === 'video') {
+    let markers = [];
+    try { markers = TL.makeTimeline(tlCfg).markers; } catch { markers = []; }
+    if (markers.length) {
+      chapterListText = exportFormats.youtubeChapters(markers, dur.seconds,
+        { first: trUi('Başlangıç', 'Start'), chapter: trUi('Bölüm', 'Chapter') }).text + '\n';
+    }
+  }
+
   /* Bölümler (#527): TEK render, işaretçilerde zorunlu anahtar kare ve
      ffmpeg'in segment yazıcısıyla kesim. Her bölümü ayrı çizmek MilkDrop
      gibi geri beslemeli katmanları sınırda farklı başlatırdı. Dosyalar bir
@@ -7856,7 +7869,7 @@ async function startExportJob(opts, bench, extra) {
   exportState = {
     outputPath: seqDir || outputPath, seqDir, workDir, partial: workDir || target,
     format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false,
-    chapterNames: chapters ? chapters.names : null, ext: fmt.ext,
+    chapterNames: chapters ? chapters.names : null, ext: fmt.ext, chapterListText,
     startedAt: 0, total: 0,
   };
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
@@ -8116,6 +8129,7 @@ function finalizeExport(status, message, opts) {
   const workDir = exportState.workDir;
   const partial = exportState.partial;
   const chapterNames = exportState.chapterNames;
+  const chapterListText = exportState.chapterListText;
   const ext = exportState.ext;
   const encoder = exportState.encoder;
   const encoderId = exportState.encoderId;
@@ -8173,6 +8187,13 @@ function finalizeExport(status, message, opts) {
   } else if (opts && opts.keep) {
     // Çöken görüntü süreci: yazılmış kısım saklanıyor, yeri söyleniyor
     finalOut = partial;
+  }
+  /* Bölüm listesi (#837) videonun yanına; bölümlere ayrılmışsa klasörün
+     içine. Yazılamazsa video yine başarılı: liste panelden de kopyalanıyor. */
+  if (status === 'done' && chapterListText && finalOut) {
+    const listPath = seqDir ? path.join(finalOut, 'YouTube chapters.txt')
+      : path.join(path.dirname(finalOut), path.basename(finalOut, path.extname(finalOut)) + ' - YouTube chapters.txt');
+    try { fs.writeFileSync(listPath, chapterListText, 'utf-8'); } catch (err) { console.warn('[export] bölüm listesi yazılamadı: ' + err.message); }
   }
 
   // Kuyruk işin sonucunu bekliyor (#526)

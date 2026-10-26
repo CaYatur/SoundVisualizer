@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3517%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3524%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -945,6 +945,10 @@ ekranın solundaki renkleri alıyor.
   gösteri tek render'dan zaman çizelgesinin işaretçilerinde, onların adlarını taşıyan dosyalara
   bölünebiliyor. Toplu kuyruk bir sahneyi birçok şarkıya ya da bir şarkıyı birkaç boyuta
   çıkarıyor ve hata veren bir işte durmuyor.
+- <kbd>3.1.6</kbd> **Zaman çizelgesi işaretçilerinden YouTube bölümleri.** Tek tıkla video
+  açıklaması için "0:00 Giriş" satırları olarak kopyalanıyor ya da dışa aktarım videonun yanına
+  yazıyor. YouTube'un kabul etmeyeceği durumu söylüyor: ilk bölüm 0:00'da, en az üç bölüm, her
+  biri en az 10 saniye.
 - <kbd>3.1.6</kbd> **Canlı kayıt zaman çizelgesini izleyebiliyor**: çalma başlayınca başlıyor,
   duraklatma, durdurma ya da sonda bitiyor; taşımayı MIDI, OSC ya da bir yapay zekâ ajanı sürse de.
 - Çıkışın göründüğü gibi **canlı kaydı** — canlı ses, modülasyon, geçişler ve efektlerle — MP4 ya da
@@ -1793,7 +1797,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3517 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3524 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

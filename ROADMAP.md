@@ -136,7 +136,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3517 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3524 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3630,6 +3630,12 @@ The panel had one look. It now has seven themes and Device default, chosen under
   - Two measurement traps:
     - A gradient's `transparent` stop was averaged as black.
     - In a background window, CSS transitions do not advance, so the old theme's colour was measured. Pending transitions are now finished before measuring.
+
+## v3.1.6 — Additions for music videos and short video
+
+Small additions made after the market review of 26–27 October. Each one is opt-in: existing scenes, templates and exports render exactly as before. Each can be checked here without extra hardware, and live output and export agree because both follow the draw clock. The larger work from that review (a video project view, a wizard, mix videos, lyric styles, section detection, timecode) is planned for v3.1.7.
+
+- **YouTube chapters from the timeline markers (#837) · done.** Copied from the timeline as "0:00 Intro" lines, or written next to the export. The panel says which of YouTube's rules fails: first chapter at 0:00, at least three chapters, each at least 10 s.
 
 ## v3.1.6 — Broadcast layout editor (first planned as v3.1.7)
 

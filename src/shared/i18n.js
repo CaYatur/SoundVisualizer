@@ -439,6 +439,13 @@
     'Kafada İşaret': 'Marker at Playhead',
     'Sözlerden İşaret Üret': 'Create Markers from Lyrics',
     'Önce Metin bölümünden bir LRC ya da SRT dosyası yükleyin.': 'Load an LRC or SRT file from the Text section first.',
+    'YouTube Bölümlerini Kopyala': 'Copy YouTube Chapters',
+    'İşaretçileri video açıklamasına yapıştırılacak bölüm listesi olarak kopyalar': 'Copies the markers as a chapter list to paste into a video description',
+    'Önce zaman çizelgesine işaret ekleyin.': 'Add a marker to the timeline first.',
+    'Pano kullanılamadı.': 'The clipboard is not available.',
+    'Kopyalandı; YouTube en az üç bölüm istiyor.': 'Copied; YouTube needs at least three chapters.',
+    'Kopyalandı; YouTube her bölümün en az 10 saniye sürmesini istiyor.': 'Copied; YouTube needs every chapter to last at least 10 seconds.',
+    'YouTube bölüm listesini yanına yaz (.txt)': 'Write a YouTube chapter list next to it (.txt)',
     'Bu sütunu durdur': 'Stop this column',
     'Satırın tamamını sahne gibi başlat': 'Launch the whole row as a scene',
     'Hepsini Durdur': 'Stop Everything',
@@ -4051,6 +4058,7 @@
       .replace(/^Parça (\d+)$/g, 'Track $1')
       .replace(/^İşaret (\d+)$/g, 'Marker $1')
       .replace(/^(\d+) işaret üretildi\.$/g, '$1 markers generated.')
+      .replace(/^(\d+) bölüm kopyalandı\.$/g, '$1 chapters copied.')
       // Dışa aktarım ve protokol çıkışları
       .replace(/^(.+) Çıkışı$/g, (m, p) => `${translate(p)} Output`)
       .replace(/^[“"](.+)[”"] silinsin mi\?$/g, (_, name) => `Delete "${translate(name)}"?`)

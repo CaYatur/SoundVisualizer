@@ -7,6 +7,10 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
+### For music videos and short video [837]
+
+- **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
+
 ### CaYaDev MilkDrop Presets [825]
 
 - **Our own shader presets, built in.** 35 so far of a planned 50+:
