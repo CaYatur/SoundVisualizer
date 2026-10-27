@@ -72,6 +72,11 @@ CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones a
 - **Default windows** (40–90 Hz, 150–400 Hz, 1.5–4 kHz, 6–14 kHz) come from levels measured on four released tracks: the floor at about the 10th percentile, the ceiling at about the 95th. The spectrum's scale stops at -18 dB, so a loudly mastered kick often reaches the ceiling.
 - **Checked** in the running app in Turkish and English: the panel, saving, the source list and the live meters. New tests cover the byte scale, power averaging, narrow and reversed ranges, the dB window, frame-rate independence, invalid settings, and that an unrouted band leaves the configuration untouched.
 
+### Fresh bridge profile and recording row
+
+- **A fresh standalone bridge keeps its settings.** With `--bridge` and an empty profile folder (no `settings.json`), the bridge window's Settings tab ignored every change: "New Secret", the name and the port were dropped, the secret box stayed empty and the badge stayed "Secret missing". The window's write handlers (settings, sources, leaving bridge mode) now start an empty configuration on the first write, so the first change is saved and the badge becomes "Broadcasting". Checked in the running bridge under Xvfb with an empty profile folder; the normal app's first start is not affected.
+- **Recording card at 1024 px.** The three buttons ran inline, so "YouTube Thumbnail" broke across lines and stuck to its neighbour. The row now wraps whole buttons onto the next line with a gap, and the timer stays on the right.
+
 ### Export loop, panel and bridge fixes
 
 - **Seamless loop and Spotify Canvas exports work again [840].** ffmpeg stopped with exit code 234 ("xfade ... constant frame rate; current rate of 1/0 is invalid"): after `trim` and `setpts` the two branches had no frame rate, and `xfade` needs one. Each branch now ends in `fps=<fps>`. Checked with a real ffmpeg run (2 s at 30 fps: 60 frames, yuv420p, exit 0); the same command failed before the change.
