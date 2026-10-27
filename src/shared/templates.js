@@ -408,6 +408,45 @@
             ),
             { postfx: [fx('bloom', { threshold: 0.7, intensity: 0.32 })] }
           )),
+
+        /* Giriş ve çıkış kartları (#843). Videonun başına ve sonuna konacak
+           sahneler: zaman çizelgesinde birer klip ya da tek başına. Öğeler
+           açılış animasyonuyla (#537) gelir; video başladığında, sahne
+           yüklenince ya da "Açılışı Oynat" ile oynar. Kapak ve yazı aynı
+           Çalan Parça katmanından, şarkının kendi bilgisiyle. */
+        T('bc-title', 'Müzik Videosu', 'Title Card',
+          'Videonun girişi: ortada büyüyerek gelen kapak, altında parça adı ve sanatçı; tabanda ince bir bar çizgisi.',
+          merge(
+            ground({ brightness: 0.7, vignette: 0.55 }),
+            pal('#05050a', '#0e0e1c', '#24244a', '#6c63ff', '#c9c6ff'),
+            stack(
+              bg('bctt_bg'),
+              barLayer('bctt_bars', { color: '#c9c6ff', barCount: 96, gap: 0.5, glow: 0.2, barHeight: 0.08, baseline: 0.94, sensitivity: 0.55 }),
+              Object.assign(card('bctt_card', { coverSide: 'top', anchor: 'text', align: 'center', x: 0.5, y: 0.5,
+                coverSize: 0.36, coverGap: 0.07, size: 0.07, maxWidth: 0.8 }),
+              { reveal: { type: 'scale', duration: 1.2, delay: 0.2, ease: 'back', distance: 0.1 } })
+            ),
+            { postfx: [fx('bloom', { threshold: 0.7, intensity: 0.35 })] }
+          )),
+
+        T('bc-end', 'Müzik Videosu', 'End Card',
+          'Videonun kapanışı: üstte serbest bir teşekkür satırı, ortada kapak ve parça bilgisi, tabanda ince barlar.',
+          merge(
+            ground({ brightness: 0.65, vignette: 0.55 }),
+            pal('#05050a', '#0e0e1c', '#24244a', '#6c63ff', '#c9c6ff'),
+            stack(
+              bg('bcen_bg'),
+              barLayer('bcen_bars', { color: '#c9c6ff', barCount: 96, gap: 0.5, glow: 0.2, barHeight: 0.08, baseline: 0.94, sensitivity: 0.55 }),
+              Object.assign(card('bcen_card', { coverSide: 'left', anchor: 'group', align: 'left', x: 0.3, y: 0.56,
+                coverSize: 0.22, size: 0.06, maxWidth: 0.5 }),
+              { reveal: { type: 'fade', duration: 1, delay: 0.4, ease: 'smooth', distance: 0.08 } }),
+              { id: 'bcen_text', name: 'Kapanış Yazısı', kind: 'visualizer', type: 'text',
+                reveal: { type: 'slideUp', duration: 0.9, delay: 0, ease: 'out', distance: 0.06 },
+                settings: { text: { enabled: true, content: 'Thanks for listening', x: 0.5, y: 0.24, size: 0.06,
+                  weight: 700, animation: 'none', color: '#ffffff', align: 'center' } } }
+            ),
+            { postfx: [fx('bloom', { threshold: 0.7, intensity: 0.3 })] }
+          )),
       ];
     })(),
 

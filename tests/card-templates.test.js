@@ -25,7 +25,7 @@ const SV = global.window.SV;
 const T = require('../src/shared/templates.js');
 const env = { defaultConfig: SV.defaultConfig, deepMerge: SV.deepMerge, clone: SV.clone };
 
-const CARDS = ['bc-label', 'bc-artwork', 'bc-line', 'bc-amber', 'bc-minimal', 'bc-quiet', 'bc-corner', 'bc-center', 'bc-wave', 'bc-ring', 'bc-stage'];
+const CARDS = ['bc-label', 'bc-artwork', 'bc-line', 'bc-amber', 'bc-minimal', 'bc-quiet', 'bc-corner', 'bc-center', 'bc-wave', 'bc-ring', 'bc-stage', 'bc-title', 'bc-end'];
 const BACKDROPS = ['np-aurora', 'np-flow', 'np-nebula', 'np-milkdrop', 'np-galaxy', 'np-glow'];
 const tpl = (id) => T.TEMPLATES.find((x) => x.id === id);
 const applied = (id) => T.apply(SV.defaultConfig(), tpl(id), env);
@@ -35,7 +35,7 @@ test('kart ve arka plan şablonları var; eski kimlikler korunuyor', () => {
   for (const id of CARDS) assert.strictEqual(tpl(id) && tpl(id).group, 'Müzik Videosu', id);
   for (const id of BACKDROPS) assert.strictEqual(tpl(id) && tpl(id).group, 'Müzik Arka Planı', id);
   assert.strictEqual(new Set(T.TEMPLATES.map((t) => t.id)).size, T.TEMPLATES.length, 'kimlikler tekil');
-  assert.strictEqual(T.TEMPLATES.length, 81);
+  assert.strictEqual(T.TEMPLATES.length, 83);
 });
 
 test('kartlarda ve arka planlarda gren yok', () => {
@@ -139,4 +139,18 @@ test('yeni metinlerin İngilizcesi var', () => {
     for (const k of [t.name, t.desc, t.group]) assert.ok(has(k), id + ': ' + k);
     for (const l of t.patch.layers || []) assert.ok(has(l.name), id + ' katman: ' + l.name);
   }
+});
+
+/* Giriş ve çıkış kartları (#843): öğeler açılış animasyonuyla geliyor, çıkış
+   kartında serbest bir kapanış satırı var. */
+test('giriş ve çıkış kartları açılışla geliyor; çıkışta kapanış yazısı', () => {
+  const rv = (cfg, id) => { const l = cfg.layers.find((x) => x.id === id); return l && l.reveal; };
+  const title = applied('bc-title');
+  assert.strictEqual(rv(title, 'bctt_card').type, 'scale');
+  const end = applied('bc-end');
+  assert.strictEqual(rv(end, 'bcen_card').type, 'fade');
+  const txt = end.layers.find((x) => x.id === 'bcen_text');
+  assert.ok(txt && txt.kind === 'visualizer' && txt.type === 'text');
+  assert.strictEqual(txt.settings.text.content, 'Thanks for listening');
+  assert.strictEqual(rv(end, 'bcen_text').type, 'slideUp');
 });
