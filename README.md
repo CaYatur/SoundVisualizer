@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3573%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3577%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -939,7 +939,7 @@ the fixtures on the left take the colours on the left of the screen.
   cancellation and a GPU-to-CPU fallback. It is deterministic: the same job gives the same video, the
   property the visual regression tests rely on. Title, artist, album and cover are read from the
   file and feed Now Playing and text layers.
-- <kbd>3.1.6</kbd> **Eleven export formats.** H.264 or H.265 MP4, ProRes 422 HQ and DNxHR HQ for
+- <kbd>3.1.6</kbd> **Twelve export formats.** H.264, H.265 or 10-bit H.265 MP4, ProRes 422 HQ and DNxHR HQ for
   editing, VP9 WebM, GIF and APNG loops, and PNG or linear OpenEXR frame sequences. ProRes 4444,
   VP9, APNG, PNG and EXR keep the alpha channel for overlay stock. Portrait 1080×1920 and square
   1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF or Intel Quick Sync, whichever
@@ -1818,7 +1818,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3573 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3577 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
