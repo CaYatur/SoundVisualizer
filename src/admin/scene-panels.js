@@ -475,7 +475,7 @@
   ];
 
   const BLEND_LABELS = [
-    ['normal', 'Normal'], ['add', 'Toplama'], ['screen', 'Ekran'], ['multiply', 'Çarpma'],
+    ['normal', 'Normal'], ['add', 'Toplama'], ['screen', 'Ekran\u200B'], ['multiply', 'Çarpma'],
     ['overlay', 'Kaplama'], ['darken', 'Koyulaştır'], ['lighten', 'Açıklaştır'],
     ['color-dodge', 'Renk Soldurma'], ['color-burn', 'Renk Yakma'],
     ['hard-light', 'Sert Işık'], ['soft-light', 'Yumuşak Işık'],
@@ -1028,7 +1028,7 @@
         out.push(miniSlider('Parlaklık', () => getL('brightness', 1), (v) => setL('brightness', v), { min: 0.2, max: 2, step: 0.01, def: 1}));
         out.push(miniSlider('Renk Kayması', () => getL('hue', 0), (v) => setL('hue', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0}));
         out.push(miniSlider('Doygunluk', () => getL('saturate', 1), (v) => setL('saturate', v), { min: 0, max: 2, step: 0.01, def: 1}));
-        out.push(miniSelect('Karışım', [['normal', 'Normal'], ['screen', 'Ekran'], ['add', 'Ekle']],
+        out.push(miniSelect('Karışım', [['normal', 'Normal'], ['screen', 'Ekran\u200B'], ['add', 'Ekle']],
           () => lg.blend || 'normal', (v) => { lg.blend = v; }, undefined, 'normal'));
         out.push(miniSelect('Ses Bandı', [['bass', 'Bas'], ['mid', 'Orta'], ['treble', 'Tiz'], ['level', 'Seviye']],
           () => lg.audioBand || 'bass', (v) => { lg.audioBand = v; }, undefined, 'bass'));

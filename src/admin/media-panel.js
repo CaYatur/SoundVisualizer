@@ -140,7 +140,7 @@
     nodes.push(
       P().segment('Karışım', 'media.blend', [
         { value: 'normal', label: 'Normal' },
-        { value: 'screen', label: 'Ekran' },
+        { value: 'screen', label: 'Ekran\u200B' },
         { value: 'add', label: 'Toplama' },
         { value: 'multiply', label: 'Çarpma' },
       ])

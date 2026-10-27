@@ -567,7 +567,8 @@
               onclick: () => guardedSelect(p.id),
             },
             [
-              el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name, ...(p.builtin ? {} : { 'data-user-text': '' }) }),
+              // title: dar listede kısaltılan uzun adın tamamı fare üstünde görünsün
+              el('span', { class: 'si-name', text: p.builtin ? trStudio(p.name) : p.name, ...(p.builtin ? {} : { 'data-user-text': '' }), title: p.builtin ? trStudio(p.name) : p.name }),
               el('span', { class: 'si-tag', text: trStudio(p.builtin ? 'yerleşik' : p.engine === 'shader' ? 'shader' : 'varyasyon') }),
             ]
           )

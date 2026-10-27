@@ -34,6 +34,20 @@ test('plan: L saniye çıktı, L + X çizim; geçiş sınırlı', () => {
   assert.strictEqual(F.loopPlan(null, 30, mp4), null);
 });
 
+test('plan: xfade sabit kare hızı ister; her setpts\'ten sonra fps gelir (ffmpeg 234, 1/0)', () => {
+  for (const fps of [24, 30, 60, 29.97]) {
+    const g = F.loopPlan({ seconds: 8, cross: 0.5 }, fps, mp4).graph;
+    const n = (g.match(/setpts=PTS-STARTPTS/g) || []).length;
+    assert.strictEqual(n, 2, 'iki dal');
+    // Her setpts hemen fps ile devam ediyor ve değer çıktı kare hızı
+    assert.strictEqual((g.match(new RegExp('setpts=PTS-STARTPTS,fps=' + fps + '\\[', 'g')) || []).length, 2, fps + ' fps');
+    // fps xfade'den önce: iki dal da etiketlenmeden önce sabit hıza geçiyor
+    assert.ok(g.indexOf('fps=') < g.indexOf('xfade='));
+  }
+  // Varsayılan 30 (geçersiz kare hızında da boş değer yazılmıyor)
+  assert.match(F.loopPlan({ seconds: 8, cross: 0.5 }, 0, mp4).graph, /setpts=PTS-STARTPTS,fps=30\[lpm\]/);
+});
+
 test('argümanlar: süzgeç zinciri, ses yok, bölüm kesimi yok, süre L', () => {
   const a = F.buildArgs(Object.assign({}, base, { durationSec: 8, loop: { seconds: 8, cross: 0.5 }, chapters: [3] })).join(' ');
   assert.match(a, /-filter_complex \[0:v\]split=2\[lpa\]\[lpb\];.*xfade=[^ ]*\[lp\];\[lp\]scale=[^ ]*format=yuv420p\[v\] -map \[v\]/);

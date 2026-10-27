@@ -72,6 +72,15 @@ CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones a
 - **Default windows** (40–90 Hz, 150–400 Hz, 1.5–4 kHz, 6–14 kHz) come from levels measured on four released tracks: the floor at about the 10th percentile, the ceiling at about the 95th. The spectrum's scale stops at -18 dB, so a loudly mastered kick often reaches the ceiling.
 - **Checked** in the running app in Turkish and English: the panel, saving, the source list and the live meters. New tests cover the byte scale, power averaging, narrow and reversed ranges, the dB window, frame-rate independence, invalid settings, and that an unrouted band leaves the configuration untouched.
 
+### Export loop, panel and bridge fixes
+
+- **Seamless loop and Spotify Canvas exports work again [840].** ffmpeg stopped with exit code 234 ("xfade ... constant frame rate; current rate of 1/0 is invalid"): after `trim` and `setpts` the two branches had no frame rate, and `xfade` needs one. Each branch now ends in `fps=<fps>`. Checked with a real ffmpeg run (2 s at 30 fps: 60 frames, yuv420p, exit 0); the same command failed before the change.
+- **Bar placement.** Switching "Placement" to Bottom now rebuilds the panel, so the Floor Reflection control appears at once; "Reflection Length" no longer waits for the reflection slider to be above zero.
+- **Blend mode "Screen".** In an English UI the blend option showed "Display" because it shared a label with the display section. It has its own label now; the Turkish text is unchanged.
+- **Audio bridge badge.** The bridge window showed "Starting" forever when no pairing secret was set. It now says "Secret missing", like the settings page.
+- **Studio presets.** A long preset name that is cut off in the list shows in full on hover.
+- **Layout import, by design.** A layout file with a text element adds a second visualizer-type layer (text is a sub-type of the visualizer layer): a fresh scene ends up with [background, visualizer, visualizer]. Importing the same file again updates those layers instead of adding more. Covered by a test.
+
 ### Layout Editor and theme card fixes
 
 - **Fresh profile no longer breaks on the first drag.** The Visualizer fields showed 0, 0, 0, 0 and the first drag wrote those zeros back, collapsing the bars into a small icon. Empty bar placement now resolves to the real defaults (position-aware, same as the renderer).

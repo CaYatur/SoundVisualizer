@@ -3316,6 +3316,9 @@
     'Ekran seçilmedi': 'No display selected',
     'Önce görselleştirmenin açılacağı ekranı seçin.': 'Choose a display for the visualizer first.',
     'Ekran': 'Display',
+    // Karışım kipi "Ekran" (screen blend), ekran/monitör değil. Anahtarın sonundaki
+    // görünmez U+200B iki anlamı ayırıyor; Türkçede ikisi de "Ekran" görünür.
+    'Ekran\u200B': 'Screen',
     'Açık': 'On',
     'Kapalı': 'Off',
     'ızgara izleniyor': 'following the grid',
