@@ -35,7 +35,7 @@ CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones a
 
 - **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
 
-### Audio analysis as files: JSON, CSV and MIDI [PRNUM]
+### Audio analysis as files: JSON, CSV and MIDI [857]
 
 - **What it writes.** A new export option, "Write the audio analysis next to it (JSON, CSV, MIDI)", is off by default. "Audio Analysis Only" writes the same files from an audio file without rendering video, in seconds (a 3-minute song at 60 fps took about 9 s). The files:
   - `<name> - analysis.json` and `.csv`: one row per video frame. Each row has every modulation source measured from the audio: bands, custom bands, loudness, timbre, the twelve pitch classes and the drum detectors. It also has the beat and downbeat of the beat grid, pitch, the chord of the current beat and the key.
