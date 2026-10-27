@@ -144,6 +144,9 @@
     'Bar Yüksekliği': 'Bar Height',
     'Taban Çizgisi': 'Baseline',
     'Zemin Yansıması': 'Floor Reflection',
+    'Ken Burns (Yavaş Yakınlaşma ve Kayma)': 'Ken Burns (Slow Zoom and Pan)',
+    'Ken Burns Döngüsü': 'Ken Burns Cycle',
+    'Vuruşta Nabız': 'Beat Pulse',
     'Yansıma Boyu': 'Reflection Length',
     // Tayf ölçümü
     'Tayf Ölçümü': 'Spectrum Metering',

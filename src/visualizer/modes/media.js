@@ -91,6 +91,23 @@
   }
 
   // Metni verilen genişliğe sığan satırlara böler (sözcük sınırından)
+  /* KEN BURNS (#841): durağan bir görüntüde yavaş yakınlaşma ve kayma. Bir
+     döngü `kenBurnsPeriod` saniye; yakınlaşma %0–12, kayma büyütmenin
+     bıraktığı payla sınırlı (bkz. _drawFit). Yalnız çizim saatine (t)
+     bağlı: aynı an canlıda da dışa aktarımda da aynı kare. Kayma kadrana
+     oran olarak: { zoom, x, y }. */
+  function kenBurns(m, t) {
+    const amt = Math.max(0, Math.min(1, Number(m && m.kenBurns) || 0));
+    if (!(amt > 0)) return { zoom: 1, x: 0, y: 0 };
+    const period = Math.max(4, Number(m.kenBurnsPeriod) || 20);
+    const ph = ((Number(t) || 0) / period) * Math.PI * 2;
+    return {
+      zoom: 1 + amt * 0.12 * (0.5 - 0.5 * Math.cos(ph)),
+      x: amt * 0.05 * Math.sin(ph * 0.5 + 0.6),
+      y: amt * 0.035 * Math.sin(ph * 0.5 + 2.2),
+    };
+  }
+
   function wrapText(ctx, text, maxW) {
     const words = String(text).split(/\s+/).filter(Boolean);
     const lines = [];
@@ -565,7 +582,8 @@
       const pic = this.drawable();
       const vw = pic.videoWidth || pic.width;
       const vh = pic.videoHeight || pic.height;
-      const zoom = 1 + (audio ? audio.bass : 0) * (m.audioZoom || 0);
+      const kb = kenBurns(m, t);
+      const zoom = (1 + (audio ? audio.bass : 0) * (m.audioZoom || 0)) * kb.zoom * (1 + this._beatPulse(m, audio, t));
       let alpha = m.opacity == null ? 1 : m.opacity;
       if (m.audioOpacity) alpha = Math.max(0, Math.min(1, alpha * (1 - m.audioOpacity) + alpha * m.audioOpacity * (audio ? audio.bass : 0) * 2));
 
@@ -581,12 +599,29 @@
 
       const slices = Math.max(0, Math.min(12, m.kaleido | 0));
       if (slices >= 3) this._drawKaleido(ctx, pic, W, H, vw, vh, slices, zoom, t);
-      else this._drawFit(ctx, pic, W, H, vw, vh, m.fit, zoom, !!m.mirror);
+      else this._drawFit(ctx, pic, W, H, vw, vh, m.fit, zoom, !!m.mirror, kb.x * W, kb.y * H);
 
       ctx.restore();
     }
 
-    _drawFit(ctx, pic, W, H, vw, vh, fit, zoom, mirror) {
+    /* Vuruşta nabız (#841): basın yavaş ortalamasını belirgin aşan bir yükseliş
+       kısa bir yakınlaşma tepesi başlatır, tepe ~0,3 sn'de söner. Zaman çizim
+       saatinden (t), duvar saatinden değil: dışa aktarım kare kare aynı.
+       Dönen: ek yakınlaşma oranı (0..beatPulse*0.08). */
+    _beatPulse(m, audio, t) {
+      const amt = Math.max(0, Math.min(1, Number(m.beatPulse) || 0));
+      if (!(amt > 0) || !audio) { this._bp = null; return 0; }
+      const s = this._bp || (this._bp = { t, avg: audio.bass || 0, env: 0, last: -1 });
+      const dt = Math.max(0, Math.min(0.25, t - s.t));
+      s.t = t;
+      const b = audio.bass || 0;
+      s.avg += (b - s.avg) * Math.min(1, dt * 2);
+      s.env *= Math.exp(-dt * 10);
+      if (b > s.avg * 1.25 + 0.08 && t - s.last > 0.18) { s.env = 1; s.last = t; }
+      return amt * 0.08 * s.env;
+    }
+
+    _drawFit(ctx, pic, W, H, vw, vh, fit, zoom, mirror, panX, panY) {
       let dw;
       let dh;
       if (fit === 'stretch') {
@@ -598,8 +633,12 @@
       }
       dw *= zoom;
       dh *= zoom;
-      const dx = (W - dw) / 2;
-      const dy = (H - dh) / 2;
+      /* Ken Burns kaydırması (#841): görüntü kenarı kadranın içine
+         girmesin diye kayma, büyütmenin bıraktığı payla sınırlı. */
+      const px = Math.max(-Math.abs(dw - W) / 2, Math.min(Math.abs(dw - W) / 2, panX || 0));
+      const py = Math.max(-Math.abs(dh - H) / 2, Math.min(Math.abs(dh - H) / 2, panY || 0));
+      const dx = (W - dw) / 2 + px;
+      const dy = (H - dh) / 2 + py;
       if (mirror) {
         ctx.translate(W, 0);
         ctx.scale(-1, 1);
@@ -644,6 +683,7 @@
   window.SVVideoFault = videoFaultText;
   window.SVMissingVideo = missingVideoText;
   window.SVMediaWrap = wrapText;
+  window.SVMediaKenBurns = kenBurns;
   window.SVMediaStatus = noteMediaStatus;
   window.SVMediaWarning = mediaWarning;
   window.SVCamFrame = noteCamFrame;
