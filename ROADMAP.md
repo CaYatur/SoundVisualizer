@@ -3757,6 +3757,37 @@ editing engine. It is planned in phases, each its own reviewed set of changes:
   timecode, a patch view of the modulation matrix, a browser demo with no installation, and optional
   stem separation.
 
+Added to the plan on 27 October, after looking at where the result still falls short of
+professional video tools. Each item notes why it did not go into 3.1.6:
+
+- **Export that knows the song (Phase 2).** An export has the whole audio file before the first
+  frame. The whole-file analysis that 3.1.6 writes to JSON, CSV and MIDI (#857) becomes a set of
+  modulation sources for the render: the beat grid exact to the frame, downbeats, chords and key,
+  and later the song sections. A scene can then build up before a known drop instead of reacting
+  after it, and the live drum detector's extra snare hits no longer reach the picture. Not in 3.1.6:
+  live output cannot see ahead, so live and export would stop matching. The plan is to give live
+  file playback the same pre-analysed sources, so both read the same values.
+- **Motion blur and anti-aliasing in export (Phase 1).** Several sub-frames per output frame,
+  averaged, for real motion blur, and an optional supersampled render. Not in 3.1.6: extra
+  sub-frames advance MilkDrop's feedback state and would change how presets look, and MilkDrop's
+  output depends on the render width. Each renderer needs its own rule (sub-frames only for
+  stateless layers, or feedback stepped once per output frame), checked with the parity harness.
+- **10-bit delivery and HDR.** 10-bit H.265 shipped in 3.1.6 (#858); ProRes 422 HQ and 4444 were
+  already 10-bit and every format is tagged BT.709. Real HDR (PQ or HLG) needs a floating-point
+  render path from the canvas to the encoder; marking 8-bit SDR pictures as HDR would be wrong, so
+  HDR waits for that path and is not planned for v3.1.7.
+- **Project files, autosave and recovery (Phase 0).** The video project view needs "save project"
+  and "open project", periodic autosave, and recovery of unsaved work after a crash. Output windows
+  already recover; work in progress does not. It belongs with the versioned settings schema.
+- **Sharing scenes and a gallery (Phase 5).** A scene as one file or one link that carries the data
+  itself (no server), and a gallery inside the app to browse them. A gallery that downloads from the
+  internet falls under the same rule as optional models: only when the user starts it, and only
+  from this project's own release files.
+- **More interface languages (after the interface review).** Spanish, Portuguese and German first,
+  for the music video audience. The translation system already handles Turkish and English; each
+  language needs a review by a native speaker and the same parity tests as English, so it starts
+  once the interface review has settled the labels.
+
 Two policies were decided with the plan. Optional models (stem separation, speech recognition,
 depth) are downloaded only when the user starts the download, and only from this project's own
 GitHub Release; nothing is contacted otherwise. Image generation by diffusion models stays out of
