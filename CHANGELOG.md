@@ -7,7 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837, 838]
+### For music videos and short video [837, 838, 839]
+
+- **YouTube thumbnail [839].** A "YouTube Thumbnail" button next to Snapshot saves a 1280×720 JPEG of the frame on screen. If the image is too big, quality steps down from 0.92 until it fits YouTube's 2 MB limit, and a source that is not 16:9 is cropped from the centre, so no bars appear. The frame comes from an open output window at its full resolution: the panel preview measured 341×192 in a small window, and enlarging it adds no detail. The preview is used only when no output window is open. Checked in the running app: from a 1280×1024 output window, a sharp 1280×720 JPEG of 31 KB.
 
 - **Short-video interface guides in the layout editor [838].** At 9:16 and 1:1 the editor also shows hatched areas where short-video apps draw over the video. At 9:16 these are a top bar, a column of side buttons and a caption and navigation band, sized as the union of the three big platforms' current layouts and kept generous: at 1080×1920, 230 px top, 480 px bottom, about 150 px right and 60 px left. At 1:1 the hatched areas are the 12.5% on each side that the profile grid's 3:4 crop hides. These are guides only, under a "Platform interface" switch next to "Safe areas", and nothing reaches the output. Checked in the running app at both ratios.
 

@@ -126,6 +126,54 @@
     return c.toDataURL('image/png');
   }
 
+  /* YouTube küçük resmi (#839): 1280×720 JPEG, YouTube'un 2 MB sınırının
+     altında. Kaynak 16:9 değilse ortadan kırpılıyor (küçük resim kutusunu
+     doldursun, siyah bant kalmasın). Kalite 0,92'den başlayıp dosya sığana
+     dek iniyor; en düşük denemede de sığmazsa o sonuç dönüyor. */
+  const THUMB = { w: 1280, h: 720, maxBytes: 2 * 1024 * 1024, qualities: [0.92, 0.85, 0.75, 0.6, 0.45] };
+
+  // data URL'nin taşıdığı bayt sayısı (base64 → ikili)
+  function dataUrlBytes(url) {
+    const s = String(url || '');
+    const i = s.indexOf(',');
+    const b64 = i >= 0 ? s.slice(i + 1) : s;
+    const pad = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0;
+    return Math.floor((b64.length * 3) / 4) - pad;
+  }
+
+  // Sınırın altına inen ilk kalite; encode(q) → data URL. Saf: testte sahte kodlayıcıyla.
+  function pickJpeg(encode, maxBytes, qualities) {
+    const qs = qualities || THUMB.qualities;
+    let last = null;
+    for (const q of qs) {
+      last = { url: encode(q), quality: q };
+      last.bytes = dataUrlBytes(last.url);
+      if (last.bytes <= (maxBytes || THUMB.maxBytes)) return last;
+    }
+    return last;
+  }
+
+  // Kaynağı 16:9'a ortadan kırpan kaynak dikdörtgeni
+  function coverRect(sw, sh, dw, dh) {
+    const k = Math.max(dw / sw, dh / sh);
+    const w = dw / k;
+    const h = dh / k;
+    return { x: (sw - w) / 2, y: (sh - h) / 2, w, h };
+  }
+
+  function thumbnail(canvas) {
+    if (!canvas || !canvas.width || !canvas.height) return null;
+    const c = document.createElement('canvas');
+    c.width = THUMB.w;
+    c.height = THUMB.h;
+    const x = c.getContext('2d');
+    x.imageSmoothingEnabled = true;
+    x.imageSmoothingQuality = 'high';
+    const r = coverRect(canvas.width, canvas.height, THUMB.w, THUMB.h);
+    x.drawImage(canvas, r.x, r.y, r.w, r.h, 0, 0, THUMB.w, THUMB.h);
+    return pickJpeg((q) => c.toDataURL('image/jpeg', q)).url;
+  }
+
   /* Dışa aktarım en-boy oranı ön ayarları. Aynı sahneyi YouTube'a, Reels'e ve
      kare bir gönderiye göndermek arasındaki tek fark bu; her seferinde
      çözünürlük yazmak yerine seçilir. */
@@ -138,7 +186,7 @@
     { id: '4:3', label: '4:3 (Klasik)', w: 1440, h: 1080 },
   ];
 
-  const api = { Recorder, snapshot, pickMime, ASPECTS };
+  const api = { Recorder, snapshot, thumbnail, THUMB, dataUrlBytes, pickJpeg, coverRect, pickMime, ASPECTS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVRecorder = api;
 })();

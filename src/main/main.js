@@ -4136,10 +4136,14 @@ async function handleSnapshotSave(dataUrl) {
   const m = /^data:image\/\w+;base64,(.+)$/.exec(raw);
   if (!m) return { ok: false, error: 'PNG verisi geçersiz' };
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  // JPEG yalnız YouTube küçük resminden geliyor (#839): adı ve süzgeci ona göre
+  const jpeg = /^data:image\/jpeg;/.test(raw);
   const r = await dialog.showSaveDialog(adminWin || BrowserWindow.getFocusedWindow(), {
-    title: trUi('Anlık Görüntüyü Kaydet', 'Save Snapshot'),
-    defaultPath: path.join(app.getPath('pictures') || app.getPath('downloads'), 'cayadev-' + stamp + '.png'),
-    filters: [{ name: 'PNG', extensions: ['png'] }, { name: trUi('Tüm Dosyalar', 'All Files'), extensions: ['*'] }],
+    title: jpeg ? trUi('Küçük Resmi Kaydet', 'Save Thumbnail') : trUi('Anlık Görüntüyü Kaydet', 'Save Snapshot'),
+    defaultPath: path.join(app.getPath('pictures') || app.getPath('downloads'),
+      'cayadev-' + (jpeg ? 'thumbnail-' : '') + stamp + (jpeg ? '.jpg' : '.png')),
+    filters: [jpeg ? { name: 'JPEG', extensions: ['jpg', 'jpeg'] } : { name: 'PNG', extensions: ['png'] },
+      { name: trUi('Tüm Dosyalar', 'All Files'), extensions: ['*'] }],
   });
   if (r.canceled || !r.filePath) return { ok: false, canceled: true };
   try {
@@ -4156,6 +4160,35 @@ ipcMain.handle('record:snapshot', async (e, payload) => {
 
 ipcMain.handle('snapshot:save', async (e, payload) => {
   return await handleSnapshotSave((payload && payload.dataUrl) ? payload.dataUrl : payload);
+});
+
+/* YouTube küçük resmi (#839). Açık bir çıkış penceresi varsa karesi ondan,
+   tam çözünürlükte alınıyor: panelin önizlemesi küçük (ölçüldü: 341×192)
+   ve büyütmek ayrıntı eklemiyor. capturePage pencerenin GÖSTERDİĞİ
+   pikselleri veriyor (WebGL tamponu sunulduktan sonra boş). 16:9'a ortadan
+   kırpılıp 1280×720'ye indiriliyor, kalite 2 MB'ye sığana dek düşüyor.
+   Çıkış penceresi yoksa { ok: false }: panel önizlemeden alıyor. */
+ipcMain.handle('thumbnail:from-output', async () => {
+  const R = require('../shared/recorder.js');
+  const shown = [];
+  for (const win of visualizerWins.values()) shown.push(win);
+  if (floatingWin && !floatingWin.isDestroyed()) shown.push(floatingWin);
+  for (const win of shown) {
+    if (!win || win.isDestroyed() || win.webContents.isDestroyed()) continue;
+    try {
+      const ready = await win.webContents.executeJavaScript(VISUALIZER_READY_JS);
+      if (!ready) continue;
+      const image = await win.webContents.capturePage();
+      if (!image || image.isEmpty()) continue;
+      const sz = image.getSize();
+      const c = R.coverRect(sz.width, sz.height, R.THUMB.w, R.THUMB.h);
+      const crop = { x: Math.round(c.x), y: Math.round(c.y), width: Math.round(c.w), height: Math.round(c.h) };
+      const fit = image.crop(crop).resize({ width: R.THUMB.w, height: R.THUMB.h, quality: 'best' });
+      const pick = R.pickJpeg((q) => 'data:image/jpeg;base64,' + fit.toJPEG(Math.round(q * 100)).toString('base64'));
+      return { ok: true, dataUrl: pick.url, bytes: pick.bytes, source: [sz.width, sz.height] };
+    } catch (err) { /* bu pencerede henüz kare yok */ }
+  }
+  return { ok: false };
 });
 
 ipcMain.handle('presets:open-folder', () => {

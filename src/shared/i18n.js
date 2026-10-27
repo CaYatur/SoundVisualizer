@@ -2023,6 +2023,9 @@
     'Görüntü alınamadı.': 'The image could not be captured.',
     'Kayıt tamamlandı.': 'Recording complete.',
     'Anlık görüntü kaydedildi.': 'Snapshot saved.',
+    'Küçük resim kaydedildi.': 'Thumbnail saved.',
+    'YouTube Küçük Resmi': 'YouTube Thumbnail',
+    'Görünen kareden 1280×720 JPEG, 2 MB altında': '1280×720 JPEG of the frame on screen, under 2 MB',
     'Kaydetme iptal edildi.': 'Saving cancelled.',
 
     // ---- Katman grupları, maskeler, bayraklar ----

@@ -240,6 +240,12 @@
         disabled: busy || saving || recording,
         onclick: () => snap(cfg),
       }),
+      el('button', {
+        class: 'btn ghost', type: 'button', icon: 'image', text: 'YouTube Küçük Resmi',
+        title: 'Görünen kareden 1280×720 JPEG, 2 MB altında',
+        disabled: busy || saving || recording,
+        onclick: () => snap(cfg, true),
+      }),
       timeLbl,
     ]));
 
@@ -408,11 +414,11 @@
      Yani çizim her seferinde audio === undefined ile yapılıyor ve modların
      çoğu audio.bass okuduğu için hemen hata atıyordu. Yeniden çizmenin bir
      yararı da yoktu: istenen şey ekranda görünen kare. */
-  async function snap(cfg) {
+  async function snap(cfg, thumb) {
     if (saving || busy) return; // çift tık ya da kayıt yazılırken
     saving = true;
     try {
-      await takeSnapshot(cfg);
+      await takeSnapshot(cfg, thumb);
     } finally {
       saving = false;
       busy = false;
@@ -420,7 +426,26 @@
     }
   }
 
-  async function takeSnapshot(cfg) {
+  /* thumb: YouTube küçük resmi (#839) — aynı kare, 1280×720 JPEG. */
+  async function takeSnapshot(cfg, thumb) {
+    // Küçük resim önce açık bir çıkış penceresinden, tam çözünürlükte (#839)
+    if (thumb && window.api && window.api.thumbnailFromOutput) {
+      let got = null;
+      try { got = await window.api.thumbnailFromOutput(); } catch (e) { got = null; }
+      if (got && got.ok && got.dataUrl) {
+        busy = true;
+        status = 'Görüntü kaydediliyor…';
+        P().rerender();
+        const out = await window.api.saveSnapshot(got.dataUrl);
+        busy = false;
+        if (out && out.ok) {
+          status = ['check', 'Görüntü kaydedildi: ' + out.path];
+          P().toast('Küçük resim kaydedildi.');
+        } else if (out && out.canceled) status = '';
+        else status = ['warning', (out && out.error) || 'yazılamadı'];
+        return;
+      }
+    }
     const r = cfg.recording || {};
     status = 'Yüzey hazırlanıyor…';
     P().rerender();
@@ -435,7 +460,7 @@
     P().rerender();
 
     try {
-      const url = window.SVRecorder.snapshot(cv, r.snapshotScale || 1);
+      const url = thumb ? window.SVRecorder.thumbnail(cv) : window.SVRecorder.snapshot(cv, r.snapshotScale || 1);
       release();
       if (!url) { status = 'Görüntü alınamadı.'; busy = false; P().rerender(); return; }
       const saver = (window.api && window.api.saveSnapshot) || (window.api && window.api.saveRecording);
@@ -444,7 +469,7 @@
       busy = false;
       if (out && out.ok) {
         status = ['check', 'Görüntü kaydedildi: ' + out.path];
-        P().toast('Anlık görüntü kaydedildi.');
+        P().toast(thumb ? 'Küçük resim kaydedildi.' : 'Anlık görüntü kaydedildi.');
       } else if (out && out.canceled) {
         status = '';
       } else {
