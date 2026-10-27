@@ -318,9 +318,11 @@
     if (frames < 4) return null;
     const want = Math.round((Number(loop.cross) > 0 ? Number(loop.cross) : 0.5) * f);
     const nx = Math.max(1, Math.min(want, Math.floor(frames / 2), Math.round(2 * f)));
+    /* trim + setpts sonrası akışın kare hızı bilinmiyor (1/0); xfade sabit kare
+       hızı istiyor ve ffmpeg 234 ile çıkıyordu. Her dala fps ekleniyor. */
     const graph = '[0:v]split=2[lpa][lpb];' +
-      '[lpa]trim=start_frame=' + nx + ',setpts=PTS-STARTPTS[lpm];' +
-      '[lpb]trim=end_frame=' + nx + ',setpts=PTS-STARTPTS[lph];' +
+      '[lpa]trim=start_frame=' + nx + ',setpts=PTS-STARTPTS,fps=' + f + '[lpm];' +
+      '[lpb]trim=end_frame=' + nx + ',setpts=PTS-STARTPTS,fps=' + f + '[lph];' +
       '[lpm][lph]xfade=transition=fade:duration=' + (nx / f).toFixed(6) + ':offset=' + ((frames - nx) / f).toFixed(6);
     return { graph, frames, cross: nx / f, render: (frames + nx) / f };
   }

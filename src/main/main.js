@@ -1449,7 +1449,9 @@ function bridgeStatus() {
   const c = bridge.cfg;
   const now = Date.now();
   return {
-    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE, problem: audioBridge.problem(c), wire: audioBridge.WIRE_VERSION,
+    only: BRIDGE_ONLY, flag: BRIDGE_FLAG, ownProfile: BRIDGE_OWN_PROFILE,
+    // Köprü uygulamasında ayar send:false olabilir; eksik parola yine 'Parola eksik' görünsün (yoksa rozet hep 'Başlıyor' kalıyordu)
+    problem: audioBridge.problem(Object.assign({}, c, { send: c.send || BRIDGE_ONLY })), wire: audioBridge.WIRE_VERSION,
     send: c.send || BRIDGE_ONLY, receive: c.receive && !BRIDGE_ONLY,
     sender: bridge.sender ? Object.assign({ name: bridgeName(c) }, bridge.sender.status()) : null,
     receiver: bridge.receiver ? bridge.receiver.status() : null,
