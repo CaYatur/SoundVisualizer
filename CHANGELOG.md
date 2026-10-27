@@ -3,9 +3,14 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## v3.1.6 — ready, not yet released
 
-Changes on `main` after 3.1.6-beta, not in any build yet.
+`package.json` on `main` is 3.1.6 and the release is ready, but there is no tag and no GitHub Release
+yet, so the in-app updater still sees v3.1.5 as the latest release. The date is set when it is published.
+
+The broadcast layout editor (#533) and redundancy (#540) were first planned for v3.1.7 and v3.2.0.
+They were built ahead of time and ship in 3.1.6, together with video export. The sections up to the
+CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones after them were in it.
 
 ### For music videos and short video [837, 838, 839, 840, 841, 842, 843]
 
@@ -266,14 +271,6 @@ Details and measurements: [docs/REDUNDANCY.md](docs/REDUNDANCY.md).
 - **Settings card redesign.** The Audio Bridge card is grouped into Mode, Connection and Status, with the same switches, rows and separators as the other cards, a status pill and stat tiles. Long explanations moved into "?" hints. The bridge source is one clear picker (default output, outputs, inputs) instead of a tickbox list.
 - **Self-test.** `npm run smoke:bridge` checks that bridge-only mode opens only the status window and no visual output, has hardware acceleration off, has a tray and listens. It also checks that the status window and the panel's Audio Bridge section are fully translated in English.
 - **Tests.** New tests for the bridge's analysis (bands, level, a 120 BPM beat train), analysis and track timestamps across a 5 s clock skew, the fallback device, the single-instance lock, the frame encoder, packets, pairing (wrong secret, fake bridge), real TCP transfer and reconnect, clock offset, beacon signing, broadcast addresses, a real UDP beacon, the fallback state machine, the pre-show row and the panel's TR/EN strings, a beacon heard from several addresses, the receiver keeping its address and rotating on failure, the capped back-off, PCM packets and the helper's mixed frame/PCM stream, the audio player's scheduler, the early-quit guard, and the deb desktop action. `npm run bridge-sources-rig` checks two synthetic sources (440 Hz and 1000 Hz) plus a missing one, in the helper's mix and end to end. The bridge rig now waits 8 s before relaunching the bridge and fails if the input is not back within 6 s, cold start included.
-
-## v3.1.6-beta — in code, not released
-
-`package.json` on `main` is 3.1.6-beta. There is no tag and no GitHub Release yet. The in-app
-updater sees v3.1.5 as the latest release and does not offer it to the beta as an update.
-
-The broadcast layout editor (#533) and redundancy (#540) were first planned for v3.1.7 and v3.2.0.
-They were built ahead of time and ship in 3.1.6, together with video export.
 
 ### Broadcast layout editor
 

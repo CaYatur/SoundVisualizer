@@ -4,7 +4,7 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.5** · **Next release: v3.1.6** · `main` is versioned **3.1.6-beta**, which is not published (no tag, no GitHub Release)
+**Current release: v3.1.5** · **Next release: v3.1.6** · `main` is versioned **3.1.6** and ready, but not published yet (no tag, no GitHub Release)
 
 v3.1.6 carries three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
@@ -24,7 +24,7 @@ waits for a licence decision, moves after it.
 | v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | 2026-09-08 | Shipped |
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | **v3.1.5** | **MilkDrop library and editor, MCP, OSC in and out, updates** | **2026-10-13** | **Current** |
-| v3.1.6 | Video export, broadcast layout editor, redundancy and frame sync | — | Release candidate on `main` |
+| v3.1.6 | Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets | — | Ready on `main`, not yet published |
 | v3.1.7 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned after v3.1.6 ships |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
