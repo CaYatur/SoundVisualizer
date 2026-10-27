@@ -251,10 +251,13 @@
         kids.push(el('div', { class: 'mod-gen' }, [
           el('div', { class: 'item-head' }, [el('span', { class: 'item-title', text: 'Serbest Bant ' + (i + 1) })]),
           P().row('Anlık', meter),
-          SP().miniSlider('Alt Frekans', () => toPos(eff().lo), (p) => { b.lo = toHz(p); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(toHz(p)) }),
-          SP().miniSlider('Üst Frekans', () => toPos(eff().hi), (p) => { b.hi = toHz(p); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(toHz(p)) }),
-          SP().miniSlider('Taban (0)', () => eff().floor, (v) => { b.floor = v; }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: fmtDb }),
-          SP().miniSlider('Tavan (1)', () => eff().ceil, (v) => { b.ceil = v; }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: fmtDb }),
+          /* Sınırlar yazılırken birbirini geçemez: motor ters sırayı düzeltse
+             de saklanan değer ters kalırsa bir kaydırıcı ötekinin yerinde
+             görünür ve sürüklenince öteki zıplar */
+          SP().miniSlider('Alt Frekans', () => toPos(eff().lo), (p) => { b.lo = Math.min(toHz(p), eff().hi); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(Math.min(toHz(p), eff().hi)) }),
+          SP().miniSlider('Üst Frekans', () => toPos(eff().hi), (p) => { b.hi = Math.max(toHz(p), eff().lo); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(Math.max(toHz(p), eff().lo)) }),
+          SP().miniSlider('Taban (0)', () => eff().floor, (v) => { b.floor = Math.min(v, eff().ceil - 1); }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: (v) => fmtDb(Math.min(v, eff().ceil - 1)) }),
+          SP().miniSlider('Tavan (1)', () => eff().ceil, (v) => { b.ceil = Math.max(v, eff().floor + 1); }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: (v) => fmtDb(Math.max(v, eff().floor + 1)) }),
           SP().miniSlider('Atak', () => eff().attack, (v) => { b.attack = v; }, { min: 0, max: 0.5, step: 0.001, fmt: (v) => Math.round(v * 1000) + ' ms' }),
           SP().miniSlider('Bırakma', () => eff().release, (v) => { b.release = v; }, { min: 0.01, max: 3, step: 0.01, fmt: (v) => Math.round(v * 1000) + ' ms' }),
         ]));
