@@ -7,7 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837, 838, 839, 841, 842]
+### For music videos and short video [837, 838, 839, 841, 842, 843]
+
+- **Title Card and End Card templates [843].** Two new templates in the Music Video group (83 templates now), for the start and end of a video, as clips on the timeline or on their own. Title Card brings the cover in at the centre with a scale reveal and the track title and artist beneath it. End Card brings in a free closing line ("Thanks for listening", editable) and fades in the cover and track details. Both have a thin line of bars along the bottom. Cover, title and artist come from the usual Now Playing layer, so they show the song's own details. Like every template, applying them leaves audio, display, streaming and lighting settings alone. Checked in an export.
 
 - **Ken Burns and beat pulse on the media layer [841].** Both are off by default.
   - "Ken Burns" adds a slow zoom (up to 12%) and pan over the video or webcam, with its own cycle length (4–60 s, default 20). The pan never shows the frame's edge, because it is limited to the margin the zoom leaves.

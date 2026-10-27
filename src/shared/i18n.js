@@ -101,6 +101,11 @@
     // Müzik videosu şablonları
     'Müzik Videosu': 'Music Video',
     'Label Card': 'Label Card',
+    'Title Card': 'Title Card',
+    'End Card': 'End Card',
+    'Videonun girişi: ortada büyüyerek gelen kapak, altında parça adı ve sanatçı; tabanda ince bir bar çizgisi.': 'Video intro: the cover grows in at the centre with the track title and artist beneath it; a thin line of bars along the bottom.',
+    'Videonun kapanışı: üstte serbest bir teşekkür satırı, ortada kapak ve parça bilgisi, tabanda ince barlar.': 'Video outro: a free thank-you line on top, the cover and track details in the middle, thin bars along the bottom.',
+    'Kapanış Yazısı': 'Closing Text',
     'Resmî kanal düzeni: geniş bar şeridi, altında kapak ve parça bilgisi.': 'Official channel layout: a wide bar strip with the cover and track details beneath it.',
     'Artwork Card': 'Artwork Card',
     'Büyük kapak solda, parça bilgisi yanında; barlar üstte.': 'A large cover on the left with the track details beside it, bars above.',
