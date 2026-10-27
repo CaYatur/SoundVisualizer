@@ -1176,6 +1176,8 @@
         duration: sp('object', 'How long to render. {mode: audio (default, the file length) | seconds | timeline | bars, seconds, bars, bpm (0 = timeline tempo)}. Audio shorter than the video is padded with silence; longer audio is cut.'),
         sceneName: sp('string', 'Scene name for the file metadata. Default: the active scene.'),
         chapters: sp('boolean', 'Split the video at the timeline markers into a folder of files named after the markers. One render; cuts land on forced keyframes. Video formats only.'),
+        loop: sp('boolean', 'Seamless loop: render the length plus a crossfade and blend the end into the start, so the last frame flows into the first. No audio. Not with chapters or frame sequences. The spotify-canvas profile turns it on (1080x1920, 8 s).'),
+        loopCrossfade: sp('number', 'Crossfade of the seamless loop in seconds (0.2-2, default 0.5; at most half the length).'),
         chapterList: sp('boolean', 'Also write the timeline markers as a YouTube chapter list ("0:00 Start" lines) to "<video name> - YouTube chapters.txt" (inside the folder when split into chapters). Video formats only; nothing is written without markers.'),
         encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
         quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),

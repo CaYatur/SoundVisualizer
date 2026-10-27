@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3542%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3546%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -947,10 +947,14 @@ ekranın solundaki renkleri alıyor.
   bir şarkı kendi süresinin yarısında çıkıyor. Süre ses dosyasından, sabit bir süreden, zaman
   çizelgesinden ya da ölçü sayısından alınabiliyor; dosya parça, sahne ve BPM ile adlandırılıp
   etiketleniyor, iptal edilen dışa aktarım yarım dosya bırakmıyor. Tek tıklık profiller YouTube,
-  Reels / Shorts, Instagram, alfalı Twitch bindirmesi ve ProRes ana kopyayı kapsıyor; uzun bir
+  Reels / Shorts, Instagram, Spotify Canvas, alfalı Twitch bindirmesi ve ProRes ana kopyayı kapsıyor; uzun bir
   gösteri tek render'dan zaman çizelgesinin işaretçilerinde, onların adlarını taşıyan dosyalara
   bölünebiliyor. Toplu kuyruk bir sahneyi birçok şarkıya ya da bir şarkıyı birkaç boyuta
   çıkarıyor ve hata veren bir işte durmuyor.
+- <kbd>3.1.6</kbd> **Kusursuz döngüler ve Spotify Canvas profili.** Döngü dışa aktarımı süreyi ve
+  kısa bir çapraz geçişi çizip sonu başa karıştırıyor; son kare ilk kareye akıyor, geri beslemeli
+  ve MilkDrop sahnelerinde de. Döngüler sessiz, aynı iş hep aynı dosyayı veriyor. Spotify Canvas
+  profili 1080×1920, 8 saniyelik sessiz bir döngü yapıyor; GIF döngüleri de aynı yolla kapanıyor.
 - <kbd>3.1.6</kbd> **Zaman çizelgesi işaretçilerinden YouTube bölümleri.** Tek tıkla video
   açıklaması için "0:00 Giriş" satırları olarak kopyalanıyor ya da dışa aktarım videonun yanına
   yazıyor. YouTube'un kabul etmeyeceği durumu söylüyor: ilk bölüm 0:00'da, en az üç bölüm, her
@@ -1806,7 +1810,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3542 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3546 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

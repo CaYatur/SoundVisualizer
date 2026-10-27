@@ -271,6 +271,29 @@
     return safe + '_%06d.' + ext;
   }
 
+  /* KUSURSUZ DÖNGÜ (#840). Geri besleme ve MilkDrop durumları dönemsel
+     değil: L saniyelik bir çizimin son karesi ilkine bağlanmaz. Bunun yerine
+     L + X saniye çiziliyor ve ffmpeg sonu başa çapraz geçişle bağlıyor:
+     çıktı X'inci kareden başlıyor, son X saniyesi baştaki X saniyeyle
+     karışarak bitiyor, böylece son kare ilk karenin hemen öncesi oluyor.
+     Çıktı tam L saniye. Çizim çekirdeğine dokunulmuyor; aynı iş aynı dosya.
+     loop: { seconds: L, cross: X } → { graph, frames, cross, render } ya da
+     null (kare dizisi, eksik ya da geçersiz değer). `render` çizilecek
+     saniye (L + X). Geçiş en az bir kare, en fazla L'nin yarısı ve 2 sn. */
+  function loopPlan(loop, fps, fmt) {
+    if (!loop || (fmt && fmt.kind === 'sequence')) return null;
+    const f = Number(fps) > 0 ? Number(fps) : 30;
+    const frames = Math.round((Number(loop.seconds) || 0) * f);
+    if (frames < 4) return null;
+    const want = Math.round((Number(loop.cross) > 0 ? Number(loop.cross) : 0.5) * f);
+    const nx = Math.max(1, Math.min(want, Math.floor(frames / 2), Math.round(2 * f)));
+    const graph = '[0:v]split=2[lpa][lpb];' +
+      '[lpa]trim=start_frame=' + nx + ',setpts=PTS-STARTPTS[lpm];' +
+      '[lpb]trim=end_frame=' + nx + ',setpts=PTS-STARTPTS[lph];' +
+      '[lpm][lph]xfade=transition=fade:duration=' + (nx / f).toFixed(6) + ':offset=' + ((frames - nx) / f).toFixed(6);
+    return { graph, frames, cross: nx / f, render: (frames + nx) / f };
+  }
+
   /* Tam ffmpeg komut satırı. Girdi her zaman stdin'den ham RGBA.
      o: { fmt, encoder, w, h, fps, quality, speed, audioPath, audioExt,
           output, meta: {title, ...} } */
@@ -299,10 +322,17 @@
        sesin süresi). */
     const dur = Number(o.durationSec) > 0 ? Number(o.durationSec) : 0;
     const pad = dur > 0 && Number(o.audioSec) > 0 && dur > Number(o.audioSec) + 0.001;
-    const aArgs = o.audioPath ? audioArgs(fmt, o.audioExt, pad) : null;
+    const lp = loopPlan(o.loop, o.fps, fmt);
+    // Döngüde ses yok: başı ve sonu birleşen bir sesi kesip bağlamak duyulurdu (#840)
+    const aArgs = o.audioPath && !lp ? audioArgs(fmt, o.audioExt, pad) : null;
     if (aArgs) args.push('-i', o.audioPath);
-    if (v.complex) {
-      args.push('-filter_complex', '[0:v]' + v.complex + '[v]', '-map', '[v]');
+    if (v.complex || lp) {
+      /* I420 girişte süzgeç kalkıyor (yukarı); döngü zincirinde ise xfade'in
+         çıkışını kodlayıcı kendisi seçiyordu ve H.264 yuv444p çıktı (ölçüldü).
+         Biçim açıkça yuv420p'ye sabitleniyor. */
+      const tail = v.complex || v.vf || (lp && yuvIn ? 'format=yuv420p' : '');
+      const src = lp ? lp.graph + (tail ? '[lp];[lp]' : '') : '[0:v]';
+      args.push('-filter_complex', src + tail + '[v]', '-map', '[v]');
     } else {
       if (v.vf) args.push('-vf', v.vf);
       args.push('-map', '0:v:0');
@@ -311,7 +341,7 @@
     args.push.apply(args, v.args);
     /* Bölümler (#527): kesim anlarında zorunlu anahtar kare. NVENC ve QSV
        bunu IDR yapmazsa bölüm bir önceki dosyaya bağımlı başlar. */
-    const cuts = Array.isArray(o.chapters) && o.chapters.length && fmt.kind === 'video' ? o.chapters : null;
+    const cuts = !lp && Array.isArray(o.chapters) && o.chapters.length && fmt.kind === 'video' ? o.chapters : null;
     const cutList = cuts ? cuts.map((t) => Number(t).toFixed(6)).join(',') : '';
     /* Yazıcının kesim zamanı YARIM KARE ÖNCE: kesim, o andan sonraki ilk
        anahtar karede yapılıyor ve tam zamanda verilince paket zamanı bir
@@ -382,19 +412,24 @@
      altında duruyor: bir alan değişince seçim kendiliğinden "Özel" oluyor. */
   const PROFILES = [
     { id: 'youtube-1080p60', label: ['YouTube 1080p60', 'YouTube 1080p60'],
-      set: { format: 'mp4-h264', resolution: '1080p', fps: 60, quality: 'high' } },
+      set: { format: 'mp4-h264', resolution: '1080p', fps: 60, quality: 'high', loop: false } },
     { id: 'youtube-4k60', label: ['YouTube 4K60 (H.265)', 'YouTube 4K60 (H.265)'],
-      set: { format: 'mp4-hevc', resolution: '2160p', fps: 60, quality: 'high' } },
+      set: { format: 'mp4-hevc', resolution: '2160p', fps: 60, quality: 'high', loop: false } },
     { id: 'reels-shorts', label: ['Reels / Shorts / TikTok — 1080×1920', 'Reels / Shorts / TikTok — 1080×1920'],
-      set: { format: 'mp4-h264', resolution: '1080x1920', fps: 30, quality: 'high' } },
+      set: { format: 'mp4-h264', resolution: '1080x1920', fps: 30, quality: 'high', loop: false } },
     { id: 'instagram-square', label: ['Instagram kare — 1080×1080', 'Instagram square — 1080×1080'],
-      set: { format: 'mp4-h264', resolution: '1080x1080', fps: 30, quality: 'high' } },
+      set: { format: 'mp4-h264', resolution: '1080x1080', fps: 30, quality: 'high', loop: false } },
     { id: 'twitch-overlay', label: ['Twitch / OBS bindirme — WebM alfa', 'Twitch / OBS overlay — WebM alpha'],
-      set: { format: 'webm-vp9-alpha', resolution: '1080p', fps: 60, quality: 'high' } },
+      set: { format: 'webm-vp9-alpha', resolution: '1080p', fps: 60, quality: 'high', loop: false } },
     { id: 'master-4k', label: ['Ana kopya 4K — ProRes 422 HQ', 'Master 4K — ProRes 422 HQ'],
-      set: { format: 'mov-prores', resolution: '2160p', fps: 60, quality: 'visually-lossless' } },
+      set: { format: 'mov-prores', resolution: '2160p', fps: 60, quality: 'visually-lossless', loop: false } },
     { id: 'gif-loop', label: ['GIF döngü — 720p', 'GIF loop — 720p'],
-      set: { format: 'gif', resolution: '720p', fps: 24, quality: 'high' } },
+      set: { format: 'gif', resolution: '720p', fps: 24, quality: 'high', loop: false } },
+    /* Spotify Canvas (#840): dikey, sessiz, 3–8 sn, başı sonuna bağlanan döngü.
+       8 sn üst sınır; kısaltmak için süreyi değiştirmek yeter. */
+    { id: 'spotify-canvas', label: ['Spotify Canvas — 1080×1920 döngü, 8 sn', 'Spotify Canvas — 1080×1920 loop, 8 s'],
+      set: { format: 'mp4-h264', resolution: '1080x1920', fps: 30, quality: 'high', loop: true,
+        duration: { mode: 'seconds', seconds: 8 } } },
   ];
 
   function profile(id) {
@@ -402,11 +437,17 @@
     return null;
   }
 
-  /* Şu anki ayarlara birebir uyan profil, yoksa 'custom'. */
+  /* Şu anki ayarlara birebir uyan profil, yoksa 'custom'. Profilin `false`
+     yazdığı anahtar ayarda hiç yoksa da tutuyor (eski ayarlar döngü
+     anahtarını taşımıyor); nesne değerlerde (süre) profilin verdiği alt
+     anahtarlar karşılaştırılıyor. */
   function matchProfile(exp) {
     const e = exp || {};
+    const same = (a, b) => (b && typeof b === 'object'
+      ? !!a && typeof a === 'object' && Object.keys(b).every((k) => String(a[k]) === String(b[k]))
+      : String(a === undefined && b === false ? false : a) === String(b));
     for (const p of PROFILES) {
-      if (Object.keys(p.set).every((k) => String(e[k]) === String(p.set[k]))) return p.id;
+      if (Object.keys(p.set).every((k) => same(e[k], p.set[k]))) return p.id;
     }
     return 'custom';
   }
@@ -414,7 +455,13 @@
   /* Profili ayarlara uygular (yeni nesne); bilinmeyen profilde aynı ayar. */
   function applyProfile(exp, id) {
     const p = profile(id);
-    return Object.assign({}, exp || {}, p ? p.set : {});
+    const out = Object.assign({}, exp || {});
+    // Nesne değerler (süre) birleşiyor: profilin vermediği alt alanlar (ölçü, BPM) korunuyor
+    if (p) for (const k of Object.keys(p.set)) {
+      const v = p.set[k];
+      out[k] = v && typeof v === 'object' ? Object.assign({}, out[k] || {}, v) : v;
+    }
+    return out;
   }
 
   // ----------------------------------------------------------- bölümler (#527)
@@ -604,7 +651,7 @@
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
     videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
-    PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters,
+    PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters, loopPlan,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
     validateOptions,
   };

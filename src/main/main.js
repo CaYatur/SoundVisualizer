@@ -7827,6 +7827,11 @@ async function startExportJob(opts, bench, extra) {
   /* "Sesin süresi" seçiliyken eski kural geçerli (-shortest): ffmpeg'in
      ölçtüğü süreyle çözülen süre arasındaki küçük fark sesi kesmesin. */
   const durationSec = dur.mode === 'audio' ? 0 : dur.seconds;
+  /* Kusursuz döngü (#840): L + X saniye çiziliyor, ffmpeg sonu başa bağlayıp
+     tam L saniye yazıyor; ses eklenmiyor. Bölümlemeyle birlikte olmaz. */
+  const loopSpec = opts.loop === true && !wantChapters ? { seconds: dur.seconds, cross: Number(opts.loopCrossfade) || 0.5 } : null;
+  const loop = exportFormats.loopPlan(loopSpec, fps, fmt);
+  const renderSec = loop ? loop.render : durationSec;
 
   /* YouTube bölüm listesi (#837): işaretçilerden, videonun süresine göre.
      Metin şimdi hazırlanıyor, dosya iş başarıyla bitince yazılıyor. İşaretçi
@@ -7880,7 +7885,8 @@ async function startExportJob(opts, bench, extra) {
   const args = exportFormats.buildArgs({
     fmt, encoder: encoderId, w, h, fps, quality, speed, inputPix: pix,
     threads: Math.max(1, Math.min(8, require('os').cpus().length)),
-    audioPath, audioExt: path.extname(audioPath), audioSec, durationSec, output: target,
+    audioPath, audioExt: path.extname(audioPath), audioSec, output: target,
+    durationSec: loop ? loop.frames / fps : durationSec, loop: loop ? loopSpec : null,
     chapters: chapters ? chapters.cuts : null,
     meta: { title: track.title, artist: track.artist, album: track.album, scene: sceneName, bpm: bpmMeta },
   });
@@ -7942,7 +7948,7 @@ async function startExportJob(opts, bench, extra) {
 
   /* Video katmanlarının ara kopyaları (#539). Süre sesin süresiyse ses
      dosyasınınki; bilinmiyorsa kaynak kısaltılmaz. */
-  const mediaMap = await prepareExportMedia(ff, jobCfg, durationSec > 0 ? durationSec : (audioSec || 0), w, h);
+  const mediaMap = await prepareExportMedia(ff, jobCfg, renderSec > 0 ? renderSec : (audioSec || 0), w, h);
   if (!isMine() || exportState.cancel) {
     if (isMine()) finalizeExport('cancelled');
     return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
@@ -8000,8 +8006,8 @@ async function startExportJob(opts, bench, extra) {
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
     alpha: !!fmt.alpha,
     pix,
-    // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523)
-    durationSec,
+    // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
+    durationSec: renderSec,
     platform: process.platform,
     lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot() : [],
     // Video katmanı: cfg'deki dosya → her karesi anahtar kare ara kopya (#539)

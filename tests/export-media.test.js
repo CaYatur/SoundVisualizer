@@ -62,7 +62,7 @@ test('ara kopya: her karesi anahtar kare, süre kadar, çıktıdan büyükse kü
 
 test('bağlantılar: ana süreç kopyayı hazırlıyor, sunuyor, siliyor; dışa aktarıcı kullanıyor, okunamayan karede duruyor', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /const mediaMap = await prepareExportMedia\(ff, jobCfg, durationSec > 0 \? durationSec : \(audioSec \|\| 0\), w, h\);/);
+  assert.match(main, /const mediaMap = await prepareExportMedia\(ff, jobCfg, renderSec > 0 \? renderSec : \(audioSec \|\| 0\), w, h\);/);
   assert.match(main, /\n    mediaMap,\n/);
   assert.match(main, /exportMediaTemp\.paths\.has\(path\.resolve\(raw\)\)/, 'sv-media kopyayı sunar');
   assert.match(main, /function finalizeExport\(status, message, opts\) \{\n  if \(!exportState\) return; \/\/ tek sefer\n  cleanupExportMedia\(\);/);
