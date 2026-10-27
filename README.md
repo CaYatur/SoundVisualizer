@@ -1907,8 +1907,9 @@ The timeline editor and the clip deck have their own shortcuts, listed in their 
 Timeline and Clip Deck in v3.1.0, cross-platform builds with OpenRGB and Spout/Syphon in v3.1.1, the
 MilkDrop shader engine in v3.1.2, per-application audio capture and aspect correction in v3.1.3, and
 the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, and the MilkDrop library
-and editor, MCP, OSC in and out and in-app updates in v3.1.5. Next are a far broader and much faster
-video export in v3.1.6, the broadcast layout editor in v3.1.7 and redundancy with frame sync in v3.2.0. It also keeps an honest list of
+and editor, MCP, OSC in and out and in-app updates in v3.1.5. Next is v3.1.6, with a far broader and
+much faster video export, the broadcast layout editor and redundancy with frame sync, then a music
+video studio in v3.1.7. It also keeps an honest list of
 what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 

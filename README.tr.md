@@ -1913,7 +1913,8 @@ kaydediyor — v3.1.0'da Zaman Çizelgesi ve Klip Destesi, v3.1.1'de OpenRGB ve 
 platform derlemeler, v3.1.2'de MilkDrop shader motoru, v3.1.3'te uygulama başına ses yakalama ve
 basıklık düzeltme, v3.1.4'te yayın katmanı ve saydamlık düzeltmeleriyle MilkDrop uyumu, v3.1.5'te
 MilkDrop kitaplığı ve düzenleyicisi, MCP, OSC girişi ve çıkışı ve uygulama içi güncelleme. Sırada
-v3.1.6'da çok daha geniş ve çok daha hızlı video dışa aktarma, v3.1.7'de yayın düzeni düzenleyicisi ve v3.2.0'da yedeklilik ve kare eşitleme var. Neyin
+çok daha geniş ve çok daha hızlı video dışa aktarma, yayın düzeni düzenleyicisi ve kare eşitlemeli
+yedeklilikle v3.1.6, ardından v3.1.7'de müzik videosu stüdyosu var. Neyin
 *yapılmadığının* ve nedeninin dürüst bir listesini de tutuyor. Her sürümdeki bütün değişiklikler,
 konularına göre, [CHANGELOG.md](CHANGELOG.md) dosyasında.
 

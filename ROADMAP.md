@@ -8,8 +8,9 @@ covered by a test or by the GPU self-test.
 
 v3.1.6 carries three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
-owner decided to ship them with video export rather than hold them back. NDI, which waits for a
-licence decision, becomes the next release, v3.1.7.
+owner decided to ship them with video export rather than hold them back. v3.1.7 turns the
+application into a music video studio as well as a live tool (see its section below). NDI, which
+waits for a licence decision, moves after it.
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -24,7 +25,8 @@ licence decision, becomes the next release, v3.1.7.
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | **v3.1.5** | **MilkDrop library and editor, MCP, OSC in and out, updates** | **2026-10-13** | **Current** |
 | v3.1.6 | Video export, broadcast layout editor, redundancy and frame sync | — | Release candidate on `main` |
-| v3.1.7 | NDI output (first planned as v3.1.8) | — | Waiting for a licence decision |
+| v3.1.7 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned after v3.1.6 ships |
+| Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
 ---
 
@@ -100,7 +102,7 @@ hands, and a row only moves up once it ships.
 | Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
 | Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
 | Broadcast layout editor | v3.1.6 | Done on `main` (#533; first planned as v3.1.7): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
-| NDI | v3.1.7 | Was v3.1.8. Deferred for licence reasons, not difficulty — see "Not done, and why" |
+| NDI | Later | Was v3.1.8, then v3.1.7; now after the v3.1.7 music video studio. Deferred for licence reasons, not difficulty — see "Not done, and why" |
 | Redundancy / genlock | v3.1.6 | Done on `main` (#540; first planned as v3.2.0): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, show comparison with push, and shared timeline and modulation clock, a pre-show check, and software frame sync across windows (#541–#547); hardware genlock not verifiable here |
 
 ### Shipped, but never run on real hardware
@@ -330,7 +332,7 @@ rather than replacing anything.
 On Windows it is an **addition, not a replacement**: Dynamic Lighting stays, and
 the two can be used separately or together.
 
-NDI was originally part of this release. It moved to v3.1.8, and then to v3.1.7 when v3.1.6 took in the next releases — not because it
+NDI was originally part of this release. It moved to v3.1.8, then to v3.1.7 when v3.1.6 took in the next releases, and then after v3.1.7 — not because it
 is harder to build, but because it is the only one of the three with a licence
 burden. Spout is BSD 2-Clause and Syphon is Simplified BSD: both need nothing
 more than a copyright notice. The reasoning is under "Not done, and why".
@@ -3725,7 +3727,42 @@ standard in media servers of that class.
     - phase 4 (#815), beat sync, overlay fallback, a status banner, two-PC tests and a setup guide.
 
 
-## v3.1.7 — NDI output
+## v3.1.7 — Music video studio · planned
+
+Work starts once v3.1.6 is published. The aim is a single path from one song to a finished video,
+built mostly by joining pieces that already exist (the timeline and its automation lanes, the
+keyframe editor, the broadcast layout editor and the export pipeline) rather than writing a separate
+editing engine. It is planned in phases, each its own reviewed set of changes:
+
+- **Phase 0, groundwork:** a versioned settings schema with upgrade and downgrade tests (the project
+  view enlarges the settings model), measured memory and time for hour-long renders, and an
+  integrated-GPU frame budget for the new 3D and particle work.
+- **Phase 1, video creators:** a video project view (the song's waveform with layer in and out
+  points and per-layer curves from the existing keyframe editor), a four-step video wizard (song,
+  style, artwork and titles, aspect ratio, then export), mix videos from a track list or cue file
+  with a Now Playing card and transition at each change and the chapter list written automatically.
+- **Phase 2, understanding the music:** song section detection (intro, verse, chorus, bridge, drop)
+  from a self-similarity matrix and the energy curve, our own code with no network; sections become
+  modulation sources and timeline markers; an automatic edit that changes scene on section changes
+  and is deterministic in export; a frequency zone picker dragged on the spectrum, with trigger,
+  envelope, hold and release.
+- **Phase 3, lyrics and speech:** kinetic lyric styles (word by word, bounce, typewriter, line
+  scroll, grow on stress, 3D turn), podcast and audiogram templates, and optional speech alignment.
+- **Phase 4, 3D and particles:** glTF/GLB models in our own renderer, a particle emitter editor
+  (emitter shape, gravity, drag, attractors, turbulence, life and colour curves) with particles
+  from a logo, text or image, extruded 3D text, and 2.5D parallax from cover art.
+- **Phase 5, setup and reach:** camera interaction (motion amount, optical flow), LTC and MTC
+  timecode, a patch view of the modulation matrix, a browser demo with no installation, and optional
+  stem separation.
+
+Two policies were decided with the plan. Optional models (stem separation, speech recognition,
+depth) are downloaded only when the user starts the download, and only from this project's own
+GitHub Release; nothing is contacted otherwise. Image generation by diffusion models stays out of
+scope.
+
+---
+
+## Later — NDI output
 
 The same picture across a network: one machine runs the visualizer, another
 running Resolume or a mixing console receives it over IP. This is the standard
@@ -3741,8 +3778,9 @@ EULA-bound binary inside an MIT-licensed project is the actual obstacle, which
 is why it ships as a separate optional package. `grandiose` provides the
 bindings.
 
-First planned as v3.1.8. It is the next release after 3.1.6, which took in the broadcast layout
-editor and redundancy. It waits for the owner's decision on the NDI licence and SDK download.
+First planned as v3.1.8, then as v3.1.7 once 3.1.6 took in the broadcast layout editor and
+redundancy. It now follows the music video studio work and still waits for the owner's decision on
+the NDI licence and SDK download.
 
 ---
 
@@ -3756,7 +3794,7 @@ is the whole difficulty. The application EULA must cover the NDI SDK terms, a
 `ndi.video` link is required in the application, on the website and in the
 documentation, and the NDI tools may not be redistributed. An EULA-bound
 binary inside an MIT-licensed project is a packaging problem rather than an
-engineering one, so NDI ships as a separate optional package in v3.1.7 (first planned as v3.1.8).
+engineering one, so NDI will ship as a separate optional package after v3.1.7 (first planned as v3.1.8).
 
 Spout (BSD 2-Clause) and Syphon (Simplified BSD) carry none of this, which is
 why they go first in v3.1.1.
