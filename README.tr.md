@@ -475,7 +475,8 @@ Her efektin her parametresi modülasyon matrisiyle sürülebiliyor.
 
 - **Her kaynaktan her ayara** — yönlendirmeler, güncel ayarların canlı bir ağacından seçilen herhangi
   bir noktalı yapılandırma yoluna gidiyor.
-- **Kaynaklar** — bas, orta, tiz, seviye, vuruş zarfı ve vuruş tetiği · sekiz tayf bandı · LFO'lar ·
+- **Kaynaklar** — bas, orta, tiz, seviye, vuruş zarfı ve vuruş tetiği · sekiz tayf bandı ·
+  Hz aralığı ve dB penceresi sizin seçtiğiniz dört serbest bant · LFO'lar ·
   zarf izleyiciler · örnekle-ve-tut · rastgele · vuruş saati · makro düğmeleri · ve her derin çözümleme
   ölçümü (ton, akor, perde, ses yüksekliği, davul bantları…).
 - **Sekiz LFO biçimi** — sinüs, üçgen, yükselen testere, alçalan testere, kare, darbe, rastgele rampa ve

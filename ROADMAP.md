@@ -3644,6 +3644,7 @@ Small additions made after the market review of 26–27 October. Each one is opt
 - **YouTube thumbnail (#839) · done.** 1280×720 JPEG under 2 MB, from an open output window at full resolution.
 - **Short-video interface guides in the layout editor (#838) · done.** Hatched areas at 9:16 and 1:1 where the apps' own interface covers the video. Guides only.
 - **YouTube chapters from the timeline markers (#837) · done.** Copied from the timeline as "0:00 Intro" lines, or written next to the export. The panel says which of YouTube's rules fails: first chapter at 0:00, at least three chapters, each at least 10 s.
+- **Custom frequency bands as modulation sources (#PRNUM) · done.** Four sources with their own Hz range and dB window (floor 0, ceiling 1), attack and release. Read from the raw spectrum and averaged as power; an unrouted band changes nothing.
 
 ## v3.1.6 — Broadcast layout editor (first planned as v3.1.7)
 

@@ -473,6 +473,7 @@ Any parameter of any effect can be driven by the modulation matrix.
 - **Any source to any setting** — routes go to any dotted configuration path, chosen from a live
   tree of the current settings.
 - **Sources** — bass, mid, treble, level, onset envelope and onset trigger · eight spectrum bands ·
+  four custom bands with your own Hz range and dB window ·
   LFOs · envelope followers · sample-and-hold · random · the beat clock · macro knobs · and every
   deep-analysis measurement (key, chord, pitch, loudness, drum bands…).
 - **Eight LFO shapes** — sine, triangle, saw up, saw down, square, pulse, random ramp and noise —

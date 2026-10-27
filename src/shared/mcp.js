@@ -1107,7 +1107,7 @@
     sv_remove_layer_effect: { props: Object.assign({}, LAYER_REF, FX_REF) },
     sv_add_modulation_route: {
       props: {
-        source: sp('string', 'Source id: bass, mid, treble, level, onset, band0..7, lfo1.., env1.., macro1..8, an* analysis values.'),
+        source: sp('string', 'Source id: bass, mid, treble, level, onset, band0..7, fband1..4 (custom Hz range and dB window in modulation.freeBands), lfo1.., env1.., macro1..8, an* analysis values.'),
         target: sp('string', 'Existing numeric config path, e.g. visualizer.sensitivity or layers.0.opacity.'),
         mode: sp('string', 'How the value is applied.', { enum: ['set', 'add', 'mul'] }),
         curve: sp('string', 'Response curve, e.g. linear, exp, log, scurve.'),

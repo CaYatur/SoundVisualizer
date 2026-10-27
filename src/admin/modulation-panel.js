@@ -231,6 +231,38 @@
       return kids;
     }));
 
+    // ------------------------------------------------------ serbest bantlar
+    nodes.push(SP().foldable('Serbest Bantlar (4)', () => {
+      const MOD = window.SVModulation;
+      const fb = Array.isArray(m.freeBands) ? m.freeBands : (m.freeBands = []);
+      // Hz kaydırıcısı logaritmik: 20 Hz–20 kHz konumda eşit oktav aralığı alır
+      const lnLo = Math.log(MOD.FREE_HZ_MIN);
+      const lnSpan = Math.log(MOD.FREE_HZ_MAX) - lnLo;
+      const toPos = (hz) => (Math.log(hz) - lnLo) / lnSpan;
+      const toHz = (p) => Math.round(Math.exp(lnLo + p * lnSpan));
+      const fmtHz = (hz) => (hz >= 1000 ? (hz / 1000).toFixed(hz >= 10000 ? 1 : 2) + ' kHz' : hz + ' Hz');
+      const fmtDb = (v) => Math.round(v) + ' dB';
+      const kids = [el('div', { class: 'studio-note dim-hint', text: 'Bir frekans aralığı ve dB penceresi seçin: alt sınırda kaynak 0, üst sınırda 1 olur. Yönlendirmelerde "Serbest Bant" grubundan seçilir.' })];
+      for (let i = 0; i < MOD.FREE_BANDS; i++) {
+        const b = fb[i] || (fb[i] = Object.assign({}, MOD.FREE_BAND_DEFAULTS[i]));
+        const eff = () => MOD.freeBand(m, i);
+        const meter = el('span', { class: 'mod-meter' }, [el('i')]);
+        meters.push({ el: meter.firstChild, source: 'fband' + (i + 1) });
+        kids.push(el('div', { class: 'mod-gen' }, [
+          el('div', { class: 'item-head' }, [el('span', { class: 'item-title', text: 'Serbest Bant ' + (i + 1) })]),
+          P().row('Anlık', meter),
+          SP().miniSlider('Alt Frekans', () => toPos(eff().lo), (p) => { b.lo = toHz(p); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(toHz(p)) }),
+          SP().miniSlider('Üst Frekans', () => toPos(eff().hi), (p) => { b.hi = toHz(p); }, { min: 0, max: 1, step: 0.001, fmt: (p) => fmtHz(toHz(p)) }),
+          SP().miniSlider('Taban (0)', () => eff().floor, (v) => { b.floor = v; }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: fmtDb }),
+          SP().miniSlider('Tavan (1)', () => eff().ceil, (v) => { b.ceil = v; }, { min: MOD.FREE_DB_MIN, max: MOD.FREE_DB_MAX, step: 1, fmt: fmtDb }),
+          SP().miniSlider('Atak', () => eff().attack, (v) => { b.attack = v; }, { min: 0, max: 0.5, step: 0.001, fmt: (v) => Math.round(v * 1000) + ' ms' }),
+          SP().miniSlider('Bırakma', () => eff().release, (v) => { b.release = v; }, { min: 0.01, max: 3, step: 0.01, fmt: (v) => Math.round(v * 1000) + ' ms' }),
+        ]));
+      }
+      startMeters();
+      return kids;
+    }));
+
     // -------------------------------------------------------- yönlendirmeler
     const routes = Array.isArray(m.routes) ? m.routes : (m.routes = []);
     const cat = targetCatalog(cfg);
