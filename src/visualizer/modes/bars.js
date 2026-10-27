@@ -127,6 +127,33 @@
       }
       ctx.restore();
 
+      /* Zemin yansıması (#842): taban çizgisinin altına, barların aynası,
+         aşağı doğru sönerek. Yalnız tabanda duran barlarda ve taban kadranın
+         içindeyken; ortada duran barlar zaten iki yönlü. Tuval kendi üstüne
+         çiziliyor (2B tuval bunu bir kopyadan yapıyor), sonra sönme
+         'destination-out' degradesiyle yalnız tabanın altında siliniyor.
+         Sesten başka hiçbir şeye bağlı değil: canlı ve dışa aktarım aynı. */
+      const refl = clamp01(Number(v.reflection) || 0);
+      if (refl > 0 && v.position !== 'center' && baseY < H - 1) {
+        const len = Math.min(H - baseY, maxH * Math.max(0.05, Math.min(1, v.reflectionLength == null ? 0.4 : Number(v.reflectionLength))));
+        if (len >= 1) {
+          ctx.save();
+          ctx.globalAlpha = refl;
+          ctx.translate(0, 2 * baseY);
+          ctx.scale(1, -1);
+          ctx.drawImage(this.canvas, areaX, baseY - len, areaW, len, areaX, baseY - len, areaW, len);
+          ctx.restore();
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          const g = ctx.createLinearGradient(0, baseY, 0, baseY + len);
+          g.addColorStop(0, 'rgba(0,0,0,0.15)');
+          g.addColorStop(1, 'rgba(0,0,0,1)');
+          ctx.fillStyle = g;
+          ctx.fillRect(areaX - 1, baseY, areaW + 2, len + 1);
+          ctx.restore();
+        }
+      }
+
       this.glow.apply(this.canvas, v.glow, 0.9);
     }
 

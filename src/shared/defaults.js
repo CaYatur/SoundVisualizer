@@ -249,6 +249,8 @@
       mirror: false,
       lineWidth: 3,
       cap: true, // bar tepe noktaları
+      reflection: 0, // zemin yansıması gücü 0..1 (#842); 0 = kapalı
+      reflectionLength: 0.4, // yansımanın boyu, bar yüksekliğine oran
       glow: 0.46,
       gap: 0.36, // barlar arası boşluk oranı
       position: 'center', // 'bottom' | 'center' | 'full' (bars için)

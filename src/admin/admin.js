@@ -2911,6 +2911,9 @@
           { type: 'slider', path: 'visualizer.barCenterX', label: 'Yatay Konum', min: 0, max: 1, step: 0.01, percent: true, nullable: 0.5, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
           { type: 'slider', path: 'visualizer.barHeight', label: 'Bar Yüksekliği', min: 0.05, max: 1, step: 0.01, percent: true, nullable: 0.92, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
           { type: 'slider', path: 'visualizer.baseline', label: 'Taban Çizgisi', min: 0, max: 1, step: 0.01, percent: true, nullable: 1, show: () => v.type === 'bars', group: 'Bar Yerleşimi', advanced: true },
+          /* Zemin yansıması (#842): taban kadranın içindeyken görünür */
+          { type: 'slider', path: 'visualizer.reflection', label: 'Zemin Yansıması', min: 0, max: 1, step: 0.02, percent: true, show: () => v.type === 'bars' && v.position !== 'center', group: 'Bar Yerleşimi', advanced: true },
+          { type: 'slider', path: 'visualizer.reflectionLength', label: 'Yansıma Boyu', min: 0.05, max: 1, step: 0.01, percent: true, show: () => v.type === 'bars' && v.position !== 'center' && (Number(v.reflection) || 0) > 0, group: 'Bar Yerleşimi', advanced: true },
 
           // --- Dalga / çizgi biçimi (gelişmiş) ---
           { type: 'slider', path: 'visualizer.lineWidth', label: 'Çizgi Kalınlığı', min: 1, max: 12, step: 0.5, show: isWaveMode, group: 'Dalga Biçimi', advanced: true },

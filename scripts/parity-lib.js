@@ -72,6 +72,10 @@ function cases(logo) {
   ])));
   BLENDS.forEach((b) => out.push(Object.assign({ name: 'blend-' + b, t: 2 }, stack([L.bg(), L.bars({ blend: b }), L.text({ blend: b })]))));
   out.push(Object.assign({ name: 'mask-rect', t: 2 }, stack([L.bg(), L.bars({ mask: { type: 'rect', x: 0.5, y: 0.5, w: 0.5, h: 0.5, feather: 0.1 } })])));
+  // Zemin yansıması (#842): taban kadranın içinde, yansıma altında sönüyor
+  out.push(Object.assign({ name: 'bars-reflection', t: 2 }, stack([L.solid('#101828'), L.bars({ settings: { visualizer: {
+    type: 'bars', position: 'bottom', barCount: 48, rainbow: true, glow: 0.3, barSpan: 0.8, barHeight: 0.4, baseline: 0.62,
+    reflection: 0.6, reflectionLength: 0.5 } } })])));
   out.push(Object.assign({ name: 'group-crossfade', t: 2 }, stack([L.bg({ group: 'A' }), L.bars({ group: 'B' }), L.text({ group: 'B' })], { crossfade: { enabled: true, value: 0.35 } })));
   // Açılış animasyonunun ortası (#537): saat ilk ısınma karesinde kurulur
   const rv = (type) => ({ type, duration: 1, delay: 0, ease: 'linear', distance: 0.12 });

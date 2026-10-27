@@ -143,6 +143,8 @@
     'Bar Genişliği': 'Bar Width',
     'Bar Yüksekliği': 'Bar Height',
     'Taban Çizgisi': 'Baseline',
+    'Zemin Yansıması': 'Floor Reflection',
+    'Yansıma Boyu': 'Reflection Length',
     // Tayf ölçümü
     'Tayf Ölçümü': 'Spectrum Metering',
     'Frekans Ölçeği': 'Frequency Scale', 'Logaritmik (müzikal)': 'Logarithmic (musical)',

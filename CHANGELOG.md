@@ -7,7 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837, 838, 839]
+### For music videos and short video [837, 838, 839, 842]
+
+- **Floor reflection for bars [842].** Bars that stand on a baseline above the bottom edge can cast a mirrored reflection that fades downward. "Floor Reflection" sets the strength (off by default) and "Reflection Length" the length as a share of the bar height. The canvas is drawn onto itself flipped under the baseline, then faded with a gradient that erases only below the baseline. It depends on nothing but the audio, so live and export match: a new `npm run parity` case shows no difference (24 cases, 0 failed). Checked in an export with music.
 
 - **YouTube thumbnail [839].** A "YouTube Thumbnail" button next to Snapshot saves a 1280×720 JPEG of the frame on screen. If the image is too big, quality steps down from 0.92 until it fits YouTube's 2 MB limit, and a source that is not 16:9 is cropped from the centre, so no bars appear. The frame comes from an open output window at its full resolution: the panel preview measured 341×192 in a small window, and enlarging it adds no detail. The preview is used only when no output window is open. Checked in the running app: from a 1280×1024 output window, a sharp 1280×720 JPEG of 31 KB.
 
