@@ -80,6 +80,7 @@
       aspectKey,
       aspect: (ASPECTS.find((a) => a[0] === aspectKey) || ASPECTS[0])[1],
       safe: pref('safe', '1') === '1',
+      platform: pref('platform', '1') === '1',
       snap: pref('snap', '1') === '1',
       sel: null,
       drag: null,
@@ -97,9 +98,11 @@
     // Yakalama çizgileri yalnız sürüklerken görünür
     gx.hidden = true;
     gy.hidden = true;
-    overlay.append(safeA, safeT, cv, ch, gx, gy);
+    // Kısa video uygulamalarının arayüzünün kapladığı bölgeler (#838); en-boya göre dolar
+    const plat = el('div', { class: 'lay-platform-wrap', 'aria-hidden': 'true' });
+    overlay.append(plat, safeA, safeT, cv, ch, gx, gy);
     st.overlay = overlay;
-    st.guides = { gx, gy, safe: [safeA, safeT] };
+    st.guides = { gx, gy, safe: [safeA, safeT], plat };
 
     const stageWrap = el('div', { class: 'lay-stage-wrap' });
     const side = el('div', { class: 'lay-side' });
@@ -120,6 +123,7 @@
       el('h3', { id: 'layTitle', text: 'Düzen Editörü' }),
       el('div', { class: 'lay-aspect', role: 'group', 'aria-label': 'Çıktı oranı' }, aspectBtns),
       toggle('Güvenli alanlar', st.safe, (v) => { st.safe = v; setPref('safe', v ? '1' : '0'); paintGuides(); }),
+      toggle('Platform arayüzü', st.platform, (v) => { st.platform = v; setPref('platform', v ? '1' : '0'); paintGuides(); }),
       toggle('Yakalama', st.snap, (v) => { st.snap = v; setPref('snap', v ? '1' : '0'); }),
       el('button', { type: 'button', class: 'btn small', icon: 'x', text: 'Kapat', onclick: close }),
     ]);
@@ -171,6 +175,7 @@
     setPref('aspect', a[0]);
     st.stage.dataset.aspect = a[0];
     fit();
+    paintGuides();
   }
 
   // Sahneyi alana oranı koruyarak sığdırır (9:16'da yükseklik sınırlar)
@@ -211,6 +216,18 @@
     set(st.guides.safe[0], L.SAFE.action);
     set(st.guides.safe[1], L.SAFE.title);
     st.guides.safe.forEach((n) => { n.hidden = !st.safe; });
+    /* Platform bölgeleri (#838): 9:16 ve 1:1'de, yalnız kılavuz. Her
+       boyamada yeniden kuruluyor; en fazla dört kutu. */
+    const el = P().el;
+    const plat = st.guides.plat;
+    plat.textContent = '';
+    plat.hidden = !st.platform;
+    if (st.platform) {
+      for (const z of L.platformZones(st.aspectKey)) {
+        plat.appendChild(el('div', { class: 'lay-platform ' + z.id, title: 'Platform arayüzünün kapladığı alan',
+          style: 'left:' + (z.x * 100) + '%;top:' + (z.y * 100) + '%;width:' + (z.w * 100) + '%;height:' + (z.h * 100) + '%' }));
+      }
+    }
   }
 
   // Kutuları çizicinin bildirdiği yere taşır (her karede: ses ve içerik değişiyor)
@@ -455,6 +472,7 @@
     }
     renderReveal(side, cur);
     side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Değerler karenin oranı (0–1). Güvenli alanlar SMPTE ST 2046-1 ve EBU R 95: kesikli çizgi aksiyon (%93), noktalı çizgi başlık (%90).' }));
+    side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Taralı alanlar 9:16 ve 1:1\'de kısa video uygulamalarının arayüzünün kapladığı yerler; yazı ve logo dışında kalsın. Yalnız kılavuz, videoya girmez.' }));
   }
 
   /* AÇILIŞ ANİMASYONU (#537): seçili öğenin türü, süresi, gecikmesi.
