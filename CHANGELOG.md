@@ -7,7 +7,12 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837, 838, 839, 842]
+### For music videos and short video [837, 838, 839, 841, 842]
+
+- **Ken Burns and beat pulse on the media layer [841].** Both are off by default.
+  - "Ken Burns" adds a slow zoom (up to 12%) and pan over the video or webcam, with its own cycle length (4–60 s, default 20). The pan never shows the frame's edge, because it is limited to the margin the zoom leaves.
+  - "Beat Pulse" adds a short zoom peak (up to 8%) when the bass rises clearly above its slow average, fading in about 0.3 s.
+  - Both follow the draw clock, not the wall clock, so an export shows the same motion as the screen.
 
 - **Floor reflection for bars [842].** Bars that stand on a baseline above the bottom edge can cast a mirrored reflection that fades downward. "Floor Reflection" sets the strength (off by default) and "Reflection Length" the length as a share of the bar height. The canvas is drawn onto itself flipped under the baseline, then faded with a gradient that erases only below the baseline. It depends on nothing but the audio, so live and export match: a new `npm run parity` case shows no difference (24 cases, 0 failed). Checked in an export with music.
 

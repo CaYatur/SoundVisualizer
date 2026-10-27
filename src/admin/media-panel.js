@@ -155,6 +155,10 @@
     nodes.push(P().slider('Doygunluk', 'media.saturate', { min: 0, max: 3, step: 0.05 }));
     nodes.push(P().slider('Bas → Yakınlaşma', 'media.audioZoom', { min: 0, max: 1, step: 0.01, percent: true }));
     nodes.push(P().slider('Bas → Saydamlık', 'media.audioOpacity', { min: 0, max: 1, step: 0.02, percent: true, noExtend: true }));
+    // Ken Burns ve vuruşta nabız (#841): çizim saatine bağlı, dışa aktarımda da aynı
+    nodes.push(P().slider('Ken Burns (Yavaş Yakınlaşma ve Kayma)', 'media.kenBurns', { min: 0, max: 1, step: 0.02, percent: true, noExtend: true }));
+    nodes.push(P().slider('Ken Burns Döngüsü', 'media.kenBurnsPeriod', { min: 4, max: 60, step: 1, fmt: (v) => Math.round(v) + ' sn' }));
+    nodes.push(P().slider('Vuruşta Nabız', 'media.beatPulse', { min: 0, max: 1, step: 0.02, percent: true, noExtend: true }));
 
     return el('div', {}, nodes);
   }
