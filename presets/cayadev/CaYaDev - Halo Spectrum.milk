@@ -88,7 +88,7 @@ wavecode_0_a=1
 wave_0_per_frame1=a = 1;
 wave_0_per_point1=x = 0.5 + (sample - 0.5)*0.9/q31;
 wave_0_per_point2=y = 0.5 + 0.488/q32;
-wave_0_per_point3=h = min(1, sqrt(max(0, value1)*2.2*(1 + sample*6)));
+wave_0_per_point3=h = min(1, sqrt(max(0, value1 - 0.012)*2.2*(1 + sample*6)));
 wave_0_per_point4=r = h;
 wave_0_per_point5=g = h;
 wave_0_per_point6=b = h;
@@ -131,10 +131,13 @@ warp_18=`  float zone = exp(-pow((r - tip) * 90.0, 2.0)) * saturate(h * 1.6 - 0.
 warp_19=`  float born = step(1.0 - 0.12 * zone * (0.6 + 0.5 * q5), n.x) * step(n.y, q30);
 warp_20=`  float3 c = 0.5 + 0.5 * cos(6.28318 * (float3(0.0, 0.33, 0.67) + tb * 0.8 + q3));
 warp_21=`  fb += c * born * (0.8 + 0.4 * n.z);
-warp_22=`  float hold = max(tex2D(sampler_main, uv).x - 0.012 * q30, tex2D(sampler_main, float2(uv.x, 0.012)).x);
-warp_23=`  ret = fb * step(0.04, uv.y);
-warp_24=`  ret = lerp(ret, hold.xxx, step(abs(uv.y - 0.028), 0.006));
-warp_25=`}
+warp_22=`  // the data row is read at its centre and one texel either side: MilkDrop 2 lands the line ~1 px lower
+warp_23=`  float dy = 1.0 / texsize.y;
+warp_24=`  float cur = max(tex2D(sampler_main, float2(uv.x, 0.012)).x, max(tex2D(sampler_main, float2(uv.x, 0.012 + dy)).x, tex2D(sampler_main, float2(uv.x, 0.012 - dy)).x));
+warp_25=`  float hold = max(tex2D(sampler_main, uv).x - 0.012 * q30, cur);
+warp_26=`  ret = fb * step(0.04, uv.y);
+warp_27=`  ret = lerp(ret, hold.xxx, step(abs(uv.y - 0.028), 0.006));
+warp_28=`}
 comp_1=`shader_body
 comp_2=`{
 comp_3=`  float2 p = (uv - 0.5) * aspect.xy;
