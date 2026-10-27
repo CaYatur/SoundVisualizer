@@ -1,0 +1,180 @@
+MILKDROP_PRESET_VERSION=201
+PSVERSION=4
+PSVERSION_WARP=4
+PSVERSION_COMP=4
+[preset00]
+fRating=5
+fGammaAdj=1
+fDecay=1
+fVideoEchoZoom=1
+fVideoEchoAlpha=0
+nVideoEchoOrientation=0
+nWaveMode=0
+bAdditiveWaves=0
+bWaveDots=0
+bWaveThick=0
+bModWaveAlphaByVolume=0
+bMaximizeWaveColor=0
+bTexWrap=0
+bDarkenCenter=0
+bRedBlueStereo=0
+bBrighten=0
+bDarken=0
+bSolarize=0
+bInvert=0
+fWaveAlpha=0
+fWaveScale=1
+fWaveSmoothing=0.75
+fWaveParam=0
+fModWaveAlphaStart=0.75
+fModWaveAlphaEnd=0.95
+fWarpAnimSpeed=1
+fWarpScale=1
+fZoomExponent=1
+fShader=0
+zoom=1
+rot=0
+cx=0.5
+cy=0.5
+dx=0
+dy=0
+warp=0
+sx=1
+sy=1
+wave_r=1
+wave_g=1
+wave_b=1
+wave_x=0.5
+wave_y=0.5
+ob_size=0
+ob_r=0
+ob_g=0
+ob_b=0
+ob_a=0
+ib_size=0
+ib_r=0
+ib_g=0
+ib_b=0
+ib_a=0
+nMotionVectorsX=12
+nMotionVectorsY=9
+mv_dx=0
+mv_dy=0
+mv_l=0.9
+mv_r=1
+mv_g=1
+mv_b=1
+mv_a=0
+b1n=0
+b2n=0
+b3n=0
+b1x=1
+b2x=1
+b3x=1
+b1ed=0
+per_frame_init_1=stp = 0;
+per_frame_init_2=acc = 0;
+per_frame_init_3=last = 0;
+per_frame_init_4=shot = 0;
+per_frame_init_5=col = 5;
+per_frame_1=q30 = 60/max(fps, 15);
+per_frame_2=q31 = aspectx;
+per_frame_3=q32 = aspecty;
+per_frame_4=acc = acc + (1.5 + 2.5*min(bass_att, 2))/fps;
+per_frame_5=st = (acc > 1);
+per_frame_6=stp = stp + st;
+per_frame_7=acc = acc - st;
+per_frame_8=beat = (bass > 1.3)*((time - last) > 0.4);
+per_frame_9=last = if(beat, time, last);
+per_frame_10=col = if(beat, floor(rand(11)), col);
+per_frame_11=shot = if(beat, time, shot);
+per_frame_12=q1 = stp;
+per_frame_13=q2 = col;
+per_frame_14=q3 = time - shot;
+per_frame_15=q4 = time*0.02 + mid_att*0.03;
+per_frame_16=q5 = min(treb_att, 2);
+warp_1=`sampler sampler_pw_noise_lq;
+warp_2=`float bitAt(float row, float colx, float design, float frameN)
+warp_3=`{
+warp_4=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
+warp_5=`  float r = 0.0;
+warp_6=`  if (design < 0.5) {
+warp_7=`    float4 a = frameN < 0.5 ? float4(24.0, 60.0, 126.0, 219.0) : float4(24.0, 60.0, 126.0, 219.0);
+warp_8=`    float4 b = frameN < 0.5 ? float4(255.0, 36.0, 90.0, 165.0) : float4(255.0, 90.0, 129.0, 66.0);
+warp_9=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_10=`  } else if (design < 1.5) {
+warp_11=`    float4 a = float4(36.0, 126.0, 219.0, 255.0);
+warp_12=`    float4 b = frameN < 0.5 ? float4(255.0, 189.0, 36.0, 102.0) : float4(255.0, 189.0, 66.0, 129.0);
+warp_13=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_14=`  } else {
+warp_15=`    float4 a = float4(60.0, 126.0, 255.0, 219.0);
+warp_16=`    float4 b = frameN < 0.5 ? float4(255.0, 102.0, 219.0, 129.0) : float4(255.0, 102.0, 165.0, 66.0);
+warp_17=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_18=`  }
+warp_19=`  return step(0.5, frac(floor(r / exp2(7.0 - colx)) * 0.5));
+warp_20=`}
+warp_21=`float3 scene(float2 u)
+warp_22=`{
+warp_23=`  float2 px = floor(u * float2(240.0, 135.0));
+warp_24=`  float3 c = float3(0.0, 0.0, 0.0);
+warp_25=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
+warp_26=`  // formation: 11 columns x 5 rows, 16 px apart, marching 2 px per step
+warp_27=`  float span = 40.0;
+warp_28=`  float t = q1 - span * floor(q1 / span);
+warp_29=`  float dir = t < span * 0.5 ? 1.0 : -1.0;
+warp_30=`  float offx = t < span * 0.5 ? t * 2.0 : (span - t) * 2.0;
+warp_31=`  float drop = floor(q1 / (span * 0.5)) - 4.0 * floor(q1 / (span * 2.0));
+warp_32=`  float2 base = float2(16.0 + offx, 18.0 + drop * 4.0);
+warp_33=`  float2 lp = px - base;
+warp_34=`  float ci = floor(lp.x / 16.0);
+warp_35=`  float ri = floor(lp.y / 14.0);
+warp_36=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
+warp_37=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
+warp_38=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
+warp_39=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
+warp_40=`    float hit = step(abs(ci - q2), 0.1) * step(q3, 0.25) * step(ri, 0.5);
+warp_41=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
+warp_42=`    c = on * lerp(ic, float3(1.0, 1.0, 1.0), hit);
+warp_43=`  }
+warp_44=`  // shields
+warp_45=`  float sx = px.x - 26.0;
+warp_46=`  float sk = floor(sx / 52.0);
+warp_47=`  float sl = sx - sk * 52.0;
+warp_48=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y > 104.0 && px.y < 114.0) {
+warp_49=`    float hole = step(sl, 13.0) * step(9.0, sl) * step(110.0, px.y);
+warp_50=`    c = float3(0.3, 1.0, 0.35) * (1.0 - hole);
+warp_51=`  }
+warp_52=`  // cannon follows the shot column
+warp_53=`  float cx = 16.0 + offx + q2 * 16.0 + 3.0;
+warp_54=`  float2 cp = px - float2(cx, 124.0);
+warp_55=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
+warp_56=`  c = max(c, float3(0.4, 1.0, 0.5) * cannon);
+warp_57=`  // the shot: a short beam rising from the cannon
+warp_58=`  float beam = step(abs(px.x - cx), 0.5) * step(124.0 - q3 * 500.0, px.y) * step(px.y, 124.0 - q3 * 500.0 + 6.0) * step(q3, 0.3);
+warp_59=`  c = max(c, float3(1.0, 1.0, 0.8) * beam);
+warp_60=`  float ground = step(abs(px.y - 130.0), 0.5);
+warp_61=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
+warp_62=`  return c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
+warp_63=`}
+warp_64=`shader_body
+warp_65=`{
+warp_66=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
+warp_67=`  float2 g = floor(uv * float2(320.0, 180.0));
+warp_68=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
+warp_69=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
+warp_70=`  float3 old = tex2D(sampler_main, uv).xyz;
+warp_71=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
+warp_72=`}
+comp_1=`shader_body
+comp_2=`{
+comp_3=`  float2 cc = uv - 0.5;
+comp_4=`  float2 u = 0.5 + cc * (1.0 + dot(cc, cc) * 0.08);
+comp_5=`  float inside = step(0.0, u.x) * step(u.x, 1.0) * step(0.0, u.y) * step(u.y, 1.0);
+comp_6=`  float3 col = tex2D(sampler_main, u).xyz;
+comp_7=`  col += GetBlur1(u) * 0.45 + GetBlur2(u) * 0.2;
+comp_8=`  float scan = 0.75 + 0.25 * sin(u.y * 135.0 * 6.28318);
+comp_9=`  col *= scan;
+comp_10=`  col += float3(0.01, 0.015, 0.02);
+comp_11=`  col *= inside * (1.0 - dot(cc, cc) * 1.1);
+comp_12=`  ret = 1.0 - exp(-col * 1.6);
+comp_13=`}

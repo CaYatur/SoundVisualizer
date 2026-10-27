@@ -323,6 +323,190 @@
         "tr": "Karanlık bir odada sekiz tütsü çubuğu, her biri renkli bir duman şeridi bırakıyor: duman alçakta düzgün yükseliyor, yukarıda kıvrımlara bölünüp inceliyor. Bas türbülansı artırıyor, dalga biçimi dumanı salındırıyor, tizler çubuk uçlarını parlatıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört şerit görünür.",
         "en": "Eight incense sticks in a dark room, each releasing a ribbon of coloured smoke that rises smoothly low down and breaks into thinning curls higher up. Bass gusts the turbulence, the waveform sways the plumes, treble makes the tips glow. A MilkDrop 3 preset; MilkDrop 2 players show four ribbons."
       }
+    },
+    {
+      "file": "CaYaDev - Spectrum City.milk",
+      "id": "md_caya_spectrum_city",
+      "category": "retro",
+      "description": {
+        "tr": "Kuleleri spektrum olan bir gece silueti: her kulenin boyu kendi frekans bandını izliyor, pencereleri bandın seviyesiyle yanıyor, en yüksek çatılarda kırmızı uçak ışıkları yanıp sönüyor. Mor gökte ay ve yıldızlar var, alttaki nehir her şeyi dalgalanan, kararmış yansımalarla tekrar ediyor.",
+        "en": "A night skyline whose towers are the spectrum: each tower's height follows its band, its windows light with the band's level, and the tallest roofs blink red aircraft lights. A moon and stars hang in a violet sky, and the river below repeats it all in rippling, darkened reflections."
+      }
+    },
+    {
+      "file": "CaYaDev - Plasma Globe.milk",
+      "id": "md_caya_plasma_globe",
+      "category": "club",
+      "description": {
+        "tr": "Bir plazma küresi: merkezdeki elektrottan cama uzanan dört filaman yavaşça kürenin çevresinde geziniyor, dalga biçimi içlerinde titriyor. Her vuruşta bir filaman camdaki bir 'parmak ucuna' sıçrayıp daha parlak yanıyor; cam, kenar ışığı ve yansımalarla filamanların ışığını alıyor.",
+        "en": "A plasma globe: four filaments crawl from the electrode at the centre to the glass and wander slowly round the sphere, with the waveform shivering through them. On each beat one snaps to a fingertip on the glass and burns brighter; the glass catches their light with a rim glow and reflections."
+      }
+    },
+    {
+      "file": "CaYaDev - Rain Glass.milk",
+      "id": "md_caya_rain_glass",
+      "category": "ambient",
+      "description": {
+        "tr": "Gece yağmurlu bir pencere: camda damlalar beliriyor, ağırlaşanlar aşağı süzülüp incelen izler bırakıyor ve her damla arkadaki bulanık şehir ışıklarını bir mercek gibi büküyor. Bas daha iri damlalar getiriyor, ışıklar müzikle nefes alıyor.",
+        "en": "A rainy window at night: beads appear on the glass, the heavy ones run down leaving thinning trails, and each bead bends the blurred city lights behind it like a little lens. Bass brings bigger drops, and the lights breathe with the music."
+      }
+    },
+    {
+      "file": "CaYaDev - Wax Lamp.milk",
+      "id": "md_caya_wax_lamp",
+      "category": "liquid",
+      "description": {
+        "tr": "Bir mum lambası: uzun bir cam kabın içinde yedi sıcak mum öbeği yükselip alçalıyor, birleşip ayrılıyor; üstlerini alttaki ampulün ışığı aydınlatıyor, kenarları parlıyor. Bas lambayı ısıtıyor: öbekler hızlanıp büyüyor.",
+        "en": "A wax lamp: seven blobs of warm wax rise and sink inside a tall glass vessel, merging and pinching apart, their tops lit by the bulb below and their edges glowing. Bass heats the lamp, so the blobs move faster and swell."
+      }
+    },
+    {
+      "file": "CaYaDev - Mandelbrot Dive.milk",
+      "id": "md_caya_mandelbrot_dive",
+      "category": "fractal",
+      "description": {
+        "tr": "Mandelbrot kümesine bitmeyen bir dalış: kamera denizatı vadisindeki sarmala doğru üstel olarak yakınlaşıp yavaşça dönüyor, kaçış süresi yumuşak bir kosinüs paletiyle renkleniyor. Tek duyarlıklı sayılar bozulmadan önce dalış kararıyor ve bir sonraki yeni bir açıdan başlıyor. Bas dalışı hızlandırıyor.",
+        "en": "An endless dive into the Mandelbrot set: the camera zooms exponentially toward a spiral in the seahorse valley and turns slowly, the escape time coloured through a smooth cosine palette. Each dive fades before single precision breaks up and the next starts at a fresh angle. Bass speeds the dive."
+      }
+    },
+    {
+      "file": "CaYaDev - Truchet Weave.milk",
+      "id": "md_caya_truchet_weave",
+      "category": "geometric",
+      "description": {
+        "tr": "Dokunmuş bir Truchet alanı: her hücredeki iki çeyrek yay, rastgele yönleriyle birbirine bağlanıp sonsuz kıvrımlı yollar oluşturuyor; yolların üzerinde hücreden hücreye akan ışık atımları var. Birkaç ölçüde bir yeni desen ekranı soldan sağa süpürüyor. Bas atımları sürüyor.",
+        "en": "A woven Truchet field: two quarter-circle arcs in every cell, turned at random, join into endless winding paths with pulses of light flowing along them from cell to cell. Every few bars a new pattern sweeps across the screen from left to right. Bass drives the pulses."
+      }
+    },
+    {
+      "file": "CaYaDev - Mycelium.milk",
+      "id": "md_caya_mycelium",
+      "category": "organic",
+      "description": {
+        "tr": "Karanlık toprakta yayılan miselyum: bir tohumdan dört hif dolanarak büyüyor, büyüyen uçları ve düğümleri biyolüminesan mavi-yeşille parlıyor. Ağ tamamlanınca yavaşça sönüyor ve yeni bir tohumdan yeniden büyüyor; eski ağlar soluk izler olarak kalıp zamanla bir ağ örüyor, havada birkaç spor yavaşça yükseliyor. Bas büyümeyi hızlandırıyor.",
+        "en": "Mycelium spreading through dark soil: four hyphae wander out from a seed, their growing tips and nodes glowing bioluminescent blue-green. When the network is complete it fades and regrows from a new seed, while older networks linger as faint traces that weave a web over time and a few spores drift up through the air. Bass speeds the growth."
+      }
+    },
+    {
+      "file": "CaYaDev - Spiral Wormhole.milk",
+      "id": "md_caya_spiral_wormhole",
+      "category": "tunnel",
+      "description": {
+        "tr": "Sarmal bir solucan deliğinden düşüş: duvarlar, akkor bir boğaza doğru dönerek akan enerji akıntıları; vuruşlarla ışık kaburgaları yanından geçiyor. Bas hızı, ortalar bükülmeyi ve paleti belirliyor, tizler duvarlarda kıvılcım yakıyor.",
+        "en": "Falling through a spiralling wormhole: the walls are streams of energy twisting in toward a white-hot throat, and ribs of light rush past with the beat. Bass sets the speed, mids the twist and the palette, and treble lights sparks on the walls."
+      }
+    },
+    {
+      "file": "CaYaDev - Firefly Meadow.milk",
+      "id": "md_caya_firefly_meadow",
+      "category": "ambient",
+      "md3": true,
+      "description": {
+        "tr": "Alacakaranlıkta bir çayırın üstünde ateş böcekleri: on iki sürü, otların arasındaki yuvaları çevresinde yavaşça süzülüp her biri kendi ritmiyle yanıp sönüyor, güçlü bir vuruşta hep birlikte parlıyor. Gökyüzünde ilk yıldızlar, ağaç sırası ve ot sapları silüet hâlinde. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört sürü görünür.",
+        "en": "Fireflies over a meadow at dusk: twelve swarms drift around their homes in the grass and blink on their own rhythms, flashing together on a strong beat, under a sky with its first stars, a treeline and grass blades in silhouette. A MilkDrop 3 preset; MilkDrop 2 players show four swarms."
+      }
+    },
+    {
+      "file": "CaYaDev - Harp Strings.milk",
+      "id": "md_caya_harp_strings",
+      "category": "abstract",
+      "md3": true,
+      "description": {
+        "tr": "Işıklı, on iki telli bir arp: her tel bastan tize kendi spektrum dilimine ayarlı, bandının seviyesiyle duran dalga olarak titriyor; güçlü bir vuruş bir teli çekip çınlatıyor. Teller kendi renklerinde parlıyor, arpın oymalı gövdesi silüet hâlinde. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört tel görünür.",
+        "en": "A lit harp of twelve strings: each is tuned to its own slice of the spectrum from bass to treble and vibrates as a standing wave with its band's level, and a strong beat plucks one so it rings out. The strings glow in their own colours against the carved frame in silhouette. A MilkDrop 3 preset; MilkDrop 2 players show four strings."
+      }
+    },
+    {
+      "file": "CaYaDev - Ocean Sunset.milk",
+      "id": "md_caya_ocean_sunset",
+      "category": "liquid",
+      "description": {
+        "tr": "Denizin üstünde batan güneş: bantlı bir gün batımı göğü ve yumuşak bir güneş, altında perspektifte bir okyanus. Yüzey yürüyen dalga dizilerinden oluşuyor, eğimi yansıyan göğü büküyor; güneş suya, tizlerle pırıldayan kısa ışık çizgilerinden bir yol seriyor. Bas dalgaları kabartıyor, güçlü bir vuruşta uzun bir kabarma geçiyor.",
+        "en": "The sun going down over the sea: a banded sunset sky and a soft sun above an ocean in perspective. The surface is made of travelling wave trains whose slope bends the reflected sky, and the sun lays a path of short glinting dashes across the water that sparkle with the treble. Bass raises the waves, and a long swell rolls through on a strong beat."
+      }
+    },
+    {
+      "file": "CaYaDev - Arcade Invaders.milk",
+      "id": "md_caya_arcade_invaders",
+      "category": "retro",
+      "description": {
+        "tr": "Eski bir atari ekranında uzaylı istilası: 11×5 piksel uzaylıdan oluşan bir filo adım adım yanlara yürüyüp aşağı iniyor (adım hızı basa bağlı), aşağıda dört sığınak ve bir top var. Vuruşlarda top ateş ediyor ve isabet alan uzaylı parlıyor. Görüntü tarama çizgileri, hafif bükülme ve fosfor parıltısıyla eski bir tüpte gibi görünüyor.",
+        "en": "An alien invasion on an old arcade screen: a fleet of 11 by 5 pixel aliens marches side to side and drops lower, its step tempo set by the bass, above four bunkers and a cannon. On the beat the cannon fires and the alien it hits flashes. Scanlines, a slight curve and phosphor glow make it look like an old tube."
+      }
+    },
+    {
+      "file": "CaYaDev - Hex Reactor.milk",
+      "id": "md_caya_hex_reactor",
+      "category": "geometric",
+      "description": {
+        "tr": "Altıgen bir reaktörün çekirdeği: ekranı kaplayan altıgen ızgarada her hücre merkezden halka uzaklığını biliyor. Spektrum halka halka dışa doğru yayılıyor (merkezde bas, kenarda tiz), her vuruşta çekirdekten bir şok halkası koşuyor ve yavaşça dönen bir tarama hücreleri yakıyor. Ateşlenen hücreler soğuyarak iz bırakıyor.",
+        "en": "The core of a hexagonal reactor: every cell of a hex grid across the screen knows its ring distance from the centre. The spectrum spreads outward ring by ring (bass in the core, treble at the rim), a shock ring runs out from the core on each beat, and a slow rotating sweep lights the cells. Cells that fire cool down and leave a trail."
+      }
+    },
+    {
+      "file": "CaYaDev - Neon Arches.milk",
+      "id": "md_caya_neon_arches",
+      "category": "tunnel",
+      "description": {
+        "tr": "Neon kemerlerden bir koridor: renkli ışık kemerleri ıslak, yansıtıcı bir zeminin üstünde sırayla kameraya doğru geliyor, zemindeki ızgara çizgileri ufka koşuyor. Kemerlerin rengi paletin içinde adım adım ilerliyor; bas yürüyüşü hızlandırıyor, vuruşta en yakın kemer parlıyor ve kemerler zeminde dalgalanan yansımalar bırakıyor.",
+        "en": "A corridor of neon arches: coloured arches of light come toward the camera one after another over a wet, reflective floor whose grid lines run to the horizon. The arch colours step through the palette; bass speeds the drive, a beat flares the nearest arch, and the arches leave rippling reflections on the floor."
+      }
+    },
+    {
+      "file": "CaYaDev - Ribbon Dance.milk",
+      "id": "md_caya_ribbon_dance",
+      "category": "abstract",
+      "description": {
+        "tr": "Karanlıkta dans eden ışık kurdeleleri: dört uzun kurdele, kontrol noktaları kendi hızlarında Lissajous yollarında dönen eğriler olarak kıvrılıyor; dalga biçimiyle genişliyor, bir kenarları daha açık olduğu için dönen bir şerit gibi okunuyor. Geçtikleri yol yukarı doğru süzülüp hafifçe kıvrılan ipeksi bir iz olarak havada asılı kalıyor.",
+        "en": "Ribbons of light dancing in the dark: four long ribbons curl as curves whose control points circle on Lissajous paths at their own speeds, widening with the waveform and lighter on one edge so each reads as a twisting strip. Their past motion hangs in the air as a silky trail that drifts upward and curls slightly."
+      }
+    },
+    {
+      "file": "CaYaDev - Snowy Pines.milk",
+      "id": "md_caya_snowy_pines",
+      "category": "ambient",
+      "description": {
+        "tr": "Gece bir çam ormanına kar yağıyor: üç sıra çam silüeti, ince bir bulutun ardında ay ve karla kaplı bir zemin. Üç derinlikte kar taneleri düşüyor; yakındakiler daha iri ve daha hızlı. Bas rüzgârı estiriyor, kar ve ağaçlar yana savruluyor; ortalar ay ışığını ısıtıp soğutuyor, tizler zemindeki karı ışıldatıyor.",
+        "en": "Snow falling on a pine forest at night: three rows of pine silhouettes, a moon behind a thin cloud and snow-covered ground. Flakes fall at three depths, bigger and faster up close. Bass gusts the wind so snow and trees lean, mids warm or cool the moonlight, and treble makes the snow on the ground sparkle."
+      }
+    },
+    {
+      "file": "CaYaDev - Apollonian Lace.milk",
+      "id": "md_caya_apollonian_lace",
+      "category": "fractal",
+      "description": {
+        "tr": "Apollonius benzeri bir daire dizilimi: her piksel defalarca bir hücreye katlanıp birim küreye göre ters çevriliyor, dairelerin kenarları her ölçekte ince bir dantel gibi parlıyor. Dizilim yavaşça nefes alıp dönüyor, renk katlamanın derinliğini izliyor. Ortalar paleti çeviriyor, tizler en ince iplikleri yakıyor.",
+        "en": "An Apollonian-style circle packing: every pixel is folded into a cell and inverted through the unit sphere again and again, so the circle edges glow as fine lace at every scale. The packing breathes slowly and turns, with colour following the depth of the folding. Mids turn the palette and treble lights the finest threads."
+      }
+    },
+    {
+      "file": "CaYaDev - Fern Frond.milk",
+      "id": "md_caya_fern_frond",
+      "category": "organic",
+      "description": {
+        "tr": "Kaos oyunuyla büyüyen eğrelti yaprakları: dört dalga her karede noktalarını dört afin dönüşümden rastgele seçilene atıyor ve noktalar eğreltinin üstüne oturup onu tampon belleğe işliyor. Dört yaprak yan yana, sırayla aynalanmış, gölgeden güneşe dört yeşil tonda; bas esintiyi güçlendirip yaprakları sallıyor, tizler çiy pırıltıları saçıyor.",
+        "en": "Fern fronds grown by the chaos game: four waves throw their points through one of four affine maps chosen at random each frame, and the points settle onto the fern and build it up in the buffer. Four fronds stand side by side, mirrored in turn, in four greens from shade to sunlight; bass gusts the breeze that sways them and treble scatters dew sparkles."
+      }
+    },
+    {
+      "file": "CaYaDev - Constellations.milk",
+      "id": "md_caya_constellations",
+      "category": "space",
+      "md3": true,
+      "description": {
+        "tr": "Takımyıldızlarla dolu bir gece göğü: on iki takımyıldız, ince çizgilerle birleşen yedişer yıldızlık zincirler olarak göğün kendi köşelerinde duruyor ve bütün gök ekranın üstündeki bir kutbun çevresinde yavaşça salınıyor. Her biri sırayla çiziliyor, dinlediği bant (bas, orta ya da tiz) güçlüyken parlak kalıyor, sonra sönüyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında dört takımyıldız görünür.",
+        "en": "A night sky of constellations: twelve chains of seven stars joined by faint lines, each in its own part of the sky, while the whole sky swings slowly round a pole above the screen. Each is traced in turn, stays bright while the band it listens to (bass, mids or treble) is loud, and then fades. A MilkDrop 3 preset; MilkDrop 2 players show four constellations."
+      }
+    },
+    {
+      "file": "CaYaDev - Lantern Night.milk",
+      "id": "md_caya_lantern_night",
+      "category": "ambient",
+      "md3": true,
+      "description": {
+        "tr": "Durgun bir gölün üstünde yükselen gök fenerleri: on iki şekil dörder kez çizilerek 48 kâğıt fener oluyor; her biri uzak kıyıdan kendi yolunda sallanarak yükseliyor, uzaklaştıkça küçülüp titreşiyor ve gökte sönüp yeniden başlıyor. Güçlü bir vuruşta birkaçı daha parlak yanıyor; göl fenerleri hafif bir dalgalanmayla yansıtıyor. MilkDrop 3 presetidir; MilkDrop 2 oynatıcılarında 16 fener görünür.",
+        "en": "Sky lanterns rising over a still lake: twelve shapes, each drawn four times, make 48 paper lanterns that rise from the far shore on their own swaying paths, shrinking and flickering as they go, then fade high in the sky and start again. A strong beat makes a few burn brighter, and the lake mirrors them with a gentle ripple. A MilkDrop 3 preset; MilkDrop 2 players show 16 lanterns."
+      }
     }
   ]
 }

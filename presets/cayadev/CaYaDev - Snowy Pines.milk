@@ -1,0 +1,149 @@
+MILKDROP_PRESET_VERSION=201
+PSVERSION=4
+PSVERSION_WARP=4
+PSVERSION_COMP=4
+[preset00]
+fRating=5
+fGammaAdj=1
+fDecay=1
+fVideoEchoZoom=1
+fVideoEchoAlpha=0
+nVideoEchoOrientation=0
+nWaveMode=0
+bAdditiveWaves=0
+bWaveDots=0
+bWaveThick=0
+bModWaveAlphaByVolume=0
+bMaximizeWaveColor=0
+bTexWrap=0
+bDarkenCenter=0
+bRedBlueStereo=0
+bBrighten=0
+bDarken=0
+bSolarize=0
+bInvert=0
+fWaveAlpha=0
+fWaveScale=1
+fWaveSmoothing=0.75
+fWaveParam=0
+fModWaveAlphaStart=0.75
+fModWaveAlphaEnd=0.95
+fWarpAnimSpeed=1
+fWarpScale=1
+fZoomExponent=1
+fShader=0
+zoom=1
+rot=0
+cx=0.5
+cy=0.5
+dx=0
+dy=0
+warp=0
+sx=1
+sy=1
+wave_r=1
+wave_g=1
+wave_b=1
+wave_x=0.5
+wave_y=0.5
+ob_size=0
+ob_r=0
+ob_g=0
+ob_b=0
+ob_a=0
+ib_size=0
+ib_r=0
+ib_g=0
+ib_b=0
+ib_a=0
+nMotionVectorsX=12
+nMotionVectorsY=9
+mv_dx=0
+mv_dy=0
+mv_l=0.9
+mv_r=1
+mv_g=1
+mv_b=1
+mv_a=0
+b1n=0
+b2n=0
+b3n=0
+b1x=1
+b2x=1
+b3x=1
+b1ed=0
+per_frame_init_1=fall = 0;
+per_frame_init_2=wind = 0;
+per_frame_init_3=gust = 0;
+per_frame_1=q30 = 60/max(fps, 15);
+per_frame_2=q31 = aspectx;
+per_frame_3=q32 = aspecty;
+per_frame_4=fall = fall + 0.08/fps;
+per_frame_5=gust = gust + (min(bass_att, 2)*0.35 - gust)*min(1, 1.5/fps);
+per_frame_6=wind = wind + (0.02 + gust*0.12)/fps;
+per_frame_7=q1 = fall;
+per_frame_8=q2 = wind;
+per_frame_9=q3 = gust;
+per_frame_10=q4 = min(mid_att, 2);
+per_frame_11=q5 = min(treb_att, 2);
+per_frame_12=q6 = time;
+warp_1=`sampler sampler_pw_noise_lq;
+warp_2=`float flakes(float2 u, float scale, float speed, float size, float seed)
+warp_3=`{
+warp_4=`  float2 g = float2(u.x * scale * 1.78 - q2 * scale * 1.2 * speed, u.y * scale - q1 * scale * speed * 1.8);
+warp_5=`  float2 c = floor(g);
+warp_6=`  float2 f = frac(g) - 0.5;
+warp_7=`  float4 n = tex2D(sampler_pw_noise_lq, (c + seed) / 256.0);
+warp_8=`  float2 o = (n.xy - 0.5) * 0.6 + float2(sin(q6 * (0.5 + n.z) + n.w * 6.28) * 0.15, 0.0);
+warp_9=`  float d = length(f - o);
+warp_10=`  return smoothstep(size, size * 0.3, d) * step(0.35, n.z);
+warp_11=`}
+warp_12=`shader_body
+warp_13=`{
+warp_14=`  float s = flakes(uv, 6.0, 1.0, 0.09, 7.0) * 0.9;
+warp_15=`  s += flakes(uv, 11.0, 0.7, 0.07, 41.0) * 0.6;
+warp_16=`  s += flakes(uv, 19.0, 0.45, 0.06, 97.0) * 0.35;
+warp_17=`  float3 old = tex2D(sampler_main, uv).xyz;
+warp_18=`  ret = max(old * pow(0.15, q30) - 0.002 * max(q30, 1.0), float3(s, s, s));
+warp_19=`}
+comp_1=`sampler sampler_pw_noise_lq;
+comp_2=`float pines(float2 u, float scale, float baseY, float hmul, float seed)
+comp_3=`{
+comp_4=`  float x = u.x * scale;
+comp_5=`  float c = floor(x);
+comp_6=`  float f = frac(x) - 0.5;
+comp_7=`  float4 n = tex2D(sampler_pw_noise_lq, float2((c + seed) / 256.0, seed / 256.0));
+comp_8=`  float h = (0.18 + 0.16 * n.x) * hmul;
+comp_9=`  float top = baseY - h;
+comp_10=`  float sway = sin(q6 * 0.8 + c) * 0.02 * q3 * (baseY - u.y) / h;
+comp_11=`  float t = saturate((u.y - top) / h);
+comp_12=`  float tier = frac(t * 4.0);
+comp_13=`  float wdt = (0.12 + 0.3 * t) * (0.55 + 0.45 * tier) * (0.7 + 0.3 * n.y);
+comp_14=`  float tree = step(abs(f - sway - (n.z - 0.5) * 0.3), wdt) * step(top, u.y) * step(u.y, baseY) * step(0.25, n.w);
+comp_15=`  float trunk = step(abs(f - (n.z - 0.5) * 0.3), 0.03) * step(baseY - 0.02, u.y) * step(u.y, baseY + 0.02) * step(0.25, n.w);
+comp_16=`  return saturate(tree + trunk);
+comp_17=`}
+comp_18=`shader_body
+comp_19=`{
+comp_20=`  float3 moonC = lerp(float3(0.75, 0.85, 1.0), float3(1.0, 0.9, 0.75), saturate(q4 * 0.5));
+comp_21=`  float3 sky = lerp(float3(0.02, 0.03, 0.07), float3(0.08, 0.1, 0.18), uv.y);
+comp_22=`  float2 md = (uv - float2(0.72, 0.2)) * float2(1.0, 0.5625);
+comp_23=`  float mr = length(md);
+comp_24=`  sky += moonC * (1.0 - smoothstep(0.035, 0.037, mr)) * 0.9 + moonC * exp(-mr * 10.0) * 0.25;
+comp_25=`  float cloud = tex3D(sampler_noisevol_hq, float3(uv * float2(2.0, 3.0) + float2(q6 * 0.005, 0.0), 0.4)).x;
+comp_26=`  sky = lerp(sky, sky * 0.6 + float3(0.06, 0.07, 0.1), smoothstep(0.55, 0.8, cloud) * step(uv.y, 0.45));
+comp_27=`  float3 col = sky;
+comp_28=`  float far = pines(uv, 18.0, 0.7, 0.8, 5.0);
+comp_29=`  col = lerp(col, float3(0.05, 0.07, 0.11), far);
+comp_30=`  float midT = pines(uv + float2(0.031, 0.0), 11.0, 0.8, 1.1, 23.0);
+comp_31=`  col = lerp(col, float3(0.025, 0.035, 0.06), midT);
+comp_32=`  float ground = smoothstep(0.83, 0.835, uv.y + 0.01 * sin(uv.x * 9.0));
+comp_33=`  float spark = step(0.993, tex2D(sampler_noise_lq, uv * texsize.xy / 256.0).x) * q5;
+comp_34=`  col = lerp(col, float3(0.55, 0.6, 0.72) * (0.6 + 0.4 * (1.0 - uv.y)) + spark * 0.6, ground);
+comp_35=`  float nearT = pines(uv + float2(0.17, 0.0), 5.0, 0.98, 1.6, 61.0);
+comp_36=`  col = lerp(col, float3(0.008, 0.012, 0.02), nearT);
+comp_37=`  float3 snow = tex2D(sampler_main, uv).xyz;
+comp_38=`  col += snow * float3(0.9, 0.95, 1.0) * 0.9 + GetBlur1(uv) * 0.25;
+comp_39=`  col *= 1.0 - dot(uv - 0.5, uv - 0.5) * 0.6;
+comp_40=`  ret = 1.0 - exp(-col * 1.6);
+comp_41=`}

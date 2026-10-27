@@ -38,36 +38,40 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
 
 ### CaYaDev MilkDrop Presets [825]
 
-- **Our own shader presets, built in.** 35 so far of a planned 50+:
-  - liquid: *Neon Monsoon*, *Oil Slick*, *Mercury Rain*;
-  - tunnel: *Event Horizon*, *Data Corridor*;
-  - geometric: *Prism Lattice*, *Cymatics*, *Crystal Shards*, *Infinite Frame*;
-  - ambient: *Northern Veil*, *Caustic Floor* (light focused through moving water onto rippled sand, bent by raindrop rings on the beat);
+- **Our own shader presets, built in.** 55 of them, ten for MilkDrop 3:
+  - liquid: *Neon Monsoon*, *Oil Slick*, *Mercury Rain*, *Wax Lamp*, *Ocean Sunset* (a sunset sea with a path of glinting dashes);
+  - tunnel: *Event Horizon*, *Data Corridor*, *Spiral Wormhole*, *Neon Arches*;
+  - geometric: *Prism Lattice*, *Cymatics*, *Crystal Shards*, *Infinite Frame*, *Truchet Weave*, *Hex Reactor*;
+  - ambient: *Northern Veil*, *Caustic Floor* (light focused through moving water onto rippled sand, bent by raindrop rings on the beat), *Rain Glass* (drops on a window that bend the city lights behind), *Snowy Pines*;
   - retro:
-    - *Phosphor Scope*, *Synthwave Horizon*;
+    - *Phosphor Scope*, *Synthwave Horizon*, *Spectrum City*, *Arcade Invaders*;
     - *Vinyl Groove*: a turntable that engraves the song into the record as a glowing spiral, groove width set by loudness;
     - *Halftone Pop*: a four-colour halftone print with screen angles and black outlines;
-  - organic: *Coral Script*, *Ember Storm*, *Bioluminescence*;
+  - organic: *Coral Script*, *Ember Storm*, *Bioluminescence*, *Mycelium*, *Fern Frond* (four fronds grown by the chaos game);
   - space: *Hyperlane*, *Galaxy Spiral*, *Solar Flare*;
   - abstract:
-    - *Kintsugi*;
+    - *Kintsugi*, *Ribbon Dance*;
     - *Ink Bloom*: ink drops curling through water on paper, mixing like real pigment;
     - *Contour Survey*: a living contour map lit by sonar rings;
   - club:
-    - *Laser Cathedral*, *Glitch Pulse*;
+    - *Laser Cathedral*, *Glitch Pulse*, *Plasma Globe*;
     - *Halo Spectrum*: a mirrored circular spectrum whose loud bars shed sparks;
-  - fractal: *Julia Bloom*, *Mandala Mirror* (a feedback kaleidoscope);
+  - fractal: *Julia Bloom*, *Mandala Mirror* (a feedback kaleidoscope), *Mandelbrot Dive*, *Apollonian Lace*;
   - MilkDrop 3:
     - *Twelve Moons*, *Night Bloom*;
     - *Spectral Ridges*: twelve ridgelines that hide the ones behind them;
     - *Tesla Coil*: eight discharges and a beat-struck arc to a grounded sphere;
     - *Harmonograph*: ten damped pendulum figures, each on its own plate;
-    - *Smoke Ribbons*: eight incense sticks whose smoke rises and breaks into curls.
+    - *Smoke Ribbons*: eight incense sticks whose smoke rises and breaks into curls;
+    - *Firefly Meadow*: twelve swarms blinking over a meadow at dusk;
+    - *Harp Strings*: twelve strings, each tuned to its own slice of the spectrum;
+    - *Constellations*: twelve star chains traced in turn across a turning sky;
+    - *Lantern Night*: 48 sky lanterns from twelve instanced shapes, mirrored in a lake.
 
   They sit next to the five original built-ins in the preset list and auto advance, with English names and author "CaYaDev".
 - **Free to use elsewhere under CC BY 4.0.** The `.milk` files are in [`presets/cayadev`](presets/cayadev) with a license and a README, and `node scripts/preset-pack.js --zip` builds the release zip (`CaYaDev-MilkDrop-Presets-<version>.zip`, now in the release asset list). The app embeds them from that folder; a test fails if the embedded copy drifts from the files.
 - **A picture of each preset.** The folder's README is a gallery: one 960×540 frame per preset (in `previews/`, also in the zip), linked to its `.milk` file, with the English description as alt text. `node scripts/preset-pack.js` builds the gallery from `pack.json` and `--check` fails if it is out of date (rows added by hand had once landed above the table, where GitHub shows them as plain text).
-- **Checked before they were added.** Each preset has warp and comp shaders. Each was run for 90 s on looped music (no fade to black, white-out or freeze) and measured at 1080p: 10.3–14.8 ms per frame on a Radeon 610M iGPU, 4.5–8.3 ms on an RTX 5070 Laptop, so 60 fps on both. All 35 were rendered at 60 and 144 Hz, and average brightness stays within −15% to +9% for every one. The largest gaps are *Night Bloom* −15%, *Phosphor Scope* −13%, *Halftone Pop* −12%, *Infinite Frame* +9% and *Halo Spectrum* +8%.
+- **Checked before they were added.** Each preset has warp and comp shaders. Each was run for 90 s on looped music (no fade to black, white-out or freeze) and measured at 1080p: 8.9–14.8 ms per frame on a Radeon 610M iGPU, 4.0–9.9 ms on an RTX 5070 Laptop, so 60 fps on both. All 55 were rendered at 60 and 144 Hz, and average brightness stays within −15% to +12% for every one. The largest gaps are *Night Bloom* −15%, *Phosphor Scope* −13%, *Fern Frond* +12%, *Halftone Pop* −12% and *Infinite Frame* +9%.
 
   *Prism Lattice* was −36%: each resample of the feedback buffer softens its thin rings, and at 144 Hz there are 2.4 times as many resamples. Its sharpening step now scales with `pow(q30, 0.4)` instead of linearly. Mean brightness at 30/60/144 Hz went from 75/44/28 to 50/44/43, and its 60 Hz picture is unchanged.
 
@@ -76,12 +80,13 @@ Changes on `main` after 3.1.6-beta, not in any build yet.
   - Per-frame additions scale with the frame rate.
   - Where the step of at least one per frame would eat a slow fade faster at 144 Hz, the step comes from a time tick in the frame code instead, a fixed number of 8-bit steps per second: *Mandala Mirror* went from −27% to +5%. The same tick lets *Vinyl Groove*'s grooves and *Harmonograph*'s figures stay on screen for a minute or more.
 
-  The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop) and show the same picture. Detail can differ where a preset grows from noise or chaotic feedback, because our noise textures are generated rather than MilkDrop's files. The MilkDrop 3 presets were checked in our engine; for the newest three, MilkDrop 2 was also checked to show the documented fallback (the first four figures, ribbons or discharges).
+  The MilkDrop 2 presets were also rendered in MilkDrop 2 itself (BeatDrop) and show the same picture. Detail can differ where a preset grows from noise or chaotic feedback, because our noise textures are generated rather than MilkDrop's files. The MilkDrop 3 presets were checked in our engine; for the newest seven, MilkDrop 2 was also checked to show the documented fallback (the first four figures, ribbons, discharges, swarms, strings, constellations or lantern shapes).
 - **MilkDrop 2 rules the comparison caught, now enforced by tests.** Our engine accepted all of these; MilkDrop 2 did not:
   - MilkDrop 2 does not pass `aspectx`/`aspecty` to custom wave and shape code, so the presets carry them in q31/q32. Shapes use them to stay round; custom waves must not: MilkDrop already stretches a wave's y by the aspect, so its coordinates are square on screen. Five presets multiplied wave points by q31/q32 and drew their rings and figures 1.78 times too tall on a 16:9 screen (*Phosphor Scope*'s figure ran off the screen); fixed in *Neon Monsoon*, *Night Bloom*, *Phosphor Scope*, *Prism Lattice* and *Twelve Moons*, with their pictures redone, and a test now rejects it.
   - Prefixed noise samplers such as `sampler_pw_noise_lq` must be declared in the shader, or MilkDrop drops the comp shader.
   - MilkDrop `#define`s its shader inputs (`time`, `bass`, `q1`…`q32`, and per stage `rad`, `ang`, `uv`, `uv_orig`, `hue_shader`), so a variable with one of those names does not compile there.
   - `PSVERSION=3` means ps_2_x, not ps_3_0, so there is no dynamic `break`, and loops have to unroll within 512 instructions.
+  - With `PSVERSION=4` (ps_3_0) a `break` compiles, but MilkDrop 2 draws that stage black: *Mandelbrot Dive* was black there until its loop lost the early exit. No preset uses `break` now.
 
   Every preset is compiled the way MilkDrop does it (its header and wrapper, the SDK shader compiler, ps_2_a then ps_2_b) before it is added.
 - **Engine: HLSL C-style casts compile.** `(float)k * 0.2`, `(float2)x` and `(int)(a + b)` are valid HLSL and MilkDrop compiles them; our shader translator did not, and the stage was dropped as "not compiled" (found while building a preset). They are now turned into GLSL constructors, binding to the term right after the cast as in HLSL. No preset in the 10,347-file test corpus uses them, so no existing preset changes.

@@ -197,7 +197,9 @@ test('her sayfa paketi presets-milkdrop.js\'ten ÖNCE yüklüyor; çeviri pakett
    uv_orig (comp'ta hue_shader). Bu adla bir değişken ya da parametre tanımlamak orada
    derlemeyi düşürüyor ("unexpected token '.'"); bizim motorda ise sıradan bir küresel.
    PSVERSION 3, MilkDrop'ta ps_3_0 değil ps_2_x demek: dinamik `break` yok ve döngüler
-   açılarak 512 komuta sığmalı. İkisi de BeatDrop'ta ve SDK derleyicisinde ölçüldü. */
+   açılarak 512 komuta sığmalı. İkisi de BeatDrop'ta ve SDK derleyicisinde ölçüldü.
+   PSVERSION 4'te (ps_3_0) `break` derleniyor ama MilkDrop 2 o aşamayı siyah çiziyor
+   (Mandelbrot Dive, BeatDrop'la karşılaştırmada): break hiçbir presette yok. */
 test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   const macros = ['time', 'fps', 'frame', 'progress', 'bass', 'mid', 'treb', 'vol', 'bass_att', 'mid_att',
     'treb_att', 'vol_att', 'aspect', 'texsize', 'roam_cos', 'roam_sin', 'slow_roam_cos', 'slow_roam_sin',
@@ -207,7 +209,7 @@ test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   const decl = new RegExp('\\b(?:float|half|int|bool)[1-4]?(?:x[1-4])?\\s+(' + macros.join('|') + ')\\b');
   for (const p of PACK) {
     /* 3 (ps_2_x) varsayılan; 32 sabit yazmacını aşan preset 4 (ps_3_0) yazar ve
-       break'siz kuralı ona uygulanmaz. */
+       while yasağı ona uygulanmaz. */
     const ps2 = /\r\nPSVERSION_WARP=3\r\nPSVERSION_COMP=3\r\n/.test(p.source);
     assert.ok(ps2 || /\r\nPSVERSION_WARP=4\r\nPSVERSION_COMP=4\r\n/.test(p.source), p.name);
     const f = MD.parseMilk(p.source);
@@ -215,7 +217,8 @@ test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
       const code = text.replace(/\/\/[^\n]*/g, '');
       const m = decl.exec(code);
       assert.ok(!m, p.name + ' ' + stage + ': MilkDrop makrosu ad olarak kullanılmış: ' + (m && m[0]));
-      if (ps2) assert.doesNotMatch(code, /\bbreak\b|\bwhile\b/, p.name + ' ' + stage + ': ps_2_x döngüden çıkamaz');
+      assert.doesNotMatch(code, /\bbreak\b/, p.name + ' ' + stage + ': MilkDrop 2 break\'li aşamayı siyah çiziyor');
+      if (ps2) assert.doesNotMatch(code, /\bwhile\b/, p.name + ' ' + stage + ': ps_2_x döngüden çıkamaz');
       // Yardımcı işlevler PS gövdesinin dışında: aşama makroları orada tanımsız bir parametreye açılır
       const helpers = code.slice(0, code.indexOf('shader_body'));
       assert.doesNotMatch(helpers, /\b(uv|uv_orig|rad|ang|hue_shader|ret)\b/, p.name + ' ' + stage + ': yardımcı işlev aşama girdisi okuyor');
