@@ -136,7 +136,7 @@ npm test
 npm start -- --smoke
 ```
 
-- **3530 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
+- **3535 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
   that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
@@ -3635,6 +3635,7 @@ The panel had one look. It now has seven themes and Device default, chosen under
 
 Small additions made after the market review of 26–27 October. Each one is opt-in: existing scenes, templates and exports render exactly as before. Each can be checked here without extra hardware, and live output and export agree because both follow the draw clock. The larger work from that review (a video project view, a wizard, mix videos, lyric styles, section detection, timecode) is planned for v3.1.7.
 
+- **YouTube thumbnail (#839) · done.** 1280×720 JPEG under 2 MB, from an open output window at full resolution.
 - **Short-video interface guides in the layout editor (#838) · done.** Hatched areas at 9:16 and 1:1 where the apps' own interface covers the video. Guides only.
 - **YouTube chapters from the timeline markers (#837) · done.** Copied from the timeline as "0:00 Intro" lines, or written next to the export. The panel says which of YouTube's rules fails: first chapter at 0:00, at least three chapters, each at least 10 s.
 

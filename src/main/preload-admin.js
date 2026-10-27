@@ -290,6 +290,8 @@ contextBridge.exposeInMainWorld('api', {
   // Canlı kayıt ve anlık görüntü
   saveRecording: (bytes, opts) => ipcRenderer.invoke('record:save', bytes, opts),
   saveSnapshot: (dataUrl) => ipcRenderer.invoke('snapshot:save', dataUrl),
+  // YouTube küçük resmi (#839): açık bir çıkış penceresinin kendi karesinden
+  thumbnailFromOutput: () => ipcRenderer.invoke('thumbnail:from-output'),
 
   // Olaylar (ana süreç -> admin)
   onVisualizerStatus: (cb) =>

@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3530%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3535%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -958,6 +958,9 @@ the fixtures on the left take the colours on the left of the screen.
   transitions and effects — to MP4 or WebM, on one key.
 - **GIF export** with two-pass palette generation, because one pass bands visibly.
 - **PNG snapshot** at up to 4×, on a shortcut.
+- <kbd>3.1.6</kbd> **YouTube thumbnail**: a 1280×720 JPEG of the frame on screen, kept under
+  YouTube's 2 MB limit. It is taken from an open output window at its full resolution (the panel
+  preview is small), cropped from the centre to 16:9.
 - **Export presets** for common aspect ratios.
 
 ---
@@ -1795,7 +1798,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3530 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3535 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 
