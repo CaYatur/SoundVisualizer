@@ -415,9 +415,13 @@ test('alıcı: bağlıyken köprünün başka adresi bildirilince yeniden bağla
   const rx = B.createReceiver({ host: '', port: st.port, secret: SECRET, onStatus: (s) => { if (s.state === 'connected' && prev !== 'connected') conns++; prev = s.state; } });
   rx.start();
   try {
-    // İlk adres bu makinede dinlenmiyor (bağlantı reddedilir), ikincisi köprü
+    /* İlk adres bu makinede dinlenmiyor, ikincisi köprü. Windows ve Linux
+       bütün 127/8'i geri döngüye veriyor, bağlantı hemen reddediliyor.
+       macOS'ta geri döngüde yalnız 127.0.0.1 var: 127.0.0.9'a giden bağlantı
+       reddedilmiyor, el sıkışma süresi (5 sn) dolunca kesiliyor ve sonraki
+       adres o zaman deneniyor. Bekleme bu süreyi kapsıyor. */
     rx.setTarget('127.0.0.9', st.port, ['127.0.0.9', '127.0.0.1']);
-    await until(() => rx.status().state === 'connected', 5000);
+    await until(() => rx.status().state === 'connected', 9000);
     assert.strictEqual(rx.status().state, 'connected');
     assert.strictEqual(rx.status().host, '127.0.0.1');
     const c0 = conns;
