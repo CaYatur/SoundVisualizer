@@ -43,10 +43,12 @@
        kesilmedi, tek dosya çıktı); bölümlemede seçilmiyor (#527). */
     h264_amf: { codec: 'h264', gpu: true, label: 'AMD AMF', noForcedKeys: true },
     h264_qsv: { codec: 'h264', gpu: true, label: 'Intel Quick Sync' },
-    libx265: { codec: 'hevc', gpu: false, label: 'CPU — x265' },
-    hevc_nvenc: { codec: 'hevc', gpu: true, label: 'NVIDIA NVENC' },
+    /* tenBit: 10 bit (Main 10) yazabiliyor. AMF'nin ffmpeg kodlayıcısı
+       p010 almıyor (yalnız nv12/yuv420p), 10 bitte sunulmuyor. */
+    libx265: { codec: 'hevc', gpu: false, label: 'CPU — x265', tenBit: true },
+    hevc_nvenc: { codec: 'hevc', gpu: true, label: 'NVIDIA NVENC', tenBit: true },
     hevc_amf: { codec: 'hevc', gpu: true, label: 'AMD AMF', noForcedKeys: true },
-    hevc_qsv: { codec: 'hevc', gpu: true, label: 'Intel Quick Sync' },
+    hevc_qsv: { codec: 'hevc', gpu: true, label: 'Intel Quick Sync', tenBit: true },
     prores_ks: { codec: 'prores', gpu: false, label: 'ProRes' },
     dnxhd: { codec: 'dnxhr', gpu: false, label: 'DNxHR' },
     'libvpx-vp9': { codec: 'vp9', gpu: false, label: 'VP9' },
@@ -63,12 +65,18 @@
        alpha    saydamlık taşıyor mu (#525)
        audio    ses kuralı: 'mp4' | 'pcm' | 'opus' | null (sessiz)
        fpsMax   bu biçimde anlamlı en yüksek kare hızı
+       depth    10: kanal başına 10 bit kodlama (yoksa 8)
        label    [tr, en] */
   const FORMATS = [
     { id: 'mp4-h264', ext: 'mp4', kind: 'video', codec: 'h264', alpha: false, audio: 'mp4',
       label: ['MP4 — H.264 (her yerde oynar)', 'MP4 — H.264 (plays everywhere)'] },
     { id: 'mp4-hevc', ext: 'mp4', kind: 'video', codec: 'hevc', alpha: false, audio: 'mp4',
       label: ['MP4 — H.265/HEVC (yarı boyut)', 'MP4 — H.265/HEVC (half the size)'] },
+    /* 10 bit teslim kopyası. Çizim 8 bit RGBA; 10 bit kaynaktaki basamakları
+       geri getirmiyor ama YUV dönüşümünün ve sıkıştırmanın koyu degradelere
+       eklediği bantlanmayı azaltıyor. GPU'nun 8 bit I420 yolunu kullanmıyor. */
+    { id: 'mp4-hevc10', ext: 'mp4', kind: 'video', codec: 'hevc', depth: 10, alpha: false, audio: 'mp4',
+      label: ['MP4 — H.265 10 bit (daha az bantlanma)', 'MP4 — H.265 10-bit (less banding)'] },
     { id: 'mov-prores', ext: 'mov', kind: 'video', codec: 'prores', alpha: false, audio: 'pcm',
       label: ['MOV — ProRes 422 HQ (kurgu için)', 'MOV — ProRes 422 HQ (for editing)'] },
     { id: 'mov-prores4444', ext: 'mov', kind: 'video', codec: 'prores', alpha: true, audio: 'pcm',
@@ -147,6 +155,8 @@
   function videoArgs(fmt, enc, quality, speed) {
     const q = quant(enc, quality);
     const sp = SPEEDS.indexOf(speed) >= 0 ? speed : 'balanced';
+    const ten = fmt.depth === 10;
+    if (ten && !(ENCODERS[enc] && ENCODERS[enc].tenBit)) return null;
     switch (enc) {
       case 'libx264':
         return { args: ['-c:v', 'libx264', '-preset', X26X_SPEED[sp], '-crf', String(q), '-threads', '0'],
@@ -154,12 +164,13 @@
       case 'libx265':
         // -tag:v hvc1: Apple oynatıcıları hev1 etiketli HEVC'yi açmıyor
         return { args: ['-c:v', 'libx265', '-preset', X26X_SPEED[sp], '-crf', String(q), '-tag:v', 'hvc1',
-          '-x265-params', 'log-level=error'], vf: yuvFilter('yuv420p'), tags: true };
+          '-x265-params', 'log-level=error'].concat(ten ? ['-profile:v', 'main10'] : []),
+        vf: yuvFilter(ten ? 'yuv420p10le' : 'yuv420p'), tags: true };
       case 'h264_nvenc':
       case 'hevc_nvenc':
         return { args: ['-c:v', enc].concat(NVENC_SPEED[sp], ['-rc', 'vbr', '-cq', String(q), '-b:v', '0'],
-          enc === 'h264_nvenc' ? ['-profile:v', 'high'] : ['-tag:v', 'hvc1']),
-        vf: yuvFilter('yuv420p'), tags: true };
+          enc === 'h264_nvenc' ? ['-profile:v', 'high'] : ['-tag:v', 'hvc1'], ten ? ['-profile:v', 'main10'] : []),
+        vf: yuvFilter(ten ? 'p010le' : 'yuv420p'), tags: true };
       case 'h264_amf':
       case 'hevc_amf':
         return { args: ['-c:v', enc, '-usage', 'transcoding', '-quality', AMF_SPEED[sp], '-rc', 'cqp',
@@ -167,9 +178,10 @@
         vf: yuvFilter('yuv420p'), tags: true };
       case 'h264_qsv':
       case 'hevc_qsv':
-        // QSV yalnız nv12 alıyor
+        // QSV yalnız nv12 alıyor (10 bitte p010)
         return { args: ['-c:v', enc, '-preset', QSV_SPEED[sp], '-global_quality', String(q)]
-          .concat(enc === 'hevc_qsv' ? ['-tag:v', 'hvc1'] : []), vf: yuvFilter('nv12'), tags: true };
+          .concat(enc === 'hevc_qsv' ? ['-tag:v', 'hvc1'] : [], ten ? ['-profile:v', 'main10'] : []),
+        vf: yuvFilter(ten ? 'p010le' : 'nv12'), tags: true };
       case 'prores_ks':
         if (fmt.alpha) {
           return { args: ['-c:v', 'prores_ks', '-profile:v', '4', '-vendor', 'apl0', '-alpha_bits', '16'],
@@ -245,13 +257,32 @@
   const ORDER = ['h264_nvenc', 'h264_amf', 'h264_qsv', 'libx264', 'hevc_nvenc', 'hevc_amf', 'hevc_qsv', 'libx265',
     'prores_ks', 'dnxhd', 'libvpx-vp9', 'gif', 'apng', 'png', 'exr'];
   function encodersFor(fmt) {
-    return ORDER.filter(function (e) { return ENCODERS[e].codec === fmt.codec; });
+    return ORDER.filter(function (e) {
+      return ENCODERS[e].codec === fmt.codec && (fmt.depth !== 10 || !!ENCODERS[e].tenBit);
+    });
+  }
+
+  /* 10 bit ayrı yoklanıyor: aynı kodlayıcı 8 bitte çalışıp 10 bitte
+     çalışmayabilir (sürücü, GPU kuşağı). Yoklama anahtarı "kodlayıcı@10". */
+  function probeKey(fmt, enc) {
+    return fmt && fmt.depth === 10 ? enc + '@10' : enc;
+  }
+  function probeKeys() {
+    const out = Object.keys(ENCODERS);
+    for (let i = 0; i < FORMATS.length; i++) {
+      if (FORMATS[i].depth !== 10) continue;
+      encodersFor(FORMATS[i]).forEach(function (e) {
+        const k = probeKey(FORMATS[i], e);
+        if (out.indexOf(k) < 0) out.push(k);
+      });
+    }
+    return out;
   }
   function pickEncoder(fmt, want, ok, needs) {
     const list = encodersFor(fmt);
     const okFn = typeof ok === 'function' ? ok : function () { return true; };
     const forced = !!(needs && needs.forcedKeys);
-    const can = function (e) { return okFn(e) && !(forced && ENCODERS[e].noForcedKeys); };
+    const can = function (e) { return okFn(probeKey(fmt, e)) && !(forced && ENCODERS[e].noForcedKeys); };
     if (want === 'gpu') {
       for (let i = 0; i < list.length; i++) if (ENCODERS[list[i]].gpu && can(list[i])) return list[i];
     }
@@ -390,8 +421,11 @@
   /* Bir kodlayıcının bu makinede çalıştığını ölçen kısa deneme. Gerçek
      işin argümanlarının AYNISI kullanılıyor; yalnız girdi bir test deseni ve
      çıktı boş. */
-  function probeArgs(enc) {
-    const fmt = FORMATS.filter(function (f) { return f.codec === ENCODERS[enc].codec; })[0];
+  function probeArgs(key) {
+    const ten = /@10$/.test(String(key));
+    const enc = ten ? String(key).slice(0, -3) : key;
+    if (!ENCODERS[enc]) return null;
+    const fmt = FORMATS.filter(function (f) { return f.codec === ENCODERS[enc].codec && (f.depth === 10) === ten; })[0];
     if (!fmt) return null;
     const v = videoArgs(fmt, enc, 'balanced', 'fast');
     if (!v) return null;
@@ -650,7 +684,7 @@
   const api = {
     RESOLUTIONS, FPS, QUALITIES, SPEEDS, ENCODERS, FORMATS, DEFAULT_FORMAT,
     format, extensions, encodersFor, pickEncoder, available,
-    videoArgs, audioArgs, buildArgs, probeArgs, sequencePattern, takesYuv420,
+    videoArgs, audioArgs, buildArgs, probeArgs, probeKey, probeKeys, sequencePattern, takesYuv420,
     PROFILES, profile, matchProfile, applyProfile, chapterPlan, chapterFileName, chapterStamp, youtubeChapters, loopPlan,
     DURATION_MODES, MAX_SECONDS, resolveDuration, sanitizeFileName, outputName, partialPath, progressStats,
     validateOptions,

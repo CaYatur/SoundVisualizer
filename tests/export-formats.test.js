@@ -25,7 +25,7 @@ test('her biçimin en az bir CPU kodlayıcısı ve deneme argümanı var', () =>
     const list = F.encodersFor(f);
     assert.ok(list.length, f.id + ' kodlayıcısız');
     assert.ok(list.some((e) => !F.ENCODERS[e].gpu), f.id + ' yalnız GPU ile kalamaz');
-    for (const e of list) assert.ok(Array.isArray(F.probeArgs(e)), e + ' deneme argümanı yok');
+    for (const e of list) assert.ok(Array.isArray(F.probeArgs(F.probeKey(f, e))), e + ' deneme argümanı yok');
   }
   assert.ok(F.format(F.DEFAULT_FORMAT), 'varsayılan biçim tabloda');
 });
@@ -238,4 +238,63 @@ test('ölçüm seçenekleri MCP ve panelden açılamıyor', () => {
   assert.match(main, /startExport: \(opts\) => startExportJob\(opts\),/);
   assert.ok(!/opts\.(profile|dumpRaw|_rgba)/.test(main), 'opts ölçüm seçeneği taşımıyor');
   assert.match(main, /dump: bench\.dumpRaw \?/);
+});
+
+/* 10 bit H.265. Çizim 8 bit RGBA; 10 bit kodlama YUV dönüşümünün ve
+   sıkıştırmanın koyu degradeye eklediği basamakları azaltıyor. Ölçüldü
+   (koyu degrade, 1080p30, 4 sn, ham RGBA kareye göre PSNR, aşağı yukarı aynı
+   boyut): x265 48,35 → 49,87 dB, NVENC 49,42 → 51,20 dB. */
+test('10 bit H.265: Main 10, 10 bit piksel biçimi, BT.709 ve hvc1', () => {
+  const f = fmt('mp4-hevc10');
+  assert.strictEqual(f.codec, 'hevc');
+  assert.strictEqual(f.depth, 10);
+  const want = { libx265: 'yuv420p10le', hevc_nvenc: 'p010le', hevc_qsv: 'p010le' };
+  assert.deepStrictEqual(F.encodersFor(f), ['hevc_nvenc', 'hevc_qsv', 'libx265']);
+  for (const enc of F.encodersFor(f)) {
+    const a = args('mp4-hevc10', enc);
+    assert.match(after(a, '-vf'), new RegExp('^scale=out_color_matrix=bt709:out_range=tv,format=' + want[enc] + '$'), enc);
+    assert.strictEqual(after(a, '-profile:v'), 'main10', enc);
+    assert.strictEqual(after(a, '-tag:v'), 'hvc1', enc);
+    assert.strictEqual(after(a, '-colorspace'), 'bt709', enc);
+  }
+  // 8 bit H.265 değişmedi
+  assert.strictEqual(args('mp4-hevc', 'libx265').indexOf('-profile:v'), -1);
+  assert.match(after(args('mp4-hevc', 'hevc_nvenc'), '-vf'), /format=yuv420p$/);
+});
+
+test('10 bit, GPU\'nun 8 bit I420 yoluna girmiyor; ham RGBA ile besleniyor', () => {
+  const f = fmt('mp4-hevc10');
+  for (const enc of Object.keys(F.ENCODERS)) assert.strictEqual(F.takesYuv420(f, enc), false, enc);
+  const a = args('mp4-hevc10', 'hevc_nvenc', { inputPix: 'yuv420p' });
+  assert.strictEqual(after(a, '-pixel_format'), 'rgba');
+  assert.match(after(a, '-vf'), /format=p010le$/);
+});
+
+test('AMF 10 bit sunulmuyor; 10 bit ayrı anahtarla yoklanıyor', () => {
+  const f = fmt('mp4-hevc10');
+  assert.strictEqual(F.videoArgs(f, 'hevc_amf', 'high', 'balanced'), null);
+  assert.strictEqual(F.encodersFor(f).indexOf('hevc_amf'), -1);
+  assert.strictEqual(F.probeKey(f, 'hevc_nvenc'), 'hevc_nvenc@10');
+  assert.strictEqual(F.probeKey(fmt('mp4-hevc'), 'hevc_nvenc'), 'hevc_nvenc');
+  const keys = F.probeKeys();
+  for (const k of ['libx265@10', 'hevc_nvenc@10', 'hevc_qsv@10']) assert.ok(keys.indexOf(k) >= 0, k);
+  assert.strictEqual(keys.indexOf('hevc_amf@10'), -1);
+  // Deneme, gerçek işin 10 bit argümanlarıyla
+  const p = F.probeArgs('hevc_nvenc@10');
+  assert.match(after(p, '-vf'), /format=p010le$/);
+  assert.strictEqual(after(p, '-profile:v'), 'main10');
+  assert.match(after(F.probeArgs('hevc_nvenc'), '-vf'), /format=yuv420p$/);
+  assert.strictEqual(F.probeArgs('nope@10'), null);
+});
+
+test('10 bit kodlayıcı seçimi 8 bit yoklamasına değil 10 bit yoklamasına bakıyor', () => {
+  const f = fmt('mp4-hevc10');
+  // NVENC 8 bitte çalışıyor ama 10 bitte çalışmıyor (eski GPU): CPU'ya düşülür
+  const ok = (k) => k === 'hevc_nvenc' || k === 'libx265@10';
+  assert.strictEqual(F.pickEncoder(f, 'gpu', ok), 'libx265');
+  assert.strictEqual(F.pickEncoder(f, 'gpu', (k) => k === 'hevc_nvenc@10' || k === 'libx265@10'), 'hevc_nvenc');
+  assert.strictEqual(F.available(f, (k) => k === 'libx265'), false);
+  assert.strictEqual(F.available(f, (k) => k === 'libx265@10'), true);
+  // 8 bit biçimin seçimi aynı kaldı
+  assert.strictEqual(F.pickEncoder(fmt('mp4-hevc'), 'gpu', (k) => k === 'hevc_nvenc'), 'hevc_nvenc');
 });

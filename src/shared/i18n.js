@@ -3649,6 +3649,7 @@
     '(en uyumlu, yavaş)': '(most compatible, slow)',
     'MP4 — H.264 (her yerde oynar)': 'MP4 — H.264 (plays everywhere)',
     'MP4 — H.265/HEVC (yarı boyut)': 'MP4 — H.265/HEVC (half the size)',
+    'MP4 — H.265 10 bit (daha az bantlanma)': 'MP4 — H.265 10-bit (less banding)',
     'MOV — ProRes 422 HQ (kurgu için)': 'MOV — ProRes 422 HQ (for editing)',
     'MOV — ProRes 4444 + alfa (bindirme)': 'MOV — ProRes 4444 + alpha (overlay)',
     'MOV — DNxHR HQ (kurgu için)': 'MOV — DNxHR HQ (for editing)',

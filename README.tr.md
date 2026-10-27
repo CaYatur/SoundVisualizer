@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3573%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3577%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -939,7 +939,7 @@ ekranın solundaki renkleri alıyor.
   iptal ve GPU'dan CPU'ya geri düşmeyle. Deterministik: aynı iş aynı videoyu veriyor; görsel gerileme
   testlerinin dayandığı özellik bu. Ad, sanatçı, albüm ve kapak dosyadan okunup Çalan Parça'ya ve metin
   katmanlarına veriliyor.
-- <kbd>3.1.6</kbd> **On bir dışa aktarma biçimi.** H.264 ya da H.265 MP4, kurgu için ProRes 422 HQ ve
+- <kbd>3.1.6</kbd> **On iki dışa aktarma biçimi.** H.264, H.265 ya da 10 bit H.265 MP4, kurgu için ProRes 422 HQ ve
   DNxHR HQ, VP9 WebM, GIF ve APNG döngüleri, PNG ya da doğrusal OpenEXR kare dizileri. ProRes 4444,
   VP9, APNG, PNG ve EXR bindirme için alfa kanalını koruyor. Dikey 1080×1920 ve kare 1080×1080,
   24–60 fps. GPU kodlayıcısı NVIDIA NVENC, AMD AMF ya da Intel Quick Sync; hangisi bilgisayarınızda
@@ -1822,7 +1822,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3573 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3577 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

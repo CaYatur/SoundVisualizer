@@ -35,6 +35,13 @@ CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones a
 
 - **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
 
+### 10-bit H.265 export [858]
+
+- **A twelfth format, "MP4 — H.265 10-bit".** H.265 Main 10 (`yuv420p10le`) with the same BT.709 tags and `hvc1` tag as the 8-bit file. It is for dark, smooth gradients: in 8-bit, the YUV conversion and the compression turn them into visible steps. The picture is still drawn in 8-bit RGBA, so 10-bit does not remove steps that are already in the drawing; it stops the encoder adding more. The existing formats and profiles are unchanged.
+- **Measured** on a dark gradient scene (1080p30, 4 s), against the raw RGBA frames the renderer sent, at about the same file size: x265 48.35 → 49.87 dB PSNR (560 → 553 kB), NVENC 49.42 → 51.20 dB (740 → 710 kB). A contrast-stretched crop shows the 8-bit file's large blocks of flat colour; the 10-bit one follows the original gradient. ffprobe reports `Main 10`, `yuv420p10le` and the BT.709 tags for both encoders.
+- **Encoders:** x265 on the CPU, NVIDIA NVENC and Intel Quick Sync. AMD AMF is not offered, because ffmpeg's AMF encoder does not take 10-bit input. 10-bit is probed separately from 8-bit (`hevc_nvenc@10`), since a GPU can encode one and not the other. Checked here: x265 and NVENC (RTX 5070). Quick Sync could not be checked on this machine; it is offered only where its own 10-bit test encode passes.
+- **Speed:** this format does not use the GPU's 8-bit I420 conversion and sends RGBA frames instead, so it takes about 1.6 times as long as 8-bit H.265 (x265 2.9 → 4.6 s, NVENC 2.5 → 3.9 s for the 4 s clip).
+
 ### Audio analysis as files: JSON, CSV and MIDI [857]
 
 - **What it writes.** A new export option, "Write the audio analysis next to it (JSON, CSV, MIDI)", is off by default. "Audio Analysis Only" writes the same files from an audio file without rendering video, in seconds (a 3-minute song at 60 fps took about 9 s). The files:

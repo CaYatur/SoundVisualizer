@@ -7585,14 +7585,16 @@ function probeOne(args) {
    açılırken GPU'yu meşgul ediyordu. */
 function probeEncoders() {
   if (_encCache) return _encCache;
-  const names = Object.keys(exportFormats.ENCODERS);
+  // Kodlayıcılar ve 10 bit denemeleri ("hevc_nvenc@10")
+  const names = exportFormats.probeKeys();
+  const gpuOf = (n) => exportFormats.ENCODERS[String(n).replace(/@10$/, '')].gpu;
   const map = {};
   const run = (n) => {
     const args = exportFormats.probeArgs(n);
     return (args ? probeOne(args) : Promise.resolve(false)).then((ok) => { map[n] = ok; });
   };
-  const cpu = names.filter((n) => !exportFormats.ENCODERS[n].gpu);
-  const gpu = names.filter((n) => exportFormats.ENCODERS[n].gpu);
+  const cpu = names.filter((n) => !gpuOf(n));
+  const gpu = names.filter((n) => gpuOf(n));
   _encCache = Promise.all(cpu.map(run))
     .then(() => gpu.reduce((p, n) => p.then(() => run(n)), Promise.resolve()))
     .then(() => map);
@@ -7615,7 +7617,7 @@ async function exportCapabilities() {
       label: f.label,
       available: exportFormats.available(f, (e) => ok[e]),
       gpuCapable: exportFormats.encodersFor(f).some((e) => exportFormats.ENCODERS[e].gpu),
-      encoders: exportFormats.encodersFor(f).filter((e) => ok[e])
+      encoders: exportFormats.encodersFor(f).filter((e) => ok[exportFormats.probeKey(f, e)])
         .map((e) => ({ id: e, gpu: exportFormats.ENCODERS[e].gpu, label: exportFormats.ENCODERS[e].label })),
     })),
   };
