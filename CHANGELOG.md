@@ -7,7 +7,13 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 Changes on `main` after 3.1.6-beta, not in any build yet.
 
-### For music videos and short video [837, 838, 839, 841, 842, 843]
+### For music videos and short video [837, 838, 839, 840, 841, 842, 843]
+
+- **Seamless loops and a Spotify Canvas profile [840].** A new export option, "Seamless loop", is off by default.
+  - **Method:** feedback and MilkDrop states are not periodic, so the last frame of a normal render never meets the first. A loop export renders the length L plus a crossfade X (0.2–2 s, default 0.5, at most half of L). One ffmpeg filter chain (`split`/`trim`/`xfade`) then starts the output at frame X and blends its last X seconds with the first X. The file is exactly L long and its last frame flows into its first.
+  - **Scope:** the render core is unchanged. Loops are silent, because a cut-and-joined audio track would be heard. The option is unavailable with chapters and frame sequences. GIF and APNG loops close the same way.
+  - **Spotify Canvas profile:** 1080×1920, 30 fps, 8 s, looped and silent. Every other profile now turns the loop off. A profile's duration is merged rather than replaced, so bars and BPM are kept, and settings saved before this release still match their profile.
+  - **Measured** (720p30, 3 s, 0.5 s crossfade): 90 frames, yuv420p, and two runs byte for byte identical. The jump from the last frame to the first is 1.00, within the normal frame-to-frame change (mean 0.51, max 1.22; 160×90 grey). The first version came out yuv444p on the GPU I420 input path; the chain now ends in `format=yuv420p` there.
 
 - **Title Card and End Card templates [843].** Two new templates in the Music Video group (83 templates now), for the start and end of a video, as clips on the timeline or on their own. Title Card brings the cover in at the centre with a scale reveal and the track title and artist beneath it. End Card brings in a free closing line ("Thanks for listening", editable) and fades in the cover and track details. Both have a thin line of bars along the bottom. Cover, title and artist come from the usual Now Playing layer, so they show the song's own details. Like every template, applying them leaves audio, display, streaming and lighting settings alone. Checked in an export.
 

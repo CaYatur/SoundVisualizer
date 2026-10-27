@@ -1200,6 +1200,8 @@
       duration: { mode: 'audio', seconds: 30, bars: 16, bpm: 0 },
       chapters: false, // zaman çizelgesi işaretçilerinden bölümlere ayır (#527)
       chapterList: false, // işaretçilerden YouTube bölüm listesi .txt (#837)
+      loop: false, // kusursuz döngü: son başa çapraz geçişle bağlanır, sessiz (#840)
+      loopCrossfade: 0.5, // döngü geçişi, saniye
       resolution: '1080p', // export-formats.js RESOLUTIONS anahtarı
       fps: 60, // 24 | 25 | 30 | 50 | 60
       quality: 'visually-lossless', // 'visually-lossless' | 'high' | 'balanced'

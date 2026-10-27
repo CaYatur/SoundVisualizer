@@ -89,7 +89,7 @@ test('ana süreç: geçici çıktı, başarıda taşıma, iptalde silme, kapanı
   const job = M.slice(M.indexOf('async function startExportJob('), M.indexOf("ipcMain.handle('export:start'"));
   assert.match(job, /target = exportFormats\.partialPath\(outputPath\);/);
   assert.match(job, /workDir = seqDir \+ '\.partial';/);
-  assert.match(job, /audioSec, durationSec, output: target,/);
+  assert.match(job, /audioSec, output: target,\s+durationSec: loop \? loop\.frames \/ fps : durationSec,/);
   const fin = M.slice(M.indexOf('function finalizeExport('), M.indexOf("notifyAdmin('export-done'"));
   // Taşınamazsa iş hataya dönüyor (taşımadan SONRAKİ ilk hata ataması)
   assert.ok(fin.indexOf('promotePartial(') > 0 && fin.indexOf("status = 'error';", fin.indexOf('promotePartial(')) > 0);

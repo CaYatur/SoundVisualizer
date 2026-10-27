@@ -1763,6 +1763,7 @@
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
       chapters: !!e.chapters && (!fmt || fmt.kind === 'video'),
       chapterList: !!e.chapterList && (!fmt || fmt.kind === 'video'),
+      loop: !!e.loop && !e.chapters && (!fmt || fmt.kind !== 'sequence'), loopCrossfade: e.loopCrossfade,
       sceneName: activeSceneName(),
     };
   }
@@ -3649,6 +3650,17 @@
                satırları olarak videonun yanına bir .txt'ye. */
             type: 'toggle', path: 'export.chapterList', label: 'YouTube bölüm listesini yanına yaz (.txt)',
             show: () => { const f = exportFormat(); return !f || f.kind === 'video'; },
+          },
+          {
+            /* Kusursuz döngü (#840): son, başa çapraz geçişle bağlanır; ses
+               eklenmez. Kare dizisinde ve bölümlemede yok. */
+            type: 'toggle', path: 'export.loop', label: 'Kusursuz döngü (sonu başa bağla, sessiz)', rebuild: true,
+            show: () => { const f = exportFormat(); return (!f || f.kind !== 'sequence') && !cfg.export.chapters; },
+          },
+          {
+            type: 'slider', path: 'export.loopCrossfade', label: 'Döngü Geçişi', min: 0.2, max: 2, step: 0.1,
+            fmt: (v) => (+v).toFixed(1) + ' sn',
+            show: () => { const f = exportFormat(); return !!cfg.export.loop && (!f || f.kind !== 'sequence') && !cfg.export.chapters; },
           },
           {
             type: 'select', path: 'export.resolution', label: 'Çözünürlük', rebuild: true, // profil seçimi güncellensin (#522)
@@ -6121,6 +6133,8 @@
       duration: { mode: dur.mode, seconds: dur.seconds, bars: dur.bars, bpm: dur.bpm },
       chapters: !!(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind === 'video'),
       chapterList: !!(cfg.export && cfg.export.chapterList) && (!fmt || fmt.kind === 'video'),
+      loop: !!(cfg.export && cfg.export.loop) && !(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind !== 'sequence'),
+      loopCrossfade: cfg.export && cfg.export.loopCrossfade,
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
