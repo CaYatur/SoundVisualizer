@@ -1939,11 +1939,21 @@ function relaunchApp(dropBridgeArgs) {
   app.quit();
   return true;
 }
+/* Taze bir profilde (ayar dosyası yok) currentConfig null kalır; köprü
+   penceresinin yazan işleyicileri bu yüzden sessizce {ok:false} dönüp hiçbir
+   şeyi kaydetmiyordu. Köprüde yazılacak ilk değerle birlikte boş bir
+   yapılandırma açılır; bütün varsayılanlar okuyan tarafta (normalize)
+   uygulanır. Normal uygulamanın ilk açılışını etkilemesin diye yalnız köprü
+   penceresinin işleyicileri çağırır. */
+function ensureBridgeConfig() {
+  if (!currentConfig) currentConfig = {};
+  return true;
+}
 /* "Yalnız köprü" ayarı diske GERÇEKTEN yazıldı mı. Kayıt gecikmeli
    (saveSettings) ve dosya bekçisi çakışmada yazmıyor (#564); yazılmadan
    yeniden açılan uygulama eski kipte açılırdı. */
 function persistBridgeOnly(on) {
-  if (!currentConfig) return false;
+  ensureBridgeConfig();
   applyConfigPatch({ bridge: Object.assign({}, currentConfig.bridge || {}, { only: !!on }) });
   flushSettings();
   try { return !!(JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')).bridge || {}).only === !!on; } catch { return false; }
@@ -2034,7 +2044,7 @@ ipcMain.handle('bridge-win:devices', async (e) => {
    ürettiği biçimde (audio.sources): aygıt adları ve uygulama hedefleri, karışık.
    Yalnız köprü kipinde bu liste köprünün kendi ayar klasöründe (#813). */
 ipcMain.handle('bridge-win:set-sources', (e, list) => {
-  if (!fromBridgeWin(e) || !currentConfig || !Array.isArray(list)) return { ok: false };
+  if (!fromBridgeWin(e) || !Array.isArray(list)) return { ok: false }; ensureBridgeConfig();
   const next = audioBridge.sanitizeSources(list);
   applyConfigPatch({ audio: Object.assign({}, currentConfig.audio || {}, { sources: next }) });
   notifyAdmin('external-config', currentConfig);
@@ -2077,7 +2087,8 @@ ipcMain.on('bridge-win:action', (e, what) => {
    Port ya da parola değişince köprü yeniden kurulur, alıcılar yeniden
    bağlanır; pencere bu yüzden yazarken değil alandan çıkınca yollar. */
 ipcMain.handle('bridge-win:set-config', (e, patch) => {
-  if (!fromBridgeWin(e) || !currentConfig || !patch || typeof patch !== 'object' || Array.isArray(patch)) return { ok: false };
+  if (!fromBridgeWin(e) || !patch || typeof patch !== 'object' || Array.isArray(patch)) return { ok: false };
+  ensureBridgeConfig();
   const cur = Object.assign({}, currentConfig.bridge || {});
   for (const k of BRIDGE_WIN_KEYS) if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k];
   const n = audioBridge.normalize(cur);

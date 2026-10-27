@@ -852,7 +852,11 @@ input.p-in[type='color'] { padding: 2px; height: 28px; width: 46px; flex: none; 
 
 /* ===== Kayıt paneli ===== */
 .rec-panel { display: flex; flex-direction: column; gap: 8px; }
-.rec-row { align-items: center; }
+/* Dar panelde (1024 px) üç düğme + süre yan yana sığmayınca düğme kendi
+   içinde alt satıra kırılıp öbürüne yapışıyordu. Düğmeler kırılmaz, satır
+   kırılır; satırlar arasında boşluk var, süre sağda kalır. */
+.rec-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; justify-content: flex-start; }
+.rec-row .btn { white-space: nowrap; flex: 0 0 auto; }
 .rec-time {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
