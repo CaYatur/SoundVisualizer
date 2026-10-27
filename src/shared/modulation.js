@@ -106,6 +106,46 @@
     return d ? d.beats : 4;
   };
 
+  /* Serbest bantlar: kullanıcının Hz aralığını ve dB penceresini seçtiği
+     dört kaynak. Sekiz sabit tayf bandı bir kick'in 50 Hz'ini ya da bir
+     vokalin 3 kHz'ini ayrı yakalayamıyor; burada aralık da, hangi düzeyin
+     0 ve hangisinin 1 sayılacağı da kullanıcının. Kayıtlı ayarda alan yoksa
+     bu varsayılanlar okunur (eski sahneler kaynağı yönlendirmedikçe hiçbir
+     şey değişmez). Varsayılan pencereler dört gerçek parçada ölçülen
+     düzeylerden: taban kabaca 10., tavan 95. yüzdelik. Bayt ölçeği -18 dB'de
+     kesildiği için yüksek sesli bir masterın kick'i tavana sık değer. */
+  const FREE_BANDS = 4;
+  const FREE_BAND_DEFAULTS = [
+    { lo: 40, hi: 90, floor: -48, ceil: -18, attack: 0.005, release: 0.12 },
+    { lo: 150, hi: 400, floor: -40, ceil: -19, attack: 0.01, release: 0.15 },
+    { lo: 1500, hi: 4000, floor: -60, ceil: -28, attack: 0.01, release: 0.15 },
+    { lo: 6000, hi: 14000, floor: -70, ceil: -36, attack: 0.005, release: 0.1 },
+  ];
+  const FREE_HZ_MIN = 20;
+  const FREE_HZ_MAX = 20000;
+  const FREE_DB_MIN = -90;
+  const FREE_DB_MAX = -18;
+
+  // Bir serbest bandın etkin ayarı: eksik ya da bozuk alan varsayılana düşer,
+  // aralıklar sınırlanır, alt sınır üstten büyükse yer değiştirir
+  function freeBand(m, i) {
+    const d = FREE_BAND_DEFAULTS[i];
+    const b = (Array.isArray(m && m.freeBands) && m.freeBands[i]) || {};
+    const num = (v, def) => (typeof v === 'number' && isFinite(v) ? v : def);
+    let lo = clamp(num(b.lo, d.lo), FREE_HZ_MIN, FREE_HZ_MAX);
+    let hi = clamp(num(b.hi, d.hi), FREE_HZ_MIN, FREE_HZ_MAX);
+    if (lo > hi) { const s = lo; lo = hi; hi = s; }
+    let floor = clamp(num(b.floor, d.floor), FREE_DB_MIN, FREE_DB_MAX);
+    let ceil = clamp(num(b.ceil, d.ceil), FREE_DB_MIN, FREE_DB_MAX);
+    if (floor > ceil) { const s = floor; floor = ceil; ceil = s; }
+    if (ceil - floor < 1) ceil = floor + 1;
+    return {
+      lo, hi, floor, ceil,
+      attack: clamp(num(b.attack, d.attack), 0, 2),
+      release: clamp(num(b.release, d.release), 0, 5),
+    };
+  }
+
   // ==========================================================================
   // Kaynak kataloğu — panelin listelediği şey
   // ==========================================================================
@@ -129,6 +169,9 @@
     const envs = Array.isArray(m.envelopes) ? m.envelopes : [];
     for (let i = 0; i < Math.max(2, envs.length); i++) {
       out.push({ id: 'env' + (i + 1), label: 'Zarf ' + (i + 1), group: 'Zarf' });
+    }
+    for (let i = 0; i < FREE_BANDS; i++) {
+      out.push({ id: 'fband' + (i + 1), label: 'Serbest Bant ' + (i + 1), group: 'Serbest Bant' });
     }
     for (let i = 0; i < 8; i++) {
       const mc = (m.macros || [])[i];
@@ -264,6 +307,26 @@
         for (let i = 0; i < 8; i++) v['band' + i] = this.bars[i] || 0;
       } else {
         for (let i = 0; i < 8; i++) v['band' + i] = 0;
+      }
+
+      /* --- serbest bantlar ---
+         Düzey dB penceresine göre 0..1'e çevrilir, sonra atak/bırakma ile
+         izlenir (dt'ye bağlı, kare hızından bağımsız). Ses motoru bandDb
+         taşımıyorsa (eski gömmeler) kaynak 0'a iner. */
+      const canDb = audio && typeof audio.bandDb === 'function';
+      for (let i = 0; i < FREE_BANDS; i++) {
+        const key = 'fband' + (i + 1);
+        let target = 0;
+        if (canDb) {
+          const b = freeBand(m, i);
+          const db = audio.bandDb(b.lo, b.hi);
+          target = isFinite(db) ? clamp01((db - b.floor) / (b.ceil - b.floor)) : 0;
+          const prev = v[key] || 0;
+          const tau = target > prev ? b.attack : b.release;
+          v[key] = prev + (target - prev) * alphaFor(step, tau);
+        } else {
+          v[key] = 0;
+        }
       }
 
       // --- vuruş ---
@@ -441,6 +504,7 @@
   const api = {
     Modulator, catalog, CURVES, CURVE_IDS, SHAPES, SHAPE_IDS,
     DIVISIONS, divisionBeats, getIn, setIn, routedPath, alphaFor, hashUnit,
+    FREE_BANDS, FREE_BAND_DEFAULTS, FREE_HZ_MIN, FREE_HZ_MAX, FREE_DB_MIN, FREE_DB_MAX, freeBand,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVModulation = api;

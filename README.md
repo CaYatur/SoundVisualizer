@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3546%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3559%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -473,6 +473,7 @@ Any parameter of any effect can be driven by the modulation matrix.
 - **Any source to any setting** — routes go to any dotted configuration path, chosen from a live
   tree of the current settings.
 - **Sources** — bass, mid, treble, level, onset envelope and onset trigger · eight spectrum bands ·
+  four custom bands with your own Hz range and dB window ·
   LFOs · envelope followers · sample-and-hold · random · the beat clock · macro knobs · and every
   deep-analysis measurement (key, chord, pitch, loudness, drum bands…).
 - **Eight LFO shapes** — sine, triangle, saw up, saw down, square, pulse, random ramp and noise —
@@ -1806,7 +1807,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3546 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3559 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

@@ -958,6 +958,15 @@
         { band: 'bass', attack: 0.02, release: 0.3 },
         { band: 'treble', attack: 0.01, release: 0.15 },
       ],
+      /* Serbest bantlar (fband1..4): Hz aralığı ve dB penceresi kullanıcının.
+         floor dB'de kaynak 0, ceil dB'de 1. Aynı değerler modulation.js
+         FREE_BAND_DEFAULTS'ta; alanı olmayan eski ayarlar onları okur. */
+      freeBands: [
+        { lo: 40, hi: 90, floor: -48, ceil: -18, attack: 0.005, release: 0.12 },
+        { lo: 150, hi: 400, floor: -40, ceil: -19, attack: 0.01, release: 0.15 },
+        { lo: 1500, hi: 4000, floor: -60, ceil: -28, attack: 0.01, release: 0.15 },
+        { lo: 6000, hi: 14000, floor: -70, ceil: -36, attack: 0.005, release: 0.1 },
+      ],
       /* Adlar boş başlar. Bir ad yapılandırmada saklanan DEĞERdir, arayüz
          metni değil; içine Türkçe yazmak İngilizce arayüzde çevrilemeyen bir
          dize bırakırdı. Panel boş adı çevrilmiş bir yer tutucuyla gösterir. */

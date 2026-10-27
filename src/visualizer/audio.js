@@ -12,6 +12,9 @@
 (function () {
   const FFT_SIZE = 2048;
   const BINS = FFT_SIZE / 2; // 1024
+  // Frekans baytının dB ölçeği (loopback-helper.js MIN_DB/MAX_DB)
+  const BYTE_DB0 = -90;
+  const BYTE_DB_RANGE = 72;
 
   class AudioEngine {
     constructor() {
@@ -158,6 +161,29 @@
       if (!this._raw01 || this._raw01.length !== this.bins) this._raw01 = new Float32Array(this.bins);
       for (let i = 0; i < this.bins; i++) this._raw01[i] = this.freqRaw[i] / 255;
       return this._raw01;
+    }
+
+    /* Bir frekans aralığının gücü, dB cinsinden (serbest bant kaynağı).
+       Bayt ölçeği loopback-helper.js ve dışa aktarıcıyla aynı: 0 = -90 dB,
+       255 = -18 dB. Kutular dB'de değil güçte ortalanır; yoksa tek bir
+       yüksek tepe, sessiz komşularıyla ortalanıp gerçekte olduğundan kısık
+       görünürdü. Duyarlılık ve yumuşatma uygulanmaz: bunlar görsel tercih,
+       kullanıcının seçtiği dB penceresi gerçek düzeyle eşleşmeli. Merkezi
+       aralığa düşen kutu yoksa (dar bir bant) en yakın kutu okunur. */
+    bandDb(f0, f1) {
+      const lo = Math.min(f0, f1);
+      const hi = Math.max(f0, f1);
+      const last = this.freqRaw.length - 1;
+      let i0 = Math.ceil(lo / this.binHz);
+      let i1 = Math.floor(hi / this.binHz);
+      if (i1 < i0) i0 = i1 = Math.round((lo + hi) / 2 / this.binHz);
+      i0 = Math.max(1, Math.min(last, i0));
+      i1 = Math.max(i0, Math.min(last, i1));
+      let p = 0;
+      for (let i = i0; i <= i1; i++) {
+        p += Math.pow(10, (BYTE_DB0 + (this.freqRaw[i] / 255) * BYTE_DB_RANGE) / 10);
+      }
+      return 10 * Math.log10(p / (i1 - i0 + 1));
     }
 
     // Çözümlemeyi kapatmak (düşük güç kipinde) — ölçüm maliyeti sıfırlanır
