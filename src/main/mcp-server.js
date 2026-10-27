@@ -55,6 +55,7 @@ function create(deps) {
       setFloatingOpen: deps.setFloatingOpen,
       stopClips: deps.stopClips,
       startExport: deps.startExport,
+      startAnalysis: deps.startAnalysis,
       cancelExport: deps.cancelExport,
       outPathGuard: deps.outPathGuard,
       writeText: deps.writeText,

@@ -35,6 +35,29 @@ CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones a
 
 - **YouTube chapters from the timeline markers [837].** "Copy YouTube Chapters" in the timeline's marker list puts them on the clipboard as "0:00 Intro" lines for a video description. A new export option (off by default) writes the same list to "<video name> - YouTube chapters.txt"; when the export is split into chapters, it goes into the folder. A marker at 0 names the first chapter; otherwise a "Start" line is added, and unnamed markers become "Chapter N". YouTube only treats the list as chapters when the first is at 0:00, there are at least three and each lasts at least 10 seconds; the list is still written, and the panel says which rule fails. Markers after the end of the video are left out. Checked with a real export (single file, split folder, no markers: no file).
 
+### Audio analysis as files: JSON, CSV and MIDI [PRNUM]
+
+- **What it writes.** A new export option, "Write the audio analysis next to it (JSON, CSV, MIDI)", is off by default. "Audio Analysis Only" writes the same files from an audio file without rendering video, in seconds (a 3-minute song at 60 fps took about 9 s). The files:
+  - `<name> - analysis.json` and `.csv`: one row per video frame. Each row has every modulation source measured from the audio: bands, custom bands, loudness, timbre, the twelve pitch classes and the drum detectors. It also has the beat and downbeat of the beat grid, pitch, the chord of the current beat and the key.
+  - The JSON also has a summary (BPM, key, how well the beat grid fits), events (beats, onsets, kick, snare and hi-hat with strength), chord and key sections, and a description of every field.
+  - `<name> - analysis.mid`: beats, kick, snare and hi-hat on channel 10, the chords as notes, and markers for BPM and key. The file's tempo is the detected one, so the grid lines up with the song in a DAW.
+  - Field names are the modulation source ids in English, so scripts keep working when the interface language changes. The CSV uses commas and a decimal point.
+- **Frame alignment.** Row N is frame N of the video. The analysis runs on its own audio engine fed the same frame bytes, so the video does not change. `--bench-export` gave the same frame digest with the option on and off. Two runs, and an analysis-only run of the same file, gave byte-identical JSON, CSV and MIDI. Frame sequences and chapter exports write `analysis.*` inside their folder. The option is not available with a seamless loop, whose output starts in the middle of the render.
+- **Whole-file analysis for the summary.** The live tempo and chord engines see only the past and are tuned to react fast for the visuals. On a 20 s excerpt, the tempo wandered from 172 to 80 BPM and the frame chord changed 136 times. With the whole song available:
+  - **Tempo** comes from the autocorrelation of the loudness rise, weighted around 120 BPM. On four released tracks it agreed with the kick spacing (126.3, 126.3, 128.55, 104.85 BPM). An envelope from the eight spectrum bands gave 96 BPM on one of them, because those bands saturate on loud masters.
+  - **The beat grid** keeps that tempo, with its phase fitted to the onsets. Downbeats are where the kick is strongest. `beatGridFit` in the summary reports how well a steady grid fits.
+  - **Chords** come from the average pitch classes of each beat. A chord must last at least two beats. On the four tracks, the median chord section went from 0.48 s to about 2 s.
+  - **The key** comes from the pitch classes of the whole file.
+  - **Event times** are moved back by half the analysis window (21 ms), so they line up with the audio. Frame columns stay as frame N saw them.
+- **Also over MCP.** `sv_start_export` takes `analysis: true`. A new tool, `sv_export_analysis`, writes only the analysis, so there are 97 tools.
+- **Checked.** Known-answer tests:
+  - a 120 BPM kick train gives 120 BPM and a grid within one frame of the kicks;
+  - a C major triad gives a C chord and the key of C;
+  - an eighth-note pulse picks the common tempo over its halves and thirds;
+  - the MIDI file parses back: chunk lengths match, times only increase, every note closes, and kick times match the JSON.
+
+  In the running app: an export with the option and an analysis-only run on four songs, and a cancelled analysis that left no files.
+
 ### Custom frequency bands as modulation sources [856]
 
 - **Four "Custom Band" sources.** In the Modulation Matrix, each has its own frequency range (20 Hz–20 kHz, on a logarithmic slider) and dB window: the source is 0 at the floor and 1 at the ceiling, with its own attack and release. The eight fixed spectrum bands cannot isolate a kick's 50 Hz or a vocal's 3 kHz; these can. They appear in the route source list under "Custom Band", and a band does nothing until a route uses it, so existing scenes and exports are unchanged.

@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3559%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3573%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -43,7 +43,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 | **60** görselleştirici modu | **43** arkaplan | **40** GPU efekti | **18** sahne geçişi |
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
-| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **96** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
+| **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
 
 </div>
 
@@ -77,7 +77,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 - **İçerik üreticileri için.** Bir ses dosyasından kare kare **çevrimdışı video dışa aktarma**, tek
   tuşla kayıt, müzik videosu düzenleri, albüm kapaklı bir **Çalan Parça** katmanı ve zamanlı **şarkı
   sözleri** (LRC / SRT). [→ Dışa aktarma](#kayıt-ve-video-dışa-aktarma)
-- **Yapay zekâya hazır.** 96 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
+- **Yapay zekâya hazır.** 97 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
 - **Gizli ve çevrimdışı.** Hesap yok, telemetri yok, bulut yok. Uygulamanın kendiliğinden yaptığı
@@ -179,7 +179,7 @@ npm start
 | **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
 | **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 96 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 2.700'ü aşkın test. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 2.700'ü aşkın test. |
 
 ---
 
@@ -960,6 +960,16 @@ ekranın solundaki renkleri alıyor.
   açıklaması için "0:00 Giriş" satırları olarak kopyalanıyor ya da dışa aktarım videonun yanına
   yazıyor. YouTube'un kabul etmeyeceği durumu söylüyor: ilk bölüm 0:00'da, en az üç bölüm, her
   biri en az 10 saniye.
+- <kbd>3.1.6</kbd> **Ses analizi dosya olarak.** Dışa aktarım uygulamanın şarkıda ölçtüklerini de
+  yazabiliyor; "Yalnız Ses Analizi" video çizmeden yazıyor:
+  - `<ad> - analysis.json` ve `.csv`: videonun her karesi için bir satır; bantlar, serbest bantlar,
+    gürlük, tını, on iki nota sınıfı, akor, tonalite, BPM ve vuruşlar;
+  - `<ad> - analysis.mid`: vuruşlar, 10. kanalda kick, snare ve hi-hat, kararlı akorlar nota olarak;
+    algılanan tempoda, yani bir DAW'da şarkıyla örtüşüyor.
+
+  N. satır videonun N. karesi; aynı dosya ve aynı kare hızı her zaman aynı dosyaları veriyor. CSV
+  virgülle ayrılmış, ondalık ayırıcı nokta: Türkçe Excel'de Veri > Metinden ile açıp virgülü
+  seçin. Kusursuz döngüyle birlikte yok, çünkü döngünün çıktısı çizimin ortasından başlıyor.
 - <kbd>3.1.6</kbd> **Canlı kayıt zaman çizelgesini izleyebiliyor**: çalma başlayınca başlıyor,
   duraklatma, durdurma ya da sonda bitiyor; taşımayı MIDI, OSC ya da bir yapay zekâ ajanı sürse de.
 - Çıkışın göründüğü gibi **canlı kaydı** — canlı ses, modülasyon, geçişler ve efektlerle — MP4 ya da
@@ -987,7 +997,7 @@ kullanır.
 
 Sunucu JSON-RPC `initialize`, `ping`, `tools/list` ve `tools/call` konuşur. `2024-11-05`,
 `2025-03-26` ve `2025-06-18` sürümlerini kabul eder; başka bir sürüm isteğine `2024-11-05` ile
-yanıt verir. Sunucu adı `soundvisualizer`. **96 araç** vardır.
+yanıt verir. Sunucu adı `soundvisualizer`. **97 araç** vardır.
 
 İstemci stdio köprüsünü başlatır. Köprü, taşıyıcı jetonla `http://127.0.0.1:<port>/mcp` adresine
 yazar. Soket yalnız `127.0.0.1` adresine bağlanır. Port, siz başkasını seçmedikçe **38471**'dir.
@@ -1116,7 +1126,8 @@ Oluşturur ve düzenler.
   katman başına görselleştirici hedeflerini ayarlar.
 - Dışa aktarma ve kayıt: `sv_start_export` diskte duran bir ses dosyasını sizin verdiğiniz video
   yoluna çizer. Çözünürlük, saniyede 30 ya da 60 kare, CPU ya da GPU kodlayıcı, hız ve kalite
-  dışa aktarma panelindeki seçeneklerdir. `sv_cancel_export` süren aktarmayı durdurur.
+  dışa aktarma panelindeki seçeneklerdir. `sv_export_analysis` yalnız ses analizini yazar (JSON,
+  CSV ve MIDI). `sv_cancel_export` süren aktarmayı durdurur.
   `sv_export_json` sahne listesini ya da bütün ayarları, pencere açmadan, bir yola yazar.
   `sv_save_snapshot` canlı görüntüyü bir yola JPEG olarak yazar. Bu üç araç yalnız uzantısı
   uyan, mutlak ve yerel bir yol kabul eder: video için `.mp4`, ayarlar için `.json`, görüntü için
@@ -1811,7 +1822,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3559 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3573 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

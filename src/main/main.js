@@ -3326,6 +3326,7 @@ function ensureMcp() {
     },
     stopClips: () => mcpAdminCall('(() => { const C = window.SVClipDeckPanel; if (!C || !C.stopAll) return { ok:false, error:"Clip deck is not loaded." }; C.stopAll(); return { ok:true }; })()'),
     startExport: (opts) => startExportJob(opts),
+    startAnalysis: (opts) => startAnalysisJob(opts),
     cancelExport: () => { if (exportState) exportState.cancel = true; return true; },
     outPathGuard: (file, overwrite) => mcpServer.outPathGuard(file, overwrite, [app.getPath('userData'), path.dirname(process.execPath), app.getAppPath()]),
     writeText: (file, text) => { fs.writeFileSync(file, text, 'utf8'); return true; },
@@ -7832,6 +7833,10 @@ async function startExportJob(opts, bench, extra) {
   const loopSpec = opts.loop === true && !wantChapters ? { seconds: dur.seconds, cross: Number(opts.loopCrossfade) || 0.5 } : null;
   const loop = exportFormats.loopPlan(loopSpec, fps, fmt);
   const renderSec = loop ? loop.render : durationSec;
+  /* Ses analizi yanına (JSON/CSV/MIDI): satır N, videonun N. karesi.
+     Döngüde çıktı X. kareden başlayıp başa bağlandığı için satırlar
+     videoyla örtüşmezdi; o yüzden döngüyle birlikte yok. */
+  const wantAnalysis = opts.analysis === true && !loop;
 
   /* YouTube bölüm listesi (#837): işaretçilerden, videonun süresine göre.
      Metin şimdi hazırlanıyor, dosya iş başarıyla bitince yazılıyor. İşaretçi
@@ -7909,7 +7914,7 @@ async function startExportJob(opts, bench, extra) {
     outputPath: seqDir || outputPath, seqDir, workDir, partial: workDir || target,
     format: fmt.id, encoderId, ffErr: '', encoder, finishAt: 0, cancel: false,
     chapterNames: chapters ? chapters.names : null, ext: fmt.ext, chapterListText,
-    startedAt: 0, total: 0,
+    analysisData: null, startedAt: 0, total: 0,
   };
   /* Ölçüm (#531): ana süreç tarafındaki yazma/bekleme süreleri ve kare
      özetleri. Özet, hızlandırmanın görüntüyü değiştirmediğini kanıtlamak
@@ -7954,23 +7959,7 @@ async function startExportJob(opts, bench, extra) {
     return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
   }
 
-  // Gizli render penceresi (offscreen kanvas; ekrana çizilmez)
-  exportWin = new BrowserWindow({
-    width: 320,
-    height: 200,
-    show: false,
-    skipTaskbar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload-exporter.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      backgroundThrottling: false,
-    },
-  });
-  const win = exportWin;
-  attachSmoke(win, 'EXPORT');
-  // Only clear the global if it still points at this job's window
-  win.on('closed', () => { if (exportWin === win) exportWin = null; });
+  const win = openExportWindow();
   win.webContents.on('render-process-gone', () => {
     if (!isMine()) return;
     if (exportState.finishAt) {
@@ -8012,10 +8001,136 @@ async function startExportJob(opts, bench, extra) {
     lyricsLibrary: configFollowsLyrics(jobCfg) ? lyricsSnapshot() : [],
     // Video katmanı: cfg'deki dosya → her karesi anahtar kare ara kopya (#539)
     mediaMap,
+    analysis: wantAnalysis,
+    audioName: path.basename(audioPath),
+    generator: 'CAYADEV Visualizer ' + app.getVersion(),
   });
 
   return { ok: true };
 }
+
+/* Gizli render penceresi (offscreen kanvas; ekrana çizilmez). Video ve
+   yalnız analiz işleri aynı pencereyi açar; closeHelperWindows exportWin'i
+   kapatır. */
+function openExportWindow() {
+  exportWin = new BrowserWindow({
+    width: 320,
+    height: 200,
+    show: false,
+    skipTaskbar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-exporter.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false,
+    },
+  });
+  const win = exportWin;
+  attachSmoke(win, 'EXPORT');
+  // Only clear the global if it still points at this job's window
+  win.on('closed', () => { if (exportWin === win) exportWin = null; });
+  return win;
+}
+
+/* Ses analizi dosyaları: JSON, CSV, MIDI. Her biri önce `.partial` adıyla
+   yazılıp taşınıyor (#532): yarım dosya asıl adda hiç olmuyor. Biri bile
+   yazılamazsa yazılanlar siliniyor; üçü birlikte var ya da hiçbiri. */
+function writeAnalysisFiles(base, data) {
+  const AE = require('../shared/analysis-export.js');
+  const files = [
+    [base + '.json', () => AE.toJson(data)],
+    [base + '.csv', () => AE.toCsv(data)],
+    [base + '.mid', () => Buffer.from(AE.toMidi(data))],
+  ];
+  const done = [];
+  try {
+    for (const [file, make] of files) {
+      const tmp = exportFormats.partialPath(file);
+      fs.writeFileSync(tmp, make());
+      done.push(tmp);
+    }
+    const out = [];
+    for (let i = 0; i < files.length; i++) {
+      fs.renameSync(done[i], files[i][0]);
+      out.push(files[i][0]);
+    }
+    return { ok: true, paths: out };
+  } catch (err) {
+    for (const f of done) { try { fs.unlinkSync(f); } catch { /* yok */ } }
+    return { ok: false, error: err.message };
+  }
+}
+
+/* Yalnız ses analizi (video yok). Video dışa aktarımıyla aynı gizli
+   pencere ve aynı kare saati: dosya, aynı ses ve fps'le bir videonun
+   yanına yazılanla birebir aynı. Aynı anda tek iş kuralı da ortak; ilerleme
+   ve iptal aynı yoldan. */
+async function startAnalysisJob(opts) {
+  if (exportState) return { ok: false, error: trUi('Zaten bir dışa aktarma sürüyor.', 'An export is already running.') };
+  opts = opts || {};
+  const audioPath = opts.audioPath;
+  const outputPath = opts.outputPath;
+  if (typeof audioPath !== 'string' || !path.isAbsolute(audioPath) || !fs.existsSync(audioPath)) {
+    return { ok: false, error: trUi('Ses dosyası bulunamadı.', 'Audio file not found.') };
+  }
+  if (!outputPath) return { ok: false, error: trUi('Çıktı yolu seçilmedi.', 'No output path was chosen.') };
+  const outBad = require('../shared/mcp').badOutPath(outputPath, ['json']);
+  if (outBad) return { ok: false, error: trUi('Çıktı yolu geçersiz: ', 'Invalid output path: ') + outBad };
+  const fps = exportFormats.FPS.includes(Number(opts.fps)) ? Number(opts.fps) : 60;
+  let audioBuf;
+  try {
+    audioBuf = fs.readFileSync(audioPath);
+  } catch (err) {
+    return { ok: false, error: trUi('Ses dosyası okunamadı: ', 'Could not read the audio file: ') + err.message };
+  }
+  exportState = {
+    outputPath, seqDir: null, workDir: null, partial: null, format: 'analysis', encoderId: null,
+    ffErr: '', encoder: '', finishAt: 0, cancel: false, chapterNames: null, ext: 'json',
+    chapterListText: '', analysisOnly: true, analysisData: null, startedAt: 0, total: 0,
+  };
+  exportMediaCfg = null;
+  const job = exportState;
+  const isMine = () => exportState === job;
+  notifyAdmin('export-progress', { phase: 'start', encoder: '', encoderLabel: '', kind: 'analysis' });
+
+  const win = openExportWindow();
+  win.webContents.on('render-process-gone', () => {
+    if (isMine()) finalizeExport('error', trUi('Görüntü süreci kapandı. Dışa aktarma durduruldu.', 'The render process exited. Export stopped.'));
+  });
+  try {
+    await win.loadFile(path.join(__dirname, '..', 'exporter', 'index.html'));
+  } catch (err) {
+    if (isMine()) finalizeExport('error', trUi('Render penceresi yüklenemedi: ', 'Could not load the render window: ') + err.message);
+    return { ok: false, error: trUi('Render penceresi yüklenemedi.', 'Could not load the render window.') };
+  }
+  if (!isMine() || win.isDestroyed()) return { ok: false, error: trUi('Dışa aktarma başlamadan durdu.', 'The export stopped before it started.') };
+  const ab = audioBuf.buffer.slice(audioBuf.byteOffset, audioBuf.byteOffset + audioBuf.byteLength);
+  win.webContents.send('export:job', {
+    analysisOnly: true,
+    audioBuffer: ab,
+    audioName: path.basename(audioPath),
+    generator: 'CAYADEV Visualizer ' + app.getVersion(),
+    fps,
+    cfg: currentConfig || {},
+    platform: process.platform,
+  });
+  return { ok: true };
+}
+
+ipcMain.handle('export:analysis-start', (e, opts) => startAnalysisJob(opts));
+ipcMain.handle('export:pick-analysis-output', async (e, defaultName) => {
+  const r = await dialog.showSaveDialog(adminWin, {
+    title: trUi('Ses analizini kaydet', 'Save the audio analysis'),
+    defaultPath: String(defaultName || 'analysis') + ' - analysis.json',
+    filters: [{ name: trUi('Ses analizi (JSON, yanına CSV ve MIDI)', 'Audio analysis (JSON, with CSV and MIDI)'), extensions: ['json'] }],
+  });
+  return r.canceled ? null : r.filePath;
+});
+// Kayıtçının verisi işin sonunda bir kez gelir; dosyalar iş bitince yazılır
+ipcMain.on('export:analysis', (e, data) => {
+  if (exportState && data && typeof data === 'object' && data.format === 'cayadev-audio-analysis') exportState.analysisData = data;
+});
+ipcMain.handle('export:cancel-requested', () => !exportState || !!exportState.cancel);
 
 ipcMain.handle('export:start', (e, opts) => {
   if (exportQueue.running) return { ok: false, error: trUi('Dışa aktarma kuyruğu çalışıyor.', 'The export queue is running.') };
@@ -8152,6 +8267,8 @@ function endExportStdin() {
 ipcMain.on('export:finish', (e, stats) => {
   // Tüm kareler yazıldı: stdin'i kapat -> ffmpeg kalan kodlamayı bitirip 'exit' verir.
   // Arayüz burada kapanmaz. Tamam veya hata, sürecin çıkış koduyla gelir.
+  // Yalnız analizde kodlanacak bir şey yok: iş burada biter
+  if (exportState && exportState.analysisOnly) { finalizeExport('done'); return; }
   notifyAdmin('export-progress', { phase: 'encode' });
   if (exportState) exportState.finishAt = Date.now();
   if (exportState && exportState.prof && stats && typeof stats === 'object') exportState.prof.renderer = stats;
@@ -8169,6 +8286,8 @@ function finalizeExport(status, message, opts) {
   const partial = exportState.partial;
   const chapterNames = exportState.chapterNames;
   const chapterListText = exportState.chapterListText;
+  const analysisData = exportState.analysisData || null;
+  const analysisOnly = !!exportState.analysisOnly;
   const ext = exportState.ext;
   const encoder = exportState.encoder;
   const encoderId = exportState.encoderId;
@@ -8234,6 +8353,27 @@ function finalizeExport(status, message, opts) {
       : path.join(path.dirname(finalOut), path.basename(finalOut, path.extname(finalOut)) + ' - YouTube chapters.txt');
     try { fs.writeFileSync(listPath, chapterListText, 'utf-8'); } catch (err) { console.warn('[export] bölüm listesi yazılamadı: ' + err.message); }
   }
+  /* Ses analizi: video dışa aktarımında videonun yanına ("<ad> - analysis.*"),
+     klasöre yazılan işlerde klasörün içine ("analysis.*"), yalnız analizde
+     seçilen adla. Yalnız analizde dosyalar işin kendisi: yazılamazsa iş
+     hata; video işinde video yine başarılı, uyarı iletide. */
+  if (status === 'done' && analysisData) {
+    const base = analysisOnly ? out.replace(/\.json$/i, '')
+      : seqDir ? path.join(finalOut, 'analysis')
+        : path.join(path.dirname(finalOut), path.basename(finalOut, path.extname(finalOut)) + ' - analysis');
+    const wrote = writeAnalysisFiles(base, analysisData);
+    if (wrote.ok) {
+      if (analysisOnly) finalOut = wrote.paths[0];
+    } else if (analysisOnly) {
+      status = 'error';
+      message = trUi('Analiz dosyaları yazılamadı: ', 'Could not write the analysis files: ') + wrote.error;
+    } else {
+      message = trUi('Video hazır, ama analiz dosyaları yazılamadı: ', 'The video is done, but the analysis files could not be written: ') + wrote.error;
+    }
+  } else if (status === 'done' && analysisOnly) {
+    status = 'error';
+    message = trUi('Analiz verisi gelmedi.', 'No analysis data arrived.');
+  }
 
   // Kuyruk işin sonucunu bekliyor (#526)
   const waiters = exportDoneWaiters.splice(0);
@@ -8241,7 +8381,7 @@ function finalizeExport(status, message, opts) {
   // Ölçüm kaydı SON durumu taşısın: ad verme ya da taşıma işi hataya çevirebiliyor
   if (prof && lastExportProfile) { lastExportProfile.status = status; lastExportProfile.message = message || ''; }
   notifyAdmin('export-done', {
-    status, output: finalOut, message: message || '', encoder,
+    status, output: finalOut, message: message || '', encoder, kind: analysisOnly ? 'analysis' : 'video',
     encoderLabel: encoderId && exportFormats.ENCODERS[encoderId] ? exportFormats.ENCODERS[encoderId].label : '',
   });
 }
@@ -8541,8 +8681,11 @@ async function runExportBench(file) {
     const out = path.join(spec.outDir, job.name + '.' + (job.ext || 'mp4'));
     try { fs.unlinkSync(out); } catch { /* yok */ }
     const t0 = Date.now();
-    const res = await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out }),
-      { rgba: !!job.rgba, dumpRaw: job.dumpRaw || null });
+    // Yalnız ses analizi işi de aynı yoldan ölçülüyor (ext: 'json')
+    const res = job.analysisOnly
+      ? await startAnalysisJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out }))
+      : await startExportJob(Object.assign({}, job.opts, { audioPath: job.audio || spec.audio, outputPath: out }),
+        { rgba: !!job.rgba, dumpRaw: job.dumpRaw || null });
     /* İptal ve kapanış denemesi (#532): asıl yolda yarım dosya kalmamalı. */
     if (res && res.ok && job.cancelAfterMs) setTimeout(() => { if (exportState) exportState.cancel = true; }, job.cancelAfterMs);
     if (res && res.ok && job.quitAfterMs) setTimeout(() => app.quit(), job.quitAfterMs);

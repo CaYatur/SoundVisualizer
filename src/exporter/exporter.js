@@ -402,6 +402,28 @@
   }
 
   // Tek kareyi çiz ve birleştirme yüzeyinin RGBA baytlarını döndür.
+  /* Ses analizi kaydı. Kendi ses motoru ve modülatörü var: çizimin
+     kullandığı nesnelere yalnız bakmak bile yetmezdi, çünkü getBars her
+     çağrıda durum ilerletiyor. Ayrı nesneler aynı kare baytlarını okuyor;
+     video bu kayıt açıkken de bit bazında aynı. */
+  let anRec = null;
+  function startAnalysis() {
+    const A = window.SVAnalysisExport;
+    const anAudio = new window.SVAudio();
+    anAudio.applyConfig(cfg.audio);
+    const anMod = new window.SVModulation.Modulator();
+    const rec = new A.Recorder({ fps, fields: A.fieldIds(window.SVModulation.catalog(cfg)) });
+    anRec = {
+      rec,
+      step(t, dt) {
+        anAudio.ingestFrame({ freq: freqBytes, time: timeBytes, left: leftBytes, right: rightBytes, sampleRate });
+        anAudio.update(dt);
+        anMod.update(cfg, anAudio, t, dt);
+        rec.push(anMod.values, anAudio.analysis);
+      },
+    };
+  }
+
   function renderFrame(i) {
     const t0 = prof ? performance.now() : 0;
     const t = i / fps;
@@ -410,6 +432,7 @@
     const sampleEnd = Math.round(t * sampleRate);
 
     analyzeAt(sampleEnd);
+    if (anRec) anRec.step(t, dt);
     audio.ingestFrame({ freq: freqBytes, time: timeBytes, left: leftBytes, right: rightBytes, sampleRate });
     audio.update(dt);
 
@@ -489,7 +512,9 @@
     let tp = performance.now();
     const duration = await decodeAudio(job.audioBuffer);
     if (prof) { prof.decodeMs = performance.now() - tp; tp = performance.now(); }
+    if (job.analysisOnly) return runAnalysisOnly(job, duration);
     await setup(job);
+    if (job.analysis) startAnalysis();
     if (prof) prof.setupMs = performance.now() - tp;
     /* Süre ana süreçten gelebilir (#523): sabit saniye, zaman çizelgesi ya
        da N ölçü. Ses bittikten sonraki kareler sessizlikle çiziliyor
@@ -549,7 +574,38 @@
       return;
     }
     window.exp.progress(totalFrames, totalFrames);
+    if (anRec) window.exp.analysis(anRec.rec.finish(analysisMeta(job)));
     window.exp.finish(prof ? Object.assign({ frames: totalFrames }, prof) : null);
+  }
+
+  function analysisMeta(job) {
+    return { file: job.audioName || '', durationSec: totalFrames / fps, sampleRate, generator: job.generator || '' };
+  }
+
+  /* Yalnız analiz: sahne kurulmuyor, kare çizilmiyor, ffmpeg yok. Ses
+     aynı kare saatiyle çözümleniyor, yani aynı dosya video dışa
+     aktarımının yanına yazılanla aynı. İptal ana süreçten soruluyor. */
+  async function runAnalysisOnly(job, duration) {
+    cfg = window.SV.deepMerge(window.SV.defaultConfig(), job.cfg || {});
+    fps = job.fps;
+    const renderSec = Number(job.durationSec) > 0 ? Number(job.durationSec) : duration;
+    totalFrames = Math.max(1, Math.ceil(renderSec * fps));
+    startAnalysis();
+    window.exp.ready(totalFrames);
+    const step = Math.max(1, fps * 2);
+    for (let i = 0; i < totalFrames; i++) {
+      const t = i / fps;
+      analyzeAt(Math.round(t * sampleRate));
+      anRec.step(t, 1 / fps);
+      if (i % step === 0) {
+        window.exp.progress(i + 1, totalFrames);
+        // Olay döngüsüne nefes: ilerleme gitsin, iptal sorusu cevaplansın
+        if (await window.exp.cancelRequested()) { window.exp.cancelled(); return; }
+      }
+    }
+    window.exp.progress(totalFrames, totalFrames);
+    window.exp.analysis(anRec.rec.finish(analysisMeta(job)));
+    window.exp.finish(null);
   }
 
   window.exp.onJob((job) => {
