@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('exp', {
   finish: (stats) => ipcRenderer.send('export:finish', stats || null),
   cancelled: () => ipcRenderer.send('export:cancelled'),
   error: (msg) => ipcRenderer.send('export:error', msg),
+  // Ses analizi kaydı (bitince bir kez) ve yalnız analiz işinde iptal sorusu
+  analysis: (data) => ipcRenderer.send('export:analysis', data),
+  cancelRequested: () => ipcRenderer.invoke('export:cancel-requested'),
 });
 
 /* MilkDrop motoru dokuları `window.api` üzerinden istiyor (#586). Dışa

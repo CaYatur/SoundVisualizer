@@ -49,6 +49,7 @@
 
   // Video dışa aktarma durumu
   let exportAudioPath = null;
+  let exportKind = 'video'; // süren iş: 'video' ya da yalnız 'analysis'
   let exportAudioName = '';
   let exporting = false;
   let exportPct = 0;
@@ -1764,6 +1765,7 @@
       chapters: !!e.chapters && (!fmt || fmt.kind === 'video'),
       chapterList: !!e.chapterList && (!fmt || fmt.kind === 'video'),
       loop: !!e.loop && !e.chapters && (!fmt || fmt.kind !== 'sequence'), loopCrossfade: e.loopCrossfade,
+      analysis: !!e.analysis,
       sceneName: activeSceneName(),
     };
   }
@@ -1873,6 +1875,13 @@
     cancelBtn.style.display = exporting ? 'inline-flex' : 'none';
     cancelBtn.style.marginLeft = '8px';
     runBtn.disabled = exporting;
+    const anBtn = el('button', {
+      class: 'btn ghost', id: 'exportAnalysisBtn', icon: 'wave', text: 'Yalnız Ses Analizi',
+      title: 'Video çizmeden yalnız ses analizini yazar: JSON, CSV ve MIDI',
+      onclick: () => actions.runAnalysisExport(),
+    });
+    anBtn.style.marginLeft = '8px';
+    anBtn.disabled = exporting;
 
     const fill = el('i', { id: 'exportProgressFill' });
     fill.style.width = (exporting ? exportPct : 0) + '%';
@@ -1887,7 +1896,7 @@
     }
 
     return el('div', { class: 'ctrl' }, [
-      el('div', { class: 'row' }, [runBtn, cancelBtn]),
+      el('div', { class: 'row' }, [runBtn, anBtn, cancelBtn]),
       bar,
       status,
     ]);
@@ -3656,6 +3665,13 @@
                eklenmez. Kare dizisinde ve bölümlemede yok. */
             type: 'toggle', path: 'export.loop', label: 'Kusursuz döngü (sonu başa bağla, sessiz)', rebuild: true,
             show: () => { const f = exportFormat(); return (!f || f.kind !== 'sequence') && !cfg.export.chapters; },
+          },
+          {
+            /* Ses analizi videonun yanına: kare başına ölçümler (JSON, CSV),
+               vuruş, davul ve akorlar (MIDI). Satırlar videonun kareleri;
+               döngüde çıktı başka kareden başladığı için orada yok. */
+            type: 'toggle', path: 'export.analysis', label: 'Ses analizini yanına yaz (JSON, CSV, MIDI)',
+            show: () => { const f = exportFormat(); return !(cfg.export.loop && (!f || f.kind !== 'sequence') && !cfg.export.chapters); },
           },
           {
             type: 'slider', path: 'export.loopCrossfade', label: 'Döngü Geçişi', min: 0.2, max: 2, step: 0.1,
@@ -6099,6 +6115,7 @@
     const bar = $('exportProgressBar');
     const fill = $('exportProgressFill');
     if (run) run.disabled = active;
+    if ($('exportAnalysisBtn')) $('exportAnalysisBtn').disabled = active;
     if (cancel) cancel.style.display = active ? 'inline-flex' : 'none';
     if (bar) bar.style.display = active ? 'block' : 'none';
     if (!active) exportPct = 0;
@@ -6135,6 +6152,7 @@
       chapterList: !!(cfg.export && cfg.export.chapterList) && (!fmt || fmt.kind === 'video'),
       loop: !!(cfg.export && cfg.export.loop) && !(cfg.export && cfg.export.chapters) && (!fmt || fmt.kind !== 'sequence'),
       loopCrossfade: cfg.export && cfg.export.loopCrossfade,
+      analysis: !!(cfg.export && cfg.export.analysis),
       sceneName,
       resolution: cfg.export.resolution,
       fps: cfg.export.fps,
@@ -6149,6 +6167,29 @@
     exporting = true;
     setExportUI(true);
     setExportStatus('Hazırlanıyor…');
+  };
+
+  /* Yalnız ses analizi: seçili ses dosyası, dışa aktarmanın kare hızıyla.
+     Dosyalar seçilen adla: "<ad>.json", yanına aynı adla .csv ve .mid. */
+  actions.runAnalysisExport = async () => {
+    if (exporting) return;
+    if (!exportAudioPath) {
+      setExportStatus('Önce bir ses dosyası seçin.', 'err');
+      return;
+    }
+    const base = (exportAudioName || 'ses').replace(/\.[^.]+$/, '');
+    const FX = window.SVExportFormats;
+    const outputPath = await window.api.pickAnalysisOutput(FX ? FX.sanitizeFileName(base, 'ses') : base);
+    if (!outputPath) return;
+    push(true);
+    const r = await window.api.startAnalysisExport({ audioPath: exportAudioPath, outputPath, fps: cfg.export.fps });
+    if (!r || !r.ok) {
+      setExportStatus((r && r.error) || 'Başlatılamadı', 'err', 'warning');
+      return;
+    }
+    exporting = true;
+    setExportUI(true);
+    setExportStatus('Ses çözümleniyor…');
   };
 
   async function init() {
@@ -6699,6 +6740,7 @@
     window.api.onExportProgress((d) => {
       if (d.phase === 'start') {
         exportEnc = d.encoderLabel || (d.encoder === 'gpu' ? 'GPU' : 'CPU');
+        exportKind = d.kind || 'video';
         return;
       }
       if (d.phase === 'encode') {
@@ -6714,7 +6756,9 @@
       if (fill) fill.style.width = pct + '%';
       /* Hız ve kalan süre (#532) ' · ' ile ekleniyor: çevirici satırı bu
          ayırıcıdan bölüp parçaları ayrı çeviriyor. */
-      let line = 'Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)';
+      let line = exportKind === 'analysis'
+        ? 'Ses çözümleniyor… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)'
+        : 'Render ediliyor [' + exportEnc + ']… %' + pct + '  (' + d.done + ' / ' + d.total + ' kare)';
       if (d.fps > 0) line += ' · ' + (d.fps >= 10 ? Math.round(d.fps) : d.fps) + ' fps';
       if (d.eta != null) line += ' · kalan ' + fmtClock(d.eta);
       setExportStatus(line);
@@ -6735,9 +6779,13 @@
     window.api.onExportDone((d) => {
       exporting = false;
       setExportUI(false);
-      if (d.status === 'done') {
+      if (d.status === 'done' && d.kind === 'analysis') {
+        setExportStatus('Ses analizi yazıldı (JSON, CSV, MIDI) → ' + d.output, 'ok', 'check-circle');
+      } else if (d.status === 'done') {
         const enc = d.encoderLabel || (d.encoder === 'gpu' ? 'GPU' : 'CPU');
-        setExportStatus('Tamamlandı (' + enc + ') → ' + d.output, 'ok', 'check-circle');
+        // Video hazır ama yan dosya yazılamadıysa ileti onu söylüyor
+        if (d.message) setExportStatus('Tamamlandı (' + enc + ') → ' + d.output + ' · ' + d.message, 'err', 'warning');
+        else setExportStatus('Tamamlandı (' + enc + ') → ' + d.output, 'ok', 'check-circle');
       } else if (d.status === 'cancelled') {
         setExportStatus('İptal edildi.');
       } else {

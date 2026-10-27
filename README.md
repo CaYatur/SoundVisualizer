@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3559%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3573%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -42,7 +42,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 | **60** visualizer modes | **43** backgrounds | **40** GPU effects | **18** scene transitions |
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
-| **10,347** MilkDrop presets tested | **96** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
+| **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
 
 </div>
 
@@ -76,7 +76,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 - **For creators.** Frame-exact **offline video export** from an audio file, one-key recording,
   music-video layouts, a **Now Playing** overlay with album art, and synced **lyrics** (LRC / SRT).
   [→ Export](#recording-and-video-export)
-- **AI-ready.** A local **MCP server** with 96 tools lets Claude, Codex, Cursor and other agents
+- **AI-ready.** A local **MCP server** with 97 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
   only. [→ MCP](#mcp--control-from-an-ai-agent)
 - **Private and offline.** No account, no telemetry, no cloud. The only call the application
@@ -179,7 +179,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
 | **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, and lets you edit or generate presets. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 96 tools, a documented config, and 2,700+ tests that check answers rather than lines. |
+| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 2,700+ tests that check answers rather than lines. |
 
 ---
 
@@ -961,6 +961,16 @@ the fixtures on the left take the colours on the left of the screen.
   "0:00 Intro" lines for the video description, or the export writes them next to the video. The
   list says when YouTube would not accept it: the first chapter at 0:00, at least three chapters,
   each at least 10 seconds.
+- <kbd>3.1.6</kbd> **Audio analysis as files.** An export can also write what the app measured in
+  the song, or "Audio Analysis Only" writes it without rendering video:
+  - `<name> - analysis.json` and `.csv`: one row per video frame with the bands, custom bands,
+    loudness, timbre, the twelve pitch classes, chord, key, BPM and beats;
+  - `<name> - analysis.mid`: beats, kick, snare and hi-hat on channel 10 and the stable chords as
+    notes, at the detected tempo, so it lines up with the song in a DAW.
+
+  Row N is frame N of the video, and the same file and frame rate always give the same files. The
+  CSV uses commas and a decimal point; in a Turkish Excel, open it with Data > From Text and pick
+  the comma. Not with a seamless loop, whose output starts mid-render.
 - <kbd>3.1.6</kbd> **Live recording can follow the timeline**: it starts when playback starts and
   stops at pause, stop or the end, including when MIDI, OSC or an AI agent drives the transport.
 - **Live recording** of the output exactly as it appears — with the live audio, modulation,
@@ -987,7 +997,7 @@ a local model behind an MCP client and uses that same command.
 
 The server speaks JSON-RPC `initialize`, `ping`, `tools/list` and `tools/call`. It accepts protocol
 versions `2024-11-05`, `2025-03-26` and `2025-06-18`, and answers `2024-11-05` for any other
-version. The server name is `soundvisualizer`. There are **96 tools**.
+version. The server name is `soundvisualizer`. There are **97 tools**.
 
 The client spawns the stdio bridge. The bridge posts to `http://127.0.0.1:<port>/mcp` with a bearer
 token. The socket binds `127.0.0.1` only. The port is **38471** unless you set another. Port
@@ -1113,7 +1123,8 @@ Creates and edits.
   and per-layer visualizer targets.
 - Export and recording: `sv_start_export` renders an audio file that exists on disk to a video path
   you name. Resolution, 30 or 60 frames per second, a CPU or GPU encoder, speed and quality are the
-  same options as the export panel. `sv_cancel_export` stops a running export. `sv_export_json`
+  same options as the export panel. `sv_export_analysis` writes only the audio analysis (JSON,
+  CSV and MIDI). `sv_cancel_export` stops a running export. `sv_export_json`
   writes the scene list, or the full settings, to a path, with no dialog. `sv_save_snapshot` writes
   the live picture to a path as a JPEG. These three tools take only an absolute local path with
   the matching extension: `.mp4` for the video, `.json` for the settings, `.jpg` or `.jpeg` for the
@@ -1807,7 +1818,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3559 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3573 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

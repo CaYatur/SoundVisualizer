@@ -1179,9 +1179,19 @@
         loop: sp('boolean', 'Seamless loop: render the length plus a crossfade and blend the end into the start, so the last frame flows into the first. No audio. Not with chapters or frame sequences. The spotify-canvas profile turns it on (1080x1920, 8 s).'),
         loopCrossfade: sp('number', 'Crossfade of the seamless loop in seconds (0.2-2, default 0.5; at most half the length).'),
         chapterList: sp('boolean', 'Also write the timeline markers as a YouTube chapter list ("0:00 Start" lines) to "<video name> - YouTube chapters.txt" (inside the folder when split into chapters). Video formats only; nothing is written without markers.'),
+        analysis: sp('boolean', 'Also write the audio analysis next to the video: "<video name> - analysis.json" and .csv (one row per video frame: bands, custom bands, loudness, timbre, pitch classes, chord, key, BPM, beats) and .mid (beats, kick/snare/hat, chords). Inside the folder for frame sequences and chapters. Not with loop.'),
         encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
         quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),
         speed: sp('string', 'Encoder speed. Default balanced.', { enum: ['fast', 'balanced', 'quality'] }),
+        overwrite: OVERWRITE,
+      },
+      required: ['audioPath', 'outputPath'],
+    },
+    sv_export_analysis: {
+      props: {
+        audioPath: sp('string', 'Absolute path of the audio file.'),
+        outputPath: sp('string', 'Absolute .json path. The .csv and .mid are written next to it with the same name.'),
+        fps: sp('integer', 'Rows per second (the frame rate the analysis is aligned to). Default 60.', { enum: EXPORT_FPS }),
         overwrite: OVERWRITE,
       },
       required: ['audioPath', 'outputPath'],
@@ -2201,6 +2211,15 @@
     const outBad = outPathError(ctx, args && args.outputPath, [fmt ? fmt.ext : 'mp4'], args && args.overwrite);
     if (outBad) return fail('outputPath: ' + outBad);
     return Promise.resolve(ctx.startExport(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
+  });
+  tool('sv_export_analysis', 'export', 'Write the audio analysis of a file without rendering video: <name>.json and .csv (one row per frame: bands, custom bands, loudness, timbre, pitch classes, chord, key, BPM, beats) and <name>.mid (beats, kick/snare/hat, chords). Runs as an export job; sv_cancel_export stops it.', function (args, ctx) {
+    if (!ctx.startAnalysis) return fail('Export is not available in this process.');
+    const FX = formatsApi();
+    const badOpt = FX && FX.validateOptions ? FX.validateOptions({ fps: args && args.fps }) : null;
+    if (badOpt) return fail('Invalid ' + badOpt.field + ': ' + JSON.stringify(badOpt.value) + '. Allowed: ' + badOpt.allowed.join(', ') + '.');
+    const outBad = outPathError(ctx, args && args.outputPath, ['json'], args && args.overwrite);
+    if (outBad) return fail('outputPath: ' + outBad);
+    return Promise.resolve(ctx.startAnalysis(args || {})).then(function (r) { return r && r.ok === false ? r : Object.assign({ ok: true }, r || {}); });
   });
   tool('sv_cancel_export', 'export', 'Cancel the running offline export.', function (args, ctx) {
     if (!ctx.cancelExport) return fail('Export is not available in this process.');

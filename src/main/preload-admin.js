@@ -145,6 +145,8 @@ contextBridge.exposeInMainWorld('api', {
   pickExportAudioMulti: () => ipcRenderer.invoke('export:pick-audio-multi'),
   pickExportFolder: (p) => ipcRenderer.invoke('export:pick-folder', p),
   startExport: (opts) => ipcRenderer.invoke('export:start', opts),
+  pickAnalysisOutput: (name) => ipcRenderer.invoke('export:pick-analysis-output', name),
+  startAnalysisExport: (opts) => ipcRenderer.invoke('export:analysis-start', opts),
   cancelExport: () => ipcRenderer.invoke('export:cancel'),
   onExportProgress: (cb) => ipcRenderer.on('export-progress', (e, d) => cb(d)),
   onExportDone: (cb) => ipcRenderer.on('export-done', (e, d) => cb(d)),

@@ -460,6 +460,11 @@
     'Kopyalandı; YouTube en az üç bölüm istiyor.': 'Copied; YouTube needs at least three chapters.',
     'Kopyalandı; YouTube her bölümün en az 10 saniye sürmesini istiyor.': 'Copied; YouTube needs every chapter to last at least 10 seconds.',
     'YouTube bölüm listesini yanına yaz (.txt)': 'Write a YouTube chapter list next to it (.txt)',
+    'Ses analizini yanına yaz (JSON, CSV, MIDI)': 'Write the audio analysis next to it (JSON, CSV, MIDI)',
+    'Yalnız Ses Analizi': 'Audio Analysis Only',
+    'Video çizmeden yalnız ses analizini yazar: JSON, CSV ve MIDI': 'Writes only the audio analysis, without rendering video: JSON, CSV and MIDI',
+    'Ses çözümleniyor…': 'Analysing the audio…',
+    'Ses analizi yazıldı (JSON, CSV, MIDI)': 'Audio analysis written (JSON, CSV, MIDI)',
     'Kusursuz döngü (sonu başa bağla, sessiz)': 'Seamless loop (end flows into start, no audio)',
     'Döngü Geçişi': 'Loop Crossfade',
     'Spotify Canvas — 1080×1920 döngü, 8 sn': 'Spotify Canvas — 1080×1920 loop, 8 s',
@@ -4117,6 +4122,7 @@
       // Dışa aktarımın kalan süresi (#532): "kalan 1:05"
       .replace(/^kalan (\d+(?::\d\d){1,2})$/, '$1 left')
       .replace(/^Tamamlandı \((.+)\) → (.+)$/g, 'Completed ($1) → $2')
+      .replace(/^Ses çözümleniyor… %(\d+)  \((\d+) \/ (\d+) kare\)$/g, 'Analysing the audio… $1% ($2 / $3 frames)')
       .replace(/^Tamamlandı \((.+)\)$/g, 'Completed ($1)')
       .replace(/^Şablonum (\d+)$/g, 'My Template $1')
       .replace(/^Portable sürüm yalnızca uygulama odaktayken kontrol eder \((\d+)\/(\d+)\)\.$/g, 'Portable version only controls while app is in focus ($1/$2).')
@@ -4692,6 +4698,10 @@
   "mcp.tool.sv_start_export": {
     "tr": "Çevrimdışı video dışa aktarmayı başlatır. audioPath ve outputPath gerekir. format kabı ve kodeki seçer; outputPath o biçimin uzantısıyla bitmeli. Kare dizisi, outputPath adıyla açılan yeni bir klasöre yazılır.",
     "en": "Start an offline video export. Requires audioPath and outputPath. format picks the container and codec; outputPath must end with the extension of that format. A frame sequence writes into a new folder named after outputPath."
+  },
+  "mcp.tool.sv_export_analysis": {
+    "tr": "Bir ses dosyasının analizini video çizmeden yazar: <ad>.json ve .csv (kare başına bir satır: bantlar, serbest bantlar, gürlük, tını, nota sınıfları, akor, tonalite, BPM, vuruşlar) ve <ad>.mid (vuruşlar, kick/snare/hi-hat, akorlar). Bir dışa aktarma işi olarak çalışır; sv_cancel_export durdurur.",
+    "en": "Write the audio analysis of a file without rendering video: <name>.json and .csv (one row per frame: bands, custom bands, loudness, timbre, pitch classes, chord, key, BPM, beats) and <name>.mid (beats, kick/snare/hat, chords). Runs as an export job; sv_cancel_export stops it."
   },
   "mcp.tool.sv_cancel_export": {
     "tr": "Süren çevrimdışı dışa aktarmayı iptal eder.",
