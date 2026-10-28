@@ -493,6 +493,20 @@ function create(deps) {
       return d.ok ? r : { ok: false, reason: d.reason };
     }
 
+    /* Pencere ekrandan büyük olamaz: küçük ekranda (1366x768, 1280x1024…)
+       yapıcıya verilen 1920x1080 ekrana kırpılıyordu (örn. 1279x1023); sayfa
+       da o boyutta yerleşiyor, oran bozuluyordu. `enableLargerThanScreen`
+       yalnız macOS'ta işe yarıyor; yapıcıdan SONRA verilen setContentSize
+       her platformda ekrandan büyük boyuta izin veriyor. Boyut zaten
+       doğruysa dokunulmaz. */
+    function fitSize() {
+      try {
+        if (!win || win.isDestroyed()) return;
+        const cur = win.getContentSize();
+        if (cur[0] !== cfg.width || cur[1] !== cfg.height) win.setContentSize(cfg.width, cfg.height);
+      } catch { /* boyut */ }
+    }
+
     function build() {
       destroyWindow();
       const r = checked();
@@ -507,6 +521,7 @@ function create(deps) {
         width: cfg.width,
         height: cfg.height,
         useContentSize: true,
+        enableLargerThanScreen: true,
         frame: false,
         transparent: !!cfg.transparent,
         backgroundColor: cfg.transparent ? '#00000000' : '#ffffff',
@@ -517,6 +532,7 @@ function create(deps) {
           zoomFactor: cfg.zoom,
         }),
       });
+      fitSize();
       const wc = win.webContents;
       WG.guardContents(wc, myCtx, { onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: wc.id }, info)) });
       wc.setAudioMuted(!cfg.audio);
@@ -527,6 +543,7 @@ function create(deps) {
       wc.on('page-title-updated', (_e, title) => { st.title = String(title || '').slice(0, 200); });
       wc.on('did-start-loading', () => { if (st.state !== 'live') st.state = 'loading'; });
       wc.on('did-finish-load', () => {
+        fitSize();
         crashes = 0;
         st.error = '';
         try { st.origin = WG.safeUrl(wc.getURL()); } catch { /* yok */ }

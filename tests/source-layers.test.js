@@ -883,6 +883,31 @@ test('önyükleme bloğu: bit eşlem dönüşümü 32 bitlik, ImageData yeniden 
   assert.deepStrictEqual(conv([10, 20, 30, 40, 1, 2, 3, 0], true), [30, 20, 10, 255, 3, 2, 1, 255]);
 });
 
+test('küçük ekran: ekrana kırpılan pencere kurulunca ayarlanan boyuta çekilir (oran bozulmaz)', () => {
+  const log = { windows: [] };
+  const Base = fakeWindowClass(log);
+  // Gerçek davranış: yapıcı ekrana (1280x1024 - 1) kırpar, setContentSize kırpmaz
+  class Clamped extends Base {
+    constructor(opts) { super(opts); this.content = [Math.min(opts.width, 1279), Math.min(opts.height, 1023)]; }
+    getContentSize() { return this.content; }
+    setContentSize(w, h) { this.content = [w, h]; super.setContentSize(w, h); }
+  }
+  const h = webHub(fakeGpu(), log, { electron: { BrowserWindow: Clamped, session: { fromPartition: () => fakeSession() } } });
+  h.sync(webCfg('https://a.org/', { width: 1920, height: 1080 }));
+  const win = log.windows[0];
+  assert.deepStrictEqual(win.content, [1920, 1080], 'kırpılan boyut geri alındı');
+  assert.strictEqual(win.opts.enableLargerThanScreen, true);
+  // Boyut zaten doğruysa dokunulmaz
+  win.size = null;
+  win.webContents.emit('did-finish-load');
+  assert.strictEqual(win.size, null);
+  // Yüklenince ekran değişmişse yeniden düzeltir
+  win.content = [1279, 1023];
+  win.webContents.emit('did-finish-load');
+  assert.deepStrictEqual(win.content, [1920, 1080]);
+  h.shutdown();
+});
+
 test('durum: kapatılan web / giriş katmanı "live" kalmaz, kare hızı sıfırlanır', () => {
   const log = { windows: [] };
   const h = webHub(fakeGpu(), log, { platform: 'linux' });
