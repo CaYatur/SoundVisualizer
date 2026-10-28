@@ -593,7 +593,7 @@ function handleRequest(req, res) {
     const expected = state.token;
     if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Gecersiz veya eksik jeton. URL sonuna ?token=... ekleyin.');
+      res.end(tokenErrorText(hooks, true));
       return;
     }
     sendPage(res, path.join(ROOT, 'web', 'overlay.html'), state.requireToken ? 'sv_token' : null, state.requireToken ? expected : null);
@@ -606,7 +606,7 @@ function handleRequest(req, res) {
     const expected = state.remoteToken || state.token;
     if (state.requireToken && (!expected || !safeCompare(urlToken, expected))) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Gecersiz veya eksik jeton. URL sonuna ?token=... ekleyin.');
+      res.end(tokenErrorText(hooks, true));
       return;
     }
     sendPage(res, path.join(ROOT, 'web', 'remote.html'), state.requireToken ? 'sv_remote_token' : null, state.requireToken ? expected : null);
@@ -627,7 +627,7 @@ function handleRequest(req, res) {
 
     if (!subresourceOk) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Gecersiz veya eksik jeton.');
+      res.end(tokenErrorText(hooks, false));
       return;
     }
   }
@@ -721,6 +721,14 @@ function servePresetSource(res, id) {
 
 /* Sayfayı servis ederken uygulamanın dilini enjekte eder ve alt kaynaklar
    için güvenli oturum çerezini tanımlar. */
+/* 401 yanıt metni uygulamanın arayüz diline göre. Sayfayı açan kişi çoğu zaman
+   aynı kullanıcı; İngilizce arayüzde Türkçe düz metin görünmesin. */
+function tokenErrorText(hooks, withHint) {
+  const en = !hooks || typeof hooks.getLocale !== 'function' || hooks.getLocale() !== 'tr';
+  if (en) return 'Invalid or missing token.' + (withHint ? ' Append ?token=... to the URL.' : '');
+  return 'Gecersiz veya eksik jeton.' + (withHint ? ' URL sonuna ?token=... ekleyin.' : '');
+}
+
 function sendPage(res, file, cookieName, tokenVal) {
   fs.readFile(file, 'utf-8', (err, html) => {
     if (err) { res.writeHead(500).end('page missing'); return; }
