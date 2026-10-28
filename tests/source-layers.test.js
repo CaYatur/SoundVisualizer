@@ -929,17 +929,28 @@ test('yerel modül: gönderilen kare alınıyor, bayt sırası ölçülüyor', {
   let frame = null;
   let shared = null;
   try {
+    /* Hangi aşamada kalındığı atlama iletisine yazılır. CI'daki Mac'te
+       (28.10) gönderici kuruldu ama kare gelmedi: Syphon sunucu duyurusu
+       Cocoa olay döngüsüne dayanıyor, düz Node sürecinde o döngü dönmüyor;
+       Electron'un ana sürecinde dönüyor. */
+    let listedSeen = false;
+    let rxError = '';
+    let frameError = '';
     for (let i = 0; i < 60 && !frame; i++) {
       sender.sendRgbaBuffer(px, W, H);
       await sleep(50);
       const listed = b.listSenders().some((s) => s && s.name === name);
       if (!listed) continue;
+      listedSeen = true;
       if (!rx) {
-        try { rx = new b.TextureReceiver(name, null, null); } catch { continue; }
+        try { rx = new b.TextureReceiver(name, null, null); } catch (e) { rxError = e.message; continue; }
       }
-      try { frame = rx.receiveFrame(); } catch { frame = null; }
+      try { frame = rx.receiveFrame(); } catch (e) { frame = null; frameError = e.message; }
     }
-    if (!frame) { t.skip('kare alınamadı (GPU yok olabilir)'); return; }
+    if (!frame) {
+      t.skip('kare alınamadı — listede: ' + listedSeen + ', alıcı: ' + (rx ? 'kuruldu' : rxError || 'yok') + (frameError ? ', alma: ' + frameError : ''));
+      return;
+    }
     assert.strictEqual(frame.width, W);
     assert.strictEqual(frame.height, H);
     assert.ok(frame.data.length >= W * H * 4);
