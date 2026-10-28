@@ -51,7 +51,7 @@ test('videonun süresinden sonraki işaretçiler atlanıyor; uzun videoda saat b
 
 test('ana süreç: liste başarıda videonun yanına, işaretçi yoksa dosya yok', () => {
   const main = read('src/main/main.js');
-  assert.match(main, /opts\.chapterList === true && fmt\.kind === 'video'/);
+  assert.match(main, /\(opts\.chapterList === true \|\| wantChapters\) && fmt\.kind === 'video'/);
   assert.match(main, /if \(markers\.length\) \{\s+chapterListText = exportFormats\.youtubeChapters\(markers, dur\.seconds,/);
   assert.match(main, /if \(status === 'done' && chapterListText && finalOut\)/);
   assert.match(main, /' - YouTube chapters\.txt'/);
@@ -72,4 +72,13 @@ test('panel, varsayılan, MCP ve çeviri', () => {
     assert.ok(i18n.includes("'" + k + "':"), 'çevirisi yok: ' + k);
   }
   assert.match(i18n, /\(\\d\+\) bölüm kopyalandı/);
+});
+
+test('bölümlere ayrılan iş listeyi ayrı seçenek olmadan da klasörüne yazıyor; tek dosyada seçenek şart', () => {
+  const main = read('src/main/main.js');
+  // Liste metni bölümleme ya da seçenekle hazırlanıyor; yazılış yolu klasör/yan dosya ayrımını koruyor
+  const at = main.indexOf("(opts.chapterList === true || wantChapters)");
+  assert.ok(at > 0 && at > main.indexOf('const wantChapters ='), 'wantChapters önce tanımlı');
+  assert.match(main, /const listPath = seqDir \? path\.join\(finalOut, 'YouTube chapters\.txt'\)/);
+  assert.match(read('src/shared/mcp.js'), /a split export writes it even when this is off/);
 });

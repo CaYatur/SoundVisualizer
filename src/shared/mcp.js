@@ -1180,7 +1180,7 @@
         chapters: sp('boolean', 'Split the video at the timeline markers into a folder of files named after the markers. One render; cuts land on forced keyframes. Video formats only.'),
         loop: sp('boolean', 'Seamless loop: render the length plus a crossfade and blend the end into the start, so the last frame flows into the first. No audio. Not with chapters or frame sequences. The spotify-canvas profile turns it on (1080x1920, 8 s).'),
         loopCrossfade: sp('number', 'Crossfade of the seamless loop in seconds (0.2-2, default 0.5; at most half the length).'),
-        chapterList: sp('boolean', 'Also write the timeline markers as a YouTube chapter list ("0:00 Start" lines) to "<video name> - YouTube chapters.txt" (inside the folder when split into chapters). Video formats only; nothing is written without markers.'),
+        chapterList: sp('boolean', 'Also write the timeline markers as a YouTube chapter list ("0:00 Start" lines) to "<video name> - YouTube chapters.txt" (inside the folder when split into chapters; a split export writes it even when this is off). Video formats only; nothing is written without markers.'),
         analysis: sp('boolean', 'Also write the audio analysis next to the video: "<video name> - analysis.json" and .csv (one row per video frame: bands, custom bands, loudness, timbre, pitch classes, chord, key, BPM, beats) and .mid (beats, kick/snare/hat, chords). Inside the folder for frame sequences and chapters. Not with loop.'),
         encoder: sp('string', 'Encoder. Default cpu.', { enum: ['cpu', 'gpu'] }),
         quality: sp('string', 'Quality.', { enum: ['visually-lossless', 'high', 'balanced'] }),

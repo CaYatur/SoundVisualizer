@@ -7978,9 +7978,12 @@ async function startExportJob(opts, bench, extra) {
 
   /* YouTube bölüm listesi (#837): işaretçilerden, videonun süresine göre.
      Metin şimdi hazırlanıyor, dosya iş başarıyla bitince yazılıyor. İşaretçi
-     yoksa dosya da yok. */
+     yoksa dosya da yok. Bölümlere ayrılan iş (#527) listeyi ayrıca istemeden de
+     klasörüne alıyor: klasör işaretçilerden çıkıyor, liste de aynı işaretçilerin
+     özeti; yalnız ayrı bir seçenekle yazılması "bölüm" seçilince dosyanın
+     neden çıkmadığını soruyordu. */
   let chapterListText = '';
-  if (opts.chapterList === true && fmt.kind === 'video') {
+  if ((opts.chapterList === true || wantChapters) && fmt.kind === 'video') {
     let markers = [];
     try { markers = TL.makeTimeline(tlCfg).markers; } catch { markers = []; }
     if (markers.length) {
@@ -8132,6 +8135,8 @@ async function startExportJob(opts, bench, extra) {
     /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
     alpha: !!fmt.alpha,
+    // Kusursuz döngüde canlı kaynak katmanları (web sayfası, Spout/Syphon) dondurulur
+    loopFreeze: !!loop,
     pix,
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
     durationSec: renderSec,

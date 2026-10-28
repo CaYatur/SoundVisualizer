@@ -49,6 +49,24 @@
       this._relayKey = null;
       this._cap = null;
       this._capCtx = null;
+      this._frozen = null;
+    }
+
+    /* DONDURMA (kusursuz döngü dışa aktarımı). Canlı bir kaynak (zamanlayıcılı
+       web sayfası, Spout/Syphon) kendi saatiyle akar: videonun son karesi ile
+       ilk karesi hiç buluşmaz, döngü kapanmaz. Dışa aktarıcı döngüde o anki
+       kareyi KOPYALAYIP bütün video boyunca onu çizer; durağan bir görüntü
+       döngüyü bozmaz. Kare henüz yoksa false. */
+    freeze() {
+      if (this._frozen) return true;
+      const f = this.frame();
+      if (!f || !(f.w > 0 && f.h > 0)) return false;
+      const snap = document.createElement('canvas');
+      snap.width = f.w;
+      snap.height = f.h;
+      snap.getContext('2d').drawImage(f.pic, 0, 0, f.w, f.h);
+      this._frozen = { pic: snap, w: f.w, h: f.h, seq: 'frozen' };
+      return true;
     }
 
     setLayer(layer) {
@@ -64,6 +82,8 @@
     /* Bu karede çizilecek görüntü: { pic, w, h, at } ya da null. */
     frame() {
       if (!this.key) return null;
+      // Donmuş kare hiç bayatlamaz (at her çağrıda şimdi)
+      if (this._frozen) return Object.assign({ at: Date.now() }, this._frozen);
       if (webPage()) {
         const slot = typeof window.SVRelaySlot === 'function' ? window.SVRelaySlot('src:' + this.key) : null;
         if (!slot || !slot.ready || !slot.img.naturalWidth) return null;

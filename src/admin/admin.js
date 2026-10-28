@@ -3656,7 +3656,14 @@
                kaynağın hızı videoyla eşleşmez. */
             type: 'note', warn: true,
             text: 'Sahnede Spout/Syphon girişi ya da web sayfası katmanı var: bunlar canlı kaynaklar, videoya çizim anındaki görüntüyle girer. Dışa aktarım gerçek zamandan hızlı ya da yavaş çizdiği için hareketleri videonun hızıyla eşleşmez; durağan bir sayfa ya da görüntü sorunsuzdur.',
-            show: () => sceneHasLiveSource(),
+            show: () => sceneHasLiveSource() && !exportLoopOn(),
+          },
+          {
+            /* Kusursuz döngüde canlı kaynak dondurulur: kendi saatiyle akan
+               bir sayfa (zamanlayıcı gibi) sonu başa bağlanmaz. */
+            type: 'note', warn: true,
+            text: 'Kusursuz döngü açık: Spout/Syphon girişi ve web sayfası katmanları canlı kaynaklar, saatleriyle akar ve sonu başa bağlanmaz. Bu yüzden dışa aktarım başlarken o anki görüntüleri dondurur; video boyunca aynı kare çizilir. Zamanlayıcı gibi hareket eden bir sayfa videoda durağan kalır.',
+            show: () => sceneHasLiveSource() && exportLoopOn(),
           },
           {
             type: 'select', path: 'export.duration.mode', label: 'Süre', rebuild: true,
@@ -3812,6 +3819,12 @@
         && cam(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {})));
     }
     return !!(cfg.media && cfg.media.enabled && cam(cfg.media));
+  }
+
+  // Kusursuz döngü bu biçimde ve bölümlemesiz gerçekten uygulanıyor mu
+  function exportLoopOn() {
+    const f = exportFormat();
+    return !!(cfg.export && cfg.export.loop) && (!f || f.kind !== 'sequence') && !(cfg.export && cfg.export.chapters);
   }
 
   // Sahnede açık bir Spout/Syphon girişi ya da web sayfası katmanı var mı

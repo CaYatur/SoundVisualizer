@@ -204,6 +204,7 @@
         s.x = round(clamp(num(s.x, 0.5) + dx, 0, 1));
         s.y = round(clamp(num(s.y, 0.5) + dy, 0, 1));
       },
+      resize: 'scale',
       fallbackBox(s, aspect) {
         // Kısa kenara oranlı kare (görselin oranı bilinmiyorsa)
         const sc = clamp(num(s.scale, 0.22), 0.02, 1.5);
@@ -228,6 +229,7 @@
         s.x = round(clamp(num(s.x, 0.5) + dx, -0.5, 1.5));
         s.y = round(clamp(num(s.y, 0.5) + dy, -0.5, 1.5));
       },
+      resize: 'size',
       fallbackBox(s) {
         const z = clamp(num(s.size, 1), 0.05, 1.5);
         return { x: num(s.x, 0.5) - z / 2, y: num(s.y, 0.5) - z / 2, w: z, h: z };
@@ -244,6 +246,7 @@
         s.x = round(clamp(num(s.x, 0.5) + dx, -0.5, 1.5));
         s.y = round(clamp(num(s.y, 0.5) + dy, -0.5, 1.5));
       },
+      resize: 'size',
       fallbackBox(s) {
         const z = clamp(num(s.size, 1), 0.05, 1.5);
         return { x: num(s.x, 0.5) - z / 2, y: num(s.y, 0.5) - z / 2, w: z, h: z };
@@ -358,6 +361,34 @@
     if (!Number.isFinite(v)) return false;
     sectionOf(layer, cfg, true)[key] = round(clamp(v, f.min, f.max));
     return true;
+  }
+
+  /* BOYUTLANDIRMA: yalnız tek ölçek ayarı olan öğeler (logo `scale`, dış
+     kaynaklar `size`). Kutunun merkezi (x, y) ve ölçek birlikte değişir; sol
+     üst köşe sabit kalır (sağ alt köşeden tutulup çekilir). `startBox` ve
+     `startVals` sürükleme başındaki kutu ve alan değerleri, `k` ölçek
+     çarpanı: toplam çarpan her harekette başlangıçtan uygulanır (birikme
+     hatası yok). Döndürdüğü gerçek çarpan sınırlara kırpılmış olandır. */
+  function canResize(layer) {
+    const kind = kindOf2(layer);
+    return !!(kind && KINDS[kind].resize);
+  }
+
+  function resizeBy(layer, cfg, startBox, startVals, k) {
+    const kind = kindOf2(layer);
+    const key = kind && KINDS[kind].resize;
+    if (!key || !startBox || !(k > 0) || !Number.isFinite(k)) return null;
+    const f = KINDS[kind].fields.find((x) => x.key === key);
+    const fx = KINDS[kind].fields.find((x) => x.key === 'x');
+    const fy = KINDS[kind].fields.find((x) => x.key === 'y');
+    const s0 = num(startVals && startVals[key], f.def);
+    const s1 = round(clamp(s0 * k, f.min, f.max));
+    const real = s0 > 0 ? s1 / s0 : 1;
+    const sec = sectionOf(layer, cfg, true);
+    sec[key] = s1;
+    sec.x = round(clamp(startBox.x + (startBox.w * real) / 2, fx.min, fx.max));
+    sec.y = round(clamp(startBox.y + (startBox.h * real) / 2, fy.min, fy.max));
+    return real;
   }
 
   function fallbackBox(layer, cfg, aspect) {
@@ -557,7 +588,7 @@
   }
 
   const api = {
-    SAFE, PLATFORM_ZONES, platformZones, KINDS, frameGuides, elementGuides, mergeGuides, snapBox,
+    SAFE, PLATFORM_ZONES, platformZones, KINDS, canResize, resizeBy, frameGuides, elementGuides, mergeGuides, snapBox,
     kindOf: kindOf2, stackOn, sectionOf, moveBy, getField, setField, fallbackBox, normBox,
     LAYOUT_TYPE, LAYOUT_VERSION, exportLayout, importLayout,
     STYLES, applyStyle, styleIdOf, TEXT_SOURCES, textSourceOf, setTextSource,

@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('api', {
 (function sourceFrames() {
   const st = sharedTexture;
   const cans = new Map();
+  const imgs = new Map();
   function canvasFor(key, w, h) {
     if (typeof key !== 'string' || !key || key.length > 200) return null;
     let c = cans.get(key);
@@ -98,14 +99,32 @@ contextBridge.exposeInMainWorld('api', {
       const src = new Uint8Array(raw.buffer || raw, raw.byteOffset || 0, raw.byteLength || raw.length);
       const n = m.w * m.h * 4;
       if (src.length < n) return;
-      const img = new ImageData(m.w, m.h);
+      /* ImageData her karede yeniden ayrılmaz (1080p'de 8 MB'lık çöp, 60 fps'te
+         saniyede yarım GB); boyut aynıysa aynı nesne yazılır. */
+      let img = imgs.get(m.key);
+      if (!img || img.width !== m.w || img.height !== m.h) { img = new ImageData(m.w, m.h); imgs.set(m.key, img); }
       const d = img.data;
+      let flat = false; // saydamlık kanalı zaten yazıldı
       if (m.format === 'bgra') {
-        for (let i = 0; i < n; i += 4) { d[i] = src[i + 2]; d[i + 1] = src[i + 1]; d[i + 2] = src[i]; d[i + 3] = src[i + 3]; }
+        /* B ile R'nin yerini değiştirmek: 32 bitlik tek okuma/yazma (piksel
+           başına dört bayt erişimi yerine). Tüm hedef platformlar küçük
+           sonlu; bayt sırası bu yüzden 0xAARRGGBB / 0xAABBGGRR. */
+        const s32 = src.byteOffset % 4 === 0 ? new Uint32Array(src.buffer, src.byteOffset, n >> 2) : null;
+        if (s32) {
+          const d32 = new Uint32Array(d.buffer, d.byteOffset, n >> 2);
+          const a = m.opaque ? 0xff000000 : 0;
+          for (let i = 0; i < d32.length; i++) {
+            const v = s32[i];
+            d32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >>> 16) & 0xff) | a;
+          }
+          flat = !!m.opaque;
+        } else {
+          for (let i = 0; i < n; i += 4) { d[i] = src[i + 2]; d[i + 1] = src[i + 1]; d[i + 2] = src[i]; d[i + 3] = src[i + 3]; }
+        }
       } else {
         d.set(src.subarray(0, n));
       }
-      if (m.opaque) for (let i = 3; i < n; i += 4) d[i] = 255;
+      if (m.opaque && !flat) for (let i = 3; i < n; i += 4) d[i] = 255;
       c.getContext('2d').putImageData(img, 0, 0);
       stamp(c);
     } catch { /* kare atlandı */ }
@@ -114,6 +133,7 @@ contextBridge.exposeInMainWorld('api', {
     const c = cans.get(key);
     if (c && c.parentNode) c.parentNode.removeChild(c);
     cans.delete(key);
+    imgs.delete(key);
   });
   ipcRenderer.send('sources:hello', { gpu: !!(st && typeof st.setSharedTextureReceiver === 'function') });
 })();

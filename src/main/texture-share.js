@@ -151,6 +151,22 @@ function onPaint(e) {
   }
 }
 
+/* Pencere boyutunu istenene çeker. Pencere kurulurken işletim sistemi onu
+   ekranın çalışma alanına kırpıyor (Windows'ta 1920x1080 istenince görev
+   çubuğu kadar kısa: 1920x1032; 4K'da daha da küçük) ve offscreen paint o
+   boyutta geliyor, gönderici de yanlış boyutta kuruluyor. Kurulduktan sonra
+   `setSize` kırpmaya takılmaz; boyut zaten doğruysa dokunulmaz. Dönüş: boyut
+   değişti mi (gönderici yeniden kurulmalı). */
+function fitSize(w, width, height) {
+  try {
+    if (!w || w.isDestroyed()) return false;
+    const [cw, ch] = w.getSize();
+    if (cw === width && ch === height) return false;
+    w.setSize(width, height);
+    return true;
+  } catch { return false; }
+}
+
 function start(cfg, hooks) {
   const c = Object.assign({}, DEFAULTS, cfg || {});
   const hks = hooks || {};
@@ -172,13 +188,7 @@ function start(cfg, hooks) {
   });
 
   if (win && !win.isDestroyed()) {
-    try {
-      const [currentW, currentH] = win.getSize();
-      if (currentW !== targetW || currentH !== targetH) {
-        win.setSize(targetW, targetH);
-        destroySender();
-      }
-    } catch {}
+    if (fitSize(win, targetW, targetH)) destroySender();
     try {
       win.webContents.setBackgroundThrottling(false);
       win.webContents.setFrameRate(Math.max(1, Math.min(60, Number(c.fps) || 60)));
@@ -203,6 +213,7 @@ function start(cfg, hooks) {
     show: false,
     width: targetW,
     height: targetH,
+    enableLargerThanScreen: true,
     backgroundColor: '#000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload-visualizer.js'),
@@ -214,6 +225,7 @@ function start(cfg, hooks) {
     },
   });
 
+  fitSize(win, targetW, targetH);
   win.webContents.on('paint', onPaint);
   win.on('closed', () => {
     win = null;
@@ -227,6 +239,7 @@ function start(cfg, hooks) {
   }
 
   win.webContents.on('did-finish-load', () => {
+    if (fitSize(win, targetW, targetH)) destroySender();
     if (typeof win.webContents.startPainting === 'function') {
       try { win.webContents.startPainting(); } catch {}
     }
@@ -284,4 +297,4 @@ function listSenders() {
   try { return b.listSenders(); } catch { return []; }
 }
 
-module.exports = { start, stop, status, available, listSenders, window: window_, DEFAULTS, bridge: loadBridge };
+module.exports = { start, stop, status, available, listSenders, window: window_, DEFAULTS, bridge: loadBridge, _fitSize: fitSize };

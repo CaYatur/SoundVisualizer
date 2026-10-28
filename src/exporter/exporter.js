@@ -269,6 +269,9 @@
     stack.resize(width, height);
     stack.setConfig(cfg);
     setupMedia();
+    /* Kusursuz döngü: canlı kaynaklar (web sayfası, Spout/Syphon) kendi
+       saatiyle akıyor, son kare başa bağlanmaz. O anki kare dondurulur. */
+    if (job.loopFreeze) await stack.freezeSources(8000);
     // Son-işlem zinciri dışa aktarımda da uygulanır; efektler ekrandakiyle
     // aynı sırada ve aynı parametrelerle çalışır.
     if (Array.isArray(cfg.postfx) && cfg.postfx.length && window.SVPostFX) {

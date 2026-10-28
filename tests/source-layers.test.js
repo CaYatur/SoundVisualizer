@@ -833,6 +833,243 @@ test('web: Linux\'ta bit eşlem yolu, BGRA bayt sırasıyla', () => {
   h.shutdown();
 });
 
+test('web: bit eşlem yolu seçilen kare hızını kısmaz (60 fps 30\'a düşmez, oynamaya takılmaz)', () => {
+  let clock = 1000;
+  const run = (fps, gaps) => {
+    const log = { windows: [] };
+    const h = webHub(fakeGpu(), log, { platform: 'linux', now: () => clock });
+    h.sync(webCfg('https://a.org/', { fps, transparent: false }));
+    const win = log.windows[0];
+    const c = fakeConsumer();
+    h.addConsumer(c, { gpu: false });
+    let toBitmap = 0;
+    const image = { getSize: () => ({ width: 2, height: 1 }), toBitmap: () => { toBitmap++; return Buffer.alloc(8); } };
+    let painted = 0;
+    for (const g of gaps) { clock += g; win.webContents.emit('paint', {}, {}, image); painted++; }
+    const sent = c.sentMsgs.filter((m) => m[0] === 'sources:bitmap').length;
+    h.shutdown();
+    return { sent, painted, toBitmap };
+  };
+  // 60 fps: aralık 16,67 ms ± 1,5 ms oynama (ölçümde ~46 fps çıkaran durum)
+  const jit = Array.from({ length: 120 }, (_, i) => 16.67 + (i % 2 ? 1.5 : -1.5));
+  const r60 = run(60, jit);
+  assert.strictEqual(r60.sent, r60.painted, 'seçilen 60 fps\'te hiçbir kare elenmemeli');
+  // 30 fps seçiliyken 60 fps'lik akış yarıya iner
+  const r30 = run(30, Array.from({ length: 120 }, () => 16.67));
+  assert.ok(r30.sent >= 55 && r30.sent <= 62, '30 fps: ' + r30.sent);
+  // elenen kare için 8 MB'lık kopya hiç üretilmez
+  assert.strictEqual(r30.toBitmap, r30.sent, 'elenen kare toBitmap() çağırmamalı');
+  // yapay 30 fps sınırı hiçbir yolda kalmadı
+  assert.doesNotMatch(read('src/main/layer-sources.js'), /CPU_MAX_FPS/);
+});
+
+test('Spout/Syphon girişi: bit eşlem (GPU okuma) yolu 30 fps\'e kısılmaz, gönderici hızı sınırdır', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const br = fakeBridge();
+  let reads = 0;
+  const origRecv = br.TextureReceiver.prototype.receiveFrame;
+  br.TextureReceiver.prototype.receiveFrame = function () { reads++; return origRecv.call(this); };
+  const h = hub(fakeGpu(), br, { platform: 'linux' });
+  const c = fakeConsumer();
+  h.addConsumer(c, { gpu: false });
+  h.sync(inputCfg());
+  const rx = br.receivers[0];
+  rx.connected = true;
+  // 60 fps'lik gönderici, 8 ms'lik yoklamayla (~120 Hz) her 16-17 ms'de yeni kare
+  const bitmaps = () => c.sentMsgs.filter((m) => m[0] === 'sources:bitmap').length;
+  let sent = 0;
+  let next = 16;
+  for (let ms = 1; ms <= 2000; ms++) {
+    if (ms === next) { rx.newFrame = true; sent++; next += sent % 2 ? 17 : 16; } // 16/17 ms oynak 60 fps
+    t.mock.timers.tick(1);
+  }
+  assert.ok(sent >= 100, 'gönderici ' + sent);
+  assert.strictEqual(bitmaps(), sent, 'gönderilen her kare pencereye ulaştı (30 fps sınırı olsa ~60 olurdu)');
+  assert.strictEqual(reads, sent, 'kare başına tek okuma, fazladan kopya yok');
+  // gönderici kare vermediyse okuma da yok
+  const before = reads;
+  t.mock.timers.tick(500);
+  assert.strictEqual(reads, before, 'yeni kare yokken GPU okuması yapılmaz');
+  h.shutdown();
+});
+
+test('Spout/Syphon girişi: bit eşlem alacak pencere yoksa ekran kartından okuma yapılmaz', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const br = fakeBridge();
+  let reads = 0;
+  const origRecv = br.TextureReceiver.prototype.receiveFrame;
+  br.TextureReceiver.prototype.receiveFrame = function () { reads++; return origRecv.call(this); };
+  const h = hub(fakeGpu(), br, { platform: 'linux' });
+  const g = fakeConsumer();
+  h.addConsumer(g, { gpu: true }); // yalnız doku alan pencere
+  h.sync(inputCfg());
+  const rx = br.receivers[0];
+  rx.connected = true;
+  // doku yolu başarısız olup bit eşleme düşmüş (cpu) olsa bile gpu'lu pencereye bit eşlem gitmez
+  const src = read('src/main/layer-sources.js');
+  assert.match(src, /function needsBitmap\(/);
+  assert.match(src, /if \(!needsBitmap\(!gpuToo\)\) return;/);
+  h.shutdown();
+  assert.strictEqual(reads, 0);
+});
+
+test('önyükleme bloğu: bit eşlem dönüşümü 32 bitlik, ImageData yeniden kullanılıyor', () => {
+  const body = read('src/main/preload-visualizer.js');
+  assert.match(body, /new Uint32Array\(d\.buffer/);
+  assert.match(body, /imgs\.get\(m\.key\)/);
+  assert.match(body, /imgs\.delete\(key\)/);
+  // bayt sırası: B,G,R,A -> R,G,B,A
+  const conv = (bgra, opaque) => {
+    const src = new Uint8Array(bgra);
+    const s32 = new Uint32Array(src.buffer, 0, src.length >> 2);
+    const out = new Uint8Array(src.length);
+    const d32 = new Uint32Array(out.buffer);
+    const a = opaque ? 0xff000000 : 0;
+    for (let i = 0; i < d32.length; i++) { const v = s32[i]; d32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >>> 16) & 0xff) | a; }
+    return Array.from(out);
+  };
+  assert.deepStrictEqual(conv([10, 20, 30, 40, 1, 2, 3, 0], false), [30, 20, 10, 40, 3, 2, 1, 0]);
+  assert.deepStrictEqual(conv([10, 20, 30, 40, 1, 2, 3, 0], true), [30, 20, 10, 255, 3, 2, 1, 255]);
+});
+
+test('küçük ekran: ekrana kırpılan pencere kurulunca ayarlanan boyuta çekilir (oran bozulmaz)', () => {
+  const log = { windows: [] };
+  const Base = fakeWindowClass(log);
+  // Gerçek davranış: yapıcı ekrana (1280x1024 - 1) kırpar, setContentSize kırpmaz
+  class Clamped extends Base {
+    constructor(opts) { super(opts); this.content = [Math.min(opts.width, 1279), Math.min(opts.height, 1023)]; }
+    getContentSize() { return this.content; }
+    setContentSize(w, h) { this.content = [w, h]; super.setContentSize(w, h); }
+  }
+  const h = webHub(fakeGpu(), log, { electron: { BrowserWindow: Clamped, session: { fromPartition: () => fakeSession() } } });
+  h.sync(webCfg('https://a.org/', { width: 1920, height: 1080 }));
+  const win = log.windows[0];
+  assert.deepStrictEqual(win.content, [1920, 1080], 'kırpılan boyut geri alındı');
+  assert.strictEqual(win.opts.enableLargerThanScreen, true);
+  // Boyut zaten doğruysa dokunulmaz
+  win.size = null;
+  win.webContents.emit('did-finish-load');
+  assert.strictEqual(win.size, null);
+  // Yüklenince ekran değişmişse yeniden düzeltir
+  win.content = [1279, 1023];
+  win.webContents.emit('did-finish-load');
+  assert.deepStrictEqual(win.content, [1920, 1080]);
+  h.shutdown();
+});
+
+/* Kusursuz döngü (dışa aktarım): canlı kaynak o anki kareye dondurulur. */
+function loadSourceLayer(frameCanvasRef) {
+  const vm = require('vm');
+  const made = [];
+  const win = {
+    api: {},
+    CSS: { escape: (x) => x },
+  };
+  const doc = {
+    querySelector: () => frameCanvasRef.c,
+    createElement: () => {
+      const c = { width: 0, height: 0, copied: [], getContext: () => ({ drawImage: (pic) => c.copied.push(pic) }) };
+      made.push(c);
+      return c;
+    },
+  };
+  const ctx = vm.createContext({ window: win, CSS: win.CSS, document: doc, Date, setInterval, clearInterval, setTimeout, clearTimeout, console });
+  vm.runInContext(read('src/shared/source-layers.js'), ctx);
+  vm.runInContext(read('src/visualizer/modes/source.js'), ctx);
+  return { SourceLayer: win.SVSourceLayer, made };
+}
+
+test('kusursuz döngü: canlı kaynak kopyalanıp dondurulur; sonra kaynak değişse de aynı kare', () => {
+  const ref = { c: null };
+  const { SourceLayer, made } = loadSourceLayer(ref);
+  const layer = { id: 'W', kind: 'web', settings: { web: { url: 'https://a.org/' } } };
+  const s = new SourceLayer({});
+  s.setLayer(layer);
+  assert.strictEqual(s.freeze(), false, 'kare yokken dondurulamaz');
+  assert.strictEqual(s.frame(), null);
+  const live = { width: 1920, height: 1080, dataset: { at: String(Date.now()), seq: '5' } };
+  ref.c = live;
+  assert.strictEqual(s.freeze(), true);
+  assert.strictEqual(made.length, 1, 'tek kopya');
+  assert.strictEqual(made[0].width, 1920);
+  assert.strictEqual(made[0].copied[0], live, 'kopya canlı tuvalden alındı');
+  // Canlı tuval ilerliyor (zamanlayıcı): dondurulmuş kare değişmez
+  live.dataset.seq = '999';
+  live.width = 640;
+  const f = s.frame();
+  assert.strictEqual(f.pic, made[0]);
+  assert.strictEqual(f.w, 1920);
+  assert.strictEqual(f.seq, 'frozen');
+  // Kaynak kesilse bile (bayat) donmuş kare bayatlamaz
+  live.dataset.at = '1';
+  assert.ok(Date.now() - s.frame().at < 1000);
+  assert.strictEqual(s.freeze(), true);
+  assert.strictEqual(made.length, 1, 'ikinci dondurma yeniden kopyalamaz');
+  // Dondurulmayan katman canlı akar
+  const free = new SourceLayer({});
+  free.setLayer(layer);
+  live.width = 800; live.height = 450; live.dataset.at = String(Date.now());
+  assert.strictEqual(free.frame().pic, live);
+});
+
+test('kusursuz döngü: dışa aktarıcı yalnız döngüde dondurur; panel uyarısı döngüye göre değişir', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /loopFreeze: !!loop,/);
+  assert.match(read('src/exporter/exporter.js'), /if \(job\.loopFreeze\) await stack\.freezeSources\(8000\);/);
+  const layers = read('src/visualizer/layers.js');
+  assert.match(layers, /async freezeSources\(ms\) \{/);
+  assert.match(layers, /e\.source\.setLayer\(e\.layer\);\s*\n\s*let ok = e\.source\.freeze\(\);/);
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /show: \(\) => sceneHasLiveSource\(\) && !exportLoopOn\(\),/);
+  assert.match(admin, /show: \(\) => sceneHasLiveSource\(\) && exportLoopOn\(\),/);
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(i18n.includes("'Kusursuz döngü açık: Spout/Syphon girişi ve web sayfası katmanları canlı kaynaklar"));
+});
+
+test('durum: kapatılan web / giriş katmanı "live" kalmaz, kare hızı sıfırlanır', () => {
+  const log = { windows: [] };
+  const h = webHub(fakeGpu(), log, { platform: 'linux' });
+  const cfg = webCfg('https://a.org/', { transparent: false });
+  h.sync(cfg);
+  const win = log.windows[0];
+  h.addConsumer(fakeConsumer(), { gpu: false });
+  win.webContents.emit('paint', {}, {}, { getSize: () => ({ width: 2, height: 1 }), toBitmap: () => Buffer.alloc(8) });
+  const key = SL.sourceKey(cfg.layers[0]);
+  assert.strictEqual(h.status()[key].state, 'live');
+  assert.strictEqual(h.status()[key].active, true);
+  cfg.layers[0].enabled = false;
+  h.sync(cfg);
+  const off = h.status()[key];
+  assert.strictEqual(off.active, false);
+  assert.strictEqual(off.state, 'paused', 'kapalı katman live göstermemeli');
+  assert.strictEqual(off.fps, 0);
+  cfg.layers[0].enabled = true;
+  h.sync(cfg);
+  assert.strictEqual(h.status()[key].state, 'live', 'geri açılınca live');
+  h.shutdown();
+});
+
+test('panel: katman kapatılınca durum satırı hemen "duraklatıldı" olur', () => {
+  global.window = global.window || {};
+  require('../src/shared/source-layers.js');
+  global.localStorage = global.localStorage || { getItem: () => null, setItem() {}, removeItem() {} };
+  window.SVPanel = { el: () => ({}), cfg: () => ({}) };
+  delete require.cache[require.resolve('../src/admin/scene-panels.js')];
+  require('../src/admin/scene-panels.js');
+  const txt = window.SVScenePanels.sourceStatusText;
+  const live = { kind: 'web', state: 'live', width: 1920, height: 1080, fps: 30, active: true };
+  assert.match(txt('web', live, { enabled: true }).text, /Yüklendi/);
+  const off = txt('web', live, { enabled: false });
+  assert.doesNotMatch(off.text, /Yüklendi|fps/);
+  assert.match(off.text, /duraklatıldı/);
+  assert.strictEqual(off.bad, false);
+  // ana süreç 'paused' bildirince de aynı
+  assert.match(txt('web', { kind: 'web', state: 'paused', active: false, width: 2, height: 1, fps: 0 }, { enabled: true }).text, /duraklatıldı/);
+  // hata durumu duraklatılmış olsa da görünür kalır
+  const bad = txt('web', { kind: 'web', state: 'failed', active: false }, { enabled: false });
+  assert.strictEqual(bad.bad, true);
+});
+
 // ------------------------------------------------------- kaynağa bakan denetim
 
 test('önyükleme bloğu üç dosyada aynı, yalnız electron require ediliyor', () => {

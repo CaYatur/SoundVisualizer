@@ -69,3 +69,18 @@ test('tema kartları: yeniden çizimden sonra odak yeni karta dönüyor, tıklam
   assert.match(admin, /if \(themeFocus\) \{[\s\S]{0,200}\.ui-theme-opt[\s\S]{0,200}back\.focus/);
   assert.match(admin, /o\.focus\(\{ preventScroll: true \}\);\s*\n\s*pick\(c\.id\)/);
 });
+
+test('boyutlandırma tutamacı: köşeden sürükleme ve +/− tuşları, yalnız boyutlanabilir öğelerde', () => {
+  assert.match(ED, /LY\(\)\.canResize\(e\.layer\)/);
+  assert.match(ED, /class: 'lay-handle'/);
+  // Tutamaçtan başlayan sürükleme kutunun taşıma sürüklemesini tetiklemesin
+  assert.match(ED, /h\.addEventListener\('pointerdown', \(ev\) => \{ ev\.stopPropagation\(\); startResize\(ev, e\.id, b\); \}\)/);
+  assert.match(ED, /LY\(\)\.resizeBy\(d\.e\.layer, P\(\)\.cfg\(\), startBox, startVals,/);
+  assert.match(ED, /ev\.key === '\+' \|\| ev\.key === '='/);
+  assert.match(ED, /if \(!k\) \{ resizeKey\(ev, id\); return; \}/);
+  const css = read('src/admin/admin.css');
+  assert.match(css, /\.lay-handle \{[^}]*cursor: nwse-resize/);
+  const i18n = read('src/shared/i18n.js');
+  ["'+ ve − ile boyutlandırın':", "'Boyutlandırmak için sürükleyin':", "'Boyut: kutunun sağ alt köşesinden"]
+    .forEach((k) => assert.ok(i18n.includes(k), k));
+});

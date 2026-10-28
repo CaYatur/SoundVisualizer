@@ -22,7 +22,10 @@
    tamamı, GPU belleği 20 sn boyunca sabit.
 
    YEDEK YOL (CPU). Doku alınamazsa (sürücü, platform; Linux'ta web katmanı
-   her zaman) kare bit eşlem olarak gider, en çok 30 fps.
+   her zaman) kare bit eşlem olarak gider. Web katmanında hız sınırı
+   kullanıcının seçtiği kare hızıdır (60 seçilirse 60); Spout/Syphon girişinde
+   göndericinin kare hızı (yapay sınır yok). Bit eşlemi alacak pencere yoksa
+   GPU'dan okuma hiç yapılmaz.
 
    SAHİPLİK. Her doku ve tutamaç HER YOLDA bırakılır: Spout/Syphon
    tutamacı içe alımdan sonra da `closeNativeHandle` ile (Electron kendi
@@ -46,7 +49,13 @@ const GRACE_MS = 3000;
    çözünürlüğüne (15,6 ms) takılıp 60 fps bir göndericiden ~41 fps alıyordu;
    yoklama ucuz (yeni kare yoksa bir bayrak okuması). */
 const POLL_MS = 1000 / 120;
-const CPU_MAX_FPS = 30;
+/* Bit eşlem yolunda kare hızına yapay üst sınır YOK. Web katmanında sınırı
+   kullanıcının seçtiği kare hızı, Spout/Syphon girişinde göndericinin kendi
+   kare hızı belirler (alıcı yalnız yeni kare olunca okur, yoklama 120 Hz).
+   Alt aralık, seçilen hızın aralığının bu katı. Electron kareleri zaten seçilen hızda üretiyor; gecikmeli ya da
+   erken gelen bir kare (60 fps'te 16,67 ms'lik aralığa ±1 ms oynama) tam
+   eşikte elenir ve 60 seçilince ~46 fps çıkardı. */
+const CPU_FPS_SLACK = 0.8;
 const STALE_MS = 1500;
 const RECONNECT_MS = 1000;
 const CONNECT_TRY_MS = 250;
@@ -179,19 +188,25 @@ function create(deps) {
     return true;
   }
 
-  /* Bit eşlem yolu: BGRA ya da RGBA bayt dizisi. Pencere başına en çok
-     CPU_MAX_FPS; dokuyu alabilen pencereye bu yol gitmez (`gpuToo` değilse). */
-  function deliverBitmap(key, w, h, format, data, gpuToo, opaque) {
+  /* Bit eşlem yolu: BGRA ya da RGBA bayt dizisi. `minGapMs` verilirse pencere
+     başına en az o aralık (web: seçilen hıza göre); verilmezse kare atlanmaz.
+     Dokuyu alabilen pencereye bu yol gitmez (`gpuToo` değilse). */
+  function deliverBitmap(key, w, h, format, data, gpuToo, opaque, minGapMs) {
     const t = now();
+    const gap = minGapMs > 0 ? minGapMs : 0;
     let sent = 0;
+    let bytes = null;
     for (const c of consumers.values()) {
       if (!c.ready || c.wc.isDestroyed()) continue;
       if (c.gpu && !gpuToo) continue;
       const last = c.lastCpu.get(key) || 0;
-      if (t - last < 1000 / CPU_MAX_FPS) continue;
+      if (t - last < gap) continue;
       c.lastCpu.set(key, t);
       try {
-        c.wc.send('sources:bitmap', { key, w, h, format, data, opaque: !!opaque });
+        /* `data` işlevse bayt dizisi ilk alıcıya gelince, bir kez üretilir:
+           elenen kare için 8 MB'lık kopya (1080p) yapılmaz. */
+        if (bytes === null) bytes = typeof data === 'function' ? data() : data;
+        c.wc.send('sources:bitmap', { key, w, h, format, data: bytes, opaque: !!opaque });
         sent++;
       } catch { /* pencere kapanıyor */ }
     }
@@ -209,6 +224,14 @@ function create(deps) {
 
   function baseState(kind) {
     return { kind, state: 'starting', width: 0, height: 0, fps: 0, path: '', error: '', frames: 0, dropped: 0 };
+  }
+
+  /* Panele giden durum: duraklatılmış (katman kapalı, sessiz, başka katman
+     solo) kaynak "live" kalmaz ve kare hızı sıfırdır. Hata durumları
+     (çöktü, başarısız, hata) duraklatılmış olsa da görünür kalır. */
+  function shownState(st, active, fps) {
+    const idle = !active && (st.state === 'live' || st.state === 'waiting' || st.state === 'loading' || st.state === 'starting');
+    return { state: idle ? 'paused' : st.state, fps: active ? fps : 0 };
   }
 
   function fpsMeter() {
@@ -381,7 +404,17 @@ function create(deps) {
       return false;
     }
 
+    /* Bit eşlem alacak pencere var mı? Yoksa GPU'dan okuma (kare başına
+       büyük bir kopya) hiç yapılmaz. */
+    function needsBitmap(toGpuWindowsToo) {
+      for (const c of consumers.values()) {
+        if (c.ready && !c.wc.isDestroyed() && (!c.gpu || toGpuWindowsToo)) return true;
+      }
+      return false;
+    }
+
     function cpuCopy(t, gpuToo) {
+      if (!needsBitmap(!gpuToo)) return;
       let f = null;
       try { f = receiver.receiveFrame(); } catch { f = null; }
       if (!f || !f.data) return;
@@ -426,7 +459,7 @@ function create(deps) {
         active = !!isActive;
       },
       status() {
-        return Object.assign({}, st, { fps: meter.read(), sender: cfg.sender, app: cfg.app, actual: st.actual || '', active });
+        return Object.assign({}, st, shownState(st, active, meter.read()), { sender: cfg.sender, app: cfg.app, actual: st.actual || '', active });
       },
       pause() { active = false; },
       stop() {
@@ -472,6 +505,20 @@ function create(deps) {
       return d.ok ? r : { ok: false, reason: d.reason };
     }
 
+    /* Pencere ekrandan büyük olamaz: küçük ekranda (1366x768, 1280x1024…)
+       yapıcıya verilen 1920x1080 ekrana kırpılıyordu (örn. 1279x1023); sayfa
+       da o boyutta yerleşiyor, oran bozuluyordu. `enableLargerThanScreen`
+       yalnız macOS'ta işe yarıyor; yapıcıdan SONRA verilen setContentSize
+       her platformda ekrandan büyük boyuta izin veriyor. Boyut zaten
+       doğruysa dokunulmaz. */
+    function fitSize() {
+      try {
+        if (!win || win.isDestroyed()) return;
+        const cur = win.getContentSize();
+        if (cur[0] !== cfg.width || cur[1] !== cfg.height) win.setContentSize(cfg.width, cfg.height);
+      } catch { /* boyut */ }
+    }
+
     function build() {
       destroyWindow();
       const r = checked();
@@ -486,6 +533,7 @@ function create(deps) {
         width: cfg.width,
         height: cfg.height,
         useContentSize: true,
+        enableLargerThanScreen: true,
         frame: false,
         transparent: !!cfg.transparent,
         backgroundColor: cfg.transparent ? '#00000000' : '#ffffff',
@@ -496,6 +544,7 @@ function create(deps) {
           zoomFactor: cfg.zoom,
         }),
       });
+      fitSize();
       const wc = win.webContents;
       WG.guardContents(wc, myCtx, { onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: wc.id }, info)) });
       wc.setAudioMuted(!cfg.audio);
@@ -506,6 +555,7 @@ function create(deps) {
       wc.on('page-title-updated', (_e, title) => { st.title = String(title || '').slice(0, 200); });
       wc.on('did-start-loading', () => { if (st.state !== 'live') st.state = 'loading'; });
       wc.on('did-finish-load', () => {
+        fitSize();
         crashes = 0;
         st.error = '';
         try { st.origin = WG.safeUrl(wc.getURL()); } catch { /* yok */ }
@@ -615,7 +665,7 @@ function create(deps) {
       st.height = size.height;
       st.path = 'cpu';
       tick();
-      deliverBitmap(key, size.width, size.height, 'bgra', image.toBitmap(), true, !cfg.transparent);
+      deliverBitmap(key, size.width, size.height, 'bgra', () => image.toBitmap(), true, !cfg.transparent, CPU_FPS_SLACK * 1000 / cfg.fps);
     }
 
     function tick() {
@@ -709,8 +759,8 @@ function create(deps) {
         setActive(isActive);
       },
       status() {
-        return Object.assign({}, st, {
-          fps: meter.read(), active, layerId,
+        return Object.assign({}, st, shownState(st, active, meter.read()), {
+          active, layerId,
           interacting: !!(interactWin && !interactWin.isDestroyed()),
           gpu,
         });
