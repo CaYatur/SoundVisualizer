@@ -424,3 +424,195 @@ _requested 2561×1602; the window could not be that large on this screen._
 | 8 | 74.7 | 13.50 | 6 |
 | 9 | 73.9 | 13.50 | 6 |
 | 10 | 74.8 | 13.40 | 7 |
+
+## Results on a low-end machine
+
+Measured on 2026-10-28 on a 2015 laptop: a two-thread Celeron N3050, 2 GB of RAM, Intel HD
+Graphics and a 1366×768 screen at 60 Hz. Only the 1280×720 canvas was measured, with a 2 s
+warm-up and 4 s per scene. The run used the application at `4ec3d59` from a copy without git
+history, so the script printed `?` as the commit; the header below says so. These figures show
+what the application does on very weak hardware. As above, they are not for ranking machines.
+
+- **No scene reaches 60 Hz.** The fastest scenes run at 37–39 fps, and they are the ones that draw
+  nothing: the custom visualizer with no shader takes 25.7 ms a frame, and Solid Color under Bars
+  27.1 ms. On this machine most of the frame time is a fixed cost paid before any scene draws.
+- **Visualizers:** 42 of 60 run at 30 fps or more. Below 15 fps: Voronoi 5.1, Kaleidoscope 12.4,
+  Galaxy 12.6, Attractor Field 14.3.
+- **Backgrounds:** 21 of 43 run at 30 fps or more. Below 15 fps: Globe Mesh 10.4, Halftone 13.5.
+- **Post effects:** 34 of 40 run at 25–28.5 fps, about 5 ms a frame over Bars alone (30.4 ms).
+  The rest: blur 13.8, tiltshift 17.9, starfilter 18.1, paint 20.0, godrays 21.8, bloom 23.3.
+- The heavy scenes are not the same as on the fast machine. Voronoi is heavy on both; Wave Field,
+  the slowest scene there, is in the middle here at 23.9 fps.
+
+The script takes the fastest scene as the measured refresh rate. That holds when cheap scenes keep
+up with vsync, as on the fast machine. Here none does, so the "39 Hz" it printed is the fastest
+scene, not the display; the line below is corrected by hand, and read every figure against 60.
+
+### npm run bench — 2026-10-28 (low-end machine)
+
+- Script: `scripts/bench.js` on `4ec3d59` (copy without git history; the script printed `?`), Electron 44.9.0, Windows_NT 10.0.19044 x64
+- CPU: Intel(R) Celeron(R) CPU  N3050  @ 1.60GHz (2 threads), RAM 2 GB
+- GPU: ANGLE (Intel, Intel(R) HD Graphics (0x000022B1) Direct3D11 vs_5_0 ps_5_0, D3D11-20.19.15.5107), driver 20.19.15.5107
+- Display: 1366×768 @ 60 Hz, scale 1
+- Vsync **on**, display 60 Hz. No scene reached it; the script printed the fastest scene (39 fps) as the refresh rate
+- Each scene: 2 s warm-up, 4 s measured, synthetic 120 BPM audio
+
+#### 1280×720 (canvas 1280×720)
+
+**Visualizers (over the default background)**
+
+| Scene | fps | avg ms | p95 ms | max ms | > 33 ms |
+|---|---:|---:|---:|---:|---:|
+| Voronoi (`voronoi`) | 5.1 | 197.64 | 233.40 | 250.0 | 100.0% |
+| Attractor Field (`attractorfield`) | 14.3 | 69.89 | 127.30 | 201.9 | 89.7% |
+| Galaxy (`galaxy`) | 12.6 | 79.09 | 112.60 | 116.7 | 100.0% |
+| Kaleidoscope (`kaleido`) | 12.4 | 80.57 | 104.20 | 165.7 | 98.0% |
+| Truchet (`truchet`) | 16.9 | 58.99 | 87.10 | 116.7 | 91.0% |
+| Moiré (`moire`) | 16.6 | 60.15 | 72.00 | 88.8 | 98.5% |
+| Blocks (`blocks`) | 18.2 | 55.03 | 66.70 | 100.1 | 94.5% |
+| Wave Interference (`interference`) | 19.7 | 50.83 | 66.70 | 66.8 | 95.0% |
+| Ripple Grid (`ripplegrid`) | 20.6 | 48.42 | 66.70 | 100.1 | 81.0% |
+| Dot Matrix (`dots`) | 21.3 | 46.90 | 66.60 | 92.6 | 88.4% |
+| Flow Field (`flowfield`) | 21.7 | 46.17 | 66.60 | 99.9 | 71.3% |
+| 3D Wave (`wave3d`) | 28.5 | 35.13 | 56.50 | 83.6 | 45.6% |
+| Confetti (`confetti`) | 25.8 | 38.84 | 56.00 | 66.7 | 50.5% |
+| Ropes (`ropes`) | 20.6 | 48.61 | 54.60 | 72.1 | 91.4% |
+| Terrain (`terrain`) | 29.1 | 34.34 | 54.60 | 78.2 | 47.4% |
+| Ridgelines (`ridges`) | 28.1 | 35.57 | 54.40 | 84.1 | 42.9% |
+| Now Playing (`nowplaying`) — draws nothing without user content | 38.8 | 25.78 | 52.40 | 54.8 | 16.2% |
+| Isometric City (`isocity`) | 33.5 | 29.85 | 51.60 | 67.5 | 33.6% |
+| Bars (`bars`) | 32.9 | 30.40 | 50.10 | 66.9 | 37.1% |
+| Studio (`custom`) — draws nothing without user content | 38.9 | 25.68 | 50.10 | 54.6 | 16.1% |
+| MilkDrop (`milkdrop`) | 29.1 | 34.34 | 50.00 | 51.6 | 38.5% |
+| 3D Geometry (`geometry`) | 30.0 | 33.30 | 49.40 | 88.9 | 43.7% |
+| Ribbon (`ribbon`) | 33.6 | 29.71 | 48.60 | 54.3 | 34.3% |
+| Center (`centerBars`) | 33.0 | 30.30 | 47.20 | 68.8 | 33.3% |
+| City Skyline (`skyline`) | 32.5 | 30.77 | 45.80 | 84.7 | 39.2% |
+| Mandala (`mandala`) | 33.8 | 29.63 | 43.80 | 53.8 | 25.9% |
+| Vortex (`vortex`) | 34.2 | 29.23 | 43.40 | 61.2 | 27.7% |
+| VU Meter (`vumeter`) | 37.3 | 26.83 | 41.10 | 56.1 | 22.4% |
+| Circle (`circular`) | 34.5 | 28.99 | 39.70 | 64.0 | 27.5% |
+| Level Meter (PPM) (`levelmeter`) | 38.4 | 26.02 | 39.70 | 62.8 | 20.3% |
+| Starburst (`starburst`) | 29.9 | 33.44 | 39.20 | 52.6 | 40.3% |
+| Oscilloscope (XY) (`scope`) | 36.3 | 27.59 | 39.10 | 70.7 | 24.8% |
+| Feedback (`feedback`) | 33.8 | 29.61 | 38.70 | 70.3 | 25.2% |
+| Stereo Trails (`stereotrails`) | 32.2 | 31.03 | 38.70 | 49.9 | 28.9% |
+| Beat Pads (`beatpads`) | 33.1 | 30.18 | 38.50 | 67.4 | 27.3% |
+| Helix (`helix`) | 34.3 | 29.18 | 38.40 | 47.1 | 18.4% |
+| Lightning (`lightning`) | 36.0 | 27.80 | 38.40 | 66.8 | 18.8% |
+| Radar Chart (`radar`) | 35.4 | 28.23 | 38.40 | 55.5 | 20.6% |
+| Arcs (`arcs`) | 33.6 | 29.79 | 38.20 | 55.2 | 27.1% |
+| DNA Helix (`dna`) | 35.4 | 28.22 | 38.20 | 66.8 | 20.7% |
+| Flock (`flock`) | 34.5 | 28.99 | 38.20 | 50.0 | 23.2% |
+| Fireworks (`fireworks`) | 36.1 | 27.66 | 38.10 | 50.3 | 21.0% |
+| Pendulum Wave (`pendulum`) | 35.8 | 27.94 | 38.10 | 55.4 | 21.1% |
+| Goniometer (`goniometer`) | 36.6 | 27.29 | 38.00 | 49.5 | 23.3% |
+| Radial Wave (`radialWave`) | 35.6 | 28.09 | 38.00 | 47.9 | 24.5% |
+| Bouncing Balls (`bounce`) | 35.2 | 28.43 | 37.90 | 49.6 | 26.4% |
+| Bubbles (`bubbles`) | 35.5 | 28.19 | 37.90 | 54.2 | 18.6% |
+| Text / Lyrics (`text`) | 38.5 | 25.96 | 37.90 | 56.9 | 19.5% |
+| Pinwheel (`pinwheel`) | 35.8 | 27.96 | 37.80 | 46.6 | 21.1% |
+| Lissajous (`lissajous`) | 36.4 | 27.46 | 37.50 | 47.0 | 25.5% |
+| Cardioid (`cardioid`) | 33.9 | 29.54 | 37.40 | 47.3 | 26.5% |
+| Strings (`strings`) | 33.2 | 30.15 | 37.40 | 54.4 | 30.3% |
+| Particle (`particles`) | 35.9 | 27.83 | 37.30 | 47.7 | 18.9% |
+| Chroma Wheel (`chromawheel`) | 36.0 | 27.82 | 37.20 | 54.9 | 22.4% |
+| DJ Waveform (`djwave`) | 34.9 | 28.67 | 37.10 | 53.6 | 18.0% |
+| Orb (`orb`) | 35.0 | 28.59 | 37.10 | 55.2 | 19.4% |
+| Spectrogram (`spectrogram`) | 37.0 | 27.01 | 36.90 | 54.6 | 18.2% |
+| Liquid Drop (`metaball`) | 35.6 | 28.07 | 36.80 | 63.3 | 18.3% |
+| Tunnel (`tunnel`) | 35.9 | 27.86 | 36.80 | 55.2 | 24.5% |
+| Wave (`wave`) | 35.8 | 27.97 | 34.60 | 39.8 | 20.3% |
+
+**Backgrounds (with the Bars visualizer)**
+
+| Scene | fps | avg ms | p95 ms | max ms | > 33 ms |
+|---|---:|---:|---:|---:|---:|
+| Globe Mesh (`globe`) | 10.4 | 96.34 | 149.30 | 166.6 | 100.0% |
+| Halftone (`halftone`) | 13.5 | 73.98 | 146.90 | 149.9 | 83.3% |
+| City (`city`) | 19.4 | 51.45 | 100.00 | 113.2 | 89.7% |
+| Isometric Cubes (`cubes`) | 17.4 | 57.63 | 83.40 | 116.8 | 94.3% |
+| Low Poly (`lowpoly`) | 15.4 | 65.04 | 83.40 | 116.6 | 96.7% |
+| Plasma (`plasma`) | 16.2 | 61.80 | 83.40 | 116.6 | 100.0% |
+| Spiral (`spiral`) | 21.1 | 47.42 | 83.20 | 117.2 | 83.3% |
+| Embers (`embers`) | 18.3 | 54.57 | 71.50 | 116.7 | 98.6% |
+| Starfield (`starfield`) | 22.1 | 45.19 | 70.00 | 100.1 | 73.0% |
+| Pulse Rings (`rings`) | 25.1 | 39.77 | 67.20 | 83.4 | 53.5% |
+| Wave Field (`wavefield`) | 23.9 | 41.93 | 67.20 | 116.6 | 67.4% |
+| Caustics (`caustics`) | 20.1 | 49.80 | 66.80 | 83.8 | 85.2% |
+| Circuit Board (`circuit`) | 23.5 | 42.56 | 66.80 | 85.0 | 73.4% |
+| Hex Pulse (`hexpulse`) | 22.7 | 44.14 | 66.80 | 83.3 | 76.7% |
+| Stained Glass (`stained`) | 26.4 | 37.93 | 66.80 | 83.4 | 57.1% |
+| Liquid Metal (`liquid`) | 19.6 | 51.06 | 66.70 | 84.8 | 93.7% |
+| Sand (`sand`) | 22.6 | 44.14 | 66.30 | 103.2 | 70.3% |
+| Snow / Embers (`snow`) | 29.9 | 33.49 | 65.60 | 83.2 | 45.8% |
+| Honeycomb Grid (`hexgrid`) | 24.6 | 40.74 | 53.70 | 66.7 | 65.7% |
+| Mosaic (`mosaic`) | 25.4 | 39.35 | 50.50 | 66.7 | 61.2% |
+| Fireflies (`fireflies`) | 33.6 | 29.74 | 50.30 | 67.1 | 31.1% |
+| Lava Lamp (`lavalamp`) | 26.6 | 37.54 | 50.30 | 66.5 | 49.5% |
+| Storm (`storm`) | 31.1 | 32.10 | 50.20 | 83.3 | 40.0% |
+| Clouds (`clouds`) | 28.8 | 34.77 | 50.10 | 66.7 | 49.1% |
+| Retro Grid (`grid`) | 34.6 | 28.90 | 50.00 | 66.9 | 25.9% |
+| Ink (`ink`) | 35.0 | 28.58 | 50.00 | 78.9 | 27.9% |
+| Network (`network`) | 32.3 | 30.93 | 50.00 | 100.0 | 41.5% |
+| Contours (`contours`) | 32.3 | 30.92 | 49.90 | 76.9 | 40.8% |
+| Northern Lights (`aurora`) | 30.8 | 32.43 | 49.80 | 75.7 | 40.3% |
+| Corridor (`corridor`) | 35.5 | 28.21 | 49.50 | 66.7 | 26.6% |
+| Prism (`prism`) | 34.9 | 28.69 | 49.20 | 69.0 | 21.6% |
+| Wave Layers (`waves`) | 33.9 | 29.54 | 49.20 | 83.2 | 31.6% |
+| Wire Tunnel (`wireframe`) | 35.7 | 27.98 | 48.80 | 97.7 | 26.6% |
+| Nebula (`nebula`) | 35.6 | 28.09 | 47.50 | 63.1 | 25.2% |
+| Fluid Gradient (`gradient`) | 32.3 | 30.98 | 47.20 | 61.4 | 40.3% |
+| Digital Rain (`rain`) | 31.0 | 32.22 | 47.00 | 66.6 | 41.1% |
+| Solid Color (`solid`) | 36.8 | 27.14 | 46.70 | 64.1 | 23.6% |
+| Studio (`custom`) — draws nothing without user content | 37.5 | 26.69 | 45.70 | 52.3 | 25.2% |
+| Ribbons (`ribbons`) | 33.9 | 29.48 | 45.60 | 83.5 | 27.7% |
+| Underwater (`underwater`) | 32.5 | 30.79 | 45.40 | 66.8 | 31.5% |
+| Stage Lights (`spotlights`) | 36.0 | 27.81 | 44.10 | 64.2 | 23.6% |
+| Mirror Pattern (`mirror`) | 34.1 | 29.33 | 38.10 | 66.5 | 36.5% |
+| Light Particles (`bokeh`) | 35.5 | 28.16 | 37.50 | 64.5 | 23.6% |
+
+**Post effects (one at a time, over Bars)**
+
+| Scene | fps | avg ms | p95 ms | max ms | > 33 ms |
+|---|---:|---:|---:|---:|---:|
+| `blur` | 13.8 | 72.51 | 86.80 | 92.7 | 100.0% |
+| `starfilter` | 18.1 | 55.30 | 71.20 | 91.1 | 97.2% |
+| `tiltshift` | 17.9 | 55.87 | 70.90 | 77.9 | 100.0% |
+| `paint` | 20.0 | 49.94 | 66.80 | 72.0 | 94.9% |
+| `vhs` | 28.1 | 35.53 | 66.60 | 83.5 | 50.0% |
+| `trails` | 26.7 | 37.39 | 63.00 | 68.3 | 55.1% |
+| `dof` | 25.1 | 39.84 | 62.10 | 68.2 | 67.0% |
+| `sharpen` | 27.8 | 35.94 | 61.30 | 71.0 | 47.8% |
+| `slitscan` | 27.0 | 37.09 | 58.30 | 68.4 | 56.1% |
+| `vignette` | 28.2 | 35.41 | 56.80 | 83.4 | 48.7% |
+| `glitch` | 28.5 | 35.11 | 56.70 | 69.0 | 45.6% |
+| `radialblur` | 26.0 | 38.50 | 56.20 | 66.0 | 60.6% |
+| `zoomblur` | 26.0 | 38.47 | 56.20 | 67.6 | 63.5% |
+| `ascii` | 27.9 | 35.77 | 56.10 | 74.4 | 53.6% |
+| `chroma` | 28.2 | 35.47 | 56.10 | 68.9 | 50.9% |
+| `twirl` | 28.1 | 35.63 | 55.60 | 62.0 | 46.4% |
+| `godrays` | 21.8 | 45.79 | 55.50 | 75.6 | 82.8% |
+| `bloom` | 23.3 | 43.02 | 55.40 | 72.4 | 65.6% |
+| `crt` | 27.9 | 35.81 | 55.40 | 62.7 | 53.1% |
+| `dither` | 28.1 | 35.58 | 55.40 | 70.5 | 48.2% |
+| `motionblur` | 26.1 | 38.30 | 55.30 | 76.1 | 61.2% |
+| `ripple` | 28.0 | 35.75 | 55.30 | 68.4 | 50.9% |
+| `hatch` | 28.1 | 35.55 | 55.10 | 67.4 | 46.4% |
+| `edge` | 27.3 | 36.68 | 55.00 | 65.6 | 55.6% |
+| `levels` | 28.2 | 35.42 | 54.90 | 66.6 | 51.8% |
+| `badtv` | 28.1 | 35.58 | 54.70 | 79.4 | 54.0% |
+| `halftone` | 28.3 | 35.36 | 54.70 | 66.5 | 48.7% |
+| `grain` | 28.2 | 35.41 | 54.50 | 79.1 | 53.6% |
+| `lens` | 28.3 | 35.40 | 54.30 | 67.9 | 48.6% |
+| `emboss` | 28.2 | 35.42 | 54.20 | 66.1 | 52.7% |
+| `grade` | 28.0 | 35.73 | 54.20 | 60.9 | 57.7% |
+| `pixelate` | 28.1 | 35.57 | 53.60 | 62.7 | 53.6% |
+| `polar` | 28.1 | 35.57 | 53.60 | 56.3 | 53.6% |
+| `posterize` | 28.3 | 35.30 | 53.40 | 61.7 | 53.1% |
+| `threshold` | 28.1 | 35.62 | 52.30 | 68.7 | 50.0% |
+| `gradientmap` | 28.3 | 35.38 | 51.40 | 60.1 | 56.1% |
+| `datamosh` | 28.0 | 35.68 | 51.30 | 67.4 | 49.1% |
+| `mirror` | 28.4 | 35.25 | 50.40 | 66.8 | 49.6% |
+| `solarize` | 28.2 | 35.44 | 50.40 | 55.4 | 49.1% |
+| `kaleido` | 28.1 | 35.55 | 50.10 | 62.3 | 54.9% |
