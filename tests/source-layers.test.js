@@ -908,6 +908,75 @@ test('küçük ekran: ekrana kırpılan pencere kurulunca ayarlanan boyuta çeki
   h.shutdown();
 });
 
+/* Kusursuz döngü (dışa aktarım): canlı kaynak o anki kareye dondurulur. */
+function loadSourceLayer(frameCanvasRef) {
+  const vm = require('vm');
+  const made = [];
+  const win = {
+    api: {},
+    CSS: { escape: (x) => x },
+  };
+  const doc = {
+    querySelector: () => frameCanvasRef.c,
+    createElement: () => {
+      const c = { width: 0, height: 0, copied: [], getContext: () => ({ drawImage: (pic) => c.copied.push(pic) }) };
+      made.push(c);
+      return c;
+    },
+  };
+  const ctx = vm.createContext({ window: win, CSS: win.CSS, document: doc, Date, setInterval, clearInterval, setTimeout, clearTimeout, console });
+  vm.runInContext(read('src/shared/source-layers.js'), ctx);
+  vm.runInContext(read('src/visualizer/modes/source.js'), ctx);
+  return { SourceLayer: win.SVSourceLayer, made };
+}
+
+test('kusursuz döngü: canlı kaynak kopyalanıp dondurulur; sonra kaynak değişse de aynı kare', () => {
+  const ref = { c: null };
+  const { SourceLayer, made } = loadSourceLayer(ref);
+  const layer = { id: 'W', kind: 'web', settings: { web: { url: 'https://a.org/' } } };
+  const s = new SourceLayer({});
+  s.setLayer(layer);
+  assert.strictEqual(s.freeze(), false, 'kare yokken dondurulamaz');
+  assert.strictEqual(s.frame(), null);
+  const live = { width: 1920, height: 1080, dataset: { at: String(Date.now()), seq: '5' } };
+  ref.c = live;
+  assert.strictEqual(s.freeze(), true);
+  assert.strictEqual(made.length, 1, 'tek kopya');
+  assert.strictEqual(made[0].width, 1920);
+  assert.strictEqual(made[0].copied[0], live, 'kopya canlı tuvalden alındı');
+  // Canlı tuval ilerliyor (zamanlayıcı): dondurulmuş kare değişmez
+  live.dataset.seq = '999';
+  live.width = 640;
+  const f = s.frame();
+  assert.strictEqual(f.pic, made[0]);
+  assert.strictEqual(f.w, 1920);
+  assert.strictEqual(f.seq, 'frozen');
+  // Kaynak kesilse bile (bayat) donmuş kare bayatlamaz
+  live.dataset.at = '1';
+  assert.ok(Date.now() - s.frame().at < 1000);
+  assert.strictEqual(s.freeze(), true);
+  assert.strictEqual(made.length, 1, 'ikinci dondurma yeniden kopyalamaz');
+  // Dondurulmayan katman canlı akar
+  const free = new SourceLayer({});
+  free.setLayer(layer);
+  live.width = 800; live.height = 450; live.dataset.at = String(Date.now());
+  assert.strictEqual(free.frame().pic, live);
+});
+
+test('kusursuz döngü: dışa aktarıcı yalnız döngüde dondurur; panel uyarısı döngüye göre değişir', () => {
+  const main = read('src/main/main.js');
+  assert.match(main, /loopFreeze: !!loop,/);
+  assert.match(read('src/exporter/exporter.js'), /if \(job\.loopFreeze\) await stack\.freezeSources\(8000\);/);
+  const layers = read('src/visualizer/layers.js');
+  assert.match(layers, /async freezeSources\(ms\) \{/);
+  assert.match(layers, /e\.source\.setLayer\(e\.layer\);\s*\n\s*let ok = e\.source\.freeze\(\);/);
+  const admin = read('src/admin/admin.js');
+  assert.match(admin, /show: \(\) => sceneHasLiveSource\(\) && !exportLoopOn\(\),/);
+  assert.match(admin, /show: \(\) => sceneHasLiveSource\(\) && exportLoopOn\(\),/);
+  const i18n = read('src/shared/i18n.js');
+  assert.ok(i18n.includes("'Kusursuz döngü açık: Spout/Syphon girişi ve web sayfası katmanları canlı kaynaklar"));
+});
+
 test('durum: kapatılan web / giriş katmanı "live" kalmaz, kare hızı sıfırlanır', () => {
   const log = { windows: [] };
   const h = webHub(fakeGpu(), log, { platform: 'linux' });

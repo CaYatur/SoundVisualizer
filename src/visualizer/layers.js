@@ -1331,6 +1331,27 @@
       this.revived = (this.revived || 0) + 1;
     }
 
+    /* Kusursuz döngü dışa aktarımı: canlı kaynak katmanlarının (web sayfası,
+       Spout/Syphon) o anki karesi dondurulur; video boyunca aynı görüntü
+       çizilir. İlk kare `ms` içinde gelmezse o katman donmadan kalır.
+       { frozen, missing } döndürür. */
+    async freezeSources(ms) {
+      const end = Date.now() + (ms > 0 ? ms : 0);
+      let frozen = 0;
+      let missing = 0;
+      for (const e of this.entries) {
+        if (!e || !e.source || !e.layer || e.layer.enabled === false) continue;
+        e.source.setLayer(e.layer);
+        let ok = e.source.freeze();
+        while (!ok && Date.now() < end) {
+          await new Promise((r) => setTimeout(r, 50));
+          ok = e.source.freeze();
+        }
+        if (ok) frozen++; else missing++;
+      }
+      return { frozen, missing };
+    }
+
     _disposeEntry(e) {
       // Vekilin tuvali canlı bir katmanın tuvali; ona dokunmak onu silerdi
       if (e.proxyOf) return;

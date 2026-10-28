@@ -8131,6 +8131,8 @@ async function startExportJob(opts, bench, extra) {
     /* Saydam biçimde sahne yayın katmanıyla aynı kuralla çizilir:
        arkaplan boyanmaz, arkaplan efektinin koyu yerleri saydamlaşır. */
     alpha: !!fmt.alpha,
+    // Kusursuz döngüde canlı kaynak katmanları (web sayfası, Spout/Syphon) dondurulur
+    loopFreeze: !!loop,
     pix,
     // 0 = sesin süresi; aksi hâlde kare sayısı bundan (#523). Döngüde geçiş payıyla (#840)
     durationSec: renderSec,

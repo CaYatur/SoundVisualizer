@@ -4018,6 +4018,7 @@
     'Ortaya al ve bütün kareyi kaplasın': 'Center it and fill the whole frame',
     'Düzen Editöründe kutuyu sürükleyerek de yerleştirebilirsiniz.': 'You can also place the box by dragging it in the Layout Editor.',
     'Sahnede Spout/Syphon girişi ya da web sayfası katmanı var: bunlar canlı kaynaklar, videoya çizim anındaki görüntüyle girer. Dışa aktarım gerçek zamandan hızlı ya da yavaş çizdiği için hareketleri videonun hızıyla eşleşmez; durağan bir sayfa ya da görüntü sorunsuzdur.': 'The scene has a Spout/Syphon input or web page layer: these are live sources and enter the video with the picture at drawing time. Export draws faster or slower than real time, so their motion does not match the video speed; a still page or picture is fine.',
+    'Kusursuz döngü açık: Spout/Syphon girişi ve web sayfası katmanları canlı kaynaklar, saatleriyle akar ve sonu başa bağlanmaz. Bu yüzden dışa aktarım başlarken o anki görüntüleri dondurur; video boyunca aynı kare çizilir. Zamanlayıcı gibi hareket eden bir sayfa videoda durağan kalır.': 'Seamless loop is on: Spout/Syphon input and web page layers are live sources that run on their own clock and do not join end to start. So the export freezes their current picture when it starts, and the same frame is drawn for the whole video. A page that moves, such as a timer, stays still in the video.',
     'Gönderici bekleniyor:': 'Waiting for sender:',
     'Gönderici seçilmedi': 'No sender selected',
     'Sayfa yükleniyor…': 'Loading page…',
