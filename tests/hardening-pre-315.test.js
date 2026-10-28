@@ -87,7 +87,30 @@ test('gezinme kilidi: her pencereye kurulur, açılır pencere yok', () => {
   assert.deepStrictEqual(handler({ url: 'https://openrgb.org/' }), { action: 'deny' });
   assert.deepStrictEqual(handler({ url: 'file:///C:/x.exe' }), { action: 'deny' });
   assert.deepStrictEqual(opened, ['https://openrgb.org/']);
-  assert.match(read('src/main/main.js'), /require\('\.\/nav-guard'\)\.install\(app, shell, path\.join\(__dirname, '\.\.'\)\);/);
+  assert.match(read('src/main/main.js'), /require\('\.\/nav-guard'\)\.install\(app, shell, path\.join\(__dirname, '\.\.'\), \(wc\) => !!\(layerSources && layerSources\.isWebContents\(wc\)\)\);/);
+});
+
+test('gezinme kilidi: yalnız web katmanının sayfaları muaf, onlar da dış tarayıcı açamaz', () => {
+  const app = new EventEmitter();
+  const opened = [];
+  const root = path.join(__dirname, '..', 'src');
+  const webSession = {};
+  Nav.install(app, { openExternal: (u) => opened.push(u) }, root, (wc) => wc.session === webSession);
+  const mk = (session) => {
+    const c = new EventEmitter();
+    c.session = session;
+    c.handler = null;
+    c.setWindowOpenHandler = (h) => { c.handler = h; };
+    app.emit('web-contents-created', {}, c);
+    return c;
+  };
+  const appPage = mk({});
+  const webPage = mk(webSession);
+  assert.ok(appPage.handler, 'uygulama sayfası kilitli');
+  assert.strictEqual(appPage.listenerCount('will-navigate'), 1);
+  assert.strictEqual(webPage.handler, null, 'web katmanı kendi bekçisini kurar (web-layer-guard.js)');
+  assert.strictEqual(webPage.listenerCount('will-navigate'), 0);
+  assert.deepStrictEqual(opened, []);
 });
 
 test('dışa aktarma: çıktı yerel ve mutlak, uzantı biçimin kendisi; ses yolu mutlak', () => {

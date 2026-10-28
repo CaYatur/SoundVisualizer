@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, sharedTexture } = require('electron');
 
 contextBridge.exposeInMainWorld('exp', {
   // Ana süreç -> render: iş tanımı (ses + boyut + fps + yapılandırma)
@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('api', {
    Kum havuzunda require yok; bu blok preload-visualizer, preload-admin ve
    preload-exporter'da AYNI (tests/source-layers.test.js denetler). */
 (function sourceFrames() {
-  const st = require('electron').sharedTexture;
+  const st = sharedTexture;
   const cans = new Map();
   function canvasFor(key, w, h) {
     if (typeof key !== 'string' || !key || key.length > 200) return null;

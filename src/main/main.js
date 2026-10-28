@@ -2385,6 +2385,8 @@ function closeVisualizer(displayId) {
    bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
+  // Web katmanının görünmez sayfaları ve etkileşim pencereleri (layer-sources.js)
+  if (layerSources) layerSources.shutdown();
   /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
   finalizeExport('cancelled');
@@ -6383,6 +6385,9 @@ function ensureLayerSources() {
   if (layerSources || !app.isReady()) return layerSources;
   layerSources = layerSourcesLib.create({
     electron: require('electron'),
+    /* SV_SOURCES_CPU=1: doku yolu kapalı, kareler bit eşlem gider. Linux'un
+       yolunu Windows'ta ve macOS'ta denemek için (geliştirme). */
+    sharedTexture: process.env.SV_SOURCES_CPU === '1' ? null : undefined,
     loadBridge: textureShare.bridge,
     ownSenderNames: () => {
       const t = (currentConfig && currentConfig.textureShare) || {};

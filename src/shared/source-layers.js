@@ -280,15 +280,25 @@
   }
 
   /* Gönderici listesinden bu uygulamanın kendi çıkışı ayrılır: kendi
-     görüntüsünü giriş olarak almak bir geri besleme döngüsü kurar. */
+     görüntüsünü giriş olarak almak bir geri besleme döngüsü kurar. Spout
+     aynı ad yeniden kaydedilince sonuna `_1`, `_2` ekliyor (önceki kopya
+     düzgün kapanmadıysa da); o adlar da bizim. */
+  function isOwnSender(name, ownNames) {
+    const n = String(name || '');
+    return (ownNames || []).filter(Boolean).map(String).some((o) => {
+      if (n === o) return true;
+      const rest = n.slice(o.length + 1);
+      return n.length > o.length + 1 && n.slice(0, o.length + 1) === o + '_' && /^\d+$/.test(rest);
+    });
+  }
+
   function splitSenders(list, ownNames) {
-    const own = new Set((ownNames || []).filter(Boolean).map(String));
     const others = [];
     const mine = [];
     (Array.isArray(list) ? list : []).forEach((s) => {
       if (!s || typeof s.name !== 'string' || !s.name) return;
       const item = { name: s.name.slice(0, LIMITS.sender), app: typeof s.appName === 'string' ? s.appName.slice(0, LIMITS.sender) : '', uuid: typeof s.uuid === 'string' ? s.uuid : '' };
-      (own.has(item.name) ? mine : others).push(item);
+      (isOwnSender(item.name, ownNames) ? mine : others).push(item);
     });
     return { others, mine };
   }
@@ -296,7 +306,7 @@
   const api = {
     KINDS, INPUT_DEFAULTS, WEB_DEFAULTS, LIMITS, FITS,
     normalizeInput, normalizeWeb, settingsOf, sourceKey,
-    checkUrl, hostClass, wanted, fitRect, splitSenders,
+    checkUrl, hostClass, wanted, fitRect, splitSenders, isOwnSender,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVSourceLayers = api;

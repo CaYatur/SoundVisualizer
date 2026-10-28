@@ -47,7 +47,8 @@ const GRACE_MS = 3000;
 const POLL_MS = 1000 / 120;
 const CPU_MAX_FPS = 30;
 const STALE_MS = 1500;
-const RECONNECT_MS = 3000;
+const RECONNECT_MS = 1000;
+const CONNECT_TRY_MS = 250;
 const CRASH_BACKOFF = [1000, 2000, 4000, 8000, 16000, 30000];
 const GPU_FAILS_TO_CPU = 3;
 
@@ -209,15 +210,17 @@ function create(deps) {
     const st = baseState('input');
     const meter = fpsMeter();
     let receiver = null;
+    let opened = ''; // alıcının kurulduğu gerçek ad
     let timer = null;
     let active = false;
     let lastFrameAt = 0;
-    let lastTryAt = 0;
+    let lastTryAt = -Infinity; // ilk deneme beklemeden
+    let lostSince = 0;
     let gpuFails = 0;
     let cpu = !sharedTexture;
     let cfg = spec;
 
-    function open() {
+    function open(name) {
       const b = loadBridge();
       if (!b || typeof b.TextureReceiver !== 'function') {
         st.state = 'error';
@@ -225,12 +228,14 @@ function create(deps) {
         return false;
       }
       try {
-        receiver = new b.TextureReceiver(cfg.sender, cfg.app || null, null);
+        receiver = new b.TextureReceiver(name, cfg.app || null, null);
+        opened = name;
         st.error = '';
-        st.state = 'waiting';
+        if (st.state !== 'live') st.state = 'waiting';
         return true;
       } catch (err) {
         receiver = null;
+        opened = '';
         st.state = 'error';
         st.error = String((err && err.message) || err).slice(0, 200);
         return false;
@@ -240,24 +245,64 @@ function create(deps) {
     function close() {
       if (receiver) { try { receiver.stop(); } catch { /* durdu */ } }
       receiver = null;
+      opened = '';
+    }
+
+    /* Göndericinin şu anki adı ya da null (listede yok). Spout aynı adı
+       ikinci kez verince sonuna `_1` ekliyor; gönderen uygulama çökmüş ve
+       kaydı asılı kalmışsa yeniden açıldığında adı böyle gelir. Kayıtlı ad
+       yoksa ve TEK bir ekli hâli varsa o seçilir. Liste okunamıyorsa kayıtlı
+       ad denenir. */
+    function resolveSender() {
+      const b = loadBridge();
+      if (!b || typeof b.listSenders !== 'function') return cfg.sender;
+      let list;
+      try { list = b.listSenders() || []; } catch { return cfg.sender; }
+      const appOk = (x) => !cfg.app || !x.appName || x.appName === cfg.app;
+      if (list.some((x) => x && x.name === cfg.sender && appOk(x))) return cfg.sender;
+      const pre = cfg.sender + '_';
+      const alt = list.filter((x) => x && typeof x.name === 'string' && x.name.indexOf(pre) === 0 && /^[0-9]+$/.test(x.name.slice(pre.length)) && appOk(x));
+      return alt.length === 1 ? alt[0].name : null;
+    }
+
+    /* BAĞLANTI. Ölçüldü (texture-bridge 0.15.0, Windows):
+         - yeni bir alıcı, gönderici açık olsa bile İLK alma çağrısına kadar
+           `isConnected()` false diyor; bağlantıyı o çağrı kuruyor;
+         - bağlı değilken `hasNewFrame()` true diyor, kareyi istemek hata
+           fırlatıyor;
+         - gönderici alıcıdan sonra açılırsa ya da kapanıp yeniden açılırsa
+           eski alıcı bağlanamıyor (14 sn beklendi); yenisi gerekiyor.
+       Bu yüzden: bağlı değilken gönderici listedeyse en çok 250 ms'de bir
+       tek bir alma denemesi; 2 sn'de bağlanmazsa alıcı yeniden kurulur. */
+    function connect(t) {
+      if (st.state === 'live') st.state = 'waiting';
+      if (t - lastTryAt < CONNECT_TRY_MS) return;
+      lastTryAt = t;
+      const name = resolveSender();
+      if (!name) { lostSince = 0; return; }
+      if (!lostSince) lostSince = t;
+      if (!receiver || name !== opened || t - lostSince > RECONNECT_MS * 2) {
+        close();
+        if (!open(name)) return;
+        lostSince = t;
+      }
+      st.actual = name;
+      try {
+        const f = receiver.receiveSharedTexture();
+        if (f) { try { loadBridge().closeNativeHandle(f.handle); } catch { /* kapatıldı */ } }
+      } catch { /* henüz bağlı değil */ }
     }
 
     function pollOnce() {
       const t = now();
-      if (!receiver) {
-        if (t - lastTryAt >= RECONNECT_MS) { lastTryAt = t; open(); }
-        return;
-      }
+      let connected = false;
+      if (receiver) { try { connected = receiver.isConnected(); } catch { connected = false; } }
+      if (!connected) { connect(t); return; }
+      lostSince = 0;
       let fresh = false;
       try { fresh = receiver.hasNewFrame(); } catch { fresh = false; }
       if (!fresh) {
         if (lastFrameAt && t - lastFrameAt > STALE_MS && st.state === 'live') st.state = 'waiting';
-        /* Gönderici kapanıp yeniden açılınca bazı göndericiler yeni bir
-           paylaşım nesnesi kuruyor; alıcıyı ara ara yenilemek bağlantıyı
-           geri getiriyor. */
-        let connected = true;
-        try { connected = receiver.isConnected(); } catch { connected = false; }
-        if (!connected && t - lastTryAt >= RECONNECT_MS) { lastTryAt = t; close(); open(); }
         return;
       }
       if (!active || !anyConsumer()) return; // kare beklesin, boşa alma
@@ -302,7 +347,10 @@ function create(deps) {
       st.width = f.width;
       st.height = f.height;
       if (!gpuToo) { st.path = 'cpu'; frame(t); }
-      deliverBitmap(key, f.width, f.height, 'rgba', f.data, !gpuToo, !cfg.alpha);
+      /* Bayt sırası: kütüphanenin belgesi RGBA diyor, Windows'ta ölçülen BGRA
+         (lacivert bir gönderici kahverengi çıkıyordu). macOS ölçülemedi;
+         orada belgeye uyuluyor. */
+      deliverBitmap(key, f.width, f.height, platform === 'win32' ? 'bgra' : 'rgba', f.data, !gpuToo, !cfg.alpha);
     }
 
     function frame(t) {
@@ -317,18 +365,27 @@ function create(deps) {
       kind: 'input',
       key,
       start() {
-        lastTryAt = now();
-        open();
+        const name = resolveSender();
+        if (name) open(name);
+        else if (!loadBridge()) open(cfg.sender); // hata durumunu yazar
+        if (st.state === 'starting') st.state = 'waiting';
         timer = setInterval(pollOnce, POLL_MS);
         if (timer.unref) timer.unref();
       },
       update(next, isActive) {
-        if (next.sender !== cfg.sender || next.app !== cfg.app) { cfg = next; close(); lastTryAt = now(); open(); }
+        if (next.sender !== cfg.sender || next.app !== cfg.app) {
+          cfg = next;
+          close();
+          st.state = 'waiting';
+          st.actual = '';
+          lastTryAt = -Infinity;
+          lostSince = 0;
+        }
         cfg = next;
         active = !!isActive;
       },
       status() {
-        return Object.assign({}, st, { fps: meter.read(), sender: cfg.sender, app: cfg.app, active });
+        return Object.assign({}, st, { fps: meter.read(), sender: cfg.sender, app: cfg.app, actual: st.actual || '', active });
       },
       pause() { active = false; },
       stop() {
@@ -595,7 +652,9 @@ function create(deps) {
       pause() { setActive(false); },
       reload() {
         crashes = 0;
-        if (!win || win.isDestroyed()) { build(); return; }
+        if (crashTimer) { clearTimeout(crashTimer); crashTimer = null; }
+        // Çökmüş ya da vazgeçilmiş sayfa baştan kurulur; canlı olan yenilenir
+        if (!win || win.isDestroyed() || st.state === 'crashed' || st.state === 'failed' || st.state === 'error') { build(); return; }
         win.webContents.reloadIgnoringCache();
       },
       interact,

@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { contextBridge, ipcRenderer, clipboard } = require('electron');
+const { contextBridge, ipcRenderer, clipboard, sharedTexture } = require('electron');
 
 /* Söz saati çıpası panel dinleyiciyi geç kurabilir. Son çıpa burada durur. */
 function createLateEvent() {
@@ -334,7 +334,7 @@ contextBridge.exposeInMainWorld('api', {
    Kum havuzunda require yok; bu blok preload-visualizer, preload-admin ve
    preload-exporter'da AYNI (tests/source-layers.test.js denetler). */
 (function sourceFrames() {
-  const st = require('electron').sharedTexture;
+  const st = sharedTexture;
   const cans = new Map();
   function canvasFor(key, w, h) {
     if (typeof key !== 'string' || !key || key.length > 200) return null;

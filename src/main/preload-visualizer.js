@@ -6,7 +6,7 @@
  */
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, sharedTexture } = require('electron');
 
 /* Son çalan parça burada durur. Sayfa dinleyiciyi geç kurar; Electron
    aradaki mesajı tutmaz. Bu dosya kum havuzundadır: electron dışında
@@ -117,7 +117,7 @@ contextBridge.exposeInMainWorld('api', {
    Kum havuzunda require yok; bu blok preload-visualizer, preload-admin ve
    preload-exporter'da AYNI (tests/source-layers.test.js denetler). */
 (function sourceFrames() {
-  const st = require('electron').sharedTexture;
+  const st = sharedTexture;
   const cans = new Map();
   function canvasFor(key, w, h) {
     if (typeof key !== 'string' || !key || key.length > 200) return null;

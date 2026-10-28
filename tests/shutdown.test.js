@@ -41,6 +41,8 @@ const main = () => stripComments(read('src/main/main.js'));
    yazmak zorunda kalsın, yani "kapanışta ne olacak?" sorusunu atlayamasın. */
 const HIDDEN_WINDOW_SITES = [
   { file: 'src/main/texture-share.js', count: 1, teardown: ['textureShare.stop()'] },
+  // Web katmanının görünmez sayfası (Spout/Syphon girişi ve web katmanı)
+  { file: 'src/main/layer-sources.js', count: 1, teardown: ['layerSources.shutdown()'] },
   // Dışa aktarma render penceresi ve MilkDrop küçük resim penceresi (#575)
   // Köprünün çalan penceresi ve köprü kipinin durum penceresi (#813)
   { file: 'src/main/main.js', count: 4, teardown: ["finalizeExport('cancelled')", 'closeThumbWin()', 'closeBridgePlayer()', 'closeBridgeWin()'] },
