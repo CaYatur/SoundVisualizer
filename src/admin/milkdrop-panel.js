@@ -1127,7 +1127,11 @@
           text: (mval === null || mval === undefined) ? '—' : Number(mval).toFixed(4),
         })));
         if (p.errors.length) {
-          nodes.push(el('div', { class: 'studio-note md-errbox', text: p.errors.join('\n') }));
+          /* Her hata ayrı bir satır (div): i18n düğümleri birebir eşleştirdiği
+             için '\n' ile birleştirilmiş tek metin İngilizce arayüzde hiç
+             çevrilemezdi. pre-wrap görünümü değişmiyor. */
+          nodes.push(el('div', { class: 'studio-note md-errbox' },
+            p.errors.map((msg) => el('div', { text: msg }))));
         }
       } catch (e) {
         nodes.push(P().row('Derleme', el('span', { class: 'md-err', text: String(e.message || e) })));
