@@ -95,8 +95,9 @@ gets them as WebP frames over the stream server, which keeps transparency.
   - the guard's decisions and session hardening;
   - the frame hub with a fake GPU and a fake receiver modelled on the measured behaviour;
   - the shared preload block, quitting with a web layer open, and the Layout Editor kinds;
-  - loading the real native module on Windows and macOS CI, which checks Syphon on a real Mac at
-    every build.
+  - the real native module on Windows and on the macOS CI runner. On the runner the module loads
+    and lists Syphon servers, and a missing server is refused. A send-and-receive test inside one
+    process got no frame and was skipped, so receiving from a Syphon sender is not verified yet.
 
 ### For music videos and short video [837, 838, 839, 840, 841, 842, 843]
 
