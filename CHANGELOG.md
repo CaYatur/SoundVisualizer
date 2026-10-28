@@ -32,6 +32,9 @@ gets them as WebP frames over the stream server, which keeps transparency.
     - A sender that comes back as `Name_1` after a crash is found when it is the only such name.
   - **Measured:** 64–66 fps from a 60 fps sender. When the app was opened first, the sender
     started later, then killed and restarted, the layer reconnected each time.
+  - **On a real Mac**, from the macOS CI job: creating a receiver for a server that does not exist
+    throws, where Windows creates it and reports "not connected". The app creates a receiver only
+    once the server is listed, and counts this error as waiting.
 - **Placement.** Both kinds have their own position and size (`x`, `y`, `size`), stored in the
   layer like the logo's position. The picture is fitted into that box. The Layout Editor lists
   both kinds and can drag and resize them. Mirror and flip turn around the box's own centre.
@@ -87,7 +90,7 @@ gets them as WebP frames over the stream server, which keeps transparency.
 - **Video export** draws the live frame at drawing time, and the export page says so. Export does
   not run in real time, so moving content does not match the video's speed.
 - **MCP:** `sv_add_layer` accepts `input` and `web`.
-- **Tests:** 34 new tests cover:
+- **Tests:** 36 new tests cover:
   - URL and local-network classification, including the IPv6, IPv4-mapped, hex and decimal forms;
   - the guard's decisions and session hardening;
   - the frame hub with a fake GPU and a fake receiver modelled on the measured behaviour;

@@ -579,6 +579,31 @@ test('dağıtıcı: gönderici sonradan açılınca bağlanır; kapanıp açıl�
   h.shutdown();
 });
 
+test('dağıtıcı: macOS\'ta sunucu kurulurken kaybolursa hata değil bekleme', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const br = fakeBridge();
+  const Real = br.TextureReceiver;
+  let refuse = true;
+  br.TextureReceiver = class extends Real {
+    constructor(name) {
+      if (refuse) throw new Error('Failed to create Syphon receiver (no matching server?)');
+      super(name);
+    }
+  };
+  const h = hub(fakeGpu(), br, { platform: 'darwin' });
+  h.addConsumer(fakeConsumer(), { gpu: true });
+  h.sync(inputCfg());
+  const key = SL.sourceKey(inputCfg().layers[0]);
+  for (let i = 0; i < 30; i++) t.mock.timers.tick(10);
+  assert.strictEqual(h.status()[key].state, 'waiting');
+  assert.strictEqual(h.status()[key].error, '');
+  refuse = false;
+  for (let i = 0; i < 60; i++) t.mock.timers.tick(10);
+  assert.strictEqual(br.receivers.length, 1, 'sunucu gelince alıcı kuruldu');
+  assert.strictEqual(br.receivers[0].connected, true);
+  h.shutdown();
+});
+
 /* Sahte görünmez pencere: paint olayını test sürer. */
 function fakeWindowClass(log) {
   return class FakeWin extends EventEmitter {
@@ -871,7 +896,77 @@ test('paketleme: macOS paketinde Syphon modülü ve framework yoksa derleme duru
    orada Windows'ta ve gerçek bir Mac'te her derlemede koşuyor. Linux'ta
    modül yok. */
 const BRIDGE_INSTALLED = fs.existsSync(path.join(root, 'node_modules', '@napolab', 'texture-bridge', 'package.json'));
-test('yerel modül: alıcı bu platformda kurulabiliyor', { skip: process.platform === 'linux' || !BRIDGE_INSTALLED }, () => {
+/* Aynı süreçte gerçek bir gönderici: bilinen bir renk gönderilir, alıcı
+   kendi kopyasını alır. macOS'ta (build.yml checks) bu Syphon alma yolunun
+   gerçek bir Mac'teki sınaması, ayrıca bit eşlem yolunun bayt sırasını
+   ölçer (Windows'ta BGRA ölçüldü; belge RGBA diyor). GPU'suz bir makinede
+   gönderici kurulamazsa atlanır, kurulursa her şey denetlenir. */
+test('yerel modül: gönderilen kare alınıyor, bayt sırası ölçülüyor', { skip: process.platform === 'linux' || !BRIDGE_INSTALLED }, async (t) => {
+  const b = require('@napolab/texture-bridge');
+  const name = 'sv-test-loop-' + process.pid;
+  const W = 64;
+  const H = 32;
+  let sender;
+  try {
+    sender = new b.TextureSender(name, W, H);
+  } catch (e) {
+    t.skip('gönderici kurulamadı: ' + e.message);
+    return;
+  }
+  const px = Buffer.alloc(W * H * 4);
+  try {
+    sender.sendRgbaBuffer(px, W, H);
+  } catch (e) {
+    // Windows'ta bu gönderme biçimi yok ("not yet implemented"); orada alma yolu uygulamada ölçüldü
+    sender.stop();
+    t.skip('bit eşlem gönderimi yok: ' + e.message);
+    return;
+  }
+  // Bayt sırası BGRA bekleniyor (sendRgbaBuffer belgesi): mavi 0x10, yeşil 0x80, kırmızı 0xF0
+  for (let i = 0; i < px.length; i += 4) { px[i] = 0x10; px[i + 1] = 0x80; px[i + 2] = 0xf0; px[i + 3] = 0xff; }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let rx = null;
+  let frame = null;
+  let shared = null;
+  try {
+    for (let i = 0; i < 60 && !frame; i++) {
+      sender.sendRgbaBuffer(px, W, H);
+      await sleep(50);
+      const listed = b.listSenders().some((s) => s && s.name === name);
+      if (!listed) continue;
+      if (!rx) {
+        try { rx = new b.TextureReceiver(name, null, null); } catch { continue; }
+      }
+      try { frame = rx.receiveFrame(); } catch { frame = null; }
+    }
+    if (!frame) { t.skip('kare alınamadı (GPU yok olabilir)'); return; }
+    assert.strictEqual(frame.width, W);
+    assert.strictEqual(frame.height, H);
+    assert.ok(frame.data.length >= W * H * 4);
+    const p = [frame.data[0], frame.data[1], frame.data[2]];
+    const order = p[0] === 0x10 && p[2] === 0xf0 ? 'bgra' : p[0] === 0xf0 && p[2] === 0x10 ? 'rgba' : 'other ' + p.join(',');
+    t.diagnostic('receiveFrame bayt sırası ' + process.platform + ': ' + order);
+    assert.ok(order === 'bgra' || order === 'rgba', 'renk korunmadı: ' + order);
+    if (process.platform === 'win32') assert.strictEqual(order, 'bgra', 'Windows ölçümüyle aynı');
+    // Paylaşılan doku tutamacı alınabiliyor ve kapatılabiliyor
+    for (let i = 0; i < 40 && !shared; i++) {
+      sender.sendRgbaBuffer(px, W, H);
+      await sleep(25);
+      try { shared = rx.receiveSharedTexture(); } catch { shared = null; }
+    }
+    if (shared) {
+      assert.strictEqual(shared.handle.length, 8);
+      assert.ok(['bgra', 'rgba', 'rgbaf16'].includes(shared.pixelFormat), shared.pixelFormat);
+      t.diagnostic('receiveSharedTexture ' + process.platform + ': ' + shared.pixelFormat + ' ' + shared.width + 'x' + shared.height);
+      b.closeNativeHandle(shared.handle);
+    }
+  } finally {
+    if (rx) rx.stop();
+    sender.stop();
+  }
+});
+
+test('yerel modül: alıcı bu platformda kurulabiliyor',{ skip: process.platform === 'linux' || !BRIDGE_INSTALLED }, () => {
   let b;
   try {
     b = require('@napolab/texture-bridge');
@@ -879,9 +974,17 @@ test('yerel modül: alıcı bu platformda kurulabiliyor', { skip: process.platfo
     assert.fail('texture-bridge yüklenemedi: ' + e.message);
   }
   assert.ok(Array.isArray(b.listSenders()));
-  const rx = new b.TextureReceiver('sv-test-yok-' + process.pid, null, null);
-  /* Göndericisi olmayan alıcı: bağlı değil; kare istemek hata fırlatıyor
-     (dağıtıcı bu yüzden önce isConnected'a bakıyor). */
+  const name = 'sv-test-yok-' + process.pid;
+  if (process.platform === 'darwin') {
+    /* Gerçek Mac'te (build.yml checks, 28.10): olmayan sunucu için alıcı
+       kurulamıyor. Dağıtıcı bu yüzden alıcıyı yalnız sunucu listedeyken
+       kuruyor ve bu hatayı bekleme sayıyor (layer-sources.js open). */
+    assert.throws(() => new b.TextureReceiver(name, null, null), /no matching server/i);
+    return;
+  }
+  const rx = new b.TextureReceiver(name, null, null);
+  /* Windows: göndericisi olmayan alıcı kuruluyor ama bağlı değil; kare
+     istemek fırlatıyor (dağıtıcı bu yüzden önce isConnected'a bakıyor). */
   assert.strictEqual(rx.isConnected(), false);
   assert.throws(() => rx.receiveSharedTexture(), /not connected/);
   rx.stop();

@@ -257,8 +257,18 @@ function create(deps) {
       } catch (err) {
         receiver = null;
         opened = '';
-        st.state = 'error';
-        st.error = String((err && err.message) || err).slice(0, 200);
+        const msg = String((err && err.message) || err).slice(0, 200);
+        /* macOS'ta (CI, gerçek Mac) olmayan bir sunucu için alıcı kurmak
+           fırlatıyor: "Failed to create Syphon receiver (no matching
+           server?)". Windows'ta kuruluyor ve "bağlı değil" diyor. Sunucu
+           listeyle kurma arasında kaybolduysa bu bir hata değil, bekleme. */
+        if (/no matching server/i.test(msg)) {
+          if (st.state !== 'live') st.state = 'waiting';
+          st.error = '';
+        } else {
+          st.state = 'error';
+          st.error = msg;
+        }
         return false;
       }
     }
