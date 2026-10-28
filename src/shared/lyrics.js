@@ -203,11 +203,13 @@
   function toLRC(doc) {
     const pad = (n, w) => String(Math.floor(n)).padStart(w, '0');
     const stamp = (t) => {
-      const s = Math.max(0, t);
-      return '[' + pad(s / 60, 2) + ':' + pad(s % 60, 2) + '.' + pad((s % 1) * 100, 2) + ']';
+      const cs = Math.round(Math.max(0, t) * 100);
+      return '[' + pad(cs / 6000, 2) + ':' + pad((cs / 100) % 60, 2) + '.' + pad(cs % 100, 2) + ']';
     };
     const out = [];
-    for (const k of Object.keys((doc && doc.meta) || {})) out.push('[' + k + ':' + doc.meta[k] + ']');
+    for (const k of Object.keys((doc && doc.meta) || {})) {
+      if (k !== 'offset') out.push('[' + k + ':' + doc.meta[k] + ']');
+    }
     for (const l of (doc && doc.lines) || []) out.push(stamp(l.start) + l.text);
     return out.join('\n');
   }

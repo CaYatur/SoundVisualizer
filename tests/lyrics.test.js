@@ -222,6 +222,16 @@ test('toLRC() geri yazar ve yeniden okunabilir', () => {
     close(again.lines[i].start, d.lines[i].start, 'satır ' + i, 0.02);
     assert.strictEqual(again.lines[i].text, d.lines[i].text);
   }
+
+  const off = L.parseLRC('[ar:X]\n[offset:500]\n[00:10.00]a\n[00:12.29]b\n[01:05.07]c');
+  const offOut = L.toLRC(off);
+  assert.doesNotMatch(offOut, /\[offset:/);
+  const offAgain = L.parseLRC(offOut);
+  for (let i = 0; i < off.lines.length; i++) close(offAgain.lines[i].start, off.lines[i].start, 'offset ' + i, 1e-6);
+  assert.strictEqual(offAgain.meta.ar, 'X');
+
+  const out2 = L.toLRC(L.parseLRC('[00:12.29]x\n[01:05.07]y\n[00:59.996]z'));
+  assert.deepStrictEqual(out2.split('\n'), ['[00:12.29]x', '[01:00.00]z', '[01:05.07]y']);
 });
 
 // ===========================================================================
