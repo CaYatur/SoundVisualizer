@@ -11575,6 +11575,7 @@ function shutdownCleanup() {
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
   textureShare.stop().catch(() => {});
+  if (layerSources) layerSources.shutdown(); // web katmanının görünmez sayfaları
   mediaSession.stop();
   appMeters.stop(); // seçicinin ölçer yardımcısı (#516)
   nativeAudio.stopCapture();

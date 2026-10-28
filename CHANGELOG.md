@@ -39,17 +39,27 @@ gets them as WebP frames over the stream server, which keeps transparency.
     prompt, and the layer reloads when it closes. There are also Reload and Clear Web Layer Data.
 - **Web page security.** The page is untrusted.
   - **Session:** it runs in its own partition with no preload, sandboxed, with dev tools off.
-  - **Refused:** every permission, device chooser, screen share, download, pop-up, alert and
-    `beforeunload`.
+  - **Refused:** every permission, device chooser, screen share, download, pop-up, alert,
+    `beforeunload`, HTTP auth prompt and client certificate. Without a handler, Electron sends the
+    first certificate in the system store to any site that asks.
   - **Navigation:** main and sub frames may go only to http/https.
   - **Local network:** the app's own servers (stream page and remote, MCP, OSCQuery, audio bridge,
     redundancy) are blocked, and so are loopback, private, link-local and local-name addresses.
-    A local address you typed opens, but only that origin. DNS rebinding is checked against the
-    resolved address.
+    - A local address you typed opens only that origin, and only from that layer. Another layer's
+      page cannot reach it.
+    - DNS rebinding is checked against the resolved address.
+    - WebRTC exposes only the public interface, so a page cannot read the machine's LAN address.
   - **Closing itself:** a page can no longer close its own hidden window with `window.close()`.
-    Before the fix the frames froze while the status still said loaded.
-  - **Red-team page.** A test page tried all of these from inside the layer. Every attempt was
-    blocked and no file reached the downloads folder.
+    Before the fix the frames froze while the status still said loaded. Quitting the app,
+    signing out and shutting down still close the window.
+  - **Red-team page.** A test page tried all of these from inside a layer. Every attempt was
+    blocked and no file reached the downloads folder. It tried:
+    - the app's own port by IP, by `localhost` and over WebSocket;
+    - `localtest.me` and `127.0.0.1.nip.io`, public names that resolve to loopback;
+    - another layer's local origin, the LAN, `file:` and `sv-media:`;
+    - camera, notifications, location, clipboard, MIDI, a pop-up and a download.
+
+    A public control request went through.
 - **A handle leak found in the 20-minute run.** The app ran with an input layer, a web layer and
   the Spout output for 20 minutes. The main process gained one handle per input frame, from 3412
   to 85 893.

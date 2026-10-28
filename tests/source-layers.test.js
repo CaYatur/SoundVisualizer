@@ -713,6 +713,46 @@ test('web: sayfa kendi penceresini kapatamaz; pencere yine giderse yeniden kurul
   assert.strictEqual(log.windows.length, 2, 'kendi kapatmamız yeniden kurdurmaz');
 });
 
+test('web: yazılan yerel adres yalnız o katmana açık, başka katmanın sayfası ulaşamaz', async () => {
+  const log = { windows: [] };
+  let ses = null;
+  const h = webHub(fakeGpu(), log, { electron: { BrowserWindow: fakeWindowClass(log), session: { fromPartition: () => (ses = ses || fakeSession()) } } });
+  h.sync({ layers: [
+    { id: 'A', kind: 'web', settings: { web: { url: 'http://127.0.0.1:3000/' } } },
+    { id: 'B', kind: 'web', settings: { web: { url: 'https://public.example/' } } },
+  ] });
+  const [wa, wb] = log.windows.map((w) => w.webContents.id);
+  const ask = (url, id) => new Promise((r) => ses.h.before({ url, webContentsId: id }, r));
+  assert.deepStrictEqual(await ask('http://127.0.0.1:3000/api', wa), {}, 'A kendi yerel kökenine');
+  assert.deepStrictEqual(await ask('http://127.0.0.1:3000/api', wb), { cancel: true }, 'B, A\'nın yerel kökenine ulaşamaz');
+  assert.deepStrictEqual(await ask('http://127.0.0.1:3000/api', undefined), { cancel: true }, 'sahibi bilinmeyen istek');
+  assert.deepStrictEqual(await ask('http://127.0.0.1:8722/', wa), { cancel: true }, 'uygulamanın portu A için de kapalı');
+  h.shutdown();
+});
+
+test('web: uygulama kapanırken pencerenin kapanması engellenmez (çıkış iptal olmaz)', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  const log = { windows: [] };
+  const app = new EventEmitter();
+  const h = webHub(fakeGpu(), log, { electron: { app, BrowserWindow: fakeWindowClass(log), session: { fromPartition: () => fakeSession() } } });
+  h.sync(webCfg('https://a.org/'));
+  const w = log.windows[0];
+  app.emit('before-quit');
+  let prevented = false;
+  w.emit('close', { preventDefault: () => { prevented = true; } });
+  assert.strictEqual(prevented, false, 'çıkışta kapanır');
+  w.emit('closed');
+  t.mock.timers.tick(2000);
+  assert.strictEqual(log.windows.length, 1, 'çıkarken yeniden kurulmaz');
+  // Çıkış iptal edildiyse (onay sorusu) koruma 5 sn sonra geri gelir
+  t.mock.timers.tick(5000);
+  h.sync(webCfg('https://b.org/'));
+  const w2 = log.windows[1];
+  w2.emit('close', { preventDefault: () => { prevented = true; } });
+  assert.strictEqual(prevented, true);
+  h.shutdown();
+});
+
 test('web: Linux\'ta bit eşlem yolu, BGRA bayt sırasıyla', () => {
   const log = { windows: [] };
   const h = webHub(fakeGpu(), log, { platform: 'linux' });
@@ -766,9 +806,33 @@ test('katman motoru, panel, sayfalar ve ana süreç yeni türleri tanıyor', () 
   assert.match(main, /if \(layerSources\) layerSources\.shutdown\(\);/);
 });
 
-/* Gerçek yerel modül. CI'da macOS'ta Syphon, Windows'ta Spout yükleniyor mu
-   ve alıcı kurulup durdurulabiliyor mu. Linux'ta modül yok. */
-test('yerel modül: alıcı bu platformda kurulabiliyor', { skip: process.platform === 'linux' }, () => {
+test('paketleme: macOS paketinde Syphon modülü ve framework yoksa derleme durur', () => {
+  const os = require('os');
+  const after = require('../scripts/after-pack.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-macpkg-'));
+  try {
+    const rel = (f) => f.split(path.sep).join('/');
+    assert.deepStrictEqual(after.macTextureFiles(dir).map(rel), ['app.asar.unpacked/node_modules/@napolab/texture-bridge-darwin-<arch>'], 'modül hiç yoksa eksik sayılır');
+    const pkg = path.join(dir, 'app.asar.unpacked', 'node_modules', '@napolab', 'texture-bridge-darwin-arm64');
+    fs.mkdirSync(pkg, { recursive: true });
+    const want = after.macTextureFiles(dir).map(rel);
+    assert.deepStrictEqual(want, [
+      'app.asar.unpacked/node_modules/@napolab/texture-bridge-darwin-arm64/index.darwin-arm64.node',
+      'app.asar.unpacked/node_modules/@napolab/texture-bridge-darwin-arm64/Syphon.framework/Versions/A/Syphon',
+    ]);
+    assert.match(read('scripts/after-pack.js'), /context\.electronPlatformName === 'darwin' \? macTextureFiles\(dir\)/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/* Gerçek yerel modül: macOS'ta Syphon, Windows'ta Spout yükleniyor mu ve
+   alıcı kurulup durdurulabiliyor mu. Paketler kurulu değilse atlanır:
+   test.yml bağımlılık kurmuyor; build.yml'in checks işi kuruyor ve bu test
+   orada Windows'ta ve gerçek bir Mac'te her derlemede koşuyor. Linux'ta
+   modül yok. */
+const BRIDGE_INSTALLED = fs.existsSync(path.join(root, 'node_modules', '@napolab', 'texture-bridge', 'package.json'));
+test('yerel modül: alıcı bu platformda kurulabiliyor', { skip: process.platform === 'linux' || !BRIDGE_INSTALLED }, () => {
   let b;
   try {
     b = require('@napolab/texture-bridge');

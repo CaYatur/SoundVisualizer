@@ -17,14 +17,17 @@
    - Bu makinenin ve yerel ağın servislerine ulaşmak. Uygulamanın kendi
      sunucuları (yayın sayfası ve uzaktan kumanda, MCP, OSCQuery, ses
      köprüsü, yedeklilik) ve yerel adresler (127.0.0.1, 192.168.x.x,
-     yönlendirici, NAS) engellenir. Kullanıcı yerel bir adresi KENDİSİ
-     yazdıysa yalnız o köken açılır. Genel bir adın yerel bir adrese
-     çözülmesi (DNS rebinding) de çözümlenen adresle denetlenir.
+     yönlendirici, NAS) engellenir. Kullanıcı bir katmana yerel bir adresi
+     KENDİSİ yazdıysa yalnız o köken ve yalnız O KATMANDAN açılır. Genel
+     bir adın yerel bir adrese çözülmesi (DNS rebinding) de çözümlenen
+     adresle denetlenir. WebRTC yerel IP'yi vermez.
    - İzin almak. Kamera, mikrofon, konum, bildirim, pano, MIDI, USB/HID/seri
      aygıt, ekran paylaşımı, tam ekran: hepsi reddedilir, soru sorulmaz.
+     İstemci sertifikası gönderilmez, HTTP kimliği sorulmaz.
    - İz bırakmak. İndirme iptal edilir, yeni pencere açılmaz (dış tarayıcıda
      da), alert/confirm kutusu çıkmaz, sayfadan çıkışı engelleyen
-     `beforeunload` sayılmaz, sertifika hatası geçilmez.
+     `beforeunload` sayılmaz, sertifika hatası geçilmez, sayfa kendi
+     penceresini kapatamaz.
    - Gezinip başka bir şeye dönüşmek. Ana çerçeve ve iç çerçeveler yalnız
      http/https'e gidebilir; yerel adres kuralı orada da geçerli. */
 
@@ -147,7 +150,7 @@ function hardenSession(ses, getCtx, onBlocked) {
   }
 
   ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, cb) => {
-    const ctx = getCtx();
+    const ctx = getCtx(details);
     let first = decide(details.url, ctx);
     if (!first.ok) {
       if (onBlocked) onBlocked({ reason: first.reason, url: safeUrl(details.url), webContentsId: details.webContentsId });

@@ -68,12 +68,32 @@ function create(deps) {
   const consumers = new Map(); // webContents.id -> tüketici
   const sources = new Map(); // anahtar -> kaynak
   const removals = new Map(); // anahtar -> zamanlayıcı
-  let allowedLocal = new Set();
   let webSession = null;
+  let appQuitting = false;
+  if (electron.app && typeof electron.app.on === 'function') {
+    electron.app.on('before-quit', () => {
+      appQuitting = true;
+      /* Çıkış soruyla iptal edilebiliyor (görselleştirici açıkken onay) ve
+         bunun bir olayı yok: 5 sn içinde çıkılmadıysa iptal edilmiştir. */
+      const tm = setTimeout(() => { appQuitting = false; }, 5000);
+      if (tm.unref) tm.unref();
+    });
+  }
   let blockedLog = [];
 
-  function ctx() {
-    return { allowedLocal, appPorts: new Set((appPorts() || []).filter((p) => Number.isInteger(p) && p > 0)) };
+  function ports() {
+    return new Set((appPorts() || []).filter((p) => Number.isInteger(p) && p > 0));
+  }
+
+  /* Yerel adres izni KATMANA ait: A katmanına yazılan 127.0.0.1:3000'e
+     B katmanındaki bir sayfa ulaşamaz. İstek hangi sayfadan geldiyse onun
+     katmanının kuralı; sahibi bilinmeyen istek (servis çalışanı, başka
+     pencere) yerel hiçbir yere gidemez. */
+  function ctxFor(webContentsId) {
+    for (const s of sources.values()) {
+      if (s.kind === 'web' && s.ownsContents(webContentsId)) return s.ctx();
+    }
+    return { allowedLocal: new Set(), appPorts: ports() };
   }
 
   function noteBlocked(info) {
@@ -87,7 +107,7 @@ function create(deps) {
   function getWebSession() {
     if (webSession) return webSession;
     webSession = session.fromPartition(WG.PARTITION);
-    WG.hardenSession(webSession, ctx, noteBlocked);
+    WG.hardenSession(webSession, (details) => ctxFor(details && details.webContentsId), noteBlocked);
     return webSession;
   }
 
@@ -428,10 +448,16 @@ function create(deps) {
     let loadedUrl = '';
     let stopped = false;
 
+    // Bu katmanın kuralı: yalnız kullanıcının bu katmana yazdığı yerel köken
+    function myCtx() {
+      const r = SL.checkUrl(cfg.url);
+      return { allowedLocal: r.ok && r.local ? new Set([r.origin]) : new Set(), appPorts: ports() };
+    }
+
     function checked() {
       const r = SL.checkUrl(cfg.url);
       if (!r.ok) return r;
-      const d = WG.decide(r.url, ctx());
+      const d = WG.decide(r.url, myCtx());
       return d.ok ? r : { ok: false, reason: d.reason };
     }
 
@@ -460,7 +486,7 @@ function create(deps) {
         }),
       });
       const wc = win.webContents;
-      WG.guardContents(wc, ctx, { onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: wc.id }, info)) });
+      WG.guardContents(wc, myCtx, { onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: wc.id }, info)) });
       wc.setAudioMuted(!cfg.audio);
       try { wc.setBackgroundThrottling(false); } catch { /* eski sürüm */ }
       wc.setFrameRate(cfg.fps);
@@ -490,12 +516,16 @@ function create(deps) {
          (denendi): kareler donuyor, durum "yüklendi" kalıyordu. Kapatma
          isteği reddedilir; bizim kapatmamız `destroy()` ile, o olay
          çıkmaz. Pencere yine de beklenmedik giderse çökmüş sayılır. */
-      win.on('close', (e) => e.preventDefault());
+      /* Uygulama kapanırken ya da oturum/sistem kapanırken ret YOK: ret
+         bütün çıkışı iptal eder (tepsi, güncelleme, MCP, oturum kapatma). */
+      win.on('close', (e) => { if (!appQuitting) e.preventDefault(); });
+      win.on('query-session-end', () => { appQuitting = true; });
+      win.on('session-end', () => { appQuitting = true; });
       const self = win;
       win.on('closed', () => {
         if (win !== self) return;
         win = null;
-        if (stopped) return;
+        if (stopped || appQuitting) return;
         st.state = 'crashed';
         st.error = 'CLOSED';
         scheduleCrashReload();
@@ -620,11 +650,11 @@ function create(deps) {
         webPreferences: WG.webPreferences({ session: ses }),
       });
       const iw = interactWin.webContents;
-      WG.guardContents(iw, ctx, { allowPopups: true, onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: iw.id }, info)) });
+      WG.guardContents(iw, myCtx, { allowPopups: true, onBlocked: (info) => noteBlocked(Object.assign({ webContentsId: iw.id }, info)) });
       iw.setAudioMuted(!cfg.audio);
       let current = r.url;
       try { if (win && !win.isDestroyed()) current = win.webContents.getURL() || r.url; } catch { /* ilk adres */ }
-      if (!WG.decide(current, ctx()).ok || !/^https?:/.test(current)) current = r.url;
+      if (!WG.decide(current, myCtx()).ok || !/^https?:/.test(current)) current = r.url;
       iw.loadURL(current).catch(() => {});
       /* Oturum açma, çerez onayı ve benzeri kalıcı değişiklik bu oturumda
          saklanır; pencere kapanınca katmanın sayfası yenilenir. */
@@ -639,6 +669,7 @@ function create(deps) {
       kind: 'web',
       key,
       layerId,
+      ctx: myCtx,
       start() { build(); },
       update(next, isActive) {
         const prev = cfg;
@@ -709,13 +740,6 @@ function create(deps) {
 
   function sync(cfg) {
     const list = SL.wanted(cfg);
-    const local = new Set();
-    for (const w of list) {
-      if (w.kind !== 'web') continue;
-      const r = SL.checkUrl(w.spec.url);
-      if (r.ok && r.local) local.add(r.origin);
-    }
-    allowedLocal = local;
     const keep = new Set();
     for (const w of list) {
       keep.add(w.key);
