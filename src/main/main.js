@@ -721,6 +721,10 @@ function syncAdminZoom() {
    döndürürdü. Varsayılan menünün yakınlaştırma kısayolları da böylece
    bastırılır: onlar ayarı bilmeden yakınlaştırıyordu. */
 function stepAdminZoom(dir) {
+  /* Yapılandırma yoksa (ilk açılış, okunamayan dosya) panel henüz
+     göndermedi: yalnız `ui` taşıyan bir dosya yazılmasın. Tek başına köprü
+     kipi boş yapılandırmayla çalışır (#862). */
+  if (!currentConfig && !BRIDGE_ONLY) return;
   ensureBridgeConfig();
   const cur = adminZoom(currentConfig);
   const next = uiScale.step(cur, dir);

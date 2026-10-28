@@ -185,8 +185,10 @@ test('ana süreç: boyut yalnız panel ve köprü penceresine, kısayollar ayar�
   assert.match(w, /event\.preventDefault\(\);\s*stepAdminZoom\(dir\);/);
   assert.match(w, /did-finish-load/);
   // Panelin kopyası tazeleniyor; yoksa bir sonraki gönderim eski değere döner
-  const st = m.slice(m.indexOf('function stepAdminZoom(dir)'), m.indexOf('function stepAdminZoom(dir)') + 500);
+  const st = m.slice(m.indexOf('function stepAdminZoom(dir)'), m.indexOf('function stepAdminZoom(dir)') + 900);
   assert.match(st, /applyConfigPatch\(\{ ui: /);
+  // Panel yapılandırmayı göndermeden ayar dosyasına yalnız `ui` yazılmıyor
+  assert.match(st, /if \(!currentConfig && !BRIDGE_ONLY\) return;/);
   assert.match(st, /notifyAdmin\('external-config', currentConfig\)/);
   // Her ayar gönderiminde uygulanıyor
   assert.match(m, /function syncAdminBackground\(\) \{\s*syncBridgeWinTheme\(\);\s*syncAdminZoom\(\);/);
