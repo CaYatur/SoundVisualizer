@@ -23,8 +23,9 @@
 
    YEDEK YOL (CPU). Doku alınamazsa (sürücü, platform; Linux'ta web katmanı
    her zaman) kare bit eşlem olarak gider. Web katmanında hız sınırı
-   kullanıcının seçtiği kare hızıdır (60 seçilirse 60); Spout/Syphon girişinin
-   bit eşlem yolu (GPU'dan okuma) en çok 30 fps.
+   kullanıcının seçtiği kare hızıdır (60 seçilirse 60); Spout/Syphon girişinde
+   göndericinin kare hızı (yapay sınır yok). Bit eşlemi alacak pencere yoksa
+   GPU'dan okuma hiç yapılmaz.
 
    SAHİPLİK. Her doku ve tutamaç HER YOLDA bırakılır: Spout/Syphon
    tutamacı içe alımdan sonra da `closeNativeHandle` ile (Electron kendi
@@ -48,12 +49,10 @@ const GRACE_MS = 3000;
    çözünürlüğüne (15,6 ms) takılıp 60 fps bir göndericiden ~41 fps alıyordu;
    yoklama ucuz (yeni kare yoksa bir bayrak okuması). */
 const POLL_MS = 1000 / 120;
-/* Spout/Syphon girişinin bit eşlem yolu (her kare GPU'dan okunuyor) için üst
-   sınır. Web katmanı bunu KULLANMAZ: sınırı kullanıcının seçtiği kare hızı
-   belirler (aşağıda CPU_FPS_SLACK). */
-const CPU_MAX_FPS = 30;
-/* Web katmanında bit eşlem yolunun alt aralığı, seçilen hızın aralığının bu
-   katı. Electron kareleri zaten seçilen hızda üretiyor; gecikmeli ya da
+/* Bit eşlem yolunda kare hızına yapay üst sınır YOK. Web katmanında sınırı
+   kullanıcının seçtiği kare hızı, Spout/Syphon girişinde göndericinin kendi
+   kare hızı belirler (alıcı yalnız yeni kare olunca okur, yoklama 120 Hz).
+   Alt aralık, seçilen hızın aralığının bu katı. Electron kareleri zaten seçilen hızda üretiyor; gecikmeli ya da
    erken gelen bir kare (60 fps'te 16,67 ms'lik aralığa ±1 ms oynama) tam
    eşikte elenir ve 60 seçilince ~46 fps çıkardı. */
 const CPU_FPS_SLACK = 0.8;
@@ -188,12 +187,12 @@ function create(deps) {
     return true;
   }
 
-  /* Bit eşlem yolu: BGRA ya da RGBA bayt dizisi. Pencere başına en çok
-     CPU_MAX_FPS (`minGapMs` verilirse o aralık); dokuyu alabilen pencereye bu
-     yol gitmez (`gpuToo` değilse). */
+  /* Bit eşlem yolu: BGRA ya da RGBA bayt dizisi. `minGapMs` verilirse pencere
+     başına en az o aralık (web: seçilen hıza göre); verilmezse kare atlanmaz.
+     Dokuyu alabilen pencereye bu yol gitmez (`gpuToo` değilse). */
   function deliverBitmap(key, w, h, format, data, gpuToo, opaque, minGapMs) {
     const t = now();
-    const gap = minGapMs > 0 ? minGapMs : 1000 / CPU_MAX_FPS;
+    const gap = minGapMs > 0 ? minGapMs : 0;
     let sent = 0;
     let bytes = null;
     for (const c of consumers.values()) {
@@ -404,7 +403,17 @@ function create(deps) {
       return false;
     }
 
+    /* Bit eşlem alacak pencere var mı? Yoksa GPU'dan okuma (kare başına
+       büyük bir kopya) hiç yapılmaz. */
+    function needsBitmap(toGpuWindowsToo) {
+      for (const c of consumers.values()) {
+        if (c.ready && !c.wc.isDestroyed() && (!c.gpu || toGpuWindowsToo)) return true;
+      }
+      return false;
+    }
+
     function cpuCopy(t, gpuToo) {
+      if (!needsBitmap(!gpuToo)) return;
       let f = null;
       try { f = receiver.receiveFrame(); } catch { f = null; }
       if (!f || !f.data) return;

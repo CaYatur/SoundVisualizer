@@ -859,9 +859,58 @@ test('web: bit eşlem yolu seçilen kare hızını kısmaz (60 fps 30\'a düşme
   assert.ok(r30.sent >= 55 && r30.sent <= 62, '30 fps: ' + r30.sent);
   // elenen kare için 8 MB'lık kopya hiç üretilmez
   assert.strictEqual(r30.toBitmap, r30.sent, 'elenen kare toBitmap() çağırmamalı');
-  // Spout girişinin 30 fps sınırı yerinde (her kare GPU okuması)
-  assert.match(read('src/main/layer-sources.js'), /const CPU_MAX_FPS = 30;/);
-  assert.doesNotMatch(read('src/main/layer-sources.js'), /deliverBitmap\([^)]*'bgra', \(\) => image\.toBitmap\(\), true, [^)]*CPU_MAX_FPS/);
+  // yapay 30 fps sınırı hiçbir yolda kalmadı
+  assert.doesNotMatch(read('src/main/layer-sources.js'), /CPU_MAX_FPS/);
+});
+
+test('Spout/Syphon girişi: bit eşlem (GPU okuma) yolu 30 fps\'e kısılmaz, gönderici hızı sınırdır', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const br = fakeBridge();
+  let reads = 0;
+  const origRecv = br.TextureReceiver.prototype.receiveFrame;
+  br.TextureReceiver.prototype.receiveFrame = function () { reads++; return origRecv.call(this); };
+  const h = hub(fakeGpu(), br, { platform: 'linux' });
+  const c = fakeConsumer();
+  h.addConsumer(c, { gpu: false });
+  h.sync(inputCfg());
+  const rx = br.receivers[0];
+  rx.connected = true;
+  // 60 fps'lik gönderici, 8 ms'lik yoklamayla (~120 Hz) her 16-17 ms'de yeni kare
+  const bitmaps = () => c.sentMsgs.filter((m) => m[0] === 'sources:bitmap').length;
+  let sent = 0;
+  let next = 16;
+  for (let ms = 1; ms <= 2000; ms++) {
+    if (ms === next) { rx.newFrame = true; sent++; next += sent % 2 ? 17 : 16; } // 16/17 ms oynak 60 fps
+    t.mock.timers.tick(1);
+  }
+  assert.ok(sent >= 100, 'gönderici ' + sent);
+  assert.strictEqual(bitmaps(), sent, 'gönderilen her kare pencereye ulaştı (30 fps sınırı olsa ~60 olurdu)');
+  assert.strictEqual(reads, sent, 'kare başına tek okuma, fazladan kopya yok');
+  // gönderici kare vermediyse okuma da yok
+  const before = reads;
+  t.mock.timers.tick(500);
+  assert.strictEqual(reads, before, 'yeni kare yokken GPU okuması yapılmaz');
+  h.shutdown();
+});
+
+test('Spout/Syphon girişi: bit eşlem alacak pencere yoksa ekran kartından okuma yapılmaz', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout', 'Date'] });
+  const br = fakeBridge();
+  let reads = 0;
+  const origRecv = br.TextureReceiver.prototype.receiveFrame;
+  br.TextureReceiver.prototype.receiveFrame = function () { reads++; return origRecv.call(this); };
+  const h = hub(fakeGpu(), br, { platform: 'linux' });
+  const g = fakeConsumer();
+  h.addConsumer(g, { gpu: true }); // yalnız doku alan pencere
+  h.sync(inputCfg());
+  const rx = br.receivers[0];
+  rx.connected = true;
+  // doku yolu başarısız olup bit eşleme düşmüş (cpu) olsa bile gpu'lu pencereye bit eşlem gitmez
+  const src = read('src/main/layer-sources.js');
+  assert.match(src, /function needsBitmap\(/);
+  assert.match(src, /if \(!needsBitmap\(!gpuToo\)\) return;/);
+  h.shutdown();
+  assert.strictEqual(reads, 0);
 });
 
 test('önyükleme bloğu: bit eşlem dönüşümü 32 bitlik, ImageData yeniden kullanılıyor', () => {
