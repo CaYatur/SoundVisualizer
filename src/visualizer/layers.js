@@ -69,7 +69,10 @@
     return `inset(${pc(p.y0, H)}% ${pc(W - p.x1, W)}% ${pc(H - p.y1, H)}% ${pc(p.x0, W)}%)`;
   }
 
-  const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying'];
+  /* `input`: Spout/Syphon girişi, `web`: web sayfası. Kaynakları ana
+     süreçte (src/main/layer-sources.js), çizicileri modes/source.js. */
+  const KINDS = ['background', 'visualizer', 'media', 'sprites', 'logo', 'nowplaying', 'input', 'web'];
+  const SOURCE_KINDS = { input: true, web: true };
 
   /* Bağlamı kaybolan bir yüzey en çok bu aralıkla yeniden kuruluyor (#594). */
   const REVIVE_MS = 2000;
@@ -135,6 +138,7 @@
     }
     if (KINDS.indexOf(out.kind) < 0) out.kind = 'visualizer';
     if (out.kind === 'nowplaying') out.type = 'nowplaying';
+    if (SOURCE_KINDS[out.kind]) out.type = out.kind;
     if (!out.id) out.id = newLayerId();
     return out;
   }
@@ -1333,6 +1337,10 @@
       if (e.mode && e.mode.dispose) {
         try { e.mode.dispose(); } catch { /* motor zaten kapanmış */ }
       }
+      if (e.source) {
+        try { e.source.dispose(); } catch { /* aktarma zaten durdu */ }
+        e.source = null;
+      }
       if (e.canvas && e.canvas.parentNode) e.canvas.parentNode.removeChild(e.canvas);
       /* Tuvalin arka belleği çöp toplayıcıyı beklemeden bırakılıyor (#621):
          her sahne/Otomatik VJ değişimi katman başına tam ekran bir tuval
@@ -1477,6 +1485,15 @@
 
       if (layer.kind === 'logo') {
         e.ctx = e.canvas.getContext('2d');
+        this._sizeEntry(e);
+        return e;
+      }
+
+      if (SOURCE_KINDS[layer.kind]) {
+        e.ctx = e.canvas.getContext('2d');
+        if (typeof window !== 'undefined' && window.SVSourceLayer) {
+          e.source = new window.SVSourceLayer({ placeholder: !!this.opts.placeholder });
+        }
         this._sizeEntry(e);
         return e;
       }
@@ -2090,6 +2107,13 @@
            clear+return GL'yi hic acmiyordu. AudioEngine sifir tamponlarla
            baslar; gercek kare gelince ayni yol canli sinyali surer. */
         e.mode.draw(audio, lcfg, t, dt);
+        return;
+      }
+
+      if (SOURCE_KINDS[l.kind]) {
+        if (!e.ctx) return;
+        if (l.enabled === false || !e.source) { e.ctx.clearRect(0, 0, W, H); return; }
+        e.source.draw(e.ctx, l, W, H);
         return;
       }
 

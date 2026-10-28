@@ -688,5 +688,7 @@
   window.SVMediaWarning = mediaWarning;
   window.SVCamFrame = noteCamFrame;
   window.SVCamStatus = noteCamStatus;
+  // Dış kaynak katmanları (modes/source.js) aynı aktarma yuvalarını okur
+  window.SVRelaySlot = (key) => relaySlots.get(String(key || '')) || null;
   window.SVOverlayMediaSrc = overlayMediaSrc;
 })();

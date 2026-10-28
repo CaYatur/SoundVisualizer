@@ -277,11 +277,11 @@ function status() {
   return snapshot();
 }
 
-/* Aynı makinedeki diğer gönderenler — ileride giriş katmanı için. */
+/* Aynı makinedeki diğer gönderenler. Giriş katmanı layer-sources.js'te. */
 function listSenders() {
   const b = loadBridge();
   if (!b) return [];
   try { return b.listSenders(); } catch { return []; }
 }
 
-module.exports = { start, stop, status, available, listSenders, window: window_, DEFAULTS };
+module.exports = { start, stop, status, available, listSenders, window: window_, DEFAULTS, bridge: loadBridge };
