@@ -508,6 +508,16 @@
     const parts = [];
     let bad = false;
     const reason = String(st.error || '');
+    /* Katman panelde kapatıldıysa durum, ana sürecin bir sonraki gönderisini
+       beklemeden duraklatılmış görünür ("Yüklendi · 30 fps" kalmasın). */
+    const off = (layer && layer.enabled === false) || st.active === false;
+    const healthy = ['live', 'paused', 'waiting', 'loading', 'starting'].indexOf(st.state) >= 0;
+    if (off && healthy) {
+      if (size) parts.push(size);
+      parts.push(tr('duraklatıldı (katman kapalı, sessiz ya da başka katman solo)'));
+      if (kind === 'web' && st.blocked) parts.push(st.blocked + ' ' + tr('istek engellendi'));
+      return { text: parts.join(' · '), bad: false };
+    }
     if (st.state === 'live') {
       parts.push(tr(kind === 'input' ? 'Bağlı' : 'Yüklendi'));
       if (kind === 'web' && st.title) parts.push(st.title);
@@ -516,7 +526,7 @@
       if (st.path === 'cpu') parts.push(tr('bit eşlem yolu'));
     } else if (st.state === 'waiting') {
       parts.push(tr('Gönderici bekleniyor.'));
-    } else if (st.state === 'loading' || st.state === 'starting') {
+    } else if (st.state === 'loading' || st.state === 'starting' || st.state === 'paused') {
       parts.push(tr(kind === 'input' ? 'Başlatılıyor…' : 'Yükleniyor…'));
     } else if (st.state === 'crashed') {
       parts.push(tr('Sayfa çöktü, yeniden açılıyor.'));
@@ -535,7 +545,7 @@
       else if (URL_REASONS[reason]) parts.push(tr(URL_REASONS[reason]));
       else parts.push(tr('Hata:') + ' ' + reason);
     }
-    if (st.active === false && st.state !== 'error') parts.push(tr('duraklatıldı (katman kapalı, sessiz ya da başka katman solo)'));
+    if (st.active === false && st.state !== 'error' && !healthy) parts.push(tr('duraklatıldı (katman kapalı, sessiz ya da başka katman solo)'));
     if (kind === 'web' && st.blocked) parts.push(st.blocked + ' ' + tr('istek engellendi'));
     if (st.interacting) parts.push(tr('etkileşim penceresi açık'));
     return { text: parts.join(' · '), bad };
@@ -2772,5 +2782,6 @@
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
     isWindows: isWindowsPlatform, parseClock, formatClock,
+    sourceStatusText,
   };
 })();

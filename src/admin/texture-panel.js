@@ -20,8 +20,24 @@
   const P = () => window.SVPanel;
 
   let watching = false;
-  let state = { running: false, supported: null, protocol: '', frames: 0, dropped: 0, error: null, reason: null };
+  /* `supported` ana süreçten gelene dek bilinmiyor (null). Linux'ta özellik
+     hiç yok ve bunu sayfa zaten biliyor: açılışta anahtar bir an görünüp
+     tıklanabiliyor, durum gelince kart değişiyordu. */
+  function initialState() {
+    const p = (typeof window !== 'undefined' && window.SV_PLATFORM) || {};
+    return { running: false, supported: p.isLinux ? false : null, protocol: '', frames: 0, dropped: 0, error: null, reason: null };
+  }
+  let state = initialState();
   let senders = [];
+
+  /* Durum geldiğinde, kart henüz bilinmeyen durumdayken çizildiyse yeniden çiz. */
+  function setState(s) {
+    const was = state.supported;
+    state = s || state;
+    if (was == null && state.supported != null && typeof window !== 'undefined' && window.SVPanel && typeof window.SVPanel.rerender === 'function') {
+      try { window.SVPanel.rerender(); } catch { /* panel kapalı */ }
+    }
+  }
 
   function protocolName() {
     if (state.protocol === 'syphon') return 'Syphon';
@@ -40,9 +56,13 @@
 
     if (!watching) {
       watching = true;
-      window.api.onTextureStatus((s) => { state = s; });
-      window.api.textureStatus().then((s) => { state = s; }).catch(() => {});
+      window.api.onTextureStatus((s) => { setState(s); });
+      window.api.textureStatus().then((s) => { setState(s); }).catch(() => { setState(Object.assign({}, state, { supported: true })); });
     }
+
+    /* Durum bilinmiyorken anahtar çizilmez (tıklanabilir bir anahtar, sonradan
+       "bu sistemde yok" kartına dönüşüyordu); durum gelince yeniden çizilir. */
+    if (state.supported == null) return el('div', { class: 'texture-panel', 'aria-busy': 'true' }, []);
 
     /* Bu platformda hiç yoksa: sebebini ve alternatifini söyle, bitir. */
     if (state.supported === false) {
@@ -165,7 +185,7 @@
     return el('div', { class: 'texture-panel' }, nodes);
   }
 
-  const api = { panel, protocolName };
+  const api = { panel, protocolName, _reset: () => { watching = false; state = initialState(); senders = []; } };
   if (typeof window !== 'undefined') window.SVTexturePanel = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

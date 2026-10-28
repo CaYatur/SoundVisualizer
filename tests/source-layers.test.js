@@ -833,6 +833,100 @@ test('web: Linux\'ta bit eşlem yolu, BGRA bayt sırasıyla', () => {
   h.shutdown();
 });
 
+test('web: bit eşlem yolu seçilen kare hızını kısmaz (60 fps 30\'a düşmez, oynamaya takılmaz)', () => {
+  let clock = 1000;
+  const run = (fps, gaps) => {
+    const log = { windows: [] };
+    const h = webHub(fakeGpu(), log, { platform: 'linux', now: () => clock });
+    h.sync(webCfg('https://a.org/', { fps, transparent: false }));
+    const win = log.windows[0];
+    const c = fakeConsumer();
+    h.addConsumer(c, { gpu: false });
+    let toBitmap = 0;
+    const image = { getSize: () => ({ width: 2, height: 1 }), toBitmap: () => { toBitmap++; return Buffer.alloc(8); } };
+    let painted = 0;
+    for (const g of gaps) { clock += g; win.webContents.emit('paint', {}, {}, image); painted++; }
+    const sent = c.sentMsgs.filter((m) => m[0] === 'sources:bitmap').length;
+    h.shutdown();
+    return { sent, painted, toBitmap };
+  };
+  // 60 fps: aralık 16,67 ms ± 1,5 ms oynama (ölçümde ~46 fps çıkaran durum)
+  const jit = Array.from({ length: 120 }, (_, i) => 16.67 + (i % 2 ? 1.5 : -1.5));
+  const r60 = run(60, jit);
+  assert.strictEqual(r60.sent, r60.painted, 'seçilen 60 fps\'te hiçbir kare elenmemeli');
+  // 30 fps seçiliyken 60 fps'lik akış yarıya iner
+  const r30 = run(30, Array.from({ length: 120 }, () => 16.67));
+  assert.ok(r30.sent >= 55 && r30.sent <= 62, '30 fps: ' + r30.sent);
+  // elenen kare için 8 MB'lık kopya hiç üretilmez
+  assert.strictEqual(r30.toBitmap, r30.sent, 'elenen kare toBitmap() çağırmamalı');
+  // Spout girişinin 30 fps sınırı yerinde (her kare GPU okuması)
+  assert.match(read('src/main/layer-sources.js'), /const CPU_MAX_FPS = 30;/);
+  assert.doesNotMatch(read('src/main/layer-sources.js'), /deliverBitmap\([^)]*'bgra', \(\) => image\.toBitmap\(\), true, [^)]*CPU_MAX_FPS/);
+});
+
+test('önyükleme bloğu: bit eşlem dönüşümü 32 bitlik, ImageData yeniden kullanılıyor', () => {
+  const body = read('src/main/preload-visualizer.js');
+  assert.match(body, /new Uint32Array\(d\.buffer/);
+  assert.match(body, /imgs\.get\(m\.key\)/);
+  assert.match(body, /imgs\.delete\(key\)/);
+  // bayt sırası: B,G,R,A -> R,G,B,A
+  const conv = (bgra, opaque) => {
+    const src = new Uint8Array(bgra);
+    const s32 = new Uint32Array(src.buffer, 0, src.length >> 2);
+    const out = new Uint8Array(src.length);
+    const d32 = new Uint32Array(out.buffer);
+    const a = opaque ? 0xff000000 : 0;
+    for (let i = 0; i < d32.length; i++) { const v = s32[i]; d32[i] = (v & 0xff00ff00) | ((v & 0xff) << 16) | ((v >>> 16) & 0xff) | a; }
+    return Array.from(out);
+  };
+  assert.deepStrictEqual(conv([10, 20, 30, 40, 1, 2, 3, 0], false), [30, 20, 10, 40, 3, 2, 1, 0]);
+  assert.deepStrictEqual(conv([10, 20, 30, 40, 1, 2, 3, 0], true), [30, 20, 10, 255, 3, 2, 1, 255]);
+});
+
+test('durum: kapatılan web / giriş katmanı "live" kalmaz, kare hızı sıfırlanır', () => {
+  const log = { windows: [] };
+  const h = webHub(fakeGpu(), log, { platform: 'linux' });
+  const cfg = webCfg('https://a.org/', { transparent: false });
+  h.sync(cfg);
+  const win = log.windows[0];
+  h.addConsumer(fakeConsumer(), { gpu: false });
+  win.webContents.emit('paint', {}, {}, { getSize: () => ({ width: 2, height: 1 }), toBitmap: () => Buffer.alloc(8) });
+  const key = SL.sourceKey(cfg.layers[0]);
+  assert.strictEqual(h.status()[key].state, 'live');
+  assert.strictEqual(h.status()[key].active, true);
+  cfg.layers[0].enabled = false;
+  h.sync(cfg);
+  const off = h.status()[key];
+  assert.strictEqual(off.active, false);
+  assert.strictEqual(off.state, 'paused', 'kapalı katman live göstermemeli');
+  assert.strictEqual(off.fps, 0);
+  cfg.layers[0].enabled = true;
+  h.sync(cfg);
+  assert.strictEqual(h.status()[key].state, 'live', 'geri açılınca live');
+  h.shutdown();
+});
+
+test('panel: katman kapatılınca durum satırı hemen "duraklatıldı" olur', () => {
+  global.window = global.window || {};
+  require('../src/shared/source-layers.js');
+  global.localStorage = global.localStorage || { getItem: () => null, setItem() {}, removeItem() {} };
+  window.SVPanel = { el: () => ({}), cfg: () => ({}) };
+  delete require.cache[require.resolve('../src/admin/scene-panels.js')];
+  require('../src/admin/scene-panels.js');
+  const txt = window.SVScenePanels.sourceStatusText;
+  const live = { kind: 'web', state: 'live', width: 1920, height: 1080, fps: 30, active: true };
+  assert.match(txt('web', live, { enabled: true }).text, /Yüklendi/);
+  const off = txt('web', live, { enabled: false });
+  assert.doesNotMatch(off.text, /Yüklendi|fps/);
+  assert.match(off.text, /duraklatıldı/);
+  assert.strictEqual(off.bad, false);
+  // ana süreç 'paused' bildirince de aynı
+  assert.match(txt('web', { kind: 'web', state: 'paused', active: false, width: 2, height: 1, fps: 0 }, { enabled: true }).text, /duraklatıldı/);
+  // hata durumu duraklatılmış olsa da görünür kalır
+  const bad = txt('web', { kind: 'web', state: 'failed', active: false }, { enabled: false });
+  assert.strictEqual(bad.bad, true);
+});
+
 // ------------------------------------------------------- kaynağa bakan denetim
 
 test('önyükleme bloğu üç dosyada aynı, yalnız electron require ediliyor', () => {
