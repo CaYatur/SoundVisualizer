@@ -554,6 +554,26 @@
     node.classList.toggle('dim-hint', !r.bad);
   }
 
+  /* Kutunun yeri ve boyutu: düzen editöründeki sürüklemeyle aynı ayarlar
+     (shared/layout.js input/web). */
+  function sourcePlacement(spec, save, rerender, key) {
+    const el = P().el;
+    const pct = (v) => Math.round(v * 100) + '%';
+    return foldable('Konum ve Boyut', () => [
+      miniSlider('Yatay', () => spec.x, (v) => { spec.x = v; save(); }, { min: -0.5, max: 1.5, step: 0.005, fmt: pct }),
+      miniSlider('Dikey', () => spec.y, (v) => { spec.y = v; save(); }, { min: -0.5, max: 1.5, step: 0.005, fmt: pct }),
+      miniSlider('Boyut', () => spec.size, (v) => { spec.size = v; save(); }, { min: 0.05, max: 1.5, step: 0.005, fmt: pct }),
+      el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn ghost small', type: 'button', icon: 'fullscreen', text: 'Tam Kare',
+          title: 'Ortaya al ve bütün kareyi kaplasın',
+          onclick: () => { spec.x = 0.5; spec.y = 0.5; spec.size = 1; save(); P().push(true); rerender(); },
+        }),
+      ]),
+      el('div', { class: 'studio-note dim-hint', text: 'Düzen Editöründe kutuyu sürükleyerek de yerleştirebilirsiniz.' }),
+    ], 'src-place-' + key);
+  }
+
   function repaintSourceStatus() {
     if (typeof document === 'undefined') return;
     document.querySelectorAll('[data-src-key]').forEach(paintSourceStatus);
@@ -1096,6 +1116,7 @@
         out.push(status);
         out.push(miniSelect('Sığdırma', [['contain', 'Sığdır'], ['cover', 'Kapla'], ['stretch', 'Ger']],
           () => s.fit, (v) => { s.fit = v; l.settings.input = s; }, null, 'contain'));
+        out.push(sourcePlacement(s, () => { l.settings.input = s; }, rerender, 'in-' + (l.id || '')));
         out.push(miniToggle('Aynala', () => s.mirror, (v) => { s.mirror = v; l.settings.input = s; }, null, { def: false }));
         out.push(miniToggle('Dikey Çevir', () => s.flip, (v) => { s.flip = v; l.settings.input = s; }, null, { def: false }));
         out.push(miniToggle('Saydamlığı Koru', () => s.alpha, (v) => { s.alpha = v; l.settings.input = s; }, null, {
@@ -1167,6 +1188,7 @@
         () => w.zoom, (v) => { w.zoom = Number(v); save(); }, rerender, 1));
       out.push(miniSelect('Sığdırma', [['contain', 'Sığdır'], ['cover', 'Kapla'], ['stretch', 'Ger']],
         () => w.fit, (v) => { w.fit = v; save(); }, null, 'contain'));
+      out.push(sourcePlacement(w, save, rerender, 'web-' + (l.id || '')));
       out.push(miniToggle('Saydam Arkaplan', () => w.transparent, (v) => { w.transparent = v; save(); }, null, {
         def: true, title: 'Sayfanın kendi arkaplanı yoksa altındaki katmanlar görünür (uyarı ve sohbet kutuları için).',
       }));

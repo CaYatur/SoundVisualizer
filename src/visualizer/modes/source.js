@@ -29,6 +29,10 @@
     return typeof location !== 'undefined' && /^https?:$/.test(location.protocol);
   }
 
+  function norm(r, W, H) {
+    return W > 0 && H > 0 && r.dw > 0 && r.dh > 0 ? { x: r.dx / W, y: r.dy / H, w: r.dw / W, h: r.dh / H } : null;
+  }
+
   function frameCanvas(key) {
     if (!key || typeof document === 'undefined') return null;
     const sel = 'canvas[data-sv-source="' + (window.CSS && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"')) + '"]';
@@ -80,21 +84,27 @@
       const f = this.frame();
       const stale = !f || (Date.now() - f.at > STALE_MS);
       const hold = layer.kind === 'input' ? spec.hold !== false : true;
+      /* Yerleşim kutusu (düzen editörü, #534): görüntü varken çizilen
+         dikdörtgen, yokken katmanın kutusu (16:9 kabulüyle). */
       if (!f || (stale && !hold)) {
-        if (this.opts.placeholder) this._placeholder(ctx, layer, spec, W, H);
+        const b = S.boxRect(spec, W, H, 16, 9);
+        this.layoutBounds = norm(b, W, H);
+        if (this.opts.placeholder) this._placeholder(ctx, layer, spec, W, H, b);
         return;
       }
-      const r = S.fitRect(spec.fit, W, H, f.w, f.h);
+      const r = S.boxRect(spec, W, H, f.w, f.h);
+      this.layoutBounds = norm(r, W, H);
       if (!(r.dw > 0 && r.dh > 0)) return;
       ctx.save();
-      if (spec.mirror) { ctx.translate(W, 0); ctx.scale(-1, 1); }
-      if (spec.flip) { ctx.translate(0, H); ctx.scale(1, -1); }
-      ctx.drawImage(f.pic, r.dx, r.dy, r.dw, r.dh);
+      // Ayna ve çevirme görüntünün kendi merkezinde: kutu kenardaysa yerinde kalır
+      ctx.translate(r.dx + r.dw / 2, r.dy + r.dh / 2);
+      ctx.scale(spec.mirror ? -1 : 1, spec.flip ? -1 : 1);
+      ctx.drawImage(f.pic, -r.dw / 2, -r.dh / 2, r.dw, r.dh);
       ctx.restore();
     }
 
     /* Yalnız panel önizlemesinde: kaynağın neden görünmediği. */
-    _placeholder(ctx, layer, spec, W, H) {
+    _placeholder(ctx, layer, spec, W, H, box) {
       const t = (x) => (window.SVI18n && typeof window.SVI18n.t === 'function' ? window.SVI18n.t(x) : x);
       let text;
       if (layer.kind === 'input') {
@@ -102,19 +112,21 @@
       } else {
         text = spec.url ? t('Sayfa yükleniyor…') : t('Adres girilmedi');
       }
+      const b = box || { dx: 0, dy: 0, dw: W, dh: H };
       ctx.save();
       ctx.fillStyle = 'rgba(128,128,128,0.18)';
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(b.dx, b.dy, b.dw, b.dh);
       ctx.strokeStyle = 'rgba(200,200,200,0.5)';
       ctx.setLineDash([Math.max(4, W / 80), Math.max(4, W / 80)]);
       ctx.lineWidth = Math.max(1, W / 400);
-      ctx.strokeRect(W * 0.02, H * 0.02, W * 0.96, H * 0.96);
+      const m = Math.min(b.dw, b.dh) * 0.02;
+      ctx.strokeRect(b.dx + m, b.dy + m, b.dw - 2 * m, b.dh - 2 * m);
       ctx.setLineDash([]);
       ctx.fillStyle = 'rgba(235,235,235,0.9)';
-      ctx.font = Math.max(11, Math.round(H * 0.045)) + 'px system-ui, sans-serif';
+      ctx.font = Math.max(11, Math.round(Math.min(H, b.dh) * 0.045)) + 'px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text.length > 80 ? text.slice(0, 79) + '…' : text, W / 2, H / 2);
+      ctx.fillText(text.length > 80 ? text.slice(0, 79) + '…' : text, b.dx + b.dw / 2, b.dy + b.dh / 2);
       ctx.restore();
     }
 

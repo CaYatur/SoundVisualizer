@@ -2112,8 +2112,10 @@
 
       if (SOURCE_KINDS[l.kind]) {
         if (!e.ctx) return;
-        if (l.enabled === false || !e.source) { e.ctx.clearRect(0, 0, W, H); return; }
+        if (l.enabled === false || !e.source) { e.ctx.clearRect(0, 0, W, H); e.layoutBounds = null; return; }
         e.source.draw(e.ctx, l, W, H);
+        // Düzen editörü kutuyu buradan okur (layoutBounds)
+        e.layoutBounds = e.source.layoutBounds || null;
         return;
       }
 

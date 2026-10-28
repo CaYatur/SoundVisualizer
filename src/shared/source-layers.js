@@ -32,6 +32,10 @@
        gönderici saydamlık kanalına anlamsız değer (çoğunlukla 0) yazıyor,
        görüntü hiç görünmüyordu. */
     alpha: false,
+    // Konum ve boyut: kutunun merkezi ve karenin kaçta kaçı (düzen editörü)
+    x: 0.5,
+    y: 0.5,
+    size: 1,
   };
 
   const WEB_DEFAULTS = {
@@ -46,6 +50,9 @@
     reloadMin: 0, // dakikada bir yeniden yükle (0: hiç)
     fit: 'contain',
     mirror: false,
+    x: 0.5,
+    y: 0.5,
+    size: 1,
   };
 
   const LIMITS = {
@@ -57,6 +64,7 @@
     css: 20000,
     url: 2048,
     sender: 256,
+    size: [0.05, 1.5],
     maxWeb: 6, // aynı anda açık web sayfası
     maxInput: 8, // aynı anda bağlı gönderici
   };
@@ -72,6 +80,11 @@
     return typeof v === 'string' ? v.slice(0, max) : '';
   }
 
+  const round4 = (v) => Math.round(v * 10000) / 10000;
+  // Merkez kenardan biraz dışarı da çıkabilir (kısmen görünen kutu)
+  function pos(v) { return round4(num(v, 0.5, -0.5, 1.5)); }
+  function sizeOf(v) { return round4(num(v, 1, LIMITS.size[0], LIMITS.size[1])); }
+
   function normalizeInput(s) {
     const src = s && typeof s === 'object' ? s : {};
     return {
@@ -82,6 +95,9 @@
       flip: src.flip === true,
       hold: src.hold !== false,
       alpha: src.alpha === true,
+      x: pos(src.x),
+      y: pos(src.y),
+      size: sizeOf(src.size),
     };
   }
 
@@ -99,6 +115,9 @@
       reloadMin: Math.round(num(src.reloadMin, 0, LIMITS.reloadMin[0], LIMITS.reloadMin[1])),
       fit: FITS.indexOf(src.fit) >= 0 ? src.fit : WEB_DEFAULTS.fit,
       mirror: src.mirror === true,
+      x: pos(src.x),
+      y: pos(src.y),
+      size: sizeOf(src.size),
     };
   }
 
@@ -279,6 +298,20 @@
     return { dx: (W - dw) / 2, dy: (H - dh) / 2, dw, dh };
   }
 
+  /* Katmanın kutusu ve içindeki görüntü. Kutu (x, y) merkezli, karenin
+     `size` katı; görüntü kutuya `fit` ile oturur. Varsayılan (0,5 / 0,5 /
+     1) bütün kare: önceki davranış. Dönen dikdörtgen piksel cinsinden. */
+  function boxRect(spec, W, H, vw, vh) {
+    const s = spec || {};
+    const size = num(s.size, 1, LIMITS.size[0], LIMITS.size[1]);
+    const bw = W * size;
+    const bh = H * size;
+    const r = fitRect(s.fit, bw, bh, vw, vh);
+    const ox = num(s.x, 0.5, -0.5, 1.5) * W - bw / 2;
+    const oy = num(s.y, 0.5, -0.5, 1.5) * H - bh / 2;
+    return { dx: ox + r.dx, dy: oy + r.dy, dw: r.dw, dh: r.dh };
+  }
+
   /* Gönderici listesinden bu uygulamanın kendi çıkışı ayrılır: kendi
      görüntüsünü giriş olarak almak bir geri besleme döngüsü kurar. Spout
      aynı ad yeniden kaydedilince sonuna `_1`, `_2` ekliyor (önceki kopya
@@ -306,7 +339,7 @@
   const api = {
     KINDS, INPUT_DEFAULTS, WEB_DEFAULTS, LIMITS, FITS,
     normalizeInput, normalizeWeb, settingsOf, sourceKey,
-    checkUrl, hostClass, wanted, fitRect, splitSenders, isOwnSender,
+    checkUrl, hostClass, wanted, fitRect, boxRect, splitSenders, isOwnSender,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVSourceLayers = api;

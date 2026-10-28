@@ -110,6 +110,45 @@ test('sığdırma hesabı', () => {
   assert.deepStrictEqual(SL.fitRect('contain', 100, 50, 0, 9), { dx: 0, dy: 0, dw: 0, dh: 0 });
 });
 
+test('kutu: konum ve boyut; varsayılan bütün kare', () => {
+  assert.deepStrictEqual(SL.boxRect(SL.normalizeWeb({}), 1920, 1080, 1280, 720), { dx: 0, dy: 0, dw: 1920, dh: 1080 });
+  // Sağ üst çeyrek, yarı boy
+  assert.deepStrictEqual(SL.boxRect({ fit: 'contain', x: 0.75, y: 0.25, size: 0.5 }, 1920, 1080, 1280, 720), { dx: 960, dy: 0, dw: 960, dh: 540 });
+  // Kare kaynak 16:9 kutuda ortalanır
+  assert.deepStrictEqual(SL.boxRect({ fit: 'contain', x: 0.5, y: 0.5, size: 0.5 }, 1920, 1080, 100, 100), { dx: 690, dy: 270, dw: 540, dh: 540 });
+  assert.deepStrictEqual([SL.normalizeInput({ x: 9, y: -9, size: 0 }).x, SL.normalizeInput({ x: 9, y: -9, size: 0 }).y, SL.normalizeInput({ size: 0 }).size], [1.5, -0.5, 0.05]);
+});
+
+test('düzen editörü: giriş ve web katmanı sürüklenip boyutlanabiliyor, kaynak düzen dosyasına girmiyor', () => {
+  const L = require('../src/shared/layout.js');
+  const cfg = { layers: [
+    { id: 'i', kind: 'input', settings: { input: { sender: 'TD', app: 'X' } } },
+    { id: 'w', kind: 'web', settings: { web: { url: 'https://site.org/?token=gizli', css: 'body{}' } } },
+  ] };
+  const [li, lw] = cfg.layers;
+  assert.strictEqual(L.kindOf(li), 'input');
+  assert.strictEqual(L.kindOf(lw), 'web');
+  L.moveBy(lw, cfg, 0.2, -0.1);
+  assert.ok(L.setField(lw, cfg, 'size', 0.3));
+  assert.deepStrictEqual([lw.settings.web.x, lw.settings.web.y, lw.settings.web.size], [0.7, 0.4, 0.3]);
+  assert.strictEqual(lw.settings.web.url, 'https://site.org/?token=gizli', 'kaynak yerinde');
+  L.moveBy(li, cfg, -5, 0);
+  assert.strictEqual(li.settings.input.x, -0.5, 'kenardan taşma sınırı');
+  const out = L.exportLayout(cfg.layers, cfg);
+  const params = out.elements.map((e) => e.params);
+  assert.ok(params.every((p) => !('url' in p) && !('css' in p) && !('sender' in p) && !('app' in p)), 'adres, CSS ve gönderici dosyaya girmez');
+  // İçe aktarım: var olan katmanın kutusunu günceller, kaynaksız katman eklemez
+  const cfg2 = { layers: [] };
+  const r = L.importLayout(cfg2, out, (spec) => spec);
+  assert.strictEqual(r.added, 0);
+  assert.strictEqual(r.skipped, 2);
+  // Çizici kutusu düzen dosyasının kutusuyla aynı kuraldan
+  const fb = L.fallbackBox(lw, cfg);
+  assert.deepStrictEqual([fb.x, fb.y, fb.w, fb.h].map((v) => Math.round(v * 1e6) / 1e6), [0.55, 0.25, 0.3, 0.3]);
+  assert.match(read('src/visualizer/layers.js'), /e\.layoutBounds = e\.source\.layoutBounds \|\| null;/);
+  assert.match(read('src/visualizer/modes/source.js'), /ctx\.translate\(r\.dx \+ r\.dw \/ 2, r\.dy \+ r\.dh \/ 2\)/, 'ayna kutunun kendi merkezinde');
+});
+
 test('kendi çıkışı gönderici listesinden ayrılıyor (Spout\'un _1 ekli adı dahil)', () => {
   const r = SL.splitSenders([{ name: 'CAYADEV Visualizer' }, { name: 'CAYADEV Visualizer_1' }, { name: 'CAYADEV Visualizer_x' }, { name: 'TD', appName: 'TouchDesigner' }, null, { name: '' }], ['CAYADEV Visualizer']);
   assert.deepStrictEqual(r.mine.map((x) => x.name), ['CAYADEV Visualizer', 'CAYADEV Visualizer_1']);
