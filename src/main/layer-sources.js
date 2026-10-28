@@ -22,7 +22,9 @@
    tamamı, GPU belleği 20 sn boyunca sabit.
 
    YEDEK YOL (CPU). Doku alınamazsa (sürücü, platform; Linux'ta web katmanı
-   her zaman) kare bit eşlem olarak gider, en çok 30 fps.
+   her zaman) kare bit eşlem olarak gider. Web katmanında hız sınırı
+   kullanıcının seçtiği kare hızıdır (60 seçilirse 60); Spout/Syphon girişinin
+   bit eşlem yolu (GPU'dan okuma) en çok 30 fps.
 
    SAHİPLİK. Her doku ve tutamaç HER YOLDA bırakılır: Spout/Syphon
    tutamacı içe alımdan sonra da `closeNativeHandle` ile (Electron kendi

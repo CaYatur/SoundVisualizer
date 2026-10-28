@@ -173,6 +173,16 @@ gets them as WebP frames over the stream server, which keeps transparency.
 - **Studio presets.** A long preset name that is cut off in the list shows in full on hover.
 - **Layout import, by design.** A layout file with a text element adds a second visualizer-type layer (text is a sub-type of the visualizer layer): a fresh scene ends up with [background, visualizer, visualizer]. Importing the same file again updates those layers instead of adding more. Covered by a test.
 
+### Web layer, Layout Editor and export fixes after testing
+
+- **Web layer at the frame rate you pick.** On the CPU path (always on Linux, and wherever a GPU texture is unavailable) the page's frames were limited to 30 per second whatever the layer said, and the exact-interval check dropped every frame that arrived a little early, so "60" delivered about 46. The 30 fps limit is gone for web layers: the layer's own frame rate is the limit, with a small tolerance for timer jitter. The 8 MB copy is only made for frames that are sent, and the colour swap and the image buffer are reused. In a virtual-display run (xvfb, software rendering, a busy box) the frames reaching the panel went from about 22 per second to 37-57 with 60 selected; the page itself was painting at 60 both times. Spout/Syphon input keeps its 30 fps limit on the GPU-readback fallback only.
+- **Layout Editor: web, input and logo elements can be resized.** A handle sits on the box's bottom-right corner; drag it, or press + and - with the box selected (Shift for ten times the step). Only the "Size" field existed before.
+- **Spout/Syphon output switch.** It no longer shows up, clickable, for a moment before the card is rebuilt on a platform that cannot send.
+- **Layer status.** A web or input layer that is switched off, muted or not soloed shows "paused" and 0 fps instead of "live".
+- **Page size on small screens.** The hidden page window was clamped to the screen, so a 1920x1080 page on a 1280x1024 screen was laid out at 1279x1023 and lost its aspect ratio. The window is sized after creation, so the page keeps the configured size.
+- **Seamless loop with a live source.** A page with a running timer cannot meet itself at the loop point. The export now freezes web and Spout/Syphon layers at their picture when the export starts, and the panel says so.
+- **YouTube chapter list.** An export split into chapters now writes "YouTube chapters.txt" into its folder without the separate option; a single video still needs the option.
+
 ### Layout Editor and theme card fixes
 
 - **Fresh profile no longer breaks on the first drag.** The Visualizer fields showed 0, 0, 0, 0 and the first drag wrote those zeros back, collapsing the bars into a small icon. Empty bar placement now resolves to the real defaults (position-aware, same as the renderer).
