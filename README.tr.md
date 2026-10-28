@@ -18,7 +18,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 [![İndirme](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=indirme)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![Lisans: MIT](https://img.shields.io/badge/Lisans-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#hızlı-başlangıç)
-[![Test](https://img.shields.io/badge/test-3602%20geçiyor-2ea043.svg)](#testler)
+[![Test](https://img.shields.io/badge/test-3636%20geçiyor-2ea043.svg)](#testler)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/%C4%B0ndir-Windows-0a84ff?style=for-the-badge" alt="Windows için indir" /></a>
@@ -686,7 +686,8 @@ haber bandı · karaoke vurgusu.
   görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
   işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
   kendi içine dönemez. Sığdırma, ayna, dikey çevirme, göndericinin saydamlığını koruma ya da atma
-  ve gönderici durunca son kareyi tutma. Uygulamadan sonra açılan, yeniden başlayan ya da çöktükten
+  ve gönderici durunca son kareyi tutma. Kartta ya da Düzen Editöründe sürükleyerek yerleştirip
+  boyutlandırılıyor. Uygulamadan sonra açılan, yeniden başlayan ya da çöktükten
   sonra adına `_1` eklenerek dönen gönderici yeniden bulunuyor. Windows ve macOS.
 - <kbd>3.1.6</kbd> **Web sayfası katmanı** — herhangi bir web sayfası katman olarak: uyarılar,
   sohbet, skor tablosu, saat, pano. Sayfa boyutu, kare hızı, yakınlaştırma, saydam arkaplan, özel
@@ -1839,7 +1840,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3602 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
+**3636 birim testi, hepsi geçiyor.** Satır çalıştırmak için değil, cevap denetlemek için yazıldılar:
 
 _Sayı koşunun toplamıdır (`# tests`). Birkaç test ortama bağlı (git çalışma kopyası, Node 22'nin yerleşik WebSocket'i, electron-builder şeması); bunlar eksikse geçti değil atlandı sayılır. Yani `geçen + atlanan` hep bu sayıya eşittir; atlanan sayısı bir makinede 0, başka birinde 1–4 olabilir._
 

@@ -32,6 +32,11 @@ gets them as WebP frames over the stream server, which keeps transparency.
     - A sender that comes back as `Name_1` after a crash is found when it is the only such name.
   - **Measured:** 64–66 fps from a 60 fps sender. When the app was opened first, the sender
     started later, then killed and restarted, the layer reconnected each time.
+- **Placement.** Both kinds have their own position and size (`x`, `y`, `size`), stored in the
+  layer like the logo's position. The picture is fitted into that box. The Layout Editor lists
+  both kinds and can drag and resize them. Mirror and flip turn around the box's own centre.
+  Layout files carry the box but not the sender, address or CSS, and importing a layout does not
+  add a layer with no source.
 - **Web page.** Any http/https page as a layer: alerts, chat, a scoreboard, a clock.
   - **Settings:** page size (up to 3840×2160, portrait sizes too), 15/30/60 fps, zoom, transparent
     background, custom CSS, automatic reload and page sound (off by default).
@@ -82,11 +87,11 @@ gets them as WebP frames over the stream server, which keeps transparency.
 - **Video export** draws the live frame at drawing time, and the export page says so. Export does
   not run in real time, so moving content does not match the video's speed.
 - **MCP:** `sv_add_layer` accepts `input` and `web`.
-- **Tests:** 28 new tests cover:
+- **Tests:** 34 new tests cover:
   - URL and local-network classification, including the IPv6, IPv4-mapped, hex and decimal forms;
   - the guard's decisions and session hardening;
   - the frame hub with a fake GPU and a fake receiver modelled on the measured behaviour;
-  - the shared preload block;
+  - the shared preload block, quitting with a web layer open, and the Layout Editor kinds;
   - loading the real native module on Windows and macOS CI, which checks Syphon on a real Mac at
     every build.
 
