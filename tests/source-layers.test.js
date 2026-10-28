@@ -243,6 +243,27 @@ test('bekçi: gezinme, iç çerçeve, açılır pencere, sayfadan çıkış enge
   assert.deepStrictEqual(iw.open({ url: 'file:///C:/x' }), { action: 'deny' });
 });
 
+test('bekçi: istemci sertifikası ve HTTP kimliği yalnız web katmanına verilmez; WebRTC yerel IP vermez', () => {
+  const app = new EventEmitter();
+  const web = { id: 1 };
+  const own = { id: 2 };
+  WG.guardApp(app, (wc) => wc === web);
+  const ask = (ev, wc) => {
+    let prevented = false;
+    let called = null;
+    app.emit(ev, { preventDefault: () => { prevented = true; } }, wc, 'https://x.org/', [{ subjectName: 'ben' }], (...a) => { called = a; });
+    return { prevented, called };
+  };
+  assert.deepStrictEqual(ask('select-client-certificate', web), { prevented: true, called: [] }, 'sertifika verilmedi');
+  assert.deepStrictEqual(ask('select-client-certificate', own), { prevented: false, called: null }, 'uygulama sayfası olağan akışta');
+  assert.deepStrictEqual(ask('login', web), { prevented: true, called: [] });
+  const wc = fakeContents();
+  wc.setWebRTCIPHandlingPolicy = (p) => { wc.rtc = p; };
+  WG.guardContents(wc, () => ({}), {});
+  assert.strictEqual(wc.rtc, 'default_public_interface_only');
+  assert.match(read('src/main/main.js'), /require\('\.\/web-layer-guard'\)\.guardApp\(app, /);
+});
+
 // --------------------------------------------------------------- dağıtıcı
 
 /* Sahte GPU: içe alınan her doku sayılır; bırakılmayan kalırsa sızıntı. */
@@ -342,6 +363,9 @@ test('dağıtıcı: kare her pencereye gider, doku hepsi bitince bir kez bırak�
   assert.strictEqual(gpu.sent[0].meta.key, SL.sourceKey(inputCfg().layers[0]));
   assert.strictEqual(gpu.sent[0].meta.opaque, true, 'saydamlık varsayılan atılır');
   assert.strictEqual(gpu.released, 1);
+  /* Electron içe alırken tutamacın kopyasını alıyor; aslı bizde kalıyor.
+     Kapatılmazsa kare başına bir tutamaç sızıyordu (20 dk: 3412 -> 85 893). */
+  assert.strictEqual(br.closed, 1, 'içe alınan tutamaç da kapatıldı');
   assert.strictEqual(h.status()[gpu.sent[0].meta.key].state, 'live');
   h.shutdown();
   assert.strictEqual(rx.stopped, true);
@@ -669,6 +693,24 @@ test('web: çöken sayfa artan aralıkla yeniden açılır, sonunda vazgeçer', 
   h.reloadWeb('W');
   assert.strictEqual(log.windows.length, 8, 'elle yeniden yükleme sayacı sıfırlar');
   h.shutdown();
+});
+
+test('web: sayfa kendi penceresini kapatamaz; pencere yine giderse yeniden kurulur', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'] });
+  const log = { windows: [] };
+  const h = webHub(fakeGpu(), log);
+  h.sync(webCfg('https://a.org/'));
+  const w = log.windows[0];
+  let prevented = false;
+  w.emit('close', { preventDefault: () => { prevented = true; } });
+  assert.strictEqual(prevented, true, 'window.close() reddedildi');
+  w.emit('closed');
+  assert.strictEqual(h.status()['web:W'].state, 'crashed', 'donmuş kare "yüklendi" görünmez');
+  t.mock.timers.tick(1000);
+  assert.strictEqual(log.windows.length, 2);
+  h.shutdown();
+  assert.strictEqual(log.windows[1].destroyed, true);
+  assert.strictEqual(log.windows.length, 2, 'kendi kapatmamız yeniden kurdurmaz');
 });
 
 test('web: Linux\'ta bit eşlem yolu, BGRA bayt sırasıyla', () => {

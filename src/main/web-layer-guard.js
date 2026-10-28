@@ -193,6 +193,12 @@ function guardContents(wc, getCtx, opts) {
     }
   });
   wc.on('will-prevent-unload', (e) => e.preventDefault());
+  /* WebRTC adres adayları süzgeçten (webRequest) geçmeyen UDP ile çıkıyor
+     ve sayfaya makinenin yerel IP'sini verebiliyordu. Yalnız varsayılan
+     genel arayüz kullanılır. */
+  if (typeof wc.setWebRTCIPHandlingPolicy === 'function') {
+    try { wc.setWebRTCIPHandlingPolicy('default_public_interface_only'); } catch { /* eski sürüm */ }
+  }
   wc.on('select-bluetooth-device', (e, _list, cb) => { e.preventDefault(); try { cb(''); } catch { /* seçim yok */ } });
   wc.setWindowOpenHandler(({ url }) => {
     if (o.allowPopups && /^https?:/i.test(String(url)) && decide(url, getCtx()).ok) {
@@ -227,4 +233,23 @@ function safeUrl(raw) {
   }
 }
 
-module.exports = { PARTITION, cleanUserAgent, webPreferences, decide, hardenSession, guardContents, safeUrl };
+/* Uygulama düzeyindeki olaylar. İstemci sertifikası: Electron, olay
+   işlenmezse sistemdeki İLK sertifikayı kendiliğinden gönderiyor; web
+   katmanındaki bir sayfa böylece kullanıcının kimliğini alabilirdi. Web
+   katmanına hiçbir sertifika verilmez; uygulamanın kendi sayfalarına
+   dokunulmaz. */
+function guardApp(app, isWebContents) {
+  app.on('select-client-certificate', (e, wc, _url, _list, cb) => {
+    if (!isWebContents(wc)) return;
+    e.preventDefault();
+    try { cb(); } catch { /* seçim yok */ }
+  });
+  app.on('login', (e, wc, _details, _auth, cb) => {
+    // HTTP kimlik doğrulaması sorulmaz; sayfa kendi formunu kullanmalı
+    if (!isWebContents(wc)) return;
+    e.preventDefault();
+    try { cb(); } catch { /* iptal */ }
+  });
+}
+
+module.exports = { PARTITION, cleanUserAgent, webPreferences, decide, hardenSession, guardContents, guardApp, safeUrl };

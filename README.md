@@ -681,6 +681,19 @@ ticker · karaoke highlighting.
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. <kbd>3.1.6</kbd> A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
+- <kbd>3.1.6</kbd> **Spout / Syphon input layer** — the picture of another application on the same
+  machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
+  Pick the sender from a list; the app's own output is left out, so it cannot feed back into
+  itself. Fit, mirror, flip, keep or drop the sender's alpha, and hold the last frame when the
+  sender stops. A sender that starts after the app, restarts, or comes back with a `_1` suffix
+  after a crash is found again. Windows and macOS.
+- <kbd>3.1.6</kbd> **Web page layer** — any web page as a layer: alerts, chat, a scoreboard, a
+  clock, a dashboard. Page size, frame rate, zoom, transparent background, custom CSS, automatic
+  reload, and an **Interact** window for signing in or answering a cookie prompt. The page runs in
+  its own sandboxed session with no access to the app, your files, the camera or the microphone;
+  permissions, downloads, pop-ups and dialogs are refused, and addresses on this computer or the
+  local network are reachable only when you typed that address. Both layers go to every output:
+  screens, the panel preview, Spout/Syphon, and the OBS overlay.
 - **Smooth on every output** — videos are decoded on the CPU by default, so they
   play at full frame rate in full-screen windows and in the Spout/Syphon feed. With hardware
   decoding, Chromium produced almost no frames there (0.3 per second, measured) and the clip froze

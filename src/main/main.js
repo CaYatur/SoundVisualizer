@@ -133,6 +133,8 @@ process.on('uncaughtException', (err, origin) => faultGuard.handle(err, origin))
 /* Pencereler yalnız uygulama sayfalarında kalır; https bağlantıları sistem
    tarayıcısında açılır (nav-guard.js). */
 require('./nav-guard').install(app, shell, path.join(__dirname, '..'), (wc) => !!(layerSources && layerSources.isWebContents(wc)));
+// Web katmanına istemci sertifikası ve HTTP kimlik doğrulaması verilmez (web-layer-guard.js)
+require('./web-layer-guard').guardApp(app, (wc) => !!(layerSources && layerSources.isWebContents(wc)));
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */

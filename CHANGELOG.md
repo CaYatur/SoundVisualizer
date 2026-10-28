@@ -12,6 +12,74 @@ The broadcast layout editor (#533) and redundancy (#540) were first planned for 
 They were built ahead of time and ship in 3.1.6, together with video export. The sections up to the
 CaYaDev presets and the audio bridge came after the 3.1.6-beta build; the ones after them were in it.
 
+### Spout/Syphon input and web page layers [866]
+
+Two new layer kinds bring pictures from outside the app into a scene. Each source opens once in
+the main process, and its frames go to every output as shared GPU textures: the screens, the panel
+preview, the Spout/Syphon output and the exporter. The OBS overlay cannot take a GPU texture, so it
+gets them as WebP frames over the stream server, which keeps transparency.
+
+- **Spout/Syphon input.** Pick a sender from the list. The app's own output is left out, including
+  the `_1` name Spout gives it after an unclean exit, so the picture cannot feed back into itself.
+  - **Settings:** fit, mirror, vertical flip, keep or drop the sender's alpha, and hold the last
+    frame when the sender stops. Alpha is dropped by default because many senders write
+    meaningless values there and the picture would not show.
+  - **Reconnection.** It follows what was measured with texture-bridge 0.15.0 on Windows:
+    - A new receiver reports "not connected" until its first receive call, and that call makes
+      the connection.
+    - A receiver made before its sender starts, or before a sender restarts, never connects. It
+      was watched for 14 s. So the app rebuilds it once the sender is listed.
+    - A sender that comes back as `Name_1` after a crash is found when it is the only such name.
+  - **Measured:** 64–66 fps from a 60 fps sender. When the app was opened first, the sender
+    started later, then killed and restarted, the layer reconnected each time.
+- **Web page.** Any http/https page as a layer: alerts, chat, a scoreboard, a clock.
+  - **Settings:** page size (up to 3840×2160, portrait sizes too), 15/30/60 fps, zoom, transparent
+    background, custom CSS, automatic reload and page sound (off by default).
+  - **Buttons:** an Interact window opens the same page so you can sign in or answer a cookie
+    prompt, and the layer reloads when it closes. There are also Reload and Clear Web Layer Data.
+- **Web page security.** The page is untrusted.
+  - **Session:** it runs in its own partition with no preload, sandboxed, with dev tools off.
+  - **Refused:** every permission, device chooser, screen share, download, pop-up, alert and
+    `beforeunload`.
+  - **Navigation:** main and sub frames may go only to http/https.
+  - **Local network:** the app's own servers (stream page and remote, MCP, OSCQuery, audio bridge,
+    redundancy) are blocked, and so are loopback, private, link-local and local-name addresses.
+    A local address you typed opens, but only that origin. DNS rebinding is checked against the
+    resolved address.
+  - **Closing itself:** a page can no longer close its own hidden window with `window.close()`.
+    Before the fix the frames froze while the status still said loaded.
+  - **Red-team page.** A test page tried all of these from inside the layer. Every attempt was
+    blocked and no file reached the downloads folder.
+- **A handle leak found in the 20-minute run.** The app ran with an input layer, a web layer and
+  the Spout output for 20 minutes. The main process gained one handle per input frame, from 3412
+  to 85 893.
+  - **Cause:** texture-bridge's notes say Electron takes ownership of the handle on import.
+    Electron's source shows it does not: Windows duplicates the handle, and macOS retains its own
+    IOSurface reference. The caller's handle is left open on both platforms.
+  - **Isolated:** painting, sending to Spout, the web layer, and receive-then-close all stayed
+    flat. Receive-then-import alone leaked 64 handles per second.
+  - **Fix:** the handle is now closed right after import. The leak was zero, and the picture was
+    unchanged at 60 fps.
+- **Robustness:**
+  - Every imported texture and native handle is released on every path, including failed imports
+    and windows that close mid-transfer.
+  - A window still taking the previous frame is skipped rather than queued.
+  - If import fails three times, the source falls back to bitmaps. Linux web layers always use
+    bitmaps.
+  - A crashed page reopens after 1, 2, 4, 8, 16 and 30 s, then waits for Reload.
+  - A source that leaves the scene closes after 3 s, so a crossfade can finish.
+  - A muted or soloed-out layer keeps its source open without drawing.
+- **Video export** draws the live frame at drawing time, and the export page says so. Export does
+  not run in real time, so moving content does not match the video's speed.
+- **MCP:** `sv_add_layer` accepts `input` and `web`.
+- **Tests:** 28 new tests cover:
+  - URL and local-network classification, including the IPv6, IPv4-mapped, hex and decimal forms;
+  - the guard's decisions and session hardening;
+  - the frame hub with a fake GPU and a fake receiver modelled on the measured behaviour;
+  - the shared preload block;
+  - loading the real native module on Windows and macOS CI, which checks Syphon on a real Mac at
+    every build.
+
 ### For music videos and short video [837, 838, 839, 840, 841, 842, 843]
 
 - **Seamless loops and a Spotify Canvas profile [840].** A new export option, "Seamless loop", is off by default.

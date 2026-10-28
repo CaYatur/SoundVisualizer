@@ -682,6 +682,19 @@ haber bandı · karaoke vurgusu.
   opaklık ve sesle sürülen yakınlaşma ve opaklık. Aynı kare Studio shader'larında `sv_media` olarak
   okunabiliyor. <kbd>3.1.6</kbd> Yavaş bir **Ken Burns** yakınlaşma ve kayması (güç ve döngü süresi) ile
   kısa bir **vuruşta nabız** çizim saatine bağlı; dışa aktarım ekrandaki hareketin aynısını gösteriyor.
+- <kbd>3.1.6</kbd> **Spout / Syphon giriş katmanı** — aynı bilgisayardaki başka bir uygulamanın
+  görüntüsü (TouchDesigner, Resolume, OBS, bir kamera uygulaması) katman olarak, GPU üzerinden,
+  işlemciye kopyasız. Gönderici listeden seçiliyor; uygulamanın kendi çıkışı listede yok, görüntü
+  kendi içine dönemez. Sığdırma, ayna, dikey çevirme, göndericinin saydamlığını koruma ya da atma
+  ve gönderici durunca son kareyi tutma. Uygulamadan sonra açılan, yeniden başlayan ya da çöktükten
+  sonra adına `_1` eklenerek dönen gönderici yeniden bulunuyor. Windows ve macOS.
+- <kbd>3.1.6</kbd> **Web sayfası katmanı** — herhangi bir web sayfası katman olarak: uyarılar,
+  sohbet, skor tablosu, saat, pano. Sayfa boyutu, kare hızı, yakınlaştırma, saydam arkaplan, özel
+  CSS, kendiliğinden yenileme ve oturum açmak ya da çerez onayını vermek için bir **Etkileşim**
+  penceresi. Sayfa kendi korumalı oturumunda çalışıyor: uygulamaya, dosyalarınıza, kameraya ve
+  mikrofona erişemiyor; izinler, indirme, açılır pencere ve iletişim kutuları reddediliyor, bu
+  bilgisayardaki ve yerel ağdaki adreslere yalnız o adresi kendiniz yazdıysanız ulaşıyor. İki katman
+  da her çıkışa gidiyor: ekranlar, panel önizlemesi, Spout/Syphon ve OBS katmanı.
 - **Her çıkışta akıcı** — videolar varsayılan olarak işlemciyle çözülüyor; tam
   ekran pencerelerde ve Spout/Syphon akışında tam kare hızında oynuyor. Donanım çözmede Chromium
   orada neredeyse hiç kare üretmiyordu (ölçüldü: saniyede 0,3) ve klip döngü noktasında donuyordu.

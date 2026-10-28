@@ -24,9 +24,10 @@
    YEDEK YOL (CPU). Doku alınamazsa (sürücü, platform; Linux'ta web katmanı
    her zaman) kare bit eşlem olarak gider, en çok 30 fps.
 
-   SAHİPLİK. Her doku ve tutamaç HER YOLDA bırakılır: içe alınmayan Spout
-   tutamacı `closeNativeHandle` ile, içe alınan doku `release` ile, web
-   sayfasının dokusu son başvuru bırakılınca. Bırakılmayan her kare bir GPU
+   SAHİPLİK. Her doku ve tutamaç HER YOLDA bırakılır: Spout/Syphon
+   tutamacı içe alımdan sonra da `closeNativeHandle` ile (Electron kendi
+   kopyasını alıyor), içe alınan doku `release` ile, web sayfasının dokusu
+   son başvuru bırakılınca. Bırakılmayan her kare bir GPU
    kaynağı ya da bir sistem tutamacı sızdırır; uzun gösteride bellek biter.
 
    GERİ BASKI. Bir pencere önceki kareyi henüz almadıysa o pencereye bu kare
@@ -310,6 +311,14 @@ function create(deps) {
         let f = null;
         try { f = receiver.receiveSharedTexture(); } catch (err) { f = null; st.error = String(err && err.message).slice(0, 200); }
         if (!f) return;
+        /* TUTAMAÇ HER YOLDA KAPANIR, içe alım başarılı olsa da. Electron
+           içe alırken kendi kopyasını alıyor ve bizimkine dokunmuyor
+           (electron_api_shared_texture.cc: Windows'ta DuplicateHandle,
+           macOS'ta IOSurface için scoped_policy::RETAIN). texture-bridge'in
+           belgesi "Electron sahiplenir" diyor; ölçülen öyle değil: 20 dakikalık
+           koşuda ana süreç kare başına bir tutamaç sızdırdı (3412 -> 85 893).
+           İçe alımdan hemen sonra kapatınca sızıntı sıfır, görüntü aynı. */
+        const closeHandle = () => { try { loadBridge().closeNativeHandle(f.handle); } catch { /* kapatıldı */ } };
         let imported = null;
         try {
           const handle = platform === 'darwin' ? { ioSurface: f.handle } : { ntHandle: f.handle };
@@ -317,12 +326,13 @@ function create(deps) {
             textureInfo: { pixelFormat: f.pixelFormat, codedSize: { width: f.width, height: f.height }, handle },
           });
         } catch (err) {
-          try { loadBridge().closeNativeHandle(f.handle); } catch { /* kapatıldı */ }
+          closeHandle();
           st.dropped++;
           st.error = String((err && err.message) || err).slice(0, 200);
           if (++gpuFails >= GPU_FAILS_TO_CPU) { cpu = true; log('layer-sources: ' + key + ' bit eşlem yoluna geçti: ' + st.error); }
           return;
         }
+        closeHandle();
         gpuFails = 0;
         st.width = f.width;
         st.height = f.height;
@@ -476,7 +486,20 @@ function create(deps) {
       });
       wc.on('unresponsive', () => { st.state = 'unresponsive'; });
       wc.on('responsive', () => { if (st.state === 'unresponsive') st.state = 'live'; });
-      win.on('closed', () => { win = null; });
+      /* Sayfa `window.close()` ile kendi görünmez penceresini kapatabiliyordu
+         (denendi): kareler donuyor, durum "yüklendi" kalıyordu. Kapatma
+         isteği reddedilir; bizim kapatmamız `destroy()` ile, o olay
+         çıkmaz. Pencere yine de beklenmedik giderse çökmüş sayılır. */
+      win.on('close', (e) => e.preventDefault());
+      const self = win;
+      win.on('closed', () => {
+        if (win !== self) return;
+        win = null;
+        if (stopped) return;
+        st.state = 'crashed';
+        st.error = 'CLOSED';
+        scheduleCrashReload();
+      });
       loadedUrl = r.url;
       st.state = 'loading';
       wc.loadURL(r.url).catch(() => { /* did-fail-load bildirir */ });
