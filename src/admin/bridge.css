@@ -25,9 +25,9 @@
   background: var(--card2); border: 1px solid var(--line);
 }
 .br-tile.wide { grid-column: span 2; }
-.br-tile-k { font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.br-tile-k { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted2); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .br-tile-v { font-size: 14px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.br-tile-n { font-size: 10.5px; color: var(--muted2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-tile-n { font-size: 11px; color: var(--muted2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .br-tile.dim .br-tile-v { color: var(--muted); font-weight: 500; font-size: 12px; }
 .br-tile.ok .br-tile-v { color: var(--ok); }
 .br-tile.warn .br-tile-v { color: var(--warn-text, var(--warn)); }
@@ -40,7 +40,7 @@
 .br-num { font-size: 11px; color: var(--muted); min-width: 34px; text-align: right; }
 .br-bands { display: grid; gap: 4px; }
 .br-band { display: flex; align-items: center; gap: 6px; }
-.br-band-k { font-size: 9.5px; font-weight: 700; color: var(--muted2); width: 10px; }
+.br-band-k { font-size: 11px; font-weight: 700; color: var(--muted2); width: 10px; }
 .br-list { display: grid; gap: 6px; margin-top: 8px; }
 .br-item {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: space-between;
@@ -48,7 +48,7 @@
 }
 .br-item .br-item-main { display: flex; flex-direction: column; min-width: 0; }
 .br-item .br-item-t { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.br-item .br-item-s { color: var(--muted2); font-size: 10.5px; }
+.br-item .br-item-s { color: var(--muted2); font-size: 11px; }
 .br-err { margin-top: 8px; font-size: 11px; color: var(--danger-text); background: rgb(var(--danger-rgb) / .08); border: 1px solid rgb(var(--danger-rgb) / .3); border-radius: var(--radius-sm, 8px); padding: 6px 10px; }
 .br-help { display: inline-block; position: relative; }
 .br-help > summary {
@@ -58,22 +58,22 @@
 }
 .br-help > summary::-webkit-details-marker { display: none; }
 .br-help[open] > summary { color: var(--accent-text, var(--accent)); border-color: var(--accent); }
-.br-help-body { margin-top: 6px; font-size: 10.5px; line-height: 1.45; color: var(--muted); max-width: 520px; }
+.br-help-body { margin-top: 6px; font-size: 11px; line-height: 1.45; color: var(--muted); max-width: 520px; }
 .br-q {
   width: 16px; height: 16px; border-radius: 50%; padding: 0; flex-shrink: 0; cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 10px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; font: inherit; font-size: 11px; font-weight: 700; line-height: 1;
   color: var(--muted2); border: 1px solid var(--line2, var(--line)); background: transparent;
 }
 .br-q:hover, .br-q.on { color: var(--accent-text, var(--accent)); border-color: var(--accent); }
 .br-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ctrl > .br-help-body { margin-top: 6px; padding: 7px 10px; border-radius: var(--radius-sm, 8px); background: var(--card2); border: 1px solid var(--line); }
-.br-subhead { font-size: 10.5px; font-weight: 600; color: var(--muted); margin: 10px 0 6px; }
+.br-subhead { font-size: 11px; font-weight: 600; color: var(--muted); margin: 10px 0 6px; }
 .br-subhead:first-of-type { margin-top: 0; }
 .ctrl .row .br-ctl { display: flex; align-items: center; gap: 8px; flex: 0 1 62%; max-width: 420px; min-width: 0; justify-content: flex-end; }
 .ctrl .row .br-ctl > input.p-in { flex: 1 1 auto; min-width: 0; }
 .ctrl .row .br-ctl > input.num { width: 96px; }
 .ctrl .row > .br-lbl { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; }
-.br-sub { font-size: 10.5px; color: var(--muted2); margin-top: 4px; }
+.br-sub { font-size: 11px; color: var(--muted2); margin-top: 4px; }
 @media (max-width: 560px) {
   .ctrl .row.br-stack { flex-direction: column; align-items: stretch; }
   .ctrl .row.br-stack .br-ctl { max-width: none; flex-basis: auto; }

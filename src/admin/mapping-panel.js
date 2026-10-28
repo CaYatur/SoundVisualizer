@@ -188,7 +188,7 @@
         c.stroke();
         if (pt.kind === 'corner') {
           c.fillStyle = tint('--fg-rgb', 0.6);
-          c.font = '10px system-ui, sans-serif';
+          c.font = '11px system-ui, sans-serif';
           c.textAlign = 'center';
           c.fillText(String(pt.i + 1), q[0], q[1] - 10);
         }

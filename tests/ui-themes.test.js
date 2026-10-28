@@ -385,12 +385,18 @@ test('normalizeId ve resolve', () => {
   assert.strictEqual(T.resolve('bilinmeyen', true).id, 'dark');
 });
 
-function fakeDom(search, prefersDarkInit) {
+function fakeDom(search, prefersDarkInit, moreContrastInit) {
   const props = new Map();
   const attrs = {};
   const mqListeners = [];
   const mq = {
     matches: prefersDarkInit,
+    addEventListener: (ev, fn) => mqListeners.push(fn),
+  };
+  // Karşıtlık sorgusu ayrı bir nesne: `prefers-contrast` / `forced-colors`
+  const queries = [];
+  const mqc = {
+    matches: !!moreContrastInit,
     addEventListener: (ev, fn) => mqListeners.push(fn),
   };
   const replaced = [];
@@ -401,11 +407,12 @@ function fakeDom(search, prefersDarkInit) {
       colorScheme: '',
     },
     setAttribute: (k, v) => { attrs[k] = v; },
+    removeAttribute: (k) => { delete attrs[k]; },
   };
   const win = {
     location: { search, href: 'file:///x/index.html' + search },
     history: { state: null, replaceState: (s, t, u) => replaced.push(u) },
-    matchMedia: () => mq,
+    matchMedia: (q) => { queries.push(q); return /contrast|forced-colors/.test(q) ? mqc : mq; },
     console,
   };
   win.window = win;
@@ -413,8 +420,9 @@ function fakeDom(search, prefersDarkInit) {
   vm.runInContext(read('src/shared/ui-themes.js'), ctx);
   vm.runInContext(read('src/admin/theme-boot.js'), ctx);
   return {
-    win, props, attrs, docEl, replaced,
+    win, props, attrs, docEl, replaced, queries,
     flipScheme: (dark) => { mq.matches = dark; mqListeners.forEach((fn) => fn()); },
+    flipContrast: (on) => { mqc.matches = on; mqListeners.forEach((fn) => fn()); },
   };
 }
 
@@ -459,6 +467,40 @@ test('theme-boot: Cihaz varsayılanı sistemi canlı izliyor ve tuvallere haber 
   assert.strictEqual(d.win.SVUiTheme.current().id, 'midnight');
 });
 
+/* Erişilebilirlik: sistem daha fazla karşıtlık isterse (Windows karşıtlık
+   temaları, macOS "Karşıtlığı artır") Cihaz varsayılanı Yüksek Karşıtlık'a
+   geçer; elle seçilmiş tema olduğu gibi kalır. */
+test('resolve: Cihaz varsayılanı sistemin karşıtlık isteğinde Yüksek Karşıtlık', () => {
+  assert.strictEqual(T.resolve('system', true, true).id, 'contrast');
+  assert.strictEqual(T.resolve('system', false, true).id, 'contrast');
+  assert.strictEqual(T.resolve('system', false, false).id, 'light');
+  assert.strictEqual(T.resolve('light', false, true).id, 'light', 'seçilen tema sisteme bakmaz');
+  assert.strictEqual(T.resolve('bilinmeyen', true, true).id, 'contrast', 'tanınmayan ayar da cihazı izler');
+  assert.ok(T.byId('contrast').aaa, 'Yüksek Karşıtlık AAA');
+});
+
+test('theme-boot: karşıtlık isteğini canlı izliyor', () => {
+  const d = fakeDom('?uiTheme=system', false, true);
+  assert.ok(d.queries.some((q) => /prefers-contrast: more/.test(q) && /forced-colors: active/.test(q)), d.queries.join(' | '));
+  assert.strictEqual(d.win.SVUiTheme.current().id, 'contrast');
+  assert.strictEqual(d.win.SVUiTheme.moreContrast(), true);
+  d.flipContrast(false);
+  assert.strictEqual(d.win.SVUiTheme.current().id, 'light');
+  d.flipContrast(true);
+  assert.strictEqual(d.attrs['data-ui-theme'], 'contrast');
+  d.win.SVUiTheme.set('sepia');
+  d.flipContrast(false);
+  assert.strictEqual(d.win.SVUiTheme.current().id, 'sepia');
+});
+
+test('theme-boot: Hareketleri Azalt belgeye işaret koyuyor ve kaldırıyor', () => {
+  const d = fakeDom('?uiTheme=dark', true);
+  d.win.SVUiTheme.setReduceMotion(true);
+  assert.strictEqual(d.attrs['data-reduce-motion'], '');
+  d.win.SVUiTheme.setReduceMotion(false);
+  assert.ok(!('data-reduce-motion' in d.attrs));
+});
+
 test('theme-boot: tuval yardımcıları temanın rengini veriyor', () => {
   const d = fakeDom('?uiTheme=light', true);
   assert.strictEqual(d.win.SVUiTheme.color('--text'), T.byId('light').tokens['--text']);
@@ -488,8 +530,9 @@ test('panel: Ayarlar kartında tema seçici; sıfırlama temayı koruyor', () =>
   assert.match(s, /role: 'radiogroup'/);
   assert.match(s, /role: 'radio'/);
   const reset = s.slice(s.indexOf("$('resetBtn').addEventListener"), s.indexOf("$('resetBtn').addEventListener") + 1200);
-  assert.match(reset, /const uiTheme = cfg\.ui && cfg\.ui\.theme;/);
-  assert.match(reset, /if \(uiTheme\) cfg\.ui\.theme = uiTheme;/);
+  // Tema, boyut ve hareket ayarı birlikte korunur
+  assert.match(reset, /const uiPrefs = cfg\.ui && typeof cfg\.ui === 'object' \? Object\.assign\(\{\}, cfg\.ui\) : null;/);
+  assert.match(reset, /if \(uiPrefs\) cfg\.ui = Object\.assign\(\{\}, cfg\.ui, uiPrefs\);/);
   // MCP, yedek ve sıfırlama render() ile gelir; tema orada uygulanıyor
   assert.match(s, /function render\(\) \{\s*renderWanted = false;\s*syncUiTheme\(\);/);
 });
@@ -498,7 +541,8 @@ test('çeviri: tema adları ve metinleri İngilizce', () => {
   const I = read('src/shared/i18n.js');
   const names = T.CHOICES.map((c) => c.name).filter((n) => n !== 'CaYaDev' && n !== 'Neon');
   names.concat(['Arayüz Teması',
-    'Cihazınız şu an {0} kullanıyor; değişince panel de değişir.',
+    'Cihazınız şu an {0} kullanıyor; değişince panel de değişir. Sistemde yüksek karşıtlık açılırsa panel Yüksek Karşıtlık temasına geçer.',
+    'Cihazınız daha fazla karşıtlık istiyor; panel Yüksek Karşıtlık temasını kullanıyor.',
     'Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.',
     'Dil, arayüz teması, pencere koruması, genişletilmiş aralıklar ve güncellemeler.']).forEach((k) => {
     const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

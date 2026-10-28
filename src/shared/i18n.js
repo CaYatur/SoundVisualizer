@@ -3624,7 +3624,15 @@
     'Yüksek Karşıtlık': 'High Contrast',
     'Gece Mavisi': 'Midnight',
     'Sepya': 'Sepia',
-    'Cihazınız şu an {0} kullanıyor; değişince panel de değişir.': 'Your device is using {0} right now; the panel follows it when it changes.',
+    'Cihazınız şu an {0} kullanıyor; değişince panel de değişir. Sistemde yüksek karşıtlık açılırsa panel Yüksek Karşıtlık temasına geçer.': 'Your device is using {0} right now; the panel follows it when it changes. If high contrast is turned on in the system, the panel switches to the High Contrast theme.',
+    'Cihazınız daha fazla karşıtlık istiyor; panel Yüksek Karşıtlık temasını kullanıyor.': 'Your device asks for more contrast; the panel is using the High Contrast theme.',
+    // Erişilebilirlik
+    'Erişilebilirlik': 'Accessibility',
+    'Arayüz Boyutu': 'Interface Size',
+    '%90': '90%', '%100': '100%', '%110': '110%', '%125': '125%', '%150': '150%',
+    'Paneldeki yazıları ve denetimleri birlikte büyütür. Klavyede Ctrl + ve Ctrl − ile değişir, Ctrl 0 ile %100 olur. Görselleştirme ve dışa aktarılan video etkilenmez.': 'Makes the text and controls in the panel larger together. Ctrl + and Ctrl − change it from the keyboard, and Ctrl 0 sets it back to 100%. The visualization and exported video are not affected.',
+    'Hareketleri Azalt': 'Reduce Motion',
+    'Paneldeki kayma, solma ve yanıp sönme efektlerini kapatır. İşletim sisteminde animasyonlar kapalıysa bunlar zaten kapalıdır. Görselleştirme etkilenmez.': 'Turns off sliding, fading and blinking effects in the panel. If animations are turned off in the operating system, these are already off. The visualization is not affected.',
     'Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.': 'Changes the panel only; the visualizer output, the stream overlay and your own colours are not affected.',
     /* İki render kipi (#530) */
     'Zaman çizelgesini izle (çalınca başla, durunca bitir)': 'Follow the timeline (start on play, stop on stop)',

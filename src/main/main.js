@@ -35,6 +35,7 @@ const mediaLibrary = require('./media-library');
 const lyricsLibrary = require('./lyrics-library');
 const lyricsSync = require('../shared/lyrics-sync');
 const uiThemes = require('../shared/ui-themes');
+const uiScale = require('../shared/ui-scale');
 const mcpServer = require('./mcp-server');
 const faultGuardLib = require('./fault-guard');
 
@@ -687,8 +688,59 @@ function adminUiTheme(cfg) {
   if (SHOTS) return uiThemes.DEFAULT_ID;
   return uiThemes.normalizeId(cfg && cfg.ui && cfg.ui.theme);
 }
+// Windows karşıtlık temaları ve macOS "Karşıtlığı artır"
+function osMoreContrast() {
+  return !!(nativeTheme.shouldUseHighContrastColors || nativeTheme.inForcedColorsMode);
+}
 function adminBackground(cfg) {
-  return uiThemes.resolve(adminUiTheme(cfg), nativeTheme.shouldUseDarkColors).tokens['--bg'];
+  return uiThemes.resolve(adminUiTheme(cfg), nativeTheme.shouldUseDarkColors, osMoreContrast()).tokens['--bg'];
+}
+
+/* PANELİN BOYUTU (erişilebilirlik, src/shared/ui-scale.js). Panel ve köprü
+   penceresine yakınlaştırma olarak uygulanır; görselleştirici ve yardımcı
+   pencereler 1'de kalır. Chromium yakınlaştırmayı adrese bağlı tutuyor ve
+   gezinmede sıfırlayabiliyor: her yüklemede ve ayar değişiminde yeniden
+   uygulanır. README görüntüleri hep 1. */
+function adminZoom(cfg) {
+  if (SHOTS) return uiScale.DEFAULT;
+  return uiScale.normalize(cfg && cfg.ui && cfg.ui.scale);
+}
+function applyZoom(win) {
+  if (!win || win.isDestroyed()) return;
+  const f = adminZoom(currentConfig || {});
+  try {
+    if (Math.abs(win.webContents.getZoomFactor() - f) > 1e-3) win.webContents.setZoomFactor(f);
+  } catch { /* pencere kapanıyor */ }
+}
+function syncAdminZoom() {
+  applyZoom(adminWin);
+  applyZoom(bridgeWin);
+}
+/* Ctrl + / Ctrl − / Ctrl 0: ayarı değiştirir (kalıcı) ve panelin kendi
+   kopyasını tazeler; yoksa panelin bir sonraki gönderimi eski değere
+   döndürürdü. Varsayılan menünün yakınlaştırma kısayolları da böylece
+   bastırılır: onlar ayarı bilmeden yakınlaştırıyordu. */
+function stepAdminZoom(dir) {
+  /* Yapılandırma yoksa (ilk açılış, okunamayan dosya) panel henüz
+     göndermedi: yalnız `ui` taşıyan bir dosya yazılmasın. Tek başına köprü
+     kipi boş yapılandırmayla çalışır (#862). */
+  if (!currentConfig && !BRIDGE_ONLY) return;
+  ensureBridgeConfig();
+  const cur = adminZoom(currentConfig);
+  const next = uiScale.step(cur, dir);
+  if (next === cur) return;
+  applyConfigPatch({ ui: Object.assign({}, currentConfig.ui || {}, { scale: next }) });
+  notifyAdmin('external-config', currentConfig);
+}
+function watchZoomKeys(win) {
+  win.webContents.on('before-input-event', (event, input) => {
+    const dir = uiScale.zoomKey(input);
+    if (dir === null) return;
+    event.preventDefault();
+    stepAdminZoom(dir);
+  });
+  win.webContents.on('did-finish-load', () => applyZoom(win));
+  win.webContents.on('did-navigate-in-page', () => applyZoom(win));
 }
 let adminBgShown = null;
 /* Açık köprü durum penceresi de temayı canlı izler (#813): panelde tema
@@ -699,7 +751,7 @@ function syncBridgeWinTheme() {
   if (!bridgeWin || bridgeWin.isDestroyed()) return;
   const id = adminUiTheme(currentConfig || {});
   const dark = !!nativeTheme.shouldUseDarkColors;
-  const key = id + '|' + dark;
+  const key = id + '|' + dark + '|' + osMoreContrast();
   if (key === bridgeWinThemeShown) return;
   bridgeWinThemeShown = key;
   try { bridgeWin.setBackgroundColor(adminBackground(currentConfig || {})); } catch { /* */ }
@@ -707,6 +759,7 @@ function syncBridgeWinTheme() {
 }
 function syncAdminBackground() {
   syncBridgeWinTheme();
+  syncAdminZoom();
   if (!adminWin || adminWin.isDestroyed()) return;
   const bg = adminBackground(currentConfig);
   if (bg === adminBgShown) return;
@@ -746,6 +799,7 @@ function createAdminWindow() {
 
   adminWin.loadFile(path.join(__dirname, '..', 'admin', 'index.html'), { query: { uiTheme: adminUiTheme(startCfg) } });
   attachSmoke(adminWin, 'ADMIN');
+  watchZoomKeys(adminWin);
 
   if (process.argv.includes('--dev')) {
     adminWin.webContents.openDevTools({ mode: 'detach' });
@@ -1847,7 +1901,8 @@ function openBridgeWindow(tab) {
   bridgeWin = win;
   attachSmoke(win, 'BRIDGE-STATUS');
   win.loadFile(path.join(__dirname, '..', 'bridge-status', 'index.html'), { query: { uiTheme: adminUiTheme(currentConfig || {}) } });
-  bridgeWinThemeShown = adminUiTheme(currentConfig || {}) + '|' + !!nativeTheme.shouldUseDarkColors;
+  bridgeWinThemeShown = adminUiTheme(currentConfig || {}) + '|' + !!nativeTheme.shouldUseDarkColors + '|' + osMoreContrast();
+  watchZoomKeys(win);
   win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
   if (tab) win.webContents.once('did-finish-load', () => { if (!win.isDestroyed()) win.webContents.send('bridge-win:goto', tab); });
   const vis = () => { syncCapture(); syncNowPlaying(); syncAppMeters(); };
@@ -10587,6 +10642,7 @@ async function runSmoke() {
           if (window.__smokePopulateBackup && window.SVPanel) { window.SVPanel.applyScene('smoke-same'); await sleep(250); }
           let checked = 0, min = Infinity;
           const fails = [];
+          const tiny = [];
           for (const c of cats) {
             click('[data-cat="' + c + '"]'); await sleep(400);
             // Katlanır bölümlerin içeriği kapalıyken DOM'da yok
@@ -10604,9 +10660,10 @@ async function runSmoke() {
               checked += r.checked;
               if (r.min < min) min = r.min;
               r.fails.forEach((f) => { if (!fails.some((x) => x.path === f.path && x.text === f.text)) fails.push(Object.assign({ cat: c }, f)); });
+              r.tiny.forEach((f) => { if (!tiny.some((x) => x.path === f.path)) tiny.push(Object.assign({ cat: c }, f)); });
             }
           }
-          out.push({ theme: t.id, applied: document.documentElement.getAttribute('data-ui-theme'), checked, min, failCount: fails.length, fails: fails.slice(0, 8) });
+          out.push({ theme: t.id, applied: document.documentElement.getAttribute('data-ui-theme'), checked, min, failCount: fails.length, fails: fails.slice(0, 8), tinyCount: tiny.length, tiny: tiny.slice(0, 8) });
         }
         click('[data-cat="settings"]'); await sleep(350);
         click('.ui-theme-opt[data-theme="' + original + '"]');
@@ -10623,6 +10680,12 @@ async function runSmoke() {
           if (r.applied !== r.theme) errors.push('ui theme ' + r.theme + ' was not applied (' + r.applied + ')');
           if (r.checked < 500) errors.push('ui theme ' + r.theme + ': only ' + r.checked + ' text elements measured');
           if (r.failCount) errors.push('ui theme ' + r.theme + ': ' + r.failCount + ' text element(s) below the contrast threshold');
+          /* Yazı boyutu temadan bağımsız: yalnız ilk temada raporlanır,
+             aynı öğe her temada bir daha sayılmasın. */
+          if (r === report.themes[0] && r.tinyCount) {
+            r.tiny.forEach((f) => console.log('[SMOKE]   ~ küçük yazı ' + f.cat + ' ' + f.px + 'px ' + f.path + ' «' + f.text + '»'));
+            errors.push('ui text: ' + r.tinyCount + ' text element(s) smaller than 11 px');
+          }
         });
         if (!report.restored) errors.push('ui themes: the user\'s theme was not restored');
         console.log('[SMOKE] dolu panel tarandı: ' + JSON.stringify(report.seen));
