@@ -388,3 +388,40 @@ test('platform arayüz bölgeleri: 9:16 ve 1:1, kareye göre, çıktıya girmiyo
   const i18n = fs.readFileSync(path.join(root, 'src', 'shared', 'i18n.js'), 'utf-8');
   assert.ok(i18n.includes("'Platform arayüzü': 'Platform interface'"));
 });
+
+// ---- Boyutlandırma tutamacı: web/input `size`, logo `scale`
+test('boyutlandırma: sol üst köşe sabit, tek ölçek ayarı ve merkez birlikte değişir', () => {
+  ['web', 'input', 'logo'].forEach((k) => assert.ok(L.canResize({ kind: k }), k));
+  ['nowplaying'].forEach((k) => assert.ok(!L.canResize({ kind: k }), k));
+  assert.ok(!L.canResize({ kind: 'visualizer', type: 'bars' }));
+
+  const cfg = { layerStack: { enabled: true } };
+  const layer = { id: 'w', kind: 'web', settings: { web: { x: 0.5, y: 0.5, size: 0.4 } } };
+  // Görünen kutu: merkez (0.5, 0.5), 0.4 x 0.4 → sol üst (0.3, 0.3)
+  const box = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 };
+  const real = L.resizeBy(layer, cfg, box, { x: 0.5, y: 0.5, size: 0.4 }, 1.5);
+  const s = layer.settings.web;
+  assert.ok(close(real, 1.5));
+  assert.ok(close(s.size, 0.6, 1e-6), 'size ' + s.size);
+  assert.ok(close(s.x - 0.6 / 2, 0.3, 1e-3) && close(s.y - 0.6 / 2, 0.3, 1e-3), 'sol üst köşe yerinde: ' + s.x + ',' + s.y);
+  // Birikme yok: aynı başlangıçtan tekrar uygulamak aynı sonucu verir
+  L.resizeBy(layer, cfg, box, { x: 0.5, y: 0.5, size: 0.4 }, 1.5);
+  assert.ok(close(layer.settings.web.size, 0.6, 1e-6));
+});
+
+test('boyutlandırma: sınırlara kırpılır ve gerçek çarpanı döndürür; logo scale yazar', () => {
+  const cfg = { layerStack: { enabled: true } };
+  const layer = { id: 'w', kind: 'input', settings: { input: { x: 0.5, y: 0.5, size: 1 } } };
+  const real = L.resizeBy(layer, cfg, { x: 0, y: 0, w: 1, h: 1 }, { x: 0.5, y: 0.5, size: 1 }, 10);
+  assert.ok(layer.settings.input.size <= 1.5 + 1e-9 && close(real, layer.settings.input.size / 1, 1e-6));
+  const small = L.resizeBy(layer, cfg, { x: 0, y: 0, w: 1, h: 1 }, { x: 0.5, y: 0.5, size: 1 }, 0.0001);
+  assert.ok(layer.settings.input.size >= 0.05 - 1e-9 && small > 0);
+  assert.strictEqual(L.resizeBy(layer, cfg, null, {}, 1.2), null);
+  assert.strictEqual(L.resizeBy({ kind: 'nowplaying' }, cfg, { x: 0, y: 0, w: 1, h: 1 }, {}, 1.2), null);
+
+  const cfg2 = { logo: { x: 0.9, y: 0.1, scale: 0.1 } };
+  const logo = { id: 'l', kind: 'logo', settings: {} };
+  L.resizeBy(logo, cfg2, { x: 0.85, y: 0.05, w: 0.1, h: 0.1 }, { x: 0.9, y: 0.1, scale: 0.1 }, 2);
+  assert.ok(close(cfg2.logo.scale, 0.2, 1e-6), 'scale ' + cfg2.logo.scale);
+  assert.strictEqual(cfg2.logo.size, undefined, 'logoda size yazılmaz');
+});

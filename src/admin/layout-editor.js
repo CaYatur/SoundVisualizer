@@ -28,6 +28,8 @@
   const tr = (s) => (window.SVI18n && typeof window.SVI18n.t === 'function' ? window.SVI18n.t(s) : s);
   const SNAP_PX = 8;
   const NUDGE = 0.005;
+  const RESIZE_STEP = 0.02; // klavyeyle her + / − basışında ölçek değişimi (Shift: on kat)
+  const MIN_RESIZE_PX = 24; // kutunun köşeden çekilince inebileceği en küçük kenar
   const ASPECTS = [['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1]];
   const KIND_NAMES = { bars: 'Barlar', nowplaying: 'Çalan Parça', text: 'Metin', logo: 'Logo', input: 'Spout/Syphon Girişi', web: 'Web Sayfası' };
 
@@ -241,11 +243,19 @@
       seen[e.id] = true;
       let b = st.boxes[e.id];
       if (!b) {
+        const resizable = LY().canResize(e.layer);
         b = P().el('button', {
-          type: 'button', class: 'lay-box',
-          'aria-label': e.name + ' — ' + tr('ok tuşlarıyla taşıyın'),
+          type: 'button', class: 'lay-box' + (resizable ? ' resizable' : ''),
+          'aria-label': e.name + ' — ' + tr('ok tuşlarıyla taşıyın') + (resizable ? ', ' + tr('+ ve − ile boyutlandırın') : ''),
         }, [P().el('span', { class: 'lay-tag', text: e.name, 'data-user-text': '' })]);
         b.dataset.id = e.id;
+        if (resizable) {
+          /* Boyutlandırma tutamacı: sağ alt köşe. Kutunun kendi sürükleme
+             dinleyicisine ulaşmasın diye olay burada durur. */
+          const h = P().el('span', { class: 'lay-handle', title: tr('Boyutlandırmak için sürükleyin'), 'aria-hidden': 'true' });
+          h.addEventListener('pointerdown', (ev) => { ev.stopPropagation(); startResize(ev, e.id, b); });
+          b.appendChild(h);
+        }
         b.addEventListener('pointerdown', (ev) => startDrag(ev, e.id));
         b.addEventListener('keydown', (ev) => nudge(ev, e.id));
         b.addEventListener('focus', () => select(e.id));
@@ -326,6 +336,70 @@
     target.addEventListener('pointercancel', up);
   }
 
+  /* Köşeden boyutlandırma: sol üst köşe sabit, kutu sağ alt köşeden
+     çekilir. Çarpan imlecin iki eksendeki oranının ortalaması: kaynak
+     oranı korunuyor, tek ölçek ayarı yazılıyor (logo `scale`, kaynaklar
+     `size`). Başlangıç kutusu ve değerlerinden hesaplanır (birikme yok). */
+  function startResize(ev, id, boxEl) {
+    if (ev.button !== 0) return;
+    const e = find(id);
+    if (!e || !LY().canResize(e.layer)) return;
+    ev.preventDefault();
+    if (boxEl && boxEl.focus) boxEl.focus({ preventScroll: true });
+    select(id);
+    const bounds = window.SVPreview.stack().layoutBounds();
+    const startBox = boxOf(e, bounds);
+    if (!startBox) return;
+    const cfg = P().cfg();
+    const startVals = {};
+    LY().KINDS[e.kind].fields.forEach((f) => { startVals[f.key] = LY().getField(e.layer, cfg, f.key); });
+    const rect = st.stage.getBoundingClientRect();
+    const minK = Math.max(MIN_RESIZE_PX / rect.width / startBox.w, MIN_RESIZE_PX / rect.height / startBox.h) || 0.05;
+    st.drag = { id, e, resize: true, moved: false };
+    const target = ev.currentTarget;
+    target.setPointerCapture(ev.pointerId);
+    const move = (m) => {
+      const d = st && st.drag;
+      if (!d) return;
+      const kx = (startBox.w * rect.width + (m.clientX - ev.clientX)) / (startBox.w * rect.width);
+      const ky = (startBox.h * rect.height + (m.clientY - ev.clientY)) / (startBox.h * rect.height);
+      LY().resizeBy(d.e.layer, P().cfg(), startBox, startVals, Math.max(minK, (kx + ky) / 2));
+      P().push(false);
+      d.moved = true;
+    };
+    const up = () => {
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      target.removeEventListener('pointercancel', up);
+      const d = st && st.drag;
+      if (st) st.drag = null;
+      if (d && d.moved) { P().push(true); renderSide(); }
+    };
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', up);
+  }
+
+  // Klavye karşılığı: + / − ölçeği değiştirir (Shift: on kat), sol üst köşe sabit
+  function resizeKey(ev, id) {
+    const dir = ev.key === '+' || ev.key === '=' ? 1 : ev.key === '-' || ev.key === '_' ? -1 : 0;
+    if (!dir) return false;
+    const e = find(id);
+    if (!e || !LY().canResize(e.layer)) return false;
+    ev.preventDefault();
+    const stack = window.SVPreview.stack();
+    const startBox = boxOf(e, stack.layoutBounds());
+    if (!startBox) return true;
+    const cfg = P().cfg();
+    const startVals = {};
+    LY().KINDS[e.kind].fields.forEach((f) => { startVals[f.key] = LY().getField(e.layer, cfg, f.key); });
+    const step = RESIZE_STEP * (ev.shiftKey ? 10 : 1);
+    LY().resizeBy(e.layer, cfg, startBox, startVals, 1 + dir * step);
+    P().push(false);
+    renderSide();
+    return true;
+  }
+
   // Başlangıç değerlerine döner, toplam kaymayı uygular (birikme hatası yok)
   function applyMove(e, startVals, dx, dy) {
     const cfg = P().cfg();
@@ -346,7 +420,7 @@
   function nudge(ev, id) {
     const keys = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     const k = keys[ev.key];
-    if (!k) return;
+    if (!k) { resizeKey(ev, id); return; }
     const e = find(id);
     if (!e) return;
     ev.preventDefault();
@@ -469,6 +543,9 @@
       } else {
         side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Çalan parça sistemden okunur; okunamazsa metin kartındaki elle girilen parça bilgisi çizilir.' }));
       }
+    }
+    if (LY().canResize(cur.layer)) {
+      side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Boyut: kutunun sağ alt köşesinden sürükleyin ya da kutu seçiliyken + ve − tuşlarına basın (Shift ile on kat).' }));
     }
     renderReveal(side, cur);
     side.appendChild(el('div', { class: 'studio-note dim-hint', text: 'Değerler karenin oranı (0–1). Güvenli alanlar SMPTE ST 2046-1 ve EBU R 95: kesikli çizgi aksiyon (%93), noktalı çizgi başlık (%90).' }));
