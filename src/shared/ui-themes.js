@@ -25,8 +25,8 @@
    görüntü durur.
 
    "Cihaz varsayılanı" bir tema değil, seçim: işletim sisteminin açık/koyu
-   tercihine göre Karanlık ya da Aydınlık'a çözülür ve tercih değişince
-   canlı izlenir.
+   tercihine göre Karanlık ya da Aydınlık'a, sistem daha fazla karşıtlık
+   istiyorsa Yüksek Karşıtlık'a çözülür ve tercih değişince canlı izlenir.
 
    `--accent2` yazı olarak da kullanılıyor (grup başlıkları), bu yüzden koyu
    zeminde açık olmalı; dolu düğmelerin geçişi `--accent` → `--accent-grad`
@@ -249,10 +249,17 @@
     return id === SYSTEM_ID || Object.prototype.hasOwnProperty.call(BY_ID, id) ? id : DEFAULT_CHOICE;
   }
 
-  // Seçimi (system dahil) somut bir temaya çevirir
-  function resolve(id, prefersDark) {
+  /* Seçimi (system dahil) somut bir temaya çevirir. "Cihaz varsayılanı"
+     işletim sistemi daha fazla karşıtlık istiyorsa (Windows karşıtlık
+     temaları, macOS "Karşıtlığı artır": `prefers-contrast: more` ya da
+     `forced-colors: active`) Yüksek Karşıtlık'a çözülür. Elle seçilmiş bir
+     tema olduğu gibi kalır. */
+  function resolve(id, prefersDark, moreContrast) {
     const n = normalizeId(id);
-    if (n === SYSTEM_ID) return BY_ID[prefersDark === false ? 'light' : 'dark'];
+    if (n === SYSTEM_ID) {
+      if (moreContrast === true) return BY_ID.contrast;
+      return BY_ID[prefersDark === false ? 'light' : 'dark'];
+    }
     return BY_ID[n];
   }
 
@@ -316,8 +323,8 @@
 
   /* Belgeye uygular. CaYaDev'de satır içi değerler silinir: admin.css'in
      :root'u zaten CaYaDev. */
-  function apply(doc, id, prefersDark) {
-    const theme = resolve(id, prefersDark);
+  function apply(doc, id, prefersDark, moreContrast) {
+    const theme = resolve(id, prefersDark, moreContrast);
     const el = doc.documentElement;
     TOKEN_NAMES.forEach((n) => {
       if (theme.id === DEFAULT_ID) el.style.removeProperty(n);

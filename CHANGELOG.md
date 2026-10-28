@@ -589,6 +589,31 @@ Details and measurements: [docs/REDUNDANCY.md](docs/REDUNDANCY.md).
 
 ### Control panel
 
+- **Readability and accessibility [864].** People could not read parts of the 3.1.5 panel. A scan
+  of every category found 406 of 1514 visible texts below 11 px (8.5–10.5 px). The worst case was
+  the colour template names, at 10 px in secondary grey under each swatch, and the self-test's
+  contrast scan had skipped them.
+  - **No text below 11 px.** The 62 smaller sizes in the panel's stylesheets are now 11 px, and
+    template names are 11.5 px in the body text colour. The same scan now finds none. Nothing is
+    clipped at 1100×760 that was not clipped before.
+  - **Interface Size** (Settings → Application → Accessibility): 90, 100, 110, 125 or 150%, and
+    <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> (<kbd>Cmd</kbd> on macOS) from
+    anywhere in the panel. It is the window's own zoom, so layout, canvas clicks and menus scale
+    together. It applies to the panel and the audio bridge window only: at 125% the panel reported
+    a device pixel ratio of 1.25 while an open visualizer stayed at 1. The size survives a theme
+    change and a reload, and the shortcut saves it, so the panel's next update cannot undo it.
+  - **Reduce Motion** turns off the panel's slides, fades and blinking. The operating system's
+    "turn off animations" setting does the same without the switch. The visualizer is not affected.
+  - **Device default follows high contrast.** When the system asks for more contrast (Windows
+    contrast themes, macOS Increase Contrast), Device default switches to High Contrast, live.
+  - **Windows contrast themes.** These replace every colour with the system's and remove
+    gradients. Switches, the selected button, slider thumbs and level meters were drawn only with
+    background colour, so they disappeared. They now use the system highlight colour, and theme
+    previews and your own colours keep theirs.
+  - Checked by emulating `prefers-contrast`, `forced-colors` and `prefers-reduced-motion`; Windows
+    display settings were not changed. Settings → Reset to Defaults keeps all three settings. The
+    self-test fails on any visible text below 11 px. It now measures template names too, and finds
+    no text below the contrast threshold in any of the seven themes (3554 texts).
 - **Interface themes [770].** Settings → Application → Interface Theme offers Device default,
   which is the default, and seven themes:
   - CaYaDev, the existing look;

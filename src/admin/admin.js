@@ -926,6 +926,7 @@
     return el('div', { class: 'ctrl' }, [
       el('label', { class: 'lbl', text: tr(def.label) }),
       seg,
+      def.hint ? el('div', { class: 'studio-note dim-hint', text: tr(def.hint), style: 'margin-top:4px;' }) : null,
     ]);
   }
 
@@ -1180,9 +1181,11 @@
       o.setAttribute('aria-checked', on ? 'true' : 'false');
       o.tabIndex = on ? 0 : -1;
     });
-    const sysNote = sel === UT.SYSTEM_ID
-      ? tr('Cihazınız şu an {0} kullanıyor; değişince panel de değişir.').replace('{0}', tr(prefersDark() ? 'Karanlık' : 'Aydınlık'))
-      : tr('Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.');
+    const sysNote = sel !== UT.SYSTEM_ID
+      ? tr('Yalnız paneli değiştirir; görselleştirici çıktısı, yayın katmanı ve kendi renkleriniz etkilenmez.')
+      : window.SVUiTheme.moreContrast()
+        ? tr('Cihazınız daha fazla karşıtlık istiyor; panel Yüksek Karşıtlık temasını kullanıyor.')
+        : tr('Cihazınız şu an {0} kullanıyor; değişince panel de değişir. Sistemde yüksek karşıtlık açılırsa panel Yüksek Karşıtlık temasına geçer.').replace('{0}', tr(prefersDark() ? 'Karanlık' : 'Aydınlık'));
     return el('div', { class: 'ctrl' }, [
       grid,
       el('div', { class: 'studio-note dim-hint', text: sysNote, style: 'margin-top:6px;' }),
@@ -3530,10 +3533,31 @@
         icon: 'gear',
         title: 'Uygulama',
         desc: '',
-        roots: ['ui.theme', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        roots: ['ui.theme', 'ui.scale', 'ui.reduceMotion', 'power.alwaysOnTop', 'power.keepAwake', 'power.hwVideoDecode', 'power.protect', 'power.protectNoEscape', 'power.confirmClose'],
+        keywords: ['erişilebilirlik', 'okunabilirlik', 'yazı boyutu', 'büyüt', 'yakınlaştır', 'karşıtlık', 'kontrast', 'tema',
+          'accessibility', 'readability', 'text size', 'font size', 'zoom', 'contrast', 'theme'],
         controls: [
           { type: 'language', group: 'Dil' },
           { type: 'uitheme', group: 'Arayüz Teması' },
+          {
+            /* Panelin yakınlaştırması (src/shared/ui-scale.js); ana süreç
+               uygular. Seçenekler ui-scale STEPS ile aynı. */
+            type: 'segment', path: 'ui.scale', label: 'Arayüz Boyutu',
+            group: 'Erişilebilirlik',
+            keywords: ['yazı boyutu', 'büyüt', 'küçült', 'yakınlaştır', 'zoom', 'text size', 'font size', 'bigger text'],
+            options: [
+              { value: 0.9, label: '%90' }, { value: 1, label: '%100' }, { value: 1.1, label: '%110' },
+              { value: 1.25, label: '%125' }, { value: 1.5, label: '%150' },
+            ],
+            hint: 'Paneldeki yazıları ve denetimleri birlikte büyütür. Klavyede Ctrl + ve Ctrl − ile değişir, Ctrl 0 ile %100 olur. Görselleştirme ve dışa aktarılan video etkilenmez.',
+          },
+          {
+            // rebuild: işaret render() içindeki syncUiTheme'de uygulanıyor
+            type: 'toggle', path: 'ui.reduceMotion', label: 'Hareketleri Azalt', rebuild: true,
+            group: 'Erişilebilirlik',
+            keywords: ['animasyon', 'hareket', 'animation', 'motion'],
+            hint: 'Paneldeki kayma, solma ve yanıp sönme efektlerini kapatır. İşletim sisteminde animasyonlar kapalıysa bunlar zaten kapalıdır. Görselleştirme etkilenmez.',
+          },
           {
             type: 'toggle', path: 'power.alwaysOnTop', label: 'Görselleştirmeyi Her Zaman Üstte Tut',
             group: 'Pencere',
@@ -4369,6 +4393,7 @@
     if (!window.SVUiTheme || !window.SVUiThemes) return;
     const id = window.SVUiThemes.normalizeId(cfg && cfg.ui && cfg.ui.theme);
     if (window.SVUiTheme.choice() !== id) window.SVUiTheme.set(id);
+    window.SVUiTheme.setReduceMotion(!!(cfg && cfg.ui && cfg.ui.reduceMotion === true));
   }
   /* "Cihaz varsayılanı" seçiliyken sistem açık/koyu değişince Ayarlar'daki
      "cihazınız şu an …" notu da güncellensin. */
@@ -4841,6 +4866,7 @@
           section: sec.title,
           path: def.path,
           advanced: !!def.advanced,
+          keywords: def.keywords || [],
         });
       });
     });
@@ -6487,14 +6513,14 @@
       // Kullanıcı içeriği (renk şablonları ve sahneler) sıfırlamada korunur
       const presets = Array.isArray(cfg.userPresets) ? cfg.userPresets.slice() : [];
       const scenes = Array.isArray(cfg.scenes) ? cfg.scenes.slice() : [];
-      // Okunabilirlik için seçilmiş tema sıfırlamada kalır (#770)
-      const uiTheme = cfg.ui && cfg.ui.theme;
+      // Okunabilirlik için seçilmiş tema, boyut ve hareket ayarı sıfırlamada kalır (#770)
+      const uiPrefs = cfg.ui && typeof cfg.ui === 'object' ? Object.assign({}, cfg.ui) : null;
       cfg = window.SV.defaultConfig();
       platformAdjust(cfg);
       cfg.audio.sources = sources;
       cfg.userPresets = presets;
       cfg.scenes = scenes;
-      if (uiTheme) cfg.ui.theme = uiTheme;
+      if (uiPrefs) cfg.ui = Object.assign({}, cfg.ui, uiPrefs);
       activeSceneId = null;
       push(true);
       render();

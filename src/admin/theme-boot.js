@@ -13,23 +13,31 @@
    ile ayardaki değeri uygular; adres de güncellenir ki dil değişikliğinin
    yeniden yüklemesi eski temayla açılmasın.
 
-   "Cihaz varsayılanı" işletim sisteminin tercihini `prefers-color-scheme`
-   ile okur ve değişince canlı izler. `nativeTheme.themeSource`
-   değiştirilmez: o, görselleştirici dahil her pencerenin tercihini
-   değiştirirdi.
+   "Cihaz varsayılanı" işletim sisteminin açık/koyu tercihini
+   `prefers-color-scheme` ile, daha fazla karşıtlık isteğini
+   `prefers-contrast`/`forced-colors` ile okur ve değişince canlı izler.
+   `nativeTheme.themeSource` değiştirilmez: o, görselleştirici dahil her
+   pencerenin tercihini değiştirirdi.
 
    Tuvale çizen paneller (zaman çizelgesi, eşleme) rengi buradan alır ve
    `onChange` ile yeniden çizer. */
 (() => {
   const T = window.SVUiThemes;
   if (!T) return;
-  const mq = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  const media = (q) => (typeof window.matchMedia === 'function' ? window.matchMedia(q) : null);
+  const mq = media('(prefers-color-scheme: dark)');
+  /* Windows karşıtlık temaları `forced-colors`, macOS "Karşıtlığı artır"
+     `prefers-contrast: more` olarak gelir. */
+  const mqContrast = media('(prefers-contrast: more), (forced-colors: active)');
   const listeners = new Set();
   let choice = T.DEFAULT_CHOICE;
   let theme = null;
 
   function prefersDark() {
     return mq ? mq.matches : true;
+  }
+  function moreContrast() {
+    return mqContrast ? mqContrast.matches : false;
   }
 
   function rememberInUrl() {
@@ -44,7 +52,7 @@
   function set(id) {
     choice = T.normalizeId(id);
     const prev = theme ? theme.id : null;
-    theme = T.apply(document, choice, prefersDark());
+    theme = T.apply(document, choice, prefersDark(), moreContrast());
     rememberInUrl();
     if (prev !== null && prev !== theme.id) {
       listeners.forEach((fn) => { try { fn(theme); } catch (e) { console.error('[theme]', e); } });
@@ -54,7 +62,7 @@
 
   // Değişkenin değeri: '#rrggbb' ya da 'rgba(...)'
   function color(name) {
-    const t = theme || T.resolve(choice, prefersDark());
+    const t = theme || T.resolve(choice, prefersDark(), moreContrast());
     return t.tokens[name];
   }
 
@@ -65,10 +73,20 @@
     return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')';
   }
 
-  if (mq) {
-    const onScheme = () => { if (choice === T.SYSTEM_ID) set(choice); };
-    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onScheme);
-    else if (typeof mq.addListener === 'function') mq.addListener(onScheme);
+  const onScheme = () => { if (choice === T.SYSTEM_ID) set(choice); };
+  [mq, mqContrast].forEach((m) => {
+    if (!m) return;
+    if (typeof m.addEventListener === 'function') m.addEventListener('change', onScheme);
+    else if (typeof m.addListener === 'function') m.addListener(onScheme);
+  });
+
+  /* Hareketleri azalt (erişilebilirlik): paneldeki geçiş ve animasyonlar
+     admin.css'te `data-reduce-motion` ile kapanır. İşletim sisteminin
+     "animasyonları kapat" tercihi CSS'te ayrıca `prefers-reduced-motion`
+     ile izlenir; bu ayar onu açmak için, kapatmak için değil. */
+  function setReduceMotion(on) {
+    if (on) document.documentElement.setAttribute('data-reduce-motion', '');
+    else document.documentElement.removeAttribute('data-reduce-motion');
   }
 
   let initial = null;
@@ -79,6 +97,8 @@
     set,
     choice: () => choice,
     current: () => theme,
+    moreContrast,
+    setReduceMotion,
     color,
     alpha,
     onChange: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },

@@ -20,7 +20,11 @@
    devre dışı denetimleri muaf tutar).
 
    Eşik: 4.5:1; büyük yazı (24 px ya da 18.66 px kalın) 3:1. AAA temada 7 ve
-   4.5. */
+   4.5.
+
+   Yazı boyutu da ölçülür: `minPx`'ten (11 px) küçük çizilen her yazı
+   `tiny` listesine girer. Boyut Arayüz Boyutu'ndan bağımsız, CSS pikseliyle
+   ölçülür; 3.1.5'te yazıların dörtte biri 8.5–10.5 px'ti. */
 (function () {
   /* color-mix() sonucu `color(srgb 0.1 0.2 0.3 / 0.5)` olarak hesaplanır
      (0–1 arası). Çözülemeyen zemin sessizce atlanıyor ve yazı alttaki
@@ -89,6 +93,9 @@
     return base;
   }
 
+  // Panelde en küçük yazı (CSS pikseli)
+  const MIN_PX = 11;
+
   function threshold(px, weight, aaa) {
     const large = px >= 24 || (px >= 18.66 && weight >= 700);
     if (aaa) return large ? 4.5 : 7;
@@ -96,9 +103,11 @@
   }
 
   // Görüntü/medya üstündeki alanlar (yazı orada görüntünün üstünde durur)
+  /* Renk şablonu kartında yalnız renk şeridi atlanır: altındaki ad kartın
+     kendi zemininde ve ölçülür (3.1.5'te 10 px soluk yazıydı). */
   const SKIP = [
     '.preview-stage', '.studio-preview', '.md-thumb-box', '.logo-lib-thumb', '.img-thumb',
-    '.scene-thumb', '.layer-preview', '.md-cell .md-fav', '.preset', '.up-swatch',
+    '.scene-thumb', '.layer-preview', '.md-cell .md-fav', '.preset .swatch', '.up-swatch',
     /* Klip hücreleri ölçülür: zemin kullanıcının rengiyle boyalı ama oran
        her renkte yetecek kadar düşük; önizlemeli hücrede yazılar kendi kart
        zeminiyle duruyor. */
@@ -118,6 +127,8 @@
       });
     }
     const fails = [];
+    const tiny = [];
+    const minPx = o.minPx || MIN_PX;
     let checked = 0;
     let min = Infinity;
     const all = doc.body.querySelectorAll('*');
@@ -159,14 +170,21 @@
       fg = over([fg[0], fg[1], fg[2], fg[3] * alpha], bg);
       const ratio = contrast(fg, bg);
       checked++;
-      const need = threshold(parseFloat(cs.fontSize), parseInt(cs.fontWeight, 10) || 400, !!o.aaa);
+      const px = parseFloat(cs.fontSize);
+      if (px < minPx - 0.01 && tiny.length < 40) {
+        tiny.push({ path: describe(el), text: textOf(el), px });
+      }
+      const need = threshold(px, parseInt(cs.fontWeight, 10) || 400, !!o.aaa);
       if (ratio < min) min = ratio;
       if (ratio < need) {
-        const text = Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.nodeValue.trim()).join(' ').slice(0, 60);
-        fails.push({ path: describe(el), text, ratio: Math.round(ratio * 100) / 100, need });
+        fails.push({ path: describe(el), text: textOf(el), ratio: Math.round(ratio * 100) / 100, need });
       }
     }
-    return { checked, min: Math.round(min * 100) / 100, fails };
+    return { checked, min: Math.round(min * 100) / 100, fails, tiny };
+  }
+
+  function textOf(el) {
+    return Array.from(el.childNodes).filter((n) => n.nodeType === 3).map((n) => n.nodeValue.trim()).join(' ').slice(0, 60);
   }
 
   function describe(el) {
@@ -180,7 +198,7 @@
     return parts.join(' > ');
   }
 
-  const api = { audit, parse, gradientStops, mean, backdrop, over, contrast, threshold };
+  const api = { MIN_PX, audit, parse, gradientStops, mean, backdrop, over, contrast, threshold };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   if (typeof window !== 'undefined') window.SVUiContrastAudit = api;
 })();

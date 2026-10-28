@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3585%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3602%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -1192,6 +1192,10 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 - <kbd>3.1.6</kbd> **Interface themes**: CaYaDev, Dark, Light, High Contrast, Midnight, Sepia and
   Neon, or Device default, which follows your system's light or dark setting and is the default. Every theme is
   contrast-tested: the self-test measures every text it draws.
+- <kbd>3.1.6</kbd> **Readability**: Interface Size from 90 to 150%, also with
+  <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd>, and no text smaller than 11 px.
+  Reduce Motion turns off the panel's animations. Device default switches to High Contrast when the
+  system asks for more contrast, and switches and selections stay visible in Windows contrast themes.
 
 ---
 
@@ -1818,7 +1822,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3585 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3602 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

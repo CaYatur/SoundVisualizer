@@ -328,13 +328,16 @@
       mode: 'notify',
     },
 
-    /* Panelin arayüz teması (#770): src/shared/ui-themes.js'teki bir kimlik
-       ya da 'system' (cihazın açık/koyu tercihi). Görselleştirici çıktısını
-       etkilemez. "Varsayılanlara Sıfırla" bunu korur: okunabilirlik için
-       seçilmiş bir tema sıfırlamayla kaybolmamalı. */
+    /* Panelin görünümü (#770 ve erişilebilirlik). Görselleştirici çıktısını
+       etkilemez. "Varsayılanlara Sıfırla" bunların hepsini korur:
+       okunabilirlik için seçilmiş bir ayar sıfırlamayla kaybolmamalı. */
     ui: {
-      // Cihazın açık/koyu tercihini izler (Cihaz varsayılanı)
+      // src/shared/ui-themes.js'teki bir kimlik ya da 'system' (Cihaz varsayılanı)
       theme: 'system',
+      // Panelin boyutu: 0.9 | 1 | 1.1 | 1.25 | 1.5 (src/shared/ui-scale.js)
+      scale: 1,
+      // Paneldeki geçiş ve animasyonları kapat (sistemin tercihi ayrıca izlenir)
+      reduceMotion: false,
     },
 
     power: {
