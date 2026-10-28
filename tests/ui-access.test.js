@@ -53,10 +53,11 @@ test('panel betiklerinde satır içi küçük yazı yok', () => {
   ['src/admin', 'src/bridge-status'].forEach((dir) => {
     fs.readdirSync(path.join(root, dir)).filter((f) => f.endsWith('.js')).forEach((f) => {
       const src = read(dir + '/' + f);
-      const re = /font-size:\s*([0-9.]+)px|fontSize\s*=\s*['"]([0-9.]+)px/g;
+      // Tuval yazıları da (zaman çizelgesi, eşleme): ctx.font = '600 11px …'
+      const re = /font-size:\s*([0-9.]+)px|fontSize\s*=\s*['"]([0-9.]+)px|\.font\s*=\s*['"`](?:[a-z0-9]+\s+)*?([0-9.]+)px/g;
       let m;
       while ((m = re.exec(src))) {
-        const v = parseFloat(m[1] || m[2]);
+        const v = parseFloat(m[1] || m[2] || m[3]);
         if (v < A.MIN_PX) small.push(dir + '/' + f + ' ' + m[0]);
       }
     });
@@ -140,6 +141,10 @@ test('ui-scale: Ctrl/Cmd + − 0 tuşları, başka tuşlar değil', () => {
   assert.strictEqual(k({ key: '-', code: 'NumpadSubtract' }), -1);
   assert.strictEqual(k({ key: '0' }), 0);
   assert.strictEqual(k({ key: '0', code: 'Numpad0' }), 0);
+  // Türkçe Q: `-` tuşu ABD'nin = konumunda, `*` tuşu ABD'nin - konumunda
+  assert.strictEqual(k({ key: '-', code: 'Equal' }), -1, 'Türkçe Q Ctrl −');
+  assert.strictEqual(k({ key: '*', code: 'Minus' }), null, 'Türkçe Q Ctrl *');
+  assert.strictEqual(k({ key: '+', code: 'Digit4', shift: true }), 1, 'Türkçe Q Shift+4 = +');
   assert.strictEqual(U.zoomKey({ type: 'keyDown', meta: true, key: '+' }), 1, 'macOS Cmd');
   assert.strictEqual(U.zoomKey({ type: 'keyDown', key: '+' }), null, 'Ctrl olmadan yazı yazılıyor');
   assert.strictEqual(k({ key: '+', alt: true }), null, 'AltGr / Alt bileşimleri');

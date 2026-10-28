@@ -35,16 +35,19 @@
   }
 
   /* Electron `before-input-event` girdisinden yön: +1, -1, 0 ya da null.
-     `key` klavye düzenine göre gelir (Türkçe Q'da + kendi tuşunda), `code`
-     sayısal tuş takımı ve ABD düzenindeki = tuşu için. */
+     Karar `key` ile verilir (klavye düzenindeki karakter). `code` ABD
+     düzenindeki fiziksel konumdur: Türkçe Q'da `-` tuşunun kodu `Equal`,
+     `*` tuşununki `Minus`; koda bakılsaydı Ctrl − büyütürdü. `code` yalnız
+     sayısal tuş takımı için kullanılır. ABD düzeninde Shift'siz `=` de
+     büyütür (tarayıcılardaki gibi). */
   function zoomKey(input) {
     if (!input || input.type !== 'keyDown' || input.alt) return null;
     if (!(input.control || input.meta)) return null;
     const k = input.key;
     const c = input.code;
-    if (k === '+' || k === '=' || c === 'NumpadAdd' || c === 'Equal') return 1;
-    if (k === '-' || k === '_' || c === 'NumpadSubtract' || c === 'Minus') return -1;
-    if (k === '0' || c === 'Numpad0' || c === 'Digit0') return 0;
+    if (k === '+' || k === '=' || c === 'NumpadAdd') return 1;
+    if (k === '-' || k === '_' || c === 'NumpadSubtract') return -1;
+    if (k === '0' || c === 'Numpad0') return 0;
     return null;
   }
 

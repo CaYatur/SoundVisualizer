@@ -434,7 +434,7 @@
     }
 
     // --- İşaretler: cetvelde bayrak, şeritlerde ince çizgi ---
-    ctx.font = '10px system-ui, sans-serif';
+    ctx.font = '11px system-ui, sans-serif';
     for (const m of tl.markers) {
       const x = xOf(m.t);
       if (x < -2 || x > w + 2) continue;
@@ -545,7 +545,7 @@
         break;
       }
     }
-    ctx.font = '10px system-ui, sans-serif';
+    ctx.font = '11px system-ui, sans-serif';
     ctx.strokeStyle = line;
     ctx.lineWidth = 1;
     const t0 = Math.floor(v.scroll / step) * step;
@@ -683,7 +683,7 @@
         if (ico && window.SVIcons) window.SVIcons.draw(ctx, ico, x + 5, top + 5, 13);
         ctx.fillText(clipLabel(c), x + (ico && window.SVIcons ? 22 : 6), top + 16);
         if (cw > 80) {
-          ctx.font = '10px system-ui, sans-serif';
+          ctx.font = '11px system-ui, sans-serif';
           ctx.fillStyle = tint('--fg-rgb', 0.6);
           ctx.fillText(fmtTime(c.dur) + (c.fade > 0 ? ' · ' + tt('geçiş') + ' ' + c.fade.toFixed(2) : ''), x + 6, top + hh - 5);
         }
@@ -699,7 +699,7 @@
     const keys = trk.keys;
     const col = trk.color || accent;
     ctx.fillStyle = dim;
-    ctx.font = '10px system-ui, sans-serif';
+    ctx.font = '11px system-ui, sans-serif';
     ctx.fillText(trk.target || tt('hedef seçilmedi'), 6, y + 13);
     if (!keys.length) return;
     /* Eğri piksel piksel örneklenir: segment eğrisi doğrusal olmadığı için

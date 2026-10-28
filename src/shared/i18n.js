@@ -3629,6 +3629,7 @@
     // Erişilebilirlik
     'Erişilebilirlik': 'Accessibility',
     'Arayüz Boyutu': 'Interface Size',
+    '%90': '90%', '%100': '100%', '%110': '110%', '%125': '125%', '%150': '150%',
     'Paneldeki yazıları ve denetimleri birlikte büyütür. Klavyede Ctrl + ve Ctrl − ile değişir, Ctrl 0 ile %100 olur. Görselleştirme ve dışa aktarılan video etkilenmez.': 'Makes the text and controls in the panel larger together. Ctrl + and Ctrl − change it from the keyboard, and Ctrl 0 sets it back to 100%. The visualization and exported video are not affected.',
     'Hareketleri Azalt': 'Reduce Motion',
     'Paneldeki kayma, solma ve yanıp sönme efektlerini kapatır. İşletim sisteminde animasyonlar kapalıysa bunlar zaten kapalıdır. Görselleştirme etkilenmez.': 'Turns off sliding, fading and blinking effects in the panel. If animations are turned off in the operating system, these are already off. The visualization is not affected.',

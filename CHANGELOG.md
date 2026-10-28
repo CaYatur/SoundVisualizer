@@ -593,12 +593,14 @@ Details and measurements: [docs/REDUNDANCY.md](docs/REDUNDANCY.md).
   of every category found 406 of 1514 visible texts below 11 px (8.5–10.5 px). The worst case was
   the colour template names, at 10 px in secondary grey under each swatch, and the self-test's
   contrast scan had skipped them.
-  - **No text below 11 px.** The 62 smaller sizes in the panel's stylesheets are now 11 px, and
-    template names are 11.5 px in the body text colour. The same scan now finds none. Nothing is
+  - **No text below 11 px.** The 62 smaller sizes in the panel's stylesheets are now 11 px, as
+    are the timeline and mapping canvas labels (10 px), and template names are 11.5 px in the body
+    text colour. The same scan now finds none. Nothing is
     clipped at 1100×760 that was not clipped before.
   - **Interface Size** (Settings → Application → Accessibility): 90, 100, 110, 125 or 150%, and
     <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd> (<kbd>Cmd</kbd> on macOS) from
-    anywhere in the panel. It is the window's own zoom, so layout, canvas clicks and menus scale
+    anywhere in the panel. The shortcuts read the typed character, so Ctrl − shrinks on a Turkish
+    keyboard too, where that key sits in the US = position. It is the window's own zoom, so layout, canvas clicks and menus scale
     together. It applies to the panel and the audio bridge window only: at 125% the panel reported
     a device pixel ratio of 1.25 while an open visualizer stayed at 1. The size survives a theme
     change and a reload, and the shortcut saves it, so the panel's next update cannot undo it.
