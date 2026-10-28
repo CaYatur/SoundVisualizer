@@ -352,7 +352,7 @@
     try { localStorage.setItem('sv-layers-open', JSON.stringify([...set].slice(-64))); } catch { /* yok say */ }
   }
 
-  const LAYER_ICONS = { background: 'background', visualizer: 'bars', text: 'text', media: 'film', sprites: 'sparkles', logo: 'tag', nowplaying: 'music' };
+  const LAYER_ICONS = { background: 'background', visualizer: 'bars', text: 'text', media: 'film', sprites: 'sparkles', logo: 'tag', nowplaying: 'music', input: 'broadcast', web: 'window' };
 
   /* Katman başlığı: sıra okları, tür simgesi, ad ve özet, bayraklar, aç/kapa
      ve kaldır. Liste ekranda ters sırada: "yukarı" dizide İLERİ demek (bkz.
@@ -457,7 +457,152 @@
     ['sprites', 'Görsel Nesneler'],
     ['logo', 'Logo'],
     ['nowplaying', 'Çalan Parça'],
+    // Ad platformun teknolojisi: Windows'ta Spout, macOS'ta Syphon
+    ['input', typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isMac ? 'Syphon Girişi' : 'Spout Girişi'],
+    ['web', 'Web Sayfası'],
   ];
+
+  // ---- Dış kaynak katmanları: durum ve gönderici listesi ----------------
+  let sourcesAvail = null;
+  let sourceSenders = null;
+  let sourceStatus = {};
+  let sourceTimer = null;
+  let sourceSubscribed = false;
+
+  const URL_REASONS = {
+    EMPTY: 'Bir web adresi yazın (https://…).',
+    TOO_LONG: 'Adres çok uzun.',
+    BAD_URL: 'Adres geçersiz.',
+    SCHEME: 'Yalnız http ve https adresleri açılır.',
+    CREDENTIALS: 'Adreste kullanıcı adı ve parola olamaz; sayfaya Sayfayla Etkileşim penceresinden girin.',
+    LOCAL: 'Yerel ağ adresi engellendi.',
+    APP_PORT: 'Uygulamanın kendi servisi web katmanında açılamaz.',
+  };
+
+  function isMacPlatform() {
+    return !!(typeof window !== 'undefined' && window.SV_PLATFORM && window.SV_PLATFORM.isMac);
+  }
+
+  function loadSourcesAvail() {
+    if (sourcesAvail || !window.api || typeof window.api.sourcesAvailable !== 'function') return Promise.resolve(sourcesAvail);
+    return window.api.sourcesAvailable().then((av) => { sourcesAvail = av || null; return sourcesAvail; }).catch(() => null);
+  }
+
+  function refreshSenders() {
+    if (!window.api || typeof window.api.sourcesSenders !== 'function') return Promise.resolve(null);
+    return window.api.sourcesSenders().then((list) => { sourceSenders = list || { others: [], mine: [] }; return sourceSenders; }).catch(() => null);
+  }
+
+  function sourceStatusText(kind, st, layer) {
+    const SL = window.SVSourceLayers;
+    if (!st) {
+      if (layer && layer.enabled === false) return { text: tr('Katman kapalı.'), bad: false };
+      if (kind === 'input') {
+        const s = SL ? SL.normalizeInput(layer && layer.settings && layer.settings.input) : {};
+        return { text: tr(s.sender ? 'Başlatılıyor…' : 'Gönderici seçilmedi.'), bad: false };
+      }
+      const w = SL ? SL.normalizeWeb(layer && layer.settings && layer.settings.web) : {};
+      return { text: tr(w.url ? 'Başlatılıyor…' : 'Adres girilmedi.'), bad: false };
+    }
+    const size = st.width && st.height ? st.width + '×' + st.height : '';
+    const parts = [];
+    let bad = false;
+    const reason = String(st.error || '');
+    if (st.state === 'live') {
+      parts.push(tr(kind === 'input' ? 'Bağlı' : 'Yüklendi'));
+      if (kind === 'web' && st.title) parts.push(st.title);
+      if (size) parts.push(size);
+      if (st.fps) parts.push(Math.round(st.fps) + ' fps');
+      if (st.path === 'cpu') parts.push(tr('bit eşlem yolu'));
+    } else if (st.state === 'waiting') {
+      parts.push(tr('Gönderici bekleniyor.'));
+    } else if (st.state === 'loading' || st.state === 'starting') {
+      parts.push(tr(kind === 'input' ? 'Başlatılıyor…' : 'Yükleniyor…'));
+    } else if (st.state === 'crashed') {
+      parts.push(tr('Sayfa çöktü, yeniden açılıyor.'));
+      bad = true;
+    } else if (st.state === 'failed') {
+      parts.push(tr('Sayfa tekrar tekrar çöktü. Yeniden Yükle ile deneyin.'));
+      bad = true;
+    } else if (st.state === 'unresponsive') {
+      parts.push(tr('Sayfa yanıt vermiyor.'));
+      bad = true;
+    } else if (st.state === 'error') {
+      bad = true;
+      if (reason === 'UNSUPPORTED_PLATFORM') parts.push(tr('Bu sistemde Spout/Syphon yok.'));
+      else if (reason === 'NATIVE_MISSING') parts.push(tr('Spout/Syphon bileşeni yüklenemedi.'));
+      else if (reason.indexOf('LOAD_FAILED:') === 0) parts.push(tr('Sayfa açılamadı.') + ' (' + reason.slice(12).trim() + ')');
+      else if (URL_REASONS[reason]) parts.push(tr(URL_REASONS[reason]));
+      else parts.push(tr('Hata:') + ' ' + reason);
+    }
+    if (st.active === false && st.state !== 'error') parts.push(tr('duraklatıldı (katman kapalı, sessiz ya da başka katman solo)'));
+    if (kind === 'web' && st.blocked) parts.push(st.blocked + ' ' + tr('istek engellendi'));
+    if (st.interacting) parts.push(tr('etkileşim penceresi açık'));
+    return { text: parts.join(' · '), bad };
+  }
+
+  function paintSourceStatus(node) {
+    if (!node || !node.getAttribute) return;
+    const key = node.getAttribute('data-src-key') || '';
+    const kind = node.getAttribute('data-src-kind') || '';
+    const id = node.getAttribute('data-src-layer') || '';
+    const cfg = P() && P().cfg ? P().cfg() : null;
+    const layer = cfg && Array.isArray(cfg.layers) ? cfg.layers.find((x) => x && x.id === id) : null;
+    const r = sourceStatusText(kind, key ? sourceStatus[key] : null, layer);
+    node.textContent = r.text;
+    node.classList.toggle('media-fault', !!r.bad);
+    node.classList.toggle('dim-hint', !r.bad);
+  }
+
+  /* Kutunun yeri ve boyutu: düzen editöründeki sürüklemeyle aynı ayarlar
+     (shared/layout.js input/web). */
+  function sourcePlacement(spec, save, rerender, key) {
+    const el = P().el;
+    const pct = (v) => Math.round(v * 100) + '%';
+    return foldable('Konum ve Boyut', () => [
+      miniSlider('Yatay', () => spec.x, (v) => { spec.x = v; save(); }, { min: -0.5, max: 1.5, step: 0.005, fmt: pct }),
+      miniSlider('Dikey', () => spec.y, (v) => { spec.y = v; save(); }, { min: -0.5, max: 1.5, step: 0.005, fmt: pct }),
+      miniSlider('Boyut', () => spec.size, (v) => { spec.size = v; save(); }, { min: 0.05, max: 1.5, step: 0.005, fmt: pct }),
+      el('div', { class: 'row' }, [
+        el('button', {
+          class: 'btn ghost small', type: 'button', icon: 'fullscreen', text: 'Tam Kare',
+          title: 'Ortaya al ve bütün kareyi kaplasın',
+          onclick: () => { spec.x = 0.5; spec.y = 0.5; spec.size = 1; save(); P().push(true); rerender(); },
+        }),
+      ]),
+      el('div', { class: 'studio-note dim-hint', text: 'Düzen Editöründe kutuyu sürükleyerek de yerleştirebilirsiniz.' }),
+    ], 'src-place-' + key);
+  }
+
+  function repaintSourceStatus() {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-src-key]').forEach(paintSourceStatus);
+  }
+
+  /* Durum yalnız bir dış kaynak katmanının kartı açıkken yoklanır; kart
+     kapanınca zamanlayıcı kendini durdurur. */
+  function watchSources() {
+    if (!window.api || typeof window.api.sourcesStatus !== 'function') return;
+    if (!sourceSubscribed && typeof window.api.onSourcesStatus === 'function') {
+      sourceSubscribed = true;
+      window.api.onSourcesStatus((st) => { sourceStatus = st || {}; repaintSourceStatus(); });
+    }
+    if (sourceTimer) return;
+    const tick = () => {
+      if (typeof document === 'undefined' || !document.querySelector('[data-src-key]')) {
+        clearInterval(sourceTimer);
+        sourceTimer = null;
+        return;
+      }
+      window.api.sourcesStatus().then((st) => { sourceStatus = st || {}; repaintSourceStatus(); }).catch(() => {});
+    };
+    sourceTimer = setInterval(tick, 1000);
+    setTimeout(tick, 0);
+    if (sourceSenders == null) {
+      sourceSenders = { others: [], mine: [] };
+      refreshSenders().then(() => { if (window.SVPanel && typeof window.SVPanel.rerender === 'function') window.SVPanel.rerender(); });
+    }
+  }
 
   /* Metin bir kind değil; görselleştirici türünün alt tipi. Ayrı düğmeler
      olmadan yalnızca şablon uygulayınca ya da türü sonradan değiştirince
@@ -919,6 +1064,170 @@
       if (!m.enabled) {
         out.push(el('div', { class: 'studio-note dim-hint', text: 'Medya kapalı. Kaynak seçilince açılır.' }));
       }
+      return out;
+    }
+
+    /* DIŞ KAYNAK KATMANLARI: Spout/Syphon girişi ve web sayfası
+       (src/main/layer-sources.js). Ayarlar katmanın `settings.input` ve
+       `settings.web` alanında; sınırlar shared/source-layers.js'te. Durum
+       satırı yerinde güncellenir, panel her saniye yeniden çizilmez. */
+    if (l.kind === 'input' || l.kind === 'web') {
+      const SL = window.SVSourceLayers;
+      l.settings = l.settings || {};
+      const key = SL ? SL.sourceKey(l) : '';
+      const status = el('div', { class: 'studio-note src-status', 'data-src-key': key, 'data-src-kind': l.kind, 'data-src-layer': l.id || '' });
+      paintSourceStatus(status);
+      watchSources();
+
+      if (l.kind === 'input') {
+        const s = (l.settings.input = Object.assign({}, SL ? SL.normalizeInput(l.settings.input) : l.settings.input || {}));
+        const av = sourcesAvail;
+        if (av && !av.input) {
+          out.push(el('div', {
+            class: 'studio-note media-fault',
+            text: av.protocol ? 'Spout/Syphon bu kurulumda yüklenemedi; giriş katmanı çalışmaz.' : 'Spout ve Syphon yalnız Windows ve macOS\'ta var. Bu sistemde giriş katmanı çalışmaz.',
+          }));
+        }
+        const proto = isMacPlatform() ? 'Syphon' : 'Spout';
+        const list = sourceSenders || { others: [], mine: [] };
+        const opts = [['', list.others.length ? 'Gönderici seçin' : 'Açık gönderici yok']];
+        const id = (name, app) => (app ? app + '\u0001' : '') + name;
+        list.others.forEach((x) => opts.push([id(x.name, x.app), x.app ? x.name + ' — ' + x.app : x.name]));
+        const cur = s.sender ? id(s.sender, s.app) : '';
+        if (cur && !opts.some((o) => o[0] === cur)) opts.push([cur, (s.app ? s.sender + ' — ' + s.app : s.sender) + ' ' + tr('(şu an yok)')]);
+        out.push(miniSelect(proto + ' Göndericisi', opts, () => cur, (v) => {
+          const pick = list.others.find((x) => id(x.name, x.app) === v);
+          s.sender = pick ? pick.name : (v.indexOf('\u0001') >= 0 ? v.split('\u0001')[1] : v);
+          s.app = pick ? pick.app : (v.indexOf('\u0001') >= 0 ? v.split('\u0001')[0] : '');
+          if (!s.sender) s.app = '';
+          l.settings.input = s;
+        }, rerender));
+        out.push(el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Göndericileri Yenile',
+            onclick: async () => { await refreshSenders(); rerender(); },
+          }),
+        ]));
+        if (list.mine.length && list.mine.some((x) => x.name === s.sender)) {
+          out.push(el('div', { class: 'studio-note media-fault', text: 'Bu, uygulamanın kendi Spout/Syphon çıkışı: görüntü kendi içine döner (geri besleme).' }));
+        } else if (list.mine.length) {
+          out.push(el('div', { class: 'studio-note dim-hint', text: 'Uygulamanın kendi çıkışı listede yok: kendi görüntüsünü giriş olarak almak geri besleme döngüsü kurar.' }));
+        }
+        out.push(status);
+        out.push(miniSelect('Sığdırma', [['contain', 'Sığdır'], ['cover', 'Kapla'], ['stretch', 'Ger']],
+          () => s.fit, (v) => { s.fit = v; l.settings.input = s; }, null, 'contain'));
+        out.push(sourcePlacement(s, () => { l.settings.input = s; }, rerender, 'in-' + (l.id || '')));
+        out.push(miniToggle('Aynala', () => s.mirror, (v) => { s.mirror = v; l.settings.input = s; }, null, { def: false }));
+        out.push(miniToggle('Dikey Çevir', () => s.flip, (v) => { s.flip = v; l.settings.input = s; }, null, { def: false }));
+        out.push(miniToggle('Saydamlığı Koru', () => s.alpha, (v) => { s.alpha = v; l.settings.input = s; }, null, {
+          def: false, title: 'Göndericinin saydamlık kanalını kullan. Görüntü hiç görünmüyorsa kapalı bırakın.',
+        }));
+        out.push(miniToggle('Kesilince Son Kareyi Tut', () => s.hold, (v) => { s.hold = v; l.settings.input = s; }, null, { def: true }));
+        out.push(el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Aynı bilgisayarda çalışan bir uygulamanın görüntüsünü katman olarak gösterir (TouchDesigner, Resolume, OBS, kamera uygulamaları). Görüntü ekrana, panel önizlemesine, Spout/Syphon çıkışına ve OBS yayın sayfasına gider. Gönderici kapanırsa katman yeniden açılmasını bekler.',
+        }));
+        return out;
+      }
+
+      const w = (l.settings.web = Object.assign({}, SL ? SL.normalizeWeb(l.settings.web) : l.settings.web || {}));
+      const save = () => { l.settings.web = w; };
+      const verdict = el('div', { class: 'studio-note' });
+      const showVerdict = (raw) => {
+        const r = SL ? SL.checkUrl(raw) : { ok: true };
+        verdict.className = 'studio-note' + (r.ok || !raw ? ' dim-hint' : ' media-fault');
+        verdict.textContent = !raw ? tr('Bir web adresi yazın (https://…).')
+          : r.ok ? (r.local ? tr('Yerel adres: bu katman yalnız bu kökene erişebilir.') : '')
+            : tr(URL_REASONS[r.reason] || 'Adres geçersiz.');
+        verdict.style.display = verdict.textContent ? '' : 'none';
+      };
+      const urlIn = el('input', {
+        class: 'p-in', type: 'url', value: w.url, placeholder: 'https://', spellcheck: false, autocomplete: 'off',
+        style: 'width:100%;box-sizing:border-box',
+        oninput: (e) => showVerdict(e.target.value),
+        onchange: (e) => {
+          const r = SL ? SL.checkUrl(e.target.value) : { ok: true, url: e.target.value };
+          w.url = r.ok ? r.url : String(e.target.value || '').trim();
+          if (r.ok) e.target.value = r.url;
+          save();
+          P().push(true);
+          rerender();
+        },
+      });
+      showVerdict(w.url);
+      out.push(el('div', { class: 'ctrl', 'data-anchor': 'Web Adresi' }, [
+        el('div', { class: 'row' }, [el('label', { class: 'lbl', text: 'Web Adresi' })]),
+        urlIn,
+        verdict,
+      ]));
+      out.push(status);
+      out.push(el('div', { class: 'row wrap' }, [
+        el('button', {
+          class: 'btn ghost small', type: 'button', icon: 'refresh', text: 'Yeniden Yükle',
+          disabled: !w.url,
+          onclick: () => { if (window.api && window.api.webLayerReload) window.api.webLayerReload(l.id); },
+        }),
+        el('button', {
+          class: 'btn ghost small', type: 'button', icon: 'hand', text: 'Sayfayla Etkileşim',
+          title: 'Sayfayı ayrı bir pencerede açar: oturum açın, çerez onayını verin, sayfada gezinin. Pencere kapanınca katman yenilenir.',
+          disabled: !w.url,
+          onclick: () => { if (window.api && window.api.webLayerInteract) window.api.webLayerInteract(l.id); },
+        }),
+      ]));
+      const sizes = [['1280x720', '1280 × 720'], ['1920x1080', '1920 × 1080'], ['2560x1440', '2560 × 1440'], ['3840x2160', '3840 × 2160'], ['1080x1920', '1080 × 1920 (dikey)'], ['720x1280', '720 × 1280 (dikey)']];
+      const sizeKey = w.width + 'x' + w.height;
+      if (!sizes.some((o) => o[0] === sizeKey)) sizes.push([sizeKey, w.width + ' × ' + w.height]);
+      out.push(miniSelect('Sayfa Boyutu', sizes, () => sizeKey, (v) => {
+        const [a, b] = v.split('x').map(Number);
+        w.width = a;
+        w.height = b;
+        save();
+      }, rerender, '1920x1080'));
+      out.push(miniSegment('Kare Hızı', [[15, '15'], [30, '30'], [60, '60']], () => w.fps, (v) => { w.fps = v; save(); }, rerender, 30));
+      out.push(miniSelect('Yakınlaştırma', [[0.5, '%50'], [0.75, '%75'], [1, '%100'], [1.25, '%125'], [1.5, '%150'], [2, '%200']],
+        () => w.zoom, (v) => { w.zoom = Number(v); save(); }, rerender, 1));
+      out.push(miniSelect('Sığdırma', [['contain', 'Sığdır'], ['cover', 'Kapla'], ['stretch', 'Ger']],
+        () => w.fit, (v) => { w.fit = v; save(); }, null, 'contain'));
+      out.push(sourcePlacement(w, save, rerender, 'web-' + (l.id || '')));
+      out.push(miniToggle('Saydam Arkaplan', () => w.transparent, (v) => { w.transparent = v; save(); }, null, {
+        def: true, title: 'Sayfanın kendi arkaplanı yoksa altındaki katmanlar görünür (uyarı ve sohbet kutuları için).',
+      }));
+      out.push(miniToggle('Aynala', () => w.mirror, (v) => { w.mirror = v; save(); }, null, { def: false }));
+      out.push(miniToggle('Sayfanın Sesini Çal', () => w.audio, (v) => { w.audio = v; save(); }, rerender, { def: false }));
+      if (w.audio) {
+        out.push(el('div', { class: 'studio-note dim-hint', text: 'Ses varsayılan çıkış aygıtından çalar. O aygıt yakalanıyorsa görselleştirici sayfanın sesine de tepki verir.' }));
+      }
+      out.push(miniSelect('Kendiliğinden Yenile', [[0, 'Kapalı'], [1, 'Her dakika'], [5, '5 dakikada bir'], [15, '15 dakikada bir'], [60, 'Saatte bir']],
+        () => w.reloadMin, (v) => { w.reloadMin = Number(v); save(); }, null, 0));
+      out.push(foldable('Özel CSS', () => {
+        const area = el('textarea', {
+          class: 'p-in code', rows: 5, spellcheck: false,
+          placeholder: 'body { background: transparent !important; }',
+          onchange: (e) => { w.css = String(e.target.value || '').slice(0, SL ? SL.LIMITS.css : 20000); save(); P().push(true); },
+        });
+        area.value = w.css || '';
+        return [
+          area,
+          el('div', { class: 'studio-note dim-hint', text: 'Sayfaya eklenir; sayfa her yüklendiğinde yeniden uygulanır. Arkaplanı gizlemek ya da bir öğeyi saklamak için.' }),
+        ];
+      }, 'web-css-' + (l.id || '')));
+      out.push(foldable('Güvenlik ve Veriler', () => [
+        el('div', {
+          class: 'studio-note dim-hint',
+          text: 'Sayfa uygulamadan ayrı, korumalı bir oturumda açılır: uygulamaya, dosyalarınıza, kameraya ve mikrofona erişemez; indirme, açılır pencere ve bildirim engellenir. Bu bilgisayardaki ve yerel ağdaki adreslere yalnız o adresi kendiniz yazdıysanız ulaşır. Çerezler ve oturum açma bilgileri bütün web katmanlarında ortaktır.',
+        }),
+        el('div', { class: 'row' }, [
+          el('button', {
+            class: 'btn ghost small', type: 'button', icon: 'trash', text: 'Web Katmanı Verilerini Temizle',
+            title: 'Bütün web katmanlarının çerezlerini, oturumlarını ve önbelleğini siler.',
+            onclick: async () => {
+              if (!(await P().confirm('Bütün web katmanlarının çerezleri, oturum açma bilgileri ve önbelleği silinecek; sayfalar yeniden yüklenecek.', { danger: true, okText: 'Temizle' }))) return;
+              if (window.api && window.api.webLayerClear) await window.api.webLayerClear();
+              P().toast('Web katmanı verileri temizlendi.');
+            },
+          }),
+        ]),
+      ], 'web-sec'));
       return out;
     }
 
@@ -1879,6 +2188,14 @@
       const bits = [];
       if (l.name && l.name !== kindLabel) bits.push(tr(kindLabel));
       if (typeOpts.length && typeLabel && tr(typeLabel) !== tr(l.name || kindLabel)) bits.push(tr(typeLabel));
+      if (l.kind === 'input' && window.SVSourceLayers) {
+        const sn = window.SVSourceLayers.normalizeInput(l.settings && l.settings.input).sender;
+        if (sn) bits.push(sn);
+      }
+      if (l.kind === 'web' && window.SVSourceLayers) {
+        const ur = window.SVSourceLayers.checkUrl(window.SVSourceLayers.normalizeWeb(l.settings && l.settings.web).url);
+        if (ur.ok) bits.push(ur.host);
+      }
       if (l.kind !== 'logo') {
         if (l.blend && l.blend !== 'normal') {
           const b = BLEND_LABELS.find(([v]) => v === l.blend);
@@ -2111,7 +2428,12 @@
 
     // Ekleme menüsü
     const addRow = el('div', { class: 'add-row' });
+    /* Spout/Syphon girişi yalnız Windows ve macOS'ta; bileşen yüklenemediyse
+       düğme de yok. Durum bilinmeden önce platforma göre karar verilir. */
+    if (!sourcesAvail) loadSourcesAvail().then((av) => { if (av && !av.input) rerender(); });
+    const inputOk = sourcesAvail ? !!sourcesAvail.input : (isWindowsPlatform() || isMacPlatform());
     LAYER_KIND_LABELS.forEach(([kind, label]) => {
+      if (kind === 'input' && !inputOk) return;
       addRow.appendChild(
         el('button', {
           class: 'btn ghost small', type: 'button', icon: 'plus', text: label,

@@ -23,6 +23,8 @@ const oscQuery = require('./osc-query');
 const oscTree = require('../shared/osc-tree');
 const openrgb = require('./openrgb');
 const textureShare = require('./texture-share');
+const layerSourcesLib = require('./layer-sources');
+let layerSources = null; // Spout/Syphon girişi ve web katmanı (app hazır olunca)
 const presetsStore = require('./presets-store');
 const mediaUrl = require('../shared/media-url');
 const { serveMediaFile, isConfiguredMedia } = require('./media-file');
@@ -130,7 +132,9 @@ const faultGuard = faultGuardLib.createFaultGuard({
 process.on('uncaughtException', (err, origin) => faultGuard.handle(err, origin));
 /* Pencereler yalnız uygulama sayfalarında kalır; https bağlantıları sistem
    tarayıcısında açılır (nav-guard.js). */
-require('./nav-guard').install(app, shell, path.join(__dirname, '..'));
+require('./nav-guard').install(app, shell, path.join(__dirname, '..'), (wc) => !!(layerSources && layerSources.isWebContents(wc)));
+// Web katmanına istemci sertifikası ve HTTP kimlik doğrulaması verilmez (web-layer-guard.js)
+require('./web-layer-guard').guardApp(app, (wc) => !!(layerSources && layerSources.isWebContents(wc)));
 const SHOTS = process.argv.includes('--shots'); // README ekran görüntüsü üretici (geliştirme)
 /* Tek bir görseli düzeltirken 33 karenin tamamını üretmek gereksiz;
    `--shots --only=milkdrop` yalnızca adı eşleşenleri kaydeder. */
@@ -213,6 +217,7 @@ let mainLoaded = false;
    kaydını silmeli, yoksa kullanıcının kopyası bir süre "öz test çalışıyor"
    der. Yüklenmeden kapanışta temizlenecek bir şey yok; çıkış kodu geçerli. */
 app.on('will-quit', () => {
+  try { if (layerSources) layerSources.shutdown(); } catch { /* kapanıyor */ }
   if (!mainLoaded) { if (pendingExitCode) process.exit(pendingExitCode); return; }
   stopInstanceRegistry();
   /* Kapanırken yarıda kesilen dışa aktarımın dosyası da gitmeli. */
@@ -2382,6 +2387,8 @@ function closeVisualizer(displayId) {
    bu yüzden bunların ayakta kalması için bir sebep yok. */
 function closeHelperWindows() {
   textureShare.stop().catch(() => {});
+  // Web katmanının görünmez sayfaları ve etkileşim pencereleri (layer-sources.js)
+  if (layerSources) layerSources.shutdown();
   /* Yarım kalan dışa aktarmayı düzgün sonlandırır: ffmpeg'i öldürür, pencereyi
      yok eder, yarım dosyayı siler. Dışa aktarma yoksa sessizce döner. */
   finalizeExport('cancelled');
@@ -3669,6 +3676,7 @@ function applyIncomingConfig(config, opts) {
     syncOscOut();
     syncOpenRgb();
     syncTextureShare();
+    syncLayerSources();
   }
   syncNowPlaying();
   // Ses kaynağı değiştiyse yakalamayı yeniden başlat. Bu, görselleştirici kapalıyken
@@ -6359,6 +6367,65 @@ function oscOutContext() {
    kopyalanıp yeniden yollanıyor, söz kitaplığı diskten baştan okunuyordu.
    Sahne değişikliği pencereye zaten sendToVisualizers ile gidiyor (#695). */
 let textureShareKey = '';
+/* DIŞ KAYNAK KATMANLARI (Spout/Syphon girişi, web sayfası). Kaynaklar
+   ana süreçte bir kez açılır, kareler her pencereye dağıtılır
+   (layer-sources.js). Web katmanındaki sayfa uygulamanın kendi portlarına
+   ulaşamaz; liste her istekte güncel durumdan okunur. */
+function layerSourcePorts() {
+  const out = [];
+  const take = (v) => { const n = Number(v); if (Number.isInteger(n) && n > 0) out.push(n); };
+  try { take(streamServer.status().port); } catch { /* kapalı */ }
+  try { take(oscQuery.status().port); } catch { /* kapalı */ }
+  try { if (mcpHandle) take(mcpHandle.status().port); } catch { /* kapalı */ }
+  try { if (bridge && bridge.cfg) take(bridge.cfg.port); } catch { /* kapalı */ }
+  try { if (currentConfig && currentConfig.redundancy) take(currentConfig.redundancy.port); } catch { /* yok */ }
+  try { if (currentConfig && currentConfig.stream) take(currentConfig.stream.port); } catch { /* yok */ }
+  return out;
+}
+
+function ensureLayerSources() {
+  if (layerSources || !app.isReady()) return layerSources;
+  layerSources = layerSourcesLib.create({
+    electron: require('electron'),
+    /* SV_SOURCES_CPU=1: doku yolu kapalı, kareler bit eşlem gider. Linux'un
+       yolunu Windows'ta ve macOS'ta denemek için (geliştirme). */
+    sharedTexture: process.env.SV_SOURCES_CPU === '1' ? null : undefined,
+    loadBridge: textureShare.bridge,
+    ownSenderNames: () => {
+      const t = (currentConfig && currentConfig.textureShare) || {};
+      return [t.name || textureShare.DEFAULTS.name, textureShare.status().name].filter(Boolean);
+    },
+    appPorts: layerSourcePorts,
+    log: (m) => console.log('[sources] ' + m),
+    onStatus: () => notifyAdmin('sources-status', layerSources ? layerSources.status() : {}),
+  });
+  return layerSources;
+}
+
+function syncLayerSources() {
+  const hub = ensureLayerSources();
+  if (!hub) return;
+  // Köprü kipinde ve öz testin ağsız koşusunda dış kaynak açılmaz
+  hub.sync(BRIDGE_ONLY ? null : currentConfig);
+}
+
+ipcMain.on('sources:hello', (e, info) => {
+  const hub = ensureLayerSources();
+  if (hub) hub.addConsumer(e.sender, info || {});
+});
+ipcMain.handle('sources:status', () => (layerSources ? layerSources.status() : {}));
+ipcMain.handle('sources:available', () => {
+  const hub = ensureLayerSources();
+  return hub ? hub.available() : { input: false, web: false, gpu: false, protocol: '' };
+});
+ipcMain.handle('sources:senders', () => {
+  const hub = ensureLayerSources();
+  return hub ? hub.listSenders() : { others: [], mine: [] };
+});
+ipcMain.handle('sources:web-reload', (e, layerId) => !!(layerSources && layerSources.reloadWeb(String(layerId || ''))));
+ipcMain.handle('sources:web-interact', (e, layerId) => !!(layerSources && layerSources.interactWeb(String(layerId || ''))));
+ipcMain.handle('sources:web-clear', () => (layerSources ? layerSources.clearWebData() : false));
+
 function syncTextureShare() {
   const t = (currentConfig && currentConfig.textureShare) || {};
   if (!t.enabled) {
@@ -8668,6 +8735,7 @@ app.whenReady().then(async () => {
   syncOscOut().catch(() => {});
   syncOpenRgb().catch(() => {});
   syncTextureShare().catch(() => {});
+  syncLayerSources();
   }
 
   // Ekran değişikliklerini admin'e bildir
@@ -11507,6 +11575,7 @@ function shutdownCleanup() {
   dynamicLighting.stop().catch(() => {});
   openrgb.stop().catch(() => {});
   textureShare.stop().catch(() => {});
+  if (layerSources) layerSources.shutdown(); // web katmanının görünmez sayfaları
   mediaSession.stop();
   appMeters.stop(); // seçicinin ölçer yardımcısı (#516)
   nativeAudio.stopCapture();

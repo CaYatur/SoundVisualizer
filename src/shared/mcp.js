@@ -887,6 +887,8 @@
         settings: mergeObj(base.settings, raw.settings || {}),
       });
     }
+    // Dış kaynak katmanlarının türü kendi adı (layers.js normalizeLayer)
+    if (kind === 'input' || kind === 'web') return Object.assign({}, raw, { type: kind });
     if (raw.type != null) return raw;
     if (kind === 'visualizer' || kind === 'background') {
       const ids = layerTypeIds(kind);
@@ -1062,7 +1064,7 @@
     sv_delete_scene: { props: SCENE_REF },
     sv_add_layer: {
       props: {
-        kind: sp('string', 'Layer kind: background, visualizer, media, sprites, logo or nowplaying. Default visualizer.'),
+        kind: sp('string', 'Layer kind: background, visualizer, media, sprites, logo, nowplaying, input (Spout/Syphon sender, settings.input.sender) or web (web page, settings.web.url; http/https only, local addresses only when typed). Default visualizer.'),
         type: sp('string', 'Mode id for background and visualizer layers (sv_list_modes).'),
         name: sp('string', 'Layer name.'),
         settings: sp('object', 'Layer setting overrides.'),

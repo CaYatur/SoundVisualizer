@@ -29,7 +29,7 @@
   const SNAP_PX = 8;
   const NUDGE = 0.005;
   const ASPECTS = [['16:9', 16 / 9], ['9:16', 9 / 16], ['1:1', 1]];
-  const KIND_NAMES = { bars: 'Barlar', nowplaying: 'Çalan Parça', text: 'Metin', logo: 'Logo' };
+  const KIND_NAMES = { bars: 'Barlar', nowplaying: 'Çalan Parça', text: 'Metin', logo: 'Logo', input: 'Spout/Syphon Girişi', web: 'Web Sayfası' };
 
   let st = null; // açık editörün durumu
 

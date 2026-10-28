@@ -213,6 +213,42 @@
         return { x: num(s.x, 0.5) - w / 2, y: num(s.y, 0.5) - h / 2, w, h };
       },
     },
+    /* Dış kaynak katmanları: Spout/Syphon girişi ve web sayfası. Kutu
+       katmanın kendi `settings.input` / `settings.web` ayarında (merkez ve
+       karenin kaçta kaçı); görüntü kutuya sığdırılarak çiziliyor
+       (shared/source-layers.js boxRect). */
+    input: {
+      section: 'input',
+      fields: [
+        { key: 'x', label: 'Yatay', min: -0.5, max: 1.5, step: 0.005, def: 0.5 },
+        { key: 'y', label: 'Dikey', min: -0.5, max: 1.5, step: 0.005, def: 0.5 },
+        { key: 'size', label: 'Boyut', min: 0.05, max: 1.5, step: 0.005, def: 1 },
+      ],
+      move(s, dx, dy) {
+        s.x = round(clamp(num(s.x, 0.5) + dx, -0.5, 1.5));
+        s.y = round(clamp(num(s.y, 0.5) + dy, -0.5, 1.5));
+      },
+      fallbackBox(s) {
+        const z = clamp(num(s.size, 1), 0.05, 1.5);
+        return { x: num(s.x, 0.5) - z / 2, y: num(s.y, 0.5) - z / 2, w: z, h: z };
+      },
+    },
+    web: {
+      section: 'web',
+      fields: [
+        { key: 'x', label: 'Yatay', min: -0.5, max: 1.5, step: 0.005, def: 0.5 },
+        { key: 'y', label: 'Dikey', min: -0.5, max: 1.5, step: 0.005, def: 0.5 },
+        { key: 'size', label: 'Boyut', min: 0.05, max: 1.5, step: 0.005, def: 1 },
+      ],
+      move(s, dx, dy) {
+        s.x = round(clamp(num(s.x, 0.5) + dx, -0.5, 1.5));
+        s.y = round(clamp(num(s.y, 0.5) + dy, -0.5, 1.5));
+      },
+      fallbackBox(s) {
+        const z = clamp(num(s.size, 1), 0.05, 1.5);
+        return { x: num(s.x, 0.5) - z / 2, y: num(s.y, 0.5) - z / 2, w: z, h: z };
+      },
+    },
   };
 
   function round(v) { return Math.round(v * 10000) / 10000; }
@@ -248,6 +284,8 @@
     if (layer.kind === 'logo') return 'logo';
     if (layer.kind === 'visualizer' && layer.type === 'bars') return 'bars';
     if (layer.kind === 'visualizer' && layer.type === 'text') return 'text';
+    if (layer.kind === 'input') return 'input';
+    if (layer.kind === 'web') return 'web';
     return null;
   }
 
@@ -347,6 +385,9 @@
     nowplaying: ['manual'],
     text: ['lyricsSource', 'lyricsName', 'nowPlaying'],
     bars: [],
+    // Kaynağın kendisi taşınmaz: düzen dosyası başka bir kurulumda açılır
+    input: ['sender', 'app'],
+    web: ['url', 'css'],
   };
   const MAX_ELEMENTS = 32;
   // Nesne değişmezinde `__proto__: 1` anahtar değil prototip atar: küme şart
@@ -418,7 +459,8 @@
       LAYER_KEYS.forEach((k) => { if (el.layer && el.layer[k] !== undefined) props[k] = plain(el.layer[k], 0); });
       let target = cfg.layers.find((l) => l && !used.has(l) && kindOf2(l) === kind);
       if (!target) {
-        if (typeof make !== 'function') { skipped++; return; }
+        // Kaynağı olmayan bir giriş ya da web katmanı eklemek boş bir kutu olurdu
+        if (typeof make !== 'function' || kind === 'input' || kind === 'web') { skipped++; return; }
         const spec = kind === 'bars' ? { kind: 'visualizer', type: 'bars' }
           : kind === 'text' ? { kind: 'visualizer', type: 'text' }
           : kind === 'nowplaying' ? { kind: 'nowplaying', type: 'nowplaying' }

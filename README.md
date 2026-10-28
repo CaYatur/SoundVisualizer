@@ -17,7 +17,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 [![Downloads](https://img.shields.io/github/downloads/CaYatur/SoundVisualizer/total?label=downloads)](https://github.com/CaYatur/SoundVisualizer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-e11d2a.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-111997.svg)](#download)
-[![Tests](https://img.shields.io/badge/tests-3602%20passing-2ea043.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-3638%20passing-2ea043.svg)](#tests)
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)](https://www.electronjs.org/)
 
 <a href="https://github.com/CaYatur/SoundVisualizer/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0a84ff?style=for-the-badge" alt="Download for Windows" /></a>
@@ -681,6 +681,19 @@ ticker · karaoke highlighting.
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
   `sv_media`. <kbd>3.1.6</kbd> A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
+- <kbd>3.1.6</kbd> **Spout / Syphon input layer** — the picture of another application on the same
+  machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
+  Pick the sender from a list; the app's own output is left out, so it cannot feed back into
+  itself. Fit, mirror, flip, keep or drop the sender's alpha, and hold the last frame when the
+  sender stops. Place and size it on the card or by dragging in the Layout Editor. A sender that starts after the app, restarts, or comes back with a `_1` suffix
+  after a crash is found again. Windows and macOS.
+- <kbd>3.1.6</kbd> **Web page layer** — any web page as a layer: alerts, chat, a scoreboard, a
+  clock, a dashboard. Page size, frame rate, zoom, transparent background, custom CSS, automatic
+  reload, and an **Interact** window for signing in or answering a cookie prompt. The page runs in
+  its own sandboxed session with no access to the app, your files, the camera or the microphone;
+  permissions, downloads, pop-ups and dialogs are refused, and addresses on this computer or the
+  local network are reachable only when you typed that address. Both layers go to every output:
+  screens, the panel preview, Spout/Syphon, and the OBS overlay.
 - **Smooth on every output** — videos are decoded on the CPU by default, so they
   play at full frame rate in full-screen windows and in the Spout/Syphon feed. With hardware
   decoding, Chromium produced almost no frames there (0.3 per second, measured) and the clip froze
@@ -1822,7 +1835,7 @@ npm test
 npm start -- --smoke
 ```
 
-**3602 unit tests, all passing.** They are written to check answers, not to exercise lines:
+**3638 unit tests, all passing.** They are written to check answers, not to exercise lines:
 
 _The count is the runner's total (`# tests`). A few tests depend on the environment (a git checkout, Node 22's built-in WebSocket, the electron-builder schema); where that is missing they are reported as skipped, not passed, so `pass + skipped` always equals this number and the skipped count may be 0 on one machine and 1–4 on another._
 

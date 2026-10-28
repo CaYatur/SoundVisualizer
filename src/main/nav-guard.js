@@ -14,7 +14,11 @@
 
    Yeni pencere (target="_blank", window.open) açılmaz; https bağlantısı
    sistem tarayıcısında açılır (ör. OpenRGB indirme sayfası). Ana süreçten
-   yapılan loadFile/loadURL bu olayları tetiklemez. */
+   yapılan loadFile/loadURL bu olayları tetiklemez.
+
+   Web katmanının sayfaları (`exempt`) bu kuralın dışında: onlar uygulama
+   sayfası değil, kendi oturumlarında kendi bekçileriyle (web-layer-guard.js)
+   gezinir. Onlardan gelen bir bağlantı sistem tarayıcısında da açılmaz. */
 
 const path = require('path');
 const url = require('url');
@@ -42,8 +46,9 @@ function isWebLink(target) {
   try { return new URL(target).protocol === 'https:'; } catch { return false; }
 }
 
-function install(app, shell, root) {
+function install(app, shell, root, exempt) {
   app.on('web-contents-created', (_e, contents) => {
+    if (typeof exempt === 'function' && exempt(contents)) return;
     const guard = (e, target) => { if (!isAppPage(target, root)) e.preventDefault(); };
     contents.on('will-navigate', guard);
     contents.on('will-redirect', guard);

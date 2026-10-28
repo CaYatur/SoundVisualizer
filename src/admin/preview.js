@@ -302,7 +302,8 @@
     audio = new window.SVAudio();
     sprites = new window.SVSprites();
     media = new window.SVMedia();
-    stack = new window.SVLayers.LayerStack(layerHost, { logoEl: logoImg });
+    // Önizleme dış kaynağın durumunu yazar; çıkış pencereleri boş bırakır
+    stack = new window.SVLayers.LayerStack(layerHost, { logoEl: logoImg, placeholder: true });
     stack.setSprites(sprites);
     stack.setMedia(media);
     onSourceChange = (opts && opts.onSourceChange) || null;

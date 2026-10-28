@@ -40,9 +40,27 @@ function requiredFiles(platform) {
     path.join(nm, 'bindings', 'bindings.js'),
     path.join(nm, 'file-uri-to-path', 'index.js'),
   ];
-  // Spout (Windows) dokusu; Syphon ve Linux bu modülü kullanmıyor
+  /* Spout (Windows) ve Syphon (macOS) dokusu: çıkış ve giriş katmanı aynı
+     modülü kullanıyor. macOS'ta modül yanındaki Syphon.framework'ü
+     @loader_path ile yüklüyor; framework eksikse modül açılmaz ve Syphon
+     sessizce yok olur. Linux'ta modül yok. */
   if (platform === 'win32') list.push(path.join(nm, '@napolab', 'texture-bridge-win32-x64-msvc'));
   return list;
+}
+
+/* macOS: paketlenen mimarinin modülü ve framework'ü. Hangi mimarinin
+   paketlendiği klasör adından okunuyor (yalnız biri bulunur). */
+function macTextureFiles(dir) {
+  const base = path.join(dir, 'app.asar.unpacked', 'node_modules', '@napolab');
+  const found = ['arm64', 'x64'].filter((a) => fs.existsSync(path.join(base, 'texture-bridge-darwin-' + a)));
+  if (!found.length) return [path.join('app.asar.unpacked', 'node_modules', '@napolab', 'texture-bridge-darwin-<arch>')];
+  const out = [];
+  for (const a of found) {
+    const pkg = path.join('app.asar.unpacked', 'node_modules', '@napolab', 'texture-bridge-darwin-' + a);
+    out.push(path.join(pkg, 'index.darwin-' + a + '.node'));
+    out.push(path.join(pkg, 'Syphon.framework', 'Versions', 'A', 'Syphon'));
+  }
+  return out;
 }
 
 function resourcesDir(context) {
@@ -54,7 +72,9 @@ function resourcesDir(context) {
 
 function checkRuntimeFiles(context) {
   const dir = resourcesDir(context);
-  const missing = requiredFiles(context.electronPlatformName).filter((f) => !fs.existsSync(path.join(dir, f)));
+  const want = requiredFiles(context.electronPlatformName)
+    .concat(context.electronPlatformName === 'darwin' ? macTextureFiles(dir) : []);
+  const missing = want.filter((f) => !fs.existsSync(path.join(dir, f)));
   if (missing.length) {
     throw new Error('Packaged app is missing runtime files (run `npm rebuild` with install scripts allowed): ' + missing.join(', '));
   }
@@ -108,4 +128,5 @@ function checkManifest(xml) {
 }
 
 module.exports.requiredFiles = requiredFiles;
+module.exports.macTextureFiles = macTextureFiles;
 module.exports.checkManifest = checkManifest;

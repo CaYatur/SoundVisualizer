@@ -3651,6 +3651,14 @@
             show: () => sceneHasCamera(),
           },
           {
+            /* Spout/Syphon girişi ve web sayfası da canlı: dışa aktarıcı o
+               anki kareyi çizer, ama video kendi saatiyle çizildiği için
+               kaynağın hızı videoyla eşleşmez. */
+            type: 'note', warn: true,
+            text: 'Sahnede Spout/Syphon girişi ya da web sayfası katmanı var: bunlar canlı kaynaklar, videoya çizim anındaki görüntüyle girer. Dışa aktarım gerçek zamandan hızlı ya da yavaş çizdiği için hareketleri videonun hızıyla eşleşmez; durağan bir sayfa ya da görüntü sorunsuzdur.',
+            show: () => sceneHasLiveSource(),
+          },
+          {
             type: 'select', path: 'export.duration.mode', label: 'Süre', rebuild: true,
             options: [
               { value: 'audio', label: 'Ses dosyasının süresi' },
@@ -3804,6 +3812,12 @@
         && cam(Object.assign({}, cfg.media || {}, (l.settings && l.settings.media) || {})));
     }
     return !!(cfg.media && cfg.media.enabled && cam(cfg.media));
+  }
+
+  // Sahnede açık bir Spout/Syphon girişi ya da web sayfası katmanı var mı
+  function sceneHasLiveSource() {
+    const S = window.SVSourceLayers;
+    return !!(S && S.wanted(cfg).some((w) => w.active));
   }
 
   /* Seçili biçimin ana süreçten gelen tanımı; liste henüz gelmediyse null. */
