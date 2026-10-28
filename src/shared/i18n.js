@@ -4019,6 +4019,40 @@
     'Gönderici seçilmedi': 'No sender selected',
     'Sayfa yükleniyor…': 'Loading page…',
     'Adres girilmedi': 'No address entered',
+
+    // ---- İngilizce arayüzde Türkçe kalan metinler (v3.1.6) ----
+    // Web katmanı ayarları
+    'Yeniden Yükle': 'Reload',
+    'Yakınlaştırma': 'Zoom',
+    // Formül parametre etiketleri (Yumurta Kolisi, Bükülü Simit, Solenoit, Lissajous)
+    'X Frekansı': 'X Frequency', 'Y Frekansı': 'Y Frequency',
+    'Ana Yarıçap': 'Major Radius', 'Büküm': 'Twist',
+    'Ana Dönüş': 'Major Turns', 'İnce Dönüş': 'Minor Turns', 'İnce Yarıçap': 'Minor Radius',
+    'Faz x': 'Phase x', 'Faz y': 'Phase y',
+    // Uzaktan kumanda sayfası: adsız kullanıcı paleti
+    'Şablonum': 'My Template',
+    // Yerleşik MilkDrop preset açıklamaları (CaYaDev paketi olmayan beşi)
+    'Akışkan bir bulutsu: warp ağı basla açılıp kapanıyor, halka dalga ortada bir çekirdek besliyor.':
+      'A fluid nebula: the warp mesh opens and closes with the bass while a ring wave feeds a core in the middle.',
+    'Abartılı olan: hızlı warp, kalın çokgenler ve hareket vektörleri; sıcak alanın üstünde soğuk şimşekler.':
+      'The over-the-top one: fast warp, thick polygons and motion vectors, with cold lightning over a hot field.',
+    'Yavaş ve sade: siyah üstünde nefes alan birkaç halka, noktalarla çizilen tek bir dalga.':
+      'Slow and minimal: a few rings breathing on black and a single wave drawn with dots.',
+    'Klasik MilkDrop akışı: yarıçapa göre üslenen zum, dönen halkalar ve uçta parlayan bir çekirdek.':
+      'The classic MilkDrop flow: radius-based exponential zoom, spinning rings and a glowing core at the end.',
+    'Grafik olan: vuruşla zıplayan kareler, iki tayf dalgası ve hareket vektörlerinin dokuduğu örgü.':
+      'The graphic one: squares bouncing on the beat, two spectrum waves and a weave knitted from motion vectors.',
+    // Kayıt ve dışa aktarma hata metinleri
+    '1:1 (Kare)': '1:1 (Square)', '21:9 (Sinemaskop)': '21:9 (Cinemascope)', '4:3 (Klasik)': '4:3 (Classic)',
+    'zaten kaydediyor': 'already recording',
+    'tuval akışı desteklenmiyor': 'canvas capture is not supported',
+    'MediaRecorder yok': 'MediaRecorder is not available',
+    'GPU renk dönüştürücüsü kurulamadı (WebGL2).': 'Could not set up the GPU color converter (WebGL2).',
+    'YUV hedefi kurulamadı': 'Could not set up the YUV target',
+    // Görselleştirici başlatma hataları
+    'WebGL2 yok': 'WebGL2 is not available',
+    'WebGL desteklenmiyor': 'WebGL is not supported',
+    'motor yok': 'engine not available',
   };
 
 
@@ -4164,6 +4198,38 @@
       .replace(/Windows arka plan kontrolünü vermedi \((\d+)\/(\d+)\)\. Dynamic Lighting ayarlarında CAYADEV Visualizer uygulamasını listenin en üstüne taşıyın\./g, 'Windows did not grant background control ($1/$2). Move CAYADEV Visualizer to the top of the list in Dynamic Lighting settings.')
       .replace(/^CC (\d+)( · k(\d+))?$/g, (m, cc, _s, ch) => 'CC ' + cc + (ch ? ' · ch' + ch : ''))
       .replace(/^Nota (\d+)( · k(\d+))?$/g, (m, n, _s, ch) => 'Note ' + n + (ch ? ' · ch' + ch : ''))
+      // MIDI sinyal çipi: "Nota 60 · kanal 1 → 100" (' · ' ve ' → ' parçalara bölünüp gelir)
+      .replace(/^kanal (\d+)$/g, 'channel $1')
+      // Yüzde seçenekleri ("%125"): Türkçe yazım yüzdeyi öne koyar
+      .replace(/^%(\d+(?:[.,]\d+)?)$/g, '$1%')
+      // Sese bağlı efekt kaydırıcısı: "Miktar ← ses"
+      .replace(/^(.+) ← ses$/g, (m, label) => `${translate(label)} ← audio`)
+      // Resim listesi köşe yuvarlama kaydırıcısı: "Köşe / Oval (Resim adı)"
+      .replace(/^Köşe \/ Oval \((.+)\)$/g, (m, name) => `Corner / Oval (${name})`)
+      .replace(/^Kayıt çok kısa: kare yazılamadı \((\d+) bayt\)\. En az bir saniye kaydedin\.$/g,
+        'Recording too short: no frames were written ($1 bytes). Record at least one second.')
+      // MilkDrop yerleşik içe aktarma bildirimi
+      .replace(/^(\d+) preset eklendi(?: \((\d+) tanesinde derleme uyarısı var\))?(?: — (\d+) dosya atlandı)?$/g,
+        (m, n, bad, skipped) => n + ' preset' + (Number(n) === 1 ? '' : 's') + ' added'
+          + (bad ? ' (' + bad + ' with compile warnings)' : '')
+          + (skipped ? ' — ' + skipped + ' file' + (Number(skipped) === 1 ? '' : 's') + ' skipped' : ''))
+      // MilkDrop denklem tanıları (yazım hatası kutusu)
+      .replace(/^derleme: (.+)$/g, (m, rest) => 'compile: ' + translate(rest))
+      .replace(/^(\d+) deyim atlandı: (.+)$/g, '$1 statements skipped: $2')
+      .replace(/^beklenmeyen '(.*)'( \(satır (\d+)\))?$/g, (m, tok, _l, line) =>
+        "unexpected '" + (tok === 'son' ? 'end' : tok === 'dosya sonu' ? 'end of file' : tok) + "'"
+          + (line ? ' (line ' + line + ')' : ''))
+      .replace(/^'(.*)' bekleniyordu, bulunan '(.*)'$/g, (m, want, got) => `expected '${want}', found '${got === 'son' ? 'end' : got}'`)
+      .replace(/^'(.*)' bekleniyordu \(satır (\d+), bulunan '(.*)'\)$/g, (m, want, line, got) =>
+        `expected '${want}' (line ${line}, found '${got === 'son' ? 'end' : got}')`)
+      .replace(/^'loop' için ',' bekleniyordu \(satır (\d+)\)$/g, "expected ',' for 'loop' (line $1)")
+      .replace(/^bilinmeyen fonksiyon '(.*)' \(satır (\d+)\)$/g, "unknown function '$1' (line $2)")
+      .replace(/^'(.*)' (\d+) argüman ister, (\d+) verildi(?: \(satır (\d+)\))?$/g, (m, fn, want, got, line) =>
+        `'${fn}' takes ${want} argument${Number(want) === 1 ? '' : 's'}, ${got} given` + (line ? ` (line ${line})` : ''))
+      // "tanı — hatalı denklem parçası": yalnız tanı kısmı çevrilir, denklem aynen kalır
+      .replace(/^((?:beklenmeyen|bilinmeyen) .+?|'.*?' (?:bekleniyordu|\d+ argüman).+?) — (.+)$/g,
+        (m, diag, part) => translate(diag) + ' — ' + part)
+      .replace(/^(wave|shape) (\d+): (.+)$/g, (m, kind, n, rest) => kind + ' ' + n + ': ' + translate(rest))
       // Çalan parça dinamik metinleri
       .replace(/^([\d.]+) sn$/g, '$1 s')
       .replace(/^(\d+) bölme$/g, '$1 segments')

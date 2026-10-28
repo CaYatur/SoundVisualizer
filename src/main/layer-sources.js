@@ -62,6 +62,7 @@ function create(deps) {
   const appPorts = deps.appPorts || (() => []);
   const platform = deps.platform || process.platform;
   const log = deps.log || (() => {});
+  const getLocale = deps.getLocale || (() => 'en');
   const onStatus = deps.onStatus || (() => {});
   const now = deps.now || (() => Date.now());
 
@@ -654,7 +655,8 @@ function create(deps) {
       interactWin = new BrowserWindow({
         width: Math.min(1600, Math.max(800, cfg.width)),
         height: Math.min(1000, Math.max(600, cfg.height)),
-        title: 'Web katmanı',
+        // Pencere başlığı arayüz diline göre (EN: Web layer)
+        title: getLocale() === 'tr' ? 'Web katmanı' : 'Web layer',
         autoHideMenuBar: true,
         backgroundColor: '#ffffff',
         webPreferences: WG.webPreferences({ session: ses }),

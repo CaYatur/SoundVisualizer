@@ -6387,6 +6387,7 @@ function ensureLayerSources() {
   if (layerSources || !app.isReady()) return layerSources;
   layerSources = layerSourcesLib.create({
     electron: require('electron'),
+    getLocale: () => appLocale(),
     /* SV_SOURCES_CPU=1: doku yolu kapalı, kareler bit eşlem gider. Linux'un
        yolunu Windows'ta ve macOS'ta denemek için (geliştirme). */
     sharedTexture: process.env.SV_SOURCES_CPU === '1' ? null : undefined,
