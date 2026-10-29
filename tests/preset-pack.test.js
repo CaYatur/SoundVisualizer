@@ -54,7 +54,7 @@ test('dosya adı, kimlik, açıklama ve lisans', () => {
     assert.ok(p.description.tr.length > 30 && p.description.en.length > 30, p.file + ': açıklama kısa');
     assert.ok(/^[a-z ]+$/.test(p.category), p.file + ': kategori');
   }
-  const lic = fs.readFileSync(path.join(PP.DIR, 'LICENSE.md'), 'utf-8');
+  const lic = fs.readFileSync(path.join(PP.PRESETS, 'LICENSE.md'), 'utf-8');
   assert.match(lic, /CC BY 4\.0/);
   assert.match(lic, /CaYaDev/);
   const readme = fs.readFileSync(PP.README, 'utf-8');
@@ -164,7 +164,7 @@ test('sürüm eki: zip paketi okunuyor ve içerik birebir', () => {
     const out = path.join(dir, 'pack.zip');
     const folder = 'CaYaDev MilkDrop Presets/';
     const files = PACK.map((p) => ({ name: folder + p.file, data: Buffer.from(p.source, 'latin1') }))
-      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(PP.DIR, 'LICENSE.md')) }]);
+      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(PP.PRESETS, 'LICENSE.md')) }]);
     fs.writeFileSync(out, PP.zip(files));
     const z = ZIP.open(out);
     try {

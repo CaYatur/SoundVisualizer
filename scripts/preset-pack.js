@@ -174,7 +174,7 @@ if (require.main === module) {
     const folder = 'CaYaDev MilkDrop Presets/';
     const files = list.map((p) => ({ name: folder + p.file, data: Buffer.from(p.source, 'latin1') }))
       .concat(list.map((p) => ({ name: folder + p.preview, data: fs.readFileSync(path.join(PRESETS, p.preview)) })))
-      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(DIR, 'LICENSE.md')) },
+      .concat([{ name: folder + 'LICENSE.md', data: fs.readFileSync(path.join(PRESETS, 'LICENSE.md')) },
         { name: folder + 'README.md', data: Buffer.from(zipReadme(readme), 'utf-8') }]);
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, zip(files));
