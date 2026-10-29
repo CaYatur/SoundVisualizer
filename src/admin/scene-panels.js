@@ -198,6 +198,18 @@
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
     const cur = get();
     const seg = el('div', { class: 'segment' });
+    const btns = [];
+    /* Seçili düğmeyi güncel değerden yeniden işaretle. onAfter (yeniden
+       çizim) verilmeyen segmentlerde (ör. Bar "Dolgu" Düz/Dikey Degrade)
+       eski active sınıfı kategori değiştirip dönene kadar takılı kalıyordu. */
+    const syncActive = () => {
+      const now = get();
+      for (const [bv, bb] of btns) {
+        if (bb.classList && typeof bb.classList.toggle === 'function') bb.classList.toggle('active', now === bv);
+        else if (now === bv) bb.classList.add('active');
+        else if (bb.classList) bb.classList.remove('active');
+      }
+    };
     for (const [v, t] of options) {
       const b = el('button', {
         type: 'button',
@@ -205,17 +217,26 @@
         text: tr(t),
         onclick: () => {
           set(v);
+          syncActive();
           P().push(true);
           if (onAfter) onAfter();
         },
       });
+      btns.push([v, b]);
       seg.appendChild(b);
     }
     const ctrl = el('div', { class: 'ctrl', 'data-anchor': String(label).slice(0, 80) }, [
       el('label', { class: 'lbl', text: tr(label) }),
       seg,
     ]);
-    return def !== undefined ? attachDefault(ctrl, get, (v) => { set(v); }, def) : ctrl;
+    ctrl._svSyncActive = syncActive;
+    if (def === undefined) return ctrl;
+    attachDefault(ctrl, get, (v) => { set(v); }, def);
+    /* Varsayılana döndürme de push() → refreshModifiedMarks() üzerinden
+       buraya gelir; seçili düğme de o anda güncellensin. */
+    const syncModified = ctrl._svSyncModified;
+    ctrl._svSyncModified = () => { if (syncModified) syncModified(); syncActive(); };
+    return ctrl;
   }
 
   function isWindowsPlatform() {
@@ -724,7 +745,7 @@
     l.settings = l.settings || {};
     const np = (l.settings.nowplaying = l.settings.nowplaying || {});
     const root = cfg.nowplaying || {};
-    const get = (k, fb) => (np[k] !== undefined ? np[k] : (root[k] !== undefined ? root[k] : fb));
+    const get = (k, fb) => (np[k] != null ? np[k] : (root[k] != null ? root[k] : fb));
     const set = (k, val) => { np[k] = val; };
     const win = isWindowsPlatform();
     if (!win && get('source', 'manual') === 'system') set('source', 'manual');
@@ -957,12 +978,15 @@
     const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
     l.settings = l.settings || {};
     const vs = (l.settings.visualizer = l.settings.visualizer || {});
-    const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
+    /* null = "kalıba bırakılmış" (bar yerleşimi gibi): çizicinin kendi
+       varsayılanı gösterilir. Eskiden null kaydırıcıya %0 olarak düşüyor ve
+       sıfırlama rozeti boşuna görünüyordu. */
+    const getV = (k, fallback) => vs[k] != null ? vs[k] : (defVis[k] != null ? defVis[k] : fallback);
     const setV = (k, val) => { vs[k] = val; };
     const defSp = defVis.spectrum || {};
     const getS = (k, fallback) => {
       const sp = vs.spectrum || {};
-      return sp[k] !== undefined ? sp[k] : (defSp[k] !== undefined ? defSp[k] : fallback);
+      return sp[k] != null ? sp[k] : (defSp[k] != null ? defSp[k] : fallback);
     };
     const setS = (k, val) => { vs.spectrum = Object.assign({}, vs.spectrum, { [k]: val }); };
     const out = [
@@ -1289,7 +1313,7 @@
       if (lg.x === undefined) lg.x = (cfg.logo && cfg.logo.x !== undefined) ? cfg.logo.x : 0.5;
       if (lg.y === undefined) lg.y = (cfg.logo && cfg.logo.y !== undefined) ? cfg.logo.y : 0.5;
       if (lg.scale === undefined) lg.scale = (cfg.logo && cfg.logo.scale !== undefined) ? cfg.logo.scale : 0.22;
-      const getL = (k, fallback) => lg[k] !== undefined ? lg[k] : (defLogo[k] !== undefined ? defLogo[k] : fallback);
+      const getL = (k, fallback) => lg[k] != null ? lg[k] : (defLogo[k] != null ? defLogo[k] : fallback);
       const setL = (k, val) => {
         lg[k] = val;
       };
@@ -1742,7 +1766,7 @@
       l.settings = l.settings || {};
       const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
-      const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
+      const getV = (k, fallback) => vs[k] != null ? vs[k] : (defVis[k] != null ? defVis[k] : fallback);
       out.push(miniSegment('Renk Modu', [
         ['custom', 'Sabit Renk'],
         ['theme', 'Renk Teması'],
@@ -1764,7 +1788,7 @@
       const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
       if (l.kind === 'nowplaying') l.type = 'nowplaying';
-      const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
+      const getV = (k, fallback) => vs[k] != null ? vs[k] : (defVis[k] != null ? defVis[k] : fallback);
       const setV = (k, val) => { vs[k] = val; };
 
       // Renk Modu: Sabit Renk · Renk Teması · Gökkuşağı
@@ -1796,7 +1820,7 @@
       if (getColorMode() === 'custom') {
         if (l.type === 'nowplaying') {
           const np = (l.settings.nowplaying = l.settings.nowplaying || {});
-          const getNp = (k, fb) => np[k] !== undefined ? np[k] : ((cfg.nowplaying && cfg.nowplaying[k]) || fb);
+          const getNp = (k, fb) => np[k] != null ? np[k] : ((cfg.nowplaying && cfg.nowplaying[k]) || fb);
           const setNp = (k, val) => { np[k] = val; };
           out.push(miniColor('Parça Adı', () => getNp('color', '#ffffff'), (v) => setNp('color', v)));
           out.push(miniColor('İkincil Yazı', () => getNp('colorDim', '#c8c8d0'), (v) => setNp('colorDim', v)));
@@ -1928,8 +1952,12 @@
         out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v), rerender));
         out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true, def: 1}));
         out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
-        out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.9}));
-        out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
+        /* Çizicideki (bars.js) yerleşime bağlı varsayılanlarla aynı */
+        const barPos = getV('position', 'bottom');
+        const defBarH = barPos === 'center' ? 0.46 : barPos === 'full' ? 0.95 : 0.92;
+        const defBase = barPos === 'center' ? 0.5 : 1;
+        out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', defBarH), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: defBarH}));
+        out.push(miniSlider('Taban Çizgisi', () => getV('baseline', defBase), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: defBase}));
         if (getV('position', 'bottom') !== 'center') {
           out.push(miniSegment('Büyüme Yönü', [['up', 'Yukarı'], ['down', 'Aşağı']], () => getV('barDirection', 'up'), (v) => setV('barDirection', v), null, 'up'));
           out.push(miniSlider('Zemin Yansıması', () => getV('reflection', 0), (v) => setV('reflection', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0 }));
@@ -1956,7 +1984,7 @@
       l.settings = l.settings || {};
       const defBg = def.background || {};
       const bg = (l.settings.background = l.settings.background || {});
-      const getB = (k, fallback) => bg[k] !== undefined ? bg[k] : (defBg[k] !== undefined ? defBg[k] : fallback);
+      const getB = (k, fallback) => bg[k] != null ? bg[k] : (defBg[k] != null ? defBg[k] : fallback);
       const setB = (k, val) => { bg[k] = val; };
 
       /* Yığın açıkken Arkaplan kartı gizli; şeffaflık burada açılır.
