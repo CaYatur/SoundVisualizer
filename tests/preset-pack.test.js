@@ -257,7 +257,6 @@ test('md2 yalnız MilkDrop 2 asıllarını, md3 yalnız MilkDrop 3 asıllarını
 
 const COMPAT_DIR = path.join(root, 'presets', 'compat', 'md', 'cayadev');
 
-// BeatDrop 1.5'in d3dx9_31 derleyicisi anten satırındaki tall çarpanında çöküyor.
 test('compat kopyaları MD2 sınırında; Spectrum City BeatDrop tall çarpanını düşürür', () => {
   const rd = (f) => fs.readFileSync(path.join(COMPAT_DIR, f), 'utf-8');
   const files = fs.readdirSync(COMPAT_DIR).filter((x) => x.endsWith('.milk'));
