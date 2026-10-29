@@ -1791,7 +1791,7 @@
         setTimeout(() => {
           list.scrollTop = listScroll;
           const active = list.querySelector(grid ? '.md-cell.active' : '.md-item.active');
-          if (active) active.scrollIntoView({ block: 'nearest' });
+          if (active) P().revealInList(list, active);
         }, 0);
       }
       if (grid) setTimeout(() => watchThumbs(list), 0);
