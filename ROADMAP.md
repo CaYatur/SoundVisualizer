@@ -23,8 +23,8 @@ waits for a licence decision, moves after it.
 | v3.1.2 | MilkDrop shader engine, Now Playing overlay, transparent visualizer | 2026-09-05 | Shipped |
 | v3.1.3 | Per-application audio capture, aspect correction, Auto VJ rebuild | 2026-09-08 | Shipped |
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
-| **v3.1.5** | **MilkDrop library and editor, MCP, OSC in and out, updates** | **2026-10-13** | **Current** |
-| v3.1.6 | Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets | — | Ready on `main`, not yet published |
+| v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
+| **v3.1.6** | **Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets** | **2026-10-29** | **Current** |
 | v3.1.7 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned after v3.1.6 ships |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
@@ -96,14 +96,14 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Per-app audio capture on macOS and Linux | v3.1.6 | On `main` (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
-| Electron 44 | v3.1.6 | On `main` (44.9.0), up from 43. macOS 13 Ventura becomes the minimum, ANGLE is linked into the binary, and builds are 64-bit only (as ours already were) |
-| Live level meter per application | v3.1.6 | Done on `main` (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Interface themes | v3.1.6 | Done on `main` (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
-| Comprehensive video export | v3.1.6 | Done on `main`: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
-| Broadcast layout editor | v3.1.6 | Done on `main` (#533; first planned as v3.1.7): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
+| Per-app audio capture on macOS and Linux | v3.1.6 | Shipped (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
+| Electron 44 | v3.1.6 | Shipped (44.9.0), up from 43. macOS 13 Ventura becomes the minimum, ANGLE is linked into the binary, and builds are 64-bit only (as ours already were) |
+| Live level meter per application | v3.1.6 | Shipped (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
+| Interface themes | v3.1.6 | Shipped (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
+| Comprehensive video export | v3.1.6 | Shipped: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
+| Broadcast layout editor | v3.1.6 | Shipped (#533; first planned as v3.1.7): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
 | NDI | Later | Was v3.1.8, then v3.1.7; now after the v3.1.7 music video studio. Deferred for licence reasons, not difficulty — see "Not done, and why" |
-| Redundancy / genlock | v3.1.6 | Done on `main` (#540; first planned as v3.2.0): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, show comparison with push, and shared timeline and modulation clock, a pre-show check, and software frame sync across windows (#541–#547); hardware genlock not verifiable here |
+| Redundancy / genlock | v3.1.6 | Shipped (#540; first planned as v3.2.0): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, show comparison with push, and shared timeline and modulation clock, a pre-show check, and software frame sync across windows (#541–#547); hardware genlock not verifiable here |
 
 ### Shipped, but never run on real hardware
 
@@ -141,8 +141,8 @@ npm start -- --smoke
 - **3666 unit tests, all passing** on `main`. 703 of those shipped in v3.1.0;
   105 came with v3.1.1; 163 came with v3.1.2; 157 came with v3.1.3 — 1128 at
   that tag — 469 more with v3.1.4, most of them from the MilkDrop work — 1597 at
-  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 27
-  on `main` since.
+  that tag — 1402 more with v3.1.5 — 2999 at that tag — and 667
+  more with v3.1.6 — 3666 at that tag.
   Formulas are checked against values derived
   by hand from their definitions — Viviani's curve staying on its sphere, the
   torus tube radius, Chladni's m↔n antisymmetry, every attractor staying
@@ -3274,7 +3274,7 @@ The Control card lets an agent drive the app. It is off by default.
   panel. Allowed edits refresh the admin panel through the same config push a
   click already uses, including the display selection.
 
-## v3.1.6 — Comprehensive video export
+## v3.1.6 — Comprehensive video export · shipped
 
 Faster export, more formats, and enough presets that a content creator never
 has to think about encoder settings. Cutting export time is a first-class goal
@@ -3633,7 +3633,7 @@ The panel had one look. It now has seven themes and Device default, chosen under
     - A gradient's `transparent` stop was averaged as black.
     - In a background window, CSS transitions do not advance, so the old theme's colour was measured. Pending transitions are now finished before measuring.
 
-## v3.1.6 — Additions for music videos and short video
+## v3.1.6 — Additions for music videos and short video · shipped
 
 Small additions made after the market review of 26–27 October. Each one is opt-in: existing scenes, templates and exports render exactly as before. Each can be checked here without extra hardware, and live output and export agree because both follow the draw clock. The larger work from that review (a video project view, a wizard, mix videos, lyric styles, section detection, timecode) is planned for v3.1.7.
 
@@ -3648,7 +3648,7 @@ Small additions made after the market review of 26–27 October. Each one is opt
 - **10-bit H.265 export (#858) · done.** H.265 Main 10 MP4 with BT.709 tags, for dark gradients that band in 8-bit. Measured against the raw frames at about the same size: +1.5 dB PSNR with x265, +1.8 dB with NVENC. AMD AMF is not offered (no 10-bit input); 10-bit is probed separately from 8-bit.
 - **Audio analysis as files (#857) · done.** JSON and CSV with one row per video frame (every audio-derived modulation source, beat grid, chord, key) and a MIDI file (beats, drums, chords) at the detected tempo; next to an export or on its own. Tempo, grid, chords and key come from the whole file; the video is unchanged.
 
-## v3.1.6 — Broadcast layout editor (first planned as v3.1.7)
+## v3.1.6 — Broadcast layout editor (first planned as v3.1.7) · shipped
 
 v3.0.0 already ships the broadcast template group: a restrained bar
 visualizer, corner or centre placement, a logo beside the bars rather than
@@ -3680,7 +3680,7 @@ check and the review behind it found and fixed six differences:
 - The export page's content policy blocked video.
 - A queued scene's video was refused by the media protocol.
 
-## v3.1.6 — Redundancy, failover and frame sync (first planned as v3.2.0)
+## v3.1.6 — Redundancy, failover and frame sync (first planned as v3.2.0) · shipped
 
 The release aimed at staged, professional shows. This category is large and
 will be built carefully rather than quickly.

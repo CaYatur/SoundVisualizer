@@ -248,10 +248,10 @@ The sections above are the short version. Everything below is the full list, by 
 - **Single applications** (Windows) — WASAPI process loopback. Capture only the chosen apps, or
   everything *except* one. Targets are stored by executable name, so a restarted app reattaches by
   itself, and an app that is not running yet is picked up when it starts. Needs Windows build
-  20348 or newer. <kbd>3.1.6</kbd> On Linux it uses PulseAudio's per-stream monitors (`pactl`
+  20348 or newer. On Linux it uses PulseAudio's per-stream monitors (`pactl`
   and `parec` from pulseaudio-utils). On macOS 13+ it uses ScreenCaptureKit and needs the Screen
   Recording permission; the macOS path has not yet been run on a real Mac.
-  <kbd>3.1.6</kbd> Each application in the picker shows a live level meter, so you can see which
+  Each application in the picker shows a live level meter, so you can see which
   one is making sound before you choose it.
 - **Several sources at once**, mixed before analysis — "Spotify + microphone" is one selection.
 - **Both channels reach the visuals**. Each frame carries the left and right
@@ -347,7 +347,7 @@ you can stack as many of each as you like.
 
 Bar count, minimum and maximum frequency, gap, placement (bottom, centre or full), mirror, line
 width, amplitude, sensitivity and glow appear whenever they mean something for the selected mode.
-Colour comes from the scene palette, a custom colour pair, or **rainbow**. <kbd>3.1.6</kbd> Bars that
+Colour comes from the scene palette, a custom colour pair, or **rainbow**. Bars that
 stand on a baseline above the bottom edge can cast a **floor reflection** that fades downward
 (strength and length).
 
@@ -599,7 +599,7 @@ test asserts it.
   Flow Field, Interference
 - *Streaming (6)* — Corner Bars, Clean Wave, Ring Meter, Scope Overlay, Lower Third, Studio Meters
 - *Music Video (13)* — Label Card, Artwork Card, Baseline Bars, Amber Room, Minimal White, Quiet
-  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card, and <kbd>3.1.6</kbd> Title Card and End Card for the start and end of a video, whose elements arrive with reveal animations. The cover, title and artist
+  Frame, Corner Meter, Centre Strip, Wave Card, Cover Ring, Stage Card, plus Title Card and End Card for the start and end of a video, whose elements arrive with reveal animations. The cover, title and artist
   come from one Now Playing layer, so the cover sits beside the text at the same gap in every
   aspect ratio; in the admin preview the card shows placeholder text until a track plays.
 - *Music Backdrop (6)* — Aurora Backdrop, Flow Backdrop, Nebula Backdrop, MilkDrop Backdrop, Galaxy
@@ -615,7 +615,7 @@ test asserts it.
 **Music video layouts.** Restrained layouts for release videos and official channels, deliberately
 separate from the club material: bar placement as a fraction of the frame, a plain ground with no
 grain, and the cover, title and artist as one card. The cover sits beside the text at the same gap
-in every aspect ratio, and the bars share the card's margin. <kbd>3.1.6</kbd> In the layout
+in every aspect ratio, and the bars share the card's margin. In the layout
 editor, 9:16 and 1:1 also show hatched guides where short-video apps draw their interface (top
 bar, side buttons, caption area; the profile grid's 3:4 crop for square posts), so text and logo
 can be kept clear of them. The guides never reach the video.
@@ -700,15 +700,15 @@ ticker · karaoke highlighting.
 - **Media layer** — a webcam or a video file, in front of or behind the visualizer, with fit (cover,
   contain, stretch), mirror, kaleidoscope with 3–12 slices, hue shift, saturation, blend mode,
   opacity, and audio-driven zoom and opacity. The same frame is readable inside Studio shaders as
-  `sv_media`. <kbd>3.1.6</kbd> A slow **Ken Burns** zoom and pan (strength and cycle length) and a
+  `sv_media`. A slow **Ken Burns** zoom and pan (strength and cycle length) and a
   short **beat pulse** follow the draw clock, so an export shows the same motion as the screen.
-- <kbd>3.1.6</kbd> **Spout / Syphon input layer** — the picture of another application on the same
+- **Spout / Syphon input layer** — the picture of another application on the same
   machine (TouchDesigner, Resolume, OBS, a camera app) as a layer, over the GPU with no CPU copy.
   Pick the sender from a list; the app's own output is left out, so it cannot feed back into
   itself. Fit, mirror, flip, keep or drop the sender's alpha, and hold the last frame when the
   sender stops. Place and size it on the card or by dragging in the Layout Editor. A sender that starts after the app, restarts, or comes back with a `_1` suffix
   after a crash is found again. Windows and macOS.
-- <kbd>3.1.6</kbd> **Web page layer** — any web page as a layer: alerts, chat, a scoreboard, a
+- **Web page layer** — any web page as a layer: alerts, chat, a scoreboard, a
   clock, a dashboard. Page size, frame rate, zoom, transparent background, custom CSS, automatic
   reload, and an **Interact** window for signing in or answering a cookie prompt. The page runs in
   its own sandboxed session with no access to the app, your files, the camera or the microphone;
@@ -1002,7 +1002,7 @@ the fixtures on the left take the colours on the left of the screen.
   cancellation and a GPU-to-CPU fallback. It is deterministic: the same job gives the same video, the
   property the visual regression tests rely on. Title, artist, album and cover are read from the
   file and feed Now Playing and text layers.
-- <kbd>3.1.6</kbd> **Twelve export formats.** H.264, H.265 or 10-bit H.265 MP4, ProRes 422 HQ and DNxHR HQ for
+- **Twelve export formats.** H.264, H.265 or 10-bit H.265 MP4, ProRes 422 HQ and DNxHR HQ for
   editing, VP9 WebM, GIF and APNG loops, and PNG or linear OpenEXR frame sequences. ProRes 4444,
   VP9, APNG, PNG and EXR keep the alpha channel for overlay stock. Portrait 1080×1920 and square
   1080×1080, 24 to 60 fps. The GPU encoder is NVIDIA NVENC, AMD AMF or Intel Quick Sync, whichever
@@ -1015,16 +1015,16 @@ the fixtures on the left take the colours on the left of the screen.
   split at the timeline's markers into files named after them, from a single render. A batch
   queue renders one scene across many songs, or one song at several sizes, and keeps going past
   a failed job.
-- <kbd>3.1.6</kbd> **Seamless loops and a Spotify Canvas profile.** A loop export renders the
+- **Seamless loops and a Spotify Canvas profile.** A loop export renders the
   length plus a short crossfade and blends the end into the start, so the last frame flows into
   the first, even with feedback and MilkDrop. Loops are silent, and the same job always gives the
   same file. The Spotify Canvas profile makes a 1080×1920, 8-second silent loop; GIF loops close
   the same way.
-- <kbd>3.1.6</kbd> **YouTube chapters from the timeline markers.** One click copies them as
+- **YouTube chapters from the timeline markers.** One click copies them as
   "0:00 Intro" lines for the video description, or the export writes them next to the video. The
   list says when YouTube would not accept it: the first chapter at 0:00, at least three chapters,
   each at least 10 seconds.
-- <kbd>3.1.6</kbd> **Audio analysis as files.** An export can also write what the app measured in
+- **Audio analysis as files.** An export can also write what the app measured in
   the song, or "Audio Analysis Only" writes it without rendering video:
   - `<name> - analysis.json` and `.csv`: one row per video frame with the bands, custom bands,
     loudness, timbre, the twelve pitch classes, chord, key, BPM and beats;
@@ -1034,13 +1034,13 @@ the fixtures on the left take the colours on the left of the screen.
   Row N is frame N of the video, and the same file and frame rate always give the same files. The
   CSV uses commas and a decimal point; in a Turkish Excel, open it with Data > From Text and pick
   the comma. Not with a seamless loop, whose output starts mid-render.
-- <kbd>3.1.6</kbd> **Live recording can follow the timeline**: it starts when playback starts and
+- **Live recording can follow the timeline**: it starts when playback starts and
   stops at pause, stop or the end, including when MIDI, OSC or an AI agent drives the transport.
 - **Live recording** of the output exactly as it appears — with the live audio, modulation,
   transitions and effects — to MP4 or WebM, on one key.
 - **GIF export** with two-pass palette generation, because one pass bands visibly.
 - **PNG snapshot** at up to 4×, on a shortcut.
-- <kbd>3.1.6</kbd> **YouTube thumbnail**: a 1280×720 JPEG of the frame on screen, kept under
+- **YouTube thumbnail**: a 1280×720 JPEG of the frame on screen, kept under
   YouTube's 2 MB limit. It is taken from an open output window at its full resolution (the panel
   preview is small), cropped from the centre to 16:9.
 - **Export presets** for common aspect ratios.
@@ -1252,10 +1252,10 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   slider limits 5×.
 - **Turkish and English**, switchable at runtime; the self-test fails if any interface string is
   left untranslated.
-- <kbd>3.1.6</kbd> **Interface themes**: CaYaDev, Dark, Light, High Contrast, Midnight, Sepia and
+- **Interface themes**: CaYaDev, Dark, Light, High Contrast, Midnight, Sepia and
   Neon, or Device default, which follows your system's light or dark setting and is the default. Every theme is
   contrast-tested: the self-test measures every text it draws.
-- <kbd>3.1.6</kbd> **Readability**: Interface Size from 90 to 150%, also with
+- **Readability**: Interface Size from 90 to 150%, also with
   <kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>−</kbd> / <kbd>0</kbd>, and no text smaller than 11 px.
   Reduce Motion turns off the panel's animations. Device default switches to High Contrast when the
   system asks for more contrast, and switches and selections stay visible in Windows contrast themes.
@@ -1288,10 +1288,10 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
 
 ### Show safety: pre-show check, redundancy and the audio bridge
 
-- <kbd>3.1.6</kbd> **Pre-Show Check** (Show category) — displays, audio, each output's frame rate
+- **Pre-Show Check** (Show category) — displays, audio, each output's frame rate
   against its refresh rate, the files the scene uses (with where they are used and a fix), the
   backup, authority and disk space, refreshed every 3 seconds.
-- <kbd>3.1.6</kbd> **Hot standby with two machines** — the backup draws the same picture all the
+- **Hot standby with two machines** — the backup draws the same picture all the
   time and takes over in about 0.4–0.5 s when the primary's process dies, or after the loss limit (1.5 s) when
   it hangs or the network drops. The screen never goes black; your video switcher picks the output.
   - The backup keeps its own show: the primary's copy lives in a separate area, presets and logos
@@ -1303,7 +1303,7 @@ return the capture diagnosis and the live analysis (key, chord, pitch, loudness,
   - A **status banner** above every category, an alarm on takeover, beat-grid sync so both machines
     count bars together, and an **OBS fallback address** so the browser source moves to the backup.
   - Pairing with an HMAC challenge in both directions; the secret never travels on the network.
-- <kbd>3.1.6</kbd> **Audio bridge** — one machine (or a third device) captures and sends audio,
+- **Audio bridge** — one machine (or a third device) captures and sends audio,
   analysis and the now-playing track over the LAN, so the primary and the backup analyse the same
   signal; automatic fallback to a local input, LAN discovery, a bridge-only mode with a tray icon,
   and listenable audio scheduled on the shared clock. The bridge has its own window with status,
@@ -1832,7 +1832,7 @@ needs a certificate the runner does not have — a CI-built installer would be a
 
 ### macOS first launch
 
-<kbd>3.1.6</kbd> The app needs **macOS 13 Ventura or later**, because Electron 44 dropped macOS 12.
+The app needs **macOS 13 Ventura or later**, because Electron 44 dropped macOS 12.
 
 **macOS packages are unsigned** and not notarised. macOS quarantines unsigned downloads and reports
 them as *damaged and can’t be opened*; right-clicking and choosing **Open** does not clear that on
@@ -1986,9 +1986,9 @@ The timeline editor and the clip deck have their own shortcuts, listed in their 
 Timeline and Clip Deck in v3.1.0, cross-platform builds with OpenRGB and Spout/Syphon in v3.1.1, the
 MilkDrop shader engine in v3.1.2, per-application audio capture and aspect correction in v3.1.3, and
 the streaming overlay and transparency fixes with MilkDrop fidelity in v3.1.4, and the MilkDrop library
-and editor, MCP, OSC in and out and in-app updates in v3.1.5. Next is v3.1.6, with a far broader and
-much faster video export, the broadcast layout editor and redundancy with frame sync, then a music
-video studio in v3.1.7. It also keeps an honest list of
+and editor, MCP, OSC in and out and in-app updates in v3.1.5, and in v3.1.6 a far broader and much
+faster video export with music video tools, the broadcast layout editor, redundancy with frame sync
+and the CaYaDev presets. It also says what comes next and keeps an honest list of
 what is *not* done, and why. [CHANGELOG.md](CHANGELOG.md) lists every change in each release, grouped by
 area.
 
