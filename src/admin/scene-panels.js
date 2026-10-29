@@ -1735,6 +1735,25 @@
       return out;
     }
 
+    /* Studio görselleştirici katmanı: shader paletinin kaynağı (#883).
+       Görselleştirici kartındaki Renk Modu ile aynı anahtar; katman
+       yazmamışsa sahnenin değeri geçerli. */
+    if (l.kind === 'visualizer' && l.type === 'custom') {
+      l.settings = l.settings || {};
+      const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
+      const vs = (l.settings.visualizer = l.settings.visualizer || {});
+      const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
+      out.push(miniSegment('Renk Modu', [
+        ['custom', 'Sabit Renk'],
+        ['theme', 'Renk Teması'],
+        ['rainbow', 'Gökkuşağı'],
+      ], () => getV('studioColorMode', 'theme'), (m) => { vs.studioColorMode = m; }, rerender, 'theme'));
+      if (getV('studioColorMode', 'theme') === 'custom') {
+        out.push(miniColor('Renk', () => getV('color'), (v) => { vs.color = v; }));
+        out.push(miniColor('İkincil Renk', () => getV('color2'), (v) => { vs.color2 = v; }));
+      }
+    }
+
     if (l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type !== 'none' && l.type !== 'custom')) {
       l.settings = l.settings || {};
       /* Katman yazmamışsa motor sahnenin görselleştirici ayarını kullanıyor

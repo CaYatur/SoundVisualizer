@@ -5,6 +5,14 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ## v3.1.7
 
+### Visualizer
+
+- **Colour mode for Studio visualizers** (#883), on the Visualizer card and on a Studio layer. The
+  Studio shaders draw with a five-colour palette that always came from the background gradient. It
+  can now be *Colour Theme* (as before, the default), *Fixed Colour* (primary to secondary colour) or
+  *Rainbow* (hues that move with the draw clock, so exports match). It has its own setting, so
+  scenes that use a colour mode on another visualizer keep their Studio colours.
+
 ### Fixes
 
 - **The panel no longer jumps to the active MilkDrop preset** (#877). Once the preset list had been

@@ -2808,22 +2808,42 @@
               { value: 'theme', label: 'Renk Teması' },
               { value: 'rainbow', label: 'Gökkuşağı' },
             ],
-            show: () => v.type !== 'none',
+            // Studio kendi anahtarını kullanıyor (aşağıda, #883)
+            show: () => v.type !== 'none' && v.type !== 'custom',
+          },
+          {
+            /* Studio shader'larının paleti (#883). Ayrı anahtar: genel renk
+               modu başka bir türde seçilmiş olabilir, eski sahnelerin Studio
+               renkleri değişmesin. */
+            type: 'segment',
+            path: 'visualizer.studioColorMode',
+            label: 'Renk Modu',
+            rebuild: true,
+            options: [
+              { value: 'custom', label: 'Sabit Renk' },
+              { value: 'theme', label: 'Renk Teması' },
+              { value: 'rainbow', label: 'Gökkuşağı' },
+            ],
+            show: () => v.type === 'custom',
           },
           {
             type: 'color',
             path: 'visualizer.color',
             label: 'Renk',
             show: () => v.type !== 'none' && v.type !== 'nowplaying' && v.type !== 'text'
-              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom',
+              && (v.type === 'custom'
+                ? v.studioColorMode === 'custom'
+                : (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom'),
           },
           {
             type: 'color',
             path: 'visualizer.color2',
             label: 'İkincil Renk',
             show: () => v.type !== 'nowplaying' && v.type !== 'text'
-              && (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom'
-              && MC().is('visualizer', v.type, 'color2'),
+              && (v.type === 'custom'
+                ? v.studioColorMode === 'custom'
+                : (v.colorMode || (v.rainbow ? 'rainbow' : 'custom')) === 'custom'
+                  && MC().is('visualizer', v.type, 'color2')),
           },
           /* Now Playing solid/custom: all three editable colors (not visualizer.color). */
           {

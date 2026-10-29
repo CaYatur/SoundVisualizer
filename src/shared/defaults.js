@@ -239,6 +239,7 @@
       // Tüm türler ve grupları: shared/mode-catalog.js (#638)
       type: 'bars',
       colorMode: 'theme', // 'custom' | 'theme' | 'rainbow'
+      studioColorMode: 'theme', // Studio paletinin kaynağı: 'theme' | 'custom' | 'rainbow' (#883)
       rainbow: false,
       color: '#3aa6ff',
       color2: '#d24bff',
