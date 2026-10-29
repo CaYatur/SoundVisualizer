@@ -11,11 +11,11 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
   Twelve Moons, Firefly Meadow, Constellations, Night Bloom, Tesla Coil, Smoke Ribbons, Spectrum City).
   The MilkDrop 2 packing from #894 made them look worse in our own engine, where the originals always
   worked. The pack uses the originals again, unchanged.
-- **MilkDrop 2 / BeatDrop variants live in [`presets/md2/cayadev/`](presets/md2/cayadev/)**. These copies stay
+- **MilkDrop 2 / BeatDrop variants live in [`presets/original/md2/cayadev/`](presets/original/md2/cayadev/)**. These copies stay
   within MilkDrop 2 limits (q1 to q32, at most four custom waves and shapes, no pw_ samplers) so they load in
   BeatDrop and other MilkDrop 2 players. They are for export only and are not in the app's preset list.
   A pack test keeps them within those limits. BeatDrop 1.5's bundled d3dx9_31 shader compiler crashes on
-  Spectrum City's antenna line (`tall` factor), so a separate `presets/beatdrop-safe/cayadev/CaYaDev - Spectrum City BeatDrop.milk` drops
+  Spectrum City's antenna line (`tall` factor), so a separate `presets/compat/md/cayadev/CaYaDev - Spectrum City BeatDrop.milk` drops
   that factor (antenna lights blink on every tower). The original Spectrum City is unchanged.
 - **Arcade Invaders drops the pw_noise_lq sampler**, which BeatDrop does not provide, and reads the same
   noise from noise_lq.

@@ -1,11 +1,11 @@
 /*
  * CaYaDev MilkDrop Presets — Copyright (c) 2026 CaYaDev
- * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/md3/cayadev
+ * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/original/md3/cayadev
  * SPDX-License-Identifier: CC-BY-4.0
  */
 'use strict';
 /* OTOMATİK ÜRETİLDİ: scripts/preset-pack.js (#825). Elle düzenlemeyin; kaynak
-   presets/md3/cayadev/ klasörü. Liste shared/presets-milkdrop.js üzerinden yerleşik
+   presets/original/md3/cayadev/ klasörü. Liste shared/presets-milkdrop.js üzerinden yerleşik
    havuza giriyor; sayfada bu dosya ondan ÖNCE yükleniyor. */
 (function () {
   const PACK = [

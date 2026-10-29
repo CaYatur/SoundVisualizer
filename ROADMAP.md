@@ -3295,7 +3295,7 @@ change, by area, is in [CHANGELOG.md](CHANGELOG.md).
 | Tools for music videos and short video | "Additions for music videos and short video" |
 | Broadcast layout editor | "Broadcast layout editor" |
 | Redundancy, failover, frame sync and the network audio bridge | "Redundancy, failover and frame sync", [docs/REDUNDANCY.md](docs/REDUNDANCY.md), [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
-| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/md3/cayadev](presets/md3/cayadev/README.md) |
+| 56 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/original/md3/cayadev](presets/original/md3/cayadev/README.md) |
 | Spout/Syphon input and web page layers | "Spout/Syphon input and web page layers" below |
 | Readability, Electron 44 and two packaged Windows crashes | "Also in v3.1.6" below |
 

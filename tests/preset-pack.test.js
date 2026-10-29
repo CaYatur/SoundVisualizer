@@ -2,7 +2,7 @@
 /* CaYaDev MilkDrop preset paketi (#825).
  *
  * Görünüş gözle ve önizleme/karşılaştırma araçlarıyla onaylandı (bkz.
- * presets/md3/cayadev/README.md). Testlerin tuttuğu şey paketin BAŞKA
+ * presets/original/md3/cayadev/README.md). Testlerin tuttuğu şey paketin BAŞKA
  * OYNATICILARDA da çalışmasını sağlayan kurallar ve gömülü kopyanın
  * kaynakla aynı kalması:
  *  - dosyalar ASCII, adlar "CaYaDev - <Ad>.milk", lisans ve README yerinde;
@@ -30,7 +30,7 @@ const LIST = require('../src/shared/presets-milkdrop.js');
 
 const PACK = PP.load();
 
-test('gömülü paket dosyası presets/md3/cayadev ile aynı', () => {
+test('gömülü paket dosyası presets/original/md3/cayadev ile aynı', () => {
   // Windows'ta autocrlf dosyayı CRLF açabilir; karşılaştırma satır sonundan bağımsız
   assert.strictEqual(fs.readFileSync(PP.OUT, 'utf-8').replace(/\r\n/g, '\n'), PP.render(PACK),
     'node scripts/preset-pack.js ile yeniden üretin');
@@ -226,9 +226,9 @@ test('shader\'lar MilkDrop 2 derleyicisinin kurallarına uyuyor', () => {
   }
 });
 
-// MD2/BeatDrop varyantları presets/md2/cayadev/ klasöründe: MilkDrop 2 yalnız q1..q32'yi, dört dalgayı ve
+// MD2/BeatDrop varyantları presets/original/md2/cayadev/ klasöründe: MilkDrop 2 yalnız q1..q32'yi, dört dalgayı ve
 // dört şekli tanıyor; pw_ örnekleyicileri de BeatDrop'ta yok. Uygulama MD3 asıllarını kullanıyor.
-const MD2_DIR = path.join(root, 'presets', 'md2', 'cayadev');
+const MD2_DIR = path.join(root, 'presets', 'original', 'md2', 'cayadev');
 function checkMd2(name, source) {
   const qs = (source.match(/\bq\d+\b/g) || []).map((q) => +q.slice(1));
   assert.ok(Math.max(0, ...qs) <= 32, name + ': q32 üstü kullanılmış');
@@ -246,7 +246,7 @@ test('MD2 klasöründeki varyantlar q32, dört dalga/şekil ve pw_ sınırında'
   assert.strictEqual(files.length, 9);
   for (const f of files) {
     // Her varyantın aslı ana pakette olmalı
-    assert.ok(fs.existsSync(path.join(root, 'presets', 'md3', 'cayadev', f)), f + ': aslı yok');
+    assert.ok(fs.existsSync(path.join(root, 'presets', 'original', 'md3', 'cayadev', f)), f + ': aslı yok');
     checkMd2(f, fs.readFileSync(path.join(MD2_DIR, f), 'utf-8').replace(/\r\n/g, '\n'));
   }
   const arcade = PACK.find((x) => x.id === 'md_caya_arcade_invaders');
@@ -257,19 +257,19 @@ test('MD2 klasöründeki varyantlar q32, dört dalga/şekil ve pw_ sınırında'
 // BeatDrop 1.5'in d3dx9_31 derleyicisi anten satırındaki tall çarpanında çöküyor: ayrı kopyada yok, MD2 kopyasında duruyor
 test('Spectrum City BeatDrop kopyası tall çarpanı olmadan, diğerleri tall ile', () => {
   const rd = (d, f) => fs.readFileSync(path.join(root, 'presets', d, 'cayadev', f), 'utf-8');
-  assert.doesNotMatch(rd('beatdrop-safe', 'CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
-  assert.match(rd('md2', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
-  assert.match(rd('md3', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
+  assert.doesNotMatch(rd('compat/md', 'CaYaDev - Spectrum City BeatDrop.milk'), /\* tall \* blink/);
+  assert.match(rd('original/md2', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
+  assert.match(rd('original/md3', 'CaYaDev - Spectrum City.milk'), /\* tall \* blink/);
   // beatdrop-safe içindeki her dosya da MD2 sınırında olmalı
-  for (const f of fs.readdirSync(path.join(root, 'presets', 'beatdrop-safe', 'cayadev')).filter((x) => x.endsWith('.milk'))) {
-    checkMd2(f, rd('beatdrop-safe', f).replace(/\r\n/g, '\n'));
+  for (const f of fs.readdirSync(path.join(root, 'presets', 'compat', 'md', 'cayadev')).filter((x) => x.endsWith('.milk'))) {
+    checkMd2(f, rd('compat/md', f).replace(/\r\n/g, '\n'));
   }
 });
 
 test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri gelmiyor', () => {
   // Uzaylı ölüm sayaçları (k0..k10) yalnızca dalga temizlenince (wc) sıfırlanmalı;
   // istila (go) skoru siler, sağ kalanları tepeye çeker ama ölüleri diriltmez.
-  const src = fs.readFileSync(path.join(root, 'presets', 'md3', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
+  const src = fs.readFileSync(path.join(root, 'presets', 'original', 'md3', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
   for (let i = 0; i <= 10; i++) {
     const re = new RegExp('^per_frame_\\d+=k' + i + ' = k' + i + '\\*\\(1 - (\\w+)\\);', 'm');
     const m = re.exec(src);
@@ -281,7 +281,7 @@ test('Arcade Invaders Score: filo sığınaklara inince vurulan uzaylılar geri 
 test('Arcade Invaders Score: shader paketlenmiş ölüm/hasar sayaçlarını taşmadan çözüyor', () => {
   // Sabit +0.001 payı 7775/7776 gibi büyük paketlerde üst basamağı taşırıp -1 veriyordu;
   // sağdaki tamamen vurulmuş sütunlar filo aşağı inince hayalet gibi yeniden çiziliyordu.
-  const src = fs.readFileSync(path.join(root, 'presets', 'md3', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
+  const src = fs.readFileSync(path.join(root, 'presets', 'original', 'md3', 'cayadev', 'CaYaDev - Arcade Invaders Score.milk'), 'utf-8');
   const warp = src.split(/\r?\n/).filter((l) => /^warp_\d+=`/.test(l)).map((l) => l.replace(/^warp_\d+=`/, '')).join('\n');
   const m = /float digitOf\(float v, float base, float i\)\s*\{([\s\S]*?)\n\}/.exec(warp);
   assert.ok(m, 'digitOf bulunamadı');

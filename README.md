@@ -404,8 +404,8 @@ shaders are translated to GLSL and run on the GPU.
 - **CaYaDev MilkDrop Presets: 55 shader presets of our own, built in.** Each one has warp and comp shaders, and
   each was checked against MilkDrop 2 itself, for 90 s of stability, at 60 and 144 Hz, and for 60 fps at 1080p on
   an entry-level integrated GPU. They are also free to use in any MilkDrop player under CC BY 4.0: get them from
-  [`presets/md3/cayadev`](presets/md3/cayadev) (with a picture of each) or as the zip on each release. For BeatDrop and other MilkDrop 2
-  players, MilkDrop 2 variants of the MilkDrop 3 presets are in [`presets/md2/cayadev`](presets/md2/cayadev), and BeatDrop-specific workaround copies in [`presets/beatdrop-safe/cayadev`](presets/beatdrop-safe/cayadev).
+  [`presets/original/md3/cayadev`](presets/original/md3/cayadev) (with a picture of each) or as the zip on each release. For BeatDrop and other MilkDrop 2
+  players, MilkDrop 2 variants of the MilkDrop 3 presets are in [`presets/original/md2/cayadev`](presets/original/md2/cayadev), and BeatDrop-specific workaround copies in [`presets/compat/md/cayadev`](presets/compat/md/cayadev).
 - **Import a whole library** — from a ZIP pack, a folder, or by searching this
   computer (Winamp, foobar2000 and projectM folders, Downloads, Desktop, Music, Documents). You see
   what will be added before anything is copied; duplicates are skipped; textures come along; folder
@@ -1431,7 +1431,7 @@ it off restores the engine's earlier look.
   classic tunnel) and *Nabız Örgüsü* (squares on the beat over a motion-vector weave) — written
   here, so the engine shows what it does before you import a pack of your own. They join auto
   advance like any other preset. The two pictures on this page are rendered from them.
-- **The CaYaDev MilkDrop Presets** ([`presets/md3/cayadev`](presets/md3/cayadev), CC BY 4.0) are built in next to
+- **The CaYaDev MilkDrop Presets** ([`presets/original/md3/cayadev`](presets/original/md3/cayadev), CC BY 4.0) are built in next to
   them: shader presets written from scratch, MilkDrop 2 and MilkDrop 3. The folder README lists the checks each
   one passed; the zip on each release holds the same files.
 - **No preset text is copied into generated code.** There is no `eval` and no generated source:

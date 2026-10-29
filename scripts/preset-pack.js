@@ -7,7 +7,7 @@
 'use strict';
 /* CaYaDev MilkDrop preset paketi (#825).
  *
- * Kaynak `presets/md3/cayadev/`: .milk dosyaları ve pack.json (kimlik, kategori,
+ * Kaynak `presets/original/md3/cayadev/`: .milk dosyaları ve pack.json (kimlik, kategori,
  * TR/EN açıklama). Uygulama dosya okumadan çalışan sayfalarda da (yayın
  * katmanı, dışa aktarıcı) presetleri gördüğü için paket JS olarak gömülür:
  * bu betik `src/shared/presets-milkdrop-pack.js`i üretir.
@@ -26,7 +26,7 @@ const path = require('path');
 const zlib = require('zlib');
 
 const root = path.join(__dirname, '..');
-const DIR = path.join(root, 'presets', 'md3', 'cayadev');
+const DIR = path.join(root, 'presets', 'original', 'md3', 'cayadev');
 const OUT = path.join(root, 'src', 'shared', 'presets-milkdrop-pack.js');
 const README = path.join(DIR, 'README.md');
 const GALLERY = ['<!-- gallery: node scripts/preset-pack.js -->', '<!-- /gallery -->'];
@@ -66,12 +66,12 @@ function render(list) {
   return [
     '/*',
     ' * CaYaDev MilkDrop Presets — Copyright (c) 2026 CaYaDev',
-    ' * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/md3/cayadev',
+    ' * https://github.com/CaYatur/SoundVisualizer/tree/main/presets/original/md3/cayadev',
     ' * SPDX-License-Identifier: CC-BY-4.0',
     ' */',
     "'use strict';",
     '/* OTOMATİK ÜRETİLDİ: scripts/preset-pack.js (#825). Elle düzenlemeyin; kaynak',
-    '   presets/md3/cayadev/ klasörü. Liste shared/presets-milkdrop.js üzerinden yerleşik',
+    '   presets/original/md3/cayadev/ klasörü. Liste shared/presets-milkdrop.js üzerinden yerleşik',
     '   havuza giriyor; sayfada bu dosya ondan ÖNCE yükleniyor. */',
     '(function () {',
     '  const PACK = [',
@@ -159,7 +159,7 @@ if (require.main === module) {
       process.exit(1);
     }
     if (readmeNow !== readme) {
-      console.error('presets/md3/cayadev/README.md galerisi güncel değil: node scripts/preset-pack.js');
+      console.error('presets/original/md3/cayadev/README.md galerisi güncel değil: node scripts/preset-pack.js');
       process.exit(1);
     }
     console.log('Paket güncel: ' + list.length + ' preset');
