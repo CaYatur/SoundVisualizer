@@ -5769,12 +5769,33 @@ void main(){
     _aaStrip(gl, d, n, breakAt, GW, GH, thickMul, closed, md) {
       if (n < 2) return;
       const ext = this._aaSetup(gl, GW, thickMul, md);
-      const seg = (off, cnt) => {
+      const draw1 = (off, cnt) => {
         if (cnt < 2) return;
         const v = this._ribbon(d.subarray(off * 6, (off + cnt) * 6), cnt,
           closed, ext, GW, GH, this._lineStyle !== 'thin' || this._mdLight());
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.aaData, 0, v * 7);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, v);
+      };
+      /* GÖRÜNMEZ PARÇADA KALEM KALDIRILIYOR. İki ucu da saydam (alfa ~0)
+         bir parça ekrana hiçbir şey bırakmıyor, ama şeritte kalırsa
+         komşu düğümlerin gönyesini ve uzunluk telafisini o parçanın
+         yönüyle hesaplatıyor: tek dalgaya paketlenmiş birden çok eğride
+         (MilkDrop 2'nin dört dalga sınırı için) her eğrinin başında
+         kalınlaşmış, parlak bir "kanca" çıkıyordu. Şerit orada bölünüyor;
+         görünen hiçbir piksel kaybolmuyor. Kapalı şeritte (şekil
+         kenarlığı) bölme yok. */
+      const AMIN = 1e-4;
+      const seg = (off, cnt) => {
+        if (closed || cnt < 2) { draw1(off, cnt); return; }
+        let st = off;
+        const end = off + cnt;
+        for (let i = off; i + 1 < end; i++) {
+          if (d[i * 6 + 5] <= AMIN && d[(i + 1) * 6 + 5] <= AMIN) {
+            draw1(st, i + 1 - st);
+            st = i + 1;
+          }
+        }
+        draw1(st, end - st);
       };
       if (breakAt > 0) { seg(0, breakAt); seg(breakAt, n - breakAt); }
       else seg(0, n);
