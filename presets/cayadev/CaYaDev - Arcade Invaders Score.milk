@@ -265,113 +265,114 @@ per_frame_143=q20 = time - ovr;
 warp_1=`sampler sampler_pw_noise_lq;
 warp_2=`float digitOf(float v, float base, float i)
 warp_3=`{
-warp_4=`  float p = pow(base, i);
-warp_5=`  return floor(v / p + 0.001) - base * floor(v / (p * base) + 0.001);
-warp_6=`}
-warp_7=`float bitOf(float bits, float idx)
-warp_8=`{
-warp_9=`  return step(0.5, frac(floor(bits / exp2(idx) + 0.001) * 0.5));
-warp_10=`}
-warp_11=`float bitAt(float row, float colx, float design, float frameN)
-warp_12=`{
-warp_13=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
-warp_14=`  float r = 0.0;
-warp_15=`  if (design < 0.5) {
-warp_16=`    float4 a = float4(24.0, 60.0, 126.0, 219.0);
-warp_17=`    float4 b = frameN < 0.5 ? float4(255.0, 36.0, 90.0, 165.0) : float4(255.0, 90.0, 129.0, 66.0);
-warp_18=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_19=`  } else if (design < 1.5) {
-warp_20=`    float4 a = float4(36.0, 126.0, 219.0, 255.0);
-warp_21=`    float4 b = frameN < 0.5 ? float4(255.0, 189.0, 36.0, 102.0) : float4(255.0, 189.0, 66.0, 129.0);
-warp_22=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_23=`  } else {
-warp_24=`    float4 a = float4(60.0, 126.0, 255.0, 219.0);
-warp_25=`    float4 b = frameN < 0.5 ? float4(255.0, 102.0, 219.0, 129.0) : float4(255.0, 102.0, 165.0, 66.0);
-warp_26=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
-warp_27=`  }
-warp_28=`  return bitOf(r, 7.0 - colx);
-warp_29=`}
-warp_30=`float glyph(float d, float2 p)
-warp_31=`{
-warp_32=`  // 3x5 digits, top row in the high bits
-warp_33=`  float bits = d < 5.0 ? (d < 2.0 ? (d < 1.0 ? 31599.0 : 9362.0) : (d < 3.0 ? 29671.0 : (d < 4.0 ? 29647.0 : 23497.0)))
-warp_34=`                       : (d < 7.0 ? (d < 6.0 ? 31183.0 : 31215.0) : (d < 8.0 ? 29330.0 : (d < 9.0 ? 31727.0 : 31695.0)));
-warp_35=`  float inside = step(0.0, p.x) * step(p.x, 2.0) * step(0.0, p.y) * step(p.y, 4.0);
-warp_36=`  return inside * bitOf(bits, (4.0 - p.y) * 3.0 + (2.0 - p.x));
-warp_37=`}
-warp_38=`float3 scene(float2 u)
-warp_39=`{
-warp_40=`  float2 px = floor(u * float2(240.0, 135.0));
-warp_41=`  float3 c = float3(0.0, 0.0, 0.0);
-warp_42=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
-warp_43=`  // formation: 11 columns x 5 rows, 16 px apart; shot aliens are gone, the lowest of a column goes first
-warp_44=`  float2 lp = px - float2(q2, q11);
-warp_45=`  float ci = floor(lp.x / 16.0);
-warp_46=`  float ri = floor(lp.y / 14.0);
-warp_47=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
-warp_48=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
-warp_49=`    float kills = ci < 6.0 ? digitOf(q6, 6.0, ci) : digitOf(q7, 6.0, ci - 6.0);
-warp_50=`    float alive = step(ri, 4.5 - kills);
-warp_51=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
-warp_52=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
-warp_53=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
-warp_54=`    c = on * alive * ic;
-warp_55=`  }
-warp_56=`  // bunkers erode from below where shots land
-warp_57=`  float sx = px.x - 26.0;
-warp_58=`  float sk = floor(sx / 52.0);
-warp_59=`  float sl = sx - sk * 52.0;
-warp_60=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y > 104.0 && px.y < 114.0) {
-warp_61=`    float slot = min(floor(sl / 5.5), 3.0);
-warp_62=`    float s = sk * 4.0 + slot;
-warp_63=`    float dmg = s < 8.0 ? digitOf(q8, 4.0, s) : digitOf(q9, 4.0, s - 8.0);
-warp_64=`    float jag = step(0.5, frac(sin(px.x * 12.9898 + s) * 43758.5)) * step(0.5, dmg);
-warp_65=`    float keep = step(px.y, 113.5 - dmg * 3.0 - jag);
-warp_66=`    float hole = step(sl, 13.0) * step(9.0, sl) * step(110.0, px.y);
-warp_67=`    c = float3(0.3, 1.0, 0.35) * (1.0 - hole) * keep;
-warp_68=`  }
-warp_69=`  // cannon slides under its next target
-warp_70=`  float2 cp = px - float2(floor(q10 + 0.5), 124.0);
-warp_71=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
-warp_72=`  c = max(c, float3(0.4, 1.0, 0.5) * cannon);
-warp_73=`  // the shot stops where it hits
-warp_74=`  float beam = step(abs(px.x - q12), 0.5) * step(q3, px.y) * step(px.y, q3 + 5.0);
-warp_75=`  c = max(c, float3(1.0, 1.0, 0.8) * beam);
-warp_76=`  // impact burst
-warp_77=`  float2 dp = px - float2(q13, q14);
-warp_78=`  float rr = 1.0 + q15 * 40.0;
-warp_79=`  float m = max(abs(dp.x), abs(dp.y));
-warp_80=`  float ray = max(step(abs(abs(dp.x) - abs(dp.y)), 0.5), step(min(abs(dp.x), abs(dp.y)), 0.5));
-warp_81=`  float burst = ray * step(abs(m - rr), 1.0) * step(q15, 0.22) + step(m, 1.5) * step(q15, 0.08);
-warp_82=`  c = max(c, lerp(float3(1.0, 0.95, 0.6), float3(0.4, 1.0, 0.4), q16) * burst);
-warp_83=`  // score top left, wave pips top right
-warp_84=`  float sc = q17 - 10000.0 * floor(q17 / 10000.0);
-warp_85=`  float2 sp = px - float2(4.0, 3.0);
-warp_86=`  float di = floor(sp.x / 4.0);
-warp_87=`  float digit = (di >= 0.0 && di < 4.0) ? glyph(digitOf(sc, 10.0, 3.0 - di), float2(sp.x - di * 4.0, sp.y)) : 0.0;
-warp_88=`  float flashS = step(q15, 0.15) * (1.0 - q16);
-warp_89=`  c = max(c, lerp(float3(0.9, 0.9, 0.9), float3(1.0, 1.0, 0.4), flashS) * digit);
-warp_90=`  float2 wp = px - float2(232.0, 3.0);
-warp_91=`  float wi = floor(-wp.x / 4.0);
-warp_92=`  float pip = step(0.0, wi) * step(wi, min(q18, 9.0) - 1.0) * step(-wp.x - wi * 4.0, 1.5) * step(0.0, wp.y) * step(wp.y, 2.0) * step(wp.x, 0.5);
-warp_93=`  c = max(c, float3(1.0, 0.4, 0.8) * pip);
-warp_94=`  float ground = step(abs(px.y - 130.0), 0.5);
-warp_95=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
-warp_96=`  c = c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
-warp_97=`  // wave cleared: white flash; invaded: red alarm
-warp_98=`  c += float3(0.6, 0.6, 0.7) * saturate(1.0 - q19 * 2.0) * step(0.0, q19);
-warp_99=`  c = lerp(c, float3(1.0, 0.1, 0.1) * (0.4 + 0.6 * step(0.5, frac(q20 * 4.0))), saturate(1.0 - q20 / 1.5) * 0.6 * step(0.0, q20));
-warp_100=`  return c;
-warp_101=`}
-warp_102=`shader_body
-warp_103=`{
-warp_104=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
-warp_105=`  float2 g = floor(uv * float2(320.0, 180.0));
-warp_106=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
-warp_107=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
-warp_108=`  float3 old = tex2D(sampler_main, uv).xyz;
-warp_109=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
-warp_110=`}
+warp_4=`  // half-unit margin: a fixed +0.001 carried 7775/7776 over and decoded -1, so dead columns drew again
+warp_5=`  float p = pow(base, i);
+warp_6=`  return floor((v + 0.5) / p) - base * floor((v + 0.5) / (p * base));
+warp_7=`}
+warp_8=`float bitOf(float bits, float idx)
+warp_9=`{
+warp_10=`  return step(0.5, frac(floor(bits / exp2(idx) + 0.001) * 0.5));
+warp_11=`}
+warp_12=`float bitAt(float row, float colx, float design, float frameN)
+warp_13=`{
+warp_14=`  // 8x8 bitmaps, two walking frames per design; each row is a byte packed into a float
+warp_15=`  float r = 0.0;
+warp_16=`  if (design < 0.5) {
+warp_17=`    float4 a = float4(24.0, 60.0, 126.0, 219.0);
+warp_18=`    float4 b = frameN < 0.5 ? float4(255.0, 36.0, 90.0, 165.0) : float4(255.0, 90.0, 129.0, 66.0);
+warp_19=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_20=`  } else if (design < 1.5) {
+warp_21=`    float4 a = float4(36.0, 126.0, 219.0, 255.0);
+warp_22=`    float4 b = frameN < 0.5 ? float4(255.0, 189.0, 36.0, 102.0) : float4(255.0, 189.0, 66.0, 129.0);
+warp_23=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_24=`  } else {
+warp_25=`    float4 a = float4(60.0, 126.0, 255.0, 219.0);
+warp_26=`    float4 b = frameN < 0.5 ? float4(255.0, 102.0, 219.0, 129.0) : float4(255.0, 102.0, 165.0, 66.0);
+warp_27=`    r = row < 4.0 ? (row < 2.0 ? (row < 1.0 ? a.x : a.y) : (row < 3.0 ? a.z : a.w)) : (row < 6.0 ? (row < 5.0 ? b.x : b.y) : (row < 7.0 ? b.z : b.w));
+warp_28=`  }
+warp_29=`  return bitOf(r, 7.0 - colx);
+warp_30=`}
+warp_31=`float glyph(float d, float2 p)
+warp_32=`{
+warp_33=`  // 3x5 digits, top row in the high bits
+warp_34=`  float bits = d < 5.0 ? (d < 2.0 ? (d < 1.0 ? 31599.0 : 9362.0) : (d < 3.0 ? 29671.0 : (d < 4.0 ? 29647.0 : 23497.0)))
+warp_35=`                       : (d < 7.0 ? (d < 6.0 ? 31183.0 : 31215.0) : (d < 8.0 ? 29330.0 : (d < 9.0 ? 31727.0 : 31695.0)));
+warp_36=`  float inside = step(0.0, p.x) * step(p.x, 2.0) * step(0.0, p.y) * step(p.y, 4.0);
+warp_37=`  return inside * bitOf(bits, (4.0 - p.y) * 3.0 + (2.0 - p.x));
+warp_38=`}
+warp_39=`float3 scene(float2 u)
+warp_40=`{
+warp_41=`  float2 px = floor(u * float2(240.0, 135.0));
+warp_42=`  float3 c = float3(0.0, 0.0, 0.0);
+warp_43=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
+warp_44=`  // formation: 11 columns x 5 rows, 16 px apart; shot aliens are gone, the lowest of a column goes first
+warp_45=`  float2 lp = px - float2(q2, q11);
+warp_46=`  float ci = floor(lp.x / 16.0);
+warp_47=`  float ri = floor(lp.y / 14.0);
+warp_48=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
+warp_49=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
+warp_50=`    float kills = ci < 6.0 ? digitOf(q6, 6.0, ci) : digitOf(q7, 6.0, ci - 6.0);
+warp_51=`    float alive = step(ri, 4.5 - kills);
+warp_52=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
+warp_53=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
+warp_54=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
+warp_55=`    c = on * alive * ic;
+warp_56=`  }
+warp_57=`  // bunkers erode from below where shots land
+warp_58=`  float sx = px.x - 26.0;
+warp_59=`  float sk = floor(sx / 52.0);
+warp_60=`  float sl = sx - sk * 52.0;
+warp_61=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y > 104.0 && px.y < 114.0) {
+warp_62=`    float slot = min(floor(sl / 5.5), 3.0);
+warp_63=`    float s = sk * 4.0 + slot;
+warp_64=`    float dmg = s < 8.0 ? digitOf(q8, 4.0, s) : digitOf(q9, 4.0, s - 8.0);
+warp_65=`    float jag = step(0.5, frac(sin(px.x * 12.9898 + s) * 43758.5)) * step(0.5, dmg);
+warp_66=`    float keep = step(px.y, 113.5 - dmg * 3.0 - jag);
+warp_67=`    float hole = step(sl, 13.0) * step(9.0, sl) * step(110.0, px.y);
+warp_68=`    c = float3(0.3, 1.0, 0.35) * (1.0 - hole) * keep;
+warp_69=`  }
+warp_70=`  // cannon slides under its next target
+warp_71=`  float2 cp = px - float2(floor(q10 + 0.5), 124.0);
+warp_72=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
+warp_73=`  c = max(c, float3(0.4, 1.0, 0.5) * cannon);
+warp_74=`  // the shot stops where it hits
+warp_75=`  float beam = step(abs(px.x - q12), 0.5) * step(q3, px.y) * step(px.y, q3 + 5.0);
+warp_76=`  c = max(c, float3(1.0, 1.0, 0.8) * beam);
+warp_77=`  // impact burst
+warp_78=`  float2 dp = px - float2(q13, q14);
+warp_79=`  float rr = 1.0 + q15 * 40.0;
+warp_80=`  float m = max(abs(dp.x), abs(dp.y));
+warp_81=`  float ray = max(step(abs(abs(dp.x) - abs(dp.y)), 0.5), step(min(abs(dp.x), abs(dp.y)), 0.5));
+warp_82=`  float burst = ray * step(abs(m - rr), 1.0) * step(q15, 0.22) + step(m, 1.5) * step(q15, 0.08);
+warp_83=`  c = max(c, lerp(float3(1.0, 0.95, 0.6), float3(0.4, 1.0, 0.4), q16) * burst);
+warp_84=`  // score top left, wave pips top right
+warp_85=`  float sc = q17 - 10000.0 * floor(q17 / 10000.0);
+warp_86=`  float2 sp = px - float2(4.0, 3.0);
+warp_87=`  float di = floor(sp.x / 4.0);
+warp_88=`  float digit = (di >= 0.0 && di < 4.0) ? glyph(digitOf(sc, 10.0, 3.0 - di), float2(sp.x - di * 4.0, sp.y)) : 0.0;
+warp_89=`  float flashS = step(q15, 0.15) * (1.0 - q16);
+warp_90=`  c = max(c, lerp(float3(0.9, 0.9, 0.9), float3(1.0, 1.0, 0.4), flashS) * digit);
+warp_91=`  float2 wp = px - float2(232.0, 3.0);
+warp_92=`  float wi = floor(-wp.x / 4.0);
+warp_93=`  float pip = step(0.0, wi) * step(wi, min(q18, 9.0) - 1.0) * step(-wp.x - wi * 4.0, 1.5) * step(0.0, wp.y) * step(wp.y, 2.0) * step(wp.x, 0.5);
+warp_94=`  c = max(c, float3(1.0, 0.4, 0.8) * pip);
+warp_95=`  float ground = step(abs(px.y - 130.0), 0.5);
+warp_96=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
+warp_97=`  c = c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
+warp_98=`  // wave cleared: white flash; invaded: red alarm
+warp_99=`  c += float3(0.6, 0.6, 0.7) * saturate(1.0 - q19 * 2.0) * step(0.0, q19);
+warp_100=`  c = lerp(c, float3(1.0, 0.1, 0.1) * (0.4 + 0.6 * step(0.5, frac(q20 * 4.0))), saturate(1.0 - q20 / 1.5) * 0.6 * step(0.0, q20));
+warp_101=`  return c;
+warp_102=`}
+warp_103=`shader_body
+warp_104=`{
+warp_105=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
+warp_106=`  float2 g = floor(uv * float2(320.0, 180.0));
+warp_107=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
+warp_108=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
+warp_109=`  float3 old = tex2D(sampler_main, uv).xyz;
+warp_110=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
+warp_111=`}
 comp_1=`shader_body
 comp_2=`{
 comp_3=`  float2 cc = uv - 0.5;
