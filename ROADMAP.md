@@ -4,13 +4,13 @@ This document records, honestly, what has actually shipped and what is planned.
 A row is only marked done when the feature works in the application and is
 covered by a test or by the GPU self-test.
 
-**Current release: v3.1.5** · **Next release: v3.1.6** · `main` is versioned **3.1.6** and ready, but not published yet (no tag, no GitHub Release)
+**Current release: v3.1.6** (2026-10-29) · **Next release: v3.1.7**
 
-v3.1.6 carries three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
+v3.1.6 carried three planned releases at once. The broadcast layout editor (first planned as v3.1.7)
 and redundancy, failover and frame sync (first planned as v3.2.0) were built ahead of time, and the
-owner decided to ship them with video export rather than hold them back. v3.1.7 turns the
-application into a music video studio as well as a live tool (see its section below). NDI, which
-waits for a licence decision, moves after it.
+owner shipped them with video export rather than hold them back. v3.1.7 starts with a redesign of
+the interface, then turns the application into a music video studio as well as a live tool (see its
+section below). NDI, which waits for a licence decision, moves after it.
 
 | Release | Theme | Released | State |
 |---|---|:--:|:--:|
@@ -25,67 +25,71 @@ waits for a licence decision, moves after it.
 | v3.1.4 | Streaming overlay and transparency fixes, MilkDrop fidelity | 2026-09-15 | Shipped |
 | v3.1.5 | MilkDrop library and editor, MCP, OSC in and out, updates | 2026-10-13 | Shipped |
 | **v3.1.6** | **Video export, music video tools, broadcast layout editor, redundancy, CaYaDev presets** | **2026-10-29** | **Current** |
-| v3.1.7 | Music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned after v3.1.6 ships |
+| v3.1.7 | Interface redesign, then the music video studio: video project, guided setup, music structure, lyrics, 3D and particles | — | Planned |
 | Later | NDI output (first planned as v3.1.8, then v3.1.7) | — | Waiting for a licence decision |
 
 ---
 
 ## Status table
 
-| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | **v3.1.5** | Note |
-| --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | --- |
-| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display. v3.1.5: the chosen displays are found again after Windows renumbers them |
-| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
-| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
-| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | Shipped in v3.1.3 on Windows: WASAPI process loopback, include or exclude, several applications at once, targets stored by name and re-attached. macOS and Linux report why they cannot |
-| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
-| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
-| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
-| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | **50** | **50** | **60** | Includes 14 generative modes, nowplaying and geometry. Ten added in v3.1.5 (#638), among them Stereo Trails, which launches each band from its place in the stereo image |
-| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
-| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Bar placement, logo beside the bars, track and artist text. v3.1.5: music video cards with the cover beside the text, from one layer |
-| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | **31** | **31** | **43** | All share the palette and template system |
-| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
-| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
-| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
-| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
-| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path |
-| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness |
-| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
-| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
-| Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
-| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | Baseline in v3.1.2 (#559). Phase 2 and the fidelity work in v3.1.4 (#560): 16,346 of 16,346 shader stages compile and ~98% of presets render a live image. v3.1.5 adds MilkDrop 3 `.milk2`, a library with thumbnails and ZIP import, a live editor, a generator and show control (#583) |
-| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
-| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
-| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
-| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | **72** | **72** | **81** | Ten groups, each verified not to damage a working setup. v3.1.5 adds the Music Video cards and the Music Backdrop group |
-| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor. v3.1.5: a lyrics library that follows the playing track |
-| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
-| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Hand-written OSC 1.0 parser. v3.1.5 adds input on a fixed address tree with OSCQuery and mDNS, and output of levels, hits, tempo and show state |
-| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
-| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
-| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | Rebuilt in v3.1.3: pick exactly which scenes, visualizers or presets cycle, all 46 visualizer modes, per-layer variety, and a status line saying what changed and why nothing can. v3.1.5 adds backgrounds and a custom mix of kinds |
-| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
-| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders |
-| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ◐ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency. v3.1.3's overlay crashed on load and showed an empty page (#563); the self-test now opens it from the stream server on every run |
-| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net |
-| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
-| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
-| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **2999** unit tests at v3.1.5 + a GPU self-test over every engine (1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
-| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | Shipped in v3.1.0: tracks, clips, automation lanes, markers, one shared transport. v3.1.5 (#636): a DAW-style editor with undo, split, duplicate and solo, multi-select with box selection, a loop brace, fade handles, tempo changes on the ruler, and media clips with a target |
-| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | Shipped in v3.1.0: sparse grid, beat-quantised launch, follow actions, performance view. v3.1.5 (#637): several decks, trigger/toggle/gate launch modes, keyboard play, drag and drop, video, image and shader slots on a chosen layer, and action slots |
-| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
-| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build |
-| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac |
-| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
-| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
-| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
-| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux |
-| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles. v3.1.5: a layer kind of its own, cover fit modes and music video cards |
-| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
-| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default |
-| In-app updates | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.5: checks GitHub Releases and notifies by default; the Windows installer and the AppImage install in place only when the size and SHA-256 match. Off sends no request |
-| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | **43** | **43** | **43** | 33.4.11 reached end of life in April 2025 |
+| Feature | v1.3.1 | v2.0.0 | v2.1.0 | v3.0.0 | v3.1.0 | v3.1.1 | v3.1.2 | v3.1.3 | v3.1.4 | v3.1.5 | **v3.1.6** | Note |
+| --- | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | --- |
+| Multi-monitor | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | A separate window on every selected display. v3.1.5: the chosen displays are found again after Windows renumbers them. v3.1.6: the windows advance on the same vsync, within 0.1 ms of each other on two displays |
+| System audio | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | WASAPI loopback on Windows, CoreAudio on macOS, PulseAudio/PipeWire monitor on Linux |
+| Multi-source mixing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Mixed before the FFT |
+| Per-application audio | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.3 on Windows: WASAPI process loopback, include or exclude, several applications at once, targets stored by name and re-attached. v3.1.6 adds Linux (`pactl`/`parec`, measured in WSLg) and macOS (ScreenCaptureKit, never run on a Mac), and a live level meter per application |
+| Layer compositing | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unlimited layers, 17 blend modes, groups, solo/mute/lock |
+| Layer masks | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Alpha from another layer, plus shape and gradient masks |
+| Post-FX | ❌ | ❌ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | 40 GPU effects, orderable, audio-bindable, per-layer chains |
+| Visualizer modes | 14 | 31 | 32 | **48** | **48** | **48** | **50** | **50** | **50** | **60** | **60** | Includes 14 generative modes, nowplaying and geometry. Ten added in v3.1.5 (#638), among them Stereo Trails, which launches each band from its place in the stereo image |
+| Spectrum metering | ❌ | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Four frequency scales, dB amplitude, attack/release ballistics, spread and smoothing |
+| Broadcast layouts | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | Bar placement, logo beside the bars, track and artist text. v3.1.5: music video cards with the cover beside the text, from one layer. v3.1.6: a layout editor with snapping and the SMPTE/EBU safe areas at 16:9, 9:16 and 1:1, layout files, text styles, logo swapping and reveal animations; live and exported frames are compared pixel by pixel in 23 cases |
+| Backgrounds | 10 | 19 | 19 | **31** | **31** | **31** | **31** | **31** | **31** | **43** | **43** | All share the palette and template system |
+| Colour presets | 10 | 10 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | 58 | Seven groups; apply to Studio and the 3D engine too |
+| Formulas | ❌ | ❌ | 35 | **98** | **98** | **98** | **98** | **98** | **98** | **98** | **98** | 30 plane curves, 12 space curves, 29 surfaces, 27 attractors |
+| 3D solids | ❌ | ❌ | ❌ | **13** | **13** | **13** | **13** | **13** | **13** | **13** | **13** | Platonic solids, geodesic spheres, L-systems, IFS clouds |
+| True 3D | ❌ | ◐ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Own matrix maths; no third-party 3D library |
+| Modulation engine | ❌ | ❌ | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | LFOs, envelopes, S&H, random → any config path. v3.1.6: four custom frequency bands as sources, each with its own Hz range and dB window |
+| Deep audio analysis | ❌ | ❌ | ◐ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Constant-Q chroma, key, chords, HPSS, YIN pitch, loudness. v3.1.6: written to JSON, CSV and MIDI, next to an export or on its own |
+| Scene transitions | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 18 transitions, switchable off |
+| Projection mapping | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Corner pin, mesh warp, soft edge, per-output masks |
+| Aspect correction | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.3. Corrects panels whose pixels are not square: the scene is drawn on a canvas matching the display's real shape and squeezed into the framebuffer, so nothing is cropped and every layer is corrected together. Calibrated by eye. Works on all three platforms |
+| MilkDrop | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | Baseline in v3.1.2 (#559). Phase 2 and the fidelity work in v3.1.4 (#560): 16,346 of 16,346 shader stages compile and ~98% of presets render a live image. v3.1.5 adds MilkDrop 3 `.milk2`, a library with thumbnails and ZIP import, a live editor, a generator and show control (#583). v3.1.6: 55 CaYaDev presets under CC BY 4.0, ten of them for MilkDrop 3, and the engine fixes found while making them |
+| Live shader editor | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | GLSL, live preview, error line, custom sliders |
+| Built-in shaders | ❌ | 5 | 5 | **42** | **42** | **42** | **42** | **42** | **42** | **42** | **42** | All compile on the GPU in the self-test |
+| Shadertoy / ISF import | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Local converters; no service is contacted |
+| Scene templates | ❌ | ❌ | ❌ | **72** | **72** | **72** | **72** | **72** | **72** | **81** | **83** | Ten groups, each verified not to damage a working setup. v3.1.5 adds the Music Video cards and the Music Backdrop group. v3.1.6 adds Title Card and End Card |
+| Text and lyrics | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Audio-reactive typography, LRC/SRT import, timing editor. v3.1.5: a lyrics library that follows the playing track |
+| MIDI | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Learn; CC/note → any setting or action |
+| OSC | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | Hand-written OSC 1.0 parser. v3.1.5 adds input on a fixed address tree with OSCQuery and mDNS, and output of levels, hits, tempo and show state |
+| Art-Net / DMX | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ArtDMX output; packet layout tested byte by byte |
+| BPM / tempo | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Period histogram; tested to ±0.5 BPM |
+| Auto VJ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Rebuilt in v3.1.3: pick exactly which scenes, visualizers or presets cycle, all 46 visualizer modes, per-layer variety, and a status line saying what changed and why nothing can. v3.1.5 adds backgrounds and a custom mix of kinds |
+| Recording | ◐ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | One-key capture, GIF export, 4× PNG snapshot |
+| Video / webcam input | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Also readable as `sv_media` inside shaders. v3.1.6: Ken Burns drift and beat pulse, and video backgrounds now reach the export |
+| OBS integration | ❌ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ◐ | ✅✅ | ✅✅ | ✅✅ | Browser source — no plugin, real transparency. v3.1.3's overlay crashed on load and showed an empty page (#563); the self-test now opens it from the stream server on every run |
+| Offline render | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Frame-exact and deterministic — the regression net. v3.1.6: twelve formats including alpha, 10-bit and PNG/EXR sequences, about 3× faster, profiles, a queue, chapters, and BT.709 colours that match the screen |
+| Windows Dynamic Lighting | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Unusual in this class. Windows only — elsewhere the card explains why and OpenRGB takes over |
+| Mobile remote | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Scenes, templates, Studio presets |
+| Automated tests | ❌ | ◐ | ✅ | ✅✅ | ✅✅ | ✅✅ | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **✅✅** | **3666** unit tests at v3.1.6 + a GPU self-test over every engine (2999 at v3.1.5, 1597 at v3.1.4, 1128 at v3.1.3, 971 at v3.1.2, 808 at v3.1.1, 703 at v3.1.0) |
+| Timeline | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | Shipped in v3.1.0: tracks, clips, automation lanes, markers, one shared transport. v3.1.5 (#636): a DAW-style editor with undo, split, duplicate and solo, multi-select with box selection, a loop brace, fade handles, tempo changes on the ruler, and media clips with a target. v3.1.6: YouTube chapters written from the markers |
+| Clip deck | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ✅ | ✅ | Shipped in v3.1.0: sparse grid, beat-quantised launch, follow actions, performance view. v3.1.5 (#637): several decks, trigger/toggle/gate launch modes, keyboard play, drag and drop, video, image and shader slots on a chosen layer, and action slots |
+| Accidental-close protection | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.0. Recovery and an Esc lock, both off by default |
+| Windows build | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | NSIS installer and a portable build. v3.1.6 fixes two crashes of the packaged app: a native message box ended it, and starting the portable exe a second time deleted the running copy's files |
+| macOS build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. `.dmg` and `.zip`, Apple Silicon, built on a macOS runner. Unsigned, and system audio needs BlackHole. Never launched on a real Mac. v3.1.6 needs macOS 13 Ventura or later (Electron 44) |
+| Linux build | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. AppImage and `.deb`, x64, built on a Linux runner. The audio engine loads; never launched on a real desktop |
+| Runs without a Node install | ✅ | ✅ | ✅ | ✅ | ✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | ✅✅ | Windows never needed one: every build since v1.3.1 carried its own 93 MB `node.exe`. v3.1.1 drops that payload and covers all three platforms — the helper runs on the app’s own binary (`ELECTRON_RUN_AS_NODE`) |
+| OpenRGB | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. All three platforms, per-LED, sharing one renderer with Dynamic Lighting. Tested against a protocol-level server, not real devices |
+| Spout / Syphon | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ◐ | ◐ | ◐ | ◐ | Shipped in v3.1.1. GPU handoff, measured end to end on Windows at 30 fps with none dropped. Syphon shares the code path but has never run on a Mac. Absent on Linux. v3.1.6 adds input: another application's sender becomes a layer. Spout input was measured on Windows; Syphon input has never received a picture on a Mac |
+| Now Playing / SMTC | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | Shipped in v3.1.2. Windows SMTC session reader via persistent PowerShell loop, anchor interpolation, 7 animations, OG & Modern styles. v3.1.5: a layer kind of its own, cover fit modes and music video cards |
+| Transparent window | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ◐ | ◐ | ✅ | ✅ | ✅ | Shipped in v3.1.2 but first worked in v3.1.4: the page painted an inline background colour over the transparent window, and every post-FX pass wrote opaque alpha. The page now stays clear, alpha survives post-FX and projection mapping, and a background effect keys out its dark areas below a threshold |
+| MCP for AI agents | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.5: 96 tools on `127.0.0.1` with a bearer token, five permission modes from Read to Everything, off by default. v3.1.6: 97 tools |
+| In-app updates | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | Shipped in v3.1.5: checks GitHub Releases and notifies by default; the Windows installer and the AppImage install in place only when the size and SHA-256 match. Off sends no request |
+| Web page layer | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.6 (#866): any web page as a layer, in its own sandboxed session that cannot reach the app, files, camera, microphone or the local network unless that address was typed; placed and resized in the layout editor |
+| Interface themes | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | **8** | Shipped in v3.1.6 (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon, contrast tested in every theme; Interface Size 90–150% and Reduce Motion |
+| Redundancy and failover | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.6 (#540, #816): a hot-standby backup takes over automatically or on command, about 0.35–0.45 s after the primary exits in a two-instance test, with show comparison and a show package, output authority, a pre-show check and `npm run failover`. The owner ran it on two computers; no measured figures from two machines yet |
+| Network audio bridge | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | Shipped in v3.1.6 (#813): one machine's capture goes to the others with pairing and signed discovery, inside the app or as `--bridge`. See [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
+| Electron | 33 | 33 | 33 | 33 | **43** | **43** | **43** | **43** | **43** | **43** | **44** | 33.4.11 reached end of life in April 2025. v3.1.6: 44.9.0 |
 Legend: ✅ present · ✅✅ best-in-class · ◐ partial · ❌ absent
 
 ### Not shipped yet
@@ -96,14 +100,14 @@ hands, and a row only moves up once it ships.
 
 | Feature | Target | State today |
 |---|:--:|---|
-| Per-app audio capture on macOS and Linux | v3.1.6 | Shipped (#514, #517). Linux verified in WSLg with PulseAudio; macOS written on ScreenCaptureKit and compiled in CI, never run on a Mac. Windows shipped in v3.1.3 |
-| Electron 44 | v3.1.6 | Shipped (44.9.0), up from 43. macOS 13 Ventura becomes the minimum, ANGLE is linked into the binary, and builds are 64-bit only (as ours already were) |
-| Live level meter per application | v3.1.6 | Shipped (#516): a moving dB-scale bar per application, streamed only while the picker is on screen |
-| Interface themes | v3.1.6 | Shipped (#770): CaYaDev, Dark, Light, Device default, High Contrast, Midnight, Sepia and Neon; contrast tested in every theme |
-| Comprehensive video export | v3.1.6 | Shipped: formats, alpha and frame sequences (#521, #525, #529), about 3× faster export (#531), duration sources, metadata and clean cancel (#523, #524, #528, #532), profiles (#522), chapters (#527), batch queue (#526), the two render modes (#530) |
-| Broadcast layout editor | v3.1.6 | Shipped (#533; first planned as v3.1.7): placement with snapping and safe areas (#534), layout files (#538), text styles and metadata binding (#536), logo swapping (#535), per-element reveal animations (#537), live and export parity checked pixel by pixel (#539) |
+| Interface redesign | v3.1.7 | Planned first in v3.1.7: an audit of every section, then shared layout blocks, a new shell with sub-sections, and the panels one by one. See the v3.1.7 section |
+| Video project view and video wizard | v3.1.7 | Planned (music video studio, phase 1), with mix videos from a track list |
+| Song sections and an edit that follows them | v3.1.7 | Planned (phase 2): intro, verse, chorus, bridge and drop from the audio, as modulation sources and markers |
+| Kinetic lyric styles, podcast and audiogram templates | v3.1.7 | Planned (phase 3) |
+| glTF models, a particle editor and 3D text | v3.1.7 | Planned (phase 4) |
+| LTC/MTC timecode and a browser demo | v3.1.7 | Planned (phase 5) |
 | NDI | Later | Was v3.1.8, then v3.1.7; now after the v3.1.7 music video studio. Deferred for licence reasons, not difficulty — see "Not done, and why" |
-| Redundancy / genlock | v3.1.6 | Shipped (#540; first planned as v3.2.0): primary/backup link, heartbeat and failover, manual takeover, a two-instance failover test, show comparison with push, and shared timeline and modulation clock, a pre-show check, and software frame sync across windows (#541–#547); hardware genlock not verifiable here |
+| Hardware genlock | — | Not planned: sync cards have no interface in Chromium, and there is no sync hardware here to verify against. v3.1.6 ships software frame sync instead |
 
 ### Shipped, but never run on real hardware
 
@@ -118,6 +122,9 @@ shipped" — but calling them proven would be a lie.
 | OpenRGB | Protocol encoded and decoded against a server implementing the wire format, 38 tests | Never driven a physical LED. Vendor quirks and per-device direct-mode support are unknown |
 | Syphon | Shares the whole code path with Spout, which was measured end to end on Windows. The macOS handle conversion is unit-tested | Never run on a Mac. The IOSurface path has never touched a real GPU |
 | Per-app audio capture on Linux | Implemented with `pactl`/`parec` and measured in WSLg (PulseAudio 17): include, exclude, exclude while the target is silent, and reattach by name after a restart. `pactl` parsing runs against real output as fixtures | Not run on a Linux desktop or under PipeWire's pipewire-pulse. The full Electron app was not run in WSL; the capture module was |
+| Syphon input | Shares the receiver code with the Spout input, which was measured on Windows: it finds a sender again after a restart or a crash, and every output gets the picture. On CI's macOS runner the module loads, lists Syphon servers, and a receiver for a missing server is treated as waiting | Never received a picture from a real Syphon sender on a Mac. A send-and-receive test inside one process got no frame on the runner and is skipped |
+| Redundancy across two computers | `npm run failover` runs five scenarios with two instances on one Windows machine. The owner ran the v3.1.6 release build on two computers, and it worked | No measured takeover time, clock offset or phase error with live audio between two physical machines, and no run between Windows and macOS |
+| Web page layers on Linux | Frames go as bitmaps at the layer's frame rate there, not as GPU textures. Checked on Windows by forcing that path, and in a virtual Linux display | Not run on a Linux desktop |
 | Per-app audio capture on macOS | A ScreenCaptureKit helper (`native/app-audio-helper-mac`) compiles with `--strict` on CI's macOS runner, is signed ad hoc, starts, and rejects bad arguments with exit 2 | Never run on a Mac. Unobserved: whether the permission attaches to the app or the helper, whether include and exclude isolate audio, whether a browser's audio process counts as the browser, the real buffer format, buffers during silence, menu-bar-only players, a grant without restart, and re-granting after an update |
 
 This table shrinks as the hardware becomes available; nothing is moved out of
@@ -3274,6 +3281,57 @@ The Control card lets an agent drive the app. It is off by default.
   panel. Allowed edits refresh the admin panel through the same config push a
   click already uses, including the display selection.
 
+## v3.1.6 — Overview · shipped
+
+Released on 29 October 2026, two weeks after v3.1.5:
+[v3.1.6 on GitHub](https://github.com/CaYatur/SoundVisualizer/releases/tag/v3.1.6). It carries what
+was planned as three releases, and work added on the way. 667 tests were added, 3666 in total. Every
+change, by area, is in [CHANGELOG.md](CHANGELOG.md).
+
+| Part | Where it is described |
+|---|---|
+| Video export: twelve formats, about 3× faster, profiles, a queue, chapters, colours that match the screen | "Comprehensive video export" below |
+| Per-application capture on Linux and macOS, level meters per application, interface themes, MilkDrop fidelity | Subsections of "Comprehensive video export" |
+| Tools for music videos and short video | "Additions for music videos and short video" |
+| Broadcast layout editor | "Broadcast layout editor" |
+| Redundancy, failover, frame sync and the network audio bridge | "Redundancy, failover and frame sync", [docs/REDUNDANCY.md](docs/REDUNDANCY.md), [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md) |
+| 55 CaYaDev MilkDrop presets | "CaYaDev MilkDrop presets" below, [presets/cayadev](presets/cayadev/README.md) |
+| Spout/Syphon input and web page layers | "Spout/Syphon input and web page layers" below |
+| Readability, Electron 44 and two packaged Windows crashes | "Also in v3.1.6" below |
+
+### CaYaDev MilkDrop presets (#825) · done
+
+55 presets of our own, built into the app and also attached to the release as a zip with a picture
+of each, under CC BY 4.0 with the attribution "CaYaDev". Ten of them are for MilkDrop 3. Each one
+was compared with MilkDrop 2 itself through the reference renderer, run for 90 s without fading,
+blowing out or freezing, checked at 60 and 144 Hz, and held 60 fps at 1080p on an entry-level
+integrated GPU ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)). Making them found three engine faults,
+fixed in the same release: the comp shader now sees the same frame as its blur, noise textures keep
+their alpha, and HLSL C-style casts compile.
+
+### Spout/Syphon input and web page layers (#866) · done, Syphon input unverified
+
+Two layer kinds bring pictures in from outside the app. Both reach the screens, the panel preview,
+the Spout/Syphon output and the OBS overlay, and both can be placed in the layout editor.
+- **Spout/Syphon input** shows another application's output over the GPU. It finds the sender again
+  when it starts after the app, restarts, or returns with a `_1` suffix after a crash. A handle
+  leak found in a 20-minute run (one handle per frame) was fixed before merging.
+- **Web page** shows a web page with its own size, frame rate, zoom, transparent background, CSS and
+  reload, and an Interact window for signing in. It runs in a sandboxed session and cannot reach the
+  app, files, camera, microphone, or this computer and its network unless that address was typed.
+- **Not done:** Studio shaders cannot read an input layer yet (#875). Live sources in an export are
+  drawn at the moment of drawing, not at the video's speed; the export panel says so.
+
+### Also in v3.1.6 · done
+
+- **Readability.** A quarter of the 3.1.5 panel's text was 8.5–10.5 px; nothing is smaller than
+  11 px now. Interface Size (90–150%, also Ctrl + / − / 0) and Reduce Motion were added.
+- **Electron 44** (44.9.0). macOS 13 Ventura is now the minimum.
+- **Packaged Windows crashes** (#824). A native message box ended the app, and starting the
+  portable exe a second time deleted the running copy's files.
+- **A smaller package.** Only run-time modules ship; packaging stops if ffmpeg or the audio module
+  is missing.
+
 ## v3.1.6 — Comprehensive video export · shipped
 
 Faster export, more formats, and enough presets that a content creator never
@@ -3663,7 +3721,7 @@ v3.1.6 turns that from a set of templates into an editor.
   animations.
 - Everything usable live and as an export preset.
 
-**Status:** all of the above is done on `main` for 3.1.6 (#534, #538, #536, #535,
+**Status:** all of the above shipped in v3.1.6 (#534, #538, #536, #535,
 #537). Live and export parity (#539) is checked by `npm run parity`. It
 composites the same layer canvases through the live CSS path and the export
 canvas path, and compares the pictures pixel by pixel across 23 cases. The
@@ -3694,7 +3752,7 @@ will be built carefully rather than quickly.
 This is close to mandatory at large festivals and corporate events, and is
 standard in media servers of that class.
 
-**Status on `main`, for 3.1.6.**
+**Status: shipped in v3.1.6.**
 - **Done: the link, the heartbeat and both takeover modes** (#542, #546). The backup follows the
   primary's scene and MilkDrop choices as a hot standby and takes over, automatically or by hand.
 - **Done: failover test** (#547). `npm run failover` kills the primary in a real two-instance
@@ -3717,22 +3775,47 @@ standard in media servers of that class.
 - **Not done, and why: hardware genlock.** Sync cards have no interface in Chromium, and there is
   no sync hardware here to verify against. Two machines therefore line up frames only as closely
   as their displays' refresh clocks; the shared time keeps the content in step.
-- **Redundancy overhaul (#816), in progress.**
-  - **Phase 1 (#812) is on a branch:**
-    - an isolated show space, so the backup never overwrites its own show;
-    - a takeover data choice;
-    - a show package with a hash manifest, chunk checksums, resume, verification and an atomic swap, including video files after confirmation;
-    - MilkDrop preset-hash parity;
-    - resync after Release.
-  - **Next:**
-    - phase 2 (#813), an audio bridge mode inside the app;
-    - phase 3 (#814), output authority, fencing and guarded failback;
-    - phase 4 (#815), beat sync, overlay fallback, a status banner, two-PC tests and a setup guide.
+- **Done: redundancy overhaul (#816), in four phases.** Setup and use are in
+  [docs/REDUNDANCY.md](docs/REDUNDANCY.md); the audio bridge has its own guide,
+  [docs/AUDIO-BRIDGE.md](docs/AUDIO-BRIDGE.md).
+  - **Phase 1 (#812, PR #817):** an isolated show space, so the backup never overwrites its own
+    show; a takeover data choice; a show package with a hash manifest, chunk checksums, resume,
+    verification and an atomic swap, video files included after confirmation; MilkDrop preset-hash
+    parity; resync after release.
+  - **Phase 2 (#813, PR #818):** the audio bridge inside the app, so a primary and its backup
+    analyse the same signal.
+  - **Phase 3 (#814, PR #820):** output authority with terms and fenced restarts, so only one
+    machine drives lights and OSC, and guarded failback.
+  - **Phase 4 (#815, PR #821):** beat and phase sync, an OBS/browser source fallback, a status
+    banner with an alarm, and five scripted failover scenarios.
+- **Still open (#822):** measured runs on two computers and between Windows and macOS, the phase
+  error with live audio, and the tray and desktop actions on macOS and Linux.
 
+## v3.1.7 — Interface redesign and music video studio · planned
 
-## v3.1.7 — Music video studio · planned
+### Interface redesign · first
 
-Work starts once v3.1.6 is published. The aim is a single path from one song to a finished video,
+The panel grew to many sections and cards, and its layout no longer looks like a professional tool:
+card structure is weak, sub-categories inside cards are hard to see, and buttons are unaligned and
+too close together. v3.1.7 redesigns it first, from scratch where needed, because the video project
+view and the wizard below would otherwise be built twice. The aim is a tool that is clear and easy to
+use and still professional. Each stage is its own reviewed change with before and after screenshots:
+
+1. **Audit.** Every section in Turkish and English, narrow and wide, in two themes, in an isolated
+   profile; a list of what is unaligned, crowded or hard to find.
+2. **Design tokens and layout blocks.** One spacing scale, one control height, a label column, a
+   toolbar and button group, and help text moved into an info popover.
+3. **Shell.** Navigation with sub-sections, a single column, and a fixed bar for the main action.
+4. **The declarative renderer** moves onto the new blocks, so most cards change at once.
+5. **Special panels** (timeline, clip deck, layout editor, MilkDrop library, export) one by one.
+
+What must not break: the translation keys, the element ids that the self-test, MCP and the tests use,
+settings search, the dots that mark changed settings, the Advanced switch, live preview, and colours
+coming only from the theme tokens.
+
+### Music video studio
+
+The aim is a single path from one song to a finished video,
 built mostly by joining pieces that already exist (the timeline and its automation lanes, the
 keyframe editor, the broadcast layout editor and the export pipeline) rather than writing a separate
 editing engine. It is planned in phases, each its own reviewed set of changes:
@@ -3784,7 +3867,7 @@ professional video tools. Each item notes why it did not go into 3.1.6:
   itself (no server), and a gallery inside the app to browse them. A gallery that downloads from the
   internet falls under the same rule as optional models: only when the user starts it, and only
   from this project's own release files.
-- **More interface languages (after the interface review).** Spanish, Portuguese and German first,
+- **More interface languages (after the interface redesign).** Spanish, Portuguese and German first,
   for the music video audience. The translation system already handles Turkish and English; each
   language needs a review by a native speaker and the same parity tests as English, so it starts
   once the interface review has settled the labels.
