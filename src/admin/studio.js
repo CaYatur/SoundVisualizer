@@ -882,7 +882,7 @@
       setTimeout(() => {
         sidebar.scrollTop = sidebarScroll;
         const active = sidebar.querySelector('.studio-item.active');
-        if (active) active.scrollIntoView({ block: 'nearest' });
+        if (active) P().revealInList(sidebar, active);
       }, 0);
     }
 

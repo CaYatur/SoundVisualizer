@@ -3,6 +3,15 @@
 What changed in each release, grouped by area. Numbers in brackets are pull requests or issues on
 GitHub. The full reasoning and the measurements behind each change are in [ROADMAP.md](ROADMAP.md).
 
+## v3.1.7
+
+### Fixes
+
+- **The panel no longer jumps to the active MilkDrop preset** (#877). Once the preset list had been
+  scrolled, every change on the Scene page scrolled the page to the active preset: muting a layer moved
+  it from 1135 to 3517 px. The list now scrolls only itself. The template grid and the Studio preset
+  list used the same call and are fixed with it.
+
 ## v3.1.6 — 2026-10-29
 
 The broadcast layout editor (#533) and redundancy (#540) were first planned for v3.1.7 and v3.2.0.

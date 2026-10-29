@@ -613,7 +613,21 @@
     isModified: (p) => isModified(p),
     resetPath: (p) => resetPath(p),
     defaultAt: (p) => defaultAt(p),
+    revealInList,
   };
+
+  /* Listenin etkin satırını YALNIZ o listenin içinde görünür yapar.
+     `scrollIntoView` bütün ata kaydırıcıları da oynatıyordu: preset listesi
+     bir kez kaydırıldıktan sonra katman kartındaki her değişiklik paneli
+     yeniden çiziyor, sayfa da etkin MilkDrop presetine atlıyordu (ölçüm:
+     bölüm kaydırması 1135 → 3517 px, tek bir "Sessiz" tıklamasıyla). */
+  function revealInList(list, node) {
+    if (!list || !node || !list.getBoundingClientRect || !node.getBoundingClientRect) return;
+    const box = list.getBoundingClientRect();
+    const r = node.getBoundingClientRect();
+    if (r.top < box.top) list.scrollTop += r.top - box.top;
+    else if (r.bottom > box.bottom) list.scrollTop += Math.min(r.bottom - box.bottom, r.top - box.top);
+  }
 
 
   // --------------------------------------------------------------------------

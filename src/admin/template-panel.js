@@ -115,7 +115,7 @@
       setTimeout(() => {
         grid.scrollTop = gridScroll;
         const active = grid.querySelector('.tpl-card.active');
-        if (active) active.scrollIntoView({ block: 'nearest' });
+        if (active) P().revealInList(grid, active);
       }, 0);
     }
 
