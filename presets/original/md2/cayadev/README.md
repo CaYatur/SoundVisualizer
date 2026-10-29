@@ -7,8 +7,7 @@ unchanged. The gallery is in [`presets/README.md`](../../../README.md).
 MilkDrop 3 originals, which use more waves, shapes or q33–q64, are in
 [`presets/original/md3/cayadev`](../../md3/cayadev).
 
-Some of these files still use a `pw_` sampler or a shader line that an older compiler rejects. If a
-preset fails to load in BeatDrop or another MilkDrop 2 player, use the matching file in
+Alternate copies for older shader compilers are in
 [`presets/compat/md/cayadev`](../../../compat/md/cayadev). Those copies are not what the app plays.
 
 License: CC BY 4.0, see [LICENSE](../../../LICENSE.md).

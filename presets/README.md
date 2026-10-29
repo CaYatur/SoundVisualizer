@@ -128,14 +128,14 @@ The app embeds the originals. Compatibility copies are never substituted in.
 | --- | --- |
 | [`original/md2/cayadev`](original/md2/cayadev) | MilkDrop 2 originals. |
 | [`original/md3/cayadev`](original/md3/cayadev) | MilkDrop 3 originals only. |
-| [`compat/md/cayadev`](compat/md/cayadev) | MilkDrop 2 reductions, plus a BeatDrop copy of Spectrum City, for players that cannot load the original. |
+| [`compat/md/cayadev`](compat/md/cayadev) | MilkDrop 2 reductions, plus a Spectrum City copy named for BeatDrop. |
 
 ## Using them elsewhere
 
 Copy the `.milk` files into your player's preset folder:
 
 - This app, or a MilkDrop 3 player: `original/md2/cayadev` and `original/md3/cayadev`.
-- MilkDrop 2 / BeatDrop / Milkwave: `original/md2/cayadev`. If a file fails to load, use the same name from `compat/md/cayadev`. For the MilkDrop 3 presets, that folder is the reduced copy.
+- MilkDrop 2 / BeatDrop / Milkwave: `original/md2/cayadev`. Older-compiler copies are in `compat/md/cayadev`. For the MilkDrop 3 presets, that folder is the reduced copy.
 - projectM: the preset directory from its settings.
 
 Most files have `PSVERSION=3`, which in MilkDrop 2 means pixel shader 2.x (ps_2_a, or ps_2_b). Synthwave

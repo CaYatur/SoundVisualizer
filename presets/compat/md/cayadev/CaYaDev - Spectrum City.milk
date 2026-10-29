@@ -155,7 +155,7 @@ comp_46=`shader_body
 comp_47=`{
 comp_48=`  float yb = 0.66;
 comp_49=`  float2 u = uv;
-comp_50=`  // Tek dal: gok ve sehir bir kez hesaplaniyor (iki kopya BeatDrop derleyicisini zorluyordu)
+comp_50=`  // Tek dal: gok ve sehir bir kez hesaplaniyor
 comp_51=`  float refl = step(yb, u.y);
 comp_52=`  float d = max(u.y - yb, 0.0);
 comp_53=`  float rip = sin(u.y * 260.0 + q4 * 2.5) * 0.004 * d * 6.0 + (tex2D(sampler_noise_lq, float2(u.x * 3.0, u.y * 40.0 - q4 * 0.2)).x - 0.5) * 0.01;
