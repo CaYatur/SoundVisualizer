@@ -7,9 +7,11 @@
 ### Free, open-source music visualizer and VJ software for every screen you own
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
-audio-reactive visuals on one display or ten. A real **MilkDrop** engine, **60 visualizer modes**,
-layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **projection mapping**,
-**RGB lighting**, a **timeline and clip deck** for live shows, and **AI control over MCP**.
+audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **55 presets of our
+own**, **60 visualizer modes**, layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**
+in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
+**video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
+**AI control over MCP**.
 
 **Windows** · **macOS** · **Linux** — no account, no telemetry, MIT licensed.
 
@@ -43,6 +45,7 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 |:---:|:---:|:---:|:---:|
 | **83** ready-made scenes | **98** formulas + **13** 3D solids | **42** built-in GLSL shaders | **58** colour palettes |
 | **10,347** MilkDrop presets tested | **97** MCP tools for AI agents | **17** layer blend modes | **2** languages (EN / TR) |
+| **12** video export formats | **55** CaYaDev MilkDrop presets | **7** interface themes | **≈ 0.5 s** hot-standby takeover |
 
 </div>
 
@@ -53,29 +56,46 @@ layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**, **project
 - **No Stereo Mix, no virtual cable on Windows.** System audio is captured straight from your
   speakers or headphones (WASAPI loopback), alongside microphones and line inputs — or from **one
   application only**, so the visuals follow Spotify and ignore the game and the voice chat.
-  [→ Audio](#audio-capture-and-analysis)
+  Per-application capture works on Linux too. [→ Audio](#audio-capture-and-analysis)
 - **Every screen, one engine.** Full-screen windows on every display you pick, a transparent
   **OBS browser source**, **Spout / Syphon** for Resolume, TouchDesigner and MadMapper, and a
   **phone remote** — all drawing the same picture. [→ Outputs](#outputs-screens-obs-spout-and-syphon)
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
   against a reference MilkDrop 2 renderer. Import whole libraries, browse them as thumbnails, edit presets live,
-  or generate new ones. [→ MilkDrop](#milkdrop)
+  or generate new ones. **55 CaYaDev presets** of our own are built in, free for any MilkDrop player
+  under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
   crossfader, 40 GPU effects per layer or on the whole frame, and a modulation matrix that routes
   LFOs, envelopes and live audio analysis to any setting. [→ Layers](#layers-masks-and-effects)
+- **Bring other apps and the web in.** A **Spout / Syphon input** puts TouchDesigner, Resolume, OBS
+  or a camera app on a layer over the GPU, and a **web page layer** adds alerts, chat, a scoreboard or
+  a clock — sandboxed, and on every output. [→ Media layer](#logo-images-and-the-media-layer)
 - **Built for live shows.** A **timeline** with automation lanes, a **clip deck** with beat-quantised
   launching, **Auto VJ** that changes scenes on the bar, tap tempo, **MIDI** and **OSC**.
   [→ Show control](#show-control-timeline-clip-deck-auto-vj-midi-and-osc)
 - **Ready for the stage.** Projection mapping with corner pin, mesh warp and soft-edge blending
   for multi-projector rigs, plus **aspect correction** for LED walls whose pixels are not square.
   [→ Stage](#stage-projection-mapping-and-aspect-correction)
+- **A show that keeps running.** A **Pre-Show Check** before the doors open, and a second machine
+  as a **hot standby** that draws the same picture and takes over in about half a second, with only
+  one machine driving the lights. An **audio bridge** feeds both from one capture.
+  [→ Show safety](#show-safety-pre-show-check-redundancy-and-the-audio-bridge)
 - **Your lights follow the music.** **Windows Dynamic Lighting**, **OpenRGB** on every platform and
   **Art-Net / DMX**, all fed by one renderer — they can even take their colours from the MilkDrop
   picture. [→ Lighting](#rgb-lighting-dynamic-lighting-openrgb-and-art-net)
-- **For creators.** Frame-exact **offline video export** from an audio file, one-key recording,
-  music-video layouts, a **Now Playing** overlay with album art, and synced **lyrics** (LRC / SRT).
+- **A video studio for your releases.** Frame-exact **offline export in 12 formats** — H.264 and
+  H.265 (also 10-bit), ProRes 422 HQ, ProRes 4444 and VP9 with alpha, DNxHR, GIF, APNG, and PNG or
+  OpenEXR frames — about three times faster than before, in colours that match the screen. One-click
+  profiles for YouTube, Reels / Shorts, Instagram, a **Spotify Canvas** loop and a Twitch overlay, a
+  batch queue, **seamless loops**, **YouTube chapters** and a **thumbnail**, Title and End Cards, a
+  **Now Playing** card with album art, and synced **lyrics** (LRC / SRT).
   [→ Export](#recording-and-video-export)
+- **Lay out a broadcast frame by hand.** The **Layout Editor** shows the output at 16:9, 9:16 or
+  1:1: drag the bars, the logo, text and the Now Playing card, with snapping, SMPTE / EBU safe areas
+  and short-video guides. Reveal animations, logo swapping on the beat, broadcast text styles, and
+  layouts saved as files. What you place is what the export renders, checked pixel by pixel.
+  [→ Layout editor](#broadcast-layout-editor)
 - **AI-ready.** A local **MCP server** with 97 tools lets Claude, Codex, Cursor and other agents
   read the show, build scenes and run the outputs — behind five permission levels, on `127.0.0.1`
   only. [→ MCP](#mcp--control-from-an-ai-agent)
@@ -173,13 +193,13 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 
 | You are… | What you get |
 |---|---|
-| **A streamer** | A transparent overlay for OBS as a browser source, a Now Playing card with album art, lyrics, and a phone remote to change scenes mid-stream. Runs on one PC while OBS runs on another. |
-| **A VJ or live performer** | A timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI and OSC control, blackout, Spout/Syphon into Resolume or TouchDesigner, and full-screen output on every projector. |
-| **A music producer or label** | Frame-exact video export from your track, eight restrained music-video layouts with your logo and the track title, and a recorder for the live output. |
-| **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
+| **A streamer** | A transparent overlay for OBS as a browser source, a Now Playing card with album art, lyrics, a web page layer for alerts and chat, and a phone remote to change scenes mid-stream. Runs on one PC while OBS runs on another. |
+| **A VJ or live performer** | A timeline, a clip deck with beat-quantised launching, Auto VJ on the bar, MIDI and OSC control, blackout, Spout/Syphon in and out with Resolume or TouchDesigner, and full-screen output on every projector. |
+| **A music producer or label** | Frame-exact video export from your track in 12 formats, one-click profiles for YouTube, Shorts and Spotify Canvas, restrained music-video layouts with your logo and the track title, a layout editor to place them, Title and End Cards, YouTube chapters and a thumbnail, and a recorder for the live output. |
+| **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
-| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, and lets you edit or generate presets. |
-| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 2,700+ tests that check answers rather than lines. |
+| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 55 CaYaDev presets of our own. |
+| **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
 
 ---
 
@@ -197,6 +217,7 @@ The sections above are the short version. Everything below is the full list, by 
 - [Scenes, templates, transitions and colour](#scenes-templates-transitions-and-colour)
 - [Text, lyrics and Now Playing](#text-lyrics-and-now-playing)
 - [Logo, images and the media layer](#logo-images-and-the-media-layer)
+- [Broadcast layout editor](#broadcast-layout-editor)
 - [Show control: timeline, clip deck, Auto VJ, MIDI and OSC](#show-control-timeline-clip-deck-auto-vj-midi-and-osc)
 - [Outputs: screens, OBS, Spout and Syphon](#outputs-screens-obs-spout-and-syphon)
 - [Stage: projection mapping and aspect correction](#stage-projection-mapping-and-aspect-correction)
@@ -699,6 +720,35 @@ ticker · karaoke highlighting.
   decoding, Chromium produced almost no frames there (0.3 per second, measured) and the clip froze
   at its loop point. HEVC/H.265 videos need **Settings → Application → Hardware Video Decoding**
   (applies after a restart); the panel says so when such a file will not open.
+
+---
+
+### Broadcast layout editor
+
+The grid button above the live preview opens the **Layout Editor**: the same preview, large, framed
+as **16:9, 9:16 or 1:1**. It is not a second renderer, so what you place is what the screens, the
+OBS overlay and video export draw.
+
+- **Drag to place** the bars, the Now Playing card, text, the logo, and Spout / Syphon input and web
+  page layers; the last three also resize from a corner handle or with <kbd>+</kbd> and <kbd>−</kbd>.
+  Elements snap to the frame's edges and centre, to the safe areas and to each other; hold
+  <kbd>Alt</kbd> to place freely. Arrow keys nudge (ten times further with <kbd>Shift</kbd>), and the
+  numeric fields take exact values.
+- **Safe areas** after SMPTE ST 2046-1 and EBU R 95: 93% action-safe and 90% title-safe. At 9:16 and
+  1:1, hatched guides show where short-video apps draw their own interface; they never reach the
+  video.
+- **Reveal animations** — each element can arrive with a fade, a slide, a zoom or a wipe, with its
+  own duration, delay and easing. *Stagger* gives the elements rising delays; *Play Reveal* plays
+  them again live.
+- **Logo swapping** — a logo layer cycles through images from the logo library every N seconds,
+  every N bars, on a bass hit or at random intervals, with a crossfade or a cut. The order is the
+  same live and in video export.
+- **Broadcast text styles** — Clean, Lower Third, Label, Bold Screen and Thin, for text layers and
+  the Now Playing card. A text layer can show fixed text or the playing track's title and artist.
+- **Layouts as files** — export a layout and import it on another installation. The file carries
+  placement and style, never your logo, the track details you typed or lyrics.
+- **Checked pixel by pixel** — `npm run parity` composites 23 cases through the live path and the
+  export path and compares the two pictures; they match within 0.08 levels on average.
 
 ---
 

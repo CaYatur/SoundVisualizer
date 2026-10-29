@@ -7,10 +7,12 @@
 ### Sahip olduğunuz her ekran için ücretsiz, açık kaynak müzik görselleştirici ve VJ yazılımı
 
 Bilgisayarınızda ne çalıyorsa — Spotify, YouTube, bir DAW, bir DJ seti, bir oyun — bir ekranda ya
-da on ekranda sese tepki veren görsellere dönüştürür. Gerçek bir **MilkDrop** motoru, **60
-görselleştirici modu**, katmanlar ve **40 GPU efekti**, bir **OBS katmanı**, **Spout / Syphon**,
-**projeksiyon haritalama**, **RGB aydınlatma**, canlı gösteriler için **zaman çizelgesi ve klip
-destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
+da on ekranda sese tepki veren görsellere dönüştürür. **55 kendi presetiyle** gerçek bir
+**MilkDrop** motoru, **60 görselleştirici modu**, katmanlar ve **40 GPU efekti**, bir **OBS
+katmanı**, giriş ve çıkış olarak **Spout / Syphon**, **projeksiyon haritalama**, **RGB aydınlatma**,
+canlı gösteriler için **zaman çizelgesi ve klip destesi**, **12 biçimde video dışa aktarma**, bir
+**yayın düzeni editörü**, **sıcak yedek** ikinci bir makine ve **MCP üzerinden yapay zekâ
+kontrolü**.
 
 **Windows** · **macOS** · **Linux** — hesap yok, telemetri yok, MIT lisanslı.
 
@@ -44,6 +46,7 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 |:---:|:---:|:---:|:---:|
 | **83** hazır sahne | **98** formül + **13** 3B katı cisim | **42** yerleşik GLSL shader | **58** renk paleti |
 | **10.347** MilkDrop presetiyle sınandı | Yapay zekâ ajanları için **97** MCP aracı | **17** katman karışım kipi | **2** dil (TR / EN) |
+| **12** video dışa aktarma biçimi | **55** CaYaDev MilkDrop preseti | **7** arayüz teması | Sıcak yedeğe **≈ 0,5 sn**'de geçiş |
 
 </div>
 
@@ -53,30 +56,48 @@ destesi**, ve **MCP üzerinden yapay zekâ kontrolü**.
 
 - **Windows'ta Stereo Mix yok, sanal kablo yok.** Sistem sesi doğrudan hoparlörden ya da
   kulaklıktan yakalanıyor (WASAPI loopback), mikrofon ve hat girişleriyle birlikte — ya da **tek bir
-  uygulamadan**: görseller Spotify'ı izler, oyunu ve sesli sohbeti duymaz.
-  [→ Ses](#ses-yakalama-ve-çözümleme)
+  uygulamadan**: görseller Spotify'ı izler, oyunu ve sesli sohbeti duymaz. Uygulama başına yakalama
+  Linux'ta da çalışıyor. [→ Ses](#ses-yakalama-ve-çözümleme)
 - **Her ekran, tek motor.** Seçtiğiniz her ekranda tam ekran pencere, saydam bir **OBS tarayıcı
   kaynağı**, Resolume, TouchDesigner ve MadMapper için **Spout / Syphon**, ve bir **telefon
   kumandası** — hepsi aynı görüntüyü çiziyor. [→ Çıkışlar](#çıkışlar-ekranlar-obs-spout-ve-syphon)
 - **Presetlerinizi gerçekten çalıştıran MilkDrop.** Kare ve piksel denklemleri, warp ağı, GLSL'e
   çevrilen HLSL shader'lar; **10.347 gerçek presetle** ve kare kare bir MilkDrop 2 başvuru
   çizicisiyle ölçüldü. Bütün kütüphaneleri içe aktarın, küçük resimlerle gezin, presetleri canlı
-  düzenleyin ya da yenilerini üretin. [→ MilkDrop](#milkdrop)
+  düzenleyin ya da yenilerini üretin. Kendi yaptığımız **55 CaYaDev preseti** yerleşik geliyor;
+  CC BY 4.0 ile her MilkDrop oynatıcısında ücretsiz kullanılabilir. [→ MilkDrop](#milkdrop)
 - **Tek bir efekt değil, bir birleştirici.** Sınırsız katman, 17 karışım kipi, maskeler, A/B
   geçiş sürgüsü, katman başına ya da tüm kareye 40 GPU efekti, ve LFO'ları, zarfları ve canlı ses
   çözümlemesini herhangi bir ayara yönlendiren bir modülasyon matrisi.
   [→ Katmanlar](#katmanlar-maskeler-ve-efektler)
+- **Başka uygulamaları ve web'i içeri alın.** **Spout / Syphon girişi** TouchDesigner, Resolume, OBS
+  ya da bir kamera uygulamasının görüntüsünü GPU üzerinden bir katmana koyar; **web sayfası katmanı**
+  uyarıları, sohbeti, bir skor tabelasını ya da saati ekler — yalıtılmış olarak ve her çıkışta.
+  [→ Medya katmanı](#logo-görseller-ve-medya-katmanı)
 - **Canlı gösteri için yapıldı.** Otomasyon şeritli bir **zaman çizelgesi**, vuruşa hizalı
   ateşlenen bir **klip destesi**, sahneleri ölçüde değiştiren **Otomatik VJ**, tap tempo, **MIDI** ve
   **OSC**. [→ Gösteri kontrolü](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
 - **Sahneye hazır.** Köşe sabitleme, ağ bükme ve çok projektörlü kurulumlar için yumuşak kenar
   harmanlamalı projeksiyon haritalama; pikselleri kare olmayan LED duvarlar için **basıklık
   düzeltme**. [→ Sahne](#sahne-projeksiyon-haritalama-ve-basıklık-düzeltme)
+- **Durmayan bir gösteri.** Kapılar açılmadan önce bir **Gösteri Öncesi Denetim**, ve aynı görüntüyü
+  çizen, yaklaşık yarım saniyede devralan **sıcak yedek** ikinci bir makine; ışıkları yalnız tek
+  makine sürer. Bir **ses köprüsü** ikisini de tek bir yakalamadan besler.
+  [→ Gösteri güvencesi](#gösteri-güvencesi-gösteri-öncesi-denetim-yedeklilik-ve-ses-köprüsü)
 - **Işıklarınız müziği izler.** **Windows Dynamic Lighting**, her platformda **OpenRGB** ve **Art-Net /
   DMX**, hepsi tek bir çiziciyle — renklerini MilkDrop görüntüsünden bile alabilirler. [→ Aydınlatma](#rgb-aydınlatma-dynamic-lighting-openrgb-ve-art-net)
-- **İçerik üreticileri için.** Bir ses dosyasından kare kare **çevrimdışı video dışa aktarma**, tek
-  tuşla kayıt, müzik videosu düzenleri, albüm kapaklı bir **Çalan Parça** katmanı ve zamanlı **şarkı
-  sözleri** (LRC / SRT). [→ Dışa aktarma](#kayıt-ve-video-dışa-aktarma)
+- **Yayınlarınız için bir video stüdyosu.** Kare kare **12 biçimde çevrimdışı dışa aktarma** —
+  H.264 ve H.265 (10 bit dahil), ProRes 422 HQ, alfalı ProRes 4444 ve VP9, DNxHR, GIF, APNG, PNG ya
+  da OpenEXR kareleri — öncekinden yaklaşık üç kat hızlı ve ekrandakiyle aynı renklerde. YouTube,
+  Reels / Shorts, Instagram, **Spotify Canvas** döngüsü ve Twitch katmanı için tek tıkla profiller,
+  toplu kuyruk, **kesintisiz döngüler**, **YouTube bölümleri** ve **küçük resim**, Başlık ve Kapanış
+  Kartları, albüm kapaklı **Çalan Parça** kartı ve zamanlı **şarkı sözleri** (LRC / SRT).
+  [→ Dışa aktarma](#kayıt-ve-video-dışa-aktarma)
+- **Yayın karesini elle kurun.** **Düzen Editörü** çıkışı 16:9, 9:16 ya da 1:1 gösterir: barları,
+  logoyu, yazıyı ve Çalan Parça kartını sürükleyin; yaslama, SMPTE / EBU güvenli alanları ve kısa
+  video kılavuzlarıyla. Açılış animasyonları, vuruşla logo değiştirme, yayın yazı biçemleri ve
+  dosya olarak kaydedilen düzenler. Yerleştirdiğiniz neyse dışa aktarım onu çizer; piksel piksel
+  denetlendi. [→ Düzen editörü](#yayın-düzeni-editörü)
 - **Yapay zekâya hazır.** 97 araçlı yerel bir **MCP sunucusu**; Claude, Codex, Cursor ve diğer
   ajanlar gösteriyi okur, sahne kurar ve çıkışları yönetir — beş izin düzeyinin ardında, yalnız
   `127.0.0.1` üzerinde. [→ MCP](#mcp--bir-yapay-zekâ-ajanıyla-kontrol)
@@ -173,13 +194,13 @@ npm start
 
 | Siz… | Elde ettiğiniz |
 |---|---|
-| **Yayıncıysanız** | OBS'e tarayıcı kaynağı olarak saydam bir katman, albüm kapaklı Çalan Parça kartı, şarkı sözleri ve yayının ortasında sahne değiştirmek için bir telefon kumandası. OBS başka bir bilgisayardayken de çalışır. |
-| **VJ ya da sahne sanatçısıysanız** | Zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, MIDI ve OSC kontrolü, karartma, Resolume ya da TouchDesigner'a Spout/Syphon, ve her projektörde tam ekran çıkış. |
-| **Müzik yapımcısı ya da plak şirketiyseniz** | Parçanızdan kare kare video dışa aktarma, logonuz ve parça adıyla sekiz sade müzik videosu düzeni, ve canlı çıkış için bir kayıt aracı. |
-| **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
+| **Yayıncıysanız** | OBS'e tarayıcı kaynağı olarak saydam bir katman, albüm kapaklı Çalan Parça kartı, şarkı sözleri, uyarılar ve sohbet için bir web sayfası katmanı, ve yayının ortasında sahne değiştirmek için bir telefon kumandası. OBS başka bir bilgisayardayken de çalışır. |
+| **VJ ya da sahne sanatçısıysanız** | Zaman çizelgesi, vuruşa hizalı ateşlenen klip destesi, ölçüde Otomatik VJ, MIDI ve OSC kontrolü, karartma, Resolume ya da TouchDesigner ile iki yönlü Spout/Syphon, ve her projektörde tam ekran çıkış. |
+| **Müzik yapımcısı ya da plak şirketiyseniz** | Parçanızdan 12 biçimde kare kare video dışa aktarma, YouTube, Shorts ve Spotify Canvas için tek tıkla profiller, logonuz ve parça adıyla sade müzik videosu düzenleri, onları yerleştirmek için bir düzen editörü, Başlık ve Kapanış Kartları, YouTube bölümleri ve küçük resim, ve canlı çıkış için bir kayıt aracı. |
+| **Mekân, etkinlik ya da enstalasyonsanız** | Projeksiyon haritalama, kenar harmanlama, LED duvarlar için basıklık düzeltme, gösteri öncesi denetim, sıcak yedek olarak ikinci bir makine, kaza koruması, çökme kurtarma ve gösterinin ortasında asla uyumayan bir ekran. |
 | **RGB ya da ortam ışığı meraklısıysanız** | Müzikle sürülen Windows Dynamic Lighting, OpenRGB ve Art-Net/DMX; arka plan görselleri için ekran koruyucu tadında bir şablon grubu. |
-| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan bir MilkDrop motoru. |
-| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 2.700'ü aşkın test. |
+| **MilkDrop hayranıysanız** | `.milk` ve `.milk2` yükleyen, bütün kütüphaneleri içe aktaran, küçük resim gösteren, favori, puan ve etiket tutan, presetleri düzenleyip üretmenizi sağlayan ve kendi yaptığımız 55 CaYaDev presetiyle gelen bir MilkDrop motoru. |
+| **Geliştirici ya da yapay zekâ meraklısıysanız** | Shadertoy ve ISF içe aktarmalı bir GLSL düzenleyici, 97 araçlı bir MCP sunucusu, belgelenmiş bir yapılandırma ve satır değil cevap denetleyen 3.600'ü aşkın test. |
 
 ---
 
@@ -197,6 +218,7 @@ Yukarısı kısa sürümdü. Aşağısı, kategori kategori tam liste.
 - [Sahneler, şablonlar, geçişler ve renk](#sahneler-şablonlar-geçişler-ve-renk)
 - [Metin, şarkı sözü ve Çalan Parça](#metin-şarkı-sözü-ve-çalan-parça)
 - [Logo, görseller ve medya katmanı](#logo-görseller-ve-medya-katmanı)
+- [Yayın düzeni editörü](#yayın-düzeni-editörü)
 - [Gösteri kontrolü: zaman çizelgesi, klip destesi, Otomatik VJ, MIDI ve OSC](#gösteri-kontrolü-zaman-çizelgesi-klip-destesi-otomatik-vj-midi-ve-osc)
 - [Çıkışlar: ekranlar, OBS, Spout ve Syphon](#çıkışlar-ekranlar-obs-spout-ve-syphon)
 - [Sahne: projeksiyon haritalama ve basıklık düzeltme](#sahne-projeksiyon-haritalama-ve-basıklık-düzeltme)
@@ -701,6 +723,36 @@ haber bandı · karaoke vurgusu.
   orada neredeyse hiç kare üretmiyordu (ölçüldü: saniyede 0,3) ve klip döngü noktasında donuyordu.
   HEVC/H.265 videolar için **Ayarlar → Uygulama → Donanım Video Çözme** gerekiyor (yeniden
   başlatınca geçerli); böyle bir dosya açılmazsa panel bunu söylüyor.
+
+---
+
+### Yayın düzeni editörü
+
+Canlı önizlemenin üstündeki ızgara düğmesi **Düzen Editörünü** açar: aynı önizleme, büyük ve
+**16:9, 9:16 ya da 1:1** çerçeveli. İkinci bir çizici değildir; yerleştirdiğiniz neyse ekranlar,
+OBS katmanı ve video dışa aktarımı onu çizer.
+
+- **Sürükleyip yerleştirin**: barlar, Çalan Parça kartı, yazı, logo, Spout / Syphon girişi ve web
+  sayfası katmanları; son üçü köşe tutamacından ya da <kbd>+</kbd> ve <kbd>−</kbd> ile boyutlanır da.
+  Öğeler karenin kenarlarına ve ortasına, güvenli alanlara ve birbirine yaslanır; serbest yerleştirmek
+  için <kbd>Alt</kbd>'a basılı tutun. Ok tuşları kaydırır (<kbd>Shift</kbd> ile on kat), sayı
+  alanları tam değer alır.
+- **Güvenli alanlar** SMPTE ST 2046-1 ve EBU R 95'e göre: %93 hareket, %90 başlık güvenli alanı. 9:16
+  ve 1:1'de taralı kılavuzlar kısa video uygulamalarının kendi arayüzünü çizdiği yerleri gösterir;
+  videoya hiç girmezler.
+- **Açılış animasyonları** — her öğe kendi süresi, gecikmesi ve yumuşatmasıyla belirerek, kayarak,
+  yakınlaşarak ya da silinerek gelebilir. *Sırayla Geciktir* öğelere artan gecikmeler verir;
+  *Açılışı Oynat* onları canlıda yeniden oynatır.
+- **Logo değiştirme** — bir logo katmanı logo kitaplığından seçilen görseller arasında her N
+  saniyede, her N ölçüde, bir bas vuruşunda ya da rastgele aralıklarla, geçişle ya da kesmeyle
+  döner. Sıra canlıda ve video dışa aktarımında aynıdır.
+- **Yayın yazı biçemleri** — yazı katmanları ve Çalan Parça kartı için Sade, Alt Bant, Etiket, Kalın
+  Ekran ve İnce. Bir yazı katmanı sabit yazıyı ya da çalan parçanın başlığını ve sanatçısını
+  gösterebilir.
+- **Dosya olarak düzenler** — bir düzeni dışa aktarıp başka bir kurulumda içe aktarın. Dosya
+  yerleşimi ve biçemi taşır; logonuzu, elle yazdığınız parça bilgilerini ya da şarkı sözlerini asla.
+- **Piksel piksel denetlendi** — `npm run parity` 23 durumu canlı yoldan ve dışa aktarım yolundan
+  birleştirip iki resmi karşılaştırır; ortalamada 0,08 düzey içinde aynıdırlar.
 
 ---
 
