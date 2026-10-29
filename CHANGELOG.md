@@ -9,8 +9,7 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 - **Arcade Invaders reacts to the music again** (CaYaDev MilkDrop pack). Beats now come from bass or treble
   peaks relative to the track's own level, so the cannon fires on the music (auto-fire only after a quiet
-  stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids,
-  and each beat adds a short glow to the screen.
+  stretch), the fleet's march and the alien bombs follow the bass, the cannon glides faster with the mids.
 - **New preset: Arcade Invaders Score** (CaYaDev MilkDrop pack, id `md_caya_arcade_invaders_score`). The score and
   wave version from #889 ships as its own preset next to the bomb version: a score and wave counter run along the top,
   and when the fleet reaches the bunkers a red alarm clears the score.
