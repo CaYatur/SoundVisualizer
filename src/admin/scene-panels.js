@@ -947,6 +947,45 @@
 
      Her katman eklenen modun (Barlar, Dalga, Çember, Gradyan vb.) kendine
      has ayarlarını l.settings içinde benzersiz ve bağımsız olarak tutar. */
+  /* Frekans aralığı ve tayf ölçümü (#878): bant okuyan görselleştirici
+     katmanlarının "Tayf Ölçümü" sekmesi. Görselleştirici kartında vardı,
+     katmanda yoktu; çizici katmanın kendi değerlerini zaten okuyor
+     (layers.js: sahne ayarının üstüne derin birleştirme). */
+  function spectrumKids(l, rerender) {
+    const cfg = P().cfg();
+    const def = (window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : {};
+    const defVis = Object.assign({}, def.visualizer || {}, cfg.visualizer || {});
+    l.settings = l.settings || {};
+    const vs = (l.settings.visualizer = l.settings.visualizer || {});
+    const getV = (k, fallback) => vs[k] !== undefined ? vs[k] : (defVis[k] !== undefined ? defVis[k] : fallback);
+    const setV = (k, val) => { vs[k] = val; };
+    const defSp = defVis.spectrum || {};
+    const getS = (k, fallback) => {
+      const sp = vs.spectrum || {};
+      return sp[k] !== undefined ? sp[k] : (defSp[k] !== undefined ? defSp[k] : fallback);
+    };
+    const setS = (k, val) => { vs.spectrum = Object.assign({}, vs.spectrum, { [k]: val }); };
+    const out = [
+      miniSlider('Min Frekans (Hz)', () => getV('minFreq', 20), (v) => setV('minFreq', v), { min: 20, max: 500, step: 5, def: 20, fmt: (v) => String(Math.round(v)) }),
+      miniSlider('Max Frekans (Hz)', () => getV('maxFreq', 20000), (v) => setV('maxFreq', v), { min: 2000, max: 20000, step: 100, def: 20000, fmt: (v) => String(Math.round(v)) }),
+      miniSelect('Frekans Ölçeği', [['log', 'Logaritmik (müzikal)'], ['linear', 'Doğrusal'], ['mel', 'Mel (algısal)'], ['bark', 'Bark (kritik bant)']],
+        () => getS('scale', 'log'), (v) => setS('scale', v)),
+      miniSelect('Genlik Ölçeği', [['linear', 'Doğrusal'], ['db', 'Desibel (sessiz ayrıntıyı görünür kılar)']],
+        () => getS('amplitude', 'linear'), (v) => setS('amplitude', v), rerender),
+    ];
+    if (getS('amplitude', 'linear') === 'db') {
+      out.push(miniSlider('dB Tabanı', () => getS('floorDb', -60), (v) => setS('floorDb', v), { min: -96, max: -24, step: 2, def: -60, fmt: (v) => String(Math.round(v)) }));
+    }
+    out.push(
+      miniSlider('Atak (sn)', () => getS('attack', 0.02), (v) => setS('attack', v), { min: 0, max: 0.2, step: 0.005, def: 0.02, fmt: (v) => (+v).toFixed(3) }),
+      miniSlider('Bırakma (sn)', () => getS('release', 0.16), (v) => setS('release', v), { min: 0.01, max: 1.2, step: 0.01, def: 0.16 }),
+      miniSlider('Komşu Yayılımı', () => getS('spread', 0), (v) => setS('spread', v), { min: 0, max: 0.95, step: 0.01, percent: true, def: 0 }),
+      miniSlider('Eğim (dB/oktav)', () => getS('tilt', 0), (v) => setS('tilt', v), { min: -6, max: 12, step: 0.5, def: 0, fmt: (v) => (+v).toFixed(1) }),
+      miniSlider('Profil Yumuşatma', () => getS('smooth', 0.25), (v) => setS('smooth', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.25 }),
+    );
+    return out;
+  }
+
   function layerOwnSettings(l, rerender) {
     const el = P().el;
     const cfg = P().cfg();
@@ -1849,12 +1888,19 @@
       }
 
       if (l.type === 'bars') {
-        out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v)));
+        out.push(miniToggle('Tepe Noktaları', () => getV('cap', true) !== false, (v) => setV('cap', v), null, { def: true }));
+        // rerender: Zemin Yansıması Orta'da gizli, yerleşim değişince görünmeli
+        out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v), rerender));
         out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true, def: 1}));
         out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
         out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', 0.9), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.9}));
         out.push(miniSlider('Taban Çizgisi', () => getV('baseline', 1), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: 1}));
+        if (getV('position', 'bottom') !== 'center') {
+          out.push(miniSlider('Zemin Yansıması', () => getV('reflection', 0), (v) => setV('reflection', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0 }));
+          out.push(miniSlider('Yansıma Boyu', () => getV('reflectionLength', 0.4), (v) => setV('reflectionLength', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.4 }));
+        }
       }
+
 
       // Tek mod kartıyla aynı koşullar (katalog bayrakları, #638)
       if (MC().is('visualizer', l.type, 'wave')) {
@@ -2379,6 +2425,9 @@
           ],
         },
       ];
+      if (l.kind === 'visualizer' && MC().is('visualizer', l.type, 'bands')) {
+        tabs.splice(2, 0, { key: 'spectrum', label: 'Tayf Ölçümü', build: () => spectrumKids(l, rerender) });
+      }
       if (l.kind === 'nowplaying' || (l.kind === 'visualizer' && l.type === 'nowplaying')) {
         const cfgNp = P().cfg();
         tabs.splice(1, 0,
