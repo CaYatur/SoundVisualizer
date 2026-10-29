@@ -94,9 +94,6 @@ per_frame_init_19=pt = -9;
 per_frame_init_20=wt = -9;
 per_frame_init_21=ux = -40;
 per_frame_init_22=nu = 8;
-per_frame_init_23=score = 0;
-per_frame_init_24=ovr = -9;
-per_frame_init_25=wst = 0;
 per_frame_1=q30 = 60/max(fps, 15);
 per_frame_2=q31 = aspectx;
 per_frame_3=q32 = aspecty;
@@ -109,9 +106,9 @@ per_frame_9=stp = stp + st;
 per_frame_10=acc = acc - st;
 per_frame_11=tt = stp - 40*floor(stp/40);
 per_frame_12=offx = if(tt < 20, tt*2, (40 - tt)*2);
-per_frame_13=// the fleet keeps creeping down; reaching the bunkers is an invasion
+per_frame_13=drop = floor(stp/20) - 4*floor(stp/80);
 per_frame_14=basex = 16 + offx;
-per_frame_15=basey = 18 + floor((time - wst)*(1 + 0.1*min(wave - 1, 5))/9)*2 + min(wave - 1, 2)*4;
+per_frame_15=basey = 18 + drop*4 + min(wave - 1, 2)*4;
 per_frame_16=beat = (bass > 1.3)*((time - last) > 0.35);
 per_frame_17=last = if(beat, time, last);
 per_frame_18=// cannon: aim at a column that still has aliens, glide there, fire on the beat
@@ -119,13 +116,13 @@ per_frame_19=pc = floor(rand(11));
 per_frame_20=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equal(pc, 3)*n3 + equal(pc, 4)*n4 + equal(pc, 5)*n5 + equal(pc, 6)*n6 + equal(pc, 7)*n7 + equal(pc, 8)*n8 + equal(pc, 9)*n9 + equal(pc, 10)*n10) > 0, pc, floor(rand(11)));
 per_frame_21=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equal(pc, 3)*n3 + equal(pc, 4)*n4 + equal(pc, 5)*n5 + equal(pc, 6)*n6 + equal(pc, 7)*n7 + equal(pc, 8)*n8 + equal(pc, 9)*n9 + equal(pc, 10)*n10) > 0, pc, floor(rand(11)));
 per_frame_22=pc = if((equal(pc, 0)*n0 + equal(pc, 1)*n1 + equal(pc, 2)*n2 + equal(pc, 3)*n3 + equal(pc, 4)*n4 + equal(pc, 5)*n5 + equal(pc, 6)*n6 + equal(pc, 7)*n7 + equal(pc, 8)*n8 + equal(pc, 9)*n9 + equal(pc, 10)*n10) > 0, pc, floor(rand(11)));
-per_frame_23=tx = if((by < 0)*(abs(gx - tx) < 1)*((time - lastfire) > 0.25), basex + pc*16 + 4 + if(tt < 20, 1, -1)*(1.5 + 2.5*min(bass_att, 2))*fast*1.0, tx);
+per_frame_23=tx = if((by < 0)*(abs(gx - tx) < 1)*((time - lastfire) > 0.25), basex + pc*16 + 4, tx);
 per_frame_24=gx = gx + sign(tx - gx)*min(abs(tx - gx), 110*dt);
-per_frame_25=fire = (by < 0)*(abs(gx - tx) < 2)*(beat + ((time - lastfire) > 0.5) > 0)*((time - pt) > 1);
+per_frame_25=fire = (by < 0)*(abs(gx - tx) < 2)*(beat + ((time - lastfire) > 0.7) > 0)*((time - pt) > 1);
 per_frame_26=bx = if(fire, floor(gx), bx);
 per_frame_27=by = if(fire, 119, by);
 per_frame_28=lastfire = if(fire, time, lastfire);
-per_frame_29=by = if(by >= 0, by - 110*dt, by);
+per_frame_29=by = if(by >= 0, by - 85*dt, by);
 per_frame_30=lx = bx - basex;
 per_frame_31=ly = by - basey;
 per_frame_32=ac = floor(lx/16);
@@ -151,225 +148,211 @@ per_frame_51=n8 = n8 - kil*equal(ac, 8);
 per_frame_52=n9 = n9 - kil*equal(ac, 9);
 per_frame_53=n10 = n10 - kil*equal(ac, 10);
 per_frame_54=alive = alive - kil;
-per_frame_55=score = score + kil*if(ar < 1, 30, if(ar < 3, 20, 10));
-per_frame_56=ex = if(kil, basex + ac*16 + 4, ex);
-per_frame_57=ey = if(kil, basey + ar*14 + 4, ey);
-per_frame_58=et = if(kil, time, et);
-per_frame_59=by = if(kil, -1, by);
-per_frame_60=gl = bx - 26;
-per_frame_61=gk = floor(gl/52);
-per_frame_62=gs = gl - gk*52;
-per_frame_63=gon = (by >= 0)*(gk >= 0)*(gk < 4)*(gs < 22)*(by >= 104)*(by < 114);
-per_frame_64=gp = pow(2, floor((by - 104)/5)*11 + floor(gs/2));
-per_frame_65=gv = if(equal(gk, 0), s0, if(equal(gk, 1), s1, if(equal(gk, 2), s2, s3)));
-per_frame_66=gh = gon*(floor(gv/gp) - 2*floor(gv/(2*gp)));
-per_frame_67=s0 = s0 - gh*equal(gk, 0)*gp;
-per_frame_68=s1 = s1 - gh*equal(gk, 1)*gp;
-per_frame_69=s2 = s2 - gh*equal(gk, 2)*gp;
-per_frame_70=s3 = s3 - gh*equal(gk, 3)*gp;
-per_frame_71=hx = if(gh, bx, hx);
-per_frame_72=hy = if(gh, by, hy);
-per_frame_73=ht = if(gh, time, ht);
-per_frame_74=by = if(gh, -1, by);
-per_frame_75=uh = (by >= 0)*(ux > -20)*(abs(bx - ux) < 7)*(by < 12)*(by > 4);
-per_frame_76=score = score + uh*100;
-per_frame_77=ex = if(uh, ux, ex);
-per_frame_78=ey = if(uh, 8, ey);
-per_frame_79=et = if(uh, time, et);
-per_frame_80=ux = if(uh, -40, ux);
-per_frame_81=nu = if(uh, time + 14 + rand(10), nu);
-per_frame_82=by = if(uh + (by < 2)*(by >= 0), -1, by);
-per_frame_83=by = if(by >= 0, by - 110*dt, by);
-per_frame_84=lx = bx - basex;
-per_frame_85=ly = by - basey;
-per_frame_86=ac = floor(lx/16);
-per_frame_87=ar = floor(ly/14);
-per_frame_88=ain = (by >= 0)*(ac >= 0)*(ac < 11)*(ar >= 0)*(ar < 5)*(lx - ac*16 < 8)*(ly - ar*14 < 8);
-per_frame_89=bw = floor((ar*11 + ac)/22);
-per_frame_90=bp = pow(2, (ar*11 + ac) - bw*22);
-per_frame_91=bv = if(equal(bw, 0), w0, if(equal(bw, 1), w1, w2));
-per_frame_92=ba = floor(bv/bp) - 2*floor(bv/(2*bp));
-per_frame_93=kil = ain*ba;
-per_frame_94=w0 = w0 - kil*equal(bw, 0)*bp;
-per_frame_95=w1 = w1 - kil*equal(bw, 1)*bp;
-per_frame_96=w2 = w2 - kil*equal(bw, 2)*bp;
-per_frame_97=n0 = n0 - kil*equal(ac, 0);
-per_frame_98=n1 = n1 - kil*equal(ac, 1);
-per_frame_99=n2 = n2 - kil*equal(ac, 2);
-per_frame_100=n3 = n3 - kil*equal(ac, 3);
-per_frame_101=n4 = n4 - kil*equal(ac, 4);
-per_frame_102=n5 = n5 - kil*equal(ac, 5);
-per_frame_103=n6 = n6 - kil*equal(ac, 6);
-per_frame_104=n7 = n7 - kil*equal(ac, 7);
-per_frame_105=n8 = n8 - kil*equal(ac, 8);
-per_frame_106=n9 = n9 - kil*equal(ac, 9);
-per_frame_107=n10 = n10 - kil*equal(ac, 10);
-per_frame_108=alive = alive - kil;
-per_frame_109=score = score + kil*if(ar < 1, 30, if(ar < 3, 20, 10));
-per_frame_110=ex = if(kil, basex + ac*16 + 4, ex);
-per_frame_111=ey = if(kil, basey + ar*14 + 4, ey);
-per_frame_112=et = if(kil, time, et);
-per_frame_113=by = if(kil, -1, by);
-per_frame_114=gl = bx - 26;
-per_frame_115=gk = floor(gl/52);
-per_frame_116=gs = gl - gk*52;
-per_frame_117=gon = (by >= 0)*(gk >= 0)*(gk < 4)*(gs < 22)*(by >= 104)*(by < 114);
-per_frame_118=gp = pow(2, floor((by - 104)/5)*11 + floor(gs/2));
-per_frame_119=gv = if(equal(gk, 0), s0, if(equal(gk, 1), s1, if(equal(gk, 2), s2, s3)));
-per_frame_120=gh = gon*(floor(gv/gp) - 2*floor(gv/(2*gp)));
-per_frame_121=s0 = s0 - gh*equal(gk, 0)*gp;
-per_frame_122=s1 = s1 - gh*equal(gk, 1)*gp;
-per_frame_123=s2 = s2 - gh*equal(gk, 2)*gp;
-per_frame_124=s3 = s3 - gh*equal(gk, 3)*gp;
-per_frame_125=hx = if(gh, bx, hx);
-per_frame_126=hy = if(gh, by, hy);
-per_frame_127=ht = if(gh, time, ht);
-per_frame_128=by = if(gh, -1, by);
-per_frame_129=uh = (by >= 0)*(ux > -20)*(abs(bx - ux) < 7)*(by < 12)*(by > 4);
-per_frame_130=score = score + uh*100;
-per_frame_131=ex = if(uh, ux, ex);
-per_frame_132=ey = if(uh, 8, ey);
-per_frame_133=et = if(uh, time, et);
-per_frame_134=ux = if(uh, -40, ux);
-per_frame_135=nu = if(uh, time + 14 + rand(10), nu);
-per_frame_136=by = if(uh + (by < 2)*(by >= 0), -1, by);
-per_frame_137=// alien bombs from the lowest alien in a column
-per_frame_138=drp = (my < 0)*(time > nb);
-per_frame_139=bc = floor(rand(11));
-per_frame_140=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
-per_frame_141=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
-per_frame_142=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
-per_frame_143=r4w = floor((4*11 + bc)/22);
-per_frame_144=r4p = pow(2, (4*11 + bc) - r4w*22);
-per_frame_145=r4v = if(equal(r4w, 0), w0, if(equal(r4w, 1), w1, w2));
-per_frame_146=r4a = floor(r4v/r4p) - 2*floor(r4v/(2*r4p));
-per_frame_147=r3w = floor((3*11 + bc)/22);
-per_frame_148=r3p = pow(2, (3*11 + bc) - r3w*22);
-per_frame_149=r3v = if(equal(r3w, 0), w0, if(equal(r3w, 1), w1, w2));
-per_frame_150=r3a = floor(r3v/r3p) - 2*floor(r3v/(2*r3p));
-per_frame_151=r2w = floor((2*11 + bc)/22);
-per_frame_152=r2p = pow(2, (2*11 + bc) - r2w*22);
-per_frame_153=r2v = if(equal(r2w, 0), w0, if(equal(r2w, 1), w1, w2));
-per_frame_154=r2a = floor(r2v/r2p) - 2*floor(r2v/(2*r2p));
-per_frame_155=r1w = floor((1*11 + bc)/22);
-per_frame_156=r1p = pow(2, (1*11 + bc) - r1w*22);
-per_frame_157=r1v = if(equal(r1w, 0), w0, if(equal(r1w, 1), w1, w2));
-per_frame_158=r1a = floor(r1v/r1p) - 2*floor(r1v/(2*r1p));
-per_frame_159=r0w = floor((0*11 + bc)/22);
-per_frame_160=r0p = pow(2, (0*11 + bc) - r0w*22);
-per_frame_161=r0v = if(equal(r0w, 0), w0, if(equal(r0w, 1), w1, w2));
-per_frame_162=r0a = floor(r0v/r0p) - 2*floor(r0v/(2*r0p));
-per_frame_163=br = if(r4a, 4, if(r3a, 3, if(r2a, 2, if(r1a, 1, if(r0a, 0, -1)))));
-per_frame_164=drp = drp*(br >= 0);
-per_frame_165=mx = if(drp, floor(basex + bc*16 + 4), mx);
-per_frame_166=my = if(drp, basey + br*14 + 8, my);
-per_frame_167=nb = if(drp, time + (0.9 + rand(100)*0.016)/(1 + 0.12*wave), nb);
-per_frame_168=my = if(my >= 0, my + 36*dt, my);
-per_frame_169=ml = mx - 26;
-per_frame_170=mk = floor(ml/52);
-per_frame_171=ms = ml - mk*52;
-per_frame_172=mon = (my >= 0)*(mk >= 0)*(mk < 4)*(ms < 22)*(my >= 104)*(my < 114);
-per_frame_173=mp = pow(2, floor((my - 104)/5)*11 + floor(ms/2));
-per_frame_174=mv = if(equal(mk, 0), s0, if(equal(mk, 1), s1, if(equal(mk, 2), s2, s3)));
-per_frame_175=mh = mon*(floor(mv/mp) - 2*floor(mv/(2*mp)));
-per_frame_176=s0 = s0 - mh*equal(mk, 0)*mp;
-per_frame_177=s1 = s1 - mh*equal(mk, 1)*mp;
-per_frame_178=s2 = s2 - mh*equal(mk, 2)*mp;
-per_frame_179=s3 = s3 - mh*equal(mk, 3)*mp;
-per_frame_180=hx = if(mh, mx, hx);
-per_frame_181=hy = if(mh, my, hy);
-per_frame_182=ht = if(mh, time, ht);
-per_frame_183=my = if(mh, -1, my);
-per_frame_184=ph = (my >= 120)*(my < 128)*(abs(mx - gx) < 7)*((time - pt) > 1.5);
-per_frame_185=pt = if(ph, time, pt);
-per_frame_186=my = if(ph + (my >= 130), -1, my);
-per_frame_187=my = if(my >= 0, my + 36*dt, my);
-per_frame_188=ml = mx - 26;
-per_frame_189=mk = floor(ml/52);
-per_frame_190=ms = ml - mk*52;
-per_frame_191=mon = (my >= 0)*(mk >= 0)*(mk < 4)*(ms < 22)*(my >= 104)*(my < 114);
-per_frame_192=mp = pow(2, floor((my - 104)/5)*11 + floor(ms/2));
-per_frame_193=mv = if(equal(mk, 0), s0, if(equal(mk, 1), s1, if(equal(mk, 2), s2, s3)));
-per_frame_194=mh = mon*(floor(mv/mp) - 2*floor(mv/(2*mp)));
-per_frame_195=s0 = s0 - mh*equal(mk, 0)*mp;
-per_frame_196=s1 = s1 - mh*equal(mk, 1)*mp;
-per_frame_197=s2 = s2 - mh*equal(mk, 2)*mp;
-per_frame_198=s3 = s3 - mh*equal(mk, 3)*mp;
-per_frame_199=hx = if(mh, mx, hx);
-per_frame_200=hy = if(mh, my, hy);
-per_frame_201=ht = if(mh, time, ht);
-per_frame_202=my = if(mh, -1, my);
-per_frame_203=ph = (my >= 120)*(my < 128)*(abs(mx - gx) < 7)*((time - pt) > 1.5);
-per_frame_204=pt = if(ph, time, pt);
-per_frame_205=my = if(ph + (my >= 130), -1, my);
-per_frame_206=// mystery saucer
-per_frame_207=ux = if((ux < -20)*(time > nu), -10, ux);
-per_frame_208=ux = if(ux > -20, ux + 32*dt, ux);
-per_frame_209=nu = if(ux > 250, time + 14 + rand(10), nu);
-per_frame_210=ux = if(ux > 250, -40, ux);
-per_frame_211=// wave cleared or invaded: a new fleet, fresh bunkers
-per_frame_212=low = if(w2 > 0, 4, if(floor(w1/2048) > 0, 3, if(w1 > 0, 2, if(floor(w0/2048) > 0, 1, 0))));
-per_frame_213=go = (alive > 0)*(basey + low*14 + 8 > 102);
-per_frame_214=ovr = if(go, time, ovr);
-per_frame_215=score = score*(1 - go);
-per_frame_216=wave = if(go, 1, wave);
-per_frame_217=clr = (alive < 1);
-per_frame_218=wt = if(clr, time, wt);
-per_frame_219=wst = if(bor(clr, go), time, wst);
-per_frame_220=wave = wave + clr;
-per_frame_221=clr = bor(clr, go);
-per_frame_222=w0 = if(clr, 4194303, w0);
-per_frame_223=w1 = if(clr, 4194303, w1);
-per_frame_224=w2 = if(clr, 2047, w2);
-per_frame_225=s0 = if(clr, 3964927, s0);
-per_frame_226=s1 = if(clr, 3964927, s1);
-per_frame_227=s2 = if(clr, 3964927, s2);
-per_frame_228=s3 = if(clr, 3964927, s3);
-per_frame_229=n0 = if(clr, 5, n0);
-per_frame_230=n1 = if(clr, 5, n1);
-per_frame_231=n2 = if(clr, 5, n2);
-per_frame_232=n3 = if(clr, 5, n3);
-per_frame_233=n4 = if(clr, 5, n4);
-per_frame_234=n5 = if(clr, 5, n5);
-per_frame_235=n6 = if(clr, 5, n6);
-per_frame_236=n7 = if(clr, 5, n7);
-per_frame_237=n8 = if(clr, 5, n8);
-per_frame_238=n9 = if(clr, 5, n9);
-per_frame_239=n10 = if(clr, 5, n10);
-per_frame_240=stp = if(clr, 0, stp);
-per_frame_241=by = if(clr, -1, by);
-per_frame_242=my = if(clr, -1, my);
-per_frame_243=nb = if(clr, time + 2, nb);
-per_frame_244=alive = if(clr, 55, alive);
-per_frame_245=q1 = stp;
-per_frame_246=q2 = basex;
-per_frame_247=q3 = basey;
-per_frame_248=q4 = time*0.02 + mid_att*0.03;
-per_frame_249=q5 = min(treb_att, 2);
-per_frame_250=q6 = w0;
-per_frame_251=q7 = w1;
-per_frame_252=q8 = w2;
-per_frame_253=q9 = s0;
-per_frame_254=q10 = s1;
-per_frame_255=q11 = s2;
-per_frame_256=q12 = s3;
-per_frame_257=q13 = gx;
-per_frame_258=q14 = bx;
-per_frame_259=q15 = by;
-per_frame_260=q16 = mx;
-per_frame_261=q17 = my;
-per_frame_262=q18 = ex;
-per_frame_263=q19 = ey;
-per_frame_264=q20 = time - et;
-per_frame_265=q21 = hx;
-per_frame_266=q22 = hy;
-per_frame_267=q23 = time - ht;
-per_frame_268=q24 = time - pt;
-per_frame_269=q25 = ux;
-per_frame_270=q26 = time - wt;
-per_frame_271=q27 = score;
-per_frame_272=q28 = wave;
-per_frame_273=q29 = time - ovr;
+per_frame_55=ex = if(kil, basex + ac*16 + 4, ex);
+per_frame_56=ey = if(kil, basey + ar*14 + 4, ey);
+per_frame_57=et = if(kil, time, et);
+per_frame_58=by = if(kil, -1, by);
+per_frame_59=gl = bx - 26;
+per_frame_60=gk = floor(gl/52);
+per_frame_61=gs = gl - gk*52;
+per_frame_62=gon = (by >= 0)*(gk >= 0)*(gk < 4)*(gs < 22)*(by >= 104)*(by < 114);
+per_frame_63=gp = pow(2, floor((by - 104)/5)*11 + floor(gs/2));
+per_frame_64=gv = if(equal(gk, 0), s0, if(equal(gk, 1), s1, if(equal(gk, 2), s2, s3)));
+per_frame_65=gh = gon*(floor(gv/gp) - 2*floor(gv/(2*gp)));
+per_frame_66=s0 = s0 - gh*equal(gk, 0)*gp;
+per_frame_67=s1 = s1 - gh*equal(gk, 1)*gp;
+per_frame_68=s2 = s2 - gh*equal(gk, 2)*gp;
+per_frame_69=s3 = s3 - gh*equal(gk, 3)*gp;
+per_frame_70=hx = if(gh, bx, hx);
+per_frame_71=hy = if(gh, by, hy);
+per_frame_72=ht = if(gh, time, ht);
+per_frame_73=by = if(gh, -1, by);
+per_frame_74=uh = (by >= 0)*(ux > -20)*(abs(bx - ux) < 7)*(by < 12)*(by > 4);
+per_frame_75=ex = if(uh, ux, ex);
+per_frame_76=ey = if(uh, 8, ey);
+per_frame_77=et = if(uh, time, et);
+per_frame_78=ux = if(uh, -40, ux);
+per_frame_79=nu = if(uh, time + 14 + rand(10), nu);
+per_frame_80=by = if(uh + (by < 2)*(by >= 0), -1, by);
+per_frame_81=by = if(by >= 0, by - 85*dt, by);
+per_frame_82=lx = bx - basex;
+per_frame_83=ly = by - basey;
+per_frame_84=ac = floor(lx/16);
+per_frame_85=ar = floor(ly/14);
+per_frame_86=ain = (by >= 0)*(ac >= 0)*(ac < 11)*(ar >= 0)*(ar < 5)*(lx - ac*16 < 8)*(ly - ar*14 < 8);
+per_frame_87=bw = floor((ar*11 + ac)/22);
+per_frame_88=bp = pow(2, (ar*11 + ac) - bw*22);
+per_frame_89=bv = if(equal(bw, 0), w0, if(equal(bw, 1), w1, w2));
+per_frame_90=ba = floor(bv/bp) - 2*floor(bv/(2*bp));
+per_frame_91=kil = ain*ba;
+per_frame_92=w0 = w0 - kil*equal(bw, 0)*bp;
+per_frame_93=w1 = w1 - kil*equal(bw, 1)*bp;
+per_frame_94=w2 = w2 - kil*equal(bw, 2)*bp;
+per_frame_95=n0 = n0 - kil*equal(ac, 0);
+per_frame_96=n1 = n1 - kil*equal(ac, 1);
+per_frame_97=n2 = n2 - kil*equal(ac, 2);
+per_frame_98=n3 = n3 - kil*equal(ac, 3);
+per_frame_99=n4 = n4 - kil*equal(ac, 4);
+per_frame_100=n5 = n5 - kil*equal(ac, 5);
+per_frame_101=n6 = n6 - kil*equal(ac, 6);
+per_frame_102=n7 = n7 - kil*equal(ac, 7);
+per_frame_103=n8 = n8 - kil*equal(ac, 8);
+per_frame_104=n9 = n9 - kil*equal(ac, 9);
+per_frame_105=n10 = n10 - kil*equal(ac, 10);
+per_frame_106=alive = alive - kil;
+per_frame_107=ex = if(kil, basex + ac*16 + 4, ex);
+per_frame_108=ey = if(kil, basey + ar*14 + 4, ey);
+per_frame_109=et = if(kil, time, et);
+per_frame_110=by = if(kil, -1, by);
+per_frame_111=gl = bx - 26;
+per_frame_112=gk = floor(gl/52);
+per_frame_113=gs = gl - gk*52;
+per_frame_114=gon = (by >= 0)*(gk >= 0)*(gk < 4)*(gs < 22)*(by >= 104)*(by < 114);
+per_frame_115=gp = pow(2, floor((by - 104)/5)*11 + floor(gs/2));
+per_frame_116=gv = if(equal(gk, 0), s0, if(equal(gk, 1), s1, if(equal(gk, 2), s2, s3)));
+per_frame_117=gh = gon*(floor(gv/gp) - 2*floor(gv/(2*gp)));
+per_frame_118=s0 = s0 - gh*equal(gk, 0)*gp;
+per_frame_119=s1 = s1 - gh*equal(gk, 1)*gp;
+per_frame_120=s2 = s2 - gh*equal(gk, 2)*gp;
+per_frame_121=s3 = s3 - gh*equal(gk, 3)*gp;
+per_frame_122=hx = if(gh, bx, hx);
+per_frame_123=hy = if(gh, by, hy);
+per_frame_124=ht = if(gh, time, ht);
+per_frame_125=by = if(gh, -1, by);
+per_frame_126=uh = (by >= 0)*(ux > -20)*(abs(bx - ux) < 7)*(by < 12)*(by > 4);
+per_frame_127=ex = if(uh, ux, ex);
+per_frame_128=ey = if(uh, 8, ey);
+per_frame_129=et = if(uh, time, et);
+per_frame_130=ux = if(uh, -40, ux);
+per_frame_131=nu = if(uh, time + 14 + rand(10), nu);
+per_frame_132=by = if(uh + (by < 2)*(by >= 0), -1, by);
+per_frame_133=// alien bombs from the lowest alien in a column
+per_frame_134=drp = (my < 0)*(time > nb);
+per_frame_135=bc = floor(rand(11));
+per_frame_136=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
+per_frame_137=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
+per_frame_138=bc = if((equal(bc, 0)*n0 + equal(bc, 1)*n1 + equal(bc, 2)*n2 + equal(bc, 3)*n3 + equal(bc, 4)*n4 + equal(bc, 5)*n5 + equal(bc, 6)*n6 + equal(bc, 7)*n7 + equal(bc, 8)*n8 + equal(bc, 9)*n9 + equal(bc, 10)*n10) > 0, bc, floor(rand(11)));
+per_frame_139=r4w = floor((4*11 + bc)/22);
+per_frame_140=r4p = pow(2, (4*11 + bc) - r4w*22);
+per_frame_141=r4v = if(equal(r4w, 0), w0, if(equal(r4w, 1), w1, w2));
+per_frame_142=r4a = floor(r4v/r4p) - 2*floor(r4v/(2*r4p));
+per_frame_143=r3w = floor((3*11 + bc)/22);
+per_frame_144=r3p = pow(2, (3*11 + bc) - r3w*22);
+per_frame_145=r3v = if(equal(r3w, 0), w0, if(equal(r3w, 1), w1, w2));
+per_frame_146=r3a = floor(r3v/r3p) - 2*floor(r3v/(2*r3p));
+per_frame_147=r2w = floor((2*11 + bc)/22);
+per_frame_148=r2p = pow(2, (2*11 + bc) - r2w*22);
+per_frame_149=r2v = if(equal(r2w, 0), w0, if(equal(r2w, 1), w1, w2));
+per_frame_150=r2a = floor(r2v/r2p) - 2*floor(r2v/(2*r2p));
+per_frame_151=r1w = floor((1*11 + bc)/22);
+per_frame_152=r1p = pow(2, (1*11 + bc) - r1w*22);
+per_frame_153=r1v = if(equal(r1w, 0), w0, if(equal(r1w, 1), w1, w2));
+per_frame_154=r1a = floor(r1v/r1p) - 2*floor(r1v/(2*r1p));
+per_frame_155=r0w = floor((0*11 + bc)/22);
+per_frame_156=r0p = pow(2, (0*11 + bc) - r0w*22);
+per_frame_157=r0v = if(equal(r0w, 0), w0, if(equal(r0w, 1), w1, w2));
+per_frame_158=r0a = floor(r0v/r0p) - 2*floor(r0v/(2*r0p));
+per_frame_159=br = if(r4a, 4, if(r3a, 3, if(r2a, 2, if(r1a, 1, if(r0a, 0, -1)))));
+per_frame_160=drp = drp*(br >= 0);
+per_frame_161=mx = if(drp, floor(basex + bc*16 + 4), mx);
+per_frame_162=my = if(drp, basey + br*14 + 8, my);
+per_frame_163=nb = if(drp, time + (0.9 + rand(100)*0.016)/(1 + 0.12*wave), nb);
+per_frame_164=my = if(my >= 0, my + 36*dt, my);
+per_frame_165=ml = mx - 26;
+per_frame_166=mk = floor(ml/52);
+per_frame_167=ms = ml - mk*52;
+per_frame_168=mon = (my >= 0)*(mk >= 0)*(mk < 4)*(ms < 22)*(my >= 104)*(my < 114);
+per_frame_169=mp = pow(2, floor((my - 104)/5)*11 + floor(ms/2));
+per_frame_170=mv = if(equal(mk, 0), s0, if(equal(mk, 1), s1, if(equal(mk, 2), s2, s3)));
+per_frame_171=mh = mon*(floor(mv/mp) - 2*floor(mv/(2*mp)));
+per_frame_172=s0 = s0 - mh*equal(mk, 0)*mp;
+per_frame_173=s1 = s1 - mh*equal(mk, 1)*mp;
+per_frame_174=s2 = s2 - mh*equal(mk, 2)*mp;
+per_frame_175=s3 = s3 - mh*equal(mk, 3)*mp;
+per_frame_176=hx = if(mh, mx, hx);
+per_frame_177=hy = if(mh, my, hy);
+per_frame_178=ht = if(mh, time, ht);
+per_frame_179=my = if(mh, -1, my);
+per_frame_180=ph = (my >= 120)*(my < 128)*(abs(mx - gx) < 7)*((time - pt) > 1.5);
+per_frame_181=pt = if(ph, time, pt);
+per_frame_182=my = if(ph + (my >= 130), -1, my);
+per_frame_183=my = if(my >= 0, my + 36*dt, my);
+per_frame_184=ml = mx - 26;
+per_frame_185=mk = floor(ml/52);
+per_frame_186=ms = ml - mk*52;
+per_frame_187=mon = (my >= 0)*(mk >= 0)*(mk < 4)*(ms < 22)*(my >= 104)*(my < 114);
+per_frame_188=mp = pow(2, floor((my - 104)/5)*11 + floor(ms/2));
+per_frame_189=mv = if(equal(mk, 0), s0, if(equal(mk, 1), s1, if(equal(mk, 2), s2, s3)));
+per_frame_190=mh = mon*(floor(mv/mp) - 2*floor(mv/(2*mp)));
+per_frame_191=s0 = s0 - mh*equal(mk, 0)*mp;
+per_frame_192=s1 = s1 - mh*equal(mk, 1)*mp;
+per_frame_193=s2 = s2 - mh*equal(mk, 2)*mp;
+per_frame_194=s3 = s3 - mh*equal(mk, 3)*mp;
+per_frame_195=hx = if(mh, mx, hx);
+per_frame_196=hy = if(mh, my, hy);
+per_frame_197=ht = if(mh, time, ht);
+per_frame_198=my = if(mh, -1, my);
+per_frame_199=ph = (my >= 120)*(my < 128)*(abs(mx - gx) < 7)*((time - pt) > 1.5);
+per_frame_200=pt = if(ph, time, pt);
+per_frame_201=my = if(ph + (my >= 130), -1, my);
+per_frame_202=// mystery saucer
+per_frame_203=ux = if((ux < -20)*(time > nu), -10, ux);
+per_frame_204=ux = if(ux > -20, ux + 32*dt, ux);
+per_frame_205=nu = if(ux > 250, time + 14 + rand(10), nu);
+per_frame_206=ux = if(ux > 250, -40, ux);
+per_frame_207=// wave cleared: a new fleet, fresh bunkers
+per_frame_208=clr = (alive < 1);
+per_frame_209=wave = wave + clr;
+per_frame_210=wt = if(clr, time, wt);
+per_frame_211=w0 = if(clr, 4194303, w0);
+per_frame_212=w1 = if(clr, 4194303, w1);
+per_frame_213=w2 = if(clr, 2047, w2);
+per_frame_214=s0 = if(clr, 3964927, s0);
+per_frame_215=s1 = if(clr, 3964927, s1);
+per_frame_216=s2 = if(clr, 3964927, s2);
+per_frame_217=s3 = if(clr, 3964927, s3);
+per_frame_218=n0 = if(clr, 5, n0);
+per_frame_219=n1 = if(clr, 5, n1);
+per_frame_220=n2 = if(clr, 5, n2);
+per_frame_221=n3 = if(clr, 5, n3);
+per_frame_222=n4 = if(clr, 5, n4);
+per_frame_223=n5 = if(clr, 5, n5);
+per_frame_224=n6 = if(clr, 5, n6);
+per_frame_225=n7 = if(clr, 5, n7);
+per_frame_226=n8 = if(clr, 5, n8);
+per_frame_227=n9 = if(clr, 5, n9);
+per_frame_228=n10 = if(clr, 5, n10);
+per_frame_229=stp = if(clr, 0, stp);
+per_frame_230=by = if(clr, -1, by);
+per_frame_231=my = if(clr, -1, my);
+per_frame_232=nb = if(clr, time + 2, nb);
+per_frame_233=alive = if(clr, 55, alive);
+per_frame_234=q1 = stp;
+per_frame_235=q2 = basex;
+per_frame_236=q3 = basey;
+per_frame_237=q4 = time*0.02 + mid_att*0.03;
+per_frame_238=q5 = min(treb_att, 2);
+per_frame_239=q6 = w0;
+per_frame_240=q7 = w1;
+per_frame_241=q8 = w2;
+per_frame_242=q9 = s0;
+per_frame_243=q10 = s1;
+per_frame_244=q11 = s2;
+per_frame_245=q12 = s3;
+per_frame_246=q13 = gx;
+per_frame_247=q14 = bx;
+per_frame_248=q15 = by;
+per_frame_249=q16 = mx;
+per_frame_250=q17 = my;
+per_frame_251=q18 = ex;
+per_frame_252=q19 = ey;
+per_frame_253=q20 = time - et;
+per_frame_254=q21 = hx;
+per_frame_255=q22 = hy;
+per_frame_256=q23 = time - ht;
+per_frame_257=q24 = time - pt;
+per_frame_258=q25 = ux;
+per_frame_259=q26 = time - wt;
 warp_1=`sampler sampler_pw_noise_lq;
 warp_2=`float bitAt(float row, float colx, float design, float frameN)
 warp_3=`{
@@ -395,106 +378,81 @@ warp_22=`{
 warp_23=`  // game state arrives as integer bit masks in q vars (22 bits each, exact in float)
 warp_24=`  return step(0.5, frac(floor(w / exp2(k)) * 0.5));
 warp_25=`}
-warp_26=`float digitOf(float v, float base, float i)
+warp_26=`float burst(float2 d, float age, float size)
 warp_27=`{
-warp_28=`  float p = pow(base, i);
-warp_29=`  return floor(v / p + 0.001) - base * floor(v / (p * base) + 0.001);
-warp_30=`}
-warp_31=`float glyph(float d, float2 p)
-warp_32=`{
-warp_33=`  // 3x5 digits, top row in the high bits
-warp_34=`  float bits = d < 5.0 ? (d < 2.0 ? (d < 1.0 ? 31599.0 : 9362.0) : (d < 3.0 ? 29671.0 : (d < 4.0 ? 29647.0 : 23497.0)))
-warp_35=`                       : (d < 7.0 ? (d < 6.0 ? 31183.0 : 31215.0) : (d < 8.0 ? 29330.0 : (d < 9.0 ? 31727.0 : 31695.0)));
-warp_36=`  float inside = step(0.0, p.x) * step(p.x, 2.0) * step(0.0, p.y) * step(p.y, 4.0);
-warp_37=`  return inside * maskBit(bits, (4.0 - p.y) * 3.0 + (2.0 - p.x));
-warp_38=`}
-warp_39=`float burst(float2 d, float age, float size)
-warp_40=`{
-warp_41=`  // eight-ray pixel explosion that expands and fades
-warp_42=`  float r = length(d);
-warp_43=`  float ray = step(abs(abs(d.x) - abs(d.y)), 0.5) + step(abs(d.x), 0.5) + step(abs(d.y), 0.5);
-warp_44=`  float ring = step(abs(r - age * size), 1.5) + step(r, 2.5 - age * 8.0);
-warp_45=`  return min(ray, 1.0) * min(ring, 1.0) * step(age, 0.35);
-warp_46=`}
-warp_47=`float3 scene(float2 u)
-warp_48=`{
-warp_49=`  float2 px = floor(u * float2(240.0, 135.0));
-warp_50=`  float3 c = float3(0.0, 0.0, 0.0);
-warp_51=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
-warp_52=`  // formation: 11 columns x 5 rows, 16 px apart; position and alive masks come from per_frame
-warp_53=`  float2 lp = px - float2(q2, q3);
-warp_54=`  float ci = floor(lp.x / 16.0);
-warp_55=`  float ri = floor(lp.y / 14.0);
-warp_56=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
-warp_57=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
-warp_58=`    float k = ri * 11.0 + ci;
-warp_59=`    float wi = floor(k / 22.0);
-warp_60=`    float alive = maskBit(wi < 0.5 ? q6 : (wi < 1.5 ? q7 : q8), k - wi * 22.0);
-warp_61=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
-warp_62=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
-warp_63=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
-warp_64=`    c = on * alive * ic;
-warp_65=`  }
-warp_66=`  // shields: 11x2 cells of 2x5 px each; every hit clears one cell
-warp_67=`  float sx = px.x - 26.0;
-warp_68=`  float sk = floor(sx / 52.0);
-warp_69=`  float sl = sx - sk * 52.0;
-warp_70=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y >= 104.0 && px.y < 114.0) {
-warp_71=`    float sw = sk < 0.5 ? q9 : (sk < 1.5 ? q10 : (sk < 2.5 ? q11 : q12));
-warp_72=`    float cell = floor((px.y - 104.0) / 5.0) * 11.0 + floor(sl / 2.0);
-warp_73=`    float corner = step(sl, 0.5) * step(px.y, 104.5) + step(20.5, sl) * step(px.y, 104.5);
-warp_74=`    c = float3(0.3, 1.0, 0.35) * maskBit(sw, cell) * (1.0 - corner);
-warp_75=`  }
-warp_76=`  // mystery saucer
-warp_77=`  float2 up = px - float2(floor(q25), 8.0);
-warp_78=`  float saucer = step(abs(up.y), 2.0) * step(abs(up.x), 6.0 - max(-up.y, 0.0) * 2.0 - max(up.y - 1.0, 0.0) * 3.0);
-warp_79=`  saucer *= 1.0 - step(abs(up.y), 0.5) * step(0.5, frac((up.x + floor(time * 12.0)) * 0.25 + 0.25)) * 0.6;
-warp_80=`  c = max(c, float3(1.0, 0.25, 0.3) * saucer * step(-20.0, q25));
-warp_81=`  // cannon; blinks red after a bomb hit
-warp_82=`  float2 cp = px - float2(floor(q13), 124.0);
-warp_83=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
-warp_84=`  float hurt = step(q24, 1.0);
-warp_85=`  cannon *= 1.0 - hurt * step(0.5, frac(time * 8.0));
-warp_86=`  c = max(c, lerp(float3(0.4, 1.0, 0.5), float3(1.0, 0.3, 0.2), hurt) * cannon);
-warp_87=`  c = max(c, float3(1.0, 0.5, 0.2) * burst(px - float2(floor(q13), 125.0), q24, 40.0));
-warp_88=`  // player shot
-warp_89=`  float shot = step(abs(px.x - q14), 0.5) * step(q15 - 3.0, px.y) * step(px.y, q15) * step(0.0, q15);
-warp_90=`  c = max(c, float3(1.0, 1.0, 0.8) * shot);
-warp_91=`  // alien bomb: a zigzag falling bolt
-warp_92=`  float zig = step(0.5, frac((px.y + floor(time * 20.0)) * 0.25));
-warp_93=`  float bomb = step(abs(px.x - q16 - zig), 0.5) * step(q17 - 4.0, px.y) * step(px.y, q17) * step(0.0, q17);
-warp_94=`  c = max(c, float3(1.0, 0.85, 0.4) * bomb);
-warp_95=`  // explosions: alien or saucer, then small bunker chips
-warp_96=`  c = max(c, lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.5, 0.1), saturate(q20 * 4.0)) * burst(px - floor(float2(q18, q19)), q20, 30.0));
-warp_97=`  float2 hd = px - floor(float2(q21, q22));
-warp_98=`  c = max(c, float3(0.7, 1.0, 0.6) * step(abs(hd.x) + abs(hd.y), 2.0) * step(q23, 0.12));
-warp_99=`  float ground = step(abs(px.y - 130.0), 0.5);
-warp_100=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
-warp_101=`  // score top left, wave pips top right
-warp_102=`  float sc = q27 - 10000.0 * floor(q27 / 10000.0);
-warp_103=`  float2 sp = px - float2(4.0, 3.0);
-warp_104=`  float di = floor(sp.x / 4.0);
-warp_105=`  float digit = (di >= 0.0 && di < 4.0) ? glyph(digitOf(sc, 10.0, 3.0 - di), float2(sp.x - di * 4.0, sp.y)) : 0.0;
-warp_106=`  c = max(c, lerp(float3(0.9, 0.9, 0.9), float3(1.0, 1.0, 0.4), step(q20, 0.15)) * digit);
-warp_107=`  float2 wp = px - float2(232.0, 3.0);
-warp_108=`  float wi = floor(-wp.x / 4.0);
-warp_109=`  float pip = step(0.0, wi) * step(wi, min(q28, 9.0) - 1.0) * step(-wp.x - wi * 4.0, 1.5) * step(0.0, wp.y) * step(wp.y, 2.0) * step(wp.x, 0.5);
-warp_110=`  c = max(c, float3(1.0, 0.4, 0.8) * pip);
-warp_111=`  // invaded: red alarm
-warp_112=`  c = lerp(c, float3(1.0, 0.1, 0.1) * (0.4 + 0.6 * step(0.5, frac(q29 * 4.0))), saturate(1.0 - q29 / 1.5) * 0.6 * step(0.0, q29));
-warp_113=`  // a new wave arrives with a short flash
-warp_114=`  c += float3(0.15, 0.3, 0.35) * step(q26, 0.4) * (1.0 - q26 * 2.5);
-warp_115=`  return c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
-warp_116=`}
-warp_117=`shader_body
-warp_118=`{
-warp_119=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
-warp_120=`  float2 g = floor(uv * float2(320.0, 180.0));
-warp_121=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
-warp_122=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
-warp_123=`  float3 old = tex2D(sampler_main, uv).xyz;
-warp_124=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
-warp_125=`}
+warp_28=`  // eight-ray pixel explosion that expands and fades
+warp_29=`  float r = length(d);
+warp_30=`  float ray = step(abs(abs(d.x) - abs(d.y)), 0.5) + step(abs(d.x), 0.5) + step(abs(d.y), 0.5);
+warp_31=`  float ring = step(abs(r - age * size), 1.5) + step(r, 2.5 - age * 8.0);
+warp_32=`  return min(ray, 1.0) * min(ring, 1.0) * step(age, 0.35);
+warp_33=`}
+warp_34=`float3 scene(float2 u)
+warp_35=`{
+warp_36=`  float2 px = floor(u * float2(240.0, 135.0));
+warp_37=`  float3 c = float3(0.0, 0.0, 0.0);
+warp_38=`  float3 tint = 0.5 + 0.5 * cos(6.28318 * (float3(0.3, 0.45, 0.6) + q4));
+warp_39=`  // formation: 11 columns x 5 rows, 16 px apart; position and alive masks come from per_frame
+warp_40=`  float2 lp = px - float2(q2, q3);
+warp_41=`  float ci = floor(lp.x / 16.0);
+warp_42=`  float ri = floor(lp.y / 14.0);
+warp_43=`  float2 inCell = float2(lp.x - ci * 16.0, lp.y - ri * 14.0);
+warp_44=`  if (ci >= 0.0 && ci < 11.0 && ri >= 0.0 && ri < 5.0 && inCell.x < 8.0 && inCell.y < 8.0) {
+warp_45=`    float k = ri * 11.0 + ci;
+warp_46=`    float wi = floor(k / 22.0);
+warp_47=`    float alive = maskBit(wi < 0.5 ? q6 : (wi < 1.5 ? q7 : q8), k - wi * 22.0);
+warp_48=`    float design = ri < 1.0 ? 0.0 : (ri < 3.0 ? 1.0 : 2.0);
+warp_49=`    float on = bitAt(inCell.y, inCell.x, design, frac(q1 * 0.5) < 0.5 ? 0.0 : 1.0);
+warp_50=`    float3 ic = ri < 1.0 ? float3(1.0, 0.35, 0.8) : (ri < 3.0 ? float3(0.4, 0.9, 1.0) : float3(0.5, 1.0, 0.4));
+warp_51=`    c = on * alive * ic;
+warp_52=`  }
+warp_53=`  // shields: 11x2 cells of 2x5 px each; every hit clears one cell
+warp_54=`  float sx = px.x - 26.0;
+warp_55=`  float sk = floor(sx / 52.0);
+warp_56=`  float sl = sx - sk * 52.0;
+warp_57=`  if (sk >= 0.0 && sk < 4.0 && sl < 22.0 && px.y >= 104.0 && px.y < 114.0) {
+warp_58=`    float sw = sk < 0.5 ? q9 : (sk < 1.5 ? q10 : (sk < 2.5 ? q11 : q12));
+warp_59=`    float cell = floor((px.y - 104.0) / 5.0) * 11.0 + floor(sl / 2.0);
+warp_60=`    float corner = step(sl, 0.5) * step(px.y, 104.5) + step(20.5, sl) * step(px.y, 104.5);
+warp_61=`    c = float3(0.3, 1.0, 0.35) * maskBit(sw, cell) * (1.0 - corner);
+warp_62=`  }
+warp_63=`  // mystery saucer
+warp_64=`  float2 up = px - float2(floor(q25), 8.0);
+warp_65=`  float saucer = step(abs(up.y), 2.0) * step(abs(up.x), 6.0 - max(-up.y, 0.0) * 2.0 - max(up.y - 1.0, 0.0) * 3.0);
+warp_66=`  saucer *= 1.0 - step(abs(up.y), 0.5) * step(0.5, frac((up.x + floor(time * 12.0)) * 0.25 + 0.25)) * 0.6;
+warp_67=`  c = max(c, float3(1.0, 0.25, 0.3) * saucer * step(-20.0, q25));
+warp_68=`  // cannon; blinks red after a bomb hit
+warp_69=`  float2 cp = px - float2(floor(q13), 124.0);
+warp_70=`  float cannon = step(abs(cp.x), 6.0) * step(0.0, cp.y) * step(cp.y, 4.0) + step(abs(cp.x), 1.0) * step(-2.0, cp.y) * step(cp.y, 0.0);
+warp_71=`  float hurt = step(q24, 1.0);
+warp_72=`  cannon *= 1.0 - hurt * step(0.5, frac(time * 8.0));
+warp_73=`  c = max(c, lerp(float3(0.4, 1.0, 0.5), float3(1.0, 0.3, 0.2), hurt) * cannon);
+warp_74=`  c = max(c, float3(1.0, 0.5, 0.2) * burst(px - float2(floor(q13), 125.0), q24, 40.0));
+warp_75=`  // player shot
+warp_76=`  float shot = step(abs(px.x - q14), 0.5) * step(q15 - 3.0, px.y) * step(px.y, q15) * step(0.0, q15);
+warp_77=`  c = max(c, float3(1.0, 1.0, 0.8) * shot);
+warp_78=`  // alien bomb: a zigzag falling bolt
+warp_79=`  float zig = step(0.5, frac((px.y + floor(time * 20.0)) * 0.25));
+warp_80=`  float bomb = step(abs(px.x - q16 - zig), 0.5) * step(q17 - 4.0, px.y) * step(px.y, q17) * step(0.0, q17);
+warp_81=`  c = max(c, float3(1.0, 0.85, 0.4) * bomb);
+warp_82=`  // explosions: alien or saucer, then small bunker chips
+warp_83=`  c = max(c, lerp(float3(1.0, 1.0, 1.0), float3(1.0, 0.5, 0.1), saturate(q20 * 4.0)) * burst(px - floor(float2(q18, q19)), q20, 30.0));
+warp_84=`  float2 hd = px - floor(float2(q21, q22));
+warp_85=`  c = max(c, float3(0.7, 1.0, 0.6) * step(abs(hd.x) + abs(hd.y), 2.0) * step(q23, 0.12));
+warp_86=`  float ground = step(abs(px.y - 130.0), 0.5);
+warp_87=`  c = max(c, float3(0.3, 1.0, 0.35) * ground * 0.8);
+warp_88=`  // a new wave arrives with a short flash
+warp_89=`  c += float3(0.15, 0.3, 0.35) * step(q26, 0.4) * (1.0 - q26 * 2.5);
+warp_90=`  return c * lerp(float3(1.0, 1.0, 1.0), tint, 0.25);
+warp_91=`}
+warp_92=`shader_body
+warp_93=`{
+warp_94=`  // the scene is drawn here so the phosphor afterimage and glow can come from the buffer
+warp_95=`  float2 g = floor(uv * float2(320.0, 180.0));
+warp_96=`  float4 n = tex2D(sampler_pw_noise_lq, g / 256.0);
+warp_97=`  float star = step(0.995, n.x) * (0.5 + 0.5 * sin(time * (1.0 + n.y * 3.0) + n.z * 6.28)) * (0.6 + 0.3 * q5);
+warp_98=`  float3 old = tex2D(sampler_main, uv).xyz;
+warp_99=`  ret = max(old * pow(0.6, q30) - 0.002 * max(q30, 1.0), max(scene(uv), float3(star, star, star) * 0.8));
+warp_100=`}
 comp_1=`shader_body
 comp_2=`{
 comp_3=`  float2 cc = uv - 0.5;

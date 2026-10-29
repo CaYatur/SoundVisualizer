@@ -7,9 +7,9 @@ GitHub. The full reasoning and the measurements behind each change are in [ROADM
 
 ### Visualizer
 
-- **Arcade Invaders keeps score** (CaYaDev MilkDrop pack). A four-digit score (30/20/10 per alien row, 100 for the
-  saucer) sits top left and wave pips top right; when the fleet reaches the bunkers the screen flashes red and the
-  game restarts from wave 1 with fresh bunkers. Folds the HUD and invasion reset from #889 into the bomb version.
+- **New preset: Arcade Invaders Score** (CaYaDev MilkDrop pack, id `md_caya_arcade_invaders_score`). The score and
+  wave version from #889 ships as its own preset next to the bomb version: a score and wave counter run along the top,
+  and when the fleet reaches the bunkers a red alarm resets the game.
 - **Arcade Invaders plays a real game** (CaYaDev MilkDrop pack). The cannon's shots used to pass through
   everything and only made an alien flash. Now each shot hits: an alien it strikes explodes and is gone,
   and a shot or an alien bomb that reaches a bunker chips a piece out of it. The aliens drop zigzag bombs

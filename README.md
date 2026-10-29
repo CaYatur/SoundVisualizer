@@ -7,7 +7,7 @@
 ### Free, open-source music visualizer and VJ software for every screen you own
 
 Turn whatever your computer is playing — Spotify, YouTube, a DAW, a DJ set, a game — into
-audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **55 presets of our
+audio-reactive visuals on one display or ten. A real **MilkDrop** engine with **56 presets of our
 own**, **60 visualizer modes**, layers and **40 GPU effects**, an **OBS overlay**, **Spout / Syphon**
 in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck** for live shows,
 **video export in 12 formats**, a **broadcast layout editor**, a **hot-standby** second machine, and
@@ -63,7 +63,7 @@ in and out, **projection mapping**, **RGB lighting**, a **timeline and clip deck
 - **MilkDrop that really runs your presets.** Per-frame and per-pixel equations, the warp mesh,
   HLSL shaders translated to GLSL, measured against **10,347 real presets** and frame by frame
   against a reference MilkDrop 2 renderer. Import whole libraries, browse them as thumbnails, edit presets live,
-  or generate new ones. **55 CaYaDev presets** of our own are built in, free for any MilkDrop player
+  or generate new ones. **56 CaYaDev presets** of our own are built in, free for any MilkDrop player
   under CC BY 4.0. [→ MilkDrop](#milkdrop)
 - **A compositor, not a single effect.** Unlimited layers, 17 blend modes, masks, an A/B
   crossfader, 40 GPU effects per layer or on the whole frame, and a modulation matrix that routes
@@ -198,7 +198,7 @@ If the audio helper reports `INVALID_HELPER_OUTPUT`, run `npm run rebuild:audio`
 | **A music producer or label** | Frame-exact video export from your track in 12 formats, one-click profiles for YouTube, Shorts and Spotify Canvas, restrained music-video layouts with your logo and the track title, a layout editor to place them, Title and End Cards, YouTube chapters and a thumbnail, and a recorder for the live output. |
 | **A venue, event or installation** | Projection mapping, edge blending, aspect correction for LED walls, a pre-show check, a second machine as a hot standby, accidental-close protection, crash recovery, and a display that never goes to sleep mid-show. |
 | **An RGB or ambient lighting fan** | Windows Dynamic Lighting, OpenRGB and Art-Net/DMX driven by the music, with a screen-saver-style template group for background visuals. |
-| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 55 CaYaDev presets of our own. |
+| **A MilkDrop fan** | A MilkDrop engine that loads `.milk` and `.milk2`, imports whole libraries, shows thumbnails, keeps favourites, ratings and tags, lets you edit or generate presets, and comes with 56 CaYaDev presets of our own. |
 | **A developer or AI tinkerer** | A GLSL editor with Shadertoy and ISF import, an MCP server with 97 tools, a documented config, and 3,600+ tests that check answers rather than lines. |
 
 ---
