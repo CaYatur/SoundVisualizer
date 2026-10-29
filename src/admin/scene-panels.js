@@ -193,6 +193,29 @@
     return def !== undefined ? attachDefault(ctrl, get, (v) => { set(v); }, def) : ctrl;
   }
 
+  /* Yeni görselleştirici katmanı fabrika değerleriyle başlasın. Katman
+     yazmadığı alanlarda sahnenin görselleştiricisini miras alıyor
+     (layers.js layerConfig); sahnede Parlama 0.8 gibi bir değer varsa yeni
+     katman da onunla çiziliyor ve panel boşuna sıfırlama rozeti
+     gösteriyordu. Yalnız sahnede farklı olan düz alanlar yazılır; mevcut
+     katmanlar ve sahne ayarı değişmez. */
+  function seedFactoryVisualizer(layer, cfgIn, defIn) {
+    const cfg = cfgIn || (P().cfg ? P().cfg() : {}) || {};
+    const def = defIn || ((window.SV && window.SV.defaultConfig) ? window.SV.defaultConfig() : {});
+    const fv = (def && def.visualizer) || {};
+    const sv = (cfg && cfg.visualizer) || {};
+    layer.settings = layer.settings || {};
+    const vs = (layer.settings.visualizer = layer.settings.visualizer || {});
+    for (const k of Object.keys(fv)) {
+      if (k === 'type' || vs[k] !== undefined) continue;
+      const f = fv[k];
+      if (f !== null && typeof f === 'object') continue;
+      if (sv[k] === undefined || sv[k] === f) continue;
+      vs[k] = f;
+    }
+    return layer;
+  }
+
   function miniSegment(label, options, get, set, onAfter, def) {
     const el = P().el;
     const tr = (s) => (window.SVI18n && window.SVI18n.t ? window.SVI18n.t(s) : s);
@@ -1397,7 +1420,7 @@
       ]));
       out.push(miniSlider('Boyut', () => getL('scale', 0.22), (v) => setL('scale', v), { min: 0.05, max: 0.9, step: 0.01, percent: true, def: 0.22}));
       out.push(miniSlider('Nabız', () => getL('pulse', 0.3), (v) => setL('pulse', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.3}));
-      out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0}));
+      out.push(miniSlider('Parlama (Glow)', () => getL('glow', 0), (v) => setL('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: defLogo.glow != null ? defLogo.glow : 0}));
       out.push(miniSlider('Köşe / Oval', () => getL('cornerRadius', 0), (v) => setL('cornerRadius', v), { min: 0, max: 0.5, step: 0.01, percent: true, def: 0}));
       out.push(miniSlider('Saydamlık', () => getL('opacity', 1), (v) => setL('opacity', v), { min: 0, max: 1, step: 0.02, percent: true, def: 1}));
       const gifOn = (lg.kind === 'gif') || (window.SVGif && window.SVGif.isAnimatedLogo && window.SVGif.isAnimatedLogo(lg, lg.src));
@@ -1789,6 +1812,12 @@
       const vs = (l.settings.visualizer = l.settings.visualizer || {});
       if (l.kind === 'nowplaying') l.type = 'nowplaying';
       const getV = (k, fallback) => vs[k] != null ? vs[k] : (defVis[k] != null ? defVis[k] : fallback);
+      /* Kaydırıcı varsayılanları tek kaynaktan (defaults.js) gelir. Elle yazılmış
+         değerler (Hassasiyet 1, Parlama 0.2, Bar Sayısı 64, Bar Boşluğu 0.3)
+         fabrika değerleriyle uyuşmuyor, yeni katmanda boşuna sıfırlama rozeti
+         çıkıyordu. */
+      const factVis = def.visualizer || {};
+      const fd = (k, fb) => (factVis[k] != null ? factVis[k] : fb);
       const setV = (k, val) => { vs[k] = val; };
 
       // Renk Modu: Sabit Renk · Renk Teması · Gökkuşağı
@@ -1914,17 +1943,17 @@
         }
       }
 
-      out.push(miniSlider('Hassasiyet', () => getV('sensitivity', 1), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05, def: 1}));
+      out.push(miniSlider('Hassasiyet', () => getV('sensitivity', fd('sensitivity', 1)), (v) => setV('sensitivity', v), { min: 0.2, max: 3, step: 0.05, def: fd('sensitivity', 1)}));
       if (l.type !== 'spectrogram') {
-        out.push(miniSlider('Parlama (Glow)', () => getV('glow', 0.2), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0.2}));
+        out.push(miniSlider('Parlama (Glow)', () => getV('glow', fd('glow', 0.2)), (v) => setV('glow', v), { min: 0, max: 1, step: 0.02, percent: true, def: fd('glow', 0.2)}));
       }
 
       // Bar / Band ayarları
       if (MC().is('visualizer', l.type, 'bands')) {
-        out.push(miniSlider('Bar Sayısı', () => getV('barCount', 64), (v) => setV('barCount', v), { min: 16, max: 160, step: 1, def: 64}));
+        out.push(miniSlider('Bar Sayısı', () => getV('barCount', fd('barCount', 64)), (v) => setV('barCount', v), { min: 16, max: 160, step: 1, def: fd('barCount', 64)}));
       }
       if (MC().is('visualizer', l.type, 'gap')) {
-        out.push(miniSlider('Bar Boşluğu', () => getV('gap', 0.3), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true, def: 0.3}));
+        out.push(miniSlider('Bar Boşluğu', () => getV('gap', fd('gap', 0.3)), (v) => setV('gap', v), { min: 0, max: 0.8, step: 0.02, percent: true, def: fd('gap', 0.3)}));
       }
       if (['bars', 'wave', 'radialWave'].includes(l.type)) {
         out.push(miniToggle('Ayna (Simetri)', () => !!getV('mirror', false), (v) => setV('mirror', v)));
@@ -1949,16 +1978,16 @@
           }
         }
         // rerender: Zemin Yansıması Orta'da gizli, yerleşim değişince görünmeli
-        out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', 'bottom'), (v) => setV('position', v), rerender));
+        out.push(miniSelect('Yerleşim', [['bottom', 'Alt'], ['center', 'Orta'], ['full', 'Tam']], () => getV('position', fd('position', 'bottom')), (v) => setV('position', v), rerender));
         out.push(miniSlider('Bar Genişliği', () => getV('barSpan', 1), (v) => setV('barSpan', v), { min: 0.1, max: 1, step: 0.01, percent: true, def: 1}));
         out.push(miniSlider('Yatay Konum', () => getV('barCenterX', 0.5), (v) => setV('barCenterX', v), { min: 0, max: 1, step: 0.01, percent: true, def: 0.5}));
         /* Çizicideki (bars.js) yerleşime bağlı varsayılanlarla aynı */
-        const barPos = getV('position', 'bottom');
+        const barPos = getV('position', fd('position', 'bottom'));
         const defBarH = barPos === 'center' ? 0.46 : barPos === 'full' ? 0.95 : 0.92;
         const defBase = barPos === 'center' ? 0.5 : 1;
         out.push(miniSlider('Bar Yüksekliği', () => getV('barHeight', defBarH), (v) => setV('barHeight', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: defBarH}));
         out.push(miniSlider('Taban Çizgisi', () => getV('baseline', defBase), (v) => setV('baseline', v), { min: 0, max: 1, step: 0.01, percent: true, def: defBase}));
-        if (getV('position', 'bottom') !== 'center') {
+        if (getV('position', fd('position', 'bottom')) !== 'center') {
           out.push(miniSegment('Büyüme Yönü', [['up', 'Yukarı'], ['down', 'Aşağı']], () => getV('barDirection', 'up'), (v) => setV('barDirection', v), null, 'up'));
           out.push(miniSlider('Zemin Yansıması', () => getV('reflection', 0), (v) => setV('reflection', v), { min: 0, max: 1, step: 0.02, percent: true, def: 0 }));
           out.push(miniSlider('Yansıma Boyu', () => getV('reflectionLength', 0.4), (v) => setV('reflectionLength', v), { min: 0.05, max: 1, step: 0.01, percent: true, def: 0.4 }));
@@ -1968,10 +1997,10 @@
 
       // Tek mod kartıyla aynı koşullar (katalog bayrakları, #638)
       if (MC().is('visualizer', l.type, 'wave')) {
-        out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', 2), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5, def: 2}));
+        out.push(miniSlider('Çizgi Kalınlığı', () => getV('lineWidth', fd('lineWidth', 2)), (v) => setV('lineWidth', v), { min: 1, max: 12, step: 0.5, def: fd('lineWidth', 2)}));
       }
       if (MC().is('visualizer', l.type, 'thick')) {
-        out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', 0.5), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true, def: 0.5}));
+        out.push(miniSlider('Genlik / Dolgu', () => getV('thickness', fd('thickness', 0.5)), (v) => setV('thickness', v), { min: 0.1, max: 1, step: 0.02, percent: true, def: fd('thickness', 0.5)}));
       }
       if (l.type === 'stereotrails') {
         out.push(miniSlider('Yükseklik', () => getV('trailHeight', 1), (v) => setV('trailHeight', v), { min: 0.4, max: 3, step: 0.05, percent: true, def: 1 }));
@@ -2572,6 +2601,7 @@
                 type: opts.length ? opts[0][0] : 'back',
               });
             }
+            if (kind === 'visualizer') seedFactoryVisualizer(made);
             list.push(made);
             openNew(made);
             rerender();
@@ -2891,6 +2921,7 @@
   }
 
   window.SVScenePanels = {
+    seedFactoryVisualizer,
     layersPanel, effectsPanel, geometryPanel, artnetPanel,
     // Ortak satır üreticileri — diğer paneller de aynı görünümü kullansın
     miniSlider, miniSelect, miniSegment, miniToggle, foldable, itemHeader, moveItem,
